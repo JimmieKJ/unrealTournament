@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CascadeModule.h"
 #include "Cascade.h"
@@ -462,6 +462,15 @@ void FCascadeEdPreviewViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 		TextItem.SetColor( FLinearColor(0.25f, 0.25f, 1.0f) );
 		TextItem.Text = LOCTEXT("LODPREVIEWMODEENABLED","LOD PREVIEW MODE ENABLED");
 		Canvas->DrawItem( TextItem,  5.0f, Viewport->GetSizeXY().Y - 105.0f );		
+	}
+
+	EParticleSignificanceLevel ReqSignificance = CascadePtr.Pin()->GetRequiredSignificance();
+	if (ReqSignificance != EParticleSignificanceLevel::Low)
+	{
+		FString ReqSigOutput = FString::Printf(TEXT("REQUIRED SIGNIFICANCE: %s"), (ReqSignificance == EParticleSignificanceLevel::Medium) ? TEXT("MEDIUM") : ((ReqSignificance == EParticleSignificanceLevel::High) ? TEXT("HIGH") : TEXT("CRITICAL")));
+		TextItem.SetColor(FLinearColor::Red);
+		TextItem.Text = FText::FromString(ReqSigOutput);
+		Canvas->DrawItem(TextItem, 5.0f, Viewport->GetSizeXY().Y - 120.0f);
 	}
 
 	if (bCaptureScreenShot)

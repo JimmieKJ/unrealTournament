@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -423,4 +423,116 @@ FORCEINLINE uint32 GetTypeHash(const FIntVector& Vector)
 	return FCrc::MemCrc_DEPRECATED(&Vector,sizeof(FIntVector));
 }
 
+struct FIntVector4
+{
+	int32 X, Y, Z, W;
+
+	FORCEINLINE FIntVector4()
+	{
+	}
+
+	FORCEINLINE FIntVector4(int32 InX, int32 InY, int32 InZ, int32 InW)
+		: X(InX)
+		, Y(InY)
+		, Z(InZ)
+		, W(InW)
+	{
+	}
+
+	FORCEINLINE explicit FIntVector4(int32 InValue)
+		: X(InValue)
+		, Y(InValue)
+		, Z(InValue)
+		, W(InValue)
+	{
+	}
+
+	FORCEINLINE FIntVector4(EForceInit)
+		: X(0)
+		, Y(0)
+		, Z(0)
+		, W(0)
+	{
+	}
+
+	FORCEINLINE const int32& operator[](int32 ComponentIndex) const
+	{
+		return (&X)[ComponentIndex];
+	}
+
+
+	FORCEINLINE int32& operator[](int32 ComponentIndex)
+	{
+		return (&X)[ComponentIndex];
+	}
+
+	FORCEINLINE bool operator==(const FIntVector4& Other) const
+	{
+		return X==Other.X && Y==Other.Y && Z==Other.Z && W==Other.W;
+	}
+
+
+	FORCEINLINE bool operator!=(const FIntVector4& Other) const
+	{
+		return X!=Other.X || Y!=Other.Y || Z!=Other.Z || W!=Other.W;
+	}
+};
+
+struct FUintVector4
+{
+	uint32 X, Y, Z, W;
+
+	FORCEINLINE FUintVector4()
+	{
+	}
+
+	FORCEINLINE FUintVector4(uint32 InX, uint32 InY, uint32 InZ, uint32 InW)
+		: X(InX)
+		, Y(InY)
+		, Z(InZ)
+		, W(InW)
+	{
+	}
+
+	FORCEINLINE explicit FUintVector4(uint32 InValue)
+		: X(InValue)
+		, Y(InValue)
+		, Z(InValue)
+		, W(InValue)
+	{
+	}
+
+	FORCEINLINE FUintVector4(EForceInit)
+		: X(0)
+		, Y(0)
+		, Z(0)
+		, W(0)
+	{
+	}
+
+	FORCEINLINE const uint32& operator[](int32 ComponentIndex) const
+	{
+		return (&X)[ComponentIndex];
+	}
+
+
+	FORCEINLINE uint32& operator[](int32 ComponentIndex)
+	{
+		return (&X)[ComponentIndex];
+	}
+
+	FORCEINLINE bool operator==(const FUintVector4& Other) const
+	{
+		return X==Other.X && Y==Other.Y && Z==Other.Z && W==Other.W;
+	}
+
+
+	FORCEINLINE bool operator!=(const FUintVector4& Other) const
+	{
+		return X!=Other.X || Y!=Other.Y || Z!=Other.Z || W!=Other.W;
+	}
+};
+
 template <> struct TIsPODType<FIntVector> { enum { Value = true }; };
+template <> struct TIsPODType<FIntVector4> { enum { Value = true }; };
+template <> struct TIsPODType<FUintVector4> { enum { Value = true }; };

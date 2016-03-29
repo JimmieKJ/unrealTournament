@@ -1,4 +1,4 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CodeEditorPrivatePCH.h"
 #include "DirectoryScanner.h"
@@ -39,7 +39,7 @@ struct FDirectoryScannerCommand : public IQueuedWork
 		class FDirectoryEnumerator : public IPlatformFile::FDirectoryVisitor
 		{
 		public:
-			FDirectoryEnumerator(TLockFreePointerListUnordered<FDirectoryResult>& InFoundFiles)
+			FDirectoryEnumerator(TLockFreePointerListUnordered<FDirectoryResult, PLATFORM_CACHE_LINE_SIZE>& InFoundFiles)
 				: FoundFiles(InFoundFiles)
 			{
 			}
@@ -58,7 +58,7 @@ struct FDirectoryScannerCommand : public IQueuedWork
 				return true;
 			}
 
-			TLockFreePointerListUnordered<FDirectoryResult>& FoundFiles;
+			TLockFreePointerListUnordered<FDirectoryResult, PLATFORM_CACHE_LINE_SIZE>& FoundFiles;
 		};
 
 		FDirectoryEnumerator DirectoryEnumerator(FoundFiles);
@@ -73,7 +73,7 @@ struct FDirectoryScannerCommand : public IQueuedWork
 
 	FOnDirectoryScanned OnDirectoryScanned;
 
-	TLockFreePointerListUnordered<FDirectoryResult> FoundFiles;
+	TLockFreePointerListUnordered<FDirectoryResult, PLATFORM_CACHE_LINE_SIZE> FoundFiles;
 
 	volatile int32 bExecuted;
 };

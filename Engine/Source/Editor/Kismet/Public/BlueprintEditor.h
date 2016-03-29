@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -137,7 +137,6 @@ public:
 	//~ Begin FAssetEditorToolkit Interface
 	virtual bool OnRequestClose() override;
 	virtual void ToolkitBroughtToFront() override;
-	virtual void SaveAsset_Execute() override;
 	// End of FAssetEditorToolkit 
 
 	//~ Begin IToolkit Interface
@@ -541,6 +540,9 @@ public:
 	/** Get the context to use from the Blueprint type */
 	static FName GetContextFromBlueprintType(EBlueprintType InType);
 
+	/* Selects an item in "My Blueprint" by name. */
+	void SelectGraphActionItemByName(const FName& ItemName, ESelectInfo::Type SelectInfo = ESelectInfo::Direct, int32 SectionId = INDEX_NONE, bool bIsCategory = false);
+
 protected:
 	/** Called during initialization of the blueprint editor to register any application modes. */
 	virtual void RegisterApplicationModes(const TArray<UBlueprint*>& InBlueprints, bool bShouldOpenInDefaultsMode, bool bNewlyCreated = false);
@@ -912,6 +914,9 @@ protected:
 	/** Attempts to invoke the details tab if it's currently possible to. */
 	void TryInvokingDetailsTab(bool bFlash = true);
 
+	/** Returns true if the blueprint profiler is valid for the current editor and mode */
+	bool IsBlueprintProfilerSupported() const;
+
 private:
 
 	/** Returns true if modules can be recompiled */
@@ -986,11 +991,6 @@ private:
 
 	/** Attempt to match the given enabled state for currently-selected nodes */
 	ECheckBoxState CheckEnabledStateForSelectedNodes(ENodeEnabledState CheckState);
-
-	/** Fixes SubObject references of the passed object so they match up to sub-object UProperty references */
-	void FixSubObjectReferencesPostUndoRedo(UObject* InObject);
-
-
 
 public://@TODO
 	TSharedPtr<FDocumentTracker> DocumentManager;

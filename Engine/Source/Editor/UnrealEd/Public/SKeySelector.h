@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -18,20 +18,18 @@ class UNREALED_API SKeySelector : public SCompoundWidget
 {
 public:
 	SLATE_BEGIN_ARGS( SKeySelector )
-		: _CurrentKey()
+		: _CurrentKey(FKey())
 		, _TreeViewWidth(300.f)
 		, _TreeViewHeight(400.f)
 		, _Font( FEditorStyle::GetFontStyle( TEXT("NormalFont") ) )
 		, _FilterBlueprintBindable( true )
-		, _HasMultipleValues( false )
 		{}
-		SLATE_ATTRIBUTE( FKey, CurrentKey )
+		SLATE_ATTRIBUTE( TOptional<FKey>, CurrentKey )
 		SLATE_ATTRIBUTE( FOptionalSize, TreeViewWidth )
 		SLATE_ATTRIBUTE( FOptionalSize, TreeViewHeight )
 		SLATE_EVENT( FOnKeyChanged, OnKeyChanged )
 		SLATE_ATTRIBUTE( FSlateFontInfo, Font )
 		SLATE_ARGUMENT( bool, FilterBlueprintBindable )
-		SLATE_ARGUMENT( bool, HasMultipleValues )
 	SLATE_END_ARGS()
 public:
 	void Construct(const FArguments& InArgs);
@@ -76,10 +74,8 @@ protected:
 	TSharedPtr<SKeyTreeView>	KeyTreeView;
 	FText						SearchText;
 
-	/** The key attribute that we're modifying with this widget */
-	TAttribute<FKey>			CurrentKey;
-	/** Whether the selector is currently modifying multiple different values */
-	bool						bHasMultipleValues;
+	/** The key attribute that we're modifying with this widget, or an empty optional if the key contains multiple values */
+	TAttribute<TOptional<FKey>>	CurrentKey;
 
 	/** Delegate that is called every time the key changes. */
 	FOnKeyChanged				OnKeyChanged;

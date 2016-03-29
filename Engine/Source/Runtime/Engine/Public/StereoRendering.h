@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	StereoRendering.h: Abstract stereoscopic rendering interface
@@ -143,4 +143,13 @@ public:
 	{
 		return false;
 	}
+
+	/**
+	 * Set the view offset mode to assume an implied hmd position
+	 */
+	virtual void UseImplicitHmdPosition (bool bInImplicitHmdPosition) { bImplicitHmdPosition = bInImplicitHmdPosition; }
+
+protected:
+
+	bool bImplicitHmdPosition;
 };

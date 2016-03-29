@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -679,7 +679,14 @@ public:
 		: Super  (NoInit)
 		, Storage(MoveTemp(Other.Storage))
 	{
-		Super::CopyAndReseat(Other, Storage.GetBoundObject()->GetAddress());
+		if (UE4Function_Private::IFunction_OwnedObject* Func = Storage.GetBoundObject())
+		{
+			Super::CopyAndReseat(Other, Func->GetAddress());
+		}
+		else
+		{
+			Super::Unset();
+		}
 
 		Other.Unset();
 	}

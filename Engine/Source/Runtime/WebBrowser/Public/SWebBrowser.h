@@ -1,27 +1,16 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "SlateBasics.h"
 #include "IWebBrowserDialog.h"
-
-enum class EWebBrowserDocumentState;
-class IWebBrowserWindow;
-class FWebBrowserViewport;
-class UObject;
-class IWebBrowserPopupFeatures;
-class IWebBrowserAdapter;
-
-DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforePopupDelegate, FString, FString);
-DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnCreateWindowDelegate, const TWeakPtr<IWebBrowserWindow>&, const TWeakPtr<IWebBrowserPopupFeatures>&);
-DECLARE_DELEGATE_RetVal_OneParam(bool, FOnCloseWindowDelegate, const TWeakPtr<IWebBrowserWindow>&);
-
+#include "SWebBrowserView.h"
 class WEBBROWSER_API SWebBrowser
 	: public SCompoundWidget
 {
 public:
-	DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforeBrowse, const FString&, bool);
-	DECLARE_DELEGATE_RetVal_ThreeParams(bool, FOnLoadUrl, const FString& /*Method*/, const FString& /*Url*/, FString& /* Response */);
+	DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforeBrowse, const FString&, const FWebNavigationRequest& /*Request*/)
+	DECLARE_DELEGATE_RetVal_ThreeParams(bool, FOnLoadUrl, const FString& /*Method*/, const FString& /*Url*/, FString& /* Response */)
 	DECLARE_DELEGATE_RetVal_OneParam(EWebBrowserDialogEventResponse, FOnShowDialog, const TWeakPtr<IWebBrowserDialog>&);
 
 	SLATE_BEGIN_ARGS(SWebBrowser)
@@ -40,7 +29,7 @@ public:
 		/** A reference to the parent window. */
 		SLATE_ARGUMENT(TSharedPtr<SWindow>, ParentWindow)
 
-		/** URL that the browser will initially navigate to. */
+		/** URL that the browser will initially navigate to. The URL should include the protocol, eg http:// */
 		SLATE_ARGUMENT(FString, InitialURL)
 
 		/** Optional string to load contents as a web page. */
@@ -141,8 +130,11 @@ public:
 	*/
 	void LoadString(FString Contents, FString DummyURL);
 
-	/** Reload browser contents */
+	/** Reload the current page. */
 	void Reload();
+
+	/** Stop loading the page. */
+	void StopLoad();
 
 	/** Get the current title of the web page. */
 	FText GetTitleText() const;
@@ -231,84 +223,10 @@ private:
 	/** Get whether loading throbber should be visible */
 	EVisibility GetLoadingThrobberVisibility() const;
 
-	/** Callback for document loading state changes. */
-	void HandleBrowserWindowDocumentStateChanged(EWebBrowserDocumentState NewState);
-
-	/** Callback to tell slate we want to update the contents of the web view based on changes inside the view. */
-	void HandleBrowserWindowNeedsRedraw();
-
-	/** Callback for document title changes. */
-	void HandleTitleChanged(FString NewTitle);
-
-	/** Callback for loaded url changes. */
-	void HandleUrlChanged(FString NewUrl);
-	
-	/**
-	 * A delegate that is executed prior to browser navigation.
-	 *
-	 * @return true if the navigation was handled an no further action should be taken by the browser, false if the browser should handle.
-	 */
-	bool HandleBeforeNavigation(const FString& Url, bool bIsRedirect);
-	
-	bool HandleLoadUrl(const FString& Method, const FString& Url, FString& OutResponse);
-
-	/**
-	 * A delegate that is executed when the browser requests window creation.
-	 *
-	 * @return true if if the window request was handled, false if the browser requesting the new window should be closed.
-	 */
-	bool HandleCreateWindow(const TWeakPtr<IWebBrowserWindow>& NewBrowserWindow, const TWeakPtr<IWebBrowserPopupFeatures>& PopupFeatures);
-
-	/**
-	 * A delegate that is executed when closing the browser window.
-	 *
-	 * @return true if if the window close was handled, false otherwise.
-	 */
-	bool HandleCloseWindow(const TWeakPtr<IWebBrowserWindow>& BrowserWindow);
-
-	/** Callback for showing dialogs to the user */
-	EWebBrowserDialogEventResponse HandleShowDialog(const TWeakPtr<IWebBrowserDialog>& DialogParams);
-
-	/** Callback for dismissing any dialogs previously shown  */
-	void HandleDismissAllDialogs();
-
-	/** Callback for popup window permission */
-	bool HandleBeforePopup(FString URL, FString Target);
-
-	/** Callback for showing a popup menu */
-	void HandleShowPopup(const FIntRect& PopupSize);
-
-	/** Callback for hiding the popup menu */
-	void HandleDismissPopup();
-
-	/** Callback from the popup menu notifiying it has been dismissed */
-	void HandleMenuDismissed(TSharedRef<IMenu>);
-
-	virtual FPopupMethodReply OnQueryPopupMethod() const override;
-
 private:
 
-	/** Interface for dealing with a web browser window. */
-	TSharedPtr<IWebBrowserWindow> BrowserWindow;
-
-	TSharedPtr<SWidget> BrowserWidget;
-
-	/** Viewport interface for rendering popup menus. */
-	TSharedPtr<FWebBrowserViewport>	MenuViewport;
-
-	TArray<TSharedRef<IWebBrowserAdapter>> Adapters;
-
-	/**
-	 * An interface pointer to a menu object presenting a popup.
-	 * Pointer is null when a popup is not visible.
-	 */
-	TWeakPtr<IMenu> PopupMenuPtr;
-
-	/** Can be set to override the popup menu method used for popup menus. If not set, parent widgets will be queried instead. */
-	TOptional<EPopupMethod> PopupMenuMethod;
-
-	/** The url that appears in the address bar which can differ from the url of the loaded page */
-	FText AddressBarUrl;
+	/** The actual web browser view */
+	TSharedPtr<SWebBrowserView> BrowserView;
 
 	/** Editable text widget used for an address bar */
 	TSharedPtr< SEditableTextBox > InputText;

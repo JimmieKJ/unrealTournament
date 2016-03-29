@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -43,7 +43,7 @@ struct FLocationBoneSocketInfo
 };
 
 UCLASS(editinlinenew, hidecategories=Object, meta=(DisplayName = "Bone/Socket Location"))
-class UParticleModuleLocationBoneSocket : public UParticleModuleLocationBase
+class ENGINE_API UParticleModuleLocationBoneSocket : public UParticleModuleLocationBase
 {
 	GENERATED_UCLASS_BODY()
 
@@ -102,8 +102,8 @@ class UParticleModuleLocationBoneSocket : public UParticleModuleLocationBase
 	virtual void	Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase) override;
 	virtual void	Update(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime) override;
 	virtual void	FinalUpdate(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime) override;
-	virtual uint32	RequiredBytes(FParticleEmitterInstance* Owner = NULL) override;
-	virtual uint32	RequiredBytesPerInstance(FParticleEmitterInstance* Owner = NULL) override;
+	virtual uint32	RequiredBytes(UParticleModuleTypeDataBase* TypeData) override;
+	virtual uint32	RequiredBytesPerInstance() override;
 	virtual uint32	PrepPerInstanceBlock(FParticleEmitterInstance* Owner, void* InstData) override;
 	virtual bool	TouchesMeshRotation() const override { return true; }
 	virtual void	AutoPopulateInstanceProperties(UParticleSystemComponent* PSysComp) override;

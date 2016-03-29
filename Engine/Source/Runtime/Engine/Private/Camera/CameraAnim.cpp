@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Camera/CameraActor.h"
@@ -12,6 +12,7 @@
 #include "Matinee/InterpGroupCamera.h"
 #include "Matinee/InterpTrackMove.h"
 
+DEFINE_LOG_CATEGORY(LogCameraAnim);
 
 //////////////////////////////////////////////////////////////////////////
 // UCameraAnim

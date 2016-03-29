@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "PersonaPrivatePCH.h"
 
@@ -350,7 +350,6 @@ void FAnimationViewportClient::SetPreviewMeshComponent(UDebugSkelMeshComponent* 
 
 		// Set to block all to enable tracing.
 		PreviewSkelMeshComp->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
-		PreviewSkelMeshComp->RefreshBoneTransforms();
 	}
 }
 
@@ -991,11 +990,19 @@ void FAnimationViewportClient::DisplayInfo(FCanvas* Canvas, FSceneView* View, bo
 			NumChunksInUse = LODModel.Chunks.Num();
 			NumSectionsInUse = LODModel.Sections.Num();
 
+			// Calculate polys based on non clothing sections so we don't duplicate the counts.
+			uint32 NumTotalTriangles = 0;
+			int32 NumSections = LODModel.NumNonClothingSections();
+			for(int32 SectionIndex = 0; SectionIndex < NumSections; SectionIndex++)
+			{
+				NumTotalTriangles += LODModel.Sections[SectionIndex].NumTriangles;
+			}
+
 			InfoString = FString::Printf(TEXT("LOD: %d, Bones: %d (Mapped to Vertices: %d), Polys: %d"),
 				LODIndex,
 				NumBonesInUse,
 				NumBonesMappedToVerts,
-				LODModel.GetTotalFaces());
+				NumTotalTriangles);
 
 			Canvas->DrawShadowedString(CurXOffset, CurYOffset, *InfoString, GEngine->GetSmallFont(), TextColor);
 
@@ -1259,7 +1266,7 @@ void FAnimationViewportClient::ProcessClick(class FSceneView& View, class HHitPr
 		// Cast for phys bodies if we didn't get any hit proxies
 		FHitResult Result(1.0f);
 		const FViewportClick Click(&View, this, EKeys::Invalid, IE_Released, Viewport->GetMouseX(), Viewport->GetMouseY());
-		bool bHit = PreviewSkelMeshComp.Get()->LineTraceComponent(Result, Click.GetOrigin(), Click.GetOrigin() + Click.GetDirection() * BodyTraceDistance, FCollisionQueryParams(true));
+		bool bHit = PreviewSkelMeshComp.Get()->LineTraceComponent(Result, Click.GetOrigin(), Click.GetOrigin() + Click.GetDirection() * BodyTraceDistance, FCollisionQueryParams(NAME_None,true));
 		
 		if(bHit)
 		{
@@ -1856,7 +1863,7 @@ void FAnimationViewportClient::DrawMeshBones(USkeletalMeshComponent * MeshCompon
 	}
 }
 
-void FAnimationViewportClient::DrawBones(const USkeletalMeshComponent* MeshComponent, const TArray<FBoneIndexType> & RequiredBones, const TArray<FTransform> & WorldTransforms, FPrimitiveDrawInterface* PDI, const TArray<FLinearColor> BoneColours, float LineThickness/*=0.f*/) const
+void FAnimationViewportClient::DrawBones(const USkeletalMeshComponent* MeshComponent, const TArray<FBoneIndexType> & RequiredBones, const TArray<FTransform> & WorldTransforms, FPrimitiveDrawInterface* PDI, const TArray<FLinearColor>& BoneColours, float LineThickness/*=0.f*/) const
 {
 	check ( MeshComponent && MeshComponent->SkeletalMesh );
 

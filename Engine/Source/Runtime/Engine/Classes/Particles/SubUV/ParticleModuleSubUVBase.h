@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -9,6 +9,10 @@ UCLASS(editinlinenew, hidecategories=Object, abstract, meta=(DisplayName = "SubU
 class UParticleModuleSubUVBase : public UParticleModule
 {
 	GENERATED_UCLASS_BODY()
+
+	// Begin UParticleModule Interface
+	virtual EModuleType	GetModuleType() const override { return EPMT_SubUV; }
+	//End UParticleModule Interface
 
 };
 

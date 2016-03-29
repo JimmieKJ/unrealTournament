@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MeshRendering.cpp: Mesh rendering implementation.
@@ -34,87 +34,108 @@
 #include "ThumbnailHelpers.h" // for FClassThumbnailScene
 #include "ShaderCompiler.h"   // for GShaderCompilingManager
 
-
-void PerformImageDilation(TArray<FColor>& InBMP, int32 InImageWidth, int32 InImageHeight, bool IsNormalMap)
+FColor BoxBlurSample(TArray<FColor>& InBMP, int32 X, int32 Y, int32 InImageWidth, int32 InImageHeight, bool bIsNormalMap)
 {
-	int32 PixelIndex = 0;
-	int32 PixelIndices[16];
+	const int32 SampleCount = 8;
+	static int32 PixelIndices[SampleCount] = { -(InImageWidth + 1), -InImageWidth, -(InImageWidth - 1),
+									 -1, 1,
+									 (InImageWidth + -1), InImageWidth, (InImageWidth + 1) };
 
-	for (int32 Y = 0; Y < InImageHeight; Y++)
+	static int32 PixelOffsetX[SampleCount] = { -1, 0, 1,
+									-1, 1,
+									-1, 0, 1 };
+
+	int32 PixelsSampled = 0;
+	FLinearColor CombinedColor = FColor::Black;
+	
+	// Take samples for blur with square indices
+	for (int32 SampleIndex = 0; SampleIndex < SampleCount; ++SampleIndex)
 	{
-		for (int32 X = 0; X < InImageWidth; X++, PixelIndex++)
+		const int32 PixelIndex = ((Y * InImageWidth) + X) + PixelIndices[SampleIndex];
+
+		const int32 XIndex = X + PixelOffsetX[SampleIndex];
+
+		// Check if we are not out of texture bounds
+		if (InBMP.IsValidIndex(PixelIndex) && XIndex >= 0 && XIndex < InImageWidth)
 		{
-			FColor& Color = InBMP[PixelIndex];
-			if (Color.A == 0 || (IsNormalMap && Color.B == 0))
+			FLinearColor SampledColor = InBMP[PixelIndex].ReinterpretAsLinear();
+			// Check if the pixel is a rendered one (not clear colour)
+			if ((!(SampledColor.R == 1.0f && SampledColor.B == 1.0f && SampledColor.G == 0.0f)) && (!bIsNormalMap || SampledColor.B != 0.0f))
 			{
-				// process this pixel only if it is not filled with color; note: normal map has A==255, so detect
-				// empty pixels by zero blue component, which is not possible for normal maps
-				int32 NumPixelsToCheck = 0;
-				// check line at Y-1
-				if (Y > 0)
+				CombinedColor += SampledColor;
+				++PixelsSampled;
+			}
+		}
+	}
+	CombinedColor /= PixelsSampled;
+
+	if (PixelsSampled == 0)
+	{
+		return InBMP[((Y * InImageWidth) + X)];
+	}
+
+	return CombinedColor.ToFColor(false);
+}
+
+void PerformUVBorderSmear(TArray<FColor>& InBMP, int32 InImageWidth, int32 InImageHeight, bool IsNormalMap)
+{
+	TArray<FColor> Swap;
+	Swap.Append(InBMP);
+
+	TArray<FColor>* Current = &InBMP;
+	TArray<FColor>* Scratch = &Swap;
+
+	bool bSwap = false;
+
+	int32 MagentaPixels = 1;
+
+	int32 LoopCount = 0;
+	const int32 MaxIterations = 32;
+	
+	// Sampling
+	while (MagentaPixels && (LoopCount <= MaxIterations))
+	{
+		MagentaPixels = 0;
+		// Left / right, Top / down
+		for (int32 Y = 0; Y < InImageHeight; Y++)
+		{		
+			for (int32 X = 0; X < InImageWidth; X++)
+			{
+				int32 PixelIndex = (Y * InImageWidth) + X;
+
+				FColor& Color = (*Current)[PixelIndex];
+				if ((Color.R == 255 && Color.B == 255 && Color.G == 0) || (IsNormalMap && Color.B == 0))
 				{
-					PixelIndices[NumPixelsToCheck++] = PixelIndex - InImageWidth; // X,Y-1
-					if (X > 0)
+					MagentaPixels++;
+					FColor SampledColor = BoxBlurSample(*Scratch, X, Y, InImageWidth, InImageHeight, IsNormalMap);
+					// If it's a valid pixel
+					if ((!(SampledColor.R == 255 && SampledColor.B == 255 && SampledColor.G == 0)) && (!IsNormalMap || SampledColor.B != 0))
 					{
-						PixelIndices[NumPixelsToCheck++] = PixelIndex - InImageWidth - 1; // X-1,Y-1
+						Color = SampledColor;
 					}
-					if (X < InImageWidth - 1)
+					else
 					{
-						PixelIndices[NumPixelsToCheck++] = PixelIndex - InImageWidth + 1; // X+1,Y-1
-					}
-				}
-				// check line at Y
-				if (X > 0)
-				{
-					PixelIndices[NumPixelsToCheck++] = PixelIndex - 1; // X-1,Y
-				}
-				if (X < InImageWidth - 1)
-				{
-					PixelIndices[NumPixelsToCheck++] = PixelIndex + 1; // X+1,Y
-				}
-				// check line at Y+1
-				if (Y < InImageHeight - 1)
-				{
-					PixelIndices[NumPixelsToCheck++] = PixelIndex + InImageWidth; // X,Y+1
-					if (X > 0)
-					{
-						PixelIndices[NumPixelsToCheck++] = PixelIndex + InImageWidth - 1; // X-1,Y+1
-					}
-					if (X < InImageWidth - 1)
-					{
-						PixelIndices[NumPixelsToCheck++] = PixelIndex + InImageWidth + 1; // X+1,Y+1
-					}
-				}
-				// get color
-				int32 BestColorValue = 0;
-				FColor BestColor(0);
-				for (int32 PixelToCheck = 0; PixelToCheck < NumPixelsToCheck; PixelToCheck++)
-				{
-					const FColor& ColorToCheck = InBMP[PixelIndices[PixelToCheck]];
-					if (ColorToCheck.A != 0 && (!IsNormalMap || ColorToCheck.B != 0))
-					{
-						// consider only original pixels, not computed ones
-						int32 ColorValue = ColorToCheck.R + ColorToCheck.G + ColorToCheck.B;
-						if (ColorValue > BestColorValue)
+						// If we are at the end of our iterations, replace the pixels with black
+						if (LoopCount == (MaxIterations - 1))
 						{
-							BestColorValue = ColorValue;
-							BestColor = ColorToCheck;
+							Color = FColor::Black;
 						}
 					}
 				}
-				// put the computed pixel back
-				if (BestColorValue != 0)
-				{
-					Color = BestColor;
-					Color.A = 0;
-#if VISUALIZE_DILATION
-					Color.R = 255;
-					Color.G = 0;
-					Color.B = 0;
-#endif
-				}
 			}
 		}
+
+		TArray<FColor>& Temp = *Scratch;
+		Scratch = Current;
+		Current = &Temp;
+
+		LoopCount++;
+	}
+
+	if (Current != &InBMP)
+	{
+		InBMP.Empty();
+		InBMP.Append(*Current);
 	}
 }
 
@@ -162,7 +183,7 @@ public:
 	/** Default constructor. */
 	FMeshVertexFactory()
 	{
-		FLocalVertexFactory::DataType Data;
+		FLocalVertexFactory::FDataType Data;
 
 		// position
 		Data.PositionComponent = FVertexStreamComponent(
@@ -218,7 +239,7 @@ public:
 		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 			FMeshVertexFactoryConstructor,
 			FMeshVertexFactory*, FactoryParam, this,
-			FLocalVertexFactory::DataType, DataParam, Data,
+			FLocalVertexFactory::FDataType, DataParam, Data,
 			{
 				FactoryParam->SetData(DataParam);
 			}
@@ -385,6 +406,11 @@ public:
 					Vert->SetTangents(RawMesh.WedgeTangentX[SrcVertIndex], RawMesh.WedgeTangentY[SrcVertIndex], RawMesh.WedgeTangentZ[SrcVertIndex]);
 					for (int32 TexcoordIndex = 0; TexcoordIndex < NumTexcoords; TexcoordIndex++)
 						Vert->TextureCoordinate[TexcoordIndex] = RawMesh.WedgeTexCoords[TexcoordIndex][SrcVertIndex];
+
+					Vert->TextureCoordinate[6].X = RawMesh.VertexPositions[RawMesh.WedgeIndices[SrcVertIndex]].X;
+					Vert->TextureCoordinate[6].Y = RawMesh.VertexPositions[RawMesh.WedgeIndices[SrcVertIndex]].Y;
+					Vert->TextureCoordinate[7].X = RawMesh.VertexPositions[RawMesh.WedgeIndices[SrcVertIndex]].Z;
+
 					Vert->Color = bHasVertexColor ? RawMesh.WedgeColors[SrcVertIndex].DWColor() : DefaultColor;
 					// add index
 					OutIndices.Add(VertIndex);
@@ -902,10 +928,12 @@ bool FMeshRenderer::RenderMaterial(struct FMaterialMergeData& InMaterialData, FM
 		InMaterialData.EmissiveScale = MaxValue;
 	}
 
-	PerformImageDilation(OutBMP, InRenderTarget->GetSurfaceWidth(), InRenderTarget->GetSurfaceHeight(), bNormalmap);
+	PerformUVBorderSmear(OutBMP, InRenderTarget->GetSurfaceWidth(), InRenderTarget->GetSurfaceHeight(), bNormalmap);
+
+//#define SAVE_INTERMEDIATE_TEXTURES 1
 #ifdef SAVE_INTERMEDIATE_TEXTURES
-	FString FilenameString = FString::Printf(
-		SAVE_INTERMEDIATE_TEXTURES TEXT("/%s-mat%d-prop%d.bmp"),
+	FilenameString = FString::Printf(
+		TEXT( "D:/TextureTest/%s-mat%d-prop%d.bmp"),
 		*InMaterialProxy->GetFriendlyName(), InMaterialData.MaterialIndex, (int32)InMaterialProperty);
 	FFileHelper::CreateBitmap(*FilenameString, InRenderTarget->GetSurfaceWidth(), InRenderTarget->GetSurfaceHeight(), OutBMP.GetData());
 #endif // SAVE_INTERMEDIATE_TEXTURES

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -33,12 +33,15 @@ private:
 	FText GetForwardStatusTooltip() const;
 	FText GetRecordStatusTooltip() const;
 	const FSlateBrush* GetBackwardStatusIcon() const;
-	FSlateColor GetLoopStatusColor() const;
+	const FSlateBrush* GetLoopStatusIcon() const;
 
 	/** Executes the OnTickPlayback delegate */
 	EActiveTimerReturnType TickPlayback( double InCurrentTime, float InDeltaTime );
 
 	FReply OnToggleLooping();
+
+	/** Make default transport control widgets */
+	TSharedPtr<SWidget> MakeTransportControlWidget(ETransportControlWidgetType WidgetType, const FOnMakeTransportWidget& MakeCustomWidgetDelegate = FOnMakeTransportWidget());
 
 private:
 	/** The handle to the active timer */
@@ -48,4 +51,7 @@ private:
 	bool bIsActiveTimerRegistered;
 
 	FTransportControlArgs TransportControlArgs;
+
+	TSharedPtr<SButton> ForwardPlayButton;
+	TSharedPtr<SButton> BackwardPlayButton;
 };

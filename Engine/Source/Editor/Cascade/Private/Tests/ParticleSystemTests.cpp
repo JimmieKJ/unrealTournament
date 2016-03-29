@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CascadeModule.h"
 
@@ -14,6 +14,8 @@
 #include "Particles/Size/ParticleModuleSize.h"
 
 #include "ScopedTransaction.h"
+
+#if WITH_DEV_AUTOMATION_TESTS
 
 #define LOCTEXT_NAMESPACE "ParticleEditorPromotionTests"
 
@@ -236,3 +238,5 @@ bool FParticleEditorPromotionTest::RunTest(const FString& Parameters)
 }
 
 #undef LOCTEXT_NAMESPACE
+
+#endif //WITH_DEV_AUTOMATION_TESTS

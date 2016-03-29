@@ -1,26 +1,14 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.IO;
+using System.Diagnostics;
 
 namespace UnrealBuildTool
 {
-	/// <summary>
-	/// Exception when parsing ini files
-	/// </summary>
-	public class IniParsingException : Exception
-	{
-		public IniParsingException(string Message)
-			: base(Message)
-		{ }
-		public IniParsingException(string Format, params object[] Args)
-			: base(String.Format(Format, Args))
-		{ }
-	}
-
 	/// <summary>
 	/// Equivalent of FConfigCacheIni. Parses ini files.
 	/// </summary>
@@ -28,18 +16,15 @@ namespace UnrealBuildTool
 	{
 
 		// command class for being able to create config caches over and over without needing to read the ini files
-		public class Command
+		[DebuggerDisplay("{Name}")]
+		class CachedSection
 		{
-			public string TrimmedLine;
+			public string Name;
+			public List<CachedKeyValuePair> KeyValuePairs = new List<CachedKeyValuePair>();
 		}
 
-		class SectionCommand : Command
-		{
-			public FileReference Filename;
-			public int LineIndex;
-		}
-
-		class KeyValueCommand : Command
+		[DebuggerDisplay("{LastAction}: {Key}={Value}")]
+		class CachedKeyValuePair
 		{
 			public string Key;
 			public string Value;
@@ -47,14 +32,14 @@ namespace UnrealBuildTool
 		}
 
 		// cached ini files
-		static Dictionary<string, List<Command>> FileCache = new Dictionary<string, List<Command>>();
+		static Dictionary<FileReference, List<CachedSection>> FileCache = new Dictionary<FileReference, List<CachedSection>>();
 		static Dictionary<string, ConfigCacheIni> IniCache = new Dictionary<string, ConfigCacheIni>();
 		static Dictionary<string, ConfigCacheIni> BaseIniCache = new Dictionary<string, ConfigCacheIni>();
 		static List<string> RequiredSections = new List<string>(){"AppxManifest", "CommonSettings", "/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "/Script/AndroidPlatformEditor.AndroidSDKSettings",
 																	"/Script/BuildSettings.BuildSettings", "/Script/IOSRuntimeSettings.IOSRuntimeSettings", "/Script/WindowsTargetPlatform.WindowsTargetSettings",
 																	"/Script/UnrealEd.ProjectPackagingSettings", "/Script/PS4PlatformEditor.PS4TargetSettings", "/Script/XboxOneTargetPlatform.XboxOneTargetSettings",
 																	"/Script/HTML5PlatformEditor.HTML5TargetSettings","PS4SymbolServer","/Script/EngineSettings.GeneralProjectSettings","/Script/XboxOneTargetPlatform.XboxOneTargetSettings",
-                                                                    "/Script/UnrealEd.ProjectPackagingSettings"};
+                                                                    "/Script/UnrealEd.ProjectPackagingSettings", "InstalledPlatforms"};
 
 		// static creation functions for ini files
 		public static ConfigCacheIni CreateConfigCacheIni(UnrealTargetPlatform Platform, string BaseIniName, DirectoryReference ProjectDirectory, DirectoryReference EngineDirectory = null)
@@ -109,7 +94,7 @@ namespace UnrealBuildTool
 			public IniSection(IniSection Other)
 				: this()
 			{
-				foreach (var Pair in Other)
+				foreach (KeyValuePair<string, IniValues> Pair in Other)
 				{
 					Add(Pair.Key, new IniValues(Pair.Value));
 				}
@@ -206,14 +191,14 @@ namespace UnrealBuildTool
 
 			if (BaseCache != null)
 			{
-				foreach (var Pair in BaseCache.Sections)
+				foreach (KeyValuePair<string, IniSection> Pair in BaseCache.Sections)
 				{
 					Sections.Add(Pair.Key, new IniSection(Pair.Value));
 				}
 			}
 			if (EngineOnly)
 			{
-				foreach (var IniFileName in EnumerateEngineIniFileNames(EngineDirectory, BaseIniName))
+				foreach (FileReference IniFileName in EnumerateEngineIniFileNames(EngineDirectory, BaseIniName))
 				{
 					if (IniFileName.Exists())
 					{
@@ -223,7 +208,7 @@ namespace UnrealBuildTool
 			}
 			else
 			{
-				foreach (var IniFileName in EnumerateCrossPlatformIniFileNames(ProjectDirectory, EngineDirectory, Platform, BaseIniName, BaseCache != null))
+				foreach (FileReference IniFileName in EnumerateCrossPlatformIniFileNames(ProjectDirectory, EngineDirectory, Platform, BaseIniName, BaseCache != null))
 				{
 					if (IniFileName.Exists())
 					{
@@ -251,7 +236,7 @@ namespace UnrealBuildTool
 		private bool GetList(string SectionName, string Key, out IniValues Value)
 		{
 			bool Result = false;
-			var Section = FindSection(SectionName);
+			IniSection Section = FindSection(SectionName);
 			Value = null;
 			if (Section != null)
 			{
@@ -518,149 +503,158 @@ namespace UnrealBuildTool
 		/// </summary>
 		public void ParseIniFile(FileReference Filename)
 		{
-			String[] IniLines = null;
-			List<Command> Commands = null;
-			if (!FileCache.ContainsKey(Filename.FullName))
+			// Read the cached sections from the ini file
+			List<CachedSection> Sections;
+			if (!FileCache.TryGetValue(Filename, out Sections))
 			{
 				try
 				{
-					IniLines = File.ReadAllLines(Filename.FullName);
-					Commands = new List<Command>();
-					FileCache.Add(Filename.FullName, Commands);
+					string[] IniLines = File.ReadAllLines(Filename.FullName);
+					Sections = ParseIniSections(Filename, IniLines);
 				}
 				catch (Exception ex)
 				{
 					Console.WriteLine("Error reading ini file: " + Filename + " Exception: " + ex.Message);
 				}
+				FileCache[Filename] = Sections;
 			}
-			else
-			{
-				Commands = FileCache[Filename.FullName];
-			}
-			if (IniLines != null)
-			{
-				IniSection CurrentSection = null;
 
-				// Line Index for exceptions
-				var LineIndex = 1;
-				var bMultiLine = false;
-				var SingleValue = "";
-				var Key = "";
-				var LastAction = ParseAction.None;
-
-				// Parse each line
-				foreach (var Line in IniLines)
+			// Apply all the cached sections
+			if(Sections != null)
+			{
+				foreach(CachedSection Section in Sections)
 				{
-					var TrimmedLine = Line.Trim();
-					// Multiline value support
-					bool bWasMultiLine = bMultiLine;
-					bMultiLine = TrimmedLine.EndsWith("\\");
-					if (bMultiLine)
+					IniSection CurrentSection = FindOrAddSection(Section.Name);
+					foreach(CachedKeyValuePair KeyValuePair in Section.KeyValuePairs)
 					{
-						TrimmedLine = TrimmedLine.Substring(0, TrimmedLine.Length - 1).TrimEnd();
-					}
-					if (!bWasMultiLine)
-					{
-						if (TrimmedLine.StartsWith("["))
-						{
-							CurrentSection = FindOrAddSection(TrimmedLine, Filename, LineIndex);
-							LastAction = ParseAction.None;
-							if (CurrentSection != null)
-							{
-								SectionCommand Command = new SectionCommand();
-								Command.Filename = Filename;
-								Command.LineIndex = LineIndex;
-								Command.TrimmedLine = TrimmedLine;
-								Commands.Add(Command);
-							}
-						}
-						else
-						{
-							if (LastAction != ParseAction.None)
-							{
-								throw new IniParsingException("Parsing new key/value pair when the previous one has not yet been processed ({0}, {1}) in {2}, line {3}: {4}", Key, SingleValue, Filename, LineIndex, TrimmedLine);
-							}
-							// Check if the line is empty or a comment, also remove any +/- markers
-							LastAction = GetActionForLine(ref TrimmedLine);
-							if (LastAction != ParseAction.None)
-							{
-								/*								if (CurrentSection == null)
-																{
-																	throw new IniParsingException("Trying to parse key/value pair that doesn't belong to any section in {0}, line {1}: {2}", Filename, LineIndex, TrimmedLine);
-																}*/
-								ParseKeyValuePair(TrimmedLine, Filename, LineIndex, out Key, out SingleValue);
-							}
-						}
-					}
-					if (bWasMultiLine)
-					{
-						SingleValue += TrimmedLine;
-					}
-					if (!bMultiLine && LastAction != ParseAction.None && CurrentSection != null)
-					{
-						ProcessKeyValuePair(CurrentSection, Key, SingleValue, LastAction);
-						KeyValueCommand Command = new KeyValueCommand();
-						Command.Key = Key;
-						Command.Value = SingleValue;
-						Command.LastAction = LastAction;
-						Commands.Add(Command);
-						LastAction = ParseAction.None;
-						SingleValue = "";
-						Key = "";
-					}
-					else if (CurrentSection == null)
-					{
-						LastAction = ParseAction.None;
-					}
-					LineIndex++;
-				}
-			}
-			else if (Commands != null)
-			{
-				IniSection CurrentSection = null;
-
-				// run each command
-				for (int Idx = 0; Idx < Commands.Count; ++Idx)
-				{
-					var Command = Commands[Idx];
-					if (Command is SectionCommand)
-					{
-						CurrentSection = FindOrAddSection((Command as SectionCommand).TrimmedLine, (Command as SectionCommand).Filename, (Command as SectionCommand).LineIndex);
-					}
-					else if (Command is KeyValueCommand)
-					{
-						ProcessKeyValuePair(CurrentSection, (Command as KeyValueCommand).Key, (Command as KeyValueCommand).Value, (Command as KeyValueCommand).LastAction);
+						ProcessKeyValuePair(CurrentSection, KeyValuePair.Key, KeyValuePair.Value, KeyValuePair.LastAction);
 					}
 				}
 			}
 		}
 
 		/// <summary>
+		/// Parse an ini file into a list of replayable commands
+		/// </summary>
+		private List<CachedSection> ParseIniSections(FileReference Filename, string[] Lines)
+		{
+			List<CachedSection> Sections = new List<CachedSection>();
+			CachedSection CurrentSection = null;
+			for(int Idx = 0; Idx < Lines.Length; Idx++)
+			{
+				int LineNumber = Idx + 1;
+
+				// Read the next line, merging multiline strings together
+				string TrimmedLine = Lines[Idx].Trim();
+				while(TrimmedLine.EndsWith("\\"))
+				{
+					TrimmedLine = TrimmedLine.Substring(0, TrimmedLine.Length - 1).TrimEnd();
+					if(++Idx >= Lines.Length)
+					{
+						break;
+					}
+					TrimmedLine += Lines[Idx].Trim();
+				}
+
+				// Check it's not an empty line, or comment
+				if(TrimmedLine.Length > 0 && !TrimmedLine.StartsWith(";") && !TrimmedLine.StartsWith("//"))
+				{
+					string SectionName;
+					if (TryParseSectionName(Filename, LineNumber, TrimmedLine, out SectionName))
+					{
+						// Parse the new section to add key/value pairs to
+						if(RequiredSections.Contains(SectionName))
+						{
+							CurrentSection = new CachedSection(){ Name = SectionName };
+							Sections.Add(CurrentSection);
+						}
+						else
+						{
+							CurrentSection = null;
+						}
+					}
+					else if(CurrentSection != null)
+					{
+						// Parse the key/value pair and add it to the current section
+						CachedKeyValuePair KeyValuePair;
+						if(TryParseKeyValuePair(Filename, LineNumber, TrimmedLine, out KeyValuePair))
+						{
+							CurrentSection.KeyValuePairs.Add(KeyValuePair);
+						}
+					}
+				}
+			}
+			return Sections;
+		}
+
+		/// <summary>
+		/// Parse the section name from an INI file line, and create a new section object.
+		/// </summary>
+		private bool TryParseSectionName(FileReference Filename, int LineNumber, string TrimmedLine, out string SectionName)
+		{
+			if(!TrimmedLine.StartsWith("["))
+			{
+				SectionName = null;
+				return false;
+			}
+
+			int EndIdx = TrimmedLine.Length;
+			if(TrimmedLine.EndsWith("]"))
+			{
+				EndIdx--;
+			}
+			else
+			{
+				Log.TraceWarning("Mismatched brackets when parsing section name in {0}, line {1}: {2}", Filename, LineNumber, TrimmedLine);
+			}
+
+			SectionName = TrimmedLine.Substring(1, EndIdx - 1).Trim();
+			if(SectionName.Length == 0)
+			{
+				Log.TraceWarning("Empty section name when parsing {0}, line {1}: {2}", Filename, LineNumber, TrimmedLine);
+			}
+
+			return true;
+		}
+
+		/// <summary>
 		/// Splits a line into key and value
 		/// </summary>
-		private static void ParseKeyValuePair(string TrimmedLine, FileReference Filename, int LineIndex, out string Key, out string Value)
+		private bool TryParseKeyValuePair(FileReference Filename, int LineNumber, string TrimmedLine, out CachedKeyValuePair KeyValuePair)
 		{
-			var AssignIndex = TrimmedLine.IndexOf('=');
-			if (AssignIndex < 0)
+			// Figure out what to do with this line
+			ParseAction Action = GetActionForLine(ref TrimmedLine);
+			if(Action == ParseAction.None)
 			{
-				throw new IniParsingException("Failed to find value when parsing {0}, line {1}: {2}", Filename, LineIndex, TrimmedLine);
+				KeyValuePair = null;
+				return false;
 			}
-			Key = TrimmedLine.Substring(0, AssignIndex).Trim();
-			if (String.IsNullOrEmpty(Key))
+
+			// Parse a key value pair
+			int EqualsIdx = TrimmedLine.IndexOf('=');
+			if (EqualsIdx < 0)
 			{
-				throw new IniParsingException("Empty key when parsing {0}, line {1}: {2}", Filename, LineIndex, TrimmedLine);
+				Log.TraceWarning("Failed to find value when parsing {0}, line {1}: {2}", Filename, LineNumber, TrimmedLine);
+				KeyValuePair = null;
+				return false;
 			}
-			Value = TrimmedLine.Substring(AssignIndex + 1).Trim();
-			if (Value.StartsWith("\""))
+			string Key = TrimmedLine.Substring(0, EqualsIdx).TrimEnd();
+			if (Key.Length == 0)
 			{
-				// Remove quotes
-				var QuoteEnd = Value.LastIndexOf('\"');
-				if (QuoteEnd == 0)
-				{
-					throw new IniParsingException("Mismatched quotes when parsing {0}, line {1}: {2}", Filename, LineIndex, TrimmedLine);
-				}
+				Log.TraceWarning("Empty key when parsing {0}, line {1}: {2}", Filename, LineNumber, TrimmedLine);
+				KeyValuePair = null;
+				return false;
+			}
+
+			string Value = TrimmedLine.Substring(EqualsIdx + 1).TrimStart();
+			if (Value.Length >= 2 && Value.StartsWith("\"") && Value.EndsWith("\""))
+			{
 				Value = Value.Substring(1, Value.Length - 2);
 			}
+
+			// Create the new command
+			KeyValuePair = new CachedKeyValuePair(){ Key = Key, Value = Value, LastAction = Action };
+			return true;
 		}
 
 		/// <summary>
@@ -699,7 +693,7 @@ namespace UnrealBuildTool
 						IniValues Value;
 						if (CurrentSection.TryGetValue(Key, out Value))
 						{
-							var ExistingIndex = Value.FindIndex(X => (String.Compare(SingleValue, X, true) == 0));
+							int ExistingIndex = Value.FindIndex(X => (String.Compare(SingleValue, X, true) == 0));
 							if (ExistingIndex >= 0)
 							{
 								Value.RemoveAt(ExistingIndex);
@@ -713,29 +707,15 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Finds an existing section or adds a new one
 		/// </summary>
-		private IniSection FindOrAddSection(string TrimmedLine, FileReference Filename, int LineIndex)
+		private IniSection FindOrAddSection(string SectionName)
 		{
-			var SectionEndIndex = TrimmedLine.IndexOf(']');
-			if (SectionEndIndex != (TrimmedLine.Length - 1))
+			IniSection CurrentSection;
+			if (Sections.TryGetValue(SectionName, out CurrentSection) == false)
 			{
-				throw new IniParsingException("Mismatched brackets when parsing section name in {0}, line {1}: {2}", Filename, LineIndex, TrimmedLine);
+				CurrentSection = new IniSection();
+				Sections.Add(SectionName, CurrentSection);
 			}
-			var SectionName = TrimmedLine.Substring(1, TrimmedLine.Length - 2);
-			if (String.IsNullOrEmpty(SectionName))
-			{
-				throw new IniParsingException("Empty section name when parsing {0}, line {1}: {2}", Filename, LineIndex, TrimmedLine);
-			}
-			else if (RequiredSections.Contains(SectionName))
-			{
-				IniSection CurrentSection;
-				if (Sections.TryGetValue(SectionName, out CurrentSection) == false)
-				{
-					CurrentSection = new IniSection();
-					Sections.Add(SectionName, CurrentSection);
-				}
-				return CurrentSection;
-			}
-			return null;
+			return CurrentSection;
 		}
 
 		/// <summary>
@@ -801,24 +781,31 @@ namespace UnrealBuildTool
 			}
 
 			DirectoryReference UserSettingsFolder = Utils.GetUserSettingDirectory(); // Match FPlatformProcess::UserSettingsDir()
-			DirectoryReference PersonalFolder = null; // Match FPlatformProcess::UserDir()
-			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac)
-			{
-				PersonalFolder = new DirectoryReference(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), "Documents"));
-			}
-			else if (Environment.OSVersion.Platform == PlatformID.Unix)
-			{
-				PersonalFolder = new DirectoryReference(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), "Documents"));
-			}
-			else
-			{
-				PersonalFolder = new DirectoryReference(Environment.GetFolderPath(Environment.SpecialFolder.Personal));
-			}
 
 			// <AppData>/UE4/EngineConfig/User* ini
 			yield return FileReference.Combine(UserSettingsFolder, "Unreal Engine", "Engine", "Config", "User" + BaseIniName + ".ini");
-			// <Documents>/UE4/EngineConfig/User* ini
-			yield return FileReference.Combine(PersonalFolder, "Unreal Engine", "Engine", "Config", "User" + BaseIniName + ".ini");
+
+			// Some user accounts (eg. SYSTEM on Windows) don't have a home directory. Ignore them if Environment.GetFolderPath() returns an empty string.
+			string PersonalFolder = Environment.GetFolderPath(Environment.SpecialFolder.Personal);
+			if (!String.IsNullOrEmpty(PersonalFolder))
+			{
+				DirectoryReference PersonalConfigFolder; // Match FPlatformProcess::UserDir()
+				if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac)
+				{
+					PersonalConfigFolder = new DirectoryReference(Path.Combine(PersonalFolder, "Documents"));
+				}
+				else if (Environment.OSVersion.Platform == PlatformID.Unix)
+				{
+					PersonalConfigFolder = new DirectoryReference(Path.Combine(PersonalFolder, "Documents"));
+				}
+				else
+				{
+					PersonalConfigFolder = new DirectoryReference(PersonalFolder);
+				}
+
+				// <Documents>/UE4/EngineConfig/User* ini
+				yield return FileReference.Combine(PersonalConfigFolder, "Unreal Engine", "Engine", "Config", "User" + BaseIniName + ".ini");
+			}
 
 			// Game/Config/User* ini
 			if (ProjectDirectory != null)

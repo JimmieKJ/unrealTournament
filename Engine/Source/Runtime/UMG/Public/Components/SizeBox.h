@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -21,27 +21,27 @@ class UMG_API USizeBox : public UContentWidget
 public:
 
 	/**  */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Child Layout", meta=(InlineEditConditionToggle))
 	uint32 bOverride_WidthOverride : 1;
 
 	/**  */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Child Layout", meta=(InlineEditConditionToggle))
 	uint32 bOverride_HeightOverride : 1;
 
 	/**  */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Child Layout", meta=(InlineEditConditionToggle))
 	uint32 bOverride_MinDesiredWidth : 1;
 
 	/**  */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Child Layout", meta=(InlineEditConditionToggle))
 	uint32 bOverride_MinDesiredHeight : 1;
 
 	/**  */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Child Layout", meta=(InlineEditConditionToggle))
 	uint32 bOverride_MaxDesiredWidth : 1;
 
 	/**  */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Child Layout", meta=(InlineEditConditionToggle))
 	uint32 bOverride_MaxDesiredHeight : 1;
 
 
@@ -124,7 +124,6 @@ public:
 	// End of UVisual interface
 
 #if WITH_EDITOR
-	virtual const FSlateBrush* GetEditorIcon() override;
 	virtual const FText GetPaletteCategory() override;
 #endif
 

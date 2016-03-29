@@ -39,4 +39,4 @@ Build! and follow existing Unreal Networking documentation to setup servers/clie
 
 Disconnect events on client or server side are not handled properly yet 
 
-Copyright 2015 Epic Games. 
+Copyright 2015-2016 Epic Games. 

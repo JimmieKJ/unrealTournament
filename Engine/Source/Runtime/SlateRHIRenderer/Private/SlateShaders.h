@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -198,7 +198,6 @@ public:
 		OutEnvironment.SetDefine(TEXT("USE_TEXTURE_ALPHA"), (uint32)( bUseTextureAlpha ? 1 : 0 ));
 		OutEnvironment.SetDefine(TEXT("COLOR_VISION_DEFICIENCY_TYPE"), GSlateShaderColorVisionDeficiencyType);
 		OutEnvironment.SetDefine(TEXT("USE_MATERIALS"), (uint32)0);
-		OutEnvironment.SetDefine(TEXT("PRE_MULTIPLIED_ALPHA"), (uint32)0);
 
 		FSlateElementPS::ModifyCompilationEnvironment( Platform, OutEnvironment );
 	}
@@ -210,33 +209,6 @@ public:
 	}
 private:
 
-};
-
-/** Simple passthrough for Premultiplied alpha */
-class FSlatePreMultiplyPassThroughPS : public TSlateElementPS<ESlateShader::Default, false, true>
-{
-	DECLARE_SHADER_TYPE(FSlatePreMultiplyPassThroughPS, Global);
-public:
-
-	FSlatePreMultiplyPassThroughPS()
-	{
-	}
-
-	/** Constructor.  Binds all parameters used by the shader */
-	FSlatePreMultiplyPassThroughPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
-		: TSlateElementPS<ESlateShader::Default, false, true>(Initializer)
-	{
-	}
-
-	/**
-	* Modifies the compilation of this shader
-	*/
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
-	{
-		TSlateElementPS<ESlateShader::Default, false, true>::ModifyCompilationEnvironment(Platform, OutEnvironment);
-
-		OutEnvironment.SetDefine(TEXT("PRE_MULTIPLIED_ALPHA"), (uint32)1);
-	}
 };
 
 /** 

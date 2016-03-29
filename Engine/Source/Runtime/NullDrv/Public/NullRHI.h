@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -202,6 +202,10 @@ public:
 		return new FRHIShaderResourceView(); 
 	}
 
+	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView(FIndexBufferRHIParamRef Buffer) final override
+	{ 
+		return new FRHIShaderResourceView(); 
+	}
 
 	virtual void RHIClearUAV(FUnorderedAccessViewRHIParamRef UnorderedAccessViewRHI, const uint32* Values) final override
 	{
@@ -805,7 +809,7 @@ public:
 	{ 
 		return 0; 
 	}
-	virtual void RHIPushEvent(const TCHAR* Name) final override
+	virtual void RHIPushEvent(const TCHAR* Name, FColor Color) final override
 	{
 	}
 	virtual void RHIPopEvent()

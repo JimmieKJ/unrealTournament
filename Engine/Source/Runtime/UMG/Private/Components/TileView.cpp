@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 
@@ -76,12 +76,14 @@ void UTileView::RequestListRefresh()
 	MyTileView->RequestListRefresh();
 }
 
-#if WITH_EDITOR
-
-const FSlateBrush* UTileView::GetEditorIcon()
+void UTileView::ReleaseSlateResources(bool bReleaseChildren)
 {
-	return FUMGStyle::Get().GetBrush("Widget.TileView");
+	Super::ReleaseSlateResources(bReleaseChildren);
+
+	MyTileView.Reset();
 }
+
+#if WITH_EDITOR
 
 const FText UTileView::GetPaletteCategory()
 {

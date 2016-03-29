@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerPrivatePCH.h"
 #include "MovieScene.h"
@@ -11,9 +11,9 @@
 /* SSequencerLabelEditor interface
  *****************************************************************************/
 
-void SSequencerLabelEditor::Construct(const FArguments& InArgs, UMovieScene* InMovieScene, const FGuid& InObjectId)
+void SSequencerLabelEditor::Construct(const FArguments& InArgs, FSequencer& InSequencer, const FGuid& InObjectId)
 {
-	MovieScene = InMovieScene;
+	Sequencer = &InSequencer;
 	ObjectId = InObjectId;
 
 	ChildSlot
@@ -37,8 +37,12 @@ void SSequencerLabelEditor::Construct(const FArguments& InArgs, UMovieScene* InM
 					.FillWidth(1.0f)
 					[
 						SAssignNew(FilterBox, SEditableTextBox)
+							.ClearKeyboardFocusOnCommit(false)
 							.MinDesiredWidth(144.0f)
+							.OnKeyDownHandler(this, &SSequencerLabelEditor::HandleFilterBoxKeyDown)
 							.OnTextChanged(this, &SSequencerLabelEditor::HandleFilterBoxTextChanged)
+							.SelectAllTextWhenFocused(true)
+							.ToolTipText(LOCTEXT("FilterBoxToolTip", "Type one or more strings to filter by. New label names may not contain whitespace. Use the `.` symbol to filter or create hierarchical labels"))
 					]
 
 				+ SHorizontalBox::Slot()
@@ -75,13 +79,21 @@ void SSequencerLabelEditor::Construct(const FArguments& InArgs, UMovieScene* InM
 /* SSequencerLabelEditor implementation
  *****************************************************************************/
 
+void SSequencerLabelEditor::CreateLabelFromFilterText()
+{
+	Sequencer->GetLabelManager().AddObjectLabel(ObjectId, FilterBox->GetText().ToString());
+	FilterBox->SetText(FText::GetEmpty());
+	ReloadLabelList(true);
+}
+
+
 void SSequencerLabelEditor::ReloadLabelList(bool FullyReload)
 {
 	// reload label list
 	if (FullyReload)
 	{
 		AvailableLabels.Reset();
-		MovieScene->GetAllLabels(AvailableLabels);
+		Sequencer->GetLabelManager().GetAllLabels(AvailableLabels);
 	}
 
 	// filter label list
@@ -119,9 +131,7 @@ void SSequencerLabelEditor::ReloadLabelList(bool FullyReload)
 
 FReply SSequencerLabelEditor::HandleCreateNewLabelButtonClicked()
 {
-	MovieScene->GetObjectLabels(ObjectId).Strings.AddUnique(FilterBox->GetText().ToString());
-	FilterBox->SetText(FText::GetEmpty());
-
+	CreateLabelFromFilterText();
 	return FReply::Handled();
 }
 
@@ -131,7 +141,19 @@ bool SSequencerLabelEditor::HandleCreateNewLabelButtonIsEnabled() const
 	FString FilterString = FilterBox->GetText().ToString();
 	FilterString.Trim();
 
-	return !FilterString.IsEmpty() && !MovieScene->LabelExists(FilterString);
+	return !FilterString.IsEmpty() && !FilterString.Contains(TEXT(" ")) && !Sequencer->GetLabelManager().LabelExists(FilterString);
+}
+
+
+FReply SSequencerLabelEditor::HandleFilterBoxKeyDown(const FGeometry& /*Geometry*/, const FKeyEvent& KeyEvent)
+{
+	if (KeyEvent.GetKey() == EKeys::Enter)
+	{
+		CreateLabelFromFilterText();
+		return FReply::Handled();
+	}
+
+	return FReply::Unhandled();
 }
 
 
@@ -153,15 +175,15 @@ TSharedRef<ITableRow> SSequencerLabelEditor::HandleLabelListViewGenerateRow(TSha
 
 void SSequencerLabelEditor::HandleLabelListViewRowCheckedStateChanged(ECheckBoxState State, TSharedPtr<FString> Label)
 {
-	FMovieSceneTrackLabels& Labels = MovieScene->GetObjectLabels(ObjectId);
+	FSequencerLabelManager& LabelManager = Sequencer->GetLabelManager();
 
 	if (State == ECheckBoxState::Checked)
 	{
-		Labels.Strings.AddUnique(*Label);
+		LabelManager.AddObjectLabel(ObjectId, *Label);
 	}
 	else
 	{
-		Labels.Strings.Remove(*Label);
+		LabelManager.RemoveObjectLabel(ObjectId, *Label);
 	}
 }
 
@@ -174,8 +196,8 @@ FText SSequencerLabelEditor::HandleLabelListViewRowHighlightText() const
 
 ECheckBoxState SSequencerLabelEditor::HandleLabelListViewRowIsChecked(TSharedPtr<FString> Label) const
 {
-	const FMovieSceneTrackLabels& Labels = MovieScene->GetObjectLabels(ObjectId);
-	return Labels.Strings.Contains(*Label)
+	const FMovieSceneTrackLabels* Labels = Sequencer->GetLabelManager().GetObjectLabels(ObjectId);
+	return ((Labels != nullptr) && Labels->Strings.Contains(*Label))
 		? ECheckBoxState::Checked
 		: ECheckBoxState::Unchecked;
 }

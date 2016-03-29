@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -31,17 +31,6 @@ public:
 protected:
 	/** Called when the list of sessions has changed. @see FProfilerManager.FOnSessionsUpdated */
 	void ProfilerManager_SessionsUpdated();
-
-	void AddSessionInstanceItem( TSharedRef<SHorizontalBox>& SessionsHBox, const FString& ProfilerSessionName, const FGuid& SessionInstanceID );
-	EVisibility IsInstancesOwnerVisible() const;
-
-	/**
-	 * Builds the context menu for the specified profiler session.
-	 *
-	 * @param SessionInstanceID - the session instance ID for which the context menu will be built 
-	 *
-	 */
-	TSharedRef<SWidget> BuildProfilerSessionContextMenu( const FGuid SessionInstanceID );
 
 	/** Create the UI commands for the toolbar */
 	void CreateCommands();

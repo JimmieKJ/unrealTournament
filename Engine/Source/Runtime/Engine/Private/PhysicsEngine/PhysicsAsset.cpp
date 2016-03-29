@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PhysicsAsset.cpp
@@ -160,7 +160,7 @@ FBox UPhysicsAsset::CalcAABB(const USkinnedMeshComponent* MeshComp, const FTrans
 				{
 					int32 NextIndex = (*BodyIndexRefs)[i+1];
 					FPlatformMisc::Prefetch(BodySetup[NextIndex]);
-					FPlatformMisc::Prefetch(BodySetup[NextIndex], CACHE_LINE_SIZE);
+					FPlatformMisc::Prefetch(BodySetup[NextIndex], PLATFORM_CACHE_LINE_SIZE);
 				}
 
 				int32 BoneIndex = MeshComp->GetBoneIndex(bs->BoneName);

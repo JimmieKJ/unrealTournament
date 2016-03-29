@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ProfilerPrivatePCH.h"
 #include "SProfilerSettings.h"
@@ -351,7 +351,7 @@ void SProfilerWindow::UpdateEventGraph( const FGuid ProfilerInstanceID, const FE
 
 EVisibility SProfilerWindow::IsSessionOverlayVissible() const
 {
-	if( FProfilerManager::Get()->GetProfilerInstancesNum() > 0 )
+	if( FProfilerManager::Get()->HasValidSession() )
 	{
 		return EVisibility::Hidden;
 	}

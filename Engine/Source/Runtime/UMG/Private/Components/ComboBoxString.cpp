@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 
@@ -226,11 +226,6 @@ void UComboBoxString::HandleOpening()
 }
 
 #if WITH_EDITOR
-
-const FSlateBrush* UComboBoxString::GetEditorIcon()
-{
-	return FUMGStyle::Get().GetBrush("Widget.ComboBox");
-}
 
 const FText UComboBoxString::GetPaletteCategory()
 {

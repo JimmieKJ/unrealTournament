@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -19,10 +19,15 @@ struct FMeshBatchElement
 
 	const FIndexBuffer* IndexBuffer;
 
-	/** Instance runs, where number of runs is specified by NumInstances.  Run structure is [StartInstanceIndex, EndInstanceIndex]. */
-	uint32* InstanceRuns;
+	union 
+	{
+		/** If bIsSplineProxy, Instance runs, where number of runs is specified by NumInstances.  Run structure is [StartInstanceIndex, EndInstanceIndex]. */
+		uint32* InstanceRuns;
+		/** If bIsSplineProxy, a pointer back to the proxy */
+		class FSplineMeshSceneProxy* SplineMeshSceneProxy;
+	};
 	const void* UserData;
-	/** 
+	/**
 	 *	DynamicIndexData - pointer to user memory containing the index data.
 	 *	Used for rendering dynamic data directly.
 	 */
@@ -42,6 +47,14 @@ struct FMeshBatchElement
 	uint8 InstancedLODIndex : 4;
 	uint8 InstancedLODRange : 4;
 	uint8 bUserDataIsColorVertexBuffer : 1;
+	uint8 bIsInstancedMesh : 1;
+	uint8 bIsSplineProxy : 1;
+	uint8 bIsInstanceRuns : 1;
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	/** Conceptual element index used for debug viewmodes. */
+	int8 VisualizeElementIndex;
+#endif
 
 	FMeshBatchElement()
 	:	PrimitiveUniformBufferResource(nullptr)
@@ -56,6 +69,13 @@ struct FMeshBatchElement
 	,	InstancedLODIndex(0)
 	,	InstancedLODRange(0)
 	,	bUserDataIsColorVertexBuffer(false)
+	,   bIsInstancedMesh(false)
+	,	bIsSplineProxy(false)
+	,	bIsInstanceRuns(false)
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	,	VisualizeElementIndex(INDEX_NONE)
+#endif
+
 	{
 	}
 };
@@ -73,8 +93,13 @@ struct FMeshBatch
 	/** LOD index of the mesh, used for fading LOD transitions. */
 	int8 LODIndex;
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	/** Conceptual LOD index used for the LOD Coloration visualization. */
 	int8 VisualizeLODIndex;
+#endif
+
+	/** Conceptual HLOD index used for the HLOD Coloration visualization. */
+	int8 VisualizeHLODIndex;
 
 	uint32 UseDynamicData : 1;
 	uint32 ReverseCulling : 1;
@@ -171,7 +196,7 @@ struct FMeshBatch
 		int32 Count=0;
 		for( int32 ElementIdx=0;ElementIdx<Elements.Num();ElementIdx++ )
 		{
-			if (Elements[ElementIdx].InstanceRuns)
+			if (Elements[ElementIdx].bIsInstanceRuns && Elements[ElementIdx].InstanceRuns)
 			{
 				for (uint32 Run = 0; Run < Elements[ElementIdx].NumInstances; Run++)
 				{
@@ -200,7 +225,10 @@ struct FMeshBatch
 	FMeshBatch()
 	:	DynamicVertexStride(0)
 	,	LODIndex(INDEX_NONE)
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	,	VisualizeLODIndex(INDEX_NONE)
+#endif
+	,	VisualizeHLODIndex(INDEX_NONE)
 	,	UseDynamicData(false)
 	,	ReverseCulling(false)
 	,	bDisableBackfaceCulling(false)

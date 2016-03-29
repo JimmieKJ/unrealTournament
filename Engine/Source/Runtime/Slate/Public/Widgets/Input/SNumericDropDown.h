@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -116,8 +116,10 @@ public:
 					.ButtonContent()
 					[
 						SNew( SEditableTextBox )
-						.Text( this, &SNumericDropDown<NumericType>::GetValueText )
 						.MinDesiredWidth( InArgs._MinDesiredValueWidth )
+						.RevertTextOnEscape(true)
+						.SelectAllTextWhenFocused(true)
+						.Text( this, &SNumericDropDown<NumericType>::GetValueText )
 						.OnTextCommitted( this, &SNumericDropDown<NumericType>::ValueTextComitted )
 					]
 				]
@@ -173,6 +175,7 @@ private:
 
 	void SetValue( NumericType InValue )
 	{
+		FSlateApplication::Get().ClearKeyboardFocus( EFocusCause::Cleared );
 		OnValueChanged.ExecuteIfBound(InValue);
 	}
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "ModuleManager.h"
@@ -9,6 +9,10 @@ DEFINE_LOG_CATEGORY_STATIC(LogAutomationTest, Warning, All);
 
 void FAutomationTestFramework::FAutomationTestFeedbackContext::Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category )
 {
+	if (FAutomationTestFramework::GetInstance().CachedContext)
+	{
+		FAutomationTestFramework::GetInstance().CachedContext->Serialize(V, Verbosity, Category);
+	}
 	//ignore 
 	if (!IsRunningCommandlet() && (Verbosity == ELogVerbosity::SetColor))
 	{
@@ -137,7 +141,7 @@ bool FAutomationTestFramework::RunSmokeTests()
 	//@todo - better determination of whether to run than requires cooked data
 	// Ensure there isn't another slow task in progress when trying to run unit tests
 	const bool bRequiresCookedData = FPlatformProperties::RequiresCookedData();
-	if ((!bRequiresCookedData && !GIsSlowTask && !GIsPlayInEditorWorld) || bForceSmokeTests)
+	if ((!bRequiresCookedData && !GIsSlowTask && !GIsPlayInEditorWorld && !FPlatformProperties::IsProgram()) || bForceSmokeTests)
 	{
 		TArray<FAutomationTestInfo> TestInfo;
 
@@ -171,10 +175,10 @@ bool FAutomationTestFramework::RunSmokeTests()
 
 			double EndTime = FPlatformTime::Seconds();
 			double TimeForTest = static_cast<float>(EndTime - SmokeTestStartTime);
-			if (TimeForTest > 1.0f)
+			if (TimeForTest > 2.0f)
 			{
 				//force a failure if a smoke test takes too long
-				UE_LOG(LogAutomationTest, Warning, TEXT("Smoke tests took > 1s to run: %.2fs"), (float)TimeForTest);
+				UE_LOG(LogAutomationTest, Warning, TEXT("Smoke tests took > 2s to run: %.2fs"), (float)TimeForTest);
 			}
 
 			FAutomationTestFramework::DumpAutomationTestExecutionInfo( OutExecutionInfoMap );
@@ -184,7 +188,7 @@ bool FAutomationTestFramework::RunSmokeTests()
 	{
 		UE_LOG( LogAutomationTest, Log, TEXT( "Skipping unit tests for the cooked build." ) );
 	}
-	else
+	else if (!FPlatformProperties::IsProgram())
 	{
 		UE_LOG(LogAutomationTest, Error, TEXT("Skipping unit tests.") );
 		bAllSuccessful = false;

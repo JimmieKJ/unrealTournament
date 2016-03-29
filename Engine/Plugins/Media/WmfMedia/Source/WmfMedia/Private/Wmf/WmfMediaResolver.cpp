@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "WmfMediaPrivatePCH.h"
 #include "AllowWindowsPlatformTypes.h"
@@ -27,6 +27,12 @@ void FWmfMediaResolver::Cancel()
 		return;
 	}
 
+	if (ResolveState != NULL)
+	{
+		ResolveState->Invalidate();
+		ResolveState.Reset();
+	}
+
 	TComPtr<IUnknown> CancelCookieCopy = CancelCookie;
 
 	if (CancelCookieCopy != NULL)
@@ -34,12 +40,10 @@ void FWmfMediaResolver::Cancel()
 		SourceResolver->CancelObjectCreation(CancelCookieCopy);
 		CancelCookie.Reset();
 	}
-
-	ResolveState.Reset();
 }
 
 
-bool FWmfMediaResolver::ResolveByteStream(const TSharedRef<FArchive, ESPMode::ThreadSafe>& Archive, const FString& OriginalUrl)
+bool FWmfMediaResolver::ResolveByteStream(const TSharedRef<FArchive, ESPMode::ThreadSafe>& Archive, const FString& OriginalUrl, IWmfMediaResolverCallbacks& Callbacks)
 {
 	if (SourceResolver == NULL)
 	{
@@ -49,13 +53,20 @@ bool FWmfMediaResolver::ResolveByteStream(const TSharedRef<FArchive, ESPMode::Th
 	Cancel();
 
 	TComPtr<FWmfMediaByteStream> ByteStream = new FWmfMediaByteStream(Archive);
-	ResolveState = new(std::nothrow) FWmfMediaResolveState(EWmfMediaResolveType::ByteStream, OriginalUrl);
+	TComPtr<FWmfMediaResolveState> NewResolveState = new(std::nothrow) FWmfMediaResolveState(EWmfMediaResolveType::ByteStream, OriginalUrl, Callbacks);
 
-	return SUCCEEDED(SourceResolver->BeginCreateObjectFromByteStream(ByteStream, *OriginalUrl, MF_RESOLUTION_MEDIASOURCE, NULL, &CancelCookie, this, ResolveState));
+	if (FAILED(SourceResolver->BeginCreateObjectFromByteStream(ByteStream, *OriginalUrl, MF_RESOLUTION_MEDIASOURCE, NULL, &CancelCookie, this, NewResolveState)))
+	{
+		return false;
+	}
+
+	ResolveState = NewResolveState;
+
+	return true;
 }
 
 
-bool FWmfMediaResolver::ResolveUrl(const FString& Url)
+bool FWmfMediaResolver::ResolveUrl(const FString& Url, IWmfMediaResolverCallbacks& Callbacks)
 {
 	if (SourceResolver == NULL)
 	{
@@ -64,9 +75,16 @@ bool FWmfMediaResolver::ResolveUrl(const FString& Url)
 
 	Cancel();
 
-	ResolveState = new(std::nothrow) FWmfMediaResolveState(EWmfMediaResolveType::Url, Url);
+	TComPtr<FWmfMediaResolveState> NewResolveState = new(std::nothrow) FWmfMediaResolveState(EWmfMediaResolveType::Url, Url, Callbacks);
 
-	return SUCCEEDED(SourceResolver->BeginCreateObjectFromURL(*Url, MF_RESOLUTION_MEDIASOURCE, NULL, &CancelCookie, this, ResolveState));
+	if (FAILED(SourceResolver->BeginCreateObjectFromURL(*Url, MF_RESOLUTION_MEDIASOURCE, NULL, &CancelCookie, this, NewResolveState)))
+	{
+		return false;
+	}
+
+	ResolveState = NewResolveState;
+
+	return true;
 }
 
 
@@ -121,11 +139,11 @@ STDMETHODIMP FWmfMediaResolver::Invoke(IMFAsyncResult* AsyncResult)
 
 	if (Succeeded)
 	{
-		ResolveCompletedDelegate.ExecuteIfBound(SourceObject, State->Url);
+		State->ResolveComplete(SourceObject, State->Url);
 	}
 	else
 	{
-		ResolveFailedDelegate.ExecuteIfBound(State->Url);
+		State->ResolveFailed(State->Url);
 	}
 
 	ResolveState.Reset();

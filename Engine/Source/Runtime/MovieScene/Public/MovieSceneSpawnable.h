@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -30,12 +30,15 @@ public:
 	/** FMovieSceneSpawnable default constructor */
 	FMovieSceneSpawnable() { }
 
-/** FMovieSceneSpawnable initialization constructor */
+	/** FMovieSceneSpawnable initialization constructor */
 	FMovieSceneSpawnable(const FString& InitName, UClass* InitClass)
 		: Guid(FGuid::NewGuid())
 		, Name(InitName)
 		, GeneratedClass(InitClass)
 		, Ownership(ESpawnOwnership::InnerSequence)
+#if WITH_EDITORONLY_DATA
+		, bIgnoreOwnershipInEditor(false)
+#endif
 	{ }
 
 public:
@@ -60,6 +63,17 @@ public:
 	const FGuid& GetGuid() const
 	{
 		return Guid;
+	}
+
+	/**
+	 * Set the unique identifier of this spawnable object
+	 * @param InGuid The new GUID for this spawnable
+	 * @note Be careful - this guid may be referenced by spawnable/possessable child-parent relationships.
+	 * @see GetGuid
+	 */
+	void SetGuid(const FGuid& InGuid)
+	{
+		Guid = InGuid;
 	}
 
 	/**
@@ -117,6 +131,24 @@ public:
 		Ownership = InOwnership;
 	}
 
+#if WITH_EDITORONLY_DATA
+	/**
+	 * Check whether this spawnable should remain spawned when outside the play-range, regardless of ownership
+	 */
+	bool ShouldIgnoreOwnershipInEditor() const
+	{
+		return bIgnoreOwnershipInEditor;
+	}
+
+	/**
+	 * Set whether this spawnable should remain spawned when outside the play-range, regardless of ownership
+	 */
+	void SetIgnoreOwnershipInEditor(bool bInIgnoreOwnershipInEditor)
+	{
+		bIgnoreOwnershipInEditor = bInIgnoreOwnershipInEditor;
+	}
+#endif
+
 private:
 
 	/** Unique identifier of the spawnable object. */
@@ -143,4 +175,10 @@ private:
 	/** Property indicating where ownership responsibility for this object lies */
 	UPROPERTY()
 	ESpawnOwnership Ownership;
+
+#if WITH_EDITORONLY_DATA
+	/** When true, this spawnable will not respect its ownership sematics outside of the playback range, when spawned from inside a currently editing sequence */
+	UPROPERTY()
+	bool bIgnoreOwnershipInEditor;
+#endif
 };

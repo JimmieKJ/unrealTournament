@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*================================================================================
 	AndroidPlatform.h: Setup for the Android platform
@@ -41,6 +41,7 @@ typedef FAndroidTypes FPlatformTypes;
 #define PLATFORM_TCHAR_IS_4_BYTES					1
 #define PLATFORM_HAS_NO_EPROCLIM					1
 #define PLATFORM_USES_ES2							1
+#define PLATFORM_BUILTIN_VERTEX_HALF_FLOAT			0
 #define PLATFORM_HAS_BSD_SOCKET_FEATURE_IOCTL		1
 #define PLATFORM_HAS_TOUCH_MAIN_SCREEN				1
 #define PLATFORM_SUPPORTS_STACK_SYMBOLS				1
@@ -51,6 +52,8 @@ typedef FAndroidTypes FPlatformTypes;
 #define STDCALL													/* Standard calling convention */
 #define FORCEINLINE inline __attribute__ ((always_inline))		/* Force code to be inline */
 #define FORCENOINLINE __attribute__((noinline))					/* Force code to NOT be inline */
+
+#define FUNCTION_CHECK_RETURN(...) __VA_ARGS__ __attribute__ ((warn_unused_result))	/* Wrap a function signature in this to warn that callers should not ignore the return value. */
 
 #define TEXT_HELPER(a,b)	a ## b
 #define TEXT(s)				TEXT_HELPER(L, s)

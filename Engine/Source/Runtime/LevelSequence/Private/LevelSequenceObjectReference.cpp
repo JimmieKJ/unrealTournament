@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LevelSequencePCH.h"
 #include "LevelSequenceObjectReference.h"
@@ -20,6 +20,12 @@ FLevelSequenceObjectReference::FLevelSequenceObjectReference(UObject* InObject, 
 			ObjectPath = InObject->GetPathName(InContext);
 		}
 	}
+}
+
+FLevelSequenceObjectReference::FLevelSequenceObjectReference(const FUniqueObjectGuid& InObjectId, const FString& InObjectPath)
+	: ObjectId(InObjectId)
+	, ObjectPath(InObjectPath)
+{
 }
 
 UObject* FLevelSequenceObjectReference::Resolve(UObject* InContext) const
@@ -96,6 +102,14 @@ void FLevelSequenceObjectReferenceMap::CreateBinding(const FGuid& ObjectId, UObj
 	if (ensureMsgf(NewReference.IsValid(), TEXT("Unable to generate a reference for the specified object and context")))
 	{
 		Map.FindOrAdd(ObjectId) = NewReference;
+	}
+}
+
+void FLevelSequenceObjectReferenceMap::CreateBinding(const FGuid& ObjectId, const FLevelSequenceObjectReference& ObjectReference)
+{
+	if (ensureMsgf(ObjectReference.IsValid(), TEXT("Invalid object reference specifed for binding")))
+	{
+		Map.FindOrAdd(ObjectId) = ObjectReference;
 	}
 }
 

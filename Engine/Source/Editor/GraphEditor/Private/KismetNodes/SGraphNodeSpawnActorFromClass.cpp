@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "GraphEditorCommon.h"
 #include "SGraphNode.h"
@@ -134,14 +134,12 @@ void SGraphNodeSpawnActorFromClass::CreatePinWidgets()
 		{
 			TSharedPtr<SGraphPin> NewPin = FNodeFactory::CreatePinWidget(CurrentPin);
 			check(NewPin.IsValid());
-			NewPin->SetIsEditable(IsEditable);
 			this->AddPin(NewPin.ToSharedRef());
 		}
 		else if ((ClassPin == CurrentPin) && (!ClassPin->bHidden || (ClassPin->LinkedTo.Num() > 0)))
 		{
 			TSharedPtr<SGraphPinActorBasedClass> NewPin = SNew(SGraphPinActorBasedClass, ClassPin);
 			check(NewPin.IsValid());
-			NewPin->SetIsEditable(IsEditable);
 			this->AddPin(NewPin.ToSharedRef());
 		}
 	}

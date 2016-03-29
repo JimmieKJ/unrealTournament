@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -38,14 +38,7 @@ public abstract class BaseWinPlatform : Platform
 		// Stage all the build products
 		foreach(StageTarget Target in SC.StageTargets)
 		{
-            if (Target.Receipt.Configuration == SC.StageTargetConfigurations[0])
-            {
-                SC.StageBuildProductsFromReceipt(Target.Receipt, Target.RequireFilesExist);
-            }
-            else
-            {
-                SC.StageBuildProductsFromReceiptAllDebug(Target.Receipt, Target.RequireFilesExist);
-            }
+			SC.StageBuildProductsFromReceipt(Target.Receipt, Target.RequireFilesExist, Params.bTreatNonShippingBinariesAsDebugFiles);
 		}
 
 		// Copy the splash screen, windows specific
@@ -166,6 +159,16 @@ public abstract class BaseWinPlatform : Platform
 
 	public override void Package(ProjectParams Params, DeploymentContext SC, int WorkingCL)
 	{
+        // package up the program, potentially with an installer for Windows
+        BaseWindowsDeploy Deploy = new BaseWindowsDeploy();
+        string CookFlavor = SC.FinalCookPlatform.IndexOf("_") > 0 ? SC.FinalCookPlatform.Substring(SC.FinalCookPlatform.IndexOf("_")) : "";
+
+        List<string> ExeNames = GetExecutableNames(SC);
+
+        foreach (string ExeName in ExeNames)
+        {
+            Deploy.PrepForUATPackageOrDeploy(Params.RawProjectPath, Params.ShortProjectName, SC.ProjectRoot, ExeName, SC.LocalRoot + "/Engine", Params.Distribution, CookFlavor, false);
+        }
 		// package up the program, potentially with an installer for Windows
 		PrintRunTime();
 	}

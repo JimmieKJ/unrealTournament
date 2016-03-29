@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	EditorObject.cpp: Unreal Editor object manipulation code.
@@ -98,7 +98,7 @@ void UEditorEngine::RenameObject(UObject* Object,UObject* NewOuter,const TCHAR* 
 }
 
 
-static void RemapProperty(UProperty* Property, int32 Index, const TMap<FName, AActor*>& ActorRemapper, uint8* DestData)
+static void RemapProperty(UProperty* Property, int32 Index, const TMap<AActor*, AActor*>& ActorRemapper, uint8* DestData)
 {
 	if (UObjectProperty* ObjectProperty = Cast<UObjectProperty>(Property))
 	{
@@ -108,10 +108,10 @@ static void RemapProperty(UProperty* Property, int32 Index, const TMap<FName, AA
 		for (int32 Count = 0; Count < Num; Count++)
 		{
 			uint8* PropertyAddr = ObjectProperty->ContainerPtrToValuePtr<uint8>(DestData, StartIndex + Count);
-			UObject* Object = ObjectProperty->GetObjectPropertyValue(PropertyAddr);
-			if (Object)
+			AActor* Actor = Cast<AActor>(ObjectProperty->GetObjectPropertyValue(PropertyAddr));
+			if (Actor)
 			{
-				AActor* const* RemappedObject = ActorRemapper.Find(Object->GetFName());
+				AActor* const* RemappedObject = ActorRemapper.Find(Actor);
 				if (RemappedObject && (*RemappedObject)->GetClass()->IsChildOf(ObjectProperty->PropertyClass))
 				{
 					ObjectProperty->SetObjectPropertyValue(PropertyAddr, *RemappedObject);
@@ -177,6 +177,7 @@ static void RemapProperty(UProperty* Property, int32 Index, const TMap<FName, AA
  * @param	Warn						output device to use for log messages
  * @param	Depth						current nesting level
  * @param	InstanceGraph				contains the mappings of instanced objects and components to their templates
+ * @param	ActorRemapper				a map of existing actors to new instances, used to replace internal references when a number of actors are copy+pasted
  *
  * @return	NULL if the default values couldn't be imported
  */
@@ -189,7 +190,7 @@ static const TCHAR* ImportProperties(
 	FFeedbackContext*			Warn,
 	int32						Depth,
 	FObjectInstancingGraph&		InstanceGraph,
-	const TMap<FName, AActor*>* ActorRemapper
+	const TMap<AActor*, AActor*>* ActorRemapper
 	)
 {
 	check(!GIsUCCMakeStandaloneHeaderGenerator);
@@ -780,7 +781,7 @@ const TCHAR* ImportObjectProperties(
 	int32					Depth,
 	int32					LineNumber,
 	FObjectInstancingGraph* InInstanceGraph,
-	const TMap<FName, AActor*>* ActorRemapper
+	const TMap<AActor*, AActor*>* ActorRemapper
 	)
 {
 	FImportObjectParams Params;

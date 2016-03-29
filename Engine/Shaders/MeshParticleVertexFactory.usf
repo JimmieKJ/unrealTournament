@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MeshParticleVertexFactory.usf: Mesh particle vertex factory shader code.
@@ -9,8 +9,22 @@
 // These are only enabled for SM5 due to limited interpolators elsewhere
 #define USE_PARTICLE_NODES (FEATURE_LEVEL >= FEATURE_LEVEL_SM5)
 
+// Only support previous transform for deferred feature level
+#define USE_PREVIOUS_TRANSFORM (FEATURE_LEVEL >= FEATURE_LEVEL_SM4)
+
 float4x4 PreviousLocalToWorld;
 
+
+#if USE_PREVIOUS_TRANSFORM
+#if PARTICLE_MESH_INSTANCED
+	Buffer<float4> PrevTransformBuffer;
+#else
+	float4 PrevTransform0;
+	float4 PrevTransform1;
+	float4 PrevTransform2;
+#endif
+#endif
+	
 #if !PARTICLE_MESH_INSTANCED
 	float4 Transform1;
 	float4 Transform2;
@@ -56,6 +70,11 @@ struct FVertexFactoryInput
 	/** The velocity of the particle, XYZ: direction, W: speed. */
 	float4 ParticleVelocity : ATTRIBUTE15;
 #endif
+
+/** Optional instance ID for vertex layered rendering */
+#if PARTICLE_MESH_INSTANCED
+	uint InstanceId	: SV_InstanceID;
+#endif
 };
 
 struct FVertexFactoryInterpolantsVSToPS
@@ -99,6 +118,9 @@ struct FVertexFactoryInterpolantsVSToPS
 	float ParticleTime : PARTICLE_TIME;
 #endif
 
+#if INSTANCED_STEREO
+	nointerpolation uint PackedEyeIndex : PACKED_EYE_INDEX;
+#endif
 };
 
 struct FVertexFactoryIntermediates
@@ -141,6 +163,31 @@ float4x4 GetParticleTransform(FVertexFactoryInput Input)
 	return transpose(float4x4(Transform1, Transform2, Transform3, float4(0, 0, 0, 1)));
 #endif
 }
+
+#if USE_PREVIOUS_TRANSFORM
+float4x4 GetParticlePrevTransform(FVertexFactoryInput Input)
+{
+#if PARTICLE_MESH_INSTANCED
+	uint TransformBaseIdx = GetLayerInstanceID(Input.InstanceId) * 3;
+
+	float4x4 PrevTransform4x4 = float4x4(
+		PrevTransformBuffer[TransformBaseIdx + 0], 
+		PrevTransformBuffer[TransformBaseIdx + 1], 
+		PrevTransformBuffer[TransformBaseIdx + 2], 
+		float4(0, 0, 0, 1)
+		);
+#else
+	float4x4 PrevTransform4x4 = float4x4(
+		PrevTransform0, 
+		PrevTransform1, 
+		PrevTransform2, 
+		float4(0, 0, 0, 1)
+		);
+#endif
+	//Transform is transposed on CPU and position is packed into W. Transpose again to get the correct transform back.
+	return transpose(PrevTransform4x4);
+}
+#endif
 
 /** Converts from vertex factory specific interpolants to a FMaterialPixelParameters, which is used by material inputs. */
 FMaterialPixelParameters GetMaterialPixelParameters(FVertexFactoryInterpolantsVSToPS Interpolants, float4 SvPosition)
@@ -261,8 +308,24 @@ half2 GetShadowMapCoordinate(FVertexFactoryInterpolantsVSToPS Interpolants)
 float4 CalcWorldPosition(FVertexFactoryInput Input)
 {
 	float4x4 Transform = GetParticleTransform(Input);
-	float3 WorldPosition = mul(Input.Position, Transform).xyz + View.PreViewTranslation;
+	float3 WorldPosition = mul(Input.Position, Transform).xyz + ResolvedView.PreViewTranslation;
 	return float4(WorldPosition, Input.Position.w);
+}
+
+float4 CalcPrevWorldPosition(FVertexFactoryInput Input)
+{
+#if USE_PREVIOUS_TRANSFORM
+	if (MeshParticleVF.PrevTransformAvailable > 0)
+	{
+		float4x4 PrevTransform = GetParticlePrevTransform(Input);
+		float3 PrevWorldPosition = mul(Input.Position, PrevTransform).xyz + ResolvedView.PrevPreViewTranslation;
+		return float4(PrevWorldPosition, Input.Position.w);
+	}
+	else
+#endif
+	{
+		return CalcWorldPosition(Input);
+	}
 }
 
 FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput Input)
@@ -365,6 +428,11 @@ float4 VertexFactoryGetRasterizedWorldPosition(FVertexFactoryInput Input, FVerte
 	return InWorldPosition;
 }
 
+float3 VertexFactoryGetPositionForVertexLighting(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates, float3 TranslatedWorldPosition)
+{
+	return TranslatedWorldPosition;
+}
+
 void CalcTangentToWorld(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates, out float3 TangentToWorld0, out float4 TangentToWorld2)
 {
 	float3x3 TangentToLocal = VertexFactoryGetTangentToLocal(Input, Intermediates);
@@ -437,14 +505,17 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 	Interpolants.ParticleTime = Intermediates.RelativeTime;
 #endif
 
+#if INSTANCED_STEREO
+	Interpolants.PackedEyeIndex = 0;
+#endif
+
 	return Interpolants;
 }
 
 // @return previous translated world position
 float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates)
-{
-	// The previous local to world instance transform isn't available.
-	return CalcWorldPosition(Input);
+{	
+	return CalcPrevWorldPosition(Input);
 }
 
 #if USING_TESSELLATION
@@ -489,7 +560,7 @@ float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexF
 		half4 TangentToWorld2 = Interpolants.InterpolantsVSToPS.TangentToWorld2;
 		Result.TangentToWorld = AssembleTangentToWorld( TangentToWorld0, TangentToWorld2 );
 		Result.TangentToWorldPreScale = 1;
-		Result.WorldPosition = CameraLocalWorldPosition + View.WorldCameraOrigin;
+		Result.WorldPosition = CameraLocalWorldPosition + ResolvedView.WorldCameraOrigin;
 
 		return Result;
 	}
@@ -542,3 +613,20 @@ float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexF
 		return TangentToWorld;
 	}
 #endif // #if USING_TESSELLATION
+
+#if INSTANCED_STEREO
+
+// Instanced stereo sets the eye index explicitly for instanced geometry
+#if PARTICLE_MESH_INSTANCED
+uint InstancedEyeIndex;
+#endif
+
+uint VertexFactoryGetEyeIndex(uint InstanceId)
+{
+	#if PARTICLE_MESH_INSTANCED
+		return InstancedEyeIndex & bIsInstancedStereo;
+	#else
+		return InstanceId & 1;
+	#endif
+}
+#endif

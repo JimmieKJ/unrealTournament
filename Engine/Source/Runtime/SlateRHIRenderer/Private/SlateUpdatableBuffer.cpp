@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateRHIRendererPrivatePCH.h"
 #include "SlateUpdatableBuffer.h"
@@ -7,11 +7,11 @@ DECLARE_CYCLE_STAT(TEXT("UpdateInstanceBuffer Time"), STAT_SlateUpdateInstanceBu
 
 struct FSlateUpdateInstanceBufferCommand : public FRHICommand<FSlateUpdateInstanceBufferCommand>
 {
-	TSlateElementVertexBuffer<FVector4>& InstanceBuffer;
+	FVertexBufferRHIRef VertexBufferRHI;
 	const TArray<FVector4>& InstanceData;
 
 	FSlateUpdateInstanceBufferCommand(TSlateElementVertexBuffer<FVector4>& InInstanceBuffer, const TArray<FVector4>& InInstanceData )
-		: InstanceBuffer(InInstanceBuffer)
+		: VertexBufferRHI(InInstanceBuffer.VertexBufferRHI)
 		, InstanceData(InInstanceData)
 	{}
 
@@ -19,11 +19,12 @@ struct FSlateUpdateInstanceBufferCommand : public FRHICommand<FSlateUpdateInstan
 	{
 		SCOPE_CYCLE_COUNTER( STAT_SlateUpdateInstanceBuffer );
 
-		uint8* InstanceBufferData = (uint8*)InstanceBuffer.LockBuffer_RHIThread(InstanceData.Num());
+		int32 RequiredVertexBufferSize = InstanceData.Num()*sizeof(FVector4);
+		uint8* InstanceBufferData = (uint8*)GDynamicRHI->RHILockVertexBuffer( VertexBufferRHI, 0, RequiredVertexBufferSize, RLM_WriteOnly );
 
-		FMemory::Memcpy(InstanceBufferData, InstanceData.GetData(), InstanceData.Num()*sizeof(FVector4) );
+		FMemory::Memcpy( InstanceBufferData, InstanceData.GetData(), InstanceData.Num()*sizeof(FVector4) );
 	
-		InstanceBuffer.UnlockBuffer_RHIThread();
+		GDynamicRHI->RHIUnlockVertexBuffer( VertexBufferRHI );
 	}
 };
 
@@ -91,11 +92,11 @@ void FSlateUpdatableInstanceBuffer::UpdateRenderingData_RenderThread(FRHICommand
 
 	if(!GRHIThread || RHICmdList.Bypass())
 	{
-		uint8* InstanceBufferData = (uint8*)InstanceBufferResource.LockBuffer_RHIThread(RenderThreadBufferData.Num());
+		uint8* InstanceBufferData = (uint8*)InstanceBufferResource.LockBuffer_RenderThread(RenderThreadBufferData.Num());
 
 		FMemory::Memcpy(InstanceBufferData, RenderThreadBufferData.GetData(), RenderThreadBufferData.Num()*sizeof(FVector4) );
 	
-		InstanceBufferResource.UnlockBuffer_RHIThread();
+		InstanceBufferResource.UnlockBuffer_RenderThread();
 	}
 	else
 	{

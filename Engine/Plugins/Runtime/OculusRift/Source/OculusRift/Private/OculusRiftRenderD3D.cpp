@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 //
 #include "HMDPrivatePCH.h"
 #include "OculusRiftHMD.h"
@@ -21,6 +21,10 @@
 #include "ScreenRendering.h"
 
 #include "SlateBasics.h"
+
+//-------------------------------------------------------------------------------------------------
+// FD3D11Texture2DSet
+//-------------------------------------------------------------------------------------------------
 
 class FD3D11Texture2DSet : public FD3D11Texture2D
 {
@@ -65,12 +69,16 @@ public:
 	{
 		TextureSet = nullptr;
 	}
+	~FD3D11Texture2DSet()
+	{
+		check(!TextureSet);
+	}
 
-	void ReleaseResources(ovrHmd Hmd);
+	void ReleaseResources(ovrSession InOvrSession);
 	void SwitchToNextElement();
 	void AddTexture(ID3D11Texture2D*, ID3D11ShaderResourceView*, TArray<TRefCountPtr<ID3D11RenderTargetView> >* = nullptr);
 
-	ovrSwapTextureSet* GetTextureSet() const { return TextureSet; }
+	ovrSwapTextureSet* GetSwapTextureSet() const { return TextureSet; }
 
 	static FD3D11Texture2DSet* D3D11CreateTexture2DSet(
 		FD3D11DynamicRHI* InD3D11RHI,
@@ -92,6 +100,45 @@ protected:
 
 	ovrSwapTextureSet* TextureSet;
 };
+
+class FD3D11Texture2DSetProxy : public FTexture2DSetProxy
+{
+public:
+	FD3D11Texture2DSetProxy(ovrSession InOvrSession, FTextureRHIRef InTexture, uint32 SrcSizeX, uint32 SrcSizeY, EPixelFormat SrcFormat)
+		: FTexture2DSetProxy(InOvrSession, InTexture, SrcSizeX, SrcSizeY, SrcFormat) {}
+
+	virtual ovrSwapTextureSet* GetSwapTextureSet() const override
+	{
+		if (!RHITexture.IsValid())
+		{
+			return nullptr;
+		}
+		auto D3D11TS = static_cast<FD3D11Texture2DSet*>(RHITexture->GetTexture2D());
+		return D3D11TS->GetSwapTextureSet();
+	}
+
+	virtual void SwitchToNextElement() override
+	{
+		if (RHITexture.IsValid())
+		{
+			auto D3D11TS = static_cast<FD3D11Texture2DSet*>(RHITexture->GetTexture2D());
+			D3D11TS->SwitchToNextElement();
+		}
+	}
+
+	virtual void ReleaseResources() override
+	{
+		if (RHITexture.IsValid())
+		{
+			auto D3D11TS = static_cast<FD3D11Texture2DSet*>(RHITexture->GetTexture2D());
+			D3D11TS->ReleaseResources(OvrSession);
+			RHITexture = nullptr;
+		}
+	}
+
+protected:
+};
+
 
 void FD3D11Texture2DSet::AddTexture(ID3D11Texture2D* InTexture, ID3D11ShaderResourceView* InSRV, TArray<TRefCountPtr<ID3D11RenderTargetView> >* InRTVs)
 {
@@ -133,12 +180,12 @@ void FD3D11Texture2DSet::InitWithCurrentElement()
 	}
 }
 
-void FD3D11Texture2DSet::ReleaseResources(ovrHmd Hmd)
+void FD3D11Texture2DSet::ReleaseResources(ovrSession InOvrSession)
 {
 	if (TextureSet)
 	{
 		UE_LOG(LogHMD, Log, TEXT("Freeing textureSet 0x%p"), TextureSet);
-		ovr_DestroySwapTextureSet(Hmd, TextureSet);
+		ovr_DestroySwapTextureSet(InOvrSession, TextureSet);
 		TextureSet = nullptr;
 	}
 	Textures.Empty(0);
@@ -230,6 +277,10 @@ FD3D11Texture2DSet* FD3D11Texture2DSet::D3D11CreateTexture2DSet(
 		NewTextureSet->AddTexture(D3DTex.D3D11.pTexture, ShaderResourceView, &RenderTargetViews);
 	}
 
+	if (InFlags & TexCreate_RenderTargetable)
+	{
+		//NewTextureSet->SetCurrentGPUAccess(EResourceTransitionAccess::EWritable);
+	}
 	NewTextureSet->TextureSet = InTextureSet;
 	NewTextureSet->InitWithCurrentElement();
 	return NewTextureSet;
@@ -320,106 +371,134 @@ static FD3D11Texture2D* D3D11CreateTexture2DAlias(
 		FClearValueBinding::None
 		);
 
+	if (InFlags & TexCreate_RenderTargetable)
+	{
+		//NewTexture->SetCurrentGPUAccess(EResourceTransitionAccess::EWritable);
+	}
+
 	return NewTexture;
 }
 
-//////////////////////////////////////////////////////////////////////////
-FOculusRiftHMD::D3D11Bridge::D3D11Bridge(ovrHmd Hmd)
+
+//-------------------------------------------------------------------------------------------------
+// FOculusRiftHMD
+//-------------------------------------------------------------------------------------------------
+
+#pragma comment(lib, "dxgi")
+
+void FOculusRiftHMD::PreInit()
+{
+	// Find the adapterIndex where the HMD is connected
+	ovrHmd hmd;
+	ovrGraphicsLuid luid;
+
+	if(OVR_SUCCESS(ovr_Create(&hmd, &luid)))
+	{
+		SetHmdGraphicsAdapter(luid);
+		ovr_Destroy(hmd);
+	}
+}
+
+void FOculusRiftHMD::SetHmdGraphicsAdapter(const ovrGraphicsLuid& luid)
+{
+	TRefCountPtr<IDXGIFactory> DXGIFactory;
+
+	if(SUCCEEDED(CreateDXGIFactory(__uuidof(IDXGIFactory), (void**) DXGIFactory.GetInitReference())))
+	{
+		for(int32 adapterIndex = 0;; adapterIndex++)
+		{
+			TRefCountPtr<IDXGIAdapter> DXGIAdapter;
+			DXGI_ADAPTER_DESC DXGIAdapterDesc;
+
+			if( FAILED(DXGIFactory->EnumAdapters(adapterIndex, DXGIAdapter.GetInitReference())) ||
+				FAILED(DXGIAdapter->GetDesc(&DXGIAdapterDesc)) )
+			{
+				break;
+			}
+
+			if(!FMemory::Memcmp(&luid, &DXGIAdapterDesc.AdapterLuid, sizeof(LUID)))
+			{
+				// Remember this adapterIndex so we use the right adapter, even when we startup without HMD connected
+				IConsoleVariable* CVarHmdGraphicsAdapter = IConsoleManager::Get().FindConsoleVariable(L"r.HmdGraphicsAdapter");
+
+				if(CVarHmdGraphicsAdapter)
+				{
+					if(adapterIndex != CVarHmdGraphicsAdapter->GetInt())
+						CVarHmdGraphicsAdapter->Set(adapterIndex);
+				}
+
+				break;
+			}
+		}
+	}
+}
+
+bool FOculusRiftHMD::IsRHIUsingHmdGraphicsAdapter(const ovrGraphicsLuid& luid)
+{
+	if (IsPCPlatform(GMaxRHIShaderPlatform) && !IsOpenGLPlatform(GMaxRHIShaderPlatform))
+	{
+		TRefCountPtr<ID3D11Device> Device;
+
+		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+			GetNativeDevice,
+			TRefCountPtr<ID3D11Device>&, DeviceRef, Device,
+			{
+				DeviceRef = (ID3D11Device*) RHIGetNativeDevice();
+			});
+
+		FlushRenderingCommands();
+
+		if(Device)
+		{
+			TRefCountPtr<IDXGIDevice> DXGIDevice;
+			TRefCountPtr<IDXGIAdapter> DXGIAdapter;
+			DXGI_ADAPTER_DESC DXGIAdapterDesc;
+
+			if( SUCCEEDED(Device->QueryInterface(__uuidof(IDXGIDevice), (void**) DXGIDevice.GetInitReference())) &&
+				SUCCEEDED(DXGIDevice->GetAdapter(DXGIAdapter.GetInitReference())) &&
+				SUCCEEDED(DXGIAdapter->GetDesc(&DXGIAdapterDesc)) )
+			{
+				return !FMemory::Memcmp(&luid, &DXGIAdapterDesc.AdapterLuid, sizeof(LUID));
+			}
+		}
+	}
+
+	// Not enough information.  Assume that we are using the correct adapter.
+	return true;
+}
+
+
+//-------------------------------------------------------------------------------------------------
+// FOculusRiftHMD::D3D11Bridge
+//-------------------------------------------------------------------------------------------------
+
+FOculusRiftHMD::D3D11Bridge::D3D11Bridge(ovrSession InOvrSession)
 	: FCustomPresent()
 {
-	Init(Hmd);
+	Init(InOvrSession);
 }
 
-void FOculusRiftHMD::D3D11Bridge::SetHmd(ovrHmd InHmd)
+void FOculusRiftHMD::D3D11Bridge::SetHmd(ovrSession InOvrSession)
 {
-	if (InHmd != Hmd)
+	if (InOvrSession != OvrSession)
 	{
 		Reset();
-		Init(InHmd);
+		Init(InOvrSession);
 		bNeedReAllocateTextureSet = true;
 		bNeedReAllocateMirrorTexture = true;
 	}
 }
 
-void FOculusRiftHMD::D3D11Bridge::Init(ovrHmd InHmd)
+void FOculusRiftHMD::D3D11Bridge::Init(ovrSession InOvrSession)
 {
-	Hmd = InHmd;
+	OvrSession = InOvrSession;
 	bInitialized = true;
-}
-
-bool FOculusRiftHMD::D3D11Bridge::AllocateRenderTargetTexture(uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 InFlags, uint32 TargetableTextureFlags, FTexture2DRHIRef& OutTargetableTexture, FTexture2DRHIRef& OutShaderResourceTexture, uint32 NumSamples)
-{
-	check(SizeX != 0 && SizeY != 0);
-
-	if (!ColorTextureSet || (ColorTextureSet->GetSizeX() != SizeX || ColorTextureSet->GetSizeY() != SizeY || ColorTextureSet->GetFormat() != Format))
-	{
-		bNeedReAllocateTextureSet = true;
-	}
-
-	if (Hmd && bNeedReAllocateTextureSet)
-	{
-		auto D3D11RHI = static_cast<FD3D11DynamicRHI*>(GDynamicRHI);
-		if (ColorTextureSet)
-		{
-			ColorTextureSet->ReleaseResources(Hmd);
-			ColorTextureSet = nullptr;
-		}
-		ID3D11Device* D3DDevice = D3D11RHI->GetDevice();
-
-		const DXGI_FORMAT PlatformResourceFormat = (DXGI_FORMAT)GPixelFormats[Format].PlatformFormat;
-
-		D3D11_TEXTURE2D_DESC dsDesc;
-		dsDesc.Width = SizeX;
-		dsDesc.Height = SizeY;
-		dsDesc.MipLevels = 1;
-		dsDesc.ArraySize = 1;
-
-		// just make sure the proper format is used; if format is different then we might
-		// need to make some changes here.
-		check(PlatformResourceFormat == DXGI_FORMAT_B8G8R8A8_TYPELESS);
-
-		dsDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM_SRGB; // use SRGB for compositor
-		dsDesc.SampleDesc.Count = 1;
-		dsDesc.SampleDesc.Quality = 0;
-		dsDesc.Usage = D3D11_USAGE_DEFAULT;
-		dsDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
-		dsDesc.CPUAccessFlags = 0;
-		dsDesc.MiscFlags = 0;
-
-		ovrSwapTextureSet* textureSet;
-		ovrResult res = ovr_CreateSwapTextureSetD3D11(Hmd, D3DDevice, &dsDesc, ovrSwapTextureSetD3D11_Typeless, &textureSet);
-		if (!textureSet || res != ovrSuccess)
-		{
-			UE_LOG(LogHMD, Error, TEXT("Can't create swap texture set (size %d x %d), error = %d"), SizeX, SizeY, res);
-			return false;
-		}
-
-		// set the proper format for RTV & SRV
-		dsDesc.Format = PlatformResourceFormat; //DXGI_FORMAT_B8G8R8A8_UNORM;
-
-		bNeedReAllocateTextureSet = false;
-		bNeedReAllocateMirrorTexture = true;
-		UE_LOG(LogHMD, Log, TEXT("Allocated a new swap texture set (size %d x %d)"), SizeX, SizeY);
-
-		ColorTextureSet = FD3D11Texture2DSet::D3D11CreateTexture2DSet(
-			D3D11RHI,
-			textureSet,
-			dsDesc,
-			EPixelFormat(Format),
-			TexCreate_RenderTargetable | TexCreate_ShaderResource
-			);
-	}
-	if (ColorTextureSet)
-	{
-		OutTargetableTexture = ColorTextureSet->GetTexture2D();
-		OutShaderResourceTexture = ColorTextureSet->GetTexture2D();
-		return true;
-	}
-	return false;
 }
 
 void FOculusRiftHMD::D3D11Bridge::BeginRendering(FHMDViewExtension& InRenderContext, const FTexture2DRHIRef& RT)
 {
+	SCOPE_CYCLE_COUNTER(STAT_BeginRendering);
+
 	check(IsInRenderingThread());
 
 	SetRenderContext(&InRenderContext);
@@ -434,14 +513,14 @@ void FOculusRiftHMD::D3D11Bridge::BeginRendering(FHMDViewExtension& InRenderCont
 
 	const FVector2D ActualMirrorWindowSize = CurrentFrame->WindowSize;
 	// detect if mirror texture needs to be re-allocated or freed
-	if (Hmd && MirrorTextureRHI && (bNeedReAllocateMirrorTexture || Hmd != RenderContext->Hmd ||
+	if (OvrSession && MirrorTextureRHI && (bNeedReAllocateMirrorTexture || OvrSession != RenderContext->OvrSession ||
 		(FrameSettings->Flags.bMirrorToWindow && (
 		FrameSettings->MirrorWindowMode != FSettings::eMirrorWindow_Distorted ||
 		ActualMirrorWindowSize != FVector2D(MirrorTextureRHI->GetSizeX(), MirrorTextureRHI->GetSizeY()))) ||
 		!FrameSettings->Flags.bMirrorToWindow ))
 	{
 		check(MirrorTexture);
-		ovr_DestroyMirrorTexture(Hmd, MirrorTexture);
+		ovr_DestroyMirrorTexture(OvrSession, MirrorTexture);
 		MirrorTexture = nullptr;
 		MirrorTextureRHI = nullptr;
 		bNeedReAllocateMirrorTexture = false;
@@ -466,8 +545,8 @@ void FOculusRiftHMD::D3D11Bridge::BeginRendering(FHMDViewExtension& InRenderCont
 
 		ID3D11Device* D3DDevice = (ID3D11Device*)RHIGetNativeDevice();
 
-		ovrResult res = ovr_CreateMirrorTextureD3D11(Hmd, D3DDevice, &dsDesc, ovrSwapTextureSetD3D11_Typeless, &MirrorTexture);
-		if (!MirrorTexture || res != ovrSuccess)
+		ovrResult res = ovr_CreateMirrorTextureD3D11(OvrSession, D3DDevice, &dsDesc, ovrSwapTextureSetD3D11_Typeless, &MirrorTexture);
+		if (!MirrorTexture || !OVR_SUCCESS(res))
 		{
 			UE_LOG(LogHMD, Error, TEXT("Can't create a mirror texture, error = %d"), res);
 			return;
@@ -491,76 +570,16 @@ void FOculusRiftHMD::D3D11Bridge::BeginRendering(FHMDViewExtension& InRenderCont
 	}
 }
 
-void FOculusRiftHMD::D3D11Bridge::FinishRendering()
-{
-	check(IsInRenderingThread());
-	
-	check(RenderContext.IsValid());
-
-	if (RenderContext->bFrameBegun && ColorTextureSet)
-	{
-		if (!ColorTextureSet)
-		{
-			UE_LOG(LogHMD, Warning, TEXT("Skipping frame: TextureSet is null ?"));
-		}
-		else
-		{
-			// Finish the frame and let OVR do buffer swap (Present) and flush/sync.
-			FSettings* FrameSettings = RenderContext->GetFrameSettings();
-
-			check(ColorTextureSet->GetTextureSet());
-			FrameSettings->EyeLayer.EyeFov.ColorTexture[0] = ColorTextureSet->GetTextureSet();
-			FrameSettings->EyeLayer.EyeFov.ColorTexture[1] = ColorTextureSet->GetTextureSet();
-
-			ovrLayerHeader* LayerList[1];
-			LayerList[0] = &FrameSettings->EyeLayer.EyeFov.Header;
-
-			// Set up positional data.
-			ovrViewScaleDesc viewScaleDesc;
-			viewScaleDesc.HmdSpaceToWorldScaleInMeters = 1.0f;
-			viewScaleDesc.HmdToEyeViewOffset[0] = FrameSettings->EyeRenderDesc[0].HmdToEyeViewOffset;
-			viewScaleDesc.HmdToEyeViewOffset[1] = FrameSettings->EyeRenderDesc[1].HmdToEyeViewOffset;
-
-			ovrResult res = ovr_SubmitFrame(RenderContext->Hmd, RenderContext->RenderFrame->FrameNumber, &viewScaleDesc, LayerList, 1);
-			if (res != ovrSuccess)
-			{
-				UE_LOG(LogHMD, Warning, TEXT("Error at SubmitFrame, err = %d"), int(res));
-				
-				if (res == ovrError_DisplayLost)
-				{
-					bNeedReAllocateMirrorTexture = bNeedReAllocateTextureSet = true;
-					FPlatformAtomics::InterlockedExchange(&NeedToKillHmd, 1);
-				}
-			}
-
-			if (RenderContext->ShowFlags.Rendering)
-			{
-				ColorTextureSet->SwitchToNextElement();
-			}
-		}
-	}
-	else
-	{
-		UE_LOG(LogHMD, Warning, TEXT("Skipping frame: FinishRendering called with no corresponding BeginRendering (was BackBuffer re-allocated?)"));
-	}
-	RenderContext->bFrameBegun = false;
-	SetRenderContext(nullptr);
-}
-
 void FOculusRiftHMD::D3D11Bridge::Reset_RenderThread()
 {
 	if (MirrorTexture)
 	{
-		ovr_DestroyMirrorTexture(Hmd, MirrorTexture);
+		ovr_DestroyMirrorTexture(OvrSession, MirrorTexture);
 		MirrorTextureRHI = nullptr;
 		MirrorTexture = nullptr;
 	}
-	if (ColorTextureSet)
-	{
-		ColorTextureSet->ReleaseResources(Hmd);
-		ColorTextureSet = nullptr;
-	}
-	Hmd = nullptr;
+	LayerMgr.ReleaseRenderLayers_RenderThread();
+	OvrSession = nullptr;
 
 	if (RenderContext.IsValid())
 	{
@@ -587,6 +606,59 @@ void FOculusRiftHMD::D3D11Bridge::Reset()
 	}
 
 	bInitialized = false;
+}
+
+FTexture2DSetProxyRef FOculusRiftHMD::D3D11Bridge::CreateTextureSet(uint32 InSizeX, uint32 InSizeY, EPixelFormat InFormat, uint32 InNumMips, uint32 InFlags)
+{
+	auto D3D11RHI = static_cast<FD3D11DynamicRHI*>(GDynamicRHI);
+	ID3D11Device* D3DDevice = D3D11RHI->GetDevice();
+
+	const DXGI_FORMAT PlatformResourceFormat = (DXGI_FORMAT)GPixelFormats[InFormat].PlatformFormat;
+
+	D3D11_TEXTURE2D_DESC dsDesc;
+	dsDesc.Width = InSizeX;
+	dsDesc.Height = InSizeY;
+	dsDesc.MipLevels = InNumMips;
+	dsDesc.ArraySize = 1;
+
+	// just make sure the proper format is used; if format is different then we might
+	// need to make some changes here.
+	check(PlatformResourceFormat == DXGI_FORMAT_B8G8R8A8_TYPELESS);
+
+	dsDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM_SRGB; // use SRGB for compositor
+	dsDesc.SampleDesc.Count = 1;
+	dsDesc.SampleDesc.Quality = 0;
+	dsDesc.Usage = D3D11_USAGE_DEFAULT;
+	dsDesc.BindFlags = ((InFlags & TexCreate_ShaderResource) ? D3D11_BIND_SHADER_RESOURCE : 0) | 
+					   ((InFlags & TexCreate_RenderTargetable) ? D3D11_BIND_RENDER_TARGET : 0);
+	dsDesc.CPUAccessFlags = 0;
+	dsDesc.MiscFlags = 0;
+
+	ovrSwapTextureSet* textureSet;
+	ovrResult res = ovr_CreateSwapTextureSetD3D11(OvrSession, D3DDevice, &dsDesc, ovrSwapTextureSetD3D11_Typeless, &textureSet);
+	if (!textureSet || !OVR_SUCCESS(res))
+	{
+		UE_LOG(LogHMD, Error, TEXT("Can't create swap texture set (size %d x %d), error = %d"), InSizeX, InSizeY, res);
+		return false;
+	}
+
+	// set the proper format for RTV & SRV
+	dsDesc.Format = PlatformResourceFormat; //DXGI_FORMAT_B8G8R8A8_UNORM;
+
+	UE_LOG(LogHMD, Log, TEXT("Allocated a new swap texture set (size %d x %d), 0x%p"), InSizeX, InSizeY, textureSet);
+
+	TRefCountPtr<FD3D11Texture2DSet> ColorTextureSet = FD3D11Texture2DSet::D3D11CreateTexture2DSet(
+		D3D11RHI,
+		textureSet,
+		dsDesc,
+		EPixelFormat(InFormat),
+		InFlags
+		);
+	if (ColorTextureSet)
+	{
+		return MakeShareable(new FD3D11Texture2DSetProxy(OvrSession, ColorTextureSet->GetTexture2D(), InSizeX, InSizeY, InFormat));
+	}
+	return nullptr;
 }
 
 #if PLATFORM_WINDOWS

@@ -1,8 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CrashReportClientApp.h"
+#include "EngineVersion.h"
 #include "CrashDescription.h"
 #include "CrashReportAnalytics.h"
+#include "QoSReporter.h"
 
 #if !CRASH_REPORT_UNATTENDED_ONLY
 	#include "SCrashReportClient.h"
@@ -48,11 +50,41 @@ void ParseCommandLine(const TCHAR* CommandLine)
 	// Use the first argument if present and it's not a flag
 	if (*CommandLineAfterExe)
 	{
-		if (*CommandLineAfterExe != '-')
+		TArray<FString> Switches;
+		TArray<FString> Tokens;
+		TMap<FString, FString> Params;
 		{
-			ReportDirectoryAbsolutePath = FParse::Token(CommandLineAfterExe, true /* handle escaped quotes */);
+			FString NextToken;
+			while (FParse::Token(CommandLineAfterExe, NextToken, false))
+			{
+				if (**NextToken == TCHAR('-'))
+				{
+					new(Switches)FString(NextToken.Mid(1));
+				}
+				else
+				{
+					new(Tokens)FString(NextToken);
+				}
+			}
+
+			for (int32 SwitchIdx = Switches.Num() - 1; SwitchIdx >= 0; --SwitchIdx)
+			{
+				FString& Switch = Switches[SwitchIdx];
+				TArray<FString> SplitSwitch;
+				if (2 == Switch.ParseIntoArray(SplitSwitch, TEXT("="), true))
+				{
+					Params.Add(SplitSwitch[0], SplitSwitch[1].TrimQuotes());
+					Switches.RemoveAt(SwitchIdx);
+				}
+			}
 		}
-		FParse::Value( CommandLineAfterExe, TEXT( "AppName=" ), GameNameFromCmd );
+
+		if (Tokens.Num() > 0)
+		{
+			ReportDirectoryAbsolutePath = Tokens[0];
+		}
+
+		GameNameFromCmd = Params.FindRef("AppName");
 	}
 
 	if (ReportDirectoryAbsolutePath.IsEmpty())
@@ -86,6 +118,7 @@ FPlatformErrorReport LoadErrorReport()
 	}
 	else
 	{
+		UE_LOG(CrashReportClientLog, Warning, TEXT("No error report found"));
 		return FPlatformErrorReport();
 	}
 
@@ -132,75 +165,88 @@ void RunCrashReportClient(const TCHAR* CommandLine)
 	FPlatformErrorReport::Init();
 	auto ErrorReport = LoadErrorReport();
 	
-	if (bUnattended)
+	if (ErrorReport.HasFilesToUpload() && FPrimaryCrashProperties::Get() != nullptr)
 	{
-		// In the unattended mode we don't send any PII.
-		ErrorReport.SetUserComment( NSLOCTEXT( "CrashReportClient", "UnattendedMode", "Sent in the unattended mode" ) );
-		FCrashReportClientUnattended CrashReportClient( ErrorReport );
+		FCrashReportAnalytics::Initialize();
+		FQoSReporter::Initialize();
+		FQoSReporter::SetBackendDeploymentName(FPrimaryCrashProperties::Get()->DeploymentName);
 
-		// loop until the app is ready to quit
-		while (!GIsRequestingExit)
+		if (bUnattended)
 		{
-			MainLoop.Tick();
-		}
-	}
-	else
-	{
-#if !CRASH_REPORT_UNATTENDED_ONLY
-		// crank up a normal Slate application using the platform's standalone renderer
-		FSlateApplication::InitializeAsStandaloneApplication(GetStandardStandaloneRenderer());
+			// In the unattended mode we don't send any PII.
+			FCrashReportClientUnattended CrashReportClient(ErrorReport);
+			ErrorReport.SetUserComment(NSLOCTEXT("CrashReportClient", "UnattendedMode", "Sent in the unattended mode"));
 
-		// Prepare the custom Slate styles
-		FCrashReportClientStyle::Initialize();
-
-		// Create the main implementation object
-		TSharedRef<FCrashReportClient> CrashReportClient = MakeShareable(new FCrashReportClient(ErrorReport));
-
-		// open up the app window	
-		TSharedRef<SCrashReportClient> ClientControl = SNew(SCrashReportClient, CrashReportClient);
-
-		auto Window = FSlateApplication::Get().AddWindow(
-			SNew(SWindow)
-			.Title(NSLOCTEXT("CrashReportClient", "CrashReportClientAppName", "Unreal Engine 4 Crash Reporter"))
-			.ClientSize(InitialWindowDimensions)
-			[
-				ClientControl
-			]);
-
-		Window->SetRequestDestroyWindowOverride(FRequestDestroyWindowOverride::CreateSP(CrashReportClient, &FCrashReportClient::RequestCloseWindow));
-
-		// Setting focus seems to have to happen after the Window has been added
-		FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::Cleared);
-
-		// Debugging code
-		if (RunWidgetReflector)
-		{
-			FModuleManager::LoadModuleChecked<ISlateReflectorModule>("SlateReflector").DisplayWidgetReflector();
-		}
-
-		// loop until the app is ready to quit
-		while (!GIsRequestingExit)
-		{
-			MainLoop.Tick();
-
-			if (CrashReportClient->ShouldWindowBeHidden())
+			// loop until the app is ready to quit
+			while (!GIsRequestingExit)
 			{
-				Window->HideWindow();
+				MainLoop.Tick();
 			}
 		}
+		else
+		{
+#if !CRASH_REPORT_UNATTENDED_ONLY
+			// crank up a normal Slate application using the platform's standalone renderer
+			FSlateApplication::InitializeAsStandaloneApplication(GetStandardStandaloneRenderer());
 
-		// Clean up the custom styles
-		FCrashReportClientStyle::Shutdown();
+			// Prepare the custom Slate styles
+			FCrashReportClientStyle::Initialize();
 
-		// Close down the Slate application
-		FSlateApplication::Shutdown();
+			// Create the main implementation object
+			TSharedRef<FCrashReportClient> CrashReportClient = MakeShareable(new FCrashReportClient(ErrorReport));
+
+			// open up the app window	
+			TSharedRef<SCrashReportClient> ClientControl = SNew(SCrashReportClient, CrashReportClient);
+
+			auto Window = FSlateApplication::Get().AddWindow(
+				SNew(SWindow)
+				.Title(NSLOCTEXT("CrashReportClient", "CrashReportClientAppName", "Unreal Engine 4 Crash Reporter"))
+				.HasCloseButton(FCrashReportClientConfig::Get().IsAllowedToCloseWithoutSending())
+				.ClientSize(InitialWindowDimensions)
+				[
+					ClientControl
+				]);
+
+			Window->SetRequestDestroyWindowOverride(FRequestDestroyWindowOverride::CreateSP(CrashReportClient, &FCrashReportClient::RequestCloseWindow));
+
+			// Setting focus seems to have to happen after the Window has been added
+			FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::Cleared);
+
+			// Debugging code
+			if (RunWidgetReflector)
+			{
+				FModuleManager::LoadModuleChecked<ISlateReflectorModule>("SlateReflector").DisplayWidgetReflector();
+			}
+
+			// loop until the app is ready to quit
+			while (!GIsRequestingExit)
+			{
+				MainLoop.Tick();
+
+				if (CrashReportClient->ShouldWindowBeHidden())
+				{
+					Window->HideWindow();
+				}
+			}
+
+			// Clean up the custom styles
+			FCrashReportClientStyle::Shutdown();
+
+			// Close down the Slate application
+			FSlateApplication::Shutdown();
 #endif // !CRASH_REPORT_UNATTENDED_ONLY
+		}
+
+		// Shutdown analytics.
+		FCrashReportAnalytics::Shutdown();
+		FQoSReporter::Shutdown();
 	}
 
 	FPrimaryCrashProperties::Shutdown();
 	FPlatformErrorReport::ShutDown();
 
 	FEngineLoop::AppPreExit();
+	FModuleManager::Get().UnloadModulesAtShutdown();
 	FTaskGraphInterface::Shutdown();
 
 	FEngineLoop::AppExit();

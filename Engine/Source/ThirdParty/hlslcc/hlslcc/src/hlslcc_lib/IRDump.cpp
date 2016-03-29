@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 // This code is largely based on that in ir_print_glsl_visitor.cpp from
 // glsl-optimizer.
@@ -46,6 +46,11 @@
 #else
 	#define irdump_printf printf
 #endif
+
+static inline void irdump_flush()
+{
+	fflush(stdout);
+}
 
 DebugPrintVisitor::DebugPrintVisitor(bool bSingleEntry) :
 	Indentation(0),
@@ -760,16 +765,19 @@ void IRDump(exec_list* ir, _mesa_glsl_parse_state* State, const char* S)
 	irdump_printf("## Begin IR dump: %s\n", S);
 	DebugPrintVisitor::Dump(ir, State);
 	irdump_printf("###########################################################################\n");
+	irdump_flush();
 }
 
 void IRDump(ir_instruction* ir)
 {
 	DebugPrintVisitor Visitor(true);
 	ir->accept(&Visitor);
+	irdump_flush();
 }
 
 void IRDump(ir_instruction* IRFirst, ir_instruction* IRLast)
 {
 	DebugPrintVisitor Visitor;
 	VisitRange(&Visitor, IRFirst, IRLast);
+	irdump_flush();
 }

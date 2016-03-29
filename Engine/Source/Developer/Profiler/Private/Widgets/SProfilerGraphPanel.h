@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -33,7 +33,7 @@ public:
 
 protected:
 	/** Called when the status of specified tracked stat has changed. */
-	void ProfilerManager_OnTrackedStatChanged( const FTrackedStat& TrackedStat, bool bIsTracked );
+	void ProfilerManager_OnTrackedStatChanged( const FTrackedStatPtr& TrackedStat, bool bIsTracked );
 
 	/**
 	 * Called when the user scrolls the scrollbar

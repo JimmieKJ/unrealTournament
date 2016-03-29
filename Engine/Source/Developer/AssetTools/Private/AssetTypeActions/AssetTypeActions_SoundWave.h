@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -19,4 +19,9 @@ private:
 
 	/** Creates a SoundCue of the same name for the sound, if one does not already exist */
 	void ExecuteCreateSoundCue(TArray<TWeakObjectPtr<USoundWave>> Objects);
+
+	/** Creates a DialogueWave of the same name for the sound, if one does not already exist */
+	void ExecuteCreateDialogueWave(const class FAssetData& AssetData, TArray<TWeakObjectPtr<USoundWave>> Objects);
+
+	void FillVoiceMenu(FMenuBuilder& MenuBuilder, TArray<TWeakObjectPtr<USoundWave>> Objects);
 };

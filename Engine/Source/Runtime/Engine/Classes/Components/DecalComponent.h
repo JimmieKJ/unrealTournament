@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -26,11 +26,47 @@ class ENGINE_API UDecalComponent : public USceneComponent
 	 * Controls the order in which decal elements are rendered.  Higher values draw later (on top). 
 	 * Setting many different sort orders on many different decals prevents sorting by state and can reduce performance.
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Decal)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Decal)
 	int32 SortOrder;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Decal)
 	float FadeScreenSize;
+
+	/**
+	* Time in seconds to wait before beginning to fade out the decal. Set fade duration and start delay to 0 to make persistent.
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Decal)
+	float FadeStartDelay;
+
+	/**
+	* Time in seconds for the decal to fade out. Set fade duration and start delay to 0 to make persistent.
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Decal)
+	float FadeDuration;
+
+	/**
+	* Automatically destroys the owning actor after fully fading out.
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Decal)
+	uint8 bDestroyOwnerAfterFade : 1;
+
+	UFUNCTION(BlueprintCallable, Category = "Rendering|Components|Decal")
+	float GetFadeStartDelay() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Rendering|Components|Decal")
+	float GetFadeDuration() const;
+
+	/**
+	* Sets the decal's fade start time, duration and if the owning actor should be destroyed after the decal is fully faded out.
+	* The default value of 0 for FadeStartDelay and FadeDuration makes the decal persistent. See DecalLifetimeOpacity material 
+	* node to control the look of "fading out."
+	*
+	* @param StartDelay - Time in seconds to wait before beginning to fade out the decal.
+	* @param Duration - Time in second for the decal to fade out.
+	* @param DestroyOwnerAfterFade - Should the owning actor automatically be destroyed after it is completely faded out.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Rendering|Components|Decal")
+	void SetFadeOut(float StartDelay, float Duration, bool DestroyOwnerAfterFade = true);
 
 	/** Decal size in local space (does not include the component scale), technically redundant but there for convenience */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Decal, meta=(AllowPreserveRatio = "true"))
@@ -97,8 +133,10 @@ public:
 			SetDecalMaterial(InMaterial);
 		}
 	}
+
 	
 	//~ Begin UActorComponent Interface
+	virtual void BeginPlay() override;
 	virtual void CreateRenderState_Concurrent() override;
 	virtual void DestroyRenderState_Concurrent() override;
 	virtual void SendRenderTransform_Concurrent() override;

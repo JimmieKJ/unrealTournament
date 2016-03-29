@@ -1,55 +1,72 @@
+
+# use build_html.sh to set/build the following variables
+#	OPTIMIZATION=
+#	LIB=
+
+ZLIB_HEADER=../../zlib/zlib-1.2.5/Inc
+
+
 CC=emcc
+CFLAGS= $(OPTIMIZATION) -I$(ZLIB_HEADER) -Wall
+LDFLAGS= $(OPTIMIZATION)
 
-CFLAGS = -O2
+MKDIR=mkdir -p
+RM=rm -f
+CP=cp -vf
 
-SOURCES= \
-  png.c\
-  pngerror.c\
-  pngget.c\
-  pngmem.c\
-  pngpread.c\
-  pngread.c\
-  pngrio.c\
-  pngrtran.c\
-  pngrutil.c\
-  pngset.c\
-  pngtrans.c\
-  pngwio.c\
-  pngwrite.c\
-  pngwtran.c\
-  pngwutil.c\
+# ----------------------------------------
 
-OBJECTS=$(SOURCES:.c=.bc)
+INTERMEDIATE=Intermediate
 
-ZLIB_HEADER=..\..\zlib\zlib-1.2.5\Inc\
+$(INTERMEDIATE):
+	$(MKDIR) $(INTERMEDIATE)
 
-LIBPNG = libpng.bc
+# ----------------------------------------
 
-libpng: $(SOURCES) $(LIBPNG)
+SOURCES= png.c \
+		pngerror.c \
+		pngget.c \
+		pngmem.c \
+		pngpread.c \
+		pngread.c \
+		pngrio.c \
+		pngrtran.c \
+		pngrutil.c \
+		pngset.c \
+		pngtrans.c \
+		pngwio.c \
+		pngwrite.c \
+		pngwtran.c \
+		pngwutil.c \
 
-.c.bc:
+# ----------------------------------------
+
+OBJECTS=$(SOURCES:%.c=$(INTERMEDIATE)/%.bc)
+
+$(INTERMEDIATE)/%.bc : %.c
 	$(CC) $(CFLAGS) $< -o $@
-	
-$(LIBPNG): $(OBJECTS) 
-	$(CC) $(OBJECTS) -o $@
 
-install: libpng 
-	xcopy libpng.bc lib\HTML5\ /F /R /Y /I
+TARGET=$(INTERMEDIATE)/$(LIB)
+
+$(TARGET): $(INTERMEDIATE) $(OBJECTS)
+	$(CC) $(LDFLAGS) $(OBJECTS) -o $@
+
+all: $(SOURCES) $(TARGET)
+
+install: all 
+	$(CP) $(TARGET) lib/HTML5/.
 
 uninstall:
-	del lib\HTML5\libpng.bc /F 
-	
-zlib: 
-	copy ..\..\zlib\zlib-1.2.5\Src\zlib.bc .
-	
-all: libpng zlib
+	$(RM) lib/HTML5/$(LIB)
 
 clean:
-	del /S *.bc *.js 
+	$(RM) $(OBJECTS) $(TARGET)
 
-test: all pngtest.bc
-	  $(CC) -I$(ZLIB_HEADER) -O2  -o pngtest.js pngtest.bc $(LIBPNG) zlib.bc --embed-file pngtest.png
+# ----------------------------------------
 
+zlib: 
+	cp ../../zlib/zlib-1.2.5/Lib/HTML5/zlib_Oz.bc .
 
-	
-	
+test: all zlib pngtest.bc
+	  $(CC) -I$(ZLIB_HEADER) -Oz -o pngtest.js pngtest.bc $(TARGET) zlib_Oz.bc --embed-file pngtest.png
+

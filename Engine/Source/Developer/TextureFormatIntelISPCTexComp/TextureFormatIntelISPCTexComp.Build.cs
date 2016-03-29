@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -22,6 +22,11 @@ public class TextureFormatIntelISPCTexComp : ModuleRules
 			}
 			);
 
-		AddThirdPartyPrivateStaticDependencies(Target, "IntelISPCTexComp");
+		AddEngineThirdPartyPrivateStaticDependencies(Target, "IntelISPCTexComp");
+
+		if (Target.Platform != UnrealTargetPlatform.Win64 && Target.Platform != UnrealTargetPlatform.Win32)
+		{
+			PrecompileForTargets = PrecompileTargetsType.None;
+		}
 	}
 }

@@ -2,15 +2,21 @@
 
 #pragma once
 
-class FStereoPanoramaModule : public IModuleInterface
-{
-private:
-	/** IModuleInterface - initialize the module */
-	virtual void StartupModule() override;
 
-	/** IModuleInterface - shutdown the module */
+/**
+ * Implements the StereoPanorama module.
+ */
+class FStereoPanoramaModule
+	: public IModuleInterface
+{
+public:
+
+	//~ IModuleInterface interface
+
+	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
 
 public:
+
 	static TSharedPtr<FStereoPanoramaManager> Get();
 };

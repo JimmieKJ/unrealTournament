@@ -1,20 +1,22 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "ModuleManager.h"
 
-/** Build module type, mirrored in UEBuildModule.cs, enum UEBUildModuletype */
+/** Build module type, mirrored in UEBuildModule.cs, enum UEBuildModuletype */
 struct EBuildModuleType
 {
 	enum Type
 	{
-		Unknown,
-		Runtime,
-		Developer,
-		Editor,
-		ThirdParty,
 		Program,
-		Game,
+		EngineRuntime,
+		EngineDeveloper,
+		EngineEditor,
+		EngineThirdParty,
+		GameRuntime,
+		GameDeveloper,
+		GameEditor,
+		GameThirdParty,
 		// NOTE: If you add a new value, make sure to update the ToString() method below!
 
 		Max
@@ -42,42 +44,7 @@ struct EBuildModuleType
 	*
 	* @return	The enum value corresponding to the name
 	*/
-	inline static const EBuildModuleType::Type Parse(const TCHAR* Value)
-	{
-		if (FCString::Stricmp(Value, TEXT("Unknown")) == 0)
-		{
-			return Unknown;
-		}
-		else if (FCString::Stricmp(Value, TEXT("Runtime")) == 0)
-		{
-			return Runtime;
-		}
-		else if (FCString::Stricmp(Value, TEXT("Developer")) == 0)
-		{
-			return Developer;
-		}
-		else if (FCString::Stricmp(Value, TEXT("Editor")) == 0)
-		{
-			return Editor;
-		}
-		else if (FCString::Stricmp(Value, TEXT("ThirdParty")) == 0)
-		{
-			return ThirdParty;
-		}
-		else if (FCString::Stricmp(Value, TEXT("Program")) == 0)
-		{
-			return Program;
-		}
-		else if (FCString::Stricmp(Value, TEXT("Game")) == 0)
-		{
-			return Game;
-		}
-		else
-		{
-			FError::Throwf(TEXT("Unrecognized EBuildModuleType name: %s"), Value);
-			return Unknown;
-		}
-	}
+	static EBuildModuleType::Type Parse(const TCHAR* Value);
 };
 
 /**

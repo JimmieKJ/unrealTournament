@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "LevelUtils.h"
@@ -35,7 +35,7 @@ public:
 
 	FMaterialSpriteVertexFactory()
 	{
-		FLocalVertexFactory::DataType Data;
+		FLocalVertexFactory::FDataType Data;
 
 		Data.PositionComponent = FVertexStreamComponent(
 			&GDummyMaterialSpriteVertexBuffer,
@@ -302,6 +302,16 @@ void UMaterialBillboardComponent::AddElement(
 
 	MarkRenderStateDirty();
 }
+
+void UMaterialBillboardComponent::SetElements(const TArray<FMaterialSpriteElement>& NewElements)
+{
+	// Replace existing array
+	Elements = NewElements;
+
+	// Indicate scene proxy needs to be updated
+	MarkRenderStateDirty();
+}
+
 
 UMaterialInterface* UMaterialBillboardComponent::GetMaterial(int32 Index) const
 {

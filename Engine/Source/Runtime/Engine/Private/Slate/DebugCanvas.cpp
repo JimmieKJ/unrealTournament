@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "SlateBasics.h"
@@ -30,7 +30,7 @@ public:
 		: Canvas(RenderTarget, NULL, InWorld, InWorld ? InWorld->FeatureLevel : GMaxRHIFeatureLevel)
 	{
 		// Do not allow the canvas to be flushed outside of our debug rendering path
-		Canvas.SetAllowedModes( 0 );
+		Canvas.SetAllowedModes( FCanvas::Allow_DeleteOnRender );
 		++Counter.Creations;
 	}
 

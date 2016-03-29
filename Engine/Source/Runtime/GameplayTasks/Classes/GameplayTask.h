@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "GameplayTaskOwnerInterface.h"
@@ -220,6 +220,7 @@ public:
 	
 	FORCEINLINE EGameplayTaskState GetState() const { return TaskState; }
 	FORCEINLINE bool IsActive() const { return (TaskState == EGameplayTaskState::Active); }
+	FORCEINLINE bool IsFinished() const { return (TaskState == EGameplayTaskState::Finished); }
 	
 	IGameplayTaskOwnerInterface* GetTaskOwner() const { return TaskOwner.IsValid() ? &(*TaskOwner) : nullptr; }
 	UGameplayTasksComponent* GetGameplayTasksComponent() { return TasksComponent.Get(); }
@@ -257,6 +258,8 @@ public:
 	ETaskResourceOverlapPolicy GetResourceOverlapPolicy() const { return ResourceOverlapPolicy; }
 
 	virtual bool IsWaitingOnRemotePlayerdata() const { return false; }
+
+	virtual bool IsWaitingOnAvatar() const { return false; }
 
 protected:
 	/** End and CleanUp the task - may be called by the task itself or by the task owner if the owner is ending. 

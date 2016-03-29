@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "AIGraph.generated.h"
@@ -20,6 +20,7 @@ class AIGRAPH_API UAIGraph : public UEdGraph
 	virtual void MarkVersion();
 
 	virtual void OnSubNodeDropped();
+	virtual void OnNodesPasted(const FString& ImportStr);
 
 	bool UpdateUnknownNodeClasses();
 	void UpdateDeprecatedClasses();
@@ -39,6 +40,7 @@ protected:
 
 	virtual void CollectAllNodeInstances(TSet<UObject*>& NodeInstances);
 	virtual bool CanRemoveNestedObject(UObject* TestObject) const;
+	virtual void OnNodeInstanceRemoved(UObject* NodeInstance);
 
 	UEdGraphPin* FindGraphNodePin(UEdGraphNode* Node, EEdGraphPinDirection Dir);
 };

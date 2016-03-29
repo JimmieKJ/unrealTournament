@@ -1,11 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	D3D11RHIPrivate.h: Private D3D RHI definitions.
 =============================================================================*/
 
-#ifndef __D3D11RHIPRIVATE_H__
-#define __D3D11RHIPRIVATE_H__
+#pragma once
 
 #include "D3D11RHI.h"
 // Dependencies.
@@ -31,7 +30,8 @@ DECLARE_LOG_CATEGORY_EXTERN(LogD3D11RHI, Log, All);
 #if UE_BUILD_SHIPPING || UE_BUILD_TEST
 #define CHECK_SRV_TRANSITIONS 0
 #else
-#define CHECK_SRV_TRANSITIONS 1
+//Feature is broken, and also will leak memory when the program is alt-tabbed.  disable for now.
+#define CHECK_SRV_TRANSITIONS 0
 #endif
 
 // DX11 doesn't support higher MSAA count
@@ -270,7 +270,7 @@ struct FD3DGPUProfiler : public FGPUProfiler
 		return EventNode;
 	}
 
-	virtual void PushEvent(const TCHAR* Name) override;
+	virtual void PushEvent(const TCHAR* Name, FColor Color) override;
 	virtual void PopEvent() override;
 
 	void BeginFrame(class FD3D11DynamicRHI* InRHI);
@@ -289,7 +289,7 @@ public:
 	TMap<FD3D11LockedKey,FD3D11LockedData> OutstandingLocks;
 
 	/** Initialization constructor. */
-	FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEVEL InFeatureLevel,int32 InChosenAdapter);
+	FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEVEL InFeatureLevel,int32 InChosenAdapter, const DXGI_ADAPTER_DESC& ChosenDescription);
 
 	/** Destructor */
 	virtual ~FD3D11DynamicRHI();
@@ -300,6 +300,8 @@ public:
 	// FDynamicRHI interface.
 	virtual void Init() override;
 	virtual void Shutdown() override;
+
+	virtual void FlushPendingLogs() override;
 
 	template<typename TRHIType>
 	static FORCEINLINE typename TD3D11ResourceTraits<TRHIType>::TConcreteType* ResourceCast(TRHIType* Resource)
@@ -347,6 +349,7 @@ public:
 	virtual FUnorderedAccessViewRHIRef RHICreateUnorderedAccessView(FVertexBufferRHIParamRef VertexBuffer, uint8 Format) final override;
 	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView(FStructuredBufferRHIParamRef StructuredBuffer) final override;
 	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView(FVertexBufferRHIParamRef VertexBuffer, uint32 Stride, uint8 Format) final override;
+	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView(FIndexBufferRHIParamRef Buffer) final override;
 	virtual uint64 RHICalcTexture2DPlatformSize(uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 NumSamples, uint32 Flags, uint32& OutAlign) final override;
 	virtual uint64 RHICalcTexture3DPlatformSize(uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint8 Format, uint32 NumMips, uint32 Flags, uint32& OutAlign) final override;
 	virtual uint64 RHICalcTextureCubePlatformSize(uint32 Size, uint8 Format, uint32 NumMips, uint32 Flags, uint32& OutAlign) final override;
@@ -486,7 +489,7 @@ public:
 	virtual void RHIClear(bool bClearColor, const FLinearColor& Color, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntRect ExcludeRect) final override;
 	virtual void RHIClearMRT(bool bClearColor, int32 NumClearColors, const FLinearColor* ColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntRect ExcludeRect) final override;
 	virtual void RHIEnableDepthBoundsTest(bool bEnable, float MinDepth, float MaxDepth) final override;
-	virtual void RHIPushEvent(const TCHAR* Name) final override;
+	virtual void RHIPushEvent(const TCHAR* Name, FColor Color) final override;
 	virtual void RHIPopEvent() final override;
 	virtual void RHIBeginAsyncComputeJob_DrawThread(EAsyncComputePriority Priority);
 	virtual void RHIEndAsyncComputeJob_DrawThread(uint32 FenceIndex);
@@ -507,7 +510,14 @@ public:
 		return DXGIFactory1;
 	}
 private:	
-	virtual void RHIClearMRTImpl(bool bClearColor, int32 NumClearColors, const FLinearColor* ColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntRect ExcludeRect, bool bForceShaderClear);
+
+	enum class EForceFullScreenClear
+	{
+		EDoNotForce,
+		EForce
+	};
+
+	virtual void RHIClearMRTImpl(bool bClearColor, int32 NumClearColors, const FLinearColor* ColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntRect ExcludeRect, bool bForceShaderClear, EForceFullScreenClear ForceFullScreen);
 
 	template <EShaderFrequency ShaderFrequency>
 	void ClearShaderResourceViews(FD3D11BaseShaderResource* Resource);
@@ -682,12 +692,15 @@ protected:
 		int32 ArraySlice;
 		int32 ArraySize;
 	};
+	FThreadSafeCounter UnresolvedTargetsConcurrencyGuard;
 	TMultiMap<ID3D11Resource*, FUnresolvedRTInfo> UnresolvedTargets;
 #endif
 
 	FD3DGPUProfiler GPUProfilingData;
 	// >= 0, was computed before, unless hardware was changed during engine init it should be the same
 	int32 ChosenAdapter;
+	// we don't use AdapterDesc.Description as there is a bug with Optimus where it can report the wrong name
+	DXGI_ADAPTER_DESC ChosenDescription;
 
 	template<typename BaseResourceType>
 	TD3D11Texture2D<BaseResourceType>* CreateD3D11Texture2D(uint32 SizeX,uint32 SizeY,uint32 SizeZ,bool bTextureArray,bool CubeTexture,uint8 Format,
@@ -811,6 +824,8 @@ public:
 
 private:
 	FD3D11Adapter ChosenAdapter;
+	// we don't use GetDesc().Description as there is a bug with Optimus where it can report the wrong name
+	DXGI_ADAPTER_DESC ChosenDescription;
 
 	// set MaxSupportedFeatureLevel and ChosenAdapter
 	void FindAdapter();
@@ -1318,6 +1333,3 @@ private:
 	// ordered from small to large (for efficient compactening)
 	TArray<FRange> Entries;
 };
-
-
-#endif

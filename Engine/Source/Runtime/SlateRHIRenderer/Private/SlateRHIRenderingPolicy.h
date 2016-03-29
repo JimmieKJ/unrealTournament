@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -10,14 +10,14 @@ class FSlateRHIResourceManager;
 class FSlateRHIRenderingPolicy : public FSlateRenderingPolicy
 {
 public:
-	FSlateRHIRenderingPolicy(TSharedRef<FSlateFontServices> InSlateFontServices, TSharedRef<FSlateRHIResourceManager> InResourceManager);
-	~FSlateRHIRenderingPolicy();
+	FSlateRHIRenderingPolicy(TSharedRef<FSlateFontServices> InSlateFontServices, TSharedRef<FSlateRHIResourceManager> InResourceManager, TOptional<int32> InitialBufferSize = TOptional<int32>());
 
 	void UpdateVertexAndIndexBuffers(FRHICommandListImmediate& RHICmdList, FSlateBatchData& BatchData);
 	void UpdateVertexAndIndexBuffers(FRHICommandListImmediate& RHICmdList, FSlateBatchData& BatchData, const TSharedRef<FSlateRenderDataHandle, ESPMode::ThreadSafe>& RenderHandle);
 
-	void ReleaseCachedRenderData(FSlateRenderDataHandle* InRenderHandle);
-	void ReleaseCachingResourcesFor(const ILayoutCache* Cacher);
+	void ReleaseCachingResourcesFor(FRHICommandListImmediate& RHICmdList, const ILayoutCache* Cacher);
+
+	void SetDefaultBlendMode(const FBlendStateInitializerRHI& BlendState);
 
 	virtual void DrawElements(FRHICommandListImmediate& RHICmdList, class FSlateBackBuffer& BackBuffer, const FMatrix& ViewProjectionMatrix, const TArray<FSlateRenderBatch>& RenderBatches, bool bAllowSwtichVerticalAxis=true);
 
@@ -50,18 +50,16 @@ private:
 	/** @return The RHI primitive type from the Slate primitive type */
 	EPrimitiveType GetRHIPrimitiveType(ESlateDrawPrimitive::Type SlateType);
 
-	/**
-	 * Delete resources that have had their rendering resources released
-	 */
-	void DeleteReleasedResources();
 private:
 	/** Buffers used for rendering */
-	TSlateElementVertexBuffer<FSlateVertex> VertexBuffers[SlateRHIConstants::NumBuffers];
-	FSlateElementIndexBuffer IndexBuffers[SlateRHIConstants::NumBuffers];
+	TSlateElementVertexBuffer<FSlateVertex> VertexBuffers;
+	FSlateElementIndexBuffer IndexBuffers;
 
 	TSharedRef<FSlateRHIResourceManager> ResourceManager;
 
-	uint8 CurrentBufferIndex;
-
 	bool bGammaCorrect;
+
+	FBlendStateRHIRef BlendMode;
+
+	TOptional<int32> InitialBufferSizeOverride;
 };

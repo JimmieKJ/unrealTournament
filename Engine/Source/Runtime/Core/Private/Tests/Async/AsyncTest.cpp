@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "Function.h"
@@ -6,11 +6,13 @@
 #include "AutomationTest.h"
 #include "Future.h"
 
+#if WITH_DEV_AUTOMATION_TESTS
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAsyncGraphTest, "System.Core.Async.Async (Task Graph)", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAsyncThreadedTaskTest, "System.Core.Async.Async (Thread)", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAsyncThreadedPoolTest, "System.Core.Async.Async (Thread Pool)", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAsyncVoidTaskTest, "System.Core.Async.Async (Void)", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAsyncCompletionCallbackTest, "System.Core.Async.Async (Completion Callback)", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 
 /** Helper methods used in the test cases. */
@@ -52,9 +54,7 @@ bool FAsyncThreadedTaskTest::RunTest(const FString& Parameters)
 }
 
 
-/**
-* Test that threaded pool tasks return correctly.
-*/
+/** Test that threaded pool tasks return correctly. */
 bool FAsyncThreadedPoolTest::RunTest(const FString& Parameters)
 {
 	auto Future = Async(EAsyncExecution::ThreadPool, AsyncTestUtils::Task);
@@ -79,3 +79,21 @@ bool FAsyncVoidTaskTest::RunTest(const FString& Parameters)
 
 	return true;
 }
+
+
+/** Test that asynchronous tasks have their completion callback called. */
+bool FAsyncCompletionCallbackTest::RunTest(const FString& Parameters)
+{
+	bool Completed = false;
+	auto Future = Async(EAsyncExecution::TaskGraph, AsyncTestUtils::Task, [&]() {
+		Completed = true;
+	});
+	int Result = Future.Get();
+
+	TestEqual(TEXT("Completion callback task must return expected value"), Result, 123);
+	TestTrue(TEXT("Completion callback task must call its callback function"), Completed);
+
+	return true;
+}
+
+#endif //WITH_DEV_AUTOMATION_TESTS

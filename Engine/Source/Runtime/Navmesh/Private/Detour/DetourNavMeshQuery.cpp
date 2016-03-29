@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 // Modified version of Recast/Detour's source file
 
 //
@@ -1027,7 +1027,8 @@ dtStatus dtNavMeshQuery::getPolyCluster(dtPolyRef polyRef, dtClusterRef& cluster
 ///
 dtStatus dtNavMeshQuery::findNearestPoly(const float* center, const float* extents,
 										 const dtQueryFilter* filter,
-										 dtPolyRef* nearestRef, float* nearestPt) const
+										 dtPolyRef* nearestRef, float* nearestPt,
+										 const float* referencePt) const
 {
 	dtAssert(m_nav);
 
@@ -1039,6 +1040,10 @@ dtStatus dtNavMeshQuery::findNearestPoly(const float* center, const float* exten
 	if (dtStatusFailed(queryPolygons(center, extents, filter, polys, &polyCount, 128)))
 		return DT_FAILURE | DT_INVALID_PARAM;
 	
+//@UE4 BEGIN
+	float referenceLocation[3];
+	dtVcopy(referenceLocation, referencePt ? referencePt : center);
+	
 	// Find nearest polygon amongst the nearby polygons.
 	dtPolyRef nearest = 0;
 	float nearestDistanceSqr = FLT_MAX;
@@ -1046,9 +1051,10 @@ dtStatus dtNavMeshQuery::findNearestPoly(const float* center, const float* exten
 	{
 		dtPolyRef ref = polys[i];
 		float closestPtPoly[3];
-		closestPointOnPoly(ref, center, closestPtPoly);
-		float d = dtVdistSqr(center, closestPtPoly);
+		closestPointOnPoly(ref, referenceLocation, closestPtPoly);
+		float d = dtVdistSqr(referenceLocation, closestPtPoly);
 		float h = dtAbs(center[1] - closestPtPoly[1]);
+//@UE4 END
 		if (d < nearestDistanceSqr && h < extents[1])
 		{
 			if (nearestPt)
@@ -2921,13 +2927,21 @@ dtStatus dtNavMeshQuery::raycast(dtPolyRef startRef, const float* startPos, cons
 		const dtPoly* poly = 0;
 		m_nav->getTileAndPolyByRefUnsafe(curRef, &tile, &poly);
 		
+		// Check if poly has valid data, bail out otherwise
+		if (poly == nullptr || poly->vertCount > DT_VERTS_PER_POLYGON)
+		{
+			if (pathCount)
+				*pathCount = n;
+			return DT_FAILURE;
+		}
+
 		// Collect vertices.
 		int nv = 0;
 		for (int i = 0; i < (int)poly->vertCount; ++i)
 		{
 			dtVcopy(&verts[nv*3], &tile->verts[poly->verts[i]*3]);
 			nv++;
-		}		
+		}
 		
 		float tmin, tmax;
 		int segMin, segMax;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -12,7 +12,7 @@ public class UnrealLightmass : ModuleRules
 
 		if ((Target.Platform == UnrealTargetPlatform.Win64) || (Target.Platform == UnrealTargetPlatform.Win32))
 		{
-			AddThirdPartyPrivateStaticDependencies(Target, "DX9");
+			AddEngineThirdPartyPrivateStaticDependencies(Target, "DX9");
 
 			// Unreallightmass requires GetProcessMemoryInfo exported by psapi.dll. http://msdn.microsoft.com/en-us/library/windows/desktop/ms683219(v=vs.85).aspx
 			PublicAdditionalLibraries.Add("psapi.lib");
@@ -65,6 +65,9 @@ public class UnrealLightmass : ModuleRules
             PublicIncludePaths.Add(SDKDir + "include");
             PublicLibraryPaths.Add(SDKDir + "lib");
             PublicAdditionalLibraries.Add("embree.lib");
+			RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/Win64/embree.dll"));
+			RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/Win64/tbb.dll"));
+			RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/Win64/tbbmalloc.dll"));
             Definitions.Add("USE_EMBREE=1");
         }
 		else if (Target.Platform == UnrealTargetPlatform.Mac)
@@ -73,6 +76,9 @@ public class UnrealLightmass : ModuleRules
 
             PublicIncludePaths.Add(SDKDir + "include");
             PublicAdditionalLibraries.Add(SDKDir + "lib/libembree.2.dylib");
+			RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/Mac/libembree.2.dylib"));
+			RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/Mac/libtbb.dylib"));
+			RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/Mac/libtbbmalloc.dylib"));
             Definitions.Add("USE_EMBREE=1");
 		}
         else

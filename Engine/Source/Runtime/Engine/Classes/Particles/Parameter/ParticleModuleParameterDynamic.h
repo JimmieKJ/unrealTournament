@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /**
  *
@@ -113,7 +113,7 @@ class UParticleModuleParameterDynamic : public UParticleModuleParameterBase
 	//~ Begin UParticleModule Interface
 	virtual void	Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase) override;
 	virtual void	Update(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime) override;
-	virtual uint32	RequiredBytes(FParticleEmitterInstance* Owner = NULL) override;
+	virtual uint32	RequiredBytes(UParticleModuleTypeDataBase* TypeData) override;
 	virtual void SetToSensibleDefaults(UParticleEmitter* Owner) override;
 	virtual void	GetCurveObjects(TArray<FParticleCurvePair>& OutCurves) override;
 	virtual bool WillGeneratedModuleBeIdentical(UParticleLODLevel* SourceLODLevel, UParticleLODLevel* DestLODLevel, float Percentage) override

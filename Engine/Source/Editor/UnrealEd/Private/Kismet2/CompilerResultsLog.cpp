@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "CompilerResultsLog.h"
@@ -151,24 +151,25 @@ void FCompilerResultsLog::InternalLogSummary()
 
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("Time"), FText::AsNumber(CompileFinishTime - GStartTime, &TimeFormat));
-		Args.Add(TEXT("SourceName"), FText::FromString(SourceName));
+		Args.Add(TEXT("SourceName"), FText::FromString(FPackageName::ObjectPathToObjectName(SourcePath)));
+		Args.Add(TEXT("SourcePath"), FText::FromString(SourcePath));
 		Args.Add(TEXT("NumWarnings"), NumWarnings);
 		Args.Add(TEXT("NumErrors"), NumErrors);
 		Args.Add(TEXT("TotalMilliseconds"), (int)((CompileFinishTime - CompileStartTime) * 1000));
 
 		if (NumErrors > 0)
 		{
-			FString FailMsg = FText::Format(LOCTEXT("CompileFailed", "[{Time}] Compile of {SourceName} failed. {NumErrors} Fatal Issue(s) {NumWarnings} Warning(s) [in {TotalMilliseconds} ms]"), Args).ToString();
+			FString FailMsg = FText::Format(LOCTEXT("CompileFailed", "[{Time}] Compile of {SourceName} failed. {NumErrors} Fatal Issue(s) {NumWarnings} Warning(s) [in {TotalMilliseconds} ms] ({SourcePath})"), Args).ToString();
 			Warning(*FailMsg);
 		}
 		else if(NumWarnings > 0)
 		{
-			FString WarningMsg = FText::Format(LOCTEXT("CompileWarning", "[{Time}] Compile of {SourceName} successful, but with {NumWarnings} Warning(s) [in {TotalMilliseconds} ms]"), Args).ToString();
+			FString WarningMsg = FText::Format(LOCTEXT("CompileWarning", "[{Time}] Compile of {SourceName} successful, but with {NumWarnings} Warning(s) [in {TotalMilliseconds} ms] ({SourcePath})"), Args).ToString();
 			Warning(*WarningMsg);
 		}
 		else
 		{
-			FString SuccessMsg = FText::Format(LOCTEXT("CompileSuccess", "[{Time}] Compile of {SourceName} successful! [in {TotalMilliseconds} ms]"), Args).ToString();
+			FString SuccessMsg = FText::Format(LOCTEXT("CompileSuccess", "[{Time}] Compile of {SourceName} successful! [in {TotalMilliseconds} ms] ({SourcePath})"), Args).ToString();
 			Note(*SuccessMsg);
 		}
 
@@ -280,15 +281,15 @@ void FCompilerResultsLog::InternalLogMessage(const EMessageSeverity::Type& Sever
 	{
 		if(Severity == EMessageSeverity::CriticalError || Severity == EMessageSeverity::Error)
 		{
-			UE_LOG(LogBlueprint, Error, TEXT("[compiler %s] %s"), *SourceName, *Line->ToText().ToString());
+			UE_LOG(LogBlueprint, Error, TEXT("Compiler %s"), *Line->ToText().ToString());
 		}
 		else if(Severity == EMessageSeverity::Warning || Severity == EMessageSeverity::PerformanceWarning)
 		{
-			UE_LOG(LogBlueprint, Warning, TEXT("[compiler %s] %s"), *SourceName, *Line->ToText().ToString());
+			UE_LOG(LogBlueprint, Warning, TEXT("Compiler %s"), *Line->ToText().ToString());
 		}
 		else
 		{
-			UE_LOG(LogBlueprint, Log, TEXT("[compiler %s] %s"), *SourceName, *Line->ToText().ToString());
+			UE_LOG(LogBlueprint, Log, TEXT("Compiler %s"), *Line->ToText().ToString());
 		}
 	}
 }
@@ -443,7 +444,7 @@ void FCompilerResultsLog::GetGlobalModuleCompilerDump(const FString& LogDump, EC
 
 	if ( bShowLog )
 	{
-		MessageLog.Open();
+		MessageLog.Open(EMessageSeverity::Info, GetDefault<UEditorPerProjectUserSettings>()->bShowCompilerLogOnCompileError);
 	}
 
 	MessageLog.AddMessages(ParseCompilerLogDump(LogDump));

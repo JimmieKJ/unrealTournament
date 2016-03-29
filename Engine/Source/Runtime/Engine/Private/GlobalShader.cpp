@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	GlobalShader.cpp: Global shader implementation.
@@ -399,7 +399,9 @@ void VerifyGlobalShaders(EShaderPlatform Platform, bool bLoadedFromCacheFile)
 			// OpenGL requires that global shader maps are compiled before attaching
 			// primitives to the scene as it must be able to find FNULLPS.
 			// TODO_OPENGL: Allow shaders to be compiled asynchronously.
-			!IsOpenGLPlatform(GMaxRHIShaderPlatform) &&
+			// Metal also needs this when using RHI thread because it uses TOneColorVS very early in RHIPostInit()
+			!IsOpenGLPlatform(GMaxRHIShaderPlatform) && !IsVulkanPlatform(GMaxRHIShaderPlatform) &&
+			(!IsMetalPlatform(GMaxRHIShaderPlatform) || !GUseRHIThread) &&
 			GShaderCompilingManager->AllowAsynchronousShaderCompiling();
 
 		if (!bAllowAsynchronousGlobalShaderCompiling)

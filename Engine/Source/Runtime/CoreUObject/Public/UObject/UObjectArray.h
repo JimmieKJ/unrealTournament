@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UObjectArray.h: Unreal object array
@@ -13,9 +13,6 @@
 */
 #define UE_GC_TRACK_OBJ_AVAILABLE (WITH_EDITOR)
 
-/** Used to test for stale weak pointers in the debug visualizers **/
-extern COREUOBJECT_API int32** GSerialNumberBlocksForDebugVisualizersRoot;
-
 /**
 * Single item in the UObject array.
 */
@@ -24,9 +21,21 @@ struct FUObjectItem
 	// Pointer to the allocated object
 	class UObjectBase* Object;
 	// UObject internal flags
-	int32 Flags;
+	int32 ClusterAndFlags;
 	// Weak Object Pointer Serial number associated with the object
 	int32 SerialNumber;
+
+	FORCEINLINE void SetOwnerIndex(int32 OwnerIndex)
+	{
+		check(OwnerIndex >= 0 && (OwnerIndex & int32(EInternalObjectFlags::AllFlags)) == 0);
+		ClusterAndFlags &= int32(EInternalObjectFlags::AllFlags);
+		ClusterAndFlags |= OwnerIndex;
+	}
+
+	FORCEINLINE int32 GetOwnerIndex() const
+	{
+		return ClusterAndFlags & ~int32(EInternalObjectFlags::AllFlags);
+	}
 
 	FORCEINLINE int32 GetSerialNumber() const
 	{
@@ -35,58 +44,71 @@ struct FUObjectItem
 
 	FORCEINLINE void SetFlags(EInternalObjectFlags FlagsToSet)
 	{
-		Flags |= int32(FlagsToSet);
+		check((int32(FlagsToSet) & ~int32(EInternalObjectFlags::AllFlags)) == 0);
+		ClusterAndFlags |= int32(FlagsToSet);
 	}
 
 	FORCEINLINE EInternalObjectFlags GetFlags() const
 	{
-		return EInternalObjectFlags(Flags & int32(EInternalObjectFlags::AllFlags));
+		return EInternalObjectFlags(ClusterAndFlags & int32(EInternalObjectFlags::AllFlags));
 	}
 
 	FORCEINLINE void ClearFlags(EInternalObjectFlags FlagsToClear)
 	{
-		Flags &= ~int32(FlagsToClear);
+		check((int32(FlagsToClear) & ~int32(EInternalObjectFlags::AllFlags)) == 0);
+		ClusterAndFlags &= ~int32(FlagsToClear);
 	}
 
+	/**
+	 * Uses atomics to clear the specified flag(s).
+	 * @param FlagsToClear
+	 * @return True if this call cleared the flag, false if it has been cleared by another thread.
+	 */
 	FORCEINLINE bool ThisThreadAtomicallyClearedFlag(EInternalObjectFlags FlagToClear)
 	{
-		static_assert(sizeof(int32) == sizeof(Flags), "Flags must be 32-bit for atomics.");
+		static_assert(sizeof(int32) == sizeof(ClusterAndFlags), "Flags must be 32-bit for atomics.");
 		bool bIChangedIt = false;
 		while (1)
 		{
-			int32 StartValue = int32(Flags);
+			int32 StartValue = int32(ClusterAndFlags);
 			if (!(StartValue & int32(FlagToClear)))
 			{
 				break;
 			}
-			int32 OldValue = (int32)FPlatformAtomics::InterlockedCompareExchange((int32*)&Flags, StartValue & ~int32(FlagToClear), StartValue);
-			if (OldValue == StartValue)
+			int32 OldValue = (int32)FPlatformAtomics::InterlockedCompareExchange((int32*)&ClusterAndFlags, StartValue & ~int32(FlagToClear), StartValue);
+			// We know the flag was set when we entered this iteration,
+			// so if the old value returned by atomics had the flag set, we must have cleared it.
+			// (there is always a chance that another thread cleared some other flag and the above function did nothing)
+			// But we only care about the flags we want to clear
+			if (!(ClusterAndFlags & int32(FlagToClear)) && (OldValue & int32(FlagToClear)) == (StartValue & int32(FlagToClear)))
 			{
+				// if (the flag has actually been cleared) && (the previous value had the flag set) we must have cleared it
 				bIChangedIt = true;
 				break;
 			}
-			// Remove later.
-			checkSlow(OldValue == (StartValue & ~int32(FlagToClear)));
+			// We didn't clear the flag, probably because some other thread changed flags in the meantime (either the one we want to clear or some other). Try again.
 		}
+		// Make sure the flag was actually cleared
+		checkSlow((ClusterAndFlags & int32(FlagToClear)) == 0);
 		return bIChangedIt;
 	}
 
 	FORCEINLINE bool HasAnyFlags(EInternalObjectFlags InFlags) const
 	{
-		return !!(Flags & int32(InFlags));
+		return !!(ClusterAndFlags & int32(InFlags));
 	}
 
 	FORCEINLINE void SetUnreachable()
 	{
-		Flags |= int32(EInternalObjectFlags::Unreachable);
+		ClusterAndFlags |= int32(EInternalObjectFlags::Unreachable);
 	}
 	FORCEINLINE void ClearUnreachable()
 	{
-		Flags &= ~int32(EInternalObjectFlags::Unreachable);
+		ClusterAndFlags &= ~int32(EInternalObjectFlags::Unreachable);
 	}
 	FORCEINLINE bool IsUnreachable() const
 	{
-		return !!(Flags & int32(EInternalObjectFlags::Unreachable));
+		return !!(ClusterAndFlags & int32(EInternalObjectFlags::Unreachable));
 	}
 	FORCEINLINE bool ThisThreadAtomicallyClearedRFUnreachable()
 	{
@@ -95,45 +117,45 @@ struct FUObjectItem
 
 	FORCEINLINE void SetPendingKill()
 	{
-		Flags |= int32(EInternalObjectFlags::PendingKill);
+		ClusterAndFlags |= int32(EInternalObjectFlags::PendingKill);
 	}
 	FORCEINLINE void ClearPendingKill()
 	{
-		Flags &= ~int32(EInternalObjectFlags::PendingKill);
+		ClusterAndFlags &= ~int32(EInternalObjectFlags::PendingKill);
 	}
 	FORCEINLINE bool IsPendingKill() const
 	{
-		return !!(Flags & int32(EInternalObjectFlags::PendingKill));
+		return !!(ClusterAndFlags & int32(EInternalObjectFlags::PendingKill));
 	}
 
 	FORCEINLINE void SetRootSet()
 	{
-		Flags |= int32(EInternalObjectFlags::RootSet);
+		ClusterAndFlags |= int32(EInternalObjectFlags::RootSet);
 	}
 	FORCEINLINE void ClearRootSet()
 	{
-		Flags &= ~int32(EInternalObjectFlags::RootSet);
+		ClusterAndFlags &= ~int32(EInternalObjectFlags::RootSet);
 	}
 	FORCEINLINE bool IsRootSet() const
 	{
-		return !!(Flags & int32(EInternalObjectFlags::RootSet));
+		return !!(ClusterAndFlags & int32(EInternalObjectFlags::RootSet));
 	}
 
 	FORCEINLINE void SetNoStrongReference()
 	{
-		Flags |= int32(EInternalObjectFlags::NoStrongReference);
+		ClusterAndFlags |= int32(EInternalObjectFlags::NoStrongReference);
 	}
 	FORCEINLINE void ClearNoStrongReference()
 	{
-		Flags &= ~int32(EInternalObjectFlags::NoStrongReference);
+		ClusterAndFlags &= ~int32(EInternalObjectFlags::NoStrongReference);
 	}
 	FORCEINLINE bool IsNoStrongReference() const
 	{
-		return !!(Flags & int32(EInternalObjectFlags::NoStrongReference));
+		return !!(ClusterAndFlags & int32(EInternalObjectFlags::NoStrongReference));
 	}
 	FORCEINLINE void ResetSerialNumberAndFlags()
 	{
-		Flags = 0;
+		ClusterAndFlags = 0;
 		SerialNumber = 0;
 	}
 };
@@ -179,9 +201,20 @@ public:
 	int32 AddSingle()
 	{
 		int32 Result = NumElements;
-		checkf(NumElements + 1 <= MaxElements, TEXT("Maximum number of Objects exceeded, make sure you update MaxObjectsInGame/MaxObjectsInEditor in project settings."));
+		checkf(NumElements + 1 <= MaxElements, TEXT("Maximum number of UObjects (%d) exceeded, make sure you update MaxObjectsInGame/MaxObjectsInEditor in project settings."), MaxElements);
 		check(Result == NumElements);
 		++NumElements;
+		FPlatformMisc::MemoryBarrier();
+		check(Objects[Result].Object == nullptr);
+		return Result;
+	}
+
+	int32 AddRange(int32 Count)
+	{
+		int32 Result = NumElements + Count - 1;
+		checkf(NumElements + Count <= MaxElements, TEXT("Maximum number of UObjects (%d) exceeded, make sure you update MaxObjectsInGame/MaxObjectsInEditor in project settings."), MaxElements);
+		check(Result == (NumElements + Count - 1));
+		NumElements += Count;
 		FPlatformMisc::MemoryBarrier();
 		check(Objects[Result].Object == nullptr);
 		return Result;
@@ -290,14 +323,7 @@ public:
 	/**
 	 * Constructor, initializes to no permanent object pool
 	 */
-	FUObjectArray() :
-		ObjFirstGCIndex(0),
-		ObjLastNonGCIndex(INDEX_NONE),
-		OpenForDisregardForGC(true),
-		MasterSerialNumber(START_SERIAL_NUMBER)
-	{
-		FCoreDelegates::GetObjectArrayForDebugVisualizersDelegate().BindStatic(GetObjectArrayForDebugVisualizers);
-	}
+	FUObjectArray();
 
 	/**
 	 * Allocates and initializes the permanent object pool
@@ -308,28 +334,35 @@ public:
 	void AllocateObjectPool(int32 MaxUObjects, int32 MaxObjectsNotConsideredByGC);
 
 	/**
-	 * Disables the disregard for GC optimization. Commandlets can't use it.
+	 * Disables the disregard for GC optimization.
 	 *
 	 */
-	void DisableDisregardForGC()
-	{
-		ObjFirstGCIndex = 0;
-	}
+	void DisableDisregardForGC();
+
+	/**
+	* If there's enough slack in the disregard pool, we can re-open it and keep adding objects to it
+	*/
+	void OpenDisregardForGC();
 
 	/**
 	 * After the initial load, this closes the disregard pool so that new object are GC-able
-	 *
 	 */
 	void CloseDisregardForGC();
+
+	/** Returns true if the disregard for GC pool is open */
+	bool IsOpenForDisregardForGC() const
+	{
+		return OpenForDisregardForGC;
+	}
 
 	/**
 	 * indicates if the disregard for GC optimization is active
 	 *
-	 * @return true if the first GC index is greater than zero; this indicates that the disregard for GC optimization is enabled
+	 * @return true if MaxObjectsNotConsideredByGC is greater than zero; this indicates that the disregard for GC optimization is enabled
 	 */
 	bool DisregardForGCEnabled() const 
 	{ 
-		return ObjFirstGCIndex > 0; 
+		return MaxObjectsNotConsideredByGC > 0;
 	}
 
 	/**
@@ -671,7 +704,7 @@ private:
 	/**
 	 * return the object array for use by debug visualizers
 	 */
-	static UObjectBase*** GetObjectArrayForDebugVisualizers();
+	static FFixedUObjectArray* GetObjectArrayForDebugVisualizers();
 
 	// note these variables are left with the Obj prefix so they can be related to the historical GObj versions
 
@@ -679,14 +712,17 @@ private:
 	int32 ObjFirstGCIndex;
 	/** Index pointing to last object created in range disregarded for GC.					*/
 	int32 ObjLastNonGCIndex;
+	/** Maximum number of objects in the disregard for GC Pool */
+	int32 MaxObjectsNotConsideredByGC;
+
 	/** If true this is the intial load and we should load objects int the disregarded for GC range.	*/
-	int32 OpenForDisregardForGC;
+	bool OpenForDisregardForGC;
 	/** Array of all live objects.											*/
 	TUObjectArray ObjObjects;
 	/** Synchronization object for all live objects.											*/
 	FCriticalSection ObjObjectsCritical;
 	/** Available object indices.											*/
-	TLockFreePointerListUnordered<int32> ObjAvailableList;
+	TLockFreePointerListUnordered<int32, PLATFORM_CACHE_LINE_SIZE> ObjAvailableList;
 #if UE_GC_TRACK_OBJ_AVAILABLE
 	/** Available object index count.										*/
 	FThreadSafeCounter ObjAvailableCount;
@@ -707,8 +743,20 @@ private:
 	FThreadSafeCounter	MasterSerialNumber;
 };
 
+/** UObject cluster. Groups UObjects into a single unit for GC. */
+struct FUObjectCluster
+{
+	/** Objects that belong to this cluster */
+	TArray<int32> Objects;
+	/** Other clusters referenced by this cluster */
+	TArray<int32> ReferencedClusters;
+	/** Objects that could not be added to the cluster but still need to be referenced by it */
+	TArray<int32> MutableObjects;
+};
+
 /** Global UObject allocator							*/
 extern COREUOBJECT_API FUObjectArray GUObjectArray;
+extern COREUOBJECT_API TMap<int32, FUObjectCluster* > GUObjectClusters;
 
 /**
 	* Static version of IndexToObject for use with TWeakObjectPtr.

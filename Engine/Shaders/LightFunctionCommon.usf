@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LightFunctionCommon.usf: Utility functions for light functions.
@@ -47,9 +47,12 @@ float3 GetLightFunctionColor(float3 LightVector, float3 AbsoluteWorldPosition)
 	MaterialParameters.LightVector = LightVector.xyz;
 	MaterialParameters.AbsoluteWorldPosition = AbsoluteWorldPosition;
 
+	FPixelMaterialInputs PixelMaterialInputs;
+	CalcPixelMaterialInputs(MaterialParameters, PixelMaterialInputs);
+
 #if COMPUTESHADER
 	return GetMaterialEmissiveForCS(MaterialParameters);
 #else
-	return GetMaterialEmissive(MaterialParameters);
+	return GetMaterialEmissive(PixelMaterialInputs);
 #endif
 }

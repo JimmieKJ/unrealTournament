@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 
@@ -57,7 +57,7 @@ void FShadowMap::FinishCleanup()
 
 struct FShadowMapAllocation
 {
-	FShadowMap2D*				ShadowMap;
+	TRefCountPtr<FShadowMap2D>	ShadowMap;
 
 	UObject*					Primitive;
 	int32						InstanceIndex;
@@ -177,6 +177,12 @@ struct FShadowMapPendingTexture : FTextureLayout
 	// Primarily of benefit to instanced mesh shadowmaps
 	int32				UnallocatedTexels;
 
+	// have we created the uobjects (in this case the Texture)
+	bool bCreatedUObjects;
+	// shadowmap texture
+	UShadowMapTexture2D* ShadowMapTexture;
+	volatile bool		bFinishedEncoding;
+	bool				bHasRunPostEncode;
 	/**
 	 * Minimal initialization constructor.
 	 */
@@ -185,6 +191,9 @@ struct FShadowMapPendingTexture : FTextureLayout
 		, Bounds(FBox(0))
 		, ShadowmapFlags(SMF_None)
 		, UnallocatedTexels(InSizeX * InSizeY)
+		, bCreatedUObjects( false)
+		, ShadowMapTexture(nullptr)
+		, bFinishedEncoding(false)
 	{
 	}
 
@@ -195,7 +204,21 @@ struct FShadowMapPendingTexture : FTextureLayout
 	 *
 	 * @param	InWorld	World in which the textures exist
 	 */
-	void StartEncoding(UWorld* InWorld);
+	void StartEncoding();
+
+	/**
+	 * Create UObjects required in the encoding step, this is so we can multithread teh encode step
+	 */
+	void CreateUObjects();
+
+	/**
+	 * After multithreaded encode t
+	 */
+	void PostEncode();
+
+	bool IsFinishedEncoding() const { return bFinishedEncoding; }
+
+	void FinishCachingTextures(UWorld* InWorld);
 };
 
 bool FShadowMapPendingTexture::AddElement(FShadowMapAllocationGroup& AllocationGroup, const bool bForceIntoThisTexture)
@@ -283,10 +306,23 @@ bool FShadowMapPendingTexture::AddElement(FShadowMapAllocationGroup& AllocationG
 	return true;
 }
 
-void FShadowMapPendingTexture::StartEncoding(UWorld* InWorld)
+void FShadowMapPendingTexture::CreateUObjects()
+{
+	if (bCreatedUObjects == false)
+	{
+		check(IsInGameThread());
+		ShadowMapTexture = NewObject<UShadowMapTexture2D>(Outer);
+	}
+	bCreatedUObjects = true;
+}
+
+void FShadowMapPendingTexture::StartEncoding()
 {
 	// Create the shadow-map texture.
-	auto Texture = NewObject<UShadowMapTexture2D>(Outer);
+	CreateUObjects();
+
+	auto Texture = ShadowMapTexture;
+
 	Texture->Filter			= GUseBilinearLightmaps ? TF_Default : TF_Nearest;
 	// Signed distance field textures get stored in linear space, since they need more precision near .5.
 	Texture->SRGB			= false;
@@ -331,24 +367,48 @@ void FShadowMapPendingTexture::StartEncoding(UWorld* InWorld)
 	}
 
 	// Update the texture resource.
-	Texture->BeginCachePlatformData();
+	Texture->CachePlatformData(true, true);
+
+	bFinishedEncoding = true;
+}
+
+void FShadowMapPendingTexture::PostEncode()
+{
+	check(bFinishedEncoding);
+
+	if (!bHasRunPostEncode)
+	{
+		check(IsInGameThread());
+		auto Texture = ShadowMapTexture;
+
+		Texture->CachePlatformData(true, true);
+		bHasRunPostEncode = true;
+	}
+}
+
+
+void FShadowMapPendingTexture::FinishCachingTextures(UWorld* InWorld)
+{
+	check(IsInGameThread());
+	auto Texture = ShadowMapTexture;
+
 	Texture->FinishCachePlatformData();
 	Texture->UpdateResource();
 
 	// Update stats.
-	int32 TextureSize			= Texture->CalcTextureMemorySizeEnum( TMC_AllMips );
-	GNumShadowmapTotalTexels	+= GetSizeX() * GetSizeY();
+	int32 TextureSize = Texture->CalcTextureMemorySizeEnum(TMC_AllMips);
+	GNumShadowmapTotalTexels += GetSizeX() * GetSizeY();
 	GNumShadowmapTextures++;
-	GShadowmapTotalSize			+= TextureSize;
+	GShadowmapTotalSize += TextureSize;
 	GShadowmapTotalStreamingSize += (ShadowmapFlags & SMF_Streamed) ? TextureSize : 0;
 
 	UPackage* TexturePackage = Texture->GetOutermost();
 
-	for ( int32 LevelIndex=0; TexturePackage && LevelIndex < InWorld->GetNumLevels(); LevelIndex++ )
+	for (int32 LevelIndex = 0; TexturePackage && LevelIndex < InWorld->GetNumLevels(); LevelIndex++)
 	{
 		ULevel* Level = InWorld->GetLevel(LevelIndex);
 		UPackage* LevelPackage = Level->GetOutermost();
-		if ( TexturePackage == LevelPackage )
+		if (TexturePackage == LevelPackage)
 		{
 			Level->ShadowmapTotalSize += float(TextureSize) / 1024.0f;
 			break;
@@ -363,7 +423,7 @@ bool FShadowMap2D::bUpdateStatus = true;
 
 #endif 
 
-FShadowMap2D* FShadowMap2D::AllocateShadowMap(
+TRefCountPtr<FShadowMap2D> FShadowMap2D::AllocateShadowMap(
 	UObject* Outer, 
 	const TMap<ULightComponent*,FShadowMapData2D*>& ShadowMapData,
 	const FBoxSphereBounds& Bounds, 
@@ -383,7 +443,7 @@ FShadowMap2D* FShadowMap2D::AllocateShadowMap(
 	}
 
 	// Create a new shadow-map.
-	FShadowMap2D* ShadowMap = new FShadowMap2D(ShadowMapData);
+	TRefCountPtr<FShadowMap2D> ShadowMap = TRefCountPtr<FShadowMap2D>(new FShadowMap2D(ShadowMapData));
 
 	// Calculate Shadowmap size
 	int32 SizeX = -1;
@@ -536,7 +596,7 @@ FShadowMapInteraction FShadowMap2D::GetInteraction() const
 }
 
 
-FShadowMap2D* FShadowMap2D::AllocateInstancedShadowMap(UInstancedStaticMeshComponent* Component, TArray<TMap<ULightComponent*, TUniquePtr<FShadowMapData2D>>> InstancedShadowMapData,
+TRefCountPtr<FShadowMap2D> FShadowMap2D::AllocateInstancedShadowMap(UInstancedStaticMeshComponent* Component, TArray<TMap<ULightComponent*, TUniquePtr<FShadowMapData2D>>> InstancedShadowMapData,
 	const FBoxSphereBounds& Bounds, ELightMapPaddingType InPaddingType, EShadowMapFlags InShadowmapFlags)
 {
 #if WITH_EDITOR
@@ -594,7 +654,7 @@ FShadowMap2D* FShadowMap2D::AllocateInstancedShadowMap(UInstancedStaticMeshCompo
 		AllocationGroup.ShadowmapFlags = EShadowMapFlags(AllocationGroup.ShadowmapFlags & ~SMF_Streamed);
 	}
 
-	FShadowMap2D* BaseShadowmap = nullptr;
+	TRefCountPtr<FShadowMap2D> BaseShadowmap = nullptr;
 
 	for (int32 InstanceIndex = 0; InstanceIndex < InstancedShadowMapData.Num(); ++InstanceIndex)
 	{
@@ -602,7 +662,7 @@ FShadowMap2D* FShadowMap2D::AllocateInstancedShadowMap(UInstancedStaticMeshCompo
 		check(ShadowMapData.Num() > 0);
 
 		// Create a new shadow-map.
-		FShadowMap2D* ShadowMap = new FShadowMap2D(LightGuids);
+		TRefCountPtr<FShadowMap2D> ShadowMap = TRefCountPtr<FShadowMap2D>(new FShadowMap2D(LightGuids));
 
 		if (InstanceIndex == 0)
 		{
@@ -612,7 +672,7 @@ FShadowMap2D* FShadowMap2D::AllocateInstancedShadowMap(UInstancedStaticMeshCompo
 		// Add a pending allocation for this shadow-map.
 		TUniquePtr<FShadowMapAllocation> Allocation = MakeUnique<FShadowMapAllocation>();
 		Allocation->PaddingType = InPaddingType;
-		Allocation->ShadowMap = ShadowMap;
+		Allocation->ShadowMap = MoveTemp(ShadowMap);
 		Allocation->TotalSizeX = SizeX;
 		Allocation->TotalSizeY = SizeY;
 		Allocation->MappedRect = FIntRect(0, 0, SizeX, SizeY);
@@ -666,12 +726,13 @@ struct FCompareShadowMaps
 	}
 };
 
+
 /**
  * Executes all pending shadow-map encoding requests.
  * @param	InWorld				World in which the textures exist
  * @param	bLightingSuccessful	Whether the lighting build was successful or not.
  */
-void FShadowMap2D::EncodeTextures(UWorld* InWorld , bool bLightingSuccessful)
+void FShadowMap2D::EncodeTextures(UWorld* InWorld , bool bLightingSuccessful, bool bMultithreadedEncode)
 {
 	if ( bLightingSuccessful )
 	{
@@ -748,16 +809,63 @@ void FShadowMap2D::EncodeTextures(UWorld* InWorld , bool bLightingSuccessful)
 		}
 		PendingShadowMaps.Empty();
 
-		// Encode all the pending textures.
+		if (bMultithreadedEncode)
+		{
+			FThreadSafeCounter Counter(PendingTextures.Num());
+			// Encode all the pending textures.
+			TArray<FAsyncEncode<FShadowMapPendingTexture>> AsyncEncodeTasks;
+			AsyncEncodeTasks.Empty(PendingTextures.Num());
+			for (auto& PendingTexture : PendingTextures)
+			{
+				PendingTexture.CreateUObjects();
+				auto AsyncEncodeTask = new (AsyncEncodeTasks)FAsyncEncode<FShadowMapPendingTexture>(&PendingTexture, Counter);
+				GThreadPool->AddQueuedWork(AsyncEncodeTask);
+			}
+
+			while (Counter.GetValue() > 0)
+			{
+				GWarn->UpdateProgress(Counter.GetValue(), PendingTextures.Num());
+				FPlatformProcess::Sleep(0.0001f);
+			}
+		}
+		else
+		{
+			// Encode all the pending textures.
+			for (int32 TextureIndex = 0; TextureIndex < PendingTextures.Num(); TextureIndex++)
+			{
+				FShadowMapPendingTexture& PendingTexture = PendingTextures[TextureIndex];
+				PendingTexture.StartEncoding();
+			}
+		}
+
+		bool bHasFinishedPostEncode = false;
+		while (bHasFinishedPostEncode == false)
+		{
+			bHasFinishedPostEncode = true;
+			for (int32 TextureIndex = 0; TextureIndex < PendingTextures.Num(); TextureIndex++)
+			{
+				FShadowMapPendingTexture& PendingTexture = PendingTextures[TextureIndex];
+
+				if (PendingTexture.IsFinishedEncoding())
+				{
+					PendingTexture.PostEncode();
+				}
+				else
+				{
+					bHasFinishedPostEncode = false;
+					break;
+				}
+			}
+		}
+
 		for (int32 TextureIndex = 0; TextureIndex < PendingTextures.Num(); TextureIndex++)
 		{
-			if (bUpdateStatus && (TextureIndex % 20) == 0)
+			FShadowMapPendingTexture& PendingTexture = PendingTextures[TextureIndex];
+			PendingTexture.FinishCachingTextures(InWorld);
+			if (bUpdateStatus && ((TextureIndex % 20) == 0))
 			{
 				GWarn->UpdateProgress(TextureIndex, PendingTextures.Num());
 			}
-
-			FShadowMapPendingTexture& PendingTexture = PendingTextures[TextureIndex];
-			PendingTexture.StartEncoding(InWorld);
 		}
 		PendingTextures.Empty();
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessMobile.usf: Combined {bloom, sunshafts, depth of field}
@@ -19,12 +19,12 @@ float4 BloomThreshold;
 
 half FocusDistFar()
 {
-	return View.DepthOfFieldFocalDistance + View.DepthOfFieldFocalRegion;
+	return Frame.DepthOfFieldFocalDistance + Frame.DepthOfFieldFocalRegion;
 }
 
 half FocusDistNear()
 {
-	return View.DepthOfFieldFocalDistance;
+	return Frame.DepthOfFieldFocalDistance;
 }
 
 // Alpha = 0.5 is full size, >0.5 rate at which near and far hit maximum.
@@ -38,6 +38,38 @@ half Coc(half Depth)
 	return saturate(CocValue * SunColorApertureDiv2.a + 0.5);
 }
 
+
+//////////////////////////
+
+
+float ComputeDOFNearFocalMask(float SceneDepth)
+{
+	float NearFocalPlane = Frame.DepthOfFieldFocalDistance;
+
+	return saturate((NearFocalPlane - SceneDepth) / Frame.DepthOfFieldNearTransitionRegion);
+}
+
+// todo move to central place
+float ComputeDOFFarFocalMask(float SceneDepth)
+{
+	float FarFocalPlane = Frame.DepthOfFieldFocalDistance + Frame.DepthOfFieldFocalRegion;
+
+	return saturate((SceneDepth - FarFocalPlane) / Frame.DepthOfFieldFarTransitionRegion);
+}
+
+// Returns 0=max near DOF, 0.5=in focus, 1.0=max far DOF
+half Coc2(half Depth)
+{
+	half N = ComputeDOFNearFocalMask(Depth);
+	half F = ComputeDOFFarFocalMask(Depth);
+	if (F > N)
+	{
+		return (F * 0.5) + 0.5;
+	}
+	return (1.0-N) * 0.5;
+}
+
+//////////////////////////////////
 half2 SunConstDepthMaskScaleBias() 
 {
 	half DepthMin = 65504.0 - 16384.0;
@@ -79,7 +111,7 @@ void SunMaskPS_ES2(
 	out half4 OutColor : SV_Target0
 	)
 {
-	#if (COMPILER_GLSL_ES2 && ES2_USE_FETCH) || METAL_PROFILE
+	#if (COMPILER_GLSL_ES2 && ES2_USE_FETCH) || (METAL_PROFILE && !MAC)
 		OutColor = FramebufferFetchES2();
 	#else
 		OutColor = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVPos.xy);
@@ -89,7 +121,12 @@ void SunMaskPS_ES2(
 		// On-chip pre-tonemap before MSAA resolve.
 		OutColor.rgb *= rcp(OutColor.r*0.299 + OutColor.g*0.587 + OutColor.b*0.114 + 1.0);
 	#else
-		half InDepth = OutColor.a;
+
+		#if ES2_USE_DEPTHTEXTURE
+			half InDepth = CalcSceneDepth(InUVPos.xy);
+		#else
+			half InDepth = OutColor.a;
+		#endif
 	
 		#if ES2_USE_SUN
 			half2 DepthMaskScaleBias = SunConstDepthMaskScaleBias();
@@ -106,11 +143,11 @@ void SunMaskPS_ES2(
 		#else
 			OutColor.a = 0.0;
 		#endif
-		
 		#if ES2_USE_DOF
-			OutColor.a += Coc(InDepth);
+//			OutColor.a += Coc(InDepth);
+			OutColor.a += Coc2(InDepth);
 		#endif
-	#endif
+#endif
 }
 
 
@@ -785,13 +822,13 @@ void SunAlphaVS_ES2(
 {
 	DrawRectangle(InPosition, InTexCoord, OutPosition, InTexCoord);
 
-    OutTexCoords[0] = SunShaftRect(InPosition.xy, 1.0 - SUN_P0 * SUN_M);
-    OutTexCoords[1] = SunShaftRect(InPosition.xy, 1.0 - SUN_P1 * SUN_M);
-    OutTexCoords[2] = SunShaftRect(InPosition.xy, 1.0 - SUN_P2 * SUN_M);
-    OutTexCoords[3] = SunShaftRect(InPosition.xy, 1.0 - SUN_P3 * SUN_M);
-    OutTexCoords[4] = SunShaftRect(InPosition.xy, 1.0 - SUN_P4 * SUN_M);
-    OutTexCoords[5] = SunShaftRect(InPosition.xy, 1.0 - SUN_P5 * SUN_M);
-    OutTexCoords[6] = SunShaftRect(InPosition.xy, 1.0 - SUN_P6 * SUN_M);
+    OutTexCoords[0] = SunShaftRect(OutPosition.xy, 1.0 - SUN_P0 * SUN_M);
+    OutTexCoords[1] = SunShaftRect(OutPosition.xy, 1.0 - SUN_P1 * SUN_M);
+    OutTexCoords[2] = SunShaftRect(OutPosition.xy, 1.0 - SUN_P2 * SUN_M);
+    OutTexCoords[3] = SunShaftRect(OutPosition.xy, 1.0 - SUN_P3 * SUN_M);
+    OutTexCoords[4] = SunShaftRect(OutPosition.xy, 1.0 - SUN_P4 * SUN_M);
+    OutTexCoords[5] = SunShaftRect(OutPosition.xy, 1.0 - SUN_P5 * SUN_M);
+    OutTexCoords[6] = SunShaftRect(OutPosition.xy, 1.0 - SUN_P6 * SUN_M);
     OutTexCoords[7] = InTexCoord.xy;
 }
 
@@ -843,13 +880,13 @@ void SunBlurVS_ES2(
 {
 	DrawRectangle(InPosition, InTexCoord, OutPosition, InTexCoord);
 
-    OutTexCoords[0] = SunShaftRect(InPosition.xy, 1.0 - SUN_P0 * SUN_M);
-    OutTexCoords[1] = SunShaftRect(InPosition.xy, 1.0 - SUN_P1 * SUN_M);
-    OutTexCoords[2] = SunShaftRect(InPosition.xy, 1.0 - SUN_P2 * SUN_M);
-    OutTexCoords[3] = SunShaftRect(InPosition.xy, 1.0 - SUN_P3 * SUN_M);
-    OutTexCoords[4] = SunShaftRect(InPosition.xy, 1.0 - SUN_P4 * SUN_M);
-    OutTexCoords[5] = SunShaftRect(InPosition.xy, 1.0 - SUN_P5 * SUN_M);
-    OutTexCoords[6] = SunShaftRect(InPosition.xy, 1.0 - SUN_P6 * SUN_M);
+    OutTexCoords[0] = SunShaftRect(OutPosition.xy, 1.0 - SUN_P0 * SUN_M);
+    OutTexCoords[1] = SunShaftRect(OutPosition.xy, 1.0 - SUN_P1 * SUN_M);
+    OutTexCoords[2] = SunShaftRect(OutPosition.xy, 1.0 - SUN_P2 * SUN_M);
+    OutTexCoords[3] = SunShaftRect(OutPosition.xy, 1.0 - SUN_P3 * SUN_M);
+    OutTexCoords[4] = SunShaftRect(OutPosition.xy, 1.0 - SUN_P4 * SUN_M);
+    OutTexCoords[5] = SunShaftRect(OutPosition.xy, 1.0 - SUN_P5 * SUN_M);
+    OutTexCoords[6] = SunShaftRect(OutPosition.xy, 1.0 - SUN_P6 * SUN_M);
     OutTexCoords[7] = InTexCoord.xy;
 }
 
@@ -904,13 +941,13 @@ void SunMergeVS_ES2(
 	OutTexCoords[4].xy = InTexCoord.xy + Circle(Start, 6.0, 4.0) * Scale * PostprocessInput2Size.zw;
 	OutTexCoords[5].xy = InTexCoord.xy + Circle(Start, 6.0, 5.0) * Scale * PostprocessInput2Size.zw;
 
-    OutTexCoords[0].zw = SunShaftRect(InPosition.xy, 1.0 - SUN_P0 * SUN_M);
-    OutTexCoords[1].zw = SunShaftRect(InPosition.xy, 1.0 - SUN_P1 * SUN_M);
-    OutTexCoords[2].zw = SunShaftRect(InPosition.xy, 1.0 - SUN_P2 * SUN_M);
-    OutTexCoords[3].zw = SunShaftRect(InPosition.xy, 1.0 - SUN_P3 * SUN_M);
-    OutTexCoords[4].zw = SunShaftRect(InPosition.xy, 1.0 - SUN_P4 * SUN_M);
-    OutTexCoords[5].zw = SunShaftRect(InPosition.xy, 1.0 - SUN_P5 * SUN_M);
-    OutTexCoords[6].xy = SunShaftRect(InPosition.xy, 1.0 - SUN_P6 * SUN_M);
+    OutTexCoords[0].zw = SunShaftRect(OutPosition.xy, 1.0 - SUN_P0 * SUN_M);
+    OutTexCoords[1].zw = SunShaftRect(OutPosition.xy, 1.0 - SUN_P1 * SUN_M);
+    OutTexCoords[2].zw = SunShaftRect(OutPosition.xy, 1.0 - SUN_P2 * SUN_M);
+    OutTexCoords[3].zw = SunShaftRect(OutPosition.xy, 1.0 - SUN_P3 * SUN_M);
+    OutTexCoords[4].zw = SunShaftRect(OutPosition.xy, 1.0 - SUN_P4 * SUN_M);
+    OutTexCoords[5].zw = SunShaftRect(OutPosition.xy, 1.0 - SUN_P5 * SUN_M);
+    OutTexCoords[6].xy = SunShaftRect(OutPosition.xy, 1.0 - SUN_P6 * SUN_M);
 	OutTexCoords[6].zw = float2(0.0, 0.0);
 
 }
@@ -1107,7 +1144,7 @@ void AaVS_ES2(
 	DrawRectangle(InPosition, InTexCoord, OutPosition, InTexCoord);
 
 	// AA texture coordinates.
-	float AaX = View.TemporalAAParams.x;
+	float AaX = Frame.TemporalAAParams.x;
 	// Y is flipped here in comparison with the coords in SceneVisibility (GL -y flip).
 	float2 Aa1 = float2(0.5,-0.0);
 	float2 Aa2 = float2(-0.0,0.5);

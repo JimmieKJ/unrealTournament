@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -66,6 +66,9 @@ protected:
 	 * @param	DisplayMessage			The message to display on the slow task
 	 */
 	virtual void ProgressReported( const float TotalProgressInterp, FText DisplayMessage ) {}
+
+	/** Called to check whether we are playing in editor when starting a slow task */
+	virtual bool IsPlayingInEditor() const;
 
 public:
 	virtual FContextSupplier* GetContext() const { return NULL; }

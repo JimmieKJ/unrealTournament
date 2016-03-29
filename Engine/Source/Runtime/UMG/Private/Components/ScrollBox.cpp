@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 
@@ -130,13 +130,15 @@ void UScrollBox::ScrollToEnd()
 
 void UScrollBox::ScrollWidgetIntoView(UWidget* WidgetToFind, bool AnimateScroll)
 {
-	if ( WidgetToFind )
+	TSharedPtr<SWidget> SlateWidgetToFind;
+	if (WidgetToFind)
 	{
-		TSharedPtr<SWidget> SlateWidgetToFind = WidgetToFind->GetCachedWidget();
-		if ( MyScrollBox.IsValid() )
-		{
-			MyScrollBox->ScrollDescendantIntoView(SlateWidgetToFind, AnimateScroll);
-		}
+		SlateWidgetToFind = WidgetToFind->GetCachedWidget();
+	}
+	if (MyScrollBox.IsValid())
+	{
+		// NOTE: Pass even if null! This, in effect, cancels a request to scroll which is necessary to avoid warnings/ensures when we request to scroll to a widget and later remove that widget!
+		MyScrollBox->ScrollDescendantIntoView(SlateWidgetToFind, AnimateScroll);
 	}
 }
 
@@ -171,11 +173,6 @@ void UScrollBox::PostLoad()
 }
 
 #if WITH_EDITOR
-
-const FSlateBrush* UScrollBox::GetEditorIcon()
-{
-	return FUMGStyle::Get().GetBrush("Widget.ScrollBox");
-}
 
 const FText UScrollBox::GetPaletteCategory()
 {

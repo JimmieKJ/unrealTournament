@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreUObjectPrivate.h"
 #include "UObjectThreadContext.h"
@@ -80,18 +80,21 @@ FString UEnum::GetBaseEnumNameOnDuplication() const
 
 void UEnum::RenameNamesAfterDuplication()
 {
-	// Get name of base enum, from which we're duplicating.
-	FString BaseEnumName = GetBaseEnumNameOnDuplication();
-
-	// Get name of duplicated enum.
-	FString ThisName = GetName();
-
-	// Replace all usages of base class name to the duplicated one.
-	for (TPair<FName, uint8>& Kvp : Names)
+	if (Names.Num() != 0)
 	{
-		FString NameString = Kvp.Key.ToString();
-		NameString.ReplaceInline(*BaseEnumName, *ThisName);
-		Kvp.Key = FName(*NameString);
+		// Get name of base enum, from which we're duplicating.
+		FString BaseEnumName = GetBaseEnumNameOnDuplication();
+
+		// Get name of duplicated enum.
+		FString ThisName = GetName();
+
+		// Replace all usages of base class name to the duplicated one.
+		for (TPair<FName, uint8>& Kvp : Names)
+		{
+			FString NameString = Kvp.Key.ToString();
+			NameString.ReplaceInline(*BaseEnumName, *ThisName);
+			Kvp.Key = FName(*NameString);
+		}
 	}
 }
 

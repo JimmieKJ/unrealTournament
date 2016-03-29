@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneTracksPrivatePCH.h"
 #include "MovieSceneCommonHelpers.h"
@@ -13,7 +13,7 @@ FMovieScene3DAttachTrackInstance::FMovieScene3DAttachTrackInstance( UMovieScene3
 { }
 
 
-void FMovieScene3DAttachTrackInstance::UpdateConstraint( float Position, const TArray<UObject*>& RuntimeObjects, AActor* Actor, UMovieScene3DConstraintSection* ConstraintSection ) 
+void FMovieScene3DAttachTrackInstance::UpdateConstraint( float Position, const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, AActor* Actor, UMovieScene3DConstraintSection* ConstraintSection ) 
 {
 	FVector Translation;
 	FRotator Rotation;
@@ -22,7 +22,7 @@ void FMovieScene3DAttachTrackInstance::UpdateConstraint( float Position, const T
 
 	for( int32 ObjIndex = 0; ObjIndex < RuntimeObjects.Num(); ++ObjIndex )
 	{
-		USceneComponent* SceneComponent = MovieSceneHelpers::SceneComponentFromRuntimeObject(RuntimeObjects[ObjIndex]);
+		USceneComponent* SceneComponent = MovieSceneHelpers::SceneComponentFromRuntimeObject(RuntimeObjects[ObjIndex].Get());
 
 		if (SceneComponent != nullptr)
 		{

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemGooglePlayPrivatePCH.h"
 #include "OnlineAsyncTaskGooglePlayQueryInAppPurchases.h"
@@ -245,4 +245,86 @@ void FOnlineStoreGooglePlay::ProcessPurchaseResult(bool bInSuccessful, const FSt
 	}
 
 	TriggerOnInAppPurchaseCompleteDelegates(bInSuccessful ? EInAppPurchaseState::Success : EInAppPurchaseState::Failed);
+}
+
+
+bool FOnlineStoreGooglePlay::RestorePurchases(FOnlineInAppPurchaseRestoreReadRef& InReadObject)
+{
+	bool bSentAQueryRequest = false;
+	CachedPurchaseRestoreObject = InReadObject;
+
+	if (IsAllowedToMakePurchases())
+	{
+		// Send JNI request
+		extern bool AndroidThunkCpp_Iap_RestorePurchases();
+		bSentAQueryRequest = AndroidThunkCpp_Iap_RestorePurchases();
+	}
+	else
+	{
+		UE_LOG(LogOnline, Display, TEXT("This device is not able to make purchases."));
+		TriggerOnInAppPurchaseRestoreCompleteDelegates(EInAppPurchaseState::Failed);
+	}
+
+	return bSentAQueryRequest;
+}
+
+extern "C" void Java_com_epicgames_ue4_GooglePlayStoreHelper_nativeRestorePurchasesComplete(JNIEnv* jenv, jobject thiz, jboolean bSuccess, jobjectArray ProductIDs, jobjectArray ReceiptsData)
+{
+	TArray<FInAppPurchaseRestoreInfo> RestoredPurchaseInfo;
+
+	if (jenv && bSuccess)
+	{
+		jsize NumProducts = jenv->GetArrayLength(ProductIDs);
+		jsize NumReceipts = jenv->GetArrayLength(ReceiptsData);
+
+		ensure((NumProducts == NumReceipts));
+
+		for (jsize Idx = 0; Idx < NumProducts; Idx++)
+		{
+			// Build the restore product information strings.
+			FInAppPurchaseRestoreInfo RestoreInfo;
+
+			jstring NextId = (jstring)jenv->GetObjectArrayElement(ProductIDs, Idx);
+			const char* charsId = jenv->GetStringUTFChars(NextId, 0);
+			RestoreInfo.Identifier = FString(UTF8_TO_TCHAR(charsId));
+			jenv->ReleaseStringUTFChars(NextId, charsId);
+			jenv->DeleteLocalRef(NextId);
+
+			jstring NextReceipt = (jstring)jenv->GetObjectArrayElement(ReceiptsData, Idx);
+			const char* charsReceipt = jenv->GetStringUTFChars(NextReceipt, 0);
+			RestoreInfo.ReceiptData = FString(UTF8_TO_TCHAR(charsReceipt));
+			jenv->ReleaseStringUTFChars(NextReceipt, charsReceipt);
+			jenv->DeleteLocalRef(NextReceipt);
+
+			RestoredPurchaseInfo.Add(RestoreInfo);
+
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("\nRestored Product Identifier: %s\n"), *RestoreInfo.Identifier);
+		}
+	}
+
+	DECLARE_CYCLE_STAT(TEXT("FSimpleDelegateGraphTask.RestorePurchases"), STAT_FSimpleDelegateGraphTask_RestorePurchases, STATGROUP_TaskGraphTasks);
+
+	FSimpleDelegateGraphTask::CreateAndDispatchWhenReady(
+		FSimpleDelegateGraphTask::FDelegate::CreateLambda([=]()
+		{
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Restoring In-App Purchases was completed  %s\n"), bSuccess ? TEXT("successfully") : TEXT("unsuccessfully"));
+			if (IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::Get())
+			{
+				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Sending result back to OnlineSubsystem.\n"));
+				// call store implementation to process query results.
+				if (FOnlineStoreGooglePlay* StoreInterface = (FOnlineStoreGooglePlay*)OnlineSub->GetStoreInterface().Get())
+				{
+					if (StoreInterface->CachedPurchaseRestoreObject.IsValid())
+					{
+						StoreInterface->CachedPurchaseRestoreObject->ProvidedRestoreInformation = RestoredPurchaseInfo;
+						StoreInterface->CachedPurchaseRestoreObject->ReadState = bSuccess ? EOnlineAsyncTaskState::Done : EOnlineAsyncTaskState::Failed;
+					}
+					StoreInterface->TriggerOnInAppPurchaseRestoreCompleteDelegates(bSuccess ? EInAppPurchaseState::Restored : EInAppPurchaseState::Failed);
+				}
+			}
+		}),
+		GET_STATID(STAT_FSimpleDelegateGraphTask_RestorePurchases),
+		nullptr,
+		ENamedThreads::GameThread
+	);
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
 #include "EngineUtils.h"
@@ -12,6 +12,7 @@
 #include "BehaviorTree/BlackboardData.h"
 #include "AISystem.h"
 
+DEFINE_STAT(STAT_AI_Overall);
 
 UAISystem::UAISystem(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -65,6 +66,8 @@ void UAISystem::PostInitProperties()
 			FOnActorSpawned::FDelegate ActorSpawnedDelegate = FOnActorSpawned::FDelegate::CreateUObject(this, &UAISystem::OnActorSpawned);
 			ActorSpawnedDelegateHandle = WorldOuter->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
 		}
+
+		ConditionalLoadDebuggerPlugin();
 	}
 }
 
@@ -127,7 +130,7 @@ void UAISystem::AILoggingVerbose()
 
 void UAISystem::RunEQS(const FString& QueryName, UObject* Target)
 {
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if !UE_BUILD_SHIPPING
 	UWorld* OuterWorld = GetOuterWorld();
 	if (OuterWorld == NULL || OuterWorld->GetGameInstance() == NULL)
 	{
@@ -154,7 +157,7 @@ void UAISystem::RunEQS(const FString& QueryName, UObject* Target)
 	{
 		MyPC->ClientMessage(TEXT("No debugging target"));
 	}
-#endif
+#endif // !UE_BUILD_SHIPPING
 }
 
 UAISystem::FBlackboardDataToComponentsIterator::FBlackboardDataToComponentsIterator(FBlackboardDataToComponentsMap& InBlackboardDataToComponentsMap, UBlackboardData* BlackboardAsset)
@@ -201,4 +204,19 @@ void UAISystem::UnregisterBlackboardComponent(UBlackboardData& BlackboardData, U
 UAISystem::FBlackboardDataToComponentsIterator UAISystem::CreateBlackboardDataToComponentsIterator(UBlackboardData& BlackboardAsset)
 {
 	return UAISystem::FBlackboardDataToComponentsIterator(BlackboardDataToComponentsMap, &BlackboardAsset);
+}
+
+void UAISystem::ConditionalLoadDebuggerPlugin()
+{
+#if ENABLED_GAMEPLAY_DEBUGGER
+	if (bEnableDebuggerPlugin)
+	{
+		LoadDebuggerPlugin();
+	}
+#endif
+}
+
+void UAISystem::LoadDebuggerPlugin()
+{
+	FModuleManager::LoadModulePtr< IModuleInterface >("GameplayDebugger");
 }

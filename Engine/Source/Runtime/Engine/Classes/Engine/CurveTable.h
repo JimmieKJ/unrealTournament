@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -54,7 +54,7 @@ class UCurveTable
 	{
 		if(RowName == NAME_None)
 		{
-			UE_CLOG(WarnIfNotFound, LogCurveTable, Warning, TEXT("UCurveTable::FindRow : NAME_None is invalid row name for CurveTable '%s' (%s)."), *GetPathName(), *ContextString);
+			UE_CLOG(WarnIfNotFound, LogCurveTable, Warning, TEXT("UCurveTable::FindCurve : NAME_None is invalid row name for CurveTable '%s' (%s)."), *GetPathName(), *ContextString);
 			return nullptr;
 		}
 
@@ -62,7 +62,7 @@ class UCurveTable
 
 		if(FoundCurve == nullptr)
 		{
-			UE_CLOG(WarnIfNotFound, LogCurveTable, Warning, TEXT("UCurveTable::FindRow : Row '%s' not found in CurveTable '%s' (%s)."), *RowName.ToString(), *GetPathName(), *ContextString);
+			UE_CLOG(WarnIfNotFound, LogCurveTable, Warning, TEXT("UCurveTable::FindCurve : Row '%s' not found in CurveTable '%s' (%s)."), *RowName.ToString(), *GetPathName(), *ContextString);
 			return nullptr;
 		}
 
@@ -134,28 +134,34 @@ struct ENGINE_API FCurveTableRowHandle
 	FName				RowName;
 
 	/** Returns true if the curve is valid */
-	bool IsValid() const
+	bool IsValid(const FString& ContextString) const
 	{
-		return (GetCurve() != nullptr);
+		return (GetCurve(ContextString) != nullptr);
 	}
 
-	static const FString Unknown;
+	/** Returns true if this handle is specifically pointing to nothing */
+	bool IsNull() const
+	{
+		return CurveTable == nullptr && RowName == NAME_None;
+	}
 
 	/** Get the curve straight from the row handle */
-	FRichCurve* GetCurve(const FString& ContextString = Unknown) const;
+	FRichCurve* GetCurve(const FString& ContextString) const;
 
 	/** Evaluate the curve if it is valid
 	 * @param XValue The input X value to the curve
+	 * @param ContextString A string to provide context for where this operation is being carried out
 	 * @return The value of the curve if valid, 0 if not
 	 */
-	float Eval(float XValue) const;
+	float Eval(float XValue,const FString& ContextString) const;
 
 	/** Evaluate the curve if it is valid
 	 * @param XValue The input X value to the curve
 	 * @param YValue The output Y value from the curve
+	 * @param ContextString A string to provide context for where this operation is being carried out
 	 * @return True if it filled out YValue with a valid number, false otherwise
 	 */
-	bool Eval(float XValue, float* YValue) const;
+	bool Eval(float XValue, float* YValue,const FString& ContextString) const;
 
 	bool operator==(const FCurveTableRowHandle& Other) const;
 	bool operator!=(const FCurveTableRowHandle& Other) const;

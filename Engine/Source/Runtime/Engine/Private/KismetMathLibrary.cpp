@@ -1,27 +1,28 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "CoreStats.h"
+#include "Math/DualQuat.h"
 
-/** Interpolate a linear alpha value using an ease mode and function, BlendExp used in cases where the easing is exponential */
+/** Interpolate a linear alpha value using an ease mode and function. */
 float EaseAlpha(float InAlpha, uint8 EasingFunc, float BlendExp, int32 Steps)
 {
 	switch (EasingFunc)
 	{
-	case EEasingFunc::Step:					return FMath::Clamp<float>(FMath::InterpStep(0.f, 1.f, InAlpha, Steps), 0.f, 1.f);
-	case EEasingFunc::SinusoidalIn:			return FMath::Clamp<float>(FMath::InterpSinIn<float>(0.f, 1.f, InAlpha), 0.f, 1.f);
-	case EEasingFunc::SinusoidalOut:		return FMath::Clamp<float>(FMath::InterpSinOut<float>(0.f, 1.f, InAlpha), 0.f, 1.f);
-	case EEasingFunc::SinusoidalInOut:		return FMath::Clamp<float>(FMath::InterpSinInOut<float>(0.f, 1.f, InAlpha), 0.f, 1.f);
-	case EEasingFunc::EaseIn:				return FMath::Clamp<float>(FMath::InterpEaseIn<float>(0.f, 1.f, InAlpha, BlendExp), 0.f, 1.f);
-	case EEasingFunc::EaseOut:				return FMath::Clamp<float>(FMath::InterpEaseOut<float>(0.f, 1.f, InAlpha, BlendExp), 0.f, 1.f);
-	case EEasingFunc::EaseInOut:			return FMath::Clamp<float>(FMath::InterpEaseInOut<float>(0.f, 1.f, InAlpha, BlendExp), 0.f, 1.f);
-	case EEasingFunc::ExpoIn:				return FMath::Clamp<float>(FMath::InterpExpoIn<float>(0.f, 1.f, InAlpha), 0.f, 1.f);
-	case EEasingFunc::ExpoOut:				return FMath::Clamp<float>(FMath::InterpExpoOut<float>(0.f, 1.f, InAlpha), 0.f, 1.f);
-	case EEasingFunc::ExpoInOut:			return FMath::Clamp<float>(FMath::InterpExpoInOut<float>(0.f, 1.f, InAlpha), 0.f, 1.f);
-	case EEasingFunc::CircularIn:			return FMath::Clamp<float>(FMath::InterpCircularIn<float>(0.f, 1.f, InAlpha), 0.f, 1.f);
-	case EEasingFunc::CircularOut:			return FMath::Clamp<float>(FMath::InterpCircularOut<float>(0.f, 1.f, InAlpha), 0.f, 1.f);
-	case EEasingFunc::CircularInOut:		return FMath::Clamp<float>(FMath::InterpCircularInOut<float>(0.f, 1.f, InAlpha), 0.f, 1.f);
+	case EEasingFunc::Step:					return FMath::InterpStep<float>(0.f, 1.f, InAlpha, Steps);
+	case EEasingFunc::SinusoidalIn:			return FMath::InterpSinIn<float>(0.f, 1.f, InAlpha);
+	case EEasingFunc::SinusoidalOut:		return FMath::InterpSinOut<float>(0.f, 1.f, InAlpha);
+	case EEasingFunc::SinusoidalInOut:		return FMath::InterpSinInOut<float>(0.f, 1.f, InAlpha);
+	case EEasingFunc::EaseIn:				return FMath::InterpEaseIn<float>(0.f, 1.f, InAlpha, BlendExp);
+	case EEasingFunc::EaseOut:				return FMath::InterpEaseOut<float>(0.f, 1.f, InAlpha, BlendExp);
+	case EEasingFunc::EaseInOut:			return FMath::InterpEaseInOut<float>(0.f, 1.f, InAlpha, BlendExp);
+	case EEasingFunc::ExpoIn:				return FMath::InterpExpoIn<float>(0.f, 1.f, InAlpha);
+	case EEasingFunc::ExpoOut:				return FMath::InterpExpoOut<float>(0.f, 1.f, InAlpha);
+	case EEasingFunc::ExpoInOut:			return FMath::InterpExpoInOut<float>(0.f, 1.f, InAlpha);
+	case EEasingFunc::CircularIn:			return FMath::InterpCircularIn<float>(0.f, 1.f, InAlpha);
+	case EEasingFunc::CircularOut:			return FMath::InterpCircularOut<float>(0.f, 1.f, InAlpha);
+	case EEasingFunc::CircularInOut:		return FMath::InterpCircularInOut<float>(0.f, 1.f, InAlpha);
 	}
 	return InAlpha;
 }
@@ -113,6 +114,16 @@ uint8 UKismetMathLibrary::Subtract_ByteByte(uint8 A, uint8 B)
 	return A - B;
 }
 
+uint8 UKismetMathLibrary::BMin(uint8 A, uint8 B)
+{
+	return FMath::Min<uint8>(A, B);
+}
+
+uint8 UKismetMathLibrary::BMax(uint8 A, uint8 B)
+{
+	return FMath::Max<uint8>(A, B);
+}
+ 
 bool UKismetMathLibrary::Less_ByteByte(uint8 A, uint8 B)
 {
 	return A < B;
@@ -375,6 +386,11 @@ float UKismetMathLibrary::GridSnap_Float(float Location, float GridSize)
 float UKismetMathLibrary::GetPI()
 {
 	return PI;
+}
+
+float UKismetMathLibrary::GetTAU()
+{
+	return 2.f * PI;
 }
 
 float UKismetMathLibrary::DegreesToRadians(float A)
@@ -926,6 +942,12 @@ FVector UKismetMathLibrary::ProjectVectorOnToVector(FVector V, FVector Target)
 	}
 }
 
+
+void UKismetMathLibrary::FindNearestPointsOnLineSegments(FVector Segment1Start, FVector Segment1End, FVector Segment2Start, FVector Segment2End, FVector& Segment1Point, FVector& Segment2Point)
+{
+	FMath::SegmentDistToSegmentSafe(Segment1Start, Segment1End, Segment2Start, Segment2End, Segment1Point, Segment2Point);
+}
+
 FVector UKismetMathLibrary::ProjectPointOnToPlane(FVector Point, FVector PlaneBase, FVector PlaneNormal)
 {
 	return FVector::PointPlaneProject(Point, PlaneBase, PlaneNormal);
@@ -1138,16 +1160,40 @@ FTransform UKismetMathLibrary::InvertTransform(const FTransform& T)
 	return T.Inverse();
 }
 
-FTransform UKismetMathLibrary::TLerp(const FTransform& A, const FTransform& B, float Alpha)
+
+
+FTransform UKismetMathLibrary::TLerp(const FTransform& A, const FTransform& B, float Alpha, TEnumAsByte<ELerpInterpolationMode::Type> LerpInterpolationMode)
 {
 	FTransform Result;
-	
+
 	FTransform NA = A;
 	FTransform NB = B;
 	NA.NormalizeRotation();
 	NB.NormalizeRotation();
-	Result.Blend(NA, NB, Alpha);
-	return Result;
+
+	// Quaternion interpolation
+	if (LerpInterpolationMode == ELerpInterpolationMode::QuatInterp)
+	{
+		Result.Blend(NA, NB, Alpha);
+		return Result;
+	}
+	// Euler Angle interpolation
+	else if (LerpInterpolationMode == ELerpInterpolationMode::EulerInterp)
+	{
+		Result.SetTranslation(FMath::Lerp(NA.GetTranslation(), NB.GetTranslation(), Alpha));
+		Result.SetScale3D(FMath::Lerp(NA.GetScale3D(), NB.GetScale3D(), Alpha));
+		Result.SetRotation(FQuat(RLerp(NA.Rotator(), NB.Rotator(), Alpha, false)));
+		return Result;
+	}
+	// Dual quaternion interpolation
+	else
+	{
+		if ((NB.GetRotation() | NA.GetRotation()) < 0.0f)
+		{
+			NB.SetRotation(NB.GetRotation()*-1.0f);
+		}
+		return (FDualQuat(NA)*(1 - Alpha) + FDualQuat(NB)*Alpha).Normalized().AsFTransform(FMath::Lerp(NA.GetScale3D(), NB.GetScale3D(), Alpha));
+	}
 }
 
 FTransform UKismetMathLibrary::TEase(const FTransform& A, const FTransform& B, float Alpha, TEnumAsByte<EEasingFunc::Type> EasingFunc, float BlendExp, int32 Steps)
@@ -1219,6 +1265,15 @@ FVector2D UKismetMathLibrary::Subtract_Vector2DFloat(FVector2D A, float B)
 	return A-B;
 }
 
+bool UKismetMathLibrary::EqualEqual_Vector2DVector2D(FVector2D A, FVector2D B, float ErrorTolerance)
+{ 
+    return A.Equals(B,ErrorTolerance);
+}
+
+bool UKismetMathLibrary::NotEqual_Vector2DVector2D(FVector2D A, FVector2D B, float ErrorTolerance)
+{
+    return !A.Equals(B,ErrorTolerance);
+}
 
 bool UKismetMathLibrary::EqualEqual_NameName(FName A, FName B)
 {
@@ -1255,7 +1310,13 @@ bool UKismetMathLibrary::ClassIsChildOf(TSubclassOf<class UObject> TestClass, TS
 	return ((*ParentClass != NULL) && (*TestClass != NULL)) ? (*TestClass)->IsChildOf(*ParentClass) : false;
 }
 
-
+/* Plane functions
+ *****************************************************************************/
+FPlane UKismetMathLibrary::MakePlaneFromPointAndNormal(FVector Point, FVector Normal)
+{ 
+	return FPlane(Point, Normal.GetSafeNormal());
+}
+ 
 /* DateTime functions
  *****************************************************************************/
 FDateTime UKismetMathLibrary::MakeDateTime(int32 Year, int32 Month, int32 Day, int32 Hour, int32 Minute, int32 Second, int32 Millisecond)

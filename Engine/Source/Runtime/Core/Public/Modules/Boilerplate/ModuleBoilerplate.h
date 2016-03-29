@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -33,7 +33,6 @@
 #define PER_MODULE_BOILERPLATE \
 	TArray<FNameEntry const*>* GFNameTableForDebuggerVisualizers = FName::GetNameTableForDebuggerVisualizers_ST(); \
 	FNameEntry*** GFNameTableForDebuggerVisualizers_MT = FName::GetNameTableForDebuggerVisualizers_MT(); \
-	int32*** GSerialNumberBlocksForDebugVisualizers = FCoreDelegates::GetSerialNumberBlocksForDebugVisualizersDelegate().IsBound() ? FCoreDelegates::GetSerialNumberBlocksForDebugVisualizersDelegate().Execute() : NULL; \
-	UObjectBase*** GObjectArrayForDebugVisualizers = FCoreDelegates::GetObjectArrayForDebugVisualizersDelegate().IsBound() ? FCoreDelegates::GetObjectArrayForDebugVisualizersDelegate().Execute() : NULL; \
+	FFixedUObjectArray* GObjectArrayForDebugVisualizers = FCoreDelegates::GetObjectArrayForDebugVisualizersDelegate().IsBound() ? FCoreDelegates::GetObjectArrayForDebugVisualizersDelegate().Execute() : NULL; \
 	bool GFNameDebuggerVisualizersIsUE3=false; \
 	REPLACEMENT_OPERATOR_NEW_AND_DELETE

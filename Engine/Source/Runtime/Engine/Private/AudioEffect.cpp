@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AudioEffect.cpp: Unreal base audio.
@@ -111,29 +111,44 @@ void FAudioReverbEffect::Interpolate( float InterpValue, const FAudioReverbEffec
  */
 void FAudioEQEffect::ClampValues( void )
 {
-	HFFrequency = FMath::Clamp<float>( HFFrequency, MIN_FILTER_FREQUENCY, MAX_FILTER_FREQUENCY );
-	HFGain = FMath::Clamp<float>( HFGain, MIN_FILTER_GAIN, MAX_FILTER_GAIN );
-	MFCutoffFrequency = FMath::Clamp<float>( MFCutoffFrequency, MIN_FILTER_FREQUENCY, MAX_FILTER_FREQUENCY );
-	MFBandwidth = FMath::Clamp<float>( MFBandwidth, MIN_FILTER_BANDWIDTH, MAX_FILTER_BANDWIDTH );
-	MFGain = FMath::Clamp<float>( MFGain, MIN_FILTER_GAIN, MAX_FILTER_GAIN );
-	LFFrequency = FMath::Clamp<float>( LFFrequency, MIN_FILTER_FREQUENCY, MAX_FILTER_FREQUENCY );
-	LFGain = FMath::Clamp<float>( LFGain, MIN_FILTER_GAIN, MAX_FILTER_GAIN );
+	FrequencyCenter0 = FMath::Clamp(FrequencyCenter0, MIN_FILTER_FREQUENCY, MAX_FILTER_FREQUENCY);
+	FrequencyCenter1 = FMath::Clamp(FrequencyCenter1, MIN_FILTER_FREQUENCY, MAX_FILTER_FREQUENCY);
+	FrequencyCenter2 = FMath::Clamp(FrequencyCenter2, MIN_FILTER_FREQUENCY, MAX_FILTER_FREQUENCY);
+	FrequencyCenter3 = FMath::Clamp(FrequencyCenter3, MIN_FILTER_FREQUENCY, MAX_FILTER_FREQUENCY);
+
+	Gain0 = FMath::Clamp(Gain0, 0.0f, MAX_FILTER_GAIN);
+	Gain1 = FMath::Clamp(Gain1, 0.0f, MAX_FILTER_GAIN);
+	Gain2 = FMath::Clamp(Gain2, 0.0f, MAX_FILTER_GAIN);
+	Gain3 = FMath::Clamp(Gain3, 0.0f, MAX_FILTER_GAIN);
+
+	Bandwidth0 = FMath::Clamp(Bandwidth0, MIN_FILTER_BANDWIDTH, MAX_FILTER_BANDWIDTH);
+	Bandwidth1 = FMath::Clamp(Bandwidth1, MIN_FILTER_BANDWIDTH, MAX_FILTER_BANDWIDTH);
+	Bandwidth2 = FMath::Clamp(Bandwidth2, MIN_FILTER_BANDWIDTH, MAX_FILTER_BANDWIDTH);
+	Bandwidth3 = FMath::Clamp(Bandwidth3, MIN_FILTER_BANDWIDTH, MAX_FILTER_BANDWIDTH);
+
 }
 
 /** 
  * Interpolate EQ settings based on time
  */
-void FAudioEQEffect::Interpolate( float InterpValue, const FAudioEQEffect& Start, const FAudioEQEffect& End )
+void FAudioEQEffect::Interpolate(float InterpValue, const FAudioEQEffect& Start, const FAudioEQEffect& End )
 {
-	float InvInterpValue = 1.0f - InterpValue;
 	RootTime = FApp::GetCurrentTime();
-	HFFrequency = ( Start.HFFrequency * InvInterpValue ) + ( End.HFFrequency * InterpValue );
-	HFGain = ( Start.HFGain * InvInterpValue ) + ( End.HFGain * InterpValue );
-	MFCutoffFrequency = ( Start.MFCutoffFrequency * InvInterpValue ) + ( End.MFCutoffFrequency * InterpValue );
-	MFBandwidth = ( Start.MFBandwidth * InvInterpValue ) + ( End.MFBandwidth * InterpValue );
-	MFGain = ( Start.MFGain * InvInterpValue ) + ( End.MFGain * InterpValue );
-	LFFrequency = ( Start.LFFrequency * InvInterpValue ) + ( End.LFFrequency * InterpValue );
-	LFGain = ( Start.LFGain * InvInterpValue ) + ( End.LFGain * InterpValue );
+
+	FrequencyCenter0 = FMath::Lerp(Start.FrequencyCenter0, End.FrequencyCenter0, InterpValue);
+	FrequencyCenter1 = FMath::Lerp(Start.FrequencyCenter1, End.FrequencyCenter1, InterpValue);
+	FrequencyCenter2 = FMath::Lerp(Start.FrequencyCenter2, End.FrequencyCenter2, InterpValue);
+	FrequencyCenter3 = FMath::Lerp(Start.FrequencyCenter3, End.FrequencyCenter3, InterpValue);
+
+	Gain0 = FMath::Lerp(Start.Gain0, End.Gain0, InterpValue);
+	Gain1 = FMath::Lerp(Start.Gain1, End.Gain1, InterpValue);
+	Gain2 = FMath::Lerp(Start.Gain2, End.Gain2, InterpValue);
+	Gain3 = FMath::Lerp(Start.Gain3, End.Gain3, InterpValue);
+
+	Bandwidth0 = FMath::Lerp(Start.Bandwidth0, End.Bandwidth0, InterpValue);
+	Bandwidth1 = FMath::Lerp(Start.Bandwidth1, End.Bandwidth1, InterpValue);
+	Bandwidth2 = FMath::Lerp(Start.Bandwidth2, End.Bandwidth2, InterpValue);
+	Bandwidth3 = FMath::Lerp(Start.Bandwidth3, End.Bandwidth3, InterpValue);
 }
 
 /**
@@ -296,9 +311,9 @@ void FAudioEffectsManager::SetReverbSettings( const FReverbSettings& ReverbSetti
  * Sets new EQ mix if necessary. Otherwise interpolates to the current settings and calls SetEffect to handle
  * the platform specific aspect.
  */
-void FAudioEffectsManager::SetMixSettings( USoundMix* NewMix, bool bIgnorePriority )
+void FAudioEffectsManager::SetMixSettings(USoundMix* NewMix, bool bIgnorePriority, bool bForce)
 {
-	if( NewMix && NewMix != CurrentEQMix )
+	if (NewMix && (NewMix != CurrentEQMix || bForce))
 	{
 		// Check whether the priority of this SoundMix is higher than existing one
 		if (CurrentEQMix == NULL || bIgnorePriority || NewMix->EQPriority > CurrentEQMix->EQPriority)
@@ -336,11 +351,12 @@ void FAudioEffectsManager::ClearMixSettings()
 		UE_LOG(LogAudio, Log, TEXT( "FAudioEffectsManager::ClearMixSettings(): %s" ), *CurrentEQMix->GetName() );
 
 		SourceEQEffect = CurrentEQEffect;
-		SourceEQEffect.RootTime = FApp::GetCurrentTime();
+		double CurrentTime = FApp::GetCurrentTime();
+		SourceEQEffect.RootTime = CurrentTime;
 
 		// interpolate back to default
 		DestinationEQEffect = FAudioEQEffect();
-		DestinationEQEffect.RootTime = FApp::GetCurrentTime() + CurrentEQMix->FadeOutTime;
+		DestinationEQEffect.RootTime = CurrentTime + CurrentEQMix->FadeOutTime;
 
 		CurrentEQMix = NULL;
 	}
@@ -349,19 +365,22 @@ void FAudioEffectsManager::ClearMixSettings()
 /** 
  * Feed in new settings to the audio effect system
  */
-void FAudioEffectsManager::Update( void )
+void FAudioEffectsManager::Update()
 {
-	/** Interpolate the settings depending on time */
-	Interpolate( CurrentReverbEffect, SourceReverbEffect, DestinationReverbEffect );
+	// Check for changes to the mix so we can hear EQ changes in real-time
+#if WITH_EDITORONLY_DATA
+	if (CurrentEQMix && CurrentEQMix->bChanged)
+	{
+		CurrentEQMix->bChanged = false;
+		SetMixSettings(CurrentEQMix, true, true);
+	}
+#endif
 
-	/** Call the platform-specific code to set the effect */
-	SetReverbEffectParameters( CurrentReverbEffect );
+	Interpolate(CurrentReverbEffect, SourceReverbEffect, DestinationReverbEffect);
+	SetReverbEffectParameters(CurrentReverbEffect);
 
-	/** Interpolate the settings depending on time */
-	Interpolate( CurrentEQEffect, SourceEQEffect, DestinationEQEffect );
-
-	/** Call the platform-specific code to set the effect */
-	SetEQEffectParameters( CurrentEQEffect );
+	Interpolate(CurrentEQEffect, SourceEQEffect, DestinationEQEffect);
+	SetEQEffectParameters(CurrentEQEffect);
 }
 
 // end 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Net/UnrealNetwork.h"
@@ -192,7 +192,7 @@ bool UPackageMapClient::WriteObject( FArchive& Ar, UObject* ObjOuter, FNetworkGU
  *		For static actors, this will just be a single call to SerializeObject, since they can be referenced by their path name.
  *		For dynamic actors, first the actor's reference is serialized but will not resolve on clients since they haven't spawned the actor yet.
  *		The actor archetype is then serialized along with the starting location, rotation, and velocity.
- *		After reading this information, the client spawns this actor via GWorld and assigns it the NetGUID it read at the top of the function.
+ *		After reading this information, the client spawns this actor in the NetDriver's World and assigns it the NetGUID it read at the top of the function.
  *
  *		returns true if a new actor was spawned. false means an existing actor was found for the netguid.
  */
@@ -856,7 +856,7 @@ bool UPackageMapClient::ExportNetGUID( FNetworkGUID NetGUID, const UObject* Obje
 		{
 			check( ExportNetGUIDCount == 0 );
 
-			CurrentExportBunch = new FOutBunch(this, Connection->MaxPacket*8-MAX_BUNCH_HEADER_BITS-MAX_PACKET_TRAILER_BITS-MAX_PACKET_HEADER_BITS );
+			CurrentExportBunch = new FOutBunch(this, Connection->GetMaxSingleBunchSizeBits());
 			CurrentExportBunch->SetAllowResize(false);
 			CurrentExportBunch->bHasGUIDs = true;
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -1869,12 +1869,8 @@ UObject* FNetGUIDCache::GetObjectFromNetGUID( const FNetworkGUID& NetGUID, const
 
 	if ( IsNetGUIDAuthority() )
 	{
-		// The client should never force the server to load objects
-		// In this case, make sure to log it, but we're relying on the calling code to know what's best to do.
-		// As of now, clients only send references to objects to the server via RPC, so this is usually just a NULL parameter that the game code
-		// needs to handle.
-		UE_LOG( LogNetPackageMap, Log, TEXT( "GetObjectFromNetGUID: Guid with no object on server. FullNetGUIDPath: %s" ), *FullNetGUIDPath( NetGUID ) );
-		return NULL;
+		// Warn when the server needs to re-load an object, it's probably due to a GC after initially loading as default guid
+		UE_LOG( LogNetPackageMap, Warning, TEXT( "GetObjectFromNetGUID: Server re-loading object (might have been GC'd). FullNetGUIDPath: %s" ), *FullNetGUIDPath( NetGUID ) );
 	}
 
 	if ( CacheObjectPtr->PathName == NAME_None )
@@ -1929,7 +1925,7 @@ UObject* FNetGUIDCache::GetObjectFromNetGUID( const FNetworkGUID& NetGUID, const
 
 	// At this point, we either have an outer, or we are a package
 	check( !CacheObjectPtr->bIsPending );
-	check( ObjOuter == NULL || ObjOuter->GetOutermost()->IsFullyLoaded() );
+	check(ObjOuter == NULL || ObjOuter->GetOutermost()->IsFullyLoaded() || ObjOuter->GetOutermost()->HasAnyPackageFlags(EPackageFlags::PKG_CompiledIn));
 
 	// See if this object is in memory
 	Object = StaticFindObject( UObject::StaticClass(), ObjOuter, *CacheObjectPtr->PathName.ToString(), false );
@@ -2002,18 +1998,32 @@ UObject* FNetGUIDCache::GetObjectFromNetGUID( const FNetworkGUID& NetGUID, const
 			return NULL;
 		}
 
-		if ( !Package->IsFullyLoaded() )
+		if (!Package->IsFullyLoaded() 
+			&& !Package->HasAnyPackageFlags(EPackageFlags::PKG_CompiledIn)) //TODO: dependencies of CompiledIn could still be loaded asynchronously. Are they necessary at this point??
 		{
 			if ( CVarAllowAsyncLoading.GetValueOnGameThread() > 0 )
 			{
-				// If this package isn't fully loaded (and we are async loading here), don't complain, assume it will fully load at some point
+				if (Package->HasAnyInternalFlags(EInternalObjectFlags::AsyncLoading))
+				{
+					// Something else is already async loading this package, calling load again will add our callback to the existing load request
+					PendingAsyncPackages.Add(CacheObjectPtr->PathName, NetGUID);
+					CacheObjectPtr->bIsPending = true;
+					LoadPackageAsync(CacheObjectPtr->PathName.ToString(), FLoadPackageAsyncDelegate::CreateRaw(this, &FNetGUIDCache::AsyncPackageCallback));
+
+					UE_LOG(LogNetPackageMap, Log, TEXT("GetObjectFromNetGUID: Listening to existing async load. Path: %s, NetGUID: %s"), *CacheObjectPtr->PathName.ToString(), *NetGUID.ToString());
+				}
+				else
+				{
+					UE_LOG(LogNetPackageMap, Error, TEXT("GetObjectFromNetGUID: Package is not fully loaded, but isn't async loading! Path: %s, NetGUID: %s"), *CacheObjectPtr->PathName.ToString(), *NetGUID.ToString());
+				}
+
 				return NULL;
 			}
 			else
 			{
 				// If package isn't fully loaded, flush async loading now
 				FlushAsyncLoading(); 
-				check( Package->IsFullyLoaded() );
+				check(Package->IsFullyLoaded());
 			}
 		}
 
@@ -2041,7 +2051,7 @@ UObject* FNetGUIDCache::GetObjectFromNetGUID( const FNetworkGUID& NetGUID, const
 
 	if ( Object && !ObjectLevelHasFinishedLoading( Object, Driver ) )
 	{
-		UE_LOG( LogNetPackageMap, Warning, TEXT( "GetObjectFromNetGUID: Forcing object to NULL since level is not loaded yet." ), *Object->GetFullName() );
+		UE_LOG( LogNetPackageMap, Log, TEXT( "GetObjectFromNetGUID: Forcing object to NULL since level is not loaded yet." ), *Object->GetFullName() );
 		return NULL;
 	}
 

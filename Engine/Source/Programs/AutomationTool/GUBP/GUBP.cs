@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -89,6 +89,7 @@ public partial class GUBP : BuildCommand
             TempStorage.DeleteLocalTempStorage();
         }
 
+		bool bNewEC = ParseParam("NewEC");
         bool bSkipTriggers = ParseParam("SkipTriggers");
         bool bFake = ParseParam("fake");
         bool bFakeEC = ParseParam("FakeEC");
@@ -99,50 +100,28 @@ public partial class GUBP : BuildCommand
         string BranchName = P4Enabled ? P4Env.BuildRootP4 : ParseParamValue("BranchName", "");
         GUBPBranchHacker.BranchOptions BranchOptions = GetBranchOptions(BranchName);
 
-        // encapsulate the logic and temp vars to determine the job info.
-        // Ensures the temp vars don't escape the scope to be used later.
-        Func<JobInfo> GetJobInfo = () =>
-        {
-            int PreflightShelveCL = 0;
-            int PreflightUID = 0;
-            string PreflightShelveCLString = GetEnvVar("uebp_PreflightShelveCL");
-            // We must be passed a valid shelve and be a build machine (or be running a preflight test) to be a valid preflight.
-            if (!string.IsNullOrEmpty(PreflightShelveCLString) && (IsBuildMachine || ParseParam("PreflightTest")))
-            {
-                Log("**** Preflight shelve {0}", PreflightShelveCLString);
-                PreflightShelveCL = int.Parse(PreflightShelveCLString);
-                if (PreflightShelveCL < 2000000)
-                {
-                    throw new AutomationException("{0} does not look like a CL", PreflightShelveCL);
-                }
-                PreflightUID = ParseParamInt("PreflightUID", 0);
-            }
-            return new JobInfo(
-                BranchName,
-                P4Enabled ? P4Env.BuildRootEscaped : "NoP4",
-                BranchOptions.RootNameForTempStorage ?? "UE4",
-                P4Enabled ? ParseParamInt("CL", P4Env.Changelist) : 0,
-                PreflightShelveCL, 
-                PreflightUID);
-        };
+		foreach (var Kind in BranchOptions.MonolithicsToRemove)
+		{
+			BranchInfo.MonolithicKinds.Remove(Kind);
+		}
 
-        var JobInfo = GetJobInfo();
+		string BranchNameForTempStorage = P4Enabled ? P4Env.BuildRootEscaped : "NoP4";
+		string RootNameForTempStorage = BranchOptions.RootNameForTempStorage ?? "UE4";
+		string PreflightSuffix = GetPreflightSuffix();
+		int ChangeNumber = P4Enabled ? ParseParamInt("CL", P4Env.Changelist) : 0;
+		bool bIsPreflight = PreflightSuffix != null;
+		string BuildFolder = string.Format("{0}{1}", ChangeNumber, PreflightSuffix);
 
-        bool LocalOnly = !P4Enabled || bFakeEC;
-
-        if (bSaveSharedTempStorage)
-        {
-            if (!TempStorage.IsSharedTempStorageAvailable(true))
-            {
-                throw new AutomationException("Request to save to shared temp storage, but shared temp storage is unavailable or does not exist.");
-            }
-        }
-        else if (!LocalOnly && !TempStorage.IsSharedTempStorageAvailable(false))
-        {
-            LogWarning("Looks like we want to use shared temp storage, but since we don't have it, we won't use it.");
-            LocalOnly = true;
-        }
-
+		string TempStorageDir;
+		if(bNewEC)
+		{
+			TempStorageDir = ParseParamValue("TempStorageDir");
+		}
+		else
+		{
+			TempStorageDir = GetTempStorageDir(bSaveSharedTempStorage, bFakeEC, BranchNameForTempStorage, RootNameForTempStorage, BuildFolder);
+		}
+		
         bool CommanderSetup = ParseParam("CommanderJobSetupOnly");
 
 		string ExplicitTriggerName = "";
@@ -151,19 +130,44 @@ public partial class GUBP : BuildCommand
 			ExplicitTriggerName = ParseParamValue("TriggerNode", "");
 		}
 
+		// Create the build graph
 		int TimeQuantum = 20;
-		BuildGraphTemplate GraphTemplate = new BuildGraphTemplate();
+		List<AggregateNodeDefinition> AggregateNodeDefinitions = new List<AggregateNodeDefinition>();
+		List<BuildNodeDefinition> BuildNodeDefinitions = new List<BuildNodeDefinition>();
 
-        AddNodesForBranch(HostPlatforms, JobInfo, BranchOptions, out GraphTemplate.BuildNodeTemplates, out GraphTemplate.AggregateNodeTemplates, ref TimeQuantum);
-
-		BuildGraph Graph = new BuildGraph(GraphTemplate);
-		FindCompletionState(Graph.BuildNodes, JobInfo, LocalOnly);
-		ComputeDependentFrequencies(Graph.BuildNodes);
-
-		int TimeIndex = ParseParamInt("TimeIndex", 0);
-		if (TimeIndex == 0)
+		// Add all the nodes to it
+		string ScriptName = ParseParamValue("Script");
+		if(ScriptName == null)
 		{
-			TimeIndex = ParseParamInt("UserTimeIndex", 0);
+			// Automatically configure it from whatever is in the branch
+			string BuildName = "CL-" + (P4Enabled? P4Env.ChangelistString : "Unknown") + (PreflightSuffix ?? "");
+			AddNodesForBranch(HostPlatforms, BranchName, new JobInfo(BuildName, PreflightSuffix != null), BranchOptions, out BuildNodeDefinitions, out AggregateNodeDefinitions, ref TimeQuantum, bNewEC);
+
+			// Check if we're exporting the graph as a starting point for manually configuring it
+			string OutputScriptName = ParseParamValue("ExportScript");
+			if(OutputScriptName != null)
+			{
+				BuildGraphDefinition Definition = BuildGraphDefinition.FromNodeDefinitions(AggregateNodeDefinitions, BuildNodeDefinitions, 20);
+				Definition.Write(OutputScriptName);
+				return ExitCode.Success;
+			}
+		}
+		else
+		{
+			// Read it from a script
+			BuildGraphDefinition Definition = BuildGraphDefinition.Read(ScriptName);
+			Definition.AddToGraph(AggregateNodeDefinitions, BuildNodeDefinitions);
+		}
+
+		BuildGraph Graph = new BuildGraph(AggregateNodeDefinitions, BuildNodeDefinitions);
+		FindCompletionState(Graph.BuildNodes, TempStorageDir);
+		ComputeDependentFrequencies(Graph.BuildNodes);
+		ValidateTriggerDependencies(Graph.BuildNodes);
+
+		int TimeIndex = ParseParamInt("UserTimeIndex", -1);
+		if (TimeIndex == -1)
+		{
+			TimeIndex = ParseParamInt("TimeIndex", -1);
 		}
 		if (ParseParam("CIS") && ExplicitTriggerName == "" && CommanderSetup) // explicit triggers will already have a time index assigned
 		{
@@ -174,10 +178,27 @@ public partial class GUBP : BuildCommand
 		// Find the list of nodes which we're actually going to execute
 		HashSet<BuildNode> NodesToDo = ParseNodesToDo(Graph.BuildNodes, Graph.AggregateNodes);
 		CullNodesForTimeIndex(NodesToDo, TimeIndex);
-        if (JobInfo.IsPreflight)
+        if (bIsPreflight)
         {
             CullNodesForPreflight(NodesToDo);
         }
+
+		// Mark all the nodes whose build products need to be copied to temp storage. Nodes which appear in the same agent sharing group do not need to be 
+		// copied; we don't clean between builds on the same agent.
+		foreach(BuildNode NodeToDo in NodesToDo)
+		{
+			foreach(BuildNode InputDependency in NodeToDo.InputDependencies)
+			{
+				if(String.IsNullOrEmpty(InputDependency.AgentSharingGroup) || InputDependency.AgentSharingGroup != NodeToDo.AgentSharingGroup || NodeToDo.IsSticky != InputDependency.IsSticky)
+				{
+					InputDependency.CopyToSharedStorage = true;
+				}
+			}
+		}
+		foreach(TriggerNode TriggerNode in NodesToDo.OfType<TriggerNode>())
+		{
+			TriggerNode.CopyToSharedStorage = true;
+		}
 
 		// From each of those nodes, remove any order dependencies that we're not going to run. There are no circumstances in which they should be 
 		// considered dependencies from this point on.
@@ -237,7 +258,7 @@ public partial class GUBP : BuildCommand
 				throw new AutomationException("Couldn't find node {0}", ShowHistoryParam);
 			}
 
-            NodeHistory History = FindNodeHistory(Node, JobInfo);
+            NodeHistory History = FindNodeHistory(Node.Name, ChangeNumber, TempStorageDir);
 			if(History == null)
 			{
 				throw new AutomationException("Couldn't get history for {0}", ShowHistoryParam);
@@ -250,7 +271,7 @@ public partial class GUBP : BuildCommand
 		{
 			if(CommanderSetup)
 			{
-				return DoCommanderSetup(EC, Graph.BuildNodes, Graph.AggregateNodes, OrderedToDo, TimeIndex, TimeQuantum, bSkipTriggers, bFake, bFakeEC, ExplicitTrigger, UnfinishedTriggers, JobInfo.IsPreflight);
+				return DoCommanderSetup(EC, Graph.BuildNodes, Graph.AggregateNodes, OrderedToDo, TimeIndex, TimeQuantum, bSkipTriggers, bNewEC, bFake, bFakeEC, ExplicitTrigger, UnfinishedTriggers, bIsPreflight);
 			}
 			else if(ParseParam("ListOnly"))
 			{
@@ -258,9 +279,61 @@ public partial class GUBP : BuildCommand
 			}
 			else
 			{
-				return ExecuteNodes(EC, OrderedToDo, bFake, bFakeEC, bSaveSharedTempStorage, JobInfo);
+				return ExecuteNodes(EC, OrderedToDo, bNewEC, bFake, bFakeEC, TempStorageDir, bSaveSharedTempStorage, ChangeNumber);
 			}
 		}
+	}
+
+	/// <summary>
+	/// Get a suffix used to identify preflight builds.
+	/// </summary>
+	/// <returns>Suffix to uniquely identify this preflight. Null if the current build is not a preflight</returns>
+	string GetPreflightSuffix()
+	{
+        int PreflightShelveCL = 0;
+        int PreflightUID = 0;
+        string PreflightShelveCLString = GetEnvVar("uebp_PreflightShelveCL");
+        // We must be passed a valid shelve and be a build machine (or be running a preflight test) to be a valid preflight.
+        if (!string.IsNullOrEmpty(PreflightShelveCLString) && (IsBuildMachine || ParseParam("PreflightTest")))
+        {
+            Log("**** Preflight shelve {0}", PreflightShelveCLString);
+            PreflightShelveCL = int.Parse(PreflightShelveCLString);
+            if (PreflightShelveCL < 2000000)
+            {
+                throw new AutomationException("{0} does not look like a CL", PreflightShelveCL);
+            }
+            PreflightUID = ParseParamInt("PreflightUID", 0);
+        }
+		return (PreflightShelveCL > 0)? string.Format("-PF-{0}-{1}", PreflightShelveCL, PreflightUID) : null;
+	}
+
+	/// <summary>
+	/// Determine the directory shared build products should be saved to.
+	/// </summary>
+	string GetTempStorageDir(bool bSaveSharedTempStorage, bool bFakeEC, string BranchNameForTempStorage, string RootNameForTempStorage, string BuildFolder)
+	{
+        bool LocalOnly = !P4Enabled || bFakeEC;
+
+        if (bSaveSharedTempStorage)
+        {
+            if (!TempStorage.IsSharedTempStorageAvailable(true))
+            {
+                throw new AutomationException("Request to save to shared temp storage, but shared temp storage is unavailable or does not exist.");
+            }
+        }
+        else if (!LocalOnly && !TempStorage.IsSharedTempStorageAvailable(false))
+        {
+            LogWarning("Looks like we want to use shared temp storage, but since we don't have it, we won't use it.");
+            LocalOnly = true;
+        }
+
+		string TempStorageDir = null;
+		if(!LocalOnly)
+		{
+			string RootTempStorageDir = TempStorage.ResolveSharedTempStorageDirectory(RootNameForTempStorage);
+			TempStorageDir = CommandUtils.CombinePaths(RootTempStorageDir, BranchNameForTempStorage, BuildFolder);
+		}
+		return TempStorageDir;
 	}
 
 	/// <summary>
@@ -295,30 +368,45 @@ public partial class GUBP : BuildCommand
 		}
 	}
 
-    static void FindCompletionState(IEnumerable<BuildNode> NodesToDo, JobInfo JobInfo, bool LocalOnly)
+	/// <summary>
+	/// Check whether any nodes reference triggers through input dependencies. We're deprecating the treatment of trigger nodes as
+	/// build nodes, because they don't do anything useful when they run. The new EC framework bypasses the execution of trigger nodes
+	/// entirely, and just sends notifications once all the dependencies are met.
+	/// </summary>
+	/// <param name="Nodes">List of nodes to check trigger dependencies for</param>
+	static void ValidateTriggerDependencies(IReadOnlyList<BuildNode> Nodes)
+	{
+		foreach(BuildNode NodeToDo in Nodes)
+		{
+			foreach(TriggerNode TriggerNodeToDo in NodeToDo.InputDependencies.OfType<TriggerNode>())
+			{
+				LogWarning("'{0}' has an input dependency on '{1}'. Treating trigger nodes as build nodes is deprecated.", NodeToDo.Name, TriggerNodeToDo.Name);
+			}
+		}
+		foreach(TriggerNode TriggerNodeToDo in Nodes.OfType<TriggerNode>())
+		{
+			foreach(BuildNode NodeToDo in TriggerNodeToDo.InputDependencies)
+			{
+				LogWarning("'{0}' has an input dependency on '{1}'. Treating trigger nodes as build nodes is deprecated.", TriggerNodeToDo.Name, NodeToDo.Name);
+			}
+		}
+	}
+
+    static void FindCompletionState(IEnumerable<BuildNode> NodesToDo, string TempStorageDir)
 	{
 		foreach(BuildNode NodeToDo in NodesToDo)
 		{
-            // Construct the full temp storage node info
-            var TempStorageNodeInfo = new TempStorageNodeInfo(JobInfo, NodeToDo.Name);
-
-			if (LocalOnly)
-			{
-                NodeToDo.IsComplete = TempStorage.LocalTempStorageManifestExists(TempStorageNodeInfo, bQuiet: true);
-			}
-			else
-			{
-                NodeToDo.IsComplete = TempStorage.TempStorageExists(TempStorageNodeInfo, bLocalOnly: false, bQuiet: true);
-			}
+            // Construct the full temp storage node info. Check both the block name and the succeeded record; we may have skipped copying the build products themselves because they weren't input dependencies.
+			NodeToDo.IsComplete = TempStorage.TempStorageExists(NodeToDo.Name, TempStorageDir, bQuiet: true) || TempStorage.TempStorageExists(NodeToDo.Name + SucceededTempStorageSuffix, TempStorageDir, bQuiet: true);
 
             LogVerbose("** {0}", NodeToDo.Name);
 			if (!NodeToDo.IsComplete)
 			{
-                LogVerbose("***** GUBP Trigger Node was already triggered {0} -> {1} : {2}", NodeToDo.Name, JobInfo.RootNameForTempStorage, TempStorageNodeInfo.GetRelativeDirectory());
+                LogVerbose("***** GUBP Trigger Node was already triggered {0}", NodeToDo.Name);
 			}
 			else
 			{
-                LogVerbose("***** GUBP Trigger Node was NOT yet triggered {0} -> {1} : {2}", NodeToDo.Name, JobInfo.RootNameForTempStorage, TempStorageNodeInfo.GetRelativeDirectory());
+                LogVerbose("***** GUBP Trigger Node was NOT yet triggered {0}", NodeToDo.Name);
 			}
 		}
     }
@@ -420,12 +508,7 @@ public partial class GUBP : BuildCommand
 			Log("*********** Aggregates");
 			foreach (AggregateNode Aggregate in MatchingAggregates.OrderBy(x => x.Name))
 			{
-				StringBuilder Note = new StringBuilder("    " + Aggregate.Name);
-				if (Aggregate.IsPromotableAggregate)
-				{
-					Note.Append(" (promotable)");
-				}
-				Log(Note.ToString());
+				Log("    " + Aggregate.Name);
 			}
 		}
 
@@ -470,7 +553,7 @@ public partial class GUBP : BuildCommand
 			{
 				Builder.Append("    ");
 			}
-			Builder.AppendFormat("{0} ({1})", NodeToDo.Name, GetTimeIntervalString(TimeQuantum << NodeToDo.FrequencyShift));
+			Builder.AppendFormat("{0} ({1})", NodeToDo.Name, (NodeToDo.FrequencyShift >= BuildNode.ExplicitFrequencyShift)? "explicit" : GetTimeIntervalString(TimeQuantum << NodeToDo.FrequencyShift));
 			if(NodeToDo.IsComplete)
 			{
 				Builder.Append(" - (Completed)");
@@ -482,6 +565,10 @@ public partial class GUBP : BuildCommand
 			if(NodeToDo.IsSticky)
 			{
 				Builder.Append(" - (Sticky)");
+			}
+			if(!NodeToDo.CopyToSharedStorage)
+			{
+				Builder.Append(" - (Not Archived)");
 			}
 
             string Agent = NodeToDo.AgentRequirements;
@@ -511,7 +598,10 @@ public partial class GUBP : BuildCommand
                 }
 				foreach (BuildNode Dep in NodeToDo.OrderDependencies.OrderBy(x => x.Name))
 				{
-					Log("           pdep> {0}", Dep.Name);
+					if (!NodeToDo.InputDependencies.Contains(Dep))
+					{
+						Log("           pdep> {0}", Dep.Name);
+					}
 				}
             }
         }
@@ -763,27 +853,52 @@ public partial class GUBP : BuildCommand
         return OrderedToDo;
     }
 
-    static NodeHistory FindNodeHistory(BuildNode NodeToDo, JobInfo JobInfo)
+    static NodeHistory FindNodeHistory(string NodeName, int CurrentChangeNumber, string TempStorageDir)
     {
 		NodeHistory History = null;
-
-        // Don't get node history on nodes that don't have a valid CL.
-        if (!(NodeToDo is TriggerNode) && JobInfo.Changelist > 0)
+        if (CurrentChangeNumber > 0)
         {
-            History = new NodeHistory
-            {
-                AllStarted = TempStorage.FindMatchingSharedTempStorageNodeCLs(new TempStorageNodeInfo(JobInfo, NodeToDo.Name + StartedTempStorageSuffix)),
-                AllSucceeded = TempStorage.FindMatchingSharedTempStorageNodeCLs(new TempStorageNodeInfo(JobInfo, NodeToDo.Name + SucceededTempStorageSuffix)),
-                AllFailed = TempStorage.FindMatchingSharedTempStorageNodeCLs(new TempStorageNodeInfo(JobInfo, NodeToDo.Name + FailedTempStorageSuffix))
-            };
+			History = new NodeHistory();
 
+			// Assume that the shared storage directory is a pattern containing the changelist for the current build, and look for directories with a similar pattern.
+			string SharedStorageLastName = Path.GetFileName(TempStorageDir);
+			string ChangeString = CurrentChangeNumber.ToString();
+			int ChangeIndex = SharedStorageLastName.LastIndexOf(ChangeString);
+			if(ChangeIndex != -1)
+			{
+				string SharedStoragePattern = SharedStorageLastName.Substring(0, ChangeIndex) + "*" + SharedStorageLastName.Substring(ChangeIndex + ChangeString.Length);
+				foreach(DirectoryInfo Directory in new DirectoryInfo(TempStorageDir).Parent.EnumerateDirectories(SharedStoragePattern))
+				{
+					int OtherCL;
+					if(int.TryParse(Directory.Name.Substring(ChangeIndex, Directory.Name.Length - (SharedStorageLastName.Length - ChangeIndex - ChangeString.Length)), out OtherCL))
+					{
+						if(TempStorage.SharedTempStorageManifestExists(Directory.FullName, NodeName + StartedTempStorageSuffix, true))
+						{
+							History.AllStarted.Add(OtherCL);
+						}
+						if(TempStorage.SharedTempStorageManifestExists(Directory.FullName, NodeName + SucceededTempStorageSuffix, true))
+						{
+							History.AllSucceeded.Add(OtherCL);
+						}
+						if(TempStorage.SharedTempStorageManifestExists(Directory.FullName, NodeName + FailedTempStorageSuffix, true))
+						{
+							History.AllFailed.Add(OtherCL);
+						}
+					}
+				}
+			}
+			History.AllStarted.Sort();
+			History.AllSucceeded.Sort();
+			History.AllFailed.Sort();
+
+			// Filter everything relative to the current CL
             if (History.AllFailed.Count > 0)
             {
-                History.LastFailed = History.AllFailed.LastOrDefault(x => x < JobInfo.Changelist);
+                History.LastFailed = History.AllFailed.LastOrDefault(x => x < CurrentChangeNumber);
             }
             if (History.AllSucceeded.Count > 0)
             {
-                History.LastSucceeded = History.AllSucceeded.LastOrDefault(x => x < JobInfo.Changelist);
+                History.LastSucceeded = History.AllSucceeded.LastOrDefault(x => x < CurrentChangeNumber);
 
                 foreach (int Failed in History.AllFailed)
                 {
@@ -803,10 +918,9 @@ public partial class GUBP : BuildCommand
                 }
 			}
         }
-
 		return History;
     }
-    void GetFailureEmails(ElectricCommander EC, BuildNode NodeToDo, NodeHistory History, JobInfo JobInfo, bool OnlyLateUpdates = false)
+    void GetFailureEmails(ElectricCommander EC, BuildNode NodeToDo, NodeHistory History, string TempStorageDir, bool OnlyLateUpdates = false)
 	{
         string FailCauserEMails = "";
         string EMailNote = "";
@@ -821,7 +935,7 @@ public partial class GUBP : BuildCommand
                 {
                     if (OnlyLateUpdates)
                     {
-                        LastNonDuplicateFail = FindLastNonDuplicateFail(NodeToDo, History, JobInfo);
+                        LastNonDuplicateFail = FindLastNonDuplicateFail(NodeToDo, History, TempStorageDir);
                         if (LastNonDuplicateFail < P4Env.Changelist)
                         {
 							Log("*** Red-after-red spam reduction, changed CL {0} to CL {1} because the errors didn't change.", P4Env.Changelist, LastNonDuplicateFail);
@@ -911,11 +1025,11 @@ public partial class GUBP : BuildCommand
         return true;
     }
 
-    int FindLastNonDuplicateFail(BuildNode NodeToDo, NodeHistory History, JobInfo JobInfo)
+    int FindLastNonDuplicateFail(BuildNode NodeToDo, NodeHistory History, string TempStorageDir)
     {
         int Result = P4Env.Changelist;
 
-        var TempStorageNodeInfo = new TempStorageNodeInfo(JobInfo, NodeToDo.Name + FailedTempStorageSuffix);
+        var TempStorageNodeInfo = NodeToDo.Name + FailedTempStorageSuffix;
 
         List<int> BackwardsFails = new List<int>(History.AllFailed);
         BackwardsFails.Add(P4Env.Changelist);
@@ -933,13 +1047,13 @@ public partial class GUBP : BuildCommand
                 break;
             }
             // Find any local temp storage manifest for this changelist and delete it.
-            var ThisTempStorageNodeInfo = new TempStorageNodeInfo(JobInfo.CreateWithNewChangelist(CL), TempStorageNodeInfo.NodeStorageName);
+            var ThisTempStorageNodeInfo = TempStorageNodeInfo;
             TempStorage.DeleteLocalTempStorageManifest(ThisTempStorageNodeInfo, true); // these all clash locally, which is fine we just retrieve them from shared
 
             List<string> Files = null;
             try
             {
-                Files = TempStorage.RetrieveFromTempStorage(ThisTempStorageNodeInfo, CmdEnv.LocalRoot); // this will fail on our CL if we didn't fail or we are just setting up the branch
+                Files = TempStorage.RetrieveFromTempStorage(TempStorageDir, ThisTempStorageNodeInfo); // this will fail on our CL if we didn't fail or we are just setting up the branch
             }
             catch (Exception)
             {
@@ -1031,6 +1145,7 @@ public partial class GUBP : BuildCommand
 		foreach(BuildNode NodeToDo in NodesToDo)
 		{
 			RecursiveNodesToDo.UnionWith(NodeToDo.InputDependencies);
+			RecursiveNodesToDo.UnionWith(NodeToDo.ControllingTriggers);
 		}
 
 		return RecursiveNodesToDo;
@@ -1043,12 +1158,12 @@ public partial class GUBP : BuildCommand
 	/// <param name="TimeIndex">The current time index. All nodes are run for TimeIndex=0, otherwise they are culled based on their FrequencyShift parameter.</param>
 	private void CullNodesForTimeIndex(HashSet<BuildNode> NodesToDo, int TimeIndex)
 	{
-		if (TimeIndex != 0)
+		if (TimeIndex >= 0)
 		{
 			List<BuildNode> NodesToCull = new List<BuildNode>();
 			foreach (BuildNode NodeToDo in NodesToDo)
 			{
-				if ((TimeIndex % (1 << NodeToDo.FrequencyShift)) != 0)
+				if (NodeToDo.FrequencyShift >= BuildNode.ExplicitFrequencyShift || (TimeIndex % (1 << NodeToDo.FrequencyShift)) != 0)
 				{
 					NodesToCull.Add(NodeToDo);
 				}
@@ -1234,7 +1349,7 @@ public partial class GUBP : BuildCommand
 		}
 	}
 
-    private ExitCode DoCommanderSetup(ElectricCommander EC, IEnumerable<BuildNode> AllNodes, IEnumerable<AggregateNode> AllAggregates, List<BuildNode> OrderedToDo, int TimeIndex, int TimeQuantum, bool bSkipTriggers, bool bFake, bool bFakeEC, TriggerNode ExplicitTrigger, List<TriggerNode> UnfinishedTriggers, bool bPreflightBuild)
+    private ExitCode DoCommanderSetup(ElectricCommander EC, IEnumerable<BuildNode> AllNodes, IEnumerable<AggregateNode> AllAggregates, List<BuildNode> OrderedToDo, int TimeIndex, int TimeQuantum, bool bSkipTriggers, bool bNewEC, bool bFake, bool bFakeEC, TriggerNode ExplicitTrigger, List<TriggerNode> UnfinishedTriggers, bool bPreflightBuild)
 	{
 		List<BuildNode> SortedNodes = TopologicalSort(new HashSet<BuildNode>(AllNodes), null, SubSort: false, DoNotConsiderCompletion: true);
 		Log("******* {0} GUBP Nodes", SortedNodes.Count);
@@ -1269,11 +1384,18 @@ public partial class GUBP : BuildCommand
 			PrintNodes(this, FilteredOrderedToDo, AllAggregates, UnfinishedTriggers, TimeQuantum);
 		}
 
-		EC.DoCommanderSetup(AllNodes, AllAggregates, FilteredOrderedToDo, SortedNodes, TimeIndex, TimeQuantum, bSkipTriggers, bFake, bFakeEC, ExplicitTrigger, UnfinishedTriggers);
+		if(bNewEC)
+		{
+			ElectricCommander.DoNewCommanderSetup(FilteredOrderedToDo, SortedNodes, ExplicitTrigger, bSkipTriggers);
+		}
+		else
+		{
+			EC.DoCommanderSetup(AllNodes, AllAggregates, FilteredOrderedToDo, SortedNodes, TimeIndex, TimeQuantum, bSkipTriggers, bFake, bFakeEC, ExplicitTrigger, UnfinishedTriggers);
+		}
 		return ExitCode.Success;
 	}
 
-    ExitCode ExecuteNodes(ElectricCommander EC, List<BuildNode> OrderedToDo, bool bFake, bool bFakeEC, bool bSaveSharedTempStorage, JobInfo JobInfo)
+    ExitCode ExecuteNodes(ElectricCommander EC, List<BuildNode> OrderedToDo, bool bNewEC, bool bFake, bool bFakeEC, string TempStorageDir, bool bSaveSharedTempStorage, int ChangeNumber)
 	{
         Dictionary<string, BuildNode> BuildProductToNodeMap = new Dictionary<string, BuildNode>();
 		foreach (BuildNode NodeToDo in OrderedToDo)
@@ -1283,24 +1405,22 @@ public partial class GUBP : BuildCommand
                 throw new AutomationException("topological sort error");
             }
 
-            var TempStorageNodeInfo = new TempStorageNodeInfo(JobInfo, NodeToDo.Name);
-            
             if (NodeToDo.IsComplete)
             {
 				// Just fetch the build products from temp storage
-				Log("***** Retrieving GUBP Node {0} -> {1} : {2}", NodeToDo.Name, JobInfo.RootNameForTempStorage, TempStorageNodeInfo.GetRelativeDirectory());
-				NodeToDo.RetrieveBuildProducts(TempStorageNodeInfo);
+				Log("***** Retrieving GUBP Node {0}", NodeToDo.Name);
+				NodeToDo.RetrieveBuildProducts(TempStorageDir);
             }
             else
             {
 				// this is kinda complicated
-				bool SaveSuccessRecords = (IsBuildMachine || bFakeEC) && // no real reason to make these locally except for fakeEC tests
+				bool SaveSuccessRecords = (IsBuildMachine || bFakeEC || bNewEC) && // no real reason to make these locally except for fakeEC tests
 					(!(NodeToDo is TriggerNode) || NodeToDo.IsSticky); // trigger nodes are run twice, one to start the new workflow and once when it is actually triggered, we will save reconds for the latter
 
                 // Record that the node has started. We save our status to a new temp storage location specifically named with a suffix so we can find it later.
                 if (SaveSuccessRecords) 
                 {
-                    EC.SaveStatus(new TempStorageNodeInfo(JobInfo, NodeToDo.Name + StartedTempStorageSuffix), bSaveSharedTempStorage);
+                    EC.SaveStatus(TempStorageDir, NodeToDo.Name + StartedTempStorageSuffix, bSaveSharedTempStorage);
                 }
 
 				// Execute the node
@@ -1311,33 +1431,42 @@ public partial class GUBP : BuildCommand
 				// Archive the build products if the node succeeded
 				if(bResult)
 				{
-					NodeToDo.ArchiveBuildProducts(TempStorageNodeInfo, !bSaveSharedTempStorage);
+					NodeToDo.ArchiveBuildProducts(TempStorageDir, (bSaveSharedTempStorage && !ParseParam("NoCopyToSharedStorage")));
 				}
 
 				// Record that the node has finished
 				NodeHistory History = null;
                 if (SaveSuccessRecords)
                 {
-					using(TelemetryStopwatch UpdateNodeHistoryStopwatch = new TelemetryStopwatch("UpdateNodeHistory"))
+					if(!bNewEC)
 					{
-                        History = FindNodeHistory(NodeToDo, JobInfo);
+						using(TelemetryStopwatch UpdateNodeHistoryStopwatch = new TelemetryStopwatch("UpdateNodeHistory"))
+						{
+							if(!(NodeToDo is TriggerNode))
+							{
+								History = FindNodeHistory(NodeToDo.Name, ChangeNumber, TempStorageDir);
+							}
+						}
 					}
 					using(TelemetryStopwatch SaveNodeStatusStopwatch = new TelemetryStopwatch("SaveNodeStatus"))
 					{
-                        EC.SaveStatus(new TempStorageNodeInfo(JobInfo, NodeToDo.Name + (bResult? SucceededTempStorageSuffix : FailedTempStorageSuffix)), bSaveSharedTempStorage, ParseParamValue("MyJobStepId"));
+                        EC.SaveStatus(TempStorageDir, NodeToDo.Name + (bResult? SucceededTempStorageSuffix : FailedTempStorageSuffix), bSaveSharedTempStorage, ParseParamValue("MyJobStepId"));
 					}
-					using(TelemetryStopwatch UpdateECPropsStopwatch = new TelemetryStopwatch("UpdateECProps"))
+					if(!bNewEC)
 					{
-						EC.UpdateECProps(NodeToDo);
-					}
-					if (IsBuildMachine)
-					{
-						using(TelemetryStopwatch GetFailEmailsStopwatch = new TelemetryStopwatch("GetFailEmails"))
+						using(TelemetryStopwatch UpdateECPropsStopwatch = new TelemetryStopwatch("UpdateECProps"))
 						{
-                            GetFailureEmails(EC, NodeToDo, History, JobInfo);
+							EC.UpdateECProps(NodeToDo);
 						}
+						if (IsBuildMachine)
+						{
+							using(TelemetryStopwatch GetFailEmailsStopwatch = new TelemetryStopwatch("GetFailEmails"))
+							{
+								GetFailureEmails(EC, NodeToDo, History, TempStorageDir);
+							}
+						}
+						EC.UpdateECBuildTime(NodeToDo, ElapsedTime.TotalSeconds);
 					}
-					EC.UpdateECBuildTime(NodeToDo, ElapsedTime.TotalSeconds);
                 }
 
 				// If it failed, print the diagnostic info and quit
@@ -1370,13 +1499,12 @@ public partial class GUBP : BuildCommand
 		{
 			if (bFake)
 			{
-				NodeToDo.DoFakeBuild();
+				return NodeToDo.DoFakeBuild();
 			}
 			else
 			{
-				NodeToDo.DoBuild();
+				return NodeToDo.DoBuild();
 			}
-			return true;
 		}
 		catch(Exception Ex)
 		{

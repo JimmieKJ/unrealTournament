@@ -1,32 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
-
-/*
-* Copyright 2010 Autodesk, Inc.  All Rights Reserved.
-*
-* Permission to use, copy, modify, and distribute this software in object
-* code form for any purpose and without fee is hereby granted, provided
-* that the above copyright notice appears in all copies and that both
-* that copyright notice and the limited warranty and restricted rights
-* notice below appear in all supporting documentation.
-*
-* AUTODESK PROVIDES THIS PROGRAM "AS IS" AND WITH ALL FAULTS.
-* AUTODESK SPECIFICALLY DISCLAIMS ANY AND ALL WARRANTIES, WHETHER EXPRESS
-* OR IMPLIED, INCLUDING WITHOUT LIMITATION THE IMPLIED WARRANTY
-* OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR USE OR NON-INFRINGEMENT
-* OF THIRD PARTY RIGHTS.  AUTODESK DOES NOT WARRANT THAT THE OPERATION
-* OF THE PROGRAM WILL BE UNINTERRUPTED OR ERROR FREE.
-*
-* In no event shall Autodesk, Inc. be liable for any direct, indirect,
-* incidental, special, exemplary, or consequential damages (including,
-* but not limited to, procurement of substitute goods or services;
-* loss of use, data, or profits; or business interruption) however caused
-* and on any theory of liability, whether in contract, strict liability,
-* or tort (including negligence or otherwise) arising in any way out
-* of such code.
-*
-* This software is provided to the U.S. Government with the same rights
-* and restrictions as described herein.
-*/
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -235,6 +207,22 @@ private:
 	void ExportLandscapeToFbx(ALandscapeProxy* Landscape, const TCHAR* MeshName, FbxNode* FbxActor, bool bSelectedOnly);
 
 	/**
+	* Fill an fbx light with from a unreal light component
+	*@param ParentNode			The parent FbxNode the one over the light node
+	* @param Camera				Fbx light object
+	* @param CameraComponent	Unreal light component
+	*/
+	void FillFbxLightAttribute(FbxLight* Light, FbxNode* FbxParentNode, ULightComponent* BaseLight);
+
+	/**
+	* Fill an fbx camera with from a unreal camera component
+	* @param ParentNode			The parent FbxNode the one over the camera node
+	* @param Camera				Fbx camera object
+	* @param CameraComponent	Unreal camera component
+	*/
+	void FillFbxCameraAttribute(FbxNode* ParentNode, FbxCamera* Camera, UCameraComponent *CameraComponent);
+
+	/**
 	 * Adds FBX skeleton nodes to the FbxScene based on the skeleton in the given USkeletalMesh, and fills
 	 * the given array with the nodes created
 	 */
@@ -312,6 +300,7 @@ private:
 	/** recursively get skeleton */
 	void GetSkeleton(FbxNode* RootNode, TArray<FbxNode*>& BoneNodes);
 
+	bool FillFbxTextureProperty(const char *PropertyName, const FExpressionInput& MaterialInput, FbxSurfaceMaterial* FbxMaterial);
 	/**
 	 * Exports the profile_COMMON information for a material.
 	 */

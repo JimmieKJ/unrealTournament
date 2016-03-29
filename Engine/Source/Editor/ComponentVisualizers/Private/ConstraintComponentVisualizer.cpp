@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ComponentVisualizersPrivatePCH.h"
 
@@ -20,9 +20,7 @@ void FConstraintComponentVisualizer::DrawVisualization( const UActorComponent* C
 		if(Instance.IsValidConstraintInstance())
 		{
 			FTransform BodyTransform1 = ConstraintComp->GetBodyTransform(EConstraintFrame::Frame1);
-			BodyTransform1.RemoveScaling();
 			FTransform BodyTransform2 = ConstraintComp->GetBodyTransform(EConstraintFrame::Frame2);
-			BodyTransform2.RemoveScaling();
 
 			Con1Frame = Instance.GetRefFrame(EConstraintFrame::Frame1) * BodyTransform1;
 			Con2Frame = Instance.GetRefFrame(EConstraintFrame::Frame2) * BodyTransform2;

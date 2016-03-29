@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "BlueprintGraphPrivatePCH.h"
@@ -455,6 +455,60 @@ void UK2Node_BaseAsyncTask::ValidateNodeDuringCompilation(class FCompilerResults
 			}
 		}
 	}
+}
+
+TMap<FString, FAsyncTaskPinRedirectMapInfo> UK2Node_BaseAsyncTask::AsyncTaskPinRedirectMap;
+bool UK2Node_BaseAsyncTask::bAsyncTaskPinRedirectMapInitialized = false;
+
+UK2Node::ERedirectType UK2Node_BaseAsyncTask::DoPinsMatchForReconstruction(const UEdGraphPin* NewPin, int32 NewPinIndex, const UEdGraphPin* OldPin, int32 OldPinIndex) const
+{
+	if (GConfig && ProxyClass)
+	{
+		// Initialize remap table from INI
+		if (!bAsyncTaskPinRedirectMapInitialized)
+		{
+			bAsyncTaskPinRedirectMapInitialized = true;
+			FConfigSection* PackageRedirects = GConfig->GetSectionPrivate(TEXT("/Script/Engine.Engine"), false, true, GEngineIni);
+			for (FConfigSection::TIterator It(*PackageRedirects); It; ++It)
+			{
+				if (It.Key() == TEXT("K2AsyncTaskPinRedirects"))
+				{
+					FString ProxyClassString;
+					FString OldPinString;
+					FString NewPinString;
+
+					FParse::Value(*It.Value(), TEXT("ProxyClassName="), ProxyClassString);
+					FParse::Value(*It.Value(), TEXT("OldPinName="), OldPinString);
+					FParse::Value(*It.Value(), TEXT("NewPinName="), NewPinString);
+
+					UClass* RedirectProxyClass = FindObject<UClass>(ANY_PACKAGE, *ProxyClassString);
+					if (RedirectProxyClass)
+					{
+						FAsyncTaskPinRedirectMapInfo& PinRedirectInfo = AsyncTaskPinRedirectMap.FindOrAdd(OldPinString);
+						TArray<UClass*>& ProxyClassArray = PinRedirectInfo.OldPinToProxyClassMap.FindOrAdd(NewPinString);
+						ProxyClassArray.AddUnique(RedirectProxyClass);
+					}
+				}
+			}
+		}
+
+		// See if these pins need to be remapped.
+		if (FAsyncTaskPinRedirectMapInfo* PinRedirectInfo = AsyncTaskPinRedirectMap.Find(OldPin->PinName))
+		{
+			if (TArray<UClass*>* ProxyClassArray = PinRedirectInfo->OldPinToProxyClassMap.Find(NewPin->PinName))
+			{
+				for (UClass* RedirectedProxyClass : *ProxyClassArray)
+				{
+					if (ProxyClass->IsChildOf(RedirectedProxyClass))
+					{
+						return UK2Node::ERedirectType_Name;
+					}
+				}
+			}
+		}
+	}
+
+	return Super::DoPinsMatchForReconstruction(NewPin, NewPinIndex, OldPin, OldPinIndex);
 }
 
 #undef LOCTEXT_NAMESPACE

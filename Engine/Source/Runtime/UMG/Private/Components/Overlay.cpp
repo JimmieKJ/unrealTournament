@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 
@@ -72,11 +72,6 @@ TSharedRef<SWidget> UOverlay::RebuildWidget()
 }
 
 #if WITH_EDITOR
-
-const FSlateBrush* UOverlay::GetEditorIcon()
-{
-	return FUMGStyle::Get().GetBrush("Widget.Overlay");
-}
 
 const FText UOverlay::GetPaletteCategory()
 {

@@ -1,8 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
-
-/*=============================================================================
-	EditorExperimentalSettings.h: Declares the UEditorExperimentalSettings class.
-=============================================================================*/
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -45,10 +41,6 @@ public:
 	UPROPERTY(EditAnywhere, config, Category=Tools, meta=(ConfigRestartRequired=true))
 	bool bBlueprintableComponents;
 
-	/** The Messaging Debugger provides a visual utility for debugging the messaging system. */
-	UPROPERTY(EditAnywhere, config, Category=Tools, meta=(DisplayName="Messaging Debugger"))
-	bool bMessagingDebugger;
-
 	/** Allows to use actor merging utilities (Simplygon Proxy LOD, Grouping by Materials)*/
 	UPROPERTY(EditAnywhere, config, Category = Tools, meta = (DisplayName = "Actor Merging"))
 	bool bActorMerging;
@@ -73,9 +65,9 @@ public:
 	UPROPERTY(EditAnywhere, config, Category=Blueprints, meta=(DisplayName="Blueprint Performance Analysis Tools"))
 	bool bBlueprintPerformanceAnalysisTools;
 
-	/** The number of samples the blueprint profiler should use to average the current value. */
-	UPROPERTY(EditAnywhere, config, Category=Blueprints, meta=(DisplayName="Blueprint Profiler Sample Count"))
-	int32 BlueprintProfilerAverageSampleCount;
+	/** Bias to weight prominance of newer samples against hositorical samples. */
+	UPROPERTY(EditAnywhere, config, Category=Blueprints, meta=(DisplayName="Blueprint Performance Analysis Sample Bias", ClampMin=0.01, ClampMax=1.0))
+	float BlueprintProfilerRecentSampleBias;
 
 	/** Enables the visual diff tool for widget blueprints. WARNING: changes to the widget hierarchy will not be detected */
 	UPROPERTY(EditAnywhere, config, Category=Blueprints, meta=(DisplayName="Use the Diff Tool for Widget Blueprints"))
@@ -105,10 +97,6 @@ public:
 	UPROPERTY(EditAnywhere, config, Category = Cooking, meta = (DisplayName = "Disable Cook In The Editor feature (cooks from launch on will be run in a separate process if disabled)", ConfigRestartRequired=true))
 	bool bDisableCookInEditor;
 
-	/** Enable -iterate for launch on */
-	UPROPERTY(EditAnywhere, config, Category = Cooking, meta = (DisplayName = "Iterative cooking for builds launched from the editor (launch on)"))
-	bool bIterativeCookingForLaunchOn;
-
 	UPROPERTY(EditAnywhere, config, Category = Cooking, meta = (DisplayName = "Use multiple processes when cooking (only affects File -> Package)"))
 	int32 MultiProcessCooking;
 
@@ -124,13 +112,32 @@ public:
 	UPROPERTY(EditAnywhere, config, Category = Rendering, meta = (DisplayName = "Enable Metal/High-end mobile rendering preview"))
 	bool bFeatureLevelES31Preview;
 
+	/** Enable late joining in PIE */
+	UPROPERTY(EditAnywhere, config, Category = PIE, meta = (DisplayName = "Allow late joining"))
+	bool bAllowLateJoinInPIE;
+
+	/** Enable multithreaded lightmap encoding (decreases time taken to encode lightmaps) */
+	UPROPERTY(EditAnywhere, config, Category = LightingBuilds, meta = (DisplayName = "Enable Multithreaded lightmap encoding"))
+	bool bEnableMultithreadedLightmapEncoding;
+
+	/** Enable multithreaded shadow map encoding (decreases time taken to encode shadow maps) */
+	UPROPERTY(EditAnywhere, config, Category = LightingBuilds, meta = (DisplayName = "Enable Multithreaded shadowmap encoding"))
+	bool bEnableMultithreadedShadowmapEncoding;
+	
+	/** Whether to use OpenCL to accelerate convex hull decomposition (uses GPU to decrease time taken to decompose meshes, currently only available on Mac OS X) */
+	UPROPERTY(EditAnywhere, config, Category = Tools, meta = (DisplayName = "Use OpenCL for convex hull decomposition"))
+	bool bUseOpenCLForConvexHullDecomp;
+
 	/**
 	 * Returns an event delegate that is executed when a setting has changed.
 	 *
 	 * @return The delegate.
 	 */
 	DECLARE_EVENT_OneParam(UEditorExperimentalSettings, FSettingChangedEvent, FName /*PropertyName*/);
-	FSettingChangedEvent& OnSettingChanged( ) { return SettingChangedEvent; }
+	FSettingChangedEvent& OnSettingChanged( )
+	{
+		return SettingChangedEvent;
+	}
 
 protected:
 

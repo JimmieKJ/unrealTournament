@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -140,5 +140,18 @@ class UBlueprintGameplayTagLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, meta = (BlueprintInternalUseOnly = "TRUE"))
 	static bool DoesTagAssetInterfaceHaveTag(TScriptInterface<IGameplayTagAssetInterface> TagContainerInterface, TEnumAsByte<EGameplayTagMatchType::Type> ContainerTagsMatchType, const FGameplayTag& Tag, TEnumAsByte<EGameplayTagMatchType::Type> TagMatchType);
 
+	/** Checks if a gameplay tag's name and a string are not equal to one another */
+	UFUNCTION(BlueprintPure, Category = PinOptions, meta = (BlueprintInternalUseOnly = "TRUE"))
+	static bool NotEqual_TagTag(FGameplayTag A, FString B);
 
+	/** Checks if a gameplay tag containers's name and a string are not equal to one another */
+	UFUNCTION(BlueprintPure, Category = PinOptions)
+	static bool NotEqual_TagContainerTagContainer(FGameplayTagContainer A, FString B);
+	/**
+	* Returns an FString listing all of the gameplay tags in the tag container for debugging purposes.
+	*
+	* @param TagContainer		The tag container to get the debug string from.
+	*/
+	UFUNCTION(BlueprintPure, Category = "GameplayTags|Tag Container")
+	static FString GetDebugStringFromGameplayTagContainer(const FGameplayTagContainer& TagContainer);
 };

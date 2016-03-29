@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -67,7 +67,7 @@ public class MacPlatform : Platform
         // Stage all the build products
         foreach (StageTarget Target in SC.StageTargets)
         {
-            SC.StageBuildProductsFromReceipt(Target.Receipt, Target.RequireFilesExist);
+            SC.StageBuildProductsFromReceipt(Target.Receipt, Target.RequireFilesExist, Params.bTreatNonShippingBinariesAsDebugFiles);
         }
 
 		if (SC.bStageCrashReporter)
@@ -295,7 +295,7 @@ public class MacPlatform : Platform
 					File.Delete(DefaultIconPath);
 					File.Move(CustomIconSrcPath, CustomIconDestPath);
 				}
-				else
+				else if (File.Exists(DefaultIconPath))
 				{
 					File.Move(DefaultIconPath, CustomIconDestPath);
 				}
@@ -303,7 +303,7 @@ public class MacPlatform : Platform
 				string InfoPlistPath = CombinePaths(BundlePath, "Contents", "Info.plist");
 				string InfoPlistContents = File.ReadAllText(InfoPlistPath);
 				InfoPlistContents = InfoPlistContents.Replace(ExeName, SC.ShortProjectName);
-				InfoPlistContents = InfoPlistContents.Replace("<string>UE4</string>", "<string>" + SC.ShortProjectName + "</string>");
+				InfoPlistContents = InfoPlistContents.Replace("<string>UE4Game</string>", "<string>" + SC.ShortProjectName + "</string>");
 				File.Delete(InfoPlistPath);
 				File.WriteAllText(InfoPlistPath, InfoPlistContents);
 			}
@@ -357,7 +357,7 @@ public class MacPlatform : Platform
 	}
 	public override bool CanHostPlatform(UnrealTargetPlatform Platform)
 	{
-		if (Platform == UnrealTargetPlatform.IOS || Platform == UnrealTargetPlatform.Mac)
+		if (Platform == UnrealTargetPlatform.IOS || Platform == UnrealTargetPlatform.Mac || Platform == UnrealTargetPlatform.TVOS)
 		{
 			return true;
 		}

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -530,6 +530,15 @@ FORCEINLINE void VectorMatrixMultiply( void *Result, const void* Matrix1, const 
  * @return	bitwise per component OR operation.
  */
 #define VectorBitwiseOR( Vec1, Vec2 )	_mm_or_ps( (Vec1), (Vec2) )
+
+/**
+ * Returns the bitwise XOR.
+ *
+ * @param	Vec1	Vector to XOR
+ * @param	Vec2	Vector to XOR
+ * @return	bitwise per component XOR operation.
+ */
+#define VectorBitwiseXOR( Vec1, Vec2 )	_mm_xor_ps( (Vec1), (Vec2) )
 
 /**
  * Returns the bitwise AND NOT.

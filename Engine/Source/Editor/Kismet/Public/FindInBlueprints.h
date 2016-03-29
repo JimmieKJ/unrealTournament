@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -12,6 +12,28 @@ DECLARE_DELEGATE_OneParam(FOnSearchComplete, TArray<TSharedPtr<class FImaginaryF
 /** Some utility functions to help with Find-in-Blueprint functionality */
 namespace FindInBlueprintsHelpers
 {
+	// Stores an FText as if it were an FString, does zero advanced comparisons needed for true FText comparisons
+	struct FSimpleFTextKeyStorage
+	{
+		FText Text;
+
+		FSimpleFTextKeyStorage(FText InText)
+			: Text(InText)
+		{
+
+		}
+
+		bool operator==(const FSimpleFTextKeyStorage& InObject) const
+		{
+			return Text.ToString() == InObject.Text.ToString() || Text.BuildSourceString() == InObject.Text.BuildSourceString();
+		}
+	};
+
+	static uint32 GetTypeHash(const FindInBlueprintsHelpers::FSimpleFTextKeyStorage& InObject)
+	{
+		return GetTypeHash(InObject.Text.BuildSourceString());
+	}
+
 	/** Looks up a JsonValue's FText from the passed lookup table */
 	FText AsFText(TSharedPtr< FJsonValue > InJsonValue, const TMap<int32, FText>& InLookupTable);
 

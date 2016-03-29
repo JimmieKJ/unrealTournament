@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "AutomationEditorCommon.h"
@@ -923,17 +923,25 @@ void FEditorAutomationTestUtilities::CollectGameContentTests(TArray<FString>& Ou
 	for (auto ObjIter = ObjectList.CreateConstIterator(); ObjIter; ++ObjIter)
 	{
 		const FAssetData& Asset = *ObjIter;
-		FString Filename = Asset.ObjectPath.ToString();
-
-		if (Filename.StartsWith("/Game"))
+		if (Asset.GetClass() == nullptr)
 		{
-			//convert to full paths
-			Filename = FPackageName::LongPackageNameToFilename(Filename);
-			if (FAutomationTestFramework::GetInstance().ShouldTestContent(Filename))
+			// a nullptr class is bad !
+			UE_LOG(LogAutomationEditorCommon, Warning, TEXT("GetClass for %s (%s) returned nullptr. Asset ignored"), *Asset.AssetName.ToString(), *Asset.ObjectPath.ToString());
+		}
+		else 
+		{
+			FString Filename = Asset.ObjectPath.ToString();
+
+			if (Filename.StartsWith("/Game"))
 			{
-				FString BeautifiedFilename = FString::Printf(TEXT("%s.%s"), *Asset.GetClass()->GetFName().ToString(), *Asset.AssetName.ToString());
-				OutBeautifiedNames.Add(BeautifiedFilename);
-				OutTestCommands.Add(Asset.ObjectPath.ToString());
+				//convert to full paths
+				Filename = FPackageName::LongPackageNameToFilename(Filename);
+				if (FAutomationTestFramework::GetInstance().ShouldTestContent(Filename))
+				{
+					FString BeautifiedFilename = FString::Printf(TEXT("%s.%s"), *Asset.GetClass()->GetFName().ToString(), *Asset.AssetName.ToString());
+					OutBeautifiedNames.Add(BeautifiedFilename);
+					OutTestCommands.Add(Asset.ObjectPath.ToString());
+				}
 			}
 		}
 	}

@@ -1,14 +1,14 @@
 #!/bin/sh
-# Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+# Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 set -e
 
 SCRIPT_PATH=$0
-if [ -h $SCRIPT_PATH ]; then
-	SCRIPT_PATH=$(dirname $SCRIPT_PATH)/$(readlink $SCRIPT_PATH)
+if [ -L "$SCRIPT_PATH" ]; then
+	SCRIPT_PATH=$(dirname "$SCRIPT_PATH")/$(readlink "$SCRIPT_PATH")
 fi
 
-cd $(dirname $SCRIPT_PATH) && SCRIPT_PATH="`pwd`/$(basename $SCRIPT_PATH)"
+cd "$(dirname "$SCRIPT_PATH")" && SCRIPT_PATH="`pwd`/$(basename "$SCRIPT_PATH")"
 
 if [ ! -f ../../../Binaries/DotNET/GitDependencies.exe ]; then
 	echo "Cannot find GitDependencies.exe. This script should be placed in Engine/Build/BatchFiles/Mac."
@@ -25,6 +25,6 @@ fi
 
 mono Engine/Binaries/DotNET/GitDependencies.exe "$@"
 
-pushd $(dirname $SCRIPT_PATH) > /dev/null
+pushd "$(dirname "$SCRIPT_PATH")" > /dev/null
 sh FixDependencyFiles.sh
 popd > /dev/null

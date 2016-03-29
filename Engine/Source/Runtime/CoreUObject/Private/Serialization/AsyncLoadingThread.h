@@ -1,4 +1,4 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AsyncLoadingThread.h: Unreal async loading code.
@@ -25,6 +25,8 @@ class FAsyncLoadingThread : public FRunnable
 	FEvent* CancelLoadingEvent;
 	/** [ASYNC/GAME THREAD] Event used to signal that the async loading thread should be suspended */
 	FEvent* ThreadSuspendedEvent;
+	/** [ASYNC/GAME THREAD] Event used to signal that the async loading thread has resumed */
+	FEvent* ThreadResumedEvent;
 	/** [ASYNC/GAME THREAD] List of queued packages to stream */
 	TArray<FAsyncPackageDesc*> QueuedPackages;
 #if THREADSAFE_UOBJECTS
@@ -191,6 +193,12 @@ public:
 	{
 		FPlatformMisc::MemoryBarrier();
 		return IsLoadingSuspended.GetValue() != 0;
+	}
+
+	FORCEINLINE int32 GetAsyncLoadingSuspendedCount()
+	{
+		FPlatformMisc::MemoryBarrier();
+		return IsLoadingSuspended.GetValue();
 	}
 
 	/** Returns the number of async packages that are currently being processed */

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "TextureEditorPrivatePCH.h"
 #include "CanvasTypes.h"
@@ -147,6 +147,22 @@ bool FTextureEditorViewportClient::InputKey(FViewport* Viewport, int32 Controlle
 	{
 		TextureEditorPtr.Pin()->ZoomOut();
 
+		return true;
+	}
+
+	return false;
+}
+
+
+bool FTextureEditorViewportClient::InputGesture(FViewport* Viewport, EGestureEvent::Type GestureType, const FVector2D& GestureDelta, bool bIsDirectionInvertedFromDevice)
+{
+	const bool LeftMouseButtonDown = Viewport->KeyState(EKeys::LeftMouseButton);
+	const bool RightMouseButtonDown = Viewport->KeyState(EKeys::RightMouseButton);
+
+	if (GestureType == EGestureEvent::Scroll && !LeftMouseButtonDown && !RightMouseButtonDown)
+	{
+		double CurrentZoom = TextureEditorPtr.Pin()->GetZoom();
+		TextureEditorPtr.Pin()->SetZoom(CurrentZoom + GestureDelta.Y * 0.01);
 		return true;
 	}
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -47,6 +47,23 @@ class FOLIAGE_API UProceduralFoliageComponent : public UActorComponent
 	float TileOverlap;
 
 #if WITH_EDITORONLY_DATA
+
+	/** Whether to place foliage on landscape */
+	UPROPERTY(Category = "ProceduralFoliage", BlueprintReadWrite, EditAnywhere)
+	bool bAllowLandscape;
+
+	/** Whether to place foliage on BSP */
+	UPROPERTY(Category = "ProceduralFoliage", BlueprintReadWrite, EditAnywhere)
+	bool bAllowBSP;
+
+	/** Whether to place foliage on StaticMesh */
+	UPROPERTY(Category = "ProceduralFoliage", BlueprintReadWrite, EditAnywhere)
+	bool bAllowStaticMesh;
+
+	/** Whether to place foliage on translucent geometry */
+	UPROPERTY(Category = "ProceduralFoliage", BlueprintReadWrite, EditAnywhere)
+	bool bAllowTranslucent;
+
 	/** Whether to visualize the tiles used for the foliage spawner simulation */
 	UPROPERTY(Category = "ProceduralFoliage", BlueprintReadWrite, EditAnywhere)
 	bool bShowDebugTiles;
@@ -69,6 +86,12 @@ class FOLIAGE_API UProceduralFoliageComponent : public UActorComponent
 	
 	/** @return The position in world space of the bottom-left corner of the bottom-left-most active tile */
 	FVector GetWorldPosition() const;
+
+	/** @return The bounds of area encompassed by the simulation */
+	FBox GetBounds() const;
+
+	/** @return The body instanced used for bounds checking */
+	FBodyInstance* GetBoundsBodyInstance() const;
 
 	/** Determines the basic layout of the tiles used in the simulation */
 	void GetTileLayout(FTileLayout& OutTileLayout) const;

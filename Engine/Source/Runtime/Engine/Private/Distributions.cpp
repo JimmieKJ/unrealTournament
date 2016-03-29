@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Distributions.cpp: Implementation of distribution classes.
@@ -29,6 +29,9 @@ ENGINE_API uint32 GDistributionType = 1;
 
 // The maximum number of values to store in a lookup table.
 #define LOOKUP_TABLE_MAX_SAMPLES (128)
+
+// UDistribution will bake out (if CanBeBaked returns true)
+#define DISTRIBUTIONS_BAKES_OUT 0
 
 // The maximum number of samples must be a power of two.
 static_assert((LOOKUP_TABLE_MAX_SAMPLES & (LOOKUP_TABLE_MAX_SAMPLES - 1)) == 0, "Lookup table max samples is not a power of two.");
@@ -909,6 +912,16 @@ void FRawDistributionFloat::Initialize()
 }
 #endif // WITH_EDITOR
 
+bool FRawDistributionFloat::IsCreated()
+{
+	return HasLookupTable(/*bInitializeIfNeeded=*/ false) || (Distribution != nullptr);
+}
+
+bool FRawDistributionVector::IsCreated()
+{
+	return HasLookupTable(/*bInitializeIfNeeded=*/ false) || (Distribution != nullptr);
+}
+
 float FRawDistributionFloat::GetValue(float F, UObject* Data, struct FRandomStream* InRandomStream)
 {
 	if (!HasLookupTable())
@@ -943,7 +956,7 @@ const FRawDistribution *FRawDistributionFloat::GetFastRawDistribution()
 
 void FRawDistributionFloat::GetOutRange(float& MinOut, float& MaxOut)
 {
-	if (!HasLookupTable() || !Distribution)
+	if (!HasLookupTable() && Distribution)
 	{
 		check(Distribution);
 		Distribution->GetOutRange(MinOut, MaxOut);
@@ -967,15 +980,103 @@ void FRawDistributionFloat::InitLookupTable()
 #endif
 }
 
+#if WITH_EDITOR
+template <typename RawDistributionType>
+bool HasBakedDistributionDataHelper(const UDistribution* GivenDistribution)
+{
+	if (UObject* Outer = GivenDistribution->GetOuter())
+	{
+		for (TFieldIterator<UProperty> It(Outer->GetClass()); It; ++It)
+		{
+			UProperty* Property = *It;
+
+			if (UStructProperty* StructProp = Cast<UStructProperty>(Property))
+			{
+				UObject* Distribution = FRawDistribution::TryGetDistributionObjectFromRawDistributionProperty(StructProp, reinterpret_cast<uint8*>(Outer));
+				if (Distribution == GivenDistribution)
+				{
+					if (RawDistributionType* RawDistributionVector = StructProp->ContainerPtrToValuePtr<RawDistributionType>(reinterpret_cast<uint8*>(Outer)))
+					{
+						if (RawDistributionVector->HasLookupTable(false))
+						{
+							return true;	//We have baked data
+						}
+					}
+
+					return false;
+				}
+			}
+			else if (UArrayProperty* ArrayProp = Cast<UArrayProperty>(Property))
+			{
+				if (UStructProperty* InnerStructProp = Cast<UStructProperty>(ArrayProp->Inner))
+				{
+					FScriptArrayHelper ArrayHelper(ArrayProp, Property->ContainerPtrToValuePtr<void>(Outer));
+					for (int32 Idx = 0; Idx < ArrayHelper.Num(); ++Idx)
+					{
+						for (UProperty* ArrayProperty = InnerStructProp->Struct->PropertyLink; ArrayProperty; ArrayProperty = ArrayProperty->PropertyLinkNext)
+						{
+							if (UStructProperty* ArrayStructProp = Cast<UStructProperty>(ArrayProperty))
+							{
+								UObject* Distribution = FRawDistribution::TryGetDistributionObjectFromRawDistributionProperty(ArrayStructProp, ArrayHelper.GetRawPtr(Idx));
+								if (Distribution == GivenDistribution)
+								{
+									if (RawDistributionType* RawDistributionVector = ArrayStructProp->ContainerPtrToValuePtr<RawDistributionType>(ArrayHelper.GetRawPtr(Idx)))
+									{
+										if (RawDistributionVector->HasLookupTable(false))
+										{
+											return true;	//We have baked data
+										}
+									}
+
+									return false;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return false;
+}
+#endif
+
+void UDistributionFloat::Serialize(FArchive& Ar)
+{
+#if WITH_EDITOR
+	if (Ar.IsCooking() || Ar.IsSaving())
+	{
+		bBakedDataSuccesfully = HasBakedDistributionDataHelper<FRawDistributionFloat>(this);
+	}
+#endif
+
+	Super::Serialize(Ar);
+}
+
 
 bool UDistributionFloat::NeedsLoadForClient() const
 {
+#if DISTRIBUTIONS_BAKES_OUT
+	if (CanBeBaked() && HasBakedSuccesfully())
+	{
+		return false;
+	}
+#endif
+
 	return true;
 }
 
 
 bool UDistributionFloat::NeedsLoadForServer() const 
 {
+#if DISTRIBUTIONS_BAKES_OUT
+	if (CanBeBaked() && HasBakedSuccesfully())
+	{
+		return false;
+	}
+#endif
+
 	return true;
 }
 
@@ -1068,6 +1169,8 @@ void FRawDistributionVector::Initialize()
 
 	// fill out our min/max
 	Distribution->GetOutRange(MinValue, MaxValue);
+
+	Distribution->GetRange(MinValueVec, MaxValueVec);
 }
 #endif
 
@@ -1117,6 +1220,20 @@ void FRawDistributionVector::GetOutRange(float& MinOut, float& MaxOut)
 	}
 }
 
+void FRawDistributionVector::GetRange(FVector& MinOut, FVector& MaxOut)
+{
+	if (/*!HasLookupTable() &&*/ Distribution)
+	{
+		check(Distribution);
+		Distribution->GetRange(MinOut, MaxOut);
+	}
+	else
+	{
+		MinOut = MinValueVec;
+		MaxOut = MaxValueVec;
+	}
+}
+
 void FRawDistributionVector::InitLookupTable()
 {
 #if WITH_EDITOR
@@ -1128,14 +1245,39 @@ void FRawDistributionVector::InitLookupTable()
 #endif
 }
 
+void UDistributionVector::Serialize(FArchive& Ar)
+{
+#if WITH_EDITOR
+	if (Ar.IsCooking() || Ar.IsSaving())
+	{
+		bBakedDataSuccesfully = HasBakedDistributionDataHelper<FRawDistributionVector>(this);
+	}
+#endif
+
+	Super::Serialize(Ar);
+}
 
 bool UDistributionVector::NeedsLoadForClient() const
 {
+#if DISTRIBUTIONS_BAKES_OUT
+	if (CanBeBaked() && HasBakedSuccesfully())
+	{
+		return false;
+	}
+#endif
+
 	return true;
 }
 
 bool UDistributionVector::NeedsLoadForServer() const 
 {
+#if DISTRIBUTIONS_BAKES_OUT
+	if (CanBeBaked() && HasBakedSuccesfully())
+	{
+		return false;
+	}
+#endif
+
 	return true;
 }
 

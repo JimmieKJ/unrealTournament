@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -174,6 +174,9 @@ namespace ELauncherProfileValidationErrors
 
 		/** Generating http chunk install data requires valid install directorys and release name */
 		GeneratingHttpChunkDataRequiresValidDirectoryAndName,
+
+		/** Shipping doesn't support commandline options can't use cook on the fly */
+		ShippingDoesntSupportCommandlineOptionsCantUseCookOnTheFly,
 	};
 }
 
@@ -635,7 +638,7 @@ public:
 	 * Gets the full path to the Unreal project to use.
 	 *
 	 * @return The path.
-	 * @see SetRocketProjactPath
+	 * @see SetProjectPath
 	 */
 	virtual FString GetProjectPath( ) const = 0;
 
@@ -1080,10 +1083,10 @@ public:
 	virtual void FallbackProjectUpdated() = 0;
 
 	/**
-	 * Sets the path to the Rocket project to use.
+	 * Sets the path to the Unreal project to use.
 	 *
 	 * @param Path The full path to the project.
-	 * @see GetRocketProjectPath
+	 * @see GetProjectPath
 	 */
 	virtual void SetProjectPath( const FString& Path ) = 0;
 

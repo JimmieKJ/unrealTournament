@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerPrivatePCH.h"
 #include "SAnimationOutlinerTreeNode.h"
@@ -11,145 +11,213 @@
 #include "IKeyArea.h"
 #include "SEditableLabel.h"
 #include "SSequencerTreeView.h"
-
+#include "SColorPicker.h"
+#include "SequencerSectionPainter.h"
 
 #define LOCTEXT_NAMESPACE "AnimationOutliner"
 
+class STrackColorPicker : public SCompoundWidget
+{
+public:
+	static void OnOpen()
+	{
+		if (!Transaction.IsValid())
+		{
+			Transaction.Reset(new FScopedTransaction(LOCTEXT("ChangeTrackColor", "Change Track Color")));
+		}
+	}
+
+	static void OnClose()
+	{
+		if (!Transaction.IsValid())
+		{
+			return;
+		}
+
+		if (!bMadeChanges)
+		{
+			Transaction->Cancel();
+		}
+		Transaction.Reset();
+	}
+
+	SLATE_BEGIN_ARGS(STrackColorPicker){}
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs, UMovieSceneTrack* InTrack)
+	{
+		bMadeChanges = false;
+		Track = InTrack;
+		ChildSlot
+		[
+			SNew(SColorPicker)
+			.DisplayInlineVersion(true)
+			.TargetColorAttribute(this, &STrackColorPicker::GetTrackColor)
+			.OnColorCommitted(this, &STrackColorPicker::SetTrackColor)
+		];
+	}
+
+	FLinearColor GetTrackColor() const
+	{
+		return Track->GetColorTint().ReinterpretAsLinear();
+	}
+
+	void SetTrackColor(FLinearColor NewColor)
+	{
+		bMadeChanges = true;
+		Track->Modify();
+		Track->SetColorTint(NewColor.ToFColor(false));
+	}
+
+private:
+	UMovieSceneTrack* Track;
+	static TUniquePtr<FScopedTransaction> Transaction;
+	static bool bMadeChanges;
+};
+
+TUniquePtr<FScopedTransaction> STrackColorPicker::Transaction;
+bool STrackColorPicker::bMadeChanges = false;
+
+SAnimationOutlinerTreeNode::~SAnimationOutlinerTreeNode()
+{
+	DisplayNode->OnRenameRequested().RemoveAll(this);
+}
 
 void SAnimationOutlinerTreeNode::Construct( const FArguments& InArgs, TSharedRef<FSequencerDisplayNode> Node, const TSharedRef<SSequencerTreeViewRow>& InTableRow )
 {
 	DisplayNode = Node;
+	bIsTopLevelNode = !Node->GetParent().IsValid();
 
-	SelectedBrush = FEditorStyle::GetBrush( "Sequencer.AnimationOutliner.SelectionBorder" );
-	SelectedBrushInactive = FEditorStyle::GetBrush("Sequencer.AnimationOutliner.SelectionBorderInactive");
-	NotSelectedBrush = FEditorStyle::GetBrush( "NoBorder" );
+	if (bIsTopLevelNode)
+	{
+		ExpandedBackgroundBrush = FEditorStyle::GetBrush( "Sequencer.AnimationOutliner.TopLevelBorder_Expanded" );
+		CollapsedBackgroundBrush = FEditorStyle::GetBrush( "Sequencer.AnimationOutliner.TopLevelBorder_Collapsed" );
+	}
+	else
+	{
+		ExpandedBackgroundBrush = FEditorStyle::GetBrush( "Sequencer.AnimationOutliner.DefaultBorder" );
+		CollapsedBackgroundBrush = FEditorStyle::GetBrush( "Sequencer.AnimationOutliner.DefaultBorder" );
+	}
+
 	TableRowStyle = &FEditorStyle::Get().GetWidgetStyle<FTableRowStyle>("TableView.Row");
 
-	// Choose the font.  If the node is a root node or an object node, we show a larger font for it.
-	FSlateFontInfo NodeFont = Node->GetParent().IsValid() && Node->GetType() != ESequencerNode::Object ? 
-		FEditorStyle::GetFontStyle("Sequencer.AnimationOutliner.RegularFont") :
-		FEditorStyle::GetFontStyle("Sequencer.AnimationOutliner.BoldFont");
+	FSlateFontInfo NodeFont = FEditorStyle::GetFontStyle("Sequencer.AnimationOutliner.RegularFont");
 
 	EditableLabel = SNew(SEditableLabel)
 		.CanEdit(this, &SAnimationOutlinerTreeNode::HandleNodeLabelCanEdit)
 		.Font(NodeFont)
+		.ColorAndOpacity(this, &SAnimationOutlinerTreeNode::GetDisplayNameColor)
 		.OnTextChanged(this, &SAnimationOutlinerTreeNode::HandleNodeLabelTextChanged)
-		.Text(this, &SAnimationOutlinerTreeNode::GetDisplayName);
+		.Text(this, &SAnimationOutlinerTreeNode::GetDisplayName)
+		.ToolTipText(this, &SAnimationOutlinerTreeNode::GetDisplayNameToolTipText);
+
+
+	Node->OnRenameRequested().AddRaw(this, &SAnimationOutlinerTreeNode::EnterRenameMode);
 
 	auto NodeHeight = [=]() -> FOptionalSize { return DisplayNode->GetNodeHeight(); };
 
-	TAttribute<FLinearColor> HoverTint(this, &SAnimationOutlinerTreeNode::GetHoverTint);
 	ForegroundColor.Bind(this, &SAnimationOutlinerTreeNode::GetForegroundBasedOnSelection);
 
 	TSharedRef<SWidget>	FinalWidget = 
 		SNew( SBorder )
 		.VAlign( VAlign_Center )
 		.BorderImage( this, &SAnimationOutlinerTreeNode::GetNodeBorderImage )
+		.BorderBackgroundColor( this, &SAnimationOutlinerTreeNode::GetNodeBackgroundTint )
 		.Padding(FMargin(0, Node->GetNodePadding().Combined() / 2))
 		[
-			SNew(SBox)
-			.HeightOverride_Lambda(NodeHeight)
+			SNew( SHorizontalBox )
+
+			+ SHorizontalBox::Slot()
 			[
-				SNew( SHorizontalBox )
-
-				// Expand track lanes button
-				+ SHorizontalBox::Slot()
-				.Padding(FMargin(2.f, 0.f))
-				.VAlign( VAlign_Center )
-				.AutoWidth()
+				SNew(SBox)
+				.HeightOverride_Lambda(NodeHeight)
+				.Padding(FMargin(5.0f, 0.0f))
 				[
-					SNew(SExpanderArrow, InTableRow).IndentAmount(SequencerLayoutConstants::IndentAmount)
+					SNew( SHorizontalBox )
+
+					// Expand track lanes button
+					+ SHorizontalBox::Slot()
+					.Padding(FMargin(2.f, 0.f, 4.f, 0.f))
+					.VAlign( VAlign_Center )
+					.AutoWidth()
+					[
+						SNew(SExpanderArrow, InTableRow).IndentAmount(SequencerLayoutConstants::IndentAmount)
+					]
+
+					// Icon
+					+ SHorizontalBox::Slot()
+					.Padding(FMargin(0.f, 0.f, 4.f, 0.f))
+					.VAlign(VAlign_Center)
+					.AutoWidth()
+					[
+						SNew(SOverlay)
+
+						+ SOverlay::Slot()
+						[
+							SNew(SImage)
+							.Image(InArgs._IconBrush)
+						]
+
+						+ SOverlay::Slot()
+						.VAlign(VAlign_Top)
+						.HAlign(HAlign_Right)
+						[
+							SNew(SImage)
+							.Image(InArgs._IconOverlayBrush)
+						]
+
+						+ SOverlay::Slot()
+						[
+							SNew(SSpacer)
+							.Visibility(EVisibility::Visible)
+							.ToolTipText(InArgs._IconToolTipText)
+						]
+					]
+
+					// Label Slot
+					+ SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					.Padding(FMargin(0.f, 0.f, 4.f, 0.f))
+					.AutoWidth()
+					[
+						EditableLabel.ToSharedRef()
+					]
+
+					// Arbitrary customization slot
+					+ SHorizontalBox::Slot()
+					[
+						InArgs._CustomContent.Widget
+					]
 				]
+			]
 
-				// Label Slot
-				+ SHorizontalBox::Slot()
-				.VAlign( VAlign_Center )
-				.FillWidth(3)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SComboButton)
+				.ContentPadding(0)
+				.VAlign(VAlign_Fill)
+				.HasDownArrow(false)
+				.ButtonStyle(FEditorStyle::Get(), "Sequencer.AnimationOutliner.ColorStrip")
+				.OnGetMenuContent(this, &SAnimationOutlinerTreeNode::OnGetColorPicker)
+				.OnMenuOpenChanged_Lambda([](bool bIsOpen){
+					if (bIsOpen)
+					{
+						STrackColorPicker::OnOpen();
+					}
+					else if (!bIsOpen)
+					{
+						STrackColorPicker::OnClose();
+					}
+				})
+				.ButtonContent()
 				[
-					EditableLabel.ToSharedRef()
-				]
-
-				// Editor slot
-				+ SHorizontalBox::Slot()
-				.VAlign(VAlign_Center)
-				.AutoWidth()
-				[
-					// @todo Sequencer - Remove this box and width override.
 					SNew(SBox)
-					.HAlign(HAlign_Left)
-					.WidthOverride(100)
+					.WidthOverride(6.f)
 					[
-						DisplayNode->GenerateEditWidgetForOutliner()
-					]
-				]
-				// Previous key slot
-				+ SHorizontalBox::Slot()
-				.VAlign(VAlign_Center)
-				.AutoWidth()
-				.Padding(3, 0, 0, 0)
-				[
-					SNew(SBorder)
-					.Padding(0)
-					.BorderImage(NotSelectedBrush)
-					.ColorAndOpacity(HoverTint)
-					[
-						SNew(SButton)
-						.ButtonStyle(FEditorStyle::Get(), "FlatButton")
-						.ToolTipText(LOCTEXT("PreviousKeyButton", "Set the time to the previous key"))
-						.OnClicked(this, &SAnimationOutlinerTreeNode::OnPreviousKeyClicked)
-						.ForegroundColor( FSlateColor::UseForeground() )
-						.ContentPadding(0)
-						[
-							SNew(STextBlock)
-							.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.7"))
-							.Text(FText::FromString(FString(TEXT("\xf060"))) /*fa-arrow-left*/)
-						]
-					]
-				]
-				// Add key slot
-				+ SHorizontalBox::Slot()
-				.VAlign(VAlign_Center)
-				.AutoWidth()
-				[
-					SNew(SBorder)
-					.Padding(0)
-					.BorderImage(NotSelectedBrush)
-					.ColorAndOpacity(HoverTint)
-					[
-						SNew(SButton)
-						.ButtonStyle(FEditorStyle::Get(), "FlatButton")
-						.ToolTipText(LOCTEXT("AddKeyButton", "Add a new key at the current time"))
-						.OnClicked(this, &SAnimationOutlinerTreeNode::OnAddKeyClicked)
-						.ForegroundColor( FSlateColor::UseForeground() )
-						.ContentPadding(0)
-						[
-							SNew(STextBlock)
-							.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.7"))
-							.Text(FText::FromString(FString(TEXT("\xf055"))) /*fa-plus-circle*/)
-						]
-					]
-				]
-				// Next key slot
-				+ SHorizontalBox::Slot()
-				.VAlign(VAlign_Center)
-				.AutoWidth()
-				[
-					SNew(SBorder)
-					.Padding(0)
-					.BorderImage(NotSelectedBrush)
-					.ColorAndOpacity(HoverTint)
-					[
-						SNew(SButton)
-						.ButtonStyle(FEditorStyle::Get(), "FlatButton")
-						.ToolTipText(LOCTEXT("NextKeyButton", "Set the time to the next key"))
-						.OnClicked(this, &SAnimationOutlinerTreeNode::OnNextKeyClicked)
-						.ContentPadding(0)
-						.ForegroundColor( FSlateColor::UseForeground() )
-						[
-							SNew(STextBlock)
-							.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.7"))
-							.Text(FText::FromString(FString(TEXT("\xf061"))) /*fa-arrow-right*/)
-						]
+						SNew(SImage)
+						.Image(FEditorStyle::GetBrush("WhiteBrush"))
+						.ColorAndOpacity(this, &SAnimationOutlinerTreeNode::GetTrackColorTint)
 					]
 				]
 			]
@@ -165,127 +233,6 @@ void SAnimationOutlinerTreeNode::Construct( const FArguments& InArgs, TSharedRef
 void SAnimationOutlinerTreeNode::EnterRenameMode()
 {
 	EditableLabel->EnterTextMode();
-}
-
-
-FLinearColor SAnimationOutlinerTreeNode::GetHoverTint() const
-{
-	return IsHovered() ? FLinearColor(1,1,1,0.9f) : FLinearColor(1,1,1,0.4f);
-}
-
-
-FReply SAnimationOutlinerTreeNode::OnPreviousKeyClicked()
-{
-	FSequencer& Sequencer = DisplayNode->GetSequencer();
-	float ClosestPreviousKeyDistance = MAX_FLT;
-	float CurrentTime = Sequencer.GetCurrentLocalTime(*Sequencer.GetFocusedMovieSceneSequence());
-	float PreviousTime = 0;
-	bool PreviousKeyFound = false;
-
-	TSet<TSharedPtr<IKeyArea>> KeyAreas;
-	SequencerHelpers::GetAllKeyAreas(DisplayNode, KeyAreas);
-	for (TSharedPtr<IKeyArea> KeyArea : KeyAreas)
-	{
-		for (FKeyHandle& KeyHandle : KeyArea->GetUnsortedKeyHandles())
-		{
-			float KeyTime = KeyArea->GetKeyTime(KeyHandle);
-			if (KeyTime < CurrentTime && CurrentTime - KeyTime < ClosestPreviousKeyDistance)
-			{
-				PreviousTime = KeyTime;
-				ClosestPreviousKeyDistance = CurrentTime - KeyTime;
-				PreviousKeyFound = true;
-			}
-		}
-	}
-
-	if (PreviousKeyFound)
-	{
-		Sequencer.SetGlobalTime(PreviousTime);
-	}
-	return FReply::Handled();
-}
-
-
-FReply SAnimationOutlinerTreeNode::OnNextKeyClicked()
-{
-	FSequencer& Sequencer = DisplayNode->GetSequencer();
-	float ClosestNextKeyDistance = MAX_FLT;
-	float CurrentTime = Sequencer.GetCurrentLocalTime(*Sequencer.GetFocusedMovieSceneSequence());
-	float NextTime = 0;
-	bool NextKeyFound = false;
-
-	TSet<TSharedPtr<IKeyArea>> KeyAreas;
-	SequencerHelpers::GetAllKeyAreas(DisplayNode, KeyAreas);
-	for (TSharedPtr<IKeyArea> KeyArea : KeyAreas)
-	{
-		for (FKeyHandle& KeyHandle : KeyArea->GetUnsortedKeyHandles())
-		{
-			float KeyTime = KeyArea->GetKeyTime(KeyHandle);
-			if (KeyTime > CurrentTime && KeyTime - CurrentTime < ClosestNextKeyDistance)
-			{
-				NextTime = KeyTime;
-				ClosestNextKeyDistance = KeyTime - CurrentTime;
-				NextKeyFound = true;
-			}
-		}
-	}
-
-	if (NextKeyFound)
-	{
-		Sequencer.SetGlobalTime(NextTime);
-	}
-
-	return FReply::Handled();
-}
-
-
-FReply SAnimationOutlinerTreeNode::OnAddKeyClicked()
-{
-	FSequencer& Sequencer = DisplayNode->GetSequencer();
-	float CurrentTime = Sequencer.GetCurrentLocalTime(*Sequencer.GetFocusedMovieSceneSequence());
-
-	TSet<TSharedPtr<IKeyArea>> KeyAreas;
-	SequencerHelpers::GetAllKeyAreas(DisplayNode, KeyAreas);
-
-	TArray<UMovieSceneSection*> KeyAreaSections;
-	for (TSharedPtr<IKeyArea> KeyArea : KeyAreas)
-	{
-		UMovieSceneSection* OwningSection = KeyArea->GetOwningSection();
-		KeyAreaSections.Add(OwningSection);
-	}
-
-	UMovieSceneSection* NearestSection = MovieSceneHelpers::FindNearestSectionAtTime(KeyAreaSections, CurrentTime);
-	if (!NearestSection)
-	{
-		return FReply::Unhandled();
-	}
-
-	FScopedTransaction Transaction(LOCTEXT("AddKeys", "Add keys at current time"));
-	for (TSharedPtr<IKeyArea> KeyArea : KeyAreas)
-	{
-		UMovieSceneSection* OwningSection = KeyArea->GetOwningSection();
-		if (OwningSection == NearestSection)
-		{
-			OwningSection->SetFlags(RF_Transactional);
-			if (OwningSection->TryModify())
-			{
-				KeyArea->AddKeyUnique(CurrentTime, Sequencer.GetKeyInterpolation());
-			}
-		}
-	}
-
-	return FReply::Handled();
-}
-
-
-TSharedPtr<FSequencerDisplayNode> SAnimationOutlinerTreeNode::GetRootNode(TSharedPtr<FSequencerDisplayNode> ObjectNode)
-{
-	if (!ObjectNode->GetParent().IsValid())
-	{
-		return ObjectNode;
-	}
-
-	return GetRootNode(ObjectNode->GetParent());
 }
 
 
@@ -307,151 +254,90 @@ void SAnimationOutlinerTreeNode::GetAllDescendantNodes(TSharedPtr<FSequencerDisp
 	}
 }
 
-
-FReply SAnimationOutlinerTreeNode::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+void SAnimationOutlinerTreeNode::OnMouseEnter(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
-	if (!DisplayNode->IsSelectable())
-	{
-		return FReply::Unhandled();
-	}
-
-	if ((MouseEvent.GetEffectingButton() != EKeys::LeftMouseButton) &&
-		(MouseEvent.GetEffectingButton() != EKeys::RightMouseButton))
-	{
-		return FReply::Unhandled();
-	}
-
-	FSequencer& Sequencer = DisplayNode->GetSequencer();
-	bool bSelected = Sequencer.GetSelection().IsSelected(DisplayNode.ToSharedRef());
-
-	TArray<TSharedPtr<FSequencerDisplayNode> > AffectedNodes;
-	AffectedNodes.Add(DisplayNode.ToSharedRef());
-
-	Sequencer.GetSelection().SuspendBroadcast();
-
-	if (MouseEvent.IsShiftDown())
-	{
-		FSequencerNodeTree& ParentTree = DisplayNode->GetParentTree();
-
-		const TArray< TSharedRef<FSequencerDisplayNode> >RootNodes = ParentTree.GetRootNodes();
-
-		// Get all nodes in order
-		TArray<TSharedRef<FSequencerDisplayNode> > AllNodes;
-		for (int32 i = 0; i < RootNodes.Num(); ++i)
-		{
-			GetAllDescendantNodes(RootNodes[i], AllNodes);
-		}
-
-		int32 FirstIndexToSelect = INT32_MAX;
-		int32 LastIndexToSelect = INT32_MIN;
-
-		for (int32 ChildIndex = 0; ChildIndex < AllNodes.Num(); ++ChildIndex)
-		{
-			TSharedRef<FSequencerDisplayNode> ChildNode = AllNodes[ChildIndex];
-
-			if (ChildNode == DisplayNode.ToSharedRef() || Sequencer.GetSelection().IsSelected(ChildNode))
-			{
-				if (ChildIndex < FirstIndexToSelect)
-				{
-					FirstIndexToSelect = ChildIndex;
-				}
-
-				if (ChildIndex > LastIndexToSelect)
-				{
-					LastIndexToSelect = ChildIndex;
-				}
-			}
-		}
-
-		if (FirstIndexToSelect != INT32_MAX && LastIndexToSelect != INT32_MIN)
-		{
-			for (int32 ChildIndex = FirstIndexToSelect; ChildIndex <= LastIndexToSelect; ++ChildIndex)
-			{
-				TSharedRef<FSequencerDisplayNode> ChildNode = AllNodes[ChildIndex];
-
-				if (!Sequencer.GetSelection().IsSelected(ChildNode))
-				{
-					Sequencer.GetSelection().AddToSelection(ChildNode);
-					AffectedNodes.Add(ChildNode);
-				}
-			}
-		}
-	}
-	else if( MouseEvent.IsControlDown() )
-	{
-		// Toggle selection when control is down
-		if (bSelected)
-		{
-			Sequencer.GetSelection().RemoveFromSelection(DisplayNode.ToSharedRef());
-		}
-		else
-		{
-			Sequencer.GetSelection().AddToSelection(DisplayNode.ToSharedRef());
-		}
-	}
-	else
-	{
-		// Deselect the other nodes and select this node.
-		Sequencer.GetSelection().EmptySelectedOutlinerNodes();
-		Sequencer.GetSelection().AddToSelection(DisplayNode.ToSharedRef());
-	}
-
-	OnSelectionChanged( AffectedNodes );
-
-	Sequencer.GetSelection().ResumeBroadcast();
-	Sequencer.GetSelection().GetOnOutlinerNodeSelectionChanged().Broadcast();
-
-	return FReply::Handled();
+	DisplayNode->GetParentTree().SetHoveredNode(DisplayNode);
+	SWidget::OnMouseEnter(MyGeometry, MouseEvent);
 }
 
-
-FReply SAnimationOutlinerTreeNode::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+void SAnimationOutlinerTreeNode::OnMouseLeave(const FPointerEvent& MouseEvent)
 {
-	if( MouseEvent.GetEffectingButton() != EKeys::RightMouseButton )
-	{
-		return FReply::Unhandled();
-	}
-
-	TSharedPtr<SWidget> MenuContent = DisplayNode->OnSummonContextMenu(MyGeometry, MouseEvent);
-
-	if (!MenuContent.IsValid())
-	{
-		return FReply::Handled();
-	}
-
-	FWidgetPath WidgetPath = MouseEvent.GetEventPath() != nullptr ? *MouseEvent.GetEventPath() : FWidgetPath();
-
-	FSlateApplication::Get().PushMenu(
-		AsShared(),
-		WidgetPath,
-		MenuContent.ToSharedRef(),
-		MouseEvent.GetScreenSpacePosition(),
-		FPopupTransitionEffect( FPopupTransitionEffect::ContextMenu )
-	);
-			
-	return FReply::Handled().SetUserFocus(MenuContent.ToSharedRef(), EFocusCause::SetDirectly);
+	DisplayNode->GetParentTree().SetHoveredNode(nullptr);
+	SWidget::OnMouseLeave(MouseEvent);
 }
-
 
 const FSlateBrush* SAnimationOutlinerTreeNode::GetNodeBorderImage() const
 {
-	// Display a highlight when the node is selected
+	return DisplayNode->IsExpanded() ? ExpandedBackgroundBrush : CollapsedBackgroundBrush;
+}
+
+FSlateColor SAnimationOutlinerTreeNode::GetNodeBackgroundTint() const
+{
 	FSequencer& Sequencer = DisplayNode->GetSequencer();
 	const bool bIsSelected = Sequencer.GetSelection().IsSelected(DisplayNode.ToSharedRef());
 
-	if (!bIsSelected)
+	if (bIsSelected)
 	{
-		return NotSelectedBrush;
+		return FEditorStyle::GetSlateColor("SelectionColor_Pressed");
 	}
-
-	if (Sequencer.GetSelection().GetActiveSelection() == FSequencerSelection::EActiveSelection::OutlinerNode)
+	else if (Sequencer.GetSelection().NodeHasSelectedKeysOrSections(DisplayNode.ToSharedRef()))
 	{
-		return SelectedBrush;
+		return FLinearColor(FColor(115, 115, 115, 255));
+	}	
+	else if (DisplayNode->IsHovered())
+	{
+		return bIsTopLevelNode ? FLinearColor(FColor(52, 52, 52, 255)) : FLinearColor(FColor(72, 72, 72, 255));
 	}
-
-	return SelectedBrushInactive;
+	else
+	{
+		return bIsTopLevelNode ? FLinearColor(FColor(48, 48, 48, 255)) : FLinearColor(FColor(62, 62, 62, 255));
+	}
 }
 
+TSharedRef<SWidget> SAnimationOutlinerTreeNode::OnGetColorPicker() const
+{
+	UMovieSceneTrack* Track = nullptr;
+
+	FSequencerDisplayNode* Current = DisplayNode.Get();
+	while (Current && Current->GetType() != ESequencerNode::Object)
+	{
+		if (Current->GetType() == ESequencerNode::Track)
+		{
+			Track = static_cast<FSequencerTrackNode*>(Current)->GetTrack();
+			if (Track)
+			{
+				break;
+			}
+		}
+		Current = Current->GetParent().Get();
+	}
+
+	if (!Track)
+	{
+		return SNullWidget::NullWidget;
+	}
+
+	return SNew(STrackColorPicker, Track);
+}
+
+FSlateColor SAnimationOutlinerTreeNode::GetTrackColorTint() const
+{
+	FSequencerDisplayNode* Current = DisplayNode.Get();
+	while (Current && Current->GetType() != ESequencerNode::Object)
+	{
+		if (Current->GetType() == ESequencerNode::Track)
+		{
+			UMovieSceneTrack* Track = static_cast<FSequencerTrackNode*>(Current)->GetTrack();
+			if (Track)
+			{
+				return FSequencerSectionPainter::BlendColor(Track->GetColorTint());
+			}
+		}
+		Current = Current->GetParent().Get();
+	}
+
+	return FLinearColor::Transparent;
+}
 
 FSlateColor SAnimationOutlinerTreeNode::GetForegroundBasedOnSelection() const
 {
@@ -465,6 +351,18 @@ FSlateColor SAnimationOutlinerTreeNode::GetForegroundBasedOnSelection() const
 EVisibility SAnimationOutlinerTreeNode::GetExpanderVisibility() const
 {
 	return DisplayNode->GetNumChildren() > 0 ? EVisibility::Visible : EVisibility::Hidden;
+}
+
+
+FSlateColor SAnimationOutlinerTreeNode::GetDisplayNameColor() const
+{
+	return DisplayNode->GetDisplayNameColor();
+}
+
+
+FText SAnimationOutlinerTreeNode::GetDisplayNameToolTipText() const
+{
+	return DisplayNode->GetDisplayNameToolTipText();
 }
 
 
@@ -483,146 +381,6 @@ bool SAnimationOutlinerTreeNode::HandleNodeLabelCanEdit() const
 void SAnimationOutlinerTreeNode::HandleNodeLabelTextChanged(const FText& NewLabel)
 {
 	DisplayNode->SetDisplayName(NewLabel);
-}
-
-
-void SAnimationOutlinerTreeNode::OnSelectionChanged( TArray<TSharedPtr<FSequencerDisplayNode> > AffectedNodes )
-{
-	FSequencer& Sequencer = DisplayNode->GetSequencer();
-	if (!Sequencer.IsLevelEditorSequencer())
-	{
-		return;
-	}
-
-	TArray<TSharedPtr<FSequencerDisplayNode> > AffectedRootNodes;
-
-	for (int32 NodeIdx = 0; NodeIdx < AffectedNodes.Num(); ++NodeIdx)
-	{
-		TSharedPtr<FSequencerDisplayNode> RootNode = GetRootNode(AffectedNodes[NodeIdx]);
-		if (RootNode.IsValid() && RootNode->GetType() == ESequencerNode::Object)
-		{
-			AffectedRootNodes.Add(RootNode);
-		}
-	}
-
-	if (!AffectedRootNodes.Num())
-	{
-		return;
-	}
-
-	const FModifierKeysState ModifierKeys = FSlateApplication::Get().GetModifierKeys();
-	bool IsControlDown = ModifierKeys.IsControlDown();
-	bool IsShiftDown = ModifierKeys.IsShiftDown();
-
-	TArray<AActor*> ActorsToSelect;
-	TArray<AActor*> ActorsToRemainSelected;
-	TArray<AActor*> ActorsToDeselect;
-
-	// Find objects bound to the object node and determine what actors need to be selected in the editor
-	for (int32 ObjectIdx = 0; ObjectIdx < AffectedRootNodes.Num(); ++ObjectIdx)
-	{
-		const TSharedPtr<const FSequencerObjectBindingNode> ObjectNode = StaticCastSharedPtr<const FSequencerObjectBindingNode>( AffectedRootNodes[ObjectIdx] );
-
-		// Get the bound objects
-		TArray<UObject*> RuntimeObjects;
-		Sequencer.GetRuntimeObjects( Sequencer.GetFocusedMovieSceneSequenceInstance(), ObjectNode->GetObjectBinding(), RuntimeObjects );
-		
-		if( RuntimeObjects.Num() > 0 )
-		{
-			for( int32 ActorIdx = 0; ActorIdx < RuntimeObjects.Num(); ++ActorIdx )
-			{
-				AActor* Actor = Cast<AActor>( RuntimeObjects[ActorIdx] );
-
-				if (Actor == nullptr)
-				{
-					continue;
-				}
-
-				bool bIsActorSelected = GEditor->GetSelectedActors()->IsSelected(Actor);
-				if (IsControlDown)
-				{
-					if (!bIsActorSelected)
-					{
-						ActorsToSelect.Add(Actor);
-					}
-					else
-					{
-						ActorsToDeselect.Add(Actor);
-					}
-				}
-				else
-				{
-					if (!bIsActorSelected)
-					{
-						ActorsToSelect.Add(Actor);
-					}
-					else
-					{
-						ActorsToRemainSelected.Add(Actor);
-					}
-				}
-			}
-		}
-	}
-
-	if (!IsControlDown && !IsShiftDown)
-	{
-		for (FSelectionIterator SelectionIt(*GEditor->GetSelectedActors()); SelectionIt; ++SelectionIt)
-		{
-			AActor* Actor = CastChecked< AActor >( *SelectionIt );
-			if (Actor)
-			{
-				if (ActorsToSelect.Find(Actor) == INDEX_NONE && 
-					ActorsToDeselect.Find(Actor) == INDEX_NONE &&
-					ActorsToRemainSelected.Find(Actor) == INDEX_NONE)
-				{
-					ActorsToDeselect.Add(Actor);
-				}
-			}
-		}
-	}
-
-	// If there's no selection to change, return early
-	if (ActorsToSelect.Num() + ActorsToDeselect.Num() == 0)
-	{
-		return;
-	}
-
-	// Mark that the user is selecting so that the UI doesn't respond to the selection changes in the following block
-	TSharedRef<SSequencer> SequencerWidget = StaticCastSharedRef<SSequencer>(Sequencer.GetSequencerWidget());
-	SequencerWidget->SetUserIsSelecting(true);
-
-	const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "ClickingOnActors", "Clicking on Actors"));
-
-	const bool bNotifySelectionChanged = false;
-	const bool bDeselectBSP = true;
-	const bool bWarnAboutTooManyActors = false;
-	const bool bSelectEvenIfHidden = true;
-
-	GEditor->GetSelectedActors()->Modify();
-
-	if (!IsControlDown && !IsShiftDown)
-	{
-		GEditor->SelectNone(bNotifySelectionChanged, bDeselectBSP, bWarnAboutTooManyActors);
-	}
-
-	GEditor->GetSelectedActors()->BeginBatchSelectOperation();
-
-	for (auto ActorToSelect : ActorsToSelect)
-	{
-		GEditor->SelectActor(ActorToSelect, true, bNotifySelectionChanged, bSelectEvenIfHidden);
-	}
-
-	for (auto ActorToDeselect : ActorsToDeselect)
-	{
-		GEditor->SelectActor(ActorToDeselect, false, bNotifySelectionChanged, bSelectEvenIfHidden);
-	}
-
-	GEditor->GetSelectedActors()->EndBatchSelectOperation();
-	GEditor->NoteSelectionChange();
-
-	// Unlock the selection so that the sequencer widget can now respond to selection changes in the level
-	SequencerWidget->SetUserIsSelecting(false);
 }
 
 

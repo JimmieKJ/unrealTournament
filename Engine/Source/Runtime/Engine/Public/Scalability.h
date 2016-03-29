@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*===================================================================================
 	Scalability.h: Manager class for handling scalability settings
@@ -14,7 +14,7 @@ namespace Scalability
 	**/
 	struct ENGINE_API FQualityLevels
 	{
-		int32 ResolutionQuality;
+		float ResolutionQuality;
 		int32 ViewDistanceQuality;
 		int32 AntiAliasingQuality;
 		int32 ShadowQuality;
@@ -22,7 +22,12 @@ namespace Scalability
 		int32 TextureQuality;
 		int32 EffectsQuality;
 
+		float CPUBenchmarkResults;
+		float GPUBenchmarkResults;
+
 		FQualityLevels()
+			: CPUBenchmarkResults(-1.0f)
+			, GPUBenchmarkResults(-1.0f)
 		{
 			SetDefaults();
 		}
@@ -74,14 +79,14 @@ namespace Scalability
 	ENGINE_API void RecordQualityLevelsAnalytics(bool bAutoApplied);
 
 	/** Run synthbenchmark and configure scalability based on results **/
-	ENGINE_API FQualityLevels BenchmarkQualityLevels(uint32 WorkScale=10);
+	ENGINE_API FQualityLevels BenchmarkQualityLevels(uint32 WorkScale=10, float CPUMultiplier = 1.0f, float GPUMultiplier = 1.0f);
 
 	/** Process a console command line **/
 	ENGINE_API void ProcessCommand(const TCHAR* Cmd, FOutputDevice& Ar);
 
 	/** Minimum single axis scale for render resolution */
-	static const int32 MinResolutionScale = 50;
+	static const float MinResolutionScale = 10.0f;
 
 	/** Maximum single axis scale for render resolution */
-	static const int32 MaxResolutionScale = 100;
+	static const float MaxResolutionScale = 100.0f;
 }

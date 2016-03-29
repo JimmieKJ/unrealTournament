@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /**
  * Commandlet to allow diff in P4V, and expose that functionality to the editor
@@ -68,7 +68,7 @@ bool UDiffAssetsCommandlet::CopyFileToTempLocation(FString& InOutFilename)
 
 bool UDiffAssetsCommandlet::LoadFile(const FString& Filename, TArray<UObject *>& LoadedObjects)
 {
-	UPackage* Package = Cast<UPackage>(LoadPackage( NULL, *Filename, LOAD_None ));
+	UPackage* Package = Cast<UPackage>(LoadPackage( NULL, *Filename, LOAD_ForDiff));
 	if (!Package)
 	{
 		UE_LOG(LogDiffAssetsCommandlet, Warning, TEXT("Could not load %s"), *Filename);

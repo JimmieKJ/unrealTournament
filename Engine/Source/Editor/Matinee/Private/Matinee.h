@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -53,7 +53,7 @@ public:
 	/** @return the documentation location for this editor */
 	virtual FString GetDocumentationLink() const override
 	{
-		return FString(TEXT("Editor/Matinee"));
+		return FString(TEXT("Engine/Matinee"));
 	}
 
 	////////////////////////////////

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DerivedDataCacheCommandlet.cpp: Commandlet for DDC maintenence
@@ -241,7 +241,6 @@ int32 UDerivedDataCacheCommandlet::Main( const FString& Params )
 		}
 	}
 
-	IConsoleManager::Get().ProcessUserConsoleInput(TEXT("Tex.DerivedDataTimings"), *GWarn, NULL);
 	UE_LOG(LogDerivedDataCacheCommandlet, Display, TEXT("Waiting for shaders to finish."));
 	GShaderCompilingManager->FinishAllCompilation();
 	GDistanceFieldAsyncQueue->BlockUntilAllBuildsComplete();

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -604,7 +604,7 @@ public:
 	/**
 	 * Number of gatherable text data items in this package
 	 */
-	int32		GatherableTextDataCount;
+	int32	GatherableTextDataCount;
 
 	/**
 	 * Location into the file on disk for the gatherable text data items
@@ -1267,7 +1267,7 @@ class FLinkerLoad : public FLinker, public FArchiveUObject
 	friend class UObject;
 	friend class UPackageMap;
 	friend struct FAsyncPackage;
-
+protected:
 	/** Linker loading status. */
 	enum ELinkerStatus
 	{
@@ -1334,7 +1334,7 @@ public:
 	/** Old plugin name to new plugin name mapping */
 	static TMap<FString, FString> PluginNameRedirects;
 	/** Packages that are known to be missing when verifying imports that we don't want a message about */
-	static TSet<FName> KnownMissingPackages;
+	COREUOBJECT_API static TSet<FName> KnownMissingPackages;
 
 	/** Object name to required class and new name for load-time remapping */
 	struct FSubobjectRedirect
@@ -1887,6 +1887,7 @@ private:
 	 */
 	ELinkerStatus Tick( float InTimeLimit, bool bInUseTimeLimit, bool bInUseFullTimeLimit);
 
+protected: // Daniel L: Made this protected so I can override the constructor and create a custom loader to load the header of the linker in the DiffFilesCommandlet
 	/**
 	 * Private constructor, passing arguments through from CreateLinker.
 	 *
@@ -1895,7 +1896,7 @@ private:
 	 * @param	LoadFlags	Load flags determining behavior
 	 */
 	FLinkerLoad(UPackage* InParent, const TCHAR* InFilename, uint32 InLoadFlags);
-
+private:
 	/**
 	 * Returns whether the time limit allotted has been exceeded, if enabled.
 	 *
@@ -1905,12 +1906,12 @@ private:
 	 * @return true if time limit has been exceeded (and is enabled), false otherwise (including if time limit is disabled)
 	 */
 	COREUOBJECT_API bool IsTimeLimitExceeded( const TCHAR* CurrentTask, int32 Granularity = 1 );
-
+protected: // Daniel L: Made this protected so I can override the constructor and create a custom loader to load the header of the linker in the DiffFilesCommandlet
 	/**
 	 * Creates loader used to serialize content.
 	 */
 	ELinkerStatus CreateLoader();
-
+private:
 	/**
 	 * Serializes the package file summary.
 	 */
@@ -1964,6 +1965,9 @@ public:
 	 */
 	COREUOBJECT_API ELinkerStatus SerializeThumbnails( bool bForceEnableForCommandlet=false );
 
+	/** Inform the archive that blueprint finalization is pending. */
+	virtual void ForceBlueprintFinalization() override;
+
 	/**
 	* Query method to help handle recursive behavior. When this returns true,
 	* this linker is in the middle of, or is about to call FinalizeBlueprint()
@@ -1974,6 +1978,22 @@ public:
 	* @return True if FinalizeBlueprint() is currently being ran (or about to be ran) for an export (Blueprint) class.
 	*/
 	bool IsBlueprintFinalizationPending() const;
+
+	/**
+	 * Gives external code the ability to create FLinkerPlaceholderBase objects
+	 * in place of loads that may violate the LOAD_DeferDependencyLoads state.
+	 * This will only produce a placeholder if LOAD_DeferDependencyLoads is set
+	 * for this linker.
+	 *
+	 * NOTE: For now, this will only produce UClass placeholders, as that is the 
+	 *       only type we've identified needing.
+	 * 
+	 * @param  ObjectType    The expected type of the object you want to defer loading of.
+	 * @param  ObjectPath    The full object/package path for the expected object.
+	 * @return A FLinkerPlaceholderBase UObject that can be used in place of the import dependency.
+	 */
+	UObject* RequestPlaceholderValue(UClass* ObjectType, const TCHAR* ObjectPath);
+
 private:
 	/**
 	 * Regenerates/Refreshes a blueprint class
@@ -1993,6 +2013,16 @@ private:
 	 */
 	bool DeferPotentialCircularImport(const int32 ImportIndex);
 	
+#if WITH_EDITOR
+	/**
+	* Determines if the Object Import error should be suppressed
+	*
+	* @param  ImportIndex    Internal index into this linker's ImportMap, references the import to check for suppression.
+	* @return True if the import error should be suppressed
+	*/
+	bool IsSuppressableBlueprintImportError(int32 ImportIndex) const;
+#endif // WITH_EDITOR
+
 	/**
 	 * Stubs in a ULinkerPlaceholderExportObject for the specified export (if 
 	 * one is required, meaning: the export's LoadClass is not fully formed). 
@@ -2029,9 +2059,11 @@ private:
 	 * 
 	 * @param  Placeholder		A ULinkerPlaceholderClass that was substituted in place of a deferred dependency.
 	 * @param  ReferencingClass	The (Blueprint) class that was loading, while we deferred dependencies (now referencing the placeholder).
+	 * @param  ObjectPath		Optional param that denotes the full object/package path for the object the placeholder is supposed to represent 
+	 *                          (used when the passed placeholder is not tied to an import in the linker's ImportMap).
 	 * @return The number of placeholder references replaced (could be none, if this was recursively resolved).
 	 */
-	int32 ResolveDependencyPlaceholder(class FLinkerPlaceholderBase* Placeholder, UClass* ReferencingClass = nullptr);
+	int32 ResolveDependencyPlaceholder(class FLinkerPlaceholderBase* Placeholder, UClass* ReferencingClass = nullptr, const FName ObjectPath = NAME_None);
 
 	/**
 	 * Query method to help catch recursive behavior. When this returns true, a 
@@ -2100,7 +2132,6 @@ private:
 	 */
 	bool IsExportBeingResolved(int32 ExportIndex);
 
-
 	void ResetDeferredLoadingState();
 
 	bool HasPerformedFullExportResolvePass();
@@ -2120,6 +2151,12 @@ private:
 	 * happening, we instead defer it and record the export's index here (so we 
 	 * can return to it later).
 	 */
+	bool bForceBlueprintFinalization;
+
+	/** 
+	 * Index of the CDO that should be used for blueprint finalization, may be INDEX_NONE
+	 * in the case of some legacy content.
+	 */
 	int32 DeferredCDOIndex;
 
 	/** 
@@ -2129,6 +2166,12 @@ private:
 	 * to the next.
 	 */
 	class FLinkerPlaceholderBase* ResolvingDeferredPlaceholder;
+
+	/** 
+	 * Internal list to track imports that were deferred, but don't belong to 
+	 * the ImportMap (thinks ones loaded through config files via UProperty::ImportText).
+	 */
+	TMap<FName, FLinkerPlaceholderBase*> ImportPlaceholders;
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 
 
@@ -2189,6 +2232,8 @@ public:
 		int64 BulkDataOffsetInFilePos;
 		/** Offset to the location where the payload size is stored */
 		int64 BulkDataSizeOnDiskPos;
+		/** Offset to the location where the bulk data flags are stored */
+		int64 BulkDataFlagsPos;
 		/** Bulk data flags at the time of serialization */
 		uint32 BulkDataFlags;
 		/** The bulkdata */

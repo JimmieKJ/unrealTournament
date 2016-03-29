@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlatePrivatePCH.h"
 
@@ -254,7 +254,12 @@ FReply SButton::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEven
 		}
 		else
 		{
-			if( IsHovered() )
+			bool bEventOverButton = IsHovered();
+			if (!bEventOverButton && MouseEvent.IsTouchEvent())
+			{
+				bEventOverButton = MyGeometry.IsUnderLocation(MouseEvent.GetScreenSpacePosition());
+			}
+			if (bEventOverButton)
 			{
 				// If we asked for a precise tap, all we need is for the user to have not moved their pointer very far.
 				const bool bTriggerForTouchEvent = IsPreciseTapOrClick(MouseEvent);
@@ -354,7 +359,7 @@ void SButton::Release()
 
 bool SButton::IsInteractable() const
 {
-	return IsEnabled() && SupportsKeyboardFocus();
+	return IsEnabled();
 }
 
 bool SButton::IsPreciseTapOrClick(const FPointerEvent& MouseEvent) const

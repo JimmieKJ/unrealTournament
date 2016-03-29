@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "TextureCompressorPrivatePCH.h"
 
@@ -1593,7 +1593,11 @@ static bool CompressMipChain(
 						Settings,
 						bImageHasAlphaChannel
 						);
+#if WITH_EDITOR
+					AsyncTask->StartBackgroundTask(GLargeThreadPool);
+#else
 					AsyncTask->StartBackgroundTask();
+#endif
 				}
 				else
 				{

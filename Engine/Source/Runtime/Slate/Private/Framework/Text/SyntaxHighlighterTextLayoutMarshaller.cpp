@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlatePrivatePCH.h"
 #include "SyntaxHighlighterTextLayoutMarshaller.h"
@@ -72,6 +72,9 @@ void FRichTextSyntaxHighlighterTextLayoutMarshaller::ParseTokens(const FString& 
 		LookingForNodeAttribueValueBegin,
 		LookingForNodeAttribueValueBody,
 	};
+
+	TArray<FTextLayout::FNewLineData> LinesToAdd;
+	LinesToAdd.Reserve(TokenizedLines.Num());
 
 	// Parse the tokens, generating the styled runs for each line
 	EParseState ParseState = EParseState::LookingForNode;
@@ -168,8 +171,10 @@ void FRichTextSyntaxHighlighterTextLayoutMarshaller::ParseTokens(const FString& 
 			Runs.Add(Run);
 		}
 
-		TargetTextLayout.AddLine(ModelString, Runs);
+		LinesToAdd.Emplace(MoveTemp(ModelString), MoveTemp(Runs));
 	}
+
+	TargetTextLayout.AddLines(LinesToAdd);
 }
 
 FRichTextSyntaxHighlighterTextLayoutMarshaller::FRichTextSyntaxHighlighterTextLayoutMarshaller(TSharedPtr< FSyntaxTokenizer > InTokenizer, const FSyntaxTextStyle& InSyntaxTextStyle)

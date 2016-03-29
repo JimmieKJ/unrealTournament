@@ -1,8 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "UniqueObj.h"
+#include "RenderingCommon.h"
 
 class SWindow;
 class FSlateViewportInterface;
@@ -71,8 +72,7 @@ public:
 	bool bRequiresVSync;
 
 	// Misc data
-	bool bGammaCorrect;
-	bool bAllowBlending;
+	ESlateBatchDrawFlag::Type BatchFlags;
 
 	// Custom drawer data
 	TWeakPtr<ICustomSlateElement, ESPMode::ThreadSafe> CustomDrawer;
@@ -108,8 +108,7 @@ public:
 		, ViewportRenderTargetTexture(nullptr)
 		, bViewportTextureAlphaOnly(false)
 		, bRequiresVSync(false)
-		, bGammaCorrect(false)
-		, bAllowBlending(false)
+		, BatchFlags(ESlateBatchDrawFlag::None)
 		, CustomDrawer()
 		, InstanceData(nullptr)
 		, InstanceOffset(0)
@@ -158,7 +157,11 @@ public:
 	{
 		GradientStops = InGradientStops;
 		GradientType = InGradientType;
-		bGammaCorrect = bInGammaCorrect;
+
+		if ( !bInGammaCorrect )
+		{
+			BatchFlags |= ESlateBatchDrawFlag::NoGamma;
+		}
 	}
 
 	void SetSplinePayloadProperties( const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, float InThickness, const FLinearColor& InTint )
@@ -188,8 +191,20 @@ public:
 		bAllowViewportScaling = InViewport->AllowScaling();
 		bViewportTextureAlphaOnly = InViewport->IsViewportTextureAlphaOnly();
 		bRequiresVSync = InViewport->RequiresVsync();
-		bGammaCorrect = bInGammaCorrect;
-		bAllowBlending = bInAllowBlending;
+
+		if ( !bInGammaCorrect )
+		{
+			BatchFlags |= ESlateBatchDrawFlag::NoGamma;
+		}
+
+		if ( !bInAllowBlending )
+		{
+			BatchFlags |= ESlateBatchDrawFlag::NoBlending;
+		}
+		else
+		{
+			BatchFlags |= ESlateBatchDrawFlag::AlphaCompositing;
+		}
 	}
 
 	void SetCustomDrawerPayloadProperties( const TSharedPtr<ICustomSlateElement, ESPMode::ThreadSafe>& InCustomDrawer )
@@ -491,17 +506,23 @@ struct FShaderParams
 class FSlateRenderer;
 class FSlateRenderBatch;
 
+class ISlateRenderDataManager
+{
+public:
+	virtual void BeginReleasingRenderData(const FSlateRenderDataHandle* RenderHandle) = 0;
+};
+
 class SLATECORE_API FSlateRenderDataHandle : public TSharedFromThis < FSlateRenderDataHandle, ESPMode::ThreadSafe >
 {
 public:
-	FSlateRenderDataHandle(const ILayoutCache* Cacher, FSlateRenderer* InRenderer);
+	FSlateRenderDataHandle(const ILayoutCache* Cacher, ISlateRenderDataManager* InManager);
 
 	virtual ~FSlateRenderDataHandle();
-
+	
 	void Disconnect();
 
 	const ILayoutCache* GetCacher() const { return Cacher; }
-	const FSlateRenderer* GetRenderer() const { return Renderer; }
+	//const FSlateRenderer* GetRenderer() const { return Renderer; }
 
 	void SetRenderBatches(TArray<FSlateRenderBatch>* InRenderBatches) { RenderBatches = InRenderBatches; }
 	TArray<FSlateRenderBatch>* GetRenderBatches() { return RenderBatches; }
@@ -513,7 +534,7 @@ public:
 
 private:
 	const ILayoutCache* Cacher;
-	FSlateRenderer* Renderer;
+	ISlateRenderDataManager* Manager;
 	TArray<FSlateRenderBatch>* RenderBatches;
 
 	volatile int32 UsageCount;

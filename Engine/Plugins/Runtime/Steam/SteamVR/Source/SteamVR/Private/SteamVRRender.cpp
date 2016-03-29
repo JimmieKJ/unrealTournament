@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 //
 #include "SteamVRPrivatePCH.h"
 #include "SteamVRHMD.h"
@@ -122,30 +122,36 @@ void FSteamVRHMD::D3D11Bridge::BeginRendering()
 	static bool Inited = false;
 	if (!Inited)
 	{
-		Plugin->VRCompositor->SetGraphicsDevice(vr::Compositor_DeviceType_D3D11, RHIGetNativeDevice());
 		Inited = true;
 	}
-
-
 }
 
 void FSteamVRHMD::D3D11Bridge::FinishRendering()
 {
-	vr::Compositor_TextureBounds LeftBounds;
+	vr::VRTextureBounds_t LeftBounds;
 	LeftBounds.uMin = 0.0f;
 	LeftBounds.uMax = 0.5f;
 	LeftBounds.vMin = 0.0f;
 	LeftBounds.vMax = 1.0f;
 
-	Plugin->VRCompositor->Submit(vr::Eye_Left, RenderTargetTexture, &LeftBounds);
+	vr::Texture_t Texture;
+	Texture.handle = RenderTargetTexture;
+	Texture.eType = vr::API_DirectX;
+	Texture.eColorSpace = vr::ColorSpace_Auto;
+	vr::EVRCompositorError Error = Plugin->VRCompositor->Submit(vr::Eye_Left, &Texture, &LeftBounds);
 
-	vr::Compositor_TextureBounds RightBounds;
+	vr::VRTextureBounds_t RightBounds;
 	RightBounds.uMin = 0.5f;
 	RightBounds.uMax = 1.0f;
 	RightBounds.vMin = 0.0f;
 	RightBounds.vMax = 1.0f;
 
-	Plugin->VRCompositor->Submit(vr::Eye_Right, RenderTargetTexture, &RightBounds);
+	Texture.handle = RenderTargetTexture;
+	Error = Plugin->VRCompositor->Submit(vr::Eye_Right, &Texture, &RightBounds);
+	if (Error != vr::VRCompositorError_None)
+	{
+		UE_LOG(LogHMD, Log, TEXT("Warning:  SteamVR Compositor had an error on present (%d)"), (int32)Error);
+	}
 }
 
 void FSteamVRHMD::D3D11Bridge::Reset()

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
 #include "Perception/AIPerceptionStimuliSourceComponent.h"
@@ -14,7 +14,7 @@ void UAIPerceptionStimuliSourceComponent::OnRegister()
 	Super::OnRegister();
 
 	RegisterAsSourceForSenses.RemoveAllSwap([](TSubclassOf<UAISense> SenseClass){
-		return SenseClass != nullptr;
+		return SenseClass == nullptr;
 	});
 
 	if (bAutoRegisterAsSource)

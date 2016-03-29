@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -16,24 +16,55 @@ public:
 	static void GetAllKeyAreas(TSharedPtr<FSequencerDisplayNode> DisplayNode, TSet<TSharedPtr<IKeyArea>>& KeyAreas);
 
 	/**
-	* Get descendant nodes
-	*/
+	 * Get descendant nodes
+	 */
 	static void GetDescendantNodes(TSharedRef<FSequencerDisplayNode> DisplayNode, TSet<TSharedRef<FSequencerDisplayNode> >& Nodes);
 
 	/**
-	* Gets all sections from the requested node
-	*/
+	 * Gets all sections from the requested node
+	 */
 	static void GetAllSections(TSharedRef<FSequencerDisplayNode> DisplayNode, TSet<TWeakObjectPtr<UMovieSceneSection>>& Sections);
 
 	/**
-	* Convert time to frame
-	*/
+	 * Find object binding node from the given display node
+	 */
+	static bool FindObjectBindingNode(TSharedRef<FSequencerDisplayNode> DisplayNode, TSharedRef<FSequencerDisplayNode>& ObjectBindingNode);
+
+	/**
+	 * Convert time to frame
+	 */
 	static int32 TimeToFrame(float Time, float FrameRate);
 
 	/**
-	* Convert frame to time
-	*/
+	 * Convert frame to time
+	 */
 	static float FrameToTime(int32 Frame, float FrameRate);
+
+	/**
+	 * Validate that the nodes with selected keys or sections actually are true
+	 */
+
+	static void ValidateNodesWithSelectedKeysOrSections(FSequencer& Sequencer);
+
+	/**
+	 * Update the nodes with selected sections from the hovered node
+	 */
+	static void UpdateHoveredNodeFromSelectedSections(FSequencer& Sequencer);
+
+	/**
+	 * Update the nodes with selected keys from the hovered node
+	 */
+	static void UpdateHoveredNodeFromSelectedKeys(FSequencer& Sequencer);
+
+	/**
+	 * Perform default selection for the specified mouse event, based on the current hotspot
+	 */
+	static void PerformDefaultSelection(FSequencer& Sequencer, const FPointerEvent& MouseEvent);
+	
+	/**
+	 * Attempt to summon a context menu for the current hotspot
+	 */
+	static TSharedPtr<SWidget> SummonContextMenu(FSequencer& Sequencer, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
 };
 
 
@@ -96,7 +127,7 @@ public:
 			FrameRateSnapValues.Add( SNumericDropDown<float>::FNamedValue( 0.033334f, LOCTEXT( "Snap_30Fps", "30 fps" ), LOCTEXT( "SnapDescription_30Fps", "Set snap to 30 fps" ) ) );
 			FrameRateSnapValues.Add( SNumericDropDown<float>::FNamedValue( 0.020834f, LOCTEXT( "Snap_48Fps", "48 fps" ), LOCTEXT( "SnapDescription_48Fps", "Set snap to 48 fps" ) ) );
 			FrameRateSnapValues.Add( SNumericDropDown<float>::FNamedValue( 0.02f, LOCTEXT( "Snap_50Fps", "50 fps (PAL/50)" ), LOCTEXT( "SnapDescription_50Fps", "Set snap to 50 fps" ) ) );
-			FrameRateSnapValues.Add( SNumericDropDown<float>::FNamedValue( 0.016683f, LOCTEXT( "Snap_50.94Fps", "50.94 fps (NTSC/60)" ), LOCTEXT( "SnapDescription_50.94Fps", "Set snap to 50.94 fps" ) ) );
+			FrameRateSnapValues.Add( SNumericDropDown<float>::FNamedValue( 0.016683f, LOCTEXT( "Snap_59.94Fps", "59.94 fps (NTSC/60)" ), LOCTEXT( "SnapDescription_59.94Fps", "Set snap to 59.94 fps" ) ) );
 			FrameRateSnapValues.Add( SNumericDropDown<float>::FNamedValue( 0.016667f, LOCTEXT( "Snap_60Fps", "60 fps" ), LOCTEXT( "SnapDescription_60Fps", "Set snap to 60 fps" ) ) );
 			FrameRateSnapValues.Add( SNumericDropDown<float>::FNamedValue( 0.008334f, LOCTEXT( "Snap_120Fps", "120 fps" ), LOCTEXT( "SnapDescription_120Fps", "Set snap to 120 fps" ) ) );
 

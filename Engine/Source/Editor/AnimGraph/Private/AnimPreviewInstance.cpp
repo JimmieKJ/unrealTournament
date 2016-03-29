@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "AnimGraphPrivatePCH.h"
@@ -207,7 +207,7 @@ void FAnimPreviewInstanceProxy::RefreshCurveBoneControllers()
 		GetRequiredBones().SetUseSourceData(true);
 
 		TArray<FTransformCurve>& Curves = CurrentSequence->RawCurveData.TransformCurves;
-		FSmartNameMapping* NameMapping = GetSkeleton()->SmartNames.GetContainer(USkeleton::AnimTrackCurveMappingName);
+		const FSmartNameMapping* NameMapping = GetSkeleton()->GetSmartNameContainer(USkeleton::AnimTrackCurveMappingName);
 
 		for (auto& Curve : Curves)
 		{
@@ -225,7 +225,7 @@ void FAnimPreviewInstanceProxy::RefreshCurveBoneControllers()
  			if (CurveName == NAME_None)
  			{
 				FSmartNameMapping::UID NewUID;
- 				NameMapping->AddOrFindName(Curve.LastObservedName, NewUID);
+				GetSkeleton()->AddSmartNameAndModify(USkeleton::AnimTrackCurveMappingName, Curve.LastObservedName, NewUID);
 				Curve.CurveUid = NewUID;
 
 				CurveName = Curve.LastObservedName;
@@ -375,6 +375,24 @@ UAnimPreviewInstance::UAnimPreviewInstance(const FObjectInitializer& ObjectIniti
 {
 	RootMotionMode = ERootMotionMode::RootMotionFromEverything;
 	bCanUseParallelUpdateAnimation = false;
+}
+
+static FArchive& operator<<(FArchive& Ar, FAnimNode_ModifyBone& ModifyBone)
+{
+	FAnimNode_ModifyBone::StaticStruct()->SerializeItem(Ar, &ModifyBone, nullptr);
+	return Ar;
+}
+
+void UAnimPreviewInstance::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	if(Ar.IsTransacting())
+	{
+		FAnimPreviewInstanceProxy& Proxy = GetProxyOnGameThread<FAnimPreviewInstanceProxy>();		
+		Ar << Proxy.GetBoneControllers();
+		Ar << Proxy.GetCurveBoneControllers();
+	}
 }
 
 void UAnimPreviewInstance::NativeInitializeAnimation()

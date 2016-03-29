@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "EnginePrivate.h"
@@ -326,11 +326,18 @@ void FAsyncAudioDecompressWorker::DoWork()
 			{
 				const uint32 PCMBufferSize = MONO_PCM_BUFFER_SIZE * Wave->NumChannels;
 				check(Wave->CachedRealtimeFirstBuffer == nullptr);
+#if PLATFORM_ANDROID
+				Wave->CachedRealtimeFirstBuffer = (uint8*)FMemory::Malloc(PCMBufferSize);
+				AudioInfo->ReadCompressedData(Wave->CachedRealtimeFirstBuffer, false, PCMBufferSize);
+#else
 				Wave->CachedRealtimeFirstBuffer = (uint8*)FMemory::Malloc(PCMBufferSize * 2);
 				AudioInfo->ReadCompressedData( Wave->CachedRealtimeFirstBuffer, false, PCMBufferSize * 2 );
+#endif
 			}
 			else
 			{
+				check(Wave->DecompressionType == DTYPE_Native || Wave->DecompressionType == DTYPE_Procedural);
+
 				Wave->RawPCMDataSize = QualityInfo.SampleDataSize;
 				check(Wave->RawPCMData == nullptr);
 				Wave->RawPCMData = ( uint8* )FMemory::Malloc( Wave->RawPCMDataSize );
@@ -338,10 +345,11 @@ void FAsyncAudioDecompressWorker::DoWork()
 				// Decompress all the sample data into preallocated memory
 				AudioInfo->ExpandFile(Wave->RawPCMData, &QualityInfo);
 
-				const SIZE_T ResSize = Wave->GetResourceSize(EResourceSizeMode::Exclusive);
-				Wave->TrackedMemoryUsage += ResSize;
-				INC_DWORD_STAT_BY( STAT_AudioMemorySize, ResSize );
-				INC_DWORD_STAT_BY( STAT_AudioMemory, ResSize );
+				// Only track the RawPCMDataSize at this point since we haven't yet
+				// removed the compressed asset from memory and GetResourceSize() would add that at this point
+				Wave->TrackedMemoryUsage += Wave->RawPCMDataSize;
+				INC_DWORD_STAT_BY(STAT_AudioMemorySize, Wave->RawPCMDataSize);
+				INC_DWORD_STAT_BY(STAT_AudioMemory, Wave->RawPCMDataSize);
 			}
 		}
 		else if (Wave->DecompressionType == DTYPE_RealTime)

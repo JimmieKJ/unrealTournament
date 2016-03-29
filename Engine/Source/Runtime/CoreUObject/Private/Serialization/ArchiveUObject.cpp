@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreUObjectPrivate.h"
 
@@ -136,3 +136,64 @@ void FSerializedPropertyScope::PopEditorOnlyProperty()
 	}
 }
 #endif
+
+void FArchiveReplaceObjectRefBase::SerializeObject(UObject* ObjectToSerialzie)
+{
+	// Simple FReferenceCollector proxy for FArchiveReplaceObjectRefBase
+	class FReplaceObjectRefCollector : public FReferenceCollector
+	{
+		FArchive& Ar;
+		bool bAllowReferenceElimination;
+	public:
+		FReplaceObjectRefCollector(FArchive& InAr)
+			: Ar(InAr)
+			, bAllowReferenceElimination(true)
+		{
+		}
+		virtual bool IsIgnoringArchetypeRef() const override
+		{
+			return Ar.IsIgnoringArchetypeRef();
+		}
+		virtual bool IsIgnoringTransient() const override
+		{
+			return false;
+		}
+		virtual void AllowEliminatingReferences(bool bAllow) override
+		{
+			bAllowReferenceElimination = bAllow;
+		}
+		virtual void HandleObjectReference(UObject*& InObject, const UObject* InReferencingObject, const UProperty* InReferencingProperty) override
+		{
+			if (bAllowReferenceElimination)
+			{
+				UProperty* NewSerializedProperty = const_cast<UProperty*>(InReferencingProperty);
+				FSerializedPropertyScope SerializedPropertyScope(Ar, NewSerializedProperty ? NewSerializedProperty : Ar.GetSerializedProperty());
+				Ar << InObject;
+			}
+		}
+	} ReplaceRefCollector(*this);
+
+	// serialization for class default objects must be deterministic (since class 
+	// default objects may be serialized during script compilation while the script
+	// and C++ versions of a class are not in sync), so use SerializeTaggedProperties()
+	// rather than the native Serialize() function
+	UClass* ObjectClass = ObjectToSerialzie->GetClass();
+	if (ObjectToSerialzie->HasAnyFlags(RF_ClassDefaultObject))
+	{		
+		StartSerializingDefaults();
+		if (!WantBinaryPropertySerialization() && (IsLoading() || IsSaving()))
+		{
+			ObjectClass->SerializeTaggedProperties(*this, (uint8*)ObjectToSerialzie, ObjectClass, NULL);
+		}
+		else
+		{
+			ObjectClass->SerializeBin(*this, ObjectToSerialzie);
+		}
+		StopSerializingDefaults();
+	}
+	else
+	{
+		ObjectToSerialzie->Serialize(*this);
+	}
+	ObjectClass->CallAddReferencedObjects(ObjectToSerialzie, ReplaceRefCollector);
+}

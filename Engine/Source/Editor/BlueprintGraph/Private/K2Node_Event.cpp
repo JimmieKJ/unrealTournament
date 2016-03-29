@@ -1,10 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintGraphPrivatePCH.h"
 #include "CompilerResultsLog.h"
 #include "KismetCompiler.h"
 #include "EventEntryHandler.h"
 #include "GraphEditorSettings.h"
+#include "BlueprintsObjectVersion.h"
 
 const FString UK2Node_Event::DelegateOutputName(TEXT("OutputDelegate"));
 
@@ -42,6 +43,7 @@ void UK2Node_Event::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
 
+	Ar.UsingCustomVersion(FBlueprintsObjectVersion::GUID);
 	// Fix up legacy nodes that may not yet have a delegate pin
 	if(Ar.IsLoading())
 	{
@@ -50,8 +52,7 @@ void UK2Node_Event::Serialize(FArchive& Ar)
 			EventReference.SetExternalMember(EventSignatureName_DEPRECATED, EventSignatureClass_DEPRECATED);
 		}
 
-		// @TODO: Dev-BP=>Main; gate this with a version check once it makes its way into main
-		//if (Ar.UE4Ver() < VER_UE4_OVERRIDDEN_EVENT_REFERENCE_FIXUP)
+		if (Ar.CustomVer(FBlueprintsObjectVersion::GUID) < FBlueprintsObjectVersion::OverridenEventReferenceFixup)
 		{
 			FixupEventReference();
 		}
@@ -792,6 +793,18 @@ UObject* UK2Node_Event::GetJumpTargetForDoubleClick() const
 	}
 
 	return NULL;
+}
+
+FString UK2Node_Event::GetFindReferenceSearchString() const
+{
+	FString FunctionName = EventReference.GetMemberName().ToString(); // If we fail to find the function, still want to search for its expected name.
+
+	if (UFunction* Function = EventReference.ResolveMember<UFunction>(GetBlueprintClassFromNode()))
+	{
+		FunctionName = UEdGraphSchema_K2::GetFriendlySignatureName(Function).ToString();
+	}
+
+	return FunctionName;
 }
 
 bool UK2Node_Event::AreEventNodesIdentical(const UK2Node_Event* InNodeA, const UK2Node_Event* InNodeB)

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -6,7 +6,7 @@
 #include "ParticleModuleLocationWorldOffset.generated.h"
 
 UCLASS(editinlinenew, meta=(DisplayName = "World Offset"))
-class UParticleModuleLocationWorldOffset : public UParticleModuleLocation
+class ENGINE_API UParticleModuleLocationWorldOffset : public UParticleModuleLocation
 {
 	GENERATED_UCLASS_BODY()
 

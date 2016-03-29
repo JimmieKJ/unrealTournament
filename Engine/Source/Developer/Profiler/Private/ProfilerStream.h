@@ -1,10 +1,27 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 /*-----------------------------------------------------------------------------
 	Basic structures
 -----------------------------------------------------------------------------*/
+
+/** Helper struct used to calculate inclusive times, ignoring recursive calls. */
+struct FInclusiveTime
+{
+	/** Duration in cycles. */
+	uint32 DurationCycles;
+	/** Number of calls. */
+	int32 CallCount;
+	/** Number of recursion. */
+	int32 Recursion;
+	FInclusiveTime()
+		: DurationCycles( 0.0 )
+		, CallCount( 0 )
+		, Recursion( 0 )
+	{}
+};
+
 
 /** Profiler stack node, used to store the whole call stack for one frame. */
 struct FProfilerStackNode
@@ -19,7 +36,7 @@ struct FProfilerStackNode
 	int64 CyclesStart;
 	int64 CyclesEnd;
 
-	// @TODO yrx 2014-04-23 This should be based on the global time.
+	// #Profiler: 2014-04-23 This should be based on the global time.
 	double CycleCounterStartTimeMS;
 	double CycleCounterEndTimeMS;
 
@@ -103,7 +120,7 @@ protected:
 
 public:
 	/** Root node. */
-	// @TODO yrx 2014-04-25 Replace with TIndirectArray<FProfilerStackNode>??
+	// #Profiler: 2014-04-25 Replace with TIndirectArray<FProfilerStackNode>??
 	FProfilerStackNode* Root;
 
 	/** Thread times in milliseconds for this frame. */
@@ -125,7 +142,7 @@ public:
 	 */
 	double LastAccessTime;
 
-	// @TODO yrx 2014-04-22 Non-frame stats like accumulator, counters, memory etc?
+	// #Profiler: 2014-04-22 Non-frame stats like accumulator, counters, memory etc?
 
 	/**
 	*	Indicates whether this profiler frame is in the memory.
@@ -206,14 +223,14 @@ public:
 };
 
 /** Contains all processed profiler's frames. */
-// @TODO yrx 2014-04-22 Array frames to real frames conversion.
-// @TODO yrx 2014-04-22 Can be done fully lock free and thread safe, but later.
+// #Profiler: 2014-04-22 Array frames to real frames conversion.
+// #Profiler: 2014-04-22 Can be done fully lock free and thread safe, but later.
 struct FProfilerStream
 {
 protected:
 
 	/** History frames collected so far or read from the file. */
-	// @TODO yrx 2014-04-24 TSharedRef<THREAD_SAFE> ?
+	// #Profiler: 2014-04-24 TSharedRef<THREAD_SAFE> ?
 	TChunkedArray<FProfilerFrame*> Frames;
 
 	/** Each element in this array stores the frame time, accessed by a frame index, in millisecond. */
@@ -332,7 +349,7 @@ public:
 	}
 };
 
-// @TODO yrx 2014-04-23 ProfilerFrameLOD?
+// #Profiler: 2014-04-23 ProfilerFrameLOD?
 
 /**
 *	Profiler UI stack node.
@@ -493,7 +510,7 @@ struct FProfilerUIStream
 		 *	Default number of rows displaying cycle counters.
 		 *	Read it as the call stack depth.
 		 */
-		// @TODO yrx 2014-04-25 This probably should be the max seen so far for each thread.
+		// #Profiler: 2014-04-25 This probably should be the max seen so far for each thread.
 		DEFAULT_VISIBLE_THREAD_DEPTH = 16,
 	};
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -45,6 +45,8 @@ protected:
 			case TPri_AboveNormal: return 25;
 			case TPri_Normal: return 15;
 			case TPri_BelowNormal: return 5;
+			case TPri_Lowest: return 1;
+			case TPri_SlightlyBelowNormal: return 14;
 			default: UE_LOG(LogHAL, Fatal, TEXT("Unknown Priority passed to FRunnableThreadPThread::TranslateThreadPriority()"));
 		}
 	}

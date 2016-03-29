@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ScriptDisassembler.h: Disassembler for Kismet bytecode.
@@ -49,6 +49,7 @@ private:
 	uint16 ReadWORD(int32& ScriptIndex);
 	float ReadFLOAT(int32& ScriptIndex);
 	CodeSkipSizeType ReadSkipCount(int32& ScriptIndex);
+	FString ReadString(int32& ScriptIndex);
 	FString ReadString8(int32& ScriptIndex);
 	FString ReadString16(int32& ScriptIndex);
 

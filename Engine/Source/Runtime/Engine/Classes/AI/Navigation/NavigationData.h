@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
@@ -92,6 +92,14 @@ struct ENGINE_API FNavigationPath : public TSharedFromThis<FNavigationPath, ESPM
 	{
 		return bWaitingForRepath;
 	}
+	FORCEINLINE bool ShouldUpdateStartPointOnRepath() const
+	{
+		return bUpdateStartPointOnRepath;
+	}
+	FORCEINLINE bool ShouldUpdateEndPointOnRepath() const
+	{
+		return bUpdateEndPointOnRepath;
+	}
 	FORCEINLINE FVector GetDestinationLocation() const
 	{
 		return IsValid() ? PathPoints.Last().Location : INVALID_NAVEXTENT;
@@ -122,12 +130,22 @@ struct ENGINE_API FNavigationPath : public TSharedFromThis<FNavigationPath, ESPM
 	}
 	FORCEINLINE void SetQuerier(const UObject* InQuerier)
 	{
-		return Querier = InQuerier;
+		PathFindingQueryData.Owner = InQuerier;
 	}
 	FORCEINLINE const UObject* GetQuerier() const
 	{
-		return Querier.Get();
+		return PathFindingQueryData.Owner.Get();
 	}
+	FORCEINLINE void SetQueryData(const FPathFindingQueryData& QueryData)
+	{
+		PathFindingQueryData = QueryData;
+	}
+	FORCEINLINE FPathFindingQueryData GetQueryData() const
+	{
+		// return copy of query data
+		return PathFindingQueryData;
+	}
+
 	//FORCEINLINE void SetObserver(const FPathObserverDelegate& Observer) { ObserverDelegate = Observer; }
 	FORCEINLINE void SetIsPartial(const bool bPartial)
 	{
@@ -140,11 +158,12 @@ struct ENGINE_API FNavigationPath : public TSharedFromThis<FNavigationPath, ESPM
 
 	FORCEINLINE void SetFilter(FSharedConstNavQueryFilter InFilter)
 	{
+		PathFindingQueryData.QueryFilter = InFilter;
 		Filter = InFilter;
 	}
 	FORCEINLINE FSharedConstNavQueryFilter GetFilter() const
 	{
-		return Filter;
+		return PathFindingQueryData.QueryFilter;
 	}
 	FORCEINLINE AActor* GetBaseActor() const
 	{
@@ -172,6 +191,10 @@ struct ENGINE_API FNavigationPath : public TSharedFromThis<FNavigationPath, ESPM
 
 	void Invalidate();
 	void RePathFailed();
+
+	/** Resets all variables describing generated path before attempting new pathfinding call. 
+	  * This function will NOT reset setup variables like goal actor, filter, observer, etc */
+	virtual void ResetForRepath();
 
 	virtual void DebugDraw(const ANavigationData* NavData, FColor PathColor, class UCanvas* Canvas, bool bPersistent, const uint32 NextPathPointIndex = 0) const;
 	
@@ -250,6 +273,9 @@ struct ENGINE_API FNavigationPath : public TSharedFromThis<FNavigationPath, ESPM
 private:
 	bool DoesPathIntersectBoxImplementation(const FBox& Box, const FVector& StartLocation, uint32 StartingIndex, int32* IntersectingSegmentIndex, FVector* AgentExtent) const;
 
+	/** reset variables describing built path, leaves setup variables required for rebuilding */
+	void InternalResetNavigationPath();
+
 public:
 
 	/** type safe casts */
@@ -274,6 +300,8 @@ public:
 
 	FVector GetLastRepathGoalLocation() const { return GoalActorLastLocation; }
 	void UpdateLastRepathGoalLocation();
+	
+	float GetLastUpdateTime() const { return LastUpdateTimeStamp; }
 
 	/** if enabled path will request recalculation if it gets invalidated due to a change to underlying navigation */
 	void EnableRecalculationOnInvalidation(bool bShouldAutoUpdate)
@@ -331,12 +359,8 @@ private:
 	/** cached result of PathSource casting to INavAgentInterface */
 	const INavAgentInterface* SourceActorAsNavAgent;
 
-	/** path's querier is an object that was used (depending on navigation used) for supplying additional path-finding details
-	*	and will be reused when re-calculating the path*/
-	TWeakObjectPtr<const UObject> Querier;
-
 protected:
-	/** filter used to build this path */
+	// DEPRECATED: filter used to build this path
 	FSharedConstNavQueryFilter Filter;
 
 	/** type of path */
@@ -364,11 +388,20 @@ protected:
 	/** if true path will request re-pathing if it gets invalidated due to underlying navigation changed */
 	uint32 bDoAutoUpdateOnInvalidation : 1;
 
+	/** if true path will use GetPathFindingStartLocation() for updating QueryData before repath */
+	uint32 bUpdateStartPointOnRepath : 1;
+
+	/** if true path will use GetGoalLocation() for updating QueryData before repath */
+	uint32 bUpdateEndPointOnRepath : 1;
+
 	/** set when path is waiting for recalc from navigation data */
 	uint32 bWaitingForRepath : 1;
 
 	/** navigation data used to generate this path */
 	TWeakObjectPtr<ANavigationData> NavigationDataUsed;
+
+	/** essential part of query used to generate this path */
+	FPathFindingQueryData PathFindingQueryData;
 
 	/** gets set during path creation and on subsequent path's updates */
 	float LastUpdateTimeStamp;
@@ -546,11 +579,32 @@ public:
 	 *	PathType needs to derive from FNavigationPath 
 	 */
 	template<typename PathType> 
+	DEPRECATED(4.12, "This version of CreatePathInstance was deprecated, please use the one taking FPathFindingQueryData argument.")
 	FNavPathSharedPtr CreatePathInstance(const UObject* Querier = NULL) const
 	{
 		FNavPathSharedPtr SharedPath = MakeShareable(new PathType());
 		SharedPath->SetNavigationDataUsed(this);
-		SharedPath->SetQuerier(Querier);
+		SharedPath->SetQueryData(FPathFindingQueryData(Querier, FNavigationSystem::InvalidLocation, FNavigationSystem::InvalidLocation));
+		SharedPath->SetTimeStamp(GetWorldTimeStamp());
+
+		DECLARE_CYCLE_STAT(TEXT("FSimpleDelegateGraphTask.Adding a path to ActivePaths"),
+		STAT_FSimpleDelegateGraphTask_AddingPathToActivePaths,
+			STATGROUP_TaskGraphTasks);
+
+		FSimpleDelegateGraphTask::CreateAndDispatchWhenReady(
+			FSimpleDelegateGraphTask::FDelegate::CreateUObject(this, &ANavigationData::RegisterActivePath, SharedPath),
+			GET_STATID(STAT_FSimpleDelegateGraphTask_AddingPathToActivePaths), NULL, ENamedThreads::GameThread
+			);
+
+		return SharedPath;
+	}
+
+	template<typename PathType>
+	FNavPathSharedPtr CreatePathInstance(const FPathFindingQueryData& QueryData) const
+	{
+		FNavPathSharedPtr SharedPath = MakeShareable(new PathType());
+		SharedPath->SetNavigationDataUsed(this);
+		SharedPath->SetQueryData(QueryData);
 		SharedPath->SetTimeStamp( GetWorldTimeStamp() );
 
 		DECLARE_CYCLE_STAT(TEXT("FSimpleDelegateGraphTask.Adding a path to ActivePaths"),
@@ -715,6 +769,11 @@ public:
 
 	/**	batches ProjectPoint's work for efficiency */
 	virtual void BatchProjectPoints(TArray<FNavigationProjectionWork>& Workload, const FVector& Extent, FSharedConstNavQueryFilter Filter = NULL, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::BatchProjectPoints, );
+
+	/** Project batch of points using shared search filter. This version is not requiring user to pass in Extent, 
+	 *	and is instead relying on FNavigationProjectionWork.ProjectionLimit.
+	 *	@note function should assert if item's FNavigationProjectionWork.ProjectionLimit is invalid */
+	virtual void BatchProjectPoints(TArray<FNavigationProjectionWork>& Workload, FSharedConstNavQueryFilter Filter = NULL, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::BatchProjectPoints, );
 
 	/** Calculates path from PathStart to PathEnd and retrieves its cost. 
 	 *	@NOTE this function does not generate string pulled path so the result is an (over-estimated) approximation

@@ -43,7 +43,7 @@ FUnorderedAccessViewRHIRef FD3D12DynamicRHI::RHICreateUnorderedAccessView(FStruc
 
 	if (bNeedsCounterResource)
 	{
-		GetRHIDevice()->GetResourceHelper().CreateBuffer(D3D12_HEAP_TYPE_READBACK, 4, CounterResource.GetInitReference());
+		GetRHIDevice()->GetResourceHelper().CreateBuffer(D3D12_HEAP_TYPE_DEFAULT, 4, CounterResource.GetInitReference(), D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
 	}
 
 	if (bByteAccessBuffer)
@@ -215,6 +215,13 @@ FShaderResourceViewRHIRef FD3D12DynamicRHI::RHICreateShaderResourceView(FVertexB
 	return SRV;
 }
 
+FShaderResourceViewRHIRef FD3D12DynamicRHI::RHICreateShaderResourceView(FIndexBufferRHIParamRef BufferRHI)
+{
+	UE_LOG(LogRHI, Fatal, TEXT("D3D12 RHI doesn't support RHICreateShaderResourceView with FIndexBufferRHIParamRef yet!"));
+	
+	return FShaderResourceViewRHIRef();
+}
+
 void FD3D12CommandContext::RHIClearUAV(FUnorderedAccessViewRHIParamRef UnorderedAccessViewRHI, const uint32* Values)
 {
 	FD3D12UnorderedAccessView*  UnorderedAccessView = FD3D12DynamicRHI::ResourceCast(UnorderedAccessViewRHI);
@@ -234,4 +241,36 @@ void FD3D12CommandContext::RHIClearUAV(FUnorderedAccessViewRHIParamRef Unordered
 	CommandListHandle->ClearUnorderedAccessViewUint(GPUHandle, CPUHandle, UnorderedAccessView->GetResource()->GetResource(), Values, 0, nullptr);
 
 	OwningRHI.RegisterGPUWork(1);
+}
+
+FUnorderedAccessViewRHIRef FD3D12DynamicRHI::RHICreateUnorderedAccessView_RenderThread(FRHICommandListImmediate& RHICmdList, FStructuredBufferRHIParamRef StructuredBufferRHI, bool bUseUAVCounter, bool bAppendBuffer)
+{
+	FD3D12StructuredBuffer* StructuredBuffer = FD3D12DynamicRHI::ResourceCast(StructuredBufferRHI);
+	// TODO: we have to stall the RHI thread when creating SRVs of dynamic buffers because they get renamed.
+	// perhaps we could do a deferred operation?
+	if (StructuredBuffer->GetUsage() & BUF_AnyDynamic)
+	{
+		FScopedRHIThreadStaller StallRHIThread(RHICmdList);
+		return RHICreateUnorderedAccessView(StructuredBufferRHI, bUseUAVCounter, bAppendBuffer);
+	}
+	return RHICreateUnorderedAccessView(StructuredBufferRHI, bUseUAVCounter, bAppendBuffer);
+}
+
+FUnorderedAccessViewRHIRef FD3D12DynamicRHI::RHICreateUnorderedAccessView_RenderThread(FRHICommandListImmediate& RHICmdList, FTextureRHIParamRef Texture, uint32 MipLevel)
+{
+	return FD3D12DynamicRHI::RHICreateUnorderedAccessView(Texture, MipLevel);
+}
+
+FUnorderedAccessViewRHIRef FD3D12DynamicRHI::RHICreateUnorderedAccessView_RenderThread(FRHICommandListImmediate& RHICmdList, FVertexBufferRHIParamRef VertexBufferRHI, uint8 Format)
+{
+	FD3D12VertexBuffer* VertexBuffer = FD3D12DynamicRHI::ResourceCast(VertexBufferRHI);
+
+	// TODO: we have to stall the RHI thread when creating SRVs of dynamic buffers because they get renamed.
+	// perhaps we could do a deferred operation?
+	if (VertexBuffer->GetUsage() & BUF_AnyDynamic)
+	{
+		FScopedRHIThreadStaller StallRHIThread(RHICmdList);
+		return RHICreateUnorderedAccessView(VertexBufferRHI, Format);
+	}
+	return RHICreateUnorderedAccessView(VertexBufferRHI, Format);
 }

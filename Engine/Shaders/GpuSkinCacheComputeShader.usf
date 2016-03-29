@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	GpuSkinCacheComputeShader.usf: Perform vertex skinning into a buffer to avoid skinning in the vertex shader.
@@ -9,27 +9,40 @@
 #include "VertexFactoryCommon.usf"
 #include "GpuSkinCommon.usf"
 
+// 0/1 setup by CPU
+// #define GPUSKIN_MORPH_BLEND
+
 // Set to 1 to enable passing through values from vertex buffer (ie do not skin)
-#define GPUSKIN_USE_PASSTHROUGH	0
+#define GPUSKIN_DEBUG_PASSTHROUGH	0
 
 #define FBoneMatrix float3x4
 
 Buffer<float4> BoneMatrices;
 
-struct FVertexFactoryIntermediates
-{
-	// Blend Matrix (used for position/tangents)
-	FBoneMatrix BlendMatrix;
-
-	// Unpacked position
-	float3 UnpackedPosition;
+#if GPUSKIN_MORPH_BLEND
+// float3 DeltaPosition, PackedNormal, see FMorphGPUSkinVertex
+Buffer<float> MorphBuffer;
+// data offset to start indexing the data in MorphBuffer, in float units
+uint MorphBufferOffset;
 	
-	// Tangent Basis
-	float3x3 TangentToLocal; 
+void GetMorphBuffer(uint VertexIndex, out float3 DeltaPosition, out half3 DeltaTangentZ)
+{
+	// see CPU code: "check(MorphStride == sizeof(float) * 6);"
+	// in floats
+	// 3 + 3 floats because of the format defined in InitMorphVertexFactoryComponents / FMorphGPUSkinVertex
+	uint Offset = MorphBufferOffset + VertexIndex * (3 + 3);
 
-	// Vertex Color
-	float4 Color;
-};
+	DeltaPosition = float3(
+		MorphBuffer[Offset + 0],
+		MorphBuffer[Offset + 1],
+		MorphBuffer[Offset + 2]);
+
+	DeltaTangentZ = float3(
+		MorphBuffer[Offset + 3],
+		MorphBuffer[Offset + 4],
+		MorphBuffer[Offset + 5]);
+}
+#endif
 
 struct FVertexUnpacked
 {
@@ -44,6 +57,28 @@ struct FVertexUnpacked
 #if GPUSKIN_USE_EXTRA_INFLUENCES
 	float4	BlendWeights2;
 #endif
+
+#if GPUSKIN_MORPH_BLEND
+	// morph target, added to the Position
+	float3	DeltaPosition;
+	// morph target, added to the TangentZ and then used to derive new TangentX and TangentY, -2..2
+	half3	DeltaTangentZ;
+#endif
+};
+
+struct FVertexFactoryIntermediates
+{
+	// Blend Matrix (used for position/tangents)
+	FBoneMatrix BlendMatrix;
+
+	// Unpacked position (includes DeltaPosition if GPUSKIN_MORPH_BLEND)
+	float3 UnpackedPosition;
+	
+	// Tangent Basis (includes DeltaTangentZ if GPUSKIN_MORPH_BLEND)
+	float3x3 TangentToLocal; 
+
+	// Vertex Color
+	float4 Color;
 };
 
 FBoneMatrix CalcBoneMatrix( FVertexUnpacked VertexUnpacked )
@@ -52,12 +87,12 @@ FBoneMatrix CalcBoneMatrix( FVertexUnpacked VertexUnpacked )
 	BoneMatrix += VertexUnpacked.BlendWeights.y * FBoneMatrix(BoneMatrices[VertexUnpacked.BlendIndices.y*3], BoneMatrices[VertexUnpacked.BlendIndices.y*3+1], BoneMatrices[VertexUnpacked.BlendIndices.y*3+2]);
 	BoneMatrix += VertexUnpacked.BlendWeights.z * FBoneMatrix(BoneMatrices[VertexUnpacked.BlendIndices.z*3], BoneMatrices[VertexUnpacked.BlendIndices.z*3+1], BoneMatrices[VertexUnpacked.BlendIndices.z*3+2]);
 	BoneMatrix += VertexUnpacked.BlendWeights.w * FBoneMatrix(BoneMatrices[VertexUnpacked.BlendIndices.w*3], BoneMatrices[VertexUnpacked.BlendIndices.w*3+1], BoneMatrices[VertexUnpacked.BlendIndices.w*3+2]);
-	#if GPUSKIN_USE_EXTRA_INFLUENCES
+#if GPUSKIN_USE_EXTRA_INFLUENCES
 	BoneMatrix += VertexUnpacked.BlendWeights2.x * FBoneMatrix(BoneMatrices[VertexUnpacked.BlendIndices2.x*3], BoneMatrices[VertexUnpacked.BlendIndices2.x*3+1], BoneMatrices[VertexUnpacked.BlendIndices2.x*3+2]);
 	BoneMatrix += VertexUnpacked.BlendWeights2.y * FBoneMatrix(BoneMatrices[VertexUnpacked.BlendIndices2.y*3], BoneMatrices[VertexUnpacked.BlendIndices2.y*3+1], BoneMatrices[VertexUnpacked.BlendIndices2.y*3+2]);
 	BoneMatrix += VertexUnpacked.BlendWeights2.z * FBoneMatrix(BoneMatrices[VertexUnpacked.BlendIndices2.z*3], BoneMatrices[VertexUnpacked.BlendIndices2.z*3+1], BoneMatrices[VertexUnpacked.BlendIndices2.z*3+2]);
 	BoneMatrix += VertexUnpacked.BlendWeights2.w * FBoneMatrix(BoneMatrices[VertexUnpacked.BlendIndices2.w*3], BoneMatrices[VertexUnpacked.BlendIndices2.w*3+1], BoneMatrices[VertexUnpacked.BlendIndices2.w*3+2]);
-	#endif
+#endif
 	return BoneMatrix;
 }
 
@@ -66,16 +101,19 @@ Buffer<float> SkinStreamInputBuffer;
 
 RWBuffer<float> SkinCacheBuffer;
 
-float3 MeshOrigin;
-float3 MeshExtension;
-
 uint SkinCacheInputStreamFloatOffset;
 uint SkinCacheOutputBufferFloatOffset;
-
 uint SkinCacheVertexStride;
 uint SkinCacheVertexCount;
 
-FVertexUnpacked UnpackedVertex( uint Offset )
+float3 MeshOrigin;
+float3 MeshExtension;
+// see r.SkinCache.Debug, default is 1.0f
+float SkinCacheDebug;
+
+//uint4 DebugParameter;
+
+FVertexUnpacked UnpackedVertex(uint VertexIndex, uint Offset )
 {
 	FVertexUnpacked Unpacked;
 
@@ -113,6 +151,9 @@ FVertexUnpacked UnpackedVertex( uint Offset )
 	Unpacked.BlendWeights2.z = float(BlendWeights >> 16 & 0xff) / 255.0f;
 	Unpacked.BlendWeights2.w = float(BlendWeights >> 24 & 0xff) / 255.0f;
 #endif
+#if GPUSKIN_MORPH_BLEND
+	GetMorphBuffer(VertexIndex, Unpacked.DeltaPosition, Unpacked.DeltaTangentZ);
+#endif
 	return Unpacked;
 }
 
@@ -131,64 +172,72 @@ void SkinCacheUpdateBatchCS(uint3 GroupID : SV_GroupID,
  uint3 DispatchThreadID : SV_DispatchThreadID,
  uint3 GroupThreadID : SV_GroupThreadID)
 {
-	uint ThreadId = DispatchThreadID.x;
-
-	if (ThreadId > SkinCacheVertexCount)
+	uint VertexIndex = DispatchThreadID.x;
+	if (VertexIndex >= SkinCacheVertexCount)
 	{
 		return;
 	}
 
-	uint FloatCount = SkinCacheVertexStride / 4;
-	uint Offset = ThreadId * FloatCount;
-	uint InputOffset = SkinCacheInputStreamFloatOffset + Offset;
-	uint OutputOffset = SkinCacheOutputBufferFloatOffset + Offset;
+	uint FloatsPerVertex = SkinCacheVertexStride / 4;
+	uint VBOffset = VertexIndex * FloatsPerVertex;
+	uint RWOffset = VertexIndex * GPUSKIN_RWBUFFER_NUM_FLOATS;
+	uint InputOffset = SkinCacheInputStreamFloatOffset + VBOffset;
+	uint OutputOffset = SkinCacheOutputBufferFloatOffset + RWOffset;
 
-	FVertexUnpacked	Unpacked = UnpackedVertex(InputOffset);
+	FVertexUnpacked	Unpacked = UnpackedVertex(VertexIndex, InputOffset);
 
 	// Perform the skinning
-	FVertexFactoryIntermediates	Intermediates;
+	FVertexFactoryIntermediates	Intermediates = (FVertexFactoryIntermediates)0;
+	
+#if 1
 	Intermediates.BlendMatrix = CalcBoneMatrix(Unpacked);
-	//Intermediates.BlendMatrix[0] = float4(1,0,0,0);
-	//Intermediates.BlendMatrix[1] = float4(0,1,0,0);
-	//Intermediates.BlendMatrix[2] = float4(0,0,1,0);
+#else
+	// Test no blend mtx
+	Intermediates.BlendMatrix[0] = float4(1,0,0,0);
+	Intermediates.BlendMatrix[1] = float4(0,1,0,0);
+	Intermediates.BlendMatrix[2] = float4(0,0,1,0);
+#endif
 
 	Intermediates.UnpackedPosition.x = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_POSITION + 0] * MeshExtension.x + MeshOrigin.x;
 	Intermediates.UnpackedPosition.y = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_POSITION + 1] * MeshExtension.y + MeshOrigin.y;
 	Intermediates.UnpackedPosition.z = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_POSITION + 2] * MeshExtension.z + MeshOrigin.z;
 
-	float3 SPos = SkinPosition(Intermediates);
+	float3 LocalTangentX = Unpacked.TangentX;
+	float3 LocalTangentZ = Unpacked.TangentZ;
 
-	float3 TangentX = mul((float3x3)Intermediates.BlendMatrix, Unpacked.TangentX);
-	float3 TangentZ = mul((float3x3)Intermediates.BlendMatrix, Unpacked.TangentZ);
-
-	// Write into output buffer
-	SkinCacheBuffer[OutputOffset + GPUSKIN_VB_OFFSET_TANGENT_X] = asfloat(asuint((uint((TangentX.x + 1.0f) * 128.0f) << 0) | (uint((TangentX.y + 1.0f) * 128.0f) << 8) | (uint((TangentX.z + 1.0f) * 128.0f) << 16) | (asuint(SkinStreamInputBuffer[ InputOffset + GPUSKIN_VB_OFFSET_TANGENT_X]) & 0xff000000)));
-	SkinCacheBuffer[OutputOffset + GPUSKIN_VB_OFFSET_TANGENT_Z] = asfloat(asuint((uint((TangentZ.x + 1.0f) * 128.0f) << 0) | (uint((TangentZ.y + 1.0f) * 128.0f) << 8) | (uint((TangentZ.z + 1.0f) * 128.0f) << 16) | (asuint(SkinStreamInputBuffer[ InputOffset + GPUSKIN_VB_OFFSET_TANGENT_Z]) & 0xff000000)));
-	 
-	SkinCacheBuffer[OutputOffset + GPUSKIN_VB_OFFSET_INFLUENCEBONES] = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_INFLUENCEBONES];
-#if GPUSKIN_USE_EXTRA_INFLUENCES
-	SkinCacheBuffer[OutputOffset + GPUSKIN_VB_OFFSET_INFLUENCEBONES + 1] = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_INFLUENCEBONES + 1];
-#endif
-	SkinCacheBuffer[OutputOffset + GPUSKIN_VB_OFFSET_INFLUENCEWEIGHTS] = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_INFLUENCEWEIGHTS];
-#if GPUSKIN_USE_EXTRA_INFLUENCES
-	SkinCacheBuffer[OutputOffset + GPUSKIN_VB_OFFSET_INFLUENCEWEIGHTS + 1] = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_INFLUENCEWEIGHTS + 1];
-#endif
- 
-	SkinCacheBuffer[OutputOffset + GPUSKIN_VB_OFFSET_POSITION + 0] = SPos.x;
-	SkinCacheBuffer[OutputOffset + GPUSKIN_VB_OFFSET_POSITION + 1] = SPos.y;
-	SkinCacheBuffer[OutputOffset + GPUSKIN_VB_OFFSET_POSITION + 2] = SPos.z;
-
-	// Passthrough any extra info
-	for (uint i = GPUSKIN_VB_OFFSET_UVS; i < FloatCount; i++)
+#if GPUSKIN_MORPH_BLEND
 	{
-		SkinCacheBuffer[OutputOffset + i] = SkinStreamInputBuffer[InputOffset + i];
-	}
+		Intermediates.UnpackedPosition += Unpacked.DeltaPosition;
 
+		// calc new normal by offseting it with the delta
+		LocalTangentZ = normalize( LocalTangentZ + Unpacked.DeltaTangentZ);
+		// derive the new tangent by orthonormalizing the new normal against
+		// the base tangent vector (assuming these are normalized)
+		LocalTangentX = normalize( LocalTangentX - (dot(LocalTangentX, LocalTangentZ) * LocalTangentZ) );
+	}
+#endif
+	
+	float3 SPos = SkinPosition(Intermediates) * SkinCacheDebug;
+		
+	float3 TangentX = mul((float3x3)Intermediates.BlendMatrix, LocalTangentX);
+	float3 TangentZ = mul((float3x3)Intermediates.BlendMatrix, LocalTangentZ);
+
+	SkinCacheBuffer[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 0] = SPos.x;
+	SkinCacheBuffer[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 1] = SPos.y;
+	SkinCacheBuffer[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 2] = SPos.z;
+	// we keep the w component (what is in it?)
+	uint TangentXCompressed = PackS8x3N(TangentX);
+	SkinCacheBuffer[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_X] = asfloat(TangentXCompressed | (asuint(SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_TANGENT_X]) & 0xff000000));
+	// we keep the w component which contains the sign of tangent basis determinant (left or right handed)
+	uint TangentZCompressed = PackS8x3N(TangentZ.xyz);
+	SkinCacheBuffer[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_Z] = asfloat(TangentZCompressed | (asuint(SkinStreamInputBuffer[ InputOffset + GPUSKIN_VB_OFFSET_TANGENT_Z]) & 0xff000000));
+
+#if GPUSKIN_DEBUG_PASSTHROUGH
 	// Passthrough debug code
-#if GPUSKIN_USE_PASSTHROUGH
-	for (uint i = 0; i < FloatCount; i++)
-	{
-		SkinCacheBuffer[OutputOffset + i] = SkinStreamInputBuffer[InputOffset + i];
-	}
+	SkinCacheBuffer[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 0] = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_POSITION + 0];
+	SkinCacheBuffer[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 1] = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_POSITION + 1];
+	SkinCacheBuffer[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 2] = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_POSITION + 2];
+	SkinCacheBuffer[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_X] = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_TANGENT_X];
+	SkinCacheBuffer[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_Z] = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_TANGENT_Z];
 #endif
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 // This code is modified from that in the Mesa3D Graphics library available at
 // http://mesa3d.org/
@@ -45,6 +45,7 @@
 #include "hash_table.h"
 #include "glsl_types.h"
 #include "glsl_parser_extras.h"
+#include "LanguageSpec.h"
 
 class ir_validate : public ir_hierarchical_visitor
 {
@@ -308,6 +309,24 @@ ir_visitor_status ir_validate::visit_leave(ir_expression *ir)
 {
 	#define validate_expr(x) do { if (!(x)) validate_expr_error(state, ir, #x); } while (0)
 
+	auto ValidateTypes = [&](const glsl_type* A, const glsl_type* B)
+	{
+		if (A->is_float() && B->is_float())
+		{
+			bool bAHalf = A->base_type == GLSL_TYPE_HALF;
+			bool bBHalf = B->base_type == GLSL_TYPE_HALF;
+			if ((int)bAHalf ^ (int)bBHalf)
+			{
+				if (state->LanguageSpec->CanConvertBetweenHalfAndFloat())
+				{
+					return;
+				}
+			}
+
+			validate_expr(A == B);
+		}
+	};
+
 	switch (ir->operation)
 	{
 	case ir_unop_bit_not:
@@ -324,7 +343,7 @@ ir_visitor_status ir_validate::visit_leave(ir_expression *ir)
 	case ir_unop_rcp:
 	case ir_unop_rsq:
 	case ir_unop_sqrt:
-		validate_expr(ir->type == ir->operands[0]->type);
+		ValidateTypes(ir->type, ir->operands[0]->type);
 		break;
 
 	case ir_unop_exp:
@@ -447,7 +466,7 @@ ir_visitor_status ir_validate::visit_leave(ir_expression *ir)
 	case ir_unop_dFdx:
 	case ir_unop_dFdy:
 		validate_expr(ir->operands[0]->type->is_float());
-		validate_expr(ir->operands[0]->type == ir->type);
+		ValidateTypes(ir->operands[0]->type, ir->type);
 		break;
 
 	case ir_unop_noise:
@@ -482,19 +501,19 @@ ir_visitor_status ir_validate::visit_leave(ir_expression *ir)
 		}
 		if (ir->operands[0]->type->is_scalar())
 		{
-			validate_expr(ir->operands[1]->type == ir->type);
+			ValidateTypes(ir->operands[1]->type, ir->type);
 		}
 		else if (ir->operands[1]->type->is_scalar())
 		{
-			validate_expr(ir->operands[0]->type == ir->type);
+			ValidateTypes(ir->operands[0]->type, ir->type);
 		}
 		else if (
 			ir->operands[0]->type->is_vector() &&
 			ir->operands[1]->type->is_vector()
 			)
 		{
-				validate_expr(ir->operands[0]->type == ir->operands[1]->type);
-				validate_expr(ir->operands[0]->type == ir->type);
+			ValidateTypes(ir->operands[0]->type, ir->operands[1]->type);
+			ValidateTypes(ir->operands[0]->type, ir->type);
 		}
 		break;
 
@@ -512,19 +531,19 @@ ir_visitor_status ir_validate::visit_leave(ir_expression *ir)
 	case ir_binop_pow:
 		if (ir->operands[0]->type->is_scalar())
 		{
-			validate_expr(ir->operands[1]->type == ir->type);
+			ValidateTypes(ir->operands[1]->type, ir->type);
 		}
 		else if (ir->operands[1]->type->is_scalar())
 		{
-			validate_expr(ir->operands[0]->type == ir->type);
+			ValidateTypes(ir->operands[0]->type, ir->type);
 		}
 		else if (
 			ir->operands[0]->type->is_vector() &&
 			ir->operands[1]->type->is_vector()
 			)
 		{
-				validate_expr(ir->operands[0]->type == ir->operands[1]->type);
-				validate_expr(ir->operands[0]->type == ir->type);
+			ValidateTypes(ir->operands[0]->type, ir->operands[1]->type);
+			ValidateTypes(ir->operands[0]->type, ir->type);
 		}
 		break;
 

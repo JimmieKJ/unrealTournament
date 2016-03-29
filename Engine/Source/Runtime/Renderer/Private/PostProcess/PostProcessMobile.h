@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessMobile.h: Mobile uber post processing.
@@ -106,6 +106,7 @@ public:
 private:
 	FIntPoint PrePostSourceViewportSize;
 	bool bOnChip;
+	template <bool bUseDepthTexture>
 	void SetShader(const FRenderingCompositePassContext& Context);
 };
 

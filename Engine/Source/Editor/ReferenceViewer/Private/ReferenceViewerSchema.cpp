@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ReferenceViewerPrivatePCH.h"
 #include "AssetThumbnail.h"
@@ -39,9 +39,9 @@ void UReferenceViewerSchema::GetContextMenuActions(const UEdGraph* CurrentGraph,
 	MenuBuilder->AddMenuEntry(FReferenceViewerActions::Get().ListReferencedObjects);
 	MenuBuilder->AddMenuEntry(FReferenceViewerActions::Get().ListObjectsThatReference);
 
-	MenuBuilder->AddSubMenu(NSLOCTEXT("ReferenceViewerSchema","MakeCollectionWithReferencedAssetsTitle", "Make Collection with Referenced Assets"),
-							FText::GetEmpty(),
-							FNewMenuDelegate::CreateUObject(this, &UReferenceViewerSchema::GetMakeCollectionWithReferencedAssetsSubMenu )
+	MenuBuilder->AddSubMenu(NSLOCTEXT("ReferenceViewerSchema","MakeCollectionWithTitle", "Make Collection with"),
+							NSLOCTEXT("ReferenceViewerSchema","MakeCollectionWithTooltip", "Makes a collection with either the referencers or dependencies of the selected nodes."),
+							FNewMenuDelegate::CreateUObject(this, &UReferenceViewerSchema::GetMakeCollectionWithSubMenu )
 							);
 
 	MenuBuilder->AddMenuEntry(FReferenceViewerActions::Get().ShowSizeMap);
@@ -80,21 +80,55 @@ FConnectionDrawingPolicy* UReferenceViewerSchema::CreateConnectionDrawingPolicy(
 	return new FReferenceViewerConnectionDrawingPolicy(InBackLayerID, InFrontLayerID, InZoomFactor, InClippingRect, InDrawElements);
 }
 
-void UReferenceViewerSchema::GetMakeCollectionWithReferencedAssetsSubMenu( FMenuBuilder& MenuBuilder )
+void UReferenceViewerSchema::GetMakeCollectionWithSubMenu(FMenuBuilder& MenuBuilder)
 {
-	MenuBuilder.AddMenuEntry(FReferenceViewerActions::Get().MakeLocalCollectionWithReferencedAssets, 
-		NAME_None, TAttribute<FText>(), 
-		ECollectionShareType::GetDescription(ECollectionShareType::CST_Local), 
-		FSlateIcon(FEditorStyle::GetStyleSetName(), ECollectionShareType::GetIconStyleName(ECollectionShareType::CST_Local))
+	MenuBuilder.AddSubMenu(NSLOCTEXT("ReferenceViewerSchema", "MakeCollectionWithReferencersTitle", "Referencers <-"),
+		NSLOCTEXT("ReferenceViewerSchema", "MakeCollectionWithReferencersTooltip", "Makes a collection with assets one connection to the left of selected nodes."),
+		FNewMenuDelegate::CreateUObject(this, &UReferenceViewerSchema::GetMakeCollectionWithReferencersOrDependenciesSubMenu, true)
 		);
-	MenuBuilder.AddMenuEntry(FReferenceViewerActions::Get().MakePrivateCollectionWithReferencedAssets,
-		NAME_None, TAttribute<FText>(), 
-		ECollectionShareType::GetDescription(ECollectionShareType::CST_Private), 
-		FSlateIcon(FEditorStyle::GetStyleSetName(), ECollectionShareType::GetIconStyleName(ECollectionShareType::CST_Private))
+
+	MenuBuilder.AddSubMenu(NSLOCTEXT("ReferenceViewerSchema", "MakeCollectionWithDependenciesTitle", "Dependencies ->"),
+		NSLOCTEXT("ReferenceViewerSchema", "MakeCollectionWithDependenciesTooltip", "Makes a collection with assets one connection to the right of selected nodes."),
+		FNewMenuDelegate::CreateUObject(this, &UReferenceViewerSchema::GetMakeCollectionWithReferencersOrDependenciesSubMenu, false)
 		);
-	MenuBuilder.AddMenuEntry(FReferenceViewerActions::Get().MakeSharedCollectionWithReferencedAssets,
-		NAME_None, TAttribute<FText>(), 
-		ECollectionShareType::GetDescription(ECollectionShareType::CST_Shared), 
-		FSlateIcon(FEditorStyle::GetStyleSetName(), ECollectionShareType::GetIconStyleName(ECollectionShareType::CST_Shared))
-		);
+}
+
+void UReferenceViewerSchema::GetMakeCollectionWithReferencersOrDependenciesSubMenu(FMenuBuilder& MenuBuilder, bool bReferencers)
+{
+	if (bReferencers)
+	{
+		MenuBuilder.AddMenuEntry(FReferenceViewerActions::Get().MakeLocalCollectionWithReferencers, 
+			NAME_None, TAttribute<FText>(), 
+			ECollectionShareType::GetDescription(ECollectionShareType::CST_Local), 
+			FSlateIcon(FEditorStyle::GetStyleSetName(), ECollectionShareType::GetIconStyleName(ECollectionShareType::CST_Local))
+			);
+		MenuBuilder.AddMenuEntry(FReferenceViewerActions::Get().MakePrivateCollectionWithReferencers,
+			NAME_None, TAttribute<FText>(), 
+			ECollectionShareType::GetDescription(ECollectionShareType::CST_Private), 
+			FSlateIcon(FEditorStyle::GetStyleSetName(), ECollectionShareType::GetIconStyleName(ECollectionShareType::CST_Private))
+			);
+		MenuBuilder.AddMenuEntry(FReferenceViewerActions::Get().MakeSharedCollectionWithReferencers,
+			NAME_None, TAttribute<FText>(), 
+			ECollectionShareType::GetDescription(ECollectionShareType::CST_Shared), 
+			FSlateIcon(FEditorStyle::GetStyleSetName(), ECollectionShareType::GetIconStyleName(ECollectionShareType::CST_Shared))
+			);
+	}
+	else
+	{
+		MenuBuilder.AddMenuEntry(FReferenceViewerActions::Get().MakeLocalCollectionWithDependencies, 
+			NAME_None, TAttribute<FText>(), 
+			ECollectionShareType::GetDescription(ECollectionShareType::CST_Local), 
+			FSlateIcon(FEditorStyle::GetStyleSetName(), ECollectionShareType::GetIconStyleName(ECollectionShareType::CST_Local))
+			);
+		MenuBuilder.AddMenuEntry(FReferenceViewerActions::Get().MakePrivateCollectionWithDependencies,
+			NAME_None, TAttribute<FText>(), 
+			ECollectionShareType::GetDescription(ECollectionShareType::CST_Private), 
+			FSlateIcon(FEditorStyle::GetStyleSetName(), ECollectionShareType::GetIconStyleName(ECollectionShareType::CST_Private))
+			);
+		MenuBuilder.AddMenuEntry(FReferenceViewerActions::Get().MakeSharedCollectionWithDependencies,
+			NAME_None, TAttribute<FText>(), 
+			ECollectionShareType::GetDescription(ECollectionShareType::CST_Shared), 
+			FSlateIcon(FEditorStyle::GetStyleSetName(), ECollectionShareType::GetIconStyleName(ECollectionShareType::CST_Shared))
+			);
+	}
 }

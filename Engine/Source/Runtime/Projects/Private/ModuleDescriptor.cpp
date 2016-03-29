@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ProjectsPrivatePCH.h"
 
@@ -40,6 +40,9 @@ const TCHAR* ELoadingPhase::ToString( const ELoadingPhase::Type Value )
 	case PostEngineInit:
 		return TEXT( "PostEngineInit" );
 
+	case None:
+		return TEXT( "None" );
+
 	default:
 		ensureMsgf( false, TEXT( "Unrecognized ELoadingPhase value: %i" ), Value );
 		return NULL;
@@ -69,6 +72,9 @@ const TCHAR* EHostType::ToString( const EHostType::Type Value )
 
 		case RuntimeNoCommandlet:
 			return TEXT( "RuntimeNoCommandlet" );
+
+		case RuntimeAndProgram:
+			return TEXT("RuntimeAndProgram");
 
 		case Developer:
 			return TEXT( "Developer" );
@@ -276,6 +282,13 @@ bool FModuleDescriptor::IsCompiledInCurrentConfiguration() const
 	{
 	case EHostType::Runtime:
 	case EHostType::RuntimeNoCommandlet:
+#if IS_PROGRAM
+		return false;
+#else
+		return true;
+#endif
+
+	case EHostType::RuntimeAndProgram:
 		return true;
 
 	case EHostType::Developer:
@@ -315,14 +328,20 @@ bool FModuleDescriptor::IsLoadedInCurrentConfiguration() const
 	// Check that the runtime environment allows it to be loaded
 	switch (Type)
 	{
-	case EHostType::Runtime:
-		#if WITH_ENGINE || WITH_PLUGIN_SUPPORT
+	case EHostType::RuntimeAndProgram:
+		#if (WITH_ENGINE || WITH_PLUGIN_SUPPORT)
 			return true;
 		#endif
 		break;
 
+	case EHostType::Runtime:
+		#if (WITH_ENGINE || WITH_PLUGIN_SUPPORT) && !IS_PROGRAM
+			return true;
+		#endif
+		break;
+	
 	case EHostType::RuntimeNoCommandlet:
-		#if WITH_ENGINE || WITH_PLUGIN_SUPPORT
+		#if (WITH_ENGINE || WITH_PLUGIN_SUPPORT)  && !IS_PROGRAM
 			if(!IsRunningCommandlet()) return true;
 		#endif
 		break;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DirectionalLightComponent.cpp: DirectionalLightComponent implementation.
@@ -132,6 +132,12 @@ public:
 			FarShadowCascadeCount = Component->FarShadowCascadeCount;
 		}
 
+		{
+			const FSceneInterface* Scene = Component->GetScene();
+			// ensure bStationaryLightUsesCSMForMovableShadows can only be used with the forward renderer.
+			const bool bUsingDeferredRenderer = Scene == nullptr ? true : Scene->ShouldUseDeferredRenderer();
+			bStationaryLightUsesCSMForMovableShadows = Component->bStationaryLightUsesCSMForMovableShadows && !bUsingDeferredRenderer;
+		}
 		bCastModulatedShadows = Component->bCastModulatedShadows;
 		ModulatedShadowColor = FLinearColor(Component->ModulatedShadowColor);
 	}
@@ -201,6 +207,15 @@ public:
 			// But dynamic objects outside the CSM range would not have a shadow (or ones inside the range that cast a shadow out of the CSM area of influence).
 			&& WholeSceneDynamicShadowRadius < GMaxCSMRadiusToAllowPerObjectShadows
 			&& bUseInsetShadowsForMovableObjects;
+	}
+
+	/** Whether this light should create CSM for dynamic objects only (forward renderer) */
+	virtual bool UseCSMForDynamicObjects() const override
+	{
+		return	FLightSceneProxy::ShouldCreatePerObjectShadowsForDynamicObjects()
+				&& StationaryLightUsesCSMForMovableShadows()
+				&& WholeSceneDynamicShadowRadius > 0
+				&& !bUseInsetShadowsForMovableObjects;
 	}
 
 	/** Returns the number of view dependent shadows this light will create, not counting distance field shadow cascades. */
@@ -772,9 +787,24 @@ bool UDirectionalLightComponent::CanEditChange(const UProperty* InProperty) cons
 			return bEnableLightShaftOcclusion;
 		}
 
+		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UDirectionalLightComponent, bCastModulatedShadows))
+		{
+			return bUseInsetShadowsForMovableObjects;
+		}
+
 		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UDirectionalLightComponent, ModulatedShadowColor))
 		{
-			return bCastModulatedShadows;
+			return bUseInsetShadowsForMovableObjects && bCastModulatedShadows;
+		}
+
+		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UDirectionalLightComponent, bStationaryLightUsesCSMForMovableShadows))
+		{
+			const bool bCanUseCSMForMovableShadows = CastShadows 
+				&& CastDynamicShadows 
+				&& DynamicShadowDistanceStationaryLight > 0 
+				&& Mobility == EComponentMobility::Stationary
+				&& !bUseInsetShadowsForMovableObjects;
+			return bCanUseCSMForMovableShadows;
 		}
 	}
 

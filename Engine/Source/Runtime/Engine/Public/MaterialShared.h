@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MaterialShared.h: Shared material definitions.
@@ -360,7 +360,8 @@ namespace EMaterialShaderMapUsage
 		MaterialExportAO,
 		MaterialExportEmissive,
 		MaterialExportOpacity,
-		MaterialExportSubSurfaceColor
+		MaterialExportSubSurfaceColor,
+		DebugViewModeTexCoordScale
 	};
 }
 
@@ -820,26 +821,29 @@ class FMaterialExpressionKey
 public:
 	UMaterialExpression* Expression;
 	int32 OutputIndex;
-
 	/** An index used by some expressions to send multiple values across a single connection.*/
 	int32 MultiplexIndex;
+	// Expressions are different (e.g. View.PrevWorldViewOrigin) when using previous frame's values, value if from FHLSLMaterialTranslator::bCompilingPreviousFrame
+	bool bCompilingPreviousFrameKey;
 
 	FMaterialExpressionKey(UMaterialExpression* InExpression, int32 InOutputIndex) :
 		Expression(InExpression),
 		OutputIndex(InOutputIndex),
-		MultiplexIndex(INDEX_NONE)
+		MultiplexIndex(INDEX_NONE),
+		bCompilingPreviousFrameKey(false)
 	{}
 
-	FMaterialExpressionKey(UMaterialExpression* InExpression, int32 InOutputIndex, int32 InMultiplexIndex) :
+	FMaterialExpressionKey(UMaterialExpression* InExpression, int32 InOutputIndex, int32 InMultiplexIndex, bool bInCompilingPreviousFrameKey) :
 		Expression(InExpression),
 		OutputIndex(InOutputIndex),
-		MultiplexIndex(InMultiplexIndex)
+		MultiplexIndex(InMultiplexIndex),
+		bCompilingPreviousFrameKey(bInCompilingPreviousFrameKey)
 	{}
 
 
 	friend bool operator==(const FMaterialExpressionKey& X, const FMaterialExpressionKey& Y)
 	{
-		return X.Expression == Y.Expression && X.OutputIndex == Y.OutputIndex && X.MultiplexIndex == Y.MultiplexIndex;
+		return X.Expression == Y.Expression && X.OutputIndex == Y.OutputIndex && X.MultiplexIndex == Y.MultiplexIndex && X.bCompilingPreviousFrameKey == Y.bCompilingPreviousFrameKey;
 	}
 
 	friend uint32 GetTypeHash(const FMaterialExpressionKey& ExpressionKey)
@@ -981,6 +985,8 @@ public:
 	virtual bool IsCrackFreeDisplacementEnabled() const { return false; }
 	virtual bool IsAdaptiveTessellationEnabled() const { return false; }
 	virtual bool IsFullyRough() const { return false; }
+	virtual bool IsUsingHQForwardReflections() const { return false; }
+	virtual bool IsUsingPlanarReflection() const { return false; }
 	virtual bool OutputsVelocityOnBasePass() const { return true; }
 	virtual bool IsNonmetal() const { return false; }
 	virtual bool UseLmDirectionality() const { return true; }
@@ -998,6 +1004,7 @@ public:
 	virtual float GetTranslucentSelfShadowSecondOpacity() const { return 1.0f; }
 	virtual float GetTranslucentBackscatteringExponent() const { return 1.0f; }
 	virtual bool IsSeparateTranslucencyEnabled() const { return false; }
+	virtual bool IsMobileSeparateTranslucencyEnabled() const { return false; }
 	virtual FLinearColor GetTranslucentMultipleScatteringExtinction() const { return FLinearColor::White; }
 	virtual float GetTranslucentShadowStartOffset() const { return 0.0f; }
 	virtual float GetRefractionDepthBiasValue() const { return 0.0f; }
@@ -1038,14 +1045,14 @@ public:
 	 * 
 	 * @return returns true if compilation is complete false otherwise
 	 */
-	ENGINE_API bool IsCompilationFinished();
+	ENGINE_API bool IsCompilationFinished() const;
 
 	/**
 	* Checks if there is a valid GameThreadShaderMap, that is, the material can be rendered as intended.
 	*
 	* @return returns true if there is a GameThreadShaderMap.
 	*/
-	ENGINE_API bool HasValidGameThreadShaderMap();
+	ENGINE_API bool HasValidGameThreadShaderMap() const;
 
 
 	EMaterialQualityLevel::Type GetQualityLevel() const 
@@ -1144,9 +1151,9 @@ public:
 	ENGINE_API bool GetMaterialExpressionSource(FString& OutSource);
 
 	/* Helper function to look at both IsMasked and IsDitheredLODTransition to determine if it writes every pixel */
-	ENGINE_API bool WritesEveryPixel() const
+	ENGINE_API bool WritesEveryPixel( bool bShadowPass = true ) const
 	{
-		return !IsMasked() && !IsDitheredLODTransition() && !IsWireframe();
+		return !IsMasked() && !( IsDitheredLODTransition() && bShadowPass ) && !IsWireframe();
 	}
 
 	/** 
@@ -1552,6 +1559,8 @@ public:
 	ENGINE_API virtual bool IsCrackFreeDisplacementEnabled() const override;
 	ENGINE_API virtual bool IsAdaptiveTessellationEnabled() const override;
 	ENGINE_API virtual bool IsFullyRough() const override;
+	ENGINE_API virtual bool IsUsingHQForwardReflections() const override;
+	ENGINE_API virtual bool IsUsingPlanarReflection() const override;
 	ENGINE_API virtual bool OutputsVelocityOnBasePass() const override;
 	ENGINE_API virtual bool IsNonmetal() const override;
 	ENGINE_API virtual bool UseLmDirectionality() const override;
@@ -1570,6 +1579,7 @@ public:
 	ENGINE_API virtual float GetTranslucentSelfShadowSecondOpacity() const override;
 	ENGINE_API virtual float GetTranslucentBackscatteringExponent() const override;
 	ENGINE_API virtual bool IsSeparateTranslucencyEnabled() const override;
+	ENGINE_API virtual bool IsMobileSeparateTranslucencyEnabled() const override;
 	ENGINE_API virtual FLinearColor GetTranslucentMultipleScatteringExtinction() const override;
 	ENGINE_API virtual float GetTranslucentShadowStartOffset() const override;
 	ENGINE_API virtual bool IsMasked() const override;
@@ -1620,6 +1630,8 @@ protected:
 	ENGINE_API virtual bool HasMaterialAttributesConnected() const override;
 	/** Useful for debugging. */
 	ENGINE_API virtual FString GetBaseMaterialPathName() const override;
+
+	friend class FDebugViewModeMaterialProxy; // Needed to redirect compilation
 };
 
 /**
@@ -1674,6 +1686,9 @@ public:
 
 	/** Adds a material instance that has been updated to the context. */
 	ENGINE_API void AddMaterialInstance(UMaterialInstance* Instance);
+
+	/** Adds a material interface that has been updated to the context. */
+	ENGINE_API void AddMaterialInterface(UMaterialInterface* Instance);
 };
 
 /**
@@ -1703,5 +1718,7 @@ ENGINE_API int32 GetDefaultExpressionForMaterialProperty(FMaterialCompiler* Comp
  */
 ENGINE_API FString GetNameOfMaterialProperty(EMaterialProperty Property);
 
+#if WITH_EDITORONLY_DATA
 /** TODO - This can be removed whenever VER_UE4_MATERIAL_ATTRIBUTES_REORDERING is no longer relevant. */
 ENGINE_API void DoMaterialAttributeReorder(FExpressionInput* Input, int32 UE4Ver);
+#endif // WITH_EDITORONLY_DATA

@@ -1,16 +1,16 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneTracksPrivatePCH.h"
 #include "MovieScenePropertyTrack.h"
 
 
-UMovieScenePropertyTrack::UMovieScenePropertyTrack( const FObjectInitializer& ObjectInitializer )
-	: Super( ObjectInitializer )
+UMovieScenePropertyTrack::UMovieScenePropertyTrack(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 }
 
 
-void UMovieScenePropertyTrack::SetPropertyNameAndPath( FName InPropertyName, const FString& InPropertyPath )
+void UMovieScenePropertyTrack::SetPropertyNameAndPath(FName InPropertyName, const FString& InPropertyPath)
 {
 	check((InPropertyName != NAME_None) && !InPropertyPath.IsEmpty());
 
@@ -26,7 +26,7 @@ const TArray<UMovieSceneSection*>& UMovieScenePropertyTrack::GetAllSections() co
 
 
 #if WITH_EDITORONLY_DATA
-FText UMovieScenePropertyTrack::GetDisplayName() const
+FText UMovieScenePropertyTrack::GetDefaultDisplayName() const
 {
 	return FText::FromName(PropertyName);
 }
@@ -69,51 +69,53 @@ bool UMovieScenePropertyTrack::IsEmpty() const
 }
 
 
-UMovieSceneSection* UMovieScenePropertyTrack::FindOrAddSection( float Time )
+UMovieSceneSection* UMovieScenePropertyTrack::FindOrAddSection(float Time, bool& bSectionAdded)
 {
+	bSectionAdded = false;
+
 	// Find a spot for the section so that they are sorted by start time
-	for( int32 SectionIndex = 0; SectionIndex < Sections.Num(); ++SectionIndex )
+	for(int32 SectionIndex = 0; SectionIndex < Sections.Num(); ++SectionIndex)
 	{
 		UMovieSceneSection* Section = Sections[SectionIndex];
 
-		if( Section->IsTimeWithinSection( Time ) )
+		if(Section->IsTimeWithinSection(Time))
 		{
 			return Section;
 		}
 
 		// Check if there are no more sections that would overlap the time 
-		if( !Sections.IsValidIndex( SectionIndex+1 ) || Sections[SectionIndex+1]->GetStartTime() > Time )
+		if(!Sections.IsValidIndex(SectionIndex+1) || Sections[SectionIndex+1]->GetStartTime() > Time)
 		{
 			// No sections overlap the time
 		
-			if( SectionIndex > 0 )
+			if(SectionIndex > 0)
 			{
 				// Append and grow the previous section
 				UMovieSceneSection* PreviousSection = Sections[ SectionIndex ? SectionIndex-1 : 0 ];
 		
-				PreviousSection->SetEndTime( Time );
+				PreviousSection->SetEndTime(Time);
 				return PreviousSection;
 			}
-			else if( Sections.IsValidIndex( SectionIndex+1 ) )
+			else if(Sections.IsValidIndex(SectionIndex+1))
 			{
 				// Prepend and grow the next section because there are no sections before this one
 				UMovieSceneSection* NextSection = Sections[SectionIndex+1];
-				NextSection->SetStartTime( Time );
+				NextSection->SetStartTime(Time);
 				return NextSection;
 			}	
 			else
 			{
 				// SectionIndex == 0 
 				UMovieSceneSection* PreviousSection = Sections[0];
-				if( PreviousSection->GetEndTime() < Time )
+				if(PreviousSection->GetEndTime() < Time)
 				{
 					// Append and grow the section
-					PreviousSection->SetEndTime( Time );
+					PreviousSection->SetEndTime(Time);
 				}
 				else
 				{
 					// Prepend and grow the section
-					PreviousSection->SetStartTime( Time );
+					PreviousSection->SetStartTime(Time);
 				}
 				return PreviousSection;
 			}
@@ -121,15 +123,17 @@ UMovieSceneSection* UMovieScenePropertyTrack::FindOrAddSection( float Time )
 
 	}
 
-	check( Sections.Num() == 0 );
+	check(Sections.Num() == 0);
 
 	// Add a new section that starts and ends at the same time
 	UMovieSceneSection* NewSection = CreateNewSection();
 	NewSection->SetFlags(RF_Transactional);
-	NewSection->SetStartTime( Time );
-	NewSection->SetEndTime( Time );
+	NewSection->SetStartTime(Time);
+	NewSection->SetEndTime(Time);
 
-	Sections.Add( NewSection );
+	Sections.Add(NewSection);
+	
+	bSectionAdded = true;
 
 	return NewSection;
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -95,6 +95,32 @@ private:
 
 	TSharedRef<class FSlateFontMeasure> GameThreadFontMeasure;
 	TSharedRef<class FSlateFontMeasure> RenderThreadFontMeasure;
+};
+
+
+struct FMappedTextureBuffer
+{
+	void* Data;
+	int32 Width;
+	int32 Height;
+
+	FMappedTextureBuffer()
+		: Data(nullptr)
+		, Width(0)
+		, Height(0)
+	{
+	}
+
+	bool IsValid() const
+	{
+		return Data && Width > 0 && Height > 0;
+	}
+
+	void Reset()
+	{
+		Data = nullptr;
+		Width = Height = 0;
+	}
 };
 
 
@@ -379,11 +405,14 @@ public:
 	virtual void CopyWindowsToVirtualScreenBuffer(const TArray<FString>& KeypressBuffer) {}
 	
 	/** Allows and disallows access to the crash tracker buffer data on the CPU */
-	virtual void MapVirtualScreenBuffer(void** OutImageData) {}
+	virtual void MapVirtualScreenBuffer(FMappedTextureBuffer* OutImageData) {}
 	virtual void UnmapVirtualScreenBuffer() {}
 
-protected:
-	virtual void ReleaseCachedRenderData(FSlateRenderDataHandle* RenderHandle) { }
+	/**
+	 * Necessary to grab before flushing the resource pool, as it may be being 
+	 * accessed by multiple threads when loading.
+	 */
+	FCriticalSection* GetResourceCriticalSection() { return &ResourceCriticalSection; }
 
 private:
 
@@ -398,6 +427,12 @@ protected:
 
 	/** Callback that fires after Slate has rendered each window, each frame */
 	FOnSlateWindowRendered SlateWindowRendered;
+
+	/**
+	 * Necessary to grab before flushing the resource pool, as it may be being 
+	 * accessed by multiple threads when loading.
+	 */
+	FCriticalSection ResourceCriticalSection;
 
 	friend class FSlateRenderDataHandle;
 };

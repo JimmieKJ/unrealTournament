@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UnrealClient.h: Interface definition for platform specific client code.
@@ -17,6 +17,7 @@ class FViewportClient;
 
 class SWidget;
 class FCursorReply;
+class FWindowActivateEvent;
 
 enum class EFocusCause : uint8;
 
@@ -631,21 +632,6 @@ extern ENGINE_API bool IsAltDown(FViewport* Viewport);
 extern ENGINE_API bool GetViewportScreenShot(FViewport* Viewport, TArray<FColor>& Bitmap, const FIntRect& ViewRect = FIntRect());
 extern ENGINE_API bool GetHighResScreenShotInput(const TCHAR* Cmd, FOutputDevice& Ar, uint32& OutXRes, uint32& OutYRes, float& OutResMult, FIntRect& OutCaptureRegion, bool& OutShouldEnableMask);
 
-namespace EMouseCaptureMode
-{
-	enum Type
-	{
-		/** Do not capture the mouse at all */
-		NoCapture,
-		/** Capture the mouse permanently when the viewport is clicked */
-		CapturePermanently,
-		/** Capture the mouse during a mouse down, releases on mouse up */
-		CaptureDuringMouseDown,
-		/** Capture only when the right mouse button is down, not any of the other mouse buttons */
-		CaptureDuringRightMouseDown,
-	};
-}
-
 /**
  * An abstract interface to a viewport's client.
  * The viewport's client processes input received by the viewport, and draws the viewport.
@@ -737,7 +723,7 @@ public:
 	 * @param	GestureDelta - @todo desc
 	 * @return	True to consume the gesture event, false to pass it on.
 	 */
-	virtual bool InputGesture(FViewport* Viewport, EGestureEvent::Type GestureType, const FVector2D& GestureDelta) { return false; }
+	virtual bool InputGesture(FViewport* Viewport, EGestureEvent::Type GestureType, const FVector2D& GestureDelta, bool bIsDirectionInvertedFromDevice) { return false; }
 
 	/**
 	 * Each frame, the input system will update the motion data.
@@ -806,6 +792,9 @@ public:
 	virtual void LostFocus(FViewport* Viewport) {}
 	virtual void ReceivedFocus(FViewport* Viewport) {}
 	virtual bool IsFocused(FViewport* Viewport) { return true; }
+
+	virtual void Activated(FViewport* Viewport, const FWindowActivateEvent& InActivateEvent) {}
+	virtual void Deactivated(FViewport* Viewport, const FWindowActivateEvent& InActivateEvent) {}
 
 	virtual void CloseRequested(FViewport* Viewport) {}
 
@@ -900,7 +889,7 @@ public:
 	/**
 	 * Gets the mouse capture behavior when the viewport is clicked
 	 */
-	virtual EMouseCaptureMode::Type CaptureMouseOnClick() { return EMouseCaptureMode::CapturePermanently; }
+	virtual EMouseCaptureMode CaptureMouseOnClick() { return EMouseCaptureMode::CapturePermanently; }
 
 	/**
 	 * Gets whether or not the cursor is hidden when the viewport captures the mouse

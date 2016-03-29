@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MetalCommands.cpp: Metal RHI commands implementation.
@@ -16,7 +16,7 @@
 #include "MetalProfiler.h"
 
 static const bool GUsesInvertedZ = true;
-static FGlobalBoundShaderState GClearMRTBoundShaderState[8];
+static FGlobalBoundShaderState GClearMRTBoundShaderState[8][2];
 
 /** Vertex declaration for just one FVector4 position. */
 class FVector4VertexDeclaration : public FRenderResource
@@ -73,9 +73,6 @@ void FMetalRHICommandContext::RHISetComputeShader(FComputeShaderRHIParamRef Comp
 {
 	FMetalComputeShader* ComputeShader = ResourceCast(ComputeShaderRHI);
 
-	// active compute mode
-	Context->GetCurrentState().ConditionalSwitchToCompute();
-	
 	// cache this for Dispatch
 	// sets this compute shader pipeline as the current (this resets all state, so we need to set all resources after calling this)
 	Context->GetCurrentState().SetComputeShader(ComputeShader);
@@ -91,8 +88,14 @@ void FMetalRHICommandContext::RHIDispatchComputeShader(uint32 ThreadGroupCountX,
 }
 
 void FMetalRHICommandContext::RHIDispatchIndirectComputeShader(FVertexBufferRHIParamRef ArgumentBufferRHI, uint32 ArgumentOffset)
-{ 
+{
+#if PLATFORM_MAC
+	RHI_PROFILE_DRAW_CALL_STATS(EMTLSamplePointBeforeCompute, EMTLSamplePointAfterCompute, 1,1);
+	FMetalVertexBuffer* VertexBuffer = ResourceCast(ArgumentBufferRHI);
+	Context->DispatchIndirect(VertexBuffer, ArgumentOffset);
+#else
 	NOT_SUPPORTED("RHIDispatchIndirectComputeShader");
+#endif
 }
 
 void FMetalRHICommandContext::RHISetViewport(uint32 MinX,uint32 MinY,float MinZ,uint32 MaxX,uint32 MaxY,float MaxZ)
@@ -105,8 +108,6 @@ void FMetalRHICommandContext::RHISetViewport(uint32 MinX,uint32 MinY,float MinZ,
 	Viewport.znear = MinZ;
 	Viewport.zfar = MaxZ;
 	
-	Context->GetCommandEncoder().SetViewport(Viewport);
-
 	Context->GetCurrentState().SetViewport(Viewport);
 	
 	FShaderCache::SetViewport(MinX,MinY, MinZ, MaxX, MaxY, MaxZ);
@@ -128,11 +129,13 @@ void FMetalRHICommandContext::RHISetScissorRect(bool bEnable,uint32 MinX,uint32 
 	// metal doesn't support 0 sized scissor rect
 	if (bEnable == false || Scissor.width == 0 || Scissor.height == 0)
 	{
-		auto Viewport = Context->GetCurrentState().GetViewport();
+		MTLViewport const& Viewport = Context->GetCurrentState().GetViewport();
+		CGSize FBSize = Context->GetCurrentState().GetFrameBufferSize();
+		
 		Scissor.x = Viewport.originX;
 		Scissor.y = Viewport.originY;
-		Scissor.width = Viewport.width;
-		Scissor.height = Viewport.height;
+		Scissor.width = (Viewport.originX + Viewport.width <= FBSize.width) ? Viewport.width : FBSize.width - Viewport.originX;
+		Scissor.height = (Viewport.originY + Viewport.height <= FBSize.height) ? Viewport.height : FBSize.height - Viewport.originY;
 	}
 	Context->GetCommandEncoder().SetScissorRect(Scissor);
 }
@@ -230,35 +233,7 @@ void FMetalRHICommandContext::RHISetShaderTexture(FComputeShaderRHIParamRef Comp
 void FMetalRHICommandContext::RHISetShaderResourceViewParameter(FVertexShaderRHIParamRef VertexShaderRHI, uint32 TextureIndex, FShaderResourceViewRHIParamRef SRVRHI)
 {
 	FMetalShaderResourceView* SRV = ResourceCast(SRVRHI);
-	if (SRV)
-	{
-		FRHITexture* Texture = SRV->SourceTexture.GetReference();
-		if (Texture)
-		{
-			FMetalSurface* Surface = SRV->TextureView;
-			if (Surface != nullptr)
-			{
-				Context->GetCommandEncoder().SetShaderTexture(SF_Vertex, Surface->Texture, TextureIndex);
-			}
-			else
-			{
-				Context->GetCommandEncoder().SetShaderTexture(SF_Vertex, nil, TextureIndex);
-			}
-		}
-		else
-		{
-			FMetalVertexBuffer* VB = SRV->SourceVertexBuffer.GetReference();
-			if (VB)
-			{
-				Context->GetCommandEncoder().SetShaderBuffer(SF_Vertex, VB->Buffer, 0, TextureIndex);
-			}
-		}
-	}
-	else
-	{
-		Context->GetCommandEncoder().SetShaderTexture(SF_Vertex, nil, TextureIndex);
-	}
-	FShaderCache::SetSRV(SF_Vertex, TextureIndex, SRVRHI);
+	Context->SetShaderResourceView(SF_Vertex, TextureIndex, SRV);
 }
 
 void FMetalRHICommandContext::RHISetShaderResourceViewParameter(FHullShaderRHIParamRef HullShaderRHI,uint32 TextureIndex,FShaderResourceViewRHIParamRef SRVRHI)
@@ -279,69 +254,13 @@ void FMetalRHICommandContext::RHISetShaderResourceViewParameter(FGeometryShaderR
 void FMetalRHICommandContext::RHISetShaderResourceViewParameter(FPixelShaderRHIParamRef PixelShaderRHI,uint32 TextureIndex,FShaderResourceViewRHIParamRef SRVRHI)
 {
 	FMetalShaderResourceView* SRV = ResourceCast(SRVRHI);
-	if (SRV)
-	{
-		FRHITexture* Texture = SRV->SourceTexture.GetReference();
-		if (Texture)
-		{
-			FMetalSurface* Surface = SRV->TextureView;
-			if (Surface != nullptr)
-			{
-				Context->GetCommandEncoder().SetShaderTexture(SF_Pixel, Surface->Texture, TextureIndex);
-			}
-			else
-			{
-				Context->GetCommandEncoder().SetShaderTexture(SF_Pixel, nil, TextureIndex);
-			}
-		}
-		else
-		{
-			FMetalVertexBuffer* VB = SRV->SourceVertexBuffer.GetReference();
-			if (VB)
-			{
-				Context->GetCommandEncoder().SetShaderBuffer(SF_Pixel, VB->Buffer, 0, TextureIndex);
-			}
-		}
-	}
-	else
-	{
-		Context->GetCommandEncoder().SetShaderTexture(SF_Pixel, nil, TextureIndex);
-	}
-	FShaderCache::SetSRV(SF_Pixel, TextureIndex, SRVRHI);
+	Context->SetShaderResourceView(SF_Pixel, TextureIndex, SRV);
 }
 
 void FMetalRHICommandContext::RHISetShaderResourceViewParameter(FComputeShaderRHIParamRef ComputeShaderRHI,uint32 TextureIndex,FShaderResourceViewRHIParamRef SRVRHI)
 {
 	FMetalShaderResourceView* SRV = ResourceCast(SRVRHI);
-	if (SRV)
-	{
-		FRHITexture* Texture = SRV->SourceTexture.GetReference();
-		if (Texture)
-		{
-			FMetalSurface* Surface = SRV->TextureView;
-			if (Surface != nullptr)
-			{
-				Context->GetCommandEncoder().SetShaderTexture(SF_Compute, Surface->Texture, TextureIndex);
-			}
-			else
-			{
-				Context->GetCommandEncoder().SetShaderTexture(SF_Compute, nil, TextureIndex);
-			}
-		}
-		else
-		{
-			FMetalVertexBuffer* VB = SRV->SourceVertexBuffer.GetReference();
-			if (VB)
-			{
-				Context->GetCommandEncoder().SetShaderBuffer(SF_Compute, VB->Buffer, 0, TextureIndex);
-			}
-		}
-	}
-	else
-	{
-		Context->GetCommandEncoder().SetShaderTexture(SF_Compute, nil, TextureIndex);
-	}
-	FShaderCache::SetSRV(SF_Compute, TextureIndex, SRVRHI);
+	Context->SetShaderResourceView(SF_Compute, TextureIndex, SRV);
 }
 
 
@@ -426,8 +345,7 @@ void FMetalRHICommandContext::RHISetShaderParameter(FComputeShaderRHIParamRef Co
 void FMetalRHICommandContext::RHISetShaderUniformBuffer(FVertexShaderRHIParamRef VertexShaderRHI, uint32 BufferIndex, FUniformBufferRHIParamRef BufferRHI)
 {
 	FMetalVertexShader* VertexShader = ResourceCast(VertexShaderRHI);
-	VertexShader->BoundUniformBuffers[BufferIndex] = BufferRHI;
-	VertexShader->DirtyUniformBuffers |= 1 << BufferIndex;
+	Context->GetCurrentState().BindUniformBuffer(SF_Vertex, BufferIndex, BufferRHI);
 
 	auto& Bindings = VertexShader->Bindings;
 	check(BufferIndex < Bindings.NumUniformBuffers);
@@ -456,8 +374,7 @@ void FMetalRHICommandContext::RHISetShaderUniformBuffer(FGeometryShaderRHIParamR
 void FMetalRHICommandContext::RHISetShaderUniformBuffer(FPixelShaderRHIParamRef PixelShaderRHI, uint32 BufferIndex, FUniformBufferRHIParamRef BufferRHI)
 {
 	FMetalPixelShader* PixelShader = ResourceCast(PixelShaderRHI);
-	PixelShader->BoundUniformBuffers[BufferIndex] = BufferRHI;
-	PixelShader->DirtyUniformBuffers |= 1 << BufferIndex;
+	Context->GetCurrentState().BindUniformBuffer(SF_Pixel, BufferIndex, BufferRHI);
 
 	auto& Bindings = PixelShader->Bindings;
 	check(BufferIndex < Bindings.NumUniformBuffers);
@@ -471,8 +388,7 @@ void FMetalRHICommandContext::RHISetShaderUniformBuffer(FPixelShaderRHIParamRef 
 void FMetalRHICommandContext::RHISetShaderUniformBuffer(FComputeShaderRHIParamRef ComputeShaderRHI, uint32 BufferIndex, FUniformBufferRHIParamRef BufferRHI)
 {
 	FMetalComputeShader* ComputeShader = ResourceCast(ComputeShaderRHI);
-	ComputeShader->BoundUniformBuffers[BufferIndex] = BufferRHI;
-	ComputeShader->DirtyUniformBuffers |= 1 << BufferIndex;
+	Context->GetCurrentState().BindUniformBuffer(SF_Compute, BufferIndex, BufferRHI);
 
 	auto& Bindings = ComputeShader->Bindings;
 	check(BufferIndex < Bindings.NumUniformBuffers);
@@ -527,9 +443,7 @@ void FMetalRHICommandContext::RHISetRenderTargets(uint32 NumSimultaneousRenderTa
 
 void FMetalDynamicRHI::RHIDiscardRenderTargets(bool Depth, bool Stencil, uint32 ColorBitMask)
 {
-#if PLATFORM_MAC // @todo zebra
-	NOT_SUPPORTED("RHIDiscardRenderTargets");
-#endif
+	// Deliberate do nothing - Metal doesn't care about this.
 }
 
 void FMetalRHICommandContext::RHISetRenderTargetsAndClear(const FRHISetRenderTargetsInfo& RenderTargetsInfo)
@@ -558,6 +472,8 @@ void FMetalRHICommandContext::RHIDrawPrimitive(uint32 PrimitiveType, uint32 Base
 {
 	SCOPE_CYCLE_COUNTER(STAT_MetalDrawCallTime);
 	//checkf(NumInstances == 1, TEXT("Currently only 1 instance is supported"));
+	
+	NumInstances = FMath::Max(NumInstances,1u);
 	
 	RHI_DRAW_CALL_STATS(PrimitiveType,NumInstances*NumPrimitives);
 
@@ -618,7 +534,11 @@ void FMetalRHICommandContext::RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef In
 	checkf(BaseVertexIndex  == 0, TEXT("BaseVertexIndex must be 0, see GRHISupportsBaseVertexIndex"));
 	checkf(FirstInstance  == 0, TEXT("FirstInstance is currently unsupported on this RHI"));
 #endif
+	
+	NumInstances = FMath::Max(NumInstances,1u);
 
+	NumInstances = FMath::Max(NumInstances,1u);
+	
 	RHI_DRAW_CALL_STATS(PrimitiveType,NumInstances*NumPrimitives);
 
 	FMetalIndexBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
@@ -627,6 +547,10 @@ void FMetalRHICommandContext::RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef In
 	Context->PrepareToDraw(PrimitiveType);
 	
 	uint32 NumIndices = GetVertexCountForPrimitiveCount(NumPrimitives, PrimitiveType);
+	if (NumInstances == 0)
+	{
+		NumInstances = 1;
+	}
 
 	RHI_PROFILE_DRAW_CALL_STATS(EMTLSamplePointBeforeDraw, EMTLSamplePointAfterDraw, NumPrimitives * NumInstances, NumVertices * NumInstances);
 	
@@ -756,7 +680,7 @@ void FMetalRHICommandContext::RHIEndDrawPrimitiveUP()
 		[Context->GetRenderContext() drawPrimitives:TranslatePrimitiveType(PendingPrimitiveType)
 										vertexStart:0
 										vertexCount:NumVertices
-									  instanceCount:1];
+									  instanceCount:Context->GetCurrentState().GetRenderTargetArraySize()];
 		
 		FShaderCache::LogDraw(0);
 	}
@@ -811,7 +735,7 @@ void FMetalRHICommandContext::RHIEndDrawIndexedPrimitiveUP()
 												 indexType:(PendingIndexDataStride == 2) ? MTLIndexTypeUInt16 : MTLIndexTypeUInt32
 											   indexBuffer:Context->GetRingBuffer()
 										 indexBufferOffset:PendingIndexBufferOffset
-											 instanceCount:1];
+											 instanceCount:Context->GetCurrentState().GetRenderTargetArraySize()];
 		
 		FShaderCache::LogDraw(PendingIndexDataStride);
 	}
@@ -825,6 +749,117 @@ void FMetalRHICommandContext::RHIEndDrawIndexedPrimitiveUP()
 void FMetalRHICommandContext::RHIClear(bool bClearColor,const FLinearColor& Color, bool bClearDepth,float Depth, bool bClearStencil,uint32 Stencil, FIntRect ExcludeRect)
 {
 	FMetalRHICommandContext::RHIClearMRT(bClearColor, 1, &Color, bClearDepth, Depth, bClearStencil, Stencil, ExcludeRect);
+}
+
+void FMetalRHICommandContext::RHIDrawInstancedPrimitiveUP( FRHICommandList& RHICmdList, uint32 PrimitiveType, uint32 NumPrimitives, const void* VertexData, uint32 VertexDataStride, uint32 InstanceCount )
+{
+	SCOPE_CYCLE_COUNTER(STAT_MetalDrawCallTime);
+	
+	// how many to draw
+	uint32 NumVertices = GetVertexCountForPrimitiveCount(NumPrimitives, PrimitiveType);
+	
+	// allocate space
+	checkSlow(PendingVertexBufferOffset == 0xFFFFFFFF);
+	PendingVertexBufferOffset = Context->AllocateFromRingBuffer(VertexDataStride * NumVertices);
+	
+	// get the pointer to send back for writing
+	uint8* RingBufferBytes = (uint8*)[Context->GetRingBuffer() contents];
+	FMemory::Memcpy( RingBufferBytes + PendingVertexBufferOffset, VertexData, NumVertices * VertexDataStride );
+	
+	RHI_PROFILE_DRAW_CALL_STATS(EMTLSamplePointBeforeDraw, EMTLSamplePointAfterDraw, NumPrimitives,NumVertices);
+	
+	RHI_DRAW_CALL_STATS(PrimitiveType,NumPrimitives);
+	
+	// set the vertex buffer
+	Context->GetCurrentState().SetVertexBuffer(UNREAL_TO_METAL_BUFFER_INDEX(0), Context->GetRingBuffer(), VertexDataStride, PendingVertexBufferOffset);
+	
+	// last minute draw setup
+	Context->PrepareToDraw(PrimitiveType);
+	
+	if(!FShaderCache::IsPredrawCall())
+	{
+		[Context->GetRenderContext() drawPrimitives:TranslatePrimitiveType(PrimitiveType)
+										vertexStart:0
+										vertexCount:NumVertices
+									  instanceCount:InstanceCount];
+		
+		FShaderCache::LogDraw(0);
+	}
+	
+	// mark temp memory as usable
+	PendingVertexBufferOffset = 0xFFFFFFFF;
+}
+
+void FMetalDynamicRHI::SetupRecursiveResources()
+{
+	if (GRHISupportsRHIThread)
+	{
+		FRHICommandList_RecursiveHazardous RHICmdList(RHIGetDefaultContext());
+		extern int32 GCreateShadersOnLoad;
+		TGuardValue<int32> Guard(GCreateShadersOnLoad, 1);
+		auto ShaderMap = GetGlobalShaderMap(GMaxRHIFeatureLevel);
+		TShaderMapRef<TOneColorVS<true> > DefaultVertexShader(ShaderMap);
+		TShaderMapRef<TOneColorVS<true, true> > LayeredVertexShader(ShaderMap);
+		GVector4VertexDeclaration.InitRHI();
+		
+		for (uint32 Instanced = 0; Instanced < 2; Instanced++)
+		{
+			FShader* VertexShader = !Instanced ? (FShader*)*DefaultVertexShader : (FShader*)*LayeredVertexShader;
+			
+			for (int32 NumBuffers = 1; NumBuffers <= MaxSimultaneousRenderTargets; NumBuffers++)
+			{
+				FOneColorPS* PixelShader = NULL;
+				
+				// Set the shader to write to the appropriate number of render targets
+				// On AMD PC hardware, outputting to a color index in the shader without a matching render target set has a significant performance hit
+				if (NumBuffers <= 1)
+				{
+					TShaderMapRef<TOneColorPixelShaderMRT<1> > MRTPixelShader(ShaderMap);
+					PixelShader = *MRTPixelShader;
+				}
+				else if (IsFeatureLevelSupported( GMaxRHIShaderPlatform, ERHIFeatureLevel::SM4 ))
+				{
+					if (NumBuffers == 2)
+					{
+						TShaderMapRef<TOneColorPixelShaderMRT<2> > MRTPixelShader(ShaderMap);
+						PixelShader = *MRTPixelShader;
+					}
+					else if (NumBuffers== 3)
+					{
+						TShaderMapRef<TOneColorPixelShaderMRT<3> > MRTPixelShader(ShaderMap);
+						PixelShader = *MRTPixelShader;
+					}
+					else if (NumBuffers == 4)
+					{
+						TShaderMapRef<TOneColorPixelShaderMRT<4> > MRTPixelShader(ShaderMap);
+						PixelShader = *MRTPixelShader;
+					}
+					else if (NumBuffers == 5)
+					{
+						TShaderMapRef<TOneColorPixelShaderMRT<5> > MRTPixelShader(ShaderMap);
+						PixelShader = *MRTPixelShader;
+					}
+					else if (NumBuffers == 6)
+					{
+						TShaderMapRef<TOneColorPixelShaderMRT<6> > MRTPixelShader(ShaderMap);
+						PixelShader = *MRTPixelShader;
+					}
+					else if (NumBuffers == 7)
+					{
+						TShaderMapRef<TOneColorPixelShaderMRT<7> > MRTPixelShader(ShaderMap);
+						PixelShader = *MRTPixelShader;
+					}
+					else if (NumBuffers == 8)
+					{
+						TShaderMapRef<TOneColorPixelShaderMRT<8> > MRTPixelShader(ShaderMap);
+						PixelShader = *MRTPixelShader;
+					}
+				}
+				
+				SetGlobalBoundShaderState(RHICmdList, GMaxRHIFeatureLevel, GClearMRTBoundShaderState[NumBuffers - 1][Instanced], GVector4VertexDeclaration.VertexDeclarationRHI, VertexShader, PixelShader);
+			}
+		}
+	}
 }
 
 void FMetalRHICommandContext::RHIClearMRT(bool bClearColor,int32 NumClearColors,const FLinearColor* ClearColorArray,bool bClearDepth,float Depth,bool bClearStencil,uint32 Stencil, FIntRect ExcludeRect)
@@ -841,7 +876,7 @@ void FMetalRHICommandContext::RHIClearMRT(bool bClearColor,int32 NumClearColors,
 		return;
 	}
 
-	RHIPushEvent(TEXT("MetalClearMRT"));
+	RHIPushEvent(TEXT("MetalClearMRT"), FColor(255, 0, 255, 255));
 
 	// Build new states
 	FBlendStateRHIRef BlendStateRHI;
@@ -896,7 +931,11 @@ void FMetalRHICommandContext::RHIClearMRT(bool bClearColor,int32 NumClearColors,
 
 	// Set the new shaders
 	auto ShaderMap = GetGlobalShaderMap(GMaxRHIFeatureLevel);
-	TShaderMapRef<TOneColorVS<true> > VertexShader(ShaderMap);
+	
+	bool const bIsLayered = Context->GetCurrentState().GetRenderTargetArraySize() > 1;
+	TShaderMapRef<TOneColorVS<true> > DefaultVertexShader(ShaderMap);
+	TShaderMapRef<TOneColorVS<true, true> > LayeredVertexShader(ShaderMap);
+	FShader* VertexShader = !bIsLayered ? (FShader*)*DefaultVertexShader : (FShader*)*LayeredVertexShader;
 
 	FOneColorPS* PixelShader = NULL;
 
@@ -944,7 +983,7 @@ void FMetalRHICommandContext::RHIClearMRT(bool bClearColor,int32 NumClearColors,
 
 	{
 		FRHICommandList_RecursiveHazardous RHICmdList(this);
-		SetGlobalBoundShaderState(RHICmdList, GMaxRHIFeatureLevel, GClearMRTBoundShaderState[FMath::Max(Context->GetCurrentState().GetNumRenderTargets() - 1, 0)], GVector4VertexDeclaration.VertexDeclarationRHI, *VertexShader, PixelShader);
+		SetGlobalBoundShaderState(RHICmdList, GMaxRHIFeatureLevel, GClearMRTBoundShaderState[FMath::Max(Context->GetCurrentState().GetNumRenderTargets() - 1, 0)][bIsLayered ? 1 : 0], GVector4VertexDeclaration.VertexDeclarationRHI, VertexShader, PixelShader);
 		PixelShader->SetColors(RHICmdList, ClearColorArray, NumClearColors);
 
 		{
@@ -1012,7 +1051,7 @@ void FMetalRHICommandContext::RHIClearMRT(bool bClearColor,int32 NumClearColors,
 
 void FMetalDynamicRHI::RHIBlockUntilGPUIdle()
 {
-	NOT_SUPPORTED("RHIBlockUntilGPUIdle");
+	Context->SubmitCommandBufferAndWait();
 }
 
 uint32 FMetalDynamicRHI::RHIGetGPUFrameCycles()
@@ -1022,12 +1061,12 @@ uint32 FMetalDynamicRHI::RHIGetGPUFrameCycles()
 
 void FMetalRHICommandContext::RHIAutomaticCacheFlushAfterComputeShader(bool bEnable)
 {
-	NOT_SUPPORTED("RHIAutomaticCacheFlushAfterComputeShader");
+	// Nothing required here
 }
 
 void FMetalRHICommandContext::RHIFlushComputeShaderCache()
 {
-	NOT_SUPPORTED("RHIFlushComputeShaderCache");
+	// Nothing required here
 }
 
 void FMetalDynamicRHI::RHIExecuteCommandList(FRHICommandList* RHICmdList)
@@ -1049,11 +1088,6 @@ void FMetalRHICommandContext::RHISubmitCommandsHint()
 IRHICommandContext* FMetalDynamicRHI::RHIGetDefaultContext()
 {
 	return this;
-}
-
-IRHICommandContextContainer* FMetalDynamicRHI::RHIGetCommandContextContainer()
-{
-	return nullptr;
 }
 
 

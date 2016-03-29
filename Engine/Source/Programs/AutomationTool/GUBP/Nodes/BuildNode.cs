@@ -1,42 +1,104 @@
-﻿using System;
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using System.Xml.Serialization;
 using UnrealBuildTool;
 
 namespace AutomationTool
 {
-	[DebuggerDisplay("{Name}")]
-	public abstract class BuildNodeTemplate
+	public enum BuildNodePriority
 	{
-		public string Name;
-		public UnrealTargetPlatform AgentPlatform = UnrealTargetPlatform.Win64;
-		public string AgentRequirements;
-		public string AgentSharingGroup;
-		public int FrequencyShift;
-		public int AgentMemoryRequirement;
-		public int TimeoutInMinutes;
-		public float Priority;
-		public string InputDependencyNames;
-		public string OrderDependencyNames;
-		public string RecipientsForFailureEmails;
-		public bool AddSubmittersToFailureEmails;
-		public bool SendSuccessEmail;
-		public bool IsParallelAgentShareEditor;
-		public bool IsSticky;
-		public bool IsTest;
-		public string DisplayGroupName;
-        public string GameNameIfAnyForFullGameAggregateNode;
+		Highest = -3,
+		High = -2,
+		AboveNormal = -1,
+		Normal = 0,
+		BelowNormal = +1,
+		Low = +2,
+		Lowest = +3
+	}
 
-		public abstract BuildNode Instantiate();
+	[DebuggerDisplay("{Name}")]
+	public abstract class BuildNodeDefinition : ElementDefinition
+	{
+		[XmlAttribute]
+		public string Name;
+
+		[XmlAttribute, DefaultValue("")]
+		public string DependsOn = "";
+
+		[XmlAttribute, DefaultValue("")]
+		public string AgentTypes = "";
+
+		[XmlAttribute, DefaultValue(0)]
+		public int FrequencyShift;
+
+		[XmlAttribute, DefaultValue(0.0)]
+		public float Priority;
+
+		[XmlAttribute, DefaultValue("")]
+		public string RunAfter = "";
+
+		[XmlAttribute, DefaultValue("")]
+		public string Notify = ""; // User names or email aliases separated by semicolons
+
+		[XmlAttribute, DefaultValue(true)]
+		public bool EmailSubmitters = true;
+
+		[XmlAttribute, DefaultValue(true)]
+		public bool NotifyOnWarnings = true;
+
+		[XmlAttribute, DefaultValue(UnrealTargetPlatform.Win64)]
+		public UnrealTargetPlatform AgentPlatform = UnrealTargetPlatform.Win64;
+
+		[XmlAttribute, DefaultValue("")]
+		public string AgentRequirements = "";
+
+		[XmlAttribute, DefaultValue(0)]
+		public int AgentMemoryRequirement;
+
+		[XmlAttribute, DefaultValue(0)]
+		public int TimeoutInMinutes;
+
+		[XmlAttribute, DefaultValue(true)]
+		public bool AddSubmittersToFailureEmails = true;
+
+		[XmlAttribute, DefaultValue(false)]
+		public bool SendSuccessEmail;
+
+		[XmlAttribute, DefaultValue(false)]
+		public bool IsParallelAgentShareEditor;
+
+		[XmlAttribute, DefaultValue(false)]
+		public bool IsSticky;
+
+		[XmlAttribute, DefaultValue(false)]
+		public bool IsTest;
+
+		[XmlAttribute, DefaultValue("")]
+		public string DisplayGroupName = "";
+
+		public string AgentSharingGroup = "";
+
+		/// <summary>
+		/// Construct a build node from this definition.
+		/// </summary>
+		/// <returns>New instance of a build node</returns>
+		public abstract BuildNode CreateNode();
 	}
 
 	[DebuggerDisplay("{Name}")]
 	public abstract class BuildNode
 	{
+		public const int ExplicitFrequencyShift = 16;
+
 		public readonly string Name;
 		public UnrealTargetPlatform AgentPlatform = UnrealTargetPlatform.Win64;
+		public string[] AgentTypes;
 		public string AgentRequirements;
 		public string AgentSharingGroup;
 		public int FrequencyShift;
@@ -50,46 +112,48 @@ namespace AutomationTool
 		public bool IsComplete;
 		public string[] RecipientsForFailureEmails;
 		public bool AddSubmittersToFailureEmails;
+		public bool NotifyOnWarnings;
 		public bool SendSuccessEmail;
 		public bool IsParallelAgentShareEditor;
 		public bool IsSticky;
 		public bool IsTest;
+		public bool CopyToSharedStorage;
 		public string DisplayGroupName;
-        public string GameNameIfAnyForFullGameAggregateNode;
 
 		public List<string> BuildProducts;
 
-		public BuildNode(BuildNodeTemplate Template)
+		public BuildNode(BuildNodeDefinition Definition)
 		{
-			Name = Template.Name;
-			AgentPlatform = Template.AgentPlatform;
-			AgentRequirements = Template.AgentRequirements;
-			AgentSharingGroup = Template.AgentSharingGroup;
-			FrequencyShift = Template.FrequencyShift;
-			AgentMemoryRequirement = Template.AgentMemoryRequirement;
-			TimeoutInMinutes = Template.TimeoutInMinutes;
-			Priority = Template.Priority;
-			RecipientsForFailureEmails = Template.RecipientsForFailureEmails.Split(';');
-			AddSubmittersToFailureEmails = Template.AddSubmittersToFailureEmails;
-			SendSuccessEmail = Template.SendSuccessEmail;
-			IsParallelAgentShareEditor = Template.IsParallelAgentShareEditor;
-			IsSticky = Template.IsSticky;
-			IsTest = Template.IsTest;
-			DisplayGroupName = Template.DisplayGroupName;
-            GameNameIfAnyForFullGameAggregateNode = Template.GameNameIfAnyForFullGameAggregateNode;
+			Name = Definition.Name;
+			AgentTypes = Definition.AgentTypes.Split(new char[]{ ';' }, StringSplitOptions.RemoveEmptyEntries);
+			AgentPlatform = Definition.AgentPlatform;
+			AgentRequirements = Definition.AgentRequirements;
+			AgentSharingGroup = Definition.AgentSharingGroup;
+			FrequencyShift = Definition.FrequencyShift;
+			AgentMemoryRequirement = Definition.AgentMemoryRequirement;
+			TimeoutInMinutes = Definition.TimeoutInMinutes;
+			Priority = Definition.Priority;
+			RecipientsForFailureEmails = Definition.Notify.Split(';');
+			AddSubmittersToFailureEmails = Definition.AddSubmittersToFailureEmails;
+			NotifyOnWarnings = Definition.NotifyOnWarnings;
+			SendSuccessEmail = Definition.SendSuccessEmail;
+			IsParallelAgentShareEditor = Definition.IsParallelAgentShareEditor;
+			IsSticky = Definition.IsSticky;
+			IsTest = Definition.IsTest;
+			DisplayGroupName = Definition.DisplayGroupName;
 		}
 
-		public virtual void ArchiveBuildProducts(TempStorageNodeInfo TempStorageNodeInfo, bool bLocalOnly)
+		public virtual void ArchiveBuildProducts(string SharedStorageDir, bool bWriteToSharedStorage)
 		{
-			TempStorage.StoreToTempStorage(TempStorageNodeInfo, BuildProducts, bLocalOnly, CommandUtils.CmdEnv.LocalRoot);
+			TempStorage.StoreToTempStorage(Name, BuildProducts, SharedStorageDir, bWriteToSharedStorage);
 		}
 
-		public virtual void RetrieveBuildProducts(TempStorageNodeInfo TempStorageNodeInfo)
+		public virtual void RetrieveBuildProducts(string SharedStorageDir)
 		{
-			CommandUtils.Log("***** Retrieving GUBP Node {0} from {1}", Name, TempStorageNodeInfo.GetRelativeDirectory());
+			CommandUtils.Log("***** Retrieving GUBP Node {0}", Name);
 			try
 			{
-				BuildProducts = TempStorage.RetrieveFromTempStorage(TempStorageNodeInfo, CommandUtils.CmdEnv.LocalRoot);
+				BuildProducts = TempStorage.RetrieveFromTempStorage(SharedStorageDir, Name);
 			}
 			catch (Exception Ex)
 			{
@@ -97,9 +161,14 @@ namespace AutomationTool
 			}
 		}
 
-		public abstract void DoBuild();
+		public abstract bool DoBuild();
 
-		public abstract void DoFakeBuild();
+		public abstract bool DoFakeBuild();
+
+		public TriggerNode ControllingTrigger
+		{
+			get { return (ControllingTriggers.Length == 0)? null : ControllingTriggers[ControllingTriggers.Length - 1]; }
+		}
 
 		public string ControllingTriggerDotName
 		{
@@ -115,19 +184,6 @@ namespace AutomationTool
 		{
 			System.Diagnostics.Trace.TraceWarning("Implicit conversion from NodeInfo to string\n{0}", Environment.StackTrace);
 			return Name;
-		}
-	}
-
-	[DebuggerDisplay("{Definition.Name}")]
-	class BuildNodePair
-	{
-		public readonly BuildNodeTemplate Template;
-		public readonly BuildNode Node;
-
-		public BuildNodePair(BuildNodeTemplate InTemplate)
-		{
-			Template = InTemplate;
-			Node = InTemplate.Instantiate();
 		}
 	}
 }

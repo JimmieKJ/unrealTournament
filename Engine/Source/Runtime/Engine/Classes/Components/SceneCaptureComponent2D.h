@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -32,6 +32,15 @@ class USceneCaptureComponent2D : public USceneCaptureComponent
 
 	UPROPERTY(interp, Category=SceneCapture, meta=(DisplayName = "Capture Source"))
 	TEnumAsByte<enum ESceneCaptureSource> CaptureSource;
+
+	UPROPERTY(EditAnywhere, Category = SceneCapture)
+	bool bIsPlanarReflection;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = SceneCapture)
+	float ReflectionPlaneHeight;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = SceneCapture)
+	FVector ReflectionPlaneNormal;
 
 	UPROPERTY(interp, Category=PostProcessVolume, meta=(ShowOnlyInnerProperties))
 	struct FPostProcessSettings PostProcessSettings;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 /*=============================================================================================
@@ -11,6 +11,7 @@
 struct CORE_API FLinuxOutputDevices : public FGenericPlatformOutputDevices
 {
 	static void							SetupOutputDevices();
+	static FString						GetAbsoluteLogFilename();
 
 	static FOutputDevice*			GetEventLog();
 	static FOutputDeviceConsole*	GetLogConsole();

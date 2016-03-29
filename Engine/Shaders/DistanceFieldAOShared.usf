@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DistanceFieldAOShared.usf
@@ -220,7 +220,7 @@ float2 GetBaseLevelScreenUVFromScreenGrid(uint2 OutputCoordinate)
 
 float2 GetScreenUVFromScreenGrid(uint2 OutputCoordinate)
 {
-	float2 ScreenUV = ((OutputCoordinate * TRACE_DOWNSAMPLE_FACTOR + JitterOffset) * AO_DOWNSAMPLE_FACTOR + View.ViewRectMin.xy + float2(.5f, .5f)) * View.BufferSizeAndInvSize.zw;
+	float2 ScreenUV = ((OutputCoordinate * TRACE_DOWNSAMPLE_FACTOR + JitterOffset) * AO_DOWNSAMPLE_FACTOR + Frame.ViewRectMin.xy + float2(.5f, .5f)) * Frame.BufferSizeAndInvSize.zw;
 	return ScreenUV;
 }
 

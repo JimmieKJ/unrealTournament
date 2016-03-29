@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /**
  * Scales Opacity by a Linear fade based on SceneDepth, from 0 at PixelDepth to 1 at FadeDistance
@@ -42,11 +42,13 @@ class UMaterialExpressionDepthFade : public UMaterialExpression
 			return Super::GetInputName(InputIndex);
 		}
 	}
+#if WITH_EDITOR
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override
 	{
 		OutCaptions.Add(TEXT("Depth Fade"));
 	}
+#endif
 	//~ End UMaterialExpression Interface#endif
 };
 

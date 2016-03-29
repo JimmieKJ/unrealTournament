@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 #include "WidgetComponent.h"
@@ -181,8 +181,62 @@ public:
 		}
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		RenderBounds(Collector.GetPDI(0), ViewFamily.EngineShowFlags, GetBounds(), IsSelected());
+		for ( int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++ )
+		{
+			if ( VisibilityMap & ( 1 << ViewIndex ) )
+			{
+				RenderCollision(BodySetup, Collector, ViewIndex, ViewFamily.EngineShowFlags, GetBounds(), IsSelected());
+				RenderBounds(Collector.GetPDI(ViewIndex), ViewFamily.EngineShowFlags, GetBounds(), IsSelected());
+			}
+		}
 #endif
+	}
+
+	void RenderCollision(UBodySetup* InBodySetup, FMeshElementCollector& Collector, int32 ViewIndex, const FEngineShowFlags& EngineShowFlags, const FBoxSphereBounds& Bounds, bool bRenderInEditor) const
+	{
+		if ( InBodySetup )
+		{
+			bool bDrawCollision = EngineShowFlags.Collision && IsCollisionEnabled();
+
+			if ( bDrawCollision && AllowDebugViewmodes() )
+			{
+				// Draw simple collision as wireframe if 'show collision', collision is enabled, and we are not using the complex as the simple
+				const bool bDrawSimpleWireframeCollision = InBodySetup->CollisionTraceFlag != ECollisionTraceFlag::CTF_UseComplexAsSimple;
+
+				if ( FMath::Abs(GetLocalToWorld().Determinant()) < SMALL_NUMBER )
+				{
+					// Catch this here or otherwise GeomTransform below will assert
+					// This spams so commented out
+					//UE_LOG(LogStaticMesh, Log, TEXT("Zero scaling not supported (%s)"), *StaticMesh->GetPathName());
+				}
+				else
+				{
+					const bool bDrawSolid = !bDrawSimpleWireframeCollision;
+					const bool bProxyIsSelected = IsSelected();
+
+					if ( bDrawSolid )
+					{
+						// Make a material for drawing solid collision stuff
+						auto SolidMaterialInstance = new FColoredMaterialRenderProxy(
+							GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(IsSelected(), IsHovered()),
+							WireframeColor
+							);
+
+						Collector.RegisterOneFrameMaterialProxy(SolidMaterialInstance);
+
+						FTransform GeomTransform(GetLocalToWorld());
+						InBodySetup->AggGeom.GetAggGeom(GeomTransform, WireframeColor.ToFColor(true), SolidMaterialInstance, false, true, UseEditorDepthTest(), ViewIndex, Collector);
+					}
+					// wireframe
+					else
+					{
+						FColor CollisionColor = FColor(157, 149, 223, 255);
+						FTransform GeomTransform(GetLocalToWorld());
+						InBodySetup->AggGeom.GetAggGeom(GeomTransform, GetSelectionColor(CollisionColor, bProxyIsSelected, IsHovered()).ToFColor(true), nullptr, false, false, UseEditorDepthTest(), ViewIndex, Collector);
+					}
+				}
+			}
+		}
 	}
 
 	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override
@@ -191,7 +245,7 @@ public:
 
 		FPrimitiveViewRelevance Result;
 		Result.bDrawRelevance = IsShown(View) && bVisible;
-		Result.bOpaqueRelevance = BlendMode == EWidgetBlendMode::Opaque;
+		Result.bOpaqueRelevance = ( BlendMode == EWidgetBlendMode::Opaque || BlendMode == EWidgetBlendMode::Masked );
 		Result.bMaskedRelevance = BlendMode == EWidgetBlendMode::Masked;
 		// ideally the TranslucencyRelevance should be filled out by the material, here we do it conservative
 		Result.bSeparateTranslucencyRelevance = Result.bSeparateTranslucencyRelevance = (BlendMode == EWidgetBlendMode::Transparent);
@@ -454,7 +508,6 @@ FBoxSphereBounds UWidgetComponent::CalcBounds(const FTransform & LocalToWorld) c
 {
 	if ( Space != EWidgetSpace::Screen )
 	{
-
 		if( bUseLegacyRotation )
 		{
 			const FVector Origin = FVector(
@@ -467,8 +520,8 @@ FBoxSphereBounds UWidgetComponent::CalcBounds(const FTransform & LocalToWorld) c
 		else
 		{
 			const FVector Origin = FVector(.5f,
-			( DrawSize.X * 0.5f ) - ( DrawSize.X * Pivot.X ),
-			( DrawSize.Y * 0.5f ) - ( DrawSize.Y * Pivot.Y ));
+			-( DrawSize.X * 0.5f ) + ( DrawSize.X * Pivot.X ),
+			-( DrawSize.Y * 0.5f ) + ( DrawSize.Y * Pivot.Y ));
 
 			const FVector BoxExtent = FVector(1.f, DrawSize.X / 2.0f, DrawSize.Y / 2.0f);
 
@@ -552,8 +605,6 @@ void UWidgetComponent::OnRegister()
 			}
 		}
 
-		InitWidget();
-
 		if ( Space != EWidgetSpace::Screen )
 		{
 			if ( !WidgetRenderer.IsValid() && !GUsingNullRHI )
@@ -561,6 +612,10 @@ void UWidgetComponent::OnRegister()
 				WidgetRenderer = MakeShareable(new FWidgetRenderer());
 			}
 		}
+
+		BodySetup = nullptr;
+
+		InitWidget();
 	}
 #endif // !UE_SERVER
 }
@@ -620,126 +675,137 @@ void UWidgetComponent::ReleaseResources()
 
 void UWidgetComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
 #if !UE_SERVER
-
-	static const int32 LayerZOrder = -100;
-
-	UpdateWidget();
-
-	if ( Widget == nullptr )
+	if (!IsRunningDedicatedServer())
 	{
-		return;
-	}
+		static const int32 LayerZOrder = -100;
 
-	if ( Space != EWidgetSpace::Screen )
-	{
-		if ( GUsingNullRHI )
+		UpdateWidget();
+
+		if ( Widget == nullptr )
 		{
 			return;
 		}
 
-		if ( !SlateWidget.IsValid() )
+		if ( Space != EWidgetSpace::Screen )
 		{
-			return;
-		}
-
-		if ( DrawSize.X == 0 || DrawSize.Y == 0 )
-		{
-			return;
-		}
-
-		const float RenderTimeThreshold = .5f;
-		if ( IsVisible() )
-		{
-			// If we don't tick when off-screen, don't bother ticking if it hasn't been rendered recently
-			if ( TickWhenOffscreen || GetWorld()->TimeSince(LastRenderTime) <= RenderTimeThreshold )
+			const float RenderTimeThreshold = .5f;
+			if ( IsVisible() )
 			{
-				UpdateRenderTarget();
-				
-				const float DrawScale = 1.0f;
-
-				WidgetRenderer->DrawWindow(
-					RenderTarget,
-					HitTestGrid.ToSharedRef(),
-					SlateWidget.ToSharedRef(),
-					DrawScale,
-					DrawSize,
-					DeltaTime);
+				// If we don't tick when off-screen, don't bother ticking if it hasn't been rendered recently
+				if ( TickWhenOffscreen || GetWorld()->TimeSince(LastRenderTime) <= RenderTimeThreshold )
+				{
+					DrawWidgetToRenderTarget(DeltaTime);
+				}
 			}
 		}
-	}
-	else
-	{
-		if ( Widget && !Widget->IsDesignTime() )
+		else
 		{
-			UWorld* ThisWorld = GetWorld();
-
-			ULocalPlayer* TargetPlayer = GetOwnerPlayer();
-			APlayerController* PlayerController = TargetPlayer ? TargetPlayer->PlayerController : nullptr;
-
-			if ( TargetPlayer && PlayerController && IsVisible() )
+			if ( Widget && !Widget->IsDesignTime() )
 			{
-				if ( !bAddedToScreen )
+				UWorld* ThisWorld = GetWorld();
+
+				ULocalPlayer* TargetPlayer = GetOwnerPlayer();
+				APlayerController* PlayerController = TargetPlayer ? TargetPlayer->PlayerController : nullptr;
+
+				if ( TargetPlayer && PlayerController && IsVisible() )
 				{
-					if ( ThisWorld->IsGameWorld() )
+					if ( !bAddedToScreen )
 					{
-						if ( UGameViewportClient* ViewportClient = World->GetGameViewport() )
+						if ( ThisWorld->IsGameWorld() )
 						{
-							TSharedPtr<IGameLayerManager> LayerManager = ViewportClient->GetGameLayerManager();
-							if ( LayerManager.IsValid() )
+							if ( UGameViewportClient* ViewportClient = World->GetGameViewport() )
 							{
-								TSharedPtr<FWorldWidgetScreenLayer> ScreenLayer;
-
-								FLocalPlayerContext PlayerContext(TargetPlayer, GetWorld());
-
-								TSharedPtr<IGameLayer> Layer = LayerManager->FindLayerForPlayer(TargetPlayer, SharedLayerName);
-								if ( !Layer.IsValid() )
+								TSharedPtr<IGameLayerManager> LayerManager = ViewportClient->GetGameLayerManager();
+								if ( LayerManager.IsValid() )
 								{
-									TSharedRef<FWorldWidgetScreenLayer> NewScreenLayer = MakeShareable(new FWorldWidgetScreenLayer(PlayerContext));
-									LayerManager->AddLayerForPlayer(TargetPlayer, SharedLayerName, NewScreenLayer, LayerZOrder);
-									ScreenLayer = NewScreenLayer;
-								}
-								else
-								{
-									ScreenLayer = StaticCastSharedPtr<FWorldWidgetScreenLayer>(Layer);
-								}
+									TSharedPtr<FWorldWidgetScreenLayer> ScreenLayer;
+
+									FLocalPlayerContext PlayerContext(TargetPlayer, GetWorld());
+
+									TSharedPtr<IGameLayer> Layer = LayerManager->FindLayerForPlayer(TargetPlayer, SharedLayerName);
+									if ( !Layer.IsValid() )
+									{
+										TSharedRef<FWorldWidgetScreenLayer> NewScreenLayer = MakeShareable(new FWorldWidgetScreenLayer(PlayerContext));
+										LayerManager->AddLayerForPlayer(TargetPlayer, SharedLayerName, NewScreenLayer, LayerZOrder);
+										ScreenLayer = NewScreenLayer;
+									}
+									else
+									{
+										ScreenLayer = StaticCastSharedPtr<FWorldWidgetScreenLayer>(Layer);
+									}
 								
-								bAddedToScreen = true;
+									bAddedToScreen = true;
 								
-								Widget->SetPlayerContext(PlayerContext);
-								ScreenLayer->AddComponent(this);
+									Widget->SetPlayerContext(PlayerContext);
+									ScreenLayer->AddComponent(this);
+								}
 							}
 						}
 					}
 				}
-			}
-			else if ( bAddedToScreen )
-			{
-				RemoveWidgetFromScreen();
+				else if ( bAddedToScreen )
+				{
+					RemoveWidgetFromScreen();
+				}
 			}
 		}
 	}
-
 #endif // !UE_SERVER
+}
+
+void UWidgetComponent::DrawWidgetToRenderTarget(float DeltaTime)
+{
+	if ( GUsingNullRHI )
+	{
+		return;
+	}
+
+	if ( !SlateWidget.IsValid() )
+	{
+		return;
+	}
+
+	if ( DrawSize.X == 0 || DrawSize.Y == 0 )
+	{
+		return;
+	}
+	
+	UpdateRenderTarget();
+
+	const float DrawScale = 1.0f;
+
+	WidgetRenderer->DrawWindow(
+		RenderTarget,
+		HitTestGrid.ToSharedRef(),
+		SlateWidget.ToSharedRef(),
+		DrawScale,
+		DrawSize,
+		DeltaTime);
 }
 
 void UWidgetComponent::RemoveWidgetFromScreen()
 {
 #if !UE_SERVER
-	bAddedToScreen = false;
-
-	if ( UGameViewportClient* ViewportClient = World->GetGameViewport() )
+	if (!IsRunningDedicatedServer())
 	{
-		TSharedPtr<IGameLayerManager> LayerManager = ViewportClient->GetGameLayerManager();
-		if ( LayerManager.IsValid() )
-		{
-			ULocalPlayer* TargetPlayer = GetOwnerPlayer();
+		bAddedToScreen = false;
 
-			TSharedPtr<IGameLayer> Layer = LayerManager->FindLayerForPlayer(TargetPlayer, SharedLayerName);
-			if ( Layer.IsValid() )
+		if ( UGameViewportClient* ViewportClient = World->GetGameViewport() )
+		{
+			TSharedPtr<IGameLayerManager> LayerManager = ViewportClient->GetGameLayerManager();
+			if ( LayerManager.IsValid() )
 			{
-				TSharedPtr<FWorldWidgetScreenLayer> ScreenLayer = StaticCastSharedPtr<FWorldWidgetScreenLayer>(Layer);
-				ScreenLayer->RemoveComponent(this);
+				ULocalPlayer* TargetPlayer = GetOwnerPlayer();
+
+				TSharedPtr<IGameLayer> Layer = LayerManager->FindLayerForPlayer(TargetPlayer, SharedLayerName);
+				if ( Layer.IsValid() )
+				{
+					TSharedPtr<FWorldWidgetScreenLayer> ScreenLayer = StaticCastSharedPtr<FWorldWidgetScreenLayer>(Layer);
+					ScreenLayer->RemoveComponent(this);
+				}
 			}
 		}
 	}
@@ -817,15 +883,14 @@ void UWidgetComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyCha
 
 		auto PropertyName = Property->GetFName();
 
-		if( PropertyName == DrawSizeName || PropertyName == WidgetClassName )
+		if( PropertyName == WidgetClassName )
 		{
 			UpdateWidget();
-
-			if ( PropertyName == DrawSizeName || PropertyName == PivotName )
-			{
-				UpdateBodySetup(true);
-			}
-
+			MarkRenderStateDirty();
+		}
+		else if ( PropertyName == DrawSizeName || PropertyName == PivotName )
+		{
+			UpdateBodySetup(true);
 			MarkRenderStateDirty();
 		}
 		else if ( PropertyName == IsOpaqueName || PropertyName == IsTwoSidedName )
@@ -898,6 +963,12 @@ void UWidgetComponent::UpdateWidget()
 	{
 		if ( Space != EWidgetSpace::Screen )
 		{
+			TSharedPtr<SWidget> NewWidget;
+			if (Widget)
+			{
+				NewWidget = Widget->TakeWidget();
+			}
+
 			if ( !SlateWidget.IsValid() )
 			{
 				SlateWidget = SNew(SVirtualWindow).Size(DrawSize);
@@ -910,9 +981,9 @@ void UWidgetComponent::UpdateWidget()
 
 			SlateWidget->Resize(DrawSize);
 
-			if ( Widget )
+			if (NewWidget.IsValid())
 			{
-				SlateWidget->SetContent(Widget->TakeWidget());
+				SlateWidget->SetContent(NewWidget.ToSharedRef());
 			}
 			else
 			{
@@ -959,6 +1030,7 @@ void UWidgetComponent::UpdateRenderTarget()
 			if ( RenderTarget->SizeX != DrawSize.X || RenderTarget->SizeY != DrawSize.Y )
 			{
 				RenderTarget->InitCustomFormat(DrawSize.X, DrawSize.Y, PF_B8G8R8A8, false);
+				RenderTarget->UpdateResourceImmediate(false);
 				bRenderStateDirty = true;
 			}
 
@@ -967,6 +1039,11 @@ void UWidgetComponent::UpdateRenderTarget()
 			{
 				RenderTarget->ClearColor = ActualBackgroundColor;
 				bClearColorChanged = bRenderStateDirty = true;
+			}
+
+			if ( bRenderStateDirty )
+			{
+				RenderTarget->UpdateResource();
 			}
 		}
 	}
@@ -1002,7 +1079,7 @@ void UWidgetComponent::UpdateBodySetup( bool bDrawSizeChanged )
 		// We do not have a bodysetup in screen space
 		BodySetup = nullptr;
 	}
-	else if( !BodySetup || bDrawSizeChanged )
+	else if ( !BodySetup || bDrawSizeChanged )
 	{
 		BodySetup = NewObject<UBodySetup>(this);
 		BodySetup->CollisionTraceFlag = CTF_UseSimpleAsComplex;
@@ -1014,10 +1091,9 @@ void UWidgetComponent::UpdateBodySetup( bool bDrawSizeChanged )
 		if( bUseLegacyRotation )
 		{
 			Origin = FVector(
-				(DrawSize.X * 0.5f) - ( DrawSize.X * Pivot.X ),
-				(DrawSize.Y * 0.5f) - ( DrawSize.Y * Pivot.Y ), .5f);
+				( DrawSize.X * 0.5f ) - ( DrawSize.X * Pivot.X ),
+				( DrawSize.Y * 0.5f ) - ( DrawSize.Y * Pivot.Y ), .5f);
 
-					
 			BoxElem->X = DrawSize.X;
 			BoxElem->Y = DrawSize.Y;
 			BoxElem->Z = 1.0f;
@@ -1025,9 +1101,9 @@ void UWidgetComponent::UpdateBodySetup( bool bDrawSizeChanged )
 		else
 		{
 			Origin = FVector(.5f,
-				(DrawSize.X * 0.5f) - ( DrawSize.X * Pivot.X ),
-				(DrawSize.Y * 0.5f) - ( DrawSize.Y * Pivot.Y ) );
-					
+				-( DrawSize.X * 0.5f ) + ( DrawSize.X * Pivot.X ),
+				-( DrawSize.Y * 0.5f ) + ( DrawSize.Y * Pivot.Y ));
+			
 			BoxElem->X = 1.0f;
 			BoxElem->Y = DrawSize.X;
 			BoxElem->Z = DrawSize.Y;
@@ -1035,7 +1111,7 @@ void UWidgetComponent::UpdateBodySetup( bool bDrawSizeChanged )
 
 		BoxElem->SetTransform(FTransform::Identity);
 		BoxElem->Center = Origin;
-	}	
+	}
 }
 
 void UWidgetComponent::GetLocalHitLocation(FVector WorldHitLocation, FVector2D& OutLocalWidgetHitLocation) const

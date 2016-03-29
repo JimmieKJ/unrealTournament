@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "EngineVersion.h"
@@ -42,7 +42,7 @@ void* FWindowsPlatformProcess::GetDllHandle( const TCHAR* Filename )
 {
 	check(Filename);
 
-	// In order to load the DLL and resolve its imports correctly, we update the PATH environment variable before the load, and restore it when we're done.
+	// In order to load the DLL and resolve its imports correctly, we update the PATH environment variable before the load, and restore it when we're done. 
 	TArray<TCHAR> InitialPathVariable;
 	InitialPathVariable.AddUninitialized(::GetEnvironmentVariable(TEXT("PATH"), NULL, 0));
 	if (::GetEnvironmentVariable(TEXT("PATH"), InitialPathVariable.GetData(), InitialPathVariable.Num()) == 0)
@@ -216,7 +216,12 @@ static void LaunchWebURL( const FString& URLParams, FString* Error )
 		// If anything failed to parse right, don't continue down this path, just use shell execute.
 		if (!ExePath.IsEmpty())
 		{
-			ExeArgs = ExeArgs.Replace(TEXT("%1"), *URLParams);
+			if (ExeArgs.ReplaceInline(TEXT("%1"), *URLParams) == 0)
+			{
+				// If we fail to detect the placement token we append the URL to the arguments.
+				// This is for robustness, and to fix a known error case when using Internet Explorer 8. 
+				ExeArgs.Append(TEXT(" \"") + URLParams + TEXT("\""));
+			}
 
 			// Now that we have the shell open command to use, run the shell command in the open process with any and all parameters.
 			if (FPlatformProcess::CreateProc(*ExePath, *ExeArgs, true, false, false, NULL, 0, NULL, NULL).IsValid())
@@ -280,7 +285,7 @@ void FWindowsPlatformProcess::LaunchURL( const TCHAR* URL, const TCHAR* Parms, F
 
 }
 
-FProcHandle FWindowsPlatformProcess::CreateProc( const TCHAR* URL, const TCHAR* Parms, bool bLaunchDetached, bool bLaunchHidden, bool bLaunchReallyHidden, uint32* OutProcessID, int32 PriorityModifier, const TCHAR* OptionalWorkingDirectory, void* PipeWrite )
+FProcHandle FWindowsPlatformProcess::CreateProc( const TCHAR* URL, const TCHAR* Parms, bool bLaunchDetached, bool bLaunchHidden, bool bLaunchReallyHidden, uint32* OutProcessID, int32 PriorityModifier, const TCHAR* OptionalWorkingDirectory, void* PipeWriteChild, void * PipeReadChild)
 {
 	//UE_LOG(LogWindows, Log,  TEXT("CreateProc %s %s"), URL, Parms );
 
@@ -319,7 +324,7 @@ FProcHandle FWindowsPlatformProcess::CreateProc( const TCHAR* URL, const TCHAR* 
 		ShowWindowFlags = SW_SHOWMINNOACTIVE;
 	}
 
-	if (PipeWrite != nullptr)
+	if (PipeWriteChild != nullptr || PipeReadChild != nullptr)
 	{
 		dwFlags |= STARTF_USESTDHANDLES;
 	}
@@ -336,9 +341,9 @@ FProcHandle FWindowsPlatformProcess::CreateProc( const TCHAR* URL, const TCHAR* 
 		(::DWORD)dwFlags,
 		ShowWindowFlags,
 		0, NULL,
-		::GetStdHandle(ProcessConstants::WIN_STD_INPUT_HANDLE),
-		HANDLE(PipeWrite),
-		HANDLE(PipeWrite)
+		HANDLE(PipeReadChild),
+		HANDLE(PipeWriteChild),
+		HANDLE(PipeWriteChild)
 	};
 
 	// create the child process
@@ -1151,20 +1156,22 @@ bool FWindowsPlatformProcess::WritePipe(void* WritePipe, const FString& Message,
 
 	// Convert input to UTF8CHAR
 	uint32 BytesAvailable = Message.Len();
-	UTF8CHAR* Buffer = new UTF8CHAR[BytesAvailable + 1];
-
-	if (!FString::ToBlob(Message, Buffer, BytesAvailable))
+	UTF8CHAR * Buffer = new UTF8CHAR[BytesAvailable + 1];
+	for (uint32 i = 0; i < BytesAvailable; i++)
 	{
-		return false;
+		Buffer[i] = Message[i];
 	}
+	Buffer[BytesAvailable] = '\n';
 
 	// Write to pipe
 	uint32 BytesWritten = 0;
 	bool bIsWritten = !!WriteFile(WritePipe, Buffer, BytesAvailable, (::DWORD*)&BytesWritten, nullptr);
 
+	// Get written message
 	if (OutWritten)
 	{
-		OutWritten->FromBlob(Buffer, BytesWritten);
+		Buffer[BytesWritten] = '\0';
+		*OutWritten = FUTF8ToTCHAR((const ANSICHAR*)Buffer).Get();
 	}
 
 	return bIsWritten;

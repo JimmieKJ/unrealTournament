@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -79,7 +79,8 @@ class SLATECORE_API SWindow
 public:
 
 	SLATE_BEGIN_ARGS( SWindow )
-		: _Style( &FCoreStyle::Get().GetWidgetStyle<FWindowStyle>("Window") )
+		: _Type( EWindowType::Normal )
+		, _Style( &FCoreStyle::Get().GetWidgetStyle<FWindowStyle>("Window") )
 		, _Title()
 		, _bDragAnywhere( false )
 		, _AutoCenter( EAutoCenter::PreferredWorkArea )
@@ -88,8 +89,10 @@ public:
 		, _SupportsTransparency( EWindowTransparency::None )
 		, _InitialOpacity( 1.0f )
 		, _IsInitiallyMaximized( false )
+		, _IsInitiallyMinimized(false)
 		, _SizingRule( ESizingRule::UserSized )
 		, _IsPopupWindow( false )
+		, _IsTopmostWindow( false )
 		, _FocusWhenFirstShown( true )
 		, _ActivateWhenFirstShown( true )
 		, _UseOSWindowBorder( false )
@@ -101,6 +104,9 @@ public:
 		, _LayoutBorder(FMargin(5, 5, 5, 5))
 		, _UserResizeBorder(FMargin(5, 5, 5, 5))
 	{ }
+
+		/** Type of this window */
+		SLATE_ARGUMENT( EWindowType, Type )
 
 		/** Style used to draw this window */
 		SLATE_STYLE_ARGUMENT( FWindowStyle, Style )
@@ -130,11 +136,17 @@ public:
 		/** Is the window initially maximized */
 		SLATE_ARGUMENT( bool, IsInitiallyMaximized )
 		
+		/** Is the window initially minimized */
+		SLATE_ARGUMENT(bool, IsInitiallyMinimized)
+
 		/** How the window should be sized */
 		SLATE_ARGUMENT( ESizingRule::Type, SizingRule )
 
 		/** True if this should be a 'pop-up' window */
 		SLATE_ARGUMENT( bool, IsPopupWindow )
+
+		/** True if this window should always be on top of all other windows */
+		SLATE_ARGUMENT(bool, IsTopmostWindow)
 
 		/** Should this window be focused immediately after it is shown? */
 		SLATE_ARGUMENT( bool, FocusWhenFirstShown )
@@ -220,6 +232,16 @@ public:
 	 *
 	 * @return The size of the window necessary to accommodate the given content */
 	static FVector2D ComputeWindowSizeForContent( FVector2D ContentSize );
+
+	/**
+	 * Grabs the window type
+	 *
+	 * @return The window's type
+	 */
+	EWindowType GetType() const
+	{
+		return Type;
+	}
 
 	/**
 	 * Grabs the current window title
@@ -498,6 +520,9 @@ public:
 	/** Maximize the window if bInitiallyMaximized is set */
 	void InitialMaximize();
 
+	/** Maximize the window if bInitiallyMinimized is set */
+	void InitialMinimize();
+
 	/**
 	 * Sets the opacity of this window
 	 *
@@ -752,6 +777,9 @@ protected:
 
 protected:
 
+	/** Type of the window */
+	EWindowType Type;
+
 	/** Title of the window, displayed in the title bar as well as potentially in the task bar (Windows platform) */
 	TAttribute<FText> Title;
 
@@ -776,9 +804,6 @@ protected:
 	/** True if this is a pop up window */
 	bool bIsPopupWindow : 1;
 
-	/** True if this is a tool tip window */
-	bool bIsToolTipWindow : 1;
-
 	/** True if this is a topmost window */
 	bool bIsTopmostWindow : 1;
 
@@ -787,11 +812,11 @@ protected:
 		other platform-specific side effects */
 	bool bSizeWillChangeOften : 1;
 
-	/** Whether this window is used to draw content next to the cursor; usually for drag and drop purposes. */
-	bool bIsCursorDecoratorWindow : 1;
-
 	/** true if this window is maximized when its created */
 	bool bInitiallyMaximized : 1;
+
+	/** true if this window is minimized when its created */
+	bool bInitiallyMinimized : 1;
 
 	/** True if this window has been shown yet */
 	bool bHasEverBeenShown : 1;

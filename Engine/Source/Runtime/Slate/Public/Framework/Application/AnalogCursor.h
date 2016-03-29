@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -48,7 +48,7 @@ public:
 protected:
 
 	/** Getter */
-	FORCEINLINE FVector2D GetAnalogValues( EAnalogStick Stick = EAnalogStick::Left ) const
+	FORCEINLINE const FVector2D& GetAnalogValues( EAnalogStick Stick = EAnalogStick::Left ) const
 	{
 		return AnalogValues[ static_cast< uint8 >( Stick ) ];
 	}

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -22,6 +22,21 @@ enum EInputEvent
 	IE_DoubleClick          =3,
 	IE_Axis                 =4,
 	IE_MAX                  =5,
+};
+
+UENUM()
+enum class EMouseCaptureMode : uint8
+{
+	/** Do not capture the mouse at all */
+	NoCapture,
+	/** Capture the mouse permanently when the viewport is clicked, and consume the initial mouse down that caused the capture so it isn't processed by player input */
+	CapturePermanently,
+	/** Capture the mouse permanently when the viewport is clicked, and allow player input to process the mouse down that caused the capture */
+	CapturePermanently_IncludingInitialMouseDown,
+	/** Capture the mouse during a mouse down, releases on mouse up */
+	CaptureDuringMouseDown,
+	/** Capture only when the right mouse button is down, not any of the other mouse buttons */
+	CaptureDuringRightMouseDown,
 };
 
 /** Type of tick we wish to perform on the level */
@@ -421,6 +436,8 @@ struct FActorComponentTickFunction : public FTickFunction
 
 	/**
 	 * Conditionally calls ExecuteTickFunc if bRegistered == true and a bunch of other criteria are met
+	 * @param Target - the actor component we are ticking
+	 * @param bTickInEditor - whether the target wants to tick in the editor
 	 * @param DeltaTime - The time since the last tick.
 	 * @param TickType - Type of tick that we are running
 	 * @param ExecuteTickFunc - the lambda that ultimately calls tick on the actor component
@@ -429,7 +446,7 @@ struct FActorComponentTickFunction : public FTickFunction
 	//NOTE: This already creates a UObject stat so don't double count in your own functions
 
 	template <typename ExecuteTickLambda>
-	static void ExecuteTickHelper(UActorComponent* Target, float DeltaTime, ELevelTick TickType, const ExecuteTickLambda& ExecuteTickFunc);	
+	static void ExecuteTickHelper(UActorComponent* Target, bool bTickInEditor, float DeltaTime, ELevelTick TickType, const ExecuteTickLambda& ExecuteTickFunc);	
 };
 
 
@@ -529,6 +546,34 @@ namespace ENetworkFailure
 			return TEXT("PendingConnectionFailure");
 		}
 		return TEXT("Unknown ENetworkFailure error occurred.");
+	}
+}
+
+UENUM()
+namespace ENetworkLagState
+{
+	enum Type
+	{
+		/** The net driver is operating normally or it is not possible to tell if it is lagging */
+		NotLagging,
+		/** The net driver is in the process of timing out all of the client connections */
+		Lagging
+	};
+}
+
+
+namespace ENetworkLagState
+{
+	inline const TCHAR* ToString(ENetworkLagState::Type LagType)
+	{
+		switch (LagType)
+		{
+			case NotLagging:
+				return TEXT("NotLagging");
+			case Lagging:
+				return TEXT("Lagging");
+		}
+		return TEXT("Unknown lag type occurred.");
 	}
 }
 
@@ -844,7 +889,19 @@ enum EViewModeIndex
 	/** Colored according to the current LOD index. */
 	VMI_LODColoration = 18,
 	/** Colored according to the quad coverage. */
-	VMI_QuadComplexity = 19,
+	VMI_QuadOverdraw = 19,
+	/** Colored according to the accuracy of the texture streamer wanted mips computation. */
+	VMI_WantedMipsAccuracy = 20,
+	/** Colored according to the texel factor accuracy. */
+	VMI_TexelFactorAccuracy = 21,
+	/** Colored according to shader complexity, including quad overdraw. */
+	VMI_ShaderComplexityWithQuadOverdraw = 22,
+	/** Colored according to the current HLOD index. */
+	VMI_HLODColoration = 23,
+	/** Group item for LOD and HLOD coloration*/
+	VMI_GroupLODColoration = 24,
+	/** Colored according to how accuracte the texcoord scales computed by the texture streamer are. */
+	VMI_TexCoordScaleAccuracy = 25,
 
 	VMI_Max UMETA(Hidden),
 

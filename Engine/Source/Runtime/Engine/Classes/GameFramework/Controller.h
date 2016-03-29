@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "AI/Navigation/NavAgentInterface.h"
@@ -91,6 +91,10 @@ protected:
 	 */
 	UPROPERTY(EditDefaultsOnly, AdvancedDisplay, Category="Controller|Transform")
 	uint32 bAttachToPawn:1;
+
+	/** Whether this controller is a player controller. */
+	UPROPERTY()
+	uint32 bIsPlayerController:1;
 
 	/**
 	  * Physically attach the Controller to the specified Pawn, so that our position reflects theirs.
@@ -209,7 +213,10 @@ public:
 
 	/** returns whether this Controller is a locally controlled PlayerController.  */
 	UFUNCTION(BlueprintCallable, Category="Pawn")
-	virtual bool IsLocalPlayerController() const;
+	bool IsLocalPlayerController() const
+	{
+		return bIsPlayerController && IsLocalController();
+	}
 
 	/** Returns whether this Controller is a local controller.	 */
 	UFUNCTION(BlueprintCallable, Category="Pawn")

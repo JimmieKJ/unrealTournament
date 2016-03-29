@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "AutomationEditorPromotionCommon.h"
@@ -265,8 +265,10 @@ void FEditorPromotionTestUtilities::TakeScreenshot(const FString& ScreenshotName
 
 			TArray<FColor> OutImageData;
 			FIntVector OutImageSize;
-			FSlateApplication::Get().TakeScreenshot(WindowRef, OutImageData, OutImageSize);
-			FAutomationTestFramework::GetInstance().OnScreenshotCaptured().ExecuteIfBound(OutImageSize.X, OutImageSize.Y, OutImageData, ScreenshotFileName);
+			if (FSlateApplication::Get().TakeScreenshot(WindowRef, OutImageData, OutImageSize))
+			{
+				FAutomationTestFramework::GetInstance().OnScreenshotCaptured().ExecuteIfBound(OutImageSize.X, OutImageSize.Y, OutImageData, ScreenshotFileName);
+			}
 		}
 		else
 		{

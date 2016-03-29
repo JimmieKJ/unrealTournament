@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -44,7 +44,7 @@ public:
 protected:
 	virtual FHitResult PerformTrace(AActor* InSourceActor) PURE_VIRTUAL(AGameplayAbilityTargetActor_Trace, return FHitResult(););
 
-	FGameplayAbilityTargetDataHandle MakeTargetData(FHitResult HitResult) const;
+	FGameplayAbilityTargetDataHandle MakeTargetData(const FHitResult& HitResult) const;
 
 	TWeakObjectPtr<AGameplayAbilityWorldReticle> ReticleActor;
 };

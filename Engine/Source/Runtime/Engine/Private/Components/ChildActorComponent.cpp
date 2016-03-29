@@ -1,7 +1,6 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
-#include "ComponentInstanceDataCache.h"
 #include "Components/ChildActorComponent.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogChildActorComponent, Warning, All);
@@ -25,11 +24,16 @@ void UChildActorComponent::OnRegister()
 		else
 		{
 			ChildActorName = ChildActor->GetFName();
-			// attach new actor to this component
-			// we can't attach in CreateChildActor since it has intermediate Mobility set up
-			// causing spam with inconsistent mobility set up
-			// so moving Attach to happen in Register
-			ChildActor->AttachRootComponentTo(this, NAME_None, EAttachLocation::SnapToTargetIncludingScale);
+			
+			USceneComponent* ChildRoot = ChildActor->GetRootComponent();
+			if (ChildRoot && ChildRoot->GetAttachParent() != this)
+			{
+				// attach new actor to this component
+				// we can't attach in CreateChildActor since it has intermediate Mobility set up
+				// causing spam with inconsistent mobility set up
+				// so moving Attach to happen in Register
+				ChildRoot->AttachTo(this, NAME_None, EAttachLocation::SnapToTarget);
+			}
 		}
 	}
 	else if (ChildActorClass)
@@ -86,61 +90,80 @@ void UChildActorComponent::OnComponentCreated()
 	CreateChildActor();
 }
 
-void UChildActorComponent::OnComponentDestroyed()
+void UChildActorComponent::OnComponentDestroyed(bool bDestroyingHierarchy)
 {
-	Super::OnComponentDestroyed();
+	Super::OnComponentDestroyed(bDestroyingHierarchy);
 
-	DestroyChildActor(GetWorld() && !GetWorld()->IsGameWorld());
+	const UWorld* const MyWorld = GetWorld();
+	DestroyChildActor(MyWorld && !MyWorld->IsGameWorld());
 }
 
-class FChildActorComponentInstanceData : public FSceneComponentInstanceData
+void UChildActorComponent::OnUnregister()
 {
-public:
-	FChildActorComponentInstanceData(const UChildActorComponent* Component)
-		: FSceneComponentInstanceData(Component)
-		, ChildActorName(Component->ChildActorName)
+	Super::OnUnregister();
+
+	const UWorld* const MyWorld = GetWorld();
+	DestroyChildActor(MyWorld && !MyWorld->IsGameWorld());
+}
+
+FChildActorComponentInstanceData::FChildActorComponentInstanceData(const UChildActorComponent* Component)
+	: FSceneComponentInstanceData(Component)
+	, ChildActorName(Component->ChildActorName)
+	, ComponentInstanceData(nullptr)
+{
+	if (Component->ChildActor)
 	{
-		if (Component->ChildActor)
+		ComponentInstanceData = new FComponentInstanceDataCache(Component->ChildActor);
+		// If it is empty dump it
+		if (!ComponentInstanceData->HasInstanceData())
 		{
-			USceneComponent* ChildRootComponent = Component->ChildActor->GetRootComponent();
-			if (ChildRootComponent)
+			delete ComponentInstanceData;
+			ComponentInstanceData = nullptr;
+		}
+
+		USceneComponent* ChildRootComponent = Component->ChildActor->GetRootComponent();
+		if (ChildRootComponent)
+		{
+			for (USceneComponent* AttachedComponent : ChildRootComponent->AttachChildren)
 			{
-				for (USceneComponent* AttachedComponent : ChildRootComponent->AttachChildren)
+				if (AttachedComponent)
 				{
-					if (AttachedComponent)
+					AActor* AttachedActor = AttachedComponent->GetOwner();
+					if (AttachedActor != Component->ChildActor)
 					{
-						AActor* AttachedActor = AttachedComponent->GetOwner();
-						if (AttachedActor != Component->ChildActor)
-						{
-							FAttachedActorInfo Info;
-							Info.Actor = AttachedActor;
-							Info.SocketName = AttachedComponent->AttachSocketName;
-							Info.RelativeTransform = AttachedComponent->GetRelativeTransform();
-							AttachedActors.Add(Info);
-						}
+						FAttachedActorInfo Info;
+						Info.Actor = AttachedActor;
+						Info.SocketName = AttachedComponent->AttachSocketName;
+						Info.RelativeTransform = AttachedComponent->GetRelativeTransform();
+						AttachedActors.Add(Info);
 					}
 				}
 			}
 		}
 	}
+}
 
-	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
+FChildActorComponentInstanceData::~FChildActorComponentInstanceData()
+{
+	delete ComponentInstanceData;
+}
+
+void FChildActorComponentInstanceData::ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase)
+{
+	FSceneComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
+	CastChecked<UChildActorComponent>(Component)->ApplyComponentInstanceData(this, CacheApplyPhase);
+}
+
+void UChildActorComponent::BeginDestroy()
+{
+	Super::BeginDestroy();
+
+	if (CachedInstanceData)
 	{
-		FSceneComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
-		CastChecked<UChildActorComponent>(Component)->ApplyComponentInstanceData(this);
+		delete CachedInstanceData;
+		CachedInstanceData = nullptr;
 	}
-
-	FName ChildActorName;
-
-	struct FAttachedActorInfo
-	{
-		TWeakObjectPtr<AActor> Actor;
-		FName SocketName;
-		FTransform RelativeTransform;
-	};
-
-	TArray<FAttachedActorInfo> AttachedActors;
-};
+}
 
 FActorComponentInstanceData* UChildActorComponent::GetComponentInstanceData() const
 {
@@ -159,7 +182,7 @@ FActorComponentInstanceData* UChildActorComponent::GetComponentInstanceData() co
 	return InstanceData;
 }
 
-void UChildActorComponent::ApplyComponentInstanceData(FChildActorComponentInstanceData* ChildActorInstanceData)
+void UChildActorComponent::ApplyComponentInstanceData(FChildActorComponentInstanceData* ChildActorInstanceData, const ECacheApplyPhase CacheApplyPhase)
 {
 	check(ChildActorInstanceData);
 
@@ -174,6 +197,11 @@ void UChildActorComponent::ApplyComponentInstanceData(FChildActorComponentInstan
 			{
 				ChildActor->Rename(*ChildActorNameString, nullptr, REN_DoNotDirty | (IsLoading() ? REN_ForceNoResetLoaders : REN_None));
 			}
+		}
+
+		if (ChildActorInstanceData->ComponentInstanceData)
+		{
+			ChildActorInstanceData->ComponentInstanceData->ApplyToActor(ChildActor, CacheApplyPhase);
 		}
 
 		USceneComponent* ChildActorRoot = ChildActor->GetRootComponent();
@@ -208,17 +236,34 @@ void UChildActorComponent::SetChildActorClass(TSubclassOf<AActor> Class)
 	}
 }
 
+struct FActorParentComponentSetter
+{
+private:
+	static void Set(AActor* ChildActor, UChildActorComponent* ParentComponent)
+	{
+		ChildActor->ParentComponent = ParentComponent;
+	}
+
+	friend UChildActorComponent;
+};
+
+#if WITH_EDITOR
+void UChildActorComponent::PostLoad()
+{
+	Super::PostLoad();
+
+	// For a period of time the parent component property on Actor was not a UPROPERTY so this value was not set
+	if (ChildActor)
+	{
+		FActorParentComponentSetter::Set(ChildActor, this);
+	}
+}
+#endif
+
 void UChildActorComponent::CreateChildActor()
 {
 	// Kill spawned actor if we have one
 	DestroyChildActor();
-
-	// This is no longer needed
-	if (CachedInstanceData)
-	{
-		delete CachedInstanceData;
-		CachedInstanceData = nullptr;
-	}
 
 	// If we have a class to spawn.
 	if(ChildActorClass != nullptr)
@@ -237,14 +282,21 @@ void UChildActorComponent::CreateChildActor()
 					bSpawn = false;
 					UE_LOG(LogChildActorComponent, Error, TEXT("Found cycle in child actor component '%s'.  Not spawning Actor of class '%s' to break."), *GetPathName(), *ChildActorClass->GetName());
 				}
-				Actor = Actor->ParentComponentActor.Get();
+				if (UChildActorComponent* ParentComponent = Actor->GetParentComponent())
+				{
+					Actor = ParentComponent->GetOwner();
+				}
+				else
+				{
+					Actor = nullptr;
+				}
 			}
 
 			if (bSpawn)
 			{
 				FActorSpawnParameters Params;
 				Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-				Params.bDeferConstruction = true; // We defer construction so that we set ParentComponentActor prior to component registration so they appear selected
+				Params.bDeferConstruction = true; // We defer construction so that we set ParentComponent prior to component registration so they appear selected
 				Params.bAllowDuringConstructionScript = true;
 				Params.OverrideLevel = (MyOwner ? MyOwner->GetLevel() : nullptr);
 				Params.Name = ChildActorName;
@@ -263,26 +315,34 @@ void UChildActorComponent::CreateChildActor()
 				{
 					ChildActorName = ChildActor->GetFName();
 
-					// Remember which actor spawned it (for selection in editor etc)
-					ChildActor->ParentComponentActor = MyOwner;
+					// Remember which component spawned it (for selection in editor etc)
+					FActorParentComponentSetter::Set(ChildActor, this);
 
 					// Parts that we deferred from SpawnActor
-					ChildActor->FinishSpawning(ComponentToWorld);
+					const FComponentInstanceDataCache* ComponentInstanceData = (CachedInstanceData ? CachedInstanceData->ComponentInstanceData : nullptr);
+					ChildActor->FinishSpawning(ComponentToWorld, false, ComponentInstanceData);
 
-					ChildActor->AttachRootComponentTo(this, NAME_None, EAttachLocation::SnapToTargetIncludingScale);
+					ChildActor->AttachRootComponentTo(this, NAME_None, EAttachLocation::SnapToTarget);
 				}
 			}
 		}
+	}
+
+	// This is no longer needed
+	if (CachedInstanceData)
+	{
+		delete CachedInstanceData;
+		CachedInstanceData = nullptr;
 	}
 }
 
 void UChildActorComponent::DestroyChildActor(const bool bRequiresRename)
 {
 	// If we own an Actor, kill it now
-	if(ChildActor != nullptr && !GExitPurge)
+	if (ChildActor != nullptr && !GExitPurge)
 	{
 		// if still alive, destroy, otherwise just clear the pointer
-		if(!ChildActor->IsPendingKill())
+		if (!ChildActor->IsPendingKill())
 		{
 #if WITH_EDITOR
 			if (CachedInstanceData)
@@ -296,13 +356,14 @@ void UChildActorComponent::DestroyChildActor(const bool bRequiresRename)
 
 			UWorld* World = ChildActor->GetWorld();
 			// World may be nullptr during shutdown
-			if(World != nullptr)
+			if (World != nullptr)
 			{
 				UClass* ChildClass = ChildActor->GetClass();
 
 				// We would like to make certain that our name is not going to accidentally get taken from us while we're destroyed
 				// so we increment ClassUnique beyond our index to be certain of it.  This is ... a bit hacky.
-				ChildClass->ClassUnique = FMath::Max(ChildClass->ClassUnique, ChildActor->GetFName().GetNumber());
+				int32& ClassUnique = ChildActor->GetOutermost()->ClassUniqueNameIndexMap.FindOrAdd(ChildClass->GetFName());
+				ClassUnique = FMath::Max(ClassUnique, ChildActor->GetFName().GetNumber());
 
 				if (bRequiresRename)
 				{
@@ -313,7 +374,7 @@ void UChildActorComponent::DestroyChildActor(const bool bRequiresRename)
 				World->DestroyActor(ChildActor);
 			}
 		}
-
-		ChildActor = nullptr;
 	}
+
+	ChildActor = nullptr;
 }

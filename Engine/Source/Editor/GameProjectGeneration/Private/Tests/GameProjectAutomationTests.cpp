@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "../GameProjectGenerationPrivatePCH.h"
 
@@ -10,6 +10,8 @@
 #include "GameFramework/PlayerStart.h"
 #include "../TemplateCategory.h"
 #include "../TemplateItem.h"
+
+#if WITH_DEV_AUTOMATION_TESTS
 
 DEFINE_LOG_CATEGORY_STATIC(LogGameProjectGenerationTests, Log, All);
 
@@ -377,3 +379,5 @@ bool FCreateCPPTemplateProjectAutomationTests::RunTest(const FString& Parameters
 	return (OutMatchedProjectsDesk == OutCreatedProjectsDesk) && (OutMatchedProjectsMob == OutCreatedProjectsMob);
 
 }
+
+#endif //WITH_DEV_AUTOMATION_TESTS

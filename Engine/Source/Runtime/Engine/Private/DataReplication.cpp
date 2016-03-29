@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DataChannel.cpp: Unreal datachannel implementation.
@@ -155,7 +155,7 @@ bool FObjectReplicator::ValidateAgainstState( const UObject* ObjectState )
 		return false;
 	}
 
-	if ( RepLayout->DiffProperties( RepState, ObjectState, false ) )
+	if ( RepLayout->DiffProperties( &(RepState->RepNotifies), RepState->StaticBuffer.GetData(), ObjectState, false ) )
 	{
 		UE_LOG(LogRep, Warning, TEXT("ValidateAgainstState: Properties changed for %s"), *ObjectState->GetName());
 		return false;
@@ -196,7 +196,7 @@ void FObjectReplicator::InitWithObject( UObject* InObject, UNetConnection * InCo
 	RepLayout = Connection->Driver->GetObjectClassRepLayout( ObjectClass );
 
 	// Make a copy of the net properties
-	uint8* Source = bUseDefaultState ? (uint8*)GetObject()->GetClass()->GetDefaultObject() : (uint8*)InObject;
+	uint8* Source = bUseDefaultState ? (uint8*)GetObject()->GetArchetype() : (uint8*)InObject;
 
 	InitRecentProperties( Source );
 
@@ -533,7 +533,8 @@ bool FObjectReplicator::ReceivedBunch( FInBunch& Bunch, const FReplicationFlags&
 			{
 				bool bLocalHasUnmapped = false;
 				// We hijack a non custom delta property to signify we are using FRepLayout to read the entire property block
-				if ( !RepLayout->ReceiveProperties( ObjectClass, RepState, (void*)Object, Bunch, bLocalHasUnmapped ) )
+				const bool bShouldReceiveRepNotifies = Connection->Driver->ShouldReceiveRepNotifiesForObject( Object );
+				if ( !RepLayout->ReceiveProperties( ObjectClass, RepState, (void*)Object, Bunch, bLocalHasUnmapped, bShouldReceiveRepNotifies ) )
 				{
 					UE_LOG(LogRep, Error, TEXT("ReceiveProperties FAILED %s in %s"), *ReplicatedProp->GetName(), *Object->GetFullName());
 					return false;
@@ -704,13 +705,10 @@ bool FObjectReplicator::ReceivedBunch( FInBunch& Bunch, const FReplicationFlags&
 			}
 
 			// Destroy the parameters.
-			//warning: highly dependent on UObject::ProcessEvent freeing of parms!
-			for ( UProperty * Destruct=Function->DestructorLink; Destruct; Destruct=Destruct->DestructorLinkNext )
+			// warning: highly dependent on UObject::ProcessEvent freeing of parms!
+			for( TFieldIterator<UProperty> It(Function); It && (It->PropertyFlags & (CPF_Parm|CPF_ReturnParm))==CPF_Parm; ++It )
 			{
-				if( Destruct->IsInContainer(Function->ParmsSize) )
-				{
-					Destruct->DestroyValue_InContainer(Parms);
-				}
+				It->DestroyValue_InContainer(Parms);
 			}
 
 			Mark.Pop();
@@ -822,16 +820,21 @@ void FObjectReplicator::ReplicateCustomDeltaProperties( FOutBunch & Bunch, FRepl
 	const bool bIsOwner = RepFlags.bNetOwner ? true : false;
 	const bool bIsSimulated = RepFlags.bNetSimulated ? true : false;
 	const bool bIsPhysics = RepFlags.bRepPhysics ? true : false;
+	const bool bIsReplay = RepFlags.bReplay ? true : false;
 
 	ConditionMap[COND_None] = true;
 	ConditionMap[COND_InitialOnly] = bIsInitial;
 	ConditionMap[COND_OwnerOnly] = bIsOwner;
 	ConditionMap[COND_SkipOwner] = !bIsOwner;
 	ConditionMap[COND_SimulatedOnly] = bIsSimulated;
+	ConditionMap[COND_SimulatedOnlyNoReplay] = bIsSimulated && !bIsReplay;
 	ConditionMap[COND_AutonomousOnly] = !bIsSimulated;
 	ConditionMap[COND_SimulatedOrPhysics] = bIsSimulated || bIsPhysics;
+	ConditionMap[COND_SimulatedOrPhysicsNoReplay] = ( bIsSimulated || bIsPhysics ) && !bIsReplay;
 	ConditionMap[COND_InitialOrOwner] = bIsInitial || bIsOwner;
 	ConditionMap[COND_Custom] = true;
+	ConditionMap[COND_ReplayOrOwner] = bIsReplay || bIsOwner;
+	ConditionMap[COND_ReplayOnly] = bIsReplay;
 
 	// Replicate those properties.
 	for ( int32 i = 0; i < LifetimeCustomDeltaProperties.Num(); i++ )
@@ -1161,7 +1164,14 @@ void FObjectReplicator::CallRepNotifies(bool bSkipIfChannelHasQueuedBunches)
 		{
 			//UE_LOG(LogRep, Log,  TEXT("Calling Object->%s with %s"), *RepNotifies(RepNotifyIdx)->RepNotifyFunc.ToString(), *RepNotifies(RepNotifyIdx)->GetName()); 						
 			UProperty* RepProperty = RepNotifies[RepNotifyIdx];
-			UFunction* RepNotifyFunc = Object->FindFunctionChecked(RepProperty->RepNotifyFunc);
+			UFunction* RepNotifyFunc = Object->FindFunction(RepProperty->RepNotifyFunc);
+
+			if (RepNotifyFunc == nullptr)
+			{
+				UE_LOG(LogRep, Warning, TEXT("FObjectReplicator::CallRepNotifies: Can't find RepNotify function %s for property %s on object %s."),
+					*RepProperty->RepNotifyFunc.ToString(), *RepProperty->GetName(), *Object->GetName());
+				continue;
+			}
 
 			if (RepNotifyFunc->NumParms == 0)
 			{
@@ -1225,7 +1235,7 @@ void FObjectReplicator::UpdateUnmappedObjects( bool & bOutHasMoreUnmapped )
 
 	if ( Connection->State == USOCK_Closed )
 	{
-		UE_LOG(LogNet, Warning, TEXT("FObjectReplicator::UpdateUnmappedObjects: Connection->State == USOCK_Closed"));
+		UE_LOG(LogNet, Verbose, TEXT("FObjectReplicator::UpdateUnmappedObjects: Connection->State == USOCK_Closed"));
 		return;
 	}
 

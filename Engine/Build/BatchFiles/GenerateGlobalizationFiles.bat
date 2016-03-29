@@ -1,5 +1,5 @@
 @echo off 
-rem ## Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+rem ## Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 echo Generating globalization files...

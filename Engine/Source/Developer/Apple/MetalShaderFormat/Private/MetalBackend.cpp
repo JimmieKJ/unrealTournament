@@ -1,11 +1,12 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
-// .
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// 
 
 #include "MetalShaderFormat.h"
 #include "Core.h"
 #include "hlslcc.h"
 #include "hlslcc_private.h"
 #include "MetalBackend.h"
+#include "MetalUtils.h"
 #include "compiler.h"
 
 PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
@@ -1117,6 +1118,24 @@ protected:
 			expr->operands[1]->accept(this);
 			ralloc_asprintf_append(buffer, MetalExpressionTable[op][2]);
 		}
+		else if (op == ir_unop_lsb && numOps == 1)
+		{
+			ralloc_asprintf_append(buffer, "ctz(");
+			expr->operands[0]->accept(this);
+			ralloc_asprintf_append(buffer, ")");
+		}
+		else if (op == ir_unop_msb && numOps == 1)
+		{
+			ralloc_asprintf_append(buffer, "clz(");
+			expr->operands[0]->accept(this);
+			ralloc_asprintf_append(buffer, ")");
+		}
+		else if (op == ir_unop_bitcount && numOps == 1)
+		{
+			ralloc_asprintf_append(buffer, "popcount(");
+			expr->operands[0]->accept(this);
+			ralloc_asprintf_append(buffer, ")");
+		}
 		else if (numOps < 4)
 		{
 			ralloc_asprintf_append(buffer, MetalExpressionTable[op][0]);
@@ -1145,6 +1164,7 @@ protected:
 		case ir_tex:
 		case ir_txl:
 		case ir_txb:
+		case ir_txd:
 		{
 			ralloc_asprintf_append(buffer, tex->shadow_comparitor ? ".sample_compare(" : ".sample(");
 			auto* Texture = tex->sampler->variable_referenced();
@@ -1159,16 +1179,54 @@ protected:
 				// Need to split the coordinate
 				ralloc_asprintf_append(buffer, "(");
 				tex->coordinate->accept(this);
-				ralloc_asprintf_append(buffer, ").x%s, (uint)(", tex->sampler->type->sampler_dimensionality == GLSL_SAMPLER_DIM_2D ? "y" : "");
+				
+				char const* CoordSwizzle = "";
+				char const* IndexSwizzle = "y";
+				switch(tex->sampler->type->sampler_dimensionality)
+				{
+					case GLSL_SAMPLER_DIM_1D:
+					{
+						break;
+					}
+					case GLSL_SAMPLER_DIM_2D:
+					case GLSL_SAMPLER_DIM_RECT:
+					{
+						CoordSwizzle = "y";
+						IndexSwizzle = "z";
+						break;
+					}
+					case GLSL_SAMPLER_DIM_3D:
+					case GLSL_SAMPLER_DIM_CUBE:
+					{
+						CoordSwizzle = "yz";
+						IndexSwizzle = "w";
+						break;
+					}
+					case GLSL_SAMPLER_DIM_BUF:
+					case GLSL_SAMPLER_DIM_EXTERNAL:
+					default:
+					{
+						check(0);
+						break;
+					}
+				}
+				
+				ralloc_asprintf_append(buffer, ").x%s, (uint)(", CoordSwizzle);
 				tex->coordinate->accept(this);
-				ralloc_asprintf_append(buffer, ").%s", tex->sampler->type->sampler_dimensionality == GLSL_SAMPLER_DIM_2D ? "z" : "y");
+				ralloc_asprintf_append(buffer, ").%s", IndexSwizzle);
 			}
 			else
 			{
 				tex->coordinate->accept(this);
 			}
+			
+			if (tex->shadow_comparitor)
+			{
+				ralloc_asprintf_append(buffer, ", ");
+				tex->shadow_comparitor->accept(this);
+			}
 
-			if (tex->op == ir_txl && !tex->shadow_comparitor)
+			if (tex->op == ir_txl && (!tex->shadow_comparitor || !tex->lod_info.lod->is_zero()))
 			{
 				ralloc_asprintf_append(buffer, ", level(");
 				tex->lod_info.lod->accept(this);
@@ -1180,11 +1238,41 @@ protected:
 				tex->lod_info.lod->accept(this);
 				ralloc_asprintf_append(buffer, ")");
 			}
-
-			if (tex->shadow_comparitor)
+			else if (tex->op == ir_txd)
 			{
-				ralloc_asprintf_append(buffer, ", ");
-				tex->shadow_comparitor->accept(this);
+				char const* GradientType = "";
+				switch(tex->sampler->type->sampler_dimensionality)
+				{
+					case GLSL_SAMPLER_DIM_2D:
+					case GLSL_SAMPLER_DIM_RECT:
+					{
+						GradientType = "gradient2d";
+						break;
+					}
+					case GLSL_SAMPLER_DIM_3D:
+					{
+						GradientType = "gradient3d";
+						break;
+					}
+					case GLSL_SAMPLER_DIM_CUBE:
+					{
+						GradientType = "gradientcube";
+						break;
+					}
+					case GLSL_SAMPLER_DIM_1D:
+					case GLSL_SAMPLER_DIM_BUF:
+					case GLSL_SAMPLER_DIM_EXTERNAL:
+					default:
+					{
+						check(0);
+						break;
+					}
+				}
+				ralloc_asprintf_append(buffer, ", %s(", GradientType);
+				tex->lod_info.grad.dPdx->accept(this);
+				ralloc_asprintf_append(buffer, ",");
+				tex->lod_info.grad.dPdy->accept(this);
+				ralloc_asprintf_append(buffer, ")");
 			}
 
 			if (tex->offset)
@@ -1835,6 +1923,17 @@ protected:
 		{
 			ralloc_asprintf_append(buffer, "as_type<uint>(half2(");
 		}
+		else if (!strcmp(call->callee_name(), "unpackHalf2x16"))
+		{
+			if(call->return_deref && call->return_deref->type && call->return_deref->type->base_type == GLSL_TYPE_HALF)
+			{
+				ralloc_asprintf_append(buffer, "half2(as_type<half2>(");
+			}
+			else
+			{
+				ralloc_asprintf_append(buffer, "float2(as_type<half2>(");
+			}
+		}
 		else
 		{
 			ralloc_asprintf_append(buffer, "%s(", call->callee_name());
@@ -1851,10 +1950,10 @@ protected:
 			bPrintComma = true;
 		}
 		ralloc_asprintf_append(buffer, ")");
-
-		if (!strcmp(call->callee_name(), "packHalf2x16"))
+		
+		if (!strcmp(call->callee_name(), "packHalf2x16") || !strcmp(call->callee_name(), "unpackHalf2x16"))
 		{
-			ralloc_asprintf_append(buffer, ")");			
+			ralloc_asprintf_append(buffer, ")");
 		}
 	}
 

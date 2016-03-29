@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -16,6 +16,41 @@ namespace EPlaybackMode
 DECLARE_DELEGATE_RetVal(bool, FOnGetLooping)
 DECLARE_DELEGATE_RetVal(EPlaybackMode::Type, FOnGetPlaybackMode)
 DECLARE_DELEGATE_TwoParams(FOnTickPlayback, double /*InCurrentTime*/, float /*InDeltaTime*/)
+DECLARE_DELEGATE_RetVal(TSharedRef<SWidget>, FOnMakeTransportWidget)
+
+enum class ETransportControlWidgetType : int32
+{
+	BackwardEnd,
+	BackwardStep,
+	BackwardPlay,
+	Record,
+	ForwardPlay,
+	ForwardStep,
+	ForwardEnd,
+	Loop,
+	Custom
+};
+
+ENUM_RANGE_BY_COUNT(ETransportControlWidgetType, ETransportControlWidgetType::Custom);
+
+/** Descriptor for a transport control widget */
+struct FTransportControlWidget
+{
+	FTransportControlWidget(ETransportControlWidgetType InWidgetType)
+		: WidgetType(InWidgetType)
+	{}
+
+	FTransportControlWidget(FOnMakeTransportWidget InMakeCustomWidgetDelegate)
+		: WidgetType(ETransportControlWidgetType::Custom)
+		, MakeCustomWidgetDelegate(InMakeCustomWidgetDelegate)
+	{}
+
+	/** Basic widget type */
+	ETransportControlWidgetType WidgetType;
+
+	/** Delegate used for making custom widgets */
+	FOnMakeTransportWidget MakeCustomWidgetDelegate;
+};
 
 struct FTransportControlArgs
 {
@@ -44,6 +79,12 @@ struct FTransportControlArgs
 	FOnGetLooping OnGetLooping;
 	FOnGetPlaybackMode OnGetPlaybackMode;
 	FOnTickPlayback OnTickPlayback;
+
+	/** 
+	 * Array of custom widgets to create - if this array is used the default widget ordering will be
+	 * ignored in favor of this set of widgets
+	 */
+	TArray<FTransportControlWidget> WidgetsToCreate;
 };
 
 /**

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "CascadeModule.h"
@@ -26,6 +26,8 @@ public:
 	{
 		MenuExtensibilityManager = MakeShareable(new FExtensibilityManager);
 		ToolBarExtensibilityManager = MakeShareable(new FExtensibilityManager);
+
+		UParticleSystemComponent::OnSystemPreActivationChange.AddStatic(&FCascade::OnComponentActivationChange);
 	}
 
 	/** Called before the module is unloaded, right before the module object is destroyed. */

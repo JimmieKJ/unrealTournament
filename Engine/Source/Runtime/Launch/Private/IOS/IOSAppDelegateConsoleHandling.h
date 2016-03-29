@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,7 +6,7 @@
 
 @interface IOSAppDelegate (ConsoleHandling)
 
-#if !UE_BUILD_SHIPPING
+#if !UE_BUILD_SHIPPING && !PLATFORM_TVOS
 /**
  * Shows the console input dialog
  */

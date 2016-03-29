@@ -5,7 +5,7 @@ VisualStudioVersion = 12.0.40121.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CrashReportWebSite", "CrashReportWebSite.csproj", "{7A6D44E8-D8F2-4540-8A4A-0EF1A87D65AB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CrashReportCommon", "..\..\NotForLicensees\CrashReportServer\CrashReportCommon\CrashReportCommon.csproj", "{B83DE8C9-9429-4765-86BD-8EEEA89B138F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CrashReportCommon", "..\CrashReportCommon\CrashReportCommon.csproj", "{B83DE8C9-9429-4765-86BD-8EEEA89B138F}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DotNETUtilities", "..\..\DotNETCommon\DotNETUtilities\DotNETUtilities.csproj", "{5D7D66E8-8C76-4AF9-B3EC-2EF03421D730}"
 EndProject

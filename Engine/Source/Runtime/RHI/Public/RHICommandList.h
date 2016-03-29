@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	RHICommandList.h: RHI Command List definitions for queueing up & executing later.
@@ -35,7 +35,7 @@ class IRHICommandContextContainer
 {
 public:
 	virtual ~IRHICommandContextContainer()
-{
+	{
 	}
 
 	virtual IRHICommandContext* GetContext()
@@ -124,7 +124,7 @@ public:
 
 	const int32 GetUsedMemory() const;
 	void QueueAsyncCommandListSubmit(FGraphEventRef& AnyThreadCompletionEvent, class FRHICommandList* CmdList);
-	void QueueParallelAsyncCommandListSubmit(FGraphEventRef* AnyThreadCompletionEvents, class FRHICommandList** CmdLists, int32* NumDrawsIfKnown, int32 Num, int32 MinDrawsPerTranslate, bool bSpewMerge);
+	void QueueParallelAsyncCommandListSubmit(FGraphEventRef* AnyThreadCompletionEvents, bool bIsPrepass, class FRHICommandList** CmdLists, int32* NumDrawsIfKnown, int32 Num, int32 MinDrawsPerTranslate, bool bSpewMerge);
 	void QueueRenderThreadCommandListSubmit(FGraphEventRef& RenderThreadCompletionEvent, class FRHICommandList* CmdList);
 	void QueueCommandListSubmit(class FRHICommandList* CmdList);
 	void WaitForTasks(bool bKnownToBeComplete = false);
@@ -140,7 +140,7 @@ public:
 	template <typename T>
 	FORCEINLINE_DEBUGGABLE void* Alloc()
 	{
-		return MemManager.Alloc(sizeof(T), ALIGNOF(T));
+		return Alloc(sizeof(T), ALIGNOF(T));
 	}
 
 	template <typename TCmd>
@@ -251,14 +251,25 @@ private:
 	friend class FRHICommandListIterator;
 
 public:
+	TStatId	ExecuteStat;
 	enum class ERenderThreadContext
 	{
 		SceneRenderTargets,
 		Num
 	};
 	void *RenderThreadContexts[(int32)ERenderThreadContext::Num];
-private:
+	static int32 StateCacheEnabled;
+protected:
+	struct FRHICommandSetRasterizerState* CachedRasterizerState;
+	struct FRHICommandSetDepthStencilState* CachedDepthStencilState;
 public:
+	void FORCEINLINE FlushStateCache()
+	{
+		CachedRasterizerState = nullptr;
+		CachedDepthStencilState = nullptr;
+	}
+
+
 	void CopyRenderThreadContexts(const FRHICommandListBase& ParentCommandList)
 	{
 		for (int32 Index = 0; ERenderThreadContext(Index) < ERenderThreadContext::Num; Index++)
@@ -867,6 +878,18 @@ struct FRHICommandTransitionUAVs : public FRHICommand<FRHICommandTransitionUAVs<
 };
 
 template<ECmdList CmdListType>
+struct FRHICommandSetAsyncComputeBudget : public FRHICommand<FRHICommandSetAsyncComputeBudget<CmdListType>>
+{
+	EAsyncComputeBudget Budget;
+
+	FORCEINLINE_DEBUGGABLE FRHICommandSetAsyncComputeBudget(EAsyncComputeBudget InBudget)
+		: Budget(InBudget)
+	{
+	}
+	RHI_API void Execute(FRHICommandListBase& CmdList);
+};
+
+template<ECmdList CmdListType>
 struct FRHICommandWaitComputeFence : public FRHICommand<FRHICommandWaitComputeFence<CmdListType>>
 {
 	FComputeFenceRHIParamRef WaitFence;
@@ -1263,9 +1286,11 @@ template<ECmdList CmdListType>
 struct FRHICommandPushEvent : public FRHICommand<FRHICommandPushEvent<CmdListType>>
 {
 	const TCHAR *Name;
+	FColor Color;
 
-	FORCEINLINE_DEBUGGABLE FRHICommandPushEvent(const TCHAR *InName)
+	FORCEINLINE_DEBUGGABLE FRHICommandPushEvent(const TCHAR *InName, FColor InColor)
 		: Name(InName)
+		, Color(InColor)
 	{
 	}
 	RHI_API void Execute(FRHICommandListBase& CmdList);
@@ -1425,6 +1450,12 @@ public:
 	}
 
 	template <typename TShaderRHI>
+	FORCEINLINE_DEBUGGABLE void SetLocalShaderUniformBuffer(TRefCountPtr<TShaderRHI>& Shader, uint32 BaseIndex, const FLocalUniformBuffer& UniformBuffer)
+	{
+		SetLocalShaderUniformBuffer(Shader.GetReference(), BaseIndex, UniformBuffer);
+	}
+
+	template <typename TShaderRHI>
 	FORCEINLINE_DEBUGGABLE void SetShaderUniformBuffer(TShaderRHI* Shader, uint32 BaseIndex, FUniformBufferRHIParamRef UniformBuffer)
 	{
 		if (Bypass())
@@ -1469,6 +1500,12 @@ public:
 		new (AllocCommand<FRHICommandSetShaderTexture<TShaderRHIParamRef, ECmdList::EGfx> >()) FRHICommandSetShaderTexture<TShaderRHIParamRef, ECmdList::EGfx>(Shader, TextureIndex, Texture);
 	}
 
+	template <typename TShaderRHI>
+	FORCEINLINE_DEBUGGABLE void SetShaderTexture(TRefCountPtr<TShaderRHI>& Shader, uint32 TextureIndex, FTextureRHIParamRef Texture)
+	{
+		SetShaderTexture(Shader.GetReference(), TextureIndex, Texture);
+	}
+
 	template <typename TShaderRHIParamRef>
 	FORCEINLINE_DEBUGGABLE void SetShaderResourceViewParameter(TShaderRHIParamRef Shader, uint32 SamplerIndex, FShaderResourceViewRHIParamRef SRV)
 	{
@@ -1478,6 +1515,12 @@ public:
 			return;
 		}
 		new (AllocCommand<FRHICommandSetShaderResourceViewParameter<TShaderRHIParamRef, ECmdList::EGfx> >()) FRHICommandSetShaderResourceViewParameter<TShaderRHIParamRef, ECmdList::EGfx>(Shader, SamplerIndex, SRV);
+	}
+
+	template <typename TShaderRHI>
+	FORCEINLINE_DEBUGGABLE void SetShaderResourceViewParameter(TRefCountPtr<TShaderRHI>& Shader, uint32 SamplerIndex, FShaderResourceViewRHIParamRef SRV)
+	{
+		SetShaderResourceViewParameter(Shader.GetReference(), SamplerIndex, SRV);
 	}
 
 	template <typename TShaderRHIParamRef>
@@ -1491,6 +1534,12 @@ public:
 		new (AllocCommand<FRHICommandSetShaderSampler<TShaderRHIParamRef, ECmdList::EGfx> >()) FRHICommandSetShaderSampler<TShaderRHIParamRef, ECmdList::EGfx>(Shader, SamplerIndex, State);
 	}
 
+	template <typename TShaderRHI>
+	FORCEINLINE_DEBUGGABLE void SetShaderSampler(TRefCountPtr<TShaderRHI>& Shader, uint32 SamplerIndex, FSamplerStateRHIParamRef State)
+	{
+		SetShaderSampler(Shader.GetReference(), SamplerIndex, State);
+	}
+
 	FORCEINLINE_DEBUGGABLE void SetUAVParameter(FComputeShaderRHIParamRef Shader, uint32 UAVIndex, FUnorderedAccessViewRHIParamRef UAV)
 	{
 		if (Bypass())
@@ -1501,6 +1550,11 @@ public:
 		new (AllocCommand<FRHICommandSetUAVParameter<FComputeShaderRHIParamRef, ECmdList::EGfx> >()) FRHICommandSetUAVParameter<FComputeShaderRHIParamRef, ECmdList::EGfx>(Shader, UAVIndex, UAV);
 	}
 
+	FORCEINLINE_DEBUGGABLE void SetUAVParameter(TRefCountPtr<FRHIComputeShader>& Shader, uint32 UAVIndex, FUnorderedAccessViewRHIParamRef UAV)
+	{
+		SetUAVParameter(Shader.GetReference(), UAVIndex, UAV);
+	}
+
 	FORCEINLINE_DEBUGGABLE void SetUAVParameter(FComputeShaderRHIParamRef Shader, uint32 UAVIndex, FUnorderedAccessViewRHIParamRef UAV, uint32 InitialCount)
 	{
 		if (Bypass())
@@ -1509,6 +1563,11 @@ public:
 			return;
 		}
 		new (AllocCommand<FRHICommandSetUAVParameter_IntialCount<FComputeShaderRHIParamRef, ECmdList::EGfx> >()) FRHICommandSetUAVParameter_IntialCount<FComputeShaderRHIParamRef, ECmdList::EGfx>(Shader, UAVIndex, UAV, InitialCount);
+	}
+
+	FORCEINLINE_DEBUGGABLE void SetUAVParameter(TRefCountPtr<FRHIComputeShader>& Shader, uint32 UAVIndex, FUnorderedAccessViewRHIParamRef UAV, uint32 InitialCount)
+	{
+		SetUAVParameter(Shader.GetReference(), UAVIndex, UAV, InitialCount);
 	}
 
 	FORCEINLINE_DEBUGGABLE void SetBoundShaderState(FBoundShaderStateRHIParamRef BoundShaderState)
@@ -1528,7 +1587,11 @@ public:
 			CMD_CONTEXT(SetRasterizerState)(State);
 			return;
 		}
-		new (AllocCommand<FRHICommandSetRasterizerState>()) FRHICommandSetRasterizerState(State);
+		if (StateCacheEnabled && CachedRasterizerState && CachedRasterizerState->State == State)
+		{
+			return;
+		}
+		CachedRasterizerState = new(AllocCommand<FRHICommandSetRasterizerState>()) FRHICommandSetRasterizerState(State);
 	}
 
 	FORCEINLINE_DEBUGGABLE void SetBlendState(FBlendStateRHIParamRef State, const FLinearColor& BlendFactor = FLinearColor::White)
@@ -1578,7 +1641,11 @@ public:
 			CMD_CONTEXT(SetDepthStencilState)(NewStateRHI, StencilRef);
 			return;
 		}
-		new (AllocCommand<FRHICommandSetDepthStencilState>()) FRHICommandSetDepthStencilState(NewStateRHI, StencilRef);
+		if (StateCacheEnabled && CachedDepthStencilState && CachedDepthStencilState->State == NewStateRHI && CachedDepthStencilState->StencilRef == StencilRef)
+		{
+			return;
+		}
+		CachedDepthStencilState = new(AllocCommand<FRHICommandSetDepthStencilState>()) FRHICommandSetDepthStencilState(NewStateRHI, StencilRef);
 	}
 
 	FORCEINLINE_DEBUGGABLE void SetViewport(uint32 MinX, uint32 MinY, float MinZ, uint32 MaxX, uint32 MaxY, float MaxZ)
@@ -1981,17 +2048,17 @@ public:
 	void BeginFrame();
 	void EndFrame();
 
-	FORCEINLINE_DEBUGGABLE void PushEvent(const TCHAR* Name)
+	FORCEINLINE_DEBUGGABLE void PushEvent(const TCHAR* Name, FColor Color)
 	{
 		if (Bypass())
 		{
-			CMD_CONTEXT(PushEvent)(Name);
+			CMD_CONTEXT(PushEvent)(Name, Color);
 			return;
 		}
 		int32 Len = FCString::Strlen(Name) + 1;
 		TCHAR* NameCopy  = (TCHAR*)Alloc(Len * (int32)sizeof(TCHAR), (int32)sizeof(TCHAR));
 		FCString::Strcpy(NameCopy, Len, Name);
-		new (AllocCommand<FRHICommandPushEvent<ECmdList::EGfx>>()) FRHICommandPushEvent<ECmdList::EGfx>(NameCopy);
+		new (AllocCommand<FRHICommandPushEvent<ECmdList::EGfx>>()) FRHICommandPushEvent<ECmdList::EGfx>(NameCopy, Color);
 	}
 
 	FORCEINLINE_DEBUGGABLE void PopEvent()
@@ -2153,6 +2220,16 @@ public:
 		new (AllocCommand<FRHICommandSetComputeShader<ECmdList::ECompute> >()) FRHICommandSetComputeShader<ECmdList::ECompute>(ComputeShader);
 	}
 
+	FORCEINLINE_DEBUGGABLE void SetAsyncComputeBudget(EAsyncComputeBudget Budget)
+	{
+		if (Bypass())
+		{
+			CMD_CONTEXT(SetAsyncComputeBudget)(Budget);
+			return;
+		}
+		new (AllocCommand<FRHICommandSetAsyncComputeBudget<ECmdList::ECompute>>()) FRHICommandSetAsyncComputeBudget<ECmdList::ECompute>(Budget);
+	}
+
 	FORCEINLINE_DEBUGGABLE void DispatchComputeShader(uint32 ThreadGroupCountX, uint32 ThreadGroupCountY, uint32 ThreadGroupCountZ)
 	{
 		if (Bypass())
@@ -2204,17 +2281,17 @@ public:
 		TransitionResources(TransitionType, TransitionPipeline, InUAVs, NumUAVs, nullptr);
 	}
 	
-	FORCEINLINE_DEBUGGABLE void PushEvent(const TCHAR* Name)
+	FORCEINLINE_DEBUGGABLE void PushEvent(const TCHAR* Name, FColor Color)
 	{
 		if (Bypass())
 		{
-			COMPUTE_CONTEXT(PushEvent)(Name);
+			COMPUTE_CONTEXT(PushEvent)(Name, Color);
 			return;
 		}
 		int32 Len = FCString::Strlen(Name) + 1;
 		TCHAR* NameCopy = (TCHAR*)Alloc(Len * (int32)sizeof(TCHAR), (int32)sizeof(TCHAR));
 		FCString::Strcpy(NameCopy, Len, Name);
-		new (AllocCommand<FRHICommandPushEvent<ECmdList::ECompute> >()) FRHICommandPushEvent<ECmdList::ECompute>(NameCopy);
+		new (AllocCommand<FRHICommandPushEvent<ECmdList::ECompute> >()) FRHICommandPushEvent<ECmdList::ECompute>(NameCopy, Color);
 	}
 
 	FORCEINLINE_DEBUGGABLE void PopEvent()
@@ -2485,6 +2562,11 @@ public:
 		return GDynamicRHI->CreateShaderResourceView_RenderThread(*this, VertexBuffer, Stride, Format);
 	}
 	
+	FORCEINLINE FShaderResourceViewRHIRef CreateShaderResourceView(FIndexBufferRHIParamRef Buffer)
+	{
+		return GDynamicRHI->CreateShaderResourceView_RenderThread(*this, Buffer);
+	}
+	
 	FORCEINLINE uint64 CalcTexture2DPlatformSize(uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 NumSamples, uint32 Flags, uint32& OutAlign)
 	{
 		return RHICalcTexture2DPlatformSize(SizeX, SizeY, Format, NumMips, NumSamples, Flags, OutAlign);
@@ -2666,7 +2748,12 @@ public:
 	{
 		RHIBindDebugLabelName(Texture, Name);
 	}
-	
+
+	FORCEINLINE void BindDebugLabelName(FUnorderedAccessViewRHIParamRef UnorderedAccessViewRHI, const TCHAR* Name)
+	{
+		RHIBindDebugLabelName(UnorderedAccessViewRHI, Name);
+	}
+
 	FORCEINLINE void ReadSurfaceData(FTextureRHIParamRef Texture,FIntRect Rect,TArray<FColor>& OutData,FReadSurfaceDataFlags InFlags)
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_ReadSurfaceData_Flush);
@@ -2885,6 +2972,9 @@ public:
 };
 
 
+// This controls if the cmd list bypass can be toggled at runtime. It is quite expensive to have these branches in there.
+#define CAN_TOGGLE_COMMAND_LIST_BYPASS (!UE_BUILD_SHIPPING && !UE_BUILD_TEST)
+
 class RHI_API FRHICommandListExecutor
 {
 public:
@@ -2908,7 +2998,7 @@ public:
 
 	FORCEINLINE_DEBUGGABLE bool Bypass()
 	{
-#if !UE_BUILD_SHIPPING || PLATFORM_CAN_TOGGLE_RHITHREAD_IN_SHIPPING
+#if CAN_TOGGLE_COMMAND_LIST_BYPASS
 		return bLatchedBypass;
 #else
 		return !!DefaultBypass;
@@ -2916,7 +3006,7 @@ public:
 	}
 	FORCEINLINE_DEBUGGABLE bool UseParallelAlgorithms()
 	{
-#if !UE_BUILD_SHIPPING
+#if CAN_TOGGLE_COMMAND_LIST_BYPASS
 		return bLatchedUseParallelAlgorithms;
 #else
 		return  FApp::ShouldUseThreadingForPerformance() && !Bypass();
@@ -2942,6 +3032,18 @@ private:
 };
 
 extern RHI_API FRHICommandListExecutor GRHICommandList;
+
+extern RHI_API FAutoConsoleTaskPriority CPrio_SceneRenderingTask;
+
+class FRenderTask
+{
+public:
+	FORCEINLINE static ENamedThreads::Type GetDesiredThread()
+	{
+		return CPrio_SceneRenderingTask.Get();
+	}
+};
+
 
 FORCEINLINE_DEBUGGABLE FRHICommandListImmediate& FRHICommandListExecutor::GetImmediateCommandList()
 {
@@ -3090,6 +3192,11 @@ FORCEINLINE FShaderResourceViewRHIRef RHICreateShaderResourceView(FStructuredBuf
 FORCEINLINE FShaderResourceViewRHIRef RHICreateShaderResourceView(FVertexBufferRHIParamRef VertexBuffer, uint32 Stride, uint8 Format)
 {
 	return FRHICommandListExecutor::GetImmediateCommandList().CreateShaderResourceView(VertexBuffer, Stride, Format);
+}
+
+FORCEINLINE FShaderResourceViewRHIRef RHICreateShaderResourceView(FIndexBufferRHIParamRef Buffer)
+{
+	return FRHICommandListExecutor::GetImmediateCommandList().CreateShaderResourceView(Buffer);
 }
 
 FORCEINLINE FTextureReferenceRHIRef RHICreateTextureReference(FLastRenderTimeContainer* LastRenderTime)

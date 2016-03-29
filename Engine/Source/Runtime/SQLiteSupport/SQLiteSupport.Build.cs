@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System.IO;
 
@@ -21,7 +21,8 @@ namespace UnrealBuildTool.Rules
 					break;
 			
 			    case UnrealTargetPlatform.IOS:
-                    PlatformName = "IOS/";
+				case UnrealTargetPlatform.TVOS:
+					PlatformName = "IOS/";
                     break;
                 case UnrealTargetPlatform.Mac:
                     PlatformName = "Mac/";
@@ -44,11 +45,6 @@ namespace UnrealBuildTool.Rules
 					break;
 			}
 
-			if (UnrealBuildTool.RunningRocket())
-			{
-				throw new BuildException("This module requires a source code build of the engine from Github. Please refer to the Engine/Source/ThirdParty/sqlite/README.txt file prior to enabling this module.");
-			}
-		
 			string LibraryPath = "" + UEBuildConfiguration.UEThirdPartySourceDirectory + "sqlite/lib/" + PlatformName + ConfigurationName;
 			string LibraryFilename = Path.Combine(LibraryPath, "sqlite" + UEBuildPlatform.GetBuildPlatform(Target.Platform).GetBinaryExtension(UEBuildBinaryType.StaticLibrary));
 			if (!File.Exists(LibraryFilename))

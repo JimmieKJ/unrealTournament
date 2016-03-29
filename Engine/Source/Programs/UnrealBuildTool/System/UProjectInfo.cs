@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -56,7 +56,7 @@ namespace UnrealBuildTool
 			{
 				Files = Directory.GetFiles(InTargetFolder.FullName, "*.Target.cs", SearchOption.TopDirectoryOnly).AsEnumerable();
 			}
-			foreach (var TargetFilename in Files)
+			foreach (string TargetFilename in Files)
 			{
 				bFoundTargetFiles = true;
 				foreach (KeyValuePair<FileReference, UProjectInfo> Entry in ProjectInfoDictionary)
@@ -87,7 +87,7 @@ namespace UnrealBuildTool
 			bOutFoundTargetFiles |= FindTargetFilesInFolder(CurrentTopDirectory);
 			if (bOutFoundTargetFiles == false)
 			{
-				foreach (var TargetFolder in Directory.EnumerateDirectories(CurrentTopDirectory.FullName, "*", SearchOption.TopDirectoryOnly).Select(x => new DirectoryReference(x)))
+				foreach (DirectoryReference TargetFolder in Directory.EnumerateDirectories(CurrentTopDirectory.FullName, "*", SearchOption.TopDirectoryOnly).Select(x => new DirectoryReference(x)))
 				{
 					SubFolderList.Add(TargetFolder);
 					bOutFoundTargetFiles |= FindTargetFilesInFolder(TargetFolder);
@@ -97,7 +97,7 @@ namespace UnrealBuildTool
 			if (bOutFoundTargetFiles == false)
 			{
 				// Recurse each folders folders
-				foreach (var SubFolder in SubFolderList)
+				foreach (DirectoryReference SubFolder in SubFolderList)
 				{
 					FindTargetFiles(SubFolder, ref bOutFoundTargetFiles);
 				}
@@ -127,7 +127,7 @@ namespace UnrealBuildTool
 				UProjectInfo NewProjectInfo = new UProjectInfo(ProjectFile, bIsCodeProject);
 				if (ShortProjectNameDictionary.ContainsKey(NewProjectInfo.GameName))
 				{
-					var FirstProject = ProjectInfoDictionary[ShortProjectNameDictionary[NewProjectInfo.GameName]];
+					UProjectInfo FirstProject = ProjectInfoDictionary[ShortProjectNameDictionary[NewProjectInfo.GameName]];
 					throw new BuildException("There are multiple projects with name {0}\n\t* {1}\n\t* {2}\nThis is not currently supported.", NewProjectInfo.GameName, FirstProject.FilePath.FullName, NewProjectInfo.FilePath.FullName);
 				}
 
@@ -164,7 +164,7 @@ namespace UnrealBuildTool
 			string RootDirectory = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().GetOriginalLocation()), "..", "..", "..");
 			string EngineSourceDirectory = Path.GetFullPath(Path.Combine(RootDirectory, "Engine", "Source"));
 
-			foreach (var File in Directory.EnumerateFiles(RootDirectory, "*.uprojectdirs", SearchOption.TopDirectoryOnly))
+			foreach (string File in Directory.EnumerateFiles(RootDirectory, "*.uprojectdirs", SearchOption.TopDirectoryOnly))
 			{
 				string FilePath = Path.GetFullPath(File);
 				Log.TraceVerbose("\tFound uprojectdirs file {0}", FilePath);
@@ -305,7 +305,7 @@ namespace UnrealBuildTool
 		/// <param name="Plugin">Information about the plugin</param>
 		/// <param name="Platform">The target platform</param>
 		/// <returns>True if the plugin should be enabled for this project</returns>
-		public static bool IsPluginEnabledForProject(PluginInfo Plugin, ProjectDescriptor Project, UnrealTargetPlatform Platform)
+		public static bool IsPluginEnabledForProject(PluginInfo Plugin, ProjectDescriptor Project, UnrealTargetPlatform Platform, TargetRules.TargetType Target)
 		{
 			bool bEnabled = Plugin.Descriptor.bEnabledByDefault || Plugin.LoadedFrom == PluginLoadedFrom.GameProject;
 			if (Project != null && Project.Plugins != null)
@@ -314,7 +314,7 @@ namespace UnrealBuildTool
 				{
 					if (String.Compare(PluginReference.Name, Plugin.Name, true) == 0)
 					{
-						bEnabled = PluginReference.IsEnabledForPlatform(Platform);
+						bEnabled = PluginReference.IsEnabledForPlatform(Platform) && PluginReference.IsEnabledForTarget(Target);
 					}
 				}
 			}

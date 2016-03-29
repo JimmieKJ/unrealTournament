@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ProfilerPrivatePCH.h"
 #include "DesktopPlatformModule.h"
@@ -51,13 +51,9 @@ void FProfilerCommands::RegisterCommands()
 	UI_COMMAND( ProfilerManager_ToggleLivePreview, "Live preview", "Toggles the real time live preview", EUserInterfaceActionType::ToggleButton, FInputChord() );
 
 	UI_COMMAND( DataGraph_ToggleViewMode, "Toggle graph view mode", "Toggles the data graph view mode between time based and index based", EUserInterfaceActionType::Button, FInputChord() );
-	UI_COMMAND( DataGraph_ToggleMultiMode, "Toggle graph multi mode", "Toggles the data graph multi mode between displaying area line graph and one line graph for each graph", EUserInterfaceActionType::Button, FInputChord() );
 
 	UI_COMMAND( DataGraph_ViewMode_SetTimeBased, "Time based", "Sets the data graph view mode to the time based", EUserInterfaceActionType::RadioButton, FInputChord() );
 	UI_COMMAND( DataGraph_ViewMode_SetIndexBased, "Index based", "Sets the data graph view mode to the index based", EUserInterfaceActionType::RadioButton, FInputChord() );
-
-	UI_COMMAND( DataGraph_MultiMode_SetCombined, "Combined", "Set the data graph multi mode to the displaying area line graph", EUserInterfaceActionType::RadioButton, FInputChord() );
-	UI_COMMAND( DataGraph_MultiMode_SetOneLinePerDataSource, "One line per data source", "Set the data graph multi mode to the displaying one line graph for each graph data source", EUserInterfaceActionType::RadioButton, FInputChord() );
 
 	UI_COMMAND( EventGraph_SelectAllFrames, "Select all frames", "Selects all frames in the data graph and displays them in the event graph", EUserInterfaceActionType::Button, FInputChord() );
 }
@@ -82,19 +78,6 @@ void FProfilerMenuBuilder::AddMenuEntry( FMenuBuilder& MenuBuilder, const TShare
 	);
 }
 
-/*
-
-// One session instance
-if( SessionInstanceID.IsValid() )
-{
-}
-// All session instances
-else
-{
-}
-
-}*/
-
 /*-----------------------------------------------------------------------------
 	ToggleDataPreview
 -----------------------------------------------------------------------------*/
@@ -114,74 +97,26 @@ const FUIAction FProfilerActionManager::ToggleDataPreview_Custom( const FGuid Se
 }
 
 void FProfilerActionManager::ToggleDataPreview_Execute( const FGuid SessionInstanceID )
-{
-	// One session instance
-	if( SessionInstanceID.IsValid() )
+{	
+	const bool bDataPreviewing = !This->IsDataPreviewing();
+	This->SetDataPreview( bDataPreviewing );
+
+	if (!bDataPreviewing)
 	{
-		const FProfilerSessionRef* ProfilerSessionPtr = This->FindSessionInstance( SessionInstanceID );
-		if( ProfilerSessionPtr )
-		{
-			(*ProfilerSessionPtr)->bDataPreviewing = !(*ProfilerSessionPtr)->bDataPreviewing;
-			This->ProfilerClient->SetPreviewState( (*ProfilerSessionPtr)->bDataPreviewing, SessionInstanceID );
-		}
-
-		const bool bDataPreviewing = This->IsDataPreviewing();
-
-		if( !bDataPreviewing )
-		{
-			This->bLivePreview = false;
-		}
-	}
-	// All session instances
-	else
-	{
-		const bool bDataPreviewing = !This->IsDataPreviewing();
-		This->SetDataPreview( bDataPreviewing );
-
-		if( !bDataPreviewing )
-		{
-			This->bLivePreview = false;
-		}
+		This->bLivePreview = false;
 	}
 }
 
 bool FProfilerActionManager::ToggleDataPreview_CanExecute( const FGuid SessionInstanceID ) const
 {
-	// One session instance
-	if( SessionInstanceID.IsValid() )
-	{
-		const bool bIsSessionInstanceValid = This->IsSessionInstanceValid( SessionInstanceID ) && This->ProfilerType == EProfilerSessionTypes::Live;
-		return bIsSessionInstanceValid;
-	}
-	// All session instances
-	else
-	{
-		const bool bCanExecute = This->ActiveSession.IsValid() && This->ProfilerType == EProfilerSessionTypes::Live && This->GetProfilerInstancesNum() > 0;
-		return bCanExecute;
-	}
+	const bool bCanExecute = This->ActiveSession.IsValid() && This->ProfilerType == EProfilerSessionTypes::Live && This->ActiveInstanceID.IsValid();
+	return bCanExecute;
 }
 
 ECheckBoxState FProfilerActionManager::ToggleDataPreview_GetCheckState( const FGuid SessionInstanceID ) const
 {
-	// One session instance
-	if( SessionInstanceID.IsValid() )
-	{
-		const FProfilerSessionRef* ProfilerSessionPtr = This->FindSessionInstance( SessionInstanceID );
-		if( ProfilerSessionPtr )
-		{
-			return (*ProfilerSessionPtr)->bDataPreviewing ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-		}
-		else
-		{
-			return ECheckBoxState::Unchecked;
-		}
-	}
-	// All session instances
-	else
-	{
-		const bool bDataPreview = This->IsDataPreviewing();
-		return bDataPreview ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-	}
+	const bool bDataPreview = This->IsDataPreviewing();
+	return bDataPreview ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 }
 
 /*-----------------------------------------------------------------------------
@@ -205,90 +140,13 @@ void FProfilerActionManager::ProfilerManager_ToggleLivePreview_Execute()
 
 bool FProfilerActionManager::ProfilerManager_ToggleLivePreview_CanExecute() const
 {
-	const bool bCanExecute = This->ActiveSession.IsValid() && This->ProfilerType == EProfilerSessionTypes::Live && This->GetNumDataPreviewingInstances() > 0;
+	const bool bCanExecute = This->ActiveSession.IsValid() && This->ProfilerType == EProfilerSessionTypes::Live && This->ActiveInstanceID.IsValid();
 	return bCanExecute;
 }
 
 ECheckBoxState FProfilerActionManager::ProfilerManager_ToggleLivePreview_GetCheckState() const
 {
 	return This->bLivePreview ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-}
-
-/*-----------------------------------------------------------------------------
-	ToggleShowDataGraph
------------------------------------------------------------------------------*/
-
-const FUIAction FProfilerActionManager::ToggleShowDataGraph_Custom( const FGuid SessionInstanceID ) const
-{
-	FUIAction UIAction;
-	UIAction.ExecuteAction = FExecuteAction::CreateRaw( this, &FProfilerActionManager::ToggleShowDataGraph_Execute, SessionInstanceID );
-	UIAction.CanExecuteAction = FCanExecuteAction::CreateRaw( this, &FProfilerActionManager::ToggleShowDataGraph_CanExecute, SessionInstanceID );
-	UIAction.GetActionCheckState = FGetActionCheckState::CreateRaw( this, &FProfilerActionManager::ToggleShowDataGraph_GetCheckState, SessionInstanceID );
-	UIAction.IsActionVisibleDelegate = FIsActionButtonVisible::CreateRaw( this, &FProfilerActionManager::ToggleShowDataGraph_IsActionButtonVisible, SessionInstanceID );
-	return UIAction;
-}
-
-void FProfilerActionManager::ToggleShowDataGraph_Execute( const FGuid SessionInstanceID )
-{
-	// One session instance
-	if( SessionInstanceID.IsValid() )
-	{
-		const bool bIsSessionInstanceTracked = This->IsSessionInstanceTracked( SessionInstanceID );
-
-		if( bIsSessionInstanceTracked )
-		{
-			This->UntrackSessionInstance( SessionInstanceID );
-		}
-		else
-		{
-			This->TrackSessionInstance( SessionInstanceID );
-		}
-	}
-}
-
-bool FProfilerActionManager::ToggleShowDataGraph_CanExecute( const FGuid SessionInstanceID ) const
-{
-	// One session instance
-	if( SessionInstanceID.IsValid() )
-	{
-		const bool bIsSessionInstanceValid = This->IsSessionInstanceValid( SessionInstanceID );
-		return bIsSessionInstanceValid;
-	}
-	// All session instances
-	else
-	{
-		return false;
-	}
-}
-
-ECheckBoxState FProfilerActionManager::ToggleShowDataGraph_GetCheckState( const FGuid SessionInstanceID ) const
-{
-	// One session instance
-	if( SessionInstanceID.IsValid() )
-	{
-		const bool bIsSessionInstanceTracked = This->IsSessionInstanceTracked( SessionInstanceID );
-		return bIsSessionInstanceTracked ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-	}
-	// All session instances
-	else
-	{
-		return ECheckBoxState::Unchecked;
-	}
-}
-
-bool FProfilerActionManager::ToggleShowDataGraph_IsActionButtonVisible( const FGuid SessionInstanceID ) const
-{
-	// One session instance
-	if( SessionInstanceID.IsValid() )
-	{
-		return true;
-	}
-	// All session instances
-	else
-	{
-		// Hiding all graphs for all session instances as it doesn't add any useful functionality
-		return false;
-	}
 }
 
 /*-----------------------------------------------------------------------------
@@ -321,7 +179,6 @@ void FProfilerActionManager::ProfilerManager_Load_Execute()
 			ProfilingDirectory, 
 			TEXT(""), 
 			LOCTEXT("ProfilerManager_Load_FileFilter", "Stats files (*.ue4stats)|*.ue4stats|Raw Stats files (*.ue4statsraw)|*.ue4statsraw").ToString(), 
-			//FProfilerManager::GetSettings().bSingleInstanceMode ? EFileDialogFlags::None : EFileDialogFlags::Multiple, 
 			EFileDialogFlags::None,
 			OutFiles
 		);
@@ -347,7 +204,7 @@ void FProfilerActionManager::ProfilerManager_Load_Execute()
 
 bool FProfilerActionManager::ProfilerManager_Load_CanExecute() const
 {
-	const bool bIsConnectionActive = This->GetNumDataCapturingInstances() > 0 || This->GetNumDataPreviewingInstances() > 0 || This->bLivePreview;
+	const bool bIsConnectionActive = This->IsDataCapturing() || This->IsDataPreviewing() || This->IsLivePreview();
 	return !(bIsConnectionActive && This->ProfilerType == EProfilerSessionTypes::Live);
 }
 
@@ -371,26 +228,12 @@ const FUIAction FProfilerActionManager::ToggleDataCapture_Custom( const FGuid Se
 
 void FProfilerActionManager::ToggleDataCapture_Execute( const FGuid SessionInstanceID )
 {
-	// One session instance
-	if( SessionInstanceID.IsValid() )
-	{
-		const FProfilerSessionRef* ProfilerSessionPtr = This->FindSessionInstance( SessionInstanceID );
-		if( ProfilerSessionPtr )
-		{
-			(*ProfilerSessionPtr)->bDataCapturing = !(*ProfilerSessionPtr)->bDataCapturing;
-			This->ProfilerClient->SetCaptureState( (*ProfilerSessionPtr)->bDataCapturing, SessionInstanceID );
-		}	
-	}
-	// All session instances
-	else
-	{
-		const bool bDataCapturing = This->IsDataCapturing();
-		This->SetDataCapture( !bDataCapturing );
-	}
+	const bool bDataCapturing = This->IsDataCapturing();
+	This->SetDataCapture( !bDataCapturing );
 
 	// Assumes that when data capturing is off, we have captured stats files on the service side.
-	const bool bDataCapturing = This->IsDataCapturing();
-	if( !bDataCapturing )
+	const bool bNewDataCapturing = This->IsDataCapturing();
+	if (!bNewDataCapturing)
 	{
 		EAppReturnType::Type Result = FPlatformMisc::MessageBoxExt
 		( 
@@ -408,45 +251,14 @@ void FProfilerActionManager::ToggleDataCapture_Execute( const FGuid SessionInsta
 
 bool FProfilerActionManager::ToggleDataCapture_CanExecute( const FGuid SessionInstanceID ) const
 {
-	// One session instance
-	if( SessionInstanceID.IsValid() )
-	{
-		const bool bIsSessionInstanceValid = This->IsSessionInstanceValid( SessionInstanceID ) && This->ProfilerType == EProfilerSessionTypes::Live;
-		return bIsSessionInstanceValid;
-	}
-	// All session instances
-	else
-	{
-		const bool bCanExecute = This->ActiveSession.IsValid() && This->ProfilerType == EProfilerSessionTypes::Live && This->GetProfilerInstancesNum() > 0;
-		return bCanExecute;
-	}
-
-	return false;
+	const bool bCanExecute = This->ActiveSession.IsValid() && This->ProfilerType == EProfilerSessionTypes::Live && This->ActiveInstanceID.IsValid();
+	return bCanExecute;
 }
 
 ECheckBoxState FProfilerActionManager::ToggleDataCapture_GetCheckState( const FGuid SessionInstanceID ) const
 {
-	// One session instance
-	if( SessionInstanceID.IsValid() )
-	{
-		const FProfilerSessionRef* ProfilerSessionPtr = This->FindSessionInstance( SessionInstanceID );
-		if( ProfilerSessionPtr )
-		{
-			return (*ProfilerSessionPtr)->bDataCapturing ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-		}
-		else
-		{
-			return ECheckBoxState::Unchecked;
-		}
-	}
-	// All session instances
-	else
-	{
-		const bool bDataCapturing = This->IsDataCapturing();
-		return bDataCapturing ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-	}
-
-	return ECheckBoxState::Unchecked;
+	const bool bDataCapturing = This->IsDataCapturing();
+	return bDataCapturing ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 }
 
 /*-----------------------------------------------------------------------------

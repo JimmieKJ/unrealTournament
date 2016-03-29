@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "GraphEditorCommon.h"
@@ -12,21 +12,44 @@ void SGraphPinString::Construct(const FArguments& InArgs, UEdGraphPin* InGraphPi
 
 TSharedRef<SWidget>	SGraphPinString::GetDefaultValueWidget()
 {
-	return SNew(SBox)
-		.MinDesiredWidth(18.0f)
-		.MaxDesiredHeight(200)
-		[
-			SNew(SMultiLineEditableTextBox)
-			.Style(FEditorStyle::Get(), "Graph.EditableTextBox")
-			.Text(this, &SGraphPinString::GetTypeInValue)
-			.SelectAllTextWhenFocused(true)
-			.Visibility(this, &SGraphPin::GetDefaultValueVisibility)
-			.IsReadOnly(this, &SGraphPinString::GetDefaultValueIsReadOnly)
-			.OnTextCommitted(this, &SGraphPinString::SetTypeInValue)
-			.ForegroundColor(FSlateColor::UseForeground())
-			.WrapTextAt(400)
-			.ModiferKeyForNewLine(EModifierKey::Shift)
-		];
+	// Only allow actual string pins to be multi-line
+	// Other text based pins (such as names and numbers) should be single-line only
+	const bool bIsMultiLine = GraphPinObj->PinType.PinCategory == UEdGraphSchema_K2::PC_String;
+
+	if (bIsMultiLine)
+	{
+		return SNew(SBox)
+			.MinDesiredWidth(18)
+			.MaxDesiredHeight(200)
+			[
+				SNew(SMultiLineEditableTextBox)
+				.Style(FEditorStyle::Get(), "Graph.EditableTextBox")
+				.Text(this, &SGraphPinString::GetTypeInValue)
+				.SelectAllTextWhenFocused(true)
+				.Visibility(this, &SGraphPin::GetDefaultValueVisibility)
+				.IsReadOnly(this, &SGraphPinString::GetDefaultValueIsReadOnly)
+				.OnTextCommitted(this, &SGraphPinString::SetTypeInValue)
+				.ForegroundColor(FSlateColor::UseForeground())
+				.WrapTextAt(400)
+				.ModiferKeyForNewLine(EModifierKey::Shift)
+			];
+	}
+	else
+	{
+		return SNew(SBox)
+			.MinDesiredWidth(18)
+			.MaxDesiredWidth(400)
+			[
+				SNew(SEditableTextBox)
+					.Style(FEditorStyle::Get(), "Graph.EditableTextBox")
+					.Text(this, &SGraphPinString::GetTypeInValue)
+					.SelectAllTextWhenFocused(true)
+					.Visibility(this, &SGraphPin::GetDefaultValueVisibility)
+					.IsReadOnly(this, &SGraphPinString::GetDefaultValueIsReadOnly)
+					.OnTextCommitted(this, &SGraphPinString::SetTypeInValue)
+					.ForegroundColor(FSlateColor::UseForeground())
+			];
+	}
 }
 
 FText SGraphPinString::GetTypeInValue() const

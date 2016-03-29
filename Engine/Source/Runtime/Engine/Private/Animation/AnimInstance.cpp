@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AnimInstance.cpp: Anim Instance implementation
@@ -24,6 +24,8 @@
 #include "Animation/AnimNode_AssetPlayerBase.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimInstanceProxy.h"
+#include "Animation/Skeleton.h"
+#include "Animation/SmartName.h"
 
 /** Anim stats */
 
@@ -225,10 +227,16 @@ void UAnimInstance::UninitializeAnimation()
 
 	for(int32 Index = 0; Index < MontageInstances.Num(); ++Index)
 	{
-		delete MontageInstances[Index];
+		FAnimMontageInstance* MontageInstance = MontageInstances[Index];
+		if (ensure(MontageInstance != nullptr))
+		{
+			ClearMontageInstanceReferences(*MontageInstance);
+			delete MontageInstance;
+		}
 	}
 
 	MontageInstances.Empty();
+	ActiveMontagesMap.Empty();
 
 	USkeletalMeshComponent* SkelMeshComp = GetSkelMeshComponent();
 	if (SkelMeshComp)
@@ -299,7 +307,7 @@ void UAnimInstance::UpdateMontage(float DeltaSeconds)
 	// time to test sync groups
 	for (auto& MontageInstance : MontageInstances)
 	{
-		if (MontageInstance->CanUseMarkerSync())
+		if (MontageInstance->bDidUseMarkerSyncThisTick)
 		{
 			const int32 GroupIndexToUse = MontageInstance->GetSyncGroupIndex();
 
@@ -318,6 +326,7 @@ void UAnimInstance::UpdateMontage(float DeltaSeconds)
 					SyncGroup->TestMontageTickRecordForLeadership();
 				}
 			}
+			MontageInstance->bDidUseMarkerSyncThisTick = false;
 		}
 	}
 
@@ -405,6 +414,7 @@ void UAnimInstance::PreUpdateAnimation(float DeltaSeconds)
 	bNeedsUpdate = true;
 
 	NotifyQueue.Reset(GetSkelMeshComponent());
+	RootMotionBlendQueue.Reset();
 
 	GetProxyOnGameThread<FAnimInstanceProxy>().PreUpdate(this, DeltaSeconds);
 }
@@ -421,9 +431,18 @@ void UAnimInstance::PostUpdateAnimation()
 
 	Proxy.PostUpdate(this);
 
+	FRootMotionMovementParams& ExtractedRootMotion = Proxy.GetExtractedRootMotion();
+
+	// blend in any montage-blended root motion that we now have correct weights for
+	for(const FQueuedRootMotionBlend& RootMotionBlend : RootMotionBlendQueue)
+	{
+		const float RootMotionSlotWeight = GetSlotRootMotionWeight(RootMotionBlend.SlotName);
+		const float RootMotionInstanceWeight = RootMotionBlend.Weight * RootMotionSlotWeight;
+		ExtractedRootMotion.AccumulateWithBlend(RootMotionBlend.Transform, RootMotionInstanceWeight);
+	}
+
 	// We may have just partially blended root motion, so make it up to 1 by
 	// blending in identity too
-	FRootMotionMovementParams& ExtractedRootMotion = Proxy.GetExtractedRootMotion();
 	if (ExtractedRootMotion.bHasRootMotion)
 	{
 		ExtractedRootMotion.MakeUpToFullWeight();
@@ -465,9 +484,15 @@ void UAnimInstance::ParallelUpdateAnimation()
 
 bool UAnimInstance::NeedsImmediateUpdate(float DeltaSeconds) const
 {
-	const bool bUseParallelUpdateAnimation = bCanUseParallelUpdateAnimation || CVarForceUseParallelAnimUpdate.GetValueOnGameThread() != 0;
+	// If Evaluation Phase is skipped, PostUpdateAnimation() will not get called, so we can't use ParallelUpdateAnimation then.
+	USkeletalMeshComponent* SkelMeshComp = GetSkelMeshComponent();
+	const bool bEvaluationPhaseSkipped = SkelMeshComp && !SkelMeshComp->bRecentlyRendered && (SkelMeshComp->MeshComponentUpdateFlag > EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones);
+
+	const bool bUseParallelUpdateAnimation = bCanUseParallelUpdateAnimation || (CVarForceUseParallelAnimUpdate.GetValueOnGameThread() != 0);
 
 	return
+		GIntraFrameDebuggingGameThread ||
+		bEvaluationPhaseSkipped || 
 		CVarUseParallelAnimUpdate.GetValueOnGameThread() == 0 ||
 		CVarUseParallelAnimationEvaluation.GetValueOnGameThread() == 0 ||
 		GetWorld()->IsServer() ||
@@ -492,8 +517,9 @@ bool UAnimInstance::ParallelCanEvaluate(const USkeletalMesh* InSkeletalMesh) con
 	return Proxy.GetRequiredBones().IsValid() && (Proxy.GetRequiredBones().GetAsset() == InSkeletalMesh);
 }
 
-void UAnimInstance::ParallelEvaluateAnimation(bool bForceRefPose, const USkeletalMesh* InSkeletalMesh, TArray<FTransform>& OutLocalAtoms, TArray<FActiveVertexAnim>& OutVertexAnims, FBlendedCurve& OutCurve)
+void UAnimInstance::ParallelEvaluateAnimation(bool bForceRefPose, const USkeletalMesh* InSkeletalMesh, TArray<FTransform>& OutLocalAtoms, FBlendedHeapCurve& OutCurve)
 {
+	FMemMark Mark(FMemStack::Get());
 	FAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FAnimInstanceProxy>();
 
 	if( !bForceRefPose )
@@ -505,7 +531,7 @@ void UAnimInstance::ParallelEvaluateAnimation(bool bForceRefPose, const USkeleta
 		// Run the anim blueprint
 		Proxy.EvaluateAnimation(EvaluationContext);
 		// Move the curves
-		OutCurve.MoveFrom(EvaluationContext.Curve);
+		OutCurve.CopyFrom(EvaluationContext.Curve);
 			
 		// can we avoid that copy?
 		if( EvaluationContext.Pose.GetNumBones() > 0 )
@@ -527,8 +553,6 @@ void UAnimInstance::ParallelEvaluateAnimation(bool bForceRefPose, const USkeleta
 	{
 		FAnimationRuntime::FillWithRefPose(OutLocalAtoms, Proxy.GetRequiredBones());
 	}
-
-	OutVertexAnims = FAnimationRuntime::UpdateActiveVertexAnims(InSkeletalMesh, Proxy.GetMorphTargetCurves(), Proxy.GetVertexAnims());
 }
 
 void UAnimInstance::PostEvaluateAnimation()
@@ -1045,7 +1069,7 @@ void UAnimInstance::AddCurveValue(const USkeleton::AnimCurveUID Uid, float Value
 	FName CurrentCurveName;
 	// Grab the smartname mapping from our current skeleton and resolve the curve name. We cannot cache
 	// the smart name mapping as the skeleton can change at any time.
-	if(FSmartNameMapping* NameMapping = CurrentSkeleton->SmartNames.GetContainer(USkeleton::AnimCurveMappingName))
+	if(const FSmartNameMapping* NameMapping = CurrentSkeleton->GetSmartNameContainer(USkeleton::AnimCurveMappingName))
 	{
 		NameMapping->GetName(Uid, CurrentCurveName);
 	}
@@ -1067,7 +1091,13 @@ void UAnimInstance::TickSyncGroupWriteIndex()
 	GetProxyOnGameThread<FAnimInstanceProxy>().TickSyncGroupWriteIndex();
 }
 
-void UAnimInstance::UpdateCurves(const FBlendedCurve& InCurve)
+void UAnimInstance::RefreshCurves(USkeletalMeshComponent* Component)
+{
+	// update curves to component
+	GetProxyOnGameThread<FAnimInstanceProxy>().UpdateCurvesToComponents(Component);
+}
+
+void UAnimInstance::UpdateCurves(const FBlendedHeapCurve& InCurve)
 {
 	SCOPE_CYCLE_COUNTER(STAT_UpdateCurves);
 
@@ -1087,11 +1117,15 @@ void UAnimInstance::UpdateCurves(const FBlendedCurve& InCurve)
 	Proxy.GetMorphTargetCurves().Reset();
 	Proxy.GetMaterialParameterCurves().Reset();
 
-	for(int32 CurveId=0; CurveId<InCurve.UIDList.Num(); ++CurveId)
+	if (InCurve.UIDList != nullptr)
 	{
-		// had to add to anotehr data type
-		AddCurveValue(InCurve.UIDList[CurveId], InCurve.Elements[CurveId].Value, InCurve.Elements[CurveId].Flags);
-	}
+		const TArray<FSmartNameMapping::UID>& UIDList = *InCurve.UIDList;
+		for (int32 CurveId = 0; CurveId < InCurve.UIDList->Num(); ++CurveId)
+		{
+			// had to add to another data type
+			AddCurveValue(UIDList[CurveId], InCurve.Elements[CurveId].Value, InCurve.Elements[CurveId].Flags);
+		}
+	}	
 
 	// Add 0.0 curves to clear parameters that we have previously set but didn't set this tick.
 	//   - Make a copy of MaterialParametersToClear as it will be modified by AddCurveValue
@@ -1100,6 +1134,9 @@ void UAnimInstance::UpdateCurves(const FBlendedCurve& InCurve)
 	{
 		AddCurveValue(ParamsToClearCopy[i], 0.0f, ACF_DrivesMaterial);
 	}
+
+	// update curves to component
+	Proxy.UpdateCurvesToComponents();
 }
 
 bool UAnimInstance::HasMorphTargetCurves() const
@@ -1428,6 +1465,9 @@ void UAnimInstance::Montage_Advance(float DeltaSeconds)
 
 			if (!MontageInstance->IsValid())
 			{
+				// Make sure we've cleared our references before deleting memory
+				ClearMontageInstanceReferences(*MontageInstance);
+
 				delete MontageInstance;
 				MontageInstances.RemoveAt(InstanceIndex);
 				--InstanceIndex;
@@ -1777,6 +1817,30 @@ void UAnimInstance::Montage_Pause(UAnimMontage* Montage)
 			if (MontageInstance && MontageInstance->IsActive())
 			{
 				MontageInstance->Pause();
+			}
+		}
+	}
+}
+
+void UAnimInstance::Montage_Resume(UAnimMontage* Montage)
+{
+	if (Montage)
+	{
+		FAnimMontageInstance* MontageInstance = GetActiveInstanceForMontage(*Montage);
+		if (MontageInstance && !MontageInstance->IsPlaying())
+		{
+			MontageInstance->SetPlaying(true);
+		}
+	}
+	else
+	{
+		// If no Montage reference, do it on all active ones.
+		for (int32 InstanceIndex = 0; InstanceIndex < MontageInstances.Num(); InstanceIndex++)
+		{
+			FAnimMontageInstance* MontageInstance = MontageInstances[InstanceIndex];
+			if (MontageInstance && MontageInstance->IsActive() && !MontageInstance->IsPlaying())
+			{
+				MontageInstance->SetPlaying(true);
 			}
 		}
 	}
@@ -2239,27 +2303,58 @@ void UAnimInstance::StopAllMontagesByGroupName(FName InGroupName, const FAlphaBl
 
 void UAnimInstance::OnMontageInstanceStopped(FAnimMontageInstance& StoppedMontageInstance)
 {
-	UAnimMontage* MontageStopped = StoppedMontageInstance.Montage;
-	ensure(MontageStopped != NULL);
+	ClearMontageInstanceReferences(StoppedMontageInstance);
+}
 
-	// Remove instance for Active List.
-	FAnimMontageInstance** AnimInstancePtr = ActiveMontagesMap.Find(MontageStopped);
-	if (AnimInstancePtr && (*AnimInstancePtr == &StoppedMontageInstance))
+void UAnimInstance::ClearMontageInstanceReferences(FAnimMontageInstance& InMontageInstance)
+{
+	if (UAnimMontage* MontageStopped = InMontageInstance.Montage)
 	{
-		ActiveMontagesMap.Remove(MontageStopped);
+		// Remove instance for Active List.
+		FAnimMontageInstance** AnimInstancePtr = ActiveMontagesMap.Find(MontageStopped);
+		if (AnimInstancePtr && (*AnimInstancePtr == &InMontageInstance))
+		{
+			ActiveMontagesMap.Remove(MontageStopped);
+		}
+	}
+	else
+	{
+		// If Montage ref is nullptr, it's possible the instance got terminated already and that is fine.
+		// Make sure it's been removed from our ActiveMap though
+		if (ActiveMontagesMap.FindKey(&InMontageInstance) != nullptr)
+		{
+			UE_LOG(LogAnimation, Warning, TEXT("%s: null montage found in the montage instance array!!"), *GetName());
+		}
 	}
 
 	// Clear RootMotionMontageInstance
-	if (RootMotionMontageInstance == &StoppedMontageInstance)
+	if (RootMotionMontageInstance == &InMontageInstance)
 	{
-		RootMotionMontageInstance = NULL;
+		RootMotionMontageInstance = nullptr;
 	}
+
+	// Clear any active synchronization
+	InMontageInstance.MontageSync_StopFollowing();
+	InMontageInstance.MontageSync_StopLeading();
 }
 
 FAnimMontageInstance* UAnimInstance::GetActiveInstanceForMontage(UAnimMontage const& Montage) const
 {
 	FAnimMontageInstance* const* FoundInstancePtr = ActiveMontagesMap.Find(&Montage);
-	return FoundInstancePtr ? *FoundInstancePtr : NULL;
+	return FoundInstancePtr ? *FoundInstancePtr : nullptr;
+}
+
+FAnimMontageInstance* UAnimInstance::GetMontageInstanceForID(int32 MontageInstanceID)
+{
+	for (FAnimMontageInstance* MontageInstance : MontageInstances)
+	{
+		if (MontageInstance && MontageInstance->GetInstanceID() == MontageInstanceID)
+		{
+			return MontageInstance;
+		}
+	}
+
+	return nullptr;
 }
 
 FAnimMontageInstance* UAnimInstance::GetRootMotionMontageInstance() const
@@ -2541,25 +2636,19 @@ void UAnimInstance::DestroyAnimInstanceProxy(FAnimInstanceProxy* InProxy)
 	delete InProxy;
 }
 
-void UAnimInstance::UpdateMorphTargetCurves(const TMap<FName, float>& InMorphTargetCurves)
+void UAnimInstance::RecordStateWeight(const int32& InMachineClassIndex, const int32& InStateIndex, const float& InStateWeight)
 {
-	GetProxyOnGameThread<FAnimInstanceProxy>().UpdateMorphTargetCurves(InMorphTargetCurves);
-}
-
-void UAnimInstance::UpdateComponentsMaterialParameters(UPrimitiveComponent* Component)
-{
-	GetProxyOnGameThread<FAnimInstanceProxy>().UpdateComponentsMaterialParameters(Component);
-}
-
-TArray<FActiveVertexAnim> UAnimInstance::UpdateActiveVertexAnims(const USkeletalMesh* SkeletalMesh)
-{
-	FAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FAnimInstanceProxy>();	// this can be called from CreateRenderState_Concurrent
-	return FAnimationRuntime::UpdateActiveVertexAnims(SkeletalMesh, Proxy.GetMorphTargetCurves(), Proxy.GetVertexAnims());
+	GetProxyOnAnyThread<FAnimInstanceProxy>().RecordStateWeight(InMachineClassIndex, InStateIndex, InStateWeight);
 }
 
 FBoneContainer& UAnimInstance::GetRequiredBones()
 {
 	return GetProxyOnGameThread<FAnimInstanceProxy>().GetRequiredBones();
+}
+
+void UAnimInstance::QueueRootMotionBlend(const FTransform& RootTransform, const FName& SlotName, float Weight)
+{
+	RootMotionBlendQueue.Add(FQueuedRootMotionBlend(RootTransform, SlotName, Weight));
 }
 
 #undef LOCTEXT_NAMESPACE 

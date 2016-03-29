@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LevelSequenceEditorPCH.h"
 #include "Toolkits/IToolkitHost.h"
@@ -6,194 +6,26 @@
 #include "Editor/LevelEditor/Public/ILevelViewport.h"
 #include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructure.h"
 #include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
+#include "ClassIconFinder.h"
 #include "ISequencer.h"
 #include "ISequencerModule.h"
-#include "SDockTab.h"
-#include "MovieSceneBinding.h"
 #include "MovieScene.h"
-#include "MovieSceneSequenceInstance.h"
+#include "MovieSceneBinding.h"
 #include "MovieSceneMaterialTrack.h"
+#include "MovieScenePropertyTrack.h"
+#include "MovieSceneSequenceInstance.h"
 #include "ScopedTransaction.h"
-#include "ClassIconFinder.h"
-#include "LevelSequenceSpawnRegister.h"
-#include "ISequencerObjectChangeListener.h"
-
 #include "SceneOutlinerModule.h"
 #include "SceneOutlinerPublicTypes.h"
+#include "SDockTab.h"
 
+// @todo sequencer: hack: setting defaults for transform tracks
+#include "MovieScene3DTransformSection.h"
+#include "MovieScene3DTransformTrack.h"
+
+#include "SequencerSpawnRegister.h"
 
 #define LOCTEXT_NAMESPACE "LevelSequenceEditor"
-
-/**
- * Spawn register used in the editor to add some usability features like maintaining selection states, and projecting spawned state onto spawnable defaults
- */
-class FLevelSequenceEditorSpawnRegister : public FLevelSequenceSpawnRegister
-{
-public:
-	/** Weak pointer to the active sequencer */
-	TWeakPtr<ISequencer> WeakSequencer;
-
-	/** Constructor */
-	FLevelSequenceEditorSpawnRegister()
-	{
-		bShouldClearSelectionCache = true;
-
-		FLevelEditorModule& LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>("LevelEditor");
-		OnActorSelectionChangedHandle = LevelEditor.OnActorSelectionChanged().AddRaw(this, &FLevelSequenceEditorSpawnRegister::OnActorSelectionChanged);
-
-		OnActorMovedHandle = GEditor->OnActorMoved().AddLambda([=](AActor* Actor){
-			OnSpawnedObjectPropertyChanged(*Actor);
-		});
-	}
-
-	~FLevelSequenceEditorSpawnRegister()
-	{
-		GEditor->OnActorMoved().Remove(OnActorMovedHandle);
-		if (FLevelEditorModule* LevelEditor = FModuleManager::GetModulePtr<FLevelEditorModule>("LevelEditor"))
-		{
-			LevelEditor->OnActorSelectionChanged().Remove(OnActorSelectionChangedHandle);
-		}
-	}
-
-private:
-
-	/** Called to spawn an object */
-	virtual UObject* SpawnObject(const FGuid& BindingId, FMovieSceneSequenceInstance& SequenceInstance, IMovieScenePlayer& Player) override
-	{
-		TGuardValue<bool> Guard(bShouldClearSelectionCache, false);
-
-		UObject* NewObject = FLevelSequenceSpawnRegister::SpawnObject(BindingId, SequenceInstance, Player);
-
-		// Add an object listener for the spawned object to propagate changes back onto the spawnable default
-		TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
-		if (Sequencer.IsValid() && NewObject)
-		{
-			Sequencer->GetObjectChangeListener().GetOnAnyPropertyChanged(*NewObject).AddSP(this, &FLevelSequenceEditorSpawnRegister::OnSpawnedObjectPropertyChanged);
-
-			// Select the actor if we think it should be selected
-			AActor* Actor = Cast<AActor>(NewObject);
-			if (Actor && SelectedSpawnedObjects.Contains(FMovieSceneSpawnRegisterKey(BindingId, SequenceInstance)))
-			{
-				GEditor->SelectActor(Actor, true /*bSelected*/, true /*bNotify*/);
-			}
-		}
-
-		return NewObject;
-	}
-
-	/** Called right before an object is about to be destroyed */
-	virtual void PreDestroyObject(UObject& Object, const FGuid& BindingId, FMovieSceneSequenceInstance& SequenceInstance) override
-	{
-		TGuardValue<bool> Guard(bShouldClearSelectionCache, false);
-
-		// Cache its selection state
-		AActor* Actor = Cast<AActor>(&Object);
-		if (Actor && GEditor->GetSelectedActors()->IsSelected(Actor))
-		{
-			SelectedSpawnedObjects.Add(FMovieSceneSpawnRegisterKey(BindingId, SequenceInstance));
-			GEditor->SelectActor(Actor, false /*bSelected*/, true /*bNotify*/);
-		}
-
-		// Remove our object listener
-		TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
-		if (Sequencer.IsValid())
-		{
-			Sequencer->GetObjectChangeListener().ReportObjectDestroyed(Object);
-		}
-
-		FLevelSequenceSpawnRegister::PreDestroyObject(Object, BindingId, SequenceInstance);
-	}
-
-	/** Populate a map of properties that are keyed on a particular object */
-	void PopulateKeyedPropertyMap(AActor& SpawnedObject, TMap<UObject*, TSet<UProperty*>>& OutKeyedPropertyMap)
-	{
-		TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
-
-		Sequencer->GetAllKeyedProperties(SpawnedObject, OutKeyedPropertyMap.FindOrAdd(&SpawnedObject));
-
-		for (UActorComponent* Component : SpawnedObject.GetComponents())
-		{
-			Sequencer->GetAllKeyedProperties(*Component, OutKeyedPropertyMap.FindOrAdd(Component));
-		}
-	}
-
-	/** Called when the editor selection has changed */
-	void OnActorSelectionChanged(const TArray<UObject*>& NewSelection, bool bForceRefresh)
-	{
-		if (bShouldClearSelectionCache)
-		{
-			SelectedSpawnedObjects.Reset();
-		}
-	}
-
-	/** Called when a property on a spawned object changes */
-	void OnSpawnedObjectPropertyChanged(UObject& SpawnedObject)
-	{
-		using namespace EditorUtilities;
-
-		AActor* Actor = CastChecked<AActor>(&SpawnedObject);
-		if (!Actor)
-		{
-			return;
-		}
-
-		TMap<UObject*, TSet<UProperty*>> ObjectToKeyedProperties;
-		PopulateKeyedPropertyMap(*Actor, ObjectToKeyedProperties);
-
-		// Copy any changed actor properties onto the default actor, provided they are not keyed
-		FCopyOptions Options(ECopyOptions::PropagateChangesToArchetypeInstances);
-
-		// Set up a property filter so only stuff that is not keyed gets copied onto the default
-		Options.PropertyFilter = [&](const UProperty& Property, const UObject& Object) -> bool {
-			const TSet<UProperty*>* ExcludedProperties = ObjectToKeyedProperties.Find(const_cast<UObject*>(&Object));
-
-			return !ExcludedProperties || !ExcludedProperties->Contains(const_cast<UProperty*>(&Property));
-		};
-
-		// Now copy the actor properties
-		AActor* DefaultActor = Actor->GetClass()->GetDefaultObject<AActor>();
-		EditorUtilities::CopyActorProperties(Actor, DefaultActor, Options);
-
-		// The above function call explicitly doesn't copy the root component transform (so the default actor is always at 0,0,0)
-		// But in sequencer, we want the object to have a default transform if it doesn't have a transform track
-		static FName RelativeLocation = GET_MEMBER_NAME_CHECKED(USceneComponent, RelativeLocation);
-		static FName RelativeRotation = GET_MEMBER_NAME_CHECKED(USceneComponent, RelativeRotation);
-		static FName RelativeScale3D = GET_MEMBER_NAME_CHECKED(USceneComponent, RelativeScale3D);
-
-		bool bHasKeyedTransform = false;
-		for (UProperty* Property : *ObjectToKeyedProperties.Find(Actor))
-		{
-			FName PropertyName = Property->GetFName();
-			bHasKeyedTransform = PropertyName == RelativeLocation || PropertyName == RelativeRotation || PropertyName == RelativeScale3D;
-			if (bHasKeyedTransform)
-			{
-				break;
-			}
-		}
-
-		// Set the default transform if it's not keyed
-		USceneComponent* RootComponent = Actor->GetRootComponent();
-		USceneComponent* DefaultRootComponent = DefaultActor->GetRootComponent();
-
-		if (!bHasKeyedTransform && RootComponent && DefaultRootComponent)
-		{
-			DefaultRootComponent->RelativeLocation = RootComponent->RelativeLocation;
-			DefaultRootComponent->RelativeRotation = RootComponent->RelativeRotation;
-			DefaultRootComponent->RelativeScale3D = RootComponent->RelativeScale3D;
-		}
-	}
-
-private:
-
-	/** Handles for delegates that we've bound to */
-	FDelegateHandle OnActorMovedHandle, OnActorSelectionChangedHandle;
-
-	/** Set of spawn register keys for objects that should be selected if they are spawned */
-	TSet<FMovieSceneSpawnRegisterKey> SelectedSpawnedObjects;
-
-	/** True if we should clear the above selection cache when the editor selection has been changed */
-	bool bShouldClearSelectionCache;
-};
 
 
 /* Local constants
@@ -207,6 +39,28 @@ namespace SequencerDefs
 }
 
 
+static TArray<FLevelSequenceEditorToolkit*> OpenToolkits;
+
+void FLevelSequenceEditorToolkit::IterateOpenToolkits(TFunctionRef<bool(FLevelSequenceEditorToolkit&)> Iter)
+{
+	for (FLevelSequenceEditorToolkit* Toolkit : OpenToolkits)
+	{
+		if (!Iter(*Toolkit))
+		{
+			return;
+		}
+	}
+}
+
+FLevelSequenceEditorToolkit::FLevelSequenceEditorToolkitOpened& FLevelSequenceEditorToolkit::OnOpened()
+{
+	static FLevelSequenceEditorToolkitOpened OnOpenedEvent;
+	return OnOpenedEvent;
+}
+
+/* FLevelSequenceEditorToolkit structors
+ *****************************************************************************/
+
 FLevelSequenceEditorToolkit::FLevelSequenceEditorToolkit(const TSharedRef<ISlateStyle>& InStyle)
 	: Style(InStyle)
 {
@@ -215,6 +69,8 @@ FLevelSequenceEditorToolkit::FLevelSequenceEditorToolkit(const TSharedRef<ISlate
 	int32 NewIndex = SequencerModule.GetMenuExtensibilityManager()->GetExtenderDelegates().Add(
 		FAssetEditorExtender::CreateRaw(this, &FLevelSequenceEditorToolkit::HandleMenuExtensibilityGetExtender));
 	SequencerExtenderHandle = SequencerModule.GetMenuExtensibilityManager()->GetExtenderDelegates()[NewIndex].GetHandle();
+
+	OpenToolkits.Add(this);
 }
 
 
@@ -241,7 +97,7 @@ FLevelSequenceEditorToolkit::~FLevelSequenceEditorToolkit()
 /* FLevelSequenceEditorToolkit interface
  *****************************************************************************/
 
-void FLevelSequenceEditorToolkit::Initialize( const EToolkitMode::Type Mode, const TSharedPtr<IToolkitHost>& InitToolkitHost, ULevelSequence* InLevelSequence, bool bEditWithinLevelEditor )
+void FLevelSequenceEditorToolkit::Initialize(const EToolkitMode::Type Mode, const TSharedPtr<IToolkitHost>& InitToolkitHost, ULevelSequence* InLevelSequence, bool bEditWithinLevelEditor)
 {
 	// create tab layout
 	const TSharedRef<FTabManager::FLayout> StandaloneDefaultLayout = FTabManager::NewLayout("Standalone_LevelSequenceEditor")
@@ -262,7 +118,7 @@ void FLevelSequenceEditorToolkit::Initialize( const EToolkitMode::Type Mode, con
 
 	FAssetEditorToolkit::InitAssetEditor(Mode, InitToolkitHost, SequencerDefs::SequencerAppIdentifier, StandaloneDefaultLayout, bCreateDefaultStandaloneMenu, bCreateDefaultToolbar, LevelSequence);
 
-	TSharedRef<FLevelSequenceEditorSpawnRegister> SpawnRegister = MakeShareable(new FLevelSequenceEditorSpawnRegister);
+	TSharedRef<FLevelSequenceEditorSpawnRegister> SpawnRegister = MakeShareable(new TSequencerSpawnRegister<FLevelSequenceEditorSpawnRegister>);
 
 	// initialize sequencer
 	FSequencerInitParams SequencerInitParams;
@@ -293,8 +149,8 @@ void FLevelSequenceEditorToolkit::Initialize( const EToolkitMode::Type Mode, con
 	}
 
 	Sequencer = FModuleManager::LoadModuleChecked<ISequencerModule>("Sequencer").CreateSequencer(SequencerInitParams);
-	
-	SpawnRegister->WeakSequencer = Sequencer;
+	SpawnRegister->SetSequencer(Sequencer);
+	Sequencer->OnActorAddedToSequencer().AddSP(this, &FLevelSequenceEditorToolkit::HandleActorAddedToSequencer);
 
 	if (bEditWithinLevelEditor)
 	{
@@ -307,6 +163,8 @@ void FLevelSequenceEditorToolkit::Initialize( const EToolkitMode::Type Mode, con
 		// when previewing a MovieScene
 		LevelEditorModule.OnMapChanged().AddRaw(this, &FLevelSequenceEditorToolkit::HandleMapChanged);
 	}
+
+	FLevelSequenceEditorToolkit::OnOpened().Broadcast(*this);
 }
 
 
@@ -370,32 +228,32 @@ void FLevelSequenceEditorToolkit::UnregisterTabSpawners(const TSharedRef<class F
 /* FLevelSequenceEditorToolkit callbacks
  *****************************************************************************/
 
-void FLevelSequenceEditorToolkit::HandleAddComponentActionExecute( UActorComponent* Component )
+void FLevelSequenceEditorToolkit::HandleAddComponentActionExecute(UActorComponent* Component)
 {
-	Sequencer->GetHandleToObject( Component );
+	Sequencer->GetHandleToObject(Component);
 }
 
 
-void FLevelSequenceEditorToolkit::HandleAddComponentMaterialActionExecute( UPrimitiveComponent* Component, int32 MaterialIndex )
+void FLevelSequenceEditorToolkit::HandleAddComponentMaterialActionExecute(UPrimitiveComponent* Component, int32 MaterialIndex)
 {
-	FGuid ObjectHandle = Sequencer->GetHandleToObject( Component );
-	for ( const FMovieSceneBinding& Binding : Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene()->GetBindings() )
+	FGuid ObjectHandle = Sequencer->GetHandleToObject(Component);
+	for (const FMovieSceneBinding& Binding : Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene()->GetBindings())
 	{
-		if ( Binding.GetObjectGuid() == ObjectHandle )
+		if (Binding.GetObjectGuid() == ObjectHandle)
 		{
 			bool bHasMaterialTrack = false;
-			for ( UMovieSceneTrack* Track : Binding.GetTracks() )
+			for (UMovieSceneTrack* Track : Binding.GetTracks())
 			{
-				UMovieSceneComponentMaterialTrack* MaterialTrack = Cast<UMovieSceneComponentMaterialTrack>( Track );
-				if ( MaterialTrack != nullptr && MaterialTrack->GetMaterialIndex() == MaterialIndex )
+				UMovieSceneComponentMaterialTrack* MaterialTrack = Cast<UMovieSceneComponentMaterialTrack>(Track);
+				if (MaterialTrack != nullptr && MaterialTrack->GetMaterialIndex() == MaterialIndex)
 				{
 					bHasMaterialTrack = true;
 					break;
 				}
 			}
-			if ( bHasMaterialTrack == false )
+			if (bHasMaterialTrack == false)
 			{
-				const FScopedTransaction Transaction( LOCTEXT( "AddComponentMaterialTrack", "Add component material track" ) );
+				const FScopedTransaction Transaction(LOCTEXT("AddComponentMaterialTrack", "Add component material track"));
 
 				UMovieScene* FocusedMovieScene = Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene();
 				{
@@ -405,7 +263,7 @@ void FLevelSequenceEditorToolkit::HandleAddComponentMaterialActionExecute( UPrim
 				UMovieSceneComponentMaterialTrack* MaterialTrack = Cast<UMovieSceneComponentMaterialTrack>(FocusedMovieScene->AddTrack<UMovieSceneComponentMaterialTrack>(ObjectHandle));
 				{
 					MaterialTrack->Modify();
-					MaterialTrack->SetMaterialIndex( MaterialIndex );
+					MaterialTrack->SetMaterialIndex(MaterialIndex);
 				}
 				
 				Sequencer->NotifyMovieSceneDataChanged();
@@ -427,17 +285,181 @@ void FLevelSequenceEditorToolkit::AddActorsToSequencer(AActor*const* InActors, i
 	while (NumActors--)
 	{
 		AActor* ThisActor = *InActors;
+
 		if (!Sequencer->GetFocusedMovieSceneSequenceInstance()->FindObjectId(*ThisActor).IsValid())
 		{
-			Sequencer->CreateBinding(*ThisActor, ThisActor->GetActorLabel());
+			FGuid Binding = Sequencer->CreateBinding(*ThisActor, ThisActor->GetActorLabel());
+
+			Sequencer->UpdateRuntimeInstances();
+
+			AddDefaultTracksForActor(*ThisActor, Binding);
 		}
 
 		GEditor->SelectActor(ThisActor, true, true);
-
 		InActors++;
 	}
 
 	Sequencer->NotifyMovieSceneDataChanged();
+}
+
+void FLevelSequenceEditorToolkit::HandleActorAddedToSequencer(AActor* Actor, const FGuid Binding)
+{
+	AddDefaultTracksForActor(*Actor, Binding);
+}
+
+void FLevelSequenceEditorToolkit::AddDefaultTracksForActor(AActor& Actor, const FGuid Binding)
+{
+	// get focused movie scene
+	UMovieSceneSequence* Sequence = Sequencer->GetFocusedMovieSceneSequence();
+
+	if (Sequence == nullptr)
+	{
+		return;
+	}
+
+	UMovieScene* MovieScene = Sequence->GetMovieScene();
+
+	if (MovieScene == nullptr)
+	{
+		return;
+	}
+
+	// add default tracks
+	for (const FLevelSequenceTrackSettings& TrackSettings : GetDefault<ULevelSequenceEditorSettings>()->TrackSettings)
+	{
+		UClass* MatchingActorClass = TrackSettings.MatchingActorClass.ResolveClass();
+
+		if ((MatchingActorClass == nullptr) || !Actor.IsA(MatchingActorClass))
+		{
+			continue;
+		}
+
+		// add tracks by type
+		for (const FStringClassReference& DefaultTrack : TrackSettings.DefaultTracks)
+		{
+			UClass* TrackClass = DefaultTrack.ResolveClass();
+
+			if (TrackClass != nullptr)
+			{
+				UMovieSceneTrack* NewTrack = MovieScene->AddTrack(TrackClass, Binding);
+
+				// Create a section for any property tracks
+				if (Cast<UMovieScenePropertyTrack>(NewTrack))
+				{
+					UMovieSceneSection* NewSection = NewTrack->CreateNewSection();
+					NewTrack->AddSection(*NewSection);
+
+					// @todo sequencer: hack: setting defaults for transform tracks
+					if (NewTrack->IsA(UMovieScene3DTransformTrack::StaticClass()))
+					{
+						auto TransformSection = Cast<UMovieScene3DTransformSection>(NewSection);
+
+						FVector Location = Actor.GetActorLocation();
+						FRotator Rotation = Actor.GetActorRotation();
+						FVector Scale = Actor.GetActorScale();
+
+						if (Actor.GetRootComponent())
+						{
+							FTransform ActorRelativeTransform = Actor.GetRootComponent()->GetRelativeTransform();
+
+							Location = ActorRelativeTransform.GetTranslation();
+							Rotation = ActorRelativeTransform.GetRotation().Rotator();
+							Scale = ActorRelativeTransform.GetScale3D();
+						}
+
+						TransformSection->SetDefault(FTransformKey(EKey3DTransformChannel::Translation, EAxis::X, Location.X, false /*bUnwindRotation*/));
+						TransformSection->SetDefault(FTransformKey(EKey3DTransformChannel::Translation, EAxis::Y, Location.Y, false /*bUnwindRotation*/));
+						TransformSection->SetDefault(FTransformKey(EKey3DTransformChannel::Translation, EAxis::Z, Location.Z, false /*bUnwindRotation*/));
+
+						TransformSection->SetDefault(FTransformKey(EKey3DTransformChannel::Rotation, EAxis::X, Rotation.Euler().X, false /*bUnwindRotation*/));
+						TransformSection->SetDefault(FTransformKey(EKey3DTransformChannel::Rotation, EAxis::Y, Rotation.Euler().Y, false /*bUnwindRotation*/));
+						TransformSection->SetDefault(FTransformKey(EKey3DTransformChannel::Rotation, EAxis::Z, Rotation.Euler().Z, false /*bUnwindRotation*/));
+
+						TransformSection->SetDefault(FTransformKey(EKey3DTransformChannel::Scale, EAxis::X, Scale.X, false /*bUnwindRotation*/));
+						TransformSection->SetDefault(FTransformKey(EKey3DTransformChannel::Scale, EAxis::Y, Scale.Y, false /*bUnwindRotation*/));
+						TransformSection->SetDefault(FTransformKey(EKey3DTransformChannel::Scale, EAxis::Z, Scale.Z, false /*bUnwindRotation*/));
+					}
+
+					NewSection->SetIsInfinite(GetSequencer()->GetInfiniteKeyAreas());
+				}
+
+				Sequencer->UpdateRuntimeInstances();
+			}
+		}
+
+		// add tracks by property
+		for (const FLevelSequencePropertyTrackSettings& PropertyTrackSettings : TrackSettings.DefaultPropertyTracks)
+		{
+			TArray<UProperty*> PropertyPath;
+			UObject* PropertyOwner = &Actor;
+
+			// determine object hierarchy
+			TArray<FString> ComponentNames;
+			PropertyTrackSettings.ComponentPath.ParseIntoArray(ComponentNames, TEXT("."));
+
+			for (const FString& ComponentName : ComponentNames)
+			{
+				PropertyOwner = FindObjectFast<UObject>(PropertyOwner, *ComponentName);
+
+				if (PropertyOwner == nullptr)
+				{
+					return;
+				}
+			}
+
+			UStruct* PropertyOwnerClass = PropertyOwner->GetClass();
+
+			// determine property path
+			TArray<FString> PropertyNames;
+			PropertyTrackSettings.PropertyPath.ParseIntoArray(PropertyNames, TEXT("."));
+
+			for (const FString& PropertyName : PropertyNames)
+			{
+				UProperty* Property = PropertyOwnerClass->FindPropertyByName(*PropertyName);
+
+				if (Property != nullptr)
+				{
+					PropertyPath.Add(Property);
+				}
+
+				UStructProperty* StructProperty = Cast<UStructProperty>(Property);
+
+				if (StructProperty != nullptr)
+				{
+					PropertyOwnerClass = StructProperty->Struct;
+					continue;
+				}
+
+				UObjectProperty* ObjectProperty = Cast<UObjectProperty>(Property);
+
+				if (ObjectProperty != nullptr)
+				{
+					PropertyOwnerClass = ObjectProperty->PropertyClass;
+					continue;
+				}
+
+				break;
+			}
+
+			if (!Sequencer->CanKeyProperty(FCanKeyPropertyParams(Actor.GetClass(), PropertyPath)))
+			{
+				continue;
+			}
+
+			// key property
+			FKeyPropertyParams KeyPropertyParams(TArrayBuilder<UObject*>().Add(PropertyOwner), PropertyPath);
+			{
+				KeyPropertyParams.KeyParams.bCreateTrackIfMissing = true;
+				KeyPropertyParams.KeyParams.bCreateHandleIfMissing = true;
+				KeyPropertyParams.KeyParams.bCreateKeyIfUnchanged = false;
+				KeyPropertyParams.KeyParams.bCreateKeyIfEmpty = false;
+				KeyPropertyParams.KeyParams.bCreateKeyOnlyWhenAutoKeying = false;
+			}
+
+			Sequencer->KeyProperty(KeyPropertyParams);
+			Sequencer->UpdateRuntimeInstances();
+		}
+	}
 }
 
 void FLevelSequenceEditorToolkit::AddPosessActorMenuExtensions(FMenuBuilder& MenuBuilder)
@@ -495,13 +517,13 @@ void FLevelSequenceEditorToolkit::AddPosessActorMenuExtensions(FMenuBuilder& Men
 		InitOptions.ColumnMap.Add(FBuiltInColumnTypes::Label(), FColumnInfo(EColumnVisibility::Visible, 0));
 
 		// Only display actors that are not possessed already
-		InitOptions.Filters->AddFilterPredicate( FActorFilterPredicate::CreateLambda( IsActorValidForPossession ) );
+		InitOptions.Filters->AddFilterPredicate(FActorFilterPredicate::CreateLambda(IsActorValidForPossession));
 	}
 
 	// actor selector to allow the user to choose an actor
 	FSceneOutlinerModule& SceneOutlinerModule = FModuleManager::LoadModuleChecked<FSceneOutlinerModule>("SceneOutliner");
 	TSharedRef< SWidget > MiniSceneOutliner =
-		SNew( SVerticalBox )
+		SNew(SVerticalBox)
 		+SVerticalBox::Slot()
 		.AutoHeight()
 		.MaxHeight(400.0f)
@@ -526,7 +548,7 @@ void FLevelSequenceEditorToolkit::HandleMapChanged(class UWorld* NewWorld, EMapC
 }
 
 
-TSharedRef<FExtender> FLevelSequenceEditorToolkit::HandleMenuExtensibilityGetExtender( const TSharedRef<FUICommandList> CommandList, const TArray<UObject*> ContextSensitiveObjects )
+TSharedRef<FExtender> FLevelSequenceEditorToolkit::HandleMenuExtensibilityGetExtender(const TSharedRef<FUICommandList> CommandList, const TArray<UObject*> ContextSensitiveObjects)
 {
 	TSharedRef<FExtender> AddTrackMenuExtender(new FExtender());
 	AddTrackMenuExtender->AddMenuExtension(
@@ -558,7 +580,7 @@ TSharedRef<SDockTab> FLevelSequenceEditorToolkit::HandleTabManagerSpawnTab(const
 }
 
 
-void FLevelSequenceEditorToolkit::HandleTrackMenuExtensionAddTrack( FMenuBuilder& AddTrackMenuBuilder, TArray<UObject*> ContextObjects )
+void FLevelSequenceEditorToolkit::HandleTrackMenuExtensionAddTrack(FMenuBuilder& AddTrackMenuBuilder, TArray<UObject*> ContextObjects)
 {
 	if (ContextObjects.Num() != 1)
 	{
@@ -594,8 +616,8 @@ void FLevelSequenceEditorToolkit::HandleTrackMenuExtensionAddTrack( FMenuBuilder
 					{
 						FUIAction AddComponentMaterialAction(FExecuteAction::CreateSP(this, &FLevelSequenceEditorToolkit::HandleAddComponentMaterialActionExecute, Component, MaterialIndex));
 						FText AddComponentMaterialLabel = FText::Format(LOCTEXT("ComponentMaterialIndexLabelFormat", "Element {0}"), FText::AsNumber(MaterialIndex));
-						FText AddComponentMaterialToolTip = FText::Format(LOCTEXT("ComponentMaterialIndexToolTipFormat", "Add material element {0}" ), FText::AsNumber(MaterialIndex));
-						AddTrackMenuBuilder.AddMenuEntry( AddComponentMaterialLabel, AddComponentMaterialToolTip, FSlateIcon(), AddComponentMaterialAction );
+						FText AddComponentMaterialToolTip = FText::Format(LOCTEXT("ComponentMaterialIndexToolTipFormat", "Add material element {0}"), FText::AsNumber(MaterialIndex));
+						AddTrackMenuBuilder.AddMenuEntry(AddComponentMaterialLabel, AddComponentMaterialToolTip, FSlateIcon(), AddComponentMaterialAction);
 					}
 				}
 				AddTrackMenuBuilder.EndSection();
@@ -604,5 +626,11 @@ void FLevelSequenceEditorToolkit::HandleTrackMenuExtensionAddTrack( FMenuBuilder
 	}
 }
 
+bool FLevelSequenceEditorToolkit::OnRequestClose()
+{
+	OpenToolkits.Remove(this);
+	OnClosedEvent.Broadcast();
+	return true;
+}
 
 #undef LOCTEXT_NAMESPACE

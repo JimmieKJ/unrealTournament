@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "EditorSupportDelegates.h"
@@ -200,6 +200,7 @@ void FUnrealEdMisc::OnInit()
 
 	/** Delegate that gets called when a script exception occurs */
 	FBlueprintCoreDelegates::OnScriptException.AddStatic(&FKismetDebugUtilities::OnScriptException);
+	FBlueprintCoreDelegates::OnScriptExecutionEnd.AddStatic(&FKismetDebugUtilities::EndOfScriptExecution);
 	
 	FEditorDelegates::ChangeEditorMode.AddRaw(this, &FUnrealEdMisc::OnEditorChangeMode);
 	FCoreDelegates::PreModal.AddRaw(this, &FUnrealEdMisc::OnEditorPreModal);
@@ -291,7 +292,7 @@ void FUnrealEdMisc::OnInit()
 		{
 			if (!bMapLoaded && GEditor)
 			{
-				const FString& StartupMap = GetDefault<UGameMapsSettings>()->EditorStartupMap;
+				const FString StartupMap = GetDefault<UGameMapsSettings>()->EditorStartupMap.ToString();
 
 				if ((StartupMap.Len() > 0) && (GetDefault<UEditorLoadingSavingSettings>()->LoadLevelAtStartup != ELoadLevelAtStartup::None))
 				{

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections;
@@ -243,7 +243,12 @@ namespace UnrealBuildTool
 		{
 			base.ParseProjectSettings();
 
-			ConfigCacheIni Ini = ConfigCacheIni.CreateConfigCacheIni(UnrealTargetPlatform.IOS, "Engine", DirectoryReference.FromFile(ProjectFile));
+			string EngineIniPath = ProjectFile != null ? ProjectFile.Directory.FullName : null;
+			if (String.IsNullOrEmpty(EngineIniPath))
+			{
+				EngineIniPath = UnrealBuildTool.GetRemoteIniPath();
+			}
+			ConfigCacheIni Ini = new ConfigCacheIni(UnrealTargetPlatform.IOS, "Engine", EngineIniPath);
 			string ServerName = RemoteServerName;
 			if (Ini.GetString("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "RemoteServerName", out ServerName) && !String.IsNullOrEmpty(ServerName))
 			{
@@ -256,7 +261,7 @@ namespace UnrealBuildTool
 				bUseRPCUtil = !bUseRSync;
 				string UserName = RSyncUsername;
 
-				if (Ini.GetString("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "RSyncUsername", out UserName))
+				if (Ini.GetString("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "RSyncUsername", out UserName) && !String.IsNullOrEmpty(UserName))
 				{
 					RSyncUsername = UserName;
 				}
@@ -921,6 +926,7 @@ namespace UnrealBuildTool
 			SSHProcess.StartInfo.FileName = ResolvedSSHExe;
 			SSHProcess.StartInfo.Arguments = string.Format(
 				"{0} {1}@{2} \"{3}\"",
+//				"-o CheckHostIP=no {0} {1}@{2} \"{3}\"",
 				ResolvedSSHAuthentication,
 				RSyncUsername,
 				RemoteServerName,

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MainFramePrivatePCH.h"
 
@@ -16,6 +16,9 @@ void FMainFrameHandler::ShutDownEditor()
 
 	// End any play on console/PC games still happening
 	GEditor->EndPlayOnLocalPc();
+
+	// Cancel any current Launch On in progress
+	GEditor->CancelPlayingViaLauncher();
 
 	TSharedPtr<SWindow> RootWindow = RootWindowPtr.Pin();
 

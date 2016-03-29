@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "PersonaPrivatePCH.h"
@@ -1799,24 +1799,6 @@ FLinearColor FPersona::GetWorldCentricTabColorScale() const
 	return FLinearColor( 0.5f, 0.25f, 0.35f, 0.5f );
 }
 
-void FPersona::SaveAsset_Execute()
-{
-	if( ensure( GetEditingObjects().Num() > 0 ) )
-	{
-		const FName CurrentMode = GetCurrentMode();
-
-		TArray<UObject*> EditorObjects = GetEditorObjectsForMode(CurrentMode);
-
-		TArray< UPackage* > PackagesToSave;
-		for(auto Iter = EditorObjects.CreateIterator(); Iter; ++Iter)
-		{
-			PackagesToSave.Add((*Iter)->GetOutermost());
-		}
-
-		FEditorFileUtils::PromptForCheckoutAndSave( PackagesToSave, /*bCheckDirty=*/ false, /*bPromptToSave=*/ false );
-	}
-}
-
 void FPersona::SaveAnimationAssets_Execute()
 {
 	// only save animation assets related to skeletons
@@ -2405,17 +2387,17 @@ void FPersona::RemoveAttachedObjectFromPreviewComponent(UObject* Object, FName A
 		PreviewComponent->SetFlags(RF_Transactional);
 		PreviewComponent->Modify();
 
-		for (int32 I=PreviewComponent->AttachChildren.Num()-1; I >= 0; --I) // Iterate backwards because Cleancomponent will remove from AttachChildren
+		for (int32 I=PreviewComponent->GetAttachChildren().Num()-1; I >= 0; --I) // Iterate backwards because CleanupComponent will remove from AttachChildren
 		{
-			USceneComponent* ChildComponent = PreviewComponent->AttachChildren[I];
+			USceneComponent* ChildComponent = PreviewComponent->GetAttachChildren()[I];
 			UObject* Asset = FComponentAssetBrokerage::GetAssetFromComponent(ChildComponent);
 
-			if( Asset == Object && ChildComponent->AttachSocketName == AttachedTo)
+			if( Asset == Object && ChildComponent->GetAttachSocketName() == AttachedTo)
 			{
 				// PreviewComponet will be cleaned up by PreviewScene, 
 				// but if anything is attached, it won't be cleaned up, 
 				// so we'll need to clean them up manually
-				CleanupComponent(PreviewComponent->AttachChildren[I]);
+				CleanupComponent(PreviewComponent->GetAttachChildren()[I]);
 				break;
 			}
 		}
@@ -2426,12 +2408,11 @@ USceneComponent* FPersona::GetComponentForAttachedObject(UObject* Object, FName 
 {
 	if (PreviewComponent)
 	{
-		for (int32 I=0; I < PreviewComponent->AttachChildren.Num(); ++I)
+		for (USceneComponent* ChildComponent : PreviewComponent->GetAttachChildren())
 		{
-			USceneComponent* ChildComponent = PreviewComponent->AttachChildren[I];
 			UObject* Asset = FComponentAssetBrokerage::GetAssetFromComponent(ChildComponent);
 
-			if( Asset == Object && ChildComponent->AttachSocketName == AttachedTo)
+			if( Asset == Object && ChildComponent->GetAttachSocketName() == AttachedTo)
 			{
 				return ChildComponent;
 			}
@@ -2463,9 +2444,9 @@ void FPersona::RemoveAttachedComponent( bool bRemovePreviewAttached /* = true */
 	// clean up components	
 	if (PreviewComponent)
 	{
-		for (int32 I=PreviewComponent->AttachChildren.Num()-1; I >= 0; --I) // Iterate backwards because Cleancomponent will remove from AttachChildren
+		for (int32 I=PreviewComponent->GetAttachChildren().Num()-1; I >= 0; --I) // Iterate backwards because CleanupComponent will remove from AttachChildren
 		{
-			USceneComponent* ChildComponent = PreviewComponent->AttachChildren[I];
+			USceneComponent* ChildComponent = PreviewComponent->GetAttachChildren()[I];
 			UObject* Asset = FComponentAssetBrokerage::GetAssetFromComponent(ChildComponent);
 
 			bool bRemove = true;
@@ -2476,7 +2457,7 @@ void FPersona::RemoveAttachedComponent( bool bRemovePreviewAttached /* = true */
 				//could this asset have come from the skeleton
 				if(PreviewAttachedObjects.Contains(Asset))
 				{
-					if(PreviewAttachedObjects.Find(Asset)->Contains(ChildComponent->AttachSocketName))
+					if(PreviewAttachedObjects.Find(Asset)->Contains(ChildComponent->GetAttachSocketName()))
 					{
 						bRemove = false;
 					}
@@ -2488,13 +2469,13 @@ void FPersona::RemoveAttachedComponent( bool bRemovePreviewAttached /* = true */
 				// PreviewComponet will be cleaned up by PreviewScene, 
 				// but if anything is attached, it won't be cleaned up, 
 				// so we'll need to clean them up manually
-				CleanupComponent(PreviewComponent->AttachChildren[I]);
+				CleanupComponent(PreviewComponent->GetAttachChildren()[I]);
 			}
 		}
 
 		if( bRemovePreviewAttached )
 		{
-			PreviewComponent->AttachChildren.Empty();
+			check(PreviewComponent->GetAttachChildren().Num() == 0);
 		}
 	}
 }
@@ -2503,12 +2484,12 @@ void FPersona::CleanupComponent(USceneComponent* Component)
 {
 	if (Component)
 	{
-		for (int32 I=0; I<Component->AttachChildren.Num(); ++I)
+		for (int32 I = Component->GetAttachChildren().Num() - 1; I >= 0; --I) // Iterate backwards because CleanupComponent will remove from AttachChildren
 		{
-			CleanupComponent(Component->AttachChildren[I]);
+			CleanupComponent(Component->GetAttachChildren()[I]);
 		}
 
-		Component->AttachChildren.Empty();
+		check(Component->GetAttachChildren().Num() == 0);
 		Component->DestroyComponent();
 	}
 }
@@ -2575,6 +2556,11 @@ TArray<UObject*> FPersona::GetEditorObjectsForMode(FName Mode) const
 	return TArray<UObject*>();
 }
 
+void FPersona::GetSaveableObjects(TArray<UObject*>& OutObjects) const
+{
+	OutObjects = GetEditorObjectsForMode(GetCurrentMode());
+}
+
 const FSlateBrush* FPersona::GetDirtyImageForMode(FName Mode) const
 {
 	TArray<UObject*> EditorObjects = GetEditorObjectsForMode(Mode);
@@ -2618,7 +2604,7 @@ void FPersona::RedoAction()
 
 FSlateIcon FPersona::GetRecordStatusImage() const
 {
-	if (Recorder.InRecording())
+	if (IsRecording())
 	{
 		return FSlateIcon(FEditorStyle::GetStyleSetName(), "Persona.StopRecordAnimation");
 	}
@@ -2628,7 +2614,7 @@ FSlateIcon FPersona::GetRecordStatusImage() const
 
 FText FPersona::GetRecordMenuLabel() const
 {
-	if(Recorder.InRecording())
+	if(IsRecording())
 	{
 		return LOCTEXT("Persona_StopRecordAnimationMenuLabel", "Stop Record Animation");
 	}
@@ -2638,7 +2624,12 @@ FText FPersona::GetRecordMenuLabel() const
 
 FText FPersona::GetRecordStatusLabel() const
 {
-	if (Recorder.InRecording())
+	FPersonaModule& PersonaModule = FModuleManager::GetModuleChecked<FPersonaModule>(TEXT("Persona"));
+
+	bool bInRecording = false;
+	PersonaModule.OnIsRecordingActive().ExecuteIfBound(PreviewComponent, bInRecording);
+
+	if (bInRecording)
 	{
 		return LOCTEXT("Persona_StopRecordAnimationLabel", "Stop");
 	}
@@ -2648,7 +2639,12 @@ FText FPersona::GetRecordStatusLabel() const
 
 FText FPersona::GetRecordStatusTooltip() const
 {
-	if (Recorder.InRecording())
+	FPersonaModule& PersonaModule = FModuleManager::GetModuleChecked<FPersonaModule>(TEXT("Persona"));
+
+	bool bInRecording = false;
+	PersonaModule.OnIsRecordingActive().ExecuteIfBound(PreviewComponent, bInRecording);
+
+	if (bInRecording)
 	{
 		return LOCTEXT("Persona_StopRecordAnimation", "Stop Record Animation");
 	}
@@ -2664,13 +2660,18 @@ void FPersona::RecordAnimation()
 		return;
 	}
 
-	if (Recorder.InRecording())
+	FPersonaModule& PersonaModule = FModuleManager::GetModuleChecked<FPersonaModule>(TEXT("Persona"));
+
+	bool bInRecording = false;
+	PersonaModule.OnIsRecordingActive().ExecuteIfBound(PreviewComponent, bInRecording);
+
+	if (bInRecording)
 	{
-		Recorder.StopRecord(true);
+		PersonaModule.OnStopRecording().ExecuteIfBound(PreviewComponent);
 	}
 	else
 	{
-		Recorder.TriggerRecordAnimation(PreviewComponent);
+		PersonaModule.OnRecord().ExecuteIfBound(PreviewComponent);
 	}
 }
 
@@ -3044,12 +3045,6 @@ void FPersona::Tick(float DeltaTime)
 		Viewport.Pin()->RefreshViewport();
 	}
 
-	if (Recorder.InRecording())
-	{
-		// make sure you don't allow switch previewcomponent
-		Recorder.UpdateRecord(PreviewComponent, DeltaTime);
-	}
-
 	if (PreviewComponent && LastCachedLODForPreviewComponent != PreviewComponent->PredictedLODLevel)
 	{
 		OnLODChanged.Broadcast();
@@ -3326,6 +3321,38 @@ FText FPersona::GetPreviewAssetTooltip() const
 void FPersona::SetSelectedBlendProfile(UBlendProfile* InBlendProfile)
 {
 	OnBlendProfileSelected.Broadcast(InBlendProfile);
+}
+
+bool FPersona::IsRecording() const
+{
+	FPersonaModule& PersonaModule = FModuleManager::GetModuleChecked<FPersonaModule>("Persona");
+
+	bool bInRecording = false;
+	PersonaModule.OnIsRecordingActive().ExecuteIfBound(PreviewComponent, bInRecording);
+
+	return bInRecording;
+}
+
+void FPersona::StopRecording()
+{
+	FPersonaModule& PersonaModule = FModuleManager::GetModuleChecked<FPersonaModule>("Persona");
+	PersonaModule.OnStopRecording().ExecuteIfBound(PreviewComponent);
+}
+
+UAnimSequence* FPersona::GetCurrentRecording() const
+{
+	FPersonaModule& PersonaModule = FModuleManager::GetModuleChecked<FPersonaModule>("Persona");
+	UAnimSequence* Recording = nullptr;
+	PersonaModule.OnGetCurrentRecording().ExecuteIfBound(PreviewComponent, Recording);
+	return Recording;
+}
+
+float FPersona::GetCurrentRecordingTime() const
+{
+	FPersonaModule& PersonaModule = FModuleManager::GetModuleChecked<FPersonaModule>("Persona");
+	float RecordingTime = 0.0f;
+	PersonaModule.OnGetCurrentRecordingTime().ExecuteIfBound(PreviewComponent, RecordingTime);
+	return RecordingTime;
 }
 
 static class FMeshHierarchyCmd : private FSelfRegisteringExec

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "UnrealEd.h"
@@ -6,6 +6,43 @@
 #include "Engine/BlueprintGeneratedClass.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditorTransaction, Log, All);
+
+inline UObject* BuildSubobjectKey(UObject* InObj, TArray<FName>& OutHierarchyNames)
+{
+	auto UseOuter = [](const UObject* Obj)
+	{
+		if (Obj == nullptr)
+		{
+			return false;
+		}
+
+		const bool bIsCDO = Obj->HasAllFlags(RF_ClassDefaultObject);
+		const UObject* CDO = bIsCDO ? Obj : nullptr;
+		const bool bIsClassCDO = (CDO != nullptr) ? (CDO->GetClass()->ClassDefaultObject == CDO) : false;
+		if(!bIsClassCDO && CDO)
+		{
+			// Likely a trashed CDO, try to recover. Only known cause of this is
+			// ambiguous use of DSOs:
+			CDO = CDO->GetClass()->ClassDefaultObject;
+		}
+		const UActorComponent* AsComponent = Cast<UActorComponent>(Obj);
+		const bool bIsDSO = Obj->HasAnyFlags(RF_DefaultSubObject);
+		const bool bIsSCSComponent = AsComponent && AsComponent->IsCreatedByConstructionScript();
+		return (bIsCDO && bIsClassCDO) || bIsDSO || bIsSCSComponent;
+	};
+	
+	UObject* Outermost = nullptr;
+
+	UObject* Iter = InObj;
+	while (UseOuter(Iter))
+	{
+		OutHierarchyNames.Add(Iter->GetFName());
+		Iter = Iter->GetOuter();
+		Outermost = Iter;
+	}
+
+	return Outermost;
+}
 
 /*-----------------------------------------------------------------------------
 	A single transaction.
@@ -39,7 +76,7 @@ void FTransaction::FObjectRecord::SerializeContents( FArchive& Ar, int32 InOper 
 	// Cache to restore at the end
 	bool bWasArIgnoreOuterRef = Ar.ArIgnoreOuterRef;
 
-	if (Object.IsPartOfCDO())
+	if (Object.SubObjectHierarchyID.Num() != 0)
 	{
 		Ar.ArIgnoreOuterRef = true;
 	}
@@ -97,7 +134,6 @@ void FTransaction::FObjectRecord::SerializeContents( FArchive& Ar, int32 InOper 
 		check(Serializer==NULL);
 		Object->Serialize( Ar );
 	}
-
 	Ar.ArIgnoreOuterRef = bWasArIgnoreOuterRef;
 }
 
@@ -107,7 +143,7 @@ void FTransaction::FObjectRecord::Restore( FTransaction* Owner )
 	{
 		bRestored = true;
 		TArray<uint8> FlipData;
-		TArray<FReferencedObject> FlipReferencedObjects;
+		TArray<FPersistentObjectRef> FlipReferencedObjects;
 		TArray<FName> FlipReferencedNames;
 		TSharedPtr<ITransactionObjectAnnotation> FlipObjectAnnotation;
 		if( Owner->bFlip )
@@ -179,63 +215,82 @@ void FTransaction::DumpObjectMap(FOutputDevice& Ar) const
 
 FArchive& operator<<( FArchive& Ar, FTransaction::FObjectRecord& R )
 {
-	if (!Ar.IsObjectReferenceCollector() || (Ar.IsObjectReferenceCollector() && !R.Object.IsPartOfCDO()))
-	{
-		UObject* Object = R.Object.Get();
-		check(Object);
-		FMemMark Mark(FMemStack::Get());
-		Ar << Object;
-		R.Object = Object;
-		Ar << R.Data;
-		Ar << R.ReferencedObjects;
-		Ar << R.ReferencedNames;
-		Mark.Pop();
-	}
+	FMemMark Mark(FMemStack::Get());
+	Ar << R.Object;
+	Ar << R.Data;
+	Ar << R.ReferencedObjects;
+	Ar << R.ReferencedNames;
+	Mark.Pop();
 	return Ar;
 }
 
-FTransaction::FObjectRecord::FReferencedObject::FReferencedObject(UObject* InObject)
+FTransaction::FObjectRecord::FPersistentObjectRef::FPersistentObjectRef(UObject* InObject)
+	: ReferenceType(EReferenceType::Unknown)
+	, Object(nullptr)
 {
-	UActorComponent* Component = Cast<UActorComponent>(InObject);
-	UObject* CDO = nullptr;
-	if (Component && OuterIsCDO(Component, CDO))
+	check(InObject);
+	UObject* Outermost = BuildSubobjectKey(InObject, SubObjectHierarchyID);
+
+	if (SubObjectHierarchyID.Num()>0)
 	{
-		Object = CDO;
-		ComponentName = Component->GetFName();
-	}
-	else if (Component && Component->IsCreatedByConstructionScript())
-	{
-		Object = Component->GetOuter();
-		ComponentName = Component->GetFName();
+		check(Outermost);
+		//check(Outermost != GetTransientPackage());
+		ReferenceType = EReferenceType::SubObject;
+		Object = Outermost;
 	}
 	else
 	{
+		SubObjectHierarchyID.Empty();
+		ReferenceType = EReferenceType::RootObject;
 		Object = InObject;
 	}
+
+	// Make sure that when we look up the object we find the same thing:
+	checkSlow(Get() == InObject);
 }
 
-UObject* FTransaction::FObjectRecord::FReferencedObject::GetObject() const
+UObject* FTransaction::FObjectRecord::FPersistentObjectRef::Get() const
 {
-	return (ComponentName.IsNone() ? Object : FindObjectFast<UActorComponent>(Object, ComponentName));
-}
+	if (ReferenceType == EReferenceType::SubObject)
+	{
+		check (SubObjectHierarchyID.Num() > 0)
+		// find the subobject:
+		UObject* CurrentObject = Object;
+		bool bFoundTargetSubObject = (SubObjectHierarchyID.Num() == 0);
+		if (!bFoundTargetSubObject)
+		{
+			// Current increasing depth into sub-objects, starts at 1 to avoid the sub-object found and placed in NextObject.
+			int SubObjectDepth = SubObjectHierarchyID.Num() - 1;
+			UObject* NextObject = CurrentObject;
+			while (NextObject != nullptr && !bFoundTargetSubObject)
+			{
+				// Look for any UObject with the CurrentObject's outer to find the next sub-object:
+				NextObject = StaticFindObjectFast(UObject::StaticClass(), CurrentObject, SubObjectHierarchyID[SubObjectDepth]);
+				bFoundTargetSubObject = SubObjectDepth == 0;
+				--SubObjectDepth;
+				CurrentObject = NextObject;
+			}
+		}
 
-void FTransaction::FObjectRecord::FReferencedObject::AddReferencedObjects(FReferenceCollector& Collector)
-{
-	Collector.AddReferencedObject(Object);
+		return bFoundTargetSubObject ? CurrentObject : nullptr;
+	}
+
+	return Object;
 }
 
 void FTransaction::FObjectRecord::AddReferencedObjects( FReferenceCollector& Collector )
 {
-	if (Object.ShouldAddReference())
+	UObject* Obj = Object.Object;
+	Collector.AddReferencedObject(Obj);
+	Object.Object = Obj;
+
+	for (FPersistentObjectRef& ReferencedObject : ReferencedObjects)
 	{
-		UObject* Obj = Object.Get();
-		Collector.AddReferencedObject(Obj);
-		Object = Obj;
+		UObject* RefObj = ReferencedObject.Object;
+		Collector.AddReferencedObject(RefObj);
+		ReferencedObject.Object = RefObj;
 	}
-	for( FReferencedObject& ReferencedObject : ReferencedObjects )
-	{
-		ReferencedObject.AddReferencedObjects(Collector);
-	}
+
 	if (ObjectAnnotation.IsValid())
 	{
 		ObjectAnnotation->AddReferencedObjects(Collector);
@@ -245,7 +300,7 @@ void FTransaction::FObjectRecord::AddReferencedObjects( FReferenceCollector& Col
 bool FTransaction::FObjectRecord::ContainsPieObject() const
 {
 	{
-		UObject* Obj = Object.Get();
+		UObject* Obj = Object.Object;
 
 		if(Obj && Obj->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
 		{
@@ -253,9 +308,9 @@ bool FTransaction::FObjectRecord::ContainsPieObject() const
 		}
 	}
 
-	for( const FReferencedObject& ReferencedObject : ReferencedObjects )
+	for (const FPersistentObjectRef& ReferencedObject : ReferencedObjects)
 	{
-		const UObject* Obj = ReferencedObject.GetObject();
+		const UObject* Obj = ReferencedObject.Object;
 		if( Obj && Obj->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
 		{
 			return true;
@@ -620,6 +675,20 @@ bool UTransBuffer::CanUndo( FText* Text )
 		}
 		return false;
 	}
+	
+	if (UndoBarrierStack.Num())
+	{
+		const int32 UndoBarrier = UndoBarrierStack.Last();
+		if (UndoBuffer.Num() - UndoCount <= UndoBarrier)
+		{
+			if (Text)
+			{
+				*Text = NSLOCTEXT("TransactionSystem", "HitUndoBarrier", "(Hit Undo barrier; can't undo any further)");
+			}
+			return false;
+		}
+	}
+
 	if( UndoBuffer.Num()==UndoCount )
 	{
 		if( Text )
@@ -657,7 +726,7 @@ bool UTransBuffer::CanRedo( FText* Text )
 
 const FTransaction* UTransBuffer::GetTransaction( int32 QueueIndex ) const
 {
-	if (UndoBuffer.Num() > QueueIndex)
+	if (UndoBuffer.Num() > QueueIndex && QueueIndex != INDEX_NONE)
 	{
 		return &UndoBuffer[QueueIndex];
 	}
@@ -696,7 +765,28 @@ FUndoSessionContext UTransBuffer::GetRedoContext()
 }
 
 
-bool UTransBuffer::Undo()
+void UTransBuffer::SetUndoBarrier()
+{
+	UndoBarrierStack.Push(UndoBuffer.Num() - UndoCount);
+}
+
+
+void UTransBuffer::RemoveUndoBarrier()
+{
+	if (UndoBarrierStack.Num() > 0)
+	{
+		UndoBarrierStack.Pop();
+	}
+}
+
+
+void UTransBuffer::ClearUndoBarriers()
+{
+	UndoBarrierStack.Empty();
+}
+
+
+bool UTransBuffer::Undo(bool bCanRedo)
 {
 	CheckState();
 
@@ -716,6 +806,12 @@ bool UTransBuffer::Undo()
 		BeforeRedoUndoDelegate.Broadcast(Transaction.GetContext());
 		Transaction.Apply();
 		UndoDelegate.Broadcast(Transaction.GetContext(), true);
+
+		if (!bCanRedo)
+		{
+			UndoBuffer.RemoveAt(UndoBuffer.Num() - UndoCount, UndoCount);
+			UndoCount = 0;
+		}
 	}
 	GIsTransacting = false;
 

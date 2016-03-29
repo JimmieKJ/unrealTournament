@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "EnginePrivate.h"
@@ -420,6 +420,36 @@ int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 In
 			const FColor GPUMaxColor = GEngine->GetFrameTimeDisplayColor(Max_GPUFrameTime);
 			InCanvas->DrawShadowedString(X3, InY, *FString::Printf(TEXT("%4.2f ms"), Max_GPUFrameTime), Font, GPUMaxColor);
 		}
+		if(GMaxRHIShaderPlatform == SP_PS4)
+		{
+			FString Warnings;
+
+			{
+				static const auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.PS4ContinuousSubmits"));
+				int32 Value = CVar->GetInt();
+
+				if (!Value)
+				{
+					// good for profiling (avoids bubles) but bad for high fps
+					Warnings += TEXT(" r.PS4ContinuousSubmits");
+				}
+			}
+			{
+				static const auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.PS4StallsOnMarkers"));
+				int32 Value = CVar->GetInt();
+
+				if (Value)
+				{
+					// good to get Razor aligned GPU profiling but bad for high fps
+					Warnings += TEXT(" r.PS4StallsOnMarkers");
+				}
+			}
+
+			if(!Warnings.IsEmpty())
+			{
+				InCanvas->DrawShadowedString(X3 + 100, InY, *Warnings, Font, FColor::Red);
+			}
+		}
 		InY += RowHeight;
 	}
 
@@ -453,7 +483,7 @@ int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 In
 
 		// Compute pulse effect for lines above alert threshold
 		const float AlertPulseFreq = 8.0f;
-		const float AlertPulse = 0.5f + 0.5f * (float)sin((0.25f * PI * 2.0) + (FApp::GetCurrentTime() * PI * 2.0) * AlertPulseFreq);
+		const float AlertPulse = 0.5f + 0.5f * FMath::Sin((0.25f * PI * 2.0) + (FApp::GetCurrentTime() * PI * 2.0) * AlertPulseFreq);
 
 
 		// For each type of statistic that we want to graph (0=Render, 1=Game, 2=GPU, 3=Frame)
@@ -765,7 +795,7 @@ void FViewport::HighResScreenshot()
 	BeginInitResource(DummyViewport);
 
 	bool MaskShowFlagBackup = ViewportClient->GetEngineShowFlags()->HighResScreenshotMask;
-	const uint32 MotionBlurShowFlagBackup = ViewportClient->GetEngineShowFlags()->MotionBlur;
+	const auto MotionBlurShowFlagBackup = ViewportClient->GetEngineShowFlags()->MotionBlur;
 
 	ViewportClient->GetEngineShowFlags()->SetHighResScreenshotMask(GetHighResScreenshotConfig().bMaskEnabled);
 	ViewportClient->GetEngineShowFlags()->SetMotionBlur(false);

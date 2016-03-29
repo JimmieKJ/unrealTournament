@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -61,34 +61,40 @@ class SIGNIFICANCEMANAGER_API USignificanceManager : public UObject
 	GENERATED_BODY()
 
 public:
-	typedef TFunction<float(const UObject*,const FTransform&)> FSignificanceFunction;
+	typedef TFunction<float(UObject*, const FTransform&)> FSignificanceFunction;
+	typedef TFunction<void(UObject*, float, float, bool)> FPostSignificanceFunction;
 
 	struct FManagedObjectInfo
 	{
 		FManagedObjectInfo()
 			: Object(nullptr)
-			, Significance(0.f)
+			, Significance(-1.0f)
 		{
 		}
 
-		FManagedObjectInfo(const UObject* InObject, FName InTag, FSignificanceFunction InSignificanceFunction)
+		FManagedObjectInfo(UObject* InObject, FName InTag, FSignificanceFunction InSignificanceFunction, FPostSignificanceFunction InPostSignificanceFunction)
 			: Object(InObject)
 			, Tag(InTag)
-			, Significance(0.f)
+			, Significance(1.0f)
 			, SignificanceFunction(InSignificanceFunction)
+			, PostSignificanceFunction(InPostSignificanceFunction)
 		{
 		}
 
-		const UObject* GetObject() const { return Object; }
+		UObject* GetObject() const { return Object; }
 		FName GetTag() const { return Tag; }
 		float GetSignificance() const { return Significance; }
+		FSignificanceFunction GetSignificanceFunction() const { return SignificanceFunction; }
+		FPostSignificanceFunction GetPostSignificanceNotifyDelegate() const { return PostSignificanceFunction; }
 
 	private:
-		const UObject* Object;
+		UObject* Object;
 		FName Tag;
 		float Significance;
 
 		FSignificanceFunction SignificanceFunction;
+
+		FPostSignificanceFunction PostSignificanceFunction;
 
 		void UpdateSignificance(const TArray<FTransform>& ViewPoints);
 
@@ -100,22 +106,29 @@ public:
 
 	// Begin UObject overrides
 	virtual void BeginDestroy() override;
+	virtual UWorld* GetWorld()const override;
 	// End UObject overrides
 
 	// Overridable function to update the managed objects' significance
 	virtual void Update(const TArray<FTransform>& Viewpoints);
 
 	// Overridable function used to register an object as managed by the significance manager
-	virtual void RegisterObject(const UObject* Object, FName Tag, FSignificanceFunction SignificanceFunction);
-
+	virtual void RegisterObject(UObject* Object, FName Tag, FSignificanceFunction SignificanceFunction, FPostSignificanceFunction InPostSignificanceFunction);
+	
 	// Overridable function used to unregister an object as managed by the significance manager
-	virtual void UnregisterObject(const UObject* Object);
+	virtual void UnregisterObject(UObject* Object);
+
+	// Unregisters all objects with the specified tag.
+	void UnregisterAll(FName Tag);
 
 	// Returns objects of specified tag, Tag must be specified or else an empty array will be returned
 	const TArray<const FManagedObjectInfo*>& GetManagedObjects(FName Tag) const;
 
 	// Returns all managed objects regardless of tag
 	void GetManagedObjects(TArray<const FManagedObjectInfo*>& OutManagedObjects, bool bInSignificanceOrder = false) const;
+
+	// Returns the managed object for the passed-in object, if any. Otherwise returns nullptr
+	USignificanceManager::FManagedObjectInfo* GetManagedObject(UObject* Object) const;
 
 	// Returns the significance value for a given object, returns 0 if object is not managed
 	float GetSignificance(const UObject* Object) const;
@@ -136,10 +149,10 @@ public:
 		return CastChecked<T>(Get(World), ECastCheckedType::NullAllowed);
 	}
 
-protected:
-
 	// Returns the list of viewpoints currently being represented by the significance manager
 	const TArray<FTransform>& GetViewpoints() const { return Viewpoints; }
+protected:
+
 
 	// Whether the significance manager should be created on a client. Only used from CDO and 
 	uint32 bCreateOnClient:1;
@@ -159,7 +172,7 @@ private:
 	TMap<FName, TArray<const FManagedObjectInfo*>> ManagedObjectsByTag;
 
 	// Reverse lookup map to find the tag for a given object
-	TMap<const UObject*, FManagedObjectInfo*> ManagedObjects;
+	TMap<UObject*, FManagedObjectInfo*> ManagedObjects;
 
 	// Game specific significance class to instantiate
 	UPROPERTY(globalconfig, noclear, EditAnywhere, Category=DefaultClasses, meta=(MetaClass="SignificanceManager", DisplayName="Significance Manager Class"))

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -67,7 +67,8 @@ protected:
 	TArray<FGameplayTaskEventData> TaskEvents;
 
 	/** Array of currently active UAbilityTasks that require ticking */
-	TArray<TWeakObjectPtr<UGameplayTask> > TickingTasks;
+	UPROPERTY()
+	TArray<UGameplayTask*> TickingTasks;
 
 	/** Indicates what's the highest priority among currently running tasks */
 	uint8 TopActivePriority;

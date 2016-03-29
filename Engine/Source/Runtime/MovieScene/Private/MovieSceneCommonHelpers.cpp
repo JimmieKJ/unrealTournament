@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieScenePrivatePCH.h"
 #include "IMovieScenePlayer.h"
@@ -125,6 +125,45 @@ UMovieSceneSection* MovieSceneHelpers::FindNearestSectionAtTime( const TArray<UM
 }
 
 
+void MovieSceneHelpers::SortConsecutiveSections(TArray<UMovieSceneSection*>& Sections)
+{
+	Sections.Sort([](const UMovieSceneSection& A, const UMovieSceneSection& B)
+		{
+			return A.GetStartTime() < B.GetStartTime();
+		}
+	);
+}
+
+void MovieSceneHelpers::FixupConsecutiveSections(TArray<UMovieSceneSection*>& Sections, UMovieSceneSection& Section, bool bDelete)
+{
+	// Find the previous section and extend it to take the place of the section being deleted
+	int32 SectionIndex = INDEX_NONE;
+
+	if (Sections.Find(&Section, SectionIndex))
+	{
+		int32 PrevSectionIndex = SectionIndex - 1;
+		if( Sections.IsValidIndex( PrevSectionIndex ) )
+		{
+			// Extend the previous section
+			Sections[PrevSectionIndex]->SetEndTime( bDelete ? Section.GetEndTime() : Section.GetStartTime() );
+		}
+
+		if( !bDelete )
+		{
+			int32 NextSectionIndex = SectionIndex + 1;
+			if(Sections.IsValidIndex(NextSectionIndex))
+			{
+				// Shift the next CameraCut's start time so that it starts when the new CameraCut ends
+				Sections[NextSectionIndex]->SetStartTime(Section.GetEndTime());
+			}
+		}
+	}
+
+	SortConsecutiveSections(Sections);
+}
+
+
+
 USceneComponent* MovieSceneHelpers::SceneComponentFromRuntimeObject(UObject* Object)
 {
 	AActor* Actor = Cast<AActor>(Object);
@@ -143,19 +182,58 @@ USceneComponent* MovieSceneHelpers::SceneComponentFromRuntimeObject(UObject* Obj
 	return SceneComponent;
 }
 
-void MovieSceneHelpers::SetRuntimeObjectMobility(UObject* Object, EComponentMobility::Type ComponentMobility)
+UCameraComponent* MovieSceneHelpers::CameraComponentFromActor(const AActor* InActor)
 {
-	USceneComponent* SceneComponent = SceneComponentFromRuntimeObject(Object);
-	if (SceneComponent)
-	{
-		if (SceneComponent->Mobility != ComponentMobility)
-		{
-			SceneComponent->Modify();
+	TArray<UCameraComponent*> CameraComponents;
+	InActor->GetComponents<UCameraComponent>(CameraComponents);
 
-			SceneComponent->SetMobility(ComponentMobility);
+	for (UCameraComponent* CameraComponent : CameraComponents)
+	{
+		if (CameraComponent->bIsActive)
+		{
+			return CameraComponent;
 		}
 	}
+
+	// now see if any actors are attached to us, directly or indirectly, that have an active camera component we might want to use
+	// we will just return the first one.
+	// #note: assumption here that attachment cannot be circular
+	TArray<AActor*> AttachedActors;
+	InActor->GetAttachedActors(AttachedActors);
+	for (AActor* AttachedActor : AttachedActors)
+	{
+		UCameraComponent* const Comp = CameraComponentFromActor(AttachedActor);
+		if (Comp)
+		{
+			return Comp;
+		}
+	}
+
+	return nullptr;
 }
+
+UCameraComponent* MovieSceneHelpers::CameraComponentFromRuntimeObject(UObject* RuntimeObject)
+{
+	if (RuntimeObject)
+	{
+		// find camera we want to control
+		UCameraComponent* const CameraComponent = dynamic_cast<UCameraComponent*>(RuntimeObject);
+		if (CameraComponent)
+		{
+			return CameraComponent;
+		}
+
+		// see if it's an actor that has a camera component
+		AActor* const Actor = dynamic_cast<AActor*>(RuntimeObject);
+		if (Actor)
+		{
+			return CameraComponentFromActor(Actor);
+		}
+	}
+
+	return nullptr;
+}
+
 
 void MovieSceneHelpers::SetKeyInterpolation(FRichCurve& InCurve, FKeyHandle InKeyHandle, EMovieSceneKeyInterpolation InKeyInterpolation)
 {
@@ -262,17 +340,25 @@ FTrackInstancePropertyBindings::FPropertyAddress FTrackInstancePropertyBindings:
 }
 
 
-void FTrackInstancePropertyBindings::UpdateBindings( const TArray<UObject*>& InRuntimeObjects )
+void FTrackInstancePropertyBindings::UpdateBindings( const TArray<TWeakObjectPtr<UObject>>& InRuntimeObjects )
 {
-	for(UObject* Object : InRuntimeObjects)
+	for (auto ObjectPtr : InRuntimeObjects)
 	{
-		FPropertyAndFunction PropAndFunction;
+		UObject* Object = ObjectPtr.Get();
 
-		PropAndFunction.Function = Object->FindFunction(FunctionName);
-		PropAndFunction.PropertyAddress = FindProperty( Object, PropertyPath );
-		RuntimeObjectToFunctionMap.Add(Object, PropAndFunction);
+		if (Object != nullptr)
+		{
+			FPropertyAndFunction PropAndFunction;
+			{
+				PropAndFunction.Function = Object->FindFunction(FunctionName);
+				PropAndFunction.PropertyAddress = FindProperty(Object, PropertyPath);
+			}
+
+			RuntimeObjectToFunctionMap.Add(Object, PropAndFunction);
+		}
 	}
 }
+
 
 UProperty* FTrackInstancePropertyBindings::GetProperty(const UObject* Object) const
 {

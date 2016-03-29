@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -46,6 +46,7 @@ class UDataTable
 	ENGINE_API virtual void Serialize(FArchive& Ar) override;
 	ENGINE_API static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 #if WITH_EDITORONLY_DATA
+	ENGINE_API FName GetRowStructName() const;
 	ENGINE_API virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 	ENGINE_API virtual void PostInitProperties() override;
 	ENGINE_API virtual void PostLoad() override;
@@ -56,6 +57,10 @@ class UDataTable
 	/** The filename imported to create this object. Relative to this object's package, BaseDir() or absolute */
 	UPROPERTY()
 	FString ImportPath_DEPRECATED;
+
+	/** The name of the RowStruct we were using when we were last saved */
+	UPROPERTY()
+	FName RowStructName;
 #endif	// WITH_EDITORONLY_DATA
 
 	//~ End  UObject Interface
@@ -198,7 +203,7 @@ private:
 
 
 /** Handle to a particular row in a table*/
-USTRUCT()
+USTRUCT(BlueprintType)
 struct ENGINE_API FDataTableRowHandle
 {
 	GENERATED_USTRUCT_BODY()
@@ -218,11 +223,15 @@ struct ENGINE_API FDataTableRowHandle
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=DataTableRowHandle)
 	FName				RowName;
 
-	static const FString Unknown;
+	/** Returns true if this handle is specifically pointing to nothing */
+	bool IsNull() const
+	{
+		return DataTable == nullptr && RowName == NAME_None;
+	}
 
 	/** Get the row straight from the row handle */
 	template <class T>
-	T* GetRow(const FString& ContextString = Unknown) const
+	T* GetRow(const FString& ContextString) const
 	{
 		if(DataTable == nullptr)
 		{
@@ -235,8 +244,20 @@ struct ENGINE_API FDataTableRowHandle
 
 		return DataTable->FindRow<T>(RowName, ContextString);
 	}
-};
 
+	FString ToDebugString(bool bUseFullPath = false) const
+	{
+		if (DataTable == nullptr)
+		{
+			return FString::Printf(TEXT("No Data Table Specified, Row: %s"), *RowName.ToString());
+		}
+
+		return FString::Printf(TEXT("Table: %s, Row: %s"), bUseFullPath ? *DataTable->GetPathName() : *DataTable->GetName(), *RowName.ToString());
+	}
+
+	bool operator==(FDataTableRowHandle const& Other) const;
+	bool operator!=(FDataTableRowHandle const& Other) const;
+};
 
 /** Handle to a particular row in a table*/
 USTRUCT()
@@ -256,11 +277,15 @@ struct ENGINE_API FDataTableCategoryHandle
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=DataTableCategoryHandle)
 	FName				RowContents;
 
-	static const FString Unknown;
+	/** Returns true if this handle is specifically pointing to nothing */
+	bool IsNull() const
+	{
+		return DataTable == nullptr && ColumnName == NAME_None && RowContents == NAME_None;
+	}
 
 	/** Searches DataTable for all rows that contain entries with RowContents in the column named ColumnName and returns them. */
 	template <class T>
-	void GetRows(TArray<T*>& OutRows, const FString& ContextString = Unknown) const
+	void GetRows(TArray<T*>& OutRows, const FString& ContextString) const
 	{
 		OutRows.Empty();
 		if (DataTable == nullptr)
@@ -309,6 +334,9 @@ struct ENGINE_API FDataTableCategoryHandle
 
 		return;
 	}
+
+	bool operator==(FDataTableCategoryHandle const& Other) const;
+	bool operator!=(FDataTableCategoryHandle const& Other) const;
 };
 
 

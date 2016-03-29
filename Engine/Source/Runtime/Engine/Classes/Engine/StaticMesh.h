@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "Interfaces/Interface_CollisionDataProvider.h"
@@ -347,6 +347,14 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 	UPROPERTY(EditAnywhere, transient, duplicatetransient, Instanced, Category = StaticMesh)
 	class UBodySetup* BodySetup;
 
+	/** 
+	 *	Specifies which mesh LOD to use for complex (per-poly) collision. 
+	 *	Sometimes it can be desirable to use a lower poly representation for collision to reduce memory usage, improve performance and behaviour.
+	 *	Collision representation does not change based on distance to camera.
+	 */
+	UPROPERTY(EditAnywhere, Category = StaticMesh, meta=(DisplayName="LOD For Collision"))
+	int32 LODForCollision;
+
 	/** True if mesh should use a less-conservative method of mip LOD texture factor computation.
 		requires mesh to be resaved to take effect as algorithm is applied on save. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=StaticMesh, meta=(ToolTip="If true, use a less-conservative method of mip LOD texture factor computation.  Requires mesh to be resaved to take effect as algorithm is applied on save"))
@@ -492,12 +500,25 @@ public:
 	ENGINE_API virtual void ReleaseResources();
 
 	/**
-	 * Returns the scale dependent texture factor used by the texture streaLODg code.
+	 * Returns the scale dependent texture factor used by the texture streaming code.
 	 *
 	 * @param RequestedUVIndex UVIndex to look at
 	 * @return scale dependent texture factor
 	 */
-	float GetStreamingTextureFactor( int32 RequestedUVIndex );
+	float GetStreamingTextureFactor( int32 RequestedUVIndex ) const;
+
+	/**
+	 * Returns the scale dependent texture factor and bound used by the texture streaming code.
+	 *
+	 * @param OutTexelFactor		The requested texel factor
+	 * @param OutTexelFactor		The requested bound for this texel factor
+	 * @param CoordinateIndex		UV Index to look at
+	 * @param LODIndex				LOD index to look at
+	 * @param ElementIndex			Element index to look at
+	 * @param TransformMatrix		Matrix to be applied to the position before computing the bounds
+	 * @return false if some parameters are invalid
+	 */
+	bool GetStreamingTextureFactor( float& OutTexelFactor, FBoxSphereBounds& OutBounds, int32 CoordinateIndex, int32 LODIndex, int32 ElementIndex, const FTransform& Transform ) const;
 
 	/**
 	 * Returns the number of vertices for the specified LOD.

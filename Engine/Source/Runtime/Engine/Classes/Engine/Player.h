@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /**
  * Player: Corresponds to a real player (a local camera or remote net player).
@@ -7,7 +7,7 @@
 #pragma once
 #include "Player.generated.h"
 
-UCLASS(transient, config=Engine)
+UCLASS(MinimalAPI, transient, config=Engine)
 class UPlayer : public UObject, public FExec
 {
 	GENERATED_UCLASS_BODY()

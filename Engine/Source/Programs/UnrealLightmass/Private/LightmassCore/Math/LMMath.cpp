@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "stdafx.h"
 #include "LMCore.h"
@@ -48,9 +48,9 @@ FLinearColor FLinearColorUtils::LinearRGBToHSV(const FLinearColor& InColor)
 	const float RGBRange = RGBMax - RGBMin;
 
 	const float Hue = (RGBMax == RGBMin ? 0.0f :
-					   RGBMax == InColor.R    ? fmod((((InColor.G - InColor.B) / RGBRange) * 60.0f) + 360.0f, 360.0f) :
-					   RGBMax == InColor.G    ?      (((InColor.B - InColor.R) / RGBRange) * 60.0f) + 120.0f :
-					   RGBMax == InColor.B    ?      (((InColor.R - InColor.G) / RGBRange) * 60.0f) + 240.0f :
+					   RGBMax == InColor.R    ? FMath::Fmod((((InColor.G - InColor.B) / RGBRange) * 60.0f) + 360.0f, 360.0f) :
+					   RGBMax == InColor.G    ?             (((InColor.B - InColor.R) / RGBRange) * 60.0f) + 120.0f :
+					   RGBMax == InColor.B    ?             (((InColor.R - InColor.G) / RGBRange) * 60.0f) + 240.0f :
 					   0.0f);
 	
 	const float Saturation = (RGBMax == 0.0f ? 0.0f : RGBRange / RGBMax);

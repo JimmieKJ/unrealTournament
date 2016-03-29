@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #define LOCTEXT_NAMESPACE ""
@@ -33,6 +33,7 @@ public:
 		
 		//levels
 		UI_COMMAND( World_MakeLevelCurrent, "Make Current", "Make this Level the Current Level", EUserInterfaceActionType::Button, FInputChord( EKeys::Enter ) );
+		UI_COMMAND( World_FindInContentBrowser, "Find in Content Browser", "Find the selected levels in the Content Browser", EUserInterfaceActionType::Button, FInputChord() );
 		UI_COMMAND( World_LoadLevel, "Load", "Load selected level into world", EUserInterfaceActionType::Button, FInputChord() );
 		UI_COMMAND(World_UnloadLevel, "Unload", "Unload selected level from world", EUserInterfaceActionType::Button, FInputChord(EKeys::Platform_Delete));
 		UI_COMMAND( World_SaveSelectedLevels, "Save", "Saves selected levels", EUserInterfaceActionType::Button, FInputChord() );
@@ -129,6 +130,9 @@ public:
 
 	/** makes the selected level the current level */
 	TSharedPtr< FUICommandInfo > World_MakeLevelCurrent;
+
+	/** finds the selected levels in the content browser */
+	TSharedPtr< FUICommandInfo> World_FindInContentBrowser;
 
 	/** Load level to the world */
 	TSharedPtr< FUICommandInfo > World_LoadLevel;

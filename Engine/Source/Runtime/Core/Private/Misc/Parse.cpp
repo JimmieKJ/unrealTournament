@@ -1,9 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "LazyPrintf.h"
 
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if !UE_BUILD_SHIPPING 
 /**
  * Needed for the console command "DumpConsoleCommands"
  * How it works:
@@ -101,7 +101,8 @@ void ConsoleCommandLibrary_DumpLibrary(UWorld* InWorld, FExec& SubSystem, const 
 
 void ConsoleCommandLibrary_DumpLibraryHTML(UWorld* InWorld, FExec& SubSystem, const FString& OutPath)
 {
-	ConsoleCommandLibrary LocalConsoleCommandLibrary(FString(TEXT("*")));
+	const FString& Pattern(TEXT("*"));
+	ConsoleCommandLibrary LocalConsoleCommandLibrary(Pattern);
 
 	FOutputDeviceNull Null;
 
@@ -199,7 +200,7 @@ void ConsoleCommandLibrary_DumpLibraryHTML(UWorld* InWorld, FExec& SubSystem, co
 	}
 */
 }
-#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#endif // UE_BUILD_SHIPPING
 
 //
 // Get a string from a text string.
@@ -307,167 +308,82 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, FString& Value, boo
 }
 
 // 
+// Parse a quoted string.
+//
+bool FParse::QuotedString( const TCHAR* Buffer, FString& Value, int32* OutNumCharsRead )
+{
+	if (OutNumCharsRead)
+	{
+		*OutNumCharsRead = 0;
+	}
+
+	const TCHAR* Start = Buffer;
+
+	// Require opening quote
+	if (*Buffer++ != TCHAR('"'))
+	{
+		return false;
+	}
+
+	while (*Buffer && *Buffer != TCHAR('"') && *Buffer != TCHAR('\n') && *Buffer != TCHAR('\r'))
+	{
+		if (*Buffer != TCHAR('\\')) // unescaped character
+		{
+			Value += *Buffer++;
+		}
+		else if (*++Buffer == TCHAR('\\')) // escaped backslash "\\"
+		{
+			Value += TEXT("\\");
+			++Buffer;
+		}
+		else if (*Buffer == TCHAR('\"')) // escaped double quote "\""
+		{
+			Value += TCHAR('"');
+			++Buffer;
+		}
+		else if (*Buffer == TCHAR('\'')) // escaped single quote "\'"
+		{
+			Value += TCHAR('\'');
+			++Buffer;
+		}
+		else if (*Buffer == TCHAR('n')) // escaped newline
+		{
+			Value += TCHAR('\n');
+			++Buffer;
+		}
+		else if (*Buffer == TCHAR('r')) // escaped carriage return
+		{
+			Value += TCHAR('\r');
+			++Buffer;
+		}
+		else // some other escape sequence, assume it's a hex character value
+		{
+			Value += FString::Printf(TEXT("%c"), (HexDigit(Buffer[0]) * 16) + HexDigit(Buffer[1]));
+			Buffer += 2;
+		}
+	}
+
+	// Require closing quote
+	if (*Buffer++ != TCHAR('"'))
+	{
+		return false;
+	}
+
+	if (OutNumCharsRead)
+	{
+		*OutNumCharsRead = (Buffer - Start);
+	}
+
+	return true;
+}
+
+// 
 // Parse an Text token
 // This is expected to in the form NSLOCTEXT("Namespace","Key","SourceString") or LOCTEXT("Key","SourceString")
 //
-bool FParse::Text( const TCHAR* Str, FText& Value, const TCHAR* Namespace )
+bool FParse::Text( const TCHAR* Buffer, FText& Value, const TCHAR* Namespace )
 {
-	while( FChar::IsWhitespace( *Str ) )
-	{
-		++Str;
-	}
-
-	//this prevents our source code text gatherer from trying to gather the following messages
-#define LOC_DEFINE_REGION
-	const bool bFoundNSLocText = FCString::Strncmp( Str, TEXT("NSLOCTEXT"), 9 ) == 0;
-	const bool bFoundLocText = !bFoundNSLocText && FCString::Strncmp( Str, TEXT("LOCTEXT"), 7 ) == 0;
-#undef LOC_DEFINE_REGION
-
-	if( bFoundNSLocText || (Namespace && bFoundLocText) )
-	{
-		Str += bFoundNSLocText ? 9 : 7;
-		while( FChar::IsWhitespace( *Str ) )
-		{
-			++Str;
-		}
-
-		if( *Str != '(' )
-		{
-			return false;
-		}
-		++Str;
-
-		while( FChar::IsWhitespace( *Str ) )
-		{
-			++Str;
-		}
-
-		if( *Str )
-		{
-			bool bInQuotes = false;
-			bool bHaveEscapeCode = false;
-			bool bError = false;
-			int32 StringCount = 0;
-			int32 CommaCount = 0;
-			FString ParsedString;
-			FString NamespaceString;
-			FString KeyString;
-			FString SourceString;
-			const int32 ExpectedStringCount = bFoundNSLocText ? 3 : 2;
-
-			while( *Str && *Str != ')' && !bError )
-			{
-				const TCHAR c = *Str;
-				if( bInQuotes )
-				{
-					// Parsing string
-					if( bHaveEscapeCode )
-					{
-						// Handle escape code
-						if( c == 'r' )
-						{
-							ParsedString += '\r';
-						}
-						else if( c == 'n' )
-						{
-							ParsedString += '\n';
-						}
-						else if( c == '"' )
-						{
-							ParsedString += '"';
-						}
-						else if( c == 't' )
-						{
-							ParsedString += '\t';
-						}
-						else if( c == '\\' )
-						{
-							ParsedString += '\\';
-						}
-						else
-						{
-							bError = true;
-						}
-						bHaveEscapeCode = false;
-					}
-					else
-					{
-						if( c == '"' )
-						{
-							bInQuotes = false;
-							++StringCount;
-							if (StringCount == ExpectedStringCount - 2)
-							{
-								NamespaceString = ParsedString;
-							}
-							else if (StringCount == ExpectedStringCount - 1)
-							{
-								KeyString = ParsedString;
-							}
-						}
-						else if( c == '\\' )
-						{
-							bHaveEscapeCode = true;
-						}
-						else
-						{
-							ParsedString += c;
-						}
-					}
-				}
-				else
-				{
-					// In between strings
-					if( c == '"' )
-					{
-						// Opening quote of parsed string
-						if( StringCount < ExpectedStringCount && StringCount == CommaCount )
-						{
-							ParsedString = TEXT("");
-							bInQuotes = true;
-						}
-						else
-						{
-							bError = true;
-						}
-					}
-					else if( c == ',' )
-					{
-						if( CommaCount >= StringCount )
-						{
-							bError = true;
-						}
-						else
-						{
-							++CommaCount;
-						}
-					}
-					else if( !FChar::IsWhitespace( c ) )
-					{
-						bError = true;
-					}
-				}
-				++Str;
-			}
-
-			if (KeyString.Len() == 0 && (bFoundNSLocText ? NamespaceString : Namespace).Len() > 0)
-			{
-				bError = true;
-			}
-
-			if( *Str == ')' && !bError && StringCount == ExpectedStringCount )
-			{
-				if ( !FText::FindText( bFoundNSLocText ? NamespaceString : Namespace, KeyString, /*OUT*/Value ) )
-				{ 
-					Value = FText::FromString( ParsedString );
-				}
-
-				return true;
-			}
-		}
-	}
-
-	return false;
+	return FTextStringHelper::ReadFromString(Buffer, Value, Namespace);
 }
 
 // 
@@ -665,7 +581,7 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, struct FGuid& Guid 
 //
 bool FParse::Command( const TCHAR** Stream, const TCHAR*  Match, bool bParseMightTriggerExecution )
 {
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if !UE_BUILD_SHIPPING
 	if(GConsoleCommandLibrary)
 	{
 		GConsoleCommandLibrary->OnParseCommand(Match);
@@ -676,7 +592,7 @@ bool FParse::Command( const TCHAR** Stream, const TCHAR*  Match, bool bParseMigh
 			return false;
 		}
 	}
-#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#endif // !UE_BUILD_SHIPPING
 
 	while( (**Stream==' ')||(**Stream==9) )
 		(*Stream)++;
@@ -685,6 +601,7 @@ bool FParse::Command( const TCHAR** Stream, const TCHAR*  Match, bool bParseMigh
 	{
 		*Stream += FCString::Strlen(Match);
 		if( !FChar::IsAlnum(**Stream))
+//		if( !FChar::IsAlnum(**Stream) && (**Stream != '_') && (**Stream != '.'))		// more correct e.g. a cvar called "log.abc" should work but breaks some code so commented out
 		{
 			while ((**Stream==' ')||(**Stream==9)) (*Stream)++;
 			return 1; // Success.

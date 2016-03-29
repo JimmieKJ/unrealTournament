@@ -1,7 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "IKeyframeSection.h"
+#include "MovieSceneKeyStruct.h"
 #include "MovieSceneSection.h"
 #include "MovieSceneVectorSection.generated.h"
 
@@ -14,30 +16,42 @@ enum class EKeyVectorChannel
 	W
 };
 
-enum class EKeyVectorValueType
-{
-	Key,
-	Default
-};
 
 struct MOVIESCENETRACKS_API FVectorKey
 {
-	FVectorKey( EKeyVectorChannel InChannel, float InValue, EKeyVectorValueType InValueType )
+	FVectorKey(EKeyVectorChannel InChannel, float InValue)
 	{
 		Channel = InChannel;
 		Value = InValue;
-		ValueType = InValueType;
 	}
 	EKeyVectorChannel Channel;
 	float Value;
-	EKeyVectorValueType ValueType;
+};
+
+
+/**
+ * Proxy structure for vector section key data.
+ */
+USTRUCT()
+struct FMovieSceneVectorKeyStruct
+	: public FMovieSceneKeyStruct
+{
+	GENERATED_BODY()
+
+	/** They key's vector value. */
+	UPROPERTY(EditAnywhere, Category=Key)
+	FVector4 Vector;
+
+	FRichCurveKey* Keys[4];
+
+	virtual void PropagateChanges(const FPropertyChangedEvent& ChangeEvent) override;
 };
 
 
 /**
  * A vector section
  */
-UCLASS(MinimalAPI )
+UCLASS(MinimalAPI)
 class UMovieSceneVectorSection
 	: public UMovieSceneSection
 	, public IKeyframeSection<FVectorKey>
@@ -51,20 +65,7 @@ public:
 	 *
 	 * @param Position	The position in time within the movie scene
 	 */
-	FVector4 Eval( float Position, const FVector4& DefaultVector ) const;
-
-	/** MovieSceneSection interface */
-	virtual void MoveSection(float DeltaPosition, TSet<FKeyHandle>& KeyHandles) override;
-	virtual void DilateSection(float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles) override;
-	virtual void GetKeyHandles(TSet<FKeyHandle>& KeyHandles) const override;
-
-
-	// IKeyframeSection interface.
-
-	virtual void AddKey( float Time, const FVectorKey& Key, EMovieSceneKeyInterpolation KeyInterpolation ) override;
-	virtual bool NewKeyIsNewData( float Time, const FVectorKey& Key ) const override;
-	virtual bool HasKeys( const FVectorKey& Key ) const override;
-	virtual void SetDefault( const FVectorKey& Key ) override;
+	FVector4 Eval(float Position, const FVector4& DefaultVector) const;
 
 	/** Gets one of four curves in this section */
 	FRichCurve& GetCurve(const int32& Index) { return Curves[Index]; }
@@ -72,12 +73,30 @@ public:
 	/** Sets how many channels are to be used */
 	void SetChannelsUsed(int32 InChannelsUsed) 
 	{
-		checkf(InChannelsUsed >= 2 && InChannelsUsed <= 4, TEXT("Only 2-4 channels are supported.") );
+		checkf(InChannelsUsed >= 2 && InChannelsUsed <= 4, TEXT("Only 2-4 channels are supported."));
 		ChannelsUsed = InChannelsUsed;
 	}
 	
 	/** Gets the number of channels in use */
 	int32 GetChannelsUsed() const {return ChannelsUsed;}
+
+public:
+
+	// UMovieSceneSection interface
+
+	virtual void MoveSection(float DeltaPosition, TSet<FKeyHandle>& KeyHandles) override;
+	virtual void DilateSection(float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles) override;
+	virtual void GetKeyHandles(TSet<FKeyHandle>& KeyHandles) const override;
+	virtual TSharedPtr<FStructOnScope> GetKeyStruct(const TArray<FKeyHandle>& KeyHandles) override;
+
+public:
+
+	// IKeyframeSection interface.
+
+	virtual void AddKey(float Time, const FVectorKey& Key, EMovieSceneKeyInterpolation KeyInterpolation) override;
+	virtual bool NewKeyIsNewData(float Time, const FVectorKey& Key) const override;
+	virtual bool HasKeys(const FVectorKey& Key) const override;
+	virtual void SetDefault(const FVectorKey& Key) override;
 
 private:
 

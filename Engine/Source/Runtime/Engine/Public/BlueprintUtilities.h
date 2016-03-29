@@ -1,8 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "GraphEditAction.h"
+#include "Runtime/Core/Public/Serialization/Archive.h"
 
 DECLARE_MULTICAST_DELEGATE_OneParam( FOnGraphChanged, const FEdGraphEditAction& );
 DECLARE_DELEGATE_OneParam( FSingleNodeEvent, class UEdGraphNode* );

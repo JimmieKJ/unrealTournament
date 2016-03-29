@@ -1,7 +1,5 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
-
-#if WITH_FANCY_TEXT
 
 #include "BaseTextLayoutMarshaller.h"
 
@@ -16,6 +14,8 @@ public:
 
 	virtual ~FPlainTextLayoutMarshaller();
 	
+	void SetIsPassword(const TAttribute<bool>& InIsPassword);
+
 	// ITextLayoutMarshaller
 	virtual void SetText(const FString& SourceString, FTextLayout& TargetTextLayout) override;
 	virtual void GetText(FString& TargetString, const FTextLayout& SourceTextLayout) override;
@@ -24,6 +24,7 @@ protected:
 
 	FPlainTextLayoutMarshaller();
 
-};
+	/** This this marshaller displaying a password? */
+	TAttribute<bool> bIsPassword;
 
-#endif //WITH_FANCY_TEXT
+};

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ContentBrowserPCH.h"
 #include "FrontendFilters.h"
@@ -629,7 +629,7 @@ FText FFrontendFilter_ArbitraryComparisonOperation::GetDisplayName() const
 
 FText FFrontendFilter_ArbitraryComparisonOperation::GetToolTipText() const
 {
-	return LOCTEXT("FFrontendFilter_CompareOperation", "Compares AssetRegistrySearchable values on assets with a target value.");
+	return LOCTEXT("FFrontendFilter_CompareOperation_ToolTip", "Compares AssetRegistrySearchable values on assets with a target value.");
 }
 
 bool FFrontendFilter_ArbitraryComparisonOperation::PassesFilter(FAssetFilterType InItem) const

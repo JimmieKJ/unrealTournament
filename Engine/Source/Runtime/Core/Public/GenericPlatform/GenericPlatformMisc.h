@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -277,7 +277,7 @@ struct CORE_API FGenericPlatformMisc
 	 */
 	static FString GetUniqueDeviceId();
 
-	// @TODO yrx 2015-02-24 Remove
+	// #CrashReport: 2015-02-24 Remove
 	/** Submits a crash report to a central server (release builds only) */
 	static void SubmitErrorReport( const TCHAR* InErrorHist, EErrorReportMode::Type InMode );
 
@@ -318,6 +318,8 @@ struct CORE_API FGenericPlatformMisc
 	 * @return primary GPU brand string
 	 */
 	static FString GetPrimaryGPUBrand();
+
+	static struct FGPUDriverInfo GetGPUDriverInfo(const FString& DeviceDescription);
 
 	/**
 	 * Gets the OS Version and OS Subversion.
@@ -438,6 +440,17 @@ public:
 	 */
 	static bool GetStoredValue(const FString& InStoreId, const FString& InSectionName, const FString& InKeyName, FString& OutValue);
 
+	/**
+  	 *	Deletes value for the given section and key in the platform specific key->value store
+	 *  Note: The key->value store is user-specific, but may be used to share data between different applications for the same user
+	 *
+	 *  @param	InStoreId			The name used to identify the store you want to use (eg, MyGame)
+	 *	@param	InSectionName		The section that this key->value pair is placed within (can contain / separators, eg UserDetails/AccountInfo)
+	 *	@param	InKeyName			The name of the key to set the value for
+	 *	@return	bool				true if the value was deleted correctly, false if not found or couldn't delete
+	 */
+	static bool DeleteStoredValue(const FString& InStoreId, const FString& InSectionName, const FString& InKeyName);
+
 	/** Sends a message to a remote tool, and debugger consoles */
 	static void LowLevelOutputDebugString(const TCHAR *Message);
 	static void VARARGS LowLevelOutputDebugStringf(const TCHAR *Format, ... );
@@ -448,6 +461,11 @@ public:
 	/** Prints string to the default output */
 	static void LocalPrint( const TCHAR* Str );
 
+	/** 
+	 * Whether the platform has a separate debug channel to stdout (eg. OutputDebugString on Windows). Used to suppress messages being output twice 
+	 * if both go to the same place.
+	 */
+	static bool HasSeparateChannelForDebugOutput();
 
 	/** Request application to minimize (goto background). **/
 	static void RequestMinimize();
@@ -459,6 +477,15 @@ public:
 	 *                  If false, request clean main-loop exit from the platform specific code.
 	 */
 	static void RequestExit( bool Force );
+
+	/**
+	 * Requests application exit with a specified return code. Name is different from RequestExit() so overloads of just one of functions are possible.
+	 *
+	 * @param	Force 	   If true, perform immediate exit (dangerous because config code isn't flushed, etc).
+	 *                     If false, request clean main-loop exit from the platform specific code.
+	 * @param   ReturnCode This value will be returned from the program (on the platforms where it's possible). Limited to 0-255 to conform with POSIX.
+	 */
+	static void RequestExitWithStatus( bool Force, uint8 ReturnCode );
 
 	/**
 	 * Returns the last system error code in string form.  NOTE: Only one return value is valid at a time!
@@ -642,6 +669,8 @@ public:
 	}
 
 	static const TCHAR* GetUBTPlatform();
+
+	static const TCHAR* GetUBTTarget();
 
 	/** 
 	 * Determines the shader format for the plarform
@@ -917,3 +946,5 @@ protected:
 	static bool bPromptForRemoteDebugOnEnsure;
 #endif	//#if !UE_BUILD_SHIPPING
 };
+
+

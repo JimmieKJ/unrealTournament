@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -67,13 +67,13 @@ namespace UnrealBuildTool
 					Log.TraceInformation("Loading existing FlatCPPIncludeDependencyCache: " + CacheFile.FullName);
 				}
 
-				var TimerStartTime = DateTime.UtcNow;
+				DateTime TimerStartTime = DateTime.UtcNow;
 
 				// Deserialize cache from disk if there is one.
 				FlatCPPIncludeDependencyCache Result = Load(CacheFile);
 				if (Result != null)
 				{
-					var TimerDuration = DateTime.UtcNow - TimerStartTime;
+					TimeSpan TimerDuration = DateTime.UtcNow - TimerStartTime;
 					if (BuildConfiguration.bPrintPerformanceInfo)
 					{
 						Log.TraceInformation("Loading FlatCPPIncludeDependencyCache took " + TimerDuration.TotalSeconds + "s");
@@ -153,7 +153,7 @@ namespace UnrealBuildTool
 			// Only save if we've made changes to it since load.
 			if (bIsDirty)
 			{
-				var TimerStartTime = DateTime.UtcNow;
+				DateTime TimerStartTime = DateTime.UtcNow;
 
 				// Serialize the cache to disk.
 				try
@@ -172,7 +172,7 @@ namespace UnrealBuildTool
 
 				if (BuildConfiguration.bPrintPerformanceInfo)
 				{
-					var TimerDuration = DateTime.UtcNow - TimerStartTime;
+					TimeSpan TimerDuration = DateTime.UtcNow - TimerStartTime;
 					Log.TraceInformation("Saving FlatCPPIncludeDependencyCache took " + TimerDuration.TotalSeconds + "s");
 				}
 			}
@@ -271,7 +271,7 @@ namespace UnrealBuildTool
 		/// <param name="Dependencies">List of source dependencies</param>
 		public void SetDependenciesForFile(FileReference AbsoluteFilePath, FileReference PCHName, List<FileReference> Dependencies)
 		{
-			var DependencyInfo = new FlatCPPIncludeDependencyInfo();
+			FlatCPPIncludeDependencyInfo DependencyInfo = new FlatCPPIncludeDependencyInfo();
 			DependencyInfo.PCHName = PCHName;	// @todo ubtmake: Not actually used yet.  The idea is to use this to reduce the number of indirect includes we need to store in the cache.
 			DependencyInfo.Includes = Dependencies;
 			DependencyInfo.IncludeFileItems = null;

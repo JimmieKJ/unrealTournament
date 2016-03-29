@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	HlslLexer.cpp - Implementation for scanning & tokenizing hlsl
@@ -547,7 +547,6 @@ namespace CrossCompiler
 				}
 				else if (Char == '\n')
 				{
-
 					break;
 				}
 			}
@@ -746,41 +745,36 @@ namespace CrossCompiler
 			return false;
 		}
 
-		static void ProcessDirective(FTokenizer& Tokenizer, FCompilerMessages& CompilerMessages)
+		static void ProcessDirective(FTokenizer& Tokenizer, FCompilerMessages& CompilerMessages, class FHlslScanner& Scanner);
+
+		FString ReadToEndOfLine()
 		{
-			check(Tokenizer.Peek() == '#');
-			if (Tokenizer.MatchString(MATCH_TARGET(TEXT("#line"))))
+			FString String;
+			const TCHAR* Start = Current;
+			const TCHAR* EndOfLine = Current;
+
+			while (HasCharsAvailable())
 			{
-				Tokenizer.SkipWhitespaceInLine();
-				uint32 Line = 0;
-				if (Tokenizer.RuleInteger(Line))
+				auto Char = Peek();
+				if (Char == '\r' && Peek() == '\n')
 				{
-					Tokenizer.Line = Line - 1;
-					Tokenizer.SkipWhitespaceInLine();
-					FString Filename;
-					if (Tokenizer.MatchQuotedString(Filename))
-					{
-						Tokenizer.Filename = Filename;
-					}
+					break;
+				}
+				else if (Char == '\n')
+				{
+					break;
 				}
 				else
 				{
-					//@todo-rco: Warn malformed #line directive
-					check(0);
+					EndOfLine = Current;
+					++Current;
 				}
 			}
-			else if (Tokenizer.MatchString(MATCH_TARGET(TEXT("#pragma"))))
-			{
-				//@todo-rco: Pragma!
-				CompilerMessages.SourceWarning(TEXT("Ignoring pragma!"));
-			}
-			else
-			{
-				//@todo-rco: Warn about unknown preprocessor directive
-				check(0);
-			}
+			SkipToNextLine();
 
-			Tokenizer.SkipToNextLine();
+			int32 Count = (int32)(EndOfLine - Start) + 1;
+			String.AppendChars(Start, Count);
+			return String;
 		}
 
 		bool RuleDecimalInteger(uint32& OutValue)
@@ -938,7 +932,7 @@ namespace CrossCompiler
 			Tokenizer.SkipWhitespaceAndEmptyLines();
 			if (Tokenizer.Peek() == '#')
 			{
-				FTokenizer::ProcessDirective(Tokenizer, CompilerMessages);
+				FTokenizer::ProcessDirective(Tokenizer, CompilerMessages, *this);
 				if (Tokenizer.Filename != SourceFilenames.Last())
 				{
 					new(SourceFilenames) FString(Tokenizer.Filename);
@@ -1097,5 +1091,42 @@ namespace CrossCompiler
 		{
 			CompilerMessages.SourceError(*Error);
 		}
+	}
+
+	void FTokenizer::ProcessDirective(FTokenizer& Tokenizer, FCompilerMessages& CompilerMessages, FHlslScanner& Scanner)
+	{
+		check(Tokenizer.Peek() == '#');
+		if (Tokenizer.MatchString(MATCH_TARGET(TEXT("#line"))))
+		{
+			Tokenizer.SkipWhitespaceInLine();
+			uint32 Line = 0;
+			if (Tokenizer.RuleInteger(Line))
+			{
+				Tokenizer.Line = Line - 1;
+				Tokenizer.SkipWhitespaceInLine();
+				FString Filename;
+				if (Tokenizer.MatchQuotedString(Filename))
+				{
+					Tokenizer.Filename = Filename;
+				}
+			}
+			else
+			{
+				FString LineString = TEXT("#line ") + Tokenizer.ReadToEndOfLine();
+				CompilerMessages.SourceError(*FString::Printf(TEXT("Malformed #line directive: %s!"), *LineString));
+			}
+		}
+		else if (Tokenizer.MatchString(MATCH_TARGET(TEXT("#pragma"))))
+		{
+			FString Pragma = TEXT("#pragma") + Tokenizer.ReadToEndOfLine();
+			Scanner.AddToken(FHlslToken(EHlslToken::Pragma, Pragma), Tokenizer);
+		}
+		else
+		{
+			FString Directive = TEXT("#") + Tokenizer.ReadToEndOfLine();
+			CompilerMessages.SourceWarning(*FString::Printf(TEXT("Unhandled preprocessor directive (%s); HlslParser requires preprocessed input!"), Tokenizer.Current));
+		}
+
+		Tokenizer.SkipToNextLine();
 	}
 }

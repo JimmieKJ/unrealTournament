@@ -1,10 +1,12 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneTracksPrivatePCH.h"
 #include "MovieSceneEventSection.h"
 #include "MovieSceneEventTrack.h"
 #include "MovieSceneEventTrackInstance.h"
 
+
+#define LOCTEXT_NAMESPACE "MovieSceneEventTrack"
 
 /* UMovieSceneEventTrack interface
  *****************************************************************************/
@@ -35,7 +37,7 @@ bool UMovieSceneEventTrack::AddKeyToSection(float Time, FName EventName, FKeyPar
 }
 
 
-void UMovieSceneEventTrack::TriggerEvents(float Position, float LastPosition)
+void UMovieSceneEventTrack::TriggerEvents(float Position, float LastPosition, UObject* EventContextObject)
 {
 	if ((Sections.Num() == 0) || (Position == LastPosition))
 	{
@@ -50,22 +52,7 @@ void UMovieSceneEventTrack::TriggerEvents(float Position, float LastPosition)
 		return;
 	}
 
-	// get the level script actor
-	if ((GEngine == nullptr) || (GEngine->GameViewport == nullptr))
-	{
-		return;
-	}
-
-	UWorld* World = GEngine->GameViewport->GetWorld();
-
-	if (World == nullptr)
-	{
-		return;
-	}
-
-	ALevelScriptActor* LevelScriptActor = World->GetLevelScriptActor();
-
-	if (LevelScriptActor == nullptr)
+	if (EventContextObject == nullptr)
 	{
 		return;
 	}
@@ -73,7 +60,7 @@ void UMovieSceneEventTrack::TriggerEvents(float Position, float LastPosition)
 	TArray<UMovieSceneSection*> TraversedSections = MovieSceneHelpers::GetTraversedSections(Sections, Position, LastPosition);
 	for (auto EventSection : TraversedSections)
 	{
-		CastChecked<UMovieSceneEventSection>(EventSection)->TriggerEvents(LevelScriptActor, Position, LastPosition);
+		CastChecked<UMovieSceneEventSection>(EventSection)->TriggerEvents(EventContextObject, Position, LastPosition);
 	}
 }
 
@@ -140,3 +127,15 @@ void UMovieSceneEventTrack::RemoveSection(UMovieSceneSection& Section)
 {
 	Sections.Remove(&Section);
 }
+
+#if WITH_EDITORONLY_DATA
+
+FText UMovieSceneEventTrack::GetDefaultDisplayName() const
+{ 
+	return LOCTEXT("TrackName", "Events"); 
+}
+
+#endif
+
+
+#undef LOCTEXT_NAMESPACE

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -93,9 +93,10 @@ struct FAnimationState : public FAnimationStateBase
 	// The index of the notify to fire when this state is fully entered (weight within the machine becomes one)
 	UPROPERTY()
 	int32 FullyBlendedNotify;
-
+	
 	FAnimationState()
 		: FAnimationStateBase()
+		, StateRootNodeIndex(INDEX_NONE)
 		, StartNotify(INDEX_NONE)
 		, EndNotify(INDEX_NONE)
 		, FullyBlendedNotify(INDEX_NONE)
@@ -239,9 +240,14 @@ struct FBakedAnimationState
 	UPROPERTY()
 	TArray<int32> PlayerNodeIndices;
 
+	// Whether or not this state will ALWAYS reset it's state on reentry, regardless of remaining weight
+	UPROPERTY()
+	bool bAlwaysResetOnEntry;
+
 public:
 	FBakedAnimationState()
-		: StartNotify(INDEX_NONE)
+		: StateRootNodeIndex(INDEX_NONE)
+		, StartNotify(INDEX_NONE)
 		, EndNotify(INDEX_NONE)
 		, FullyBlendedNotify(INDEX_NONE)
 		, bIsAConduit(false)

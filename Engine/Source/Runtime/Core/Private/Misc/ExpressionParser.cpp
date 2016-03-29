@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "ExpressionParser.h"
@@ -613,10 +613,8 @@ namespace ExpressionParser
 		{
 			return MakeError(Error.GetValue());
 		}
-		else
-		{
-			return MakeValue(TokenConsumer.Extract());
-		}
+
+		return MakeValue(TokenConsumer.Extract());
 	}
 
 	CompileResultType Compile(const TCHAR* InExpression, const FTokenDefinitions& InTokenDefinitions, const FExpressionGrammar& InGrammar)
@@ -662,10 +660,8 @@ namespace ExpressionParser
 			{
 				return CompiledTokens[Index];
 			}
-			else
-			{
-				return RuntimeGeneratedTokens[Index - CompiledTokens.Num()];
-			}
+
+			return RuntimeGeneratedTokens[Index - CompiledTokens.Num()];
 		};
 
 		/** Add a new token to the runtime generated array */
@@ -711,7 +707,7 @@ namespace ExpressionParser
 				{
 					FFormatOrderedArguments Args;
 					Args.Add(FText::FromString(Token.Context.GetString()));
-					return MakeError(FText::Format(LOCTEXT("SyntaxError_NoUnaryOperand", "Not enough operands for binary operator {0}"), Args));
+					return MakeError(FText::Format(LOCTEXT("SyntaxError_NotEnoughOperandsBinary", "Not enough operands for binary operator {0}"), Args));
 				}
 				break;
 			
@@ -750,10 +746,8 @@ namespace ExpressionParser
 		{
 			return MakeValue(GetToken(OperandStack[0]).Node.Copy());
 		}
-		else
-		{
-			return MakeError(LOCTEXT("SyntaxError_InvalidExpression", "Could not evaluate expression"));
-		}
+
+		return MakeError(LOCTEXT("SyntaxError_InvalidExpression", "Could not evaluate expression"));
 	}
 }
 

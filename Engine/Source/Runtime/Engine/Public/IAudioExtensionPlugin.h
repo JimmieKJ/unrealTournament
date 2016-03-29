@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,39 +6,26 @@
 #include "ModuleManager.h"
 #include "Runtime/Core/Public/Features/IModularFeatures.h"
 
-// Whether or not we are enabling the "High Quality" Version of the spatialization algorithm
-#define OCULUS_HQ_ENABLED (0) // Note: We are disabling the HQ version since the "FAST" quality seems good.
-
-enum ESpatializationEffectType
-{
-	SPATIALIZATION_TYPE_DEFAULT,
-	SPATIALIZATION_TYPE_FAST,
-#if OCULUS_HQ_ENABLED
-	SPATIALIZATION_TYPE_HIGH_QUALITY,
-#endif // #if OCULUS_HQ_ENABLED
-	SPATIALIZATION_TYPE_COUNT
-};
-
 class FAudioSpatializationParams
 {
 public:
 	FAudioSpatializationParams()
 		: EmitterPosition(0.0f)
-		, SpatializationAlgorithm(SPATIALIZATION_TYPE_FAST)
+		, EmitterWorldPosition(0.0f)
 	{}
 
-	FAudioSpatializationParams(const FVector& InEmitterPosition)
+	FAudioSpatializationParams(const FVector& InEmitterPosition, const FVector& InEmitterWorldPosition)
 		: EmitterPosition(InEmitterPosition)
-		, SpatializationAlgorithm(SPATIALIZATION_TYPE_FAST)
+		, EmitterWorldPosition(InEmitterWorldPosition)
 	{}
 
-	FAudioSpatializationParams(const FVector& InEmitterPosition, ESpatializationEffectType InSpatializationAlgorithm)
-		: EmitterPosition(InEmitterPosition)
-		, SpatializationAlgorithm(InSpatializationAlgorithm)
-	{}
+	// Add any more params one might need here...
 
-	FVector						EmitterPosition;
-	ESpatializationEffectType	SpatializationAlgorithm;
+	/** Normalized emitter position relative to the listener */
+	FVector EmitterPosition;
+
+	/** Raw emitter world position, untransformed relative to listener */
+	FVector EmitterWorldPosition;
 };
 
 /**
@@ -59,7 +46,7 @@ public:
 	}
 
 	/** Uses the given HRTF algorithm to spatialize a mono audio stream. */
-	virtual void ProcessSpatializationForVoice(ESpatializationEffectType Type, uint32 VoiceIndex, float* InSamples, float* OutSamples, const FVector& Position)
+	virtual void ProcessSpatializationForVoice(uint32 VoiceIndex, float* InSamples, float* OutSamples, const FVector& Position)
 	{
 
 	}

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
  namespace UnrealControls
 {
@@ -55,7 +55,7 @@
 			this.label1.Name = "label1";
 			this.label1.Size = new System.Drawing.Size( 261, 13 );
 			this.label1.TabIndex = 1;
-			this.label1.Text = "Copyright 2012-2015 Epic Games, Inc. All Rights Reserved.";
+			this.label1.Text = "Copyright 2012-2016 Epic Games, Inc. All Rights Reserved.";
 			// 
 			// mLabel_EngineVersion
 			// 

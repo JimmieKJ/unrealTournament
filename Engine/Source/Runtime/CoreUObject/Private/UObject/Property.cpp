@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Property.cpp: UProperty implementation
@@ -254,50 +254,13 @@ const TCHAR* UPropertyHelpers::ReadToken( const TCHAR* Buffer, FString& String, 
 {
 	if( *Buffer == TCHAR('"') )
 	{
-		// Get quoted string.
-		Buffer++;
-		while( *Buffer && *Buffer!=TCHAR('"') && *Buffer!=TCHAR('\n') && *Buffer!=TCHAR('\r') )
-		{
-			if( *Buffer != TCHAR('\\') ) // unescaped character
-			{
-				String += *Buffer++;
-			}
-			else if( *++Buffer==TCHAR('\\') ) // escaped backslash "\\"
-			{
-				String += TEXT("\\");
-				Buffer++;
-			}
-			else if ( *Buffer == TCHAR('\"') ) // escaped double quote "\""
-			{
-				String += TCHAR('"');
-				Buffer++;
-			}
-			else if (*Buffer == TCHAR('\'')) // escaped single quote "\'"
-			{
-				String += TCHAR('\'');
-				Buffer++;
-			}
-			else if ( *Buffer == TCHAR('n') ) // escaped newline
-			{
-				String += TCHAR('\n');
-				Buffer++;
-			}
-			else if ( *Buffer == TCHAR('r') ) // escaped carriage return
-			{
-				String += TCHAR('\r');
-				Buffer++;
-			}
-			else // some other escape sequence, assume it's a hex character value
-			{
-				String = FString::Printf(TEXT("%s%c"), *String, FParse::HexDigit(Buffer[0])*16 + FParse::HexDigit(Buffer[1]));
-				Buffer += 2;
-			}
-		}
-		if( *Buffer++ != TCHAR('"') )
+		int32 NumCharsRead = 0;
+		if (!FParse::QuotedString(Buffer, String, &NumCharsRead))
 		{
 			UE_LOG(LogProperty, Warning, TEXT("ReadToken: Bad quoted string") );
-			return NULL;
+			return nullptr;
 		}
+		Buffer += NumCharsRead;
 	}
 	else if( FChar::IsAlnum( *Buffer ) || (DottedNames && (*Buffer==TCHAR('/'))) || (*Buffer > 255) )
 	{
@@ -452,7 +415,7 @@ FString UProperty::GetCPPMacroType( FString& ExtendedTypeText ) const
 }
 
 void UProperty::ExportCppDeclaration(FOutputDevice& Out, EExportedDeclaration::Type DeclarationType, const TCHAR* ArrayDimOverride, uint32 AdditionalExportCPPFlags
-	, bool bSkipParameterName, const FString* ActualCppType, const FString* ActualExtendedType) const
+	, bool bSkipParameterName, const FString* ActualCppType, const FString* ActualExtendedType, const FString* ActualParameterName) const
 {
 	const bool bIsParameter = (DeclarationType == EExportedDeclaration::Parameter) || (DeclarationType == EExportedDeclaration::MacroParameter);
 	const bool bIsInterfaceProp = dynamic_cast<const UInterfaceProperty*>(this) != nullptr;
@@ -475,6 +438,7 @@ void UProperty::ExportCppDeclaration(FOutputDevice& Out, EExportedDeclaration::T
 		ExtendedTypeText = *ActualExtendedType;
 	}
 
+	const bool bCanHaveRef = 0 == (AdditionalExportCPPFlags & CPPF_NoRef);
 	const bool bCanHaveConst = 0 == (AdditionalExportCPPFlags & CPPF_NoConst);
 	if (!dynamic_cast<const UBoolProperty*>(this) && bCanHaveConst) // can't have const bitfields because then we cannot determine their offset and mask from the compiler
 	{
@@ -483,32 +447,28 @@ void UProperty::ExportCppDeclaration(FOutputDevice& Out, EExportedDeclaration::T
 		// export 'const' for parameters
 		const bool bIsConstParam   = bIsParameter && (HasAnyPropertyFlags(CPF_ConstParm) || (bIsInterfaceProp && !HasAllPropertyFlags(CPF_OutParm)));
 		const bool bIsOnConstClass = ObjectProp && ObjectProp->PropertyClass && ObjectProp->PropertyClass->HasAnyClassFlags(CLASS_Const);
-		if (bIsConstParam || bIsOnConstClass)
+		const bool bShouldHaveRef = bCanHaveRef && HasAnyPropertyFlags(CPF_OutParm | CPF_ReferenceParm);
+
+		const bool bConstAtTheBeginning = bIsOnConstClass || (bIsConstParam && !bShouldHaveRef);
+		if (bConstAtTheBeginning)
 		{
 			TypeText = FString::Printf(TEXT("const %s"), *TypeText);
 		}
 
-		if (DeclarationType == EExportedDeclaration::Member)
+		const UClass* const MyPotentialConstClass = (DeclarationType == EExportedDeclaration::Member) ? dynamic_cast<UClass*>(GetOuter()) : nullptr;
+		const bool bFromConstClass = MyPotentialConstClass && MyPotentialConstClass->HasAnyClassFlags(CLASS_Const);
+		const bool bConstAtTheEnd = bFromConstClass || (bIsConstParam && bShouldHaveRef);
+		if (bConstAtTheEnd)
 		{
-			UClass* MyClass = dynamic_cast<UClass*>(GetOuter());
-			if (MyClass && MyClass->HasAnyClassFlags(CLASS_Const))
-			{
-				ExtendedTypeText += TEXT(" const");
-			}
+			ExtendedTypeText += TEXT(" const");
 		}
 	}
 
 	FString NameCpp;
 	if (!bSkipParameterName)
 	{
-		if (AdditionalExportCPPFlags & CPPF_BlueprintCppBackend)
-		{
-			NameCpp = UnicodeToCPPIdentifier(GetName(), HasAnyPropertyFlags(CPF_Deprecated), HasAnyPropertyFlags(CPF_Parm) ? TEXT("bpp__") : TEXT("bpv__"));
-		}
-		else
-		{
-			NameCpp = GetNameCPP();
-		}
+		ensure((0 == (AdditionalExportCPPFlags & CPPF_BlueprintCppBackend)) || ActualParameterName);
+		NameCpp = ActualParameterName ? *ActualParameterName : GetNameCPP();
 	}
 	if (DeclarationType == EExportedDeclaration::MacroParameter)
 	{
@@ -529,7 +489,6 @@ void UProperty::ExportCppDeclaration(FOutputDevice& Out, EExportedDeclaration::T
 		}
 	}
 
-	const bool bCanHaveRef = 0 == (AdditionalExportCPPFlags & CPPF_NoRef);
 	if(auto BoolProperty = dynamic_cast<const UBoolProperty*>(this) )
 	{
 		// if this is a member variable, export it as a bitfield
@@ -822,6 +781,8 @@ static bool IsPropertyValueSpecified( const TCHAR* Buffer )
 const TCHAR* UProperty::ImportSingleProperty( const TCHAR* Str, void* DestData, UStruct* ObjectStruct, UObject* SubobjectOuter, int32 PortFlags,
 											FOutputDevice* Warn, TArray<FDefinedProperty>& DefinedProperties )
 {
+	check(ObjectStruct);
+
 	while (*Str == ' ' || *Str == 9)
 	{
 		Str++;
@@ -850,9 +811,22 @@ const TCHAR* UProperty::ImportSingleProperty( const TCHAR* Str, void* DestData, 
 
 		UProperty* Property = FindField<UProperty>(ObjectStruct, Token);
 
+		if (Property == NULL)
+		{
+			// Check for redirects
+			const TMap<FName, FName>* const ClassTaggedPropertyRedirects = UStruct::TaggedPropertyRedirects.Find(ObjectStruct->GetFName());
+			if (ClassTaggedPropertyRedirects)
+			{
+				const FName* const NewPropertyName = ClassTaggedPropertyRedirects->Find(FName(Token));
+				if (NewPropertyName)
+				{
+					Property = FindField<UProperty>(ObjectStruct, *NewPropertyName);
+				}
+			}
+		}		
+
 		delete[] Token;
 		Token = NULL;
-
 
 		if (Property == NULL)
 		{

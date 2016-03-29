@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "GameplayTagsModulePrivatePCH.h"
 #include "GameplayTagsSettings.h"
@@ -10,6 +10,16 @@
 #endif
 
 #define LOCTEXT_NAMESPACE "GameplayTagManager"
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+TMap<FGameplayTag, int32>	UGameplayTagsManager::ReplicationCountMap;
+TMap<FGameplayTag, int32>	UGameplayTagsManager::ReplicationCountMap_SingleTags;
+TMap<FGameplayTag, int32>	UGameplayTagsManager::ReplicationCountMap_Containers;
+#endif
+
+int32 UGameplayTagsManager::NetIndexFirstBitSegment=16;
+int32 UGameplayTagsManager::NetIndexTrueBitNum=16;
+int32 UGameplayTagsManager::NumBitsForContainerSize=6;
 
 UGameplayTagsManager::UGameplayTagsManager(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -170,9 +180,31 @@ void UGameplayTagsManager::ConstructGameplayTagTree()
 					TableRow.Tag = TagStr;
 					AddTagTableRow(TableRow);
 				}
+
+				// Grab the commonly replicated tags
+				CommonlyReplicatedTags.Reserve(CommonlyReplicatedTags.Num() + Class->GetDefaultObject<UGameplayTagsSettings>()->CommonlyReplicatedTags.Num());
+				for (const FString& Str : Class->GetDefaultObject<UGameplayTagsSettings>()->CommonlyReplicatedTags)
+				{
+					FGameplayTag Tag = RequestGameplayTag(FName(*Str));
+					if (Tag.IsValid())
+					{
+						CommonlyReplicatedTags.Add(Tag);
+					}
+					else
+					{
+						UE_LOG(LogGameplayTags, Warning, TEXT("%s was found in the CommonlyReplicatedTags list but doesn't appear to be a valid tag!"), *Str);
+					}
+				}
+
+				NetIndexFirstBitSegment = Class->GetDefaultObject<UGameplayTagsSettings>()->NetIndexFirstBitSegment;
 			}
 			GameplayRootTag->GetChildTagNodes().Sort(FCompareFGameplayTagNodeByTag());
 		}
+
+		bUseFastReplication = false;
+		GConfig->GetBool(TEXT("GameplayTags"), TEXT("FastReplication"), bUseFastReplication, GEngineIni);
+
+		GConfig->GetInt(TEXT("GameplayTags"), TEXT("NumBitsForContainerSize"), NumBitsForContainerSize, GEngineIni);
 
 		if (ShouldUseFastReplication())
 		{
@@ -244,8 +276,34 @@ void UGameplayTagsManager::ConstructNetIndex()
 
 	NetworkGameplayTagNodeIndex.Sort(FCompareFGameplayTagNodeByTag());
 
-	// This is now sorted and it should be the same on both client and server
+	// Put the common indices up front
+	for (int32 CommonIdx=0; CommonIdx < CommonlyReplicatedTags.Num(); ++CommonIdx)
+	{
+		int32 BaseIdx=0;
+		FGameplayTag& Tag = CommonlyReplicatedTags[CommonIdx];
 
+		bool Found = false;
+		for (int32 findidx=0; findidx < NetworkGameplayTagNodeIndex.Num(); ++findidx)
+		{
+			if (NetworkGameplayTagNodeIndex[findidx]->GetCompleteTag() == Tag.GetTagName())
+			{
+				NetworkGameplayTagNodeIndex.Swap(findidx, CommonIdx);
+				Found = true;
+				break;
+			}
+		}
+
+		// A non fatal error should have been thrown when parsing the CommonlyReplicatedTags list. If we make it here, something is seriously wrong.
+		checkf( Found, TEXT("Tag %s not found in NetworkGameplayTagNodeIndex"), *Tag.ToString() );
+	}
+
+	InvalidTagNetIndex = NetworkGameplayTagNodeIndex.Num()+1;
+	NetIndexTrueBitNum = FMath::CeilToInt(FMath::Log2(InvalidTagNetIndex));
+	
+	// This should never be smaller than NetIndexTrueBitNum
+	NetIndexFirstBitSegment = FMath::Min<int64>(NetIndexFirstBitSegment, NetIndexTrueBitNum);
+
+	// This is now sorted and it should be the same on both client and server
 	if (NetworkGameplayTagNodeIndex.Num() >= INVALID_TAGNETINDEX)
 	{
 		ensureMsgf(false, TEXT("Too many tags in dictionary for networking! Remove tags or increase tag net index size"));
@@ -266,8 +324,8 @@ FName UGameplayTagsManager::GetTagNameFromNetIndex(FGameplayTagNetIndex Index)
 {
 	if (Index >= NetworkGameplayTagNodeIndex.Num())
 	{
-		ensureMsgf(false, TEXT("Received invalid tag net index %d! Tag index is out of sync on client!"), Index);
-
+		// Ensure Index is the invalid index. If its higher than that, then something is wrong.
+		ensureMsgf(Index == InvalidTagNetIndex, TEXT("Received invalid tag net index %d! Tag index is out of sync on client!"), Index);
 		return NAME_None;
 	}
 	return NetworkGameplayTagNodeIndex[Index]->GetCompleteTag();
@@ -281,7 +339,8 @@ FGameplayTagNetIndex UGameplayTagsManager::GetNetIndexFromTag(const FGameplayTag
 	{
 		return (*GameplayTagNode)->GetNetIndex();
 	}
-	return INVALID_TAGNETINDEX;
+
+	return InvalidTagNetIndex;
 }
 
 bool UGameplayTagsManager::ShouldImportTagsFromINI()
@@ -291,14 +350,15 @@ bool UGameplayTagsManager::ShouldImportTagsFromINI()
 	return ImportFromINI;
 }
 
-bool UGameplayTagsManager::ShouldUseFastReplication()
+/** TEMP - Returns true if we should warn on invalid (missing) tags */
+bool UGameplayTagsManager::ShouldWarnOnInvalidTags()
 {
-	bool ImportFromINI = false;
-	GConfig->GetBool(TEXT("GameplayTags"), TEXT("FastReplication"), ImportFromINI, GEngineIni);
+	bool ImportFromINI = true;
+	GConfig->GetBool(TEXT("GameplayTags"), TEXT("WarnOnInvalidTags"), ImportFromINI, GEngineIni);
 	return ImportFromINI;
 }
 
-void UGameplayTagsManager::RedirectTagsForContainer(FGameplayTagContainer& Container, TSet<FName>& DeprecatedTagNamesNotFoundInTagMap)
+void UGameplayTagsManager::RedirectTagsForContainer(FGameplayTagContainer& Container, TSet<FName>& DeprecatedTagNamesNotFoundInTagMap, UProperty* SerializingProperty)
 {
 	TSet<FName> NamesToRemove;
 	TSet<const FGameplayTag*> TagsToAdd;
@@ -317,6 +377,17 @@ void UGameplayTagsManager::RedirectTagsForContainer(FGameplayTagContainer& Conta
 				DeprecatedTagNamesNotFoundInTagMap.Remove(NewTag->GetTagName());
 			}
 		}
+#if WITH_EDITOR
+		else
+		{
+			// Warn about invalid tags at load time in editor builds, too late to fix it in cooked builds
+			FGameplayTag OldTag = RequestGameplayTag(TagName, false);
+			if (!OldTag.IsValid() && ShouldWarnOnInvalidTags())
+			{
+				UE_LOG(LogGameplayTags, Warning, TEXT("Invalid GameplayTag %s found while loading property %s."), *TagName.ToString(), *GetPathNameSafe(SerializingProperty));
+			}
+		}
+#endif
 	}
 
 	// Add additional tags to the TagsToAdd set from the deprecated list if they weren't already added above
@@ -349,6 +420,30 @@ void UGameplayTagsManager::RedirectTagsForContainer(FGameplayTagContainer& Conta
 		check(AddTag);
 		Container.AddTag(*AddTag);
 	}
+}
+
+void UGameplayTagsManager::RedirectSingleGameplayTag(FGameplayTag& Tag, UProperty* SerializingProperty)
+{
+	const FName TagName = Tag.GetTagName();
+	const FGameplayTag* NewTag = TagRedirects.Find(TagName);
+	if (NewTag)
+	{
+		if (NewTag->IsValid())
+		{
+			Tag = *NewTag;
+		}
+	}
+#if WITH_EDITOR
+	else if (TagName != NAME_None)
+	{
+		// Warn about invalid tags at load time in editor builds, too late to fix it in cooked builds
+		FGameplayTag OldTag = RequestGameplayTag(TagName, false);
+		if (!OldTag.IsValid() && ShouldWarnOnInvalidTags())
+		{
+			UE_LOG(LogGameplayTags, Warning, TEXT("Invalid GameplayTag %s found while loading property %s."), *TagName.ToString(), *GetPathNameSafe(SerializingProperty));
+		}
+	}
+#endif
 }
 
 void UGameplayTagsManager::PopulateTreeFromDataTable(class UDataTable* InTable)
@@ -460,7 +555,6 @@ int32 UGameplayTagsManager::InsertTagIntoNodeArray(FName Tag, TWeakPtr<FGameplay
 	return InsertionIdx;
 }
 
-
 int32 UGameplayTagsManager::GetBestTagCategoryDescription(FString Tag, FText& OutDescription) const
 {
 	// get all the nodes that make up this tag
@@ -480,6 +574,124 @@ int32 UGameplayTagsManager::GetBestTagCategoryDescription(FString Tag, FText& Ou
 
 	return -1;
 }
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+void UGameplayTagsManager::PrintReplicationFrequencyReport()
+{
+	UE_LOG(LogGameplayTags, Warning, TEXT("================================="));
+	UE_LOG(LogGameplayTags, Warning, TEXT("Gameplay Tags Replication Report"));
+
+	UE_LOG(LogGameplayTags, Warning, TEXT("\nTags replicated solo:"));
+	ReplicationCountMap_SingleTags.ValueSort(TGreater<int32>());
+	for (auto& It : ReplicationCountMap_SingleTags)
+	{
+		UE_LOG(LogGameplayTags, Warning, TEXT("%s - %d"), *It.Key.ToString(), It.Value);
+	}
+	
+	// ---------------------------------------
+
+	UE_LOG(LogGameplayTags, Warning, TEXT("\nTags replicated in containers:"));
+	ReplicationCountMap_Containers.ValueSort(TGreater<int32>());
+	for (auto& It : ReplicationCountMap_Containers)
+	{
+		UE_LOG(LogGameplayTags, Warning, TEXT("%s - %d"), *It.Key.ToString(), It.Value);
+	}
+
+	// ---------------------------------------
+
+	UE_LOG(LogGameplayTags, Warning, TEXT("\nAll Tags replicated:"));
+	ReplicationCountMap.ValueSort(TGreater<int32>());
+	for (auto& It : ReplicationCountMap)
+	{
+		UE_LOG(LogGameplayTags, Warning, TEXT("%s - %d"), *It.Key.ToString(), It.Value);
+	}
+
+	TMap<int32, int32> SavingsMap;
+	int32 BaselineCost = 0;
+	for (int32 Bits=1; Bits < NetIndexTrueBitNum; ++Bits)
+	{
+		int32 TotalSavings = 0;
+		BaselineCost = 0;
+
+		FGameplayTagNetIndex ExpectedNetIndex=0;
+		for (auto& It : ReplicationCountMap)
+		{
+			int32 ExpectedCostBits = 0;
+			bool FirstSeg = ExpectedNetIndex < FMath::Pow(2, Bits);
+			if (FirstSeg)
+			{
+				// This would fit in the first Bits segment
+				ExpectedCostBits = Bits+1;
+			}
+			else
+			{
+				// Would go in the second segment, so we pay the +1 cost
+				ExpectedCostBits = NetIndexTrueBitNum+1;
+			}
+
+			int32 Savings = (NetIndexTrueBitNum - ExpectedCostBits) * It.Value;
+			BaselineCost += NetIndexTrueBitNum * It.Value;
+
+			//UE_LOG(LogGameplayTags, Warning, TEXT("[Bits: %d] Tag %s would save %d bits"), Bits, *It.Key.ToString(), Savings);
+			ExpectedNetIndex++;
+			TotalSavings += Savings;
+		}
+
+		SavingsMap.FindOrAdd(Bits) = TotalSavings;
+	}
+
+	SavingsMap.ValueSort(TGreater<int32>());
+	int32 BestBits = 0;
+	for (auto& It : SavingsMap)
+	{
+		if (BestBits == 0)
+		{
+			BestBits = It.Key;
+		}
+
+		UE_LOG(LogGameplayTags, Warning, TEXT("%d bits would save %d (%.2f)"), It.Key, It.Value, (float)It.Value / (float)BaselineCost);
+	}
+
+	UE_LOG(LogGameplayTags, Warning, TEXT("\nSuggested config:"));
+
+	// Write out a nice copy pastable config
+	int32 Count=0;
+	for (auto& It : ReplicationCountMap)
+	{
+		UE_LOG(LogGameplayTags, Warning, TEXT("+CommonlyReplicatedTags=%s"), *It.Key.ToString());
+
+		if (Count == FMath::Pow(2, BestBits))
+		{
+			// Print a blank line out, indicating tags after this are not necessary but still may be useful if the user wants to manually edit the list.
+			UE_LOG(LogGameplayTags, Warning, TEXT(""));
+		}
+
+		if (Count++ >= FMath::Pow(2, BestBits+1))
+		{
+			break;
+		}
+	}
+
+	UE_LOG(LogGameplayTags, Warning, TEXT("NetIndexFirstBitSegment=%d"), BestBits);
+
+	UE_LOG(LogGameplayTags, Warning, TEXT("================================="));
+}
+
+void UGameplayTagsManager::NotifyTagReplicated(FGameplayTag Tag, bool WasInContainer)
+{
+	ReplicationCountMap.FindOrAdd(Tag)++;
+
+	if (WasInContainer)
+	{
+		ReplicationCountMap_Containers.FindOrAdd(Tag)++;
+	}
+	else
+	{
+		ReplicationCountMap_SingleTags.FindOrAdd(Tag)++;
+	}
+	
+}
+#endif
 
 #if WITH_EDITOR
 
@@ -938,6 +1150,8 @@ FGameplayTagTableRow& FGameplayTagTableRow::operator=(FGameplayTagTableRow const
 	}
 
 	Tag = Other.Tag;
+	CategoryText = Other.CategoryText;
+	DevComment = Other.DevComment;
 
 	return *this;
 }

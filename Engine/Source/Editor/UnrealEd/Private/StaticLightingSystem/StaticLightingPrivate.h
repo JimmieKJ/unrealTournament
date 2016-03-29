@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	StaticLightingPrivate.h: Private static lighting system definitions.
@@ -63,6 +63,8 @@ struct FLightmassStatistics
 		ApplyTime						= 0.0;
 		ApplyTimeInProcessing			= 0.0;
 		EncodingTime					= 0.0;
+		EncodingLightmapsTime			= 0.0;
+		EncodingShadowMapsTime			= 0.0;
 		FinishingTime					= 0.0;
 		TotalTime						= 0.0;
 		ExportVisibilityDataTime = 0.0;
@@ -99,6 +101,8 @@ struct FLightmassStatistics
 		ApplyTime						+= Other.ApplyTime;
 		ApplyTimeInProcessing			+= Other.ApplyTimeInProcessing;
 		EncodingTime					+= Other.EncodingTime;
+		EncodingLightmapsTime			+= Other.EncodingLightmapsTime;
+		EncodingShadowMapsTime			+= Other.EncodingShadowMapsTime;
 		FinishingTime					+= Other.FinishingTime;
 		TotalTime						+= Other.TotalTime;
 		ExportVisibilityDataTime += Other.ExportVisibilityDataTime;
@@ -145,6 +149,8 @@ struct FLightmassStatistics
 	double	ApplyTimeInProcessing;
 	/** Time spent encoding textures, in seconds. */
 	double	EncodingTime;
+	double	EncodingLightmapsTime;
+	double	EncodingShadowMapsTime;
 	/** Time spent finishing up, in seconds. */
 	double	FinishingTime;
 	/** Total time spent for the lighting build. */

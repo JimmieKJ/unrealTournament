@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LogVisualizer.h"
 #include "SDockTab.h"
@@ -8,7 +8,6 @@
 #include "DesktopPlatformModule.h"
 #include "MainFrame.h"
 #include "VisualLoggerCameraController.h"
-#include "TimeSliderController.h"
 #if WITH_EDITOR
 #	include "Editor/UnrealEd/Public/EditorComponents.h"
 #	include "Editor/UnrealEd/Public/EditorReimportHandler.h"
@@ -87,7 +86,7 @@ SVisualLogger::SVisualLogger()
 			{
 				CurrentWorld = const_cast<UWorld*>(FVisualLogger::Get().GetObjectToWorldMap()[LogOwner].Get());
 			}
-			if (LastUsedWorld != CurrentWorld)
+			if (LastUsedWorld != CurrentWorld && CurrentWorld != nullptr)
 			{
 				OnWorldChanged.ExecuteIfBound(LastUsedWorld, CurrentWorld);
 				LastUsedWorld = CurrentWorld;
@@ -422,7 +421,7 @@ void SVisualLogger::HandleStopRecordingCommandExecute()
 
 	if (FParse::Param(FCommandLine::Get(), TEXT("LogNavOctree")) == true && ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>()->bLogNavOctreeOnStop)
 	{
-		FVisualLogger::NavigationDataDump(World, LogNavigation, ELogVerbosity::Log, INDEX_NONE, FBox());
+		FVisualLogger::NavigationDataDump(World, LogNavigation, ELogVerbosity::Log, FBox());
 	}
 
 	FVisualLogger::Get().SetIsRecording(false);
@@ -653,10 +652,10 @@ void SVisualLogger::HandleSaveCommand(bool bSaveAllData)
 
 		if (bSaved)
 		{
-			if (SaveFilenames.Num() > 0)
+			if (SaveFilenames.Num() > 0 && SaveFilenames[0].IsEmpty() == false)
 			{
 				TArray<FVisualLogDevice::FVisualLogEntryItem> FrameCache;
-				for (auto CurrentName : SelectedRows)
+				for (const FName& CurrentName : SelectedRows)
 				{
 					FVisualLoggerDBRow& DataRow = FVisualLoggerDatabase::Get().GetRowByName(CurrentName);
 					FrameCache.Append(DataRow.GetItems());
@@ -665,10 +664,17 @@ void SVisualLogger::HandleSaveCommand(bool bSaveAllData)
 				if (FrameCache.Num())
 				{
 					FArchive* FileArchive = IFileManager::Get().CreateFileWriter(*SaveFilenames[0]);
-					FVisualLoggerHelpers::Serialize(*FileArchive, FrameCache);
-					FileArchive->Close();
-					delete FileArchive;
-					FileArchive = NULL;
+					if (ensure(FileArchive))
+					{
+						FVisualLoggerHelpers::Serialize(*FileArchive, FrameCache);
+						FileArchive->Close();
+						delete FileArchive;
+						FileArchive = NULL;
+					}
+					else
+					{
+						UE_LOG(LogVisualLogger, Error, TEXT("Failed to create file \"%s\""), *SaveFilenames[0]);
+					}
 				}
 			}
 		}
@@ -742,23 +748,23 @@ void SVisualLogger::OnNewWorld(UWorld* NewWorld)
 	LastUsedWorld = NewWorld;
 
 	AVisualLoggerRenderingActor* HelperActor = Cast<AVisualLoggerRenderingActor>(FVisualLoggerEditorInterface::Get()->GetHelperActor(LastUsedWorld.Get()));
-	check(HelperActor);
-
-	if (LastUsedWorld.IsValid() == false || ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>()->bResetDataWithNewSession)
+	if (ensure(HelperActor))
 	{
-		ResetData();
-	}
+		if (LastUsedWorld.IsValid() == false || ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>()->bResetDataWithNewSession)
+		{
+			ResetData();
+		}
 
-	// reset data and simulate row/item selection to recreate rendering proxy with correct data
-	HelperActor->ResetRendering();
-	const TArray<FName>& SelectedRows = FVisualLoggerDatabase::Get().GetSelectedRows();
-	HelperActor->ObjectSelectionChanged(SelectedRows);
-	for (auto& RowName : SelectedRows)
-	{
-		FVisualLoggerDBRow& DBRow = FVisualLoggerDatabase::Get().GetRowByName(RowName);
-		HelperActor->OnItemSelectionChanged(DBRow, DBRow.GetCurrentItemIndex());
+		// reset data and simulate row/item selection to recreate rendering proxy with correct data
+		HelperActor->ResetRendering();
+		const TArray<FName>& SelectedRows = FVisualLoggerDatabase::Get().GetSelectedRows();
+		HelperActor->ObjectSelectionChanged(SelectedRows);
+		for (auto& RowName : SelectedRows)
+		{
+			FVisualLoggerDBRow& DBRow = FVisualLoggerDatabase::Get().GetRowByName(RowName);
+			HelperActor->OnItemSelectionChanged(DBRow, DBRow.GetCurrentItemIndex());
+		}
 	}
-
 }
 
 void SVisualLogger::OnObjectSelectionChanged(const TArray<FName>& RowNames)
@@ -936,9 +942,13 @@ void SVisualLogger::UpdateVisibilityForEntry(const FVisualLoggerDBRow& DBRow, in
 	TArray<FVisualLoggerCategoryVerbosityPair> OutCategories;
 	FVisualLoggerHelpers::GetCategories(CurrentEntry.Entry, OutCategories);
 	bool bHasValidCategories = false;
-	for (FVisualLoggerCategoryVerbosityPair& Categoryair : OutCategories)
+	for (FVisualLoggerCategoryVerbosityPair& CategoryPair : OutCategories)
 	{
-		bHasValidCategories = bHasValidCategories || FVisualLoggerFilters::Get().MatchCategoryFilters(Categoryair.CategoryName.ToString(), Categoryair.Verbosity);
+		if (FVisualLoggerFilters::Get().MatchCategoryFilters(CategoryPair.CategoryName.ToString(), CategoryPair.Verbosity))
+		{
+			bHasValidCategories = true;
+			break;
+		}
 	}
 
 	if (Settings->bSearchInsideLogs && bHasValidCategories && SearchString.Len() > 0)

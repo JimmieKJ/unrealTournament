@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
  	CoreAudioDevice.h: Unreal CoreAudio audio interface object.
@@ -40,7 +40,8 @@ enum ESoundFormat
 	SoundFormat_Invalid,
 	SoundFormat_PCM,
 	SoundFormat_PCMPreview,
-	SoundFormat_PCMRT
+	SoundFormat_PCMRT,
+	SoundFormat_Streaming
 };
 
 struct CoreAudioBuffer
@@ -127,6 +128,15 @@ public:
 	 * @return FCoreAudioSoundBuffer pointer if buffer creation succeeded, NULL otherwise
 	 */
 	static FCoreAudioSoundBuffer* CreateNativeBuffer( FCoreAudioDevice* CoreAudioDevice, USoundWave* Wave );
+	
+	/**
+	 * Static function used to create an XAudio buffer and dynamically upload streaming data to.
+	 *
+	 * @param InWave		USoundWave to use as template and wave source
+	 * @param AudioDevice	audio device to attach created buffer to
+	 * @return FCoreAudioSoundBuffer pointer if buffer creation succeeded, NULL otherwise
+	 */
+	static FCoreAudioSoundBuffer* CreateStreamingBuffer( FCoreAudioDevice* CoreAudio2Device, USoundWave* Wave );
 	
 	/**
 	 * Static function used to create a buffer.
@@ -421,7 +431,11 @@ private:
 	bool						MatrixMixerInputStatus[CORE_AUDIO_MAX_MULTICHANNEL_AUDIOCHANNELS];
 
 	class FCoreAudioSoundSource* AudioChannels[CORE_AUDIO_MAX_CHANNELS + 1];
+	
 
+	TSet<AudioConverterRef>		CovertersToDispose;
+	bool						bNeedsUpdate;
+	
 	friend class FCoreAudioSoundBuffer;
 	friend class FCoreAudioSoundSource;
 	friend class FCoreAudioEffectsManager;

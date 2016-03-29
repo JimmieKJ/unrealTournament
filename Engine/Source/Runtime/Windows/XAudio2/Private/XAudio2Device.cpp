@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	XeAudioDevice.cpp: Unreal XAudio2 Audio interface object.
@@ -24,6 +24,13 @@
 #include "HideWindowsPlatformTypes.h"
 #include "TargetPlatform.h"
 #include "XAudio2Support.h"
+#include "Runtime/HeadMountedDisplay/Public/IHeadMountedDisplayModule.h"
+
+static TAutoConsoleVariable<int32> CVarXAudio2HmdDeviceIndex(
+	TEXT("hmd.XAudio2DeviceIndex"),
+	-1,
+	TEXT("Specifies the XAudio2 device index to use when HMD is connected. (-1 == Unknown)\n"),
+	ECVF_Default);
 
 DEFINE_LOG_CATEGORY(LogXAudio2);
 
@@ -57,6 +64,10 @@ XAUDIO2_DEVICE_DETAILS FXAudioDeviceProperties::DeviceDetails;
 
 #define DEBUG_XAUDIO2 0
 
+void FXAudio2Device::GetAudioDeviceList(TArray<FString>& OutAudioDeviceNames) const
+{
+	DeviceProperties->GetAudioDeviceList(OutAudioDeviceNames);
+}
 
 bool FXAudio2Device::InitializeHardware()
 {
@@ -118,17 +129,50 @@ bool FXAudio2Device::InitializeHardware()
 	if( DeviceCount < 1 )
 	{
 		UE_LOG(LogInit, Log, TEXT( "No audio devices found!" ) );
+		DeviceProperties->XAudio2->Release();
 		DeviceProperties->XAudio2 = nullptr;
 		return( false );		
 	}
 
-	// Get the details of the default device 0
-	if( !ValidateAPICall(TEXT("GetDeviceDetails"),
-		DeviceProperties->XAudio2->GetDeviceDetails(0, &FXAudioDeviceProperties::DeviceDetails)))
+	// Initialize the audio device index to 0, which is the windows default device index
+	UINT32 DeviceIndex = 0;
+
+	FString WindowsAudioDeviceName;
+	GConfig->GetString(TEXT("/Script/WindowsTargetPlatform.WindowsTargetSettings"), TEXT("AudioDevice"), WindowsAudioDeviceName, GEngineIni);
+
+	// If the user specified one, try to load the user audio device
+	if (WindowsAudioDeviceName.Len() > 0)
 	{
-		UE_LOG(LogInit, Log, TEXT( "Failed to get DeviceDetails for XAudio2" ) );
+		TArray<FString> AudioDevices;
+		DeviceProperties->GetAudioDeviceList(AudioDevices);
+
+		for (int32 i = 0; i < AudioDevices.Num(); ++i)
+		{
+			// Find the device index corresponding to the given device name
+			if (AudioDevices[i] == WindowsAudioDeviceName)
+			{
+				DeviceIndex = i;
+				break;
+			}
+		}
+	}
+
+	// Allow HMD to override which audio device is chosen
+	bool bUseHmdDeviceIndex = CVarXAudio2HmdDeviceIndex.GetValueOnGameThread() >= 0 && 
+		IModularFeatures::Get().IsModularFeatureAvailable(IHeadMountedDisplayModule::GetModularFeatureName());
+
+	DeviceIndex = bUseHmdDeviceIndex ? CVarXAudio2HmdDeviceIndex.GetValueOnGameThread() : DeviceIndex;
+
+	if(DeviceIndex >= DeviceCount)
+		DeviceIndex = 0;
+
+	// Get the details of the desired device index (0 is default)
+	if (!ValidateAPICall(TEXT("GetDeviceDetails"),
+		DeviceProperties->XAudio2->GetDeviceDetails(DeviceIndex, &FXAudioDeviceProperties::DeviceDetails)))
+	{
+		UE_LOG(LogInit, Log, TEXT("Failed to get DeviceDetails for XAudio2"));
 		DeviceProperties->XAudio2 = nullptr;
-		return( false );
+		return(false);
 	}
 
 #if DEBUG_XAUDIO2
@@ -164,7 +208,7 @@ bool FXAudio2Device::InitializeHardware()
 
 	// Create the final output voice with either 2 or 6 channels
 	if (!ValidateAPICall(TEXT("CreateMasteringVoice"), 
-		DeviceProperties->XAudio2->CreateMasteringVoice(&DeviceProperties->MasteringVoice, FXAudioDeviceProperties::NumSpeakers, SampleRate, 0, 0, NULL)))
+		DeviceProperties->XAudio2->CreateMasteringVoice(&DeviceProperties->MasteringVoice, FXAudioDeviceProperties::NumSpeakers, SampleRate, 0, DeviceIndex, nullptr)))
 	{
 		UE_LOG(LogInit, Warning, TEXT( "Failed to create the mastering voice for XAudio2" ) );
 		DeviceProperties->XAudio2 = nullptr;
@@ -173,7 +217,7 @@ bool FXAudio2Device::InitializeHardware()
 #else	//XAUDIO_SUPPORTS_DEVICE_DETAILS
 	// Create the final output voice
 	if (!ValidateAPICall(TEXT("CreateMasteringVoice"),
-		DeviceProperties->XAudio2->CreateMasteringVoice(&DeviceProperties->MasteringVoice, UE4_XAUDIO2_NUMCHANNELS, UE4_XAUDIO2_SAMPLERATE, 0, 0, NULL )))
+		DeviceProperties->XAudio2->CreateMasteringVoice(&DeviceProperties->MasteringVoice, UE4_XAUDIO2_NUMCHANNELS, UE4_XAUDIO2_SAMPLERATE, 0, 0, nullptr )))
 	{
 		UE_LOG(LogInit, Warning, TEXT( "Failed to create the mastering voice for XAudio2" ) );
 		DeviceProperties->XAudio2 = nullptr;
@@ -217,6 +261,7 @@ void FXAudio2Device::TeardownHardware()
 
 void FXAudio2Device::UpdateHardware()
 {
+	DeviceProperties->ProcessPendingTasksToCleanup();
 }
 
 FAudioEffectsManager* FXAudio2Device::CreateEffectsManager()
@@ -242,6 +287,8 @@ bool FXAudio2Device::HasCompressedAudioInfoClass(USoundWave* SoundWave)
 
 class ICompressedAudioInfo* FXAudio2Device::CreateCompressedAudioInfo(USoundWave* SoundWave)
 {
+	check(SoundWave);
+
 	if (SoundWave->IsStreaming())
 	{
 		return new FOpusAudioInfo();
@@ -250,8 +297,13 @@ class ICompressedAudioInfo* FXAudio2Device::CreateCompressedAudioInfo(USoundWave
 #if WITH_OGGVORBIS
 	if (SoundWave->CompressionName.IsNone() || SoundWave->CompressionName == TEXT("OGG"))
 	{
-
-		return new FVorbisAudioInfo();
+		ICompressedAudioInfo* CompressedInfo = new FVorbisAudioInfo();
+		if (!CompressedInfo)
+		{
+			UE_LOG(LogAudio, Error, TEXT("Failed to create new FVorbisAudioInfo for SoundWave %s: out of memory."), *SoundWave->GetName());
+			return NULL;
+		}
+		return CompressedInfo;
 	}
 	else
 	{
@@ -268,39 +320,8 @@ class ICompressedAudioInfo* FXAudio2Device::CreateCompressedAudioInfo(USoundWave
  */
 bool FXAudio2Device::ValidateAPICall( const TCHAR* Function, uint32 ErrorCode )
 {
-	if( ErrorCode != S_OK )
-	{
-		switch( ErrorCode )
-		{
-		case XAUDIO2_E_INVALID_CALL:
-			UE_LOG(LogAudio, Warning, TEXT( "%s error: Invalid Call" ), Function );
-			break;
-
-		case XAUDIO2_E_XMA_DECODER_ERROR:
-			UE_LOG(LogAudio, Warning, TEXT( "%s error: XMA Decoder Error" ), Function );
-			break;
-
-		case XAUDIO2_E_XAPO_CREATION_FAILED:
-			UE_LOG(LogAudio, Warning, TEXT( "%s error: XAPO Creation Failed" ), Function );
-			break;
-
-		case XAUDIO2_E_DEVICE_INVALIDATED:
-			UE_LOG(LogAudio, Warning, TEXT( "%s error: Device Invalidated" ), Function );
-			break;
-
-		default:
-			UE_LOG(LogAudio, Warning, TEXT( "%s error: Unhandled error code %d" ), Function, ErrorCode );
-			break;
-		};
-
-		return( false );
-	}
-
-	return( true );
+	return DeviceProperties->Validate(Function, ErrorCode);
 }
-
-
-
 
 /** 
  * Derives the output matrix to use based on the channel mask and the number of channels

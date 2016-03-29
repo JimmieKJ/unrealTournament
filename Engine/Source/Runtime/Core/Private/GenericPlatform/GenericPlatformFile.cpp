@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "ModuleManager.h"
@@ -16,6 +16,19 @@ int64 IFileHandle::Size()
 const TCHAR* IPlatformFile::GetPhysicalTypeName()
 {
 	return TEXT("PhysicalFile");
+}
+
+void IPlatformFile::GetTimeStampPair(const TCHAR* PathA, const TCHAR* PathB, FDateTime& OutTimeStampA, FDateTime& OutTimeStampB)
+{
+	if (GetLowerLevel())
+	{
+		GetLowerLevel()->GetTimeStampPair(PathA, PathB, OutTimeStampA, OutTimeStampB);
+	}
+	else
+	{
+		OutTimeStampA = GetTimeStamp(PathA);
+		OutTimeStampB = GetTimeStamp(PathB);
+	}
 }
 
 bool IPlatformFile::IterateDirectoryRecursively(const TCHAR* Directory, FDirectoryVisitor& Visitor)

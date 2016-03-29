@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -100,7 +100,7 @@ public:
 
 #define LAN_ANNOUNCE_PORT 14001
 #define LAN_UNIQUE_ID 9999
-#define LAN_QUERY_TIMEOUT 2
+#define LAN_QUERY_TIMEOUT 5
 #define LAN_PLATFORMMASK 0xffffffff
 
 /**

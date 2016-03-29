@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlatePrivatePCH.h"
 #include "AnalogCursor.h"
@@ -44,7 +44,7 @@ void FAnalogCursor::Tick(const float DeltaTime, FSlateApplication& SlateApp, TSh
 		for(const FArrangedWidget& ArrangedWidget : AllArrangedWidgets)
 		{
 			TSharedRef<SWidget> Widget = ArrangedWidget.Widget;
-			if (Widget->SupportsKeyboardFocus() && Widget->IsInteractable())
+			if (Widget->IsInteractable())
 			{
 				SpeedMult = StickySlowdown;
 				//FVector2D Adjustment = WidgetsAndCursors.Last().Geometry.Position - OldPosition; // example of calculating distance from cursor to widget center
@@ -172,7 +172,7 @@ bool FAnalogCursor::HandleKeyUpEvent(FSlateApplication& SlateApp, const FKeyEven
 			SlateApp.GetPlatformApplication()->GetModifierKeys()
 			);
 
-		SlateApp.ProcessMouseButtonUpEvent(MouseEvent);
+		return SlateApp.ProcessMouseButtonUpEvent(MouseEvent);
 	}
 	
 	return false;

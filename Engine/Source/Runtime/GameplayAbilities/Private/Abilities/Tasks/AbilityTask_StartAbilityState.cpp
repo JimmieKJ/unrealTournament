@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 #include "Abilities/Tasks/AbilityTask_StartAbilityState.h"
@@ -21,7 +21,7 @@ UAbilityTask_StartAbilityState* UAbilityTask_StartAbilityState::StartAbilityStat
 
 void UAbilityTask_StartAbilityState::Activate()
 {
-	if (Ability.IsValid())
+	if (Ability)
 	{
 		if (bEndCurrentState && Ability->OnGameplayAbilityStateEnded.IsBound())
 		{
@@ -46,7 +46,7 @@ void UAbilityTask_StartAbilityState::OnDestroy(bool AbilityEnded)
 		OnStateEnded.Broadcast();
 	}
 
-	if (Ability.IsValid())
+	if (Ability)
 	{
 		Ability->OnGameplayAbilityCancelled.Remove(InterruptStateHandle);
 		Ability->OnGameplayAbilityStateEnded.Remove(EndStateHandle);

@@ -1,0 +1,354 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+	<ItemGroup>
+		<Filter Include="include"><!--  -->
+		</Filter>
+	</ItemGroup>
+	<ItemGroup>
+		<ClInclude Include="..\..\SimulationController\include\ScActorCore.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\include\ScArticulationCore.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\include\ScArticulationJointCore.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\include\ScBodyCore.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\include\ScClothCore.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\include\ScClothFabricCore.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\include\ScConstraintCore.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\include\ScIterators.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\include\ScMaterialCore.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\include\ScParticleSystemCore.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\include\ScPhysics.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\include\ScRigidCore.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\include\ScScene.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\include\ScShapeCore.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\include\ScStaticCore.h">
+			<Filter>include</Filter>
+		</ClInclude>
+	</ItemGroup>
+	<ItemGroup>
+		<Filter Include="src"><!--  -->
+		</Filter>
+	</ItemGroup>
+	<ItemGroup>
+		<Filter Include="src\particles"><!--  -->
+		</Filter>
+	</ItemGroup>
+	<ItemGroup>
+		<ClInclude Include="..\..\SimulationController\src\particles\ScParticleBodyInteraction.h">
+			<Filter>src\particles</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\particles\ScParticlePacketShape.h">
+			<Filter>src\particles</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\particles\ScParticleSystemSim.h">
+			<Filter>src\particles</Filter>
+		</ClInclude>
+		<ClCompile Include="..\..\SimulationController\src\particles\ScParticleBodyInteraction.cpp">
+			<Filter>src\particles</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\particles\ScParticlePacketShape.cpp">
+			<Filter>src\particles</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\particles\ScParticleSystemCore.cpp">
+			<Filter>src\particles</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\particles\ScParticleSystemSim.cpp">
+			<Filter>src\particles</Filter>
+		</ClCompile>
+	</ItemGroup>
+	<ItemGroup>
+		<Filter Include="src\framework"><!--  -->
+		</Filter>
+	</ItemGroup>
+	<ItemGroup>
+		<ClCompile Include="..\..\SimulationController\src\framework\ScActor.cpp">
+			<Filter>src\framework</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\framework\ScElement.cpp">
+			<Filter>src\framework</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\framework\ScInteraction.cpp">
+			<Filter>src\framework</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\framework\ScInteractionScene.cpp">
+			<Filter>src\framework</Filter>
+		</ClCompile>
+		<ClInclude Include="..\..\SimulationController\src\framework\ScActor.h">
+			<Filter>src\framework</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\framework\ScElement.h">
+			<Filter>src\framework</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\framework\ScElementInteraction.h">
+			<Filter>src\framework</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\framework\ScInteraction.h">
+			<Filter>src\framework</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\framework\ScInteractionScene.h">
+			<Filter>src\framework</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\framework\ScInteractionType.h">
+			<Filter>src\framework</Filter>
+		</ClInclude>
+	</ItemGroup>
+	<ItemGroup>
+		<Filter Include="src\cloth"><!--  -->
+		</Filter>
+	</ItemGroup>
+	<ItemGroup>
+		<ClInclude Include="..\..\SimulationController\src\cloth\ScClothShape.h">
+			<Filter>src\cloth</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\cloth\ScClothSim.h">
+			<Filter>src\cloth</Filter>
+		</ClInclude>
+		<ClCompile Include="..\..\SimulationController\src\cloth\ScClothCore.cpp">
+			<Filter>src\cloth</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\cloth\ScClothFabricCore.cpp">
+			<Filter>src\cloth</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\cloth\ScClothShape.cpp">
+			<Filter>src\cloth</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\cloth\ScClothSim.cpp">
+			<Filter>src\cloth</Filter>
+		</ClCompile>
+	</ItemGroup>
+	<ItemGroup>
+		<ClInclude Include="..\..\SimulationController\src\ScActorElementPair.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScActorInteraction.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScActorPair.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScActorSim.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScArticulationJointSim.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScArticulationSim.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScBodySim.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScClient.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScConstraintGroupNode.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScConstraintInteraction.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScConstraintProjectionManager.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScConstraintProjectionTree.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScConstraintSim.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScContactReportBuffer.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScContactStream.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScCoreInteraction.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScElementActorInteraction.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScElementInteractionMarker.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScElementSim.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScElementSimInteraction.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScNPhaseCore.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScObjectIDTracker.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScRbElementInteraction.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScRigidSim.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScShapeInstancePairLL.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScShapeIterator.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScShapeSim.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScSimStateData.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScSimStats.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScStaticSim.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScTriggerInteraction.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\SimulationController\src\ScTriggerPairs.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClCompile Include="..\..\SimulationController\src\ScActorCore.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScActorInteraction.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScActorPair.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScActorSim.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScArticulationCore.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScArticulationJointCore.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScArticulationJointSim.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScArticulationSim.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScBodyCore.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScBodyCoreKinematic.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScBodySim.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScConstraintCore.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScConstraintGroupNode.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScConstraintInteraction.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScConstraintProjectionManager.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScConstraintProjectionTree.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScConstraintSim.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScCoreInteraction.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScElementActorInteraction.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScElementInteractionMarker.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScElementSim.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScElementSimInteraction.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScMaterialCore.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScMetaData.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScNPhaseCore.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScPhysics.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScRigidCore.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScRigidSim.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScScene.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScShapeCore.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScShapeInstancePairLL.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScShapeIterator.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScShapeSim.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScSimStats.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScStaticCore.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScStaticSim.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\SimulationController\src\ScTriggerInteraction.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+	</ItemGroup>
+</Project>

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 //~=============================================================================
 // PlayerInput
@@ -59,7 +59,10 @@ struct FKeyBind
 	UPROPERTY(config)
 	uint32 bIgnoreCmd:1;
 
-	FKeyBind() 
+	UPROPERTY(transient)
+	uint32 bDisabled : 1;
+
+	FKeyBind()
 	{
 	}
 };
@@ -418,6 +421,9 @@ public:
 	/** Handles a gesture input event.  Returns true. */
 	bool InputGesture(const FKey Gesture, const EInputEvent Event, const float Value);
 
+	/** Manually update the GestureRecognizer AnchorDistance using the current locations of the touches */
+	void UpdatePinchStartDistance();
+
 	/** Per frame tick function. Primarily for gesture recognition */
 	void Tick(float DeltaTime);
 
@@ -506,6 +512,8 @@ public:
 
 	/** Returns the list of keys mapped to the specified Action Name */
 	const TArray<FInputActionKeyMapping>& GetKeysForAction(const FName ActionName);
+
+	static const TArray<FInputActionKeyMapping>& GetEngineDefinedActionMappings() { return EngineDefinedActionMappings; }
 
 private:
 	/** 

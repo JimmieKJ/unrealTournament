@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -8,6 +8,8 @@
 #include "OnlineSubsystemGooglePlayPackage.h"
 
 #include "gpg/types.h"
+#include "gpg/player_manager.h"
+
 
 class FOnlineSubsystemGooglePlay;
 
@@ -33,6 +35,7 @@ private:
 
 	// FOnlineAsyncTaskGooglePlayAuthAction
 	virtual void OnAuthActionFinished(gpg::AuthOperation InOp, gpg::AuthStatus InStatus) override;
+	virtual void OnFetchSelfResponse(const gpg::PlayerManager::FetchSelfResponse& SelfResponse);
 	virtual void Start_OnTaskThread() override;
 
 	int PlayerId;

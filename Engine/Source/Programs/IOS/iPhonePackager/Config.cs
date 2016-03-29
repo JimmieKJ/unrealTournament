@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+ * Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
  */
 
 using System;
@@ -69,6 +69,11 @@ namespace iPhonePackager
 		public static string OverrideDevRoot = null;
 
 		/// <summary>
+		/// Optional value specifying that we are working with tvOS
+		/// </summary>
+		public static string OSString = "IOS";
+
+		/// <summary>
 		/// The local build directory (on PC)
 		/// </summary>
 		public static string BuildDirectory
@@ -104,9 +109,9 @@ namespace iPhonePackager
 		{
 			get { 
 				if (Environment.OSVersion.Platform == PlatformID.MacOSX || Environment.OSVersion.Platform == PlatformID.Unix) {
-					return Path.GetFullPath (RootRelativePath + "Engine/Build/IOS"); 
+					return Path.GetFullPath (RootRelativePath + "Engine/Build/" + Config.OSString); 
 				} else {
-					return Path.GetFullPath (RootRelativePath + @"Engine\Build\IOS"); 
+					return Path.GetFullPath (RootRelativePath + @"Engine\Build\" + Config.OSString); 
 				}
 			}
 		}
@@ -118,7 +123,7 @@ namespace iPhonePackager
 		{
 			get
 			{
-				string IntermediateGameBuildDir = GameDirectory + @"\Intermediate\IOS";
+				string IntermediateGameBuildDir = GameDirectory + @"\Intermediate\" + Config.OSString;
 				// if the normal Build dir exists, return it, otherwise, use the program Resources directory
 				return Path.GetFullPath(Directory.Exists(IntermediateGameBuildDir) ?
 					IntermediateGameBuildDir :
@@ -138,7 +143,7 @@ namespace iPhonePackager
 		/// </summary>
 		public static string CookedDirectory
 		{
-			get { return Path.GetFullPath(GameDirectory + @"\Saved\Cooked\IOS"); }
+			get { return Path.GetFullPath(GameDirectory + @"\Saved\Cooked\" + Config.OSString); }
 		}
 
 		/// <summary>
@@ -195,7 +200,7 @@ namespace iPhonePackager
 				}
 				else
 				{
-					return SigningPrefix + Program.GameName + "-IOS-" + Program.GameConfiguration + Program.Architecture + ".ipa";
+					return SigningPrefix + Program.GameName + "-" + Config.OSString + "-" + Program.GameConfiguration + Program.Architecture + ".ipa";
 				}
 			}
 		}
@@ -235,7 +240,7 @@ namespace iPhonePackager
 			}
 			else
 			{
-				Filename = Path.Combine(Config.BinariesDirectory, FilePrefix + Program.GameName + "-IOS-" + Program.GameConfiguration + Program.Architecture + FileSuffix);
+				Filename = Path.Combine(Config.BinariesDirectory, FilePrefix + Program.GameName + "-" + Config.OSString + "-" + Program.GameConfiguration + Program.Architecture + FileSuffix);
 			}
 
 			return Filename;
@@ -252,7 +257,7 @@ namespace iPhonePackager
 			string GameName = Program.GameName;
 			if (!String.IsNullOrEmpty(ProjectFile))
 			{
-				BinariesDir = Path.Combine(Path.GetDirectoryName(ProjectFile), "Binaries", "IOS");
+				BinariesDir = Path.Combine(Path.GetDirectoryName(ProjectFile), "Binaries", Config.OSString);
 				GameName = Path.GetFileNameWithoutExtension(ProjectFile);
 			}
 			if (Program.GameConfiguration == "Development")
@@ -261,7 +266,7 @@ namespace iPhonePackager
 			}
 			else
 			{
-				Filename = Path.Combine(BinariesDir, FilePrefix + GameName + "-IOS-" + Program.GameConfiguration + Program.Architecture + FileSuffix);
+				Filename = Path.Combine(BinariesDir, FilePrefix + GameName + "-" + Config.OSString + "-" + Program.GameConfiguration + Program.Architecture + FileSuffix);
 			}
 
 			// ensure the directory exists
@@ -280,7 +285,7 @@ namespace iPhonePackager
 			}
 			else
 			{
-				return FileOperations.FindPrefixedFile(Config.BinariesDirectory, Program.GameName + "-IOS-" + Program.GameConfiguration + Program.Architecture + FileSuffix);
+				return FileOperations.FindPrefixedFile(Config.BinariesDirectory, Program.GameName + "-" + Config.OSString + "-" + Program.GameConfiguration + Program.Architecture + FileSuffix);
 			}
 		}
 
@@ -391,7 +396,7 @@ namespace iPhonePackager
 		/// <returns></returns>
 		public static string GetRootBackedUpDocumentsDirectory()
 		{
-			return Path.GetFullPath(Path.Combine(GameDirectory + @"\IOS_Backups"));
+			return Path.GetFullPath(Path.Combine(GameDirectory + @"\" + Config.OSString + "_Backups"));
 		}
 
 		public static bool Initialize(string InitialCurrentDirectory, string GamePath)
@@ -434,12 +439,12 @@ namespace iPhonePackager
 			// special case handling for anything inside Engine/Source, it will go to the Engine/Binaries directory, not the Game's binaries directory
 			if (OrigGamePath.Replace("\\", "/").Contains("Engine/Source"))
 			{
-				BinariesDirectory = Path.Combine(RootRelativePath, @"Engine\Binaries\IOS\");
+				BinariesDirectory = Path.Combine(RootRelativePath, @"Engine\Binaries\" + Config.OSString + @"\");
 			}
-			else if (!OrigGamePath.Contains(@"Binaries\IOS"))
+			else if (!OrigGamePath.Contains(@"Binaries\" + Config.OSString))
 			{
 				// no sense in adding Binaries\IOS when it's already there. This is a special case to handle packaging UnrealLaunchDaemon from the command line.
-				BinariesDirectory = Path.Combine(GameDirectory, @"Binaries\IOS\");
+				BinariesDirectory = Path.Combine(GameDirectory, @"Binaries\" + Config.OSString + @"\");
 			}
 			else
 			{

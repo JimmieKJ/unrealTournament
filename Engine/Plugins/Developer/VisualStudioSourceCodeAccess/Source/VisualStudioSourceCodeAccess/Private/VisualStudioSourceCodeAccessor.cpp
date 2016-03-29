@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "VisualStudioSourceCodeAccessPrivatePCH.h"
 #include "VisualStudioSourceCodeAccessor.h"
@@ -86,13 +86,8 @@ void FVisualStudioSourceCodeAccessor::RefreshAvailability()
 {
 	Locations.Reset();
 
-#if _MSC_VER == 1900
 	AddVisualStudioVersion(14); // Visual Studio 2015
-#elif _MSC_VER == 1800
 	AddVisualStudioVersion(12); // Visual Studio 2013
-#else
-	#error "FVisualStudioSourceCodeAccessor::RefreshAvailability - Unknown _MSC_VER! Please update this code for this version of MSVC."
-#endif //_MSVC_VER
 }
 
 void FVisualStudioSourceCodeAccessor::Shutdown()

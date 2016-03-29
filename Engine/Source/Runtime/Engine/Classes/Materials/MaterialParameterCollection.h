@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /**
  * MaterialParameterCollection.h - defines an asset that has a list of parameters, which can be referenced by any material and updated efficiently at runtime
@@ -32,7 +32,12 @@ USTRUCT()
 struct FCollectionScalarParameter : public FCollectionParameterBase
 {
 	GENERATED_USTRUCT_BODY()
-	
+
+	FCollectionScalarParameter()
+	{
+		ParameterName = FName(TEXT("Scalar"));
+	}
+
 	UPROPERTY(EditAnywhere, Category=Parameter)
 	float DefaultValue;
 };
@@ -43,6 +48,11 @@ struct FCollectionVectorParameter : public FCollectionParameterBase
 {
 	GENERATED_USTRUCT_BODY()
 	
+	FCollectionVectorParameter()
+	{
+		ParameterName = FName(TEXT("Vector"));
+	}
+
 	UPROPERTY(EditAnywhere, Category=Parameter)
 	FLinearColor DefaultValue;
 };
@@ -70,7 +80,6 @@ class UMaterialParameterCollection : public UObject
 #if WITH_EDITOR
 	virtual void PreEditChange(class FEditPropertyChain& PropertyAboutToChange) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
-	virtual void PostEditChangeChainProperty(struct FPropertyChangedChainEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 	virtual void PostLoad() override;
 	//~ End UObject Interface.

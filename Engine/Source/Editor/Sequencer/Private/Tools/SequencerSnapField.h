@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -13,7 +13,7 @@ class UMovieSceneSection;
 /** Structure defining a point to snap to in the sequencer */
 struct FSequencerSnapPoint
 {
-	enum ESnapType { Key, SectionBounds, CustomSection, PlaybackRange };
+	enum ESnapType { Key, SectionBounds, CustomSection, PlaybackRange, CurrentTime };
 
 	/** The type of snap */
 	ESnapType Type;

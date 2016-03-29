@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "MacMallocZone.h"
@@ -85,6 +85,10 @@ void FMacMallocCrashHandler::Enable( FMacCrashContext* Context, uint32 CrashedTh
 	CrashContext = Context;
 	ThreadId = CrashedThreadId;
 	OriginalHeap = GMalloc;
+	if (PLATFORM_USES_FIXED_GMalloc_CLASS && GFixedMallocLocationPtr)
+	{
+		*GFixedMallocLocationPtr = nullptr; // this disables any fast-path inline allocators
+	}
 	GMalloc = this;
 }
 	

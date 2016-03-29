@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -526,16 +526,17 @@ struct ENGINE_API FNavDataConfig : public FNavAgentProperties
 struct FNavigationProjectionWork
 {
 	const FVector Point;
+	FBox ProjectionLimit;
 	FNavLocation OutLocation;
 	bool bResult;
 	bool bIsValid;
 
-	explicit FNavigationProjectionWork(const FVector& StartPoint)
-		: Point(StartPoint), bResult(false), bIsValid(true)
+	explicit FNavigationProjectionWork(const FVector& StartPoint, const FBox& CustomProjectionLimits = FBox(ForceInit))
+		: Point(StartPoint), ProjectionLimit(CustomProjectionLimits), bResult(false), bIsValid(true)
 	{}
 
 	FNavigationProjectionWork()
-		: Point(FNavigationSystem::InvalidLocation), bResult(false), bIsValid(false)
+		: Point(FNavigationSystem::InvalidLocation), ProjectionLimit(ForceInit), bResult(false), bIsValid(false)
 	{}
 };
 
@@ -564,14 +565,13 @@ namespace ENavigationQueryResult
 	};
 }
 
-struct ENGINE_API FPathFindingQuery
+struct ENGINE_API FPathFindingQueryData
 {
-	TWeakObjectPtr<const ANavigationData> NavData;
 	TWeakObjectPtr<const UObject> Owner;
 	FVector StartLocation;
 	FVector EndLocation;
 	FSharedConstNavQueryFilter QueryFilter;
-	FNavPathSharedPtr PathInstanceToFill;
+	FNavAgentProperties NavAgentProperties;
 
 	/** additional flags passed to navigation data handling request */
 	int32 NavDataFlags;
@@ -579,19 +579,28 @@ struct ENGINE_API FPathFindingQuery
 	/** if set, allow partial paths as a result */
 	uint32 bAllowPartialPaths : 1;
 
-	FPathFindingQuery() {}
+	FPathFindingQueryData() : StartLocation(FNavigationSystem::InvalidLocation), EndLocation(FNavigationSystem::InvalidLocation), NavDataFlags(0), bAllowPartialPaths(true) {}
+	FPathFindingQueryData(const UObject* InOwner, const FVector& InStartLocation, const FVector& InEndLocation, FSharedConstNavQueryFilter InQueryFilter = nullptr, int32 InNavDataFlags = 0, bool bInAllowPartialPaths = true) :
+		Owner(InOwner), StartLocation(InStartLocation), EndLocation(InEndLocation), QueryFilter(InQueryFilter), NavDataFlags(InNavDataFlags), bAllowPartialPaths(bInAllowPartialPaths) {}
+};
 
+struct ENGINE_API FPathFindingQuery : public FPathFindingQueryData
+{
+	TWeakObjectPtr<const ANavigationData> NavData;
+	FNavPathSharedPtr PathInstanceToFill;
+	FNavAgentProperties NavAgentProperties;
+
+	FPathFindingQuery() {}
 	FPathFindingQuery(const FPathFindingQuery& Source);
 
-	DEPRECATED(4.8, "This version of FPathFindingQuery's constructor is deprecated. Please use ANavigationData reference rather than a pointer")
-	FPathFindingQuery(const UObject* InOwner, const ANavigationData* InNavData, const FVector& Start, const FVector& End, FSharedConstNavQueryFilter SourceQueryFilter = NULL, FNavPathSharedPtr InPathInstanceToFill = NULL);
-
 	FPathFindingQuery(const UObject* InOwner, const ANavigationData& InNavData, const FVector& Start, const FVector& End, FSharedConstNavQueryFilter SourceQueryFilter = NULL, FNavPathSharedPtr InPathInstanceToFill = NULL);
+	FPathFindingQuery(const INavAgentInterface& InNavAgent, const ANavigationData& InNavData, const FVector& Start, const FVector& End, FSharedConstNavQueryFilter SourceQueryFilter = NULL, FNavPathSharedPtr InPathInstanceToFill = NULL);
 
 	explicit FPathFindingQuery(FNavPathSharedRef PathToRecalculate, const ANavigationData* NavDataOverride = NULL);
 
 	FPathFindingQuery& SetPathInstanceToUpdate(FNavPathSharedPtr InPathInstanceToFill) { PathInstanceToFill = InPathInstanceToFill; return *this; }
 	FPathFindingQuery& SetAllowPartialPaths(bool bAllow) { bAllowPartialPaths = bAllow; return *this; }
+	FPathFindingQuery& SetNavAgentProperties(const FNavAgentProperties& InNavAgentProperties) { NavAgentProperties = InNavAgentProperties; return *this; }
 };
 
 namespace EPathFindingMode

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Spline.cpp
@@ -16,6 +16,8 @@ USplineComponent::USplineComponent(const FObjectInitializer& ObjectInitializer)
 	, Duration(1.0f)
 	, bStationaryEndpoints(false)
 	, bSplineHasBeenEdited(false)
+	, bInputSplinePointsToConstructionScript(false)
+	, bAlwaysRenderInEditor(true)
 	, bClosedLoop(false)
 	, DefaultUpVector(FVector::UpVector)
 #if WITH_EDITORONLY_DATA
@@ -561,6 +563,23 @@ void USplineComponent::SetTangentAtSplinePoint(int32 PointIndex, const FVector& 
 }
 
 
+void USplineComponent::SetUpVectorAtSplinePoint(int32 PointIndex, const FVector& InUpVector, ESplineCoordinateSpace::Type CoordinateSpace)
+{
+	const int32 NumPoints = SplineInfo.Points.Num();
+
+	if ((PointIndex >= 0) && (PointIndex < NumPoints))
+	{
+		const FVector TransformedUpVector = (CoordinateSpace == ESplineCoordinateSpace::World) ?
+			ComponentToWorld.InverseTransformVector(InUpVector.GetSafeNormal()) : InUpVector.GetSafeNormal();
+
+		FQuat Quat = FQuat::FindBetween(DefaultUpVector, TransformedUpVector);
+		SplineRotInfo.Points[PointIndex].OutVal = Quat;
+
+		UpdateSpline();
+	}
+}
+
+
 ESplinePointType::Type USplineComponent::GetSplinePointType(int32 PointIndex) const
 {
 	if ((PointIndex >= 0) && (PointIndex < SplineInfo.Points.Num()))
@@ -598,7 +617,7 @@ FVector USplineComponent::GetLocationAtSplinePoint(int32 PointIndex, ESplineCoor
 
 FVector USplineComponent::GetDirectionAtSplinePoint(int32 PointIndex, ESplineCoordinateSpace::Type CoordinateSpace) const
 {
-	return GetLocationAtSplineInputKey(static_cast<float>(PointIndex), CoordinateSpace);
+	return GetDirectionAtSplineInputKey(static_cast<float>(PointIndex), CoordinateSpace);
 }
 
 
@@ -722,7 +741,7 @@ float USplineComponent::GetInputKeyAtDistanceAlongSpline(float Distance) const
 		return 0.0f;
 	}
 
-	const float TimeMultiplier = Duration / (NumPoints - 1.0f);
+	const float TimeMultiplier = Duration / (bClosedLoop ? NumPoints : (NumPoints - 1.0f));
 	return SplineReparamTable.Eval(Distance, 0.0f) * TimeMultiplier;
 }
 
@@ -1084,6 +1103,171 @@ FTransform USplineComponent::FindTransformClosestToWorldLocation(const FVector& 
 	return GetTransformAtSplineInputKey(Param, CoordinateSpace, bUseScale);
 }
 
+#if WITH_EDITOR
+FPrimitiveSceneProxy* USplineComponent::CreateSceneProxy()
+{
+	if (!bAlwaysRenderInEditor)
+	{
+		return Super::CreateSceneProxy();
+	}
+
+	class FSplineSceneProxy : public FPrimitiveSceneProxy
+	{
+	public:
+
+		FSplineSceneProxy(const USplineComponent* InComponent)
+			: FPrimitiveSceneProxy(InComponent)
+			, bAlwaysRenderInEditor(InComponent->bAlwaysRenderInEditor)
+			, SplineInfo(InComponent->SplineInfo)
+			, LineColor(InComponent->EditorUnselectedSplineSegmentColor)
+		{}
+
+		virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_SplineSceneProxy_GetDynamicMeshElements);
+
+			if (IsSelected())
+			{
+				return;
+			}
+
+			for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+			{
+				if (VisibilityMap & (1 << ViewIndex))
+				{
+					const FSceneView* View = Views[ViewIndex];
+					FPrimitiveDrawInterface* PDI = Collector.GetPDI(ViewIndex);
+
+					const FMatrix& LocalToWorld = GetLocalToWorld();
+
+					// Taking into account the min and maximum drawing distance
+					const float DistanceSqr = (View->ViewMatrices.ViewOrigin - LocalToWorld.GetOrigin()).SizeSquared();
+					if (DistanceSqr < FMath::Square(GetMinDrawDistance()) || DistanceSqr > FMath::Square(GetMaxDrawDistance()))
+					{
+						continue;
+					}
+
+					const int32 GrabHandleSize = 6;
+					FVector OldKeyPos(0);
+
+					const int32 NumPoints = SplineInfo.Points.Num();
+					const int32 NumSegments = SplineInfo.bIsLooped ? NumPoints : NumPoints - 1;
+					for (int32 KeyIdx = 0; KeyIdx < NumSegments + 1; KeyIdx++)
+					{
+						const FVector NewKeyPos = LocalToWorld.TransformPosition(SplineInfo.Eval(static_cast<float>(KeyIdx), FVector(0)));
+
+						// Draw the keypoint
+						if (KeyIdx < NumPoints)
+						{
+							PDI->DrawPoint(NewKeyPos, LineColor, GrabHandleSize, SDPG_World);
+						}
+
+						// If not the first keypoint, draw a line to the previous keypoint.
+						if (KeyIdx > 0)
+						{
+							// For constant interpolation - don't draw ticks - just draw dotted line.
+							if (SplineInfo.Points[KeyIdx - 1].InterpMode == CIM_Constant)
+							{
+								// Calculate dash length according to size on screen
+								const float StartW = View->WorldToScreen(OldKeyPos).W;
+								const float EndW = View->WorldToScreen(NewKeyPos).W;
+
+								const float WLimit = 10.0f;
+								if (StartW > WLimit || EndW > WLimit)
+								{
+									const float Scale = 0.03f;
+									DrawDashedLine(PDI, OldKeyPos, NewKeyPos, LineColor, FMath::Max(StartW, EndW) * Scale, SDPG_World);
+								}
+							}
+							else
+							{
+								// Find position on first keyframe.
+								FVector OldPos = OldKeyPos;
+
+								// Then draw a line for each substep.
+								const int32 NumSteps = 20;
+
+								for (int32 StepIdx = 1; StepIdx <= NumSteps; StepIdx++)
+								{
+									const float Key = (KeyIdx - 1) + (StepIdx / static_cast<float>(NumSteps));
+									const FVector NewPos = LocalToWorld.TransformPosition(SplineInfo.Eval(Key, FVector(0)));
+									PDI->DrawLine(OldPos, NewPos, LineColor, SDPG_World);
+									OldPos = NewPos;
+								}
+							}
+						}
+
+						OldKeyPos = NewKeyPos;
+					}
+				}
+			}
+		}
+
+		virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override
+		{
+			FPrimitiveViewRelevance Result;
+			Result.bDrawRelevance = bAlwaysRenderInEditor && !IsSelected() && IsShown(View) && View->Family->EngineShowFlags.Splines;
+			Result.bDynamicRelevance = true;
+			Result.bShadowRelevance = IsShadowCast(View);
+			Result.bEditorPrimitiveRelevance = UseEditorCompositing(View);
+			return Result;
+		}
+
+		virtual uint32 GetMemoryFootprint(void) const override { return sizeof *this + GetAllocatedSize(); }
+		uint32 GetAllocatedSize(void) const { return FPrimitiveSceneProxy::GetAllocatedSize(); }
+
+	private:
+		bool bAlwaysRenderInEditor;
+		FInterpCurveVector SplineInfo;
+		FLinearColor LineColor;
+	};
+
+	return new FSplineSceneProxy(this);
+}
+
+
+FBoxSphereBounds USplineComponent::CalcBounds(const FTransform& LocalToWorld) const
+{
+	if (!bAlwaysRenderInEditor)
+	{
+		// Do as little as possible if not rendering anything
+		return Super::CalcBounds(LocalToWorld);
+	}
+
+#if SPLINE_FAST_BOUNDS_CALCULATION
+	FBox BoundingBox(0);
+	for (const auto& InterpPoint : SplineInfo.Points)
+	{
+		BoundingBox += InterpPoint.OutVal;
+	}
+
+	return FBoxSphereBounds(BoundingBox.TransformBy(LocalToWorld));
+#else
+	const int32 NumPoints = SplineInfo.Points.Num();
+	const int32 NumSegments = bClosedLoop ? NumPoints : NumPoints - 1;
+
+	FVector Min(WORLD_MAX);
+	FVector Max(-WORLD_MAX);
+	for (int32 Index = 0; Index < NumSegments; Index++)
+	{
+		const bool bLoopSegment = (Index == NumPoints - 1);
+		const int32 NextIndex = bLoopSegment ? 0 : Index + 1;
+		const FInterpCurvePoint<FVector>& ThisInterpPoint = SplineInfo.Points[Index];
+		FInterpCurvePoint<FVector> NextInterpPoint = SplineInfo.Points[NextIndex];
+		if (bLoopSegment)
+		{
+			NextInterpPoint.InVal = ThisInterpPoint.InVal + SplineInfo.LoopKeyOffset;
+		}
+
+		CurveVectorFindIntervalBounds(ThisInterpPoint, NextInterpPoint, Min, Max);
+	}
+
+	return FBoxSphereBounds(FBox(Min, Max).TransformBy(LocalToWorld));
+#endif
+}
+
+#endif
+
 
 /** Used to store spline data during RerunConstructionScripts */
 class FSplineInstanceData : public FSceneComponentInstanceData
@@ -1126,6 +1310,11 @@ void USplineComponent::ApplyComponentInstanceData(FSplineInstanceData* SplineIns
 {
 	check(SplineInstanceData);
 
+	if (bPostUCS && bInputSplinePointsToConstructionScript)
+	{
+		return;
+	}
+
 	if (SplineInstanceData->bSplineHasBeenEdited)
 	{
 		SplineInfo = SplineInstanceData->SplineInfo;
@@ -1161,6 +1350,6 @@ void USplineComponent::PostEditChangeChainProperty(FPropertyChangedChainEvent& P
 		}
 	}
 
-	Super::PostEditChangeProperty(PropertyChangedEvent);
+	Super::PostEditChangeChainProperty(PropertyChangedEvent);
 }
 #endif

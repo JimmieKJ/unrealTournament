@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	OpenGL3.cpp: OpenGL 3.2 implementation.
@@ -60,6 +60,9 @@ bool FOpenGLES31::bSupportsTextureFloat = false;
 
 /** GL_OES_texture_half_float */
 bool FOpenGLES31::bSupportsTextureHalfFloat = false;
+
+/** GL_EXT_color_buffer_float */
+bool FOpenGLES31::bSupportsColorBufferFloat = false;
 
 /** GL_EXT_color_buffer_half_float */
 bool FOpenGLES31::bSupportsColorBufferHalfFloat = false;
@@ -135,6 +138,9 @@ bool FOpenGLES31::bRequiresGLFragCoordVaryingLimitHack = false;
 
 /* This hack fixes an issue with SGX540 compiler which can get upset with some operations that mix highp and mediump */
 bool FOpenGLES31::bRequiresTexture2DPrecisionHack = false;
+
+/* This is to avoid a bug in Adreno drivers that define GL_EXT_shader_framebuffer_fetch even when device does not support this extension  */
+bool FOpenGLES31::bRequiresShaderFramebufferFetchUndef = false;
 
 /* Indicates shader compiler hack checks are being tested */
 bool FOpenGLES31::bIsCheckingShaderCompilerHacks = false;
@@ -280,6 +286,7 @@ void FOpenGLES31::ProcessExtensions( const FString& ExtensionsString )
 	bSupportsTextureFloat = ExtensionsString.Contains(TEXT("GL_OES_texture_float"));
 	bSupportsTextureHalfFloat = ExtensionsString.Contains(TEXT("GL_OES_texture_half_float"));
 	bSupportsSGRB = ExtensionsString.Contains(TEXT("GL_EXT_sRGB"));
+	bSupportsColorBufferFloat = ExtensionsString.Contains(TEXT("GL_EXT_color_buffer_float"));
 	bSupportsColorBufferHalfFloat = ExtensionsString.Contains(TEXT("GL_EXT_color_buffer_half_float"));
 	bSupportsNvImageFormats = ExtensionsString.Contains(TEXT("GL_NV_image_formats"));
 	bSupportsShaderFramebufferFetch = ExtensionsString.Contains(TEXT("GL_EXT_shader_framebuffer_fetch")) || ExtensionsString.Contains(TEXT("GL_NV_shader_framebuffer_fetch")) || ExtensionsString.Contains(TEXT("GL_ARM_shader_framebuffer_fetch"));

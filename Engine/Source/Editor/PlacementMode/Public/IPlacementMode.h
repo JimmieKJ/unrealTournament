@@ -1,7 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-class IPlacementMode
+#include "EditorModes.h"
+#include "EdMode.h"
+
+class IPlacementMode : public FEdMode
 {
 public:
 
@@ -29,6 +32,6 @@ public:
 	/** Removes a widget which when focused would have not ended the active placing session. */
 	virtual void RemoveValidFocusTargetForPlacement( const TWeakPtr< SWidget >& Widget ) = 0;
 
-	/** @return an array of the objects curently being placed */
+	/** @return an array of the objects currently being placed */
 	virtual const TArray< TWeakObjectPtr<UObject> >& GetCurrentlyPlacingObjects() const = 0;
 };

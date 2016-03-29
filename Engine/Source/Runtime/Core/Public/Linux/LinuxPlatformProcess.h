@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 /*=============================================================================================
@@ -268,7 +268,7 @@ struct CORE_API FLinuxPlatformProcess : public FGenericPlatformProcess
 	static bool WritePipe(void* WritePipe, const FString& Message, FString* OutWritten = nullptr);
 	static class FRunnableThread* CreateRunnableThread();
 	static void LaunchURL(const TCHAR* URL, const TCHAR* Parms, FString* Error);
-	static FProcHandle CreateProc(const TCHAR* URL, const TCHAR* Parms, bool bLaunchDetached, bool bLaunchHidden, bool bLaunchReallyHidden, uint32* OutProcessID, int32 PriorityModifier, const TCHAR* OptionalWorkingDirectory, void* PipeWrite);
+	static FProcHandle CreateProc(const TCHAR* URL, const TCHAR* Parms, bool bLaunchDetached, bool bLaunchHidden, bool bLaunchReallyHidden, uint32* OutProcessID, int32 PriorityModifier, const TCHAR* OptionalWorkingDirectory, void* PipeWriteChild, void * PipeReadChild = nullptr);
 	static bool IsProcRunning( FProcHandle & ProcessHandle );
 	static void WaitForProc( FProcHandle & ProcessHandle );
 	static void CloseProc( FProcHandle & ProcessHandle );
@@ -308,3 +308,35 @@ inline bool FProcHandle::Close()
 	}
 	return false;
 }
+
+/**
+  * Linux implementation of the FSystemWideCriticalSection. Uses exclusive file locking.
+  **/
+class FLinuxSystemWideCriticalSection
+{
+public:
+	/** Construct a named, system-wide critical section and attempt to get access/ownership of it */
+	explicit FLinuxSystemWideCriticalSection(const FString& InName, FTimespan InTimeout = FTimespan::Zero());
+
+	/** Destructor releases system-wide critical section if it is currently owned */
+	~FLinuxSystemWideCriticalSection();
+
+	/**
+	 * Does the calling thread have ownership of the system-wide critical section?
+	 *
+	 * @return True if the system-wide lock is obtained. WARNING: Returns true for abandoned locks so shared resources can be in undetermined states.
+	 */
+	bool IsValid() const;
+
+	/** Releases system-wide critical section if it is currently owned */
+	void Release();
+
+private:
+	FLinuxSystemWideCriticalSection(const FLinuxSystemWideCriticalSection&);
+	FLinuxSystemWideCriticalSection& operator=(const FLinuxSystemWideCriticalSection&);
+
+private:
+	int32 FileHandle;
+};
+
+typedef FLinuxSystemWideCriticalSection FSystemWideCriticalSection;

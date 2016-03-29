@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "SBreadcrumbTrail.h"
@@ -172,7 +172,7 @@ public:
 
 				FString CopiedText;
 				FString Tab( TEXT("\t") );
-				FString NewLine( TEXT("\n") );
+				FString NewLine( LINE_TERMINATOR );
 
 				bool IsFirstRow = true;
 				TSharedPtr< IPropertyTableCell > RowCell = ActualStartingCell;

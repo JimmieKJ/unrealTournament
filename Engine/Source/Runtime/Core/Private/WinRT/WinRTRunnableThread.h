@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -108,6 +108,20 @@ public:
 			Kill(true);
 		}
 	}
+
+	static int TranslateThreadPriority(EThreadPriority Priority)
+	{
+		switch (Priority)
+		{
+		case TPri_AboveNormal: return THREAD_PRIORITY_ABOVE_NORMAL;
+		case TPri_Normal: return THREAD_PRIORITY_NORMAL;
+		case TPri_BelowNormal: return THREAD_PRIORITY_BELOW_NORMAL;
+		case TPri_Highest: return THREAD_PRIORITY_HIGHEST;
+		case TPri_Lowest: return THREAD_PRIORITY_LOWEST;
+		case TPri_SlightlyBelowNormal: return THREAD_PRIORITY_NORMAL - 1;
+		default: UE_LOG(LogHAL, Fatal, TEXT("Unknown Priority passed to TranslateThreadPriority()")); return TPri_Normal;
+		}
+	}
 	
 	virtual void SetThreadPriority(EThreadPriority NewPriority) override
 	{
@@ -116,10 +130,7 @@ public:
 		{
 			ThreadPriority = NewPriority;
 			// Change the priority on the thread
-			ThreadEmulation::SetThreadPriority(Thread,
-				ThreadPriority == TPri_AboveNormal ? THREAD_PRIORITY_ABOVE_NORMAL :
-				ThreadPriority == TPri_BelowNormal ? THREAD_PRIORITY_BELOW_NORMAL :
-				THREAD_PRIORITY_NORMAL);
+			ThreadEmulation::SetThreadPriority(Thread, TranslateThreadPriority(ThreadPriority));
 		}
 	}
 

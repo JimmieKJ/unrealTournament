@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -48,6 +48,9 @@ private:
 
 	/** Handler for when "Update Collection" is selected */
 	void ExecuteUpdateCollection();
+
+	/** Handler for when "Refresh Collection" is selected */
+	void ExecuteRefreshCollection();
 
 	/** Handler for when "Save Collection" is selected */
 	void ExecuteSaveCollection();

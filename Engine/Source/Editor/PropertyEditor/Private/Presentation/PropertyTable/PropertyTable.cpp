@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "PropertyEditorPrivatePCH.h"
 
@@ -384,7 +384,7 @@ void SetCellValue( const TSharedRef< IPropertyTableCell >& Cell, FString Value )
 		if (NodeProperty->IsA(UNameProperty::StaticClass()))
 		{
 			// Remove any pre-existing return characters
-			Value = Value.TrimQuotes().Replace(TEXT("\n"), TEXT(""));
+			Value = Value.TrimQuotes().Replace(LINE_TERMINATOR, TEXT(""));
 		}
 	}
 
@@ -410,7 +410,7 @@ void FPropertyTable::PasteTextAtCell( const FString& Text, const TSharedRef< IPr
 
 	// Parse into row strings
 	TArray<FString> RowStrings;
-	Text.ParseIntoArray(RowStrings, TEXT("\n"), true);
+	Text.ParseIntoArray(RowStrings,LINE_TERMINATOR, true);
 
 	// Parse row strings into individual cell strings
 	TArray<FString> CellStrings;

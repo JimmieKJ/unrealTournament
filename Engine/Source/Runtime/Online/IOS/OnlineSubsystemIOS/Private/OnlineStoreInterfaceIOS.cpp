@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemIOSPrivatePCH.h"
 #include "OnlineStoreInterface.h"
@@ -273,6 +273,17 @@
 	if ([Request isKindOfClass : [SKReceiptRefreshRequest class]])
 	{
 		[[SKPaymentQueue defaultQueue] restoreCompletedTransactions];
+	}
+#endif
+}
+
+-(void)request:(SKRequest*)request didFailWithError: (NSError *)error
+{
+#ifdef __IPHONE_7_0
+	if ([Request isKindOfClass : [SKReceiptRefreshRequest class]])
+	{
+		[self paymentQueue:[SKPaymentQueue defaultQueue]  restoreCompletedTransactionsFailedWithError: error];
+		[Request release];
 	}
 #endif
 }

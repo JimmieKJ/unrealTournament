@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -50,11 +50,14 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_LookAt : public FAnimNode_SkeletalControlB
 	FBoneReference BoneToModify;
 
 	/** Target Bone to look at - you can't use LookAtLocation as alternative as you'll get a delay on bone location if you query directly **/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=SkeletalControl)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Target)
 	FBoneReference LookAtBone;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Target)
+	FName LookAtSocket;
+
 	/** Target Location in world space if LookAtBone is empty */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=SkeletalControl, meta=(PinHiddenByDefault))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Target, meta = (PinHiddenByDefault))
 	FVector LookAtLocation;
 
 	/** Look at axis, which axis to align to look at point */
@@ -85,22 +88,13 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_LookAt : public FAnimNode_SkeletalControlB
 	UPROPERTY(EditAnywhere, Category=SkeletalControl)
 	bool	bEnableDebug;
 
-	/** Debug transient data */
-	FVector CurrentLookAtLocation;
-
-	/** Current Target Location */
-	FVector CurrentTargetLocation;
-	FVector PreviousTargetLocation;
-
-	/** Current Alpha */
-	float AccumulatedInterpoolationTime;
-
 	// in the future, it would be nice to have more options, -i.e. lag, interpolation speed
 	FAnimNode_LookAt();
 
 	// FAnimNode_Base interface
 	virtual void GatherDebugData(FNodeDebugData& DebugData) override;
 	virtual void UpdateInternal(const FAnimationUpdateContext& Context) override;
+	virtual void Initialize(const FAnimationInitializeContext& Context) override;
 	// End of FAnimNode_Base interface
 
 	// FAnimNode_SkeletalControlBase interface
@@ -135,4 +129,19 @@ private:
 
 		return ABT_Linear;
 	}
+
+	/** Debug transient data */
+	FVector CurrentLookAtLocation;
+
+	/** Current Target Location */
+	FVector CurrentTargetLocation;
+	FVector PreviousTargetLocation;
+
+	/** Current Alpha */
+	float AccumulatedInterpoolationTime;
+
+	/** Look at socket bone cache data */
+	int32 CachedLookAtSocketMeshBoneIndex;
+	FCompactPoseBoneIndex CachedLookAtSocketBoneIndex;
+	FTransform CachedSocketLocalTransform;
 };

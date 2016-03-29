@@ -1,11 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "FeedbackContext.h"
 
 // Forward declares
-struct FNativeCodeGenCommandlineParams;
 class  SBuildProgressWidget;
 struct FBlueprintNativeCodeGenManifest;
 
@@ -19,9 +18,8 @@ public:
 	 * Generated module build file, module source files, and plugin description file for the provided manifest.
 	 *
 	 * @param	Manifest		The manifest containing lists of converted files, etc
-	 * @param	CommandParams	Command parameters used to generate native code, includes plugin name
 	 */
-	static bool FinalizePlugin(const FBlueprintNativeCodeGenManifest& Manifest, const FNativeCodeGenCommandlineParams& CommandParams);
+	static bool FinalizePlugin(const FBlueprintNativeCodeGenManifest& Manifest);
 
 	/**
 	 * Recompiles the bytecode of a blueprint only. Should only be run for

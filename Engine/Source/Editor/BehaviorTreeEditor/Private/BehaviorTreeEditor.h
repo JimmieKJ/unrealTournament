@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -99,6 +99,7 @@ public:
 	EVisibility GetRangeLowerVisibility() const;
 	EVisibility GetRangeSelfVisibility() const;
 	EVisibility GetInjectedNodeVisibility() const;
+	EVisibility GetRootLevelNodeVisibility() const;
 
 	TWeakPtr<SGraphEditor> GetFocusedGraphPtr() const;
 
@@ -284,6 +285,7 @@ private:
 	uint32 bShowDecoratorRangeSelf : 1;
 	uint32 bForceDisablePropertyEdit : 1;
 	uint32 bSelectedNodeIsInjected : 1;
+	uint32 bSelectedNodeIsRootLevel : 1;
 	uint32 SelectedNodesCount;
 
 	uint32 bHasMultipleTaskBP : 1;

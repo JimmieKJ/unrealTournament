@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -144,6 +144,14 @@ public:
 
 	/** Unescapes a specified XML string, naive implementation. */
 	static FString UnescapeXMLString( const FString& Text );
+
+	/**
+	 * @return whether this crash is a non-crash event
+	 */
+	bool GetIsEnsure() const { return bIsEnsure; }
+
+protected:
+	bool bIsEnsure;
 
 private:
 	/** Serializes platform specific properties to the buffer. */

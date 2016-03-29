@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 // Module includes
 #include "OnlineSubsystemIOSPrivatePCH.h"
@@ -82,6 +82,16 @@ bool FOnlineExternalUIIOS::ShowProfileUI(const FUniqueNetId& Requestor, const FU
 }
 
 bool FOnlineExternalUIIOS::ShowAccountUpgradeUI(const FUniqueNetId& UniqueId)
+{
+	return false;
+}
+
+bool FOnlineExternalUIIOS::ShowStoreUI(int32 LocalUserNum, const FShowStoreParams& ShowParams, const FOnShowStoreUIClosedDelegate& Delegate)
+{
+	return false;
+}
+
+bool FOnlineExternalUIIOS::ShowSendMessageUI(int32 LocalUserNum, const FShowSendMessageParams& ShowParams, const FOnShowSendMessageUIClosedDelegate& Delegate)
 {
 	return false;
 }

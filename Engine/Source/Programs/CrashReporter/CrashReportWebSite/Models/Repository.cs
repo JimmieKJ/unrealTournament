@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
@@ -271,7 +271,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		/// <returns>A dictionary of user group names, and the count of crashes for each group.</returns>
 		public Dictionary<string, int> GetCountsByGroup()
 		{
-			// @TODO yrx 2014-11-06 Optimize?
+			// @TODO 2014-11-06 Optimize?
 			using( FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString() + " SQL OPT" ) )
 			{
 				Dictionary<string, int> Results = new Dictionary<string, int>();

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -30,7 +30,7 @@ namespace FEQSHelpers
 		{
 			FHitResult OutHit;
 			const bool bHit = World->LineTraceSingleByChannel(OutHit, StartPos, EndPos, Channel, Params);
-			HitPos = OutHit.ImpactPoint;
+			HitPos = OutHit.Location;
 			return bHit;
 		}
 
@@ -38,7 +38,7 @@ namespace FEQSHelpers
 		{
 			FHitResult OutHit;
 			const bool bHit = World->SweepSingleByChannel(OutHit, StartPos, EndPos, FQuat::Identity, Channel, FCollisionShape::MakeSphere(Extent.X), Params);
-			HitPos = OutHit.ImpactPoint;
+			HitPos = OutHit.Location;
 			return bHit;
 		}
 
@@ -46,7 +46,7 @@ namespace FEQSHelpers
 		{
 			FHitResult OutHit;
 			const bool bHit = World->SweepSingleByChannel(OutHit, StartPos, EndPos, FQuat::Identity, Channel, FCollisionShape::MakeCapsule(Extent.X, Extent.Z), Params);
-			HitPos = OutHit.ImpactPoint;
+			HitPos = OutHit.Location;
 			return bHit;
 		}
 
@@ -54,7 +54,7 @@ namespace FEQSHelpers
 		{
 			FHitResult OutHit;
 			const bool bHit = World->SweepSingleByChannel(OutHit, StartPos, EndPos, FQuat((EndPos - StartPos).Rotation()), Channel, FCollisionShape::MakeBox(Extent), Params);
-			HitPos = OutHit.ImpactPoint;
+			HitPos = OutHit.Location;
 			return bHit;
 		}
 

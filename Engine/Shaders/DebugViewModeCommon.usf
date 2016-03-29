@@ -1,0 +1,65 @@
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	DebugViewModeCommon.hlsl: Debug pixel shader interpolants.
+=============================================================================*/
+
+// This define the interpolant needed by the pixel shader used for debug viewmode.
+// Those use a global shader that must have exactly the same inputs as the VS outputs.
+// This is also compatible with shaders that modify the mesh position (like tesselation).
+// Which is better in the end than simply defining a material override.
+
+struct FDebugVSToPS
+{
+	// TexCoords must first in order to be compatible with viewmode requiring using only SV_Position
+	float4 Position : SV_POSITION;
+	float4 VertexColor : TEXCOORD0;
+	float2 TexCoord0 : TEXCOORD1;
+	float3 TangentToWorld0 : TEXCOORD2;
+	float3 TangentToWorld1 : TEXCOORD3;
+	float3 TangentToWorld2 : TEXCOORD4;
+#if INSTANCED_STEREO
+	nointerpolation uint EyeIndex : EYE_INDEX;
+#endif
+};
+
+struct FDebugPSIn
+{
+	float4 SvPosition : SV_POSITION;
+	float4 VertexColor : TEXCOORD0;
+	float2 TexCoord0 : TEXCOORD1;
+	float3 TangentToWorld0 : TEXCOORD2;
+	float3 TangentToWorld1 : TEXCOORD3;
+	float3 TangentToWorld2 : TEXCOORD4;
+#if INSTANCED_STEREO
+	nointerpolation uint EyeIndex : EYE_INDEX;
+#endif
+	uint SvPrimitiveID : SV_PrimitiveID;
+};
+
+// This one is only compatible if no previous stage outputed SV_PrimitiveID (i.e. geometry shader)
+struct FDebugPSInLean
+{
+	float4 SvPosition : SV_POSITION;
+	uint PrimitiveID : SV_PrimitiveID;
+};
+
+#if DEBUG_MATERIAL_PARAMETERS
+/** Converts from vertex factory specific interpolants to a FMaterialPixelParameters, which is used by material inputs. */
+FMaterialPixelParameters GetMaterialPixelParameters(FDebugPSIn DebugInputs, float4 SvPosition)
+{
+	// GetMaterialPixelParameters is responsible for fully initializing the result
+	FMaterialPixelParameters Result = MakeInitializedMaterialPixelParameters();
+
+	Result.VertexColor = DebugInputs.VertexColor;
+
+	Result.TangentToWorld = half3x3(half3(DebugInputs.TangentToWorld0), half3(DebugInputs.TangentToWorld1), half3(DebugInputs.TangentToWorld2));
+
+#if NUM_MATERIAL_TEXCOORDS > 0
+	Result.TexCoords[0] = DebugInputs.TexCoord0;
+#endif
+
+	Result.TwoSidedSign = 1;
+	return Result;
+}
+#endif

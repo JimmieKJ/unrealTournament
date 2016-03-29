@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "Engine/DataTable.h"
@@ -23,6 +23,9 @@ struct FDataTableEditorRowListViewData
 
 	/** Display name of this row */
 	FText DisplayName;
+
+	/** The calculated height of this row taking into account the cell data for each column */
+	float DesiredRowHeight;
 
 	/** Array corresponding to each cell in this row */
 	TArray<FText> CellData;

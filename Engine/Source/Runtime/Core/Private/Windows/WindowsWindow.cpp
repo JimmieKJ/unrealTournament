@@ -1,16 +1,16 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "WindowsWindow.h"
 #include "WindowsApplication.h"
 
-
+#include "AllowWindowsPlatformTypes.h"
 #if WINVER > 0x502	// Windows Vista or better required for DWM
-	#include "AllowWindowsPlatformTypes.h"
 	#include "Dwmapi.h"
-	#include <ShlObj.h>
-	#include "HideWindowsPlatformTypes.h"
 #endif
+#include <ShlObj.h>
+#include "HideWindowsPlatformTypes.h"
+
 
 FWindowsWindow::~FWindowsWindow()
 {
@@ -110,16 +110,32 @@ void FWindowsWindow::Initialize( FWindowsApplication* const Application, const T
 	{
 		// OS Window border setup
 		WindowExStyle = WS_EX_APPWINDOW;
-		WindowStyle = WS_POPUP | WS_OVERLAPPED | WS_SYSMENU | WS_BORDER | WS_CAPTION;
+		WindowStyle = WS_OVERLAPPED | WS_SYSMENU | WS_CAPTION;
 
-		if (Definition->SupportsMaximize)
+		if (IsRegularWindow())
 		{
-			WindowStyle |= WS_MAXIMIZEBOX;
+			if (Definition->SupportsMaximize)
+			{
+				WindowStyle |= WS_MAXIMIZEBOX;
+			}
+
+			if (Definition->SupportsMinimize)
+			{
+				WindowStyle |= WS_MINIMIZEBOX;
+			}
+
+			if (Definition->HasSizingFrame)
+			{
+				WindowStyle |= WS_THICKFRAME;
+			}
+			else
+			{
+				WindowStyle |= WS_BORDER;
+			}
 		}
-
-		if (Definition->SupportsMinimize)
+		else
 		{
-			WindowStyle |= WS_MINIMIZEBOX;
+			WindowStyle |= WS_POPUP | WS_BORDER;
 		}
 
 		// Note SizeX and SizeY should be the size of the client area.  We need to get the actual window size by adjusting the client size to account for standard windows border around the window
@@ -364,7 +380,11 @@ void FWindowsWindow::ReshapeWindow( int32 NewX, int32 NewY, int32 NewWidth, int3
 		NewHeight = FMath::Max( NewHeight, FMath::Min( OldHeight, MinRetainedHeight ) );
 	}
 
-		
+	if (IsMaximized())
+	{
+		Restore();
+	}
+
 	// We use SWP_NOSENDCHANGING when in fullscreen mode to prevent Windows limiting our window size to the current resolution, as that 
 	// prevents us being able to change to a higher resolution while in fullscreen mode
 	::SetWindowPos( HWnd, nullptr, WindowX, WindowY, NewWidth, NewHeight, SWP_NOZORDER | SWP_NOACTIVATE | ((WindowMode == EWindowMode::Fullscreen) ? SWP_NOSENDCHANGING : 0) );
@@ -460,10 +480,14 @@ void FWindowsWindow::HACK_ForceToFront()
 /** Native windows should implement this function by asking the OS to destroy OS-specific resource associated with the window (e.g. Win32 window handle) */
 void FWindowsWindow::Destroy()
 {
-	if (OLEReferenceCount > 0)
+	if (OLEReferenceCount > 0 && IsWindow(HWnd))
 	{
-		RevokeDragDrop( HWnd );
-		check( OLEReferenceCount == 0 );
+		HRESULT Result = RevokeDragDrop(HWnd);
+		// If we decremented OLEReferenceCount check it for being null (shutdown)
+		if (Result == S_OK)
+		{
+			checkf(OLEReferenceCount == 0, TEXT("Not all references to window are released, %i left"), OLEReferenceCount);
+		}
 	}
 
 	::DestroyWindow( HWnd );
@@ -514,33 +538,59 @@ void FWindowsWindow::Hide()
 /** Toggle native window between fullscreen and normal mode */
 void FWindowsWindow::SetWindowMode( EWindowMode::Type NewWindowMode )
 {
-	EWindowMode::Type InNewWindowMode = NewWindowMode;
-
-	if (InNewWindowMode == EWindowMode::WindowedMirror)
+	if (NewWindowMode == EWindowMode::WindowedMirror)
 	{
 		// treat WindowedMirror as a regular Windowed mode here
-		InNewWindowMode = EWindowMode::Windowed;
+		NewWindowMode = EWindowMode::Windowed;
 	}
 
-	if( InNewWindowMode != WindowMode )
+	if (NewWindowMode != WindowMode)
 	{
-		bool bTrueFullscreen = NewWindowMode == EWindowMode::Fullscreen;
+		WindowMode = NewWindowMode;
+
+		const bool bTrueFullscreen = NewWindowMode == EWindowMode::Fullscreen;
 
 		// Setup Win32 Flags to be used for Fullscreen mode
-		LONG WindowFlags = GetWindowLong(HWnd, GWL_STYLE);
-		const LONG FullscreenFlags = WS_POPUP;
-		const LONG RestoredFlags = WS_MAXIMIZEBOX | WS_MINIMIZEBOX | WS_CAPTION | WS_SYSMENU | WS_OVERLAPPED | WS_BORDER;
+		LONG WindowStyle = GetWindowLong(HWnd, GWL_STYLE);
+		const LONG FullscreenModeStyle = WS_POPUP;
+
+		LONG WindowedModeStyle = WS_OVERLAPPED | WS_SYSMENU | WS_CAPTION;
+		if (IsRegularWindow())
+		{
+			if (Definition->SupportsMaximize)
+			{
+				WindowedModeStyle |= WS_MAXIMIZEBOX;
+			}
+
+			if (Definition->SupportsMinimize)
+			{
+				WindowedModeStyle |= WS_MINIMIZEBOX;
+			}
+
+			if (Definition->HasSizingFrame)
+			{
+				WindowedModeStyle |= WS_THICKFRAME;
+			}
+			else
+			{
+				WindowedModeStyle |= WS_BORDER;
+			}
+		}
+		else
+		{
+			WindowedModeStyle |= WS_POPUP | WS_BORDER;
+		}
 
 		// If we're not in fullscreen, make it so
-		if( NewWindowMode == EWindowMode::WindowedFullscreen || NewWindowMode == EWindowMode::Fullscreen)
+		if (NewWindowMode == EWindowMode::WindowedFullscreen || NewWindowMode == EWindowMode::Fullscreen)
 		{
 			::GetWindowPlacement(HWnd, &PreFullscreenWindowPlacement);
 
 			// Setup Win32 flags for fullscreen window
-			WindowFlags &= ~RestoredFlags;
-			WindowFlags |= FullscreenFlags;
+			WindowStyle &= ~WindowedModeStyle;
+			WindowStyle |= FullscreenModeStyle;
 
-			SetWindowLong(HWnd, GWL_STYLE, WindowFlags);
+			SetWindowLong(HWnd, GWL_STYLE, WindowStyle);
 			::SetWindowPos(HWnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
 
 			if (!bTrueFullscreen)
@@ -586,15 +636,13 @@ void FWindowsWindow::SetWindowMode( EWindowMode::Type NewWindowMode )
 			// Windowed:
 
 			// Setup Win32 flags for restored window
-			WindowFlags &= ~FullscreenFlags;
-			WindowFlags |= RestoredFlags;
-			SetWindowLong(HWnd, GWL_STYLE, WindowFlags);
+			WindowStyle &= ~FullscreenModeStyle;
+			WindowStyle |= WindowedModeStyle;
+			SetWindowLong(HWnd, GWL_STYLE, WindowStyle);
 			::SetWindowPos(HWnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
 
 			::SetWindowPlacement(HWnd, &PreFullscreenWindowPlacement);
 		}
-
-		WindowMode = NewWindowMode;
 	}
 }
 

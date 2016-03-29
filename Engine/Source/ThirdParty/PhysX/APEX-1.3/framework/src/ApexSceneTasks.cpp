@@ -120,14 +120,7 @@ void PhysXSimulateTask::run()
 #elif NX_SDK_VERSION_MAJOR == 3
 		PX_ASSERT(mElapsedTime > 0);
 		SCOPED_PHYSX_LOCK_WRITE(*mScene);
-		if (mScene->mPhysXScene->getNbActors(PxActorTypeFlags(0xff)))
-		{
-			mScene->mPhysXScene->simulate(mElapsedTime, &mCheckResultsTask, mScratchBlock, mScratchBlockSize, false);
-		}
-		else
-		{
-			mCheckResultsTask.removeReference();
-		}
+		mScene->mPhysXScene->simulate(mElapsedTime, &mCheckResultsTask, mScratchBlock, mScratchBlockSize, false);
 #endif
 	}
 
@@ -188,7 +181,7 @@ void CheckResultsTask::run()
 	}
 #endif
 
-	if (mScene->mPhysXScene && mScene->mPhysXScene->getNbActors(PxActorTypeFlags(0xff)))
+	if (mScene->mPhysXScene)
 	{
 #if NX_SDK_VERSION_MAJOR == 2
 		mScene->mPhysXScene->checkResults(NX_ALL_FINISHED, true);

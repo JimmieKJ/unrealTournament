@@ -1,9 +1,157 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "ModuleManager.h"
+#include "Editor.h"
+#include "ActorFactories/ActorFactory.h"
 #include "ActorPlacementInfo.h"
 #include "IPlacementMode.h"
+
+
+/**
+ * Struct that defines an identifier for a particular placeable item in this module.
+ * Only be obtainable through IPlacementModeModule::RegisterPlaceableItem
+ */
+class FPlacementModeID
+{
+public:
+	FPlacementModeID(const FPlacementModeID&) = default;
+	FPlacementModeID& operator=(const FPlacementModeID&) = default;
+
+private:
+	friend class FPlacementModeModule;
+
+	FPlacementModeID() {}
+
+	/** The category this item is held within */
+	FName Category;
+
+	/** Unique identifier (always universally unique across categories unless there's been an int overflow) */
+	uint32 UniqueID;
+};
+
+/**
+ * Struct providing information for a user category of placement objects
+ */
+struct FPlacementCategoryInfo
+{
+	FPlacementCategoryInfo(FText InDisplayName, FName InHandle, FString InTag, int32 InSortOrder = 0, bool bInSortable = true)
+		: DisplayName(InDisplayName), UniqueHandle(InHandle), SortOrder(InSortOrder), TagMetaData(MoveTemp(InTag)), bSortable(bInSortable)
+	{
+	}
+
+	/** This category's display name */
+	FText DisplayName;
+
+	/** A unique name for this category */
+	FName UniqueHandle;
+
+	/** Sort order for the category tab (lowest first) */
+	int32 SortOrder;
+
+	/** Optional tag meta data for the tab widget */
+	FString TagMetaData;
+
+	/** Optional generator function used to construct this category's tab content. Called when the tab is activated. */
+	TFunction<TSharedRef<SWidget>()> CustomGenerator;
+
+	/** Whether the items in this category are automatically sortable by name. False if the items are already sorted. */
+	bool bSortable;
+};
+
+/**
+ * Structure defining a placeable item in the placement mode panel
+ */
+struct FPlaceableItem
+{
+	/** Default constructor */
+	FPlaceableItem()
+		: Factory(nullptr)
+	{}
+
+	/** Constructor that takes aspecific factory and asset */
+	FPlaceableItem(UActorFactory* InFactory, const FAssetData& InAssetData, TOptional<int32> InSortOrder = TOptional<int32>())
+		: Factory(InFactory)
+		, AssetData(InAssetData)
+		, SortOrder(InSortOrder)
+	{
+		bAlwaysUseGenericThumbnail = false;
+		AutoSetDisplayName();
+	}
+
+	/** Constructor for any placeable class */
+	FPlaceableItem(UClass& InAssetClass, TOptional<int32> InSortOrder = TOptional<int32>())
+		: Factory(GEditor->FindActorFactoryByClass(&InAssetClass))
+		, AssetData(Factory ? Factory->GetDefaultActorClass( FAssetData() ) : FAssetData())
+		, SortOrder(InSortOrder)
+	{
+		bAlwaysUseGenericThumbnail = false;
+		AutoSetDisplayName();
+	}
+
+	/** Constructor for any placeable class with associated asset data and brush overrides */
+	FPlaceableItem(
+		UClass& InAssetClass,
+		const FAssetData& InAssetData,
+		FName InClassThumbnailBrushOverride = NAME_None,
+		TOptional<FLinearColor> InAssetTypeColorOverride = TOptional<FLinearColor>(),
+		TOptional<int32> InSortOrder = TOptional<int32>()
+	)
+		: Factory(GEditor->FindActorFactoryByClass(&InAssetClass))
+		, AssetData(InAssetData)
+		, ClassThumbnailBrushOverride(InClassThumbnailBrushOverride)
+		, AssetTypeColorOverride(InAssetTypeColorOverride)
+		, SortOrder(InSortOrder)
+	{
+		bAlwaysUseGenericThumbnail = true;
+		AutoSetDisplayName();
+	}
+
+	/** Automatically set this item's display name from its class or asset */
+	void AutoSetDisplayName()
+	{
+		if (AssetData.GetClass() == UClass::StaticClass())
+		{
+			DisplayName = FText::FromString( FName::NameToDisplayString(AssetData.AssetName.ToString(), false));
+		}
+		else
+		{
+			DisplayName = FText::FromName(AssetData.AssetName);
+		}
+	}
+
+	/** The factory used to create an instance of this placeable item */
+	UActorFactory* Factory;
+
+	/** Asset data pertaining to the class */
+	FAssetData AssetData;
+
+	/** This item's display name */
+	FText DisplayName;
+
+	/** Optional override for the thumbnail brush (passed to FClassIconFinder::FindThumbnailForClass in the form ClassThumbnail.<override>) */
+	FName ClassThumbnailBrushOverride;
+
+	/** Whether to always use the generic thumbnail for this item or not */
+	bool bAlwaysUseGenericThumbnail;
+
+	/** Optional overridden color tint for the asset */
+	TOptional<FLinearColor> AssetTypeColorOverride;
+
+	/** Optional sort order (lowest first). Overrides default class name sorting. */
+	TOptional<int32> SortOrder;
+};
+
+/** Structure of built-in placement categories. Defined as functions to enable external use without linkage */
+struct FBuiltInPlacementCategories
+{
+	static FName RecentlyPlaced()	{ static FName Name("RecentlyPlaced");	return Name; }
+	static FName Basic()			{ static FName Name("Basic");			return Name; }
+	static FName Lights()			{ static FName Name("Lights");			return Name; }
+	static FName Visual()			{ static FName Name("Visual");			return Name; }
+	static FName Volumes()			{ static FName Name("Volumes");			return Name; }
+	static FName AllClasses()		{ static FName Name("AllClasses");		return Name; }
+};
 
 class IPlacementModeModule : public IModuleInterface
 {
@@ -64,5 +212,77 @@ public:
 	DECLARE_EVENT_OneParam( IPlacementMode, FOnStoppedPlacingEvent, bool /*bWasSuccessfullyPlaced*/ );
 	virtual FOnStoppedPlacingEvent& OnStoppedPlacing() = 0;
 	virtual void BroadcastStoppedPlacing( bool bWasSuccessfullyPlaced ) = 0;
+
+public:
+
+	/**
+	 * Register a new category of placement items
+	 *
+	 * @param Info		Information pertaining to the category
+	 * @return true on success, false on failure (probably if the category's unique handle is already in use)
+	 */
+	virtual bool RegisterPlacementCategory(const FPlacementCategoryInfo& Info) = 0;
+
+	/**
+	 * Retrieve an already registered category
+	 *
+	 * @param UniqueHandle	The unique handle of the category to retrieve
+	 * @return Ptr to the category's information structure, or nullptr if it does not exit
+	 */
+	virtual const FPlacementCategoryInfo* GetRegisteredPlacementCategory(FName UniqueHandle) const = 0;
+
+	/**
+	 * Populate the specified array with all registered category information, sorted by SortOrder
+	 *
+	 * @param OutCategories	The array to populate with registered category inforamtion
+	 */
+	virtual void GetSortedCategories(TArray<FPlacementCategoryInfo>& OutCategories) const = 0;
+
+	/**
+	 * Unregister a previously registered category
+	 *
+	 * @param UniqueHandle	The unique handle of the category to unregister
+	 */
+	virtual void UnregisterPlacementCategory(FName Handle) = 0;
+
+	/**
+	 * Register a new placeable item for the specified category
+	 *
+	 * @param Item			The placeable item to register
+	 * @param CategoryName	Unique handle to the category in which to place this item
+	 * @return Optional unique identifier for the registered item, or empty on failure (if the category doesn't exist)
+	 */
+	virtual TOptional<FPlacementModeID> RegisterPlaceableItem(FName CategoryName, const TSharedRef<FPlaceableItem>& Item) = 0;
+
+	/**
+	 * Unregister a previously registered placeable item
+	 *
+	 * @param ID			Unique identifier for the item. Will have been obtained from a previous call to RegisterPlaceableItem
+	 */
+	virtual void UnregisterPlaceableItem(FPlacementModeID ID) = 0;
+
+	/**
+	 * Get all the items in a given category, unsorted
+	 *
+	 * @param Category		The unique handle of the category to get items for
+	 * @param OutItems		Array to populate with the items in this category
+	 */
+	virtual void GetItemsForCategory(FName Category, TArray<TSharedPtr<FPlaceableItem>>& OutItems) const = 0;
+
+	/**
+	 * Get all the items in a given category, filtered by the specified predicate
+	 *
+	 * @param Category		The unique handle of the category to get items for
+	 * @param OutItems		Array to populate with the items in this category
+	 * @param Filter 		Filter predicate used to filter out items. Return true to pass the filter, false otherwise
+	 */
+	virtual void GetFilteredItemsForCategory(FName Category, TArray<TSharedPtr<FPlaceableItem>>& OutItems, TFunctionRef<bool(const TSharedPtr<FPlaceableItem>&)> Filter) const = 0;
+
+	/**
+	 * Instruct the category associated with the specified unique handle that it should regenerate its items
+	 *
+	 * @param Category		The unique handle of the category to get items for
+	 */
+	virtual void RegenerateItemsForCategory(FName Category) = 0;
 };
 

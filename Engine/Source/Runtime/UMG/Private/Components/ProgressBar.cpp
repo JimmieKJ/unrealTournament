@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 
@@ -114,11 +114,6 @@ void UProgressBar::PostLoad()
 }
 
 #if WITH_EDITOR
-
-const FSlateBrush* UProgressBar::GetEditorIcon()
-{
-	return FUMGStyle::Get().GetBrush("Widget.ProgressBar");
-}
 
 const FText UProgressBar::GetPaletteCategory()
 {

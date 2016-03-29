@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerPrivatePCH.h"
 #include "SSequencerLabelListRow.h"
@@ -19,9 +19,10 @@ SSequencerLabelBrowser::~SSequencerLabelBrowser()
  *****************************************************************************/
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
-void SSequencerLabelBrowser::Construct(const FArguments& InArgs)
+void SSequencerLabelBrowser::Construct(const FArguments& InArgs, TSharedRef<FSequencer> InSequencer)
 {
 	OnSelectionChanged = InArgs._OnSelectionChanged;
+	Sequencer = InSequencer;
 
 	ChildSlot
 	[
@@ -35,9 +36,30 @@ void SSequencerLabelBrowser::Construct(const FArguments& InArgs)
 			.TreeItemsSource(&LabelList)
 	];
 
+	Sequencer.Pin()->GetLabelManager().OnLabelsChanged().AddSP(this, &SSequencerLabelBrowser::HandleLabelManagerLabelsChanged);
+
 	ReloadLabelList(true);
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
+
+void SSequencerLabelBrowser::SetSelectedLabel(const FString& Label)
+{
+	if (!Label.IsEmpty())
+	{
+		for (auto& Node : LabelList)
+		{
+			if (Node->Label == Label)
+			{
+				LabelTreeView->SetSelection(Node);
+
+				return;
+			}
+		}
+	}
+
+	LabelTreeView->ClearSelection();
+}
 
 
 /* SSequencerLabelBrowser implementation
@@ -46,9 +68,60 @@ END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void SSequencerLabelBrowser::ReloadLabelList(bool FullyReload)
 {
 	LabelList.Reset();
+	LabelList.Add(MakeShareable(new FSequencerLabelTreeNode(FString(), FText::GetEmpty())));
 
-	// test
-	LabelList.Add(MakeShareable(new FSequencerLabelTreeNode(TEXT(""))));
+	TArray<FString> AllLabels;
+	
+	if (Sequencer.IsValid() && Sequencer.Pin()->GetLabelManager().GetAllLabels(AllLabels) > 0)
+	{
+		for (const auto& Label : AllLabels)
+		{
+			// create new leaf node
+			TArray<FString> Strings;
+			Label.ParseIntoArray(Strings, TEXT("."), true);
+
+			TSharedRef<FSequencerLabelTreeNode> NewNode = MakeShareable(
+				new FSequencerLabelTreeNode(Label, FText::FromString(Strings.Last())));
+
+			// insert node into tree
+			TArray<TSharedPtr<FSequencerLabelTreeNode>>* ParentNodes = &LabelList;
+			int32 Index = 0;
+
+			while (Index < Strings.Num() - 1)
+			{
+				TSharedPtr<FSequencerLabelTreeNode> Parent;
+
+				for (const auto& Node : *ParentNodes)
+				{
+					if (Node->Label == Strings[Index])
+					{
+						Parent = Node;
+						break;
+					}
+				}
+
+				// create interior node if needed
+				if (!Parent.IsValid())
+				{
+					FString ParentLabel = Strings[0];
+
+					for (int32 SubIndex = 1; SubIndex <= Index; ++SubIndex)
+					{
+						ParentLabel += TEXT(".") + Strings[SubIndex];
+					}
+
+					Parent = MakeShareable(new FSequencerLabelTreeNode(ParentLabel, FText::FromString(Strings[Index])));
+					ParentNodes->Add(Parent);
+				}
+
+				ParentNodes = &Parent->Children;
+				++Index;
+			}
+
+			// insert node into tree
+			ParentNodes->Add(NewNode);
+		}
+	}
 
 	LabelTreeView->RequestTreeRefresh();
 }
@@ -57,24 +130,25 @@ void SSequencerLabelBrowser::ReloadLabelList(bool FullyReload)
 /* SSequencerLabelBrowser callbacks
  *****************************************************************************/
 
+void SSequencerLabelBrowser::HandleLabelListRowLabelRenamed(TSharedPtr<FSequencerLabelTreeNode> Node, const FString& NewLabel)
+{
+	if (Sequencer.IsValid() && Sequencer.Pin()->GetLabelManager().RenameLabel(Node->Label, NewLabel))
+	{
+		ReloadLabelList(true);
+	}
+}
+
+
+void SSequencerLabelBrowser::HandleLabelManagerLabelsChanged()
+{
+	ReloadLabelList(true);
+}
+
+
 TSharedPtr<SWidget> SSequencerLabelBrowser::HandleLabelTreeViewContextMenuOpening()
 {
 	FMenuBuilder MenuBuilder(true /*bInShouldCloseWindowAfterMenuSelection*/, nullptr);
 	{
-		MenuBuilder.BeginSection("Customize", LOCTEXT("CustomizeContextMenuSectionName", "Customize"));
-		{
-			MenuBuilder.AddMenuEntry(
-				LOCTEXT("SetColorMenuEntryLabel", "Set Color"),
-				LOCTEXT("SetColorMenuEntryTip", "Set the background color of this label"),
-				FSlateIcon(),
-				FUIAction(
-					FExecuteAction::CreateSP(this, &SSequencerLabelBrowser::HandleSetColorMenuEntryExecute),
-					FCanExecuteAction::CreateSP(this, &SSequencerLabelBrowser::HandleSetColorMenuEntryCanExecute)
-				)
-			);
-		}
-		MenuBuilder.EndSection();
-
 		MenuBuilder.BeginSection("Edit", LOCTEXT("EditContextMenuSectionName", "Edit"));
 		{
 			MenuBuilder.AddMenuEntry(
@@ -107,7 +181,8 @@ TSharedPtr<SWidget> SSequencerLabelBrowser::HandleLabelTreeViewContextMenuOpenin
  TSharedRef<ITableRow> SSequencerLabelBrowser::HandleLabelTreeViewGenerateRow(TSharedPtr<FSequencerLabelTreeNode> Item, const TSharedRef<STableViewBase>& OwnerTable)
 {
 	return SNew(SSequencerLabelListRow, OwnerTable)
-		.Node(Item);
+		.Node(Item)
+		.OnLabelRenamed(this, &SSequencerLabelBrowser::HandleLabelListRowLabelRenamed);
 }
 
 
@@ -115,7 +190,7 @@ void SSequencerLabelBrowser::HandleLabelTreeViewGetChildren(TSharedPtr<FSequence
 {
 	if (Item.IsValid())
 	{
-		OutChildren = Item->GetChildren();
+		OutChildren = Item->Children;
 	}
 }
 
@@ -124,7 +199,7 @@ void SSequencerLabelBrowser::HandleLabelTreeViewSelectionChanged(TSharedPtr<FSeq
 {
 	OnSelectionChanged.ExecuteIfBound(
 		InItem.IsValid()
-			? InItem->GetLabel()
+			? InItem->Label
 			: FString(),
 		SelectInfo
 	);
@@ -133,34 +208,48 @@ void SSequencerLabelBrowser::HandleLabelTreeViewSelectionChanged(TSharedPtr<FSeq
 
 void SSequencerLabelBrowser::HandleRemoveLabelMenuEntryExecute()
 {
+	TArray<TSharedPtr<FSequencerLabelTreeNode>> SelectedItems;
+
+	if (Sequencer.IsValid() && LabelTreeView->GetSelectedItems(SelectedItems) > 0)
+	{
+		Sequencer.Pin()->GetLabelManager().RemoveObjectLabel(FGuid(), SelectedItems[0]->Label);
+	}
 }
 
 
 bool SSequencerLabelBrowser::HandleRemoveLabelMenuEntryCanExecute() const
 {
-	return false;
+	TArray<TSharedPtr<FSequencerLabelTreeNode>> SelectedItems;
+
+	if (LabelTreeView->GetSelectedItems(SelectedItems) == 0)
+	{
+		return false;
+	}
+
+	return !SelectedItems[0]->Label.IsEmpty();
 }
 
 
 void SSequencerLabelBrowser::HandleRenameLabelMenuEntryExecute()
 {
+	TArray<TSharedPtr<FSequencerLabelTreeNode>> SelectedItems;
+
+	if (LabelTreeView->GetSelectedItems(SelectedItems) > 0)
+	{
+		auto ListRow = StaticCastSharedPtr<SSequencerLabelListRow>(LabelTreeView->WidgetFromItem(SelectedItems[0]));
+
+		if (ListRow.IsValid())
+		{
+			ListRow->EnterRenameMode();
+		}
+	}
 }
 
 
 bool SSequencerLabelBrowser::HandleRenameLabelMenuEntryCanExecute() const
 {
-	return false;
-}
-
-
-void SSequencerLabelBrowser::HandleSetColorMenuEntryExecute()
-{
-}
-
-
-bool SSequencerLabelBrowser::HandleSetColorMenuEntryCanExecute() const
-{
-	return false;
+	TArray<TSharedPtr<FSequencerLabelTreeNode>> SelectedItems;
+	return (LabelTreeView->GetSelectedItems(SelectedItems) > 0);
 }
 
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "SoundDefinitions.h"
@@ -15,36 +15,43 @@ bool operator!=(const FDialogueContext& LHS, const FDialogueContext& RHS)
 		LHS.Targets != RHS.Targets;
 }
 
-FDialogueContext::FDialogueContext() : Speaker(NULL)
+FDialogueContext::FDialogueContext()
+	: Speaker(nullptr)
 {
 	Targets.AddZeroed();
 }
 
-FString FDialogueContext::GetLocalizationKey() const
+FString FDialogueContext::GetContextHash() const
 {
-	FString Key;
-	if( Speaker )
+	uint32 SpeakerHash = 0;
+	if (Speaker)
 	{
-		Key = Speaker->LocalizationGUID.ToString();
+		SpeakerHash = FCrc::MemCrc32(&Speaker->LocalizationGUID, sizeof(FGuid), SpeakerHash);
 	}
 
-	TArray<FString> UniqueSortedTargets;
-	for(const UDialogueVoice* Target : Targets)
+	TArray<FGuid> UniqueSortedTargetGUIDs;
+	for (const UDialogueVoice* Target : Targets)
 	{
-		if( Target )
+		if (Target)
 		{
-			UniqueSortedTargets.AddUnique( Target->LocalizationGUID.ToString() );
+			UniqueSortedTargetGUIDs.AddUnique(Target->LocalizationGUID);
 		}
 	}
-	UniqueSortedTargets.Sort( TLess<FString>() );
-	for(const FString& TargetKey : UniqueSortedTargets)
+	UniqueSortedTargetGUIDs.Sort([](const FGuid& One, const FGuid& Two) -> bool
 	{
-		Key = Key + TEXT(" ") + TargetKey;
+		return One.ToString() < Two.ToString();
+	});
+
+	uint32 TargetHash = 0;
+	for (const FGuid& TargetGUID : UniqueSortedTargetGUIDs)
+	{
+		TargetHash = FCrc::MemCrc32(&TargetGUID, sizeof(FGuid), TargetHash);
 	}
-	return Key;
+
+	return FString::Printf(TEXT("%08X%08X"), SpeakerHash, TargetHash);
 }
 
-FDialogueWaveParameter::FDialogueWaveParameter() : DialogueWave(NULL)
+FDialogueWaveParameter::FDialogueWaveParameter()
 {
 
 }

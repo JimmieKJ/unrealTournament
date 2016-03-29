@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MediaAssetsPrivatePCH.h"
 #include "IMediaVideoTrack.h"
@@ -8,7 +8,7 @@
 /* UMediaTexture structors
  *****************************************************************************/
 
-UMediaTexture::UMediaTexture( const FObjectInitializer& ObjectInitializer )
+UMediaTexture::UMediaTexture(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, ClearColor(FLinearColor::Black)
 	, VideoTrackIndex(INDEX_NONE)
@@ -33,7 +33,7 @@ TSharedPtr<class IMediaPlayer> UMediaTexture::GetPlayer() const
 }
 
 
-void UMediaTexture::SetMediaPlayer( UMediaPlayer* InMediaPlayer )
+void UMediaTexture::SetMediaPlayer(UMediaPlayer* InMediaPlayer)
 {
 	MediaPlayer = InMediaPlayer;
 
@@ -130,7 +130,7 @@ FString UMediaTexture::GetDesc()
 }
 
 
-SIZE_T UMediaTexture::GetResourceSize( EResourceSizeMode::Type Mode )
+SIZE_T UMediaTexture::GetResourceSize(EResourceSizeMode::Type Mode)
 {
 	return CachedDimensions.X * CachedDimensions.Y * 4;
 }
@@ -156,7 +156,7 @@ void UMediaTexture::PostLoad()
 
 #if WITH_EDITOR
 
-void UMediaTexture::PreEditChange( UProperty* PropertyAboutToChange )
+void UMediaTexture::PreEditChange(UProperty* PropertyAboutToChange)
 {
 	// this will release the FMediaTextureResource
 	Super::PreEditChange(PropertyAboutToChange);
@@ -165,7 +165,7 @@ void UMediaTexture::PreEditChange( UProperty* PropertyAboutToChange )
 }
 
 
-void UMediaTexture::PostEditChangeProperty( FPropertyChangedEvent& PropertyChangedEvent )
+void UMediaTexture::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	InitializeTrack();
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ProfilerPrivatePCH.h"
 
@@ -44,11 +44,11 @@ void FProfilerUIStream::GenerateUIStream( const FProfilerStream& ProfilerStream,
 	}
 	else
 	{
-		// @TODO yrx 2014-04-28 Combining profiler frames doesn't make sense at this moment
+		// #Profiler: 2014-04-28 Combining profiler frames doesn't make sense at this moment
 		// At this scale we may want to switch into line graph or something?
 	}
 
-	// @TODO yrx 2014-04-25 MAX_THREAD_DEPTH;
+	// #Profiler: 2014-04-25 MAX_THREAD_DEPTH;
 	LinearizeStream();
 }
 

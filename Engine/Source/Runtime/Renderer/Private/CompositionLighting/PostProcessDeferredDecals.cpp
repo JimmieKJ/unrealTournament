@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessDeferredDecals.cpp: Deferred Decals implementation.
@@ -464,6 +464,20 @@ static inline bool IsWrittingToGBufferA(FDecalRendering::ERenderTargetMode Rende
 	return RenderTargetMode == FDecalRendering::RTM_SceneColorAndGBufferWithNormal ||  RenderTargetMode == FDecalRendering::RTM_SceneColorAndGBufferDepthWriteWithNormal || RenderTargetMode == FDecalRendering::RTM_GBufferNormal;
 }
 
+const TCHAR* GetStageName(EDecalRenderStage Stage)
+{
+	// could be implemented with enum reflections as well
+
+	switch(Stage)
+	{
+		case DRS_BeforeBasePass: return TEXT("DRS_BeforeBasePass");
+		case DRS_AfterBasePass: return TEXT("DRS_AfterBasePass");
+		case DRS_BeforeLighting: return TEXT("DRS_BeforeLighting");
+		case DRS_ForwardShading: return TEXT("DRS_ForwardShading");
+	}
+	return TEXT("<UNKNOWN>");
+}
+
 void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& Context)
 {
 	FRHICommandListImmediate& RHICmdList = Context.RHICmdList;
@@ -473,7 +487,7 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 	const bool bDBuffer = IsDBufferEnabled();
 	const bool bStencilSizeThreshold = CVarStencilSizeThreshold.GetValueOnRenderThread() >= 0;
 
-	SCOPED_DRAW_EVENT(RHICmdList, PostProcessDeferredDecals);
+	SCOPED_DRAW_EVENTF(Context.RHICmdList, DeferredDecals, TEXT("DeferredDecals %s"), GetStageName(CurrentStage));
 
 	enum EDecalResolveBufferIndex
 	{
@@ -565,6 +579,8 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 
 		if (SortedDecals.Num() > 0)
 		{
+			SCOPED_DRAW_EVENTF(Context.RHICmdList, DeferredDecalsInner, TEXT("DeferredDecalsInner %d/%d"), SortedDecals.Num(), Scene.Decals.Num());
+
 			FIntRect SrcRect = View.ViewRect;
 			FIntRect DestRect = View.ViewRect;
 
@@ -628,7 +644,7 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 						case FDecalRendering::RTM_SceneColorAndGBufferWithNormal:
 						case FDecalRendering::RTM_SceneColorAndGBufferNoNormal:
 							TargetsToResolve[SceneColorIndex] = SceneContext.GetSceneColor()->GetRenderTargetItem().TargetableTexture;
-							TargetsToResolve[GBufferAIndex] = DecalData.bHasNormal ? SceneContext.GBufferA->GetRenderTargetItem().TargetableTexture : nullptr;
+							TargetsToResolve[GBufferAIndex] = DecalData.bHasNormal ? SceneContext.GBufferA->GetRenderTargetItem().TargetableTexture : (PLATFORM_MAC ? SceneContext.GBufferB->GetRenderTargetItem().TargetableTexture : nullptr); // @todo Workaround a Mac NV/Intel graphics driver bug that requires we pointlessly bind into RT1 even though we don't write to it, otherwise the writes to RT2 and RT3 go haywire. This isn't really possible to fix lower down the stack.
 							TargetsToResolve[GBufferBIndex] = SceneContext.GBufferB->GetRenderTargetItem().TargetableTexture;
 							TargetsToResolve[GBufferCIndex] = SceneContext.GBufferC->GetRenderTargetItem().TargetableTexture;
 							SetRenderTargets(RHICmdList, 4, TargetsToResolve, SceneContext.GetSceneDepthSurface(), ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite, TargetsToTransitionWritable[CurrentRenderTargetMode]);							
@@ -637,7 +653,7 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 						case FDecalRendering::RTM_SceneColorAndGBufferDepthWriteWithNormal:
 						case FDecalRendering::RTM_SceneColorAndGBufferDepthWriteNoNormal:
 							TargetsToResolve[SceneColorIndex] = SceneContext.GetSceneColor()->GetRenderTargetItem().TargetableTexture;
-							TargetsToResolve[GBufferAIndex] = DecalData.bHasNormal ? SceneContext.GBufferA->GetRenderTargetItem().TargetableTexture : nullptr;
+							TargetsToResolve[GBufferAIndex] = DecalData.bHasNormal ? SceneContext.GBufferA->GetRenderTargetItem().TargetableTexture : (PLATFORM_MAC ? SceneContext.GBufferB->GetRenderTargetItem().TargetableTexture : nullptr); // @todo Workaround a Mac NV/Intel graphics driver bug that requires we pointlessly bind into RT1 even though we don't write to it, otherwise the writes to RT2 and RT3 go haywire. This isn't really possible to fix lower down the stack.
 							TargetsToResolve[GBufferBIndex] = SceneContext.GBufferB->GetRenderTargetItem().TargetableTexture;
 							TargetsToResolve[GBufferCIndex] = SceneContext.GBufferC->GetRenderTargetItem().TargetableTexture;
 							TargetsToResolve[GBufferEIndex] = SceneContext.GBufferE->GetRenderTargetItem().TargetableTexture;
@@ -727,7 +743,7 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 					}
 				}
 
-				FDecalRendering::SetShader(RHICmdList, View, bShaderComplexity, DecalData, FrustumComponentToClip);
+				FDecalRendering::SetShader(RHICmdList, View, DecalData, FrustumComponentToClip);
 
 				RHICmdList.DrawIndexedPrimitive(GetUnitCubeIndexBuffer(), PT_TriangleList, 0, 0, 8, 0, ARRAY_COUNT(GCubeIndices) / 3, 1);
 

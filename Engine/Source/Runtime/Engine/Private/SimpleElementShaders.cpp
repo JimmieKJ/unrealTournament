@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*==============================================================================
 	SimpleElementShaders.h: Definitions for simple element shaders.
@@ -77,8 +77,9 @@ void FSimpleElementPS::SetEditorCompositingParameters(FRHICommandList& RHICmdLis
 	}
 	else
 	{
-		// Unset the view uniform buffer since we don't have a view
+		// Unset the view uniform buffers since we don't have a view
 		SetUniformBufferParameter(RHICmdList, GetPixelShader(), GetUniformBufferParameter<FViewUniformShaderParameters>(), NULL);
+		SetUniformBufferParameter(RHICmdList, GetPixelShader(), GetUniformBufferParameter<FFrameUniformShaderParameters>(), NULL);
 		SetShaderValue(RHICmdList, GetPixelShader(),EditorCompositeDepthTestParameter,false );
 	}
 

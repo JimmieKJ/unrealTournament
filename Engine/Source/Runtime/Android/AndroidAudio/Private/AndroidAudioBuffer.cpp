@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidAudioDevice.h"
 #include "AudioEffect.h"
@@ -65,7 +65,7 @@ FSLESSoundBuffer* FSLESSoundBuffer::CreateQueuedBuffer( FSLESAudioDevice* AudioD
 		InWave->InitAudioResource(AudioDevice->GetRuntimeFormat(InWave));
 	}
 
-	if (Buffer->DecompressionState->ReadCompressedInfo( InWave->ResourceData, InWave->ResourceSize, &QualityInfo ))
+	if (Buffer->DecompressionState && Buffer->DecompressionState->ReadCompressedInfo(InWave->ResourceData, InWave->ResourceSize, &QualityInfo))
 	{	
 		// Clear out any dangling pointers
 		Buffer->AudioData = NULL;
@@ -124,7 +124,9 @@ FSLESSoundBuffer* FSLESSoundBuffer::CreateNativeBuffer( FSLESAudioDevice* AudioD
 
 	// Create new buffer.
 	Buffer = new FSLESSoundBuffer( AudioDevice );
-	
+
+	Buffer->DecompressionState = AudioDevice->CreateCompressedAudioInfo(InWave);
+
 	FAudioDeviceManager* AudioDeviceManager = GEngine->GetAudioDeviceManager();
 	check(AudioDeviceManager != nullptr);
 
@@ -199,6 +201,8 @@ FSLESSoundBuffer* FSLESSoundBuffer::Init(  FSLESAudioDevice* AudioDevice ,USound
 	
 	EDecompressionType DecompressionType = InWave->DecompressionType;
 
+	UE_LOG(LogAndroidAudio, Verbose, TEXT("Init: Using decompression type: %d"), int32(DecompressionType));
+
 	switch( DecompressionType )
 	{
 	case DTYPE_Setup:
@@ -257,6 +261,14 @@ bool FSLESSoundBuffer::ReadCompressedData( uint8* Destination, bool bLooping )
 {
 	ensure( DecompressionState);
 	return(DecompressionState->ReadCompressedData(Destination, bLooping, DecompressionState->GetStreamBufferSize() * NumChannels));
+}
+
+void FSLESSoundBuffer::Seek(const float SeekTime)
+{
+	if (ensure(DecompressionState))
+	{
+		DecompressionState->SeekToTime(SeekTime);
+	}
 }
 
 /**

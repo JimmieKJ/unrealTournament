@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealHeaderTool.h"
 #include "UHTMakefile.h"
 #include "ClassMaps.h"
@@ -2221,10 +2221,10 @@ void FUHTMakefile::LoadAndSetupReferencedNames(FArchive& Ar)
 	Ar << NameCount;
 	for (int32 i = 0; i < NameCount; i++)
 	{
-		FNameEntry NameEntry(ENAME_LinkerConstructor);
+		FNameEntrySerialized NameEntry(ENAME_LinkerConstructor);
 		Ar << NameEntry;
 
-		FName Name = NameEntry.IsWide() ? FName(ENAME_LinkerConstructor, NameEntry.GetWideName()) : FName(ENAME_LinkerConstructor, NameEntry.GetAnsiName());
+		FName Name(NameEntry);
 		NameIndices.Add(Name, NameIndices.Num());
 		ReferencedNames.Add(Name);
 	}

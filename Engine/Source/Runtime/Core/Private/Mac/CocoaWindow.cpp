@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "CocoaWindow.h"
@@ -32,6 +32,7 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 	if (NewSelf)
 	{
 		bZoomed = [super isZoomed];
+		bIsOnActiveSpace = [super isOnActiveSpace];
 		self.TargetWindowMode = EWindowMode::Windowed;
 		[super setAlphaValue:Opacity];
 		self.PreFullScreenRect = [super frame];
@@ -198,6 +199,12 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 
 - (void)windowWillEnterFullScreen:(NSNotification*)Notification
 {
+	FMacCursor* MacCursor = (FMacCursor*)MacApplication->Cursor.Get();
+	if (MacCursor)
+	{
+		MacCursor->SetShouldIgnoreLocking(true);
+	}
+
 	// Handle clicking on the titlebar fullscreen item
 	if (self.TargetWindowMode == EWindowMode::Windowed)
 	{
@@ -234,12 +241,18 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 		NSSize ViewSize = [self openGLFrame].size;
 		float WidthScale = ViewSize.width / WindowSize.width;
 		float HeightScale = ViewSize.height / WindowSize.height;
-		MacCursor->SetMouseScaling(FVector2D(WidthScale, HeightScale));
+		MacCursor->SetMouseScaling(FVector2D(WidthScale, HeightScale), self);
 	}
 }
 
 - (void)windowWillExitFullScreen:(NSNotification *)Notification
 {
+	FMacCursor* MacCursor = (FMacCursor*)MacApplication->Cursor.Get();
+	if (MacCursor)
+	{
+		MacCursor->SetShouldIgnoreLocking(true);
+	}
+
 	if (self.TargetWindowMode != EWindowMode::Windowed)
 	{
 		self.TargetWindowMode = EWindowMode::Windowed;
@@ -263,9 +276,9 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 	}
 
 	FMacCursor* MacCursor = (FMacCursor*)MacApplication->Cursor.Get();
-	if (MacCursor)
+	if (MacCursor && MacCursor->GetFullScreenWindow() == self)
 	{
-		MacCursor->SetMouseScaling(FVector2D(1.0f, 1.0f));
+		MacCursor->SetMouseScaling(FVector2D::UnitVector, nullptr);
 	}
 }
 
@@ -315,6 +328,20 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 	{
 		MacApplication->DeferEvent(Notification);
 	}
+}
+
+- (NSRect)constrainFrameRect:(NSRect)FrameRect toScreen:(NSScreen*)Screen
+{
+	NSRect ConstrainedRect = [super constrainFrameRect:FrameRect toScreen:Screen];
+
+	if (self.TargetWindowMode == EWindowMode::Windowed)
+	{
+		// In windowed mode do not limit the window size to screen size
+		ConstrainedRect.origin.y -= FrameRect.size.height - ConstrainedRect.size.height;
+		ConstrainedRect.size = FrameRect.size;
+	}
+
+	return ConstrainedRect;
 }
 
 - (void)windowDidChangeScreen:(NSNotification*)Notification
@@ -401,7 +428,7 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 {
 	SCOPED_AUTORELEASE_POOL;
 	bZoomed = [self isZoomed];
-	if (MacApplication)
+	if (MacApplication && self.TargetWindowMode == WindowMode)
 	{
 		MacApplication->DeferEvent(Notification);
 	}
@@ -410,6 +437,16 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 - (void)windowWillClose:(NSNotification*)Notification
 {
 	SCOPED_AUTORELEASE_POOL;
+
+	if (MacApplication)
+	{
+		FMacCursor* MacCursor = (FMacCursor*)MacApplication->Cursor.Get();
+		if (MacCursor && MacCursor->GetFullScreenWindow() == self)
+		{
+			MacCursor->SetMouseScaling(FVector2D::UnitVector, nullptr);
+		}
+	}
+	
 	[self setDelegate:nil];
 }
 

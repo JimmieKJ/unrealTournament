@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimGraphPrivatePCH.h"
 #include "AnimGraphNode_BoneDrivenController.h"
@@ -46,7 +46,7 @@ void UAnimGraphNode_BoneDrivenController::Serialize(FArchive& Ar)
 
 FText UAnimGraphNode_BoneDrivenController::GetTooltipText() const
 {
-	return LOCTEXT("UAnimGraphNode_BoneDrivenController_ToolTip", "Drives the transform of a bone using the transform of another");
+	return LOCTEXT("UAnimGraphNode_BoneDrivenController_ToolTip", "Drives the transform of a bone or morph target using the transform of another bone");
 }
 
 FText UAnimGraphNode_BoneDrivenController::GetNodeTitle(ENodeTitleType::Type TitleType) const
@@ -101,6 +101,9 @@ FText UAnimGraphNode_BoneDrivenController::GetNodeTitle(ENodeTitleType::Type Tit
 
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("ControllerDesc"), GetControllerDescription());
+
+		Args.Add(TEXT("ParameterName"), FText::FromName(Node.ParameterName));
+
 		Args.Add(TEXT("TargetBone"), FText::FromName(Node.TargetBone.BoneName));
 
 		// Determine the target component
@@ -129,7 +132,18 @@ FText UAnimGraphNode_BoneDrivenController::GetNodeTitle(ENodeTitleType::Type Tit
 		}
 
 		Args.Add(TEXT("SourceExpression"), FinalSourceExpression);
-		return FText::Format(LOCTEXT("AnimGraphNode_BoneDrivenController_Title", "{TargetBone}.{TargetComponents} = {SourceExpression}{Delim}{ControllerDesc}"), Args);
+
+		FText FormattedText;
+		if (Node.DestinationMode == EDrivenDestinationMode::Bone)
+		{
+			FormattedText = FText::Format(LOCTEXT("AnimGraphNode_BoneDrivenController_Title_Bone", "{TargetBone}.{TargetComponents} = {SourceExpression}{Delim}{ControllerDesc}"), Args);
+		}
+		else if ( Node.DestinationMode == EDrivenDestinationMode::MorphTarget || Node.DestinationMode == EDrivenDestinationMode::MaterialParameter)
+		{
+			FormattedText = FText::Format(LOCTEXT("AnimGraphNode_BoneDrivenController_Title_Curve", "{ParameterName} = {SourceExpression}{Delim}{ControllerDesc}"), Args);
+		}
+
+		return FormattedText;
 	}	
 }
 
@@ -181,24 +195,28 @@ void UAnimGraphNode_BoneDrivenController::ValidateAnimNodeDuringCompilation(USke
 		MessageLog.Warning(*LOCTEXT("NoSourceComponent", "@@ - You must pick a source component on the Driver joint").ToString(), this);
 	}
 	
-	if (ForSkeleton->GetReferenceSkeleton().FindBoneIndex(Node.TargetBone.BoneName) == INDEX_NONE)
+	if (Node.DestinationMode == EDrivenDestinationMode::Bone)
 	{
-		MessageLog.Warning(*LOCTEXT("NoTargetBone", "@@ - You must pick a target bone as the Driven joint").ToString(), this);
-	}
+		if (ForSkeleton->GetReferenceSkeleton().FindBoneIndex(Node.TargetBone.BoneName) == INDEX_NONE)
+		{
+			MessageLog.Warning(*LOCTEXT("NoTargetBone", "@@ - You must pick a target bone as the Driven joint").ToString(), this);
+		}
+		
+		const bool bAffectsTranslation = Node.bAffectTargetTranslationX || Node.bAffectTargetTranslationY || Node.bAffectTargetTranslationZ;
+		const bool bAffectsRotation = Node.bAffectTargetRotationX || Node.bAffectTargetRotationY || Node.bAffectTargetRotationZ;
+		const bool bAffectsScale = Node.bAffectTargetScaleX || Node.bAffectTargetScaleY || Node.bAffectTargetScaleZ;
 
-	const bool bAffectsTranslation = Node.bAffectTargetTranslationX || Node.bAffectTargetTranslationY || Node.bAffectTargetTranslationZ;
-	const bool bAffectsRotation = Node.bAffectTargetRotationX || Node.bAffectTargetRotationY || Node.bAffectTargetRotationZ;
-	const bool bAffectsScale = Node.bAffectTargetScaleX || Node.bAffectTargetScaleY || Node.bAffectTargetScaleZ;
-
-	if (!bAffectsTranslation && !bAffectsRotation && !bAffectsScale)
-	{
-		MessageLog.Warning(*LOCTEXT("NoTargetComponent", "@@ - You must pick one or more target components on the Driven joint").ToString(), this);
+		if (!bAffectsTranslation && !bAffectsRotation && !bAffectsScale)
+		{
+			MessageLog.Warning(*LOCTEXT("NoTargetComponent", "@@ - You must pick one or more target components on the Driven joint").ToString(), this);
+		}
 	}
 
 	Super::ValidateAnimNodeDuringCompilation(ForSkeleton, MessageLog);
 }
 
-void UAnimGraphNode_BoneDrivenController::AddTripletPropertyRow(const FText& Name, const FText& Tooltip, IDetailCategoryBuilder& Category, TSharedRef<IPropertyHandle> PropertyHandle, const FName XPropertyName, const FName YPropertyName, const FName ZPropertyName)
+
+void UAnimGraphNode_BoneDrivenController::AddTripletPropertyRow(const FText& Name, const FText& Tooltip, IDetailCategoryBuilder& Category, TSharedRef<IPropertyHandle> PropertyHandle, const FName XPropertyName, const FName YPropertyName, const FName ZPropertyName, TAttribute<EVisibility> VisibilityAttribute)
 {
 	const float XYZPadding = 5.0f;
 
@@ -212,6 +230,7 @@ void UAnimGraphNode_BoneDrivenController::AddTripletPropertyRow(const FText& Nam
 	Category.GetParentLayout().HideProperty(ZProperty);
 
 	Category.AddCustomRow(Name)
+	.Visibility(VisibilityAttribute)
 	.NameContent()
 	[
 		SNew(STextBlock)
@@ -361,10 +380,19 @@ void UAnimGraphNode_BoneDrivenController::CustomizeDetails(IDetailLayoutBuilder&
 
 	MappingCategory.AddProperty(NodeHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FAnimNode_BoneDrivenController, Multiplier))).Visibility(NotUsingCurveVisibility);
 
+	// Destination visiblity
+	TAttribute<EVisibility> BoneTargetVisibility = TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateUObject(this, &UAnimGraphNode_BoneDrivenController::AreTargetBonePropertiesVisible));
+	TAttribute<EVisibility> CurveTargetVisibility = TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateUObject(this, &UAnimGraphNode_BoneDrivenController::AreTargetCurvePropertiesVisible));
+
 	// Destination (Driven) category
 	IDetailCategoryBuilder& TargetCategory = DetailBuilder.EditCategory(TEXT("Destination (Driven)"));
-	TargetCategory.AddProperty(NodeHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FAnimNode_BoneDrivenController, TargetBone)));
 
+	TargetCategory.AddProperty(NodeHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FAnimNode_BoneDrivenController, DestinationMode)));
+
+	TargetCategory.AddProperty(NodeHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FAnimNode_BoneDrivenController, ParameterName))).Visibility(CurveTargetVisibility);
+
+
+	TargetCategory.AddProperty(NodeHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FAnimNode_BoneDrivenController, TargetBone))).Visibility(BoneTargetVisibility);
 	// Add a note about the space (it is not configurable, and this helps set expectations)
 	const FText TargetBoneSpaceName = LOCTEXT("TargetComponentSpace", "Target Component Space");
 	TargetCategory.AddCustomRow(TargetBoneSpaceName)
@@ -372,14 +400,15 @@ void UAnimGraphNode_BoneDrivenController::CustomizeDetails(IDetailLayoutBuilder&
 		[
 			SNew(STextBlock)
 			.Text(TargetBoneSpaceName)
-			.Font(IDetailLayoutBuilder::GetDetailFont())
+			.Font(IDetailLayoutBuilder::GetDetailFont())			
 		]
 		.ValueContent()
 		[
 			SNew(STextBlock)
 			.Text(LOCTEXT("TargetComponentSpaceIsAlwaysParentBoneSpace", "Parent Bone Space"))
 			.Font(IDetailLayoutBuilder::GetDetailFont())
-		];
+		]
+		.Visibility(BoneTargetVisibility);
 
 	AddTripletPropertyRow(
 		/*Name=*/ LOCTEXT("DrivenTranslationLabel", "Translation"),
@@ -388,7 +417,8 @@ void UAnimGraphNode_BoneDrivenController::CustomizeDetails(IDetailLayoutBuilder&
 		/*PropertyHandle=*/ NodeHandle,
 		/*X=*/ GET_MEMBER_NAME_CHECKED(FAnimNode_BoneDrivenController, bAffectTargetTranslationX),
 		/*Y=*/ GET_MEMBER_NAME_CHECKED(FAnimNode_BoneDrivenController, bAffectTargetTranslationY),
-		/*Z=*/ GET_MEMBER_NAME_CHECKED(FAnimNode_BoneDrivenController, bAffectTargetTranslationZ));
+		/*Z=*/ GET_MEMBER_NAME_CHECKED(FAnimNode_BoneDrivenController, bAffectTargetTranslationZ),
+		BoneTargetVisibility);
 
 	AddTripletPropertyRow(
 		/*Name=*/ LOCTEXT("DrivenRotationLabel", "Rotation"),
@@ -397,7 +427,8 @@ void UAnimGraphNode_BoneDrivenController::CustomizeDetails(IDetailLayoutBuilder&
 		/*PropertyHandle=*/ NodeHandle,
 		/*X=*/ GET_MEMBER_NAME_CHECKED(FAnimNode_BoneDrivenController, bAffectTargetRotationX),
 		/*Y=*/ GET_MEMBER_NAME_CHECKED(FAnimNode_BoneDrivenController, bAffectTargetRotationY),
-		/*Z=*/ GET_MEMBER_NAME_CHECKED(FAnimNode_BoneDrivenController, bAffectTargetRotationZ));
+		/*Z=*/ GET_MEMBER_NAME_CHECKED(FAnimNode_BoneDrivenController, bAffectTargetRotationZ),
+		BoneTargetVisibility);
 
 	AddTripletPropertyRow(
 		/*Name=*/ LOCTEXT("DrivenScaleLabel", "Scale"),
@@ -406,7 +437,10 @@ void UAnimGraphNode_BoneDrivenController::CustomizeDetails(IDetailLayoutBuilder&
 		/*PropertyHandle=*/ NodeHandle,
 		/*X=*/ GET_MEMBER_NAME_CHECKED(FAnimNode_BoneDrivenController, bAffectTargetScaleX),
 		/*Y=*/ GET_MEMBER_NAME_CHECKED(FAnimNode_BoneDrivenController, bAffectTargetScaleY),
-		/*Z=*/ GET_MEMBER_NAME_CHECKED(FAnimNode_BoneDrivenController, bAffectTargetScaleZ));
+		/*Z=*/ GET_MEMBER_NAME_CHECKED(FAnimNode_BoneDrivenController, bAffectTargetScaleZ),
+		BoneTargetVisibility);
+
+	TargetCategory.AddProperty(NodeHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FAnimNode_BoneDrivenController, ModificationMode))).Visibility(BoneTargetVisibility);
 }
 
 FText UAnimGraphNode_BoneDrivenController::ComponentTypeToText(EComponentType::Type Component)
@@ -446,6 +480,16 @@ EVisibility UAnimGraphNode_BoneDrivenController::AreNonCurveMappingValuesVisible
 EVisibility UAnimGraphNode_BoneDrivenController::AreRemappingValuesVisible() const
 {
 	return ((Node.DrivingCurve == nullptr) && Node.bUseRange) ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+EVisibility UAnimGraphNode_BoneDrivenController::AreTargetBonePropertiesVisible() const
+{
+	return (Node.DestinationMode == EDrivenDestinationMode::Bone) ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+EVisibility UAnimGraphNode_BoneDrivenController::AreTargetCurvePropertiesVisible() const
+{
+	return (Node.DestinationMode == EDrivenDestinationMode::MorphTarget || Node.DestinationMode == EDrivenDestinationMode::MaterialParameter) ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 #undef LOCTEXT_NAMESPACE

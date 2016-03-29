@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	EmptyRHI.cpp: Empty device RHI implementation.
@@ -138,7 +138,7 @@ void FEmptyDynamicRHI::RHIEndScene()
 
 }
 
-void FEmptyDynamicRHI::RHIPushEvent(const TCHAR* Name)
+void FEmptyDynamicRHI::RHIPushEvent(const TCHAR* Name, FColor Color)
 {
 
 }

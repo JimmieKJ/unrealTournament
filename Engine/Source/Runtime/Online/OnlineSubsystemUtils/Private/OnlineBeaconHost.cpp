@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "OnlineBeaconHost.h"
@@ -77,7 +77,7 @@ void AOnlineBeaconHost::NotifyControlMessage(UNetConnection* Connection, uint8 M
 
 		// We are the server.
 #if !(UE_BUILD_SHIPPING && WITH_EDITOR)
-		UE_LOG(LogBeacon, Verbose, TEXT("%s Host received: %s"), Connection ? *Connection->GetName() : TEXT("Invalid"), FNetControlMessageInfo::GetName(MessageType));
+		UE_LOG(LogBeacon, Verbose, TEXT("%s[%s] Host received: %s"), *GetName(), Connection ? *Connection->GetName() : TEXT("Invalid"), FNetControlMessageInfo::GetName(MessageType));
 #endif
 		switch (MessageType)
 		{
@@ -145,7 +145,7 @@ void AOnlineBeaconHost::NotifyControlMessage(UNetConnection* Connection, uint8 M
 							NewClientActor->Role = ROLE_None;
 							NewClientActor->SetReplicates(false);
 							check(NetDriverName == NetDriver->NetDriverName);
-							NewClientActor->NetDriverName = NetDriverName;
+							NewClientActor->SetNetDriverName(NetDriverName);
 							ClientActors.Add(NewClientActor);
 							FNetControlMessage<NMT_BeaconAssignGUID>::Send(Connection, NetGUID);
 						}
@@ -254,14 +254,15 @@ void AOnlineBeaconHost::NotifyControlMessage(UNetConnection* Connection, uint8 M
 
 void AOnlineBeaconHost::DisconnectClient(AOnlineBeaconClient* ClientActor)
 {
-	if (ClientActor)
+	if (ClientActor && ClientActor->GetConnectionState() != EBeaconConnectionState::Closed && !ClientActor->IsPendingKill())
 	{
 		ClientActor->SetConnectionState(EBeaconConnectionState::Closed);
 
 		// Closing the connection will start the chain of events leading to the removal from lists and destruction of the actor
 		UNetConnection* Connection = ClientActor->GetNetConnection();
-		if (Connection)
+		if (Connection && ensure(Connection->State != USOCK_Closed))
 		{
+			UE_LOG(LogBeacon, Log, TEXT("DisconnectClient for %s. PendingKill %d UNetConnection %s UNetDriver %s State %d"), *GetNameSafe(ClientActor), ClientActor->IsPendingKill(), *GetNameSafe(ClientActor->BeaconConnection), ClientActor->BeaconConnection ? *GetNameSafe(ClientActor->BeaconConnection->Driver) : TEXT("null"), ClientActor->BeaconConnection ? ClientActor->BeaconConnection->State : -1);
 			Connection->FlushNet(true);
 			Connection->Close();
 		}

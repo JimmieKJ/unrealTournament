@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlatePrivatePCH.h"
 
@@ -6,6 +6,8 @@
 
 #include "SlateHyperlinkRun.h"
 #include "SRichTextHyperlink.h"
+#include "ShapedTextCache.h"
+#include "RunUtils.h"
 
 TSharedRef< FSlateHyperlinkRun > FSlateHyperlinkRun::Create( const FRunInfo& InRunInfo, const TSharedRef< const FString >& InText, const FHyperlinkStyle& InStyle, FOnClick NavigateDelegate, FOnGenerateTooltip InTooltipDelegate, FOnGetTooltipText InTooltipTextDelegate )
 {
@@ -25,8 +27,6 @@ FTextRange FSlateHyperlinkRun::GetTextRange() const
 void FSlateHyperlinkRun::SetTextRange( const FTextRange& Value )
 {
 	Range = Value;
-
-	ShapedTextCache->Clear();
 }
 
 int16 FSlateHyperlinkRun::GetBaseLine( float Scale ) const 
@@ -50,8 +50,8 @@ FVector2D FSlateHyperlinkRun::Measure( int32 StartIndex, int32 EndIndex, float S
 		return FVector2D( ShadowOffsetToApply.X * Scale, GetMaxHeight( Scale ) );
 	}
 
-	// todo: SHAPING - Use the full text range (rather than the run range) so that text that spans runs will still be shaped correctly
-	return ShapedTextCacheUtil::MeasureShapedText(ShapedTextCache, FCachedShapedTextKey(Range/*FTextRange(0, Text->Len())*/, Scale, TextContext), FTextRange(StartIndex, EndIndex), **Text, Style.TextStyle.Font) + ShadowOffsetToApply;
+	// Use the full text range (rather than the run range) so that text that spans runs will still be shaped correctly
+	return ShapedTextCacheUtil::MeasureShapedText(TextContext.ShapedTextCache, FCachedShapedTextKey(FTextRange(0, Text->Len()), Scale, TextContext, Style.TextStyle.Font), FTextRange(StartIndex, EndIndex), **Text) + ShadowOffsetToApply;
 }
 
 int8 FSlateHyperlinkRun::GetKerning( int32 CurrentIndex, float Scale, const FRunTextContext& TextContext ) const 
@@ -149,12 +149,13 @@ int32 FSlateHyperlinkRun::GetTextIndexAt( const TSharedRef< ILayoutBlock >& Bloc
 	}
 
 	const FTextRange BlockRange = Block->GetTextRange();
-	const TSharedRef< FSlateFontMeasure > FontMeasure = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
+	const FLayoutBlockTextContext BlockTextContext = Block->GetTextContext();
 
-	const int32 Index = FontMeasure->FindCharacterIndexAtOffset( Text.Get(), BlockRange.BeginIndex, BlockRange.EndIndex, Style.TextStyle.Font, Location.X - BlockOffset.X, true, Scale );
+	// Use the full text range (rather than the run range) so that text that spans runs will still be shaped correctly
+	const int32 Index = ShapedTextCacheUtil::FindCharacterIndexAtOffset(BlockTextContext.ShapedTextCache, FCachedShapedTextKey(FTextRange(0, Text->Len()), Scale, BlockTextContext, Style.TextStyle.Font), BlockRange, **Text, Location.X - BlockOffset.X);
 	if (OutHitPoint)
 	{
-		*OutHitPoint = (Index == BlockRange.EndIndex) ? ETextHitPoint::RightGutter : ETextHitPoint::WithinText;
+		*OutHitPoint = RunUtils::CalculateTextHitPoint(Index, BlockRange, BlockTextContext.TextDirection);
 	}
 
 	return Index;
@@ -162,15 +163,21 @@ int32 FSlateHyperlinkRun::GetTextIndexAt( const TSharedRef< ILayoutBlock >& Bloc
 
 FVector2D FSlateHyperlinkRun::GetLocationAt( const TSharedRef< ILayoutBlock >& Block, int32 Offset, float Scale ) const
 {
-	return Block->GetLocationOffset();
+	const FVector2D& BlockOffset = Block->GetLocationOffset();
+	const FTextRange& BlockRange = Block->GetTextRange();
+	const FLayoutBlockTextContext BlockTextContext = Block->GetTextContext();
+
+	// Use the full text range (rather than the run range) so that text that spans runs will still be shaped correctly
+	const FTextRange RangeToMeasure = RunUtils::CalculateOffsetMeasureRange(Offset, BlockRange, BlockTextContext.TextDirection);
+	const FVector2D OffsetLocation = ShapedTextCacheUtil::MeasureShapedText(BlockTextContext.ShapedTextCache, FCachedShapedTextKey(FTextRange(0, Text->Len()), Scale, BlockTextContext, Style.TextStyle.Font), RangeToMeasure, **Text);
+
+	return BlockOffset + OffsetLocation;
 }
 
 void FSlateHyperlinkRun::Move(const TSharedRef<FString>& NewText, const FTextRange& NewRange)
 {
 	Text = NewText;
 	Range = NewRange;
-
-	ShapedTextCache->Clear();
 }
 
 TSharedRef<IRun> FSlateHyperlinkRun::Clone() const
@@ -211,7 +218,6 @@ FSlateHyperlinkRun::FSlateHyperlinkRun( const FRunInfo& InRunInfo, const TShared
 	, TooltipTextDelegate( InTooltipTextDelegate )
 	, ViewModel( MakeShareable( new FSlateHyperlinkRun::FWidgetViewModel() ) )
 	, Children()
-	, ShapedTextCache( FShapedTextCache::Create(*FSlateApplication::Get().GetRenderer()->GetFontCache()) )
 {
 
 }
@@ -226,7 +232,6 @@ FSlateHyperlinkRun::FSlateHyperlinkRun( const FRunInfo& InRunInfo, const TShared
 	, TooltipTextDelegate( InTooltipTextDelegate )
 	, ViewModel( MakeShareable( new FSlateHyperlinkRun::FWidgetViewModel() ) )
 	, Children()
-	, ShapedTextCache( FShapedTextCache::Create(*FSlateApplication::Get().GetRenderer()->GetFontCache()) )
 {
 
 }
@@ -241,7 +246,6 @@ FSlateHyperlinkRun::FSlateHyperlinkRun( const FSlateHyperlinkRun& Run )
 	, TooltipTextDelegate( Run.TooltipTextDelegate )
 	, ViewModel( MakeShareable( new FSlateHyperlinkRun::FWidgetViewModel() ) )
 	, Children()
-	, ShapedTextCache( FShapedTextCache::Create(*FSlateApplication::Get().GetRenderer()->GetFontCache()) )
 {
 
 }

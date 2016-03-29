@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -120,10 +120,16 @@ public:
 		AudioDevice = InAudioDevice;
 	}
 
+	/** Returns whether or not the active sound can be deleted. */
+	bool CanDelete() const { return !bAsyncOcclusionPending; }
+
 	FAudioDevice* AudioDevice;
 
 	/** The group of active concurrent sounds that this sound is playing in. */
 	FConcurrencyGroupID ConcurrencyGroupID;
+
+	/** The generation of this sound in the concurrency group. */
+	int32 ConcurrencyGeneration;
 
 	/** Optional USoundConcurrency to override sound */
 	USoundConcurrency* ConcurrencySettings;
@@ -131,8 +137,11 @@ public:
 	/** Optional SoundClass to override Sound */
 	USoundClass* SoundClassOverride;
 
-	/** whether we were occluded the last time we checked */
-	uint32 bIsOccluded:1;
+	/** Whether or not the sound has checked if it was occluded already. Used to initialize a sound as occluded and bypassing occlusion interpolation. */
+	uint32 bHasCheckedOcclusion:1;
+
+	/** Flag to trigger binding our trace delegate for async trace calls */
+	uint32 bIsTraceDelegateBound:1;
 
 	/** Is this sound allowed to be spatialized? */
 	uint32 bAllowSpatialization:1;
@@ -185,6 +194,9 @@ public:
 	/** Whether or not this sound class forces sounds to the center channel */
 	uint32 bCenterChannelOnly:1;
 
+	/** Whether or not this active sound is a preview sound */
+	uint32 bIsPreviewSound:1;
+
 	/** Whether we have queried for the interior settings at least once */
 	uint32 bGotInteriorSettings:1;
 
@@ -195,15 +207,14 @@ public:
 
 	/** Whether or not we have a low-pass filter enabled on this active sound. */
 	uint32 bEnableLowPassFilter : 1;
-
-	/** Whether or not we have occlusion checks enabled on this active sound. */
-	uint32 bEnableOcclusionChecks : 1;
-
-	/** Whether or not we use complex occlusion traces. */
-	uint32 bUseComplexOcclusionChecks : 1;
-
 	/** Whether or not to use an async trace for occlusion */
 	uint32 bOcclusionAsyncTrace : 1;
+
+	/** whether we were occluded the last time we checked */
+	FThreadSafeBool bIsOccluded;
+
+	/** Whether or not there is an async occlusion trace pending */
+	FThreadSafeBool bAsyncOcclusionPending;
 
 	uint8 UserIndex;
 
@@ -220,27 +231,27 @@ public:
 	/** The low-pass filter frequency to apply if bEnableLowPassFilter is true. */
 	float LowPassFilterFrequency;
 
-	/** The occlusion lowpass filter frequency to apply if bEnableOcclusionChecks is true. This will override LowPassFilterFrequency if the sound is occluded. */
-	float OcclusionLowPassFilterFrequency;
-
-	/** The time it takes to interpolate from occluded to unoccluded filtering */
-	float OcclusionInterpolationTime;
-
-	/** The amount of volume attenuation to apply to sounds which are occluded */
-	float OcclusionVolumeAttenuation;
-
 	/** The interpolated parameter for the low-pass frequency due to occlusion */
 	FDynamicParameter CurrentOcclusionFilterFrequency;
 
 	FDynamicParameter CurrentOcclusionVolumeAttenuation;
 
-	/** A volume scale to apply to a sound based on the concurrency count of the active sound when it started */
+	/** A volume scale to apply to a sound based on the concurrency count of the active sound when it started. Will reduce volume of new sounds if many sounds are playing in concurrency group. */
 	float ConcurrencyVolumeScale;
+
+	/** A volume to apply to a sound based on the concurrency generation and the current generation count. Will reduce volume of older sounds as new sounds play in concurrency group. */
+	float ConcurrencyDuckingVolumeScale;
 
 	float SubtitlePriority;
 
 	/** The product of the component priority and the USoundBase priority */
 	float Priority;
+
+	/** The amount priority is scaled due to focus */
+	float FocusPriorityScale;
+
+	/** The amount distance is scaled due to focus */
+	float FocusDistanceScale;
 
 	/** Frequency with which to check for occlusion from its closest listener */
 	// The volume used to determine concurrency resolution for "quietest" active sound
@@ -311,6 +322,9 @@ public:
 	/** Sets an integer instance parameter for the ActiveSound */
 	void SetIntParameter(const FName InName, const int32 InInt);
 
+	/** Sets the audio component parameter on the active sound. Note: this can be set without audio components if they are set when active sound is created. */
+	void SetSoundParameter(const FAudioComponentParam& Param);
+
 	/**
 	 * Try and find an Instance Parameter with the given name and if we find it return the float value.
 	 * @return true if float for parameter was found, otherwise false
@@ -365,13 +379,16 @@ public:
 	/** Applies the active sound's attenuation settings to the input parse params using the given listener */
 	void ApplyAttenuation(FSoundParseParameters& ParseParams, const FListener& Listener, const FAttenuationSettings* SettingsAttenuationNode = nullptr);
 
-	/** Whether or not this active sound is out of range of its max distance relative to the closest listener */
-	bool IsOutOfRange() const;
+	/** Returns the effective priority of the active sound */
+	float GetPriority() const { return Priority * FocusPriorityScale; }
 
 private:
 	
 	/** Whether or not this sound is audible */
 	bool bIsAudible;
+
+	/** Cached ptr to the closest listener. So we don't have to do the work to find it twice. */
+	const FListener* ClosestListenerPtr;
 
 	/** This is a friend so the audio device can call Stop() on the active sound. */
 	friend class FAudioDevice;
@@ -387,31 +404,13 @@ private:
 	 * CurrentLocation is the location of this component that will be used for playback
 	 * @param ListenerLocation location of the closest listener to the sound
 	 */
-	void CheckOcclusion(const FVector ListenerLocation, const FVector SoundLocation);
-	
-	void SetIsOccluded(bool bInOccluded);
+	void CheckOcclusion(const FVector ListenerLocation, const FVector SoundLocation, const FAttenuationSettings* AttenuationSettingsPtr);
+	 
+	void UpdateOcclusion(const FAttenuationSettings* AttenuationSettingsPtr);
 
 	FTraceDelegate OcclusionTraceDelegate;
 
 	/** Apply the interior settings to the ambient sound as appropriate */
 	void HandleInteriorVolumes( const FListener& Listener, struct FSoundParseParameters& ParseParams );
 
-	/** Struct used to cache listener attenuation vector math results */
-	struct FAttenuationListenerData
-	{
-		FVector ListenerToSoundDir;
-		float AttenuationDistance;
-		float ListenerToSoundDistance;
-		bool bDataComputed;
-
-		FAttenuationListenerData()
-			: ListenerToSoundDir(FVector::ZeroVector)
-			, AttenuationDistance(0.0f)
-			, ListenerToSoundDistance(0.0f)
-			, bDataComputed(false)
-		{}
-	};
-
-	/** Performs listener-based calculations for spatializing and attenuating the active sound */
-	void GetAttenuationListenerData(FAttenuationListenerData& Data, const FSoundParseParameters& ParseParams, const FListener& Listener) const;
 };

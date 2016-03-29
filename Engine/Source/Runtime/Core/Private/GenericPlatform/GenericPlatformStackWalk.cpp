@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "GenericPlatformCrashContext.h"
@@ -12,6 +12,22 @@ FProgramCounterSymbolInfo::FProgramCounterSymbolInfo() :
 	FCStringAnsi::Strncpy( ModuleName, "", MAX_NAME_LENGHT );
 	FCStringAnsi::Strncpy( FunctionName, "", MAX_NAME_LENGHT );
 	FCStringAnsi::Strncpy( Filename, "", MAX_NAME_LENGHT );
+}
+
+/** Settings for stack walking */
+static bool GWantsDetailedCallstacksInNonMonolithicBuilds = true;
+
+void FGenericPlatformStackWalk::Init()
+{
+	// This needs to be called once configs are initialized
+	check(GConfig);
+
+	GConfig->GetBool(TEXT("Core.System"), TEXT("DetailedCallstacksInNonMonolithicBuilds"), GWantsDetailedCallstacksInNonMonolithicBuilds, GEngineIni);
+}
+
+bool FGenericPlatformStackWalk::WantsDetailedCallstacksInNonMonolithicBuilds()
+{
+	return GWantsDetailedCallstacksInNonMonolithicBuilds;
 }
 
 bool FGenericPlatformStackWalk::ProgramCounterToHumanReadableString( int32 CurrentCallDepth, uint64 ProgramCounter, ANSICHAR* HumanReadableString, SIZE_T HumanReadableStringSize, FGenericCrashContext* Context )
@@ -135,3 +151,8 @@ void FGenericPlatformStackWalk::StackWalkAndDump( ANSICHAR* HumanReadableString,
 	}
 }
 
+void FGenericPlatformStackWalk::StackWalkAndDumpEx(ANSICHAR* HumanReadableString, SIZE_T HumanReadableStringSize, int32 IgnoreCount, uint32 Flags, void* Context)
+{
+	// generic implementation ignores extra flags
+	return StackWalkAndDump(HumanReadableString, HumanReadableStringSize, IgnoreCount, Context);
+}

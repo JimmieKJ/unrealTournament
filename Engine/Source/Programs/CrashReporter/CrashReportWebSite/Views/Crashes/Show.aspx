@@ -1,4 +1,4 @@
-﻿<%-- // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved. --%>
+﻿<%-- // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved. --%>
 
 <%@ Page Title="" Language="C#" MasterPageFile="~/Views/Shared/Site.Master" Inherits="System.Web.Mvc.ViewPage<CrashViewModel>" %>
 <%@ Import Namespace="Tools.CrashReporter.CrashReportWebSite.Models" %>
@@ -223,6 +223,9 @@
 
 			<dt>Module</dt>
 				<dd ><%=Html.DisplayFor(m => Model.Crash.Module) %></dd>
+			
+			<dt>User Activity</dt>
+				<%--<dd ><%=Html.DisplayFor(m => Model.Crash.UserActivityHint) %></dd>--%>
 		</dl>
 	</div>
 

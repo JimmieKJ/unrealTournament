@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "ModuleManager.h"
@@ -30,6 +30,7 @@ FConfigCacheIni*				GConfig						= nullptr;		/* Configuration database cache */
 ITransaction*				GUndo						= nullptr;		/* Transaction tracker, non-NULL when a transaction is in progress */
 FOutputDeviceConsole*		GLogConsole					= nullptr;		/* Console log hook */
 CORE_API FMalloc*			GMalloc						= nullptr;		/* Memory allocator */
+CORE_API FMalloc**			GFixedMallocLocationPtr = nullptr;		/* Memory allocator pointer location when PLATFORM_USES_FIXED_GMalloc_CLASS is true */
 
 class UPropertyWindowManager*	GPropertyWindowManager	= nullptr;		/* Manages and tracks property editing windows */
 
@@ -145,6 +146,7 @@ FString				GEditorPerProjectIni;										/* Editor User Settings ini filename *
 FString				GCompatIni;
 FString				GLightmassIni;												/* Lightmass settings ini filename */
 FString				GScalabilityIni;											/* Scalability settings ini filename */
+FString				GHardwareIni;												/* Hardware ini filename */
 FString				GInputIni;													/* Input ini filename */
 FString				GGameIni;													/* Game ini filename */
 FString				GGameUserSettingsIni;										/* User Game Settings ini filename */
@@ -186,6 +188,8 @@ static bool IsAsyncLoadingCoreInternal()
 bool (*IsAsyncLoading)() = &IsAsyncLoadingCoreInternal;
 void (*SuspendAsyncLoading)() = &appNoop;
 void (*ResumeAsyncLoading)() = &appNoop;
+bool (*IsAsyncLoadingMultithreaded)() = &IsAsyncLoadingCoreInternal;
+
 /** Whether the editor is currently loading a package or not												*/
 bool					GIsEditorLoadingPackage				= false;
 /** Whether GWorld points to the play in editor world														*/
@@ -239,6 +243,8 @@ bool					GShouldSuspendRenderingThread	= false;
 FName					GCurrentTraceName				= NAME_None;
 /** How to print the time in log output																		*/
 ELogTimes::Type			GPrintLogTimes					= ELogTimes::None;
+/** How to print the category in log output. */
+bool					GPrintLogCategory = true;
 /** Global screen shot index, which is a way to make it so we don't have overwriting ScreenShots			*/
 int32                     GScreenshotBitmapIndex           = -1;
 /** Whether stats should emit named events for e.g. PIX.													*/

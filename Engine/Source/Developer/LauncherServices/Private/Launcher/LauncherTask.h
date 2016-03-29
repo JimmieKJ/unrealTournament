@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -22,6 +22,7 @@ public:
 		: Name(InName)
 		, Desc(InDesc)
 		, Status(ELauncherTaskStatus::Pending)
+		, bCancelling( false)
 		, ReadPipe(InReadPipe)
 		, WritePipe(InWritePipe)
 		, Result(0)
@@ -55,12 +56,9 @@ public:
 
 		LocalChainState = ChainState;
 
+		// set this before the thread starts so that way we know what's going on
+		Status = ELauncherTaskStatus::Busy;
 		Thread = FRunnableThread::Create(this, TEXT("FLauncherTask"));
-
-		if (Thread == nullptr)
-		{
-
-		}
 	}
 
 	/**
@@ -141,35 +139,40 @@ public:
 
 	virtual uint32 Run( ) override
 	{
-		Status = ELauncherTaskStatus::Busy;
+		// this thread has the responsibility of the Status
+		// if the status is busy then no other thread can access the status
+		check(Status == ELauncherTaskStatus::Busy);
 
 		StartTime = FDateTime::UtcNow();
 
 		FPlatformProcess::Sleep(0.5f);
 
 		TaskStarted.Broadcast(Name);
-		if (PerformTask(LocalChainState))
+		bool bSucceeded = PerformTask(LocalChainState);
+		
+		if (bSucceeded)
 		{
 			Status = ELauncherTaskStatus::Completed;
+		}
+		else if (bCancelling)
+		{
+			Status = ELauncherTaskStatus::Canceled;
+		}
+		else
+		{
+			Status = ELauncherTaskStatus::Failed;
+		}
 
-			TaskCompleted.Broadcast(Name);
+		TaskCompleted.Broadcast(Name);
+		if (bSucceeded)
+		{
 			ExecuteContinuations();
 		}
 		else
 		{
-			if (Status == ELauncherTaskStatus::Canceling)
-			{
-				Status = ELauncherTaskStatus::Canceled;
-			}
-			else
-			{
-				Status = ELauncherTaskStatus::Failed;
-			}
-
-			TaskCompleted.Broadcast(Name);
-
 			CancelContinuations();
 		}
+
 
 		EndTime = FDateTime::UtcNow();
 		
@@ -189,18 +192,16 @@ public:
 
 	//~ Begin ILauncherTask Interface
 
-	virtual void Cancel( ) override
+	virtual void Cancel() override
 	{
-		if (Status == ELauncherTaskStatus::Busy)
-		{
-			Status = ELauncherTaskStatus::Canceling;
-		}
-		else if (Status == ELauncherTaskStatus::Pending)
+		// this can be called by anyone
+		bCancelling = true;
+
+		if (Status == ELauncherTaskStatus::Pending || Status == ELauncherTaskStatus::Completed)
 		{
 			Status = ELauncherTaskStatus::Canceled;
+			CancelContinuations();
 		}
-
-		CancelContinuations();
 	}
 
 	virtual FTimespan GetDuration( ) const override
@@ -227,6 +228,8 @@ public:
 	{
 		return Desc;
 	}
+
+	virtual bool IsCancelling() const override { return bCancelling; }
 
 	virtual ELauncherTaskStatus::Type GetStatus( ) const override
 	{
@@ -309,6 +312,10 @@ private:
 
 	// Holds the status of this task
 	ELauncherTaskStatus::Type Status;
+
+	// set if this should be cancelled
+	bool bCancelling;
+
 
 	// Holds the thread that's running this task.
 	FRunnableThread* Thread;

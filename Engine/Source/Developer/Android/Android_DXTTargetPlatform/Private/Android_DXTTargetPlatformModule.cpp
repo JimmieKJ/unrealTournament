@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AndroidDXT_TargetPlatformModule.cpp: Implements the FAndroidDXT_TargetPlatformModule class.
@@ -53,7 +53,9 @@ class FAndroid_DXTTargetPlatform
 
 	virtual float GetVariantPriority() const override
 	{
-		return 0.6f;
+		float Priority;
+		return GConfig->GetFloat(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("TextureFormatPriority_DXT"), Priority, GEngineIni) ?
+			Priority : 0.6f;
 	}
 };
 

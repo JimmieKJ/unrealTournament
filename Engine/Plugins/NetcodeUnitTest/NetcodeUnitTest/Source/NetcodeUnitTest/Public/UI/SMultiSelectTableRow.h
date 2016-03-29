@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -22,13 +22,13 @@ public:
 	{
 		FReply Reply = STableRow<ItemType>::OnDragDetected(MyGeometry, MouseEvent);
 
-		const TSharedPtr<ITypedTableView<ItemType>> OwnerWidget = OwnerTablePtr.Pin();
+		auto OwnerWidget = this->OwnerTablePtr.Pin();
 
 		// When the user starts dragging a log line, treat that as the start of selecting multiple-lines
 #if TARGET_UE4_CL < CL_GETSELECTIONMODE
 		if (OwnerWidget->Private_GetSelectionMode() == ESelectionMode::Multi)
 #else
-		if (GetSelectionMode() == ESelectionMode::Multi)
+		if (this->GetSelectionMode() == ESelectionMode::Multi)
 #endif
 		{
 			const ItemType* MyItem = OwnerWidget->Private_ItemFromWidget(this);
@@ -50,13 +50,13 @@ public:
 	{
 		STableRow<ItemType>::OnDragEnter(MyGeometry, DragDropEvent);
 
-		const TSharedPtr<ITypedTableView<ItemType>> OwnerWidget = OwnerTablePtr.Pin();
+		auto OwnerWidget = this->OwnerTablePtr.Pin();
 
 		// Each time the user mouses-over another log line when dragging, select all lines from the dragged line to the current line
 #if TARGET_UE4_CL < CL_GETSELECTIONMODE
 		if (OwnerWidget->Private_GetSelectionMode() == ESelectionMode::Multi && OwnerWidget->Private_GetNumSelectedItems() > 0)
 #else
-		if (GetSelectionMode() == ESelectionMode::Multi && OwnerWidget->Private_GetNumSelectedItems() > 0)
+		if (this->GetSelectionMode() == ESelectionMode::Multi && OwnerWidget->Private_GetNumSelectedItems() > 0)
 #endif
 		{
 			const ItemType* MyItem = OwnerWidget->Private_ItemFromWidget(this);

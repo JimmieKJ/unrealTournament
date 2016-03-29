@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SerializationPrivatePCH.h"
 #include "JsonStructSerializerBackend.h"
@@ -137,7 +137,7 @@ void FJsonStructSerializerBackend::WriteProperty(const FStructSerializerState& S
 
 		if (ByteProperty->IsEnum())
 		{
-			WritePropertyValue(JsonWriter, State, ByteProperty->Enum->GetEnumName(ByteProperty->GetPropertyValue_InContainer(State.ValueData, ArrayIndex)));
+			WritePropertyValue(JsonWriter, State, ByteProperty->Enum->GetEnumNameStringByValue(ByteProperty->GetPropertyValue_InContainer(State.ValueData, ArrayIndex)));
 		}
 		else
 		{
@@ -198,7 +198,9 @@ void FJsonStructSerializerBackend::WriteProperty(const FStructSerializerState& S
 	}
 	else if (State.ValueType == UTextProperty::StaticClass())
 	{
-		WritePropertyValue(JsonWriter, State, Cast<UTextProperty>(State.ValueProperty)->GetPropertyValue_InContainer(State.ValueData, ArrayIndex).ToString());
+		FString StringValue;
+		FTextStringHelper::WriteToString(StringValue, Cast<UTextProperty>(State.ValueProperty)->GetPropertyValue_InContainer(State.ValueData, ArrayIndex));
+		WritePropertyValue(JsonWriter, State, StringValue);
 	}
 
 	// classes & objects

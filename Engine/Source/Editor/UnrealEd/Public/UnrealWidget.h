@@ -1,14 +1,19 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
-
- /*=============================================================================
-	UnrealWidget: Editor widgets for control like 3DS Max
-=============================================================================*/
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-class FEditorViewportClient;
+#include "Editor.h"
 
-class FWidget : public FGCObject
+
+class FPrimitiveDrawInterface;
+class FEditorModeTools;
+class FEditorViewportClient;
+class FSceneView;
+class UMaterialInterface;
+
+
+class FWidget
+	: public FGCObject
 {
 public:
 	enum EWidgetMode
@@ -27,7 +32,7 @@ public:
 	/**
 	 * Sets editor mode tools to use in this widget
 	 */
-	UNREALED_API void SetUsesEditorModeTools(class FEditorModeTools* InEditorModeTools);
+	UNREALED_API void SetUsesEditorModeTools(FEditorModeTools* InEditorModeTools);
 
 	/**
 	 * Renders any widget specific HUD text
@@ -384,7 +389,7 @@ private:
 	FColor PlaneColorXY, ScreenSpaceColor, CurrentColor;
 
 	/** Any mode tools being used */
-	class FEditorModeTools* EditorModeTools;
+	FEditorModeTools* EditorModeTools;
 
 	/**
 	 * An extra matrix to apply to the widget before drawing it (allows for local/custom coordinate systems).

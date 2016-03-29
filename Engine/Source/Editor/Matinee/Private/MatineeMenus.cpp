@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MatineeModule.h"
 
@@ -4055,7 +4055,7 @@ void FMatinee::OnExportAnimationInfoCommand()
 	{
 		bSaved = DesktopPlatform->SaveFileDialog(
 			GetMatineeDialogParentWindow(), 
-			NSLOCTEXT("UnrealEd", "InterpEd_ExportSoundCueInfoDialogTitle", "Export Sound Cue Info" ).ToString(),
+			NSLOCTEXT("UnrealEd", "InterpEd_ExportAnimationInfoDialogTitle", "Export Animation Info" ).ToString(),
 			*(FEditorDirectories::Get().GetLastDirectory(ELastDirectory::GENERIC_EXPORT)),
 			*FileName,
 			TEXT( "Text file|*.txt" ),

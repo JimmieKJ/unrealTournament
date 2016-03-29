@@ -54,7 +54,7 @@ private:
 	{
 	public:
 
-		FD3D12CommandListData(ID3D12Device* Direct3DDevice, D3D12_COMMAND_LIST_TYPE CommandListType, FD3D12CommandAllocator& CommandAllocator, FD3D12CommandListManager* InCommandListManager)
+		FD3D12CommandListData(ID3D12Device* Direct3DDevice, D3D12_COMMAND_LIST_TYPE InCommandListType, FD3D12CommandAllocator& CommandAllocator, FD3D12CommandListManager* InCommandListManager)
 			: CommandListManager(InCommandListManager)
 			, CurrentGeneration(1)
 			, LastCompleteGeneration(0)
@@ -62,6 +62,7 @@ private:
 			, PendingResourceBarriers()
 			, CurrentOwningContext(nullptr)
 			, CurrentCommandAllocator(&CommandAllocator)
+			, CommandListType(InCommandListType)
 		{
 			VERIFYD3D11RESULT(Direct3DDevice->CreateCommandList(0, CommandListType, CommandAllocator.GetCommandAllocator(), nullptr, IID_PPV_ARGS(CommandList.GetInitReference())));
 
@@ -219,6 +220,7 @@ private:
 		mutable FThreadSafeCounter				NumRefs;
 		FD3D12CommandListManager*				CommandListManager;
 		FD3D12CommandContext*					CurrentOwningContext;
+		D3D12_COMMAND_LIST_TYPE                 CommandListType;
 		TRefCountPtr<ID3D12GraphicsCommandList>	CommandList;		// Raw D3D command list pointer
 		FD3D12CommandAllocator*					CurrentCommandAllocator;	// Command allocator currently being used for recording the command list
 		uint64									CurrentGeneration;
@@ -463,6 +465,12 @@ public:
 		return CommandListData->ResourceBarrierScratchSpace;
 	}
 
+	D3D12_COMMAND_LIST_TYPE GetCommandListType() const
+	{
+		check(CommandListData);
+		return CommandListData->CommandListType;
+	}
+
 private:
 
 	FD3D12CommandListHandle& operator*()
@@ -650,6 +658,8 @@ private:
 	uint16 SubresourceCount;
 	CResourceState* pResourceState;
 	D3D12_RESOURCE_STATES DefaultResourceState;
+	D3D12_RESOURCE_STATES ReadableState;
+	D3D12_RESOURCE_STATES WritableState;
 	bool bRequiresResourceStateTracking;
 	D3D12_HEAP_TYPE HeapType;
 	FName DebugName;
@@ -718,22 +728,27 @@ public:
 		return pResourceState;
 	}
 	D3D12_RESOURCE_STATES GetDefaultResourceState() const { check(!bRequiresResourceStateTracking); return DefaultResourceState; }
+	D3D12_RESOURCE_STATES GetWritableState() const { return WritableState; }
+	D3D12_RESOURCE_STATES GetReadableState() const { return ReadableState; }
 	bool RequiresResourceStateTracking() const { return bRequiresResourceStateTracking; }
 
 	void SetName(const TCHAR* Name)
 	{
 		DebugName = FName(Name);
-		if (Resource)
-		{
-			VERIFYD3D11RESULT(Resource->SetName(Name));
-		}
+		::SetName(Resource, Name);
 	}
 
+	FName GetName() const
+	{
+		return DebugName;
+	}
+
+	inline bool IsPlacedResource() const { return Heap.GetReference() != nullptr; }
 private:
 	void InitalizeResourceState()
 	{
 		SubresourceCount = GetMipLevels() * GetArraySize() * GetPlaneCount();
-		ComputeDefaultResourceState();
+		DetermineResourceStates();
 
 		if (bRequiresResourceStateTracking)
 		{
@@ -744,20 +759,44 @@ private:
 		}
 	}
 
-	void ComputeDefaultResourceState()
+	void DetermineResourceStates()
 	{
 		const bool bSRV = (Desc.Flags & D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE) == 0;
 		const bool bDSV = (Desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL) != 0;
 		const bool bRTV = (Desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET) != 0;
 		const bool bUAV = (Desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS) != 0;
 
-		const bool bWriteable = bDSV || bRTV || bUAV;
-		const bool bSRVOnly = bSRV && !bWriteable;
+		const bool bWritable = bDSV || bRTV || bUAV;
+		const bool bSRVOnly = bSRV && !bWritable;
 		const bool bBuffer = Desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER;
+
+		if (bWritable)
+		{
+			// Determine the resource's write/read states.
+			if (bRTV)
+			{
+				// Note: The resource could also be used as a UAV however we don't store that writable state. UAV's are handled in a separate RHITransitionResources() specially for UAVs so we know the writeable state in that case should be UAV.
+				check(!bDSV && bSRV && !bBuffer);
+				WritableState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+				ReadableState = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+			}
+			else if (bDSV)
+			{
+				check(!bRTV && !bUAV && bSRV && !bBuffer);
+				WritableState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+				ReadableState = D3D12_RESOURCE_STATE_DEPTH_READ | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+			}
+			else
+			{
+				check(bUAV && !bRTV && !bDSV && bSRV)
+				WritableState = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+				ReadableState = bBuffer ? D3D12_RESOURCE_STATE_GENERIC_READ : D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+			}
+		}
 
 		if (bBuffer)
 		{
-			if (!bWriteable)
+			if (!bWritable)
 			{
 				// Buffer used for input, like Vertex/Index buffer.
 				// Don't bother tracking state for this resource.
@@ -791,6 +830,9 @@ struct FD3D12ResourceBlockInfo
 {
 private:
 	friend class FD3D12ResourceAllocator;
+	friend class FD3D12BuddyAllocator;
+	friend class FD3D12LinearAllocator;
+	friend class FD3D12BucketAllocator;
 
 	inline uint64 GetOffset() const { return AllocatorValues.AllocationBlockOffset; }
 	inline uint32 GetSize() const { return AllocatorValues.Size; }
@@ -798,10 +840,12 @@ private:
 	// Internal values used by the allocator
 	struct AllocationTrackingValues
 	{
-		AllocationTrackingValues() : AllocationBlockOffset(0), Size(0), UnpaddedSize(0) {};
+		AllocationTrackingValues() : AllocationBlockOffset(0), Size(0), UnpaddedSize(0), AllocatorPrivateData(nullptr){};
 		uint64 AllocationBlockOffset;
 		uint32 Size;
 		uint32 UnpaddedSize;
+
+		void* AllocatorPrivateData;
 	} AllocatorValues;
 
 public:
@@ -845,7 +889,7 @@ protected:
 	friend class FD3D12DefaultBufferPool;
 	friend class FD3D12FastAllocator;
 
-	virtual void InternalReleaseResource();
+	void InternalReleaseResource();
 
 public:
 	FD3D12ResourceLocation()
@@ -903,7 +947,7 @@ public:
 		}
 	}
 
-	virtual ~FD3D12ResourceLocation();
+	~FD3D12ResourceLocation();
 
 	void SetAsFastAllocatedSubresource()
 	{
@@ -914,6 +958,15 @@ public:
 	{
 		const FD3D12Resource* OldResource = Resource;
 		FD3D12Resource* NewResource = InBlockInfo->ResourceHeap;
+
+		// There is an edge case in which a ResourceLocation can get allocated
+		// as a stand-alone allocation and then later on get pooled. In that case
+		// we must defer delete the stand alone allocation.
+		if (BlockInfo == nullptr && OldResource != nullptr)
+		{
+			InternalReleaseResource();
+		}
+
 		BlockInfo = InBlockInfo;
 
 		uint64 OldOffset = Offset;
@@ -1074,10 +1127,7 @@ public:
 
 	void Clear()
 	{
-		// Make sure the queue is empty after a clear.
-		// TODO: Perhaps just ignore the frame fence and clear all resources?
-		const bool bQueueIsEmpty = ReleaseResources(true);
-		check(bQueueIsEmpty);
+		ReleaseResources(true);
 	}
 
 	FD3D12DeferredDeletionQueue(FD3D12Device* InParent);
@@ -1631,15 +1681,18 @@ class FD3D12BaseShaderResource : public FD3D12DeviceChild, public IRefCountedObj
 {
 public:
 	TRefCountPtr<FD3D12ResourceLocation> ResourceLocation;
+	uint32 BufferAlignment;
 
 public:
 	FD3D12BaseShaderResource(FD3D12ResourceLocation *InResourceLocation, FD3D12Device* InParent) :
+		BufferAlignment(0),
 		FD3D12DeviceChild(InParent)
 	{
 		ResourceLocation = InResourceLocation;
 	}
 
 	FD3D12BaseShaderResource(FD3D12Resource *InResource, FD3D12Device* InParent) :
+		BufferAlignment(0),
 		FD3D12DeviceChild(InParent)
 	{
 		ResourceLocation = new FD3D12ResourceLocation(GetParentDevice(), InResource);
@@ -2705,6 +2758,19 @@ public:
 		return (NumDepthStencilViews > 0);
 	}
 
+	void AliasResources(FD3D12TextureBase* Texture)
+	{
+		ResourceLocation = Texture->ResourceLocation;
+		BaseShaderResource = Texture->BaseShaderResource;
+		ShaderResourceView = Texture->ShaderResourceView;
+		RenderTargetViews = Texture->RenderTargetViews;
+
+		for (uint32 Index = 0; Index < FExclusiveDepthStencil::MaxIndex; Index++)
+		{
+			DepthStencilViews[Index] = Texture->DepthStencilViews[Index];
+		}
+	}
+
 protected:
 
 	/** Amount of memory allocated by this texture, in bytes. */
@@ -3154,6 +3220,8 @@ public:
 
 	virtual ~FD3D12IndexBuffer();
 
+	void Rename(FD3D12ResourceLocation* NewResource);
+
 	// IRefCountedObject interface.
 	virtual uint32 AddRef() const
 	{
@@ -3188,6 +3256,8 @@ public:
 		, Resource(InResource)
 	{}
 
+	void Rename(FD3D12ResourceLocation* NewResource);
+
 	virtual ~FD3D12StructuredBuffer();
 
 	// IRefCountedObject interface.
@@ -3221,7 +3291,8 @@ public:
 
 	virtual ~FD3D12VertexBuffer();
 
-	void* DynamicLock();
+	void Rename(FD3D12ResourceLocation* NewResource);
+
 	void SetDynamicSRV(FD3D12ShaderResourceView* InSRV)
 	{
 		DynamicSRV = InSRV;
@@ -3253,147 +3324,6 @@ namespace D3D12RHI
 	void ReturnPooledTexture2D(int32 MipCount, EPixelFormat PixelFormat, FD3D12Resource* InResource);
 	void ReleasePooledTextures();
 }
-
-// Allocates blocks from a fixed range using buddy allocation method.
-// Buddy allocation allows reasonably fast allocation of arbitrary size blocks
-// with minimal fragmentation and provides efficient reuse of freed ranges.
-// When a block is de-allocated an attempt is made to merge it with it's 
-// neighbour (buddy) if it is contiguous and free.
-// Based on reference implementation by MSFT: billkris
-
-// Unfortunately the api restricts the minimum size of a placed buffer resource to 64k
-#define MIN_PLACED_BUFFER_SIZE (64 * 1024)
-#define D3D_BUFFER_ALIGNMENT (64 * 1024)
-
-#if defined(UE_BUILD_DEBUG)
-#define INCREASE_ALLOC_COUNTER(A, B) (A = A + B);
-#define DECREASE_ALLOC_COUNTER(A, B) (A = A - B);
-#else
-#define INCREASE_ALLOC_COUNTER(A, B)
-#define DECREASE_ALLOC_COUNTER(A, B)
-#endif
-
-enum eBuddyAllocationStrategy
-{
-	// This strategy uses Placed Resources to sub-allocate a buffer out of an underlying ID3D12Heap.
-	// The benefit of this is that each buffer can have it's own resource state and can be treated
-	// as any other buffer. The downside of this strategy is the API limitiation which enforces
-	// the minimum buffer size to 64k leading to large internal fragmentation in the allocator
-	kPlacedResourceStrategy,
-	// The alternative is to manualy sub-allocate out of a single large buffer which allows block
-	// allocation granularity down to 1 byte. However, this strategy is only really valid for buffers which
-	// will be treated as read-only after their creation (i.e. most Index and Vertex buffers). This 
-	// is because the underlying resource can only have one state at a time.
-	kManualSubAllocationStrategy
-};
-
-class FD3D12ResourceAllocator : public FD3D12DeviceChild
-{
-public:
-
-	FD3D12ResourceAllocator(FD3D12Device* ParentDevice,
-		eBuddyAllocationStrategy allocationStrategy,
-		D3D12_HEAP_TYPE heapType,
-		D3D12_HEAP_FLAGS heapFlags,
-		D3D12_RESOURCE_FLAGS flags,
-		uint32 MaxSizeForPooling,
-		uint32 maxBlockSize,
-		uint32 minBlockSize = MIN_PLACED_BUFFER_SIZE);
-
-	~FD3D12ResourceAllocator();
-
-	void Deallocate(FD3D12ResourceBlockInfo* Block);
-
-	void Initialize();
-
-	void Destroy();
-
-	inline bool IsOwner(const FD3D12ResourceBlockInfo &block)
-	{
-		return block.Allocator == this;
-	}
-
-	inline void Reset()
-	{
-		// Clear the free blocks collection
-		FreeBlocks.Empty();
-
-		// Initialize the pool with a free inner block of max inner block size
-		FreeBlocks.SetNum(MaxOrder + 1);
-		FreeBlocks[MaxOrder].Add((uint32)0);
-	}
-
-	void CleanUpAllocations();
-
-	void DumpAllocatorStats(class FOutputDevice& Ar);
-
-	void ReleaseAllResources();
-
-	bool CanAllocate(uint32 size);
-
-private:
-	TRefCountPtr<FD3D12Resource> BackingResource;
-	void* BaseAddress;
-
-	bool Initialized;
-
-	const D3D12_HEAP_TYPE HeapType;
-	const D3D12_HEAP_FLAGS HeapFlags;
-
-	TQueue<FD3D12ResourceBlockInfo*> DeferredDeletionQueue;
-	TArray<TSet<uint32>> FreeBlocks;
-	uint32 MaxOrder;
-
-	const uint32 MaxBlockSize;
-	const uint32 MinBlockSize;
-
-	const eBuddyAllocationStrategy AllocationStrategy;
-
-	inline uint32 SizeToUnitSize(uint32 size) const
-	{
-		return (size + (MinBlockSize - 1)) / MinBlockSize;
-	}
-
-	inline uint32 UnitSizeToOrder(uint32 size) const
-	{
-		return uint32(ceil(log2f(float(size))));
-	}
-
-	inline uint32 GetBuddyOffset(const uint32 &offset, const uint32 &size)
-	{
-		return offset ^ size;
-	}
-
-	void DeallocateInternal(FD3D12ResourceBlockInfo* Block);
-
-	uint32 OrderToUnitSize(uint32 order) const { return ((uint32)1) << order; }
-	uint32 AllocateBlock(uint32 order);
-	void DeallocateBlock(uint32 offset, uint32 order);
-
-protected:
-	TRefCountPtr<ID3D12Heap> BackingHeap;
-
-	// Any allocation larger than this just gets straight up allocated (i.e. not pooled).
-	// These large allocations should be infrequent so the CPU overhead should be minimal
-	const uint32 MaximumAllocationSizeForPooling;
-
-	FD3D12ResourceBlockInfo* Allocate(uint32 SizeInBytes, uint32 Alignment, const void* InitialData = nullptr);
-
-	void InitializeDefaultBuffer(FD3D12Resource* Destination, uint64 DestinationOffset, const void* Data, uint64 DataSize);
-
-	FCriticalSection CS;
-	D3D12_RESOURCE_FLAGS ResourceFlags;
-
-#if defined(UE_BUILD_DEBUG)
-	uint32 SpaceUsed;
-	uint32 InternalFragmentation;
-	uint32 NumBlocksInDeferredDeletionQueue;
-	uint32 PeakUsage;
-#endif
-
-	bool HeapFullMessageDisplayed;
-
-};
 
 struct FD3D12FastAllocatorPage
 {
@@ -3483,6 +3413,8 @@ public:
 
 	FD3D12FastAllocatorPagePool* GetPool() { return PagePool; }
 
+	void Destroy();
+
 protected:
 	FD3D12FastAllocatorPagePool* PagePool;
 
@@ -3504,128 +3436,6 @@ private:
 	FCriticalSection CS;
 };
 
-// FD3D12DynamicHeapAllocator
-//
-// This is designed for allocation of scratch memory such as temporary staging buffers
-// or shadow buffers for dynamic resources.
-class FD3D12DynamicHeapAllocator : public FD3D12ResourceAllocator
-{
-	// The currently paired command context.  If none is available (as with async texture loads),
-	// the current command list handle can be provided instead.  The command list handle is the
-	// critical part, but the command context can always return the current list handle.
-	// I.e. you need one but not both of these to be valid
-	class FD3D12CommandContext* CurrentCommandContext;
-	FD3D12CommandListHandle CurrentCommandListHandle;
-
-public:
-
-	FD3D12DynamicHeapAllocator(FD3D12Device* InParent, eBuddyAllocationStrategy allocationStrategy,
-		uint32 MaxSizeForPooling,
-		uint32 maxBlockSize,
-		uint32 minBlockSize);
-
-	// These are mutually exclusive calls!
-	inline void SetCurrentCommandContext(class FD3D12CommandContext* CmdContext)
-	{
-		CurrentCommandContext = CmdContext;
-		check(CurrentCommandListHandle == nullptr);
-	}
-
-	inline void SetCurrentCommandListHandle(FD3D12CommandListHandle CommandListHandle)
-	{
-		check(CurrentCommandContext == nullptr);
-		CurrentCommandListHandle = CommandListHandle;
-	}
-
-	// Allocates <size> bytes from the end of an available resource heap.
-	void* AllocUploadResource(uint32 size, uint32 alignment, class FD3D12ResourceLocation* ResourceLocation);
-};
-
-// FD3D12DefaultBufferPool
-//
-class FD3D12DefaultBufferPool : public FD3D12ResourceAllocator
-{
-public:
-	FD3D12DefaultBufferPool(FD3D12Device* InParent, eBuddyAllocationStrategy allocationStrategy,
-		uint32 MaxSizeForPooling,
-		D3D12_RESOURCE_FLAGS flags,
-		uint32 maxBlockSize,
-		uint32 minBlockSize);
-	FD3D12DefaultBufferPool();
-
-	// Grab a buffer from the available buffers or create a new buffer if none are available
-	void AllocDefaultResource(const D3D12_RESOURCE_DESC& Desc, D3D12_SUBRESOURCE_DATA* pInitialData, class FD3D12ResourceLocation* ResourceLocation, uint32 Alignment);
-};
-
-// FD3D12DefaultBufferAllocator
-//
-class FD3D12DefaultBufferAllocator : public FD3D12DeviceChild
-{
-	static const uint32 MAX_DEFAULT_POOLS = 16; // Should match the max D3D12_RESOURCE_FLAG_FLAG combinations.
-	FD3D12DefaultBufferPool* DefaultBufferPools[MAX_DEFAULT_POOLS];
-	HRESULT AllocateWriteableBuffer(const D3D12_RESOURCE_DESC& Desc, D3D12_SUBRESOURCE_DATA* pInitialData, class FD3D12ResourceLocation* ResourceLocation, uint32 Alignment = 0);
-
-	bool BufferIsWriteable(const D3D12_RESOURCE_DESC& Desc) 
-	{ 
-		const bool bDSV = (Desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL) != 0;
-		const bool bRTV = (Desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET) != 0;
-		const bool bUAV = (Desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS) != 0;
-
-		// Buffer Depth Stencils are invalid
-		check(bDSV == false);
-		const bool bWriteable = bDSV || bRTV || bUAV;
-		return bWriteable;
-	}
-
-public:
-	HRESULT AllocDefaultResource(const D3D12_RESOURCE_DESC& Desc, D3D12_SUBRESOURCE_DATA* InitialData, class FD3D12ResourceLocation** ResourceLocation, uint32 Alignment = 0);
-	// Grab a buffer from the available buffers or create a new buffer if none are available
-	HRESULT AllocDefaultResource(const D3D12_RESOURCE_DESC& pDesc, D3D12_SUBRESOURCE_DATA* InitialData, class FD3D12ResourceLocation* ResourceLocation, uint32 Alignment = 0);
-	void FreeDefaultBufferPools();
-	void CleanupFreeBlocks();
-
-	FD3D12DefaultBufferAllocator(FD3D12Device* InParent) :
-		FD3D12DeviceChild(InParent)
-	{
-		FMemory::Memset(DefaultBufferPools, 0);
-	}
-};
-
-class FD3D12TextureAllocator : public FD3D12ResourceAllocator
-{
-public:
-	FD3D12TextureAllocator(FD3D12Device* Device, uint32 HeapSize, D3D12_HEAP_FLAGS Flags) :
-		FD3D12ResourceAllocator(Device,
-			kPlacedResourceStrategy,
-			D3D12_HEAP_TYPE_DEFAULT,
-			Flags | D3D12_HEAP_FLAG_DENY_BUFFERS,
-			D3D12_RESOURCE_FLAG_NONE,
-			D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT,
-			HeapSize,
-			D3D12_SMALL_RESOURCE_PLACEMENT_ALIGNMENT) {}
-
-	HRESULT AllocateTexture(D3D12_RESOURCE_DESC Desc, const D3D12_CLEAR_VALUE* ClearValue, FD3D12ResourceLocation* TextureLocation);
-};
-
-#define TEXTURE_POOL_SIZE_READABLE (64 * 1024 * 1024)
-
-class FD3D12TextureAllocatorPool : public FD3D12DeviceChild
-{
-public:
-	FD3D12TextureAllocatorPool(FD3D12Device* Device) :
-		ReadOnlyTexturePool(Device, TEXTURE_POOL_SIZE_READABLE, D3D12_HEAP_FLAG_ALLOW_ONLY_NON_RT_DS_TEXTURES),
-		FD3D12DeviceChild(Device)
-	{};
-
-	HRESULT AllocateTexture(D3D12_RESOURCE_DESC Desc, const D3D12_CLEAR_VALUE* ClearValue, uint8 UEFormat, FD3D12ResourceLocation* TextureLocation);
-
-	void CleanUpAllocations() { ReadOnlyTexturePool.CleanUpAllocations(); }
-
-	void Destroy() { ReadOnlyTexturePool.Destroy(); }
-
-private:
-		FD3D12TextureAllocator ReadOnlyTexturePool;
-};
 
 #if SUPPORTS_MEMORY_RESIDENCY
 class FD3D12ResourceResidencyManager : public FD3D12DeviceChild
@@ -3816,4 +3626,9 @@ template<>
 struct TD3D12ResourceTraits<FRHIBlendState>
 {
 	typedef FD3D12BlendState TConcreteType;
+};
+template<>
+struct TD3D12ResourceTraits<FRHIComputeFence>
+{
+	typedef FD3D12Fence TConcreteType;
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /**
  * TranslucentLightInjectionShaders.usf: Shaders for calculating lighting in a volume to use on translucency
@@ -54,15 +54,15 @@ void SimpleLightInjectMainPS(
 	// compute XYZ of the position we shader
 	float3 WorldPosition;
 	{
-		float ZPosition = View.TranslucencyLightingVolumeMin[VolumeCascadeIndex].z + (Input.LayerIndex + .5f) * View.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].w;
+		float ZPosition = Frame.TranslucencyLightingVolumeMin[VolumeCascadeIndex].z + (Input.LayerIndex + .5f) * Frame.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].w;
 
-		WorldPosition = float3(View.TranslucencyLightingVolumeMin[VolumeCascadeIndex].xy + Input.Vertex.UV / View.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].xy - .5f * View.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].w, ZPosition);
+		WorldPosition = float3(Frame.TranslucencyLightingVolumeMin[VolumeCascadeIndex].xy + Input.Vertex.UV / Frame.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].xy - .5f * Frame.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].w, ZPosition);
 	}
 
 	// compute UVW of the position we shade in the volume
-	float3 VolumeUVs = float3(Input.Vertex.UV, (Input.LayerIndex + .5f) * View.TranslucencyLightingVolumeMin[VolumeCascadeIndex].w);
+	float3 VolumeUVs = float3(Input.Vertex.UV, (Input.LayerIndex + .5f) * Frame.TranslucencyLightingVolumeMin[VolumeCascadeIndex].w);
 	float3 NormalizedLightVector = normalize(SimpleLightPositionAndRadius.xyz - WorldPosition);
-	float VoxelSize = View.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].w;
+	float VoxelSize = Frame.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].w;
 	float3 WorldPositionForLighting = WorldPosition + 1 * GetBoxPushout(NormalizedLightVector, .5f * VoxelSize);
 
 	float Attenuation = CalcSimpleLightAttenuation(WorldPositionForLighting);
@@ -230,13 +230,13 @@ void InjectMainPS(
 	// compute XYZ of the position we want to shade
 	float3 WorldPosition;
 	{
-		float ZPosition = View.TranslucencyLightingVolumeMin[VolumeCascadeIndex].z + (Input.LayerIndex + .5f) * View.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].w;
+		float ZPosition = Frame.TranslucencyLightingVolumeMin[VolumeCascadeIndex].z + (Input.LayerIndex + .5f) * Frame.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].w;
 
-		WorldPosition = float3(View.TranslucencyLightingVolumeMin[VolumeCascadeIndex].xy + Input.Vertex.UV / View.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].xy - .5f * View.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].w, ZPosition);
+		WorldPosition = float3(Frame.TranslucencyLightingVolumeMin[VolumeCascadeIndex].xy + Input.Vertex.UV / Frame.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].xy - .5f * Frame.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].w, ZPosition);
 	}
 
 	// compute UVW of the position we shade in the volume
-	float3 VolumeUVs = float3(Input.Vertex.UV, (Input.LayerIndex + .5f) * View.TranslucencyLightingVolumeMin[VolumeCascadeIndex].w);
+	float3 VolumeUVs = float3(Input.Vertex.UV, (Input.LayerIndex + .5f) * Frame.TranslucencyLightingVolumeMin[VolumeCascadeIndex].w);
 
 	// 0: no contribution, 1:full contribution
 	float Masking = 1.0f;
@@ -268,7 +268,7 @@ void InjectMainPS(
 
 	float3 WorldPositionForLighting;
 	{
-		float VoxelSize = View.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].w;
+		float VoxelSize = Frame.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].w;
 
 		WorldPositionForLighting = WorldPosition + 1 * GetBoxPushout(NormalizedLightVector, .5f * VoxelSize);
 	}
@@ -286,7 +286,7 @@ void InjectMainPS(
 			// Larger values result in a shorter transition distance
 			float TransitionScale = 10;
 			// Rescale the UVs to make the fade go to 0 before the edge of the volume
-			float3 FadeUVs = VolumeUVs * (1 + 4 * View.TranslucencyLightingVolumeMin[VolumeCascadeIndex].w) - 2 * View.TranslucencyLightingVolumeMin[VolumeCascadeIndex].w;
+			float3 FadeUVs = VolumeUVs * (1 + 4 * Frame.TranslucencyLightingVolumeMin[VolumeCascadeIndex].w) - 2 * Frame.TranslucencyLightingVolumeMin[VolumeCascadeIndex].w;
 			// Setup a 3d lerp factor going to 0 near the edge of the outer volume
 			float3 LerpFactors = saturate((.5f - abs(FadeUVs - .5f)) * TransitionScale);
 			float FinalLerpFactor = LerpFactors.x * LerpFactors.y * LerpFactors.z;

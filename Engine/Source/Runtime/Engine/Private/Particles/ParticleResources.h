@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ParticleResources.h: Declaration of global particle resources.
@@ -25,6 +25,14 @@ public:
 /** Global particle texture coordinate vertex buffer. */
 extern TGlobalResource<FParticleTexCoordVertexBuffer> GParticleTexCoordVertexBuffer;
 
+class FParticleEightTexCoordVertexBuffer : public FVertexBuffer
+{
+public:
+	virtual void InitRHI() override;
+};
+
+extern TGlobalResource<FParticleEightTexCoordVertexBuffer> GParticleEightTexCoordVertexBuffer;
+
 /**
  * Index buffer for drawing an individual sprite.
  */
@@ -34,8 +42,18 @@ public:
 	virtual void InitRHI() override;
 };
 
+/**
+ * Index buffer for drawing an individual sprite.
+ */
+class FSixTriangleParticleIndexBuffer : public FIndexBuffer
+{
+public:
+	virtual void InitRHI() override;
+};
+
 /** Global particle index buffer. */
 extern TGlobalResource<FParticleIndexBuffer> GParticleIndexBuffer;
+extern TGlobalResource<FSixTriangleParticleIndexBuffer> GSixTriangleParticleIndexBuffer;
 
 typedef FShaderResourceViewRHIParamRef FParticleShaderParamRef;
 typedef FVertexBufferRHIParamRef FParticleBufferParamRef;

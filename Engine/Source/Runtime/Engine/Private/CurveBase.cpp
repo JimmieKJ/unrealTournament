@@ -1,8 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "CsvParser.h"
 #include "EditorFramework/AssetImportData.h"
+
+DECLARE_CYCLE_STAT(TEXT("RichCurve Eval"), STAT_RichCurve_Eval, STATGROUP_Engine);
 
 
 /* FKeyHandleMap
@@ -522,10 +524,38 @@ FKeyHandle::FKeyHandle()
 }
 
 
+/* FCurveOwnerInterface
+ *****************************************************************************/
+
+FLinearColor FCurveOwnerInterface::GetCurveColor(FRichCurveEditInfo CurveInfo) const
+{
+	FString CurveName = CurveInfo.CurveName.ToString();
+	if (CurveName == TEXT("X") || CurveName == TEXT("R"))
+	{
+		return FLinearColor(1.0f, 0.0f, 0.0f);
+	}
+	else if (CurveName == TEXT("Y") || CurveName == TEXT("G"))
+	{
+		return FLinearColor(0.0f, 1.0f, 0.0f);
+	}
+	else if (CurveName == TEXT("Z") || CurveName == TEXT("B"))
+	{
+		return FLinearColor(0.05f, 0.05f, 1.0f);
+	}
+
+	return FLinearColor::Gray;
+}
+
+
 /* FRichCurve
  *****************************************************************************/
 
 TArray<FRichCurveKey> FRichCurve::GetCopyOfKeys() const
+{
+	return Keys;
+}
+
+const TArray<FRichCurveKey>& FRichCurve::GetConstRefOfKeys() const
 {
 	return Keys;
 }
@@ -562,6 +592,20 @@ FRichCurveKey FRichCurve::GetLastKey() const
 {
 	check(Keys.Num() > 0);
 	return Keys[Keys.Num()-1];
+}
+
+
+FRichCurveKey* FRichCurve::GetFirstMatchingKey(const TArray<FKeyHandle>& KeyHandles)
+{
+	for (const auto& KeyHandle : KeyHandles)
+	{
+		if (IsKeyHandleValid(KeyHandle))
+		{
+			return &GetKey(KeyHandle);
+		}
+	}
+
+	return nullptr;
 }
 
 
@@ -1182,6 +1226,79 @@ void FRichCurve::ReadjustTimeRange(float NewMinTimeRange, float NewMaxTimeRange,
 	}
 }
 
+void FRichCurve::BakeCurve(float SampleRate)
+{
+	if (Keys.Num() == 0)
+	{
+		return;
+	}
+
+	float FirstKeyTime = Keys[0].Time;
+	float LastKeyTime = Keys[Keys.Num()-1].Time;
+
+	BakeCurve(SampleRate, FirstKeyTime, LastKeyTime);
+}
+
+void FRichCurve::BakeCurve(float SampleRate, float FirstKeyTime, float LastKeyTime)
+{
+	if (Keys.Num() == 0)
+	{
+		return;
+	}
+
+	for (float Time = FirstKeyTime + SampleRate; Time < LastKeyTime;  )
+	{
+		float Value = Eval(Time);
+		UpdateOrAddKey(Time, Value);
+		Time += SampleRate;
+	}
+}
+
+void FRichCurve::RemoveRedundantKeys(float Tolerance)
+{
+	if (Keys.Num() == 0)
+	{
+		return;
+	}
+
+	float FirstKeyTime = Keys[0].Time;
+	float LastKeyTime = Keys[Keys.Num()-1].Time;
+
+	RemoveRedundantKeys(Tolerance, FirstKeyTime, LastKeyTime);
+}
+
+void FRichCurve::RemoveRedundantKeys(float Tolerance, float FirstKeyTime, float LastKeyTime)
+{
+	for(int32 KeyIndex = 0; KeyIndex < Keys.Num(); ++KeyIndex)
+	{
+		// copy the key
+		FRichCurveKey OriginalKey = Keys[KeyIndex];
+		if (OriginalKey.Time < FirstKeyTime || OriginalKey.Time > LastKeyTime)
+		{
+			continue;
+		}
+
+		FKeyHandle KeyHandle = GetKeyHandle(KeyIndex);
+
+		// remove it
+		DeleteKey(KeyHandle);
+
+		// eval to check validity
+		float NewValue = Eval(OriginalKey.Time, DefaultValue);
+			
+		// outside tolerance? re-add the key.
+		if(FMath::Abs(NewValue - OriginalKey.Value) > Tolerance)
+		{
+			FKeyHandle NewKeyHandle = AddKey(OriginalKey.Time, OriginalKey.Value, false, KeyHandle);
+			FRichCurveKey& NewKey = GetKey(NewKeyHandle);
+			NewKey = OriginalKey;
+		}
+		else
+		{
+			KeyIndex--;
+		}
+	}
+}
 
 /** Util to find float value on bezier defined by 4 control points */ 
 static float BezierInterp(float P0, float P1, float P2, float P3, float Alpha)
@@ -1303,7 +1420,7 @@ void FRichCurve::RemapTimeValue(float& InTime, float& CycleValueOffset) const
 
 float FRichCurve::Eval(float InTime, float InDefaultValue) const
 {
-	QUICK_SCOPE_CYCLE_COUNTER(STAT_RichCurve_Eval);
+	SCOPE_CYCLE_COUNTER(STAT_RichCurve_Eval);
 
 	// Remap time if extrapolation is present and compute offset value to use if cycling 
 	float CycleValueOffset = 0;

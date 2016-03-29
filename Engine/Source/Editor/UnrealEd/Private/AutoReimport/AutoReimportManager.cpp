@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 
@@ -361,15 +361,15 @@ void FAutoReimportManager::OnAssetRenamed(const FAssetData& AssetData, const FSt
 	
 	const FString& RelativeFilename = ImportInfo->SourceFiles[0].RelativeFilename;
 
-	FString OldPackagePath = FPackageName::GetLongPackagePath(OldPath);
+	FString OldPackagePath = FPackageName::GetLongPackagePath(OldPath) / TEXT("");
 	FString NewReimportPath;
 
 	// We move the file with the asset provided it is the only file referenced, and sits right beside the uasset file
 	if (!RelativeFilename.GetCharArray().ContainsByPredicate([](const TCHAR Char) { return Char == '/' || Char == '\\'; }))
 	{
 		// File resides in the same folder as the asset, so we can potentially rename the source file too
-		const FString AbsoluteSrcPath = FPaths::ConvertRelativePathToFull(FPackageName::LongPackageNameToFilename(OldPackagePath + TEXT("/")));
-		const FString AbsoluteDstPath = FPaths::ConvertRelativePathToFull(FPackageName::LongPackageNameToFilename(AssetData.PackagePath.ToString() + TEXT("/")));
+		const FString AbsoluteSrcPath = FPaths::ConvertRelativePathToFull(FPackageName::LongPackageNameToFilename(OldPackagePath));
+		const FString AbsoluteDstPath = FPaths::ConvertRelativePathToFull(FPackageName::LongPackageNameToFilename(AssetData.PackagePath.ToString() / TEXT("")));
 
 		const FString OldAssetName = FPackageName::GetLongPackageAssetName(FPackageName::ObjectPathToPackageName(OldPath));
 		FString NewFileName = FPaths::GetBaseFilename(RelativeFilename);

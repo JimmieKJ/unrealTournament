@@ -1,12 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "AnimCurveTypes.h"
 #include "Animation/AnimInstance.h"
 #include "AnimationRuntime.h"
-
-DECLARE_CYCLE_STAT(TEXT("BlendedCurve InitFrom"), STAT_BlendedCurve_InitFrom, STATGROUP_Anim);
-
 
 /////////////////////////////////////////////////////
 // FFloatCurve
@@ -187,7 +184,7 @@ void FRawCurveTracks::EvaluateTransformCurveData(USkeleton * Skeleton, TMap<FNam
 			continue;
 		}
 
-		FSmartNameMapping* NameMapping = Skeleton->SmartNames.GetContainer(USkeleton::AnimTrackCurveMappingName);
+		const FSmartNameMapping* NameMapping = Skeleton->GetSmartNameContainer(USkeleton::AnimTrackCurveMappingName);
 
 		// Add or retrieve curve
 		FName CurveName;
@@ -252,6 +249,34 @@ void FRawCurveTracks::DeleteAllCurveData(ESupportedCurveType SupportedCurveType 
 		break;
 	}
 }
+
+#if WITH_EDITOR
+void FRawCurveTracks::AddFloatCurveKey(const USkeleton::AnimCurveUID Uid, int32 CurveFlags, float Time, float Value)
+{
+	FFloatCurve* FloatCurve = GetCurveDataImpl<FFloatCurve>(FloatCurves, Uid);
+	if (FloatCurve == nullptr)
+	{
+		AddCurveData(Uid, CurveFlags, FloatType);
+		FloatCurve = GetCurveDataImpl<FFloatCurve>(FloatCurves, Uid);
+	}
+
+	if (FloatCurve->GetCurveTypeFlags() != CurveFlags)
+	{
+		FloatCurve->SetCurveTypeFlags(FloatCurve->GetCurveTypeFlags() | CurveFlags);
+	}
+
+	FloatCurve->UpdateOrAddKey(Value, Time);
+}
+
+void FRawCurveTracks::RemoveRedundantKeys()
+{
+	for (auto CurveIter = FloatCurves.CreateIterator(); CurveIter; ++CurveIter)
+	{
+		FFloatCurve& Curve = *CurveIter;
+		Curve.FloatCurve.RemoveRedundantKeys(SMALL_NUMBER);
+	}
+}
+#endif
 
 bool FRawCurveTracks::AddCurveData(USkeleton::AnimCurveUID Uid, int32 CurveFlags /*= ACF_DefaultCurve*/, ESupportedCurveType SupportedCurveType /*= FloatType*/)
 {
@@ -318,7 +343,7 @@ void FRawCurveTracks::Serialize(FArchive& Ar)
 	}
 }
 
-void FRawCurveTracks::UpdateLastObservedNames(FSmartNameMapping* NameMapping, ESupportedCurveType SupportedCurveType /*= FloatType*/)
+void FRawCurveTracks::UpdateLastObservedNames(const FSmartNameMapping* NameMapping, ESupportedCurveType SupportedCurveType /*= FloatType*/)
 {
 	switch(SupportedCurveType)
 	{
@@ -403,7 +428,7 @@ bool FRawCurveTracks::AddCurveDataImpl(TArray<DataType> & Curves, USkeleton::Ani
 }
 
 template <typename DataType>
-void FRawCurveTracks::UpdateLastObservedNamesImpl(TArray<DataType> & Curves, FSmartNameMapping* NameMapping)
+void FRawCurveTracks::UpdateLastObservedNamesImpl(TArray<DataType> & Curves, const FSmartNameMapping* NameMapping)
 {
 	if(NameMapping)
 	{
@@ -428,229 +453,4 @@ bool FRawCurveTracks::DuplicateCurveDataImpl(TArray<DataType> & Curves, USkeleto
 	}
 	return false;
 }
-/////////////////////////////////////////////
 
-FORCEINLINE void ValidateCurve(FBlendedCurve* Curve)
-{
-#if 0 
-	for (auto& Element : Curve->Elements)
-	{
-		if (Element.Flags & ACF_DrivesMorphTarget)
-		{
-			ensure (Element.Value < 1.2f);
-		}
-	}
-#endif
-}
-
-void FBlendedCurve::Set(USkeleton::AnimCurveUID InUid, float InValue, int32 InFlags)
-{
-	int32 ArrayIndex;
-
-	check(bInitialized);
-
-	if (UIDList.Find(InUid, ArrayIndex))
-	{
-		Elements[ArrayIndex].Value = InValue;
-		Elements[ArrayIndex].Flags = InFlags;
-	}
-
-	ValidateCurve(this);
-}
-
-void FBlendedCurve::Reset(int32 Count)
-{
-	Elements.Reset();
-	Elements.Reserve(Count);
-}
-
-//@Todo curve flags won't transfer over - it only overwrites
-void FBlendedCurve::Blend(const FBlendedCurve& A, const FBlendedCurve& B, float Alpha)
-{
-	check(A.Num()==B.Num());
-	if(FMath::Abs(Alpha) <= ZERO_ANIMWEIGHT_THRESH)
-	{
-		// if blend is all the way for child1, then just copy its bone atoms
-		Override(A);
-	}
-	else if(FMath::Abs(Alpha - 1.0f) <= ZERO_ANIMWEIGHT_THRESH)
-	{
-		// if blend is all the way for child2, then just copy its bone atoms
-		Override(B);
-	}
-	else
-	{
-		InitFrom(A);
-		for(int32 CurveId=0; CurveId<A.Elements.Num(); ++CurveId)
-		{
-			Elements[CurveId].Value = FMath::Lerp(A.Elements[CurveId].Value, B.Elements[CurveId].Value, Alpha); 
-			Elements[CurveId].Flags = (A.Elements[CurveId].Flags) | (B.Elements[CurveId].Flags);
-		}
-	}
-
-	ValidateCurve(this);
-}
-
-void FBlendedCurve::BlendWith(const FBlendedCurve& Other, float Alpha)
-{
-	check(Num()==Other.Num());
-	if(FMath::Abs(Alpha) <= ZERO_ANIMWEIGHT_THRESH)
-	{
-		return;
-	}
-	else if(FMath::Abs(Alpha - 1.0f) <= ZERO_ANIMWEIGHT_THRESH)
-	{
-		// if blend is all the way for child2, then just copy its bone atoms
-		Override(Other);
-	}
-	else
-	{
-		for(int32 CurveId=0; CurveId<Elements.Num(); ++CurveId)
-		{
-			Elements[CurveId].Value = FMath::Lerp(Elements[CurveId].Value, Other.Elements[CurveId].Value, Alpha);
-			Elements[CurveId].Flags |= (Other.Elements[CurveId].Flags);
-		}
-	}
-	 
-	ValidateCurve(this);
-}
-
-void FBlendedCurve::ConvertToAdditive(const FBlendedCurve& BaseCurve)
-{
-	check(bInitialized);
-	check(Num()==BaseCurve.Num());
-
-	for(int32 CurveId=0; CurveId<Elements.Num(); ++CurveId)
-	{
-		Elements[CurveId].Value -= BaseCurve.Elements[CurveId].Value;
-		Elements[CurveId].Flags |= BaseCurve.Elements[CurveId].Flags;
-	}
-	ValidateCurve(this);
-}
-
-void FBlendedCurve::Accumulate(const FBlendedCurve& AdditiveCurve, float Weight)
-{
-	check(bInitialized);
-	check(Num()==AdditiveCurve.Num());
-
-	if (Weight > ZERO_ANIMWEIGHT_THRESH)
-	{
-		for(int32 CurveId=0; CurveId<Elements.Num(); ++CurveId)
-		{
-			Elements[CurveId].Value += AdditiveCurve.Elements[CurveId].Value * Weight;
-			Elements[CurveId].Flags |= AdditiveCurve.Elements[CurveId].Flags;
-		}
-	}
-
-	ValidateCurve(this);
-}
-
-void FBlendedCurve::Override(const FBlendedCurve& CurveToOverrideFrom, float Weight)
-{
-	InitFrom(CurveToOverrideFrom);
-
-	if ( FMath::IsNearlyEqual(Weight, 1.f) )
-	{
-		Override(CurveToOverrideFrom);
-	}
-	else
-	{
-		for(int32 CurveId=0; CurveId<CurveToOverrideFrom.Elements.Num(); ++CurveId)
-		{
-			Elements[CurveId].Value = CurveToOverrideFrom.Elements[CurveId].Value * Weight;
-			Elements[CurveId].Flags |= CurveToOverrideFrom.Elements[CurveId].Flags;
-		}
-	}
-
-	ValidateCurve(this);
-}
-
-void FBlendedCurve::Override(const FBlendedCurve& CurveToOverrideFrom)
-{
-	InitFrom(CurveToOverrideFrom);
-	Elements.Reset();
-	Elements.Append(CurveToOverrideFrom.Elements);
-
-	ValidateCurve(this);
-}
-
-void FBlendedCurve::InitFrom(const USkeleton* Skeleton)
-{
-	SCOPE_CYCLE_COUNTER(STAT_BlendedCurve_InitFrom);
-
-	if(const FSmartNameMapping* Mapping = Skeleton->SmartNames.GetContainer(USkeleton::AnimCurveMappingName))
-	{
-		Mapping->FillUidArray(UIDList);
-		Elements.Reset();
-		Elements.AddZeroed(UIDList.Num());
-	}
-
-	// no name, means no curve
-	bInitialized = true;
-}
-
-void FBlendedCurve::InitFrom(const FBlendedCurve& InCurveToInitFrom)
-{
-	SCOPE_CYCLE_COUNTER(STAT_BlendedCurve_InitFrom);
-
-	// make sure this doesn't happen
-	if (ensure(&InCurveToInitFrom != this))
-	{
-		UIDList.Reset();
-		UIDList.Append(InCurveToInitFrom.UIDList);
-		Elements.Reset();
-		Elements.AddZeroed(UIDList.Num());
-		bInitialized = true;
-	}
-}
-
-FBlendedCurve::FBlendedCurve(const class UAnimInstance* AnimInstance)
-{
-	check(AnimInstance);
-	InitFrom(AnimInstance->CurrentSkeleton);
-}
-
-void FBlendedCurve::CopyFrom(const FBlendedCurve& CurveToCopyFrom)
-{
-	if (&CurveToCopyFrom != this)
-	{
-		UIDList.Reset();
-		UIDList.Append(CurveToCopyFrom.UIDList);
-		Elements.Reset();
-		Elements.Append(CurveToCopyFrom.Elements);
-		bInitialized = true;
-		ValidateCurve(this);
-	}
-}
-
-void FBlendedCurve::MoveFrom(FBlendedCurve& CurveToMoveFrom)
-{
-	UIDList = MoveTemp(CurveToMoveFrom.UIDList);
-	Elements = MoveTemp(CurveToMoveFrom.Elements);
-	bInitialized = true;
-	CurveToMoveFrom.bInitialized = false;
-
-	ValidateCurve(this);
-}
-
-void FBlendedCurve::Combine(const FBlendedCurve& CurveToCombine)
-{
-	check(bInitialized);
-	check(Num()==CurveToCombine.Num());
-
-	for(int32 CurveId=0; CurveId<CurveToCombine.Elements.Num(); ++CurveId)
-	{
-		// if target value is non zero, we accpet target's value
-		// originally this code was doing max, but that doesn't make sense since the values can be negative
-		// we could try to pick non-zero, but if target value is non-zero, I think we should accept that value 
-		// if source is non zero, it will be overriden
-		if (CurveToCombine.Elements[CurveId].Value != 0.f)
-		{
-			Elements[CurveId].Value = CurveToCombine.Elements[CurveId].Value; 
-		}
-
-		Elements[CurveId].Flags |= CurveToCombine.Elements[CurveId].Flags;
-	}
-
-	ValidateCurve(this);
-}

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -23,9 +23,15 @@ private:
 	/** Check whether that the chosen path is valid */
 	bool IsValidPath(const FString& AbsolutePath, const bool bRelativeToGameContentDir, FText* const OutReason = nullptr) const;
 
+	/** Called when a path is picked from the path picker */
+	void OnPathPicked(const FString& Path, TSharedRef<IPropertyHandle> PropertyHandle);
+
 	/** The browse button widget */
 	TSharedPtr<SButton> BrowseButton;
 
+	/** The pick button widget */
+	TSharedPtr<SComboButton> PickerButton;
+	
 	/** Absolute path to the game content directory */
 	FString AbsoluteGameContentDir;
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	StaticMeshBuild.cpp: Static mesh building.
@@ -113,11 +113,12 @@ void UStaticMesh::Build(bool bSilent, TArray<FText>* OutErrors)
 		// Warn the user if the new mesh has degenerate tangent bases.
 		if (HasBadTangents(this))
 		{
+			bool bIsUsingMikktSpace = SourceModels[0].BuildSettings.bUseMikkTSpace && (SourceModels[0].BuildSettings.bRecomputeTangents || SourceModels[0].BuildSettings.bRecomputeNormals);
 			// Only suggest Recompute Tangents if the import hasn't already tried it
 			FFormatNamedArguments Arguments;
 			Arguments.Add( TEXT("Meshname"), FText::FromString(GetName()) );
 			Arguments.Add( TEXT("Options"), SourceModels[0].BuildSettings.bRecomputeTangents ? FText::GetEmpty() : LOCTEXT("MeshRecomputeTangents", "Consider enabling Recompute Tangents in the mesh's Build Settings.") );
-			Arguments.Add( TEXT("MikkTSpace"), SourceModels[0].BuildSettings.bUseMikkTSpace ? LOCTEXT("MeshUseMikkTSpace", "MikkTSpace relies on tangent bases and may result in mesh corruption, consider disabling this option.") : FText::GetEmpty() );
+			Arguments.Add( TEXT("MikkTSpace"), bIsUsingMikktSpace ? LOCTEXT("MeshUseMikkTSpace", "MikkTSpace relies on tangent bases and may result in mesh corruption, consider disabling this option.") : FText::GetEmpty() );
 			const FText WarningMsg = FText::Format( LOCTEXT("MeshHasDegenerateTangents", "{Meshname} has degenerate tangent bases which will result in incorrect shading. {Options} {MikkTSpace}"), Arguments );
 			UE_LOG(LogStaticMesh,Warning,TEXT("%s"),*WarningMsg.ToString());
 			if (!bSilent && OutErrors)
@@ -131,19 +132,74 @@ void UStaticMesh::Build(bool bSilent, TArray<FText>* OutErrors)
 
 		// Find any static mesh components that use this mesh and fixup their override colors if necessary.
 		// Also invalidate lighting. *** WARNING components may be reattached here! ***
-		for( TObjectIterator<UStaticMeshComponent> It; It; ++It )
+		const uint32 NumLODs = RenderData->LODResources.Num();
+		for (TObjectIterator<UStaticMeshComponent> It; It; ++It)
 		{
 			if ( It->StaticMesh == this )
 			{
-				It->FixupOverrideColorsIfNecessary( true );
+				// Initialize override vertex colors on any new LODs which have just been created
+				It->SetLODDataCount(NumLODs, It->LODData.Num());
+
+				FStaticMeshComponentLODInfo& LOD0Info = It->LODData[0];
+				if (LOD0Info.OverrideVertexColors)
+				{
+					for (uint32 LODIndex = 1; LODIndex < NumLODs; ++LODIndex)
+					{
+						FStaticMeshComponentLODInfo& LODInfo = It->LODData[LODIndex];
+
+						if (LODInfo.OverrideVertexColors == nullptr && LODInfo.PaintedVertices.Num() == 0)
+						{
+							LODInfo.OverrideVertexColors = new FColorVertexBuffer;
+
+							FStaticMeshLODResources& CurRenderData = RenderData->LODResources[LODIndex];
+
+							TArray<FColor> NewOverrideColors;
+
+							if (LOD0Info.PaintedVertices.Num() > 0)
+							{
+								// Build override colors for LOD, based on LOD0
+								RemapPaintedVertexColors(
+									LOD0Info.PaintedVertices,
+									*LOD0Info.OverrideVertexColors,
+									CurRenderData.PositionVertexBuffer,
+									&CurRenderData.VertexBuffer,
+									NewOverrideColors
+									);
+							}
+							if (NewOverrideColors.Num())
+							{
+								LODInfo.OverrideVertexColors->InitFromColorArray(NewOverrideColors);
+
+								// Update the PaintedVertices array
+								const int32 NumVerts = CurRenderData.GetNumVertices();
+								check(NumVerts == NewOverrideColors.Num());
+
+								LODInfo.PaintedVertices.Reserve(NumVerts);
+								for (int32 VertIndex = 0; VertIndex < NumVerts; ++VertIndex)
+								{
+									FPaintedVertex* Vertex = new(LODInfo.PaintedVertices) FPaintedVertex;
+									Vertex->Position = CurRenderData.PositionVertexBuffer.VertexPosition(VertIndex);
+									Vertex->Normal = CurRenderData.VertexBuffer.VertexTangentZ(VertIndex);
+									Vertex->Color = LODInfo.OverrideVertexColors->VertexColor(VertIndex);
+								}
+							}
+						}
+					}
+				}
+
+				It->FixupOverrideColorsIfNecessary(true);
 				It->InvalidateLightingCache();
 			}
 		}
-
 	}
 
 	// Calculate extended bounds
 	CalculateExtendedBounds();
+
+	if (NavCollision == NULL && !!bHasNavigationData)
+	{
+		CreateNavCollision();
+	}
 
 	PostMeshBuild.Broadcast(this);
 
@@ -151,7 +207,7 @@ void UStaticMesh::Build(bool bSilent, TArray<FText>* OutErrors)
 	{
 		GWarn->EndSlowTask();
 	}
-	
+
 #else
 	UE_LOG(LogStaticMesh,Fatal,TEXT("UStaticMesh::Build should not be called on non-editor builds."));
 #endif

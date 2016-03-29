@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "Animation/AnimNodeBase.h"
@@ -13,8 +13,8 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_SaveCachedPose : public FAnimNode_Base
 	FPoseLink Pose;
 
 protected:
-	FCompactPose CachedPose;
-	FBlendedCurve CachedCurve;
+	FCompactHeapPose CachedPose;
+	FBlendedHeapCurve CachedCurve;
 
 	FGraphTraversalCounter InitializationCounter;
 	FGraphTraversalCounter CachedBonesCounter;

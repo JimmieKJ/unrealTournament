@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -22,7 +22,7 @@ private:
 
 typedef FIOSPlatformTextField FPlatformTextField;
 
-
+#if !PLATFORM_TVOS
 @interface SlateTextField : NSObject<UIAlertViewDelegate>
 {
 	TSharedPtr<IVirtualKeyboardEntry> TextWidget;
@@ -32,3 +32,4 @@ typedef FIOSPlatformTextField FPlatformTextField;
 -(void)show:(TSharedPtr<IVirtualKeyboardEntry>)InTextWidget;
 
 @end
+#endif

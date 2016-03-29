@@ -1,16 +1,17 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "GameplayTagsEditorModulePrivatePCH.h"
 #include "BlueprintNodeSpawner.h"
 #include "BlueprintActionDatabaseRegistrar.h"
 #include "GameplayTagContainer.h"
 #include "GameplayTagsK2Node_SwitchGameplayTag.h"
+#include "BlueprintGameplayTagLibrary.h"
 
 UGameplayTagsK2Node_SwitchGameplayTag::UGameplayTagsK2Node_SwitchGameplayTag(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	FunctionName = TEXT("NotEqual_TagTag");
-	FunctionClass = UGameplayTagsK2Node_SwitchGameplayTag::StaticClass();
+	FunctionClass = UBlueprintGameplayTagLibrary::StaticClass();
 }
 
 void UGameplayTagsK2Node_SwitchGameplayTag::CreateFunctionPin()
@@ -38,9 +39,13 @@ void UGameplayTagsK2Node_SwitchGameplayTag::CreateFunctionPin()
 	}
 }
 
-bool UGameplayTagsK2Node_SwitchGameplayTag::NotEqual_TagTag(FGameplayTag A, FString B)
+void UGameplayTagsK2Node_SwitchGameplayTag::PostLoad()
 {
-	return A.ToString() != B;
+	Super::PostLoad();
+	if (UEdGraphPin* FunctionPin = FindPin(FunctionName.ToString()))
+	{
+		FunctionPin->DefaultObject = FunctionClass->GetDefaultObject();
+	}
 }
 
 void UGameplayTagsK2Node_SwitchGameplayTag::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)

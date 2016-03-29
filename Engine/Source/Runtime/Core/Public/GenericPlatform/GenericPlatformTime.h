@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -67,6 +67,12 @@ struct CORE_API FGenericPlatformTime
 		gettimeofday( &tv, NULL );
 		return (uint32) ((((uint64)tv.tv_sec) * 1000000ULL) + (((uint64)tv.tv_usec)));
 	}
+	static FORCEINLINE uint64 Cycles64()
+	{
+		struct timeval tv;
+		gettimeofday( &tv, NULL );
+		return ((((uint64)tv.tv_sec) * 1000000ULL) + (((uint64)tv.tv_usec)));
+	}
 
 	/** Returns the system time. */
 	static void SystemTime( int32& Year, int32& Month, int32& DayOfWeek, int32& Day, int32& Hour, int32& Min, int32& Sec, int32& MSec );
@@ -122,6 +128,13 @@ struct CORE_API FGenericPlatformTime
 		return FCPUTime( 0.0f, 0.0f );
 	}
 
+	/**
+	* @return seconds per cycle.
+	*/
+	static double GetSecondsPerCycle()
+	{
+		return SecondsPerCycle;
+	}
 	/** Converts cycles to milliseconds. */
 	static float ToMilliseconds( const uint32 Cycles )
 	{
@@ -133,16 +146,24 @@ struct CORE_API FGenericPlatformTime
 	{
 		return (float)double( SecondsPerCycle * Cycles );
 	}
-
 	/**
 	 * @return seconds per cycle.
 	 */
-	static double GetSecondsPerCycle()
+	static double GetSecondsPerCycle64();
+	/** Converts cycles to milliseconds. */
+	static double ToMilliseconds64(const uint64 Cycles)
 	{
-		return SecondsPerCycle;
+		return ToSeconds64(Cycles) * 1000.0;
+	}
+
+	/** Converts cycles to seconds. */
+	static double ToSeconds64(const uint64 Cycles)
+	{
+		return GetSecondsPerCycle64() * double(Cycles);
 	}
 
 protected:
 
 	static double SecondsPerCycle;
+	static double SecondsPerCycle64;
 };

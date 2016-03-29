@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Xml;
 using System.Text.RegularExpressions;
 using System.Linq;
+using System.Management;
 using System.Reflection;
 using System.Threading;
 
@@ -35,7 +36,7 @@ namespace UnrealBuildTool
 		/// <param name="e">  Event arguments (In this case, the line of string output)</param>
 		static protected void ActionDebugOutput(object sender, DataReceivedEventArgs e)
 		{
-			var Output = e.Data;
+			string Output = e.Data;
 			if (Output == null)
 			{
 				return;
@@ -311,10 +312,10 @@ namespace UnrealBuildTool
 				{
 					try
 					{
-						using (var Mos = new System.Management.ManagementObjectSearcher("Select * from Win32_Processor"))
+						using (ManagementObjectSearcher Mos = new System.Management.ManagementObjectSearcher("Select * from Win32_Processor"))
 						{
-							var MosCollection = Mos.Get();
-							foreach (var Item in MosCollection)
+							ManagementObjectCollection MosCollection = Mos.Get();
+							foreach (ManagementBaseObject Item in MosCollection)
 							{
 								NumCores += int.Parse(Item["NumberOfCores"].ToString());
 							}

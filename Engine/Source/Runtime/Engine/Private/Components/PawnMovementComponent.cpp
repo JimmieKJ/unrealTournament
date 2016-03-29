@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "GameFramework/PawnMovementComponent.h"
@@ -64,6 +64,14 @@ FVector UPawnMovementComponent::GetLastInputVector() const
 FVector UPawnMovementComponent::ConsumeInputVector()
 {
 	return PawnOwner ? PawnOwner->Internal_ConsumeMovementInputVector() : FVector::ZeroVector;
+}
+
+void UPawnMovementComponent::RequestPathMove(const FVector& MoveInput)
+{
+	if (PawnOwner)
+	{
+		PawnOwner->Internal_AddMovementInput(MoveInput);
+	}
 }
 
 // TODO: deprecated, remove

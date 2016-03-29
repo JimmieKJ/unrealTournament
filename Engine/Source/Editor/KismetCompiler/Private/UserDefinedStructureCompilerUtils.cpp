@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "KismetCompilerPrivatePCH.h"
 #include "UserDefinedStructureCompilerUtils.h"
@@ -190,6 +190,10 @@ struct FUserDefinedStructureCompilerInner
 			{
 				NewProperty->SetPropertyFlags(CPF_DisableEditOnInstance);
 			}
+			if (VarDesc.bEnableMultiLineText)
+			{
+				NewProperty->SetMetaData("MultiLine", TEXT("true"));
+			}
 			if (VarDesc.bEnable3dWidget)
 			{
 				NewProperty->SetMetaData(FEdMode::MD_MakeEditWidget, TEXT("true"));
@@ -209,6 +213,23 @@ struct FUserDefinedStructureCompilerInner
 			if (NewProperty->HasAnyPropertyFlags(CPF_InstancedReference | CPF_ContainsInstancedReference))
 			{
 				Struct->StructFlags = EStructFlags(Struct->StructFlags | STRUCT_HasInstancedReference);
+			}
+
+			if (VarType.PinSubCategoryObject.IsValid())
+			{
+				const UClass* ClassObject = Cast<UClass>(VarType.PinSubCategoryObject.Get());
+
+				if (ClassObject && ClassObject->IsChildOf(AActor::StaticClass()))
+				{
+					// prevent Actor variables from having default values (because Blueprint templates are library elements that can 
+					// bridge multiple levels and different levels might not have the actor that the default is referencing).
+					NewProperty->PropertyFlags |= CPF_DisableEditOnTemplate;
+				}
+				else
+				{
+					// clear the disable-default-value flag that might have been present (if this was an AActor variable before)
+					NewProperty->PropertyFlags &= ~(CPF_DisableEditOnTemplate);
+				}
 			}
 		}
 	}

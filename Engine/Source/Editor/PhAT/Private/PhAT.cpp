@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "PhATModule.h"
 #include "AssetSelection.h"
@@ -32,6 +32,8 @@
 #include "Engine/StaticMesh.h"
 #include "EngineLogs.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
+#include "PersonaModule.h"
+
 DEFINE_LOG_CATEGORY(LogPhAT);
 #define LOCTEXT_NAMESPACE "PhAT"
 
@@ -3202,9 +3204,19 @@ bool FPhAT::IsRecordAvailable() const
 	return (SharedData->EditorSkelComp && SharedData->EditorSkelComp->SkeletalMesh/* && SharedData->bRunningSimulation */);
 }
 
+bool FPhAT::IsRecording() const
+{
+	FPersonaModule& PersonaModule = FModuleManager::LoadModuleChecked<FPersonaModule>(TEXT("Persona"));
+
+	bool bInRecording = false;
+	PersonaModule.OnIsRecordingActive().ExecuteIfBound(SharedData->EditorSkelComp, bInRecording);
+
+	return bInRecording;
+}
+
 FSlateIcon FPhAT::GetRecordStatusImage() const
 {
-	if(SharedData->Recorder.InRecording())
+	if(IsRecording())
 	{
 		return FSlateIcon(FEditorStyle::GetStyleSetName(), "Persona.StopRecordAnimation");
 	}
@@ -3214,7 +3226,7 @@ FSlateIcon FPhAT::GetRecordStatusImage() const
 
 FText FPhAT::GetRecordMenuLabel() const
 {
-	if(SharedData->Recorder.InRecording())
+	if(IsRecording())
 	{
 		return LOCTEXT("Persona_StopRecordAnimationMenuLabel", "Stop Record Animation");
 	}
@@ -3224,7 +3236,7 @@ FText FPhAT::GetRecordMenuLabel() const
 
 FText FPhAT::GetRecordStatusLabel() const
 {
-	if(SharedData->Recorder.InRecording())
+	if(IsRecording())
 	{
 		return LOCTEXT("Persona_StopRecordAnimationLabel", "Stop");
 	}
@@ -3234,7 +3246,7 @@ FText FPhAT::GetRecordStatusLabel() const
 
 FText FPhAT::GetRecordStatusTooltip() const
 {
-	if(SharedData->Recorder.InRecording())
+	if(IsRecording())
 	{
 		return LOCTEXT("Persona_StopRecordAnimation", "Stop Record Animation");
 	}
@@ -3250,23 +3262,15 @@ void FPhAT::RecordAnimation()
 		return;
 	}
 
-	if(SharedData->Recorder.InRecording())
+	FPersonaModule& PersonaModule = FModuleManager::LoadModuleChecked<FPersonaModule>(TEXT("Persona"));
+
+	if(IsRecording())
 	{
-		UAnimSequence * AnimSeq = SharedData->Recorder.StopRecord(true);
-
-		// open the asset?
-		if (AnimSeq)
-		{
-			TArray<UObject*> ObjectsToSync;
-			ObjectsToSync.Add(AnimSeq);
-
-			FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
-			ContentBrowserModule.Get().SyncBrowserToAssets(ObjectsToSync, true);
-		}
+		PersonaModule.OnStopRecording().ExecuteIfBound(SharedData->EditorSkelComp);
 	}
 	else
 	{
-		SharedData->Recorder.TriggerRecordAnimation(SharedData->EditorSkelComp);
+		PersonaModule.OnRecord().ExecuteIfBound(SharedData->EditorSkelComp);
 	}
 }
 

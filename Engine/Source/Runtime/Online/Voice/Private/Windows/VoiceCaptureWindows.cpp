@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "VoicePrivatePCH.h"
 #include "VoiceCaptureWindows.h"
@@ -124,7 +124,7 @@ bool FVoiceCaptureWindows::Init(int32 SampleRate, int32 NumChannels)
 	}
 
 	// DSDEVID_DefaultCapture WAVEINCAPS 
-	HRESULT hr = DirectSoundCaptureCreate8(&DSDEVID_DefaultVoiceCapture, &CV->VoiceCaptureDev, NULL);
+	HRESULT hr = DirectSoundCaptureCreate8(&VoiceDev->VoiceCaptureDeviceGuid, &CV->VoiceCaptureDev, NULL);
 	if (FAILED(hr))
 	{
 		//DSERR_ALLOCATED, DSERR_INVALIDPARAM, DSERR_NOAGGREGATION, DSERR_OUTOFMEMORY

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 struct ENGINE_API FHighResScreenshotConfig
@@ -16,9 +16,6 @@ struct ENGINE_API FHighResScreenshotConfig
 	bool bDisplayCaptureRegion;
 	bool bCaptureHDR;
 
-	TSharedPtr<class IImageWrapper> ImageCompressorLDR;
-	TSharedPtr<class IImageWrapper> ImageCompressorHDR;
-
 	// Materials used in the editor to help with the capture of highres screenshots
 	UMaterial* HighResScreenshotMaterial;
 	UMaterial* HighResScreenshotMaskMaterial;
@@ -27,7 +24,7 @@ struct ENGINE_API FHighResScreenshotConfig
 	FHighResScreenshotConfig();
 
 	/** Initialize the image wrapper modules (required for SaveImage) **/
-	void Init();
+	void Init(uint32 NumAsyncWriters = 6);
 
 	/** Point the screenshot UI at a different viewport **/
 	void ChangeViewport(TWeakPtr<FSceneViewport> InViewport);
@@ -46,6 +43,17 @@ struct ENGINE_API FHighResScreenshotConfig
 	/** Save to image file **/
 	template<typename TPixelType>
 	ENGINE_API bool SaveImage(const FString& File, const TArray<TPixelType>& Bitmap, const FIntPoint& BitmapSize, FString* OutFilename = nullptr) const;
+
+private:
+	struct FImageWriter
+	{
+		FImageWriter(const TSharedPtr<class IImageWrapper>& InWrapper);
+
+		TSharedPtr<class IImageWrapper> ImageWrapper;
+		mutable FThreadSafeBool bInUse;
+	};
+	TArray<FImageWriter> ImageCompressorsLDR;
+	TArray<FImageWriter> ImageCompressorsHDR;
 };
 
 ENGINE_API FHighResScreenshotConfig& GetHighResScreenshotConfig();

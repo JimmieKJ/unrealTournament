@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "PerforceSourceControlPrivatePCH.h"
 #include "PerforceSourceControlProvider.h"
@@ -121,18 +121,20 @@ void FPerforceSourceControlProvider::ParseCommandLineSettings(bool bForceConnect
 	FString UserName = PerforceSourceControl.AccessSettings().GetUserName();
 	FString ClientSpecName = PerforceSourceControl.AccessSettings().GetWorkspace();
 	FString HostOverrideName = PerforceSourceControl.AccessSettings().GetHostOverride();
+	FString Changelist = PerforceSourceControl.AccessSettings().GetChangelistNumber();
 	bFoundCmdLineSettings = FParse::Value(FCommandLine::Get(), TEXT("P4Port="), PortName);
 	bFoundCmdLineSettings |= FParse::Value(FCommandLine::Get(), TEXT("P4User="), UserName);
 	bFoundCmdLineSettings |= FParse::Value(FCommandLine::Get(), TEXT("P4Client="), ClientSpecName);
 	bFoundCmdLineSettings |= FParse::Value(FCommandLine::Get(), TEXT("P4Host="), HostOverrideName);
 	bFoundCmdLineSettings |= FParse::Value(FCommandLine::Get(), TEXT("P4Passwd="), Ticket);
-
+	bFoundCmdLineSettings |= FParse::Value(FCommandLine::Get(), TEXT("P4Changelist="), Changelist);
 	if(bFoundCmdLineSettings)
 	{
 		PerforceSourceControl.AccessSettings().SetPort(PortName);
 		PerforceSourceControl.AccessSettings().SetUserName(UserName);
 		PerforceSourceControl.AccessSettings().SetWorkspace(ClientSpecName);
 		PerforceSourceControl.AccessSettings().SetHostOverride(HostOverrideName);
+		PerforceSourceControl.AccessSettings().SetChangelistNumber(Changelist);
 	}
 	
 	if (bForceConnection)
@@ -531,10 +533,12 @@ void FPerforceSourceControlProvider::LoadSSLLibraries()
 #if PLATFORM_WINDOWS
 #if PLATFORM_64BITS
 
-#if _MSC_VER >= 1800
+#if _MSC_VER >= 1900
+	const FString VSVersion = TEXT("VS2015/");
+#elif _MSC_VER >= 1800
 	const FString VSVersion = TEXT("VS2013/");
 #else
-	const FString VSVersion = TEXT("VS2012/");
+	#error "Unsupported Visual Studio version."
 #endif
 
 	const FString PlatformString = TEXT("Win64");

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================================
 	ApplePlatformRunnableThread.h: Apple platform threading functions
@@ -46,9 +46,9 @@ private:
 		InStackSize = FRunnableThreadPThread::AdjustStackSize(InStackSize);
         
 		// If it's set, make sure it's at least 128 KB or stack allocations (e.g. in Logf) may fail
-		if (InStackSize && InStackSize < 128 * 1024)
+		if (InStackSize && InStackSize < 256 * 1024)
 		{
-			InStackSize = 128 * 1024;
+			InStackSize = 256 * 1024;
 		}
         
 		return InStackSize;

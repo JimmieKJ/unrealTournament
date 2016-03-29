@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Components/InterpToMovementComponent.h"
@@ -417,6 +417,23 @@ void UInterpToMovementComponent::BeginPlay()
 	FinaliseControlPoints();
 }
 
+void UInterpToMovementComponent::ApplyWorldOffset(const FVector& InOffset, bool bWorldShift)
+{
+	Super::ApplyWorldOffset(InOffset, bWorldShift);
+ 
+ 	// Need to adjust the cached starting location... (StartLocation is always absolute)
+ 	StartLocation += InOffset;
+ 
+ 	// ...and all the stored control point positions if the control point positions are absolute.
+ 	for (auto& CtrlPoint : ControlPoints)
+ 	{
+ 		if (!CtrlPoint.bPositionIsRelative)
+ 		{
+ 			CtrlPoint.PositionControlPoint += InOffset;
+ 		}
+ 	}
+}
+
 void UInterpToMovementComponent::UpdateControlPoints(bool InForceUpdate)
 {
 	if (UpdatedComponent != nullptr)
@@ -483,6 +500,10 @@ void UInterpToMovementComponent::AddControlPointPosition(FVector Pos,bool bPosit
 
 void UInterpToMovementComponent::FinaliseControlPoints()
 {
+	if (UpdatedComponent == nullptr)
+	{
+		return;
+	}
 	StartLocation = UpdatedComponent->GetComponentLocation();
 	TimeMultiplier = 1.0f / Duration;
 	if (ControlPoints.Num() != 0)

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -73,15 +73,6 @@ private:
 	static void OpenProjectLauncher()
 	{
 		FGlobalTabmanager::Get()->InvokeTab(FName(TEXT("ProjectLauncher")));
-	}
-
-	/**
-	* Opens the experimental messaging debugger tab.
-	* Remove this when it is no longer experimental.
-	*/
-	static void OpenMessagingDebugger()
-	{
-		FGlobalTabmanager::Get()->InvokeTab(FName(TEXT("MessagingDebugger")));
 	}
 
 	/**

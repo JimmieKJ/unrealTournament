@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "Engine/Font.h"
@@ -67,7 +67,9 @@ void UFontThumbnailRenderer::Draw(UObject* Object, int32 X, int32 Y, uint32 Widt
 				static const int32 FontSize = 28;
 				static const float FontScale = 1.0f;
 
-				const FText FontNameText = FText::FromName(Object->GetFName());
+				const FString FontName = Object->GetName();
+				const TextBiDi::ETextDirection FontNameBaseTextDirection = TextBiDi::ComputeBaseDirection(FontName);
+
 				TSharedRef<FSlateFontCache> FontCache = FSlateApplication::Get().GetRenderer()->GetFontCache();
 
 				// Draw the object name using each of the default fonts
@@ -75,14 +77,18 @@ void UFontThumbnailRenderer::Draw(UObject* Object, int32 X, int32 Y, uint32 Widt
 				for(const FTypefaceEntry& TypefaceEntry : Font->CompositeFont.DefaultTypeface.Fonts)
 				{
 					FSlateFontInfo FontInfo(Font, FontSize, TypefaceEntry.Name);
+					FShapedGlyphSequenceRef FontNameShapedText = FontCache->ShapeBidirectionalText(FontName, FontInfo, FontScale, FontNameBaseTextDirection, ETextShapingMethod::Auto);
 
-					FCharacterList& CharacterList = FontCache->GetCharacterList(FontInfo, FontScale);
-					const int32 MaxCharHeight = CharacterList.GetMaxHeight();
+					FVector2D TextDrawPos = CurPos;
+					if (FontNameBaseTextDirection == TextBiDi::ETextDirection::RightToLeft)
+					{
+						TextDrawPos.X = Width - CurPos.X - FontNameShapedText->GetMeasuredWidth();
+					}
 
-					FCanvasTextItem TextItem(CurPos, FontNameText, FontInfo, FLinearColor::White);
+					FCanvasShapedTextItem TextItem(TextDrawPos, FontNameShapedText, FLinearColor::White);
 					Canvas->DrawItem(TextItem);
 
-					CurPos.Y += MaxCharHeight;
+					CurPos.Y += FontNameShapedText->GetMaxTextHeight();
 				}
 			}
 			break;

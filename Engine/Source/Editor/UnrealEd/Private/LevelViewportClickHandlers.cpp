@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "LevelEditorViewport.h"
@@ -281,7 +281,7 @@ namespace ClickHandlers
 		//If the component selected is editor-only, we want to select the non-editor-only component it's attached to
 		while (Component != nullptr && Component->IsEditorOnly())
 		{
-			Component = Component->AttachParent;
+			Component = Component->GetAttachParent();
 		}
 		
 		if (!ensure(Component != nullptr))

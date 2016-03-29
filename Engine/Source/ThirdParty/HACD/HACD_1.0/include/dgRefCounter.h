@@ -1,5 +1,5 @@
 /* Copyright (c) <2003-2011> <Julio Jerez, Newton Game Dynamics>
-* Modifications copyright (c) 2014-2015 Epic Games, Inc. All rights reserved.
+* Modifications copyright (c) 2014-2016 Epic Games, Inc. All rights reserved.
 * 
 * This software is provided 'as-is', without any express or implied
 * warranty. In no event will the authors be held liable for any damages

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 
@@ -98,6 +98,34 @@ uint32 SMeshWidget::AddMesh(USlateVectorArtData& InMeshData)
 	return RenderData.Num()-1;
 }
 
+uint32 SMeshWidget::AddMeshWithInstancing(USlateVectorArtData& InMeshData, int32 InitialBufferSize)
+{
+	const uint32 NewMeshId = AddMesh(InMeshData);
+	EnableInstancing(NewMeshId, InitialBufferSize);
+	return NewMeshId;
+}
+
+
+UMaterialInstanceDynamic* SMeshWidget::ConvertToMID(uint32 MeshId)
+{
+	FRenderData& MeshRenderData = RenderData[MeshId];
+	UObject* ResourceObject = MeshRenderData.Brush->GetResourceObject();
+	UMaterialInterface* Material = Cast<UMaterialInterface>(ResourceObject);
+
+	UMaterialInstanceDynamic* ExistingMID = Cast<UMaterialInstanceDynamic>(Material);
+	if (ExistingMID == nullptr)
+	{
+		UMaterialInstanceDynamic* NewMID = UMaterialInstanceDynamic::Create(Material, nullptr);
+		MeshRenderData.Brush->SetResourceObject(NewMID);
+		MeshRenderData.RenderingResourceHandle = FSlateApplication::Get().GetRenderer()->GetResourceHandle(*MeshRenderData.Brush);
+		return NewMID;
+	}
+	else
+	{
+		return ExistingMID;
+	}
+}
+
 
 void SMeshWidget::ClearRuns(int32 NumRuns)
 {
@@ -149,11 +177,14 @@ int32 SMeshWidget::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeom
 			}
 			else
 			{
-				UE_LOG(LogUMG, Warning, TEXT("SMeshWidget did not render a run because of one of these Brush: %s, InstanceBuffer: %s, NumVertexes: %d, NumIndexes: %d"),
-					RunRenderData.RenderingResourceHandle.IsValid() ? TEXT("valid") : TEXT("nullptr"),
-					RunRenderData.PerInstanceBuffer.IsValid() ? TEXT("valid") : TEXT("nullptr"),
-					RunRenderData.VertexData.Num(),
-					RunRenderData.IndexData.Num());
+				if( !GUsingNullRHI )
+				{
+					UE_LOG(LogUMG, Warning, TEXT("SMeshWidget did not render a run because of one of these Brush: %s, InstanceBuffer: %s, NumVertexes: %d, NumIndexes: %d"),
+						RunRenderData.RenderingResourceHandle.IsValid() ? TEXT("valid") : TEXT("nullptr"),
+						RunRenderData.PerInstanceBuffer.IsValid() ? TEXT("valid") : TEXT("nullptr"),
+						RunRenderData.VertexData.Num(),
+						RunRenderData.IndexData.Num());
+				}
 			}
 		}
 	}
@@ -182,10 +213,13 @@ int32 SMeshWidget::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeom
 			}
 			else
 			{
-				UE_LOG(LogUMG, Warning, TEXT("SMeshWidget did not render a run because of one of these Brush: %s, NumVertexes: %d, NumIndexes: %d"),
-					RunRenderData.RenderingResourceHandle.IsValid() ? TEXT("valid") : TEXT("nullptr"),
-					RunRenderData.VertexData.Num(),
-					RunRenderData.IndexData.Num());
+				if( !GUsingNullRHI )
+				{
+					UE_LOG(LogUMG, Warning, TEXT("SMeshWidget did not render a run because of one of these Brush: %s, NumVertexes: %d, NumIndexes: %d"),
+						RunRenderData.RenderingResourceHandle.IsValid() ? TEXT("valid") : TEXT("nullptr"),
+						RunRenderData.VertexData.Num(),
+						RunRenderData.IndexData.Num());
+				}
 			}
 		}
 	}
@@ -198,8 +232,6 @@ FVector2D SMeshWidget::ComputeDesiredSize(float) const
 {
 	return FVector2D(256,256);
 }
-
-
 
 
 void SMeshWidget::AddReferencedObjects(FReferenceCollector& Collector)
@@ -216,12 +248,16 @@ void SMeshWidget::AddReferencedObjects(FReferenceCollector& Collector)
 
 
 void SMeshWidget::PushUpdate(uint32 VectorArtId, const SMeshWidget& Widget, const FVector2D& Position, float Scale, uint32 BaseAddress)
+{
+	PushUpdate(VectorArtId, Widget, Position, Scale, static_cast<float>(BaseAddress));
+}
 
+void SMeshWidget::PushUpdate(uint32 VectorArtId, const SMeshWidget& Widget, const FVector2D& Position, float Scale, float OptionalFloat /*= 0*/)
 {
 	FSlateVectorArtInstanceData Data;
 	Data.SetPosition(Position);
 	Data.SetScale(Scale);
-	Data.SetBaseAddress(BaseAddress);
+	Data.SetBaseAddress(OptionalFloat);
 
 	{
 		TSharedPtr<FSlateInstanceBufferUpdate> PerInstaceUpdate = Widget.BeginPerInstanceBufferUpdateConst(VectorArtId);

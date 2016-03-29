@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "GameProjectGenerationPrivatePCH.h"
@@ -1171,6 +1171,9 @@ void SNewClassDialog::FinishClicked()
 		if (AddCodeResult == GameProjectUtils::EAddCodeToProjectResult::Succeeded)
 		{
 			OnAddedToProject.ExecuteIfBound( NewClassName, NewClassPath, SelectedModuleInfo->ModuleName );
+
+			// Reload current project to take into account any new state
+			IProjectManager::Get().LoadProjectFile(FPaths::GetProjectFilePath());
 
 			// Prevent periodic validity checks. This is to prevent a brief error message about the class already existing while you are exiting.
 			bPreventPeriodicValidityChecksUntilNextChange = true;

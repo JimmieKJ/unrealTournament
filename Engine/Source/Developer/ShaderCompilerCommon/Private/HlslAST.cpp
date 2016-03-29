@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	HlslAST.cpp - Abstract Syntax Tree implementation for HLSL.
@@ -68,6 +68,17 @@ namespace CrossCompiler
 
 				Writer << (TCHAR)' ';
 			}
+		}
+
+		FPragma::FPragma(FLinearAllocator* InAllocator, const TCHAR* InPragma, const FSourceInfo& InInfo) :
+			FNode(InAllocator, InInfo)
+		{
+			Pragma = InAllocator->Strdup(InPragma);
+		}
+
+		void FPragma::Write(FASTWriter& Writer) const
+		{
+			Writer << Pragma << TEXT("\n");
 		}
 
 		FExpression::FExpression(FLinearAllocator* InAllocator, EOperators InOperator, FExpression* E0, FExpression* E1, FExpression* E2, const FSourceInfo& InInfo) :

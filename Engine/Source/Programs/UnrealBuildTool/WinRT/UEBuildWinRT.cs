@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -452,12 +452,7 @@ namespace UnrealBuildTool
 
 		public static bool IsVisualStudioInstalled()
 		{
-			string BaseVSToolPath = WindowsPlatform.GetVSComnToolsPath();
-			if (string.IsNullOrEmpty(BaseVSToolPath) == false)
-			{
-				return true;
-			}
-			return false;
+			return WindowsPlatform.HasAnyVSInstalled();
 		}
 
 		public static bool IsWindows8()
@@ -625,13 +620,17 @@ namespace UnrealBuildTool
 
 	public class WinRTPlatformFactory : UEBuildPlatformFactory
 	{
+		protected override UnrealTargetPlatform TargetPlatform
+		{
+			get { return UnrealTargetPlatform.WinRT; }
+		}
+
 		/// <summary>
 		/// Register the platform with the UEBuildPlatform class
 		/// </summary>
-		public override void RegisterBuildPlatforms()
+		protected override void RegisterBuildPlatforms()
 		{
-			//@todo.Rocket: Add platform support
-			if (UnrealBuildTool.RunningRocket() || Utils.IsRunningOnMono)
+			if (Utils.IsRunningOnMono)
 			{
 				return;
 			}

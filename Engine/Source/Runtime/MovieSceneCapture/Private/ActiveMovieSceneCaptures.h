@@ -1,10 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "MovieSceneCapture.h"
 
-class FActiveMovieSceneCaptures : public FGCObject
+class FActiveMovieSceneCaptures : public FGCObject, public FTickableGameObject
 {
 public:
 	/** Singleton access to an instance of this class */
@@ -26,6 +26,14 @@ private:
 
 	/** FGCObject interface */
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+
+
+	/** FTickableGameObject interface */
+	virtual bool IsTickableInEditor() const override { return false; }
+	virtual bool IsTickable() const override { return ActiveCaptures.Num() != 0; }
+	virtual bool IsTickableWhenPaused() const override { return false; }
+	virtual TStatId GetStatId() const override { RETURN_QUICK_DECLARE_CYCLE_STAT(FActiveMovieSceneCaptures, STATGROUP_Tickables); }
+	virtual void Tick(float DeltaSeconds) override;
 
 private:
 	/** Private construction to enforce singleton use */

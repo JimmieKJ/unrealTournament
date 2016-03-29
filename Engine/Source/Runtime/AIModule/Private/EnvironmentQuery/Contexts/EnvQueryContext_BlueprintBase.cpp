@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
 #include "BlueprintNodeHelpers.h"
@@ -57,40 +57,42 @@ UEnvQueryContext_BlueprintBase::UEnvQueryContext_BlueprintBase(const FObjectInit
 
 void UEnvQueryContext_BlueprintBase::ProvideContext(FEnvQueryInstance& QueryInstance, FEnvQueryContextData& ContextData) const
 {
-	AActor* QuerierActor = Cast<AActor>(QueryInstance.Owner.Get());
-
-	if (QuerierActor == NULL || CallMode == InvalidCallMode)
+	UObject* QuerierObject = QueryInstance.Owner.Get();
+	if ((QuerierObject == nullptr) || (CallMode == InvalidCallMode))
 	{
 		return;
 	}
-	
+
+	// NOTE: QuerierActor is redundant with QuerierObject and should be removed in the future.  It's here for now for
+	// backwards compatibility.
+	AActor* QuerierActor = Cast<AActor>(QuerierObject);
 	switch (CallMode)
 	{
 	case SingleActor:
 		{
 			AActor* ResultingActor = NULL;
-			ProvideSingleActor(QuerierActor, ResultingActor);
+			ProvideSingleActor(QuerierObject, QuerierActor, ResultingActor);
 			UEnvQueryItemType_Actor::SetContextHelper(ContextData, ResultingActor);
 		}
 		break;
 	case SingleLocation:
 		{
 			FVector ResultingLocation = FAISystem::InvalidLocation;
-			ProvideSingleLocation(QuerierActor, ResultingLocation);
+			ProvideSingleLocation(QuerierObject, QuerierActor, ResultingLocation);
 			UEnvQueryItemType_Point::SetContextHelper(ContextData, ResultingLocation);
 		}
 		break;
 	case ActorSet:
 		{
 			TArray<AActor*> ActorSet;
-			ProvideActorsSet(QuerierActor, ActorSet);
+			ProvideActorsSet(QuerierObject, QuerierActor, ActorSet);
 			UEnvQueryItemType_Actor::SetContextHelper(ContextData, ActorSet);
 		}
 		break;
 	case LocationSet:
 		{
 			TArray<FVector> LocationSet;
-			ProvideLocationsSet(QuerierActor, LocationSet);
+			ProvideLocationsSet(QuerierObject, QuerierActor, LocationSet);
 			UEnvQueryItemType_Point::SetContextHelper(ContextData, LocationSet);
 		}
 		break;

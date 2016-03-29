@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -78,6 +78,9 @@ protected:
 	/** Are we panning the view at the moment? */
 	bool bIsPanning;
 
+	/** Are we zooming the view with trackpad at the moment? */
+	bool bIsZoomingWithTrackpad;
+
 	/** Allow continuous zoom interpolation? */
 	TAttribute<bool> AllowContinousZoomInterpolation;
 
@@ -97,6 +100,12 @@ protected:
 	FVector2D ZoomTargetTopLeft;
 	FVector2D ZoomTargetBottomRight;
 	FVector2D ZoomToFitPadding;
+
+	/** The Y component of mouse drag (used when zooming) */
+	float TotalMouseDeltaY;
+
+	/** Offset in the panel the user started the LMB+RMB zoom from */
+	FVector2D ZoomStartOffset;
 
 	/** Cumulative magnify delta from trackpad gesture */
 	float TotalGestureMagnify;

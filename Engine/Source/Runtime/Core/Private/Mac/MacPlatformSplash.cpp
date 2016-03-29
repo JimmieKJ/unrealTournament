@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "Misc/App.h"
@@ -227,7 +227,7 @@ void FMacPlatformSplash::Show()
 
 				// Display copyright information in editor splash screen
 				{
-					const FText CopyrightInfo = NSLOCTEXT( "UnrealEd", "SplashScreen_CopyrightInfo", "Copyright \x00a9 1998-2015   Epic Games, Inc.   All rights reserved." );
+					const FText CopyrightInfo = NSLOCTEXT( "UnrealEd", "SplashScreen_CopyrightInfo", "Copyright \x00a9 1998-2016   Epic Games, Inc.   All rights reserved." );
 					StartSetSplashText( SplashTextType::CopyrightInfo, CopyrightInfo );
 				}
 			}
@@ -240,6 +240,7 @@ void FMacPlatformSplash::Show()
 		NSBitmapImageRep* BitmapRep = [NSBitmapImageRep imageRepWithData: [GSplashScreenImage TIFFRepresentation]];
 		float ImageWidth = [BitmapRep pixelsWide];
 		float ImageHeight = [BitmapRep pixelsHigh];
+		[GSplashScreenImage setSize:NSMakeSize(ImageWidth, ImageHeight)];
 
 		NSRect ContentRect;
 		ContentRect.origin.x = 0;
@@ -310,13 +311,15 @@ void FMacPlatformSplash::Hide()
 {
 	if (GSplashWindow)
 	{
-		SCOPED_AUTORELEASE_POOL;
+		MainThreadCall(^{
+			SCOPED_AUTORELEASE_POOL;
 
-		[GSplashWindow close];
-		GSplashWindow = NULL;
+			[GSplashWindow close];
+			GSplashWindow = NULL;
 
-		[GSplashScreenImage release];
-		GSplashScreenImage = NULL;
+			[GSplashScreenImage release];
+			GSplashScreenImage = NULL;
+		}, NSDefaultRunLoopMode, true);
 
 		FPlatformMisc::PumpMessages(true);
 	}

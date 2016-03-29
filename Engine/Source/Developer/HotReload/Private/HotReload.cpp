@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "HotReloadPrivatePCH.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
@@ -1501,21 +1501,19 @@ FString FHotReloadModule::MakeUBTArgumentsForModuleCompiling()
 		// We have to pass FULL paths to UBT
 		FString FullProjectPath = FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath());
 
-		// @todo projectdirs: Currently non-Rocket projects that exist under the UE4 root are compiled by UBT with no .uproject file
+		// @todo projectdirs: Currently non-installed projects that exist under the UE4 root are compiled by UBT with no .uproject file
 		//     name passed in (see bIsProjectTarget in VCProject.cs), which causes intermediate libraries to be saved to the Engine
 		//     intermediate folder instead of the project's intermediate folder.  We're emulating this behavior here for module
 		//     recompiling, so that compiled modules will be able to find their import libraries in the original folder they were compiled.
-		if( FRocketSupport::IsRocket() || !FullProjectPath.StartsWith( FPaths::ConvertRelativePathToFull( FPaths::RootDir() ) ) )
+		if( FApp::IsEngineInstalled() || !FullProjectPath.StartsWith( FPaths::ConvertRelativePathToFull( FPaths::RootDir() ) ) )
 		{
 			const FString ProjectFilenameWithQuotes = FString::Printf(TEXT("\"%s\""), *FullProjectPath);
 			AdditionalArguments += FString::Printf(TEXT("%s "), *ProjectFilenameWithQuotes);
 		}
-
-		if (FRocketSupport::IsRocket())
-		{
-			AdditionalArguments += TEXT("-rocket ");
-		}
 	}
+
+	// Use new FastPDB option to cut down linking time. Currently disabled due to problems with missing symbols in VS2015.
+	// AdditionalArguments += TEXT(" -FastPDB");
 
 	return AdditionalArguments;
 }

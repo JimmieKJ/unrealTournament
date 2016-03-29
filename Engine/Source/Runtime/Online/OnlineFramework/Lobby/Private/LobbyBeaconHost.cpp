@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LobbyPrivatePCH.h"
 #include "LobbyBeaconHost.h"
@@ -48,7 +48,7 @@ void ALobbyBeaconHost::SetupLobbyState(int32 InMaxPlayers)
 			LobbyState->MaxPlayers = InMaxPlayers;
 
 			// Associate with this objects net driver for proper replication
-			LobbyState->NetDriverName = GetNetDriverName();
+			LobbyState->SetNetDriverName(GetNetDriverName());
 		}
 	}
 }
@@ -200,6 +200,7 @@ void ALobbyBeaconHost::PostLogin(ALobbyBeaconClient* ClientActor)
 
 void ALobbyBeaconHost::KickPlayer(ALobbyBeaconClient* ClientActor, const FText& KickReason)
 {
+	UE_LOG(LogBeacon, Log, TEXT("KickPlayer for %s. PendingKill %d UNetConnection %s UNetDriver %s State %d"), *GetNameSafe(ClientActor), ClientActor->IsPendingKill(), *GetNameSafe(ClientActor->BeaconConnection), ClientActor->BeaconConnection ? *GetNameSafe(ClientActor->BeaconConnection->Driver) : TEXT("null"), ClientActor->BeaconConnection ? ClientActor->BeaconConnection->State : -1);
 	ClientActor->ClientWasKicked(KickReason);
 	DisconnectClient(ClientActor);
 }
@@ -210,7 +211,12 @@ void ALobbyBeaconHost::ProcessJoinServer(ALobbyBeaconClient* ClientActor)
 	if (Player && Player->bInLobby)
 	{
 		Player->bInLobby = false;
-		ClientActor->ClientAckJoiningServer();
+		ClientActor->AckJoiningServer();
+	}
+	else
+	{
+		FString PlayerName = ClientActor ? (ClientActor->PlayerState ? *ClientActor->PlayerState->UniqueId.ToString() : TEXT("Unknown")) : TEXT("Unknown Client Actor");
+		UE_LOG(LogBeacon, Warning, TEXT("Player attempting to join server while not logged in %s Id: %s"), *GetName(), *PlayerName);
 	}
 }
 
@@ -305,7 +311,7 @@ void ALobbyBeaconHost::AdvertiseSessionJoinability(const FJoinabilitySettings& S
 
 void ALobbyBeaconHost::DumpState() const
 {
-	UE_LOG(LogBeacon, Display, TEXT("Fortnite Lobby Beacon:"), *GetBeaconType());
+	UE_LOG(LogBeacon, Display, TEXT("Lobby Beacon: %s"), *GetBeaconType());
 
 	if (LobbyState)
 	{

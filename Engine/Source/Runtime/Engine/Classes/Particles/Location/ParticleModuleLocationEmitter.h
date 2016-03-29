@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 //~=============================================================================
 // ParticleModuleLocationEmitter
@@ -20,8 +20,8 @@ enum ELocationEmitterSelectionMethod
 	ELESM_MAX,
 };
 
-UCLASS(editinlinenew, hidecategories=Object, MinimalAPI, meta=(DisplayName = "Emitter Initial Location"))
-class UParticleModuleLocationEmitter : public UParticleModuleLocationBase
+UCLASS(editinlinenew, hidecategories=Object, meta=(DisplayName = "Emitter Initial Location"))
+class ENGINE_API UParticleModuleLocationEmitter : public UParticleModuleLocationBase
 {
 	GENERATED_UCLASS_BODY()
 
@@ -62,7 +62,7 @@ class UParticleModuleLocationEmitter : public UParticleModuleLocationBase
 
 	//~ Begin UParticleModule Interface
 	virtual void	Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase) override;
-	virtual uint32	RequiredBytesPerInstance(FParticleEmitterInstance* Owner = NULL) override;
+	virtual uint32	RequiredBytesPerInstance() override;
 	//~ End UParticleModule Interface
 };
 

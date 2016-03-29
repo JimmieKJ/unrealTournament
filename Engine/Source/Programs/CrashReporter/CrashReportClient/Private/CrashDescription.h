@@ -1,9 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "GenericPlatformCrashContext.h"
 #include "UnrealString.h"
 #include "XmlFile.h"
+#include "EngineVersion.h"
 
 struct FPrimaryCrashProperties;
 
@@ -15,6 +16,7 @@ struct FPrimaryCrashProperties;
 	"IsInternalBuild"
 	"IsPerforceBuild"
 	"IsSourceDistribution"
+	"IsEnsure"
 	"SecondsSinceStart"
 	"GameName"
 	"ExecutableName"
@@ -36,6 +38,7 @@ struct FPrimaryCrashProperties;
 	"CallStack"
 	"SourceContext"
 	"UserDescription"
+	"UserActivityHint"
 	"ErrorMessage"
 	"CrashDumpMode"
 	"Misc.NumberOfCores"
@@ -164,6 +167,12 @@ struct FPrimaryCrashProperties
 	FString EngineMode;
 
 	/**
+	 * Deployment (also known as "EpicApp"), e.g. DevPlaytest, PublicTest, Live
+	 * @DeploymentName varchar(64)
+	 */
+	FString DeploymentName;
+
+	/**
 	 * The platform that crashed e.g. Win64.
 	 * @PlatformName	varchar(64)	
 	 * 
@@ -247,6 +256,13 @@ struct FPrimaryCrashProperties
 	 */
 	FCrashProperty EpicAccountId;
 
+	/** 
+	 * The last game session id set by the application. Application specific meaning. Some might not set this.
+	 * @EpicAccountId	varchar(64)
+	 * 
+	 */
+	FCrashProperty GameSessionID;
+
 	/**
 	 * An array of FStrings representing the callstack of the crash.
 	 * @RawCallStack	varchar(MAX)
@@ -273,6 +289,13 @@ struct FPrimaryCrashProperties
 	 * 
 	 */
 	FCrashProperty UserDescription;
+
+	/**
+	 * An FString representing the user activity, if known, when the error occurred.
+	 * @UserActivityHint varchar(512)
+	 *
+	 */
+	FCrashProperty UserActivityHint;
 
 	/**
 	 * The error message, can be assertion message, ensure message or message from the fatal error.
@@ -314,6 +337,14 @@ struct FPrimaryCrashProperties
 
 	/** Whether this crash contains primary usable data. */
 	bool bHasPrimaryData;
+
+	/** Copy of CommandLine that isn't anonymized so it can be used to restart the process */
+	FString RestartCommandLine;
+
+	/**
+	 *	Whether the report comes from a non-fatal event such as an ensure
+	 */
+	bool bIsEnsure;
 
 protected:
 	/** Default constructor. */
@@ -360,8 +391,11 @@ public:
 	/** Updates following properties: UserName, MachineID and EpicAccountID. */
 	void UpdateIDs();
 
-	/** Sends this crash for analytics. */
-	void SendAnalytics();
+	/** Sends this crash for analytics (before upload). */
+	void SendPreUploadAnalytics();
+
+	/** Sends this crash for analytics (after successful upload). */
+	void SendPostUploadAnalytics();
 
 	/** Saves the data. */
 	void Save();

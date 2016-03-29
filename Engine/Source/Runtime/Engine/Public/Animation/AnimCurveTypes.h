@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -235,94 +235,297 @@ struct FCurveElement
 /**
  * This struct is used to create curve snap shot of current time when extracted
  */
-struct ENGINE_API FBlendedCurve
+template <typename InAllocator>
+struct FBaseBlendedCurve
 {
+	typedef InAllocator   Allocator;
 	/**
 	* List of curve elements for this pose
 	*/
-	TArray<FCurveElement> Elements;
-	TArray<FSmartNameMapping::UID> UIDList;
+	TArray<FCurveElement, Allocator> Elements;
+
+	/**
+	* List of SmartName UIDs, retrieved from AnimInstanceProxy (which keeps authority)
+	*/
+	TArray<FSmartNameMapping::UID> const * UIDList;
+
 
 	/**
 	 * constructor
 	 */
-	FBlendedCurve()
-		: bInitialized(false)
+	FBaseBlendedCurve()
+		: UIDList(nullptr)
+		, bInitialized(false)
 	{
-	}
-
-	/**
-	 * constructor
-	 */
-	FBlendedCurve(const class UAnimInstance* AnimInstance);
-
-	/**
-	 * constructor
-	 */
-	FBlendedCurve(const class USkeleton* Skeleton)
-	{
-		check (Skeleton);
-		InitFrom(Skeleton);
 	}
 
 	/** Initialize Curve Data from following data */
-	void InitFrom(const class USkeleton* Skeleton);
-	void InitFrom(const FBlendedCurve& InCurveToInitFrom);
+	DEPRECATED(4.11, "Use new InitFrom(TArray<FSmartNameMapping::UID>* InSmartNameUIDs) signature")
+	void InitFrom(const class USkeleton* Skeleton)
+	{
+		InitFrom((TArray<FSmartNameMapping::UID>*)&(const_cast<USkeleton*>(Skeleton)->GetCachedAnimCurveMappingNameUids()));
+	}
+
+	void InitFrom(TArray<FSmartNameMapping::UID> const * InSmartNameUIDs)
+	{
+		check(InSmartNameUIDs != nullptr);
+		UIDList = InSmartNameUIDs;
+		Elements.Reset();
+		Elements.AddZeroed(UIDList->Num());
+
+		// no name, means no curve
+		bInitialized = true;
+	}
+
+	template <typename OtherAllocator>
+	void InitFrom(const FBaseBlendedCurve<OtherAllocator>& InCurveToInitFrom)
+	{
+		// make sure this doesn't happen
+		check(InCurveToInitFrom.UIDList != nullptr);
+		UIDList = InCurveToInitFrom.UIDList;
+		Elements.Reset();
+		Elements.AddZeroed(UIDList->Num());
+		
+		bInitialized = true;
+	}
+
+	void InitFrom(const FBaseBlendedCurve<Allocator>& InCurveToInitFrom)
+	{
+		// make sure this doesn't happen
+		if (ensure(&InCurveToInitFrom != this))
+		{
+			check(InCurveToInitFrom.UIDList != nullptr);
+			UIDList = InCurveToInitFrom.UIDList;
+			Elements.Reset();
+			Elements.AddZeroed(UIDList->Num());
+
+			bInitialized = true;
+		}
+	}
 
 	/** Set value of InUID to InValue */
-	void Set(USkeleton::AnimCurveUID InUid, float InValue, int32 InFlags);
+	void Set(USkeleton::AnimCurveUID InUid, float InValue, int32 InFlags)
+	{
+		int32 ArrayIndex;
+
+		check(bInitialized);
+
+		if (UIDList->Find(InUid, ArrayIndex))
+		{
+			Elements[ArrayIndex].Value = InValue;
+			Elements[ArrayIndex].Flags = InFlags;
+		}
+	}
 
 	/**
 	 * Blend (A, B) using Alpha, same as Lerp
 	 */
-	void Blend(const FBlendedCurve& A, const FBlendedCurve& B, float Alpha);
+	//@Todo curve flags won't transfer over - it only overwrites
+	void Blend(const FBaseBlendedCurve& A, const FBaseBlendedCurve& B, float Alpha)
+	{
+		check(A.Num() == B.Num());
+		if (FMath::Abs(Alpha) <= ZERO_ANIMWEIGHT_THRESH)
+		{
+			// if blend is all the way for child1, then just copy its bone atoms
+			Override(A);
+		}
+		else if (FMath::Abs(Alpha - 1.0f) <= ZERO_ANIMWEIGHT_THRESH)
+		{
+			// if blend is all the way for child2, then just copy its bone atoms
+			Override(B);
+		}
+		else
+		{
+			InitFrom(A);
+			for (int32 CurveId = 0; CurveId < A.Elements.Num(); ++CurveId)
+			{
+				Elements[CurveId].Value = FMath::Lerp(A.Elements[CurveId].Value, B.Elements[CurveId].Value, Alpha);
+				Elements[CurveId].Flags = (A.Elements[CurveId].Flags) | (B.Elements[CurveId].Flags);
+			}
+		}
+	}
+
 	/**
 	 * Blend with Other using Alpha, same as Lerp 
 	 */
-	void BlendWith(const FBlendedCurve& Other, float Alpha);
+	void BlendWith(const FBaseBlendedCurve& Other, float Alpha)
+	{
+		check(Num() == Other.Num());
+		if (FMath::Abs(Alpha) <= ZERO_ANIMWEIGHT_THRESH)
+		{
+			return;
+		}
+		else if (FMath::Abs(Alpha - 1.0f) <= ZERO_ANIMWEIGHT_THRESH)
+		{
+			// if blend is all the way for child2, then just copy its bone atoms
+			Override(Other);
+		}
+		else
+		{
+			for (int32 CurveId = 0; CurveId < Elements.Num(); ++CurveId)
+			{
+				Elements[CurveId].Value = FMath::Lerp(Elements[CurveId].Value, Other.Elements[CurveId].Value, Alpha);
+				Elements[CurveId].Flags |= (Other.Elements[CurveId].Flags);
+			}
+		}
+	}
 	/**
 	 * Convert current curves to Additive (this - BaseCurve) if same found
 	 */
-	void ConvertToAdditive(const FBlendedCurve& BaseCurve);
+	void ConvertToAdditive(const FBaseBlendedCurve& BaseCurve)
+	{
+		check(bInitialized);
+		check(Num() == BaseCurve.Num());
+
+		for (int32 CurveId = 0; CurveId < Elements.Num(); ++CurveId)
+		{
+			Elements[CurveId].Value -= BaseCurve.Elements[CurveId].Value;
+			Elements[CurveId].Flags |= BaseCurve.Elements[CurveId].Flags;
+		}
+	}
 	/**
 	 * Accumulate the input curve with input Weight
 	 */
-	void Accumulate(const FBlendedCurve& AdditiveCurve, float Weight);
+	void Accumulate(const FBaseBlendedCurve& AdditiveCurve, float Weight)
+	{
+		check(bInitialized);
+		check(Num() == AdditiveCurve.Num());
+
+		if (Weight > ZERO_ANIMWEIGHT_THRESH)
+		{
+			for (int32 CurveId = 0; CurveId < Elements.Num(); ++CurveId)
+			{
+				Elements[CurveId].Value += AdditiveCurve.Elements[CurveId].Value * Weight;
+				Elements[CurveId].Flags |= AdditiveCurve.Elements[CurveId].Flags;
+			}
+		}
+	}
 
 	/**
 	 * This doesn't blend but combine MAX(current weight, curvetocombine weight)
 	 */
-	void Combine(const FBlendedCurve& CurveToCombine);
+	void Combine(const FBaseBlendedCurve& CurveToCombine)
+	{
+		check(bInitialized);
+		check(Num() == CurveToCombine.Num());
+
+		for (int32 CurveId = 0; CurveId < CurveToCombine.Elements.Num(); ++CurveId)
+		{
+			// if target value is non zero, we accpet target's value
+			// originally this code was doing max, but that doesn't make sense since the values can be negative
+			// we could try to pick non-zero, but if target value is non-zero, I think we should accept that value 
+			// if source is non zero, it will be overriden
+			if (CurveToCombine.Elements[CurveId].Value != 0.f)
+			{
+				Elements[CurveId].Value = CurveToCombine.Elements[CurveId].Value;
+			}
+
+			Elements[CurveId].Flags |= CurveToCombine.Elements[CurveId].Flags;
+		}
+	}
 
 	/**
 	 * Override with inupt curve * weight
 	 */
-	void Override(const FBlendedCurve& CurveToOverrideFrom, float Weight);
+	void Override(const FBaseBlendedCurve& CurveToOverrideFrom, float Weight)
+	{
+		InitFrom(CurveToOverrideFrom);
+
+		if (FMath::IsNearlyEqual(Weight, 1.f))
+		{
+			Override(CurveToOverrideFrom);
+		}
+		else
+		{
+			for (int32 CurveId = 0; CurveId < CurveToOverrideFrom.Elements.Num(); ++CurveId)
+			{
+				Elements[CurveId].Value = CurveToOverrideFrom.Elements[CurveId].Value * Weight;
+				Elements[CurveId].Flags |= CurveToOverrideFrom.Elements[CurveId].Flags;
+			}
+		}
+	}
+
 	/**
 	 * Override with inupt curve 
 	 */
-	void Override(const FBlendedCurve& CurveToOverrideFrom);
+	void Override(const FBaseBlendedCurve& CurveToOverrideFrom)
+	{
+		InitFrom(CurveToOverrideFrom);
+		Elements.Reset();
+		Elements.Append(CurveToOverrideFrom.Elements);
+	}
 
 	/** Return number of elements */
 	int32 Num() const { return Elements.Num(); }
 
 	/** CopyFrom as expected. */
-	void CopyFrom(const FBlendedCurve& CurveToCopyFrom);
-	/** CopyFrom/MoveFrom as expected. Once moved, it is invalid */
-	void MoveFrom(FBlendedCurve& CurveToMoveFrom);
+	template <typename OtherAllocator>
+	void CopyFrom(const FBaseBlendedCurve<OtherAllocator>& CurveToCopyFrom)
+	{
+		checkf(CurveToCopyFrom.IsValid(), TEXT("Copying data from an invalid curve UIDList: 0x%x  (Sizes %i/%i)"), CurveToCopyFrom.UIDList, (CurveToCopyFrom.UIDList ? CurveToCopyFrom.UIDList->Num() : -1), CurveToCopyFrom.Elements.Num());
+		UIDList = CurveToCopyFrom.UIDList;
+		Elements.Reset();
+		Elements.Append(CurveToCopyFrom.Elements);
+		bInitialized = true;
+	}
 
+	void CopyFrom(const FBaseBlendedCurve<Allocator>& CurveToCopyFrom)
+	{
+		if (&CurveToCopyFrom != this)
+		{
+			checkf(CurveToCopyFrom.IsValid(), TEXT("Copying data from an invalid curve UIDList: 0x%x  (Sizes %i/%i)"), CurveToCopyFrom.UIDList, (CurveToCopyFrom.UIDList ? CurveToCopyFrom.UIDList->Num() : -1), CurveToCopyFrom.Elements.Num());
+			UIDList = CurveToCopyFrom.UIDList;
+			Elements.Reset();
+			Elements.Append(CurveToCopyFrom.Elements);
+			bInitialized = true;
+		}
+	}
 	/** Empty */
 	void Empty()
 	{
-		UIDList.Reset();
+		// Set to nullptr as we only received a ptr reference from USkeleton
+		UIDList = nullptr;
 		Elements.Reset();
+		bInitialized = false;
 	}
-private:
+
 	/**  Whether initialized or not */
 	bool bInitialized;
 	/** Empty and allocate Count number */
-	void Reset(int32 Count);
+	void Reset(int32 Count)
+	{
+		Elements.Reset();
+		Elements.Reserve(Count);
+	}
+
+	// Only checks bare minimal validity. (namely that we have a UID list and that it 
+	// is the same size as our element list
+	bool IsValid() const
+	{
+		return UIDList && (Elements.Num() == UIDList->Num());
+	}
 };
+
+struct FBlendedHeapCurve;
+
+struct ENGINE_API FBlendedCurve : public FBaseBlendedCurve<FAnimStackAllocator>
+{
+};
+
+struct ENGINE_API FBlendedHeapCurve : public FBaseBlendedCurve<FDefaultAllocator>
+{
+	/** Once moved, source is invalid */
+	void MoveFrom(FBlendedHeapCurve& CurveToMoveFrom)
+	{
+    	UIDList = CurveToMoveFrom.UIDList;
+		CurveToMoveFrom.UIDList = nullptr;
+		Elements = MoveTemp(CurveToMoveFrom.Elements);
+		bInitialized = true;
+		CurveToMoveFrom.bInitialized = false;
+	}
+
+};
+
 /**
  * Raw Curve data for serialization
  */
@@ -369,6 +572,13 @@ struct FRawCurveTracks
 	 *	Evaluate transform curves 
 	 */
 	ENGINE_API void EvaluateTransformCurveData(USkeleton * Skeleton, TMap<FName, FTransform>&OutCurves, float CurrentTime, float BlendWeight) const;
+
+	/**
+	* Add new float curve from the given UID if not existing and add the key with time/value
+	*/
+	ENGINE_API void AddFloatCurveKey(const USkeleton::AnimCurveUID Uid, int32 CurveFlags, float Time, float Value);
+	ENGINE_API void RemoveRedundantKeys();
+
 #endif // WITH_EDITOR
 	/**
 	 * Find curve data based on the curve UID
@@ -399,7 +609,7 @@ struct FRawCurveTracks
 	/**
 	 * Updates the LastObservedName field of the curves from the provided name container
 	 */
-	ENGINE_API void UpdateLastObservedNames(FSmartNameMapping* NameMapping, ESupportedCurveType SupportedCurveType = FloatType);
+	ENGINE_API void UpdateLastObservedNames(const FSmartNameMapping* NameMapping, ESupportedCurveType SupportedCurveType = FloatType);
 
 	/** 
 	 * Serialize
@@ -467,5 +677,5 @@ private:
 	 * Updates the LastObservedName field of the curves from the provided name container
 	 */
 	template <typename DataType>
-	void UpdateLastObservedNamesImpl(TArray<DataType>& Curves, FSmartNameMapping* NameMapping);
+	void UpdateLastObservedNamesImpl(TArray<DataType>& Curves, const FSmartNameMapping* NameMapping);
 };

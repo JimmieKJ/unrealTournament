@@ -1,19 +1,78 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "MemoryBase.h"
+
 // Sizes.
 
-enum 
-{ 
-	// Default allocator alignment. If the default is specified, the allocator applies to engine rules.
-	// Blocks >= 16 bytes will be 16-byte-aligned, Blocks < 16 will be 8-byte aligned. If the allocator does
-	// not support allocation alignment, the alignment will be ignored.
-	DEFAULT_ALIGNMENT = 0,
+#if STATS
+#define MALLOC_GT_HOOKS 1
+#else
+#define MALLOC_GT_HOOKS 0
+#endif
 
-	// Minimum allocator alignment
-	MIN_ALIGNMENT = 8,
+#if MALLOC_GT_HOOKS
+CORE_API void DoGamethreadHook(int32 Index);
+#else
+FORCEINLINE void DoGamethreadHook(int32 Index)
+{ 
+}
+#endif
+
+#define TIME_MALLOC (0 && PLATFORM_PS4)
+
+#if TIME_MALLOC
+
+struct CORE_API FScopedMallocTimer
+{
+	static uint64 GTotalCycles[4];
+	static uint64 GTotalCount[4];
+	static uint64 GTotalMisses[4];
+
+	int32 Index;
+	uint64 Cycles;
+
+	FORCEINLINE FScopedMallocTimer(int32 InIndex)
+		: Index(InIndex)
+		, Cycles(FPlatformTime::Cycles64())
+	{
+	}
+	FORCEINLINE ~FScopedMallocTimer()
+	{
+		uint64 Add = uint64(FPlatformTime::Cycles64() - Cycles);
+		FPlatformAtomics::InterlockedAdd((volatile int64*)&GTotalCycles[Index], Add);
+		uint64 Was = FPlatformAtomics::InterlockedAdd((volatile int64*)&GTotalCount[Index], 1);
+
+		extern CORE_API bool GIsRunning;
+		if (GIsRunning && Index == 1 && (Was & 0xffff) == 0)
+		{
+			Spew();
+		}
+	}
+	static FORCEINLINE void Miss(int32 InIndex)
+	{
+		FPlatformAtomics::InterlockedAdd((volatile int64*)&GTotalMisses[InIndex], 1);
+	}
+	static void Spew();
 }; 
+#else
+struct FScopedMallocTimer
+{
+	FORCEINLINE FScopedMallocTimer(int32 InIndex)
+	{
+	}
+	FORCEINLINE ~FScopedMallocTimer()
+	{
+	}
+	FORCEINLINE void Hit(int32 InIndex)
+	{
+	}
+}; 
+#endif
+
+
+
 
 /*-----------------------------------------------------------------------------
 	FMemory.
@@ -125,11 +184,41 @@ struct CORE_API FMemory
 	// C style memory allocation stubs.
 	//
 
-	static void* Malloc( SIZE_T Count, uint32 Alignment=DEFAULT_ALIGNMENT );
-	static void* Realloc( void* Original, SIZE_T Count, uint32 Alignment=DEFAULT_ALIGNMENT );
-	static void Free( void* Original );
+	static void* Malloc(SIZE_T Count, uint32 Alignment = DEFAULT_ALIGNMENT);
+	static void* Realloc(void* Original, SIZE_T Count, uint32 Alignment = DEFAULT_ALIGNMENT);
+	static void Free(void* Original);
+	static SIZE_T GetAllocSize(void* Original);
+	/**
+	* For some allocators this will return the actual size that should be requested to eliminate
+	* internal fragmentation. The return value will always be >= Count. This can be used to grow
+	* and shrink containers to optimal sizes.
+	* This call is always fast and threadsafe with no locking.
+	*/
+	static SIZE_T QuantizeSize(SIZE_T Count, uint32 Alignment = DEFAULT_ALIGNMENT);
 
-	static SIZE_T GetAllocSize( void* Original );
+	/**
+	* Releases as much memory as possible. Must be called from the main thread.
+	*/
+	static void Trim();
+
+	/**
+	* Set up TLS caches on the current thread. These are the threads that we can trim.
+	*/
+	static void SetupTLSCachesOnCurrentThread();
+
+	/**
+	* Clears the TLS caches on the current thread and disables any future caching.
+	*/
+	static void ClearAndDisableTLSCachesOnCurrentThread();
+
+	//
+	// Malloc for GPU mapped memory on UMA systems (XB1/PS4/etc)
+	// It is expected that the RHI on platforms that use these knows what to 
+	// do with the memory and avoids unnecessary copies into GPU resources, etc.
+	//
+	static void* GPUMalloc(SIZE_T Count, uint32 Alignment = DEFAULT_ALIGNMENT);
+	static void* GPURealloc(void* Original, SIZE_T Count, uint32 Alignment = DEFAULT_ALIGNMENT);
+	static void GPUFree(void* Original);
 
 	/**
 	 * A helper function that will perform a series of random heap allocations to test
@@ -139,5 +228,32 @@ struct CORE_API FMemory
 	 * and hopefully freeing some pointers will trigger a crash.
 	 */
 	static void TestMemory();
+	/**
+	* Called once main is started and we have -purgatorymallocproxy.
+	* This uses the purgatory malloc proxy to check if things are writing to stale pointers.
+	*/
+	static void EnablePurgatoryTests();
+private:
+	static void GCreateMalloc();
+	// These versions are called either at startup or in the event of a crash
+	static void* MallocExternal(SIZE_T Count, uint32 Alignment = DEFAULT_ALIGNMENT);
+	static void* ReallocExternal(void* Original, SIZE_T Count, uint32 Alignment = DEFAULT_ALIGNMENT);
+	static void FreeExternal(void* Original);
+	static SIZE_T GetAllocSizeExternal(void* Original);
+	static SIZE_T QuantizeSizeExternal(SIZE_T Count, uint32 Alignment = DEFAULT_ALIGNMENT);
 };
 
+#define INLINE_FMEMORY_OPERATION (0) // untested, but should work. Inlines FMemory::Malloc, etc
+
+#if INLINE_FMEMORY_OPERATION
+	#if PLATFORM_USES_FIXED_GMalloc_CLASS
+		#error "PLATFORM_USES_FIXED_GMalloc_CLASS and INLINE_FMEMORY_OPERATION are not compatible. PLATFORM_USES_FIXED_GMalloc_CLASS is inlined below."
+	#endif
+
+	#define FMEMORY_INLINE_FUNCTION_DECORATOR FORCEINLINE
+	#include "FMemory.inl"
+#endif
+
+#if PLATFORM_USES_FIXED_GMalloc_CLASS && !FORCE_ANSI_ALLOCATOR && USE_MALLOC_BINNED2
+	#include "MallocBinned2.h"
+#endif

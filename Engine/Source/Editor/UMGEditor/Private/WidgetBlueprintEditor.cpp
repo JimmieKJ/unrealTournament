@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGEditorPrivatePCH.h"
 
@@ -567,7 +567,7 @@ TSharedPtr<ISequencer>& FWidgetBlueprintEditor::GetSequencer()
 			SequencerInitParams.ViewParams = ViewParams;
 			SequencerInitParams.RootSequence = NullAnimation;
 			SequencerInitParams.bEditWithinLevelEditor = false;
-			SequencerInitParams.ToolkitHost = nullptr;
+			SequencerInitParams.ToolkitHost = GetToolkitHost();
 		};
 
 		Sequencer = FModuleManager::LoadModuleChecked<ISequencerModule>("Sequencer").CreateSequencer(SequencerInitParams);
@@ -597,7 +597,7 @@ void FWidgetBlueprintEditor::ChangeViewedAnimation( UWidgetAnimation& InAnimatio
 		{
 			// Disable sequencer from interaction
 			Sequencer->GetSequencerWidget()->SetEnabled(false);
-			Sequencer->SetAutoKeyEnabled(false);
+			Sequencer->SetAutoKeyMode(EAutoKeyMode::KeyNone);
 			NoAnimationTextBlockPin->SetVisibility(EVisibility::Visible);
 			SequencerOverlayPin->SetVisibility( EVisibility::HitTestInvisible );
 		}
@@ -675,7 +675,7 @@ void FWidgetBlueprintEditor::UpdatePreview(UBlueprint* InBlueprint, bool bInForc
 	}
 
 	OnWidgetPreviewUpdated.Broadcast();
-	Sequencer->UpdateRuntimeInstances();
+	GetSequencer()->UpdateRuntimeInstances();
 }
 
 FGraphAppearanceInfo FWidgetBlueprintEditor::GetGraphAppearance(UEdGraph* InGraph) const
@@ -831,7 +831,7 @@ TSharedRef<FExtender> FWidgetBlueprintEditor::GetContextSensitiveSequencerExtend
 	return AddTrackMenuExtender;
 }
 
-void FWidgetBlueprintEditor::ExtendSequencerAddTrackMenu( FMenuBuilder& AddTrackMenuBuilder, TArray<UObject*> ContextObjects )
+void FWidgetBlueprintEditor::ExtendSequencerAddTrackMenu( FMenuBuilder& AddTrackMenuBuilder, const TArray<UObject*> ContextObjects )
 {
 	if ( ContextObjects.Num() == 1 )
 	{

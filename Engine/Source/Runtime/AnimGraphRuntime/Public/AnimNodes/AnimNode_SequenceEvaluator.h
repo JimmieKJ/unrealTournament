@@ -1,9 +1,23 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "Animation/AnimNodeBase.h"
 #include "Animation/AnimNode_AssetPlayerBase.h"
 #include "AnimNode_SequenceEvaluator.generated.h"
+
+UENUM(BlueprintType)
+namespace ESequenceEvalReinit
+{
+	enum Type
+	{
+		/** Do not reset InternalTimeAccumulator */
+		NoReset,
+		/** Reset InternalTimeAccumulator to StartPosition */
+		StartPosition,
+		/** Reset InternalTimeAccumulator to ExplicitTime */
+		ExplicitTime,
+	};
+}
 
 // Evaluates a point in an anim sequence, using a specific time input rather than advancing time internally.
 // Typically the playback position of the animation for this node will represent something other than time, like jump height.
@@ -24,11 +38,36 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinHiddenByDefault))
 	bool bShouldLoopWhenInSyncGroup;
 
+	/** If true, teleport to explicit time, does NOT advance time (does not trigger notifies, does not extract Root Motion, etc.)
+	If false, will advance time (will trigger notifies, extract root motion if applicable, etc.)
+	Note: using a sync group forces advancing time regardless of what this option is set to. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinHiddenByDefault))
+	bool bTeleportToExplicitTime;
+
+	// The start up position, it only applies when ReinitializationBehavior == StartPosition. Only used when bTeleportToExplicitTime is false.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinHiddenByDefault))
+	mutable float StartPosition;
+
+	/** What to do when SequenceEvaluator is reinitialized */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
+	TEnumAsByte<ESequenceEvalReinit::Type> ReinitializationBehavior;
+
+	UPROPERTY(Transient)
+	bool bReinitialized;
+
 public:	
 	FAnimNode_SequenceEvaluator()
 		: ExplicitTime(0.0f)
+		, bTeleportToExplicitTime(true)
+		, StartPosition(0.f)
+		, ReinitializationBehavior(ESequenceEvalReinit::ExplicitTime)
 	{
 	}
+
+	// FAnimNode_AssetPlayerBase interface
+	virtual float GetCurrentAssetTime();
+	virtual float GetCurrentAssetLength();
+	// End of FAnimNode_AssetPlayerBase interface
 
 	// FAnimNode_Base interface
 	virtual void Initialize(const FAnimationInitializeContext& Context) override;

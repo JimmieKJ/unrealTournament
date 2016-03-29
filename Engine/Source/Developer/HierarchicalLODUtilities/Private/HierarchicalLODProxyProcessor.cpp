@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "HierarchicalLODUtilitiesModulePrivatePCH.h"
 #include "HierarchicalLODProxyProcessor.h"
@@ -32,9 +32,6 @@ bool FHierarchicalLODProxyProcessor::Tick(float DeltaTime)
 		UStaticMesh* MainMesh = nullptr;		
 		for (UObject* AssetObject : Data->AssetObjects)
 		{
-			// We make it private, so it can't be used by outside of map and is invisible in the content browser, and then remove standalone
-			AssetObject->ClearFlags(RF_Public | RF_Standalone);
-			
 			// Check if this is the generated proxy (static-)mesh
 			UStaticMesh* StaticMesh = Cast<UStaticMesh>(AssetObject);
 			if (StaticMesh)
@@ -44,6 +41,11 @@ bool FHierarchicalLODProxyProcessor::Tick(float DeltaTime)
 			}
 		}
 		check(MainMesh != nullptr);
+
+		// Force lightmap coordinate to 0 for proxy meshes
+		MainMesh->LightMapCoordinateIndex = 0;
+		// Trigger post edit change, simulating we made a change in the Static mesh editor (could only call Build, but this is for possible future changes)
+		MainMesh->PostEditChange();
 
 		// Set new static mesh, location and sub-objects (UObjects)
 		Data->LODActor->SetStaticMesh(MainMesh);
@@ -60,7 +62,6 @@ bool FHierarchicalLODProxyProcessor::Tick(float DeltaTime)
 
 		// Freshly build so mark not dirty
 		Data->LODActor->SetIsDirty(false);
-
 		delete Data;
 	}
 

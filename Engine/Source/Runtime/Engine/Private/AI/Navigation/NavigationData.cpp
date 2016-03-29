@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "AI/NavDataGenerator.h"
@@ -8,65 +8,51 @@
 //----------------------------------------------------------------------//
 // FPathFindingQuery
 //----------------------------------------------------------------------//
-FPathFindingQuery::FPathFindingQuery(const UObject* InOwner, const ANavigationData* InNavData, const FVector& Start, const FVector& End, FSharedConstNavQueryFilter SourceQueryFilter, FNavPathSharedPtr InPathInstanceToFill)
-: NavData(InNavData)
-, Owner(InOwner)
-, StartLocation(Start)
-, EndLocation(End)
-, QueryFilter(SourceQueryFilter)
-, PathInstanceToFill(InPathInstanceToFill)
-, NavDataFlags(0)
-, bAllowPartialPaths(true)
+FPathFindingQuery::FPathFindingQuery(const UObject* InOwner, const ANavigationData& InNavData, const FVector& Start, const FVector& End, FSharedConstNavQueryFilter SourceQueryFilter, FNavPathSharedPtr InPathInstanceToFill) :
+	FPathFindingQueryData(InOwner, Start, End, SourceQueryFilter), 
+	NavData(&InNavData), PathInstanceToFill(InPathInstanceToFill), NavAgentProperties(FNavAgentProperties::DefaultProperties)
 {
-	if (SourceQueryFilter.IsValid() == false && NavData.IsValid() == true)
+	if (!QueryFilter.IsValid() && NavData.IsValid())
 	{
 		QueryFilter = NavData->GetDefaultQueryFilter();
 	}
 }
 
-FPathFindingQuery::FPathFindingQuery(const UObject* InOwner, const ANavigationData& InNavData, const FVector& Start, const FVector& End, FSharedConstNavQueryFilter SourceQueryFilter, FNavPathSharedPtr InPathInstanceToFill)
-: NavData(&InNavData)
-, Owner(InOwner)
-, StartLocation(Start)
-, EndLocation(End)
-, QueryFilter(SourceQueryFilter)
-, PathInstanceToFill(InPathInstanceToFill)
-, NavDataFlags(0)
-, bAllowPartialPaths(true)
+FPathFindingQuery::FPathFindingQuery(const INavAgentInterface& InNavAgent, const ANavigationData& InNavData, const FVector& Start, const FVector& End, FSharedConstNavQueryFilter SourceQueryFilter, FNavPathSharedPtr InPathInstanceToFill) :
+	FPathFindingQueryData(Cast<UObject>(&InNavAgent), Start, End, SourceQueryFilter),
+	NavData(&InNavData), PathInstanceToFill(InPathInstanceToFill), NavAgentProperties(InNavAgent.GetNavAgentPropertiesRef())
 {
-	if (SourceQueryFilter.IsValid() == false && NavData.IsValid() == true)
+	if (!QueryFilter.IsValid() && NavData.IsValid())
 	{
 		QueryFilter = NavData->GetDefaultQueryFilter();
 	}
 }
 
-FPathFindingQuery::FPathFindingQuery(const FPathFindingQuery& Source)
-: NavData(Source.NavData)
-, Owner(Source.Owner)
-, StartLocation(Source.StartLocation)
-, EndLocation(Source.EndLocation)
-, QueryFilter(Source.QueryFilter)
-, PathInstanceToFill(Source.PathInstanceToFill)
-, NavDataFlags(Source.NavDataFlags)
-, bAllowPartialPaths(Source.bAllowPartialPaths)
+FPathFindingQuery::FPathFindingQuery(const FPathFindingQuery& Source) :
+	FPathFindingQueryData(Source.Owner.Get(), Source.StartLocation, Source.EndLocation, Source.QueryFilter, Source.NavDataFlags, Source.bAllowPartialPaths),
+	NavData(Source.NavData), PathInstanceToFill(Source.PathInstanceToFill), NavAgentProperties(Source.NavAgentProperties)
 {
-	if (Source.QueryFilter.IsValid() == false && NavData.IsValid() == true)
+	if (!QueryFilter.IsValid() && NavData.IsValid())
 	{
 		QueryFilter = NavData->GetDefaultQueryFilter();
 	}
 }
 
-FPathFindingQuery::FPathFindingQuery(FNavPathSharedRef PathToRecalculate, const ANavigationData* NavDataOverride)
-: NavData(NavDataOverride != NULL ? NavDataOverride : PathToRecalculate->GetNavigationDataUsed())
-, Owner(PathToRecalculate->GetQuerier())
-, StartLocation(PathToRecalculate->GetPathFindingStartLocation())
-, EndLocation(PathToRecalculate->GetGoalLocation())
-, QueryFilter(PathToRecalculate->GetFilter())
-, PathInstanceToFill(PathToRecalculate)
-, NavDataFlags(0)
-, bAllowPartialPaths(true)
+FPathFindingQuery::FPathFindingQuery(FNavPathSharedRef PathToRecalculate, const ANavigationData* NavDataOverride) :
+	FPathFindingQueryData(PathToRecalculate->GetQueryData()),
+	NavData(NavDataOverride ? NavDataOverride : PathToRecalculate->GetNavigationDataUsed()), PathInstanceToFill(PathToRecalculate), NavAgentProperties(FNavAgentProperties::DefaultProperties)
 {
-	if (QueryFilter.IsValid() == false && NavData.IsValid() == true)
+	if (PathToRecalculate->ShouldUpdateStartPointOnRepath())
+	{
+		StartLocation = PathToRecalculate->GetPathFindingStartLocation();
+	}
+
+	if (PathToRecalculate->ShouldUpdateEndPointOnRepath())
+	{
+		EndLocation = PathToRecalculate->GetGoalLocation();
+	}
+
+	if (!QueryFilter.IsValid() && NavData.IsValid())
 	{
 		QueryFilter = NavData->GetDefaultQueryFilter();
 	}
@@ -297,7 +283,7 @@ void ANavigationData::TickActor(float DeltaTime, enum ELevelTick TickType, FActo
 
 			FPathFindingQuery Query(PinnedPath.ToSharedRef());
 			// @todo consider supplying NavAgentPropertied from path's querier
-			const FPathFindingResult Result = FindPath(FNavAgentProperties(), Query.SetPathInstanceToUpdate(PinnedPath));
+			const FPathFindingResult Result = FindPath(Query.NavAgentProperties, Query.SetPathInstanceToUpdate(PinnedPath));
 
 			// update time stamp to give observers any means of telling if it has changed
 			PinnedPath->SetTimeStamp(TimeStamp);
@@ -348,6 +334,7 @@ void ANavigationData::InstantiateAndRegisterRenderingComponent()
 #if !UE_BUILD_SHIPPING
 	if (!IsPendingKill() && (RenderingComp == NULL || RenderingComp->IsPendingKill()))
 	{
+		const bool bRootIsRenderComp = (RenderingComp == RootComponent);
 		if (RenderingComp)
 		{
 			// rename the old rendering component out of the way
@@ -358,6 +345,11 @@ void ANavigationData::InstantiateAndRegisterRenderingComponent()
 		if (RenderingComp != NULL)
 		{
 			RenderingComp->RegisterComponent();
+		}
+
+		if (bRootIsRenderComp)
+		{
+			RootComponent = RenderingComp;
 		}
 	}
 #endif // !UE_BUILD_SHIPPING
@@ -381,6 +373,9 @@ void ANavigationData::PurgeUnusedPaths()
 #if WITH_EDITOR
 void ANavigationData::PostEditUndo()
 {
+	// make sure that rendering component is not pending kill before trying to register all components
+	InstantiateAndRegisterRenderingComponent();
+
 	Super::PostEditUndo();
 
 	UWorld* WorldOuter = GetWorld();
@@ -441,6 +436,7 @@ void ANavigationData::CleanUpAndMarkPendingKill()
 	SetActorHiddenInGame(true);
 
 	// do NOT destroy here! it can be called from PostLoad and will crash in DestroyActor()
+	GetWorld()->RemoveNetworkActor(this);
 	MarkPendingKill();
 	MarkComponentsAsPendingKill();
 }

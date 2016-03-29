@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
  #include "SlateCorePrivatePCH.h"
 
@@ -76,13 +76,29 @@ int32 SOverlay::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeomet
 	// wants to an overlay for all of its contents.
 	int32 MaxLayerId = LayerId;
 
+	const FPaintArgs NewArgs = Args.WithNewParent(this);
+
 	for (int32 ChildIndex = 0; ChildIndex < ArrangedChildren.Num(); ++ChildIndex)
 	{
 		FArrangedWidget& CurWidget = ArrangedChildren[ChildIndex];
-		FSlateRect ChildClipRect = MyClippingRect.IntersectionWith( CurWidget.Geometry.GetClippingRect() );
-		const int32 CurWidgetsMaxLayerId = CurWidget.Widget->Paint( Args.WithNewParent(this), CurWidget.Geometry, ChildClipRect, OutDrawElements, MaxLayerId + 1, InWidgetStyle, ShouldBeEnabled( bParentEnabled ) );
 
-		MaxLayerId = FMath::Max( MaxLayerId, CurWidgetsMaxLayerId );
+		bool bWereOverlapping;
+		FSlateRect ChildClipRect = MyClippingRect.IntersectionWith( CurWidget.Geometry.GetClippingRect(), bWereOverlapping );
+
+		if ( bWereOverlapping )
+		{
+			const int32 CurWidgetsMaxLayerId = 
+				CurWidget.Widget->Paint(
+					NewArgs,
+					CurWidget.Geometry,
+					ChildClipRect,
+					OutDrawElements,
+					MaxLayerId + 1,
+					InWidgetStyle,
+					ShouldBeEnabled(bParentEnabled));
+
+			MaxLayerId = FMath::Max(MaxLayerId, CurWidgetsMaxLayerId);
+		}
 	}
 
 	return MaxLayerId;

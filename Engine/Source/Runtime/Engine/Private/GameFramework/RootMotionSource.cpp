@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "GameFramework/RootMotionSource.h"
@@ -277,6 +277,7 @@ FString FRootMotionSource::ToSimpleString() const
 
 FRootMotionSource_ConstantForce::FRootMotionSource_ConstantForce()
 	: Force(EForceInit::ForceInitToZero)
+	, StrengthOverTime(nullptr)
 {
 }
 
@@ -296,7 +297,8 @@ bool FRootMotionSource_ConstantForce::Matches(const FRootMotionSource* Other) co
 	// We can cast safely here since in FRootMotionSource::Matches() we ensured ScriptStruct equality
 	const FRootMotionSource_ConstantForce* OtherCast = static_cast<const FRootMotionSource_ConstantForce*>(Other);
 
-	return FVector::PointsAreNear(Force, OtherCast->Force, 0.1f);
+	return FVector::PointsAreNear(Force, OtherCast->Force, 0.1f) &&
+		StrengthOverTime == OtherCast->StrengthOverTime;
 }
 
 bool FRootMotionSource_ConstantForce::MatchesAndHasSameState(const FRootMotionSource* Other) const
@@ -332,6 +334,14 @@ void FRootMotionSource_ConstantForce::PrepareRootMotion
 
 	FTransform NewTransform(Force);
 
+	// Scale strength of force over time
+	if (StrengthOverTime)
+	{
+		const float TimeValue = Duration > 0.f ? FMath::Clamp(GetTime() / Duration, 0.f, 1.f) : GetTime();
+		const float TimeFactor = StrengthOverTime->GetFloatValue(TimeValue);
+		NewTransform.ScaleTranslation(TimeFactor);
+	}
+
 	// Scale force based on Simulation/MovementTime differences
 	// Ex: Force is to go 200 cm per second forward.
 	//     To catch up with server state we need to apply
@@ -356,6 +366,7 @@ bool FRootMotionSource_ConstantForce::NetSerialize(FArchive& Ar, UPackageMap* Ma
 	}
 
 	Ar << Force; // TODO-RootMotionSource: Quantization
+	Ar << StrengthOverTime;
 
 	bOutSuccess = true;
 	return true;
@@ -369,6 +380,13 @@ UScriptStruct* FRootMotionSource_ConstantForce::GetScriptStruct() const
 FString FRootMotionSource_ConstantForce::ToSimpleString() const
 {
 	return FString::Printf(TEXT("[ID:%u]FRootMotionSource_ConstantForce %s"), LocalID, *InstanceName.GetPlainNameString());
+}
+
+void FRootMotionSource_ConstantForce::AddReferencedObjects(class FReferenceCollector& Collector)
+{
+	Collector.AddReferencedObject(StrengthOverTime);
+
+	FRootMotionSource::AddReferencedObjects(Collector);
 }
 
 //
@@ -734,6 +752,11 @@ FRootMotionSource_JumpForce::FRootMotionSource_JumpForce()
 	, TimeMappingCurve(nullptr)
 	, SavedHalfwayLocation(FVector::ZeroVector)
 {
+	// Don't allow partial end ticks. Jump forces are meant to provide velocity that
+	// carries through to the end of the jump, and if we do partial ticks at the very end,
+	// it means the provided velocity can be significantly reduced on the very last tick,
+	// resulting in lost momentum. This is not desirable for jumps.
+	Settings.SetFlag(ERootMotionSourceSettingsFlags::DisablePartialEndTick);
 }
 
 bool FRootMotionSource_JumpForce::IsTimeOutEnabled() const
@@ -1180,7 +1203,7 @@ void FRootMotionSourceGroup::PrepareRootMotion(float DeltaTime, const ACharacter
 						}
 
 						// End of root motion
-						if (RootMotionSource->IsTimeOutEnabled())
+						if (RootMotionSource->IsTimeOutEnabled() && !RootMotionSource->Settings.HasFlag(ERootMotionSourceSettingsFlags::DisablePartialEndTick))
 						{
 							const float Duration = RootMotionSource->GetDuration();
 							if (RootMotionSource->GetTime() + SimulationTime >= Duration)
@@ -1459,10 +1482,11 @@ void FRootMotionSourceGroup::UpdateStateFrom(const FRootMotionSourceGroup& Group
 
 bool FRootMotionSourceGroup::NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
 {
-	int32 SourcesNum;
+	uint8 SourcesNum;
 	if (Ar.IsSaving())
 	{
-		SourcesNum = RootMotionSources.Num();
+		UE_CLOG(RootMotionSources.Num() > MAX_uint8, LogRootMotion, Warning, TEXT("Too many root motion sources (%d!) to net serialize. Clamping to %d"), RootMotionSources.Num(), MAX_uint8);
+		SourcesNum = FMath::Min<int32>(RootMotionSources.Num(), MAX_uint8);
 	}
 	Ar << SourcesNum;
 	if (Ar.IsLoading())
@@ -1472,11 +1496,11 @@ bool FRootMotionSourceGroup::NetSerialize(FArchive& Ar, class UPackageMap* Map, 
 
 	Ar << bHasAdditiveSources;
 	Ar << bHasOverrideSources;
-	Ar << LastPreAdditiveVelocity; // TODO-RootMotionSource: quantize
+	LastPreAdditiveVelocity.NetSerialize(Ar, Map, bOutSuccess);
 	Ar << bIsAdditiveVelocityApplied;
 	Ar << LastAccumulatedSettings.Flags;
 
-	for (int32 i = 0; i < SourcesNum; ++i)
+	for (int32 i = 0; i < SourcesNum && !Ar.IsError(); ++i)
 	{
 		UScriptStruct* ScriptStruct = RootMotionSources[i].IsValid() ? RootMotionSources[i]->GetScriptStruct() : nullptr;
 		UScriptStruct* ScriptStructLocal = ScriptStruct;

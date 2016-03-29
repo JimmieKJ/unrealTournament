@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -15,24 +15,16 @@ enum class EKeyMarginChannel
 	Bottom
 };
 
-enum class EKeyMarginValueType
-{
-	Key,
-	Default
-};
-
 
 struct FMarginKey
 {
-	FMarginKey( EKeyMarginChannel InChannel, float InValue, EKeyMarginValueType InValueType )
+	FMarginKey( EKeyMarginChannel InChannel, float InValue )
 	{
 		Channel = InChannel;
 		Value = InValue;
-		ValueType = InValueType;
 	}
 	EKeyMarginChannel Channel;
 	float Value;
-	EKeyMarginValueType ValueType;
 };
 
 

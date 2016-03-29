@@ -1,9 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "OnlineDelegateMacros.h"
 #include "OnlineStoreInterfaceV2.h"
 #include "OnlineEntitlementsInterface.h"
+#include "OnlineError.h"
 
 /**
  * Info needed for checkout
@@ -69,6 +70,11 @@ namespace EPurchaseTransactionState
 class FPurchaseReceipt
 {
 public:
+	FPurchaseReceipt()
+	: TransactionState(EPurchaseTransactionState::NotStarted)
+	{
+	}
+
 	struct FLineItemInfo
 	{
 		/** The platform identifier of this purchase type */
@@ -79,6 +85,8 @@ public:
 
 		/** platform-specific opaque validation info (required to verify UniqueId belongs to this account) */
 		FString ValidationInfo;
+
+		inline bool IsRedeemable() const { return !ValidationInfo.IsEmpty(); }
 	};
 
 	/**
@@ -140,17 +148,17 @@ public:
 /**
  * Delegate called when checkout process completes
  */
-DECLARE_DELEGATE_FourParams(FOnPurchaseCheckoutComplete, const FUniqueNetId& /*UserId*/, bool /*bWasSuccessful*/, const TSharedRef<FPurchaseReceipt>& /*Receipt*/, const FString& /*Error*/);
+DECLARE_DELEGATE_TwoParams(FOnPurchaseCheckoutComplete, const FOnlineError& /*Result*/, const TSharedRef<FPurchaseReceipt>& /*Receipt*/);
 
 /**
  * Delegate called when code redemption process completes
  */
-DECLARE_DELEGATE_FourParams(FOnPurchaseRedeemCodeComplete, const FUniqueNetId& /*UserId*/, bool /*bWasSuccessful*/, const TSharedRef<FPurchaseReceipt>& /*Receipt*/, const FString& /*Error*/);
+DECLARE_DELEGATE_TwoParams(FOnPurchaseRedeemCodeComplete, const FOnlineError& /*Result*/, const TSharedRef<FPurchaseReceipt>& /*Receipt*/);
 
 /**
  * Delegate called when query receipt process completes
  */
-DECLARE_DELEGATE_ThreeParams(FOnQueryReceiptsComplete, const FUniqueNetId& /*UserId*/, bool /*bWasSuccessful*/, const FString& /*Error*/);
+DECLARE_DELEGATE_OneParam(FOnQueryReceiptsComplete, const FOnlineError& /*Result*/);
 
 /**
  *	IOnlinePurchase - Interface for IAP (In App Purchases) services
@@ -174,32 +182,26 @@ public:
 	 *
 	 * @param UserId user initiating the request
 	 * @param CheckoutRequest info needed for the checkout request
-	 * @param Delegate completion callback
-	 *
-	 * @return true if user can make a purchase
+	 * @param Delegate completion callback (guaranteed to be called)
 	 */
-	virtual bool Checkout(const FUniqueNetId& UserId, const FPurchaseCheckoutRequest& CheckoutRequest, const FOnPurchaseCheckoutComplete& Delegate = FOnPurchaseCheckoutComplete()) = 0;
+	virtual void Checkout(const FUniqueNetId& UserId, const FPurchaseCheckoutRequest& CheckoutRequest, const FOnPurchaseCheckoutComplete& Delegate) = 0;
 
 	/**
 	 * Initiate the checkout process for obtaining offers via code redemption
 	 *
 	 * @param UserId user initiating the request
 	 * @param RedeemCodeRequest info needed for the redeem request
-	 * @param Delegate completion callback
-	 *
-	 * @return true if user can make a purchase
+	 * @param Delegate completion callback (guaranteed to be called)
 	 */
-	virtual bool RedeemCode(const FUniqueNetId& UserId, const FRedeemCodeRequest& RedeemCodeRequest, const FOnPurchaseRedeemCodeComplete& Delegate = FOnPurchaseRedeemCodeComplete()) = 0;
+	virtual void RedeemCode(const FUniqueNetId& UserId, const FRedeemCodeRequest& RedeemCodeRequest, const FOnPurchaseRedeemCodeComplete& Delegate) = 0;
 
 	/**
 	 * Query for all of the user's receipts from prior purchases
 	 *
 	 * @param UserId user initiating the request
-	 * @param Delegate completion callback
-	 *
-	 * @return true if user can make a purchase
+	 * @param Delegate completion callback (guaranteed to be called)
 	 */
-	virtual bool QueryReceipts(const FUniqueNetId& UserId, const FOnQueryReceiptsComplete& Delegate = FOnQueryReceiptsComplete()) = 0;
+	virtual void QueryReceipts(const FUniqueNetId& UserId, const FOnQueryReceiptsComplete& Delegate) = 0;
 
 	/**
 	 * Get list of cached receipts for user (includes transactions currently being processed)

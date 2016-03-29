@@ -1,7 +1,5 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
-
-#if WITH_FANCY_TEXT
 
 class SLATE_API FSlateTextHighlightRunRenderer : public ISlateRunRenderer
 {
@@ -18,4 +16,3 @@ private:
 	FSlateTextHighlightRunRenderer();
 
 };
-#endif //WITH_FANCY_TEXT

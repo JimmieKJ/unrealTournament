@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
 #include "EnvironmentQuery/EnvQueryOption.h"
@@ -93,12 +93,12 @@ void UEnvQueryTest::NormalizeItemScores(FEnvQueryInstance& QueryInstance)
 
 	if (MinScore != MaxScore)
 	{
-		if (bDefineSweetSpot)
+		if (bDefineReferenceValue)
 		{
-			SweetSpotValue.BindData(QueryOwner, QueryInstance.QueryID);
+			ReferenceValue.BindData(QueryOwner, QueryInstance.QueryID);
 		}
-		const float BestValue = bDefineSweetSpot ? SweetSpotValue.GetValue() : MaxScore;
-		const float ValueSpan = FMath::Max(FMath::Abs(BestValue - MinScore), FMath::Abs(BestValue - MaxScore));
+		const float LocalReferenceValue = bDefineReferenceValue ? ReferenceValue.GetValue() : MinScore;
+		const float ValueSpan = FMath::Max(FMath::Abs(LocalReferenceValue - MinScore), FMath::Abs(LocalReferenceValue - MaxScore));
 
 		for (int32 ItemIndex = 0; ItemIndex < QueryInstance.ItemDetails.Num(); ItemIndex++, DetailInfo++)
 		{
@@ -113,14 +113,12 @@ void UEnvQueryTest::NormalizeItemScores(FEnvQueryInstance& QueryInstance)
 			if (TestValue != UEnvQueryTypes::SkippedItemValue)
 			{
 				const float ClampedScore = FMath::Clamp(TestValue, MinScore, MaxScore);
-				const float NormalizedScore = (ValueSpan - FMath::Abs(BestValue - ClampedScore)) / ValueSpan;
+				const float NormalizedScore = FMath::Abs(LocalReferenceValue - ClampedScore) / ValueSpan;
 
-				// TODO? Add an option to invert the normalized score before applying an equation.
- 				const float NormalizedScoreForEquation = /*bMirrorNormalizedScore ? (1.0f - NormalizedScore) :*/ NormalizedScore;
 				switch (ScoringEquation)
 				{
 					case EEnvTestScoreEquation::Linear:
-						WeightedScore = ScoringFactorValue * NormalizedScoreForEquation;
+						WeightedScore = ScoringFactorValue * NormalizedScore;
 						break;
 
 					case EEnvTestScoreEquation::InverseLinear:
@@ -129,22 +127,22 @@ void UEnvQueryTest::NormalizeItemScores(FEnvQueryInstance& QueryInstance)
 						// because we don't have usage cases yet and want to avoid too complex UI.  If we decide
 						// to add that flag later, we'll need to remove this option, since it should just be "mirror
 						// curve" plus "Linear".
-						float InverseNormalizedScore = (1.0f - NormalizedScoreForEquation);
+						float InverseNormalizedScore = (1.0f - NormalizedScore);
 						WeightedScore = ScoringFactorValue * InverseNormalizedScore;
 						break;
 					}
 
 					case EEnvTestScoreEquation::Square:
-						WeightedScore = ScoringFactorValue * (NormalizedScoreForEquation * NormalizedScoreForEquation);
+						WeightedScore = ScoringFactorValue * (NormalizedScore * NormalizedScore);
 						break;
 
 					case EEnvTestScoreEquation::SquareRoot:
-						WeightedScore = ScoringFactorValue * FMath::Sqrt(NormalizedScoreForEquation);
+						WeightedScore = ScoringFactorValue * FMath::Sqrt(NormalizedScore);
 						break;
 
 					case EEnvTestScoreEquation::Constant:
 						// I know, it's not "constant".  It's "Constant, or zero".  The tooltip should explain that.
-						WeightedScore = (NormalizedScoreForEquation > 0) ? ScoringFactorValue : 0.0f;
+						WeightedScore = (NormalizedScore > 0) ? ScoringFactorValue : 0.0f;
 						break;
 						
 					default:

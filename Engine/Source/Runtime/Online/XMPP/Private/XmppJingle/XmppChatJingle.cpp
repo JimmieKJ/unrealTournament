@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "XmppPrivatePCH.h"
 #include "XmppJingle.h"
@@ -41,8 +41,9 @@ public:
 class FXmppChatReceiveTask : public buzz::XmppTask
 {
 public:
-	explicit FXmppChatReceiveTask(buzz::XmppTaskParentInterface* Parent)
+	explicit FXmppChatReceiveTask(buzz::XmppTaskParentInterface* Parent, FXmppConnectionJingle* InConnection)
 		: buzz::XmppTask(Parent, buzz::XmppEngine::HL_TYPE)
+		, Connection(InConnection)
 	{}
 
 	virtual ~FXmppChatReceiveTask()
@@ -99,15 +100,38 @@ protected:
 		static const buzz::StaticQName QN_DELAY = { "urn:xmpp:delay", "delay" };
 		const buzz::XmlElement* Delay = Stanza->FirstNamed(QN_DELAY);
 
-		FXmppChatMessageJingle ChatMessage(
-			buzz::Jid(Stanza->Attr(buzz::QN_FROM)),
-			buzz::Jid(Stanza->Attr(buzz::QN_TO)),
-			XmlBody != NULL ? XmlBody->BodyText() : std::string(),
-			Delay != NULL ? Delay->Attr(buzz::kQnStamp) : std::string()
-			);
-		
-		SignalChatReceived(ChatMessage);
+		buzz::Jid FromJidBuzz(Stanza->Attr(buzz::QN_FROM));
+
+		bool bMessageAllowed = true;
+		if (Connection->GetServer().bPrivateChatFriendsOnly && Connection->Presence().IsValid())
+		{
+			FXmppUserJid FromJid;
+			FXmppJingle::ConvertToJid(FromJid, FromJidBuzz);
+			if (FromJid.Id.Compare(TEXT("xmpp-admin"), ESearchCase::IgnoreCase) != 0)
+			{
+				TArray<FXmppUserJid> RosterMembers;
+				Connection->Presence()->GetRosterMembers(RosterMembers);
+				if (!RosterMembers.Contains(FromJid))
+				{
+					bMessageAllowed = false;
+				}
+			}
+		}
+
+		if (bMessageAllowed)
+		{
+			FXmppChatMessageJingle ChatMessage(
+				FromJidBuzz,
+				buzz::Jid(Stanza->Attr(buzz::QN_TO)),
+				XmlBody != NULL ? XmlBody->BodyText() : std::string(),
+				Delay != NULL ? Delay->Attr(buzz::kQnStamp) : std::string()
+				);
+
+			SignalChatReceived(ChatMessage);
+		}
 	}
+
+	FXmppConnectionJingle* Connection;
 };
 
 /**
@@ -246,7 +270,7 @@ void FXmppChatJingle::HandlePumpStarting(buzz::XmppPump* XmppPump)
 {
 	if (ChatRcvTask == NULL)
 	{
-		ChatRcvTask = new FXmppChatReceiveTask(XmppPump->client());
+		ChatRcvTask = new FXmppChatReceiveTask(XmppPump->client(), &Connection);
 		ChatRcvTask->SignalChatReceived.connect(this, &FXmppChatJingle::OnSignalChatReceived);
  		ChatRcvTask->Start();
 	}

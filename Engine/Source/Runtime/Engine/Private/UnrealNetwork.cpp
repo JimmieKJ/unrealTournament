@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "NetworkReplayStreaming.h"
@@ -78,7 +78,7 @@ bool FNetworkVersion::IsNetworkCompatible( const uint32 LocalNetworkVersion, con
 
 FNetworkReplayVersion FNetworkVersion::GetReplayVersion()
 {
-	return FNetworkReplayVersion( FApp::GetGameName(), GetLocalNetworkVersion(), FEngineVersion::Current().GetChangelist() );
+	return FNetworkReplayVersion(FApp::GetGameName(), GetLocalNetworkVersion(), GEngineNetVersion);
 }
 
 

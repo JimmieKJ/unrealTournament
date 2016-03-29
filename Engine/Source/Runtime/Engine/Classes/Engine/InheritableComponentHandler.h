@@ -1,4 +1,4 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -71,6 +71,9 @@ struct FComponentOverrideRecord
 	UPROPERTY()
 	FComponentKey ComponentKey;
 
+	UPROPERTY()
+	FBlueprintCookedComponentInstancingData CookedComponentInstancingData;
+
 	FComponentOverrideRecord()
 		: ComponentTemplate(nullptr)
 	{}
@@ -125,6 +128,12 @@ public:
 	FComponentKey FindKey(const FName VariableName) const;
 
 	UActorComponent* GetOverridenComponentTemplate(FComponentKey Key) const;
+	const FBlueprintCookedComponentInstancingData* GetOverridenComponentTemplateData(FComponentKey Key) const;
+
+	TArray<FComponentOverrideRecord>::TIterator CreateRecordIterator()
+	{
+		return Records.CreateIterator();
+	}
 
 private:
 	const FComponentOverrideRecord* FindRecord(const FComponentKey Key) const;

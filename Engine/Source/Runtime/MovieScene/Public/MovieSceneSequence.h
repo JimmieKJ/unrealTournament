@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -47,6 +47,14 @@ public:
 	 * @return The object, or nullptr if not found.
 	 */
 	virtual UObject* FindPossessableObject(const FGuid& ObjectId, UObject* Context) const PURE_VIRTUAL(UMovieSceneSequence::FindPossessedObject, return nullptr;);
+
+	/**
+	 * Finds an ID for the specified the object
+	 *
+	 * @param Object The object to find an id for
+	 * @return The object's ID, or an invalid guid if not found
+	 */
+	virtual FGuid FindPossessableObjectId(UObject& Object) const PURE_VIRTUAL(UMovieSceneSequence::FindPossessableObjectId, return FGuid(););
 
 	/**
 	 * Get the movie scene that controls this animation.

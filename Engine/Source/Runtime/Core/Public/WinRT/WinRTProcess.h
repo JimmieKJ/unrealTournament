@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================================
 	WinRTProcess.h: WinRT platform Process functions
@@ -39,3 +39,4 @@ typedef FWinRTProcess FPlatformProcess;
 #include "../WinRT/WinRTCriticalSection.h"
 typedef FWinRTCriticalSection FCriticalSection;
 
+typedef FSystemWideCriticalSectionNotImplemented FSystemWideCriticalSection;

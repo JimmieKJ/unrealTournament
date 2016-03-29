@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -11,9 +11,8 @@
 struct FKeyHotspot
 	: ISequencerHotspot
 {
-	FKeyHotspot(FSequencerSelectedKey InKey, TSharedPtr<FSequencerTrackNode> InTrackNode)
+	FKeyHotspot(FSequencerSelectedKey InKey)
 		: Key(InKey)
-		, TrackNode(MoveTemp(InTrackNode))
 	{ }
 
 	virtual ESequencerHotspot GetType() const override { return ESequencerHotspot::Key; }
@@ -22,9 +21,6 @@ struct FKeyHotspot
 
 	/** The key itself */
 	FSequencerSelectedKey Key;
-
-	/** The track node that holds the section the key is contained in */
-	TSharedPtr<FSequencerTrackNode> TrackNode;
 };
 
 

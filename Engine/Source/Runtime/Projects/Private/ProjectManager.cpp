@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ProjectsPrivatePCH.h"
 
@@ -248,7 +248,7 @@ void FProjectManager::GetEnabledPlugins(TArray<FString>& OutPluginNames) const
 	{
 		for(const FPluginReferenceDescriptor& Plugin: Project->Plugins)
 		{
-			if(Plugin.IsEnabledForPlatform(FPlatformMisc::GetUBTPlatform()))
+			if(Plugin.IsEnabledForPlatform(FPlatformMisc::GetUBTPlatform()) && Plugin.IsEnabledForTarget(FPlatformMisc::GetUBTTarget()))
 			{
 				OutPluginNames.AddUnique(Plugin.Name);
 			}

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #ifndef __SCurveEditor_h__
@@ -369,9 +369,6 @@ private:
 	/** Empty key and tangent selection set */
 	void EmptyAllSelection();
 
-	/** Ensure that selected keys and tangents are still valid */
-	void ValidateSelection();
-
 	/** Get the value of the desired key as text */
 	TOptional<float> GetKeyValue(FSelectedCurveKey Key) const;
 	/** Get the time of the desired key */
@@ -443,6 +440,12 @@ private:
 	/** Paints the marquee for selection */
 	void PaintMarquee(const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId) const;
 
+	/** Gets the delta value for the input value numeric entry box. */
+	float GetInputNumericEntryBoxDelta() const;
+
+	/** Gets the delta value for the output value numeric entry box. */
+	float GetOutputNumericEntryBoxDelta() const;
+
 protected:
 	//~ Begin SWidget Interface
 	UNREALED_API virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
@@ -501,6 +504,12 @@ private:
 	/** Flatten or straighten tangents */
 	void OnFlattenOrStraightenTangents(bool bFlattenTangents);
 
+	/** Called when user selects bake or reduce curve */
+	void OnBakeCurve();
+	void OnBakeCurveSampleRateCommitted(const FText& InText, ETextCommit::Type CommitInfo);
+	void OnReduceCurve();
+	void OnReduceCurveToleranceCommitted(const FText& InText, ETextCommit::Type CommitInfo);
+
 	/** Called when the user selects the extrapolation type */
 	void OnSelectPreInfinityExtrap(ERichCurveExtrapolation Extrapolation);
 	bool IsPreInfinityExtrapSelected(ERichCurveExtrapolation Extrapolation);
@@ -529,6 +538,8 @@ private:
 	bool AreCurvesVisible() const { return bAlwaysDisplayColorCurves || bAreCurvesVisible; }
 	bool IsGradientEditorVisible() const { return bIsGradientEditorVisible; }
 	bool IsLinearColorCurve() const;
+
+	bool IsCurveSelectable(TSharedPtr<FCurveViewModel> CurveViewModel) const;
 
 	FVector2D SnapLocation(FVector2D InLocation);
 
@@ -577,6 +588,15 @@ protected:
 	/** Return whether any curve view models are selected */
 	UNREALED_API bool AnyCurveViewModelsSelected() const;
 
+	/** Ensure that selected keys and tangents are still valid */
+	UNREALED_API void ValidateSelection();
+
+	/** Modeless Version of the String Entry Box */
+	void GenericTextEntryModeless(const FText& DialogText, const FText& DefaultText, FOnTextCommitted OnTextComitted);
+	
+	/** Closes the popup created by GenericTextEntryModeless*/
+	void CloseEntryPopupMenu();
+
 private:
 
 	/** User-supplied object for this curve editor */
@@ -590,8 +610,6 @@ private:
 
 	/** Interface for curve supplier */
 	FCurveOwnerInterface*		CurveOwner;
-	/** Color for each curve */
-	TArray<FLinearColor>		CurveColors;
 
 	/** If we should draw the curve */
 	bool				bDrawCurve;
@@ -733,6 +751,12 @@ protected:
 
 	/** The color used to draw the grid lines. */
 	FLinearColor GridColor;
+
+	/** The tolerance to use when reducing curves */
+	float ReduceTolerance;
+
+	/** Generic Popup Entry */
+	TWeakPtr<IMenu> EntryPopupMenu;
 };
 
 #endif // __SCurveEditor_h__

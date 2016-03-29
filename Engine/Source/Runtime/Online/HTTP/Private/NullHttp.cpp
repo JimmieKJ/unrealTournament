@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "HttpPrivatePCH.h"
 #include "NullHttp.h"
@@ -80,6 +80,22 @@ void FNullHttpRequest::SetContentAsString(const FString& ContentString)
 void FNullHttpRequest::SetHeader(const FString& HeaderName, const FString& HeaderValue)
 {
 	Headers.Add(HeaderName, HeaderValue);
+}
+
+void FNullHttpRequest::AppendToHeader(const FString& HeaderName, const FString& AdditionalHeaderValue)
+{
+	if (HeaderName.Len() > 0 && AdditionalHeaderValue.Len() > 0)
+	{
+		FString* PreviousValue = Headers.Find(HeaderName);
+		FString NewValue;
+		if (PreviousValue != NULL && PreviousValue->Len() > 0)
+		{
+			NewValue = (*PreviousValue) + TEXT(", ");
+		}
+		NewValue += AdditionalHeaderValue;
+
+		SetHeader(HeaderName, NewValue);
+	}
 }
 
 bool FNullHttpRequest::ProcessRequest()

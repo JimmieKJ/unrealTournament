@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AsyncWork.h: Definition of queued work classes
@@ -50,7 +50,7 @@ template<typename TTask>
 class FAutoDeleteAsyncTask
 	: private IQueuedWork
 {
-	/** User job embedded in this task */ 
+	/** User job embedded in this task */
 	TTask Task;
 
 	/* Generic start function, not called directly
@@ -68,25 +68,25 @@ class FAutoDeleteAsyncTask
 		{
 			QueuedPool->AddQueuedWork(this);
 		}
-		else 
+		else
 		{
 			// we aren't doing async stuff
 			DoWork();
 		}
 	}
 
-	/** 
+	/**
 	* Tells the user job to do the work, sometimes called synchronously, sometimes from the thread pool. Calls the event tracker.
 	**/
 	void DoWork()
-	{		
-		FScopeCycleCounter Scope(Task.GetStatId(), true); 
+	{
+		FScopeCycleCounter Scope(Task.GetStatId(), true);
 
-		Task.DoWork();		
+		Task.DoWork();
 		delete this;
 	}
 
-	/** 
+	/**
 	* Always called from the thread pool. Just passes off to DoWork
 	**/
 	virtual void DoThreadedWork()
@@ -112,65 +112,72 @@ class FAutoDeleteAsyncTask
 	}
 
 public:
+#if PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
+	/** Forwarding constructor. */
+	template<typename...T>
+	explicit FAutoDeleteAsyncTask(T&&... Args) : Task(Forward<T>(Args)...)
+	{
+	}
+#else
 	/** Default constructor. */
 	FAutoDeleteAsyncTask( )
 	{
 	}
-	/** Passthrough constructor. Generally speaking references will not pass through; use pointers */
+	/** Forwarding constructor. */
 	template<typename T>
-	FAutoDeleteAsyncTask( T Arg )
-		: Task(Arg)
+	FAutoDeleteAsyncTask( T&& Arg )
+		: Task(Forward<T>(Arg))
 	{
 	}
-	/** Passthrough constructor. Generally speaking references will not pass through; use pointers */
+	/** Forwarding constructor. */
 	template<typename T1,typename T2>
-	FAutoDeleteAsyncTask( T1 Arg1, T2 Arg2 )
-		: Task(Arg1,Arg2)
+	FAutoDeleteAsyncTask( T1&& Arg1, T2&& Arg2 )
+		: Task(Forward<T1>(Arg1), Forward<T2>(Arg2))
 	{
 	}
-	/** Passthrough constructor. Generally speaking references will not pass through; use pointers */
+	/** Forwarding constructor. */
 	template<typename T1,typename T2, typename T3>
-	FAutoDeleteAsyncTask( T1 Arg1, T2 Arg2, T3 Arg3 )
-		: Task(Arg1,Arg2,Arg3)
+	FAutoDeleteAsyncTask( T1&& Arg1, T2&& Arg2, T3&& Arg3 )
+		: Task(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3))
 	{
 	}
-	/** Passthrough constructor. Generally speaking references will not pass through; use pointers */
+	/** Forwarding constructor. */
 	template<typename T1,typename T2, typename T3, typename T4>
-	FAutoDeleteAsyncTask( T1 Arg1, T2 Arg2, T3 Arg3, T4 Arg4 )
-		: Task(Arg1,Arg2,Arg3,Arg4)
+	FAutoDeleteAsyncTask( T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4 )
+		: Task(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4))
 	{
 	}
-	/** Passthrough constructor. Generally speaking references will not pass through; use pointers */
+	/** Forwarding constructor. */
 	template<typename T1,typename T2, typename T3, typename T4, typename T5>
-	FAutoDeleteAsyncTask( T1 Arg1, T2 Arg2, T3 Arg3, T4 Arg4, T5 Arg5 )
-		: Task(Arg1,Arg2,Arg3,Arg4,Arg5)
+	FAutoDeleteAsyncTask( T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5 )
+		: Task(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5))
 	{
 	}
-	/** Passthrough constructor. Generally speaking references will not pass through; use pointers */
+	/** Forwarding constructor. */
 	template<typename T1,typename T2, typename T3, typename T4, typename T5, typename T6>
-	FAutoDeleteAsyncTask( T1 Arg1, T2 Arg2, T3 Arg3, T4 Arg4, T5 Arg5, T6 Arg6 )
-		: Task(Arg1,Arg2,Arg3,Arg4,Arg5,Arg6)
+	FAutoDeleteAsyncTask( T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5, T6&& Arg6 )
+		: Task(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5), Forward<T6>(Arg6))
 	{
 	}
-	/** Passthrough constructor. Generally speaking references will not pass through; use pointers */
+	/** Forwarding constructor. */
 	template<typename T1,typename T2, typename T3, typename T4, typename T5, typename T6, typename T7>
-	FAutoDeleteAsyncTask( T1 Arg1, T2 Arg2, T3 Arg3, T4 Arg4, T5 Arg5, T6 Arg6, T7 Arg7 )
-		: Task(Arg1,Arg2,Arg3,Arg4,Arg5,Arg6,Arg7)
+	FAutoDeleteAsyncTask( T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5, T6&& Arg6, T7&& Arg7 )
+		: Task(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5), Forward<T6>(Arg6), Forward<T7>(Arg7))
 	{
 	}
-	/** Passthrough constructor. Generally speaking references will not pass through; use pointers */
+	/** Forwarding constructor. */
 	template<typename T1,typename T2, typename T3, typename T4, typename T5, typename T6, typename T7, typename T8>
-	FAutoDeleteAsyncTask( T1 Arg1, T2 Arg2, T3 Arg3, T4 Arg4, T5 Arg5, T6 Arg6, T7 Arg7, T8 Arg8 )
-		: Task(Arg1,Arg2,Arg3,Arg4,Arg5,Arg6,Arg7,Arg8)
+	FAutoDeleteAsyncTask( T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5, T6&& Arg6, T7&& Arg7, T8&& Arg8 )
+		: Task(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5), Forward<T6>(Arg6), Forward<T7>(Arg7), Forward<T8>(Arg8))
 	{
 	}
-	/** Passthrough constructor. Generally speaking references will not pass through; use pointers */
+	/** Forwarding constructor. */
 	template<typename T1,typename T2, typename T3, typename T4, typename T5, typename T6, typename T7, typename T8, typename T9>
-	FAutoDeleteAsyncTask( T1 Arg1, T2 Arg2, T3 Arg3, T4 Arg4, T5 Arg5, T6 Arg6, T7 Arg7, T8 Arg8, T9 Arg9 )
-		: Task(Arg1,Arg2,Arg3,Arg4,Arg5,Arg6,Arg7,Arg8,Arg9)
+	FAutoDeleteAsyncTask( T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5, T6&& Arg6, T7&& Arg7, T8&& Arg8, T9&& Arg9 )
+		: Task(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5), Forward<T6>(Arg6), Forward<T7>(Arg7), Forward<T8>(Arg8), Forward<T9>(Arg9))
 	{
 	}
-
+#endif
 
 	/** 
 	* Run this task on this thread, now. Will end up destroying myself, so it is not safe to use this object after this call.
@@ -252,7 +259,7 @@ class FAsyncTask
 	TTask Task;
 	/** Thread safe counter that indicates WORK completion, no necessarily finalization of the job */
 	FThreadSafeCounter	WorkNotFinishedCounter;
-	/** If we aren't doing the work synchrnously, this will hold the completion event */
+	/** If we aren't doing the work synchronously, this will hold the completion event */
 	FEvent*				DoneEvent;
 	/** Pool we are queued into, maintained by the calling thread */
 	FQueuedThreadPool*	QueuedPool;

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,6 +6,8 @@
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnMouseCaptureBeginEvent);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnMouseCaptureEndEvent);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnControllerCaptureBeginEvent);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnControllerCaptureEndEvent);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnFloatValueChangedEvent, float, Value);
 
 /**
@@ -53,6 +55,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance, AdvancedDisplay)
 	bool Locked;
 
+	/** The amount to adjust the value by, when using a controller or keyboard */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance, meta=( ClampMin="0", ClampMax="1", UIMin="0", UIMax="1"))
+	float StepSize;
+
 public:
 
 	/** Invoked when the mouse is pressed and a capture begins. */
@@ -62,6 +68,14 @@ public:
 	/** Invoked when the mouse is released and a capture ends. */
 	UPROPERTY(BlueprintAssignable, Category="Widget Event")
 	FOnMouseCaptureEndEvent OnMouseCaptureEnd;
+
+	/** Invoked when the controller capture begins. */
+	UPROPERTY(BlueprintAssignable, Category = "Widget Event")
+	FOnControllerCaptureBeginEvent OnControllerCaptureBegin;
+
+	/** Invoked when the controller capture ends. */
+	UPROPERTY(BlueprintAssignable, Category = "Widget Event")
+	FOnControllerCaptureEndEvent OnControllerCaptureEnd;
 
 	/** Called when the value is changed by slider or typing. */
 	UPROPERTY(BlueprintAssignable, Category="Widget Event")
@@ -82,13 +96,28 @@ public:
 	/** Sets the handle to be interactive or fixed */
 	UFUNCTION(BlueprintCallable, Category="Behavior")
 	void SetLocked(bool InValue);
+
+	/** Sets the amount to adjust the value by, when using a controller or keyboard */
+	UFUNCTION(BlueprintCallable, Category="Behavior")
+	void SetStepSize(float InValue);
+
+	/** Sets the color of the slider bar */
+	UFUNCTION(BlueprintCallable, Category="Appearance")
+	void SetSliderBarColor(FLinearColor InValue);
+
+	/** Sets the color of the handle bar */
+	UFUNCTION(BlueprintCallable, Category="Appearance")
+	void SetSliderHandleColor(FLinearColor InValue);
 	
 	// UWidget interface
 	virtual void SynchronizeProperties() override;
 	// End of UWidget interface
 
+	// UVisual interface
+	virtual void ReleaseSlateResources(bool bReleaseChildren) override;
+	// End of UVisual interface
+
 #if WITH_EDITOR
-	virtual const FSlateBrush* GetEditorIcon() override;
 	virtual const FText GetPaletteCategory() override;
 #endif
 
@@ -103,4 +132,6 @@ protected:
 	void HandleOnValueChanged(float InValue);
 	void HandleOnMouseCaptureBegin();
 	void HandleOnMouseCaptureEnd();
+	void HandleOnControllerCaptureBegin();
+	void HandleOnControllerCaptureEnd();
 };

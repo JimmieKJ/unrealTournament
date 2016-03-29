@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintEditorPrivatePCH.h"
 #include "UserDefinedStructureEditor.h"
@@ -663,7 +663,37 @@ public:
 		}
 	}
 
-	// 3d widget
+	// Multi-line text
+	EVisibility IsMultiLineTextOptionVisible() const
+	{
+		auto StructureDetailsSP = StructureDetails.Pin();
+		if (StructureDetailsSP.IsValid())
+		{
+			return FStructureEditorUtils::CanEnableMultiLineText(StructureDetailsSP->GetUserDefinedStruct(), FieldGuid) ? EVisibility::Visible : EVisibility::Collapsed;
+		}
+		return EVisibility::Collapsed;
+	}
+
+	ECheckBoxState OnGetMultiLineTextEnabled() const
+	{
+		auto StructureDetailsSP = StructureDetails.Pin();
+		if (StructureDetailsSP.IsValid())
+		{
+			return FStructureEditorUtils::IsMultiLineTextEnabled(StructureDetailsSP->GetUserDefinedStruct(), FieldGuid) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+		}
+		return ECheckBoxState::Undetermined;
+	}
+
+	void OnMultiLineTextEnabledCommitted(ECheckBoxState InNewState)
+	{
+		auto StructureDetailsSP = StructureDetails.Pin();
+		if (StructureDetailsSP.IsValid() && (ECheckBoxState::Undetermined != InNewState))
+		{
+			FStructureEditorUtils::ChangeMultiLineTextEnabled(StructureDetailsSP->GetUserDefinedStruct(), FieldGuid, ECheckBoxState::Checked == InNewState);
+		}
+	}
+
+	// 3D widget
 	EVisibility Is3dWidgetOptionVisible() const
 	{
 		auto StructureDetailsSP = StructureDetails.Pin();
@@ -904,11 +934,27 @@ public:
 			.IsChecked(this, &FUserDefinedStructureFieldLayout::OnGetEditableOnBPInstanceState)
 		];
 
-		ChildrenBuilder.AddChildContent(LOCTEXT("3dWidget", "3d Widget"))
+		ChildrenBuilder.AddChildContent(LOCTEXT("MultiLineText", "Multi-line Text"))
 		.NameContent()
 		[
 			SNew(STextBlock)
-			.Text(LOCTEXT("3dWidget", "3d Widget"))
+			.Text(LOCTEXT("MultiLineText", "Multi-line Text"))
+			.Font(IDetailLayoutBuilder::GetDetailFont())
+		]
+		.ValueContent()
+		[
+			SNew(SCheckBox)
+			.ToolTipText(LOCTEXT("MultiLineTextToolTip", "Should this property allow multiple lines of text to be entered?"))
+			.OnCheckStateChanged(this, &FUserDefinedStructureFieldLayout::OnMultiLineTextEnabledCommitted)
+			.IsChecked(this, &FUserDefinedStructureFieldLayout::OnGetMultiLineTextEnabled)
+		]
+		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FUserDefinedStructureFieldLayout::IsMultiLineTextOptionVisible)));
+
+		ChildrenBuilder.AddChildContent(LOCTEXT("3dWidget", "3D Widget"))
+		.NameContent()
+		[
+			SNew(STextBlock)
+			.Text(LOCTEXT("3dWidget", "3D Widget"))
 			.Font(IDetailLayoutBuilder::GetDetailFont())
 		]
 		.ValueContent()
@@ -917,10 +963,7 @@ public:
 			.OnCheckStateChanged(this, &FUserDefinedStructureFieldLayout::On3dWidgetEnabledCommitted)
 			.IsChecked(this, &FUserDefinedStructureFieldLayout::OnGet3dWidgetEnabled)
 		]
-		.Visibility(
-			TAttribute<EVisibility>::Create(
-				TAttribute<EVisibility>::FGetter::CreateSP(
-					this, &FUserDefinedStructureFieldLayout::Is3dWidgetOptionVisible)));
+		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FUserDefinedStructureFieldLayout::Is3dWidgetOptionVisible)));
 	}
 
 	virtual void Tick( float DeltaTime ) override {}

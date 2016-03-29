@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -8,47 +8,12 @@
 #include "HAL/Platform.h"
 #include "Templates/UnrealTypeTraits.h"
 #include "UnrealMemory.h"
+#include "AlignmentTemplates.h"
 
 
 /*-----------------------------------------------------------------------------
 	Standard templates.
 -----------------------------------------------------------------------------*/
-
-/** 
- * CanConvertPointerFromTo<From, To>::Result is an enum value equal to 1 if From* is automatically convertable to a To* (without regard to const!)
- **/
-template<class From, class To>
-class CanConvertPointerFromTo
-{
-public:
-	DEPRECATED(4.8, "This trait is deprecated as it does not follow UE4 standards of syntax and hides a const conversion. Please use TPointerIsConvertibleFromTo instead.")
-	static const bool Result = TPointerIsConvertibleFromTo<From, const To>::Value;
-};
-
-
-/**
- * Aligns a value to the nearest higher multiple of 'Alignment', which must be a power of two.
- *
- * @param Ptr			Value to align
- * @param Alignment		Alignment, must be a power of two
- * @return				Aligned value
- */
-template <typename T>
-inline CONSTEXPR T Align( const T Ptr, int32 Alignment )
-{
-	return (T)(((PTRINT)Ptr + Alignment - 1) & ~(Alignment-1));
-}
-/**
- * Aligns a value to the nearest higher multiple of 'Alignment'.
- *
- * @param Ptr			Value to align
- * @param Alignment		Alignment, can be any arbitrary uint32
- * @return				Aligned value
- */
-template< class T > inline T AlignArbitrary( const T Ptr, uint32 Alignment )
-{
-	return (T) ( ( ((UPTRINT)Ptr + Alignment - 1) / Alignment ) * Alignment );
-}
 
 /**
  * Chooses between the two parameters based on whether the first is nullptr or not.
@@ -366,7 +331,7 @@ FORCEINLINE T&& Forward(typename TRemoveReference<T>::Type&& Obj)
 }
 
 /**
- * Swap two values, using moves if possible
+ * Swap two values.  Assumes the types are trivially relocatable.
  */
 template <typename T>
 inline void Swap(T& A, T& B)
@@ -511,6 +476,15 @@ struct TIdentity
 };
 
 /**
+ * Defines a value metafunction of the given Value.
+ */
+template <typename T, T Val>
+struct TIntegralConstant
+{
+	static const T Value = Val;
+};
+
+/**
  * Does LHS::Value && RHS::Value, but short-circuits if LHS::Value == false.
  */
 template <bool LHSValue, typename RHS>
@@ -566,3 +540,18 @@ struct TBoolConstant
  */
 template <typename T>
 T&& DeclVal();
+
+
+/**
+ * Determines if T is a struct/class type
+ */
+template <typename T>
+struct TIsClass
+{
+private:
+	template <typename U> static uint16 Func(int U::*);
+	template <typename U> static uint8  Func(...);
+
+public:
+	enum { Value = !__is_union(T) && sizeof(Func<T>(0)) - 1 };
+};

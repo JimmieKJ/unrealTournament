@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "UnitConversion.h"
@@ -143,6 +143,10 @@ struct FUnitExpressionParser
 		TokenDefinitions.IgnoreWhitespace();
 			
 		// Defined in order of importance
+		TokenDefinitions.DefineToken(&ConsumeSymbol<FPlusEquals>);
+		TokenDefinitions.DefineToken(&ConsumeSymbol<FMinusEquals>);
+		TokenDefinitions.DefineToken(&ConsumeSymbol<FStarEquals>);
+		TokenDefinitions.DefineToken(&ConsumeSymbol<FForwardSlashEquals>);
 		TokenDefinitions.DefineToken(&ConsumeSymbol<FPlus>);
 		TokenDefinitions.DefineToken(&ConsumeSymbol<FMinus>);
 		TokenDefinitions.DefineToken(&ConsumeSymbol<FStar>);
@@ -300,9 +304,60 @@ struct FUnitExpressionParser
 		return TOptional<FExpressionError>();
 	}
 
-	TValueOrError<FNumericUnit<double>, FExpressionError> Evaluate(const TCHAR* InExpression) const
+	TValueOrError<FNumericUnit<double>, FExpressionError> Evaluate(const TCHAR* InExpression, const FNumericUnit<double>& InExistingValue) const
 	{
-		TValueOrError<FExpressionNode, FExpressionError> Result = ExpressionParser::Evaluate(InExpression, TokenDefinitions, Grammar, JumpTable);
+		using namespace ExpressionParser;
+
+		TValueOrError<TArray<FExpressionToken>, FExpressionError> LexResult = ExpressionParser::Lex(InExpression, TokenDefinitions);
+		if (!LexResult.IsValid())
+		{
+			return MakeError(LexResult.StealError());
+		}
+
+		// Handle the += and -= tokens.
+		TArray<FExpressionToken> Tokens = LexResult.StealValue();
+		if (Tokens.Num())
+		{
+			FStringToken Context = Tokens[0].Context;
+			const FExpressionNode& FirstNode = Tokens[0].Node;
+			bool WasOpAssign = true;
+
+			if (FirstNode.Cast<FPlusEquals>())
+			{			
+				Tokens.Insert(FExpressionToken(Context, FPlus()), 0);
+			}
+			else if (FirstNode.Cast<FMinusEquals>())
+			{
+				Tokens.Insert(FExpressionToken(Context, FMinus()), 0);
+			}
+			else if (FirstNode.Cast<FStarEquals>())
+			{
+				Tokens.Insert(FExpressionToken(Context, FStar()), 0);
+			}
+			else if (FirstNode.Cast<FForwardSlashEquals>())
+			{
+				Tokens.Insert(FExpressionToken(Context, FForwardSlash()), 0);
+			}
+			else
+			{
+				WasOpAssign = false;
+			}
+
+			if (WasOpAssign)
+			{
+				Tokens.Insert(FExpressionToken(Context, InExistingValue), 0);
+				Tokens.RemoveAt(2, 1, false);
+			}
+		}
+
+		TValueOrError<TArray<FCompiledToken>, FExpressionError> CompilationResult = ExpressionParser::Compile(MoveTemp(Tokens), Grammar);
+		if (!CompilationResult.IsValid())
+		{
+			return MakeError(CompilationResult.StealError());
+		}
+
+		TOperatorEvaluationEnvironment<> Env(JumpTable, nullptr);
+		TValueOrError<FExpressionNode, FExpressionError> Result = ExpressionParser::Evaluate(CompilationResult.GetValue(), Env);
 		if (!Result.IsValid())
 		{
 			return MakeError(Result.GetError());
@@ -576,10 +631,10 @@ namespace UnitConversion
 		}
 	}
 
-	TValueOrError<FNumericUnit<double>, FText> TryParseExpression(const TCHAR* InExpression, EUnit From)
+	TValueOrError<FNumericUnit<double>, FText> TryParseExpression(const TCHAR* InExpression, EUnit From, const FNumericUnit<double>& InExistingValue)
 	{
 		const FUnitExpressionParser Parser(From);
-		auto Result = Parser.Evaluate(InExpression);
+		auto Result = Parser.Evaluate(InExpression, InExistingValue);
 		if (Result.IsValid())
 		{
 			if (Result.GetValue().Units == EUnit::Unspecified)

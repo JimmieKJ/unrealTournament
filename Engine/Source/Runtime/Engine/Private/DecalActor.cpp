@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Engine/DecalActor.h"
@@ -18,10 +18,11 @@ namespace DecalEditorConstants
 #endif
 
 ADecalActor::ADecalActor(const FObjectInitializer& ObjectInitializer)
-: Super(ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	Decal = CreateDefaultSubobject<UDecalComponent>(TEXT("NewDecalComponent"));
 	Decal->RelativeRotation = FRotator(-90, 0, 0);
+	Decal->bDestroyOwnerAfterFade = true;
 
 	RootComponent = Decal;
 
@@ -62,6 +63,8 @@ ADecalActor::ADecalActor(const FObjectInitializer& ObjectInitializer)
 		{
 			SpriteComponent->Sprite = ConstructorStatics.DecalTexture.Get();
 			SpriteComponent->RelativeScale3D = FVector(0.5f, 0.5f, 0.5f);
+			SpriteComponent->SpriteInfo.Category = ConstructorStatics.ID_Decals;
+			SpriteComponent->SpriteInfo.DisplayName = ConstructorStatics.NAME_Decals;
 			SpriteComponent->AttachParent = Decal;
 			SpriteComponent->bIsScreenSizeScaled = true;
 			SpriteComponent->bAbsoluteScale = true;

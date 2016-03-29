@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 // Modified version of Recast/Detour's source file
 
 //
@@ -2488,6 +2488,23 @@ dtStatus dtReplaceConvexArea(dtTileCacheLayer& layer, const float* orig, const f
 			{
 				layer.areas[x + z*w] = areaId;
 			}
+		}
+	}
+
+	return DT_SUCCESS;
+}
+
+dtStatus dtReplaceArea(dtTileCacheLayer& layer, const unsigned char areaId, const unsigned char filterAreaId)
+{
+	const int w = (int)layer.header->width;
+	const int h = (int)layer.header->height;
+	const int maxIdx = w * h;
+
+	for (int i = 0; i < maxIdx; i++)
+	{
+		if (layer.areas[i] == filterAreaId)
+		{
+			layer.areas[i] = areaId;
 		}
 	}
 

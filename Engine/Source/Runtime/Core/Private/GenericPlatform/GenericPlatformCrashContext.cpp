@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "GenericPlatform/GenericPlatformCrashContext.h"
@@ -48,6 +48,9 @@ namespace NCachedCrashContextProperties
 	static int32 CrashDumpMode;
 	static int32 SecondsSinceStart;
 	static FString CrashGUID;
+	static FString UserActivityHint;
+	static FString GameSessionID;
+	static FString CommandLine;
 }
 
 void FGenericCrashContext::Initialize()
@@ -74,6 +77,7 @@ void FGenericCrashContext::Initialize()
 	NCachedCrashContextProperties::PrimaryGPUBrand = FPlatformMisc::GetPrimaryGPUBrand();
 	NCachedCrashContextProperties::UserName = FPlatformProcess::UserName();
 	NCachedCrashContextProperties::DefaultLocale = FPlatformMisc::GetDefaultLocale();
+	NCachedCrashContextProperties::CommandLine = FCommandLine::IsInitialized() ? FCommandLine::GetForLogging() : TEXT("");
 
 	// Using the -fullcrashdump parameter will cause full memory minidumps to be created for crashes
 	NCachedCrashContextProperties::CrashDumpMode = (int32)ECrashDumpMode::Default;
@@ -101,10 +105,21 @@ void FGenericCrashContext::Initialize()
 		return true;
 	} ), PollingInterval );
 
+	FCoreDelegates::UserActivityStringChanged.AddLambda([](const FString& InUserActivity)
+	{
+		NCachedCrashContextProperties::UserActivityHint = InUserActivity;
+	});
+
+	FCoreDelegates::GameSessionIDChanged.AddLambda([](const FString& InGameSessionID)
+	{
+		NCachedCrashContextProperties::GameSessionID = InGameSessionID;
+	});
+
 	bIsInitialized = true;
 }
 
 FGenericCrashContext::FGenericCrashContext()
+	: bIsEnsure(false)
 {
 	CommonBuffer.Reserve( 32768 );
 }
@@ -122,6 +137,7 @@ void FGenericCrashContext::SerializeContentToBuffer()
 	AddCrashProperty( TEXT( "IsInternalBuild" ), NCachedCrashContextProperties::bIsInternalBuild );
 	AddCrashProperty( TEXT( "IsPerforceBuild" ), NCachedCrashContextProperties::bIsPerforceBuild );
 	AddCrashProperty( TEXT( "IsSourceDistribution" ), NCachedCrashContextProperties::bIsSourceDistribution );
+	AddCrashProperty( TEXT( "IsEnsure" ), bIsEnsure );
 
 	AddCrashProperty( TEXT( "SecondsSinceStart" ), NCachedCrashContextProperties::SecondsSinceStart );
 
@@ -129,30 +145,14 @@ void FGenericCrashContext::SerializeContentToBuffer()
 	AddCrashProperty( TEXT( "GameName" ), *NCachedCrashContextProperties::GameName );
 	AddCrashProperty( TEXT( "ExecutableName" ), *NCachedCrashContextProperties::ExecutableName );
 	AddCrashProperty( TEXT( "BuildConfiguration" ), EBuildConfigurations::ToString( FApp::GetBuildConfiguration() ) );
+	AddCrashProperty( TEXT( "GameSessionID" ), *NCachedCrashContextProperties::GameSessionID );
 
 	AddCrashProperty( TEXT( "PlatformName" ), *NCachedCrashContextProperties::PlatformName );
 	AddCrashProperty( TEXT( "PlatformNameIni" ), *NCachedCrashContextProperties::PlatformNameIni );
 	AddCrashProperty( TEXT( "EngineMode" ), FPlatformMisc::GetEngineMode() );
+	AddCrashProperty( TEXT( "DeploymentName"), FApp::GetDeploymentName() );
 	AddCrashProperty( TEXT( "EngineVersion" ), *FEngineVersion::Current().ToString() );
-
-	FString CommandLineWithoutPassword = TEXT("");
-	if (FCommandLine::IsInitialized())
-	{
-		CommandLineWithoutPassword = FCommandLine::GetOriginal();
-		int32 PasswordStart = CommandLineWithoutPassword.Find((TEXT("-password=")));
-		if (PasswordStart != INDEX_NONE)
-		{
-			int32 PasswordEnd = CommandLineWithoutPassword.Find(TEXT(" "), ESearchCase::IgnoreCase, ESearchDir::FromStart, PasswordStart);
-			if (PasswordEnd == INDEX_NONE)
-			{
-				PasswordEnd = CommandLineWithoutPassword.Len();
-			}
-
-			CommandLineWithoutPassword.RemoveAt(PasswordStart, PasswordEnd - PasswordStart);
-		}
-	}
-	AddCrashProperty( TEXT( "CommandLine" ), *CommandLineWithoutPassword );
-
+	AddCrashProperty( TEXT("CommandLine"), *NCachedCrashContextProperties::CommandLine );
 	AddCrashProperty( TEXT( "LanguageLCID" ), FInternationalization::Get().GetCurrentCulture()->GetLCID() );
 	AddCrashProperty( TEXT( "AppDefaultLocale" ), *NCachedCrashContextProperties::DefaultLocale );
 
@@ -171,6 +171,7 @@ void FGenericCrashContext::SerializeContentToBuffer()
 	AddCrashProperty( TEXT( "CallStack" ), TEXT( "" ) );
 	AddCrashProperty( TEXT( "SourceContext" ), TEXT( "" ) );
 	AddCrashProperty( TEXT( "UserDescription" ), TEXT( "" ) );
+	AddCrashProperty( TEXT( "UserActivityHint" ), *NCachedCrashContextProperties::UserActivityHint );
 	AddCrashProperty( TEXT( "ErrorMessage" ), (const TCHAR*)GErrorMessage ); // GErrorMessage may be broken.
 	AddCrashProperty( TEXT( "CrashDumpMode" ), NCachedCrashContextProperties::CrashDumpMode );
 
@@ -186,7 +187,7 @@ void FGenericCrashContext::SerializeContentToBuffer()
 	AddCrashProperty( TEXT( "Misc.OSVersionMinor" ), *NCachedCrashContextProperties::OsSubVersion );
 
 
-	// #YRX_Crash: 2015-07-21 Move to the crash report client.
+	// #CrashReport: 2015-07-21 Move to the crash report client.
 	/*{
 		uint64 AppDiskTotalNumberOfBytes = 0;
 		uint64 AppDiskNumberOfFreeBytes = 0;

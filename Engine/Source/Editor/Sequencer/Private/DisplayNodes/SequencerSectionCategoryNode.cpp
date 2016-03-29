@@ -1,7 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerPrivatePCH.h"
 #include "SSequencer.h"
+#include "SKeyNavigationButtons.h"
 
 
 namespace SequencerSectionCategoryNodeConstants
@@ -18,6 +19,23 @@ bool FSequencerSectionCategoryNode::CanRenameNode() const
 	return false;
 }
 
+TSharedRef<SWidget> FSequencerSectionCategoryNode::GetCustomOutlinerContent()
+{
+	return SNew(SBox)
+		.HAlign(HAlign_Right)
+		.VAlign(VAlign_Center)
+		[
+			SNew(SHorizontalBox)
+
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			[
+				SNew(SKeyNavigationButtons, AsShared())
+			]
+		];
+}
+
 
 FText FSequencerSectionCategoryNode::GetDisplayName() const
 {
@@ -27,13 +45,13 @@ FText FSequencerSectionCategoryNode::GetDisplayName() const
 
 float FSequencerSectionCategoryNode::GetNodeHeight() const 
 {
-	return SequencerLayoutConstants::CategoryNodeHeight;
+	return SequencerLayoutConstants::CategoryNodeHeight + SequencerSectionCategoryNodeConstants::NodePadding*2;
 }
 
 
 FNodePadding FSequencerSectionCategoryNode::GetNodePadding() const
 {
-	return FNodePadding(SequencerSectionCategoryNodeConstants::NodePadding);
+	return FNodePadding(0.f);//FNodePadding(SequencerSectionCategoryNodeConstants::NodePadding);
 }
 
 

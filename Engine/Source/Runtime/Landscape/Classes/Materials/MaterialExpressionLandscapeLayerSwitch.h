@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -34,9 +34,11 @@ public:
 	//~ End UObject Interface
 
 	//~ Begin UMaterialExpression Interface
+#if WITH_EDITOR
 	virtual bool IsResultMaterialAttributes(int32 OutputIndex) override;
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
+#endif
 	virtual UTexture* GetReferencedTexture() override;
 #if WITH_EDITOR
 	virtual uint32 GetInputType(int32 InputIndex) override {return MCT_Unknown;}
@@ -48,11 +50,14 @@ public:
 
 	void GetAllParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds) const;
 
+	//~ Begin UObject Interface
 	/**
 	 * Do any object-specific cleanup required immediately after loading an object,
 	 * and immediately after any undo/redo.
 	 */
-	void PostLoad() override;
+	virtual void PostLoad() override;
+	virtual bool NeedsLoadForClient() const override;
+	//~ End UObject Interface
 };
 
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -8,7 +8,7 @@
 /**
  * Object that can be subclassed to store custom data on Unreal asset objects.
  */
-UCLASS(DefaultToInstanced)
+UCLASS(DefaultToInstanced, abstract, editinlinenew)
 class ENGINE_API UAssetUserData
 	: public UObject
 {

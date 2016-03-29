@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LaunchPrivatePCH.h"
 #include "ExceptionHandling.h"
@@ -55,9 +55,15 @@ void FJavaWrapper::FindClassesAndMethods(JNIEnv* Env)
 	AndroidThunkJava_IsMusicActive = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_IsMusicActive", "()Z", bIsOptional);
 	AndroidThunkJava_KeepScreenOn = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_KeepScreenOn", "(Z)V", bIsOptional);
 	AndroidThunkJava_InitHMDs = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_InitHMDs", "()V", bIsOptional);
-	AndroidThunkJava_IsGearVRApplication = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_IsGearVRApplication", "()Z", bIsOptional);
 	AndroidThunkJava_DismissSplashScreen = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_DismissSplashScreen", "()V", bIsOptional);
 	AndroidThunkJava_GetInputDeviceInfo = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_GetInputDeviceInfo", "(I)Lcom/epicgames/ue4/GameActivity$InputDeviceInfo;", bIsOptional);
+	AndroidThunkJava_HasMetaDataKey = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_HasMetaDataKey", "(Ljava/lang/String;)Z", bIsOptional);
+	AndroidThunkJava_GetMetaDataBoolean = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_GetMetaDataBoolean", "(Ljava/lang/String;)Z", bIsOptional);
+	AndroidThunkJava_GetMetaDataInt = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_GetMetaDataInt", "(Ljava/lang/String;)I", bIsOptional);
+	AndroidThunkJava_GetMetaDataString = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_GetMetaDataString", "(Ljava/lang/String;)Ljava/lang/String;", bIsOptional);
+
+	// this is optional - only inserted if GearVR plugin enabled
+	AndroidThunkJava_IsGearVRApplication = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_IsGearVRApplication", "()Z", true);
 
 	// get field IDs for InputDeviceInfo class members
 	jclass localInputDeviceInfoClass = FindClass(Env, "com/epicgames/ue4/GameActivity$InputDeviceInfo", bIsOptional);
@@ -87,6 +93,11 @@ void FJavaWrapper::FindClassesAndMethods(JNIEnv* Env)
 	AndroidThunkJava_IapQueryInAppPurchases = FindMethod(Env, GoogleServicesClassID, "AndroidThunkJava_IapQueryInAppPurchases", "([Ljava/lang/String;[Z)Z", bIsOptional);
 	AndroidThunkJava_IapBeginPurchase = FindMethod(Env, GoogleServicesClassID, "AndroidThunkJava_IapBeginPurchase", "(Ljava/lang/String;Z)Z", bIsOptional);
 	AndroidThunkJava_IapIsAllowedToMakePurchases = FindMethod(Env, GoogleServicesClassID, "AndroidThunkJava_IapIsAllowedToMakePurchases", "()Z", bIsOptional);
+	AndroidThunkJava_IapRestorePurchases = FindMethod(Env, GoogleServicesClassID, "AndroidThunkJava_IapRestorePurchases", "()Z", bIsOptional);
+
+	// SurfaceView functionality for view scaling on some devices
+	AndroidThunkJava_UseSurfaceViewWorkaround = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_UseSurfaceViewWorkaround", "()V", bIsOptional);
+	AndroidThunkJava_SetDesiredViewSize = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_SetDesiredViewSize", "(II)V", bIsOptional);
 }
 
 jclass FJavaWrapper::FindClass(JNIEnv* Env, const ANSICHAR* ClassName, bool bIsOptional)
@@ -190,9 +201,13 @@ jmethodID FJavaWrapper::AndroidThunkJava_Vibrate;
 jmethodID FJavaWrapper::AndroidThunkJava_IsMusicActive;
 jmethodID FJavaWrapper::AndroidThunkJava_KeepScreenOn;
 jmethodID FJavaWrapper::AndroidThunkJava_InitHMDs;
-jmethodID FJavaWrapper::AndroidThunkJava_IsGearVRApplication;
 jmethodID FJavaWrapper::AndroidThunkJava_DismissSplashScreen;
 jmethodID FJavaWrapper::AndroidThunkJava_GetInputDeviceInfo;
+jmethodID FJavaWrapper::AndroidThunkJava_HasMetaDataKey;
+jmethodID FJavaWrapper::AndroidThunkJava_GetMetaDataBoolean;
+jmethodID FJavaWrapper::AndroidThunkJava_GetMetaDataInt;
+jmethodID FJavaWrapper::AndroidThunkJava_GetMetaDataString;
+jmethodID FJavaWrapper::AndroidThunkJava_IsGearVRApplication;
 
 jclass FJavaWrapper::InputDeviceInfoClass;
 jfieldID FJavaWrapper::InputDeviceInfo_VendorId;
@@ -213,6 +228,10 @@ jmethodID FJavaWrapper::AndroidThunkJava_IapSetupService;
 jmethodID FJavaWrapper::AndroidThunkJava_IapQueryInAppPurchases;
 jmethodID FJavaWrapper::AndroidThunkJava_IapBeginPurchase;
 jmethodID FJavaWrapper::AndroidThunkJava_IapIsAllowedToMakePurchases;
+jmethodID FJavaWrapper::AndroidThunkJava_IapRestorePurchases;
+
+jmethodID FJavaWrapper::AndroidThunkJava_UseSurfaceViewWorkaround;
+jmethodID FJavaWrapper::AndroidThunkJava_SetDesiredViewSize;
 
 //Game-specific crash reporter
 void EngineCrashHandler(const FGenericCrashContext& GenericContext)
@@ -270,18 +289,6 @@ void AndroidThunkCpp_InitHMDs()
 	}
 }
 
-// Check to see if this application is packaged for GearVR
-bool AndroidThunkCpp_IsGearVRApplication()
-{
-	bool bIsGearVRApplication = false;
-	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
-	{
-		bIsGearVRApplication = FJavaWrapper::CallBooleanMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_IsGearVRApplication);
-	}
-
-	return bIsGearVRApplication;
-}
-
 void AndroidThunkCpp_DismissSplashScreen()
 {
 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
@@ -329,6 +336,80 @@ bool AndroidThunkCpp_GetInputDeviceInfo(int32 deviceId, FAndroidInputDeviceInfo 
 	results.Name = FString("Unknown");
 	results.Descriptor = FString("Unknown");
 	return false;
+}
+
+bool AndroidThunkCpp_HasMetaDataKey(const FString& Key)
+{
+	bool Result = false;
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		jstring Argument = Env->NewStringUTF(TCHAR_TO_UTF8(*Key));
+		Result = FJavaWrapper::CallBooleanMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_HasMetaDataKey, Argument);
+		Env->DeleteLocalRef(Argument);
+	}
+	return Result;
+}
+
+bool AndroidThunkCpp_GetMetaDataBoolean(const FString& Key)
+{
+	bool Result = false;
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		jstring Argument = Env->NewStringUTF(TCHAR_TO_UTF8(*Key));
+		Result = FJavaWrapper::CallBooleanMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_GetMetaDataBoolean, Argument);
+		Env->DeleteLocalRef(Argument);
+	}
+	return Result;
+}
+
+int32 AndroidThunkCpp_GetMetaDataInt(const FString& Key)
+{
+	int32 Result = 0;
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		jstring Argument = Env->NewStringUTF(TCHAR_TO_UTF8(*Key));
+		Result = FJavaWrapper::CallIntMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_GetMetaDataInt, Argument);
+		Env->DeleteLocalRef(Argument);
+	}
+	return Result;
+}
+
+FString AndroidThunkCpp_GetMetaDataString(const FString& Key)
+{
+	FString Result = FString("");
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		jstring Argument = Env->NewStringUTF(TCHAR_TO_UTF8(*Key));
+		jstring JavaString = (jstring)FJavaWrapper::CallObjectMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_GetMetaDataString, Argument);
+		Env->DeleteLocalRef(Argument);
+		if (JavaString != NULL)
+		{
+			const char* JavaChars = Env->GetStringUTFChars(JavaString, 0);
+			Result = FString(UTF8_TO_TCHAR(JavaChars));
+			Env->ReleaseStringUTFChars(JavaString, JavaChars);
+			Env->DeleteLocalRef(JavaString);
+		}
+	}
+	return Result;
+}
+
+// call out to JNI to see if the application was packaged for GearVR
+bool AndroidThunkCpp_IsGearVRApplication()
+{
+	static int32 IsGearVRApplication = -1;
+
+	if (IsGearVRApplication == -1)
+	{
+		IsGearVRApplication = 0;
+		if (FJavaWrapper::AndroidThunkJava_IsGearVRApplication)
+		{
+			if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+			{
+				IsGearVRApplication = FJavaWrapper::CallBooleanMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_IsGearVRApplication) ? 1 : 0;
+			}
+		}
+	}
+	return IsGearVRApplication == 1;
 }
 
 void AndroidThunkCpp_ShowConsoleWindow()
@@ -578,6 +659,33 @@ bool AndroidThunkCpp_Iap_IsAllowedToMakePurchases()
 		bResult = FJavaWrapper::CallBooleanMethod(Env, FJavaWrapper::GoogleServicesThis, FJavaWrapper::AndroidThunkJava_IapIsAllowedToMakePurchases);
 	}
 	return bResult;
+}
+
+bool AndroidThunkCpp_Iap_RestorePurchases()
+{
+	FPlatformMisc::LowLevelOutputDebugString(L"[JNI] - AndroidThunkCpp_Iap_RestorePurchases");
+	bool bResult = false;
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		bResult = FJavaWrapper::CallBooleanMethod(Env, FJavaWrapper::GoogleServicesThis, FJavaWrapper::AndroidThunkJava_IapRestorePurchases);
+	}
+	return bResult;
+}
+
+void AndroidThunkCpp_UseSurfaceViewWorkaround()
+{
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		FJavaWrapper::CallVoidMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_UseSurfaceViewWorkaround);
+	}
+}
+
+void AndroidThunkCpp_SetDesiredViewSize(int32 Width, int32 Height)
+{
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		FJavaWrapper::CallVoidMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_SetDesiredViewSize, Width, Height);
+	}
 }
 
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 
@@ -50,11 +50,6 @@ void USpacer::SynchronizeProperties()
 }
 
 #if WITH_EDITOR
-
-const FSlateBrush* USpacer::GetEditorIcon()
-{
-	return FUMGStyle::Get().GetBrush("Widget.Spacer");
-}
 
 const FText USpacer::GetPaletteCategory()
 {

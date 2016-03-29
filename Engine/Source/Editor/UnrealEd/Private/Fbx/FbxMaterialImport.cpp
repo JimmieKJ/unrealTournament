@@ -1,32 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
-
-/*
-* Copyright 2009 Autodesk, Inc.  All Rights Reserved.
-*
-* Permission to use, copy, modify, and distribute this software in object
-* code form for any purpose and without fee is hereby granted, provided
-* that the above copyright notice appears in all copies and that both
-* that copyright notice and the limited warranty and restricted rights
-* notice below appear in all supporting documentation.
-*
-* AUTODESK PROVIDES THIS PROGRAM "AS IS" AND WITH ALL FAULTS.
-* AUTODESK SPECIFICALLY DISCLAIMS ANY AND ALL WARRANTIES, WHETHER EXPRESS
-* OR IMPLIED, INCLUDING WITHOUT LIMITATION THE IMPLIED WARRANTY
-* OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR USE OR NON-INFRINGEMENT
-* OF THIRD PARTY RIGHTS.  AUTODESK DOES NOT WARRANT THAT THE OPERATION
-* OF THE PROGRAM WILL BE UNINTERRUPTED OR ERROR FREE.
-*
-* In no event shall Autodesk, Inc. be liable for any direct, indirect,
-* incidental, special, exemplary, or consequential damages (including,
-* but not limited to, procurement of substitute goods or services;
-* loss of use, data, or profits; or business interruption) however caused
-* and on any theory of liability, whether in contract, strict liability,
-* or tort (including negligence or otherwise) arising in any way out
-* of such code.
-*
-* This software is provided to the U.S. Government with the same rights
-* and restrictions as described herein.
-*/
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "Materials/MaterialExpressionTextureSample.h"
@@ -131,6 +103,7 @@ UTexture* UnFbx::FFbxImporter::ImportTexture( FbxFileTexture* FbxTexture, bool b
 			{
 				TextureFact->LODGroup = TEXTUREGROUP_WorldNormalMap;
 				TextureFact->CompressionSettings = TC_Normalmap;
+				TextureFact->bFlipNormalMapGreenChannel = ImportOptions->bInvertNormalMap;
 			}
 			else
 			{
@@ -145,6 +118,9 @@ UTexture* UnFbx::FFbxImporter::ImportTexture( FbxFileTexture* FbxTexture, bool b
 
 		if ( UnrealTexture != NULL )
 		{
+			//Make sure the AssetImportData point on the texture file and not on the fbx files since the factory point on the fbx file
+			UnrealTexture->AssetImportData->Update(IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*Filename));
+
 			// Notify the asset registry
 			FAssetRegistryModule::AssetCreated(UnrealTexture);
 
@@ -224,6 +200,34 @@ void UnFbx::FFbxImporter::ImportTexturesFromNode(FbxNode* Node)
 //-------------------------------------------------------------------------
 //
 //-------------------------------------------------------------------------
+
+//Enable debug log of fbx material properties, this will log all material properties that are in the FBX file
+#define DEBUG_LOG_FBX_MATERIAL_PROPERTIES 0
+#if DEBUG_LOG_FBX_MATERIAL_PROPERTIES
+void LogPropertyAndChild(FbxSurfaceMaterial& FbxMaterial, const FbxProperty &Property)
+{
+	FbxString PropertyName = Property.GetHierarchicalName();
+	UE_LOG(LogFbxMaterialImport, Display, TEXT("Property Name [%s]"), UTF8_TO_TCHAR(PropertyName.Buffer()));
+	int32 TextureCount = Property.GetSrcObjectCount<FbxTexture>();
+	if (TextureCount > 0)
+	{
+		for (int32 TextureIndex = 0; TextureIndex < TextureCount; ++TextureIndex)
+		{
+			FbxFileTexture* TextureObj = Property.GetSrcObject<FbxFileTexture>(TextureIndex);
+			if (TextureObj != nullptr)
+			{
+				UE_LOG(LogFbxMaterialImport, Display, TEXT("Texture Path [%s]"), UTF8_TO_TCHAR(TextureObj->GetFileName()));
+			}
+		}
+	}
+	const FbxProperty &NextProperty = FbxMaterial.GetNextProperty(Property);
+	if (NextProperty.IsValid())
+	{
+		LogPropertyAndChild(FbxMaterial, NextProperty);
+	}
+}
+#endif
+
 bool UnFbx::FFbxImporter::CreateAndLinkExpressionForMaterialProperty(
 							FbxSurfaceMaterial& FbxMaterial,
 							UMaterial* UnrealMaterial,
@@ -237,10 +241,11 @@ bool UnFbx::FFbxImporter::CreateAndLinkExpressionForMaterialProperty(
 	FbxProperty FbxProperty = FbxMaterial.FindProperty( MaterialProperty );
 	if( FbxProperty.IsValid() )
 	{
-		int32 LayeredTextureCount = FbxProperty.GetSrcObjectCount<FbxLayeredTexture>();
-		if (LayeredTextureCount>0)
+		int32 UnsupportedTextureCount = FbxProperty.GetSrcObjectCount<FbxLayeredTexture>();
+		UnsupportedTextureCount += FbxProperty.GetSrcObjectCount<FbxProceduralTexture>();
+		if (UnsupportedTextureCount>0)
 		{
-			UE_LOG(LogFbxMaterialImport, Warning,TEXT("Layered Textures are not supported (material %s)"),UTF8_TO_TCHAR(FbxMaterial.GetName()));
+			UE_LOG(LogFbxMaterialImport, Warning,TEXT("Layered or procedural Textures are not supported (material %s)"),UTF8_TO_TCHAR(FbxMaterial.GetName()));
 		}
 		else
 		{
@@ -271,6 +276,10 @@ bool UnFbx::FFbxImporter::CreateAndLinkExpressionForMaterialProperty(
 						// add/find UVSet and set it to the texture
 						FbxString UVSetName = FbxTexture->UVSet.Get();
 						FString LocalUVSetName = UTF8_TO_TCHAR(UVSetName.Buffer());
+						if (LocalUVSetName.IsEmpty())
+						{
+							LocalUVSetName = TEXT("UVmap_0");
+						}
 						int32 SetIndex = UVSet.Find(LocalUVSetName);
 						if( (SetIndex != 0 && SetIndex != INDEX_NONE) || ScaleU != 1.0f || ScaleV != 1.0f )
 						{
@@ -395,12 +404,26 @@ void UnFbx::FFbxImporter::CreateUnrealMaterial(FbxSurfaceMaterial& FbxMaterial, 
 	{
 		return;
 	}
-
+	if (ImportOptions->OverrideMaterials.Contains(FbxMaterial.GetUniqueID()))
+	{
+		UMaterialInterface* FoundMaterial = *(ImportOptions->OverrideMaterials.Find(FbxMaterial.GetUniqueID()));
+		if (ImportedMaterialData.IsUnique(FbxMaterial, FName(*FoundMaterial->GetPathName())) == false)
+		{
+			ImportedMaterialData.AddImportedMaterial(FbxMaterial, *FoundMaterial);
+		}
+		// The material is override add the existing one
+		OutMaterials.Add(FoundMaterial);
+		return;
+	}
 	FString MaterialFullName = GetMaterialFullName(FbxMaterial);
 	FString BasePackageName = FPackageName::GetLongPackagePath(Parent->GetOutermost()->GetName());
-	if (ImportOptions->MaterialPrefixName != NAME_None)
+	if (ImportOptions->MaterialBasePath != NAME_None)
 	{
-		BasePackageName += ImportOptions->MaterialPrefixName.ToString();
+		BasePackageName = ImportOptions->MaterialBasePath.ToString();
+	}
+	else
+	{
+		BasePackageName += TEXT("/");
 	}
 	BasePackageName += MaterialFullName;
 	
@@ -455,17 +478,28 @@ void UnFbx::FFbxImporter::CreateUnrealMaterial(FbxSurfaceMaterial& FbxMaterial, 
 	}
 
 	// textures and properties
-	CreateAndLinkExpressionForMaterialProperty( FbxMaterial, UnrealMaterial, FbxSurfaceMaterial::sDiffuse, UnrealMaterial->BaseColor, false, UVSets, FVector2D(240,-320) );
+#if DEBUG_LOG_FBX_MATERIAL_PROPERTIES
+	const FbxProperty &FirstProperty = FbxMaterial.GetFirstProperty();
+	if (FirstProperty.IsValid())
+	{
+		UE_LOG(LogFbxMaterialImport, Display, TEXT("Creating Material [%s]"), UTF8_TO_TCHAR(FbxMaterial.GetName()));
+		LogPropertyAndChild(FbxMaterial, FirstProperty);
+		UE_LOG(LogFbxMaterialImport, Display, TEXT("-------------------------------"));
+	}
+#endif
+	CreateAndLinkExpressionForMaterialProperty(FbxMaterial, UnrealMaterial, FbxSurfaceMaterial::sDiffuse, UnrealMaterial->BaseColor, false, UVSets, FVector2D(240, -320));
 	CreateAndLinkExpressionForMaterialProperty( FbxMaterial, UnrealMaterial, FbxSurfaceMaterial::sEmissive, UnrealMaterial->EmissiveColor, false, UVSets, FVector2D(240,-64) );
-	CreateAndLinkExpressionForMaterialProperty( FbxMaterial, UnrealMaterial, FbxSurfaceMaterial::sSpecular, UnrealMaterial->Specular, false, UVSets, FVector2D(240, -128) );
-	//CreateAndLinkExpressionForMaterialProperty( *FbxMaterial, UnrealMaterial, FbxSurfaceMaterial::sSpecularFactor, UnrealMaterial->SpecularColor, false, UVSets); // SpecularFactor modulates the SpecularColor value if there's one
-	//CreateAndLinkExpressionForMaterialProperty( *FbxMaterial, UnrealMaterial, FbxSurfaceMaterial::sShininess, UnrealMaterial->SpecularPower, false, UVSets);
+	//CreateAndLinkExpressionForMaterialProperty( FbxMaterial, UnrealMaterial, FbxSurfaceMaterial::sSpecular, UnrealMaterial->Specular, false, UVSets, FVector2D(240, -128) );
 	if (!CreateAndLinkExpressionForMaterialProperty( FbxMaterial, UnrealMaterial, FbxSurfaceMaterial::sNormalMap, UnrealMaterial->Normal, true, UVSets, FVector2D(240,256) ) )
 	{
 		CreateAndLinkExpressionForMaterialProperty( FbxMaterial, UnrealMaterial, FbxSurfaceMaterial::sBump, UnrealMaterial->Normal, true, UVSets, FVector2D(240,256) ); // no bump in unreal, use as normal map
 	}
-	//CreateAndLinkExpressionForMaterialProperty( *FbxMaterial, UnrealMaterial, KFbxSurfaceMaterial::sTransparentColor, UnrealMaterial->Opacity, false, UVSets);
-	//CreateAndLinkExpressionForMaterialProperty( *FbxMaterial, UnrealMaterial, KFbxSurfaceMaterial::sTransparencyFactor, UnrealMaterial->OpacityMask, false, UVSets);
+	if (CreateAndLinkExpressionForMaterialProperty(FbxMaterial, UnrealMaterial, FbxSurfaceMaterial::sTransparentColor, UnrealMaterial->Opacity, false, UVSets, FVector2D(200, 256)))
+	{
+		UnrealMaterial->BlendMode = BLEND_Translucent;
+		CreateAndLinkExpressionForMaterialProperty(FbxMaterial, UnrealMaterial, FbxSurfaceMaterial::sTransparencyFactor, UnrealMaterial->OpacityMask, false, UVSets, FVector2D(150, 256));
+
+	}
 	FixupMaterial( FbxMaterial, UnrealMaterial); // add random diffuse if none exists
 
 	// compile shaders for PC (from UPrecompileShadersCommandlet::ProcessMaterial

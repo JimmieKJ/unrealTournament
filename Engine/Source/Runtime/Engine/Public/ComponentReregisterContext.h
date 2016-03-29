@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -14,7 +14,7 @@ ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogActorComponent, Log, All);
 class FComponentReregisterContextBase
 {
 protected:
-	//Unregisters the Componet and returns the world it was registered to.
+	//Unregisters the Component and returns the world it was registered to.
 	UWorld* UnRegister(UActorComponent* InComponent)
 	{
 		UWorld* World = NULL;
@@ -143,12 +143,11 @@ private:
 	TArray<FMultiComponentReregisterPair> ComponentsPair;
 	
 public:
-	FMultiComponentReregisterContext(TArray<UActorComponent*> InComponents)
+	FMultiComponentReregisterContext(const TArray<UActorComponent*>& InComponents)
 	{
 		// Unregister each component and cache resulting scene
-		for(auto Iter = InComponents.CreateIterator(); Iter; ++Iter)
+		for (UActorComponent* Component : InComponents)
 		{
-			UActorComponent* Component = (*Iter);
 			UWorld* World = UnRegister(Component);
 			if(World)
 			{

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -109,6 +109,15 @@ public:
 	 */
 	void OnWindowClosed( const TSharedRef<SWindow>& InWindowBeingClosed );
 
+	/**
+	 * A delegate called when the viewports top level window is deactivated
+	 */
+	FReply OnViewportActivated(const FWindowActivateEvent& InActivateEvent);
+
+	/**
+	 * A delegate called when the viewports top level window is deactivated
+	 */
+	void OnViewportDeactivated(const FWindowActivateEvent& InActivateEvent);
 
 	/** @return Whether or not this viewport renders directly to the backbuffer */
 	bool ShouldRenderDirectly() const { return bRenderDirectlyToWindow; }
@@ -116,29 +125,15 @@ public:
 	/** @return Whether or not this viewport supports stereo rendering */
 	bool IsStereoRenderingAllowed() const { return bEnableStereoRendering; }
 
-	/**
-	 * Sets a widget that should become focused when this window is next activated
-	 *
-	 * @param	InWidget	The widget to set focus to when this window is activated
-	 */
-	void SetWidgetToFocusOnActivate( const TSharedPtr<SWidget>& InWidget )
-	{
-		
-		WidgetToFocusOnActivate = InWidget;
-	}
-
-	/** Removes the widget to focus on activate so the viewport will be focused */
-	void ClearWidgetToFocusOnActivate()
-	{
-		WidgetToFocusOnActivate.Reset();
-	}
-
 	/** 
 	 * Sets whether this viewport is active. 
 	 * While active, a persistent Active Timer is registered and a Slate tick/paint pass is guaranteed every frame.
 	 * @param bActive Whether to set the viewport as active
 	 */
 	void SetActive(bool bActive);
+
+	DEPRECATED(4.11, "SetWidgetToFocusOnActivate is no longer needed, remove this call.")
+	void SetWidgetToFocusOnActivate(TSharedPtr<SWidget> WidgetToFocus) { }
 
 public:
 
@@ -203,12 +198,6 @@ private:
 
 	/** Size of the viewport. */
 	TAttribute<FVector2D> ViewportSize;
-
-	/** 
-	 * Widget to transfer keyboard focus to when this window becomes active, if any.
-	 * This is used to restore focus to a widget after a popup has been dismissed.
-	 */
-	TWeakPtr< SWidget > WidgetToFocusOnActivate;
 
 	TSharedPtr<ICustomHitTestPath> CustomHitTestPath;
 

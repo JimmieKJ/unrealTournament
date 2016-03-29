@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MetalViewport.cpp: Metal viewport RHI implementation.
@@ -8,6 +8,8 @@
 #if PLATFORM_MAC
 #include "CocoaWindow.h"
 #include "CocoaThread.h"
+#else
+#include "IOSAppDelegate.h"
 #endif
 
 #if PLATFORM_MAC
@@ -38,6 +40,7 @@
 #endif
 
 FMetalViewport::FMetalViewport(void* WindowHandle, uint32 InSizeX,uint32 InSizeY,bool bInIsFullscreen)
+: Drawable(nil)
 {
 #if PLATFORM_MAC
 	FCocoaWindow* Window = (FCocoaWindow*)WindowHandle;
@@ -70,12 +73,6 @@ FMetalViewport::FMetalViewport(void* WindowHandle, uint32 InSizeX,uint32 InSizeY
 	[[Window standardWindowButton:NSWindowCloseButton] setAction:@selector(performClose:)];
 
 	Resize(InSizeX, InSizeY, bInIsFullscreen);
-
-	// @todo zebra: Sometimes ConditionalUpdateBackBuffer() is called before BeginDrawingViewport. It doesn't seem right, we have to investigate.
-	if (!GetMetalDeviceContext().GetCurrentState().GetCurrentLayer())
-	{
-		GetMetalDeviceContext().GetCurrentState().SetCurrentLayer(Layer);
-	}
 #else
 	Resize(InSizeX, InSizeY, bInIsFullscreen);
 #endif
@@ -92,7 +89,8 @@ void FMetalViewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen
 	BackBuffer.SafeRelease();	// when the rest of the engine releases it, its framebuffers will be released too (those the engine knows about)
 
 	FRHIResourceCreateInfo CreateInfo;
-	BackBuffer = (FMetalTexture2D*)(FTexture2DRHIParamRef)RHICreateTexture2D(InSizeX, InSizeY, PF_B8G8R8A8, 1, 1, TexCreate_RenderTargetable | TexCreate_Presentable, CreateInfo);
+	BackBuffer = (FMetalTexture2D*)(FTexture2DRHIParamRef)GDynamicRHI->RHICreateTexture2D(InSizeX, InSizeY, PF_B8G8R8A8, 1, 1, TexCreate_RenderTargetable | TexCreate_Presentable, CreateInfo);
+	BackBuffer->Surface.Viewport = this;
 #if PLATFORM_MAC // @todo zebra: ios
 	((CAMetalLayer*)View.layer).drawableSize = CGSizeMake(InSizeX, InSizeY);
 #else
@@ -103,10 +101,55 @@ void FMetalViewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen
 	// check the size of the window
 	float ScalingFactor = [[IOSAppDelegate GetDelegate].IOSView contentScaleFactor];
 	CGRect ViewFrame = [[IOSAppDelegate GetDelegate].IOSView frame];
-	check(ScalingFactor * ViewFrame.size.width == InSizeX && ScalingFactor * ViewFrame.size.height == InSizeY);
+	check(FMath::TruncToInt(ScalingFactor * ViewFrame.size.width) == InSizeX &&
+		  FMath::TruncToInt(ScalingFactor * ViewFrame.size.height) == InSizeY);
 #endif
-	GetMetalDeviceContext().GetCurrentState().ResetCurrentDrawable();
 }
+
+id<MTLDrawable> FMetalViewport::GetDrawable()
+{
+	if (!Drawable)
+	{
+		@autoreleasepool
+		{
+			uint32 IdleStart = FPlatformTime::Cycles();
+			
+	#if PLATFORM_MAC
+			CAMetalLayer* CurrentLayer = (CAMetalLayer*)[View layer];
+			Drawable = CurrentLayer ? [[CurrentLayer nextDrawable] retain] : nil;
+	#else
+			Drawable = [[[IOSAppDelegate GetDelegate].IOSView MakeDrawable] retain];
+	#endif
+			
+			GRenderThreadIdle[ERenderThreadIdleTypes::WaitingForGPUPresent] += FPlatformTime::Cycles() - IdleStart;
+			GRenderThreadNumIdle[ERenderThreadIdleTypes::WaitingForGPUPresent]++;
+		}
+	}
+	return Drawable;
+}
+
+id<MTLTexture> FMetalViewport::GetDrawableTexture()
+{
+	id<CAMetalDrawable> CurrentDrawable = (id<CAMetalDrawable>)GetDrawable();
+	return CurrentDrawable.texture;
+}
+
+void FMetalViewport::ReleaseDrawable()
+{
+	if (Drawable)
+	{
+		[Drawable release];
+		Drawable = nil;
+	}
+	BackBuffer->Surface.Texture = nil;
+}
+
+#if PLATFORM_MAC
+NSWindow* FMetalViewport::GetWindow() const
+{
+	return [View window];
+}
+#endif
 
 /*=============================================================================
  *	The following RHI functions must be called from the main thread.
@@ -136,9 +179,14 @@ void FMetalDynamicRHI::RHITick( float DeltaTime )
 
 void FMetalRHICommandContext::RHIBeginDrawingViewport(FViewportRHIParamRef ViewportRHI, FTextureRHIParamRef RenderTargetRHI)
 {
+	check(false);
+}
+
+void FMetalDynamicRHI::RHIBeginDrawingViewport(FViewportRHIParamRef ViewportRHI, FTextureRHIParamRef RenderTargetRHI)
+{
 	FMetalViewport* Viewport = ResourceCast(ViewportRHI);
 
-	Context->BeginDrawingViewport(Viewport);
+	((FMetalDeviceContext*)Context)->BeginDrawingViewport(Viewport);
 
 	// Set the render target and viewport.
 	if (RenderTargetRHI)
@@ -155,10 +203,15 @@ void FMetalRHICommandContext::RHIBeginDrawingViewport(FViewportRHIParamRef Viewp
 
 void FMetalRHICommandContext::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI,bool bPresent,bool bLockToVsync)
 {
+	check(false);
+}
+
+void FMetalDynamicRHI::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI,bool bPresent,bool bLockToVsync)
+{
 	FMetalViewport* Viewport = ResourceCast(ViewportRHI);
-	Context->EndDrawingViewport(Viewport, bPresent);
+	((FMetalDeviceContext*)Context)->EndDrawingViewport(Viewport, bPresent);
 #if PLATFORM_MAC
-	FCocoaWindow* Window = (FCocoaWindow*)[Viewport->View window];
+	FCocoaWindow* Window = (FCocoaWindow*)Viewport->GetWindow();
 	MainThreadCall(^{
 		[Window startRendering];
 	}, NSDefaultRunLoopMode, false);

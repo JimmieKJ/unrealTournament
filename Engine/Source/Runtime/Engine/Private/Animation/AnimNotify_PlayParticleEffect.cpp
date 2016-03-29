@@ -1,9 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Animation/AnimNotifies/AnimNotify_PlayParticleEffect.h"
+#include "Animation/AnimSequenceBase.h"
 #include "Kismet/GameplayStatics.h"
 #include "Particles/ParticleSystem.h"
+#include "ParticleHelper.h"
 
 /////////////////////////////////////////////////////
 // UAnimNotify_PlayParticleEffect
@@ -42,6 +44,12 @@ void UAnimNotify_PlayParticleEffect::Notify(class USkeletalMeshComponent* MeshCo
 	// Don't call super to avoid unnecessary call in to blueprints
 	if (PSTemplate)
 	{
+		if (PSTemplate->IsImmortal())
+		{
+			UE_LOG(LogParticles, Warning, TEXT("Particle Notify: Anim %s tried to spawn infinitely looping particle system %s. Spawning suppressed."), *GetNameSafe(Animation), *GetNameSafe(PSTemplate));
+			return;
+		}
+
 		if (Attached)
 		{
 			UGameplayStatics::SpawnEmitterAttached(PSTemplate, MeshComp, SocketName, LocationOffset, RotationOffset);
@@ -54,6 +62,10 @@ void UAnimNotify_PlayParticleEffect::Notify(class USkeletalMeshComponent* MeshCo
 			SpawnTransform.SetRotation(MeshTransform.GetRotation() * RotationOffsetQuat);
 			UGameplayStatics::SpawnEmitterAtLocation(MeshComp->GetWorld(), PSTemplate, SpawnTransform);
 		}
+	}
+	else
+	{
+		UE_LOG(LogParticles, Warning, TEXT("Particle Notify: Null PSTemplate for particle notify in anim: %s"), *GetNameSafe(Animation));
 	}
 }
 

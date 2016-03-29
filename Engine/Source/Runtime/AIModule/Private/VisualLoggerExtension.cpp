@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
 #include "CanvasItem.h"
@@ -60,6 +60,14 @@ void FVisualLoggerExtension::DrawData(IVisualLoggerEditorInterface* EdInterface,
 		// disable and refresh EQS rendering
 		DisableEQSRendering(EdInterface->GetHelperActor());
 	}
+
+	UWorld* World = EdInterface->GetWorld();
+	AActor* VisLogHelperActor = EdInterface->GetHelperActor();
+	if (World == nullptr || VisLogHelperActor == nullptr)
+	{
+		return;
+	}
+
 	int32 EQSRenderingComponentIndex = 0;
 	TArray<FName> RowNames = EdInterface->GetSelectedRows();
 	for (const FName& RowName : RowNames)
@@ -93,7 +101,7 @@ void FVisualLoggerExtension::DrawData(IVisualLoggerEditorInterface* EdInterface,
 					UEQSRenderingComponent* EQSRenderComp = (Canvas == nullptr && EQSRenderingComponents.IsValidIndex(EQSRenderingComponentIndex) ? EQSRenderingComponents[EQSRenderingComponentIndex].Get() : nullptr);
 					if (EQSRenderComp == nullptr && Canvas == nullptr)
 					{
-						EQSRenderComp = NewObject<UEQSRenderingComponent>(EdInterface->GetHelperActor());
+						EQSRenderComp = NewObject<UEQSRenderingComponent>(VisLogHelperActor);
 						EQSRenderComp->bDrawOnlyWhenSelected = false;
 						EQSRenderComp->RegisterComponent();
 						EQSRenderComp->SetHiddenInGame(false);
@@ -101,7 +109,7 @@ void FVisualLoggerExtension::DrawData(IVisualLoggerEditorInterface* EdInterface,
 						EQSRenderComp->MarkRenderStateDirty();
 						EQSRenderingComponents.Add(EQSRenderComp);
 					}
-					DrawData(EdInterface->GetWorld(), EQSRenderComp, Canvas, EdInterface->GetHelperActor(), TagName, CurrentData, EntryItem.Entry.TimeStamp);
+					DrawData(World, EQSRenderComp, Canvas, VisLogHelperActor, TagName, CurrentData, EntryItem.Entry.TimeStamp);
 				}
 				EQSRenderingComponentIndex++;
 			}

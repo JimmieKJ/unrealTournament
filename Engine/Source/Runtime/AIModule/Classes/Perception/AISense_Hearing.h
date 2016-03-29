@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -106,14 +106,4 @@ protected:
 	void OnNewListenerImpl(const FPerceptionListener& NewListener);
 	void OnListenerUpdateImpl(const FPerceptionListener& UpdatedListener);
 	void OnListenerRemovedImpl(const FPerceptionListener& UpdatedListener);
-
-public:
-#if !UE_BUILD_SHIPPING
-	//----------------------------------------------------------------------//
-	// DEBUG
-	//----------------------------------------------------------------------//
-	virtual FString GetDebugLegend() const override;
-	static FColor GetDebugHearingRangeColor() { return FColor::Yellow; }
-	static FColor GetDebugLoSHearingRangeeColor() { return FColorList::Cyan; }
-#endif // !UE_BUILD_SHIPPING
 };

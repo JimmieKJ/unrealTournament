@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DepthOfFieldCommon.usf: depth of field common
@@ -16,19 +16,19 @@ float4 DepthOfFieldParams[2];
 float ComputeCircleOfConfusion(float SceneDepth)
 {
 	// artificial area where all content is in focus (starting at FocalLength, ending at FocalLength+FocalRegion)
-	FLATTEN if(SceneDepth > View.DepthOfFieldFocalDistance)
+	FLATTEN if(SceneDepth > Frame.DepthOfFieldFocalDistance)
 	{
-		SceneDepth = View.DepthOfFieldFocalDistance + max(0, SceneDepth - View.DepthOfFieldFocalDistance - View.DepthOfFieldFocalRegion);
+		SceneDepth = Frame.DepthOfFieldFocalDistance + max(0, SceneDepth - Frame.DepthOfFieldFocalDistance - Frame.DepthOfFieldFocalRegion);
 	}
 
 	// depth of the pixel in unreal units
 	float D = SceneDepth;
 	// e.g. Focal length in mm (Camera property e.g. 75mm)
-	float F = View.DepthOfFieldFocalLength;
+	float F = Frame.DepthOfFieldFocalLength;
 	// Plane in Focus in unreal units
-	float P = View.DepthOfFieldFocalDistance;
+	float P = Frame.DepthOfFieldFocalDistance;
 	// Camera property e.g. 0.5f, like aperture
-	float Aperture = View.DepthOfFieldScale;
+	float Aperture = Frame.DepthOfFieldScale;
 		
 	 
 	// convert unreal units (100=1m) to mm
@@ -53,15 +53,15 @@ float ComputeCircleOfConfusion(float SceneDepth)
 float ComputeCircleOfConfusionNorm(float SceneDepth)
 {
 	// artificial area where all content is in focus (starting at FocalLength, ending at FocalLength+FocalRegion)
-	FLATTEN if(SceneDepth > View.DepthOfFieldFocalDistance)
+	FLATTEN if(SceneDepth > Frame.DepthOfFieldFocalDistance)
 	{
-		SceneDepth = View.DepthOfFieldFocalDistance + max(0, SceneDepth - View.DepthOfFieldFocalDistance - View.DepthOfFieldFocalRegion);
+		SceneDepth = Frame.DepthOfFieldFocalDistance + max(0, SceneDepth - Frame.DepthOfFieldFocalDistance - Frame.DepthOfFieldFocalRegion);
 	}
 
 	//	assumed to be >0 by c++ setup code
-	half TransitionRegion = (SceneDepth < View.DepthOfFieldFocalDistance) ? View.DepthOfFieldNearTransitionRegion : View.DepthOfFieldFarTransitionRegion;
+	half TransitionRegion = (SceneDepth < Frame.DepthOfFieldFocalDistance) ? Frame.DepthOfFieldNearTransitionRegion : Frame.DepthOfFieldFarTransitionRegion;
 
-	return saturate(abs(SceneDepth - View.DepthOfFieldFocalDistance) / TransitionRegion);
+	return saturate(abs(SceneDepth - Frame.DepthOfFieldFocalDistance) / TransitionRegion);
 }
 
 /**
@@ -71,7 +71,7 @@ float ComputeCircleOfConfusionNorm(float SceneDepth)
  */
 half CalcUnfocusedPercentCustomBound(float SceneDepth, float MaxBlurNear, float MaxBlurFar)
 {
-	half MaxUnfocusedPercent = (SceneDepth < View.DepthOfFieldFocalDistance) ? MaxBlurNear : MaxBlurFar;
+	half MaxUnfocusedPercent = (SceneDepth < Frame.DepthOfFieldFocalDistance) ? MaxBlurNear : MaxBlurFar;
 
 	half Unbound = ComputeCircleOfConfusionNorm(SceneDepth);
 

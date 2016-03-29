@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*================================================================================
 	IOSPlatformProperties.h - Basic static properties of a platform 
@@ -41,6 +41,11 @@ struct FIOSPlatformProperties
 	static FORCEINLINE bool SupportsBuildTarget( EBuildTargets::Type BuildTarget )
 	{
 		return (BuildTarget == EBuildTargets::Game);
+	}
+
+	static FORCEINLINE bool SupportsLowQualityLightmaps()
+	{
+		return true;
 	}
 
 	static FORCEINLINE bool SupportsHighQualityLightmaps()

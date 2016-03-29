@@ -1,32 +1,53 @@
+
+# use build_html.sh to set/build the following variables
+#	OPTIMIZATION=
+#	LIB=
+
+
 CC=emcc
-CFLAGS= -O2 -Iinclude -DNDEBUG -D_WIN32 -D__MINGW32__ #-std=c++11
+# use the WIN32 defines -- even when building on non-windows hosts
+CFLAGS= $(OPTIMIZATION) -I../Include -DNDEBUG -D_WIN32 -D__MINGW32__ #-std=c++11
+LDFLAGS= $(OPTIMIZATION)
+
+MKDIR=mkdir -p
+RM=rm -f
+CP=cp -vf
+
+# ----------------------------------------
+
+INTERMEDIATE=Intermediate
+
+$(INTERMEDIATE):
+	$(MKDIR) $(INTERMEDIATE)
+
+# ----------------------------------------
 
 SOURCES= \
-  src\bitwise.c\
-  src\framing.c\
+  bitwise.c \
+  framing.c \
   
-OBJECTS=$(SOURCES:.c=.bc)
+# ----------------------------------------
 
-LIBOGG = libogg.bc
+OBJECTS=$(SOURCES:%.c=$(INTERMEDIATE)/%.bc)
 
-.c.bc:
+$(INTERMEDIATE)/%.bc : %.c
 	$(CC) $(CFLAGS) $< -o $@
 
-$(LIBOGG): $(OBJECTS) 
+TARGET=$(INTERMEDIATE)/$(LIB)
+
+$(TARGET): $(INTERMEDIATE) $(OBJECTS)
 	$(CC) $(LDFLAGS) $(OBJECTS) -o $@ 
 
-install: $(LIBOGG)
-	xcopy $(LIBOGG) lib\HTML5\ /F /R /Y /I
+all: $(SOURCES) $(TARGET)
+
+install: all
+	$(CP) $(TARGET) ../lib/HTML5/.
 
 uninstall:
-	del lib\HTML5\$(LIBOGG) /F 
-
-all: libogg 
+	$(RM) ../lib/HTML5/$(LIB)
 
 clean:
-	del src\*.bc *.bc
+	$(RM) $(OBJECTS) $(TARGET)
  
+# ----------------------------------------
 
-
-	
-	

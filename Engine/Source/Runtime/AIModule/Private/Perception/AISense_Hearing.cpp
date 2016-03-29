@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
 #include "Perception/AISense_Hearing.h"
@@ -53,9 +53,6 @@ UAISense_Hearing::FDigestedHearingProperties::FDigestedHearingProperties()
 UAISense_Hearing::UAISense_Hearing(const FObjectInitializer& ObjectInitializer) 
 	: Super(ObjectInitializer)
 {
-	DebugDrawColor = FColor::Yellow;
-	DebugName = TEXT("Hearing");
-
 	if (HasAnyFlags(RF_ClassDefaultObject) == false)
 	{
 		OnNewListenerDelegate.BindUObject(this, &UAISense_Hearing::OnNewListenerImpl);
@@ -188,17 +185,3 @@ void UAISense_Hearing::RegisterWrappedEvent(UAISenseEvent& PerceptionEvent)
 		RegisterEvent(HearingEvent->GetNoiseEvent());
 	}
 }
-
-
-#if !UE_BUILD_SHIPPING
-//----------------------------------------------------------------------//
-// DEBUG
-//----------------------------------------------------------------------//
-FString UAISense_Hearing::GetDebugLegend() const
-{
-	static const FColor HearingColor = GetDebugHearingRangeColor();
-	static const FColor LoSHearingColor = GetDebugLoSHearingRangeeColor();
-
-	return FString::Printf(TEXT("{%s} Hearing, {%s} LoS hearing,"), *HearingColor.ToString(), *LoSHearingColor.ToString());
-}
-#endif // !UE_BUILD_SHIPPING

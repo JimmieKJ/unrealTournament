@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	FParticleBeam2EmitterInstance.cpp: 
@@ -37,6 +37,8 @@ DEFINE_STAT(STAT_BeamFillVertexTime);
 DEFINE_STAT(STAT_BeamFillIndexTime);
 DEFINE_STAT(STAT_BeamRenderingTime);
 DEFINE_STAT(STAT_BeamTickTime);
+
+DECLARE_CYCLE_STAT(TEXT("BeamEmitterInstance Init"), STAT_BeamEmitterInstance_Init, STATGROUP_Particles);
 
 /*-----------------------------------------------------------------------------
 	ParticleBeam2EmitterInstance
@@ -238,16 +240,10 @@ void FParticleBeam2EmitterInstance::ApplyWorldOffset(FVector InOffset, bool bWor
 	}
 }
 
-/**
- *	Initialize the parameters for the structure
- *
- *	@param	InTemplate		The ParticleEmitter to base the instance on
- *	@param	InComponent		The owning ParticleComponent
- *	@param	bClearResources	If true, clear all resource data
- */
-void FParticleBeam2EmitterInstance::InitParameters(UParticleEmitter* InTemplate, UParticleSystemComponent* InComponent, bool bClearResources)
+
+void FParticleBeam2EmitterInstance::InitParameters(UParticleEmitter* InTemplate, UParticleSystemComponent* InComponent)
 {
-	FParticleEmitterInstance::InitParameters(InTemplate, InComponent, bClearResources);
+	FParticleEmitterInstance::InitParameters(InTemplate, InComponent);
 
 	UParticleLODLevel* LODLevel	= InTemplate->GetLODLevel(0);
 	check(LODLevel);
@@ -302,10 +298,22 @@ void FParticleBeam2EmitterInstance::InitParameters(UParticleEmitter* InTemplate,
  */
 void FParticleBeam2EmitterInstance::Init()
 {
+	SCOPE_CYCLE_COUNTER(STAT_BeamEmitterInstance_Init);
+
 	// Setup the modules prior to initializing...
-	SetupBeamModules();
-	SetupBeamModifierModules();
+	check(SpriteTemplate);
+	UParticleLODLevel* LODLevel = SpriteTemplate->GetLODLevel(0);
+	check(LODLevel);
+	BeamTypeData = CastChecked<UParticleModuleTypeDataBeam2>(LODLevel->TypeDataModule);
+
+	BeamModule_Source = BeamTypeData->LOD_BeamModule_Source[0];
+	BeamModule_Target = BeamTypeData->LOD_BeamModule_Target[0];
+	BeamModule_Noise = BeamTypeData->LOD_BeamModule_Noise[0];
+	BeamModule_SourceModifier = BeamTypeData->LOD_BeamModule_SourceModifier[0];
+	BeamModule_TargetModifier = BeamTypeData->LOD_BeamModule_TargetModifier[0];
+
 	FParticleEmitterInstance::Init();
+
 	SetupBeamModifierModulesOffsets();
 }
 
@@ -326,79 +334,89 @@ void FParticleBeam2EmitterInstance::Tick(float DeltaTime, bool bSuppressSpawning
 		// Handle EmitterTime setup, looping, etc.
 		float EmitterDelay = Tick_EmitterTimeSetup(DeltaTime, LODLevel);
 
-		// Kill before the spawn... Otherwise, we can get 'flashing'
-		KillParticles();
-
-		// If not suppressing spawning...
-		if (!bHaltSpawning && !bSuppressSpawning && (EmitterTime >= 0.0f))
+		if (bEnabled)
 		{
-			if ((LODLevel->RequiredModule->EmitterLoops == 0) || 
-				(LoopCount < LODLevel->RequiredModule->EmitterLoops) ||
-				(SecondsSinceCreation < (EmitterDuration * LODLevel->RequiredModule->EmitterLoops)))
+			// Kill before the spawn... Otherwise, we can get 'flashing'
+			KillParticles();
+
+			// If not suppressing spawning...
+			if (!bHaltSpawning && !bSuppressSpawning && (EmitterTime >= 0.0f))
 			{
-				// For beams, we probably want to ignore the SpawnRate distribution,
-				// and focus strictly on the BurstList...
-				float SpawnRate = 0.0f;
-				// Figure out spawn rate for this tick.
-				SpawnRate = LODLevel->SpawnModule->Rate.GetValue(EmitterTime, Component);
-				// Take Bursts into account as well...
-				int32		Burst		= 0;
-				float	BurstTime	= GetCurrentBurstRateOffset(DeltaTime, Burst);
-				SpawnRate += BurstTime;
-
-				// Spawn new particles...
-
-				//@todo. Fix the issue of 'blanking' beams when the count drops...
-				// This is a temporary hack!
-				const float InvDeltaTime = (DeltaTime > 0.0f) ? 1.0f / DeltaTime : 0.0f;
-				if ((ActiveParticles < BeamCount) && (SpawnRate <= 0.0f))
+				if ((LODLevel->RequiredModule->EmitterLoops == 0) ||
+					(LoopCount < LODLevel->RequiredModule->EmitterLoops) ||
+					(SecondsSinceCreation < (EmitterDuration * LODLevel->RequiredModule->EmitterLoops)))
 				{
-					// Force the spawn of a single beam...
-					SpawnRate = 1.0f * InvDeltaTime;
-				}
+					// For beams, we probably want to ignore the SpawnRate distribution,
+					// and focus strictly on the BurstList...
+					float SpawnRate = 0.0f;
+					// Figure out spawn rate for this tick.
+					SpawnRate = LODLevel->SpawnModule->Rate.GetValue(EmitterTime, Component);
+					// Take Bursts into account as well...
+					int32		Burst = 0;
+					float	BurstTime = GetCurrentBurstRateOffset(DeltaTime, Burst);
+					SpawnRate += BurstTime;
 
-				// Force beams if the emitter is marked "AlwaysOn"
-				if ((ActiveParticles < BeamCount) && BeamTypeData->bAlwaysOn)
-				{
-					Burst		= BeamCount;
-					if (DeltaTime > KINDA_SMALL_NUMBER)
+					// Spawn new particles...
+
+					//@todo. Fix the issue of 'blanking' beams when the count drops...
+					// This is a temporary hack!
+					const float InvDeltaTime = (DeltaTime > 0.0f) ? 1.0f / DeltaTime : 0.0f;
+					if ((ActiveParticles < BeamCount) && (SpawnRate <= 0.0f))
 					{
-						BurstTime	 = Burst * InvDeltaTime;
-						SpawnRate	+= BurstTime;
+						// Force the spawn of a single beam...
+						SpawnRate = 1.0f * InvDeltaTime;
+					}
+
+					// Force beams if the emitter is marked "AlwaysOn"
+					if ((ActiveParticles < BeamCount) && BeamTypeData->bAlwaysOn)
+					{
+						Burst = BeamCount;
+						if (DeltaTime > KINDA_SMALL_NUMBER)
+						{
+							BurstTime = Burst * InvDeltaTime;
+							SpawnRate += BurstTime;
+						}
+					}
+
+					if (SpawnRate > 0.f)
+					{
+						SpawnFraction = SpawnBeamParticles(SpawnFraction, SpawnRate, DeltaTime, Burst, BurstTime);
 					}
 				}
-
-				if (SpawnRate > 0.f)
-				{
-					SpawnFraction = SpawnBeamParticles(SpawnFraction, SpawnRate, DeltaTime, Burst, BurstTime);
-				}
 			}
+			else if (bFakeBurstsWhenSpawningSupressed)
+			{
+				FakeBursts();
+			}
+
+			// Reset particle data
+			ResetParticleParameters(DeltaTime);
+
+			// Not really necessary as beams do not LOD at the moment, but for consistency...
+			CurrentMaterial = LODLevel->RequiredModule->Material;
+
+			Tick_ModuleUpdate(DeltaTime, LODLevel);
+			Tick_ModulePostUpdate(DeltaTime, LODLevel);
+
+			// Calculate bounding box and simulate velocity.
+			UpdateBoundingBox(DeltaTime);
+
+			if (!bSuppressSpawning)
+			{
+				// Ensure that we flip the 'FirstEmission' flag
+				FirstEmission = false;
+			}
+
+			// Invalidate the contents of the vertex/index buffer.
+			IsRenderDataDirty = 1;
+
+			// Bump the tick count
+			TickCount++;
 		}
-
-		// Reset particle data
-		ResetParticleParameters(DeltaTime);
-
-		// Not really necessary as beams do not LOD at the moment, but for consistency...
-		CurrentMaterial = LODLevel->RequiredModule->Material;
-
-		Tick_ModuleUpdate(DeltaTime, LODLevel);
-		Tick_ModulePostUpdate(DeltaTime, LODLevel);
-
-		// Calculate bounding box and simulate velocity.
-		UpdateBoundingBox(DeltaTime);
-
-		if (!bSuppressSpawning)
+		else
 		{
-			// Ensure that we flip the 'FirstEmission' flag
-			FirstEmission = false;
+			FakeBursts();
 		}
-
-		// Invalidate the contents of the vertex/index buffer.
-		IsRenderDataDirty = 1;
-
-		// Bump the tick count
-		TickCount++;
-
 		// 'Reset' the emitter time so that the delay functions correctly
 		EmitterTime += CurrentDelay;
 		
@@ -420,11 +438,9 @@ void FParticleBeam2EmitterInstance::Tick_ModulePostUpdate(float DeltaTime, UPart
 	if (TypeData)
 	{
 		// The order of the update here is VERY important
-		uint32* Offset;
 		if (BeamModule_Source && BeamModule_Source->bEnabled)
 		{
-			Offset = ModuleOffsetMap.Find(BeamModule_Source);
-			BeamModule_Source->Update(this, Offset ? *Offset : 0, DeltaTime);
+			BeamModule_Source->Update(this, GetModuleDataOffset(BeamModule_Source), DeltaTime);
 		}
 		if (BeamModule_SourceModifier && BeamModule_SourceModifier->bEnabled)
 		{
@@ -433,8 +449,7 @@ void FParticleBeam2EmitterInstance::Tick_ModulePostUpdate(float DeltaTime, UPart
 		}
 		if (BeamModule_Target && BeamModule_Target->bEnabled)
 		{
-			Offset = ModuleOffsetMap.Find(BeamModule_Target);
-			BeamModule_Target->Update(this, Offset ? *Offset : 0, DeltaTime);
+			BeamModule_Target->Update(this, GetModuleDataOffset(BeamModule_Target), DeltaTime);
 		}
 		if (BeamModule_TargetModifier && BeamModule_TargetModifier->bEnabled)
 		{
@@ -443,8 +458,7 @@ void FParticleBeam2EmitterInstance::Tick_ModulePostUpdate(float DeltaTime, UPart
 		}
 		if (BeamModule_Noise && BeamModule_Noise->bEnabled)
 		{
-			Offset = ModuleOffsetMap.Find(BeamModule_Noise);
-			BeamModule_Noise->Update(this, Offset ? *Offset : 0, DeltaTime);
+			BeamModule_Noise->Update(this, GetModuleDataOffset(BeamModule_Noise), DeltaTime);
 		}
 
 		FParticleEmitterInstance::Tick_ModulePostUpdate(DeltaTime, CurrentLODLevel);
@@ -463,12 +477,11 @@ void FParticleBeam2EmitterInstance::SetCurrentLODIndex(int32 InLODIndex, bool bI
 	FParticleEmitterInstance::SetCurrentLODIndex(InLODIndex, bInFullyProcess);
 
 	// Setup the beam modules!
-	BeamTypeData = LOD_BeamTypeData[CurrentLODLevelIndex];
-	BeamModule_Source = LOD_BeamModule_Source[CurrentLODLevelIndex];
-	BeamModule_Target = LOD_BeamModule_Target[CurrentLODLevelIndex];
-	BeamModule_Noise = LOD_BeamModule_Noise[CurrentLODLevelIndex];
-	BeamModule_SourceModifier = LOD_BeamModule_SourceModifier[CurrentLODLevelIndex];
-	BeamModule_TargetModifier= LOD_BeamModule_TargetModifier[CurrentLODLevelIndex];
+	BeamModule_Source = BeamTypeData->LOD_BeamModule_Source[CurrentLODLevelIndex];
+	BeamModule_Target = BeamTypeData->LOD_BeamModule_Target[CurrentLODLevelIndex];
+	BeamModule_Noise = BeamTypeData->LOD_BeamModule_Noise[CurrentLODLevelIndex];
+	BeamModule_SourceModifier = BeamTypeData->LOD_BeamModule_SourceModifier[CurrentLODLevelIndex];
+	BeamModule_TargetModifier= BeamTypeData->LOD_BeamModule_TargetModifier[CurrentLODLevelIndex];
 }
 
 /**
@@ -737,11 +750,9 @@ void FParticleBeam2EmitterInstance::PostSpawn(FBaseParticle* Particle, float Int
 {
 	// The order of the Spawn here is VERY important as the modules may(will) depend on it occuring as such.
 	UParticleLODLevel* LODLevel = SpriteTemplate->GetCurrentLODLevel(this);
-	uint32* Offset;
 	if (BeamModule_Source && BeamModule_Source->bEnabled)
 	{
-		Offset = ModuleOffsetMap.Find(BeamModule_Source);
-		BeamModule_Source->Spawn(this, Offset ? *Offset : 0, SpawnTime, Particle);
+		BeamModule_Source->Spawn(this, GetModuleDataOffset(BeamModule_Source), SpawnTime, Particle);
 	}
 	if (BeamModule_SourceModifier && BeamModule_SourceModifier->bEnabled)
 	{
@@ -750,8 +761,7 @@ void FParticleBeam2EmitterInstance::PostSpawn(FBaseParticle* Particle, float Int
 	}
 	if (BeamModule_Target && BeamModule_Target->bEnabled)
 	{
-		Offset = ModuleOffsetMap.Find(BeamModule_Target);
-		BeamModule_Target->Spawn(this, Offset ? *Offset : 0, SpawnTime, Particle);
+		BeamModule_Target->Spawn(this, GetModuleDataOffset(BeamModule_Target), SpawnTime, Particle);
 	}
 	if (BeamModule_TargetModifier && BeamModule_TargetModifier->bEnabled)
 	{
@@ -760,8 +770,7 @@ void FParticleBeam2EmitterInstance::PostSpawn(FBaseParticle* Particle, float Int
 	}
 	if (BeamModule_Noise && BeamModule_Noise->bEnabled)
 	{
-		Offset = ModuleOffsetMap.Find(BeamModule_Noise);
-		BeamModule_Noise->Spawn(this, Offset ? *Offset : 0, SpawnTime, Particle);
+		BeamModule_Noise->Spawn(this, GetModuleDataOffset(BeamModule_Noise), SpawnTime, Particle);
 	}
 	if (LODLevel->TypeDataModule)
 	{
@@ -815,223 +824,25 @@ void FParticleBeam2EmitterInstance::KillParticles()
 }
 
 /**
- *	Setup the beam module pointers
- */
-void FParticleBeam2EmitterInstance::SetupBeamModules()
-{
-	// Beams are a special case... 
-	// We don't want standard Spawn/Update calls occurring on Beam-type modules.
-	int32 LODCount = SpriteTemplate->LODLevels.Num();
-
-	LOD_BeamTypeData.Empty(LODCount);
-	LOD_BeamTypeData.AddZeroed(LODCount);
-	LOD_BeamModule_Source.Empty(LODCount);
-	LOD_BeamModule_Source.AddZeroed(LODCount);
-	LOD_BeamModule_Target.Empty(LODCount);
-	LOD_BeamModule_Target.AddZeroed(LODCount);
-	LOD_BeamModule_Noise.Empty(LODCount);
-	LOD_BeamModule_Noise.AddZeroed(LODCount);
-
-	for (int32 LODIdx = 0; LODIdx < LODCount; LODIdx++)
-	{
-		UParticleLODLevel* LODLevel	= SpriteTemplate->GetLODLevel(LODIdx);
-		check(LODLevel);
-
-		LOD_BeamTypeData[LODIdx] = CastChecked<UParticleModuleTypeDataBeam2>(LODLevel->TypeDataModule);
-		check(LOD_BeamTypeData[LODIdx]);
-		if (LODIdx == 0)
-		{
-			BeamTypeData = LOD_BeamTypeData[LODIdx];
-		}
-
-		// Go over all the modules in the LOD level
-		for (int32 ii = 0; ii < LODLevel->Modules.Num(); ii++)
-		{
-			UParticleModule* CheckModule = LODLevel->Modules[ii];
-			if ((CheckModule->GetModuleType() == EPMT_Beam) && (CheckModule->bEnabled == true))
-			{
-				bool bRemove = false;
-
-				if (CheckModule->IsA(UParticleModuleBeamSource::StaticClass()))
-				{
-					if (LOD_BeamModule_Source[LODIdx])
-					{
-						UE_LOG(LogParticles, Log, TEXT("Warning: Multiple beam source modules!"));
-					}
-					else
-					{
-						LOD_BeamModule_Source[LODIdx] = Cast<UParticleModuleBeamSource>(CheckModule);
-						if (LODIdx == 0)
-						{
-							BeamModule_Source = LOD_BeamModule_Source[LODIdx];
-						}
-					}
-					bRemove = true;
-				}
-				else if (CheckModule->IsA(UParticleModuleBeamTarget::StaticClass()))
-				{
-					if (LOD_BeamModule_Target[LODIdx])
-					{
-						UE_LOG(LogParticles, Log, TEXT("Warning: Multiple beam Target modules!"));
-					}
-					else
-					{
-						LOD_BeamModule_Target[LODIdx] = Cast<UParticleModuleBeamTarget>(CheckModule);
-						if (LODIdx == 0)
-						{
-							BeamModule_Target = LOD_BeamModule_Target[LODIdx];
-						}
-					}
-					bRemove = true;
-				}
-				else if (CheckModule->IsA(UParticleModuleBeamNoise::StaticClass()))
-				{
-					if (LOD_BeamModule_Noise[LODIdx])
-					{
-						UE_LOG(LogParticles, Log, TEXT("Warning: Multiple beam Noise modules!"));
-					}
-					else
-					{
-						LOD_BeamModule_Noise[LODIdx] = Cast<UParticleModuleBeamNoise>(CheckModule);
-						if (LODIdx == 0)
-						{
-							BeamModule_Noise = LOD_BeamModule_Noise[LODIdx];
-						}
-					}
-					bRemove = true;
-				}
-
-				//@todo. Remove from the Update/Spawn lists???
-				if (bRemove)
-				{
-					for (int32 jj = 0; jj < LODLevel->UpdateModules.Num(); jj++)
-					{
-						if (LODLevel->UpdateModules[jj] == CheckModule)
-						{
-							LODLevel->UpdateModules.RemoveAt(jj);
-							break;
-						}
-					}
-
-					for (int32 kk = 0; kk < LODLevel->SpawnModules.Num(); kk++)
-					{
-						if (LODLevel->SpawnModules[kk] == CheckModule)
-						{
-							LODLevel->SpawnModules.RemoveAt(kk);
-							break;
-						}
-					}
-				}
-			}
-		}
-	}
-}
-
-/**
-*	Setup the beam modifer module pointers
-*/
-void FParticleBeam2EmitterInstance::SetupBeamModifierModules()
-{
-	// Beams are a special case... 
-	// We don't want standard Spawn/Update calls occuring on Beam-type modules.
-	int32 LODCount = SpriteTemplate->LODLevels.Num();
-
-	LOD_BeamModule_SourceModifier.Empty(LODCount);
-	LOD_BeamModule_SourceModifier.AddZeroed(LODCount);
-	LOD_BeamModule_TargetModifier.Empty(LODCount);
-	LOD_BeamModule_TargetModifier.AddZeroed(LODCount);
-
-	for (int32 LODIdx = 0; LODIdx < LODCount; LODIdx++)
-	{
-		UParticleLODLevel* LODLevel	= SpriteTemplate->GetLODLevel(LODIdx);
-		check(LODLevel);
-
-		// Go over all the modules in the LOD level
-		for (int32 ii = 0; ii < LODLevel->Modules.Num(); ii++)
-		{
-			UParticleModule* CheckModule = LODLevel->Modules[ii];
-			if (CheckModule->GetModuleType() == EPMT_Beam)
-			{
-				bool bRemove = false;
-
-				if (CheckModule->IsA(UParticleModuleBeamModifier::StaticClass()))
-				{
-					UParticleModuleBeamModifier* ModifyModule = Cast<UParticleModuleBeamModifier>(CheckModule);
-					if (ModifyModule->PositionOptions.bModify || ModifyModule->TangentOptions.bModify || ModifyModule->StrengthOptions.bModify)
-					{
-						if (ModifyModule->ModifierType == PEB2MT_Source)
-						{
-							LOD_BeamModule_SourceModifier[LODIdx] = ModifyModule;
-							bRemove = true;
-							if (LODIdx == 0)
-							{
-								// Offset will be setup in a different function
-								BeamModule_SourceModifier = LOD_BeamModule_SourceModifier[LODIdx];
-							}
-						}
-						else if (ModifyModule->ModifierType == PEB2MT_Target)
-						{
-							LOD_BeamModule_TargetModifier[LODIdx] = ModifyModule;
-							bRemove = true;
-							if (LODIdx == 0)
-							{
-								// Offset will be setup in a different function
-								BeamModule_TargetModifier = LOD_BeamModule_TargetModifier[LODIdx];
-							}
-						}
-					}
-				}
-
-				//@todo. Remove from the Update/Spawn lists???
-				if (bRemove)
-				{
-					for (int32 jj = 0; jj < LODLevel->UpdateModules.Num(); jj++)
-					{
-						if (LODLevel->UpdateModules[jj] == CheckModule)
-						{
-							LODLevel->UpdateModules.RemoveAt(jj);
-							break;
-						}
-					}
-
-					for (int32 kk = 0; kk < LODLevel->SpawnModules.Num(); kk++)
-					{
-						if (LODLevel->SpawnModules[kk] == CheckModule)
-						{
-							LODLevel->SpawnModules.RemoveAt(kk);
-							break;
-						}
-					}
-				}
-			}
-		}
-	}
-}
-
-/**
  *	Setup the offsets to the BeamModifier modules...
  *	This must be done after the base Init call as that inserts modules into the offset map.
  */
 void FParticleBeam2EmitterInstance::SetupBeamModifierModulesOffsets()
 {
-	// Beams are a special case... 
-	// We don't want standard Spawn/Update calls occuring on Beam-type modules.
-	int32 LODCount = SpriteTemplate->LODLevels.Num();
+	check(BeamTypeData);
 
-	check(SpriteTemplate->LODLevels.Num() > 0);
-	UParticleLODLevel* LODLevel	= SpriteTemplate->GetLODLevel(0);
-	check(LODLevel);
-	if (LOD_BeamModule_SourceModifier.Num() > 0)
+	if (BeamTypeData->LOD_BeamModule_SourceModifier.Num() > 0)
 	{
-		uint32* Offset = ModuleOffsetMap.Find(LOD_BeamModule_SourceModifier[0]);
+		uint32* Offset = SpriteTemplate->ModuleOffsetMap.Find(BeamTypeData->LOD_BeamModule_SourceModifier[0]);
 		if (Offset != NULL)
 		{
 			BeamModule_SourceModifier_Offset = (int32)(*Offset);
 		}
 	}
-	if (LOD_BeamModule_TargetModifier.Num() > 0)
+
+	if (BeamTypeData->LOD_BeamModule_TargetModifier.Num() > 0)
 	{
-		uint32* Offset = ModuleOffsetMap.Find(LOD_BeamModule_TargetModifier[0]);
+		uint32* Offset = SpriteTemplate->ModuleOffsetMap.Find(BeamTypeData->LOD_BeamModule_TargetModifier[0]);
 		if (Offset != NULL)
 		{
 			BeamModule_TargetModifier_Offset = (int32)(*Offset);
@@ -1204,7 +1015,7 @@ FDynamicEmitterDataBase* FParticleBeam2EmitterInstance::GetDynamicData(bool bSel
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_ParticleBeam2EmitterInstance_GetDynamicData);
 
 	UParticleLODLevel* LODLevel = SpriteTemplate->GetCurrentLODLevel(this);
-	if (IsDynamicDataRequired(LODLevel) == false)
+	if (IsDynamicDataRequired(LODLevel) == false || !bEnabled)
 	{
 		return NULL;
 	}
@@ -1268,7 +1079,7 @@ bool FParticleBeam2EmitterInstance::UpdateDynamicData(FDynamicEmitterDataBase* D
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_ParticleBeam2EmitterInstance_UpdateDynamicData);
 
-	if (ActiveParticles <= 0)
+	if (ActiveParticles <= 0 || !bEnabled)
 	{
 		return false;
 	}

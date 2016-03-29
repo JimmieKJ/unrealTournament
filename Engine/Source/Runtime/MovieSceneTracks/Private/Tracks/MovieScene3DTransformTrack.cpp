@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneTracksPrivatePCH.h"
 #include "MovieScene3DTransformSection.h"
@@ -9,7 +9,14 @@
 
 UMovieScene3DTransformTrack::UMovieScene3DTransformTrack( const FObjectInitializer& ObjectInitializer )
 	: Super( ObjectInitializer )
-{ }
+{
+	static FName Transform("Transform");
+	SetPropertyNameAndPath(Transform, Transform.ToString());
+
+#if WITH_EDITORONLY_DATA
+	TrackTint = FColor(48, 227, 255, 65);
+#endif
+}
 
 
 UMovieSceneSection* UMovieScene3DTransformTrack::CreateNewSection()

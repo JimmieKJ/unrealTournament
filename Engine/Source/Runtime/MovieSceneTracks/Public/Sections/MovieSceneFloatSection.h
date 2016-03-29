@@ -1,7 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "MovieSceneSection.h"
+#include "IKeyframeSection.h"
 #include "MovieSceneFloatSection.generated.h"
 
 /**
@@ -41,6 +43,6 @@ public:
 	FRichCurve& GetFloatCurve() { return FloatCurve; }
 private:
 	/** Curve data */
-	UPROPERTY(EditAnywhere, Category="Curve")
+	UPROPERTY()
 	FRichCurve FloatCurve;
 };

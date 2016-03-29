@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -649,6 +649,7 @@ public:
 		, bIsTouchEvent(false)
 		, GestureType(EGestureEvent::None)
 		, WheelOrGestureDelta(0.0f, 0)
+		, bIsDirectionInvertedFromDevice(false)
 	{ }
 
 	/** Events are immutable once constructed. */
@@ -672,6 +673,7 @@ public:
 		, bIsTouchEvent(false)
 		, GestureType(EGestureEvent::None)
 		, WheelOrGestureDelta(0.0f, InWheelDelta)
+		, bIsDirectionInvertedFromDevice(false)
 	{ }
 
 	/** A constructor for raw mouse events */
@@ -693,6 +695,7 @@ public:
 		, bIsTouchEvent(false)
 		, GestureType(EGestureEvent::None)
 		, WheelOrGestureDelta(0.0f, 0.0f)
+		, bIsDirectionInvertedFromDevice(false)
 	{ }
 
 	/** A constructor for touch events */
@@ -716,6 +719,7 @@ public:
 		, bIsTouchEvent(true)
 		, GestureType(EGestureEvent::None)
 		, WheelOrGestureDelta(0.0f, 0.0f)
+		, bIsDirectionInvertedFromDevice(false)
 	{ }
 
 	/** A constructor for gesture events */
@@ -725,7 +729,8 @@ public:
 		const TSet<FKey>& InPressedButtons,
 		const FModifierKeysState& InModifierKeys,
 		EGestureEvent::Type InGestureType,
-		const FVector2D& InGestureDelta
+		const FVector2D& InGestureDelta,
+		bool bInIsDirectionInvertedFromDevice
 	)
 		: FInputEvent(InModifierKeys, 0, false)
 		, ScreenSpacePosition(InScreenSpacePosition)
@@ -736,6 +741,7 @@ public:
 		, bIsTouchEvent(false)
 		, GestureType(InGestureType)
 		, WheelOrGestureDelta(InGestureDelta)
+		, bIsDirectionInvertedFromDevice(bInIsDirectionInvertedFromDevice)
 	{ }
 	
 public:
@@ -776,6 +782,9 @@ public:
 	/** @return The change in gesture value since the last gesture event of the same type. */
 	const FVector2D& GetGestureDelta() const { return WheelOrGestureDelta; }
 
+	/** @return Is the gesture delta inverted */
+	bool IsDirectionInvertedFromDevice() const { return bIsDirectionInvertedFromDevice; }
+
 	/** We override the assignment operator to allow generated code to compile with the const ref member. */
 	void operator=( const FPointerEvent& Other )
 	{
@@ -793,6 +802,7 @@ public:
 		bIsTouchEvent = Other.bIsTouchEvent;
 		GestureType = Other.GestureType;
 		WheelOrGestureDelta = Other.WheelOrGestureDelta;
+		bIsDirectionInvertedFromDevice = Other.bIsDirectionInvertedFromDevice;
 	}
 
 	SLATECORE_API virtual FText ToText() const override;
@@ -821,6 +831,7 @@ private:
 	bool bIsTouchEvent;
 	EGestureEvent::Type GestureType;
 	FVector2D WheelOrGestureDelta;
+	bool bIsDirectionInvertedFromDevice;
 	// NOTE: If you add a new member, make sure you add it to the assignment operator.
 };
 

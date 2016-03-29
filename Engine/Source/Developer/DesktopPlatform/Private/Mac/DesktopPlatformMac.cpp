@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "DesktopPlatformPrivatePCH.h"
 #include "MacApplication.h"
@@ -360,22 +360,9 @@ bool FDesktopPlatformMac::CanOpenLauncher(bool Install)
 	return IsLauncherInstalled() || (Install && GetLauncherInstallerPath(Path));
 }
 
-bool FDesktopPlatformMac::OpenLauncher(bool Install, FString LauncherRelativeUrl, FString CommandLineParams)
+bool FDesktopPlatformMac::OpenLauncher(const FOpenLauncherOptions& Options)
 {
-	FString LauncherUriRequest;
-	if (LauncherRelativeUrl.IsEmpty())
-	{
-		LauncherUriRequest = TEXT("com.epicgames.launcher:");
-	}
-	else
-	{
-		LauncherUriRequest = FString::Printf(TEXT("com.epicgames.launcher://%s"), *LauncherRelativeUrl);
-	}
-
-	if (FParse::Param(FCommandLine::Get(), TEXT("Dev")))
-	{
-		CommandLineParams += TEXT(" -noselfupdate");
-	}
+	FString LauncherUriRequest = Options.GetLauncherUriRequest();
 
 	// If the launcher is already running, bring it to front
 	NSArray* RunningLaunchers = [NSRunningApplication runningApplicationsWithBundleIdentifier: @"com.epicgames.EpicGamesLauncher"];
@@ -387,11 +374,11 @@ bool FDesktopPlatformMac::OpenLauncher(bool Install, FString LauncherRelativeUrl
 	if ([RunningLaunchers count] > 0)
 	{
 		NSRunningApplication* Launcher = [RunningLaunchers objectAtIndex: 0];
-		if (!Launcher.hidden || Install || CommandLineParams.Len() > 0) // If the launcher is running, but hidden, don't activate on editor startup
+		if ( !Launcher.hidden || Options.bInstall ) // If the launcher is running, but hidden, don't activate on editor startup
 		{
 			[Launcher activateWithOptions : NSApplicationActivateAllWindows | NSApplicationActivateIgnoringOtherApps];
 			FString Error;
-			FPlatformProcess::LaunchURL(*LauncherUriRequest, *CommandLineParams, &Error);
+			FPlatformProcess::LaunchURL(*LauncherUriRequest, nullptr, &Error);
 		}
 		return true;
 	}
@@ -399,7 +386,7 @@ bool FDesktopPlatformMac::OpenLauncher(bool Install, FString LauncherRelativeUrl
 	if (IsLauncherInstalled())
 	{
 		FString Error;
-		FPlatformProcess::LaunchURL(*LauncherUriRequest, *CommandLineParams, &Error);
+		FPlatformProcess::LaunchURL(*LauncherUriRequest, nullptr, &Error);
 		return true;
 	}
 

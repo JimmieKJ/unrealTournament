@@ -1,8 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "ModuleManager.h"
 #include "TestIdentityInterface.h"
+
+#if WITH_DEV_AUTOMATION_TESTS
 
 void FTestIdentityInterface::Test(UWorld* InWorld, const FOnlineAccountCredentials& InAccountCredentials, bool bOnlyRunLogoutTest)
 {
@@ -138,3 +140,5 @@ bool FTestIdentityInterface::IsTheUserLoggedIn()
 
 	return bIsUserLoggedIn;
 }
+
+#endif //WITH_DEV_AUTOMATION_TESTS

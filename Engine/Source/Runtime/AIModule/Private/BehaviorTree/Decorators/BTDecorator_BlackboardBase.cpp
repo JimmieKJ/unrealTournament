@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
 #include "BehaviorTree/BlackboardComponent.h"
@@ -19,9 +19,14 @@ void UBTDecorator_BlackboardBase::InitializeFromAsset(UBehaviorTree& Asset)
 	Super::InitializeFromAsset(Asset);
 
 	UBlackboardData* BBAsset = GetBlackboardAsset();
-	if (ensure(BBAsset))
+	if (BBAsset)
 	{
 		BlackboardKey.ResolveSelectedKey(*BBAsset);
+	}
+	else
+	{
+		UE_LOG(LogBehaviorTree, Warning, TEXT("Can't initialize %s due to missing blackboard data."), *GetName());
+		BlackboardKey.InvalidateResolvedKey();
 	}
 }
 

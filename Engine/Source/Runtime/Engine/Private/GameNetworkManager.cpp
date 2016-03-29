@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	GameNetworkManager.cpp: AGameNetworkMAnager C++ code.
@@ -15,11 +15,20 @@ AGameNetworkManager::AGameNetworkManager(const FObjectInitializer& ObjectInitial
 	: Super(ObjectInitializer)
 {
 	MoveRepSize = 42.0f;
-	MAXPOSITIONERRORSQUARED = 3.0;
+	MAXPOSITIONERRORSQUARED = 3.0f;
 	MAXNEARZEROVELOCITYSQUARED = 9.0f;
 	CLIENTADJUSTUPDATECOST = 180.0f;
 	MAXCLIENTUPDATEINTERVAL = 0.25f;
+	MaxMoveDeltaTime = 0.125f;
 	ClientAuthorativePosition = false;
+	ClientErrorUpdateRateLimit = 0.0f;
+	bMovementTimeDiscrepancyDetection = false;
+	bMovementTimeDiscrepancyResolution = false;
+	MovementTimeDiscrepancyMaxTimeMargin = 0.25f;
+	MovementTimeDiscrepancyMinTimeMargin = -0.25f;
+	MovementTimeDiscrepancyResolutionRate = 1.0f;
+	MovementTimeDiscrepancyDriftAllowance = 0.0f;
+	bMovementTimeDiscrepancyForceCorrectionsDuringResolution = false;
 	bUseDistanceBasedRelevancy = true;
 }
 
@@ -104,7 +113,16 @@ bool AGameNetworkManager::WithinUpdateDelayBounds(APlayerController* PC, float L
 	if (!PC || !PC->Player)
 		return false;
 
-	return (PC->GetWorld()->TimeSeconds - LastUpdateTime < GetDefault<AGameNetworkManager>(GetClass())->CLIENTADJUSTUPDATECOST/PC->Player->CurrentNetSpeed);
+	const float TimeSinceUpdate = PC->GetWorld()->GetTimeSeconds() - LastUpdateTime;
+	if (ClientErrorUpdateRateLimit > 0.f && TimeSinceUpdate < ClientErrorUpdateRateLimit)
+	{
+		return true;
+	}
+	else if (TimeSinceUpdate < GetDefault<AGameNetworkManager>(GetClass())->CLIENTADJUSTUPDATECOST/PC->Player->CurrentNetSpeed)
+	{
+		return true;
+	}
+	return false;
 }
 
 bool AGameNetworkManager::ExceedsAllowablePositionError(FVector LocDiff) const

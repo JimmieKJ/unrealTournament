@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -190,14 +190,4 @@ protected:
 	FORCEINLINE void SortQueries() { SightQueryQueue.Sort(FAISightQuery::FSortPredicate()); }
 
 	float CalcQueryImportance(const FPerceptionListener& Listener, const FVector& TargetLocation, const float SightRadiusSq) const;
-
-public:
-#if !UE_BUILD_SHIPPING
-	//----------------------------------------------------------------------//
-	// DEBUG
-	//----------------------------------------------------------------------//
-	FString GetDebugLegend() const override;
-	static FColor GetDebugSightRangeColor() { return FColor::Green; }
-	static FColor GetDebugLoseSightColor() { return FColorList::NeonPink; }
-#endif // !UE_BUILD_SHIPPING
 };

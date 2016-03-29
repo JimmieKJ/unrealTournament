@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -29,7 +29,7 @@ public:
 	virtual void Outgoing(FBitWriter& Packet) override;
 
 	/* Queues a packet for resending */
-	virtual void QueuePacketForResending(uint8* Packet, int32 Count);
+	virtual void QueuePacketForResending(uint8* Packet, int32 CountBits);
 
 protected:
 	/* Buffered Packets in case they need to be resent */

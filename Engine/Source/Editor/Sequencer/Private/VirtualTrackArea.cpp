@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerPrivatePCH.h"
 #include "VirtualTrackArea.h"
@@ -129,14 +129,17 @@ FSequencerSelectedKey FVirtualTrackArea::HitTestKey(FVector2D InPhysicalPosition
 	else if (!Node->IsExpanded())
 	{
 		TSharedPtr<FSequencerTrackNode> TrackNode = GetParentTrackNode(*Node);
-		const TArray< TSharedRef<ISequencerSection> >& Sections = TrackNode->GetSections();
-
-		for ( int32 SectionIndex = 0; SectionIndex < Sections.Num(); ++SectionIndex )
+		if (TrackNode.IsValid())
 		{
-			UMovieSceneSection* Section = Sections[SectionIndex]->GetSectionObject();
-			if (Section->GetStartTime() <= KeyRight && Section->GetEndTime() >= KeyLeft)
+			const TArray< TSharedRef<ISequencerSection> >& Sections = TrackNode->GetSections();
+
+			for ( int32 SectionIndex = 0; SectionIndex < Sections.Num(); ++SectionIndex )
 			{
-				KeyAreas.Add(Node->GetKeyGrouping(SectionIndex));
+				UMovieSceneSection* Section = Sections[SectionIndex]->GetSectionObject();
+				if (Section->GetStartTime() <= KeyRight && Section->GetEndTime() >= KeyLeft)
+				{
+					KeyAreas.Add(Node->GetKeyGrouping(SectionIndex));
+				}
 			}
 		}
 	}

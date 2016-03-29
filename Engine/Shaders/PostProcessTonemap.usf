@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessTonemap.usf: PostProcessing tone mapping
@@ -28,6 +28,11 @@ float2 TonemapperParams;
 // Fine film grain
 float3 GrainRandomFull;
 float3 GrainScaleBiasJitter;
+
+#if EYEADAPTATION_EXPOSURE_FIX != 1
+ // Default value used when eye adaption is not avalible
+float DefaultEyeExposure;
+#endif
 
 half GrainFromUV(float2 GrainUV) 
 {
@@ -77,20 +82,16 @@ float PseudoRandomTex(float2 xy)
 
 float SwitchVerticalAxis;
 
-
-
-// can be optimized
-float2 ScreenPosToUV(float2 ScreenPos)
-{
-	return (ScreenPos * ScreenPosToPixel.xy + ScreenPosToPixel.zw) * PostprocessInput0Size.zw;
-}
-
-float2 UVToScreenPos(float2 UV)
-{
-	return (UV * PostprocessInput0Size.xy - ScreenPosToPixel.zw) / ScreenPosToPixel.xy;
-}
-
 float4 FringeUVParams;
+
+// @param ViewportPos in viewport -1..1 1..-1
+// @return UV in PostprocessInput
+float2 ViewportPosToUV(float2 ViewportPos)
+{
+	float2 ViewportUV = ViewportPos * float2(0.5f, -0.5f) + 0.5f;
+
+	return (ViewportUV * Frame.ViewSizeAndInvSize.xy + Frame.ViewRectMin.xy) * Frame.BufferSizeAndInvSize.zw;
+}
 
 // vertex shader entry point
 void MainVS(
@@ -100,30 +101,49 @@ void MainVS(
 	out noperspective float3 OutExposureScaleVignette : TEXCOORD1,
 	out noperspective float4 OutGrainUV : TEXCOORD2,
 	out noperspective float4 OutFringe : TEXCOORD3,
+	out noperspective float4 OutFullViewUV : TEXCOORD4,
 	out float4 OutPosition : SV_POSITION
 	)
 {
-	DrawRectangle(InPosition, InTexCoord, OutPosition, OutTexCoord);
+	DrawRectangle(InPosition, InTexCoord, OutPosition, OutTexCoord.xy);
 
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
+#if ES2_PROFILE && COMPILER_GLSL_ES2
+	// This is currently the last pass, so flip the texture on V to match D3D
+	float2 FlipEdge;
+	DrawRectangle(InPosition, float2(1, 1), OutPosition, FlipEdge.xy);
+	OutTexCoord.y = FlipEdge.y - OutTexCoord.y;
+#endif
+
+	// Forward renderer uses view size texture
+	// TODO: Looks to be Ronin specific.. check this:
+	OutFullViewUV.xy = OutPosition.xy * float2(0.5,-0.5) + 0.5;
+
+#if ES2_PROFILE && COMPILER_GLSL_ES2
+	OutFullViewUV.y = 1.0 - OutFullViewUV.y;
+#endif
+
+#if EYEADAPTATION_EXPOSURE_FIX == 1
 	// texture can be GWhiteTexture which is 1x1. It's important we don't read outside bounds.
 	OutExposureScaleVignette.x = EyeAdaptation.Load(int3(0, 0, 0)).r;
 #else
-	// Eye adaptation is not yet supported
-	OutExposureScaleVignette.x = 1.0f;
+	// Eye adaptation is not yet supported, use the default value.
+	OutExposureScaleVignette.x = DefaultEyeExposure;
 #endif
+	
+	// -1..1 1..-1 in the viewport
+	float2 ViewportPos = OutPosition.xy;
 
 	// Scale vignette to always be a circle with consistent corner intensity.
-	OutExposureScaleVignette.yz = VignetteSpace(OutPosition.xy);
+	float2 VignetteSpacePos = VignetteSpace(ViewportPos);
+	OutExposureScaleVignette.yz = VignetteSpacePos;
 
 	// Grain
 	OutGrainUV.xy = OutTexCoord + PostprocessInput0Size.zw * float2(-0.5,0.5);
 	OutGrainUV.zw = OutTexCoord + GrainRandomFull.xy;
 
 	// Fringe
-	float2 ScreenPos = UVToScreenPos(OutTexCoord);
-	OutFringe.xy = ScreenPosToUV(ScreenPos * FringeUVParams.r);
-	OutFringe.zw = ScreenPosToUV(ScreenPos * FringeUVParams.g);
+	OutFringe.xy = ViewportPosToUV(ViewportPos * FringeUVParams.r);
+	OutFringe.zw = ViewportPosToUV(ViewportPos * FringeUVParams.g);
 }
 
 // Function graphing
@@ -197,6 +217,7 @@ void MainPS(
 	in noperspective float3 InExposureScaleVignette : TEXCOORD1,
 	in noperspective float4 GrainUV : TEXCOORD2,
 	in noperspective float4 FringeUV : TEXCOORD3,
+	in noperspective float4 FullViewUV : TEXCOORD4,
 	float4 SvPosition : SV_POSITION,		// after all interpolators
 	out float4 OutColor : SV_Target0
 	)
@@ -206,7 +227,6 @@ void MainPS(
 	#if USE_GRAIN_JITTER || USE_GRAIN_INTENSITY || USE_GRAIN_QUANTIZATION
 		half Grain = GrainFromUV(GrainUV.zw);
 	#endif
-
 	float2 SceneUV = UV.xy;
 	#if USE_GRAIN_JITTER
 		SceneUV = lerp(UV.xy, GrainUV.xy, (1.0 - Grain*Grain) * GrainScaleBiasJitter.z);
@@ -276,13 +296,13 @@ void MainPS(
 		half3 LinearColor = SceneColor * ColorScale0.rgb;
 
 		#if USE_BLOOM
-			float4 CombinedBloom = Texture2DSample(PostprocessInput1, PostprocessInput1Sampler, UV);
-			float3 BloomDirtMaskColor = Texture2DSample(BloomDirtMask.Mask, BloomDirtMask.MaskSampler, SvPositionToViewportUV(SvPosition)).rgb * BloomDirtMask.Tint.rgb; 
+			float2 BloomUV = UV;
+			#if ES2_PROFILE || ES3_1_PROFILE
+				BloomUV = FullViewUV.xy;
+			#endif
+			float4 CombinedBloom = Texture2DSample(PostprocessInput1, PostprocessInput1Sampler, BloomUV);
+			float3 BloomDirtMaskColor = Texture2DSample(BloomDirtMask.Mask, BloomDirtMask.MaskSampler, SvPositionToViewportUV(SvPosition)).rgb * BloomDirtMask.Tint.rgb;
 			LinearColor += CombinedBloom.rgb * (ColorScale1.rgb + BloomDirtMaskColor); 
-		#endif
-
-		#if NO_EYEADAPTATION_EXPOSURE_FIX
-			ExposureScale = BloomDirtMask.Tint.w;
 		#endif
 
 		LinearColor *= ExposureScale;
@@ -320,6 +340,8 @@ void MainPS(
 
 // TODO: Convert float to half.
 
+float FringeIntensity;
+
 // vertex shader entry point
 void MainVS_ES2(
 	in float4 InPosition : ATTRIBUTE0,
@@ -329,6 +351,7 @@ void MainVS_ES2(
 	out float4 OutFullViewUV : TEXCOORD2,
 	out float2 OutVignette : TEXCOORD3,
 	out float2 OutTexCoords[4] : TEXCOORD4,
+	out float4 OutFringeTexCoords : FRINGE_COORDS,
 	out float4 OutPosition : SV_POSITION
 	)
 {
@@ -345,7 +368,9 @@ void MainVS_ES2(
 
 	#if ES2_PROFILE && COMPILER_GLSL_ES2
 		// This is currently the last pass, so flip the texture on V to match D3D
-		OutTexCoord.y = 1.0 - OutTexCoord.y;
+		float2 FlipEdge;
+		DrawRectangle(InPosition, float2(1, 1), OutPosition, FlipEdge.xy);
+		OutTexCoord.y = FlipEdge.y - OutTexCoord.y;
 	#endif
 
 	// Fine adjustment is inside the possible non-full viewport in the full resolution texture.
@@ -369,6 +394,22 @@ void MainVS_ES2(
 
 	// Scale vignette to always be a circle with consistent corner intensity.
 	OutVignette.xy = VignetteSpace(InPosition.xy);
+
+	// Compute fringe tex coord offsets
+	BRANCH
+	if (FringeIntensity > 0.0)
+	{
+		half2 FringeOffset = OutTexCoord.xy;
+		FringeOffset -= 0.5;
+		FringeOffset = abs(FringeOffset * 2.0);
+		FringeOffset *= FringeIntensity;
+		OutFringeTexCoords.xy = OutTexCoord.xy * half2(1.0 - FringeOffset.x * 0.5, 1.0 - FringeOffset.y * 0.5);
+		OutFringeTexCoords.zw = OutTexCoord.xy * half2(1.0 - FringeOffset.x, 1.0 - FringeOffset.y);
+	}
+	else
+	{
+		OutFringeTexCoords = 0.0;
+	}
 }
 
 // Constants for DOF blend in.
@@ -406,6 +447,7 @@ void MainPS_ES2(
 	in float4 FullViewUV : TEXCOORD2,
 	in float2 InVignette : TEXCOORD3,
 	in float2 InTexCoords[4] : TEXCOORD4,
+	in float4 InFringeTexCoords : FRINGE_COORDS,
 	#if USE_32BPP_HDR
 		in float4 SvPosition : SV_Position,		// after all interpolators
 	#endif
@@ -415,7 +457,20 @@ void MainPS_ES2(
 	float2 UV = UVAndScreenPos.xy;
 	float2 ScreenSpacePos = UVAndScreenPos.zw;
 
-	half4 SceneColor = PostprocessInput0.Sample(PostprocessInput0Sampler, UV);
+	half4 SceneColor;
+	
+	BRANCH
+	if (FringeIntensity > 0.0)
+	{
+		SceneColor.r = PostprocessInput0.Sample(PostprocessInput0Sampler, UV).r;
+		SceneColor.g = PostprocessInput0.Sample(PostprocessInput0Sampler, InFringeTexCoords.xy).g;
+		SceneColor.b = PostprocessInput0.Sample(PostprocessInput0Sampler, InFringeTexCoords.zw).b;
+		SceneColor.a = 1.0;
+	}
+	else
+	{
+		SceneColor = PostprocessInput0.Sample(PostprocessInput0Sampler, UV);
+	}
 
 	#if USE_GAMMA_ONLY
 		#if USE_MSAA

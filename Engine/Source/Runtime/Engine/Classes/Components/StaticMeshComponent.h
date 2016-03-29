@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -160,7 +160,7 @@ class ENGINE_API UStaticMeshComponent : public UMeshComponent
 	void OnRep_StaticMesh(class UStaticMesh *OldStaticMesh);
 
 	/** If true, WireframeColorOverride will be used. If false, color is determined based on mobility and physics simulation settings */
-	UPROPERTY(BlueprintReadOnly, Category=Rendering)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Rendering, meta=(InlineEditConditionToggle))
 	bool bOverrideWireframeColor;
 
 	/** Wireframe color to use if bOverrideWireframeColor is true */
@@ -184,9 +184,18 @@ class ENGINE_API UStaticMeshComponent : public UMeshComponent
 	UPROPERTY(transient)
 	uint32 bForceNavigationObstacle : 1;
 
+	/** Use the collision profile specified in the StaticMesh asset.*/
+	UPROPERTY()
+	uint32 bUseDefaultCollision : 1;
+
 	/** If true, mesh painting is disallowed on this instance. Set if vertex colors are overridden in a construction script. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=Rendering)
 	uint32 bDisallowMeshPaintPerInstance : 1;
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	/** Option to draw mesh collision in wireframe */
+	uint32 bDrawMeshCollisionWireframe : 1;
+#endif
 
 	/**
 	 *	Ignore this instance of this static mesh when calculating streaming information.
@@ -197,7 +206,7 @@ class ENGINE_API UStaticMeshComponent : public UMeshComponent
 	uint32 bIgnoreInstanceForTextureStreaming:1;
 
 	/** Whether to override the lightmap resolution defined in the static mesh. */
-	UPROPERTY(BlueprintReadOnly, Category=Lighting)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Lighting, meta=(InlineEditConditionToggle))
 	uint32 bOverrideLightMapRes:1;
 
 	/** Light map resolution to use on this component, used if bOverrideLightMapRes is true */
@@ -228,6 +237,10 @@ class ENGINE_API UStaticMeshComponent : public UMeshComponent
 	UPROPERTY(transient)
 	TArray<struct FStaticMeshComponentLODInfo> LODData;
 
+	/** The streaming info for each LOD / Section. Needs to be persistent in order to be accessible when loading cooked maps. */
+	UPROPERTY()
+	TArray<FStreamingTexturePrimitiveInfo> StreamingTextureInfos;
+
 #if WITH_EDITORONLY_DATA
 	/** Derived data key of the static mesh, used to determine if an update from the source static mesh is required. */
 	UPROPERTY()
@@ -252,6 +265,8 @@ class ENGINE_API UStaticMeshComponent : public UMeshComponent
 	 */
 	UFUNCTION(BlueprintCallable, Category="Components|StaticMesh")
 	void GetLocalBounds(FVector& Min, FVector& Max) const;
+
+	virtual void SetCollisionProfileName(FName InCollisionProfileName) override;
 
 public:
 
@@ -284,6 +299,7 @@ public:
 		// return IsCollisionEnabled() && (StaticMesh != NULL);
 		return false;
 	}
+
 	//~ End USceneComponent Interface
 
 	//~ Begin UActorComponent Interface.
@@ -311,6 +327,8 @@ public:
 		return LightmassSettings.bShadowIndirectOnly;
 	}
 	virtual ELightMapInteractionType GetStaticLightingType() const override;
+	void UpdateStreamingTextureInfos(bool bForce = false);
+	virtual bool GetStreamingTextureFactors(float& OutWorldTexelFactor, float& OutWorldLightmapFactor, FBoxSphereBounds& OutBounds, int32 LODIndex, int32 ElementIndex) const;
 	virtual void GetStreamingTextureInfo(TArray<FStreamingTexturePrimitiveInfo>& OutStreamingTextures) const override;
 	virtual class UBodySetup* GetBodySetup() override;
 	virtual bool CanEditSimulatePhysics() override;
@@ -320,7 +338,7 @@ public:
 	virtual bool GetLightMapResolution( int32& Width, int32& Height ) const override;
 	virtual int32 GetStaticLightMapResolution() const override;
 	/** Returns true if the component is static AND has the right static mesh setup to support lightmaps. */
-	virtual bool HasValidSettingsForStaticLighting() const override;
+	virtual bool HasValidSettingsForStaticLighting(bool bOverlookInvalidComponents) const override;
 
 	virtual void GetLightAndShadowMapMemoryUsage( int32& LightMapMemoryUsage, int32& ShadowMapMemoryUsage ) const override;
 	virtual void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials) const override;
@@ -435,6 +453,12 @@ public:
 	*	@param	InSectionIndexPreview		New value of SectionIndexPreview.
 	*/
 	void SetSectionPreview(int32 InSectionIndexPreview);
+	
+	/** Sets the BodyInstance to use the mesh's body setup for external collision information*/
+	void UpdateCollisionFromStaticMesh();
+
+	/** Whether or not the component supports default collision from its static mesh asset */
+	virtual bool SupportsDefaultCollision();
 
 private:
 	/** Initializes the resources used by the static mesh component. */
@@ -487,6 +511,12 @@ public:
 	int32 GetBlueprintCreatedComponentIndex() const;
 
 	void ApplyComponentInstanceData(class FStaticMeshComponentInstanceData* ComponentInstanceData);
+
+	/** Register this component's render data with the scene for SpeedTree wind */
+	void AddSpeedTreeWind();
+
+	/** Unregister this component's render data with the scene for SpeedTree wind */
+	void RemoveSpeedTreeWind();
 };
 
 

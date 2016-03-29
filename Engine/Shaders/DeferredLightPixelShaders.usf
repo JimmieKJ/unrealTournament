@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DeferredLightPixelShaders.usf: 
@@ -40,7 +40,7 @@ Texture2D<uint> LightingChannelsTexture;
 
 uint GetLightingChannelMask(float2 UV)
 {
-	uint2 IntegerUV = UV * View.BufferSizeAndInvSize.xy;
+	uint2 IntegerUV = UV * Frame.BufferSizeAndInvSize.xy;
 	return LightingChannelsTexture.Load(uint3(IntegerUV, 0)).x;
 }
 
@@ -72,8 +72,8 @@ void DirectionalPixelMain(
 		FDeferredLightData LightData = SetupLightDataForStandardDeferred();
 		
 		uint2 Random = ScrambleTEA( uint2( SVPos.xy ) );
-		Random.x ^= View.Random;
-		Random.y ^= View.Random;
+		Random.x ^= Frame.Random;
+		Random.y ^= Frame.Random;
 
 		OutColor = GetDynamicLighting(WorldPosition, CameraVector, InUV, ScreenSpaceData, ScreenSpaceData.GBuffer.ShadingModelID, LightData, GetPerPixelLightAttenuation(InUV), Random);
 	}
@@ -108,8 +108,8 @@ void RadialPixelMain(
 		FDeferredLightData LightData = SetupLightDataForStandardDeferred();
 
 		uint2 Random = ScrambleTEA( uint2( SVPos.xy ) );
-		Random.x ^= View.Random;
-		Random.y ^= View.Random;
+		Random.x ^= Frame.Random;
+		Random.y ^= Frame.Random;
 
 		OutColor = GetDynamicLighting(WorldPosition, CameraVector, ScreenUV, ScreenSpaceData, ScreenSpaceData.GBuffer.ShadingModelID, LightData, GetPerPixelLightAttenuation(ScreenUV), Random);
 		OutColor *= ComputeLightProfileMultiplier(WorldPosition, DeferredLightUniforms.LightPosition, DeferredLightUniforms.NormalizedLightDirection);

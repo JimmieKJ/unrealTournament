@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 // 
 
 #include "ShaderFormatOpenGL.h"
@@ -1174,6 +1174,12 @@ void CompileShader_Windows_OGL(const FShaderCompilerInput& Input,FShaderCompiler
 	EHlslCompileTarget HlslCompilerTarget = HCT_InvalidTarget;
 	ECompilerFlags PlatformFlowControl = CFLAG_AvoidFlowControl;
 
+	const bool bCompileES2With310 = (Version == GLSL_ES2 && Input.Environment.CompilerFlags.Contains(CFLAG_FeatureLevelES31));
+	if (bCompileES2With310)
+	{
+		Version = GLSL_310_ES_EXT;
+	}
+
 	AdditionalDefines.SetDefine(TEXT("COMPILER_HLSLCC"), 1);
 	switch (Version)
 	{
@@ -1201,9 +1207,6 @@ void CompileShader_Windows_OGL(const FShaderCompilerInput& Input,FShaderCompiler
 			AdditionalDefines.SetDefine(TEXT("COMPILER_GLSL"), 1);
 			AdditionalDefines.SetDefine(TEXT("GL3_PROFILE"), 1);
 			HlslCompilerTarget = HCT_FeatureLevelSM4;
-			// On OS X it is always better to leave the flow control statements in the GLSL & let the GLSL->GPU compilers
-			// optimise it appropriately for each GPU. This gives a performance gain on AMD & Intel and is neutral on Nvidia.
-			PlatformFlowControl = CFLAG_PreferFlowControl;
 			break;
 
 		case GLSL_ES2_WEBGL:
@@ -1220,6 +1223,8 @@ void CompileShader_Windows_OGL(const FShaderCompilerInput& Input,FShaderCompiler
 			AdditionalDefines.SetDefine(TEXT("ES2_PROFILE"), 1);
 			HlslCompilerTarget = HCT_FeatureLevelES2;
 			AdditionalDefines.SetDefine(TEXT("row_major"), TEXT(""));
+			AdditionalDefines.SetDefine(TEXT("noperspective"), TEXT(""));
+			
 			break; 
 
 		case GLSL_ES2:
@@ -1258,8 +1263,24 @@ void CompileShader_Windows_OGL(const FShaderCompilerInput& Input,FShaderCompiler
 	{
 		AdditionalDefines.SetDefine(TEXT("COMPILER_SUPPORTS_ATTRIBUTES"), (uint32)0);
 	}
-	if (PreprocessShader(PreprocessedShader, Output, Input, AdditionalDefines))
+
+	auto DoPreprocess = [&]() -> bool
 	{
+		if (Input.bSkipPreprocessedCache)
+		{
+			return FFileHelper::LoadFileToString(PreprocessedShader, *Input.SourceFilename);
+		}
+		else
+		{
+			return PreprocessShader(PreprocessedShader, Output, Input, AdditionalDefines);
+		}
+	};
+
+	if (DoPreprocess())
+	{
+		// Disable instanced stereo until supported for glsl
+		StripInstancedStereo(PreprocessedShader);
+
 		char* GlslShaderSource = NULL;
 		char* ErrorLog = NULL;
 
@@ -1312,6 +1333,11 @@ void CompileShader_Windows_OGL(const FShaderCompilerInput& Input,FShaderCompiler
 			CCFlags |= HLSLCC_FlattenUniformBuffers | HLSLCC_FlattenUniformBufferStructures;
 			// Currently only enabled for ES2, as there are still features to implement for SM4+ (atomics, global store, UAVs, etc)
 			CCFlags |= HLSLCC_ApplyCommonSubexpressionElimination;
+		}
+		
+		if (bCompileES2With310)
+		{
+			CCFlags |= HLSLCC_FlattenUniformBuffers | HLSLCC_FlattenUniformBufferStructures;
 		}
 		
 		if (Version == GLSL_150_ES2_NOUB)

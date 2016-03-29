@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -75,7 +75,7 @@ class UParticleModuleSpawnPerUnit : public UParticleModuleSpawnBase
 
 	//~ Begin UParticleModule Interface
 	virtual void CompileModule( struct FParticleEmitterBuildInfo& EmitterInfo ) override;
-	virtual uint32	RequiredBytesPerInstance(FParticleEmitterInstance* Owner = NULL) override;
+	virtual uint32	RequiredBytesPerInstance() override;
 	//~ End UParticleModule Interface
 
 	//~ Begin UParticleModuleSpawnBase Interface

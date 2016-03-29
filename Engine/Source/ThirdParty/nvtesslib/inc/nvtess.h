@@ -1,4 +1,4 @@
-// Modifications copyright 2014-2015 Epic Games, Inc. All rights reserved.
+// Modifications copyright 2014-2016 Epic Games, Inc. All rights reserved.
 
 #ifndef NVTESS_H
 #define NVTESS_H

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "WorldBrowserPrivatePCH.h"
 #include "SourceControlWindows.h"
@@ -80,6 +80,10 @@ void FLevelCollectionModel::BindCommands()
 	ActionList.MapAction(Commands.World_MakeLevelCurrent,
 		FExecuteAction::CreateSP(this, &FLevelCollectionModel::MakeLevelCurrent_Executed),
 		FCanExecuteAction::CreateSP(this, &FLevelCollectionModel::IsOneLevelSelected));
+	
+	ActionList.MapAction(Commands.World_FindInContentBrowser,
+		FExecuteAction::CreateSP(this, &FLevelCollectionModel::FindInContentBrowser_Executed),
+		FCanExecuteAction::CreateSP(this, &FLevelCollectionModel::IsValidFindInContentBrowser));
 	
 	ActionList.MapAction(Commands.MoveActorsToSelected,
 		FExecuteAction::CreateSP(this, &FLevelCollectionModel::MoveActorsToSelected_Executed),
@@ -1387,7 +1391,7 @@ void FLevelCollectionModel::SaveSelectedLevelAs_Executed()
 		ULevel* Level = SelectedLevelsList[0]->GetLevelObject();
 		if (Level)
 		{
-			FEditorFileUtils::SaveAs(Level);
+			FEditorFileUtils::SaveLevelAs(Level);
 		}
 	}
 }
@@ -1503,6 +1507,31 @@ void FLevelCollectionModel::MakeLevelCurrent_Executed()
 {
 	check( SelectedLevelsList.Num() == 1 );
 	SelectedLevelsList[0]->MakeLevelCurrent();
+}
+
+void FLevelCollectionModel::FindInContentBrowser_Executed()
+{
+	TArray<UObject*> Objects;
+	for (auto It = SelectedLevelsList.CreateConstIterator(); It; ++It)
+	{
+		ULevel* Level = (*It)->GetLevelObject();
+		if (Level)
+		{
+			UObject* LevelOuter = Level->GetOuter();
+			if (LevelOuter)
+			{
+				// Search for the level's outer (the UWorld) as this is the actual asset shown by the content browser
+				Objects.AddUnique(LevelOuter);
+			}
+		}
+	}
+
+	GEditor->SyncBrowserToObjects(Objects);
+}
+
+bool FLevelCollectionModel::IsValidFindInContentBrowser()
+{
+	return true;
 }
 
 void FLevelCollectionModel::MoveActorsToSelected_Executed()

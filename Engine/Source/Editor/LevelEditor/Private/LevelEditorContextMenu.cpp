@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "LevelEditor.h"
@@ -278,25 +278,28 @@ void FLevelEditorContextMenu::FillMenu( FMenuBuilder& MenuBuilder, TWeakPtr<SLev
 				const FLevelViewportCommands& Actions = FLevelViewportCommands::Get();
 
 				auto Viewport = LevelEditor.Pin()->GetActiveViewport();
-				auto& ViewportClient = Viewport->GetLevelViewportClient();
-
-				if (ViewportClient.IsPerspective() && !ViewportClient.IsLockedToMatinee())
+				if (Viewport.IsValid())
 				{
-				    if (Viewport->IsSelectedActorLocked())
-				    {
-					    MenuBuilder.AddMenuEntry(
-						    Actions.EjectActorPilot,
-						    NAME_None,
-						    FText::Format(LOCTEXT("PilotActor", "Stop piloting '{0}'"), FText::FromString(SelectedActors[0]->GetActorLabel()))
-						    );
-					}
-					else
+					auto& ViewportClient = Viewport->GetLevelViewportClient();
+
+					if (ViewportClient.IsPerspective() && !ViewportClient.IsLockedToMatinee())
 					{
-					    MenuBuilder.AddMenuEntry(
-						    Actions.PilotSelectedActor,
-						    NAME_None,
-						    FText::Format(LOCTEXT("PilotActor", "Pilot '{0}'"), FText::FromString(SelectedActors[0]->GetActorLabel()))
-						    );
+						if (Viewport->IsSelectedActorLocked())
+						{
+							MenuBuilder.AddMenuEntry(
+								Actions.EjectActorPilot,
+								NAME_None,
+								FText::Format(LOCTEXT("PilotActor_Stop", "Stop piloting '{0}'"), FText::FromString(SelectedActors[0]->GetActorLabel()))
+								);
+						}
+						else
+						{
+							MenuBuilder.AddMenuEntry(
+								Actions.PilotSelectedActor,
+								NAME_None,
+								FText::Format(LOCTEXT("PilotActor", "Pilot '{0}'"), FText::FromString(SelectedActors[0]->GetActorLabel()))
+								);
+						}
 					}
 				}
 			}
@@ -730,7 +733,7 @@ void FLevelEditorContextMenuImpl::FillActorVisibilityMenu( FMenuBuilder& MenuBui
 
 void FLevelEditorContextMenuImpl::FillActorLevelMenu( FMenuBuilder& MenuBuilder )
 {
-	MenuBuilder.BeginSection("ActorLevel");
+	MenuBuilder.BeginSection("ActorLevel", LOCTEXT("ActorLevel", "Actor Level"));
 	{
 		if( SelectionInfo.SharedLevel && SelectionInfo.SharedWorld && SelectionInfo.SharedWorld->GetCurrentLevel() != SelectionInfo.SharedLevel )
 		{
@@ -746,13 +749,24 @@ void FLevelEditorContextMenuImpl::FillActorLevelMenu( FMenuBuilder& MenuBuilder 
 			// Only show this menu entry if any actors are not in the current level
 			MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().MoveSelectedToCurrentLevel );
 		}
+
+		MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().FindActorLevelInContentBrowser);
 	}
 	MenuBuilder.EndSection();
 
-	MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().FindActorInLevelScript );
-	MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().FindLevelsInLevelBrowser );
-	MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().AddLevelsToSelection );
-	MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().RemoveLevelsFromSelection );
+	MenuBuilder.BeginSection("LevelBlueprint", LOCTEXT("LevelBlueprint", "Level Blueprint"));
+	{
+		MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().FindActorInLevelScript);
+	}
+	MenuBuilder.EndSection();
+
+	MenuBuilder.BeginSection("LevelBrowser", LOCTEXT("LevelBrowser", "Level Browser"));
+	{
+		MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().FindLevelsInLevelBrowser);
+		MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().AddLevelsToSelection);
+		MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().RemoveLevelsFromSelection);
+	}
+	MenuBuilder.EndSection();
 }
 
 

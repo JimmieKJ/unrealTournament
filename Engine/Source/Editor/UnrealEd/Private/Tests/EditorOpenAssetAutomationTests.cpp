@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "Tests/AutomationTestSettings.h"
@@ -34,7 +34,7 @@ bool FOpenActualAssetEditors(const FString& Parameters)
 * Test to open the sub editor windows for a specified list of assets.
 * This list can be setup in the Editor Preferences window within the editor or the DefaultEngine.ini file for that particular project.
 */
-IMPLEMENT_COMPLEX_AUTOMATION_TEST(FOpenAssetEditors, "System.QA.Open Asset Editors", EAutomationTestFlags::EditorContext | EAutomationTestFlags::StressFilter);
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FOpenAssetEditors, "System.QA.Open Asset Editors", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter);
 
 void FOpenAssetEditors::GetTests(TArray<FString>& OutBeautifiedNames, TArray <FString>& OutTestCommands) const
 {
@@ -216,7 +216,7 @@ void FOpenAllAssetTests(OpenAssetParameters& AssetList)
 /**
 * This is a complex test that opens every asset into it's editor.
 */
-IMPLEMENT_COMPLEX_AUTOMATION_TEST(FOpenMiscAssetEditors, "Project.Tools.Open Assets", (EAutomationTestFlags::EditorContext | EAutomationTestFlags::StressFilter | EAutomationTestFlags::RequiresUser));
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FOpenMiscAssetEditors, "Project.Tools.Open Assets", (EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter | EAutomationTestFlags::RequiresUser));
 
 void FOpenMiscAssetEditors::GetTests(TArray<FString>& OutBeautifiedNames, TArray<FString>& OutTestCommands) const
 {

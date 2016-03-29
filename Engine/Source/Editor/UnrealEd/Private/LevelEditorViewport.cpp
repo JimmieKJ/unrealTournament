@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "UnrealEd.h"
@@ -2094,20 +2094,8 @@ void FLevelEditorViewportClient::UpdateViewForLockedActor()
 			if (bLockedCameraView)
 			{
 				// If this is a camera actor, then inherit some other settings
-				TArray<UCameraComponent*> CamComps;
-				Actor->GetComponents<UCameraComponent>(CamComps);
-
-				UCameraComponent* CameraComponent = nullptr;
-				for (UCameraComponent* Comp : CamComps)
-				{
-					if (Comp->bIsActive)
-					{
-						CameraComponent = Comp;
-						break;
-					}
-				}
-
-				if (CameraComponent != NULL)
+				UCameraComponent* const CameraComponent = GetCameraComponentForLockedActor(Actor);
+				if (CameraComponent != nullptr)
 				{
 					bUseControllingActorViewInfo = true;
 					CameraComponent->GetCameraView(0.0f, ControllingActorViewInfo);
@@ -2122,7 +2110,6 @@ void FLevelEditorViewportClient::UpdateViewForLockedActor()
 		}
 	}
 }
-
 
 /*namespace ViewportDeadZoneConstants
 {
@@ -4132,8 +4119,8 @@ void FLevelEditorViewportClient::DrawTextureStreamingBounds(const FSceneView* Vi
 				DrawWireBox(PDI, Box, FColorList::Yellow, SDPG_World);
 #else	//#if defined(_STREAMING_BOUNDS_DRAW_BOX_)
 				// Draw bounding spheres
-				FVector Origin = STI.BoundingSphere.Center;
-				float Radius = STI.BoundingSphere.W;
+				FVector Origin = STI.Bounds.Origin;
+				float Radius = STI.Bounds.SphereRadius;
 				DrawCircle(PDI, Origin, FVector(1, 0, 0), FVector(0, 1, 0), FColorList::Yellow, Radius, 32, SDPG_World);
 				DrawCircle(PDI, Origin, FVector(1, 0, 0), FVector(0, 0, 1), FColorList::Yellow, Radius, 32, SDPG_World);
 				DrawCircle(PDI, Origin, FVector(0, 1, 0), FVector(0, 0, 1), FColorList::Yellow, Radius, 32, SDPG_World);

@@ -1,0 +1,52 @@
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	RecomputeTangentsPerVertexPass.usf: Recompute Skin Tangents
+=============================================================================*/
+
+#include "RecomputeTangentsCommon.usf"
+
+// start offset within GPUSkinCacheBufferUAV[]
+uint GPUSkinCacheFloatOffset;
+// used as output in ResolveCS()
+RWBuffer<float> GPUSkinCacheBufferUAV;
+
+uint SkinCacheInputStreamFloatOffset;
+
+[numthreads(THREADGROUP_SIZEX, 1, 1)]
+void MainCS(
+	uint DispatchThreadId : SV_DispatchThreadID)	// DispatchThreadId = GroupId * int2(dimx,dimy) + GroupThreadId
+{
+	if(DispatchThreadId < UnitCount)
+	{
+		uint VertexIndex = DispatchThreadId + SkinCacheInputStreamFloatOffset;
+		// -1..1 range, normalized
+		float3 TangentZ, TangentX;
+		// the sign defines the handyness of the tangent matrix
+		float Orientation;
+		{
+			// no start offset as we reuse the same buffer always from 0 on
+			uint Index = VertexIndex * INTERMEDIATE_ACCUM_BUFFER_NUM_INTS;
+
+			// we don't have to scale down as we normalize anyway
+			TangentZ = normalize(float3(IntermediateAccumBufferUAV[Index + 0], IntermediateAccumBufferUAV[Index + 1], IntermediateAccumBufferUAV[Index + 2]));
+			TangentX = normalize(float3(IntermediateAccumBufferUAV[Index + 3], IntermediateAccumBufferUAV[Index + 4], IntermediateAccumBufferUAV[Index + 5]));
+			Orientation = IntermediateAccumBufferUAV[Index + 6];
+
+			// clear input UAV to 0 again to avoid another Dispatch() call
+			UNROLL for(int i = 0; i < 7; ++i)
+			{
+				IntermediateAccumBufferUAV[Index + i] = 0;
+			}
+		}
+
+		uint Offset = VertexIndex * GPUSKIN_RWBUFFER_NUM_FLOATS + GPUSkinCacheFloatOffset;
+
+		uint TangentXCompressed = PackS8x3N(TangentX);
+		uint TangentZCompressed = PackS8x3N(TangentZ);
+		uint HandynessValue = (Orientation < 0) ? 0xff000000 : 0;
+
+		GPUSkinCacheBufferUAV[Offset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_X] = asfloat(TangentXCompressed);
+		GPUSkinCacheBufferUAV[Offset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_Z] = asfloat(TangentZCompressed | HandynessValue);
+	}
+}

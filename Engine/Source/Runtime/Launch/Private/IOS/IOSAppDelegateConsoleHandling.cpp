@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LaunchPrivatePCH.h"
 #include "IOSAppDelegateConsoleHandling.h"
@@ -8,7 +8,7 @@ extern bool GShowSplashScreen;
 
 @implementation IOSAppDelegate (ConsoleHandling)
 
-#if !UE_BUILD_SHIPPING
+#if !UE_BUILD_SHIPPING && !PLATFORM_TVOS
 /** 
  * Shows the console and brings up an on-screen keyboard for input
  */
@@ -18,7 +18,7 @@ extern bool GShowSplashScreen;
 	self.ConsoleHistoryValuesIndex = [self.ConsoleHistoryValues count];
 
 	// Set up a containing alert message and buttons
-#ifdef __IPHONE_8_0
+#if defined(__IPHONE_8_0)
 	if ([UIAlertController class])
 	{
 		self.ConsoleAlertController = [UIAlertController alertControllerWithTitle : @""
@@ -160,7 +160,7 @@ extern bool GShowSplashScreen;
 		}
 		GShowSplashScreen = false;
 	}
-#ifdef __IPHONE_8_0
+#if defined(__IPHONE_8_0)
 	if ([UIAlertController class])
 	{
 		UIAlertController* AlertController = [UIAlertController alertControllerWithTitle:[StringArray objectAtIndex : 0]
@@ -208,13 +208,15 @@ extern bool GShowSplashScreen;
 	}
 }
 
-- (BOOL)textFieldShouldReturn:(UITextField *)alertTextField 
+- (BOOL)textFieldShouldReturn:(UITextField *)alertTextField
 {
 	[alertTextField resignFirstResponder];// to dismiss the keyboard.
 	[self.ConsoleAlert dismissWithClickedButtonIndex:1 animated:YES];//this is called on alertview to dismiss it.
 
 	return YES;
 }
+
+
 /**
  * An alert button was pressed
  */
@@ -278,7 +280,7 @@ extern bool GShowSplashScreen;
 	}
 }
 
-#endif // !UE_BUILD_SHIPPING
+#endif // !UE_BUILD_SHIPPING && !TVOS
 
 
 @end

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlatePrivatePCH.h"
 #include "DockingPrivate.h"
@@ -16,6 +16,48 @@ DEFINE_LOG_CATEGORY_STATIC(LogTabManager, Display, All);
 //////////////////////////////////////////////////////////////////////////
 // 
 //////////////////////////////////////////////////////////////////////////
+
+FTabManager::FLiveTabSearch::FLiveTabSearch(FName InSearchForTabId)
+	: SearchForTabId(InSearchForTabId)
+{
+}
+
+TSharedPtr<SDockTab> FTabManager::FLiveTabSearch::Search(const FTabManager& Manager, FName PlaceholderId, const TSharedRef<SDockTab>& UnmanagedTab) const
+{
+	if ( SearchForTabId != NAME_None )
+	{
+		return Manager.FindExistingLiveTab(FTabId(SearchForTabId));
+	}
+	else
+	{
+		return Manager.FindExistingLiveTab(FTabId(PlaceholderId));
+	}
+}
+
+TSharedPtr<SDockTab> FTabManager::FRequireClosedTab::Search(const FTabManager& Manager, FName PlaceholderId, const TSharedRef<SDockTab>& UnmanagedTab) const
+{
+	return TSharedPtr<SDockTab>();
+}
+
+FTabManager::FLastMajorOrNomadTab::FLastMajorOrNomadTab(FName InFallbackTabId)
+	: FallbackTabId(InFallbackTabId)
+{
+}
+
+TSharedPtr<SDockTab> FTabManager::FLastMajorOrNomadTab::Search(const FTabManager& Manager, FName PlaceholderId, const TSharedRef<SDockTab>& UnmanagedTab) const
+{
+	TSharedPtr<SDockTab> FoundTab;
+	if ( UnmanagedTab->GetTabRole() == ETabRole::MajorTab )
+	{
+		FoundTab = Manager.FindLastTabInWindow(Manager.LastMajorDockWindow.Pin());
+		if ( !FoundTab.IsValid() && FallbackTabId != NAME_None )
+		{
+			FoundTab = Manager.FindExistingLiveTab(FTabId(FallbackTabId));
+		}
+	}
+
+	return FoundTab;
+}
 
 TSharedRef<FTabManager::FLayoutNode> FTabManager::FLayout::NewFromString_Helper( TSharedPtr<FJsonObject> JsonObject )
 {
@@ -392,7 +434,7 @@ void FTabManager::FPrivateApi::OnTabManagerClosing()
 
 bool FTabManager::FPrivateApi::CanTabLeaveTabWell(const TSharedRef<const SDockTab>& TabToTest) const
 {
-	return TabToTest != TabManager.MainNonCloseableTab.Pin();
+	return TabManager.bCanDoDragOperation && TabToTest != TabManager.MainNonCloseableTab.Pin();
 }
 
 const TArray< TWeakPtr<SDockingArea> >& FTabManager::FPrivateApi::GetLiveDockAreas() const
@@ -846,32 +888,66 @@ void FTabManager::DrawAttention( const TSharedRef<SDockTab>& TabToHighlight )
 {
 	// Bring the tab to front.
 	const TSharedPtr<SDockingArea> DockingArea = TabToHighlight->GetDockArea();
-	const TSharedRef<FTabManager> ManagerOfTabToHighlight = DockingArea->GetTabManager();
-	
-	if (ManagerOfTabToHighlight != FGlobalTabmanager::Get())
+	if ( DockingArea.IsValid() )
 	{
-		FGlobalTabmanager::Get()->DrawAttentionToTabManager( ManagerOfTabToHighlight );
-	}
-	
-	TSharedPtr<SWindow> OwnerWindow = DockingArea->GetParentWindow();
-	if (OwnerWindow.IsValid())
-	{
-		OwnerWindow->BringToFront();
-	}
-	TabToHighlight->GetParentDockTabStack()->BringToFront(TabToHighlight);
-	TabToHighlight->FlashTab();
+		const TSharedRef<FTabManager> ManagerOfTabToHighlight = DockingArea->GetTabManager();
 
-	FGlobalTabmanager::Get()->UpdateMainMenu(TabToHighlight, true);
+		if ( ManagerOfTabToHighlight != FGlobalTabmanager::Get() )
+		{
+			FGlobalTabmanager::Get()->DrawAttentionToTabManager(ManagerOfTabToHighlight);
+		}
+
+		TSharedPtr<SWindow> OwnerWindow = DockingArea->GetParentWindow();
+		if ( OwnerWindow.IsValid() )
+		{
+			OwnerWindow->BringToFront();
+		}
+		TabToHighlight->GetParentDockTabStack()->BringToFront(TabToHighlight);
+		TabToHighlight->FlashTab();
+
+		FGlobalTabmanager::Get()->UpdateMainMenu(TabToHighlight, true);
+	}
 }
 
-void FTabManager::InsertNewDocumentTab( FName PlaceholderId, ESearchPreference::Type SearchPreference, const TSharedRef<SDockTab>& UnmanagedTab )
+void FTabManager::InsertNewDocumentTab(FName PlaceholderId, const FSearchPreference& SearchPreference, const TSharedRef<SDockTab>& UnmanagedTab)
 {
 	InsertDocumentTab(PlaceholderId, SearchPreference, UnmanagedTab, true);
 }
 
+void FTabManager::InsertNewDocumentTab( FName PlaceholderId, ESearchPreference::Type SearchPreference, const TSharedRef<SDockTab>& UnmanagedTab )
+{
+	if ( SearchPreference == ESearchPreference::PreferLiveTab )
+	{
+		FLiveTabSearch Search;
+		InsertDocumentTab(PlaceholderId, Search, UnmanagedTab, true);
+	}
+	else if ( SearchPreference == ESearchPreference::RequireClosedTab )
+	{
+		FRequireClosedTab Search;
+		InsertDocumentTab(PlaceholderId, Search, UnmanagedTab, true);
+	}
+	else
+	{
+		check(false);
+	}
+}
+
 void FTabManager::RestoreDocumentTab( FName PlaceholderId, ESearchPreference::Type SearchPreference, const TSharedRef<SDockTab>& UnmanagedTab )
 {
-	InsertDocumentTab(PlaceholderId, SearchPreference, UnmanagedTab, false);
+	if ( SearchPreference == ESearchPreference::PreferLiveTab )
+	{
+		FLiveTabSearch Search;
+		InsertDocumentTab(PlaceholderId, Search, UnmanagedTab, false);
+	}
+	else if ( SearchPreference == ESearchPreference::RequireClosedTab )
+	{
+		FRequireClosedTab Search;
+		InsertDocumentTab(PlaceholderId, Search, UnmanagedTab, false);
+	}
+	else
+	{
+		check(false);
+	}
 }
 
 TSharedRef<SDockTab> FTabManager::InvokeTab( const FTabId& TabId )
@@ -995,14 +1071,15 @@ void FTabManager::InvokeTabForMenu( FName TabId )
 	InvokeTab(TabId);
 }
 
-void FTabManager::InsertDocumentTab( FName PlaceholderId, ESearchPreference::Type SearchPreference, const TSharedRef<SDockTab>& UnmanagedTab, bool bPlaySpawnAnim )
+void FTabManager::InsertDocumentTab(FName PlaceholderId, const FSearchPreference& SearchPreference, const TSharedRef<SDockTab>& UnmanagedTab, bool bPlaySpawnAnim)
 {
 	const bool bTabNotManaged = ensure( ! FindTabInLiveAreas( FTabMatcher(UnmanagedTab->GetLayoutIdentifier()) ).IsValid() );
 	UnmanagedTab->SetLayoutIdentifier( FTabId(PlaceholderId, LastDocumentUID++) );
 	
 	if (bTabNotManaged)
 	{
-		TSharedPtr<SDockTab> LiveTab = (SearchPreference == ESearchPreference::PreferLiveTab) ? FindExistingLiveTab(FTabId(PlaceholderId)) : TSharedPtr<SDockTab>();
+		TSharedPtr<SDockTab> LiveTab = SearchPreference.Search(*this, PlaceholderId, UnmanagedTab);
+		
 		if (LiveTab.IsValid())
 		{
 			LiveTab->GetParent()->GetParentDockTabStack()->OpenTab( UnmanagedTab );
@@ -1037,6 +1114,7 @@ FTabManager::FTabManager( const TSharedPtr<SDockTab>& InOwnerTab, const TSharedR
 , PrivateApi( MakeShareable(new FPrivateApi(*this)) )
 , LastDocumentUID( 0 )
 , bIsSavingVisualState( false )
+, bCanDoDragOperation( true )
 {
 	LocalWorkspaceMenuRoot = FWorkspaceItem::NewGroup(LOCTEXT("LocalWorkspaceRoot", "Local Workspace Root"));
 }
@@ -1256,6 +1334,30 @@ TSharedPtr<SDockTab> FTabManager::FindExistingLiveTab( const FTabId& TabId ) con
 				if ( TabId == ChildTabs[ChildTabIndex]->GetLayoutIdentifier() )
 				{
 					return ChildTabs[ChildTabIndex];
+				}
+			}
+		}
+	}
+
+	return TSharedPtr<SDockTab>();
+}
+
+TSharedPtr<SDockTab> FTabManager::FindLastTabInWindow(TSharedPtr<SWindow> Window) const
+{
+	if ( Window.IsValid() )
+	{
+		for ( int32 AreaIndex = 0; AreaIndex < DockAreas.Num(); ++AreaIndex )
+		{
+			const TSharedPtr<SDockingArea> SomeDockArea = DockAreas[AreaIndex].Pin();
+			if ( SomeDockArea.IsValid() )
+			{
+				if ( SomeDockArea->GetParentWindow() == Window )
+				{
+					TArray< TSharedRef<SDockTab> > ChildTabs = SomeDockArea->GetAllChildTabs();
+					if ( ChildTabs.Num() > 0 )
+					{
+						return ChildTabs[ChildTabs.Num() - 1];
+					}
 				}
 			}
 		}
@@ -1791,6 +1893,11 @@ void FGlobalTabmanager::OnTabForegrounded( const TSharedPtr<SDockTab>& NewForegr
 
 void FGlobalTabmanager::OnTabRelocated( const TSharedRef<SDockTab>& RelocatedTab, const TSharedPtr<SWindow>& NewOwnerWindow )
 {
+	if ( RelocatedTab->GetTabRole() == ETabRole::MajorTab || RelocatedTab->GetTabRole() == ETabRole::NomadTab )
+	{
+		LastMajorDockWindow = NewOwnerWindow;
+	}
+
 	if (NewOwnerWindow.IsValid())
 	{
 		const int32 RelocatedManagerIndex = SubTabManagers.IndexOfByPredicate(FindByTab(RelocatedTab));
@@ -1812,7 +1919,8 @@ void FGlobalTabmanager::OnTabRelocated( const TSharedRef<SDockTab>& RelocatedTab
 					.AutoCenter(EAutoCenter::None)
 					.ScreenPosition(OldChildWindow->GetPositionInScreen())
 					.ClientSize(OldChildWindow->GetSizeInScreen())
-					.SupportsMinimize(false) .SupportsMaximize(false)
+					.SupportsMinimize(false)
+					.SupportsMaximize(false)
 					.CreateTitleBar(false)
 					[
 						ChildDockArea

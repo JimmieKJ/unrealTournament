@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LogVisualizer.h"
 #include "Engine.h"
@@ -151,13 +151,17 @@ void FVisualLoggerDatabase::AddItem(const FVisualLogDevice::FVisualLogEntryItem&
 	else
 	{
 		RowIndex = RowNameToIndex[NewItem.OwnerName];
-		CurrentRow = &Rows[RowIndex];
+		if (ensure(Rows.IsValidIndex(RowIndex)))
+		{
+			CurrentRow = &Rows[RowIndex];
+		}
 	}
-	check(CurrentRow);
-
-	CurrentRow->AddItem(NewItem);
-
-	FVisualLoggerGraphsDatabase::Get().AddItem(NewItem);
+	
+	if (CurrentRow)
+	{
+		CurrentRow->AddItem(NewItem);
+		FVisualLoggerGraphsDatabase::Get().AddItem(NewItem);
+	}
 }
 
 bool FVisualLoggerDatabase::ContainsRowByName(FName InName)
@@ -255,7 +259,7 @@ void FVisualLoggerDatabase::RemoveRow(FName RowName)
 	}
 	if (RowNameToIndex.Contains(RowName))
 	{
-		const int32 RemovedIndex = RowNameToIndex[RowName];
+		const int32 RemovedIndex = RowNameToIndex.FindAndRemoveChecked(RowName);
 		Rows.RemoveAtSwap(RemovedIndex, 1, false);
 		if (Rows.IsValidIndex(RemovedIndex))
 		{

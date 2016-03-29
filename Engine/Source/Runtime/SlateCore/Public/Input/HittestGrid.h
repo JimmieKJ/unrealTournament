@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -127,7 +127,7 @@ private:
 	friend class SWidgetReflector;
 
 	/** @returns true if Child is a descendant of Parent. */
-	bool IsDecendantOf(const TSharedRef<SWidget> Parent, const FCachedWidget& Child);
+	bool IsDescendantOf(const TSharedRef<SWidget> Parent, const FCachedWidget& Child);
 
 	/** Utility function for searching for the next focusable widget. */
 	template<typename TCompareFunc, typename TSourceSideFunc, typename TDestSideFunc>

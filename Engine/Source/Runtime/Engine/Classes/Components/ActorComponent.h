@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "Engine/EngineBaseTypes.h"
@@ -278,7 +278,7 @@ public:
 	/** IsSupportedForNetworking means an object can be referenced over the network */
 	virtual bool IsSupportedForNetworking() const override;
 
-	/** Enable or disable replication. This is the equivelent of RemoteRole for actors (only a bool is required for components) */
+	/** Enable or disable replication. This is the equivalent of RemoteRole for actors (only a bool is required for components) */
 	UFUNCTION(BlueprintCallable, Category="Components")
 	void SetIsReplicated(bool ShouldReplicate);
 
@@ -299,7 +299,7 @@ public:
 	/** Returns whether this component is an editor-only object or not */
 	virtual bool IsEditorOnly() const { return false; }
 
-	/** Returns neat role of the owning actor */
+	/** Returns net role of the owning actor */
 	/** Returns true if we are replicating and not authorative */
 	bool	IsNetSimulating() const;
 
@@ -453,14 +453,14 @@ public:
 	/** 
 	 * Set this component's tick functions to be enabled or disabled. Only has an effect if the function is registered
 	 * 
-	 * @param	bEnabled - Rather it should be enabled or not
+	 * @param	bEnabled - Whether it should be enabled or not
 	 */
 	UFUNCTION(BlueprintCallable, Category="Utilities")
 	virtual void SetComponentTickEnabled(bool bEnabled);
 	/** 
 	 * Spawns a task on GameThread that will call SetComponentTickEnabled
 	 * 
-	 * @param	bEnabled - Rather it should be enabled or not
+	 * @param	bEnabled - Whether it should be enabled or not
 	 */
 	virtual void SetComponentTickEnabledAsync(bool bEnabled);
 	/** 
@@ -529,10 +529,10 @@ public:
 	/** Marks the transform as dirty - will be sent to the render thread at the end of the frame*/
 	void MarkRenderTransformDirty();
 
-	/** If we belong to a world, mark this for a deffered update, otherwise do it now. */
+	/** If we belong to a world, mark this for a deferred update, otherwise do it now. */
 	void MarkForNeededEndOfFrameUpdate();
 
-	/** If we belong to a world, mark this for a deffered update, otherwise do it now. */
+	/** If we belong to a world, mark this for a deferred update, otherwise do it now. */
 	void MarkForNeededEndOfFrameRecreate();
 
 	/** return true if this component requires end of frame updates to happen from the game thread. */
@@ -608,6 +608,7 @@ public:
 	virtual void PostLoad() override;
 	virtual bool Rename( const TCHAR* NewName=NULL, UObject* NewOuter=NULL, ERenameFlags Flags=REN_None ) override;
 	virtual void PostRename(UObject* OldOuter, const FName OldName) override;
+	virtual void Serialize(FArchive& Ar) override;
 #if WITH_EDITOR
 	virtual bool Modify( bool bAlwaysMarkDirty = true ) override;
 	virtual void PreEditChange(UProperty* PropertyThatWillChange) override;
@@ -644,8 +645,12 @@ public:
 	/** Called when a component is created (not loaded) */
 	virtual void OnComponentCreated();
 
-	/** Called when a component is destroyed */
-	virtual void OnComponentDestroyed();
+	/** 
+	 * Called when a component is destroyed
+	 * 
+	 * @param	bDestroyingHierarchy  - True if the entire component hierarchy is being torn down, allows avoiding expensive operations
+	 */
+	virtual void OnComponentDestroyed(bool bDestroyingHierarchy);
 
 	/**
 	 * Unregister and mark for pending kill a component.  This may not be used to destroy a component is owned by an actor other than the one calling the function.
@@ -699,8 +704,11 @@ public:
 	virtual bool IsNavigationRelevant() const { return false; }
 
 protected:
-	/** Makes sure navigation system has up to date information regarding component's navigation relevancy and if it can affect navigation at all */
-	void HandleCanEverAffectNavigationChange();
+	/** Makes sure navigation system has up to date information regarding component's navigation relevancy 
+	 *	and if it can affect navigation at all 
+	 *	@param bForceUpdate by default updating navigation system will take place only if the component has
+	 *		already been registered. Setting bForceUpdate to true overrides that check */
+	void HandleCanEverAffectNavigationChange(bool bForceUpdate = false);
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 

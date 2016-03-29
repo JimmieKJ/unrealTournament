@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "UnrealEd.h"
@@ -61,6 +61,7 @@ protected:
 			{
 				// Move the old node into the transient package so that it is GC'd
 				CreatedObject->Rename(NULL, GetTransientPackage());
+				CreatedObject->MarkPendingKill();
 			}
 
 			if(Node)
@@ -78,6 +79,7 @@ protected:
 
 TArray< TSharedPtr<FGraphPanelNodeFactory> > FEdGraphUtilities::VisualNodeFactories;
 TArray< TSharedPtr<FGraphPanelPinFactory> > FEdGraphUtilities::VisualPinFactories;
+TArray< TSharedPtr<FGraphPanelPinConnectionFactory> > FEdGraphUtilities::VisualPinConnectionFactories;
 
 // Reconcile other pin links:
 //   - Links between nodes within the copied set are fine
@@ -382,6 +384,16 @@ void FEdGraphUtilities::RegisterVisualPinFactory(TSharedPtr<FGraphPanelPinFactor
 void FEdGraphUtilities::UnregisterVisualPinFactory(TSharedPtr<FGraphPanelPinFactory> OldFactory)
 {
 	VisualPinFactories.Remove(OldFactory);
+}
+
+void FEdGraphUtilities::RegisterVisualPinConnectionFactory(TSharedPtr<FGraphPanelPinConnectionFactory> NewFactory)
+{
+    VisualPinConnectionFactories.Add(NewFactory);
+}
+
+void FEdGraphUtilities::UnregisterVisualPinConnectionFactory(TSharedPtr<FGraphPanelPinConnectionFactory> OldFactory)
+{
+    VisualPinConnectionFactories.Remove(OldFactory);
 }
 
 //////////////////////////////////////////////////////////////////////////

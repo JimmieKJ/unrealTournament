@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -2731,9 +2731,15 @@ namespace AutomationTool
 					{
 						return Line.Substring(CopyPrefix.Length, Line.LastIndexOf('#') - CopyPrefix.Length);
 					}
+
+					const string EditPrefix = "... ... edit from ";
+					if (Line.StartsWith(EditPrefix))
+					{
+						return Line.Substring(EditPrefix.Length, Line.LastIndexOf('#') - EditPrefix.Length);
+					}
 				}
 			}
-			throw new AutomationException("Failed to get integration source for {0}", DepotPath);
+			return null;
 		}
 
 		#region Utilities

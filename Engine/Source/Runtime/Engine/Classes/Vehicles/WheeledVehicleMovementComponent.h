@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "GameFramework/PawnMovementComponent.h"
@@ -537,6 +537,9 @@ protected:
 	
 	/** remaining time of avoidance velocity lock */
 	float AvoidanceLockTimer;
+
+	/** Handle for delegate registered on mesh component */
+	FDelegateHandle MeshOnPhysicsStateChangeHandle;
 	
 	/** BEGIN IRVOAvoidanceInterface */
 	virtual void SetRVOAvoidanceUID(int32 UID) override;

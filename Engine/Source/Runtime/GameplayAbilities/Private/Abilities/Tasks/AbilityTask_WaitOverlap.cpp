@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 #include "Abilities/Tasks/AbilityTask_WaitOverlap.h"
@@ -49,6 +49,8 @@ UAbilityTask_WaitOverlap* UAbilityTask_WaitOverlap::WaitForOverlap(UObject* Worl
 
 void UAbilityTask_WaitOverlap::Activate()
 {
+	SetWaitingOnAvatar();
+
 	UPrimitiveComponent* PrimComponent = GetComponent();
 	if (PrimComponent)
 	{

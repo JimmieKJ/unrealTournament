@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "NetcodeUnitTestPCH.h"
 #include "NUTUtil.h"
@@ -61,6 +61,18 @@ int32 UUnitTestCommandlet::Main(const FString& Params)
 
 #else
 	GIsRequestingExit = false;
+
+
+	// Load some core modules that LaunchEngineLoop.cpp no longer loads for commandlets
+	if (FModuleManager::Get().ModuleExists(TEXT("XMPP")))
+	{
+		FModuleManager::Get().LoadModule(TEXT("XMPP"));
+	}
+
+	FModuleManager::Get().LoadModule(TEXT("HTTP"));
+	FModuleManager::Get().LoadModule(TEXT("OnlineSubsystem"));
+	FModuleManager::Get().LoadModule(TEXT("OnlineSubsystemUtils"));
+
 
 	// @todo #JohnBLowPri: Steam detection doesn't seem to work this early on, but does work further down the line;
 	//				try to find a way, to detect it as early as possible

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ForwardTranslucentRendering.cpp: translucent rendering implementation.
@@ -96,19 +96,19 @@ public:
 
 	const FViewInfo& View;
 	bool bBackFace;
-	float DitheredLODTransitionValue;
+	FMeshDrawingRenderState DrawRenderState;
 	FHitProxyId HitProxyId;
 
 	/** Initialization constructor. */
 	FDrawTranslucentMeshForwardShadingAction(
 		const FViewInfo& InView,
 		bool bInBackFace,
-		float InDitheredLODTransitionValue,
+		const FMeshDrawingRenderState& InDrawRenderState,
 		FHitProxyId InHitProxyId
 		):
 		View(InView),
 		bBackFace(bInBackFace),
-		DitheredLODTransitionValue(InDitheredLODTransitionValue),
+		DrawRenderState(InDrawRenderState),
 		HitProxyId(InHitProxyId)
 	{}
 	
@@ -143,7 +143,7 @@ public:
 			Parameters.BlendMode,
 			Parameters.TextureMode,
 			Parameters.ShadingModel != MSM_Unlit && Scene && Scene->ShouldRenderSkylight(),
-			View.Family->EngineShowFlags.ShaderComplexity,
+			View.Family->GetDebugViewShaderMode(),
 			View.GetFeatureLevel()
 			);
 
@@ -162,7 +162,7 @@ public:
 				Parameters.Mesh,
 				BatchElementIndex,
 				bBackFace,
-				DitheredLODTransitionValue,
+				DrawRenderState,
 				typename TBasePassForForwardShadingDrawingPolicy<LightMapPolicyType, NumDynamicPointLights>::ElementDataType(LightMapElementData),
 				typename TBasePassForForwardShadingDrawingPolicy<LightMapPolicyType, NumDynamicPointLights>::ContextDataType()
 				);
@@ -197,7 +197,7 @@ bool FTranslucencyForwardShadingDrawingPolicyFactory::DrawDynamicMesh(
 	// Only render translucent materials.
 	if (IsTranslucentBlendMode(BlendMode))
 	{
-		const bool bDisableDepthTest = Material->ShouldDisableDepthTest();
+		const bool bDisableDepthTest = !DrawingContext.bRenderingSeparateTranslucency && Material->ShouldDisableDepthTest();
 		if (bDisableDepthTest)
 		{
 			RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
@@ -217,7 +217,7 @@ bool FTranslucencyForwardShadingDrawingPolicyFactory::DrawDynamicMesh(
 			FDrawTranslucentMeshForwardShadingAction(
 				View,
 				bBackFace,
-				Mesh.DitheredLODTransitionAlpha,
+				FMeshDrawingRenderState(Mesh.DitheredLODTransitionAlpha),
 				HitProxyId
 				)
 			);
@@ -267,12 +267,13 @@ bool FTranslucencyForwardShadingDrawingPolicyFactory::DrawStaticMesh(
 FTranslucentPrimSet
 -----------------------------------------------------------------------------*/
 
-void FTranslucentPrimSet::DrawPrimitivesForForwardShading(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, FSceneRenderer& Renderer) const
+void FTranslucentPrimSet::DrawPrimitivesForForwardShading(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const bool bRenderSeparateTranslucency) const
 {
 	// Draw sorted scene prims
-	for (int32 PrimIdx = 0; PrimIdx < SortedPrims.Num(); PrimIdx++)
+	const TArray<FSortedPrim, SceneRenderingAllocator>& PrimList = (bRenderSeparateTranslucency) ? SortedSeparateTranslucencyPrims : SortedPrims;
+	for (int32 PrimIdx = 0; PrimIdx < PrimList.Num(); PrimIdx++)
 	{
-		FPrimitiveSceneInfo* PrimitiveSceneInfo = SortedPrims[PrimIdx].PrimitiveSceneInfo;
+		FPrimitiveSceneInfo* PrimitiveSceneInfo = PrimList[PrimIdx].PrimitiveSceneInfo;
 		int32 PrimitiveId = PrimitiveSceneInfo->GetIndex();
 		const FPrimitiveViewRelevance& ViewRelevance = View.PrimitiveViewRelevanceMap[PrimitiveId];
 
@@ -280,7 +281,7 @@ void FTranslucentPrimSet::DrawPrimitivesForForwardShading(FRHICommandListImmedia
 
 		if(ViewRelevance.bDrawRelevance)
 		{
-			FTranslucencyForwardShadingDrawingPolicyFactory::ContextType Context;
+			FTranslucencyForwardShadingDrawingPolicyFactory::ContextType Context(bRenderSeparateTranslucency);
 
 			//@todo parallelrendering - come up with a better way to filter these by primitive
 			for (int32 MeshBatchIndex = 0; MeshBatchIndex < View.DynamicMeshElements.Num(); MeshBatchIndex++)
@@ -303,12 +304,12 @@ void FTranslucentPrimSet::DrawPrimitivesForForwardShading(FRHICommandListImmedia
 					FStaticMesh& StaticMesh = PrimitiveSceneInfo->StaticMeshes[StaticMeshIdx];
 					if (View.StaticMeshVisibilityMap[StaticMesh.Id]
 						// Only render static mesh elements using translucent materials
-						&& StaticMesh.IsTranslucent(View.GetFeatureLevel()) )
+						&& StaticMesh.IsTranslucent(View.GetFeatureLevel()))
 					{
 						FTranslucencyForwardShadingDrawingPolicyFactory::DrawStaticMesh(
 							RHICmdList, 
 							View,
-							FTranslucencyForwardShadingDrawingPolicyFactory::ContextType(),
+							FTranslucencyForwardShadingDrawingPolicyFactory::ContextType(bRenderSeparateTranslucency),
 							StaticMesh,
 							false,
 							PrimitiveSceneInfo->Proxy,
@@ -360,11 +361,11 @@ void FForwardShadingSceneRenderer::RenderTranslucency(FRHICommandListImmediate& 
 			RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false,CF_DepthNearOrEqual>::GetRHI());
 
 			// Draw only translucent prims that don't read from scene color
-			View.TranslucentPrimSet.DrawPrimitivesForForwardShading(RHICmdList, View, *this);
+			View.TranslucentPrimSet.DrawPrimitivesForForwardShading(RHICmdList, View, false);
 			// Draw the view's mesh elements with the translucent drawing policy.
-			DrawViewElements<FTranslucencyForwardShadingDrawingPolicyFactory>(RHICmdList, View, FTranslucencyForwardShadingDrawingPolicyFactory::ContextType(), SDPG_World, false);
+			DrawViewElements<FTranslucencyForwardShadingDrawingPolicyFactory>(RHICmdList, View, FTranslucencyForwardShadingDrawingPolicyFactory::ContextType(false), SDPG_World, false);
 			// Draw the view's mesh elements with the translucent drawing policy.
-			DrawViewElements<FTranslucencyForwardShadingDrawingPolicyFactory>(RHICmdList, View, FTranslucencyForwardShadingDrawingPolicyFactory::ContextType(), SDPG_Foreground, false);
+			DrawViewElements<FTranslucencyForwardShadingDrawingPolicyFactory>(RHICmdList, View, FTranslucencyForwardShadingDrawingPolicyFactory::ContextType(false), SDPG_Foreground, false);
 		}
 	}
 }

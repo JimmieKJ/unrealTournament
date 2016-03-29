@@ -1,0 +1,22 @@
+{
+    "FileVersion" : 3,
+	
+	"DisplayName" : "Leap Motion Plugin",
+	"Version" : 20,
+	"VersionName" : "1.0.0",
+	"CreatedBy" : "Getnamo",
+	"CreatedByURL" : "https://github.com/getnamo/leap-ue4",
+	"EngineVersion" : "4.10+",
+	"Description" : "Plugin binding the Leap Motion in an event driven architecture, exposed to blueprint. Forked from Mark Wieser's original UE4-LeapMotionPlugin.",
+	"Category" : "Input Devices",
+	"Modules" :
+	[
+		{
+			"Name" : "LeapMotion",
+            "Type": "Runtime",
+            "LoadingPhase" : "PostConfigInit",
+			"WhitelistPlatforms" : [ "Win64", "Win32" ]
+		}
+	],
+	"CanContainContent" : true
+}

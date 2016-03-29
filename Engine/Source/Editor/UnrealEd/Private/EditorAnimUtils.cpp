@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "AnimGraphNode_Base.h"
@@ -67,14 +67,16 @@ namespace EditorAnimUtils
 
 		if(bRetargetReferredAssets)
 		{
-			for(auto Iter = ComplexAnimsToRetarget.CreateConstIterator(); Iter; ++Iter)
-			{
-				(*Iter)->GetAllAnimationSequencesReferred(AnimSequencesToRetarget);
-			}
-
+			// Grab assets from the blueprint. Do this first as it can add complex assets to the retarget array
+			// which will need to be processed next.
 			for(auto Iter = AnimBlueprintsToRetarget.CreateConstIterator(); Iter; ++Iter)
 			{
 				GetAllAnimationSequencesReferredInBlueprint( (*Iter), ComplexAnimsToRetarget, AnimSequencesToRetarget);
+			}
+
+			for(auto Iter = ComplexAnimsToRetarget.CreateConstIterator(); Iter; ++Iter)
+			{
+				(*Iter)->GetAllAnimationSequencesReferred(AnimSequencesToRetarget);
 			}
 
 			int SequenceIndex = 0;
@@ -441,6 +443,27 @@ namespace EditorAnimUtils
 				}
 			}
 		}
+
+		// Pull all the assets we reference from variables
+		TArray<UProperty*> SimpleAnimVariableProperties;
+		TArray<UProperty*> ComplexAnimVariableProperties;
+		TArray<UAnimSequence*> VariableReferencedSimpleAnims;
+		TArray<UAnimationAsset*> VariableReferencedComplexAnims;
+
+		UObject* DefaultObject = AnimBlueprint->GetAnimBlueprintGeneratedClass()->GetDefaultObject();
+		GetBlueprintAssetVariableProperties(AnimBlueprint, SimpleAnimVariableProperties, ComplexAnimVariableProperties);
+		GetAssetsFromProperties(SimpleAnimVariableProperties, DefaultObject, VariableReferencedSimpleAnims);
+		GetAssetsFromProperties(ComplexAnimVariableProperties, DefaultObject, VariableReferencedComplexAnims);
+
+		for(UAnimSequence* Sequence : VariableReferencedSimpleAnims)
+		{
+			AnimSequences.AddUnique(Sequence);
+		}
+
+		for(UAnimationAsset* Asset : VariableReferencedComplexAnims)
+		{
+			ComplexAnims.AddUnique(Asset);
+		}
 	}
 
 	void ReplaceReferredAnimationsInBlueprint(UAnimBlueprint* AnimBlueprint, const TMap<UAnimationAsset*, UAnimationAsset*>& ComplexAnimMap, const TMap<UAnimSequence*, UAnimSequence*>& AnimSequenceMap)
@@ -458,13 +481,90 @@ namespace EditorAnimUtils
 				}
 			}
 		}
+
+		// Push all the assets we reference from variables
+		TArray<UProperty*> SimpleAnimVariableProperties;
+		TArray<UProperty*> ComplexAnimVariableProperties;
+
+		UObject* DefaultObject = AnimBlueprint->GetAnimBlueprintGeneratedClass()->GetDefaultObject();
+		GetBlueprintAssetVariableProperties(AnimBlueprint, SimpleAnimVariableProperties, ComplexAnimVariableProperties);
+
+		for(UProperty* SimpleProp : SimpleAnimVariableProperties)
+		{
+			if(UObject** ResolvedObject = SimpleProp->ContainerPtrToValuePtr<UObject*>(DefaultObject))
+			{
+				if(UAnimSequence* Sequence = Cast<UAnimSequence>(*ResolvedObject))
+				{
+					// Found an anim sequence variable that's set to a valid sequence
+					if(UAnimSequence* const* NewSequence = AnimSequenceMap.Find(Sequence))
+					{
+						*ResolvedObject = *NewSequence;
+					}
+				}
+			}
+		}
+
+		for(UProperty* ComplexProp : ComplexAnimVariableProperties)
+		{
+			if(UObject** ResolvedObject = ComplexProp->ContainerPtrToValuePtr<UObject*>(DefaultObject))
+			{
+				if(UAnimationAsset* Sequence = Cast<UAnimationAsset>(*ResolvedObject))
+				{
+					// Found an anim sequence variable that's set to a valid sequence
+					if(UAnimationAsset* const* NewSequence = ComplexAnimMap.Find(Sequence))
+					{
+						*ResolvedObject = *NewSequence;
+					}
+				}
+			}
+		}
+	}
+
+	void GetBlueprintAssetVariableProperties(UAnimBlueprint* InBlueprint, TArray<UProperty*>& OutSimpleProperties, TArray<UProperty*>& OutComplexProperties)
+	{
+		OutSimpleProperties.Empty();
+		OutComplexProperties.Empty();
+
+		UAnimBlueprintGeneratedClass* GeneratedClass = InBlueprint->GetAnimBlueprintGeneratedClass();
+
+		for(FBPVariableDescription& VarDesc : InBlueprint->NewVariables)
+		{
+			// Grab any variables directly referencing and anim sequence object.
+			if(VarDesc.VarType.PinCategory == FString("object"))
+			{
+				if(UObject* VarSubObject = VarDesc.VarType.PinSubCategoryObject.Get())
+				{
+					// Get the object class
+					if(UClass* SubObjectAsClass = Cast<UClass>(VarSubObject))
+					{
+						// Anything that IS an anim sequence is a simple anim
+						// Anything that ISN'T an anim sequence but is an animation asset is a complex anim
+						if(SubObjectAsClass == UAnimSequence::StaticClass())
+						{
+							if(UProperty* Prop = GeneratedClass->FindPropertyByName(VarDesc.VarName))
+							{
+								OutSimpleProperties.Add(Prop);
+							}
+						}
+						else if(SubObjectAsClass->IsChildOf(UAnimationAsset::StaticClass()))
+						{
+							if(UProperty* Prop = GeneratedClass->FindPropertyByName(VarDesc.VarName))
+							{
+								OutComplexProperties.Add(Prop);
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 
 	void CopyAnimCurves(USkeleton* OldSkeleton, USkeleton* NewSkeleton, UAnimSequenceBase *SequenceBase, const FName ContainerName, FRawCurveTracks::ESupportedCurveType CurveType )
 	{
 		// Copy curve data from source asset, preserving data in the target if present.
-		FSmartNameMapping* OldNameMapping = OldSkeleton->SmartNames.GetContainer(ContainerName);
-		FSmartNameMapping* NewNameMapping = NewSkeleton->SmartNames.GetContainer(ContainerName);
+		const FSmartNameMapping* OldNameMapping = OldSkeleton->GetSmartNameContainer(ContainerName);
+		const FSmartNameMapping* NewNameMapping = NewSkeleton->GetOrAddSmartNameContainer(ContainerName);
+
 		SequenceBase->RawCurveData.UpdateLastObservedNames(OldNameMapping, CurveType);
 
 		switch (CurveType)
@@ -473,7 +573,7 @@ namespace EditorAnimUtils
 			{
 				for(FFloatCurve& Curve : SequenceBase->RawCurveData.FloatCurves)
 				{
-					NewNameMapping->AddOrFindName(Curve.LastObservedName, Curve.CurveUid);
+					NewSkeleton->AddSmartNameAndModify(ContainerName, Curve.LastObservedName, Curve.CurveUid);
 				}
 				break;
 			}
@@ -481,7 +581,7 @@ namespace EditorAnimUtils
 			{
 				for(FVectorCurve& Curve : SequenceBase->RawCurveData.VectorCurves)
 				{
-					NewNameMapping->AddOrFindName(Curve.LastObservedName, Curve.CurveUid);
+					NewSkeleton->AddSmartNameAndModify(ContainerName, Curve.LastObservedName, Curve.CurveUid);
 				}
 				break;
 			}
@@ -489,7 +589,7 @@ namespace EditorAnimUtils
 			{
 				for(FTransformCurve& Curve : SequenceBase->RawCurveData.TransformCurves)
 				{
-					NewNameMapping->AddOrFindName(Curve.LastObservedName, Curve.CurveUid);
+					NewSkeleton->AddSmartNameAndModify(ContainerName, Curve.LastObservedName, Curve.CurveUid);
 				}
 				break;
 			}

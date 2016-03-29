@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AppleMoviePlayerPrivatePCH.h"
 
@@ -149,6 +149,7 @@ bool FAVPlayerMovieStreamer::Tick(float DeltaTime)
             // NOTE: The texture resources are not freed here.
             TeardownPlayback();
 
+			UE_LOG(LogMoviePlayer, Verbose, TEXT("%d movie(s) left to play."), MovieQueue.Num());
             // If there are still movies to play, start the next movie
             if (MovieQueue.Num() > 0)
             {
@@ -198,7 +199,8 @@ void FAVPlayerMovieStreamer::Cleanup()
 
 bool FAVPlayerMovieStreamer::StartNextMovie()
 {
-    bool bDidStartMovie = false;
+	bool bDidStartMovie = false;
+	UE_LOG(LogMoviePlayer, Verbose, TEXT("Starting next movie....") );
     if (MovieQueue.Num() > 0)
     {
         if( AVMovie != NULL )
@@ -266,6 +268,8 @@ bool FAVPlayerMovieStreamer::StartNextMovie()
 
         // Movie has started.
         bDidStartMovie = true;
+		
+		UE_LOG(LogMoviePlayer, Verbose, TEXT("Started next movie.") );
     }
     return bDidStartMovie;
 }
@@ -431,30 +435,30 @@ bool FAVPlayerMovieStreamer::CheckForNextFrameAndCopy()
 			TempData.AddZeroed(SrcWidth * SrcHeight * 4);
 			TextureData->SetRawData(SrcWidth, SrcHeight, SrcWidth * 4, TempData);
 			check( TextureData->GetRawBytesPtr() != NULL );
+        }
 
-			// Now that we have video information, check on texture allocation. If we don't have a texture yet, create one.
-            if(!Texture.IsValid() || (Texture->GetWidth() != SrcWidth || Texture->GetHeight() != SrcHeight))
+        // Now that we have video information, check on texture allocation. If we don't have a texture yet, create one.
+        if(!Texture.IsValid() || (Texture->GetWidth() != SrcWidth || Texture->GetHeight() != SrcHeight))
+        {
+            MovieViewport->SetTexture(NULL);
+
+            // Release any resources associated with the previous texture
+            if (Texture.IsValid())
             {
-				MovieViewport->SetTexture(NULL);
+                // *** Aren't we already in the rendering thread? Why can't we just release the resource right here, right now?
+                TexturesPendingDeletion.Add(Texture);
+                BeginReleaseResource(Texture.Get());
+                Texture.Reset();
+            }
 
-				// Release any resources associated with the previous texture
-                if (Texture.IsValid())
-                {
-                    // *** Aren't we already in the rendering thread? Why can't we just release the resource right here, right now?
-                    TexturesPendingDeletion.Add(Texture);
-                    BeginReleaseResource(Texture.Get());
-                    Texture.Reset();
-                }
+            // Create and initialize a new texture
+            Texture = MakeShareable(new FSlateTexture2DRHIRef(SrcWidth, SrcHeight, PF_B8G8R8A8, nullptr, TexCreate_Dynamic | TexCreate_NoTiling, true));
+            Texture->InitResource();
 
-                // Create and initialize a new texture
-                Texture = MakeShareable(new FSlateTexture2DRHIRef(SrcWidth, SrcHeight, PF_B8G8R8A8, nullptr, TexCreate_Dynamic | TexCreate_NoTiling, true));
-                Texture->InitResource();
-
-                // Make sure the texture is at least updated once.
-                Texture->UpdateRHI();
-                MovieViewport->SetTexture(Texture);
-			}
-		}
+            // Make sure the texture is at least updated once.
+            Texture->UpdateRHI();
+            MovieViewport->SetTexture(Texture);
+        }
 
         check( TextureData->GetBytesPerPixel() > 0 );
         

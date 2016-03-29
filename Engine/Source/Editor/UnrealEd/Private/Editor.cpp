@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "UnrealEd.h"
@@ -223,7 +223,7 @@ void FReimportManager::UpdateReimportPaths( UObject* Obj, const TArray<FString>&
 	}
 }
 
-bool FReimportManager::Reimport( UObject* Obj, bool bAskForNewFileIfMissing, bool bShowNotification )
+bool FReimportManager::Reimport( UObject* Obj, bool bAskForNewFileIfMissing, bool bShowNotification, FString PreferedReimportFile)
 {
 	// Warn that were about to reimport, so prep for it
 	PreReimport.Broadcast( Obj );
@@ -265,9 +265,17 @@ bool FReimportManager::Reimport( UObject* Obj, bool bAskForNewFileIfMissing, boo
 				}
 
 				bValidSourceFilename = true;
-				if ( bAskForNewFileIfMissing && bMissingFiles )
+				if ((bAskForNewFileIfMissing || !PreferedReimportFile.IsEmpty()) && bMissingFiles )
 				{
-					GetNewReimportPath(Obj, SourceFilenames);
+					if (!bAskForNewFileIfMissing && !PreferedReimportFile.IsEmpty())
+					{
+						SourceFilenames.Empty();
+						SourceFilenames.Add(PreferedReimportFile);
+					}
+					else
+					{
+						GetNewReimportPath(Obj, SourceFilenames);
+					}
 					if ( SourceFilenames.Num() == 0 )
 					{
 						// Failed to specify a new filename. Don't show a notification of the failure since the user exited on his own
@@ -467,6 +475,9 @@ FReimportManager::FReimportManager()
 
 	// Create reimport handler for FBX skeletal meshes
 	UReimportFbxSkeletalMeshFactory::StaticClass();
+
+	// Create reimport handler for FBX scene
+	UReimportFbxSceneFactory::StaticClass();
 
 	// Create reimport handler for APEX destructible meshes
 	UReimportDestructibleMeshFactory::StaticClass();
@@ -889,8 +900,16 @@ namespace EditorUtilities
 			UProperty* InnerProperty = ArrayProperty->Inner;
 			int32 Num = SourceArrayHelper.Num();
 
-			TargetArrayHelper.EmptyAndAddUninitializedValues(Num);
-
+			// here we emulate UArrayProperty::CopyValuesInternal()
+			if (!(InnerProperty->PropertyFlags & CPF_IsPlainOldData))
+			{
+				TargetArrayHelper.EmptyAndAddValues(Num);
+			}
+			else
+			{
+				TargetArrayHelper.EmptyAndAddUninitializedValues(Num);
+			}
+			
 			for (int32 Index = 0; Index < Num; Index++)
 			{
 				CopySinglePropertyRecursive(SourceArrayHelper.GetRawPtr(Index), TargetArrayHelper.GetRawPtr(Index), InTargetObject, InnerProperty);

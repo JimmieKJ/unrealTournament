@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ProfilerPrivatePCH.h"
 
@@ -14,6 +14,8 @@ void FFPSAnalyzer::Reset()
 	MinFPS = 9999;
 	MaxFPS = 0;
 	AveFPS = 0;
+	FPS90 = 0;
+	FPS60 = 0;
 	FPS30 = 0;
 	FPS25 = 0;
 	FPS20 = 0;
@@ -28,6 +30,14 @@ void FFPSAnalyzer::AddSample( float FPSSample )
 	Index = Index >= Histogram.Num() ? Histogram.Num()-1 : Index;
 	Histogram[Index].Count++;
 	Histogram[Index].CummulativeTime += DeltaSeconds;
+	if (FPSSample >= 90)
+	{
+		FPS90++;
+	}
+	if (FPSSample >= 60)
+	{
+		FPS60++;
+	}
 	if (FPSSample >= 30)
 	{
 		FPS30++;
@@ -50,6 +60,12 @@ void FFPSAnalyzer::AddSample( float FPSSample )
 		MinFPS = FPSSample;
 	}
 	AveFPS = (FPSSample + (float)(Samples.Num()-1) * AveFPS) / (float)Samples.Num();
+}
+
+SIZE_T FFPSAnalyzer::GetMemoryUsage() const
+{
+	const SIZE_T MemoryAllocated = Samples.GetAllocatedSize() + Histogram.GetAllocatedSize();
+	return MemoryAllocated;
 }
 
 int32 FFPSAnalyzer::GetTotalCount()

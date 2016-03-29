@@ -1,10 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlatePrivatePCH.h"
-
-#if WITH_FANCY_TEXT
-
 #include "SlateTextRun.h"
+#include "ShapedTextCache.h"
+#include "RunUtils.h"
 
 TSharedRef< FSlateTextRun > FSlateTextRun::Create( const FRunInfo& InRunInfo, const TSharedRef< const FString >& InText, const FTextBlockStyle& Style )
 {
@@ -24,8 +23,6 @@ FTextRange FSlateTextRun::GetTextRange() const
 void FSlateTextRun::SetTextRange( const FTextRange& Value )
 {
 	Range = Value;
-
-	ShapedTextCache->Clear();
 }
 
 int16 FSlateTextRun::GetBaseLine( float Scale ) const 
@@ -49,8 +46,8 @@ FVector2D FSlateTextRun::Measure( int32 BeginIndex, int32 EndIndex, float Scale,
 		return FVector2D( ShadowOffsetToApply.X * Scale, GetMaxHeight( Scale ) );
 	}
 
-	// todo: SHAPING - Use the full text range (rather than the run range) so that text that spans runs will still be shaped correctly
-	return ShapedTextCacheUtil::MeasureShapedText(ShapedTextCache, FCachedShapedTextKey(Range/*FTextRange(0, Text->Len())*/, Scale, TextContext), FTextRange(BeginIndex, EndIndex), **Text, Style.Font) + ShadowOffsetToApply;
+	// Use the full text range (rather than the run range) so that text that spans runs will still be shaped correctly
+	return ShapedTextCacheUtil::MeasureShapedText(TextContext.ShapedTextCache, FCachedShapedTextKey(FTextRange(0, Text->Len()), Scale, TextContext, Style.Font), FTextRange(BeginIndex, EndIndex), **Text) + ShadowOffsetToApply;
 }
 
 int8 FSlateTextRun::GetKerning(int32 CurrentIndex, float Scale, const FRunTextContext& TextContext) const
@@ -61,8 +58,8 @@ int8 FSlateTextRun::GetKerning(int32 CurrentIndex, float Scale, const FRunTextCo
 		return 0;
 	}
 
-	// todo: SHAPING - Use the full text range (rather than the run range) so that text that spans runs will still be shaped correctly
-	return ShapedTextCacheUtil::GetShapedGlyphKerning(ShapedTextCache, FCachedShapedTextKey(Range/*FTextRange(0, Text->Len())*/, Scale, TextContext), PreviousIndex, **Text, Style.Font);
+	// Use the full text range (rather than the run range) so that text that spans runs will still be shaped correctly
+	return ShapedTextCacheUtil::GetShapedGlyphKerning(TextContext.ShapedTextCache, FCachedShapedTextKey(FTextRange(0, Text->Len()), Scale, TextContext, Style.Font), PreviousIndex, **Text);
 }
 
 TSharedRef< ILayoutBlock > FSlateTextRun::CreateBlock( int32 BeginIndex, int32 EndIndex, FVector2D Size, const FLayoutBlockTextContext& TextContext, const TSharedPtr< IRunRenderer >& Renderer )
@@ -94,13 +91,12 @@ int32 FSlateTextRun::OnPaint( const FPaintArgs& Args, const FTextLayout::FLineVi
 		);
 
 	// Make sure we have up-to-date shaped text to work with
-	// todo: SHAPING - Use the full text range (rather than the run range) so that text that spans runs will still be shaped correctly
+	// We use the full line view range (rather than the run range) so that text that spans runs will still be shaped correctly
 	FShapedGlyphSequenceRef ShapedText = ShapedTextCacheUtil::GetShapedTextSubSequence(
-		ShapedTextCache, 
-		FCachedShapedTextKey(Range/*FTextRange(0, Text->Len())*/, AllottedGeometry.GetAccumulatedLayoutTransform().GetScale(), BlockTextContext), 
+		BlockTextContext.ShapedTextCache, 
+		FCachedShapedTextKey(Line.Range, AllottedGeometry.GetAccumulatedLayoutTransform().GetScale(), BlockTextContext, Style.Font), 
 		BlockRange, 
-		**Text, 
-		Style.Font, 
+		**Text,  
 		BlockTextContext.TextDirection
 		);
 
@@ -161,12 +157,13 @@ int32 FSlateTextRun::GetTextIndexAt( const TSharedRef< ILayoutBlock >& Block, co
 	}
 
 	const FTextRange BlockRange = Block->GetTextRange();
-	const TSharedRef< FSlateFontMeasure > FontMeasure = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
+	const FLayoutBlockTextContext BlockTextContext = Block->GetTextContext();
 
-	const int32 Index = FontMeasure->FindCharacterIndexAtOffset( Text.Get(), BlockRange.BeginIndex, BlockRange.EndIndex, Style.Font, Location.X - BlockOffset.X, true, Scale );
+	// Use the full text range (rather than the run range) so that text that spans runs will still be shaped correctly
+	const int32 Index = ShapedTextCacheUtil::FindCharacterIndexAtOffset(BlockTextContext.ShapedTextCache, FCachedShapedTextKey(FTextRange(0, Text->Len()), Scale, BlockTextContext, Style.Font), BlockRange, **Text, Location.X - BlockOffset.X);
 	if (OutHitPoint)
 	{
-		*OutHitPoint = (Index == BlockRange.EndIndex) ? ETextHitPoint::RightGutter : ETextHitPoint::WithinText;
+		*OutHitPoint = RunUtils::CalculateTextHitPoint(Index, BlockRange, BlockTextContext.TextDirection);
 	}
 
 	return Index;
@@ -176,14 +173,11 @@ FVector2D FSlateTextRun::GetLocationAt( const TSharedRef< ILayoutBlock >& Block,
 {
 	const FVector2D& BlockOffset = Block->GetLocationOffset();
 	const FTextRange& BlockRange = Block->GetTextRange();
+	const FLayoutBlockTextContext BlockTextContext = Block->GetTextContext();
 
-	if (BlockRange.BeginIndex + Offset == BlockRange.EndIndex)
-	{
-		return BlockOffset + Block->GetSize();
-	}
-
-	const TSharedRef< FSlateFontMeasure > FontMeasure = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
-	const FVector2D OffsetLocation = FontMeasure->Measure( Text.Get(), BlockRange.BeginIndex, BlockRange.BeginIndex + Offset, Style.Font, true, Scale );
+	// Use the full text range (rather than the run range) so that text that spans runs will still be shaped correctly
+	const FTextRange RangeToMeasure = RunUtils::CalculateOffsetMeasureRange(Offset, BlockRange, BlockTextContext.TextDirection);
+	const FVector2D OffsetLocation = ShapedTextCacheUtil::MeasureShapedText(BlockTextContext.ShapedTextCache, FCachedShapedTextKey(FTextRange(0, Text->Len()), Scale, BlockTextContext, Style.Font), RangeToMeasure, **Text);
 
 	return BlockOffset + OffsetLocation;
 }
@@ -196,8 +190,6 @@ void FSlateTextRun::Move(const TSharedRef<FString>& NewText, const FTextRange& N
 #if TEXT_LAYOUT_DEBUG
 	DebugSlice = FString( InRange.EndIndex - InRange.BeginIndex, (**Text) + InRange.BeginIndex );
 #endif
-
-	ShapedTextCache->Clear();
 }
 
 TSharedRef<IRun> FSlateTextRun::Clone() const
@@ -233,7 +225,6 @@ FSlateTextRun::FSlateTextRun( const FRunInfo& InRunInfo, const TSharedRef< const
 	, Text( InText )
 	, Style( InStyle )
 	, Range( 0, Text->Len() )
-	, ShapedTextCache( FShapedTextCache::Create(*FSlateApplication::Get().GetRenderer()->GetFontCache()) )
 #if TEXT_LAYOUT_DEBUG
 	, DebugSlice( FString( Text->Len(), **Text ) )
 #endif
@@ -246,7 +237,6 @@ FSlateTextRun::FSlateTextRun( const FRunInfo& InRunInfo, const TSharedRef< const
 	, Text( InText )
 	, Style( InStyle )
 	, Range( InRange )
-	, ShapedTextCache( FShapedTextCache::Create(*FSlateApplication::Get().GetRenderer()->GetFontCache()) )
 #if TEXT_LAYOUT_DEBUG
 	, DebugSlice( FString( InRange.EndIndex - InRange.BeginIndex, (**Text) + InRange.BeginIndex ) )
 #endif
@@ -259,12 +249,9 @@ FSlateTextRun::FSlateTextRun( const FSlateTextRun& Run )
 	, Text( Run.Text )
 	, Style( Run.Style )
 	, Range( Run.Range )
-	, ShapedTextCache( FShapedTextCache::Create(*FSlateApplication::Get().GetRenderer()->GetFontCache()) )
 #if TEXT_LAYOUT_DEBUG
 	, DebugSlice( Run.DebugSlice )
 #endif
 {
 
 }
-
-#endif //WITH_FANCY_TEXT

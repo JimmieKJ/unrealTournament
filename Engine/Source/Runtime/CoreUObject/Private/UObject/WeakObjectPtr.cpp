@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	WeakObjectPtr.cpp: Weak pointer to UObject
@@ -9,10 +9,8 @@
 DEFINE_LOG_CATEGORY_STATIC(LogWeakObjectPtr, Log, All);
 
 /*-----------------------------------------------------------------------------------------------------------
-	Base serial number management. This is complicated by the need for thread safety and lock-free implementation
+	Base serial number management.
 -------------------------------------------------------------------------------------------------------------*/
-
-int32** GSerialNumberBlocksForDebugVisualizersRoot = 0;
 
 /*-----------------------------------------------------------------------------------------------------------
 	FWeakObjectPtr
@@ -43,6 +41,11 @@ bool FWeakObjectPtr::IsValid(bool bEvenIfPendingKill, bool bThreadsafeTest) cons
 	return Internal_IsValid(bEvenIfPendingKill, bThreadsafeTest);
 }
 
+bool FWeakObjectPtr::IsValid() const
+{
+	// Using literals here allows the optimizer to remove branches later down the chain.
+	return Internal_IsValid(false, false);
+}
 
 bool FWeakObjectPtr::IsStale(bool bEvenIfPendingKill, bool bThreadsafeTest) const
 {

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -57,10 +57,6 @@ public:
 	 */
 	virtual class USCS_Node* GetSCSNode() const;
 	/**
-	 * @return The component template or instance represented by this object.
-	 */
-	virtual UActorComponent* GetComponentTemplate() const;
-	/**
 	 * @param ActualEditedBlueprint currently edited blueprint
 	 *
 	 * @return The component template that can be editable for actual class.
@@ -85,6 +81,19 @@ public:
 	 * @return Type of node
 	 */
 	ENodeType GetNodeType() const;
+	/**
+	 * @param	bEvenIfPendingKill	If false, nullptr will be returned if the cached component template is pending kill.
+	 *								If true, it will be returned regardless (this is used for recaching the component template if the objects
+	 *								have been reinstanced following construction script execution).
+	 *
+	 * @note	Deliberately non-virtual, for performance reasons.
+	 * @return	The component template or instance represented by this node, if it's a component node.
+	 */
+	UActorComponent* GetComponentTemplate(bool bEvenIfPendingKill = false) const;
+	/**
+	 * Set the component template represented by this node, if it's a component node.
+	 */
+	void SetComponentTemplate(UActorComponent* Component);
 	/**
 	 * @return Whether or not this node is a direct child of the given node.
 	 */
@@ -268,6 +277,9 @@ protected:
 		return bResult;
 	}
 
+	// Component template represented by this node, if it's a component node, otherwise invalid
+	TWeakObjectPtr<UActorComponent> ComponentTemplatePtr;
+
 private:
 	// The type of component tree node
 	ENodeType NodeType;
@@ -328,7 +340,6 @@ public:
 	//virtual FName GetVariableName() const override;
 	//virtual FString GetDisplayString() const override;
 	virtual FText GetDisplayName() const override;
-	virtual UActorComponent* GetComponentTemplate() const override;
 	virtual UActorComponent* GetEditableComponentTemplate(UBlueprint* ActualEditedBlueprint) override;
 	// End of FSCSEditorTreeNode public interface
 
@@ -361,7 +372,6 @@ public:
 	virtual FName GetVariableName() const override { return NAME_None; }
 	virtual FString GetDisplayString() const override;
 	virtual FText GetDisplayName() const override;
-	virtual UActorComponent* GetComponentTemplate() const override;
 	virtual UActorComponent* GetEditableComponentTemplate(UBlueprint* ActualEditedBlueprint) override;
 	virtual void OnCompleteRename(const FText& InNewName) override;
 	// End of FSCSEditorTreeNode public interface
@@ -410,7 +420,6 @@ public:
 	//virtual FString GetDisplayString() const override;
 	virtual FText GetDisplayName() const override;
 	virtual class USCS_Node* GetSCSNode() const override;
-	virtual UActorComponent* GetComponentTemplate() const override;
 	virtual UActorComponent* GetEditableComponentTemplate(UBlueprint* ActualEditedBlueprint) override;
 	virtual void OnCompleteRename(const FText& InNewName) override;
 	// End of FSCSEditorTreeNode public interface
@@ -429,8 +438,6 @@ private:
 
 	// Is this the template coming from an SCS node?
 	TWeakObjectPtr<class USCS_Node> SCSNodePtr;
-
-	TWeakObjectPtr<UActorComponent> ComponentTemplatePtr;
 };
 
 
@@ -709,6 +716,7 @@ public:
 
 	SLATE_BEGIN_ARGS( SSCSEditor )
 		:_EditorMode(EComponentEditorMode::BlueprintSCS)
+		,_IsDiffing(false)
 		,_ActorContext(nullptr)
 		,_PreviewActor(nullptr)
 		,_AllowEditing(true)
@@ -718,6 +726,7 @@ public:
 		{}
 
 		SLATE_ARGUMENT(EComponentEditorMode::Type, EditorMode)
+		SLATE_ARGUMENT(bool, IsDiffing)
 		SLATE_ATTRIBUTE(class AActor*, ActorContext)
 		SLATE_ATTRIBUTE(class AActor*, PreviewActor)
 		SLATE_ATTRIBUTE(bool, AllowEditing)
@@ -731,7 +740,6 @@ public:
 	void Construct(const FArguments& InArgs);
 
 	/** SWidget interface */
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
 	virtual FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent );
 
 	/** Used by tree control - make a widget for a table row from a node */
@@ -900,6 +908,7 @@ public:
 
 	/** Try to handle a drag-drop operation */
 	FReply TryHandleAssetDragDropOperation(const FDragDropEvent& DragDropEvent);
+
 protected:
 	FString GetSelectedClassText() const;
 
@@ -919,6 +928,12 @@ protected:
 	 * @param bTransactional Whether or not the rename should be transactional (i.e. undoable)
 	 */
 	void OnRenameComponent(bool bTransactional);
+
+	/** Called when component objects are replaced following construction script execution */
+	void OnObjectsReplaced(const TMap<UObject*, UObject*>& OldToNewInstanceMap);
+
+	/** Update component pointers held by tree nodes if components have been replaced following construction script execution */
+	void ReplaceComponentReferencesInTree(const TArray<FSCSEditorTreeNodePtrType>& Nodes, const TMap<UObject*, UObject*>& OldToNewInstanceMap);
 
 	/**
 	 * Function to create events for the current selection
@@ -1082,4 +1097,7 @@ private:
 
 	/** Controls whether or not to allow calls to UpdateTree() */
 	bool bAllowTreeUpdates;
+
+	/** TRUE if this SCSEditor is currently the target of a diff */
+	bool bIsDiffing;
 };

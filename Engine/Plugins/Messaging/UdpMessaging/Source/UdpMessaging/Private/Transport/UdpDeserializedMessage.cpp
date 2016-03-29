@@ -1,8 +1,33 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UdpMessagingPrivatePCH.h"
 #include "JsonStructDeserializerBackend.h"
 #include "StructDeserializer.h"
+
+
+/* FUdpDeserializedMessage structors
+*****************************************************************************/
+
+FUdpDeserializedMessage::FUdpDeserializedMessage(const IMessageAttachmentPtr& InAttachment)
+	: Attachment(InAttachment)
+	, MessageData(nullptr)
+{
+}
+
+
+FUdpDeserializedMessage::~FUdpDeserializedMessage()
+{
+	if (MessageData != nullptr)
+	{
+		if (TypeInfo.IsValid())
+		{
+			TypeInfo->DestroyStruct(MessageData);
+		}
+
+		FMemory::Free(MessageData);
+		MessageData = nullptr;
+	}
+}
 
 
 /* FUdpDeserializedMessage interface

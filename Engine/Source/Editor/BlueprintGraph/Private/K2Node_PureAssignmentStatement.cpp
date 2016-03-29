@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "BlueprintGraphPrivatePCH.h"
@@ -28,14 +28,14 @@ public:
 			auto VariablePin = PureAssignmentNode->GetVariablePin();
 			if (VariablePin->LinkedTo.Num() == 0)
 			{
-				CompilerContext.MessageLog.Error(*LOCTEXT("NoVarriableConnected_Error", "A variable needs to be connected to @@").ToString(), VariablePin);
+				CompilerContext.MessageLog.Error(*LOCTEXT("NoVariableConnected_Error", "A variable needs to be connected to @@").ToString(), VariablePin);
 				return;
 			}
 
 			auto OutputPin = PureAssignmentNode->GetOutputPin();
 			if (OutputPin->LinkedTo.Num() == 0)
 			{
-				CompilerContext.MessageLog.Error(*LOCTEXT("NoVarriableConnected_Error", "A output pin needs to be connected to @@").ToString(), OutputPin);
+				CompilerContext.MessageLog.Error(*LOCTEXT("NoOutputConnected_Error", "A output pin needs to be connected to @@").ToString(), OutputPin);
 				return;
 			}
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 #include "Abilities/GameplayAbility.h"
@@ -33,7 +33,7 @@ UGameplayAbility::UGameplayAbility(const FObjectInitializer& ObjectInitializer)
 		static FName FuncName = FName(TEXT("K2_ActivateAbility"));
 		UFunction* ActivateFunction = GetClass()->FindFunctionByName(FuncName);
 		// FIXME: temp to work around crash
-		if (ActivateFunction && ActivateFunction->IsValidLowLevelFast())
+		if (ActivateFunction && (HasAnyFlags(RF_ClassDefaultObject) || ActivateFunction->IsValidLowLevelFast()))
 		{
 			bHasBlueprintActivate = ActivateFunction && ensure(ActivateFunction->GetOuter()) && ActivateFunction->GetOuter()->IsA(UBlueprintGeneratedClass::StaticClass());
 		}
@@ -59,6 +59,8 @@ UGameplayAbility::UGameplayAbility(const FObjectInitializer& ObjectInitializer)
 	bServerRespectsRemoteAbilityCancellation = true;
 	bReplicateInputDirectly = false;
 	RemoteInstanceEnded = false;
+
+	ScopeLockCount = 0;
 }
 
 int32 UGameplayAbility::GetFunctionCallspace(UFunction* Function, void* Parameters, FFrame* Stack)
@@ -168,7 +170,8 @@ bool UGameplayAbility::DoesAbilitySatisfyTagRequirements(const UAbilitySystemCom
 	// Check to see the required/blocked tags for this ability
 	if (ActivationBlockedTags.Num() || ActivationRequiredTags.Num())
 	{
-		FGameplayTagContainer AbilitySystemComponentTags;
+		static FGameplayTagContainer AbilitySystemComponentTags;
+		AbilitySystemComponentTags.Reset();
 
 		AbilitySystemComponent.GetOwnedGameplayTags(AbilitySystemComponentTags);
 
@@ -246,7 +249,9 @@ bool UGameplayAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handl
 	}
 
 	//make into a reference for simplicity
-	FGameplayTagContainer DummyContainer;
+	static FGameplayTagContainer DummyContainer;
+	DummyContainer.Reset();
+
 	FGameplayTagContainer& OutTags = OptionalRelevantTags ? *OptionalRelevantTags : DummyContainer;
 
 	// make sure the ActorInfo and its ability system component are valid, if not bail out.
@@ -474,6 +479,12 @@ void UGameplayAbility::CancelAbility(const FGameplayAbilitySpecHandle Handle, co
 {
 	if (CanBeCanceled())
 	{
+		if (ScopeLockCount > 0)
+		{
+			WaitingToExecute.Add(FPostLockDelegate::CreateUObject(this, &UGameplayAbility::CancelAbility, Handle, ActorInfo, ActivationInfo, bReplicateCancelAbility));
+			return;
+		}
+
 		// Replicate the the server/client if needed
 		if (bReplicateCancelAbility)
 		{
@@ -518,6 +529,12 @@ void UGameplayAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, const
 {
 	if (IsEndAbilityValid(Handle, ActorInfo))
 	{
+		if (ScopeLockCount > 0)
+		{
+			WaitingToExecute.Add(FPostLockDelegate::CreateUObject(this, &UGameplayAbility::EndAbility, Handle, ActorInfo, ActivationInfo, bReplicateEndAbility));
+			return;
+		}
+
 		// Give blueprint a chance to react
 		K2_OnEndAbility();
 
@@ -547,10 +564,10 @@ void UGameplayAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, const
 		// Tell all our tasks that we are finished and they should cleanup
 		for (int32 TaskIdx = ActiveTasks.Num() - 1; TaskIdx >= 0 && ActiveTasks.Num() > 0; --TaskIdx)
 		{
-			TWeakObjectPtr<UGameplayTask> Task = ActiveTasks[TaskIdx];
-			if (Task.IsValid())
+			UGameplayTask* Task = ActiveTasks[TaskIdx];
+			if (Task)
 			{
-				Task.Get()->TaskOwnerEnded();
+				Task->TaskOwnerEnded();
 			}
 		}
 		ActiveTasks.Reset();	// Empty the array but dont resize memory, since this object is probably going to be destroyed very soon anyways.
@@ -728,7 +745,7 @@ bool UGameplayAbility::CheckCost(const FGameplayAbilitySpecHandle Handle, const 
 	if (CostGE)
 	{
 		check(ActorInfo->AbilitySystemComponent.IsValid());
-		if (!ActorInfo->AbilitySystemComponent->CanApplyAttributeModifiers(CostGE, GetAbilityLevel(Handle, ActorInfo), GetEffectContext(Handle, ActorInfo)))
+		if (!ActorInfo->AbilitySystemComponent->CanApplyAttributeModifiers(CostGE, GetAbilityLevel(Handle, ActorInfo), MakeEffectContext(Handle, ActorInfo)))
 		{
 			const FGameplayTag& CostTag = UAbilitySystemGlobals::Get().ActivateFailCostTag;
 
@@ -777,6 +794,14 @@ float UGameplayAbility::GetCooldownTimeRemaining(const FGameplayAbilityActorInfo
 	return 0.f;
 }
 
+void UGameplayAbility::InvalidateClientPredictionKey() const
+{
+	if (CurrentActorInfo && CurrentActorInfo->AbilitySystemComponent.IsValid())
+	{
+		CurrentActorInfo->AbilitySystemComponent->ScopedPredictionKey = FPredictionKey();
+	}
+}
+
 void UGameplayAbility::GetCooldownTimeRemainingAndDuration(FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, float& TimeRemaining, float& CooldownDuration) const
 {
 	SCOPE_CYCLE_COUNTER(STAT_GameplayAbilityGetCooldownTimeRemainingAndDuration);
@@ -790,24 +815,22 @@ void UGameplayAbility::GetCooldownTimeRemainingAndDuration(FGameplayAbilitySpecH
 	if (CooldownTags && CooldownTags->Num() > 0)
 	{
 		FGameplayEffectQuery const Query = FGameplayEffectQuery::MakeQuery_MatchAnyOwningTags(*CooldownTags);
-		TArray< float > DurationRemaining = ActorInfo->AbilitySystemComponent->GetActiveEffectsTimeRemaining(Query);
-		if (DurationRemaining.Num() > 0)
+		TArray< TPair<float,float> > DurationAndTimeRemaining = ActorInfo->AbilitySystemComponent->GetActiveEffectsTimeRemainingAndDuration(Query);
+		if (DurationAndTimeRemaining.Num() > 0)
 		{
-			TArray< float > Durations = ActorInfo->AbilitySystemComponent->GetActiveEffectsDuration(Query);
-			check(Durations.Num() == DurationRemaining.Num());
 			int32 BestIdx = 0;
-			float LongestTime = DurationRemaining[0];
-			for (int32 Idx = 1; Idx < DurationRemaining.Num(); ++Idx)
+			float LongestTime = DurationAndTimeRemaining[0].Key;
+			for (int32 Idx = 1; Idx < DurationAndTimeRemaining.Num(); ++Idx)
 			{
-				if (DurationRemaining[Idx] > LongestTime)
+				if (DurationAndTimeRemaining[Idx].Key > LongestTime)
 				{
-					LongestTime = DurationRemaining[Idx];
+					LongestTime = DurationAndTimeRemaining[Idx].Key;
 					BestIdx = Idx;
 				}
 			}
 
-			TimeRemaining = DurationRemaining[BestIdx];
-			CooldownDuration = Durations[BestIdx];
+			TimeRemaining = DurationAndTimeRemaining[BestIdx].Key;
+			CooldownDuration = DurationAndTimeRemaining[BestIdx].Value;
 		}
 	}
 }
@@ -829,6 +852,12 @@ FGameplayAbilityActorInfo UGameplayAbility::GetActorInfo() const
 
 AActor* UGameplayAbility::GetOwningActorFromActorInfo() const
 {
+	if (!ensureMsgf(IsInstantiated(), TEXT("%s: GetOwningActorFromActorInfo can not be called on a non-instanced ability"), *GetName()))
+	{
+		ABILITY_LOG(Warning, TEXT("%s: GetOwningActorFromActorInfo can not be called on a non-instanced ability"), *GetName());
+		return nullptr;
+	}
+
 	if (!ensure(CurrentActorInfo))
 	{
 		return nullptr;
@@ -889,7 +918,7 @@ FGameplayEffectSpecHandle UGameplayAbility::MakeOutgoingGameplayEffectSpec(const
 	}
 #endif
 
-	FGameplayEffectSpecHandle NewHandle = ActorInfo->AbilitySystemComponent->MakeOutgoingSpec(GameplayEffectClass, Level, GetEffectContext(Handle, ActorInfo));
+	FGameplayEffectSpecHandle NewHandle = ActorInfo->AbilitySystemComponent->MakeOutgoingSpec(GameplayEffectClass, Level, MakeEffectContext(Handle, ActorInfo));
 	if (NewHandle.IsValid())
 	{
 		FGameplayAbilitySpec* AbilitySpec =  ActorInfo->AbilitySystemComponent->FindAbilitySpecFromHandle(Handle);
@@ -1180,6 +1209,19 @@ void UGameplayAbility::OnTaskDeactivated(UGameplayTask& Task)
 	ABILITY_VLOG(CastChecked<AActor>(GetOuter()), Log, TEXT("Task Ended %s"), *Task.GetName());
 
 	ActiveTasks.Remove(&Task);
+
+	if (ENABLE_ABILITYTASK_DEBUGMSG)
+	{
+		AddAbilityTaskDebugMessage(&Task, TEXT("Ended."));
+	}
+}
+
+void UGameplayAbility::AddAbilityTaskDebugMessage(UGameplayTask* AbilityTask, FString DebugMessage)
+{
+	TaskDebugMessages.AddDefaulted();
+	FAbilityTaskDebugMessage& Msg = TaskDebugMessages.Last();
+	Msg.FromTask = AbilityTask;
+	Msg.Message = FString::Printf(TEXT("{%s} %s"), AbilityTask ? *AbilityTask->GetDebugString() : TEXT(""), *DebugMessage);
 }
 
 /**
@@ -1197,12 +1239,15 @@ void UGameplayAbility::K2_ExecuteGameplayCue(FGameplayTag GameplayCueTag, FGamep
 void UGameplayAbility::K2_ExecuteGameplayCueWithParams(FGameplayTag GameplayCueTag, const FGameplayCueParameters& GameplayCueParameters)
 {
 	check(CurrentActorInfo);
+	const_cast<FGameplayCueParameters&>(GameplayCueParameters).AbilityLevel = GetAbilityLevel();
 	CurrentActorInfo->AbilitySystemComponent->ExecuteGameplayCue(GameplayCueTag, GameplayCueParameters);
 }
 
 void UGameplayAbility::K2_AddGameplayCue(FGameplayTag GameplayCueTag, FGameplayEffectContextHandle Context, bool bRemoveOnAbilityEnd)
 {
 	check(CurrentActorInfo);
+	Context.SetAbility(this);
+
 	CurrentActorInfo->AbilitySystemComponent->AddGameplayCue(GameplayCueTag, Context);
 
 	if (bRemoveOnAbilityEnd)
@@ -1222,7 +1267,7 @@ void UGameplayAbility::K2_RemoveGameplayCue(FGameplayTag GameplayCueTag)
 FGameplayEffectContextHandle UGameplayAbility::GetContextFromOwner(FGameplayAbilityTargetDataHandle OptionalTargetData) const
 {
 	check(CurrentActorInfo);
-	FGameplayEffectContextHandle Context = GetEffectContext(CurrentSpecHandle, CurrentActorInfo);
+	FGameplayEffectContextHandle Context = MakeEffectContext(CurrentSpecHandle, CurrentActorInfo);
 	
 	for (auto Data : OptionalTargetData.Data)
 	{
@@ -1237,8 +1282,11 @@ FGameplayEffectContextHandle UGameplayAbility::GetContextFromOwner(FGameplayAbil
 
 int32 UGameplayAbility::GetAbilityLevel() const
 {
-	check(IsInstantiated()); // You should not call this on non instanced abilities.
-	check(CurrentActorInfo);
+	if (IsInstantiated() == false || CurrentActorInfo == nullptr)
+	{
+		return 1;
+	}
+	
 	return GetAbilityLevel(CurrentSpecHandle, CurrentActorInfo);
 }
 
@@ -1315,13 +1363,22 @@ UObject* UGameplayAbility::GetCurrentSourceObject() const
 	return nullptr;
 }
 
-FGameplayEffectContextHandle UGameplayAbility::GetEffectContext(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo *ActorInfo) const
+FGameplayEffectContextHandle UGameplayAbility::MakeEffectContext(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo *ActorInfo) const
 {
 	check(ActorInfo);
 	FGameplayEffectContextHandle Context = FGameplayEffectContextHandle(UAbilitySystemGlobals::Get().AllocGameplayEffectContext());
 	// By default use the owner and avatar as the instigator and causer
 	Context.AddInstigator(ActorInfo->OwnerActor.Get(), ActorInfo->AvatarActor.Get());
+
+	// add in the ability tracking here.
+	Context.SetAbility(this);
+
 	return Context;
+}
+
+FGameplayEffectContextHandle UGameplayAbility::GetEffectContext(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo *ActorInfo) const
+{
+	return MakeEffectContext(Handle, ActorInfo);
 }
 
 bool UGameplayAbility::IsTriggered() const
@@ -1474,7 +1531,7 @@ TArray<FActiveGameplayEffectHandle> UGameplayAbility::K2_ApplyGameplayEffectToTa
 	return BP_ApplyGameplayEffectToTarget(Target, GameplayEffect->GetClass(), GameplayEffectLevel, Stacks);
 }
 
-TArray<FActiveGameplayEffectHandle> UGameplayAbility::ApplyGameplayEffectToTarget(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, FGameplayAbilityTargetDataHandle Target, TSubclassOf<UGameplayEffect> GameplayEffectClass, float GameplayEffectLevel, int32 Stacks) const
+TArray<FActiveGameplayEffectHandle> UGameplayAbility::ApplyGameplayEffectToTarget(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayAbilityTargetDataHandle& Target, TSubclassOf<UGameplayEffect> GameplayEffectClass, float GameplayEffectLevel, int32 Stacks) const
 {
 	SCOPE_CYCLE_COUNTER(STAT_ApplyGameplayEffectToTarget);
 
@@ -1508,18 +1565,38 @@ TArray<FActiveGameplayEffectHandle> UGameplayAbility::K2_ApplyGameplayEffectSpec
 	return ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, SpecHandle, TargetData);
 }
 
-TArray<FActiveGameplayEffectHandle> UGameplayAbility::ApplyGameplayEffectSpecToTarget(const FGameplayAbilitySpecHandle AbilityHandle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEffectSpecHandle SpecHandle, FGameplayAbilityTargetDataHandle TargetData) const
+TArray<FActiveGameplayEffectHandle> UGameplayAbility::ApplyGameplayEffectSpecToTarget(const FGameplayAbilitySpecHandle AbilityHandle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEffectSpecHandle SpecHandle, const FGameplayAbilityTargetDataHandle& TargetData) const
 {
 	TArray<FActiveGameplayEffectHandle> EffectHandles;
 	
 	if (SpecHandle.IsValid() && HasAuthorityOrPredictionKey(ActorInfo, &ActivationInfo))
 	{
-		for (auto Data : TargetData.Data)
+		TARGETLIST_SCOPE_LOCK(*ActorInfo->AbilitySystemComponent);
+		for (TSharedPtr<FGameplayAbilityTargetData> Data : TargetData.Data)
 		{
 			EffectHandles.Append(Data->ApplyGameplayEffectSpec(*SpecHandle.Data.Get(), ActorInfo->AbilitySystemComponent->GetPredictionKeyForNewAction()));
 		}
 	}
 	return EffectHandles;
+}
+
+void UGameplayAbility::IncrementListLock() const
+{
+	++ScopeLockCount;
+}
+void UGameplayAbility::DecrementListLock() const
+{
+	if (--ScopeLockCount == 0)
+	{
+		// execute delayed functions in the order they came in
+		// These may end or cancel this ability
+		for (int32 Idx = 0; Idx < WaitingToExecute.Num(); ++Idx)
+		{
+			WaitingToExecute[Idx].ExecuteIfBound();
+		}
+
+		WaitingToExecute.Empty();
+	}
 }
 
 void UGameplayAbility::BP_RemoveGameplayEffectFromOwnerWithAssetTags(FGameplayTagContainer WithTags, int32 StacksToRemove)
@@ -1598,7 +1675,29 @@ void UGameplayAbility::SetRemoteInstanceHasEnded()
 			// We have a task that is waiting for player input, but the remote player has ended the ability, so he will not send it.
 			// Kill the ability to avoid getting stuck active.
 			
-			ABILITY_LOG(Warning, TEXT("Ability %s is force cancelling because Task %s is waiting on remote player input and the  remote player has just ended the ability."), *GetName(), *Task->GetDebugString());
+			ABILITY_LOG(Log, TEXT("Ability %s is force cancelling because Task %s is waiting on remote player input and the  remote player has just ended the ability."), *GetName(), *Task->GetDebugString());
+			CurrentActorInfo->AbilitySystemComponent->ForceCancelAbilityDueToReplication(this);
+			break;
+		}
+	}
+}
+
+void UGameplayAbility::NotifyAvatarDestroyed()
+{
+	// This could potentially happen in shutdown corner cases
+	if (IsPendingKill() || CurrentActorInfo == nullptr || CurrentActorInfo->AbilitySystemComponent.IsValid() == false)
+	{
+		return;
+	}
+
+	RemoteInstanceEnded = true;
+	for (UGameplayTask* Task : ActiveTasks)
+	{
+		if (Task && Task->IsPendingKill() == false && Task->IsWaitingOnAvatar())
+		{
+			// We have a task waiting on some Avatar state but the avatar is destroyed, so force end the ability to avoid getting stuck on.
+			
+			ABILITY_LOG(Log, TEXT("Ability %s is force cancelling because Task %s is waiting on avatar data avatar has been destroyed."), *GetName(), *Task->GetDebugString());
 			CurrentActorInfo->AbilitySystemComponent->ForceCancelAbilityDueToReplication(this);
 			break;
 		}
@@ -1612,7 +1711,16 @@ void UGameplayAbility::NotifyAbilityTaskWaitingOnPlayerData(class UAbilityTask* 
 
 	if (RemoteInstanceEnded)
 	{
-		ABILITY_LOG(Warning, TEXT("Ability %s is force cancelling because Task %s has started after the remote player has ended the ability."), *GetName(), *AbilityTask->GetDebugString());
+		ABILITY_LOG(Log, TEXT("Ability %s is force cancelling because Task %s has started after the remote player has ended the ability."), *GetName(), *AbilityTask->GetDebugString());
+		CurrentActorInfo->AbilitySystemComponent->ForceCancelAbilityDueToReplication(this);
+	}
+}
+
+void UGameplayAbility::NotifyAbilityTaskWaitingOnAvatar(class UAbilityTask* AbilityTask)
+{
+	if (!CurrentActorInfo || CurrentActorInfo->AvatarActor.IsValid() == false)
+	{
+		ABILITY_LOG(Log, TEXT("Ability %s is force cancelling because Task %s has started while there is no valid AvatarActor"), *GetName(), *AbilityTask->GetDebugString());
 		CurrentActorInfo->AbilitySystemComponent->ForceCancelAbilityDueToReplication(this);
 	}
 }

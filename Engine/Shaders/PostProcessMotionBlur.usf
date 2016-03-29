@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessMotionBlur.usf: PostProcessing MotionBlur
@@ -152,6 +152,118 @@ void OverrideWithTestChart(float2 ScreenPos, inout float2 ObjectVelocity, inout 
 #endif
 }
 
+// used to visualize the motion blur
+// @return 0/1
+float Compute3DCheckerBoard(float3 Pos)
+{
+	float3 TiledWorldPos = frac(Pos) > 0.5f;
+	return (float)((uint)dot(float3(1,1,1), TiledWorldPos) % 2);
+}
+
+void VisualizeMotionBlurPS(
+	noperspective float4 UVAndScreenPos : TEXCOORD0,
+	out float4 OutColor : SV_Target0)
+{
+	const float TileSize = 48;
+
+	float2 ScreenSpacePos = UVAndScreenPos.zw;
+	float2 PixelPos = ComputePixelPosCenter(ScreenSpacePos, true);
+	float2 UV = PixelPos * PostprocessInput0Size.zw;
+
+	float2 PixelPosAtTileCenter = PixelPos - (frac(PixelPos / TileSize) - 0.5f) * TileSize;
+	float2 UVAtTileCenter = PixelPosAtTileCenter * PostprocessInput0Size.zw;
+	float2 ScreenPosAtTileCenter = ScreenPosFromPixelPos(PixelPosAtTileCenter, true);
+
+	// World aligned checkerboards
+	{
+		float DeviceZ = LookupDeviceZ(UV);
+		float SceneDepth = ConvertFromDeviceZ(DeviceZ);
+
+		float3 ScreenVector = mul(float4(ScreenSpacePos, 1, 0), View.ScreenToWorld).xyz;
+
+		// world space position of the current pixel
+		float3 OffsetWorldPos = ScreenVector * SceneDepth;
+
+		float3 AbsWorldPos = View.WorldCameraOrigin + OffsetWorldPos;
+		float3 WorldCheckerboard = Compute3DCheckerBoard(AbsWorldPos * 0.02f) * 0.1f + Compute3DCheckerBoard(AbsWorldPos * 0.002f) * 0.3f + Compute3DCheckerBoard(AbsWorldPos * 0.0002f) * 0.6f;
+		OutColor = float4(lerp(WorldCheckerboard, float3(0,0,0), 0.7f), 1);
+	}
+
+	bool bSelectorOpaqueAtTileCenter = PostprocessInput2.SampleLevel(PostprocessInput2Sampler, UVAtTileCenter, 0).x > 0;
+	bool bSelectorOpaque = PostprocessInput2.SampleLevel(PostprocessInput2Sampler, UV, 0).x > 0;
+
+	// relative, in screen space -1...1 -1..1, can be even outside of that range, points into the movement direction
+	float2 VelocityAtTileCenter;
+	{
+		VelocityAtTileCenter = DecodeVelocityFromTexture(PostprocessInput2.SampleLevel(PostprocessInput2Sampler, UVAtTileCenter, 0).xy);
+
+		// reconstruct from camera motion if we don't have velocity data
+		if(!bSelectorOpaqueAtTileCenter)
+		{
+			// UV is per tile
+			float4 ThisClip = float4(ScreenPosAtTileCenter, LookupDeviceZ(UVAtTileCenter), 1);
+			float4 PrevClip = mul( ThisClip, View.ClipToPrevClip );
+			float2 PrevScreen = PrevClip.xy / PrevClip.w;
+
+			// points into the movement direction
+			VelocityAtTileCenter = ScreenPosAtTileCenter - PrevScreen;
+		}
+	}
+
+	// tint yellow if velocity data is stored in texture
+	{
+		float3 TintColor = bSelectorOpaque ? float3(0.5f, 0.5f, 0.2f) : float3(0.5f, 0.5f, 0.5f);
+	
+		OutColor.rgb = lerp(OutColor.rgb, TintColor, 0.45f);
+	}
+
+	// tile center
+	{
+		float2 Delta = PixelPos - PixelPosAtTileCenter;
+
+		float HMask = lerp(saturate(abs(Delta.y)), 1, saturate(abs(Delta.x) / TileSize * 4));
+		float VMask = lerp(saturate(abs(Delta.x)), 1, saturate(abs(Delta.y) / TileSize * 4));
+
+		float Dist = length(Delta);
+		OutColor.rgb *= lerp(1, 0.3f, saturate(3 - Dist));
+	}
+
+	float3 LineColor = bSelectorOpaqueAtTileCenter ? float3(1,1,0) : float3(0.7,0.7,0.7);
+
+	// points into the movement direction
+	float2 PixelDirection = VelocityAtTileCenter * ScreenPosToPixel.xy;
+
+	// arrow
+	{
+		float2 PerpPixelDirection = float2(PixelDirection.y, -PixelDirection.x);
+		float2 DirectionInTile = PixelPos - PixelPosAtTileCenter;
+
+		float DistOnLine = dot(normalize(-PixelDirection), DirectionInTile) + length(PixelDirection);
+
+		bool bArrowHead = DistOnLine < 8;
+
+//		float LocalThickness = bArrowHead ? (DistOnLine * 0.5f) : 0.9f;
+//		float LocalThickness = bArrowHead ? (DistOnLine * 0.3f) : 1 + (frac(DistOnLine/8)*8)*0.2f;
+		float LocalThickness = 1 + (frac(DistOnLine/8)*8)*0.25f;
+
+		float PerpDirectionMask = saturate(LocalThickness - abs(dot(normalize(PerpPixelDirection), DirectionInTile)));
+		float DirectionMask = saturate(length(PixelDirection) - length(DirectionInTile));
+
+		float3 LineMask = PerpDirectionMask * DirectionMask;
+		OutColor.rgb = lerp(OutColor.rgb, LineColor, LineMask);
+	}
+
+	// previous pos is a dot
+	{
+		float3 DotColor = float3(0,1,0);
+		// PixelPos of the previous position
+		float2 PreviousPixelPos = PixelPosAtTileCenter - PixelDirection;
+		float Dist = length(PreviousPixelPos - PixelPos);
+		OutColor.rgb = lerp(OutColor.rgb, LineColor, saturate(4 - Dist));
+		OutColor.rgb = lerp(OutColor.rgb, 0, saturate(2.5f - Dist));
+	}
+}
+
 // ------------------------------------------
 
 // motion blur setup vertex shader
@@ -291,15 +403,6 @@ void SetupPS(
 
 	// debug, uncomment to geneate small and large horizontal motion and the objects
 //	OutVelocity.xy = lerp(float2(0,0), (InUV.y > 0.8f) ? float2(1,0) : float2(0.02f,0), OutVelocity.b);
-}
-
-
-// used to visualize the motion blur
-// @return 0/1
-float Compute3DCheckerBoard(float3 Pos)
-{
-	float3 TiledWorldPos = frac(Pos) > 0.5f;
-	return (float)((uint)dot(float3(1,1,1), TiledWorldPos) % 2);
 }
 
 uint GetStepCountFromQuality()
@@ -848,7 +951,7 @@ void MainNewPS(
 #endif
 
 	// converts pixel length to sample steps
-	float PixelToSampleScale = StepCount * rsqrtFast( dot( MaxVelocityPixels, MaxVelocityPixels ) );
+	float PixelToSampleScale = StepCount * rsqrt( dot( MaxVelocityPixels, MaxVelocityPixels ) );
 
 	BRANCH
 	if( bFastPath )

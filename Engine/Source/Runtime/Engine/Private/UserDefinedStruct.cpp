@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 
@@ -10,9 +10,11 @@
 #if WITH_EDITORONLY_DATA
 namespace
 {
-	void GatherUserDefinedStructForLocalization(const UObject* const Object, TArray<FGatherableTextData>& GatherableTextDataArray)
+	void GatherUserDefinedStructForLocalization(const UObject* const Object, FPropertyLocalizationDataGatherer& PropertyLocalizationDataGatherer, const EPropertyLocalizationGathererTextFlags GatherTextFlags)
 	{
 		const UUserDefinedStruct* const UserDefinedStruct = CastChecked<UUserDefinedStruct>(Object);
+
+		PropertyLocalizationDataGatherer.GatherLocalizationDataFromObject(UserDefinedStruct, GatherTextFlags);
 
 		const FString PathToObject = UserDefinedStruct->GetPathName();
 
@@ -20,10 +22,9 @@ namespace
 		FStructureEditorUtils::Fill_MakeStructureDefaultValue(UserDefinedStruct, StructData.GetStructMemory());
 
 		// Iterate over all fields of the object's class.
-		for (TFieldIterator<UProperty> PropIt(StructData.GetStruct(), EFieldIteratorFlags::IncludeSuper, EFieldIteratorFlags::ExcludeDeprecated, EFieldIteratorFlags::IncludeInterfaces); PropIt; ++PropIt)
+		for (TFieldIterator<const UProperty> PropIt(StructData.GetStruct(), EFieldIteratorFlags::IncludeSuper, EFieldIteratorFlags::ExcludeDeprecated, EFieldIteratorFlags::IncludeInterfaces); PropIt; ++PropIt)
 		{
-			FPropertyLocalizationDataGatherer PropertyLocalizationDataGatherer(GatherableTextDataArray);
-			PropertyLocalizationDataGatherer.GatherLocalizationDataFromChildTextProperies(PathToObject, *PropIt, PropIt->ContainerPtrToValuePtr<void>(StructData.GetStructMemory()));
+			PropertyLocalizationDataGatherer.GatherLocalizationDataFromChildTextProperties(PathToObject, *PropIt, PropIt->ContainerPtrToValuePtr<void>(StructData.GetStructMemory()), GatherTextFlags);
 		}
 	}
 }
@@ -33,11 +34,11 @@ UUserDefinedStruct::UUserDefinedStruct(const FObjectInitializer& ObjectInitializ
 	: Super(ObjectInitializer)
 {
 #if WITH_EDITORONLY_DATA
-	struct FAutomaticRegistrationOfLocalizationGatherer
+	static struct FAutomaticRegistrationOfLocalizationGatherer
 	{
 		FAutomaticRegistrationOfLocalizationGatherer()
 		{
-			UPackage::GetTypeSpecificLocalizationDataGatheringCallbacks().Add(UUserDefinedStruct::StaticClass(), &GatherUserDefinedStructForLocalization);
+			FPropertyLocalizationDataGatherer::GetTypeSpecificLocalizationDataGatheringCallbacks().Add(UUserDefinedStruct::StaticClass(), &GatherUserDefinedStructForLocalization);
 		}
 	} AutomaticRegistrationOfLocalizationGatherer;
 #endif

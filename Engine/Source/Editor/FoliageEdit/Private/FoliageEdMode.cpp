@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "StaticMeshResources.h"
@@ -143,38 +143,21 @@ public:
 //
 // Painting filtering options
 //
-struct FFoliagePaintingGeometryFilter
+bool FFoliagePaintingGeometryFilter::operator() (const UPrimitiveComponent* Component) const
 {
-	bool bAllowLandscape;
-	bool bAllowStaticMesh;
-	bool bAllowBSP;
-	bool bAllowTranslucent;
-
-	FFoliagePaintingGeometryFilter(const FFoliageUISettings& InUISettings)
-		: bAllowLandscape(InUISettings.bFilterLandscape)
-		, bAllowStaticMesh(InUISettings.bFilterStaticMesh)
-		, bAllowBSP(InUISettings.bFilterBSP)
-		, bAllowTranslucent(InUISettings.bFilterTranslucent)
+	if (Component)
 	{
+		bool bShallNotPass =
+			(!bAllowLandscape	&& Component->IsA(ULandscapeHeightfieldCollisionComponent::StaticClass())) ||
+			(!bAllowStaticMesh	&& Component->IsA(UStaticMeshComponent::StaticClass())) ||
+			(!bAllowBSP			&& Component->IsA(UModelComponent::StaticClass())) ||
+			(!bAllowTranslucent	&& Component->GetMaterial(0) && IsTranslucentBlendMode(Component->GetMaterial(0)->GetBlendMode()));
+
+		return !bShallNotPass;
 	}
 
-	bool operator() (const UPrimitiveComponent* Component) const
-	{
-		if (Component)
-		{
-			bool bShallNotPass = 
-				(!bAllowLandscape	&& Component->IsA(ULandscapeHeightfieldCollisionComponent::StaticClass())) ||
-				(!bAllowStaticMesh	&& Component->IsA(UStaticMeshComponent::StaticClass())) ||
-				(!bAllowBSP			&& Component->IsA(UModelComponent::StaticClass())) ||
-				(!bAllowTranslucent	&& Component->GetMaterial(0) && IsTranslucentBlendMode(Component->GetMaterial(0)->GetBlendMode()));
-			
-			return !bShallNotPass;
-		}
-		
-		return false;		
-	}
-};
-
+	return false;
+}
 
 //
 // FEdModeFoliage
@@ -772,38 +755,47 @@ static bool CheckLocationForPotentialInstance(const UWorld* InWorld, const UFoli
 }
 
 static bool CheckVertexColor(const UFoliageType* Settings, const FColor& VertexColor)
-{
-	uint8 ColorChannel;
-	switch (Settings->VertexColorMask)
+{	
+	for (uint8 ChannelIdx = 0; ChannelIdx < (uint8)EVertexColorMaskChannel::MAX_None; ++ChannelIdx)
 	{
-	case FOLIAGEVERTEXCOLORMASK_Red:
-		ColorChannel = VertexColor.R;
-		break;
-	case FOLIAGEVERTEXCOLORMASK_Green:
-		ColorChannel = VertexColor.G;
-		break;
-	case FOLIAGEVERTEXCOLORMASK_Blue:
-		ColorChannel = VertexColor.B;
-		break;
-	case FOLIAGEVERTEXCOLORMASK_Alpha:
-		ColorChannel = VertexColor.A;
-		break;
-	default:
-		return true;
-	}
+		const FFoliageVertexColorChannelMask& Mask = Settings->VertexColorMaskByChannel[ChannelIdx];
 
-	if (Settings->VertexColorMaskInvert)
-	{
-		if (ColorChannel > FMath::RoundToInt(Settings->VertexColorMaskThreshold * 255.f))
+		if (Mask.UseMask)
 		{
-			return false;
-		}
-	}
-	else
-	{
-		if (ColorChannel < FMath::RoundToInt(Settings->VertexColorMaskThreshold * 255.f))
-		{
-			return false;
+			uint8 ColorChannel = 0;
+			switch ((EVertexColorMaskChannel)ChannelIdx)
+			{
+			case EVertexColorMaskChannel::Red:
+				ColorChannel = VertexColor.R;
+				break;
+			case EVertexColorMaskChannel::Green:
+				ColorChannel = VertexColor.G;
+				break;
+			case EVertexColorMaskChannel::Blue:
+				ColorChannel = VertexColor.B;
+				break;
+			case EVertexColorMaskChannel::Alpha:
+				ColorChannel = VertexColor.A;
+				break;
+			default:
+				// Invalid channel value
+				continue;
+			}
+
+			if (Mask.InvertMask)
+			{
+				if (ColorChannel > FMath::RoundToInt(Mask.MaskThreshold * 255.f))
+				{
+					return false;
+				}
+			}
+			else
+			{
+				if (ColorChannel < FMath::RoundToInt(Mask.MaskThreshold * 255.f))
+				{
+					return false;
+				}
+			}
 		}
 	}
 
@@ -852,9 +844,23 @@ bool FilterByWeight(float Weight, const UFoliageType* Settings)
 	return Weight < FMath::Max(SMALL_NUMBER, WeightNeeded);
 }
 
+bool FEdModeFoliage::IsUsingVertexColorMask(const UFoliageType* Settings)
+{
+	for (uint8 ChannelIdx = 0; ChannelIdx < (uint8)EVertexColorMaskChannel::MAX_None; ++ChannelIdx)
+	{
+		const FFoliageVertexColorChannelMask& Mask = Settings->VertexColorMaskByChannel[ChannelIdx];
+		if (Mask.UseMask)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
 bool FEdModeFoliage::VertexMaskCheck(const FHitResult& Hit, const UFoliageType* Settings)
 {
-	if (Settings->VertexColorMask != FOLIAGEVERTEXCOLORMASK_Disabled && Hit.FaceIndex != INDEX_NONE)
+	if (Hit.FaceIndex != INDEX_NONE && IsUsingVertexColorMask(Settings))
 	{
 		if (UStaticMeshComponent* HitStaticMeshComponent = Cast<UStaticMeshComponent>(Hit.Component.Get()))
 		{
@@ -887,7 +893,7 @@ bool LandscapeLayerCheck(const FHitResult& Hit, const UFoliageType* Settings, FE
 	return true;
 }
 
-void FEdModeFoliage::CalculatePotentialInstances_ThreadSafe(const UWorld* InWorld, const UFoliageType* Settings, const TArray<FDesiredFoliageInstance>* DesiredInstances, TArray<FPotentialInstance> OutPotentialInstances[NUM_INSTANCE_BUCKETS], const FFoliageUISettings* UISettings, const int32 StartIdx, const int32 LastIdx)
+void FEdModeFoliage::CalculatePotentialInstances_ThreadSafe(const UWorld* InWorld, const UFoliageType* Settings, const TArray<FDesiredFoliageInstance>* DesiredInstances, TArray<FPotentialInstance> OutPotentialInstances[NUM_INSTANCE_BUCKETS], const FFoliageUISettings* UISettings, const int32 StartIdx, const int32 LastIdx, const FFoliagePaintingGeometryFilter* OverrideGeometryFilter)
 {
 	LandscapeLayerCacheData LocalCache;
 
@@ -910,6 +916,11 @@ void FEdModeFoliage::CalculatePotentialInstances_ThreadSafe(const UWorld* InWorl
 			// Enable geometry filters when painting foliage manually
 			TraceFilterFunc = FFoliagePaintingGeometryFilter(*UISettings);
 		}
+
+		if(OverrideGeometryFilter)
+		{
+			TraceFilterFunc = *OverrideGeometryFilter;
+		}
 		
 		if (AInstancedFoliageActor::FoliageTrace(InWorld, Hit, DesiredInst, NAME_AddFoliageInstances, true, TraceFilterFunc))
 		{
@@ -927,7 +938,7 @@ void FEdModeFoliage::CalculatePotentialInstances_ThreadSafe(const UWorld* InWorl
 	}
 }
 
-void FEdModeFoliage::CalculatePotentialInstances(const UWorld* InWorld, const UFoliageType* Settings, const TArray<FDesiredFoliageInstance>& DesiredInstances, TArray<FPotentialInstance> OutPotentialInstances[NUM_INSTANCE_BUCKETS], LandscapeLayerCacheData* LandscapeLayerCachesPtr, const FFoliageUISettings* UISettings)
+void FEdModeFoliage::CalculatePotentialInstances(const UWorld* InWorld, const UFoliageType* Settings, const TArray<FDesiredFoliageInstance>& DesiredInstances, TArray<FPotentialInstance> OutPotentialInstances[NUM_INSTANCE_BUCKETS], LandscapeLayerCacheData* LandscapeLayerCachesPtr, const FFoliageUISettings* UISettings, const FFoliagePaintingGeometryFilter* OverrideGeometryFilter)
 {
 	LandscapeLayerCacheData LocalCache;
 	LandscapeLayerCachesPtr = LandscapeLayerCachesPtr ? LandscapeLayerCachesPtr : &LocalCache;
@@ -951,6 +962,11 @@ void FEdModeFoliage::CalculatePotentialInstances(const UWorld* InWorld, const UF
 		{
 			// Enable geometry filters when painting foliage manually
 			TraceFilterFunc = FFoliagePaintingGeometryFilter(*UISettings);
+		}
+
+		if(OverrideGeometryFilter)
+		{
+			TraceFilterFunc = *OverrideGeometryFilter;
 		}
 				
 		FHitResult Hit;
@@ -981,7 +997,7 @@ void FEdModeFoliage::CalculatePotentialInstances(const UWorld* InWorld, const UF
 	}
 }
 
-void FEdModeFoliage::AddInstances(UWorld* InWorld, const TArray<FDesiredFoliageInstance>& DesiredInstances)
+void FEdModeFoliage::AddInstances(UWorld* InWorld, const TArray<FDesiredFoliageInstance>& DesiredInstances, const FFoliagePaintingGeometryFilter& OverrideGeometryFilter)
 {
 	TMap<const UFoliageType*, TArray<FDesiredFoliageInstance>> SettingsInstancesMap;
 	for (const FDesiredFoliageInstance& DesiredInst : DesiredInstances)
@@ -995,7 +1011,7 @@ void FEdModeFoliage::AddInstances(UWorld* InWorld, const TArray<FDesiredFoliageI
 		const UFoliageType* FoliageType = It.Key();
 
 		const TArray<FDesiredFoliageInstance>& Instances = It.Value();
-		AddInstancesImp(InWorld, FoliageType, Instances);
+		AddInstancesImp(InWorld, FoliageType, Instances, TArray<int32>(), 1.f, nullptr, nullptr, &OverrideGeometryFilter);
 	}
 }
 
@@ -1011,7 +1027,7 @@ static void SpawnFoliageInstance(UWorld* InWorld, const UFoliageType* Settings, 
 	MeshInfo->AddInstance(IFA, FoliageSettings, Instance, BaseComponent);
 }
 
-void FEdModeFoliage::AddInstancesImp(UWorld* InWorld, const UFoliageType* Settings, const TArray<FDesiredFoliageInstance>& DesiredInstances, const TArray<int32>& ExistingInstanceBuckets, const float Pressure, LandscapeLayerCacheData* LandscapeLayerCachesPtr, const FFoliageUISettings* UISettings)
+void FEdModeFoliage::AddInstancesImp(UWorld* InWorld, const UFoliageType* Settings, const TArray<FDesiredFoliageInstance>& DesiredInstances, const TArray<int32>& ExistingInstanceBuckets, const float Pressure, LandscapeLayerCacheData* LandscapeLayerCachesPtr, const FFoliageUISettings* UISettings, const FFoliagePaintingGeometryFilter* OverrideGeometryFilter)
 {
 	if (DesiredInstances.Num() == 0)
 	{
@@ -1021,12 +1037,12 @@ void FEdModeFoliage::AddInstancesImp(UWorld* InWorld, const UFoliageType* Settin
 	TArray<FPotentialInstance> PotentialInstanceBuckets[NUM_INSTANCE_BUCKETS];
 	if (DesiredInstances[0].PlacementMode == EFoliagePlacementMode::Manual)
 	{
-		CalculatePotentialInstances(InWorld, Settings, DesiredInstances, PotentialInstanceBuckets, LandscapeLayerCachesPtr, UISettings);
+		CalculatePotentialInstances(InWorld, Settings, DesiredInstances, PotentialInstanceBuckets, LandscapeLayerCachesPtr, UISettings, OverrideGeometryFilter);
 	}
 	else
 	{
 		//@TODO: actual threaded part coming, need parts of this refactor sooner for content team
-		CalculatePotentialInstances_ThreadSafe(InWorld, Settings, &DesiredInstances, PotentialInstanceBuckets, nullptr, 0, DesiredInstances.Num() - 1);
+		CalculatePotentialInstances_ThreadSafe(InWorld, Settings, &DesiredInstances, PotentialInstanceBuckets, nullptr, 0, DesiredInstances.Num() - 1, OverrideGeometryFilter);
 
 		// Existing foliage types in the palette  we want to override any existing mesh settings with the procedural settings.
 		TMap<AInstancedFoliageActor*, TArray<const UFoliageType*>> UpdatedTypesByIFA;
@@ -1701,7 +1717,7 @@ void FEdModeFoliage::ReapplyInstancesForBrush(UWorld* InWorld, AInstancedFoliage
 					// Reapply vertex color mask
 					if (Settings->ReapplyVertexColorMask)
 					{
-						if (Settings->VertexColorMask != FOLIAGEVERTEXCOLORMASK_Disabled && Hit.FaceIndex != INDEX_NONE)
+						if (Hit.FaceIndex != INDEX_NONE && IsUsingVertexColorMask(Settings))
 						{
 							UStaticMeshComponent* HitStaticMeshComponent = Cast<UStaticMeshComponent>(Hit.Component.Get());
 							if (HitStaticMeshComponent)
@@ -2251,7 +2267,7 @@ bool FEdModeFoliage::GetStaticMeshVertexColorForHit(const UStaticMeshComponent* 
 
 void FEdModeFoliage::SnapSelectedInstancesToGround(UWorld* InWorld)
 {
-	GEditor->BeginTransaction(NSLOCTEXT("UnrealEd", "FoliageMode_EditTransaction", "Snap Foliage To Ground"));
+	GEditor->BeginTransaction(NSLOCTEXT("UnrealEd", "FoliageMode_Transaction_SnapToGround", "Snap Foliage To Ground"));
 	{
 		bool bMovedInstance = false;
 

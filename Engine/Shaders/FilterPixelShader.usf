@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	FilterPixelShader.usf: Filter pixel shader source.
@@ -61,33 +61,33 @@ void Main(
 	out half4 OutColor : SV_Target0
 	)
 {
-	half3 Dest = 0;
+	half4 Dest = 0;
 	
 	int SampleIndex;
 	LOOP for (SampleIndex = 0; SampleIndex < SampleCount - 1; SampleIndex += 2)
 	{
 		{
 			const float2 UV = InUV + SampleOffsets[SampleIndex / 2].xy;
-			Dest += FilterTexture.Sample(FilterTextureSampler, UV).rgb * SampleWeights[SampleIndex + 0];
+			Dest += FilterTexture.Sample(FilterTextureSampler, UV) * SampleWeights[SampleIndex + 0];
 		}
 		
 		{
 			const float2 UV = InUV + SampleOffsets[SampleIndex / 2].wz;
-			Dest += FilterTexture.Sample(FilterTextureSampler, UV).rgb * SampleWeights[SampleIndex + 1];
+			Dest += FilterTexture.Sample(FilterTextureSampler, UV) * SampleWeights[SampleIndex + 1];
 		}
 	}
 	BRANCH if (SampleIndex < SampleCount)
 	{
 		const float2 UV = InUV + SampleOffsets[SampleIndex / 2].xy;
-		Dest += FilterTexture.Sample(FilterTextureSampler, UV).rgb * SampleWeights[SampleIndex + 1];
+		Dest += FilterTexture.Sample(FilterTextureSampler, UV) * SampleWeights[SampleIndex + 1];
 	}
 
 #  if COMBINE_METHOD == 1
-	Dest += Texture2DSample(AdditiveTexture, AdditiveTextureSampler, InUV).rgb;
+	Dest += Texture2DSample(AdditiveTexture, AdditiveTextureSampler, InUV);
 #  endif
 
 	// RETURN_COLOR not needed unless writing to SceneColor;
-	OutColor = half4(Dest, 0);
+	OutColor = half4(Dest);
 }
 
 # else //!(ES2_PROFILE || ES3_1_PROFILE)
@@ -143,17 +143,17 @@ void Main(
 	out half4 OutColor : SV_Target0
 	)
 {
-	half3 Dest = 0;
+	half4 Dest = 0;
 	UNROLL for( int i = 0; i < NUM_SAMPLES; i++ )
 	{
-		Dest += FilterTexture.Sample( FilterTextureSampler, InOffsetUVs[i] ).rgb * SampleWeights[i];
+		Dest += FilterTexture.Sample(FilterTextureSampler, InOffsetUVs[i]) * SampleWeights[i];
 	}
 
 #  if COMBINE_METHOD == 1
-	Dest += AdditiveTexture.Sample( AdditiveTextureSampler, InUV ).rgb;
+	Dest += AdditiveTexture.Sample(AdditiveTextureSampler, InUV);
 #  endif
 
-	OutColor.rgb = Dest;
+	OutColor = Dest;
 }
 
 # else //!(ES2_PROFILE || ES3_1_PROFILE)

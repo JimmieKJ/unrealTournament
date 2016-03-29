@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 #include "Abilities/Tasks/AbilityTask_WaitInputRelease.h"
@@ -15,7 +15,7 @@ void UAbilityTask_WaitInputRelease::OnReleaseCallback()
 {
 	float ElapsedTime = GetWorld()->GetTimeSeconds() - StartTime;
 
-	if (!Ability.IsValid() || !AbilitySystemComponent.IsValid())
+	if (!Ability || !AbilitySystemComponent)
 	{
 		return;
 	}
@@ -47,7 +47,7 @@ UAbilityTask_WaitInputRelease* UAbilityTask_WaitInputRelease::WaitInputRelease(c
 void UAbilityTask_WaitInputRelease::Activate()
 {
 	StartTime = GetWorld()->GetTimeSeconds();
-	if (Ability.IsValid())
+	if (Ability)
 	{
 		if (bTestInitialState && IsLocallyControlled())
 		{

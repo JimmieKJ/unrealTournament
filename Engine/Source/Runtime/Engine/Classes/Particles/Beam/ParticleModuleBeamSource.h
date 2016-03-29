@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /**
  *	ParticleModuleBeamSource
@@ -69,7 +69,7 @@ class UParticleModuleBeamSource : public UParticleModuleBeamBase
 	//Begin UParticleModule Interface
 	virtual void Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase) override;
 	virtual void Update(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime) override;
-	virtual uint32 RequiredBytes(FParticleEmitterInstance* Owner = NULL) override;
+	virtual uint32 RequiredBytes(UParticleModuleTypeDataBase* TypeData) override;
 	virtual void AutoPopulateInstanceProperties(UParticleSystemComponent* PSysComp) override;
 	virtual void GetParticleSysParamsUtilized(TArray<FString>& ParticleSysParamList) override;
 	//End UParticleModule Interface

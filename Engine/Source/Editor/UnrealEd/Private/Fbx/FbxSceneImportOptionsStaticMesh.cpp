@@ -1,11 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 
 
 UFbxSceneImportOptionsStaticMesh::UFbxSceneImportOptionsStaticMesh(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	, bTransformVertexToAbsolute(false)
 	, StaticMeshLODGroup(NAME_None)
 	, bAutoGenerateCollision(true)
 	, bRemoveDegenerates(true)
@@ -29,7 +28,6 @@ void UFbxSceneImportOptionsStaticMesh::FillStaticMeshInmportData(UFbxStaticMeshI
 	StaticMeshImportData->bGenerateLightmapUVs = bGenerateLightmapUVs;
 	StaticMeshImportData->bOneConvexHullPerUCX = bOneConvexHullPerUCX;
 	StaticMeshImportData->bRemoveDegenerates = bRemoveDegenerates;
-	StaticMeshImportData->bTransformVertexToAbsolute = bTransformVertexToAbsolute;
 	StaticMeshImportData->StaticMeshLODGroup = StaticMeshLODGroup;
 	switch (VertexColorImportOption)
 	{
@@ -50,7 +48,8 @@ void UFbxSceneImportOptionsStaticMesh::FillStaticMeshInmportData(UFbxStaticMeshI
 	StaticMeshImportData->ImportTranslation = SceneImportOptions->ImportTranslation;
 	StaticMeshImportData->ImportRotation = SceneImportOptions->ImportRotation;
 	StaticMeshImportData->ImportUniformScale = SceneImportOptions->ImportUniformScale;
+	StaticMeshImportData->bTransformVertexToAbsolute = SceneImportOptions->bTransformVertexToAbsolute;
+	StaticMeshImportData->bBakePivotInVertex = SceneImportOptions->bBakePivotInVertex;
 
-	//This option is for skeletalmesh only
-	StaticMeshImportData->bUseExperimentalTangentGeneration = false;
+	StaticMeshImportData->bImportAsScene = true;
 }

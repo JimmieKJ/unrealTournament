@@ -1,14 +1,17 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintCompilerCppBackendModulePrivatePCH.h"
 #include "BlueprintCompilerCppBackendUtils.h"
 #include "Animation/AnimBlueprintGeneratedClass.h"
 #include "Animation/AnimClassData.h"
 
-FString FBackendHelperAnim::AddHeaders(UClass* GeneratedClass)
+void FBackendHelperAnim::AddHeaders(FEmitterLocalContext& Context)
 {
-	auto AnimClass = Cast<UAnimBlueprintGeneratedClass>(GeneratedClass);
-	return AnimClass ? FString(TEXT("#include \"Animation/AnimClassData.h\"")) : FString();
+	if (Cast<UAnimBlueprintGeneratedClass>(Context.GetCurrentlyGeneratedClass()))
+	{
+		Context.Header.AddLine(TEXT("#include \"Animation/AnimClassData.h\""));
+		Context.Body.AddLine(TEXT("#include \"Animation/BlendProfile.h\""));
+	}
 }
 
 void FBackendHelperAnim::CreateAnimClassData(FEmitterLocalContext& Context)
@@ -16,7 +19,7 @@ void FBackendHelperAnim::CreateAnimClassData(FEmitterLocalContext& Context)
 	if (auto AnimClass = Cast<UAnimBlueprintGeneratedClass>(Context.GetCurrentlyGeneratedClass()))
 	{
 		const FString LocalNativeName = Context.GenerateUniqueLocalName();
-		Context.AddLine(FString::Printf(TEXT("auto %s = NewObject<UAnimClassData>(GetClass(), TEXT(\"AnimClassData\"));"), *LocalNativeName));
+		Context.AddLine(FString::Printf(TEXT("auto %s = NewObject<UAnimClassData>(InDynamicClass, TEXT(\"AnimClassData\"));"), *LocalNativeName));
 
 		auto AnimClassData = NewObject<UAnimClassData>(GetTransientPackage(), TEXT("AnimClassData"));
 		AnimClassData->CopyFrom(AnimClass);
@@ -30,7 +33,7 @@ void FBackendHelperAnim::CreateAnimClassData(FEmitterLocalContext& Context)
 				, FEmitDefaultValueHelper::EPropertyAccessOperator::Pointer);
 		}
 
-		Context.AddLine(FString::Printf(TEXT("CastChecked<UDynamicClass>(GetClass())->AnimClassImplementation = %s;"), *LocalNativeName));
+		Context.AddLine(FString::Printf(TEXT("InDynamicClass->AnimClassImplementation = %s;"), *LocalNativeName));
 	}
 }
 

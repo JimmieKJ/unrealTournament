@@ -1,14 +1,14 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MetalRHIPrivate.h"
 
 TGlobalResource<TBoundShaderStateHistory<10000>> FMetalRHICommandContext::BoundShaderStateHistory;
 
-FMetalContext& GetMetalDeviceContext()
+FMetalDeviceContext& GetMetalDeviceContext()
 {
 	FMetalRHICommandContext* Context = static_cast<FMetalRHICommandContext*>(RHIGetDefaultContext());
 	check(Context);
-	return Context->GetInternalContext();
+	return ((FMetalDeviceContext&)Context->GetInternalContext());
 }
 
 void SafeReleaseMetalResource(id Object)
@@ -18,7 +18,7 @@ void SafeReleaseMetalResource(id Object)
 		FMetalRHICommandContext* Context = static_cast<FMetalRHICommandContext*>(RHIGetDefaultContext());
 		if(Context)
 		{
-			Context->GetInternalContext().ReleaseObject(Object);
+			((FMetalDeviceContext&)Context->GetInternalContext()).ReleaseObject(Object);
 			return;
 		}
 	}
@@ -32,13 +32,13 @@ void SafeReleasePooledBuffer(id<MTLBuffer> Buffer)
 		FMetalRHICommandContext* Context = static_cast<FMetalRHICommandContext*>(RHIGetDefaultContext());
 		if(Context)
 		{
-			Context->GetInternalContext().ReleasePooledBuffer(Buffer);
+			((FMetalDeviceContext&)Context->GetInternalContext()).ReleasePooledBuffer(Buffer);
 		}
 	}
 }
 
-FMetalRHICommandContext::FMetalRHICommandContext(struct FMetalGPUProfiler* InProfiler)
-: Context(new FMetalContext)
+FMetalRHICommandContext::FMetalRHICommandContext(struct FMetalGPUProfiler* InProfiler, FMetalContext* WrapContext)
+: Context(WrapContext)
 , Profiler(InProfiler)
 , PendingVertexBufferOffset(0xFFFFFFFF)
 , PendingVertexDataStride(0)

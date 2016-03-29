@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "Audio.h"
@@ -12,59 +12,80 @@ struct FAudioEQEffect
 	/* Start time of effect */
 	double RootTime;
 
-	/* High frequency filter cutoff frequency (Hz) */
-	UPROPERTY(EditAnywhere, Category=HighPass )
-	float HFFrequency;
-
-	/* High frequency gain - 0.0 is silent, 1.0 is full volume. */
-	UPROPERTY(EditAnywhere, Category=HighPass )
-	float HFGain;
-
-	/* Middle (band) frequency filter cutoff frequency (Hz). */
-	UPROPERTY(EditAnywhere, Category=BandPass )
-	float MFCutoffFrequency;
-
-	/* Middle (band) frequency filter bandwidth frequency (Hz) - Range (0.1 to 2.0). */
-	UPROPERTY(EditAnywhere, Category=BandPass )
-	float MFBandwidth;
-
-	/* Middle (band) frequency filter gain - 0.0 is silent, 1.0 is full volume. */
-	UPROPERTY(EditAnywhere, Category=BandPass )
-	float MFGain;
-
-	/* Low frequency filter cutoff frequency (Hz) */
-	UPROPERTY(EditAnywhere, Category=LowPass )
-	float LFFrequency;
-
-	/* Low frequency filter gain - 0.0 is silent, 1.0 is full volume. */
-	UPROPERTY(EditAnywhere, Category=LowPass )
-	float LFGain;
-
-
-
-		// Cannot use strcutdefaultproperties here as this class is a member of a native class
-		FAudioEQEffect()
-		:	RootTime( 0.0 )
-		,	HFFrequency( DEFAULT_HIGH_FREQUENCY )
-		,	HFGain( 1.0f )
-		,	MFCutoffFrequency( DEFAULT_MID_FREQUENCY )
-		,	MFBandwidth( 1.0f )
-		,	MFGain( 1.0f )
-		,	LFFrequency( DEFAULT_LOW_FREQUENCY )
-		,	LFGain( 1.0f )
-		{
-		}
-
-		/** 
-		 * Interpolate EQ settings based on time
-		 */
-		void Interpolate( float InterpValue, const FAudioEQEffect& Start, const FAudioEQEffect& End );
-		
-		/** 
-		 * Validate all settings are in range
-		 */
-		void ClampValues( void );
+	/** Center frequency in Hz for band 0 */
+	UPROPERTY(EditAnywhere, Category = Band0, meta = (ClampMin = "0.0", ClampMax = "20000.0", UIMin = "0.0", UIMax = "20000.0"))
+	float FrequencyCenter0;
 	
+	/** Boost/cut of band 0 */
+	UPROPERTY(EditAnywhere, Category = Band0, meta = (ClampMin = "0.0", ClampMax = "10.0", UIMin = "0.0", UIMax = "10.0"))
+	float Gain0;
+
+	/** Bandwidth of band 0. Region is center frequency +/- Bandwidth /2 */
+	UPROPERTY(EditAnywhere, Category = Band0, meta = (ClampMin = "0.0", ClampMax = "2.0", UIMin = "0.0", UIMax = "2.0"))
+	float Bandwidth0;
+
+	/** Center frequency in Hz for band 1 */
+	UPROPERTY(EditAnywhere, Category = Band0, meta = (ClampMin = "0.0", ClampMax = "20000.0", UIMin = "0.0", UIMax = "20000.0"))
+	float FrequencyCenter1;
+
+	/** Boost/cut of band 1 */
+	UPROPERTY(EditAnywhere, Category = Band0, meta = (ClampMin = "0.0", ClampMax = "10.0", UIMin = "0.0", UIMax = "10.0"))
+	float Gain1;
+
+	/** Bandwidth of band 1. Region is center frequency +/- Bandwidth /2 */
+	UPROPERTY(EditAnywhere, Category = Band0, meta = (ClampMin = "0.0", ClampMax = "2.0", UIMin = "0.0", UIMax = "2.0"))
+	float Bandwidth1;
+
+	/** Center frequency in Hz for band 2 */
+	UPROPERTY(EditAnywhere, Category = Band0, meta = (ClampMin = "0.0", ClampMax = "20000.0", UIMin = "0.0", UIMax = "20000.0"))
+	float FrequencyCenter2;
+
+	/** Boost/cut of band 2 */
+	UPROPERTY(EditAnywhere, Category = Band0, meta = (ClampMin = "0.0", ClampMax = "10.0", UIMin = "0.0", UIMax = "10.0"))
+	float Gain2;
+
+	/** Bandwidth of band 2. Region is center frequency +/- Bandwidth /2 */
+	UPROPERTY(EditAnywhere, Category = Band0, meta = (ClampMin = "0.0", ClampMax = "2.0", UIMin = "0.0", UIMax = "2.0"))
+	float Bandwidth2;
+
+	/** Center frequency in Hz for band 3 */
+	UPROPERTY(EditAnywhere, Category = Band0, meta = (ClampMin = "0.0", ClampMax = "20000.0", UIMin = "0.0", UIMax = "20000.0"))
+	float FrequencyCenter3;
+
+	/** Boost/cut of band 3 */
+	UPROPERTY(EditAnywhere, Category = Band0, meta = (ClampMin = "0.0", ClampMax = "10.0", UIMin = "0.0", UIMax = "10.0"))
+	float Gain3;
+
+	/** Bandwidth of band 3. Region is center frequency +/- Bandwidth /2 */
+	UPROPERTY(EditAnywhere, Category = Band0, meta = (ClampMin = "0.0", ClampMax = "2.0", UIMin = "0.0", UIMax = "2.0"))
+	float Bandwidth3;
+
+	FAudioEQEffect()
+		: RootTime(0.0f)
+		, FrequencyCenter0(600.0f)
+		, Gain0(1.0f)
+		, Bandwidth0(1.0f)
+		, FrequencyCenter1(1000.0f)
+		, Gain1(1.0f)
+		, Bandwidth1(1.0f)
+		, FrequencyCenter2(2000.0f)
+		, Gain2(1.0f)
+		, Bandwidth2(1.0f)
+		, FrequencyCenter3(10000.0f)
+		, Gain3(1.0f)
+		, Bandwidth3(1.0f)
+	{}
+
+	/** 
+	* Interpolate EQ settings based on time
+	*/
+	void Interpolate( float InterpValue, const FAudioEQEffect& Start, const FAudioEQEffect& End );
+		
+	/** 
+	* Clamp all settings in range
+	*/
+	void ClampValues();
+
 };
 
 /**
@@ -95,9 +116,7 @@ struct FSoundClassAdjuster
 	UPROPERTY(EditAnywhere, Category=SoundClassAdjuster )
 	float VoiceCenterChannelVolumeAdjuster;
 
-
-
-		FSoundClassAdjuster()
+	FSoundClassAdjuster()
 		: SoundClassObject(NULL)
 		, VolumeAdjuster(1)
 		, PitchAdjuster(1)
@@ -142,6 +161,12 @@ class USoundMix : public UObject
 	/* Time taken in seconds for the mix to fade out. */
 	UPROPERTY(EditAnywhere, Category=SoundMix )
 	float FadeOutTime;
+
+#if WITH_EDITORONLY_DATA
+	/** Transient property used to trigger real-time updates of the active EQ filter for editor previewing */
+	UPROPERTY(transient)
+	uint32 bChanged:1;
+#endif
 
 #if WITH_EDITOR
 	bool CausesPassiveDependencyLoop(TArray<USoundClass*>& ProblemClasses) const;

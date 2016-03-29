@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -128,6 +128,15 @@ typedef FOnBlockedPlayerComplete::FDelegate FOnBlockedPlayerCompleteDelegate;
  */
 DECLARE_MULTICAST_DELEGATE_FiveParams(FOnUnblockedPlayerComplete, int32, bool, const FUniqueNetId&, const FString&, const FString&);
 typedef FOnUnblockedPlayerComplete::FDelegate FOnUnblockedPlayerCompleteDelegate;
+
+/**
+ * Delegate used in block list change notifications
+ *
+ * @param LocalUserNum the controller number of the associated user that made the request
+ * @param ListName name of the friends list that was operated on
+ */
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnBlockListChange, int32 /*LocalUserNum*/, const FString& /*ListName*/);
+typedef FOnBlockListChange::FDelegate FOnBlockListChangeDelegate;
 
 /**
  * Delegate used when the query for recent players has completed
@@ -344,6 +353,13 @@ public:
 	DEFINE_ONLINE_PLAYER_DELEGATE_FOUR_PARAM(MAX_LOCAL_PLAYERS, OnUnblockedPlayerComplete, bool, const FUniqueNetId&, const FString&, const FString&);
 
 	/**
+     * Delegate used in block list change notifications
+	 *
+	 * @param ListName name of friends list that was operated on
+     */
+	DEFINE_ONLINE_PLAYER_DELEGATE_ONE_PARAM(MAX_LOCAL_PLAYERS, OnBlockListChange, const FString& /*ListName*/);
+
+	/**
 	 * Copies the list of friends for the player previously retrieved from the online service
 	 *
 	 * @param LocalUserNum the user to read the friends list of
@@ -454,6 +470,11 @@ public:
 	 * @return true if blocked players list was found for the given user
 	 */
 	virtual bool GetBlockedPlayers(const FUniqueNetId& UserId, TArray< TSharedRef<FOnlineBlockedPlayer> >& OutBlockedPlayers) = 0;
+
+	/**
+	 * Dump state information about blocked players
+	 */
+	virtual void DumpBlockedPlayers() const = 0;
 
 };
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	StaticMeshActorBase.cpp: Static mesh actor base class implementation.
@@ -10,6 +10,7 @@
 #include "UObjectToken.h"
 #include "MapErrors.h"
 #include "Engine/StaticMeshActor.h"
+#include "UObject/DevObjectVersion.h"
 
 #define LOCTEXT_NAMESPACE "StaticMeshActor"
 
@@ -22,6 +23,7 @@ AStaticMeshActor::AStaticMeshActor(const FObjectInitializer& ObjectInitializer)
 	StaticMeshComponent->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
 	StaticMeshComponent->Mobility = EComponentMobility::Static;
 	StaticMeshComponent->bGenerateOverlapEvents = false;
+	StaticMeshComponent->bUseDefaultCollision = true;
 
 	RootComponent = StaticMeshComponent;
 }
@@ -118,6 +120,30 @@ bool AStaticMeshActor::GetReferencedContentObjects( TArray<UObject*>& Objects ) 
 		Objects.Add(StaticMeshComponent->StaticMesh);
 	}
 	return true;
+}
+
+void AStaticMeshActor::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
+}
+
+void AStaticMeshActor::PostLoad()
+{
+	Super::PostLoad();
+
+	if (StaticMeshComponent && GetLinkerCustomVersion(FFrameworkObjectVersion::GUID) < FFrameworkObjectVersion::UseBodySetupCollisionProfile)
+	{
+		//For all existing content we check whether we need to mark collision profile for override.
+		if (UBodySetup* BodySetup = StaticMeshComponent->GetBodySetup())
+		{
+			if (BodySetup->DefaultInstance.GetCollisionProfileName() != StaticMeshComponent->GetCollisionProfileName())
+			{
+				StaticMeshComponent->bUseDefaultCollision = false;
+			}
+		}
+	}
+	
 }
 
 void AStaticMeshActor::CheckForErrors()

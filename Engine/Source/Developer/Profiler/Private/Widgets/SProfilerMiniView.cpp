@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ProfilerPrivatePCH.h"
 
@@ -123,7 +123,7 @@ int32 SProfilerMiniView::OnPaint( const FPaintArgs& Args, const FGeometry& Allot
 	if( IsReady() )
 	{
 		static const FSlateColorBrush SolidWhiteBrush = FSlateColorBrush( FColorList::White );
-		// @TODO yrx 2014-04-24 move to the global scope.
+		// #Profiler 2014-04-24 move to the global scope.
 		const FColor GameThreadColor = FColorList::Red;
 		const FColor RenderThreadColor = FColorList::Blue;
 		const FColor OtherThreadsColor = FColorList::Grey;
@@ -235,7 +235,7 @@ int32 SProfilerMiniView::OnPaint( const FPaintArgs& Args, const FGeometry& Allot
 				&SolidWhiteBrush,
 				MyClippingRect,
 				DrawEffects,
-				// @TODO yrx 2014-04-09 How to get this color from Slate?
+				// #Profiler: 2014-04-09 How to get this color from Slate?
 				FColor(96,96,96)
 			);
 		}
@@ -646,7 +646,8 @@ const int32 SProfilerMiniView::PositionToFrameIndex( const float InPositionX ) c
 
 void SProfilerMiniView::ProcessData()
 {
-//	SCOPE_LOG_TIME_FUNC();
+	static FTotalTimeAndCount TimeAndCount( 0.0f, 0 );
+	//SCOPE_LOG_TIME_FUNC_WITH_GLOBAL( &TimeAndCount );
 
 	AllFrames.Append( RecentlyAddedFrames );
 	RecentlyAddedFrames.Reset();

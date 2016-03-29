@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneTracksPrivatePCH.h"
 #include "MovieSceneSlomoTrack.h"
@@ -14,7 +14,7 @@ FMovieSceneSlomoTrackInstance::FMovieSceneSlomoTrackInstance(UMovieSceneSlomoTra
 { }
 
 	
-void FMovieSceneSlomoTrackInstance::RestoreState(const TArray<UObject*>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
+void FMovieSceneSlomoTrackInstance::RestoreState(const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
 {
 	AWorldSettings* WorldSettings = GWorld->GetWorldSettings();
 
@@ -26,7 +26,7 @@ void FMovieSceneSlomoTrackInstance::RestoreState(const TArray<UObject*>& Runtime
 	WorldSettings->MatineeTimeDilation = InitMatineeTimeDilation;
 }
 
-void FMovieSceneSlomoTrackInstance::SaveState(const TArray<UObject*>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
+void FMovieSceneSlomoTrackInstance::SaveState(const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
 {
 	AWorldSettings* WorldSettings = GWorld->GetWorldSettings();
 
@@ -41,7 +41,7 @@ void FMovieSceneSlomoTrackInstance::SaveState(const TArray<UObject*>& RuntimeObj
 /* IMovieSceneTrackInstance interface
  *****************************************************************************/
 
-void FMovieSceneSlomoTrackInstance::Update(float Position, float LastPosition, const TArray<UObject*>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance, EMovieSceneUpdatePass UpdatePass)
+void FMovieSceneSlomoTrackInstance::Update(EMovieSceneUpdateData& UpdateData, const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
 {
 	if (!ShouldBeApplied())
 	{
@@ -57,7 +57,7 @@ void FMovieSceneSlomoTrackInstance::Update(float Position, float LastPosition, c
 
 	float FloatValue = 0.0f;
 
-	if (SlomoTrack->Eval(Position, LastPosition, FloatValue))
+	if (SlomoTrack->Eval(UpdateData.Position, UpdateData.LastPosition, FloatValue))
 	{
 		WorldSettings->MatineeTimeDilation = FloatValue;
 		WorldSettings->ForceNetUpdate();

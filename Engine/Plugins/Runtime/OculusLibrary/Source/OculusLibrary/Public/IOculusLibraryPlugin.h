@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -138,5 +138,11 @@ public:
 	* @param OutPosOffset		(out) the vector with previously set position offset.
 	*/
 	virtual void GetBaseRotationAndPositionOffset(FRotator& OutRot, FVector& OutPosOffset) = 0;
+
+	/**
+	 * Returns IStereoLayers interface to work with overlays.
+	 */
+	virtual class IStereoLayers* GetStereoLayers() = 0;
+
 };
 

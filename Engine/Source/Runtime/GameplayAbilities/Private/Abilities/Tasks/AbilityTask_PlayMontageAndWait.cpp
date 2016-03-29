@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 #include "AbilitySystemComponent.h"
@@ -9,15 +9,25 @@ UAbilityTask_PlayMontageAndWait::UAbilityTask_PlayMontageAndWait(const FObjectIn
 	: Super(ObjectInitializer)
 {
 	Rate = 1.f;
+	bStopWhenAbilityEnds = true;
 }
 
 void UAbilityTask_PlayMontageAndWait::OnMontageBlendingOut(UAnimMontage* Montage, bool bInterrupted)
 {
-	if (Ability.IsValid() && Ability->GetCurrentMontage() == MontageToPlay)
+	if (Ability && Ability->GetCurrentMontage() == MontageToPlay)
 	{
 		if (Montage == MontageToPlay)
 		{
-			AbilitySystemComponent->ClearAnimatingAbility(Ability.Get());
+			AbilitySystemComponent->ClearAnimatingAbility(Ability);
+
+			// Reset AnimRootMotionTranslationScale
+			ACharacter* Character = Cast<ACharacter>(GetAvatarActor());
+			if (Character && (Character->Role == ROLE_Authority ||
+							  (Character->Role == ROLE_AutonomousProxy && Ability->GetNetExecutionPolicy() == EGameplayAbilityNetExecutionPolicy::LocalPredicted)))
+			{
+				Character->SetAnimRootMotionTranslationScale(1.f);
+			}
+
 		}
 	}
 
@@ -27,59 +37,57 @@ void UAbilityTask_PlayMontageAndWait::OnMontageBlendingOut(UAnimMontage* Montage
 	}
 	else
 	{
-		OnComplete.Broadcast();
+		OnBlendOut.Broadcast();
+	}
+}
+
+void UAbilityTask_PlayMontageAndWait::OnMontageInterrupted()
+{
+	if (StopPlayingMontage())
+	{
+		// Let the BP handle the interrupt as well
+		OnInterrupted.Broadcast();
+	}
+}
+
+void UAbilityTask_PlayMontageAndWait::OnMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	if (!bInterrupted)
+	{
+		OnCompleted.Broadcast();
 	}
 
 	EndTask();
 }
 
-void UAbilityTask_PlayMontageAndWait::OnMontageInterrupted()
-{
-	// Check if the montage is still playing
-	// The ability would have been interrupted, in which case we should automatically stop the montage
-	if (AbilitySystemComponent.IsValid() && Ability.IsValid())
-	{
-		if (AbilitySystemComponent->IsAnimatingAbility(Ability.Get())
-			&& AbilitySystemComponent->GetCurrentMontage() == MontageToPlay)
-		{
-			// Unbind delegates so they don't get called as well
-			BlendingOutDelegate.Unbind();
-
-			AbilitySystemComponent->CurrentMontageStop();
-
-			// Let the BP handle the interrupt as well
-			OnInterrupted.Broadcast();
-		}
-	}
-}
-
 UAbilityTask_PlayMontageAndWait* UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(UObject* WorldContextObject,
-	FName TaskInstanceName, UAnimMontage *MontageToPlay, float Rate, FName StartSection)
+	FName TaskInstanceName, UAnimMontage *MontageToPlay, float Rate, FName StartSection, bool bStopWhenAbilityEnds, float AnimRootMotionTranslationScale)
 {
 	UAbilityTask_PlayMontageAndWait* MyObj = NewAbilityTask<UAbilityTask_PlayMontageAndWait>(WorldContextObject, TaskInstanceName);
 	MyObj->MontageToPlay = MontageToPlay;
 	MyObj->Rate = Rate;
 	MyObj->StartSection = StartSection;
+	MyObj->AnimRootMotionTranslationScale = AnimRootMotionTranslationScale;
+	MyObj->bStopWhenAbilityEnds = bStopWhenAbilityEnds;
 
 	return MyObj;
 }
 
 void UAbilityTask_PlayMontageAndWait::Activate()
 {
-	UGameplayAbility* MyAbility = Ability.Get();
-	if (MyAbility == nullptr)
+	if (Ability == nullptr)
 	{
 		return;
 	}
 
 	bool bPlayedMontage = false;
 
-	if (AbilitySystemComponent.IsValid())
+	if (AbilitySystemComponent)
 	{
-		const FGameplayAbilityActorInfo* ActorInfo = MyAbility->GetCurrentActorInfo();
+		const FGameplayAbilityActorInfo* ActorInfo = Ability->GetCurrentActorInfo();
 		if (ActorInfo->AnimInstance.IsValid())
 		{
-			if (AbilitySystemComponent->PlayMontage(MyAbility, MyAbility->GetCurrentActivationInfo(), MontageToPlay, Rate, StartSection) > 0.f)
+			if (AbilitySystemComponent->PlayMontage(Ability, Ability->GetCurrentActivationInfo(), MontageToPlay, Rate, StartSection) > 0.f)
 			{
 				// Playing a montage could potentially fire off a callback into game code which could kill this ability! Early out if we are  pending kill.
 				if (IsPendingKill())
@@ -88,10 +96,20 @@ void UAbilityTask_PlayMontageAndWait::Activate()
 					return;
 				}
 
-				InterruptedHandle = MyAbility->OnGameplayAbilityCancelled.AddUObject(this, &UAbilityTask_PlayMontageAndWait::OnMontageInterrupted);
+				InterruptedHandle = Ability->OnGameplayAbilityCancelled.AddUObject(this, &UAbilityTask_PlayMontageAndWait::OnMontageInterrupted);
 
 				BlendingOutDelegate.BindUObject(this, &UAbilityTask_PlayMontageAndWait::OnMontageBlendingOut);
-				ActorInfo->AnimInstance->Montage_SetBlendingOutDelegate(BlendingOutDelegate);
+				ActorInfo->AnimInstance->Montage_SetBlendingOutDelegate(BlendingOutDelegate, MontageToPlay);
+
+				MontageEndedDelegate.BindUObject(this, &UAbilityTask_PlayMontageAndWait::OnMontageEnded);
+				ActorInfo->AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate, MontageToPlay);
+
+				ACharacter* Character = Cast<ACharacter>(GetAvatarActor());
+				if (Character && (Character->Role == ROLE_Authority ||
+								  (Character->Role == ROLE_AutonomousProxy && Ability->GetNetExecutionPolicy() == EGameplayAbilityNetExecutionPolicy::LocalPredicted)))
+				{
+					Character->SetAnimRootMotionTranslationScale(AnimRootMotionTranslationScale);
+				}
 
 				bPlayedMontage = true;
 			}
@@ -100,14 +118,17 @@ void UAbilityTask_PlayMontageAndWait::Activate()
 
 	if (!bPlayedMontage)
 	{
-		ABILITY_LOG(Warning, TEXT("UAbilityTask_PlayMontageAndWait called in Ability %s failed to play montage; Task Instance Name %s."), *MyAbility->GetName(), *InstanceName.ToString());
+		ABILITY_LOG(Warning, TEXT("UAbilityTask_PlayMontageAndWait called in Ability %s failed to play montage; Task Instance Name %s."), *Ability->GetName(), *InstanceName.ToString());
 		OnCancelled.Broadcast();
 	}
+
+	SetWaitingOnAvatar();
 }
 
 void UAbilityTask_PlayMontageAndWait::ExternalCancel()
 {
-	check(AbilitySystemComponent.IsValid());
+	check(AbilitySystemComponent);
+
 	OnCancelled.Broadcast();
 	Super::ExternalCancel();
 }
@@ -118,18 +139,54 @@ void UAbilityTask_PlayMontageAndWait::OnDestroy(bool AbilityEnded)
 	// (If we are destroyed, it will detect this and not do anything)
 
 	// This delegate, however, should be cleared as it is a multicast
-	if (Ability.IsValid())
+	if (Ability)
 	{
 		Ability->OnGameplayAbilityCancelled.Remove(InterruptedHandle);
+		if (AbilityEnded && bStopWhenAbilityEnds)
+		{
+			StopPlayingMontage();
+		}
 	}
 
 	Super::OnDestroy(AbilityEnded);
+
+}
+
+bool UAbilityTask_PlayMontageAndWait::StopPlayingMontage()
+{
+	const FGameplayAbilityActorInfo* ActorInfo = Ability->GetCurrentActorInfo();
+	if (!ActorInfo || !ActorInfo->AnimInstance.IsValid())
+	{
+		return false;
+	}
+
+	// Check if the montage is still playing
+	// The ability would have been interrupted, in which case we should automatically stop the montage
+	if (AbilitySystemComponent && Ability)
+	{
+		if (AbilitySystemComponent->GetAnimatingAbility() == Ability
+			&& AbilitySystemComponent->GetCurrentMontage() == MontageToPlay)
+		{
+			// Unbind delegates so they don't get called as well
+			FAnimMontageInstance* MontageInstance = ActorInfo->AnimInstance->GetActiveInstanceForMontage(*MontageToPlay);
+			if (MontageInstance)
+			{
+				MontageInstance->OnMontageBlendingOutStarted.Unbind();
+				MontageInstance->OnMontageEnded.Unbind();
+			}
+
+			AbilitySystemComponent->CurrentMontageStop();
+			return true;
+		}
+	}
+
+	return false;
 }
 
 FString UAbilityTask_PlayMontageAndWait::GetDebugString() const
 {
 	UAnimMontage* PlayingMontage = nullptr;
-	if (Ability.IsValid())
+	if (Ability)
 	{
 		const FGameplayAbilityActorInfo* ActorInfo = Ability->GetCurrentActorInfo();
 		if (ActorInfo->AnimInstance.IsValid())

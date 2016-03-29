@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CrashDebugHelperPrivatePCH.h"
 #include "CrashDebugHelperMac.h"
@@ -716,8 +716,27 @@ bool FCrashDebugHelperMac::CreateMinidumpDiagnosticReport( const FString& InCras
 			
 			bool bIsCrashLocation = true;
 			TCHAR const* ThreadStackLine = FindCrashedThreadStack(*CrashDump);
+			uint32 Index = 0;
 			while(ThreadStackLine)
 			{
+				if(CrashInfo.Exception.Code == SIGTRAP)
+				{
+					// For ensures strip the first three lines as they are PLCrashReporter nonsense
+					if(Index < 3)
+					{
+						ThreadStackLine = FCStringWide::Strchr(ThreadStackLine, TEXT('\n'));
+						if(ThreadStackLine)
+						{
+							ThreadStackLine += 1;
+						}
+						++Index;
+						continue;
+					}
+					
+					// Crash location is the 5th entry in the stack.
+					bIsCrashLocation = (Index == 5);
+				}
+				
 				Result = ParseThreadStackLine(ThreadStackLine, ModuleName, ProgramCounter, FunctionName, FileName, LineNumber);
 				
 				// If we got the modulename & program counter but didn't parse the filename & linenumber we can resymbolise
@@ -793,6 +812,7 @@ bool FCrashDebugHelperMac::CreateMinidumpDiagnosticReport( const FString& InCras
 						break;
 				}
 				
+				++Index;
 				bIsCrashLocation = false;
 			}
 			

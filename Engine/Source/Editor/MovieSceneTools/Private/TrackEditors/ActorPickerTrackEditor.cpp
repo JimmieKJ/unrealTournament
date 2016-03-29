@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneToolsPrivatePCH.h"
 #include "ActorPickerTrackEditor.h"
@@ -108,31 +108,69 @@ void FActorPickerTrackEditor::ShowActorSubMenu(FMenuBuilder& MenuBuilder, FGuid 
 
 void FActorPickerTrackEditor::ActorPicked(AActor* ParentActor, FGuid ObjectGuid, UMovieSceneSection* Section)
 {
-	USceneComponent* ComponentWithSockets = NULL;
+	TArray<USceneComponent*> ComponentsWithSockets;
 	if (ParentActor != NULL)
 	{
-		if (USceneComponent* RootComponent = Cast<USceneComponent>(ParentActor->GetRootComponent()))
+		TInlineComponentArray<USceneComponent*> Components(ParentActor);
+
+		for(USceneComponent* Component : Components)
 		{
-			if (RootComponent->HasAnySockets())
+			if (Component->HasAnySockets())
 			{
-				ComponentWithSockets = RootComponent;
+				ComponentsWithSockets.Add(Component);
 			}
 		}
 	}
 
 	// Show socket chooser if we have sockets to select
-	if (ComponentWithSockets != NULL)
+	if (ComponentsWithSockets.Num() > 0)
 	{
 		FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>( "LevelEditor");
 		TSharedPtr< ILevelEditor > LevelEditor = LevelEditorModule.GetFirstLevelEditor();
+
+		TSharedPtr<SWidget> MenuWidget;
+
+		if(ComponentsWithSockets.Num() > 1)
+		{
+			const bool bInShouldCloseWindowAfterMenuSelection = true;
+			FMenuBuilder MenuBuilder(bInShouldCloseWindowAfterMenuSelection, TSharedPtr<const FUICommandList>());
+
+			MenuBuilder.BeginSection(TEXT("ComponentsWithSockets"), LOCTEXT("ComponentsWithSockets", "Components With Sockets"));
+
+			for(USceneComponent* Component : ComponentsWithSockets)
+			{
+				auto NewMenuDelegate = [&](FMenuBuilder& ComponentMenuBuilder)
+				{
+					ComponentMenuBuilder.AddWidget(
+						SNew(SSocketChooserPopup)
+						.SceneComponent(Component)
+						.OnSocketChosen(this, &FActorPickerTrackEditor::ActorSocketPicked, Component, ParentActor, ObjectGuid, Section),
+						FText());
+				};
+
+				MenuBuilder.AddSubMenu(
+					FText::FromName(Component->GetFName()),
+					FText::Format(LOCTEXT("ComponentSubMenuToolTip", "View sockets for component {0}"), FText::FromName(Component->GetFName())),
+					FNewMenuDelegate::CreateLambda(NewMenuDelegate)
+					);
+			}
+		
+			MenuBuilder.EndSection();
+			MenuWidget = MenuBuilder.MakeWidget();
+		}
+		else
+		{
+			MenuWidget = 
+				SNew(SSocketChooserPopup)
+				.SceneComponent(ComponentsWithSockets[0])
+				.OnSocketChosen(this, &FActorPickerTrackEditor::ActorSocketPicked, ComponentsWithSockets[0], ParentActor, ObjectGuid, Section);		
+		}
 
 		// Create as context menu
 		FSlateApplication::Get().PushMenu(
 			LevelEditor.ToSharedRef(),
 			FWidgetPath(),
-			SNew(SSocketChooserPopup)
-			.SceneComponent( ComponentWithSockets )
-			.OnSocketChosen( this, &FActorPickerTrackEditor::ActorSocketPicked, ParentActor, ObjectGuid, Section ),
+			MenuWidget.ToSharedRef(),
 			FSlateApplication::Get().GetCursorPos(),
 			FPopupTransitionEffect( FPopupTransitionEffect::ContextMenu )
 			);
@@ -140,7 +178,7 @@ void FActorPickerTrackEditor::ActorPicked(AActor* ParentActor, FGuid ObjectGuid,
 	else
 	{
 		FSlateApplication::Get().DismissAllMenus();
-		ActorSocketPicked( NAME_None, ParentActor, ObjectGuid, Section );
+		ActorSocketPicked( NAME_None, nullptr, ParentActor, ObjectGuid, Section );
 	}
 }
 

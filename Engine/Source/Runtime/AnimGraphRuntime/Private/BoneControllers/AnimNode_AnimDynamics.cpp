@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimGraphRuntimePrivatePCH.h"
 #include "AnimNode_AnimDynamics.h"
@@ -43,8 +43,6 @@ FAnimNode_AnimDynamics::FAnimNode_AnimDynamics()
 void FAnimNode_AnimDynamics::Initialize(const FAnimationInitializeContext& Context)
 {
 	FAnimNode_SkeletalControlBase::Initialize(Context);
-
-	Context.AnimInstanceProxy->AddGameThreadPreUpdateEvent(FGameThreadPreUpdateEvent::CreateRaw(this, &FAnimNode_AnimDynamics::HandleGameThreadPreUpdateEvent));
 
 	FBoneContainer& RequiredBones = Context.AnimInstanceProxy->GetRequiredBones();
 
@@ -577,7 +575,7 @@ void FAnimNode_AnimDynamics::UpdateLimits(USkeletalMeshComponent* SkelComp, FCSP
 	}
 }
 
-void FAnimNode_AnimDynamics::HandleGameThreadPreUpdateEvent(const UAnimInstance* InAnimInstance)
+void FAnimNode_AnimDynamics::PreUpdate(const UAnimInstance* InAnimInstance)
 {
 	const USkeletalMeshComponent* SkelComp = InAnimInstance->GetSkelMeshComponent();
 	const UWorld* World = SkelComp->GetWorld();

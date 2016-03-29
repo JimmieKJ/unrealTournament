@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -15,12 +15,14 @@ public class ALAudio : ModuleRules
 			"Engine",
 		});
 
-        AddThirdPartyPrivateStaticDependencies(Target, "OpenAL");
-        AddThirdPartyPrivateStaticDependencies(Target,
+        AddEngineThirdPartyPrivateStaticDependencies(Target, "OpenAL");
+        AddEngineThirdPartyPrivateStaticDependencies(Target,
             "OpenAL",
             "UEOgg",
             "Vorbis",
             "VorbisFile"
         );
+
+		PrecompileForTargets = PrecompileTargetsType.None;
     }
 }

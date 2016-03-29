@@ -1,8 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "ModuleManager.h"
 #include "TestTimeInterface.h"
+
+#if WITH_DEV_AUTOMATION_TESTS
 
 void FTestTimeInterface::Test(UWorld* InWorld)
 {
@@ -40,3 +42,5 @@ void FTestTimeInterface::OnQueryServerUtcTimeComplete(bool bWasSuccessful, const
 	// done with the test
 	delete this;
 }
+
+#endif //WITH_DEV_AUTOMATION_TESTS

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "EnginePrivate.h"
@@ -627,7 +627,7 @@ NiagaraEffectRenderer(),
 DynamicDataRender(NULL)
 {
 	//check(InProps);
-	VertexFactory = new FMeshParticleVertexFactory(PVFT_Mesh, FeatureLevel, sizeof(FMeshParticleInstanceVertex), 0);
+	VertexFactory = ConstructMeshParticleVertexFactory(PVFT_Mesh, FeatureLevel, sizeof(FMeshParticleInstanceVertex), 0);
 	Properties = Cast<UNiagaraMeshRendererProperties>(InProps);
 
 
@@ -647,7 +647,7 @@ DynamicDataRender(NULL)
 
 void NiagaraEffectRendererMeshes::SetupVertexFactory(FMeshParticleVertexFactory *InVertexFactory, const FStaticMeshLODResources& LODResources) const
 {
-	FMeshParticleVertexFactory::DataType Data;
+	FMeshParticleVertexFactory::FDataType Data;
 
 	Data.PositionComponent = FVertexStreamComponent(
 		&LODResources.PositionVertexBuffer,

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LevelEditor.h"
 #include "LevelViewportLayoutFourPanes.h"
@@ -21,6 +21,8 @@ TSharedRef<SWidget> FLevelViewportLayoutFourPanes::MakeViewportLayout(const FStr
 	FString SpecificLayoutString = GetTypeSpecificLayoutString(LayoutString);
 
 	FString ViewportKey0, ViewportKey1, ViewportKey2, ViewportKey3;
+	FString ViewportType0 = TEXT("Default"), ViewportType1 = TEXT("Default"), ViewportType2 = TEXT("Default"), ViewportType3 = TEXT("Default");
+
 	float PrimarySplitterPercentage = ViewportLayoutFourPanesDefs::DefaultPrimarySplitterPercentage;
 	float SecondarySplitterPercentage0 = ViewportLayoutFourPanesDefs::DefaultSecondarySplitterPercentage;
 	float SecondarySplitterPercentage1 = ViewportLayoutFourPanesDefs::DefaultSecondarySplitterPercentage;
@@ -35,6 +37,11 @@ TSharedRef<SWidget> FLevelViewportLayoutFourPanes::MakeViewportLayout(const FStr
 		ViewportKey2 = SpecificLayoutString + TEXT(".Viewport2");
 		ViewportKey3 = SpecificLayoutString + TEXT(".Viewport3");
 
+		GConfig->GetString(*IniSection, *(ViewportKey0 + TEXT(".TypeWithinLayout")), ViewportType0, GEditorPerProjectIni);
+		GConfig->GetString(*IniSection, *(ViewportKey1 + TEXT(".TypeWithinLayout")), ViewportType1, GEditorPerProjectIni);
+		GConfig->GetString(*IniSection, *(ViewportKey2 + TEXT(".TypeWithinLayout")), ViewportType2, GEditorPerProjectIni);
+		GConfig->GetString(*IniSection, *(ViewportKey3 + TEXT(".TypeWithinLayout")), ViewportType3, GEditorPerProjectIni);
+
 		FString PercentageString;
 		if(GConfig->GetString(*IniSection, *(SpecificLayoutString + TEXT(".Percentage0")), PercentageString, GEditorPerProjectIni))
 		{
@@ -47,15 +54,53 @@ TSharedRef<SWidget> FLevelViewportLayoutFourPanes::MakeViewportLayout(const FStr
 		if(GConfig->GetString(*IniSection, *(SpecificLayoutString + TEXT(".Percentage2")), PercentageString, GEditorPerProjectIni))
 		{
 			TTypeFromString<float>::FromString(SecondarySplitterPercentage1, *PercentageString);
-		}	
+		}
 	}
+
+	FLevelEditorModule& LevelEditor = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
+
+	// Set up the viewports
+	FViewportConstructionArgs Args;
+	Args.ParentLayout = AsShared();
+	Args.ParentLevelEditor = ParentLevelEditor;
+	Args.IsEnabled = FSlateApplication::Get().GetNormalExecutionAttribute();
+
+	Args.bRealtime = true;
+	Args.ConfigKey = ViewportKey0;
+	Args.ViewportType = LVT_Perspective;
+	TSharedRef<IViewportLayoutEntity> Viewport0 = LevelEditor.FactoryViewport(*ViewportType0, Args);
+
+	Args.bRealtime = false;
+	Args.ConfigKey = ViewportKey1;
+	Args.ViewportType = LVT_OrthoXY;
+	TSharedRef<IViewportLayoutEntity> Viewport1 = LevelEditor.FactoryViewport(*ViewportType1, Args);
+
+	// Front viewport
+	Args.bRealtime = false;
+	Args.ConfigKey = ViewportKey2;
+	Args.ViewportType = LVT_OrthoXZ;
+	TSharedRef<IViewportLayoutEntity> Viewport2 = LevelEditor.FactoryViewport(*ViewportType2, Args);
+
+	// Top Viewport
+	Args.bRealtime = false;
+	Args.ConfigKey = ViewportKey3;
+	Args.ViewportType = LVT_OrthoYZ;
+	TSharedRef<IViewportLayoutEntity> Viewport3 = LevelEditor.FactoryViewport(*ViewportType2, Args);
+
+	Viewports.Add( *ViewportKey0, Viewport0 );
+	Viewports.Add( *ViewportKey1, Viewport1 );
+	Viewports.Add( *ViewportKey2, Viewport2 );
+	Viewports.Add( *ViewportKey3, Viewport3 );
+
+	// Make newly-created perspective viewports active by default
+	GCurrentLevelEditingViewportClient = &Viewport0->GetLevelViewportClient();
 
 	TSharedRef<SWidget> LayoutWidget = MakeFourPanelWidget(
 		Viewports,
-		ViewportKey0, ViewportKey1, ViewportKey2, ViewportKey3,
+		Viewport0->AsWidget(), Viewport1->AsWidget(), Viewport2->AsWidget(), Viewport3->AsWidget(),
 		PrimarySplitterPercentage, SecondarySplitterPercentage0, SecondarySplitterPercentage1);
 
-	InitCommonLayoutFromString(SpecificLayoutString);
+	InitCommonLayoutFromString(SpecificLayoutString, *ViewportKey1);
 
 	return LayoutWidget;
 }
@@ -120,27 +165,17 @@ void FLevelViewportLayoutFourPanes::ReplaceWidget( TSharedRef< SWidget > Source,
 // FLevelViewportLayoutFourPanesLeft /////////////////////////////
 
 TSharedRef<SWidget> FLevelViewportLayoutFourPanesLeft::MakeFourPanelWidget(
-	TArray<TSharedPtr< SLevelViewport >>& ViewportWidgets,
-	const FString& ViewportKey0, const FString& ViewportKey1, const FString& ViewportKey2, const FString& ViewportKey3,
+	TMap<FName, TSharedPtr< IViewportLayoutEntity >>& ViewportWidgets,
+	TSharedRef<SWidget> Viewport0, TSharedRef<SWidget> Viewport1, TSharedRef<SWidget> Viewport2, TSharedRef<SWidget> Viewport3,
 	float PrimarySplitterPercentage, float SecondarySplitterPercentage0, float SecondarySplitterPercentage1)
 {
-	TSharedPtr< SLevelViewport > ViewportWidget0;
-	TSharedPtr< SLevelViewport > ViewportWidget1;
-	TSharedPtr< SLevelViewport > ViewportWidget2;
-	TSharedPtr< SLevelViewport > ViewportWidget3;
-
 	TSharedRef<SWidget> Widget = 
 		SAssignNew( PrimarySplitterWidget, SSplitter )
 		.Orientation(EOrientation::Orient_Horizontal)
 		+SSplitter::Slot()
 		.Value(PrimarySplitterPercentage)
 		[
-			SAssignNew( ViewportWidget0, SLevelViewport )
-			.ViewportType( LVT_Perspective )	
-			.Realtime( true )
-			.ParentLayout( AsShared() )
-			.ParentLevelEditor( ParentLevelEditor )
-			.ConfigKey( ViewportKey0 )
+			Viewport0
 		]
 		+SSplitter::Slot()
 		.Value(1.0f - PrimarySplitterPercentage)
@@ -150,39 +185,19 @@ TSharedRef<SWidget> FLevelViewportLayoutFourPanesLeft::MakeFourPanelWidget(
 			+SSplitter::Slot()
 			.Value(SecondarySplitterPercentage0)
 			[
-				SAssignNew( ViewportWidget1, SLevelViewport )
-				.ViewportType( LVT_OrthoXY )
-				.ParentLayout( AsShared() )
-				.ParentLevelEditor( ParentLevelEditor )
-				.ConfigKey( ViewportKey1 )
+				Viewport1
 			]
 			+SSplitter::Slot()
 			.Value(SecondarySplitterPercentage1)
 			[
-				SAssignNew( ViewportWidget2, SLevelViewport )
-				.ViewportType( LVT_OrthoXZ )
-				.ParentLayout( AsShared() )
-				.ParentLevelEditor( ParentLevelEditor )
-				.ConfigKey( ViewportKey2 )
+				Viewport2
 			]
 			+SSplitter::Slot()
 			.Value(1.0f - SecondarySplitterPercentage0 - SecondarySplitterPercentage1)
 			[
-				SAssignNew( ViewportWidget3, SLevelViewport )
-				.ViewportType( LVT_OrthoYZ )
-				.ParentLayout( AsShared() )
-				.ParentLevelEditor( ParentLevelEditor )
-				.ConfigKey( ViewportKey3 )
+				Viewport3
 			]
 		];
-
-	ViewportWidgets.Add( ViewportWidget0 );
-	ViewportWidgets.Add( ViewportWidget1 );
-	ViewportWidgets.Add( ViewportWidget2 );
-	ViewportWidgets.Add( ViewportWidget3 );
-
-	// Make newly-created perspective viewports active by default
-	GCurrentLevelEditingViewportClient = &ViewportWidget0->GetLevelViewportClient();
 
 	return Widget;
 }
@@ -191,15 +206,10 @@ TSharedRef<SWidget> FLevelViewportLayoutFourPanesLeft::MakeFourPanelWidget(
 // FLevelViewportLayoutFourPanesRight /////////////////////////////
 
 TSharedRef<SWidget> FLevelViewportLayoutFourPanesRight::MakeFourPanelWidget(
-	TArray<TSharedPtr< SLevelViewport >>& ViewportWidgets,
-	const FString& ViewportKey0, const FString& ViewportKey1, const FString& ViewportKey2, const FString& ViewportKey3,
+	TMap<FName, TSharedPtr< IViewportLayoutEntity >>& ViewportWidgets,
+	TSharedRef<SWidget> Viewport0, TSharedRef<SWidget> Viewport1, TSharedRef<SWidget> Viewport2, TSharedRef<SWidget> Viewport3,
 	float PrimarySplitterPercentage, float SecondarySplitterPercentage0, float SecondarySplitterPercentage1)
 {
-	TSharedPtr< SLevelViewport > ViewportWidget0;
-	TSharedPtr< SLevelViewport > ViewportWidget1;
-	TSharedPtr< SLevelViewport > ViewportWidget2;
-	TSharedPtr< SLevelViewport > ViewportWidget3;
-
 	TSharedRef<SWidget> Widget = 
 		SAssignNew( PrimarySplitterWidget, SSplitter )
 		.Orientation(EOrientation::Orient_Horizontal)
@@ -211,49 +221,24 @@ TSharedRef<SWidget> FLevelViewportLayoutFourPanesRight::MakeFourPanelWidget(
 			+SSplitter::Slot()
 			.Value(SecondarySplitterPercentage0)
 			[
-				SAssignNew( ViewportWidget1, SLevelViewport )
-				.ViewportType( LVT_OrthoXY )
-				.ParentLayout( AsShared() )
-				.ParentLevelEditor( ParentLevelEditor )
-				.ConfigKey( ViewportKey1 )
+				Viewport1
 			]
 			+SSplitter::Slot()
 			.Value(SecondarySplitterPercentage1)
 			[
-				SAssignNew( ViewportWidget2, SLevelViewport )
-				.ViewportType( LVT_OrthoXZ )
-				.ParentLayout( AsShared() )
-				.ParentLevelEditor( ParentLevelEditor )
-				.ConfigKey( ViewportKey2 )
+				Viewport2
 			]
 			+SSplitter::Slot()
 			.Value(1.0f - SecondarySplitterPercentage0 - SecondarySplitterPercentage1)
 			[
-				SAssignNew( ViewportWidget3, SLevelViewport )
-				.ViewportType( LVT_OrthoYZ )
-				.ParentLayout( AsShared() )
-				.ParentLevelEditor( ParentLevelEditor )
-				.ConfigKey( ViewportKey3 )
+				Viewport3
 			]
 		]
 		+SSplitter::Slot()
 		.Value(1.0f - PrimarySplitterPercentage)
 		[
-			SAssignNew( ViewportWidget0, SLevelViewport )
-			.ViewportType( LVT_Perspective )	
-			.Realtime( true )
-			.ParentLayout( AsShared() )
-			.ParentLevelEditor( ParentLevelEditor )
-			.ConfigKey( ViewportKey0 )
+			Viewport0
 		];
-
-	ViewportWidgets.Add( ViewportWidget0 );
-	ViewportWidgets.Add( ViewportWidget1 );
-	ViewportWidgets.Add( ViewportWidget2 );
-	ViewportWidgets.Add( ViewportWidget3 );
-
-	// Make newly-created perspective viewports active by default
-	GCurrentLevelEditingViewportClient = &ViewportWidget0->GetLevelViewportClient();
 
 	return Widget;
 }
@@ -262,27 +247,17 @@ TSharedRef<SWidget> FLevelViewportLayoutFourPanesRight::MakeFourPanelWidget(
 // FLevelViewportLayoutFourPanesTop /////////////////////////////
 
 TSharedRef<SWidget> FLevelViewportLayoutFourPanesTop::MakeFourPanelWidget(
-	TArray<TSharedPtr< SLevelViewport >>& ViewportWidgets,
-	const FString& ViewportKey0, const FString& ViewportKey1, const FString& ViewportKey2, const FString& ViewportKey3,
+	TMap<FName, TSharedPtr< IViewportLayoutEntity >>& ViewportWidgets,
+	TSharedRef<SWidget> Viewport0, TSharedRef<SWidget> Viewport1, TSharedRef<SWidget> Viewport2, TSharedRef<SWidget> Viewport3,
 	float PrimarySplitterPercentage, float SecondarySplitterPercentage0, float SecondarySplitterPercentage1)
 {
-	TSharedPtr< SLevelViewport > ViewportWidget0;
-	TSharedPtr< SLevelViewport > ViewportWidget1;
-	TSharedPtr< SLevelViewport > ViewportWidget2;
-	TSharedPtr< SLevelViewport > ViewportWidget3;
-
 	TSharedRef<SWidget> Widget = 
 		SAssignNew( PrimarySplitterWidget, SSplitter )
 		.Orientation(EOrientation::Orient_Vertical)
 		+SSplitter::Slot()
 		.Value(PrimarySplitterPercentage)
 		[
-			SAssignNew( ViewportWidget0, SLevelViewport )
-			.ViewportType( LVT_Perspective )	
-			.Realtime( true )
-			.ParentLayout( AsShared() )
-			.ParentLevelEditor( ParentLevelEditor )
-			.ConfigKey( ViewportKey0 )
+			Viewport0
 		]
 		+SSplitter::Slot()
 		.Value(1.0f - PrimarySplitterPercentage)
@@ -292,39 +267,19 @@ TSharedRef<SWidget> FLevelViewportLayoutFourPanesTop::MakeFourPanelWidget(
 			+SSplitter::Slot()
 			.Value(SecondarySplitterPercentage0)
 			[
-				SAssignNew( ViewportWidget1, SLevelViewport )
-				.ViewportType( LVT_OrthoXY )
-				.ParentLayout( AsShared() )
-				.ParentLevelEditor( ParentLevelEditor )
-				.ConfigKey( ViewportKey1 )
+				Viewport1
 			]
 			+SSplitter::Slot()
 			.Value(SecondarySplitterPercentage1)
 			[
-				SAssignNew( ViewportWidget2, SLevelViewport )
-				.ViewportType( LVT_OrthoXZ )
-				.ParentLayout( AsShared() )
-				.ParentLevelEditor( ParentLevelEditor )
-				.ConfigKey( ViewportKey2 )
+				Viewport2
 			]
 			+SSplitter::Slot()
 			.Value(1.0f - SecondarySplitterPercentage0 - SecondarySplitterPercentage1)
 			[
-				SAssignNew( ViewportWidget3, SLevelViewport )
-				.ViewportType( LVT_OrthoYZ )
-				.ParentLayout( AsShared() )
-				.ParentLevelEditor( ParentLevelEditor )
-				.ConfigKey( ViewportKey3 )
+				Viewport3
 			]
 		];
-
-	ViewportWidgets.Add( ViewportWidget0 );
-	ViewportWidgets.Add( ViewportWidget1 );
-	ViewportWidgets.Add( ViewportWidget2 );
-	ViewportWidgets.Add( ViewportWidget3 );
-
-	// Make newly-created perspective viewports active by default
-	GCurrentLevelEditingViewportClient = &ViewportWidget0->GetLevelViewportClient();
 
 	return Widget;
 }
@@ -333,15 +288,10 @@ TSharedRef<SWidget> FLevelViewportLayoutFourPanesTop::MakeFourPanelWidget(
 // FLevelViewportLayoutFourPanesBottom /////////////////////////////
 
 TSharedRef<SWidget> FLevelViewportLayoutFourPanesBottom::MakeFourPanelWidget(
-	TArray<TSharedPtr< SLevelViewport >>& ViewportWidgets,
-	const FString& ViewportKey0, const FString& ViewportKey1, const FString& ViewportKey2, const FString& ViewportKey3,
+	TMap<FName, TSharedPtr< IViewportLayoutEntity >>& ViewportWidgets,
+	TSharedRef<SWidget> Viewport0, TSharedRef<SWidget> Viewport1, TSharedRef<SWidget> Viewport2, TSharedRef<SWidget> Viewport3,
 	float PrimarySplitterPercentage, float SecondarySplitterPercentage0, float SecondarySplitterPercentage1)
 {
-	TSharedPtr< SLevelViewport > ViewportWidget0;
-	TSharedPtr< SLevelViewport > ViewportWidget1;
-	TSharedPtr< SLevelViewport > ViewportWidget2;
-	TSharedPtr< SLevelViewport > ViewportWidget3;
-
 	TSharedRef<SWidget> Widget = 
 		SAssignNew( PrimarySplitterWidget, SSplitter )
 		.Orientation(EOrientation::Orient_Vertical)
@@ -353,49 +303,24 @@ TSharedRef<SWidget> FLevelViewportLayoutFourPanesBottom::MakeFourPanelWidget(
 			+SSplitter::Slot()
 			.Value(SecondarySplitterPercentage0)
 			[
-				SAssignNew( ViewportWidget1, SLevelViewport )
-				.ViewportType( LVT_OrthoXY )
-				.ParentLayout( AsShared() )
-				.ParentLevelEditor( ParentLevelEditor )
-				.ConfigKey( ViewportKey1 )
+				Viewport1
 			]
 			+SSplitter::Slot()
 			.Value(SecondarySplitterPercentage1)
 			[
-				SAssignNew( ViewportWidget2, SLevelViewport )
-				.ViewportType( LVT_OrthoXZ )
-				.ParentLayout( AsShared() )
-				.ParentLevelEditor( ParentLevelEditor )
-				.ConfigKey( ViewportKey2 )
+				Viewport2
 			]
 			+SSplitter::Slot()
 			.Value(1.0f - SecondarySplitterPercentage0 - SecondarySplitterPercentage1)
 			[
-				SAssignNew( ViewportWidget3, SLevelViewport )
-				.ViewportType( LVT_OrthoYZ )
-				.ParentLayout( AsShared() )
-				.ParentLevelEditor( ParentLevelEditor )
-				.ConfigKey( ViewportKey3 )
+				Viewport3
 			]
 		]
 		+SSplitter::Slot()
 		.Value(1.0f - PrimarySplitterPercentage)
 		[
-			SAssignNew( ViewportWidget0, SLevelViewport )
-			.ViewportType( LVT_Perspective )	
-			.Realtime( true )
-			.ParentLayout( AsShared() )
-			.ParentLevelEditor( ParentLevelEditor )
-			.ConfigKey( ViewportKey0 )
+			Viewport0
 		];
-
-	ViewportWidgets.Add( ViewportWidget0 );
-	ViewportWidgets.Add( ViewportWidget1 );
-	ViewportWidgets.Add( ViewportWidget2 );
-	ViewportWidgets.Add( ViewportWidget3 );
-
-	// Make newly-created perspective viewports active by default
-	GCurrentLevelEditingViewportClient = &ViewportWidget0->GetLevelViewportClient();
 
 	return Widget;
 }

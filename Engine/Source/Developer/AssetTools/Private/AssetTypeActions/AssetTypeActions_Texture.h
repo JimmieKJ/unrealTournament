@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -20,6 +20,9 @@ public:
 private:
 	/** Handler for when CreateMaterial is selected */
 	void ExecuteCreateMaterial(TArray<TWeakObjectPtr<UTexture>> Objects);
+
+	/** Handler for when CreateSubUVAnimation is selected */
+	void ExecuteCreateSubUVAnimation(TArray<TWeakObjectPtr<UTexture>> Objects);
 
 	/** Handler for when FindMaterials is selected */
 	void ExecuteFindMaterials(TWeakObjectPtr<UTexture> Object);

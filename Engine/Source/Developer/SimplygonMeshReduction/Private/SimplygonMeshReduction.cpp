@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "Core.h"
 #include "UnrealEd.h"
@@ -516,7 +516,7 @@ public:
 			DllFilename = FPaths::Combine(*DllPath, TEXT("SimplygonSDKRuntimeReleasex64.dll"));
 		}
 
-		// If the DLL just doesn't exist, fail gracefully. Licensees and Rocket users will not necessarily have Simplygon.
+		// If the DLL just doesn't exist, fail gracefully. Licensees and Subscribers will not necessarily have Simplygon.
 		if( !FPaths::FileExists(DllFilename) )
 		{
 			UE_LOG(LogSimplygon,Warning,TEXT("Simplygon DLL not present - disabling."));
@@ -650,6 +650,7 @@ public:
 		{
 			OutMaterial.BlendMode = FlattenedMaterials[0].BlendMode;
 			OutMaterial.bTwoSided = FlattenedMaterials[0].bTwoSided;
+			OutMaterial.bDitheredLODTransition = FlattenedMaterials[0].bDitheredLODTransition;
 			OutMaterial.EmissiveScale = FlattenedMaterials[0].EmissiveScale;
 		}
 		
@@ -1896,7 +1897,6 @@ private:
 
 		// Set texture coordinate count on the new model.
 		NewModel->NumTexCoords = MeshData.TexCoordCount;
-		NewModel->Size = 0;
 	}
 
 	/**

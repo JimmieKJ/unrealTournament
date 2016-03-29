@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "NetcodeUnitTestPCH.h"
 
@@ -43,7 +43,7 @@ bool UVMReflection::ExecuteUnitTest()
 		TestObjA->AObjectRef = TestObjB;
 
 		bool bOriginalError = false;
-		(UObject*)(FVMReflection(TestObjA)->*"AObjectRef", &bOriginalError);
+		(void)(UObject*)(FVMReflection(TestObjA)->*"AObjectRef", &bOriginalError);
 
 		bool bError = false;
 		(FString)(FVMReflection(TestObjA)->*"AObjectRef", &bError);
@@ -808,7 +808,7 @@ bool UVMReflection::ExecuteUnitTest()
 		UVMTestClassA* TestObj = NewObject<UVMTestClassA>();
 		bool bError = false;
 
-		(uint8)((FVMReflection(TestObj)->*"BytePropArray")["uint8"], &bError);
+		(void)(uint8)((FVMReflection(TestObj)->*"BytePropArray")["uint8"], &bError);
 
 		TestResults.Add(TEXT("Bad static array access (no element)"), bError);
 	}
@@ -818,7 +818,7 @@ bool UVMReflection::ExecuteUnitTest()
 		UVMTestClassA* TestObj = NewObject<UVMTestClassA>();
 		bool bError = false;
 
-		(uint8)(FVMReflection(TestObj)->*"BytePropArray", &bError);
+		(void)(uint8)(FVMReflection(TestObj)->*"BytePropArray", &bError);
 
 		TestResults.Add(TEXT("Bad static array access (no type verification)"), bError);
 	}
@@ -915,7 +915,7 @@ bool UVMReflection::ExecuteUnitTest()
 		UVMTestClassA* TestObj = NewObject<UVMTestClassA>();
 		bool bError = false;
 
-		(uint8)((FVMReflection(TestObj)->*"DynBytePropArray")["uint8"], &bError);
+		(void)(uint8)((FVMReflection(TestObj)->*"DynBytePropArray")["uint8"], &bError);
 
 		TestResults.Add(TEXT("Bad dynamic array access (no element)"), bError);
 	}
@@ -925,7 +925,7 @@ bool UVMReflection::ExecuteUnitTest()
 		UVMTestClassA* TestObj = NewObject<UVMTestClassA>();
 		bool bError = false;
 
-		(uint8)(FVMReflection(TestObj)->*"DynBytePropArray", &bError);
+		(void)(uint8)(FVMReflection(TestObj)->*"DynBytePropArray", &bError);
 
 		TestResults.Add(TEXT("Bad dynamic array access (no type verification)"), bError);
 	}

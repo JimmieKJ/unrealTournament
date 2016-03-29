@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -53,10 +53,13 @@ namespace UnrealBuildTool
 			base.SetupBinaries();
 
 			{
+				// Don't write to the Engine intermediate directory for Monolithic builds
+				DirectoryReference IntermediateDirectory = ShouldCompileMonolithic() ? ProjectIntermediateDirectory : EngineIntermediateDirectory;
+
 				// Make the game executable.
 				UEBuildBinaryConfiguration Config = new UEBuildBinaryConfiguration(InType: UEBuildBinaryType.Executable,
 																					InOutputFilePaths: OutputPaths,
-																					InIntermediateDirectory: EngineIntermediateDirectory,
+																					InIntermediateDirectory: IntermediateDirectory,
 																					bInCreateImportLibrarySeparately: (ShouldCompileMonolithic() ? false : true),
 																					bInAllowExports: !ShouldCompileMonolithic(),
 																					InModuleNames: new List<string>() { "Launch" });

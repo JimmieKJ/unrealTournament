@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	TriangleRendering.cpp: Simple triangle rendering implementation.
@@ -83,7 +83,7 @@ public:
 /** Default constructor. */
 FTriangleVertexFactory()
 {
-	FLocalVertexFactory::DataType Data;
+	FLocalVertexFactory::FDataType Data;
 	// position
 	Data.PositionComponent = FVertexStreamComponent(
 		&GTriangleRendererVertexBuffer, STRUCT_OFFSET(FMaterialTriangleVertex, Position), sizeof(FMaterialTriangleVertex), VET_Float3);
@@ -239,7 +239,7 @@ bool FCanvasTriangleRendererItem::Render_RenderThread(FRHICommandListImmediate& 
 	ViewInitOptions.BackgroundColor = FLinearColor::Black;
 	ViewInitOptions.OverlayColor = FLinearColor::White;
 
-	bool bNeedsToSwitchVerticalAxis = RHINeedsToSwitchVerticalAxis(Canvas->GetShaderPlatform()) && !Canvas->GetAllowSwitchVerticalAxis();
+	bool bNeedsToSwitchVerticalAxis = RHINeedsToSwitchVerticalAxis(Canvas->GetShaderPlatform()) && IsMobileHDR();
 
 	FSceneView* View = new FSceneView(ViewInitOptions);
 
@@ -306,7 +306,8 @@ bool FCanvasTriangleRendererItem::Render_GameThread(const FCanvas* Canvas)
 
 	FSceneView* View = new FSceneView(ViewInitOptions);
 
-	bool bNeedsToSwitchVerticalAxis = RHINeedsToSwitchVerticalAxis(Canvas->GetShaderPlatform()) && !Canvas->GetAllowSwitchVerticalAxis();
+	bool bNeedsToSwitchVerticalAxis = RHINeedsToSwitchVerticalAxis(Canvas->GetShaderPlatform()) && IsMobileHDR();
+
 	struct FDrawTriangleParameters
 	{
 		FSceneView* View;
@@ -319,8 +320,8 @@ bool FCanvasTriangleRendererItem::Render_GameThread(const FCanvas* Canvas)
 	{
 		View,
 		Data,
-		(uint32)bNeedsToSwitchVerticalAxis,
 		(uint32)Canvas->IsHitTesting(),
+		(uint32)bNeedsToSwitchVerticalAxis,
 		Canvas->GetAllowedModes()
 	};
 	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(

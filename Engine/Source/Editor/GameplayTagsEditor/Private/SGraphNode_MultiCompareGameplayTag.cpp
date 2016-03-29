@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "GameplayTagsEditorModulePrivatePCH.h"
 #include "GraphEditorSettings.h"
@@ -42,7 +42,7 @@ void SGraphNode_MultiCompareGameplayTag::CreateOutputSideRemoveButton(TSharedPtr
 		];
 
 	TSharedPtr<SToolTip> Tooltip;
-	Tooltip = IDocumentation::Get()->CreateToolTip(NSLOCTEXT("CompareNode", "CompareNodeRemovePinButton_Tooltip", "Remove last case pins"), NULL, GraphNode->GetDocumentationLink(), FString());
+	Tooltip = IDocumentation::Get()->CreateToolTip(NSLOCTEXT("CompareNode", "CompareNodeRemoveCaseButton_Tooltip", "Remove last case pins"), NULL, GraphNode->GetDocumentationLink(), FString());
 
 	TSharedRef<SButton> RemovePinButton = SNew(SButton)
 		.ContentPadding(0.0f)

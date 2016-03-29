@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -8,7 +8,7 @@
  */
 typedef TArray<FDelegateBase, TInlineAllocator<1> > TInvocationList;
 
-template<typename ObjectPtrType = FWeakObjectPtr>
+template<typename ObjectPtrType>
 class FMulticastDelegateBase
 {
 public:
@@ -37,7 +37,7 @@ public:
 	{
 		for (const FDelegateBase& DelegateBaseRef : InvocationList)
 		{
-			if (DelegateBaseRef.GetDelegateInstance())
+			if (DelegateBaseRef.GetDelegateInstanceProtected())
 			{
 				return true;
 			}
@@ -54,7 +54,7 @@ public:
 	{
 		for (const FDelegateBase& DelegateBaseRef : InvocationList)
 		{
-			IDelegateInstance* DelegateInstance = DelegateBaseRef.GetDelegateInstance();
+			IDelegateInstance* DelegateInstance = DelegateBaseRef.GetDelegateInstanceProtected();
 			if ((DelegateInstance != nullptr) && DelegateInstance->HasSameObject(InUserObject))
 			{
 				return true;
@@ -76,7 +76,7 @@ public:
 		{
 			FDelegateBase& DelegateBaseRef = InvocationList[InvocationListIndex];
 
-			IDelegateInstance* DelegateInstance = DelegateBaseRef.GetDelegateInstance();
+			IDelegateInstance* DelegateInstance = DelegateBaseRef.GetDelegateInstanceProtected();
 			if ((DelegateInstance != nullptr) && DelegateInstance->HasSameObject(InUserObject))
 			{
 				DelegateBaseRef.Unbind();
@@ -124,7 +124,7 @@ protected:
 		{
 			FDelegateBase& DelegateBaseRef = InvocationList[InvocationListIndex];
 
-			IDelegateInstance* DelegateInstance = DelegateBaseRef.GetDelegateInstance();
+			IDelegateInstance* DelegateInstance = DelegateBaseRef.GetDelegateInstanceProtected();
 
 			if ((DelegateInstance == nullptr) || DelegateInstance->IsCompactable())
 			{
@@ -155,6 +155,15 @@ protected:
 	inline void UnlockInvocationList( ) const
 	{
 		--InvocationListLockCount;
+	}
+
+protected:
+	/**
+	 * Helper function for derived classes of FMulticastDelegateBase to get at the delegate instance.
+	 */
+	static FORCEINLINE IDelegateInstance* GetDelegateInstanceProtectedHelper(const FDelegateBase& Base)
+	{
+		return Base.GetDelegateInstanceProtected();
 	}
 
 private:

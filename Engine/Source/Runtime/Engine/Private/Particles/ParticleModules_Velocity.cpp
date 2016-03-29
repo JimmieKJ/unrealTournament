@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ParticleModules_Velocity.cpp: 
@@ -44,12 +44,12 @@ UParticleModuleVelocity::UParticleModuleVelocity(const FObjectInitializer& Objec
 
 void UParticleModuleVelocity::InitializeDefaults()
 {
-	if (!StartVelocity.Distribution)
+	if (!StartVelocity.IsCreated())
 	{
 		StartVelocity.Distribution = NewObject<UDistributionVectorUniform>(this, TEXT("DistributionStartVelocity"));
 	}
 
-	if (!StartVelocityRadial.Distribution)
+	if (!StartVelocityRadial.IsCreated())
 	{
 		StartVelocityRadial.Distribution = NewObject<UDistributionFloatUniform>(this, TEXT("DistributionStartVelocityRadial"));
 	}
@@ -131,7 +131,7 @@ void UParticleModuleVelocity_Seeded::Spawn(FParticleEmitterInstance* Owner, int3
 	SpawnEx(Owner, Offset, SpawnTime, (Payload != NULL) ? &(Payload->RandomStream) : NULL, ParticleBase);
 }
 
-uint32 UParticleModuleVelocity_Seeded::RequiredBytesPerInstance(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleVelocity_Seeded::RequiredBytesPerInstance()
 {
 	return RandomSeedInfo.GetInstancePayloadSize();
 }
@@ -161,7 +161,7 @@ UParticleModuleVelocityInheritParent::UParticleModuleVelocityInheritParent(const
 
 void UParticleModuleVelocityInheritParent::InitializeDefaults()
 {
-	if (!Scale.Distribution)
+	if (!Scale.IsCreated())
 	{
 		UDistributionVectorConstant* DistributionScale = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionScale"));
 		DistributionScale->Constant = FVector(1.0f, 1.0f, 1.0f);
@@ -225,7 +225,7 @@ UParticleModuleVelocityOverLifetime::UParticleModuleVelocityOverLifetime(const F
 
 void UParticleModuleVelocityOverLifetime::InitializeDefaults()
 {
-	if (!VelOverLife.Distribution)
+	if (!VelOverLife.IsCreated())
 	{
 		VelOverLife.Distribution = NewObject<UDistributionVectorConstantCurve>(this, TEXT("DistributionVelOverLife"));
 	}
@@ -270,9 +270,10 @@ void UParticleModuleVelocityOverLifetime::Update(FParticleEmitterInstance* Owner
 	UParticleLODLevel* LODLevel	= Owner->SpriteTemplate->GetCurrentLODLevel(Owner);
 	check(LODLevel);
 	FVector OwnerScale(1.0f);
+	const FTransform& OwnerTM = Owner->Component->GetAsyncComponentToWorld();
 	if ((bApplyOwnerScale == true) && Owner->Component)
 	{
-		OwnerScale = Owner->Component->ComponentToWorld.GetScale3D();
+		OwnerScale = OwnerTM.GetScale3D();
 	}
 	if (Absolute)
 	{
@@ -281,7 +282,7 @@ void UParticleModuleVelocityOverLifetime::Update(FParticleEmitterInstance* Owner
 			if (bInWorldSpace == false)
 			{
 				FVector Vel;
-				const FMatrix LocalToWorld = Owner->Component->ComponentToWorld.ToMatrixNoScale();
+				const FMatrix LocalToWorld = OwnerTM.ToMatrixNoScale();
 				BEGIN_UPDATE_LOOP;
 				{
 					Vel = VelOverLife.GetValue(Particle.RelativeTime, Owner->Component);
@@ -311,7 +312,7 @@ void UParticleModuleVelocityOverLifetime::Update(FParticleEmitterInstance* Owner
 			else
 			{
 				FVector Vel;
-				const FMatrix LocalToWorld = Owner->Component->ComponentToWorld.ToMatrixNoScale();
+				const FMatrix LocalToWorld = OwnerTM.ToMatrixNoScale();
 				const FMatrix InvMat = LocalToWorld.InverseFast();
 				BEGIN_UPDATE_LOOP;
 				{
@@ -329,7 +330,7 @@ void UParticleModuleVelocityOverLifetime::Update(FParticleEmitterInstance* Owner
 			FVector Vel;
 			if (bInWorldSpace == false)
 			{
-				const FMatrix LocalToWorld = Owner->Component->ComponentToWorld.ToMatrixNoScale();
+				const FMatrix LocalToWorld = OwnerTM.ToMatrixNoScale();
 				BEGIN_UPDATE_LOOP;
 				{
 					Vel = VelOverLife.GetValue(Particle.RelativeTime, Owner->Component);
@@ -359,7 +360,7 @@ void UParticleModuleVelocityOverLifetime::Update(FParticleEmitterInstance* Owner
 			else
 			{
 				FVector Vel;
-				const FMatrix LocalToWorld = Owner->Component->ComponentToWorld.ToMatrixNoScale();
+				const FMatrix LocalToWorld = OwnerTM.ToMatrixNoScale();
 				const FMatrix InvMat = LocalToWorld.InverseFast();
 				BEGIN_UPDATE_LOOP;
 				{
@@ -385,12 +386,12 @@ UParticleModuleVelocityCone::UParticleModuleVelocityCone(const FObjectInitialize
 
 void UParticleModuleVelocityCone::InitializeDefaults()
 {
-	if (!Angle.Distribution)
+	if (!Angle.IsCreated())
 	{
 		Angle.Distribution = NewObject<UDistributionFloatUniform>(this, TEXT("DistributionAngle"));
 	}
 
-	if (!Velocity.Distribution)
+	if (!Velocity.IsCreated())
 	{
 		Velocity.Distribution = NewObject<UDistributionFloatUniform>(this, TEXT("DistributionVelocity"));
 	}

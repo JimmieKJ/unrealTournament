@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostprocessAmbientOcclusion.usf: To generate ambient occlusion as a postprocess
@@ -25,8 +25,28 @@
 // 1:lowest quality, 2:medium , 3:high, more doesn't give too much (maybe HZB mip computations should be adjusted)
 //#define SAMPLE_STEPS 3
 
+// 0:off / 1:show samples on the right side of the screen
+#define DEBUG_LOOKUPS 0
+
+// set by the following code
+//  0: go for no normal code path (different look, can be improved)
+//  1: use GBuffer normal (needs to be after BasePass)
+//  2: reconstruct normal at pixel level (like 1 but faceted)
+//#define SSAO_NORMAL_MODE
+
 // 0:does not use normals (should be faster but isn't yet, lower quality, WIP = not finished), 1: uses normals (slower but higher quality)
-#define SSAO_NORMAL_AFFECTED 1
+#if COMPUTE_SHADER
+	// For AsyncCompute we want an algorithm that doesn't required the GBuffer normal (no SSAO_NORMAL_MODE=1)
+
+	// WIP, less faceted but no effect in distance
+//	#define SSAO_NORMAL_MODE 0
+
+	// faceted but similar to GBuffer normal
+	#define SSAO_NORMAL_MODE 2
+#else
+	// normally we use the higher quality version which is normal affected
+	#define SSAO_NORMAL_MODE 1
+#endif
 
 // useful to remove high frequency dither pattern, not that needed with more sample
 // 0:off (fast but dither pattern with low sample count), 1:non normal aware (half res look), 2:normal aware (slower), 3:normal and depth aware (slowest, doesn't add much)
@@ -147,7 +167,8 @@
 // [2]: .x:ScaleFactor(e.g. 4 if current RT is a quarter in size), .y:InvThreshold, .z:ScaleRadiusInWorldSpace(0:VS/1:WS), .w:MipBlend
 // [3]: .xy:TemporalAARandomOffset, .z:StaticFraction, .w: InvTanHalfFov
 // [4]: .x:Multipler for FadeDistance/Radius, .y:Additive for FadeDistance/Radius, .z:clamped HzbStepMipLevelFactorValue .w: unused
-float4 ScreenSpaceAOParams[5];
+// [5]: .xy: ViewRectSize (for AsyncCompute where UniformBuffers don't work yet)
+float4 ScreenSpaceAOParams[6];
 
 // needed to prevent AO seam near 16 bit float maximum, this feactor pushed the problem far out and it seems to not have a visual degradion nearby
 const static float Constant_Float16F_Scale =  4096.0f * 32.0f;
@@ -223,7 +244,7 @@ void MainSetupPS(in noperspective float4 UVAndScreenPos : TEXCOORD0, out float4 
 
 	float4 AvgColor = 0.0f;
 
-//todo	if(SSAO_NORMAL_AFFECTED == 1)
+//todo	if(SSAO_NORMAL_MODE == 1)
 	{
 		AvgColor = 0.0001f;
 
@@ -251,15 +272,70 @@ float GetDepthFromAOInput(float2 UV)
 #endif
 }
 
-float3 GetWorldSpaceNormalFromAOInput(float2 UV)
+float TakeSmallerAbsDelta(float left, float mid, float right)
 {
+	float a = mid - left;
+	float b = right - mid;
+
+	return (abs(a) < abs(b)) ? a : b;
+}
+
+// could use ddx,ddy but that would have less quality and would nto work fo ComputeShaders
+// @return not normalized normal in world space
+float3 ReconstructNormalFromDepthBuffer(float4 SvPosition)
+{
+	// could use a modified version of GatherSceneDepth later on
+	float DeviceZ = LookupDeviceZ(SvPositionToBufferUV(SvPosition + float4(0, 0, 0, 0)));
+	float DeviceZLeft = LookupDeviceZ(SvPositionToBufferUV(SvPosition + float4(-1, 0, 0, 0)));
+	float DeviceZTop = LookupDeviceZ(SvPositionToBufferUV(SvPosition + float4(0, -1, 0, 0)));
+	float DeviceZRight = LookupDeviceZ(SvPositionToBufferUV(SvPosition + float4(1, 0, 0, 0)));
+	float DeviceZBottom = LookupDeviceZ(SvPositionToBufferUV(SvPosition + float4(0, 1, 0, 0)));
+
+	// Favor the surfae we are looking at. Simiar to: http://www.humus.name/index.php?page=3D&ID=84
+	float DeviceZDdx = TakeSmallerAbsDelta(DeviceZLeft, DeviceZ, DeviceZRight);
+	float DeviceZDdy = TakeSmallerAbsDelta(DeviceZTop, DeviceZ, DeviceZBottom);
+
+	// can be optimized, is not fully centered but that should not matter much
+	float3 Mid =	SvPositionToTranslatedWorld(float4(SvPosition.xy + float2(0, 0), DeviceZ, 1));
+	float3 Right =	SvPositionToTranslatedWorld(float4(SvPosition.xy + float2(1, 0), DeviceZ + DeviceZDdx, 1)) - Mid;
+	float3 Down =	SvPositionToTranslatedWorld(float4(SvPosition.xy + float2(0, 1), DeviceZ + DeviceZDdy, 1)) - Mid;
+
+	return cross(Right, Down);
+}
+
+// @return can be 0,0,0 if we don't have a good input normal
+float3 GetWorldSpaceNormalFromAOInput(float2 UV, float4 SvPosition)
+{
+	float3 WorldNormal;
+
 #if USE_AO_SETUP_AS_INPUT
-	// low resolution
-	return Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UV).xyz * 2 - 1;
+	// low resolution, we get if from the downsampled intermediates
+	WorldNormal = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, frac(UV)).xyz * 2 - 1;
 #else
-	// full resolution 
-	return GetGBufferData(UV, false).WorldNormal;
+	if(SSAO_NORMAL_MODE == 0)
+	{
+		WorldNormal = 0;
+	}
+	else if(SSAO_NORMAL_MODE == 1)
+	{
+		// full resolution 
+		WorldNormal = GetGBufferData(UV, false).WorldNormal;
+
+		FGBufferData GBuffer = GetGBufferData(UV);
+		BRANCH if( GBuffer.ShadingModelID == SHADINGMODELID_HAIR )
+		{
+			float3 V = -normalize(SvPositionToTranslatedWorld(float4(SvPosition.xy, 1, 0)));
+//				float3 V = -normalize(mul(float4(UVAndScreenPos.zw, 1, 0), View.ScreenToWorld).xyz);
+			WorldNormal = normalize( V - WorldNormal * dot(V, WorldNormal) );
+		}
+	}
+	else if(SSAO_NORMAL_MODE == 2)
+	{
+		WorldNormal = ReconstructNormalFromDepthBuffer(SvPosition);
+	}
 #endif
+
+	return WorldNormal;
 }
 
 float4 ComputeUpsampleContribution(float SceneDepth, float2 InUV, float3 CenterWorldNormal)
@@ -310,7 +386,7 @@ float4 ComputeUpsampleContribution(float SceneDepth, float2 InUV, float3 CenterW
 		// when tweaking this constant look for crawling pattern at edges
 		float Weight = ComputeDepthSimilarity(SampleDepth, SceneDepth, 0.003f);
 
-//todo		if(SSAO_NORMAL_AFFECTED == 1)
+//todo		if(SSAO_NORMAL_MODE == 1)
 		{
 			float3 LocalWorldNormal = NormalAndSampleDepth.xyz*2-1;
 
@@ -370,10 +446,10 @@ float2 ScreenPosToHZBUV(float2 In)
 }
 
 // @return float3(InvNormAngleL, InvNormAngleR, Weight)
-float3 WedgeWithNormal(float2 ScreenSpacePosCenter, float2 LocalRandom, float3 InvFovFix, float3 ViewSpacePosition, float3 ScaledViewSpaceNormal, float InvHaloSize, float MipLevel)
+float3 WedgeWithNormal(float2 ScreenSpacePosCenter, float2 InLocalRandom, float3 InvFovFix, float3 ViewSpacePosition, float3 ScaledViewSpaceNormal, float InvHaloSize, float MipLevel)
 {
-	float2 ScreenSpacePosL = ScreenSpacePosCenter + LocalRandom;
-	float2 ScreenSpacePosR = ScreenSpacePosCenter - LocalRandom;
+	float2 ScreenSpacePosL = ScreenSpacePosCenter + InLocalRandom;
+	float2 ScreenSpacePosR = ScreenSpacePosCenter - InLocalRandom;
 
 	float TexL = Texture2DSampleLevel( PostprocessInput3, PostprocessInput3Sampler, ScreenPosToHZBUV(ScreenSpacePosL), MipLevel).r;
 	float TexR = Texture2DSampleLevel( PostprocessInput3, PostprocessInput3Sampler, ScreenPosToHZBUV(ScreenSpacePosR), MipLevel).r;
@@ -390,15 +466,14 @@ float3 WedgeWithNormal(float2 ScreenSpacePosCenter, float2 LocalRandom, float3 I
 #if OPTIMIZATION_O1
 	float InvNormAngleL = saturate(dot(DeltaL, ScaledViewSpaceNormal) / dot(DeltaL, DeltaL));
 	float InvNormAngleR = saturate(dot(DeltaR, ScaledViewSpaceNormal) / dot(DeltaR, DeltaR));
-#else
-	float InvNormAngleL = saturate(dot(DeltaL, ScaledViewSpaceNormal) * rsq(DeltaL));
-	float InvNormAngleR = saturate(dot(DeltaR, ScaledViewSpaceNormal) * rsq(DeltaR));
-#endif
-
 	float Weight = 1;
+#else
+	float InvNormAngleL = saturate(dot(DeltaL, ScaledViewSpaceNormal) * rsqrt(dot(DeltaL, DeltaL)));
+	float InvNormAngleR = saturate(dot(DeltaR, ScaledViewSpaceNormal) * rsqrt(dot(DeltaR, DeltaR)));
 
-#if !OPTIMIZATION_O1
-	Weight *= saturate(1.0f - length(Delta) * InvHaloSize);
+	float Weight = 
+		  saturate(1.0f - length(DeltaL) * InvHaloSize)
+		* saturate(1.0f - length(DeltaR) * InvHaloSize);
 #endif
 
 	return float3(InvNormAngleL, InvNormAngleR, Weight);
@@ -407,64 +482,51 @@ float3 WedgeWithNormal(float2 ScreenSpacePosCenter, float2 LocalRandom, float3 I
 
 
 // @return float2(InvNormAngle, Weight)
-float2 WedgeNoNormal(float2 LocalRandom, float3 InvFovFix, float3 ViewSpacePosition, float3 ScaledViewSpaceNormal, float InvHaloSize, float MipLevel)
+float2 WedgeNoNormal(float2 ScreenSpacePosCenter, float2 InLocalRandom, float3 InvFovFix, float3 ViewSpacePosition, float InvHaloSize, float MipLevel)
 {
-	float3 DeltaLeft;
-	float AbsLeft;
+	float2 ScreenSpacePosL = ScreenSpacePosCenter + InLocalRandom;
+	float2 ScreenSpacePosR = ScreenSpacePosCenter - InLocalRandom;
+
+	float TexL = Texture2DSampleLevel( PostprocessInput3, PostprocessInput3Sampler, ScreenPosToHZBUV(ScreenSpacePosL), MipLevel).r;
+	float TexR = Texture2DSampleLevel( PostprocessInput3, PostprocessInput3Sampler, ScreenPosToHZBUV(ScreenSpacePosR), MipLevel).r;
+
+	float AbsL = ConvertFromDeviceZ(TexL);
+	float AbsR = ConvertFromDeviceZ(TexR);
+	
+	float3 SamplePositionL = ReconstructCSPos(AbsL, ScreenSpacePosL);
+	float3 SamplePositionR = ReconstructCSPos(AbsR, ScreenSpacePosR);
+	
+	float3 DeltaL = (SamplePositionL - ViewSpacePosition) * InvFovFix;
+	float3 DeltaR = (SamplePositionR - ViewSpacePosition) * InvFovFix;
+
 	float WeightLeft;
 	float3 SamplePositionLeft;
 	{
-		float ScaleRadiusInWorldSpace = ScreenSpaceAOParams[2].z;
-
-		float3 SamplePosition2 = ViewSpacePosition + float3(LocalRandom, 0);
-
-		float2 ScreenSpacePos = ReconstructSSPosFromCS(SamplePosition2);
-
-		AbsLeft = ConvertFromDeviceZ(Texture2DSampleLevel( PostprocessInput3, PostprocessInput3Sampler, ScreenPosToHZBUV(ScreenSpacePos), MipLevel).r);
-
-		SamplePositionLeft = ReconstructCSPos(AbsLeft, ScreenSpacePos);
-		
-		DeltaLeft = (SamplePositionLeft - ViewSpacePosition) * InvFovFix;
-
 		WeightLeft = 1;
 
 #if !OPTIMIZATION_O1
-		WeightLeft = saturate(1.0f - length(DeltaLeft) * InvHaloSize);
+		WeightLeft = saturate(1.0f - length(DeltaL) * InvHaloSize);
 #endif
 	}
 
-	float3 DeltaRight;
-	float AbsRight;
 	float WeightRight;
 	float3 SamplePositionRight;
-	{
-		float ScaleRadiusInWorldSpace = ScreenSpaceAOParams[2].z;
-
-		float3 SamplePosition2 = ViewSpacePosition - float3(LocalRandom, 0);
-
-		float2 ScreenSpacePos = ReconstructSSPosFromCS(SamplePosition2);
-
-		AbsRight = ConvertFromDeviceZ(Texture2DSampleLevel( PostprocessInput3, PostprocessInput3Sampler, ScreenPosToHZBUV(ScreenSpacePos), MipLevel).r);
-
-		SamplePositionRight = ReconstructCSPos(AbsRight, ScreenSpacePos);
-		
-		DeltaRight = (SamplePositionRight - ViewSpacePosition) * InvFovFix;
-		
+	{	
 		WeightRight = 1;
 
 #if !OPTIMIZATION_O1
-		WeightRight = saturate(1.0f - length(DeltaRight) * InvHaloSize);
+		WeightRight = saturate(1.0f - length(DeltaR) * InvHaloSize);
 #endif
 	}
 
 
 	float FlatSurfaceBias = 5.0f;
 
-	float left = ViewSpacePosition.z - AbsLeft;
-	float right = ViewSpacePosition.z - AbsRight;
+	float left = ViewSpacePosition.z - AbsL;
+	float right = ViewSpacePosition.z - AbsR;
 
 	// OptionA: accurate angle computation
-	float NormAngle = acosApproxNormAngle( dot(DeltaLeft, DeltaRight) / sqrt(length2(DeltaLeft) * length2(DeltaRight)));
+	float NormAngle = acosApproxNormAngle( dot(DeltaL, DeltaR) / sqrt(length2(DeltaL) * length2(DeltaR)));
 	// OptionB(fade out in near distance): float NormAngle = acosApproxNormAngle( (- left - right) * 20);
 	// OptionC(look consistent but more noisy, should be much faster): float NormAngle = 0;
 
@@ -484,8 +546,8 @@ float2 WedgeNoNormal(float2 LocalRandom, float3 InvFovFix, float3 ViewSpacePosit
 	float InvAmbientOcclusionDistance = ScreenSpaceAOParams[0].z;
 	float ViewDepthAdd = 1.0f - ViewSpacePosition.z * InvAmbientOcclusionDistance;
 
-	Weight *= saturate(SamplePositionLeft.z * InvAmbientOcclusionDistance + ViewDepthAdd);
-	Weight *= saturate(SamplePositionRight.z * InvAmbientOcclusionDistance + ViewDepthAdd);
+	Weight *= saturate(SamplePositionL.z * InvAmbientOcclusionDistance + ViewDepthAdd);
+	Weight *= saturate(SamplePositionR.z * InvAmbientOcclusionDistance + ViewDepthAdd);
 
 //	return float2(1 - NormAngle, (WeightLeft + WeightRight) * 0.5f);
 	return float2((1-NormAngle) / (Weight + 0.001f), Weight);
@@ -494,6 +556,44 @@ float2 WedgeNoNormal(float2 LocalRandom, float3 InvFovFix, float3 ViewSpacePosit
 float3 ReconstructNormal(float2 In)
 {
 	return float3(In, sqrt(1 - dot(In, In)));
+}
+
+
+// @param ScreenSpacePos -1..1
+// @return 1 if inside the center, 0 if outside
+float ComputeSampleDebugMask(float2 ScreenSpacePos, float MipLevel)
+{
+	ScreenSpacePos.x -= 0.5f;
+
+	ScreenSpacePos.y = frac(ScreenSpacePos.y) - 0.5f;
+
+	float2 ViewPortSize = ScreenSpaceAOParams[5].xy;
+	int2 PixelOffsetToCenter = int2(ScreenSpacePos * ViewPortSize * 0.5f);
+
+	float d = length(PixelOffsetToCenter);
+
+	// revisit this
+	float radius = 12.0f;
+
+	// hard
+	return d < radius * exp2(MipLevel);
+	// soft
+//	return saturate(1 - d / (radius * exp2(MipLevel)));
+}
+
+float ComputeMipLevel(int sampleid, int step)
+{
+	float SamplePos = (sampleid + 0.5f) / SAMPLESET_ARRAY_SIZE;
+
+	float HzbStepMipLevelFactorValue = ScreenSpaceAOParams[4].z;
+	// use a constant to get better performance
+	//float HzbStepMipLevelFactorValue = 0.5f;
+//	float HzbStepMipLevelFactorValue = 1;
+
+	float Scale = (step + 1) / (float)SAMPLE_STEPS;
+
+//	return log2(1.0f + HzbStepMipLevelFactorValue * Scale * SamplePos);
+	return log2(HzbStepMipLevelFactorValue * Scale * SamplePos);
 }
 
 // the main pixel shader that computes ambient occlusion
@@ -512,10 +612,6 @@ void MainPSandCS(in float4 UVAndScreenPos, float4 SvPosition, out float4 OutColo
 	float ScaleFactor = ScreenSpaceAOParams[2].x;
 	float ScaleRadiusInWorldSpace = ScreenSpaceAOParams[2].z;
 
-//	float HzbStepMipLevelFactorValue = ScreenSpaceAOParams[4].z;
-	// use a constant to get better performance
-	float HzbStepMipLevelFactorValue = 0.5f;
-
 	float2 UV = UVAndScreenPos.xy;
 	float2 ScreenPos = UVAndScreenPos.zw;
 
@@ -524,23 +620,20 @@ void MainPSandCS(in float4 UVAndScreenPos, float4 SvPosition, out float4 OutColo
 	float3 InvFovFix = 1.0f / FovFix;
 
 	float SceneDepth = GetDepthFromAOInput(UV);
-	float3 WorldNormal = GetWorldSpaceNormalFromAOInput(UV);
-
-	FGBufferData GBuffer = GetGBufferData(UV);
-	BRANCH if( GBuffer.ShadingModelID == SHADINGMODELID_HAIR )
-	{
-		float3 V = -normalize(mul(float4(UVAndScreenPos.zw, 1, 0), View.ScreenToWorld).xyz);
-		WorldNormal = normalize( V - WorldNormal * dot(V, WorldNormal) );
-	}
-
-	float3 ViewSpaceNormal = normalize(mul(WorldNormal, (float3x3)View.TranslatedWorldToView));
+	float3 WorldNormal = GetWorldSpaceNormalFromAOInput(UV, SvPosition);
 	
+	// can be NaN if WorldNormal=0,0,0 which happens with SSAO_NORMAL_MODE==0
+	float3 ViewSpaceNormal = normalize(mul(WorldNormal, (float3x3)View.TranslatedWorldToView));
+
 	float3 ViewSpacePosition = ReconstructCSPos(SceneDepth, ScreenPos);
 
-	float2 ActualAORadiusXY = AORadiusInShader * lerp(SceneDepth, 1, ScaleRadiusInWorldSpace) * InvFovFix.xy;
+	float ActualAORadius = AORadiusInShader * lerp(SceneDepth, 1, ScaleRadiusInWorldSpace);
 
 	// Add bias after fixup (causes minor banding - not needed with larger radius)
-	ViewSpacePosition += AmbientOcclusionBias * SceneDepth * ScaleFactor * (ViewSpaceNormal * FovFix);
+	if(SSAO_NORMAL_MODE != 0)
+	{
+		ViewSpacePosition += AmbientOcclusionBias * SceneDepth * ScaleFactor * (ViewSpaceNormal * FovFix);
+	}
 
 	float2 WeightAccumulator = 0.0001f;
 	
@@ -549,11 +642,11 @@ void MainPSandCS(in float4 UVAndScreenPos, float4 SvPosition, out float4 OutColo
 
 #if AO_SAMPLE_QUALITY == 1
 	// no 4x4 randomization
-	float2 RandomVec = float2(0, 1) * ActualAORadiusXY;
+	float2 RandomVec = float2(0, 1) * ActualAORadius;
 	{
 #elif AO_SAMPLE_QUALITY == 2
 	// extract one of 16 base vectors (rotation and scale) from a texture that repeats 4x4
-	float2 RandomVec = (Texture2DSample(RandomNormalTexture, RandomNormalTextureSampler, UV * ViewportUVToRandomUV).rg * 2 - 1) * ActualAORadiusXY;
+	float2 RandomVec = (Texture2DSample(RandomNormalTexture, RandomNormalTextureSampler, UV * ViewportUVToRandomUV).rg * 2 - 1) * ActualAORadius;
 	{
 #else // AO_SAMPLE_QUALITY == 3
 	// extract one of 16 base vectors (rotation and scale) from a texture that repeats 4x4, changing over time if TemporalAA is enabled
@@ -561,17 +654,31 @@ void MainPSandCS(in float4 UVAndScreenPos, float4 SvPosition, out float4 OutColo
 	// jitter each frame a bit to get higher quality over multiple frames (only if TemporalAA is enabled), can cause ghosting effects
 	const float2 TemporalOffset = ScreenSpaceAOParams[3].xy;
 
-	float2 RandomVec = (Texture2DSample(RandomNormalTexture, RandomNormalTextureSampler, TemporalOffset + UV * ViewportUVToRandomUV).rg * 2 - 1) * ActualAORadiusXY;
+	// if the feature is enabled and right side of screen
+	const bool bDebugLookups = DEBUG_LOOKUPS && ViewSpacePosition.x > 0;
+
+	float2 RandomVec = (Texture2DSample(RandomNormalTexture, RandomNormalTextureSampler, TemporalOffset + UV * ViewportUVToRandomUV).rg * 2 - 1) * ActualAORadius;
 	{
 #endif // AO_SAMPLE_QUALITY == 
+
+		if(bDebugLookups && ViewSpacePosition.y > 0)
+		{
+			// top sample are not per pixel rotated
+			RandomVec = float2(0, 1) * ActualAORadius;
+		}
 
 		float2 FovFixXY = FovFix.xy * (1.0f / ViewSpacePosition.z);
 		float4 RandomBase = float4(RandomVec, -RandomVec.y, RandomVec.x) * float4(FovFixXY, FovFixXY);
 
 		float2 ScreenSpacePos = ViewSpacePosition.xy / ViewSpacePosition.z;
 
+		// to debug the input depth
+//		OutColor = GetDepthForSSAO(ScreenSpacePos, 0); return;
+		// to debug the reconstructed normal
+//		OutColor = ReconstructedViewSpaceNormal.z; return;
+
 		// .x means for very anisotropic viewports we scale by x
-		float InvHaloSize = 1.0f / (ActualAORadiusXY.x * 2);
+		float InvHaloSize = 1.0f / (ActualAORadius * FovFixXY.x * 2);
 
 		float3 ScaledViewSpaceNormal = ViewSpaceNormal;
 
@@ -584,33 +691,43 @@ void MainPSandCS(in float4 UVAndScreenPos, float4 SvPosition, out float4 OutColo
 			// -1..1
 			float2 UnrotatedRandom = OcclusionSamplesOffsets[i].xy;
 
-			// 2x2 rotation matrix
-			float2 LocalRandom = UnrotatedRandom.x * RandomBase.xy + UnrotatedRandom.y * RandomBase.zw;
+			float2 LocalRandom = (UnrotatedRandom.x * RandomBase.xy + UnrotatedRandom.y * RandomBase.zw);
 
-			// Ambient Occlusion affected by per pixel normal
-
-			if(SSAO_NORMAL_AFFECTED == 0)
+			if(bDebugLookups)
 			{
-				float2 LocalAccumulator = float2(0, 0);
-
 				UNROLL for(uint step = 0; step < SAMPLE_STEPS; ++step)
 				{
-					// constant at run time
 					float Scale = (step + 1) / (float)SAMPLE_STEPS;
-					// constant at run time (higher is better for texture cache / performance, lower is better quality
-					float MipLevel = log2(1.0f + HzbStepMipLevelFactorValue * step);
-
-					float2 StepSample = WedgeNoNormal(Scale * LocalRandom, InvFovFix, ViewSpacePosition, ScaledViewSpaceNormal, InvHaloSize, MipLevel);
-
-					// combine horizon samples
-					LocalAccumulator = lerp(LocalAccumulator, float2(max(LocalAccumulator.x, StepSample.x), 1), StepSample.y);
+					float MipLevel = ComputeMipLevel(i, step);
+					float2 ScaledLocalRandom = Scale * LocalRandom;
+					
+					WeightAccumulator += float2(ComputeSampleDebugMask(ScreenSpacePos + ScaledLocalRandom, MipLevel), 1.0f);
+					WeightAccumulator += float2(ComputeSampleDebugMask(ScreenSpacePos - ScaledLocalRandom, MipLevel), 1.0f);
 				}
-
-				// Square(): the area scales quadratic with the angle - it gets a bit darker
-				WeightAccumulator += float2(Square(1 - LocalAccumulator.x) * LocalAccumulator.y, LocalAccumulator.y);
 			}
-			else // SSAO_NORMAL_AFFECTED == 1
+			else
 			{
+				if(SSAO_NORMAL_MODE == 0)
+				{
+					float2 LocalAccumulator = 0;
+
+					UNROLL for(uint step = 0; step < SAMPLE_STEPS; ++step)
+					{
+						// constant at run time
+						float Scale = (step + 1) / (float)SAMPLE_STEPS;
+						// constant at run time (higher is better for texture cache / performance, lower is better quality
+						float MipLevel = ComputeMipLevel(i, step);
+
+						float2 StepSample = WedgeNoNormal(ScreenSpacePos, Scale * LocalRandom, InvFovFix, ViewSpacePosition, InvHaloSize, MipLevel);
+
+						// combine horizon samples
+						LocalAccumulator = lerp(LocalAccumulator, float2(max(LocalAccumulator.x, StepSample.x), 1), StepSample.y);
+					}
+
+					// Square(): the area scales quadratic with the angle - it gets a bit darker
+					WeightAccumulator += float2(Square(1 - LocalAccumulator.x) * LocalAccumulator.y, LocalAccumulator.y);
+				}
+				else // SSAO_NORMAL_MODE == 0
 				{
 					float3 LocalAccumulator = 0;
 
@@ -619,8 +736,7 @@ void MainPSandCS(in float4 UVAndScreenPos, float4 SvPosition, out float4 OutColo
 						// constant at run time
 						float Scale = (step + 1) / (float)SAMPLE_STEPS;
 						// constant at run time (higher is better for texture cache / performance, lower is better quality
-						//float MipLevel = log2(1.0f + HzbStepMipLevelFactorValue * step);
-						float MipLevel = log2(1.0f + HzbStepMipLevelFactorValue * step);
+						float MipLevel = ComputeMipLevel(i, step);
 
 						float3 StepSample = WedgeWithNormal(ScreenSpacePos, Scale * LocalRandom, InvFovFix, ViewSpacePosition, ScaledViewSpaceNormal, InvHaloSize, MipLevel);
 
@@ -639,11 +755,14 @@ void MainPSandCS(in float4 UVAndScreenPos, float4 SvPosition, out float4 OutColo
 	}
 
 #endif // #if AO_SAMPLE_QUALITY == 0
-	
+
+
 	OutColor.r = WeightAccumulator.x / WeightAccumulator.y;
 	OutColor.gb = float2(0, 0);
 
+	if(!bDebugLookups)
 	{
+		// todo: fix if SSAO_NORMAL_MODE==0
 		float4 Filtered = ComputeUpsampleContribution(SceneDepth, UV, WorldNormal);
 
 		// recombined result from multiple resolutions
@@ -651,24 +770,31 @@ void MainPSandCS(in float4 UVAndScreenPos, float4 SvPosition, out float4 OutColo
 	}
 
 #if !USE_AO_SETUP_AS_INPUT
-	// full res
-
-	// soft fade out AO in the distance
+	if(!bDebugLookups)
 	{
-		float Mul = ScreenSpaceAOParams[4].x;
-		float Add = ScreenSpaceAOParams[4].y;
-		OutColor.r = lerp(OutColor.r, 1, saturate(SceneDepth * Mul + Add));
+		// full res
+
+		// soft fade out AO in the distance
+		{
+			float Mul = ScreenSpaceAOParams[4].x;
+			float Add = ScreenSpaceAOParams[4].y;
+			OutColor.r = lerp(OutColor.r, 1, saturate(SceneDepth * Mul + Add));
+		}
+
+		// user adjust AO
+		// abs() to prevent shader warning
+		OutColor.r = 1 - (1 - pow(abs(OutColor.r), AmbientOcclusionPower)) * AmbientOcclusionIntensity;
+
+		// we output in a single alpha channel
+		OutColor = OutColor.r;
 	}
-
-	// user adjust AO
-	// abs() to prevent shader warning
-	OutColor.r = 1 - (1 - pow(abs(OutColor.r), AmbientOcclusionPower)) * AmbientOcclusionIntensity;
-
-	// we output in a single alpha channel
-	OutColor = OutColor.r;
+	else
+	{
+		OutColor.r = pow(1 - OutColor.r, 16);	// constnt is tweaked with radius and sample count
+	}
 #endif
 
-		// we don't support ddx_fine() for GLSL yet and SM4 doesn't have it
+	// we don't support ddx_fine() for GLSL yet and SM4 doesn't have it
 #if !COMPUTE_SHADER && QUAD_MESSAGE_PASSING_BLUR > 0 && FEATURE_LEVEL >= FEATURE_LEVEL_SM5 && COMPILER_HLSL
 	{
 		// .x: AO output, .y:SceneDepth .zw:view space normal
@@ -733,10 +859,10 @@ void MainCS(
 {
 	float ScaleFactor = ScreenSpaceAOParams[2].x;
 
-	int2 PixelPos = DispatchThreadId + (int2)View.ViewRectMin.xy;
+	int2 PixelPos = DispatchThreadId + (int2)Frame.ViewRectMin.xy;
 
 	// todo: move to a function
-	float4 SvPosition = float4(DispatchThreadId + View.ViewRectMin.xy + 0.5f, 0, 0) * ScaleFactor;
+	float4 SvPosition = float4(DispatchThreadId + Frame.ViewRectMin.xy + 0.5f, 0, 0) * ScaleFactor;
 	float2 BufferUV = SvPositionToBufferUV(SvPosition);
 	SvPosition.z = LookupDeviceZ(BufferUV);
 	// todo: investigate

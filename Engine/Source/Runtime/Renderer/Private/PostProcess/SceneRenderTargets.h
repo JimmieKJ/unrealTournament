@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SceneRenderTargets.h: Scene render target definitions.
@@ -172,6 +172,8 @@ protected:
 		bVelocityPass(false),
 		bSeparateTranslucencyPass(false),
 		BufferSize(0, 0),
+		SeparateTranslucencyBufferSize(0, 0),
+		SeparateTranslucencyScale(1),
 		SmallColorDepthDownsampleFactor(2),
 		bLightAttenuationEnabled(true),
 		bUseDownsizedOcclusionQueries(true),
@@ -218,6 +220,8 @@ public:
 	 */
 	void SetBufferSize(int32 InBufferSizeX, int32 InBufferSizeY);
 
+	void SetSeparateTranslucencyBufferSize(bool bAnyViewWantsDownsampledSeparateTranslucency);
+
 	void BeginRenderingGBuffer(FRHICommandList& RHICmdList, ERenderTargetLoadAction ColorLoadAction, ERenderTargetLoadAction DepthLoadAction, bool bBindQuadOverdrawBuffers, const FLinearColor& ClearColor = FLinearColor(0, 0, 0, 1));
 	void FinishRenderingGBuffer(FRHICommandListImmediate& RHICmdList);
 
@@ -262,7 +266,7 @@ public:
 	/** Resolves the appropriate shadow depth cube map and restores default state. */
 	void FinishRenderingCubeShadowDepth(FRHICommandList& RHICmdList, int32 ShadowResolution);
 	
-	void BeginRenderingTranslucency(FRHICommandList& RHICmdList, const class FViewInfo& View);
+	void BeginRenderingTranslucency(FRHICommandList& RHICmdList, const class FViewInfo& View, bool bFirstTimeThisFrame = true);
 	void FinishRenderingTranslucency(FRHICommandListImmediate& RHICmdList, const class FViewInfo& View);
 
 	bool BeginRenderingSeparateTranslucency(FRHICommandList& RHICmdList, const FViewInfo& View, bool bFirstTimeThisFrame);
@@ -271,6 +275,14 @@ public:
 	{
 		SeparateTranslucencyRT.SafeRelease();
 		check(!SeparateTranslucencyRT);
+	}
+
+	void FreeSeparateTranslucencyDepth()
+	{
+		if (SeparateTranslucencyDepthRT.GetReference())
+		{
+			SeparateTranslucencyDepthRT.SafeRelease();
+		}
 	}
 
 	void ResolveSceneDepthTexture(FRHICommandList& RHICmdList);
@@ -285,14 +297,25 @@ public:
 	void BeginRenderingLightAttenuation(FRHICommandList& RHICmdList, bool bClearToWhite = false);
 	void FinishRenderingLightAttenuation(FRHICommandList& RHICmdList);
 
-
+	void GetSeparateTranslucencyDimensions(FIntPoint& OutScaledSize, float& OutScale)
+	{
+		OutScaledSize = SeparateTranslucencyBufferSize;
+		OutScale = SeparateTranslucencyScale;
+	}
 
 	TRefCountPtr<IPooledRenderTarget>& GetSeparateTranslucency(FRHICommandList& RHICmdList, FIntPoint Size)
 	{
 		if (!SeparateTranslucencyRT || SeparateTranslucencyRT->GetDesc().Extent != Size)
 		{
+			uint32 Flags = TexCreate_RenderTargetable;
+
+#if PLATFORM_XBOXONE
+			// Evil place to put this I know, but it's almost 4.11 deadline!
+			Flags |= TexCreate_NoFastClear;
+#endif
+
 			// Create the SeparateTranslucency render target (alpha is needed to lerping)
-			FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(Size, PF_FloatRGBA, FClearValueBinding::Black, TexCreate_None, TexCreate_RenderTargetable, false));
+			FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(Size, PF_FloatRGBA, FClearValueBinding::Black, TexCreate_None, Flags, false));
 			Desc.AutoWritable = false;
 			GRenderTargetPool.FindFreeElement(RHICmdList, Desc, SeparateTranslucencyRT, TEXT("SeparateTranslucency"));
 		}
@@ -309,7 +332,7 @@ public:
 		if (!SeparateTranslucencyDepthRT || SeparateTranslucencyDepthRT->GetDesc().Extent != Size)
 		{
 			// Create the SeparateTranslucency depth render target 
-			FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(Size, PF_DepthStencil, FClearValueBinding::None, TexCreate_None, TexCreate_DepthStencilTargetable, true));
+			FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(Size, PF_DepthStencil, FClearValueBinding::None, TexCreate_None, TexCreate_DepthStencilTargetable, false));
 			GRenderTargetPool.FindFreeElement(RHICmdList, Desc, SeparateTranslucencyDepthRT, TEXT("SeparateTranslucencyDepth"));
 		}
 		return SeparateTranslucencyDepthRT;
@@ -356,11 +379,13 @@ public:
 	const FTexture2DRHIRef& GetSceneAlphaCopyTexture() const { return (const FTexture2DRHIRef&)SceneAlphaCopy->GetRenderTargetItem().ShaderResourceTexture; }
 	bool HasSceneAlphaCopyTexture() const { return SceneAlphaCopy.GetReference() != 0; }
 	const FTexture2DRHIRef& GetSceneDepthTexture() const { return (const FTexture2DRHIRef&)SceneDepthZ->GetRenderTargetItem().ShaderResourceTexture; }
-	const FTexture2DRHIRef& GetAuxiliarySceneDepthTexture() const 
+	const FTexture2DRHIRef& GetNoMSAASceneDepthTexture() const { return (const FTexture2DRHIRef&)NoMSAASceneDepthZ->GetRenderTargetItem().ShaderResourceTexture; }
+	const FTexture2DRHIRef& GetAuxiliarySceneDepthTexture() const
 	{ 
 		check(!GSupportsDepthFetchDuringDepthTest);
 		return (const FTexture2DRHIRef&)AuxiliarySceneDepthZ->GetRenderTargetItem().ShaderResourceTexture; 
 	}
+
 	const FTexture2DRHIRef& GetShadowDepthZTexture(bool bInPreshadowCache = false) const 
 	{ 
 		if (bInPreshadowCache)
@@ -407,6 +432,7 @@ public:
 	const FTextureRHIRef& GetSceneColorSurface() const;
 	const FTexture2DRHIRef& GetSceneAlphaCopySurface() const						{ return (const FTexture2DRHIRef&)SceneAlphaCopy->GetRenderTargetItem().TargetableTexture; }
 	const FTexture2DRHIRef& GetSceneDepthSurface() const							{ return (const FTexture2DRHIRef&)SceneDepthZ->GetRenderTargetItem().TargetableTexture; }
+	const FTexture2DRHIRef& GetNoMSAASceneDepthSurface() const						{ return (const FTexture2DRHIRef&)NoMSAASceneDepthZ->GetRenderTargetItem().TargetableTexture; }
 	const FTexture2DRHIRef& GetSmallDepthSurface() const							{ return (const FTexture2DRHIRef&)SmallDepthZ->GetRenderTargetItem().TargetableTexture; }
 	const FTexture2DRHIRef& GetShadowDepthZSurface() const						
 	{ 
@@ -565,6 +591,8 @@ public:
 	TRefCountPtr<IPooledRenderTarget> SceneDepthZ;
 	TRefCountPtr<FRHIShaderResourceView> SceneStencilSRV;
 	TRefCountPtr<IPooledRenderTarget> LightingChannels;
+	// Used when MSAA is enabled but rendering to a non-MSAA render target.
+	TRefCountPtr<IPooledRenderTarget> NoMSAASceneDepthZ;
 	// Mobile without frame buffer fetch (to get depth from alpha).
 	TRefCountPtr<IPooledRenderTarget> SceneAlphaCopy;
 	// Auxiliary scene depth target. The scene depth is resolved to this surface when targeting SM4. 
@@ -716,6 +744,8 @@ private:
 	FUniformBufferRHIRef GBufferResourcesUniformBuffer;
 	/** size of the back buffer, in editor this has to be >= than the biggest view port */
 	FIntPoint BufferSize;
+	FIntPoint SeparateTranslucencyBufferSize;
+	float SeparateTranslucencyScale;
 	/** e.g. 2 */
 	uint32 SmallColorDepthDownsampleFactor;
 	/** if true we use the light attenuation buffer otherwise the 1x1 white texture is used */

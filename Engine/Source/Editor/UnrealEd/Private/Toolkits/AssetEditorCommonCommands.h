@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -17,6 +17,7 @@ public:
 	virtual void RegisterCommands() override;
 
 	TSharedPtr< FUICommandInfo > SaveAsset;
+	TSharedPtr< FUICommandInfo > SaveAssetAs;
 	TSharedPtr< FUICommandInfo > ReimportAsset;
 	TSharedPtr< FUICommandInfo > SwitchToStandaloneEditor;
 	TSharedPtr< FUICommandInfo > SwitchToWorldCentricEditor;

@@ -1,12 +1,20 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameplayDebuggerPrivate.h"
+//////////////////////////////////////////////////////////////////////////
+// THIS CLASS IS NOW DEPRECATED AND WILL BE REMOVED IN NEXT VERSION
+// Please check GameplayDebugger.h for details.
+
+#include "GameplayDebuggerPrivatePCH.h"
 #include "Engine/GameInstance.h"
+#include "Engine/Canvas.h"
 #include "Debug/DebugDrawService.h"
 #include "GameFramework/HUD.h"
+#include "GameFramework/Pawn.h"
+#include "GameplayDebugger.h"
 #include "GameplayDebuggingComponent.h"
 #include "GameplayDebuggingHUDComponent.h"
 #include "GameplayDebuggingReplicator.h"
+#include "GameplayDebuggingControllerComponent.h"
 #include "BehaviorTreeDelegates.h"
 #if WITH_EDITOR
 #include "Editor/EditorEngine.h"
@@ -190,7 +198,7 @@ void AGameplayDebuggingReplicator::BeginPlay()
 		}
 		// @note patching up OR-9814
 		const UGameplayDebuggingComponent* DummyPointer = GetDebugComponent();
-		if (DummyPointer)
+		if (DummyPointer == nullptr)
 		{
 			UE_LOG(LogGameplayDebugger, Error, TEXT("Unable to create UGameplayDebuggingComponent instance!"));
 		}
@@ -317,8 +325,15 @@ void AGameplayDebuggingReplicator::ClientAutoActivate_Implementation()
 	// we are already replicated so let's activate tool
 	if (GetWorld() && GetNetMode() == ENetMode::NM_Client && !IsToolCreated() && !IsGlobalInWorld())
 	{
-		CreateTool();
-		EnableTool();
+		if (IsToolCreated())
+		{
+			EnableDraw(!IsDrawEnabled());
+		}
+		else
+		{
+			CreateTool();
+			EnableTool();
+		}
 	}
 #endif
 }
@@ -329,8 +344,15 @@ void AGameplayDebuggingReplicator::OnRep_AutoActivate()
 	// we are already replicated so let's activate tool
 	if (GetWorld() && GetNetMode() == ENetMode::NM_Client && !IsToolCreated() && !IsGlobalInWorld())
 	{
-		CreateTool();
-		EnableTool();
+		if (IsToolCreated())
+		{
+			EnableDraw(!IsDrawEnabled());
+		}
+		else
+		{
+			CreateTool();
+			EnableTool();
+		}
 	}
 #endif
 }
@@ -492,7 +514,7 @@ void AGameplayDebuggingReplicator::TickActor(float DeltaTime, enum ELevelTick Ti
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	UWorld* World = GetWorld();
-	if (!IsGlobalInWorld() || !World || GetNetMode() == ENetMode::NM_Client || !IGameplayDebugger::IsAvailable())
+	if (!IsGlobalInWorld() || !World || GetNetMode() == ENetMode::NM_Client || !GameplayDebugger::IsAvailable())
 	{
 		// global level replicator don't have any local player and it's prepared to work only on servers
 		return;
@@ -512,7 +534,7 @@ void AGameplayDebuggingReplicator::TickActor(float DeltaTime, enum ELevelTick Ti
 			APlayerController* PC = *Iterator;
 			if (PC)
 			{
-				IGameplayDebugger& Debugger = IGameplayDebugger::Get();
+				GameplayDebugger& Debugger = GameplayDebugger::Get();
 				Debugger.CreateGameplayDebuggerForPlayerController(PC);
 			}
 		}

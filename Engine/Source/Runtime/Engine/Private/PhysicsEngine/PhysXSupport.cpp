@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PhysXSupport.cpp: PhysX
@@ -252,11 +252,23 @@ void AddRadialForceToPxRigidBody_AssumesLocked(PxRigidBody& PRigidBody, const FV
 #endif // WITH_PHYSX
 }
 
-bool IsRigidBodyNonKinematic_AssumesLocked(const PxRigidBody* PRigidBody)
+bool IsRigidBodyKinematic_AssumesLocked(const PxRigidBody* PRigidBody)
 {
 	if (PRigidBody)
 	{
-		return !(PRigidBody->getRigidBodyFlags() & PxRigidBodyFlag::eKINEMATIC);
+		//For some cases we only consider an actor kinematic if it's in the simulation scene. This is in cases where we set a kinematic target
+		return (PRigidBody->getRigidBodyFlags() & PxRigidBodyFlag::eKINEMATIC);
+	}
+
+	return false;
+}
+
+bool IsRigidBodyKinematicAndInSimulationScene_AssumesLocked(const PxRigidBody* PRigidBody)
+{
+	if (PRigidBody)
+	{
+		//For some cases we only consider an actor kinematic if it's in the simulation scene. This is in cases where we set a kinematic target
+		return (PRigidBody->getRigidBodyFlags() & PxRigidBodyFlag::eKINEMATIC) && !(PRigidBody->getActorFlags() & PxActorFlag::eDISABLE_SIMULATION);
 	}
 
 	return false;
@@ -313,8 +325,8 @@ PxFilterFlags PhysXSimFilterShader(	PxFilterObjectAttributes attributes0, PxFilt
 		return PxFilterFlag::eSUPPRESS;
 	}
 
-	// if these bodies are from the same skeletal mesh component, use the disable table to see if we should disable collision
-	if((filterData0.word2 == filterData1.word2) && (filterData0.word2 != 0))
+	// if these bodies are from the same component, use the disable table to see if we should disable collision. This case should only happen for things like skeletalmesh and destruction. The table is only created for skeletal mesh components at the moment
+	if(filterData0.word2 == filterData1.word2)
 	{
 		check(constantBlockSize == sizeof(FPhysSceneShaderInfo));
 		const FPhysSceneShaderInfo* PhysSceneShaderInfo = (const FPhysSceneShaderInfo*) constantBlock;

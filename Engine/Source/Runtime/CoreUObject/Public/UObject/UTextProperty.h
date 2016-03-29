@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "ObjectBase.h"
@@ -35,4 +35,7 @@ public:
 		return FString();
 	}
 	// End of UProperty interface
+
+	/** Generate the correct C++ code for the given text value */
+	static FString GenerateCppCodeForTextValue(const FText& InValue, const FString& Indent);
 };

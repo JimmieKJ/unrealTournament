@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -39,9 +39,6 @@ public:
 
 	void* LockBuffer_RenderThread(int32 NumIndices);
 	void UnlockBuffer_RenderThread();
-
-	void* LockBuffer_RHIThread(int32 NumIndices);
-	void UnlockBuffer_RHIThread();
 
 	int32 GetMinBufferSize() const { return MinBufferSize; }
 

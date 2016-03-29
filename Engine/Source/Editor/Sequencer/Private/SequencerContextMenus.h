@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -33,9 +33,23 @@ private:
 	/** Add extrapolation menu for pre and post infinity */
 	void AddExtrapolationMenu(FMenuBuilder& MenuBuilder, bool bPreInfinity);
 
+	/** Add the Properties sub-menu. */
+	void AddPropertiesMenu(FMenuBuilder& MenuBuilder);
+
+	/** Add the Order sub-menu. */
+	void AddOrderMenu(FMenuBuilder& MenuBuilder);
+
 	void SelectAllKeys();
 
 	bool CanSelectAllKeys() const;
+
+	void TogglePrimeForRecording() const;
+
+	bool IsPrimedForRecording() const;
+
+	bool CanPrimeForRecording() const;
+
+	bool CanSetExtrapolationMode() const;
 
 	void TrimSection(bool bTrimLeft);
 
@@ -190,6 +204,12 @@ private:
 
 	/** Hidden AsShared() methods to discourage CreateSP delegate use. */
 	using TSharedFromThis::AsShared;
+
+	/** Add the Properties sub-menu. */
+	void AddPropertiesMenu(FMenuBuilder& MenuBuilder);
+
+	/** Check if we can add the key properties menu */
+	bool CanAddPropertiesMenu() const;
 
 	void PopulateMenu(FMenuBuilder& MenuBuilder);
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "PropertyEditorPrivatePCH.h"
@@ -335,8 +335,16 @@ void FObjectPropertyNode::InternalInitChildNodes( FName SinglePropertyName )
 			}
 		}
 
+		// 
+		static const FName Name_InlineEditConditionToggle("InlineEditConditionToggle");
+		if (It->HasMetaData(Name_InlineEditConditionToggle))
+		{
+			bHidden = true;
+		}
+
 		bool bMetaDataAllowVisible = true;
-		FString MetaDataVisibilityCheckString = It->GetMetaData(TEXT("bShowOnlyWhenTrue"));
+		static const FName Name_bShowOnlyWhenTrue("bShowOnlyWhenTrue");
+		FString MetaDataVisibilityCheckString = It->GetMetaData(Name_bShowOnlyWhenTrue);
 		if (MetaDataVisibilityCheckString.Len())
 		{
 			//ensure that the metadata visibility string is actually set to true in order to show this property
@@ -451,9 +459,11 @@ void FObjectPropertyNode::InternalInitChildNodes( FName SinglePropertyName )
 		// Iterate over all fields, creating items.
 		for( TFieldIterator<UProperty> It(BaseClass.Get()); It; ++It )
 		{
+			static const FName Name_InlineEditConditionToggle("InlineEditConditionToggle");
+			const bool bOnlyShowAsInlineEditCondition = (*It)->HasMetaData(Name_InlineEditConditionToggle);
 			const bool bShowIfNonHiddenEditableProperty = (*It)->HasAnyPropertyFlags(CPF_Edit) && !FEditorCategoryUtils::IsCategoryHiddenFromClass(BaseClass.Get(), FObjectEditorUtils::GetCategory(*It));
 			const bool bShowIfDisableEditOnInstance = !(*It)->HasAnyPropertyFlags(CPF_DisableEditOnInstance) || bShouldShowDisableEditOnInstance;
-			if (bShouldShowHiddenProperties || (bShowIfNonHiddenEditableProperty && bShowIfDisableEditOnInstance))
+			if (bShouldShowHiddenProperties || (bShowIfNonHiddenEditableProperty && !bOnlyShowAsInlineEditCondition && bShowIfDisableEditOnInstance))
 			{
 				UProperty* CurProp = *It;
 				if( SinglePropertyName == NAME_None || CurProp->GetFName() == SinglePropertyName )

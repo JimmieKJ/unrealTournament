@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.IO;
@@ -17,11 +17,13 @@ public class RSAEncryptionHandlerComponent : ModuleRules
         if ((Target.Platform == UnrealTargetPlatform.Win64) ||
             (Target.Platform == UnrealTargetPlatform.Win32))
         {
-            AddThirdPartyPrivateStaticDependencies(Target,
+            AddEngineThirdPartyPrivateStaticDependencies(Target,
                 "CryptoPP"
                 );
         }
 
         PublicIncludePathModuleNames.Add("CryptoPP");
+
+		PrecompileForTargets = PrecompileTargetsType.None;
     }
 }

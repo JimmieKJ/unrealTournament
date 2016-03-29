@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LandscapeEditorPrivatePCH.h"
 #include "LandscapeEdMode.h"
@@ -195,6 +195,8 @@ void FLandscapeEditorCustomNodeBuilder_TargetLayers::GenerateRow(IDetailChildren
 	}
 	else
 	{
+		static const FSlateColorBrush SolidWhiteBrush = FSlateColorBrush(FColorList::White);
+
 		ChildrenBuilder.AddChildContent(Target->TargetName)
 		[
 			SNew(SLandscapeEditorSelectableBorder)
@@ -210,13 +212,31 @@ void FLandscapeEditorCustomNodeBuilder_TargetLayers::GenerateRow(IDetailChildren
 				.VAlign(VAlign_Center)
 				.Padding(FMargin(2))
 				[
+					SNew(SBox)
+					.Visibility_Static(&FLandscapeEditorCustomNodeBuilder_TargetLayers::GetDebugModeLayerUsageVisibility, Target)
+					.WidthOverride(48)
+					.HeightOverride(48)
+					[
+						SNew(SImage)
+						.Image(FCoreStyle::Get().GetBrush("WhiteBrush"))
+						.ColorAndOpacity_Static(&FLandscapeEditorCustomNodeBuilder_TargetLayers::GetLayerUsageDebugColor, Target)
+					]
+				]
+
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				.Padding(FMargin(2))
+				[
 					(Target->bValid)
 					? (TSharedRef<SWidget>)(
 					SNew(SLandscapeAssetThumbnail, Target->ThumbnailMIC.Get(), ThumbnailPool)
+					.Visibility_Static(&FLandscapeEditorCustomNodeBuilder_TargetLayers::GetDebugModeLayerUsageVisibility_Invert, Target)
 					.ThumbnailSize(FIntPoint(48, 48))
 					)
 					: (TSharedRef<SWidget>)(
 					SNew(SImage)
+					.Visibility_Static(&FLandscapeEditorCustomNodeBuilder_TargetLayers::GetDebugModeLayerUsageVisibility_Invert, Target)
 					.Image(FEditorStyle::GetBrush(TEXT("LandscapeEditor.Target_Invalid")))
 					)
 				]
@@ -821,6 +841,35 @@ FReply FLandscapeEditorCustomNodeBuilder_TargetLayers::OnTargetLayerDeleteClicke
 	}
 
 	return FReply::Handled();
+}
+
+FSlateColor FLandscapeEditorCustomNodeBuilder_TargetLayers::GetLayerUsageDebugColor(const TSharedRef<FLandscapeTargetListInfo> Target)
+{
+	if (GLandscapeViewMode == ELandscapeViewMode::LayerUsage && Target->TargetType != ELandscapeToolTargetType::Heightmap && ensure(Target->LayerInfoObj.IsValid()))
+	{
+		return FSlateColor(Target->LayerInfoObj->LayerUsageDebugColor);
+	}
+	return FSlateColor(FLinearColor(0, 0, 0, 0));
+}
+
+EVisibility FLandscapeEditorCustomNodeBuilder_TargetLayers::GetDebugModeLayerUsageVisibility(const TSharedRef<FLandscapeTargetListInfo> Target)
+{
+	if (GLandscapeViewMode == ELandscapeViewMode::LayerUsage && Target->TargetType != ELandscapeToolTargetType::Heightmap && Target->LayerInfoObj.IsValid())
+	{
+		return EVisibility::Visible;
+	}
+
+	return EVisibility::Collapsed;
+}
+
+EVisibility FLandscapeEditorCustomNodeBuilder_TargetLayers::GetDebugModeLayerUsageVisibility_Invert(const TSharedRef<FLandscapeTargetListInfo> Target)
+{
+	if (GLandscapeViewMode == ELandscapeViewMode::LayerUsage && Target->TargetType != ELandscapeToolTargetType::Heightmap && Target->LayerInfoObj.IsValid())
+	{
+		return EVisibility::Collapsed;
+	}
+
+	return EVisibility::Visible;
 }
 
 EVisibility FLandscapeEditorCustomNodeBuilder_TargetLayers::GetDebugModeColorChannelVisibility(const TSharedRef<FLandscapeTargetListInfo> Target)

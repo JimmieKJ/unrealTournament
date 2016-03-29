@@ -1,8 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreUObjectPrivate.h"
 #include "LinkerPlaceholderExportObject.h"
 #include "LinkerPlaceholderClass.h"
+#include "BlueprintSupport.h" // for IsDeferredDependencyPlaceholder()
 
 /*-----------------------------------------------------------------------------
 	UObjectProperty.
@@ -59,6 +60,36 @@ void UObjectProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defa
 
 		CheckValidObject(Value);
 	}
+}
+
+const TCHAR* UObjectProperty::ImportText_Internal(const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* OwnerObject, FOutputDevice* ErrorText) const
+{
+	const TCHAR* Result = TUObjectPropertyBase<UObject*>::ImportText_Internal(Buffer, Data, PortFlags, OwnerObject, ErrorText);
+	if (Result)
+	{
+		CheckValidObject(Data);
+
+#if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+		UObject* ObjectValue = GetObjectPropertyValue(Data);
+
+		if (ULinkerPlaceholderClass* PlaceholderClass = Cast<ULinkerPlaceholderClass>(ObjectValue))
+		{
+			// we use this tracker mechanism to help record the instance that is
+			// referencing the placeholder (so we can replace it later on fixup)
+			FScopedPlaceholderContainerTracker ImportingObjTracker(OwnerObject);
+
+			PlaceholderClass->AddReferencingPropertyValue(this, Data);
+		}
+#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+		else
+		{
+			// as far as we know, ULinkerPlaceholderClass is the only type we have to handle through ImportText()
+			check(!FBlueprintSupport::IsDeferredDependencyPlaceholder(ObjectValue));
+		}
+#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+#endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+	}
+	return Result;
 }
 
 void UObjectProperty::SetObjectPropertyValue(void* PropertyValueAddress, UObject* Value) const

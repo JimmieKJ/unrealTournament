@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "TranslationEditorPrivatePCH.h"
 #include "TranslationEditor.h"
@@ -623,8 +623,8 @@ void FTranslationDataManager::PreviewAllTranslationsInEditor(ULocalizationTarget
 
 	if (LocalizationTarget != nullptr)
 	{
-		const FString ConfigFilePath = LocalizationConfigurationScript::GetRegenerateResourcesScriptPath(LocalizationTarget);
-		LocalizationConfigurationScript::GenerateRegenerateResourcesScript(LocalizationTarget).Write(ConfigFilePath);
+		const FString ConfigFilePath = LocalizationConfigurationScript::GetRegenerateResourcesConfigPath(LocalizationTarget);
+		LocalizationConfigurationScript::GenerateRegenerateResourcesConfigFile(LocalizationTarget).Write(ConfigFilePath);
 
 		FJsonInternationalizationArchiveSerializer LocalizationArchiveSerializer;
 		FJsonInternationalizationManifestSerializer LocalizationManifestSerializer;

@@ -1,10 +1,10 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
-public class UEOpenEXR : ModuleRules
+public class UEOpenExr : ModuleRules
 {
-    public UEOpenEXR(TargetInfo Target)
+    public UEOpenExr(TargetInfo Target)
     {
         Type = ModuleType.External;
         if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Mac)

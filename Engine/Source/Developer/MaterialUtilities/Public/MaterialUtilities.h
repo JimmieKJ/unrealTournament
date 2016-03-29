@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -24,6 +24,7 @@ struct FFlattenMaterial
 		, EmissiveSize(0, 0)
 		, SubSurfaceSize(0, 0)
 		, bTwoSided(false)
+		, bDitheredLODTransition(false)
 		, BlendMode(BLEND_Opaque)
 		, EmissiveScale(1.0f)		
 	{}
@@ -104,6 +105,8 @@ struct FFlattenMaterial
 
 	/** Flag whether or not the material will have to be two-sided */
 	bool			bTwoSided;
+	/** Flag whether or not the material will use dithered LOD transitions */
+	bool			bDitheredLODTransition;
 	/** Blend mode for the new material */
 	EBlendMode		BlendMode;
 	/** Scale (maximum baked down value) for the emissive property */
@@ -266,8 +269,8 @@ public:
 	 * @param OutGeneratedAssets	List of generated assets - material, textures
 	 * @return						Returns a pointer to the constructed UMaterial object.
 	 */
-	static UMaterial* CreateMaterial(const FFlattenMaterial& InFlattenMaterial, UPackage* InOuter, const FString& BaseName, EObjectFlags Flags, TArray<UObject*>& OutGeneratedAssets);
-
+	static UMaterial* CreateMaterial(const FFlattenMaterial& InFlattenMaterial, UPackage* InOuter, const FString& BaseName, EObjectFlags Flags, const struct FMaterialProxySettings& MaterialProxySettings, TArray<UObject*>& OutGeneratedAssets, const TextureGroup& InTextureGroup = TEXTUREGROUP_World);
+	
 	/**
 	* Creates bakes textures for a ULandscapeComponent
 	*
@@ -355,7 +358,7 @@ private:
 	* @param InTargetSize			Dimensions of the render target
 	* @return						Created render target
 	*/
-	static UTextureRenderTarget2D* CreateRenderTarget(bool bInForceLinearGamma, EPixelFormat InPixelFormat, FIntPoint& InTargetSize);
+	static UTextureRenderTarget2D* CreateRenderTarget(bool bInForceLinearGamma, bool bNormalMap, EPixelFormat InPixelFormat, FIntPoint& InTargetSize );
 	
 	/** Clears the pool with available render targets */
 	static void ClearRenderTargetPool();	

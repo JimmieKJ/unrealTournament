@@ -1,4 +1,6 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+using System.IO;
 
 namespace UnrealBuildTool.Rules
 {
@@ -22,6 +24,7 @@ namespace UnrealBuildTool.Rules
 					"Core",
 					"CoreUObject",
 					"Engine",
+					"InputCore",
 					"RHI",
 					"RenderCore",
 					"Renderer",
@@ -30,8 +33,10 @@ namespace UnrealBuildTool.Rules
 				}
 				);
 
+            PublicIncludePathModuleNames.Add("Launch");
+
 			PrivateDependencyModuleNames.AddRange(new string[] { "OpenGLDrv" });
-			AddThirdPartyPrivateStaticDependencies(Target, "OpenGL");
+			AddEngineThirdPartyPrivateStaticDependencies(Target, "OpenGL");
             PrivateIncludePaths.AddRange(
 				new string[] {
 					"../../../../Source/Runtime/OpenGLDrv/Private",
@@ -40,7 +45,10 @@ namespace UnrealBuildTool.Rules
 				);
 			if (Target.Platform == UnrealTargetPlatform.Android)
 			{
-				PrivateDependencyModuleNames.AddRange(new string[] { "LibOVRMobile" });
+				PrivateDependencyModuleNames.AddRange(new string[] { "OculusMobile" });
+
+				string PluginPath = Utils.MakePathRelativeTo(ModuleDirectory, BuildConfiguration.RelativeEnginePath);
+				AdditionalPropertiesForReceipt.Add(new ReceiptProperty("AndroidPlugin", Path.Combine(PluginPath, "GearVR_APL.xml")));
 			}
 		}
 	}

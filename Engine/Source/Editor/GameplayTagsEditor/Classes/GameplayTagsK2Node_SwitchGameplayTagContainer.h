@@ -1,4 +1,4 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -24,6 +24,7 @@ class UGameplayTagsK2Node_SwitchGameplayTagContainer : public UK2Node_Switch
 
 	// UObject interface
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PostLoad() override;
 	// End of UObject interface
 
 	// UEdGraphNode interface
@@ -45,10 +46,6 @@ class UGameplayTagsK2Node_SwitchGameplayTagContainer : public UK2Node_Switch
 	virtual FString GetPinNameGivenIndex(int32 Index) override;
 
 protected:
-
-	UFUNCTION(BlueprintPure, Category = PinOptions)
-	static bool NotEqual_TagContainerTagContainer(FGameplayTagContainer A, FString B);
-
 	virtual void CreateFunctionPin() override;
 	virtual void CreateSelectionPin() override;
 	virtual void CreateCasePins() override;

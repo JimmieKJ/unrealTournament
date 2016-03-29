@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SimpleElementHitProxyPixelShader.hlsl: Pixel shader for drawing simple element hit proxies.
@@ -17,7 +17,11 @@ void Main(
 	)
 {
 	float alpha = Texture2DSample(InTexture, InTextureSampler,TextureCoordinate).a;
+#if COMPILER_METAL
+	OutColor = float4(HitProxyId.zyx,alpha);
+#else
 	OutColor = float4(HitProxyId.rgb,alpha);
+#endif
 
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
 	// Dx11 (feature levels 10 and upwards) do not perform alpha test, so manually clip.

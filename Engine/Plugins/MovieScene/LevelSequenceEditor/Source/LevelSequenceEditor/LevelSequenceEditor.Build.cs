@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -10,13 +10,16 @@ public class LevelSequenceEditor : ModuleRules
             new string[] {
 				"AssetTools",
 				"SceneOutliner",
+				"PlacementMode",
 			}
         );
         
         PrivateDependencyModuleNames.AddRange(
 			new string[] {
+				"AppFramework",
                 "LevelSequence",
 				"BlueprintGraph",
+                "CinematicCamera",
 				"Core",
 				"CoreUObject",
                 "EditorStyle",
@@ -24,6 +27,7 @@ public class LevelSequenceEditor : ModuleRules
                 "InputCore",
 				"LevelEditor",
 				"MovieScene",
+                "MovieSceneTools",
 				"MovieSceneTracks",
                 "PropertyEditor",
 				"Sequencer",
@@ -36,7 +40,10 @@ public class LevelSequenceEditor : ModuleRules
 		PrivateIncludePathModuleNames.AddRange(
 			new string[] {
 				"AssetTools",
+                "MovieSceneTools",
 				"SceneOutliner",
+				"PlacementMode",
+                "Settings",
 			}
 		);
 
@@ -46,6 +53,7 @@ public class LevelSequenceEditor : ModuleRules
 				"LevelSequenceEditor/Private/AssetTools",
                 "LevelSequenceEditor/Private/Customizations",
 				"LevelSequenceEditor/Private/Factories",
+                "LevelSequenceEditor/Private/Misc",
 				"LevelSequenceEditor/Private/Styles",
 			}
         );

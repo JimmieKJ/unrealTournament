@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -285,6 +285,40 @@ public:
 		return *this;
 	}
 
+	/** Constructor for moving elements from a TSet with a different SetAllocator */
+	template<typename OtherAllocator>
+	TSet(TSet<ElementType, KeyFuncs, OtherAllocator>&& Other)
+		: HashSize(0)
+	{
+		Append(MoveTemp(Other));
+	}
+
+	/** Constructor for copying elements from a TSet with a different SetAllocator */
+	template<typename OtherAllocator>
+	TSet(const TSet<ElementType, KeyFuncs, OtherAllocator>& Other)
+		: HashSize(0)
+	{
+		Append(Other);
+	}
+
+	/** Assignment operator for moving elements from a TSet with a different SetAllocator */
+	template<typename OtherAllocator>
+	TSet& operator=(TSet<ElementType, KeyFuncs, OtherAllocator>&& Other)
+	{
+		Reset();
+		Append(MoveTemp(Other));
+		return *this;
+	}
+
+	/** Assignment operator for copying elements from a TSet with a different SetAllocator */
+	template<typename OtherAllocator>
+	TSet& operator=(const TSet<ElementType, KeyFuncs, OtherAllocator>& Other)
+	{
+		Reset();
+		Append(Other);
+		return *this;
+	}
+
 	/**
 	 * Removes all elements from the set, potentially leaving space allocated for an expected number of elements about to be added.
 	 * @param ExpectedNumElements - The number of elements about to be added to the set.
@@ -465,32 +499,50 @@ public:
 		return ElementId;
 	}
 
-	void Append(const TArray<ElementType>& InElements)
+	template<typename ArrayAllocator>
+	void Append(const TArray<ElementType, ArrayAllocator>& InElements)
 	{
+		Reserve(Elements.Num() + InElements.Num());
 		for (auto& Element : InElements)
 		{
 			Add(Element);
 		}
 	}
 
-	void Append(TArray<ElementType>&& InElements)
+	template<typename ArrayAllocator>
+	void Append(TArray<ElementType, ArrayAllocator>&& InElements)
 	{
+		Reserve(Elements.Num() + InElements.Num());
 		for (auto& Element : InElements)
 		{
 			Add(MoveTemp(Element));
 		}
+		InElements.Reset();
 	}
 
 	/**
 	 * Add all items from another set to our set (union without creating a new set)
 	 * @param OtherSet - The other set of items to add.
-     */
-	void Append( const TSet& OtherSet )
+	 */
+	template<typename OtherAllocator>
+	void Append(const TSet<ElementType, KeyFuncs, OtherAllocator>& OtherSet)
 	{
-		for(TConstIterator SetIt(OtherSet);SetIt;++SetIt)
+		Reserve(Elements.Num() + OtherSet.Num());
+		for (auto& Element : OtherSet)
 		{
-			Add(*SetIt);
+			Add(Element);
 		}
+	}
+
+	template<typename OtherAllocator>
+	void Append(TSet<ElementType, KeyFuncs, OtherAllocator>&& OtherSet)
+	{
+		Reserve(Elements.Num() + OtherSet.Num());
+		for (auto& Element : OtherSet)
+		{
+			Add(MoveTemp(Element));
+		}
+		OtherSet.Reset();
 	}
 
 	/**
@@ -739,10 +791,16 @@ public:
 	/** @return the intersection of two sets. (A AND B)*/
 	TSet Intersect(const TSet& OtherSet) const
 	{
+		const bool bOtherSmaller = (Num() > OtherSet.Num());
+		const TSet& A = (bOtherSmaller ? OtherSet : *this);
+		const TSet& B = (bOtherSmaller ? *this : OtherSet);
+
 		TSet Result;
-		for(TConstIterator SetIt(*this);SetIt;++SetIt)
+		Result.Reserve(A.Num()); // Worst case is everything in smaller is in larger
+
+		for(TConstIterator SetIt(A);SetIt;++SetIt)
 		{
-			if(OtherSet.Contains(KeyFuncs::GetSetKey(*SetIt)))
+			if(B.Contains(KeyFuncs::GetSetKey(*SetIt)))
 			{
 				Result.Add(*SetIt);
 			}
@@ -754,6 +812,8 @@ public:
 	TSet Union(const TSet& OtherSet) const
 	{
 		TSet Result;
+		Result.Reserve(Num() + OtherSet.Num()); // Worst case is 2 totally unique Sets
+
 		for(TConstIterator SetIt(*this);SetIt;++SetIt)
 		{
 			Result.Add(*SetIt);
@@ -765,10 +825,12 @@ public:
 		return Result;
 	}
 
-	/** @return the complement of two sets. (A not in B)*/
+	/** @return the complement of two sets. (A not in B where A is this and B is Other)*/
 	TSet Difference(const TSet& OtherSet) const
 	{
 		TSet Result;
+		Result.Reserve(Num()); // Worst case is no elements of this are in Other
+
 		for(TConstIterator SetIt(*this);SetIt;++SetIt)
 		{
 			if(!OtherSet.Contains(KeyFuncs::GetSetKey(*SetIt)))
@@ -789,13 +851,21 @@ public:
 	bool Includes(const TSet<ElementType,KeyFuncs,Allocator>& OtherSet) const
 	{
 		bool bIncludesSet = true;
-		for(TConstIterator OtherSetIt(OtherSet); OtherSetIt; ++OtherSetIt)
+		if (OtherSet.Num() <= Num())
 		{
-			if (!Contains(KeyFuncs::GetSetKey(*OtherSetIt)))
+			for(TConstIterator OtherSetIt(OtherSet); OtherSetIt; ++OtherSetIt)
 			{
-				bIncludesSet = false;
-				break;
+				if (!Contains(KeyFuncs::GetSetKey(*OtherSetIt)))
+				{
+					bIncludesSet = false;
+					break;
+				}
 			}
+		}
+		else
+		{
+			// Not possible to include if it is bigger than us
+			bIncludesSet = false;
 		}
 		return bIncludesSet;
 	}
@@ -804,7 +874,7 @@ public:
 	TArray<ElementType> Array() const
 	{
 		TArray<ElementType> Result;
-		Result.Empty(Num());
+		Result.Reserve(Num());
 		for(TConstIterator SetIt(*this);SetIt;++SetIt)
 		{
 			Result.Add(*SetIt);

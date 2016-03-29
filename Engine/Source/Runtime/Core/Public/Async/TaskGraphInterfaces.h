@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	TaskGraphInterfaces.h: TaskGraph library
@@ -54,15 +54,22 @@ namespace ENamedThreads
 		QueueIndexMask =	0x100,
 		QueueIndexShift =	8,
 
-		/** High bits are used for a queue index and priority**/
+		/** High bits are used for a queue index task priority and thread priority**/
 
-		NormalPriority =	0x000,
-		HighPriority =		0x200,
+		NormalTaskPriority =	0x000,
+		HighTaskPriority =		0x200,
 
-		NumPriorities =		2,
-		PriorityMask =		0x200,
-		PriorityShift =		9,
+		NumTaskPriorities =		2,
+		TaskPriorityMask =		0x200,
+		TaskPriorityShift =		9,
 
+		NormalThreadPriority = 0x000,
+		HighThreadPriority = 0x400,
+		BackgroundThreadPriority = 0x800,
+
+		NumThreadPriorities = 3,
+		ThreadPriorityMask = 0xC00,
+		ThreadPriorityShift = 10,
 
 		/** Combinations **/
 #if STATS
@@ -70,9 +77,23 @@ namespace ENamedThreads
 #endif
 		GameThread_Local = GameThread | LocalQueue,
 		ActualRenderingThread_Local = ActualRenderingThread | LocalQueue,
+
+		AnyHiPriThreadNormalTask = AnyThread | HighThreadPriority | NormalTaskPriority,
+		AnyHiPriThreadHiPriTask = AnyThread | HighThreadPriority | HighTaskPriority,
+
+		AnyNormalThreadNormalTask = AnyThread | NormalThreadPriority | NormalTaskPriority,
+		AnyNormalThreadHiPriTask = AnyThread | NormalThreadPriority | HighTaskPriority,
+
+		AnyBackgroundThreadNormalTask = AnyThread | BackgroundThreadPriority | NormalTaskPriority,
+		AnyBackgroundHiPriTask = AnyThread | BackgroundThreadPriority | HighTaskPriority,
 	};
 	extern CORE_API Type RenderThread; // this is not an enum, because if there is no render thread, this is just the game thread.
 	extern CORE_API Type RenderThread_Local; // this is not an enum, because if there is no render thread, this is just the game thread.
+
+	// these allow external things to make custom decisions based on what sorts of task threads we are running now.
+	// this are bools to allow runtime tuning.
+	extern CORE_API int32 bHasBackgroundThreads; 
+	extern CORE_API int32 bHasHighPriorityThreads;
 
 	FORCEINLINE Type GetThreadIndex(Type ThreadAndIndex)
 	{
@@ -84,16 +105,94 @@ namespace ENamedThreads
 		return (ThreadAndIndex & QueueIndexMask) >> QueueIndexShift;
 	}
 
-	FORCEINLINE int32 GetPriority(Type ThreadAndIndex)
+	FORCEINLINE int32 GetTaskPriority(Type ThreadAndIndex)
 	{
-		return (ThreadAndIndex & PriorityMask) >> PriorityShift;
+		return (ThreadAndIndex & TaskPriorityMask) >> TaskPriorityShift;
 	}
 
-	FORCEINLINE Type HiPri(Type ThreadAndIndex)
+	FORCEINLINE int32 GetThreadPriorityIndex(Type ThreadAndIndex)
 	{
-		return Type(ThreadAndIndex | HighPriority);
+		int32 Result = (ThreadAndIndex & ThreadPriorityMask) >> ThreadPriorityShift;
+		check(Result >= 0 && Result < NumThreadPriorities);
+		return Result;
 	}
+
+	FORCEINLINE Type SetPriorities(Type ThreadAndIndex, Type ThreadPriority, Type TaskPriority)
+	{
+		check(
+			!(ThreadAndIndex & ~ThreadIndexMask) &&  // not a thread index
+			!(ThreadPriority & ~ThreadPriorityMask) && // not a thread priority
+			(ThreadPriority & ThreadPriorityMask) != ThreadPriorityMask && // not a valid thread priority
+			!(TaskPriority & ~TaskPriorityMask) // not a task priority
+			);
+		return Type(ThreadAndIndex | ThreadPriority | TaskPriority);
+	}
+
+	FORCEINLINE Type SetPriorities(Type ThreadAndIndex, int32 PriorityIndex, bool bHiPri)
+	{
+		check(
+			!(ThreadAndIndex & ~ThreadIndexMask) && // not a thread index
+			PriorityIndex >= 0 && PriorityIndex < NumThreadPriorities // not a valid thread priority
+			);
+		return Type(ThreadAndIndex | (PriorityIndex << ThreadPriorityShift) | (bHiPri ? HighTaskPriority : NormalTaskPriority));
+	}
+
+	FORCEINLINE Type SetThreadPriority(Type ThreadAndIndex, Type ThreadPriority)
+	{
+		check(
+			!(ThreadAndIndex & ~ThreadIndexMask) &&  // not a thread index
+			!(ThreadPriority & ~ThreadPriorityMask) && // not a thread priority
+			(ThreadPriority & ThreadPriorityMask) != ThreadPriorityMask // not a valid thread priority
+			);
+		return Type(ThreadAndIndex | ThreadPriority);
+	}
+
+	FORCEINLINE Type SetTaskPriority(Type ThreadAndIndex, Type TaskPriority)
+	{
+		check(
+			!(ThreadAndIndex & ~ThreadIndexMask) &&  // not a thread index
+			!(TaskPriority & ~TaskPriorityMask) // not a task priority
+			);
+		return Type(ThreadAndIndex | TaskPriority);
+	}
+
 }
+
+class CORE_API FAutoConsoleTaskPriority
+{
+	FAutoConsoleCommand Command;
+	FString CommandName;
+	ENamedThreads::Type ThreadPriority;
+	ENamedThreads::Type TaskPriority;
+	ENamedThreads::Type TaskPriorityIfForcedToNormalThreadPriority;
+	void CommandExecute(const TArray<FString>& Args);
+public:
+	FAutoConsoleTaskPriority(const TCHAR* Name, const TCHAR* Help, ENamedThreads::Type DefaultThreadPriority, ENamedThreads::Type DefaultTaskPriority, ENamedThreads::Type DefaultTaskPriorityIfForcedToNormalThreadPriority = ENamedThreads::UnusedAnchor)
+		: Command(Name, Help, FConsoleCommandWithArgsDelegate::CreateRaw(this, &FAutoConsoleTaskPriority::CommandExecute))
+		, CommandName(Name)
+		, ThreadPriority(DefaultThreadPriority)
+		, TaskPriority(DefaultTaskPriority)
+		, TaskPriorityIfForcedToNormalThreadPriority(DefaultTaskPriorityIfForcedToNormalThreadPriority)
+	{
+		// if you are asking for a hi or background thread priority, you must provide a separate task priority to use if those threads are not available.
+		check(TaskPriorityIfForcedToNormalThreadPriority != ENamedThreads::UnusedAnchor || ThreadPriority == ENamedThreads::NormalThreadPriority);
+	}
+
+	FORCEINLINE ENamedThreads::Type Get(ENamedThreads::Type Thread = ENamedThreads::AnyThread)
+	{
+		// if we don't have the high priority thread that was asked for, then use a normal thread priority with the backup task priority
+		if (ThreadPriority == ENamedThreads::HighThreadPriority && !ENamedThreads::bHasHighPriorityThreads)
+		{
+			return ENamedThreads::SetTaskPriority(Thread, TaskPriorityIfForcedToNormalThreadPriority);
+		}
+		// if we don't have the background priority thread that was asked for, then use a normal thread priority with the backup task priority
+		if (ThreadPriority == ENamedThreads::BackgroundThreadPriority && !ENamedThreads::bHasBackgroundThreads)
+		{
+			return ENamedThreads::SetTaskPriority(Thread, TaskPriorityIfForcedToNormalThreadPriority);
+		}
+		return ENamedThreads::SetPriorities(Thread, ThreadPriority, TaskPriority);
+	}
+};
 
 
 namespace ESubsequentsMode
@@ -155,7 +254,10 @@ public:
 	/** Return the current thread type, if known. **/
 	virtual ENamedThreads::Type GetCurrentThreadIfKnown(bool bLocalQueue = false) = 0;
 
-	/** Return the number of worker (non-named) threads **/
+	/** 
+		Return the number of worker (non-named) threads PER PRIORITY SET.
+		This is useful for determining how many tasks to split a job into.
+	**/
 	virtual	int32 GetNumWorkerThreads() = 0;
 
 	/** Return true if the given named thread is processing tasks. This is only a "guess" if you ask for a thread other than yourself because that can change before the function returns. **/
@@ -226,6 +328,17 @@ public:
 		TriggerEventWhenTasksComplete(InEvent, Prerequistes, CurrentThreadIfKnown);
 	}
 
+	/**
+	*	Deletegates for shutdown
+	*	@param	Callback - function to call prior to shutting down the taskgraph
+	**/
+	virtual void AddShutdownCallback(TFunction<void()>& Callback) = 0;
+
+	/**
+	*	A (slow) function to call a function on every known thread, both named and workers
+	*	@param	Callback - function to call prior to shutting down the taskgraph
+	**/
+	static void BroadcastSlow_OnlyUseForSpecialPurposes(bool bDoBackgroundThreads, TFunction<void(ENamedThreads::Type CurrentThread)>& Callback);
 };
 
 /** 
@@ -251,7 +364,7 @@ public:
 		/** Total size in bytes for a small task that will use the custom allocator **/
 		SMALL_TASK_SIZE = 256
 	};
-	typedef TLockFreeFixedSizeAllocator_TLSCache<SMALL_TASK_SIZE> TSmallTaskAllocator;
+	typedef TLockFreeFixedSizeAllocator_TLSCache<SMALL_TASK_SIZE, PLATFORM_CACHE_LINE_SIZE> TSmallTaskAllocator;
 protected:
 	/** 
 	 *	Constructor
@@ -478,7 +591,7 @@ public:
 
 private:
 	friend class TRefCountPtr<FGraphEvent>;
-	friend class TLockFreeClassAllocator_TLSCache<FGraphEvent>;
+	friend class TLockFreeClassAllocator_TLSCache<FGraphEvent, PLATFORM_CACHE_LINE_SIZE>;
 
 	/** 
 	 *	Internal function to call the destructor and recycle a graph event
@@ -536,7 +649,7 @@ public:
 private:
 
 	/** Threadsafe list of subsequents for the event **/
-	TClosableLockFreePointerListUnorderedSingleConsumer<FBaseGraphTask>		SubsequentList;
+	TClosableLockFreePointerListUnorderedSingleConsumer<FBaseGraphTask, 0>		SubsequentList;
 	/** List of events to wait for until firing. This is not thread safe as it is only legal to fill it in within the context of an executing task. **/
 	FGraphEventArray														EventsToWaitFor;
 	/** Number of outstanding references to this graph event **/
@@ -1193,7 +1306,7 @@ public:
 
 	ENamedThreads::Type GetDesiredThread()
 	{
-		return ENamedThreads::HiPri(ENamedThreads::AnyThread);
+		return ENamedThreads::AnyHiPriThreadHiPriTask;
 	}
 
 	static ESubsequentsMode::Type GetSubsequentsMode() { return ESubsequentsMode::TrackSubsequents; }
@@ -1404,7 +1517,7 @@ public:
 **/
 class FCompletionList
 {
-	TLockFreePointerListUnordered<FGraphEvent>	Prerequisites;
+	TLockFreePointerListUnordered<FGraphEvent, 0>	Prerequisites;
 public:
 	/**
 	 * Adds a task to the completion list, can be called from any thread
@@ -1424,7 +1537,7 @@ public:
 	{
 		// this is tricky...
 		// we have waited for a set of pending tasks to execute. However, they may have added more pending tasks that also need to be waited for.
-		FGraphEventRef PendingComplete = CreatePrerequisiteCompletionHandle();
+		FGraphEventRef PendingComplete = CreatePrerequisiteCompletionHandle(CurrentThread);
 		if (PendingComplete.GetReference())
 		{
 			MyCompletionGraphEvent->DontCompleteUntil(PendingComplete);
@@ -1437,7 +1550,7 @@ public:
 	 * this should always be called from the same thread.
 	 * @return The task that when completed, indicates all tasks in the list are completed, including any tasks they added recursively. Will be a NULL reference if there are no tasks
 	 */
-	FGraphEventRef CreatePrerequisiteCompletionHandle()
+	FGraphEventRef CreatePrerequisiteCompletionHandle(ENamedThreads::Type CurrentThread)
 	{
 		FGraphEventRef CompleteHandle;
 		TArray<FGraphEvent*> Pending;
@@ -1459,7 +1572,7 @@ public:
 
 			CompleteHandle = FDelegateGraphTask::CreateAndDispatchWhenReady(
 				FDelegateGraphTask::FDelegate::CreateRaw(this, &FCompletionList::ChainWaitForPrerequisites),
-				GET_STATID(STAT_FDelegateGraphTask_WaitOnCompletionList), &PendingHandles
+				GET_STATID(STAT_FDelegateGraphTask_WaitOnCompletionList), &PendingHandles, CurrentThread, ENamedThreads::AnyHiPriThreadHiPriTask
 			);
 		}
 		return CompleteHandle;

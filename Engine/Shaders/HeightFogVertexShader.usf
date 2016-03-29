@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	HeightFogVertexShader.usf: Scene fogging vertex shader.
@@ -12,12 +12,14 @@ void Main(
 	out float3 OutScreenVector : TEXCOORD1,
 	out float4 OutPosition : SV_POSITION
 	)
-{	
+{
+	ResolvedView = ResolveView();
+
 	// screenspace position from vb
 	OutPosition = float4(InPosition,0,1);
 	// texture coord from vb
-	OutTexCoord = InPosition * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz;
+	OutTexCoord = InPosition * ResolvedView.ScreenPositionScaleBias.xy + ResolvedView.ScreenPositionScaleBias.wz;
 
 	// deproject to world space
-	OutScreenVector = mul(float4(InPosition,1,0), View.ScreenToTranslatedWorld).xyz;
+	OutScreenVector = mul(float4(InPosition,1,0), ResolvedView.ScreenToTranslatedWorld).xyz;
 }

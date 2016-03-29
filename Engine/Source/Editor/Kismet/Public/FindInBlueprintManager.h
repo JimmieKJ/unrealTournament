@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -211,6 +211,7 @@ enum EFiBVersion
 {
 	FIB_VER_BASE = 0, // All Blueprints prior to versioning will automatically be assumed to be at 0 if they have FiB data collected
 	FIB_VER_VARIABLE_REFERENCE, // Variable references (FMemberReference) is collected in FiB
+	FIB_VER_INTERFACE_GRAPHS, // Implemented Interface Graphs is collected in FiB
 
 	// -----<new versions can be added before this line>-------------------------------------------------
 	FIB_VER_PLUS_ONE,

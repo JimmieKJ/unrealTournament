@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "PhysxUserData.h"
@@ -141,12 +141,13 @@ public:
 	virtual void SetSimulatePhysics(bool bSimulate) override;
 
 	virtual void SetMaterial(int32 ElementIndex, UMaterialInterface* Material) override;
+	virtual void SetCollisionEnabled(ECollisionEnabled::Type NewType) override;
 	//~ End UPrimitiveComponent Interface.
 
 	//~ Begin SkinnedMeshComponent Interface.
 	virtual bool ShouldUpdateTransform(bool bLODHasChanged) const override;
 	virtual void RefreshBoneTransforms(FActorComponentTickFunction* TickFunction = NULL) override;
-	virtual void SetSkeletalMesh(USkeletalMesh* InSkelMesh) override;
+	virtual void SetSkeletalMesh(USkeletalMesh* InSkelMesh, bool bReinitPose = true) override;
 	virtual FTransform GetSocketTransform(FName InSocketName, ERelativeTransformSpace TransformSpace = RTS_World) const override;
 	//~ End SkinnedMeshComponent Interface.
 

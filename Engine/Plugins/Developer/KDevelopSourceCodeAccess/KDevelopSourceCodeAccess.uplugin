@@ -1,22 +1,29 @@
 {
 	"FileVersion" : 3,
-	
-	"FriendlyName" : "KDevelop Integration",
 	"Version" : 1,
 	"VersionName" : "1.0",
-	"CreatedBy" : "Epic Games, Inc.",
-	"CreatedByURL" : "http://epicgames.com",
-	"EngineVersion" : "4.6.0",
+	"FriendlyName" : "KDevelop Integration",
 	"Description" : "Allows access to source code in KDevelop.",
 	"Category" : "Programming",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"DocsURL" : "",
+	"MarketplaceURL" : "",
+	"SupportURL" : "",
 	"EnabledByDefault" : true,
-	
+	"CanContainContent" : false,
+	"IsBetaVersion" : false,
+	"Installed" : false,
 	"Modules" :
 	[
 		{
 			"Name" : "KDevelopSourceCodeAccess",
 			"Type" : "Developer",
-			"WhitelistPlatforms" : [ "Linux" ]
+			"LoadingPhase" : "Default",
+			"WhitelistPlatforms" :
+			[
+				"Linux"
+			]
 		}
 	]
 }

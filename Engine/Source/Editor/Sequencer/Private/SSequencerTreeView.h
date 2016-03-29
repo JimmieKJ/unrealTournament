@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -15,6 +15,13 @@ typedef TSharedRef<FSequencerDisplayNode> FDisplayNodeRef;
 enum class ETreeRecursion
 {
 	Recursive, NonRecursive
+};
+
+/** Structure to represent the top/bottom bounds of a highlight region */
+struct FHighlightRegion
+{
+	FHighlightRegion(float InTop, float InBottom) : Top(InTop), Bottom(InBottom) {}
+	float Top, Bottom;
 };
 
 /** Structure used to define a column in the tree view */
@@ -44,9 +51,13 @@ public:
 	/** Construct this widget */
 	void Construct(const FArguments& InArgs, const TSharedRef<FSequencerNodeTree>& InNodeTree, const TSharedRef<SSequencerTrackArea>& InTrackArea);
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
+	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override;
 
 	/** Access the underlying tree data */
 	TSharedPtr<FSequencerNodeTree> GetNodeTree() { return SequencerNodeTree; }
+
+	/** @return an optional region specifying the vertical bounds in which a highlight should be drawn */
+	const TOptional<FHighlightRegion>& GetHighlightRegion() const { return HighlightRegion; }
 
 public:
 
@@ -98,11 +109,25 @@ protected:
 	/** Called when a node has been expanded or collapsed */
 	void OnExpansionChanged(FDisplayNodeRef InItem, bool bIsExpanded);
 
-	/** Called when the sequencer outliner selection has been changed externally */
-	void OnSequencerSelectionChangedExternally();
+	// Tree selection methods which must be overriden to maintain selection consistency with the rest of sequencer.
+	virtual void Private_SetItemSelection( FDisplayNodeRef TheItem, bool bShouldBeSelected, bool bWasUserDirected = false ) override;
+	virtual void Private_ClearSelection() override;
+	virtual void Private_SelectRangeFromCurrentTo( FDisplayNodeRef InRangeSelectionEnd ) override;
+	virtual void Private_SignalSelectionChanged( ESelectInfo::Type SelectInfo ) override;
 
-	/** Overridden to keep external selection states up to date */
-	virtual void Private_SignalSelectionChanged(ESelectInfo::Type SelectInfo) override;
+private:
+
+	/** Updates the tree selection to match the current sequencer selection. */
+	void SynchronizeTreeSelectionWithSequencerSelection();
+
+	/** 
+	 * Updates the sequencer selection to match the current tree selection.
+	 * @returns Whether or not the sequencer selection was actually modified.
+	 */
+	bool SynchronizeSequencerSelectionWithTreeSelection();
+
+	/** Handles the context menu opening when right clicking on the tree view. */
+	TSharedPtr<SWidget> OnContextMenuOpening();
 
 public:
 	
@@ -122,6 +147,9 @@ public:
 
 	/** Retrieve the last reported physical geometry for the specified node, if available */
 	TOptional<FCachedGeometry> GetPhysicalGeometryForNode(const FDisplayNodeRef& InNode) const;
+
+	/** Attempt to compute the physical position of the specified node */
+	TOptional<float> ComputeNodePosition(const FDisplayNodeRef& InNode) const;
 
 	/** Report geometry for a child row */
 	void ReportChildRowGeometry(const FDisplayNodeRef& InNode, const FGeometry& InGeometry);
@@ -161,6 +189,21 @@ private:
 
 	/** Strong pointer to the track area so we can generate track lanes as we need them */
 	TSharedPtr<SSequencerTrackArea> TrackArea;
+
+	/** A global highlight for the currently hovered tree node hierarchy */
+	TOptional<FHighlightRegion> HighlightRegion;
+
+	/** When true, the sequencer selection is being updated from a change in the tree seleciton. */
+	bool bUpdatingSequencerSelection;
+
+	/** When true, the tree selection is being updated from a change in the sequencer selection. */
+	bool bUpdatingTreeSelection;
+
+	/**
+	 * When true a sequencer selection change broadcast was suppressed when updating sequencer selection
+	 * due to the tree selection changing.
+	 */
+	bool bSequencerSelectionChangeBroadcastWasSupressed;
 };
 
 /** Widget that represents a row in the sequencer's tree control. */
@@ -191,6 +234,15 @@ public:
 
 	/** Overridden from SMultiColumnTableRow.  Generates a widget for this column of the tree row. */
 	virtual TSharedRef<SWidget> GenerateWidgetForColumn(const FName& ColumnId) override;
+
+	/** Called whenever a drag is detected by the tree view. */
+	FReply OnDragDetected(const FGeometry& InGeometry, const FPointerEvent& InPointerEvent);
+
+	/** Called to determine whether a current drag operation is valid for this row. */
+	TOptional<EItemDropZone> OnCanAcceptDrop( const FDragDropEvent& DragDropEvent, EItemDropZone ItemDropZone, FDisplayNodeRef DisplayNode);
+
+	/** Called to complete a drag and drop onto this drop. */
+	FReply OnAcceptDrop( const FDragDropEvent& DragDropEvent, EItemDropZone ItemDropZone, FDisplayNodeRef DisplayNode );
 
 private:
 

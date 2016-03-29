@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "EnginePrivate.h"
@@ -39,6 +39,8 @@ float USoundNodeDistanceCrossFade::MaxAudibleDistance( float CurrentMaxDistance 
 
 void USoundNodeDistanceCrossFade::ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances )
 {
+	int32 NumSoundsActive = 0;
+
 	FSoundParseParameters UpdatedParams = ParseParams;
 	for( int32 ChildNodeIndex = 0; ChildNodeIndex < ChildNodes.Num(); ChildNodeIndex++ )
 	{
@@ -88,12 +90,31 @@ void USoundNodeDistanceCrossFade::ParseNodes( FAudioDevice* AudioDevice, const U
 				VolumeToSet = 0.f; //CrossFadeInput( ChildNodeIndex ).Volume;
 			}
 
+			if (VolumeToSet > 0.0f)
+			{
+				++NumSoundsActive;
+			}
+
 			UpdatedParams.Volume = ParseParams.Volume * VolumeToSet;
 
 			// "play" the rest of the tree
 			ChildNodes[ ChildNodeIndex ]->ParseNodes( AudioDevice, GetNodeWaveInstanceHash(NodeWaveInstanceHash, ChildNodes[ChildNodeIndex], ChildNodeIndex), ActiveSound, UpdatedParams, WaveInstances );
 		}
 	}
+
+	// Write out the results of the NumSounds count. We can't do this in the loop since the table storing this data will potentially reallocate
+	RETRIEVE_SOUNDNODE_PAYLOAD(sizeof(int32));
+	DECLARE_SOUNDNODE_ELEMENT(int32, NumSoundsUsedInCrossFade);
+
+	NumSoundsUsedInCrossFade = NumSoundsActive;
+}
+
+int32 USoundNodeDistanceCrossFade::GetNumSounds(const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound) const
+{
+	RETRIEVE_SOUNDNODE_PAYLOAD(sizeof(int32));
+	DECLARE_SOUNDNODE_ELEMENT(int32, NumSoundsUsedInCrossFade);
+
+	return NumSoundsUsedInCrossFade;
 }
 
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -6,7 +6,7 @@
 #include "ParticleModuleSourceMovement.generated.h"
 
 UCLASS(editinlinenew, hidecategories=Object, meta=(DisplayName = "Source Movement"))
-class UParticleModuleSourceMovement : public UParticleModuleLocationBase
+class ENGINE_API UParticleModuleSourceMovement : public UParticleModuleLocationBase
 {
 	GENERATED_UCLASS_BODY()
 

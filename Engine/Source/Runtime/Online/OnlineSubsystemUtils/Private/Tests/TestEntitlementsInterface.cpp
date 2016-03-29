@@ -1,8 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "ModuleManager.h"
 #include "TestEntitlementsInterface.h"
+
+#if WITH_DEV_AUTOMATION_TESTS
 
 void FTestEntitlementsInterface::Test(UWorld* InWorld)
 {
@@ -87,3 +89,5 @@ void FTestEntitlementsInterface::OnQueryEntitlementsComplete(bool bWasSuccessful
 	bQueryEntitlements = false;
 	StartNextTest();
 }
+
+#endif //WITH_DEV_AUTOMATION_TESTS

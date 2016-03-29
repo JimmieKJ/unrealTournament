@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -134,6 +134,10 @@ class ENGINE_API UEdGraphNode : public UObject
 	/** If true, this node can be renamed in the editor */
 	UPROPERTY()
 	uint32 bCanRenameNode:1;
+
+	/** Note for a node that lingers until saved */
+	UPROPERTY(Transient)
+	FText NodeUpgradeMessage;
 #endif // WITH_EDITORONLY_DATA
 
 	/** Comment string that is drawn on the node */
@@ -210,6 +214,7 @@ public:
 	// UObject interface
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 	virtual void Serialize(FArchive& Ar) override;
+	virtual void PreSave() override;
 	virtual void PostLoad() override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	// End of UObject interface
@@ -493,6 +498,8 @@ public:
 	/** Create a visual widget to represent this node in a graph editor or graph panel.  If not implemented, the default node factory will be used. */
 	virtual TSharedPtr<SGraphNode> CreateVisualWidget() { return TSharedPtr<SGraphNode>(); }
 
+	/** Adds an upgrade note to this node */
+	void AddNodeUpgradeNote(FText InUpgradeNote);
 #endif // WITH_EDITOR
 
 };

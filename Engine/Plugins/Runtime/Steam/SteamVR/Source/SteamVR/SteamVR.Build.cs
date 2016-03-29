@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 namespace UnrealBuildTool.Rules
 {
@@ -24,6 +24,7 @@ namespace UnrealBuildTool.Rules
 					"RenderCore",
 					"Renderer",
 					"ShaderCore",
+                    "InputCore",
 					"HeadMountedDisplay",
 					"Slate",
 					"SlateCore"
@@ -37,7 +38,7 @@ namespace UnrealBuildTool.Rules
 
             if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
             {
-				AddThirdPartyPrivateStaticDependencies(Target, "OpenVR");
+				AddEngineThirdPartyPrivateStaticDependencies(Target, "OpenVR");
                 PrivateDependencyModuleNames.AddRange(new string[] { "D3D11RHI" });     //@todo steamvr: multiplatform
             }
 		}

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -34,6 +34,13 @@ public:
 	/** The placement location of the summoned widget. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Menu Anchor")
 	TEnumAsByte<EMenuPlacement> Placement;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, AdvancedDisplay, Category = "Menu Anchor")
+	bool ShouldDeferPaintingAfterWindowContent;
+
+	/** Does this menu behave like a normal stacked menu? Set it to false to control the menu's lifetime yourself. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, AdvancedDisplay, Category = "Menu Anchor")
+	bool UseApplicationMenuStack;
 
 public:
 	/** Called when the opened state of the menu changes */
@@ -85,7 +92,6 @@ public:
 	virtual void ReleaseSlateResources(bool bReleaseChildren) override;
 
 #if WITH_EDITOR
-	virtual const FSlateBrush* GetEditorIcon() override;
 	virtual const FText GetPaletteCategory() override;
 #endif
 

@@ -1,21 +1,21 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "IBreakIterator.h"
-#include "ITextEditorWidget.h"
-#include "ITextInputMethodSystem.h"
-#include "IVirtualKeyboardEntry.h"
-#include "SlateScrollHelper.h"
+#include "ISlateEditableTextWidget.h"
+#include "UniquePtr.h"
+
+class IBreakIterator;
+class ITextLayoutMarshaller;
+class FSlateEditableTextLayout;
+class FPlainTextLayoutMarshaller;
 
 /**
  * Editable text widget
  */
-class SLATE_API SEditableText : public SLeafWidget, public ITextEditorWidget, public IVirtualKeyboardEntry
+class SLATE_API SEditableText : public SWidget, public ISlateEditableTextWidget
 {
-
 public:
-
 	SLATE_BEGIN_ARGS( SEditableText )
 		: _Text()
 		, _HintText()
@@ -31,9 +31,12 @@ public:
 		, _SelectAllTextWhenFocused( false )
 		, _RevertTextOnEscape( false )
 		, _ClearKeyboardFocusOnCommit(true)
+		, _AllowContextMenu(true)
 		, _MinDesiredWidth(0.0f)
 		, _SelectAllTextOnCommit( false )
 		, _VirtualKeyboardType(EKeyboardType::Keyboard_Default)
+		, _TextShapingMethod()
+		, _TextFlowDirection()
 		{}
 
 		/** Sets the text content for this editable text widget */
@@ -78,6 +81,9 @@ public:
 		/** Whether to clear keyboard focus when pressing enter to commit changes */
 		SLATE_ATTRIBUTE( bool, ClearKeyboardFocusOnCommit )
 
+		/** Whether the context menu can be opened  */
+		SLATE_ATTRIBUTE(bool, AllowContextMenu)
+
 		/** Delegate to call before a context menu is opened. User returns the menu content or null to the disable context menu */
 		SLATE_EVENT(FOnContextMenuOpening, OnContextMenuOpening)
 
@@ -110,11 +116,19 @@ public:
 		/** The type of virtual keyboard to use on mobile devices */
 		SLATE_ATTRIBUTE( EKeyboardType, VirtualKeyboardType)
 
+		/** Which text shaping method should we use? (unset to use the default returned by GetDefaultTextShapingMethod) */
+		SLATE_ARGUMENT(TOptional<ETextShapingMethod>, TextShapingMethod)
+
+		/** Which text flow direction should we use? (unset to use the default returned by GetDefaultTextFlowDirection) */
+		SLATE_ARGUMENT(TOptional<ETextFlowDirection>, TextFlowDirection)
+
 	SLATE_END_ARGS()
 
 	/** Constructor */
 	SEditableText();
-	virtual ~SEditableText();
+
+	/** Destructor */
+	~SEditableText();
 
 	/**
 	 * Construct this widget
@@ -130,9 +144,19 @@ public:
 	 */
 	void SetText( const TAttribute< FText >& InNewText );
 	
+	/**
+	 * Returns the text string
+	 *
+	 * @return  Text string
+	 */
+	FText GetText() const;
+
 	/** See the HintText attribute */
 	void SetHintText( const TAttribute< FText >& InHintText );
 	
+	/** Get the text that appears when there is no text in the text box */
+	FText GetHintText() const;
+
 	/** See the IsReadOnly attribute */
 	void SetIsReadOnly( TAttribute< bool > InIsReadOnly );
 	
@@ -142,15 +166,8 @@ public:
 	/** See the ColorAndOpacity attribute */
 	void SetColorAndOpacity(TAttribute<FSlateColor> Color);
 
-	/**
-	 * Restores the text to the original state
-	 */
-	void RestoreOriginalText();
-
-	/**
-	 *	Returns whether the current text varies from the original
-	 */
-	bool HasTextChangedFromOriginal() const;
+	/** See the AllowContextMenu attribute */
+	void SetAllowContextMenu(const TAttribute< bool >& InAllowContextMenu);
 
 	/**
 	 * Sets the font used to draw the text
@@ -211,196 +228,32 @@ public:
 		OnKeyDownHandler = InOnKeyDownHandler;
 	}
 
-protected:
+	/** See TextShapingMethod attribute */
+	void SetTextShapingMethod(const TOptional<ETextShapingMethod>& InTextShapingMethod);
 
-	friend class FTextInputMethodContext;
-	class FTextInputMethodContext : public ITextInputMethodContext
-	{
-	public:
-		FTextInputMethodContext(const TWeakPtr<SEditableText>& InOwningWidget)
-			:	OwningWidget(InOwningWidget)
-			,	IsComposing(false)
-			,	CompositionBeginIndex(INDEX_NONE)
-			,	CompositionLength(0)
-		{}
+	/** See TextFlowDirection attribute */
+	void SetTextFlowDirection(const TOptional<ETextFlowDirection>& InTextFlowDirection);
 
-		virtual ~FTextInputMethodContext() {}
+	/** Query to see if any text is selected within the document */
+	bool AnyTextSelected() const;
 
-	private:
-		virtual bool IsReadOnly() override;
-		virtual uint32 GetTextLength() override;
-		virtual void GetSelectionRange(uint32& BeginIndex, uint32& Length, ECaretPosition& CaretPosition) override;
-		virtual void SetSelectionRange(const uint32 BeginIndex, const uint32 Length, const ECaretPosition CaretPosition) override;
-		virtual void GetTextInRange(const uint32 BeginIndex, const uint32 Length, FString& OutString) override;
-		virtual void SetTextInRange(const uint32 BeginIndex, const uint32 Length, const FString& InString) override;
-		virtual int32 GetCharacterIndexFromPoint(const FVector2D& Point) override;
-		virtual bool GetTextBounds(const uint32 BeginIndex, const uint32 Length, FVector2D& Position, FVector2D& Size) override;
-		virtual void GetScreenBounds(FVector2D& Position, FVector2D& Size) override;
-		virtual TSharedPtr<FGenericWindow> GetWindow() override;
-		virtual void BeginComposition() override;
-		virtual void UpdateCompositionRange(const int32 InBeginIndex, const uint32 InLength) override;
-		virtual void EndComposition() override;
+	/** Select all the text in the document */
+	void SelectAllText();
 
-	private:
-		TWeakPtr<SEditableText> OwningWidget;
+	/** Clear the active text selection */
+	void ClearSelection();
 
-	public:
-		FGeometry CachedGeometry;
-		bool IsComposing;
-		int32 CompositionBeginIndex;
-		uint32 CompositionLength;
-	};
-
-	/**
-	 * Range of selected characters
-	 */
-	class FTextSelection
-	{
-
-	public:
-
-		/** Index of character we started selection on.  Note that this can be larger than LastIndex! */
-		int32 StartIndex;
-
-		/** Index of last character included in the selection range.  Note that this can be smaller than StartIndex! */
-		int32 FinishIndex;
-
-
-	public:
-
-		/** Constructor */
-		FTextSelection()
-			: StartIndex( INDEX_NONE ),
-			  FinishIndex( INDEX_NONE )
-		{
-		}
-
-		/** Clears selection */
-		void Clear()
-		{
-			StartIndex = FinishIndex = INDEX_NONE;
-		}
-
-		/**
-		 * Returns the first character index in the selection range
-		 *
-		 * @return  First character index
-		 */
-		int32 GetMinIndex() const
-		{
-			return FMath::Min( StartIndex, FinishIndex );
-		}
-
-		/**
-		 * Returns the last character index in the selection range
-		 *
-		 * @return  Last character index
-		 */
-		int32 GetMaxIndex() const
-		{
-			return FMath::Max( StartIndex, FinishIndex );
-		}
-	};
-
-
-
-	/**
-	 * Stores a single undo level for editable text
-	 */
-	class FUndoState
-	{
-
-	public:
-
-		/** Text string */
-		FText Text;
-
-		/** Selection state */
-		FTextSelection Selection;
-
-		/** Caret position */
-		int32 CaretPosition;
-
-	public:
-
-		FUndoState()
-			: Text(),
-			  Selection(),
-			  CaretPosition( INDEX_NONE )
-		{
-		}
-	};
-	
-public:
-	//~ Begin ITextEditorWidget Interface
-	virtual void StartChangingText() override;
-	virtual void FinishChangingText() override;
-	virtual bool GetIsReadOnly() const override;
-	virtual void BackspaceChar() override;
-	virtual void DeleteChar() override;
-	virtual bool CanTypeCharacter(const TCHAR CharInQuestion) const override;
-	virtual void TypeChar( const int32 Character ) override;
-	virtual FReply MoveCursor( FMoveCursor Args ) override;
-	virtual void JumpTo(ETextLocation JumpLocation, ECursorAction Action) override;
-	virtual void ClearSelection() override;
-	virtual void SelectAllText() override;
-	virtual bool SelectAllTextWhenFocused() override;
-	virtual void SelectWordAt( const FGeometry& MyGeometry, const FVector2D& ScreenSpacePosition ) override;
-	virtual void BeginDragSelection() override;
-	virtual bool IsDragSelecting() const override;
-	virtual void EndDragSelection() override;
-	virtual bool AnyTextSelected() const override;
-	virtual bool IsTextSelectedAt( const FGeometry& MyGeometry, const FVector2D& ScreenSpacePosition ) const override;
-	virtual void SetWasFocusedByLastMouseDown( bool Value ) override;
-	virtual bool WasFocusedByLastMouseDown() const override;
-	virtual void SetHasDragSelectedSinceFocused( bool Value ) override;
-	virtual bool HasDragSelectedSinceFocused() const override;
-	virtual FReply OnEscape() override;
-	virtual void OnEnter() override;
-	virtual bool CanExecuteCut() const override;
-	virtual void CutSelectedTextToClipboard() override;
-	virtual bool CanExecuteCopy() const override;
-	virtual void CopySelectedTextToClipboard() override;
-	virtual bool CanExecutePaste() const override;
-	virtual void PasteTextFromClipboard() override;
-	virtual bool CanExecuteUndo() const override;
-	virtual void Undo() override;
-	virtual void Redo() override;
-	virtual TSharedRef< SWidget > GetWidget() override;
-	virtual void SummonContextMenu(const FVector2D& InLocation, TSharedPtr<SWindow> ParentWindow, const FWidgetPath& EventPath) override;
-	virtual void LoadText() override;
-	//~ End ITextEditorWidget Interface
-
-public:
-	//~ Begin IVirtualKeyboardEntry Interface
-	virtual void SetTextFromVirtualKeyboard(const FText& InNewText, ESetTextType SetTextType, ETextCommit::Type CommitType) override;
-
-	virtual const FText& GetText() const override
-	{
-		return Text.Get();
-	}
-
-	virtual const FText GetHintText() const override
-	{
-		return HintText.Get();
-	}
-
-	virtual EKeyboardType GetVirtualKeyboardType() const override
-	{
-		return VirtualKeyboardType.Get();
-	}
-
-	virtual bool IsMultilineEntry() const override
-	{
-		return false;
-	}
-	//~ End IVirtualKeyboardEntry Interface
+	/** Get the currently selected text */
+	FText GetSelectedText() const;
 
 protected:
 	//~ Begin SWidget Interface
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
-	virtual FVector2D ComputeDesiredSize(float) const override;
-	virtual int32 OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override;
+	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override;
+	virtual void CacheDesiredSize(float LayoutScaleMultiplier) override;
+	virtual FVector2D ComputeDesiredSize(float LayoutScaleMultiplier) const override;
+	virtual FChildren* GetChildren() override;
+	virtual void OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const override;
 	virtual FReply OnDragOver( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent ) override;
 	virtual FReply OnDrop( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent ) override;
 	virtual bool SupportsKeyboardFocus() const override;
@@ -419,167 +272,74 @@ protected:
 	//~ End SWidget Interface
 
 protected:
-	/**
-	 * Updates text selection after the caret moved
-	 *
-	 * @param  InOldCaretPosition  Previous location of the caret
-	 */
-	void SelectText( const int32 InOldCaretPosition );
+	/** Synchronize the text style currently set (including from overrides) and update the text layout if required */
+	void SynchronizeTextStyle();
 
-	/**
-	 * Deletes selected text
-	 */
-	void DeleteSelectedText();
-	
-	/**
-	 * Determines which character was clicked on
-	 *
-	 * @param  InMyGeometry				Widget geometry
-	 * @param  InScreenCursorPosition	Click position (in screen space)
-	 *
-	 * @return  The clicked character index
-	 */
-	int32 FindClickedCharacterIndex( const FGeometry& InMyGeometry, const FVector2D& InScreenCursorPosition ) const;
+public:
+	//~ Begin ISlateEditableTextWidget Interface
+	virtual bool IsTextReadOnly() const override;
+	virtual bool IsTextPassword() const override;
+	virtual bool IsMultiLineTextEdit() const override;
+	//~ End ISlateEditableTextWidget Interface
 
-	/**
-	 * Determines which character was clicked on
-	 *
-	 * @param  InLocalCursorPosition       Click position (in local space)
-	 * @param  GeometryScale               The DPI scale with which this widget is being drawn.
-	 *
-	 * @return  The clicked character index
-	 */
-	int32 FindClickedCharacterIndex( const FVector2D& InLocalCursorPosition, float GeometryScale ) const;
+protected:
+	//~ Begin ISlateEditableTextWidget Interface
+	virtual bool ShouldSelectAllTextWhenFocused() const override;
+	virtual bool ShouldClearTextSelectionOnFocusLoss() const override;
+	virtual bool ShouldRevertTextOnEscape() const override;
+	virtual bool ShouldClearKeyboardFocusOnCommit() const override;
+	virtual bool CanInsertCarriageReturn() const override;
+	virtual bool CanTypeCharacter(const TCHAR InChar) const override;
+	virtual void EnsureActiveTick() override;
+	virtual EKeyboardType GetVirtualKeyboardType() const override;
+	virtual TSharedRef<SWidget> GetSlateWidget() override;
+	virtual TSharedPtr<SWidget> BuildContextMenuContent() const override;
+	virtual void OnTextChanged(const FText& InText) override;
+	virtual void OnTextCommitted(const FText& InText, const ETextCommit::Type InTextAction) override;
+	virtual void OnCursorMoved(const FTextLocation& InLocation) override;
+	virtual float UpdateAndClampHorizontalScrollBar(const float InViewOffset, const float InViewFraction, const EVisibility InVisiblityOverride) override;
+	virtual float UpdateAndClampVerticalScrollBar(const float InViewOffset, const float InViewFraction, const EVisibility InVisiblityOverride) override;
+	//~ End ISlateEditableTextWidget Interface
 
-	/** Find the closest word boundary */
-	int32 ScanForWordBoundary( const int32 Location, int8 Direction ) const; 
+protected:
+	/** Text marshaller used by the editable text layout */
+	TSharedPtr<FPlainTextLayoutMarshaller> PlainTextMarshaller;
 
-	/** Are we currently at the beginning of a word */
-	bool IsAtWordStart( const int32 Location ) const;
-
-	/**
-	 * Adds the specified undo state to the undo stack
-	 *
-	 * @param  InUndoState  The undo state to push.  Usually, this is created using MakeUndoState()
-	 */
-	void PushUndoState( const SEditableText::FUndoState& InUndoState );
-
-
-	/**
-	 * Clears the local undo buffer
-	 */
-	void ClearUndoStates();
-
-
-	/**
-	 * Creates an undo state structure for the control's current state and returns it
-	 *
-	 * @param  OutUndoState  Undo state for current state of control
-	 */
-	void MakeUndoState( SEditableText::FUndoState& OutUndoState );
-
-	/**
-	 * Saves edited text into our text attribute, if appropriate
-	 */
-	void SaveText();
-
-	/**
-	 * Executes action to delete selected text
-	 */
-	void ExecuteDeleteAction();
-
-	/**
-	 * Returns true if 'Select All' is currently a valid action
-	 *
-	 * @return	True to allow this action, otherwise false
-	 */
-	bool CanExecuteSelectAll() const;
-
-	/**
-	 * Returns true if 'Delete' is currently a valid action
-	 *
-	 * @return	True to allow this action, otherwise false
-	 */
-	bool CanExecuteDelete() const;
-
-	/**
-	 * Sets the caret position
-	 * 
-	 * @param Position The character index for the new position
-	 */
-	void SetCaretPosition( int32 Position );
-
-	/**
-	 * Called when the context menu is closed
-	 */
-	void OnContextMenuClosed(TSharedRef<IMenu>);
-
-private:
-	/** @return Whether the editable text should appear focused */
-	bool ShouldAppearFocused() const;
-
-	/** 
-	 * @return whether there is anything in the clipboard
-	 */
-	bool DoesClipboardHaveAnyText() const;
-
-	/**
-	 * @return  the string that needs to be rendered
-	 */
-	FString GetStringToRender() const;
-
-	/**
-	 * Ensure that we will get a Tick() soon (either due to having active focus, or something having changed progmatically and requiring an update)
-	 * Does nothing if the active tick timer is already enabled
-	 */
-	void EnsureActiveTick();
-
-private:
-
-	/** A pointer to the editable text currently under the mouse cursor. nullptr when there isn't one. */
-	static SEditableText* EditableTextUnderCursor;
-
-	/** The text content for this editable text widget */
-	TAttribute< FText > Text;
-
-	/** The text content for watermark/hinting what text to type here */
-	TAttribute< FText > HintText;
+	/** The text layout that deals with the editable text */
+	TUniquePtr<FSlateEditableTextLayout> EditableTextLayout;
 
 	/** The font used to draw the text */
-	TAttribute< FSlateFontInfo > Font;
+	TAttribute<FSlateFontInfo> Font;
 
 	/** Text color and opacity */
 	TAttribute<FSlateColor> ColorAndOpacity;
 
 	/** Background image for the selected text */
-	TAttribute< const FSlateBrush* > BackgroundImageSelected;
-
-	/** Background image for the composing text */
-	TAttribute< const FSlateBrush* > BackgroundImageComposing;
-
-	/** Image brush used for the caret */
-	TAttribute< const FSlateBrush* > CaretImage;
+	TAttribute<const FSlateBrush*> BackgroundImageSelected;
 
 	/** Sets whether this text box can actually be modified interactively by the user */
-	TAttribute< bool > IsReadOnly;
+	TAttribute<bool> bIsReadOnly;
 
 	/** Sets whether this text box is for storing a password */
-	TAttribute< bool > IsPassword;
+	TAttribute<bool> bIsPassword;
 
 	/** Workaround as we loose focus when the auto completion closes. */
-	TAttribute< bool > IsCaretMovedWhenGainFocus;
+	TAttribute<bool> bIsCaretMovedWhenGainFocus;
 	
 	/** Whether to select all text when the user clicks to give focus on the widget */
-	TAttribute< bool > bSelectAllTextWhenFocused;
+	TAttribute<bool> bSelectAllTextWhenFocused;
 
 	/** Whether to allow the user to back out of changes when they press the escape key */
-	TAttribute< bool > RevertTextOnEscape;
+	TAttribute<bool> bRevertTextOnEscape;
 
 	/** Whether to clear keyboard focus when pressing enter to commit changes */
-	TAttribute< bool > ClearKeyboardFocusOnCommit;
+	TAttribute<bool> bClearKeyboardFocusOnCommit;
 
 	/** Whether to select all text when pressing enter to commit changes */
-	TAttribute< bool > SelectAllTextOnCommit;
+	TAttribute<bool> bSelectAllTextOnCommit;
+
+	/** Whether to disable the context menu */
+	TAttribute<bool> bAllowContextMenu;
 
 	/** Delegate to call before a context menu is opened */
 	FOnContextMenuOpening OnContextMenuOpening;
@@ -588,73 +348,16 @@ private:
 	FOnIsTypedCharValid OnIsTypedCharValid;
 
 	/** Called whenever the text is changed interactively by the user */
-	FOnTextChanged OnTextChanged;
+	FOnTextChanged OnTextChangedCallback;
 
 	/** Called whenever the text is committed.  This happens when the user presses enter or the text box loses focus. */
-	FOnTextCommitted OnTextCommitted;
+	FOnTextCommitted OnTextCommittedCallback;
 
-	/** Text string currently being edited */
-	FText EditedText;
-
-	/** Original text prior to user edits.  This is used to restore the text if the user uses the escape key. */
-	FText OriginalText;
-
-	/** Current scrolled position, in text-area space; use ConvertGeometryFromRenderSpaceToTextSpace to convert before using values with ScrollHelper */
-	FScrollHelper ScrollHelper;
-
-	/** Caret position as an index into the editable text string's character array */
-	int32 CaretPosition;
-
-	/** Stores the last time that the caret was moved by the user.  Used to prevent the caret from blinking. */
-	double LastCaretInteractionTime;
-
-	/** Current selection state */
-	FTextSelection Selection;
-
-	/** True if we're currently selecting text by dragging the mouse cursor with the left button held down */
-	bool bIsDragSelecting;
-
-	/** True if the last mouse down caused us to receive keyboard focus */
-	bool bWasFocusedByLastMouseDown;
-
-	/** True if characters were selected by dragging since the last keyboard focus.  Used for text selection. */
-	bool bHasDragSelectedSinceFocused;
-
-	/** True if characters were selected by dragging since the last mouse down. */
-	bool bHasDragSelectedSinceMouseDown;
-
-	/** Undo states */
-	TArray< FUndoState > UndoStates;
-
-	/** Current undo state level that we've rolled back to, or INDEX_NONE if we haven't undone.  Used for 'Redo'. */
-	int32 CurrentUndoLevel;
-
-	/** True if we're currently (potentially) changing the text string */
-	bool bIsChangingText;
-
-	/** Undo state that will be pushed if text is actually changed between calls to StartChangingText() and FinishChangingText() */
-	FUndoState StateBeforeChangingText;
-
-	/** Information about any active context menu widgets */
-	FActiveTextEditContextMenu ActiveContextMenu;
-
-	/** Prevents the editabletext from being smaller than desired in certain cases (e.g. when it is empty) */
+	/** Prevents the editable text from being smaller than desired in certain cases (e.g. when it is empty) */
 	TAttribute<float> MinDesiredWidth;
-
-	/** A list commands to execute if a user presses the corresponding keybinding in the text box */
-	TSharedRef< FUICommandList > UICommandList;
 
 	/** Menu extender for right-click context menu */
 	TSharedPtr<FExtender> MenuExtender;
-
-	/** Implemented context object for text input method systems. */
-	TSharedPtr<FTextInputMethodContext> TextInputMethodContext;
-
-	/** Notification interface object for text input method systems. */
-	TSharedPtr<ITextInputMethodChangeNotifier> TextInputMethodChangeNotifier;
-
-	/** True if the text has been changed by a virtual keyboard */
-	bool bTextChangedByVirtualKeyboard;
 
 	/** The timer that is actively driving this widget to Tick() even when Slate is idle */
 	TWeakPtr<FActiveTimerHandle> ActiveTickTimer;
@@ -667,7 +370,4 @@ private:
 
 	/** The type of virtual keyboard to use for editing this text on mobile */
 	TAttribute<EKeyboardType> VirtualKeyboardType;
-
-	/** Keep track of whether we showed the virtual keyboard when focus was received */
-	bool bShowingVirtualKeyboard;
 };

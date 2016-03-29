@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -126,13 +126,29 @@ private:
 
 
 /**
+ * Used to control the cache location and behavior of an FAssetDataGatherer cache
+ */
+enum class EAssetDataCacheMode : uint8
+{
+	/** Do not cache */
+	NoCache,
+
+	/** Use the monolithic CachedAssetRegistry.bin cache (should only be used for the main asset registry scan) */
+	UseMonolithicCache,
+
+	/** Use a modular cache file based on the given paths (should be used for synchronous scans, eg, from object libraries) */
+	UseModularCache,
+};
+
+
+/**
  * Async task for gathering asset data from from the file list in FAssetRegistry
  */
 class FAssetDataGatherer : public FRunnable
 {
 public:
 	/** Constructor */
-	FAssetDataGatherer(const TArray<FString>& Paths, bool bInIsSynchronous, bool bInLoadAndSaveCache = false);
+	FAssetDataGatherer(const TArray<FString>& Paths, const TArray<FString>& SpecificFiles, bool bInIsSynchronous, EAssetDataCacheMode AssetDataCacheMode);
 	virtual ~FAssetDataGatherer();
 
 	// FRunnable implementation
@@ -233,14 +249,15 @@ private:
 	/** The name of the file that contains the timestamped cache of discovered assets */
 	FString CacheFilename;
 
-	/** When loading a registry from disk, we can allocate all the FAssetData objects in one chunk, to save on 10s of thousands of heap allocations */
-	FDiskCachedAssetData* DiskCachedAssetDataBuffer;
-
 	/** An array of all cached data that was newly discovered this run. This array is just used to make sure they are all deleted at shutdown */
 	TArray<FDiskCachedAssetData*> NewCachedAssetData;
 
-	/** Map of PackageName to cached discovered assets that were loaded from disk */
-	TMap<FName, FDiskCachedAssetData*> DiskCachedAssetDataMap;
+	/** 
+	 * Map of PackageName to cached discovered assets that were loaded from disk. 
+	 * This should only be modified in the loading section of SerializeCache and remain const after
+	 * since NewCachedAssetDataMap keeps pointers to the values in this map.
+	 */
+	TMap<FName, FDiskCachedAssetData> DiskCachedAssetDataMap;
 
 	/** Map of PackageName to cached discovered assets that will be written to disk at shutdown */
 	TMap<FName, FDiskCachedAssetData*> NewCachedAssetDataMap;

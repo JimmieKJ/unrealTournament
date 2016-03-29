@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 Landscape.cpp: Terrain rendering
@@ -323,6 +323,13 @@ void ULandscapeComponent::Serialize(FArchive& Ar)
 		}
 	}
 #endif
+
+#if WITH_EDITOR
+	if (Ar.GetPortFlags() & PPF_DuplicateForPIE)
+	{
+		Ar << PlatformData;
+	}
+#endif
 }
 
 SIZE_T ULandscapeComponent::GetResourceSize(EResourceSizeMode::Type Mode)
@@ -527,19 +534,10 @@ void ULandscapeComponent::PostLoad()
 
 	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
-		// If we're loading on a platform that doesn't require cooked data, but *only* supports OpenGL ES, preload data from the DDC
+		// If we're loading on a platform that doesn't require cooked data, but *only* supports OpenGL ES, generate or preload data from the DDC
 		if (!FPlatformProperties::RequiresCookedData() && GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1)
 		{
-			// Only check the DDC if we don't already have it loaded
-			if (!PlatformData.HasValidPlatformData())
-			{
-				// Attempt to load the ES2 landscape data from the DDC
-				if (!PlatformData.LoadFromDDC(StateId))
-				{
-					// Height Data is available after loading height map, so need to defer it
-					UE_LOG(LogLandscape, Warning, TEXT("Attempt to access the DDC when there is none available on component '%s'."), *GetFullName());
-				}
-			}
+			CheckGenerateLandscapePlatformData(false);
 		}
 	}
 
@@ -574,7 +572,7 @@ void ULandscapeComponent::PostLoad()
 #endif // WITH_EDITOR
 
 ALandscape::ALandscape(const FObjectInitializer& ObjectInitializer)
-: Super(ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	bIsProxy = false;
 
@@ -589,8 +587,14 @@ ALandscape* ALandscape::GetLandscapeActor()
 }
 
 ALandscapeProxy::ALandscapeProxy(const FObjectInitializer& ObjectInitializer)
-: Super(ObjectInitializer)
+	: Super(ObjectInitializer)
+	, bHasLandscapeGrass(true)
 {
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bTickEvenWhenPaused = true;
+	PrimaryActorTick.bStartWithTickEnabled = true;
+	bAllowTickBeforeBeginPlay = true;
+
 	bReplicates = false;
 	NetUpdateFrequency = 10.0f;
 	bHidden = false;
@@ -830,11 +834,7 @@ FPrimitiveSceneProxy* ULandscapeComponent::CreateSceneProxy()
 	}
 	else // i.e. (FeatureLevel <= ERHIFeatureLevel::ES3_1)
 	{
-#if WITH_EDITOR
-		// See if we need to cook platform data for ES2 preview in editor
-		// We can't always pre-cook it in PostLoad/Serialize etc because landscape can be edited
-		CheckGenerateLandscapePlatformData(false);
-
+#if WITH_EDITOR 
 		if (PlatformData.HasValidPlatformData())
 		{
 			if (EditToolRenderData == NULL)
@@ -997,12 +997,23 @@ void ULandscapeInfo::BeginDestroy()
 }
 
 #if WITH_EDITOR
-
 void ALandscape::CheckForErrors()
 {
 }
-
 #endif
+
+void ALandscapeProxy::PreSave()
+{
+	Super::PreSave();
+
+#if WITH_EDITOR
+	// Work out whether we have grass or not for the next game run
+	if (!HasAnyFlags(RF_ClassDefaultObject))
+	{
+		bHasLandscapeGrass = LandscapeComponents.ContainsByPredicate([](ULandscapeComponent* Component) { return Component->MaterialHasGrass(); });
+	}
+#endif
+}
 
 void ALandscapeProxy::Serialize(FArchive& Ar)
 {
@@ -1344,6 +1355,13 @@ void ALandscapeProxy::PostLoad()
 {
 	Super::PostLoad();
 
+	// disable ticking if we have no grass to tick
+	if (!GIsEditor && !bHasLandscapeGrass)
+	{
+		SetActorTickEnabled(false);
+		PrimaryActorTick.bCanEverTick = false;
+	}
+
 	// Temporary
 	if (ComponentSizeQuads == 0 && LandscapeComponents.Num() > 0)
 	{
@@ -1435,6 +1453,7 @@ void ALandscapeProxy::GetSharedProperties(ALandscapeProxy* Landscape)
 		LODDistanceFactor = Landscape->LODDistanceFactor;
 		LODFalloff = Landscape->LODFalloff;
 		CollisionMipLevel = Landscape->CollisionMipLevel;
+		bBakeMaterialPositionOffsetIntoCollision = Landscape->bBakeMaterialPositionOffsetIntoCollision;
 		if (!LandscapeMaterial)
 		{
 			LandscapeMaterial = Landscape->LandscapeMaterial;
@@ -1931,9 +1950,8 @@ void ULandscapeInfo::FixupProxiesWeightmaps()
 	if (LandscapeActor.IsValid())
 	{
 		LandscapeActor->WeightmapUsageMap.Empty();
-		for (int32 CompIdx = 0; CompIdx < LandscapeActor->LandscapeComponents.Num(); ++CompIdx)
+		for (ULandscapeComponent* Comp : LandscapeActor->LandscapeComponents)
 		{
-			ULandscapeComponent* Comp = LandscapeActor->LandscapeComponents[CompIdx];
 			if (Comp)
 			{
 				Comp->FixupWeightmaps();
@@ -1941,13 +1959,11 @@ void ULandscapeInfo::FixupProxiesWeightmaps()
 		}
 	}
 
-	for (auto It = Proxies.CreateConstIterator(); It; ++It)
+	for (ALandscapeProxy* Proxy : Proxies)
 	{
-		ALandscapeProxy* Proxy = (*It);
 		Proxy->WeightmapUsageMap.Empty();
-		for (int32 CompIdx = 0; CompIdx < Proxy->LandscapeComponents.Num(); ++CompIdx)
+		for (ULandscapeComponent* Comp : Proxy->LandscapeComponents)
 		{
-			ULandscapeComponent* Comp = Proxy->LandscapeComponents[CompIdx];
 			if (Comp)
 			{
 				Comp->FixupWeightmaps();
@@ -1956,11 +1972,30 @@ void ULandscapeInfo::FixupProxiesWeightmaps()
 	}
 }
 
+void ULandscapeInfo::UpdateComponentLayerWhitelist()
+{
+	if (LandscapeActor.IsValid())
+	{
+		for (ULandscapeComponent* Comp : LandscapeActor->LandscapeComponents)
+		{
+			Comp->UpdateLayerWhitelistFromPaintedLayers();
+		}
+	}
+
+	for (ALandscapeProxy* Proxy : Proxies)
+	{
+		for (ULandscapeComponent* Comp : Proxy->LandscapeComponents)
+		{
+			Comp->UpdateLayerWhitelistFromPaintedLayers();
+		}
+	}
+}
+
 //
 // This handles legacy behavior of landscapes created under world composition
 // We adjust landscape section offsets and set a flag inside landscape that sections offset are static and should never be touched again
 //
-void AdjustLandscapeSectionOffsets(UWorld* InWorld, const TArray<ALandscapeProxy*> InLandscapeList)
+void AdjustLandscapeSectionOffsets(UWorld* InWorld, const TArray<ALandscapeProxy*>& InLandscapeList)
 {
 	// We interested only in registered actors
 	TArray<ALandscapeProxy*> RegisteredLandscapeList = InLandscapeList.FilterByPredicate([](ALandscapeProxy* Proxy) {
@@ -2183,7 +2218,6 @@ void FLandscapeComponentDerivedData::GetUncompressedData(TArray<uint8>& OutUncom
 
 FArchive& operator<<(FArchive& Ar, FLandscapeComponentDerivedData& Data)
 {
-	check(!Ar.IsSaving() || Data.CompressedLandscapeData.Num() > 0);
 	return Ar << Data.CompressedLandscapeData;
 }
 
@@ -2277,26 +2311,24 @@ bool LandscapeMaterialsParameterSetUpdater(FStaticParameterSet &StaticParameterS
 	return UpdateParameterSet<FStaticTerrainLayerWeightParameter, UMaterialExpressionLandscapeLayerWeight>(StaticParameterSet.TerrainLayerWeightParameters, ParentMaterial);
 }
 
-void ALandscapeProxy::Tick(float DeltaSeconds)
+void ALandscapeProxy::TickActor(float DeltaTime, ELevelTick TickType, FActorTickFunction& ThisTickFunction)
 {
-	if (!IsPendingKillPending() && !HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad | RF_NeedPostLoadSubobjects | RF_ClassDefaultObject) && 
-		!HasAnyInternalFlags(EInternalObjectFlags::PendingKill | EInternalObjectFlags::AsyncLoading | EInternalObjectFlags::Unreachable))
-	{
-		// this is NOT an actor tick, it is a FTickableGameObject tick
-		// the super tick is for an actor tick...
-		//Super::Tick(DeltaSeconds);
-
 #if WITH_EDITOR
-		UWorld* World = GetWorld();
-
-		if (GIsEditor && World && !World->IsPlayInEditor())
-		{
-			UpdateBakedTextures();
-		}
+	// editor-only
+	UWorld* World = GetWorld();
+	if (GIsEditor && World && !World->IsPlayInEditor())
+	{
+		UpdateBakedTextures();
+	}
 #endif
 
+	// Tick grass even while paused or in the editor
+	if (GIsEditor || bHasLandscapeGrass)
+	{
 		TickGrass();
 	}
+
+	Super::TickActor(DeltaTime, TickType, ThisTickFunction);
 }
 
 ALandscapeProxy::~ALandscapeProxy()

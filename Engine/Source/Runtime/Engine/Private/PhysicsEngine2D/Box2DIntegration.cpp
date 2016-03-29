@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Box2DIntegration.h"
@@ -135,7 +135,7 @@ bool FPhysicsScene2D::ShouldCollide(b2Fixture* FixtureA, b2Fixture* FixtureB)
 {
 	//@TODO: BOX2D: May need to extend Box2D to be able to indicate that we don't want them to collide now but keep tracking the interaction, not sure!
 	const bool KillInteraction = false;
-	const bool SupressInteraction = false;
+	const bool SuppressInteraction = false;
 	const bool NormalInteraction = true;
 
 	const b2Filter& FilterDataA = FixtureA->GetFilterData();
@@ -160,7 +160,7 @@ bool FPhysicsScene2D::ShouldCollide(b2Fixture* FixtureA, b2Fixture* FixtureB)
 	if ((bIsKinematicA || bIsKinematicB) && (bIsStaticA || bIsStaticB))
 	{
 		// should return eSUPPRESS here instead eKILL so that kinematics vs statics will still be considered once kinematics become dynamic (dying ragdoll case)
-		return SupressInteraction;
+		return SuppressInteraction;
 	}
 
 	//@TODO: BOX2D: Skeletal collision filtering
@@ -188,7 +188,7 @@ bool FPhysicsScene2D::ShouldCollide(b2Fixture* FixtureA, b2Fixture* FixtureB)
 	const bool bDoesWantToBlock = BlockFlagToB && BlockFlagToA;
 	if (!bDoesWantToBlock)
 	{
-		return SupressInteraction;
+		return SuppressInteraction;
 	}
 
 	//@TODO: BOX2D: CCD / contact notification flags

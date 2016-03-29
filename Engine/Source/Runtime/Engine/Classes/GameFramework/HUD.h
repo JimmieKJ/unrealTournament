@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "GameFramework/Actor.h"
@@ -236,9 +236,10 @@ public:
 	 * @param EndScreenX		Screen-space X coordinate of end of the line.
 	 * @param EndScreenY		Screen-space Y coordinate of end of the line.
 	 * @param LineColor			Color to draw line
+	 * @param LineThickness		Thickness of the line to draw
 	 */
 	UFUNCTION(BlueprintCallable, Category=HUD, meta=(LineColor="(R=0,G=0,B=0,A=1)"))
-	void DrawLine(float StartScreenX, float StartScreenY, float EndScreenX, float EndScreenY, FLinearColor LineColor);
+	void DrawLine(float StartScreenX, float StartScreenY, float EndScreenX, float EndScreenY, FLinearColor LineColor, float LineThickness=0.f);
 
 	/**
 	 * Draws a colored untextured quad on the HUD.
@@ -430,6 +431,9 @@ public:
 
 	/** draw overlays for actors that were rendered this tick and have added themselves to the PostRenderedActors array	*/
 	virtual void DrawActorOverlays(FVector Viewpoint, FRotator ViewRotation);
+
+	/** Draw the safe zone debugging overlay when enabled */
+	virtual void DrawSafeZoneOverlay();
 
 	/** Called in PostInitializeComponents or postprocessing chain has changed (happens because of the worldproperties can define it's own chain and this one is set late). */
 	virtual void NotifyBindPostProcessEffects();

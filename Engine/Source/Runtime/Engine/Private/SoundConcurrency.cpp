@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "SoundDefinitions.h"
@@ -13,9 +13,6 @@
 USoundConcurrency::USoundConcurrency(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	Concurrency.MaxCount = 16;
-	Concurrency.ResolutionRule = EMaxConcurrentResolutionRule::PreventNew;
-	Concurrency.VolumeScale = 1.0f;
 }
 
 /************************************************************************/
@@ -23,9 +20,10 @@ USoundConcurrency::USoundConcurrency(const FObjectInitializer& ObjectInitializer
 /************************************************************************/
 
 FConcurrencyGroup::FConcurrencyGroup()
-	: MaxActiveSounds(0)
+	: MaxActiveSounds(16)
 	, ConcurrencyGroupID(0)
-	, ResolutionRule(EMaxConcurrentResolutionRule::PreventNew)
+	, ResolutionRule(EMaxConcurrentResolutionRule::StopFarthestThenPreventNew)
+	, Generation(0)
 {
 }
 
@@ -40,6 +38,7 @@ FConcurrencyGroup::FConcurrencyGroup(FActiveSound* ActiveSound)
 
 	MaxActiveSounds = ConcurrencySettings->MaxCount;
 	ResolutionRule = ConcurrencySettings->ResolutionRule;
+	Generation = 0;
 
 	ActiveSounds.Add(ActiveSound);
 	ActiveSound->ConcurrencyGroupID = ConcurrencyGroupID;
@@ -50,6 +49,7 @@ FConcurrencyGroup::FConcurrencyGroup(const FConcurrencyGroup& Other)
 	, MaxActiveSounds(Other.MaxActiveSounds)
 	, ConcurrencyGroupID(Other.ConcurrencyGroupID)
 	, ResolutionRule(Other.ResolutionRule)
+	, Generation(Other.Generation)
 {
 	check(ConcurrencyGroupID != 0);
 }
@@ -59,6 +59,7 @@ FConcurrencyGroup::FConcurrencyGroup(const FConcurrencyGroup&& Other)
 	, MaxActiveSounds(Other.MaxActiveSounds)
 	, ConcurrencyGroupID(Other.ConcurrencyGroupID)
 	, ResolutionRule(Other.ResolutionRule)
+	, Generation(Other.Generation)
 {
 	check(ConcurrencyGroupID != 0);
 }
@@ -69,6 +70,7 @@ FConcurrencyGroup& FConcurrencyGroup::operator=(const FConcurrencyGroup& Other)
 	MaxActiveSounds = Other.MaxActiveSounds;
 	ConcurrencyGroupID = Other.ConcurrencyGroupID;
 	ResolutionRule = Other.ResolutionRule;
+	Generation = Other.Generation;
 	check(ConcurrencyGroupID != 0);
 	return *this;
 }
@@ -79,6 +81,7 @@ FConcurrencyGroup& FConcurrencyGroup::operator=(const FConcurrencyGroup&& Other)
 	MaxActiveSounds = Other.MaxActiveSounds;
 	ConcurrencyGroupID = Other.ConcurrencyGroupID;
 	ResolutionRule = Other.ResolutionRule;
+	Generation = Other.Generation;
 	check(ConcurrencyGroupID != 0);
 	return *this;
 }
@@ -93,6 +96,7 @@ void FConcurrencyGroup::AddActiveSound(FActiveSound* ActiveSound)
 	check(ConcurrencyGroupID != 0);
 	ActiveSounds.Add(ActiveSound);
 	ActiveSound->ConcurrencyGroupID = ConcurrencyGroupID;
+	ActiveSound->ConcurrencyGeneration = Generation++;
 }
 
 void FConcurrencyGroup::StopQuietSoundsDueToMaxConcurrency()
@@ -234,18 +238,29 @@ FActiveSound* FSoundConcurrencyManager::ResolveConcurrency(const FActiveSound& N
 			case EMaxConcurrentResolutionRule::StopLowestPriority:
 			{
 				// Find the current lowest priority sound.
+				FActiveSound* Oldest = nullptr;
 				for (FActiveSound* CurrSound : ActiveSounds)
 				{
-					if (SoundToStop == nullptr || CurrSound->Priority < SoundToStop->Priority)
+					if (SoundToStop == nullptr || CurrSound->GetPriority() < SoundToStop->GetPriority())
 					{
 						SoundToStop = CurrSound;
+						
+					}
+					if (Oldest == nullptr || CurrSound->PlaybackTime > SoundToStop->PlaybackTime)
+					{
+						Oldest = CurrSound;
 					}
 				}
 
 				// Only stop any sounds if the *lowest* priority is lower than the incoming NewActiveSound
-				if (SoundToStop->Priority >= NewActiveSound.Priority)
+				if (SoundToStop->GetPriority() > NewActiveSound.GetPriority())
 				{
 					SoundToStop = nullptr;
+				}
+				// If all sounds are the same priority, then stop the oldest sound
+				else if (SoundToStop->GetPriority() == NewActiveSound.GetPriority())
+				{
+					SoundToStop = Oldest;
 				}
 			}
 			break;
@@ -284,17 +299,26 @@ FActiveSound* FSoundConcurrencyManager::ResolveConcurrency(const FActiveSound& N
 		FActiveSound* OutActiveSound = MakeNewActiveSound(NewActiveSound);
 		check(OutActiveSound);
 
-		// And add it to to the concurrency group
-		ConcurrencyGroup.AddActiveSound(OutActiveSound);
-
-		// Factor in the volume-scale due to sound instance concurrency count
-		// E.g. if 3 sounds are playing in the same group, and its set to be 0.9 VolumeScale, then the 
-		// 4th sound in the concurrency group is going to be attenuated by 0.9^4
+		// If we're ducking older sounds in the concurrency group, then loop through each sound in the concurrency group
+		// and update their duck amount based on each sound's generation and the next generation count. The older the sound, the more ducking.
 		if (Concurrency->VolumeScale < 1.0f)
 		{
-			int32 NumActiveSoundsInConcurrencyGroup = ConcurrencyGroup.GetActiveSounds().Num();
-			OutActiveSound->ConcurrencyVolumeScale = FMath::Pow(Concurrency->VolumeScale, (float)NumActiveSoundsInConcurrencyGroup);
+			check(Concurrency->VolumeScale >= 0.0f);
+
+			ActiveSounds = ConcurrencyGroup.GetActiveSounds();
+
+			int32 NextGeneration = ConcurrencyGroup.GetGeneration() + 1;
+
+			for (FActiveSound* ActiveSound : ActiveSounds)
+			{
+				const int32 ActiveSoundGeneration = ActiveSound->ConcurrencyGeneration;
+				const float GenerationDelta = (float)(NextGeneration - ActiveSoundGeneration);
+				ActiveSound->ConcurrencyVolumeScale = FMath::Pow(Concurrency->VolumeScale, GenerationDelta);
+			}
 		}
+
+		// And add it to to the concurrency group. This automatically updates generation counts.
+		ConcurrencyGroup.AddActiveSound(OutActiveSound);
 
 		// Stop any sounds now if needed
 		if (SoundToStop)

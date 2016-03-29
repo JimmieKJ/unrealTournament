@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "NetworkFilePrivatePCH.h"
 
@@ -108,7 +108,7 @@ bool FHTTPTransport::SendPayloadAndReceiveResponse(TArray<uint8>& In, TArray<uin
 	FDateTime StartTime; 
 	FTimespan Span = FDateTime::UtcNow() - StartTime; 
 
-	while( HttpRequest->GetStatus() != EHttpRequestStatus::Failed && HttpRequest->GetStatus() != EHttpRequestStatus::Succeeded &&  Span.GetSeconds() < 10 )
+	while( HttpRequest->GetStatus() <= EHttpRequestStatus::Processing &&  Span.GetSeconds() < 10 )
 	{
 		HttpRequest->Tick(0);
 		Span = FDateTime::UtcNow() - StartTime; 

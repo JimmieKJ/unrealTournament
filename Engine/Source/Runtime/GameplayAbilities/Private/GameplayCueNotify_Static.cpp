@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 #include "GameplayCueNotify_Static.h"
@@ -58,7 +58,7 @@ bool UGameplayCueNotify_Static::HandlesEvent(EGameplayCueEvent::Type EventType) 
 	return true;
 }
 
-void UGameplayCueNotify_Static::HandleGameplayCue(AActor* MyTarget, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters)
+void UGameplayCueNotify_Static::HandleGameplayCue(AActor* MyTarget, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters)
 {
 	SCOPE_CYCLE_COUNTER(STAT_HandleGameplayCueNotifyStatic);
 
@@ -95,22 +95,22 @@ void UGameplayCueNotify_Static::OnOwnerDestroyed()
 {
 }
 
-bool UGameplayCueNotify_Static::OnExecute_Implementation(AActor* MyTarget, FGameplayCueParameters Parameters) const
+bool UGameplayCueNotify_Static::OnExecute_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) const
 {
 	return false;
 }
 
-bool UGameplayCueNotify_Static::OnActive_Implementation(AActor* MyTarget, FGameplayCueParameters Parameters) const
+bool UGameplayCueNotify_Static::OnActive_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) const
 {
 	return false;
 }
 
-bool UGameplayCueNotify_Static::WhileActive_Implementation(AActor* MyTarget, FGameplayCueParameters Parameters) const
+bool UGameplayCueNotify_Static::WhileActive_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) const
 {
 	return false;
 }
 
-bool UGameplayCueNotify_Static::OnRemove_Implementation(AActor* MyTarget, FGameplayCueParameters Parameters) const
+bool UGameplayCueNotify_Static::OnRemove_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) const
 {
 	return false;
 }

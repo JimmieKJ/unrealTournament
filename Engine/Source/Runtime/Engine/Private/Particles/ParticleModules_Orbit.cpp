@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ParticleModules_Orbit.cpp: Orbit particle modules implementation.
@@ -33,7 +33,7 @@ UParticleModuleOrbit::UParticleModuleOrbit(const FObjectInitializer& ObjectIniti
 
 void UParticleModuleOrbit::InitializeDefaults()
 {
-	if (!OffsetAmount.Distribution)
+	if (!OffsetAmount.IsCreated())
 	{
 		UDistributionVectorUniform* DistributionOffsetAmount = NewObject<UDistributionVectorUniform>(this, TEXT("DistributionOffsetAmount"));
 		DistributionOffsetAmount->Min = FVector(0.0f, 0.0f, 0.0f);
@@ -41,7 +41,7 @@ void UParticleModuleOrbit::InitializeDefaults()
 		OffsetAmount.Distribution = DistributionOffsetAmount;
 	}
 
-	if (!RotationAmount.Distribution)
+	if (!RotationAmount.IsCreated())
 	{
 		UDistributionVectorUniform* DistributionRotationAmount = NewObject<UDistributionVectorUniform>(this, TEXT("DistributionRotationAmount"));
 		DistributionRotationAmount->Min = FVector(0.0f, 0.0f, 0.0f);
@@ -49,7 +49,7 @@ void UParticleModuleOrbit::InitializeDefaults()
 		RotationAmount.Distribution = DistributionRotationAmount;
 	}
 
-	if (!RotationRateAmount.Distribution)
+	if (!RotationRateAmount.IsCreated())
 	{
 		UDistributionVectorUniform* DistributionRotationRateAmount = NewObject<UDistributionVectorUniform>(this, TEXT("DistributionRotationRateAmount"));
 		DistributionRotationRateAmount->Min = FVector(0.0f, 0.0f, 0.0f);
@@ -222,12 +222,12 @@ void UParticleModuleOrbit::Update(FParticleEmitterInstance* Owner, int32 Offset,
 	END_UPDATE_LOOP;
 }
 
-uint32 UParticleModuleOrbit::RequiredBytes(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleOrbit::RequiredBytes(UParticleModuleTypeDataBase* TypeData)
 {
 	return sizeof(FOrbitChainModuleInstancePayload);
 }
 
-uint32 UParticleModuleOrbit::RequiredBytesPerInstance(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleOrbit::RequiredBytesPerInstance()
 {
 	return 0;
 }

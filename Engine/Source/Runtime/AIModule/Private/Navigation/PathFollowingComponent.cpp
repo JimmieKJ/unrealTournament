@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
 #if WITH_RECAST
@@ -55,6 +55,10 @@ UPathFollowingComponent::UPathFollowingComponent(const FObjectInitializer& Objec
 	MoveSegmentStartRef = INVALID_NAVNODEREF;
 	MoveSegmentEndRef = INVALID_NAVNODEREF;
 
+	CachedBrakingDistance = 100.0f;
+	CachedBrakingMaxSpeed = 0.0f;
+	DecelerationSegmentIndex = INDEX_NONE;
+
 	bStopOnOverlap = true;
 	Status = EPathFollowingStatus::Idle;
 }
@@ -66,17 +70,20 @@ void UPathFollowingComponent::LogPathHelper(const AActor* LogOwner, FNavigationP
 	if (Vlog.IsRecording() &&
 		InLogPath && InLogPath->IsValid() && InLogPath->GetPathPoints().Num())
 	{
-		FVisualLogEntry* Entry = Vlog.GetEntryToWrite(LogOwner, LogOwner->GetWorld()->TimeSeconds);
-		InLogPath->DescribeSelfToVisLog(Entry);
-
 		const FVector PathEnd = *InLogPath->GetPathPointLocation(InLogPath->GetPathPoints().Num() - 1);
-		if (LogGoalActor)
+
+		FVisualLogEntry* Entry = Vlog.GetEntryToWrite(LogOwner, LogOwner->GetWorld()->TimeSeconds);
+		if (Entry)
 		{
-			const FVector GoalLoc = LogGoalActor->GetActorLocation();
-			if (FVector::DistSquared(GoalLoc, PathEnd) > 1.0f)
+			InLogPath->DescribeSelfToVisLog(Entry);
+			if (LogGoalActor)
 			{
-				UE_VLOG_LOCATION(LogOwner, LogPathFollowing, Verbose, GoalLoc, 30, FColor::Green, TEXT("GoalActor"));
-				UE_VLOG_SEGMENT(LogOwner, LogPathFollowing, Verbose, GoalLoc, PathEnd, FColor::Green, TEXT_EMPTY);
+				const FVector GoalLoc = LogGoalActor->GetActorLocation();
+				if (FVector::DistSquared(GoalLoc, PathEnd) > 1.0f)
+				{
+					UE_VLOG_LOCATION(LogOwner, LogPathFollowing, Verbose, GoalLoc, 30, FColor::Green, TEXT("GoalActor"));
+					UE_VLOG_SEGMENT(LogOwner, LogPathFollowing, Verbose, GoalLoc, PathEnd, FColor::Green, TEXT_EMPTY);
+				}
 			}
 		}
 
@@ -219,6 +226,7 @@ FAIRequestID UPathFollowingComponent::RequestMove(FNavPathSharedPtr InPath, FReq
 		OnRequestFinished = OnComplete;	
 		bStopOnOverlap = bInStopOnOverlap;
 		SetDestinationActor(InDestinationActor);
+		UpdateDecelerationData();
 
 	#if ENABLE_VISUAL_LOG
 		const FVector CurrentLocation = MovementComp ? MovementComp->GetActorFeetLocation() : FVector::ZeroVector;
@@ -273,6 +281,7 @@ bool UPathFollowingComponent::UpdateMove(FNavPathSharedPtr InPath, FAIRequestID 
 	Path = InPath;
 	OnPathUpdated();
 	GetWorld()->GetTimerManager().ClearTimer(WaitingForPathTimer);
+	UpdateDecelerationData();
 
 	if (Status == EPathFollowingStatus::Waiting || Status == EPathFollowingStatus::Moving)
 	{
@@ -424,7 +433,8 @@ void UPathFollowingComponent::OnPathFinished(EPathFollowingResult::Type Result)
 	Reset();
 	UpdateMoveFocus();
 
-	if (MovementComp && MovementComp->CanStopPathFollowing() && bStopMovementOnFinish)
+	if (MovementComp && MovementComp->CanStopPathFollowing() && 
+		bStopMovementOnFinish && !MovementComp->UseAccelerationForPathFollowing())
 	{
 		MovementComp->StopMovementKeepPathing();
 	}
@@ -448,6 +458,7 @@ void UPathFollowingComponent::OnPathUpdated()
 void UPathFollowingComponent::Initialize()
 {
 	UpdateCachedComponents();
+	LocationSamples.Reserve(BlockDetectionSampleCount);
 }
 
 void UPathFollowingComponent::Cleanup()
@@ -481,9 +492,9 @@ void UPathFollowingComponent::TickComponent(float DeltaTime, enum ELevelTick Tic
 void UPathFollowingComponent::SetMovementComponent(UNavMovementComponent* MoveComp)
 {
 	MovementComp = MoveComp;
-	MyNavData = NULL;
+	MyNavData = nullptr;
 
-	if (MoveComp != NULL)
+	if (MoveComp)
 	{
 		const FNavAgentProperties& NavAgentProps = MoveComp->GetNavAgentPropertiesRef();
 		MyDefaultAcceptanceRadius = NavAgentProps.AgentRadius;
@@ -517,6 +528,7 @@ void UPathFollowingComponent::Reset()
 	MoveSegmentStartIndex = 0;
 	MoveSegmentStartRef = INVALID_NAVNODEREF;
 	MoveSegmentEndRef = INVALID_NAVNODEREF;
+	DecelerationSegmentIndex = INDEX_NONE;
 
 	LocationSamples.Reset();
 	LastSampleTime = 0.0f;
@@ -867,21 +879,44 @@ void UPathFollowingComponent::UpdatePathSegment()
 
 void UPathFollowingComponent::FollowPathSegment(float DeltaTime)
 {
-	if (MovementComp == NULL || !Path.IsValid())
+	if (!Path.IsValid() || MovementComp == nullptr)
 	{
 		return;
 	}
 
-	//const FVector CurrentLocation = MovementComp->IsMovingOnGround() ? MovementComp->GetActorFeetLocation() : MovementComp->GetActorLocation();
 	const FVector CurrentLocation = MovementComp->GetActorFeetLocation();
 	const FVector CurrentTarget = GetCurrentTargetLocation();
-	FVector MoveVelocity = (CurrentTarget - CurrentLocation) / DeltaTime;
 
-	const int32 LastSegmentStartIndex = Path->GetPathPoints().Num() - 2;
-	const bool bNotFollowingLastSegment = (MoveSegmentStartIndex < LastSegmentStartIndex);
+	const bool bAccelerationBased = MovementComp->UseAccelerationForPathFollowing();
+	if (bAccelerationBased)
+	{
+		FVector MoveInput = (CurrentTarget - CurrentLocation).GetSafeNormal();
 
-	PostProcessMove.ExecuteIfBound(this, MoveVelocity);
-	MovementComp->RequestDirectMove(MoveVelocity, bNotFollowingLastSegment);
+		if (MoveSegmentStartIndex >= DecelerationSegmentIndex)
+		{
+			const FVector PathEnd = Path->GetEndLocation();
+			const float DistToEndSq = FVector::DistSquared(CurrentLocation, PathEnd);
+			const bool bShouldDecelerate = DistToEndSq < FMath::Square(CachedBrakingDistance);
+			if (bShouldDecelerate)
+			{
+				const float SpeedPct = FMath::Clamp(FMath::Sqrt(DistToEndSq) / CachedBrakingDistance, 0.0f, 1.0f);
+				MoveInput *= SpeedPct;
+			}
+		}
+
+		PostProcessMove.ExecuteIfBound(this, MoveInput);
+		MovementComp->RequestPathMove(MoveInput);
+	}
+	else
+	{
+		FVector MoveVelocity = (CurrentTarget - CurrentLocation) / DeltaTime;
+
+		const int32 LastSegmentStartIndex = Path->GetPathPoints().Num() - 2;
+		const bool bNotFollowingLastSegment = (MoveSegmentStartIndex < LastSegmentStartIndex);
+
+		PostProcessMove.ExecuteIfBound(this, MoveVelocity);
+		MovementComp->RequestDirectMove(MoveVelocity, bNotFollowingLastSegment);
+	}
 }
 
 bool UPathFollowingComponent::HasReached(const FVector& TestPoint, float InAcceptanceRadius, bool bExactSpot) const
@@ -1017,7 +1052,7 @@ bool UPathFollowingComponent::HasReachedInternal(const FVector& GoalLocation, fl
 
 void UPathFollowingComponent::DebugReachTest(float& CurrentDot, float& CurrentDistance, float& CurrentHeight, uint8& bDotFailed, uint8& bDistanceFailed, uint8& bHeightFailed) const
 {
-	if (!Path.IsValid() || MovementComp == NULL)
+	if (!Path.IsValid() || MovementComp == nullptr || MovementComp->UpdatedComponent == nullptr)
 	{
 		return;
 	}
@@ -1177,6 +1212,8 @@ bool UPathFollowingComponent::IsBlocked() const
 
 	if (LocationSamples.Num() == BlockDetectionSampleCount && BlockDetectionSampleCount > 0)
 	{
+		const float BlockDetectionDistanceSq = FMath::Square(BlockDetectionDistance);
+
 		FVector Center = FVector::ZeroVector;
 		for (int32 SampleIndex = 0; SampleIndex < LocationSamples.Num(); SampleIndex++)
 		{
@@ -1188,8 +1225,8 @@ bool UPathFollowingComponent::IsBlocked() const
 
 		for (int32 SampleIndex = 0; SampleIndex < LocationSamples.Num(); SampleIndex++)
 		{
-			const float TestDistance = FVector::DistSquared(*LocationSamples[SampleIndex], Center);
-			if (TestDistance > BlockDetectionDistance)
+			const float TestDistanceSq = FVector::DistSquared(*LocationSamples[SampleIndex], Center);
+			if (TestDistanceSq > BlockDetectionDistanceSq)
 			{
 				bBlocked = false;
 				break;
@@ -1247,6 +1284,42 @@ void UPathFollowingComponent::ResetBlockDetectionData()
 void UPathFollowingComponent::ForceBlockDetectionUpdate()
 {
 	LastSampleTime = 0.0f;
+}
+
+void UPathFollowingComponent::UpdateDecelerationData()
+{
+	const float CurrentMaxSpeed = MovementComp ? MovementComp->GetMaxSpeed() : 0.0f;
+	bool bUpdatePathSegment = (DecelerationSegmentIndex == INDEX_NONE);
+	if (CurrentMaxSpeed != CachedBrakingMaxSpeed)
+	{
+		const float PrevBrakingDistance = CachedBrakingDistance;
+		CachedBrakingDistance = MovementComp->GetPathFollowingBrakingDistance(CurrentMaxSpeed);
+		CachedBrakingMaxSpeed = CurrentMaxSpeed;
+		
+		bUpdatePathSegment = bUpdatePathSegment || (PrevBrakingDistance != CachedBrakingDistance);
+	}
+
+	if (bUpdatePathSegment && Path.IsValid())
+	{
+		DecelerationSegmentIndex = 0;
+
+		const TArray<FNavPathPoint>& PathPoints = Path->GetPathPoints();
+		float PathLengthFromEnd = 0.0f;
+
+		for (int32 Idx = PathPoints.Num() - 1; Idx > 0; Idx--)
+		{
+			const float PathSegmentLength = FVector::Dist(PathPoints[Idx].Location, PathPoints[Idx - 1].Location);
+			PathLengthFromEnd += PathSegmentLength;
+
+			if (PathLengthFromEnd > CachedBrakingDistance)
+			{
+				DecelerationSegmentIndex = Idx - 1;
+				break;
+			}
+		}
+
+		UE_VLOG(GetOwner(), LogPathFollowing, Log, TEXT("Updated deceleration segment: %d (MaxSpeed:%.2f, BrakingDistance:%.2f"), DecelerationSegmentIndex, CachedBrakingMaxSpeed, CachedBrakingDistance);
+	}
 }
 
 void UPathFollowingComponent::UpdateMoveFocus()
@@ -1417,6 +1490,7 @@ void UPathFollowingComponent::DescribeSelfToVisLog(FVisualLogEntry* Snapshot) co
 		(Path->CastPath<FNavMeshPath>() != NULL) ? TEXT("navmesh") :
 		(Path->CastPath<FAbstractNavigationPath>() != NULL) ? TEXT("direct") :
 		TEXT("unknown"));
+	Category.Add(TEXT("Block detection"), bUseBlockDetection ? FString::Printf(TEXT("last sample time %.2f"), LastSampleTime) : TEXT("Disabled"));
 	
 	UObject* CustomNavLinkOb = CurrentCustomLinkOb.Get();
 	if (CustomNavLinkOb)

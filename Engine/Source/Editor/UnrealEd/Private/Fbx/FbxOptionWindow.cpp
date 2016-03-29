@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealEd.h"
 #include "FbxOptionWindow.h"
 #include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
@@ -117,7 +117,7 @@ bool SFbxOptionWindow::CanImport()  const
 
 	if (ImportUI->AnimSequenceImportData->AnimationLength == FBXALIT_SetRange)
 	{
-		if (ImportUI->AnimSequenceImportData->StartFrame > ImportUI->AnimSequenceImportData->EndFrame)
+		if (ImportUI->AnimSequenceImportData->FrameImportRange.Min > ImportUI->AnimSequenceImportData->FrameImportRange.Max)
 		{
 			return false;
 		}

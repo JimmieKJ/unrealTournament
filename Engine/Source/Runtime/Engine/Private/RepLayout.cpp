@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	RepLayout.cpp: Unreal replication layout implementation.
@@ -15,6 +15,9 @@ static TAutoConsoleVariable<int32> CVarAllowPropertySkipping( TEXT( "net.AllowPr
 static TAutoConsoleVariable<int32> CVarDoPropertyChecksum( TEXT( "net.DoPropertyChecksum" ), 0, TEXT( "" ) );
 
 FAutoConsoleVariable CVarDoReplicationContextString( TEXT( "net.ContextDebug" ), 0, TEXT( "" ) );
+
+int32 LogSkippedRepNotifies = 0;
+static FAutoConsoleVariableRef CVarLogSkippedRepNotifies(TEXT("Net.LogSkippedRepNotifies"), LogSkippedRepNotifies, TEXT("Log when the networking code skips calling a repnotify clientside due to the property value not changing."), ECVF_Default );
 
 #define ENABLE_PROPERTY_CHECKSUMS
 
@@ -334,13 +337,13 @@ public:
 		}
 	}
 
-	void ProcessCmds( FRepState* RepState, uint8* RESTRICT Data )
+	void ProcessCmds( uint8* RESTRICT Data, uint8* RESTRICT ShadowData )
 	{
-		TStackState StackState( 0, Cmds.Num() - 1, NULL, NULL, (uint8*)RepState->StaticBuffer.GetData(), Data );
+		TStackState StackState( 0, Cmds.Num() - 1, NULL, NULL, ShadowData, Data );
 
 		static_cast< TImpl* >( this )->InitStack( StackState );
 
-		ProcessCmds_r( StackState, (uint8*)RepState->StaticBuffer.GetData(), Data );
+		ProcessCmds_r( StackState, ShadowData, Data );
 	}
 
 	const TArray< FRepParentCmd >&	Parents;
@@ -1184,14 +1187,15 @@ public:
 class FReceivePropertiesImpl : public FRepLayoutCmdIterator< FReceivePropertiesImpl, FReceivedPropertiesStackState >
 {
 public:
-	FReceivePropertiesImpl( FNetBitReader & InBunch, FRepState * InRepState, bool bInDoChecksum, const TArray< FRepParentCmd >& InParents, const TArray< FRepLayoutCmd >& InCmds ) :
+	FReceivePropertiesImpl( FNetBitReader & InBunch, FRepState * InRepState, bool bInDoChecksum, const TArray< FRepParentCmd >& InParents, const TArray< FRepLayoutCmd >& InCmds, const bool bInDoRepNotify ) :
         FRepLayoutCmdIterator( InParents, InCmds ),
 		WaitingHandle( 0 ),
 		CurrentHandle( 0 ), 
 		Bunch( InBunch ),
 		RepState( InRepState ),
 		bDoChecksum( bInDoChecksum ),
-		bHasUnmapped( false )
+		bHasUnmapped( false ),
+		bDoRepNotify( bInDoRepNotify )
 	{}
 
 	void ReadNextHandle()
@@ -1254,9 +1258,13 @@ public:
 
 		const FRepParentCmd& Parent = Parents[Cmd.ParentIndex];
 
-		if ( ( StackState.DataArray->Num() != ArrayNum || Parent.RepNotifyCondition == REPNOTIFY_Always ) && Parent.Property->HasAnyPropertyFlags( CPF_RepNotify ) )
+		if ( bDoRepNotify && ( StackState.DataArray->Num() != ArrayNum || Parent.RepNotifyCondition == REPNOTIFY_Always ) && Parent.Property->HasAnyPropertyFlags( CPF_RepNotify ) )
 		{
 			RepState->RepNotifies.AddUnique( Parent.Property );
+		}
+		else
+		{
+			UE_CLOG( LogSkippedRepNotifies > 0, LogRep, Display, TEXT( "1 FReceivedPropertiesStackState Skipping RepNotify for propery %s because local value has not changed."), *Cmd.Property->GetName() );
 		}
 
 		check( CastChecked< UArrayProperty >( Cmd.Property ) != NULL );
@@ -1265,12 +1273,17 @@ public:
 		FScriptArrayHelper ArrayHelper( (UArrayProperty *)Cmd.Property, Data );
 		ArrayHelper.Resize( ArrayNum );
 
-		FScriptArrayHelper ShadowArrayHelper( (UArrayProperty *)Cmd.Property, ShadowData );
-		ShadowArrayHelper.Resize( ArrayNum );
-
 		// Re-compute the base data values since they could have changed after the resize above
 		StackState.BaseData			= (uint8*)StackState.DataArray->GetData();
-		StackState.ShadowBaseData	= (uint8*)StackState.ShadowArray->GetData();
+		
+		// Only resize the shadow data array if we're actually tracking RepNotifies
+		if (bDoRepNotify)
+		{
+			FScriptArrayHelper ShadowArrayHelper((UArrayProperty*)Cmd.Property, ShadowData);
+			ShadowArrayHelper.Resize(ArrayNum);
+
+			StackState.ShadowBaseData = (uint8*)StackState.ShadowArray->GetData();
+		}
 
 		// Save the old handle so we can restore it when we pop out of the array
 		const uint16 OldHandle = CurrentHandle;
@@ -1304,7 +1317,7 @@ public:
 		// Remember where we started reading from, so that if we have unmapped properties, we can re-deserialize from this data later
 		FBitReaderMark Mark( Bunch );
 
-		if ( Parent.Property->HasAnyPropertyFlags( CPF_RepNotify ) )
+		if ( bDoRepNotify && Parent.Property->HasAnyPropertyFlags( CPF_RepNotify ) )
 		{
 			// Copy current value over so we can check to see if it changed
 			StoreProperty( Cmd, ShadowData + Cmd.Offset, Data + SwappedCmd.Offset );
@@ -1316,6 +1329,10 @@ public:
 			if ( Parent.RepNotifyCondition == REPNOTIFY_Always || !PropertiesAreIdentical( Cmd, ShadowData + Cmd.Offset, Data + SwappedCmd.Offset ) )
 			{
 				RepState->RepNotifies.AddUnique( Parent.Property );
+			}
+			else
+			{
+				UE_CLOG( LogSkippedRepNotifies > 0, LogRep, Display, TEXT( "2 FReceivedPropertiesStackState Skipping RepNotify for propery %s because local value has not changed."), *Cmd.Property->GetName() );
 			}
 		} 
 		else
@@ -1374,9 +1391,10 @@ public:
 	FRepState *				RepState;
 	bool					bDoChecksum;
 	bool					bHasUnmapped;
+	bool					bDoRepNotify;
 };
 
-bool FRepLayout::ReceiveProperties( UClass * InObjectClass, FRepState * RESTRICT RepState, void* RESTRICT Data, FNetBitReader & InBunch, bool & bOutHasUnmapped ) const
+bool FRepLayout::ReceiveProperties( UClass * InObjectClass, FRepState * RESTRICT RepState, void* RESTRICT Data, FNetBitReader & InBunch, bool & bOutHasUnmapped, const bool bEnableRepNotifies ) const
 {
 	check( InObjectClass == Owner );
 
@@ -1388,13 +1406,13 @@ bool FRepLayout::ReceiveProperties( UClass * InObjectClass, FRepState * RESTRICT
 
 	bOutHasUnmapped = false;
 
-	FReceivePropertiesImpl ReceivePropertiesImpl( InBunch, RepState, bDoChecksum, Parents, Cmds );
+	FReceivePropertiesImpl ReceivePropertiesImpl( InBunch, RepState, bDoChecksum, Parents, Cmds, bEnableRepNotifies );
 
 	// Read first handle
 	ReceivePropertiesImpl.ReadNextHandle();
 
 	// Read all properties
-	ReceivePropertiesImpl.ProcessCmds( RepState, (uint8*)Data );
+	ReceivePropertiesImpl.ProcessCmds( (uint8*)Data, RepState->StaticBuffer.GetData() );
 
 	// Make sure we're waiting on the last NULL terminator
 	if ( ReceivePropertiesImpl.WaitingHandle != 0 )
@@ -1516,7 +1534,11 @@ void FRepLayout::UpdateUnmappedObjects_r(
 				{
 					// If this properties needs an OnRep, queue that up to be handled later
 					RepState->RepNotifies.AddUnique( Parent.Property );
-				} 
+				}
+				else
+				{
+					UE_CLOG( LogSkippedRepNotifies, LogRep, Display, TEXT( "UpdateUnmappedObjects_r: Skipping RepNotify because Property did not change. %s" ), *Cmd.Property->GetName() );
+				}
 			}
 		}
 
@@ -1551,7 +1573,14 @@ void FRepLayout::CallRepNotifies( FRepState * RepState, UObject* Object ) const
 	{
 		UProperty * RepProperty = RepState->RepNotifies[i];
 
-		UFunction * RepNotifyFunc = Object->FindFunctionChecked( RepProperty->RepNotifyFunc );
+		UFunction * RepNotifyFunc = Object->FindFunction( RepProperty->RepNotifyFunc );
+
+		if (RepNotifyFunc == nullptr)
+		{
+			UE_LOG(LogRep, Warning, TEXT("FRepLayout::CallRepNotifies: Can't find RepNotify function %s for property %s on object %s."),
+				*RepProperty->RepNotifyFunc.ToString(), *RepProperty->GetName(), *Object->GetName());
+			continue;
+		}
 
 		check( RepNotifyFunc->NumParms <= 1 );	// 2 parms not supported yet
 
@@ -1789,7 +1818,7 @@ void FRepLayout::MergeDirtyList( FRepState * RepState, const void* RESTRICT Data
 	MergePropertiesImpl.bDirtyValid2 = Dirty2.Num() > 0;
 
 	// Merge lists
-	MergePropertiesImpl.ProcessCmds( RepState, (uint8*)Data );
+	MergePropertiesImpl.ProcessCmds( (uint8*)Data, (uint8*)RepState->StaticBuffer.GetData() );
 
 	MergePropertiesImpl.MergedDirtyList.Add( 0 );
 }
@@ -1877,7 +1906,7 @@ void FRepLayout::SanityCheckChangeList( const uint8* RESTRICT Data, TArray< uint
 class FDiffPropertiesImpl : public FRepLayoutCmdIterator< FDiffPropertiesImpl, FCmdIteratorBaseStackState >
 {
 public:
-	FDiffPropertiesImpl( const bool bInSync, TArray< UProperty * >&	InRepNotifies, const TArray< FRepParentCmd >& InParents, const TArray< FRepLayoutCmd >& InCmds ) : 
+	FDiffPropertiesImpl( const bool bInSync, TArray< UProperty * >*	InRepNotifies, const TArray< FRepParentCmd >& InParents, const TArray< FRepLayoutCmd >& InCmds ) : 
 		FRepLayoutCmdIterator( InParents, InCmds ),
 		bSync( bInSync ),
 		RepNotifies( InRepNotifies ),
@@ -1944,23 +1973,27 @@ public:
 
 			StoreProperty( Cmd, (void*)( Data + Cmd.Offset ), (const void*)( ShadowData + Cmd.Offset ) );
 
-			if ( Parent.Property->HasAnyPropertyFlags( CPF_RepNotify ) )
+			if ( RepNotifies && Parent.Property->HasAnyPropertyFlags( CPF_RepNotify ) )
 			{
-				RepNotifies.AddUnique( Parent.Property );
+				RepNotifies->AddUnique( Parent.Property );
 			}
+		}
+		else
+		{
+			UE_CLOG( LogSkippedRepNotifies > 0, LogRep, Display, TEXT( "FDiffPropertiesImpl: Skipping RepNotify because values are the same: %s" ), *Cmd.Property->GetFullName() );
 		}
 	}
 
 	bool					bSync;
-	TArray< UProperty * >&	RepNotifies;
+	TArray< UProperty * >*	RepNotifies;
 	bool					bDifferent;
 };
 
-bool FRepLayout::DiffProperties( FRepState * RepState, const void* RESTRICT Data, const bool bSync ) const
+bool FRepLayout::DiffProperties( TArray<UProperty*>* RepNotifies, void* RESTRICT Destination, const void* RESTRICT Source, const bool bSync ) const
 {	
-	FDiffPropertiesImpl DiffPropertiesImpl( bSync, RepState->RepNotifies, Parents, Cmds );
+	FDiffPropertiesImpl DiffPropertiesImpl( bSync, RepNotifies, Parents, Cmds );
 
-	DiffPropertiesImpl.ProcessCmds( RepState, (uint8*)Data );
+	DiffPropertiesImpl.ProcessCmds( (uint8*)Destination, (uint8*)Source );
 
 	return DiffPropertiesImpl.bDifferent;
 }
@@ -2545,6 +2578,7 @@ void FRepLayout::RebuildConditionalProperties( FRepState * RESTRICT	RepState, co
 	const bool bIsOwner		= RepFlags.bNetOwner		? true : false;
 	const bool bIsSimulated	= RepFlags.bNetSimulated	? true : false;
 	const bool bIsPhysics	= RepFlags.bRepPhysics		? true : false;
+	const bool bIsReplay	= RepFlags.bReplay			? true : false;
 
 	ConditionMap[COND_None]					= true;
 	ConditionMap[COND_InitialOnly]			= bIsInitial;
@@ -2552,12 +2586,16 @@ void FRepLayout::RebuildConditionalProperties( FRepState * RESTRICT	RepState, co
 	ConditionMap[COND_OwnerOnly]			= bIsOwner;
 	ConditionMap[COND_SkipOwner]			= !bIsOwner;
 
-	ConditionMap[COND_SimulatedOnly]		= bIsSimulated;
-	ConditionMap[COND_AutonomousOnly]		= !bIsSimulated;
+	ConditionMap[COND_SimulatedOnly]			= bIsSimulated;
+	ConditionMap[COND_SimulatedOnlyNoReplay]	= bIsSimulated && !bIsReplay;
+	ConditionMap[COND_AutonomousOnly]			= !bIsSimulated;
 
-	ConditionMap[COND_SimulatedOrPhysics]	= bIsSimulated || bIsPhysics;
+	ConditionMap[COND_SimulatedOrPhysics]			= bIsSimulated || bIsPhysics;
+	ConditionMap[COND_SimulatedOrPhysicsNoReplay]	= ( bIsSimulated || bIsPhysics ) && !bIsReplay;
 
 	ConditionMap[COND_InitialOrOwner]		= bIsInitial || bIsOwner;
+	ConditionMap[COND_ReplayOrOwner]		= bIsReplay || bIsOwner;
+	ConditionMap[COND_ReplayOnly]			= bIsReplay;
 
 	ConditionMap[COND_Custom]				= true;
 

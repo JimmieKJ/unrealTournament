@@ -1,7 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ModuleInterface.h"
 #include "UnrealEd.h"
+
+
+namespace HLODOutliner { class SHLODOutliner; };
 
 /**
 * The module holding all of the UI related pieces for HLOD Outliner
@@ -26,4 +29,5 @@ public:
 
 private:
 	FDelegateHandle ArrayChangedDelegate;
+	TSharedPtr<HLODOutliner::SHLODOutliner> HLODWindow;
 };

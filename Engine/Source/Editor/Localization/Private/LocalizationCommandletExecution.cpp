@@ -1,7 +1,8 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LocalizationPrivatePCH.h"
 #include "LocalizationCommandletExecution.h"
+#include "LocalizationSettings.h"
 #include "LocalizationTargetTypes.h"
 #include "LocalizationConfigurationScript.h"
 #include "ISourceControlModule.h"
@@ -713,12 +714,13 @@ TSharedPtr<FLocalizationCommandletProcess> FLocalizationCommandletProcess::Execu
 	const FString ConfigFileRelativeToGameDir = LocalizationConfigurationScript::MakePathRelativeForCommandletProcess(ConfigFilePath, UseProjectFile);
 	CommandletArguments = FString::Printf( TEXT("-config=\"%s\""), *ConfigFileRelativeToGameDir );
 
-	ISourceControlModule& SourceControlModule = ISourceControlModule::Get();
-	if (SourceControlModule.IsEnabled())
+	if (FLocalizationSourceControlSettings::IsSourceControlEnabled())
 	{
-		if (SourceControlModule.GetProvider().IsAvailable())
+		CommandletArguments += TEXT(" -EnableSCC");
+
+		if (!FLocalizationSourceControlSettings::IsSourceControlAutoSubmitEnabled())
 		{
-			CommandletArguments = FString::Printf( TEXT("%s -EnableSCC -DisableSCCSubmit"), *CommandletArguments );
+			CommandletArguments += TEXT(" -DisableSCCSubmit");
 		}
 	}
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UnSkeletalComponent.cpp: Actor component implementation.
@@ -297,6 +297,7 @@ void USkinnedMeshComponent::OnRegister()
 	Super::OnRegister();
 
 	UpdateLODStatus();
+	InvalidateCachedBounds();
 }
 
 void USkinnedMeshComponent::OnUnregister()
@@ -344,6 +345,7 @@ void USkinnedMeshComponent::CreateRenderState_Concurrent()
 
 		if(MeshObject)
 		{
+			// Identify current LOD
 			int32 UseLOD;
 			if(MasterPoseComponent.IsValid())
 			{
@@ -354,18 +356,20 @@ void USkinnedMeshComponent::CreateRenderState_Concurrent()
 				UseLOD = FMath::Clamp(PredictedLODLevel, 0, MeshObject->GetSkeletalMeshResource().LODModels.Num()-1);
 			}
 
-			// verifies vertex animations are valid
-			RefreshActiveVertexAnims();
-
-			const bool bMorphTargetsAllowed = CVarEnableMorphTargets.GetValueOnAnyThread(true) != 0;
-
-			// Are morph targets disabled for this LOD?
-			if (SkeletalMesh->LODInfo[UseLOD].bHasBeenSimplified || bDisableMorphTarget || !bMorphTargetsAllowed)
+			// If we have a valid LOD, set up required data, during reimport we may try to create data before we have all the LODs
+			// imported, in that case we skip until we have all the LODs
+			if(SkeletalMesh->LODInfo.IsValidIndex(UseLOD))
 			{
-				ActiveVertexAnims.Empty();
-			}
+				const bool bMorphTargetsAllowed = CVarEnableMorphTargets.GetValueOnAnyThread(true) != 0;
 
-			MeshObject->Update(UseLOD,this,ActiveVertexAnims);  // send to rendering thread
+				// Are morph targets disabled for this LOD?
+				if(SkeletalMesh->LODInfo[UseLOD].bHasBeenSimplified || bDisableMorphTarget || !bMorphTargetsAllowed)
+				{
+					ActiveVertexAnims.Empty();
+				}
+
+				MeshObject->Update(UseLOD, this, ActiveVertexAnims);  // send to rendering thread
+			}
 		}
 
 		// scene proxy update of material usage based on active morphs
@@ -515,14 +519,15 @@ void USkinnedMeshComponent::TickComponent(float DeltaTime, enum ELevelTick TickT
 	// See if this mesh was rendered recently. This has to happen first because other data will rely on this
 	bRecentlyRendered = (LastRenderTime > GetWorld()->TimeSeconds - 1.0f);
 
+	// Update component's LOD settings
+	// This must be done BEFORE animation Update and Evaluate (TickPose and RefreshBoneTransforms respectively)
+	const bool bLODHasChanged = UpdateLODStatus();
+
 	// Tick Pose first
 	if (ShouldTickPose())
 	{
 		TickPose(DeltaTime, false);
 	}
-
-	// Update component's LOD settings
-	const bool bLODHasChanged = UpdateLODStatus();
 
 	// If we have been recently rendered, and bForceRefPose has been on for at least a frame, or the LOD changed, update bone matrices.
 	if( ShouldUpdateTransform(bLODHasChanged) )
@@ -951,7 +956,7 @@ FVector USkinnedMeshComponent::GetRefPosePosition(int32 BoneIndex)
 }
 
 
-void USkinnedMeshComponent::SetSkeletalMesh(USkeletalMesh* InSkelMesh)
+void USkinnedMeshComponent::SetSkeletalMesh(USkeletalMesh* InSkelMesh, bool bReinitPose)
 {
 	// NOTE: InSkelMesh may be NULL (useful in the editor for removing the skeletal mesh associated with
 	//   this component on-the-fly)
@@ -962,12 +967,20 @@ void USkinnedMeshComponent::SetSkeletalMesh(USkeletalMesh* InSkelMesh)
 		return;
 	}
 
-	// Unregister the component, swap the skeletal mesh, and reregister.
 	{
-		FComponentReregisterContext ReregisterContext(this);
-		check(MeshObject == NULL);
+		//Handle destroying and recreating the renderstate
+		FRenderStateRecreator RenderStateRecreator(this);
+
 		SkeletalMesh = InSkelMesh;
-		InvalidateCachedBounds();
+
+		// Don't init anim state if not registered
+		if (IsRegistered())
+		{
+			AllocateTransformData();
+			UpdateMasterBoneMap();
+			UpdateLODStatus();
+			InvalidateCachedBounds();
+		}
 	}
 	
 	// TODO: (LH) find better way to call this 
@@ -1083,6 +1096,7 @@ void USkinnedMeshComponent::SetMasterPoseComponent(class USkinnedMeshComponent* 
 	}
 
 	AllocateTransformData();
+	RecreatePhysicsState();
 	UpdateMasterBoneMap();
 }
 
@@ -1462,7 +1476,7 @@ void USkinnedMeshComponent::TransformFromBoneSpace(FName BoneName, FVector InPos
 
 
 
-FName USkinnedMeshComponent::FindClosestBone(FVector TestLocation, FVector* BoneLocation, float IgnoreScale) const
+FName USkinnedMeshComponent::FindClosestBone(FVector TestLocation, FVector* BoneLocation, float IgnoreScale, bool bRequirePhysicsAsset) const
 {
 	if (SkeletalMesh == NULL)
 	{
@@ -1474,6 +1488,17 @@ FName USkinnedMeshComponent::FindClosestBone(FVector TestLocation, FVector* Bone
 	}
 	else
 	{
+		// cache the physics asset
+		const UPhysicsAsset* PhysAsset = GetPhysicsAsset();
+		if (bRequirePhysicsAsset && !PhysAsset)
+		{
+			if (BoneLocation != NULL)
+			{
+				*BoneLocation = FVector::ZeroVector;
+			}
+			return NAME_None;
+		}
+
 		// transform the TestLocation into mesh local space so we don't have to transform the (mesh local) bone locations
 		TestLocation = ComponentToWorld.InverseTransformPosition(TestLocation);
 		
@@ -1482,7 +1507,15 @@ FName USkinnedMeshComponent::FindClosestBone(FVector TestLocation, FVector* Bone
 		int32 BestIndex = -1;
 		for (int32 i = 0; i < GetNumSpaceBases(); i++)
 		{
-			if (IgnoreScale < 0.f || GetSpaceBases()[i].GetScaledAxis( EAxis::X ).SizeSquared() > IgnoreScaleSquared)
+			// If we require a physics asset, then look it up in the map
+			bool bPassPACheck = !bRequirePhysicsAsset;
+			if (bRequirePhysicsAsset)
+			{
+				FName BoneName = SkeletalMesh->RefSkeleton.GetBoneName(i);
+				bPassPACheck = (PhysAsset->BodySetupIndexMap.FindRef(BoneName) != INDEX_NONE);
+			}
+
+			if (bPassPACheck && (IgnoreScale < 0.f || GetSpaceBases()[i].GetScaledAxis(EAxis::X).SizeSquared() > IgnoreScaleSquared))
 			{
 				float DistSquared = (TestLocation - GetSpaceBases()[i].GetLocation()).SizeSquared();
 				if (DistSquared < BestDistSquared)
@@ -1511,6 +1544,12 @@ FName USkinnedMeshComponent::FindClosestBone(FVector TestLocation, FVector* Bone
 			return SkeletalMesh->RefSkeleton.GetBoneName(BestIndex);
 		}
 	}
+}
+
+FName USkinnedMeshComponent::FindClosestBone_K2(FVector TestLocation, FVector& BoneLocation, float IgnoreScale, bool bRequirePhysicsAsset) const
+{
+	BoneLocation = FVector::ZeroVector;
+	return FindClosestBone(TestLocation, &BoneLocation, IgnoreScale, bRequirePhysicsAsset);
 }
 
 void USkinnedMeshComponent::ShowMaterialSection(int32 MaterialID, bool bShow, int32 LODIndex)

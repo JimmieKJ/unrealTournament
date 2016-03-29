@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneTracksPrivatePCH.h"
 #include "MovieSceneFadeSection.h"
@@ -17,7 +17,7 @@ FMovieSceneFadeTrackInstance::FMovieSceneFadeTrackInstance(UMovieSceneFadeTrack&
 /* IMovieSceneTrackInstance interface
  *****************************************************************************/
 
-void FMovieSceneFadeTrackInstance::RestoreState(const TArray<UObject*>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
+void FMovieSceneFadeTrackInstance::RestoreState(const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
 {
 	// Reset editor preview/fade
 	EMovieSceneViewportParams ViewportParams;
@@ -34,16 +34,16 @@ void FMovieSceneFadeTrackInstance::RestoreState(const TArray<UObject*>& RuntimeO
 	Player.SetViewportSettings(ViewportParamsMap);
 }
 
-void FMovieSceneFadeTrackInstance::Update(float Position, float LastPosition, const TArray<UObject*>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance, EMovieSceneUpdatePass UpdatePass)
+void FMovieSceneFadeTrackInstance::Update(EMovieSceneUpdateData& UpdateData, const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
 {
 	FLinearColor FadeColor = FLinearColor::Black;
 	bool bFadeAudio = false;
 
 	float FloatValue = 0.0f;
 
-	if (FadeTrack->Eval(Position, LastPosition, FloatValue))
+	if (FadeTrack->Eval(UpdateData.Position, UpdateData.LastPosition, FloatValue))
 	{
-		const UMovieSceneSection* NearestSection = MovieSceneHelpers::FindNearestSectionAtTime(FadeTrack->GetAllSections(), Position);
+		const UMovieSceneSection* NearestSection = MovieSceneHelpers::FindNearestSectionAtTime(FadeTrack->GetAllSections(), UpdateData.Position);
 		const UMovieSceneFadeSection* FadeSection = CastChecked<const UMovieSceneFadeSection>(NearestSection);
 		if (FadeSection)
 		{

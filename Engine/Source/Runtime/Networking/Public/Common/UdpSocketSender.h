@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -21,10 +21,10 @@ class FUdpSocketSender
 		FIPv4Endpoint Recipient;
 
 		/** Default constructor. */
-		FPacket( ) { }
+		FPacket() { }
 
 		/** Creates and initializes a new instance. */
-		FPacket( const TSharedRef<TArray<uint8>, ESPMode::ThreadSafe>& InData, const FIPv4Endpoint& InRecipient )
+		FPacket(const TSharedRef<TArray<uint8>, ESPMode::ThreadSafe>& InData, const FIPv4Endpoint& InRecipient)
 			: Data(InData)
 			, Recipient(InRecipient)
 		{ }
@@ -38,7 +38,7 @@ public:
 	 * @param InSocket The UDP socket to use for sending data.
 	 * @param ThreadDescription The thread description text (for debugging).
 	 */
-	FUdpSocketSender( FSocket* InSocket, const TCHAR* ThreadDescription )
+	FUdpSocketSender(FSocket* InSocket, const TCHAR* ThreadDescription)
 		: SendRate(0)
 		, Socket(InSocket)
 		, Stopping(false)
@@ -48,10 +48,9 @@ public:
 		check(Socket->GetSocketType() == SOCKTYPE_Datagram);
 
 		int32 NewSize = 0;
-		Socket->SetSendBufferSize(512*1024, NewSize);
+		Socket->SetSendBufferSize(512 * 1024, NewSize);
 
 		WorkEvent = FPlatformProcess::GetSynchEventFromPool();
-
 		Thread = FRunnableThread::Create(this, ThreadDescription, 128 * 1024, TPri_AboveNormal, FPlatformAffinity::GetPoolThreadMask());
 	}
 
@@ -75,7 +74,7 @@ public:
 	 *
 	 * @return Current send rate.
 	 */
-	uint32 GetSendRate( ) const
+	uint32 GetSendRate() const
 	{
 		return SendRate;
 	}
@@ -85,7 +84,7 @@ public:
 	 *
 	 * @return Current throughput.
 	 */
-	uint32 GetThroughput( ) const
+	uint32 GetThroughput() const
 	{
 		return Throughput;
 	}
@@ -97,7 +96,7 @@ public:
 	 * @param Recipient The recipient.
 	 * @return true if the data will be sent, false otherwise.
 	 */
-	bool Send( const TSharedRef<TArray<uint8>, ESPMode::ThreadSafe>& Data, const FIPv4Endpoint& Recipient )
+	bool Send(const TSharedRef<TArray<uint8>, ESPMode::ThreadSafe>& Data, const FIPv4Endpoint& Recipient)
 	{
 		if (!Stopping && SendQueue.Enqueue(FPacket(Data, Recipient)))
 		{
@@ -115,7 +114,7 @@ public:
 	 * @param Rate The new send rate (0 = unlimited).
 	 * @see SetWaitTime
 	 */
-	void SetSendRate( uint32 Rate )
+	void SetSendRate(uint32 Rate)
 	{
 		SendRate = Rate;
 	}
@@ -126,7 +125,7 @@ public:
 	 * @param Timespan The wait time.
 	 * @see SetSendRate
 	 */
-	void SetWaitTime( const FTimespan& Timespan )
+	void SetWaitTime(const FTimespan& Timespan)
 	{
 		WaitTime = Timespan;
 	}
@@ -172,7 +171,6 @@ public:
 	virtual void Stop() override
 	{
 		Stopping = true;
-
 		WorkEvent->Trigger();
 	}
 

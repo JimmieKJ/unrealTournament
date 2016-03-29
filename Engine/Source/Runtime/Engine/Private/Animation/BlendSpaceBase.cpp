@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BlendSpaceBase.cpp: Base class for blend space objects
@@ -85,7 +85,7 @@ struct FBlendSpaceScratchData : public TThreadSingleton<FBlendSpaceScratchData>
 UBlendSpaceBase::UBlendSpaceBase(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	bAllSequencesHaveMatchingMarkers = false;
+	SampleIndexWithMarkers = INDEX_NONE;
 }
 
 void UBlendSpaceBase::PostLoad()
@@ -153,6 +153,24 @@ int32 GetHighestWeightSample(TArray<FBlendSampleData> &SampleDataList)
 		{
 			HighestWeightIndex = I;
 			HighestWeight = SampleDataList[I].GetWeight();
+		}
+	}
+	return HighestWeightIndex;
+}
+
+int32 GetHighestWeightMarkerSyncSample(const TArray<FBlendSampleData> &SampleDataList, const TArray<struct FBlendSample>& BlendSamples)
+{
+	int32 HighestWeightIndex = -1;
+	float HighestWeight = FLT_MIN;
+
+	for (int32 I = 0; I < SampleDataList.Num(); I++)
+	{
+		const FBlendSampleData& SampleData = SampleDataList[I];
+		if (SampleData.GetWeight() > HighestWeight &&
+			BlendSamples[SampleData.SampleDataIndex].Animation->AuthoredSyncMarkers.Num() > 0)
+		{
+			HighestWeightIndex = I;
+			HighestWeight = SampleData.GetWeight();
 		}
 	}
 	return HighestWeightIndex;
@@ -274,7 +292,7 @@ void UBlendSpaceBase::TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimNot
 				SampleDataList.Append(NewSampleDataList);
 			}
 
-			bool bCanDoMarkerSync = bAllSequencesHaveMatchingMarkers && (Context.IsSingleAnimationContext() || (Instance.bCanUseMarkerSync && Context.CanUseMarkerPosition()));
+			bool bCanDoMarkerSync = (SampleIndexWithMarkers != INDEX_NONE) && (Context.IsSingleAnimationContext() || (Instance.bCanUseMarkerSync && Context.CanUseMarkerPosition()));
 
 			if (bCanDoMarkerSync)
 			{
@@ -283,9 +301,11 @@ void UBlendSpaceBase::TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimNot
 				{
 					for (FBlendSampleData& CurrentBlendSampleItem : SampleDataList)
 					{
-						if (PrevBlendSampleItem.SampleDataIndex == CurrentBlendSampleItem.SampleDataIndex)
+						// it only can have one animation in the sample, make sure to copy Time
+						if (PrevBlendSampleItem.Animation && PrevBlendSampleItem.Animation == CurrentBlendSampleItem.Animation)
 						{
 							CurrentBlendSampleItem.Time = PrevBlendSampleItem.Time;
+							CurrentBlendSampleItem.PreviousTime = PrevBlendSampleItem.PreviousTime;
 							CurrentBlendSampleItem.MarkerTickRecord = PrevBlendSampleItem.MarkerTickRecord;
 						}
 					}
@@ -321,10 +341,16 @@ void UBlendSpaceBase::TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimNot
 				// advance current time - blend spaces hold normalized time as when dealing with changing anim length it would be possible to go backwards
 				UE_LOG(LogAnimation, Verbose, TEXT("BlendSpace(%s) - BlendInput(%s) : AnimLength(%0.5f) "), *GetName(), *BlendInput.ToString(), NewAnimLength);
 				
+				const int32 HighestMarkerSyncWeightIndex = bCanDoMarkerSync ? GetHighestWeightMarkerSyncSample(SampleDataList, SampleData) : -1;
+
+				if (HighestMarkerSyncWeightIndex == -1)
+				{
+					bCanDoMarkerSync = false;
+				}
+
 				if (bCanDoMarkerSync)
 				{
-					const int32 HighestWeightIndex = GetHighestWeightSample(SampleDataList);
-					FBlendSampleData& SampleDataItem = SampleDataList[HighestWeightIndex];
+					FBlendSampleData& SampleDataItem = SampleDataList[HighestMarkerSyncWeightIndex];
 					const FBlendSample& Sample = SampleData[SampleDataItem.SampleDataIndex];
 
 					bool bResetMarkerDataOnFollowers = false;
@@ -343,7 +369,8 @@ void UBlendSpaceBase::TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimNot
 					{
 						Context.SetLeaderDelta(NewDeltaTime);
 						Sample.Animation->TickByMarkerAsLeader(SampleDataItem.MarkerTickRecord, Context.MarkerTickContext, SampleDataItem.Time, SampleDataItem.PreviousTime, NewDeltaTime, true);
-						TickFollowerSamples(SampleDataList, HighestWeightIndex, Context, bResetMarkerDataOnFollowers);
+						check(Context.MarkerTickContext.IsMarkerSyncStartValid());
+						TickFollowerSamples(SampleDataList, HighestMarkerSyncWeightIndex, Context, bResetMarkerDataOnFollowers);
 					}
 					NormalizedCurrentTime = SampleDataItem.Time / Sample.Animation->SequenceLength;
 					*Instance.MarkerTickRecord = SampleDataItem.MarkerTickRecord;
@@ -365,6 +392,7 @@ void UBlendSpaceBase::TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimNot
 				{
 					bCanDoMarkerSync = false;
 				}
+
 				if (bCanDoMarkerSync)
 				{
 					const int32 HighestWeightIndex = GetHighestWeightSample(SampleDataList);
@@ -416,7 +444,7 @@ void UBlendSpaceBase::TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimNot
 							float PrevSampleDataTime;
 							float& CurrentSampleDataTime = SampleEntry.Time;
 
-							if (!bCanDoMarkerSync) //Have already updated time if we are doing marker sync
+							if (!bCanDoMarkerSync || Sample.Animation->AuthoredSyncMarkers.Num() == 0) //Have already updated time if we are doing marker sync
 							{
 								const float SampleNormalizedPreviousTime = Sample.Animation->RateScale >= 0.f ? ClampedNormalizedPreviousTime : 1.f - ClampedNormalizedPreviousTime;
 								const float SampleNormalizedCurrentTime = Sample.Animation->RateScale >= 0.f ? ClampedNormalizedCurrentTime : 1.f - ClampedNormalizedCurrentTime;
@@ -482,12 +510,31 @@ bool UBlendSpaceBase::GetSamplesFromBlendInput(const FVector &BlendInput, TArray
 		float GridWeight = GridSample.BlendWeight;
 		FEditorElement& GridElement = GridSample.GridElement;
 
-		for(int Ind = 0; Ind < GridElement.MAX_VERTICES; ++Ind)
+		for(int32 Ind = 0; Ind < GridElement.MAX_VERTICES; ++Ind)
 		{
-			if(GridElement.Indices[Ind] != INDEX_NONE)
+			const int32 SampleDataIndex = GridElement.Indices[Ind];		
+			if(SampleDataIndex != INDEX_NONE)
 			{
-				int32 Index = OutSampleDataList.AddUnique(GridElement.Indices[Ind]);
+				int32 Index = OutSampleDataList.AddUnique(SampleDataIndex);
 				OutSampleDataList[Index].AddWeight(GridElement.Weights[Ind]*GridWeight);
+				OutSampleDataList[Index].Animation = SampleData[SampleDataIndex].Animation;
+			}
+		}
+	}
+
+	// go through merge down to first sample 
+	for (int32 Index1 = 0; Index1 < OutSampleDataList.Num(); ++Index1)
+	{
+		for (int32 Index2 = Index1 + 1; Index2 < OutSampleDataList.Num(); ++Index2)
+		{
+			// if they have sample sample, remove the Index2, and get out
+			if (OutSampleDataList[Index1].Animation == OutSampleDataList[Index2].Animation)
+			{
+				// add weight
+				OutSampleDataList[Index1].AddWeight(OutSampleDataList[Index2].GetWeight());
+				// as for time or previous time will be the master one(Index1)
+				OutSampleDataList.RemoveAtSwap(Index2, 1, false);
+				--Index2;
 			}
 		}
 	}
@@ -495,9 +542,9 @@ bool UBlendSpaceBase::GetSamplesFromBlendInput(const FVector &BlendInput, TArray
 	/** Used to sort by  Weight. */
 	struct FCompareFBlendSampleData
 	{
-		FORCEINLINE bool operator()( const FBlendSampleData& A, const FBlendSampleData& B ) const { return B.TotalWeight < A.TotalWeight; }
+		FORCEINLINE bool operator()(const FBlendSampleData& A, const FBlendSampleData& B) const { return B.TotalWeight < A.TotalWeight; }
 	};
-	OutSampleDataList.Sort( FCompareFBlendSampleData() );
+	OutSampleDataList.Sort(FCompareFBlendSampleData());
 
 	// remove noisy ones
 	int32 TotalSample = OutSampleDataList.Num();
@@ -859,9 +906,10 @@ void UBlendSpaceBase::ValidateSampleData()
 	bool bSampleDataChanged=false;
 	AnimLength = 0.f;
 
-	bool bNoAnimationsHaveMarkers = true;
 	bool bAllMarkerPatternsMatch = true;
 	FSyncPattern BlendSpacePattern;
+
+	int32 SampleWithMarkers = INDEX_NONE;
 
 	for (int32 I=0; I<SampleData.Num(); ++I)
 	{
@@ -905,7 +953,11 @@ void UBlendSpaceBase::ValidateSampleData()
 
 		if (Sample.Animation->AuthoredSyncMarkers.Num() > 0)
 		{
-			bNoAnimationsHaveMarkers = false;
+			if (SampleWithMarkers == INDEX_NONE)
+			{
+				SampleWithMarkers = I;
+			}
+
 			if (BlendSpacePattern.MarkerNames.Num() == 0)
 			{
 				PopulateMarkerNameArray(BlendSpacePattern.MarkerNames, Sample.Animation->AuthoredSyncMarkers);
@@ -922,7 +974,7 @@ void UBlendSpaceBase::ValidateSampleData()
 		}
 	}
 
-	bAllSequencesHaveMatchingMarkers = bAllMarkerPatternsMatch && !bNoAnimationsHaveMarkers;
+	SampleIndexWithMarkers = bAllMarkerPatternsMatch ? SampleWithMarkers : INDEX_NONE;
 
 	if (bSampleDataChanged)
 	{

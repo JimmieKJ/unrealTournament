@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "TextCache.h"
@@ -226,6 +226,11 @@ void FInternationalization::GetCultureNames(TArray<FString>& CultureNames) const
 	Implementation->GetCultureNames(CultureNames);
 }
 
+TArray<FString> FInternationalization::GetPrioritizedCultureNames(const FString& Name)
+{
+	return Implementation->GetPrioritizedCultureNames(Name);
+}
+
 void FInternationalization::GetCulturesWithAvailableLocalization(const TArray<FString>& InLocalizationPaths, TArray< FCultureRef >& OutAvailableCultures, const bool bIncludeDerivedCultures)
 {
 	OutAvailableCultures.Reset();
@@ -299,6 +304,12 @@ void FInternationalization::GetCulturesWithAvailableLocalization(const TArray<FS
 			}
 		}
 	}
+
+	// Remove any cultures that were explicitly disabled
+	OutAvailableCultures.RemoveAll([&](const FCultureRef& InCulture) -> bool
+	{
+		return Implementation->IsCultureDisabled(InCulture->GetName());
+	});
 }
 
 FInternationalization::FInternationalization()

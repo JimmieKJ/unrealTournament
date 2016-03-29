@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "BehaviorTreeEditorPrivatePCH.h"
@@ -19,6 +19,11 @@
 #include "SLevelOfDetailBranchNode.h"
 
 #define LOCTEXT_NAMESPACE "BehaviorTreeEditor"
+
+namespace
+{
+	static const bool bShowExecutionIndexInEditorMode = true;
+}
 
 /////////////////////////////////////////////////////
 // SBehaviorTreePin
@@ -178,6 +183,7 @@ FSlateColor SGraphNode_BehaviorTree::GetBorderBackgroundColor() const
 	const bool bSelectedSubNode = BTParentNode && GetOwnerPanel()->SelectionManager.SelectedNodes.Contains(GraphNode);
 	
 	UBTNode* NodeInstance = BTGraphNode ? Cast<UBTNode>(BTGraphNode->NodeInstance) : NULL;
+	const bool bIsConnectedTreeRoot = BTGraphNode && BTGraphNode->IsA<UBehaviorTreeGraphNode_Root>() && BTGraphNode->Pins.IsValidIndex(0) && BTGraphNode->Pins[0]->LinkedTo.Num() > 0;
 	const bool bIsDisconnected = NodeInstance && NodeInstance->GetExecutionIndex() == MAX_uint16;
 	const bool bIsService = BTGraphNode && BTGraphNode->IsA(UBehaviorTreeGraphNode_Service::StaticClass());
 	const bool bIsRootDecorator = BTGraphNode && BTGraphNode->bRootLevel;
@@ -208,6 +214,7 @@ FSlateColor SGraphNode_BehaviorTree::GetBorderBackgroundColor() const
 		!bIsRootDecorator && !bIsInjected && bIsDisconnected ? BehaviorTreeColors::NodeBorder::Disconnected :
 		bIsInDebuggerActiveState ? BehaviorTreeColors::NodeBorder::ActiveDebugging :
 		bIsInDebuggerPrevState ? BehaviorTreeColors::NodeBorder::InactiveDebugging :
+		bIsConnectedTreeRoot ? BehaviorTreeColors::NodeBorder::Root :
 		BehaviorTreeColors::NodeBorder::Inactive;
 }
 
@@ -230,7 +237,8 @@ FSlateColor SGraphNode_BehaviorTree::GetBackgroundColor() const
 	}
 	else if (BTGraph_Decorator || Cast<UBehaviorTreeGraphNode_CompositeDecorator>(GraphNode))
 	{
-		NodeColor = bIsActiveForDebugger ? BehaviorTreeColors::Debugger::ActiveDecorator : BehaviorTreeColors::NodeBody::Decorator;
+		NodeColor = bIsActiveForDebugger ? BehaviorTreeColors::Debugger::ActiveDecorator : 
+			BTGraphNode->bRootLevel ? BehaviorTreeColors::NodeBody::InjectedSubNode : BehaviorTreeColors::NodeBody::Decorator;
 	}
 	else if (Cast<UBehaviorTreeGraphNode_Task>(GraphNode))
 	{
@@ -244,6 +252,10 @@ FSlateColor SGraphNode_BehaviorTree::GetBackgroundColor() const
 	else if (Cast<UBehaviorTreeGraphNode_Service>(GraphNode))
 	{
 		NodeColor = bIsActiveForDebugger ? BehaviorTreeColors::Debugger::ActiveService : BehaviorTreeColors::NodeBody::Service;
+	}
+	else if (Cast<UBehaviorTreeGraphNode_Root>(GraphNode) && GraphNode->Pins.IsValidIndex(0) && GraphNode->Pins[0]->LinkedTo.Num() > 0)
+	{
+		NodeColor = BehaviorTreeColors::NodeBody::Root;
 	}
 
 	return (FlashAlpha > 0.0f) ? FMath::Lerp(NodeColor, FlashColor, FlashAlpha) : NodeColor;
@@ -695,8 +707,6 @@ void SGraphNode_BehaviorTree::CreatePinWidgets()
 			TSharedPtr<SGraphPin> NewPin = SNew(SBehaviorTreePin, MyPin)
 				.ToolTipText( this, &SGraphNode_BehaviorTree::GetPinTooltip, MyPin);
 
-			NewPin->SetIsEditable(IsEditable);
-
 			AddPin(NewPin.ToSharedRef());
 		}
 	}
@@ -878,7 +888,7 @@ EVisibility SGraphNode_BehaviorTree::GetIndexVisibility() const
 	}
 
 	// Visible if we are in PIE or if we have siblings
-	const bool bCanShowIndex = (GEditor->bIsSimulatingInEditor || GEditor->PlayWorld != NULL) || (MyParentOutputPin && MyParentOutputPin->LinkedTo.Num() > 1);
+	const bool bCanShowIndex = (bShowExecutionIndexInEditorMode || GEditor->bIsSimulatingInEditor || GEditor->PlayWorld != NULL) || (MyParentOutputPin && MyParentOutputPin->LinkedTo.Num() > 1);
 
 	// LOD this out once things get too small
 	TSharedPtr<SGraphPanel> MyOwnerPanel = GetOwnerPanel();
@@ -897,7 +907,7 @@ FText SGraphNode_BehaviorTree::GetIndexText() const
 
 	int32 Index = 0;
 
-	if (GEditor->bIsSimulatingInEditor || GEditor->PlayWorld != NULL)
+	if (bShowExecutionIndexInEditorMode || GEditor->bIsSimulatingInEditor || GEditor->PlayWorld != NULL)
 	{
 		// special case: range of execution indices in composite decorator node
 		UBehaviorTreeGraphNode_CompositeDecorator* CompDecorator = Cast<UBehaviorTreeGraphNode_CompositeDecorator>(GraphNode);
@@ -930,7 +940,7 @@ FText SGraphNode_BehaviorTree::GetIndexText() const
 
 FText SGraphNode_BehaviorTree::GetIndexTooltipText() const
 {
-	if (GEditor->bIsSimulatingInEditor || GEditor->PlayWorld != NULL)
+	if (bShowExecutionIndexInEditorMode || GEditor->bIsSimulatingInEditor || GEditor->PlayWorld != NULL)
 	{
 		return LOCTEXT("ExecutionIndexTooltip", "Execution index: this shows the order in which nodes are executed.");
 	}

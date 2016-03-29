@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -10,6 +10,37 @@ class IMediaStream;
 class IMediaAudioTrack;
 class IMediaCaptionTrack;
 class IMediaVideoTrack;
+
+
+/**
+ * Enumerates media player related events.
+ */
+enum class EMediaEvent
+{
+	/** Unknown event. */
+	Unknown,
+
+	/** The current media source has been closed. */
+	MediaClosed,
+
+	/** A new media source has been opened. */
+	MediaOpened,
+
+	/** A media source failed to open. */
+	MediaOpenFailed,
+
+	/** The end of the media (or beginning if playing in reverse) has been reached. */
+	PlaybackEndReached,
+
+	/** Playback has been resumed. */
+	PlaybackResumed,
+
+	/** Playback has been suspended. */
+	PlaybackSuspended,
+
+	/** Media tracks have changed. */
+	TracksChanged
+};
 
 
 /**
@@ -201,21 +232,9 @@ public:
 
 public:
 
-	/** Gets an event delegate that is invoked when media has been closed. */
-	DECLARE_EVENT(IMediaPlayer, FOnMediaClosed)
-	virtual FOnMediaClosed& OnClosed() = 0;
-
-	/** Gets an event delegate that is invoked when media has been opened. */
-	DECLARE_EVENT_OneParam(IMediaPlayer, FOnMediaOpened, FString /*OpenedUrl*/)
-	virtual FOnMediaOpened& OnOpened() = 0;
-
-	/** Gets an event delegate that is invoked when media failed to open. */
-	DECLARE_EVENT_OneParam(IMediaPlayer, FOnMediaOpenFailed, FString /*FailedUrl*/)
-	virtual FOnMediaOpenFailed& OnOpenFailed() = 0;
-
-	/** Gets an event delegate that is invoked when the media tracks have changed. */
-	DECLARE_EVENT(IMediaPlayer, FOnTracksChanged)
-	virtual FOnTracksChanged& OnTracksChanged() = 0;
+	/** Gets an event delegate that is invoked when some interesting event occurred. */
+	DECLARE_EVENT_OneParam(IMediaPlayer, FOnMediaEvent, EMediaEvent /*Event*/)
+	virtual FOnMediaEvent& OnMediaEvent() = 0;
 
 public:
 

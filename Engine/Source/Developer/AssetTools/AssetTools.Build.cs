@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -21,6 +21,7 @@ public class AssetTools : ModuleRules
 				"SourceControl",
 				"TextureEditor",
 				"UnrealEd",
+				"PropertyEditor",
 				"Kismet",
 				"Landscape",
                 "Foliage",
@@ -38,6 +39,8 @@ public class AssetTools : ModuleRules
 				"DesktopPlatform",
 				"EditorWidgets",
 				"GameProjectGeneration",
+                "PropertyEditor",
+                "ActorPickerMode",
 				"Kismet",
 				"MainFrame",
 				"MaterialEditor",
@@ -61,7 +64,7 @@ public class AssetTools : ModuleRules
 				"DestructibleMeshEditor",
 				"EditorWidgets",
 				"GameProjectGeneration",
-				"PropertyEditor",
+                "ActorPickerMode",
 				"MainFrame",
 				"MaterialEditor",
 				"Persona",

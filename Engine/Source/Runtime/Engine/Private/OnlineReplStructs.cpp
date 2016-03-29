@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	OnlineReplStructs.cpp: Unreal networking serialization helpers
@@ -25,17 +25,22 @@ FArchive& operator<<( FArchive& Ar, FUniqueNetIdRepl& UniqueNetId)
 			FString Contents;
 			Ar << Contents;	// that takes care about possible overflow
 
-			// Don't need to distinguish OSS interfaces here with world because we just want the create function below
-			IOnlineIdentityPtr IdentityInt = Online::GetIdentityInterface();
-			if (IdentityInt.IsValid())
-			{
-				TSharedPtr<const FUniqueNetId> UniqueNetIdPtr = IdentityInt->CreateUniquePlayerId(Contents);
-				UniqueNetId.SetUniqueNetId(UniqueNetIdPtr);
-			}
+			UniqueNetId.UniqueIdFromString(Contents);
 		}
 	}
 
 	return Ar;
+}
+
+void FUniqueNetIdRepl::UniqueIdFromString(const FString& Contents)
+{
+	// Don't need to distinguish OSS interfaces here with world because we just want the create function below
+	IOnlineIdentityPtr IdentityInt = Online::GetIdentityInterface();
+	if (IdentityInt.IsValid())
+	{
+		TSharedPtr<const FUniqueNetId> UniqueNetIdPtr = IdentityInt->CreateUniquePlayerId(Contents);
+		SetUniqueNetId(UniqueNetIdPtr);
+	}
 }
 
 bool FUniqueNetIdRepl::NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
@@ -62,8 +67,59 @@ bool FUniqueNetIdRepl::ExportTextItem(FString& ValueStr, FUniqueNetIdRepl const&
 	return true;
 }
 
+bool FUniqueNetIdRepl::ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText)
+{
+	SetUniqueNetId(nullptr);
+
+	if (IsRunningCommandlet())
+	{
+#if !NO_LOGGING
+		ErrorText->Log(LogNet.GetCategoryName(), ELogVerbosity::Warning, TEXT("Invalid attempt to serialize FUniqueNetIdRepl during cooking"));
+#endif
+		return true;
+	}
+
+	if (Buffer)
+	{
+		FString Contents(Buffer);
+		UniqueIdFromString(Contents);
+	}
+
+	if (!IsValid())
+	{
+#if !NO_LOGGING
+		ErrorText->Log(LogNet.GetCategoryName(), ELogVerbosity::Warning, TEXT("Failed to import text to FUniqueNetIdRepl"));
+#endif
+	}
+
+	return true;
+}
+
+TSharedRef<FJsonValue> FUniqueNetIdRepl::ToJson() const
+{
+	if (IsValid())
+	{
+		return MakeShareable(new FJsonValueString(ToString()));
+	}
+	else
+	{
+		return MakeShareable(new FJsonValueString(TEXT("INVALID")));
+	}
+}
+
+void FUniqueNetIdRepl::FromJson(const FString& Json)
+{
+	SetUniqueNetId(nullptr);
+
+	if (!Json.IsEmpty())
+	{
+		UniqueIdFromString(Json);
+	}
+}
+
 void TestUniqueIdRepl(UWorld* InWorld)
 {
+#if !UE_BUILD_SHIPPING
 	bool bSuccess = true;
 
 	IOnlineIdentityPtr IdentityPtr = Online::GetIdentityInterface(InWorld);
@@ -79,7 +135,7 @@ void TestUniqueIdRepl(UWorld* InWorld)
 		}
 
 		FUniqueNetIdRepl ValidIdIn(UserId);
-		if (!ValidIdIn.IsValid() || UserId != ValidIdIn.GetUniqueNetId())
+		if (!ValidIdIn.IsValid() || UserId != ValidIdIn.GetUniqueNetId() || *UserId != *ValidIdIn)
 		{
 			UE_LOG(LogNet, Warning, TEXT("UserId input %s != UserId output %s"), *UserId->ToString(), *ValidIdIn->ToString());
 			bSuccess = false;
@@ -126,12 +182,26 @@ void TestUniqueIdRepl(UWorld* InWorld)
 				}
 			}
 		}
+
+		if (bSuccess)
+		{
+			FString OutString;
+			TSharedRef<FJsonValue> JsonValue = ValidIdIn.ToJson();
+			bSuccess = JsonValue->TryGetString(OutString);
+			if (bSuccess)
+			{
+				FUniqueNetIdRepl NewIdOut;
+				NewIdOut.FromJson(OutString);
+				bSuccess = NewIdOut.IsValid();
+			}
+		}
 	}
 
 	if (!bSuccess)
 	{
 		UE_LOG(LogNet, Warning, TEXT("TestUniqueIdRepl test failure!"));
 	}
+#endif
 }
 
 

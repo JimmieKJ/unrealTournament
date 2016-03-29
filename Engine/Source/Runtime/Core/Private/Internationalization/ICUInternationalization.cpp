@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "CorePrivatePCH.h"
 #include "ICUInternationalization.h"
 
@@ -10,6 +10,8 @@
 #include <unicode/timezone.h>
 #include <unicode/uclean.h>
 #include <unicode/udata.h>
+
+DEFINE_LOG_CATEGORY_STATIC(LogICUInternationalization, Log, All);
 
 namespace
 {
@@ -120,6 +122,14 @@ bool FICUInternationalization::Initialize()
 	u_init(&(ICUStatus));
 
 	FICUBreakIteratorManager::Create();
+
+	InitializeAvailableCultures();
+
+	bHasInitializedCultureMappings = false;
+	ConditionalInitializeCultureMappings();
+
+	bHasInitializedDisabledCultures = false;
+	ConditionalInitializeDisabledCultures();
 
 	I18N->InvariantCulture = FindOrMakeCulture(TEXT("en-US-POSIX"), false);
 	if (!I18N->InvariantCulture.IsValid())
@@ -234,6 +244,233 @@ namespace
 }
 #endif
 
+void FICUInternationalization::InitializeAvailableCultures()
+{
+	// Build up the data about all available locales
+	int32_t LocaleCount;
+	const icu::Locale* const AvailableLocales = icu::Locale::getAvailableLocales(LocaleCount);
+
+	AllAvailableCultures.Reserve(LocaleCount);
+	AllAvailableCulturesMap.Reserve(LocaleCount);
+
+	auto AppendCultureData = [&](const FString& InLanguageCode, const FString& InScriptCode, const FString& InCountryCode)
+	{
+		FString CultureName = InLanguageCode;
+		if (!InScriptCode.IsEmpty())
+		{
+			CultureName.AppendChar(TEXT('-'));
+			CultureName.Append(InScriptCode);
+		}
+		if (!InCountryCode.IsEmpty())
+		{
+			CultureName.AppendChar(TEXT('-'));
+			CultureName.Append(InCountryCode);
+		}
+
+		if (AllAvailableCulturesMap.Contains(CultureName))
+		{
+			return;
+		}
+
+		const int32 CultureDataIndex = AllAvailableCultures.AddDefaulted();
+		AllAvailableCulturesMap.Add(CultureName, CultureDataIndex);
+
+		TArray<int32>& CulturesForLanguage = AllAvailableLanguagesToSubCulturesMap.FindOrAdd(InLanguageCode);
+		CulturesForLanguage.Add(CultureDataIndex);
+
+		FICUCultureData& CultureData = AllAvailableCultures[CultureDataIndex];
+		CultureData.Name = CultureName;
+		CultureData.LanguageCode = InLanguageCode;
+		CultureData.ScriptCode = InScriptCode;
+		CultureData.CountryCode = InCountryCode;
+	};
+
+	for (int32 i = 0; i < LocaleCount; ++i)
+	{
+		const icu::Locale& Locale = AvailableLocales[i];
+
+		const FString LanguageCode = Locale.getLanguage();
+		const FString ScriptCode = Locale.getScript();
+		const FString CountryCode = Locale.getCountry();
+
+		// AvailableLocales doesn't always contain all variations of a culture, so we try and add them all here
+		// This allows the culture script look-up in GetPrioritizedCultureNames to work without having to load up culture data most of the time
+		AppendCultureData(LanguageCode, FString(), FString());
+		if (!CountryCode.IsEmpty())
+		{
+			AppendCultureData(LanguageCode, FString(), CountryCode);
+		}
+		if (!ScriptCode.IsEmpty())
+		{
+			AppendCultureData(LanguageCode, ScriptCode, FString());
+		}
+		if (!ScriptCode.IsEmpty() && !CountryCode.IsEmpty())
+		{
+			AppendCultureData(LanguageCode, ScriptCode, CountryCode);
+		}
+	}
+}
+
+void FICUInternationalization::ConditionalInitializeCultureMappings()
+{
+	if (bHasInitializedCultureMappings || !GConfig || !GConfig->IsReadyForUse())
+	{
+		return;
+	}
+
+	bHasInitializedCultureMappings = true;
+
+	const bool ShouldLoadEditor = GIsEditor;
+	const bool ShouldLoadGame = FApp::IsGame();
+
+	TArray<FString> CultureMappingsArray;
+	GConfig->GetArray(TEXT("Internationalization"), TEXT("CultureMappings"), CultureMappingsArray, GEngineIni);
+	if (ShouldLoadEditor)
+	{
+		TArray<FString> EditorCultureMappingsArray;
+		GConfig->GetArray(TEXT("Internationalization"), TEXT("CultureMappings"), EditorCultureMappingsArray, GEditorIni);
+		CultureMappingsArray.Append(MoveTemp(EditorCultureMappingsArray));
+	}
+	if (ShouldLoadGame)
+	{
+		TArray<FString> GameCultureMappingsArray;
+		GConfig->GetArray(TEXT("Internationalization"), TEXT("CultureMappings"), GameCultureMappingsArray, GGameIni);
+		CultureMappingsArray.Append(MoveTemp(GameCultureMappingsArray));
+	}
+
+	// An array of semicolon separated mapping entries: SourceCulture;DestCulture
+	CultureMappings.Reserve(CultureMappingsArray.Num());
+	for (const FString& CultureMappingStr : CultureMappingsArray)
+	{
+		FString SourceCulture;
+		FString DestCulture;
+		if (CultureMappingStr.Split(TEXT(";"), &SourceCulture, &DestCulture, ESearchCase::CaseSensitive))
+		{
+			if (AllAvailableCulturesMap.Contains(SourceCulture) && AllAvailableCulturesMap.Contains(DestCulture))
+			{
+				CultureMappings.Add(MoveTemp(SourceCulture), MoveTemp(DestCulture));
+			}
+			else
+			{
+				UE_LOG(LogICUInternationalization, Warning, TEXT("Culture mapping '%s' contains unknown cultures and has been ignored."), *CultureMappingStr);
+			}
+		}
+	}
+	CultureMappings.Compact();
+}
+
+void FICUInternationalization::ConditionalInitializeDisabledCultures()
+{
+	if (bHasInitializedDisabledCultures || !GConfig || !GConfig->IsReadyForUse())
+	{
+		return;
+	}
+
+	bHasInitializedDisabledCultures = true;
+
+	const bool ShouldLoadEditor = GIsEditor;
+	const bool ShouldLoadGame = FApp::IsGame();
+
+	TArray<FString> DisabledCulturesArray;
+	GConfig->GetArray(TEXT("Internationalization"), TEXT("DisabledCultures"), DisabledCulturesArray, GEngineIni);
+	if (ShouldLoadEditor)
+	{
+		TArray<FString> EditorDisabledCulturesArray;
+		GConfig->GetArray(TEXT("Internationalization"), TEXT("DisabledCultures"), EditorDisabledCulturesArray, GEditorIni);
+		DisabledCulturesArray.Append(MoveTemp(EditorDisabledCulturesArray));
+	}
+	if (ShouldLoadGame)
+	{
+		TArray<FString> GameDisabledCulturesArray;
+		GConfig->GetArray(TEXT("Internationalization"), TEXT("DisabledCultures"), GameDisabledCulturesArray, GGameIni);
+		DisabledCulturesArray.Append(MoveTemp(GameDisabledCulturesArray));
+	}
+
+	// Get our current build config string so we can compare it against the config entries
+	FString BuildConfigString;
+	{
+		EBuildConfigurations::Type BuildConfig = FApp::GetBuildConfiguration();
+		if (BuildConfig == EBuildConfigurations::DebugGame)
+		{
+			// Treat DebugGame and Debug as the same for loc purposes
+			BuildConfig = EBuildConfigurations::Debug;
+		}
+
+		if (BuildConfig != EBuildConfigurations::Unknown)
+		{
+			BuildConfigString = EBuildConfigurations::ToString(BuildConfig);
+		}
+	}
+
+	// An array of potentially semicolon separated mapping entries: Culture[;BuildConfig[,BuildConfig,BuildConfig]]
+	// No build config(s) implies all build configs
+	DisabledCultures.Reserve(DisabledCulturesArray.Num());
+	for (const FString& DisabledCultureStr : DisabledCulturesArray)
+	{
+		FString DisabledCulture;
+		FString DisabledBuildConfigsStr;
+		if (DisabledCultureStr.Split(TEXT(";"), &DisabledCulture, &DisabledBuildConfigsStr, ESearchCase::CaseSensitive))
+		{
+			// Check to see if any of the build configs matches our current build config
+			TArray<FString> DisabledBuildConfigs;
+			if (DisabledBuildConfigsStr.ParseIntoArray(DisabledBuildConfigs, TEXT(",")))
+			{
+				bool bIsValidBuildConfig = false;
+				for (const FString& DisabledBuildConfig : DisabledBuildConfigs)
+				{
+					if (BuildConfigString == DisabledBuildConfig)
+					{
+						bIsValidBuildConfig = true;
+						break;
+					}
+				}
+
+				if (!bIsValidBuildConfig)
+				{
+					continue;
+				}
+			}
+		}
+		else
+		{
+			DisabledCulture = DisabledCultureStr;
+		}
+
+		if (AllAvailableCulturesMap.Contains(DisabledCulture))
+		{
+			DisabledCultures.Add(MoveTemp(DisabledCulture));
+		}
+		else
+		{
+			UE_LOG(LogICUInternationalization, Warning, TEXT("Disabled culture '%s' is unknown and has been ignored."), *DisabledCulture);
+		}
+	}
+	DisabledCultures.Compact();
+}
+
+bool FICUInternationalization::IsCultureRemapped(const FString& Name, FString* OutMappedCulture)
+{
+	// Make sure we've loaded the culture mappings (the config system may not have been available when we were first initialized)
+	ConditionalInitializeCultureMappings();
+
+	// Check to see if the culture has been re-mapped
+	const FString* const MappedCulture = CultureMappings.Find(Name);
+	if (MappedCulture && OutMappedCulture)
+	{
+		*OutMappedCulture = *MappedCulture;
+	}
+
+	return MappedCulture != nullptr;
+}
+
+bool FICUInternationalization::IsCultureDisabled(const FString& Name)
+{
+	// Make sure we've loaded the disabled cultures list (the config system may not have been available when we were first initialized)
+	ConditionalInitializeDisabledCultures();
+
+	return DisabledCultures.Contains(Name);
+}
+
 bool FICUInternationalization::SetCurrentCulture(const FString& Name)
 {
 	FCulturePtr NewCurrentCulture = FindOrMakeCulture(Name);
@@ -247,6 +484,15 @@ bool FICUInternationalization::SetCurrentCulture(const FString& Name)
 			UErrorCode ICUStatus = U_ZERO_ERROR;
 			uloc_setDefault(StringCast<char>(*Name).Get(), &ICUStatus);
 
+			// Update the cached display names in any existing cultures
+			{
+				FScopeLock Lock(&CachedCulturesCS);
+				for (const auto& CachedCulturePair : CachedCultures)
+				{
+					CachedCulturePair.Value->HandleCultureChanged();
+				}
+			}
+
 			FInternationalization::Get().BroadcastCultureChanged();
 		}
 	}
@@ -256,16 +502,107 @@ bool FICUInternationalization::SetCurrentCulture(const FString& Name)
 
 void FICUInternationalization::GetCultureNames(TArray<FString>& CultureNames) const
 {
-	int32_t LocaleCount;
-	const icu::Locale* const AvailableLocales = icu::Locale::getAvailableLocales(LocaleCount);
-
-	CultureNames.Reset(LocaleCount);
-	for (int32 i = 0; i < LocaleCount; ++i)
+	CultureNames.Reset(AllAvailableCultures.Num());
+	for (const FICUCultureData& CultureData : AllAvailableCultures)
 	{
-		FString CultureName = AvailableLocales[i].getName();
-		CultureName.ReplaceInline(TEXT("_"), TEXT("-"));
-		CultureNames.Add(CultureName);
+		CultureNames.Add(CultureData.Name);
 	}
+}
+
+TArray<FString> FICUInternationalization::GetPrioritizedCultureNames(const FString& Name)
+{
+	auto PopulateCultureData = [&](const FString& InCultureName, FICUCultureData& OutCultureData) -> bool
+	{
+		// First, try and find the data in the map (although it seems that not all data is in here)
+		const int32* CultureDataIndexPtr = AllAvailableCulturesMap.Find(InCultureName);
+		if (CultureDataIndexPtr)
+		{
+			OutCultureData = AllAvailableCultures[*CultureDataIndexPtr];
+			return true;
+		}
+		
+		// Failing that, try and find the culture directly (this will cause its resource data to be loaded)
+		FCulturePtr Culture = FindOrMakeCulture(InCultureName);
+		if (Culture.IsValid())
+		{
+			OutCultureData.Name = Culture->GetName();
+			OutCultureData.LanguageCode = Culture->GetTwoLetterISOLanguageName();
+			OutCultureData.ScriptCode = Culture->GetScript();
+			OutCultureData.CountryCode = Culture->GetRegion();
+			return true;
+		}
+
+		return false;
+	};
+
+	// Apply any culture remapping
+	FString GivenCulture;
+	if (!IsCultureRemapped(Name, &GivenCulture))
+	{
+		GivenCulture = Name;
+	}
+
+	TArray<FString> PrioritizedCultureNames;
+
+	FICUCultureData GivenCultureData;
+	if (PopulateCultureData(GivenCulture, GivenCultureData))
+	{
+		// If we have a culture without a script, but with a country code, we can try and work out the script for the country code by enumerating all of the available cultures
+		// and looking for a matching culture with a script set (eg, "zh-CN" would find "zh-Hans-CN")
+		TArray<FICUCultureData> ParentCultureData;
+		if (GivenCultureData.ScriptCode.IsEmpty() && !GivenCultureData.CountryCode.IsEmpty())
+		{
+			const TArray<int32>* const CulturesForLanguage = AllAvailableLanguagesToSubCulturesMap.Find(GivenCultureData.LanguageCode);
+			if (CulturesForLanguage)
+			{
+				for (const int32 CultureIndex : *CulturesForLanguage)
+				{
+					const FICUCultureData& CultureData = AllAvailableCultures[CultureIndex];
+					if (!CultureData.ScriptCode.IsEmpty() && GivenCultureData.CountryCode == CultureData.CountryCode)
+					{
+						ParentCultureData.Add(CultureData);
+					}
+				}
+			}
+		}
+		
+		if (ParentCultureData.Num() == 0)
+		{
+			ParentCultureData.Add(GivenCultureData);
+		}
+
+		TArray<FICUCultureData> PrioritizedCultureData;
+
+		PrioritizedCultureData.Reserve(ParentCultureData.Num() * 3);
+		for (const FICUCultureData& CultureData : ParentCultureData)
+		{
+			const TArray<FString> PrioritizedParentCultures = FCulture::GetPrioritizedParentCultureNames(CultureData.LanguageCode, CultureData.ScriptCode, CultureData.CountryCode);
+			for (const FString& PrioritizedParentCultureName : PrioritizedParentCultures)
+			{
+				FICUCultureData PrioritizedParentCultureData;
+				if (PopulateCultureData(PrioritizedParentCultureName, PrioritizedParentCultureData))
+				{
+					PrioritizedCultureData.AddUnique(PrioritizedParentCultureData);
+				}
+			}
+		}
+
+		// Sort the cultures by their priority
+		PrioritizedCultureData.Sort([](const FICUCultureData& DataOne, const FICUCultureData& DataTwo) -> bool
+		{
+			const int32 DataOneSortWeight = (DataOne.CountryCode.IsEmpty() ? 0 : 2) + (DataOne.ScriptCode.IsEmpty() ? 0 : 1);
+			const int32 DataTwoSortWeight = (DataTwo.CountryCode.IsEmpty() ? 0 : 2) + (DataTwo.ScriptCode.IsEmpty() ? 0 : 1);
+			return DataOneSortWeight >= DataTwoSortWeight;
+		});
+
+		PrioritizedCultureNames.Reserve(PrioritizedCultureData.Num());
+		for (const FICUCultureData& CultureData : PrioritizedCultureData)
+		{
+			PrioritizedCultureNames.Add(CultureData.Name);
+		}
+	}
+
+	return PrioritizedCultureNames;
 }
 
 FCulturePtr FICUInternationalization::GetCulture(const FString& Name)
@@ -278,7 +615,11 @@ FCulturePtr FICUInternationalization::FindOrMakeCulture(const FString& Name, con
 	const FString CanonicalName = FCulture::GetCanonicalName(Name);
 
 	// Find the cached culture.
-	FCultureRef* FoundCulture = CachedCultures.Find(CanonicalName);
+	FCultureRef* FoundCulture = nullptr;
+	{
+		FScopeLock Lock(&CachedCulturesCS);
+		FoundCulture = CachedCultures.Find(CanonicalName);
+	}
 
 	// If no cached culture is found, try to make one.
 	if (!FoundCulture)
@@ -294,6 +635,7 @@ FCulturePtr FICUInternationalization::FindOrMakeCulture(const FString& Name, con
 				FCulturePtr NewCulture = FCulture::Create(CanonicalName);
 				if (NewCulture.IsValid())
 				{
+					FScopeLock Lock(&CachedCulturesCS);
 					FoundCulture = &(CachedCultures.Add(CanonicalName, NewCulture.ToSharedRef()));
 				}
 			}

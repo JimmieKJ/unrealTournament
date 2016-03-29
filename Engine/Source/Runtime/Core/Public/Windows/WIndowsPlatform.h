@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -63,34 +63,29 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 #else
 	#define PLATFORM_COMPILER_HAS_DEFAULTED_FUNCTIONS		0
 #endif
-#if _MSC_VER >= 1800 || __clang__
-	#define PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES		1
-	#define PLATFORM_COMPILER_HAS_EXPLICIT_OPERATORS		1
-	#define PLATFORM_COMPILER_HAS_DEFAULT_FUNCTION_TEMPLATE_ARGUMENTS	1
-#else
-	#define PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES		0
-	#define PLATFORM_COMPILER_HAS_EXPLICIT_OPERATORS		0
-	#define PLATFORM_COMPILER_HAS_DEFAULT_FUNCTION_TEMPLATE_ARGUMENTS	0
-#endif
+#define PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES		1
+#define PLATFORM_COMPILER_HAS_EXPLICIT_OPERATORS		1
+#define PLATFORM_COMPILER_HAS_DEFAULT_FUNCTION_TEMPLATE_ARGUMENTS	1
 #define PLATFORM_COMPILER_HAS_TCHAR_WMAIN					1
 
-#define PLATFORM_RHITHREAD_DEFAULT_BYPASS					1
-#define PLATFORM_CAN_TOGGLE_RHITHREAD_IN_SHIPPING			1
+#define PLATFORM_RHITHREAD_DEFAULT_BYPASS					WITH_EDITOR
 
 #define PLATFORM_SUPPORTS_STACK_SYMBOLS						1
 
-// Intrinsics for 128-bit atomics on Windows platform requires Windows 8 or higher (WINVER>0x0602)
+// Intrinsics for 64-bit atomics on Windows platform requires Windows Vista or higher (WINVER>=0x0600)
+#define PLATFORM_HAS_64BIT_ATOMICS							(WINVER >= 0x600)
+// Intrinsics for 128-bit atomics on Windows platform requires Windows 8 or higher (WINVER>=0x0602)
 // http://msdn.microsoft.com/en-us/library/windows/desktop/hh972640.aspx
 #define PLATFORM_HAS_128BIT_ATOMICS							(!HACK_HEADER_GENERATOR && PLATFORM_64BITS && (WINVER >= 0x602))
 #define PLATFORM_USES_ANSI_STRING_FOR_EXTERNAL_PROFILING	0
 
-
 // Function type macros.
-#define VARARGS     __cdecl					/* Functions with variable arguments */
-#define CDECL	    __cdecl					/* Standard C function */
-#define STDCALL		__stdcall				/* Standard calling convention */
-#define FORCEINLINE __forceinline			/* Force code to be inline */
-#define FORCENOINLINE __declspec(noinline)	/* Force code to NOT be inline */
+#define VARARGS     __cdecl														/* Functions with variable arguments */
+#define CDECL	    __cdecl														/* Standard C function */
+#define STDCALL		__stdcall													/* Standard calling convention */
+#define FORCEINLINE __forceinline												/* Force code to be inline */
+#define FORCENOINLINE __declspec(noinline)										/* Force code to NOT be inline */
+#define FUNCTION_CHECK_RETURN(...) __declspec("SAL_checkReturn") __VA_ARGS__	/* Wrap a function signature in this to warn that callers should not ignore the return value. */
 
 // Hints compiler that expression is true; generally restricted to comparisons against constants
 #if !defined(__clang__)		// Clang doesn't support __assume (Microsoft specific)
@@ -135,7 +130,7 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 #define MSVC_PRAGMA(Pragma) __pragma(Pragma)
 
 // Prefetch
-#define CACHE_LINE_SIZE	128
+#define PLATFORM_CACHE_LINE_SIZE	128
 
 // DLL export and import definitions
 #define DLLEXPORT __declspec(dllexport)

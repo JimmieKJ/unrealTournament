@@ -4,9 +4,11 @@
 #include "StereoStaticMeshComponent.h"
 #include "StaticMeshResources.h"
 
-class FStereoStaticMeshSceneProxy : public FStaticMeshSceneProxy
+
+class FStereoStaticMeshSceneProxy
+	: public FStaticMeshSceneProxy
 {
-    ESPStereoCameraLayer::Type EyeToRender;
+    ESPStereoCameraLayer EyeToRender;
 
 public:
 
@@ -24,14 +26,14 @@ public:
         switch (View->StereoPass)
         {
         case eSSP_RIGHT_EYE:
-            if (EyeToRender != ESPStereoCameraLayer::RightEye && EyeToRender != ESPStereoCameraLayer::BothEyes)
+            if ((EyeToRender != ESPStereoCameraLayer::RightEye) && (EyeToRender != ESPStereoCameraLayer::BothEyes))
             {
                 bVisible = false;
             }
             break;
 
         case eSSP_LEFT_EYE:
-            if (EyeToRender != ESPStereoCameraLayer::LeftEye && EyeToRender != ESPStereoCameraLayer::BothEyes)
+            if ((EyeToRender != ESPStereoCameraLayer::LeftEye) && (EyeToRender != ESPStereoCameraLayer::BothEyes))
             {
                 bVisible = false;
             }
@@ -48,22 +50,20 @@ public:
         return viewRelevance;
 
     }
-
-
 };
+
 
 FPrimitiveSceneProxy* UStereoStaticMeshComponent::CreateSceneProxy()
 {
-    if (StaticMesh == NULL
-        || StaticMesh->RenderData == NULL
-        || StaticMesh->RenderData->LODResources.Num() == 0
-        || StaticMesh->RenderData->LODResources[0].VertexBuffer.GetNumVertices() == 0)
+    if ((StaticMesh == nullptr) ||
+		(StaticMesh->RenderData == nullptr) ||
+		(StaticMesh->RenderData->LODResources.Num() == 0) ||
+		(StaticMesh->RenderData->LODResources[0].VertexBuffer.GetNumVertices() == 0))
     {
-        return NULL;
+        return nullptr;
     }
 
     FPrimitiveSceneProxy* Proxy = ::new FStereoStaticMeshSceneProxy(this);
-    return Proxy;
+
+	return Proxy;
 }
-
-

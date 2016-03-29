@@ -1,10 +1,7 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "FunctionalTestingPrivatePCH.h"
 #include "ModuleInterface.h"
-
-
-
 
 void FFunctionalTestingModule::StartupModule() 
 {
@@ -17,5 +14,3 @@ void FFunctionalTestingModule::ShutdownModule()
 }
 
 IMPLEMENT_MODULE( FFunctionalTestingModule, FunctionalTesting );
-
-#undef LOCTEXT_NAMESPACE

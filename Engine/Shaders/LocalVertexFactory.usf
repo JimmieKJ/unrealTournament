@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved..
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved..
 
 /*=============================================================================
 	LocalVertexFactory.usf: Local vertex factory shader code.
@@ -7,11 +7,21 @@
 #include "VertexFactoryCommon.usf"
 #include "LocalVertexFactoryCommon.usf"
 
+#if GPUSKIN_PASS_THROUGH
+#include "GpuSkinCommon.usf"
+#endif
+
 float4x4 PreviousLocalToWorld;
 
 #include "UniformBuffers/PrecomputedLightingBuffer.usf"
 
 #if USE_INSTANCING
+
+	// Instanced stereo sets the eye index explicitly for instanced geometry
+	#if INSTANCED_STEREO
+		uint InstancedEyeIndex;
+	#endif
+
 	#ifndef USE_DITHERED_LOD_TRANSITION_FOR_INSTANCED
 		#error "USE_DITHERED_LOD_TRANSITION_FOR_INSTANCED should have been defined"
 	#endif
@@ -51,7 +61,6 @@ float4 InstancingFadeOutParams;
 		#define USE_INSTANCING_EMULATED (0)
 	#endif
 #endif	// USE_INSTANCING
-
 
 #if USE_SPLINEDEFORM
 float3 SplineStartPos;
@@ -128,6 +137,15 @@ struct FVertexFactoryInput
 #if NEEDS_LIGHTMAP_COORDINATE
 	float2	LightMapCoordinate : ATTRIBUTE15;
 #endif
+
+/** Optional instance ID for vertex layered rendering */
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER
+	uint InstanceId	: SV_InstanceID;
+#endif
+
+#if GPUSKIN_PASS_THROUGH
+	uint VertexId : SV_VertexID;
+#endif
 };
 
 struct FPositionOnlyVertexFactoryInput
@@ -140,6 +158,11 @@ struct FPositionOnlyVertexFactoryInput
 	half4 InstanceTransform2 : ATTRIBUTE10; // hitproxy.g in .w
 	half4 InstanceTransform3 : ATTRIBUTE11; // hitproxy.b in .w
 #endif	// USE_INSTANCING && !USE_INSTANCING_EMULATED
+
+/** Optional instance ID for vertex layered rendering */
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER
+	uint InstanceId	: SV_InstanceID;
+#endif
 };
 
 struct FVertexFactoryIntermediates
@@ -506,7 +529,7 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 	float SelectedValue = GetInstanceSelected(Input);
 	Intermediates.PerInstanceParams.x = GetInstanceRandom(Input);
 	float3 InstanceLocation = TransformLocalToWorld(GetInstanceOrigin(Input)).xyz;
-	Intermediates.PerInstanceParams.y = 1.0 - saturate((length(InstanceLocation + View.PreViewTranslation.xyz) - InstancingFadeOutParams.x) * InstancingFadeOutParams.y);
+	Intermediates.PerInstanceParams.y = 1.0 - saturate((length(InstanceLocation + ResolvedView.PreViewTranslation.xyz) - InstancingFadeOutParams.x) * InstancingFadeOutParams.y);
 	// InstancingFadeOutParams.z,w are RenderSelected and RenderDeselected respectively.
 	Intermediates.PerInstanceParams.z = InstancingFadeOutParams.z * SelectedValue + InstancingFadeOutParams.w * (1-SelectedValue);
 	#if USE_DITHERED_LOD_TRANSITION
@@ -549,6 +572,11 @@ float4 VertexFactoryGetWorldPosition(FVertexFactoryInput Input, FVertexFactoryIn
 float4 VertexFactoryGetRasterizedWorldPosition(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates, float4 InWorldPosition)
 {
 	return InWorldPosition;
+}
+
+float3 VertexFactoryGetPositionForVertexLighting(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates, float3 TranslatedWorldPosition)
+{
+	return TranslatedWorldPosition;
 }
 
 FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates, FMaterialVertexParameters VertexParameters)
@@ -599,6 +627,11 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 #if USE_INSTANCING
 	Interpolants.PerInstanceParams = Intermediates.PerInstanceParams;
 #endif
+
+#if INSTANCED_STEREO
+	Interpolants.PackedEyeIndex = 0;
+#endif
+
 	return Interpolants;
 }
 
@@ -612,12 +645,25 @@ float4 VertexFactoryGetWorldPosition(FPositionOnlyVertexFactoryInput Input)
 #endif	// USE_INSTANCING
 }
 
+// Information when using pass through to get the previous position, as no matrix is available/needed
+#if GPUSKIN_PASS_THROUGH
+uint GPUSkinCachePreviousFloatOffset;
+Buffer<float> GPUSkinCachePreviousBuffer;
+#endif
+
 // @return previous translated world position
 float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates)
 {
 #if USE_INSTANCING
 	float4x4 InstanceTransform = transpose(GetInstanceTransform(Input));
 	return mul(mul(Input.Position, InstanceTransform), PreviousLocalToWorld);
+#elif GPUSKIN_PASS_THROUGH
+	uint Offset = Input.VertexId * GPUSKIN_RWBUFFER_NUM_FLOATS + GPUSkinCachePreviousFloatOffset;
+	float3 PreviousPos;
+	PreviousPos.x = GPUSkinCachePreviousBuffer[Offset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 0];
+	PreviousPos.y = GPUSkinCachePreviousBuffer[Offset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 1];
+	PreviousPos.z = GPUSkinCachePreviousBuffer[Offset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 2];
+	return mul(float4(PreviousPos, 1), PreviousLocalToWorld);
 #elif USE_SPLINEDEFORM
 	// Just like CalcWorldPosition...
 	float4x3 SliceTransform = CalcSliceTransform(dot(Input.Position.xyz, SplineMeshDir));
@@ -678,7 +724,7 @@ float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexF
 
 		Result.TangentToWorldPreScale = 1;
 
-		Result.WorldPosition = CameraLocalWorldPosition + View.WorldCameraOrigin;
+		Result.WorldPosition = CameraLocalWorldPosition + ResolvedView.WorldCameraOrigin;
 
 		return Result;
 	}
@@ -748,3 +794,14 @@ float4 VertexFactoryGetInstanceHitProxyId(FVertexFactoryInput Input, FVertexFact
 	return float4(R/255.0, G/255.0, B/255.0, 0);
 }
 #endif	// USE_INSTANCING
+
+#if INSTANCED_STEREO
+uint VertexFactoryGetEyeIndex(uint InstanceId)
+{
+	#if USE_INSTANCING
+		return InstancedEyeIndex;
+	#else
+		return InstanceId & 1;
+	#endif
+}
+#endif

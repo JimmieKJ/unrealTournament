@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -74,6 +74,15 @@ public:
 		}
 	}
 
+	void UpdatePlaybackRange()
+	{
+		TSharedPtr<ISequencer> SequencerPin = Sequencer.Pin();
+		if( SequencerPin.IsValid()  )
+		{
+			SequencerPin->UpdatePlaybackRange();
+		}
+	}
+
 	void AnimatablePropertyChanged( FOnKeyProperty OnKeyProperty )
 	{
 		check(OnKeyProperty.IsBound());
@@ -98,6 +107,8 @@ public:
 				// Movie scene data has changed
 				NotifyMovieSceneDataChanged();
 			}
+
+			UpdatePlaybackRange();
 		}
 	}
 
@@ -190,7 +201,7 @@ public:
 
 	// ISequencerTrackEditor interface
 
-	virtual void AddKey( const FGuid& ObjectGuid, UObject* AdditionalAsset = nullptr ) override { }
+	virtual void AddKey( const FGuid& ObjectGuid ) override {}
 
 	virtual UMovieSceneTrack* AddTrack(UMovieScene* FocusedMovieScene, const FGuid& ObjectHandle, TSubclassOf<class UMovieSceneTrack> TrackClass, FName UniqueTypeName) override
 	{
@@ -201,7 +212,7 @@ public:
 	virtual void BuildAddTrackMenu(FMenuBuilder& MenuBuilder) override { }
 	virtual void BuildObjectBindingEditButtons(TSharedPtr<SHorizontalBox> EditBox, const FGuid& ObjectBinding, const UClass* ObjectClass) override { }
 	virtual void BuildObjectBindingTrackMenu(FMenuBuilder& MenuBuilder, const FGuid& ObjectBinding, const UClass* ObjectClass) override { }
-	virtual TSharedPtr<SWidget> BuildOutlinerEditWidget(const FGuid& ObjectBinding, UMovieSceneTrack* Track) override  { return TSharedPtr<SWidget>(); }
+	virtual TSharedPtr<SWidget> BuildOutlinerEditWidget(const FGuid& ObjectBinding, UMovieSceneTrack* Track, const FBuildEditWidgetParams& Params) override  { return TSharedPtr<SWidget>(); }
 	virtual void BuildTrackContextMenu( FMenuBuilder& MenuBuilder, UMovieSceneTrack* Track ) override { }
 	virtual bool HandleAssetAdded(UObject* Asset, const FGuid& TargetObjectGuid) override { return false; }
 
@@ -214,10 +225,11 @@ public:
 	{
 		// @todo sequencer livecapture: This turns on "auto key" for the purpose of capture keys for actor state
 		// during PIE sessions when record mode is active.
-		return Sequencer.Pin()->IsRecordingLive() || Sequencer.Pin()->GetAutoKeyEnabled();
+		return Sequencer.Pin()->IsRecordingLive() || Sequencer.Pin()->GetAutoKeyMode() != EAutoKeyMode::KeyNone;
 	}
 
 	virtual TSharedRef<ISequencerSection> MakeSectionInterface(class UMovieSceneSection& SectionObject, UMovieSceneTrack& Track) = 0;
+	virtual void OnInitialize() override { };
 	virtual void OnRelease() override { };
 
 	virtual int32 PaintTrackArea(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle) override

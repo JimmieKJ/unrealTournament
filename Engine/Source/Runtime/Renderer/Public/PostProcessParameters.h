@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessParameters.h: Shader base classes
@@ -74,7 +74,8 @@ struct FPostProcessPassParameters
 	void SetPS(const FPixelShaderRHIParamRef& ShaderRHI, const FRenderingCompositePassContext& Context, FSamplerStateRHIParamRef Filter = TStaticSamplerState<>::GetRHI(), EFallbackColor FallbackColor = eFC_0000, FSamplerStateRHIParamRef* FilterOverrideArray = 0);
 
 	/** Set the compute shader parameter values. */
-	void SetCS(const FComputeShaderRHIParamRef& ShaderRHI, const FRenderingCompositePassContext& Context, FSamplerStateRHIParamRef Filter = TStaticSamplerState<>::GetRHI(), EFallbackColor FallbackColor = eFC_0000, FSamplerStateRHIParamRef* FilterOverrideArray = 0);
+	template< typename TRHICmdList >
+	void SetCS(const FComputeShaderRHIParamRef& ShaderRHI, const FRenderingCompositePassContext& Context, TRHICmdList& RHICmdList, FSamplerStateRHIParamRef Filter = TStaticSamplerState<>::GetRHI(), EFallbackColor FallbackColor = eFC_0000, FSamplerStateRHIParamRef* FilterOverrideArray = 0);
 
 	/** Set the vertex shader parameter values. */
 	void SetVS(const FVertexShaderRHIParamRef& ShaderRHI, const FRenderingCompositePassContext& Context, FSamplerStateRHIParamRef Filter = TStaticSamplerState<>::GetRHI(), EFallbackColor FallbackColor = eFC_0000, FSamplerStateRHIParamRef* FilterOverrideArray = 0);
@@ -97,10 +98,11 @@ private:
 public:
 	// @param Filter can be 0 if FilterOverrideArray is used
 	// @param FilterOverrideArray can be 0 if Filter is used
-	template< typename ShaderRHIParamRef >
+	template< typename ShaderRHIParamRef, typename TRHICmdList >
 	void Set(
 		const ShaderRHIParamRef& ShaderRHI,
 		const FRenderingCompositePassContext& Context,
+		TRHICmdList& RHICmdList,
 		FSamplerStateRHIParamRef Filter,
 		EFallbackColor FallbackColor,
 		FSamplerStateRHIParamRef* FilterOverrideArray = 0

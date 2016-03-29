@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AnimStateNodeBase.cpp
@@ -50,7 +50,11 @@ void UAnimStateNodeBase::PostPasteNode()
 	{
 		// Add the new graph as a child of our parent graph
 		UEdGraph* ParentGraph = GetGraph();
-		ParentGraph->SubGraphs.Add(BoundGraph);
+
+		if(ParentGraph->SubGraphs.Find(BoundGraph) == INDEX_NONE)
+		{
+			ParentGraph->SubGraphs.Add(BoundGraph);
+		}
 
 		//@TODO: CONDUIT: Merge conflict - May no longer be necessary due to other changes?
 //		FBlueprintEditorUtils::RenameGraphWithSuggestion(BoundGraph, NameValidator, GetDesiredNewNodeName());

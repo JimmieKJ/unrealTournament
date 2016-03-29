@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "EmptyRHIPrivate.h"
@@ -59,6 +59,12 @@ FShaderResourceViewRHIRef FEmptyDynamicRHI::RHICreateShaderResourceView(FVertexB
 	FEmptyShaderResourceView* SRV = new FEmptyShaderResourceView;
 	SRV->SourceVertexBuffer = VertexBuffer;
 	return SRV;
+}
+
+FShaderResourceViewRHIRef FEmptyDynamicRHI::RHICreateShaderResourceView(FIndexBufferRHIParamRef BufferRHI)
+{
+	// there should be no need to create an object
+	return FShaderResourceViewRHIRef();
 }
 
 FShaderResourceViewRHIRef FEmptyDynamicRHI::RHICreateShaderResourceView(FTexture2DRHIParamRef Texture2DRHI, uint8 MipLevel)

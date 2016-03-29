@@ -1,8 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
 #include "ModuleManager.h"
+
+class FDerivedDataCacheUsageStats;
 
 /** 
  * Opaque class for rollup handling
@@ -200,6 +202,14 @@ public:
 	 */
 	virtual void GetDirectories(TArray<FString>& OutResults) = 0;
 
+	//--------------------
+	// UsageStats Interface
+	//--------------------
+
+	/**
+	 * Retrieve usage stats by the DDC
+	 */
+	virtual void GatherUsageStats(TMap<FString, FDerivedDataCacheUsageStats>& UsageStats) = 0;
 };
 
 /**

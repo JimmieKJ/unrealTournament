@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIGraphPrivatePCH.h"
 #include "SGraphNode.h"
@@ -42,7 +42,6 @@ void SGraphPinAI::Construct(const FArguments& InArgs, UEdGraphPin* InPin)
 	this->SetCursor(EMouseCursor::Default);
 
 	bShowLabel = true;
-	IsEditable = true;
 
 	GraphPinObj = InPin;
 	check(GraphPinObj != NULL);

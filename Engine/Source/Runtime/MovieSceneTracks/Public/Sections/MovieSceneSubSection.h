@@ -1,11 +1,13 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "MovieSceneSection.h"
 #include "MovieSceneSubSection.generated.h"
 
 class UMovieSceneSequence;
 
+DECLARE_DELEGATE_OneParam(FOnSequenceChanged, UMovieSceneSequence* /*Sequence*/);
 
 /**
  * Implements a section in sub-sequence tracks.
@@ -16,10 +18,10 @@ class MOVIESCENETRACKS_API UMovieSceneSubSection
 {
 	GENERATED_BODY()
 
+public:
+
 	/** Default constructor. */
 	UMovieSceneSubSection();
-
-public:
 
 	/**
 	 * Get the sequence that is assigned to this section.
@@ -27,10 +29,7 @@ public:
 	 * @return The sequence.
 	 * @see SetSequence
 	 */
-	UMovieSceneSequence* GetSequence() const
-	{
-		return SubSequence;
-	}
+	UMovieSceneSequence* GetSequence() const;
 
 	/**
 	 * Sets the sequence played by this section.
@@ -38,9 +37,49 @@ public:
 	 * @param Sequence The sequence to play.
 	 * @see GetSequence
 	 */
-	void SetSequence(UMovieSceneSequence& Sequence)
+	void SetSequence(UMovieSceneSequence* Sequence);
+
+	/** Prime this section as the one and only recording section */
+	void SetAsRecording(bool bRecord);
+
+	/** Get the section we are recording to */
+	static UMovieSceneSubSection* GetRecordingSection();
+
+	/** Get the actor we are targeting for recording */
+	static const FString& GetActorToRecord();
+
+	/** Check if we are primed for recording */
+	static bool IsSetAsRecording();
+
+#if WITH_EDITOR
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+
+	/** Delegate to fire when our sequence is changed in the property editor */
+	FOnSequenceChanged& OnSequenceChanged() { return OnSequenceChangedDelegate; }
+#endif
+
+	/** Get the name of the sequence we are going to try to record to */
+	const FString& GetTargetSequenceName() const
 	{
-		SubSequence = &Sequence;
+		return TargetSequenceName;
+	}
+
+	/** Set the name of the sequence we are going to try to record to */
+	void SetTargetSequenceName(const FString& Name)
+	{
+		TargetSequenceName = Name;
+	}
+
+	/** Get the path of the sequence we are going to try to record to */
+	const FString& GetTargetPathToRecordTo() const
+	{
+		return TargetPathToRecordTo.Path;
+	}
+
+	/** Set the path of the sequence we are going to try to record to */
+	void SetTargetPathToRecordTo(const FString& Path)
+	{
+		TargetPathToRecordTo.Path = Path;
 	}
 
 public:
@@ -53,13 +92,37 @@ public:
 	UPROPERTY(EditAnywhere, Category="Timing")
 	float TimeScale;
 
-private:
+	/** Preroll time. */
+	UPROPERTY(EditAnywhere, Category="Timing")
+	float PrerollTime;
+
+protected:
 
 	/**
 	 * Movie scene being played by this section.
 	 *
 	 * @todo Sequencer: Should this be lazy loaded?
 	 */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Sequence")
 	UMovieSceneSequence* SubSequence;
+
+	/** Target actor name to record */
+	UPROPERTY(EditAnywhere, Category="Sequence Recording")
+	FString NameOfActorToRecord;
+
+	/** Target name of sequence to try to record to (will record automatically to another if this already exists) */
+	UPROPERTY(EditAnywhere, Category="Sequence Recording")
+	FString TargetSequenceName;
+
+	/** Target path of sequence to record to */
+	UPROPERTY(EditAnywhere, Category="Sequence Recording", meta=(ContentDir))
+	FDirectoryPath TargetPathToRecordTo;
+
+	/** Keep track of our constructed recordings */
+	static TWeakObjectPtr<UMovieSceneSubSection> TheRecordingSection;
+
+#if WITH_EDITOR
+	/** Delegate to fire when our sequence is changed in the property editor */
+	FOnSequenceChanged OnSequenceChangedDelegate;
+#endif
 };

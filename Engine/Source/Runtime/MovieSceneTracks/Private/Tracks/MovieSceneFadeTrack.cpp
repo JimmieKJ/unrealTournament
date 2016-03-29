@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneTracksPrivatePCH.h"
 #include "MovieSceneFadeSection.h"
@@ -25,7 +25,7 @@ UMovieSceneSection* UMovieSceneFadeTrack::CreateNewSection()
 
 
 #if WITH_EDITORONLY_DATA
-FText UMovieSceneFadeTrack::GetDisplayName() const
+FText UMovieSceneFadeTrack::GetDefaultDisplayName() const
 {
 	return LOCTEXT("TrackName", "Fade");
 }

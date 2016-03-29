@@ -1,10 +1,14 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 class EDITORSTYLE_API FEditorFontGlyphs
 {
 public:
+
+	// http://fortawesome.github.io/Font-Awesome/icon/500px/
+	static FText _500Px;
+
 	// (contrast) http://fortawesome.github.io/Font-Awesome/icon/adjust/
 	static FText Adjust;
 
@@ -22,6 +26,9 @@ public:
 
 	// (text) http://fortawesome.github.io/Font-Awesome/icon/align-right/
 	static FText Align_Right;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/amazon/
+	static FText Amazon;
 
 	// (support, help) http://fortawesome.github.io/Font-Awesome/icon/ambulance/
 	static FText Ambulance;
@@ -65,7 +72,7 @@ public:
 	// (box, storage) http://fortawesome.github.io/Font-Awesome/icon/archive/
 	static FText Archive;
 
-	// http://fortawesome.github.io/Font-Awesome/icon/area-chart/
+	// (graph, analytics) http://fortawesome.github.io/Font-Awesome/icon/area-chart/
 	static FText Area_Chart;
 
 	// (download) http://fortawesome.github.io/Font-Awesome/icon/arrow-circle-down/
@@ -104,7 +111,7 @@ public:
 	// (move, reorder, resize) http://fortawesome.github.io/Font-Awesome/icon/arrows/
 	static FText Arrows;
 
-	// (expand, enlarge, bigger, move, reorder, resize) http://fortawesome.github.io/Font-Awesome/icon/arrows-alt/
+	// (expand, enlarge, fullscreen, bigger, move, reorder, resize) http://fortawesome.github.io/Font-Awesome/icon/arrows-alt/
 	static FText Arrows_Alt;
 
 	// (resize) http://fortawesome.github.io/Font-Awesome/icon/arrows-h/
@@ -125,17 +132,35 @@ public:
 	// (rewind, previous) http://fortawesome.github.io/Font-Awesome/icon/backward/
 	static FText Backward;
 
-	// (block, abort) http://fortawesome.github.io/Font-Awesome/icon/ban/
+	// http://fortawesome.github.io/Font-Awesome/icon/balance-scale/
+	static FText Balance_Scale;
+
+	// (delete, remove, trash, hide, block, stop, abort, cancel) http://fortawesome.github.io/Font-Awesome/icon/ban/
 	static FText Ban;
 
-	// (graph) http://fortawesome.github.io/Font-Awesome/icon/bar-chart/
+	// (graph, analytics) http://fortawesome.github.io/Font-Awesome/icon/bar-chart/
 	static FText Bar_Chart;
 
 	// (scan) http://fortawesome.github.io/Font-Awesome/icon/barcode/
 	static FText Barcode;
 
-	// (menu, drag, reorder, settings, list, ul, ol, checklist, todo, list) http://fortawesome.github.io/Font-Awesome/icon/bars/
+	// (menu, drag, reorder, settings, list, ul, ol, checklist, todo, list, hamburger) http://fortawesome.github.io/Font-Awesome/icon/bars/
 	static FText Bars;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/battery-empty/
+	static FText Battery_Empty;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/battery-full/
+	static FText Battery_Full;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/battery-half/
+	static FText Battery_Half;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/battery-quarter/
+	static FText Battery_Quarter;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/battery-three-quarters/
+	static FText Battery_Three_Quarters;
 
 	// (travel) http://fortawesome.github.io/Font-Awesome/icon/bed/
 	static FText Bed;
@@ -176,6 +201,15 @@ public:
 	// (git) http://fortawesome.github.io/Font-Awesome/icon/bitbucket-square/
 	static FText Bitbucket_Square;
 
+	// http://fortawesome.github.io/Font-Awesome/icon/black-tie/
+	static FText Black_Tie;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/bluetooth/
+	static FText Bluetooth;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/bluetooth-b/
+	static FText Bluetooth_B;
+
 	// http://fortawesome.github.io/Font-Awesome/icon/bold/
 	static FText Bold;
 
@@ -200,13 +234,13 @@ public:
 	// http://fortawesome.github.io/Font-Awesome/icon/btc/
 	static FText Btc;
 
-	// (report) http://fortawesome.github.io/Font-Awesome/icon/bug/
+	// (report, insect) http://fortawesome.github.io/Font-Awesome/icon/bug/
 	static FText Bug;
 
-	// http://fortawesome.github.io/Font-Awesome/icon/building/
+	// (work, business, apartment, office, company) http://fortawesome.github.io/Font-Awesome/icon/building/
 	static FText Building;
 
-	// (work, business, apartment, office) http://fortawesome.github.io/Font-Awesome/icon/building-o/
+	// (work, business, apartment, office, company) http://fortawesome.github.io/Font-Awesome/icon/building-o/
 	static FText Building_O;
 
 	// (announcement, share, broadcast, louder) http://fortawesome.github.io/Font-Awesome/icon/bullhorn/
@@ -227,8 +261,20 @@ public:
 	// (date, time, when) http://fortawesome.github.io/Font-Awesome/icon/calendar/
 	static FText Calendar;
 
+	// http://fortawesome.github.io/Font-Awesome/icon/calendar-check-o/
+	static FText Calendar_Check_O;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/calendar-minus-o/
+	static FText Calendar_Minus_O;
+
 	// (date, time, when) http://fortawesome.github.io/Font-Awesome/icon/calendar-o/
 	static FText Calendar_O;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/calendar-plus-o/
+	static FText Calendar_Plus_O;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/calendar-times-o/
+	static FText Calendar_Times_O;
 
 	// (photo, picture, record) http://fortawesome.github.io/Font-Awesome/icon/camera/
 	static FText Camera;
@@ -239,13 +285,13 @@ public:
 	// (vehicle) http://fortawesome.github.io/Font-Awesome/icon/car/
 	static FText Car;
 
-	// (more, dropdown, menu) http://fortawesome.github.io/Font-Awesome/icon/caret-down/
+	// (more, dropdown, menu, triangle down) http://fortawesome.github.io/Font-Awesome/icon/caret-down/
 	static FText Caret_Down;
 
-	// (previous, back) http://fortawesome.github.io/Font-Awesome/icon/caret-left/
+	// (previous, back, triangle left) http://fortawesome.github.io/Font-Awesome/icon/caret-left/
 	static FText Caret_Left;
 
-	// (next, forward) http://fortawesome.github.io/Font-Awesome/icon/caret-right/
+	// (next, forward, triangle right) http://fortawesome.github.io/Font-Awesome/icon/caret-right/
 	static FText Caret_Right;
 
 	// (more, dropdown, menu) http://fortawesome.github.io/Font-Awesome/icon/caret-square-o-down/
@@ -260,7 +306,7 @@ public:
 	// http://fortawesome.github.io/Font-Awesome/icon/caret-square-o-up/
 	static FText Caret_Square_O_Up;
 
-	// http://fortawesome.github.io/Font-Awesome/icon/caret-up/
+	// (triangle up) http://fortawesome.github.io/Font-Awesome/icon/caret-up/
 	static FText Caret_Up;
 
 	// (shopping) http://fortawesome.github.io/Font-Awesome/icon/cart-arrow-down/
@@ -272,11 +318,17 @@ public:
 	// http://fortawesome.github.io/Font-Awesome/icon/cc/
 	static FText Cc;
 
-	// http://fortawesome.github.io/Font-Awesome/icon/cc-amex/
+	// (amex) http://fortawesome.github.io/Font-Awesome/icon/cc-amex/
 	static FText Cc_Amex;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/cc-diners-club/
+	static FText Cc_Diners_Club;
 
 	// http://fortawesome.github.io/Font-Awesome/icon/cc-discover/
 	static FText Cc_Discover;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/cc-jcb/
+	static FText Cc_Jcb;
 
 	// http://fortawesome.github.io/Font-Awesome/icon/cc-mastercard/
 	static FText Cc_Mastercard;
@@ -296,7 +348,7 @@ public:
 	// (remove) http://fortawesome.github.io/Font-Awesome/icon/chain-broken/
 	static FText Chain_Broken;
 
-	// (checkmark, done, todo, agree, accept, confirm) http://fortawesome.github.io/Font-Awesome/icon/check/
+	// (checkmark, done, todo, agree, accept, confirm, tick) http://fortawesome.github.io/Font-Awesome/icon/check/
 	static FText Check;
 
 	// (todo, done, agree, accept, confirm) http://fortawesome.github.io/Font-Awesome/icon/check-circle/
@@ -338,6 +390,9 @@ public:
 	// http://fortawesome.github.io/Font-Awesome/icon/child/
 	static FText Child;
 
+	// (browser) http://fortawesome.github.io/Font-Awesome/icon/chrome/
+	static FText Chrome;
+
 	// (dot, notification) http://fortawesome.github.io/Font-Awesome/icon/circle/
 	static FText Circle;
 
@@ -355,6 +410,9 @@ public:
 
 	// (watch, timer, late, timestamp) http://fortawesome.github.io/Font-Awesome/icon/clock-o/
 	static FText Clock_O;
+
+	// (copy) http://fortawesome.github.io/Font-Awesome/icon/clone/
+	static FText Clone;
 
 	// (save) http://fortawesome.github.io/Font-Awesome/icon/cloud/
 	static FText Cloud;
@@ -374,6 +432,9 @@ public:
 	// http://fortawesome.github.io/Font-Awesome/icon/codepen/
 	static FText Codepen;
 
+	// http://fortawesome.github.io/Font-Awesome/icon/codiepie/
+	static FText Codiepie;
+
 	// (morning, mug, breakfast, tea, drink, cafe) http://fortawesome.github.io/Font-Awesome/icon/coffee/
 	static FText Coffee;
 
@@ -386,8 +447,14 @@ public:
 	// (split, panes) http://fortawesome.github.io/Font-Awesome/icon/columns/
 	static FText Columns;
 
-	// (speech, notification, note) http://fortawesome.github.io/Font-Awesome/icon/comment/
+	// (speech, notification, note, chat, bubble, feedback) http://fortawesome.github.io/Font-Awesome/icon/comment/
 	static FText Comment;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/commenting/
+	static FText Commenting;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/commenting-o/
+	static FText Commenting_O;
 
 	// (notification, note) http://fortawesome.github.io/Font-Awesome/icon/comment-o/
 	static FText Comment_O;
@@ -401,17 +468,26 @@ public:
 	// (safari, directory, menu, location) http://fortawesome.github.io/Font-Awesome/icon/compass/
 	static FText Compass;
 
-	// (combine, merge, smaller) http://fortawesome.github.io/Font-Awesome/icon/compress/
+	// (collapse, combine, contract, merge, smaller) http://fortawesome.github.io/Font-Awesome/icon/compress/
 	static FText Compress;
 
 	// http://fortawesome.github.io/Font-Awesome/icon/connectdevelop/
 	static FText Connectdevelop;
 
+	// http://fortawesome.github.io/Font-Awesome/icon/contao/
+	static FText Contao;
+
 	// http://fortawesome.github.io/Font-Awesome/icon/copyright/
 	static FText Copyright;
 
+	// http://fortawesome.github.io/Font-Awesome/icon/creative-commons/
+	static FText Creative_Commons;
+
 	// (money, buy, debit, checkout, purchase, payment) http://fortawesome.github.io/Font-Awesome/icon/credit-card/
 	static FText Credit_Card;
+
+	// (credit card) http://fortawesome.github.io/Font-Awesome/icon/credit-card-alt/
+	static FText Credit_Card_Alt;
 
 	// http://fortawesome.github.io/Font-Awesome/icon/crop/
 	static FText Crop;
@@ -467,6 +543,9 @@ public:
 	// http://fortawesome.github.io/Font-Awesome/icon/drupal/
 	static FText Drupal;
 
+	// (browser, ie) http://fortawesome.github.io/Font-Awesome/icon/edge/
+	static FText Edge;
+
 	// http://fortawesome.github.io/Font-Awesome/icon/eject/
 	static FText Eject;
 
@@ -479,7 +558,7 @@ public:
 	// http://fortawesome.github.io/Font-Awesome/icon/empire/
 	static FText Empire;
 
-	// http://fortawesome.github.io/Font-Awesome/icon/envelope/
+	// (email, e-mail, letter, support, mail, notification) http://fortawesome.github.io/Font-Awesome/icon/envelope/
 	static FText Envelope;
 
 	// (email, support, e-mail, letter, mail, notification) http://fortawesome.github.io/Font-Awesome/icon/envelope-o/
@@ -494,7 +573,7 @@ public:
 	// http://fortawesome.github.io/Font-Awesome/icon/eur/
 	static FText Eur;
 
-	// http://fortawesome.github.io/Font-Awesome/icon/exchange/
+	// (transfer, arrows) http://fortawesome.github.io/Font-Awesome/icon/exchange/
 	static FText Exchange;
 
 	// (warning, error, problem, notification, notify, alert) http://fortawesome.github.io/Font-Awesome/icon/exclamation/
@@ -508,6 +587,9 @@ public:
 
 	// (enlarge, bigger, resize) http://fortawesome.github.io/Font-Awesome/icon/expand/
 	static FText Expand;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/expeditedssl/
+	static FText Expeditedssl;
 
 	// (open, new) http://fortawesome.github.io/Font-Awesome/icon/external-link/
 	static FText External_Link;
@@ -602,6 +684,9 @@ public:
 	// http://fortawesome.github.io/Font-Awesome/icon/fire-extinguisher/
 	static FText Fire_Extinguisher;
 
+	// (browser) http://fortawesome.github.io/Font-Awesome/icon/firefox/
+	static FText Firefox;
+
 	// (report, notification, notify) http://fortawesome.github.io/Font-Awesome/icon/flag/
 	static FText Flag;
 
@@ -635,6 +720,12 @@ public:
 	// (text) http://fortawesome.github.io/Font-Awesome/icon/font/
 	static FText Font;
 
+	// http://fortawesome.github.io/Font-Awesome/icon/fonticons/
+	static FText Fonticons;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/fort-awesome/
+	static FText Fort_Awesome;
+
 	// http://fortawesome.github.io/Font-Awesome/icon/forumbee/
 	static FText Forumbee;
 
@@ -658,6 +749,18 @@ public:
 
 	// http://fortawesome.github.io/Font-Awesome/icon/gbp/
 	static FText Gbp;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/genderless/
+	static FText Genderless;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/get-pocket/
+	static FText Get_Pocket;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/gg/
+	static FText Gg;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/gg-circle/
+	static FText Gg_Circle;
 
 	// (present) http://fortawesome.github.io/Font-Awesome/icon/gift/
 	static FText Gift;
@@ -695,7 +798,7 @@ public:
 	// http://fortawesome.github.io/Font-Awesome/icon/google-wallet/
 	static FText Google_Wallet;
 
-	// http://fortawesome.github.io/Font-Awesome/icon/graduation-cap/
+	// (learning, school, student) http://fortawesome.github.io/Font-Awesome/icon/graduation-cap/
 	static FText Graduation_Cap;
 
 	// (heart, like, favorite, love) http://fortawesome.github.io/Font-Awesome/icon/gratipay/
@@ -703,6 +806,9 @@ public:
 
 	// http://fortawesome.github.io/Font-Awesome/icon/hacker-news/
 	static FText Hacker_News;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/hand-lizard-o/
+	static FText Hand_Lizard_O;
 
 	// (point) http://fortawesome.github.io/Font-Awesome/icon/hand-o-down/
 	static FText Hand_O_Down;
@@ -716,10 +822,31 @@ public:
 	// (point) http://fortawesome.github.io/Font-Awesome/icon/hand-o-up/
 	static FText Hand_O_Up;
 
+	// http://fortawesome.github.io/Font-Awesome/icon/hand-paper-o/
+	static FText Hand_Paper_O;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/hand-peace-o/
+	static FText Hand_Peace_O;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/hand-pointer-o/
+	static FText Hand_Pointer_O;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/hand-rock-o/
+	static FText Hand_Rock_O;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/hand-scissors-o/
+	static FText Hand_Scissors_O;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/hand-spock-o/
+	static FText Hand_Spock_O;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/hashtag/
+	static FText Hashtag;
+
 	// (harddrive, hard drive, storage, save) http://fortawesome.github.io/Font-Awesome/icon/hdd-o/
 	static FText Hdd_O;
 
-	// http://fortawesome.github.io/Font-Awesome/icon/header/
+	// (heading) http://fortawesome.github.io/Font-Awesome/icon/header/
 	static FText Header;
 
 	// (sound, listen, music) http://fortawesome.github.io/Font-Awesome/icon/headphones/
@@ -743,11 +870,32 @@ public:
 	// (building) http://fortawesome.github.io/Font-Awesome/icon/hospital-o/
 	static FText Hospital_O;
 
+	// http://fortawesome.github.io/Font-Awesome/icon/hourglass/
+	static FText Hourglass;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/hourglass-end/
+	static FText Hourglass_End;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/hourglass-half/
+	static FText Hourglass_Half;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/hourglass-o/
+	static FText Hourglass_O;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/hourglass-start/
+	static FText Hourglass_Start;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/houzz/
+	static FText Houzz;
+
 	// (hospital, hotel) http://fortawesome.github.io/Font-Awesome/icon/h-square/
 	static FText H_Square;
 
 	// http://fortawesome.github.io/Font-Awesome/icon/html5/
 	static FText Html5;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/i-cursor/
+	static FText I_Cursor;
 
 	// http://fortawesome.github.io/Font-Awesome/icon/ils/
 	static FText Ils;
@@ -757,6 +905,9 @@ public:
 
 	// http://fortawesome.github.io/Font-Awesome/icon/indent/
 	static FText Indent;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/industry/
+	static FText Industry;
 
 	// (help, information, more, details) http://fortawesome.github.io/Font-Awesome/icon/info/
 	static FText Info;
@@ -769,6 +920,9 @@ public:
 
 	// http://fortawesome.github.io/Font-Awesome/icon/instagram/
 	static FText Instagram;
+
+	// (browser, ie) http://fortawesome.github.io/Font-Awesome/icon/internet-explorer/
+	static FText Internet_Explorer;
 
 	// http://fortawesome.github.io/Font-Awesome/icon/ioxhost/
 	static FText Ioxhost;
@@ -827,7 +981,7 @@ public:
 	// (idea, inspiration) http://fortawesome.github.io/Font-Awesome/icon/lightbulb-o/
 	static FText Lightbulb_O;
 
-	// http://fortawesome.github.io/Font-Awesome/icon/line-chart/
+	// (graph, analytics) http://fortawesome.github.io/Font-Awesome/icon/line-chart/
 	static FText Line_Chart;
 
 	// (chain) http://fortawesome.github.io/Font-Awesome/icon/link/
@@ -881,8 +1035,20 @@ public:
 	// (man, user, person, profile) http://fortawesome.github.io/Font-Awesome/icon/male/
 	static FText Male;
 
+	// http://fortawesome.github.io/Font-Awesome/icon/map/
+	static FText Map;
+
 	// (map, pin, location, coordinates, localize, address, travel, where, place) http://fortawesome.github.io/Font-Awesome/icon/map-marker/
 	static FText Map_Marker;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/map-o/
+	static FText Map_O;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/map-pin/
+	static FText Map_Pin;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/map-signs/
+	static FText Map_Signs;
 
 	// (male) http://fortawesome.github.io/Font-Awesome/icon/mars/
 	static FText Mars;
@@ -908,7 +1074,7 @@ public:
 	// http://fortawesome.github.io/Font-Awesome/icon/medium/
 	static FText Medium;
 
-	// (first aid, firstaid, help, support) http://fortawesome.github.io/Font-Awesome/icon/medkit/
+	// (first aid, firstaid, help, support, health) http://fortawesome.github.io/Font-Awesome/icon/medkit/
 	static FText Medkit;
 
 	// (emoticon, rating, neutral) http://fortawesome.github.io/Font-Awesome/icon/meh-o/
@@ -935,8 +1101,14 @@ public:
 	// (hide, minify, delete, remove, trash, hide, collapse) http://fortawesome.github.io/Font-Awesome/icon/minus-square-o/
 	static FText Minus_Square_O;
 
+	// http://fortawesome.github.io/Font-Awesome/icon/mixcloud/
+	static FText Mixcloud;
+
 	// (cell phone, cellphone, text, call, iphone, number) http://fortawesome.github.io/Font-Awesome/icon/mobile/
 	static FText Mobile;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/modx/
+	static FText Modx;
 
 	// (cash, money, buy, checkout, purchase, payment) http://fortawesome.github.io/Font-Awesome/icon/money/
 	static FText Money;
@@ -947,17 +1119,41 @@ public:
 	// (vehicle, bike) http://fortawesome.github.io/Font-Awesome/icon/motorcycle/
 	static FText Motorcycle;
 
+	// http://fortawesome.github.io/Font-Awesome/icon/mouse-pointer/
+	static FText Mouse_Pointer;
+
 	// (note, sound) http://fortawesome.github.io/Font-Awesome/icon/music/
 	static FText Music;
 
 	// http://fortawesome.github.io/Font-Awesome/icon/neuter/
 	static FText Neuter;
 
-	// http://fortawesome.github.io/Font-Awesome/icon/newspaper-o/
+	// (press) http://fortawesome.github.io/Font-Awesome/icon/newspaper-o/
 	static FText Newspaper_O;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/object-group/
+	static FText Object_Group;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/object-ungroup/
+	static FText Object_Ungroup;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/odnoklassniki/
+	static FText Odnoklassniki;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/odnoklassniki-square/
+	static FText Odnoklassniki_Square;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/opencart/
+	static FText Opencart;
 
 	// http://fortawesome.github.io/Font-Awesome/icon/openid/
 	static FText Openid;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/opera/
+	static FText Opera;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/optin-monster/
+	static FText Optin_Monster;
 
 	// http://fortawesome.github.io/Font-Awesome/icon/outdent/
 	static FText Outdent;
@@ -983,7 +1179,13 @@ public:
 	// (wait) http://fortawesome.github.io/Font-Awesome/icon/pause/
 	static FText Pause;
 
-	// http://fortawesome.github.io/Font-Awesome/icon/paw/
+	// http://fortawesome.github.io/Font-Awesome/icon/pause-circle/
+	static FText Pause_Circle;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/pause-circle-o/
+	static FText Pause_Circle_O;
+
+	// (pet) http://fortawesome.github.io/Font-Awesome/icon/paw/
 	static FText Paw;
 
 	// http://fortawesome.github.io/Font-Awesome/icon/paypal/
@@ -998,7 +1200,10 @@ public:
 	// (write, edit, update) http://fortawesome.github.io/Font-Awesome/icon/pencil-square-o/
 	static FText Pencil_Square_O;
 
-	// (call, voice, number, support) http://fortawesome.github.io/Font-Awesome/icon/phone/
+	// http://fortawesome.github.io/Font-Awesome/icon/percent/
+	static FText Percent;
+
+	// (call, voice, number, support, earphone) http://fortawesome.github.io/Font-Awesome/icon/phone/
 	static FText Phone;
 
 	// (call, voice, number, support) http://fortawesome.github.io/Font-Awesome/icon/phone-square/
@@ -1007,7 +1212,7 @@ public:
 	// http://fortawesome.github.io/Font-Awesome/icon/picture-o/
 	static FText Picture_O;
 
-	// http://fortawesome.github.io/Font-Awesome/icon/pie-chart/
+	// (graph, analytics) http://fortawesome.github.io/Font-Awesome/icon/pie-chart/
 	static FText Pie_Chart;
 
 	// http://fortawesome.github.io/Font-Awesome/icon/pied-piper/
@@ -1058,6 +1263,9 @@ public:
 	// http://fortawesome.github.io/Font-Awesome/icon/print/
 	static FText Print;
 
+	// http://fortawesome.github.io/Font-Awesome/icon/product-hunt/
+	static FText Product_Hunt;
+
 	// (addon, add-on, section) http://fortawesome.github.io/Font-Awesome/icon/puzzle-piece/
 	static FText Puzzle_Piece;
 
@@ -1079,7 +1287,7 @@ public:
 	// http://fortawesome.github.io/Font-Awesome/icon/quote-right/
 	static FText Quote_Right;
 
-	// (sort) http://fortawesome.github.io/Font-Awesome/icon/random/
+	// (sort, shuffle) http://fortawesome.github.io/Font-Awesome/icon/random/
 	static FText Random;
 
 	// http://fortawesome.github.io/Font-Awesome/icon/rebel/
@@ -1091,11 +1299,17 @@ public:
 	// http://fortawesome.github.io/Font-Awesome/icon/reddit/
 	static FText Reddit;
 
+	// http://fortawesome.github.io/Font-Awesome/icon/reddit-alien/
+	static FText Reddit_Alien;
+
 	// http://fortawesome.github.io/Font-Awesome/icon/reddit-square/
 	static FText Reddit_Square;
 
-	// (reload) http://fortawesome.github.io/Font-Awesome/icon/refresh/
+	// (reload, sync) http://fortawesome.github.io/Font-Awesome/icon/refresh/
 	static FText Refresh;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/registered/
+	static FText Registered;
 
 	// http://fortawesome.github.io/Font-Awesome/icon/renren/
 	static FText Renren;
@@ -1118,7 +1332,7 @@ public:
 	// (app) http://fortawesome.github.io/Font-Awesome/icon/rocket/
 	static FText Rocket;
 
-	// (feed, blog) http://fortawesome.github.io/Font-Awesome/icon/rss/
+	// (blog) http://fortawesome.github.io/Font-Awesome/icon/rss/
 	static FText Rss;
 
 	// (feed, blog) http://fortawesome.github.io/Font-Awesome/icon/rss-square/
@@ -1127,8 +1341,14 @@ public:
 	// http://fortawesome.github.io/Font-Awesome/icon/rub/
 	static FText Rub;
 
+	// (browser) http://fortawesome.github.io/Font-Awesome/icon/safari/
+	static FText Safari;
+
 	// http://fortawesome.github.io/Font-Awesome/icon/scissors/
 	static FText Scissors;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/scribd/
+	static FText Scribd;
 
 	// (magnify, zoom, enlarge, bigger) http://fortawesome.github.io/Font-Awesome/icon/search/
 	static FText Search;
@@ -1169,13 +1389,19 @@ public:
 	// http://fortawesome.github.io/Font-Awesome/icon/shirtsinbulk/
 	static FText Shirtsinbulk;
 
+	// http://fortawesome.github.io/Font-Awesome/icon/shopping-bag/
+	static FText Shopping_Bag;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/shopping-basket/
+	static FText Shopping_Basket;
+
 	// (checkout, buy, purchase, payment) http://fortawesome.github.io/Font-Awesome/icon/shopping-cart/
 	static FText Shopping_Cart;
 
 	// http://fortawesome.github.io/Font-Awesome/icon/signal/
 	static FText Signal;
 
-	// (enter, join, sign up, sign in, signin, signup, arrow) http://fortawesome.github.io/Font-Awesome/icon/sign-in/
+	// (enter, join, log in, login, sign up, sign in, signin, signup, arrow) http://fortawesome.github.io/Font-Awesome/icon/sign-in/
 	static FText Sign_In;
 
 	// (log out, logout, leave, exit, arrow) http://fortawesome.github.io/Font-Awesome/icon/sign-out/
@@ -1286,8 +1512,20 @@ public:
 	// http://fortawesome.github.io/Font-Awesome/icon/stethoscope/
 	static FText Stethoscope;
 
+	// http://fortawesome.github.io/Font-Awesome/icon/sticky-note/
+	static FText Sticky_Note;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/sticky-note-o/
+	static FText Sticky_Note_O;
+
 	// (block, box, square) http://fortawesome.github.io/Font-Awesome/icon/stop/
 	static FText Stop;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/stop-circle/
+	static FText Stop_Circle;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/stop-circle-o/
+	static FText Stop_Circle_O;
 
 	// (map) http://fortawesome.github.io/Font-Awesome/icon/street-view/
 	static FText Street_View;
@@ -1337,6 +1575,9 @@ public:
 	// (vehicle) http://fortawesome.github.io/Font-Awesome/icon/taxi/
 	static FText Taxi;
 
+	// http://fortawesome.github.io/Font-Awesome/icon/television/
+	static FText Television;
+
 	// http://fortawesome.github.io/Font-Awesome/icon/tencent-weibo/
 	static FText Tencent_Weibo;
 
@@ -1358,16 +1599,16 @@ public:
 	// (ul, ol, checklist, finished, completed, done, todo) http://fortawesome.github.io/Font-Awesome/icon/th-list/
 	static FText Th_List;
 
-	// (dislike, disapprove, disagree) http://fortawesome.github.io/Font-Awesome/icon/thumbs-down/
+	// (dislike, disapprove, disagree, hand) http://fortawesome.github.io/Font-Awesome/icon/thumbs-down/
 	static FText Thumbs_Down;
 
-	// (dislike, disapprove, disagree) http://fortawesome.github.io/Font-Awesome/icon/thumbs-o-down/
+	// (dislike, disapprove, disagree, hand) http://fortawesome.github.io/Font-Awesome/icon/thumbs-o-down/
 	static FText Thumbs_O_Down;
 
-	// (like, approve, favorite, agree) http://fortawesome.github.io/Font-Awesome/icon/thumbs-o-up/
+	// (like, approve, favorite, agree, hand) http://fortawesome.github.io/Font-Awesome/icon/thumbs-o-up/
 	static FText Thumbs_O_Up;
 
-	// (like, favorite, approve, agree) http://fortawesome.github.io/Font-Awesome/icon/thumbs-up/
+	// (like, favorite, approve, agree, hand) http://fortawesome.github.io/Font-Awesome/icon/thumbs-up/
 	static FText Thumbs_Up;
 
 	// (marker, pin, location, coordinates) http://fortawesome.github.io/Font-Awesome/icon/thumb-tack/
@@ -1376,7 +1617,7 @@ public:
 	// (movie, pass, support) http://fortawesome.github.io/Font-Awesome/icon/ticket/
 	static FText Ticket;
 
-	// (close, exit, x) http://fortawesome.github.io/Font-Awesome/icon/times/
+	// (close, exit, x, cross) http://fortawesome.github.io/Font-Awesome/icon/times/
 	static FText Times;
 
 	// (close, exit, x) http://fortawesome.github.io/Font-Awesome/icon/times-circle/
@@ -1385,7 +1626,7 @@ public:
 	// (close, exit, x) http://fortawesome.github.io/Font-Awesome/icon/times-circle-o/
 	static FText Times_Circle_O;
 
-	// (raindrop) http://fortawesome.github.io/Font-Awesome/icon/tint/
+	// (raindrop, waterdrop, drop, droplet) http://fortawesome.github.io/Font-Awesome/icon/tint/
 	static FText Tint;
 
 	// http://fortawesome.github.io/Font-Awesome/icon/toggle-off/
@@ -1393,6 +1634,9 @@ public:
 
 	// http://fortawesome.github.io/Font-Awesome/icon/toggle-on/
 	static FText Toggle_On;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/trademark/
+	static FText Trademark;
 
 	// http://fortawesome.github.io/Font-Awesome/icon/train/
 	static FText Train;
@@ -1403,7 +1647,7 @@ public:
 	// http://fortawesome.github.io/Font-Awesome/icon/transgender-alt/
 	static FText Transgender_Alt;
 
-	// http://fortawesome.github.io/Font-Awesome/icon/trash/
+	// (garbage, delete, remove, hide) http://fortawesome.github.io/Font-Awesome/icon/trash/
 	static FText Trash;
 
 	// (garbage, delete, remove, trash, hide) http://fortawesome.github.io/Font-Awesome/icon/trash-o/
@@ -1414,6 +1658,9 @@ public:
 
 	// http://fortawesome.github.io/Font-Awesome/icon/trello/
 	static FText Trello;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/tripadvisor/
+	static FText Tripadvisor;
 
 	// (award, achievement, winner, game) http://fortawesome.github.io/Font-Awesome/icon/trophy/
 	static FText Trophy;
@@ -1454,7 +1701,7 @@ public:
 	// http://fortawesome.github.io/Font-Awesome/icon/university/
 	static FText University;
 
-	// (protect, admin, password) http://fortawesome.github.io/Font-Awesome/icon/unlock/
+	// (protect, admin, password, lock) http://fortawesome.github.io/Font-Awesome/icon/unlock/
 	static FText Unlock;
 
 	// (protect, admin, password) http://fortawesome.github.io/Font-Awesome/icon/unlock-alt/
@@ -1462,6 +1709,9 @@ public:
 
 	// (import) http://fortawesome.github.io/Font-Awesome/icon/upload/
 	static FText Upload;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/usb/
+	static FText Usb;
 
 	// http://fortawesome.github.io/Font-Awesome/icon/usd/
 	static FText Usd;
@@ -1472,7 +1722,7 @@ public:
 	// (doctor, profile, medical, nurse) http://fortawesome.github.io/Font-Awesome/icon/user-md/
 	static FText User_Md;
 
-	// http://fortawesome.github.io/Font-Awesome/icon/user-plus/
+	// (sign up, signup) http://fortawesome.github.io/Font-Awesome/icon/user-plus/
 	static FText User_Plus;
 
 	// (people, profiles, persons) http://fortawesome.github.io/Font-Awesome/icon/users/
@@ -1498,6 +1748,9 @@ public:
 
 	// (film, movie, record) http://fortawesome.github.io/Font-Awesome/icon/video-camera/
 	static FText Video_Camera;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/vimeo/
+	static FText Vimeo;
 
 	// http://fortawesome.github.io/Font-Awesome/icon/vimeo-square/
 	static FText Vimeo_Square;
@@ -1532,7 +1785,10 @@ public:
 	// http://fortawesome.github.io/Font-Awesome/icon/wifi/
 	static FText Wifi;
 
-	// http://fortawesome.github.io/Font-Awesome/icon/windows/
+	// http://fortawesome.github.io/Font-Awesome/icon/wikipedia-w/
+	static FText Wikipedia_W;
+
+	// (microsoft) http://fortawesome.github.io/Font-Awesome/icon/windows/
 	static FText Windows;
 
 	// http://fortawesome.github.io/Font-Awesome/icon/wordpress/
@@ -1549,6 +1805,9 @@ public:
 
 	// http://fortawesome.github.io/Font-Awesome/icon/yahoo/
 	static FText Yahoo;
+
+	// http://fortawesome.github.io/Font-Awesome/icon/y-combinator/
+	static FText Y_Combinator;
 
 	// http://fortawesome.github.io/Font-Awesome/icon/yelp/
 	static FText Yelp;

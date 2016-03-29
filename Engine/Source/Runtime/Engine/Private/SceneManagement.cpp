@@ -1,9 +1,12 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "StaticMeshResources.h"
 #include "../../Renderer/Private/ScenePrivate.h"
+#include "LightMap.h"
+#include "ShadowMap.h"
 
+bool GDrawListsLocked = false;
 
 static TAutoConsoleVariable<float> CVarLODTemporalLag(
 	TEXT("lod.TemporalLag"),
@@ -370,16 +373,27 @@ FLODMask ComputeLODForMeshes( const TIndirectArray<class FStaticMesh>& StaticMes
 	FLODMask LODToRender;
 
 	// Handle forced LOD level first
-	if(ForcedLODLevel >= 0)
+	if (ForcedLODLevel >= 0 || View.bIsPlanarReflectionCapture)
 	{
 		// Note: starting at -1 which is the default LODIndex, for cases where LODIndex didn't get set
-		int8 MaxLOD = -1;
+		int8 MinLOD = 127, MaxLOD = -1;
 		for(int32 MeshIndex = 0 ; MeshIndex < StaticMeshes.Num() ; ++MeshIndex)
 		{
 			const FStaticMesh&  Mesh = StaticMeshes[MeshIndex];
+			MinLOD = FMath::Min(MinLOD, Mesh.LODIndex);
 			MaxLOD = FMath::Max(MaxLOD, Mesh.LODIndex);
 		}
-		LODToRender.SetLOD(FMath::Clamp<int8>(ForcedLODLevel, 0, MaxLOD));
+
+		//@todo Ronin
+		// Planar reflections always use the highest available LOD level
+		if (View.bIsPlanarReflectionCapture)
+		{
+			LODToRender.SetLOD(MaxLOD);
+		}
+		else
+		{
+			LODToRender.SetLOD(FMath::Clamp<int8>(ForcedLODLevel, MinLOD, MaxLOD));
+		}
 	}
 	else if (View.Family->EngineShowFlags.LOD)
 	{
@@ -446,11 +460,47 @@ FLODMask ComputeLODForMeshes( const TIndirectArray<class FStaticMesh>& StaticMes
 	return LODToRender;
 }
 
-FViewUniformShaderParameters::FViewUniformShaderParameters()
-	: DirectionalLightShadowTexture(GWhiteTexture->TextureRHI)
-	, DirectionalLightShadowSampler(TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI())
+FFrameUniformShaderParameters::FFrameUniformShaderParameters()
 {
+	FMemory::Memzero(*this);
+	FTextureRHIParamRef BlackVolume = (GBlackVolumeTexture &&  GBlackVolumeTexture->TextureRHI) ? GBlackVolumeTexture->TextureRHI : GBlackTexture->TextureRHI; // for es2, this might need to be 2d
+	check(GBlackVolumeTexture);
+	DirectionalLightShadowTexture = GWhiteTexture->TextureRHI;
+	DirectionalLightShadowSampler = TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
+
+	AtmosphereTransmittanceTexture_UB = GWhiteTexture->TextureRHI;
+	AtmosphereTransmittanceTextureSampler_UB = TStaticSamplerState<SF_Bilinear>::GetRHI();
+	AtmosphereIrradianceTexture_UB = GWhiteTexture->TextureRHI;
+	AtmosphereIrradianceTextureSampler_UB = TStaticSamplerState<SF_Bilinear>::GetRHI();
+	AtmosphereInscatterTexture_UB = BlackVolume;
+	AtmosphereInscatterTextureSampler_UB = TStaticSamplerState<SF_Bilinear>::GetRHI();
+
+	PerlinNoiseGradientTexture = GWhiteTexture->TextureRHI;
+	PerlinNoiseGradientTextureSampler = TStaticSamplerState<SF_Point, AM_Wrap, AM_Wrap, AM_Wrap>::GetRHI();
+
+	PerlinNoise3DTexture = BlackVolume;
+	PerlinNoise3DTextureSampler = TStaticSamplerState<SF_Bilinear, AM_Wrap, AM_Wrap, AM_Wrap>::GetRHI();
+
+	GlobalDistanceFieldTexture0_UB = BlackVolume;
+	GlobalDistanceFieldSampler0_UB = TStaticSamplerState<SF_Bilinear, AM_Wrap, AM_Wrap, AM_Wrap>::GetRHI();
+	GlobalDistanceFieldTexture1_UB = BlackVolume;
+	GlobalDistanceFieldSampler1_UB = TStaticSamplerState<SF_Bilinear, AM_Wrap, AM_Wrap, AM_Wrap>::GetRHI();
+	GlobalDistanceFieldTexture2_UB = BlackVolume;
+	GlobalDistanceFieldSampler2_UB = TStaticSamplerState<SF_Bilinear, AM_Wrap, AM_Wrap, AM_Wrap>::GetRHI();
+	GlobalDistanceFieldTexture3_UB = BlackVolume;
+	GlobalDistanceFieldSampler3_UB = TStaticSamplerState<SF_Bilinear, AM_Wrap, AM_Wrap, AM_Wrap>::GetRHI();
 }
+
+FViewUniformShaderParameters::FViewUniformShaderParameters()
+{
+	FMemory::Memzero(*this);
+}
+
+FInstancedViewUniformShaderParameters::FInstancedViewUniformShaderParameters()
+{
+	FMemory::Memzero(*this);
+}
+
 
 void FSharedSamplerState::InitRHI()
 {
@@ -476,4 +526,43 @@ void InitializeSharedSamplerStates()
 	Clamp_WorldGroupSettings = new FSharedSamplerState(false);
 	BeginInitResource(Wrap_WorldGroupSettings);
 	BeginInitResource(Clamp_WorldGroupSettings);
+}
+
+
+FLightMapInteraction FLightCacheInterface::GetLightMapInteraction(ERHIFeatureLevel::Type InFeatureLevel) const
+{
+	return LightMap ? LightMap->GetInteraction(InFeatureLevel) : FLightMapInteraction();
+}
+
+FShadowMapInteraction FLightCacheInterface::GetShadowMapInteraction() const
+{
+	return ShadowMap ? ShadowMap->GetInteraction() : FShadowMapInteraction();
+}
+
+ELightInteractionType FLightCacheInterface::GetStaticInteraction(const FLightSceneProxy* LightSceneProxy, const TArray<FGuid>& IrrelevantLights) const
+{
+	ELightInteractionType Ret = LIT_MAX;
+
+	// Check if the light has static lighting or shadowing.
+	// This directly accesses the component's static lighting with the assumption that it won't be changed without synchronizing with the rendering thread.
+	if(LightSceneProxy->HasStaticShadowing())
+	{
+		const FGuid LightGuid = LightSceneProxy->GetLightGuid();
+
+		// this code was unified, in some place IrrelevantLights was checked after LightMap and ShadowMap
+		if(IrrelevantLights.Contains(LightGuid))
+		{
+			Ret = LIT_CachedIrrelevant;
+		}
+		else if(LightMap && LightMap->ContainsLight(LightGuid))
+		{
+			Ret = LIT_CachedLightMap;
+		}
+		else if(ShadowMap && ShadowMap->ContainsLight(LightGuid))
+		{
+			Ret = LIT_CachedSignedDistanceFieldShadowMap2D;
+		}
+	}
+
+	return Ret;
 }

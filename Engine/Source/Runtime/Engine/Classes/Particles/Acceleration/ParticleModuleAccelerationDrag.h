@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*==============================================================================
 	ParticleModuleAccelerationDrag: Drag coefficient.
@@ -14,8 +14,12 @@ class UParticleModuleAccelerationDrag : public UParticleModuleAccelerationBase
 	GENERATED_UCLASS_BODY()
 
 	/** Per-particle drag coefficient. Evaluted using emitter time. */
-	UPROPERTY(EditAnywhere, Category=Drag)
-	class UDistributionFloat* DragCoefficient;
+	UPROPERTY()
+	class UDistributionFloat* DragCoefficient_DEPRECATED;
+
+	/** Per-particle drag coefficient. Evaluted using emitter time. */
+	UPROPERTY(EditAnywhere, Category = Drag)
+	FRawDistributionFloat DragCoefficientRaw;
 
 	/** Initializes the default values for this property */
 	void InitializeDefaults();
@@ -31,6 +35,8 @@ class UParticleModuleAccelerationDrag : public UParticleModuleAccelerationBase
 	virtual void CompileModule( struct FParticleEmitterBuildInfo& EmitterInfo ) override;
 	virtual void Update( FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime ) override;
 	//End UParticleModule Interface
+
+	virtual void PostLoad() override;
 
 #if WITH_EDITOR
 	virtual bool IsValidForLODLevel(UParticleLODLevel* LODLevel, FString& OutErrorString) override;

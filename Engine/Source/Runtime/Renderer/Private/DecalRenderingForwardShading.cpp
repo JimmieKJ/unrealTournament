@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DecalRenderingForwardShading.cpp: Decals for forward renderer
@@ -11,7 +11,7 @@
 
 void FForwardShadingSceneRenderer::RenderDecals(FRHICommandListImmediate& RHICmdList)
 {
-	if (Scene->Decals.Num() == 0)
+	if (Scene->Decals.Num() == 0 || !IsMobileHDR())
 	{
 		return;
 	}
@@ -24,7 +24,6 @@ void FForwardShadingSceneRenderer::RenderDecals(FRHICommandListImmediate& RHICmd
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 	{
 		const FViewInfo& View = Views[ViewIndex];
-		const bool bShaderComplexity = View.Family->EngineShowFlags.ShaderComplexity;
 		
 		// Build a list of decals that need to be rendered for this view
 		FTransientDecalRenderDataList SortedDecals;
@@ -61,12 +60,20 @@ void FForwardShadingSceneRenderer::RenderDecals(FRHICommandListImmediate& RHICmd
 					if (bInsideDecal)
 					{
 						RHICmdList.SetRasterizerState(View.bReverseCulling ? TStaticRasterizerState<FM_Solid, CM_CCW>::GetRHI() : TStaticRasterizerState<FM_Solid, CM_CW>::GetRHI());
-						RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false,CF_Always, true, CF_Equal, SO_Keep, SO_Keep, SO_Keep>::GetRHI(), 0);
+						RHICmdList.SetDepthStencilState(TStaticDepthStencilState<
+							false,CF_Always,
+							true,CF_Equal,SO_Keep,SO_Keep,SO_Keep,
+							false,CF_Always,SO_Keep,SO_Keep,SO_Keep,
+							GET_STENCIL_BIT_MASK(RECEIVE_DECAL, 1),0x00>::GetRHI(), 0);
 					}
 					else
 					{
 						RHICmdList.SetRasterizerState(View.bReverseCulling ? TStaticRasterizerState<FM_Solid, CM_CW>::GetRHI() : TStaticRasterizerState<FM_Solid, CM_CCW>::GetRHI());
-						RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false,CF_DepthNearOrEqual, true, CF_Equal, SO_Keep, SO_Keep, SO_Keep>::GetRHI(), 0);
+						RHICmdList.SetDepthStencilState(TStaticDepthStencilState<
+							false,CF_DepthNearOrEqual,
+							true,CF_Equal,SO_Keep,SO_Keep,SO_Keep,
+							false,CF_Always,SO_Keep,SO_Keep,SO_Keep,
+							GET_STENCIL_BIT_MASK(RECEIVE_DECAL, 1),0x00>::GetRHI(), 0);
 					}
 				}
 
@@ -92,7 +99,7 @@ void FForwardShadingSceneRenderer::RenderDecals(FRHICommandListImmediate& RHICmd
 				}
 
 				// Set shader params
-				FDecalRendering::SetShader(RHICmdList, View, bShaderComplexity, DecalData, FrustumComponentToClip);
+				FDecalRendering::SetShader(RHICmdList, View, DecalData, FrustumComponentToClip);
 			
 				RHICmdList.DrawIndexedPrimitive(GetUnitCubeIndexBuffer(), PT_TriangleList, 0, 0, 8, 0, ARRAY_COUNT(GCubeIndices) / 3, 1);
 			}

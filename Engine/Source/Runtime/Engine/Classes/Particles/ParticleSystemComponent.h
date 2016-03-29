@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -6,6 +6,7 @@
 #include "Materials/MaterialInterface.h"
 #include "Particles/Emitter.h"
 #include "Particles/ParticleSystem.h"
+#include "Particles/ParticleEmitter.h"
 #include "ParticleSystemComponent.generated.h"
 
 //
@@ -73,6 +74,8 @@ enum EParticleEventType
 // Called when the particle system is done
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FOnSystemFinished, class UParticleSystemComponent*, PSystem );
 
+//Called just before the activation of a component changes.
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnSystemPreActivationChange, class UParticleSystemComponent*, bool);
 
 /** Struct used for a particular named instance parameter for this ParticleSystemComponent. */
 USTRUCT(BlueprintType)
@@ -119,7 +122,6 @@ struct FParticleSysParam
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ParticleSysParam)
 	class UMaterialInterface* Material;
 
-
 	FParticleSysParam()
 		: ParamType(0)
 		, Scalar(0)
@@ -129,8 +131,64 @@ struct FParticleSysParam
 		, Color(ForceInit)
 		, Actor(NULL)
 		, Material(NULL)
+		, AsyncActorToWorld(FTransform::Identity)
+		, AsyncActorVelocity(FVector::ZeroVector)
+		, bAsyncDataCopyIsValid(false)
 	{
 	}
+
+	void UpdateAsyncActorCache()
+	{
+		check(IsInGameThread());
+		if(Actor)
+		{
+			AsyncActorToWorld = Actor->ActorToWorld();
+			AsyncActorVelocity = Actor->GetVelocity();
+		}
+		
+		bAsyncDataCopyIsValid = true;
+	}
+
+	void ResetAsyncActorCache()
+	{
+		check(IsInGameThread());
+		bAsyncDataCopyIsValid = false;
+	}
+
+	FTransform GetAsyncActorToWorld() const
+	{
+		if(bAsyncDataCopyIsValid)
+		{
+			return AsyncActorToWorld;
+		}
+		else if(Actor)
+		{
+			check(IsInGameThread());
+			return Actor->ActorToWorld();
+		}
+
+		return FTransform::Identity;
+	}
+
+	FVector GetAsyncActorVelocity() const
+	{
+		if (bAsyncDataCopyIsValid)
+		{
+			return AsyncActorVelocity;
+		}
+		else if (Actor)
+		{
+			check(IsInGameThread());
+			return Actor->GetVelocity();
+		}
+
+		return FVector::ZeroVector;
+	}
+
+private:
+	FTransform AsyncActorToWorld;
+	FVector AsyncActorVelocity;
+	bool bAsyncDataCopyIsValid;
 
 };
 
@@ -313,7 +371,19 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Attachment)
 	uint32 bAutoManageAttachment:1;
+	
+	/** The significance this component requires of it's emitters for them to be enabled. */
+	UPROPERTY()
+	EParticleSignificanceLevel RequiredSignificance;
 
+	/** Time in seconds since we were last considered significant. */
+	float LastSignificantTime;
+
+	/** If this component is having it's significance managed by gameplay code. */
+	uint32 bIsManagingSignificance : 1;
+	/** If this component was previously having it's significance managed by gameplay code. Allows us to refresh render data when this changes. */
+	uint32 bWasManagingSignificance : 1;
+	
 private:
 	/** Did we auto attach during activation? Used to determine if we should restore the relative transform during detachment. */
 	uint32 bDidAutoAttach:1;
@@ -518,10 +588,48 @@ private:
 	FTransform AsyncComponentToWorld;
 	/** Cached copy of the instance params */
 	TArray<struct FParticleSysParam> AsyncInstanceParameters;
+	/** Player locations computed before kicking off async task. Safe to access from async task or game thread*/
+	TArray<FVector> PlayerLocations;
+	/** PlayerLODDistanceFactor computed before kicking off async task. Safe to access from async task or game thread*/
+	TArray<float> PlayerLODDistanceFactor;
+	/** Cached copy of bounds */
+	FBoxSphereBounds AsyncBounds;
+	/** Cached copy of PartSysVelocity */
+	FVector AsyncPartSysVelocity;
+
 	/** Is AsyncComponentToWorld etc valid? */
 	bool bAsyncDataCopyIsValid;
 	bool bParallelRenderThreadUpdate;
+
+	/** Remember the global detail mode when we last checked the emitters. */
+	uint32 LastCheckedDetailMode;
+
 public:
+
+	/** Called from game code when the significance required for a component changes. */
+	void SetRequiredSignificance(EParticleSignificanceLevel NewRequiredSignificance);
+	/** Whether this component should have it's significance managed by game code. */
+	bool ShouldManageSignificance()const;
+	/** When the overall significance for the component is changed. */
+	void OnSignificanceChanged(bool bSignificant, bool bApplyToEmitters, bool bAsync=false);
+
+	/** Called from game code when the component begins having it's significance managed. */
+	FORCEINLINE void SetManagingSignificance(bool bManageSignificance)
+	{
+		bWasManagingSignificance = bIsManagingSignificance;
+		bIsManagingSignificance = bManageSignificance;
+	}
+
+	/** Returns the approximate distance squared from this component to the passed location. */
+	float GetApproxDistanceSquared(FVector Point)const;
+	
+	/** True if this component can be considered invisible and potentially culled. */
+	bool CanConsiderInvisible()const;
+
+	/** true if this component can be occluded. */
+	bool CanBeOccluded()const;
+
+	void Complete();
 
 	FORCEINLINE const FTransform& GetAsyncComponentToWorld()
 	{
@@ -541,6 +649,36 @@ public:
 			return AsyncInstanceParameters;
 		}
 		return InstanceParameters;
+	}
+
+	FORCEINLINE const FBoxSphereBounds& GetAsyncBounds()
+	{
+		if (!bParallelRenderThreadUpdate && !IsInGameThread())
+		{
+			check(bAsyncDataCopyIsValid);
+			return AsyncBounds;
+		}
+		return Bounds;
+	}
+
+	FORCEINLINE const FVector& GetAsyncPartSysVelocity()
+	{
+		if (!bParallelRenderThreadUpdate && !IsInGameThread())
+		{
+			check(bAsyncDataCopyIsValid);
+			return AsyncPartSysVelocity;
+		}
+		return PartSysVelocity;
+	}
+
+	FORCEINLINE const TArray<FVector>& GetPlayerLocations()
+	{
+		return PlayerLocations;
+	}
+
+	FORCEINLINE const TArray<float>& GetPlayerLODDistanceFactor()
+	{
+		return PlayerLODDistanceFactor;
 	}
 
 	//
@@ -785,6 +923,9 @@ public:
 	/** Command fence used to shut down properly */
 	class FRenderCommandFence* ReleaseResourcesFence;
 
+	/** Static delegate called for all systems on an activation change. */
+	static FOnSystemPreActivationChange OnSystemPreActivationChange;
+
 private:
 	/** Task ref for parallel portion */
 	FGraphEventRef AsyncWork;
@@ -796,8 +937,8 @@ private:
 	bool bNeedsFinalize;
 	/** If true, it means the Async work is in process and not yet completed */
 	bool bAsyncWorkOutstanding;
-	/** This flag is only valid during finalize. It is sent back from the potentially async task to indicate that all emitters are finished */
-	bool bAllEmittersFinished;
+	/** Number of significant emitters. When this is 0, the system can either be deactivated or stopped ticking. */
+	uint32 NumSignificantEmitters;
 	/** Time in ms since a tick was last performed; used with MinTimeBetweenTicks (on UParticleSystem) to control tick rate */
 	uint32 TimeSinceLastTick;
 
@@ -878,6 +1019,7 @@ public:
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
 	virtual void GetUsedMaterials( TArray<UMaterialInterface*>& OutMaterials ) const override;
+	virtual FBodyInstance* GetBodyInstance(FName BoneName = NAME_None, bool bGetWelded = true) const override;
 	//End UPrimitiveComponent Interface
 
 	//~ Begin USceneComonent Interface

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DistanceFieldScreenGridLighting.usf
@@ -127,7 +127,7 @@ void HemisphereConeTraceAgainstTileCulledObjects(uint2 OutputCoordinate, uint Sh
 					float WorldStepOffset = GetStepOffset(StartStepIndex);
 
 					#if USE_GLOBAL_DISTANCE_FIELD
-						WorldStepOffset += 10;
+						WorldStepOffset += 2;
 					#endif
 
 					LOOP

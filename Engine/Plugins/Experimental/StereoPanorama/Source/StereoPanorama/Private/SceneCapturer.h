@@ -4,6 +4,7 @@
 
 #include "SceneCapturer.generated.h"
 
+
 DECLARE_LOG_CATEGORY_EXTERN( LogStereoPanorama, Log, All );
 
 DECLARE_STATS_GROUP( TEXT( "SP" ), STATGROUP_SP, STATCAT_Advanced );
@@ -13,21 +14,21 @@ DECLARE_CYCLE_STAT( TEXT( "SampleSpherical" ), STAT_SPSampleSpherical, STATGROUP
 DECLARE_CYCLE_STAT( TEXT( "ReadStrip" ),       STAT_SPReadStrip,       STATGROUP_SP );
 DECLARE_CYCLE_STAT( TEXT( "FillAlpha" ),       STAT_SPFillAlpha,       STATGROUP_SP );
 
+
 UENUM()
-namespace ECaptureStep
+enum class ECaptureStep
 {
-	enum Type
-	{
-		Reset,
-        SetStartPosition,
-		SetPosition,
-		Read,
-		Pause,
-		Unpause,
-	};
-}
+	Reset,
+    SetStartPosition,
+	SetPosition,
+	Read,
+	Pause,
+	Unpause
+};
+
 
 DECLARE_DELEGATE_TwoParams(FStereoCaptureDoneDelegate, const TArray<FColor>&, const TArray<FColor>&);
+
 
 UCLASS()
 class USceneCapturer 
@@ -37,12 +38,17 @@ class USceneCapturer
     GENERATED_BODY()
 
 public:
+
     USceneCapturer();
 
     //NOTE: ikrimae: Adding this ctor hack to fix the 4.8p2 problem with hot reload macros calling empty constructors
     //               https://answers.unrealengine.com/questions/228042/48p2-compile-fails-on-class-with-non-default-const.html
     USceneCapturer(FVTableHelper& Helper);
     
+public:
+
+	//~ FTickableGameObject interface
+
 	virtual void Tick( float DeltaTime ) override;
 
 	virtual bool IsTickable() const 
@@ -60,6 +66,8 @@ public:
 		RETURN_QUICK_DECLARE_CYCLE_STAT( USceneCapturer, STATGROUP_Tickables );
 	}
 
+public:
+
 	void InitCaptureComponent( USceneCaptureComponent2D* CaptureComponent, float HFov, float VFov, EStereoscopicPass InStereoPass );
 
 	void CaptureComponent( int32 CurrentHorizontalStep, int32 CurrentVerticalStep, FString Folder, USceneCaptureComponent2D* CaptureComponent, TArray<FColor>& Atlas );
@@ -76,6 +84,8 @@ public:
 
 	void Reset();
 
+public:
+
 	IImageWrapperModule& ImageWrapperModule;
 
 	bool bIsTicking;
@@ -88,7 +98,7 @@ public:
     int32 StartFrame;
     int32 EndFrame;
 
-	ECaptureStep::Type CaptureStep;
+	ECaptureStep CaptureStep;
 	int32 CurrentFrameCount;
 
 	int32 CaptureWidth;
@@ -116,6 +126,7 @@ public:
 	}
 
 private:
+
     const float hAngIncrement;
     const float vAngIncrement;
     const float eyeSeparation;

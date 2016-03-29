@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+	<ItemGroup>
+		<Filter Include="include"><!--  -->
+		</Filter>
+	</ItemGroup>
+	<ItemGroup>
+		<ClInclude Include="..\..\..\Include\characterkinematic\PxBoxController.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\characterkinematic\PxCapsuleController.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\characterkinematic\PxCharacter.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\characterkinematic\PxController.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\characterkinematic\PxControllerBehavior.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\characterkinematic\PxControllerManager.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\characterkinematic\PxControllerObstacles.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\characterkinematic\PxExtended.h">
+			<Filter>include</Filter>
+		</ClInclude>
+	</ItemGroup>
+	<ItemGroup>
+		<Filter Include="src"><!--  -->
+		</Filter>
+	</ItemGroup>
+	<ItemGroup>
+		<ClInclude Include="..\..\PhysXCharacterKinematic\src\CctBoxController.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\PhysXCharacterKinematic\src\CctCapsuleController.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\PhysXCharacterKinematic\src\CctCharacterController.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\PhysXCharacterKinematic\src\CctCharacterControllerManager.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\PhysXCharacterKinematic\src\CctController.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\PhysXCharacterKinematic\src\CctInternalStructs.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\PhysXCharacterKinematic\src\CctObstacleContext.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\PhysXCharacterKinematic\src\CctSweptBox.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\PhysXCharacterKinematic\src\CctSweptCapsule.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\PhysXCharacterKinematic\src\CctSweptVolume.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\PhysXCharacterKinematic\src\CctUtils.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClCompile Include="..\..\PhysXCharacterKinematic\src\CctBoxController.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\PhysXCharacterKinematic\src\CctCapsuleController.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\PhysXCharacterKinematic\src\CctCharacterController.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\PhysXCharacterKinematic\src\CctCharacterControllerCallbacks.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\PhysXCharacterKinematic\src\CctCharacterControllerManager.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\PhysXCharacterKinematic\src\CctController.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\PhysXCharacterKinematic\src\CctObstacleContext.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\PhysXCharacterKinematic\src\CctSweptBox.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\PhysXCharacterKinematic\src\CctSweptCapsule.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\PhysXCharacterKinematic\src\CctSweptVolume.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+	</ItemGroup>
+</Project>

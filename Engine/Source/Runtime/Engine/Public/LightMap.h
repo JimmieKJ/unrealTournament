@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LightMap.h: Light-map definitions.
@@ -13,15 +13,13 @@
 // Forward declarations
 struct FQuantizedLightmapData;
 class UInstancedStaticMeshComponent;
+class FLightMap2D;
 
 /** Whether to use bilinear filtering on lightmaps */
 extern ENGINE_API bool GUseBilinearLightmaps;
 
 /** Whether to allow padding around mappings. Old-style lighting doesn't use this. */
 extern ENGINE_API bool GAllowLightmapPadding;
-
-/** The quality level of DXT encoding for lightmaps (values come from nvtt::Quality enum) */
-extern ENGINE_API int32 GLightmapEncodeQualityLevel;
 
 /** The quality level of the current lighting build */
 extern ENGINE_API ELightingBuildQuality GLightingBuildQuality;
@@ -38,7 +36,7 @@ extern ENGINE_API bool IsTexelDebuggingEnabled();
 /**
  * The abstract base class of 1D and 2D light-maps.
  */
-class FLightMap : private FDeferredCleanupInterface
+class ENGINE_API FLightMap : private FDeferredCleanupInterface
 {
 public:
 	enum
@@ -73,7 +71,7 @@ public:
 	virtual FLightMapInteraction GetInteraction(ERHIFeatureLevel::Type InFeatureLevel) const = 0;
 
 	// Runtime type casting.
-	virtual class FLightMap2D* GetLightMap2D() { return NULL; }
+	virtual FLightMap2D* GetLightMap2D() { return NULL; }
 	virtual const FLightMap2D* GetLightMap2D() const { return NULL; }
 
 	// Reference counting.
@@ -108,7 +106,7 @@ protected:
 	/**
 	 * Called when the light-map is no longer referenced.  Should release the lightmap's resources.
 	 */
-	ENGINE_API virtual void Cleanup();
+	virtual void Cleanup();
 
 private:
 	int32 NumRefs;
@@ -189,7 +187,7 @@ private:
 /**
  * A 2D array of incident lighting data.
  */
-class FLightMap2D : public FLightMap
+class ENGINE_API FLightMap2D : public FLightMap
 {
 public:
 
@@ -203,23 +201,23 @@ public:
 	 * @param	BasisIndex - The basis index.
 	 * @return	The RGB coefficient texture.
 	 */
-	ENGINE_API const UTexture2D* GetTexture(uint32 BasisIndex) const;
-	ENGINE_API UTexture2D* GetTexture(uint32 BasisIndex);
+	const UTexture2D* GetTexture(uint32 BasisIndex) const;
+	UTexture2D* GetTexture(uint32 BasisIndex);
 
 	/**
 	 * Returns SkyOcclusionTexture.
 	 * @return	The SkyOcclusionTexture.
 	 */
-	ENGINE_API UTexture2D* GetSkyOcclusionTexture();
+	UTexture2D* GetSkyOcclusionTexture();
 
-	ENGINE_API UTexture2D* GetAOMaterialMaskTexture();
+	UTexture2D* GetAOMaterialMaskTexture();
 
 	/**
 	 * Returns whether the specified basis has a valid lightmap texture or not.
 	 * @param	BasisIndex - The basis index.
 	 * @return	true if the specified basis has a valid lightmap texture, otherwise false
 	 */
-	ENGINE_API bool IsValid(uint32 BasisIndex) const;
+	bool IsValid(uint32 BasisIndex) const;
 
 	const FVector2D& GetCoordinateScale() const { return CoordinateScale; }
 	const FVector2D& GetCoordinateBias() const { return CoordinateBias; }
@@ -244,7 +242,7 @@ public:
 	 * @param	InPaddingType - the method for padding the lightmap.
 	 * @param	LightmapFlags - flags that determine how the lightmap is stored (e.g. streamed or not)
 	 */
-	static ENGINE_API class FLightMap2D* AllocateLightMap(UObject* LightMapOuter, FQuantizedLightmapData*& SourceQuantizedData,
+	static TRefCountPtr<FLightMap2D> AllocateLightMap(UObject* LightMapOuter, FQuantizedLightmapData*& SourceQuantizedData,
 		const FBoxSphereBounds& Bounds, ELightMapPaddingType InPaddingType, ELightMapFlags InLightmapFlags );
 
 	/**
@@ -257,7 +255,7 @@ public:
 	 * @param	InPaddingType - the method for padding the lightmap.
 	 * @param	LightmapFlags - flags that determine how the lightmap is stored (e.g. streamed or not)
 	 */
-	static FLightMap2D* AllocateInstancedLightMap(UInstancedStaticMeshComponent* Component, TArray<TUniquePtr<FQuantizedLightmapData>> SourceQuantizedData,
+	static TRefCountPtr<FLightMap2D> AllocateInstancedLightMap(UInstancedStaticMeshComponent* Component, TArray<TUniquePtr<FQuantizedLightmapData>> SourceQuantizedData,
 		const FBoxSphereBounds& Bounds, ELightMapPaddingType InPaddingType, ELightMapFlags LightmapFlags);
 
 	/**
@@ -265,7 +263,7 @@ public:
 	 * @param	bLightingSuccessful	Whether the lighting build was successful or not.
 	 * @param	bForceCompletion	Force all encoding to be fully completed (they may be asynchronous).
 	 */
-	ENGINE_API static void EncodeTextures( UWorld* InWorld, bool bLightingSuccessful, bool bForceCompletion );
+	static void EncodeTextures( UWorld* InWorld, bool bLightingSuccessful, bool bMultithreadedEncode = false );
 
 	/** Call to enable/disable status update of LightMap encoding */
 	static void SetStatusUpdate(bool bInEnable)
@@ -304,7 +302,7 @@ protected:
 	FVector2D CoordinateBias;
 
 	/** If true, update the status when encoding light maps */
-	ENGINE_API static bool bUpdateStatus;
+	static bool bUpdateStatus;
 };
 
 struct FLegacyQuantizedDirectionalLightSample

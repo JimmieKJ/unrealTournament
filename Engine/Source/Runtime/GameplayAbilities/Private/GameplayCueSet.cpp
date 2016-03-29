@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 #include "GameplayCueSet.h"
@@ -19,7 +19,7 @@ UGameplayCueSet::UGameplayCueSet(const FObjectInitializer& ObjectInitializer)
 
 }
 
-bool UGameplayCueSet::HandleGameplayCue(AActor* TargetActor, FGameplayTag GameplayCueTag, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters)
+bool UGameplayCueSet::HandleGameplayCue(AActor* TargetActor, FGameplayTag GameplayCueTag, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters)
 {
 	// GameplayCueTags could have been removed from the dictionary but not content. When the content is resaved the old tag will be cleaned up, but it could still come through here
 	// at runtime. Since we only populate the map with dictionary gameplaycue tags, we may not find it here.
@@ -27,7 +27,10 @@ bool UGameplayCueSet::HandleGameplayCue(AActor* TargetActor, FGameplayTag Gamepl
 	if (Ptr)
 	{
 		int32 DataIdx = *Ptr;
-		return HandleGameplayCueNotify_Internal(TargetActor, DataIdx, EventType, Parameters);
+
+		// TODO - resolve internal handler modifying params before passing them on with new const-ref params.
+		FGameplayCueParameters writableParameters = Parameters;
+		return HandleGameplayCueNotify_Internal(TargetActor, DataIdx, EventType, writableParameters);
 	}
 
 	return false;
@@ -90,6 +93,17 @@ void UGameplayCueSet::RemoveCuesByStringRefs(const TArray<FStringAssetReference>
 	}
 }
 
+void UGameplayCueSet::RemoveLoadedClass(UClass* Class)
+{
+	for (int32 idx = 0; idx < GameplayCueData.Num(); ++idx)
+	{
+		if (GameplayCueData[idx].LoadedGameplayCueClass == Class)
+		{
+			GameplayCueData[idx].LoadedGameplayCueClass = nullptr;
+		}
+	}
+}
+
 #if WITH_EDITOR
 void UGameplayCueSet::UpdateCueByStringRefs(const FStringAssetReference& CueToRemove, FString NewPath)
 {
@@ -130,7 +144,7 @@ void UGameplayCueSet::PrintCues() const
 	}
 }
 
-bool UGameplayCueSet::HandleGameplayCueNotify_Internal(AActor* TargetActor, int32 DataIdx, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters)
+bool UGameplayCueSet::HandleGameplayCueNotify_Internal(AActor* TargetActor, int32 DataIdx, EGameplayCueEvent::Type EventType, FGameplayCueParameters& Parameters)
 {	
 	bool bReturnVal = false;
 
@@ -139,6 +153,8 @@ bool UGameplayCueSet::HandleGameplayCueNotify_Internal(AActor* TargetActor, int3
 		check(GameplayCueData.IsValidIndex(DataIdx));
 
 		FGameplayCueNotifyData& CueData = GameplayCueData[DataIdx];
+
+		Parameters.MatchedTagName = CueData.GameplayCueTag;
 
 		// If object is not loaded yet
 		if (CueData.LoadedGameplayCueClass == nullptr)
@@ -159,7 +175,7 @@ bool UGameplayCueSet::HandleGameplayCueNotify_Internal(AActor* TargetActor, int3
 				{
 					CueManager->StreamableManager.SimpleAsyncLoad(CueData.GameplayCueNotifyObj);
 
-					ABILITY_LOG(Warning, TEXT("GameplayCueNotify %s was not loaded when GameplayCue was invoked. Starting async loading."), *CueData.GameplayCueNotifyObj.ToString());
+					ABILITY_LOG(Display, TEXT("GameplayCueNotify %s was not loaded when GameplayCue was invoked. Starting async loading."), *CueData.GameplayCueNotifyObj.ToString());
 				}
 				return false;
 			}
@@ -244,7 +260,8 @@ void UGameplayCueSet::BuildAccelerationMap_Internal()
 
 		FGameplayTag Parent = ThisGameplayCueTag.RequestDirectParent();
 
-		GameplayCueDataMap.Add(ThisGameplayCueTag) = GameplayCueDataMap.FindChecked(Parent);
+		int32 ParentValue = GameplayCueDataMap.FindChecked(Parent);
+		GameplayCueDataMap.Add(ThisGameplayCueTag, ParentValue);
 	}
 
 

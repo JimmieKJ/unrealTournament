@@ -1,4 +1,4 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AndroidTargetPlatformModule.cpp: Implements the FAndroidTargetPlatformModule class.
@@ -107,7 +107,9 @@ class FAndroid_ASTCTargetPlatform
 
 	virtual float GetVariantPriority() const override
 	{
-		return 0.9f;
+		float Priority;
+		return GConfig->GetFloat(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("TextureFormatPriority_ASTC"), Priority, GEngineIni) ?
+			Priority : 0.9f;
 	}
 };
 

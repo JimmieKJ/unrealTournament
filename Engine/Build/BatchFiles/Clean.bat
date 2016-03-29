@@ -9,7 +9,7 @@ rem %3 is the configuration name
 echo Cleaning %1 Binaries...
 
 rem ## Unreal Engine 4 cleanup script
-rem ## Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+rem ## Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 rem ## This script is expecting to exist in the UE4 root directory.  It will not work correctly
 rem ## if you copy it to a different location and run it.
@@ -28,6 +28,19 @@ rem ## Check to see if we're already running under a Visual Studio environment s
 if not "%INCLUDE%" == "" if not "%LIB%" == "" goto ReadyToCompile
 
 
+rem ## Check for Visual Studio 2015
+
+pushd %~dp0
+call GetVSComnToolsPath 14
+popd
+
+if "%VsComnToolsPath%" == "" goto NoVisualStudio2015Environment
+rem ## Check if the C++ toolchain is not installed
+if not exist "%VsComnToolsPath%/../../VC/bin/x86_amd64/vcvarsx86_amd64.bat" goto NoVisualStudio2015Environment
+call "%VsComnToolsPath%/../../VC/bin/x86_amd64/vcvarsx86_amd64.bat" >NUL
+goto ReadyToCompile
+
+:NoVisualStudio2015Environment
 rem ## Check for Visual Studio 2013
 
 pushd %~dp0
@@ -39,18 +52,6 @@ call "%VsComnToolsPath%/../../VC/bin/x86_amd64/vcvarsx86_amd64.bat" >NUL
 goto ReadyToCompile
 
 :NoVisualStudio2013Environment
-rem ## Check for Visual Studio 2012
-
-pushd %~dp0
-call GetVSComnToolsPath 11
-popd
-
-if "%VsComnToolsPath%" == "" goto NoVisualStudio2012Environment
-call "%VsComnToolsPath%/../../VC/bin/x86_amd64/vcvarsx86_amd64.bat" >NUL
-goto ReadyToCompile
-
-
-:NoVisualStudio2012Environment
 rem ## User has no version of Visual Studio installed?
 goto Error_NoVisualStudioEnvironment
 

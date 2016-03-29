@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemEditorPrivatePCH.h"
 #include "GameplayAbilitiesEditor.h"
@@ -83,7 +83,7 @@ FText FGameplayAbilitiesEditor::GetToolkitName() const
 
 	Args.Add(TEXT("ObjectName"), FText::FromString(EditingObject->GetName()));
 	Args.Add(TEXT("DirtyState"), bDirtyState ? FText::FromString(TEXT("*")) : FText::GetEmpty());
-	return FText::Format(LOCTEXT("GameplayAbilitiesEditorAppLabel", "{ObjectName}{DirtyState}"), Args);
+	return FText::Format(LOCTEXT("GameplayAbilitiesToolkitName", "{ObjectName}{DirtyState}"), Args);
 }
 
 FText FGameplayAbilitiesEditor::GetToolkitToolTipText() const

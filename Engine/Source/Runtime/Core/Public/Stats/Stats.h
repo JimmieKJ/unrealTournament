@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -377,6 +377,7 @@ FORCEINLINE void StatsMasterEnableSubtract(int32 Value = 1)
 
 #define DEFINE_STAT(Stat)
 #define SCOPE_CYCLE_COUNTER(Stat)
+#define SCOPE_SECONDS_ACCUMULATOR(Stat)
 #define QUICK_SCOPE_CYCLE_COUNTER(Stat)
 #define DECLARE_SCOPE_CYCLE_COUNTER(CounterName,StatId,GroupId)
 #define CONDITIONAL_SCOPE_CYCLE_COUNTER(Stat,bCondition)

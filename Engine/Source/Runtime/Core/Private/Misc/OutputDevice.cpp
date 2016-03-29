@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "ExceptionHandling.h"
@@ -65,16 +65,9 @@ FString FOutputDevice::FormatLogLine( ELogVerbosity::Type Verbosity, const class
 			break;
 	}
 
-	if (Category == NAME_None)
-	{
-		if (Verbosity != ELogVerbosity::Log)
-		{
-#if !HACK_HEADER_GENERATOR
-			Format += FString(VerbosityToString(Verbosity)) + TEXT(": ");
-#endif
-		}
-	}
-	else
+	bool bShowCategory = GPrintLogCategory && Category != NAME_None;
+
+	if (bShowCategory)
 	{
 		if (Verbosity != ELogVerbosity::Log)
 		{
@@ -85,6 +78,16 @@ FString FOutputDevice::FormatLogLine( ELogVerbosity::Type Verbosity, const class
 			Format += Category.ToString() + TEXT(": ");
 		}
 	}
+	else
+	{
+		if (Verbosity != ELogVerbosity::Log)
+		{
+#if !HACK_HEADER_GENERATOR
+			Format += FString(VerbosityToString(Verbosity)) + TEXT(": ");
+#endif
+		}
+	}
+
 	if (Message)
 	{
 		Format += Message;
@@ -311,7 +314,7 @@ void FDebug::EnsureFailed(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line
 			SCOPE_LOG_TIME_IN_SECONDS(*StackWalkPerfMessage, nullptr)
 #endif
 			StackTrace[0] = 0;
-			FPlatformStackWalk::StackWalkAndDump( StackTrace, StackTraceSize, CALLSTACK_IGNOREDEPTH );
+			FPlatformStackWalk::StackWalkAndDumpEx( StackTrace, StackTraceSize, CALLSTACK_IGNOREDEPTH, FGenericPlatformStackWalk::EStackWalkFlags::FlagsUsedWhenHandlingEnsure );
 		}
 
 		// Create a final string that we'll output to the log (and error history buffer)

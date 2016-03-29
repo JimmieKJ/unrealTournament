@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "MainFramePrivatePCH.h"
@@ -296,7 +296,7 @@ void FMainFrameActionCallbacks::AddCodeToProject()
 const TCHAR* GetUATCompilationFlags()
 {
 	// We never want to compile editor targets when invoking UAT in this context.
-	// If we are rocket or don't have a compiler, we must assume we have a precompiled UAT.
+	// If we are installed or don't have a compiler, we must assume we have a precompiled UAT.
 	return (FApp::GetEngineIsPromotedBuild() || FApp::IsEngineInstalled())
 		? TEXT("-nocompile -nocompileeditor")
 		: TEXT("-nocompileeditor");
@@ -365,8 +365,7 @@ void FMainFrameActionCallbacks::CookContent(const FName InPlatformInfoName)
 	}
 
 	FString ProjectPath = FPaths::IsProjectFilePathSet() ? FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath()) : FPaths::RootDir() / FApp::GetGameName() / FApp::GetGameName() + TEXT(".uproject");
-	FString CommandLine = FString::Printf(TEXT("BuildCookRun %s%s%s -nop4 -project=\"%s\" -cook -ue4exe=%s %s"),
-		FRocketSupport::IsRocket() ? TEXT("-rocket ") : TEXT(""),
+	FString CommandLine = FString::Printf(TEXT("BuildCookRun %s%s -nop4 -project=\"%s\" -cook -ue4exe=%s %s"),
 		GetUATCompilationFlags(),
 		FApp::IsEngineInstalled() ? TEXT(" -installed") : TEXT(""),
 		*ProjectPath,
@@ -477,12 +476,12 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 
 			if ((Result & ETargetPlatformReadyStatus::CodeUnsupported) != 0)
 			{
-				FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("NotSupported", "Sorry, packaging a code-based project for the selected platform is currently not supported. This feature may be available in a future release."));
+				FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("NotSupported_SelectedPlatform", "Sorry, packaging a code-based project for the selected platform is currently not supported. This feature may be available in a future release."));
 				UnrecoverableError = true;
 			}
 			else if ((Result & ETargetPlatformReadyStatus::PluginsUnsupported) != 0)
 			{
-				FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("NotSupported", "Sorry, packaging a project with third-party plugins is currently not supported for the selected platform. This feature may be available in a future release."));
+				FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("NotSupported_ThirdPartyPlugins", "Sorry, packaging a project with third-party plugins is currently not supported for the selected platform. This feature may be available in a future release."));
 				UnrecoverableError = true;
 			}
 
@@ -567,6 +566,10 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 		OptionalParams += TEXT(" -nativizeAssets");
 	}
 
+	if (PackagingSettings->bGenerateChunks)
+	{
+		OptionalParams += TEXT(" -manifests");
+	}
 
 	bool bTargetPlatformCanUseCrashReporter = true;
 	if (PlatformInfo->TargetPlatformName == FName("WindowsNoEditor") && PlatformInfo->PlatformFlavor == TEXT("Win32"))
@@ -626,9 +629,8 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 	Configuration = Configuration.Replace(TEXT("PPBC_"), TEXT(""));
 
 	FString ProjectPath = FPaths::IsProjectFilePathSet() ? FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath()) : FPaths::RootDir() / FApp::GetGameName() / FApp::GetGameName() + TEXT(".uproject");
-	FString CommandLine = FString::Printf(TEXT("-ScriptsForProject=\"%s\" BuildCookRun %s%s%s -nop4 -project=\"%s\" -cook -stage -archive -archivedirectory=\"%s\" -package -clientconfig=%s -ue4exe=%s %s -utf8output"),
+	FString CommandLine = FString::Printf(TEXT("-ScriptsForProject=\"%s\" BuildCookRun %s%s -nop4 -project=\"%s\" -cook -stage -archive -archivedirectory=\"%s\" -package -clientconfig=%s -ue4exe=%s %s -utf8output"),
 		*ProjectPath,
-		FRocketSupport::IsRocket() ? TEXT("-rocket ") : TEXT(""),
 		GetUATCompilationFlags(),
 		FApp::IsEngineInstalled() ? TEXT(" -installed") : TEXT(""),
 		*ProjectPath,
@@ -697,13 +699,13 @@ void FMainFrameActionCallbacks::OpenIDE()
 void FMainFrameActionCallbacks::ZipUpProject()
 {
 #if PLATFORM_WINDOWS
-	FText PlatformName = LOCTEXT("Platform Name", "Windows");
+	FText PlatformName = LOCTEXT("PlatformName_Windows", "Windows");
 #elif PLATFORM_MAC
-	FText PlatformName = LOCTEXT("Platform Name", "Mac");
+	FText PlatformName = LOCTEXT("PlatformName_Mac", "Mac");
 #elif PLATFORM_LINUX
-	FText PlatformName = LOCTEXT("Platform Name", "Linux");
+	FText PlatformName = LOCTEXT("PlatformName_Linux", "Linux");
 #else
-	FText PlatformName = LOCTEXT("Platform Name", "Other OS");
+	FText PlatformName = LOCTEXT("PlatformName_Other", "Other OS");
 #endif
 
 	bool bOpened = false;
@@ -713,7 +715,7 @@ void FMainFrameActionCallbacks::ZipUpProject()
 	{
 		bOpened = DesktopPlatform->SaveFileDialog(
 			NULL,
-			NSLOCTEXT("UnrealEd", "InterpEd_ExportSoundCueInfoDialogTitle", "Zip file location").ToString(),
+			NSLOCTEXT("UnrealEd", "ZipUpProject", "Zip file location").ToString(),
 			FPaths::GameDir(),
 			FApp::GetGameName(),
 			TEXT("Zip file|*.zip"),
@@ -902,7 +904,7 @@ bool FMainFrameActionCallbacks::Redo_CanExecute()
 
 void FMainFrameActionCallbacks::ExecuteExecCommand( FString Command )
 {
-	GUnrealEd->Exec( GEditor->GetEditorWorldContext(true).World(), *Command );
+	GUnrealEd->Exec( GEditor->GetEditorWorldContext(false).World(), *Command );
 }
 
 
@@ -1165,6 +1167,9 @@ void FMainFrameActionCallbacks::CreateUatTask( const FString& CommandLine, const
 	UatProcess->OnCompleted().BindStatic(&FMainFrameActionCallbacks::HandleUatProcessCompleted, NotificationItemPtr, PlatformDisplayName, TaskShortName, Data);
 	UatProcess->OnOutput().BindStatic(&FMainFrameActionCallbacks::HandleUatProcessOutput, NotificationItemPtr, PlatformDisplayName, TaskShortName);
 
+	TWeakPtr<FMonitoredProcess> UatProcessPtr(UatProcess);
+	FEditorDelegates::OnShutdownPostPackagesSaved.Add(FSimpleDelegate::CreateStatic(&FMainFrameActionCallbacks::HandleUatCancelButtonClicked, UatProcessPtr));
+
 	if (UatProcess->Launch())
 	{
 		GEditor->PlayEditorSound(TEXT("/Engine/EditorSounds/Notifications/CompileStart_Cue.CompileStart_Cue"));
@@ -1245,6 +1250,14 @@ void FMainFrameActionCallbacks::HandleUatCancelButtonClicked( TSharedPtr<FMonito
 	}
 }
 
+void FMainFrameActionCallbacks::HandleUatCancelButtonClicked(TWeakPtr<FMonitoredProcess> PackagerProcessPtr)
+{
+	TSharedPtr<FMonitoredProcess> PackagerProcess = PackagerProcessPtr.Pin();
+	if (PackagerProcess.IsValid())
+	{
+		PackagerProcess->Cancel(true);
+	}
+}
 
 void FMainFrameActionCallbacks::HandleUatProcessCanceled( TWeakPtr<SNotificationItem> NotificationItemPtr, FText PlatformDisplayName, FText TaskName, EventData Event )
 {

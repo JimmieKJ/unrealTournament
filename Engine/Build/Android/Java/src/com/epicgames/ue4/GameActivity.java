@@ -1,3 +1,4 @@
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 //This file needs to be here so the "ant" build step doesnt fail when looking for a /src folder.
 
 package com.epicgames.ue4;
@@ -40,6 +41,8 @@ import android.view.View.OnTouchListener;
 import android.view.ViewConfiguration;
 import android.view.ViewGroup.LayoutParams;
 import android.view.ViewGroup.MarginLayoutParams;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 import android.view.WindowManager;
 import android.view.Window;
 import android.widget.LinearLayout;
@@ -67,10 +70,14 @@ import com.epicgames.ue4.GooglePlayLicensing;
 // Console commands listener, only for debug builds
 import com.epicgames.ue4.ConsoleCmdReceiver;
 
+import android.os.Build;
+
 // TODO: use the resources from the UE4 lib project once we've got the packager up and running
 //import com.epicgames.ue4.R;
 
 import com.epicgames.ue4.DownloadShim;
+
+//$${gameActivityImportAdditions}$$
 
 //Extending NativeActivity so that this Java class is instantiated
 //from the beginning of the program.  This will allow the user
@@ -82,7 +89,7 @@ import com.epicgames.ue4.DownloadShim;
 //  Java libraries at the startup of the program and store references 
 //  to them in this class.
 
-public class GameActivity extends NativeActivity
+public class GameActivity extends NativeActivity implements SurfaceHolder.Callback2
 {
 	public static Logger Log = new Logger("UE4");
 	
@@ -97,6 +104,7 @@ public class GameActivity extends NativeActivity
 	public static final String DOWNLOAD_RETURN_NAME = "Result";
 	
 	static GameActivity _activity;
+	static Bundle _bundle;
 
 	protected Dialog mSplashDialog;
 	private int noActionAnimID = -1;
@@ -162,9 +170,6 @@ public class GameActivity extends NativeActivity
 	/** Check to see if we should be verifying the files once we have them */
 	public boolean VerifyOBBOnStartUp = false;
 
-	/** Whether this application was packaged for GearVR or not */
-	public boolean PackagedForGearVR = false;
-	
 	/** Flag to ensure we have finished startup before allowing nativeOnActivityResult to get called */
 	private boolean InitCompletedOK = false;
 	
@@ -172,6 +177,12 @@ public class GameActivity extends NativeActivity
 
 	/** Whether this application is for distribution */
 	private boolean IsForDistribution = false;
+
+	/** Used for SurfaceHolder.setFixedSize buffer scaling workaround on early Amazon devices and some others */
+	private boolean bUseSurfaceView = false;
+	private SurfaceView MySurfaceView;
+	private int DesiredHolderWidth = 0;
+	private int DesiredHolderHeight = 0;
 	
 	/** Access singleton activity for game. **/
 	public static GameActivity Get()
@@ -189,6 +200,8 @@ public class GameActivity extends NativeActivity
 	
 	private StoreHelper IapStoreHelper;
 
+//$${gameActivityClassAdditions}$$
+
 	@Override
 	public void onStart()
 	{
@@ -201,6 +214,7 @@ public class GameActivity extends NativeActivity
 			registerReceiver(consoleCmdReceiver, new IntentFilter(Intent.ACTION_RUN));
 		}
 		
+//$${gameActivityOnStartAdditions}$$
 		Log.debug("==================================> Inside onStart function in GameActivity");
 	}
 
@@ -245,17 +259,40 @@ public class GameActivity extends NativeActivity
 
 		// create splashscreen dialog (if launched by SplashActivity)
 		Bundle intentBundle = getIntent().getExtras();
-		if (intentBundle != null && intentBundle.getString("UseSplashScreen") != null)
+		if (intentBundle != null)
 		{
-			try {
-				// try to get the splash theme (can't use R.style.UE4SplashTheme since we don't know the package name until runtime)
-				int SplashThemeId = getResources().getIdentifier("UE4SplashTheme", "style", getPackageName());
-				mSplashDialog = new Dialog(this, SplashThemeId);
-				mSplashDialog.setCancelable(false);
-				mSplashDialog.show();
-			}
-			catch (Exception e) {
-				e.printStackTrace();
+			ShouldHideUI = intentBundle.getString("ShouldHideUI") != null;
+			if (intentBundle.getString("UseSplashScreen") != null)
+			{
+				try {
+					// try to get the splash theme (can't use R.style.UE4SplashTheme since we don't know the package name until runtime)
+					int SplashThemeId = getResources().getIdentifier("UE4SplashTheme", "style", getPackageName());
+					mSplashDialog = new Dialog(this, SplashThemeId);
+					mSplashDialog.setCancelable(false);
+					if (ShouldHideUI)
+					{
+						View decorView = mSplashDialog.getWindow().getDecorView(); 
+						// only do this on KitKat and above
+						if(android.os.Build.VERSION.SDK_INT >= 19) {
+							decorView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+														| View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+														| View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+														| View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+														| View.SYSTEM_UI_FLAG_FULLSCREEN
+														| View.SYSTEM_UI_FLAG_IMMERSIVE);  // NOT sticky.. will be set to sticky later! 
+						}
+					}
+					mSplashDialog.show();
+				}
+				catch (Exception e) {
+					e.printStackTrace();
+				}
+				try {
+					noActionAnimID = getResources().getIdentifier("noaction", "anim", getPackageName());
+				}
+				catch (Exception e) {
+					e.printStackTrace();
+				}
 			}
 			try {
 				noActionAnimID = getResources().getIdentifier("noaction", "anim", getPackageName());
@@ -384,6 +421,7 @@ public class GameActivity extends NativeActivity
 		try {
 			ApplicationInfo ai = getPackageManager().getApplicationInfo(getPackageName(), PackageManager.GET_META_DATA);
 			Bundle bundle = ai.metaData;
+			_bundle = bundle;
 
 			if ((ai.flags & ApplicationInfo.FLAG_DEBUGGABLE) == 0) 
 			{
@@ -455,20 +493,8 @@ public class GameActivity extends NativeActivity
 			{
 				Log.debug( "UI hiding not found. Leaving as " + ShouldHideUI);
 			}
-			
-			if(bundle.containsKey("com.samsung.android.vr.application.mode"))
-			{
-				PackagedForGearVR = true;
-				String VRMode = bundle.getString("com.samsung.android.vr.application.mode");
-				Log.debug("Found GearVR mode = " + VRMode);
 
-				com.oculus.svclib.OVREntitlementChecker.doAutomatedCheck(this);
-			}
-			else
-			{
-				PackagedForGearVR = false;
-				Log.debug("No GearVR mode detected.");
-			}
+//$${gameActivityReadMetadataAdditions}$$
 		}
 		catch (NameNotFoundException e)
 		{
@@ -635,6 +661,13 @@ public class GameActivity extends NativeActivity
 		{
 			HasAllFiles = true;
 		}
+
+//$${gameActivityOnCreateAdditions}$$
+		// Need to create our surface view here regardless of if we are going to end up using it
+		getWindow().takeSurface(null);
+		MySurfaceView = new SurfaceView(this);
+		MySurfaceView.getHolder().addCallback(this);
+		setContentView(MySurfaceView);
 		
 		Log.debug("==============> GameActive.onCreate complete!");
 	}
@@ -709,7 +742,16 @@ public class GameActivity extends NativeActivity
 			}
 		}
 
+//$${gameActivityOnResumeAdditions}$$
 		Log.debug("==============> GameActive.onResume complete!");
+	}
+
+	@Override
+	protected void onPause()
+	{
+		super.onPause();
+//$${gameActivityOnPauseAdditions}$$
+		Log.debug("==============> GameActive.onPause complete!");
 	}
 
 	@Override
@@ -720,6 +762,40 @@ public class GameActivity extends NativeActivity
 		if (consoleCmdReceiver != null)
 		{
 			unregisterReceiver(consoleCmdReceiver);
+		}
+
+//$${gameActivityOnStopAdditions}$$
+		Log.debug("==============> GameActive.onStop complete!");
+	}
+
+	@Override
+	public void onDestroy()
+	{
+		super.onDestroy();
+		if( IapStoreHelper != null )
+		{
+			IapStoreHelper.onDestroy();
+		}
+//$${gameActivityOnDestroyAdditions}$$
+		Log.debug("==============> GameActive.onDestroy complete!");
+	}
+
+	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height)
+	{
+		if(bUseSurfaceView)
+		{
+			int newWidth = (DesiredHolderWidth > 0) ? DesiredHolderWidth : width;
+			int newHeight = (DesiredHolderHeight > 0) ? DesiredHolderHeight : height;
+
+			super.surfaceChanged(holder, format, newWidth, newHeight);
+
+			holder.setFixedSize(newWidth, newHeight);
+
+			nativeSetSurfaceViewInfo(holder.getSurfaceFrame().width(), holder.getSurfaceFrame().height());
+		}
+		else
+		{
+			super.surfaceChanged(holder, format, width, height);
 		}
 	}
 
@@ -1094,12 +1170,6 @@ public class GameActivity extends NativeActivity
 		});
 	}
 
-	// check the manifest to determine if we are a GearVR application
-	public boolean AndroidThunkJava_IsGearVRApplication()
-	{
-		return PackagedForGearVR;
-	}
-
 	public static String AndroidThunkJava_GetFontDirectory()
 	{
 		// Parse and find the first known fonts directory on the device
@@ -1130,11 +1200,18 @@ public class GameActivity extends NativeActivity
 	// In app purchase functionality
 	public void AndroidThunkJava_IapSetupService(String InProductKey)
 	{
-		Log.debug("[JAVA] - AndroidThunkJava_IapSetupService");
-		IapStoreHelper = new GooglePlayStoreHelper(InProductKey, this, Log);
-		if( IapStoreHelper == null )
+		if (getPackageManager().checkPermission("com.android.vending.BILLING", getPackageName()) == getPackageManager().PERMISSION_GRANTED)
 		{
-			Log.debug("[JAVA] - Store Helper is invalid");
+			IapStoreHelper = new GooglePlayStoreHelper(InProductKey, this, Log);
+			if (IapStoreHelper != null)
+			{
+				Log.debug("[JAVA] - AndroidThunkJava_IapSetupService - Failed to setup IAP service");
+			}
+		}
+		else
+		{
+			Log.debug("[JAVA] - AndroidThunkJava_IapSetupService - You do not have the appropriate permission setup.");
+			Log.debug("[JAVA] - AndroidThunkJava_IapSetupService - Please ensure com.android.vending.BILLING is added to the manifest.");
 		}
 	}
 	
@@ -1243,6 +1320,8 @@ public class GameActivity extends NativeActivity
 		{
 			super.onActivityResult(requestCode, resultCode, data);
 		}
+
+//$${gameActivityOnActivityResultAdditions}$$
 		
 		if(InitCompletedOK)
 		{
@@ -1278,6 +1357,22 @@ public class GameActivity extends NativeActivity
 			Log.debug("[JAVA] - Store Helper is invalid");
 		}
 		return bIsAllowedToMakePurchase;
+	}
+
+	public boolean AndroidThunkJava_IapRestorePurchases()
+	{
+		Log.debug("[JAVA] - AndroidThunkJava_IapRestorePurchases");
+		boolean bTriggeredRestore = false;
+		if( IapStoreHelper != null )
+		{
+			Log.debug("[JAVA] - AndroidThunkJava_IapRestorePurchases - Kick off logic here!");
+			bTriggeredRestore = IapStoreHelper.RestorePurchases();
+		}
+		else
+		{
+			Log.debug("[JAVA] - Store Helper is invalid");
+		}
+		return bTriggeredRestore;
 	}
 
 	public void AndroidThunkJava_DismissSplashScreen()
@@ -1361,11 +1456,100 @@ public class GameActivity extends NativeActivity
 		return new InputDeviceInfo(deviceId, 0, 0, -1, "Unknown", "Unknown");
 	}
 
+	public void AndroidThunkJava_UseSurfaceViewWorkaround()
+	{
+		// We only need apply a change to the SurfaceHolder on the first call
+		// Once bUseSurfaceView is true, it is never changed back
+		if(bUseSurfaceView)
+		{
+			return;
+		}
+
+		bUseSurfaceView = true;
+		Log.debug("[JAVA] Using SurfaceView sizing workaround for this device");
+
+		if(DesiredHolderWidth > 0 && 
+			DesiredHolderHeight > 0 &&
+			MySurfaceView != null)
+		{
+			_activity.runOnUiThread(new Runnable()
+			{
+				@Override
+				public void run()
+				{
+					MySurfaceView.getHolder().setFixedSize(DesiredHolderWidth, DesiredHolderHeight);
+				}
+			});
+		}
+	}
+
+	public void AndroidThunkJava_SetDesiredViewSize(int width, int height)
+	{
+		if (width == DesiredHolderWidth && height == DesiredHolderHeight)
+		{
+			return;
+		}
+
+		Log.debug("[JAVA] - SetDesiredViewSize width=" + width + " and height=" + height);
+		DesiredHolderWidth = width;
+		DesiredHolderHeight = height;
+
+		if(bUseSurfaceView && MySurfaceView != null)
+		{
+			_activity.runOnUiThread(new Runnable()
+			{
+				@Override
+				public void run()
+				{
+					MySurfaceView.getHolder().setFixedSize(DesiredHolderWidth, DesiredHolderHeight);
+				}
+			});
+		}
+	}
+
+	public boolean AndroidThunkJava_HasMetaDataKey(String key)
+	{
+		if (_bundle == null || key == null)
+		{
+			return false;
+		}
+		return _bundle.containsKey(key);
+	}
+
+	public boolean AndroidThunkJava_GetMetaDataBoolean(String key)
+	{
+		if (_bundle == null || key == null)
+		{
+			return false;
+		}
+		return _bundle.getBoolean(key);
+	}
+
+	public int AndroidThunkJava_GetMetaDataInt(String key)
+	{
+		if (_bundle == null || key == null)
+		{
+			return 0;
+		}
+		return _bundle.getInt(key);
+	}
+
+	public String AndroidThunkJava_GetMetaDataString(String key)
+	{
+		if (_bundle == null || key == null)
+		{
+			return null;
+		}
+		return _bundle.getString(key);
+	}
+
 	public native boolean nativeIsShippingBuild();
 	public native void nativeSetGlobalActivity();
 	public native void nativeSetWindowInfo(boolean bIsPortrait, int DepthBufferPreference);
 	public native void nativeSetObbInfo(String ProjectName, String PackageName, int Version, int PatchVersion);
 	public native void nativeSetAndroidVersionInformation( String AndroidVersion, String PhoneMake, String PhoneModel, String OSLanguage );
+
+	public native void nativeSetSurfaceViewInfo(int width, int height);
 
 	public native void nativeConsoleCommand(String commandString);
 	public native void nativeVirtualKeyboardResult(boolean update, String contents);
@@ -1379,14 +1563,7 @@ public class GameActivity extends NativeActivity
 	static
 	{
 		System.loadLibrary("gnustl_shared");
-		try
-		{
-			System.loadLibrary("vrapi");
-		}
-		catch (java.lang.UnsatisfiedLinkError e)
-		{
-			Log.debug("GearVR library not loaded. Ignore this if GearVR plugin intentionally disabled.");
-		}
+//$${soLoadLibrary}$$
 		System.loadLibrary("UE4");
 	}
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlatePrivatePCH.h"
 #include "IOSAppDelegate.h"
@@ -20,6 +20,7 @@ FIOSPlatformTextField::~FIOSPlatformTextField()
 
 void FIOSPlatformTextField::ShowVirtualKeyboard(bool bShow, int32 UserIndex, TSharedPtr<IVirtualKeyboardEntry> TextEntryWidget)
 {
+#if !PLATFORM_TVOS
 	if(TextField == nullptr)
 	{
 		TextField = [SlateTextField alloc];
@@ -32,8 +33,10 @@ void FIOSPlatformTextField::ShowVirtualKeyboard(bool bShow, int32 UserIndex, TSh
 			[TextField show: TextEntryWidget];
 		});
 	}
+#endif
 }
 
+#if !PLATFORM_TVOS
 
 @implementation SlateTextField
 
@@ -207,4 +210,6 @@ void FIOSPlatformTextField::ShowVirtualKeyboard(bool bShow, int32 UserIndex, TSh
 }
 
 @end
+
+#endif
 

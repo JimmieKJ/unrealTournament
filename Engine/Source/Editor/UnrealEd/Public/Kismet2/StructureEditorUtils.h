@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "ListenerManager.h"
@@ -88,6 +88,13 @@ public:
 	};
 	static bool MoveVariable(UUserDefinedStruct* Struct, FGuid VarGuid, EMoveDirection MoveDirection);
 
+	//Multi-line text
+	static bool CanEnableMultiLineText(const UUserDefinedStruct* Struct, FGuid VarGuid);
+
+	static bool ChangeMultiLineTextEnabled(UUserDefinedStruct* Struct, FGuid VarGuid, bool bIsEnabled);
+
+	static bool IsMultiLineTextEnabled(const UUserDefinedStruct* Struct, FGuid VarGuid);
+
 	//3D Widget
 	static bool CanEnable3dWidget(const UUserDefinedStruct* Struct, FGuid VarGuid);
 
@@ -100,14 +107,28 @@ public:
 
 	static const TArray<FStructVariableDescription>& GetVarDesc(const UUserDefinedStruct* Struct);
 
+	static TArray<FStructVariableDescription>* GetVarDescPtr(UUserDefinedStruct* Struct);
+
+	static const TArray<FStructVariableDescription>* GetVarDescPtr(const UUserDefinedStruct* Struct);
+
 	static FStructVariableDescription* GetVarDescByGuid(UUserDefinedStruct* Struct, FGuid VarGuid)
 	{
-		return Struct ? GetVarDesc(Struct).FindByPredicate(FFindByGuidHelper<FStructVariableDescription>(VarGuid)) : NULL;
+		if (Struct)
+		{
+			auto VarDescArray = GetVarDescPtr(Struct);
+			return VarDescArray ? VarDescArray->FindByPredicate(FFindByGuidHelper<FStructVariableDescription>(VarGuid)) : nullptr;
+		}
+		return nullptr;
 	}
 
 	static const FStructVariableDescription* GetVarDescByGuid(const UUserDefinedStruct* Struct, FGuid VarGuid)
 	{
-		return Struct ? GetVarDesc(Struct).FindByPredicate(FFindByGuidHelper<FStructVariableDescription>(VarGuid)) : NULL;
+		if (Struct)
+		{
+			auto VarDescArray = GetVarDescPtr(Struct);
+			return VarDescArray ? VarDescArray->FindByPredicate(FFindByGuidHelper<FStructVariableDescription>(VarGuid)) : nullptr;
+		}
+		return nullptr;
 	}
 
 	static FGuid GetGuidForProperty(const UProperty* Property);

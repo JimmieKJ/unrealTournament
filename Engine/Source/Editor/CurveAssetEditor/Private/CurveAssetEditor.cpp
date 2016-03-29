@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CurveAssetEditorPrivatePCH.h"
 
@@ -179,7 +179,7 @@ TSharedPtr<FExtender> FCurveAssetEditor::GetToolbarExtender()
 {
 	struct Local
 	{
-		static void FillToolbar(FToolBarBuilder& ToolbarBuilder, TSharedRef<SWidget> InputSnapWidget, TSharedRef<SWidget> OutputSnapWidget)
+		static void FillToolbar(FToolBarBuilder& ToolbarBuilder, TSharedRef<SWidget> InputSnapWidget, TSharedRef<SWidget> OutputSnapWidget, FCurveAssetEditor* CurveAssetEditor)
 		{
 			ToolbarBuilder.BeginSection("Curve");
 			{
@@ -198,6 +198,14 @@ TSharedPtr<FExtender> FCurveAssetEditor::GetToolbarExtender()
 				ToolbarBuilder.AddToolBarButton(FRichCurveEditorCommands::Get().InterpolationConstant);
 			}
 			ToolbarBuilder.EndSection();
+
+			ToolbarBuilder.AddComboButton(
+				FUIAction(),
+				FOnGetContent::CreateSP( CurveAssetEditor, &FCurveAssetEditor::MakeCurveEditorCurveOptionsMenu ),
+				LOCTEXT( "CurveEditorCurveOptions", "Curves Options" ),
+				LOCTEXT( "CurveEditorCurveOptionsToolTip", "Curve Options" ),
+				TAttribute<FSlateIcon>(),
+				true );
 
 			ToolbarBuilder.BeginSection("Snap");
 			{
@@ -239,7 +247,7 @@ TSharedPtr<FExtender> FCurveAssetEditor::GetToolbarExtender()
 		"Asset",
 		EExtensionHook::After,
 		TrackWidget->GetCommands(),
-		FToolBarExtensionDelegate::CreateStatic(&Local::FillToolbar, InputSnapWidget, OutputSnapWidget)
+		FToolBarExtensionDelegate::CreateStatic(&Local::FillToolbar, InputSnapWidget, OutputSnapWidget, this)
 		);
 
 	return ToolbarExtender;
@@ -250,6 +258,55 @@ EOrientation FCurveAssetEditor::GetSnapLabelOrientation() const
 	return FMultiBoxSettings::UseSmallToolBarIcons.Get()
 		? EOrientation::Orient_Horizontal
 		: EOrientation::Orient_Vertical;
+}
+
+TSharedRef<SWidget> FCurveAssetEditor::MakeCurveEditorCurveOptionsMenu()
+{
+	struct FExtrapolationMenus
+	{
+		static void MakePreInfinityExtrapSubMenu(FMenuBuilder& MenuBuilder)
+		{
+			MenuBuilder.BeginSection( "Pre-Infinity Extrapolation", LOCTEXT( "CurveEditorMenuPreInfinityExtrapHeader", "Extrapolation" ) );
+			{
+				MenuBuilder.AddMenuEntry( FRichCurveEditorCommands::Get().SetPreInfinityExtrapCycle);
+				MenuBuilder.AddMenuEntry( FRichCurveEditorCommands::Get().SetPreInfinityExtrapCycleWithOffset);
+				MenuBuilder.AddMenuEntry( FRichCurveEditorCommands::Get().SetPreInfinityExtrapOscillate);
+				MenuBuilder.AddMenuEntry( FRichCurveEditorCommands::Get().SetPreInfinityExtrapLinear);
+				MenuBuilder.AddMenuEntry( FRichCurveEditorCommands::Get().SetPreInfinityExtrapConstant);
+			}
+			MenuBuilder.EndSection();
+		}
+
+		static void MakePostInfinityExtrapSubMenu(FMenuBuilder& MenuBuilder)
+		{
+			MenuBuilder.BeginSection( "Post-Infinity Extrapolation", LOCTEXT( "CurveEditorMenuPostInfinityExtrapHeader", "Extrapolation" ) );
+			{
+				MenuBuilder.AddMenuEntry( FRichCurveEditorCommands::Get().SetPostInfinityExtrapCycle);
+				MenuBuilder.AddMenuEntry( FRichCurveEditorCommands::Get().SetPostInfinityExtrapCycleWithOffset);
+				MenuBuilder.AddMenuEntry( FRichCurveEditorCommands::Get().SetPostInfinityExtrapOscillate);
+				MenuBuilder.AddMenuEntry( FRichCurveEditorCommands::Get().SetPostInfinityExtrapLinear);
+				MenuBuilder.AddMenuEntry( FRichCurveEditorCommands::Get().SetPostInfinityExtrapConstant);
+			}
+			MenuBuilder.EndSection();
+		}
+	};
+
+	FMenuBuilder MenuBuilder( true, TrackWidget->GetCommands());
+
+	MenuBuilder.AddMenuEntry( FRichCurveEditorCommands::Get().BakeCurve);
+	MenuBuilder.AddMenuEntry( FRichCurveEditorCommands::Get().ReduceCurve);
+
+	MenuBuilder.AddSubMenu(
+		LOCTEXT( "PreInfinitySubMenu", "Pre-Infinity" ),
+		LOCTEXT( "PreInfinitySubMenuToolTip", "Pre-Infinity Extrapolation" ),
+		FNewMenuDelegate::CreateStatic( &FExtrapolationMenus::MakePreInfinityExtrapSubMenu ) );
+
+	MenuBuilder.AddSubMenu(
+		LOCTEXT( "PostInfinitySubMenu", "Post-Infinity" ),
+		LOCTEXT( "PostInfinitySubMenuToolTip", "Post-Infinity Extrapolation" ),
+		FNewMenuDelegate::CreateStatic( &FExtrapolationMenus::MakePostInfinityExtrapSubMenu ) );
+	
+	return MenuBuilder.MakeWidget();
 }
 
 #undef LOCTEXT_NAMESPACE

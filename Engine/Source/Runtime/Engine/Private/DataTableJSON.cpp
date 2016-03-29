@@ -1,4 +1,4 @@
-// Copyright	 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "DataTableJSON.h"
@@ -99,8 +99,23 @@ bool FDataTableExporterJSON::WriteRow(const void* InRowData)
 		UProperty* BaseProp = *It;
 		check(BaseProp);
 
-		const void* Data = BaseProp->ContainerPtrToValuePtr<void>(InRowData, 0);
-		WriteStructEntry(InRowData, BaseProp, Data);
+		if (BaseProp->ArrayDim == 1)
+		{
+			const void* Data = BaseProp->ContainerPtrToValuePtr<void>(InRowData, 0);
+			WriteStructEntry(InRowData, BaseProp, Data);
+		}
+		else
+		{
+			JsonWriter->WriteArrayStart(BaseProp->GetName());
+
+			for (int32 ArrayEntryIndex = 0; ArrayEntryIndex < BaseProp->ArrayDim; ++ArrayEntryIndex)
+			{
+				const void* Data = BaseProp->ContainerPtrToValuePtr<void>(InRowData, ArrayEntryIndex);
+				WriteArrayEntry(BaseProp, Data);
+			}
+
+			JsonWriter->WriteArrayEnd();
+		}
 	}
 
 	return true;
@@ -175,7 +190,7 @@ bool FDataTableExporterJSON::WriteArrayEntry(const UProperty* InProperty, const 
 	}
 	else
 	{
-		const FString PropertyValue = DataTableUtils::GetPropertyValueAsString(InProperty, (uint8*)InPropertyData);
+		const FString PropertyValue = DataTableUtils::GetSinglePropertyValueAsString(InProperty, (uint8*)InPropertyData);
 		JsonWriter->WriteValue(PropertyValue);
 	}
 
@@ -287,8 +302,38 @@ bool FDataTableImporterJSON::ReadRow(const TSharedRef<FJsonObject>& ParsedTableR
 			continue;
 		}
 
-		void* Data = BaseProp->ContainerPtrToValuePtr<void>(RowData, 0);
-		ReadStructEntry(ParsedPropertyValue.ToSharedRef(), RowName, RowData, BaseProp, Data);
+		if (BaseProp->ArrayDim == 1)
+		{
+			void* Data = BaseProp->ContainerPtrToValuePtr<void>(RowData, 0);
+			ReadStructEntry(ParsedPropertyValue.ToSharedRef(), RowName, RowData, BaseProp, Data);
+		}
+		else
+		{
+			const FString ColumnName = DataTableUtils::GetPropertyDisplayName(BaseProp, BaseProp->GetName());
+			const TCHAR* const ParsedPropertyType = JSONTypeToString(ParsedPropertyValue->Type);
+
+			const TArray< TSharedPtr<FJsonValue> >* PropertyValuesPtr;
+			if (!ParsedPropertyValue->TryGetArray(PropertyValuesPtr))
+			{
+				ImportProblems.Add(FString::Printf(TEXT("Property '%s' on row '%s' is the incorrect type. Expected Array, got %s."), *ColumnName, *RowName.ToString(), ParsedPropertyType));
+				return false;
+			}
+
+			if (BaseProp->ArrayDim != PropertyValuesPtr->Num())
+			{
+				ImportProblems.Add(FString::Printf(TEXT("Property '%s' on row '%s' is a static sized array with %d elements, but we have %d values to import"), *ColumnName, *RowName.ToString(), BaseProp->ArrayDim, PropertyValuesPtr->Num()));
+			}
+
+			for (int32 ArrayEntryIndex = 0; ArrayEntryIndex < BaseProp->ArrayDim; ++ArrayEntryIndex)
+			{
+				if (PropertyValuesPtr->IsValidIndex(ArrayEntryIndex))
+				{
+					void* Data = BaseProp->ContainerPtrToValuePtr<void>(RowData, ArrayEntryIndex);
+					const TSharedPtr<FJsonValue>& PropertyValueEntry = (*PropertyValuesPtr)[ArrayEntryIndex];
+					ReadArrayEntry(PropertyValueEntry.ToSharedRef(), RowName, ColumnName, ArrayEntryIndex, BaseProp, Data);
+				}
+			}
+		}
 	}
 
 	return true;
@@ -426,7 +471,7 @@ bool FDataTableImporterJSON::ReadArrayEntry(const TSharedRef<FJsonValue>& Parsed
 			return false;
 		}
 
-		const FString Error = DataTableUtils::AssignStringToProperty(PropertyValue, InProperty, (uint8*)InPropertyData);
+		const FString Error = DataTableUtils::AssignStringToSingleProperty(PropertyValue, InProperty, (uint8*)InPropertyData);
 		if(Error.Len() > 0)
 		{
 			ImportProblems.Add(FString::Printf(TEXT("Problem assigning string '%s' to entry %d on property '%s' on row '%s' : %s"), InArrayEntryIndex, *PropertyValue, *InColumnName, *InRowName.ToString(), *Error));

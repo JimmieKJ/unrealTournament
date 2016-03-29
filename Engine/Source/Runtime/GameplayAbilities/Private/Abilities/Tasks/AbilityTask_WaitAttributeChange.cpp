@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 #include "Abilities/Tasks/AbilityTask_WaitAttributeChange.h"
@@ -41,7 +41,7 @@ UAbilityTask_WaitAttributeChange* UAbilityTask_WaitAttributeChange::WaitForAttri
 
 void UAbilityTask_WaitAttributeChange::Activate()
 {
-	if (AbilitySystemComponent.IsValid())
+	if (AbilitySystemComponent)
 	{
 		OnAttributeChangeDelegateHandle = AbilitySystemComponent->RegisterGameplayAttributeEvent(Attribute).AddUObject(this, &UAbilityTask_WaitAttributeChange::OnAttributeChange);
 	}
@@ -104,7 +104,7 @@ void UAbilityTask_WaitAttributeChange::OnAttributeChange(float NewValue, const F
 
 void UAbilityTask_WaitAttributeChange::OnDestroy(bool AbilityEnded)
 {
-	if (AbilitySystemComponent.IsValid())
+	if (AbilitySystemComponent)
 	{
 		AbilitySystemComponent->RegisterGameplayAttributeEvent(Attribute).Remove(OnAttributeChangeDelegateHandle);
 	}

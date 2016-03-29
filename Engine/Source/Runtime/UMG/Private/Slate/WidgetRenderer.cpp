@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 #include "WidgetRenderer.h"
@@ -24,7 +24,10 @@ FWidgetRenderer::FWidgetRenderer(bool bUseGammaCorrection)
 	, bUseGammaSpace(bUseGammaCorrection)
 {
 #if !UE_SERVER
-	Renderer = FModuleManager::Get().LoadModuleChecked<ISlateRHIRendererModule>("SlateRHIRenderer").CreateSlate3DRenderer(bUseGammaSpace);
+	if (!IsRunningDedicatedServer())
+	{
+		Renderer = FModuleManager::Get().LoadModuleChecked<ISlateRHIRendererModule>("SlateRHIRenderer").CreateSlate3DRenderer(bUseGammaSpace);
+	}
 #endif
 }
 
@@ -39,21 +42,36 @@ ISlate3DRenderer* FWidgetRenderer::GetSlateRenderer()
 
 UTextureRenderTarget2D* FWidgetRenderer::DrawWidget(const TSharedRef<SWidget>& Widget, FVector2D DrawSize)
 {
-	UTextureRenderTarget2D* RenderTarget = FWidgetRenderer::CreateTargetFor(DrawSize, TF_Bilinear, bUseGammaSpace);
+	if ( !IsRunningDedicatedServer() )
+	{
+		UTextureRenderTarget2D* RenderTarget = FWidgetRenderer::CreateTargetFor(DrawSize, TF_Bilinear, bUseGammaSpace);
 
-	DrawWidget(RenderTarget, Widget, DrawSize, 0);
+		DrawWidget(RenderTarget, Widget, DrawSize, 0);
 
-	return RenderTarget;
+		return RenderTarget;
+	}
+
+	return nullptr;
 }
 
 UTextureRenderTarget2D* FWidgetRenderer::CreateTargetFor(FVector2D DrawSize, TextureFilter InFilter, bool bUseGammaCorrection)
 {
-	UTextureRenderTarget2D* RenderTarget = NewObject<UTextureRenderTarget2D>();
-	RenderTarget->Filter = InFilter;
-	RenderTarget->ClearColor = FLinearColor::Transparent;
-	const bool bIsLinearSpace = !bUseGammaCorrection;
-	RenderTarget->InitCustomFormat(DrawSize.X, DrawSize.Y, PF_B8G8R8A8, bIsLinearSpace);
-	return RenderTarget;
+	if ( !IsRunningDedicatedServer() )
+	{
+		const bool bIsLinearSpace = !bUseGammaCorrection;
+
+		UTextureRenderTarget2D* RenderTarget = NewObject<UTextureRenderTarget2D>();
+		RenderTarget->Filter = InFilter;
+		RenderTarget->ClearColor = FLinearColor::Transparent;
+		RenderTarget->SRGB = bIsLinearSpace;
+		RenderTarget->TargetGamma = 1;
+		RenderTarget->InitCustomFormat(DrawSize.X, DrawSize.Y, PF_B8G8R8A8, bIsLinearSpace);
+		RenderTarget->UpdateResourceImmediate(true);
+
+		return RenderTarget;
+	}
+
+	return nullptr;
 }
 
 void FWidgetRenderer::DrawWidget(UTextureRenderTarget2D* RenderTarget, const TSharedRef<SWidget>& Widget, FVector2D DrawSize, float DeltaTime)
@@ -75,53 +93,87 @@ void FWidgetRenderer::DrawWindow(
 	FVector2D DrawSize,
 	float DeltaTime)
 {
+	FGeometry WindowGeometry = FGeometry::MakeRoot(DrawSize * ( 1 / Scale ), FSlateLayoutTransform(Scale));
+
+	DrawWindow(
+		RenderTarget,
+		HitTestGrid,
+		Window,
+		WindowGeometry,
+		WindowGeometry.GetClippingRect(),
+		DeltaTime
+		);
+}
+
+void FWidgetRenderer::DrawWindow(
+	UTextureRenderTarget2D* RenderTarget,
+	TSharedRef<FHittestGrid> HitTestGrid,
+	TSharedRef<SWindow> Window,
+	FGeometry WindowGeometry,
+	FSlateRect WindowClipRect,
+	float DeltaTime)
+{
 #if !UE_SERVER
-	FGeometry WindowGeometry = FGeometry::MakeRoot(DrawSize * (1 / Scale), FSlateLayoutTransform(Scale));
-
-	if ( GUsingNullRHI )
+	if (!IsRunningDedicatedServer())
 	{
-		return;
-	}
-	
-	if ( !bFoldTick )
-	{
-		Window->TickWidgetsRecursively(WindowGeometry, FApp::GetCurrentTime(), DeltaTime);
-	}
-
-	if ( bPrepassNeeded )
-	{
-		// Ticking can cause geometry changes.  Recompute
-		Window->SlatePrepass(Scale);
-	}
-
-	// Prepare the test grid 
-	HitTestGrid->ClearGridForNewFrame(WindowGeometry.GetClippingRect());
-
-	// Get the free buffer & add our virtual window
-	FSlateDrawBuffer& DrawBuffer = Renderer->GetDrawBuffer();
-	FSlateWindowElementList& WindowElementList = DrawBuffer.AddWindowElementList(Window);
-
-	int32 MaxLayerId = 0;
-	{
-		// Paint the window
-		MaxLayerId = Window->Paint(
-			FPaintArgs(Window.Get(), HitTestGrid.Get(), FVector2D::ZeroVector, FApp::GetCurrentTime(), DeltaTime),
-			WindowGeometry, WindowGeometry.GetClippingRect(),
-			WindowElementList,
-			0,
-			FWidgetStyle(),
-			Window->IsEnabled());
-	}
-
-	Renderer->DrawWindow_GameThread(DrawBuffer);
-
-	// Enqueue a command to unlock the draw buffer after all windows have been drawn
-	ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(UWidgetComponentRenderToTexture,
-		FSlateDrawBuffer&, InDrawBuffer, DrawBuffer,
-		UTextureRenderTarget2D*, InRenderTarget, RenderTarget,
-		ISlate3DRenderer*, InRenderer, Renderer.Get(),
+		if ( GUsingNullRHI )
 		{
-			InRenderer->DrawWindowToTarget_RenderThread(RHICmdList, InRenderTarget, InDrawBuffer);
-		});
+			return;
+		}
+	
+		if ( !bFoldTick )
+		{
+			Window->TickWidgetsRecursively(WindowGeometry, FApp::GetCurrentTime(), DeltaTime);
+		}
+
+		if ( bPrepassNeeded )
+		{
+			// Ticking can cause geometry changes.  Recompute
+			Window->SlatePrepass(WindowGeometry.Scale);
+		}
+
+		// Prepare the test grid 
+		HitTestGrid->ClearGridForNewFrame(WindowClipRect);
+
+		// Get the free buffer & add our virtual window
+		FSlateDrawBuffer& DrawBuffer = Renderer->GetDrawBuffer();
+		FSlateWindowElementList& WindowElementList = DrawBuffer.AddWindowElementList(Window);
+
+		int32 MaxLayerId = 0;
+		{
+			FPaintArgs PaintArgs(Window.Get(), HitTestGrid.Get(), FVector2D::ZeroVector, FApp::GetCurrentTime(), DeltaTime);
+
+			// Paint the window
+			MaxLayerId = Window->Paint(
+				PaintArgs,
+				WindowGeometry, WindowClipRect,
+				WindowElementList,
+				0,
+				FWidgetStyle(),
+				Window->IsEnabled());
+		}
+
+		Renderer->DrawWindow_GameThread(DrawBuffer);
+
+		struct FRenderThreadContext
+		{
+			FSlateDrawBuffer* DrawBuffer;
+			FTextureRenderTarget2DResource* RenderTargetResource;
+			TSharedPtr<ISlate3DRenderer, ESPMode::ThreadSafe> Renderer;
+		};
+		FRenderThreadContext Context =
+		{
+			&DrawBuffer,
+			static_cast<FTextureRenderTarget2DResource*>(RenderTarget->GameThread_GetRenderTargetResource()),
+			Renderer
+		};
+
+		// Enqueue a command to unlock the draw buffer after all windows have been drawn
+		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(FWidgetRenderer_DrawWindow,
+			FRenderThreadContext, InContext, Context,
+			{
+				InContext.Renderer->DrawWindowToTarget_RenderThread(RHICmdList, InContext.RenderTargetResource, *InContext.DrawBuffer);
+			});
+	}
 #endif // !UE_SERVER
 }

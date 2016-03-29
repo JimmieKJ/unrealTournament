@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "PackageHelperFunctions.h"
@@ -1172,6 +1172,8 @@ bool FChunkManifestGenerator::CheckChunkAssetsAreNotInChild(const FChunkDependen
 
 void FChunkManifestGenerator::AddPackageAndDependenciesToChunk(FChunkPackageSet* ThisPackageSet, FName InPkgName, const FString& InSandboxFile, int32 ChunkID, FSandboxPlatformFile* SandboxPlatformFile)
 {
+	FChunkPackageSet* InitialPackageSetForThisChunk = ChunkManifests.IsValidIndex(ChunkID) ? ChunkManifests[ChunkID] : nullptr;
+
 	//Add this asset
 	ThisPackageSet->Add(InPkgName, InSandboxFile);
 
@@ -1203,14 +1205,22 @@ void FChunkManifestGenerator::AddPackageAndDependenciesToChunk(FChunkPackageSet*
 				FString DependentSandboxFile = SandboxPlatformFile->ConvertToAbsolutePathForExternalAppForWrite(*FPackageName::LongPackageNameToFilename(*FilteredPackageName.ToString()));
 				if (!ThisPackageSet->Contains(FilteredPackageName))
 				{
-					UE_LOG(LogChunkManifestGenerator, Log, TEXT("Adding %s to chunk %i because %s depends on it."), *FilteredPackageName.ToString(), ChunkID, *InPkgName.ToString());
-
-					TArray<FName> VisitedPackages;
-					TArray<FName> DependencyChain;
-					GetPackageDependencyChain(InPkgName, PkgName, VisitedPackages, DependencyChain);					
-					for (const auto& ChainName : DependencyChain)
+					if ((InitialPackageSetForThisChunk != nullptr) && InitialPackageSetForThisChunk->Contains(PkgName))
 					{
-						UE_LOG(LogChunkManifestGenerator, Log, TEXT("\tchain: %s"), *ChainName.ToString());
+						// Don't print anything out; it was pre-assigned to this chunk but we haven't gotten to it yet in the calling loop; we'll go ahead and grab it now
+					}
+					else
+					{
+						// It was not assigned to this chunk and we're forcing it to be dragged in, let the user known
+						UE_LOG(LogChunkManifestGenerator, Log, TEXT("Adding %s to chunk %i because %s depends on it."), *FilteredPackageName.ToString(), ChunkID, *InPkgName.ToString());
+
+						TArray<FName> VisitedPackages;
+						TArray<FName> DependencyChain;
+						GetPackageDependencyChain(InPkgName, PkgName, VisitedPackages, DependencyChain);
+						for (const auto& ChainName : DependencyChain)
+						{
+							UE_LOG(LogChunkManifestGenerator, Log, TEXT("\tchain: %s"), *ChainName.ToString());
+						}
 					}
 				}
 				ThisPackageSet->Add(FilteredPackageName, DependentSandboxFile);

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "PropertyEditorPrivatePCH.h"
@@ -584,7 +584,7 @@ void SDetailsView::PreSetObject()
 
 	ExternalRootPropertyNodes.Empty();
 
-	RootNodePendingKill = RootPropertyNode;
+	RootNodesPendingKill.Add(RootPropertyNode);
 
 	RootPropertyNode = MakeShareable(new FObjectPropertyNode);
 
@@ -676,23 +676,14 @@ UStruct* SDetailsView::GetBaseStruct() const
 	return RootPropertyNode.IsValid() ? RootPropertyNode->GetObjectBaseClass() : NULL;
 }
 
-void SDetailsView::RegisterInstancedCustomPropertyLayout( UClass* Class, FOnGetDetailCustomizationInstance DetailLayoutDelegate )
+void SDetailsView::RegisterInstancedCustomPropertyLayout( UStruct* Class, FOnGetDetailCustomizationInstance DetailLayoutDelegate )
 {
-	check( Class );
-
-	FDetailLayoutCallback Callback;
-	Callback.DetailLayoutDelegate = DetailLayoutDelegate;
-	// @todo: DetailsView: Fix me: this specifies the order in which detail layouts should be queried
-	Callback.Order = InstancedClassToDetailLayoutMap.Num();
-
-	InstancedClassToDetailLayoutMap.Add( Class, Callback );
+	RegisterInstancedCustomPropertyLayoutInternal(Class, DetailLayoutDelegate);
 }
 
-void SDetailsView::UnregisterInstancedCustomPropertyLayout( UClass* Class )
+void SDetailsView::UnregisterInstancedCustomPropertyLayout( UStruct* Class )
 {
-	check( Class );
-
-	InstancedClassToDetailLayoutMap.Remove( Class );
+	UnregisterInstancedCustomPropertyLayoutInternal(Class);
 }
 
 void SDetailsView::AddExternalRootPropertyNode( TSharedRef<FPropertyNode> ExternalRootNode )

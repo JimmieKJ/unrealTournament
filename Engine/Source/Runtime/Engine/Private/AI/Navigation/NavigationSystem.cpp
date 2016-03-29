@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "MessageLog.h"
@@ -96,6 +96,7 @@ DEFINE_STAT(STAT_Navigation_BuildTime);
 DEFINE_STAT(STAT_Navigation_OffsetFromCorners);
 DEFINE_STAT(STAT_Navigation_PathVisibilityOptimisation);
 DEFINE_STAT(STAT_Navigation_ObservedPathsCount);
+DEFINE_STAT(STAT_Navigation_RecastMemory);
 
 //----------------------------------------------------------------------//
 // consts
@@ -315,7 +316,8 @@ UNavigationSystem::UNavigationSystem(const FObjectInitializer& ObjectInitializer
 
 UNavigationSystem::~UNavigationSystem()
 {
-	CleanUp();
+	CleanUp(ECleanupMode::CleanupUnsafe);
+
 #if WITH_EDITOR
 	if (GIsEditor)
 	{
@@ -545,13 +547,12 @@ bool UNavigationSystem::ConditionalPopulateNavOctree()
 }
 
 #if WITH_EDITOR
-void UNavigationSystem::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+void UNavigationSystem::PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent)
 {
-	static const FName NAME_SupportedAgents = GET_MEMBER_NAME_CHECKED(UNavigationSystem, SupportedAgents);
 	static const FName NAME_NavigationDataClass = GET_MEMBER_NAME_CHECKED(FNavDataConfig, NavigationDataClass);
-	static const FName NAME_EnableActiveTiles = GET_MEMBER_NAME_CHECKED(UNavigationSystem, bGenerateNavigationOnlyAroundNavigationInvokers);
+	static const FName NAME_SupportedAgents = GET_MEMBER_NAME_CHECKED(UNavigationSystem, SupportedAgents);
 
-	Super::PostEditChangeProperty(PropertyChangedEvent);
+	Super::PostEditChangeChainProperty(PropertyChangedEvent);
 
 	if (PropertyChangedEvent.Property)
 	{
@@ -566,7 +567,19 @@ void UNavigationSystem::PostEditChangeProperty(FPropertyChangedEvent& PropertyCh
 				SaveConfig();
 			}
 		}
-		else if (PropName == NAME_EnableActiveTiles)
+	}
+}
+
+void UNavigationSystem::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	static const FName NAME_EnableActiveTiles = GET_MEMBER_NAME_CHECKED(UNavigationSystem, bGenerateNavigationOnlyAroundNavigationInvokers);
+
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	if (PropertyChangedEvent.Property)
+	{
+		FName PropName = PropertyChangedEvent.Property->GetFName();
+		if (PropName == NAME_EnableActiveTiles)
 		{
 			if (NavOctree.IsValid())
 			{
@@ -941,11 +954,11 @@ FPathFindingResult UNavigationSystem::FindPathSync(FPathFindingQuery Query, EPat
 	{
 		if (Mode == EPathFindingMode::Regular)
 		{
-			Result = Query.NavData->FindPath(FNavAgentProperties(), Query);
+			Result = Query.NavData->FindPath(Query.NavAgentProperties, Query);
 		}
 		else // EPathFindingMode::Hierarchical
 		{
-			Result = Query.NavData->FindHierarchicalPath(FNavAgentProperties(), Query);
+			Result = Query.NavData->FindHierarchicalPath(Query.NavAgentProperties, Query);
 		}
 	}
 
@@ -966,11 +979,11 @@ bool UNavigationSystem::TestPathSync(FPathFindingQuery Query, EPathFindingMode::
 	{
 		if (Mode == EPathFindingMode::Hierarchical)
 		{
-			bExists = Query.NavData->TestHierarchicalPath(FNavAgentProperties(), Query, NumVisitedNodes);
+			bExists = Query.NavData->TestHierarchicalPath(Query.NavAgentProperties, Query, NumVisitedNodes);
 		}
 		else
 		{
-			bExists = Query.NavData->TestPath(FNavAgentProperties(), Query, NumVisitedNodes);
+			bExists = Query.NavData->TestPath(Query.NavAgentProperties, Query, NumVisitedNodes);
 		}
 	}
 
@@ -1021,6 +1034,15 @@ void UNavigationSystem::AbortAsyncFindPathRequest(uint32 AsynPathQueryID)
 	}
 }
 
+FAutoConsoleTaskPriority CPrio_TriggerAsyncQueries(
+	TEXT("TaskGraph.TaskPriorities.NavTriggerAsyncQueries"),
+	TEXT("Task and thread priority for UNavigationSystem::PerformAsyncQueries."),
+	ENamedThreads::BackgroundThreadPriority, // if we have background priority task threads, then use them...
+	ENamedThreads::NormalTaskPriority, // .. at normal task priority
+	ENamedThreads::NormalTaskPriority // if we don't have background threads, then use normal priority threads at normal task priority instead
+	);
+
+
 void UNavigationSystem::TriggerAsyncQueries(TArray<FAsyncPathFindingQuery>& PathFindingQueries)
 {
 	DECLARE_CYCLE_STAT(TEXT("FSimpleDelegateGraphTask.NavigationSystem batched async queries"),
@@ -1029,7 +1051,7 @@ void UNavigationSystem::TriggerAsyncQueries(TArray<FAsyncPathFindingQuery>& Path
 
 	FSimpleDelegateGraphTask::CreateAndDispatchWhenReady(
 		FSimpleDelegateGraphTask::FDelegate::CreateUObject(this, &UNavigationSystem::PerformAsyncQueries, PathFindingQueries),
-		GET_STATID(STAT_FSimpleDelegateGraphTask_NavigationSystemBatchedAsyncQueries));
+		GET_STATID(STAT_FSimpleDelegateGraphTask_NavigationSystemBatchedAsyncQueries), nullptr, CPrio_TriggerAsyncQueries.Get());
 }
 
 static void AsyncQueryDone(FAsyncPathFindingQuery Query)
@@ -1046,30 +1068,27 @@ void UNavigationSystem::PerformAsyncQueries(TArray<FAsyncPathFindingQuery> PathF
 		return;
 	}
 	
-	const int32 QueriesCount = PathFindingQueries.Num();
-	FAsyncPathFindingQuery* Query = PathFindingQueries.GetData();
-
-	for (int32 QueryIndex = 0; QueryIndex < QueriesCount; ++QueryIndex, ++Query)
+	for (FAsyncPathFindingQuery& Query : PathFindingQueries)
 	{
 		// @todo this is not necessarily the safest way to use UObjects outside of main thread. 
 		//	think about something else.
-		const ANavigationData* NavData = Query->NavData.IsValid() ? Query->NavData.Get() : GetMainNavData(FNavigationSystem::DontCreate);
+		const ANavigationData* NavData = Query.NavData.IsValid() ? Query.NavData.Get() : GetMainNavData(FNavigationSystem::DontCreate);
 
 		// perform query
 		if (NavData)
 		{
-			if (Query->Mode == EPathFindingMode::Hierarchical)
+			if (Query.Mode == EPathFindingMode::Hierarchical)
 			{
-				Query->Result = NavData->FindHierarchicalPath(FNavAgentProperties(), *Query);
+				Query.Result = NavData->FindHierarchicalPath(Query.NavAgentProperties, Query);
 			}
 			else
 			{
-				Query->Result = NavData->FindPath(FNavAgentProperties(), *Query);
+				Query.Result = NavData->FindPath(Query.NavAgentProperties, Query);
 			}
 		}
 		else
 		{
-			Query->Result = ENavigationQueryResult::Error;
+			Query.Result = ENavigationQueryResult::Error;
 		}
 
 		// @todo make it return more informative results (bResult == false)
@@ -1079,7 +1098,7 @@ void UNavigationSystem::PerformAsyncQueries(TArray<FAsyncPathFindingQuery> PathF
 			STATGROUP_TaskGraphTasks);
 
 		FSimpleDelegateGraphTask::CreateAndDispatchWhenReady(
-			FSimpleDelegateGraphTask::FDelegate::CreateStatic(AsyncQueryDone, *Query),
+			FSimpleDelegateGraphTask::FDelegate::CreateStatic(AsyncQueryDone, Query),
 			GET_STATID(STAT_FSimpleDelegateGraphTask_AsyncNavQueryFinished), NULL, ENamedThreads::GameThread);
 	}
 }
@@ -2541,22 +2560,7 @@ void UNavigationSystem::UpdateNavOctreeAfterMove(USceneComponent* Comp)
 	AActor* OwnerActor = Comp->GetOwner();
 	if (OwnerActor && OwnerActor->GetRootComponent() == Comp)
 	{
-		UpdateActorInNavOctree(*OwnerActor);
-
-		TInlineComponentArray<UActorComponent*> Components;
-		OwnerActor->GetComponents(Components);
-
-		for (int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ComponentIndex++)
-		{
-			UActorComponent* const Component = Components[ComponentIndex];
-			// updating only INavRelevantInterfaces here on purpose, all the rest will get updated automatically
-			if (Component && Cast<INavRelevantInterface>(Component))
-			{
-				UpdateComponentInNavOctree(*Component);
-			}
-		}
-
-		UpdateAttachedActorsInNavOctree(*OwnerActor);
+		UpdateActorAndComponentsInNavOctree(*OwnerActor, true);
 	}
 }
 
@@ -3130,9 +3134,18 @@ void UNavigationSystem::SpawnMissingNavigationData()
 			{
 				bool bHandled = false;
 
-				ANavigationData* NavDataCDO = NavConfig.NavigationDataClass->GetDefaultObject<ANavigationData>();
+				const ANavigationData* NavDataCDO = NavConfig.NavigationDataClass->GetDefaultObject<ANavigationData>();
 				if (NavDataCDO == nullptr || !NavDataCDO->CanSpawnOnRebuild())
 				{
+					continue;
+				}
+
+				if (NavWorld->WorldType != EWorldType::Editor && NavDataCDO->GetRuntimeGenerationMode() == ERuntimeGenerationType::Static)
+				{
+					// if we're not in the editor, and specified navigation class is configured 
+					// to be static, then we don't want to create an instance					
+					UE_LOG(LogNavigation, Log, TEXT("Not spawning navigation data for %s since indivated NavigationData type is not configured for dynamic generation")
+						, *NavConfig.Name.ToString());
 					continue;
 				}
 
@@ -3181,6 +3194,13 @@ ANavigationData* UNavigationSystem::CreateNavigationDataInstance(const FNavDataC
 			UObject* ExistingObject = StaticFindObject(/*Class=*/ NULL, Instance->GetOuter(), *StrName, true);
 			if (ExistingObject != NULL)
 			{
+				ANavigationData* ExistingNavigationData = Cast<ANavigationData>(ExistingObject);
+				if (ExistingNavigationData)
+				{
+					UnregisterNavData(ExistingNavigationData);
+					AgentToNavDataMap.Remove(ExistingNavigationData->GetConfig());
+				}
+
 				ExistingObject->Rename(NULL, NULL, REN_DontCreateRedirectors | REN_ForceGlobalUnique | REN_DoNotDirty | REN_NonTransactional);
 			}
 

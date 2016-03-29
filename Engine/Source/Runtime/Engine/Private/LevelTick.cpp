@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LevelTick.cpp: Level timer tick function
@@ -28,6 +28,8 @@
 #include "ParallelFor.h"
 #include "Engine/CoreSettings.h"
 
+#include "InGamePerformanceTracker.h"
+
 // this will log out all of the objects that were ticked in the FDetailedTickStats struct so you can isolate what is expensive
 #define LOG_DETAILED_DUMPSTATS 0
 
@@ -36,7 +38,6 @@
 bool GLogDetailedDumpStats = true; 
 
 /** Game stats */
-
 
 // DECLARE_CYCLE_STAT is the reverse of what will be displayed in the game's stat game
 
@@ -390,11 +391,11 @@ void UWorld::TickNetClient( float DeltaSeconds )
 -----------------------------------------------------------------------------*/
 
 
-bool UWorld::IsPaused()
+bool UWorld::IsPaused() const
 {
 	// pause if specifically set or if we're waiting for the end of the tick to perform streaming level loads (so actors don't fall through the world in the meantime, etc)
-	AWorldSettings* Info = GetWorldSettings();
-	return ( (Info->Pauser != NULL && TimeSeconds >= PauseDelay) ||
+	const AWorldSettings* Info = GetWorldSettings();
+	return ( (Info && Info->Pauser != NULL && TimeSeconds >= PauseDelay) ||
 				(bRequestedBlockOnAsyncLoading && GetNetMode() == NM_Client) ||
 				(GEngine->ShouldCommitPendingMapChange(this)) ||
 				(IsPlayInEditor() && bDebugPauseExecution) );
@@ -709,7 +710,7 @@ static TAutoConsoleVariable<int32> CVarAllowAsyncRenderThreadUpdates(
 
 static TAutoConsoleVariable<int32> CVarAllowAsyncRenderThreadUpdatesDuringGamethreadUpdates(
 	TEXT("AllowAsyncRenderThreadUpdatesDuringGamethreadUpdates"),
-	0,
+	1,
 	TEXT("If > 0 then we do the gamethread updates _while_ doing parallel updates."));
 
 static TAutoConsoleVariable<int32> CVarAllowAsyncRenderThreadUpdatesEditor(
@@ -747,11 +748,12 @@ private:
 
 void UWorld::UpdateActorComponentEndOfFrameUpdateState(UActorComponent* Component) const
 {
-	if (ComponentsThatNeedEndOfFrameUpdate.Contains(Component))
+	TWeakObjectPtr<UActorComponent> WeakComponent(Component);
+	if (ComponentsThatNeedEndOfFrameUpdate.Contains(WeakComponent))
 	{
 		FMarkComponentEndOfFrameUpdateState::Set(Component, EComponentMarkedForEndOfFrameUpdateState::Marked);
 	}
-	else if (ComponentsThatNeedEndOfFrameUpdate_OnGameThread.Contains(Component))
+	else if (ComponentsThatNeedEndOfFrameUpdate_OnGameThread.Contains(WeakComponent))
 	{
 		FMarkComponentEndOfFrameUpdateState::Set(Component, EComponentMarkedForEndOfFrameUpdateState::MarkedForGameThread);
 	}
@@ -766,11 +768,12 @@ void UWorld::MarkActorComponentForNeededEndOfFrameUpdate(UActorComponent* Compon
 	check(!bPostTickComponentUpdate); // can't call this while we are doing the updates
 
 	uint32 CurrentState = Component->GetMarkedForEndOfFrameUpdateState();
+	TWeakObjectPtr<UActorComponent> WeakComponent(Component);
 
 	// force game thread can be turned on later, but we are not concerned about that, those are only cvars and constants; if those are changed during a frame, they won't fully kick in till next frame.
 	if (CurrentState == EComponentMarkedForEndOfFrameUpdateState::Marked && bForceGameThread)
 	{
-		verify(ComponentsThatNeedEndOfFrameUpdate.RemoveSwap(Component) == 1);
+		verify(ComponentsThatNeedEndOfFrameUpdate.Remove(WeakComponent) == 1);
 		CurrentState = EComponentMarkedForEndOfFrameUpdateState::Unmarked;
 	}
 	// it is totally ok if it is currently marked for the gamethread but now they are not forcing game thread. It will run on the game thread this frame.
@@ -786,12 +789,12 @@ void UWorld::MarkActorComponentForNeededEndOfFrameUpdate(UActorComponent* Compon
 
 		if (bForceGameThread)
 		{
-			ComponentsThatNeedEndOfFrameUpdate_OnGameThread.Add(Component);
+			ComponentsThatNeedEndOfFrameUpdate_OnGameThread.Add(WeakComponent);
 			FMarkComponentEndOfFrameUpdateState::Set(Component, EComponentMarkedForEndOfFrameUpdateState::MarkedForGameThread);
 		}
 		else
 		{
-			ComponentsThatNeedEndOfFrameUpdate.Add(Component);
+			ComponentsThatNeedEndOfFrameUpdate.Add(WeakComponent);
 			FMarkComponentEndOfFrameUpdateState::Set(Component, EComponentMarkedForEndOfFrameUpdateState::Marked);
 		}
 	}
@@ -803,14 +806,26 @@ void UWorld::MarkActorComponentForNeededEndOfFrameUpdate(UActorComponent* Compon
 void UWorld::SendAllEndOfFrameUpdates()
 {
 	SCOPE_CYCLE_COUNTER(STAT_PostTickComponentUpdate);
+	if (!ComponentsThatNeedEndOfFrameUpdate_OnGameThread.Num() && !ComponentsThatNeedEndOfFrameUpdate.Num())
+	{
+		return;
+	}
 	// update all dirty components. 
 	TGuardValue<bool> GuardIsFlushedGlobal( bPostTickComponentUpdate, true ); 
 
-	TArray<TWeakObjectPtr<class UActorComponent> >& LocalComponentsThatNeedEndOfFrameUpdate = ComponentsThatNeedEndOfFrameUpdate;
-	TArray<TWeakObjectPtr<class UActorComponent> >& LocalComponentsThatNeedEndOfFrameUpdate_OnGameThread = ComponentsThatNeedEndOfFrameUpdate_OnGameThread;
+	static TArray<TWeakObjectPtr<UActorComponent>> LocalComponentsThatNeedEndOfFrameUpdate; 
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_PostTickComponentUpdate_Gather);
+		check(IsInGameThread() && !LocalComponentsThatNeedEndOfFrameUpdate.Num());
+		LocalComponentsThatNeedEndOfFrameUpdate.Reserve(ComponentsThatNeedEndOfFrameUpdate.Num());
+		for (TWeakObjectPtr<UActorComponent> Elem : ComponentsThatNeedEndOfFrameUpdate)
+		{
+			LocalComponentsThatNeedEndOfFrameUpdate.Add(Elem);
+		}
+	}
 
 	auto ParallelWork = 
-		[&LocalComponentsThatNeedEndOfFrameUpdate](int32 Index)
+		[](int32 Index) 
 		{
 			UActorComponent* NextComponent = LocalComponentsThatNeedEndOfFrameUpdate[Index].Get();
 			if (NextComponent)
@@ -826,37 +841,38 @@ void UWorld::SendAllEndOfFrameUpdates()
 			}
 		};
 	auto GTWork = 
-		[&LocalComponentsThatNeedEndOfFrameUpdate_OnGameThread]()
+		[this]()
 		{
 			QUICK_SCOPE_CYCLE_COUNTER(STAT_PostTickComponentUpdate_ForcedGameThread);
-			for (TArray<TWeakObjectPtr<UActorComponent> >::TIterator It(LocalComponentsThatNeedEndOfFrameUpdate_OnGameThread); It; ++It)
-	{
-		UActorComponent* Component = It->Get();
-		if (Component)
-		{
-					if (Component->IsRegistered() && !Component->IsTemplate())
+			for (TWeakObjectPtr<UActorComponent> Elem : ComponentsThatNeedEndOfFrameUpdate_OnGameThread)
 			{
-				FScopeCycleCounterUObject ComponentScope(Component);
-				FScopeCycleCounterUObject AdditionalScope(STATS ? Component->AdditionalStatObject() : NULL);
-				Component->DoDeferredRenderUpdates_Concurrent();
+				UActorComponent* Component = Elem.Get();
+				if (Component)
+				{
+					if (Component->IsRegistered() && !Component->IsTemplate())
+					{
+						FScopeCycleCounterUObject ComponentScope(Component);
+						FScopeCycleCounterUObject AdditionalScope(STATS ? Component->AdditionalStatObject() : NULL);
+						Component->DoDeferredRenderUpdates_Concurrent();
+					}
+					check(Component->GetMarkedForEndOfFrameUpdateState() == EComponentMarkedForEndOfFrameUpdateState::MarkedForGameThread);
+					FMarkComponentEndOfFrameUpdateState::Set(Component, EComponentMarkedForEndOfFrameUpdateState::Unmarked);
+				}
 			}
-			check(Component->GetMarkedForEndOfFrameUpdateState() == EComponentMarkedForEndOfFrameUpdateState::MarkedForGameThread);
-			FMarkComponentEndOfFrameUpdateState::Set(Component, EComponentMarkedForEndOfFrameUpdateState::Unmarked);
-		}
-	}
-			LocalComponentsThatNeedEndOfFrameUpdate_OnGameThread.Reset();
-		};
+			ComponentsThatNeedEndOfFrameUpdate_OnGameThread.Reset();
+			ComponentsThatNeedEndOfFrameUpdate.Reset();
+	};
 
 	if (CVarAllowAsyncRenderThreadUpdatesDuringGamethreadUpdates.GetValueOnGameThread() > 0)
 	{
-		ParallelForWithPreWork(ComponentsThatNeedEndOfFrameUpdate.Num(), ParallelWork, GTWork);
+		ParallelForWithPreWork(LocalComponentsThatNeedEndOfFrameUpdate.Num(), ParallelWork, GTWork);
 	}
 	else
-					{
+	{
 		GTWork();
-		ParallelFor(ComponentsThatNeedEndOfFrameUpdate.Num(), ParallelWork);
-			}
-		ComponentsThatNeedEndOfFrameUpdate.Reset();
+		ParallelFor(LocalComponentsThatNeedEndOfFrameUpdate.Num(), ParallelWork);
+	}
+	LocalComponentsThatNeedEndOfFrameUpdate.Reset();
 }
 
 
@@ -1042,6 +1058,13 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 
 	FWorldDelegates::OnWorldTickStart.Broadcast(TickType, DeltaSeconds);
 
+	//Tick game and other thread trackers.
+	for (int32 Tracker = 0; Tracker < (int32)EInGamePerfTrackers::Num; ++Tracker)
+	{
+		PerfTrackers->GetInGamePerformanceTracker((EInGamePerfTrackers)Tracker, EInGamePerfTrackerThreads::GameThread).Tick();
+		PerfTrackers->GetInGamePerformanceTracker((EInGamePerfTrackers)Tracker, EInGamePerfTrackerThreads::OtherThread).Tick();
+	}
+
 #if LOG_DETAILED_PATHFINDING_STATS
 	GDetailedPathFindingStats.Reset();
 #endif
@@ -1150,8 +1173,10 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 		&&	!bIsPaused
 		&&	(!NetDriver || !NetDriver->ServerConnection || NetDriver->ServerConnection->State==USOCK_Open);
 
+	FLatentActionManager& CurrentLatentActionManager = GetLatentActionManager();
+
 	// Reset the list of objects the LatentActionManager has processed this frame
-	LatentActionManager.BeginFrame();
+	CurrentLatentActionManager.BeginFrame();
 	// If caller wants time update only, or we are paused, skip the rest.
 	if (bDoingActorTicks)
 	{
@@ -1198,7 +1223,7 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 	if( !bIsPaused )
 	{
 		// This will process any latent actions that have not been processed already
-		LatentActionManager.ProcessLatentActions( NULL, DeltaSeconds );	
+		CurrentLatentActionManager.ProcessLatentActions(NULL, DeltaSeconds);
 	}
 #if 0 // if you need to debug physics drawing in editor, use this. If you type pxvis collision, it will work. 
 	else
@@ -1442,6 +1467,18 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 	{
 		GEngine->HMDDevice->OnEndGameFrame( GEngine->GetWorldContextFromWorldChecked( this ) );
 	}
+
+	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+		TickInGamePerfTrackersRT,
+		UWorld*, WorldParam, this,
+		{
+		//Tick game and other thread trackers.
+		for (int32 Tracker = 0; Tracker < (int32)EInGamePerfTrackers::Num; ++Tracker)
+		{
+			WorldParam->PerfTrackers->GetInGamePerformanceTracker((EInGamePerfTrackers)Tracker, EInGamePerfTrackerThreads::RenderThread).Tick();
+		}
+	}
+	);
 }
 
 /**

@@ -1,21 +1,18 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "AISystem.h"
 #include "Perception/AISense.h"
 #include "AIPerceptionSystem.h"
-#if !UE_BUILD_SHIPPING
-#	include "Debug/DebugDrawService.h"
-#	include "Debug/GameplayDebuggerBaseObject.h"
-#endif
 #include "AIPerceptionComponent.generated.h"
 
 class AAIController;
-struct FVisualLogEntry;
 class UCanvas;
 class UAIPerceptionSystem;
 class UAISenseConfig;
+class FGameplayDebuggerCategory;
+struct FVisualLogEntry;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPerceptionUpdatedDelegate, TArray<AActor*>, UpdatedActors);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FActorPerceptionUpdatedDelegate, AActor*, Actor, FAIStimulus, Stimulus);
@@ -156,6 +153,7 @@ protected:
 	UPROPERTY(Transient)
 	AAIController* AIOwner;
 
+	/** @todo this field is misnamed. It's a whitelist. */
 	FPerceptionChannelWhitelist PerceptionFilter;
 
 private:
@@ -222,6 +220,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category="AI|Perception")
 	void RequestStimuliListenerUpdate();
 
+	/** Allows toggling senses on and off */
+	void UpdatePerceptionWhitelist(const FAISenseID Channel, const bool bNewValue);
+
 	void RegisterStimulus(AActor* Source, const FAIStimulus& Stimulus);
 	void ProcessStimuli();
 	/** Returns true if, as result of stimuli aging, this listener needs an update (like if some stimuli expired) */
@@ -235,9 +236,9 @@ public:
 	bool HasAnyActiveStimulus(const AActor& Source) const;
 	bool HasActiveStimulus(const AActor& Source, FAISenseID Sense) const;
 
-#if !UE_BUILD_SHIPPING
-	void GrabGameplayDebuggerData(TArray<FString>& OnScreenStrings, TArray<FGameplayDebuggerShapeElement>& DebugShapes) const;
-#endif // !UE_BUILD_SHIPPING
+#if WITH_GAMEPLAY_DEBUGGER
+	virtual void DescribeSelfToGameplayDebugger(FGameplayDebuggerCategory* DebuggerCategory) const;
+#endif // WITH_GAMEPLAY_DEBUGGER
 
 #if ENABLE_VISUAL_LOG
 	virtual void DescribeSelfToVisLog(FVisualLogEntry* Snapshot) const;
@@ -267,8 +268,9 @@ public:
 	FActorPerceptionUpdatedDelegate OnTargetPerceptionUpdated;
 
 protected:
-
+	DEPRECATED(4.11, "Function has been renamed and made public. Please use UpdatePerceptionWhitelist instead")
 	void UpdatePerceptionFilter(FAISenseID Channel, bool bNewValue);
+
 	TActorPerceptionContainer& GetPerceptualData() { return PerceptualData; }
 
 	/** called to clean up on owner's end play or destruction */

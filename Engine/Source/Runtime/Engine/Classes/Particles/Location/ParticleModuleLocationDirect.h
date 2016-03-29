@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /**
  *	ParticleModuleLocationDirect
@@ -11,8 +11,8 @@
 #include "Particles/Location/ParticleModuleLocationBase.h"
 #include "ParticleModuleLocationDirect.generated.h"
 
-UCLASS(editinlinenew, hidecategories=Object, MinimalAPI, meta=(DisplayName = "Direct Location"))
-class UParticleModuleLocationDirect : public UParticleModuleLocationBase
+UCLASS(editinlinenew, hidecategories=Object, meta=(DisplayName = "Direct Location"))
+class ENGINE_API UParticleModuleLocationDirect : public UParticleModuleLocationBase
 {
 	GENERATED_UCLASS_BODY()
 
@@ -54,7 +54,7 @@ class UParticleModuleLocationDirect : public UParticleModuleLocationBase
 	//~ Begin UParticleModule Interface
 	virtual void	Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase) override;
 	virtual void	Update(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime) override;
-	virtual uint32	RequiredBytes(FParticleEmitterInstance* Owner = NULL) override;
+	virtual uint32	RequiredBytes(UParticleModuleTypeDataBase* TypeData) override;
 	//~ End UParticleModule Interface
 };
 

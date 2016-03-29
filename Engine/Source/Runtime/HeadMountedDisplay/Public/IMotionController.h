@@ -1,13 +1,14 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+#include "InputCoreTypes.h"
 
-/** Defines the controller hands for tracking.  Could be expanded, as needed, to facilitate non-handheld controllers */
 UENUM(BlueprintType)
-enum class EControllerHand
+enum class ETrackingStatus
 {
-	Left,
-	Right
+	NotTracked,
+	InertialOnly,
+	Tracked
 };
 
 /**
@@ -37,4 +38,11 @@ public:
 	 * @return					True if the device requested is valid and tracked, false otherwise
 	 */
 	virtual bool GetControllerOrientationAndPosition(const int32 ControllerIndex, const EControllerHand DeviceHand, FRotator& OutOrientation, FVector& OutPosition) const = 0;
+
+	/**
+	 * Returns the tracking status (e.g. not tracked, intertial-only, fully tracked) of the specified controller
+	 *
+	 * @return	Tracking status of the specified controller, or ETrackingStatus::NotTracked if the device is not found
+	 */
+	virtual ETrackingStatus GetControllerTrackingStatus(const int32 ControllerIndex, const EControllerHand DeviceHand) const = 0;
 };

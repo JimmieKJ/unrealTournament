@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ParticleModules_Location.cpp: 
@@ -55,7 +55,7 @@ UParticleModuleLocation::UParticleModuleLocation(const FObjectInitializer& Objec
 
 void UParticleModuleLocation::InitializeDefaults()
 {
-	if (!StartLocation.Distribution)
+	if (!StartLocation.IsCreated())
 	{
 		StartLocation.Distribution = NewObject<UDistributionVectorUniform>(this, TEXT("DistributionStartLocation"));
 	}
@@ -102,7 +102,7 @@ void UParticleModuleLocation::SpawnEx(FParticleEmitterInstance* Owner, int32 Off
 		else
 		{
 			FVector Min, Max;
-			StartLocation.Distribution->GetRange(Min, Max);
+			StartLocation.GetRange(Min, Max);
 			FVector Lerped = FMath::Lerp(Min, Max, FMath::TruncToFloat((FMath::SRand() * (DistributeOverNPoints - 1.0f)) + 0.5f)/(DistributeOverNPoints - 1.0f));
 			LocationOffset.Set(Lerped.X, Lerped.Y, Lerped.Z);
 		}
@@ -184,7 +184,7 @@ void UParticleModuleLocation_Seeded::Spawn(FParticleEmitterInstance* Owner, int3
 	SpawnEx(Owner, Offset, SpawnTime, (Payload != NULL) ? &(Payload->RandomStream) : NULL, ParticleBase);
 }
 
-uint32 UParticleModuleLocation_Seeded::RequiredBytesPerInstance(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleLocation_Seeded::RequiredBytesPerInstance()
 {
 	return RandomSeedInfo.GetInstancePayloadSize();
 }
@@ -247,7 +247,7 @@ void UParticleModuleLocationWorldOffset_Seeded::Spawn(FParticleEmitterInstance* 
 	SpawnEx(Owner, Offset, SpawnTime, (Payload != NULL) ? &(Payload->RandomStream) : NULL, ParticleBase);
 }
 
-uint32 UParticleModuleLocationWorldOffset_Seeded::RequiredBytesPerInstance(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleLocationWorldOffset_Seeded::RequiredBytesPerInstance()
 {
 	return RandomSeedInfo.GetInstancePayloadSize();
 }
@@ -278,19 +278,19 @@ UParticleModuleLocationDirect::UParticleModuleLocationDirect(const FObjectInitia
 
 void UParticleModuleLocationDirect::InitializeDefaults()
 {
-	if (!Location.Distribution)
+	if (!Location.IsCreated())
 	{
 		Location.Distribution = NewObject<UDistributionVectorUniform>(this, TEXT("DistributionLocation"));
 	}
 
-	if (!LocationOffset.Distribution)
+	if (!LocationOffset.IsCreated())
 	{
 		UDistributionVectorConstant* DistributionLocationOffset = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionLocationOffset"));
 		DistributionLocationOffset->Constant = FVector(0.0f, 0.0f, 0.0f);
 		LocationOffset.Distribution = DistributionLocationOffset;
 	}
 
-	if (!Direction.Distribution)
+	if (!Direction.IsCreated())
 	{
 		UDistributionVectorConstant* DistributionScaleFactor = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionScaleFactor"));
 		DistributionScaleFactor->Constant = FVector(1.0f, 1.0f, 1.0f);
@@ -341,6 +341,7 @@ void UParticleModuleLocationDirect::Spawn(FParticleEmitterInstance* Owner, int32
 
 void UParticleModuleLocationDirect::Update(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime)
 {
+	const FTransform& OwnerTM = Owner->Component->GetAsyncComponentToWorld();
 	BEGIN_UPDATE_LOOP;
 	{
 		FVector	NewLoc;
@@ -353,7 +354,7 @@ void UParticleModuleLocationDirect::Update(FParticleEmitterInstance* Owner, int3
 		else
 		{
 			FVector Loc			= Location.GetValue(Particle.RelativeTime, Owner->Component);
-			Loc = Owner->Component->ComponentToWorld.TransformPosition(Loc);
+			Loc = OwnerTM.TransformPosition(Loc);
 			NewLoc	= Loc;
 		}
 
@@ -372,7 +373,7 @@ void UParticleModuleLocationDirect::Update(FParticleEmitterInstance* Owner, int3
 	END_UPDATE_LOOP;
 }
 
-uint32 UParticleModuleLocationDirect::RequiredBytes(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleLocationDirect::RequiredBytes(UParticleModuleTypeDataBase* TypeData)
 {
 	return sizeof(FVector);
 }
@@ -521,7 +522,7 @@ void UParticleModuleLocationEmitter::Spawn(FParticleEmitterInstance* Owner, int3
 		}
 } 
 
-uint32 UParticleModuleLocationEmitter::RequiredBytesPerInstance(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleLocationEmitter::RequiredBytesPerInstance()
 {
 	return sizeof(FLocationEmitterInstancePayload);
 }
@@ -646,14 +647,14 @@ UParticleModuleLocationPrimitiveBase::UParticleModuleLocationPrimitiveBase(const
 
 void UParticleModuleLocationPrimitiveBase::InitializeDefaults()
 {
-	if (!VelocityScale.Distribution)
+	if (!VelocityScale.IsCreated())
 	{
 		UDistributionFloatConstant* DistributionVelocityScale = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionVelocityScale"));
 		DistributionVelocityScale->Constant = 1.0f;
 		VelocityScale.Distribution = DistributionVelocityScale;
 	}
 
-	if (!StartLocation.Distribution)
+	if (!StartLocation.IsCreated())
 	{
 		UDistributionVectorConstant* DistributionStartLocation = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionStartLocation"));
 		DistributionStartLocation->Constant = FVector(0.0f, 0.0f, 0.0f);
@@ -762,28 +763,28 @@ UParticleModuleLocationPrimitiveTriangle::UParticleModuleLocationPrimitiveTriang
 
 void UParticleModuleLocationPrimitiveTriangle::InitializeDefaults()
 {
-	if (!StartOffset.Distribution)
+	if (!StartOffset.IsCreated())
 	{
 		UDistributionVectorConstant* DistributionOffset = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionOffset"));
 		DistributionOffset->Constant = FVector::ZeroVector;
 		StartOffset.Distribution = DistributionOffset;
 	}
 
-	if (!Height.Distribution)
+	if (!Height.IsCreated())
 	{
 		UDistributionFloatConstant* DistributionHeight = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionHeight"));
 		DistributionHeight->Constant = 50.0f;
 		Height.Distribution = DistributionHeight;
 	}
 
-	if (!Angle.Distribution)
+	if (!Angle.IsCreated())
 	{
 		UDistributionFloatConstant* DistributionAngle = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionAngle"));
 		DistributionAngle->Constant = 90.0f;
 		Angle.Distribution = DistributionAngle;
 	}
 
-	if (!Thickness.Distribution)
+	if (!Thickness.IsCreated())
 	{
 		UDistributionFloatConstant* DistributionThickness = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionThickness"));
 		DistributionThickness->Constant = 0.0f;
@@ -929,14 +930,14 @@ UParticleModuleLocationPrimitiveCylinder::UParticleModuleLocationPrimitiveCylind
 
 void UParticleModuleLocationPrimitiveCylinder::InitializeDefaults()
 {
-	if (!StartRadius.Distribution)
+	if (!StartRadius.IsCreated())
 	{
 		UDistributionFloatConstant* DistributionStartRadius = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionStartRadius"));
 		DistributionStartRadius->Constant = 50.0f;
 		StartRadius.Distribution = DistributionStartRadius;
 	}
 
-	if (!StartHeight.Distribution)
+	if (!StartHeight.IsCreated())
 	{
 		UDistributionFloatConstant* DistributionStartHeight = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionStartHeight"));
 		DistributionStartHeight->Constant = 50.0f;
@@ -1207,7 +1208,7 @@ void UParticleModuleLocationPrimitiveCylinder_Seeded::Spawn(FParticleEmitterInst
 	SpawnEx(Owner, Offset, SpawnTime, (Payload != NULL) ? &(Payload->RandomStream) : NULL, ParticleBase);
 }
 
-uint32 UParticleModuleLocationPrimitiveCylinder_Seeded::RequiredBytesPerInstance(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleLocationPrimitiveCylinder_Seeded::RequiredBytesPerInstance()
 {
 	return RandomSeedInfo.GetInstancePayloadSize();
 }
@@ -1238,7 +1239,7 @@ UParticleModuleLocationPrimitiveSphere::UParticleModuleLocationPrimitiveSphere(c
 
 void UParticleModuleLocationPrimitiveSphere::InitializeDefaults()
 {
-	if (!StartRadius.Distribution)
+	if (!StartRadius.IsCreated())
 	{
 		UDistributionFloatConstant* DistributionStartRadius = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionStartRadius"));
 		DistributionStartRadius->Constant = 50.0f;
@@ -1421,7 +1422,7 @@ void UParticleModuleLocationPrimitiveSphere_Seeded::Spawn(FParticleEmitterInstan
 	SpawnEx(Owner, Offset, SpawnTime, (Payload != NULL) ? &(Payload->RandomStream) : NULL, ParticleBase);
 }
 
-uint32 UParticleModuleLocationPrimitiveSphere_Seeded::RequiredBytesPerInstance(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleLocationPrimitiveSphere_Seeded::RequiredBytesPerInstance()
 {
 	return RandomSeedInfo.GetInstancePayloadSize();
 }
@@ -1605,6 +1606,8 @@ void UParticleModuleLocationBoneSocket::Update(FParticleEmitterInstance* Owner, 
 	const int32 MeshRotationOffset = Owner->GetMeshRotationOffset();
 	const bool bMeshRotationActive = MeshRotationOffset > 0 && Owner->IsMeshRotationActive();
 	FQuat* SourceRotation = (bMeshRotationActive) ? NULL : &RotationQuat;
+	const FTransform& OwnerTM = Owner->Component->GetAsyncComponentToWorld();
+
 	BEGIN_UPDATE_LOOP;
 	{
 		FModuleLocationBoneSocketParticlePayload* ParticlePayload = (FModuleLocationBoneSocketParticlePayload*)((uint8*)&Particle + Offset);
@@ -1617,7 +1620,7 @@ void UParticleModuleLocationBoneSocket::Update(FParticleEmitterInstance* Owner, 
 				PayloadData->Rotation = RotationQuat.Euler();
 				if (Owner->CurrentLODLevel->RequiredModule->bUseLocalSpace == true)
 				{
-					PayloadData->Rotation = Owner->Component->ComponentToWorld.InverseTransformVectorNoScale(PayloadData->Rotation);
+					PayloadData->Rotation = OwnerTM.InverseTransformVectorNoScale(PayloadData->Rotation);
 				}
 			}
 		}
@@ -1694,12 +1697,12 @@ void UParticleModuleLocationBoneSocket::FinalUpdate(FParticleEmitterInstance* Ow
 	}
 }
 
-uint32 UParticleModuleLocationBoneSocket::RequiredBytes(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleLocationBoneSocket::RequiredBytes(UParticleModuleTypeDataBase* TypeData)
 {
 	return sizeof(FModuleLocationBoneSocketParticlePayload);
 }
 
-uint32 UParticleModuleLocationBoneSocket::RequiredBytesPerInstance(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleLocationBoneSocket::RequiredBytesPerInstance()
 {
     // Memory in addition to the struct size is reserved for the PrevFrameBonePositions and BoneVelocity arrays. 
     // The size of these arrays are fixed to SourceLocations.Num(). FModuleLocationBoneSocketInstancePayload contains
@@ -2247,6 +2250,8 @@ void UParticleModuleLocationSkelVertSurface::Update(FParticleEmitterInstance* Ow
 	FQuat SourceRotation;
 	const int32 MeshRotationOffset = Owner->GetMeshRotationOffset();
 	const bool bMeshRotationActive = MeshRotationOffset > 0 && Owner->IsMeshRotationActive();
+	const FTransform& OwnerTM = Owner->Component->GetAsyncComponentToWorld();
+
 	BEGIN_UPDATE_LOOP;
 	{
 		FModuleLocationVertSurfaceParticlePayload* ParticlePayload = (FModuleLocationVertSurfaceParticlePayload*)((uint8*)&Particle + Offset);
@@ -2270,7 +2275,7 @@ void UParticleModuleLocationSkelVertSurface::Update(FParticleEmitterInstance* Ow
 				FVector Rot = SourceRotation.Euler();
 				if (Owner->CurrentLODLevel->RequiredModule->bUseLocalSpace == true)
 				{
-					Rot = Owner->Component->ComponentToWorld.InverseTransformVectorNoScale(Rot);
+					Rot = OwnerTM.InverseTransformVectorNoScale(Rot);
 				}
 				PayloadData->Rotation = Rot;
 			}
@@ -2384,13 +2389,13 @@ void UParticleModuleLocationSkelVertSurface::UpdateBoneIndicesList(FParticleEmit
 }
 
 
-uint32 UParticleModuleLocationSkelVertSurface::RequiredBytes(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleLocationSkelVertSurface::RequiredBytes(UParticleModuleTypeDataBase* TypeData)
 {
 	return sizeof(FModuleLocationVertSurfaceParticlePayload);
 }
 
 
-uint32 UParticleModuleLocationSkelVertSurface::RequiredBytesPerInstance(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleLocationSkelVertSurface::RequiredBytesPerInstance()
 {
 	// Memory in addition to the struct size is reserved for the ValidAssociatedBoneIndices, PrevFrameBonePositions and BoneVelocity arrays. 
     // The size of these arrays are fixed to ValidAssociatedBones.Num(). Proxys are setup in PrepPerInstanceBlock 

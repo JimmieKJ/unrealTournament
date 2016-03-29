@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 #include "Abilities/Tasks/AbilityTask_WaitCancel.h"
@@ -16,7 +16,7 @@ UAbilityTask_WaitCancel::UAbilityTask_WaitCancel(const FObjectInitializer& Objec
 
 void UAbilityTask_WaitCancel::OnCancelCallback()
 {
-	if (AbilitySystemComponent.IsValid())
+	if (AbilitySystemComponent)
 	{
 		AbilitySystemComponent->ConsumeGenericReplicatedEvent(EAbilityGenericReplicatedEvent::GenericCancel, GetAbilitySpecHandle(), GetActivationPredictionKey());
 		OnCancel.Broadcast();
@@ -26,7 +26,7 @@ void UAbilityTask_WaitCancel::OnCancelCallback()
 
 void UAbilityTask_WaitCancel::OnLocalCancelCallback()
 {
-	if (AbilitySystemComponent.IsValid() && IsPredictingClient())
+	if (AbilitySystemComponent && IsPredictingClient())
 	{
 		AbilitySystemComponent->ServerSetReplicatedEvent(EAbilityGenericReplicatedEvent::GenericCancel, GetAbilitySpecHandle(), GetActivationPredictionKey() ,AbilitySystemComponent->ScopedPredictionKey);
 	}
@@ -40,9 +40,9 @@ UAbilityTask_WaitCancel* UAbilityTask_WaitCancel::WaitCancel(UObject* WorldConte
 
 void UAbilityTask_WaitCancel::Activate()
 {
-	if (AbilitySystemComponent.IsValid())
+	if (AbilitySystemComponent)
 	{
-		const FGameplayAbilityActorInfo* Info = Ability.Get()->GetCurrentActorInfo();
+		const FGameplayAbilityActorInfo* Info = Ability->GetCurrentActorInfo();
 
 		
 		if (Info->IsLocallyControlled())
@@ -65,7 +65,7 @@ void UAbilityTask_WaitCancel::Activate()
 
 void UAbilityTask_WaitCancel::OnDestroy(bool AbilityEnding)
 {
-	if (RegisteredCallbacks && AbilitySystemComponent.IsValid())
+	if (RegisteredCallbacks && AbilitySystemComponent)
 	{
 		AbilitySystemComponent->GenericLocalCancelCallbacks.RemoveDynamic(this, &UAbilityTask_WaitCancel::OnLocalCancelCallback);
 	}

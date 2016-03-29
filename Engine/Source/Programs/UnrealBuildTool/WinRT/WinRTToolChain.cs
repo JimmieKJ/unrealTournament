@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -294,6 +294,12 @@ namespace UnrealBuildTool
 			{
 				// Output debug info for the linked executable.
 				Result += " /DEBUG";
+
+				// Allow partial PDBs for faster linking
+				if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015 && BuildConfiguration.bUseFastPDBLinking)
+				{
+					Result += ":FASTLINK";
+				}
 			}
 
 			// Prompt the user before reporting internal errors to Microsoft.
@@ -486,7 +492,7 @@ namespace UnrealBuildTool
 			// Log.TraceInformation("Compile Arguments for {0}:", ModuleName);
 			// Log.TraceInformation(Arguments);
 
-			var BuildPlatform = UEBuildPlatform.GetBuildPlatformForCPPTargetPlatform(CompileEnvironment.Config.Target.Platform);
+			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatformForCPPTargetPlatform(CompileEnvironment.Config.Target.Platform);
 
 			// Create a compile action for each source file.
 			CPPOutput Result = new CPPOutput();
@@ -523,7 +529,7 @@ namespace UnrealBuildTool
 					string OriginalPCHHeaderDirectory = Path.GetDirectoryName(SourceFile.AbsolutePath);
 					FileArguments += string.Format(" /I \"{0}\"", OriginalPCHHeaderDirectory);
 
-					var PCHExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.WinRT).GetBinaryExtension(UEBuildBinaryType.PrecompiledHeader);
+					string PCHExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.WinRT).GetBinaryExtension(UEBuildBinaryType.PrecompiledHeader);
 
 					// Add the precompiled header file to the produced items list.
 					FileItem PrecompiledHeaderFile = FileItem.GetItemByFileReference(
@@ -580,7 +586,7 @@ namespace UnrealBuildTool
 					CompileAction.StatusDescription = Path.GetFileName(SourceFile.AbsolutePath);
 				}
 
-				var ObjectFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.WinRT).GetBinaryExtension(UEBuildBinaryType.Object);
+				string ObjectFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.WinRT).GetBinaryExtension(UEBuildBinaryType.Object);
 
 				// Add the object file to the produced item list.
 				FileItem ObjectFile = FileItem.GetItemByFileReference(
@@ -881,10 +887,10 @@ namespace UnrealBuildTool
 				else
 				{
 					// Grab path to Visual Studio binaries from the system environment
-					string BaseVSToolPath = WindowsPlatform.GetVSComnToolsPath(WindowsCompiler.VisualStudio2012);
+					string BaseVSToolPath = WindowsPlatform.GetVSComnToolsPath(WindowsCompiler.VisualStudio2015);
 					if (string.IsNullOrEmpty(BaseVSToolPath))
 					{
-						throw new BuildException("Visual Studio 2012 must be installed in order to build this target.");
+						throw new BuildException("Visual Studio 2015 must be installed in order to build this target.");
 					}
 
 					if (Platform == CPPTargetPlatform.WinRT_ARM)
@@ -940,13 +946,13 @@ namespace UnrealBuildTool
 				string VCVarsBatchFile = "";
 
 				// Grab path to Visual Studio binaries from the system environment
-				string BaseVSToolPath = WindowsPlatform.GetVSComnToolsPath(WindowsCompiler.VisualStudio2012);
+				string BaseVSToolPath = WindowsPlatform.GetVSComnToolsPath(WindowsCompiler.VisualStudio2015);
 				if (string.IsNullOrEmpty(BaseVSToolPath))
 				{
-					BaseVSToolPath = "C:/Program Files (x86)/Microsoft Visual Studio 11.0/Common7/Tools/";
-					if (Directory.Exists("C:/Program Files (x86)/Microsoft Visual Studio 11.0/Common7/Tools/") == false)
+					BaseVSToolPath = "C:/Program Files (x86)/Microsoft Visual Studio 14.0/Common7/Tools/";
+					if (Directory.Exists("C:/Program Files (x86)/Microsoft Visual Studio 14.0/Common7/Tools/") == false)
 					{
-						throw new BuildException("Visual Studio 2012 must be installed in order to build this target.");
+						throw new BuildException("Visual Studio 2015 must be installed in order to build this target.");
 					}
 				}
 

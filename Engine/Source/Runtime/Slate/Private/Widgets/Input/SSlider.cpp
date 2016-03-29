@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlatePrivatePCH.h"
 
@@ -11,13 +11,18 @@ void SSlider::Construct( const SSlider::FArguments& InDeclaration )
 	IndentHandle = InDeclaration._IndentHandle;
 	LockedAttribute = InDeclaration._Locked;
 	Orientation = InDeclaration._Orientation;
+	StepSize = InDeclaration._StepSize;
 	ValueAttribute = InDeclaration._Value;
 	SliderBarColor = InDeclaration._SliderBarColor;
 	SliderHandleColor = InDeclaration._SliderHandleColor;
+	bIsFocusable = InDeclaration._IsFocusable;
 	OnMouseCaptureBegin = InDeclaration._OnMouseCaptureBegin;
 	OnMouseCaptureEnd = InDeclaration._OnMouseCaptureEnd;
-
+	OnControllerCaptureBegin = InDeclaration._OnControllerCaptureBegin;
+	OnControllerCaptureEnd = InDeclaration._OnControllerCaptureEnd;
 	OnValueChanged = InDeclaration._OnValueChanged;
+
+	bControllerInputCaptured = false;
 }
 
 int32 SSlider::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
@@ -39,7 +44,7 @@ int32 SSlider::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometr
 	const float SliderLength = AllottedWidth - Indentation;
 	const float SliderHandleOffset = ValueAttribute.Get() * SliderLength;
 	const float SliderY = 0.5f * AllottedHeight;
-
+	
 	HandleRotation = 0.0f;
 	HandleTopLeftPoint = FVector2D(SliderHandleOffset - HalfHandleSize.X + 0.5f * Indentation, SliderY - HalfHandleSize.Y);
 
@@ -120,13 +125,123 @@ FVector2D SSlider::ComputeDesiredSize( float ) const
 	return FVector2D(SSliderDesiredSize.X, Style->NormalThumbImage.ImageSize.Y);
 }
 
+
+bool SSlider::IsLocked() const
+{
+	return LockedAttribute.Get();
+}
+
+bool SSlider::IsInteractable() const
+{
+	return IsEnabled() && !IsLocked() && SupportsKeyboardFocus();
+}
+
+bool SSlider::SupportsKeyboardFocus() const
+{
+	return bIsFocusable;
+}
+
+void SSlider::ResetControllerState()
+{
+	if (bControllerInputCaptured)
+	{
+		OnControllerCaptureEnd.ExecuteIfBound();
+		bControllerInputCaptured = false;
+	}
+}
+
+FReply SSlider::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
+{
+	FReply Reply = FReply::Unhandled();
+	const FKey KeyPressed = InKeyEvent.GetKey();
+
+	if (IsInteractable())
+	{
+
+		// The controller's bottom face button must be pressed once to begin manipulating the slider's value.
+		// Navigation away from the widget is prevented until the button has been pressed again or focus is lost.
+		// The value can be manipulated by using the game pad's directional arrows ( relative to slider orientation ).
+		if (KeyPressed == EKeys::Enter || KeyPressed == EKeys::SpaceBar || KeyPressed == EKeys::Gamepad_FaceButton_Bottom)
+		{
+
+			if (bControllerInputCaptured == false)
+			{
+				// Begin capturing controller input and allow user to modify the slider's value.
+				bControllerInputCaptured = true;
+				OnControllerCaptureBegin.ExecuteIfBound();
+				Reply = FReply::Handled();
+			}
+			else
+			{
+				ResetControllerState();
+				Reply = FReply::Handled();
+			}
+		}
+
+		if (bControllerInputCaptured)
+		{
+			float NewValue = ValueAttribute.Get();
+			if (Orientation == EOrientation::Orient_Horizontal)
+			{
+				if (KeyPressed == EKeys::Left || KeyPressed == EKeys::Gamepad_DPad_Left)
+				{
+					NewValue -= StepSize.Get();
+				}
+				else if (KeyPressed == EKeys::Right || KeyPressed == EKeys::Gamepad_DPad_Right)
+				{
+					NewValue += StepSize.Get();
+				}
+			}
+			else
+			{
+				if (KeyPressed == EKeys::Down || KeyPressed == EKeys::Gamepad_DPad_Down)
+				{
+					NewValue -= StepSize.Get();
+				}
+				else if (KeyPressed == EKeys::Up || KeyPressed == EKeys::Gamepad_DPad_Up)
+				{
+					NewValue += StepSize.Get();
+				}
+			}
+
+			CommitValue(FMath::Clamp(NewValue, 0.0f, 1.0f));
+			Reply = FReply::Handled();
+		}
+	}
+
+	return Reply;
+}
+
+FReply SSlider::OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
+{
+	FReply Reply = FReply::Unhandled();
+	if (bControllerInputCaptured)
+	{
+		Reply = FReply::Handled();
+	}
+	return Reply;
+}
+
+void SSlider::OnFocusLost(const FFocusEvent& InFocusEvent)
+{
+	if (bControllerInputCaptured)
+	{
+		// Commit and reset state
+		CommitValue(ValueAttribute.Get());
+		ResetControllerState();
+	}
+}
+
 FReply SSlider::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-	if ((MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton) && !LockedAttribute.Get())
+	if ((MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton) && !IsLocked())
 	{
 		OnMouseCaptureBegin.ExecuteIfBound();
 		CommitValue(PositionToValue(MyGeometry, MouseEvent.GetLastScreenSpacePosition()));
-
+		
+		// Release capture for controller/keyboard when switching to mouse.
+		ResetControllerState();
+		
 		return FReply::Handled().CaptureMouse(SharedThis(this));
 	}
 
@@ -139,7 +254,10 @@ FReply SSlider::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEven
 	{
 		SetCursor(EMouseCursor::Default);
 		OnMouseCaptureEnd.ExecuteIfBound();
-
+		
+		// Release capture for controller/keyboard when switching to mouse.
+		ResetControllerState();
+		
 		return FReply::Handled().ReleaseMouseCapture();	
 	}
 
@@ -148,10 +266,13 @@ FReply SSlider::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEven
 
 FReply SSlider::OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-	if (this->HasMouseCapture() && !LockedAttribute.Get())
+	if (this->HasMouseCapture() && !IsLocked())
 	{
 		SetCursor((Orientation == Orient_Horizontal) ? EMouseCursor::ResizeLeftRight : EMouseCursor::ResizeUpDown);
 		CommitValue(PositionToValue(MyGeometry, MouseEvent.GetLastScreenSpacePosition()));
+		
+		// Release capture for controller/keyboard when switching to mouse
+		ResetControllerState();
 
 		return FReply::Handled();
 	}
@@ -221,4 +342,9 @@ void SSlider::SetSliderBarColor(FSlateColor InSliderBarColor)
 void SSlider::SetSliderHandleColor(FSlateColor InSliderHandleColor)
 {
 	SliderHandleColor = InSliderHandleColor;
+}
+
+void SSlider::SetStepSize(const TAttribute<float>& InStepSize)
+{
+	StepSize = InStepSize;
 }

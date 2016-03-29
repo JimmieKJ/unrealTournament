@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -117,6 +117,7 @@ private:
 	void RemoveMissingPlayerLayers(const TArray<ULocalPlayer*>& GamePlayers);
 	void RemovePlayerWidgets(ULocalPlayer* LocalPlayer);
 	void AddOrUpdatePlayerLayers(const FGeometry& AllottedGeometry, UGameViewportClient* ViewportClient, const TArray<ULocalPlayer*>& GamePlayers);
+	FVector2D GetAspectRatioInset(ULocalPlayer* LocalPlayer) const;
 
 private:
 	FGeometry CachedGeometry;

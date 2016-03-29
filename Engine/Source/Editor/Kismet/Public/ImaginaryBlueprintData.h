@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "TextFilterExpressionEvaluator.h"
@@ -61,7 +61,7 @@ public:
 	bool IsCoreDisplay() const { return (SearchableValueStatus & ESearchableValueStatus::CoreDisplayItem) == ESearchableValueStatus::CoreDisplayItem; }
 
 	/** Returns TRUE if the item should only be searchable if explicitly searched for using the tag */
-	bool IsExplicitSearchable() { return (SearchableValueStatus & ESearchableValueStatus::ExplicitySearchable) == ESearchableValueStatus::ExplicitySearchable; }
+	bool IsExplicitSearchable() const { return (SearchableValueStatus & ESearchableValueStatus::ExplicitySearchable) == ESearchableValueStatus::ExplicitySearchable; }
 
 	/** Returns the display text to use for this item */
 	FText GetDisplayText(const TMap<int32, FText>& InLookupTable) const;
@@ -157,7 +157,7 @@ public:
 	/** Adds a KeyValue pair to the ParsedTagAndValues map */
 	void AddKeyValuePair(FText InKey, FSearchableValueInfo& InValue)
 	{
-		ParsedTagsAndValues.Add(InKey.ToString(), InValue);
+		ParsedTagsAndValues.Add(FindInBlueprintsHelpers::FSimpleFTextKeyStorage(InKey), InValue);
 	}
 
 	/** Returns the Outer of this Imaginary data that directly owns it */
@@ -177,7 +177,7 @@ protected:
 	 * @param InJsonValue	JsonValue to be specially parsed
 	 * @return				TRUE if the JsonValue was specially handled, will not be further handled
 	 */
-	virtual bool TrySpecialHandleJsonValue(FString InKey, TSharedPtr< FJsonValue > InJsonValue) { return false; }
+	virtual bool TrySpecialHandleJsonValue(FText InKey, TSharedPtr< FJsonValue > InJsonValue) { return false; }
 
 	/** Returns the searchability status of a passed in Key, all Keys are searchable by default */
 	virtual ESearchableValueStatus GetSearchabilityStatus(FString InKey) { return ESearchableValueStatus::Searchable; };
@@ -202,7 +202,7 @@ protected:
 	TArray< TSharedPtr<FImaginaryFiBData> > ParsedChildData;
 
 	/** A mapping of tags to their values and searchability status */
-	TMultiMap< FString, FSearchableValueInfo > ParsedTagsAndValues;
+	TMultiMap< FindInBlueprintsHelpers::FSimpleFTextKeyStorage, FSearchableValueInfo > ParsedTagsAndValues;
 
 	/** Pointer to the lookup table to decompressed the Json strings back into fully formed FTexts */
 	TMap<int32, FText>* LookupTablePtr;
@@ -220,7 +220,7 @@ public:
 	FFiBMetaData(TWeakPtr<FImaginaryFiBData> InOuter, TSharedPtr< FJsonObject > InUnparsedJsonObject, TMap<int32, FText>* InLookupTablePtr);
 	
 	/** FImaginaryFiBData Interface */
-	virtual bool TrySpecialHandleJsonValue(FString InKey, TSharedPtr< FJsonValue > InJsonValue) override;
+	virtual bool TrySpecialHandleJsonValue(FText InKey, TSharedPtr< FJsonValue > InJsonValue) override;
 	virtual FSearchResult CreateSearchResult_Internal(FSearchResult InParent) const override
 	{
 		return nullptr;
@@ -301,7 +301,7 @@ public:
 
 protected:
 	/** FImaginaryFiBData Interface */
-	virtual bool TrySpecialHandleJsonValue(FString InKey, TSharedPtr< FJsonValue > InJsonValue) override;
+	virtual bool TrySpecialHandleJsonValue(FText InKey, TSharedPtr< FJsonValue > InJsonValue) override;
 	virtual FSearchResult CreateSearchResult_Internal(FSearchResult InParent) const override;
 	/** End FImaginaryFiBData Interface */
 
@@ -338,7 +338,7 @@ public:
 
 protected:
 	/** FImaginaryFiBData Interface */
-	virtual bool TrySpecialHandleJsonValue(FString InKey, TSharedPtr< FJsonValue > InJsonValue) override;
+	virtual bool TrySpecialHandleJsonValue(FText InKey, TSharedPtr< FJsonValue > InJsonValue) override;
 	virtual ESearchableValueStatus GetSearchabilityStatus(FString InKey) override;
 	virtual FSearchResult CreateSearchResult_Internal(FSearchResult InParent) const override;
 	/** End FImaginaryFiBData Interface */
@@ -362,7 +362,7 @@ public:
 
 protected:
 	/** FImaginaryFiBData Interface */
-	virtual bool TrySpecialHandleJsonValue(FString InKey, TSharedPtr< FJsonValue > InJsonValue) override;
+	virtual bool TrySpecialHandleJsonValue(FText InKey, TSharedPtr< FJsonValue > InJsonValue) override;
 	virtual ESearchableValueStatus GetSearchabilityStatus(FString InKey) override;
 	virtual FSearchResult CreateSearchResult_Internal(FSearchResult InParent) const override;
 	/** End FImaginaryFiBData Interface */
@@ -412,7 +412,7 @@ public:
 
 protected:
 	/** FImaginaryFiBData Interface */
-	virtual bool TrySpecialHandleJsonValue(FString InKey, TSharedPtr< FJsonValue > InJsonValue);
+	virtual bool TrySpecialHandleJsonValue(FText InKey, TSharedPtr< FJsonValue > InJsonValue);
 	virtual ESearchableValueStatus GetSearchabilityStatus(FString InKey) override;
 	virtual FSearchResult CreateSearchResult_Internal(FSearchResult InParent) const override;
 	/** End FImaginaryFiBData Interface */

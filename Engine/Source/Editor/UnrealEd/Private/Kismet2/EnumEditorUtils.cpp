@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "EnumEditorUtils.h"
@@ -400,10 +400,13 @@ void FEnumEditorUtils::EnsureAllDisplayNamesExist(UUserDefinedEnum* Enum)
 	if (Enum)
 	{
 		const int32 EnumeratorsToEnsure = (Enum->NumEnums() > 0) ? (Enum->NumEnums() - 1) : 0;
-		Enum->DisplayNames.Empty(EnumeratorsToEnsure);
+		if (Enum->DisplayNames.Num() != EnumeratorsToEnsure)
+		{
+			Enum->DisplayNames.Empty(EnumeratorsToEnsure);
+		}
 		for	(int32 Index = 0; Index < EnumeratorsToEnsure; Index++)
 		{
-			FText DisplayNameMetaData = Enum->GetEnumText(Index);
+			FText DisplayNameMetaData = Enum->UEnum::GetEnumText(Index);
 			if (DisplayNameMetaData.IsEmpty())
 			{
 				const FString EnumName = Enum->GetEnumName(Index);
@@ -414,7 +417,14 @@ void FEnumEditorUtils::EnsureAllDisplayNamesExist(UUserDefinedEnum* Enum)
 				}
 				Enum->SetMetaData(FEnumEditorUtilsHelper::DisplayName(), *DisplayNameMetaData.ToString(), Index);
 			}
-			Enum->DisplayNames.Add(DisplayNameMetaData);
+			if (!Enum->DisplayNames.IsValidIndex(Index))
+			{
+				Enum->DisplayNames.Add(DisplayNameMetaData);
+			}
+			else if (!Enum->DisplayNames[Index].EqualTo(DisplayNameMetaData))
+			{
+				Enum->DisplayNames[Index] = DisplayNameMetaData;
+			}
 		}
 	}
 }

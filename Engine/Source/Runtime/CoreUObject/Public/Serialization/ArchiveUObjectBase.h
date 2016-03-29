@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*====================================================================================
 	ArchiveUObjectBase.h: Implements the FArchiveUObject class for serializing UObjects

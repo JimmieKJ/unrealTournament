@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "FunctionalTestingPrivatePCH.h"
 //#include "PrimitiveViewRelevance.h"
@@ -94,7 +94,7 @@ FBoxSphereBounds UFuncTestRenderingComponent::CalcBounds(const FTransform& Local
 	const AFunctionalTest* Owner = Cast<AFunctionalTest>(GetOwner());
 	if (Owner)
 	{
-		FBox BoundingBox;
+		FBox BoundingBox(EForceInit::ForceInitToZero);
 
 		TArray<AActor*> RelevantActors;
 		Owner->GatherRelevantActors(RelevantActors);

@@ -1,4 +1,4 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -7,8 +7,9 @@ class UProperty;
 class UObjectProperty;
 
 /*******************************************************************************
- *FPlaceholderContainerTracker
+ * FPlaceholderContainerTracker / FScopedPlaceholderPropertyTracker
  ******************************************************************************/
+
 /** 
  * To track placeholder property values, we need to know the root container 
  * instance that is set with the placeholder value (so we can reset it later). 
@@ -24,6 +25,23 @@ public:
 
 private:
 	UObject* PlaceholderReferencerCandidate;
+};
+
+/** 
+ * Sometimes using FScopedPlaceholderContainerTracker above is not enough; we
+ * could be working with a series of nested structs, where the owning object is 
+ * somewhere up the chain, but the lower properties have no idea who that is. 
+ * This provides us context, so we can navigate backwards and truly determine 
+ * the object a property is writing to.
+ */
+struct FScopedPlaceholderPropertyTracker
+{
+public:
+	 FScopedPlaceholderPropertyTracker(const UStructProperty* IntermediateProperty);
+	~FScopedPlaceholderPropertyTracker();
+
+private:
+	const UStructProperty* IntermediateProperty;
 };
 
 /*******************************************************************************
@@ -117,8 +135,77 @@ private:
 	/** Used to catch references that are added after we've already resolved all references */
 	bool bResolveWasInvoked;
 
+	/** 
+	 * Handily tracks a series of nested properties through an object's class, 
+	 * specifically for scenarios where the leaf property's value is referencing
+	 * a linker-placeholder object. Used so we can later come back and easily  
+	 * resolve (replace) the placeholder value with a legitamate object.
+	 */
+	struct FPlaceholderValuePropertyPath
+	{
+		FPlaceholderValuePropertyPath(const UProperty* ReferencingProperty);
+
+		/** 
+		 * Validates that the internal property path points to a UObjectProperty, 
+		 * and that the whole thing has a class owner. 
+		 */
+		bool IsValid() const;
+
+		/**  
+		 * Returns the outer class that seemingly owns the property path 
+		 * represented by this struct. 
+		 */
+		UClass* GetOwnerClass() const;
+
+		/**
+		 * Replaces the (placeholder) object value at the end of this property
+		 * chain with the specified Replacement object.
+		 * 
+		 * @param  Placeholder	The object value that you're seeking to replace.
+		 * @param  Replacement	The new object value for the property represented by this struct.
+		 * @param  Container    The object instance that you want the value changed for (within).
+		 * @return The number of values successfully replaced (could be multiple for array properties).
+		 */
+		int32 Resolve(FLinkerPlaceholderBase* Placeholder, UObject* Replacement, UObject* Container) const;
+
+	private:
+		/** Denotes the property hierarchy used to reach this leaf property that is referencing a placeholder*/
+		TArray<const UProperty*> PropertyChain;
+
+	public:
+		/** Support comparison functions that make this usable as a KeyValue for a TSet<> */
+		friend uint32 GetTypeHash(const FPlaceholderValuePropertyPath& PlaceholderPropertyRef)
+		{
+			uint32 Hash = 0;
+			for (const UProperty* Propererty : PlaceholderPropertyRef.PropertyChain)
+			{
+				Hash = HashCombine(Hash, GetTypeHash(Propererty));
+			}
+			return Hash;
+		}
+
+		/**  */
+		friend bool operator==(const FPlaceholderValuePropertyPath& Lhs, const FPlaceholderValuePropertyPath& Rhs)
+		{
+			if (Lhs.PropertyChain.Num() == Rhs.PropertyChain.Num())
+			{
+				for (int32 PropIndex = 0; PropIndex < Lhs.PropertyChain.Num(); ++PropIndex)
+				{
+					if (Lhs.PropertyChain[PropIndex] != Rhs.PropertyChain[PropIndex])
+					{
+						return false;
+					}
+				}
+				return true;
+			}
+			return false;
+		};
+	};
+	friend class FLinkerPlaceholderObjectImpl; // for access to FPlaceholderValuePropertyPath
+	typedef TSet<FPlaceholderValuePropertyPath> FReferencingPropertySet;
+
 	/** Tracks container objects that have property values set to reference this placeholder (references that need to be replaced later) */
-	TMap< TWeakObjectPtr<UObject>, TSet<const UObjectProperty*> > ReferencingContainers;
+	TMap< TWeakObjectPtr<UObject>, FReferencingPropertySet > ReferencingContainers;
 };
 
 /*******************************************************************************

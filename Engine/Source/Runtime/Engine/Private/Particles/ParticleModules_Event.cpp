@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ParticleModules_Event.cpp: Particle event-related module implementations.
@@ -52,12 +52,12 @@ void UParticleModuleEventGenerator::Update(FParticleEmitterInstance* Owner, int3
 {
 }
 
-uint32 UParticleModuleEventGenerator::RequiredBytes(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleEventGenerator::RequiredBytes(UParticleModuleTypeDataBase* TypeData)
 {
 	return 0;
 }
 
-uint32 UParticleModuleEventGenerator::RequiredBytesPerInstance(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleEventGenerator::RequiredBytesPerInstance()
 {
 	return sizeof(FParticleEventInstancePayload);
 }
@@ -295,14 +295,14 @@ UParticleModuleEventReceiverSpawn::UParticleModuleEventReceiverSpawn(const FObje
 
 void UParticleModuleEventReceiverSpawn::InitializeDefaults()
 {
-	if (!SpawnCount.Distribution)
+	if (!SpawnCount.IsCreated())
 	{
 		UDistributionFloatConstant* RequiredDistributionSpawnCount = NewObject<UDistributionFloatConstant>(this, TEXT("RequiredDistributionSpawnCount"));
 		RequiredDistributionSpawnCount->Constant = 0.0f;
 		SpawnCount.Distribution = RequiredDistributionSpawnCount;
 	}
 
-	if (!InheritVelocityScale.Distribution)
+	if (!InheritVelocityScale.IsCreated())
 	{
 		UDistributionVectorConstant* RequiredDistributionInheritVelocityScale = NewObject<UDistributionVectorConstant>(this, TEXT("RequiredDistributionInheritVelocityScale"));
 		RequiredDistributionInheritVelocityScale->Constant = FVector(1.0f, 1.0f, 1.0f);

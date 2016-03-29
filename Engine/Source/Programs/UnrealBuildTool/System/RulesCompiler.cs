@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.IO;
@@ -128,67 +128,135 @@ namespace UnrealBuildTool
 	/// </summary>
 	public class ModuleRules
 	{
+		/// <summary>
 		/// Type of module
+		/// </summary>
 		public enum ModuleType
 		{
+			/// <summary>
 			/// C++
+			/// <summary>
 			CPlusPlus,
 
+			/// <summary>
 			/// CLR module (mixed C++ and C++/CLI)
+			/// </summary>
 			CPlusPlusCLR,
 
+			/// <summary>
 			/// External (third-party)
+			/// </summary>
 			External,
 		}
 
+		/// <summary>
 		/// Code optimization settings
+		/// </summary>
 		public enum CodeOptimization
 		{
+			/// <summary>
 			/// Code should never be optimized if possible.
+			/// </summary>
 			Never,
 
+			/// <summary>
 			/// Code should only be optimized in non-debug builds (not in Debug).
+			/// </summary>
 			InNonDebugBuilds,
 
+			/// <summary>
 			/// Code should only be optimized in shipping builds (not in Debug, DebugGame, Development)
+			/// </summary>
 			InShippingBuildsOnly,
 
+			/// <summary>
 			/// Code should always be optimized if possible.
+			/// </summary>
 			Always,
 
+			/// <summary>
 			/// Default: 'InNonDebugBuilds' for game modules, 'Always' otherwise.
+			/// </summary>
 			Default,
 		}
 
-		/// Type of module
-		public ModuleType Type = ModuleType.CPlusPlus;
-
-		/// Subfolder of Binaries/PLATFORM folder to put this module in when building DLLs
-		/// This should only be used by modules that are found via searching like the
-		/// TargetPlatform or ShaderFormat modules. 
-		/// If FindModules is not used to track them down, the modules will not be found.
-		public string BinariesSubFolder = "";
-
-		/// When this module's code should be optimized.
-		public CodeOptimization OptimizeCode = CodeOptimization.Default;
-
-		/// Header file name for a shared PCH provided by this module.  Must be a valid relative path to a public C++ header file.
-		/// This should only be set for header files that are included by a significant number of other C++ modules.
-		public string SharedPCHHeaderFile = String.Empty;
-
+		/// <summary>
+		/// What type of PCH to use for this module.
+		/// </summary>
 		public enum PCHUsageMode
 		{
+			/// <summary>
 			/// Default: Engine modules use shared PCHs, game modules do not
+			/// </summary>
 			Default,
 
+			/// <summary>
 			/// Never use shared PCHs.  Always generate a unique PCH for this module if appropriate
+			/// </summary>
 			NoSharedPCHs,
 
+			/// <summary>
 			/// Shared PCHs are OK!
+			/// </summary>
 			UseSharedPCHs
 		}
 
+		/// <summary>
+		/// Which type of targets this module should be precompiled for
+		/// </summary>
+		public enum PrecompileTargetsType
+		{
+			/// <summary>
+			/// Never precompile this module.
+			/// </summary>
+			None,
+
+			/// <summary>
+			/// Inferred from the module's directory. Engine modules under Engine/Source/Runtime will be compiled for games, those under Engine/Source/Editor will be compiled for the editor, etc...
+			/// </summary>
+			Default,
+
+			/// <summary>
+			/// Any game targets.
+			/// </summary>
+			Game,
+
+			/// <summary>
+			/// Any editor targets.
+			/// </summary>
+			Editor,
+
+			/// <summary>
+			/// Any targets.
+			/// </summary>
+			Any,
+		}
+
+		/// <summary>
+		/// Type of module
+		/// </summary>
+		public ModuleType Type = ModuleType.CPlusPlus;
+
+		/// <summary>
+		/// Subfolder of Binaries/PLATFORM folder to put this module in when building DLLs. This should only be used by modules that are found via searching like the
+		/// TargetPlatform or ShaderFormat modules. If FindModules is not used to track them down, the modules will not be found.
+		/// </summary>
+		public string BinariesSubFolder = "";
+
+		/// <summary>
+		/// When this module's code should be optimized.
+		/// </summary>
+		public CodeOptimization OptimizeCode = CodeOptimization.Default;
+
+		/// <summary>
+		/// Header file name for a shared PCH provided by this module.  Must be a valid relative path to a public C++ header file.
+		/// This should only be set for header files that are included by a significant number of other C++ modules.
+		/// </summary>
+		public string SharedPCHHeaderFile = String.Empty;
+
+		/// <summary>
 		/// Precompiled header usage for this module
+		/// </summary>
 		public PCHUsageMode PCHUsage = PCHUsageMode.Default;
 
 		/// <summary>
@@ -236,6 +304,11 @@ namespace UnrealBuildTool
 		/// Module uses a #import so must be built locally when compiling with SN-DBS
 		/// </summary>
 		public bool bBuildLocallyWithSNDBS = false;
+
+		/// <summary>
+		/// Redistribution override flag for this module.
+		/// </summary>
+		public bool? IsRedistributableOverride = null;
 
 		/// <summary>
 		/// Whether the output from this module can be publicly distributed, even if it has code/
@@ -354,6 +427,16 @@ namespace UnrealBuildTool
 		public List<RuntimeDependency> RuntimeDependencies = new List<RuntimeDependency>();
 
 		/// <summary>
+		/// List of additional properties to be added to the build receipt
+		/// </summary>
+		public List<ReceiptProperty> AdditionalPropertiesForReceipt = new List<ReceiptProperty>();
+
+		/// <summary>
+		/// Which targets this module should be precompiled for
+		/// </summary>
+		public PrecompileTargetsType PrecompileForTargets = PrecompileTargetsType.Default;
+
+		/// <summary>
 		/// Property for the directory containing this module. Useful for adding paths to third party dependencies.
 		/// </summary>
 		public string ModuleDirectory
@@ -365,30 +448,50 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Add the given ThirdParty modules as static private dependencies
+		/// Made Obsolete so that we can more clearly show that this should be used for third party modules within the Engine directory
+		/// </summary>
+		/// <param name="ModuleNames">The names of the modules to add</param>
+		[Obsolete("Use AddEngineThirdPartyPrivateStaticDependencies to add dependencies on ThirdParty modules within the Engine Directory")]
+		public void AddThirdPartyPrivateStaticDependencies(TargetInfo Target, params string[] InModuleNames)
+		{
+			AddEngineThirdPartyPrivateStaticDependencies(Target, InModuleNames);
+		}
+
+		/// <summary>
+		/// Add the given Engine ThirdParty modules as static private dependencies
 		///	Statically linked to this module, meaning they utilize exports from the other module
 		///	Private, meaning the include paths for the included modules will not be exposed when giving this modules include paths
 		///	NOTE: There is no AddThirdPartyPublicStaticDependencies function.
 		/// </summary>
 		/// <param name="ModuleNames">The names of the modules to add</param>
-		public void AddThirdPartyPrivateStaticDependencies(TargetInfo Target, params string[] InModuleNames)
+		public void AddEngineThirdPartyPrivateStaticDependencies(TargetInfo Target, params string[] InModuleNames)
 		{
-			if (UnrealBuildTool.RunningRocket() == false || Target.Type == TargetRules.TargetType.Game)
+			if (!UnrealBuildTool.IsEngineInstalled() || Target.IsMonolithic)
 			{
 				PrivateDependencyModuleNames.AddRange(InModuleNames);
 			}
 		}
 
 		/// <summary>
-		/// Add the given ThirdParty modules as dynamic private dependencies
+		/// Made Obsolete so that we can more clearly show that this should be used for third party modules within the Engine directory
+		/// </summary>
+		/// <param name="ModuleNames">The names of the modules to add</param>
+		[Obsolete("Use AddEngineThirdPartyPrivateDynamicDependencies to add dependencies on ThirdParty modules within the Engine Directory")]
+		public void AddThirdPartyPrivateDynamicDependencies(TargetInfo Target, params string[] InModuleNames)
+		{
+			AddEngineThirdPartyPrivateDynamicDependencies(Target, InModuleNames);
+		}
+
+		/// <summary>
+		/// Add the given Engine ThirdParty modules as dynamic private dependencies
 		///	Dynamically linked to this module, meaning they do not utilize exports from the other module
 		///	Private, meaning the include paths for the included modules will not be exposed when giving this modules include paths
 		///	NOTE: There is no AddThirdPartyPublicDynamicDependencies function.
 		/// </summary>
 		/// <param name="ModuleNames">The names of the modules to add</param>
-		public void AddThirdPartyPrivateDynamicDependencies(TargetInfo Target, params string[] InModuleNames)
+		public void AddEngineThirdPartyPrivateDynamicDependencies(TargetInfo Target, params string[] InModuleNames)
 		{
-			if (UnrealBuildTool.RunningRocket() == false || Target.Type == TargetRules.TargetType.Game)
+			if (!UnrealBuildTool.IsEngineInstalled() || Target.IsMonolithic)
 			{
 				PrivateIncludePathModuleNames.AddRange(InModuleNames);
 				DynamicallyLoadedModuleNames.AddRange(InModuleNames);
@@ -402,11 +505,11 @@ namespace UnrealBuildTool
 		{
 			if (UEBuildConfiguration.bCompilePhysX == true)
 			{
-				AddThirdPartyPrivateStaticDependencies(Target, "PhysX");
+				AddEngineThirdPartyPrivateStaticDependencies(Target, "PhysX");
 				Definitions.Add("WITH_PHYSX=1");
 				if (UEBuildConfiguration.bCompileAPEX == true)
 				{
-					AddThirdPartyPrivateStaticDependencies(Target, "APEX");
+					AddEngineThirdPartyPrivateStaticDependencies(Target, "APEX");
 					Definitions.Add("WITH_APEX=1");
 				}
 				else
@@ -442,17 +545,12 @@ namespace UnrealBuildTool
 
 			if (bSupported)
 			{
-				AddThirdPartyPrivateStaticDependencies(Target, "Box2D");
+				AddEngineThirdPartyPrivateStaticDependencies(Target, "Box2D");
 			}
 
 			// Box2D included define (required because pointer types may be in public exported structures)
 			Definitions.Add(string.Format("WITH_BOX2D={0}", bSupported ? 1 : 0));
 		}
-
-		/// <summary>
-		/// Redistribution override flag for this module.
-		/// </summary>
-		public bool? IsRedistributableOverride { get; set; }
 	}
 
 	/// <summary>
@@ -460,23 +558,35 @@ namespace UnrealBuildTool
 	/// </summary>
 	public abstract class TargetRules
 	{
-		/// Type of target
+		/// <summary>
+		/// The type of target
+		/// </summary>
 		[Serializable]
 		public enum TargetType
 		{
+			/// <summary>
 			/// Cooked monolithic game executable (GameName.exe).  Also used for a game-agnostic engine executable (UE4Game.exe or RocketGame.exe)
+			/// </summary>
 			Game,
 
+			/// <summary>
 			/// Uncooked modular editor executable and DLLs (UE4Editor.exe, UE4Editor*.dll, GameName*.dll)
+			/// </summary>
 			Editor,
 
+			/// <summary>
 			/// Cooked monolithic game client executable (GameNameClient.exe, but no server code)
+			/// </summary>
 			Client,
 
+			/// <summary>
 			/// Cooked monolithic game server executable (GameNameServer.exe, but no client code)
+			/// </summary>
 			Server,
 
+			/// <summary>
 			/// Program (standalone program, e.g. ShaderCompileWorker.exe, can be modular or monolithic depending on the program)
+			/// </summary>
 			Program,
 		}
 
@@ -657,6 +767,16 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Give the target an opportunity to override toolchain settings
+		/// </summary>
+		/// <param name="Target">The target currently being setup</param>
+		/// <returns>true if successful, false if not</returns>
+		public virtual bool ConfigureToolchain(TargetInfo Target)
+		{
+			return true;
+		}
+
+		/// <summary>
 		/// Get the supported platforms for this target
 		/// </summary>
 		/// <param name="OutPlatforms">The list of platforms supported</param>
@@ -772,7 +892,7 @@ namespace UnrealBuildTool
 		/// <returns>True if the target should use the shared build environment</returns>
 		public virtual bool ShouldUseSharedBuildEnvironment(TargetInfo Target)
 		{
-			return UnrealBuildTool.RunningRocket() || (Target.Type != TargetType.Program && !Target.IsMonolithic);
+			return UnrealBuildTool.IsEngineInstalled() || (Target.Type != TargetType.Program && !Target.IsMonolithic);
 		}
 
 		/// <summary>
@@ -781,6 +901,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="Target">The target information, such as platform and configuration</param>
 		/// <param name="ModuleNames">List which receives module names to precompile</param>
+		[Obsolete("GetModulesToPrecompile() is deprecated in the 4.11 release. The -precompile option to UBT now automatically compiles all engine modules compatible with the current target.")]
 		public virtual void GetModulesToPrecompile(TargetInfo Target, List<string> ModuleNames)
 		{
 		}
@@ -865,18 +986,20 @@ namespace UnrealBuildTool
 		/// <returns>a list of target platforms for the monolithic</returns>        
 		public virtual List<UnrealTargetPlatform> GUBP_GetPlatforms_MonolithicOnly(UnrealTargetPlatform HostPlatform)
 		{
-			var Result = new List<UnrealTargetPlatform> { HostPlatform };
+			List<UnrealTargetPlatform> Result = new List<UnrealTargetPlatform> { HostPlatform };
 			// hack to set up the templates without adding anything to their .targets.cs files
 			if (!String.IsNullOrEmpty(TargetName) && TargetName.StartsWith("TP_"))
 			{
 				if (HostPlatform == UnrealTargetPlatform.Win64)
 				{
 					Result.Add(UnrealTargetPlatform.IOS);
+					Result.Add(UnrealTargetPlatform.TVOS);
 					Result.Add(UnrealTargetPlatform.Android);
 				}
 				else if (HostPlatform == UnrealTargetPlatform.Mac)
 				{
 					Result.Add(UnrealTargetPlatform.IOS);
+					Result.Add(UnrealTargetPlatform.TVOS);
 				}
 			}
 			return Result;
@@ -887,7 +1010,7 @@ namespace UnrealBuildTool
 		/// <returns>a list of target platforms for the monolithic without cook</returns>        
 		public virtual List<UnrealTargetPlatform> GUBP_GetBuildOnlyPlatforms_MonolithicOnly(UnrealTargetPlatform HostPlatform)
 		{
-			var Result = new List<UnrealTargetPlatform> { };
+			List<UnrealTargetPlatform> Result = new List<UnrealTargetPlatform> { };
 			return Result;
 		}
 		/// <summary>
@@ -958,7 +1081,7 @@ namespace UnrealBuildTool
 		}
 		public virtual GUBPProjectOptions GUBP_IncludeProjectInPromotedBuild_EditorTypeOnly(UnrealTargetPlatform HostPlatform)
 		{
-			var Result = new GUBPProjectOptions();
+			GUBPProjectOptions Result = new GUBPProjectOptions();
 			// hack to set up the templates without adding anything to their .targets.cs files
 			// tweaked to include FP_ folders too - which are temporary
 			if (!String.IsNullOrEmpty(TargetName) && (TargetName.StartsWith("TP_") || TargetName.StartsWith("FP_")))
@@ -999,8 +1122,8 @@ namespace UnrealBuildTool
 		/// </summary>
 		public virtual Dictionary<string, string> GUBP_GetEditorTests_EditorTypeOnly(UnrealTargetPlatform HostPlatform)
 		{
-			var MacOption = HostPlatform == UnrealTargetPlatform.Mac ? " -Mac" : "";
-			var Result = new Dictionary<string, string>();
+			string MacOption = HostPlatform == UnrealTargetPlatform.Mac ? " -Mac" : "";
+			Dictionary<string, string> Result = new Dictionary<string, string>();
 			Result.Add("EditorTest", "BuildCookRun -run -editortest -unattended -nullrhi -NoP4" + MacOption);
 			Result.Add("GameTest", "BuildCookRun -run -unattended -nullrhi -NoP4" + MacOption);
 			Result.Add("EditorAutomationTest", "BuildCookRun -run -editortest -RunAutomationTests -unattended -nullrhi -NoP4" + MacOption);
@@ -1032,7 +1155,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		public virtual Dictionary<string, string> GUBP_GetGameTests_MonolithicOnly(UnrealTargetPlatform HostPlatform, UnrealTargetPlatform AltHostPlatform, UnrealTargetPlatform Platform)
 		{
-			var Result = new Dictionary<string, string>();
+			Dictionary<string, string> Result = new Dictionary<string, string>();
 			if ((Platform == HostPlatform || Platform == AltHostPlatform) && Type == TargetType.Game)  // for now, we will only run these for the dev config of the host platform
 			{
 				Result.Add("CookedGameTest", "BuildCookRun -run -skipcook -stage -pak -deploy -unattended -nullrhi -NoP4 -platform=" + Platform.ToString());
@@ -1045,7 +1168,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		public virtual Dictionary<string, string> GUBP_GetClientServerTests_MonolithicOnly(UnrealTargetPlatform HostPlatform, UnrealTargetPlatform AltHostPlatform, UnrealTargetPlatform ServerPlatform, UnrealTargetPlatform ClientPlatform)
 		{
-			var Result = new Dictionary<string, string>();
+			Dictionary<string, string> Result = new Dictionary<string, string>();
 #if false // needs work
             if ((ServerPlatform == HostPlatform || ServerPlatform == AltHostPlatform) &&
                 (ClientPlatform == HostPlatform || ClientPlatform == AltHostPlatform) && 
@@ -1174,6 +1297,19 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Fills a list with all the module names in this assembly (or its parent)
+		/// </summary>
+		/// <param name="ModuleNames">List to receive the module names</param>
+		public void GetAllModuleNames(List<string> ModuleNames)
+		{
+			if(Parent != null)
+			{
+				Parent.GetAllModuleNames(ModuleNames);
+			}
+			ModuleNames.AddRange(ModuleNameToModuleFile.Keys);
+		}
+
+		/// <summary>
 		/// Tries to get the filename that declared the given type
 		/// </summary>
 		/// <param name="ExistingType"></param>
@@ -1263,7 +1399,7 @@ namespace UnrealBuildTool
 		public ModuleRules CreateModuleRules(string ModuleName, TargetInfo Target, out FileReference ModuleFileName)
 		{
 			// Currently, we expect the user's rules object type name to be the same as the module name
-			var ModuleTypeName = ModuleName;
+			string ModuleTypeName = ModuleName;
 
 			// Make sure the module file is known to us
 			if (!ModuleNameToModuleFile.TryGetValue(ModuleName, out ModuleFileName))
@@ -1283,7 +1419,7 @@ namespace UnrealBuildTool
 			TargetInfo LocalTarget = new TargetInfo(LocalPlatform, LocalConfiguration, Target.Architecture, Target.Type.Value, Target.bIsMonolithic.Value);
 
 			// The build module must define a type named 'Rules' that derives from our 'ModuleRules' type.  
-			var RulesObjectType = CompiledAssembly.GetType(ModuleName);
+			Type RulesObjectType = CompiledAssembly.GetType(ModuleName);
 
 			if (RulesObjectType == null)
 			{
@@ -1309,7 +1445,7 @@ namespace UnrealBuildTool
 			}
 
 			// Update the run-time dependencies path to remove $(PluginDir) and replace with a full path. When the receipt is saved it'll be converted to a $(ProjectDir) or $(EngineDir) equivalent.
-			foreach (var Dependency in RulesObject.RuntimeDependencies)
+			foreach (RuntimeDependency Dependency in RulesObject.RuntimeDependencies)
 			{
 				const string PluginDirVariable = "$(PluginDir)";
 				if (Dependency.Path.StartsWith(PluginDirVariable, StringComparison.InvariantCultureIgnoreCase))
@@ -1352,7 +1488,7 @@ namespace UnrealBuildTool
 			}
 			catch (Exception Ex)
 			{
-				var AssemblyFileName = Path.GetFileNameWithoutExtension(CompiledAssembly.Location);
+				string AssemblyFileName = Path.GetFileNameWithoutExtension(CompiledAssembly.Location);
 				throw new BuildException(Ex,
 					"Unable to instantiate instance of '{0}' object type from compiled assembly '{1}'.  Unreal Build Tool creates an instance of your module's 'Rules' object in order to find out about your module's requirements.  The CLR exception details may provide more information:  {2}",
 					InTargetName, AssemblyFileName, Ex.ToString());
@@ -1386,21 +1522,6 @@ namespace UnrealBuildTool
 		{
 			// Make sure the target file is known to us
 			bool bFoundTargetName = TargetNameToTargetFile.ContainsKey(TargetName);
-			if (bFoundTargetName == false)
-			{
-				if (UnrealBuildTool.RunningRocket())
-				{
-					//@todo Rocket: Remove this when full game support is implemented
-					// If we are Rocket, they will currently only have an editor target.
-					// See if that exists
-					bFoundTargetName = TargetNameToTargetFile.ContainsKey(TargetName + "Editor");
-					if (bFoundTargetName)
-					{
-						TargetName += "Editor";
-					}
-				}
-			}
-
 			if (bFoundTargetName == false)
 			{
 				if (Parent == null)
@@ -1581,23 +1702,6 @@ namespace UnrealBuildTool
 		/// We cache these file names so we can avoid searching for them later on.
 		static Dictionary<DirectoryReference, RulesFileCache> RootFolderToRulesFileCache = new Dictionary<DirectoryReference, RulesFileCache>();
 		
-		// Included for compatibility during //UE4/Main import
-		[Obsolete]
-		public static string GetModuleFilename(string ModuleName)
-		{
-			foreach(RulesFileCache Cache in RootFolderToRulesFileCache.Values)
-			{
-				foreach(FileReference ModuleFile in Cache.ModuleRules)
-				{
-					if(String.Compare(ModuleFile.GetFileNameWithoutAnyExtensions(), ModuleName, StringComparison.InvariantCultureIgnoreCase) == 0)
-					{
-						return ModuleFile.FullName;
-					}
-				}
-			}
-			return null;
-		}
-
 		public static List<FileReference> FindAllRulesSourceFiles(RulesFileType RulesFileType, List<DirectoryReference> GameFolders, List<FileReference> ForeignPlugins, List<DirectoryReference> AdditionalSearchPaths, bool bIncludeEngine = true)
 		{
 			List<DirectoryReference> Folders = new List<DirectoryReference>();
@@ -1655,7 +1759,7 @@ namespace UnrealBuildTool
 			// Process the additional search path, if sent in
 			if (AdditionalSearchPaths != null)
 			{
-				foreach (var AdditionalSearchPath in AdditionalSearchPaths)
+				foreach (DirectoryReference AdditionalSearchPath in AdditionalSearchPaths)
 				{
 					if (AdditionalSearchPath != null)
 					{
@@ -1703,8 +1807,8 @@ namespace UnrealBuildTool
 			{
 				Cache = new RulesFileCache();
 				FindAllRulesFilesRecursively(Directory, Cache);
-				RootFolderToRulesFileCache[Directory] = Cache;
-			}
+					RootFolderToRulesFileCache[Directory] = Cache;
+				}
 
 			// Get the list of files of the type we're looking for
 			if (Type == RulesCompiler.RulesFileType.Module)

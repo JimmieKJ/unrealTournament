@@ -1,9 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 // Module includes
 #include "OnlineSubsystemFacebookPrivatePCH.h"
 #include "OnlineUserFacebook.h"
+
+#import <FBSDKCoreKit/FBSDKCoreKit.h>
 
 // FOnlineUserInfoFacebook
 
@@ -19,7 +21,7 @@ FString FOnlineUserInfoFacebook::GetRealName() const
 	return Result;
 }
 
-FString FOnlineUserInfoFacebook::GetDisplayName() const
+FString FOnlineUserInfoFacebook::GetDisplayName(const FString& Platform) const
 {
 	FString Result;
 	GetAccountData(TEXT("username"), Result);
@@ -208,19 +210,19 @@ bool FOnlineUserFacebook::QueryUserIdMapping(const FUniqueNetId& UserId, const F
 	return false;
 }
 
-bool FOnlineUserFacebook::QueryExternalIdMappings(const FUniqueNetId& LocalUserId, const FString& AuthType, const TArray<FString>& ExternalIds, const FOnQueryExternalIdMappingsComplete& Delegate)
+bool FOnlineUserFacebook::QueryExternalIdMappings(const FUniqueNetId& LocalUserId, const FExternalIdQueryOptions& QueryOptions, const TArray<FString>& ExternalIds, const FOnQueryExternalIdMappingsComplete& Delegate)
 {
-	Delegate.ExecuteIfBound(false, LocalUserId, AuthType, ExternalIds, TEXT("not implemented"));
+	Delegate.ExecuteIfBound(false, LocalUserId, QueryOptions, ExternalIds, TEXT("not implemented"));
 	return false;
 }
 
-void FOnlineUserFacebook::GetExternalIdMappings(const FString& AuthType, const TArray<FString>& ExternalIds, TArray<TSharedPtr<const FUniqueNetId>>& OutIds)
+void FOnlineUserFacebook::GetExternalIdMappings(const FExternalIdQueryOptions& QueryOptions, const TArray<FString>& ExternalIds, TArray<TSharedPtr<const FUniqueNetId>>& OutIds)
 {
 	// Not implemented for PS4 - return an array full of empty values
 	OutIds.SetNum(ExternalIds.Num());
 }
 
-TSharedPtr<const FUniqueNetId> FOnlineUserFacebook::GetExternalIdMapping(const FString& AuthType, const FString& ExternalId)
+TSharedPtr<const FUniqueNetId> FOnlineUserFacebook::GetExternalIdMapping(const FExternalIdQueryOptions& QueryOptions, const FString& ExternalId)
 {
 	return TSharedPtr<FUniqueNetId>();
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -265,7 +265,7 @@ public:
 	* @param InProxyCreatedDelegate - Delegate callback for when the proxy is finished
 	* @param bAllowAsync - Flag whether or not this call could be run async (SimplygonSwarm)
 	*/
-	virtual void CreateProxyMesh(const TArray<class AActor*>& InActors, const struct FMeshProxySettings& InMeshProxySettings, UPackage* InOuter, const FString& InProxyBasePackageName, const FGuid InGuid, FCreateProxyDelegate InProxyCreatedDelegate, const bool bAllowAsync = false) = 0;
+	virtual void CreateProxyMesh(const TArray<class AActor*>& InActors, const struct FMeshProxySettings& InMeshProxySettings, UPackage* InOuter, const FString& InProxyBasePackageName, const FGuid InGuid, FCreateProxyDelegate InProxyCreatedDelegate, const bool bAllowAsync = false, const float ScreenAreaSize = 1.0f) = 0;
 
 	/**
 	*	Merges list of actors into single proxy mesh
@@ -300,7 +300,8 @@ public:
 		const struct FMeshProxySettings& InProxySettings,
 		UPackage* InOuter,
 		const FString& ProxyBasePackageName,
-		TArray<UObject*>& OutAssetsToSync ) = 0;
+		TArray<UObject*>& OutAssetsToSync, 		
+		const float ScreenAreaSize = 1.0f) = 0;
 
 	/**
 	* FlattenMaterialsWithMeshData
@@ -332,7 +333,7 @@ public:
 	* @param RawMesh - Target raw mesh to propagate vertex colours to
 	* @return bool - whether or not propagating succeeded
 	*/
-	virtual bool PropagatePaintedColorsToRawMesh(UStaticMeshComponent* StaticMeshComponent, int32 LODIndex, FRawMesh& RawMesh) const = 0;
+	virtual bool PropagatePaintedColorsToRawMesh(const UStaticMeshComponent* StaticMeshComponent, int32 LODIndex, FRawMesh& RawMesh) const = 0;
 	
 	/**
 	*	Calculates UV coordinates bounds for the given Raw Mesh

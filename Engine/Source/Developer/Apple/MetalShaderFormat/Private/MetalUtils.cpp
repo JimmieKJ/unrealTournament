@@ -1,12 +1,21 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MetalShaderFormat.h"
+
 #include "Core.h"
+
+#include "MetalUtils.h"
+#include "MetalBackend.h"
+
 #include "hlslcc.h"
 #include "hlslcc_private.h"
-#include "MetalBackend.h"
 #include "compiler.h"
+#include "MetalUtils.h"
+
+PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 #include "glsl_parser_extras.h"
+PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
+
 #include "hash_table.h"
 #include "ir_rvalue_visitor.h"
 #include "ast.h"
@@ -14,7 +23,6 @@
 #include "IRDump.h"
 #include "OptValueNumbering.h"
 #include "ir_optimization.h"
-#include "MetalUtils.h"
 
 const bool bExpandVSInputsToFloat4 = false;
 const bool bGenerateVSInputDummies = false;
@@ -281,6 +289,38 @@ namespace MetalUtils
 		{"SV_Target5", glsl_type::float_type, "FragColor5", ir_var_out, "[[ color(5) ]]"},
 		{"SV_Target6", glsl_type::float_type, "FragColor6", ir_var_out, "[[ color(6) ]]"},
 		{"SV_Target7", glsl_type::float_type, "FragColor7", ir_var_out, "[[ color(7) ]]"},
+		{"SV_Target0", glsl_type::uvec4_type, "FragColor0", ir_var_out, "[[ color(0) ]]"},
+		{"SV_Target1", glsl_type::uvec4_type, "FragColor1", ir_var_out, "[[ color(1) ]]"},
+		{"SV_Target2", glsl_type::uvec4_type, "FragColor2", ir_var_out, "[[ color(2) ]]"},
+		{"SV_Target3", glsl_type::uvec4_type, "FragColor3", ir_var_out, "[[ color(3) ]]"},
+		{"SV_Target4", glsl_type::uvec4_type, "FragColor4", ir_var_out, "[[ color(4) ]]"},
+		{"SV_Target5", glsl_type::uvec4_type, "FragColor5", ir_var_out, "[[ color(5) ]]"},
+		{"SV_Target6", glsl_type::uvec4_type, "FragColor6", ir_var_out, "[[ color(6) ]]"},
+		{"SV_Target7", glsl_type::uvec4_type, "FragColor7", ir_var_out, "[[ color(7) ]]"},
+		{"SV_Target0", glsl_type::uvec3_type, "FragColor0", ir_var_out, "[[ color(0) ]]"},
+		{"SV_Target1", glsl_type::uvec3_type, "FragColor1", ir_var_out, "[[ color(1) ]]"},
+		{"SV_Target2", glsl_type::uvec3_type, "FragColor2", ir_var_out, "[[ color(2) ]]"},
+		{"SV_Target3", glsl_type::uvec3_type, "FragColor3", ir_var_out, "[[ color(3) ]]"},
+		{"SV_Target4", glsl_type::uvec3_type, "FragColor4", ir_var_out, "[[ color(4) ]]"},
+		{"SV_Target5", glsl_type::uvec3_type, "FragColor5", ir_var_out, "[[ color(5) ]]"},
+		{"SV_Target6", glsl_type::uvec3_type, "FragColor6", ir_var_out, "[[ color(6) ]]"},
+		{"SV_Target7", glsl_type::uvec3_type, "FragColor7", ir_var_out, "[[ color(7) ]]"},
+		{"SV_Target0", glsl_type::uvec2_type, "FragColor0", ir_var_out, "[[ color(0) ]]"},
+		{"SV_Target1", glsl_type::uvec2_type, "FragColor1", ir_var_out, "[[ color(1) ]]"},
+		{"SV_Target2", glsl_type::uvec2_type, "FragColor2", ir_var_out, "[[ color(2) ]]"},
+		{"SV_Target3", glsl_type::uvec2_type, "FragColor3", ir_var_out, "[[ color(3) ]]"},
+		{"SV_Target4", glsl_type::uvec2_type, "FragColor4", ir_var_out, "[[ color(4) ]]"},
+		{"SV_Target5", glsl_type::uvec2_type, "FragColor5", ir_var_out, "[[ color(5) ]]"},
+		{"SV_Target6", glsl_type::uvec2_type, "FragColor6", ir_var_out, "[[ color(6) ]]"},
+		{"SV_Target7", glsl_type::uvec2_type, "FragColor7", ir_var_out, "[[ color(7) ]]"},
+		{"SV_Target0", glsl_type::uint_type, "FragColor0", ir_var_out, "[[ color(0) ]]"},
+		{"SV_Target1", glsl_type::uint_type, "FragColor1", ir_var_out, "[[ color(1) ]]"},
+		{"SV_Target2", glsl_type::uint_type, "FragColor2", ir_var_out, "[[ color(2) ]]"},
+		{"SV_Target3", glsl_type::uint_type, "FragColor3", ir_var_out, "[[ color(3) ]]"},
+		{"SV_Target4", glsl_type::uint_type, "FragColor4", ir_var_out, "[[ color(4) ]]"},
+		{"SV_Target5", glsl_type::uint_type, "FragColor5", ir_var_out, "[[ color(5) ]]"},
+		{"SV_Target6", glsl_type::uint_type, "FragColor6", ir_var_out, "[[ color(6) ]]"},
+		{"SV_Target7", glsl_type::uint_type, "FragColor7", ir_var_out, "[[ color(7) ]]"},
 		{NULL, NULL, NULL, ir_var_auto, nullptr}
 	};
 
@@ -559,13 +599,27 @@ namespace MetalUtils
 		if (FCStringAnsi::Strnicmp(Semantic, "SV_", 3) == 0)
 		{
 			FSystemValue* SystemValues = bIsDesktop ? DesktopSystemValueTable[Frequency] : MobileSystemValueTable[Frequency];
+			
 			for (int i = 0; SystemValues[i].HlslSemantic != nullptr; ++i)
 			{
-				if (SystemValues[i].Mode == ir_var_out && FCStringAnsi::Stricmp(SystemValues[i].HlslSemantic, Semantic) == 0 && SystemValues[i].Type->vector_elements == Type->vector_elements)
+				if (SystemValues[i].Mode == ir_var_out && FCStringAnsi::Stricmp(SystemValues[i].HlslSemantic, Semantic) == 0 && SystemValues[i].Type == Type)
 				{
 					Variable = new(ParseState) ir_variable(SystemValues[i].Type, SystemValues[i].MetalName, ir_var_out);
 					Variable->semantic = SystemValues[i].MetalSemantic;
 					break;
+				}
+			}
+			
+			if (!Variable)
+			{
+				for (int i = 0; SystemValues[i].HlslSemantic != nullptr; ++i)
+				{
+					if (SystemValues[i].Mode == ir_var_out && FCStringAnsi::Stricmp(SystemValues[i].HlslSemantic, Semantic) == 0 && SystemValues[i].Type->vector_elements == Type->vector_elements)
+					{
+						Variable = new(ParseState) ir_variable(SystemValues[i].Type, SystemValues[i].MetalName, ir_var_out);
+						Variable->semantic = SystemValues[i].MetalSemantic;
+						break;
+					}
 				}
 			}
 		}

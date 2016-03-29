@@ -1,10 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MacGraphicsSwitchingModule.h"
 #include "MacGraphicsSwitchingStyle.h"
 #include "MacGraphicsSwitchingWidget.h"
 #include "DetailLayoutBuilder.h"
-#include <OpenGL/gl3.h>
 
 #define LOCTEXT_NAMESPACE "MacGraphicsSwitchingWidget"
 
@@ -15,58 +14,14 @@ SMacGraphicsSwitchingWidget::SMacGraphicsSwitchingWidget()
 	Renderers.Empty();
 	
 	FString DefaultDesc = FString(TEXT("System Default: ")) + FPlatformMisc::GetPrimaryGPUBrand();
-	Renderers.Add(MakeShareable(new FRendererItem(FText::FromString(DefaultDesc), 0)));
+	Renderers.Add(MakeShareable(new FRendererItem(FText::FromString(DefaultDesc), -1)));
 	
-	NSOpenGLPixelFormatAttribute Attributes[] =
+	TArray<FMacPlatformMisc::FGPUDescriptor> const& GPUs = FPlatformMisc::GetGPUDescriptors();
+	for (FMacPlatformMisc::FGPUDescriptor const& GPU : GPUs)
 	{
-		NSOpenGLPFAOpenGLProfile,
-		NSOpenGLProfileVersion3_2Core,
-		NSOpenGLPFAAccelerated,
-		NSOpenGLPFANoRecovery,
-		NSOpenGLPFAAllowOfflineRenderers,
-		kCGLPFASupportsAutomaticGraphicsSwitching,
-		NSOpenGLPFADoubleBuffer,
-		NSOpenGLPFAColorSize,
-		32,
-		0
-	};
-	
-	NSOpenGLPixelFormat* PixelFormat = [[NSOpenGLPixelFormat alloc] initWithAttributes: Attributes];
-	if (PixelFormat)
-	{
-		NSOpenGLContext* Context = [[NSOpenGLContext alloc] initWithFormat: PixelFormat shareContext: nil];
+		FString RendererDesc = FString::Printf(TEXT("%d: %s"), GPU.GPUIndex, *FString(GPU.GPUName));
 		
-		if (Context)
-		{
-			NSOpenGLContext* PreviousContext = [NSOpenGLContext currentContext];
-			[Context makeCurrentContext];
-			
-			for(uint32 i = 0; i < [PixelFormat numberOfVirtualScreens]; i++)
-			{
-				[Context setCurrentVirtualScreen: i];
-				
-				GLint RendererID = 0;
-				[Context getValues:&RendererID forParameter:NSOpenGLCPCurrentRendererID];
-				
-				FString Gpu(ANSI_TO_TCHAR((const ANSICHAR*)glGetString(GL_RENDERER)));
-				
-				FString RendererDesc = FString::Printf(TEXT("%d: %s"), i, *Gpu);
-				
-				Renderers.Add(MakeShareable(new FRendererItem(FText::FromString(RendererDesc), RendererID)));
-			}
-			
-			if ( PreviousContext )
-			{
-				[PreviousContext makeCurrentContext];
-			}
-			else
-			{
-				[NSOpenGLContext clearCurrentContext];
-			}
-			
-			[Context release];
-		}
-		[PixelFormat release];
+		Renderers.Add(MakeShareable(new FRendererItem(FText::FromString(RendererDesc), GPU.GPUIndex)));
 	}
 }
 
@@ -137,7 +92,7 @@ void SMacGraphicsSwitchingWidget::OnSelectionChanged(TSharedPtr<FRendererItem> I
 	}
 	
 	// Update all the contexts
-	static const auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Mac.ExplicitRendererID"));
+	static const auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("Mac.ExplicitRendererID"));
 	if ( CVar )
 	{
 		CVar->Set( (int32)InItem->RendererID );

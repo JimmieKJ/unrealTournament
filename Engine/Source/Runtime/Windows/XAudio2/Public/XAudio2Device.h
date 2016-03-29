@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	XAudio2Device.h: Unreal XAudio2 audio interface object.
@@ -83,6 +83,8 @@ class FSpatializationHelper;
  */
 class FXAudio2Device : public FAudioDevice
 {
+	virtual void GetAudioDeviceList(TArray<FString>& OutAudioDeviceNames) const override;
+
 	/** Starts up any platform specific hardware/APIs */
 	virtual bool InitializeHardware() override;
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.IO;
@@ -46,8 +46,10 @@ public class SimplygonSwarm : ModuleRules
 			}
         );
 
-		AddThirdPartyPrivateStaticDependencies(Target, "Simplygon");
-		AddThirdPartyPrivateStaticDependencies(Target, "SSF");
-		AddThirdPartyPrivateDynamicDependencies(Target, "PropertyEditor");
+		AddEngineThirdPartyPrivateStaticDependencies(Target, "Simplygon");
+		AddEngineThirdPartyPrivateStaticDependencies(Target, "SSF");
+		AddEngineThirdPartyPrivateDynamicDependencies(Target, "PropertyEditor");
+
+		PrecompileForTargets = PrecompileTargetsType.None;
 	}
 }

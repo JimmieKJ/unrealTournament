@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -116,6 +116,9 @@ public:
 
 	/** Called when the snapshot data we're observing is changed. This allows us to update our view. */
 	void SnapshotDataUpdated();
+
+	/** Called to update the list of selected widgets */
+	void SetSelectedWidgets(const TArray<TSharedRef<FWidgetReflectorNodeBase>>& InSelectedWidgets);
 
 	// SWidget interface
 	virtual FReply OnPreviewKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PrimitiveSceneInfo.h: Primitive scene info definitions.
@@ -217,6 +217,9 @@ public:
 	/** Whether the primitive is newly registered or moved and CachedReflectionCaptureProxy needs to be updated on the next render. */
 	uint32 bNeedsCachedReflectionCaptureUpdate : 1;
 
+	static const uint32 MaxCachedReflectionCaptureProxies = 3;
+	const FReflectionCaptureProxy* CachedReflectionCaptureProxies[MaxCachedReflectionCaptureProxies];
+	
 	/** The hit proxies used by the primitive. */
 	TArray<TRefCountPtr<HHitProxy> > HitProxies;
 
@@ -354,6 +357,11 @@ public:
 	 * the scene!
 	 */
 	inline int32 GetIndex() const { return PackedIndex; }
+	/** 
+	 * Retrieves the address of the primitives index into in the scene's primitives array.
+	 * This address is only for reference purposes
+	 */
+	inline const int32* GetIndexAddress() const { return &PackedIndex; }
 
 	/* @return true if the object needs to be rendered in the velocity pass (is not moving like the world, needed for motionblur and TemporalAA) */
 	bool ShouldRenderVelocity(const FViewInfo& View, bool bCheckVisibility = true) const;

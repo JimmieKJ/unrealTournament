@@ -1,11 +1,16 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneToolsPrivatePCH.h"
 #include "MovieSceneSubSection.h"
 #include "MovieSceneSequence.h"
 #include "MovieSceneSubTrack.h"
+#include "MovieSceneCinematicShotTrack.h"
 #include "SubTrackEditor.h"
-
+#include "ContentBrowserModule.h"
+#include "SequencerUtilities.h"
+#include "SequencerSectionPainter.h"
+#include "ISequenceRecorder.h"
+#include "SequenceRecorderSettings.h"
 
 namespace SubTrackEditorConstants
 {
@@ -41,11 +46,6 @@ public:
 		// do nothing
 	}
 
-	virtual bool ShouldDrawKeyAreaBackground() const override
-	{
-		return false;
-	}
-
 	virtual FText GetDisplayName() const override
 	{
 		return GetSectionTitle();
@@ -63,11 +63,48 @@ public:
 
 	virtual FText GetSectionTitle() const override
 	{
-		return FText::FromString(SectionObject.GetSequence()->GetName());
-	}
+		if(SectionObject.GetSequence())
+		{
+			return FText::FromString(SectionObject.GetSequence()->GetName());
+		}
+		else if(UMovieSceneSubSection::GetRecordingSection() == &SectionObject)
+		{
+			const FString& ActorToRecord = UMovieSceneSubSection::GetActorToRecord();
 
-	virtual int32 OnPaintSection(const FGeometry& AllottedGeometry, const FSlateRect& SectionClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, bool bParentEnabled) const override 
+			ISequenceRecorder& SequenceRecorder = FModuleManager::GetModuleChecked<ISequenceRecorder>("SequenceRecorder");
+			if(SequenceRecorder.IsRecording())
+			{
+				if(ActorToRecord.Len() > 0)
+				{
+					return FText::Format(LOCTEXT("RecordingIndicatorWithActor", "Sequence Recording for \"{0}\""), FText::FromString(UMovieSceneSubSection::GetActorToRecord()));
+				}
+				else
+				{
+					return LOCTEXT("RecordingIndicator", "Sequence Recording");
+				}
+			}
+			else
+			{
+				if(ActorToRecord.Len() > 0)
+				{
+					return FText::Format(LOCTEXT("RecordingPendingIndicatorWithActor", "Sequence Recording Pending for \"{0}\""), FText::FromString(UMovieSceneSubSection::GetActorToRecord()));
+				}
+				else
+				{
+					return LOCTEXT("RecordingPendingIndicator", "Sequence Recording Pending");
+				}
+			}
+		}
+		else
+		{
+			return LOCTEXT("InvalidSequence", "No Sequence Selected");
+		}
+	}
+	
+	virtual int32 OnPaintSection( FSequencerSectionPainter& InPainter ) const override
 	{
+		int32 LayerId = InPainter.PaintSectionBackground();
+
 		const float SectionSize = SectionObject.GetTimeSize();
 
 		if (SectionSize <= 0.0f)
@@ -75,28 +112,39 @@ public:
 			return LayerId;
 		}
 
-		const float DrawScale = AllottedGeometry.Size.X / SectionSize;
-		const ESlateDrawEffect::Type DrawEffects = bParentEnabled
+		const float DrawScale = InPainter.SectionGeometry.Size.X / SectionSize;
+		const ESlateDrawEffect::Type DrawEffects = InPainter.bParentEnabled
 			? ESlateDrawEffect::None
 			: ESlateDrawEffect::DisabledEffect;
 
-		UMovieScene* MovieScene = SectionObject.GetSequence()->GetMovieScene();
-		const FFloatRange& PlaybackRange = MovieScene->GetPlaybackRange();
+		UMovieScene* MovieScene = nullptr;
+		FFloatRange PlaybackRange;
+		if(SectionObject.GetSequence() != nullptr)
+		{
+			MovieScene = SectionObject.GetSequence()->GetMovieScene();
+			PlaybackRange = MovieScene->GetPlaybackRange();
+		}
+		else
+		{
+			UMovieSceneTrack* MovieSceneTrack = CastChecked<UMovieSceneTrack>(SectionObject.GetOuter());
+			MovieScene = CastChecked<UMovieScene>(MovieSceneTrack->GetOuter());
+			PlaybackRange = MovieScene->GetPlaybackRange();
+		}
 
 		// add box for the working size
 		const float StartOffset = SectionObject.TimeScale * SectionObject.StartOffset;
 		const float WorkingStart = -SectionObject.TimeScale * PlaybackRange.GetLowerBoundValue() - StartOffset;
-		const float WorkingSize = SectionObject.TimeScale * MovieScene->GetEditorData().WorkingRange.Size<float>();
+		const float WorkingSize = SectionObject.TimeScale * (MovieScene != nullptr ? MovieScene->GetEditorData().WorkingRange.Size<float>() : 1.0f);
 
 		FSlateDrawElement::MakeBox(
-			OutDrawElements,
+			InPainter.DrawElements,
 			LayerId,
-			AllottedGeometry.ToPaintGeometry(
+			InPainter.SectionGeometry.ToPaintGeometry(
 				FVector2D(WorkingStart * DrawScale, 0.f),
-				FVector2D(WorkingSize * DrawScale, AllottedGeometry.Size.Y)
+				FVector2D(WorkingSize * DrawScale, InPainter.SectionGeometry.Size.Y)
 			),
-			FEditorStyle::GetBrush("Sequencer.GenericSection.Background"),
-			SectionClippingRect,
+			FEditorStyle::GetBrush("Sequencer.Section.SelectedTrackTint"),
+			InPainter.SectionClippingRect,
 			DrawEffects,
 			FColor(220, 120, 120)
 		);
@@ -105,14 +153,14 @@ public:
 		if (StartOffset < 0.0f)
 		{
 			FSlateDrawElement::MakeBox(
-				OutDrawElements,
-				LayerId + 1,
-				AllottedGeometry.ToPaintGeometry(
+				InPainter.DrawElements,
+				++LayerId,
+				InPainter.SectionGeometry.ToPaintGeometry(
 					FVector2D(0.0f, 0.f),
-					FVector2D(-StartOffset * DrawScale, AllottedGeometry.Size.Y)
+					FVector2D(-StartOffset * DrawScale, InPainter.SectionGeometry.Size.Y)
 				),
 				FEditorStyle::GetBrush("WhiteBrush"),
-				SectionClippingRect,
+				InPainter.SectionClippingRect,
 				ESlateDrawEffect::None,
 				FLinearColor::Black.CopyWithNewOpacity(0.2f)
 			);
@@ -122,14 +170,14 @@ public:
 		if (StartOffset <= 0)
 		{
 			FSlateDrawElement::MakeBox(
-				OutDrawElements,
-				LayerId + 2,
-				AllottedGeometry.ToPaintGeometry(
+				InPainter.DrawElements,
+				++LayerId,
+				InPainter.SectionGeometry.ToPaintGeometry(
 					FVector2D(-StartOffset * DrawScale, 0.f),
-					FVector2D(1.0f, AllottedGeometry.Size.Y)
+					FVector2D(1.0f, InPainter.SectionGeometry.Size.Y)
 				),
 				FEditorStyle::GetBrush("WhiteBrush"),
-				SectionClippingRect,
+				InPainter.SectionClippingRect,
 				ESlateDrawEffect::None,
 				FColor(32, 128, 32)	// 120, 75, 50 (HSV)
 			);
@@ -141,14 +189,14 @@ public:
 		if (PlaybackEnd < SectionSize)
 		{
 			FSlateDrawElement::MakeBox(
-				OutDrawElements,
-				LayerId + 1,
-				AllottedGeometry.ToPaintGeometry(
+				InPainter.DrawElements,
+				++LayerId,
+				InPainter.SectionGeometry.ToPaintGeometry(
 					FVector2D(PlaybackEnd * DrawScale, 0.f),
-					FVector2D((SectionSize - PlaybackEnd) * DrawScale, AllottedGeometry.Size.Y)
+					FVector2D((SectionSize - PlaybackEnd) * DrawScale, InPainter.SectionGeometry.Size.Y)
 				),
 				FEditorStyle::GetBrush("WhiteBrush"),
-				SectionClippingRect,
+				InPainter.SectionClippingRect,
 				ESlateDrawEffect::None,
 				FLinearColor::Black.CopyWithNewOpacity(0.2f)
 			);
@@ -158,32 +206,51 @@ public:
 		if (PlaybackEnd <= SectionSize)
 		{
 			FSlateDrawElement::MakeBox(
-				OutDrawElements,
-				LayerId + 2,
-				AllottedGeometry.ToPaintGeometry(
+				InPainter.DrawElements,
+				++LayerId,
+				InPainter.SectionGeometry.ToPaintGeometry(
 					FVector2D(PlaybackEnd * DrawScale, 0.f),
-					FVector2D(1.0f, AllottedGeometry.Size.Y)
+					FVector2D(1.0f, InPainter.SectionGeometry.Size.Y)
 				),
 				FEditorStyle::GetBrush("WhiteBrush"),
-				SectionClippingRect,
+				InPainter.SectionClippingRect,
 				ESlateDrawEffect::None,
 				FColor(128, 32, 32)	// 0, 75, 50 (HSV)
 			);
 		}
 
 		// add number of tracks within the section's sequence
-		int32 NumTracks = MovieScene->GetPossessableCount() + MovieScene->GetSpawnableCount() + MovieScene->GetMasterTracks().Num();
+		if(SectionObject.GetSequence() != nullptr && MovieScene != nullptr)
+		{
+			int32 NumTracks = MovieScene->GetPossessableCount() + MovieScene->GetSpawnableCount() + MovieScene->GetMasterTracks().Num();
 
-		FSlateDrawElement::MakeText(
-			OutDrawElements,
-			LayerId + 3,
-			AllottedGeometry.ToOffsetPaintGeometry(FVector2D(5.0f, 32.0f)),
-			FText::Format(LOCTEXT("NumTracksFormat", "{0} track(s)"), FText::AsNumber(NumTracks)),
-			FEditorStyle::GetFontStyle("NormalFont"),
-			SectionClippingRect,
-			DrawEffects,
-			FLinearColor::White
-		);
+			FSlateDrawElement::MakeText(
+				InPainter.DrawElements,
+				++LayerId,
+				InPainter.SectionGeometry.ToOffsetPaintGeometry(FVector2D(11.0f, 32.0f)),
+				FText::Format(LOCTEXT("NumTracksFormat", "{0} track(s)"), FText::AsNumber(NumTracks)),
+				FEditorStyle::GetFontStyle("NormalFont"),
+				InPainter.SectionClippingRect,
+				DrawEffects,
+				FColor(200, 200, 200)
+			);
+		}
+		else
+		{
+			// if we are primed for recording, display where we will create the recording
+			FString Path = SectionObject.GetTargetPathToRecordTo() / SectionObject.GetTargetSequenceName();
+
+			FSlateDrawElement::MakeText(
+				InPainter.DrawElements,
+				++LayerId,
+				InPainter.SectionGeometry.ToOffsetPaintGeometry(FVector2D(11.0f, 32.0f)),
+				FText::Format(LOCTEXT("RecordingDestination", "Target: \"{0}\""), FText::FromString(Path)),
+				FEditorStyle::GetFontStyle("NormalFont"),
+				InPainter.SectionClippingRect,
+				DrawEffects,
+				FColor(200, 200, 200)
+			);
+		}
 
 		return LayerId;
 	}
@@ -192,7 +259,10 @@ public:
 	{
 		if( MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton )
 		{
-			Sequencer.Pin()->FocusSequenceInstance(SequenceInstance.Pin().ToSharedRef());
+			if (SectionObject.GetSequence())
+			{
+				Sequencer.Pin()->FocusSequenceInstance(SectionObject);
+			}
 		}
 
 		return FReply::Handled();
@@ -244,6 +314,20 @@ void FSubTrackEditor::BuildAddTrackMenu(FMenuBuilder& MenuBuilder)
 	);
 }
 
+TSharedPtr<SWidget> FSubTrackEditor::BuildOutlinerEditWidget(const FGuid& ObjectBinding, UMovieSceneTrack* Track, const FBuildEditWidgetParams& Params)
+{
+	// Create a container edit box
+	return SNew(SHorizontalBox)
+
+	// Add the sub sequence combo box
+	+ SHorizontalBox::Slot()
+	.AutoWidth()
+	.VAlign(VAlign_Center)
+	[
+		FSequencerUtilities::MakeAddButton(LOCTEXT("SubText", "Sequence"), FOnGetContent::CreateSP(this, &FSubTrackEditor::HandleAddSubSequenceComboButtonGetMenuContent), Params.NodeIsHovered)
+	];
+}
+
 
 TSharedRef<ISequencerTrackEditor> FSubTrackEditor::CreateTrackEditor(TSharedRef<ISequencer> InSequencer)
 {
@@ -266,12 +350,22 @@ bool FSubTrackEditor::HandleAssetAdded(UObject* Asset, const FGuid& TargetObject
 		return false;
 	}
 
+	//@todo If there's already a cinematic shot track, allow that track to handle this asset
+	UMovieScene* FocusedMovieScene = GetFocusedMovieScene();
+
+	if (FocusedMovieScene != nullptr && FocusedMovieScene->FindMasterTrack<UMovieSceneCinematicShotTrack>() != nullptr)
+	{
+		return false;
+	}
+
 	if (CanAddSubSequence(*Sequence))
 	{
 		AnimatablePropertyChanged(FOnKeyProperty::CreateRaw(this, &FSubTrackEditor::HandleSequenceAdded, Sequence));
+
+		return true;
 	}
 
-	return true;
+	return false;
 }
 
 
@@ -279,6 +373,11 @@ bool FSubTrackEditor::SupportsType(TSubclassOf<UMovieSceneTrack> Type) const
 {
 	// We support sub movie scenes
 	return Type == UMovieSceneSubTrack::StaticClass();
+}
+
+const FSlateBrush* FSubTrackEditor::GetIconBrush() const
+{
+	return FEditorStyle::GetBrush("Sequencer.Tracks.Sub");
 }
 
 
@@ -338,14 +437,107 @@ void FSubTrackEditor::HandleAddSubTrackMenuEntryExecute()
 }
 
 
+TSharedRef<SWidget> FSubTrackEditor::HandleAddSubSequenceComboButtonGetMenuContent()
+{
+	FMenuBuilder MenuBuilder(true, nullptr);
+
+	MenuBuilder.BeginSection(TEXT("RecordSequence"), LOCTEXT("RecordSequence", "Record Sequence"));
+	{
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("RecordNewSequence", "Record New Sequence"), 
+			LOCTEXT("RecordNewSequence_ToolTip", "Record a new level seqeuence into this sub-track from gameplay/simulation etc.\nThis only primes the track for recording. Click the record button to begin recording into this track once primed.\nOnly one sequence can be recorded at a time."), 
+			FSlateIcon(), 
+			FUIAction(
+				FExecuteAction::CreateSP(this, &FSubTrackEditor::HandleRecordNewSequence),
+				FCanExecuteAction::CreateSP(this, &FSubTrackEditor::CanRecordNewSequence)));
+	}
+	MenuBuilder.EndSection();
+
+	MenuBuilder.BeginSection(TEXT("ChooseSequence"), LOCTEXT("ChooseSequence", "Choose Sequence"));
+	{
+		FAssetPickerConfig AssetPickerConfig;
+		{
+			AssetPickerConfig.OnAssetSelected = FOnAssetSelected::CreateRaw( this, &FSubTrackEditor::HandleAddSubSequenceComboButtonMenuEntryExecute);
+			AssetPickerConfig.bAllowNullSelection = false;
+			AssetPickerConfig.InitialAssetViewType = EAssetViewType::Tile;
+			AssetPickerConfig.Filter.ClassNames.Add(TEXT("LevelSequence"));
+		}
+
+		FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
+
+		TSharedPtr<SBox> MenuEntry = SNew(SBox)
+			.WidthOverride(300.0f)
+			.HeightOverride(300.f)
+			[
+				ContentBrowserModule.Get().CreateAssetPicker(AssetPickerConfig)
+			];
+
+		MenuBuilder.AddWidget(MenuEntry.ToSharedRef(), FText::GetEmpty(), true);
+	}
+	MenuBuilder.EndSection();
+
+	return MenuBuilder.MakeWidget();
+}
+
+void FSubTrackEditor::HandleAddSubSequenceComboButtonMenuEntryExecute(const FAssetData& AssetData)
+{
+	FSlateApplication::Get().DismissAllMenus();
+
+	UObject* SelectedObject = AssetData.GetAsset();
+
+	if (SelectedObject && SelectedObject->IsA(UMovieSceneSequence::StaticClass()))
+	{
+		UMovieSceneSequence* MovieSceneSequence = CastChecked<UMovieSceneSequence>(AssetData.GetAsset());
+
+		AnimatablePropertyChanged( FOnKeyProperty::CreateRaw( this, &FSubTrackEditor::AddKeyInternal, MovieSceneSequence) );
+	}
+}
+
+bool FSubTrackEditor::AddKeyInternal(float KeyTime, UMovieSceneSequence* InMovieSceneSequence)
+{	
+	if (CanAddSubSequence(*InMovieSceneSequence))
+	{
+		auto SubTrack = FindOrCreateMasterTrack<UMovieSceneSubTrack>().Track;
+		float Duration = InMovieSceneSequence->GetMovieScene()->GetPlaybackRange().Size<float>();
+		SubTrack->AddSequence(InMovieSceneSequence, KeyTime, Duration);
+
+		return true;
+	}
+
+	return false;
+}
+
 bool FSubTrackEditor::HandleSequenceAdded(float KeyTime, UMovieSceneSequence* Sequence)
 {
 	auto SubTrack = FindOrCreateMasterTrack<UMovieSceneSubTrack>().Track;
-	SubTrack->AddSequence(*Sequence, KeyTime);
-	SubTrack->SetDisplayName(LOCTEXT("SubTrackName", "Sequences"));
+	float Duration = Sequence->GetMovieScene()->GetPlaybackRange().Size<float>();
+	SubTrack->AddSequence(Sequence, KeyTime, Duration);
 
 	return true;
 }
 
+bool FSubTrackEditor::CanRecordNewSequence() const
+{
+	return !UMovieSceneSubSection::IsSetAsRecording();
+}
+
+void FSubTrackEditor::HandleRecordNewSequence()
+{
+	FSlateApplication::Get().DismissAllMenus();
+
+	AnimatablePropertyChanged( FOnKeyProperty::CreateRaw( this, &FSubTrackEditor::HandleRecordNewSequenceInternal) );
+}
+
+bool FSubTrackEditor::HandleRecordNewSequenceInternal(float KeyTime)
+{
+	auto SubTrack = FindOrCreateMasterTrack<UMovieSceneSubTrack>().Track;
+	UMovieSceneSubSection* Section = SubTrack->AddSequenceToRecord();
+
+	// @todo: we could default to the same directory as a parent sequence, or the last sequence recorded. Lots of options!
+	Section->SetTargetSequenceName(GetDefault<USequenceRecorderSettings>()->SequenceName);
+	Section->SetTargetPathToRecordTo(GetDefault<USequenceRecorderSettings>()->SequenceRecordingBasePath.Path);
+
+	return true;
+}
 
 #undef LOCTEXT_NAMESPACE

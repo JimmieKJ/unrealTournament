@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ContentBrowserSettings.h: Declares the UContentBrowserSettings class.
@@ -59,6 +59,18 @@ public:
 		return ( ( bExcludeOverride ? false : OverrideDisplayDevelopersFolder ) || DisplayDevelopersFolder );
 	}
 
+	/** Sets whether we are allowed to display the L10N folder (contains localized assets) or not */
+	void SetDisplayL10NFolder(bool bInDisplayL10NFolder)
+	{
+		DisplayL10NFolder = bInDisplayL10NFolder;
+	}
+
+	/** Gets whether we are allowed to display the L10N folder (contains localized assets) or not */
+	bool GetDisplayL10NFolder() const
+	{
+		return DisplayL10NFolder;
+	}
+
 	/** Sets whether we are allowed to display the plugin folders or not, optional flag for setting override instead */
 	void SetDisplayPluginFolders( bool bInDisplayPluginFolders, bool bOverride = false )
 	{ 
@@ -109,6 +121,9 @@ private:
 	/** Whether to display the developers folder in the path view of the content browser */
 	UPROPERTY(config)
 	bool DisplayDevelopersFolder;
+
+	UPROPERTY(config)
+	bool DisplayL10NFolder;
 
 	/** If true, overrides the DisplayDev setting */
 	bool OverrideDisplayDevelopersFolder;

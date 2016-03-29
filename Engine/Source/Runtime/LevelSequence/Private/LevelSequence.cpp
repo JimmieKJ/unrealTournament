@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LevelSequencePCH.h"
 #include "LevelSequence.h"
@@ -65,9 +65,12 @@ void ULevelSequence::BindPossessableObject(const FGuid& ObjectId, UObject& Posse
 	if (Context)
 	{
 		ObjectReferences.CreateBinding(ObjectId, &PossessedObject, Context);
-
-		MovieSceneHelpers::SetRuntimeObjectMobility(&PossessedObject);
 	}
+}
+
+void ULevelSequence::BindPossessableObject(const FGuid& ObjectId, const FLevelSequenceObjectReference& ObjectReference)
+{
+	ObjectReferences.CreateBinding(ObjectId, ObjectReference);
 }
 
 bool ULevelSequence::CanPossessObject(UObject& Object) const
@@ -78,6 +81,11 @@ bool ULevelSequence::CanPossessObject(UObject& Object) const
 UObject* ULevelSequence::FindPossessableObject(const FGuid& ObjectId, UObject* Context) const
 {
 	return Context ? ObjectReferences.ResolveBinding(ObjectId, Context) : nullptr;
+}
+
+FGuid ULevelSequence::FindPossessableObjectId(UObject& Object) const
+{
+	return FGuid();
 }
 
 UMovieScene* ULevelSequence::GetMovieScene() const

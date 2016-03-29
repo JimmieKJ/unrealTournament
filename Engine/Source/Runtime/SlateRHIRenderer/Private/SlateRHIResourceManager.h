@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -40,9 +40,9 @@ public:
 
 	uint32 GetNumObjectResources() const { return TextureMap.Num() + MaterialMap.Num(); }
 
-private:
-	void RemoveExpiredTextureResources();
-	void RemoveExpiredMaterialResources();
+public:
+	void RemoveExpiredTextureResources(TArray< TSharedPtr<FSlateUTextureResource> >& RemovedTextures);
+	void RemoveExpiredMaterialResources(TArray< TSharedPtr<FSlateMaterialResource> >& RemovedMaterials);
 
 private:
 	TMap<FName, TSharedPtr<FSlateDynamicTextureResource> > NativeTextureMap;
@@ -67,24 +67,37 @@ struct FCachedRenderBuffers
 {
 	TSlateElementVertexBuffer<FSlateVertex> VertexBuffer;
 	FSlateElementIndexBuffer IndexBuffer;
+
+	FGraphEventRef ReleaseResourcesFence;
 };
 
 
 /**
  * Stores a mapping of texture names to their RHI texture resource               
  */
-class FSlateRHIResourceManager : public ISlateAtlasProvider, public FSlateShaderResourceManager, public FGCObject
+class FSlateRHIResourceManager : public ISlateAtlasProvider, public ISlateRenderDataManager, public FSlateShaderResourceManager, public FTickableGameObject, public FGCObject
 {
 public:
 	FSlateRHIResourceManager();
 	virtual ~FSlateRHIResourceManager();
 
-	/** ISlateAtlasProvider */
+	/** ISlateAtlasProvider interface */
 	virtual int32 GetNumAtlasPages() const override;
 	virtual FIntPoint GetAtlasPageSize() const override;
 	virtual FSlateShaderResource* GetAtlasPageResource(const int32 InIndex) const override;
 	virtual bool IsAtlasPageResourceAlphaOnly() const override;
 
+	/** ISlateRenderDataManager interface */
+	virtual void BeginReleasingRenderData(const FSlateRenderDataHandle* RenderHandle) override;
+
+	/** FTickableGameObject interface */
+	virtual bool IsTickable() const override { return true; }
+	virtual bool IsTickableWhenPaused() const override { return true; }
+	virtual bool IsTickableInEditor() const override { return true; }
+	virtual TStatId GetStatId() const override { RETURN_QUICK_DECLARE_CYCLE_STAT(FSlateRHIResourceManager, STATGROUP_Tickables); }
+	virtual void Tick(float DeltaSeconds) override;
+
+	/** FGCObject interface */
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 
 	/**
@@ -152,14 +165,24 @@ public:
 	virtual bool LoadTexture( const FName& TextureName, const FString& ResourcePath, uint32& Width, uint32& Height, TArray<uint8>& DecodedImage );
 	virtual bool LoadTexture( const FSlateBrush& InBrush, uint32& Width, uint32& Height, TArray<uint8>& DecodedImage );
 
+	/**
+	 * 
+	 */
 	FCachedRenderBuffers* FindCachedBuffersForHandle(const FSlateRenderDataHandle* RenderHandle) const
 	{
 		return CachedBuffers.FindRef(RenderHandle);
 	}
 
+	/**
+	 * Creates a vertex and index buffer for a given render handle that it can use to store cached widget geometry to.
+	 */
 	FCachedRenderBuffers* FindOrCreateCachedBuffersForHandle(const TSharedRef<FSlateRenderDataHandle, ESPMode::ThreadSafe>& RenderHandle);
-	void ReleaseCachedRenderData(FSlateRenderDataHandle* InRenderHandle);
-	void ReleaseCachingResourcesFor(const ILayoutCache* Cacher);
+
+	/**
+	 * Releases all cached buffers allocated by a given layout cacher.  This would happen when an invalidation panel is destroyed.
+	 */
+	void ReleaseCachingResourcesFor(FRHICommandListImmediate& RHICmdList, const ILayoutCache* Cacher);
+
 	/**
 	 * Releases rendering resources
 	 */
@@ -171,6 +194,15 @@ public:
 	 * @param InExtraResources     Optional list of textures to create that aren't in the style.
 	 */
 	void ReloadTextures();
+
+private:
+	void ReleaseCachedBuffer(FRHICommandListImmediate& RHICmdList, FCachedRenderBuffers* PooledBuffer);
+
+	/**
+	* Releases the cached render data for a given render handle.  The layout cacher that owned the handle must also be
+	* provided, as render handle is likely no longer a valid object.
+	*/
+	void ReleaseCachedRenderData(FRHICommandListImmediate& RHICmdList, const FSlateRenderDataHandle* RenderHandle, const ILayoutCache* LayoutCacher);
 
 private:
 	/**
@@ -267,5 +299,11 @@ private:
 
 	typedef TMap< const ILayoutCache*, TArray< FCachedRenderBuffers* > > TCachedBufferPoolMap;
 	TCachedBufferPoolMap CachedBufferPool;
+
+	/**
+	 * Holds onto a list of pooled buffers that are no longer being used but still need 
+	 * to be deleted after the RHI thread is done with them.
+	 */
+	TArray<FCachedRenderBuffers*> PooledBuffersPendingRelease;
 };
 

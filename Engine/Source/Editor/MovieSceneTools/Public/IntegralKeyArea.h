@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -27,9 +27,10 @@ public:
 	virtual TArray<FKeyHandle> AddKeyUnique( float Time, EMovieSceneKeyInterpolation InKeyInterpolation, float TimeToCopyFrom = FLT_MAX ) override;
 	virtual TOptional<FKeyHandle> DuplicateKey(FKeyHandle KeyToDuplicate) override;
 	virtual void DeleteKey(FKeyHandle KeyHandle) override;
-	virtual FLinearColor GetColor() override;
+	virtual TOptional<FLinearColor> GetColor() override;
 	virtual ERichCurveExtrapolation GetExtrapolationMode(bool bPreInfinity) const override;
 	virtual ERichCurveInterpMode GetKeyInterpMode(FKeyHandle KeyHandle) const override;
+	virtual TSharedPtr<FStructOnScope> GetKeyStruct(FKeyHandle KeyHandle) override;
 	virtual ERichCurveTangentMode GetKeyTangentMode(FKeyHandle KeyHandle) const override;
 	virtual float GetKeyTime(FKeyHandle KeyHandle) const override;
 	virtual UMovieSceneSection* GetOwningSection() override;

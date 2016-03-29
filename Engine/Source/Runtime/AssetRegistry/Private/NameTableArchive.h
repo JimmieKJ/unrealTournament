@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,6 +6,7 @@ class FNameTableArchiveReader : public FArchive
 {
 public:
 	FNameTableArchiveReader();
+	~FNameTableArchiveReader();
 
 	bool LoadFile(const TCHAR* Filename, int32 SerializationVersion);
 
@@ -21,16 +22,15 @@ public:
 	FArchive& operator<<( FName& Name );
 
 private:
-	FArrayReader Reader;
+	FArchive* FileAr;
 	TArray<FName> NameMap;
 };
 
 class FNameTableArchiveWriter : public FArchive
 {
 public:
-	FNameTableArchiveWriter(int32 SerializationVersion);
-
-	bool SaveToFile(const TCHAR* Filename);
+	FNameTableArchiveWriter(int32 SerializationVersion, const FString& Filename);
+	~FNameTableArchiveWriter();
 
 	/** Serializers for different package maps */
 	void SerializeNameMap();
@@ -44,7 +44,9 @@ public:
 	FArchive& operator<<( FName& Name );
 
 private:
-	FArrayWriter Writer;
+	FArchive* FileAr;
+	FString FinalFilename;
+	FString TempFilename;
 	TArray<FName> NameMap;
 	TMap<FName, int32, FDefaultSetAllocator, TLinkerNameMapKeyFuncs<int32>> NameMapLookup;
 	int64 NameOffsetLoc;

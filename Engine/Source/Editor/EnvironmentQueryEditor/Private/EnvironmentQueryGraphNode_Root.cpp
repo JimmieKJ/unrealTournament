@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnvironmentQueryEditorPrivatePCH.h"
 
@@ -15,4 +15,33 @@ void UEnvironmentQueryGraphNode_Root::AllocateDefaultPins()
 FText UEnvironmentQueryGraphNode_Root::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
 	return NSLOCTEXT("EnvironmentQueryEditor", "Root", "ROOT");
+}
+
+void UEnvironmentQueryGraphNode_Root::LogDebugMessage(const FString& Message)
+{
+	if (DebugMessages.Num() == 0)
+	{
+		bHasDebugError = false;
+	}
+
+	// store only 1 error message, discard everything after it
+	if (!bHasDebugError)
+	{
+		DebugMessages.Add(Message);
+	}
+}
+
+void UEnvironmentQueryGraphNode_Root::LogDebugError(const FString& Message)
+{
+	if (DebugMessages.Num() == 0)
+	{
+		bHasDebugError = false;
+	}
+
+	// store only 1 error message, discard everything after it
+	if (!bHasDebugError)
+	{
+		DebugMessages.Add(Message);
+		bHasDebugError = true;
+	}
 }

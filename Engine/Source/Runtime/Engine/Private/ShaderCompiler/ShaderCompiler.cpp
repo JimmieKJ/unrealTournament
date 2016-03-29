@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ShaderCompiler.cpp: Platform independent shader compilations.
@@ -17,7 +17,7 @@
 DEFINE_LOG_CATEGORY(LogShaderCompilers);
 
 // this is for the protocol, not the data, bump if FShaderCompilerInput or ProcessInputFromArchive changes (also search for the second one with the same name, todo: put into one header file)
-const int32 ShaderCompileWorkerInputVersion = 5;
+const int32 ShaderCompileWorkerInputVersion = 6;
 // this is for the protocol, not the data, bump if FShaderCompilerOutput or WriteToOutputArchive changes (also search for the second one with the same name, todo: put into one header file)
 const int32 ShaderCompileWorkerOutputVersion = 3;
 // this is for the protocol, not the data, bump if FShaderCompilerOutput or WriteToOutputArchive changes (also search for the second one with the same name, todo: put into one header file)
@@ -67,6 +67,12 @@ static TAutoConsoleVariable<int32> CVarOptimizeShaders(
 	TEXT("r.Shaders.Optimize"),
 	1,
 	TEXT("Whether to optimize shaders.  When using graphical debuggers like Nsight it can be useful to disable this on startup."),
+	ECVF_ReadOnly);
+
+static TAutoConsoleVariable<int32> CVarShaderFastMath(
+	TEXT("r.Shaders.FastMath"),
+	1,
+	TEXT("Whether to use fast-math optimisations in shaders."),
 	ECVF_ReadOnly);
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -818,7 +824,10 @@ void FShaderCompileThreadRunnable::WriteNewTasks()
 
 			if (!DoWriteTasks(CurrentWorkerInfo.QueuedJobs, *TransferFile))
 			{
-				UE_LOG(LogShaderCompilers, Fatal, TEXT("Could not write the shader compiler transfer filename to '%s'."), *TransferFileName);
+				uint64 TotalDiskSpace = 0;
+				uint64 FreeDiskSpace = 0;
+				FPlatformMisc::GetDiskTotalAndFreeSpace(TransferFileName, TotalDiskSpace, FreeDiskSpace);
+				UE_LOG(LogShaderCompilers, Fatal, TEXT("Could not write the shader compiler transfer filename to '%s' (Free Disk Space: %llu."), *TransferFileName, FreeDiskSpace);
 			}
 			delete TransferFile;
 
@@ -826,7 +835,10 @@ void FShaderCompileThreadRunnable::WriteNewTasks()
 			FString ProperTransferFileName = WorkingDirectory / TEXT("WorkerInputOnly.in");
 			if (!IFileManager::Get().Move(*ProperTransferFileName, *TransferFileName))
 			{
-				UE_LOG(LogShaderCompilers, Fatal, TEXT("Could not rename the shader compiler transfer filename to '%s' from '%s'."), *ProperTransferFileName, *TransferFileName);
+				uint64 TotalDiskSpace = 0;
+				uint64 FreeDiskSpace = 0;
+				FPlatformMisc::GetDiskTotalAndFreeSpace(TransferFileName, TotalDiskSpace, FreeDiskSpace);
+				UE_LOG(LogShaderCompilers, Fatal, TEXT("Could not rename the shader compiler transfer filename to '%s' from '%s' (Free Disk Space: %llu)."), *ProperTransferFileName, *TransferFileName, FreeDiskSpace);
 			}
 		}
 	}
@@ -1175,7 +1187,11 @@ FShaderCompilingManager::FShaderCompilingManager() :
 	FPaths::NormalizeDirectoryName(AbsoluteDebugInfoDirectory);
 	AbsoluteShaderDebugInfoDirectory = AbsoluteDebugInfoDirectory;
 
-	const int32 NumVirtualCores = FPlatformMisc::NumberOfCoresIncludingHyperthreads();
+#if PLATFORM_MAC // @todo marksatt 1/14/16 Temporary emergency hack for Mac builders - 24 * SCW consumes 72GB of RAM (~3GB each) which prevents successful Mac cooking.
+    const int32 NumVirtualCores = FPlatformMisc::NumberOfCores();
+#else
+    const int32 NumVirtualCores = FPlatformMisc::NumberOfCoresIncludingHyperthreads();
+#endif
 
 	NumShaderCompilingThreads = bAllowCompilingThroughWorkers ? (NumVirtualCores - NumUnusedShaderCompilingThreads) : 1;
 
@@ -1292,17 +1308,17 @@ FProcHandle FShaderCompilingManager::LaunchWorker(const FString& WorkingDirector
 	else
 	{
 #if UE_BUILD_DEBUG && PLATFORM_LINUX
-	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Launching shader compile worker:\n\t%s\n"), *WorkerParameters);
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Launching shader compile worker:\n\t%s\n"), *WorkerParameters);
 #endif
-	uint32 WorkerId = 0;
-	FProcHandle WorkerHandle = FPlatformProcess::CreateProc(*ShaderCompileWorkerName, *WorkerParameters, true, false, false, &WorkerId, PriorityModifier, NULL, NULL);
+		uint32 WorkerId = 0;
+		FProcHandle WorkerHandle = FPlatformProcess::CreateProc(*ShaderCompileWorkerName, *WorkerParameters, true, false, false, &WorkerId, PriorityModifier, NULL, NULL);
 		if (!WorkerHandle.IsValid())
-	{
-		// If this doesn't error, the app will hang waiting for jobs that can never be completed
-			UE_LOG(LogShaderCompilers, Fatal, TEXT("Couldn't launch %s! Make sure the file is in your binaries folder."), *ShaderCompileWorkerName);
-	}
+		{
+			// If this doesn't error, the app will hang waiting for jobs that can never be completed
+				UE_LOG(LogShaderCompilers, Fatal, TEXT("Couldn't launch %s! Make sure the file is in your binaries folder."), *ShaderCompileWorkerName);
+		}
 
-	return WorkerHandle;
+		return WorkerHandle;
 	}
 }
 
@@ -2202,6 +2218,21 @@ void GlobalBeginCompileShader(
 		Input.Environment.SetDefine(TEXT("COMPUTESHADER"),	Target.Frequency == SF_Compute);
 	}
 
+	// Set instanced stereo define
+	{
+		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.InstancedStereo"));
+		const EShaderPlatform ShaderPlatform = static_cast<EShaderPlatform>(Target.Platform);
+		const bool bIsInstancedStereoCVar = CVar ? (CVar->GetValueOnGameThread() != false) : false;
+		const bool bIsInstancedStereo = bIsInstancedStereoCVar && (ShaderPlatform == EShaderPlatform::SP_PCD3D_SM5 || ShaderPlatform == EShaderPlatform::SP_PS4);
+		Input.Environment.SetDefine(TEXT("INSTANCED_STEREO"), bIsInstancedStereo ? 1 : 0);
+
+		// Throw a warning if we are silently disabling ISR due to missing platform support.
+		if (bIsInstancedStereoCVar && !bIsInstancedStereo)
+		{
+			UE_LOG(LogShaderCompilers, Warning, TEXT("Instanced stereo rendering is not supported on this platform."));
+		}
+	}
+
 	ShaderType->AddReferencedUniformBufferIncludes(Input.Environment, Input.SourceFilePrefix, (EShaderPlatform)Target.Platform);
 
 	if (VFType)
@@ -2476,17 +2507,21 @@ bool RecompileShaders(const TCHAR* Cmd, FOutputDevice& Ar)
 			{
 				FRecompileShadersTimer TestTimer(TEXT("RecompileShaders Changed"));
 
-				// Kick off global shader recompiles
 				UMaterialInterface::IterateOverActiveFeatureLevels([&](ERHIFeatureLevel::Type InFeatureLevel) {
 					auto ShaderPlatform = GShaderPlatformForFeatureLevel[InFeatureLevel];
 					BeginRecompileGlobalShaders(OutdatedShaderTypes, OutdatedShaderPipelineTypes, ShaderPlatform);
+				});
+
+				// Block on global shaders
+				FinishRecompileGlobalShaders();
+
+				// Kick off global shader recompiles
+				UMaterialInterface::IterateOverActiveFeatureLevels([&](ERHIFeatureLevel::Type InFeatureLevel) {
+					auto ShaderPlatform = GShaderPlatformForFeatureLevel[InFeatureLevel];
 					UMaterial::UpdateMaterialShaders(OutdatedShaderTypes, OutdatedShaderPipelineTypes, OutdatedFactoryTypes, ShaderPlatform);
 				});
 
 				GWarn->StatusUpdate(0, 1, NSLOCTEXT("ShaderCompilingManager", "CompilingGlobalShaderStatus", "Compiling global shaders..."));
-
-				// Block on global shaders
-				FinishRecompileGlobalShaders();
 			}
 			else
 			{

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneTracksPrivatePCH.h"
 #include "MovieSceneParticleParameterTrack.h"
@@ -9,11 +9,13 @@ FMovieSceneParticleParameterTrackInstance::FMovieSceneParticleParameterTrackInst
 	ParticleParameterTrack = &InParticleParameterTrack;
 }
 
-void FMovieSceneParticleParameterTrackInstance::SaveState(const TArray<UObject*>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
+void FMovieSceneParticleParameterTrackInstance::SaveState(const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
 {
-	for( UObject* Object : RuntimeObjects )
+	for (auto ObjectPtr : RuntimeObjects)
 	{
+		UObject* Object = ObjectPtr.Get();
 		AEmitter* EmitterActor = Cast<AEmitter>(Object);
+
 		if ( EmitterActor != nullptr )
 		{
 			UParticleSystemComponent* ParticleSystemComponent = EmitterActor->GetParticleSystemComponent();
@@ -52,11 +54,13 @@ void FMovieSceneParticleParameterTrackInstance::SaveState(const TArray<UObject*>
 	}
 }
 
-void FMovieSceneParticleParameterTrackInstance::RestoreState(const TArray<UObject*>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
+void FMovieSceneParticleParameterTrackInstance::RestoreState(const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
 {
-	for ( UObject* Object : RuntimeObjects )
+	for (auto ObjectPtr : RuntimeObjects)
 	{
+		UObject* Object = ObjectPtr.Get();
 		TSharedPtr<FInitialParameterValues>* InitialParameterValuesPtr = ObjectToInitialParameterValuesMap.Find(FObjectKey(Object));
+
 		if ( InitialParameterValuesPtr != nullptr )
 		{
 			TSharedPtr<FInitialParameterValues> InitialParameterValues = *InitialParameterValuesPtr;
@@ -110,12 +114,12 @@ void FMovieSceneParticleParameterTrackInstance::RestoreState(const TArray<UObjec
 	ObjectToInitialParameterValuesMap.Empty();
 }
 
-void FMovieSceneParticleParameterTrackInstance::Update( float Position, float LastPosition, const TArray<UObject*>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance, EMovieSceneUpdatePass UpdatePass )
+void FMovieSceneParticleParameterTrackInstance::Update(EMovieSceneUpdateData& UpdateData, const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
 {
 	TArray<FScalarParameterNameAndValue> ScalarNamesAndValues;
 	TArray<FVectorParameterNameAndValue> VectorNamesAndValues;
 	TArray<FColorParameterNameAndValue> ColorNamesAndValues;
-	ParticleParameterTrack->Eval( Position, ScalarNamesAndValues, VectorNamesAndValues, ColorNamesAndValues);
+	ParticleParameterTrack->Eval( UpdateData.Position, ScalarNamesAndValues, VectorNamesAndValues, ColorNamesAndValues);
 	for ( UParticleSystemComponent* ParticleSystemComponent : ParticleSystemComponents )
 	{
 		for ( const FScalarParameterNameAndValue& ScalarNameAndValue : ScalarNamesAndValues )
@@ -133,7 +137,7 @@ void FMovieSceneParticleParameterTrackInstance::Update( float Position, float La
 	}
 }
 
-void FMovieSceneParticleParameterTrackInstance::RefreshInstance( const TArray<UObject*>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance )
+void FMovieSceneParticleParameterTrackInstance::RefreshInstance( const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance )
 {
 	ParticleSystemComponents.Empty();
 
@@ -146,9 +150,9 @@ void FMovieSceneParticleParameterTrackInstance::RefreshInstance( const TArray<UO
 	}
 
 	// Cache the particle components which have matching parameter names.
-	for ( UObject* Object : RuntimeObjects )
+	for (auto ObjectPtr : RuntimeObjects)
 	{
-		AEmitter* EmitterActor = Cast<AEmitter>( Object );
+		AEmitter* EmitterActor = Cast<AEmitter>(ObjectPtr.Get());
 		if ( EmitterActor != nullptr )
 		{
 			UParticleSystemComponent* ParticleSystemComponent = EmitterActor->GetParticleSystemComponent();

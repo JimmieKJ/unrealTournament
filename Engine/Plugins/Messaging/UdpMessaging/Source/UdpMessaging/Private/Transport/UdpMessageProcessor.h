@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -98,7 +98,7 @@ public:
 	 * @param InNodeId The local node identifier (used to detect the unicast endpoint).
 	 * @param InMulticastEndpoint The multicast group endpoint to transport messages to.
 	 */
-	FUdpMessageProcessor(FSocket* InSocket, const FGuid& InNodeId, const FIPv4Endpoint& InMulticastEndpoint);
+	FUdpMessageProcessor(FSocket& InSocket, const FGuid& InNodeId, const FIPv4Endpoint& InMulticastEndpoint);
 
 	/** Virtual destructor. */
 	virtual ~FUdpMessageProcessor();
@@ -319,11 +319,11 @@ private:
 	/** Holds the multicast endpoint. */
 	FIPv4Endpoint MulticastEndpoint;
 
-	/** Holds the socket sender. */
-	FUdpSocketSender* Sender;
-
 	/** Holds the network socket used to transport messages. */
 	FSocket* Socket;
+
+	/** Holds the socket sender. */
+	FUdpSocketSender* SocketSender;
 
 	/** Holds the collection of static remote nodes. */
 	TMap<FIPv4Endpoint, FNodeInfo> StaticNodes;

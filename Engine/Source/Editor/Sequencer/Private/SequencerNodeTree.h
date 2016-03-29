@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -7,8 +7,11 @@ class ISequencerTrackEditor;
 class UMovieSceneSection;
 class FSequencerDisplayNode;
 class FSequencerObjectBindingNode;
+class FSequencerTrackNode;
+class FSequencerFolderNode;
 class UMovieSceneTrack;
 struct FMovieSceneBinding;
+class UMovieSceneFolder;
 
 
 /**
@@ -79,6 +82,16 @@ public:
 	 */
 	bool GetDefaultExpansionState( const FSequencerDisplayNode& Node ) const;
 
+	/**
+	 * Set the single hovered node in the tree
+	 */
+	void SetHoveredNode(const TSharedPtr<FSequencerDisplayNode>& InHoveredNode);
+
+	/**
+	 * Get the single hovered node in the tree, possibly nullptr
+	 */
+	const TSharedPtr<FSequencerDisplayNode>& GetHoveredNode() const;
+
 private:
 	/**
 	 * Finds or adds a type editor for the track
@@ -99,7 +112,14 @@ private:
 	/**
 	 * Creates a new object binding node and any parent binding nodes.
 	 */
-	TSharedRef<FSequencerObjectBindingNode> AddObjectBinding( const FString& ObjectName, const FGuid& ObjectBinding, TMap<FGuid, const FMovieSceneBinding*>& GuidToBindingMap, TArray< TSharedRef<FSequencerDisplayNode> >& OutNodeList );
+	TSharedRef<FSequencerObjectBindingNode> AddObjectBinding( const FString& ObjectName, const FGuid& ObjectBinding, TMap<FGuid, const FMovieSceneBinding*>& GuidToBindingMap, TArray< TSharedRef<FSequencerObjectBindingNode> >& OutNodeList );
+
+	/**
+	 * Creates the tree of folder nodes and populates it with object and track nodes. 
+	 */
+	void CreateAndPopulateFolderNodes( TArray<TSharedRef<FSequencerTrackNode>>& MasterTrackNodes, TArray<TSharedRef<FSequencerObjectBindingNode>>& ObjectNodes,
+		TArray<UMovieSceneFolder*>& MovieSceneFolders, TArray<TSharedRef<FSequencerDisplayNode>>& GroupedNodes );
+
 private:
 	/** Tools for building movie scene section layouts.  One tool for each track */
 	TMap< UMovieSceneTrack*, TSharedPtr<ISequencerTrackEditor> > EditorMap;
@@ -109,6 +129,8 @@ private:
 	TMap< FGuid, TSharedPtr<FSequencerObjectBindingNode> > ObjectBindingMap;
 	/** Set of all filtered nodes */
 	TSet< TSharedRef<const FSequencerDisplayNode> > FilteredNodes;
+	/** Cardinal hovered node */
+	TSharedPtr<FSequencerDisplayNode> HoveredNode;
 	/** Active filter string if any */
 	FString FilterString;
 	/** Sequencer interface */

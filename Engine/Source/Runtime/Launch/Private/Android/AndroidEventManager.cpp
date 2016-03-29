@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LaunchPrivatePCH.h"
 #include "AndroidEventManager.h"
@@ -42,6 +42,8 @@ void FAppEventManager::Tick()
 			check(FirstInitialized);
 			bCreateWindow = true;
 			PendingWindow = (ANativeWindow*)Event.Data;
+
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("APP_EVENT_STATE_WINDOW_CREATED, %d, %d, %d"), int(bRunning), int(bHaveWindow), int(bHaveGame));
 			break;
 		
 		case APP_EVENT_STATE_WINDOW_RESIZED:
@@ -67,7 +69,9 @@ void FAppEventManager::Tick()
 				FAndroidAppEntry::DestroyWindow();
 				FPlatformMisc::SetHardwareWindow(NULL);
 			}
+
 			bHaveWindow = false;
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("APP_EVENT_STATE_WINDOW_DESTROYED, %d, %d, %d"), int(bRunning), int(bHaveWindow), int(bHaveGame));
 			break;
 		case APP_EVENT_STATE_ON_START:
 			//doing nothing here
@@ -82,6 +86,8 @@ void FAppEventManager::Tick()
 				FTaskGraphInterface::Get().WaitUntilTaskCompletes(WillTerminateTask);
 			}
 			GIsRequestingExit = true; //destroy immediately. Game will shutdown.
+			FirstInitialized = false;
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("APP_EVENT_STATE_ON_DESTROY"));
 			break;
 		case APP_EVENT_STATE_ON_STOP:
 			bHaveGame = false;
@@ -115,6 +121,8 @@ void FAppEventManager::Tick()
 				bCreateWindow = false;
 				bHaveWindow = true;
 				bWindowCreatedThisTick = true;
+
+				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("ExecWindowCreated, %d, %d, %d"), int(bRunning), int(bHaveWindow), int(bHaveGame));
 			}
 		}
 
@@ -138,6 +146,7 @@ void FAppEventManager::Tick()
 			}
 
 			bRunning = true;
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Execution has been resumed!"));
 		}
 		else if (bRunning && (!bHaveWindow || !bHaveGame))
 		{
@@ -159,6 +168,7 @@ void FAppEventManager::Tick()
 			PauseAudio();
 
 			bRunning = false;
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Execution has been paused..."));
 		}
 
 		if (bDestroyWindow)
@@ -166,18 +176,33 @@ void FAppEventManager::Tick()
 			FAndroidAppEntry::DestroyWindow();
 			FPlatformMisc::SetHardwareWindow(NULL);
 			bDestroyWindow = false;
+
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("FAndroidAppEntry::DestroyWindow() called"));
 		}
 	}
 
+	if (EmptyQueueHandlerEvent)
+	{
+		EmptyQueueHandlerEvent->Trigger();
+	}
 	if (!bRunning && FirstInitialized)
 	{
 		EventHandlerEvent->Wait();
 	}
 }
 
+void FAppEventManager::TriggerEmptyQueue()
+{
+	if (EmptyQueueHandlerEvent)
+	{
+		EmptyQueueHandlerEvent->Trigger();
+	}
+}
 
 FAppEventManager::FAppEventManager():
-	FirstInitialized(false)
+	EventHandlerEvent(nullptr)
+	,EmptyQueueHandlerEvent(nullptr)
+	,FirstInitialized(false)
 	,bCreateWindow(false)
 	,bWindowInFocus(false)
 	,bSaveState(false)
@@ -232,6 +257,10 @@ void FAppEventManager::SetEventHandlerEvent(FEvent* InEventHandlerEvent)
 	EventHandlerEvent = InEventHandlerEvent;
 }
 
+void FAppEventManager::SetEmptyQueueHandlerEvent(FEvent* InEventHandlerEvent)
+{
+	EmptyQueueHandlerEvent = InEventHandlerEvent;
+}
 
 void FAppEventManager::PauseRendering()
 {
@@ -329,10 +358,16 @@ void FAppEventManager::EnqueueAppEvent(EAppEventState InState, void* InData)
 	int rc = pthread_mutex_lock(&QueueMutex);
 	check(rc == 0);
 	Queue.Enqueue(Event);
-	 rc = pthread_mutex_unlock(&QueueMutex);
+
+	if (EmptyQueueHandlerEvent)
+	{
+		EmptyQueueHandlerEvent->Reset();
+	}
+
+	rc = pthread_mutex_unlock(&QueueMutex);
 	check(rc == 0);
 
-	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("LogAndroidEvents: EnqueueAppEvent : %u, %u"), InState, (uintptr_t)InData);
+	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("LogAndroidEvents: EnqueueAppEvent : %u, %u, tid = %d"), InState, (uintptr_t)InData, gettid());
 }
 
 
@@ -407,3 +442,14 @@ bool FAppEventManager::WaitForEventInQueue(EAppEventState InState, double Timeou
 
 	return FoundEvent;
 }
+
+extern volatile bool GEventHandlerInitialized;
+
+void FAppEventManager::WaitForEmptyQueue()
+{
+	if (EmptyQueueHandlerEvent && GEventHandlerInitialized && !GIsRequestingExit)
+	{
+		EmptyQueueHandlerEvent->Wait();
+	}
+}
+

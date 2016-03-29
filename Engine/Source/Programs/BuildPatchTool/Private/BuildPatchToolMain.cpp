@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BuildPatchToolMain.cpp: Implements the BuildPatchTool application's main loop.
@@ -33,8 +33,11 @@
 	-FileIgnoreList=""		Specifies in quotes, the path to a text file containing BuildRoot relative files, separated by \r\n line endings, to not be included in the build.
 	-FileAttributeList=""	Specifies in quotes, the path to a text file containing quoted BuildRoot relative files followed by optional attribute keywords readonly compressed executable, separated by \r\n line endings. These attribute will be applied when build is installed client side.
 	-PrereqName=""			Specifies in quotes, the display name for the prerequisites installer
-	-PrereqPath=""			Specifies in quotes, the prerequisites installer to launch on successful product install
+	-PrereqPath=""			Specifies in quotes, the prerequisites installer to launch on successful product install.
+							This path supports a string replace for "$[RootDirectory]". This will be replaced with the root path before executing. The replacement will include trailing /
 	-PrereqArgs=""			Specifies in quotes, the commandline to send to prerequisites installer on launch
+							This value supports string replacements for "$[RootDirectory]" and also "$[LogDirectory]". LogDirectory is the path to the program's log output directory so your prereq could create logs there. The replacement will include trailing /
+							"$[Quote]" can also be used to get a quote character, this is important because the BPT commandline already uses quotes for token parsing.
 	-DataAgeThreshold=12.5	Specified the maximum age (in days) of existing manifest files whose referenced patch data can be reused in the generated manifest
 
 	NB: -DataAgeThreshold can also be present in the [PatchGeneration] section of BuildPatchTool.ini in the cloud directory
@@ -316,7 +319,11 @@ EBuildPatchToolReturnCode::Type BuildPatchToolMain( const TCHAR* CommandLine )
 
 		if( PrereqArgsIdx != INDEX_NONE )
 		{
-			FParse::Value( *Switches[ PrereqArgsIdx ], TEXT( "PrereqArgs=" ), PrereqArgs );
+			// Need to do something more basic to support quotes, we know how the switches array works, so lets just use it!
+			if (Switches[PrereqArgsIdx].RemoveFromStart(TEXT("PrereqArgs=")))
+			{
+				PrereqArgs = Switches[PrereqArgsIdx].TrimQuotes();
+			}
 		}
 
 		if (ManifestsListIdx != INDEX_NONE)

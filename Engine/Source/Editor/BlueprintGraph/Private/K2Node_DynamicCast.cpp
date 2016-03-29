@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "BlueprintGraphPrivatePCH.h"
@@ -328,7 +328,7 @@ bool UK2Node_DynamicCast::IsConnectionDisallowed(const UEdGraphPin* MyPin, const
 		else if (TargetType == nullptr)
 		{
 			bIsDisallowed = true;
-			OutReason = LOCTEXT("BadCastNode", "This cast has an invalid target type (was the class deleted without a redirect?).").ToString();
+			OutReason = LOCTEXT("InvalidTargetType", "This cast has an invalid target type (was the class deleted without a redirect?).").ToString();
 		}
 		else if ((OtherPinType.PinCategory == UEdGraphSchema_K2::PC_Interface) || TargetType->HasAnyClassFlags(CLASS_Interface))
 		{

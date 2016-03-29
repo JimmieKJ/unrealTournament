@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -36,8 +36,18 @@ public:
 			*const_cast<FRotator*>(this) = ZeroRotator;
 		}
 	}
+
+	FORCEINLINE void DiagnosticCheckNaN(const TCHAR* Message) const
+	{
+		if (ContainsNaN())
+		{
+			logOrEnsureNanError(TEXT("%s: FRotator contains NaN: %s"), Message, *ToString());
+			*const_cast<FRotator*>(this) = ZeroRotator;
+		}
+	}
 #else
 	FORCEINLINE void DiagnosticCheckNaN() const {}
+	FORCEINLINE void DiagnosticCheckNaN(const TCHAR* Message) const {}
 #endif
 
 	/**
@@ -124,10 +134,11 @@ public:
 	// Binary comparison operators.
 
 	/**
-	 * Checks whether two rotators are identical.
+	 * Checks whether two rotators are identical. This checks each component for exact equality.
 	 *
 	 * @param R The other rotator.
 	 * @return true if two rotators are identical, otherwise false.
+	 * @see Equals()
 	 */
 	bool operator==( const FRotator& R ) const;
 
@@ -162,7 +173,8 @@ public:
 	// Functions.
 
 	/**
-	 * Checks whether rotator is nearly zero, within specified tolerance.
+	 * Checks whether rotator is nearly zero within specified tolerance, when treated as an orientation.
+	 * This means that FRotator(0, 0, 360) is "zero", because it is the same final orientation as the zero rotator.
 	 *
 	 * @param Tolerance Error Tolerance.
 	 * @return true if rotator is nearly zero, within specified tolerance, otherwise false.
@@ -170,14 +182,16 @@ public:
 	bool IsNearlyZero( float Tolerance=KINDA_SMALL_NUMBER ) const;
 
 	/**
-	 * Checks whether this has exactly zero rotation.
+	 * Checks whether this has exactly zero rotation, when treated as an orientation.
+	 * This means that FRotator(0, 0, 360) is "zero", because it is the same final orientation as the zero rotator.
 	 *
 	 * @return true if this has exactly zero rotation, otherwise false.
 	 */
 	bool IsZero() const;
 
 	/**
-	 * Checks whether two rotators are equal, within specified tolerance.
+	 * Checks whether two rotators are equal within specified tolerance, when treated as an orientation.
+	 * This means that FRotator(0, 0, 360).Equals(FRotator(0,0,0)) is true, because they represent the same final orientation.
 	 *
 	 * @param R The other rotator.
 	 * @param Tolerance Error Tolerance.
@@ -325,9 +339,9 @@ public:
 	CORE_API bool NetSerialize( FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess );
 
 public:
-
+	
 	/**
-	 * Clamps an angle to the range of [0, 360].
+	 * Clamps an angle to the range of [0, 360).
 	 *
 	 * @param Angle The angle to clamp.
 	 * @return The clamped angle.
@@ -335,7 +349,7 @@ public:
 	static float ClampAxis( float Angle );
 
 	/**
-	 * Clamps an angle to the range of [-180, 180].
+	 * Clamps an angle to the range of (-180, 180].
 	 *
 	 * @param Angle The Angle to clamp.
 	 * @return The clamped angle.

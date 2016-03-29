@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -90,7 +90,13 @@ public:
 	 */
 	virtual bool CachedDataProbablyExists(const TCHAR* CacheKey) override
 	{
-		return InnerBackend->CachedDataProbablyExists(CacheKey);
+		COOK_STAT(auto Timer = UsageStats.TimeProbablyExists());
+		bool Result = InnerBackend->CachedDataProbablyExists(CacheKey);
+		if (Result)
+		{
+			COOK_STAT(Timer.AddHit(0));
+		}
+		return Result;
 	}
 	/**
 	 * Synchronous retrieve of a cache item
@@ -99,9 +105,10 @@ public:
 	 * @param	OutData		Buffer to receive the results, if any were found
 	 * @return				true if any data was found, and in this case OutData is non-empty
 	 */
-	virtual bool GetCachedData(const TCHAR* CacheKey, TArray<uint8>& OutData, FCacheStatRecord* Stats) override
+	virtual bool GetCachedData(const TCHAR* CacheKey, TArray<uint8>& OutData) override
 	{
-		bool bOk = InnerBackend->GetCachedData(CacheKey, OutData, Stats);
+		COOK_STAT(auto Timer = UsageStats.TimeGet());
+		bool bOk = InnerBackend->GetCachedData(CacheKey, OutData);
 		if (bOk)
 		{
 			if (OutData.Num() < sizeof(FDerivedDataTrailer))
@@ -113,7 +120,7 @@ public:
 			{
 				FDerivedDataTrailer Trailer;
 				FMemory::Memcpy(&Trailer,&OutData[OutData.Num() - sizeof(FDerivedDataTrailer)], sizeof(FDerivedDataTrailer));
-				OutData.RemoveAt(OutData.Num() - sizeof(FDerivedDataTrailer),sizeof(FDerivedDataTrailer));
+				OutData.RemoveAt(OutData.Num() - sizeof(FDerivedDataTrailer),sizeof(FDerivedDataTrailer), false);
 				FDerivedDataTrailer RecomputedTrailer(OutData);
 				if (Trailer == RecomputedTrailer)
 				{
@@ -135,6 +142,10 @@ public:
 		{
 			OutData.Empty();
 		}
+		else
+		{
+			COOK_STAT(Timer.AddHit(OutData.Num()));
+		}
 		return bOk;
 	}
 	/**
@@ -144,13 +155,14 @@ public:
 	 * @param	InData		Buffer containing the data to cache, can be destroyed after the call returns, immediately
 	 * @param	bPutEvenIfExists	If true, then do not attempt skip the put even if CachedDataProbablyExists returns true
 	 */
-	virtual void PutCachedData(const TCHAR* CacheKey, TArray<uint8>& InData, bool bPutEvenIfExists, FCacheStatRecord* Stats) override
+	virtual void PutCachedData(const TCHAR* CacheKey, TArray<uint8>& InData, bool bPutEvenIfExists) override
 	{
+		COOK_STAT(auto Timer = UsageStats.TimePut());
 		if (!InnerBackend->IsWritable())
 		{
 			return; // no point in continuing down the chain
 		}
-
+		COOK_STAT(Timer.AddHit(InData.Num()));
 		// Get rid of the double copy!
 		TArray<uint8> Data;
 		Data.Reset( InData.Num() + sizeof(FDerivedDataTrailer) );
@@ -159,7 +171,7 @@ public:
 		FDerivedDataTrailer Trailer(Data);
 		Data.AddUninitialized(sizeof(FDerivedDataTrailer));
 		FMemory::Memcpy(&Data[Data.Num() - sizeof(FDerivedDataTrailer)], &Trailer, sizeof(FDerivedDataTrailer));
-		InnerBackend->PutCachedData(CacheKey, Data, bPutEvenIfExists, Stats);
+		InnerBackend->PutCachedData(CacheKey, Data, bPutEvenIfExists);
 	}
 	
 	virtual void RemoveCachedData(const TCHAR* CacheKey, bool bTransient) override
@@ -170,7 +182,21 @@ public:
 		}
 		return InnerBackend->RemoveCachedData(CacheKey, bTransient);
 	}
+
+	virtual void GatherUsageStats(TMap<FString, FDerivedDataCacheUsageStats>& UsageStatsMap, FString&& GraphPath) override
+	{
+		COOK_STAT(
+		{
+			UsageStatsMap.Add(GraphPath + TEXT(": CorruptionWrapper"), UsageStats);
+			if (InnerBackend)
+			{
+				InnerBackend->GatherUsageStats(UsageStatsMap, GraphPath + TEXT(". 0"));
+			}
+		});
+	}
+
 private:
+	FDerivedDataCacheUsageStats UsageStats;
 
 	/** Backend to use for storage, my responsibilities are about corruption **/
 	FDerivedDataBackendInterface* InnerBackend;

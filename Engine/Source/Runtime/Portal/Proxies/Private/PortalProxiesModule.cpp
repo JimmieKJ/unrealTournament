@@ -1,8 +1,15 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "PortalProxiesPrivatePCH.h"
 #include "IPortalServiceProvider.h"
+
 #include "IPortalApplicationWindow.h"
+#include "IPortalUser.h"
+#include "IPortalUserLogin.h"
+
+#include "PortalApplicationWindowProxy.h"
+#include "PortalUserProxy.h"
+#include "PortalUserLoginProxy.h"
 
 
 /**
@@ -18,6 +25,8 @@ public:
 	virtual void StartupModule() override 
 	{
 		ApplicationWindow_SupportedServiceNames.Add(TNameOf<IPortalApplicationWindow>::GetName());
+		PortalUser_SupportedServiceNames.Add(TNameOf<IPortalUser>::GetName());
+		PortalUserLogin_SupportedServiceNames.Add(TNameOf<IPortalUserLogin>::GetName());
 	}
 	virtual void ShutdownModule() override { }
 
@@ -43,7 +52,15 @@ public:
 		{
 			return FPortalApplicationWindowProxyFactory::Create(RpcClient.ToSharedRef());
 		}
-	
+		else if (PortalUser_SupportedServiceNames.Contains(ServiceName))
+		{
+			return FPortalUserProxyFactory::Create(RpcClient.ToSharedRef());
+		}
+		else if (PortalUserLogin_SupportedServiceNames.Contains(ServiceName))
+		{
+			return FPortalUserLoginProxyFactory::Create(RpcClient.ToSharedRef());
+		}
+
 		//Add additional supported proxy services here
 
 		return nullptr;
@@ -52,6 +69,8 @@ public:
 private:
 
 	TSet<FString> ApplicationWindow_SupportedServiceNames;
+	TSet<FString> PortalUser_SupportedServiceNames;
+	TSet<FString> PortalUserLogin_SupportedServiceNames;
 
 };
 

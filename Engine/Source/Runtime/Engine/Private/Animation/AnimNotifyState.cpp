@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Animation/AnimNotifies/AnimNotifyState.h"
@@ -13,6 +13,8 @@ UAnimNotifyState::UAnimNotifyState(const FObjectInitializer& ObjectInitializer)
 #if WITH_EDITORONLY_DATA
 	NotifyColor = FColor(200, 200, 255, 255);
 #endif // WITH_EDITORONLY_DATA
+
+	bIsNativeBranchingPoint = false;
 }
 
 
@@ -29,6 +31,21 @@ void UAnimNotifyState::NotifyTick(class USkeletalMeshComponent * MeshComp, class
 void UAnimNotifyState::NotifyEnd(class USkeletalMeshComponent * MeshComp, class UAnimSequenceBase * Animation)
 {
 	Received_NotifyEnd(MeshComp, Animation);
+}
+
+void UAnimNotifyState::BranchingPointNotifyBegin(FBranchingPointNotifyPayload& BranchingPointPayload)
+{
+	NotifyBegin(BranchingPointPayload.SkelMeshComponent, BranchingPointPayload.SequenceAsset, BranchingPointPayload.NotifyEvent ? BranchingPointPayload.NotifyEvent->GetDuration() : 0.f);
+}
+
+void UAnimNotifyState::BranchingPointNotifyTick(FBranchingPointNotifyPayload& BranchingPointPayload, float FrameDeltaTime)
+{
+	NotifyTick(BranchingPointPayload.SkelMeshComponent, BranchingPointPayload.SequenceAsset, FrameDeltaTime);
+}
+
+void UAnimNotifyState::BranchingPointNotifyEnd(FBranchingPointNotifyPayload& BranchingPointPayload)
+{
+	NotifyEnd(BranchingPointPayload.SkelMeshComponent, BranchingPointPayload.SequenceAsset);
 }
 
 FString UAnimNotifyState::GetNotifyName_Implementation() const

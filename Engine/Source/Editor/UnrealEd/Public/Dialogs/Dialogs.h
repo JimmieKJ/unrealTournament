@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #ifndef __DIALOGS_H__
@@ -78,7 +78,7 @@ public:
 		FString IniSettingFileName;
 
 		/** If true the suppress checkbox defaults to true*/
-		bool bDefaultToSupressInTheFuture;
+		bool bDefaultToSuppressInTheFuture;
 
 		/** Text used on the button which will return FSuppressableWarningDialog::Confirm */
 		FText ConfirmText;
@@ -105,7 +105,7 @@ public:
 			, Title(InTitle)
 			, IniSettingName(InIniSettingName)
 			, IniSettingFileName(InIniSettingFileName)
-			, bDefaultToSupressInTheFuture(false)
+			, bDefaultToSuppressInTheFuture(false)
 			, ConfirmText()
 			, CancelText()
 			, CheckBoxText(NSLOCTEXT("ModalDialogs", "DefaultCheckBoxMessage", "Don't show this again"))

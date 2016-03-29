@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DepthOnlyVertexShader.hlsl: Depth-only vertex shader.
@@ -8,6 +8,9 @@
 #include "Material.usf"
 #include "VertexFactory.usf"
 
+#if INSTANCED_STEREO
+bool bNeedsInstancedStereoBias;
+#endif
 
 struct FDepthOnlyVSToPS
 {
@@ -58,7 +61,7 @@ struct FDepthOnlyVSToPS
 		// Finally, transform position to clip-space
 		ISOLATE
 		{
-			O.Position = mul(WorldPosition, View.TranslatedWorldToClip);
+			O.Position = mul(WorldPosition, ResolvedView.TranslatedWorldToClip);
 		}
 			
 		#if !MATERIALBLENDING_SOLID || OUTPUT_PIXEL_DEPTH_OFFSET
@@ -77,8 +80,21 @@ void Main(
 	FVertexFactoryInput Input,
 	OPTIONAL_VertexID
 	out FDepthOnlyVSOutput Output
+#if INSTANCED_STEREO
+	, uint InstanceId : SV_InstanceID
+	, out float4 OutClipDistance : SV_ClipDistance
+	, out float4 OutCullDistance : SV_CullDistance
+#endif
 	)
 {
+#if INSTANCED_STEREO
+	OutCullDistance = OutClipDistance = 0.0;
+	const uint EyeIndex = VertexFactoryGetEyeIndex(InstanceId);
+	ResolvedView = ResolveView(EyeIndex);
+#else
+	ResolvedView = ResolveView();
+#endif
+
 	FVertexFactoryIntermediates VFIntermediates = GetVertexFactoryIntermediates(Input);
 	float4 WorldPos = VertexFactoryGetWorldPosition(Input, VFIntermediates);
 
@@ -95,12 +111,30 @@ void Main(
 
 #if USING_TESSELLATION
 	// Transformation is done in Domain shader when tessellating
-	Output.Position = WorldPos;
+	Output.Position = WorldPos; 
 #else
 	ISOLATE
 	{
 		float4 RasterizedWorldPosition = VertexFactoryGetRasterizedWorldPosition(Input, VFIntermediates, WorldPos);
-		Output.Position = mul(RasterizedWorldPosition, View.TranslatedWorldToClip);
+		Output.Position = mul(RasterizedWorldPosition, ResolvedView.TranslatedWorldToClip);
+
+		#if INSTANCED_STEREO
+		BRANCH 
+		if (bIsInstancedStereo)  
+		{
+			// Clip at the center of the screen
+			OutCullDistance.x = OutClipDistance.x = dot(Output.Position, EyeClipEdge[EyeIndex]);
+
+			// Scale to the width of a single eye viewport
+			Output.Position.x *= 0.5 * Frame.HMDEyePaddingOffset;
+
+			// Shift to the eye viewport
+			Output.Position.x += (EyeOffsetScale[EyeIndex] * Output.Position.w) * (1.0f - 0.5 * Frame.HMDEyePaddingOffset);
+		}
+		
+		// Bias the depth
+		Output.Position.z += InstancedStereoDepthBias * Output.Position.w * (float)bNeedsInstancedStereoBias;
+		#endif
 	}
 #endif
 
@@ -108,6 +142,15 @@ void Main(
 	// Masked and transparent materials need texture coords to clip, and tessellated
 	// materials need texture coords to displace
 	Output.FactoryInterpolants = VertexFactoryGetInterpolants(Input, VFIntermediates, VertexParameters);
+
+#if INSTANCED_STEREO
+	#if USING_TESSELLATION	
+		Output.FactoryInterpolants.InterpolantsVSToPS.PackedEyeIndex = PackEyeIndex(EyeIndex, bIsInstancedStereo);
+	#else
+		Output.FactoryInterpolants.PackedEyeIndex = PackEyeIndex(EyeIndex, bIsInstancedStereo);
+	#endif
+#endif
+
 #endif
 
 #if !MATERIALBLENDING_SOLID || OUTPUT_PIXEL_DEPTH_OFFSET

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*------------------------------------------------------------------------------------
 	FSLESSoundSource.
@@ -32,16 +32,6 @@ void FSLESSoundSource::OnRequeueBufferCallback( SLAndroidSimpleBufferQueueItf In
 	}
 	else
 	{
-		// Sound decoding is complete, just waiting to finish playing
-		if (bBuffersToFlush)
-		{
-			// set the player's state to stopped
-			SLresult result = (*SL_PlayerPlayInterface)->SetPlayState(SL_PlayerPlayInterface, SL_PLAYSTATE_STOPPED);
-			check(SL_RESULT_SUCCESS == result);
-
-			return;
-		}
-
 		// Enqueue the previously decoded buffer
 		if (RealtimeAsyncTask)
 		{
@@ -61,6 +51,16 @@ void FSLESSoundSource::OnRequeueBufferCallback( SLAndroidSimpleBufferQueueItf In
 			RealtimeAsyncTask = nullptr;
 		}
 
+		// Sound decoding is complete, just waiting to finish playing
+		if (bBuffersToFlush)
+		{
+			// set the player's state to stopped
+			SLresult result = (*SL_PlayerPlayInterface)->SetPlayState(SL_PlayerPlayInterface, SL_PLAYSTATE_STOPPED);
+			check(SL_RESULT_SUCCESS == result);
+
+			return;
+		}
+
 		SLresult result = (*SL_PlayerBufferQueue)->Enqueue(SL_PlayerBufferQueue, AudioBuffers[BufferInUse].AudioData, AudioBuffers[BufferInUse].AudioDataSize );
 		if(result != SL_RESULT_SUCCESS) 
 		{ 
@@ -71,7 +71,8 @@ void FSLESSoundSource::OnRequeueBufferCallback( SLAndroidSimpleBufferQueueItf In
 		BufferInUse = !BufferInUse;
 		if (bHasLooped == false || WaveInstance->LoopingMode != LOOP_Never)
 		{
-			if (ReadMorePCMData(BufferInUse, EDataReadMode::Asynchronous))
+			// Do this in the callback thread instead of creating an asynchronous task (thread id from callback is not consistent and use of TLS for stats causes issues)
+			if (ReadMorePCMData(BufferInUse, EDataReadMode::Synchronous))
 			{
 				// If this is a synchronous source we may get notified immediately that we have looped
 				bHasLooped = true;
@@ -151,7 +152,14 @@ bool FSLESSoundSource::EnqueuePCMBuffer( bool bLoop)
 	}
 	
 	result = (*SL_PlayerBufferQueue)->Enqueue(SL_PlayerBufferQueue, Buffer->AudioData, Buffer->GetSize() );
-	if (result != SL_RESULT_SUCCESS) { UE_LOG(LogAndroidAudio, Warning, TEXT("FAILED OPENSL BUFFER Enqueue SL_PlayerBufferQueue 0x%x params( %p, %d)"), result, Buffer->AudioData, int32(Buffer->GetSize())); return false; }
+	if (result != SL_RESULT_SUCCESS) {
+		if (bLoop)
+		{
+			result = (*SL_PlayerBufferQueue)->RegisterCallback(SL_PlayerBufferQueue, NULL, NULL);
+		}
+		UE_LOG(LogAndroidAudio, Warning, TEXT("FAILED OPENSL BUFFER Enqueue SL_PlayerBufferQueue 0x%x params( %p, %d)"), result, Buffer->AudioData, int32(Buffer->GetSize()));
+		return false;
+	}
 
 	bStreamedSound = false;
 	bHasLooped = false;
@@ -217,7 +225,7 @@ bool FSLESSoundSource::EnqueuePCMRTBuffer( bool bLoop )
 	if (WaveInstance->WaveData && WaveInstance->WaveData->CachedRealtimeFirstBuffer && WaveInstance->StartTime == 0.f)
 	{
 		FMemory::Memcpy((uint8*)AudioBuffers[0].AudioData, WaveInstance->WaveData->CachedRealtimeFirstBuffer, BufferSize);
-		FMemory::Memcpy((uint8*)AudioBuffers[1].AudioData, WaveInstance->WaveData->CachedRealtimeFirstBuffer, BufferSize);
+		ReadMorePCMData(1, EDataReadMode::AsynchronousSkipFirstFrame);
 	}
 	else
 	{
@@ -286,6 +294,11 @@ bool FSLESSoundSource::Init( FWaveInstance* InWaveInstance )
 		if (CreatePlayer())
 		{
 			WaveInstance = InWaveInstance;
+
+			if (WaveInstance->StartTime > 0.f)
+			{
+				Buffer->Seek(WaveInstance->StartTime);
+			}
 
 			switch( Buffer->Format)
 			{
@@ -404,7 +417,6 @@ void FSLESSoundSource::Update( void )
 		// Emulate the bleed to rear speakers followed by stereo fold down
 		Volume *= 1.25f;
 	}
-	Volume *= FApp::GetVolumeMultiplier();
 	Volume *= AudioDevice->PlatformAudioHeadroom;
 	Volume = FMath::Clamp(Volume, 0.0f, MAX_VOLUME);
 	
@@ -469,11 +481,14 @@ void FSLESSoundSource::Play( void )
 		// Reset the previous volume on play so it can be set at least once in the update function
 		VolumePreviousUpdate = -1.0f;
 
+		// Update volume now before starting play
+		Paused = false;
+		Update();
+
 		// set the player's state to playing
 		SLresult result = (*SL_PlayerPlayInterface)->SetPlayState(SL_PlayerPlayInterface, SL_PLAYSTATE_PLAYING);
 		check(SL_RESULT_SUCCESS == result);
 
-		Paused = false;
 		Playing = true;
 	}
 }

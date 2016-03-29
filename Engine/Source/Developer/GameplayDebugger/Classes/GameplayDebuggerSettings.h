@@ -1,11 +1,13 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-GameplayDebuggerSettings.h: Declares the UGameplayDebuggerSettings class.
-=============================================================================*/
+//////////////////////////////////////////////////////////////////////////
+// THIS CLASS IS NOW DEPRECATED AND WILL BE REMOVED IN NEXT VERSION
+// Please check GameplayDebugger.h for details.
+
 #pragma once
 
 
+#include "GameplayDebuggingTypes.h"
 #include "GameplayDebuggerSettings.generated.h"
 
 #define ADD_LEVEL_EDITOR_EXTENSIONS 0

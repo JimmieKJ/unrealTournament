@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneToolsPrivatePCH.h"
 #include "MovieSceneColorTrack.h"
@@ -23,28 +23,35 @@ void FColorPropertySection::GenerateSectionLayout( class ISectionLayoutBuilder& 
 	LayoutBuilder.AddKeyArea( "A", NSLOCTEXT( "FColorPropertySection", "OpacityArea", "Opacity" ), AlphaKeyArea.ToSharedRef() );
 }
 
-
-int32 FColorPropertySection::OnPaintSection( const FGeometry& AllottedGeometry, const FSlateRect& SectionClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, bool bParentEnabled ) const
+int32 FColorPropertySection::OnPaintSection( FSequencerSectionPainter& Painter ) const
 {
-	const ESlateDrawEffect::Type DrawEffects = bParentEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect;
+	int32 LayerId = Painter.PaintSectionBackground();
+
+	const ESlateDrawEffect::Type DrawEffects = Painter.bParentEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect;
 
 	const UMovieSceneColorSection* ColorSection = Cast<const UMovieSceneColorSection>( &SectionObject );
 
-	float StartTime = ColorSection->GetStartTime();
-	float EndTime = ColorSection->GetEndTime();
-	float SectionDuration = EndTime - StartTime;
+	const FTimeToPixel& TimeConverter = Painter.GetTimeConverter();
+
+	const float StartTime = TimeConverter.PixelToTime(0.f);
+	const float EndTime = TimeConverter.PixelToTime(Painter.SectionGeometry.GetLocalSize().X);
+	const float SectionDuration = EndTime - StartTime;
 
 	if ( !FMath::IsNearlyZero( SectionDuration ) )
 	{
-		LayerId = FPropertySection::OnPaintSection( AllottedGeometry, SectionClippingRect, OutDrawElements, LayerId, bParentEnabled );
+		FVector2D GradientSize = FVector2D( Painter.SectionGeometry.Size.X - 2.f, (Painter.SectionGeometry.Size.Y / 4) - 3.0f );
 
-		FVector2D GradientSize = FVector2D( AllottedGeometry.Size.X, (AllottedGeometry.Size.Y / 4) - 3.0f );
-
-		FPaintGeometry PaintGeometry = AllottedGeometry.ToPaintGeometry( FVector2D( 0, 0 ), GradientSize );
+		FPaintGeometry PaintGeometry = Painter.SectionGeometry.ToPaintGeometry( FVector2D( 1.f, 1.f ), GradientSize );
+		FSlateRect ClippingRect = Painter.SectionClippingRect.InsetBy(1.f);
 
 		// If we are showing a background pattern and the colors is transparent, draw a checker pattern
-		const FSlateBrush* CheckerBrush = FEditorStyle::GetBrush( "Checker" );
-		FSlateDrawElement::MakeBox( OutDrawElements, LayerId, PaintGeometry, CheckerBrush, SectionClippingRect, DrawEffects );
+		FSlateDrawElement::MakeBox(
+			Painter.DrawElements,
+			LayerId,
+			PaintGeometry,
+			FEditorStyle::GetBrush( "Checker" ),
+			ClippingRect,
+			DrawEffects);
 
 		TArray<FSlateGradientStop> GradientStops;
 
@@ -57,19 +64,19 @@ int32 FColorPropertySection::OnPaintSection( const FGeometry& AllottedGeometry, 
 			FLinearColor Color = ColorKeys[i].Value;
 			float TimeFraction = (Time - StartTime) / SectionDuration;
 
-			GradientStops.Add( FSlateGradientStop( FVector2D( TimeFraction * AllottedGeometry.Size.X, 0 ),
+			GradientStops.Add( FSlateGradientStop( FVector2D( TimeFraction * Painter.SectionGeometry.Size.X, 0 ),
 				Color ) );
 		}
 
 		if ( GradientStops.Num() > 0 )
 		{
 			FSlateDrawElement::MakeGradient(
-				OutDrawElements,
-				LayerId + 1,
+				Painter.DrawElements,
+				Painter.LayerId + 1,
 				PaintGeometry,
 				GradientStops,
 				Orient_Vertical,
-				SectionClippingRect,
+				ClippingRect,
 				DrawEffects
 				);
 		}

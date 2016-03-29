@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -237,6 +237,18 @@ public:
 	 * @param OutHash Resulting hash value (20 byte buffer)
 	 */
 	static void HashBuffer(const void* Data, uint32 DataSize, uint8* OutHash);
+
+	/**
+	 * Generate the HMAC (Hash-based Message Authentication Code) for a block of data.
+	 * https://en.wikipedia.org/wiki/Hash-based_message_authentication_code
+	 *
+	 * @param Key		The secret key to be used when generating the HMAC
+	 * @param KeySize	The size of the key
+	 * @param Data		Input data to hash
+	 * @param DataSize	Size of the Data block
+	 * @param OutHash	Resulting hash value (20 byte buffer)
+	 */
+	static void HMACBuffer(const void* Key, uint32 KeySize, const void* Data, uint32 DataSize, uint8* OutHash);
 
 	/**
 	 * Shared hashes.sha reading code (each platform gets a buffer to the data,

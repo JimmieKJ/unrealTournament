@@ -1,9 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "PlayerInput.h"
-#include "InputSettings.generated.h"
 
+#include "InputSettings.generated.h"
 
 /**
  * Project wide settings for input handling
@@ -42,6 +42,10 @@ class ENGINE_API UInputSettings
 	/** If a key is pressed twice in this amount of time it is considered a "double click" */
 	UPROPERTY(config, EditAnywhere, Category="MouseProperties", AdvancedDisplay)
 	float DoubleClickTime;
+
+	/** The default mouse capture mode for the game viewport */
+	UPROPERTY(config, EditAnywhere, Category = "ViewportProperties")
+	TEnumAsByte<EMouseCaptureMode> DefaultViewportMouseCaptureMode;
 
 	/** List of Action Mappings */
 	UPROPERTY(config, EditAnywhere, Category="Bindings")

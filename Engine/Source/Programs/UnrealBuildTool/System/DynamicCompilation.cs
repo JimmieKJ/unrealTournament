@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -22,12 +22,6 @@ namespace UnrealBuildTool
 		 */
 		private static bool RequiresCompilation(List<FileReference> SourceFileNames, FileReference AssemblySourceListFilePath, FileReference OutputAssemblyPath)
 		{
-			if (UnrealBuildTool.RunningRocket() && ProjectFileGenerator.bGenerateProjectFiles)
-			{
-				// @todo rocket Do we need a better way to determine if project generation rules modules need to be compiled?
-				return true;
-			}
-
 			// Check to see if we already have a compiled assembly file on disk
 			FileInfo OutputAssemblyInfo = new FileInfo(OutputAssemblyPath.FullName);
 			if (OutputAssemblyInfo.Exists)
@@ -47,7 +41,7 @@ namespace UnrealBuildTool
 				{
 					// Make sure we have a manifest of source files used to compile the output assembly.  If it doesn't exist
 					// for some reason (not an expected case) then we'll need to recompile.
-					var AssemblySourceListFile = new FileInfo(AssemblySourceListFilePath.FullName);
+					FileInfo AssemblySourceListFile = new FileInfo(AssemblySourceListFilePath.FullName);
 					if (!AssemblySourceListFile.Exists)
 					{
 						return true;
@@ -56,13 +50,13 @@ namespace UnrealBuildTool
 					{
 						// Make sure the source files we're compiling are the same as the source files that were compiled
 						// for the assembly that we want to load
-						var ExistingAssemblySourceFileNames = new List<FileReference>();
+						List<FileReference> ExistingAssemblySourceFileNames = new List<FileReference>();
 						{
-							using (var Reader = AssemblySourceListFile.OpenRead())
+							using (FileStream Reader = AssemblySourceListFile.OpenRead())
 							{
-								using (var TextReader = new StreamReader(Reader))
+								using (StreamReader TextReader = new StreamReader(Reader))
 								{
-									for (var ExistingSourceFileName = TextReader.ReadLine(); ExistingSourceFileName != null; ExistingSourceFileName = TextReader.ReadLine())
+									for (string ExistingSourceFileName = TextReader.ReadLine(); ExistingSourceFileName != null; ExistingSourceFileName = TextReader.ReadLine())
 									{
 										FileReference FullExistingSourceFileName = new FileReference(ExistingSourceFileName);
 
@@ -79,7 +73,7 @@ namespace UnrealBuildTool
 						}
 
 						// Test against source file time stamps
-						foreach (var SourceFileName in SourceFileNames)
+						foreach (FileReference SourceFileName in SourceFileNames)
 						{
 							// Was the existing assembly compiled without this source file?  If so, then we definitely need to recompile it!
 							if (!ExistingAssemblySourceFileNames.Contains(SourceFileName))
@@ -87,7 +81,7 @@ namespace UnrealBuildTool
 								return true;
 							}
 
-							var SourceFileInfo = new FileInfo(SourceFileName.FullName);
+							FileInfo SourceFileInfo = new FileInfo(SourceFileName.FullName);
 
 							// Check to see if the source file exists
 							if (!SourceFileInfo.Exists)
@@ -127,10 +121,10 @@ namespace UnrealBuildTool
 		 */
 		private static Assembly CompileAssembly(FileReference OutputAssemblyPath, List<FileReference> SourceFileNames, List<string> ReferencedAssembies, List<string> PreprocessorDefines = null, bool TreatWarningsAsErrors = false)
 		{
-			var TemporaryFiles = new TempFileCollection();
+			TempFileCollection TemporaryFiles = new TempFileCollection();
 
 			// Setup compile parameters
-			var CompileParams = new CompilerParameters();
+			CompilerParameters CompileParams = new CompilerParameters();
 			{
 				// Always compile the assembly to a file on disk, so that we can load a cached version later if we have one
 				CompileParams.GenerateInMemory = false;
@@ -143,6 +137,10 @@ namespace UnrealBuildTool
 
 				// Never fail compiles for warnings
 				CompileParams.TreatWarningsAsErrors = false;
+
+				// Set the warning level so that we will actually receive warnings -
+				// doesn't abort compilation as stated in documentation!
+				CompileParams.WarningLevel = 4;
 
 				// Always generate debug information as it takes minimal time
 				CompileParams.IncludeDebugInformation = true;
@@ -172,7 +170,7 @@ namespace UnrealBuildTool
 					}
 
 					// The assembly will depend on this application
-					var UnrealBuildToolAssembly = Assembly.GetExecutingAssembly();
+					Assembly UnrealBuildToolAssembly = Assembly.GetExecutingAssembly();
 					CompileParams.ReferencedAssemblies.Add(UnrealBuildToolAssembly.Location);
 				}
 
@@ -212,8 +210,8 @@ namespace UnrealBuildTool
 			try
 			{
 				// Enable .NET 4.0 as we want modern language features like 'var'
-				var ProviderOptions = new Dictionary<string, string>() { { "CompilerVersion", "v4.0" } };
-				var Compiler = new CSharpCodeProvider(ProviderOptions);
+				Dictionary<string, string> ProviderOptions = new Dictionary<string, string>() { { "CompilerVersion", "v4.0" } };
+				CSharpCodeProvider Compiler = new CSharpCodeProvider(ProviderOptions);
 				CompileResults = Compiler.CompileAssemblyFromFile(CompileParams, SourceFileNames.Select(x => x.FullName).ToArray());
 			}
 			catch (Exception Ex)
@@ -225,11 +223,18 @@ namespace UnrealBuildTool
 			if (CompileResults.Errors.Count > 0)
 			{
 				Log.TraceInformation("Messages while compiling {0}:", OutputAssemblyPath);
-				foreach (var CurError in CompileResults.Errors)
+				foreach (CompilerError CurError in CompileResults.Errors)
 				{
-					Log.TraceInformation(CurError.ToString());
+					if (CurError.IsWarning)
+					{
+						Log.TraceWarning(CurError.ToString());
+					}
+					else
+					{
+						Log.TraceError(CurError.ToString());
+					}
 				}
-				if(CompileResults.Errors.HasErrors || TreatWarningsAsErrors)
+				if (CompileResults.Errors.HasErrors || TreatWarningsAsErrors)
 				{
 					throw new BuildException("UnrealBuildTool encountered an error while compiling source files");
 				}
@@ -300,7 +305,7 @@ namespace UnrealBuildTool
 				// since the previous time we compiled the assembly.  In that case, we'll always want to recompile it!
 				{
 					FileInfo AssemblySourcesListFile = new FileInfo(AssemblySourcesListFilePath.FullName);
-					using (var Writer = AssemblySourcesListFile.CreateText())
+					using (StreamWriter Writer = AssemblySourcesListFile.CreateText())
 					{
 						SourceFileNames.ForEach(x => Writer.WriteLine(x));
 					}

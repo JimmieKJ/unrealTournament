@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MetalRHI.cpp: Metal device RHI implementation.
@@ -10,6 +10,7 @@
 #endif
 #include "ShaderCache.h"
 #include "MetalProfiler.h"
+#include "GenericPlatformDriver.h"
 
 /** Set to 1 to enable GPU events in Xcode frame debugger */
 #define ENABLE_METAL_GPUEVENTS	(UE_BUILD_DEBUG | UE_BUILD_DEVELOPMENT)
@@ -30,7 +31,7 @@ FDynamicRHI* FMetalDynamicRHIModule::CreateRHI()
 IMPLEMENT_MODULE(FMetalDynamicRHIModule, MetalRHI);
 
 FMetalDynamicRHI::FMetalDynamicRHI()
-: FMetalRHICommandContext(nullptr)
+: FMetalRHICommandContext(nullptr, FMetalDeviceContext::CreateDeviceContext())
 {
 	// This should be called once at the start 
 	check( IsInGameThread() );
@@ -48,8 +49,13 @@ FMetalDynamicRHI::FMetalDynamicRHI()
 	// get the device to ask about capabilities
 	id<MTLDevice> Device = [IOSAppDelegate GetDelegate].IOSView->MetalDevice;
 	// A8 can use 256 bits of MRTs
+#if PLATFORM_TVOS
+	bool bCanUseWideMRTs = true;
+	bool bCanUseASTC = true;
+#else
 	bool bCanUseWideMRTs = [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily2_v1];
 	bool bCanUseASTC = [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily2_v1] && !FParse::Param(FCommandLine::Get(),TEXT("noastc"));
+#endif
 
     bool bProjectSupportsMRTs = false;
     GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("bSupportsMetalMRT"), bProjectSupportsMRTs, GEngineIni);
@@ -64,11 +70,22 @@ FMetalDynamicRHI::FMetalDynamicRHI()
     {
         GMaxRHIFeatureLevel = ERHIFeatureLevel::ES3_1;
         GMaxRHIShaderPlatform = SP_METAL;
-    }
+	}
+	
+	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES2] = SP_METAL;
+	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES3_1] = SP_METAL;
+	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM4] = (GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM4) ? GMaxRHIShaderPlatform : SP_NumPlatforms;
+	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM5] = SP_NumPlatforms;
 
 #else // @todo zebra
     // get the device to ask about capabilities?
     id<MTLDevice> Device = Context->GetDevice();
+	uint32 DeviceIndex = ((FMetalDeviceContext*)Context)->GetDeviceIndex();
+	
+	TArray<FMacPlatformMisc::FGPUDescriptor> const& GPUs = FPlatformMisc::GetGPUDescriptors();
+	check(DeviceIndex < GPUs.Num());
+	FMacPlatformMisc::FGPUDescriptor const& GPUDesc = GPUs[DeviceIndex];
+	
     // A8 can use 256 bits of MRTs
     bool bCanUseWideMRTs = true;
     bool bCanUseASTC = false;
@@ -85,39 +102,87 @@ FMetalDynamicRHI::FMetalDynamicRHI()
 		GMaxRHIShaderPlatform = SP_METAL_SM4;
 	}
 	
+	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES2] = SP_METAL_MACES3_1;
+	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES3_1] = SP_METAL_MACES3_1;
+	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM4] = SP_METAL_SM4;
+	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM5] = (GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM5) ? GMaxRHIShaderPlatform : SP_NumPlatforms;
+	
 	GRHIAdapterName = FString(Device.name);
 	
+	bool bSupportsPointLights = false;
 	if(GRHIAdapterName.Contains("Nvidia"))
 	{
 		// Nvidia support layer indexing.
 		GSupportsVolumeTextureRendering = true;
+		bSupportsPointLights = true;
 		GRHIVendorId = 0x10DE;
 	}
 	else if(GRHIAdapterName.Contains("ATi") || GRHIAdapterName.Contains("AMD"))
 	{
 		// AMD support layer indexing.
 		GSupportsVolumeTextureRendering = true;
+		bSupportsPointLights = true;
 		GRHIVendorId = 0x1002;
+		if(GPUDesc.GPUVendorId == GRHIVendorId)
+		{
+			GRHIAdapterName = FString(GPUDesc.GPUName);
+		}
 	}
 	else if(GRHIAdapterName.Contains("Intel"))
 	{
 		GSupportsVolumeTextureRendering = true;
+		bSupportsPointLights = (FPlatformMisc::MacOSXVersionCompare(10,11,4) >= 0);
 		GRHIVendorId = 0x8086;
+	}
+	
+	// Make sure the vendors match - the assumption that order in IORegistry is the order in Metal may not hold up forever.
+	if(GPUDesc.GPUVendorId == GRHIVendorId)
+	{
+		GRHIDeviceId = GPUDesc.GPUDeviceId;
+		MemoryStats.DedicatedVideoMemory = GPUDesc.GPUMemoryMB;
+		MemoryStats.TotalGraphicsMemory = GPUDesc.GPUMemoryMB;
+		MemoryStats.DedicatedSystemMemory = 0;
+		MemoryStats.SharedSystemMemory = 0;
+	}
+	
+	GPoolSizeVRAMPercentage = 0;
+	GTexturePoolSize = 0;
+	GConfig->GetInt(TEXT("TextureStreaming"), TEXT("PoolSizeVRAMPercentage"), GPoolSizeVRAMPercentage, GEngineIni);
+	if ( GPoolSizeVRAMPercentage > 0 && MemoryStats.TotalGraphicsMemory > 0 )
+	{
+		float PoolSize = float(GPoolSizeVRAMPercentage) * 0.01f * (float(MemoryStats.TotalGraphicsMemory) * 1024.f * 1024.f);
+		
+		// Truncate GTexturePoolSize to MB (but still counted in bytes)
+		GTexturePoolSize = int64(FGenericPlatformMath::TruncToFloat(PoolSize / 1024.0f / 1024.0f)) * 1024 * 1024;
+		
+		UE_LOG(LogRHI,Log,TEXT("Texture pool is %llu MB (%d%% of %llu MB)"),
+						GTexturePoolSize / 1024 / 1024,
+						GPoolSizeVRAMPercentage,
+						MemoryStats.TotalGraphicsMemory);
 	}
 	
 	// Change the support depth format if we can
 	bSupportsD24S8 = Device.depth24Stencil8PixelFormatSupported;
 	
-	// Disable point light cubemap shadows on Mac Metal as currently they aren't supported.
-	static auto CVarCubemapShadows = IConsoleManager::Get().FindConsoleVariable(TEXT("r.AllowPointLightCubemapShadows"));
-	if(CVarCubemapShadows && CVarCubemapShadows->GetInt() != 0)
+	// Force disable vertex-shader-layer point light rendering on GPUs that don't support it properly yet.
+	if(!bSupportsPointLights && !FParse::Param(FCommandLine::Get(),TEXT("metalpointlights")))
 	{
-		CVarCubemapShadows->Set(0);
+		// Disable point light cubemap shadows on Mac Metal as currently they aren't supported.
+		static auto CVarCubemapShadows = IConsoleManager::Get().FindConsoleVariable(TEXT("r.AllowPointLightCubemapShadows"));
+		if(CVarCubemapShadows && CVarCubemapShadows->GetInt() != 0)
+		{
+			CVarCubemapShadows->Set(0);
+		}
 	}
 	
+	// @todo Need to get this working properly for performance parity with OpenGL on many Macs.
+	GRHISupportsRHIThread = FParse::Param(FCommandLine::Get(),TEXT("rhithread"));
+	GSupportsParallelOcclusionQueries = GRHISupportsRHIThread;
+#if METAL_SUPPORTS_PARALLEL_RHI_EXECUTE
+	GRHISupportsParallelRHIExecute = GRHISupportsRHIThread;
 #endif
-
-    
+	
+#endif
 
 	if (FPlatformMisc::IsDebuggerPresent() && UE_BUILD_DEBUG)
 	{
@@ -131,38 +196,36 @@ FMetalDynamicRHI::FMetalDynamicRHI()
 	
 	GEmitDrawEvents |= ENABLE_METAL_GPUEVENTS;
 
-	GSupportsShaderFramebufferFetch = true;
+	GSupportsShaderFramebufferFetch = !PLATFORM_MAC;
 	GHardwareHiddenSurfaceRemoval = true;
-//	GRHIAdapterName = 
-//	GRHIVendorId = 
 	GSupportsRenderTargetFormat_PF_G8 = false;
 	GSupportsQuads = false;
 	GRHISupportsTextureStreaming = true;
-	GMaxShadowDepthBufferSizeX = 4096;
-	GMaxShadowDepthBufferSizeY = 4096;
-// 	GReadTexturePoolSizeFromIni = true;
 
-	GRHISupportsBaseVertexIndex = PLATFORM_MAC && !IsRHIDeviceAMD(); // Supported on OS X but not iOS - broken on AMD presently
-    GRHISupportsFirstInstance = PLATFORM_MAC; // Supported on OS X but not iOS.
-    
 	GRHIRequiresEarlyBackBufferRenderTarget = false;
 	GSupportsSeparateRenderTargetBlendState = (GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM4);
 
+#if PLATFORM_MAC
+	check([Device supportsFeatureSet:MTLFeatureSet_OSX_GPUFamily1_v1]);
+	GRHISupportsBaseVertexIndex = FPlatformMisc::MacOSXVersionCompare(10,11,2) >= 0 || !IsRHIDeviceAMD(); // Supported on OS X but not iOS - broken on AMD prior to 10.11.2
+	GRHISupportsFirstInstance = true; // Supported on OS X but not iOS.
+	GMaxTextureDimensions = 16384;
+	GMaxCubeTextureDimensions = 16384;
+	GMaxTextureArrayLayers = 2048;
+	GMaxShadowDepthBufferSizeX = 16384;
+	GMaxShadowDepthBufferSizeY = 16384;
+#else
+	GRHISupportsBaseVertexIndex = false;
+	GRHISupportsFirstInstance = false; // Supported on OS X but not iOS.
 	GMaxTextureDimensions = 4096;
-	GMaxTextureMipCount = FPlatformMath::CeilLogTwo( GMaxTextureDimensions ) + 1;
-	GMaxTextureMipCount = FPlatformMath::Min<int32>( MAX_TEXTURE_MIP_COUNT, GMaxTextureMipCount );
 	GMaxCubeTextureDimensions = 4096;
 	GMaxTextureArrayLayers = 2048;
-
-	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES2] = SP_NumPlatforms;
-	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES3_1] = SP_METAL;
-#if PLATFORM_IOS
-	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM4] = (GMaxRHIShaderPlatform == SP_METAL_MRT) ? SP_METAL_MRT : SP_NumPlatforms;
-	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM5] = SP_NumPlatforms;
-#elif PLATFORM_MAC
-	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM4] = SP_METAL_SM4;
-	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM5] = (GMaxRHIShaderPlatform == SP_METAL_SM5) ? SP_METAL_SM5 : SP_NumPlatforms;
+	GMaxShadowDepthBufferSizeX = 4096;
+	GMaxShadowDepthBufferSizeY = 4096;
 #endif
+	
+	GMaxTextureMipCount = FPlatformMath::CeilLogTwo( GMaxTextureDimensions ) + 1;
+	GMaxTextureMipCount = FPlatformMath::Min<int32>( MAX_TEXTURE_MIP_COUNT, GMaxTextureMipCount );
 
 	// Initialize the platform pixel format map.
 	GPixelFormats[PF_Unknown			].PlatformFormat	= MTLPixelFormatInvalid;
@@ -280,6 +343,34 @@ FMetalDynamicRHI::FMetalDynamicRHI()
 #endif
 	GPixelFormats[PF_R8G8B8A8			].PlatformFormat	= MTLPixelFormatRGBA8Unorm;
 	GPixelFormats[PF_R8G8				].PlatformFormat	= MTLPixelFormatRG8Unorm;
+	GPixelFormats[PF_R16_SINT			].PlatformFormat	= MTLPixelFormatR16Sint;
+	GPixelFormats[PF_R16_UINT			].PlatformFormat	= MTLPixelFormatR16Uint;
+	
+	// get driver version (todo: share with other RHIs)
+	{
+		FGPUDriverInfo GPUDriverInfo = FPlatformMisc::GetGPUDriverInfo(GRHIAdapterName);
+		
+		GRHIAdapterUserDriverVersion = GPUDriverInfo.UserDriverVersion;
+		GRHIAdapterInternalDriverVersion = GPUDriverInfo.InternalDriverVersion;
+		GRHIAdapterDriverDate = GPUDriverInfo.DriverDate;
+		
+		UE_LOG(LogMetal, Display, TEXT("    Adapter Name: %s"), *GRHIAdapterName);
+		UE_LOG(LogMetal, Display, TEXT("  Driver Version: %s (internal:%s, unified:%s)"), *GRHIAdapterUserDriverVersion, *GRHIAdapterInternalDriverVersion, *GPUDriverInfo.GetUnifiedDriverVersion());
+		UE_LOG(LogMetal, Display, TEXT("     Driver Date: %s"), *GRHIAdapterDriverDate);
+		UE_LOG(LogMetal, Display, TEXT("          Vendor: %s"), *GPUDriverInfo.ProviderName);
+#if PLATFORM_MAC
+		if(GPUDesc.GPUVendorId == GRHIVendorId)
+		{
+			UE_LOG(LogMetal, Display,  TEXT("      Vendor ID: %d"), GPUDesc.GPUVendorId);
+			UE_LOG(LogMetal, Display,  TEXT("      Device ID: %d"), GPUDesc.GPUDeviceId);
+			UE_LOG(LogMetal, Display,  TEXT("      VRAM (MB): %d"), GPUDesc.GPUMemoryMB);
+		}
+		else
+		{
+			UE_LOG(LogMetal, Warning,  TEXT("GPU descriptor (%s) from IORegistry failed to match Metal (%s)"), *FString(GPUDesc.GPUName), *GRHIAdapterName);
+		}
+#endif
+	}
 
 	GDynamicRHI = this;
 	
@@ -352,39 +443,64 @@ void FMetalDynamicRHI::Init()
 	GIsRHIInitialized = true;
 }
 
-void FMetalRHICommandContext::RHIBeginFrame()
+void FMetalDynamicRHI::PostInit()
+{
+	SetupRecursiveResources();
+}
+
+void FMetalDynamicRHI::RHIBeginFrame()
 {
 	// @todo zebra: GPUProfilingData, GNumDrawCallsRHI, GNumPrimitivesDrawnRHI
 #if ENABLE_METAL_GPUPROFILE
 	Profiler->BeginFrame();
 #endif
-	Context->BeginFrame();
+	((FMetalDeviceContext*)Context)->BeginFrame();
 }
 
-void FMetalRHICommandContext::RHIEndFrame()
+void FMetalRHICommandContext::RHIBeginFrame()
+{
+	check(false);
+}
+
+void FMetalDynamicRHI::RHIEndFrame()
 {
 	// @todo zebra: GPUProfilingData.EndFrame();
 #if ENABLE_METAL_GPUPROFILE
 	Profiler->EndFrame();
 #endif
-	Context->EndFrame();
+	((FMetalDeviceContext*)Context)->EndFrame();
+}
+
+void FMetalRHICommandContext::RHIEndFrame()
+{
+	check(false);
+}
+
+void FMetalDynamicRHI::RHIBeginScene()
+{
+	((FMetalDeviceContext*)Context)->BeginScene();
 }
 
 void FMetalRHICommandContext::RHIBeginScene()
 {
-	Context->BeginScene();
+	check(false);
+}
+
+void FMetalDynamicRHI::RHIEndScene()
+{
+	((FMetalDeviceContext*)Context)->EndScene();
 }
 
 void FMetalRHICommandContext::RHIEndScene()
 {
-	Context->EndScene();
+	check(false);
 }
 
-void FMetalRHICommandContext::RHIPushEvent(const TCHAR* Name)
+void FMetalRHICommandContext::RHIPushEvent(const TCHAR* Name, FColor Color)
 {
 #if ENABLE_METAL_GPUEVENTS
 #if ENABLE_METAL_GPUPROFILE
-	Profiler->PushEvent(Name);
+	Profiler->PushEvent(Name, Color);
 #endif
 	// @todo zebra : this was "[NSString stringWithTCHARString:Name]", an extension only on ios for some reason, it should be on Mac also
 	Context->GetCommandEncoder().PushDebugGroup([NSString stringWithCString:TCHAR_TO_UTF8(Name) encoding:NSUTF8StringEncoding]);

@@ -1,14 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "FbxLibs.h"
 #include "FbxImporter.h"
 #include "FbxExporter.h"
-
-// Loading the DLL's for FBx is currently only needed for VC11 compiled software
-#if PLATFORM_WINDOWS && _MSC_VER >= 1700
-	HMODULE	FBxHandle = 0;
-#endif
 
 //-------------------------------------------------------------------------
 // Memory management callback functions used by the FBX SDK
@@ -37,22 +32,11 @@ void  MyFree(void* pData)
 
 void LoadFBxLibraries()
 {
-#define FBX_DELAY_LOAD 0
-#if PLATFORM_WINDOWS && _MSC_VER == 1700 && FBX_DELAY_LOAD
-	#if PLATFORM_64BITS
-		FString RootFBxPath = FPaths::EngineDir() / TEXT("Binaries/ThirdParty/FBx/Win64/");
-		FBxHandle = LoadLibraryW(*(RootFBxPath + "libfbxsdk.dll"));
-	#else
-		static_assert(false, TEXT("FBX importing currently not supported in 32 bit versions"));
-	#endif // PLATFORM_64BITS
-#endif // PLATFORM_WINDOWS && _MSC_VER == 1700
-
 	// Specify global memory handler callbacks to be used by the FBX SDK
 	FbxSetMallocHandler(	&MyMalloc);
 	FbxSetCallocHandler(	&MyCalloc);
 	FbxSetReallocHandler(	&MyRealloc);
 	FbxSetFreeHandler(		&MyFree);
-
 }
 
 void UnloadFBxLibraries()
@@ -67,10 +51,4 @@ void UnloadFBxLibraries()
 	FbxSetCallocHandler(	FbxGetDefaultCallocHandler() );
 	FbxSetReallocHandler(	FbxGetDefaultReallocHandler() );
 	FbxSetFreeHandler(		FbxGetDefaultFreeHandler() );
-
-#if PLATFORM_WINDOWS && _MSC_VER == 1700
-	FreeLibrary(FBxHandle);
-
-	FBxHandle = 0;
-#endif
 }

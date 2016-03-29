@@ -1,5 +1,5 @@
 /*
- * Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+ * Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
  */
 
 using System;
@@ -71,16 +71,20 @@ namespace iPhonePackager
 		static private string GetBaseXcodeCommandline()
 		{
 			string CmdLine = XcodeDeveloperDir + "usr/bin/xcodebuild" +
-					" -project UE4_FromPC.xcodeproj" + 
-					" -configuration " + Program.GameConfiguration +
-					" -target '" + Program.GameName + " - iOS'" +
-					" -sdk " + ((Program.Architecture == "-simulator") ? "iphonesimulator" : "iphoneos");
+					" -project UE4_FromPC.xcodeproj" +
+					" -configuration \"" + Program.SchemeConfiguration + "\"" +
+					" -target '" + Program.SchemeName + "'";
+			
+			if (Config.OSString == "IOS")
+			{
+				CmdLine += " -destination generic/platform=iOS" +" -sdk " + ((Program.Architecture == "-simulator") ? "iphonesimulator" : "iphoneos");
+			}
+			else
+			{
+				CmdLine += " -destination generic/platform=tvOS" + " -sdk " + ((Program.Architecture == "-simulator") ? "appletvsimulator" : "appletvos");
+			}
 
 			// sign with the Distribution identity when packaging for distribution
-			if (!Config.bForDistribution)
-			{
-				CmdLine += String.Format(" CODE_SIGN_RESOURCE_RULES_PATH='{0}/CustomResourceRules.plist'", MacStagingRootDir);
-			}
 			if (Config.bUseRPCUtil)
 			{
 				CmdLine += String.Format(" CODE_SIGN_IDENTITY=\\\"{0}\\\"", Config.CodeSigningIdentity);
@@ -134,11 +138,11 @@ namespace iPhonePackager
 			Console.WriteLine("BranchPath = {0} --- GameBranchPath = {1}", BranchPath, GameBranchPath);
 
 			// generate the directories to recursively copy into later on
-			MacStagingRootDir = string.Format("{0}/{1}/IOS", iPhone_SigningDevRootMac, GameBranchPath);
+			MacStagingRootDir = string.Format("{0}/{1}/" + Config.OSString, iPhone_SigningDevRootMac, GameBranchPath);
 			MacStagingRootDir = MacStagingRootDir.Replace("//", "/");
-			MacBinariesDir = string.Format("{0}/{1}/IOS", iPhone_SigningDevRootMac, GameBranchPath);
+			MacBinariesDir = string.Format("{0}/{1}/" + Config.OSString, iPhone_SigningDevRootMac, GameBranchPath);
 			MacBinariesDir = MacBinariesDir.Replace("//", "/");
-			MacXcodeStagingDir = string.Format("{0}/{1}/IOS/XcodeSupportFiles", iPhone_SigningDevRootMac, GameBranchPath);
+			MacXcodeStagingDir = string.Format("{0}/{1}/" + Config.OSString + "/XcodeSupportFiles", iPhone_SigningDevRootMac, GameBranchPath);
 			MacXcodeStagingDir = MacXcodeStagingDir.Replace("//", "/");
 
 			MacMobileProvisionFilename = MachineName + "_UE4Temp.mobileprovision";
@@ -239,13 +243,6 @@ namespace iPhonePackager
 					Config.bForDistribution ? "false" : "true"));
 			}
 			
-			
-			// Copy the no sign resource rules file over
-			if (!Config.bForDistribution)
-			{
-				FileOperations.CopyRequiredFile(@"..\..\..\Build\IOS\XcodeSupportFiles\CustomResourceRules.plist", Path.Combine(Config.PCStagingRootDir, "CustomResourceRules.plist"));
-			}
-
 			// Copy the mobile provision file over
 			string CFBundleIdentifier = null;
 			Info.GetString("CFBundleIdentifier", out CFBundleIdentifier);
@@ -272,10 +269,10 @@ namespace iPhonePackager
 			// make sure this .mobileprovision file is newer than any other .mobileprovision file on the Mac (this file gets multiple games named the same file, 
 			// so the time stamp checking can fail when moving between games, a la the buildmachines!)
 			File.SetLastWriteTime(FinalMobileProvisionFilename, DateTime.UtcNow);
-			string ProjectFile = Config.RootRelativePath + @"Engine\Intermediate\IOS\UE4.xcodeproj\project.pbxproj";
+			string ProjectFile = Config.RootRelativePath + @"Engine\Intermediate\ProjectFiles\UE4.xcodeproj\project.pbxproj";
 			if (Program.GameName != "UE4Game")
 			{
-				ProjectFile = Config.IntermediateDirectory + @"\" + Program.GameName + @".xcodeproj\project.pbxproj";
+				ProjectFile = Path.GetDirectoryName(Config.IntermediateDirectory) + @"\ProjectFiles\" + Program.GameName + @".xcodeproj\project.pbxproj";
 			}
 			FileOperations.CopyRequiredFile(ProjectFile, Path.Combine(Config.PCXcodeStagingDir, @"project.pbxproj.datecheck"));
 			
@@ -287,7 +284,7 @@ namespace iPhonePackager
 			File.WriteAllBytes(Path.Combine(Config.PCXcodeStagingDir, MacSigningIdentityFilename), Data);
 
 			// needs Mac line endings so it can be executed
-			string SrcPath = @"..\..\..\Build\IOS\XcodeSupportFiles\prepackage.sh";
+			string SrcPath = @"..\..\..\Build\" + Config.OSString + @"\XcodeSupportFiles\prepackage.sh";
 			string DestPath = Path.Combine(Config.PCXcodeStagingDir, @"prepackage.sh");
 			Program.Log(" ... '" + SrcPath + "' -> '" + DestPath + "'");
 			string SHContents = File.ReadAllText(SrcPath);
@@ -355,7 +352,7 @@ namespace iPhonePackager
 
 			case "prepackage":
 				Program.Log(" ... running prepackage script remotely ");
-				DisplayCommandLine = String.Format("sh prepackage.sh {0} IOS {1} {2}", Program.GameName, Program.GameConfiguration, Program.Architecture);
+				DisplayCommandLine = String.Format("sh prepackage.sh {0} " + Config.OSString + " {1} {2}", Program.GameName, Program.GameConfiguration, Program.Architecture);
 				CommandLine = "\"" + MacXcodeStagingDir + "\" " + DisplayCommandLine;
 				WorkingFolder = "\"" + MacXcodeStagingDir + "\"";
 				break;
@@ -408,7 +405,7 @@ namespace iPhonePackager
 
 			case "strip":
 				Program.Log( " ... stripping" );
-				DisplayCommandLine = XcodeDeveloperDir + "Platforms/iPhoneOS.platform/Developer/usr/bin/strip '" + RemoteExecutablePath + "'";
+				DisplayCommandLine = "/usr/bin/xcrun strip '" + RemoteExecutablePath + "'";
 				CommandLine = "\"" + MacStagingRootDir + "\" " + DisplayCommandLine;
 				WorkingFolder = "\"" + MacStagingRootDir + "\"";
 				break;

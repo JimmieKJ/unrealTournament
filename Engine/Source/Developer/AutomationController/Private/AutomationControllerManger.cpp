@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AutomationControllerPrivatePCH.h"
 
@@ -189,7 +189,6 @@ void FAutomationControllerManager::ProcessAvailableTasks()
 				if ( ClusterDistributionMask == 0 )
 				{
 					ProcessResults();
-
 					//Notify the graphical layout we are done processing results.
 					TestsCompleteDelegate.ExecuteIfBound();
 				}
@@ -356,6 +355,17 @@ void FAutomationControllerManager::SetTestNames( const FMessageAddress& Automati
 	// Find the device that requested these tests
 	if( DeviceClusterManager.FindDevice( AutomationWorkerAddress, DeviceClusterIndex, DeviceIndex ) )
 	{
+		// Sort tests by display name
+		struct FCompareAutomationTestInfo
+		{
+			FORCEINLINE bool operator()(const FAutomationTestInfo& A,const FAutomationTestInfo& B) const
+			{
+				return A.GetDisplayName() < B.GetDisplayName();
+			}
+		};
+
+		TestInfo.Sort(FCompareAutomationTestInfo());
+
 		// Add each test to the collection
 		for( int32 TestIndex = 0; TestIndex < TestInfo.Num(); ++TestIndex )
 		{
@@ -506,6 +516,7 @@ void FAutomationControllerManager::UpdateTests( )
 				TArray<FString> ErrorStringArray;
 				ErrorStringArray.Add( FString( TEXT( "Failed" ) ) );
 				bHasErrors = true;
+				GLog->Logf(ELogVerbosity::Display, TEXT("Timeout hit. Nooooooo."));
 
 				FAutomationTestResults TestResults;
 				TestResults.State = EAutomationState::Fail;
@@ -524,11 +535,13 @@ void FAutomationControllerManager::UpdateTests( )
 				// If there are no more devices, set the module state to disabled
 				if ( DeviceClusterManager.HasActiveDevice() == false )
 				{
+					GLog->Logf(ELogVerbosity::Display, TEXT("Module disabled"));
 					SetControllerStatus( EAutomationControllerModuleState::Disabled );
 					ClusterDistributionMask = 0;
 				}
 				else
 				{
+					GLog->Logf(ELogVerbosity::Display, TEXT("Module not disabled. Keep looking."));
 					// Remove the cluster from the mask if there are no active devices left
 					if ( DeviceClusterManager.GetNumActiveDevicesInCluster( ClusterIndex ) == 0 )
 					{

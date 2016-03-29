@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.IO;
@@ -26,18 +26,19 @@ public class MeshUtilities : ModuleRules
                 "MeshBoneReduction",		
                 "UnrealEd",
                 "RHI",                
-                "HierarchicalLODUtilities"
+                "HierarchicalLODUtilities",
+                "Landscape"
 			}
 		);
 
-        AddThirdPartyPrivateStaticDependencies(Target, "nvTriStrip");
-		AddThirdPartyPrivateStaticDependencies(Target, "ForsythTriOptimizer");
-		AddThirdPartyPrivateStaticDependencies(Target, "MeshSimplifier");
-		AddThirdPartyPrivateStaticDependencies(Target, "MikkTSpace");
+        AddEngineThirdPartyPrivateStaticDependencies(Target, "nvTriStrip");
+		AddEngineThirdPartyPrivateStaticDependencies(Target, "ForsythTriOptimizer");
+		AddEngineThirdPartyPrivateStaticDependencies(Target, "MeshSimplifier");
+		AddEngineThirdPartyPrivateStaticDependencies(Target, "MikkTSpace");
 
 		if ((Target.Platform == UnrealTargetPlatform.Win64) || (Target.Platform == UnrealTargetPlatform.Win32))
 		{
-			AddThirdPartyPrivateStaticDependencies(Target, "DX9");
+			AddEngineThirdPartyPrivateStaticDependencies(Target, "DX9");
 		}
 
 		if (UEBuildConfiguration.bCompileSimplygon == true)
@@ -48,7 +49,7 @@ public class MeshUtilities : ModuleRules
             }
 			);
 
-			AddThirdPartyPrivateDynamicDependencies(Target, "SimplygonMeshReduction");
+			AddEngineThirdPartyPrivateDynamicDependencies(Target, "SimplygonMeshReduction");
 		}
 	}
 }

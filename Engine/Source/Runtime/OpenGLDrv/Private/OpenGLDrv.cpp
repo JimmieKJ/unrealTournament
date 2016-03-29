@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	OpenGLDrv.cpp: Unreal OpenGL RHI library implementation.
@@ -20,18 +20,18 @@ IMPLEMENT_MODULE(FOpenGLDynamicRHIModule, OpenGLDrv);
 DEFINE_LOG_CATEGORY(LogOpenGL);
 
 
-void FOpenGLDynamicRHI::RHIPushEvent(const TCHAR* Name)
+void FOpenGLDynamicRHI::RHIPushEvent(const TCHAR* Name, FColor Color)
 {
 #if ENABLE_OPENGL_DEBUG_GROUPS
 	// @todo-mobile: Fix string conversion ASAP!
 	FOpenGL::PushGroupMarker(TCHAR_TO_ANSI(Name));
 #endif
-	GPUProfilingData.PushEvent(Name);
+	GPUProfilingData.PushEvent(Name, Color);
 }
 
-void FOpenGLGPUProfiler::PushEvent(const TCHAR* Name)
+void FOpenGLGPUProfiler::PushEvent(const TCHAR* Name, FColor Color)
 {
-	FGPUProfiler::PushEvent(Name);
+	FGPUProfiler::PushEvent(Name, Color);
 }
 
 void FOpenGLDynamicRHI::RHIPopEvent()
@@ -53,6 +53,12 @@ void FOpenGLGPUProfiler::PopEvent()
 
 void FOpenGLGPUProfiler::BeginFrame(FOpenGLDynamicRHI* InRHI)
 {
+	if (NestedFrameCount++>0)
+	{
+		// guard against nested Begin/EndFrame calls.
+		return;
+	}
+
 	CurrentEventNode = NULL;
 	check(!bTrackingEvents);
 	check(!CurrentEventNodeFrame); // this should have already been cleaned up and the end of the previous frame
@@ -118,12 +124,18 @@ void FOpenGLGPUProfiler::BeginFrame(FOpenGLDynamicRHI* InRHI)
 
 	if (GEmitDrawEvents)
 	{
-		PushEvent(TEXT("FRAME"));
+		PushEvent(TEXT("FRAME"), FColor(0, 255, 0, 255));
 	}
 }
 
 void FOpenGLGPUProfiler::EndFrame()
 {
+	if (--NestedFrameCount != 0)
+	{
+		// ignore endframes calls from nested beginframe calls.
+		return;
+	}
+
 	if (GEmitDrawEvents)
 	{
 		PopEvent();
@@ -297,6 +309,7 @@ void FOpenGLGPUProfiler::Cleanup()
 	}
 
 	FrameTiming.ReleaseResource();
+	NestedFrameCount = 0;
 }
 
 /** Start this frame of per tracking */

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "PropertyEditorPrivatePCH.h"
 #include "SPropertyEditorEditInline.h"
@@ -130,7 +130,7 @@ void SPropertyEditorEditInline::GetDesiredWidth( float& OutMinDesiredWidth, floa
 
 bool SPropertyEditorEditInline::Supports( const FPropertyNode* InTreeNode, int32 InArrayIdx )
 {
-	return InTreeNode 
+	return InTreeNode
 		&& !InTreeNode->IsEditConst()
 		&& InTreeNode->FindObjectItemParent()
 		&& InTreeNode->HasNodeFlags(EPropertyNodeFlags::EditInline);

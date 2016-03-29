@@ -1,7 +1,5 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
-
-DECLARE_LOG_CATEGORY_EXTERN(LogInternationalization, Log, All);
 
 /**
  * Represents all the types a LocMetadata Value can be.

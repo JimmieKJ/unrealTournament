@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -37,12 +37,32 @@ public:
 	static UTextureRenderTarget2D* CreateTargetFor(FVector2D DrawSize, TextureFilter InFilter, bool bUseGammaCorrection);
 
 	UTextureRenderTarget2D* DrawWidget(const TSharedRef<SWidget>& Widget, FVector2D DrawSize);
-	void DrawWidget(UTextureRenderTarget2D* RenderTarget, const TSharedRef<SWidget>& Widget, FVector2D DrawSize, float DeltaTime);
-	void DrawWindow(UTextureRenderTarget2D* RenderTarget, TSharedRef<FHittestGrid> HitTestGrid, TSharedRef<SWindow> Window, float Scale, FVector2D DrawSize, float DeltaTime);
+
+	void DrawWidget(
+		UTextureRenderTarget2D* RenderTarget,
+		const TSharedRef<SWidget>& Widget,
+		FVector2D DrawSize,
+		float DeltaTime);
+
+	void DrawWindow(
+		UTextureRenderTarget2D* RenderTarget,
+		TSharedRef<FHittestGrid> HitTestGrid,
+		TSharedRef<SWindow> Window,
+		float Scale,
+		FVector2D DrawSize,
+		float DeltaTime);
+
+	void DrawWindow(
+		UTextureRenderTarget2D* RenderTarget,
+		TSharedRef<FHittestGrid> HitTestGrid,
+		TSharedRef<SWindow> Window,
+		FGeometry WindowGeometry,
+		FSlateRect WindowClipRect,
+		float DeltaTime);
 
 private:
 	/** The slate 3D renderer used to render the user slate widget */
-	TSharedPtr<ISlate3DRenderer> Renderer;
+	TSharedPtr<ISlate3DRenderer, ESPMode::ThreadSafe> Renderer;
 	/** Prepass Needed when drawing the widget? */
 	bool bPrepassNeeded;
 	/** Is gamma space needed? */

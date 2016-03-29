@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -21,11 +21,6 @@ struct FConvertedAssetRecord
 public:
 	FConvertedAssetRecord() {}
 	FConvertedAssetRecord(const FAssetData& AssetInfo, const FBlueprintNativeCodeGenPaths& TargetPaths);
-
-	/**
-	 * @return True if this record demonstates a successful conversion; false if it is incomplete 
-	 */
-	bool IsValid();
 
 	/**
 	 * @return 
@@ -59,17 +54,11 @@ struct FUnconvertedDependencyRecord
 
 public:
 	FUnconvertedDependencyRecord() {}
-	FUnconvertedDependencyRecord(const FAssetData& AssetInfo, const FBlueprintNativeCodeGenPaths& TargetPaths);
-
-	/**  */
-	bool IsValid();
+	FUnconvertedDependencyRecord(const FString& InGeneratedWrapperPath);
 
 public:
 	UPROPERTY()
 	FString GeneratedWrapperPath;
-
-	UPROPERTY()
-	TArray<FName> ReferencedBy;
 };
 
 /*******************************************************************************
@@ -128,7 +117,7 @@ struct FBlueprintNativeCodeGenManifest
 
 public: 
 	FBlueprintNativeCodeGenManifest(); // default ctor for USTRUCT() system
-	FBlueprintNativeCodeGenManifest(const FNativeCodeGenCommandlineParams& CommandlineParams);
+	FBlueprintNativeCodeGenManifest(const FString& InPluginName, const FString& InOutputDir);
 	FBlueprintNativeCodeGenManifest(const FString& ManifestFilePath);
 
 	/**
@@ -154,16 +143,7 @@ public:
 	 * @param  ReferencingAsset    
 	 * @return 
 	 */
-	FUnconvertedDependencyRecord& CreateUnconvertedDependencyRecord(const FAssetId UnconvertedAssetKey, const FAssetData& AssetInfo, const FAssetId ReferencingAsset);
-
-	/**
-	 * Searches the manifest's conversion records for an entry pertaining to the
-	 * specified asset.
-	 * 
-	 * @param  AssetPath    Serves as a lookup key for the asset in question.
-	 * @return A pointer to the found conversion record, null if one doesn't exist.
-	 */
-	const FConvertedAssetRecord* FindConversionRecord(const FAssetId AssetId) const;
+	FUnconvertedDependencyRecord& CreateUnconvertedDependencyRecord(const FAssetId UnconvertedAssetKey, const FAssetData& AssetInfo);
 
 	/**
 	 * Records module dependencies for the specified asset.
@@ -183,24 +163,23 @@ public:
 	const FConversionRecord& GetConversionRecord() const { return ConvertedAssets; }
 
 	/**
+	* @return A list of all asset conversion that require stubs.
+	*/
+	const FUnconvertedRecord& GetUnconvertedDependencies() const { return UnconvertedDependencies; }
+
+	/**
 	 * Saves this manifest as json, to its target destination (which it was 
 	 * setup with).
 	 * 
+	 * @param Id an identifier used to uniquely identify this manifest, used by multiprocess cook
 	 * @return True if the save was a success, otherwise false.
 	 */
-	bool Save() const;
+	bool Save(int32 Id) const;
 
 	/**
-	* Saves this manifest as json, to the provided destination 
-	*
-	* @return True if the save was a success, otherwise false.
+	* Merges the OtherManifest into the current manifest
 	*/
-	bool SaveAs(const TCHAR* Filename) const;
-
-	/**
-	* Merges the manifest saved in Filename into the current manifest
-	*/
-	void Merge(const TCHAR* Filename);
+	void Merge(const FBlueprintNativeCodeGenManifest& OtherManifest);
 
 private:
 	/**

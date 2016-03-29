@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "Common.usf"
@@ -47,7 +47,7 @@ void FillTexCoords( inout FMaterialPixelParameters Parameters, VertexToPixelInte
 		Parameters.TexCoords[0] = GetUV( InVertex, 1 );
 		Parameters.TexCoords[1] = InVertex.MaterialTexCoords;
 	#endif
-#elif (SHADER_TYPE == ST_Custom || NUM_CUSTOMIZED_UVS == 0) && NUM_MATERIAL_TEXCOORDS > 0
+#elif (SHADER_TYPE == ST_Custom || NUM_CUSTOMIZED_UVS != 0) && NUM_MATERIAL_TEXCOORDS > 0
 	// note: We assume users who customize UVs or are using completely custom elements know what they are doing with UVs and want no assumptions made about how uvs are used
 	UNROLL
 	for( int CoordinateIndex = 0; CoordinateIndex < NUM_MATERIAL_TEXCOORDS; CoordinateIndex++ )
@@ -79,18 +79,23 @@ void FillTexCoords( inout FMaterialPixelParameters Parameters, VertexToPixelInte
 
 float4 GetMaterialColor( VertexToPixelInterpolants InVertex, float2 MeshUV )
 {
+	ResolvedView = ResolveView();
 	FMaterialPixelParameters Parameters = MakeInitializedMaterialPixelParameters();
-	CalcMaterialParameters( Parameters, InVertex.Position, true );
+
+	// Inputs might require texcoords, so fill them in first
+	FillTexCoords( Parameters, InVertex, MeshUV );
 
 	Parameters.VertexColor = InVertex.Color;
 
-	FillTexCoords( Parameters, InVertex, MeshUV );
+   
+	FPixelMaterialInputs PixelMaterialInputs;
+	CalcMaterialParameters( Parameters, PixelMaterialInputs, InVertex.Position, true );
 
 	// Clip if masked
-	GetMaterialCoverageAndClipping( Parameters );
+	GetMaterialCoverageAndClipping( Parameters, PixelMaterialInputs );
 	
-	float Opacity = GetMaterialOpacity( Parameters );
-	float3 Color = GetMaterialEmissive( Parameters );
+	float Opacity = GetMaterialOpacity(PixelMaterialInputs);
+	float3 Color = GetMaterialEmissive(PixelMaterialInputs);
 
 	float4 OutColor;
 
@@ -308,12 +313,6 @@ float4 Main( VertexToPixelInterpolants VIn ) : SV_Target0
 		OutColor *= float4(1,0,0,1);
 	}
 #endif
-
-
-#if !PRE_MULTIPLIED_ALPHA && !USE_MATERIALS
-	OutColor.rgb = OutColor.rgb * OutColor.a;
-#endif
-
 
 	return OutColor;
 }

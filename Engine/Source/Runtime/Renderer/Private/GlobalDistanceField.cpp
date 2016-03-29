@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	GlobalDistanceField.cpp
@@ -38,6 +38,15 @@ FAutoConsoleVariableRef CVarAOGlobalDistanceFieldPartialUpdates(
 	TEXT("r.AOGlobalDistanceFieldPartialUpdates"),
 	GAOGlobalDistanceFieldPartialUpdates,
 	TEXT("Whether to allow partial updates of the global distance field.  When profiling it's useful to disable this and get the worst case composition time that happens on camera cuts."),
+	ECVF_Cheat | ECVF_RenderThreadSafe
+	);
+
+int32 GAOLogGlobalDistanceFieldModifiedPrimitives = 0;
+FAutoConsoleVariableRef CVarAOLogGlobalDistanceFieldModifiedPrimitives(
+	TEXT("r.AOGlobalDistanceFieldLogModifiedPrimitives"),
+	GAOLogGlobalDistanceFieldModifiedPrimitives,
+	TEXT("Whether to log primitive modifications (add, remove, updatetransform) that caused an update of the global distance field.\n")
+	TEXT("This can be useful for tracking down why updating the global distance field is always costing a lot, since it should be mostly cached."),
 	ECVF_Cheat | ECVF_RenderThreadSafe
 	);
 

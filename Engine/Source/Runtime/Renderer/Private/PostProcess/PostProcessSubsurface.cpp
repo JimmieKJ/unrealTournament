@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessSubsurface.cpp: Screenspace subsurface scattering implementation.
@@ -14,6 +14,15 @@
 
 ENGINE_API const IPooledRenderTarget* GetSubsufaceProfileTexture_RT(FRHICommandListImmediate& RHICmdList);
 
+
+static TAutoConsoleVariable<int32> CVarSSSQuality(
+	TEXT("r.SSS.Quality"),
+	0,
+	TEXT("Defines the quality of the recombine pass when using the SubsurfaceScatteringProfile shading model\n")
+	TEXT(" 0: low (faster, default)\n")
+	TEXT(" 1: high (sharper details but slower)\n")
+	TEXT("-1: auto, 1 if TemporalAA is disabled (without TemporalAA the quality is more noticable)"),
+	ECVF_RenderThreadSafe  | ECVF_Scalability);
 
 static TAutoConsoleVariable<int32> CVarSSSFilter(
 	TEXT("r.SSS.Filter"),
@@ -196,7 +205,7 @@ FRCPassPostProcessSubsurfaceVisualize::FRCPassPostProcessSubsurfaceVisualize(FRH
 
 void FRCPassPostProcessSubsurfaceVisualize::Process(FRenderingCompositePassContext& Context)
 {
-	SCOPED_DRAW_EVENT(Context.RHICmdList, SubsurfaceSetup);
+	SCOPED_DRAW_EVENT(Context.RHICmdList, SubsurfaceVisualize);
 
 	const FPooledRenderTargetDesc* InputDesc = GetInputDesc(ePId_Input0);
 
@@ -718,7 +727,8 @@ FPooledRenderTargetDesc FRCPassPostProcessSubsurface::ComputeOutputDesc(EPassOut
 
 /** Encapsulates the post processing subsurface recombine pixel shader. */
 // @param RecombineMode 0:fullres, 1: halfres, 2:no scattering, just reconstruct the lighting (needed for scalability)
-template <uint32 RecombineMode>
+// @param RecombineQuality 0:low..1:high
+template <uint32 RecombineMode, uint32 RecombineQuality>
 class TPostProcessSubsurfaceRecombinePS : public FGlobalShader
 {
 	DECLARE_SHADER_TYPE(TPostProcessSubsurfaceRecombinePS, Global);
@@ -731,6 +741,7 @@ class TPostProcessSubsurfaceRecombinePS : public FGlobalShader
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		FGlobalShader::ModifyCompilationEnvironment(Platform,OutEnvironment);
+		OutEnvironment.SetDefine(TEXT("RECOMBINE_QUALITY"), RecombineQuality);
 		OutEnvironment.SetDefine(TEXT("HALF_RES"), (uint32)(RecombineMode == 1));
 		OutEnvironment.SetDefine(TEXT("RECOMBINE_SUBSURFACESCATTER"), (uint32)(RecombineMode != 2));
 		OutEnvironment.SetDefine(TEXT("SUBSURFACE_RADIUS_SCALE"), SUBSURFACE_RADIUS_SCALE);
@@ -784,18 +795,19 @@ public:
 };
 
 // #define avoids a lot of code duplication
-#define VARIATION1(A) typedef TPostProcessSubsurfaceRecombinePS<A> TPostProcessSubsurfaceRecombinePS##A; \
-	IMPLEMENT_SHADER_TYPE2(TPostProcessSubsurfaceRecombinePS##A, SF_Pixel);
+#define VARIATION1(A)		VARIATION2(A,0)			VARIATION2(A,1)
+#define VARIATION2(A, B) typedef TPostProcessSubsurfaceRecombinePS<A, B> TPostProcessSubsurfaceRecombinePS##A##B; \
+	IMPLEMENT_SHADER_TYPE2(TPostProcessSubsurfaceRecombinePS##A##B, SF_Pixel);
 	VARIATION1(0) VARIATION1(1) VARIATION1(2)
 #undef VARIATION1
+#undef VARIATION2
 
 // @param RecombineMode 0:fullres, 1: halfres, 2:no scattering, just reconstruct the lighting (needed for scalability)
-template <uint32 RecombineMode>
+// @param RecombineQuality 0:low..1:high
+template <uint32 RecombineMode, uint32 RecombineQuality>
 void SetSubsurfaceRecombineShader(const FRenderingCompositePassContext& Context, TShaderMapRef<FPostProcessVS> &VertexShader)
 {
-	SCOPED_DRAW_EVENTF(Context.RHICmdList, SubsurfacePassRecombine, TEXT("SubsurfacePassRecombine%d"), RecombineMode);
-
-	TShaderMapRef<TPostProcessSubsurfaceRecombinePS<RecombineMode> > PixelShader(Context.GetShaderMap());
+	TShaderMapRef<TPostProcessSubsurfaceRecombinePS<RecombineMode, RecombineQuality> > PixelShader(Context.GetShaderMap());
 
 	static FGlobalBoundShaderState BoundShaderState;
 
@@ -849,21 +861,53 @@ void FRCPassPostProcessSubsurfaceRecombine::Process(FRenderingCompositePassConte
 
 	TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
 
+	uint32 QualityCVar = CVarSSSQuality.GetValueOnRenderThread();
+
+	// 0:low / 1:high
+	uint32 RecombineQuality = 0;
+	{
+		if(QualityCVar == -1)
+		{
+			RecombineQuality = (View.FinalPostProcessSettings.AntiAliasingMethod == AAM_TemporalAA) ? 0 : 1;
+		}
+		else if(QualityCVar == 1)
+		{
+			RecombineQuality = 1;
+		}
+	}
+
+	// needed for Scalability
+	// 0:fullres, 1: halfres, 2:no scattering, just reconstruct the lighting (needed for scalability)
+	uint32 RecombineMode = 2;
+
 	if(GetInput(ePId_Input1)->IsValid())
 	{
-		if(bHalfRes)
+		RecombineMode = bHalfRes ? 1 : 0;
+	}
+
+	SCOPED_DRAW_EVENTF(Context.RHICmdList, SubsurfacePassRecombine, TEXT("SubsurfacePassRecombine Mode:%d Quality:%d"), RecombineMode, RecombineQuality);
+
+	{
+		if(RecombineQuality == 0)
 		{
-			SetSubsurfaceRecombineShader<1>(Context, VertexShader);
+			switch(RecombineMode)
+			{
+				case 0: SetSubsurfaceRecombineShader<0, 0>(Context, VertexShader); break;
+				case 1: SetSubsurfaceRecombineShader<1, 0>(Context, VertexShader); break;
+				case 2: SetSubsurfaceRecombineShader<2, 0>(Context, VertexShader); break;
+				default: check(0);
+			}
 		}
 		else
 		{
-			SetSubsurfaceRecombineShader<0>(Context, VertexShader);
+			switch(RecombineMode)
+			{
+				case 0: SetSubsurfaceRecombineShader<0, 1>(Context, VertexShader); break;
+				case 1: SetSubsurfaceRecombineShader<1, 1>(Context, VertexShader); break;
+				case 2: SetSubsurfaceRecombineShader<2, 1>(Context, VertexShader); break;
+				default: check(0);
+			}
 		}
-	}
-	else
-	{
-		// needed for Scalability
-		SetSubsurfaceRecombineShader<2>(Context, VertexShader);
 	}
 
 	DrawPostProcessPass(

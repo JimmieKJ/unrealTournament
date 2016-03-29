@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	NetworkSerialization.h: 
@@ -536,8 +536,12 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 		// See if the array changed at all. If the ArrayReplicationKey matches we can skip checking individual items
 		if (Parms.OldState && (ArraySerializer.ArrayReplicationKey == BaseReplicationKey))
 		{
-			// Double check the old/new maps are the same size.
-			ensure(OldMap && OldMap->Num() == Items.Num());
+			// Double check the old map is valid and the old/new maps are the same size.
+			if (ensureMsgf(OldMap, TEXT("Invalid OldMap")))
+			{
+				ensureMsgf((OldMap->Num() == Items.Num()), TEXT("OldMap size (%d) does not match Items size (%d)"), OldMap->Num(), Items.Num());
+			}
+
 			return false;
 		}
 
@@ -851,7 +855,8 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 			Type& Item = Items[idx];
 			if (Item.MostRecentArrayReplicationKey < ArrayReplicationKey && Item.MostRecentArrayReplicationKey > BaseReplicationKey)
 			{
-				UE_LOG( LogNetFastTArray, Warning, TEXT( "Adding implicit delete for ElementID: %d. MostRecentArrayReplicationKey: %d. Current Payload: [%d/%d]"), Item.ReplicationID, Item.MostRecentArrayReplicationKey, ArrayReplicationKey, BaseReplicationKey);
+				// This will happen in normal conditions in network replays.
+				UE_LOG( LogNetFastTArray, Log, TEXT( "Adding implicit delete for ElementID: %d. MostRecentArrayReplicationKey: %d. Current Payload: [%d/%d]"), Item.ReplicationID, Item.MostRecentArrayReplicationKey, ArrayReplicationKey, BaseReplicationKey);
 				DeleteIndices.Add(idx);
 			}
 		}
@@ -1308,3 +1313,108 @@ struct TStructOpsTypeTraits< FVector_NetQuantizeNormal > : public TStructOpsType
 };
 
 // --------------------------------------------------------------
+
+
+/**
+ *	===================== Safe TArray Serialization ===================== 
+ *	
+ *	These are helper methods intended to make serializing TArrays safer in custom
+ *	::NetSerialize functions. These enforce max limits on array size, so that a malformed
+ *	packet is not able to allocate an arbitrary amount of memory (E.g., a hacker serilizes
+ *	a packet where a TArray size is of size MAX_int32, causing gigs of memory to be allocated for
+ *	the TArray).
+ *	
+ *	These should only need to be used when you are overriding ::NetSerialize on a UStruct via struct traits.
+ *	When using default replication, TArray properties already have this built in security.
+ *	
+ *	SafeNetSerializeTArray_Default - calls << operator to serialize the items in the array.
+ *	SafeNetSerializeTArray_WithNetSerialize - calls NetSerialize to serialize the items in the array.
+ *	
+ *	When saving, bOutSuccess will be set to false if the passed in array size exceeds to MaxNum template parameter.
+ *	
+ *	Example:
+ *	
+ *	FMyStruct {
+ *		
+ *		TArray<float>						MyFloats;		// We want to call << to serialize floats
+ *		TArray<FVector_NetQuantizeNormal>	MyVectors;		// We want to call NetSeriailze on these *		
+ *		
+ *		bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
+ *		{
+ *			// Don't do this:
+ *			Ar << MyFloats;
+ *			Ar << MyVectors;
+ *			
+ *			// Do this instead:
+ *			SafeNetSerializeTArray_Default<32>(Ar, MyFloats);
+ *			SafeNetSerializeTArray_WithNetSerialize<32>(Ar, MyVectors, Map);
+ *		}
+ *	}	
+ *	
+ */
+
+template<int32 MaxNum, typename T>
+int32 SafeNetSerializeTArray_HeaderOnly(FArchive& Ar, TArray<T>& Array, bool& bOutSuccess)
+{
+	const uint32 NumBits = FMath::CeilLogTwo(MaxNum);
+	
+	int32 ArrayNum = 0;
+
+	// Clamp number of elements on saving side
+	if (Ar.IsSaving())
+	{
+		ArrayNum = Array.Num();
+		if (ArrayNum > MaxNum)
+		{
+			// Overflow. This is on the saving side, so the calling code is exceeding the limit and needs to be fixed.
+			bOutSuccess = false;
+			ArrayNum = MaxNum;
+		}		
+	}
+
+	// Serialize num of elements
+	Ar.SerializeBits(&ArrayNum, NumBits);
+
+	// Preallocate new items on loading side
+	if (Ar.IsLoading())
+	{
+		Array.Reset();
+		Array.AddDefaulted(ArrayNum);
+	}
+
+	return ArrayNum;
+}
+
+template<int32 MaxNum, typename T>
+bool SafeNetSerializeTArray_Default(FArchive& Ar, TArray<T>& Array)
+{
+	bool bOutSuccess = true;
+	int32 ArrayNum = SafeNetSerializeTArray_HeaderOnly<MaxNum, T>(Ar, Array, bOutSuccess);
+
+	// Serialize each element in the array with the << operator
+	for (int32 idx=0; idx < ArrayNum && Ar.IsError() == false; ++idx)
+	{
+		Ar << Array[idx];
+	}
+
+	// Return
+	bOutSuccess |= Ar.IsError();
+	return bOutSuccess;
+}
+
+template<int32 MaxNum, typename T >
+bool SafeNetSerializeTArray_WithNetSerialize(FArchive& Ar, TArray<T>& Array, class UPackageMap* PackageMap)
+{
+	bool bOutSuccess = true;
+	int32 ArrayNum = SafeNetSerializeTArray_HeaderOnly<MaxNum, T>(Ar, Array, bOutSuccess);
+
+	// Serialize each element in the array with the << operator
+	for (int32 idx=0; idx < ArrayNum && Ar.IsError() == false; ++idx)
+	{
+		Array[idx].NetSerialize(Ar, PackageMap, bOutSuccess);
+	}
+
+	// Return
+	bOutSuccess |= Ar.IsError();
+	return bOutSuccess;
+}

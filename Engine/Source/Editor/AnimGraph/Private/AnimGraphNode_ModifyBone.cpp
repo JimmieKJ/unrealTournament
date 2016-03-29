@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimGraphPrivatePCH.h"
 #include "AnimGraphNode_ModifyBone.h"
@@ -105,7 +105,7 @@ FVector UAnimGraphNode_ModifyBone::GetWidgetLocation(const USkeletalMeshComponen
 	// if the current widget mode is translate, then shows the widget according to translation space
 	if (CurWidgetMode == FWidget::WM_Translate)
 	{
-		FCSPose<FCompactPose>& MeshBases = AnimNode->ForwardedPose;
+		FCSPose<FCompactHeapPose>& MeshBases = AnimNode->ForwardedPose;
 		WidgetLoc = ConvertWidgetLocation(SkelComp, MeshBases, Node.BoneToModify.BoneName, GetNodeValue(FString("Translation"), Node.Translation), Node.TranslationSpace);
 
 		if (MeshBases.GetPose().IsValid() && Node.TranslationMode == BMM_Additive)

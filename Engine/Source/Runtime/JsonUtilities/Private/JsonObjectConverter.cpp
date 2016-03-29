@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "JsonUtilitiesPrivatePCH.h"
 #include "JsonUtilities.h"
@@ -49,6 +49,10 @@ TSharedPtr<FJsonValue> ConvertScalarUPropertyToJsonValue(UProperty* Property, co
 	{
 		return MakeShareable(new FJsonValueString(StringProperty->GetPropertyValue(Value)));
 	}
+	else if (UTextProperty *TextProperty = Cast<UTextProperty>(Property))
+	{
+		return MakeShareable(new FJsonValueString(TextProperty->GetPropertyValue(Value).ToString()));
+	}
 	else if (UArrayProperty *ArrayProperty = Cast<UArrayProperty>(Property))
 	{
 		TArray< TSharedPtr<FJsonValue> > Out;
@@ -66,6 +70,14 @@ TSharedPtr<FJsonValue> ConvertScalarUPropertyToJsonValue(UProperty* Property, co
 	}
 	else if (UStructProperty *StructProperty = Cast<UStructProperty>(Property))
 	{
+		UScriptStruct::ICppStructOps* TheCppStructOps = StructProperty->Struct->GetCppStructOps();
+		if (TheCppStructOps && TheCppStructOps->HasExportTextItem())
+		{
+			FString OutValueStr;
+			TheCppStructOps->ExportTextItem(OutValueStr, Value, nullptr, nullptr, PPF_None, nullptr);
+			return MakeShareable(new FJsonValueString(OutValueStr));
+		}
+
 		TSharedRef<FJsonObject> Out = MakeShareable(new FJsonObject());
 		if (FJsonObjectConverter::UStructToJsonObject(StructProperty->Struct, Value, Out, CheckFlags & (~CPF_ParmFlags), SkipFlags, ExportCb))
 		{
@@ -170,22 +182,36 @@ bool FJsonObjectConverter::UStructToJsonAttributes(const UStruct* StructDefiniti
 	return true;
 }
 
-bool FJsonObjectConverter::UStructToJsonObjectString(const UStruct* StructDefinition, const void* Struct, FString& OutJsonString, int64 CheckFlags, int64 SkipFlags, int32 Indent, const CustomExportCallback* ExportCb)
+template<class CharType, class PrintPolicy>
+bool UStructToJsonObjectStringInternal(const TSharedRef<FJsonObject>& JsonObject, FString& OutJsonString, int32 Indent)
+{
+	TSharedRef<TJsonWriter<CharType, PrintPolicy> > JsonWriter = TJsonWriterFactory<CharType, PrintPolicy>::Create(&OutJsonString, Indent);
+	bool bSuccess = FJsonSerializer::Serialize(JsonObject, JsonWriter);
+	JsonWriter->Close();
+	return bSuccess;
+}
+
+bool FJsonObjectConverter::UStructToJsonObjectString(const UStruct* StructDefinition, const void* Struct, FString& OutJsonString, int64 CheckFlags, int64 SkipFlags, int32 Indent, const CustomExportCallback* ExportCb, bool bPrettyPrint)
 {
 	TSharedRef<FJsonObject> JsonObject = MakeShareable( new FJsonObject() );
 	if (UStructToJsonObject(StructDefinition, Struct, JsonObject, CheckFlags, SkipFlags, ExportCb))
 	{
-		TSharedRef<TJsonWriter<> > JsonWriter = TJsonWriterFactory<>::Create(&OutJsonString, Indent);
-
-		if (FJsonSerializer::Serialize( JsonObject, JsonWriter ))
+		bool bSuccess = false;
+		if (bPrettyPrint)
 		{
-			JsonWriter->Close();
+			bSuccess = UStructToJsonObjectStringInternal<TCHAR, TPrettyJsonPrintPolicy<TCHAR> >(JsonObject, OutJsonString, Indent);
+		}
+		else
+		{
+			bSuccess = UStructToJsonObjectStringInternal<TCHAR, TCondensedJsonPrintPolicy<TCHAR> >(JsonObject, OutJsonString, Indent);
+		}
+		if (bSuccess)
+		{
 			return true;
 		}
 		else
 		{
 			UE_LOG(LogJson, Warning, TEXT("UStructToJsonObjectString - Unable to write out json"));
-			JsonWriter->Close();
 		}
 	}
 
@@ -386,6 +412,14 @@ bool ConvertScalarJsonValueToUProperty(TSharedPtr<FJsonValue> JsonValue, UProper
 				UE_LOG(LogJson, Error, TEXT("JsonValueToUProperty - Unable to import FDateTime from Iso8601 String for property %s"), *Property->GetNameCPP());
 				return false;
 			}
+		}
+		else if (JsonValue->Type == EJson::String && StructProperty->Struct->GetCppStructOps() && StructProperty->Struct->GetCppStructOps()->HasImportTextItem())
+		{
+			UScriptStruct::ICppStructOps* TheCppStructOps = StructProperty->Struct->GetCppStructOps();
+			
+			FString ImportTextString = JsonValue->AsString();
+			const TCHAR* ImportTextPtr = *ImportTextString;
+			TheCppStructOps->ImportTextItem(ImportTextPtr, OutValue, PPF_None, nullptr, (FOutputDevice*)GWarn);
 		}
 		else
 		{

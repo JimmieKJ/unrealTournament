@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "GenericApplication.h"
@@ -8,7 +8,7 @@
 typedef struct FInputChord FInputGesture;
 
 /** An Input Chord is a key and the modifier keys that are to be held with it. */
-USTRUCT()
+USTRUCT(BlueprintType)
 struct SLATE_API FInputChord
 {
 	GENERATED_USTRUCT_BODY()

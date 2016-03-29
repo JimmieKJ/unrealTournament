@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DistortionAccumulatePixelShader.usf: Vertex/Hull/Domain shader for accumulating distortion offsets
@@ -70,6 +70,8 @@ void Main(
 	out VS_OUTPUT_TYPE Output
 	)
 {
+	ResolvedView = ResolveView();
+
 	FVertexFactoryIntermediates VFIntermediates = GetVertexFactoryIntermediates(Input);
 	float4	WorldPosition = VertexFactoryGetWorldPosition(Input, VFIntermediates);
 	float3x3 TangentToLocal = VertexFactoryGetTangentToLocal(Input, VFIntermediates);

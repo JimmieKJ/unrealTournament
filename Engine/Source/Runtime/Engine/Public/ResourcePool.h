@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
  Resource.h: Template for pooling resources using buckets.
@@ -68,7 +68,7 @@ public:
 	/** Release a resource back into the pool.
 	 * @param Resource The resource to return to the pool
 	 */
-	void ReleasePooledResource(ResourceType Resource)
+	void ReleasePooledResource(const ResourceType& Resource)
 	{
 		FPooledResource NewEntry;
 		NewEntry.Resource = Resource;
@@ -172,7 +172,7 @@ public:
 	/** Constructor */
 	TRenderResourcePool() :
 		FTickableObjectRenderThread(false)
-	{		
+	{
 	}
 	
 	/** Constructor with policy argument
@@ -195,6 +195,8 @@ public:
 	 */
 	ResourceType CreatePooledResource(ResourceCreationArguments Args)
 	{
+		ensure(IsInRenderingThread());
+
 		if (IsInitialized())
 		{
 			return TResourcePool<ResourceType, ResourcePoolPolicy, ResourceCreationArguments>::CreatePooledResource(Args);
@@ -210,6 +212,8 @@ public:
 	 */
 	void ReleasePooledResource(ResourceType Resource)
 	{
+		ensure(IsInRenderingThread());
+
 		if (IsInitialized())
 		{
 			TResourcePool<ResourceType, ResourcePoolPolicy, ResourceCreationArguments>::ReleasePooledResource(Resource);
@@ -219,6 +223,8 @@ public:
 public: // From FTickableObjectRenderThread
 	virtual void Tick( float DeltaTime ) override
 	{
+		ensure(IsInRenderingThread());
+
 		TResourcePool<ResourceType, ResourcePoolPolicy, ResourceCreationArguments>::DrainPool(false);
 	}
 	

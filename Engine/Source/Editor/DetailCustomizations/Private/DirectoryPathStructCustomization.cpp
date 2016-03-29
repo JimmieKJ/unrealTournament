@@ -1,9 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "DetailCustomizationsPrivatePCH.h"
 #include "DirectoryPathStructCustomization.h"
 #include "DesktopPlatformModule.h"
 #include "ContentBrowserDelegates.h"
+#include "ContentBrowserModule.h"
 
 #define LOCTEXT_NAMESPACE "DirectoryPathStructCustomization"
 
@@ -18,11 +19,54 @@ void FDirectoryPathStructCustomization::CustomizeHeader( TSharedRef<IPropertyHan
 
 	const bool bRelativeToGameContentDir = StructPropertyHandle->HasMetaData( TEXT("RelativeToGameContentDir") );
 	const bool bUseRelativePath = StructPropertyHandle->HasMetaData( TEXT("RelativePath") );
-	
+	const bool bContentDir = StructPropertyHandle->HasMetaData( TEXT("ContentDir") );
+
 	AbsoluteGameContentDir = FPaths::ConvertRelativePathToFull(FPaths::GameContentDir());
 
 	if(PathProperty.IsValid())
 	{
+		TSharedPtr<SWidget> PickerWidget = nullptr;
+
+		if(bContentDir)
+		{
+			FPathPickerConfig PathPickerConfig;
+			PathPickerConfig.bAllowContextMenu = false;
+			PathPickerConfig.OnPathSelected = FOnPathSelected::CreateSP(this, &FDirectoryPathStructCustomization::OnPathPicked, PathProperty.ToSharedRef());
+
+			FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+
+			PickerWidget = SAssignNew(PickerButton, SComboButton)
+			.ButtonStyle( FEditorStyle::Get(), "HoverHintOnly" )
+			.ToolTipText( LOCTEXT( "FolderComboToolTipText", "Choose a content directory") )
+			.ContentPadding( 2.0f )
+			.ForegroundColor( FSlateColor::UseForeground() )
+			.IsFocusable( false )
+			.MenuContent()
+			[
+				SNew(SBox)
+				.WidthOverride(300.0f)
+				.HeightOverride(300.0f)
+				[
+					ContentBrowserModule.Get().CreatePathPicker(PathPickerConfig)
+				]
+			];			
+		}
+		else
+		{
+			PickerWidget = SAssignNew(BrowseButton, SButton)
+			.ButtonStyle( FEditorStyle::Get(), "HoverHintOnly" )
+			.ToolTipText( LOCTEXT( "FolderButtonToolTipText", "Choose a directory from this computer") )
+			.OnClicked( FOnClicked::CreateSP(this, &FDirectoryPathStructCustomization::OnPickDirectory, PathProperty.ToSharedRef(), bRelativeToGameContentDir, bUseRelativePath) )
+			.ContentPadding( 2.0f )
+			.ForegroundColor( FSlateColor::UseForeground() )
+			.IsFocusable( false )
+			[
+				SNew( SImage )
+				.Image( FEditorStyle::GetBrush("PropertyWindow.Button_Ellipsis") )
+				.ColorAndOpacity( FSlateColor::UseForeground() )
+			];
+		}
+
 		HeaderRow.ValueContent()
 		.MinDesiredWidth(125.0f)
 		.MaxDesiredWidth(600.0f)
@@ -39,18 +83,7 @@ void FDirectoryPathStructCustomization::CustomizeHeader( TSharedRef<IPropertyHan
 			.Padding(FMargin(4.0f, 0.0f, 0.0f, 0.0f))
 			.VAlign(VAlign_Center)
 			[
-				SAssignNew(BrowseButton, SButton)
-				.ButtonStyle( FEditorStyle::Get(), "HoverHintOnly" )
-				.ToolTipText( LOCTEXT( "FolderButtonToolTipText", "Choose a directory from this computer") )
-				.OnClicked( FOnClicked::CreateSP(this, &FDirectoryPathStructCustomization::OnPickDirectory, PathProperty.ToSharedRef(), bRelativeToGameContentDir, bUseRelativePath) )
-				.ContentPadding( 2.0f )
-				.ForegroundColor( FSlateColor::UseForeground() )
-				.IsFocusable( false )
-				[
-					SNew( SImage )
-					.Image( FEditorStyle::GetBrush("PropertyWindow.Button_Ellipsis") )
-					.ColorAndOpacity( FSlateColor::UseForeground() )
-				]
+				PickerWidget.ToSharedRef()
 			]
 		]
 		.NameContent()
@@ -130,6 +163,13 @@ bool FDirectoryPathStructCustomization::IsValidPath(const FString& AbsolutePath,
 	}
 
 	return true;
+}
+
+void FDirectoryPathStructCustomization::OnPathPicked(const FString& Path, TSharedRef<IPropertyHandle> PropertyHandle)
+{
+	PickerButton->SetIsOpen(false);
+
+	PropertyHandle->SetValue(Path);
 }
 
 #undef LOCTEXT_NAMESPACE

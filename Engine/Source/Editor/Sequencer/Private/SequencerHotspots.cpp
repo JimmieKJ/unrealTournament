@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerPrivatePCH.h"
 #include "SequencerHotspots.h"
@@ -39,9 +39,9 @@ void FSectionHotspot::PopulateContextMenu(FMenuBuilder& MenuBuilder, ISequencer&
 		}
 	}
 
-	SectionInterface->BuildSectionContextMenu(MenuBuilder, ObjectBinding);
-
 	FSectionContextMenu::BuildMenu(MenuBuilder, Sequencer, MouseDownTime);
+
+	SectionInterface->BuildSectionContextMenu(MenuBuilder, ObjectBinding);
 }
 
 TSharedPtr<ISequencerEditToolDragOperation> FSectionResizeHotspot::InitiateDrag(ISequencer& Sequencer)
@@ -51,6 +51,11 @@ TSharedPtr<ISequencerEditToolDragOperation> FSectionResizeHotspot::InitiateDrag(
 	
 	if (!SelectedSections.Contains(Section.GetSectionObject()))
 	{
+		Sequencer.GetSelection().Empty();
+		Sequencer.GetSelection().AddToSelection(Section.GetSectionObject());
+		SequencerHelpers::UpdateHoveredNodeFromSelectedSections(static_cast<FSequencer&>(Sequencer));
+
+		SectionHandles.Empty();
 		SectionHandles.Add(Section);
 	}
 	return MakeShareable( new FResizeSection(static_cast<FSequencer&>(Sequencer), SectionHandles, HandleType == Right) );

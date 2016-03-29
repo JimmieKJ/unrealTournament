@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -151,6 +151,62 @@ namespace ConvexHull2D
 		{
 			OutIndices.Reset();
 		}
+	}
+
+	/** Returns <0 if C is left of A-B */
+	inline float ComputeDeterminant2D(const FVector2D& A, const FVector2D& B, const FVector2D& C)
+	{
+		const float u1 = B.X - A.X;
+		const float v1 = B.Y - A.Y;
+		const float u2 = C.X - A.X;
+		const float v2 = C.Y - A.Y;
+
+		return u1 * v2 - v1 * u2;
+	}
+
+	/** 
+	 * Alternate simple implementation that was found to work correctly for points that are very close together (inside the 0-1 range).
+	 */
+	template<typename Allocator>
+	void ComputeConvexHull2(const TArray<FVector2D, Allocator>& Points, TArray<int32, Allocator>& OutIndices)
+	{
+		// Jarvis march implementation
+		check(Points.Num() > 0);
+
+		int32 LeftmostIndex = -1;
+		FVector2D Leftmost(FLT_MAX, FLT_MAX);
+
+		for (int32 PointIndex = 0; PointIndex < Points.Num(); PointIndex++)
+		{
+			if (Points[PointIndex].X < Leftmost.X
+				|| (Points[PointIndex].X == Leftmost.X && Points[PointIndex].Y < Leftmost.Y))
+			{
+				LeftmostIndex = PointIndex;
+				Leftmost = Points[PointIndex];
+			}
+		}
+
+		int32 PointOnHullIndex = LeftmostIndex;
+		int32 EndPointIndex;
+
+		do 
+		{
+			OutIndices.Add(PointOnHullIndex);
+			EndPointIndex = 0;
+
+			// Find the 'leftmost' point to the line from the last hull vertex to a candidate
+			for (int32 j = 1; j < Points.Num(); j++)
+			{
+				if (EndPointIndex == PointOnHullIndex 
+					|| ComputeDeterminant2D(Points[EndPointIndex], Points[OutIndices.Last()], Points[j]) < 0)
+				{
+					EndPointIndex = j;
+				}
+			}
+
+			PointOnHullIndex = EndPointIndex;
+		} 
+		while (EndPointIndex != LeftmostIndex);
 	}
 
 /*

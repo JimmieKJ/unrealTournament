@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
  
 #pragma once
 
@@ -11,8 +11,7 @@ class FProfilerSettings
 {
 public:
 	FProfilerSettings( bool bInIsDefault = false )
-		: bSingleInstanceMode( true )
-		, bShowCoalescedViewModesInEventGraph( true )
+		: bShowCoalescedViewModesInEventGraph( true )
 		, bIsEditing( false )
 		, bIsDefault( bInIsDefault )
 	{
@@ -34,13 +33,11 @@ public:
 	{
 		FConfigCacheIni::LoadGlobalIniFile(ProfilerSettingsIni, TEXT("ProfilerSettings"));
 
-		GConfig->GetBool( TEXT("Profiler.ProfilerOptions"), TEXT("bSingleInstanceMode"), bSingleInstanceMode, ProfilerSettingsIni );
 		GConfig->GetBool( TEXT("Profiler.ProfilerOptions"), TEXT("bShowCoalescedViewModesInEventGraph"), bShowCoalescedViewModesInEventGraph, ProfilerSettingsIni );
 	}
 
 	void SaveToConfig()
 	{
-		GConfig->SetBool( TEXT("Profiler.ProfilerOptions"), TEXT("bSingleInstanceMode"), bSingleInstanceMode, ProfilerSettingsIni );
 		GConfig->SetBool( TEXT("Profiler.ProfilerOptions"), TEXT("bShowCoalescedViewModesInEventGraph"), bShowCoalescedViewModesInEventGraph, ProfilerSettingsIni );
 		GConfig->Flush( false, ProfilerSettingsIni );
 	}
@@ -72,9 +69,6 @@ public:
 	/** Profiler setting filename ini. */
 	FString ProfilerSettingsIni;
 
-	/** If True, the profiler will work in the single instance mode, all functionality related to multi instances will be disabled or removed from the UI. */
-	bool bSingleInstanceMode;
-
 	/** If True, coalesced view modes related functionality will be added to the event graph. */
 	bool bShowCoalescedViewModesInEventGraph;
 
@@ -87,30 +81,25 @@ public:
 
 
 /** Contains basic information about tracked stat. */
-class FTrackedStat //: public FNoncopyable, public TSharedFromThis<FTrackedStat>
+class FTrackedStat : public FNoncopyable, public TSharedFromThis<FTrackedStat>
 {
 public:
 	/**
 	 * Initialization constructor.
 	 *
-	 * @param InColorAverage	- color used to draw the average value
-	 * @param InColorExtremes	- color used to draw the extreme values
-	 * @param InColorBackground - color used to draw the background
-	 * @param InStatID			- the ID of the stat which will be tracked
+	 * @param InGraphDataSource - Data source
+	 * @param InGraphColor - color used to draw the average value
+	 * @param InStatID - the ID of the stat which will be tracked
 	 *
 	 */
 	FTrackedStat
 	(
-		FCombinedGraphDataSourceRef InCombinedGraphDataSource,
-		const FLinearColor InColorAverage,
-		const FLinearColor InColorExtremes,
-		const FLinearColor InColorBackground,
+		FGraphDataSourceRefConst InGraphDataSource,
+		const FLinearColor InGraphColor,
 		const uint32 InStatID	
 	)
-		: CombinedGraphDataSource( InCombinedGraphDataSource )
-		, ColorAverage( InColorAverage )
-		, ColorExtremes( InColorExtremes )
-		, ColorBackground( InColorBackground )
+		: GraphDataSource( InGraphDataSource )
+		, GraphColor( InGraphColor )
 		, StatID( InStatID )
 	{}
 
@@ -119,17 +108,11 @@ public:
 	{}
 
 //protected:
-	/** A shared reference to the combined graph data source for all active profiler session instances for the specified stat ID. */
-	FCombinedGraphDataSourceRef CombinedGraphDataSource;
+	/** A shared reference to the graph data source for active profiler session for the specified stat ID. */
+	FGraphDataSourceRefConst GraphDataSource;
 
-	/** A color to visualize average value for the combined data graph. */
-	const FLinearColor ColorAverage;
-
-	/** A color to visualize extremes values for the combined data graph, min and max. */
-	const FLinearColor ColorExtremes;
-
-	/** A color to visualize background area for the combined data graph. */
-	const FLinearColor ColorBackground;
+	/** A color to visualize graph value for the data graph. */
+	const FLinearColor GraphColor;
 
 	/** The ID of the stat. */
 	const uint32 StatID;
@@ -259,12 +242,12 @@ public:
 	}
 
 	/**
-	 * Creates a combined graph data source which will provide data for graph drawing.
-	 *
-	 * @param StatID - the ID of the stat that will used for generating the combined graph data source.
-	 *
+	 * @return an instance of the profiler session.
 	 */
-	FCombinedGraphDataSourceRef CreateCombinedGraphDataSource( const uint32 StatID );
+	FProfilerSessionPtr GetProfilerSession()
+	{
+		return ProfilerSession;
+	}
 
 	/*-----------------------------------------------------------------------------
 		Stat tracking, Session instance management
@@ -279,34 +262,6 @@ public:
 	 * @return true, if the specified stat is currently tracked by the profiler.
 	 */
 	const bool IsStatTracked( const uint32 StatID ) const;
-	bool TrackStatForSessionInstance( const uint32 StatID, const FGuid& SessionInstanceID );
-	bool UntrackStatForSessionInstance( const uint32 StatID, const FGuid& SessionInstanceID );
-	const bool IsStatTrackedForSessionInstance( const uint32 StatID, const FGuid& SessionInstanceID ) const;
-	bool TrackSessionInstance( const FGuid& SessionInstanceID );
-	bool UntrackSessionInstance( const FGuid& SessionInstanceID );
-
-	/**
-	 * @return true, if the specified session instance ID belongs to a valid profiler session.
-	 */
-	bool IsSessionInstanceValid( const FGuid& SessionInstanceID ) const
-	{
-		const bool bIsValid = SessionInstanceID.IsValid() && ProfilerSessionInstances.Contains( SessionInstanceID );
-		return bIsValid;
-	}
-
-	const FProfilerSessionRef* FindSessionInstance( const FGuid& SessionInstanceID ) const
-	{
-		return ProfilerSessionInstances.Find( SessionInstanceID );
-	}
-
-	// TODO: At this moment SButtonRowBlock::OnIsChecked supports only Checked and Unchecked
-	// ECheckBoxState.Undetermined is not supported
-	/**
-	 * @return true, if the specified session instance tracks any stats.
-	 */
-	const bool IsSessionInstanceTracked( const FGuid& SessionInstanceID ) const;
-
-	//-----------------------------------------------------------------------------
 
 	/**
 	 * @return True, if the profiler has at least one fully processed capture file
@@ -321,7 +276,13 @@ public:
 	 */
 	const bool IsConnected() const
 	{
-		return ActiveSession.IsValid();
+		const bool bIsValid = ActiveSession.IsValid() && ActiveInstanceID.IsValid();
+		return bIsValid;
+	}
+
+	const bool HasValidSession() const
+	{
+		return ProfilerSession.IsValid();
 	}
 
 	/**
@@ -334,24 +295,7 @@ public:
 
 public:
 	/** @return true, if all session instances are previewing data */
-	const bool IsDataPreviewing()
-	{
-		return GetProfilerInstancesNum() > 0 && GetNumDataPreviewingInstances() == GetProfilerInstancesNum();
-	}
-
-	/** @return the number of session instances with data previewing enabled */
-	const int32 GetNumDataPreviewingInstances()
-	{
-		int32 NumDataPreviewingInstances = 0;
-
-		for( auto It = GetProfilerInstancesIterator(); It; ++It )
-		{
-			FProfilerSessionRef ProfilerSession = It.Value();
-			NumDataPreviewingInstances += ProfilerSession->bDataPreviewing ? 1 : 0;
-		}
-
-		return NumDataPreviewingInstances;
-	}
+	const bool IsDataPreviewing() const;
 
 	/**
 	 * Sets the data preview state for all session instances and sends message for remote profiler services.
@@ -359,35 +303,10 @@ public:
 	 * @param bRequestedDataPreviewState - data preview state that should be set
 	 *
 	 */
-	void SetDataPreview( const bool bRequestedDataPreviewState )
-	{
-		ProfilerClient->SetPreviewState( bRequestedDataPreviewState );
-		for( auto It = GetProfilerInstancesIterator(); It; ++It )
-		{
-			FProfilerSessionRef ProfilerSession = It.Value();
-			ProfilerSession->bDataPreviewing = bRequestedDataPreviewState;	
-		}
-	}
+	void SetDataPreview( const bool bRequestedDataPreviewState );
 
 	/** @return true, if all sessions instances are capturing data to a file, only valid if profiler is connected to network based session */
-	const bool IsDataCapturing()
-	{
-		return GetProfilerInstancesNum() > 0 && GetNumDataCapturingInstances() == GetProfilerInstancesNum();
-	}
-
-	/** @return the number of session instances with data capturing enabled. */
-	const int32 GetNumDataCapturingInstances()
-	{
-		int32 NumDataCapturingInstances = 0;
-
-		for( auto It = GetProfilerInstancesIterator(); It; ++It )
-		{
-			FProfilerSessionRef ProfilerSession = It.Value();
-			NumDataCapturingInstances += ProfilerSession->bDataCapturing ? 1 : 0;
-		}
-
-		return NumDataCapturingInstances;
-	}
+	const bool IsDataCapturing() const;
 
 	/**
 	 * Sets the data capture state for all session instances and sends message for remote profiler services.
@@ -433,10 +352,10 @@ public:
 	/**
 	 * The event to execute when the status of specified tracked stat has changed.
 	 *
-	 * @param const FTrackedStat&	- a reference to the tracked stat whose status has changed, this reference is valid only within the scope of function
-	 * @param bool bIsTracked		- true, if stat has been added for tracking, false, if stat has been removed from tracking
+	 * @param const FTrackedStatPtr& - a reference to the tracked stat whose status has changed, this reference is valid only within the scope of function
+	 * @param bool bIsTracked - true, if stat has been added for tracking, false, if stat has been removed from tracking
 	 */
-	DECLARE_EVENT_TwoParams( FProfilerManager, FTrackedStatChangedEvent, const FTrackedStat&, bool );
+	DECLARE_EVENT_TwoParams( FProfilerManager, FTrackedStatChangedEvent, const FTrackedStatPtr&, bool );
 	FTrackedStatChangedEvent& OnTrackedStatChanged()
 	{
 		return TrackedStatChangedEvent;
@@ -510,39 +429,23 @@ public:
 	 * Creates a new profiler session instance and loads a saved profiler capture from the specified location.
 	 *
 	 * @param ProfilerCaptureFilepath	- The path to the file containing a captured session instance
-	 * @param bAdd						- if true, it will load a captured session instance and add to the existing ones
-	 *
 	 */
-	void LoadProfilerCapture( const FString& ProfilerCaptureFilepath, const bool bAdd = false );
+	void LoadProfilerCapture( const FString& ProfilerCaptureFilepath );
 
 	/** Creates a new profiler session instance and load a raw stats file from the specified location. */
 	void LoadRawStatsFile( const FString& RawStatsFileFileath );
 
 protected:
-	void ProfilerClient_OnProfilerData( const FGuid& InstanceID, const FProfilerDataFrame& Content, const float DataLoadingProgress );
+	void ProfilerClient_OnProfilerData( const FGuid& InstanceID, const FProfilerDataFrame& Content );
 	void ProfilerClient_OnClientConnected( const FGuid& SessioID, const FGuid& InstanceID );
 	void ProfilerClient_OnClientDisconnected( const FGuid& SessionID, const FGuid& InstanceID );
-	void ProfilerClient_OnMetaDataUpdated( const FGuid& InstanceID );
-	void ProfilerClient_OnLoadedMetaData( const FGuid& InstanceID );
+	void ProfilerClient_OnMetaDataUpdated( const FGuid& InstanceID, const FStatMetaData& MetaData );
 	void ProfilerClient_OnLoadCompleted( const FGuid& InstanceID );
 	void ProfilerClient_OnLoadStarted( const FGuid& InstanceID );
 
 	void ProfilerClient_OnProfilerFileTransfer( const FString& Filename, int64 FileProgress, int64 FileSize );
 
-	void SessionManager_OnCanSelectSession( const ISessionInfoPtr& Session, bool& CanSelect );
 	void SessionManager_OnInstanceSelectionChanged( const TSharedPtr<ISessionInstanceInfo>& Instance, bool Selected );
-	void SessionManager_OnSelectedSessionChanged( const ISessionInfoPtr& Session );
-
-public:
-	TMap<FGuid,FProfilerSessionRef>::TIterator GetProfilerInstancesIterator()
-	{
-		return ProfilerSessionInstances.CreateIterator();
-	}
-
-	const int32 GetProfilerInstancesNum() const
-	{
-		return ProfilerSessionInstances.Num();
-	}
 
 public:
 	const FLinearColor& GetColorForStatID( const uint32 StatID ) const;
@@ -581,8 +484,11 @@ protected:
 	/** A shared pointer to the currently selected session in the session browser. */
 	ISessionInfoPtr ActiveSession;
 
-	/** Session instances currently selected in the session browser. */
-	TArray<ISessionInstanceInfoPtr> SelectedSessionInstances;
+	/** A shared pointer to the currently selected instance in the session browser. */
+	FGuid/*ISessionInstanceInfoPtr*/ ActiveInstanceID;
+
+	/** Profiler session, to be removed from here. */
+	FProfilerSessionPtr ProfilerSession;
 
 	/** A shared pointer to the profiler client, which is used to deliver all profiler data from the active session. */
 	IProfilerClientPtr ProfilerClient;
@@ -607,11 +513,9 @@ protected:
 	FFrameAddedEvent FrameAddedEvent;
 
 	/** Contains all currently tracked stats, stored as StatID -> FTrackedStat. */
-	TMap<uint32, FTrackedStat> TrackedStats;
+	TMap<uint32, FTrackedStatPtr> TrackedStats;
 
-	/** Holds all profiler session instances, stored as FGuid -> FProfilerSessionRef. */
-	TMap<FGuid,FProfilerSessionRef> ProfilerSessionInstances;
-
+	
 	/*-----------------------------------------------------------------------------
 		Profiler manager states
 	-----------------------------------------------------------------------------*/

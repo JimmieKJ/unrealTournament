@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 
@@ -176,7 +176,7 @@ void FWindowsPlatformStackWalk::StackWalkAndDump( ANSICHAR* HumanReadableString,
 	InitStackWalking();
 	FGenericPlatformStackWalk::StackWalkAndDump(HumanReadableString, HumanReadableStringSize, IgnoreCount, Context);
 }
-// @TODO yrx 2014-09-05 Switch to TArray<uint64,TFixedAllocator<100>>>
+// #CrashReport: 2014-09-05 Switch to TArray<uint64,TFixedAllocator<100>>>
 /**
  * Capture a stack backtrace and optionally use the passed in exception pointers.
  *
@@ -699,21 +699,28 @@ bool FWindowsPlatformStackWalk::InitStackWalking()
 		//		SymOpts |= SYMOPT_CASE_INSENSITIVE;
 
 		SymSetOptions( SymOpts );
-
-		// Initialize the symbol engine.
+	
+		// Initialize the symbol engine.		
 		const FString RemoteStorage = GetRemoteStorage(GetDownstreamStorage());
 		SymInitializeW( GetCurrentProcess(), RemoteStorage.IsEmpty() ? nullptr : *RemoteStorage, true );
 
 		GNeedToRefreshSymbols = false;
 		GStackWalkingInitialized = true;
-
-		LoadProcessModules(RemoteStorage);
+		if (!FPlatformProperties::IsMonolithicBuild() && FPlatformStackWalk::WantsDetailedCallstacksInNonMonolithicBuilds())
+		{
+			LoadProcessModules( RemoteStorage );
+		}			
 	}
 #if WINVER > 0x502
 	else if (GNeedToRefreshSymbols)
 	{
 		// Refresh and reload symbols
 		SymRefreshModuleList( GetCurrentProcess() );
+		if (!FPlatformProperties::IsMonolithicBuild() && FPlatformStackWalk::WantsDetailedCallstacksInNonMonolithicBuilds())
+		{
+			const FString RemoteStorage = GetRemoteStorage( GetDownstreamStorage() );
+			LoadProcessModules( RemoteStorage );
+		}
 		GNeedToRefreshSymbols = false;
 
 		const FString RemoteStorage = GetRemoteStorage(GetDownstreamStorage());

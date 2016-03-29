@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -124,9 +124,13 @@ namespace Lightmass
 		/** Information about the meshes used in the kDOP tree. */
 		TArray<const FEmbreeGeometry*> MeshInfos;
 
-		/*Embree scene */
+		/** Embree scene */
 		RTCDevice EmbreeDevice;
 		RTCScene EmbreeScene;
+		
+		/** Total number of triangles in the shadow mesh */
+		int32 TotalNumTriangles;
+
 	};
 
 	class FEmbreeVerifyAggregateMesh final : public FStaticLightingAggregateMesh

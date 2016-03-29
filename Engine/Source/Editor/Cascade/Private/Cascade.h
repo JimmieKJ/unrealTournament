@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -85,6 +85,9 @@ public:
 
 	/** Returns the current detail mode */
 	int32 GetDetailMode() const;
+
+	/** Returns the required significance for the fx in the cascade viewport. */
+	EParticleSignificanceLevel GetRequiredSignificance()const;
 
 	/** Returns true if the module is shared */
 	bool GetIsModuleShared(UParticleModule* Module);
@@ -192,6 +195,7 @@ public:
 	 */
 	static bool ConvertAllModulesToSeeded(UParticleSystem* ParticleSystem);
 
+	static void OnComponentActivationChange(UParticleSystemComponent* PSC, bool bActivated);
 private:
 	//~ Begin FEditorUndoClient Interface
 	virtual void PostUndo(bool bSuccess) override;
@@ -341,6 +345,8 @@ private:
 	void OnRegenerateLowestLOD();
 	void OnDetailMode(EDetailMode DetailMode);
 	bool IsDetailModeChecked(EDetailMode DetailMode) const;
+	void OnSignificance(EParticleSignificanceLevel InSignificance);
+	bool IsSignificanceChecked(EParticleSignificanceLevel InSignificance) const;
 	void OnJumpToHighestLOD();
 	void OnAddLODAfterCurrent();
 	void OnAddLODBeforeCurrent();
@@ -428,6 +434,10 @@ private:
 	
 	/** Cascade specific detail mode */
 	int32 DetailMode;
+
+	/** Required significance for cascade. */
+	EParticleSignificanceLevel RequiredSignificance;
+
 	/** Used to track changes in the global detail mode setting */
 	int32 GlobalDetailMode;
 

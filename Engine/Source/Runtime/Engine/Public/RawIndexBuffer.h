@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	RawIndexBuffer.h: Raw index buffer definitions.
@@ -204,6 +204,7 @@ public:
 	 * the index array a private member
 	 */
 	virtual bool GetNeedsCPUAccess() const = 0;
+	// number of indices (e.g. 4 triangles would result in 12 elements)
 	virtual int32 Num() const = 0;
 	virtual int32 AddItem(uint32 Val) = 0;
 	virtual uint32 Get(uint32 Idx) const = 0;
@@ -212,6 +213,16 @@ public:
 	virtual void Remove(int32 Idx, int32 Num = 1) = 0;
 	virtual void Empty(int32 Slack = 0) = 0;
 	virtual int32 GetResourceDataSize() const = 0;
+
+	// @param guaranteed only to be valid if the vertex buffer is valid and the buffer was created with the SRV flags
+	FShaderResourceViewRHIParamRef GetSRV() const
+	{
+		return SRVValue;
+	}
+
+protected:
+	// guaranteed only to be valid if the vertex buffer is valid and the buffer was created with the SRV flags
+	FShaderResourceViewRHIRef SRVValue;
 };
 
 template <typename INDEX_TYPE>
@@ -240,8 +251,32 @@ public:
 		{
 			// Create the index buffer.
 			FRHIResourceCreateInfo CreateInfo(&Indices);
-			IndexBufferRHI = RHICreateIndexBuffer(sizeof(INDEX_TYPE),Size,BUF_Static,CreateInfo);
+			
+			extern ENGINE_API bool DoSkeletalMeshIndexBuffersNeedSRV();
+			bool bSRV = DoSkeletalMeshIndexBuffersNeedSRV();
+
+			EBufferUsageFlags Flags = BUF_Static;
+
+			if(bSRV)
+			{
+				// BUF_ShaderResource is needed for SkinCache RecomputeSkinTangents
+				Flags = (EBufferUsageFlags)(Flags | BUF_ShaderResource);
+			}
+
+			IndexBufferRHI = RHICreateIndexBuffer(sizeof(INDEX_TYPE), Size, Flags, CreateInfo);
+
+			if(bSRV)
+			{
+				SRVValue = RHICreateShaderResourceView(IndexBufferRHI);
+			}
 		}    
+	}
+	
+	virtual void ReleaseRHI() override
+	{
+		FRawStaticIndexBuffer16or32Interface::ReleaseRHI();
+
+		SRVValue.SafeRelease();
 	}
 
 	/**

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "GitSourceControlPrivatePCH.h"
 #include "SGitSourceControlSettings.h"
@@ -291,7 +291,7 @@ FReply SGitSourceControlSettings::OnClickedInitializeGitRepository()
 		{
 			// Create a standard ".gitignore" file with common patterns for a typical Blueprint & C++ project
 			const FString Filename = FString::Printf(TEXT("%s.gitignore"), *PathToGameDir);
-			const FString GitIgnoreContent = TEXT("Binaries\nDerivedDataCache\nIntermediate\nSaved\n*.opensdf\n*.sdf\n*.sln\n*.suo\n*.xcodeproj");
+			const FString GitIgnoreContent = TEXT("Binaries\nDerivedDataCache\nIntermediate\nSaved\n*.opensdf\n*.sdf\n*.sln\n*.suo\n*.xcodeproj\n*.xcworkspace");
 			if(FFileHelper::SaveStringToFile(GitIgnoreContent, *Filename, FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM))
 			{
 				ProjectFiles.Add(TEXT(".gitignore"));

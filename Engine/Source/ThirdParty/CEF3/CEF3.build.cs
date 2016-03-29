@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.IO;
@@ -44,7 +44,16 @@ public class CEF3 : ModuleRules
 
                 // There are different versions of the C++ wrapper lib depending on the version of VS we're using
                 string VSVersionFolderName = "VS" + WindowsPlatform.GetVisualStudioCompilerVersionName();
-                string WrapperLibraryPath = Path.Combine(PlatformPath, VSVersionFolderName, "libcef_dll", "Release");
+                string WrapperLibraryPath = Path.Combine(PlatformPath, VSVersionFolderName, "libcef_dll");
+
+                if (Target.Configuration == UnrealTargetConfiguration.Debug && BuildConfiguration.bDebugBuildsActuallyUseDebugCRT)
+                {
+                    WrapperLibraryPath += "/Debug";
+                }
+                else
+                {
+                    WrapperLibraryPath += "/Release";
+                }
 
                 PublicLibraryPaths.Add(WrapperLibraryPath);
                 PublicAdditionalLibraries.Add("libcef_dll_wrapper.lib");

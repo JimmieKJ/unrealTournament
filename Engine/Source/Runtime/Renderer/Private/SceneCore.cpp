@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SceneCore.cpp: Core scene implementation.
@@ -100,7 +100,7 @@ void FLightPrimitiveInteraction::Create(FLightSceneInfo* LightSceneInfo,FPrimiti
 	bool bShadowMapped = false;
 
 	// Determine the light's relevance to the primitive.
-	check(PrimitiveSceneInfo->Proxy);
+	check(PrimitiveSceneInfo->Proxy && LightSceneInfo->Proxy);
 	PrimitiveSceneInfo->Proxy->GetLightRelevance(LightSceneInfo->Proxy, bDynamic, bRelevant, bLightMapped, bShadowMapped);
 
 	if (bRelevant && bDynamic
@@ -179,9 +179,13 @@ FLightPrimitiveInteraction::FLightPrimitiveInteraction(
 		{
 			// Update the game thread's counter of number of uncached static lighting interactions.
 			bUncachedStaticLighting = true;
+	#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 			LightSceneInfo->NumUnbuiltInteractions++;
+	#endif
 
+	#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 			FPlatformAtomics::InterlockedIncrement(&PrimitiveSceneInfo->Scene->NumUncachedStaticLightingInteractions);
+	#endif
 
 #if WITH_EDITOR
 			PrimitiveSceneInfo->Proxy->NumUncachedStaticLightingInteractions++;

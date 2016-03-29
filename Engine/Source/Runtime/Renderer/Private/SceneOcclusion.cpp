@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SceneRendering.cpp: Scene rendering.
@@ -1078,7 +1078,7 @@ void BuildHZB( FRHICommandListImmediate& RHICmdList, FViewInfo& View )
 	GRenderTargetPool.VisualizeTexture.SetCheckPoint( RHICmdList, View.HZB );
 }
 
-void FDeferredShadingSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate& RHICmdList, bool bRenderQueries, bool bRenderHZB)
+void FDeferredShadingSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate& RHICmdList, bool bRenderQueries)
 {
 	SCOPE_CYCLE_COUNTER(STAT_BeginOcclusionTestsTime);
 	int32 NumBufferedFrames = FOcclusionQueryHelpers::GetNumBufferedFrames();
@@ -1229,23 +1229,6 @@ void FDeferredShadingSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate
 		}
 
 		RHICmdList.EndOcclusionQueryBatch();
-	}
-
-	if (bRenderHZB)
-	{
-		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
-		{
-			FViewInfo& View = Views[ViewIndex];
-			FSceneViewState* ViewState = (FSceneViewState*)View.State;
-
-			if (ViewState && ViewState->HZBOcclusionTests.GetNum() != 0)
-			{
-				check(ViewState->HZBOcclusionTests.IsValidFrame(ViewState->OcclusionFrameCounter));
-
-				SCOPED_DRAW_EVENT(RHICmdList, HZB);
-				ViewState->HZBOcclusionTests.Submit(RHICmdList, View);
-			}
-		}
 	}
 
 	if (bUseDownsampledDepth)

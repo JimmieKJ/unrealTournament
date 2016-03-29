@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 
@@ -77,7 +77,14 @@ void FOutputDeviceWindowsError::Serialize( const TCHAR* Msg, ELogVerbosity::Type
 		ErrorBuffer[0] = 0;
 
 		// Windows error.
-		UE_LOG( LogWindows, Error, TEXT( "Windows GetLastError: %s (%i)" ), FPlatformMisc::GetSystemErrorMessage( ErrorBuffer, 1024, LastError ), LastError );
+		if (LastError == 0)
+		{
+			UE_LOG(LogWindows, Log, TEXT("Windows GetLastError: %s (%i)"), FPlatformMisc::GetSystemErrorMessage(ErrorBuffer, 1024, LastError), LastError);
+		}
+		else
+		{
+			UE_LOG(LogWindows, Error, TEXT("Windows GetLastError: %s (%i)"), FPlatformMisc::GetSystemErrorMessage(ErrorBuffer, 1024, LastError), LastError);
+		}
 	}
 	else
 	{
@@ -165,18 +172,27 @@ FOutputDeviceConsoleWindows::~FOutputDeviceConsoleWindows()
 
 void FOutputDeviceConsoleWindows::SaveToINI()
 {
-	if (GConfig && IniFilename.Len())
+	if (GConfig && !IniFilename.IsEmpty())
 	{
-		RECT WindowRect;
-		::GetWindowRect( GetConsoleWindow(), &WindowRect );
+		HWND Handle = GetConsoleWindow();
+		if (Handle != NULL)
+		{
+			RECT WindowRect;
+			::GetWindowRect(Handle, &WindowRect);
 
-		CONSOLE_SCREEN_BUFFER_INFO Info;
-		GetConsoleScreenBufferInfo(ConsoleHandle, &Info);
-
-		GConfig->SetInt(TEXT("DebugWindows"), TEXT("ConsoleWidth"), Info.dwSize.X, IniFilename);
-		GConfig->SetInt(TEXT("DebugWindows"), TEXT("ConsoleHeight"), Info.dwSize.Y, IniFilename);
-		GConfig->SetInt(TEXT("DebugWindows"), TEXT("ConsoleX"), WindowRect.left, IniFilename);
-		GConfig->SetInt(TEXT("DebugWindows"), TEXT("ConsoleY"), WindowRect.top, IniFilename);
+			GConfig->SetInt(TEXT("DebugWindows"), TEXT("ConsoleX"), WindowRect.left, IniFilename);
+			GConfig->SetInt(TEXT("DebugWindows"), TEXT("ConsoleY"), WindowRect.top, IniFilename);
+		}
+		
+		if (ConsoleHandle != NULL)
+		{
+			CONSOLE_SCREEN_BUFFER_INFO Info;
+			if (GetConsoleScreenBufferInfo(ConsoleHandle, &Info))
+			{
+				GConfig->SetInt(TEXT("DebugWindows"), TEXT("ConsoleWidth"), Info.dwSize.X, IniFilename);
+				GConfig->SetInt(TEXT("DebugWindows"), TEXT("ConsoleHeight"), Info.dwSize.Y, IniFilename);
+			}
+		}
 	}
 }
 
@@ -225,7 +241,7 @@ void FOutputDeviceConsoleWindows::Show( bool ShowWindow )
 				{
 					SMALL_RECT NewConsoleWindowRect = ConsoleInfo.srWindow;
 					NewConsoleWindowRect.Right = ConsoleInfo.dwSize.X - 1;
-					::SetConsoleWindowInfo( ConsoleHandle, true, &NewConsoleWindowRect );
+					::SetConsoleWindowInfo( ConsoleHandle, true, &NewConsoleWindowRect );	
 				}
 
 				RECT WindowRect;
@@ -240,6 +256,22 @@ void FOutputDeviceConsoleWindows::Show( bool ShowWindow )
 				{
 					ConsolePosY = WindowRect.top;
 				}
+
+				FDisplayMetrics DisplayMetrics;
+				FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+
+				// Make sure that the positions specified by INI/CMDLINE are proper
+				static const int32 ActualConsoleWidth = WindowRect.right - WindowRect.left;
+				static const int32 ActualConsoleHeight = WindowRect.bottom - WindowRect.top;
+
+				static const int32 ActualScreenWidth = DisplayMetrics.VirtualDisplayRect.Right - DisplayMetrics.VirtualDisplayRect.Left;
+				static const int32 ActualScreenHeight = DisplayMetrics.VirtualDisplayRect.Bottom - DisplayMetrics.VirtualDisplayRect.Top;
+
+				static const int32 RightPadding = FMath::Max(50, FMath::Min((ActualConsoleWidth / 2), ActualScreenWidth / 2));
+				static const int32 BottomPadding = FMath::Max(50, FMath::Min((ActualConsoleHeight / 2), ActualScreenHeight / 2));
+				
+				ConsolePosX = FMath::Min(FMath::Max(ConsolePosX, DisplayMetrics.VirtualDisplayRect.Left), DisplayMetrics.VirtualDisplayRect.Right - RightPadding);
+				ConsolePosY = FMath::Min(FMath::Max(ConsolePosY, DisplayMetrics.VirtualDisplayRect.Top), DisplayMetrics.VirtualDisplayRect.Bottom - BottomPadding);
 
 				::SetWindowPos( GetConsoleWindow(), HWND_TOP, ConsolePosX, ConsolePosY, 0, 0, SWP_NOSIZE | SWP_NOSENDCHANGING | SWP_NOZORDER );
 				

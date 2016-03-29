@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
@@ -7,6 +7,7 @@
 #include "ModuleManager.h"
 #include "TestUserInterface.h"
 
+#if WITH_DEV_AUTOMATION_TESTS
 
 FTestUserInterface::FTestUserInterface(const FString& InSubsystem)
 	: OnlineSub(NULL)
@@ -124,3 +125,5 @@ void FTestUserInterface::OnQueryUserInfoComplete(int32 LocalPlayer, bool bWasSuc
 	bQueryUserInfo = false;
 	StartNextTest();
 }
+
+#endif //WITH_DEV_AUTOMATION_TESTS

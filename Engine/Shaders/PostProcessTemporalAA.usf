@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessTemporalAA.usf: Temporal AA
@@ -265,6 +265,8 @@ void SSRTemporalAAPS( noperspective float2 UV : TEXCOORD0, float3 InExposureScal
 }
 
 void DOFTemporalAAPS( noperspective float2 UV : TEXCOORD0, float3 InExposureScaleVignette : TEXCOORD1, 
+	in noperspective float4 Unused1 : TEXCOORD2,
+	in noperspective float4 Unused2 : TEXCOORD3,
 	float4 SvPosition : SV_POSITION,		// after all interpolators
 	out float4 OutColor : SV_Target0 )
 {
@@ -288,6 +290,8 @@ void DOFTemporalAAPS( noperspective float2 UV : TEXCOORD0, float3 InExposureScal
 }
 
 void LightShaftTemporalAAPS( noperspective float2 UV : TEXCOORD0, float3 InExposureScaleVignette : TEXCOORD1, 
+	in noperspective float4 Unused1 : TEXCOORD2,
+	in noperspective float4 Unused2 : TEXCOORD3,
 	float4 SvPosition : SV_POSITION,		// after all interpolators
 	out float4 OutColor : SV_Target0 )
 {
@@ -303,6 +307,8 @@ void LightShaftTemporalAAPS( noperspective float2 UV : TEXCOORD0, float3 InExpos
 	OutColor = PostprocessInput0.SampleLevel(PostprocessInput0Sampler, UV, 0);
 #endif
 }
+
+float DitherScale;
 
 void MainTemporalAAPS(
 	in noperspective float2 UV : TEXCOORD0,
@@ -327,11 +333,14 @@ void MainTemporalAAPS(
 	#define AA_YCOCG 1
 	#define AA_BICUBIC 1
 	#include "PostProcessTemporalCommon.usf"
-	
-	uint2 PixelPos = SvPosition.xy + uint2( View.FrameNumber & 3, (View.FrameNumber / 4) & 3 );
+
+	// InExposureScale will always be 1.0 for < SM5 so the exposure of the below will always be wrong, so only use it when EyeAdaptation is supported.
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
+	uint2 PixelPos = SvPosition.xy + uint2( Frame.FrameNumber & 3, (Frame.FrameNumber / 4) & 3 );
 	float Random = RandFast( PixelPos );
-	OutColor += (Random - 0.5) * (1.0 / 1024.0) / InExposureScale;
-#else 
+	OutColor += DitherScale * (Random - 0.5) * (1.0 / 1024.0) / InExposureScale;
+#endif
+#else
 	OutColor = PostprocessInput0.SampleLevel(PostprocessInput0Sampler, UV, 0);
 #endif
 }
@@ -339,6 +348,8 @@ void MainTemporalAAPS(
 void MainFastTemporalAAPS(
 	in noperspective float2 UV: TEXCOORD0,
 	in noperspective float3 InExposureScaleVignette : TEXCOORD1,
+	in noperspective float4 Unused1 : TEXCOORD2,
+	in noperspective float4 Unused2 : TEXCOORD3,
 	in float4 SvPosition : SV_Position,		// after all interpolators
 	out float4 OutColor : SV_Target0 )
 {
@@ -354,13 +365,17 @@ void MainFastTemporalAAPS(
 	#define AA_DEBUG 0
 	#define AA_VELOCITY_WEIGHTING 0
 	#define AA_YCOCG 1
-	#define AA_BICUBIC 0
+	#define AA_BICUBIC 1
+	#define AA_TONE 0
 	#include "PostProcessTemporalCommon.usf"
 
-	uint2 PixelPos = SvPosition.xy + uint2( View.FrameNumber & 3, (View.FrameNumber / 4) & 3 );
+	// InExposureScale will always be 1.0 for < SM5 so the exposure of the below will always be wrong, so only use it when EyeAdaptation is supported.
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
+	uint2 PixelPos = SvPosition.xy + uint2( Frame.FrameNumber & 3, (Frame.FrameNumber / 4) & 3 );
 	float Random = RandFast( PixelPos );
-	OutColor += (Random - 0.5) * (1.0 / 1024.0) / InExposureScale;
-#else 
+	OutColor += DitherScale * (Random - 0.5) * (1.0 / 1024.0) / InExposureScale;
+#endif
+#else
 	OutColor = PostprocessInput0.SampleLevel(PostprocessInput0Sampler, UV, 0);
 #endif
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -16,14 +16,6 @@ public:
 
 	DECLARE_MULTICAST_DELEGATE(FOnSelectionChanged)
 
-	/** Options for the current active selection. */
-	enum class EActiveSelection
-	{
-		KeyAndSection,
-		OutlinerNode,
-		None
-	};
-
 public:
 
 	FSequencerSelection();
@@ -37,11 +29,8 @@ public:
 	/** Gets a set of the selected outliner nodes. */
 	const TSet<TSharedRef<FSequencerDisplayNode>>& GetSelectedOutlinerNodes() const;
 
-	/** 
-	 * Gets the currently active selection.  This is used to determine which selection actions
-	 * like delete should act on.
-	 */
-	EActiveSelection GetActiveSelection() const;
+	/** Gets a set of the outliner nodes that have selected keys or sections */
+	const TSet<TSharedRef<FSequencerDisplayNode>>& GetNodesWithSelectedKeysOrSections() const;
 
 	/** Adds a key to the selection */
 	void AddToSelection(FSequencerSelectedKey Key);
@@ -52,6 +41,9 @@ public:
 	/** Adds an outliner node to the selection */
 	void AddToSelection(TSharedRef<FSequencerDisplayNode> OutlinerNode);
 
+	/** Adds an outliner node that has selected keys or sections */
+	void AddToNodesWithSelectedKeysOrSections(TSharedRef<FSequencerDisplayNode> OutlinerNode);
+
 	/** Removes a key from the selection */
 	void RemoveFromSelection(FSequencerSelectedKey Key);
 
@@ -61,6 +53,12 @@ public:
 	/** Removes an outliner node from the selection */
 	void RemoveFromSelection(TSharedRef<FSequencerDisplayNode> OutlinerNode);
 
+	/** Removes an outliner node that has selected keys or sections */
+	void RemoveFromNodesWithSelectedKeysOrSections(TSharedRef<FSequencerDisplayNode> OutlinerNode);
+
+	/** Removes any outliner nodes from the selection that do not relate to the given section */
+	void EmptySelectedOutlinerNodesWithoutSection(UMovieSceneSection* Section);
+
 	/** Returns whether or not the key is selected. */
 	bool IsSelected(FSequencerSelectedKey Key) const;
 
@@ -69,6 +67,9 @@ public:
 
 	/** Returns whether or not the outliner node is selected. */
 	bool IsSelected(TSharedRef<FSequencerDisplayNode> OutlinerNode) const;
+
+	/** Returns whether or not the outliner node has keys or sections selected. */
+	bool NodeHasSelectedKeysOrSections(TSharedRef<FSequencerDisplayNode> OutlinerNode) const;
 
 	/** Empties all selections. */
 	void Empty();
@@ -82,6 +83,9 @@ public:
 	/** Empties the outliner node selection. */
 	void EmptySelectedOutlinerNodes();
 
+	/** Empties the outliner nodes with selected keys or sections. */
+	void EmptyNodesWithSelectedKeysOrSections();
+
 	/** Gets a multicast delegate which is called when the key selection changes. */
 	FOnSelectionChanged& GetOnKeySelectionChanged();
 
@@ -91,21 +95,40 @@ public:
 	/** Gets a multicast delegate which is called when the outliner node selection changes. */
 	FOnSelectionChanged& GetOnOutlinerNodeSelectionChanged();
 
-	/** Suspend or resume broadcast of selection changing  */
-	void SuspendBroadcast() { bSuspendBroadcast = true; }
-	void ResumeBroadcast() { bSuspendBroadcast = false; }
+	/** Gets a multicast delegate which is called when the outliner node with selected keys or sections changes. */
+	FOnSelectionChanged& GetOnNodesWithSelectedKeysOrSectionsChanged();
+
+	/** Suspend the broadcast of selection change notifications.  */
+	void SuspendBroadcast();
+
+	/** Resume the broadcast of selection change notifications.  */
+	void ResumeBroadcast();
+
+	/** Requests that the outliner node selection changed delegate be broadcast on the next update. */
+	void RequestOutlinerNodeSelectionChangedBroadcast();
+
+	/** Updates the selection once per frame.  This is required for deferred selection broadcasts. */
+	void Tick();
+
+private:
+	/** When true, selection change notifications should be broadcasted. */
+	bool IsBroadcasting();
 	
 private:
 
 	TSet<FSequencerSelectedKey> SelectedKeys;
 	TSet<TWeakObjectPtr<UMovieSceneSection>> SelectedSections;
 	TSet<TSharedRef<FSequencerDisplayNode>> SelectedOutlinerNodes;
+	TSet<TSharedRef<FSequencerDisplayNode>> NodesWithSelectedKeysOrSections;
 
 	FOnSelectionChanged OnKeySelectionChanged;
 	FOnSelectionChanged OnSectionSelectionChanged;
 	FOnSelectionChanged OnOutlinerNodeSelectionChanged;
+	FOnSelectionChanged OnNodesWithSelectedKeysOrSectionsChanged;
 
-	EActiveSelection ActiveSelection;
+	/** The number of times the broadcasting of selection change notifications has been suspended. */
+	int32 SuspendBroadcastCount;
 
-	bool bSuspendBroadcast;
+	/** When true there is a pending outliner node selection change which will be broadcast next tick. */
+	bool bOutlinerNodeSelectionChangedBroadcastPending;
 };

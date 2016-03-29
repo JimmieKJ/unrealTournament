@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+	<ItemGroup>
+		<Filter Include="include"><!--  -->
+		</Filter>
+	</ItemGroup>
+	<ItemGroup>
+		<ClInclude Include="..\..\..\Include\pxtask\PxCpuDispatcher.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\pxtask\PxCudaContextManager.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\pxtask\PxCudaMemoryManager.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\pxtask\PxGpuCopyDesc.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\pxtask\PxGpuCopyDescQueue.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\pxtask\PxGpuDispatcher.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\pxtask\PxGpuTask.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\pxtask\PxSpuDispatcher.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\pxtask\PxSpuTask.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\pxtask\PxTask.h">
+			<Filter>include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\pxtask\PxTaskManager.h">
+			<Filter>include</Filter>
+		</ClInclude>
+	</ItemGroup>
+	<ItemGroup>
+		<Filter Include="src"><!--  -->
+		</Filter>
+	</ItemGroup>
+	<ItemGroup>
+		<Filter Include="src\windows"><!--  -->
+		</Filter>
+	</ItemGroup>
+	<ItemGroup>
+		<ClCompile Include="..\..\pxtask\src\windows\CudaWrapperWindows.cpp">
+			<Filter>src\windows</Filter>
+		</ClCompile>
+	</ItemGroup>
+	<ItemGroup>
+		<ClCompile Include="..\..\pxtask\src\CudaWrapper.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\pxtask\src\TaskManager.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+	</ItemGroup>
+</Project>

@@ -1,9 +1,20 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "EditorPerProjectUserSettings.generated.h"
 
+// Fbx export compatibility
+UENUM()
+enum class EFbxExportCompatibility : uint8
+{
+	FBX_2010,
+	FBX_2011,
+	FBX_2012,
+	FBX_2013,
+	FBX_2014,
+	FBX_2016
+};
 
 UCLASS(minimalapi, autoexpandcategories=(ViewportControls, ViewportLookAndFeel, LevelEditing, SourceControl, Content, Startup),
 	   hidecategories=(Object, Options, Grid, RotationGrid),
@@ -59,9 +70,17 @@ class UEditorPerProjectUserSettings : public UObject
 	UPROPERTY(EditAnywhere, config, Category=HotReload, meta=(DisplayName="Automatically Compile Newly Added C++ Classes"))
 	uint32 bAutomaticallyHotReloadNewClasses:1;
 
+	/** If enabled, the compile message log window will open if there is a compiler error on Hot Reload */
+	UPROPERTY(EditAnywhere, config, Category=HotReload)
+	uint32 bShowCompilerLogOnCompileError : 1;
+
 	/** If enabled, export level with attachment hierarchy set */
 	UPROPERTY(EditAnywhere, config, Category=Export)
 	uint32 bKeepAttachHierarchy:1;
+
+	/** This will set the fbx sdk compatibility when exporting to fbx file. The default value is 2013 */
+	UPROPERTY(EditAnywhere, config, Category = Export)
+	EFbxExportCompatibility FbxExportCompatibility;
 
 	/** Select to make Distributions use the curves, not the baked lookup tables. */
 	UPROPERTY(config)

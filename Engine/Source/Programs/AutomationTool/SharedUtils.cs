@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,7 +15,7 @@ namespace AutomationTool
 	{
 		/// <summary>
 		/// Parses the command line string and returns an array of passed arguments.
-		/// Unlike the default parsing algorithm, this will trean \r\n characters
+		/// Unlike the default parsing algorithm, this will treat \r\n characters
 		/// just like spaces.
 		/// </summary>
 		/// <returns>List of command line arguments.</returns>
@@ -25,19 +25,13 @@ namespace AutomationTool
 			var Args = new List<string>();
 			StringBuilder Arg = new StringBuilder(CmdLine.Length);
 			bool bQuote = false;
-			bool bEscape = false;
+			int bEscape = 0;
 			for (int Index = 0; Index < CmdLine.Length; ++Index)
 			{
 				bool bCanAppend = true;
 				char C = CmdLine[Index];
 				if (!bQuote && Char.IsWhiteSpace(C))
 				{
-					// There can be an escape character here when passing a Windows-style path with a trailing backslash (eg. "-MyArg1=D:\UE4\ -MyArg2"). We don't want to push it into the next argument.
-					if(bEscape)
-					{
-						Arg.Append('\\');
-						bEscape = false;
-					}
 					if (Arg.Length > 0)
 					{
 						Args.Add(Arg.ToString());
@@ -48,29 +42,29 @@ namespace AutomationTool
 				else if (C == '\\' && Index < (CmdLine.Length - 1))
 				{
 					// Escape character
-					bEscape = true;
+					bEscape++;
 					bCanAppend = false;
 				}
 				else if (C == '\"')
 				{
-					bCanAppend = bEscape;
-					if (!bEscape)
+					bCanAppend = bEscape > 0;
+					if (bEscape == 0)
 					{
 						bQuote = !bQuote;
 					}
 					else
 					{
 						// Consume the scape character
-						bEscape = false;
+						bEscape--;
 					}
 				}
 				if (bCanAppend)
 				{
-					if (bEscape)
+					if (bEscape > 0)
 					{
 						// Unused escape character.
-						Arg.Append('\\');
-						bEscape = false;
+						Arg.Append('\\', bEscape);
+						bEscape = 0;
 					}
 					Arg.Append(C);
 				}

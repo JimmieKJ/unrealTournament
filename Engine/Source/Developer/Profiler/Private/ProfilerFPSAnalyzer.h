@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -26,7 +26,13 @@ enum FPSChartBins
 	FPSBin_45_50,
 	FPSBin_50_55,
 	FPSBin_55_60,
-	FPSBin_60_INF,
+	FPSBin_60_65,
+	FPSBin_65_70,
+	FPSBin_70_75,
+	FPSBin_75_80,
+	FPSBin_80_85,
+	FPSBin_85_90,
+	FPSBin_90_INF,
 	FPSBin_LastBucketStat,
 
 };
@@ -53,11 +59,15 @@ public:
 
 	void AddSample( float FPSSample );
 
+	SIZE_T GetMemoryUsage() const;
+
 	TArray<float> Samples;
 	TArray<FProfilerFPSChartEntry> Histogram;
 	float MinFPS;
 	float MaxFPS;
 	float AveFPS;
+	int32 FPS90;
+	int32 FPS60;
 	int32 FPS30;
 	int32 FPS25;
 	int32 FPS20;

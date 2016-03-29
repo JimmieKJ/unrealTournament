@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -36,6 +36,8 @@ public:
 	const FColor& GetPreviewBackgroundColor() const;
 	void SetPreviewForegroundColor(const FColor& ForgroundColor);
 	const FColor& GetPreviewForegroundColor() const;
+	void SetPreviewFontMetrics(const bool InDrawFontMetrics);
+	bool GetPreviewFontMetrics() const;
 	TWeakPtr<IFontEditor> GetFontEditor() const;
 	bool IsPreviewViewport() const;
 	TSharedPtr<FSceneViewport> GetViewport() const;

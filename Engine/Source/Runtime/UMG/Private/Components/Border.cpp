@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 #include "Slate/SlateBrushAsset.h"
@@ -52,6 +52,7 @@ void UBorder::SynchronizeProperties()
 	TAttribute<FSlateColor> BrushColorBinding = OPTIONAL_BINDING_CONVERT(FLinearColor, BrushColor, FSlateColor, ConvertLinearColorToSlateColor);
 	TAttribute<const FSlateBrush*> ImageBinding = OPTIONAL_BINDING_CONVERT(FSlateBrush, Background, const FSlateBrush*, ConvertImage);
 	
+	MyBorder->SetPadding(Padding);
 	MyBorder->SetBorderBackgroundColor(BrushColorBinding);
 	MyBorder->SetColorAndOpacity(ContentColorAndOpacityBinding);
 
@@ -323,11 +324,6 @@ void UBorder::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChang
 
 		IsReentrant = false;
 	}
-}
-
-const FSlateBrush* UBorder::GetEditorIcon()
-{
-	return FUMGStyle::Get().GetBrush("Widget.Border");
 }
 
 const FText UBorder::GetPaletteCategory()

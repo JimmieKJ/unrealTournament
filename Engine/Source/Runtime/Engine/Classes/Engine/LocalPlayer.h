@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 //=============================================================================
 // LocalPlayer
@@ -190,7 +190,6 @@ private:
 public:
 	// UObject interface
 	virtual void PostInitProperties() override;
-	virtual void BeginDestroy() override;
 	virtual void FinishDestroy() override;
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 	// End of UObject interface
@@ -228,14 +227,6 @@ protected:
 	/** @todo document */
 	void ExecMacro( const TCHAR* Filename, FOutputDevice& Ar );
 
-	/**
-	 * Handle controller connection events from the platform
-	 * @param bConnected - determines connection or disconnection event
-	 * @param UserId - platform specfic UserId
-	 * @param UserIndex - Engine level UserIndex.
-	 */
-	void HandleControllerConnectionChange(bool bConnected, int32 InUserId, int32 InControllerId);
-
 	/** FReply used to defer some slate operations. */
 	FReply SlateOperations;
 
@@ -260,6 +251,22 @@ public:
 	 * @return GameInstance related to local player
 	 */
 	UGameInstance* GetGameInstance() const;
+
+
+	/**
+	* Calculate the view init settings for drawing from this view actor
+	*
+	* @param	OutInitOptions - output view struct. Not every field is initialized, some of them are only filled in by CalcSceneView
+	* @param	Viewport - current client viewport
+	* @param	ViewDrawer - optional drawing in the view
+	* @param	StereoPass - whether we are drawing the full viewport, or a stereo left / right pass
+	* @return	true if the view options were filled in. false in various fail conditions.
+	*/
+	bool CalcSceneViewInitOptions(
+		struct FSceneViewInitOptions& OutInitOptions, 
+		FViewport* Viewport,
+		class FViewElementDrawer* ViewDrawer = NULL,
+		EStereoscopicPass StereoPass = eSSP_FULL);
 
 	/**
 	 * Calculate the view settings for drawing from this view actor

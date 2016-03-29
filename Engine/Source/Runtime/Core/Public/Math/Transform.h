@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -574,7 +574,7 @@ public:
 	// temp function for easy conversion
 	FORCEINLINE FVector GetLocation() const
 	{
-		return Translation;
+		return GetTranslation();
 	}
 
 	FORCEINLINE FRotator Rotator() const

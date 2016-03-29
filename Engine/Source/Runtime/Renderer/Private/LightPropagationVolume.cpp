@@ -391,8 +391,7 @@ class FLpvClearCS : public FLpvWriteShaderCSBase
 	DECLARE_SHADER_TYPE(FLpvClearCS,Global);
 
 public:
-	//@todo-rco: Remove this when reenabling for OpenGL
-	static bool ShouldCache( EShaderPlatform Platform )		{ return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && !IsOpenGLPlatform(Platform) && !IsMetalPlatform(Platform); }
+	static bool ShouldCache( EShaderPlatform Platform )		{ return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && IsLPVSupported(Platform); }
 
 	static void ModifyCompilationEnvironment( EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment )
 	{
@@ -416,8 +415,7 @@ class FLpvClearGeometryVolumeCS : public FLpvWriteShaderCSBase
 	DECLARE_SHADER_TYPE(FLpvClearGeometryVolumeCS,Global);
 
 public:
-	//@todo-rco: Remove this when reenabling for OpenGL
-	static bool ShouldCache( EShaderPlatform Platform )		{ return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && !IsOpenGLPlatform(Platform) && !IsMetalPlatform(Platform); }
+	static bool ShouldCache( EShaderPlatform Platform )		{ return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && IsLPVSupported(Platform); }
 
 	static void ModifyCompilationEnvironment( EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment )
 	{
@@ -441,8 +439,7 @@ class FLpvClearListsCS : public FLpvWriteShaderCSBase
 	DECLARE_SHADER_TYPE(FLpvClearListsCS,Global);
 
 public:
-	//@todo-rco: Remove this when reenabling for OpenGL
-	static bool ShouldCache( EShaderPlatform Platform )		{ return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && !IsOpenGLPlatform(Platform) && !IsMetalPlatform(Platform); }
+	static bool ShouldCache( EShaderPlatform Platform )		{ return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && IsLPVSupported(Platform); }
 
 	static void ModifyCompilationEnvironment( EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment )
 	{
@@ -465,8 +462,7 @@ class FLpvInject_GenerateVplListsCS : public FLpvWriteShaderCSBase
 	DECLARE_SHADER_TYPE(FLpvInject_GenerateVplListsCS,Global);
 
 public:
-	//@todo-rco: Remove this when reenabling for OpenGL
-	static bool ShouldCache( EShaderPlatform Platform )		{ return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && !IsOpenGLPlatform(Platform) && !IsMetalPlatform(Platform); }
+	static bool ShouldCache( EShaderPlatform Platform )		{ return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && IsLPVSupported(Platform); }
 
 	static void ModifyCompilationEnvironment( EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment )
 	{
@@ -539,8 +535,7 @@ class FLpvInject_AccumulateVplListsCS : public FLpvWriteShaderCSBase
 	DECLARE_SHADER_TYPE(FLpvInject_AccumulateVplListsCS,Global);
 
 public:
-	//@todo-rco: Remove this when reenabling for OpenGL
-	static bool ShouldCache( EShaderPlatform Platform )		{ return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && !IsOpenGLPlatform(Platform) && !IsMetalPlatform(Platform); }
+	static bool ShouldCache( EShaderPlatform Platform )		{ return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && IsLPVSupported(Platform); }
 
 	static void ModifyCompilationEnvironment( EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment )
 	{
@@ -563,8 +558,7 @@ class FLpvDirectionalOcclusionCS : public FLpvWriteShaderCSBase
 	DECLARE_SHADER_TYPE(FLpvDirectionalOcclusionCS,Global);
 
 public:
-	//@todo-rco: Remove this when reenabling for OpenGL
-	static bool ShouldCache( EShaderPlatform Platform )		{ return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && !IsOpenGLPlatform(Platform) && !IsMetalPlatform(Platform); }
+	static bool ShouldCache( EShaderPlatform Platform )		{ return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && IsLPVSupported(Platform); }
 
 	static void ModifyCompilationEnvironment( EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment )
 	{
@@ -603,8 +597,7 @@ class FLpvCopyAOVolumeCS : public FLpvWriteShaderCSBase
 	DECLARE_SHADER_TYPE(FLpvCopyAOVolumeCS,Global);
 
 public:
-	//@todo-rco: Remove this when reenabling for OpenGL
-	static bool ShouldCache( EShaderPlatform Platform )		{ return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && !IsOpenGLPlatform(Platform) && !IsMetalPlatform(Platform); }
+	static bool ShouldCache( EShaderPlatform Platform )		{ return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && IsLPVSupported(Platform); }
 
 	static void ModifyCompilationEnvironment( EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment )
 	{
@@ -644,8 +637,7 @@ class FLpvBuildGeometryVolumeCS : public FLpvWriteShaderCSBase
 	DECLARE_SHADER_TYPE(FLpvBuildGeometryVolumeCS,Global);
 
 public:
-	//@todo-rco: Remove this when reenabling for OpenGL
-	static bool ShouldCache( EShaderPlatform Platform )		{ return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && !IsOpenGLPlatform(Platform) && !IsMetalPlatform(Platform); }
+	static bool ShouldCache( EShaderPlatform Platform )		{ return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && IsLPVSupported(Platform); }
 
 	static void ModifyCompilationEnvironment( EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment )
 	{
@@ -676,8 +668,7 @@ class TLpvPropagateCS : public FLpvWriteShaderCSBase
 	DECLARE_SHADER_TYPE(TLpvPropagateCS,Global);
 
 public:
-	//@todo-rco: Remove this when reenabling for OpenGL
-	static bool ShouldCache( EShaderPlatform Platform )		{ return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && !IsOpenGLPlatform(Platform) && !IsMetalPlatform(Platform); }
+	static bool ShouldCache( EShaderPlatform Platform )		{ return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && IsLPVSupported(Platform); }
 
 	static void ModifyCompilationEnvironment( EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment )
 	{
@@ -768,8 +759,7 @@ class TLpvInject_LightCS : public FLpvInjectShader_Base
 	DECLARE_SHADER_TYPE(TLpvInject_LightCS,Global);
 
 public:
-	//@todo-rco: Remove this when reenabling for OpenGL
-	static bool ShouldCache( EShaderPlatform Platform )		{ return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && !IsOpenGLPlatform(Platform) && !IsMetalPlatform(Platform); }
+	static bool ShouldCache( EShaderPlatform Platform )		{ return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && IsLPVSupported(Platform); }
 
 	static void ModifyCompilationEnvironment( EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment )
 	{
@@ -1503,7 +1493,7 @@ void FSceneViewState::SetupLightPropagationVolume(FSceneView& View, FSceneViewFa
 	}
 	else
 	{
-		if (UseLightPropagationVolumeRT(FeatureLevel) && !IsOpenGLPlatform(GShaderPlatformForFeatureLevel[FeatureLevel]))
+		if (UseLightPropagationVolumeRT(FeatureLevel) && IsLPVSupported(GShaderPlatformForFeatureLevel[FeatureLevel]))
 		{
 			LightPropagationVolume = new FLightPropagationVolume();
 		}

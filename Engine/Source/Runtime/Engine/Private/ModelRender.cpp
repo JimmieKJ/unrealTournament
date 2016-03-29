@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ModelRender.cpp: Unreal model rendering
@@ -547,14 +547,15 @@ private:
 
 	UModelComponent* Component;
 
-	class FElementInfo: public FLightCacheInterface
+	class FElementInfo : public FLightCacheInterface
 	{
 	public:
 
 		/** Initialization constructor. */
 		FElementInfo(const FModelElement& InModelElement)
-		:	ModelElement(InModelElement)
-		,	Bounds(ModelElement.BoundingBox)
+			: FLightCacheInterface(InModelElement.LightMap, InModelElement.ShadowMap)
+			, ModelElement(InModelElement)
+			, Bounds(ModelElement.BoundingBox)
 		{
 			const bool bHasStaticLighting = ModelElement.LightMap != NULL || ModelElement.ShadowMap != NULL;
 
@@ -566,30 +567,17 @@ private:
 			{
 				Material = UMaterial::GetDefaultMaterial(MD_Surface);
 			}
-
-			LightMap = ModelElement.LightMap;
-			ShadowMap = ModelElement.ShadowMap;
 		}
 		
 		// FLightCacheInterface.
 		virtual FLightInteraction GetInteraction(const FLightSceneProxy* LightSceneProxy) const override
 		{
-			if( LightSceneProxy->HasStaticShadowing() )
+			// ask base class
+			ELightInteractionType LightInteraction = GetStaticInteraction(LightSceneProxy, ModelElement.IrrelevantLights);
+			
+			if(LightInteraction != LIT_MAX)
 			{
-				if( ModelElement.IrrelevantLights.Contains( LightSceneProxy->GetLightGuid() ) )
-				{
-					return FLightInteraction::Irrelevant();
-				}
-
-				if( LightMap && LightMap->ContainsLight( LightSceneProxy->GetLightGuid() ) )
-				{
-					return FLightInteraction::LightMap();
-				}
-
-				if( ShadowMap && ShadowMap->ContainsLight( LightSceneProxy->GetLightGuid() ) )
-				{
-					return FLightInteraction::ShadowMap2D();
-				}
+				return FLightInteraction(LightInteraction);
 			}
 
 			// Cull the uncached light against the bounding box of the element.
@@ -601,27 +589,6 @@ private:
 			{
 				return FLightInteraction::Irrelevant();
 			}
-		}
-
-		virtual FLightMapInteraction GetLightMapInteraction(ERHIFeatureLevel::Type InFeatureLevel) const override
-		{
-			return LightMap ? LightMap->GetInteraction(InFeatureLevel) : FLightMapInteraction();
-		}
-
-		virtual void SetPrecomputedLightingBuffer(FUniformBufferRHIParamRef InPrecomputedLightingUniformBuffer) override
-		{
-			PrecomputedLightingUniformBuffer = InPrecomputedLightingUniformBuffer;
-		}
-
-		virtual FUniformBufferRHIRef GetPrecomputedLightingBuffer() const override
-		{
-			return PrecomputedLightingUniformBuffer;
-		}
-
-
-		virtual FShadowMapInteraction GetShadowMapInteraction() const override
-		{
-			return ShadowMap ? ShadowMap->GetInteraction() : FShadowMapInteraction();
 		}
 
 		// Accessors.
@@ -636,14 +603,6 @@ private:
 
 		/** Associated model element. */
 		const FModelElement& ModelElement;
-
-		/** The light-map used by the element. */
-		const FLightMap* LightMap;
-
-		const FShadowMap* ShadowMap;
-
-		/** The uniform buffer holding mapping the lightmap policy resources. */
-		FUniformBufferRHIRef PrecomputedLightingUniformBuffer;
 
 		/** The element's bounding volume. */
 		FBoxSphereBounds Bounds;

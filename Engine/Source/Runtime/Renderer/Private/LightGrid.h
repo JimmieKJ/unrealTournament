@@ -1,4 +1,4 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LightGrid.h: screen space light culling
@@ -17,6 +17,13 @@ class FLightGridVertexBuffer : public FVertexBuffer
 public:
 	const static uint32 MaxSize = 512 * 1024;
 	TArray<uint32> CPUData;
+	// from CPUData.Num()
+	uint32 AllocatedSize;
+
+	FLightGridVertexBuffer()
+		: AllocatedSize(0)
+	{
+	}
 
 	/**
 	 * Initializes the vertex buffer from the input
@@ -24,14 +31,20 @@ public:
 	void UpdateGPUFromCPUData()
 	{
 		check( IsInRenderingThread() );
-		InitResource();
+
 		if(CPUData.Num())
 		{
-			check( IsInRenderingThread() );
-
 			const uint32 Size = CPUData.Num();
 
 			check(Size <= MaxSize);
+
+			// this can cause reallocations, we could presize CPUData in the constructor if that is an issue
+			if(Size > AllocatedSize)
+			{
+				// recreate
+				ReleaseResource();
+				InitResource();
+			}
 
 			const uint32 BufferSize = Size * sizeof(uint32);
 
@@ -57,17 +70,21 @@ private:
 	{
 		VertexBufferSRV.SafeRelease();
 		FVertexBuffer::ReleaseRHI();
+		AllocatedSize = 0;
 	}
 
 	/** Initialize RHI resources. */
 	virtual void InitRHI() override
 	{
+		check(!AllocatedSize);
+
 		const int32 BufferStride = sizeof(uint32);
 		const int32 BufferSize = MaxSize * BufferStride;
 		uint32 Flags = BUF_Volatile | /*BUF_KeepCPUAccessible | */BUF_ShaderResource;
 		FRHIResourceCreateInfo CreateInfo;
 		VertexBufferRHI = RHICreateVertexBuffer(BufferSize, Flags, CreateInfo);
 		VertexBufferSRV = RHICreateShaderResourceView(VertexBufferRHI, BufferStride, PF_R32_UINT);
+		AllocatedSize = CPUData.Num();
 	}
 };
 

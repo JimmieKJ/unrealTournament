@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "OnlineBeaconClient.h"
@@ -49,6 +49,7 @@ bool AOnlineBeaconClient::DestroyNetworkActorHandled()
 	if (BeaconConnection)
 	{
 		BeaconConnection->bPendingDestroy = true;
+		return true;
 	}
 
 	return false;
@@ -75,6 +76,14 @@ bool AOnlineBeaconClient::InitClient(FURL& URL)
 			FString Error;
 			if (NetDriver->InitConnect(this, URL, Error))
 			{
+				BeaconConnection = NetDriver->ServerConnection;
+
+				// Kick off the connection handshake
+				if (BeaconConnection->StatelessConnectComponent.IsValid())
+				{
+					BeaconConnection->StatelessConnectComponent.Pin()->SendInitialConnect();
+				}
+
 				SetConnectionState(EBeaconConnectionState::Pending);
 
 				NetDriver->SetWorld(GetWorld());
@@ -85,7 +94,6 @@ bool AOnlineBeaconClient::InitClient(FURL& URL)
 				// Send initial message.
 				uint8 IsLittleEndian = uint8(PLATFORM_LITTLE_ENDIAN);
 				check(IsLittleEndian == !!IsLittleEndian); // should only be one or zero
-				BeaconConnection = NetDriver->ServerConnection;
 
 				uint32 LocalNetworkVersion = FNetworkVersion::GetLocalNetworkVersion();
 				
@@ -152,11 +160,7 @@ void AOnlineBeaconClient::DestroyBeacon()
 
 void AOnlineBeaconClient::OnNetCleanup(UNetConnection* Connection)
 {
-	if (ConnectionState != EBeaconConnectionState::Invalid && ConnectionState != EBeaconConnectionState::Closed)
-	{
-		ensure(Connection == BeaconConnection);
-	}
-
+	ensure(Connection == BeaconConnection);
 	SetConnectionState(EBeaconConnectionState::Closed);
 
 	AOnlineBeaconHostObject* BeaconHostObject = GetBeaconOwner();
@@ -164,6 +168,9 @@ void AOnlineBeaconClient::OnNetCleanup(UNetConnection* Connection)
 	{
 		BeaconHostObject->NotifyClientDisconnected(this);
 	}
+
+	BeaconConnection = nullptr;
+	Destroy(true);
 }
 
 void AOnlineBeaconClient::NotifyControlMessage(UNetConnection* Connection, uint8 MessageType, class FInBunch& Bunch)
@@ -174,7 +181,7 @@ void AOnlineBeaconClient::NotifyControlMessage(UNetConnection* Connection, uint8
 
 		// We are the client
 #if !(UE_BUILD_SHIPPING && WITH_EDITOR)
-		UE_LOG(LogBeacon, Log, TEXT("%s Client received: %s"), *Connection->GetName(), FNetControlMessageInfo::GetName(MessageType));
+		UE_LOG(LogBeacon, Log, TEXT("%s[%s] Client received: %s"), *GetName(), *Connection->GetName(), FNetControlMessageInfo::GetName(MessageType));
 #endif
 		switch (MessageType)
 		{

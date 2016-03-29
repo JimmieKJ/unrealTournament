@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AndroidSurvey.cpp: HardwareSurvey implementation
@@ -16,7 +16,8 @@ bool FAndroidPlatformSurvey::GetSurveyResults(FHardwareSurveyResults& OutResults
 	OutResults.OSBits = 32;
 #endif
 	FCString::Strcpy(OutResults.OSLanguage, *FPlatformMisc::GetDefaultLocale());
-	FCString::Strcpy(OutResults.MultimediaAPI, *FAndroidMisc::GetGLVersion());
+	// @todo vulkan: Get Vulkan version somehow
+	FCString::Strcpy(OutResults.MultimediaAPI, FAndroidMisc::ShouldUseVulkan() ? TEXT("Vulkan") : *FAndroidMisc::GetGLVersion());
 	OutResults.CPUCount = FPlatformMisc::NumberOfCores();
 
 

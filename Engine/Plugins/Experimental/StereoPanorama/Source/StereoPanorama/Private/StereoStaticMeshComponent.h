@@ -7,30 +7,29 @@
 #include "Components/StaticMeshComponent.h"
 #include "StereoStaticMeshComponent.generated.h"
 
-UENUM(BlueprintType)       //"BlueprintType" is essential specifier
-namespace ESPStereoCameraLayer
+
+UENUM(BlueprintType)
+enum class ESPStereoCameraLayer
 {
-    //256 entries max
-    enum Type
-    {
-        LeftEye,
-        RightEye,
-        BothEyes,
-    };
-}
+    LeftEye,
+    RightEye,
+    BothEyes
+};
+
 
 /**
  * 
  */
 UCLASS(ClassGroup = (Rendering, Common), hidecategories = (Object, Activation, "Components|Activation"), ShowCategories = (Mobility), editinlinenew, meta = (BlueprintSpawnableComponent))
-class UStereoStaticMeshComponent : public UStaticMeshComponent
+class UStereoStaticMeshComponent
+	: public UStaticMeshComponent
 {
     GENERATED_BODY()
 
 public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sprite)
-    TEnumAsByte<ESPStereoCameraLayer::Type> EyeToRender;
+    TEnumAsByte<ESPStereoCameraLayer> EyeToRender;
 
     virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
 	

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -23,7 +23,7 @@
 	#define _DebugBreakAndPromptForRemote()
 #endif // !UE_BUILD_SHIPPING
 #if DO_CHECK
-	#define checkCode( Code )		do { Code } while ( false );
+	#define checkCode( Code )		do { Code; } while ( false );
 	#define verify(expr)			{ if(!(expr)) { FDebug::LogAssertFailedMessage( #expr, __FILE__, __LINE__ ); _DebugBreakAndPromptForRemote(); FDebug::AssertFailed( #expr, __FILE__, __LINE__ ); CA_ASSUME(expr); } }
 	#define check(expr)				{ if(!(expr)) { FDebug::LogAssertFailedMessage( #expr, __FILE__, __LINE__ ); _DebugBreakAndPromptForRemote(); FDebug::AssertFailed( #expr, __FILE__, __LINE__ ); CA_ASSUME(expr); } }
 	
@@ -161,29 +161,28 @@ namespace UE4Asserts_Private
 
 #define ensureMsg(InExpression, InMsg) UE4Asserts_Private::DeprecatedEnsure(ensureMsgf(InExpression, InMsg))
 
-// These are only for use as part of the GET_MEMBER_NAME_CHECKED macro
-template <typename T>
-bool JunkFunc(const T&);
-
-template <typename T>
-bool JunkFunc(const volatile T&);
+namespace UE4Asserts_Private
+{
+	// A junk function to allow us to use sizeof on a member variable which is potentially a bitfield
+	template <typename T>
+	bool GetMemberNameCheckedJunk(const T&);
+	template <typename T>
+	bool GetMemberNameCheckedJunk(const volatile T&);
+}
 
 // Returns FName(TEXT("MemberName")), while statically verifying that the member exists in ClassName
 #define GET_MEMBER_NAME_CHECKED(ClassName, MemberName) \
-	((void)sizeof(JunkFunc(((ClassName*)0)->MemberName)), FName(TEXT(#MemberName)))
+	((void)sizeof(UE4Asserts_Private::GetMemberNameCheckedJunk(((ClassName*)0)->MemberName)), FName(TEXT(#MemberName)))
 
 #define GET_MEMBER_NAME_STRING_CHECKED(ClassName, MemberName) \
-	((void)sizeof(JunkFunc(((ClassName*)0)->MemberName)), TEXT(#MemberName))
+	((void)sizeof(UE4Asserts_Private::GetMemberNameCheckedJunk(((ClassName*)0)->MemberName)), TEXT(#MemberName))
 
 // Returns FName(TEXT("FunctionName")), while statically verifying that the function exists in ClassName
-// &((ClassName*)0)->FunctionName will generate 'error: cannot create a non-constant pointer to member function' on non-MSVC compilers
-#if PLATFORM_WINDOWS && !defined(__clang__)
-	#define GET_FUNCTION_NAME_CHECKED(ClassName, FunctionName) \
-		((void)sizeof(&((ClassName*)0)->FunctionName), FName(TEXT(#FunctionName)))
-#else
-	#define GET_FUNCTION_NAME_CHECKED(ClassName, FunctionName) \
-		FName(TEXT(#FunctionName))
-#endif
+#define GET_FUNCTION_NAME_CHECKED(ClassName, FunctionName) \
+	((void)sizeof(&ClassName::FunctionName), FName(TEXT(#FunctionName)))
+
+#define GET_FUNCTION_NAME_STRING_CHECKED(ClassName, FunctionName) \
+	((void)sizeof(&ClassName::FunctionName), TEXT(#FunctionName))
 
 /*----------------------------------------------------------------------------
 	Stats helpers

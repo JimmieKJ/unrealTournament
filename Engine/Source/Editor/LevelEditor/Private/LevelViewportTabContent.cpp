@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LevelEditor.h"
 #include "LevelViewportTabContent.h"
@@ -31,12 +31,15 @@ TSharedPtr< class FLevelViewportLayout > FLevelViewportTabContent::ConstructView
 	else if (TypeName == LevelViewportConfigurationNames::FourPanesTop) ViewportLayout = MakeShareable(new FLevelViewportLayoutFourPanesTop);
 	else if (TypeName == LevelViewportConfigurationNames::OnePane) ViewportLayout = MakeShareable(new FLevelViewportLayoutOnePane);
 
-	check (ViewportLayout.IsValid());
+	if (!ensure(ViewportLayout.IsValid()))
+	{
+		ViewportLayout = MakeShareable(new FLevelViewportLayoutOnePane);
+	}
 	ViewportLayout->SetIsReplacement(bSwitchingLayouts);
 	return ViewportLayout;
 }
 
-void FLevelViewportTabContent::Initialize(TSharedPtr<class SLevelEditor> InParentLevelEditor, TSharedPtr<SDockTab> InParentTab, const FString& InLayoutString)
+void FLevelViewportTabContent::Initialize(TSharedPtr<ILevelEditor> InParentLevelEditor, TSharedPtr<SDockTab> InParentTab, const FString& InLayoutString)
 {
 	ParentTab = InParentTab;
 	ParentLevelEditor = InParentLevelEditor;
@@ -65,7 +68,7 @@ bool FLevelViewportTabContent::IsVisible() const
 	return false;
 }
 
-const TArray< TSharedPtr< SLevelViewport > >* FLevelViewportTabContent::GetViewports() const
+const TMap< FName, TSharedPtr< IViewportLayoutEntity > >* FLevelViewportTabContent::GetViewports() const
 {
 	if (ActiveLevelViewportLayout.IsValid())
 	{

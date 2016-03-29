@@ -2,7 +2,7 @@
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>Intel Embree</Name>
   <Location>//UE4/Main/Engine/Source/ThirdParty/IntelEmbree</Location>
-  <Date>2015-11-11T16:49:30.9323563-05:00</Date>
+  <Date>2015-12-07T18:01:35.408477-05:00</Date>
   <Function>high performance ray tracing kernels</Function>
   <Justification>accelerates lightmass allowing lighting builds to take much less time</Justification>
   <Platforms>
@@ -13,7 +13,7 @@
     <Product>UDK4</Product>
     <Product>UE4</Product>
   </Products>
-  <TpsType>lib</TpsType>
+  <TpsType>Source Code</TpsType>
   <Eula>http://www.apache.org/licenses/LICENSE-2.0</Eula>
   <RedistributeTo>
     <EndUserGroup>Licensees</EndUserGroup>

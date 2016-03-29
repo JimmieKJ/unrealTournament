@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
 #include "Actions/PawnAction_Move.h"
@@ -22,7 +22,9 @@ UPawnAction_Move::UPawnAction_Move(const FObjectInitializer& ObjectInitializer)
 
 void UPawnAction_Move::BeginDestroy()
 {
+	ClearTimers();
 	ClearPath();
+
 	Super::BeginDestroy();
 }
 
@@ -207,6 +209,7 @@ bool UPawnAction_Move::Resume()
 
 EPawnActionAbortState::Type UPawnAction_Move::PerformAbort(EAIForceParam::Type ShouldForce)
 {
+	ClearTimers();
 	ClearPath();
 
 	AAIController* MyController = Cast<AAIController>(GetController());
@@ -235,7 +238,9 @@ void UPawnAction_Move::HandleAIMessage(UBrainComponent*, const FAIMessage& Messa
 
 void UPawnAction_Move::OnFinished(EPawnActionResult::Type WithResult)
 {
+	ClearTimers();
 	ClearPath();
+
 	Super::OnFinished(WithResult);
 }
 
@@ -287,10 +292,7 @@ void UPawnAction_Move::OnPathUpdated(FNavigationPath* UpdatedPath, ENavPathEvent
 	// log new path when action is paused, otherwise it will be logged by path following component's update
 	if (Event == ENavPathEvent::UpdatedDueToGoalMoved || Event == ENavPathEvent::UpdatedDueToNavigationChanged)
 	{
-		if (IsPaused() && UpdatedPath)
-		{
-			UPathFollowingComponent::LogPathHelper(MyOwner, UpdatedPath, UpdatedPath->GetGoalActor());
-		}
+		bool bShouldLog = UpdatedPath && IsPaused();
 
 		// make sure it's still satisfying partial path condition
 		if (UpdatedPath && UpdatedPath->IsPartial())
@@ -300,8 +302,16 @@ void UPawnAction_Move::OnPathUpdated(FNavigationPath* UpdatedPath, ENavPathEvent
 			{
 				UE_VLOG(MyOwner, LogPawnAction, Log, TEXT(">> partial path is not allowed, aborting"));
 				GetOwnerComponent()->AbortAction(*this);
+				bShouldLog = true;
 			}
 		}
+
+#if ENABLE_VISUAL_LOG
+		if (bShouldLog)
+		{
+			UPathFollowingComponent::LogPathHelper(MyOwner, UpdatedPath, UpdatedPath->GetGoalActor());
+		}
+#endif
 	}
 }
 
@@ -327,9 +337,27 @@ void UPawnAction_Move::TryToRepath()
 
 void UPawnAction_Move::ClearPendingRepath()
 {
-	if (GetWorld())
+	if (TimerHandle_TryToRepath.IsValid())
 	{
-		GetWorld()->GetTimerManager().ClearTimer(TimerHandle_TryToRepath);
+		UWorld* World = GetWorld();
+		if (World)
+		{
+			World->GetTimerManager().ClearTimer(TimerHandle_TryToRepath);
+			TimerHandle_TryToRepath.Invalidate();
+		}
+	}
+}
+
+void UPawnAction_Move::ClearTimers()
+{
+	UWorld* World = GetWorld();
+	if (World)
+	{
+		World->GetTimerManager().ClearTimer(TimerHandle_DeferredPerformMoveAction);
+		World->GetTimerManager().ClearTimer(TimerHandle_TryToRepath);
+
+		TimerHandle_DeferredPerformMoveAction.Invalidate();
+		TimerHandle_TryToRepath.Invalidate();
 	}
 }
 

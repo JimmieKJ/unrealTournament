@@ -9,19 +9,29 @@
 #include <delayimp.h>
 #include "HideWindowsPlatformTypes.h"
 #include "HardwareInfo.h"
+#include "Runtime/HeadMountedDisplay/Public/IHeadMountedDisplayModule.h"
 
 #pragma comment(lib, "d3d12.lib")
 
 extern bool D3D12RHI_ShouldCreateWithD3DDebug();
+extern bool D3D12RHI_ShouldCreateWithWarp();
 extern bool D3D12RHI_ShouldAllowAsyncResourceCreation();
 
 static TAutoConsoleVariable<int32> CVarGraphicsAdapter(
 	TEXT("r.D3D12GraphicsAdapter"),
 	-1,
 	TEXT("User request to pick a specific graphics adapter (e.g. when using a integrated graphics card with a descrete one)\n")
-	TEXT("At the moment this only works on Direct3D 11.\n")
 	TEXT(" -2: Take the first one that fulfills the criteria\n")
 	TEXT(" -1: Favour non integrated because there are usually faster\n")
+	TEXT("  0: Adpater #0\n")
+	TEXT("  1: Adpater #1, ..."),
+	ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<int32> CVarHmdGraphicsAdapter(
+	TEXT("hmd.D3D12GraphicsAdapter"),
+	-1,
+	TEXT("Specifies the index of the graphics adapter where the HMD is connected.  Overrides r.D3D12GraphicsAdapter when the Hmd is enabled.\n")
+	TEXT(" -1: Unknown\n")
 	TEXT("  0: Adpater #0\n")
 	TEXT("  1: Adpater #1, ..."),
 	ECVF_RenderThreadSafe);
@@ -246,7 +256,11 @@ void FD3D12DynamicRHIModule::FindAdapter()
 	bAllowPerfHUD = false;
 #endif
 
-	int32 CVarValue = CVarGraphicsAdapter.GetValueOnGameThread();
+	// Allow HMD to override which graphics adapter is chosen, so we pick the adapter where the HMD is connected
+	bool bUseHmdGraphicsAdapter = CVarHmdGraphicsAdapter.GetValueOnGameThread() >= 0 && 
+		IModularFeatures::Get().IsModularFeatureAvailable(IHeadMountedDisplayModule::GetModularFeatureName());
+
+	int32 CVarValue = bUseHmdGraphicsAdapter ? CVarHmdGraphicsAdapter.GetValueOnGameThread() : CVarGraphicsAdapter.GetValueOnGameThread();
 
 	const bool bFavorNonIntegrated = CVarValue == -1;
 
@@ -259,6 +273,7 @@ void FD3D12DynamicRHIModule::FindAdapter()
 	bool bIsAnyAMD = false;
 	bool bIsAnyIntel = false;
 	bool bIsAnyNVIDIA = false;
+	bool bRequestedWARP = D3D12RHI_ShouldCreateWithWarp();
 
 	// Enumerate the DXGIFactory's adapters.
 	for (uint32 AdapterIndex = 0; DXGIFactory->EnumAdapters(AdapterIndex, TempAdapter.GetInitReference()) != DXGI_ERROR_NOT_FOUND; ++AdapterIndex)
@@ -291,7 +306,7 @@ void FD3D12DynamicRHIModule::FindAdapter()
 				bool bIsAMD = AdapterDesc.VendorId == 0x1002;
 				bool bIsIntel = AdapterDesc.VendorId == 0x8086;
 				bool bIsNVIDIA = AdapterDesc.VendorId == 0x10DE;
-				bool bIsWARP = FParse::Param(FCommandLine::Get(), TEXT("warp"));
+				bool bIsWARP = AdapterDesc.VendorId == 0x1414;
 
 				if (bIsAMD) bIsAnyAMD = true;
 				if (bIsIntel) bIsAnyIntel = true;
@@ -304,9 +319,15 @@ void FD3D12DynamicRHIModule::FindAdapter()
 
 				FD3D12Adapter CurrentAdapter(AdapterIndex, ActualFeatureLevel);
 
-				if (!OutputCount && !bIsWARP)
+				if (bRequestedWARP && !bIsWARP)
 				{
-					// Add special check to support WARP, which does not have an output associated with it.
+					// Requested WARP, reject all other adapters.
+					continue;
+				}
+
+				if (!OutputCount && !bIsWARP && !bUseHmdGraphicsAdapter)
+				{
+					// Add special check to support WARP and HMDs, which do not have associated outputs.
 
 					// This device has no outputs. Reject it, 
 					// http://msdn.microsoft.com/en-us/library/windows/desktop/bb205075%28v=vs.85%29.aspx#WARP_new_for_Win8
@@ -391,8 +412,6 @@ void FD3D12DynamicRHI::PostInit()
 
 void FD3D12DynamicRHI::PerRHISetup(FD3D12Device* MainDevice)
 {
-	bool bIsWARP = FParse::Param(FCommandLine::Get(), TEXT("warp"));
-
 	check(!GIsRHIInitialized);
 
 	DXGI_ADAPTER_DESC* AdapterDesc = MainDevice->GetD3DAdapterDesc();
@@ -404,6 +423,16 @@ void FD3D12DynamicRHI::PerRHISetup(FD3D12Device* MainDevice)
     GRHIVendorId = AdapterDesc->VendorId;
 	//plk hacks
 	//GRHIDeviceId = AdapterDesc->DeviceId;
+
+	// Copied from the D3D11 RHI but disabled for now as this doesn't exist for UT.
+	//// get driver version (todo: share with other RHIs)
+	//{
+	//	FPlatformMisc::GetGPUDriverInfo(GRHIAdapterName, GRHIAdapterInternalDriverVersion, GRHIAdapterUserDriverVersion, GRHIAdapterDriverDate);
+
+	//	UE_LOG(LogD3D12RHI, Log, TEXT("    Adapter Name: %s"), *GRHIAdapterName);
+	//	UE_LOG(LogD3D12RHI, Log, TEXT("  Driver Version: %s (internal %s)"), *GRHIAdapterUserDriverVersion, *GRHIAdapterInternalDriverVersion);
+	//	UE_LOG(LogD3D12RHI, Log, TEXT("     Driver Date: %s"), *GRHIAdapterDriverDate);
+	//}
 
 	// Issue: 32bit windows doesn't report 64bit value, we take what we get.
 	FD3D12GlobalStats::GDedicatedVideoMemory = int64(AdapterDesc->DedicatedVideoMemory);
@@ -417,38 +446,10 @@ void FD3D12DynamicRHI::PerRHISetup(FD3D12Device* MainDevice)
 	int64 ConsideredSharedSystemMemory = FMath::Min(FD3D12GlobalStats::GSharedSystemMemory / 2ll, TotalPhysicalMemory / 4ll);
 
 	IDXGIAdapter3* DxgiAdapter3 = MainDevice->GetAdapter3();
-	TRefCountPtr<IDXGIAdapter> EnumAdapter;
-
-	// Hack to handle a kernel bug where QueryVideomMemoryInfo can't be called on WARP
-	DXGI_QUERY_VIDEO_MEMORY_INFO LocalVideoMemoryInfo ={};
-	if (!bIsWARP)
-	{
-		FD3D12GlobalStats::GTotalGraphicsMemory = 0;
-		if (DXGIFactory->EnumAdapters(MainDevice->GetAdapterIndex(), EnumAdapter.GetInitReference()) != DXGI_ERROR_NOT_FOUND)
-		{
-			if (EnumAdapter)
-			{
-				VERIFYD3D11RESULT(DxgiAdapter3->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &LocalVideoMemoryInfo));
-				FD3D12GlobalStats::GTotalGraphicsMemory = LocalVideoMemoryInfo.Budget;
-			}
-		}
-
-	}
-	else
-	{
-		FD3D12GlobalStats::GTotalGraphicsMemory = FD3D12GlobalStats::GDedicatedSystemMemory;
-	}
-
-	GMaxTextureMipCount = FMath::CeilLogTwo(GMaxTextureDimensions) + 1;
-	GMaxTextureMipCount = FMath::Min<int32>(MAX_TEXTURE_MIP_COUNT, GMaxTextureMipCount);
-	// If we only have <= 2GB of GPU memory to work with, we should cut down on the mip count
-	// "GMaxTextureMipCount = 9" allows Intel to run the 4.8 Elemental demo, ideally this handling 
-	// is unnecessary as the upper engine should be able to look at GTotalGraphicsMemory to determine 
-	// the appropriate mip level but that doesn't appear to happen correctly on start-up.
-	if (IsRHIDeviceIntel() && LocalVideoMemoryInfo.Budget <= 2ll * 1024ll * 1024ll * 1024ll)
-	{
-		GMaxTextureMipCount = FMath::Min<int32>(GMaxTextureMipCount, 9);
-	}
+	DXGI_QUERY_VIDEO_MEMORY_INFO LocalVideoMemoryInfo;
+	VERIFYD3D11RESULT(DxgiAdapter3->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &LocalVideoMemoryInfo));
+	const int64 TargetBudget = LocalVideoMemoryInfo.Budget * 0.90f;	// Target using 90% of our budget to account for some fragmentation.
+	FD3D12GlobalStats::GTotalGraphicsMemory = TargetBudget;
 
 	if (sizeof(SIZE_T) < 8)
 	{
@@ -460,13 +461,6 @@ void FD3D12DynamicRHI::PerRHISetup(FD3D12Device* MainDevice)
 		// Clamp to 1.9 GB if we're 64-bit
 		FD3D12GlobalStats::GTotalGraphicsMemory = FMath::Min(FD3D12GlobalStats::GTotalGraphicsMemory, 1945ll * 1024ll * 1024ll);
 	}
-
-	if (!bIsWARP)
-	{
-		VERIFYD3D11RESULT(DxgiAdapter3->SetVideoMemoryReservation(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, FMath::Min((int64)LocalVideoMemoryInfo.AvailableForReservation, FD3D12GlobalStats::GTotalGraphicsMemory)));
-	}
-
-
 
 	if (GPoolSizeVRAMPercentage > 0)
 	{
@@ -481,6 +475,10 @@ void FD3D12DynamicRHI::PerRHISetup(FD3D12Device* MainDevice)
 			FD3D12GlobalStats::GTotalGraphicsMemory / 1024 / 1024);
 	}
 
+	RequestedTexturePoolSize = GTexturePoolSize;
+
+	VERIFYD3D11RESULT(DxgiAdapter3->SetVideoMemoryReservation(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, FMath::Min((int64)LocalVideoMemoryInfo.AvailableForReservation, FD3D12GlobalStats::GTotalGraphicsMemory)));
+
 #if (UE_BUILD_SHIPPING && WITH_EDITOR) && PLATFORM_WINDOWS && !PLATFORM_64BITS
 	// Disable PIX for windows in the shipping editor builds
 	D3DPERF_SetOptions(1);
@@ -493,14 +491,6 @@ void FD3D12DynamicRHI::PerRHISetup(FD3D12Device* MainDevice)
 	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES3_1] = SP_PCD3D_ES3_1;
 	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM4] = SP_PCD3D_SM4;
 	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM5] = SP_PCD3D_SM5;
-
-	if (IsRHIDeviceIntel())
-	{
-		// MS: To work around current known issue on Intel, TextureQuality be '0'.
-		// SetQualityLevels responsible for setting this value, must be re-run now after device creation.
-		Scalability::FQualityLevels currentQualityLevels = Scalability::GetQualityLevels();
-		Scalability::SetQualityLevels(currentQualityLevels);
-	}
 
 	// Notify all initialized FRenderResources that there's a valid RHI device to create their RHI resources for now.
 	for (TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList()); ResourceIt; ResourceIt.Next())
@@ -517,6 +507,9 @@ void FD3D12DynamicRHI::PerRHISetup(FD3D12Device* MainDevice)
 
 	GRHISupportsTextureStreaming = true;
 	GRHISupportsFirstInstance = true;
+
+	// Indicate that the RHI needs to use the engine's deferred deletion queue.
+	GRHINeedsExtraDeletionLatency = true;
 
 	// Set the RHI initialized flag.
 	GIsRHIInitialized = true;
@@ -615,30 +608,12 @@ void FD3D12Device::InitD3DDevice()
 			check(!"Internal error, EnumAdapters() failed but before it worked")
 		}
 
-		D3D_FEATURE_LEVEL ActualFeatureLevel = GetFeatureLevel();
-
-		if (FParse::Param(FCommandLine::Get(), TEXT("warp")))
-		{
-			TRefCountPtr<IDXGIAdapter> WarpAdapter;
-			VERIFYD3D11RESULT(DXGIFactory->EnumWarpAdapter(IID_PPV_ARGS(WarpAdapter.GetInitReference())));
-
-			// Creating the Direct3D WARP device.
-			VERIFYD3D11RESULT(D3D12CreateDevice(
-				WarpAdapter,
-				GetFeatureLevel(),
-				IID_PPV_ARGS(Direct3DDevice.GetInitReference())
-				));
-
-		}
-		else
-		{
-			// Creating the Direct3D device.
-			VERIFYD3D11RESULT(D3D12CreateDevice(
-				Adapter,
-				GetFeatureLevel(),
-				IID_PPV_ARGS(Direct3DDevice.GetInitReference())
-				));
-		}
+		// Creating the Direct3D device.
+		VERIFYD3D11RESULT(D3D12CreateDevice(
+			Adapter,
+			GetFeatureLevel(),
+			IID_PPV_ARGS(Direct3DDevice.GetInitReference())
+			));
 
 #if UE_BUILD_DEBUG	
 		//break on debug
@@ -654,9 +629,6 @@ void FD3D12Device::InitD3DDevice()
 			}
 		}
 #endif
-
-		// We should get the feature level we asked for as earlier we checked to ensure it is supported.
-		check(ActualFeatureLevel == GetFeatureLevel());
 
 		D3D12_FEATURE_DATA_D3D12_OPTIONS D3D12Caps;
 		VERIFYD3D11RESULT(GetDevice()->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS, &D3D12Caps, sizeof(D3D12Caps)));
@@ -674,20 +646,23 @@ void FD3D12Device::InitD3DDevice()
 
 		// This value can be tuned on a per app basis. I.e. most apps will never run into descriptor heap pressure so
 		// can make this global heap smaller
-		uint32 NumGlobalViewDesc = NUM_VIEW_DESCRIPTORS_TIER_1;
+		uint32 NumGlobalViewDesc = GLOBAL_VIEW_HEAP_SIZE;
+
+		uint32 MaximumSupportedHeapSize = NUM_VIEW_DESCRIPTORS_TIER_1;
 		switch (ResourceBindingTier)
 		{
 		case D3D12_RESOURCE_BINDING_TIER_1:
-			NumGlobalViewDesc = NUM_VIEW_DESCRIPTORS_TIER_1;
+			MaximumSupportedHeapSize = NUM_VIEW_DESCRIPTORS_TIER_1;
 			break;
 		case D3D12_RESOURCE_BINDING_TIER_2:
-			NumGlobalViewDesc = NUM_VIEW_DESCRIPTORS_TIER_2;
+			MaximumSupportedHeapSize = NUM_VIEW_DESCRIPTORS_TIER_2;
 			break;
 		case D3D12_RESOURCE_BINDING_TIER_3:
 		default:
-			NumGlobalViewDesc = NUM_VIEW_DESCRIPTORS_TIER_3;
+			MaximumSupportedHeapSize = NUM_VIEW_DESCRIPTORS_TIER_3;
 			break;
 		}
+		check(NumGlobalViewDesc <= MaximumSupportedHeapSize);
 		
 		GlobalViewHeap.Init(NumGlobalViewDesc, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
@@ -697,6 +672,7 @@ void FD3D12Device::InitD3DDevice()
 		// Create the main set of command lists used for rendering a frame
 		CommandListManager.Create();
 		CopyCommandListManager.Create();
+		AsyncCommandListManager.Create();
 
 #if !(UE_BUILD_SHIPPING && WITH_EDITOR)
 		// Add some filter outs for known debug spew messages (that we don't care about)

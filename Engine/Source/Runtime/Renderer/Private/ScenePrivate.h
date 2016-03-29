@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ScenePrivate.h: Private scene manager definitions.
@@ -32,15 +32,6 @@ typedef TConstDualSetBitIterator<SceneRenderingBitArrayAllocator,SceneRenderingB
 
 // Forward declarations.
 class FScene;
-
-/** True if HDR is enabled for the mobile renderer. */
-bool IsMobileHDR();
-
-/** True if the mobile renderer is emulating HDR in a 32bpp render target. */
-bool IsMobileHDR32bpp();
-
-/** True if the mobile renderer is emulating HDR with mosaic. */
-bool IsMobileHDRMosaic();
 
 class FOcclusionQueryHelpers
 {
@@ -89,6 +80,7 @@ public:
 #include "DrawingPolicy.h"
 #include "DepthRendering.h"
 #include "SceneHitProxyRendering.h"
+#include "DebugViewModeRendering.h"
 #include "ShaderComplexityRendering.h"
 #include "ShadowRendering.h"
 #include "SceneRendering.h"
@@ -468,18 +460,78 @@ public:
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	/** Are we currently in the state of freezing rendering? (1 frame where we gather what was rendered) */
-	bool bIsFreezing;
+	uint32 bIsFreezing : 1;
 
 	/** Is rendering currently frozen? */
-	bool bIsFrozen;
+	uint32 bIsFrozen : 1;
+
+	/** True if the CachedViewMatrices is holding frozen view matrices, otherwise false */
+	uint32 bIsFrozenViewMatricesCached : 1;
 
 	/** The set of primitives that were rendered the frame that we froze rendering */
 	TSet<FPrimitiveComponentId> FrozenPrimitives;
+
+	/** The cache view matrices at the time of freezing or the cached debug fly cam's view matrices. */
+	FViewMatrices CachedViewMatrices;
 #endif
 
 private:
-	// to implement eye adaptation changes over time
-	TRefCountPtr<IPooledRenderTarget> EyeAdaptationRT;
+
+	// to implement eye adaptation / auto exposure changes over time
+	class FEyeAdaptationRTManager
+	{
+	public:
+
+		FEyeAdaptationRTManager() :
+			CurrentBuffer(0) {};
+
+		void SafeRelease()
+		{
+			PooledRenderTarget[0].SafeRelease();
+			PooledRenderTarget[1].SafeRelease();
+		}
+
+		/** Return current Render Target */
+		TRefCountPtr<IPooledRenderTarget>& GetCurrentRT(FRHICommandList& RHICmdList)
+		{
+			return GetRTRef(RHICmdList, CurrentBuffer);
+		}
+
+		/** Return old Render Target*/
+		TRefCountPtr<IPooledRenderTarget>& GetLastRT(FRHICommandList& RHICmdList)
+		{
+			return GetRTRef(RHICmdList, 1 - CurrentBuffer);
+		}
+
+		/** Reverse the current/last order of the targets */
+		void SwapRTs()
+		{
+			CurrentBuffer = 1 - CurrentBuffer;
+		}
+
+	private:
+
+		/** Return one of two two render targets */
+		TRefCountPtr<IPooledRenderTarget>&  GetRTRef(FRHICommandList& RHICmdList, const int BufferNumber)
+		{
+			check(BufferNumber == 0 || BufferNumber == 1);
+
+			// Create textures if needed.
+			if (!PooledRenderTarget[BufferNumber].IsValid())
+			{
+				// Create the texture needed for EyeAdaptation
+				FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(FIntPoint(1, 1), PF_G32R32F /*PF_R32_FLOAT*/, FClearValueBinding::None, TexCreate_None, TexCreate_RenderTargetable, false));
+				GRenderTargetPool.FindFreeElement(RHICmdList, Desc, PooledRenderTarget[BufferNumber], TEXT("EyeAdaptation"));
+			}
+
+			return PooledRenderTarget[BufferNumber];
+		}
+
+	private:
+
+		int CurrentBuffer;
+		TRefCountPtr<IPooledRenderTarget> PooledRenderTarget[2];
+	} EyeAdaptationRTManager;
 
 	// eye adaptation is only valid after it has been computed, not on allocation of the RT
 	bool bValidEyeAdaptation;
@@ -538,12 +590,23 @@ public:
 	FGlobalDistanceFieldClipmapState GlobalDistanceFieldClipmapState[GMaxGlobalDistanceFieldClipmaps];
 	int32 GlobalDistanceFieldUpdateIndex;
 
-	FVertexBufferRHIRef IndirectShadowSphereShapesVertexBuffer;
-	FShaderResourceViewRHIRef IndirectShadowSphereShapesSRV;
 	FVertexBufferRHIRef IndirectShadowCapsuleShapesVertexBuffer;
 	FShaderResourceViewRHIRef IndirectShadowCapsuleShapesSRV;
 	FVertexBufferRHIRef IndirectShadowLightDirectionVertexBuffer;
 	FShaderResourceViewRHIRef IndirectShadowLightDirectionSRV;
+	FRWBuffer CapsuleTileIntersectionCountsBuffer;
+
+	/** Timestamp queries around separate translucency, used for auto-downsampling. */
+	TArray<FRenderQueryRHIRef, TInlineAllocator<FOcclusionQueryHelpers::MaxBufferedOcclusionFrames + 1> > PendingTranslucencyStartTimestamps;
+	TArray<FRenderQueryRHIRef, TInlineAllocator<FOcclusionQueryHelpers::MaxBufferedOcclusionFrames + 1> > PendingTranslucencyEndTimestamps;
+
+	/** This is float since it is derived off of UWorld::RealTimeSeconds, which is relative to BeginPlay time. */
+	float LastAutoDownsampleChangeTime;
+	float SmoothedHalfResTranslucencyGPUDuration;
+	float SmoothedFullResTranslucencyGPUDuration;
+
+	/** Current desired state of auto-downsampled separate translucency for this view. */
+	bool bShouldAutoDownsampleTranslucency;
 
 	// Is DOFHistoryRT set from DepthOfField?
 	bool bDOFHistory;
@@ -638,6 +701,13 @@ public:
 	 */
 	void UpdateTemporalLODTransition(const FViewInfo& View)
 	{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		if (bIsFrozen)
+		{
+			return;
+		}
+#endif
+
 		TemporalLODState.UpdateTemporalLODTransition(View, LastRenderTime);
 	}
 
@@ -664,16 +734,30 @@ public:
 	 */
 	bool IsShadowOccluded(FRHICommandListImmediate& RHICmdList, FPrimitiveComponentId PrimitiveId, const ULightComponent* Light, int32 SplitIndex, bool bTranslucentShadow, int32 NumBufferedFrames) const;
 
+	/**
+	* Retrieve a single-pixel render targets with intra-frame state for use in eye adaptation post processing.
+	*/
 	TRefCountPtr<IPooledRenderTarget>& GetEyeAdaptation(FRHICommandList& RHICmdList)
 	{
-		if (!EyeAdaptationRT)
-		{
-			// Create the texture needed for EyeAdaptation
-			FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(FIntPoint(1, 1), PF_R32_FLOAT, FClearValueBinding::None, TexCreate_None, TexCreate_RenderTargetable, false));
-			Desc.AutoWritable = false;
-			GRenderTargetPool.FindFreeElement(RHICmdList, Desc, EyeAdaptationRT, TEXT("EyeAdaptation"));
-		}
-		return EyeAdaptationRT;
+		return EyeAdaptationRTManager.GetCurrentRT(RHICmdList);
+	}
+
+	/**
+	* Retrieve a single-pixel render targets with intra-frame state for use in eye adaptation post processing.
+	*/
+	IPooledRenderTarget* GetCurrentEyeAdaptationRT(FRHICommandList& RHICmdList)
+	{
+		return EyeAdaptationRTManager.GetCurrentRT(RHICmdList).GetReference();
+	}
+	IPooledRenderTarget* GetLastEyeAdaptationRT(FRHICommandList& RHICmdList)
+	{
+		return EyeAdaptationRTManager.GetLastRT(RHICmdList).GetReference();
+	}
+
+	/** Swaps the double-buffer targets used in eye adaptation */
+	void SwapEyeAdaptationRTs()
+	{
+		EyeAdaptationRTManager.SwapRTs();
 	}
 
 	bool HasValidEyeAdaptation() const
@@ -703,7 +787,7 @@ public:
 		PrimitiveFadingStates.Empty();
 		OcclusionQueryPool.Release();
 		HZBOcclusionTests.ReleaseDynamicRHI();
-		EyeAdaptationRT.SafeRelease();
+		EyeAdaptationRTManager.SafeRelease();
 		TemporalAAHistoryRT.SafeRelease();
 		PendingTemporalAAHistoryRT.SafeRelease();
 		DOFHistoryRT.SafeRelease();
@@ -725,12 +809,21 @@ public:
 			GlobalDistanceFieldClipmapState[CascadeIndex].VolumeTexture.SafeRelease();
 		}
 
-		IndirectShadowSphereShapesVertexBuffer.SafeRelease();
-		IndirectShadowSphereShapesSRV.SafeRelease();
 		IndirectShadowCapsuleShapesVertexBuffer.SafeRelease();
 		IndirectShadowCapsuleShapesSRV.SafeRelease();
 		IndirectShadowLightDirectionVertexBuffer.SafeRelease();
 		IndirectShadowLightDirectionSRV.SafeRelease();
+		CapsuleTileIntersectionCountsBuffer.Release();
+
+		for (int32 QueryIndex = 0; QueryIndex < PendingTranslucencyStartTimestamps.Num(); QueryIndex++)
+		{
+			PendingTranslucencyStartTimestamps[QueryIndex].SafeRelease();
+		}
+
+		for (int32 QueryIndex = 0; QueryIndex < PendingTranslucencyEndTimestamps.Num(); QueryIndex++)
+		{
+			PendingTranslucencyEndTimestamps[QueryIndex].SafeRelease();
+		}
 	}
 
 	// FSceneViewStateInterface
@@ -825,28 +918,56 @@ public:
 		return NewMID;
 	}
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	virtual void ActivateFrozenViewMatrices(FSceneView& SceneView) override
+	{
+		auto* ViewState = static_cast<FSceneViewState*>(SceneView.State);
+		if (ViewState->bIsFrozen)
+		{
+			check(ViewState->bIsFrozenViewMatricesCached);
+
+			Swap(SceneView.ViewMatrices, ViewState->CachedViewMatrices);
+			ViewState->bIsFrozenViewMatricesCached = false;
+		}
+	}
+
+	virtual void RestoreUnfrozenViewMatrices(FSceneView& SceneView) override
+	{
+		auto* ViewState = static_cast<FSceneViewState*>(SceneView.State);
+		if (ViewState->bIsFrozen)
+		{
+			check(!ViewState->bIsFrozenViewMatricesCached);
+
+			Swap(SceneView.ViewMatrices, ViewState->CachedViewMatrices);
+			ViewState->bIsFrozenViewMatricesCached = true;
+		}
+	}
+#endif
+
 	virtual FTemporalLODState& GetTemporalLODState() override
 	{
 		return TemporalLODState;
 	}
+
 	virtual const FTemporalLODState& GetTemporalLODState() const override
 	{
 		return TemporalLODState;
 	}
+
 	float GetTemporalLODTransition() const override
 	{
 		return TemporalLODState.GetTemporalLODTransition(LastRenderTime);
 	}
+
 	uint32 GetViewKey() const override
 	{
 		return UniqueID;
 	}
+
 	uint32 GetOcclusionFrameCounter() const
 	{
 		return OcclusionFrameCounter;
 	}
-
-
 
 	// FDeferredCleanupInterface
 	virtual void FinishCleanup() override
@@ -1370,24 +1491,36 @@ class FLODSceneTree
 public:
 	FLODSceneTree(FScene* InScene)
 		: Scene(InScene)
+		, TemporalLODSyncTime(0.0f)
 		, UpdateCount(0)
-	{}
+	{
+		PrimitiveFadingLODMap.Empty();
+		PrimitiveFadingOutLODMap.Empty();
+	}
 
 	/** Information about the primitives that are attached together. */
 	struct FLODSceneNode
 	{
-		/** The primitive. */
-		FPrimitiveSceneInfo* SceneInfo;
-
 		/** Children scene infos. */
 		TArray<FPrimitiveSceneInfo*> ChildrenSceneInfos;
+
+		/** The primitive. */
+		FPrimitiveSceneInfo* SceneInfo;
 
 		/** Last updated FrameCount */
 		int32 LatestUpdateCount;
 
-		FLODSceneNode() :
-			SceneInfo(nullptr), 
-			LatestUpdateCount(INDEX_NONE)
+		/** Persistent visibility states */
+		bool bWasVisible;
+		bool bIsVisible;
+		bool bIsFading;
+
+		FLODSceneNode()
+			: SceneInfo(nullptr)
+			, LatestUpdateCount(INDEX_NONE)
+			, bWasVisible(false)
+			, bIsVisible(false)
+			, bIsFading(false)
 		{}
 
 		void AddChild(FPrimitiveSceneInfo * NewChild)
@@ -1411,22 +1544,40 @@ public:
 	void RemoveChildNode(FPrimitiveComponentId NodeId, FPrimitiveSceneInfo* ChildSceneInfo);
 
 	void UpdateNodeSceneInfo(FPrimitiveComponentId NodeId, FPrimitiveSceneInfo* SceneInfo);
-	void PopulateHiddenFlags(FViewInfo& View, FSceneBitArray& HiddenFlags);
+	void UpdateAndApplyVisibilityStates(FViewInfo& View);
 
-	bool IsActive() { return (SceneNodes.Num() > 0); }
+	bool IsNodeFading(const int32 Index) const
+	{
+		checkSlow(PrimitiveFadingLODMap.IsValidIndex(Index));
+		return PrimitiveFadingLODMap[Index];
+	}
+
+	bool IsNodeFadingOut(const int32 Index) const
+	{
+		checkSlow(PrimitiveFadingOutLODMap.IsValidIndex(Index));
+		return PrimitiveFadingOutLODMap[Index];
+	}
+
+	bool IsActive() const { return (SceneNodes.Num() > 0); }
 
 private:
 	/** Scene this Tree belong to */
 	FScene* Scene;
 
-	/** The LOd groups in the scene.  The map key is the current primitive who has children. */
+	/** The LOD groups in the scene.  The map key is the current primitive who has children. */
 	TMap<FPrimitiveComponentId, FLODSceneNode> SceneNodes;
+
+	/** Persistent HLOD fading state */
+	TBitArray<> PrimitiveFadingLODMap;
+	TBitArray<>	PrimitiveFadingOutLODMap;
+	float		TemporalLODSyncTime;
 
 	/**  Update Count. This is used to skip Child node that has been updated */
 	int32 UpdateCount;
 
-	/** Populate Hidden Flags to the children **/
-	void PopulateHiddenFlagsToChildren(FSceneBitArray& HiddenFlags, FLODSceneNode& Node);
+	/** Recursive state updates */
+	void ApplyNodeFadingToChildren(FLODSceneNode& Node, FSceneBitArray& VisibilityFlags, const bool bIsFading, const bool bIsFadingOut);
+	void HideNodeChildren(FLODSceneNode& Node, FSceneBitArray& VisibilityFlags);
 };
 
 typedef TMap<FMaterial*, FMaterialShaderMap*> FMaterialsToUpdateMap;
@@ -1549,6 +1700,9 @@ public:
 	/** The decals in the scene. */
 	TSparseArray<FDeferredDecalProxy*> Decals;
 
+	/** Potential capsule shadow casters registered to the scene. */
+	TArray<FPrimitiveSceneInfo*> CapsuleIndirectCasterPrimitives; 
+
 	/** State needed for the reflection environment feature. */
 	FReflectionEnvironmentSceneData ReflectionSceneData;
 
@@ -1632,6 +1786,7 @@ public:
 	virtual void ReleasePrimitive(UPrimitiveComponent* Primitive) override;
 	virtual void UpdatePrimitiveTransform(UPrimitiveComponent* Primitive) override;
 	virtual void UpdatePrimitiveAttachment(UPrimitiveComponent* Primitive) override;
+	virtual FPrimitiveSceneInfo* GetPrimitiveSceneInfo(int32 PrimitiveIndex) override;
 	virtual void AddLight(ULightComponent* Light) override;
 	virtual void RemoveLight(ULightComponent* Light) override;
 	virtual void AddInvisibleLight(ULightComponent* Light) override;
@@ -1711,6 +1866,9 @@ public:
 	/** Finds the closest reflection capture to a point in space. */
 	const FReflectionCaptureProxy* FindClosestReflectionCapture(FVector Position) const;
 
+
+	void FindClosestReflectionCaptures(FVector Position, const FReflectionCaptureProxy* (&SortedByDistanceOUT)[FPrimitiveSceneInfo::MaxCachedReflectionCaptureProxies]) const;
+	
 	/** 
 	 * Gets the scene's cubemap array and index into that array for the given reflection proxy. 
 	 * If the proxy was not found in the scene's reflection state, the outputs are not written to.

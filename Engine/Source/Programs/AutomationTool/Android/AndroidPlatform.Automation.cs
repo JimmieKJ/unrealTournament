@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -110,6 +110,28 @@ public class AndroidPlatform : Platform
 		return Path.Combine(Path.GetDirectoryName(ApkName), "Install_" + Params.ShortProjectName + (!NoOBBInstall ? "_" : "_NoOBBInstall_") + Params.ClientConfigsToBuild[0].ToString() + Architecture + GPUArchitecture + (Utils.IsRunningOnMono ? ".command" : ".bat"));
 	}
 
+	private List<string> CollectPluginDataPaths(DeploymentContext SC)
+	{
+		// collect plugin extra data paths from target receipts
+		List<string> PluginExtras = new List<string>();
+		foreach (StageTarget Target in SC.StageTargets)
+		{
+			TargetReceipt Receipt = Target.Receipt;
+			var Results = Receipt.AdditionalProperties.Where(x => x.Name == "AndroidPlugin");
+			foreach (var Property in Results)
+			{
+				// Keep only unique paths
+				string PluginPath = Property.Value;
+				if (PluginExtras.FirstOrDefault(x => x == PluginPath) == null)
+				{
+					PluginExtras.Add(PluginPath);
+					Log("AndroidPlugin: {0}", PluginPath);
+				}
+			}
+		}
+		return PluginExtras;
+	}
+
 	public override void Package(ProjectParams Params, DeploymentContext SC, int WorkingCL)
 	{
 		AndroidToolChain ToolChain = new AndroidToolChain(Params.RawProjectPath);
@@ -156,6 +178,9 @@ public class AndroidPlatform : Platform
 			ObbFile.Save();
 		}
 
+		// collect plugin extra data paths from target receipts
+		Deploy.SetAndroidPluginData(Architectures, CollectPluginDataPaths(SC));
+
 		foreach (string Architecture in Architectures)
 		{
 			foreach (string GPUArchitecture in GPUArchitectures)
@@ -199,20 +224,20 @@ public class AndroidPlatform : Platform
 
                 // If we aren't packaging data in the APK then lets write out a bat file to also let us test without the OBB
                 // on the device.
-                String NoInstallBatchName = GetFinalBatchName(ApkName, Params, bMakeSeparateApks ? Architecture : "", bMakeSeparateApks ? GPUArchitecture : "", true);
+                //String NoInstallBatchName = GetFinalBatchName(ApkName, Params, bMakeSeparateApks ? Architecture : "", bMakeSeparateApks ? GPUArchitecture : "", true);
                 // if(!bPackageDataInsideApk)
-                {
-                    BatchLines = GenerateInstallBatchFile(bPackageDataInsideApk, PackageName, ApkName, Params, ObbName, DeviceObbName, true);
-                    File.WriteAllLines(NoInstallBatchName, BatchLines);
-                }
+                //{
+                //    BatchLines = GenerateInstallBatchFile(bPackageDataInsideApk, PackageName, ApkName, Params, ObbName, DeviceObbName, true);
+                //    File.WriteAllLines(NoInstallBatchName, BatchLines);
+                //}
 
 				if (Utils.IsRunningOnMono)
 				{
 					CommandUtils.FixUnixFilePermissions(BatchName);
-                    if(File.Exists(NoInstallBatchName)) 
-                    {
-                        CommandUtils.FixUnixFilePermissions(NoInstallBatchName);
-                    }
+                    //if(File.Exists(NoInstallBatchName)) 
+                    //{
+                    //    CommandUtils.FixUnixFilePermissions(NoInstallBatchName);
+                    //}
 				}
 			}
 		}
@@ -468,16 +493,16 @@ public class AndroidPlatform : Platform
 		string DeviceName = Params.Device.Replace(":", "_");
 
 		// Try retrieving the UFS files manifest files from the device
-		string UFSManifestFileName = CombinePaths(SC.StageDirectory, DeploymentContext.UFSDeployedManifestFileName + "_" + DeviceName);
-		ProcessResult UFSResult = RunAdbCommand(Params, " pull " + RemoteDir + "/" + DeploymentContext.UFSDeployedManifestFileName + " \"" + UFSManifestFileName + "\"", null, ERunOptions.AppMustExist);
+		string UFSManifestFileName = CombinePaths(SC.StageDirectory, SC.UFSDeployedManifestFileName + "_" + DeviceName);
+		ProcessResult UFSResult = RunAdbCommand(Params, " pull " + RemoteDir + "/" + SC.UFSDeployedManifestFileName + " \"" + UFSManifestFileName + "\"", null, ERunOptions.AppMustExist);
 		if (!UFSResult.Output.Contains("bytes"))
 		{
 			return false;
 		}
 
 		// Try retrieving the non UFS files manifest files from the device
-		string NonUFSManifestFileName = CombinePaths(SC.StageDirectory, DeploymentContext.NonUFSDeployedManifestFileName + "_" + DeviceName);
-		ProcessResult NonUFSResult = RunAdbCommand(Params, " pull " + RemoteDir + "/" + DeploymentContext.NonUFSDeployedManifestFileName + " \"" + NonUFSManifestFileName + "\"", null, ERunOptions.AppMustExist);
+		string NonUFSManifestFileName = CombinePaths(SC.StageDirectory, SC.NonUFSDeployedManifestFileName + "_" + DeviceName);
+		ProcessResult NonUFSResult = RunAdbCommand(Params, " pull " + RemoteDir + "/" + SC.NonUFSDeployedManifestFileName + " \"" + NonUFSManifestFileName + "\"", null, ERunOptions.AppMustExist);
 		if (!NonUFSResult.Output.Contains("bytes"))
 		{
 			// Did not retrieve both so delete one we did retrieve
@@ -517,6 +542,9 @@ public class AndroidPlatform : Platform
 		{
 			string CookFlavor = SC.FinalCookPlatform.IndexOf("_") > 0 ? SC.FinalCookPlatform.Substring(SC.FinalCookPlatform.IndexOf("_")) : "";
 			string SOName = GetSONameWithoutArchitecture(Params, SC.StageExecutables[0]);
+			List<string> Architectures = new List<string>();
+			Architectures.Add(DeviceArchitecture);
+			Deploy.SetAndroidPluginData(Architectures, CollectPluginDataPaths(SC));
 			Deploy.PrepForUATPackageOrDeploy(Params.RawProjectPath, Params.ShortProjectName, SC.ProjectRoot, SOName, SC.LocalRoot + "/Engine", Params.Distribution, CookFlavor, true);
 		}
 
@@ -1199,6 +1227,13 @@ public class AndroidPlatform : Platform
 		// if packaging is enabled, always create a pak, otherwise use the Params.Pak value
 		return Params.Package ? PakType.Always : PakType.DontCare;
 	}
+
+/*
+	public override bool RequiresPackageToDeploy
+	{
+		get { return true; }
+	}
+*/
     
 	#region Hooks
 

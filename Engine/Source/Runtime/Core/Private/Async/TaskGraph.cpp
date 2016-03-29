@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "CorePrivatePCH.h"
@@ -11,11 +11,122 @@ DEFINE_STAT(STAT_FTriggerEventGraphTask);
 DEFINE_STAT(STAT_ParallelFor);
 DEFINE_STAT(STAT_ParallelForTask);
 
+#if PLATFORM_XBOXONE || PLATFORM_PS4
+#define CREATE_HIPRI_TASK_THREADS (1)
+#define CREATE_BACKGROUND_TASK_THREADS (1)
+#else
+#define CREATE_HIPRI_TASK_THREADS (0)
+#define CREATE_BACKGROUND_TASK_THREADS (0)
+#endif
+
 namespace ENamedThreads
 {
 	CORE_API Type RenderThread = ENamedThreads::GameThread; // defaults to game and is set and reset by the render thread itself
 	CORE_API Type RenderThread_Local = ENamedThreads::GameThread_Local; // defaults to game local and is set and reset by the render thread itself
+	CORE_API int32 bHasBackgroundThreads = CREATE_BACKGROUND_TASK_THREADS;
+	CORE_API int32 bHasHighPriorityThreads = CREATE_HIPRI_TASK_THREADS;
 }
+
+static int32 GNumWorkerThreadsToIgnore = 0;
+static FAutoConsoleVariableRef CVarNumWorkerThreadsToIgnore(
+	TEXT("TaskGraph.NumWorkerThreadsToIgnore"),
+	GNumWorkerThreadsToIgnore,
+	TEXT("Used to tune the number of task threads. Generally once you have found the right value, PlatformMisc::NumberOfWorkerThreadsToSpawn() should be hardcoded."),
+	ECVF_Cheat
+	);
+
+static int32 GFastScheduler = 0;
+#if USE_NEW_LOCK_FREE_LISTS
+static int32 GFastSchedulerLatched = 1;
+#else
+static int32 GFastSchedulerLatched = 0;
+#endif
+static FAutoConsoleVariableRef CVarFastScheduler(
+	TEXT("TaskGraph.FastScheduler"),
+	GFastScheduler,
+	TEXT("If > 0, then use the new experimental anythread task scheduler."),
+	ECVF_Cheat
+	);
+
+// move to platform abstraction
+#if PLATFORM_XBOXONE || PLATFORM_PS4
+#define PLATFORM_OK_TO_BURN_CPU (1)
+#else
+#define PLATFORM_OK_TO_BURN_CPU (0)
+#endif
+
+#define USE_INTRUSIVE_TASKQUEUES (USE_NEW_LOCK_FREE_LISTS)
+
+
+#if CREATE_HIPRI_TASK_THREADS || CREATE_BACKGROUND_TASK_THREADS
+	static int32 GConsoleSpinMode = 0; // when we have multiple task thread banks, we don't want to do spin mode as a high priority thread spinning would interfere with lower priority work
+	static void ThreadSwitchForABTest(const TArray<FString>& Args)
+	{
+		if (Args.Num() == 2)
+		{
+#if CREATE_HIPRI_TASK_THREADS
+			ENamedThreads::bHasHighPriorityThreads = !!FCString::Atoi(*Args[0]);
+#endif
+#if CREATE_BACKGROUND_TASK_THREADS
+			ENamedThreads::bHasBackgroundThreads = !!FCString::Atoi(*Args[1]);
+#endif
+		}
+		else
+		{
+			UE_LOG(LogConsoleResponse, Display, TEXT("This command requires two arguments, both 0 or 1 to control the use of high priority and background priority threads, respectively."));
+		}
+		UE_LOG(LogConsoleResponse, Display, TEXT("High priority task threads: %d    Bacxkground priority threads: %d"), ENamedThreads::bHasHighPriorityThreads, ENamedThreads::bHasBackgroundThreads);
+	}
+
+	static FAutoConsoleCommand ThreadSwitchForABTestCommand(
+		TEXT("TaskGraph.ABTestThreads"),
+		TEXT("Takes two 0/1 arguments. Equivalent to setting TaskGraph.UseHiPriThreads and TaskGraph.UseBackgroundThreads, respectively. Packages as one command for use with the abtest command."),
+		FConsoleCommandWithArgsDelegate::CreateStatic(&ThreadSwitchForABTest)
+		);
+
+#else
+	static int32 GConsoleSpinMode = PLATFORM_OK_TO_BURN_CPU * 2;
+	static FAutoConsoleVariableRef CVarConsoleSpinMode(
+		TEXT("TaskGraph.ConsoleSpinMode"),
+		GConsoleSpinMode,
+		TEXT("If > 0, then we never allow all task threads to idle; one will always be spinning looking for work (if mode == 2, then we sleep0 when spinning); this relieve the calling thread from the buden of starting threads. Only active with TaskGraph.FastScheduler 1."),
+		ECVF_Cheat
+		);
+#endif 
+static int32 GConsoleSpinModeLatched = 0;
+
+#if CREATE_BACKGROUND_TASK_THREADS
+static FAutoConsoleVariableRef CVarUseBackgroundThreads(
+	TEXT("TaskGraph.UseBackgroundThreads"),
+	ENamedThreads::bHasBackgroundThreads,
+	TEXT("If > 0, then use background threads, otherwise run background tasks on normal priority task threads. Used for performance tuning."),
+	ECVF_Cheat
+	);
+#endif
+
+#if CREATE_HIPRI_TASK_THREADS
+static FAutoConsoleVariableRef CVarUseHiPriThreads(
+	TEXT("TaskGraph.UseHiPriThreads"),
+	ENamedThreads::bHasHighPriorityThreads,
+	TEXT("If > 0, then use hi priority task threads, otherwise run background tasks on normal priority task threads. Used for performance tuning."),
+	ECVF_Cheat
+	);
+#endif
+
+
+
+#if USE_NEW_LOCK_FREE_LISTS
+static int32 GMaxTasksToStartOnDequeue = 1;
+#else
+static int32 GMaxTasksToStartOnDequeue = 2;
+#endif
+
+static FAutoConsoleVariableRef CVarMaxTasksToStartOnDequeue(
+	TEXT("TaskGraph.MaxTasksToStartOnDequeue"),
+	GMaxTasksToStartOnDequeue,
+	TEXT("Performance tweak, controls how many additional task threads a task thread starts when it grabs a list of new tasks. This only applies in TaskGraph.ConsoleSpinMode"),
+	ECVF_Cheat
+	);
 
 #define PROFILE_TASKGRAPH (0)
 #if PROFILE_TASKGRAPH
@@ -190,57 +301,97 @@ FORCEINLINE void TestRandomizedThreads()
 
 #endif
 
-static int32 GNumWorkerThreadsToIgnore = 0;
-static FAutoConsoleVariableRef CVarNumWorkerThreadsToIgnore(
-	TEXT("TaskGraph.NumWorkerThreadsToIgnore"),
-	GNumWorkerThreadsToIgnore,
-	TEXT("Used to tune the number of task threads. Generally once you have found the right value, PlatformMisc::NumberOfWorkerThreadsToSpawn() should be hardcoded."),
-	ECVF_Cheat
-	);
+static FString ThreadPriorityToName(ENamedThreads::Type Priority)
+{
+	if (Priority == ENamedThreads::NormalThreadPriority)
+	{
+		return FString(TEXT("Normal"));
+	}
+	if (Priority == ENamedThreads::HighThreadPriority)
+	{
+		return FString(TEXT("High"));
+	}
+	if (Priority == ENamedThreads::BackgroundThreadPriority)
+	{
+		return FString(TEXT("Background"));
+	}
+	return FString(TEXT("??Unknown??"));
+}
 
-static int32 GFastScheduler = 0;
-#if USE_NEW_LOCK_FREE_LISTS
-static int32 GFastSchedulerLatched = 1;
-#else
-static int32 GFastSchedulerLatched = 0;
-#endif
-static FAutoConsoleVariableRef CVarFastScheduler(
-	TEXT("TaskGraph.FastScheduler"),
-	GFastScheduler,
-	TEXT("If > 0, then use the new experimental anythread task scheduler."),
-	ECVF_Cheat
-	);
+static FString TaskPriorityToName(ENamedThreads::Type Priority)
+{
+	if (Priority == ENamedThreads::NormalTaskPriority)
+	{
+		return FString(TEXT("Normal"));
+	}
+	if (Priority == ENamedThreads::HighTaskPriority)
+	{
+		return FString(TEXT("High"));
+	}
+	return FString(TEXT("??Unknown??"));
+}
 
-// move to platform abstraction
-#if PLATFORM_XBOXONE || PLATFORM_PS4
-	#define PLATFORM_OK_TO_BURN_CPU (1)
-#else
-	#define PLATFORM_OK_TO_BURN_CPU (0)
-#endif
+void FAutoConsoleTaskPriority::CommandExecute(const TArray<FString>& Args)
+{
+	if (Args.Num() > 0)
+	{
+		if (Args[0].Compare(ThreadPriorityToName(ENamedThreads::NormalThreadPriority), ESearchCase::IgnoreCase) == 0)
+		{
+			ThreadPriority = ENamedThreads::NormalThreadPriority;
+		}
+		else if (Args[0].Compare(ThreadPriorityToName(ENamedThreads::HighThreadPriority), ESearchCase::IgnoreCase) == 0)
+		{
+			ThreadPriority = ENamedThreads::HighThreadPriority;
+		}
+		else if (Args[0].Compare(ThreadPriorityToName(ENamedThreads::BackgroundThreadPriority), ESearchCase::IgnoreCase) == 0)
+		{
+			ThreadPriority = ENamedThreads::BackgroundThreadPriority;
+		}
+		else
+		{
+			UE_LOG(LogConsoleResponse, Display, TEXT("Could not parse thread priority %s"), *Args[0]);
+		}
+	}
+	if (Args.Num() > 1)
+	{
+		if (Args[1].Compare(TaskPriorityToName(ENamedThreads::NormalTaskPriority), ESearchCase::IgnoreCase) == 0)
+		{
+			TaskPriority = ENamedThreads::NormalTaskPriority;
+		}
+		else if (Args[1].Compare(TaskPriorityToName(ENamedThreads::HighTaskPriority), ESearchCase::IgnoreCase) == 0)
+		{
+			TaskPriority = ENamedThreads::HighTaskPriority;
+		}
+		else
+		{
+			UE_LOG(LogConsoleResponse, Display, TEXT("Could not parse task priority %s"), *Args[1]);
+		}
+	}
+	if (Args.Num() > 2)
+	{
+		if (Args[2].Compare(TaskPriorityToName(ENamedThreads::NormalTaskPriority), ESearchCase::IgnoreCase) == 0)
+		{
+			TaskPriorityIfForcedToNormalThreadPriority = ENamedThreads::NormalTaskPriority;
+		}
+		else if (Args[2].Compare(TaskPriorityToName(ENamedThreads::HighTaskPriority), ESearchCase::IgnoreCase) == 0)
+		{
+			TaskPriorityIfForcedToNormalThreadPriority = ENamedThreads::HighTaskPriority;
+		}
+		else
+		{
+			UE_LOG(LogConsoleResponse, Display, TEXT("Could not parse task priority %s"), *Args[2]);
+		}
+	}
+	if (ThreadPriority == ENamedThreads::NormalThreadPriority)
+	{
+		UE_LOG(LogConsoleResponse, Display, TEXT("%s - thread priority:%s   task priority:%s"), *CommandName, *ThreadPriorityToName(ThreadPriority), *TaskPriorityToName(TaskPriority));
+	}
+	else
+	{
+		UE_LOG(LogConsoleResponse, Display, TEXT("%s - thread priority:%s   task priority:%s  %s (when forced to normal)"), *CommandName, *ThreadPriorityToName(ThreadPriority), *TaskPriorityToName(TaskPriority), *TaskPriorityToName(this->TaskPriorityIfForcedToNormalThreadPriority));
+	}
+}
 
-#define USE_INTRUSIVE_TASKQUEUES (USE_NEW_LOCK_FREE_LISTS)
-
-static int32 GConsoleSpinMode = PLATFORM_OK_TO_BURN_CPU * 2;
-static int32 GConsoleSpinModeLatched = 0;
-static FAutoConsoleVariableRef CVarConsoleSpinMode(
-	TEXT("TaskGraph.ConsoleSpinMode"),
-	GConsoleSpinMode,
-	TEXT("If > 0, then we never allow all task threads to idle; one will always be spinning looking for work (if mode == 2, then we sleep0 when spinning); this relieve the calling thread from the buden of starting threads. Only active with TaskGraph.FastScheduler 1."),
-	ECVF_Cheat
-	);
-
-#if USE_NEW_LOCK_FREE_LISTS
-static int32 GMaxTasksToStartOnDequeue = 1;
-#else
-static int32 GMaxTasksToStartOnDequeue = 2;
-#endif
-
-static FAutoConsoleVariableRef CVarMaxTasksToStartOnDequeue(
-	TEXT("TaskGraph.MaxTasksToStartOnDequeue"),
-	GMaxTasksToStartOnDequeue,
-	TEXT("Performance tweak, controls how many additional task threads a task thread starts when it grabs a list of new tasks. This only applies in TaskGraph.ConsoleSpinMode"),
-	ECVF_Cheat
-	);
 
 /** 
  *	FTaskQueue
@@ -465,7 +616,9 @@ public:
 	 */
 	virtual uint32 Run() override
 	{
+		check(OwnerWorker); // make sure we are started up
 		ProcessTasksUntilQuit(0);
+		FMemory::ClearAndDisableTLSCachesOnCurrentThread();
 		return 0;
 	}
 
@@ -556,7 +709,7 @@ public:
 					{
 						break;
 					}
-					if (ENamedThreads::GetPriority(NewTask->ThreadToExecuteOn))
+					if (ENamedThreads::GetTaskPriority(NewTask->ThreadToExecuteOn))
 					{
 						Queue(QueueIndex).OutstandingHiPriTasks.Decrement();
 						Task = NewTask;
@@ -701,7 +854,7 @@ public:
 						for (int32 Index = NewTasks.Num() - 1; Index >= 0 ; Index--) // reverse the order since PopAll is implicitly backwards
 						{
 							FBaseGraphTask* NewTask = NewTasks[Index];
-							if (ENamedThreads::GetPriority(NewTask->ThreadToExecuteOn))
+							if (ENamedThreads::GetTaskPriority(NewTask->ThreadToExecuteOn))
 							{
 								Queue(QueueIndex).PrivateQueueHiPri.Enqueue(NewTask);
 								Queue(QueueIndex).OutstandingHiPriTasks.Decrement();
@@ -746,7 +899,7 @@ public:
 					{
 						FBaseGraphTask* NewTask = NewTasks[Index];
 						checkThreadGraph(NewTask);
-						if (ENamedThreads::GetPriority(NewTask->ThreadToExecuteOn))
+						if (ENamedThreads::GetTaskPriority(NewTask->ThreadToExecuteOn))
 						{
 							Queue(QueueIndex).PrivateQueueHiPri.Enqueue(NewTask);
 							Queue(QueueIndex).OutstandingHiPriTasks.Decrement();
@@ -795,7 +948,7 @@ public:
 	virtual void EnqueueFromThisThread(int32 QueueIndex, FBaseGraphTask* Task) override
 	{
 		checkThreadGraph(Task && Queue(QueueIndex).StallRestartEvent); // make sure we are started up
-		if (ENamedThreads::GetPriority(Task->ThreadToExecuteOn))
+		if (ENamedThreads::GetTaskPriority(Task->ThreadToExecuteOn))
 		{
 			Queue(QueueIndex).PrivateQueueHiPri.Enqueue(Task);
 		}
@@ -845,7 +998,7 @@ public:
 		checkThreadGraph(Task && Queue(QueueIndex).StallRestartEvent); // make sure we are started up
 
 		bool bWasReopenedByMe;
-		bool bHiPri = !!ENamedThreads::GetPriority(Task->ThreadToExecuteOn);
+		bool bHiPri = !!ENamedThreads::GetTaskPriority(Task->ThreadToExecuteOn);
 		{
 			TASKGRAPH_SCOPE_CYCLE_COUNTER(0, STAT_TaskGraph_EnqueueFromOtherThread_ReopenIfClosedAndPush);
 			bWasReopenedByMe = Queue(QueueIndex).IncomingQueue.ReopenIfClosedAndPush(Task);
@@ -876,20 +1029,26 @@ private:
 		FTaskQueue											PrivateQueue;
 		/** A non-threas safe queue for the thread locked tasks of a named thread. These are high priority.**/
 		FTaskQueue											PrivateQueueHiPri;
+
+		uint8 PadToAvoidContention1[PLATFORM_CACHE_LINE_SIZE];
 		/** Used to signal pending hi pri tasks. **/
 		FThreadSafeCounter									OutstandingHiPriTasks;
+		uint8 PadToAvoidContention2[PLATFORM_CACHE_LINE_SIZE];
+
+
 		/** 
 		 *	For named threads, this is a queue of thread locked tasks coming from other threads. They are not stealable.
 		 *	For unnamed thread this is the public queue, subject to stealing.
 		 *	In either case this queue is closely related to the stall event. Other threads that reopen the incoming queue must trigger the stall event to allow the thread to run.
 		**/
 #if USE_NEW_LOCK_FREE_LISTS && USE_INTRUSIVE_TASKQUEUES
-		FCloseableLockFreePointerQueueBaseSingleBaseConsumerIntrusive<FBaseGraphTask>		IncomingQueue;
+		FCloseableLockFreePointerQueueBaseSingleBaseConsumerIntrusive<FBaseGraphTask, PLATFORM_CACHE_LINE_SIZE>		IncomingQueue;
 #elif USE_NEW_LOCK_FREE_LISTS
-		TReopenableLockFreePointerListFIFOSingleConsumer<FBaseGraphTask>		IncomingQueue;
+		TReopenableLockFreePointerListFIFOSingleConsumer<FBaseGraphTask, PLATFORM_CACHE_LINE_SIZE>		IncomingQueue;
 #else
 		TReopenableLockFreePointerListLIFO<FBaseGraphTask>		IncomingQueue;
 #endif
+		uint8 PadToAvoidContention3[PLATFORM_CACHE_LINE_SIZE];
 		/** Used to signal the thread to quit when idle. **/
 		FThreadSafeCounter									QuitWhenIdle;
 		/** We need to disallow reentry of the processing loop **/
@@ -970,9 +1129,17 @@ private:
 class FTaskThreadAnyThread : public FTaskThreadBase
 {
 public:
+	FTaskThreadAnyThread(int32 InPriorityIndex)
+		: PriorityIndex(InPriorityIndex)
+	{
+	}
 	/** Used for named threads to start processing tasks until the thread is idle and RequestQuit has been called. **/
 	virtual void ProcessTasksUntilQuit(int32 QueueIndex) override
 	{
+		if (PriorityIndex != (ENamedThreads::BackgroundThreadPriority >> ENamedThreads::ThreadPriorityShift))
+		{
+			FMemory::SetupTLSCachesOnCurrentThread();
+		}
 		check(!QueueIndex);
 		Queue.QuitWhenIdle.Reset();
 		while (Queue.QuitWhenIdle.GetValue() == 0)
@@ -1155,6 +1322,8 @@ private:
 
 	/** Array of queues, only the first one is used for unnamed threads. **/
 	FThreadTaskQueue Queue;
+
+	int32 PriorityIndex;
 };
 
 /** 
@@ -1206,16 +1375,27 @@ public:
 	 *	Constructor - initializes the data structures, sets the singleton pointer and creates the internal threads.
 	 *	@param InNumThreads; total number of threads in the system, including named threads, unnamed threads, internal threads and external threads. Must be at least 1 + the number of named threads.
 	**/
-	FTaskGraphImplementation(int32 InNumThreads)
+	FTaskGraphImplementation(int32)
 	{
+		bCreatedHiPriorityThreads = !!ENamedThreads::bHasHighPriorityThreads;
+		bCreatedBackgroundPriorityThreads = !!ENamedThreads::bHasBackgroundThreads;
+
+		int32 MaxTaskThreads = MAX_THREADS;
+		int32 NumTaskThreads = FPlatformMisc::NumberOfWorkerThreadsToSpawn();
+
 		// if we don't want any performance-based threads, then force the task graph to not create any worker threads, and run in game thread
 		if (!FPlatformProcess::SupportsMultithreading())
 		{
 			// this is the logic that used to be spread over a couple of places, that will make the rest of this function disable a worker thread
 			// @todo: it could probably be made simpler/clearer
-			InNumThreads = 1;
 			// this - 1 tells the below code there is no rendering thread
+			MaxTaskThreads = 1;
+			NumTaskThreads = 1;
 			LastExternalThread = (ENamedThreads::Type)(ENamedThreads::ActualRenderingThread - 1);
+			bCreatedHiPriorityThreads = false;
+			bCreatedBackgroundPriorityThreads = false;
+			ENamedThreads::bHasBackgroundThreads = 0;
+			ENamedThreads::bHasHighPriorityThreads = 0;
 		}
 		else
 		{
@@ -1223,17 +1403,27 @@ public:
 		}
 		
 		NumNamedThreads = LastExternalThread + 1;
-		NumThreads = FMath::Max<int32>(FMath::Min<int32>(InNumThreads + NumNamedThreads,MAX_THREADS),NumNamedThreads + 1);
+
+		NumTaskThreadSets = 1 + bCreatedHiPriorityThreads + bCreatedBackgroundPriorityThreads;
+
+		// if we don't have enough threads to allow all of the sets asked for, then we can't create what was asked for.
+		check(NumTaskThreadSets == 1 || FMath::Min<int32>(NumTaskThreads * NumTaskThreadSets + NumNamedThreads, MAX_THREADS) == NumTaskThreads * NumTaskThreadSets + NumNamedThreads);
+		NumThreads = FMath::Max<int32>(FMath::Min<int32>(NumTaskThreads * NumTaskThreadSets + NumNamedThreads, MAX_THREADS), NumNamedThreads + 1);
+
 		// Cap number of extra threads to the platform worker thread count
-		NumThreads = FMath::Min(NumThreads, NumNamedThreads + FPlatformMisc::NumberOfWorkerThreadsToSpawn());
-		UE_LOG(LogTaskGraph, Log, TEXT("Started task graph with %d named threads and %d total threads."), NumNamedThreads, NumThreads);
+		// if we don't have enough threads to allow all of the sets asked for, then we can't create what was asked for.
+		check(NumTaskThreadSets == 1 || FMath::Min(NumThreads, NumNamedThreads + NumTaskThreads * NumTaskThreadSets) == NumThreads);
+		NumThreads = FMath::Min(NumThreads, NumNamedThreads + NumTaskThreads * NumTaskThreadSets);
+
+		NumTaskThreadsPerSet = (NumThreads - NumNamedThreads) / NumTaskThreadSets;
+		check((NumThreads - NumNamedThreads) % NumTaskThreadSets == 0); // should be equal numbers of threads per priority set
+
+		UE_LOG(LogTaskGraph, Log, TEXT("Started task graph with %d named threads and %d total threads with %d sets of task threads."), NumNamedThreads, NumThreads, NumTaskThreadSets);
 		check(NumThreads - NumNamedThreads >= 1);  // need at least one pure worker thread
 		check(NumThreads <= MAX_THREADS);
-		check(!NextStealFromThread.GetValue()); // reentrant?
-		NextStealFromThread.Increment(); // just checking for reentrancy
+		check(!ReentrancyCheck.GetValue()); // reentrant?
+		ReentrancyCheck.Increment(); // just checking for reentrancy
 		PerThreadIDTLSSlot = FPlatformTLS::AllocTlsSlot();
-
-		NextUnnamedThreadMod = NumThreads - NumNamedThreads;
 
 		for (int32 ThreadIndex = 0; ThreadIndex < NumThreads; ThreadIndex++)
 		{
@@ -1241,7 +1431,7 @@ public:
 			bool bAnyTaskThread = ThreadIndex >= NumNamedThreads;
 			if (bAnyTaskThread)
 			{
-				WorkerThreads[ThreadIndex].TaskGraphWorker = new FTaskThreadAnyThread;
+				WorkerThreads[ThreadIndex].TaskGraphWorker = new FTaskThreadAnyThread(ThreadIndexToPriorityIndex(ThreadIndex));
 			}
 			else
 			{
@@ -1254,9 +1444,26 @@ public:
 
 		for (int32 ThreadIndex = LastExternalThread + 1; ThreadIndex < NumThreads; ThreadIndex++)
 		{
-			FString Name = FString::Printf(TEXT("TaskGraphThread %d"), ThreadIndex - (LastExternalThread + 1));
+			FString Name;
+			int32 Priority = ThreadIndexToPriorityIndex(ThreadIndex);
+			EThreadPriority ThreadPri;
+			if (Priority == 1)
+			{
+				Name = FString::Printf(TEXT("TaskGraphThreadHP %d"), ThreadIndex - (LastExternalThread + 1));
+				ThreadPri = TPri_SlightlyBelowNormal; // we want even hi priority tasks below the normal threads
+			}
+			else if (Priority == 2)
+			{
+				Name = FString::Printf(TEXT("TaskGraphThreadBP %d"), ThreadIndex - (LastExternalThread + 1));
+				ThreadPri = TPri_Lowest;
+			}
+			else
+			{
+				Name = FString::Printf(TEXT("TaskGraphThreadNP %d"), ThreadIndex - (LastExternalThread + 1));
+				ThreadPri = TPri_BelowNormal; // we want normal tasks below normal threads like the game thread
+			}
 			uint32 StackSize = 256 * 1024;
-			WorkerThreads[ThreadIndex].RunnableThread = FRunnableThread::Create(&Thread(ThreadIndex), *Name, StackSize, TPri_BelowNormal, FPlatformAffinity::GetTaskGraphThreadMask()); // these are below normal threads? so that they sleep when the named threads are active
+			WorkerThreads[ThreadIndex].RunnableThread = FRunnableThread::Create(&Thread(ThreadIndex), *Name, StackSize, ThreadPri, FPlatformAffinity::GetTaskGraphThreadMask()); // these are below normal threads so that they sleep when the named threads are active
 			WorkerThreads[ThreadIndex].bAttached = true;
 		}
 	}
@@ -1266,6 +1473,11 @@ public:
 	**/
 	virtual ~FTaskGraphImplementation()
 	{
+		for (auto& Callback : ShutdownCallbacks)
+		{
+			Callback();
+		}
+		ShutdownCallbacks.Empty();
 		for (int32 ThreadIndex = 0; ThreadIndex < NumThreads; ThreadIndex++)
 		{
 			Thread(ThreadIndex).RequestQuit(-1);
@@ -1281,9 +1493,12 @@ public:
 			WorkerThreads[ThreadIndex].bAttached = false;
 		}
 		TaskGraphImplementationSingleton = NULL;
-		NextUnnamedThreadMod = 0;
+		NumTaskThreadsPerSet = 0;
 		TArray<FTaskThreadBase*> NotProperlyUnstalled;
-		StalledUnnamedThreads.PopAll(NotProperlyUnstalled);
+		for (int32 PriorityIndex = 0; PriorityIndex < NumTaskThreadSets; PriorityIndex++)
+		{
+			StalledUnnamedThreads[PriorityIndex].PopAll(NotProperlyUnstalled);
+		}
 		FPlatformTLS::FreeTlsSlot(PerThreadIDTLSSlot);
 	}
 
@@ -1300,7 +1515,7 @@ public:
 		TASKGRAPH_SCOPE_CYCLE_COUNTER(2, STAT_TaskGraph_QueueTask);
 
 		TestRandomizedThreads();
-		checkThreadGraph(NextUnnamedThreadMod);
+		checkThreadGraph(NumTaskThreadsPerSet);
 		if (GFastSchedulerLatched != GFastScheduler && IsInGameThread())
 		{
 #if USE_NEW_LOCK_FREE_LISTS
@@ -1310,8 +1525,11 @@ public:
 			{
 				if (GFastScheduler)
 				{
-					AtomicForConsoleApproach = FAtomicStateBitfield();
-					AtomicForConsoleApproach.Stalled = (1 << GetNumWorkerThreads()) - 1; // everyone is stalled
+					for (int32 PriorityIndex = 0; PriorityIndex < NumTaskThreadSets; PriorityIndex++)
+					{
+						AtomicForConsoleApproach[PriorityIndex] = FAtomicStateBitfield();
+						AtomicForConsoleApproach[PriorityIndex].Stalled = (1 << GetNumWorkerThreads()) - 1; // everyone is stalled
+					}
 				}
 				// this is all kinda of sketchy, but runtime switching just has to barely work.
 				FPlatformProcess::Sleep(.1f); // hopefully all task threads are idle
@@ -1324,10 +1542,7 @@ public:
 				}
 				else
 				{
-					for (int32 Index = 0; Index < GetNumWorkerThreads(); Index++)
-					{
-						StartTaskThread(Index);
-					}
+					StartAllTaskThreads(true);
 				}
 			}
 		}
@@ -1337,7 +1552,14 @@ public:
 			GConsoleSpinModeLatched = GConsoleSpinMode;
 			if (bStartTask)
 			{
-				StartTaskThreadFastMode();
+				for (int32 Priority = 0; Priority < ENamedThreads::NumThreadPriorities; Priority++)
+				{
+					if (Priority == (ENamedThreads::NormalThreadPriority >> ENamedThreads::ThreadPriorityShift) ||
+						(Priority == (ENamedThreads::HighThreadPriority >> ENamedThreads::ThreadPriorityShift) && bCreatedHiPriorityThreads))
+					{
+						StartTaskThreadFastMode(Priority, -1);
+					}
+				}
 			}
 		}
 
@@ -1346,22 +1568,37 @@ public:
 			TASKGRAPH_SCOPE_CYCLE_COUNTER(3, STAT_TaskGraph_QueueTask_AnyThread);
 			if (FPlatformProcess::SupportsMultithreading())
 			{
+				int32 TaskPriority = ENamedThreads::GetTaskPriority(Task->ThreadToExecuteOn);
+				int32 Priority = ENamedThreads::GetThreadPriorityIndex(Task->ThreadToExecuteOn);
+				if (Priority == (ENamedThreads::BackgroundThreadPriority >> ENamedThreads::ThreadPriorityShift) && (!bCreatedBackgroundPriorityThreads || !ENamedThreads::bHasBackgroundThreads))
+				{
+					Priority = ENamedThreads::NormalThreadPriority >> ENamedThreads::ThreadPriorityShift; // we don't have background threads, promote to normal
+					TaskPriority = ENamedThreads::NormalTaskPriority >> ENamedThreads::TaskPriorityShift; // demote to normal task pri
+				}
+				else if (Priority == (ENamedThreads::HighThreadPriority >> ENamedThreads::ThreadPriorityShift) && (!bCreatedHiPriorityThreads || !ENamedThreads::bHasHighPriorityThreads))
+				{
+					Priority = ENamedThreads::NormalThreadPriority >> ENamedThreads::ThreadPriorityShift; // we don't have hi priority threads, demote to normal
+					TaskPriority = ENamedThreads::HighTaskPriority >> ENamedThreads::TaskPriorityShift; // promote to hi task pri
+				}
+				check(Priority >= 0 && Priority < MAX_THREAD_PRIORITIES);
+
 				{
 					TASKGRAPH_SCOPE_CYCLE_COUNTER(4, STAT_TaskGraph_QueueTask_IncomingAnyThreadTasks_Push);
-					if (ENamedThreads::GetPriority(Task->ThreadToExecuteOn))
+					if (TaskPriority)
 					{
-						IncomingAnyThreadTasksHiPri.Push(Task);
+						IncomingAnyThreadTasksHiPri[Priority].Push(Task);
 					}
 					else
 					{
-						IncomingAnyThreadTasks.Push(Task);
+						IncomingAnyThreadTasks[Priority].Push(Task);
 					}
 				}
 				if (GFastSchedulerLatched)
 				{
-					if (!GConsoleSpinModeLatched)
+					if (!GConsoleSpinModeLatched || 
+						Priority == (ENamedThreads::BackgroundThreadPriority >> ENamedThreads::ThreadPriorityShift)) // background never spins
 					{
-						StartTaskThreadFastMode();
+						StartTaskThreadFastMode(Priority, -1);
 					}
 				}
 				else
@@ -1379,8 +1616,8 @@ public:
 					FTaskThreadBase* TempTarget;
 					{
 						TASKGRAPH_SCOPE_CYCLE_COUNTER(5, STAT_TaskGraph_QueueTask_StalledUnnamedThreads_Pop);
-						TempTarget = StalledUnnamedThreads.Pop(); //@todo it is possible that a thread is in the process of stalling and we just missed it, non-fatal, but we could lose a whole task of potential parallelism.
-						if (TempTarget && GNumWorkerThreadsToIgnore && (TempTarget->GetThreadId() - NumNamedThreads) >= GetNumWorkerThreads())
+						TempTarget = StalledUnnamedThreads[Priority].Pop(); //@todo it is possible that a thread is in the process of stalling and we just missed it, non-fatal, but we could lose a whole task of potential parallelism.
+						if (TempTarget && GNumWorkerThreadsToIgnore && (TempTarget->GetThreadId() - NumNamedThreads) % NumTaskThreadsPerSet >= GetNumWorkerThreads())
 						{
 							TempTarget = nullptr;
 						}
@@ -1391,11 +1628,12 @@ public:
 					}
 					else
 					{
-						check(NextUnnamedThreadMod - GNumWorkerThreadsToIgnore > 0); // can't tune it to zero task threads
-						ThreadToExecuteOn = ENamedThreads::Type((uint32(NextUnnamedThreadForTaskFromUnknownThread.Increment()) % uint32(NextUnnamedThreadMod - GNumWorkerThreadsToIgnore)) + NumNamedThreads);
+						check(NumTaskThreadsPerSet - GNumWorkerThreadsToIgnore > 0); // can't tune it to zero task threads
+						ThreadToExecuteOn = ENamedThreads::Type(
+							(uint32(NextUnnamedThreadForTaskFromUnknownThread[Priority].Increment()) % uint32(NumTaskThreadsPerSet - GNumWorkerThreadsToIgnore)) + Priority * NumTaskThreadsPerSet + NumNamedThreads);
 					}
 					FTaskThreadBase* Target = &Thread(ThreadToExecuteOn);
-					if (ThreadToExecuteOn != CurrentThreadIfKnown)
+					if (ENamedThreads::GetThreadIndex(ThreadToExecuteOn) != ENamedThreads::GetThreadIndex(CurrentThreadIfKnown))
 					{
 						Target->WakeUp();
 					}
@@ -1415,13 +1653,13 @@ public:
 		else
 		{
 			CurrentThreadIfKnown = ENamedThreads::GetThreadIndex(InCurrentThreadIfKnown);
-			checkThreadGraph(CurrentThreadIfKnown == GetCurrentThread());
+			checkThreadGraph(CurrentThreadIfKnown == ENamedThreads::GetThreadIndex(GetCurrentThread()));
 		}
 		{
 			int32 QueueToExecuteOn = ENamedThreads::GetQueueIndex(ThreadToExecuteOn);
 			ThreadToExecuteOn = ENamedThreads::GetThreadIndex(ThreadToExecuteOn);
 			FTaskThreadBase* Target = &Thread(ThreadToExecuteOn);
-			if (ThreadToExecuteOn == CurrentThreadIfKnown)
+			if (ThreadToExecuteOn == ENamedThreads::GetThreadIndex(CurrentThreadIfKnown))
 			{
 				Target->EnqueueFromThisThread(QueueToExecuteOn, Task);
 			}
@@ -1435,7 +1673,7 @@ public:
 
 	virtual	int32 GetNumWorkerThreads() final override
 	{
-		int32 Result = NumThreads - NumNamedThreads - GNumWorkerThreadsToIgnore;
+		int32 Result = (NumThreads - NumNamedThreads) / NumTaskThreadSets - GNumWorkerThreadsToIgnore;
 		check(Result > 0); // can't tune it to zero task threads
 		return Result;
 	}
@@ -1443,7 +1681,7 @@ public:
 	virtual ENamedThreads::Type GetCurrentThreadIfKnown(bool bLocalQueue) final override
 	{
 		ENamedThreads::Type Result = GetCurrentThread();
-		if (bLocalQueue && Result >= 0 && Result < NumNamedThreads)
+		if (bLocalQueue && ENamedThreads::GetThreadIndex(Result) >= 0 && ENamedThreads::GetThreadIndex(Result) < NumNamedThreads)
 		{
 			Result = ENamedThreads::Type(int32(Result) | int32(ENamedThreads::LocalQueue));
 		}
@@ -1463,7 +1701,7 @@ public:
 	virtual void AttachToThread(ENamedThreads::Type CurrentThread) final override
 	{
 		CurrentThread = ENamedThreads::GetThreadIndex(CurrentThread);
-		check(NextUnnamedThreadMod);
+		check(NumTaskThreadsPerSet);
 		check(CurrentThread >= 0 && CurrentThread < NumNamedThreads);
 		check(!WorkerThreads[CurrentThread].bAttached);
 		Thread(CurrentThread).InitializeForCurrentThread();
@@ -1500,20 +1738,23 @@ public:
 		ENamedThreads::Type CurrentThread = CurrentThreadIfKnown;
 		if (ENamedThreads::GetThreadIndex(CurrentThreadIfKnown) == ENamedThreads::AnyThread)
 		{
-			bool bIsHiPri = !!ENamedThreads::GetPriority(CurrentThreadIfKnown);
+			bool bIsHiPri = !!ENamedThreads::GetTaskPriority(CurrentThreadIfKnown);
+			int32 Priority = ENamedThreads::GetThreadPriorityIndex(CurrentThreadIfKnown);
 			check(!ENamedThreads::GetQueueIndex(CurrentThreadIfKnown));
-			CurrentThreadIfKnown = GetCurrentThread();
-			CurrentThread = bIsHiPri ? ENamedThreads::HiPri(CurrentThreadIfKnown) : CurrentThreadIfKnown;
+			CurrentThreadIfKnown = ENamedThreads::GetThreadIndex(GetCurrentThread());
+			CurrentThread = ENamedThreads::SetPriorities(CurrentThreadIfKnown, Priority, bIsHiPri);
 		}
 		else
 		{
 			CurrentThreadIfKnown = ENamedThreads::GetThreadIndex(CurrentThreadIfKnown);
-			check(CurrentThreadIfKnown == GetCurrentThread());
+			check(CurrentThreadIfKnown == ENamedThreads::GetThreadIndex(GetCurrentThread()));
 			// we don't modify CurrentThread here because it might be a local queue
 		}
 
 		if (CurrentThreadIfKnown != ENamedThreads::AnyThread && CurrentThreadIfKnown < NumNamedThreads && !IsThreadProcessingTasks(CurrentThread))
 		{
+			if (Tasks.Num() > 8) // don't bother to check for completion if there are lots of prereqs...too expensive to check
+			{
 			bool bAnyPending = false;
 			for (int32 Index = 0; Index < Tasks.Num(); Index++)
 			{
@@ -1526,6 +1767,7 @@ public:
 			if (!bAnyPending)
 			{
 				return;
+			}
 			}
 			// named thread process tasks while we wait
 			TGraphTask<FReturnGraphTask>::CreateTask(&Tasks, CurrentThread).ConstructAndDispatchWhenReady(CurrentThread);
@@ -1542,13 +1784,17 @@ public:
 	virtual void TriggerEventWhenTasksComplete(FEvent* InEvent, const FGraphEventArray& Tasks, ENamedThreads::Type CurrentThreadIfKnown = ENamedThreads::AnyThread) final override
 	{
 		check(InEvent);
-		bool bAnyPending = false;
-		for (int32 Index = 0; Index < Tasks.Num(); Index++)
+		bool bAnyPending = true;
+		if (Tasks.Num() > 8) // don't bother to check for completion if there are lots of prereqs...too expensive to check
 		{
-			if (!Tasks[Index]->IsComplete())
+			bAnyPending = false;
+			for (int32 Index = 0; Index < Tasks.Num(); Index++)
 			{
-				bAnyPending = true;
-				break;
+				if (!Tasks[Index]->IsComplete())
+				{
+					bAnyPending = true;
+					break;
+				}
 			}
 		}
 		if (!bAnyPending)
@@ -1560,46 +1806,91 @@ public:
 		TGraphTask<FTriggerEventGraphTask>::CreateTask(&Tasks, CurrentThreadIfKnown).ConstructAndDispatchWhenReady(InEvent);
 	}
 
+	virtual void AddShutdownCallback(TFunction<void()>& Callback)
+	{
+		ShutdownCallbacks.Emplace(Callback);
+	}
+
+
 	// Scheduling utilities
 
-	void StartTaskThread(int32 IndexToStart)
+	void StartTaskThread(int32 Priority, int32 IndexToStart)
 	{
-		ENamedThreads::Type ThreadToWake = ENamedThreads::Type(IndexToStart + NumNamedThreads);
+		ENamedThreads::Type ThreadToWake = ENamedThreads::Type(IndexToStart + Priority * NumTaskThreadsPerSet + NumNamedThreads);
 		((FTaskThreadAnyThread&)Thread(ThreadToWake)).FTaskThreadAnyThread::WakeUp();
 	}
-
-	bool StartTaskThreadFastMode(int32 MyIndex = -1)
+	void StartAllTaskThreads(bool bDoBackgroundThreads)
 	{
-		while (true)
+		for (int32 Index = 0; Index < GetNumWorkerThreads(); Index++)
 		{
-			TestRandomizedThreads();
-			FAtomicStateBitfield LocalAtomicForConsoleApproachInner = AtomicForConsoleApproach;
-			check(MyIndex < 0 || !(LocalAtomicForConsoleApproachInner.Stalled & (1 << MyIndex))); // if I was stalled, I would not be here
-
-			if (!LocalAtomicForConsoleApproachInner.Stalled)
+			for (int32 Priority = 0; Priority < ENamedThreads::NumThreadPriorities; Priority++)
 			{
-				break;
-			}
-
-			uint32 IndexToStart =  31 - FMath::CountLeadingZeros((uint32)LocalAtomicForConsoleApproachInner.Stalled);
-			check(IndexToStart != MyIndex);
-			check(((uint32)LocalAtomicForConsoleApproachInner.Stalled) & (1 << IndexToStart));
-
-			FAtomicStateBitfield NewAtomicForConsoleApproachInner = LocalAtomicForConsoleApproachInner;
-			NewAtomicForConsoleApproachInner.Stalled = LocalAtomicForConsoleApproachInner.Stalled & ~(1 << IndexToStart);
-			check(!(((uint32)NewAtomicForConsoleApproachInner.Stalled) & (1 << IndexToStart)));
-			check(LocalAtomicForConsoleApproachInner != NewAtomicForConsoleApproachInner);
-			if (FAtomicStateBitfield::InterlockedCompareExchange(&AtomicForConsoleApproach, NewAtomicForConsoleApproachInner, LocalAtomicForConsoleApproachInner) == LocalAtomicForConsoleApproachInner)
-			{
-				TestRandomizedThreads();
-				StartTaskThread(IndexToStart);
-				return true;
+				if (Priority == (ENamedThreads::NormalThreadPriority >> ENamedThreads::ThreadPriorityShift) ||
+					(Priority == (ENamedThreads::HighThreadPriority >> ENamedThreads::ThreadPriorityShift) && bCreatedHiPriorityThreads) ||
+					(Priority == (ENamedThreads::BackgroundThreadPriority >> ENamedThreads::ThreadPriorityShift) && bCreatedBackgroundPriorityThreads && bDoBackgroundThreads)
+					)
+				{
+					StartTaskThread(Priority, Index);
+				}
 			}
 		}
-		return false;
 	}
 
-	FORCEINLINE void SetWorking(uint32 MyIndex, int32 LocalNumWorkingThread)
+	void StartTaskThreadFastMode(int32 Priority, int32 MyIndex)
+	{
+		check(Priority >= 0 && Priority < MAX_THREAD_PRIORITIES);
+		int32 LocalNumWorkingThread = GetNumWorkerThreads();
+		while (true)
+		{
+			FAtomicStateBitfield LocalAtomicForConsoleApproachInner = AtomicForConsoleApproach[Priority];
+			TestRandomizedThreads();
+			check(MyIndex < 0 || !(LocalAtomicForConsoleApproachInner.Stalled & (1 << MyIndex))); // if I was stalled, I would not be here
+			int32 NumStalled = LocalAtomicForConsoleApproachInner.NumberOfStalledThreads();
+			int32 NumSpinning = LocalNumWorkingThread - NumStalled - LocalAtomicForConsoleApproachInner.NumberOfWorkingThreads();
+
+			if (NumStalled)
+			{
+				uint32 IndexToStart = 31 - FMath::CountLeadingZeros((uint32)LocalAtomicForConsoleApproachInner.Stalled);
+				check(IndexToStart != MyIndex);
+				check(((uint32)LocalAtomicForConsoleApproachInner.Stalled) & (1 << IndexToStart));
+
+				FAtomicStateBitfield NewAtomicForConsoleApproachInner = LocalAtomicForConsoleApproachInner;
+				NewAtomicForConsoleApproachInner.Stalled = LocalAtomicForConsoleApproachInner.Stalled & ~(1 << IndexToStart);
+				check(!(((uint32)NewAtomicForConsoleApproachInner.Stalled) & (1 << IndexToStart)));
+				check(LocalAtomicForConsoleApproachInner != NewAtomicForConsoleApproachInner);
+				if (FAtomicStateBitfield::InterlockedCompareExchange(&AtomicForConsoleApproach[Priority], NewAtomicForConsoleApproachInner, LocalAtomicForConsoleApproachInner) == LocalAtomicForConsoleApproachInner)
+				{
+					TestRandomizedThreads();
+					StartTaskThread(Priority, IndexToStart);
+					return;
+				}
+			}
+			else if (NumSpinning)
+			{
+				uint32 IndexToPreventStall = 31 - FMath::CountLeadingZeros(uint32((1 << FAtomicStateBitfield_MAX_THREADS) - 1) ^ uint32(LocalAtomicForConsoleApproachInner.Working | LocalAtomicForConsoleApproachInner.Stalled));
+				check(IndexToPreventStall != MyIndex);
+				check(!(((uint32)LocalAtomicForConsoleApproachInner.Working) & (1 << IndexToPreventStall)));
+				check(!(((uint32)LocalAtomicForConsoleApproachInner.Stalled) & (1 << IndexToPreventStall)));
+
+				FAtomicStateBitfield NewAtomicForConsoleApproachInner = LocalAtomicForConsoleApproachInner;
+				NewAtomicForConsoleApproachInner.Working = LocalAtomicForConsoleApproachInner.Working | (1 << IndexToPreventStall);
+				check((((uint32)NewAtomicForConsoleApproachInner.Working) & (1 << IndexToPreventStall)));
+				check(LocalAtomicForConsoleApproachInner != NewAtomicForConsoleApproachInner);
+				if (FAtomicStateBitfield::InterlockedCompareExchange(&AtomicForConsoleApproach[Priority], NewAtomicForConsoleApproachInner, LocalAtomicForConsoleApproachInner) == LocalAtomicForConsoleApproachInner)
+				{
+					// by changing it to working, it will be unable to stall without rechecking the queues
+					return;
+				}
+			}
+			else
+			{
+				return;
+			}
+		}
+		return;
+	}
+
+	FORCEINLINE void SetWorking(int32 Priority, uint32 MyIndex, int32 LocalNumWorkingThread)
 	{
 		if (!GConsoleSpinModeLatched)
 		{
@@ -1608,22 +1899,18 @@ public:
 		}
 		while (true)
 		{
+			FAtomicStateBitfield LocalAtomicForConsoleApproachInner = AtomicForConsoleApproach[Priority];
 			TestRandomizedThreads();
-			FPlatformMisc::MemoryBarrier();
-			FAtomicStateBitfield LocalAtomicForConsoleApproachInner = AtomicForConsoleApproach;
 			check(!(LocalAtomicForConsoleApproachInner.Stalled & (1 << MyIndex))); // if I was stalled, I would not be here
-			bool CurrentlyWorking = !!((LocalAtomicForConsoleApproachInner.Working) & (1 << MyIndex));
-			if (CurrentlyWorking)
-			{
-				break;
-			}
+			check(!((LocalAtomicForConsoleApproachInner.Working) & (1 << MyIndex))); // I am already marked working
 
 			FAtomicStateBitfield NewAtomicForConsoleApproachInner = LocalAtomicForConsoleApproachInner;
 			NewAtomicForConsoleApproachInner.Working = LocalAtomicForConsoleApproachInner.Working | (1 << MyIndex);
 			int32 NumStalled = LocalAtomicForConsoleApproachInner.NumberOfStalledThreads();
+			int32 NumSpinning = LocalNumWorkingThread - NumStalled - NewAtomicForConsoleApproachInner.NumberOfWorkingThreads();
 
 			// we are going to do work, so if everyone else is either working or stalled, we need to start a thread
-			if (NumStalled && LocalAtomicForConsoleApproachInner.NumberOfStalledThreads() + LocalAtomicForConsoleApproachInner.NumberOfWorkingThreads() + 1 == LocalNumWorkingThread)
+			if (NumStalled && !NumSpinning)
 			{
 				// start one while we flip ourselves to working.
 				check(LocalAtomicForConsoleApproachInner.Stalled);
@@ -1635,15 +1922,15 @@ public:
 				NewAtomicForConsoleApproachInner.Stalled = LocalAtomicForConsoleApproachInner.Stalled & ~(1 << IndexToStart);
 
 				check(LocalAtomicForConsoleApproachInner != NewAtomicForConsoleApproachInner);
-				if (FAtomicStateBitfield::InterlockedCompareExchange(&AtomicForConsoleApproach, NewAtomicForConsoleApproachInner, LocalAtomicForConsoleApproachInner) == LocalAtomicForConsoleApproachInner)
+				if (FAtomicStateBitfield::InterlockedCompareExchange(&AtomicForConsoleApproach[Priority], NewAtomicForConsoleApproachInner, LocalAtomicForConsoleApproachInner) == LocalAtomicForConsoleApproachInner)
 				{
 					TestRandomizedThreads();
-					StartTaskThread(IndexToStart);
+					StartTaskThread(Priority, IndexToStart);
 					// if we have another stalled thread and it looks like there are more tasks, then start an extra thread to get fan-out on the thread starts
 #if USE_NEW_LOCK_FREE_LISTS
-					if (GMaxTasksToStartOnDequeue > 1 && NumStalled > 1 && (!IncomingAnyThreadTasks.IsEmptyFast() || !IncomingAnyThreadTasksHiPri.IsEmptyFast()))
+					if (GMaxTasksToStartOnDequeue > 1 && NumStalled > 1 && (!IncomingAnyThreadTasks[Priority].IsEmptyFast() || !IncomingAnyThreadTasksHiPri[Priority].IsEmptyFast()))
 					{
-						StartTaskThreadFastMode(MyIndex);
+						StartTaskThreadFastMode(Priority, MyIndex);
 					}
 #endif
 					return;
@@ -1653,7 +1940,7 @@ public:
 			{
 				// we don't need to wake anyone either because there are other unstalled idle threads or everyone is busy
 				check(LocalAtomicForConsoleApproachInner != NewAtomicForConsoleApproachInner);
-				if (FAtomicStateBitfield::InterlockedCompareExchange(&AtomicForConsoleApproach, NewAtomicForConsoleApproachInner, LocalAtomicForConsoleApproachInner) == LocalAtomicForConsoleApproachInner)
+				if (FAtomicStateBitfield::InterlockedCompareExchange(&AtomicForConsoleApproach[Priority], NewAtomicForConsoleApproachInner, LocalAtomicForConsoleApproachInner) == LocalAtomicForConsoleApproachInner)
 				{
 					TestRandomizedThreads();
 					return;
@@ -1665,255 +1952,124 @@ public:
 	FBaseGraphTask* FindWork(ENamedThreads::Type ThreadInNeed)
 	{
 		int32 LocalNumWorkingThread = GetNumWorkerThreads();
-		uint32 MyIndex = uint32(ThreadInNeed) - NumNamedThreads;
+		uint32 MyIndex = (uint32(ThreadInNeed) - NumNamedThreads) % NumTaskThreadsPerSet;
+		int32 Priority = (uint32(ThreadInNeed) - NumNamedThreads) / NumTaskThreadsPerSet;
 		check(MyIndex >= 0 && (int32)MyIndex < LocalNumWorkingThread && 
 			LocalNumWorkingThread <= FAtomicStateBitfield_MAX_THREADS); // this is an atomic on 32 bits currently; we use two fields
+		check(Priority >= 0 && Priority < ENamedThreads::NumThreadPriorities); 
+		bool bDoSpinMode = !!GConsoleSpinModeLatched && Priority != (ENamedThreads::BackgroundThreadPriority >> ENamedThreads::ThreadPriorityShift);
 		while (true)
 		{
 			if (!GFastSchedulerLatched)
 			{
 				return nullptr;
 			}
-			bool bOkWithFalseEmpties = !!GConsoleSpinModeLatched;
+			FAtomicStateBitfield LocalAtomicForConsoleApproachInner = AtomicForConsoleApproach[Priority];
+			TestRandomizedThreads();
+			check(!(LocalAtomicForConsoleApproachInner.Stalled & (1 << MyIndex))); // if I was stalled, I would not be here
+			bool CurrentlyWorking = !!((LocalAtomicForConsoleApproachInner.Working) & (1 << MyIndex));
+
 			{
-				FBaseGraphTask* Task = IncomingAnyThreadTasksHiPri.Pop(bOkWithFalseEmpties);
+				FBaseGraphTask* Task = IncomingAnyThreadTasksHiPri[Priority].Pop(CurrentlyWorking); // if we are marked working, this is still preliminary so we do a faster pop
 				if (!Task)
 				{
-					Task = IncomingAnyThreadTasks.Pop(bOkWithFalseEmpties);
+					Task = IncomingAnyThreadTasks[Priority].Pop(CurrentlyWorking); // if we are marked working, this is still preliminary so we do a faster pop
 				}
 				if (Task)
 				{
-					SetWorking(MyIndex, LocalNumWorkingThread);
+					if (!CurrentlyWorking)
+					{
+						SetWorking(Priority, MyIndex, LocalNumWorkingThread);
+					}
 					return Task;
 				}
 			}
 
 			TestRandomizedThreads();
-			FPlatformMisc::MemoryBarrier();
-			FAtomicStateBitfield LocalAtomicForConsoleApproachInner = AtomicForConsoleApproach;
-			check(!(LocalAtomicForConsoleApproachInner.Stalled & (1 << MyIndex))); // if I was stalled, I would not be here
 
-
-			FAtomicStateBitfield NewAtomicForConsoleApproachInner = LocalAtomicForConsoleApproachInner;
-			bool CurrentlyWorking = !!((LocalAtomicForConsoleApproachInner.Working) & (1 << MyIndex));
-			NewAtomicForConsoleApproachInner.Working = NewAtomicForConsoleApproachInner.Working & ~(1 << MyIndex);
-			int32 NumWorking = LocalAtomicForConsoleApproachInner.NumberOfWorkingThreads() - !!CurrentlyWorking;
-			bool bAttemptStall = (!GConsoleSpinModeLatched || LocalAtomicForConsoleApproachInner.NumberOfStalledThreads() + NumWorking < LocalNumWorkingThread - 1);
-			if (bAttemptStall)
+			if (CurrentlyWorking)
 			{
-				NewAtomicForConsoleApproachInner.Stalled = LocalAtomicForConsoleApproachInner.Stalled | (1 << MyIndex);
-				check((((uint32)NewAtomicForConsoleApproachInner.Stalled) & (1 << MyIndex)));
+				FAtomicStateBitfield NewAtomicForConsoleApproachInner = LocalAtomicForConsoleApproachInner;
+				NewAtomicForConsoleApproachInner.Working = NewAtomicForConsoleApproachInner.Working & ~(1 << MyIndex);
 
-				// if we are going to attempt to stall, we better be sure there really are not tasks...unless we are already sure
-				if (bOkWithFalseEmpties)
+				check(LocalAtomicForConsoleApproachInner != NewAtomicForConsoleApproachInner);
+				FAtomicStateBitfield::InterlockedCompareExchange(&AtomicForConsoleApproach[Priority], NewAtomicForConsoleApproachInner, LocalAtomicForConsoleApproachInner);
+			}
+			else
+			{
+				int32 NumSpinning = LocalNumWorkingThread  - LocalAtomicForConsoleApproachInner.NumberOfStalledThreads() - LocalAtomicForConsoleApproachInner.NumberOfWorkingThreads();
+				bool bAttemptStall = (!bDoSpinMode || NumSpinning > 1);
+				if (bAttemptStall)
 				{
-					FBaseGraphTask* Task = IncomingAnyThreadTasksHiPri.Pop();
+					FBaseGraphTask* Task = IncomingAnyThreadTasksHiPri[Priority].Pop();
 					if (!Task)
 					{
-						Task = IncomingAnyThreadTasks.Pop();
+						Task = IncomingAnyThreadTasks[Priority].Pop();
 					}
 					if (Task)
 					{
-						SetWorking(MyIndex, LocalNumWorkingThread);
+						SetWorking(Priority, MyIndex, LocalNumWorkingThread);
 						return Task;
 					}
-				}
-			}
-			if (bAttemptStall || CurrentlyWorking) // otherwise we have no reason to change the state
-			{
-				check(LocalAtomicForConsoleApproachInner != NewAtomicForConsoleApproachInner);
-				if (FAtomicStateBitfield::InterlockedCompareExchange(&AtomicForConsoleApproach, NewAtomicForConsoleApproachInner, LocalAtomicForConsoleApproachInner) == LocalAtomicForConsoleApproachInner)
-				{
-					if (bAttemptStall)
+					FAtomicStateBitfield NewAtomicForConsoleApproachInner = LocalAtomicForConsoleApproachInner;
+					NewAtomicForConsoleApproachInner.Stalled = LocalAtomicForConsoleApproachInner.Stalled | (1 << MyIndex);
+					check((((uint32)NewAtomicForConsoleApproachInner.Stalled) & (1 << MyIndex)));
+
+					check(LocalAtomicForConsoleApproachInner != NewAtomicForConsoleApproachInner);
+					if (FAtomicStateBitfield::InterlockedCompareExchange(&AtomicForConsoleApproach[Priority], NewAtomicForConsoleApproachInner, LocalAtomicForConsoleApproachInner) == LocalAtomicForConsoleApproachInner)
 					{
 						TestRandomizedThreads();
 						return nullptr; // we did stall
 					}
+
 				}
-			}
-			else if (GConsoleSpinModeLatched == 2)
-			{
-				FPlatformProcess::SleepNoStats(0.0f);
+				else if (GConsoleSpinModeLatched == 2)
+				{
+					FPlatformProcess::SleepNoStats(0.0f);
+				}
 			}
 		}
 	}
 #else
-	FBaseGraphTask* FindWorkConsole(ENamedThreads::Type ThreadInNeed)
-	{
-		int32 LocalNumWorkingThread = GetNumWorkerThreads();
-		uint32 MyIndex = uint32(ThreadInNeed) - NumNamedThreads;
-		check(MyIndex >= 0 && (int32)MyIndex < LocalNumWorkingThread && 
-			LocalNumWorkingThread <= FAtomicStateBitfield_MAX_THREADS); // this is an atomic on 32 bits currently; we use two fields
-		while (true)
-		{
-			if (!GFastSchedulerLatched)
-			{
-				return nullptr;
-			}
-			{
-				FBaseGraphTask* Task = SortedAnyThreadTasksHiPri.Pop();
-				if (Task)
-				{
-					SetWorking(MyIndex, LocalNumWorkingThread);
-					return Task;
-				}
-			}
-			TestRandomizedThreads();
-			FPlatformMisc::MemoryBarrier();
-			FAtomicStateBitfield LocalAtomicForConsoleApproach = AtomicForConsoleApproach;
-			check(!(LocalAtomicForConsoleApproach.Stalled & (1 << MyIndex))); // if I was stalled, I would not be here
-			if (!LocalAtomicForConsoleApproach.QueueOwned)
-			{
-				if (IncomingAnyThreadTasksHiPri.IsEmpty())
-				{
-					FBaseGraphTask* Task = SortedAnyThreadTasks.Pop();
-					if (Task)
-					{
-						SetWorking(MyIndex, LocalNumWorkingThread);
-						return Task;
-					}
-				}
-				FAtomicStateBitfield NewAtomicForConsoleApproach = LocalAtomicForConsoleApproach;
-				// Queue is unowned, lets grab it and try to empty them
-				NewAtomicForConsoleApproach.QueueOwned = 1;
-				NewAtomicForConsoleApproach.QueueOwnerIndex = MyIndex;
-				NewAtomicForConsoleApproach.Working = LocalAtomicForConsoleApproach.Working & ~(1 << MyIndex);
-
-				check(LocalAtomicForConsoleApproach != NewAtomicForConsoleApproach);
-
-				if (FAtomicStateBitfield::InterlockedCompareExchange(&AtomicForConsoleApproach, NewAtomicForConsoleApproach, LocalAtomicForConsoleApproach) == LocalAtomicForConsoleApproach)
-				{
-					TestRandomizedThreads();
-					// we win
-					// dequeue any pending things
-					static TArray<FBaseGraphTask*> NewTasks;
-					int32 TotalTasks = 0;
-					bool bWeWereBeat = false;
-					if (SortedAnyThreadTasksHiPri.IsEmpty()) // otherwise someone beat us to it, so we need to drain the queue first
-					{
-						NewTasks.Reset();
-						IncomingAnyThreadTasksHiPri.PopAll(NewTasks);
-						if (NewTasks.Num())
-						{
-							TotalTasks += NewTasks.Num();
-							TLockFreePointerListLIFO<FBaseGraphTask> TempSortedAnyThreadTasks;
-							for (int32 Index = 0 ; Index < NewTasks.Num(); Index++) // we are going to take the last one for ourselves
-							{
-								TempSortedAnyThreadTasks.Push(NewTasks[Index]);
-							}
-							verify(SortedAnyThreadTasksHiPri.ReplaceListIfEmpty(TempSortedAnyThreadTasks));
-						}
-					}
-					else
-					{
-						bWeWereBeat = true;
-					}
-					if (SortedAnyThreadTasks.IsEmpty()) // otherwise someone beat us to it, so we need to drain the queue first
-					{
-						NewTasks.Reset();
-						IncomingAnyThreadTasks.PopAll(NewTasks);
-						if (NewTasks.Num())
-						{
-							TotalTasks += NewTasks.Num();
-							TLockFreePointerListLIFO<FBaseGraphTask> TempSortedAnyThreadTasks;
-							for (int32 Index = 0 ; Index < NewTasks.Num(); Index++) // we are going to take the last one for ourselves
-							{
-								TempSortedAnyThreadTasks.Push(NewTasks[Index]);
-							}
-							verify(SortedAnyThreadTasks.ReplaceListIfEmpty(TempSortedAnyThreadTasks));
-						}
-					}
-					else
-					{
-						bWeWereBeat = true;
-					}
-					// release the ownership
-					while (true)
-					{
-						TestRandomizedThreads();
-						FAtomicStateBitfield LocalAtomicForConsoleApproachInner = AtomicForConsoleApproach;
-						check(!(LocalAtomicForConsoleApproachInner.Stalled & (1 << MyIndex))); // if I was stalled, I would not be here
-						check(!GConsoleSpinModeLatched || !(LocalAtomicForConsoleApproachInner.Working & (1 << MyIndex))); // if I was working, I would not be here
-
-
-						FAtomicStateBitfield NewAtomicForConsoleApproachInner = LocalAtomicForConsoleApproachInner;
-						check(LocalAtomicForConsoleApproachInner.QueueOwned && LocalAtomicForConsoleApproachInner.QueueOwnerIndex == MyIndex);
-						NewAtomicForConsoleApproachInner.QueueOwned = false;
-						NewAtomicForConsoleApproachInner.QueueOwnerIndex = 0;
-						bool bAttemptStall = !TotalTasks && !bWeWereBeat &&
-							(!GConsoleSpinModeLatched || LocalAtomicForConsoleApproachInner.NumberOfStalledThreads() + LocalAtomicForConsoleApproachInner.NumberOfWorkingThreads() < LocalNumWorkingThread - 1);
-						if (bAttemptStall)
-						{
-							NewAtomicForConsoleApproachInner.Stalled = LocalAtomicForConsoleApproachInner.Stalled | (1 << MyIndex);
-							NewAtomicForConsoleApproachInner.Working = LocalAtomicForConsoleApproachInner.Working & ~(1 << MyIndex); // this is redundant in most cases, but might as well track the correct state
-							check((((uint32)NewAtomicForConsoleApproachInner.Stalled) & (1 << MyIndex)));
-						}
-
-						check(LocalAtomicForConsoleApproachInner != NewAtomicForConsoleApproachInner);
-						if (FAtomicStateBitfield::InterlockedCompareExchange(&AtomicForConsoleApproach, NewAtomicForConsoleApproachInner, LocalAtomicForConsoleApproachInner) == LocalAtomicForConsoleApproachInner)
-						{
-							TestRandomizedThreads();
-							if (bAttemptStall)
-							{
-								return nullptr; // we did stall
-							}
-							break;
-						}
-					}
-					if (GConsoleSpinModeLatched)
-					{
-						// -- here because if we actually do one of these tasks, we will start another thread by transitioning into working
-						TotalTasks--;
-						int32 ThreadsToStart = FMath::Min<int32>(FMath::Min<int32>(TotalTasks, GMaxTasksToStartOnDequeue), LocalNumWorkingThread);
-						while (ThreadsToStart > 0)
-						{
-							TestRandomizedThreads();
-							if (!StartTaskThreadFastMode(MyIndex))
-							{
-								break;
-							}
-							ThreadsToStart--;
-						}
-					}
-				}
-			}
-		}
-	}
 	// API used by FWorkerThread's
 
 	/** 
-	 *	Attempt to steal some work from another thread.
 	 *	@param	ThreadInNeed; Id of the thread requesting work.
 	 *	@return Task that was stolen if any was found.
 	**/
 	FBaseGraphTask* FindWork(ENamedThreads::Type ThreadInNeed)
 	{
+		int32 LocalNumWorkingThread = GetNumWorkerThreads();
+		uint32 MyIndex = (uint32(ThreadInNeed) - NumNamedThreads) % NumTaskThreadsPerSet;
+		int32 Priority = (uint32(ThreadInNeed) - NumNamedThreads) / NumTaskThreadsPerSet;
+		check(MyIndex >= 0 && (int32)MyIndex < LocalNumWorkingThread); 
+		check(Priority >= 0 && Priority < ENamedThreads::NumThreadPriorities && 
+			(ENamedThreads::bHasHighPriorityThreads || (Priority << ENamedThreads::ThreadPriorityShift) != ENamedThreads::HighThreadPriority) &&
+			(ENamedThreads::bHasBackgroundThreads || (Priority << ENamedThreads::ThreadPriorityShift) != ENamedThreads::BackgroundThreadPriority)
+			);
 		TestRandomizedThreads();
-		if (GFastSchedulerLatched)
+		check(!GFastSchedulerLatched); // the fast scheduler is no longer supported without the new lock free lists.
 		{
-			return FindWorkConsole(ThreadInNeed);
-		}
-		{
-			FBaseGraphTask* Task = SortedAnyThreadTasksHiPri.Pop();
+			FBaseGraphTask* Task = SortedAnyThreadTasksHiPri[Priority].Pop();
 			if (Task)
 			{
 				return Task;
 			}
 		}
-		if (!IncomingAnyThreadTasksHiPri.IsEmpty())
+		if (!IncomingAnyThreadTasksHiPri[Priority].IsEmpty())
 		{
 			do
 			{
-				FScopeLock ScopeLock(&CriticalSectionForSortingIncomingAnyThreadTasksHiPri);
+				FScopeLock ScopeLock(&CriticalSectionForSortingIncomingAnyThreadTasksHiPri[Priority]);
 				if (GFastSchedulerLatched)
 				{
 					return nullptr;
 				}
-				if (!IncomingAnyThreadTasksHiPri.IsEmpty() && SortedAnyThreadTasksHiPri.IsEmpty())
+				if (!IncomingAnyThreadTasksHiPri[Priority].IsEmpty() && SortedAnyThreadTasksHiPri[Priority].IsEmpty())
 				{
 					static TArray<FBaseGraphTask*> NewTasks;
 					NewTasks.Reset();
-					IncomingAnyThreadTasksHiPri.PopAll(NewTasks);
+					IncomingAnyThreadTasksHiPri[Priority].PopAll(NewTasks);
 					check(NewTasks.Num());
 
 					if (NewTasks.Num() > 1)
@@ -1923,21 +2079,21 @@ public:
 						{
 							TempSortedAnyThreadTasks.Push(NewTasks[Index]);
 						}
-						verify(SortedAnyThreadTasksHiPri.ReplaceListIfEmpty(TempSortedAnyThreadTasks));
+						verify(SortedAnyThreadTasksHiPri[Priority].ReplaceListIfEmpty(TempSortedAnyThreadTasks));
 					}
 					return NewTasks[NewTasks.Num() - 1];
 				}
 				{
-					FBaseGraphTask* Task = SortedAnyThreadTasksHiPri.Pop();
+					FBaseGraphTask* Task = SortedAnyThreadTasksHiPri[Priority].Pop();
 					if (Task)
 					{
 						return Task;
 					}
 				}
-			} while (!IncomingAnyThreadTasksHiPri.IsEmpty() || !SortedAnyThreadTasksHiPri.IsEmpty());
+			} while (!IncomingAnyThreadTasksHiPri[Priority].IsEmpty() || !SortedAnyThreadTasksHiPri[Priority].IsEmpty());
 		}
 		{
-			FBaseGraphTask* Task = SortedAnyThreadTasks.Pop();
+			FBaseGraphTask* Task = SortedAnyThreadTasks[Priority].Pop();
 			if (Task)
 			{
 				return Task;
@@ -1945,37 +2101,44 @@ public:
 		}
 		do
 		{
-			FScopeLock ScopeLock(&CriticalSectionForSortingIncomingAnyThreadTasks);
+			FScopeLock ScopeLock(&CriticalSectionForSortingIncomingAnyThreadTasks[Priority]);
 			if (GFastSchedulerLatched)
 			{
 				return nullptr;
 			}
-			if (!IncomingAnyThreadTasks.IsEmpty() && SortedAnyThreadTasks.IsEmpty())
+			if (!IncomingAnyThreadTasks[Priority].IsEmpty() && SortedAnyThreadTasks[Priority].IsEmpty())
 			{
-				static TArray<FBaseGraphTask*> NewTasks;
+				struct FPadArray
+				{
+					uint8 Pad1[PLATFORM_CACHE_LINE_SIZE / 2];
+					TArray<FBaseGraphTask*> NewTaskArray;
+					uint8 Pad2[PLATFORM_CACHE_LINE_SIZE / 2];
+				};
+				static FPadArray PrioTasks[MAX_THREAD_PRIORITIES];
+				TArray<FBaseGraphTask*>& NewTasks = PrioTasks[Priority].NewTaskArray;
 				NewTasks.Reset();
-				IncomingAnyThreadTasks.PopAll(NewTasks);
+				IncomingAnyThreadTasks[Priority].PopAll(NewTasks);
 				check(NewTasks.Num());
 
 				if (NewTasks.Num() > 1)
 				{
 					TLockFreePointerListLIFO<FBaseGraphTask> TempSortedAnyThreadTasks;
-					for (int32 Index = 0 ; Index < NewTasks.Num() - 1; Index++) // we are going to take the last one for ourselves
+					for (int32 Index = 0; Index < NewTasks.Num() - 1; Index++) // we are going to take the last one for ourselves
 					{
 						TempSortedAnyThreadTasks.Push(NewTasks[Index]);
 					}
-					verify(SortedAnyThreadTasks.ReplaceListIfEmpty(TempSortedAnyThreadTasks));
+					verify(SortedAnyThreadTasks[Priority].ReplaceListIfEmpty(TempSortedAnyThreadTasks));
 				}
 				return NewTasks[NewTasks.Num() - 1];
 			}
 			{
-				FBaseGraphTask* Task = SortedAnyThreadTasks.Pop();
+				FBaseGraphTask* Task = SortedAnyThreadTasks[Priority].Pop();
 				if (Task)
 				{
 					return Task;
 				}
 			}
-		} while (!IncomingAnyThreadTasks.IsEmpty() || !SortedAnyThreadTasks.IsEmpty());
+		} while (!IncomingAnyThreadTasks[Priority].IsEmpty() || !SortedAnyThreadTasks[Priority].IsEmpty());
 		return nullptr;
 	}
 
@@ -1989,12 +2152,21 @@ public:
 	{
 		if (StallingThread >= NumNamedThreads && !GFastSchedulerLatched)
 		{
-			StalledUnnamedThreads.Push(&Thread(StallingThread));
+			int32 LocalNumWorkingThread = GetNumWorkerThreads();
+			uint32 MyIndex = (uint32(StallingThread) - NumNamedThreads) % NumTaskThreadsPerSet;
+			int32 Priority = (uint32(StallingThread) - NumNamedThreads) / NumTaskThreadsPerSet;
+			check(MyIndex >= 0 && (int32)MyIndex < LocalNumWorkingThread);
+			check(Priority >= 0 && Priority < ENamedThreads::NumThreadPriorities &&
+				(ENamedThreads::bHasHighPriorityThreads || (Priority << ENamedThreads::ThreadPriorityShift) != ENamedThreads::HighThreadPriority) &&
+				(ENamedThreads::bHasBackgroundThreads || (Priority << ENamedThreads::ThreadPriorityShift) != ENamedThreads::BackgroundThreadPriority)
+				);
+			StalledUnnamedThreads[Priority].Push(&Thread(StallingThread));
 		}
 	}
 
 	void SetTaskThreadPriorities(EThreadPriority Pri)
 	{
+		check(NumTaskThreadSets == 1); // otherwise tuning this doesn't make a lot of sense
 		for (int32 ThreadIndex = 0; ThreadIndex < NumThreads; ThreadIndex++)
 		{
 			if (ThreadIndex > LastExternalThread)
@@ -2031,17 +2203,36 @@ private:
 		if (TLSPointer)
 		{
 			checkThreadGraph(TLSPointer - WorkerThreads >= 0 && TLSPointer - WorkerThreads < NumThreads);
-			CurrentThreadIfKnown = ENamedThreads::Type(TLSPointer - WorkerThreads);
-			checkThreadGraph(Thread(CurrentThreadIfKnown).GetThreadId() == CurrentThreadIfKnown);
+			int32 ThreadIndex = TLSPointer - WorkerThreads;
+			checkThreadGraph(Thread(ThreadIndex).GetThreadId() == ThreadIndex);
+			if (ThreadIndex < NumNamedThreads)
+			{
+				CurrentThreadIfKnown = ENamedThreads::Type(ThreadIndex);
+			}
+			else
+			{
+				int32 Priority = (ThreadIndex - NumNamedThreads) / NumTaskThreadsPerSet;
+				CurrentThreadIfKnown = ENamedThreads::SetPriorities(ENamedThreads::Type(ThreadIndex), Priority, false);
+			}
 		}
 		return CurrentThreadIfKnown;
 	}
+
+	int32 ThreadIndexToPriorityIndex(int32 ThreadIndex)
+	{
+		check(ThreadIndex >= NumNamedThreads && ThreadIndex < NumThreads);
+		int32 Result = (ThreadIndex - NumNamedThreads) / NumTaskThreadsPerSet;
+		check(Result >= 0 && Result < NumTaskThreadSets);
+		return Result;
+	}
+
 
 
 	enum
 	{
 		/** Compile time maximum number of threads. @todo Didn't really need to be a compile time constant. **/
-		MAX_THREADS=12
+		MAX_THREADS=24,
+		MAX_THREAD_PRIORITIES = 3
 	};
 
 	/** Per thread data. **/
@@ -2050,39 +2241,45 @@ private:
 	int32				NumThreads;
 	/** Number of named threads actually in use. **/
 	int32				NumNamedThreads;
-	/** 
+	/** Number of tasks thread sets for priority **/
+	int32				NumTaskThreadSets;
+	/** Number of tasks threads per priority set **/
+	int32				NumTaskThreadsPerSet;
+	bool				bCreatedHiPriorityThreads;
+	bool				bCreatedBackgroundPriorityThreads;
+	/**
 	 * "External Threads" are not created, the thread is created elsewhere and makes an explicit call to run 
 	 * Here all of the named threads are external but that need not be the case.
 	 * All unnamed threads must be internal
 	**/
 	ENamedThreads::Type LastExternalThread;
 	/** Counter used to distribute new jobs to "any thread". **/
-	FThreadSafeCounter	NextUnnamedThreadForTaskFromUnknownThread;
-	/** Number of unnamed threads. **/
-	int32					NextUnnamedThreadMod;
-	/** Counter used to determine next thread to attempt to steal from. **/
-	FThreadSafeCounter	NextStealFromThread;
+	FThreadSafeCounter	NextUnnamedThreadForTaskFromUnknownThread[MAX_THREAD_PRIORITIES];
+	FThreadSafeCounter	ReentrancyCheck;
 	/** Index of TLS slot for FWorkerThread* pointer. **/
 	uint32				PerThreadIDTLSSlot;
 	/** Thread safe list of stalled thread "Hints". **/
-	TLockFreePointerListUnordered<FTaskThreadBase>		StalledUnnamedThreads; 
+	TLockFreePointerListUnordered<FTaskThreadBase, PLATFORM_CACHE_LINE_SIZE>		StalledUnnamedThreads[MAX_THREAD_PRIORITIES];
+
+	/** Array of callbacks to call before shutdown. **/
+	TArray<TFunction<void()> > ShutdownCallbacks;
 
 #if USE_NEW_LOCK_FREE_LISTS
-	#if USE_INTRUSIVE_TASKQUEUES
-		FLockFreePointerListFIFOIntrusive<FBaseGraphTask>		IncomingAnyThreadTasks;
-		FLockFreePointerListFIFOIntrusive<FBaseGraphTask>		IncomingAnyThreadTasksHiPri;
+#if USE_INTRUSIVE_TASKQUEUES
+	FLockFreePointerListFIFOIntrusive<FBaseGraphTask, PLATFORM_CACHE_LINE_SIZE>		IncomingAnyThreadTasks[MAX_THREAD_PRIORITIES];
+	FLockFreePointerListFIFOIntrusive<FBaseGraphTask, PLATFORM_CACHE_LINE_SIZE>		IncomingAnyThreadTasksHiPri[MAX_THREAD_PRIORITIES];
 	#else
-		TLockFreePointerListFIFO<FBaseGraphTask>		IncomingAnyThreadTasks;
-		TLockFreePointerListFIFO<FBaseGraphTask>		IncomingAnyThreadTasksHiPri;
+	TLockFreePointerListFIFO<FBaseGraphTask, PLATFORM_CACHE_LINE_SIZE>		IncomingAnyThreadTasks[MAX_THREAD_PRIORITIES];
+	TLockFreePointerListFIFO<FBaseGraphTask, PLATFORM_CACHE_LINE_SIZE>		IncomingAnyThreadTasksHiPri[MAX_THREAD_PRIORITIES];
 	#endif
 #else
-	TLockFreePointerListLIFO<FBaseGraphTask>		IncomingAnyThreadTasks;
-	TLockFreePointerListLIFO<FBaseGraphTask>		IncomingAnyThreadTasksHiPri;
-	TLockFreePointerListLIFO<FBaseGraphTask>		SortedAnyThreadTasks;
-	TLockFreePointerListLIFO<FBaseGraphTask>		SortedAnyThreadTasksHiPri;
+	TLockFreePointerListLIFO<FBaseGraphTask>		IncomingAnyThreadTasks[MAX_THREAD_PRIORITIES];
+	TLockFreePointerListLIFO<FBaseGraphTask>		IncomingAnyThreadTasksHiPri[MAX_THREAD_PRIORITIES];
+	TLockFreePointerListLIFO<FBaseGraphTask>		SortedAnyThreadTasks[MAX_THREAD_PRIORITIES];
+	TLockFreePointerListLIFO<FBaseGraphTask>		SortedAnyThreadTasksHiPri[MAX_THREAD_PRIORITIES];
 #endif
-	FCriticalSection CriticalSectionForSortingIncomingAnyThreadTasks;
-	FCriticalSection CriticalSectionForSortingIncomingAnyThreadTasksHiPri;
+	FCriticalSection CriticalSectionForSortingIncomingAnyThreadTasks[MAX_THREAD_PRIORITIES];
+	FCriticalSection CriticalSectionForSortingIncomingAnyThreadTasksHiPri[MAX_THREAD_PRIORITIES];
 
 	// we use a single atomic to control the state of the anythread queues. This limits the maximum number of threads.
 	struct FAtomicStateBitfield
@@ -2091,8 +2288,11 @@ private:
 		uint32 QueueOwned: 1;
 		uint32 QueueOwnerIndex: 4;
 #endif
-		uint32 Stalled: FAtomicStateBitfield_MAX_THREADS;
+		uint32 Stalled : FAtomicStateBitfield_MAX_THREADS;
 		uint32 Working: FAtomicStateBitfield_MAX_THREADS;
+
+		uint32 Unused;
+		uint8 PadToAvoidContention[PLATFORM_CACHE_LINE_SIZE - 2 * sizeof(uint32)];
 
 		FAtomicStateBitfield()
 			: 
@@ -2103,6 +2303,7 @@ private:
 			 Stalled(0)
 			, Working(0)
 		{
+			static_assert(offsetof(FAtomicStateBitfield, Unused) == sizeof(uint32), "The bitfields in FAtomicStateBitfield must fit into a single uint32 and be the first member");
 		}
 
 		static FORCEINLINE FAtomicStateBitfield InterlockedCompareExchange(FAtomicStateBitfield* Dest, FAtomicStateBitfield Exchange, FAtomicStateBitfield Comparand)
@@ -2180,7 +2381,8 @@ private:
 		}
 	};
 
-	FAtomicStateBitfield AtomicForConsoleApproach;
+	uint8 PadToAvoidContention6[PLATFORM_CACHE_LINE_SIZE];
+	FAtomicStateBitfield AtomicForConsoleApproach[MAX_THREAD_PRIORITIES];
 };
 
 
@@ -2256,8 +2458,8 @@ static FTaskLockFreeListCounter GraphEventsWithInlineStorageInUse;
 
 #if USE_TLS_FOR_EVENTS
 
-static TPointerSet_TLSCacheBase<FGraphEvent, TLockFreePointerListUnordered<FGraphEvent>, FTaskLockFreeListCounter> TheGraphEventAllocator;
-static TPointerSet_TLSCacheBase<FGraphEventAndSmallTaskStorage, TLockFreePointerListUnordered<FGraphEventAndSmallTaskStorage>, FTaskLockFreeListCounter> TheGraphEventWithInlineStorageAllocator;
+static TPointerSet_TLSCacheBase<FGraphEvent, TLockFreePointerListUnordered<FGraphEvent, PLATFORM_CACHE_LINE_SIZE>, FTaskLockFreeListCounter> TheGraphEventAllocator;
+static TPointerSet_TLSCacheBase<FGraphEventAndSmallTaskStorage, TLockFreePointerListUnordered<FGraphEventAndSmallTaskStorage, PLATFORM_CACHE_LINE_SIZE>, FTaskLockFreeListCounter> TheGraphEventWithInlineStorageAllocator;
 
 static FThreadSafeCounter GraphEventsAllocated;
 static FThreadSafeCounter GraphEventsWithInlineStorageAllocated;
@@ -2366,7 +2568,7 @@ void FGraphEvent::Reset()
 }
 
 #else
-static TLockFreeClassAllocator_TLSCache<FGraphEvent> TheGraphEventAllocator;
+static TLockFreeClassAllocator_TLSCache<FGraphEvent, PLATFORM_CACHE_LINE_SIZE> TheGraphEventAllocator;
 
 FGraphEventRef FGraphEvent::CreateGraphEvent()
 {
@@ -2378,7 +2580,6 @@ void FGraphEvent::Recycle(FGraphEvent* ToRecycle)
 	TheGraphEventAllocator.Free(ToRecycle);
 }
 #endif
-
 
 void FGraphEvent::DispatchSubsequents(TArray<FBaseGraphTask*>& NewTasks, ENamedThreads::Type CurrentThreadIfKnown)
 {
@@ -2392,7 +2593,7 @@ void FGraphEvent::DispatchSubsequents(TArray<FBaseGraphTask*>& NewTasks, ENamedT
 			STAT_FNullGraphTask_DontCompleteUntil,
 			STATGROUP_TaskGraphTasks);
 
-		TGraphTask<FNullGraphTask>::CreateTask(FGraphEventRef(this), &TempEventsToWaitFor, CurrentThreadIfKnown).ConstructAndDispatchWhenReady(GET_STATID(STAT_FNullGraphTask_DontCompleteUntil), ENamedThreads::HiPri(ENamedThreads::AnyThread));
+		TGraphTask<FNullGraphTask>::CreateTask(FGraphEventRef(this), &TempEventsToWaitFor, CurrentThreadIfKnown).ConstructAndDispatchWhenReady(GET_STATID(STAT_FNullGraphTask_DontCompleteUntil), ENamedThreads::AnyHiPriThreadHiPriTask);
 		return;
 	}
 
@@ -2441,6 +2642,119 @@ FGraphEvent::~FGraphEvent()
 	}
 #endif
 	CheckDontCompleteUntilIsEmpty(); // We should not have any wait untils outstanding
+}
+
+DECLARE_CYCLE_STAT(TEXT("FBroadcastTask"), STAT_FBroadcastTask, STATGROUP_TaskGraphTasks);
+
+class FBroadcastTask
+{
+public:
+	FBroadcastTask(TFunction<void(ENamedThreads::Type CurrentThread)>& InFunction, ENamedThreads::Type InDesiredThread, FThreadSafeCounter* InStallForTaskThread)
+		: Function(InFunction)
+		, DesiredThread(InDesiredThread)
+		, StallForTaskThread(InStallForTaskThread)
+	{
+	}
+	ENamedThreads::Type GetDesiredThread()
+	{
+		return DesiredThread;
+	}
+
+	FORCEINLINE TStatId GetStatId() const
+	{
+		return GET_STATID(STAT_FBroadcastTask);
+	}
+
+	static FORCEINLINE ESubsequentsMode::Type GetSubsequentsMode() { return ESubsequentsMode::TrackSubsequents; }
+	void FORCEINLINE DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
+	{
+		Function(CurrentThread);
+		if (StallForTaskThread)
+		{
+			StallForTaskThread->Decrement();
+			// we wait for the others to finish here so that we do all task threads
+			while (StallForTaskThread->GetValue())
+			{
+				FPlatformProcess::SleepNoStats(.0002f);
+			}
+		}
+	}
+private:
+	TFunction<void(ENamedThreads::Type CurrentThread)> Function;
+	const ENamedThreads::Type DesiredThread;
+	FThreadSafeCounter* StallForTaskThread;
+};
+
+
+void FTaskGraphInterface::BroadcastSlow_OnlyUseForSpecialPurposes(bool bDoBackgroundThreads, TFunction<void(ENamedThreads::Type CurrentThread)>& Callback)
+{
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_FTaskGraphInterface_BroadcastSlow_OnlyUseForSpecialPurposes);
+	check(FPlatformTLS::GetCurrentThreadId() == GGameThreadId);
+	if (!TaskGraphImplementationSingleton)
+	{
+		// we aren't going yet
+		Callback(ENamedThreads::GameThread);
+		return;
+	}
+
+	// these are static because we don't actually wait for the tasks to clear
+	static FThreadSafeCounter StallForTaskThread;
+
+	int32 Workers = FTaskGraphInterface::Get().GetNumWorkerThreads();
+	StallForTaskThread.Reset();
+	StallForTaskThread.Add(Workers * (1 + (bDoBackgroundThreads && ENamedThreads::bHasBackgroundThreads) + !!(ENamedThreads::bHasHighPriorityThreads)));
+
+	{
+
+		for (int32 Index = 0; Index < Workers; Index++)
+		{
+			TGraphTask<FBroadcastTask>::CreateTask().ConstructAndDispatchWhenReady(Callback, ENamedThreads::AnyNormalThreadHiPriTask, &StallForTaskThread);
+		}
+
+	}
+	if (ENamedThreads::bHasHighPriorityThreads)
+	{
+		for (int32 Index = 0; Index < Workers; Index++)
+		{
+			TGraphTask<FBroadcastTask>::CreateTask().ConstructAndDispatchWhenReady(Callback, ENamedThreads::AnyHiPriThreadHiPriTask, &StallForTaskThread);
+		}
+	}
+	if (bDoBackgroundThreads && ENamedThreads::bHasBackgroundThreads)
+	{
+		for (int32 Index = 0; Index < Workers; Index++)
+		{
+			TGraphTask<FBroadcastTask>::CreateTask().ConstructAndDispatchWhenReady(Callback, ENamedThreads::AnyBackgroundHiPriTask, &StallForTaskThread);
+		}
+	}
+	FGraphEventArray Tasks;
+	STAT(Tasks.Add(TGraphTask<FBroadcastTask>::CreateTask().ConstructAndDispatchWhenReady(Callback, ENamedThreads::SetTaskPriority(ENamedThreads::StatsThread, ENamedThreads::HighTaskPriority), nullptr)););
+	if (GRHIThread)
+	{
+		Tasks.Add(TGraphTask<FBroadcastTask>::CreateTask().ConstructAndDispatchWhenReady(Callback, ENamedThreads::SetTaskPriority(ENamedThreads::RHIThread, ENamedThreads::HighTaskPriority), nullptr));
+	}
+	if (ENamedThreads::RenderThread != ENamedThreads::GameThread)
+	{
+		Tasks.Add(TGraphTask<FBroadcastTask>::CreateTask().ConstructAndDispatchWhenReady(Callback, ENamedThreads::SetTaskPriority(ENamedThreads::RenderThread, ENamedThreads::HighTaskPriority), nullptr));
+	}
+	Tasks.Add(TGraphTask<FBroadcastTask>::CreateTask().ConstructAndDispatchWhenReady(Callback, ENamedThreads::GameThread_Local, nullptr));
+	FTaskGraphInterface::Get().WaitUntilTasksComplete(Tasks, ENamedThreads::GameThread_Local);
+	bool bStartedThreads = false;
+	double StartTime = FPlatformTime::Seconds();
+	while (StallForTaskThread.GetValue())
+	{
+		FPlatformProcess::SleepNoStats(.0001f);
+		// this is probably not needed, but task are not generally tested to never miss a start
+		if (!bStartedThreads && FPlatformTime::Seconds() - StartTime > 0.5)
+		{
+			bStartedThreads = true;
+			TaskGraphImplementationSingleton->StartAllTaskThreads(bDoBackgroundThreads);
+		}
+		else if (FPlatformTime::Seconds() - StartTime > 3.0)
+		{
+			StartTime = FPlatformTime::Seconds();
+			UE_LOG(LogTaskGraph, Error, TEXT("Broadcast failed after three seconds"));
+		}
+	}
 }
 
 

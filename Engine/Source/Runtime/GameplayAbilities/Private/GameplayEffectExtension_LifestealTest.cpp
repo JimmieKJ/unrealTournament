@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 #include "GameplayEffectExtension_LifestealTest.h"
@@ -54,6 +54,6 @@ void UGameplayEffectExtension_LifestealTest::PostGameplayEffectExecute(const FGa
 		// Apply a GameplayEffect to restore health
 		// We make the GameplayEffect's level = the health restored. This is one approach. We could also
 		// try a basic restore 1 health item but apply a 2nd GE to modify that - but that seems like too many levels of indirection
-		Source->ApplyGameplayEffectToSelf(LocalHealthRestore, HealthToRestore, Source->GetEffectContext());
+		Source->ApplyGameplayEffectToSelf(LocalHealthRestore, HealthToRestore, Source->MakeEffectContext());
 	}
 }

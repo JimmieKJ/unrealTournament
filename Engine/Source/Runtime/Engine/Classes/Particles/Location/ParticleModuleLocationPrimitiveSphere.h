@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 //~=============================================================================
 // ParticleModuleLocationPrimitiveSphere
@@ -9,8 +9,8 @@
 #include "Particles/Location/ParticleModuleLocationPrimitiveBase.h"
 #include "ParticleModuleLocationPrimitiveSphere.generated.h"
 
-UCLASS(editinlinenew, hidecategories=Object, MinimalAPI, meta=(DisplayName = "Sphere"))
-class UParticleModuleLocationPrimitiveSphere : public UParticleModuleLocationPrimitiveBase
+UCLASS(editinlinenew, hidecategories=Object, meta=(DisplayName = "Sphere"))
+class ENGINE_API UParticleModuleLocationPrimitiveSphere : public UParticleModuleLocationPrimitiveBase
 {
 	GENERATED_UCLASS_BODY()
 

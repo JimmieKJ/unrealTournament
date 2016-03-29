@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /**
  *	ParticleModuleTypeDataAnimTrail
@@ -65,7 +65,7 @@ class UParticleModuleTypeDataAnimTrail : public UParticleModuleTypeDataBase
 
 
 	//~ Begin UParticleModule Interface
-	virtual uint32 RequiredBytes(FParticleEmitterInstance* Owner = NULL) override;
+	virtual uint32 RequiredBytes(UParticleModuleTypeDataBase* TypeData) override;
 	virtual bool CanTickInAnyThread() override
 	{
 		return true;

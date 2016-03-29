@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -33,11 +33,13 @@ class GAMEPLAYABILITIES_API AGameplayCueNotify_Actor : public AActor
 
 	virtual void BeginPlay() override;
 
+	virtual void SetOwner( AActor* NewOwner ) override;
+
 	virtual void PostInitProperties() override;
 
 	virtual void Serialize(FArchive& Ar) override;
 
-	virtual void HandleGameplayCue(AActor* MyTarget, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters);
+	virtual void HandleGameplayCue(AActor* MyTarget, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters);
 
 	virtual void GameplayCueFinishedCallback();
 
@@ -52,19 +54,19 @@ class GAMEPLAYABILITIES_API AGameplayCueNotify_Actor : public AActor
 
 	/** Generic Event Graph event that will get called for every event type */
 	UFUNCTION(BlueprintImplementableEvent, Category = "GameplayCueNotify", DisplayName = "HandleGameplayCue")
-	void K2_HandleGameplayCue(AActor* MyTarget, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters);
+	void K2_HandleGameplayCue(AActor* MyTarget, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters);
 
 	UFUNCTION(BlueprintNativeEvent, Category = "GameplayCueNotify")
-	bool OnExecute(AActor* MyTarget, FGameplayCueParameters Parameters);
+	bool OnExecute(AActor* MyTarget, const FGameplayCueParameters& Parameters);
 
 	UFUNCTION(BlueprintNativeEvent, Category = "GameplayCueNotify")
-	bool OnActive(AActor* MyTarget, FGameplayCueParameters Parameters);
+	bool OnActive(AActor* MyTarget, const FGameplayCueParameters& Parameters);
 
 	UFUNCTION(BlueprintNativeEvent, Category = "GameplayCueNotify")
-	bool WhileActive(AActor* MyTarget, FGameplayCueParameters Parameters);
+	bool WhileActive(AActor* MyTarget, const FGameplayCueParameters& Parameters);
 
 	UFUNCTION(BlueprintNativeEvent, Category = "GameplayCueNotify")
-	bool OnRemove(AActor* MyTarget, FGameplayCueParameters Parameters);
+	bool OnRemove(AActor* MyTarget, const FGameplayCueParameters& Parameters);
 
 	UPROPERTY(EditDefaultsOnly, Category=GameplayCue, meta=(Categories="GameplayCue"))
 	FGameplayTag	GameplayCueTag;
@@ -99,16 +101,37 @@ class GAMEPLAYABILITIES_API AGameplayCueNotify_Actor : public AActor
 	UPROPERTY(EditDefaultsOnly, Category = GameplayCue)
 	bool bUniqueInstancePerSourceObject;
 
+	/**
+	 *	Does this cue trigger its OnActive event if it's already been triggered?
+	 *  This can occur when the associated tag is triggered by multiple sources and there is no unique instancing.
+	 */ 	 
+	UPROPERTY(EditDefaultsOnly, Category = GameplayCue)
+	bool bAllowMultipleOnActiveEvents;
+
+	/**
+	 *	Does this cue trigger its WhileActive event if it's already been triggered?
+	 *  This can occur when the associated tag is triggered by multiple sources and there is no unique instancing.
+	 */ 	 
+	UPROPERTY(EditDefaultsOnly, Category = GameplayCue)
+	bool bAllowMultipleWhileActiveEvents;
+
 	/** How many instances of the gameplay cue to preallocate */
 	UPROPERTY(EditDefaultsOnly, Category = GameplayCue)
 	int32 NumPreallocatedInstances;
 
 	FGCNotifyActorKey NotifyKey;
-	
-	int32 StackCount;
 
+	// Set when the GC actor is in the recycle queue (E.g., not active in world. This is to prevent rentrancy in the recyle code since multiple paths can lead the GC actor there)
+	bool bInRecycleQueue;
+	
 protected:
 	FTimerHandle FinishTimerHandle;
+
+	void ClearOwnerDestroyedDelegate();
+
+	bool bHasHandledOnActiveEvent;
+	bool bHasHandledWhileActiveEvent;
+	bool bHasHandledOnRemoveEvent;
 
 private:
 	virtual void DeriveGameplayCueTagFromAssetName();

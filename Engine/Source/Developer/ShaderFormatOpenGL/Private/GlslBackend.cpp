@@ -1,5 +1,5 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
-// .
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// 
 
 // This code is largely based on that in ir_print_glsl_visitor.cpp from
 // glsl-optimizer.
@@ -534,6 +534,9 @@ class ir_gen_glsl_visitor : public ir_visitor
 	// Found dFdx or dFdy
 	bool bUsesDXDY;
 
+	// Uses gl_InstanceID
+	bool bUsesInstanceID;
+	
 	/**
 	 * Return true if the type is a multi-dimensional array. Also, track the
 	 * array.
@@ -808,10 +811,12 @@ class ir_gen_glsl_visitor : public ir_visitor
 		const char * const GLSLmode_str[] = { "", "uniform ", "in ", "out ", "inout ", "in ", "", "shared ", "", "", "uniform_ref "};
 		const char * const ESVSmode_str[] = { "", "uniform ", "attribute ", "varying ", "inout ", "in ", "", "shared " };
 		const char * const ESFSmode_str[] = { "", "uniform ", "varying ", "attribute ", "", "in ", "", "shared " };
-		const char * const interp_str[] = { "", "smooth ", "flat ", "noperspective " };
+		const char * const GLSLinterp_str[] = { "", "smooth ", "flat ", "noperspective " };
+		const char * const ESinterp_str[] = { "", "", "", "" };
 		const char * const layout_str[] = { "", "layout(origin_upper_left) ", "layout(pixel_center_integer) ", "layout(origin_upper_left,pixel_center_integer) " };
 
 		const char * const * mode_str = bIsES ? ((ShaderTarget == vertex_shader) ? ESVSmode_str : ESFSmode_str) : GLSLmode_str;
+		const char * const * interp_str = bIsES ? ESinterp_str : GLSLinterp_str;
 
 		// Check for an initialized const variable
 		// If var is read-only and initialized, set it up as an initialized const
@@ -856,7 +861,14 @@ class ir_gen_glsl_visitor : public ir_visitor
 			}
 		}
 
-		if (var->name && strncmp(var->name, "gl_", 3) == 0 &&
+		const bool bBuiltinVariable = (var->name && strncmp(var->name, "gl_", 3) == 0);
+		
+		if (bBuiltinVariable && ShaderTarget == vertex_shader && strncmp(var->name, "gl_InstanceID", 13) == 0)
+		{
+			bUsesInstanceID = true;
+		}
+
+		if (bBuiltinVariable &&
 			var->centroid == 0 && var->interpolation == 0 &&
 			var->invariant == 0 && var->origin_upper_left == 0 &&
 			var->pixel_center_integer == 0)
@@ -1034,11 +1046,11 @@ class ir_gen_glsl_visitor : public ir_visitor
 					buffer,
 					"%s%s%s%s%s%s",
 					layout ? layout : layout_str[layout_bits],
-					centroid_str[var->centroid],
-					invariant_str[var->invariant],
+					var->mode != ir_var_temporary && var->mode != ir_var_auto ? centroid_str[var->centroid] : "",
+					var->mode != ir_var_temporary && var->mode != ir_var_auto ? invariant_str[var->invariant] : "",
 					patch_constant_str[var->is_patch_constant],
 					mode_str[var->mode],
-					interp_str[var->interpolation]
+					var->mode != ir_var_temporary && var->mode != ir_var_auto ? interp_str[var->interpolation] : ""
 					);
 				if (bEmitPrecision)
 				{
@@ -2823,10 +2835,19 @@ class ir_gen_glsl_visitor : public ir_visitor
 			ralloc_asprintf_append(buffer, "#extension GL_OES_standard_derivatives : enable\n");
 		}
 
+		if (bUsesInstanceID && bIsES)
+		{
+			ralloc_asprintf_append(buffer, "#ifdef GL_EXT_draw_instanced\n");
+			ralloc_asprintf_append(buffer, "#extension GL_EXT_draw_instanced : enable\n");
+			ralloc_asprintf_append(buffer, "#define gl_InstanceID gl_InstanceIDEXT\n");
+			ralloc_asprintf_append(buffer, "#endif\n");
+		}
+		
 		if (bUsesFramebufferFetchES2)
 		{
 			ralloc_asprintf_append(buffer, "\n#ifdef GL_EXT_shader_framebuffer_fetch\n");
 			ralloc_asprintf_append(buffer, "#extension GL_EXT_shader_framebuffer_fetch : enable\n");
+			ralloc_asprintf_append(buffer, "#define EXT_shader_framebuffer_fetch_enabled 1\n");
 			ralloc_asprintf_append(buffer, "#endif\n");
 			ralloc_asprintf_append(buffer, "\n#ifdef GL_ARM_shader_framebuffer_fetch\n");
 			ralloc_asprintf_append(buffer, "#extension GL_ARM_shader_framebuffer_fetch : enable\n");
@@ -2878,6 +2899,7 @@ public:
 		, loop_count(0)
 		, bUsesES2TextureLODExtension(false)
 		, bUsesDXDY(false)
+		, bUsesInstanceID(false)
 	{
 		printable_names = hash_table_ctor(32, hash_table_pointer_hash, hash_table_pointer_compare);
 		used_structures = hash_table_ctor(32, hash_table_pointer_hash, hash_table_pointer_compare);
@@ -2939,7 +2961,11 @@ public:
 		if (bUsesFramebufferFetchES2)
 		{
 			ralloc_asprintf_append(buffer, "\n#ifdef GL_EXT_shader_framebuffer_fetch\n");
-			ralloc_asprintf_append(buffer, "	vec4 FramebufferFetchES2() { return gl_LastFragData[0]; }\n");
+			ralloc_asprintf_append(buffer, "	#if (__VERSION__ >= 300)\n");
+			ralloc_asprintf_append(buffer, "		vec4 FramebufferFetchES2() { return gl_FragColor; }\n");
+			ralloc_asprintf_append(buffer, "	#else\n");
+			ralloc_asprintf_append(buffer, "		vec4 FramebufferFetchES2() { return gl_LastFragData[0]; }\n");
+			ralloc_asprintf_append(buffer, "	#endif\n");
 			ralloc_asprintf_append(buffer, "#else\n");
 			ralloc_asprintf_append(buffer, "	#ifdef GL_ARM_shader_framebuffer_fetch\n");
 			ralloc_asprintf_append(buffer, "		vec4 FramebufferFetchES2() { return gl_LastFragColorARM; }\n");

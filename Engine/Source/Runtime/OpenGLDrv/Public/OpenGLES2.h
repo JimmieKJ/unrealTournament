@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	OpenGLES2.h: Public OpenGL ES 2.0 definitions for non-common functionality
@@ -107,6 +107,7 @@ struct FOpenGLES2 : public FOpenGLBase
 	static FORCEINLINE bool SupportsVertexHalfFloat()					{ return bSupportsVertexHalfFloat; }
 	static FORCEINLINE bool SupportsTextureFloat()						{ return bSupportsTextureFloat; }
 	static FORCEINLINE bool SupportsTextureHalfFloat()					{ return bSupportsTextureHalfFloat; }
+	static FORCEINLINE bool SupportsColorBufferFloat()					{ return bSupportsColorBufferFloat; }
 	static FORCEINLINE bool SupportsColorBufferHalfFloat()				{ return bSupportsColorBufferHalfFloat; }
 	static FORCEINLINE bool	SupportsRG16UI()							{ return false; }
 	static FORCEINLINE bool SupportsR11G11B10F()						{ return false; }
@@ -138,6 +139,7 @@ struct FOpenGLES2 : public FOpenGLBase
 	static FORCEINLINE bool SupportsStandardDerivativesExtension()		{ return bSupportsStandardDerivativesExtension; }
 	static FORCEINLINE bool RequiresGLFragCoordVaryingLimitHack()		{ return bRequiresGLFragCoordVaryingLimitHack; }
 	static FORCEINLINE bool RequiresTexture2DPrecisionHack()			{ return bRequiresTexture2DPrecisionHack; }
+	static FORCEINLINE bool RequiresShaderFramebufferFetchUndef()		{ return bRequiresShaderFramebufferFetchUndef; }
 	static FORCEINLINE bool IsCheckingShaderCompilerHacks()				{ return bIsCheckingShaderCompilerHacks; }
 
 	static FORCEINLINE int32 GetReadHalfFloatPixelsEnum()				{ return GL_HALF_FLOAT_OES; }
@@ -262,7 +264,7 @@ struct FOpenGLES2 : public FOpenGLBase
 
 	static FORCEINLINE void ColorMaskIndexed(GLuint Index, GLboolean Red, GLboolean Green, GLboolean Blue, GLboolean Alpha)
 	{
-		check(Index == 0);
+		check(Index == 0 || SupportsMultipleRenderTargets());
 		glColorMask(Red, Green, Blue, Alpha);
 	}
 
@@ -433,6 +435,9 @@ protected:
 	/** GL_OES_texture_half_float */
 	static bool bSupportsTextureHalfFloat;
 
+	/** GL_EXT_color_buffer_float */
+	static bool bSupportsColorBufferFloat;
+
 	/** GL_EXT_color_buffer_half_float */
 	static bool bSupportsColorBufferHalfFloat;
 
@@ -495,6 +500,9 @@ public:
 
 	/* This hack fixes an issue with SGX540 compiler which can get upset with some operations that mix highp and mediump */
 	static bool bRequiresTexture2DPrecisionHack;
+
+	/* This is to avoid a bug in Adreno drivers that define GL_EXT_shader_framebuffer_fetch even when device does not support this extension  */
+	static bool bRequiresShaderFramebufferFetchUndef;
 
 	/* Indicates shader compiler hack checks are being tested */
 	static bool bIsCheckingShaderCompilerHacks;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "GraphEditorCommon.h"
@@ -13,11 +13,6 @@
 #include "InputChord.h"
 
 #include "ConnectionDrawingPolicy.h"
-#include "BlueprintConnectionDrawingPolicy.h"
-#include "AnimGraphConnectionDrawingPolicy.h"
-#include "SoundCueGraphConnectionDrawingPolicy.h"
-#include "MaterialGraphConnectionDrawingPolicy.h"
-#include "StateMachineConnectionDrawingPolicy.h"
 
 #include "AssetSelection.h"
 #include "ComponentAssetBroker.h"
@@ -159,6 +154,8 @@ int32 SGraphPanel::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeo
 	const int32 NodeLayerId = NodeShadowsLayerId + 1;
 	int32 MaxLayerId = NodeLayerId;
 
+	const FPaintArgs NewArgs = Args.WithNewParent(this);
+
 	const FVector2D NodeShadowSize = GetDefault<UGraphEditorSettings>()->GetShadowDeltaSize();
 	const UEdGraphSchema* Schema = GraphObj->GetSchema();
 
@@ -263,7 +260,7 @@ int32 SGraphPanel::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeo
 					const FWidgetStyle& NodeStyleToUse = (bNodeIsDifferent && !bNodeIsNotUsableInCurrentContext)? InWidgetStyle : FadedStyle;
 
 					// Draw the node.O
-					CurWidgetsMaxLayerId = CurWidget.Widget->Paint( Args.WithNewParent(this), CurWidget.Geometry, MyClippingRect, OutDrawElements, ChildLayerId, NodeStyleToUse, !DisplayAsReadOnly.Get() && ShouldBeEnabled( bParentEnabled ) );
+					CurWidgetsMaxLayerId = CurWidget.Widget->Paint(NewArgs, CurWidget.Geometry, MyClippingRect, OutDrawElements, ChildLayerId, NodeStyleToUse, !DisplayAsReadOnly.Get() && ShouldBeEnabled( bParentEnabled ) );
 				}
 
 				// Draw the node's overlay, if it has one.
@@ -313,7 +310,7 @@ int32 SGraphPanel::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeo
 
 								const FGeometry WidgetGeometry = CurWidget.Geometry.MakeChild(OverlayInfo.OverlayOffset, OverlayInfo.Widget->GetDesiredSize());
 
-								OverlayInfo.Widget->Paint(Args.WithNewParent(this), WidgetGeometry, MyClippingRect, OutDrawElements, CurWidgetsMaxLayerId, InWidgetStyle, bParentEnabled);
+								OverlayInfo.Widget->Paint(NewArgs, WidgetGeometry, MyClippingRect, OutDrawElements, CurWidgetsMaxLayerId, InWidgetStyle, bParentEnabled);
 							}
 						}
 					}
@@ -330,39 +327,7 @@ int32 SGraphPanel::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeo
 	// Draw connections between pins 
 	if (Children.Num() > 0 )
 	{
-
-		//@TODO: Pull this into a factory like the pin and node ones
-		FConnectionDrawingPolicy* ConnectionDrawingPolicy;
-		{
-			ConnectionDrawingPolicy = Schema->CreateConnectionDrawingPolicy(WireLayerId, MaxLayerId, ZoomFactor, MyClippingRect, OutDrawElements, GraphObj);
-			if (!ConnectionDrawingPolicy)
-			{
-				if (Schema->IsA(UAnimationGraphSchema::StaticClass()))
-				{
-					ConnectionDrawingPolicy = new FAnimGraphConnectionDrawingPolicy(WireLayerId, MaxLayerId, ZoomFactor, MyClippingRect, OutDrawElements, GraphObj);
-				}
-				else if (Schema->IsA(UAnimationStateMachineSchema::StaticClass()))
-				{
-					ConnectionDrawingPolicy = new FStateMachineConnectionDrawingPolicy(WireLayerId, MaxLayerId, ZoomFactor, MyClippingRect, OutDrawElements, GraphObj);
-				}
-				else if (Schema->IsA(UEdGraphSchema_K2::StaticClass()))
-				{
-					ConnectionDrawingPolicy = new FKismetConnectionDrawingPolicy(WireLayerId, MaxLayerId, ZoomFactor, MyClippingRect, OutDrawElements, GraphObj);
-				}
-				else if (Schema->IsA(USoundCueGraphSchema::StaticClass()))
-				{
-					ConnectionDrawingPolicy = new FSoundCueGraphConnectionDrawingPolicy(WireLayerId, MaxLayerId, ZoomFactor, MyClippingRect, OutDrawElements, GraphObj);
-				}
-				else if (Schema->IsA(UMaterialGraphSchema::StaticClass()))
-				{
-					ConnectionDrawingPolicy = new FMaterialGraphConnectionDrawingPolicy(WireLayerId, MaxLayerId, ZoomFactor, MyClippingRect, OutDrawElements, GraphObj);
-				}
-				else
-				{
-					ConnectionDrawingPolicy = new FConnectionDrawingPolicy(WireLayerId, MaxLayerId, ZoomFactor, MyClippingRect, OutDrawElements);
-				}
-			}
-		}
+        FConnectionDrawingPolicy* ConnectionDrawingPolicy = FNodeFactory::CreateConnectionPolicy(Schema, WireLayerId, MaxLayerId, ZoomFactor, MyClippingRect, OutDrawElements, GraphObj);
 
 		TArray<TSharedPtr<SGraphPin>> OverridePins;
 		for (const FGraphPinHandle& Handle : PreviewConnectorFromPins)
@@ -1418,6 +1383,13 @@ TSharedPtr<SGraphNode> SGraphPanel::GetNodeWidgetFromGuid(FGuid Guid) const
 
 void SGraphPanel::Update()
 {
+	static bool bIsUpdating = false;
+	if (bIsUpdating)
+	{
+		return;
+	}
+	TGuardValue<bool> ReentrancyGuard(bIsUpdating, true);
+
 	// Add widgets for all the nodes that don't have one.
 	if (GraphObj != nullptr)
 	{
@@ -1427,7 +1399,26 @@ void SGraphPanel::Update()
 			UEdGraphNode* Node = GraphObj->Nodes[NodeIndex];
 			if (Node)
 			{
-				AddNode(Node, CheckUserAddedNodesList);
+				// Helps detect cases of UE-26998 without causing a crash. Prevents the node from being rendered altogether and provides info on the state of the graph vs the node.
+				// Because the editor won't crash, a GLEO can be expected if the node's outer is in the transient package.
+				if (ensureMsgf(Node->GetOuter() == GraphObj, TEXT("Found %s ('%s') that does not belong to %s. Node Outer: %s, Node Outer Type: %s, Graph Outer: %s, Graph Outer Type: %s"),
+					*Node->GetName(), *Node->GetClass()->GetName(),
+					*GraphObj->GetName(),
+					*Node->GetOuter()->GetName(), *Node->GetOuter()->GetClass()->GetName(),
+					*GraphObj->GetOuter()->GetName(), *GraphObj->GetOuter()->GetClass()->GetName()
+					))
+ 				{
+					AddNode(Node, CheckUserAddedNodesList);
+				}
+				else
+				{
+					UE_LOG(LogGraphPanel, Error, TEXT("Found %s ('%s') that does not belong to %s. Node Outer: %s, Node Outer Type: %s, Graph Outer: %s, Graph Outer Type: %s"),
+						*Node->GetName(), *Node->GetClass()->GetName(),
+						*GraphObj->GetName(),
+						*Node->GetOuter()->GetName(), *Node->GetOuter()->GetClass()->GetName(),
+						*GraphObj->GetOuter()->GetName(), *GraphObj->GetOuter()->GetClass()->GetName()
+					);
+				}
 			}
 			else
 			{
@@ -1601,43 +1592,61 @@ void SGraphPanel::OnGraphChanged(const FEdGraphEditAction& EditAction)
 		// that the timer system requires (and we don't leverage):
 		if (bWasRemoveAction)
 		{
-			const auto RemoveNodeDelegateWrapper = [](double, float, SGraphPanel* Parent, const UEdGraphNode* Node) -> EActiveTimerReturnType
+			const auto RemoveNodeDelegateWrapper = [](double, float, SGraphPanel* Parent, TWeakObjectPtr<UEdGraphNode> NodePtr) -> EActiveTimerReturnType
 			{
-				Parent->RemoveNode(Node);
+				if (UEdGraphNode* Node = NodePtr.Get())
+				{
+					Parent->RemoveNode(Node);
+				}
 				return EActiveTimerReturnType::Stop;
 			};
 
-			for (auto Node : EditAction.Nodes)
+			for (const UEdGraphNode* Node : EditAction.Nodes)
 			{
-				RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateStatic(RemoveNodeDelegateWrapper, this, Node));
+				TWeakObjectPtr<UEdGraphNode> NodePtr = Node;
+				RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateStatic(RemoveNodeDelegateWrapper, this, NodePtr));
 			}
 		}
 		if (bWasAddAction)
 		{
-			const auto AddNodeDelegateWrapper = [](double, float, SGraphPanel* Parent, UEdGraphNode* Node, bool bForceUserAdded) -> EActiveTimerReturnType
+			const auto AddNodeDelegateWrapper = [](double, float, SGraphPanel* Parent, TWeakObjectPtr<UEdGraphNode> NodePtr, bool bForceUserAdded) -> EActiveTimerReturnType
 			{
-				Parent->RemoveNode(Node);
-				Parent->AddNode(Node, bForceUserAdded ? WasUserAdded : NotUserAdded );
+				if (UEdGraphNode* Node = NodePtr.Get())
+				{
+					Parent->RemoveNode(Node);
+					Parent->AddNode(Node, bForceUserAdded ? WasUserAdded : NotUserAdded);
+				}
 				return EActiveTimerReturnType::Stop;
 			};
 
-			for (auto Node : EditAction.Nodes)
+			for (const UEdGraphNode* Node : EditAction.Nodes)
 			{
-				RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateStatic(AddNodeDelegateWrapper, this, const_cast<UEdGraphNode*>(Node), EditAction.bUserInvoked ) );
+				TWeakObjectPtr<UEdGraphNode> NodePtr = Node;
+				RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateStatic(AddNodeDelegateWrapper, this, NodePtr, EditAction.bUserInvoked));
 			}
 		}
 		if (bWasSelectAction)
 		{
-			const auto SelectNodeDelegateWrapper = [](double, float, SGraphPanel* Parent, TSet<const UEdGraphNode*> Nodes) -> EActiveTimerReturnType
+			const auto SelectNodeDelegateWrapper = [](double, float, SGraphPanel* Parent, TSet< TWeakObjectPtr<UEdGraphNode> > NodePtrs) -> EActiveTimerReturnType
 			{
 				Parent->DeferredSelectionTargetObjects.Empty();
-				for (auto Node : Nodes)
+				for (TWeakObjectPtr<UEdGraphNode>& NodePtr : NodePtrs)
 				{
-					Parent->DeferredSelectionTargetObjects.Add(Node);
+					if (UEdGraphNode* Node = NodePtr.Get())
+					{
+						Parent->DeferredSelectionTargetObjects.Add(Node);
+					}
 				}
 				return EActiveTimerReturnType::Stop;
 			};
-			RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateStatic(SelectNodeDelegateWrapper, this, EditAction.Nodes));
+
+			TSet< TWeakObjectPtr<UEdGraphNode> > NodePtrSet;
+			for (const UEdGraphNode* Node : EditAction.Nodes)
+			{
+				NodePtrSet.Add(Node);
+			}
+
+			RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateStatic(SelectNodeDelegateWrapper, this, NodePtrSet));
 		}
 	}
 }

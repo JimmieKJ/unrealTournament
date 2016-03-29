@@ -1,10 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SceneOutlinerPrivatePCH.h"
 
 #include "WorldTreeItem.h"
 #include "LevelEditor.h"
 #include "EditorActorFolders.h"
+#include "SceneOutliner.h"
 
 #define LOCTEXT_NAMESPACE "SceneOutliner_WorldTreeItem"
 
@@ -47,6 +48,15 @@ FString FWorldTreeItem::GetDisplayString() const
 {
 	if (UWorld* WorldPtr = World.Get())
 	{
+		return SceneOutliner::GetWorldDescription(WorldPtr).ToString();
+	}
+	return FString();
+}
+
+FString FWorldTreeItem::GetWorldName() const
+{
+	if (UWorld* WorldPtr = World.Get())
+	{
 		return World->GetFName().GetPlainNameString();
 	}
 	return FString();
@@ -59,6 +69,10 @@ int32 FWorldTreeItem::GetTypeSortPriority() const
 
 bool FWorldTreeItem::CanInteract() const
 {
+	if (UWorld* WorldPtr = World.Get())
+	{
+		return Flags.bInteractive && WorldPtr->WorldType == EWorldType::Editor;
+	}
 	return Flags.bInteractive;
 }
 

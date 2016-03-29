@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "UnrealSourceFile.h"
@@ -97,7 +97,7 @@ struct FManifest
 	TArray<FManifestModule> Modules;
 
 	/**
-	 * Loads an UnrealHeaderTool.manifest from the specified filename.
+	 * Loads a *.uhtmanifest from the specified filename.
 	 *
 	 * @param Filename The filename of the manifest to load.
 	 * @return The loaded module info.

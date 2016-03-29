@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -220,6 +220,10 @@ class UEdGraphPin : public UObject
 	UPROPERTY()
 	UEdGraphPin* ParentPin;
 
+	/** Pin that this pin uses for passing through reference connection */
+	UPROPERTY()
+	UEdGraphPin* ReferencePassThroughConnection;
+
 #if WITH_EDITORONLY_DATA
 	/** If true, this connector is currently hidden. */
 	UPROPERTY()
@@ -284,6 +288,9 @@ public:
 	 * @param	SourcePin	Source pin.
 	 */
 	ENGINE_API void CopyPersistentDataFromOldPin(const UEdGraphPin& SourcePin);
+
+	/** Connects the two pins as by-ref pass-through, allowing the input to auto-forward to the output pin */
+	ENGINE_API void AssignByRefPassThroughConnection(UEdGraphPin* InTargetPin);
 
 	/** Returns the node that owns this pin */
 	class UEdGraphNode* GetOwningNode() const

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -20,6 +20,8 @@
 class FSequencerInputHandlerStack
 {
 public:
+
+	FSequencerInputHandlerStack() : CapturedIndex(INDEX_NONE) {}
 
 	/** Add a handler to the stack */
 	void AddHandler(ISequencerInputHandler* Handler) { Handlers.Add(Handler); }

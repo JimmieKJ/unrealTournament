@@ -1,7 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "InstalledPlatformInfo.h"
 
 #define LOCTEXT_NAMESPACE "SProjectLauncherBuildConfigurationSelector"
 
@@ -40,28 +41,31 @@ public:
 	{
 		OnConfigurationSelected = InArgs._OnConfigurationSelected;
 
+		struct FConfigInfo
+		{
+			FText ToolTip;
+			EBuildConfigurations::Type Configuration;
+		};
+
+		const FConfigInfo Configurations[] =
+		{
+			{LOCTEXT("DebugActionHint", "Debug configuration."), EBuildConfigurations::Debug},
+			{LOCTEXT("DebugGameActionHint", "DebugGame configuration."), EBuildConfigurations::DebugGame},
+			{LOCTEXT("DevelopmentActionHint", "Development configuration."), EBuildConfigurations::Development},
+			{LOCTEXT("ShippingActionHint", "Shipping configuration."), EBuildConfigurations::Shipping},
+			{LOCTEXT("TestActionHint", "Test configuration."), EBuildConfigurations::Test}
+		};
+
 		// create build configurations menu
 		FMenuBuilder MenuBuilder(true, NULL);
 		{
-			if (!FRocketSupport::IsRocket())
+			for (const FConfigInfo& ConfigInfo : Configurations)
 			{
-				FUIAction DebugAction(FExecuteAction::CreateSP(this, &SProjectLauncherBuildConfigurationSelector::HandleMenuEntryClicked, EBuildConfigurations::Debug));
-				MenuBuilder.AddMenuEntry(LOCTEXT("DebugAction", "Debug"), LOCTEXT("DebugActionHint", "Debug configuration."), FSlateIcon(), DebugAction);
-			}
-
-			FUIAction DebugGameAction(FExecuteAction::CreateSP(this, &SProjectLauncherBuildConfigurationSelector::HandleMenuEntryClicked, EBuildConfigurations::DebugGame));
-			MenuBuilder.AddMenuEntry(LOCTEXT("DebugGameAction", "DebugGame"), LOCTEXT("DebugGameActionHint", "DebugGame configuration."), FSlateIcon(), DebugGameAction);
-
-			FUIAction DevelopmentAction(FExecuteAction::CreateSP(this, &SProjectLauncherBuildConfigurationSelector::HandleMenuEntryClicked, EBuildConfigurations::Development));
-			MenuBuilder.AddMenuEntry(LOCTEXT("DevelopmentAction", "Development"), LOCTEXT("DevelopmentActionHint", "Development configuration."), FSlateIcon(), DevelopmentAction);
-
-			FUIAction ShippingAction(FExecuteAction::CreateSP(this, &SProjectLauncherBuildConfigurationSelector::HandleMenuEntryClicked, EBuildConfigurations::Shipping));
-			MenuBuilder.AddMenuEntry(LOCTEXT("ShippingAction", "Shipping"), LOCTEXT("ShippingActionHint", "Shipping configuration."), FSlateIcon(), ShippingAction);
-
-			if (!FRocketSupport::IsRocket())
-			{
-				FUIAction TestAction(FExecuteAction::CreateSP(this, &SProjectLauncherBuildConfigurationSelector::HandleMenuEntryClicked, EBuildConfigurations::Test));
-				MenuBuilder.AddMenuEntry(LOCTEXT("TestAction", "Test"), LOCTEXT("TestActionHint", "Test configuration."), FSlateIcon(), TestAction);
+				if (FInstalledPlatformInfo::Get().IsValidConfiguration(ConfigInfo.Configuration))
+				{
+					FUIAction UIAction(FExecuteAction::CreateSP(this, &SProjectLauncherBuildConfigurationSelector::HandleMenuEntryClicked, ConfigInfo.Configuration));
+					MenuBuilder.AddMenuEntry(EBuildConfigurations::ToText(ConfigInfo.Configuration), ConfigInfo.ToolTip, FSlateIcon(), UIAction);
+				}
 			}
 		}
 

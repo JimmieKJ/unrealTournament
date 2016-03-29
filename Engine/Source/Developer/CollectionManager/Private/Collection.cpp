@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CollectionManagerPrivatePCH.h"
 #include "ISourceControlModule.h"
@@ -939,7 +939,7 @@ bool FCollection::CheckinCollection(FText& OutError)
 		{
 			if (DiskSnapshot.DynamicQueryText != DynamicQueryText)
 			{
-				ChangelistDescBuilder.AppendLineFormat(LOCTEXT("CollectionChangedParentDesc", "Changed the dynamic query of collection '{0}' to '{1}'"), CollectionNameText, FText::FromString(DynamicQueryText));
+				ChangelistDescBuilder.AppendLineFormat(LOCTEXT("CollectionChangedDynamicQueryDesc", "Changed the dynamic query of collection '{0}' to '{1}'"), CollectionNameText, FText::FromString(DynamicQueryText));
 			}
 		}
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -12,6 +12,7 @@
 #if !USE_SECURE_CRT
 #pragma warning(push)
 #pragma warning(disable : 4996) // 'function' was declared deprecated  (needed for the secure string functions)
+#pragma warning(disable : 4995) // 'function' was declared deprecated  (needed for the secure string functions)
 #endif
 
 struct FMicrosoftPlatformString : public FGenericPlatformString

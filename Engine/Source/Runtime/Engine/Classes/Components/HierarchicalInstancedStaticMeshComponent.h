@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -113,6 +113,7 @@ class ENGINE_API UHierarchicalInstancedStaticMeshComponent : public UInstancedSt
 	int32 OcclusionLayerNumNodes;
 
 	bool bIsAsyncBuilding;
+	bool bDiscardAsyncBuildResults;
 	bool bConcurrentRemoval;
 
 	UPROPERTY()
@@ -139,6 +140,7 @@ public:
 	virtual bool UpdateInstanceTransform(int32 InstanceIndex, const FTransform& NewInstanceTransform, bool bWorldSpace, bool bMarkRenderStateDirty = false) override;
 	virtual void ClearInstances() override;
 	virtual TArray<int32> GetInstancesOverlappingSphere(const FVector& Center, float Radius, bool bSphereInWorldSpace = true) const override;
+	virtual TArray<int32> GetInstancesOverlappingBox(const FBox& Box, bool bBoxInWorldSpace = true) const override;
 
 	/** Removes all the instances with indices specified in the InstancesToRemove array. Returns true on success. */
 	UFUNCTION(BlueprintCallable, Category = "Components|InstancedStaticMesh")

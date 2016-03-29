@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "BlueprintEditorPrivatePCH.h"
 #include "ImaginaryBlueprintData.h"
 #include "Json.h"
@@ -53,12 +53,12 @@ FSearchResult FImaginaryFiBData::CreateSearchResult(FSearchResult InParent) cons
 	FSearchResult ReturnSearchResult = CreateSearchResult_Internal(InParent);
 
 	FText DisplayName;
-	for( auto TagsAndValues : ParsedTagsAndValues )
+	for( const TPair<FindInBlueprintsHelpers::FSimpleFTextKeyStorage, FSearchableValueInfo>& TagsAndValues : ParsedTagsAndValues )
 	{
 		if (TagsAndValues.Value.IsCoreDisplay() || !TagsAndValues.Value.IsSearchable())
 		{
 			FText Value = TagsAndValues.Value.GetDisplayText(*LookupTablePtr);
-			ReturnSearchResult->ParseSearchInfo(FText::FromString(TagsAndValues.Key), Value);
+			ReturnSearchResult->ParseSearchInfo(TagsAndValues.Key.Text, Value);
 		}
 	}
 	return ReturnSearchResult;
@@ -122,10 +122,20 @@ void FImaginaryFiBData::ParseAllChildData_Internal(ESearchableValueStatus InSear
 	{
 		if (InSearchabilityOverride & ESearchableValueStatus::Searchable)
 		{
-			const TSharedPtr< FJsonObject >* MetaDataField;
-			if (UnparsedJsonObject->TryGetObjectField(FFindInBlueprintSearchTags::FiBMetaDataTag.ToString(), MetaDataField))
+			TSharedPtr< FJsonObject > MetaDataField;
+			for (auto MapValues : UnparsedJsonObject->Values)
 			{
-				TSharedPtr<FFiBMetaData> MetaDataFiBInfo = MakeShareable(new FFiBMetaData(AsShared(), *MetaDataField, LookupTablePtr));
+				FText KeyText = FindInBlueprintsHelpers::AsFText(FCString::Atoi(*MapValues.Key), *LookupTablePtr);
+				if (!KeyText.CompareTo(FFindInBlueprintSearchTags::FiBMetaDataTag))
+				{
+					MetaDataField = MapValues.Value->AsObject();
+					break;
+				}
+			}
+
+			if (MetaDataField.IsValid())
+			{
+				TSharedPtr<FFiBMetaData> MetaDataFiBInfo = MakeShareable(new FFiBMetaData(AsShared(), MetaDataField, LookupTablePtr));
 				MetaDataFiBInfo->ParseAllChildData_Internal();
 
 				if (MetaDataFiBInfo->IsHidden() && MetaDataFiBInfo->IsExplicit())
@@ -141,17 +151,17 @@ void FImaginaryFiBData::ParseAllChildData_Internal(ESearchableValueStatus InSear
 
 		for( auto MapValues : UnparsedJsonObject->Values )
 		{
+			FText KeyText = FindInBlueprintsHelpers::AsFText(FCString::Atoi(*MapValues.Key), *LookupTablePtr);
 			TSharedPtr< FJsonValue > JsonValue = MapValues.Value;
 
-			if (MapValues.Key == FFindInBlueprintSearchTags::FiBMetaDataTag.ToString())
+			if (!KeyText.CompareTo(FFindInBlueprintSearchTags::FiBMetaDataTag))
 			{
 				// Do not let this be processed again
 				continue;
 			}
-			if (!TrySpecialHandleJsonValue(MapValues.Key, JsonValue))
+			if (!TrySpecialHandleJsonValue(KeyText, JsonValue))
 			{
-				FText Key = FText::FromString(MapValues.Key);
-				ParseJsonValue(Key, Key, JsonValue, false, InSearchabilityOverride);
+				ParseJsonValue(KeyText, KeyText, JsonValue, false, InSearchabilityOverride);
 			}
 		}
 	}
@@ -170,11 +180,11 @@ void FImaginaryFiBData::ParseJsonValue(FText InKey, FText InDisplayKey, TSharedP
 	ESearchableValueStatus SearchabilityStatus = (InSearchabilityOverride == ESearchableValueStatus::Searchable)? GetSearchabilityStatus(InKey.ToString()) : InSearchabilityOverride;
 	if( InJsonValue->Type == EJson::String)
 	{
-		ParsedTagsAndValues.Add(InKey.ToString(), FSearchableValueInfo(InDisplayKey, FCString::Atoi(*InJsonValue->AsString()), SearchabilityStatus));
+		ParsedTagsAndValues.Add(FindInBlueprintsHelpers::FSimpleFTextKeyStorage(InKey), FSearchableValueInfo(InDisplayKey, FCString::Atoi(*InJsonValue->AsString()), SearchabilityStatus));
 	}
 	else if (InJsonValue->Type == EJson::Boolean)
 	{
-		ParsedTagsAndValues.Add(InKey.ToString(), FSearchableValueInfo(InDisplayKey, FText::FromString(InJsonValue->AsString()), SearchabilityStatus));
+		ParsedTagsAndValues.Add(FindInBlueprintsHelpers::FSimpleFTextKeyStorage(InKey), FSearchableValueInfo(InDisplayKey, FText::FromString(InJsonValue->AsString()), SearchabilityStatus));
 	}
 	else if( InJsonValue->Type == EJson::Array)
 	{
@@ -196,7 +206,7 @@ void FImaginaryFiBData::ParseJsonValue(FText InKey, FText InDisplayKey, TSharedP
 	else
 	{
 		// For everything else, there's this. Numbers come here and will be treated as strings
-		ParsedTagsAndValues.Add(InKey.ToString(), FSearchableValueInfo(InDisplayKey, FText::FromString(InJsonValue->AsString()), SearchabilityStatus));
+		ParsedTagsAndValues.Add(FindInBlueprintsHelpers::FSimpleFTextKeyStorage(InKey), FSearchableValueInfo(InDisplayKey, FText::FromString(InJsonValue->AsString()), SearchabilityStatus));
 	}
 }
 
@@ -211,7 +221,7 @@ FText FImaginaryFiBData::CreateSearchComponentDisplayText(FText InKey, FText InV
 bool FImaginaryFiBData::TestBasicStringExpression(const FTextFilterString& InValue, const ETextFilterTextComparisonMode InTextComparisonMode, TMultiMap< const FImaginaryFiBData*, FComponentUniqueDisplay >& InOutMatchingSearchComponents) const
 {
 	bool bMatchesSearchQuery = false;
-	for( auto ParsedValues : ParsedTagsAndValues )
+	for(const TPair< FindInBlueprintsHelpers::FSimpleFTextKeyStorage, FSearchableValueInfo >& ParsedValues : ParsedTagsAndValues )
 	{
 		if (ParsedValues.Value.IsSearchable() && !ParsedValues.Value.IsExplicitSearchable())
 		{
@@ -244,24 +254,24 @@ bool FImaginaryFiBData::TestBasicStringExpression(const FTextFilterString& InVal
 bool FImaginaryFiBData::TestComplexExpression(const FName& InKey, const FTextFilterString& InValue, const ETextFilterComparisonOperation InComparisonOperation, const ETextFilterTextComparisonMode InTextComparisonMode, TMultiMap< const FImaginaryFiBData*, FComponentUniqueDisplay >& InOutMatchingSearchComponents) const
 {
 	bool bMatchesSearchQuery = false;
-
-	TArray<FSearchableValueInfo> ValueList;
-	ParsedTagsAndValues.MultiFind(InKey.ToString(), ValueList, true);
-	for (const FSearchableValueInfo& ItemValue : ValueList)
+	for (const TPair< FindInBlueprintsHelpers::FSimpleFTextKeyStorage, FSearchableValueInfo >& TagsValuePair : ParsedTagsAndValues)
 	{
-		if (ItemValue.IsSearchable())
+		if (TagsValuePair.Value.IsSearchable())
 		{
-			FText Value = ItemValue.GetDisplayText(*LookupTablePtr);
-			FString ValueAsString = Value.ToString();
-			ValueAsString.ReplaceInline(TEXT(" "), TEXT(""));
-			bool bMatchesSearch = TextFilterUtils::TestComplexExpression(ValueAsString, InValue, InComparisonOperation, InTextComparisonMode) || TextFilterUtils::TestBasicStringExpression(Value.BuildSourceString(), InValue, InTextComparisonMode);
-
-			if (bMatchesSearch && !ItemValue.IsCoreDisplay())
+			if (TagsValuePair.Key.Text.ToString() == InKey.ToString() || TagsValuePair.Key.Text.BuildSourceString() == InKey.ToString())
 			{
-				FSearchResult SearchResult(new FFindInBlueprintsResult(CreateSearchComponentDisplayText(ItemValue.GetDisplayKey(), Value), nullptr ));
-				InOutMatchingSearchComponents.Add(this, FComponentUniqueDisplay(SearchResult));
+				FText Value = TagsValuePair.Value.GetDisplayText(*LookupTablePtr);
+				FString ValueAsString = Value.ToString();
+				ValueAsString.ReplaceInline(TEXT(" "), TEXT(""));
+				bool bMatchesSearch = TextFilterUtils::TestComplexExpression(ValueAsString, InValue, InComparisonOperation, InTextComparisonMode) || TextFilterUtils::TestBasicStringExpression(Value.BuildSourceString(), InValue, InTextComparisonMode);
+
+				if (bMatchesSearch && !TagsValuePair.Value.IsCoreDisplay())
+				{
+					FSearchResult SearchResult(new FFindInBlueprintsResult(CreateSearchComponentDisplayText(TagsValuePair.Value.GetDisplayKey(), Value), nullptr));
+					InOutMatchingSearchComponents.Add(this, FComponentUniqueDisplay(SearchResult));
+				}
+				bMatchesSearchQuery |= bMatchesSearch;
 			}
-			bMatchesSearchQuery |= bMatchesSearch;
 		}
 	}
 
@@ -291,15 +301,15 @@ FFiBMetaData::FFiBMetaData(TWeakPtr<FImaginaryFiBData> InOuter, TSharedPtr< FJso
 {
 }
 
-bool FFiBMetaData::TrySpecialHandleJsonValue(FString InKey, TSharedPtr< FJsonValue > InJsonValue)
+bool FFiBMetaData::TrySpecialHandleJsonValue(FText InKey, TSharedPtr< FJsonValue > InJsonValue)
 {
 	bool bResult = false;
-	if(InKey == FFiBMD::FiBSearchableExplicitMD)
+	if (InKey.ToString() == FFiBMD::FiBSearchableExplicitMD)
 	{
 		bIsExplicit = true;
 		bResult = true;
 	}
-	else if(InKey == FFiBMD::FiBSearchableHiddenExplicitMD)
+	else if (InKey.ToString() == FFiBMD::FiBSearchableHiddenExplicitMD)
 	{
 		bIsExplicit = true;
 		bIsHidden = true;
@@ -360,7 +370,8 @@ void FCategorySectionHelper::ParseAllChildData_Internal(ESearchableValueStatus I
 		{
 			for( auto MapValues : UnparsedJsonObject->Values )
 			{
-				if (MapValues.Key == FFindInBlueprintSearchTags::FiBMetaDataTag.ToString())
+				FText KeyText = FindInBlueprintsHelpers::AsFText(FCString::Atoi(*MapValues.Key), *LookupTablePtr);
+				if (!KeyText.CompareTo(FFindInBlueprintSearchTags::FiBMetaDataTag))
 				{
 					bHasMetaData = true;
 				}
@@ -387,9 +398,10 @@ FImaginaryBlueprint::FImaginaryBlueprint(FString InBlueprintName, FString InBlue
 	, UnparsedStringData(InUnparsedStringData)
 {
 	ParseToJson(bInIsVersioned);
-	ParsedTagsAndValues.Add(FFindInBlueprintSearchTags::FiB_Name.ToString(), FSearchableValueInfo(FFindInBlueprintSearchTags::FiB_Name, FText::FromString(InBlueprintName), ESearchableValueStatus::ExplicitySearchable));
-	ParsedTagsAndValues.Add(FFindInBlueprintSearchTags::FiB_Path.ToString(), FSearchableValueInfo(FFindInBlueprintSearchTags::FiB_Path, FText::FromString(InBlueprintPath), ESearchableValueStatus::ExplicitySearchable));
-	ParsedTagsAndValues.Add(FFindInBlueprintSearchTags::FiB_ParentClass.ToString(), FSearchableValueInfo(FFindInBlueprintSearchTags::FiB_ParentClass, FText::FromString(InBlueprintParentClass), ESearchableValueStatus::ExplicitySearchable));
+	LookupTablePtr = &LookupTable;
+	ParsedTagsAndValues.Add(FindInBlueprintsHelpers::FSimpleFTextKeyStorage(FFindInBlueprintSearchTags::FiB_Name), FSearchableValueInfo(FFindInBlueprintSearchTags::FiB_Name, FText::FromString(InBlueprintName), ESearchableValueStatus::ExplicitySearchable));
+	ParsedTagsAndValues.Add(FindInBlueprintsHelpers::FSimpleFTextKeyStorage(FFindInBlueprintSearchTags::FiB_Path), FSearchableValueInfo(FFindInBlueprintSearchTags::FiB_Path, FText::FromString(InBlueprintPath), ESearchableValueStatus::ExplicitySearchable));
+	ParsedTagsAndValues.Add(FindInBlueprintsHelpers::FSimpleFTextKeyStorage(FFindInBlueprintSearchTags::FiB_ParentClass), FSearchableValueInfo(FFindInBlueprintSearchTags::FiB_ParentClass, FText::FromString(InBlueprintParentClass), ESearchableValueStatus::ExplicitySearchable));
 
 	TSharedPtr< FCategorySectionHelper > InterfaceCategory = MakeShareable(new FCategorySectionHelper(nullptr, &LookupTable, FFindInBlueprintSearchTags::FiB_Interfaces, true));
 	for( int32 InterfaceIdx = 0; InterfaceIdx < InInterfaces.Num(); ++InterfaceIdx)
@@ -404,7 +416,7 @@ FImaginaryBlueprint::FImaginaryBlueprint(FString InBlueprintName, FString InBlue
 
 FSearchResult FImaginaryBlueprint::CreateSearchResult_Internal(FSearchResult InParent) const
 {
-	return FSearchResult(new FFindInBlueprintsResult(ParsedTagsAndValues.Find(FFindInBlueprintSearchTags::FiB_Path.ToString())->GetDisplayText(LookupTable)));
+	return FSearchResult(new FFindInBlueprintsResult(ParsedTagsAndValues.Find(FindInBlueprintsHelpers::FSimpleFTextKeyStorage(FFindInBlueprintSearchTags::FiB_Path))->GetDisplayText(LookupTable)));
 }
 
 UBlueprint* FImaginaryBlueprint::GetBlueprint() const
@@ -436,11 +448,11 @@ void FImaginaryBlueprint::ParseToJson(bool bInIsVersioned)
 	UnparsedJsonObject = FFindInBlueprintSearchManager::ConvertJsonStringToObject(bInIsVersioned, UnparsedStringData, LookupTable);
 }
 
-bool FImaginaryBlueprint::TrySpecialHandleJsonValue(FString InKey, TSharedPtr< FJsonValue > InJsonValue)
+bool FImaginaryBlueprint::TrySpecialHandleJsonValue(FText InKey, TSharedPtr< FJsonValue > InJsonValue)
 {
 	bool bResult = false;
 
-	if(InKey == FFindInBlueprintSearchTags::FiB_Properties.ToString())
+	if(!InKey.CompareTo(FFindInBlueprintSearchTags::FiB_Properties))
 	{
 		// Pulls out all properties (variables) for this Blueprint
 		TArray<TSharedPtr< FJsonValue > > PropertyList = InJsonValue->AsArray();
@@ -450,27 +462,27 @@ bool FImaginaryBlueprint::TrySpecialHandleJsonValue(FString InKey, TSharedPtr< F
 		}
 		bResult = true;
 	}
-	else if (InKey == FFindInBlueprintSearchTags::FiB_Functions.ToString())
+	else if (!InKey.CompareTo(FFindInBlueprintSearchTags::FiB_Functions))
 	{
 		ParseGraph(InJsonValue, FFindInBlueprintSearchTags::FiB_Functions.ToString(), GT_Function);
 		bResult = true;
 	}
-	else if (InKey == FFindInBlueprintSearchTags::FiB_Macros.ToString())
+	else if (!InKey.CompareTo(FFindInBlueprintSearchTags::FiB_Macros))
 	{
 		ParseGraph(InJsonValue, FFindInBlueprintSearchTags::FiB_Macros.ToString(), GT_Macro);
 		bResult = true;
 	}
-	else if (InKey == FFindInBlueprintSearchTags::FiB_UberGraphs.ToString())
+	else if (!InKey.CompareTo(FFindInBlueprintSearchTags::FiB_UberGraphs))
 	{
 		ParseGraph(InJsonValue, FFindInBlueprintSearchTags::FiB_UberGraphs.ToString(), GT_Ubergraph);
 		bResult = true;
 	}
-	else if (InKey == FFindInBlueprintSearchTags::FiB_SubGraphs.ToString())
+	else if (!InKey.CompareTo(FFindInBlueprintSearchTags::FiB_SubGraphs))
 	{
 		ParseGraph(InJsonValue, FFindInBlueprintSearchTags::FiB_SubGraphs.ToString(), GT_Ubergraph);
 		bResult = true;
 	}
-	else if(InKey == FFindInBlueprintSearchTags::FiB_Components.ToString())
+	else if(!InKey.CompareTo(FFindInBlueprintSearchTags::FiB_Components))
 	{
 		TArray<TSharedPtr< FJsonValue > > ComponentList = InJsonValue->AsArray();
 		TSharedPtr< FJsonObject > ComponentsWrapperObject(new FJsonObject);
@@ -550,9 +562,9 @@ ESearchableValueStatus FImaginaryGraph::GetSearchabilityStatus(FString InKey)
 	return ESearchableValueStatus::Searchable;
 }
 
-bool FImaginaryGraph::TrySpecialHandleJsonValue(FString InKey, TSharedPtr< FJsonValue > InJsonValue)
+bool FImaginaryGraph::TrySpecialHandleJsonValue(FText InKey, TSharedPtr< FJsonValue > InJsonValue)
 {
-	if (FindInBlueprintsHelpers::IsTextEqualToString(FFindInBlueprintSearchTags::FiB_Nodes, InKey))
+	if (!InKey.CompareTo(FFindInBlueprintSearchTags::FiB_Nodes))
 	{
 		TArray< TSharedPtr< FJsonValue > > NodeList = InJsonValue->AsArray();
 
@@ -562,7 +574,7 @@ bool FImaginaryGraph::TrySpecialHandleJsonValue(FString InKey, TSharedPtr< FJson
 		}
 		return true;
 	}
-	else if (FindInBlueprintsHelpers::IsTextEqualToString(FFindInBlueprintSearchTags::FiB_Properties, InKey))
+	else if (!InKey.CompareTo(FFindInBlueprintSearchTags::FiB_Properties))
 	{
 		// Pulls out all properties (local variables) for this graph
 		TArray<TSharedPtr< FJsonValue > > PropertyList = InJsonValue->AsArray();
@@ -623,9 +635,9 @@ ESearchableValueStatus FImaginaryGraphNode::GetSearchabilityStatus(FString InKey
 	return ESearchableValueStatus::Searchable;
 }
 
-bool FImaginaryGraphNode::TrySpecialHandleJsonValue(FString InKey, TSharedPtr< FJsonValue > InJsonValue)
+bool FImaginaryGraphNode::TrySpecialHandleJsonValue(FText InKey, TSharedPtr< FJsonValue > InJsonValue)
 {
-	if (FindInBlueprintsHelpers::IsTextEqualToString(FFindInBlueprintSearchTags::FiB_Pins, InKey))
+	if (!InKey.CompareTo(FFindInBlueprintSearchTags::FiB_Pins))
 	{
 		TArray< TSharedPtr< FJsonValue > > PinsList = InJsonValue->AsArray();
 
@@ -635,7 +647,7 @@ bool FImaginaryGraphNode::TrySpecialHandleJsonValue(FString InKey, TSharedPtr< F
 		}
 		return true;
 	}
-	else if (FindInBlueprintsHelpers::IsTextEqualToString(FFindInBlueprintSearchTags::FiB_SchemaName, InKey))
+	else if (!InKey.CompareTo(FFindInBlueprintSearchTags::FiB_SchemaName))
 	{
 		// Previously extracted
 		return true;
@@ -650,10 +662,15 @@ void FImaginaryGraphNode::ParseAllChildData_Internal(ESearchableValueStatus InSe
 	{
 		TSharedPtr< FJsonObject > JsonObject = UnparsedJsonObject;
 		// Very important to get the schema first, other bits of data depend on it
-		TSharedPtr< FJsonValue > SchemaNameValue = JsonObject->GetField< EJson::String >(FFindInBlueprintSearchTags::FiB_SchemaName.ToString());
-		if(SchemaNameValue.IsValid())
+		for (auto MapValues : UnparsedJsonObject->Values)
 		{
-			SchemaName = FindInBlueprintsHelpers::AsFText(SchemaNameValue, *LookupTablePtr).ToString();
+			FText KeyText = FindInBlueprintsHelpers::AsFText(FCString::Atoi(*MapValues.Key), *LookupTablePtr);
+			if (!KeyText.CompareTo(FFindInBlueprintSearchTags::FiB_SchemaName))
+			{
+				TSharedPtr< FJsonValue > SchemaNameValue = MapValues.Value;
+				SchemaName = FindInBlueprintsHelpers::AsFText(SchemaNameValue, *LookupTablePtr).ToString();
+				break;
+			}
 		}
 
 		FImaginaryFiBData::ParseAllChildData_Internal(InSearchabilityOverride);
@@ -755,7 +772,7 @@ ESearchableValueStatus FImaginaryPin::GetSearchabilityStatus(FString InKey)
 	return ESearchableValueStatus::Searchable;
 }
 
-bool FImaginaryPin::TrySpecialHandleJsonValue(FString InKey, TSharedPtr< FJsonValue > InJsonValue)
+bool FImaginaryPin::TrySpecialHandleJsonValue(FText InKey, TSharedPtr< FJsonValue > InJsonValue)
 {
 	return false;
 }

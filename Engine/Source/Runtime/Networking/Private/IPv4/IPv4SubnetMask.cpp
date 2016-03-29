@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "NetworkingPrivatePCH.h"
 
@@ -6,25 +6,25 @@
 /* FIpAddress4 interface
  *****************************************************************************/
 
-FText FIPv4SubnetMask::ToText( ) const
+FString FIPv4SubnetMask::ToString() const
 {
-	return FText::FromString( FString::Printf(TEXT("%i.%i.%i.%i"), Bytes[0], Bytes[1], Bytes[2], Bytes[3]) );
+	return FString::Printf(TEXT("%i.%i.%i.%i"), A, B, C, D);
 }
 
 
 /* FIpAddress4 static interface
  *****************************************************************************/
 
-bool FIPv4SubnetMask::Parse( const FString& MaskString, FIPv4SubnetMask& OutMask )
+bool FIPv4SubnetMask::Parse(const FString& MaskString, FIPv4SubnetMask& OutMask)
 {
 	TArray<FString> Tokens;
 
 	if (MaskString.ParseIntoArray(Tokens, TEXT("."), false) == 4)
 	{
-		OutMask.Bytes[0] = FCString::Atoi(*Tokens[3]);
-		OutMask.Bytes[1] = FCString::Atoi(*Tokens[2]);
-		OutMask.Bytes[2] = FCString::Atoi(*Tokens[1]);
-		OutMask.Bytes[3] = FCString::Atoi(*Tokens[0]);
+		OutMask.A = FCString::Atoi(*Tokens[0]);
+		OutMask.B = FCString::Atoi(*Tokens[1]);
+		OutMask.C = FCString::Atoi(*Tokens[2]);
+		OutMask.D = FCString::Atoi(*Tokens[3]);
 
 		return true;
 	}

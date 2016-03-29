@@ -1,9 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "ModuleManager.h"
-#include "AbilitySystemGlobals.h"
 
 
 /**
@@ -38,10 +37,8 @@ public:
 		return FModuleManager::Get().IsModuleLoaded( "GameplayAbilities" );
 	}
 
-	virtual UAbilitySystemGlobals* GetAbilitySystemGlobals() = 0;
+	virtual class UAbilitySystemGlobals* GetAbilitySystemGlobals() = 0;
 
 	virtual bool IsAbilitySystemGlobalsAvailable() = 0;
-
-	virtual void GetActiveAbilitiesDebugDataForActor(AActor* Actor, FString& AbilityString, bool& bIsUsingAbilities)=0;
 };
 

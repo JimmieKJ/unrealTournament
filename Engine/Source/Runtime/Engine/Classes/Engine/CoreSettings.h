@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -135,6 +135,16 @@ protected:
 		ConsoleVariable = "gc.AllowParallelGC", DisplayName = "Allow Parallel GC",
 		ToolTip = "If enabled, garbage collection will use multiple threads."))
 	uint32 AllowParallelGC : 1;
+
+	UPROPERTY(EditAnywhere, config, Category = Optimization, meta = (
+		ConsoleVariable = "gc.CreateGCClusters", DisplayName = "Create Garbage Collector UObject Clusters",
+		ToolTip = "If true, the engine will attempt to create clusters of objects for better garbage collection performance."))
+	uint32 CreateGCClusters : 1;
+
+	UPROPERTY(EditAnywhere, config, Category = Optimization, meta = (
+		ConsoleVariable = "gc.MergeGCClusters", DisplayName = "Merge GC Clusters",
+		ToolTip = "If true, when creating clusters, the clusters referenced from another cluster will get merged into one big cluster."))
+		uint32 MergeGCClusters : 1;
 
 	UPROPERTY(EditAnywhere, config, Category = General, meta = (
 		ConsoleVariable = "gc.NumRetriesBeforeForcingGC", DisplayName = "Number Of Retries Before Forcing GC",

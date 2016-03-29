@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "RenderCore.h"
@@ -247,7 +247,7 @@ public:
 	 */
 	virtual void InitRHI() override
 	{
-		if (GetFeatureLevel() >= ERHIFeatureLevel::ES3_1)
+		if (GSupportsTexture3D)
 		{
 			// Create the texture.
 			FBlackVolumeTextureResourceBulkDataInterface BlackTextureBulkData;
@@ -289,15 +289,11 @@ public:
 	{
 		if (GetFeatureLevel() >= ERHIFeatureLevel::SM4)
 		{
-			// Create the texture RHI.  		
-			FRHIResourceCreateInfo CreateInfo;
-			FTexture2DArrayRHIRef TextureArray = RHICreateTexture2DArray(1,1,1,PF_B8G8R8A8,1,TexCreate_ShaderResource,CreateInfo);
+			// Create the texture RHI.
+			FBlackVolumeTextureResourceBulkDataInterface BlackTextureBulkData;
+			FRHIResourceCreateInfo CreateInfo(&BlackTextureBulkData);
+			FTexture2DArrayRHIRef TextureArray = RHICreateTexture2DArray(1, 1, 1, PF_B8G8R8A8, 1, TexCreate_ShaderResource, CreateInfo);
 			TextureRHI = TextureArray;
-
-			uint32 DestStride;
-			FColor* DestBuffer = (FColor*)RHILockTexture2DArray(TextureArray, 0, 0, RLM_WriteOnly, DestStride, false);
-			*DestBuffer = FColor(0, 0, 0, 0);
-			RHIUnlockTexture2DArray(TextureArray, 0, 0, false);
 
 			// Create the sampler state RHI resource.
 			FSamplerStateInitializerRHI SamplerStateInitializer(SF_Point,AM_Wrap,AM_Wrap,AM_Wrap);
@@ -611,17 +607,27 @@ FIntPoint CalcMipMapExtent( uint32 TextureSizeX, uint32 TextureSizeY, EPixelForm
 	return FIntPoint(FMath::Max<uint32>(TextureSizeX >> MipIndex, GPixelFormats[Format].BlockSizeX), FMath::Max<uint32>(TextureSizeY >> MipIndex, GPixelFormats[Format].BlockSizeY));
 }
 
+SIZE_T CalcTextureMipWidthInBlocks(uint32 TextureSizeX, EPixelFormat Format, uint32 MipIndex)
+{
+	const uint32 BlockSizeX = GPixelFormats[Format].BlockSizeX;
+	const uint32 WidthInTexels = FMath::Max<uint32>(TextureSizeX >> MipIndex, 1);
+	const uint32 WidthInBlocks = (WidthInTexels + BlockSizeX - 1) / BlockSizeX;
+	return WidthInBlocks;
+}
+
+SIZE_T CalcTextureMipHeightInBlocks(uint32 TextureSizeY, EPixelFormat Format, uint32 MipIndex)
+{
+	const uint32 BlockSizeY = GPixelFormats[Format].BlockSizeY;
+	const uint32 HeightInTexels = FMath::Max<uint32>(TextureSizeY >> MipIndex, 1);
+	const uint32 HeightInBlocks = (HeightInTexels + BlockSizeY - 1) / BlockSizeY;
+	return HeightInBlocks;
+}
+
 SIZE_T CalcTextureMipMapSize( uint32 TextureSizeX, uint32 TextureSizeY, EPixelFormat Format, uint32 MipIndex )
 {
-	FIntPoint MipExtent = CalcMipMapExtent(TextureSizeX, TextureSizeY, Format, MipIndex);
-
-	// Offset MipExtent to round up result
-	MipExtent += FIntPoint(GPixelFormats[Format].BlockSizeX, GPixelFormats[Format].BlockSizeY) - FIntPoint(1, 1);
-
-	const uint32 Pitch = (MipExtent.X / GPixelFormats[Format].BlockSizeX) * GPixelFormats[Format].BlockBytes;
-	const uint32 NumRows = MipExtent.Y / GPixelFormats[Format].BlockSizeY;
-
-	return NumRows * Pitch;
+	const uint32 WidthInBlocks = CalcTextureMipWidthInBlocks(TextureSizeX, Format, MipIndex);
+	const uint32 HeightInBlocks = CalcTextureMipHeightInBlocks(TextureSizeY, Format, MipIndex);
+	return WidthInBlocks * HeightInBlocks * GPixelFormats[Format].BlockBytes;
 }
 
 SIZE_T CalcTextureSize( uint32 SizeX, uint32 SizeY, EPixelFormat Format, uint32 MipCount )

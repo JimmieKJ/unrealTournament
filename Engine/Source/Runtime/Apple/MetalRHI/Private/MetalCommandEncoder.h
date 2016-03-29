@@ -1,8 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include <Metal/Metal.h>
+
+class FMetalCommandList;
 
 /**
  * FMetalCommandEncoder:
@@ -17,10 +19,13 @@ public:
 #pragma mark - Public C++ Boilerplate -
 
 	/** Default constructor */
-	FMetalCommandEncoder(void);
+	FMetalCommandEncoder(FMetalCommandList& CmdList);
 	
 	/** Destructor */
 	~FMetalCommandEncoder(void);
+	
+	/** Reset cached state for reuse */
+	void Reset(void);
 	
 #pragma mark - Public Command Buffer Mutators -
 
@@ -60,10 +65,9 @@ public:
 #pragma mark - Public Command Encoder Mutators -
 
 	/**
- 	 * Begins encoding rendering commands into the current command buffer. No other encoder may be active.
- 	 * @param RenderPass The descriptor for the new render pass.
+ 	 * Begins encoding rendering commands into the current command buffer. No other encoder may be active & the MTLRenderPassDescriptor must previously have been set.
 	 */
-	void BeginRenderCommandEncoding(MTLRenderPassDescriptor* const RenderPass);
+	void BeginRenderCommandEncoding(void);
 	
 	/** Restore the render command encoder from whatever state we were in. Any previous encoder must first be terminated with EndEncoding. */
 	void RestoreRenderCommandEncoding(void);
@@ -73,6 +77,9 @@ public:
 	
 	/** Begins encoding compute commands into the current command buffer. No other encoder may be active. */
 	void BeginComputeCommandEncoding(void);
+	
+	/** Restores the compute command state into a new compute command encoder. */
+	void RestoreComputeCommandEncodingState(void);
 	
 	/** Begins encoding blit commands into the current command buffer. No other encoder may be active. */
 	void BeginBlitCommandEncoding(void);
@@ -99,6 +106,13 @@ public:
 	
 #pragma mark - Public Render State Mutators -
 
+	/**
+	 * Set the render pass descriptor - no encoder may be active when this function is called.
+	 * @param RenderPass The render pass descriptor to set. May be nil.
+	 * @param bReset Whether to reset existing state.
+	 */
+	void SetRenderPassDescriptor(MTLRenderPassDescriptor* const RenderPass, bool const bReset);
+	
 	/*
 	 * Sets the current render pipeline state object.
 	 * @param PipelineState The pipeline state to set. Must not be nil.
@@ -350,6 +364,8 @@ private:
 	FMetalBufferBindings ShaderBuffers[SF_NumFrequencies];
 	FMetalTextureBindings ShaderTextures[SF_NumFrequencies];
 	FMetalSamplerBindings ShaderSamplers[SF_NumFrequencies];
+	
+	FMetalCommandList& CommandList;
 	
 	MTLViewport Viewport;
 	MTLWinding FrontFacingWinding;

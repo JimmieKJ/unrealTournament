@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BasePassForForwardShadingPixelShader.usf: Base pass pixel shader used with forward shading
@@ -23,18 +23,50 @@ float4 LightPositionAndInvRadius[MAX_DYNAMIC_POINT_LIGHTS];
 float4 LightColorAndFalloffExponent[MAX_DYNAMIC_POINT_LIGHTS];
 #endif
 
+// xyz: Reflection plane normal in world space. Zero vector if this is not a planar reflection capture.
+// w: Reflection plane height.
+float4 PlanarReflectionCaptureData;
+
+#ifndef FORWARD_QL_FORCE_FULLY_ROUGH
+#define FORWARD_QL_FORCE_FULLY_ROUGH 0
+#endif
+#ifndef FORWARD_QL_FORCE_NONMETAL
+#define FORWARD_QL_FORCE_NONMETAL 0
+#endif
+#ifndef FORWARD_QL_FORCE_LQ_REFLECTIONS
+#define FORWARD_QL_FORCE_LQ_REFLECTIONS 0
+#endif
+
 #define FULLY_ROUGH (MATERIAL_FULLY_ROUGH || FORWARD_QL_FORCE_FULLY_ROUGH)
 #define NONMETAL (MATERIAL_NONMETAL || FORWARD_QL_FORCE_NONMETAL)
+#define HQ_REFLECTIONS (MATERIAL_HQ_FORWARD_REFLECTIONS && !FORWARD_QL_FORCE_LQ_REFLECTIONS)
+
+#define ALLOW_CUBE_REFLECTIONS 0
 
 /** Prenormalized capture of the scene that's closest to the object being rendered. */
 #if !FULLY_ROUGH
 TextureCube ReflectionCubemap;
 SamplerState ReflectionCubemapSampler;
+	#if HQ_REFLECTIONS
+	#define MAX_HQ_REFLECTIONS 3
+
+	TextureCube ReflectionCubemap1;
+	SamplerState ReflectionCubemapSampler1;
+	TextureCube ReflectionCubemap2;
+	SamplerState ReflectionCubemapSampler2;
+	float4 ReflectionPositionsAndRadii[MAX_HQ_REFLECTIONS];
+		#if ALLOW_CUBE_REFLECTIONS
+		float4x4 CaptureBoxTransformArray[MAX_HQ_REFLECTIONS];
+		float4 CaptureBoxScalesArray[MAX_HQ_REFLECTIONS];
+		#endif
+	#endif
 #endif
 
 half PhongApprox( half Roughness, half RoL )
 {
 	half a = Roughness * Roughness;			// 1 mul
+	//!! Ronin Hack?
+	a = max(a, 0.008);						// avoid underflow in FP16, next sqr should be bigger than 6.1e-5
 	half a2 = a * a;						// 1 mul
 	float rcp_a2 = rcp(a2);					// 1 rcp
 	//half rcp_a2 = exp2( -6.88886882 * Roughness + 6.88886882 );
@@ -47,15 +79,144 @@ half PhongApprox( half Roughness, half RoL )
 	// Total 7 instr
 }
 
+// Returns 1 if the position is below the reflection plane, 0 if it is above.
+half GetPlanarReflectionMask(half3 WorldPosition) {
+	const half3 PlaneOrigin = half3(PlanarReflectionCaptureData.xyz * PlanarReflectionCaptureData.w);
+	const half3 PlaneNormal = PlanarReflectionCaptureData.xyz;
+	const half3 V = WorldPosition - PlaneOrigin;
+	const half D = dot(PlaneNormal, V);
+	return (half)(D <= 0.0);
+}
+
 #if !FULLY_ROUGH
+#if HQ_REFLECTIONS
+
+float4 GetSphereCaptureVector(float3 ReflectionVector, float3 WorldPosition, float4 CapturePositionAndRadius)
+{
+	float4 ProjectedCaptureVector;
+	ProjectedCaptureVector.w = 0;
+	ProjectedCaptureVector.xyz = ReflectionVector;
+
+	float3 RayDirection = ReflectionVector;
+	float ProjectionSphereRadius = CapturePositionAndRadius.w * 1.2f;
+	float SphereRadiusSquared = ProjectionSphereRadius * ProjectionSphereRadius;
+
+	float3 ReceiverToSphereCenter = WorldPosition - CapturePositionAndRadius.xyz;
+	float ReceiverToSphereCenterSq = dot(ReceiverToSphereCenter, ReceiverToSphereCenter);
+
+	float3 CaptureVector = WorldPosition - CapturePositionAndRadius.xyz;
+	float CaptureVectorLength = sqrt(dot(CaptureVector, CaptureVector));
+	float NormalizedDistanceToCapture = saturate(CaptureVectorLength / CapturePositionAndRadius.w);
+
+	// Find the intersection between the ray along the reflection vector and the capture's sphere
+	float3 QuadraticCoef;
+	QuadraticCoef.x = 1;
+	QuadraticCoef.y = 2 * dot(RayDirection, ReceiverToSphereCenter);
+	QuadraticCoef.z = ReceiverToSphereCenterSq - SphereRadiusSquared;
+
+	float Determinant = QuadraticCoef.y * QuadraticCoef.y - 4 * QuadraticCoef.z;
+
+	BRANCH
+	// Only continue if the ray intersects the sphere
+	if (Determinant >= 0)
+	{
+		float FarIntersection = (sqrt(Determinant) - QuadraticCoef.y) * 0.5;
+
+		float3 IntersectPosition = WorldPosition + FarIntersection * RayDirection;
+		ProjectedCaptureVector.xyz = IntersectPosition - CapturePositionAndRadius.xyz;
+		// Fade out based on distance to capture
+		ProjectedCaptureVector.w = 1.0 - smoothstep(.6, 1, NormalizedDistanceToCapture);
+	}
+	return ProjectedCaptureVector;
+}
+
+#if ALLOW_CUBE_REFLECTIONS
+float4 GetBoxCaptureVector(float3 ReflectionVector, float3 WorldPosition, float4 CapturePositionAndRadius, float4x4 CaptureBoxTransform, float4 CaptureBoxScales)
+{
+	float4 ProjectedCaptureVector;
+	ProjectedCaptureVector.w = 0;
+	ProjectedCaptureVector.xyz = ReflectionVector;
+
+	float3 RayDirection = ReflectionVector * CapturePositionAndRadius.w * 2;
+
+	// Transform the ray into the local space of the box, where it is an AABB with mins at -1 and maxs at 1
+	float3 LocalRayStart = mul(float4(WorldPosition, 1), CaptureBoxTransform).xyz;
+	float3 LocalRayDirection = mul(RayDirection, (float3x3)CaptureBoxTransform);
+
+	// Intersections.y is the intersection with the far side of the box
+	float2 Intersections = LineBoxIntersect(LocalRayStart, LocalRayStart + LocalRayDirection, -1, 1);
+
+	{
+		// Compute the reprojected vector
+		float3 IntersectPosition = WorldPosition + Intersections.y * RayDirection;
+		ProjectedCaptureVector.xyz = IntersectPosition - CapturePositionAndRadius.xyz;
+
+		// Compute the distance from the receiving pixel to the box for masking
+		// Apply local to world scale to take scale into account without transforming back to world space
+		// Shrink the box by the transition distance (BoxScales.w) so that the fade happens inside the box influence area
+		float4 BoxScales = CaptureBoxScales;
+		float BoxDistance = ComputeDistanceFromBoxToPoint(-(BoxScales.xyz - .5f * BoxScales.w), BoxScales.xyz - .5f * BoxScales.w, LocalRayStart * BoxScales.xyz);
+		// Setup a fade based on receiver distance to the box, hides the box influence shape
+		float BoxDistanceAlpha = 1.0 - smoothstep(0, .7f * BoxScales.w, BoxDistance);
+		// Setup a fade based on reflection ray intersection distance, hides the discontinuity between rays that just barely 
+		float RayDistanceAlpha = smoothstep(0, BoxScales.w, Intersections.y * CapturePositionAndRadius.w * 2);
+		ProjectedCaptureVector.w = BoxDistanceAlpha * RayDistanceAlpha;
+	}
+	return ProjectedCaptureVector;
+}
+#endif
+
+half3 BlendReflectionCapture(FMaterialPixelParameters MaterialParameters, half Roughness, TextureCube ReflectionCube, SamplerState ReflectionSampler, half MipLevel, int ReflectionIndex, inout half BlendFactor)
+{
+	half4 ProjectedCaptureVector;
+#if ALLOW_CUBE_REFLECTIONS
+	if (CaptureBoxScalesArray[ReflectionIndex].w > 0)
+	{
+		ProjectedCaptureVector = GetBoxCaptureVector(MaterialParameters.ReflectionVector, MaterialParameters.AbsoluteWorldPosition, ReflectionPositionsAndRadii[ReflectionIndex], CaptureBoxTransformArray[ReflectionIndex], CaptureBoxScalesArray[ReflectionIndex]);
+	}
+	else
+#endif
+	{
+		ProjectedCaptureVector = GetSphereCaptureVector(MaterialParameters.ReflectionVector, MaterialParameters.AbsoluteWorldPosition, ReflectionPositionsAndRadii[ReflectionIndex]);
+	}
+
+	// Fetch from cubemap and convert to linear HDR
+	float4 Reflection = ReflectionCube.SampleLevel(ReflectionSampler, ProjectedCaptureVector.xyz, MipLevel);
+	half3 SpecularIBL = RGBMDecode(Reflection, 16.0f) * ProjectedCaptureVector.w * BlendFactor;
+
+	BlendFactor = BlendFactor * (1.0 - ProjectedCaptureVector.w);
+	return SpecularIBL;
+}
+
+half3 BlendReflectionCaptures(FMaterialPixelParameters MaterialParameters, half Roughness)
+{
+	// Compute fractional mip from roughness
+	half AbsoluteSpecularMip = ComputeReflectionCaptureMipFromRoughness(Roughness);
+
+	half3 SpecularIBL = half3(0, 0, 0);
+	half BlendFactor = 1;
+
+	SpecularIBL += BlendReflectionCapture(MaterialParameters, Roughness, ReflectionCubemap, ReflectionCubemapSampler, AbsoluteSpecularMip, 0, BlendFactor);
+	SpecularIBL += BlendReflectionCapture(MaterialParameters, Roughness, ReflectionCubemap1, ReflectionCubemapSampler1, AbsoluteSpecularMip, 1, BlendFactor);
+	SpecularIBL += BlendReflectionCapture(MaterialParameters, Roughness, ReflectionCubemap2, ReflectionCubemapSampler2, AbsoluteSpecularMip, 2, BlendFactor);
+
+	return SpecularIBL;
+}
+#endif // HQ_REFLECTIONS
+
 half3 GetImageBasedReflectionLighting(FMaterialPixelParameters MaterialParameters, half Roughness)
 {
+#if HQ_REFLECTIONS
+	half3 SpecularIBL = BlendReflectionCaptures(MaterialParameters, Roughness);
+#else
+
 	half3 ProjectedCaptureVector = MaterialParameters.ReflectionVector;	
 
 	// Compute fractional mip from roughness
 	half AbsoluteSpecularMip = ComputeReflectionCaptureMipFromRoughness(Roughness);
 	// Fetch from cubemap and convert to linear HDR
 	half3 SpecularIBL = RGBMDecode(ReflectionCubemap.SampleLevel(ReflectionCubemapSampler, ProjectedCaptureVector, AbsoluteSpecularMip), 16.0f);
+#endif
 	SpecularIBL *= SpecularIBL;
 #if WEBGL
 	// need a rgb swizzle instead of the existing rgba swizzle, we should add it if another use case comes up. 
@@ -63,10 +224,8 @@ half3 GetImageBasedReflectionLighting(FMaterialPixelParameters MaterialParameter
 #else
 	return SpecularIBL;
 #endif
-
-
 }
-#endif
+#endif //!FULLY_ROUGH
 
 #if USE_EDITOR_COMPOSITING
 bool bEnableEditorPrimitiveDepthTest;
@@ -89,7 +248,7 @@ float ClipForEditorPrimitives(FMaterialPixelParameters MaterialParameters)
 			bool bIsPerspective = (View.ViewToClip._m33 < 1.0f);
 
 			// dejitter the sample position and make a filtered lookup - for planes this allows to reconstruct a much less jittery depth comparison function, it however doesn't fix silhuetes
-			float DeviceZ = Texture2DSampleLevel(FilteredSceneDepthTexture, FilteredSceneDepthTextureSampler, (MaterialParameters.SvPosition.xy - View.TemporalAAParams.zw) * View.BufferSizeAndInvSize.zw, 0).r;
+			float DeviceZ = Texture2DSampleLevel(FilteredSceneDepthTexture, FilteredSceneDepthTextureSampler, (MaterialParameters.SvPosition.xy - Frame.TemporalAAParams.zw) * Frame.BufferSizeAndInvSize.zw, 0).r;
 
 			float PixelDeviceZ = MaterialParameters.SvPosition.z;
 
@@ -136,29 +295,39 @@ void Main(
 	out half4 OutColor	: SV_Target0
 	)
 {
+	ResolvedView = ResolveView();
+
 #if PACK_INTERPOLANTS
 	float4 PackedInterpolants[NUM_VF_PACKED_INTERPOLANTS];
 	VertexFactoryUnpackInterpolants(Interpolants, PackedInterpolants);
 #endif
-	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(Interpolants, SvPosition);
 
+#if ES2_PROFILE && OUTPUT_GAMMA_SPACE && !MOBILE_EMULATION
+	// LDR ES2 needs screen vertical flipped
+	SvPosition.y = Frame.BufferSizeAndInvSize.y - SvPosition.y - 1;
+#endif
+
+	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(Interpolants, SvPosition);
+	FPixelMaterialInputs PixelMaterialInputs;
 	#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
 		{
 			float4 ScreenPosition = SvPositionToScreenPosition(SvPosition);
-			CalcMaterialParametersEx(MaterialParameters, SvPosition, ScreenPosition, bIsFrontFace, SvPositionToTranslatedWorld(SvPosition), BasePassInterpolants.PixelPositionExcludingWPO);
+			CalcMaterialParametersEx(MaterialParameters, PixelMaterialInputs, SvPosition, ScreenPosition, bIsFrontFace, SvPositionToResolvedTranslatedWorld(SvPosition), BasePassInterpolants.PixelPositionExcludingWPO);
 		}
 	#else
-		CalcMaterialParameters(MaterialParameters, SvPosition, bIsFrontFace);
+		CalcMaterialParameters(MaterialParameters, PixelMaterialInputs, SvPosition, bIsFrontFace);
 	#endif
 	  
 	//Clip if the blend mode requires it.
-	GetMaterialCoverageAndClipping(MaterialParameters);	
+	GetMaterialCoverageAndClipping(MaterialParameters, PixelMaterialInputs);
+
+	half Opacity = GetMaterialOpacity(PixelMaterialInputs);
 
 	// Store the results in local variables and reuse instead of calling the functions multiple times.
 	// Store the results in local variables and reuse instead of calling the functions multiple times.
-	half3 BaseColor = GetMaterialBaseColor( MaterialParameters );
-	half  Metallic = GetMaterialMetallic( MaterialParameters );
-	half  Specular = GetMaterialSpecular( MaterialParameters );
+	half3 BaseColor = GetMaterialBaseColor(PixelMaterialInputs);
+	half  Metallic = GetMaterialMetallic(PixelMaterialInputs);
+	half  Specular = GetMaterialSpecular(PixelMaterialInputs);
 
 #if NONMETAL
 	half3 DiffuseColor = BaseColor;
@@ -169,7 +338,7 @@ void Main(
 	half3 SpecularColor = (DielectricSpecular - DielectricSpecular * Metallic) + BaseColor * Metallic;	// 2 mad
 #endif
 
-	half Roughness = GetMaterialRoughness(MaterialParameters);
+	half Roughness = GetMaterialRoughness(PixelMaterialInputs);
 
 #if FULLY_ROUGH
 	// Factors derived from EnvBRDFApprox( SpecularColor, 1, 1 ) == SpecularColor * 0.4524 - 0.0024
@@ -186,6 +355,14 @@ void Main(
 #else
 	SpecularColor = EnvBRDFApprox( SpecularColor, Roughness, NoV );
 #endif
+#endif
+
+#if MOBILE_EMULATION
+	{
+		// this feature is only needed for development/editor - we can compile it out for a shipping build (see r.CompileShadersForDevelopment cvar help)
+		DiffuseColor = DiffuseColor * Frame.DiffuseOverrideParameter.w + Frame.DiffuseOverrideParameter.xyz;
+		SpecularColor = SpecularColor * Frame.SpecularOverrideParameter.w + Frame.SpecularOverrideParameter.xyz;
+	}
 #endif
 	
 	half3 Color = 0;
@@ -236,14 +413,14 @@ void Main(
 			Shadow = PrecomputedLightingBuffer.DirectionalLightShadowing;
 		#endif
 			
-		#if MOVABLE_DIRECTIONAL_LIGHT_CSM
+		#if DIRECTIONAL_LIGHT_CSM
 		// Cascaded Shadow Map
 		{
 			FPCFSamplerSettings Settings;
-			Settings.ShadowDepthTexture = View.DirectionalLightShadowTexture;
-			Settings.ShadowDepthTextureSampler = View.DirectionalLightShadowSampler;
-			Settings.TransitionScale = View.DirectionalLightShadowTransition;
-			Settings.ShadowBufferSize = View.DirectionalLightShadowSize;
+			Settings.ShadowDepthTexture = Frame.DirectionalLightShadowTexture;
+			Settings.ShadowDepthTextureSampler = Frame.DirectionalLightShadowSampler;
+			Settings.TransitionScale = Frame.DirectionalLightShadowTransition;
+			Settings.ShadowBufferSize = Frame.DirectionalLightShadowSize;
 			Settings.bSubsurface = false;
 			Settings.DensityMulConstant = 0;
 			Settings.ProjectionDepthBiasParameters = 0;
@@ -252,9 +429,9 @@ void Main(
 			for (int i = 0; i < MAX_FORWARD_SHADOWCASCADES; i++)
 			{
 				if (i == (MAX_FORWARD_SHADOWCASCADES - 1) // ignore test for last shadow map.
-					|| MaterialParameters.ScreenPosition.w < View.DirectionalLightShadowDistances[i])
+					|| MaterialParameters.ScreenPosition.w < Frame.DirectionalLightShadowDistances[i])
 				{
-					ShadowPosition = mul(float4(MaterialParameters.ScreenPosition.xyw, 1), View.DirectionalLightScreenToShadow[i]);
+					ShadowPosition = mul(float4(MaterialParameters.ScreenPosition.xyw, 1), Frame.DirectionalLightScreenToShadow[i]);
 					break; // position found.
 				}
 			}
@@ -264,31 +441,44 @@ void Main(
 			float LightSpacePixelDepthForOpaque = min(ShadowPosition.z, 0.99999f);
 			Settings.SceneDepth = LightSpacePixelDepthForOpaque;
 
-		#if 0
-			half ShadowMap = Manual1x1PCF(ShadowPosition.xy, Settings);
-		#else
-			half ShadowMap = Manual2x2PCF(ShadowPosition.xy, Settings);
-		#endif
-			Shadow = ShadowMap;
-		}
-		#endif /* MOVABLE_DIRECTIONAL_LIGHT_CSM */
+			#if 0
+				half ShadowMap = Manual1x1PCF(ShadowPosition.xy, Settings);
+			#else
+				half ShadowMap = Manual2x2PCF(ShadowPosition.xy, Settings);
+			#endif
 
-		float NoL = max(0, dot(MaterialParameters.WorldNormal, View.DirectionalLightDirection));
-		float RoL = max(0, dot(MaterialParameters.ReflectionVector, View.DirectionalLightDirection));
+			#if MOVABLE_DIRECTIONAL_LIGHT
+				Shadow = ShadowMap;
+			#else
+				Shadow = min(ShadowMap, Shadow);
+			#endif
+		}
+		#endif /* DIRECTIONAL_LIGHT_CSM */
+
+		float NoL = max(0, dot(MaterialParameters.WorldNormal, Frame.DirectionalLightDirection));
+		float RoL = max(0, dot(MaterialParameters.ReflectionVector, Frame.DirectionalLightDirection));
 
 		#if FULLY_ROUGH
-			Color += (Shadow * NoL) * View.DirectionalLightColor.rgb * DiffuseColor;
+			Color += (Shadow * NoL) * Frame.DirectionalLightColor.rgb * DiffuseColor;
 		#else
-			Color += (Shadow * NoL) * View.DirectionalLightColor.rgb * (DiffuseColor + SpecularColor * PhongApprox(Roughness, RoL));
+			Color += (Shadow * NoL) * Frame.DirectionalLightColor.rgb * (DiffuseColor + SpecularColor * PhongApprox(Roughness, RoL));
 			half3 SpecularIBL = GetImageBasedReflectionLighting(MaterialParameters, Roughness);
-			// Environment map has been prenormalized, scale by lightmap luminance
-			Color += SpecularIBL * IndirectIrradiance * SpecularColor;
+
+			#if MATERIAL_USE_PLANAR_REFLECTION	
+				//!! Ronin Hack to reuse emissive
+				const half3 EnvironmentReflection = SpecularIBL * IndirectIrradiance * SpecularColor; // Environment map has been prenormalized, scale by lightmap luminance
+				const half3 PlanarReflection = GetMaterialEmissive(PixelMaterialInputs) * SpecularColor;
+				const half PlanarReflectionMask = GetMaterialAmbientOcclusion(PixelMaterialInputs); // RT Alpha, 0 where there's reflection data
+				Color += lerp(PlanarReflection, EnvironmentReflection, PlanarReflectionMask);
+			#else
+				Color += SpecularIBL * IndirectIrradiance * SpecularColor;
+			#endif
 		#endif
 
 		#if ENABLE_SKY_LIGHT
 			//@mw todo
 			// TODO: Also need to do specular.
-			Color += GetSkySHDiffuseSimple(MaterialParameters.WorldNormal) * View.SkyLightColor.rgb * DiffuseColor;    
+			Color += GetSkySHDiffuseSimple(MaterialParameters.WorldNormal) * Frame.SkyLightColor.rgb * DiffuseColor;    
 		#endif
 
 		#if MAX_DYNAMIC_POINT_LIGHTS > 0
@@ -342,12 +532,15 @@ void Main(
 
 	#endif /* !MATERIAL_SHADINGMODEL_UNLIT */
 		 
-	half Opacity = GetMaterialOpacity(MaterialParameters);
-	half3 Emissive = GetMaterialEmissive(MaterialParameters);
 
-	Color += Emissive;
+	// Emissive is used for planar reflection contribution and applied with reflections.
+	#if !MATERIAL_USE_PLANAR_REFLECTION
+		half3 Emissive = GetMaterialEmissive(PixelMaterialInputs);
+		Color += Emissive;
+	#endif
 
 	half4 VertexFog = half4(0, 0, 0, 1);
+
 #if USE_VERTEX_FOG
 #if PACK_INTERPOLANTS
 	VertexFog = PackedInterpolants[0];
@@ -357,7 +550,7 @@ void Main(
 #endif
 
 #if !MATERIAL_SHADINGMODEL_UNLIT && MOBILE_EMULATION
-	Color = lerp(Color, DiffuseColor + SpecularColor, View.UnlitViewmodeMask);
+	Color = lerp(Color, DiffuseColor + SpecularColor, Frame.UnlitViewmodeMask);
 #endif
 
 	#if MATERIALBLENDING_TRANSLUCENT
@@ -373,8 +566,8 @@ void Main(
 		// Scene color alpha is not used yet so we set it to 0
 		OutColor.a = 0.0;
 
-		#if ES2_PROFILE && !OUTPUT_GAMMA_SPACE 
-			if(GetHDR32bppEncodeMode() == HDR_ENCODE_NONE)
+		#if !OUTPUT_GAMMA_SPACE 
+			if (GetHDR32bppEncodeMode() == HDR_ENCODE_NONE)
 			{
 				// FP16 HDR stores Z in framebuffer alpha
 				OutColor.a = MaterialParameters.ScreenPosition.w;
@@ -385,7 +578,7 @@ void Main(
 	#if !MATERIALBLENDING_MODULATE
 		// The exposure scale is just a scalar but needs to be a float4 to workaround a driver bug on IOS.
 		// After 4.2 we can put the workaround in the cross compiler.
-		OutColor.rgba *= View.ExposureScale.xyzw;
+		OutColor.rgba *= Frame.ExposureScale.xyzw;
 	#endif
 
 	#if OUTPUT_GAMMA_SPACE
@@ -408,10 +601,20 @@ void Main(
 	#if USE_EDITOR_COMPOSITING && (MOBILE_EMULATION)
 		#if MATERIALBLENDING_MASKED
 			// some material might have a opacity value
-			OutColor.a = GetMaterialMaskInputRaw(MaterialParameters);
+			OutColor.a = GetMaterialMaskInputRaw(PixelMaterialInputs);
 		#endif
 		// we output premultiplied alpha to we have to darken all 4 channels
 		OutColor *= ClipForEditorPrimitives(MaterialParameters);
 		clip(OutColor.a - GetMaterialOpacityMaskClipValue());
 	#endif
+
+	// Apply planar reflection pass mask
+	BRANCH
+	if (any(PlanarReflectionCaptureData.xyz))
+	{
+		// Ronin TODO: make this use view-relative position
+		const half PlanarReflectionMask = GetPlanarReflectionMask(MaterialParameters.AbsoluteWorldPosition);
+		OutColor.rgb *= PlanarReflectionMask;
+		OutColor.a = 1.0 - PlanarReflectionMask; // Alpha is cleared to 1
+	}
 }

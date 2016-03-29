@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "UnrealEd.h"
@@ -363,13 +363,6 @@ void FFeedbackContextEditor::Serialize( const TCHAR* V, ELogVerbosity::Type Verb
 
 void FFeedbackContextEditor::StartSlowTask( const FText& Task, bool bShowCancelButton )
 {
-	// If we are in PIE, then do not show slow dialog window, it can cause crashes
-	// if there are UMG gadgets open.  This is because they will get a message during
-	// an asset load and that causes an assert.
-	if (GEditor != nullptr && GEditor->PlayWorld != nullptr)
-	{
-		return;
-	}
 	FFeedbackContext::StartSlowTask( Task, bShowCancelButton );
 
 	// Attempt to parent the slow task window to the slate main frame
@@ -595,4 +588,9 @@ void FFeedbackContextEditor::CloseBuildProgressWindow()
 		BuildProgressWindow.Reset();
 		BuildProgressWidget.Reset();	
 	}
+}
+
+bool FFeedbackContextEditor::IsPlayingInEditor() const
+{
+	return (GIsPlayInEditorWorld || (GEditor && GEditor->PlayWorld != nullptr));
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneToolsPrivatePCH.h"
 #include "MovieScene.h"
@@ -38,7 +38,7 @@ namespace AnimatableParticleEditorConstants
 
 FParticleSection::FParticleSection( UMovieSceneSection& InSection, TSharedRef<ISequencer>InOwningSequencer )
 	: Section( InSection )
-	, OwningSequencer( InOwningSequencer )
+	, OwningSequencerPtr( InOwningSequencer )
 {
 	ParticleKeyEnum = FindObject<UEnum>( ANY_PACKAGE, TEXT( "EParticleKey" ) );
 	checkf( ParticleKeyEnum != nullptr, TEXT( "FParticleSection could not find the EParticleKey UEnum by name." ) )
@@ -75,11 +75,20 @@ void FParticleSection::GenerateSectionLayout( class ISectionLayoutBuilder& Layou
 	LayoutBuilder.SetSectionAsKeyArea( MakeShareable( new FEnumKeyArea( ParticleSection->GetParticleCurve(), ParticleSection, ParticleKeyEnum ) ) );
 }
 
-int32 FParticleSection::OnPaintSection( const FGeometry& AllottedGeometry, const FSlateRect& SectionClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, bool bParentEnabled ) const
+int32 FParticleSection::OnPaintSection( FSequencerSectionPainter& InPainter ) const
 {
-	const ESlateDrawEffect::Type DrawEffects = bParentEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect;
+	TSharedPtr<ISequencer> OwningSequencer = OwningSequencerPtr.Pin();
+
+	if (!OwningSequencer.IsValid())
+	{
+		return InPainter.LayerId + 1;
+	}
+
+	const ESlateDrawEffect::Type DrawEffects = InPainter.bParentEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect;
 	UMovieSceneParticleSection* AnimSection = Cast<UMovieSceneParticleSection>( &Section );
-	FTimeToPixel TimeToPixelConverter( AllottedGeometry, OwningSequencer->GetViewRange() );
+	const FTimeToPixel& TimeToPixelConverter = InPainter.GetTimeConverter();
+
+	FLinearColor TrackColor;
 
 	// @todo Sequencer - These values should be cached and then refreshed only when the particle system changes.
 	bool bIsLooping = false;
@@ -90,6 +99,8 @@ int32 FParticleSection::OnPaintSection( const FGeometry& AllottedGeometry, const
 		UMovieSceneParticleTrack* ParentTrack = Cast<UMovieSceneParticleTrack>( ParticleSection->GetOuter() );
 		if ( ParentTrack != nullptr )
 		{
+			TrackColor = ParentTrack->GetColorTint();
+
 			FGuid ObjectHandle;
 			for ( const FMovieSceneBinding& Binding : OwningSequencer->GetFocusedMovieSceneSequence()->GetMovieScene()->GetBindings() )
 			{
@@ -102,18 +113,20 @@ int32 FParticleSection::OnPaintSection( const FGeometry& AllottedGeometry, const
 
 			if ( ObjectHandle.IsValid() )
 			{
-				AEmitter* ParticleSystemActor = Cast<AEmitter>( OwningSequencer->GetFocusedMovieSceneSequenceInstance()->FindObject( ObjectHandle, *OwningSequencer ) );
-				if ( ParticleSystemActor != nullptr )
+				UObject* BoundObject = OwningSequencer->GetFocusedMovieSceneSequenceInstance()->FindObject( ObjectHandle, *OwningSequencer );
+				UParticleSystemComponent* ParticleSystemComponent = Cast<UParticleSystemComponent>(BoundObject);
+				if(AEmitter* ParticleSystemActor = Cast<AEmitter>(BoundObject))
 				{
-					UParticleSystemComponent* ParticleSystemComponent = ParticleSystemActor->GetParticleSystemComponent();
-					if ( ParticleSystemComponent != nullptr && ParticleSystemComponent->Template != nullptr )
+					ParticleSystemComponent = ParticleSystemActor->GetParticleSystemComponent();
+				}
+
+				if ( ParticleSystemComponent != nullptr && ParticleSystemComponent->Template != nullptr )
+				{
+					for ( UParticleEmitter* Emitter : ParticleSystemComponent->Template->Emitters )
 					{
-						for ( UParticleEmitter* Emitter : ParticleSystemComponent->Template->Emitters )
-						{
-							UParticleModuleRequired* RequiredModule = Emitter->GetLODLevel( 0 )->RequiredModule;
-							bIsLooping |= RequiredModule->EmitterLoops == 0;
-							LastEmitterEndTime = FMath::Max( LastEmitterEndTime, RequiredModule->EmitterDelay + RequiredModule->EmitterDuration );
-						}
+						UParticleModuleRequired* RequiredModule = Emitter->GetLODLevel( 0 )->RequiredModule;
+						bIsLooping |= RequiredModule->EmitterLoops == 0;
+						LastEmitterEndTime = FMath::Max( LastEmitterEndTime, RequiredModule->EmitterDelay + RequiredModule->EmitterDuration );
 					}
 				}
 			}
@@ -188,17 +201,25 @@ int32 FParticleSection::OnPaintSection( const FGeometry& AllottedGeometry, const
 		float XOffset = TimeToPixelConverter.TimeToPixel(DrawRange.GetLowerBoundValue());
 		float XSize = TimeToPixelConverter.TimeToPixel(DrawRange.GetUpperBoundValue()) - XOffset;
 		FSlateDrawElement::MakeBox(
-			OutDrawElements,
-			LayerId,
-			AllottedGeometry.ToPaintGeometry( FVector2D( XOffset, (AllottedGeometry.GetLocalSize().Y - SequencerSectionConstants::KeySize.Y) / 2 ), FVector2D( XSize, SequencerSectionConstants::KeySize.Y ) ),
-			FEditorStyle::GetBrush( "Sequencer.GenericSection.Background" ),
-			SectionClippingRect,
+			InPainter.DrawElements,
+			InPainter.LayerId,
+			InPainter.SectionGeometry.ToPaintGeometry( FVector2D( XOffset, (InPainter.SectionGeometry.GetLocalSize().Y - SequencerSectionConstants::KeySize.Y) / 2 ), FVector2D( XSize, SequencerSectionConstants::KeySize.Y ) ),
+			FEditorStyle::GetBrush( "Sequencer.Section.Background" ),
+			InPainter.SectionClippingRect,
+			DrawEffects
+			);
+		FSlateDrawElement::MakeBox(
+			InPainter.DrawElements,
+			InPainter.LayerId,
+			InPainter.SectionGeometry.ToPaintGeometry( FVector2D( XOffset, (InPainter.SectionGeometry.GetLocalSize().Y - SequencerSectionConstants::KeySize.Y) / 2 ), FVector2D( XSize, SequencerSectionConstants::KeySize.Y ) ),
+			FEditorStyle::GetBrush( "Sequencer.Section.BackgroundTint" ),
+			InPainter.SectionClippingRect,
 			DrawEffects,
-			FLinearColor( 0.0f, 0.0f, 1.f, 1.f )
+			TrackColor
 			);
 	}
 
-	return LayerId+1;
+	return InPainter.LayerId+1;
 }
 
 
@@ -218,6 +239,24 @@ const FSlateBrush* FParticleSection::GetKeyBrush( FKeyHandle KeyHandle ) const
 		}
 	}
 	return nullptr;
+}
+
+FVector2D FParticleSection::GetKeyBrushOrigin( FKeyHandle KeyHandle ) const
+{
+	UMovieSceneParticleSection* ParticleSection = Cast<UMovieSceneParticleSection>( &Section );
+	if ( ParticleSection != nullptr )
+	{
+		FIntegralKey ParticleKey = ParticleSection->GetParticleCurve().GetKey(KeyHandle);
+		if ( (EParticleKey::Type)ParticleKey.Value == EParticleKey::Activate )
+		{
+			return FVector2D(-1.0f, 1.0f);
+		}
+		else if ( (EParticleKey::Type)ParticleKey.Value == EParticleKey::Deactivate )
+		{
+			return FVector2D(1.0f, 1.0f);
+		}
+	}
+	return FVector2D(0.0f, 0.0f);
 }
 
 
@@ -249,7 +288,7 @@ TSharedRef<ISequencerSection> FParticleTrackEditor::MakeSectionInterface( UMovie
 
 void FParticleTrackEditor::BuildObjectBindingTrackMenu(FMenuBuilder& MenuBuilder, const FGuid& ObjectBinding, const UClass* ObjectClass)
 {
-	if (ObjectClass->IsChildOf(AEmitter::StaticClass()))
+	if (ObjectClass->IsChildOf(AEmitter::StaticClass()) || ObjectClass->IsChildOf(UParticleSystemComponent::StaticClass()))
 	{
 		const TSharedPtr<ISequencer> ParentSequencer = GetSequencer();
 
@@ -265,21 +304,21 @@ void FParticleTrackEditor::BuildObjectBindingTrackMenu(FMenuBuilder& MenuBuilder
 
 void FParticleTrackEditor::AddParticleKey( const FGuid ObjectGuid )
 {
-	TArray<UObject*> OutObjects;
+	TArray<TWeakObjectPtr<UObject>> OutObjects;
 
 	GetSequencer()->GetRuntimeObjects( GetSequencer()->GetFocusedMovieSceneSequenceInstance(), ObjectGuid, OutObjects );
 	AnimatablePropertyChanged( FOnKeyProperty::CreateRaw( this, &FParticleTrackEditor::AddKeyInternal, OutObjects ) );
 }
 
 
-bool FParticleTrackEditor::AddKeyInternal( float KeyTime, const TArray<UObject*> Objects )
+bool FParticleTrackEditor::AddKeyInternal( float KeyTime, const TArray<TWeakObjectPtr<UObject>> Objects )
 {
 	bool bHandleCreated = false;
 	bool bTrackCreated = false;
 
 	for( int32 ObjectIndex = 0; ObjectIndex < Objects.Num(); ++ObjectIndex )
 	{
-		UObject* Object = Objects[ObjectIndex];
+		UObject* Object = Objects[ObjectIndex].Get();
 
 		FFindOrCreateHandleResult HandleResult = FindOrCreateHandleToObject( Object );
 		FGuid ObjectHandle = HandleResult.Handle;

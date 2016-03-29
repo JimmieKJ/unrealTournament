@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostprocessAmbient.usf: To apply a ambient cubemap as a postprocess
@@ -155,29 +155,21 @@ float3 ImageBasedLightingMIS( FGBufferData GBuffer, float3 V, float3 N, uint2 Ra
 				float Weight = rcp( InvWeight );
 
 				float3 Shading = 0;
-#if USE_CLEARCOAT
 				BRANCH if( GBuffer.ShadingModelID == SHADINGMODELID_CLEAR_COAT )
 				{
 					Shading = ClearCoatShading( GBuffer, GBuffer.Roughness, 1, L, V, N );
 				}
-				else
-#endif
-//#if USE_CLOTH
-				BRANCH if( GBuffer.ShadingModelID == SHADINGMODELID_CLOTH )
+				else if( GBuffer.ShadingModelID == SHADINGMODELID_CLOTH )
 				{
 					Shading = ClothShading( GBuffer, GBuffer.Roughness, 1, L, V, N );
 				}
-				else
-//#endif
-//#if USE_EYE
-				BRANCH if( GBuffer.ShadingModelID == SHADINGMODELID_EYE )
+				else if( GBuffer.ShadingModelID == SHADINGMODELID_EYE )
 				{
 					Shading  = EyeShading( GBuffer, GBuffer.Roughness, 1, L, V, N ) * NoL;
 					Shading += EyeSubsurfaceShading( GBuffer, L, V, N );
 					NoL = 1;
 				}
 				else
-//#endif
 				{
 					Shading = StandardShading( GBuffer, GBuffer.Roughness, 1, L, V, N, 1 );
 				}
@@ -370,8 +362,8 @@ void MainPS(in noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPositio
 	R = lerp( N, R, (1 - a) * ( sqrt(1 - a) + a ) );
 	
 	uint2 Random = ScrambleTEA( PixelPos );
-	Random.x ^= View.Random;
-	Random.y ^= View.Random;
+	Random.x ^= Frame.Random;
+	Random.y ^= Frame.Random;
 
 	float3 NonSpecularContribution = 0;
 	float3 SpecularContribution = 0;
@@ -390,7 +382,6 @@ void MainPS(in noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPositio
 		float Mip = ComputeCubemapMipFromRoughness( GBuffer.Roughness, AmbientCubemapMipAdjust.w );
 		float3 SampleColor = TextureCubeSampleLevel( AmbientCubemap, AmbientCubemapSampler, R, Mip ).rgb;
 
-#if USE_CLEARCOAT
 		BRANCH if( GBuffer.ShadingModelID == SHADINGMODELID_CLEAR_COAT )
 		{
 			float ClearCoat = GBuffer.CustomData.x;
@@ -398,14 +389,12 @@ void MainPS(in noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPositio
 			SpecularContribution += SampleColor * ( GBuffer.SpecularColor * AB.x + AB.y * (1 - ClearCoat) );
 		}
 		else
-#endif
 		{
 			SpecularContribution += SampleColor * EnvBRDF( GBuffer.SpecularColor, GBuffer.Roughness, NoV );
 			//SpecularContribution += ApproximateSpecularIBL( Random, GBuffer.SpecularColor, GBuffer.Roughness, GBuffer.WorldNormal, -ScreenVector );
 		}
 	}
 
-#if USE_CLEARCOAT
 	BRANCH if( GBuffer.ShadingModelID == SHADINGMODELID_CLEAR_COAT )
 	{
 		const float ClearCoat			= GBuffer.CustomData.x;
@@ -426,7 +415,6 @@ void MainPS(in noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPositio
 		SpecularContribution *= LayerAttenuation;
 		SpecularContribution += SampleColor * F;
 	}
-#endif
 	
 	BRANCH if( GBuffer.ShadingModelID == SHADINGMODELID_HAIR )
 	{

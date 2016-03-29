@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
 #include "DataProviders/AIDataProvider_QueryParams.h"
@@ -306,7 +306,7 @@ namespace FEQSHelpers
 		INavAgentInterface* NavAgent = QueryInstance.Owner.IsValid() ? Cast<INavAgentInterface>(QueryInstance.Owner.Get()) : NULL;
 		if (NavAgent)
 		{
-			const FNavAgentProperties& NavAgentProps = NavAgent ? NavAgent->GetNavAgentPropertiesRef() : FNavAgentProperties::DefaultProperties;
+			const FNavAgentProperties& NavAgentProps = NavAgent->GetNavAgentPropertiesRef();
 			return NavSys->GetNavDataForProps(NavAgentProps);
 		}
 

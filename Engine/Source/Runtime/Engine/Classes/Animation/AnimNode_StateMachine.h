@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "AnimNodeBase.h"
@@ -118,6 +118,12 @@ public:
 	// The maximum number of transitions that can be taken by this machine 'simultaneously' in a single frame
 	UPROPERTY(EditAnywhere, Category=Settings)
 	int32 MaxTransitionsPerFrame;
+
+	// Skip transition from entry state on first update?
+	// default is true, we throw away transition data on first update
+	UPROPERTY(EditAnywhere, Category = Settings)
+	bool bSkipFirstUpdateTransition;
+
 public:
 
 	int32 GetCurrentState() const
@@ -172,11 +178,14 @@ private:
 
 	TArray<FPoseContext*> StateCachedPoses;
 
+	FGraphTraversalCounter UpdateCounter;
+
 	TArray<FGraphTraversalCounter> StateCacheBoneCounters;
 
 public:
 	FAnimNode_StateMachine()
 		: MaxTransitionsPerFrame(3)
+		, bSkipFirstUpdateTransition(true)
 		, PRIVATE_MachineDescription(NULL)
 		, CurrentState(INDEX_NONE)
 		, bFirstUpdate(true)

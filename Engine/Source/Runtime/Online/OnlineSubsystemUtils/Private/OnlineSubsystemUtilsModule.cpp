@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "OnlineSubsystemUtilsModule.h"
@@ -45,7 +45,7 @@ public:
 	virtual bool SupportsOnlinePIE() const override
 	{
 		const UOnlinePIESettings* OnlinePIESettings = GetDefault<UOnlinePIESettings>();
-		if (OnlinePIESettings->bOnlinePIEEnabled && OnlinePIESettings->Logins.Num() > 0)
+		if (OnlinePIESettings->bOnlinePIEEnabled && GetNumPIELogins() > 0)
 		{
 			// If we can't get the identity interface then things are either not configured right or disabled
 			IOnlineIdentityPtr IdentityInt = Online::GetIdentityInterface();
@@ -63,8 +63,17 @@ public:
 
 	virtual int32 GetNumPIELogins() const override
 	{
+		int32 NumValidLogins = 0;
 		const UOnlinePIESettings* OnlinePIESettings = GetDefault<UOnlinePIESettings>();
-		return OnlinePIESettings->Logins.Num();
+		for (const FPIELoginSettingsInternal& Login : OnlinePIESettings->Logins)
+		{
+			if (Login.IsValid())
+			{
+				NumValidLogins++;
+			}
+		}
+	
+		return NumValidLogins;
 	}
 
 	virtual void GetPIELogins(TArray<FOnlineAccountCredentials>& Logins) override

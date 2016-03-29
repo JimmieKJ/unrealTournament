@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -9,29 +9,13 @@ using Microsoft.Win32;
 
 namespace UnrealBuildTool
 {
-	// Included for compatibility during //UE4/Main import
-	public interface IUEToolChain
-	{
-		[Obsolete]
-		void StripSymbols(string SourceFile, string TargetFile);
-	}
-
-	public abstract class UEToolChain : IUEToolChain
+	public abstract class UEToolChain
 	{
 		public readonly CPPTargetPlatform CppPlatform;
 
 		public UEToolChain(CPPTargetPlatform InCppPlatform)
 		{
 			CppPlatform = InCppPlatform;
-		}
-
-		// Included for compatibility during //UE4/Main import
-		[Obsolete]
-		public static IUEToolChain GetPlatformToolChain(CPPTargetPlatform Platform)
-		{
-			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(UEBuildTarget.CPPTargetPlatformToUnrealTargetPlatform(Platform));
-			UEBuildPlatformContext Context = BuildPlatform.CreateContext(null);
-			return Context.CreateToolChain(BuildPlatform.DefaultCppPlatform);
 		}
 
 		public abstract CPPOutput CompileCPPFiles(UEBuildTarget Target, CPPEnvironment CompileEnvironment, List<FileItem> SourceFiles, string ModuleName);
@@ -126,7 +110,7 @@ namespace UnrealBuildTool
 		{
 			PrerequisiteItems.Add(SourceFile);
 
-			var RemoteThis = this as RemoteToolChain;
+			RemoteToolChain RemoteThis = this as RemoteToolChain;
 			bool bAllowUploading = RemoteThis != null && BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac;	// Don't use remote features when compiling from a Mac
 			if (bAllowUploading)
 			{
@@ -139,7 +123,7 @@ namespace UnrealBuildTool
 				//		-> Two CASES:
 				//				1) NOT WORKING: Non-unity file went away (SourceFile in this context).  That seems like an existing old use case.  Compile params or Response file should have changed?
 				//				2) WORKING: Indirect file went away (unity'd original source file or include).  This would return a file that no longer exists and adds to the prerequiteitems list
-				var IncludedFileList = CPPEnvironment.FindAndCacheAllIncludedFiles(Target, SourceFile, BuildPlatform, CompileEnvironment.Config.CPPIncludeInfo, bOnlyCachedDependencies: BuildConfiguration.bUseUBTMakefiles);
+				List<FileItem> IncludedFileList = CPPEnvironment.FindAndCacheAllIncludedFiles(Target, SourceFile, BuildPlatform, CompileEnvironment.Config.CPPIncludeInfo, bOnlyCachedDependencies: BuildConfiguration.bUseUBTMakefiles);
 				if (IncludedFileList != null)
 				{
 					foreach (FileItem IncludedFile in IncludedFileList)

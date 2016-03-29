@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -38,9 +38,6 @@ public:
 	}
 };
 #endif	//#if WITH_PHYSX
-
-
-#if WITH_SUBSTEPPING
 
 
 /** Hold information about kinematic target */
@@ -187,5 +184,3 @@ private:
 #endif
 
 };
-
-#endif //if WITH_SUBSTEPPING

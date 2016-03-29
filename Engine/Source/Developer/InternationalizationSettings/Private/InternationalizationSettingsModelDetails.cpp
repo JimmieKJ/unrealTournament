@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "InternationalizationSettingsModulePrivatePCH.h"
 #include "EdGraph/EdGraphSchema.h"
@@ -127,7 +127,7 @@ namespace
 				.InitialSelection(EditorCulture)
 				.OnSelectionChanged_Lambda(OnSelectionChangedLambda)
 				.IsCulturePickable_Lambda(IsCulturePickableLambda)
-				.UseNativeDisplayNames(true);
+				.DisplayNameFormat(SCulturePicker::ECultureDisplayFormat::ActiveAndNativeCultureDisplayName);
 
 			return SNew(SBox)
 				.MaxDesiredHeight(300.0f)

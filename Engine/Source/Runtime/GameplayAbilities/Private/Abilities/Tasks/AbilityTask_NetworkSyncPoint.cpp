@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 #include "Abilities/Tasks/AbilityTask_NetworkSyncPoint.h"
@@ -12,7 +12,7 @@ UAbilityTask_NetworkSyncPoint::UAbilityTask_NetworkSyncPoint(const FObjectInitia
 
 void UAbilityTask_NetworkSyncPoint::OnSignalCallback()
 {
-	if (AbilitySystemComponent.IsValid())
+	if (AbilitySystemComponent)
 	{
 		AbilitySystemComponent->ConsumeGenericReplicatedEvent(ReplicatedEventToListenFor, GetAbilitySpecHandle(), GetActivationPredictionKey());
 	}
@@ -28,7 +28,7 @@ UAbilityTask_NetworkSyncPoint* UAbilityTask_NetworkSyncPoint::WaitNetSync(class 
 
 void UAbilityTask_NetworkSyncPoint::Activate()
 {
-	if (AbilitySystemComponent.IsValid())
+	if (AbilitySystemComponent)
 	{
 		if (IsPredictingClient())
 		{

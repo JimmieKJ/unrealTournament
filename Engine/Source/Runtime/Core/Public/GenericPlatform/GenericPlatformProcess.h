@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -334,7 +334,7 @@ struct CORE_API FGenericPlatformProcess
 	 * @param PipeWrite				Optional HANDLE to pipe for redirecting output
 	 * @return	The process handle for use in other process functions
 	 */
-	static FProcHandle CreateProc( const TCHAR* URL, const TCHAR* Parms, bool bLaunchDetached, bool bLaunchHidden, bool bLaunchReallyHidden, uint32* OutProcessID, int32 PriorityModifier, const TCHAR* OptionalWorkingDirectory, void* PipeWrite );
+	static FProcHandle CreateProc( const TCHAR* URL, const TCHAR* Parms, bool bLaunchDetached, bool bLaunchHidden, bool bLaunchReallyHidden, uint32* OutProcessID, int32 PriorityModifier, const TCHAR* OptionalWorkingDirectory, void* PipeWriteChild, void * PipeReadChild = nullptr);
 
 	/**
 	 * Returns true if the specified process is running 
@@ -566,3 +566,28 @@ struct CORE_API FGenericPlatformProcess
 	#include "PThreadCriticalSection.h"
 	typedef FPThreadsCriticalSection FCriticalSection;
 #endif
+
+/** Platforms that don't need a working FSystemWideCriticalSection can just typedef this one */
+class FSystemWideCriticalSectionNotImplemented
+{
+public:
+	/** Construct a named, system-wide critical section and attempt to get access/ownership of it */
+	explicit FSystemWideCriticalSectionNotImplemented(const FString& Name, FTimespan Timeout = FTimespan::Zero());
+
+	/** Destructor releases system-wide critical section if it is currently owned */
+	~FSystemWideCriticalSectionNotImplemented() {}
+
+	/**
+	 * Does the calling thread have ownership of the system-wide critical section?
+	 *
+	 * @return True if the system-wide lock is obtained.
+	 */
+	bool IsValid() const { return false; }
+
+	/** Releases system-wide critical section if it is currently owned */
+	void Release() {}
+
+private:
+	FSystemWideCriticalSectionNotImplemented(const FSystemWideCriticalSectionNotImplemented&);
+	FSystemWideCriticalSectionNotImplemented& operator=(const FSystemWideCriticalSectionNotImplemented&);
+};

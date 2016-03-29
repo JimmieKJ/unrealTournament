@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AtmosphereRendering.cpp: Fog rendering implementation.
@@ -308,15 +308,14 @@ IMPLEMENT_SHADER_TYPE(,FAtmosphericVS,TEXT("AtmosphericFogShader"),TEXT("VSMain"
 /** Vertex declaration for the light function fullscreen 2D quad. */
 TGlobalResource<FAtmopshereVertexDeclaration> GAtmophereVertexDeclaration;
 
-void FSceneRenderer::InitAtmosphereConstants()
+void InitAtmosphereConstantsInView(FViewInfo& View)
 {
-	for(int32 ViewIndex = 0;ViewIndex < Views.Num();ViewIndex++)
+	bool bInitTextures = false;
+	if(ShouldRenderAtmosphere(*View.Family))
 	{
-		bool bInitTextures = false;
-		FViewInfo& View = Views[ViewIndex];
-		// set fog consts based on height fog components
-		if(ShouldRenderAtmosphere(*View.Family))
+		if (View.Family->Scene)
 		{
+			FScene* Scene = (FScene*)View.Family->Scene;
 			if (Scene->AtmosphericFog)
 			{
 				const FAtmosphericFogSceneInfo& FogInfo = *Scene->AtmosphericFog;
@@ -327,13 +326,13 @@ void FSceneRenderer::InitAtmosphereConstants()
 				bInitTextures = true;
 			}
 		}
+	}
 
-		if (!bInitTextures)
-		{
-			View.AtmosphereTransmittanceTexture = GBlackTexture->TextureRHI;
-			View.AtmosphereIrradianceTexture = GBlackTexture->TextureRHI;
-			View.AtmosphereInscatterTexture = GBlackVolumeTexture->TextureRHI;
-		}
+	if (!bInitTextures)
+	{
+		View.AtmosphereTransmittanceTexture = GBlackTexture->TextureRHI;
+		View.AtmosphereIrradianceTexture = GBlackTexture->TextureRHI;
+		View.AtmosphereInscatterTexture = GBlackVolumeTexture->TextureRHI;
 	}
 }
 

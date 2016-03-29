@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 #include "Slate/SlateBrushAsset.h"
@@ -168,11 +168,6 @@ FReply UImage::HandleMouseButtonDown(const FGeometry& Geometry, const FPointerEv
 }
 
 #if WITH_EDITOR
-
-const FSlateBrush* UImage::GetEditorIcon()
-{
-	return FUMGStyle::Get().GetBrush("Widget.Image");
-}
 
 const FText UImage::GetPaletteCategory()
 {

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 using System;
@@ -17,22 +17,12 @@ namespace NetworkProfiler
 		public const UInt32 ExpectedMagic = 0x1DBF348C;
 
 		/** We expect this version, or we can't proceed.			*/
-		public const UInt32 ExpectedVersion = 9;
+		public const UInt32 ExpectedVersion = 10;
 
 		/** Magic to ensure we're opening the right file.			*/
 		public UInt32 Magic;
 		/** Version number to detect version mismatches.			*/
 		public UInt32 Version;
-
-		/** Offset in file for name table.							*/
-		public UInt32 NameTableOffset;
-		/** Number of name table entries.							*/
-		public UInt32 NameTableEntries;
-
-		/** Offset in file for address table.							*/
-		public UInt32 AddressTableOffset;
-		/** Number of address table entries.							*/
-		public UInt32 AddressTableEntries;
 
 		/** Tag, set via -networkprofiler=TAG						*/
 		public string Tag;
@@ -141,13 +131,6 @@ namespace NetworkProfiler
 			{
 				return;
 			}
-
-			// Name table offset in file and number of entries.
-			NameTableOffset = BinaryStream.ReadUInt32();
-			NameTableEntries = BinaryStream.ReadUInt32();
-
-			AddressTableOffset = BinaryStream.ReadUInt32();
-			AddressTableEntries = BinaryStream.ReadUInt32();
 
 			// Serialize various dynamically-sized strings.
 			Tag = SerializeAnsiString( BinaryStream );

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -32,19 +32,91 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 	{
 		/// <summary>Fake id for all user groups</summary>
 		public static readonly int AllUserGroupId = -1;
-
+        
 		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="ReportsForm"></param>
+		/// <returns></returns>
+		public ActionResult Index( FormCollection ReportsForm )
+		{
+			using( FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString(), bCreateNewLog: true ) )
+			{
+				FormHelper FormData = new FormHelper( Request, ReportsForm, "JustReport" );
+
+				// Handle 'CopyToJira' button
+				int BuggIDToBeAddedToJira = 0;
+				foreach( var Entry in ReportsForm )
+				{
+					if( Entry.ToString().Contains( Bugg.JiraSubmitName ) )
+					{
+						int.TryParse( Entry.ToString().Substring( Bugg.JiraSubmitName.Length ), out BuggIDToBeAddedToJira );
+						break;
+					}
+				}
+
+				ReportsViewModel Results = GetResults( FormData, BuggIDToBeAddedToJira );
+				Results.GenerationTime = LogTimer.GetElapsedSeconds().ToString( "F2" );
+				return View( "Index", Results );
+			}
+		}
+
+	    /// <summary>
+	    /// 
+	    /// </summary>
+	    /// <param name="ReportsForm"></param>
+	    /// <returns></returns>
+	    public ActionResult BranchReport(FormCollection ReportsForm)
+	    {
+            using (var logTimer = new FAutoScopedLogTimer(this.GetType().ToString(), bCreateNewLog: true))
+            {
+                var formData = new FormHelper(Request, ReportsForm, "JustReport");
+                
+                var buggIdToBeAddedToJira = 0;
+                // Handle 'CopyToJira' button
+                foreach (var Entry in ReportsForm)
+                {
+                    if (Entry.ToString().Contains(Bugg.JiraSubmitName))
+                    {
+                        
+                        int.TryParse(Entry.ToString().Substring(Bugg.JiraSubmitName.Length), out buggIdToBeAddedToJira);
+                        break;
+                    }
+                }
+
+                var results = GetResults(formData, buggIdToBeAddedToJira);
+                results.GenerationTime = logTimer.GetElapsedSeconds().ToString("F2");
+                return View("Index", results);
+            }
+        }
+
+        #region Private Methods
+
+        private void AddBuggJiraMapping(Bugg NewBugg, ref HashSet<string> FoundJiras, ref Dictionary<string, List<Bugg>> JiraIDtoBugg)
+        {
+            string JiraID = NewBugg.Jira;
+            FoundJiras.Add("key = " + JiraID);
+
+            bool bAdd = !JiraIDtoBugg.ContainsKey(JiraID);
+            if (bAdd)
+            {
+                JiraIDtoBugg.Add(JiraID, new List<Bugg>());
+            }
+
+            JiraIDtoBugg[JiraID].Add(NewBugg);
+        }
+
+        /// <summary>
 		/// Retrieve all Buggs matching the search criteria.
 		/// </summary>
 		/// <param name="FormData">The incoming form of search criteria from the client.</param>
 		/// <param name="BuggIDToBeAddedToJira">ID of the bugg that will be added to JIRA</param>
 		/// <returns>A view to display the filtered Buggs.</returns>
-		public ReportsViewModel GetResults( FormHelper FormData, int BuggIDToBeAddedToJira )
+		private ReportsViewModel GetResults( FormHelper FormData, int BuggIDToBeAddedToJira )
 		{
 			BuggRepository BuggsRepo = new BuggRepository();
 			CrashRepository CrashRepo = new CrashRepository();
 
-			// @TODO yrx 2015-02-17 BuggIDToBeAddedToJira replace with List<int> based on check box and Submit?
 			// It would be great to have a CSV export of this as well with buggs ID being the key I can then use to join them :)
 			// 
 			// Enumerate JIRA projects if needed.
@@ -58,16 +130,28 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 				string AnonumousGroup = "Anonymous";
 				//List<String> Users = FRepository.Get().GetUserNamesFromGroupName( AnonumousGroup );
 				int AnonymousGroupID = FRepository.Get( BuggsRepo ).FindOrAddGroup( AnonumousGroup );
-				HashSet<int> AnonumousIDs = FRepository.Get( BuggsRepo ).GetUserIdsFromUserGroup( AnonumousGroup );
+				List<int> AnonumousIDs = FRepository.Get( BuggsRepo ).GetUserIdsFromUserGroup( AnonumousGroup ).ToList();
 				int AnonymousID = AnonumousIDs.First();
 
-				var Crashes = CrashRepo
-					.FilterByDate( CrashRepo.ListAll(), FormData.DateFrom, FormData.DateTo )
+				var CrashesQuery = CrashRepo
+					.QueryByDate( CrashRepo.ListAll(), FormData.DateFrom, FormData.DateTo )
 					// Only crashes and asserts
 					.Where( Crash => Crash.CrashType == 1 || Crash.CrashType == 2 )
 					// Only anonymous user
-					.Where( Crash => Crash.UserNameId.Value == AnonymousID )
-					.Select( Crash => new
+                    .Where(Crash => Crash.UserNameId.Value == AnonymousID);
+
+                // Filter by BranchName
+                if (!string.IsNullOrEmpty(FormData.BranchName))
+                {
+                    CrashesQuery =
+                    (
+                        from CrashDetail in CrashesQuery
+                        where CrashDetail.Branch.Equals(FormData.BranchName)
+                        select CrashDetail
+                    );
+                }
+
+                var Crashes = CrashesQuery.Select(Crash => new
 					{
 						ID = Crash.Id,
 						TimeOfCrash = Crash.TimeOfCrash.Value,
@@ -242,17 +326,20 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 						var JiraResults = new Dictionary<string, Dictionary<string, object>>();
 						try
 						{
-							JiraResults = JC.SearchJiraTickets(
-							JiraSearchQuery,
-							new string[] 
-							{ 
-								"key",				// string
-								"summary",			// string
-								"components",		// System.Collections.ArrayList, Dictionary<string,object>, name
-								"resolution",		// System.Collections.Generic.Dictionary`2[System.String,System.Object], name
-								"fixVersions",		// System.Collections.ArrayList, Dictionary<string,object>, name
-								"customfield_11200" // string
-							} );
+						    if (!string.IsNullOrWhiteSpace(JiraSearchQuery))
+						    {
+                                JiraResults = JC.SearchJiraTickets(
+                                    JiraSearchQuery,
+                                    new string[] 
+                                    { 
+                                        "key",				// string
+								        "summary",			// string
+								        "components",		// System.Collections.ArrayList, Dictionary<string,object>, name
+								        "resolution",		// System.Collections.Generic.Dictionary`2[System.String,System.Object], name
+								        "fixVersions",		// System.Collections.ArrayList, Dictionary<string,object>, name
+								        "customfield_11200" // string
+							        });
+                            }
 						}
 						catch (System.Exception)
 						{
@@ -369,46 +456,6 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 			}
 		}
 
-		private void AddBuggJiraMapping( Bugg NewBugg, ref HashSet<string> FoundJiras, ref Dictionary<string, List<Bugg>> JiraIDtoBugg )
-		{
-			string JiraID = NewBugg.Jira;
-			FoundJiras.Add( "key = " + JiraID );
-
-			bool bAdd = !JiraIDtoBugg.ContainsKey( JiraID );
-			if( bAdd )
-			{
-				JiraIDtoBugg.Add( JiraID, new List<Bugg>() );
-			}
-
-			JiraIDtoBugg[JiraID].Add( NewBugg );
-		}
-
-		/// <summary>
-		/// 
-		/// </summary>
-		/// <param name="ReportsForm"></param>
-		/// <returns></returns>
-		public ActionResult Index( FormCollection ReportsForm )
-		{
-			using( FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString(), bCreateNewLog: true ) )
-			{
-				FormHelper FormData = new FormHelper( Request, ReportsForm, "JustReport" );
-
-				// Handle 'CopyToJira' button
-				int BuggIDToBeAddedToJira = 0;
-				foreach( var Entry in ReportsForm )
-				{
-					if( Entry.ToString().Contains( Bugg.JiraSubmitName ) )
-					{
-						int.TryParse( Entry.ToString().Substring( Bugg.JiraSubmitName.Length ), out BuggIDToBeAddedToJira );
-						break;
-					}
-				}
-
-				ReportsViewModel Results = GetResults( FormData, BuggIDToBeAddedToJira );
-				Results.GenerationTime = LogTimer.GetElapsedSeconds().ToString( "F2" );
-				return View( "Index", Results );
-			}
-		}
-	}
+        #endregion
+    }
 }

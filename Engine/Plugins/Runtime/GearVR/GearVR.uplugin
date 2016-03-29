@@ -1,23 +1,29 @@
 {
 	"FileVersion" : 3,
-
-	"FriendlyName" : "Gear VR",
 	"Version" : 1,
 	"VersionName" : "1.0",
-	"CreatedBy" : "Epic Games, Inc.",
-	"CreatedByURL" : "http://epicgames.com",
-	"EngineVersion" : "4.2.0",
+	"FriendlyName" : "Gear VR",
 	"Description" : "Support for the Gear VR head mounted display",
 	"Category" : "Virtual Reality",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"DocsURL" : "",
+	"MarketplaceURL" : "",
+	"SupportURL" : "",
 	"EnabledByDefault" : true,
-
+	"CanContainContent" : false,
+	"IsBetaVersion" : false,
+	"Installed" : false,
 	"Modules" :
 	[
 		{
 			"Name" : "GearVR",
 			"Type" : "Runtime",
-			"WhitelistPlatforms" : [ "Android" ],
-			"LoadingPhase" : "PostConfigInit"
+			"LoadingPhase" : "PostConfigInit",
+			"WhitelistPlatforms" :
+			[
+				"Android"
+			]
 		}
 	]
 }

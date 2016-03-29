@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	RenderResource.cpp: Render resource implementation.
@@ -84,17 +84,17 @@ void FRenderResource::InitResourceFromPossiblyParallelRendering()
 			{
 			}
 
-			FORCEINLINE TStatId GetStatId() const
+			static FORCEINLINE TStatId GetStatId()
 			{
 				RETURN_QUICK_DECLARE_CYCLE_STAT(FInitResourceRenderThreadTask, STATGROUP_TaskGraphTasks);
 			}
 
-			ENamedThreads::Type GetDesiredThread()
+			static FORCEINLINE ENamedThreads::Type GetDesiredThread()
 			{
 				return ENamedThreads::RenderThread_Local;
 			}
 
-			static ESubsequentsMode::Type GetSubsequentsMode() { return ESubsequentsMode::FireAndForget; }
+			static FORCEINLINE ESubsequentsMode::Type GetSubsequentsMode() { return ESubsequentsMode::FireAndForget; }
 
 			void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 			{

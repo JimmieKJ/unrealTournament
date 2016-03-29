@@ -1,15 +1,15 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "XmppPrivatePCH.h"
 #include "XmppConnection.h"
 
-bool FXmppUserJid::ParseResource(FString& OutAppId, FString& OutPlatform) const
+bool FXmppUserJid::ParseResource(const FString& InResource, FString& OutAppId, FString& OutPlatform)
 {
 	OutAppId.Empty();
 	OutPlatform.Empty();
 
 	TArray<FString> ParsedResource;
-	if (Resource.ParseIntoArray(ParsedResource, TEXT(":"), false) > 1)
+	if (InResource.ParseIntoArray(ParsedResource, TEXT(":"), false) > 1)
 	{
 		if (ParsedResource[0].StartsWith(TEXT("V")))
 		{
@@ -28,7 +28,7 @@ bool FXmppUserJid::ParseResource(FString& OutAppId, FString& OutPlatform) const
 	else
 	{
 		FString ClientId, NotUsed;
-		if (Resource.Split(TEXT("-"), &ClientId, &NotUsed) &&
+		if (InResource.Split(TEXT("-"), &ClientId, &NotUsed) &&
 			!ClientId.IsEmpty())
 		{
 			OutAppId = ClientId;
@@ -37,3 +37,4 @@ bool FXmppUserJid::ParseResource(FString& OutAppId, FString& OutPlatform) const
 	}
 	return false;
 }
+

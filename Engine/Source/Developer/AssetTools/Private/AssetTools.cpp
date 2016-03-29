@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AssetToolsPrivatePCH.h"
 #include "ObjectTools.h"
@@ -61,6 +61,7 @@ FAssetTools::FAssetTools()
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_Enum) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_Class) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_Struct) );
+	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_SceneImportData));
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_Font) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_ForceFeedbackEffect) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_SubsurfaceProfile));
@@ -390,27 +391,58 @@ UObject* FAssetTools::CreateAsset(UClass* AssetClass, UFactory* Factory, FName C
 		FString AssetName;
 		CreateUniqueAssetName(AssetPath / Factory->GetDefaultNewAssetName(), TEXT(""), PackageName, AssetName);
 
-		FSaveAssetDialogConfig SaveAssetDialogConfig;
-		SaveAssetDialogConfig.DialogTitleOverride = LOCTEXT("SaveAssetDialogTitle", "Save Asset As");
-		SaveAssetDialogConfig.DefaultPath = AssetPath;
-		SaveAssetDialogConfig.DefaultAssetName = AssetName;
-		SaveAssetDialogConfig.ExistingAssetPolicy = ESaveAssetDialogExistingAssetPolicy::AllowButWarn;
+		return CreateAssetWithDialog(AssetName, AssetPath, AssetClass, Factory, CallingContext);
+	}
 
-		FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
-		FString SaveObjectPath = ContentBrowserModule.Get().CreateModalSaveAssetDialog(SaveAssetDialogConfig);
-		if (!SaveObjectPath.IsEmpty())
+	return nullptr;
+}
+
+
+UObject* FAssetTools::CreateAssetWithDialog(const FString& AssetName, const FString& PackagePath, UClass* AssetClass, UFactory* Factory, FName CallingContext)
+{
+	FSaveAssetDialogConfig SaveAssetDialogConfig;
+	SaveAssetDialogConfig.DialogTitleOverride = LOCTEXT("SaveAssetDialogTitle", "Save Asset As");
+	SaveAssetDialogConfig.DefaultPath = PackagePath;
+	SaveAssetDialogConfig.DefaultAssetName = AssetName;
+	SaveAssetDialogConfig.ExistingAssetPolicy = ESaveAssetDialogExistingAssetPolicy::AllowButWarn;
+
+	FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+	FString SaveObjectPath = ContentBrowserModule.Get().CreateModalSaveAssetDialog(SaveAssetDialogConfig);
+	if (!SaveObjectPath.IsEmpty())
+	{
+		FEditorDelegates::OnConfigureNewAssetProperties.Broadcast(Factory);
+		if (Factory->ConfigureProperties())
 		{
-			FEditorDelegates::OnConfigureNewAssetProperties.Broadcast(Factory);
-			if (Factory->ConfigureProperties())
-			{
-				const FString SavePackageName = FPackageName::ObjectPathToPackageName(SaveObjectPath);
-				const FString SaveAssetPath = FPaths::GetPath(SavePackageName);
-				const FString SaveAssetName = FPaths::GetBaseFilename(SavePackageName);
-				FEditorDirectories::Get().SetLastDirectory(ELastDirectory::NEW_ASSET, SaveAssetPath);
+			const FString SavePackageName = FPackageName::ObjectPathToPackageName(SaveObjectPath);
+			const FString SavePackagePath = FPaths::GetPath(SavePackageName);
+			const FString SaveAssetName = FPaths::GetBaseFilename(SavePackageName);
+			FEditorDirectories::Get().SetLastDirectory(ELastDirectory::NEW_ASSET, PackagePath);
 
-				return CreateAsset(SaveAssetName, SaveAssetPath, AssetClass, Factory, CallingContext);
-			}
+			return CreateAsset(SaveAssetName, SavePackagePath, AssetClass, Factory, CallingContext);
 		}
+	}
+
+	return nullptr;
+}
+
+UObject* FAssetTools::DuplicateAssetWithDialog(const FString& AssetName, const FString& PackagePath, UObject* OriginalObject)
+{
+	FSaveAssetDialogConfig SaveAssetDialogConfig;
+	SaveAssetDialogConfig.DialogTitleOverride = LOCTEXT("DuplicateAssetDialogTitle", "Duplicate Asset As");
+	SaveAssetDialogConfig.DefaultPath = PackagePath;
+	SaveAssetDialogConfig.DefaultAssetName = AssetName;
+	SaveAssetDialogConfig.ExistingAssetPolicy = ESaveAssetDialogExistingAssetPolicy::AllowButWarn;
+
+	FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+	FString SaveObjectPath = ContentBrowserModule.Get().CreateModalSaveAssetDialog(SaveAssetDialogConfig);
+	if (!SaveObjectPath.IsEmpty())
+	{
+		const FString SavePackageName = FPackageName::ObjectPathToPackageName(SaveObjectPath);
+		const FString SavePackagePath = FPaths::GetPath(SavePackageName);
+		const FString SaveAssetName = FPaths::GetBaseFilename(SavePackageName);
+		FEditorDirectories::Get().SetLastDirectory(ELastDirectory::NEW_ASSET, PackagePath);
+
+		return DuplicateAsset(SaveAssetName, SavePackagePath, OriginalObject);
 	}
 
 	return nullptr;
@@ -1236,22 +1268,58 @@ bool FAssetTools::CreateDiffProcess(const FString& DiffCommand,  const FString& 
 	// Construct Arguments
 	FString Arguments = FString::Printf( TEXT("%s %s %s"),*WrapArgument(OldTextFilename), *WrapArgument(NewTextFilename), *DiffArgs );
 
-	// Fire process
-	if (!FPlatformProcess::CreateProc(*DiffCommand, *Arguments, true, false, false, NULL, 0, NULL, NULL).IsValid())
-	{
-		//failed to work, put up error msg
-		FNotificationInfo Info( FText::Format( NSLOCTEXT("AssetTools", "DifFail", "Diff Failed: Could not launch external process '{0}'."), FText::FromString( DiffCommand ) ) );
-		Info.ExpireDuration = 10.0f;
-		Info.bUseLargeFont = false;
-		TSharedPtr<SNotificationItem> Notification = FSlateNotificationManager::Get().AddNotification(Info);
-		if ( Notification.IsValid() )
-		{
-			Notification->SetCompletionState( SNotificationItem::CS_Fail );
-		}
+	bool bTryRunDiff = true;
+	FString NewDiffCommand = DiffCommand;
 
-		return false;
+	while (bTryRunDiff)
+	{
+		// Fire process
+		if (FPlatformProcess::CreateProc(*NewDiffCommand, *Arguments, true, false, false, NULL, 0, NULL, NULL).IsValid())
+		{
+			return true;
+		}
+		else
+		{
+			const FText Message = FText::Format(NSLOCTEXT("AssetTools", "DiffFail", "The currently set diff tool '{0}' could not be run. Would you like to set a new diff tool?"), FText::FromString(DiffCommand));
+			EAppReturnType::Type Response = FMessageDialog::Open(EAppMsgType::YesNo, Message);
+			if (Response == EAppReturnType::No)
+			{
+				bTryRunDiff = false;
+			}
+			else
+			{
+				IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+				check(DesktopPlatform);
+
+				const FText FileFilterType = NSLOCTEXT("AssetTools", "Executables", "Executables");
+#if PLATFORM_WINDOWS
+				const FString FileFilterText = FString::Printf(TEXT("%s (*.exe)|*.exe"), *FileFilterType.ToString());
+#elif PLATFORM_MAC
+				const FString FileFilterText = FString::Printf(TEXT("%s (*.app)|*.app"), *FileFilterType.ToString());
+#else
+				const FString FileFilterText = FString::Printf(TEXT("%s"), *FileFilterType.ToString());
+#endif
+
+				TArray<FString> OutFiles;
+				if (DesktopPlatform->OpenFileDialog(
+					nullptr,
+					NSLOCTEXT("AssetTools", "ChooseDiffTool", "Choose Diff Tool").ToString(),
+					TEXT(""),
+					TEXT(""),
+					FileFilterText,
+					EFileDialogFlags::None,
+					OutFiles))
+				{
+					UEditorLoadingSavingSettings& Settings = *GetMutableDefault<UEditorLoadingSavingSettings>();
+					Settings.TextDiffToolPath.FilePath = OutFiles[0];
+					Settings.SaveConfig();
+					NewDiffCommand = OutFiles[0];
+				}
+			}
+		}
 	}
-	return true;
+
+	return false;
 }
 
 void FAssetTools::MigratePackages(const TArray<FName>& PackageNamesToMigrate) const

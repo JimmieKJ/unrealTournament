@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma  once
 
 #include "IBlueprintCompilerCppBackendModule.h"
@@ -34,6 +34,8 @@ protected:
 
 	TArray<FFunctionLabelInfo> StateMapPerFunction;
 	TMap<FKismetFunctionContext*, int32> FunctionIndexMap;
+	FKismetFunctionContext* UberGraphContext;
+	TMap<FBlueprintCompiledStatement*, int32> UberGraphStatementToExecutionGroup;
 public:
 
 	// IBlueprintCompilerCppBackend implementation
@@ -60,7 +62,7 @@ protected:
 			}
 
 	*/
-	virtual void InnerFunctionImplementation(FKismetFunctionContext& FunctionContext, FEmitterLocalContext& EmitterContext, bool bUseSwitchState) PURE_VIRTUAL(FBlueprintCompilerCppBackendBase::InnerFunctionImplementation,);
+	virtual void InnerFunctionImplementation(FKismetFunctionContext& FunctionContext, FEmitterLocalContext& EmitterContext, int32 ExecutionGroup) = 0;
 	
 	int32 StatementToStateIndex(FKismetFunctionContext& FunctionContext, FBlueprintCompiledStatement* Statement)
 	{
@@ -72,17 +74,17 @@ private:
 	/** Builds both the header declaration and body implementation of a function */
 	void ConstructFunction(FKismetFunctionContext& FunctionContext, FEmitterLocalContext& EmitterContext, bool bGenerateStubOnly);
 
-	static void ConstructFunctionDeclaration(FEmitterLocalContext &EmitterContext, FKismetFunctionContext &FunctionContext, TArray<UProperty*> &ArgumentList);
+	static TArray<FString> ConstructFunctionDeclaration(FEmitterLocalContext &EmitterContext, FKismetFunctionContext &FunctionContext, TArray<UProperty*> &ArgumentList);
 
-	static FString GenerateArgList(const FEmitterLocalContext &EmitterContext, const TArray<UProperty*> &ArgumentList);
+	static FString GenerateArgList(const FEmitterLocalContext &EmitterContext, const TArray<UProperty*> &ArgumentList, bool bOnlyParamName = false);
 
 	static FString GenerateReturnType(const FEmitterLocalContext &EmitterContext, const UFunction* Function);
 
-	void ConstructFunctionBody(FEmitterLocalContext& EmitterContext, FKismetFunctionContext &FunctionContext);
+	void ConstructFunctionBody(FEmitterLocalContext& EmitterContext, FKismetFunctionContext &FunctionContext, int32 ExecutionGroup);
 
 	void CleanBackend();
 
-	static void EmitFileBeginning(const FString& CleanName, FEmitterLocalContext& EmitterContext, bool bIncludeGeneratedH = true, bool bIncludeCodeHelpersInHeader = false);
+	static void EmitFileBeginning(const FString& CleanName, FEmitterLocalContext& EmitterContext, bool bIncludeGeneratedH = true, bool bIncludeCodeHelpersInHeader = false, bool bFullyIncludedDeclaration = false, UField* AdditionalFieldToIncludeInHeader = nullptr);
 
 	static void EmitStructProperties(FEmitterLocalContext& EmitterContext, UStruct* SourceClass);
 

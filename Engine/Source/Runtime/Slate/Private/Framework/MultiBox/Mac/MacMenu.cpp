@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlatePrivatePCH.h"
 #include "MacMenu.h"
@@ -308,41 +308,60 @@ void FSlateMacMenu::UpdateCachedState()
 			FMacMenu* Menu = It.Key();
 			TSharedPtr<TArray<FMacMenuItemState>> MenuState = It.Value();
 
+			TSharedRef<SWidget> Widget = SNullWidget::NullWidget;
 			if (!Menu.MultiBox.IsValid())
 			{
-				const bool bShouldCloseWindowAfterMenuSelection = true;
-				FMenuBuilder MenuBuilder(bShouldCloseWindowAfterMenuSelection, Menu.MenuEntryBlock->GetActionList(), Menu.MenuEntryBlock->Extender);
+				if (Menu.MenuEntryBlock->MenuBuilder.IsBound())
 				{
-					// Have the menu fill its contents
-					Menu.MenuEntryBlock->EntryBuilder.ExecuteIfBound(MenuBuilder);
+					Widget = Menu.MenuEntryBlock->MenuBuilder.Execute();
 				}
-				TSharedRef<SWidget> Widget = MenuBuilder.MakeWidget();
-				Menu.MultiBox = TSharedPtr<const FMultiBox>(StaticCastSharedRef<SMultiBoxWidget>(Widget)->GetMultiBox());
-			}
-
-			const TArray<TSharedRef<const FMultiBlock>>& MenuBlocks = Menu.MultiBox->GetBlocks();
-			for (int32 Index = MenuState->Num(); MenuBlocks.Num() > MenuState->Num(); Index++)
-			{
-				MenuState->Add(FMacMenuItemState());
-			}
-			for (int32 Index = 0; Index < MenuBlocks.Num(); Index++)
-			{
-				FMacMenuItemState& ItemState = (*MenuState)[Index];
-				ItemState.Type = MenuBlocks[Index]->GetType();
-
-				if (ItemState.Type == EMultiBlockType::MenuEntry)
+				else
 				{
-					TSharedRef<const FMenuEntryBlock> Block = StaticCastSharedRef<const FMenuEntryBlock>(MenuBlocks[Index]);
-					ItemState.Block = Block;
-					ItemState.Title = [FSlateMacMenu::GetMenuItemTitle(Block) retain];
-					ItemState.KeyEquivalent = [FSlateMacMenu::GetMenuItemKeyEquivalent(Block, &ItemState.KeyModifiers) retain];
-					if (!ItemState.Icon)
+					const bool bShouldCloseWindowAfterMenuSelection = true;
+					FMenuBuilder MenuBuilder(bShouldCloseWindowAfterMenuSelection, Menu.MenuEntryBlock->GetActionList(), Menu.MenuEntryBlock->Extender);
 					{
-						ItemState.Icon = [FSlateMacMenu::GetMenuItemIcon(Block) retain];
+						// Have the menu fill its contents
+						Menu.MenuEntryBlock->EntryBuilder.ExecuteIfBound(MenuBuilder);
 					}
-					ItemState.IsSubMenu = Block->bIsSubMenu;
-					ItemState.IsEnabled = FSlateMacMenu::IsMenuItemEnabled(Block);
-					ItemState.State = ItemState.IsSubMenu ? 0 : FSlateMacMenu::GetMenuItemState(Block);
+					Widget = MenuBuilder.MakeWidget();
+				}
+
+				if (Widget->GetType() == FName(TEXT("SMultiBoxWidget")))
+				{
+					Menu.MultiBox = TSharedPtr<const FMultiBox>(StaticCastSharedRef<SMultiBoxWidget>(Widget)->GetMultiBox());
+				}
+				else
+				{
+					UE_LOG(LogMac, Warning, TEXT("Unsupported type of menu widget in FSlateMacMenu::UpdateCachedState(): %s"), *Widget->GetType().ToString());
+				}
+			}
+
+			if (Menu.MultiBox.IsValid())
+			{
+				const TArray<TSharedRef<const FMultiBlock>>& MenuBlocks = Menu.MultiBox->GetBlocks();
+				for (int32 Index = MenuState->Num(); MenuBlocks.Num() > MenuState->Num(); Index++)
+				{
+					MenuState->Add(FMacMenuItemState());
+				}
+				for (int32 Index = 0; Index < MenuBlocks.Num(); Index++)
+				{
+					FMacMenuItemState& ItemState = (*MenuState)[Index];
+					ItemState.Type = MenuBlocks[Index]->GetType();
+
+					if (ItemState.Type == EMultiBlockType::MenuEntry)
+					{
+						TSharedRef<const FMenuEntryBlock> Block = StaticCastSharedRef<const FMenuEntryBlock>(MenuBlocks[Index]);
+						ItemState.Block = Block;
+						ItemState.Title = [FSlateMacMenu::GetMenuItemTitle(Block) retain];
+						ItemState.KeyEquivalent = [FSlateMacMenu::GetMenuItemKeyEquivalent(Block, &ItemState.KeyModifiers) retain];
+						if (!ItemState.Icon)
+						{
+							ItemState.Icon = [FSlateMacMenu::GetMenuItemIcon(Block) retain];
+						}
+						ItemState.IsSubMenu = Block->bIsSubMenu;
+						ItemState.IsEnabled = FSlateMacMenu::IsMenuItemEnabled(Block);
+						ItemState.State = ItemState.IsSubMenu ? 0 : FSlateMacMenu::GetMenuItemState(Block);
+					}
 				}
 			}
 		}

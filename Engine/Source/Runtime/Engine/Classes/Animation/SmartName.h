@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -58,12 +58,12 @@ struct ENGINE_API FSmartNameMapping
 	// Check whether a name already exists in the mapping
 	// @param Uid - the UID to check
 	// @return bool - whether the name was found
-	bool Exists(const UID& Uid);
+	bool Exists(const UID& Uid) const;
 
 	// Check whether a name already exists in the mapping
 	// @param Name - the name to check
 	// @return bool - whether the name was found
-	bool Exists(const FName& Name);
+	bool Exists(const FName& Name) const;
 
 	// Get the number of names currently stored in this container
 	int32 GetNumNames() const;
@@ -88,14 +88,18 @@ struct ENGINE_API FSmartNameContainer
 	// Add a new smartname container with the provided name
 	void AddContainer(FName NewContainerName);
 
-	// Get a container by name
-	FSmartNameMapping* GetContainer(FName ContainerName);
+	// Get a container by name	
 	const FSmartNameMapping* GetContainer(FName ContainerName) const;
 
 	// Serialize this to the provided archive; required for TMap serialization
 	void Serialize(FArchive& Ar);
 
 	friend FArchive& operator<<(FArchive& Ar, FSmartNameContainer& Elem);
+
+	/** Only restricted classes can access the protected interface */
+	friend class USkeleton;
+protected:
+	FSmartNameMapping* GetContainerInternal(FName ContainerName);
 
 private:
 	TMap<FName, FSmartNameMapping> NameMappings;	// List of smartname mappings

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlatePrivatePCH.h"
 #include "HittestGrid.h"
@@ -227,11 +227,6 @@ FReply SViewport::OnKeyChar( const FGeometry& MyGeometry, const FCharacterEvent&
 
 FReply SViewport::OnFocusReceived( const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent )
 {
-	if (WidgetToFocusOnActivate.IsValid())
-	{
-		return FReply::Handled().SetUserFocus(WidgetToFocusOnActivate.Pin().ToSharedRef(), InFocusEvent.GetCause());
-	}
-
 	return ViewportInterface.IsValid() ? ViewportInterface.Pin()->OnFocusReceived(InFocusEvent) : FReply::Unhandled();
 }
 
@@ -266,6 +261,19 @@ void SViewport::OnWindowClosed( const TSharedRef<SWindow>& WindowBeingClosed )
 	if (ViewportInterface.IsValid())
 	{
 		ViewportInterface.Pin()->OnViewportClosed();
+	}
+}
+
+FReply SViewport::OnViewportActivated(const FWindowActivateEvent& InActivateEvent)
+{
+	return ViewportInterface.IsValid() ? ViewportInterface.Pin()->OnViewportActivated(InActivateEvent) : FReply::Unhandled();
+}
+
+void SViewport::OnViewportDeactivated(const FWindowActivateEvent& InActivateEvent)
+{
+	if (ViewportInterface.IsValid())
+	{
+		ViewportInterface.Pin()->OnViewportDeactivated(InActivateEvent);
 	}
 }
 

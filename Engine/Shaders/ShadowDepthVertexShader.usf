@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ShadowDepthVertexShader.usf: Vertex shader for writing shadow depth.
@@ -6,6 +6,7 @@
 
 // needs to before Common.usf
 #define SHADOW_DEPTH_SHADER 1
+#define USE_STENCIL_LOD_DITHER	0
 
 #include "Common.usf"
 #include "Material.usf"
@@ -184,9 +185,15 @@ void Main(
 	out FShadowDepthVSToPS OutParameters,
 #endif 	
 	OPTIONAL_VertexID
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER
+	out uint LayerIndex : SV_RenderTargetArrayIndex,
+	out float ClipDistance : SV_ClipDistance0,
+#endif
 	out float4 OutPosition : SV_POSITION
 	)
 {
+	ResolvedView = ResolveView();
+	
 	FVertexFactoryIntermediates VFIntermediates = GetVertexFactoryIntermediates(Input);
 	float4 WorldPos = VertexFactoryGetWorldPosition(Input, VFIntermediates);
 	float3x3 TangentToLocal = VertexFactoryGetTangentToLocal(Input, VFIntermediates);
@@ -211,6 +218,15 @@ void Main(
 
 	#if INTERPOLATE_POSITION
 		OutParameters.PixelPosition = WorldPos.xyz;
+	#endif
+
+	#if USING_VERTEX_SHADER_LAYER
+		LayerIndex = Input.InstanceId / InstanceCount;
+		OutPosition = mul(WorldPos, ShadowViewProjectionMatrices[LayerIndex]);
+		#if INTERPOLATE_VF_ATTRIBUTES
+			OutParameters.GSPosition = OutPosition;
+		#endif
+		ClipDistance = (MeshVisibleToFace[LayerIndex].x > 0) ? 1.0 : -1.0;
 	#endif
 
 #else
@@ -251,12 +267,19 @@ void MainForGS(
 	out FShadowDepthVSToPS OutParameters,
 #endif 	
 	OPTIONAL_VertexID
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER
+	out uint LayerIndex : SV_RenderTargetArrayIndex,
+	out float ClipDistance : SV_ClipDistance0,
+#endif
 	out float4 OutPosition : SV_POSITION
 	)
 {
 	Main(Input,
 		OutParameters,
 		OPTIONAL_VertexID_PARAM
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER
+		LayerIndex, ClipDistance,
+#endif
 		OutPosition);
 }
 
@@ -264,14 +287,30 @@ void MainForGS(
 #if POSITION_ONLY
 void PositionOnlyMain(
 	in FPositionOnlyVertexFactoryInput Input,
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER
+	out uint LayerIndex : SV_RenderTargetArrayIndex,
+	out float ClipDistance : SV_ClipDistance0,
+#endif
 	out FShadowDepthVSToPS OutParameters,
 	out float4 OutPosition : SV_POSITION
 	)
 {
+	ResolvedView = ResolveView();
+
 	float4 WorldPos = VertexFactoryGetWorldPosition(Input);
 
 #if ONEPASS_POINTLIGHT_SHADOW
 	OutPosition = OutParameters.GSPosition = WorldPos;
+
+#if USING_VERTEX_SHADER_LAYER
+	LayerIndex = Input.InstanceId / InstanceCount;
+	OutPosition = mul(WorldPos, ShadowViewProjectionMatrices[LayerIndex]);
+	#if INTERPOLATE_VF_ATTRIBUTES
+		OutParameters.GSPosition = OutPosition;
+	#endif
+	ClipDistance = (MeshVisibleToFace[LayerIndex].x > 0) ? 1.0 : -1.0;
+#endif
+
 #else // #if ONEPASS_POINTLIGHT_SHADOW
 	float ShadowDepth;
 	SetShadowDepthOutputs(WorldPos,OutPosition,ShadowDepth);
@@ -290,11 +329,19 @@ void PositionOnlyMain(
 
 void PositionOnlyMainForGS(
 	in FPositionOnlyVertexFactoryInput Input,
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER
+	out uint LayerIndex : SV_RenderTargetArrayIndex,
+	out float ClipDistance : SV_ClipDistance0,
+#endif
 	out FShadowDepthVSToPS OutParameters,
 	out float4 OutPosition : SV_POSITION
 	)
 {
-	PositionOnlyMain(Input, OutParameters, OutPosition);
+	PositionOnlyMain(Input,
+#if ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER
+		LayerIndex, ClipDistance,
+#endif
+		OutParameters, OutPosition);
 }
 
 #endif

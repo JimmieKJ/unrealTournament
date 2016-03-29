@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Interpolation.cpp: Code for supporting interpolation of properties in-game.
@@ -471,6 +471,14 @@ void AMatineeActor::Play()
 		UpdateInterp(0.f, false, true);
 	}
 
+	if (!bIsPlaying)
+	{
+		if (OnPlay.IsBound())
+		{
+			OnPlay.Broadcast();
+		}
+	}
+
 	bReversePlayback = false;
 	bIsPlaying = true;
 	bPaused = false;
@@ -485,6 +493,14 @@ void AMatineeActor::Reverse()
 		InitInterp();
 	}
 
+	if (!bIsPlaying)
+	{
+		if (OnPlay.IsBound())
+		{
+			OnPlay.Broadcast();
+		}
+	}
+
 	bReversePlayback = true;
 	bIsPlaying = true;
 	bPaused = false;
@@ -495,6 +511,14 @@ void AMatineeActor::Stop()
 {
 	// Re-enable the radio filter
 	EnableRadioFilter();
+
+	if (bIsPlaying)
+	{
+		if (OnStop.IsBound())
+		{
+			OnStop.Broadcast();
+		}
+	}
 
 	bIsPlaying = false;
 	bPaused = false;
@@ -509,8 +533,20 @@ void AMatineeActor::Stop()
 
 void AMatineeActor::Pause()
 {
-	if( bIsPlaying )
+	if (bIsPlaying)
 	{
+		if (!bPaused)
+		{
+			if (OnPause.IsBound())
+			{
+				OnPause.Broadcast();
+			}
+		}
+		else if (OnPlay.IsBound())
+		{
+			OnPlay.Broadcast();
+		}
+
 		EnableRadioFilter();
 		bPaused = !bPaused;
 		SetActorTickEnabled(!bPaused);
@@ -519,6 +555,14 @@ void AMatineeActor::Pause()
 
 void AMatineeActor::ChangePlaybackDirection()
 {
+	if (!bIsPlaying)
+	{
+		if (OnPlay.IsBound())
+		{
+			OnPlay.Broadcast();
+		}
+	}
+
 	bReversePlayback = !bReversePlayback;
 	bIsPlaying = true;
 	bPaused = false;
@@ -950,13 +994,16 @@ void AMatineeActor::UpdateInterpForParentMovementTracks( float Time, UInterpGrou
 				}
 			}
 
-			if(ParentTrackInst)
+			if(ParentTrackInst && ParentInst->Group)
 			{
 				TArray<UInterpTrack*> FoundTracks;
 				ParentInst->Group->FindTracksByClass(UInterpTrackMove::StaticClass(), FoundTracks);
-				//Just use the first one, multiple move tracks wouldnt work well anyway
-				UInterpTrackMove* MoveTrack = CastChecked<UInterpTrackMove>(FoundTracks[0]);
-				MoveTrack->ConditionalUpdateTrack(Time, ParentTrackInst, true);
+				if (FoundTracks.Num() > 0)
+				{
+					//Just use the first one, multiple move tracks wouldnt work well anyway
+					UInterpTrackMove* MoveTrack = CastChecked<UInterpTrackMove>(FoundTracks[0]);
+					MoveTrack->ConditionalUpdateTrack(Time, ParentTrackInst, true);
+				}
 			}
 		}
 	}
@@ -2042,7 +2089,7 @@ void UInterpGroup::PostLoad()
 
 void UInterpGroup::UpdateGroup(float NewPosition, UInterpGroupInst* GrInst, bool bPreview, bool bJump)
 {
-	check( InterpTracks.Num() == GrInst->TrackInst.Num() );
+	checkf( InterpTracks.Num() == GrInst->TrackInst.Num(), TEXT("UpdateGroup track mismatch! Outer = %s"), *GetNameSafe(GetOuter()) );
 
 	// Update animation state of Actor.
 #if 0
@@ -2521,6 +2568,11 @@ AActor* UInterpGroupInst::GetGroupActor() const
 	{
 		return GroupActor;
 	}
+}
+
+void UInterpGroupInst::SetGroupActor(AActor* Actor)
+{
+	GroupActor = Actor;
 }
 
 void UInterpGroupInst::SaveGroupActorState()

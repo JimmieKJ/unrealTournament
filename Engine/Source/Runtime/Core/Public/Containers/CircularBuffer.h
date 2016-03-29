@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -19,13 +19,12 @@ public:
 	 *
 	 * @param Capacity The number of elements that the buffer can store (will be rounded up to the next power of 2).
 	 */
-	TCircularBuffer( uint32 Capacity )
+	TCircularBuffer(uint32 Capacity)
 	{
 		checkSlow(Capacity > 0);
 		checkSlow(Capacity <= 0xffffffffU);
 
 		Elements.AddZeroed(FMath::RoundUpToPowerOfTwo(Capacity));
-	
 		IndexMask = Elements.Num() - 1;
 	}
 
@@ -35,12 +34,11 @@ public:
 	 * @param Capacity The number of elements that the buffer can store (will be rounded up to the next power of 2).
 	 * @param InitialValue The initial value for the buffer's elements.
 	 */
-	TCircularBuffer( uint32 Capacity, const ElementType& InitialValue )
+	TCircularBuffer(uint32 Capacity, const ElementType& InitialValue)
 	{
 		checkSlow(Capacity <= 0xffffffffU);
 
 		Elements.Init(InitialValue, FMath::RoundUpToPowerOfTwo(Capacity));
-	
 		IndexMask = Elements.Num() - 1;
 	}
 
@@ -51,7 +49,7 @@ public:
 	 *
 	 * @param Index The index of the element to return.
 	 */
-	FORCEINLINE ElementType& operator[]( uint32 Index )
+	FORCEINLINE ElementType& operator[](uint32 Index)
 	{
 		return Elements[Index & IndexMask];
 	}
@@ -61,7 +59,7 @@ public:
 	 *
 	 * @param Index The index of the element to return.
 	 */
-	FORCEINLINE const ElementType& operator[]( uint32 Index ) const
+	FORCEINLINE const ElementType& operator[](uint32 Index) const
 	{
 		return Elements[Index & IndexMask];
 	}
@@ -84,7 +82,7 @@ public:
 	 * @param CurrentIndex The current index.
 	 * @return The next index.
 	 */
-	FORCEINLINE uint32 GetNextIndex( uint32 CurrentIndex ) const
+	FORCEINLINE uint32 GetNextIndex(uint32 CurrentIndex) const
 	{
 		return ((CurrentIndex + 1) & IndexMask);
 	}
@@ -95,9 +93,9 @@ public:
 	 * @param CurrentIndex The current index.
 	 * @return The previous index.
 	 */
-	FORCEINLINE uint32 GetPreviousIndex( uint32 CurrentIndex ) const
+	FORCEINLINE uint32 GetPreviousIndex(uint32 CurrentIndex) const
 	{
-		return ( ( CurrentIndex - 1 ) & IndexMask );
+		return ((CurrentIndex - 1) & IndexMask);
 	}
 
 private:

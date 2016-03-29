@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -67,6 +67,7 @@ public:
 	double GetFileAgeSeconds( const TCHAR* Filename ) override;
 	FDateTime GetTimeStamp( const TCHAR* Filename ) override;
 	FDateTime GetAccessTimeStamp( const TCHAR* Filename ) override;
+	void GetTimeStampPair(const TCHAR* PathA, const TCHAR* PathB, FDateTime& OutTimeStampA, FDateTime& OutTimeStampB);
 	bool SetTimeStamp( const TCHAR* Filename, FDateTime Timestamp ) override;
 	virtual FString GetFilenameOnDisk(const TCHAR* Filename) override;
 

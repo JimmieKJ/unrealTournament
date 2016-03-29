@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 //////////////////////////////////////////////////////////////////////////
 // Proxy object for displaying notifies in the details panel with

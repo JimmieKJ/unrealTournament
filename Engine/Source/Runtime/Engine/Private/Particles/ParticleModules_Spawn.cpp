@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ParticleModules_Spawn.cpp: Particle spawn-related module implementations.
@@ -36,21 +36,21 @@ UParticleModuleSpawn::UParticleModuleSpawn(const FObjectInitializer& ObjectIniti
 
 void UParticleModuleSpawn::InitializeDefaults()
 {
-	if(!Rate.Distribution)
+	if(!Rate.IsCreated())
 	{
 		UDistributionFloatConstant* RequiredDistributionSpawnRate = NewObject<UDistributionFloatConstant>(this, TEXT("RequiredDistributionSpawnRate"));
 		RequiredDistributionSpawnRate->Constant = 20.0f;
 		Rate.Distribution = RequiredDistributionSpawnRate;
 	}
 
-	if(!RateScale.Distribution)
+	if(!RateScale.IsCreated())
 	{
 		UDistributionFloatConstant* RequiredDistributionSpawnRateScale = NewObject<UDistributionFloatConstant>(this, TEXT("RequiredDistributionSpawnRateScale"));
 		RequiredDistributionSpawnRateScale->Constant = 1.0f;
 		RateScale.Distribution = RequiredDistributionSpawnRateScale;
 	}
 
-	if(!BurstScale.Distribution)
+	if(!BurstScale.IsCreated())
 	{
 		UDistributionFloatConstant* BurstScaleDistribution = NewObject<UDistributionFloatConstant>(this, TEXT("BurstScaleDistribution"));
 		BurstScaleDistribution->Constant = 1.0f;
@@ -247,7 +247,7 @@ int32 UParticleModuleSpawn::GetMaximumBurstCount()
 float UParticleModuleSpawn::GetGlobalRateScale()const
 {
 	static const auto EmitterRateScaleCVar = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.EmitterSpawnRateScale"));
-	return bApplyGlobalSpawnRateScale ? EmitterRateScaleCVar->GetValueOnAnyThread() : 1.0f;
+	return (bApplyGlobalSpawnRateScale && EmitterRateScaleCVar) ? EmitterRateScaleCVar->GetValueOnAnyThread() : 1.0f;
 }
 
 /*-----------------------------------------------------------------------------
@@ -264,7 +264,7 @@ UParticleModuleSpawnPerUnit::UParticleModuleSpawnPerUnit(const FObjectInitialize
 
 void UParticleModuleSpawnPerUnit::InitializeDefaults()
 {
-	if (!SpawnPerUnit.Distribution)
+	if (!SpawnPerUnit.IsCreated())
 	{
 		UDistributionFloatConstant* RequiredDistributionSpawnPerUnit = NewObject<UDistributionFloatConstant>(this, TEXT("RequiredDistributionSpawnPerUnit"));
 		RequiredDistributionSpawnPerUnit->Constant = 0.0f;
@@ -294,7 +294,7 @@ void UParticleModuleSpawnPerUnit::PostEditChangeProperty(FPropertyChangedEvent& 
 }
 #endif // WITH_EDITOR
 
-uint32 UParticleModuleSpawnPerUnit::RequiredBytesPerInstance(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleSpawnPerUnit::RequiredBytesPerInstance()
 {
 	return sizeof(FParticleSpawnPerUnitInstancePayload);
 }

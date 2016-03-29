@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "GraphEditorCommon.h"
@@ -33,7 +33,7 @@ TSharedRef<SWidget>	SGraphPinKey::GetDefaultValueWidget()
 		.OnKeyChanged(this, &SGraphPinKey::OnKeyChanged);
 }
 
-FKey SGraphPinKey::GetCurrentKey() const
+TOptional<FKey> SGraphPinKey::GetCurrentKey() const
 {
 	return SelectedKey;
 }

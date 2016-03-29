@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	GlobalDistanceFieldShared.usf
@@ -9,11 +9,27 @@
 float MaxGlobalDistance;
 
 //@todo - get the clipmap branches to compile under gl
-#if SM5_PROFILE || PS4_PROFILE
+#if SM5_PROFILE || PS4_PROFILE || METAL_SM5_PROFILE
 
 // Must match C++
 #define MAX_GLOBAL_DF_CLIPMAPS 4
 
+#if IS_MATERIAL_SHADER
+    // for materials, these are in the frame UB
+	#define GlobalDistanceFieldTexture0		Frame.GlobalDistanceFieldTexture0_UB
+	#define GlobalDistanceFieldTexture1		Frame.GlobalDistanceFieldTexture1_UB
+	#define GlobalDistanceFieldTexture2		Frame.GlobalDistanceFieldTexture2_UB
+	#define GlobalDistanceFieldTexture3		Frame.GlobalDistanceFieldTexture3_UB
+	#define GlobalDistanceFieldSampler0		Frame.GlobalDistanceFieldSampler0_UB
+	#define GlobalDistanceFieldSampler1		Frame.GlobalDistanceFieldSampler1_UB
+	#define GlobalDistanceFieldSampler2		Frame.GlobalDistanceFieldSampler2_UB
+	#define GlobalDistanceFieldSampler3		Frame.GlobalDistanceFieldSampler3_UB
+	#define GlobalVolumeCenterAndExtent		Frame.GlobalVolumeCenterAndExtent_UB
+	#define GlobalVolumeWorldToUVAddAndMul	Frame.GlobalVolumeWorldToUVAddAndMul_UB
+	#define GlobalVolumeDimension			Frame.GlobalVolumeDimension_UB
+	#define GlobalVolumeTexelSize			Frame.GlobalVolumeTexelSize_UB
+#else
+	// these are only used for the precomputation shaders; which don't have a frame UB
 Texture3D GlobalDistanceFieldTexture0;
 Texture3D GlobalDistanceFieldTexture1;
 Texture3D GlobalDistanceFieldTexture2;
@@ -26,6 +42,7 @@ float4 GlobalVolumeCenterAndExtent[MAX_GLOBAL_DF_CLIPMAPS];
 float4 GlobalVolumeWorldToUVAddAndMul[MAX_GLOBAL_DF_CLIPMAPS];
 float GlobalVolumeDimension;
 float GlobalVolumeTexelSize;
+#endif
 
 float4 SampleGlobalDistanceField(int ClipmapIndex, float3 UV)
 {

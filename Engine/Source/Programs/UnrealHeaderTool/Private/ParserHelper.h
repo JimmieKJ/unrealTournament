@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "ClassMaps.h"
@@ -903,6 +903,9 @@ struct FFuncInfo
 	int32		MacroLine;
 	/** Position in file where this function was declared. Points to first char of function name. */
 	int32 InputPos;
+	/** TRUE if the function is being forced to be considered as impure by the user */
+	bool bForceBlueprintImpure;
+
 	//@}
 
 	/** Constructor. */
@@ -919,6 +922,7 @@ struct FFuncInfo
 		, bSealedEvent(false)
 		, MacroLine(-1)
 		, InputPos(-1)
+		, bForceBlueprintImpure(false)
 	{}
 
 	FFuncInfo(const FFuncInfo& Other)
@@ -932,6 +936,7 @@ struct FFuncInfo
 		, RPCResponseId(Other.RPCResponseId)
 		, MacroLine(Other.MacroLine)
 		, InputPos(Other.InputPos)
+		, bForceBlueprintImpure(Other.bForceBlueprintImpure)
 	{
 		Function.Clone(Other.Function);
 		if (FunctionReference)
@@ -1739,7 +1744,6 @@ private:
 	TMap<UStruct*,TCHAR*> StructNameMap;
 	TArray<TCHAR*> InterfaceAllocations;
 
-	friend struct FNameLookupCPPArchiveProxy;
 	friend class FUHTMakefile;
 	FUHTMakefile* UHTMakefile;
 	FUnrealSourceFile* UnrealSourceFile;

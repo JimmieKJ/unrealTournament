@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "HierarchicalLODOutlinerPrivatePCH.h"
@@ -52,22 +52,12 @@ namespace HLODOutliner
 	/** A drag/drop operation that was started from the scene outliner */
 	struct FHLODOutlinerDragDropOp : public FDragDropOperation
 	{
-		enum ToolTipTextType
+		enum ToolTipIconType
 		{
 			ToolTip_Compatible,
 			ToolTip_Incompatible,
 			ToolTip_MultipleSelection_Compatible,
-			ToolTip_MultipleSelection_Incompatible,
-			ToolTip_CompatibleMoveToCluster,
-			ToolTip_MultipleSelection_CompatibleMoveToCluster,
-			ToolTip_CompatibleAddToCluster,
-			ToolTip_MultipleSelection_CompatibleAddToCluster,
-			ToolTip_CompatibleMergeCluster,
-			ToolTip_MultipleSelection_CompatibleMergeClusters,
-			ToolTip_CompatibleChildCluster,
-			ToolTip_MultipleSelection_CompatibleChildClusters,
-			ToolTip_CompatibleNewCluster,
-			ToolTip_MultipleSelection_CompatibleNewCluster
+			ToolTip_MultipleSelection_Incompatible
 		};
 
 		DRAG_DROP_OPERATOR_TYPE(FHLODOutlinerDragDropOp, FDragDropOperation);
@@ -110,41 +100,34 @@ namespace HLODOutliner
 	struct FDragValidationInfo
 	{
 		/** The tooltip type to display on the operation */
-		FHLODOutlinerDragDropOp::ToolTipTextType TooltipType;
+		FHLODOutlinerDragDropOp::ToolTipIconType TooltipIconType;
 
 		/** The tooltip text to display on the operation */
 		FText ValidationText;
 
+		EHierarchicalLODActionType ActionType;
 
 		/** Construct this validation information out of a tooltip type and some text */
-		FDragValidationInfo(const FHLODOutlinerDragDropOp::ToolTipTextType InTooltipType, const FText InValidationText)
-			: TooltipType(InTooltipType)
+		FDragValidationInfo(const EHierarchicalLODActionType InActionType, const FHLODOutlinerDragDropOp::ToolTipIconType InTooltipIconType, const FText InValidationText)
+			: TooltipIconType(InTooltipIconType)
 			, ValidationText(InValidationText)
-		{}
+			, ActionType(InActionType)
+		{			
+		}
 
 		/** Return a generic invalid result */
 		static FDragValidationInfo Invalid()
 		{
-			return FDragValidationInfo(FHLODOutlinerDragDropOp::ToolTip_Incompatible, FText());
+			return FDragValidationInfo(EHierarchicalLODActionType::InvalidAction, FHLODOutlinerDragDropOp::ToolTip_Incompatible, FText());
 		}
 
 		/** @return true if this operation is valid, false otherwise */
 		bool IsValid() const
 		{
-			switch (TooltipType)
+			switch (TooltipIconType)
 			{
 			case FHLODOutlinerDragDropOp::ToolTip_Compatible:
 			case FHLODOutlinerDragDropOp::ToolTip_MultipleSelection_Compatible:
-			case FHLODOutlinerDragDropOp::ToolTip_CompatibleMoveToCluster:
-			case FHLODOutlinerDragDropOp::ToolTip_MultipleSelection_CompatibleMoveToCluster:
-			case FHLODOutlinerDragDropOp::ToolTip_CompatibleAddToCluster:
-			case FHLODOutlinerDragDropOp::ToolTip_MultipleSelection_CompatibleAddToCluster:
-			case FHLODOutlinerDragDropOp::ToolTip_CompatibleMergeCluster:
-			case FHLODOutlinerDragDropOp::ToolTip_MultipleSelection_CompatibleMergeClusters:
-			case FHLODOutlinerDragDropOp::ToolTip_CompatibleChildCluster:
-			case FHLODOutlinerDragDropOp::ToolTip_MultipleSelection_CompatibleChildClusters:
-			case FHLODOutlinerDragDropOp::ToolTip_CompatibleNewCluster:
-			case FHLODOutlinerDragDropOp::ToolTip_MultipleSelection_CompatibleNewCluster:
 				return true;
 			default:
 				return false;

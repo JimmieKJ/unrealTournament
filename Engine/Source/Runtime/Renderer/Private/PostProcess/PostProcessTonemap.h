@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessTonemap.h: Post processing tone mapping implementation, can add bloom.
@@ -41,7 +41,7 @@ class FRCPassPostProcessTonemap : public TRenderingCompositePassBase<4, 1>
 {
 public:
 	// constructor
-	FRCPassPostProcessTonemap(const FViewInfo& View, bool bInDoGammaOnly, bool bDoScreenPercentageInTonemapper);
+	FRCPassPostProcessTonemap(const FViewInfo& InView, bool bInDoGammaOnly, bool bDoEyeAdaptation);
 
 	// interface FRenderingCompositePass ---------
 
@@ -49,18 +49,18 @@ public:
 	virtual void Release() override { delete this; }
 	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 
-private:
 	bool bDoGammaOnly;
-	// set in constructor
+	bool bDoScreenPercentageInTonemapper;
+private:
+	bool bDoEyeAdaptation;
 	uint32 ConfigIndexPC;
-	// used if ShouldDoScreenPercentageInTonemapper() is true, otherwise (0,0)
-	FIntPoint RenderTargetExtend;
 
-	// @return true: we did the upscale in this pass and don't need to run another one after it
-	bool ShouldDoScreenPercentageInTonemapper() const { return RenderTargetExtend != FIntPoint::ZeroValue; }
+	const FViewInfo& View;
 
 	void SetShader(const FRenderingCompositePassContext& Context);
 };
+
+
 
 // derives from TRenderingCompositePassBase<InputCount, OutputCount>
 // ePId_Input0: SceneColor
@@ -78,6 +78,8 @@ public:
 	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 
 private:
+
+
 	FIntRect ViewRect;
 	FIntPoint DestSize;
 	bool bUsedFramebufferFetch;
@@ -89,10 +91,11 @@ private:
 
 
 /** Encapsulates the post processing tone map vertex shader. */
-class FPostProcessTonemapVS : public FGlobalShader
+template< bool bUseAutoExposure>
+class TPostProcessTonemapVS : public FGlobalShader
 {
 	// This class is in the header so that Temporal AA can share this vertex shader.
-	DECLARE_SHADER_TYPE(FPostProcessTonemapVS,Global);
+	DECLARE_SHADER_TYPE(TPostProcessTonemapVS,Global);
 
 	static bool ShouldCache(EShaderPlatform Platform)
 	{
@@ -100,22 +103,32 @@ class FPostProcessTonemapVS : public FGlobalShader
 	}
 
 	/** Default constructor. */
-	FPostProcessTonemapVS(){}
+	TPostProcessTonemapVS(){}
 
 public:
 	FPostProcessPassParameters PostprocessParameter;
 	FShaderResourceParameter EyeAdaptation;
 	FShaderParameter GrainRandomFull;
 	FShaderParameter FringeUVParams;
+	FShaderParameter DefaultEyeExposure;
 
 	/** Initialization constructor. */
-	FPostProcessTonemapVS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
+	TPostProcessTonemapVS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer)
 	{
 		PostprocessParameter.Bind(Initializer.ParameterMap);
 		EyeAdaptation.Bind(Initializer.ParameterMap, TEXT("EyeAdaptation"));
 		GrainRandomFull.Bind(Initializer.ParameterMap, TEXT("GrainRandomFull"));
 		FringeUVParams.Bind(Initializer.ParameterMap, TEXT("FringeUVParams"));
+		DefaultEyeExposure.Bind(Initializer.ParameterMap, TEXT("DefaultEyeExposure"));
+	}
+
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
+	{
+		FGlobalShader::ModifyCompilationEnvironment(Platform, OutEnvironment);
+		
+		// Compile time template-based conditional
+		OutEnvironment.SetDefine(TEXT("EYEADAPTATION_EXPOSURE_FIX"), (uint32)bUseAutoExposure);
 	}
 
 	void SetVS(const FRenderingCompositePassContext& Context)
@@ -130,23 +143,30 @@ public:
 		GrainRandomFromFrame(&GrainRandomFullValue, Context.View.Family->FrameNumber);
 		SetShaderValue(Context.RHICmdList, ShaderRHI, GrainRandomFull, GrainRandomFullValue);
 
-		if(EyeAdaptation.IsBound())
+		
+		if (Context.View.HasValidEyeAdaptation())
 		{
-			if (Context.View.HasValidEyeAdaptation())
+			IPooledRenderTarget* EyeAdaptationRT = Context.View.GetEyeAdaptation(Context.RHICmdList);
+			FTextureRHIParamRef EyeAdaptationRTRef = EyeAdaptationRT->GetRenderTargetItem().TargetableTexture;
+			if (EyeAdaptationRTRef)
 			{
-				IPooledRenderTarget* EyeAdaptationRT = Context.View.GetEyeAdaptation(Context.RHICmdList);
-				FTextureRHIParamRef EyeAdaptationRTRef = EyeAdaptationRT->GetRenderTargetItem().TargetableTexture;
-				if (EyeAdaptationRTRef)
-				{
-					Context.RHICmdList.TransitionResources(EResourceTransitionAccess::EReadable, &EyeAdaptationRTRef, 1);
-				}
-				SetTextureParameter(Context.RHICmdList, ShaderRHI, EyeAdaptation, EyeAdaptationRT->GetRenderTargetItem().TargetableTexture);
+				Context.RHICmdList.TransitionResources(EResourceTransitionAccess::EReadable, &EyeAdaptationRTRef, 1);
 			}
-			else
-			{
-				// some views don't have a state, thumbnail rendering?
-				SetTextureParameter(Context.RHICmdList, ShaderRHI, EyeAdaptation, GWhiteTexture->TextureRHI);
-			}
+			SetTextureParameter(Context.RHICmdList, ShaderRHI, EyeAdaptation, EyeAdaptationRT->GetRenderTargetItem().TargetableTexture);
+		}
+		else
+		{
+			// some views don't have a state, thumbnail rendering?
+			SetTextureParameter(Context.RHICmdList, ShaderRHI, EyeAdaptation, GWhiteTexture->TextureRHI);
+		}
+
+		// Compile time template-based conditional
+		if (!bUseAutoExposure)
+		{
+			// Compute a CPU-based default.  NB: reverts to "1" if SM5 feature level is not supported
+			float DefaultEyeExposureValue = FRCPassPostProcessEyeAdaptation::ComputeExposureScaleValue(Context.View);
+			// Load a default value 
+			SetShaderValue(Context.RHICmdList, ShaderRHI, DefaultEyeExposure, DefaultEyeExposureValue);
 		}
 
 		{
@@ -174,7 +194,11 @@ public:
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << PostprocessParameter << GrainRandomFull << EyeAdaptation << FringeUVParams;
+		Ar << PostprocessParameter << GrainRandomFull << EyeAdaptation << FringeUVParams << DefaultEyeExposure;
+
 		return bShaderHasOutdatedParameters;
 	}
 };
+
+// Default uses eye adaptation
+typedef TPostProcessTonemapVS<true/*bUseEyeAdaptation*/> FPostProcessTonemapVS;

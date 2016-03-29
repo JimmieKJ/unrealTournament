@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LandscapeSpline.cpp
@@ -425,9 +425,9 @@ FBoxSphereBounds ULandscapeSplinesComponent::CalcBounds(const FTransform& LocalT
 	{
 		// There's no such thing as an "invalid" FBoxSphereBounds (unlike FBox)
 		// try to return something that won't modify the parent bounds
-		if (AttachParent)
+		if (GetAttachParent())
 		{
-			NewBounds = FBoxSphereBounds(AttachParent->Bounds.Origin, FVector::ZeroVector, 0.0f);
+			NewBounds = FBoxSphereBounds(GetAttachParent()->Bounds.Origin, FVector::ZeroVector, 0.0f);
 		}
 		else
 		{
@@ -2289,9 +2289,9 @@ void ULandscapeSplineSegment::UpdateSplinePoints(bool bUpdateCollision)
 			MeshComponent->SplineUpDir = FVector(0,0,1); // Up, to be consistent between joined meshes. We rotate it to horizontal using roll if using Z Forward X Up or X Forward Y Up
 			MeshComponent->ForwardAxis = MeshEntry->ForwardAxis;
 
-			if (MeshComponent->AttachParent != OuterSplines)
+			if (MeshComponent->GetAttachParent() != OuterSplines)
 			{
-				FTransform RelativeTransform = OuterSplines->ComponentToWorld.GetRelativeTransform(MeshComponent->AttachParent->ComponentToWorld);
+				FTransform RelativeTransform = OuterSplines->ComponentToWorld.GetRelativeTransform(MeshComponent->GetAttachParent()->ComponentToWorld);
 				MeshComponent->SplineParams.StartPos = RelativeTransform.TransformPosition(MeshComponent->SplineParams.StartPos);
 				MeshComponent->SplineParams.EndPos   = RelativeTransform.TransformPosition(MeshComponent->SplineParams.EndPos);
 			}

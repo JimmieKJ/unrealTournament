@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "MediaPlayerEditorPrivatePCH.h"
@@ -104,18 +104,21 @@ protected:
 	void RegisterCustomizations()
 	{
 		FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
-		PropertyModule.RegisterCustomClassLayout(UMediaPlayer::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FMediaPlayerCustomization::MakeInstance));
-		PropertyModule.RegisterCustomClassLayout(UMediaSoundWave::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FMediaSoundWaveCustomization::MakeInstance));
-		PropertyModule.RegisterCustomClassLayout(UMediaTexture::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FMediaTextureCustomization::MakeInstance));
+		MediaPlayerName    = UMediaPlayer   ::StaticClass()->GetFName();
+		MediaSoundWaveName = UMediaSoundWave::StaticClass()->GetFName();
+		MediaTextureName   = UMediaTexture  ::StaticClass()->GetFName();
+		PropertyModule.RegisterCustomClassLayout(MediaPlayerName, FOnGetDetailCustomizationInstance::CreateStatic(&FMediaPlayerCustomization::MakeInstance));
+		PropertyModule.RegisterCustomClassLayout(MediaSoundWaveName, FOnGetDetailCustomizationInstance::CreateStatic(&FMediaSoundWaveCustomization::MakeInstance));
+		PropertyModule.RegisterCustomClassLayout(MediaTextureName, FOnGetDetailCustomizationInstance::CreateStatic(&FMediaTextureCustomization::MakeInstance));
 	}
 
 	/** Unregister details view customizations. */
 	void UnregisterCustomizations()
 	{
 		FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
-		PropertyModule.UnregisterCustomClassLayout(UMediaPlayer::StaticClass()->GetFName());
-		PropertyModule.UnregisterCustomClassLayout(UMediaSoundWave::StaticClass()->GetFName());
-		PropertyModule.UnregisterCustomClassLayout(UMediaTexture::StaticClass()->GetFName());
+		PropertyModule.UnregisterCustomClassLayout(MediaPlayerName);
+		PropertyModule.UnregisterCustomClassLayout(MediaSoundWaveName);
+		PropertyModule.UnregisterCustomClassLayout(MediaTextureName);
 	}
 
 protected:
@@ -164,6 +167,11 @@ private:
 
 	/** Holds the tool bar extensibility manager. */
 	TSharedPtr<FExtensibilityManager> ToolBarExtensibilityManager;
+
+	/** Class names */
+	FName MediaPlayerName;
+	FName MediaSoundWaveName;
+	FName MediaTextureName;
 };
 
 

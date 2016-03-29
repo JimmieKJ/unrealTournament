@@ -1,31 +1,19 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AutomationWorkerPrivatePCH.h"
 #include "AutomationAnalytics.h"
 #include "EngineBuildSettings.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
-#include "GeneralProjectSettings.h"
+#include "AnalyticsET.h"
 
-
+DEFINE_LOG_CATEGORY(LogAutomationAnalytics);
 
 bool FAutomationAnalytics::bIsInitialized;
 TSharedPtr<IAnalyticsProvider> FAutomationAnalytics::Analytics;
 TArray<FString> FAutomationAnalytics::AutomationEventNames;
 TArray<FString> FAutomationAnalytics::AutomationParamNames;
 FString FAutomationAnalytics::MachineSpec;
-
-/**
-* Automation analytics config log to initialize the automation analytics provider.
-* External code should bind this delegate if automation analytics are desired,
-* preferably in private code that won't be redistributed.
-*/
-FAnalytics::FProviderConfigurationDelegate& GetAutomationAnalyticsOverrideConfigDelegate()
-{
-	static FAnalytics::FProviderConfigurationDelegate Delegate;
-	return Delegate;
-}
-
 
 /**
 * Get analytics pointer
@@ -41,96 +29,22 @@ void FAutomationAnalytics::Initialize()
 {
 	checkf(!bIsInitialized, TEXT("FAutomationAnalytics::Initialize called more than once."));
 
-	// this will only be true for builds that have editor support (currently PC, Mac, Linux)
-	// The idea here is to only send editor events for actual editor runs, not for things like -game runs of the editor.
-	//const bool bIsEditorRun = WITH_EDITOR && GIsEditor && !IsRunningCommandlet();
-	const bool bIsEditorRun = GIsEditor;
-
-	// We also want to identify a real run of a game, which is NOT necessarily the opposite of an editor run.
-	// Ideally we'd be able to tell explicitly, but with content-only games, it becomes difficult.
-	// So we ensure we are not an editor run, we don't have EDITOR stuff compiled in, we are not running a commandlet,
-	// we are not a generic, utility program, and we require cooked data.
-	//const bool bIsGameRun = !WITH_EDITOR && !IsRunningCommandlet() && !FPlatformProperties::IsProgram() && FPlatformProperties::RequiresCookedData();
-
-	const bool bIsGameRun = !GIsEditor;
-
-	const bool bShouldInitAnalytics = bIsEditorRun || bIsGameRun;
-
-	if (bShouldInitAnalytics)
-	{
-		// Setup some default automation analytics if there is nothing custom bound
-		FAnalytics::FProviderConfigurationDelegate DefaultAutomationAnalyticsConfig;
-		DefaultAutomationAnalyticsConfig.BindLambda(
-			[=](const FString& KeyName, bool bIsValueRequired) -> FString
-		{
-			static TMap<FString, FString> ConfigMap;
-			if (ConfigMap.Num() == 0)
-			{
-				ConfigMap.Add(TEXT("ProviderModuleName"), TEXT("AnalyticsET"));
-				ConfigMap.Add(TEXT("APIServerET"), TEXT("http://etsource.epicgames.com/ET2/"));
-
-				// We always use the "Release" analytics account unless we're running in analytics test mode (usually with
-				// a command-line parameter), or we're an internal Epic build
-				const FAnalytics::BuildType AnalyticsBuildType = FAnalytics::Get().GetBuildType();
-				const bool bUseReleaseAccount =
-					(AnalyticsBuildType == FAnalytics::Development || AnalyticsBuildType == FAnalytics::Release) &&
-					!FEngineBuildSettings::IsInternalBuild();   // Internal Epic build
-				const TCHAR* BuildTypeStr = bUseReleaseAccount ? TEXT("Release") : TEXT("Dev");
-				const TCHAR* UE4TypeStr = FRocketSupport::IsRocket() ? TEXT("Rocket") : FEngineBuildSettings::IsPerforceBuild() ? TEXT("Perforce") : TEXT("UnrealEngine");
-				if (bIsEditorRun)
-				{
-					ConfigMap.Add(TEXT("APIKeyET"), FString::Printf(TEXT("UEEditor.Automation.%s.%s"), UE4TypeStr, BuildTypeStr));
-				}
-				else
-				{
-					const TCHAR* GameName = GInternalGameName;
-					ConfigMap.Add(TEXT("APIKeyET"), FString::Printf(TEXT("UEGame.Automation.%s.%s.%s"), UE4TypeStr, BuildTypeStr, GameName));
-				}
-			}
-
-			// Check for overrides
-			if (GetAutomationAnalyticsOverrideConfigDelegate().IsBound())
-			{
-				const FString OverrideValue = GetAutomationAnalyticsOverrideConfigDelegate().Execute(KeyName, bIsValueRequired);
-				if (!OverrideValue.IsEmpty())
-				{
-					return OverrideValue;
-				}
-			}
-
-			FString* ConfigValue = ConfigMap.Find(KeyName);
-			return ConfigValue != NULL ? *ConfigValue : TEXT("");
-		});
-
-		Analytics = FAnalytics::Get().CreateAnalyticsProvider(
-			FName(*DefaultAutomationAnalyticsConfig.Execute(TEXT("ProviderModuleName"), true)),
-			DefaultAutomationAnalyticsConfig);
-		if (Analytics.IsValid())
-		{
-			Analytics->SetUserID(FString::Printf(TEXT("%s|%s|%s"), *FPlatformMisc::GetMachineId().ToString(EGuidFormats::Digits).ToLower(), *FPlatformMisc::GetEpicAccountId(), *FPlatformMisc::GetOperatingSystemId()));
-
-			TArray<FAnalyticsEventAttribute> StartSessionAttributes;
-			// Add project info whether we are in editor or game.
-			FString GameName = GInternalGameName;
-			StartSessionAttributes.Emplace(TEXT("ProjectName"), GameName);
-
-
-			//Need a way to get these without using the Editor
-			/*StartSessionAttributes.Emplace(TEXT("ProjectID"), ProjectSettings.ProjectID);
-			StartSessionAttributes.Emplace(TEXT("ProjectDescription"), ProjectSettings.Description);
-			StartSessionAttributes.Emplace(TEXT("ProjectVersion"), ProjectSettings.ProjectVersion);*/
-
-			Analytics->StartSession(StartSessionAttributes);
-
-			MachineSpec = FParse::Param(FCommandLine::Get(), TEXT("60hzmin")) 
-				? TEXT("60hzmin")
-				: FParse::Param(FCommandLine::Get(), TEXT("30hzmin")) 
-				? TEXT("30hzmin") 
-				: TEXT("");
-		}
-	}
+	//Set the config for Analytics
+	FAnalyticsET::Config Config;
+	Config.APIKeyET = FString::Printf(TEXT("AutomationAnalytics.%s"), GInternalGameName);
+	Config.APIServerET = TEXT("https://datarouter.ol.epicgames.com/");
+	Analytics = FAnalyticsET::Get().CreateAnalyticsProvider(Config);
 	if (Analytics.IsValid())
 	{
+		Analytics->SetUserID(FString::Printf(TEXT("%s|%s|%s"), *FPlatformMisc::GetMachineId().ToString(EGuidFormats::Digits).ToLower(), *FPlatformMisc::GetEpicAccountId(), *FPlatformMisc::GetOperatingSystemId()));
+		Analytics->StartSession();
+
+		MachineSpec = FParse::Param(FCommandLine::Get(), TEXT("60hzmin")) 
+			? TEXT("60hzmin")
+			: FParse::Param(FCommandLine::Get(), TEXT("30hzmin")) 
+			? TEXT("30hzmin") 
+			: TEXT("");
+
 		bIsInitialized = true;
 		InititalizeAnalyticParameterNames();
 	}

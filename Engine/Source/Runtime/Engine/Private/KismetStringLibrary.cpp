@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Kismet/KismetStringLibrary.h"
@@ -115,6 +115,26 @@ int32 UKismetStringLibrary::Conv_StringToInt(const FString& InString)
 float UKismetStringLibrary::Conv_StringToFloat(const FString& InString)
 {
 	return FCString::Atof(*InString);
+}
+
+void UKismetStringLibrary::Conv_StringToVector(const FString& InString, FVector& OutConvertedVector, bool& OutIsValid)
+{
+	OutIsValid = OutConvertedVector.InitFromString(InString);
+}
+
+void UKismetStringLibrary::Conv_StringToVector2D(const FString& InString, FVector2D& OutConvertedVector2D, bool& OutIsValid)
+{
+	OutIsValid = OutConvertedVector2D.InitFromString(InString);
+}
+
+void UKismetStringLibrary::Conv_StringToRotator(const FString& InString, FRotator& OutConvertedRotator, bool& OutIsValid)
+{
+	OutIsValid = OutConvertedRotator.InitFromString(InString);
+}
+
+void UKismetStringLibrary::Conv_StringToColor(const FString& InString, FLinearColor& OutConvertedColor, bool& OutIsValid)
+{
+	OutIsValid = OutConvertedColor.InitFromString(InString);
 }
 
 FString UKismetStringLibrary::BuildString_Float(const FString& AppendTo, const FString& Prefix, float InFloat, const FString& Suffix)
@@ -263,6 +283,11 @@ int32 UKismetStringLibrary::FindSubstring(const FString& SearchIn, const FString
 	ESearchDir::Type Dir = bSearchFromEnd ? ESearchDir::FromEnd : ESearchDir::FromStart;
 
 	return SearchIn.Find(Substring, Case, Dir, StartPosition);
+}
+
+bool UKismetStringLibrary::Contains(const FString& SearchIn, const FString& Substring, bool bUseCase, bool bSearchFromEnd)
+{
+	return FindSubstring(SearchIn, Substring, bUseCase, bSearchFromEnd) != -1;
 }
 
 int32 UKismetStringLibrary::GetCharacterAsNumber(const FString& SourceString, int32 Index)

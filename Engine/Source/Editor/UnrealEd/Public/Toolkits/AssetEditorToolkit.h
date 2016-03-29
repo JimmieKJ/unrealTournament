@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -189,6 +189,9 @@ protected:
 	/**	Returns an array of all the objects currently being edited. Asserts if editing no objects */
 	const TArray< UObject* >& GetEditingObjects() const;
 
+	/** Get the collection of edited objects that can be saved. */
+	virtual void GetSaveableObjects(TArray<UObject*>& OutObjects) const;
+
 	/** Adds an item to the Editing Objects list */
 	virtual void AddEditingObject(UObject* Object);
 
@@ -200,6 +203,12 @@ protected:
 
 	/** Called when "Save" is clicked for this asset */
 	virtual void SaveAsset_Execute();
+
+	/** Called to test if "Save As" should be enabled for this asset */
+	virtual bool CanSaveAssetAs() const {return true;}
+
+	/** Called when "Save As" is clicked for this asset */
+	virtual void SaveAssetAs_Execute();
 
 	/** Called when "Find in Content Browser" is clicked for this asset */
 	virtual void FindInContentBrowser_Execute();

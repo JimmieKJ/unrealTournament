@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /**
  * Abstract base class of animation assets that can be played back and evaluated to produce a pose.
@@ -11,6 +11,7 @@
 #include "AnimInterpFilter.h"
 #include "Animation/Skeleton.h"
 #include "Engine/SkeletalMesh.h"
+#include "Interfaces/Interface_AssetUserData.h"
 #include "AnimationAsset.generated.h"
 
 namespace MarkerIndexSpecialValues
@@ -53,6 +54,9 @@ struct FBlendSampleData
 	int32 SampleDataIndex;
 
 	UPROPERTY()
+	class UAnimSequence* Animation;
+
+	UPROPERTY()
 	float TotalWeight;
 
 	UPROPERTY()
@@ -74,6 +78,7 @@ struct FBlendSampleData
 	{}
 	FBlendSampleData(int32 Index)
 		:	SampleDataIndex(Index)
+		,	Animation(nullptr)
 		,	TotalWeight(0.f)
 		,	Time(0.f)
 		,	PreviousTime(0.f)
@@ -416,6 +421,7 @@ public:
 		ActivePlayers.Reset();
 		bCanUseMarkerSync = false;
 		MontageLeaderWeight = 0.f;
+		MarkerTickContext = FMarkerTickContext();
 	}
 
 	// Checks the last tick record in the ActivePlayers array to see if it's a better leader than the current candidate.
@@ -668,7 +674,7 @@ struct FAnimationGroupReference
 };
 
 UCLASS(abstract, MinimalAPI)
-class UAnimationAsset : public UObject
+class UAnimationAsset : public UObject, public IInterface_AssetUserData
 {
 	GENERATED_UCLASS_BODY()
 
@@ -686,6 +692,11 @@ private:
 	 */
 	UPROPERTY(Category=MetaData, instanced, EditAnywhere)
 	TArray<class UAnimMetaData*> MetaData;
+
+protected:
+	/** Array of user data stored with the asset */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Instanced, Category = Animation)
+	TArray<UAssetUserData*> AssetUserData;
 
 public:
 	/** Advances the asset player instance 
@@ -750,6 +761,19 @@ public:
 
 	/** Return a list of unique marker names for blending compatibility */
 	ENGINE_API virtual TArray<FName>* GetUniqueMarkerNames() { return NULL; }
+
+	//~ Begin IInterface_AssetUserData Interface
+	virtual void AddAssetUserData(UAssetUserData* InUserData) override;
+	virtual void RemoveUserDataOfClass(TSubclassOf<UAssetUserData> InUserDataClass) override;
+	virtual UAssetUserData* GetAssetUserDataOfClass(TSubclassOf<UAssetUserData> InUserDataClass) override;
+	virtual const TArray<UAssetUserData*>* GetAssetUserDataArray() const override;
+	//~ End IInterface_AssetUserData Interface
+
+	/**
+	* return true if this is valid additive animation
+	* false otherwise
+	*/
+	virtual bool IsValidAdditive() const { return false; }
 
 #if WITH_EDITORONLY_DATA
 	/** Information for thumbnail rendering */

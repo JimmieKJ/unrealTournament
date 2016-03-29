@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /**
  * Here are a number of profiling helper functions so we do not have to duplicate a lot of the glue
@@ -63,6 +63,10 @@ void SendDataToPCViaUnrealConsole( const FString& NotifyType, const FString& Ful
 }
 
 
+FString CreateProfileFilename(const FString& InFileExtension, bool bIncludeDateForDirectoryName)
+{
+	return CreateProfileFilename(TEXT(""), InFileExtension, bIncludeDateForDirectoryName);
+}
 
 /** 
  * This will generate the profiling file name that will work with limited filename sizes on consoles.
@@ -71,7 +75,7 @@ void SendDataToPCViaUnrealConsole( const FString& NotifyType, const FString& Ful
  * @param ProfilingType this is the type of profiling file this is
  * 
  **/
-FString CreateProfileFilename( const FString& InFileExtension, bool bIncludeDateForDirectoryName )
+FString CreateProfileFilename( const FString& InFilename, const FString& InFileExtension, bool bIncludeDateForDirectoryName )
 {
 	FString Retval;
 
@@ -117,7 +121,15 @@ FString CreateProfileFilename( const FString& InFileExtension, bool bIncludeDate
 	FolderNameOfProfileNoDate = FolderNameOfProfileNoDate.Right(MaxFilenameLen);
 
 
-	FString NameOfProfile = FString::Printf(TEXT("%s-%s-%s"), *MapNameStr, *PlatformStr, *FDateTime::Now().ToString(TEXT("%d-%H.%M.%S")));
+	FString NameOfProfile;
+	if (InFilename.IsEmpty())
+	{
+		NameOfProfile = FString::Printf(TEXT("%s-%s-%s"), *MapNameStr, *PlatformStr, *FDateTime::Now().ToString(TEXT("%d-%H.%M.%S")));
+	}
+	else
+	{
+		NameOfProfile = InFilename;
+	}
 	NameOfProfile = NameOfProfile.Right(MaxFilenameLen);
 
 	FString FileNameWithExtension = FString::Printf( TEXT("%s%s"), *NameOfProfile, *InFileExtension );
@@ -148,7 +160,7 @@ FString CreateProfileDirectoryAndFilename( const FString& InSubDirectoryName, co
 	check(GGetMapNameDelegate.IsBound());
 	MapNameStr = GGetMapNameDelegate.Execute();
 #endif		// WITH_ENGINE
-	const FString PlatformStr = FString(TEXT("PC"));
+	const FString PlatformStr(FPlatformProperties::PlatformName());
 
 
 	// create Profiling dir and sub dir

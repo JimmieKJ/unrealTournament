@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealPak.h"
 #include "RequiredProgramMainCPPInclude.h"
@@ -486,7 +486,7 @@ void ProcessCommandLine(int32 ArgC, TCHAR* ArgV[], TArray<FPakInputPair>& Entrie
 			Input.bNeedsCompression |= bCompress;
 			Input.bNeedEncryption |= bEncrypt;
 
-			UE_LOG(LogPakFile, Display, TEXT("Added file Source: %s Dest: %s"), *Input.Source, *Input.Dest);
+			UE_LOG(LogPakFile, Log, TEXT("Added file Source: %s Dest: %s"), *Input.Source, *Input.Dest);
 			Entries.Add(Input);
 		}			
 	}
@@ -758,10 +758,12 @@ bool CreatePakFile(const TCHAR* Filename, TArray<FPakInputPair>& FilesToAdd, con
 	FCompressedFileBuffer CompressedFileBuffer;
 
 	uint8* PaddingBuffer = nullptr;
+	int64 PaddingBufferSize = 0;
 	if (CmdLineParameters.PatchFilePadAlign > 0)
 	{
-		PaddingBuffer = (uint8*)FMemory::Malloc(CmdLineParameters.PatchFilePadAlign);
-		FMemory::Memset(PaddingBuffer, 0, CmdLineParameters.PatchFilePadAlign);
+		PaddingBufferSize = CmdLineParameters.PatchFilePadAlign;
+		PaddingBuffer = (uint8*)FMemory::Malloc(PaddingBufferSize);
+		FMemory::Memset(PaddingBuffer, 0, PaddingBufferSize);
 	}
 
 	for (int32 FileIndex = 0; FileIndex < FilesToAdd.Num(); FileIndex++)
@@ -803,8 +805,29 @@ bool CreatePakFile(const TCHAR* Filename, TArray<FPakInputPair>& FilesToAdd, con
 			if ((NewEntryOffset / CmdLineParameters.FileSystemBlockSize) != ((NewEntryOffset+RealFileSize) / CmdLineParameters.FileSystemBlockSize))
 			{
 				//File crosses a block boundary, so align it to the beginning of the next boundary
+				int64 OldOffset = NewEntryOffset;
 				NewEntryOffset = AlignArbitrary(NewEntryOffset, CmdLineParameters.FileSystemBlockSize);
-				PakFileHandle->Seek(NewEntryOffset);
+				int64 PaddingRequired = NewEntryOffset - OldOffset;
+				
+				if (PaddingRequired > 0)
+				{
+					// If we don't already have a padding buffer, create one
+					if (PaddingBuffer == nullptr)
+					{
+						PaddingBufferSize = 64 * 1024;
+						PaddingBuffer = (uint8*)FMemory::Malloc(PaddingBufferSize);
+						FMemory::Memset(PaddingBuffer, 0, PaddingBufferSize);
+					}
+
+					while (PaddingRequired > 0)
+					{
+						int64 AmountToWrite = FMath::Min(PaddingRequired, PaddingBufferSize);
+						PakFileHandle->Serialize(PaddingBuffer, AmountToWrite);
+						PaddingRequired -= AmountToWrite;
+					}
+					
+					check(PakFileHandle->Tell() == NewEntryOffset);
+				}
 			}
 		}
 
@@ -815,7 +838,7 @@ bool CreatePakFile(const TCHAR* Filename, TArray<FPakInputPair>& FilesToAdd, con
 			NewEntryOffset = AlignArbitrary(NewEntryOffset, CmdLineParameters.PatchFilePadAlign);
 			int64 CurrentLoc = PakFileHandle->Tell();
 			int64 PaddingSize = NewEntryOffset - CurrentLoc;
-			check(PaddingSize <= CmdLineParameters.PatchFilePadAlign);
+			check(PaddingSize <= PaddingBufferSize);
 
 			//have to pad manually with 0's.  File locations skipped by Seek and never written are uninitialized which would defeat the whole purpose
 			//of padding for certain platforms patch diffing systems.
@@ -842,11 +865,11 @@ bool CreatePakFile(const TCHAR* Filename, TArray<FPakInputPair>& FilesToAdd, con
 			if (FilesToAdd[FileIndex].bNeedsCompression && CompressionMethod != COMPRESS_None)
 			{
 				float PercentLess = ((float)NewEntry.Info.Size/(NewEntry.Info.UncompressedSize/100.f));
-				UE_LOG(LogPakFile, Display, TEXT("Added compressed file \"%s\", %.2f%% of original size. Compressed Size %lld bytes, Original Size %lld bytes. "), *NewEntry.Filename, PercentLess, NewEntry.Info.Size, NewEntry.Info.UncompressedSize);
+				UE_LOG(LogPakFile, Log, TEXT("Added compressed file \"%s\", %.2f%% of original size. Compressed Size %lld bytes, Original Size %lld bytes. "), *NewEntry.Filename, PercentLess, NewEntry.Info.Size, NewEntry.Info.UncompressedSize);
 			}
 			else
 			{
-				UE_LOG(LogPakFile, Display, TEXT("Added file \"%s\", %lld bytes."), *NewEntry.Filename, NewEntry.Info.Size);
+				UE_LOG(LogPakFile, Log, TEXT("Added file \"%s\", %lld bytes."), *NewEntry.Filename, NewEntry.Info.Size);
 			}
 		}
 		else
@@ -946,11 +969,12 @@ bool TestPakFile(const TCHAR* Filename)
 	}
 }
 
-bool ListFilesInPak(const TCHAR * InPakFilename)
+bool ListFilesInPak(const TCHAR * InPakFilename, int64 SizeFilter = 0)
 {
 	FPakFile PakFile(InPakFilename, FParse::Param(FCommandLine::Get(), TEXT("signed")));
 	int32 FileCount = 0;
 	int64 FileSize = 0;
+	int64 FilteredSize = 0;
 
 	if (PakFile.IsValid())
 	{
@@ -974,11 +998,15 @@ bool ListFilesInPak(const TCHAR * InPakFilename)
 		for (auto It : Records)
 		{
 			const FPakEntry& Entry = It.Info();
-			UE_LOG(LogPakFile, Display, TEXT("\"%s\" offset: %lld, size: %d bytes."), *It.Filename(), Entry.Offset, Entry.Size);
+			if (Entry.Size >= SizeFilter)
+			{
+				UE_LOG(LogPakFile, Display, TEXT("\"%s\" offset: %lld, size: %d bytes."), *It.Filename(), Entry.Offset, Entry.Size);
+				FilteredSize += Entry.Size;
+			}
 			FileSize += Entry.Size;
 			FileCount++;
 		}
-		UE_LOG(LogPakFile, Display, TEXT("%d files (%lld bytes)."), FileCount, FileSize);
+		UE_LOG(LogPakFile, Display, TEXT("%d files (%lld bytes), (%lld filtered bytes)."), FileCount, FileSize, FilteredSize);
 
 		return true;
 	}
@@ -1044,7 +1072,7 @@ bool ExtractFilesFromPak(const TCHAR* InPakFilename, const TCHAR* InDestPath, bo
 		FMemory::Free(Buffer);
 		FMemory::Free(PersistantCompressionBuffer);
 
-		UE_LOG(LogPakFile, Error, TEXT("Finished extracting %d files (including %d errors)."), FileCount, ErrorCount);
+		UE_LOG(LogPakFile, Log, TEXT("Finished extracting %d files (including %d errors)."), FileCount, ErrorCount);
 
 		return true;
 	}
@@ -1071,6 +1099,9 @@ bool DiffFilesInPaks(const FString InPakFilename1, const FString InPakFilename2)
 	int32 NumUniquePAK2 = 0;
 	int32 NumDifferentContents = 0;
 	int32 NumEqualContents = 0;
+
+	TGuardValue<ELogTimes::Type> DisableLogTimes(GPrintLogTimes, ELogTimes::None);
+	UE_LOG(LogPakFile, Log, TEXT("FileEventType, FileName, Size1, Size2"));
 
 	// Allow the suppression of unique file logging for one or both files
 	const bool bLogUniques = !FParse::Param(FCommandLine::Get(), TEXT("nouniques"));
@@ -1105,7 +1136,7 @@ bool DiffFilesInPaks(const FString InPakFilename1, const FString InPakFilename2)
 
 			if (EntryInfo1 != Entry1)
 			{
-				UE_LOG(LogPakFile, Log, TEXT("PakEntry1 Invalid: %s"), *PAK1FileName);
+				UE_LOG(LogPakFile, Log, TEXT("PakEntry1Invalid, %s, 0, 0"), *PAK1FileName);
 				continue;
 			}
 			
@@ -1116,7 +1147,7 @@ bool DiffFilesInPaks(const FString InPakFilename1, const FString InPakFilename2)
 				++NumUniquePAK1;
 				if (bLogUniques1)
 				{
-					UE_LOG(LogPakFile, Log, TEXT("Unique to first pak: %s"), *PAK1FileName);
+					UE_LOG(LogPakFile, Log, TEXT("UniqueToFirstPak, %s, %i, 0"), *PAK1FileName, EntryInfo1.UncompressedSize);
 				}
 				continue;
 			}
@@ -1127,14 +1158,14 @@ bool DiffFilesInPaks(const FString InPakFilename1, const FString InPakFilename2)
 			EntryInfo2.Serialize(PakReader2, PakFile2.GetInfo().Version);
 			if (EntryInfo2 != *Entry2)
 			{
-				UE_LOG(LogPakFile, Log, TEXT("PakEntry2 Invalid: %s"), *PAK1FileName);
+				UE_LOG(LogPakFile, Log, TEXT("PakEntry2Invalid, %s, 0, 0"), *PAK1FileName);
 				continue;;
 			}
 
 			//check sizes first as quick compare.
 			if (EntryInfo1.UncompressedSize != EntryInfo2.UncompressedSize)
 			{
-				UE_LOG(LogPakFile, Log, TEXT("Filesize different: %s, %i, %i"), *PAK1FileName, EntryInfo1.UncompressedSize, EntryInfo2.UncompressedSize);
+				UE_LOG(LogPakFile, Log, TEXT("FilesizeDifferent, %s, %i, %i"), *PAK1FileName, EntryInfo1.UncompressedSize, EntryInfo2.UncompressedSize);
 				continue;
 			}
 			
@@ -1166,7 +1197,7 @@ bool DiffFilesInPaks(const FString InPakFilename1, const FString InPakFilename2)
 				if (FMemory::Memcmp(PAKDATA1, PAKDATA2, EntryInfo1.UncompressedSize) != 0)
 				{
 					++NumDifferentContents;
-					UE_LOG(LogPakFile, Log, TEXT("Contents different: %s"), *PAK1FileName);
+					UE_LOG(LogPakFile, Log, TEXT("ContentsDifferent, %s, %i, %i"), *PAK1FileName, EntryInfo1.UncompressedSize, EntryInfo2.UncompressedSize);
 				}
 				else
 				{
@@ -1195,7 +1226,7 @@ bool DiffFilesInPaks(const FString InPakFilename1, const FString InPakFilename2)
 					++NumUniquePAK2;
 					if (bLogUniques2)
 					{
-						UE_LOG(LogPakFile, Log, TEXT("Unique to second pak: %s"), *PAK2FileName);
+						UE_LOG(LogPakFile, Log, TEXT("UniqueToSecondPak, %s, 0, %i"), *PAK2FileName, Entry2.UncompressedSize);
 					}
 					continue;
 				}
@@ -1342,11 +1373,13 @@ INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
 		UE_LOG(LogPakFile, Error, TEXT("  UnrealPak <PakFilename> -Dest=<MountPoint>"));
 		UE_LOG(LogPakFile, Error, TEXT("  UnrealPak GenerateKeys=<KeyFilename>"));
 		UE_LOG(LogPakFile, Error, TEXT("  UnrealPak GeneratePrimeTable=<KeyFilename> [-TableMax=<N>]"));
+		UE_LOG(LogPakFile, Error, TEXT("  UnrealPak <PakFilename1> <PakFilename2> -diff"));
 		UE_LOG(LogPakFile, Error, TEXT("  Options:"));
 		UE_LOG(LogPakFile, Error, TEXT("    -blocksize=<BlockSize>"));
 		UE_LOG(LogPakFile, Error, TEXT("    -compress"));
 		UE_LOG(LogPakFile, Error, TEXT("    -encrypt"));
 		UE_LOG(LogPakFile, Error, TEXT("    -order=<OrderingFile>"));
+		UE_LOG(LogPakFile, Error, TEXT("    -diff (requires 2 filenames first)"));
 		return 1;
 	}
 
@@ -1372,8 +1405,11 @@ INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
 		}
 		else if (FParse::Param(FCommandLine::Get(), TEXT("List")))
 		{
+			int64 SizeFilter = 0;
+			FParse::Value(FCommandLine::Get(), TEXT("SizeFilter="), SizeFilter);
+
 			FString PakFilename = GetPakPath(ArgV[1], false);
-			Result = ListFilesInPak(*PakFilename);
+			Result = ListFilesInPak(*PakFilename, SizeFilter);
 		}
 		else if (FParse::Param(FCommandLine::Get(), TEXT("Diff")))
 		{
@@ -1441,6 +1477,13 @@ INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
 
 
 				Result = CreatePakFile(*PakFilename, FilesToAdd, CmdLineParameters) ? 0 : 1;
+
+				if (CmdLineParameters.GeneratePatch)
+				{
+					FString OutputPath = FPaths::GetPath(PakFilename) / FString(TEXT("TempFiles"));
+					// delete the temporary directory
+					IFileManager::Get().DeleteDirectory(*OutputPath, false, true);
+				}
 			}
 		}
 	}

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 #include "AbilitySystemComponent.h"
@@ -113,6 +113,10 @@ void FGameplayAbilityActivationInfo::SetPredicting(FPredictionKey PredictionKey)
 {
 	ActivationMode = EGameplayAbilityActivationMode::Predicting;
 	PredictionKeyWhenActivated = PredictionKey;
+
+	// Abilities can be cancelled by server at any time. There is no reason to have to wait until confirmation.
+	// prediction keys keep previous activations of abilities from ending future activations.
+	bCanBeEndedByOtherInstance = true;
 }
 
 void FGameplayAbilityActivationInfo::ServerSetActivationPredictionKey(FPredictionKey PredictionKey)
@@ -125,6 +129,11 @@ void FGameplayAbilityActivationInfo::SetActivationConfirmed()
 	ActivationMode = EGameplayAbilityActivationMode::Confirmed;
 	//Remote (server) commands to end the ability that come in after this point are considered for this instance
 	bCanBeEndedByOtherInstance = true;
+}
+
+void FGameplayAbilityActivationInfo::SetActivationRejected()
+{
+	ActivationMode = EGameplayAbilityActivationMode::Rejected;
 }
 
 bool FGameplayAbilitySpec::IsActive() const
@@ -172,19 +181,23 @@ void FGameplayAbilitySpecContainer::RegisterWithOwner(UAbilitySystemComponent* I
 
 // ----------------------------------------------------
 
-FGameplayAbilitySpec:: FGameplayAbilitySpec(FGameplayAbilitySpecDef& InDef, int32 InGameplayEffectLevel, FActiveGameplayEffectHandle InGameplayEffectHandle)
+FGameplayAbilitySpec::FGameplayAbilitySpec(FGameplayAbilitySpecDef& InDef, int32 InGameplayEffectLevel, FActiveGameplayEffectHandle InGameplayEffectHandle)
 	: Ability(InDef.Ability ? InDef.Ability->GetDefaultObject<UGameplayAbility>() : nullptr)
-	, Level(InDef.LevelScalableFloat.GetValueAtLevel(InGameplayEffectLevel))
 	, InputID(InDef.InputID)
 	, SourceObject(InDef.SourceObject)
-	, InputPressed(false)
 	, ActiveCount(0)
+	, InputPressed(false)
 	, RemoveAfterActivation(false)
 	, PendingRemove(false)
 {
 	Handle.GenerateNewHandle();
 	InDef.AssignedHandle = Handle;
 	GameplayEffectHandle = InGameplayEffectHandle;
+
+	FString ContextString = FString::Printf(TEXT("FGameplayAbilitySpec::FGameplayAbilitySpec for %s from %s"), 
+		(InDef.Ability ? *InDef.Ability->GetName() : TEXT("INVALID ABILITY")), 
+		(InDef.SourceObject ? *InDef.SourceObject->GetName() : TEXT("INVALID ABILITY")));
+	Level = InDef.LevelScalableFloat.GetValueAtLevel(InGameplayEffectLevel, &ContextString);
 }
 
 // ----------------------------------------------------
@@ -198,4 +211,18 @@ FScopedAbilityListLock::FScopedAbilityListLock(UAbilitySystemComponent& InAbilit
 FScopedAbilityListLock::~FScopedAbilityListLock()
 {
 	AbilitySystemComponent.DecrementAbilityListLock();
+}
+
+// ----------------------------------------------------
+
+FScopedTargetListLock::FScopedTargetListLock(UAbilitySystemComponent& InAbilitySystemComponent, const UGameplayAbility& InAbility)
+	: GameplayAbility(InAbility)
+	, AbilityLock(InAbilitySystemComponent)
+{
+	GameplayAbility.IncrementListLock();
+}
+
+FScopedTargetListLock::~FScopedTargetListLock()
+{
+	GameplayAbility.DecrementListLock();
 }

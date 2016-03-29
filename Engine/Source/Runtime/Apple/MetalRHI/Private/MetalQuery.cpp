@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MetalQuery.cpp: Metal query RHI implementation.
@@ -7,7 +7,7 @@
 #include "MetalRHIPrivate.h"
 
 FMetalQueryBuffer::FMetalQueryBuffer(FMetalContext* InContext, id<MTLBuffer> InBuffer)
-: Context(InContext)
+: Pool(InContext->GetQueryBufferPool())
 , Buffer(InBuffer)
 , WriteOffset(0)
 , bCompleted(false)
@@ -20,7 +20,15 @@ FMetalQueryBuffer::~FMetalQueryBuffer()
 	[CommandBuffer release];
 	if(Buffer && GIsRHIInitialized)
     {
-        Context->GetQueryBufferPool().ReleaseQueryBuffer(Buffer);
+		TSharedPtr<FMetalQueryBufferPool, ESPMode::ThreadSafe> BufferPool = Pool.Pin();
+		if (BufferPool.IsValid())
+		{
+			BufferPool->ReleaseQueryBuffer(Buffer);
+		}
+		else
+		{
+			[Buffer release];
+		}
     }
 }
 
@@ -97,7 +105,7 @@ void FMetalRenderQuery::Begin(FMetalContext* Context)
 	{
 		// these only need to be 8 byte aligned (of course, a normal allocation oafter this will be 256 bytes, making large holes if we don't do all
 		// query allocations at once)
-		Context->GetQueryBufferPool().Allocate(Buffer);
+		Context->GetQueryBufferPool()->Allocate(Buffer);
 		
 		Result = 0;
 		bAvailable = false;
@@ -117,6 +125,11 @@ void FMetalRenderQuery::End(FMetalContext* Context)
 		// switch back to non-occlusion rendering
 		Context->GetCommandEncoder().SetVisibilityResultMode(MTLVisibilityResultModeDisabled, 0);
 	}
+}
+
+FRenderQueryRHIRef FMetalDynamicRHI::RHICreateRenderQuery_RenderThread(class FRHICommandListImmediate& RHICmdList, ERenderQueryType QueryType)
+{
+	return GDynamicRHI->RHICreateRenderQuery(QueryType);
 }
 
 FRenderQueryRHIRef FMetalDynamicRHI::RHICreateRenderQuery(ERenderQueryType QueryType)

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "NetworkingPrivatePCH.h"
 
@@ -6,16 +6,16 @@
 /* FIPv4Subnet interface
  *****************************************************************************/
 
-FText FIPv4Subnet::ToText( ) const
+FString FIPv4Subnet::ToString() const
 {
-	return FText::Format( FText::FromString( TEXT("{0}/{1}") ), Address.ToText(), Mask.ToText() );
+	return FString::Printf(TEXT("%s/%s"), *Address.ToString(), *Mask.ToString());
 }
 
 
 /* FIPv4Subnet static interface
  *****************************************************************************/
 
-bool FIPv4Subnet::Parse( const FString& SubnetString, FIPv4Subnet& OutSubnet )
+bool FIPv4Subnet::Parse(const FString& SubnetString, FIPv4Subnet& OutSubnet)
 {
 	TArray<FString> Tokens;
 

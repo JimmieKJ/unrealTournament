@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessDOF.usf: PostProcessing Depth of Field
@@ -12,17 +12,35 @@
 // todo move to central place
 float ComputeDOFNearFocalMask(float SceneDepth)
 {
-	float NearFocalPlane = View.DepthOfFieldFocalDistance;
+	float NearFocalPlane = Frame.DepthOfFieldFocalDistance;
 
-	return saturate((NearFocalPlane - SceneDepth) / View.DepthOfFieldNearTransitionRegion);
+	return saturate((NearFocalPlane - SceneDepth) / Frame.DepthOfFieldNearTransitionRegion);
 }
 
 // todo move to central place
 float ComputeDOFFarFocalMask(float SceneDepth)
 {
-	float FarFocalPlane = View.DepthOfFieldFocalDistance + View.DepthOfFieldFocalRegion;
+	float FarFocalPlane = Frame.DepthOfFieldFocalDistance + Frame.DepthOfFieldFocalRegion;
 
-	return saturate((SceneDepth - FarFocalPlane) / View.DepthOfFieldFarTransitionRegion);
+	return saturate((SceneDepth - FarFocalPlane) / Frame.DepthOfFieldFarTransitionRegion);
+}
+
+// Calculate focal masks from ES2's PP CoC.
+float2 DecodeDOFFocalMask(float SceneDepth)
+{
+	float2 Ret;
+	SceneDepth = min(1.0, SceneDepth);
+	if (SceneDepth > 0.5)
+	{
+		Ret.x = (SceneDepth - 0.5) * 2.0;
+		Ret.y = 0;
+	}
+	else
+	{
+		Ret.y = 1.0 - (SceneDepth * 2.0);
+		Ret.x = 0;
+	}
+	return Ret * Frame.DepthOfFieldScale;
 }
 
 // @return .x:far, .y:near
@@ -38,9 +56,22 @@ float2 ComputeDOFFocalMask(float SceneDepth, float SkyWithoutHorizonMask)
 		Ret.x = lerp(Ret.x, 0,  SkyWithoutHorizonMask);
 	}
 
+#if FORWARD_SHADING
+	Ret = DecodeDOFFocalMask(SceneDepth);
+#endif
+
 	return Ret;
 }
 
+float4 ReadFullResAndDepth(float2 UV, in out float Depth)
+{
+	float4 Color = Texture2DSampleLevel(PostprocessInput0, PostprocessInput0Sampler, UV, 0);
+#if FORWARD_SHADING
+	Depth = Color.a;
+#endif
+	Color.a = 1.0;
+	return Color;
+}
 
 // pixel shader entry point
 void SetupPS(
@@ -55,7 +86,7 @@ void SetupPS(
 
 	float2 Offset = 0.5f * PostprocessInput0Size.zw;
 
-	float MaskDistance = View.DepthOfFieldFocalDistance + View.DepthOfFieldFocalRegion * 0.5f;
+	float MaskDistance = Frame.DepthOfFieldFocalDistance + Frame.DepthOfFieldFocalRegion * 0.5f;
 
 	float4 DepthQuad = GatherSceneDepth(UV, PostprocessInput1Size.zw);
 
@@ -85,7 +116,7 @@ void SetupPS(
 		float DepthOfFieldVignetteAdd = DepthOfFieldParams[0].z;
 
 		// todo: we could optimize that multiplication away
-		float InvAspectRatio = View.ViewSizeAndInvSize.y * View.ViewSizeAndInvSize.z;
+		float InvAspectRatio = Frame.ViewSizeAndInvSize.y * Frame.ViewSizeAndInvSize.z;
 
 		float CenterDist = length(ScreenSpacePos * float2(1, InvAspectRatio));
 
@@ -94,23 +125,23 @@ void SetupPS(
 	}
 #endif
 
+	Sample = ReadFullResAndDepth(UV + Offset * float2(-1, 1), DepthQuad.x);
 	Mask = ComputeDOFFocalMask(DepthQuad.x, SkyWithoutHorizonMask);
-	Sample = float4(Texture2DSampleLevel(PostprocessInput0, PostprocessInput0Sampler, UV + Offset * float2(-1, 1), 0).rgb, 1);
 	FarColor += Sample * Mask.x;
 	NearColor += Sample * lerp(Mask.y, 1, VignetteMask);
 
+	Sample = ReadFullResAndDepth(UV + Offset * float2(1, 1), DepthQuad.y);
 	Mask = ComputeDOFFocalMask(DepthQuad.y, SkyWithoutHorizonMask);
-	Sample = float4(Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UV + Offset * float2(1, 1)).rgb, 1);
 	FarColor += Sample * Mask.x;
 	NearColor += Sample * lerp(Mask.y, 1, VignetteMask);
 
+	Sample = ReadFullResAndDepth(UV + Offset * float2(1, -1), DepthQuad.z);
 	Mask = ComputeDOFFocalMask(DepthQuad.z, SkyWithoutHorizonMask);
-	Sample = float4(Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UV + Offset * float2(1, -1)).rgb, 1);
 	FarColor += Sample * Mask.x;
 	NearColor += Sample * lerp(Mask.y, 1, VignetteMask);
 
+	Sample = ReadFullResAndDepth(UV + Offset * float2(-1, -1), DepthQuad.w);
 	Mask = ComputeDOFFocalMask(DepthQuad.w, SkyWithoutHorizonMask);
-	Sample = float4(Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UV + Offset * float2(-1, -1)).rgb, 1);
 	FarColor += Sample * Mask.x;
 	NearColor += Sample * lerp(Mask.y, 1, VignetteMask);
 
@@ -154,9 +185,12 @@ void MainRecombinePS(
 	ViewportUV.x = clamp(ViewportUV.x, DepthOfFieldUVLimit.x, DepthOfFieldUVLimit.z);
 	ViewportUV.y = clamp(ViewportUV.y, DepthOfFieldUVLimit.y, DepthOfFieldUVLimit.w);
 
-
+#if FORWARD_SHADING
+	float4 SceneColorAndDepth = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, FullResUV);
+#else
 	float4 SceneColorAndDepth = float4(Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, FullResUV).rgb, CalcSceneDepth(FullResUV));
-	
+#endif
+
 	float3 UnfocusedSceneColor = SceneColorAndDepth.rgb;
 
 	// I'm presuming all that matters here is the W==0 bit to mask out this value
@@ -179,6 +213,10 @@ void MainRecombinePS(
 //	float Layer2Mask = 1.0f - DOFAccumLayer1.a;
 	float Layer3Mask = DOFAccumLayer3.a;
 	float PerPixelNearMask = ComputeDOFNearFocalMask(SceneColorAndDepth.a);
+#if FORWARD_SHADING
+	float2 DoFMasks = DecodeDOFFocalMask(SceneColorAndDepth.a);
+	Layer2Mask = 1.0-DoFMasks.x;
+#endif
 
 	// 3 layers
 	float Div0Bias = 0.0001f;
@@ -208,6 +246,7 @@ void MainRecombinePS(
 
 	// apply SeparateTransluceny (todo: shader permutation to save a bit of performance if the feature is disabled)
 	{
+		//@todo - use UpsampleSeparateTranslucency
 		float4 SeparateTranslucency = Texture2DSample(PostprocessInput3, PostprocessInput3Sampler, FullResUV);
 		       
 		// add RGB, darken by A (this allows to represent translucent and additive blending)

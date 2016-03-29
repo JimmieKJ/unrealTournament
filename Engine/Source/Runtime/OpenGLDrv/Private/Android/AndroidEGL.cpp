@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #if PLATFORM_ANDROID
 
@@ -138,6 +138,7 @@ void AndroidEGL::ResetDisplay()
 {
 	if(PImplData->eglDisplay != EGL_NO_DISPLAY)
 	{
+		FPlatformMisc::LowLevelOutputDebugStringf( TEXT("AndroidEGL::ResetDisplay()" ));
 		eglMakeCurrent(PImplData->eglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 		PImplData->CurrentContextType = CONTEXT_Invalid;
 	}
@@ -145,7 +146,8 @@ void AndroidEGL::ResetDisplay()
 
 void AndroidEGL::DestroySurface()
 {
-	if(PImplData->eglSurface != NULL)
+	FPlatformMisc::LowLevelOutputDebugStringf( TEXT("AndroidEGL::DestroySurface()" ));
+	if( PImplData->eglSurface != EGL_NO_SURFACE )
 	{
 		eglDestroySurface(PImplData->eglDisplay, PImplData->eglSurface);
 		PImplData->eglSurface = EGL_NO_SURFACE;
@@ -217,50 +219,82 @@ void AndroidEGL::ResetInternal()
 	Terminate();
 }
 
-void AndroidEGL::CreateEGLSurface(ANativeWindow* InWindow)
+void AndroidEGL::CreateEGLSurface(ANativeWindow* InWindow, bool bCreateWndSurface)
 {
 	// due to possible early initialization, don't redo this
 	if (PImplData->eglSurface != EGL_NO_SURFACE)
 	{
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("AndroidEGL::CreateEGLSurface() Already initialized: %p"), PImplData->eglSurface);
 		return;
 	}
 
-	//need ANativeWindow
-	PImplData->eglSurface = eglCreateWindowSurface(PImplData->eglDisplay, PImplData->eglConfigParam,InWindow, NULL);
-
-	if(PImplData->eglSurface == EGL_NO_SURFACE )
+	if (bCreateWndSurface)
 	{
-		checkf(PImplData->eglSurface != EGL_NO_SURFACE, TEXT("eglCreateWindowSurface error : 0x%x"), eglGetError());
-		ResetInternal();
-	}
+		//need ANativeWindow
+		PImplData->eglSurface = eglCreateWindowSurface(PImplData->eglDisplay, PImplData->eglConfigParam,InWindow, NULL);
 
-	// On some Android devices, eglChooseConfigs will lie about valid configurations (specifically 32-bit color)
-	/*	if (eglGetError() == EGL10.EGL_BAD_MATCH)
+		FPlatformMisc::LowLevelOutputDebugStringf( TEXT("AndroidEGL::CreateEGLSurface() %p" ),PImplData->eglSurface);
+
+		if(PImplData->eglSurface == EGL_NO_SURFACE )
+		{
+			checkf(PImplData->eglSurface != EGL_NO_SURFACE, TEXT("eglCreateWindowSurface error : 0x%x"), eglGetError());
+			ResetInternal();
+		}
+
+		// On some Android devices, eglChooseConfigs will lie about valid configurations (specifically 32-bit color)
+		/*	if (eglGetError() == EGL10.EGL_BAD_MATCH)
+		{
+		Logger.LogOut("eglCreateWindowSurface FAILED, retrying with more restricted context");
+
+		// Dump what's already been initialized
+		cleanupEGL();
+
+		// Reduce target color down to 565
+		eglAttemptedParams.redSize = 5;
+		eglAttemptedParams.greenSize = 6;
+		eglAttemptedParams.blueSize = 5;
+		eglAttemptedParams.alphaSize = 0;
+		initEGL(eglAttemptedParams);
+
+		// try again
+		eglSurface = eglCreateWindowSurface(PImplData->eglDisplay, eglConfig, surface, null);
+		}
+
+		*/
+		EGLBoolean result = EGL_FALSE;
+		if (!( result =  ( eglQuerySurface(PImplData->eglDisplay, PImplData->eglSurface, EGL_WIDTH, &PImplData->eglWidth) && eglQuerySurface(PImplData->eglDisplay, PImplData->eglSurface, EGL_HEIGHT, &PImplData->eglHeight) ) ) )
+		{
+			ResetInternal();
+		}
+
+		checkf(result == EGL_TRUE, TEXT("eglQuerySurface error : 0x%x"), eglGetError());
+	}
+	else
 	{
-	Logger.LogOut("eglCreateWindowSurface FAILED, retrying with more restricted context");
+		// create a fake surface instead
+		EGLint pbufferAttribs[] =
+		{
+			EGL_WIDTH, 1,
+			EGL_HEIGHT, 1,
+			EGL_TEXTURE_TARGET, EGL_NO_TEXTURE,
+			EGL_TEXTURE_FORMAT, EGL_NO_TEXTURE,
+			EGL_NONE
+		};
 
-	// Dump what's already been initialized
-	cleanupEGL();
+		checkf(PImplData->eglWidth != 0, TEXT("eglWidth is ZERO; could be a problem!"));
+		checkf(PImplData->eglHeight != 0, TEXT("eglHeight is ZERO; could be a problem!"));
+		pbufferAttribs[1] = PImplData->eglWidth;
+		pbufferAttribs[3] = PImplData->eglHeight;
 
-	// Reduce target color down to 565
-	eglAttemptedParams.redSize = 5;
-	eglAttemptedParams.greenSize = 6;
-	eglAttemptedParams.blueSize = 5;
-	eglAttemptedParams.alphaSize = 0;
-	initEGL(eglAttemptedParams);
-
-	// try again
-	eglSurface = eglCreateWindowSurface(PImplData->eglDisplay, eglConfig, surface, null);
+		FPlatformMisc::LowLevelOutputDebugStringf( TEXT("AndroidEGL::CreateEGLSurface(%d), eglSurface = eglCreatePbufferSurface(), %dx%d" ),
+			int(bCreateWndSurface), pbufferAttribs[1], pbufferAttribs[3]);
+		PImplData->eglSurface = eglCreatePbufferSurface(PImplData->eglDisplay, PImplData->eglConfigParam, pbufferAttribs);
+		if(PImplData->eglSurface== EGL_NO_SURFACE )
+		{
+			checkf(PImplData->eglSurface != EGL_NO_SURFACE, TEXT("eglCreatePbufferSurface error : 0x%x"), eglGetError());
+			ResetInternal();
+		}
 	}
-
-	*/
-	EGLBoolean result = EGL_FALSE;
-	if (!( result =  ( eglQuerySurface(PImplData->eglDisplay, PImplData->eglSurface, EGL_WIDTH, &PImplData->eglWidth) && eglQuerySurface(PImplData->eglDisplay, PImplData->eglSurface, EGL_HEIGHT, &PImplData->eglHeight) ) ) )
-	{
-		ResetInternal();
-	}
-
-	checkf(result == EGL_TRUE, TEXT("eglQuerySurface error : 0x%x"), eglGetError());
 
 	EGLint pbufferAttribs[] =
 	{
@@ -271,9 +305,13 @@ void AndroidEGL::CreateEGLSurface(ANativeWindow* InWindow)
 		EGL_NONE
 	};
 
+	checkf(PImplData->eglWidth != 0, TEXT("eglWidth is ZERO; could be a problem!"));
+	checkf(PImplData->eglHeight != 0, TEXT("eglHeight is ZERO; could be a problem!"));
 	pbufferAttribs[1] = PImplData->eglWidth;
 	pbufferAttribs[3] = PImplData->eglHeight;
 
+	FPlatformMisc::LowLevelOutputDebugStringf( TEXT("AndroidEGL::CreateEGLSurface(%d), auxSurface = eglCreatePbufferSurface(), %dx%d" ), 
+		int(bCreateWndSurface), pbufferAttribs[1], pbufferAttribs[3]);
 	PImplData->auxSurface = eglCreatePbufferSurface(PImplData->eglDisplay, PImplData->eglConfigParam, pbufferAttribs);
 	if(PImplData->auxSurface== EGL_NO_SURFACE )
 	{
@@ -421,8 +459,8 @@ eglDisplay(EGL_NO_DISPLAY)
 	,eglConfigParam(NULL)
 	,eglSurface(EGL_NO_SURFACE)
 	,auxSurface(EGL_NO_SURFACE)
-	,eglWidth(0)
-	,eglHeight(0)
+	,eglWidth(8)  // required for GearVR apps with internal win surf mgmt
+	,eglHeight(8) // required for GearVR apps with internal win surf mgmt
 	,eglRatio(0)
 	,DepthSize(0)
 	,SwapBufferFailureCount(0)
@@ -473,9 +511,11 @@ void AndroidEGL::InitBackBuffer()
 	PImplData->SingleThreadedContext.ViewportFramebuffer = GetResolveFrameBuffer();
 }
 
+extern void AndroidThunkCpp_SetDesiredViewSize(int32 Width, int32 Height);
 
-void AndroidEGL::InitSurface(bool bUseSmallSurface)
+void AndroidEGL::InitSurface(bool bUseSmallSurface, bool bCreateWndSurface)
 {
+	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("AndroidEGL::InitSurface %d, %d"), int(bUseSmallSurface), int(bCreateWndSurface));
 	ANativeWindow* window = (ANativeWindow*)FPlatformMisc::GetHardwareWindow();
 	while(window == NULL)
 	{
@@ -491,9 +531,10 @@ void AndroidEGL::InitSurface(bool bUseSmallSurface)
 		FPlatformRect WindowSize = FAndroidWindow::GetScreenRect();
 		Width = WindowSize.Right;
 		Height = WindowSize.Bottom;
+		AndroidThunkCpp_SetDesiredViewSize(Width, Height);
 	}
 	ANativeWindow_setBuffersGeometry(PImplData->Window, Width, Height, PImplData->NativeVisualID);
-	CreateEGLSurface(PImplData->Window );
+	CreateEGLSurface(PImplData->Window, bCreateWndSurface);
 	
 	PImplData->SharedContext.eglSurface = PImplData->auxSurface;
 	PImplData->RenderingContext.eglSurface = PImplData->eglSurface;
@@ -503,8 +544,9 @@ void AndroidEGL::InitSurface(bool bUseSmallSurface)
 
 void AndroidEGL::ReInit()
 {
+	FPlatformMisc::LowLevelOutputDebugString(TEXT("AndroidEGL::ReInit()"));
 	SetCurrentContext(EGL_NO_CONTEXT, EGL_NO_SURFACE);
-	InitSurface(false);
+	InitSurface(false, true);
 	SetCurrentSharedContext();
 }
 
@@ -643,9 +685,14 @@ EGLContext AndroidEGL::GetCurrentContext()
 	return eglGetCurrentContext();
 }
 
-EGLDisplay AndroidEGL::GetDisplay()
+EGLDisplay AndroidEGL::GetDisplay() const
 {
 	return PImplData->eglDisplay;
+}
+
+ANativeWindow* AndroidEGL::GetNativeWindow() const
+{
+	return PImplData->Window;
 }
 
 bool AndroidEGL::InitContexts()
@@ -761,18 +808,29 @@ FPlatformOpenGLContext* AndroidEGL::GetRenderingContext()
 
 void AndroidEGL::UnBind()
 {
+	FPlatformMisc::LowLevelOutputDebugString(TEXT("AndroidEGL::UnBind()"));
 	ResetDisplay();
 	DestroySurface();
 }
 
 void FAndroidAppEntry::ReInitWindow()
 {
-	AndroidEGL::GetInstance()->ReInit();
+	FPlatformMisc::LowLevelOutputDebugString(TEXT("AndroidEGL::ReInitWindow()"));
+	// @todo vulkan: Clean this up, and does vulkan need any code here?
+	if (!FAndroidMisc::ShouldUseVulkan())
+	{
+		AndroidEGL::GetInstance()->ReInit();
+	}
 }
 
 void FAndroidAppEntry::DestroyWindow()
 {
-	AndroidEGL::GetInstance()->UnBind();
+	FPlatformMisc::LowLevelOutputDebugString(TEXT("AndroidEGL::DestroyWindow()"));
+	// @todo vulkan: Clean this up, and does vulkan need any code here?
+	if (!FAndroidMisc::ShouldUseVulkan())
+	{
+		AndroidEGL::GetInstance()->UnBind();
+	}
 }
 
 void AndroidEGL::LogConfigInfo(EGLConfig  EGLConfigInfo)

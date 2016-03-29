@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "AnimationEditorUtils.h"
@@ -10,6 +10,14 @@
 #include "Animation/AimOffsetBlendSpace.h"
 #include "Animation/AimOffsetBlendSpace1D.h"
 #include "Animation/AnimCompress.h"
+
+#include "AnimationGraph.h"
+#include "AnimStateNodeBase.h"
+#include "AnimStateTransitionNode.h"
+#include "AnimGraphNode_StateMachineBase.h"
+#include "AnimationStateMachineGraph.h"
+#include "K2Node_Composite.h"
+#include "AssertionMacros.h"
 
 #define LOCTEXT_NAMESPACE "AnimationEditorUtils"
 
@@ -435,6 +443,77 @@ namespace AnimationEditorUtils
 		}
 
 		return false;
+	}
+
+	void RegenerateSubGraphArrays(UAnimBlueprint* Blueprint)
+	{
+		// The anim graph should be the first function graph on the blueprint
+		if(Blueprint->FunctionGraphs.Num() > 0)
+		{
+			if(UAnimationGraph* AnimGraph = Cast<UAnimationGraph>(Blueprint->FunctionGraphs[0]))
+			{
+				RegenerateGraphSubGraphs(Blueprint, AnimGraph);
+			}
+		}
+	}
+
+	void RegenerateGraphSubGraphs(UAnimBlueprint* OwningBlueprint, UEdGraph* GraphToFix)
+	{
+		TArray<UEdGraph*> ChildGraphs;
+		FindChildGraphsFromNodes(GraphToFix, ChildGraphs);
+
+		for(UEdGraph* Child : ChildGraphs)
+		{
+			RegenerateGraphSubGraphs(OwningBlueprint, Child);
+		}
+
+		if(ChildGraphs != GraphToFix->SubGraphs)
+		{
+			UE_LOG(LogAnimation, Log, TEXT("Fixed missing or duplicated graph entries in SubGraph array for graph %s in AnimBP %s"), *GraphToFix->GetName(), *OwningBlueprint->GetName());
+			GraphToFix->SubGraphs = ChildGraphs;
+		}
+	}
+
+	void RemoveDuplicateSubGraphs(UEdGraph* GraphToClean)
+	{
+		TArray<UEdGraph*> NewSubGraphArray;
+
+		for(UEdGraph* SubGraph : GraphToClean->SubGraphs)
+		{
+			NewSubGraphArray.AddUnique(SubGraph);
+		}
+
+		if(NewSubGraphArray.Num() != GraphToClean->SubGraphs.Num())
+		{
+			GraphToClean->SubGraphs = NewSubGraphArray;
+		}
+	}
+
+	void FindChildGraphsFromNodes(UEdGraph* GraphToSearch, TArray<UEdGraph*>& ChildGraphs)
+	{
+		for(UEdGraphNode* CurrentNode : GraphToSearch->Nodes)
+		{
+			if(UAnimGraphNode_StateMachineBase* StateMachine = Cast<UAnimGraphNode_StateMachineBase>(CurrentNode))
+			{
+				ChildGraphs.AddUnique(StateMachine->EditorStateMachineGraph);
+			}
+			else if(UAnimStateNodeBase* StateNode = Cast<UAnimStateNodeBase>(CurrentNode))
+			{
+				ChildGraphs.AddUnique(StateNode->GetBoundGraph());
+
+				if(UAnimStateTransitionNode* TransitionNode = Cast<UAnimStateTransitionNode>(StateNode))
+				{
+					if(TransitionNode->CustomTransitionGraph)
+					{
+						ChildGraphs.AddUnique(TransitionNode->CustomTransitionGraph);
+					}
+				}
+			}
+			else if(UK2Node_Composite* CompositeNode = Cast<UK2Node_Composite>(CurrentNode))
+			{
+				ChildGraphs.AddUnique(CompositeNode->BoundGraph);
+			}
+		}
 	}
 }
 

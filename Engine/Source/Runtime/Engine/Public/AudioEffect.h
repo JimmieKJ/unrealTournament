@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AudioEffect.h: Unreal base audio.
@@ -97,7 +97,7 @@ public:
 	 * @param Mix The SoundMix we want to switch to.
 	 * @param bIgnorePriority Whether EQPriority should be ignored to force mix change.
 	 */
-	void SetMixSettings( USoundMix* Mix, bool bIgnorePriority = false );
+	void SetMixSettings(USoundMix* Mix, bool bIgnorePriority = false, bool bForce = false);
 
 	/**
 	 * Clears the current SoundMix and any EQ settings it has applied

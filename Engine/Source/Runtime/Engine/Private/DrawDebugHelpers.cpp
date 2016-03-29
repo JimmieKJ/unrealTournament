@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /**
  *
@@ -83,7 +83,7 @@ void DrawDebugDirectionalArrow(const UWorld* InWorld, FVector const& LineStart, 
 	}
 }
 
-void DrawDebugBox(const UWorld* InWorld, FVector const& Center, FVector const& Box, FColor const& Color, bool bPersistentLines, float LifeTime, uint8 DepthPriority)
+void DrawDebugBox(const UWorld* InWorld, FVector const& Center, FVector const& Box, FColor const& Color, bool bPersistentLines, float LifeTime, uint8 DepthPriority, float Thickness)
 {
 	// no debug line drawing on dedicated server
 	if (GEngine->GetNetMode(InWorld) != NM_DedicatedServer)
@@ -94,25 +94,25 @@ void DrawDebugBox(const UWorld* InWorld, FVector const& Center, FVector const& B
 		{
 			float LineLifeTime = (LifeTime > 0.f)? LifeTime : LineBatcher->DefaultLifeTime;
 
-			LineBatcher->DrawLine(Center + FVector( Box.X,  Box.Y,  Box.Z), Center + FVector( Box.X, -Box.Y, Box.Z), Color, DepthPriority, 0.f, LineLifeTime);
-			LineBatcher->DrawLine(Center + FVector( Box.X, -Box.Y,  Box.Z), Center + FVector(-Box.X, -Box.Y, Box.Z), Color, DepthPriority, 0.f, LineLifeTime);
-			LineBatcher->DrawLine(Center + FVector(-Box.X, -Box.Y,  Box.Z), Center + FVector(-Box.X,  Box.Y, Box.Z), Color, DepthPriority, 0.f, LineLifeTime);
-			LineBatcher->DrawLine(Center + FVector(-Box.X,  Box.Y,  Box.Z), Center + FVector( Box.X,  Box.Y, Box.Z), Color, DepthPriority, 0.f, LineLifeTime);
+			LineBatcher->DrawLine(Center + FVector( Box.X,  Box.Y,  Box.Z), Center + FVector( Box.X, -Box.Y, Box.Z), Color, DepthPriority, Thickness, LineLifeTime);
+			LineBatcher->DrawLine(Center + FVector( Box.X, -Box.Y,  Box.Z), Center + FVector(-Box.X, -Box.Y, Box.Z), Color, DepthPriority, Thickness, LineLifeTime);
+			LineBatcher->DrawLine(Center + FVector(-Box.X, -Box.Y,  Box.Z), Center + FVector(-Box.X,  Box.Y, Box.Z), Color, DepthPriority, Thickness, LineLifeTime);
+			LineBatcher->DrawLine(Center + FVector(-Box.X,  Box.Y,  Box.Z), Center + FVector( Box.X,  Box.Y, Box.Z), Color, DepthPriority, Thickness, LineLifeTime);
 
-			LineBatcher->DrawLine(Center + FVector( Box.X,  Box.Y, -Box.Z), Center + FVector( Box.X, -Box.Y, -Box.Z), Color, DepthPriority, 0.f, LineLifeTime);
-			LineBatcher->DrawLine(Center + FVector( Box.X, -Box.Y, -Box.Z), Center + FVector(-Box.X, -Box.Y, -Box.Z), Color, DepthPriority, 0.f, LineLifeTime);
-			LineBatcher->DrawLine(Center + FVector(-Box.X, -Box.Y, -Box.Z), Center + FVector(-Box.X,  Box.Y, -Box.Z), Color, DepthPriority, 0.f, LineLifeTime);
-			LineBatcher->DrawLine(Center + FVector(-Box.X,  Box.Y, -Box.Z), Center + FVector( Box.X,  Box.Y, -Box.Z), Color, DepthPriority, 0.f, LineLifeTime);
+			LineBatcher->DrawLine(Center + FVector( Box.X,  Box.Y, -Box.Z), Center + FVector( Box.X, -Box.Y, -Box.Z), Color, DepthPriority, Thickness, LineLifeTime);
+			LineBatcher->DrawLine(Center + FVector( Box.X, -Box.Y, -Box.Z), Center + FVector(-Box.X, -Box.Y, -Box.Z), Color, DepthPriority, Thickness, LineLifeTime);
+			LineBatcher->DrawLine(Center + FVector(-Box.X, -Box.Y, -Box.Z), Center + FVector(-Box.X,  Box.Y, -Box.Z), Color, DepthPriority, Thickness, LineLifeTime);
+			LineBatcher->DrawLine(Center + FVector(-Box.X,  Box.Y, -Box.Z), Center + FVector( Box.X,  Box.Y, -Box.Z), Color, DepthPriority, Thickness, LineLifeTime);
 
-			LineBatcher->DrawLine(Center + FVector( Box.X,  Box.Y,  Box.Z), Center + FVector( Box.X,  Box.Y, -Box.Z), Color, DepthPriority, 0.f, LineLifeTime);
-			LineBatcher->DrawLine(Center + FVector( Box.X, -Box.Y,  Box.Z), Center + FVector( Box.X, -Box.Y, -Box.Z), Color, DepthPriority, 0.f, LineLifeTime);
-			LineBatcher->DrawLine(Center + FVector(-Box.X, -Box.Y,  Box.Z), Center + FVector(-Box.X, -Box.Y, -Box.Z), Color, DepthPriority, 0.f, LineLifeTime);
-			LineBatcher->DrawLine(Center + FVector(-Box.X,  Box.Y,  Box.Z), Center + FVector(-Box.X,  Box.Y, -Box.Z), Color, DepthPriority, 0.f, LineLifeTime);
+			LineBatcher->DrawLine(Center + FVector( Box.X,  Box.Y,  Box.Z), Center + FVector( Box.X,  Box.Y, -Box.Z), Color, DepthPriority, Thickness, LineLifeTime);
+			LineBatcher->DrawLine(Center + FVector( Box.X, -Box.Y,  Box.Z), Center + FVector( Box.X, -Box.Y, -Box.Z), Color, DepthPriority, Thickness, LineLifeTime);
+			LineBatcher->DrawLine(Center + FVector(-Box.X, -Box.Y,  Box.Z), Center + FVector(-Box.X, -Box.Y, -Box.Z), Color, DepthPriority, Thickness, LineLifeTime);
+			LineBatcher->DrawLine(Center + FVector(-Box.X,  Box.Y,  Box.Z), Center + FVector(-Box.X,  Box.Y, -Box.Z), Color, DepthPriority, Thickness, LineLifeTime);
 		}
 	}
 }
 
-void DrawDebugBox(const UWorld* InWorld, FVector const& Center, FVector const& Box, const FQuat& Rotation, FColor const& Color, bool bPersistentLines, float LifeTime, uint8 DepthPriority)
+void DrawDebugBox(const UWorld* InWorld, FVector const& Center, FVector const& Box, const FQuat& Rotation, FColor const& Color, bool bPersistentLines, float LifeTime, uint8 DepthPriority, float Thickness)
 {
 	// no debug line drawing on dedicated server
 	if (GEngine->GetNetMode(InWorld) != NM_DedicatedServer)
@@ -127,51 +127,51 @@ void DrawDebugBox(const UWorld* InWorld, FVector const& Center, FVector const& B
 			FTransform const Transform(Rotation);
 			FVector Start = Transform.TransformPosition(FVector( Box.X,  Box.Y,  Box.Z));
 			FVector End = Transform.TransformPosition(FVector( Box.X, -Box.Y, Box.Z));
-			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, 0.f, DepthPriority);
+			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, Thickness, DepthPriority);
 
 			Start = Transform.TransformPosition(FVector( Box.X, -Box.Y,  Box.Z));
 			End = Transform.TransformPosition(FVector(-Box.X, -Box.Y, Box.Z));
-			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, 0.f, DepthPriority);
+			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, Thickness, DepthPriority);
 
 			Start = Transform.TransformPosition(FVector(-Box.X, -Box.Y,  Box.Z));
 			End = Transform.TransformPosition(FVector(-Box.X,  Box.Y, Box.Z));
-			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, 0.f, DepthPriority);
+			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, Thickness, DepthPriority);
 
 			Start = Transform.TransformPosition(FVector(-Box.X,  Box.Y,  Box.Z));
 			End = Transform.TransformPosition(FVector( Box.X,  Box.Y, Box.Z));
-			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, 0.f, DepthPriority);
+			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, Thickness, DepthPriority);
 
 			Start = Transform.TransformPosition(FVector( Box.X,  Box.Y, -Box.Z));
 			End = Transform.TransformPosition(FVector( Box.X, -Box.Y, -Box.Z));
-			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, 0.f, DepthPriority);
+			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, Thickness, DepthPriority);
 
 			Start = Transform.TransformPosition(FVector( Box.X, -Box.Y, -Box.Z));
 			End = Transform.TransformPosition(FVector(-Box.X, -Box.Y, -Box.Z));
-			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, 0.f, DepthPriority);
+			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, Thickness, DepthPriority);
 
 			Start = Transform.TransformPosition(FVector(-Box.X, -Box.Y, -Box.Z));
 			End = Transform.TransformPosition(FVector(-Box.X,  Box.Y, -Box.Z));
-			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, 0.f, DepthPriority);
+			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, Thickness, DepthPriority);
 
 			Start = Transform.TransformPosition(FVector(-Box.X,  Box.Y, -Box.Z));
 			End = Transform.TransformPosition(FVector( Box.X,  Box.Y, -Box.Z));
-			new(Lines )FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, 0.f, DepthPriority);
+			new(Lines )FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, Thickness, DepthPriority);
 
 			Start = Transform.TransformPosition(FVector( Box.X,  Box.Y,  Box.Z));
 			End = Transform.TransformPosition(FVector( Box.X,  Box.Y, -Box.Z));
-			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, 0.f, DepthPriority);
+			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, Thickness, DepthPriority);
 
 			Start = Transform.TransformPosition(FVector( Box.X, -Box.Y,  Box.Z));
 			End = Transform.TransformPosition(FVector( Box.X, -Box.Y, -Box.Z));
-			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, 0.f, DepthPriority);
+			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, Thickness, DepthPriority);
 
 			Start = Transform.TransformPosition(FVector(-Box.X, -Box.Y,  Box.Z));
 			End = Transform.TransformPosition(FVector(-Box.X, -Box.Y, -Box.Z));
-			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, 0.f, DepthPriority);
+			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, Thickness, DepthPriority);
 
 			Start = Transform.TransformPosition(FVector(-Box.X,  Box.Y,  Box.Z));
 			End = Transform.TransformPosition(FVector(-Box.X,  Box.Y, -Box.Z));
-			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, 0.f, DepthPriority);
+			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, Thickness, DepthPriority);
 
 			LineBatcher->DrawLines(Lines);
 		}
@@ -289,7 +289,7 @@ ENGINE_API void DrawDebugSolidPlane(const UWorld* InWorld, FPlane const& P, FVec
 	}
 }
 
-void DrawDebugCoordinateSystem(const UWorld* InWorld, FVector const& AxisLoc, FRotator const& AxisRot, float Scale, bool bPersistentLines, float LifeTime, uint8 DepthPriority)
+void DrawDebugCoordinateSystem(const UWorld* InWorld, FVector const& AxisLoc, FRotator const& AxisRot, float Scale, bool bPersistentLines, float LifeTime, uint8 DepthPriority, float Thickness)
 {
 	// no debug line drawing on dedicated server
 	if (GEngine->GetNetMode(InWorld) != NM_DedicatedServer)
@@ -303,9 +303,9 @@ void DrawDebugCoordinateSystem(const UWorld* InWorld, FVector const& AxisLoc, FR
 		ULineBatchComponent* const LineBatcher = GetDebugLineBatcher( InWorld, bPersistentLines, LifeTime, (DepthPriority == SDPG_Foreground) );
 		if(LineBatcher != NULL)
 		{
-			LineBatcher->DrawLine(AxisLoc, AxisLoc + X*Scale, FColor::Red, DepthPriority, 0.f, LifeTime );
-			LineBatcher->DrawLine(AxisLoc, AxisLoc + Y*Scale, FColor::Green, DepthPriority, 0.f, LifeTime );
-			LineBatcher->DrawLine(AxisLoc, AxisLoc + Z*Scale, FColor::Blue, DepthPriority, 0.f, LifeTime );
+			LineBatcher->DrawLine(AxisLoc, AxisLoc + X*Scale, FColor::Red, DepthPriority, Thickness, LifeTime );
+			LineBatcher->DrawLine(AxisLoc, AxisLoc + Y*Scale, FColor::Green, DepthPriority, Thickness, LifeTime );
+			LineBatcher->DrawLine(AxisLoc, AxisLoc + Z*Scale, FColor::Blue, DepthPriority, Thickness, LifeTime );
 		}
 	}
 }
@@ -418,7 +418,7 @@ void DrawDebugCircle(const UWorld* InWorld, FVector Center, float Radius, int32 
 	);
 }
 
-void DrawDebug2DDonut(const UWorld* InWorld, const FMatrix& TransformMatrix, float InnerRadius, float OuterRadius, int32 Segments, const FColor& Color, bool bPersistentLines, float LifeTime, uint8 DepthPriority)
+void DrawDebug2DDonut(const UWorld* InWorld, const FMatrix& TransformMatrix, float InnerRadius, float OuterRadius, int32 Segments, const FColor& Color, bool bPersistentLines, float LifeTime, uint8 DepthPriority, float Thickness)
 {
 	// no debug line drawing on dedicated server
 	if( GEngine->GetNetMode(InWorld) != NM_DedicatedServer )
@@ -439,16 +439,16 @@ void DrawDebug2DDonut(const UWorld* InWorld, const FMatrix& TransformMatrix, flo
 
 			TArray<FBatchedLine> Lines;
 			Lines.Empty(4);
-			Lines.Add(FBatchedLine(Center - OuterRadius * AxisY, Center - InnerRadius * AxisY, Color, LineLifeTime, 0.0f, DepthPriority));
-			Lines.Add(FBatchedLine(Center + OuterRadius * AxisY, Center + InnerRadius * AxisY, Color, LineLifeTime, 0.0f, DepthPriority));
-			Lines.Add(FBatchedLine(Center - OuterRadius * AxisZ, Center - InnerRadius * AxisZ, Color, LineLifeTime, 0.0f, DepthPriority));
-			Lines.Add(FBatchedLine(Center + OuterRadius * AxisZ, Center + InnerRadius * AxisZ, Color, LineLifeTime, 0.0f, DepthPriority));
+			Lines.Add(FBatchedLine(Center - OuterRadius * AxisY, Center - InnerRadius * AxisY, Color, LineLifeTime, Thickness, DepthPriority));
+			Lines.Add(FBatchedLine(Center + OuterRadius * AxisY, Center + InnerRadius * AxisY, Color, LineLifeTime, Thickness, DepthPriority));
+			Lines.Add(FBatchedLine(Center - OuterRadius * AxisZ, Center - InnerRadius * AxisZ, Color, LineLifeTime, Thickness, DepthPriority));
+			Lines.Add(FBatchedLine(Center + OuterRadius * AxisZ, Center + InnerRadius * AxisZ, Color, LineLifeTime, Thickness, DepthPriority));
 			LineBatcher->DrawLines(Lines);
 		}
 	}
 }
 
-void DrawDebugSphere(const UWorld* InWorld, FVector const& Center, float Radius, int32 Segments, FColor const& Color, bool bPersistentLines, float LifeTime, uint8 DepthPriority)
+void DrawDebugSphere(const UWorld* InWorld, FVector const& Center, float Radius, int32 Segments, FColor const& Color, bool bPersistentLines, float LifeTime, uint8 DepthPriority, float Thickness)
 {
 	// no debug line drawing on dedicated server
 	if (GEngine->GetNetMode(InWorld) != NM_DedicatedServer)
@@ -489,8 +489,8 @@ void DrawDebugSphere(const UWorld* InWorld, FVector const& Center, float Radius,
 				Vertex2 = FVector((CosX * SinY1), (SinX * SinY1), CosY1) * Radius + Center;
 				Vertex4 = FVector((CosX * SinY2), (SinX * SinY2), CosY2) * Radius + Center;
 
-				Lines.Add(FBatchedLine(Vertex1, Vertex2, Color, LineLifeTime, 0.0f, DepthPriority));
-				Lines.Add(FBatchedLine(Vertex1, Vertex3, Color, LineLifeTime, 0.0f, DepthPriority));
+				Lines.Add(FBatchedLine(Vertex1, Vertex2, Color, LineLifeTime, Thickness, DepthPriority));
+				Lines.Add(FBatchedLine(Vertex1, Vertex3, Color, LineLifeTime, Thickness, DepthPriority));
 
 				Vertex1 = Vertex2;
 				Vertex3 = Vertex4;
@@ -504,7 +504,7 @@ void DrawDebugSphere(const UWorld* InWorld, FVector const& Center, float Radius,
 	}
 }
 
-void DrawDebugCylinder(const UWorld* InWorld, FVector const& Start, FVector const& End, float Radius, int32 Segments, FColor const& Color, bool bPersistentLines, float LifeTime, uint8 DepthPriority)
+void DrawDebugCylinder(const UWorld* InWorld, FVector const& Start, FVector const& End, float Radius, int32 Segments, FColor const& Color, bool bPersistentLines, float LifeTime, uint8 DepthPriority, float Thickness)
 {
 	// no debug line drawing on dedicated server
 	if (GEngine->GetNetMode(InWorld) != NM_DedicatedServer)
@@ -545,9 +545,9 @@ void DrawDebugCylinder(const UWorld* InWorld, FVector const& Start, FVector cons
 				P2 = Segment + Start;
 				P4 = Segment + End;
 
-				LineBatcher->DrawLine(P2, P4, Color, DepthPriority, 0.f, LineLifeTime);
-				LineBatcher->DrawLine(P1, P2, Color, DepthPriority, 0.f, LineLifeTime);
-				LineBatcher->DrawLine(P3, P4, Color, DepthPriority, 0.f, LineLifeTime);
+				LineBatcher->DrawLine(P2, P4, Color, DepthPriority, Thickness, LineLifeTime);
+				LineBatcher->DrawLine(P1, P2, Color, DepthPriority, Thickness, LineLifeTime);
+				LineBatcher->DrawLine(P3, P4, Color, DepthPriority, Thickness, LineLifeTime);
 
 				P1 = P2;
 				P3 = P4;
@@ -558,7 +558,7 @@ void DrawDebugCylinder(const UWorld* InWorld, FVector const& Start, FVector cons
 }
 
 /** Used by gameplay when defining a cone by a vertical and horizontal dot products. */
-void DrawDebugAltCone(const UWorld* InWorld, FVector const& Origin, FRotator const& Rotation, float Length, float AngleWidth, float AngleHeight, FColor const& DrawColor, bool bPersistentLines, float LifeTime, uint8 DepthPriority)
+void DrawDebugAltCone(const UWorld* InWorld, FVector const& Origin, FRotator const& Rotation, float Length, float AngleWidth, float AngleHeight, FColor const& DrawColor, bool bPersistentLines, float LifeTime, uint8 DepthPriority, float Thickness)
 {
 	FRotationMatrix const RM( Rotation );
 	FVector const AxisX = RM.GetScaledAxis( EAxis::X );
@@ -584,40 +584,40 @@ void DrawDebugAltCone(const UWorld* InWorld, FVector const& Origin, FRotator con
 	FVector D = EndPoint - Up - Right;
 
 	// Corners
-	Lines.Add(FBatchedLine(Origin, A, DrawColor, LineLifeTime, 0.0f, DepthPriority));
-	Lines.Add(FBatchedLine(Origin, B, DrawColor, LineLifeTime, 0.0f, DepthPriority));
-	Lines.Add(FBatchedLine(Origin, C, DrawColor, LineLifeTime, 0.0f, DepthPriority));
-	Lines.Add(FBatchedLine(Origin, D, DrawColor, LineLifeTime, 0.0f, DepthPriority));
+	Lines.Add(FBatchedLine(Origin, A, DrawColor, LineLifeTime, Thickness, DepthPriority));
+	Lines.Add(FBatchedLine(Origin, B, DrawColor, LineLifeTime, Thickness, DepthPriority));
+	Lines.Add(FBatchedLine(Origin, C, DrawColor, LineLifeTime, Thickness, DepthPriority));
+	Lines.Add(FBatchedLine(Origin, D, DrawColor, LineLifeTime, Thickness, DepthPriority));
 
 	// Further most plane/frame
-	Lines.Add(FBatchedLine(A, B, DrawColor, LineLifeTime, 0.0f, DepthPriority));
-	Lines.Add(FBatchedLine(B, C, DrawColor, LineLifeTime, 0.0f, DepthPriority));
-	Lines.Add(FBatchedLine(C, D, DrawColor, LineLifeTime, 0.0f, DepthPriority));
-	Lines.Add(FBatchedLine(D, A, DrawColor, LineLifeTime, 0.0f, DepthPriority));
+	Lines.Add(FBatchedLine(A, B, DrawColor, LineLifeTime, Thickness, DepthPriority));
+	Lines.Add(FBatchedLine(B, C, DrawColor, LineLifeTime, Thickness, DepthPriority));
+	Lines.Add(FBatchedLine(C, D, DrawColor, LineLifeTime, Thickness, DepthPriority));
+	Lines.Add(FBatchedLine(D, A, DrawColor, LineLifeTime, Thickness, DepthPriority));
 
 	// Mid points
-	Lines.Add(FBatchedLine(Origin, EndPoint + Up, DrawColor, LineLifeTime, 0.0f, DepthPriority));
-	Lines.Add(FBatchedLine(Origin, EndPoint - Up, DrawColor, LineLifeTime, 0.0f, DepthPriority));
-	Lines.Add(FBatchedLine(Origin, EndPoint + Right, DrawColor, LineLifeTime, 0.0f, DepthPriority));
-	Lines.Add(FBatchedLine(Origin, EndPoint - Right, DrawColor, LineLifeTime, 0.0f, DepthPriority));
+	Lines.Add(FBatchedLine(Origin, EndPoint + Up, DrawColor, LineLifeTime, Thickness, DepthPriority));
+	Lines.Add(FBatchedLine(Origin, EndPoint - Up, DrawColor, LineLifeTime, Thickness, DepthPriority));
+	Lines.Add(FBatchedLine(Origin, EndPoint + Right, DrawColor, LineLifeTime, Thickness, DepthPriority));
+	Lines.Add(FBatchedLine(Origin, EndPoint - Right, DrawColor, LineLifeTime, Thickness, DepthPriority));
 
 	// Inbetween
-	Lines.Add(FBatchedLine(Origin, EndPoint + Up - HalfRight, DrawColor, LineLifeTime, 0.0f, DepthPriority));
-	Lines.Add(FBatchedLine(Origin, EndPoint + Up + HalfRight, DrawColor, LineLifeTime, 0.0f, DepthPriority));
+	Lines.Add(FBatchedLine(Origin, EndPoint + Up - HalfRight, DrawColor, LineLifeTime, Thickness, DepthPriority));
+	Lines.Add(FBatchedLine(Origin, EndPoint + Up + HalfRight, DrawColor, LineLifeTime, Thickness, DepthPriority));
 
-	Lines.Add(FBatchedLine(Origin, EndPoint - Up - HalfRight, DrawColor, LineLifeTime, 0.0f, DepthPriority));
-	Lines.Add(FBatchedLine(Origin, EndPoint - Up + HalfRight, DrawColor, LineLifeTime, 0.0f, DepthPriority));
+	Lines.Add(FBatchedLine(Origin, EndPoint - Up - HalfRight, DrawColor, LineLifeTime, Thickness, DepthPriority));
+	Lines.Add(FBatchedLine(Origin, EndPoint - Up + HalfRight, DrawColor, LineLifeTime, Thickness, DepthPriority));
 
-	Lines.Add(FBatchedLine(Origin, EndPoint + Right - HalfUp, DrawColor, LineLifeTime, 0.0f, DepthPriority));
-	Lines.Add(FBatchedLine(Origin, EndPoint + Right + HalfUp, DrawColor, LineLifeTime, 0.0f, DepthPriority));
+	Lines.Add(FBatchedLine(Origin, EndPoint + Right - HalfUp, DrawColor, LineLifeTime, Thickness, DepthPriority));
+	Lines.Add(FBatchedLine(Origin, EndPoint + Right + HalfUp, DrawColor, LineLifeTime, Thickness, DepthPriority));
 
-	Lines.Add(FBatchedLine(Origin, EndPoint - Right - HalfUp, DrawColor, LineLifeTime, 0.0f, DepthPriority));
-	Lines.Add(FBatchedLine(Origin, EndPoint - Right + HalfUp, DrawColor, LineLifeTime, 0.0f, DepthPriority));
+	Lines.Add(FBatchedLine(Origin, EndPoint - Right - HalfUp, DrawColor, LineLifeTime, Thickness, DepthPriority));
+	Lines.Add(FBatchedLine(Origin, EndPoint - Right + HalfUp, DrawColor, LineLifeTime, Thickness, DepthPriority));
 
 	LineBatcher->DrawLines(Lines);
 }
 
-void DrawDebugCone(const UWorld* InWorld, FVector const& Origin, FVector const& Direction, float Length, float AngleWidth, float AngleHeight, int32 NumSides, FColor const& DrawColor, bool bPersistentLines, float LifeTime, uint8 DepthPriority)
+void DrawDebugCone(const UWorld* InWorld, FVector const& Origin, FVector const& Direction, float Length, float AngleWidth, float AngleHeight, int32 NumSides, FColor const& DrawColor, bool bPersistentLines, float LifeTime, uint8 DepthPriority, float Thickness)
 {
 	// no debug line drawing on dedicated server
 	if (GEngine->GetNetMode(InWorld) != NM_DedicatedServer)
@@ -680,12 +680,12 @@ void DrawDebugCone(const UWorld* InWorld, FVector const& Origin, FVector const& 
 			for(int32 i = 0; i < NumSides; i++)
 			{
 				CurrentPoint = ConeToWorld.TransformPosition(ConeVerts[i]);
-				Lines.Add(FBatchedLine(ConeToWorld.GetOrigin(), CurrentPoint, DrawColor, LineLifeTime, 0.0f, DepthPriority));
+				Lines.Add(FBatchedLine(ConeToWorld.GetOrigin(), CurrentPoint, DrawColor, LineLifeTime, Thickness, DepthPriority));
 
 				// PrevPoint must be defined to draw junctions
 				if( i > 0 )
 				{
-					Lines.Add(FBatchedLine(PrevPoint, CurrentPoint, DrawColor, LineLifeTime, 0.0f, DepthPriority));
+					Lines.Add(FBatchedLine(PrevPoint, CurrentPoint, DrawColor, LineLifeTime, Thickness, DepthPriority));
 				}
 				else
 				{
@@ -695,7 +695,7 @@ void DrawDebugCone(const UWorld* InWorld, FVector const& Origin, FVector const& 
 				PrevPoint = CurrentPoint;
 			}
 			// Connect last junction to first
-			Lines.Add(FBatchedLine(CurrentPoint, FirstPoint, DrawColor, LineLifeTime, 0.0f, DepthPriority));
+			Lines.Add(FBatchedLine(CurrentPoint, FirstPoint, DrawColor, LineLifeTime, Thickness, DepthPriority));
 
 			LineBatcher->DrawLines(Lines);
 		}
@@ -736,7 +736,7 @@ void FlushDebugStrings( const UWorld* InWorld )
 	}	
 }
 
-void DrawDebugFrustum(const UWorld* InWorld, const FMatrix& FrustumToWorld, FColor const& Color, bool bPersistentLines, float LifeTime, uint8 DepthPriority)
+void DrawDebugFrustum(const UWorld* InWorld, const FMatrix& FrustumToWorld, FColor const& Color, bool bPersistentLines, float LifeTime, uint8 DepthPriority, float Thickness)
 {
 	// no debug line drawing on dedicated server
 	if (GEngine->GetNetMode(InWorld) != NM_DedicatedServer)
@@ -761,20 +761,20 @@ void DrawDebugFrustum(const UWorld* InWorld, const FMatrix& FrustumToWorld, FCol
 			}
 		}
 
-		DrawDebugLine(InWorld, Vertices[0][0][0], Vertices[0][0][1],Color,  bPersistentLines, LifeTime, DepthPriority);
-		DrawDebugLine(InWorld, Vertices[1][0][0], Vertices[1][0][1],Color,  bPersistentLines, LifeTime, DepthPriority);
-		DrawDebugLine(InWorld, Vertices[0][1][0], Vertices[0][1][1],Color,  bPersistentLines, LifeTime, DepthPriority);
-		DrawDebugLine(InWorld, Vertices[1][1][0], Vertices[1][1][1],Color,  bPersistentLines, LifeTime, DepthPriority);
+		DrawDebugLine(InWorld, Vertices[0][0][0], Vertices[0][0][1],Color,  bPersistentLines, LifeTime, DepthPriority, Thickness);
+		DrawDebugLine(InWorld, Vertices[1][0][0], Vertices[1][0][1],Color,  bPersistentLines, LifeTime, DepthPriority, Thickness);
+		DrawDebugLine(InWorld, Vertices[0][1][0], Vertices[0][1][1],Color,  bPersistentLines, LifeTime, DepthPriority, Thickness);
+		DrawDebugLine(InWorld, Vertices[1][1][0], Vertices[1][1][1],Color,  bPersistentLines, LifeTime, DepthPriority, Thickness);
 
-		DrawDebugLine(InWorld, Vertices[0][0][0], Vertices[0][1][0],Color,  bPersistentLines, LifeTime, DepthPriority);
-		DrawDebugLine(InWorld, Vertices[1][0][0], Vertices[1][1][0],Color,  bPersistentLines, LifeTime, DepthPriority);
-		DrawDebugLine(InWorld, Vertices[0][0][1], Vertices[0][1][1],Color,  bPersistentLines, LifeTime, DepthPriority);
-		DrawDebugLine(InWorld, Vertices[1][0][1], Vertices[1][1][1],Color,  bPersistentLines, LifeTime, DepthPriority);
+		DrawDebugLine(InWorld, Vertices[0][0][0], Vertices[0][1][0],Color,  bPersistentLines, LifeTime, DepthPriority, Thickness);
+		DrawDebugLine(InWorld, Vertices[1][0][0], Vertices[1][1][0],Color,  bPersistentLines, LifeTime, DepthPriority, Thickness);
+		DrawDebugLine(InWorld, Vertices[0][0][1], Vertices[0][1][1],Color,  bPersistentLines, LifeTime, DepthPriority, Thickness);
+		DrawDebugLine(InWorld, Vertices[1][0][1], Vertices[1][1][1],Color,  bPersistentLines, LifeTime, DepthPriority, Thickness);
 
-		DrawDebugLine(InWorld, Vertices[0][0][0], Vertices[1][0][0],Color,  bPersistentLines, LifeTime, DepthPriority);
-		DrawDebugLine(InWorld, Vertices[0][1][0], Vertices[1][1][0],Color,  bPersistentLines, LifeTime, DepthPriority);
-		DrawDebugLine(InWorld, Vertices[0][0][1], Vertices[1][0][1],Color,  bPersistentLines, LifeTime, DepthPriority);
-		DrawDebugLine(InWorld, Vertices[0][1][1], Vertices[1][1][1],Color,  bPersistentLines, LifeTime, DepthPriority);
+		DrawDebugLine(InWorld, Vertices[0][0][0], Vertices[1][0][0],Color,  bPersistentLines, LifeTime, DepthPriority, Thickness);
+		DrawDebugLine(InWorld, Vertices[0][1][0], Vertices[1][1][0],Color,  bPersistentLines, LifeTime, DepthPriority, Thickness);
+		DrawDebugLine(InWorld, Vertices[0][0][1], Vertices[1][0][1],Color,  bPersistentLines, LifeTime, DepthPriority, Thickness);
+		DrawDebugLine(InWorld, Vertices[0][1][1], Vertices[1][1][1],Color,  bPersistentLines, LifeTime, DepthPriority, Thickness);
 	}
 }
 

@@ -3,19 +3,20 @@
 	
 	"FriendlyName" : "Messaging Debugger",
 	"Version" : 1,
-	"VersionName" : "1.0",
+	"VersionName" : "1.1",
 	"CreatedBy" : "Epic Games, Inc.",
 	"CreatedByURL" : "http://epicgames.com",
-	"EngineVersion" : "4.2.0",
+	"EngineVersion" : "4.10.0",
 	"Description" : "Provides a visual debugger for the messaging sub-system.",
 	"Category" : "Messaging",
-	"EnabledByDefault" : true,
+	"EnabledByDefault" : false,
+	"IsBetaVersion": true,
 
 	"Modules" :
 	[
 		{
 			"Name" : "MessagingDebugger",
-			"Type" : "Editor"
+			"Type" : "Developer"
 		}
 	],
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "OnlineStoreInterface.h"
@@ -58,6 +58,4 @@ private:
 	// Did the read succeed?
 	bool bSavedWasSuccessful;
 	TArray<FInAppPurchaseProductInfo> SavedProductInformation;
-
-	FTimerHandle OnInAppPurchaseRead_DelayedTimerHandle;
 };

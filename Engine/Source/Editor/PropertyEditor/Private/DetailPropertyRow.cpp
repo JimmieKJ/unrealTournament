@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "PropertyEditorPrivatePCH.h"
 #include "DetailPropertyRow.h"
@@ -451,12 +451,25 @@ void FDetailPropertyRow::MakeValueWidget( FDetailWidgetRow& Row, const TSharedPt
 				.AutoWidth()
 				.HAlign(HAlign_Left)
 				.VAlign(VAlign_Center)
-				.Padding( 2.0f, 1.0f )
+				.Padding(2.0f, 1.0f)
 				[ 
 					RequiredButtons[ButtonIndex]
 				];
 			}
 		}
+
+		if (PropertyHandle->HasMetaData(TEXT("ConfigHierarchyEditable")))
+		{
+			ValueWidget->AddSlot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Left)
+			.Padding(0.0f, 0.0f, 4.0f, 0.0f)
+			[
+				PropertyCustomizationHelpers::MakeEditConfigHierarchyButton(FSimpleDelegate::CreateSP(PropertyEditor.ToSharedRef(), &FPropertyEditor::EditConfigHierarchy))
+			];
+		}
+
 
 		ValueWidget->AddSlot()
 		.Padding( 2.0f, 0.0f )

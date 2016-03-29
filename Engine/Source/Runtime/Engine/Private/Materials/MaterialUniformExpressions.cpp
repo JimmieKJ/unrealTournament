@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MaterialShared.cpp: Shared material implementation.
@@ -359,8 +359,8 @@ FUniformBufferRHIRef FUniformExpressionSet::CreateUniformBuffer(const FMaterialR
 			ESamplerSourceMode SourceMode;
 			Uniform2DTextureExpressions[ExpressionIndex]->GetTextureValue(MaterialRenderContext,MaterialRenderContext.Material,Value,SourceMode);
 
-			// gmartin: Trying to locate UE-17608
-			checkf(!Value || Value->IsValidLowLevel(), TEXT("Texture not valid! UE-17608! Parameter (%s)"),
+			// gmartin: Trying to locate UE-23902
+			checkf(!Value || Value->IsValidLowLevel(), TEXT("Texture not valid! UE-23902! Parameter (%s)"),
 				   Uniform2DTextureExpressions[ExpressionIndex]->GetType() == &FMaterialUniformExpressionTextureParameter::StaticType ?
 				   	*((FMaterialUniformExpressionTextureParameter&)*Uniform2DTextureExpressions[ExpressionIndex]).GetParameterName().ToString() : TEXT("non-parameter"));
 
@@ -513,7 +513,7 @@ bool FMaterialUniformExpressionTexture::IsIdentical(const FMaterialUniformExpres
 	return TextureIndex == OtherTextureExpression->TextureIndex;
 }
 
-void FMaterialUniformExpressionVectorParameter::GetGameThreadNumberValue(const UMaterialInterface* SourceMaterialToCopyFrom, FLinearColor& OutValue) const
+bool FMaterialUniformExpressionVectorParameter::GetGameThreadNumberValue(const UMaterialInterface* SourceMaterialToCopyFrom, FLinearColor& OutValue) const
 {
 	check(IsInGameThread());
 	checkSlow(SourceMaterialToCopyFrom);
@@ -530,7 +530,7 @@ void FMaterialUniformExpressionVectorParameter::GetGameThreadNumberValue(const U
 			if(ParameterValue)
 			{
 				OutValue = ParameterValue->ParameterValue;
-				break;
+				return true;
 			}
 
 			// go up the hierarchy
@@ -541,12 +541,12 @@ void FMaterialUniformExpressionVectorParameter::GetGameThreadNumberValue(const U
 			// we reached the base material
 			// get the copy form the base material
 			GetDefaultValue(OutValue);
-			break;
+			return false;
 		}
 	}
 }
 
-void FMaterialUniformExpressionScalarParameter::GetGameThreadNumberValue(const UMaterialInterface* SourceMaterialToCopyFrom, float& OutValue) const
+bool FMaterialUniformExpressionScalarParameter::GetGameThreadNumberValue(const UMaterialInterface* SourceMaterialToCopyFrom, float& OutValue) const
 {
 	check(IsInGameThread());
 	checkSlow(SourceMaterialToCopyFrom);
@@ -563,7 +563,7 @@ void FMaterialUniformExpressionScalarParameter::GetGameThreadNumberValue(const U
 			if(ParameterValue)
 			{
 				OutValue = ParameterValue->ParameterValue;
-				break;
+				return true;
 			}
 
 			// go up the hierarchy
@@ -574,7 +574,7 @@ void FMaterialUniformExpressionScalarParameter::GetGameThreadNumberValue(const U
 			// we reached the base material
 			// get the copy form the base material
 			GetDefaultValue(OutValue);
-			break;
+			return false;
 		}
 	}
 }

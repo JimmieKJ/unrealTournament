@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "Misc/App.h"
@@ -88,19 +88,18 @@ void EndInitTextLocalization()
 					I18N.GetCulturesWithAvailableLocalization(LocalizationPaths, AvailableCultures, false);
 
 					FString ValidCultureName;
-					ValidCultureName.Empty();
-					FCulturePtr TargetCulture = I18N.GetCulture(TargetCultureName);
-					if (TargetCulture.IsValid())
+					const TArray<FString> PrioritizedCultureNames = I18N.GetPrioritizedCultureNames(TargetCultureName);
+					for (const FString& CultureName : PrioritizedCultureNames)
 					{
-						TArray<FString> PrioritizedParentCultureNames = TargetCulture->GetPrioritizedParentCultureNames();
-						for (const FString& CultureName : PrioritizedParentCultureNames)
+						const bool bIsValidCulture = AvailableCultures.ContainsByPredicate([&](const FCultureRef& PotentialCulture) -> bool
 						{
-							FCulturePtr ValidCulture = I18N.GetCulture(CultureName);
-							if (ValidCulture.IsValid() && AvailableCultures.Contains(ValidCulture.ToSharedRef()))
-							{
-								ValidCultureName = CultureName;
-								break;
-							}
+							return PotentialCulture->GetName() == CultureName;
+						});
+
+						if (bIsValidCulture)
+						{
+							ValidCultureName = CultureName;
+							break;
 						}
 					}
 
@@ -655,7 +654,7 @@ void FTextLocalizationManager::UpdateFromLocalizationResource(const FString& Loc
 {
 	TArray<FLocalizationEntryTracker> LocalizationEntryTrackers;
 
-	FLocalizationEntryTracker LocalizationEntryTracker = LocalizationEntryTrackers[LocalizationEntryTrackers.Add(FLocalizationEntryTracker())];
+	FLocalizationEntryTracker& LocalizationEntryTracker = LocalizationEntryTrackers[LocalizationEntryTrackers.Add(FLocalizationEntryTracker())];
 	LocalizationEntryTracker.LoadFromFile(LocalizationResourceFilePath);
 	LocalizationEntryTracker.DetectAndLogConflicts();
 
@@ -823,8 +822,8 @@ void FTextLocalizationManager::LoadLocalizationResourcesForCulture(const FString
 
 
 	// Read culture localization resources.
-	const TArray<FString> PrioritizedParentCultureNames = Culture->GetPrioritizedParentCultureNames();
-	for (const FString& ParentCultureName : PrioritizedParentCultureNames)
+	const TArray<FString> PrioritizedCultureNames = FInternationalization::Get().GetPrioritizedCultureNames(CultureName);
+	for (const FString& ParentCultureName : PrioritizedCultureNames)
 	{
 		FLocalizationEntryTracker& CultureTracker = LocalizationEntryTrackers[LocalizationEntryTrackers.Add(FLocalizationEntryTracker())];
 		for (const FString& LocalizationPath : PrioritizedLocalizationPaths)

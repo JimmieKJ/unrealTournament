@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -26,16 +26,16 @@ namespace UnrealBuildTool
 
 		static private Dictionary<string, string[]> AllArchNames = new Dictionary<string, string[]> {
 			{ "-armv7", new string[] { "armv7", "armeabi-v7a", } }, 
-			{ "-arm64", new string[] { "arm64", } }, 
+			{ "-arm64", new string[] { "arm64", "arm64-v8a", } }, 
 			{ "-x86",   new string[] { "x86", } }, 
 			{ "-x64",   new string[] { "x64", "x86_64", } }, 
 		};
 
 		static private Dictionary<string, string[]> LibrariesToSkip = new Dictionary<string, string[]> {
 			{ "-armv7", new string[] { } }, 
-			{ "-arm64", new string[] { "nvToolsExt", "nvToolsExtStub", "oculus", "vrapi", "gpg", } }, 
-			{ "-x86",   new string[] { "nvToolsExt", "nvToolsExtStub", "oculus", "vrapi", } }, 
-			{ "-x64",   new string[] { "nvToolsExt", "nvToolsExtStub", "oculus", "vrapi", "gpg", } }, 
+			{ "-arm64", new string[] { "nvToolsExt", "nvToolsExtStub", "oculus", "vrapi", "ovrkernel", "systemutils", "openglloader", "gpg", } },
+			{ "-x86",   new string[] { "nvToolsExt", "nvToolsExtStub", "oculus", "vrapi", "ovrkernel", "systemutils", "openglloader", } }, 
+			{ "-x64",   new string[] { "nvToolsExt", "nvToolsExtStub", "oculus", "vrapi", "ovrkernel", "systemutils", "openglloader", "gpg", } }, 
 		};
 
 		static private Dictionary<string, string[]> ModulesToSkip = new Dictionary<string, string[]> {
@@ -588,55 +588,6 @@ namespace UnrealBuildTool
 			return Result;
 		}
 
-		public static void CompileOutputReceivedDataEventHandler(Object Sender, DataReceivedEventArgs Line)
-		{
-			if ((Line != null) && (Line.Data != null) && (Line.Data != ""))
-			{
-
-				bool bWasHandled = false;
-				// does it look like an error? something like this:
-				//     2>Core/Inc/UnStats.h:478:3: error : no matching constructor for initialization of 'FStatCommonData'
-
-				try
-				{
-					if (!Line.Data.StartsWith(" ") && !Line.Data.StartsWith(","))
-					{
-						// if we split on colon, an error will have at least 4 tokens
-						string[] Tokens = Line.Data.Split("(".ToCharArray());
-						if (Tokens.Length > 1)
-						{
-							// make sure what follows the parens is what we expect
-							string Filename = Path.GetFullPath(Tokens[0]);
-							// build up the final string
-							string Output = string.Format("{0}({1}", Filename, Tokens[1], Line.Data[0]);
-							for (int T = 3; T < Tokens.Length; T++)
-							{
-								Output += Tokens[T];
-								if (T < Tokens.Length - 1)
-								{
-									Output += "(";
-								}
-							}
-
-							// output the result
-							Log.TraceInformation(Output);
-							bWasHandled = true;
-						}
-					}
-				}
-				catch (Exception)
-				{
-					bWasHandled = false;
-				}
-
-				// write if not properly handled
-				if (!bWasHandled)
-				{
-					Log.TraceWarning("{0}", Line.Data);
-				}
-			}
-		}
-
 		static bool IsDirectoryForArch(string Dir, string Arch)
 		{
 			// make sure paths use one particular slash
@@ -1082,8 +1033,6 @@ namespace UnrealBuildTool
 						CompileAction.CommandPath = ClangPath;
 						CompileAction.CommandArguments = ResponseArgument;
 						CompileAction.StatusDescription = string.Format("{0} [{1}-{2}]", Path.GetFileName(SourceFile.AbsolutePath), Arch.Replace("-", ""), GPUArchitecture.Replace("-", ""));
-
-						CompileAction.OutputEventHandler = new DataReceivedEventHandler(CompileOutputReceivedDataEventHandler);
 
 						// VC++ always outputs the source file name being compiled, so we don't need to emit this ourselves
 						CompileAction.bShouldOutputStatusDescription = true;

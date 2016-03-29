@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -11,7 +11,7 @@ public class Perforce : ModuleRules
 		string LibFolder = "lib/";
 		string LibPrefix = "";
 		string LibPostfixAndExt = ".";
-		string P4APIPath = UEBuildConfiguration.UEThirdPartySourceDirectory + "Perforce/p4api-2012.1/";
+		string P4APIPath = UEBuildConfiguration.UEThirdPartySourceDirectory + "Perforce/p4api-2015.1/";
 
 		if (Target.Platform == UnrealTargetPlatform.Win64)
 		{
@@ -37,17 +37,9 @@ public class Perforce : ModuleRules
             if (Target.Configuration == UnrealTargetConfiguration.Debug && BuildConfiguration.bDebugBuildsActuallyUseDebugCRT)
                 LibPostfixAndExt = "d.";
 
-            if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015)
-            {
-                P4APIPath = UEBuildConfiguration.UEThirdPartySourceDirectory + "Perforce/p4api-2015.1/";
-            }
-            else if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2013)
+            if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2013)
             {
                 P4APIPath = UEBuildConfiguration.UEThirdPartySourceDirectory + "Perforce/p4api-2014.2/";
-            }
-            else
-            {
-                P4APIPath = UEBuildConfiguration.UEThirdPartySourceDirectory + "Perforce/p4api-2013.1-BETA/";
             }
             LibPostfixAndExt += "lib";
             PublicLibraryPaths.Add(P4APIPath + LibFolder);

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DynamicMeshBuilder.cpp: Dynamic mesh builder implementation.
@@ -73,6 +73,12 @@ uint32 FGlobalDynamicMeshPoolPolicy::BucketSizes[NumPoolBucketSizes] = {
 	512*1024, 1*1024*1024, 2*1024*1024
 };
 
+#if PLATFORM_USES_ES2
+typedef uint16 DynamicMeshIndexType;
+#else
+typedef int32 DynamicMeshIndexType;
+#endif
+
 class FGlobalDynamicMeshIndexPolicy : public FGlobalDynamicMeshPoolPolicy
 {
 public:
@@ -94,7 +100,7 @@ public:
 		// The use of BUF_Static is deliberate - on OS X the buffer backing-store orphaning & reallocation will dominate execution time
 		// so to avoid this we don't reuse a buffer for several frames, thereby avoiding the pipeline stall and the reallocation cost.
 		FRHIResourceCreateInfo CreateInfo;
-		FIndexBufferRHIRef VertexBuffer = RHICreateIndexBuffer(sizeof(uint32), BufferSize, BUF_Static, CreateInfo);
+		FIndexBufferRHIRef VertexBuffer = RHICreateIndexBuffer(sizeof(DynamicMeshIndexType), BufferSize, BUF_Static, CreateInfo);
 		return VertexBuffer;
 	}
 	
@@ -181,12 +187,12 @@ class FDynamicMeshIndexBuffer : public FDynamicPrimitiveResource, public FIndexB
 {
 public:
 
-	TArray<int32> Indices;
+	TArray<DynamicMeshIndexType> Indices;
 
 	// FRenderResource interface.
 	virtual void InitRHI() override
 	{
-		uint32 SizeInBytes = Indices.Num() * sizeof(int32);
+		uint32 SizeInBytes = Indices.Num() * sizeof(DynamicMeshIndexType);
 		if(SizeInBytes <= FGlobalDynamicMeshIndexPolicy().GetPoolBucketSize(FGlobalDynamicMeshIndexPolicy::NumPoolBuckets - 1))
 		{
 			IndexBufferRHI = GDynamicMeshIndexPool.CreatePooledResource(SizeInBytes);
@@ -194,12 +200,12 @@ public:
 		else
 		{
 			FRHIResourceCreateInfo CreateInfo;
-			IndexBufferRHI = RHICreateIndexBuffer(sizeof(uint32), SizeInBytes, BUF_Volatile, CreateInfo);
+			IndexBufferRHI = RHICreateIndexBuffer(sizeof(DynamicMeshIndexType), SizeInBytes, BUF_Volatile, CreateInfo);
 		}
 		
 		// Write the indices to the index buffer.
-		void* Buffer = RHILockIndexBuffer(IndexBufferRHI,0,Indices.Num() * sizeof(int32),RLM_WriteOnly);
-		FMemory::Memcpy(Buffer,Indices.GetData(),Indices.Num() * sizeof(int32));
+		void* Buffer = RHILockIndexBuffer(IndexBufferRHI,0,Indices.Num() * sizeof(DynamicMeshIndexType),RLM_WriteOnly);
+		FMemory::Memcpy(Buffer,Indices.GetData(),Indices.Num() * sizeof(DynamicMeshIndexType));
 		RHIUnlockIndexBuffer(IndexBufferRHI);
 	}
 	
@@ -285,7 +291,7 @@ public:
 		// Initialize the vertex factory's stream components.
 		if(IsInRenderingThread())
 		{
-			DataType TheData;
+			FDataType TheData;
 			TheData.PositionComponent = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(VertexBuffer,FDynamicMeshVertex,Position,VET_Float3);
 			TheData.TextureCoordinates.Add(
 				FVertexStreamComponent(VertexBuffer,STRUCT_OFFSET(FDynamicMeshVertex,TextureCoordinate),sizeof(FDynamicMeshVertex),VET_Float2)
@@ -302,7 +308,7 @@ public:
 			    FLocalVertexFactory*,VertexFactory,this,
 			    const FDynamicMeshVertexBuffer*,VertexBuffer,VertexBuffer,
 			    {
-				    DataType TheData;
+				    FDataType TheData;
 				    TheData.PositionComponent = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(VertexBuffer,FDynamicMeshVertex,Position,VET_Float3);
 				    TheData.TextureCoordinates.Add(
 					    FVertexStreamComponent(VertexBuffer,STRUCT_OFFSET(FDynamicMeshVertex,TextureCoordinate),sizeof(FDynamicMeshVertex),VET_Float2)
@@ -393,9 +399,9 @@ int32 FDynamicMeshBuilder::AddVertex(const FDynamicMeshVertex &InVertex)
 /** Adds a triangle to the mesh. */
 void FDynamicMeshBuilder::AddTriangle(int32 V0,int32 V1,int32 V2)
 {
-	IndexBuffer->Indices.Add(V0);
-	IndexBuffer->Indices.Add(V1);
-	IndexBuffer->Indices.Add(V2);
+	IndexBuffer->Indices.Add(static_cast<DynamicMeshIndexType>(V0));
+	IndexBuffer->Indices.Add(static_cast<DynamicMeshIndexType>(V1));
+	IndexBuffer->Indices.Add(static_cast<DynamicMeshIndexType>(V2));
 }
 
 /** Adds many vertices to the mesh. Returns start index of verts in the overall array. */
@@ -409,7 +415,17 @@ int32 FDynamicMeshBuilder::AddVertices(const TArray<FDynamicMeshVertex> &InVerti
 /** Add many indices to the mesh. */
 void FDynamicMeshBuilder::AddTriangles(const TArray<int32> &InIndices)
 {
-	IndexBuffer->Indices.Append(InIndices);
+	if (IndexBuffer->Indices.GetTypeSize() == InIndices.GetTypeSize())
+	{
+		IndexBuffer->Indices.Append(InIndices);
+	}
+	else
+	{
+		for (int32 Index : InIndices)
+		{
+			IndexBuffer->Indices.Add(static_cast<DynamicMeshIndexType>(Index));
+		}
+	}
 }
 
 class FMeshBuilderOneFrameResources : public FOneFrameResource

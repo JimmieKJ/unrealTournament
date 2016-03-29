@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 int256 PrimeTable[] = 
 {
 	2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 

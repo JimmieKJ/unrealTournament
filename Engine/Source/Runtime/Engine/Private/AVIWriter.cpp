@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AVIWriter.cpp: AVI creation implementation.
@@ -25,7 +25,6 @@ typedef TCHAR* PTCHAR;
 
 #include "CapturePin.h"
 #include "CaptureSource.h"
-#include "SlateCore.h"
 
 
 #define g_wszCapture    L"Capture Filter"
@@ -178,22 +177,8 @@ public:
 
 public:
 
-	virtual void StartCapture(TWeakPtr<FSceneViewport> InViewport) override
+	virtual void Initialize() override
 	{
-		auto Viewport = InViewport.Pin();
-		if (bCapturing || !Viewport.IsValid())
-		{
-			return;
-		}
-
-		if ( Viewport->GetSize().GetMin() <= 0)
-		{
-			UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Attempting to record a 0 sized viewport!" ));
-			return;
-		}
-
-		CaptureViewport = InViewport;
-
 		// Initialize the COM library.
 		if (!FWindowsPlatformMisc::CoInitialize()) 
 		{
@@ -306,12 +291,34 @@ public:
 		// Now connect the graph
 		if (EncodingFilter)
 		{
-			Graph->Connect(GetPin(CaptureFilter, PINDIR_OUTPUT), GetPin(EncodingFilter, PINDIR_INPUT));
-			Graph->Connect(GetPin(EncodingFilter, PINDIR_OUTPUT), GetPin(pMux, PINDIR_INPUT));
+			hr = Graph->Connect(GetPin(CaptureFilter, PINDIR_OUTPUT), GetPin(EncodingFilter, PINDIR_INPUT));
+			if (FAILED(hr))
+			{
+				UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Failed to connect capture filter to encoding filter! (%d)" ), hr);
+				Graph->Release();
+				FWindowsPlatformMisc::CoUninitialize(); 
+				return;
+			}
+
+			hr = Graph->Connect(GetPin(EncodingFilter, PINDIR_OUTPUT), GetPin(pMux, PINDIR_INPUT));
+			if (FAILED(hr))
+			{
+				UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Failed to connect encoding filter to muxer! (%d)" ), hr);
+				Graph->Release();
+				FWindowsPlatformMisc::CoUninitialize(); 
+				return;
+			}
 		}
 		else
 		{
-			Graph->Connect(GetPin(CaptureFilter, PINDIR_OUTPUT), GetPin(pMux, PINDIR_INPUT));
+			hr = Graph->Connect(GetPin(CaptureFilter, PINDIR_OUTPUT), GetPin(pMux, PINDIR_INPUT));
+			if (FAILED(hr))
+			{
+				UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Failed to connect capture filter to muxer! (%d)" ), hr);
+				Graph->Release();
+				FWindowsPlatformMisc::CoUninitialize(); 
+				return;
+			}
 		}
 
 		Graph->Connect(GetPin(pMux, PINDIR_OUTPUT), GetPin(FileWriter, PINDIR_INPUT));
@@ -332,7 +339,7 @@ public:
 		pMux->Release();
 	}
 
-	void StopCapture()
+	void Finalize()
 	{
 		if (!bCapturing)
 		{
@@ -344,7 +351,6 @@ public:
 		Control->Stop();
 
 		bCapturing = false;
-		CaptureViewport = nullptr;
 		FrameNumber = 0;
 
 		SAFE_RELEASE(EncodingFilter);
@@ -353,11 +359,6 @@ public:
 		SAFE_RELEASE(Control);
 		SAFE_RELEASE(Graph);
 		FWindowsPlatformMisc::CoUninitialize();
-	}
-
-	void Close()
-	{
-		StopCapture();
 	}
 
 	virtual void DropFrames(int32 NumFramesToDrop) override
@@ -394,22 +395,12 @@ public:
 	
 public:
 	
-	virtual void StartCapture(TWeakPtr<FSceneViewport> InViewport) override
+	virtual void Initialize() override
 	{
 		SCOPED_AUTORELEASE_POOL;
 
-		auto Viewport = InViewport.Pin();
-
-		if (!bCapturing && Viewport.IsValid())
+		if (!bCapturing)
 		{
-			if ( Viewport->GetSize().GetMin() <= 0)
-			{
-				UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Attempting to record a 0 sized viewport!" ));
-				return;
-			}
-			
-			CaptureViewport = InViewport;
-			
 			// Attempt to make the dir if it doesn't exist.
 			TCHAR File[MAX_SPRINTF] = TEXT("");
 			IFileManager::Get().MakeDirectory(*FPaths::GetPath(Options.OutputFilename), true);
@@ -436,16 +427,16 @@ public:
 				VideoSettings = [NSDictionary dictionaryWithObjectsAndKeys:
 								 AVVideoCodecJPEG, AVVideoCodecKey,
 								 [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithFloat:Options.CompressionQuality.GetValue()], AVVideoQualityKey, nil], AVVideoCompressionPropertiesKey,
-								 [NSNumber numberWithInt:Viewport->GetSize().X], AVVideoWidthKey,
-								 [NSNumber numberWithInt:Viewport->GetSize().Y], AVVideoHeightKey,
+								 [NSNumber numberWithInt:Options.Width], AVVideoWidthKey,
+								 [NSNumber numberWithInt:Options.Height], AVVideoHeightKey,
 								 nil];
 			}
 			else
 			{
 				VideoSettings = [NSDictionary dictionaryWithObjectsAndKeys:
 								 AVVideoCodecH264, AVVideoCodecKey,
-								 [NSNumber numberWithInt:Viewport->GetSize().X], AVVideoWidthKey,
-								 [NSNumber numberWithInt:Viewport->GetSize().Y], AVVideoHeightKey,
+								 [NSNumber numberWithInt:Options.Width], AVVideoWidthKey,
+								 [NSNumber numberWithInt:Options.Height], AVVideoHeightKey,
 								 nil];
 			}
 			AVFWriterInputRef = [[AVAssetWriterInput
@@ -477,7 +468,7 @@ public:
 		}
 	}
 	
-	void StopCapture()
+	void Finalize()
 	{
 		if (bCapturing)
 		{
@@ -493,14 +484,8 @@ public:
 			AVFPixelBufferAdaptorRef = nil;
 
 			bCapturing = false;
-			CaptureViewport = nullptr;
 			FrameNumber = 0;
 		}
-	}
-	
-	void Close()
-	{
-		StopCapture();
 	}
 	
 	void TaskThread()
@@ -511,12 +496,6 @@ public:
 		{
 			uint32 WaitTimeMs = 100;
 			TArray<FCapturedFrame> PendingFrames = GetFrameData(WaitTimeMs);
-
-			auto Viewport = CaptureViewport.Pin();
-			if (!Viewport.IsValid())
-			{
-				break;
-			}
 
 			// Capture the frames that we have
 			for (auto& CurrentFrame : PendingFrames)
@@ -530,7 +509,7 @@ public:
 				CVPixelBufferPoolCreatePixelBuffer (NULL, AVFPixelBufferAdaptorRef.pixelBufferPool, &PixelBuffer);
 				if(!PixelBuffer)
 				{
-					CVPixelBufferCreate(kCFAllocatorDefault, Viewport->GetSize().X, Viewport->GetSize().Y, kCVPixelFormatType_32BGRA, NULL, &PixelBuffer);
+					CVPixelBufferCreate(kCFAllocatorDefault, Options.Width, Options.Height, kCVPixelFormatType_32BGRA, NULL, &PixelBuffer);
 				}
 				check(PixelBuffer);
 				
@@ -602,11 +581,9 @@ FCapturedFrames::FCapturedFrames(const FString& InArchiveDirectory, int32 InMaxI
 {
 	FrameReady = FPlatformProcess::GetSynchEventFromPool();
 
-	// Ensure the file doesn't exist
+	// Ensure the archive directory doesn't exist
 	auto& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
-
 	PlatformFile.DeleteDirectoryRecursively(*ArchiveDirectory);
-	PlatformFile.CreateDirectory(*ArchiveDirectory);
 
 	TotalArchivedFrames = 0;
 	InMemoryFrames.Reserve(MaxInMemoryFrames);
@@ -660,6 +637,12 @@ FArchive &operator<<(FArchive& Ar, FCapturedFrame& Frame)
 
 void FCapturedFrames::ArchiveFrame(FCapturedFrame Frame)
 {
+	auto& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+	if (!PlatformFile.DirectoryExists(*ArchiveDirectory))
+	{
+		PlatformFile.CreateDirectory(*ArchiveDirectory);
+	}
+
 	// Get (and increment) a unique index for this frame
 	uint32 ArchivedFrameIndex = ++TotalArchivedFrames;
 

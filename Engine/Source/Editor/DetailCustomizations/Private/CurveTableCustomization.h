@@ -1,7 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "Engine/CurveTable.h"
+#include "IPropertyUtilities.h"
 
 /**
  * Customizes a DataTable asset to use a dropdown
@@ -34,8 +35,8 @@ public:
 
 		if( CurveTablePropertyHandle->IsValidHandle() && RowNamePropertyHandle->IsValidHandle() )
 		{
-			/** Init the array of strings from the fname map */
-			CurrentSelectedItem = InitWidgetContent();
+			/** Queue up a refresh of the selected item, not safe to do from here */
+			StructCustomizationUtils.GetPropertyUtilities()->EnqueueDeferredAction(FSimpleDelegate::CreateSP(this, &FCurveTableCustomizationLayout::OnCurveTableChanged));
 
 			/** Edit the data table uobject as normal */
 			StructBuilder.AddChildProperty( CurveTablePropertyHandle.ToSharedRef() );

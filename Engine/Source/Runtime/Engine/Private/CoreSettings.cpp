@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Engine/CoreSettings.h"
@@ -70,7 +70,7 @@ UStreamingSettings::UStreamingSettings()
 	AsyncLoadingUseFullTimeLimit = true;
 	PriorityAsyncLoadingExtraTime = 20.0f;
 	LevelStreamingActorsUpdateTimeLimit = 5.0f;
-	LevelStreamingComponentsRegistrationGranularity = 10;
+	LevelStreamingComponentsRegistrationGranularity = 10;	
 }
 
 void UStreamingSettings::PostInitProperties()
@@ -110,6 +110,8 @@ UGarbageCollectionSettings::UGarbageCollectionSettings()
 	SizeOfPermanentObjectPool = 0;
 	MaxObjectsInEditor = 12 * 1024 * 1024;
 	MaxObjectsInGame = 2 * 1024 * 1024;
+	CreateGCClusters = true;
+	MergeGCClusters = false;
 }
 
 void UGarbageCollectionSettings::PostInitProperties()

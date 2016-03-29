@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #if !UE_ENABLE_ICU
@@ -11,8 +11,12 @@ public:
 	bool Initialize();
 	void Terminate();
 
+	bool IsCultureRemapped(const FString& Name, FString* OutMappedCulture);
+	bool IsCultureDisabled(const FString& Name);
+
 	bool SetCurrentCulture(const FString& Name);
 	void GetCultureNames(TArray<FString>& CultureNames) const;
+	TArray<FString> GetPrioritizedCultureNames(const FString& Name);
 	FCulturePtr GetCulture(const FString& Name);
 
 private:

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MediaAssetsPrivatePCH.h"
 #include "IMediaAudioTrack.h"
@@ -9,7 +9,7 @@
 /* UMediaSoundWave structors
  *****************************************************************************/
 
-UMediaSoundWave::UMediaSoundWave( const FObjectInitializer& ObjectInitializer )
+UMediaSoundWave::UMediaSoundWave(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, AudioTrackIndex(INDEX_NONE)
 	, AudioQueue(MakeShareable(new FMediaSampleQueue))
@@ -34,7 +34,7 @@ TSharedPtr<IMediaPlayer> UMediaSoundWave::GetPlayer() const
 }
 
 
-void UMediaSoundWave::SetMediaPlayer( UMediaPlayer* InMediaPlayer )
+void UMediaSoundWave::SetMediaPlayer(UMediaPlayer* InMediaPlayer)
 {
 	MediaPlayer = InMediaPlayer;
 
@@ -45,8 +45,19 @@ void UMediaSoundWave::SetMediaPlayer( UMediaPlayer* InMediaPlayer )
 /* USoundWave overrides
  *****************************************************************************/
 
-int32 UMediaSoundWave::GeneratePCMData( uint8* PCMData, const int32 SamplesNeeded )
+int32 UMediaSoundWave::GeneratePCMData(uint8* PCMData, const int32 SamplesNeeded)
 {
+	if (AudioTrack.IsValid())
+	{
+		NumChannels = AudioTrack->GetNumChannels();
+		SampleRate = AudioTrack->GetSamplesPerSecond();
+	}
+
+	if ((NumChannels == 0) || (SampleRate == 0))
+	{
+		return 0;
+	}
+
 	// drain media sample queue
 	TSharedPtr<TArray<uint8>, ESPMode::ThreadSafe> Sample;
 
@@ -74,25 +85,25 @@ int32 UMediaSoundWave::GeneratePCMData( uint8* PCMData, const int32 SamplesNeede
 }
 
 
-FByteBulkData* UMediaSoundWave::GetCompressedData( FName Format )
+FByteBulkData* UMediaSoundWave::GetCompressedData(FName Format)
 {
 	return nullptr;
 }
 
 
-int32 UMediaSoundWave::GetResourceSizeForFormat( FName Format )
+int32 UMediaSoundWave::GetResourceSizeForFormat(FName Format)
 {
 	return 0;
 }
 
 
-void UMediaSoundWave::InitAudioResource( FByteBulkData& CompressedData )
+void UMediaSoundWave::InitAudioResource(FByteBulkData& CompressedData)
 {
 	check(false); // should never be pushing compressed data to this class
 }
 
 
-bool UMediaSoundWave::InitAudioResource( FName Format )
+bool UMediaSoundWave::InitAudioResource(FName Format)
 {
 	return true;
 }
@@ -101,7 +112,7 @@ bool UMediaSoundWave::InitAudioResource( FName Format )
 /* UObject overrides
  *****************************************************************************/
 
-void UMediaSoundWave::GetAssetRegistryTags( TArray<FAssetRegistryTag>& OutTags ) const
+void UMediaSoundWave::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 {
 }
 
@@ -112,7 +123,7 @@ SIZE_T UMediaSoundWave::GetResourceSize(EResourceSizeMode::Type Mode)
 }
 
 
-void UMediaSoundWave::Serialize( FArchive& Ar )
+void UMediaSoundWave::Serialize(FArchive& Ar)
 {
 	// do not call the USoundWave version of serialize
 	USoundBase::Serialize(Ar);
@@ -165,6 +176,7 @@ void UMediaSoundWave::InitializeTrack()
 		{
 			MediaPlayer->OnTracksChanged().AddUObject(this, &UMediaSoundWave::HandleMediaPlayerTracksChanged);
 		}
+
 		bSetupDelegates = true;
 	}
 
@@ -172,9 +184,11 @@ void UMediaSoundWave::InitializeTrack()
 	if (AudioTrack.IsValid())
 	{
 		AudioTrack->GetStream().RemoveSink(AudioQueue);
-	}
+		AudioTrack.Reset();
 
-	AudioTrack.Reset();
+		AudioQueue->Empty();
+		QueuedAudio.Empty();
+	}
 
 	// initialize from new track
 	if (MediaPlayer != nullptr)
@@ -195,17 +209,6 @@ void UMediaSoundWave::InitializeTrack()
 				AudioTrackIndex = 0;
 			}
 		}
-	}
-
-	if (AudioTrack.IsValid())
-	{
-		NumChannels = AudioTrack->GetNumChannels();
-		SampleRate = AudioTrack->GetSamplesPerSecond();
-	}
-	else
-	{
-		NumChannels = 0;
-		SampleRate = 0;
 	}
 
 	// connect to new track

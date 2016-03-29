@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ProfilerPrivatePCH.h"
 #include "SProfilerSettings.h"
@@ -17,15 +17,6 @@ void SProfilerSettings::Construct( const FArguments& InArgs )
 	AddTitle( LOCTEXT("ProfilerSettingTitle","Profiler settings"), SettingsGrid, CurrentRowPos );
 	AddSeparator( SettingsGrid, CurrentRowPos );
 	AddHeader( LOCTEXT("MiscTitle","Miscellaneous"), SettingsGrid, CurrentRowPos );
-	AddOption
-	( 
-		LOCTEXT("bSingleInstanceMode_T","Single Instance Mode"), 
-		LOCTEXT("bSingleInstanceMode_TT","If True, the profiler will work in the single instance mode, all functionality related to multi instances will be disabled or removed from the UI"), 
-		SettingPtr->bSingleInstanceMode, 
-		SettingPtr->GetDefaults().bSingleInstanceMode,
-		SettingsGrid, 
-		CurrentRowPos 
-	);
 	AddOption
 	( 
 		LOCTEXT("bShowCoalescedViewModesInEventGraph_T","Show Coalesced View Modes In Event Graph"), 
@@ -214,10 +205,9 @@ FReply SProfilerSettings::SaveAndClose_OnClicked()
 
 FReply SProfilerSettings::ResetToDefaults_OnClicked()
 {
-	const FProfilerSettings& Defauls = SettingPtr->GetDefaults();
+	const FProfilerSettings& Defaults = SettingPtr->GetDefaults();
 
-	SettingPtr->bSingleInstanceMode = Defauls.bSingleInstanceMode;
-	SettingPtr->bShowCoalescedViewModesInEventGraph = Defauls.bShowCoalescedViewModesInEventGraph;
+	SettingPtr->bShowCoalescedViewModesInEventGraph = Defaults.bShowCoalescedViewModesInEventGraph;
 
 	return FReply::Handled();
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SoundCueEditorModule.h"
 #include "SoundDefinitions.h"
@@ -19,6 +19,7 @@
 #include "SDockTab.h"
 #include "GenericCommands.h"
 #include "Sound/SoundCue.h"
+#include "Sound/SoundNodeDialoguePlayer.h"
 
 #define LOCTEXT_NAMESPACE "SoundCueEditor"
 
@@ -238,7 +239,7 @@ void FSoundCueEditor::PostUndo(bool bSuccess)
 
 void FSoundCueEditor::NotifyPostChange( const FPropertyChangedEvent& PropertyChangedEvent, class UProperty* PropertyThatChanged)
 {
-	if (SoundCueGraphEditor.IsValid())
+	if (SoundCueGraphEditor.IsValid() && PropertyChangedEvent.ChangeType != EPropertyChangeType::Interactive)
 	{
 		SoundCueGraphEditor->NotifyGraphChanged();
 	}
@@ -392,7 +393,12 @@ void FSoundCueEditor::SyncInBrowser()
 			{
 				ObjectsToSync.AddUnique(SelectedWave->GetSoundWave());
 			}
-			//ObjectsToSync.AddUnique(SelectedNode->SoundNode);
+
+			USoundNodeDialoguePlayer* SelectedDialogue = Cast<USoundNodeDialoguePlayer>(SelectedNode->SoundNode);
+			if (SelectedDialogue && SelectedDialogue->GetDialogueWave())
+			{
+				ObjectsToSync.AddUnique(SelectedDialogue->GetDialogueWave());
+			}
 		}
 	}
 
@@ -415,6 +421,12 @@ bool FSoundCueEditor::CanSyncInBrowser() const
 			USoundNodeWavePlayer* WavePlayer = Cast<USoundNodeWavePlayer>(SelectedNode->SoundNode);
 
 			if (WavePlayer && WavePlayer->GetSoundWave())
+			{
+				return true;
+			}
+
+			USoundNodeDialoguePlayer* SelectedDialogue = Cast<USoundNodeDialoguePlayer>(SelectedNode->SoundNode);
+			if (SelectedDialogue && SelectedDialogue->GetDialogueWave())
 			{
 				return true;
 			}

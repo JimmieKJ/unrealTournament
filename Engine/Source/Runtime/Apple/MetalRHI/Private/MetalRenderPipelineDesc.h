@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -72,6 +72,7 @@ struct FMetalRenderPipelineDesc
 	// running hash of the pipeline state
 	FMetalRenderPipelineHash Hash;
 
+	static FCriticalSection MetalPipelineMutex;
 	static NSMutableDictionary* MetalPipelineCache;
 	static uint32 BlendBitOffsets[6];
 	static uint32 RTBitOffsets[6];

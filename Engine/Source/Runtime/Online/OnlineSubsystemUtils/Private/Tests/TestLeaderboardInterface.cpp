@@ -1,9 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "TestLeaderboardInterface.h"
 #include "OnlineIdentityInterface.h"
 #include "ModuleManager.h"
+
+#if WITH_DEV_AUTOMATION_TESTS
 
 /**
  *	Example of a leaderboard write object
@@ -146,3 +148,5 @@ bool FTestLeaderboardInterface::Tick( float DeltaTime )
 	}
 	return true;
 }
+
+#endif //WITH_DEV_AUTOMATION_TESTS

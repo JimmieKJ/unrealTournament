@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -43,14 +43,15 @@ enum class EUnitTestFlags : uint32 // NOTE: If you change from uint32, you need 
 	SendRPCs				= 0x00000020,	// Whether or not to allow RPC sending (NOT blocked by default, @todo JohnB: Add send hook)
 	SkipControlJoin			= 0x00000040,	// Whether or not to skip sending NMT_Join upon connect (or NMT_BeaconJoin for beacons)
 	BeaconConnect			= 0x00000080,	// Whether or not to connect to the servers beacon (greatly limits the connection)
+	AutoReconnect			= 0x00000100,	// Whether or not to auto-reconnect on server disconnect (NOTE: Won't catch all disconnects)
 
 	/** Unit test state-setup/requirements/prerequisites */
-	RequirePlayerController	= 0x00000100,	// Whether or not to wait for the PlayerController, before triggering ExecuteClientUnitTest
-	RequirePawn				= 0x00000200,	// Whether or not to wait for the PlayerController's pawn, before ExecuteClientUnitTest
-	RequirePing				= 0x00000400,	// Whether or not to wait for a ping round-trip, before triggering ExecuteClientUnitTest
-	RequireNUTActor			= 0x00000800,	// Whether or not to wait for the NUTActor, before triggering ExecuteClientUnitTest
-	RequireBeacon			= 0x00001000,	// Whether or not to wait for beacon replication, before triggering ExecuteClientUnitTest
-	RequireCustom			= 0x00002000,	// Whether or not ExecuteClientUnitTest will be executed manually, within the unit test
+	RequirePlayerController	= 0x00000200,	// Whether or not to wait for the PlayerController, before triggering ExecuteClientUnitTest
+	RequirePawn				= 0x00000400,	// Whether or not to wait for the PlayerController's pawn, before ExecuteClientUnitTest
+	RequirePing				= 0x00000800,	// Whether or not to wait for a ping round-trip, before triggering ExecuteClientUnitTest
+	RequireNUTActor			= 0x00001000,	// Whether or not to wait for the NUTActor, before triggering ExecuteClientUnitTest
+	RequireBeacon			= 0x00002000,	// Whether or not to wait for beacon replication, before triggering ExecuteClientUnitTest
+	RequireCustom			= 0x00004000,	// Whether or not ExecuteClientUnitTest will be executed manually, within the unit test
 
 	RequirementsMask		= RequirePlayerController | RequirePawn | RequirePing | RequireNUTActor | RequireBeacon | RequireCustom,
 
@@ -331,10 +332,25 @@ public:
 	 * If EUnitTestFlags::CaptureSendRaw is set, this is triggered for every packet sent to the server
 	 * NOTE: Don't consider data safe to modify (will need to modify the implementation, if that is desired)
 	 *
+	 * @param Data			The raw data/packet being sent
+	 * @param Count			The amount of data being sent
+	 * @param bBlockSend	Whether or not to block the send (defaults to false)
+	 */
+	virtual void NotifySendRawPacket(void* Data, int32 Count, bool& bBlockSend);
+
+	/**
+	 * If EUnitTestFlags::CaptureSendRaw is set, this is triggered for every packet sent to the server
+	 * IMPORTANT: This is like the above function, except this occurs AFTER PacketHandler's have had a chance to modify packet data
+	 *
+	 * NOTE: Don't consider data safe to modify (will need to modify the implementation, if that is desired)
+	 *
 	 * @param Data		The raw data/packet being sent
 	 * @param Count		The amount of data being sent
+	 * @param bBlockSend	Whether or not to block the send (defaults to false)
 	 */
-	virtual void NotifySendRawPacket(void* Data, int32 Count);
+	virtual void NotifySocketSendRawPacket(void* Data, int32 Count, bool& bBlockSend)
+	{
+	}
 
 	/**
 	 * Bunches received on the control channel. These need to be parsed manually,
@@ -506,6 +522,11 @@ protected:
 	 * Cleans up the local/fake client
 	 */
 	virtual void CleanupFakeClient();
+
+	/**
+	 * Triggers an auto-reconnect (disconnect/reconnect) of the fake client
+	 */
+	void TriggerAutoReconnect();
 
 
 	/**

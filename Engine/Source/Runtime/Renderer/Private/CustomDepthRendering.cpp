@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	CustomDepthRendering.cpp: CustomDepth rendering implementation.
@@ -34,7 +34,7 @@ bool FCustomDepthPrimSet::DrawPrims(FRHICommandListImmediate& RHICmdList, const 
 			{
 				const FPrimitiveViewRelevance& ViewRelevance = View.PrimitiveViewRelevanceMap[PrimitiveSceneInfo->GetIndex()];
 
-				FDepthDrawingPolicyFactory::ContextType Context(DDM_AllOccluders);
+				FDepthDrawingPolicyFactory::ContextType Context(DDM_AllOpaque, false);
 
 				if (bWriteCustomStencilValues)
 				{
@@ -61,15 +61,15 @@ bool FCustomDepthPrimSet::DrawPrims(FRHICommandListImmediate& RHICmdList, const 
 
 						if (View.StaticMeshVisibilityMap[StaticMesh.Id])
 						{
-							float DitherValue = View.GetDitheredLODTransitionValue(StaticMesh);
+							const FMeshDrawingRenderState DrawRenderState(View.GetDitheredLODTransitionState(StaticMesh));
 							bDirty |= FDepthDrawingPolicyFactory::DrawStaticMesh(
 								RHICmdList, 
 								View,
-								FDepthDrawingPolicyFactory::ContextType(DDM_AllOccluders),
+								Context,
 								StaticMesh,
 								StaticMesh.Elements.Num() == 1 ? 1 : View.StaticMeshBatchVisibility[StaticMesh.Id],
 								true,
-								DitherValue,
+								DrawRenderState,
 								PrimitiveSceneProxy,
 								StaticMesh.BatchHitProxyId
 								);

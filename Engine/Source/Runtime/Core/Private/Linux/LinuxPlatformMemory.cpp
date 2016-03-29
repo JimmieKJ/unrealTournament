@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LinuxPlatformMemory.cpp: Linux platform memory functions
@@ -7,7 +7,7 @@
 #include "CorePrivatePCH.h"
 #include "MallocAnsi.h"
 #include "MallocJemalloc.h"
-#include "MallocBinned2.h"
+#include "MallocBinned.h"
 #include <sys/sysinfo.h>
 #include <sys/file.h>
 #include <sys/mman.h>
@@ -45,9 +45,8 @@ class FMalloc* FLinuxPlatformMemory::BaseAllocator()
 	}
 	AllocatorToUse = EAllocatorToUse::Binned;
 
-	// Prefer jemalloc for the editor and programs as it saved ~20% RES usage in my (RCL) tests.
-	// Leave binned as the default for games and servers to keep runtime behavior consistent across platforms.
-	if (PLATFORM_SUPPORTS_JEMALLOC && (UE_EDITOR || IS_PROGRAM))
+	// Prefer jemalloc as it consistently saves ~20% RES usage in my (RCL) tests.
+	if (PLATFORM_SUPPORTS_JEMALLOC)
 	{
 		AllocatorToUse = EAllocatorToUse::Jemalloc;
 	}
@@ -106,13 +105,35 @@ class FMalloc* FLinuxPlatformMemory::BaseAllocator()
 
 		default:	// intentional fall-through
 		case Binned:
-			Allocator = new FMallocBinned2(FPlatformMemory::GetConstants().PageSize & MAX_uint32, 0x100000000);
+			Allocator = new FMallocBinned(FPlatformMemory::GetConstants().PageSize & MAX_uint32, 0x100000000);
 			break;
 	}
 
 	printf("Using %ls.\n", Allocator ? Allocator->GetDescriptiveName() : TEXT("NULL allocator! We will probably crash right away"));
 
 	return Allocator;
+}
+
+bool FLinuxPlatformMemory::PageProtect(void* const Ptr, const SIZE_T Size, const bool bCanRead, const bool bCanWrite)
+{
+	int32 ProtectMode;
+	if (bCanRead && bCanWrite)
+	{
+		ProtectMode = PROT_READ | PROT_WRITE;
+	}
+	else if (bCanRead)
+	{
+		ProtectMode = PROT_READ;
+	}
+	else if (bCanWrite)
+	{
+		ProtectMode = PROT_WRITE;
+	}
+	else
+	{
+		ProtectMode = PROT_NONE;
+	}
+	return mprotect(Ptr, Size, ProtectMode) == 0;
 }
 
 void* FLinuxPlatformMemory::BinnedAllocFromOS( SIZE_T Size )

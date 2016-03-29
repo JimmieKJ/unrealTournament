@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 //
 // A network connection.
@@ -16,6 +16,7 @@
 
 class FObjectReplicator;
 class FUniqueNetId;
+struct FNetworkObjectInfo;
 
 /*-----------------------------------------------------------------------------
 	Types.
@@ -112,13 +113,29 @@ namespace EClientLoginState
 };
 
 #if DO_ENABLE_NET_TEST
-//
-// A lagged packet
-//
+/**
+ * An artificially lagged packet
+ */
 struct DelayedPacket
 {
+	/** The packet data to send */
 	TArray<uint8> Data;
+
+	/** The size of the packet in bits */
+	int32 SizeBits;
+
+	/** The time at which to send the packet */
 	double SendTime;
+
+public:
+	FORCEINLINE DelayedPacket(uint8* InData, int32 InSizeBytes, int32 InSizeBits)
+		: Data()
+		, SizeBits(InSizeBits)
+		, SendTime(0.0)
+	{
+		Data.AddUninitialized(InSizeBytes);
+		FMemory::Memcpy(Data.GetData(), InData, InSizeBytes);
+	}
 };
 #endif
 
@@ -178,6 +195,9 @@ class UNetConnection : public UPlayer
 	/** Number of bits used for padding in the current packet. */
 	int NumPaddingBits;
 
+	/** The maximum number of bits all packet handlers will reserve */
+	int32 MaxPacketHandlerBits;
+
 	/** Sets all of the bit-tracking variables to zero. */
 	void ResetPacketBitCounts();
 
@@ -199,8 +219,13 @@ public:
 	
 	uint32 bPendingDestroy:1;    // when true, playercontroller or beaconclient is being destroyed
 
-	// Packet Handler
+
+	/** PacketHandler, for managing layered handler components, which modify packets as they are sent/received */
 	TUniquePtr<PacketHandler> Handler;
+
+	/** Reference to the PacketHandler component, for managing stateless connection handshakes */
+	TWeakPtr<StatelessConnectHandlerComponent> StatelessConnectComponent;
+
 
 	/** Whether this channel needs to byte swap all data or not */
 	bool			bNeedsByteSwapping;
@@ -267,12 +292,14 @@ public:
 	int32 InPacketsLost, OutPacketsLost;
 
 	// Packet.
-	FBitWriter		SendBuffer;				// Queued up bits waiting to send
-	double			OutLagTime[256];		// For lag measuring.
-	int32			OutLagPacketId[256];	// For lag measuring.
-	int32			InPacketId;				// Full incoming packet index.
-	int32			OutPacketId;			// Most recently sent packet.
-	int32 			OutAckPacketId;			// Most recently acked outgoing packet.
+	FBitWriter		SendBuffer;						// Queued up bits waiting to send
+	double			OutLagTime[256];				// For lag measuring.
+	int32			OutLagPacketId[256];			// For lag measuring.
+	int32			OutBytesPerSecondHistory[256];	// For saturation measuring.
+	float			RemoteSaturation;
+	int32			InPacketId;						// Full incoming packet index.
+	int32			OutPacketId;					// Most recently sent packet.
+	int32 			OutAckPacketId;					// Most recently acked outgoing packet.
 
 	bool			bLastHasServerFrameTime;
 
@@ -328,9 +355,6 @@ public:
 	 * Actors the client has not initialized
 	 */
 	TArray<FName> ClientVisibleLevelNames;
-
-	/** @todo document */
-	class TArray<AActor*> OwnedConsiderList;
 
 #if DO_ENABLE_NET_TEST
 	// For development.
@@ -413,10 +437,13 @@ public:
 	/**
 	 * Sends a byte stream to the remote endpoint using the underlying socket
 	 *
-	 * @param Data the byte stream to send
-	 * @param Count the length of the stream to send
+	 * @param Data			The byte stream to send
+	 * @param CountBytes	The length of the stream to send, in bytes
+	 * @param CountBits		The length of the stream to send, in bits (to support bit-level additions to packets, from PacketHandler's)
 	 */
-	virtual void LowLevelSend( void* Data, int32 Count ) PURE_VIRTUAL(UNetConnection::LowLevelSend,); //!! "Looks like an FArchive"
+	// @todo: Deprecate 'CountBytes' eventually
+	ENGINE_API virtual void LowLevelSend(void* Data, int32 CountBytes, int32 CountBits)
+		PURE_VIRTUAL(UNetConnection::LowLevelSend,);
 
 	/** Validates the FBitWriter to make sure it's not in an error state */
 	ENGINE_API virtual void ValidateSendBuffer();
@@ -517,6 +544,12 @@ public:
 	ENGINE_API virtual void InitConnection(UNetDriver* InDriver, EConnectionState InState, const FURL& InURL, int32 InConnectionSpeed=0, int32 InMaxPacket=0);
 
 
+	/**
+	 * Initializes the PacketHandler
+	 */
+	ENGINE_API virtual void InitHandler();
+
+
 	/** 
 	* Gets a unique ID for the connection, this ID depends on the underlying connection
 	* For IP connections this is an IP Address and port, for steam this is a SteamID
@@ -524,6 +557,9 @@ public:
 	ENGINE_API virtual FString RemoteAddressToString() PURE_VIRTUAL(UNetConnection::RemoteAddressToString, return TEXT("Error"););
 	
 	
+	/** Called by UActorChannel. Handles creating a new replicator for an actor */
+	ENGINE_API virtual TSharedPtr<FObjectReplicator> CreateReplicatorForNewActorChannel(UObject* Object);
+
 	// Functions.
 
 	/** Resend any pending acks. */
@@ -569,6 +605,12 @@ public:
 
 	/** Send a raw bunch. */
 	ENGINE_API int32 SendRawBunch( FOutBunch& Bunch, bool InAllowMerge );
+
+	/** The maximum number of bits allowed within a single bunch. */
+	FORCEINLINE int32 GetMaxSingleBunchSizeBits() const
+	{
+		return (MaxPacket * 8) - MAX_BUNCH_HEADER_BITS - MAX_PACKET_TRAILER_BITS - MAX_PACKET_HEADER_BITS - MaxPacketHandlerBits;
+	}
 
 	/** @return The driver object */
 	UNetDriver* GetDriver() {return Driver;}

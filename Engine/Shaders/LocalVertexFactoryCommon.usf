@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LocalVertexFactoryCommon.usf: Local vertex factory common functionality
@@ -29,6 +29,10 @@ struct FVertexFactoryInterpolantsVSToPS
 
 #if NEEDS_LIGHTMAP_COORDINATE
 	float4	LightMapCoordinate : TEXCOORD4;
+#endif
+
+#if INSTANCED_STEREO
+	nointerpolation uint PackedEyeIndex : PACKED_EYE_INDEX;
 #endif
 };
 
@@ -144,6 +148,10 @@ struct FVertexFactoryInterpolantsVSToPS
 #if USE_INSTANCING
 	// x = per-instance random, y = per-instance fade out amount, z = hide/show flag, w dither fade cutoff
 	float4  PerInstanceParams : COLOR1;
+#endif
+
+#if INSTANCED_STEREO
+	nointerpolation uint PackedEyeIndex : PACKED_EYE_INDEX;
 #endif
 };
 

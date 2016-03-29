@@ -1,3 +1,4 @@
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimGraphPrivatePCH.h"
 #include "AnimationGraphSchema.h"
@@ -185,7 +186,7 @@ void UK2Node_AnimGetter::GetMenuActions(FBlueprintActionDatabaseRegistrar& Actio
 				else
 				{
 					// Doesn't operate on a node, only need one entry
-					FText Title = FText::Format(LOCTEXT("NodeTitle", "{0}"), Getter->GetDisplayNameText());
+					FText Title = FText::Format(LOCTEXT("NodeTitleNoNode", "{0}"), Getter->GetDisplayNameText());
 					Params.CachedTitle = Title;
 
 					UBlueprintNodeSpawner* Spawner = UBlueprintNodeSpawner::Create(UK2Node_AnimGetter::StaticClass(), nullptr, UBlueprintNodeSpawner::FCustomizeNodeDelegate::CreateUObject(this, &UK2Node_AnimGetter::PostSpawnNodeSetup, Params));

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -190,11 +190,11 @@ public class DeploymentContext //: ProjectParams
 	/// <summary>
 	/// Filename for the manifest of files currently deployed on a device.
 	/// </summary>
-	static public readonly string UFSDeployedManifestFileName		= "Manifest_UFSFiles.txt";
-	static public readonly string NonUFSDeployedManifestFileName	= "Manifest_NonUFSFiles.txt";
+	static public readonly string sUFSDeployedManifestFileName		= "Manifest_UFSFiles.txt";
+	static public readonly string sNonUFSDeployedManifestFileName	= "Manifest_NonUFSFiles.txt";
 
 	
-
+	
 
 	/// <summary>
 	/// The client connects to dedicated server to get data
@@ -249,7 +249,7 @@ public class DeploymentContext //: ProjectParams
 		bool InCookOnTheFly,
 		bool InArchive,
 		bool InProgram,
-		bool bHasDedicatedServerAndClient,
+		bool IsClientInsteadOfNoEditor,
 		bool bInUseWebsocketNetDriver = false
 		)
 	{
@@ -270,7 +270,7 @@ public class DeploymentContext //: ProjectParams
 
         if (CookSourcePlatform != null && InCooked)
         {
-            CookPlatform = CookSourcePlatform.GetCookPlatform(DedicatedServer, bHasDedicatedServerAndClient, CookFlavor);
+			CookPlatform = CookSourcePlatform.GetCookPlatform(DedicatedServer, IsClientInsteadOfNoEditor, CookFlavor);
         }
         else if (CookSourcePlatform != null && InProgram)
         {
@@ -283,7 +283,7 @@ public class DeploymentContext //: ProjectParams
 
 		if (StageTargetPlatform != null && InCooked)
 		{
-            FinalCookPlatform = StageTargetPlatform.GetCookPlatform(DedicatedServer, bHasDedicatedServerAndClient, CookFlavor);
+			FinalCookPlatform = StageTargetPlatform.GetCookPlatform(DedicatedServer, IsClientInsteadOfNoEditor, CookFlavor);
 		}
 		else if (StageTargetPlatform != null && InProgram)
 		{
@@ -391,7 +391,7 @@ public class DeploymentContext //: ProjectParams
 		}
 	}
 
-	public void StageBuildProductsFromReceipt(TargetReceipt Receipt, bool RequireDependenciesToExist)
+	public void StageBuildProductsFromReceipt(TargetReceipt Receipt, bool RequireDependenciesToExist, bool TreatNonShippingBinariesAsDebugFiles)
 	{
 		// Stage all the build products needed at runtime
 		foreach(BuildProduct BuildProduct in Receipt.BuildProducts)
@@ -404,7 +404,13 @@ public class DeploymentContext //: ProjectParams
 
 			if(BuildProduct.Type == BuildProductType.Executable || BuildProduct.Type == BuildProductType.DynamicLibrary || BuildProduct.Type == BuildProductType.RequiredResource)
 			{
-				StageFile(StagedFileType.NonUFS, BuildProduct.Path);
+				StagedFileType FileTypeToUse = StagedFileType.NonUFS;
+				if (TreatNonShippingBinariesAsDebugFiles && Receipt.Configuration != UnrealTargetConfiguration.Shipping)
+				{
+					FileTypeToUse = StagedFileType.DebugNonUFS;
+				}
+
+				StageFile(FileTypeToUse, BuildProduct.Path);
 			}
 			else if(BuildProduct.Type == BuildProductType.SymbolFile)
 			{
@@ -434,7 +440,7 @@ public class DeploymentContext //: ProjectParams
 		foreach(RuntimeDependency RuntimeDependency in Receipt.RuntimeDependencies)
 		{
 			// allow missing files if needed
-			if (RequireDependenciesToExist == false && File.Exists(RuntimeDependency.Path) == false)
+			if ((RequireDependenciesToExist == false || RuntimeDependency.bIgnoreIfMissing) && File.Exists(RuntimeDependency.Path) == false)
 			{
 				continue;
 			}
@@ -483,7 +489,9 @@ public class DeploymentContext //: ProjectParams
                     bool OtherPlatform = false;
                     foreach (UnrealTargetPlatform Plat in Enum.GetValues(typeof(UnrealTargetPlatform)))
                     {
-                        if (Plat != StageTargetPlatform.PlatformType && Plat != UnrealTargetPlatform.Unknown)
+						bool bMatchesIniPlatform = (AllFile.EndsWith(".ini") && Plat == StageTargetPlatform.IniPlatformType); // filter ini files for the ini file platform
+						bool bMatchesTargetPlatform = (Plat == StageTargetPlatform.PlatformType || Plat == UnrealTargetPlatform.Unknown); // filter platform files for the target platform
+						if (!bMatchesIniPlatform && !bMatchesTargetPlatform)
                         {
                             var Search = FileToCopy;
                             if (Search.StartsWith(LocalRoot, StringComparison.InvariantCultureIgnoreCase))
@@ -649,7 +657,7 @@ public class DeploymentContext //: ProjectParams
 		}
 	}
 
-	public int ArchiveFiles(string InPath, string Wildcard = "*", bool bRecursive = true, string[] ExcludeWildcard = null)
+	public int ArchiveFiles(string InPath, string Wildcard = "*", bool bRecursive = true, string[] ExcludeWildcard = null, string NewPath = null)
 	{
 		int FilesAdded = 0;
 
@@ -725,7 +733,22 @@ public class DeploymentContext //: ProjectParams
 				{
 					throw new AutomationException("Can't archive {0}; it was supposed to start with {1}", FileToCopy, InPath);
 				}
-				Dest = FileToCopy.Substring(InPath.Length);
+
+				// If the specified a new directory, first we deal with that, then apply the other things
+				// this is used to collapse the sandbox, among other things
+				if (NewPath != null)
+				{
+					Dest = FileToCopy.Substring(InPath.Length);
+					if (Dest.StartsWith("/") || Dest.StartsWith("\\"))
+					{
+						Dest = Dest.Substring(1);
+					}
+					Dest = CommandUtils.CombinePaths(NewPath, Dest);
+				}
+				else
+				{
+					Dest = FileToCopy.Substring(InPath.Length);
+				}
 
 				if (Dest.StartsWith("/") || Dest.StartsWith("\\"))
 				{
@@ -769,5 +792,36 @@ public class DeploymentContext //: ProjectParams
 	public String GetNonUFSDeploymentObsoletePath()
 	{
 		return Path.Combine(StageDirectory, NonUFSDeployObsoleteFileName);
+	}
+
+	public string UFSDeployedManifestFileName
+	{
+		get
+		{
+			return "Manifest_UFSFiles_" + StageTargetPlatform.PlatformType.ToString() + ".txt";
+		}
+	}
+
+	public string NonUFSDeployedManifestFileName
+	{
+		get
+		{
+			return "Manifest_NonUFSFiles_" + StageTargetPlatform.PlatformType.ToString() + ".txt";
+		}
+	}
+
+	public static string GetNonUFSDeployedManifestFileName(UnrealTargetPlatform PlatformType)
+	{
+		return "Manifest_NonUFSFiles_" + PlatformType.ToString() + ".txt";
+	}
+
+	public static string GetUFSDeployedManifestFileName(UnrealTargetPlatform PlatformType)
+	{
+		return "Manifest_UFSFiles_" + PlatformType.ToString() + ".txt";
+	}
+
+	public static string GetDebugFilesManifestFileName(UnrealTargetPlatform PlatformType)
+	{
+		return "Manifest_DebugFiles_" + PlatformType.ToString() + ".txt";
 	}
 }

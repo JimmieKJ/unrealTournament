@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 //~=============================================================================
 // ParticleModuleLocationPrimitiveCylinder
@@ -18,8 +18,8 @@ enum CylinderHeightAxis
 	PMLPC_HEIGHTAXIS_MAX,
 };
 
-UCLASS(editinlinenew, hidecategories = Object, MinimalAPI, meta = (DisplayName = "Cylinder"))
-class UParticleModuleLocationPrimitiveCylinder : public UParticleModuleLocationPrimitiveBase
+UCLASS(editinlinenew, hidecategories = Object, meta = (DisplayName = "Cylinder"))
+class ENGINE_API UParticleModuleLocationPrimitiveCylinder : public UParticleModuleLocationPrimitiveBase
 {
 	GENERATED_UCLASS_BODY()
 

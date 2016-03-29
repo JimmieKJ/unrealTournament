@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MediaAssetsPrivatePCH.h"
 #include "DeviceProfiles/DeviceProfile.h"
@@ -7,7 +7,7 @@
 /* FMediaTextureResource structors
  *****************************************************************************/
 
-FMediaTextureResource::FMediaTextureResource( const class UMediaTexture* InOwner, const FMediaSampleBufferRef& InVideoBuffer )
+FMediaTextureResource::FMediaTextureResource(const UMediaTexture* InOwner, const FMediaSampleBufferRef& InVideoBuffer)
 	: Cleared(false)
 	, LastFrameTime(FTimespan::MinValue())
 	, Owner(InOwner)

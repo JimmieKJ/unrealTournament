@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 // ..
 
 #include "MetalShaderFormat.h"
@@ -60,6 +60,8 @@ static void BuildMetalShaderOutput(
 	}
 	
 	FMetalCodeHeader Header = {0};
+	Header.bFastMath = !ShaderInput.Environment.CompilerFlags.Contains(CFLAG_NoFastMath);
+	
 	FShaderParameterMap& ParameterMap = ShaderOutput.ParameterMap;
 	EShaderFrequency Frequency = (EShaderFrequency)ShaderOutput.Target.Frequency;
 
@@ -225,7 +227,9 @@ static void BuildMetalShaderOutput(
 		Header.Bindings.PackedUniformBuffers.Add(InfoArray);
 	}
 
-	// Then samplers.
+    uint32 NumTextures = 0;
+    
+    // Then samplers.
 	TMap<FString, uint32> SamplerMap;
 	for (auto& Sampler : CCHeader.Samplers)
 	{
@@ -236,16 +240,15 @@ static void BuildMetalShaderOutput(
 			Sampler.Count
 			);
 
-		Header.Bindings.NumSamplers = FMath::Max<uint8>(
-			Header.Bindings.NumSamplers,
-			Sampler.Offset + Sampler.Count
-			);
+        NumTextures += Sampler.Count;
 
 		for (auto& SamplerState : Sampler.SamplerStates)
 		{
 			SamplerMap.Add(SamplerState, Sampler.Count);
 		}
-	}	
+    }
+    
+    Header.Bindings.NumSamplers = CCHeader.SamplerStates.Num();
 
 	// Then UAVs (images in Metal)
 	for (auto& UAV : CCHeader.UAVs)
@@ -298,7 +301,7 @@ static void BuildMetalShaderOutput(
 	}
 
 	const int32 MaxSamplers = GetFeatureLevelMaxTextureSamplers(ERHIFeatureLevel::ES3_1);
-	Header.ShaderName = CCHeader.Name.GetCharArray();
+	Header.ShaderName = CCHeader.Name;
 
 	if (Header.Bindings.NumSamplers > MaxSamplers)
 	{
@@ -342,7 +345,8 @@ static void BuildMetalShaderOutput(
 		bool bCompileAtRuntime = true;
 		bool bSucceeded = false;
 
-#if PLATFORM_MAC
+#if METAL_OFFLINE_COMPILE
+	#if PLATFORM_MAC
 		const bool bIsMobile = (ShaderInput.Target.Platform == SP_METAL || ShaderInput.Target.Platform == SP_METAL_MRT);
 		FString XcodePath = FPlatformMisc::GetXcodePath();
 		if (XcodePath.Len() > 0 && (bIsMobile || FPlatformMisc::MacOSXVersionCompare(10, 11, 0) >= 0))
@@ -363,7 +367,8 @@ static void BuildMetalShaderOutput(
 			}
 
 			// metal commandlines
-			FString Params = FString::Printf(TEXT("%s -Wno-null-character -ffmast-math %s -o %s"), Standard, *InputFilename, *ObjFilename);
+			FString MathMode = Header.bFastMath ? TEXT("-ffast-math") : TEXT("-fno-fast-math");
+			FString Params = FString::Printf(TEXT("%s -Wno-null-character %s %s -o %s"), *MathMode, Standard, *InputFilename, *ObjFilename);
 			FPlatformProcess::ExecProcess( *MetalPath, *Params, &ReturnCode, &Results, &Errors );
 
 			// handle compile error
@@ -433,6 +438,11 @@ static void BuildMetalShaderOutput(
 				}
 			}
 		}
+	#else
+		// do not compile on non-Windows
+		UE_LOG(LogMetalShaderCompiler, Fatal, TEXT("Metal shader compilation is not supported on this platform"));
+		bSucceeded = false;
+	#endif // PLATFORM_MAC
 #else
 		// Assume success for non-Mac
 		bSucceeded = true;
@@ -520,6 +530,7 @@ void CompileShader_Metal(const FShaderCompilerInput& Input,FShaderCompilerOutput
 	static FName NAME_SF_METAL_MRT(TEXT("SF_METAL_MRT"));
 	static FName NAME_SF_METAL_SM4(TEXT("SF_METAL_SM4"));
 	static FName NAME_SF_METAL_SM5(TEXT("SF_METAL_SM5"));
+	static FName NAME_SF_METAL_MACES3_1(TEXT("SF_METAL_MACES3_1"));
 	
 	TCHAR const* Standard = TEXT("-std=ios-metal1.0");
 
@@ -530,6 +541,13 @@ void CompileShader_Metal(const FShaderCompilerInput& Input,FShaderCompilerOutput
 	else if (Input.ShaderFormat == NAME_SF_METAL_MRT)
 	{
 		AdditionalDefines.SetDefine(TEXT("METAL_MRT_PROFILE"), 1);
+	}
+	else if (Input.ShaderFormat == NAME_SF_METAL_MACES3_1)
+	{
+		AdditionalDefines.SetDefine(TEXT("METAL_PROFILE"), 1);
+		AdditionalDefines.SetDefine(TEXT("FORCE_FLOATS"), 1); // Force floats to avoid radr://24884199 & radr://24884860
+		Standard = TEXT("-std=osx-metal1.1");
+		MetalCompilerTarget = HCT_FeatureLevelES3_1;
 	}
 	else if (Input.ShaderFormat == NAME_SF_METAL_SM4)
 	{
@@ -565,6 +583,9 @@ void CompileShader_Metal(const FShaderCompilerInput& Input,FShaderCompilerOutput
 
 	if (PreprocessShader(PreprocessedShader, Output, Input, AdditionalDefines))
 	{
+		// Disable instanced stereo until supported for metal
+		StripInstancedStereo(PreprocessedShader);
+
 		char* MetalShaderSource = NULL;
 		char* ErrorLog = NULL;
 

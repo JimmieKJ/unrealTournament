@@ -1,15 +1,15 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-/* FMacTargetShaderFormatsPropertyDetails
+/* FMacShaderFormatsPropertyDetails
  *****************************************************************************/
 
 /**
  * Helper which implements details panel customizations for a device profiles parent property
  */
-class FMacTargetShaderFormatsPropertyDetails
-: public TSharedFromThis<FMacTargetShaderFormatsPropertyDetails>
+class FMacShaderFormatsPropertyDetails
+: public TSharedFromThis<FMacShaderFormatsPropertyDetails>
 {
 	
 public:
@@ -18,8 +18,10 @@ public:
 	 * Constructor for the parent property details view
 	 *
 	 * @param InDetailsBuilder - Where we are adding our property view to
+	 * @param InProperty - The category name to override
+	 * @param InTitle - Title for display
 	 */
-	FMacTargetShaderFormatsPropertyDetails(IDetailLayoutBuilder* InDetailBuilder);
+	FMacShaderFormatsPropertyDetails(IDetailLayoutBuilder* InDetailBuilder, FString InProperty, FString InTitle);
 	
 	
 	/**
@@ -39,7 +41,13 @@ private:
 	IDetailLayoutBuilder* DetailBuilder;
 	
 	/** Access to the Parent Property */
-	TSharedPtr<IPropertyHandle> TargetShaderFormatsPropertyHandle;
+	TSharedPtr<IPropertyHandle> ShaderFormatsPropertyHandle;
+	
+	/** The category name to override */
+	FString Property;
+	
+	/** Title for display */
+	FString Title;
 };
 
 /**
@@ -66,5 +74,8 @@ private:
 	
 private:
 	/** Reference to the target shader formats property view */
-	TSharedPtr<FMacTargetShaderFormatsPropertyDetails> TargetShaderFormatsDetails;
+	TSharedPtr<FMacShaderFormatsPropertyDetails> TargetShaderFormatsDetails;
+	
+	/** Reference to the cached shader formats property view */
+	TSharedPtr<FMacShaderFormatsPropertyDetails> CachedShaderFormatsDetails;
 };

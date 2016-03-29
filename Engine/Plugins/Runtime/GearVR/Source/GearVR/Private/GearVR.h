@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "HeadMountedDisplay.h"
@@ -14,9 +14,11 @@
 #endif
 	
 PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
-#include "OVR.h"
+#include "OVR_Math.h"
 #include "VrApi.h"
-#include "VrApi_Android.h"
+#include "VrApi_Helpers.h"
+#include "VrApi_LocalPrefs.h"
+#include "SystemActivities.h"
 PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
 
 #include <GLES2/gl2.h>
@@ -27,7 +29,6 @@ using namespace OVR;
 #pragma pack (pop)
 #endif
 
-#define OVR_DEFAULT_IPD 0.064f
 #define OVR_DEFAULT_EYE_RENDER_TARGET_WIDTH		1024
 #define OVR_DEFAULT_EYE_RENDER_TARGET_HEIGHT	1024
 
@@ -112,9 +113,6 @@ public:
 
 	int				CpuLevel;
 	int				GpuLevel;
-
-	/** Motion prediction (in seconds). 0 - no prediction */
-	double			MotionPredictionInSeconds;
 
 	/** Vector defining center eye offset for head neck model in meters */
 	FVector			HeadModel;
@@ -243,15 +241,27 @@ public:
 	bool AllocateRenderTargetTexture(uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 Flags, uint32 TargetableTextureFlags, FTexture2DRHIRef& OutTargetableTexture, FTexture2DRHIRef& OutShaderResourceTexture, uint32 NumSamples);
 
 	FOvrMobileSynced GetMobileSynced() { return FOvrMobileSynced(OvrMobile, &OvrMobileLock); }
-	void DoEnterVRMode();
-	void DoLeaveVRMode();
+	void EnterVRMode_RenderThread();
+	void LeaveVRMode_RenderThread();
 
 	pid_t GetRenderThreadId() const { return RenderThreadId; }
-private:
-	void DicedBlit(uint32 SourceX, uint32 SourceY, uint32 DestX, uint32 DestY, uint32 Width, uint32 Height, uint32 NumXSteps, uint32 NumYSteps);
 
+	// Allocates a texture set and copies the texture into it.
+	// To turn it off, call with 'nullptr' param.
+	void SetLoadingIconTexture_RenderThread(FTextureRHIRef Texture);
+
+	// Sets/clears "loading icon mode"
+	void SetLoadingIconMode(bool bLoadingIconActive);
+	bool IsInLoadingIconMode() const;
+
+	// Forcedly renders the loading icon.
+	void RenderLoadingIcon_RenderThread(uint32 FrameIndex);
+	
 protected:
 	void SetRenderContext(FHMDViewExtension* InRenderContext);
+	void DoRenderLoadingIcon_RenderThread(int CpuLevel, int GpuLevel, pid_t GameTid);
+	void SystemActivities_Update_RenderThread();
+	void PushBlackFinal(const FGameFrame& frame);
 
 protected: // data
 	TSharedPtr<FViewExtension, ESPMode::ThreadSafe> RenderContext;
@@ -259,8 +269,14 @@ protected: // data
 
 	// should be accessed only on a RenderThread!
 	ovrFrameParms							FrameParms;
+	ovrFrameParms							LoadingIconParms;
 	ovrPerformanceParms						DefaultPerfParms;
 	TRefCountPtr<class FOpenGLTexture2DSet>	TextureSet;
+	ovrTextureSwapChain*					LoadingIconTextureSet;
+	FTextureRHIRef							SrcLoadingIconTexture;
+	bool									bLoadingIconIsActive;
+	bool									bExtraLatencyMode;
+	bool									bHMTWasMounted;
 	int32									MinimumVsyncs;
 
 	ovrMobile*								OvrMobile;		// to be accessed only on RenderThread (or, when RT is suspended)
@@ -330,12 +346,17 @@ public:
 	    assuming that current yaw is forward direction and assuming
 		current position as 0 point. */
 	virtual void ResetOrientationAndPosition(float yaw = 0.f) override;
+	virtual void ResetOrientation(float yaw = 0.f) override { ResetOrientationAndPosition(yaw); }
 
 	void RebaseObjectOrientationAndPosition(FVector& OutPosition, FQuat& OutOrientation) const override;
 
 	virtual FString GetVersionString() const override;
 
 	virtual void DrawDebug(UCanvas* Canvas) override;
+
+	virtual bool HandleInputKey(class UPlayerInput*, const FKey& Key, EInputEvent EventType, float AmountDepressed, bool bGamepad) override;
+
+	//virtual FHMDLayerManager* GetLayerManager() override { return nullptr; }
 
 	/** Constructor */
 	FGearVR();
@@ -355,6 +376,10 @@ public:
 	float GetTemperatureInCelsius() const;
 	float GetBatteryLevel() const;
 
+	void SetLoadingIconTexture(FTextureRHIRef InTexture);
+	void SetLoadingIconMode(bool bActiveLoadingIcon);
+	void RenderLoadingIcon_RenderThread();
+	bool IsInLoadingIconMode() const;
 private:
 	FGearVR* getThis() { return this; }
 
@@ -413,14 +438,31 @@ protected:
 		check(pGearVRBridge);
 		return pGearVRBridge->GetMobileSynced();
 	}
+	// Can be called on GameThread to figure out if OvrMobile obj is valid.
+	bool HasValidOvrMobile() const;
+
+	void HandleBackButtonAction();
+	void StartSystemActivity_RenderThread(const char * commandString);
+	void PushBlackFinal();
+
 private: // data
 
 	FRotator			DeltaControlRotation;    // same as DeltaControlOrientation but as rotator
 
-	ovrHmdInfo			HmdInfo;	// to be accessed only on RenderThread (or, when RT is suspended)
 	ovrJava				JavaGT;		// game thread (main) Java VM obj	
 
 	float				ResetToYaw; // used for delayed orientation/position reset
+
+	typedef enum
+	{
+		BACK_BUTTON_STATE_NONE,
+		BACK_BUTTON_STATE_PENDING_DOUBLE_TAP,
+		BACK_BUTTON_STATE_PENDING_SHORT_PRESS,
+		BACK_BUTTON_STATE_SKIP_UP
+	} ovrBackButtonState;
+	ovrBackButtonState	BackButtonState;
+	bool				BackButtonDown;
+	double				BackButtonDownStartTime;
 
 	union
 	{
@@ -428,6 +470,9 @@ private: // data
 		{
 			/** To perform delayed orientation and position reset */
 			uint64	NeedResetOrientationAndPosition : 1;
+
+			/** Is the app resumed or not */
+			uint64  bResumed : 1;
 		};
 		uint64 Raw;
 	} OCFlags;

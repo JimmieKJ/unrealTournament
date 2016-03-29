@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -21,12 +21,13 @@ private:
 	FName Format;
 	bool bGenerateNormalMesh;
 	bool bGenerateMirroredMesh;	
+	int32 RuntimeCookFlags;
 	const class IPhysXFormat* Cooker;
 	FGuid DataGuid;
 	FString MeshId;
 
 public:
-	FDerivedDataPhysXCooker( FName InFormat, UBodySetup* InBodySetup );
+	FDerivedDataPhysXCooker(FName InFormat, int32 InRuntimeCookFlags, UBodySetup* InBodySetup);
 
 	virtual const TCHAR* GetPluginName() const override
 	{
@@ -38,7 +39,7 @@ public:
 		// This is a version string that mimics the old versioning scheme. If you
 		// want to bump this version, generate a new guid using VS->Tools->Create GUID and
 		// return it here. Ex.
-		return TEXT("1D9C17C451EA4FB88CB7A27536A65DB0");
+		return TEXT("F4A1A1C74D09407EB40C82094A33556D");
 	}
 
 	virtual FString GetPluginSpecificCacheKeySuffix() const override
@@ -53,12 +54,13 @@ public:
 				((PX_PHYSICS_VERSION_BUGFIX & 0xF) << 4) |
 				((UE_PHYSX_DERIVEDDATA_VER	& 0xF));
 
-		return FString::Printf( TEXT("%s_%s_%s_%d_%d_%hu_%hu"),
+		return FString::Printf( TEXT("%s_%s_%s_%d_%d_%d_%hu_%hu"),
 			*Format.ToString(),
 			*DataGuid.ToString(),
 			*MeshId,
 			(int32)bGenerateNormalMesh,
 			(int32)bGenerateMirroredMesh,
+			(int32)RuntimeCookFlags,
 			PhysXVersion,
 			Cooker ? Cooker->GetVersion( Format ) : 0xffff
 			);

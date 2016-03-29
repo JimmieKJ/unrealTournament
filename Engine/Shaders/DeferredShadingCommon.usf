@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DeferredShadingCommon.usf: Common definitions for deferred shading.
@@ -68,6 +68,19 @@ float3 OctahedronToUnitVector( float2 Oct )
 	return normalize(N);
 }
 
+float2 UnitVectorToHemiOctahedron( float3 N )
+{
+	N.xy /= dot( 1, abs(N) );
+	return float2( N.x + N.y, N.x - N.y );
+}
+
+float3 HemiOctahedronToUnitVector( float2 Oct )
+{
+	Oct = float2( Oct.x + Oct.y, Oct.x - Oct.y ) * 0.5;
+	float3 N = float3( Oct, 1 - dot( 1, abs(Oct) ) );
+	return normalize(N);
+}
+
 float3 Pack1212To888( float2 x )
 {
 	// Pack 12:12 to 8:8:8
@@ -114,6 +127,45 @@ float3 DecodeNormal( float3 N )
 {
 	return N * 2 - 1;
 	//return OctahedronToUnitVector( Pack888To1212( N ) * 2 - 1 );
+}
+
+void EncodeNormal( inout float3 N, out uint Face )
+{
+#if 1
+	uint Axis = 2;
+	if( abs(N.x) >= abs(N.y) && abs(N.x) >= abs(N.z) )
+	{
+		Axis = 0;
+	}
+	else if( abs(N.y) > abs(N.z) )
+	{
+		Axis = 1;
+	}
+	Face = Axis * 2;
+#else
+	// TODO GCN
+	Face = v_cubeid_f32( N );
+	uint Axis = Face >> 1;
+#endif
+
+	N = Axis == 0 ? N.yzx : N;
+	N = Axis == 1 ? N.xzy : N;
+	
+	Face += N.z > 0 ? 0 : 1;
+	N.xy *= N.z > 0 ? 1 : -1;
+	N.xy = N.xy * 0.5 + 0.5;
+}
+
+void DecodeNormal( inout float3 N, in uint Face )
+{
+	uint Axis = Face >> 1;
+
+	N.xy = N.xy * 2 - 1;
+	N.z = sqrt( 1 - dot( N.xy, N.xy ) );
+
+	N = Axis == 0 ? N.zxy : N;
+	N = Axis == 1 ? N.xzy : N;
+	N *= (Face & 1) ? -1 : 1;
 }
 
 float3 EncodeBaseColor(float3 BaseColor)
@@ -218,7 +270,7 @@ float Decode71(float Scalar, out uint Mask)
 #define SHADINGMODELID_MASK					0xF					
 
 // The flags are defined so that 0 value has no effect!
-#define SKIP_CUSTOMDATA_MASK			(1 << 4)
+#define SKIP_CUSTOMDATA_MASK			(1 << 4)	// TODO remove. Can be inferred from shading model.
 #define SKIP_PRECSHADOW_MASK			(1 << 5)
 #define ZERO_PRECSHADOW_MASK			(1 << 6)
 #define SKIP_VELOCITY_MASK				(1 << 7)
@@ -354,21 +406,35 @@ void EncodeGBuffer(
 	float QuantizationBias = 0		// -0.5 to 0.5 random float. Used to bias quantization.
 	)
 {
-	OutGBufferA.rgb = EncodeNormal( GBuffer.WorldNormal );
-	OutGBufferA.a = GBuffer.PerObjectGBufferData;
-
 	if (GBuffer.ShadingModelID == SHADINGMODELID_UNLIT)
 	{
+		OutGBufferA = 0;
 		OutGBufferB = 0;
 		OutGBufferC = 0;
 		OutGBufferD = 0;
+		OutGBufferE = 0;
 	}
 	else
 	{
+#if 1
+		OutGBufferA.rgb = EncodeNormal( GBuffer.WorldNormal );
+		OutGBufferA.a = GBuffer.PerObjectGBufferData;
+#else
+		float3 Normal = GBuffer.WorldNormal;
+		uint   NormalFace = 0;
+		EncodeNormal( Normal, NormalFace );
+
+		OutGBufferA.rg = Normal.xy;
+		OutGBufferA.b = 0;
+		OutGBufferA.a = GBuffer.PerObjectGBufferData;
+#endif
+
 		OutGBufferB.r = GBuffer.Metallic;
 		OutGBufferB.g = GBuffer.Specular;
 		OutGBufferB.b = GBuffer.Roughness;
-		OutGBufferC.rgb = EncodeBaseColor(GBuffer.BaseColor);
+		OutGBufferB.a = EncodeShadingModelIdAndSelectiveOutputMask(GBuffer.ShadingModelID, GBuffer.SelectiveOutputMask);
+
+		OutGBufferC.rgb = EncodeBaseColor( GBuffer.BaseColor );
 
 #if ALLOW_STATIC_LIGHTING
 		// No space for AO. Multiply IndirectIrradiance by AO instead of storing.
@@ -377,11 +443,9 @@ void EncodeGBuffer(
 		OutGBufferC.a = GBuffer.GBufferAO;
 #endif
 
-		OutGBufferB.a = EncodeShadingModelIdAndSelectiveOutputMask(GBuffer.ShadingModelID, GBuffer.SelectiveOutputMask);
 		OutGBufferD = GBuffer.CustomData;
+		OutGBufferE = GBuffer.PrecomputedShadowFactors;
 	}
-
-	OutGBufferE = GBuffer.PrecomputedShadowFactors;
 
 #if WRITES_VELOCITY_TO_GBUFFER
 	OutGBufferVelocity = GBuffer.Velocity;
@@ -397,7 +461,7 @@ bool CheckerFromPixelPos(uint2 PixelPos)
 {
 	// todo: Index is float and by staying float we can optimize this 
 	// We alternate the pattern to get 2x supersampling on the lower res data to get more near to full res
-	uint TemporalAASampleIndex = View.TemporalAAParams.x;
+	uint TemporalAASampleIndex = Frame.TemporalAAParams.x;
 
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
 	return (PixelPos.x + PixelPos.y + TemporalAASampleIndex) % 2;
@@ -412,7 +476,7 @@ bool CheckerFromPixelPos(uint2 PixelPos)
 bool CheckerFromSceneColorUV(float2 UVSceneColor)
 {
 	// relative to left top of the rendertarget (not viewport)
-	uint2 PixelPos = uint2(UVSceneColor * View.BufferSizeAndInvSize.xy);
+	uint2 PixelPos = uint2(UVSceneColor * Frame.BufferSizeAndInvSize.xy);
 
 	return CheckerFromPixelPos(PixelPos);
 }
@@ -440,20 +504,15 @@ FGBufferData DecodeGBufferData(
 		GBuffer.WorldNormal = normalize(GBuffer.WorldNormal);
 	}
 
+	GBuffer.PerObjectGBufferData = InGBufferA.a;
+
+	GBuffer.Metallic	= InGBufferB.r;
+	GBuffer.Specular	= InGBufferB.g;
+	GBuffer.Roughness	= InGBufferB.b;
+	GBuffer.ShadingModelID = DecodeShadingModelId(InGBufferB.a);
 	GBuffer.SelectiveOutputMask = DecodeSelectiveOutputMask(InGBufferB.a);
 
-	GBuffer.PerObjectGBufferData = InGBufferA.a;
-	GBuffer.ShadingModelID = DecodeShadingModelId(InGBufferB.a);
-	
-	GBuffer.StoredBaseColor = DecodeBaseColor(InGBufferC.rgb);
-	GBuffer.BaseColor = GBuffer.StoredBaseColor;
-
-	GBuffer.Metallic = InGBufferB.r;
-	GBuffer.StoredSpecular = InGBufferB.g;
-	GBuffer.Specular = GBuffer.StoredSpecular.g;
-	
-	GBuffer.Roughness = InGBufferB.b;
-	GBuffer.CustomData = !(GBuffer.SelectiveOutputMask & SKIP_CUSTOMDATA_MASK) ? InGBufferD : 0;
+	GBuffer.BaseColor = DecodeBaseColor(InGBufferC.rgb);
 
 #if ALLOW_STATIC_LIGHTING
 	GBuffer.GBufferAO = 1;
@@ -463,11 +522,16 @@ FGBufferData DecodeGBufferData(
 	GBuffer.IndirectIrradiance = 1;
 #endif
 
+	GBuffer.CustomData = !(GBuffer.SelectiveOutputMask & SKIP_CUSTOMDATA_MASK) ? InGBufferD : 0;
+
 	GBuffer.PrecomputedShadowFactors = !(GBuffer.SelectiveOutputMask & SKIP_PRECSHADOW_MASK) ? InGBufferE :  ((GBuffer.SelectiveOutputMask & ZERO_PRECSHADOW_MASK) ? 0 :  1);
 	GBuffer.CustomDepth = ConvertFromDeviceZ(CustomNativeDepth);
 	GBuffer.CustomStencil = CustomStencil;
 	GBuffer.Depth = SceneDepth;
 
+	GBuffer.StoredBaseColor = GBuffer.BaseColor;
+	GBuffer.StoredSpecular = GBuffer.Specular;
+	
 	if(GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE)
 	{
 		// we apply the BaseColor and Specular later, this is why we need StoredBaseColor
@@ -483,8 +547,8 @@ FGBufferData DecodeGBufferData(
 		#if USE_DEVELOPMENT_SHADERS
 		{
 			// this feature is only needed for development/editor - we can compile it out for a shipping build (see r.CompileShadersForDevelopment cvar help)
-			GBuffer.DiffuseColor = GBuffer.DiffuseColor * View.DiffuseOverrideParameter.www + View.DiffuseOverrideParameter.xyz;
-			GBuffer.SpecularColor = GBuffer.SpecularColor * View.SpecularOverrideParameter.w + View.SpecularOverrideParameter.xyz;
+			GBuffer.DiffuseColor = GBuffer.DiffuseColor * Frame.DiffuseOverrideParameter.www + Frame.DiffuseOverrideParameter.xyz;
+			GBuffer.SpecularColor = GBuffer.SpecularColor * Frame.SpecularOverrideParameter.w + Frame.SpecularOverrideParameter.xyz;
 		}
 		#endif //USE_DEVELOPMENT_SHADERS
 	}
@@ -615,7 +679,7 @@ SamplerState	DirectionalOcclusionSampler;
 		float4 GBufferC = GBuffers.GBufferCTextureNonMS.Load(int3(PixelPos, 0));
 		float4 GBufferD = GBuffers.GBufferDTextureNonMS.Load(int3(PixelPos, 0));
 		float CustomNativeDepth = CustomDepthTextureNonMS.Load(int3(PixelPos, 0)).r;
-		uint CustomStencil = CustomStencilTexture.Load(int3(PixelPos, 0)).g;
+		uint CustomStencil = CustomStencilTexture.Load(int3(PixelPos, 0)) STENCIL_COMPONENT_SWIZZLE;
 
 		#if ALLOW_STATIC_LIGHTING
 			float4 GBufferE = GBuffers.GBufferETextureNonMS.Load(int3(PixelPos, 0));
@@ -654,25 +718,12 @@ SamplerState	DirectionalOcclusionSampler;
 		// todo: optimize
 		// this is what we want but because WhiteDummy (in case AO is disabled) doesn't support this lookup we do the code below
 //		Out.AmbientOcclusion = ScreenSpaceAOTextureNonMS.Load(int3(PixelPos, 0)).r;
-		{
-			uint width;
-			uint height;
-			uint levels;
 
-			ScreenSpaceAOTextureNonMS.GetDimensions(0, width, height, levels);
-			float4 ScreenSpaceAO = Texture2DSampleLevel(ScreenSpaceAOTexture, ScreenSpaceAOTextureSampler, (PixelPos + 0.5f) / float2(width, height), 0);
+		float4 ScreenSpaceAO = Texture2DSampleLevel(ScreenSpaceAOTexture, ScreenSpaceAOTextureSampler, (PixelPos + 0.5f) * Frame.BufferSizeAndInvSize.zw, 0);
+		Out.AmbientOcclusion = ScreenSpaceAO.r;
 
-			Out.AmbientOcclusion = ScreenSpaceAO.r;
-		}
+		Out.DirectionalOcclusion = Texture2DSampleLevel( DirectionalOcclusionTexture, DirectionalOcclusionSampler, (PixelPos + 0.5f) * Frame.BufferSizeAndInvSize.zw, 0 ).rg;
 
-		{
-			uint width;
-			uint height;
-			uint levels;
-
-			DirectionalOcclusionTexture.GetDimensions(0, width, height, levels);
-			Out.DirectionalOcclusion = Texture2DSampleLevel( DirectionalOcclusionTexture, DirectionalOcclusionSampler, (PixelPos + 0.5f) / float2(width, height), 0 ).rg;
-		}
 		return Out;
 	}
 #endif
@@ -702,11 +753,8 @@ FGBufferData GetGBufferData(float2 UV, bool bGetNormalizedNormal = true)
 	float CustomNativeDepth = Texture2DSampleLevel(CustomDepthTexture, CustomDepthTextureSampler, UV, 0).r;
 
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
-	float2 SurfaceDimensions;
-	CustomStencilTexture.GetDimensions(SurfaceDimensions.x, SurfaceDimensions.y);
-
-	int2 IntUV = (int2)trunc(UV * SurfaceDimensions);
-	uint CustomStencil = CustomStencilTexture.Load(int3(IntUV, 0)).g;
+	int2 IntUV = (int2)trunc(UV * Frame.BufferSizeAndInvSize.xy);
+	uint CustomStencil = CustomStencilTexture.Load(int3(IntUV, 0)) STENCIL_COMPONENT_SWIZZLE;
 #else
 	uint CustomStencil = 0;
 #endif
@@ -777,7 +825,7 @@ FScreenSpaceData GetScreenSpaceData(float2 UV, bool bGetNormalizedNormal = true)
 		float4 GBufferC = GBuffers.GBufferCTextureMS.Load(PixelPos, SampleIndex);
 		float4 GBufferD = GBuffers.GBufferDTextureMS.Load(PixelPos, SampleIndex);
 		float CustomNativeDepth = CustomDepthTextureNonMS.Load(int3(PixelPos, 0)).r;
-		uint CustomStencil = CustomStencilTexture.Load(int3(PixelPos, 0)).g;
+		uint CustomStencil = CustomStencilTexture.Load(int3(PixelPos, 0)) STENCIL_COMPONENT_SWIZZLE;
 
 		#if ALLOW_STATIC_LIGHTING
 			float4 GBufferE = GBuffers.GBufferETextureMS.Load(PixelPos, SampleIndex);
@@ -799,16 +847,46 @@ FScreenSpaceData GetScreenSpaceData(float2 UV, bool bGetNormalizedNormal = true)
 
 	FGBufferData GetGBufferDataMS(float2 UV, uint SampleIndex, bool bGetNormalizedNormal = true)
 	{
-		float2 SurfaceDimensions;
-		float NumSurfaceSamples;
-		// assuming all GBuffers share the same size
-		GBuffers.GBufferCTextureMS.GetDimensions(SurfaceDimensions.x, SurfaceDimensions.y, NumSurfaceSamples);
-
-		int2 IntUV = (int2)trunc(UV * SurfaceDimensions);
+		int2 IntUV = (int2)trunc(UV * Frame.BufferSizeAndInvSize.xy);
 
 		return GetGBufferDataMS(IntUV, SampleIndex, bGetNormalizedNormal);
 	}
 #endif
 
+
+// for debugging and to visualize
+float3 GetShadingModelColor(uint ShadingModelID)
+{
+	// TODO: PS4 doesn't optimize out correctly the switch(), so it thinks it needs all the Samplers even if they get compiled out
+	//	This will get fixed after launch per Sony...
+#if PS4_PROFILE
+		 if (ShadingModelID == SHADINGMODELID_UNLIT) return float3(0.1f, 0.1f, 0.2f); // Dark Blue
+	else if (ShadingModelID == SHADINGMODELID_DEFAULT_LIT) return float3(0.1f, 1.0f, 0.1f); // Green
+	else if (ShadingModelID == SHADINGMODELID_SUBSURFACE) return float3(1.0f, 0.1f, 0.1f); // Red
+	else if (ShadingModelID == SHADINGMODELID_PREINTEGRATED_SKIN) return float3(0.6f, 0.4f, 0.1f); // Brown
+	else if (ShadingModelID == SHADINGMODELID_CLEAR_COAT) return float3(0.1f, 0.4f, 0.4f); 
+	else if (ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE) return float3(0.2f, 0.6f, 0.5f); // Cyan
+	else if (ShadingModelID == SHADINGMODELID_TWOSIDED_FOLIAGE) return float3(0.2f, 0.2f, 0.8f); // Blue
+	else if (ShadingModelID == SHADINGMODELID_HAIR) return float3(0.6f, 0.1f, 0.5f);
+	else if (ShadingModelID == SHADINGMODELID_CLOTH) return float3(0.7f, 1.0f, 1.0f); 
+	else if (ShadingModelID == SHADINGMODELID_EYE) return float3(0.3f, 1.0f, 1.0f); 
+	else return float3(1.0f, 1.0f, 1.0f); // White
+#else
+	switch(ShadingModelID)
+	{
+		case SHADINGMODELID_UNLIT: return float3(0.1f, 0.1f, 0.2f); // Dark Blue
+		case SHADINGMODELID_DEFAULT_LIT: return float3(0.1f, 1.0f, 0.1f); // Green
+		case SHADINGMODELID_SUBSURFACE: return float3(1.0f, 0.1f, 0.1f); // Red
+		case SHADINGMODELID_PREINTEGRATED_SKIN: return float3(0.6f, 0.4f, 0.1f); // Brown
+		case SHADINGMODELID_CLEAR_COAT: return float3(0.1f, 0.4f, 0.4f); // Brown
+		case SHADINGMODELID_SUBSURFACE_PROFILE: return float3(0.2f, 0.6f, 0.5f); // Cyan
+		case SHADINGMODELID_TWOSIDED_FOLIAGE: return float3(0.2f, 0.2f, 0.8f); // Cyan
+		case SHADINGMODELID_HAIR: return float3(0.6f, 0.1f, 0.5f);
+		case SHADINGMODELID_CLOTH: return float3(0.7f, 1.0f, 1.0f);
+		case SHADINGMODELID_EYE: return float3(0.3f, 1.0f, 1.0f);
+		default: return float3(1.0f, 1.0f, 1.0f); // White
+	}
+#endif
+}
 
 #endif // __DEFERRED_SHADING_COMMON__

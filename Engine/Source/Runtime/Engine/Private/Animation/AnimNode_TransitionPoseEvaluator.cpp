@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Animation/AnimNode_TransitionPoseEvaluator.h"
@@ -34,7 +34,7 @@ void FAnimNode_TransitionPoseEvaluator::Initialize(const FAnimationInitializeCon
 void FAnimNode_TransitionPoseEvaluator::CacheBones(const FAnimationCacheBonesContext& Context) 
 {
 	CachedPose.SetBoneContainer(&Context.AnimInstanceProxy->GetRequiredBones());
-	CachedCurve.InitFrom(Context.AnimInstanceProxy->GetSkeleton());
+	CachedCurve.InitFrom(Context.AnimInstanceProxy->GetSkelMeshComponent()->GetCachedAnimCurveMappingNameUids());
 }
 
 void FAnimNode_TransitionPoseEvaluator::Update(const FAnimationUpdateContext& Context)

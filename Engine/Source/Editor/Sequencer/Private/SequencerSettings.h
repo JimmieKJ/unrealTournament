@@ -1,8 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "SequencerSettings.generated.h"
+
 
 UENUM()
 enum ESequencerSpawnPosition
@@ -14,9 +15,11 @@ enum ESequencerSpawnPosition
 	SSP_PlaceInFrontOfCamera UMETA(DisplayName="Place in Front of Camera"),
 };
 
+
 /** Empty class used to house multiple named USequencerSettings */
 UCLASS()
-class USequencerSettingsContainer : public UObject
+class USequencerSettingsContainer
+	: public UObject
 {
 public:
 	GENERATED_BODY()
@@ -45,19 +48,21 @@ public:
 	}
 };
 
+
 /** Serializable options for sequencer. */
 UCLASS(config=EditorPerProjectUserSettings, PerObjectConfig)
-class USequencerSettings : public UObject
+class USequencerSettings
+	: public UObject
 {
 public:
 	GENERATED_UCLASS_BODY()
 
 	DECLARE_MULTICAST_DELEGATE( FOnShowCurveEditorChanged );
 
-	/** Gets whether or not auto key is enabled. */
-	bool GetAutoKeyEnabled() const;
-	/** Sets whether or not auto key is enabled. */
-	void SetAutoKeyEnabled(bool InbAutoKeyEnabled);
+	/** Gets the current auto-key mode. */
+	EAutoKeyMode GetAutoKeyMode() const;
+	/** Sets the current auto-key mode. */
+	void SetAutoKeyMode(EAutoKeyMode AutoKeyMode);
 
 	/** Gets whether or not key all is enabled. */
 	bool GetKeyAllEnabled() const;
@@ -119,6 +124,11 @@ public:
 	/** sets whether or not to snap sections to other sections. */
 	void SetSnapSectionTimesToSections( bool InbSnapSectionTimesToSections );
 
+	/** Gets whether or not to snap the play time to keys while scrubbing. */
+	bool GetSnapPlayTimeToKeys() const;
+	/** Sets whether or not to snap the play time to keys while scrubbing. */
+	void SetSnapPlayTimeToKeys(bool InbSnapPlayTimeToKeys);
+
 	/** Gets whether or not to snap the play time to the interval while scrubbing. */
 	bool GetSnapPlayTimeToInterval() const;
 	/** Sets whether or not to snap the play time to the interval while scrubbing. */
@@ -128,6 +138,11 @@ public:
 	bool GetSnapPlayTimeToDraggedKey() const;
 	/** Sets whether or not to snap the play time to the dragged key. */
 	void SetSnapPlayTimeToDraggedKey(bool InbSnapPlayTimeToDraggedKey);
+
+	/** Gets whether to lock the play rate to the frame rate. */
+	bool GetFixedTimeStepPlayback() const;
+	/** Sets whether or not to lock the play rate to the frame rate. */
+	void SetFixedTimeStepPlayback(bool InbFTixedTimeStepPlayback);
 
 	/** Gets the snapping interval for curve values. */
 	float GetCurveValueSnapInterval() const;
@@ -166,6 +181,11 @@ public:
 	/** Sets whether or not to show curve tool tips in the curve editor. */
 	void SetShowCurveEditorCurveToolTips(bool InbShowCurveEditorCurveToolTips);
 	
+	/** Gets whether or not to link the curve editor time range. */
+	bool GetLinkCurveEditorTimeRange() const;
+	/** Sets whether or not to link the curve editor time range. */
+	void SetLinkCurveEditorTimeRange(bool InbLinkCurveEditorTimeRange);
+
 	/** Gets the loop mode. */
 	bool IsLooping() const;
 	/** Sets the loop mode. */
@@ -176,6 +196,36 @@ public:
 	/** Set whether or not the cursor should be kept within the playback range during playback in sequencer */
 	void SetKeepCursorInPlayRange(bool bInKeepCursorInPlayRange);
 
+	/** @return true if the playback range should be synced to the section bounds, false otherwise */
+	bool ShouldKeepPlayRangeInSectionBounds() const;
+	/** Set whether or not the playback range should be synced to the section bounds */
+	void SetKeepPlayRangeInSectionBounds(bool bInKeepPlayRangeInSectionBounds);
+
+	/** Get the number of digits we should zero-pad to when showing frame numbers in sequencer */
+	uint8 GetZeroPadFrames() const;
+	/** Set the number of digits we should zero-pad to when showing frame numbers in sequencer */
+	void SetZeroPadFrames(uint8 InZeroPadFrames);
+
+	/** @return true if showing combined keyframes at the top node */
+	bool GetShowCombinedKeyframes() const;
+	/** Set whether to show combined keyframes at the top node */ 
+	void SetShowCombinedKeyframes(bool bInShowCombinedKeyframes);
+
+	/** @return true if key areas are infinite */
+	bool GetInfiniteKeyAreas() const;
+	/** Set whether to show channel colors */
+	void SetInfiniteKeyAreas(bool bInInfiniteKeyAreas);
+
+	/** @return true if showing channel colors */
+	bool GetShowChannelColors() const;
+	/** Set whether to show channel colors */
+	void SetShowChannelColors(bool bInShowChannelColors);
+
+	/** @return true if showing transport controls in level editor viewports */
+	bool GetShowViewportTransportControls() const;
+	/** Toggle whether to show transport controls in level editor viewports */
+	void SetShowViewportTransportControls(bool bVisible);
+
 	/** Snaps a time value in seconds to the currently selected interval. */
 	float SnapTimeToInterval(float InTimeValue) const;
 
@@ -183,8 +233,9 @@ public:
 	FOnShowCurveEditorChanged& GetOnShowCurveEditorChanged();
 
 protected:
+
 	UPROPERTY( config )
-	bool bAutoKeyEnabled;
+	TEnumAsByte<EAutoKeyMode> AutoKeyMode;
 
 	UPROPERTY( config )
 	bool bKeyAllEnabled;
@@ -223,10 +274,16 @@ protected:
 	bool bSnapSectionTimesToSections;
 
 	UPROPERTY( config )
+	bool bSnapPlayTimeToKeys;
+
+	UPROPERTY( config )
 	bool bSnapPlayTimeToInterval;
 
 	UPROPERTY( config )
 	bool bSnapPlayTimeToDraggedKey;
+
+	UPROPERTY( config )
+	bool bFixedTimeStepPlayback;
 
 	UPROPERTY( config )
 	float CurveValueSnapInterval;
@@ -250,18 +307,31 @@ protected:
 	bool bShowCurveEditorCurveToolTips;
 
 	UPROPERTY( config )
+	bool bLinkCurveEditorTimeRange;
+
+	UPROPERTY( config )
 	bool bLooping;
 
 	UPROPERTY( config )
 	bool bKeepCursorInPlayRange;
 
-	FOnShowCurveEditorChanged OnShowCurveEditorChanged;
-};
+	UPROPERTY( config )
+	bool bKeepPlayRangeInSectionBounds;
 
-/** Level editor specific sequencer settings */
-UCLASS(config=EditorPerProjectUserSettings, PerObjectConfig)
-class ULevelEditorSequencerSettings : public USequencerSettings
-{
-public:
-	GENERATED_UCLASS_BODY()
+	UPROPERTY( config )
+	uint8 ZeroPadFrames;
+
+	UPROPERTY( config )
+	bool bShowCombinedKeyframes;
+
+	UPROPERTY( config )
+	bool bInfiniteKeyAreas;
+
+	UPROPERTY( config )
+	bool bShowChannelColors;
+
+	UPROPERTY( config )
+	bool bShowViewportTransportControls;
+
+	FOnShowCurveEditorChanged OnShowCurveEditorChanged;
 };

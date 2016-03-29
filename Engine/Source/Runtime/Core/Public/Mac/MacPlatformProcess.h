@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================================
 	MacPlatformProcess.h: Mac platform Process functions
@@ -24,8 +24,8 @@ public:
 };
 
 /**
-* Mac implementation of the Process OS functions
-**/
+ * Mac implementation of the Process OS functions
+ **/
 struct CORE_API FMacPlatformProcess : public FGenericPlatformProcess
 {
 	struct FProcEnumInfo;
@@ -100,6 +100,7 @@ struct CORE_API FMacPlatformProcess : public FGenericPlatformProcess
 	static uint32 GetCurrentProcessId();
 	static const TCHAR* BaseDir();
 	static const TCHAR* UserDir();
+	static const TCHAR* UserTempDir();
 	static const TCHAR* UserSettingsDir();
 	static const TCHAR* ApplicationSettingsDir();
 	static const TCHAR* ComputerName();
@@ -112,7 +113,7 @@ struct CORE_API FMacPlatformProcess : public FGenericPlatformProcess
 	static const TCHAR* GetBinariesSubdirectory();
 	static const FString GetModulesDirectory();
 	static void LaunchURL(const TCHAR* URL, const TCHAR* Parms, FString* Error);
-	static FProcHandle CreateProc( const TCHAR* URL, const TCHAR* Parms, bool bLaunchDetached, bool bLaunchHidden, bool bLaunchReallyHidden, uint32* OutProcessID, int32 PriorityModifier, const TCHAR* OptionalWorkingDirectory, void* PipeWrite );
+	static FProcHandle CreateProc( const TCHAR* URL, const TCHAR* Parms, bool bLaunchDetached, bool bLaunchHidden, bool bLaunchReallyHidden, uint32* OutProcessID, int32 PriorityModifier, const TCHAR* OptionalWorkingDirectory, void* PipeWriteChild, void * PipeReadChild = nullptr);
 	static bool IsProcRunning( FProcHandle & ProcessHandle );
 	static void WaitForProc( FProcHandle & ProcessHandle );
 	static void CloseProc( FProcHandle & ProcessHandle );
@@ -138,5 +139,35 @@ struct CORE_API FMacPlatformProcess : public FGenericPlatformProcess
 	static const TCHAR* UserLogsDir();
 };
 
-typedef FMacPlatformProcess FPlatformProcess;
+/**
+ * Mac implementation of the FSystemWideCriticalSection. Uses exclusive file locking.
+ **/
+class FMacSystemWideCriticalSection
+{
+public:
+	/** Construct a named, system-wide critical section and attempt to get access/ownership of it */
+	explicit FMacSystemWideCriticalSection(const FString& InName, FTimespan InTimeout = FTimespan::Zero());
 
+	/** Destructor releases system-wide critical section if it is currently owned */
+	~FMacSystemWideCriticalSection();
+
+	/**
+	 * Does the calling thread have ownership of the system-wide critical section?
+	 *
+	 * @return True if the system-wide lock is obtained. WARNING: Returns true for abandoned locks so shared resources can be in undetermined states.
+	 */
+	bool IsValid() const;
+
+	/** Releases system-wide critical section if it is currently owned */
+	void Release();
+
+private:
+	FMacSystemWideCriticalSection(const FMacSystemWideCriticalSection&);
+	FMacSystemWideCriticalSection& operator=(const FMacSystemWideCriticalSection&);
+
+private:
+	int32 FileHandle;
+};
+
+typedef FMacPlatformProcess FPlatformProcess;
+typedef FMacSystemWideCriticalSection FSystemWideCriticalSection;

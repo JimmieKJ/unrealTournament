@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateCorePrivatePCH.h"
 #include "FontBulkData.h"
@@ -49,6 +49,16 @@ void UFontBulkData::Unlock() const
 {
 	BulkData.Unlock();
 	CriticalSection.Unlock();
+}
+
+int32 UFontBulkData::GetBulkDataSize() const
+{
+	return BulkData.GetBulkDataSize();
+}
+
+int32 UFontBulkData::GetBulkDataSizeOnDisk() const
+{
+	return BulkData.GetBulkDataSizeOnDisk();
 }
 
 void UFontBulkData::Serialize(FArchive& Ar)

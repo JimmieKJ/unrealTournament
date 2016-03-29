@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
 #include "EnvironmentQuery/EnvQueryManager.h"
@@ -321,6 +321,12 @@ void FEnvQueryInstance::ExecuteOneStep(double InCurrentStepTimeLimit)
 				// not doing it always for debugging purposes
 				OptionIndex++;
 				CurrentTest = -1;
+#if USE_EQS_DEBUGGER
+				if (bStoreDebugInfo)
+				{
+					DebugData.Reset();
+				}
+#endif // USE_EQS_DEBUGGER
 			}
 		}
 	}

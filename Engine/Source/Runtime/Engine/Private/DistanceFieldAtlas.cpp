@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DistanceFieldAtlas.cpp
@@ -13,18 +13,33 @@
 #include "MeshUtilities.h"
 #endif
 
+static TAutoConsoleVariable<int32> CVarDistFieldAtlasResXY(
+	TEXT("r.DistanceFields.AtlasSizeXY"),
+	512,
+	TEXT("Size of the global mesh distance field atlas volume texture in X and Y."),
+	ECVF_ReadOnly);
+
+static TAutoConsoleVariable<int32> CVarDistFieldAtlasResZ(
+	TEXT("r.DistanceFields.AtlasSizeZ"),
+	1024,
+	TEXT("Size of the global mesh distance field atlas volume texture in Z."),
+	ECVF_ReadOnly);
+
 TGlobalResource<FDistanceFieldVolumeTextureAtlas> GDistanceFieldVolumeTextureAtlas = TGlobalResource<FDistanceFieldVolumeTextureAtlas>(PF_R16F);
 
-// 512Mb
-const int32 MaxAtlasDimensionX = 512;
-const int32 MaxAtlasDimensionY = 512;
-const int32 MaxAtlasDimensionZ = 1024;
-
 FDistanceFieldVolumeTextureAtlas::FDistanceFieldVolumeTextureAtlas(EPixelFormat InFormat) :
-	BlockAllocator(0, 0, 0, MaxAtlasDimensionX, MaxAtlasDimensionY, MaxAtlasDimensionZ, false, false)
+	BlockAllocator(0, 0, 0, 0, 0, 0, false, false)
 {
 	Generation = 0;
 	Format = InFormat;
+
+	static const auto CVarXY = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DistanceFields.AtlasSizeXY"));
+	const int32 AtlasXY = CVarXY->GetValueOnAnyThread();
+
+	static const auto CVarZ = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DistanceFields.AtlasSizeZ"));
+	const int32 AtlasZ = CVarZ->GetValueOnAnyThread();
+
+	BlockAllocator = FTextureLayout3d(0, 0, 0, AtlasXY, AtlasXY, AtlasZ, false, false);
 }
 
 FString FDistanceFieldVolumeTextureAtlas::GetSizeString() const
@@ -94,8 +109,14 @@ void FDistanceFieldVolumeTextureAtlas::UpdateAllocations()
 		{
 			if (CurrentAllocations.Num() > 0)
 			{
+				static const auto CVarXY = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DistanceFields.AtlasSizeXY"));
+				const int32 AtlasXY = CVarXY->GetValueOnAnyThread();
+
+				static const auto CVarZ = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DistanceFields.AtlasSizeZ"));
+				const int32 AtlasZ = CVarZ->GetValueOnAnyThread();
+
 				// Remove all allocations from the layout so we have a clean slate
-				BlockAllocator = FTextureLayout3d(0, 0, 0, MaxAtlasDimensionX, MaxAtlasDimensionY, MaxAtlasDimensionZ, false, false);
+				BlockAllocator = FTextureLayout3d(0, 0, 0, AtlasXY, AtlasXY, AtlasZ, false, false);
 				
 				Generation++;
 

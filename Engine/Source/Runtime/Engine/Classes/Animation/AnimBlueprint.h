@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "Engine/Blueprint.h"
@@ -117,6 +117,8 @@ class ENGINE_API UAnimBlueprint : public UBlueprint
 	}
 
 	virtual void PostLoad() override;
+
+	virtual void Serialize(FArchive& Ar) override;
 
 protected:
 	// Broadcast when an override is changed, allowing derived blueprints to be updated

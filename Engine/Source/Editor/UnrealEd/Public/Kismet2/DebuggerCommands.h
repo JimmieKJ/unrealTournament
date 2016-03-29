@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #ifndef __DebuggerCommands_h__
 #define __DebuggerCommands_h__
@@ -47,6 +47,7 @@ public:
 	TSharedPtr<FUICommandInfo> PlayInEditorFloating;
 	TSharedPtr<FUICommandInfo> PlayInVR;
 	TSharedPtr<FUICommandInfo> PlayInMobilePreview;
+	TSharedPtr<FUICommandInfo> PlayInVulkanPreview;
 	TSharedPtr<FUICommandInfo> PlayInNewProcess;
 	TSharedPtr<FUICommandInfo> PlayInCameraLocation;
 	TSharedPtr<FUICommandInfo> PlayInDefaultPlayerStart;
@@ -60,9 +61,12 @@ public:
 	TSharedPtr<FUICommandInfo> SingleFrameAdvance;
 	TSharedPtr<FUICommandInfo> TogglePlayPauseOfPlaySession;
 	TSharedPtr<FUICommandInfo> StopPlaySession;
+	TSharedPtr<FUICommandInfo> LateJoinSession;
 	TSharedPtr<FUICommandInfo> PossessEjectPlayer;
 	TSharedPtr<FUICommandInfo> ShowCurrentStatement;
 	TSharedPtr<FUICommandInfo> StepInto;
+	TSharedPtr<FUICommandInfo> StepOver;
+	TSharedPtr<FUICommandInfo> StepOut;
 
 	/** Launch on device */
 	TSharedPtr<FUICommandInfo> RepeatLastLaunch;

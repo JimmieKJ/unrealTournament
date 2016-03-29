@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlatePrivatePCH.h"
 #include "LayoutUtils.h"
@@ -393,7 +393,12 @@ bool SScrollBox::ScrollDescendantIntoView(const FGeometry& MyGeometry, const TSh
 	FindChildGeometries( MyGeometry, WidgetsToFind, Result );
 
 	FArrangedWidget* WidgetGeometry = Result.Find( WidgetToFind.ToSharedRef() );
-	if ( ensureMsgf( WidgetGeometry, TEXT("Unable to scroll to descendant as it's not a child of the scrollbox") ) )
+	if (!WidgetGeometry)
+	{
+		UE_LOG(LogSlate, Warning, TEXT("Unable to scroll to descendant as it's not a child of the scrollbox"));
+	}
+
+	if ( WidgetGeometry )
 	{
 		// @todo: This is a workaround because DesiredScrollOffset can exceed the ScrollMax when mouse dragging on the scroll bar and we need it clamped here or the offset is wrong
 		ScrollBy(MyGeometry, 0, EAllowOverscroll::No, false);

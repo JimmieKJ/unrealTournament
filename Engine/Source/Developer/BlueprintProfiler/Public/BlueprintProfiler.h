@@ -1,13 +1,18 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "BlueprintProfilerModule.h"
+#include "ScriptInstrumentationCapture.h"
+
+#if WITH_EDITOR
+#include "ScriptInstrumentationPlayback.h"
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 // FBlueprintProfiler
 
-class FBlueprintProfiler : public IBlueprintProfilerInterface
+class FBlueprintProfiler : public IBlueprintProfilerInterface, public FTickableEditorObject
 {
 public:
 
@@ -23,9 +28,21 @@ public:
 	virtual bool IsProfilerEnabled() const override { return bProfilerActive; }
 	virtual bool IsProfilingCaptureActive() const { return bProfilingCaptureActive; }
 	virtual void ToggleProfilingCapture() override;
-	virtual TArray<FBlueprintInstrumentedEvent>& GetProfilingData() override { return ProfilingData; }
 	virtual void InstrumentEvent(const EScriptInstrumentationEvent& Event) override;
+
+#if WITH_EDITOR
+	virtual FOnBPStatGraphLayoutChanged& GetGraphLayoutChangedDelegate() { return GraphLayoutChangedDelegate; }
+	virtual TSharedPtr<FBlueprintExecutionContext> GetBlueprintContext(const FString& BlueprintClassPath) override;
+	virtual TSharedPtr<FScriptExecutionNode> GetProfilerDataForNode(const UEdGraphNode* GraphNode) override;
+	virtual FName MapBlueprintInstance(TSharedPtr<FBlueprintExecutionContext> BlueprintContext, const FString& InstancePath) override;
+	virtual bool HasDataForInstance(const UObject* Instance) const override;
+	virtual void ProcessEventProfilingData() override;
+#endif
 	// End IBlueprintProfilerModule
+
+	virtual void Tick(float DeltaSeconds) override;
+	virtual bool IsTickable() const override;
+	virtual TStatId GetStatId() const override { RETURN_QUICK_DECLARE_CYCLE_STAT( FBlueprintProfiler, STATGROUP_Tickables ); }
 
 private:
 
@@ -39,23 +56,35 @@ private:
 	void BeginPIE(bool bIsSimulating);
 	void EndPIE(bool bIsSimulating);
 
-	/** Utility functon to extract script code offset safely */
-	int32 GetScriptCodeOffset(const EScriptInstrumentationEvent& Event) const;
+#if WITH_EDITOR
 
-	/** Utility functon to extract object path safely */
-	FString GetCurrentFunctionPath(const EScriptInstrumentationEvent& Event) const;
+	/** Removes all blueprint references from data */
+	void RemoveAllBlueprintReferences(UBlueprint* Blueprint);
+
+#endif
 
 protected:
+
+	/** Multcast delegate to notify of statistic structural changes for events like compilation */
+	FOnBPStatGraphLayoutChanged GraphLayoutChangedDelegate;
+
+	/** Current instrumentation context */
+	FInstrumentationCaptureContext CaptureContext;
+	/** Raw instrumentation data */
+	TArray<FScriptInstrumentedEvent> InstrumentationEventQueue;
 
 	/** Profiler active state */
 	bool bProfilerActive;
 	/** Profiling capture state */
 	bool bProfilingCaptureActive;
+
+#if WITH_EDITOR
 	/** PIE Active */
 	bool bPIEActive;
-	/** Active Object */
-	FKismetInstrumentContext ActiveContext;
-	/** Profiling data */
-	TArray<FBlueprintInstrumentedEvent> ProfilingData;
+	/** Suspended script events */
+	TMap<FName, TSharedPtr<FScriptEventPlayback>> SuspendedEvents;
+	/** Cached object path and code offset lookup to UObjects */
+	TMap<FString, TSharedPtr<FBlueprintExecutionContext>> PathToBlueprintContext;
+#endif
 	
 };

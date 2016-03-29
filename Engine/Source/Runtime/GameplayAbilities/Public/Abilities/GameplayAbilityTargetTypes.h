@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -67,13 +67,13 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetData
 
 	virtual TArray<FActiveGameplayEffectHandle> ApplyGameplayEffectSpec(FGameplayEffectSpec& Spec, FPredictionKey PredictionKey = FPredictionKey());
 
-	virtual void AddTargetDataToContext(FGameplayEffectContextHandle& Context, bool bIncludeActorArray);
+	virtual void AddTargetDataToContext(FGameplayEffectContextHandle& Context, bool bIncludeActorArray) const;
 
-	virtual void AddTargetDataToGameplayCueParameters(FGameplayCueParameters& Parameters);
+	virtual void AddTargetDataToGameplayCueParameters(FGameplayCueParameters& Parameters) const;
 
-	virtual TArray<TWeakObjectPtr<AActor> >	GetActors() const
+	virtual TArray<TWeakObjectPtr<AActor>> GetActors() const
 	{
-		return TArray<TWeakObjectPtr<AActor> >();
+		return TArray<TWeakObjectPtr<AActor>>();
 	}
 
 	virtual bool SetActors(TArray<TWeakObjectPtr<AActor>> NewActorArray)
@@ -91,7 +91,7 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetData
 
 	virtual const FHitResult* GetHitResult() const
 	{
-		return NULL;
+		return nullptr;
 	}
 
 	// -------------------------------------
@@ -125,7 +125,7 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetData
 
 	// -------------------------------------
 
-	virtual UScriptStruct* GetScriptStruct()
+	virtual UScriptStruct* GetScriptStruct() const
 	{
 		return FGameplayAbilityTargetData::StaticStruct();
 	}
@@ -175,7 +175,7 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetDataHandle
 		Data.Add(TSharedPtr<FGameplayAbilityTargetData>(DataPtr));
 	}
 
-	TArray<TSharedPtr<FGameplayAbilityTargetData> >	Data;
+	TArray<TSharedPtr<FGameplayAbilityTargetData>, TInlineAllocator<1> >	Data;
 
 	void Clear()
 	{
@@ -192,9 +192,14 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetDataHandle
 		return (Index < Data.Num() && Data[Index].IsValid());
 	}
 
+	const FGameplayAbilityTargetData* Get(int32 Index) const
+	{
+		return IsValid(Index) ? Data[Index].Get() : nullptr;
+	}
+
 	FGameplayAbilityTargetData* Get(int32 Index)
 	{
-		return IsValid(Index) ? Data[Index].Get() : NULL;
+		return IsValid(Index) ? Data[Index].Get() : nullptr;
 	}
 
 	void Add(struct FGameplayAbilityTargetData* DataPtr)
@@ -202,18 +207,21 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetDataHandle
 		Data.Add(TSharedPtr<FGameplayAbilityTargetData>(DataPtr));
 	}
 
-	void Append(struct FGameplayAbilityTargetDataHandle* OtherHandle)
+	DEPRECATED(4.11, "Pass Handle by reference, not pointer")
+	void Append(FGameplayAbilityTargetDataHandle* OtherHandle)
 	{
-		for (int32 i = 0; i < OtherHandle->Data.Num(); ++i)
-		{
-			Data.Add(OtherHandle->Data[i]);
-		}
+		Append(*OtherHandle);
+	}
+
+	void Append(const FGameplayAbilityTargetDataHandle& OtherHandle)
+	{
+		Data.Append(OtherHandle.Data);
 	}
 
 	bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess);
 
 	/** Comparison operator */
-	bool operator==(FGameplayAbilityTargetDataHandle const& Other) const
+	bool operator==(const FGameplayAbilityTargetDataHandle& Other) const
 	{
 		// Both invalid structs or both valid and Pointer compare (???) // deep comparison equality
 		if (Data.Num() != Other.Data.Num())
@@ -235,7 +243,7 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetDataHandle
 	}
 
 	/** Comparison operator */
-	bool operator!=(FGameplayAbilityTargetDataHandle const& Other) const
+	bool operator!=(const FGameplayAbilityTargetDataHandle& Other) const
 	{
 		return !(FGameplayAbilityTargetDataHandle::operator==(Other));
 	}
@@ -302,9 +310,9 @@ public:
 		return FTransform::Identity;
 	}
 
-	FGameplayAbilityTargetDataHandle MakeTargetDataHandleFromHitResult(TWeakObjectPtr<UGameplayAbility> Ability, FHitResult HitResult) const;
+	FGameplayAbilityTargetDataHandle MakeTargetDataHandleFromHitResult(TWeakObjectPtr<UGameplayAbility> Ability, const FHitResult& HitResult) const;
 	FGameplayAbilityTargetDataHandle MakeTargetDataHandleFromHitResults(TWeakObjectPtr<UGameplayAbility> Ability, const TArray<FHitResult>& HitResults) const;
-	FGameplayAbilityTargetDataHandle MakeTargetDataHandleFromActors(TArray<TWeakObjectPtr<AActor>> TargetActors, bool OneActorPerHandle = false) const;
+	FGameplayAbilityTargetDataHandle MakeTargetDataHandleFromActors(const TArray<TWeakObjectPtr<AActor>>& TargetActors, bool OneActorPerHandle = false) const;
 
 	/** Type of location used - will determine what data is transmitted over the network and what fields are used when calculating position. */
 	UPROPERTY(BlueprintReadWrite, meta = (ExposeOnSpawn = true), Category = Targeting)
@@ -339,7 +347,7 @@ public:
 
 	bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess);
 
-	virtual UScriptStruct* GetScriptStruct()
+	virtual UScriptStruct* GetScriptStruct() const
 	{
 		return FGameplayAbilityTargetingLocationInfo::StaticStruct();
 	}
@@ -393,7 +401,7 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetData_LocationInfo : public FG
 
 	// -------------------------------------
 
-	virtual UScriptStruct* GetScriptStruct() override
+	virtual UScriptStruct* GetScriptStruct() const override
 	{
 		return FGameplayAbilityTargetData_LocationInfo::StaticStruct();
 	}
@@ -495,7 +503,7 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetData_ActorArray : public FGam
 
 	// -------------------------------------
 
-	virtual UScriptStruct* GetScriptStruct() override
+	virtual UScriptStruct* GetScriptStruct() const override
 	{
 		return FGameplayAbilityTargetData_ActorArray::StaticStruct();
 	}
@@ -526,7 +534,7 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetData_SingleTargetHit : public
 	{ }
 
 	FGameplayAbilityTargetData_SingleTargetHit(const FHitResult InHitResult)
-		: HitResult(InHitResult)
+		: HitResult(MoveTemp(InHitResult))
 	{ }
 
 	// -------------------------------------
@@ -536,7 +544,7 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetData_SingleTargetHit : public
 		TArray<TWeakObjectPtr<AActor> >	Actors;
 		if (HitResult.Actor.IsValid())
 		{
-			Actors.Push(HitResult.Actor.Get());
+			Actors.Push(HitResult.Actor);
 		}
 		return Actors;
 	}
@@ -582,7 +590,7 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetData_SingleTargetHit : public
 
 	bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess);
 
-	virtual UScriptStruct* GetScriptStruct() override
+	virtual UScriptStruct* GetScriptStruct() const override
 	{
 		return FGameplayAbilityTargetData_SingleTargetHit::StaticStruct();
 	}
@@ -598,13 +606,13 @@ struct TStructOpsTypeTraits<FGameplayAbilityTargetData_SingleTargetHit> : public
 };
 
 /** Generic callback for returning when target data is available */
-DECLARE_MULTICAST_DELEGATE_OneParam(FAbilityTargetData, FGameplayAbilityTargetDataHandle);
+DECLARE_MULTICAST_DELEGATE_OneParam(FAbilityTargetData, const FGameplayAbilityTargetDataHandle&);
 
 
 // ----------------------------------------------------
 
 /** Generic callback for returning when target data is available */
-DECLARE_MULTICAST_DELEGATE_TwoParams(FAbilityTargetDataSetDelegate, FGameplayAbilityTargetDataHandle, FGameplayTag);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FAbilityTargetDataSetDelegate, const FGameplayAbilityTargetDataHandle&, FGameplayTag);
 
 /** These are generic, nonpayload carrying events that are replicated between the client and server */
 UENUM()

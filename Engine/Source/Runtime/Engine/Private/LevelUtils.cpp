@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "EnginePrivate.h"
@@ -393,7 +393,7 @@ void FLevelUtils::ApplyLevelTransform( ULevel* Level, const FTransform& LevelTra
 			TArray<FStreamableTextureInstance>& TextureInfo = It.Value();
 			for (int32 i = 0; i < TextureInfo.Num(); i++)
 			{
-				TextureInfo[i].BoundingSphere.Center = LevelTransform.TransformPosition(TextureInfo[i].BoundingSphere.Center);
+				TextureInfo[i].Bounds.Origin = LevelTransform.TransformPosition(TextureInfo[i].Bounds.Origin);
 			}
 		}
 

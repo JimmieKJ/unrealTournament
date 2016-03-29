@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Engine/StreamableManager.h"
@@ -250,12 +250,12 @@ void FStreamableManager::RequestAsyncLoad(const TArray<FStringAssetReference>& T
 	NewRequest->CompletionDelegate = DelegateToCall;
 
 	TArray<FStreamable *> ExistingStreamables;
-	ExistingStreamables.SetNum(TargetsToStream.Num());
+	ExistingStreamables.Reserve(TargetsToStream.Num());
 
 	for (int32 i = 0; i < TargetsToStream.Num(); i++)
 	{
 		FStreamable* Existing = StreamInternal(TargetsToStream[i], Priority);
-		ExistingStreamables[i] = Existing;
+		ExistingStreamables.Add(Existing);
 
 		if (Existing)
 		{

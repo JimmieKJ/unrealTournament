@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Kismet/KismetInputLibrary.h"
@@ -24,6 +24,11 @@ void UKismetInputLibrary::CalibrateTilt()
 
 
 bool UKismetInputLibrary::EqualEqual_KeyKey(FKey A, FKey B)
+{
+	return A == B;
+}
+
+bool UKismetInputLibrary::EqualEqual_InputChordInputChord( FInputChord A, FInputChord B )
 {
 	return A == B;
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ProjectLauncherPrivatePCH.h"
 
@@ -132,7 +132,7 @@ FText SProjectLauncherProjectPicker::HandleProjectComboButtonText( ) const
 
 FText SProjectLauncherProjectPicker::HandleProjectComboButtonToolTip( ) const
 {
-	return LOCTEXT("SelectProjectText", "Select or browse for a project");
+	return LOCTEXT("SelectProjectText_Tooltip", "Select or browse for a project");
 }
 
 

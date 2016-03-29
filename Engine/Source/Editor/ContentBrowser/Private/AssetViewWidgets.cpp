@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "ContentBrowserPCH.h"
@@ -275,7 +275,18 @@ FReply SAssetTileView::OnKeyDown( const FGeometry& InGeometry, const FKeyEvent& 
 	}
 }
 
-FReply SAssetListView::OnKeyDown( const FGeometry& InGeometry, const FKeyEvent& InKeyEvent )
+void SAssetTileView::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+{
+	// Regreshing an asset view is an intensive task. Do not do this while a user
+	// is dragging arround content for maximum responsiveness.
+	// Also prevents a re-entrancy crash caused by potentially complex thumbnail generators.
+	if (!FSlateApplication::Get().IsDragDropping())
+	{
+		STileView<TSharedPtr<FAssetViewItem>>::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+	}
+}
+
+FReply SAssetListView::OnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
 {
 	FReply Reply = FAssetViewModeUtils::OnViewModeKeyDown(SelectedItems, InKeyEvent);
 
@@ -289,7 +300,18 @@ FReply SAssetListView::OnKeyDown( const FGeometry& InGeometry, const FKeyEvent& 
 	}
 }
 
-FReply SAssetColumnView::OnKeyDown( const FGeometry& InGeometry, const FKeyEvent& InKeyEvent )
+void SAssetListView::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+{
+	// Regreshing an asset view is an intensive task. Do not do this while a user
+	// is dragging arround content for maximum responsiveness.
+	// Also prevents a re-entrancy crash caused by potentially complex thumbnail generators.
+	if (!FSlateApplication::Get().IsDragDropping())
+	{
+		SListView<TSharedPtr<FAssetViewItem>>::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+	}
+}
+
+FReply SAssetColumnView::OnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
 {
 	FReply Reply = FAssetViewModeUtils::OnViewModeKeyDown(SelectedItems, InKeyEvent);
 
@@ -303,6 +325,17 @@ FReply SAssetColumnView::OnKeyDown( const FGeometry& InGeometry, const FKeyEvent
 	}
 }
 
+
+void SAssetColumnView::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+{
+	// Regreshing an asset view is an intensive task. Do not do this while a user
+	// is dragging arround content for maximum responsiveness.
+	// Also prevents a re-entrancy crash caused by potentially complex thumbnail generators.
+	if (!FSlateApplication::Get().IsDragDropping())
+	{
+		return SListView<TSharedPtr<FAssetViewItem>>::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+	}
+}
 
 ///////////////////////////////
 // SAssetViewItem

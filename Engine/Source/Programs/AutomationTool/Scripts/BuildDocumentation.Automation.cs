@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -45,9 +45,9 @@ class ToolsForDocumentationNode : GUBP.CompileNode
     }
 }
 	
-class DocumentationNode : GUBP.GUBPNode
+class DocumentationNode : GUBP.HostPlatformNode
 {
-	public DocumentationNode(UnrealTargetPlatform InHostPlatform)
+	public DocumentationNode(UnrealTargetPlatform InHostPlatform) : base(InHostPlatform)
 	{
 		AgentSharingGroup = "Documentation" + GUBP.HostPlatformNode.StaticGetHostPlatformSuffix(InHostPlatform);
 		AddDependency(ToolsForDocumentationNode.StaticGetFullName(InHostPlatform));
@@ -63,6 +63,11 @@ class DocumentationNode : GUBP.GUBPNode
 		string ApiDocToolPath = Path.Combine(CommandUtils.CmdEnv.LocalRoot, "Engine/Source/Programs/UnrealDocTool/APIDocTool/APIDocTool/bin/x64/Release/APIDocTool.exe");
 		string ApiToolCommandLine = Arguments + " -enginedir=\"" + Path.Combine(CommandUtils.CmdEnv.LocalRoot, "Engine") + "\"" + (CommandUtils.IsBuildMachine? " -buildmachine" : "");
 		CommandUtils.RunAndLog(CommandUtils.CmdEnv, ApiDocToolPath, ApiToolCommandLine, LogName);
+	}
+
+	public override bool NotifyOnWarnings()
+	{
+		return false;
 	}
 
 	public static void SubmitOutputs(string Description, params string[] FileSpecs)

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -199,11 +199,9 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Called to resolve module names and uniquely bind modules to a binary.
+		/// Creates all the modules referenced by this target.
 		/// </summary>
-		/// <param name="BuildTarget">The build target the modules are being bound for</param>
-		/// <param name="Target">The target info</param>
-		public virtual void BindModules() { }
+		public virtual void CreateAllDependentModules(UEBuildTarget Target) { }
 
 		/// <summary>
 		/// Builds the binary.
@@ -212,7 +210,7 @@ namespace UnrealBuildTool
 		/// <param name="CompileEnvironment">The environment to compile the binary in</param>
 		/// <param name="LinkEnvironment">The environment to link the binary in</param>
 		/// <returns></returns>
-		public abstract IEnumerable<FileItem> Build(UEToolChain ToolChain, CPPEnvironment CompileEnvironment, LinkEnvironment LinkEnvironment);
+		public abstract IEnumerable<FileItem> Build(UEBuildTarget Target, UEToolChain ToolChain, CPPEnvironment CompileEnvironment, LinkEnvironment LinkEnvironment);
 
 		/// <summary>
 		/// Called to allow the binary to modify the link environment of a different binary containing 
@@ -250,14 +248,6 @@ namespace UnrealBuildTool
 		public virtual List<UEBuildModule> GetAllDependencyModules(bool bIncludeDynamicallyLoaded, bool bForceCircular)
 		{
 			return new List<UEBuildModule>();
-		}
-
-		/// <summary>
-		/// Process all modules that aren't yet bound, creating binaries for modules that don't yet have one (if needed),
-		/// and updating modules for circular dependencies.
-		/// </summary>
-		public virtual void ProcessUnboundModules()
-		{
 		}
 
 		/// <summary>
@@ -359,10 +349,10 @@ namespace UnrealBuildTool
 		public void CheckOutputDistributionLevelAgainstDependencies(Dictionary<UEBuildModule, UEBuildModuleDistribution> ModuleDistributionCache)
 		{
 			// Find maximum distribution level of its direct dependencies
-			var DistributionLevel = UEBuildModuleDistribution.Public;
-			var DependantModules = GetAllDependencyModules(false, false);
+			UEBuildModuleDistribution DistributionLevel = UEBuildModuleDistribution.Public;
+			List<UEBuildModule> DependantModules = GetAllDependencyModules(false, false);
 			List<string>[] DependantModuleNames = new List<string>[Enum.GetNames(typeof(UEBuildModuleDistribution)).Length];
-			foreach (var Module in DependantModules)
+			foreach (UEBuildModule Module in DependantModules)
 			{
 				UEBuildModuleDistribution ModuleDistributionLevel;
 				if (!ModuleDistributionCache.TryGetValue(Module, out ModuleDistributionLevel))
@@ -388,14 +378,14 @@ namespace UnrealBuildTool
 			// Check Output Paths if dependencies shouldn't be distributed to everyone
 			if (DistributionLevel != UEBuildModuleDistribution.Public)
 			{
-				foreach (var OutputFilePath in Config.OutputFilePaths)
+				foreach (FileReference OutputFilePath in Config.OutputFilePaths)
 				{
-					var OutputDistributionLevel = UEBuildModule.GetModuleDistributionLevelBasedOnLocation(OutputFilePath.FullName);
+					UEBuildModuleDistribution OutputDistributionLevel = UEBuildModule.GetModuleDistributionLevelBasedOnLocation(OutputFilePath.FullName);
 
 					// Throw exception if output path is not appropriate
 					if (OutputDistributionLevel < DistributionLevel)
 					{
-						var JoinedModuleNames = String.Join(",", DependantModuleNames[(int)DistributionLevel]);
+						string JoinedModuleNames = String.Join(",", DependantModuleNames[(int)DistributionLevel]);
 						throw new BuildException("Output file \"{0}\" has distribution level of \"{1}\" but has direct dependencies on modules with distribution level of \"{2}\" ({3}).\nEither change to dynamic dependencies, set BinariesSubFolder/ExeBinariesSubFolder to \"{2}\" or set bOutputPubliclyDistributable to true in the target.cs or build.cs file.",
 							OutputFilePath, OutputDistributionLevel.ToString(), DistributionLevel.ToString(), JoinedModuleNames);
 					}
@@ -440,25 +430,15 @@ namespace UnrealBuildTool
 		// UEBuildBinary interface.
 
 		/// <summary>
-		/// Called to resolve module names and uniquely bind modules to a binary.
+		/// Creates all the modules referenced by this target.
 		/// </summary>
-		/// <param name="BuildTarget">The build target the modules are being bound for</param>
-		/// <param name="Target">The target info</param>
-		public override void BindModules()
+		public override void CreateAllDependentModules(UEBuildTarget Target)
 		{
-			foreach (var Module in Modules)
+			if (Config.bHasModuleRules)
 			{
-				if (Config.bHasModuleRules)
+				foreach (UEBuildModule Module in Modules)
 				{
-					if (Module.Binary == null)
-					{
-						Module.Binary = this;
-						Module.bIncludedInTarget = true;
-					}
-					else if (Module.Binary.Config.Type != UEBuildBinaryType.StaticLibrary)
-					{
-						throw new BuildException("Module \"{0}\" linked into both {1} and {2}, which creates ambiguous linkage for dependents.", Module.Name, Module.Binary.Config.OutputFilePath, Config.OutputFilePath);
-					}
+					Module.RecursivelyCreateModules(Target);
 				}
 			}
 		}
@@ -471,38 +451,22 @@ namespace UnrealBuildTool
 		/// <returns>List of all referenced modules</returns>
 		public override List<UEBuildModule> GetAllDependencyModules(bool bIncludeDynamicallyLoaded, bool bForceCircular)
 		{
-			var ReferencedModules = new CaselessDictionary<UEBuildModule.ModuleIndexPair>();
-			foreach (var Module in Modules)
+			List<UEBuildModule> ReferencedModules = new List<UEBuildModule>();
+			HashSet<UEBuildModule> IgnoreReferencedModules = new HashSet<UEBuildModule>();
+
+			foreach (UEBuildModule Module in Modules)
 			{
-				if (!ReferencedModules.ContainsKey(Module.Name))
+				if (!IgnoreReferencedModules.Contains(Module))
 				{
-					ReferencedModules[Module.Name] = null;
+					IgnoreReferencedModules.Add(Module);
 
-					Module.GetAllDependencyModules(ReferencedModules, bIncludeDynamicallyLoaded, bForceCircular, bOnlyDirectDependencies: false);
+					Module.GetAllDependencyModules(ReferencedModules, IgnoreReferencedModules, bIncludeDynamicallyLoaded, bForceCircular, bOnlyDirectDependencies: false);
 
-					ReferencedModules[Module.Name] = new UEBuildModule.ModuleIndexPair { Module = Module, Index = ReferencedModules.Count };
+					ReferencedModules.Add(Module);
 				}
 			}
 
-			return ReferencedModules.Values.OrderBy(M => M.Index).Select(M => M.Module).ToList();
-		}
-
-		/// <summary>
-		/// Process all modules that aren't yet bound, creating binaries for modules that don't yet have one (if needed),
-		/// and updating modules for circular dependencies.
-		/// </summary>
-		/// <returns>List of newly-created binaries (may be empty)</returns>
-		public override void ProcessUnboundModules()
-		{
-			if (Config.bHasModuleRules)
-			{
-				// Modules may be added to this binary during this process, so don't foreach over ModuleNames
-				foreach (UEBuildModule Module in Modules)
-				{
-					Module.RecursivelyCreateModules();
-					Module.RecursivelyProcessUnboundModules();
-				}
-			}
+			return ReferencedModules;
 		}
 
 		/// <summary>
@@ -549,7 +513,7 @@ namespace UnrealBuildTool
 		/// <param name="CompileEnvironment">The environment to compile the binary in</param>
 		/// <param name="LinkEnvironment">The environment to link the binary in</param>
 		/// <returns></returns>
-		public override IEnumerable<FileItem> Build(UEToolChain ToolChain, CPPEnvironment CompileEnvironment, LinkEnvironment LinkEnvironment)
+		public override IEnumerable<FileItem> Build(UEBuildTarget Target, UEToolChain ToolChain, CPPEnvironment CompileEnvironment, LinkEnvironment LinkEnvironment)
 		{
 			// UnrealCodeAnalyzer produces output files only for a specific module.
 			if (BuildConfiguration.bRunUnrealCodeAnalyzer && !(Modules.Any(x => x.Name == BuildConfiguration.UCAModuleToAnalyze)))
@@ -558,7 +522,7 @@ namespace UnrealBuildTool
 			}
 
 			// Setup linking environment.
-			var BinaryLinkEnvironment = SetupBinaryLinkEnvironment(ToolChain, LinkEnvironment, CompileEnvironment);
+			LinkEnvironment BinaryLinkEnvironment = SetupBinaryLinkEnvironment(Target, ToolChain, LinkEnvironment, CompileEnvironment);
 
 			// Return linked files.
 			return SetupOutputFiles(ToolChain, ref BinaryLinkEnvironment);
@@ -606,9 +570,9 @@ namespace UnrealBuildTool
 		/// <returns>The OnlyModule if found, null if not</returns>
 		public override OnlyModule FindOnlyModule(List<OnlyModule> OnlyModules)
 		{
-			foreach (var Module in Modules)
+			foreach (UEBuildModule Module in Modules)
 			{
-				foreach (var OnlyModule in OnlyModules)
+				foreach (OnlyModule OnlyModule in OnlyModules)
 				{
 					if (OnlyModule.OnlyModuleName.ToLower() == Module.Name.ToLower())
 					{
@@ -621,8 +585,8 @@ namespace UnrealBuildTool
 
 		public override List<UEBuildModule> FindGameModules()
 		{
-			var GameModules = new List<UEBuildModule>();
-			foreach (var Module in Modules)
+			List<UEBuildModule> GameModules = new List<UEBuildModule>();
+			foreach (UEBuildModule Module in Modules)
 			{
 				if (!Module.ModuleDirectory.IsUnderDirectory(UnrealBuildTool.EngineDirectory))
 				{
@@ -660,15 +624,15 @@ namespace UnrealBuildTool
 			return Config.OutputFilePath.FullName;
 		}
 
-		private LinkEnvironment SetupBinaryLinkEnvironment(UEToolChain ToolChain, LinkEnvironment LinkEnvironment, CPPEnvironment CompileEnvironment)
+		private LinkEnvironment SetupBinaryLinkEnvironment(UEBuildTarget Target, UEToolChain ToolChain, LinkEnvironment LinkEnvironment, CPPEnvironment CompileEnvironment)
 		{
-			var BinaryLinkEnvironment = LinkEnvironment.DeepCopy();
-			var LinkEnvironmentVisitedModules = new HashSet<UEBuildModule>();
-			var BinaryDependencies = new List<UEBuildBinary>();
+			LinkEnvironment BinaryLinkEnvironment = LinkEnvironment.DeepCopy();
+			HashSet<UEBuildModule> LinkEnvironmentVisitedModules = new HashSet<UEBuildModule>();
+			List<UEBuildBinary> BinaryDependencies = new List<UEBuildBinary>();
 			CompileEnvironment.Config.bIsBuildingDLL = IsBuildingDll(Config.Type);
 			CompileEnvironment.Config.bIsBuildingLibrary = IsBuildingLibrary(Config.Type);
 
-			var BinaryCompileEnvironment = CompileEnvironment.DeepCopy();
+			CPPEnvironment BinaryCompileEnvironment = CompileEnvironment.DeepCopy();
 			// @Hack: This to prevent UHT from listing CoreUObject.generated.cpp as its dependency.
 			// We flag the compile environment when we build UHT so that we don't need to check
 			// this for each file when generating their dependencies.
@@ -676,24 +640,24 @@ namespace UnrealBuildTool
 
 			// @todo: This should be in some Windows code somewhere...
 			// Set the original file name macro; used in PCLaunch.rc to set the binary metadata fields.
-			var OriginalFilename = (Config.OriginalOutputFilePaths != null) ?
+			string OriginalFilename = (Config.OriginalOutputFilePaths != null) ?
 				Config.OriginalOutputFilePaths[0].GetFileName() :
 				Config.OutputFilePaths[0].GetFileName();
 			BinaryCompileEnvironment.Config.Definitions.Add("ORIGINAL_FILE_NAME=\"" + OriginalFilename + "\"");
 
-			foreach (var Module in Modules)
+			foreach (UEBuildModule Module in Modules)
 			{
 				List<FileItem> LinkInputFiles;
 				if (Module.Binary == null || Module.Binary == this)
 				{
 					// Compile each module.
 					Log.TraceVerbose("Compile module: " + Module.Name);
-					LinkInputFiles = Module.Compile(ToolChain, CompileEnvironment, BinaryCompileEnvironment);
+					LinkInputFiles = Module.Compile(Target, ToolChain, CompileEnvironment, BinaryCompileEnvironment);
 
 					// NOTE: Because of 'Shared PCHs', in monolithic builds the same PCH file may appear as a link input
 					// multiple times for a single binary.  We'll check for that here, and only add it once.  This avoids
 					// a linker warning about redundant .obj files. 
-					foreach (var LinkInputFile in LinkInputFiles)
+					foreach (FileItem LinkInputFile in LinkInputFiles)
 					{
 						if (!BinaryLinkEnvironment.InputFiles.Contains(LinkInputFile))
 						{
@@ -715,7 +679,7 @@ namespace UnrealBuildTool
 
 
 			// Allow the binary dependencies to modify the link environment.
-			foreach (var BinaryDependency in BinaryDependencies)
+			foreach (UEBuildBinary BinaryDependency in BinaryDependencies)
 			{
 				BinaryDependency.SetupDependentLinkEnvironment(BinaryLinkEnvironment);
 			}
@@ -770,10 +734,15 @@ namespace UnrealBuildTool
 				return CreateOutputFilesForUCA(BinaryLinkEnvironment);
 			}
 
+			if (!string.IsNullOrEmpty(BuildConfiguration.SingleFileToCompile))
+			{
+				return BinaryLinkEnvironment.InputFiles;
+			}
+
 			//
 			// Regular linking action.
 			//
-			var OutputFiles = new List<FileItem>();
+			List<FileItem> OutputFiles = new List<FileItem>();
 			if (bCreateImportLibrarySeparately)
 			{
 				// Mark the link environment as cross-referenced.
@@ -796,7 +765,7 @@ namespace UnrealBuildTool
 			if (Config.bBuildAdditionalConsoleApp)
 			{
 				// Produce additional binary but link it as a console app
-				var ConsoleAppLinkEvironment = BinaryLinkEnvironment.DeepCopy();
+				LinkEnvironment ConsoleAppLinkEvironment = BinaryLinkEnvironment.DeepCopy();
 				ConsoleAppLinkEvironment.Config.bIsBuildingConsoleApplication = true;
 				ConsoleAppLinkEvironment.Config.WindowsEntryPointOverride = "WinMainCRTStartup";		// For WinMain() instead of "main()" for Launch module
 				ConsoleAppLinkEvironment.Config.OutputFilePaths = ConsoleAppLinkEvironment.Config.OutputFilePaths.Select(Path => GetAdditionalConsoleAppPath(Path)).ToList();
@@ -805,7 +774,7 @@ namespace UnrealBuildTool
 				OutputFiles.AddRange(ToolChain.LinkAllFiles(ConsoleAppLinkEvironment, false));
 			}
 
-			foreach (var Executable in Executables)
+			foreach (FileItem Executable in Executables)
 			{
 				OutputFiles.AddRange(ToolChain.PostBuild(Executable, BinaryLinkEnvironment));
 			}
@@ -815,13 +784,13 @@ namespace UnrealBuildTool
 
 		private List<FileItem> CreateOutputFilesForUCA(LinkEnvironment BinaryLinkEnvironment)
 		{
-			var OutputFiles = new List<FileItem>();
-			var ModuleName = Modules.Select(Module => Module.Name).First(Name => Name.CompareTo(BuildConfiguration.UCAModuleToAnalyze) == 0);
-			var ModuleCPP = (UEBuildModuleCPP)Target.GetModuleByName(ModuleName);
-			var ModulePrivatePCH = ModuleCPP.ProcessedDependencies.UniquePCHHeaderFile;
-			var IntermediatePath = Path.Combine(Target.ProjectIntermediateDirectory.FullName, ModuleName);
-			var OutputFileName = Target.OutputPath;
-			var OutputFile = FileItem.GetItemByFileReference(OutputFileName);
+			List<FileItem> OutputFiles = new List<FileItem>();
+			string ModuleName = Modules.Select(Module => Module.Name).First(Name => Name.CompareTo(BuildConfiguration.UCAModuleToAnalyze) == 0);
+			UEBuildModuleCPP ModuleCPP = (UEBuildModuleCPP)Target.GetModuleByName(ModuleName);
+			FileItem ModulePrivatePCH = ModuleCPP.ProcessedDependencies.UniquePCHHeaderFile;
+			string IntermediatePath = Path.Combine(Target.ProjectIntermediateDirectory.FullName, ModuleName);
+			FileReference OutputFileName = Target.OutputPath;
+			FileItem OutputFile = FileItem.GetItemByFileReference(OutputFileName);
 
 			Action LinkAction = new Action(ActionType.Compile);
 			LinkAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
@@ -862,9 +831,9 @@ namespace UnrealBuildTool
 		/// <param name="CompileEnvironment">The environment to compile the binary in</param>
 		/// <param name="LinkEnvironment">The environment to link the binary in</param>
 		/// <returns></returns>
-		public override IEnumerable<FileItem> Build(UEToolChain ToolChain, CPPEnvironment CompileEnvironment, LinkEnvironment LinkEnvironment)
+		public override IEnumerable<FileItem> Build(UEBuildTarget Target, UEToolChain ToolChain, CPPEnvironment CompileEnvironment, LinkEnvironment LinkEnvironment)
 		{
-			var ProjectCSharpEnviroment = new CSharpEnvironment();
+			CSharpEnvironment ProjectCSharpEnviroment = new CSharpEnvironment();
 			if (LinkEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Debug)
 			{
 				ProjectCSharpEnviroment.TargetConfiguration = CSharpTargetConfiguration.Debug;

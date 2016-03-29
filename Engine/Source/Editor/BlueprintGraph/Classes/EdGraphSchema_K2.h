@@ -1,7 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "EdGraph/EdGraphSchema.h"
+#include "EdGraph/EdGraphPin.h"
 #include "EdGraphSchema_K2.generated.h"
 
 /** Reference to an structure (only used in 'docked' palette) */

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -18,6 +18,7 @@
 	#define TARRAY_RANGED_FOR_CHECKS 1
 #endif
 
+#define AGRESSIVE_ARRAY_FORCEINLINE
 
 /**
  * Generic iterator which can operate on types that expose the following:
@@ -229,15 +230,15 @@ private:
 class FScriptArray : protected FHeapAllocator::ForAnyElementType
 {
 public:
-	void* GetData()
+	FORCEINLINE void* GetData()
 	{
 		return this->GetAllocation();
 	}
-	const void* GetData() const
+	FORCEINLINE const void* GetData() const
 	{
 		return this->GetAllocation();
 	}
-	bool IsValidIndex( int32 i ) const
+	FORCEINLINE bool IsValidIndex(int32 i) const
 	{
 		return i>=0 && i<ArrayNum;
 	}
@@ -263,8 +264,7 @@ public:
 		const int32 OldNum = ArrayNum;
 		if( (ArrayNum+=Count)>ArrayMax )
 		{
-			ArrayMax = this->CalculateSlack( ArrayNum, ArrayMax, NumBytesPerElement );
-			this->ResizeAllocation(OldNum,ArrayMax,NumBytesPerElement);
+			ResizeGrow(OldNum, NumBytesPerElement);
 		}
 		FMemory::Memmove
 		(
@@ -273,7 +273,7 @@ public:
 			                                               (OldNum-Index)*NumBytesPerElement
 		);
 	}
-	int32 Add( int32 Count, int32 NumBytesPerElement )
+	AGRESSIVE_ARRAY_FORCEINLINE int32 Add( int32 Count, int32 NumBytesPerElement )
 	{
 		check(Count>=0);
 		checkSlow(ArrayNum>=0);
@@ -282,8 +282,7 @@ public:
 		const int32 OldNum = ArrayNum;
 		if( (ArrayNum+=Count)>ArrayMax )
 		{
-			ArrayMax = this->CalculateSlack( ArrayNum, ArrayMax, NumBytesPerElement );
-			this->ResizeAllocation(OldNum,ArrayMax,NumBytesPerElement);
+			ResizeGrow(OldNum, NumBytesPerElement);
 		}
 
 		return OldNum;
@@ -298,21 +297,18 @@ public:
 	{
 		checkSlow(ArrayNum>=0);
 		checkSlow(ArrayMax>=ArrayNum);
-		if( ArrayMax != ArrayNum )
+		if (ArrayNum != ArrayMax)
 		{
-			ArrayMax = ArrayNum;
-			this->ResizeAllocation(ArrayNum,ArrayMax,NumBytesPerElement);
+			ResizeTo(ArrayNum, NumBytesPerElement);
 		}
 	}
 	void Empty( int32 Slack, int32 NumBytesPerElement )
 	{
 		checkSlow(Slack>=0);
 		ArrayNum = 0;
-		// only reallocate if we need to, I don't trust realloc to the same size to work
-		if (ArrayMax != Slack)
+		if (Slack != ArrayMax)
 		{
-			ArrayMax = Slack;
-			this->ResizeAllocation(0,ArrayMax,NumBytesPerElement);
+			ResizeTo(Slack, NumBytesPerElement);
 		}
 	}
 	void SwapMemory(int32 A, int32 B, int32 NumBytesPerElement )
@@ -335,53 +331,86 @@ public:
 	/**
 	 * Returns the amount of slack in this array in elements.
 	 */
-	int32 GetSlack() const
+	FORCEINLINE int32 GetSlack() const
 	{
 		return ArrayMax - ArrayNum;
 	}
 		
 	void Remove( int32 Index, int32 Count, int32 NumBytesPerElement  )
 	{
-		checkSlow(Count >= 0);
-		checkSlow(Index >= 0); 
-		checkSlow(Index <= ArrayNum);
-		checkSlow(Index + Count <= ArrayNum);
+		if (Count)
+		{
+			checkSlow(Count >= 0);
+			checkSlow(Index >= 0);
+			checkSlow(Index <= ArrayNum);
+			checkSlow(Index + Count <= ArrayNum);
 
-		// Skip memmove in the common case that there is nothing to move.
-		int32 NumToMove = ArrayNum - Index - Count;
-		if( NumToMove )
-		{
-			FMemory::Memmove
-			(
-				(uint8*)this->GetAllocation() + (Index      ) * NumBytesPerElement,
-				(uint8*)this->GetAllocation() + (Index+Count) * NumBytesPerElement,
-				NumToMove * NumBytesPerElement
-			);
+			// Skip memmove in the common case that there is nothing to move.
+			int32 NumToMove = ArrayNum - Index - Count;
+			if (NumToMove)
+			{
+				FMemory::Memmove
+					(
+					(uint8*)this->GetAllocation() + (Index)* NumBytesPerElement,
+					(uint8*)this->GetAllocation() + (Index + Count) * NumBytesPerElement,
+					NumToMove * NumBytesPerElement
+					);
+			}
+			ArrayNum -= Count;
+
+			ResizeShrink(NumBytesPerElement);
+			checkSlow(ArrayNum >= 0);
+			checkSlow(ArrayMax >= ArrayNum);
 		}
-		ArrayNum -= Count;
-		
-		const int32 NewArrayMax = this->CalculateSlack(ArrayNum,ArrayMax,NumBytesPerElement);
-		if(NewArrayMax != ArrayMax)
-		{
-			ArrayMax = NewArrayMax;
-			this->ResizeAllocation(ArrayNum,ArrayMax,NumBytesPerElement);
-		}
-		checkSlow(ArrayNum >= 0);
-		checkSlow(ArrayMax >= ArrayNum);
 	}
 
 protected:
 
 	FScriptArray( int32 InNum, int32 NumBytesPerElement  )
-	:   ArrayNum( InNum )
+	:   ArrayNum( 0 )
 	,	ArrayMax( InNum )
 
 	{
-		this->ResizeAllocation(0,ArrayMax,NumBytesPerElement);
+		if (ArrayMax)
+		{
+			ResizeInit(NumBytesPerElement);
+		}
+		ArrayNum = InNum;
 	}
 	int32	  ArrayNum;
 	int32	  ArrayMax;
 
+	FORCENOINLINE void ResizeInit(int32 NumBytesPerElement)
+	{
+		ArrayMax = this->CalculateSlackReserve(ArrayMax, NumBytesPerElement);
+		this->ResizeAllocation(ArrayNum, ArrayMax, NumBytesPerElement);
+	}
+	FORCENOINLINE void ResizeGrow(int32 OldNum, int32 NumBytesPerElement)
+	{
+		ArrayMax = this->CalculateSlackGrow(ArrayNum, ArrayMax, NumBytesPerElement);
+		this->ResizeAllocation(OldNum, ArrayMax, NumBytesPerElement);
+	}
+	FORCENOINLINE void ResizeShrink(int32 NumBytesPerElement)
+	{
+		const int32 NewArrayMax = this->CalculateSlackShrink(ArrayNum, ArrayMax, NumBytesPerElement);
+		if (NewArrayMax != ArrayMax)
+		{
+			ArrayMax = NewArrayMax;
+			this->ResizeAllocation(ArrayNum, ArrayMax, NumBytesPerElement);
+		}
+	}
+	FORCENOINLINE void ResizeTo(int32 NewMax, int32 NumBytesPerElement)
+	{
+		if (NewMax)
+		{
+			NewMax = this->CalculateSlackReserve(NewMax, NumBytesPerElement);
+		}
+		if (NewMax != ArrayMax)
+		{
+			ArrayMax = NewMax;
+			this->ResizeAllocation(ArrayNum, ArrayMax, NumBytesPerElement);
+		}
+	}
 public:
 	// These should really be private, because they shouldn't be called, but there's a bunch of code
 	// that needs to be fixed first.
@@ -482,7 +511,7 @@ public:
 	/**
 	 * Constructor, initializes element number counters.
 	 */
-	TArray()
+	FORCEINLINE TArray()
 		: ArrayNum(0)
 		, ArrayMax(0)
 	{}
@@ -493,7 +522,7 @@ public:
 	 * @param Other The source array to copy.
 	 */
 	template <typename OtherElementType, typename OtherAllocator>
-	explicit TArray(const TArray<OtherElementType, OtherAllocator>& Other)
+	FORCEINLINE explicit TArray(const TArray<OtherElementType, OtherAllocator>& Other)
 	{
 		CopyToEmpty(Other, 0, 0);
 	}
@@ -503,7 +532,7 @@ public:
 	 *
 	 * @param Other The source array to copy.
 	 */
-	TArray(const TArray& Other)
+	FORCEINLINE TArray(const TArray& Other)
 	{
 		CopyToEmpty(Other, 0, 0);
 	}
@@ -515,7 +544,7 @@ public:
 	 * @param ExtraSlack Tells how much extra memory should be preallocated
 	 *                   at the end of the array in the number of elements.
 	 */
-	TArray(const TArray& Other, int32 ExtraSlack)
+	FORCEINLINE TArray(const TArray& Other, int32 ExtraSlack)
 	{
 		CopyToEmpty(Other, 0, ExtraSlack);
 	}
@@ -529,7 +558,7 @@ public:
 	 * @param Other The source array to assign from.
 	 */
 	template<typename OtherAllocator>
-	TArray& operator=(const TArray<ElementType, OtherAllocator>& Other)
+	AGRESSIVE_ARRAY_FORCEINLINE TArray& operator=(const TArray<ElementType, OtherAllocator>& Other)
 	{
 		DestructItems(GetData(), ArrayNum);
 		CopyToEmpty(Other, ArrayMax, 0);
@@ -542,7 +571,7 @@ public:
 	 *
 	 * @param Other The source array to assign from.
 	 */
-	TArray& operator=(const TArray& Other)
+	AGRESSIVE_ARRAY_FORCEINLINE TArray& operator=(const TArray& Other)
 	{
 		if (this != &Other)
 		{
@@ -652,7 +681,7 @@ public:
 	 *                   at the end of the array in the number of elements.
 	 */
 	template <typename OtherElementType>
-	TArray(TArray<OtherElementType, Allocator>&& Other, int32 ExtraSlack)
+	AGRESSIVE_ARRAY_FORCEINLINE TArray(TArray<OtherElementType, Allocator>&& Other, int32 ExtraSlack)
 	{
 		// We don't implement move semantics for general OtherAllocators, as there's no way
 		// to tell if they're compatible with the current one.  Probably going to be a pretty
@@ -666,7 +695,7 @@ public:
 	 *
 	 * @param Other Array to assign and move from.
 	 */
-	TArray& operator=(TArray&& Other)
+	AGRESSIVE_ARRAY_FORCEINLINE TArray& operator=(TArray&& Other)
 	{
 		if (this != &Other)
 		{
@@ -679,7 +708,7 @@ public:
 	/**
 	 * Destructor.
 	 */
-	~TArray()
+	AGRESSIVE_ARRAY_FORCEINLINE ~TArray()
 	{
 		DestructItems(GetData(), ArrayNum);
 
@@ -756,7 +785,7 @@ public:
 	/**
 	 * Returns the amount of slack in this array in elements.
 	 */
-	int32 GetSlack() const
+	FORCEINLINE int32 GetSlack() const
 	{
 		return ArrayMax - ArrayNum;
 	}
@@ -850,7 +879,7 @@ public:
 	 *
 	 * @returns Popped element.
 	 */
-	ElementType Pop(bool bAllowShrinking = true)
+	FORCEINLINE ElementType Pop(bool bAllowShrinking = true)
 	{
 		RangeCheck(0);
 		ElementType Result = MoveTemp(GetData()[ArrayNum - 1]);
@@ -863,7 +892,7 @@ public:
 	 *
 	 * @param Item Item to push.
 	 */
-	void Push(ElementType&& Item)
+	FORCEINLINE void Push(ElementType&& Item)
 	{
 		Add(MoveTemp(Item));
 	}
@@ -875,7 +904,7 @@ public:
 	 *
 	 * @param Item Item to push.
 	 */
-	void Push(const ElementType& Item)
+	FORCEINLINE void Push(const ElementType& Item)
 	{
 		Add(Item);
 	}
@@ -885,7 +914,7 @@ public:
 	 *
 	 * @returns Reference to the top element.
 	 */
-	ElementType& Top()
+	FORCEINLINE ElementType& Top()
 	{
 		return Last();
 	}
@@ -897,7 +926,7 @@ public:
 	 *
 	 * @returns Reference to the top element.
 	 */
-	const ElementType& Top() const
+	FORCEINLINE const ElementType& Top() const
 	{
 		return Last();
 	}
@@ -910,7 +939,7 @@ public:
 	 *
 	 * @returns Reference to n-th last element from the array.
 	 */
-	ElementType& Last(int32 IndexFromTheEnd = 0)
+	FORCEINLINE ElementType& Last(int32 IndexFromTheEnd = 0)
 	{
 		RangeCheck(ArrayNum - IndexFromTheEnd - 1);
 		return GetData()[ArrayNum - IndexFromTheEnd - 1];
@@ -926,7 +955,7 @@ public:
 	 *
 	 * @returns Reference to n-th last element from the array.
 	 */
-	const ElementType& Last(int32 IndexFromTheEnd = 0) const
+	FORCEINLINE const ElementType& Last(int32 IndexFromTheEnd = 0) const
 	{
 		RangeCheck(ArrayNum - IndexFromTheEnd - 1);
 		return GetData()[ArrayNum - IndexFromTheEnd - 1];
@@ -936,13 +965,12 @@ public:
 	 * Shrinks the array's used memory to smallest possible to store elements
 	 * currently in it.
 	 */
-	void Shrink()
+	FORCEINLINE void Shrink()
 	{
 		CheckInvariants();
 		if (ArrayMax != ArrayNum)
 		{
-			ArrayMax = ArrayNum;
-			AllocatorInstance.ResizeAllocation(ArrayNum, ArrayMax, sizeof(ElementType));
+			ResizeTo(ArrayNum);
 		}
 	}
 
@@ -967,7 +995,7 @@ public:
 	 *
 	 * @returns Index of the found element. INDEX_NONE otherwise.
 	 */
-	int32 Find(const ElementType& Item) const
+	AGRESSIVE_ARRAY_FORCEINLINE int32 Find(const ElementType& Item) const
 	{
 		const ElementType* RESTRICT Start = GetData();
 		for (const ElementType* RESTRICT Data = Start, *RESTRICT DataEnd = Data + ArrayNum; Data != DataEnd; ++Data)
@@ -1088,7 +1116,7 @@ public:
 	 *          found.
 	 */
 	template <typename KeyType>
-	int32 IndexOfByKey(const KeyType& Key) const
+	AGRESSIVE_ARRAY_FORCEINLINE int32 IndexOfByKey(const KeyType& Key) const
 	{
 		const ElementType* RESTRICT Start = GetData();
 		for (const ElementType* RESTRICT Data = Start, *RESTRICT DataEnd = Start + ArrayNum; Data != DataEnd; ++Data)
@@ -1110,7 +1138,7 @@ public:
 	 *          found.
 	 */
 	template <typename Predicate>
-	int32 IndexOfByPredicate(Predicate Pred) const
+	AGRESSIVE_ARRAY_FORCEINLINE int32 IndexOfByPredicate(Predicate Pred) const
 	{
 		const ElementType* RESTRICT Start = GetData();
 		for (const ElementType* RESTRICT Data = Start, *RESTRICT DataEnd = Start + ArrayNum; Data != DataEnd; ++Data)
@@ -1146,7 +1174,7 @@ public:
 	 * @returns Pointer to the first matching element, or nullptr if none is found.
 	 */
 	template <typename KeyType>
-	ElementType* FindByKey(const KeyType& Key)
+	AGRESSIVE_ARRAY_FORCEINLINE ElementType* FindByKey(const KeyType& Key)
 	{
 		for (ElementType* RESTRICT Data = GetData(), *RESTRICT DataEnd = Data + ArrayNum; Data != DataEnd; ++Data)
 		{
@@ -1182,7 +1210,7 @@ public:
 	 *         true, or nullptr if none is found.
 	 */
 	template <typename Predicate>
-	ElementType* FindByPredicate(Predicate Pred)
+	AGRESSIVE_ARRAY_FORCEINLINE ElementType* FindByPredicate(Predicate Pred)
 	{
 		for (ElementType* RESTRICT Data = GetData(), *RESTRICT DataEnd = Data + ArrayNum; Data != DataEnd; ++Data)
 		{
@@ -1223,7 +1251,7 @@ public:
 	 * @returns	True if found. False otherwise.
 	 */
 	template <typename ComparisonType>
-	bool Contains(const ComparisonType& Item) const
+	AGRESSIVE_ARRAY_FORCEINLINE bool Contains(const ComparisonType& Item) const
 	{
 		for (const ElementType* RESTRICT Data = GetData(), *RESTRICT DataEnd = Data + ArrayNum; Data != DataEnd; ++Data)
 		{
@@ -1255,7 +1283,7 @@ public:
 	 *
 	 * @returns True if this array is the same as OtherArray. False otherwise.
 	 */
-	bool operator==(const TArray& OtherArray) const
+	AGRESSIVE_ARRAY_FORCEINLINE bool operator==(const TArray& OtherArray) const
 	{
 		int32 Count = Num();
 
@@ -1269,7 +1297,7 @@ public:
 	 *
 	 * @returns True if this array is NOT the same as OtherArray. False otherwise.
 	 */
-	bool operator!=(const TArray& OtherArray) const
+	FORCEINLINE bool operator!=(const TArray& OtherArray) const
 	{
 		return !(*this == OtherArray);
 	}
@@ -1290,10 +1318,9 @@ public:
 			// Serialize simple bytes which require no construction or destruction.
 			Ar << A.ArrayNum;
 			check(A.ArrayNum >= 0);
-			if (Ar.IsLoading())
+			if ((A.ArrayNum || A.ArrayMax) && Ar.IsLoading())
 			{
-				A.ArrayMax = A.ArrayNum;
-				A.AllocatorInstance.ResizeAllocation(0, A.ArrayMax, sizeof(ElementType));
+				A.ResizeForCopy(A.ArrayNum, A.ArrayMax);
 			}
 			Ar.Serialize(A.GetData(), A.Num());
 		}
@@ -1406,7 +1433,7 @@ public:
 	 *
 	 * @returns Number of elements in array before addition.
 	 */
-	int32 AddUninitialized(int32 Count = 1)
+	FORCEINLINE int32 AddUninitialized(int32 Count = 1)
 	{
 		CheckInvariants();
 		checkSlow(Count >= 0);
@@ -1414,10 +1441,8 @@ public:
 		const int32 OldNum = ArrayNum;
 		if ((ArrayNum += Count) > ArrayMax)
 		{
-			ArrayMax = AllocatorInstance.CalculateSlack(ArrayNum, ArrayMax, sizeof(ElementType));
-			AllocatorInstance.ResizeAllocation(OldNum, ArrayMax, sizeof(ElementType));
+			ResizeGrow(OldNum);
 		}
-
 		return OldNum;
 	}
 
@@ -1440,8 +1465,7 @@ public:
 		const int32 OldNum = ArrayNum;
 		if ((ArrayNum += Count) > ArrayMax)
 		{
-			ArrayMax = AllocatorInstance.CalculateSlack(ArrayNum, ArrayMax, sizeof(ElementType));
-			AllocatorInstance.ResizeAllocation(OldNum, ArrayMax, sizeof(ElementType));
+			ResizeGrow(OldNum);
 		}
 		ElementType* Data = GetData() + Index;
 		RelocateConstructItems<ElementType>(Data + Count, Data, OldNum - Index);
@@ -1566,31 +1590,29 @@ public:
 	 */
 	void RemoveAt(int32 Index, int32 Count = 1, bool bAllowShrinking = true)
 	{
-		CheckInvariants();
-		checkSlow((Count >= 0) & (Index >= 0) & (Index + Count <= ArrayNum));
-
-		DestructItems(GetData() + Index, Count);
-
-		// Skip memmove in the common case that there is nothing to move.
-		int32 NumToMove = ArrayNum - Index - Count;
-		if (NumToMove)
+		if (Count)
 		{
-			FMemory::Memmove
-				(
-				(uint8*)AllocatorInstance.GetAllocation() + (Index)* sizeof(ElementType),
-				(uint8*)AllocatorInstance.GetAllocation() + (Index + Count) * sizeof(ElementType),
-				NumToMove * sizeof(ElementType)
-				);
-		}
-		ArrayNum -= Count;
+			CheckInvariants();
+			checkSlow((Count >= 0) & (Index >= 0) & (Index + Count <= ArrayNum));
 
-		if (bAllowShrinking)
-		{
-			const int32 NewArrayMax = AllocatorInstance.CalculateSlack(ArrayNum, ArrayMax, sizeof(ElementType));
-			if (NewArrayMax != ArrayMax)
+			DestructItems(GetData() + Index, Count);
+
+			// Skip memmove in the common case that there is nothing to move.
+			int32 NumToMove = ArrayNum - Index - Count;
+			if (NumToMove)
 			{
-				ArrayMax = NewArrayMax;
-				AllocatorInstance.ResizeAllocation(ArrayNum, ArrayMax, sizeof(ElementType));
+				FMemory::Memmove
+					(
+					(uint8*)AllocatorInstance.GetAllocation() + (Index)* sizeof(ElementType),
+					(uint8*)AllocatorInstance.GetAllocation() + (Index + Count) * sizeof(ElementType),
+					NumToMove * sizeof(ElementType)
+					);
+			}
+			ArrayNum -= Count;
+
+			if (bAllowShrinking)
+			{
+				ResizeShrink();
 			}
 		}
 	}
@@ -1607,34 +1629,32 @@ public:
 	 * @param bAllowShrinking (Optional) Tells if this call can shrink array if
 	 *                        suitable after remove. Default is true.
 	 */
-	void RemoveAtSwap(int32 Index, int32 Count = 1, bool bAllowShrinking = true)
+	AGRESSIVE_ARRAY_FORCEINLINE void RemoveAtSwap(int32 Index, int32 Count = 1, bool bAllowShrinking = true)
 	{
-		CheckInvariants();
-		checkSlow((Count >= 0) & (Index >= 0) & (Index + Count <= ArrayNum));
-
-		DestructItems(GetData() + Index, Count);
-
-		// Replace the elements in the hole created by the removal with elements from the end of the array, so the range of indices used by the array is contiguous.
-		const int32 NumElementsInHole = Count;
-		const int32 NumElementsAfterHole = ArrayNum - (Index + Count);
-		const int32 NumElementsToMoveIntoHole = FMath::Min(NumElementsInHole, NumElementsAfterHole);
-		if (NumElementsToMoveIntoHole)
+		if (Count)
 		{
-			FMemory::Memcpy(
-				(uint8*)AllocatorInstance.GetAllocation() + (Index)* sizeof(ElementType),
-				(uint8*)AllocatorInstance.GetAllocation() + (ArrayNum - NumElementsToMoveIntoHole) * sizeof(ElementType),
-				NumElementsToMoveIntoHole * sizeof(ElementType)
-				);
-		}
-		ArrayNum -= Count;
+			CheckInvariants();
+			checkSlow((Count >= 0) & (Index >= 0) & (Index + Count <= ArrayNum));
 
-		if (bAllowShrinking)
-		{
-			const int32 NewArrayMax = AllocatorInstance.CalculateSlack(ArrayNum, ArrayMax, sizeof(ElementType));
-			if (NewArrayMax != ArrayMax)
+			DestructItems(GetData() + Index, Count);
+
+			// Replace the elements in the hole created by the removal with elements from the end of the array, so the range of indices used by the array is contiguous.
+			const int32 NumElementsInHole = Count;
+			const int32 NumElementsAfterHole = ArrayNum - (Index + Count);
+			const int32 NumElementsToMoveIntoHole = FMath::Min(NumElementsInHole, NumElementsAfterHole);
+			if (NumElementsToMoveIntoHole)
 			{
-				ArrayMax = NewArrayMax;
-				AllocatorInstance.ResizeAllocation(ArrayNum, ArrayMax, sizeof(ElementType));
+				FMemory::Memcpy(
+					(uint8*)AllocatorInstance.GetAllocation() + (Index)* sizeof(ElementType),
+					(uint8*)AllocatorInstance.GetAllocation() + (ArrayNum - NumElementsToMoveIntoHole) * sizeof(ElementType),
+					NumElementsToMoveIntoHole * sizeof(ElementType)
+					);
+			}
+			ArrayNum -= Count;
+
+			if (bAllowShrinking)
+			{
+				ResizeShrink();
 			}
 		}
 	}
@@ -1645,7 +1665,7 @@ public:
 	 *
 	 * @param NewSize The expected usage size after calling this function.
 	 */
-	void Reset(int32 NewSize = 0)
+	AGRESSIVE_ARRAY_FORCEINLINE void Reset(int32 NewSize = 0)
 	{
 		// If we have space to hold the excepted size, then don't reallocate
 		if (NewSize <= ArrayMax)
@@ -1664,17 +1684,15 @@ public:
 	 *
 	 * @param Slack (Optional) The expected usage size after empty operation. Default is 0.
 	 */
-	void Empty(int32 Slack = 0)
+	AGRESSIVE_ARRAY_FORCEINLINE void Empty(int32 Slack = 0)
 	{
 		DestructItems(GetData(), ArrayNum);
 
 		checkSlow(Slack >= 0);
 		ArrayNum = 0;
-		// only reallocate if we need to, I don't trust realloc to the same size to work
 		if (ArrayMax != Slack)
 		{
-			ArrayMax = Slack;
-			AllocatorInstance.ResizeAllocation(0, ArrayMax, sizeof(ElementType));
+			ResizeTo(Slack);
 		}
 	}
 
@@ -1703,7 +1721,7 @@ public:
 	 *
 	 * @param NewNum New size of the array.
 	 */
-	void SetNumZeroed(int32 NewNum)
+	void SetNumZeroed(int32 NewNum, bool bAllowShrinking = true)
 	{
 		if (NewNum > Num())
 		{
@@ -1711,7 +1729,7 @@ public:
 		}
 		else if (NewNum < Num())
 		{
-			RemoveAt(NewNum, Num() - NewNum);
+			RemoveAt(NewNum, Num() - NewNum, bAllowShrinking);
 		}
 	}
 
@@ -1720,7 +1738,7 @@ public:
 	 *
 	 * @param NewNum New size of the array.
 	 */
-	void SetNumUninitialized(int32 NewNum)
+	AGRESSIVE_ARRAY_FORCEINLINE void SetNumUninitialized(int32 NewNum, bool bAllowShrinking = true)
 	{
 		if (NewNum > Num())
 		{
@@ -1728,7 +1746,7 @@ public:
 		}
 		else if (NewNum < Num())
 		{
-			RemoveAt(NewNum, Num() - NewNum);
+			RemoveAt(NewNum, Num() - NewNum, bAllowShrinking);
 		}
 	}
 
@@ -1750,7 +1768,7 @@ public:
 	 * @param Source The array to append.
 	 */
 	template <typename OtherElementType, typename OtherAllocator>
-	FORCEINLINE void Append(const TArray<OtherElementType, OtherAllocator>& Source)
+	AGRESSIVE_ARRAY_FORCEINLINE void Append(const TArray<OtherElementType, OtherAllocator>& Source)
 	{
 		check((void*)this != (void*)&Source);
 
@@ -1776,7 +1794,7 @@ public:
 	 * @param Source The array to append.
 	 */
 	template <typename OtherElementType, typename OtherAllocator>
-	FORCEINLINE void Append(TArray<OtherElementType, OtherAllocator>&& Source)
+	AGRESSIVE_ARRAY_FORCEINLINE void Append(TArray<OtherElementType, OtherAllocator>&& Source)
 	{
 		check((void*)this != (void*)&Source);
 
@@ -1803,7 +1821,7 @@ public:
 	 * @param Ptr   A pointer to an array of elements to add.
 	 * @param Count The number of elements to insert from Ptr.
 	 */
-	void Append(const ElementType* Ptr, int32 Count)
+	AGRESSIVE_ARRAY_FORCEINLINE void Append(const ElementType* Ptr, int32 Count)
 	{
 		check(Ptr != nullptr);
 
@@ -1819,7 +1837,7 @@ public:
 	 *
 	 * @param Other The array to append.
 	 */
-	FORCEINLINE TArray& operator+=(TArray&& Other)
+	AGRESSIVE_ARRAY_FORCEINLINE TArray& operator+=(TArray&& Other)
 	{
 		Append(MoveTemp(Other));
 		return *this;
@@ -1831,7 +1849,7 @@ public:
 	 *
 	 * @param Other The array to append.
 	 */
-	FORCEINLINE TArray& operator+=(const TArray& Other)
+	AGRESSIVE_ARRAY_FORCEINLINE TArray& operator+=(const TArray& Other)
 	{
 		Append(Other);
 		return *this;
@@ -1846,7 +1864,7 @@ public:
 	#if PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
 
 		template <typename... ArgsType>
-		int32 Emplace(ArgsType&&... Args)
+		FORCEINLINE int32 Emplace(ArgsType&&... Args)
 		{
 			const int32 Index = AddUninitialized(1);
 			new(GetData() + Index) ElementType(Forward<ArgsType>(Args)...);
@@ -1855,7 +1873,7 @@ public:
 
 	#else
 
-		int32 Emplace()
+		FORCEINLINE int32 Emplace()
 		{
 			const int32 Index = AddUninitialized(1);
 			new(GetData() + Index) ElementType();
@@ -1863,7 +1881,7 @@ public:
 		}
 
 		template <typename Arg0Type>
-		int32 Emplace(Arg0Type&& Arg0)
+		FORCEINLINE int32 Emplace(Arg0Type&& Arg0)
 		{
 			const int32 Index = AddUninitialized(1);
 			new(GetData() + Index) ElementType(Forward<Arg0Type>(Arg0));
@@ -1871,7 +1889,7 @@ public:
 		}
 
 		template <typename Arg0Type, typename Arg1Type>
-		int32 Emplace(Arg0Type&& Arg0, Arg1Type&& Arg1)
+		FORCEINLINE int32 Emplace(Arg0Type&& Arg0, Arg1Type&& Arg1)
 		{
 			const int32 Index = AddUninitialized(1);
 			new(GetData() + Index) ElementType(Forward<Arg0Type>(Arg0), Forward<Arg1Type>(Arg1));
@@ -1879,7 +1897,7 @@ public:
 		}
 
 		template <typename Arg0Type, typename Arg1Type, typename Arg2Type>
-		int32 Emplace(Arg0Type&& Arg0, Arg1Type&& Arg1, Arg2Type&& Arg2)
+		FORCEINLINE int32 Emplace(Arg0Type&& Arg0, Arg1Type&& Arg1, Arg2Type&& Arg2)
 		{
 			const int32 Index = AddUninitialized(1);
 			new(GetData() + Index) ElementType(Forward<Arg0Type>(Arg0), Forward<Arg1Type>(Arg1), Forward<Arg2Type>(Arg2));
@@ -1887,7 +1905,7 @@ public:
 		}
 
 		template <typename Arg0Type, typename Arg1Type, typename Arg2Type, typename Arg3Type>
-		int32 Emplace(Arg0Type&& Arg0, Arg1Type&& Arg1, Arg2Type&& Arg2, Arg3Type&& Arg3)
+		FORCEINLINE int32 Emplace(Arg0Type&& Arg0, Arg1Type&& Arg1, Arg2Type&& Arg2, Arg3Type&& Arg3)
 		{
 			const int32 Index = AddUninitialized(1);
 			new(GetData() + Index) ElementType(Forward<Arg0Type>(Arg0), Forward<Arg1Type>(Arg1), Forward<Arg2Type>(Arg2), Forward<Arg3Type>(Arg3));
@@ -1895,7 +1913,7 @@ public:
 		}
 
 		template <typename Arg0Type, typename Arg1Type, typename Arg2Type, typename Arg3Type, typename Arg4Type>
-		int32 Emplace(Arg0Type&& Arg0, Arg1Type&& Arg1, Arg2Type&& Arg2, Arg3Type&& Arg3, Arg4Type&& Arg4)
+		FORCEINLINE int32 Emplace(Arg0Type&& Arg0, Arg1Type&& Arg1, Arg2Type&& Arg2, Arg3Type&& Arg3, Arg4Type&& Arg4)
 		{
 			const int32 Index = AddUninitialized(1);
 			new(GetData() + Index) ElementType(Forward<Arg0Type>(Arg0), Forward<Arg1Type>(Arg1), Forward<Arg2Type>(Arg2), Forward<Arg3Type>(Arg3), Forward<Arg4Type>(Arg4));
@@ -1903,7 +1921,7 @@ public:
 		}
 
 		template <typename Arg0Type, typename Arg1Type, typename Arg2Type, typename Arg3Type, typename Arg4Type, typename Arg5Type>
-		int32 Emplace(Arg0Type&& Arg0, Arg1Type&& Arg1, Arg2Type&& Arg2, Arg3Type&& Arg3, Arg4Type&& Arg4, Arg5Type&& Arg5)
+		FORCEINLINE int32 Emplace(Arg0Type&& Arg0, Arg1Type&& Arg1, Arg2Type&& Arg2, Arg3Type&& Arg3, Arg4Type&& Arg4, Arg5Type&& Arg5)
 		{
 			const int32 Index = AddUninitialized(1);
 			new(GetData() + Index) ElementType(Forward<Arg0Type>(Arg0), Forward<Arg1Type>(Arg1), Forward<Arg2Type>(Arg2), Forward<Arg3Type>(Arg3), Forward<Arg4Type>(Arg4), Forward<Arg5Type>(Arg5));
@@ -1942,7 +1960,7 @@ public:
 	 *
 	 * @return Index to the first of the new items.
 	 */
-	int32 AddZeroed(int32 Count = 1)
+	AGRESSIVE_ARRAY_FORCEINLINE int32 AddZeroed(int32 Count = 1)
 	{
 		const int32 Index = AddUninitialized(Count);
 		FMemory::Memzero((uint8*)AllocatorInstance.GetAllocation() + Index*sizeof(ElementType), Count*sizeof(ElementType));
@@ -1957,7 +1975,7 @@ public:
 	 *
 	 * @return Index to the first of the new items.
 	 */
-	int32 AddDefaulted(int32 Count = 1)
+	AGRESSIVE_ARRAY_FORCEINLINE int32 AddDefaulted(int32 Count = 1)
 	{
 		const int32 Index = AddUninitialized(Count);
 		DefaultConstructItems<ElementType>((uint8*)AllocatorInstance.GetAllocation() + Index * sizeof(ElementType), Count);
@@ -1973,7 +1991,7 @@ private:
 	 * @returns Index of the element in the array.
 	 */
 	template <typename ArgsType>
-	int32 AddUniqueImpl(ArgsType&& Args)
+	AGRESSIVE_ARRAY_FORCEINLINE int32 AddUniqueImpl(ArgsType&& Args)
 	{
 		int32 Index;
 		if (Find(Args, Index))
@@ -2011,12 +2029,11 @@ public:
 	 * @param Number The number of elements that the array should be able to
 	 *               contain after allocation.
 	 */
-	void Reserve(int32 Number)
+	FORCEINLINE void Reserve(int32 Number)
 	{
 		if (Number > ArrayMax)
 		{
-			ArrayMax = Number;
-			AllocatorInstance.ResizeAllocation(ArrayNum, ArrayMax, sizeof(ElementType));
+			ResizeTo(Number);
 		}
 	}
 	
@@ -2040,7 +2057,7 @@ public:
 	 * @param Number The number of elements that the array should be able to
 	 *               contain after allocation.
 	 */
-	void Init(const ElementType& Element, int32 Number)
+	AGRESSIVE_ARRAY_FORCEINLINE void Init(const ElementType& Element, int32 Number)
 	{
 		Empty(Number);
 		for (int32 Index = 0; Index < Number; ++Index)
@@ -2220,7 +2237,7 @@ public:
 	 * @param FirstIndexToSwap Position of the first element to swap.
 	 * @param SecondIndexToSwap Position of the second element to swap.
 	 */
-	void SwapMemory(int32 FirstIndexToSwap, int32 SecondIndexToSwap)
+	FORCEINLINE void SwapMemory(int32 FirstIndexToSwap, int32 SecondIndexToSwap)
 	{
 		FMemory::Memswap(
 			(uint8*)AllocatorInstance.GetAllocation() + (sizeof(ElementType)*FirstIndexToSwap),
@@ -2237,7 +2254,7 @@ public:
 	 * @param FirstIndexToSwap Position of the first element to swap.
 	 * @param SecondIndexToSwap Position of the second element to swap.
 	 */
-	void Swap(int32 FirstIndexToSwap, int32 SecondIndexToSwap)
+	FORCEINLINE void Swap(int32 FirstIndexToSwap, int32 SecondIndexToSwap)
 	{
 		check((FirstIndexToSwap >= 0) && (SecondIndexToSwap >= 0));
 		check((ArrayNum > FirstIndexToSwap) && (ArrayNum > SecondIndexToSwap));
@@ -2392,6 +2409,47 @@ private:
 
 private:
 
+	FORCENOINLINE void ResizeGrow(int32 OldNum)
+	{
+		ArrayMax = AllocatorInstance.CalculateSlackGrow(ArrayNum, ArrayMax, sizeof(ElementType));
+		AllocatorInstance.ResizeAllocation(OldNum, ArrayMax, sizeof(ElementType));
+	}
+	FORCENOINLINE void ResizeShrink()
+	{
+		const int32 NewArrayMax = AllocatorInstance.CalculateSlackShrink(ArrayNum, ArrayMax, sizeof(ElementType));
+		if (NewArrayMax != ArrayMax)
+		{
+			ArrayMax = NewArrayMax;
+			check(ArrayMax >= ArrayNum);
+			AllocatorInstance.ResizeAllocation(ArrayNum, ArrayMax, sizeof(ElementType));
+		}
+	}
+	FORCENOINLINE void ResizeTo(int32 NewMax)
+	{
+		if (NewMax)
+		{
+			NewMax = AllocatorInstance.CalculateSlackReserve(NewMax, sizeof(ElementType));
+		}
+		if (NewMax != ArrayMax)
+		{
+			ArrayMax = NewMax;
+			AllocatorInstance.ResizeAllocation(ArrayNum, ArrayMax, sizeof(ElementType));
+		}
+	}
+	FORCENOINLINE void ResizeForCopy(int32 NewMax, int32 PrevMax)
+	{
+		if (NewMax)
+		{
+			NewMax = AllocatorInstance.CalculateSlackReserve(NewMax, sizeof(ElementType));
+		}
+		if (NewMax != PrevMax)
+		{
+			AllocatorInstance.ResizeAllocation(0, NewMax, sizeof(ElementType));
+		}
+		ArrayMax = NewMax;
+	}
+
+
 	/**
 	 * Copies data from one array into this array. Uses the fast path if the
 	 * data in question does not need a constructor.
@@ -2403,20 +2461,19 @@ private:
 	 *                   default.
 	 */
 	template <typename OtherElementType, typename OtherAllocator>
-	void CopyToEmpty(const TArray<OtherElementType, OtherAllocator>& Source, int32 PrevMax, int32 ExtraSlack)
+	AGRESSIVE_ARRAY_FORCEINLINE void CopyToEmpty(const TArray<OtherElementType, OtherAllocator>& Source, int32 PrevMax, int32 ExtraSlack)
 	{
-		check(ExtraSlack >= 0);
-
-		int32 SourceCount = Source.Num();
-		if (SourceCount + ExtraSlack != PrevMax)
+		checkSlow(ExtraSlack >= 0);
+		ArrayNum = Source.Num();
+		if (ArrayNum || ExtraSlack || PrevMax)
 		{
-			AllocatorInstance.ResizeAllocation(0, SourceCount + ExtraSlack, sizeof(ElementType));
+			ResizeForCopy(ArrayNum + ExtraSlack, PrevMax);
+			ConstructItems<ElementType>(GetData(), Source.GetData(), ArrayNum);
 		}
-
-		ConstructItems<ElementType>(GetData(), Source.GetData(), SourceCount);
-
-		ArrayNum = SourceCount;
-		ArrayMax = SourceCount + ExtraSlack;
+		else
+		{
+			ArrayMax = 0;
+		}
 	}
 
 protected:
@@ -2468,7 +2525,7 @@ public:
 	/** 
 	 * Adds a new element to the heap.
 	 *
-	 * @param InIntem Item to be added.
+	 * @param InItem Item to be added.
 	 * @param Predicate Predicate class instance.
 	 *
 	 * @return The index of the new element.
@@ -2492,7 +2549,7 @@ public:
 	 * Adds a new element to the heap. Assumes < operator is defined for the
 	 * template type.
 	 *
-	 * @param InIntem Item to be added.
+	 * @param InItem Item to be added.
 	 *
 	 * @return The index of the new element.
 	 */
@@ -3428,7 +3485,7 @@ public:
 	 *
 	 * @returns Number of bytes allocated by this container.
 	 */
-	uint32 GetAllocatedSize() const
+	SIZE_T GetAllocatedSize() const
 	{
 		return Array.Max() * sizeof(T*) + Array.Num() * sizeof(T);
 	}
@@ -3608,6 +3665,12 @@ public:
 	void AssignButKeepOwner( const Super& Other )
 	{
 		(Super&)*this = Other;
+	}
+
+	// Functions dependent on Add, Remove.
+	void AssignButKeepOwner( Super&& Other )
+	{
+		(Super&)*this = MoveTemp(Other);
 	}
 
 	int32 Add( const T& Item )

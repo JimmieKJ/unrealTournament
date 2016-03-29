@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 namespace UnrealBuildTool.Rules
 {
@@ -27,7 +27,7 @@ namespace UnrealBuildTool.Rules
 				}
 				);
 
-			DynamicallyLoadedModuleNames.AddRange(
+            DynamicallyLoadedModuleNames.AddRange(
 				new string[]
 				{
 					// ... add any modules that your module loads dynamically here ...

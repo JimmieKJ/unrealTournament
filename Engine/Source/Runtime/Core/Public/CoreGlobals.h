@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 #include "Containers/ContainersFwd.h"
 #include "HAL/Platform.h"
@@ -22,7 +22,7 @@ extern CORE_API FOutputDeviceConsole* GLogConsole;
 
 extern CORE_API TCHAR GErrorHist[16384];
 
-// @TODO yrx 2014-08-19 Combine into one.
+// #crashReport: 2014-08-19 Combine into one, refactor.
 extern CORE_API TCHAR GErrorExceptionDescription[4096];
 extern CORE_API TCHAR GErrorMessage[4096];
 
@@ -176,6 +176,7 @@ extern CORE_API FString GEditorPerProjectIni;
 extern CORE_API FString GCompatIni;
 extern CORE_API FString GLightmassIni;
 extern CORE_API FString GScalabilityIni;
+extern CORE_API FString GHardwareIni;
 extern CORE_API FString GInputIni;
 extern CORE_API FString GGameIni;
 extern CORE_API FString GGameUserSettingsIni;
@@ -197,6 +198,9 @@ extern CORE_API void (*SuspendAsyncLoading)();
 
 /** Resumes async package loading. */
 extern CORE_API void (*ResumeAsyncLoading)();
+
+/** Returns true if async loading is using the async loading thread */
+extern CORE_API bool(*IsAsyncLoadingMultithreaded)();
 
 /** Whether the editor is currently loading a package or not */
 extern CORE_API bool GIsEditorLoadingPackage;
@@ -284,6 +288,9 @@ extern CORE_API FName GCurrentTraceName;
 
 /** How to print the time in log output. */
 extern CORE_API ELogTimes::Type GPrintLogTimes;
+
+/** How to print the category in log output. */
+extern CORE_API bool GPrintLogCategory;
 
 /** Global screen shot index to avoid overwriting ScreenShots. */
 extern CORE_API int32 GScreenshotBitmapIndex;

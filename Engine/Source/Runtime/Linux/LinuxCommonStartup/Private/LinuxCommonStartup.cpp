@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LinuxCommonStartup.h"
 #include "ExceptionHandling.h"
@@ -13,19 +13,23 @@ static FString GSavedCommandLine;
 extern int32 GuardedMain( const TCHAR* CmdLine );
 extern void LaunchStaticShutdownAfterError();
 
-// FIXME: handle expose it someplace else?
-extern int32 DLLIMPORT ReportCrash(const FLinuxCrashContext& Context);
-extern void DLLIMPORT GenerateCrashInfoAndLaunchReporter(const FLinuxCrashContext& Context);
+#if WITH_ENGINE
+// see comment in LaunchLinux.cpp for details why it is done this way
+extern void LaunchLinux_FEngineLoop_AppExit();
+#endif // WITH_ENGINE
 
 /**
  * Game-specific crash reporter
  */
 void CommonLinuxCrashHandler(const FGenericCrashContext& GenericContext)
 {
-	const FLinuxCrashContext& Context = static_cast< const FLinuxCrashContext& >( GenericContext );
+	// at this point we should already be using malloc crash handler (see PlatformCrashHandler)
 
-	printf("EngineCrashHandler: Signal=%d\n", Context.Signal);
-	ReportCrash(Context);
+	const FLinuxCrashContext& Context = static_cast< const FLinuxCrashContext& >( GenericContext );
+	printf("CommonLinuxCrashHandler: Signal=%d\n", Context.Signal);
+
+	// better than having mutable fields?
+	const_cast< FLinuxCrashContext& >(Context).CaptureStackTrace();
 	if (GLog)
 	{
 		GLog->Flush();
@@ -40,7 +44,7 @@ void CommonLinuxCrashHandler(const FGenericCrashContext& GenericContext)
 		GError->HandleError();
 	}
 
-	return GenerateCrashInfoAndLaunchReporter(Context);
+	return Context.GenerateCrashInfoAndLaunchReporter();
 }
 
 
@@ -119,7 +123,7 @@ static bool IncreasePerProcessLimits()
 	// - Shipping and Test disable by default (unless -core is passed)
 	// - The rest set it to infinity unless -nocore is passed
 	// (in all scenarios user wish as expressed with -core or -nocore takes priority)
-	bool bDisableCore = (UE_BUILD_SHIPPING || UE_BUILD_TEST);
+	bool bDisableCore = (UE_BUILD_SHIPPING != 0 || UE_BUILD_TEST != 0);
 	if (FParse::Param(*GSavedCommandLine, TEXT("nocore")))
 	{
 		bDisableCore = true;
@@ -226,6 +230,18 @@ int CommonLinuxMain(int argc, char *argv[], int (*RealMain)(const TCHAR * Comman
 			ErrorLevel = RealMain( *GSavedCommandLine );
 			GIsGuarded = 0;
 		}
+	}
+
+	// Final shut down.
+#if WITH_ENGINE
+	LaunchLinux_FEngineLoop_AppExit();
+#endif // WITH_ENGINE
+
+	// check if a specific return code has been set
+	uint8 OverriddenErrorLevel = 0;
+	if (FPlatformMisc::HasOverriddenReturnCode(&OverriddenErrorLevel))
+	{
+		ErrorLevel = OverriddenErrorLevel;
 	}
 
 	if (ErrorLevel)

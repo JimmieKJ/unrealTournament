@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -84,6 +84,11 @@ class AIMODULE_API AAIController : public AController, public IAIPerceptionListe
 
 protected:
 	FFocusKnowledge	FocusInformation;
+	
+	/** By default AI's logic gets stopped when controlled Pawn is unpossesed. Setting this flag to false
+	 *	will make AI logic persist past loosing controll over a pawn */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
+	uint32 bStopAILogicOnUnposses : 1;
 
 public:
 	/** used for alternating LineOfSight traces */
@@ -101,6 +106,10 @@ public:
 	/** Specifies if this AI wants its own PlayerState. */
 	UPROPERTY()
 	uint32 bWantsPlayerState:1;
+
+	/** Copy Pawn rotation to ControlRotation, if there is no focus point. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
+	uint32 bSetControlRotationFromPawnOrientation:1;
 
 private_subobject:
 
@@ -139,6 +148,10 @@ public:
 	/** Event called when PossessedPawn is possessed by this controller. */
 	UFUNCTION(BlueprintImplementableEvent)
 	void OnPossess(APawn* PossessedPawn);
+
+	/** Gets triggered after given pawn has been unpossesed */
+	UFUNCTION(BlueprintImplementableEvent)
+	void OnUnpossess(APawn* UnpossessedPawn);
 
 	virtual void SetPawn(APawn* InPawn) override;
 

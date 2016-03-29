@@ -1,10 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "NetworkingPrivatePCH.h"
 #include "AutomationTest.h"
 
+#if WITH_DEV_AUTOMATION_TESTS
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FIPv4AddressTest, "System.Engine.Networking.IPv4.IPv4Address", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FIPv4AddressTest, "System.Engine.Networking.IPv4.IPv4Address", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
 
 
 bool FIPv4AddressTest::RunTest( const FString& Parameters )
@@ -12,10 +13,10 @@ bool FIPv4AddressTest::RunTest( const FString& Parameters )
 	// component access must be correct
 	FIPv4Address a1_1 = FIPv4Address(1, 2, 3, 4);
 
-	TestEqual<uint8>(TEXT("Byte 0 of 1.2.3.4 must be 4"), a1_1.GetByte(0), 4);
-	TestEqual<uint8>(TEXT("Byte 1 of 1.2.3.4 must be 3"), a1_1.GetByte(1), 3);
-	TestEqual<uint8>(TEXT("Byte 2 of 1.2.3.4 must be 2"), a1_1.GetByte(2), 2);
-	TestEqual<uint8>(TEXT("Byte 3 of 1.2.3.4 must be 1"), a1_1.GetByte(3), 1);
+	TestEqual<uint8>(TEXT("Component A of 1.2.3.4 must be 1"), a1_1.A, 1);
+	TestEqual<uint8>(TEXT("Component B of 1.2.3.4 must be 2"), a1_1.B, 2);
+	TestEqual<uint8>(TEXT("Component C of 1.2.3.4 must be 3"), a1_1.C, 3);
+	TestEqual<uint8>(TEXT("Component D of 1.2.3.4 must be 4"), a1_1.D, 4);
 
 	// link local addresses must be recognized
 	FIPv4Address a2_1 = FIPv4Address(169, 254, 0, 1);
@@ -47,7 +48,7 @@ bool FIPv4AddressTest::RunTest( const FString& Parameters )
 	// string conversion
 	FIPv4Address a5_1 = FIPv4Address(1, 2, 3, 4);
 
-	TestEqual<FString>(TEXT("String conversion (1.2.3.4)"), a5_1.ToText().ToString(), TEXT("1.2.3.4"));
+	TestEqual<FString>(TEXT("String conversion (1.2.3.4)"), a5_1.ToString(), TEXT("1.2.3.4"));
 
 	// parsing valid strings must succeed
 	FIPv4Address a6_1 = FIPv4Address(1, 2, 3, 4);
@@ -59,7 +60,12 @@ bool FIPv4AddressTest::RunTest( const FString& Parameters )
 	// parsing invalid strings must fail
 	FIPv4Address a7_1;
 
-	TestFalse(TEXT("Parsing invalid strings must fail (1.2.3)"), FIPv4Address::Parse(TEXT("1.2.3"), a6_2));
+	TestFalse(TEXT("Parsing invalid strings must fail (empty)"), FIPv4Address::Parse(TEXT(""), a7_1));
+//	TestFalse(TEXT("Parsing invalid strings must fail (...)"), FIPv4Address::Parse(TEXT("..."), a7_1));
+	TestFalse(TEXT("Parsing invalid strings must fail (1.2.3)"), FIPv4Address::Parse(TEXT("1.2.3"), a7_1));
+//	TestFalse(TEXT("Parsing invalid strings must fail (1.2.3.)"), FIPv4Address::Parse(TEXT("1.2.3."), a7_1));
+	TestFalse(TEXT("Parsing invalid strings must fail (1.2.3.4.)"), FIPv4Address::Parse(TEXT("1.2.3.4."), a7_1));
+	TestFalse(TEXT("Parsing invalid strings must fail (.1.2.3.4)"), FIPv4Address::Parse(TEXT(".1.2.3.4"), a7_1));
 
 	// site local addresses must be recognized
 	FIPv4Address a8_1 = FIPv4Address(10, 0, 0, 1);
@@ -82,5 +88,17 @@ bool FIPv4AddressTest::RunTest( const FString& Parameters )
 	TestFalse(TEXT("193.168.0.1 must not be a site local address"), a8_7.IsSiteLocalAddress());
 	TestFalse(TEXT("192.169.0.1 must not be a site local address"), a8_8.IsSiteLocalAddress());
 
+	// host byte order integer constructor
+#if PLATFORM_LITTLE_ENDIAN
+	FIPv4Address a9_1(3232235521);	// 192.168.0.1 in little-endian
+#else
+	FIPv4Address a9_1(16820416);	// 192.168.0.1 in big-endian
+#endif
+	FIPv4Address a9_2(192, 168, 0, 1);
+
+	TestEqual<FIPv4Address>(TEXT("Host byte order constructor must yield correct components"), a9_1, a9_2);
+
 	return true;
 }
+
+#endif //WITH_DEV_AUTOMATION_TESTS

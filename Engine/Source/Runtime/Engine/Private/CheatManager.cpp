@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "UnrealNetwork.h"
@@ -988,6 +988,15 @@ void UCheatManager::DumpPartyState()
 	if (PartyInt.IsValid())
 	{
 		PartyInt->DumpPartyState();
+	}
+}
+
+void UCheatManager::DumpChatState()
+{
+	IOnlineChatPtr ChatInt = Online::GetChatInterface(GetWorld());
+	if (ChatInt.IsValid())
+	{
+		ChatInt->DumpChatState();
 	}
 }
 

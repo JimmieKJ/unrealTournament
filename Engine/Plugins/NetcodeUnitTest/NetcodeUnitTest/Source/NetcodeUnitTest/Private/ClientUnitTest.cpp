@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "NetcodeUnitTestPCH.h"
 
@@ -207,34 +207,43 @@ void UClientUnitTest::NotifyNetActor(UActorChannel* ActorChannel, AActor* Actor)
 
 void UClientUnitTest::NotifyNetworkFailure(ENetworkFailure::Type FailureType, const FString& ErrorString)
 {
-	// Only process this error, if a result has not already been returned
-	if (VerificationState == EUnitTestVerification::Unverified)
+	if (!!(UnitTestFlags & EUnitTestFlags::AutoReconnect))
 	{
-		FString LogMsg = FString::Printf(TEXT("Got network failure of type '%s' (%s)"), ENetworkFailure::ToString(FailureType),
-											*ErrorString);
+		UNIT_LOG(ELogType::StatusImportant, TEXT("Detected fake client disconnect when AutoReconnect is enabled. Reconnecting."));
 
-		if (!(UnitTestFlags & EUnitTestFlags::IgnoreDisconnect))
-		{
-			LogMsg += TEXT(", marking unit test as needing update.");
-
-			UNIT_LOG(ELogType::StatusFailure | ELogType::StyleBold, TEXT("%s"), *LogMsg);
-			UNIT_STATUS_LOG(ELogType::StatusFailure | ELogType::StatusVerbose | ELogType::StyleBold, TEXT("%s"), *LogMsg);
-
-			VerificationState = EUnitTestVerification::VerifiedNeedsUpdate;
-		}
-		else
-		{
-			LogMsg += TEXT(".");
-
-			UNIT_LOG(ELogType::StatusWarning, TEXT("%s"), *LogMsg);
-			UNIT_STATUS_LOG(ELogType::StatusWarning | ELogType::StatusVerbose, TEXT("%s"), *LogMsg);
-		}
+		TriggerAutoReconnect();
 	}
-
-	// Shut down the fake client now (relevant for developer mode)
-	if (VerificationState != EUnitTestVerification::Unverified)
+	else
 	{
-		CleanupFakeClient();
+		// Only process this error, if a result has not already been returned
+		if (VerificationState == EUnitTestVerification::Unverified)
+		{
+			FString LogMsg = FString::Printf(TEXT("Got network failure of type '%s' (%s)"), ENetworkFailure::ToString(FailureType),
+												*ErrorString);
+
+			if (!(UnitTestFlags & EUnitTestFlags::IgnoreDisconnect))
+			{
+				LogMsg += TEXT(", marking unit test as needing update.");
+
+				UNIT_LOG(ELogType::StatusFailure | ELogType::StyleBold, TEXT("%s"), *LogMsg);
+				UNIT_STATUS_LOG(ELogType::StatusFailure | ELogType::StatusVerbose | ELogType::StyleBold, TEXT("%s"), *LogMsg);
+
+				VerificationState = EUnitTestVerification::VerifiedNeedsUpdate;
+			}
+			else
+			{
+				LogMsg += TEXT(".");
+
+				UNIT_LOG(ELogType::StatusWarning, TEXT("%s"), *LogMsg);
+				UNIT_STATUS_LOG(ELogType::StatusWarning | ELogType::StatusVerbose, TEXT("%s"), *LogMsg);
+			}
+		}
+
+		// Shut down the fake client now (relevant for developer mode)
+		if (VerificationState != EUnitTestVerification::Unverified)
+		{
+			CleanupFakeClient();
+		}
 	}
 }
 
@@ -250,7 +259,7 @@ void UClientUnitTest::NotifyReceivedRawPacket(void* Data, int32& Count)
 	}
 }
 
-void UClientUnitTest::NotifySendRawPacket(void* Data, int32 Count)
+void UClientUnitTest::NotifySendRawPacket(void* Data, int32 Count, bool& bBlockSend)
 {
 	if (!!(UnitTestFlags & EUnitTestFlags::DumpSendRaw))
 	{
@@ -595,6 +604,7 @@ void UClientUnitTest::NotifySuspendRequest()
 	// @todo #JohnBFeature: Currently on suspends the server, suspend the client as well, and also add more granularity
 	//						(deciding which to suspend)
 
+#if PLATFORM_WINDOWS
 	TSharedPtr<FUnitTestProcess> CurProcess = (ServerHandle.IsValid() ? ServerHandle.Pin() : NULL);
 
 	if (CurProcess.IsValid())
@@ -666,6 +676,9 @@ void UClientUnitTest::NotifySuspendRequest()
 			}
 		}
 	}
+#else
+	UNIT_LOG(ELogType::StatusImportant, TEXT("Suspend/Resume is only supported in Windows."));
+#endif
 }
 
 void UClientUnitTest::NotifyProcessSuspendState(TWeakPtr<FUnitTestProcess> InProcess, ESuspendState InSuspendState)
@@ -1226,6 +1239,7 @@ bool UClientUnitTest::ConnectFakeClient(FUniqueNetIdRepl* InNetID/*=NULL*/)
 					if (!!(UnitTestFlags & EUnitTestFlags::CaptureSendRaw))
 					{
 						CurUnitConn->LowLevelSendDel.BindUObject(this, &UClientUnitTest::NotifySendRawPacket);
+						CurUnitConn->SocketHook.SendToDel.BindUObject(this, &UClientUnitTest::NotifySocketSendRawPacket);
 					}
 
 					CurUnitConn->ReplicatedActorSpawnDel.BindUObject(this, &UClientUnitTest::NotifyAllowNetActor);
@@ -1308,7 +1322,12 @@ void UClientUnitTest::CleanupFakeClient()
 	UnitNetDriver = NULL;
 	UnitPC = NULL;
 	UnitConn = NULL;
+	bUnitPawnSetup = false;
 	UnitNUTActor = NULL;
+	UnitBeacon = nullptr;
+	bReceivedPong = false;
+	ControlBunchSequence = 0;
+	PendingNetActorChans.Empty();
 
 	if (UnitNotify != NULL)
 	{
@@ -1331,6 +1350,14 @@ void UClientUnitTest::CleanupFakeClient()
 		NUTNet::MarkUnitTestWorldForCleanup(UnitWorld);
 		UnitWorld = NULL;
 	}
+}
+
+void UClientUnitTest::TriggerAutoReconnect()
+{
+	UNIT_LOG(ELogType::StatusImportant, TEXT("Performing Auto-Reconnect."))
+
+	CleanupFakeClient();
+	ConnectFakeClient();
 }
 
 

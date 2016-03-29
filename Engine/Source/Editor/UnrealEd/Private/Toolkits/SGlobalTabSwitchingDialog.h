@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -14,10 +14,7 @@ public:
 public:
 	void Construct(const FArguments& InArgs, FVector2D InSize, FInputChord InTriggerChord);
 
-	~SGlobalTabSwitchingDialog()
-	{
-		bIsAlreadyOpen = false;
-	}
+	~SGlobalTabSwitchingDialog();
 
 	// SWidget interface
 	virtual FReply OnPreviewKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;

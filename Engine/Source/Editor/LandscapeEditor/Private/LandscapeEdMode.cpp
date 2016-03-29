@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LandscapeEditorPrivatePCH.h"
 
@@ -169,6 +169,7 @@ FEdModeLandscape::FEdModeLandscape()
 	GSelectionRegionMaterial = LoadObject<UMaterialInstanceConstant>(NULL, TEXT("/Engine/EditorLandscapeResources/SelectBrushMaterial_SelectedRegion.SelectBrushMaterial_SelectedRegion"), NULL, LOAD_None, NULL);
 	GMaskRegionMaterial = LoadObject<UMaterialInstanceConstant>(NULL, TEXT("/Engine/EditorLandscapeResources/MaskBrushMaterial_MaskedRegion.MaskBrushMaterial_MaskedRegion"), NULL, LOAD_None, NULL);
 	GLandscapeBlackTexture = LoadObject<UTexture2D>(NULL, TEXT("/Engine/EngineResources/Black.Black"), NULL, LOAD_None, NULL);
+	GLandscapeLayerUsageMaterial = LoadObject<UMaterial>(NULL, TEXT("/Engine/EditorLandscapeResources/LandscapeLayerUsageMaterial.LandscapeLayerUsageMaterial"), NULL, LOAD_None, NULL);
 
 	// Initialize modes
 	InitializeToolModes();
@@ -420,7 +421,7 @@ void FEdModeLandscape::Enter()
 	}
 	else
 	{
-		if (CurrentToolMode == NULL)
+		if (CurrentToolMode == nullptr || (CurrentToolMode->CurrentToolName == FName("NewLandscape")))
 		{
 			SetCurrentToolMode("ToolMode_Sculpt", false);
 			SetCurrentTool("Sculpt");
@@ -535,10 +536,26 @@ void FEdModeLandscape::Tick(FEditorViewportClient* ViewportClient, float DeltaTi
 		return;
 	}
 
+	FViewport* const Viewport = ViewportClient->Viewport;
+
+	if (bToolActive && ensure(CurrentTool))
+	{
+		// Require Ctrl or not as per user preference
+		const ELandscapeFoliageEditorControlType LandscapeEditorControlType = GetDefault<ULevelEditorViewportSettings>()->LandscapeEditorControlType;
+
+		if (!Viewport->KeyState(EKeys::LeftMouseButton) ||
+			(LandscapeEditorControlType == ELandscapeFoliageEditorControlType::RequireCtrl && !IsCtrlDown(Viewport)))
+		{
+			CurrentTool->EndTool(ViewportClient);
+			Viewport->CaptureMouse(false);
+			bToolActive = false;
+		}
+	}
+
 	if (NewLandscapePreviewMode == ENewLandscapePreviewMode::None)
 	{
-		bool bStaleTargetLandscapeInfo = CurrentToolTarget.LandscapeInfo.IsStale();
-		bool bStaleTargetLandscape = CurrentToolTarget.LandscapeInfo.IsValid() && (CurrentToolTarget.LandscapeInfo->GetLandscapeProxy() != nullptr);
+		const bool bStaleTargetLandscapeInfo = CurrentToolTarget.LandscapeInfo.IsStale();
+		const bool bStaleTargetLandscape = CurrentToolTarget.LandscapeInfo.IsValid() && (CurrentToolTarget.LandscapeInfo->GetLandscapeProxy() != nullptr);
 
 		if (bStaleTargetLandscapeInfo || bStaleTargetLandscape)
 		{
@@ -579,11 +596,16 @@ void FEdModeLandscape::Tick(FEditorViewportClient* ViewportClient, float DeltaTi
 /** FEdMode: Called when the mouse is moved over the viewport */
 bool FEdModeLandscape::MouseMove(FEditorViewportClient* ViewportClient, FViewport* Viewport, int32 MouseX, int32 MouseY)
 {
-	if (bToolActive && !Viewport->KeyState(EKeys::LeftMouseButton))
+	if (bToolActive && ensure(CurrentTool))
 	{
-		if (CurrentTool)
+		// Require Ctrl or not as per user preference
+		const ELandscapeFoliageEditorControlType LandscapeEditorControlType = GetDefault<ULevelEditorViewportSettings>()->LandscapeEditorControlType;
+
+		if (!Viewport->KeyState(EKeys::LeftMouseButton) ||
+			(LandscapeEditorControlType == ELandscapeFoliageEditorControlType::RequireCtrl && !IsCtrlDown(Viewport)))
 		{
 			CurrentTool->EndTool(ViewportClient);
+			Viewport->CaptureMouse(false);
 			bToolActive = false;
 		}
 	}
@@ -1184,6 +1206,14 @@ bool FEdModeLandscape::InputKey(FEditorViewportClient* ViewportClient, FViewport
 
 		if (Key == EKeys::LeftMouseButton && Event == IE_Pressed)
 		{
+			// When debugging it's possible to miss the "mouse released" event, if we get a "mouse pressed" event when we think it's already pressed then treat it as release first
+			if (bToolActive)
+			{
+				CurrentTool->EndTool(ViewportClient);
+				Viewport->CaptureMouse(false);
+				bToolActive = false;
+			}
+
 			// Only activate tool if we're not already moving the camera and we're not trying to drag a transform widget
 			// Not using "if (!ViewportClient->IsMovingCamera())" because it's wrong in ortho viewports :D
 			bool bMovingCamera = Viewport->KeyState(EKeys::MiddleMouseButton) || Viewport->KeyState(EKeys::RightMouseButton) || IsAltDown(Viewport);
@@ -1211,7 +1241,12 @@ bool FEdModeLandscape::InputKey(FEditorViewportClient* ViewportClient, FViewport
 						}
 						else
 						{
+							Viewport->CaptureMouse(true);
 							bToolActive = CurrentTool->BeginTool(ViewportClient, CurrentToolTarget, HitLocation);
+							if (!bToolActive)
+							{
+								Viewport->CaptureMouse(false);
+							}
 							return bToolActive;
 						}
 					}
@@ -1228,6 +1263,7 @@ bool FEdModeLandscape::InputKey(FEditorViewportClient* ViewportClient, FViewport
 				//Set the cursor position to that of the slate cursor so it wont snap back
 				Viewport->SetPreCaptureMousePosFromSlateCursor();
 				CurrentTool->EndTool(ViewportClient);
+				Viewport->CaptureMouse(false);
 				bToolActive = false;
 				return true;
 			}
@@ -1291,6 +1327,7 @@ bool FEdModeLandscape::InputKey(FEditorViewportClient* ViewportClient, FViewport
 			if (CurrentTool && bToolActive)
 			{
 				CurrentTool->EndTool(ViewportClient);
+				Viewport->CaptureMouse(false);
 				bToolActive = false;
 			}
 
@@ -1307,6 +1344,7 @@ bool FEdModeLandscape::InputKey(FEditorViewportClient* ViewportClient, FViewport
 			if (CurrentTool && bToolActive)
 			{
 				CurrentTool->EndTool(ViewportClient);
+				Viewport->CaptureMouse(false);
 				bToolActive = false;
 			}
 
@@ -1824,13 +1862,21 @@ FEdModeLandscape::FTargetsListUpdated FEdModeLandscape::TargetsListUpdated;
 
 void FEdModeLandscape::OnWorldChange()
 {
+	bool bHadLandscape = (NewLandscapePreviewMode == ENewLandscapePreviewMode::None);
+
 	UpdateLandscapeList();
 	UpdateTargetList();
 
-	if (NewLandscapePreviewMode == ENewLandscapePreviewMode::None &&
-		CurrentToolTarget.LandscapeInfo == NULL)
+	// if the Landscape is deleted then close the landscape editor
+	if (bHadLandscape && CurrentToolTarget.LandscapeInfo == nullptr)
 	{
 		RequestDeletion();
+	}
+
+	// if a landscape is added somehow then switch to sculpt
+	if (!bHadLandscape && CurrentToolTarget.LandscapeInfo != nullptr)
+	{
+		SetCurrentTool("Sculpt");
 	}
 }
 
@@ -2077,7 +2123,6 @@ void FEdModeLandscape::Render(const FSceneView* View, FViewport* Viewport, FPrim
 /** FEdMode: Render HUD elements for this tool */
 void FEdModeLandscape::DrawHUD(FEditorViewportClient* ViewportClient, FViewport* Viewport, const FSceneView* View, FCanvas* Canvas)
 {
-
 }
 
 bool FEdModeLandscape::UsesTransformWidget() const

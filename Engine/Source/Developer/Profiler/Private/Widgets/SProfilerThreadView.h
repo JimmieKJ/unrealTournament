@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -45,7 +45,7 @@ class SProfilerThreadView : public SCompoundWidget
 		 *	One partition must have a least one frame.
 		 */
 		NUM_DATA_PARTITIONS = 16,
-		// @TODO yrx 2014-04-25 Dynamic data partitioning
+		// #Profiler: 2014-04-25 Dynamic data partitioning
 
 		/**
 		 *	Maximum zoom value for time axis.

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -93,16 +93,40 @@ private:
 class IDelegateInstance
 {
 public:
+#if USE_DELEGATE_TRYGETBOUNDFUNCTIONNAME
+
+	/**
+	 * Tries to return the name of a bound function.  Returns NAME_None if the delegate is unbound or
+	 * a binding name is unavailable.
+	 *
+	 * Note: Only intended to be used to aid debugging of delegates.
+	 *
+	 * @return The name of the bound function, NAME_None if no name was available.
+	 */
+	virtual FName TryGetBoundFunctionName() const = 0;
+
+#endif
 
 	/**
 	 * Returns the name of the UFunction that this delegate instance is bound to.
+	 *
+	 * Deprecated.
 	 *
 	 * @return Name of the function, or NAME_None if not bound to a UFunction.
 	 */
 	virtual FName GetFunctionName( ) const = 0;
 
 	/**
+	 * Returns the UObject that this delegate instance is bound to.
+	 *
+	 * @return Pointer to the UObject, or nullptr if not bound to a UObject.
+	 */
+	virtual UObject* GetUObject( ) const = 0;
+
+	/**
 	 * Returns raw pointer to the delegate method.
+	 *
+	 * Deprecated.
 	 *
 	 * @return Raw pointer to the delegate method.
 	 */
@@ -111,6 +135,8 @@ public:
 	/**
 	 * Returns raw pointer to UserObject,
 	 *
+	 * Deprecated.
+	 *
 	 * @return Raw pointer to UserObject.
 	 */
 	virtual const void* GetRawUserObject( ) const = 0;
@@ -118,12 +144,16 @@ public:
 	/**
 	 * Returns the type of delegate instance
 	 *
+	 * Deprecated.
+	 *
 	 * @return Delegate instance type
 	 */
 	virtual EDelegateInstanceType::Type GetType( ) const = 0;
 
 	/**
 	 * Returns true if this delegate is bound to the specified UserObject,
+	 *
+	 * Deprecated.
 	 *
 	 * @param InUserObject
 	 *

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AutomationControllerPrivatePCH.h"
 
@@ -285,7 +285,9 @@ public:
 				// Only quit if Quit is the actual last element in the array.
 				if (AutomationCommand == EAutomationCommand::Quit)
 				{
-					GIsRequestingExit = true;
+					FPlatformMisc::RequestExit(true);
+					// We have finished the testing, and results are available
+					AutomationTestState = EAutomationTestState::Complete;
 				}
 				break;
 			}

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MeshMaterialShader.cpp: Mesh material shader implementation.
@@ -101,7 +101,7 @@ FShader* FMeshMaterialShaderType::FinishCompileShader(
 	const FUniformExpressionSet& UniformExpressionSet, 
 	const FSHAHash& MaterialShaderMapHash,
 	const FShaderCompileJob& CurrentJob,
-	const FShaderPipelineType* ShaderPipeline,
+	const FShaderPipelineType* ShaderPipelineType,
 	const FString& InDebugDescription)
 {
 	check(CurrentJob.bSucceeded);
@@ -113,13 +113,19 @@ FShader* FMeshMaterialShaderType::FinishCompileShader(
 	// This allows FShaders to share compiled bytecode and RHI shader references
 	FShaderResource* Resource = FShaderResource::FindOrCreateShaderResource(CurrentJob.Output, SpecificType);
 
+	if (ShaderPipelineType && !ShaderPipelineType->ShouldOptimizeUnusedOutputs())
+	{
+		// If sharing shaders in this pipeline, remove it from the type/id so it uses the one in the shared shadermap list
+		ShaderPipelineType = nullptr;
+	}
+
 	// Find a shader with the same key in memory
-	FShader* Shader = CurrentJob.ShaderType->FindShaderById(FShaderId(MaterialShaderMapHash, ShaderPipeline, CurrentJob.VFType, CurrentJob.ShaderType, CurrentJob.Input.Target));
+	FShader* Shader = CurrentJob.ShaderType->FindShaderById(FShaderId(MaterialShaderMapHash, ShaderPipelineType, CurrentJob.VFType, CurrentJob.ShaderType, CurrentJob.Input.Target));
 
 	// There was no shader with the same key so create a new one with the compile output, which will bind shader parameters
 	if (!Shader)
 	{
-		Shader = (*ConstructCompiledRef)(CompiledShaderInitializerType(this, CurrentJob.Output, Resource, UniformExpressionSet, MaterialShaderMapHash, InDebugDescription, ShaderPipeline, CurrentJob.VFType));
+		Shader = (*ConstructCompiledRef)(CompiledShaderInitializerType(this, CurrentJob.Output, Resource, UniformExpressionSet, MaterialShaderMapHash, InDebugDescription, ShaderPipelineType, CurrentJob.VFType));
 		CurrentJob.Output.ParameterMap.VerifyBindingsAreComplete(GetName(), (EShaderFrequency)CurrentJob.Output.Target.Frequency, CurrentJob.VFType);
 	}
 

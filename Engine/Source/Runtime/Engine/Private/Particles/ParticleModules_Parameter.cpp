@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ParticleModules_Parameter.cpp: 
@@ -41,7 +41,7 @@ void UParticleModuleParameterDynamic::InitializeDefaults()
 {
 	for(int32 ParamIdx = 0; ParamIdx < DynamicParams.Num(); ++ParamIdx)
 	{
-		if(!DynamicParams[ParamIdx].ParamValue.Distribution)
+		if(!DynamicParams[ParamIdx].ParamValue.IsCreated())
 		{
 			DynamicParams[ParamIdx].ParamValue.Distribution = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionParam1"));
 		}
@@ -167,7 +167,7 @@ void UParticleModuleParameterDynamic::Update(FParticleEmitterInstance* Owner, in
 	int32 ParameterIndex = ParticleDynamicParameter_GetIndexFromFlag(UpdateFlags);
 
 	FPlatformMisc::Prefetch(Owner->ParticleData, (Owner->ParticleIndices[0] * Owner->ParticleStride));
-	FPlatformMisc::Prefetch(Owner->ParticleData, (Owner->ParticleIndices[0] * Owner->ParticleStride) + CACHE_LINE_SIZE);
+	FPlatformMisc::Prefetch(Owner->ParticleData, (Owner->ParticleIndices[0] * Owner->ParticleStride) + PLATFORM_CACHE_LINE_SIZE);
 
 	switch (UpdateFlags)
 	{
@@ -185,7 +185,7 @@ void UParticleModuleParameterDynamic::Update(FParticleEmitterInstance* Owner, in
 				{
 					FEmitterDynamicParameterPayload& DynamicPayload = *((FEmitterDynamicParameterPayload*)(ParticleBase + CurrentOffset));
 					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride));
-					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + CACHE_LINE_SIZE);
+					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + PLATFORM_CACHE_LINE_SIZE);
 					DynamicPayload.DynamicParameterValue[ParameterIndex] = GetParameterValue_UserSet(DynParam, Particle, Owner, NULL);
 				}
 				END_UPDATE_LOOP;
@@ -196,7 +196,7 @@ void UParticleModuleParameterDynamic::Update(FParticleEmitterInstance* Owner, in
 				{
 					FEmitterDynamicParameterPayload& DynamicPayload = *((FEmitterDynamicParameterPayload*)(ParticleBase + CurrentOffset));
 					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride));
-					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + CACHE_LINE_SIZE);
+					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + PLATFORM_CACHE_LINE_SIZE);
 					DynamicPayload.DynamicParameterValue[ParameterIndex] = GetParameterValue(DynParam, Particle, Owner, NULL);
 				}
 				END_UPDATE_LOOP;
@@ -214,7 +214,7 @@ void UParticleModuleParameterDynamic::Update(FParticleEmitterInstance* Owner, in
 				{
 					FEmitterDynamicParameterPayload& DynamicPayload = *((FEmitterDynamicParameterPayload*)(ParticleBase + CurrentOffset));
 					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride));
-					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + CACHE_LINE_SIZE);
+					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + PLATFORM_CACHE_LINE_SIZE);
 					DynamicPayload.DynamicParameterValue[0] = GetParameterValue_UserSet(DynParam0, Particle, Owner, NULL);
 					DynamicPayload.DynamicParameterValue[1] = GetParameterValue_UserSet(DynParam1, Particle, Owner, NULL);
 				}
@@ -226,7 +226,7 @@ void UParticleModuleParameterDynamic::Update(FParticleEmitterInstance* Owner, in
 				{
 					FEmitterDynamicParameterPayload& DynamicPayload = *((FEmitterDynamicParameterPayload*)(ParticleBase + CurrentOffset));
 					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride));
-					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + CACHE_LINE_SIZE);
+					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + PLATFORM_CACHE_LINE_SIZE);
 					DynamicPayload.DynamicParameterValue[0] = GetParameterValue(DynParam0, Particle, Owner, NULL);
 					DynamicPayload.DynamicParameterValue[1] = GetParameterValue(DynParam1, Particle, Owner, NULL);
 				}
@@ -246,7 +246,7 @@ void UParticleModuleParameterDynamic::Update(FParticleEmitterInstance* Owner, in
 				{
 					FEmitterDynamicParameterPayload& DynamicPayload = *((FEmitterDynamicParameterPayload*)(ParticleBase + CurrentOffset));
 					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride));
-					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + CACHE_LINE_SIZE);
+					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + PLATFORM_CACHE_LINE_SIZE);
 					DynamicPayload.DynamicParameterValue[0] = GetParameterValue_UserSet(DynParam0, Particle, Owner, NULL);
 					DynamicPayload.DynamicParameterValue[1] = GetParameterValue_UserSet(DynParam1, Particle, Owner, NULL);
 					DynamicPayload.DynamicParameterValue[2] = GetParameterValue_UserSet(DynParam2, Particle, Owner, NULL);
@@ -259,7 +259,7 @@ void UParticleModuleParameterDynamic::Update(FParticleEmitterInstance* Owner, in
 				{
 					FEmitterDynamicParameterPayload& DynamicPayload = *((FEmitterDynamicParameterPayload*)(ParticleBase + CurrentOffset));
 					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride));
-					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + CACHE_LINE_SIZE);
+					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + PLATFORM_CACHE_LINE_SIZE);
 					DynamicPayload.DynamicParameterValue[0] = GetParameterValue(DynParam0, Particle, Owner, NULL);
 					DynamicPayload.DynamicParameterValue[1] = GetParameterValue(DynParam1, Particle, Owner, NULL);
 					DynamicPayload.DynamicParameterValue[2] = GetParameterValue(DynParam2, Particle, Owner, NULL);
@@ -280,7 +280,7 @@ void UParticleModuleParameterDynamic::Update(FParticleEmitterInstance* Owner, in
 				{
 					FEmitterDynamicParameterPayload& DynamicPayload = *((FEmitterDynamicParameterPayload*)(ParticleBase + CurrentOffset));
 					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride));
-					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + CACHE_LINE_SIZE);
+					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + PLATFORM_CACHE_LINE_SIZE);
 					DynamicPayload.DynamicParameterValue[0] = GetParameterValue_UserSet(DynParam0, Particle, Owner, NULL);
 					DynamicPayload.DynamicParameterValue[1] = GetParameterValue_UserSet(DynParam1, Particle, Owner, NULL);
 					DynamicPayload.DynamicParameterValue[2] = GetParameterValue_UserSet(DynParam2, Particle, Owner, NULL);
@@ -294,7 +294,7 @@ void UParticleModuleParameterDynamic::Update(FParticleEmitterInstance* Owner, in
 				{
 					FEmitterDynamicParameterPayload& DynamicPayload = *((FEmitterDynamicParameterPayload*)(ParticleBase + CurrentOffset));
 					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride));
-					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + CACHE_LINE_SIZE);
+					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + PLATFORM_CACHE_LINE_SIZE);
 					DynamicPayload.DynamicParameterValue[0] = GetParameterValue(DynParam0, Particle, Owner, NULL);
 					DynamicPayload.DynamicParameterValue[1] = GetParameterValue(DynParam1, Particle, Owner, NULL);
 					DynamicPayload.DynamicParameterValue[2] = GetParameterValue(DynParam2, Particle, Owner, NULL);
@@ -316,7 +316,7 @@ void UParticleModuleParameterDynamic::Update(FParticleEmitterInstance* Owner, in
 				{
 					FEmitterDynamicParameterPayload& DynamicPayload = *((FEmitterDynamicParameterPayload*)(ParticleBase + CurrentOffset));
 					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride));
-					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + CACHE_LINE_SIZE);
+					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + PLATFORM_CACHE_LINE_SIZE);
 					DynamicPayload.DynamicParameterValue[0] = (UpdateFlags & EDPU_UPDATE_0) ? GetParameterValue_UserSet(DynParam0, Particle, Owner, NULL) : DynamicPayload.DynamicParameterValue[0];
 					DynamicPayload.DynamicParameterValue[1] = (UpdateFlags & EDPU_UPDATE_1) ? GetParameterValue_UserSet(DynParam1, Particle, Owner, NULL) : DynamicPayload.DynamicParameterValue[1];
 					DynamicPayload.DynamicParameterValue[2] = (UpdateFlags & EDPU_UPDATE_2) ? GetParameterValue_UserSet(DynParam2, Particle, Owner, NULL) : DynamicPayload.DynamicParameterValue[2];
@@ -330,7 +330,7 @@ void UParticleModuleParameterDynamic::Update(FParticleEmitterInstance* Owner, in
 				{
 					FEmitterDynamicParameterPayload& DynamicPayload = *((FEmitterDynamicParameterPayload*)(ParticleBase + CurrentOffset));
 					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride));
-					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + CACHE_LINE_SIZE);
+					FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + PLATFORM_CACHE_LINE_SIZE);
 					DynamicPayload.DynamicParameterValue[0] = (UpdateFlags & EDPU_UPDATE_0) ? GetParameterValue(DynParam0, Particle, Owner, NULL) : DynamicPayload.DynamicParameterValue[0];
 					DynamicPayload.DynamicParameterValue[1] = (UpdateFlags & EDPU_UPDATE_1) ? GetParameterValue(DynParam1, Particle, Owner, NULL) : DynamicPayload.DynamicParameterValue[1];
 					DynamicPayload.DynamicParameterValue[2] = (UpdateFlags & EDPU_UPDATE_2) ? GetParameterValue(DynParam2, Particle, Owner, NULL) : DynamicPayload.DynamicParameterValue[2];
@@ -343,7 +343,7 @@ void UParticleModuleParameterDynamic::Update(FParticleEmitterInstance* Owner, in
 	}
 }
 
-uint32 UParticleModuleParameterDynamic::RequiredBytes(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleParameterDynamic::RequiredBytes(UParticleModuleTypeDataBase* TypeData)
 {
 	return sizeof(FEmitterDynamicParameterPayload);
 }
@@ -565,7 +565,7 @@ void UParticleModuleParameterDynamic_Seeded::Spawn(FParticleEmitterInstance* Own
 	SpawnEx(Owner, Offset, SpawnTime, (Payload != NULL) ? &(Payload->RandomStream) : NULL, ParticleBase);
 }
 
-uint32 UParticleModuleParameterDynamic_Seeded::RequiredBytesPerInstance(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleParameterDynamic_Seeded::RequiredBytesPerInstance()
 {
 	return RandomSeedInfo.GetInstancePayloadSize();
 }

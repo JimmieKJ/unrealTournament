@@ -1,11 +1,156 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "Sockets.h"
 
 
 // Forward declarations
 class UUnitTestChannel;
 class UUnitTestNetDriver;
+
+
+/**
+ * A transparent FSocket-hook, for capturing lowest-level socket operations (use Attach/Detach functions for hooking)
+ *
+ * NOTE: Not compatible with all net subsystems, e.g. some subsystems expect a specific FSocket-subclass, and statically cast as such.
+ * NOTE: Best if only temporarily attached, or the original socket may leak (no attempt is made to handle destruction properly).
+ */
+class FSocketHook : public FSocket
+{
+public:
+	/**
+	 * Base constructor
+	 */
+	FSocketHook()
+		: bLastSendToBlocked(false)
+		, HookedSocket(nullptr)
+	{
+	}
+
+	/**
+	 * Base constructor
+	 */
+	FSocketHook(FSocket* InHookedSocket)
+		: FSocket((InHookedSocket != nullptr ? InHookedSocket->GetSocketType() : ESocketType::SOCKTYPE_Datagram),
+					(InHookedSocket != nullptr ? InHookedSocket->GetDescription() + TEXT(" (hooked)") : TEXT("(hooked)")))
+		, bLastSendToBlocked(false)
+		, HookedSocket(InHookedSocket)
+	{
+	}
+
+	/**
+	 * Attach the hook to the specified FSocket* variable
+	 *
+	 * @param InSocketVar	The socket var to hook
+	 */
+	FORCEINLINE void Attach(FSocket*& InSocketVar)
+	{
+		check(InSocketVar != this);
+		check(HookedSocket == nullptr);
+
+		HookedSocket = InSocketVar;
+		InSocketVar = this;
+	}
+
+	/**
+	 * Detach the hook from the specified FSocket* variable
+	 *
+	 * @param InSocketVar	The socket var to detach from 
+	 */
+	FORCEINLINE void Detach(FSocket*& InSocketVar)
+	{
+		check(InSocketVar == this);
+		check(HookedSocket != nullptr);
+
+		InSocketVar = HookedSocket;
+		HookedSocket = nullptr;
+	}
+
+	virtual ~FSocketHook()
+	{
+	}
+
+
+	virtual bool Close() override;
+
+	virtual bool Bind(const FInternetAddr& Addr) override;
+
+	virtual bool Connect(const FInternetAddr& Addr) override;
+
+	virtual bool Listen(int32 MaxBacklog) override;
+
+	virtual bool HasPendingConnection(bool& bHasPendingConnection) override;
+
+	virtual bool HasPendingData(uint32& PendingDataSize) override;
+
+	virtual class FSocket* Accept(const FString& InSocketDescription) override;
+
+	virtual class FSocket* Accept(FInternetAddr& OutAddr, const FString& InSocketDescription) override;
+
+	virtual bool SendTo(const uint8* Data, int32 Count, int32& BytesSent, const FInternetAddr& Destination) override;
+
+	virtual bool Send(const uint8* Data, int32 Count, int32& BytesSent) override;
+
+	virtual bool RecvFrom(uint8* Data, int32 BufferSize, int32& BytesRead, FInternetAddr& Source,
+							ESocketReceiveFlags::Type Flags) override;
+
+	virtual bool Recv(uint8* Data, int32 BufferSize, int32& BytesRead, ESocketReceiveFlags::Type Flags) override;
+
+	virtual bool Wait(ESocketWaitConditions::Type Condition, FTimespan WaitTime) override;
+
+	virtual ESocketConnectionState GetConnectionState() override;
+
+	virtual void GetAddress(FInternetAddr& OutAddr) override;
+
+	virtual bool GetPeerAddress(FInternetAddr& OutAddr) override;
+
+	virtual bool SetNonBlocking(bool bIsNonBlocking) override;
+
+	virtual bool SetBroadcast(bool bAllowBroadcast) override;
+
+	virtual bool JoinMulticastGroup(const FInternetAddr& GroupAddress) override;
+
+	virtual bool LeaveMulticastGroup(const FInternetAddr& GroupAddress) override;
+
+	virtual bool SetMulticastLoopback(bool bLoopback) override;
+
+	virtual bool SetMulticastTtl(uint8 TimeToLive) override;
+
+	virtual bool SetReuseAddr(bool bAllowReuse) override;
+
+	virtual bool SetLinger(bool bShouldLinger, int32 Timeout) override;
+
+	virtual bool SetRecvErr(bool bUseErrorQueue) override;
+
+	virtual bool SetSendBufferSize(int32 Size, int32& NewSize) override;
+
+	virtual bool SetReceiveBufferSize(int32 Size, int32& NewSize) override;
+
+	virtual int32 GetPortNo() override;
+
+
+	/**
+	 * Delegate for hooking 'SendTo'
+	 *
+	 * @param Data			The data being sent
+	 * @param Count			The number of bytes being sent
+	 * @param bBlockSend	Whether or not to block the send (defaults to false)
+	 */
+	DECLARE_DELEGATE_ThreeParams(FSendToDel, void* /*Data*/, int32 /*Count*/, bool& /*bBlockSend*/);
+
+
+	/** Delegate for hooking 'SendTo' */
+	FSendToDel SendToDel;
+
+	/** Whether or not the last 'SendTo' call was blocked */
+	bool bLastSendToBlocked;
+
+
+public:
+	/** The original socket which has been hooked */
+	FSocket* HookedSocket;
+};
 
 /**
  * A delegate network notify class, to allow for easy inline-hooking.

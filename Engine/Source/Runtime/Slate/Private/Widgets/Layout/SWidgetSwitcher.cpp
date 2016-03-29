@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlatePrivatePCH.h"
 #include "LayoutUtils.h"
@@ -114,6 +114,7 @@ int32 SWidgetSwitcher::RemoveSlot( TSharedRef<SWidget> WidgetToRemove )
 void SWidgetSwitcher::SetActiveWidgetIndex( int32 Index )
 {
 	WidgetIndex = Index;
+	Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 

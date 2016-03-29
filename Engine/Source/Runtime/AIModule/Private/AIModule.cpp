@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "AIModulePrivate.h"
 #include "AISystem.h"
 
@@ -11,6 +11,15 @@
 #endif
 
 #include "AIModule.h"
+
+#if WITH_GAMEPLAY_DEBUGGER
+#include "GameplayDebugger.h"
+#include "GameplayDebugger/GameplayDebuggerCategory_AI.h"
+#include "GameplayDebugger/GameplayDebuggerCategory_BehaviorTree.h"
+#include "GameplayDebugger/GameplayDebuggerCategory_EQS.h"
+#include "GameplayDebugger/GameplayDebuggerCategory_Navmesh.h"
+#include "GameplayDebugger/GameplayDebuggerCategory_Perception.h"
+#endif // WITH_GAMEPLAY_DEBUGGER
 
 #define LOCTEXT_NAMESPACE "AIModule"
 
@@ -38,16 +47,6 @@ IMPLEMENT_MODULE(FAIModule, AIModule)
 
 void FAIModule::StartupModule()
 { 
-	// This code will execute after your module is loaded into memory and after global variables initialization. We needs some place to load GameplayDebugger module so it's best place for it now.
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	bool bEnableGameplayDebuggerPlugin = false;
-	GConfig->GetBool(TEXT("/Script/GameplayDebuggerModule.GameplayDebuggerModuleSettings"), TEXT("EnableGameplayDebuggerPlugin"), bEnableGameplayDebuggerPlugin, GEngineIni);
-	if (!bEnableGameplayDebuggerPlugin)
-	{
-		FModuleManager::LoadModulePtr< IModuleInterface >("GameplayDebugger");
-	}
-#endif
-
 #if WITH_EDITOR 
 	FModuleManager::LoadModulePtr< IModuleInterface >("AITestSuite");
 
@@ -64,6 +63,16 @@ void FAIModule::StartupModule()
 #if WITH_EDITOR && ENABLE_VISUAL_LOG
 	FVisualLogger::Get().RegisterExtension(*EVisLogTags::TAG_EQS, &VisualLoggerExtension);
 #endif
+
+#if WITH_GAMEPLAY_DEBUGGER
+	IGameplayDebugger& GameplayDebuggerModule = IGameplayDebugger::Get();
+	GameplayDebuggerModule.RegisterCategory("AI", IGameplayDebugger::FOnGetCategory::CreateStatic(&FGameplayDebuggerCategory_AI::MakeInstance), EGameplayDebuggerCategoryState::EnabledInGameAndSimulate, 1);
+	GameplayDebuggerModule.RegisterCategory("BehaviorTree", IGameplayDebugger::FOnGetCategory::CreateStatic(&FGameplayDebuggerCategory_BehaviorTree::MakeInstance), EGameplayDebuggerCategoryState::EnabledInGame, 2);
+	GameplayDebuggerModule.RegisterCategory("EQS", IGameplayDebugger::FOnGetCategory::CreateStatic(&FGameplayDebuggerCategory_EQS::MakeInstance));
+	GameplayDebuggerModule.RegisterCategory("Navmesh", IGameplayDebugger::FOnGetCategory::CreateStatic(&FGameplayDebuggerCategory_Navmesh::MakeInstance), EGameplayDebuggerCategoryState::Disabled, 0);
+	GameplayDebuggerModule.RegisterCategory("Perception", IGameplayDebugger::FOnGetCategory::CreateStatic(&FGameplayDebuggerCategory_Perception::MakeInstance));
+	GameplayDebuggerModule.NotifyCategoriesChanged();
+#endif
 }
 
 void FAIModule::ShutdownModule()
@@ -72,6 +81,19 @@ void FAIModule::ShutdownModule()
 	// we call this function before unloading the module.
 #if WITH_EDITOR && ENABLE_VISUAL_LOG
 	FVisualLogger::Get().UnregisterExtension(*EVisLogTags::TAG_EQS, &VisualLoggerExtension);
+#endif
+
+#if WITH_GAMEPLAY_DEBUGGER
+	if (IGameplayDebugger::IsAvailable())
+	{
+		IGameplayDebugger& GameplayDebuggerModule = IGameplayDebugger::Get();
+		GameplayDebuggerModule.UnregisterCategory("AI");
+		GameplayDebuggerModule.UnregisterCategory("BehaviorTree");
+		GameplayDebuggerModule.UnregisterCategory("EQS");
+		GameplayDebuggerModule.UnregisterCategory("Navmesh");
+		GameplayDebuggerModule.UnregisterCategory("Perception");
+		GameplayDebuggerModule.NotifyCategoriesChanged();
+	}
 #endif
 }
 

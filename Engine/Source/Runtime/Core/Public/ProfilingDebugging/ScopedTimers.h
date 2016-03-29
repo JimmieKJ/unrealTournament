@@ -1,6 +1,7 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+#include "ThreadingBase.h"
 
 /**
  * Utility stopwatch class for tracking the duration of some action (tracks 
@@ -60,6 +61,42 @@ public:
 		Stop();
 	}
 };
+
+/**
+ * Utility class for tracking the duration of a scoped action to an accumulator in a thread-safe fashion.
+ * Can accumulate into a 32bit or 64bit counter.
+ * 
+ * ThreadSafeCounterClass is expected to be a thread-safe type with a non-static member Add(uint32) that will work correctly if called from multiple threads simultaneously.
+ */
+template <typename ThreadSafeCounterClass = FThreadSafeCounter>
+class TScopedDurationThreadSafeTimer
+{
+public:
+	explicit TScopedDurationThreadSafeTimer(ThreadSafeCounterClass& InCounter)
+		:Counter(InCounter)
+		, StartCycles(FPlatformTime::Cycles())
+	{
+	}
+	~TScopedDurationThreadSafeTimer()
+	{
+		Counter.Add(FPlatformTime::Cycles() - StartCycles);
+	}
+private:
+	ThreadSafeCounterClass& Counter;
+	int32 StartCycles;
+};
+
+/** Helper to create a TScopedDurationThreadSafeTimer using an existing FThreadSafeCounter. */
+template <typename ThreadSafeCounterClass>
+TScopedDurationThreadSafeTimer<ThreadSafeCounterClass> MakeScopedDurationThreadSafeTimer(ThreadSafeCounterClass& Counter)
+{
+	return TScopedDurationThreadSafeTimer<ThreadSafeCounterClass>(Counter);
+}
+
+typedef TScopedDurationThreadSafeTimer<> FScopedDurationThreadSafeTimer;
+#if PLATFORM_HAS_64BIT_ATOMICS
+typedef TScopedDurationThreadSafeTimer<FThreadSafeCounter64> FScopedDurationThreadSafeTimer64;
+#endif
 
 /**
  * Utility class for logging the duration of a scoped action (the user 

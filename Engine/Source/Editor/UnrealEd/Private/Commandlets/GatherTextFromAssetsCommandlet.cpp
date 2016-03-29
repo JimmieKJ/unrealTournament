@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "PackageTools.h"
@@ -10,8 +10,107 @@
 #include "Sound/DialogueWave.h"
 #include "Sound/DialogueVoice.h"
 #include "Engine/DataTable.h"
+#include "EditorObjectVersion.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGatherTextFromAssetsCommandlet, Log, All);
+
+/** Special feedback context used to stop the commandlet to reporting failure due to a package load error */
+class FLoadPackageLogOutputRedirector : public FFeedbackContext
+{
+public:
+	struct FScopedCapture
+	{
+		FScopedCapture(FLoadPackageLogOutputRedirector* InLogOutputRedirector, const FString& InPackageContext)
+			: LogOutputRedirector(InLogOutputRedirector)
+		{
+			LogOutputRedirector->BeginCapturingLogData(InPackageContext);
+		}
+
+		~FScopedCapture()
+		{
+			LogOutputRedirector->EndCapturingLogData();
+		}
+
+		FLoadPackageLogOutputRedirector* LogOutputRedirector;
+	};
+
+	FLoadPackageLogOutputRedirector()
+		: ErrorCount(0)
+		, WarningCount(0)
+		, FormattedErrorsAndWarningsList()
+		, PackageContext()
+		, OriginalWarningContext(nullptr)
+	{
+	}
+
+	virtual ~FLoadPackageLogOutputRedirector()
+	{
+	}
+
+	void BeginCapturingLogData(const FString& InPackageContext)
+	{
+		// Override GWarn so that we can capture any log data
+		check(!OriginalWarningContext);
+		OriginalWarningContext = GWarn;
+		GWarn = this;
+
+		PackageContext = InPackageContext;
+
+		// Reset the counts and previous log output
+		ErrorCount = 0;
+		WarningCount = 0;
+		FormattedErrorsAndWarningsList.Reset();
+	}
+
+	void EndCapturingLogData()
+	{
+		// Restore the original GWarn now that we've finished capturing log data
+		check(OriginalWarningContext);
+		GWarn = OriginalWarningContext;
+		OriginalWarningContext = nullptr;
+
+		// Report any messages, and also report a warning if we silenced some warnings or errors when loading
+		if (ErrorCount > 0 || WarningCount > 0)
+		{
+			static const FString LogIndentation = TEXT("    ");
+
+			UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("Package '%s' produced %d error(s) and %d warning(s) while loading. Please verify that your text has gathered correctly."), *PackageContext, ErrorCount, WarningCount);
+			
+			GWarn->Log(NAME_None, ELogVerbosity::Log, FString::Printf(TEXT("The following errors and warnings were reported while loading '%s':"), *PackageContext));
+			for (const auto& FormattedOutput : FormattedErrorsAndWarningsList)
+			{
+				GWarn->Log(NAME_None, ELogVerbosity::Log, LogIndentation + FormattedOutput);
+			}
+		}
+	}
+
+	virtual void Serialize(const TCHAR* V, ELogVerbosity::Type Verbosity, const FName& Category) override
+	{
+		if (Verbosity == ELogVerbosity::Error)
+		{
+			++ErrorCount;
+			FormattedErrorsAndWarningsList.Add(FormatLogLine(Verbosity, Category, V));
+		}
+		else if (Verbosity == ELogVerbosity::Warning)
+		{
+			++WarningCount;
+			FormattedErrorsAndWarningsList.Add(FormatLogLine(Verbosity, Category, V));
+		}
+		else
+		{
+			// Pass anything else on to GWarn so that it can handle them appropriately
+			OriginalWarningContext->Serialize(V, Verbosity, Category);
+		}
+	}
+
+private:
+	int32 ErrorCount;
+	int32 WarningCount;
+	TArray<FString> FormattedErrorsAndWarningsList;
+
+	FString PackageContext;
+	FFeedbackContext* OriginalWarningContext;
+};
 
 #define LOC_DEFINE_REGION
 
@@ -39,83 +138,44 @@ void UGatherTextFromAssetsCommandlet::ProcessGatherableTextDataArray(const FStri
 	{
 		for (const FTextSourceSiteContext& TextSourceSiteContext : GatherableTextData.SourceSiteContexts)
 		{
-			const FString KeyName = TextSourceSiteContext.KeyName;
-
-			// Find existing entry from manifest or manifest dependencies.
-			FContext Context;
-			Context.Key = TextSourceSiteContext.KeyName;
-			const FLocMetadataObject DefaultMetadataObject;
-			Context.KeyMetadataObj = !(FLocMetadataObject::IsMetadataExactMatch(&TextSourceSiteContext.KeyMetaData, &DefaultMetadataObject)) ? MakeShareable(new FLocMetadataObject(TextSourceSiteContext.KeyMetaData)) : nullptr;
-			Context.InfoMetadataObj = !(FLocMetadataObject::IsMetadataExactMatch(&TextSourceSiteContext.InfoMetaData, &DefaultMetadataObject)) ? MakeShareable(new FLocMetadataObject(TextSourceSiteContext.InfoMetaData)) : nullptr;
-			Context.bIsOptional = TextSourceSiteContext.IsOptional;
-			Context.SourceLocation = TextSourceSiteContext.SiteDescription;
-
-			TSharedPtr< FManifestEntry > ExistingEntry = ManifestInfo->GetManifest()->FindEntryByContext( GatherableTextData.NamespaceName, Context );
-
-			if (!ExistingEntry.IsValid())
+			if (!TextSourceSiteContext.IsEditorOnly || ShouldGatherFromEditorOnlyData)
 			{
-				FString FileInfo;
-				ExistingEntry = ManifestInfo->FindDependencyEntryByContext( GatherableTextData.NamespaceName, Context, FileInfo );
-			}
-
-			FConflictTracker::FEntry NewEntry;
-			NewEntry.PathToSourceString = TextSourceSiteContext.SiteDescription;
-			NewEntry.SourceString = MakeShareable(new FString(GatherableTextData.SourceData.SourceString));
-			NewEntry.Status = EAssetTextGatherStatus::None;
-
-			if (TextSourceSiteContext.KeyName.IsEmpty())
-			{
-				NewEntry.Status = EAssetTextGatherStatus::MissingKey;
-			}
-
-			// Entry already exists, check for conflict.
-			if (ExistingEntry.IsValid() && ExistingEntry->Source.Text != ( NewEntry.SourceString.IsValid() ? **(NewEntry.SourceString) : TEXT("") ))
-			{
-				NewEntry.Status = EAssetTextGatherStatus::IdentityConflict;
-			}
-
-			// Gather if it requires gathering and isn't in a bad state.
-			if ((NewEntry.Status & EAssetTextGatherStatus::BadBitMask) == false)
-			{
-				if (!TextSourceSiteContext.IsEditorOnly || ShouldGatherFromEditorOnlyData)
+				if (TextSourceSiteContext.KeyName.IsEmpty())
 				{
-				ManifestInfo->AddEntry(TextSourceSiteContext.SiteDescription, GatherableTextData.NamespaceName, NewEntry.SourceString.Get() ? *(NewEntry.SourceString) : TEXT(""), Context );
-			}
-			}
+					UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("Detected missing key on asset \"%s\"."), *TextSourceSiteContext.SiteDescription);
+					continue;
+				}
 
-			// Add to conflict tracker.
-			FConflictTracker::FKeyTable& KeyTable = ConflictTracker.Namespaces.FindOrAdd(GatherableTextData.NamespaceName);
-			FConflictTracker::FEntryArray& EntryArray = KeyTable.FindOrAdd(TextSourceSiteContext.KeyName);
-			EntryArray.Add(NewEntry);
+				static const FLocMetadataObject DefaultMetadataObject;
+
+				FContext Context;
+				Context.Key = TextSourceSiteContext.KeyName;
+				Context.KeyMetadataObj = !(FLocMetadataObject::IsMetadataExactMatch(&TextSourceSiteContext.KeyMetaData, &DefaultMetadataObject)) ? MakeShareable(new FLocMetadataObject(TextSourceSiteContext.KeyMetaData)) : nullptr;
+				Context.InfoMetadataObj = !(FLocMetadataObject::IsMetadataExactMatch(&TextSourceSiteContext.InfoMetaData, &DefaultMetadataObject)) ? MakeShareable(new FLocMetadataObject(TextSourceSiteContext.InfoMetaData)) : nullptr;
+				Context.bIsOptional = TextSourceSiteContext.IsOptional;
+				Context.SourceLocation = TextSourceSiteContext.SiteDescription;
+
+				FLocItem Source(GatherableTextData.SourceData.SourceString);
+
+				ManifestInfo->AddEntry(TextSourceSiteContext.SiteDescription, GatherableTextData.NamespaceName, Source, Context);
+			}
 		}
 	}
 }
 
 void UGatherTextFromAssetsCommandlet::ProcessPackages( const TArray< UPackage* >& PackagesToProcess )
 {
-	for(UPackage* const Package : PackagesToProcess)
+	TArray<FGatherableTextData> GatherableTextDataArray;
+
+	for(const UPackage* const Package : PackagesToProcess)
 	{
-		TArray<UObject*> ObjectsInPackage;
-		GetObjectsWithOuter(Package, ObjectsInPackage, true, RF_Transient, EInternalObjectFlags::PendingKill);
-		for (UObject* const Object : ObjectsInPackage)
-		{
-			TArray<FGatherableTextData> GatherableTextDataArray;
+		GatherableTextDataArray.Reset();
 
-			FPropertyLocalizationDataGatherer PropertyLocalizationDataGatherer(GatherableTextDataArray);
-			PropertyLocalizationDataGatherer.GatherLocalizationDataFromPropertiesOfDataStructure(Object->GetClass(), Object);
+		// Gathers from the given package
+		FPropertyLocalizationDataGatherer(GatherableTextDataArray, Package);
 
-				for(UClass* Class = Object->GetClass(); Class != nullptr; Class = Class->GetSuperClass())
-				{
-					UPackage::FLocalizationDataGatheringCallback* const CustomCallback = UPackage::GetTypeSpecificLocalizationDataGatheringCallbacks().Find(Class);
-					if (CustomCallback)
-					{
-						(*CustomCallback)(Object, GatherableTextDataArray);
-					}
-				}
-
-				ProcessGatherableTextDataArray(Package->FileName.ToString(), GatherableTextDataArray);
-			}
-		}
+		ProcessGatherableTextDataArray(Package->FileName.ToString(), GatherableTextDataArray);
+	}
 }
 
 int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
@@ -351,6 +411,13 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 		UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("No files found or none passed the include/exclude criteria."));
 	}
 
+	bool bSkipGatherCache = FParse::Param(FCommandLine::Get(), TEXT("SkipGatherCache"));
+	if (!bSkipGatherCache)
+	{
+		GetBoolFromConfig(*SectionName, TEXT("SkipGatherCache"), bSkipGatherCache, GatherTextConfigPath);
+	}
+	UE_LOG(LogGatherTextFromAssetsCommandlet, Log, TEXT("SkipGatherCache: %s"), bSkipGatherCache ? TEXT("true") : TEXT("false"));
+
 	TArray< FString > PackageFileNamesToLoad;
 	for (FString& PackageFile : PackageFileNamesToProcess)
 	{
@@ -362,6 +429,18 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 			(*FileReader) << PackageFileSummary;
 
 			bool MustLoadForGather = false;
+
+			// Have we been asked to skip the cache of text that exists in the header of newer packages?
+			if (bSkipGatherCache && PackageFileSummary.GetFileVersionUE4() >= VER_UE4_SERIALIZE_TEXT_IN_PACKAGES)
+			{
+				// Fallback on the old package flag check.
+				if (PackageFileSummary.PackageFlags & PKG_RequiresLocalizationGather)
+				{
+					MustLoadForGather = true;
+				}
+			}
+
+			const FCustomVersion* const EditorVersion = PackageFileSummary.GetCustomVersionContainer().GetVersion(FEditorObjectVersion::GUID);
 
 			// Packages not resaved since localization gathering flagging was added to packages must be loaded.
 			if (PackageFileSummary.GetFileVersionUE4() < VER_UE4_PACKAGE_REQUIRES_LOCALIZATION_GATHER_FLAGGING)
@@ -397,22 +476,19 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 				PackageFileNamesToLoad.Add(PackageFile);
 			}
 			// Process immediately packages that don't require loading to process.
-			else
+			else if (PackageFileSummary.GatherableTextDataOffset > 0)
 			{
+				FileReader->Seek(PackageFileSummary.GatherableTextDataOffset);
+
 				TArray<FGatherableTextData> GatherableTextDataArray;
+				GatherableTextDataArray.SetNum(PackageFileSummary.GatherableTextDataCount);
 
-				if (PackageFileSummary.GatherableTextDataOffset > 0)
+				for (int32 GatherableTextDataIndex = 0; GatherableTextDataIndex < PackageFileSummary.GatherableTextDataCount; ++GatherableTextDataIndex)
 				{
-					FileReader->Seek(PackageFileSummary.GatherableTextDataOffset);
-
-					for(int32 i = 0; i < PackageFileSummary.GatherableTextDataCount; ++i)
-					{
-						FGatherableTextData* GatherableTextData = new(GatherableTextDataArray) FGatherableTextData;
-						(*FileReader) << *GatherableTextData;
-					}
-
-					ProcessGatherableTextDataArray(PackageFile, GatherableTextDataArray);
+					(*FileReader) << GatherableTextDataArray[GatherableTextDataIndex];
 				}
+
+				ProcessGatherableTextDataArray(PackageFile, GatherableTextDataArray);
 			}
 		}
 	}
@@ -433,6 +509,8 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 		UE_LOG(LogGatherTextFromAssetsCommandlet, Log, TEXT("Loading %i packages in %i batches of %i."), PackageCount, BatchCount, PackagesPerBatchCount);
 	}
 
+	FLoadPackageLogOutputRedirector LogOutputRedirector;
+
 	//Load the packages in batches
 	int32 PackageIndex = 0;
 	for( int32 BatchIndex = 0; BatchIndex < BatchCount; ++BatchIndex )
@@ -443,7 +521,20 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 		{
 			FString PackageFileName = PackageFileNamesToLoad[PackageIndex];
 
-			UPackage *Package = LoadPackage( NULL, *PackageFileName, LOAD_None );
+			UE_LOG(LogGatherTextFromAssetsCommandlet, Verbose, TEXT("Loading package: '%s'."), *PackageFileName);
+
+			UPackage *Package = nullptr;
+			{
+				FString LongPackageName;
+				if (!FPackageName::TryConvertFilenameToLongPackageName(PackageFileName, LongPackageName))
+				{
+					LongPackageName = FPaths::GetCleanFilename(PackageFileName);
+				}
+
+				FLoadPackageLogOutputRedirector::FScopedCapture ScopedCapture(&LogOutputRedirector, LongPackageName);
+				Package = LoadPackage( NULL, *PackageFileName, LOAD_NoWarn | LOAD_Quiet );
+			}
+
 			if( Package )
 			{
 				LoadedPackages.Add(Package);
@@ -504,45 +595,6 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 		CollectGarbage(RF_NoFlags);
 		LoadedPackages.Empty(PackagesPerBatchCount);	
 		LoadedPackageFileNames.Empty(PackagesPerBatchCount);
-	}
-
-	for(auto i = ConflictTracker.Namespaces.CreateConstIterator(); i; ++i)
-	{
-		const FString& NamespaceName = i.Key();
-		const FConflictTracker::FKeyTable& KeyTable = i.Value();
-		for(auto j = KeyTable.CreateConstIterator(); j; ++j)
-		{
-			const FString& KeyName = j.Key();
-			const FConflictTracker::FEntryArray& EntryArray = j.Value();
-
-			for(int k = 0; k < EntryArray.Num(); ++k)
-			{
-				const FConflictTracker::FEntry& Entry = EntryArray[k];
-				switch(Entry.Status)
-				{
-				case EAssetTextGatherStatus::MissingKey:
-					{
-						UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("Detected missing key on asset \"%s\"."), *Entry.PathToSourceString);
-					}
-					break;
-				case EAssetTextGatherStatus::MissingKey_Resolved:
-					{
-						UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("Fixed missing key on asset \"%s\"."), *Entry.PathToSourceString);
-					}
-					break;
-				case EAssetTextGatherStatus::IdentityConflict:
-					{
-						UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("Detected duplicate identity with differing source on asset \"%s\"."), *Entry.PathToSourceString);
-					}
-					break;
-				case EAssetTextGatherStatus::IdentityConflict_Resolved:
-					{
-						UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("Fixed duplicate identity with differing source on asset \"%s\"."), *Entry.PathToSourceString);
-					}
-					break;
-				}
-			}
-		}
 	}
 
 	return 0;

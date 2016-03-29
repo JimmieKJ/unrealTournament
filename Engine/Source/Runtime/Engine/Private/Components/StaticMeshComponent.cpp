@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "StaticMeshResources.h"
@@ -444,8 +444,32 @@ FBoxSphereBounds UStaticMeshComponent::CalcBounds(const FTransform& LocalToWorld
 	}
 }
 
+void UStaticMeshComponent::AddSpeedTreeWind()
+{
+	if (StaticMesh && StaticMesh->RenderData && StaticMesh->SpeedTreeWind.IsValid() && GetScene())
+	{
+		for (int32 LODIndex = 0; LODIndex < StaticMesh->RenderData->LODResources.Num(); ++LODIndex)
+		{
+			GetScene()->AddSpeedTreeWind(&StaticMesh->RenderData->LODResources[LODIndex].VertexFactory, StaticMesh);
+		}
+	}
+}
+
+void UStaticMeshComponent::RemoveSpeedTreeWind()
+{
+	if (StaticMesh && StaticMesh->RenderData && StaticMesh->SpeedTreeWind.IsValid() && GetScene())
+	{
+		for (int32 LODIndex = 0; LODIndex < StaticMesh->RenderData->LODResources.Num(); ++LODIndex)
+		{
+			GetScene()->RemoveSpeedTreeWind(&StaticMesh->RenderData->LODResources[LODIndex].VertexFactory, StaticMesh);
+		}
+	}
+}
+
 void UStaticMeshComponent::OnRegister()
 {
+	UpdateCollisionFromStaticMesh();
+	
 	if(StaticMesh != NULL && StaticMesh->RenderData)
 	{
 		// Check that the static-mesh hasn't been changed to be incompatible with the cached light-map.
@@ -459,66 +483,112 @@ void UStaticMeshComponent::OnRegister()
 				LODData[i].ShadowMap = NULL;
 			}
 		}
-		if (StaticMesh->SpeedTreeWind.IsValid() && GetScene())
-		{
-			for (int32 LODIndex = 0; LODIndex < StaticMesh->RenderData->LODResources.Num(); ++LODIndex)
-			{
-				GetScene()->AddSpeedTreeWind(&StaticMesh->RenderData->LODResources[LODIndex].VertexFactory, StaticMesh);
-			}
-		}
+		AddSpeedTreeWind();
 	}
 	Super::OnRegister();
 }
 
 void UStaticMeshComponent::OnUnregister()
 {
-	if (StaticMesh && StaticMesh->RenderData && StaticMesh->SpeedTreeWind.IsValid() && GetScene())
-	{
-		for (int32 LODIndex = 0; LODIndex < StaticMesh->RenderData->LODResources.Num(); ++LODIndex)
-		{
-			GetScene()->RemoveSpeedTreeWind(&StaticMesh->RenderData->LODResources[LODIndex].VertexFactory, StaticMesh);
-		}
-	}
+	RemoveSpeedTreeWind();
 
 	Super::OnUnregister();
 }
 
-void UStaticMeshComponent::GetStreamingTextureInfo(TArray<FStreamingTexturePrimitiveInfo>& OutStreamingTextures) const
+void UStaticMeshComponent::UpdateStreamingTextureInfos(bool bForce)
 {
-	if ( !bIgnoreInstanceForTextureStreaming && StaticMesh && StaticMesh->RenderData && StaticMesh->RenderData->LODResources.Num() > 0)
+	// Only rebuild the data in editor 
+#if WITH_EDITORONLY_DATA
+	StreamingTextureInfos.Empty();
+
+	if ((bForce || (!bIgnoreInstanceForTextureStreaming && Mobility == EComponentMobility::Static)) && StaticMesh && StaticMesh->RenderData)
 	{
-		const auto FeatureLevel = GetWorld() ? GetWorld()->FeatureLevel : GMaxRHIFeatureLevel;
-
-		bool bHasValidLightmapCoordinates = ((StaticMesh->LightMapCoordinateIndex >= 0)
-			&& ((uint32)StaticMesh->LightMapCoordinateIndex < StaticMesh->RenderData->LODResources[0].VertexBuffer.GetNumTexCoords()));
-
-		// We need to come up with a compensation factor for spline deformed meshes
-		float SplineDeformFactor = 1.f;
-		const USplineMeshComponent* SplineComp = Cast<const USplineMeshComponent>(this);
-		if (SplineComp)
+		for (int32 LODIndex = 0; LODIndex < StaticMesh->RenderData->LODResources.Num(); ++LODIndex)
 		{
-			// We do this by looking at the ratio between current bounds (including deformation) and undeformed (straight from staticmesh)
-			const float MinExtent = 1.0f;
-			FBoxSphereBounds UndeformedBounds = StaticMesh->GetBounds().TransformBy(ComponentToWorld);
-			if (UndeformedBounds.BoxExtent.X >= MinExtent)
+			const FStaticMeshLODResources& LOD = StaticMesh->RenderData->LODResources[LODIndex];
+
+			for( int32 ElementIndex = 0; ElementIndex < LOD.Sections.Num(); ElementIndex++ )
 			{
-				SplineDeformFactor = FMath::Max(SplineDeformFactor, Bounds.BoxExtent.X / UndeformedBounds.BoxExtent.X);
+				FStreamingTexturePrimitiveInfo Info;
+
+				if (StaticMesh->GetStreamingTextureFactor(Info.TexelFactor, Info.Bounds, 0, LODIndex, ElementIndex, ComponentToWorld))
+				{
+					Info.TexelFactor *= FMath::Max(0.0f, StreamingDistanceMultiplier);
+					StreamingTextureInfos.Push(Info);
+				}
+				else
+				{
+					StreamingTextureInfos.Empty();
+					return;
+				}
 			}
-			if (UndeformedBounds.BoxExtent.Y >= MinExtent)
+		}
+	}
+#endif
+}
+
+extern ENGINE_API TAutoConsoleVariable<int32> CVarStreamingUseNewMetrics;
+
+bool UStaticMeshComponent::GetStreamingTextureFactors(float& OutWorldTexelFactor, float& OutWorldLightmapFactor, FBoxSphereBounds& OutBounds, int32 LODIndex, int32 ElementIndex) const
+{
+	bool bUsePreciseStreamingBounds = false;
+
+	if (StaticMesh && StaticMesh->RenderData && LODIndex < StaticMesh->RenderData->LODResources.Num())
+	{
+		TIndirectArray<FStaticMeshLODResources>& LODResources = StaticMesh->RenderData->LODResources;
+
+		const ERHIFeatureLevel::Type FeatureLevel = GetWorld() ? GetWorld()->FeatureLevel : GMaxRHIFeatureLevel;
+
+		const bool bHasValidLightmapCoordinates = StaticMesh->LightMapCoordinateIndex >= 0 &&
+			(uint32)StaticMesh->LightMapCoordinateIndex < LODResources[0].VertexBuffer.GetNumTexCoords();
+
+		// Because there is a single array for each sections and lods, the index needs to be computed depending on the number of section per lod.
+		int32 InfoIndex = ElementIndex;
+		if (StreamingTextureInfos.Num() && LODResources.IsValidIndex(LODIndex) && LODResources[LODIndex].Sections.IsValidIndex(ElementIndex))
+		{
+			int32 DebugLODIndex = 0;
+			while (DebugLODIndex < LODIndex)
 			{
-				SplineDeformFactor = FMath::Max(SplineDeformFactor, Bounds.BoxExtent.Y / UndeformedBounds.BoxExtent.Y);
-			}
-			if (UndeformedBounds.BoxExtent.Z >= MinExtent)
-			{
-				SplineDeformFactor = FMath::Max(SplineDeformFactor, Bounds.BoxExtent.Z / UndeformedBounds.BoxExtent.Z);
+				InfoIndex += LODResources[DebugLODIndex].Sections.Num();
+				++DebugLODIndex;
 			}
 		}
 
-		const FSphere BoundingSphere	= Bounds.GetSphere();
-		const float LocalTexelFactor	= StaticMesh->GetStreamingTextureFactor(0) * FMath::Max(0.0f, StreamingDistanceMultiplier);
+		if (StreamingTextureInfos.IsValidIndex(InfoIndex) && CVarStreamingUseNewMetrics.GetValueOnAnyThread() > 0)
+		{
+			OutBounds = StreamingTextureInfos[InfoIndex].Bounds;
+			OutWorldTexelFactor = StreamingTextureInfos[InfoIndex].TexelFactor;
+		}
+		else
+		{
+			float LocalTexelFactor = StaticMesh->GetStreamingTextureFactor(0) * FMath::Max(0.0f, StreamingDistanceMultiplier);
+			OutWorldTexelFactor	= LocalTexelFactor * ComponentToWorld.GetMaximumAxisScale();
+			OutBounds = Bounds;
+		}
+
 		const float LocalLightmapFactor	= bHasValidLightmapCoordinates ? StaticMesh->GetStreamingTextureFactor(StaticMesh->LightMapCoordinateIndex) : 1.0f;
-		const float WorldTexelFactor	= SplineDeformFactor * LocalTexelFactor * ComponentToWorld.GetMaximumAxisScale();
-		const float WorldLightmapFactor	= SplineDeformFactor * LocalLightmapFactor * ComponentToWorld.GetMaximumAxisScale();
+		OutWorldLightmapFactor = LocalLightmapFactor * ComponentToWorld.GetMaximumAxisScale();
+
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+
+void UStaticMeshComponent::GetStreamingTextureInfo(TArray<FStreamingTexturePrimitiveInfo>& OutStreamingTextures) const
+{
+	float WorldTexelFactor = 1.f;
+	float WorldLightmapFactor = 1.f;
+
+	if (!bIgnoreInstanceForTextureStreaming && StaticMesh && StaticMesh->RenderData)
+	{
+		const ERHIFeatureLevel::Type FeatureLevel = GetWorld() ? GetWorld()->FeatureLevel : GMaxRHIFeatureLevel;
+
+		const bool bHasValidLightmapCoordinates = ((StaticMesh->LightMapCoordinateIndex >= 0)
+			&& ((uint32)StaticMesh->LightMapCoordinateIndex < StaticMesh->RenderData->LODResources[0].VertexBuffer.GetNumTexCoords()));
 
 		for (int32 LODIndex = 0; LODIndex < StaticMesh->RenderData->LODResources.Num(); ++LODIndex)
 		{
@@ -534,6 +604,10 @@ void UStaticMeshComponent::GetStreamingTextureInfo(TArray<FStreamingTexturePrimi
 					Material = UMaterial::GetDefaultMaterial(MD_Surface);
 				}
 
+				FBoxSphereBounds SectionBounds;
+				if (!GetStreamingTextureFactors(WorldTexelFactor, WorldLightmapFactor, SectionBounds, LODIndex, ElementIndex))
+					continue;
+
 				// Enumerate the textures used by the material.
 				TArray<UTexture*> Textures;
 
@@ -544,7 +618,7 @@ void UStaticMeshComponent::GetStreamingTextureInfo(TArray<FStreamingTexturePrimi
 				for(int32 TextureIndex = 0;TextureIndex < Textures.Num();TextureIndex++)
 				{
 					FStreamingTexturePrimitiveInfo& StreamingTexture = *new(OutStreamingTextures) FStreamingTexturePrimitiveInfo;
-					StreamingTexture.Bounds = BoundingSphere;
+					StreamingTexture.Bounds = SectionBounds;
 					StreamingTexture.TexelFactor = WorldTexelFactor;
 					StreamingTexture.Texture = Textures[TextureIndex];
 				}
@@ -564,7 +638,7 @@ void UStaticMeshComponent::GetStreamingTextureInfo(TArray<FStreamingTexturePrimi
 						float LightmapFactorX		 = WorldLightmapFactor / Scale.X;
 						float LightmapFactorY		 = WorldLightmapFactor / Scale.Y;
 						FStreamingTexturePrimitiveInfo& StreamingTexture = *new(OutStreamingTextures) FStreamingTexturePrimitiveInfo;
-						StreamingTexture.Bounds		 = BoundingSphere;
+						StreamingTexture.Bounds		 = Bounds;
 						StreamingTexture.TexelFactor = FMath::Max(LightmapFactorX, LightmapFactorY);
 						StreamingTexture.Texture	 = Lightmap->GetTexture(LightmapIndex);
 					}
@@ -580,7 +654,7 @@ void UStaticMeshComponent::GetStreamingTextureInfo(TArray<FStreamingTexturePrimi
 						float ShadowmapFactorX		 = WorldLightmapFactor / Scale.X;
 						float ShadowmapFactorY		 = WorldLightmapFactor / Scale.Y;
 						FStreamingTexturePrimitiveInfo& StreamingTexture = *new(OutStreamingTextures) FStreamingTexturePrimitiveInfo;
-						StreamingTexture.Bounds		 = BoundingSphere;
+						StreamingTexture.Bounds		 = Bounds;
 						StreamingTexture.TexelFactor = FMath::Max(ShadowmapFactorX, ShadowmapFactorY);
 						StreamingTexture.Texture	 = Shadowmap->GetTexture();
 					}
@@ -1201,6 +1275,21 @@ void UStaticMeshComponent::PostEditChangeProperty(FPropertyChangedEvent& Propert
 }
 #endif // WITH_EDITOR
 
+bool UStaticMeshComponent::SupportsDefaultCollision()
+{
+	return StaticMesh && GetBodySetup() == StaticMesh->BodySetup;
+}
+
+void UStaticMeshComponent::UpdateCollisionFromStaticMesh()
+{
+	if(bUseDefaultCollision && SupportsDefaultCollision())
+	{
+		if (UBodySetup* BodySetup = GetBodySetup())
+		{
+			BodyInstance.UseExternalCollisionProfile(BodySetup);	//static mesh component by default uses the same collision profile as its static mesh
+		}
+	}
+}
 
 void UStaticMeshComponent::PostLoad()
 {
@@ -1280,8 +1369,13 @@ bool UStaticMeshComponent::SetStaticMesh(UStaticMesh* NewMesh)
 		return false;
 	}
 
+	// Remove speed tree wind for this staticmesh from scene
+	RemoveSpeedTreeWind();
 
 	StaticMesh = NewMesh;
+
+	// Add speed tree wind if required
+	AddSpeedTreeWind();
 
 	// Need to send this to render thread at some point
 	MarkRenderStateDirty();
@@ -1298,6 +1392,10 @@ bool UStaticMeshComponent::SetStaticMesh(UStaticMesh* NewMesh)
 
 	// Since we have new mesh, we need to update bounds
 	UpdateBounds();
+
+	// Mark cached material parameter names dirty
+	MarkCachedMaterialParameterNameIndicesDirty();
+
 	return true;
 }
 
@@ -1318,6 +1416,12 @@ void UStaticMeshComponent::GetLocalBounds(FVector& Min, FVector& Max) const
 		Min = MeshBounds.Origin - MeshBounds.BoxExtent;
 		Max = MeshBounds.Origin + MeshBounds.BoxExtent;
 	}
+}
+
+void UStaticMeshComponent::SetCollisionProfileName(FName InCollisionProfileName)
+{
+	Super::SetCollisionProfileName(InCollisionProfileName);
+	bUseDefaultCollision = false;
 }
 
 bool UStaticMeshComponent::UsesOnlyUnlitMaterials() const
@@ -1431,15 +1535,23 @@ int32 UStaticMeshComponent::GetStaticLightMapResolution() const
 	return FMath::Max<int32>(Width, Height);
 }
 
-bool UStaticMeshComponent::HasValidSettingsForStaticLighting() const
+bool UStaticMeshComponent::HasValidSettingsForStaticLighting(bool bOverlookInvalidComponents) const
 {
-	int32 LightMapWidth = 0;
-	int32 LightMapHeight = 0;
-	GetLightMapResolution(LightMapWidth, LightMapHeight);
+	if (bOverlookInvalidComponents && !StaticMesh)
+	{
+		// Return true for invalid components, this is used during the map check where those invalid components will be warned about separately
+		return true;
+	}
+	else
+	{
+		int32 LightMapWidth = 0;
+		int32 LightMapHeight = 0;
+		GetLightMapResolution(LightMapWidth, LightMapHeight);
 
-	return Super::HasValidSettingsForStaticLighting() 
-		&& StaticMesh
-		&& UsesTextureLightmaps(LightMapWidth, LightMapHeight);
+		return Super::HasValidSettingsForStaticLighting(bOverlookInvalidComponents) 
+			&& StaticMesh
+			&& UsesTextureLightmaps(LightMapWidth, LightMapHeight);
+	}
 }
 
 bool UStaticMeshComponent::UsesTextureLightmaps(int32 InWidth, int32 InHeight) const
@@ -2018,6 +2130,14 @@ void FStaticMeshComponentLODInfo::ImportText(const TCHAR** SourceText)
 	}
 }
 
+int32 GKeepKeepOverrideVertexColorsOnCPU = 1;
+FAutoConsoleVariableRef CKeepOverrideVertexColorsOnCPU(
+	TEXT("r.KeepOverrideVertexColorsOnCPU"),
+	GKeepKeepOverrideVertexColorsOnCPU,
+	TEXT("Keeps a CPU copy of override vertex colors.  May be required for some blueprints / object spawning."),
+	ECVF_Scalability | ECVF_RenderThreadSafe
+	);
+
 FArchive& operator<<(FArchive& Ar,FStaticMeshComponentLODInfo& I)
 {
 	const uint8 OverrideColorsStripFlag = 1;
@@ -2060,7 +2180,9 @@ FArchive& operator<<(FArchive& Ar,FStaticMeshComponentLODInfo& I)
 				I.OverrideVertexColors = new FColorVertexBuffer;
 			}
 
-			I.OverrideVertexColors->Serialize( Ar, true );
+			//we want to discard the vertex colors after rhi init when in cooked/client builds.
+			const bool bNeedsCPUAccess = !Ar.IsLoading() || GIsEditor || IsRunningCommandlet() || (GKeepKeepOverrideVertexColorsOnCPU != 0);
+			I.OverrideVertexColors->Serialize(Ar, bNeedsCPUAccess);
 		}
 	}
 

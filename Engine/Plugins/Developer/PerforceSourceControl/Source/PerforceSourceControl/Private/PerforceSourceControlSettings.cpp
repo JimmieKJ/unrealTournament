@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "PerforceSourceControlPrivatePCH.h"
 #include "PerforceSourceControlSettings.h"
@@ -62,6 +62,18 @@ void FPerforceSourceControlSettings::SetHostOverride(const FString& InString)
 {
 	FScopeLock ScopeLock(&CriticalSection);
 	ConnectionInfo.HostOverride = InString;
+}
+
+const FString& FPerforceSourceControlSettings::GetChangelistNumber() const
+{
+	FScopeLock ScopeLock(&CriticalSection);
+	return ConnectionInfo.ChangelistNumber;
+}
+
+void FPerforceSourceControlSettings::SetChangelistNumber(const FString& InString)
+{
+	FScopeLock ScopeLock(&CriticalSection);
+	ConnectionInfo.ChangelistNumber = InString;
 }
 
 void FPerforceSourceControlSettings::LoadSettings()

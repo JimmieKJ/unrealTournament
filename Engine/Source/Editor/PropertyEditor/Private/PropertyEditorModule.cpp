@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "PropertyEditorPrivatePCH.h"
@@ -606,7 +606,9 @@ FPropertyTypeLayoutCallback FPropertyEditorModule::GetPropertyTypeCustomization(
 		bStructProperty &= !bUserDefinedStruct;
 
 		const UByteProperty* ByteProperty = Cast<UByteProperty>(Property);
-		const bool bEnumProperty = ByteProperty && ByteProperty->Enum;
+		bool bEnumProperty = ByteProperty && ByteProperty->Enum;
+		const bool bUserDefinedEnum = bEnumProperty && ByteProperty->Enum->IsA<UUserDefinedEnum>();
+		bEnumProperty &= !bUserDefinedEnum;
 
 		const UObjectProperty* ObjectProperty = Cast<UObjectProperty>(Property);
 		const bool bObjectProperty = ObjectProperty != NULL && ObjectProperty->PropertyClass != NULL;

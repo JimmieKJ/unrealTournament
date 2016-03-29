@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -19,8 +19,10 @@ public:
 	LANDSCAPE_API static FName ParameterName;
 
 	//~ Begin UMaterialExpression Interface
+#if WITH_EDITOR
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
+#endif
 	virtual UTexture* GetReferencedTexture() override;
 	//~ End UMaterialExpression Interface
 
@@ -30,6 +32,10 @@ public:
 	 * Called to get list of parameter names for static parameter sets
 	 */
 	void GetAllParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds) const;
+
+	//~ Begin UObject Interface
+	virtual bool NeedsLoadForClient() const override;
+	//~ End UObject Interface
 };
 
 

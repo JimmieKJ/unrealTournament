@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LocalizationDashboardPrivatePCH.h"
 #include "LocalizationTargetDetailCustomization.h"
@@ -56,11 +56,14 @@ public:
 	{
 	}
 
-	TSharedPtr<FUICommandInfo> Gather;
-	TSharedPtr<FUICommandInfo> ImportAllCultures;
-	TSharedPtr<FUICommandInfo> ExportAllCultures;
+	TSharedPtr<FUICommandInfo> GatherText;
+	TSharedPtr<FUICommandInfo> ImportTextAllCultures;
+	TSharedPtr<FUICommandInfo> ExportTextAllCultures;
+	TSharedPtr<FUICommandInfo> ImportDialogueScriptAllCultures;
+	TSharedPtr<FUICommandInfo> ExportDialogueScriptAllCultures;
+	TSharedPtr<FUICommandInfo> ImportDialogueAllCultures;
 	TSharedPtr<FUICommandInfo> CountWords;
-	TSharedPtr<FUICommandInfo> CompileAllCultures;
+	TSharedPtr<FUICommandInfo> CompileTextAllCultures;
 
 	/** Initialize commands */
 	virtual void RegisterCommands() override;
@@ -68,11 +71,14 @@ public:
 
 void FLocalizationTargetEditorCommands::RegisterCommands() 
 {
-	UI_COMMAND( Gather, "Gather", "Gathers text for this target.", EUserInterfaceActionType::Button, FInputChord() );
-	UI_COMMAND( ImportAllCultures, "Import All", "Imports translations for all cultures of this target.", EUserInterfaceActionType::Button, FInputChord() );
-	UI_COMMAND( ExportAllCultures, "Export All", "Exports translations for all cultures of this target.", EUserInterfaceActionType::Button, FInputChord() );
-	UI_COMMAND( CountWords, "Count Words", "Recalculates the word counts for this target.", EUserInterfaceActionType::Button, FInputChord() );
-	UI_COMMAND( CompileAllCultures, "Compile All", "Compiles translations for all cultures of this target.", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND(GatherText, "Gather Text", "Gather text for all cultures of this target.", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(ImportTextAllCultures, "Import Text", "Import translations for all cultures of this target.", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(ExportTextAllCultures, "Export Text", "Export translations for all cultures of this target.", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(ImportDialogueScriptAllCultures, "Import Script", "Import dialogue scripts for all cultures of this target.", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(ExportDialogueScriptAllCultures, "Export Script", "Export dialogue scripts for all cultures of this target.", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(ImportDialogueAllCultures, "Import Dialogue", "Import dialogue WAV files for all cultures of this target.", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(CountWords, "Count Words", "Count translations for all cultures of this target.", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(CompileTextAllCultures, "Compile Text", "Compile translations for all cultures of this target.", EUserInterfaceActionType::Button, FInputChord());
 }
 
 void FLocalizationTargetDetailCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
@@ -85,14 +91,11 @@ void FLocalizationTargetDetailCustomization::CustomizeDetails(IDetailLayoutBuild
 		TargetSet = CastChecked<ULocalizationTargetSet>(LocalizationTarget->GetOuter());
 	}
 
+	const ILocalizationServiceProvider& LSP = ILocalizationServiceModule::Get().GetProvider();
+
 	TargetSettingsPropertyHandle = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULocalizationTarget, Settings));
 
-	if (TargetSettingsPropertyHandle.IsValid() && TargetSettingsPropertyHandle->IsValidHandle())
-	{
-		TargetSettingsPropertyHandle->MarkHiddenByCustomization();
-	}
-
-	typedef TFunction<void (const TSharedRef<IPropertyHandle>&, IDetailCategoryBuilder&)> FPropertyCustomizationFunction;
+	typedef TFunction<void(const TSharedRef<IPropertyHandle>&, IDetailCategoryBuilder&)> FPropertyCustomizationFunction;
 	TMap<FName, FPropertyCustomizationFunction> PropertyCustomizationMap;
 
 	PropertyCustomizationMap.Add(GET_MEMBER_NAME_CHECKED(FLocalizationTargetSettings, Name), [&](const TSharedRef<IPropertyHandle>& MemberPropertyHandle, IDetailCategoryBuilder& DetailCategoryBuilder)
@@ -105,6 +108,7 @@ void FLocalizationTargetDetailCustomization::CustomizeDetails(IDetailLayoutBuild
 		DetailWidgetRow.ValueContent()
 			[
 				SAssignNew(TargetNameEditableTextBox, SEditableTextBox)
+				.Font(DetailLayoutBuilder->GetDetailFont())
 				.Text(this, &FLocalizationTargetDetailCustomization::GetTargetName)
 				.RevertTextOnEscape(true)
 				.OnTextChanged(this, &FLocalizationTargetDetailCustomization::OnTargetNameChanged)
@@ -161,6 +165,7 @@ void FLocalizationTargetDetailCustomization::CustomizeDetails(IDetailLayoutBuild
 			.VAlign(VAlign_Center)
 			[
 				SNew(SComboButton)
+				.ContentPadding(FMargin(4.0, 2.0))
 				.ButtonContent()
 				[
 					SAssignNew(TargetDependenciesHorizontalBox, SHorizontalBox)
@@ -177,7 +182,6 @@ void FLocalizationTargetDetailCustomization::CustomizeDetails(IDetailLayoutBuild
 		NativeCultureIndexPropertyHandle = MemberPropertyHandle;
 	});
 
-	const ILocalizationServiceProvider& LSP = ILocalizationServiceModule::Get().GetProvider();
 	PropertyCustomizationMap.Add(GET_MEMBER_NAME_CHECKED(FLocalizationTargetSettings, SupportedCulturesStatistics), [&](const TSharedRef<IPropertyHandle>& MemberPropertyHandle, IDetailCategoryBuilder& DetailCategoryBuilder)
 	{
 
@@ -198,24 +202,33 @@ void FLocalizationTargetDetailCustomization::CustomizeDetails(IDetailLayoutBuild
 		FToolBarBuilder ToolBarBuilder(CommandList, FMultiBoxCustomization::AllowCustomization("LocalizationTargetEditor"), LocalizationServiceExtender);
 
 		TAttribute<FText> GatherToolTipTextAttribute = TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateLambda([this]() -> FText
-			{
-				return CanGather() ? FLocalizationTargetEditorCommands::Get().Gather->GetDescription() : LOCTEXT("GatherDisabledToolTip", "Must have a native culture specified in order to gather.");
-			}));
-		CommandList->MapAction( FLocalizationTargetEditorCommands::Get().Gather, FExecuteAction::CreateSP(this, &FLocalizationTargetDetailCustomization::Gather), FCanExecuteAction::CreateSP(this, &FLocalizationTargetDetailCustomization::CanGather));
-		ToolBarBuilder.AddToolBarButton(FLocalizationTargetEditorCommands::Get().Gather, NAME_None, TAttribute<FText>(), GatherToolTipTextAttribute, FSlateIcon(FEditorStyle::GetStyleSetName(), "LocalizationTargetEditor.Gather"));
+		{
+			return CanGatherText() ? FLocalizationTargetEditorCommands::Get().GatherText->GetDescription() : LOCTEXT("GatherDisabledToolTip", "Must have a native culture specified in order to gather.");
+		}));
+		CommandList->MapAction(FLocalizationTargetEditorCommands::Get().GatherText, FExecuteAction::CreateSP(this, &FLocalizationTargetDetailCustomization::GatherText), FCanExecuteAction::CreateSP(this, &FLocalizationTargetDetailCustomization::CanGatherText));
+		ToolBarBuilder.AddToolBarButton(FLocalizationTargetEditorCommands::Get().GatherText, NAME_None, TAttribute<FText>(), GatherToolTipTextAttribute, FSlateIcon(FEditorStyle::GetStyleSetName(), "LocalizationTargetEditor.GatherText"));
 
-		CommandList->MapAction( FLocalizationTargetEditorCommands::Get().ImportAllCultures, FExecuteAction::CreateSP(this, &FLocalizationTargetDetailCustomization::ImportAllCultures), FCanExecuteAction::CreateSP(this, &FLocalizationTargetDetailCustomization::CanImportAllCultures));
-		ToolBarBuilder.AddToolBarButton(FLocalizationTargetEditorCommands::Get().ImportAllCultures, NAME_None, TAttribute<FText>(), TAttribute<FText>(), FSlateIcon(FEditorStyle::GetStyleSetName(), "LocalizationTargetEditor.ImportAllCultures"));
+		CommandList->MapAction(FLocalizationTargetEditorCommands::Get().ImportTextAllCultures, FExecuteAction::CreateSP(this, &FLocalizationTargetDetailCustomization::ImportTextAllCultures), FCanExecuteAction::CreateSP(this, &FLocalizationTargetDetailCustomization::CanImportTextAllCultures));
+		ToolBarBuilder.AddToolBarButton(FLocalizationTargetEditorCommands::Get().ImportTextAllCultures, NAME_None, TAttribute<FText>(), TAttribute<FText>(), FSlateIcon(FEditorStyle::GetStyleSetName(), "LocalizationTargetEditor.ImportTextAllCultures"));
 
-		CommandList->MapAction( FLocalizationTargetEditorCommands::Get().ExportAllCultures, FExecuteAction::CreateSP(this, &FLocalizationTargetDetailCustomization::ExportAllCultures), FCanExecuteAction::CreateSP(this, &FLocalizationTargetDetailCustomization::CanExportAllCultures));
-		ToolBarBuilder.AddToolBarButton(FLocalizationTargetEditorCommands::Get().ExportAllCultures, NAME_None, TAttribute<FText>(), TAttribute<FText>(), FSlateIcon(FEditorStyle::GetStyleSetName(), "LocalizationTargetEditor.ExportAllCultures"));
+		CommandList->MapAction(FLocalizationTargetEditorCommands::Get().ExportTextAllCultures, FExecuteAction::CreateSP(this, &FLocalizationTargetDetailCustomization::ExportTextAllCultures), FCanExecuteAction::CreateSP(this, &FLocalizationTargetDetailCustomization::CanExportTextAllCultures));
+		ToolBarBuilder.AddToolBarButton(FLocalizationTargetEditorCommands::Get().ExportTextAllCultures, NAME_None, TAttribute<FText>(), TAttribute<FText>(), FSlateIcon(FEditorStyle::GetStyleSetName(), "LocalizationTargetEditor.ExportTextAllCultures"));
 
-		CommandList->MapAction( FLocalizationTargetEditorCommands::Get().CountWords, FExecuteAction::CreateSP(this, &FLocalizationTargetDetailCustomization::CountWords), FCanExecuteAction::CreateSP(this, &FLocalizationTargetDetailCustomization::CanCountWords));
+		CommandList->MapAction(FLocalizationTargetEditorCommands::Get().ImportDialogueScriptAllCultures, FExecuteAction::CreateSP(this, &FLocalizationTargetDetailCustomization::ImportDialogueScriptAllCultures), FCanExecuteAction::CreateSP(this, &FLocalizationTargetDetailCustomization::CanImportDialogueScriptAllCultures));
+		ToolBarBuilder.AddToolBarButton(FLocalizationTargetEditorCommands::Get().ImportDialogueScriptAllCultures, NAME_None, TAttribute<FText>(), TAttribute<FText>(), FSlateIcon(FEditorStyle::GetStyleSetName(), "LocalizationTargetEditor.ImportDialogueScriptAllCultures"));
+
+		CommandList->MapAction(FLocalizationTargetEditorCommands::Get().ExportDialogueScriptAllCultures, FExecuteAction::CreateSP(this, &FLocalizationTargetDetailCustomization::ExportDialogueScriptAllCultures), FCanExecuteAction::CreateSP(this, &FLocalizationTargetDetailCustomization::CanExportDialogueScriptAllCultures));
+		ToolBarBuilder.AddToolBarButton(FLocalizationTargetEditorCommands::Get().ExportDialogueScriptAllCultures, NAME_None, TAttribute<FText>(), TAttribute<FText>(), FSlateIcon(FEditorStyle::GetStyleSetName(), "LocalizationTargetEditor.ExportDialogueScriptAllCultures"));
+
+		CommandList->MapAction(FLocalizationTargetEditorCommands::Get().ImportDialogueAllCultures, FExecuteAction::CreateSP(this, &FLocalizationTargetDetailCustomization::ImportDialogueAllCultures), FCanExecuteAction::CreateSP(this, &FLocalizationTargetDetailCustomization::CanImportDialogueAllCultures));
+		ToolBarBuilder.AddToolBarButton(FLocalizationTargetEditorCommands::Get().ImportDialogueAllCultures, NAME_None, TAttribute<FText>(), TAttribute<FText>(), FSlateIcon(FEditorStyle::GetStyleSetName(), "LocalizationTargetEditor.ImportDialogueAllCultures"));
+
+		CommandList->MapAction(FLocalizationTargetEditorCommands::Get().CountWords, FExecuteAction::CreateSP(this, &FLocalizationTargetDetailCustomization::CountWords), FCanExecuteAction::CreateSP(this, &FLocalizationTargetDetailCustomization::CanCountWords));
 		ToolBarBuilder.AddToolBarButton(FLocalizationTargetEditorCommands::Get().CountWords, NAME_None, TAttribute<FText>(), TAttribute<FText>(), FSlateIcon(FEditorStyle::GetStyleSetName(), "LocalizationTargetEditor.CountWords"));
 
-		CommandList->MapAction( FLocalizationTargetEditorCommands::Get().CompileAllCultures, FExecuteAction::CreateSP(this, &FLocalizationTargetDetailCustomization::CompileAllCultures), FCanExecuteAction::CreateSP(this, &FLocalizationTargetDetailCustomization::CanCompileAllCultures));
-		ToolBarBuilder.AddToolBarButton(FLocalizationTargetEditorCommands::Get().CompileAllCultures, NAME_None, TAttribute<FText>(), TAttribute<FText>(), FSlateIcon(FEditorStyle::GetStyleSetName(), "LocalizationTargetEditor.CompileAllCultures"));
-		
+		CommandList->MapAction(FLocalizationTargetEditorCommands::Get().CompileTextAllCultures, FExecuteAction::CreateSP(this, &FLocalizationTargetDetailCustomization::CompileTextAllCultures), FCanExecuteAction::CreateSP(this, &FLocalizationTargetDetailCustomization::CanCompileTextAllCultures));
+		ToolBarBuilder.AddToolBarButton(FLocalizationTargetEditorCommands::Get().CompileTextAllCultures, NAME_None, TAttribute<FText>(), TAttribute<FText>(), FSlateIcon(FEditorStyle::GetStyleSetName(), "LocalizationTargetEditor.CompileTextAllCultures"));
+
 		if (ILocalizationServiceModule::Get().IsEnabled())
 		{
 			ToolBarBuilder.BeginSection("LocalizationService");
@@ -305,31 +318,47 @@ void FLocalizationTargetDetailCustomization::CustomizeDetails(IDetailLayoutBuild
 		IDetailCategoryBuilder& DetailCategoryBuilder = DetailBuilder.EditCategory("Target", LOCTEXT("TargetCategoryLabel","Target"), ECategoryPriority::Variable);
 	}
 
+	// We need to add the customizations in the same order as the properties to ensure that things are ordered correctly
 	UStructProperty* const SettingsStructProperty = CastChecked<UStructProperty>(TargetSettingsPropertyHandle->GetProperty());
 	for (TFieldIterator<UProperty> Iterator(SettingsStructProperty->Struct); Iterator; ++Iterator)
 	{
 		UProperty* const MemberProperty = *Iterator;
 		
-		const bool IsEditable = MemberProperty->HasAnyPropertyFlags(CPF_Edit);
-		if (IsEditable)
+		if (!MemberProperty->HasAnyPropertyFlags(CPF_Edit))
+		{
+			continue;
+		}
+		
+		const FName PropertyName = MemberProperty->GetFName();
+		const TSharedPtr<IPropertyHandle> MemberPropertyHandle = TargetSettingsPropertyHandle->GetChildHandle(PropertyName);
+		if (MemberPropertyHandle.IsValid() && MemberPropertyHandle->IsValidHandle())
 		{
 			const FName CategoryName = FObjectEditorUtils::GetCategoryFName(MemberProperty);
 			IDetailCategoryBuilder& DetailCategoryBuilder = DetailBuilder.EditCategory(CategoryName);
 
-			const FName PropertyName = MemberProperty->GetFName();
+			static FName ShowOnlyInners("ShowOnlyInnerProperties");
 
-			const TSharedPtr<IPropertyHandle> MemberPropertyHandle = TargetSettingsPropertyHandle->GetChildHandle(MemberProperty->GetFName());
-			if (MemberPropertyHandle.IsValid() && MemberPropertyHandle->IsValidHandle())
+			const auto* const Function = PropertyCustomizationMap.Find(PropertyName);
+			if (Function)
 			{
-				FPropertyCustomizationFunction* const Function = PropertyCustomizationMap.Find(PropertyName);
-				if (Function)
+				MemberPropertyHandle->MarkHiddenByCustomization();
+				(*Function)(MemberPropertyHandle.ToSharedRef(), DetailCategoryBuilder);
+			}
+			else if (MemberPropertyHandle->HasMetaData(ShowOnlyInners))
+			{
+				// This property is marked as ShowOnlyInnerProperties, so hoist its child properties up-to this level
+				MemberPropertyHandle->MarkHiddenByCustomization();
+
+				uint32 NumChildProperties = 0;
+				MemberPropertyHandle->GetNumChildren(NumChildProperties);
+
+				for (uint32 ChildPropertyIndex = 0; ChildPropertyIndex < NumChildProperties; ++ChildPropertyIndex)
 				{
-					MemberPropertyHandle->MarkHiddenByCustomization();
-					(*Function)(MemberPropertyHandle.ToSharedRef(), DetailCategoryBuilder);
-				}
-				else
-				{
-					DetailCategoryBuilder.AddProperty(MemberPropertyHandle);
+					const TSharedPtr<IPropertyHandle> ChildPropertyHandle = MemberPropertyHandle->GetChildHandle(ChildPropertyIndex);
+					if (ChildPropertyHandle.IsValid() && ChildPropertyHandle->IsValidHandle())
+					{
+						DetailCategoryBuilder.AddProperty(ChildPropertyHandle);
+					}
 				}
 			}
 		}
@@ -353,6 +382,7 @@ void FLocalizationTargetDetailCustomization::CustomizeDetails(IDetailLayoutBuild
 		DetailWidgetRow.NameContent()
 			[
 				SNew(STextBlock)
+				.Font(DetailLayoutBuilder->GetDetailFont())
 				.Text(LOCTEXT("LocalizationTargetLoadingPolicyRowName", "Loading Policy"))
 			];
 		DetailWidgetRow.ValueContent()
@@ -365,6 +395,7 @@ void FLocalizationTargetDetailCustomization::CustomizeDetails(IDetailLayoutBuild
 				.Content()
 				[
 					SNew(STextBlock)
+					.Font(DetailLayoutBuilder->GetDetailFont())
 					.Text_Lambda([this]() 
 					{
 						UEnum* const LoadingPolicyEnum = FindObjectChecked<UEnum>(ANY_PACKAGE, TEXT("ELocalizationTargetLoadingPolicy"));
@@ -372,15 +403,6 @@ void FLocalizationTargetDetailCustomization::CustomizeDetails(IDetailLayoutBuild
 					})
 				]
 			];
-	}
-
-	{
-		// Assign this to the "important" category to make it show up just under the "target" category
-		IDetailCategoryBuilder& ServiceProviderCategoryBuilder = DetailBuilder.EditCategory(FName("LocalizationServiceProvider"), LOCTEXT("LocalizationServiceProviderCategoryLabel","Localization Service Provider"), ECategoryPriority::Important);
-		if (LocalizationTarget.IsValid())
-		{
-			LSP.CustomizeTargetDetails(ServiceProviderCategoryBuilder, LocalizationTarget);
-		}
 	}
 }
 
@@ -536,6 +558,7 @@ TSharedRef<SWidget> FLocalizationTargetDetailCustomization::GenerateWidgetForLoa
 {
 	UEnum* const LoadingPolicyEnum = FindObjectChecked<UEnum>(ANY_PACKAGE, TEXT("ELocalizationTargetLoadingPolicy"));
 	return SNew(STextBlock)
+		.Font(DetailLayoutBuilder->GetDetailFont())
 		.Text(LoadingPolicyEnum->GetDisplayNameText(static_cast<int32>(*LoadingPolicy.Get())));
 };
 
@@ -567,6 +590,7 @@ void FLocalizationTargetDetailCustomization::RebuildTargetDependenciesBox()
 				const TSharedRef<SWidget> Widget = SNew(SBorder)
 				[
 					SNew(STextBlock)
+					.Font(DetailLayoutBuilder->GetDetailFont())
 					.Text_Lambda(GetTargetDependencyName)
 				];
 
@@ -682,12 +706,12 @@ ECheckBoxState FLocalizationTargetDetailCustomization::IsTargetDependencyChecked
 	return LocalizationTarget->Settings.TargetDependencies.Contains(OtherLocalizationTarget->Settings.Guid) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 }
 
-bool FLocalizationTargetDetailCustomization::CanGather() const
+bool FLocalizationTargetDetailCustomization::CanGatherText() const
 {
 	return LocalizationTarget.IsValid() && LocalizationTarget->Settings.SupportedCulturesStatistics.Num() > 0 && LocalizationTarget->Settings.SupportedCulturesStatistics.IsValidIndex(LocalizationTarget->Settings.NativeCultureIndex);
 }
 
-void FLocalizationTargetDetailCustomization::Gather()
+void FLocalizationTargetDetailCustomization::GatherText()
 {
 	if (LocalizationTarget.IsValid())
 	{
@@ -718,18 +742,18 @@ void FLocalizationTargetDetailCustomization::Gather()
 
 		// Execute gather.
 		const TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindWidgetWindow(DetailLayoutBuilder->GetDetailsView().AsShared());
-		LocalizationCommandletTasks::GatherTarget(ParentWindow.ToSharedRef(), LocalizationTarget.Get());
+		LocalizationCommandletTasks::GatherTextForTarget(ParentWindow.ToSharedRef(), LocalizationTarget.Get());
 
 		UpdateTargetFromReports();
 	}
 }
 
-bool FLocalizationTargetDetailCustomization::CanImportAllCultures() const
+bool FLocalizationTargetDetailCustomization::CanImportTextAllCultures() const
 {
-	return LocalizationTarget.IsValid() && LocalizationTarget->Settings.SupportedCulturesStatistics.Num() > 0;
+	return LocalizationTarget.IsValid() && LocalizationTarget->Settings.SupportedCulturesStatistics.Num() > 0 && LocalizationTarget->Settings.SupportedCulturesStatistics.IsValidIndex(LocalizationTarget->Settings.NativeCultureIndex);
 }
 
-void FLocalizationTargetDetailCustomization::ImportAllCultures()
+void FLocalizationTargetDetailCustomization::ImportTextAllCultures()
 {
 	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
 	if (LocalizationTarget.IsValid() && DesktopPlatform)
@@ -754,19 +778,19 @@ void FLocalizationTargetDetailCustomization::ImportAllCultures()
 		FString OutputDirectory;
 		if (DesktopPlatform->OpenDirectoryDialog(ParentWindowWindowHandle, DialogTitle.ToString(), DefaultPath, OutputDirectory))
 		{
-			LocalizationCommandletTasks::ImportTarget(ParentWindow.ToSharedRef(), LocalizationTarget.Get(), TOptional<FString>(OutputDirectory));
+			LocalizationCommandletTasks::ImportTextForTarget(ParentWindow.ToSharedRef(), LocalizationTarget.Get(), TOptional<FString>(OutputDirectory));
 
 			UpdateTargetFromReports();
 		}
 	}
 }
 
-bool FLocalizationTargetDetailCustomization::CanExportAllCultures() const
+bool FLocalizationTargetDetailCustomization::CanExportTextAllCultures() const
 {
-	return LocalizationTarget.IsValid() && LocalizationTarget->Settings.SupportedCulturesStatistics.Num() > 0;
+	return LocalizationTarget.IsValid() && LocalizationTarget->Settings.SupportedCulturesStatistics.Num() > 0 && LocalizationTarget->Settings.SupportedCulturesStatistics.IsValidIndex(LocalizationTarget->Settings.NativeCultureIndex);
 }
 
-void FLocalizationTargetDetailCustomization::ExportAllCultures()
+void FLocalizationTargetDetailCustomization::ExportTextAllCultures()
 {
 	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
 	if (LocalizationTarget.IsValid() && DesktopPlatform)
@@ -791,14 +815,112 @@ void FLocalizationTargetDetailCustomization::ExportAllCultures()
 		FString OutputDirectory;
 		if (DesktopPlatform->OpenDirectoryDialog(ParentWindowWindowHandle, DialogTitle.ToString(), DefaultPath, OutputDirectory))
 		{
-			LocalizationCommandletTasks::ExportTarget(ParentWindow.ToSharedRef(), LocalizationTarget.Get(), TOptional<FString>(OutputDirectory));
+			LocalizationCommandletTasks::ExportTextForTarget(ParentWindow.ToSharedRef(), LocalizationTarget.Get(), TOptional<FString>(OutputDirectory));
 		}
+	}
+}
+
+bool FLocalizationTargetDetailCustomization::CanImportDialogueScriptAllCultures() const
+{
+	return LocalizationTarget.IsValid() && LocalizationTarget->Settings.SupportedCulturesStatistics.Num() > 0 && LocalizationTarget->Settings.SupportedCulturesStatistics.IsValidIndex(LocalizationTarget->Settings.NativeCultureIndex);
+}
+
+void FLocalizationTargetDetailCustomization::ImportDialogueScriptAllCultures()
+{
+	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+	if (LocalizationTarget.IsValid() && DesktopPlatform)
+	{
+		void* ParentWindowWindowHandle = NULL;
+		const TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindWidgetWindow(DetailLayoutBuilder->GetDetailsView().AsShared());
+		if (ParentWindow.IsValid() && ParentWindow->GetNativeWindow().IsValid())
+		{
+			ParentWindowWindowHandle = ParentWindow->GetNativeWindow()->GetOSWindowHandle();
+		}
+
+		const FString DefaultPath = FPaths::ConvertRelativePathToFull(LocalizationConfigurationScript::GetDataDirectory(LocalizationTarget.Get()));
+
+		FText DialogTitle;
+		{
+			FFormatNamedArguments FormatArguments;
+			FormatArguments.Add(TEXT("TargetName"), FText::FromString(LocalizationTarget->Settings.Name));
+			DialogTitle = FText::Format(LOCTEXT("ImportAllDialogueScriptsForTargetDialogTitleFormat", "Import All Dialogue Scripts for {TargetName} from Directory"), FormatArguments);
+		}
+
+		// Prompt the user for the directory
+		FString OutputDirectory;
+		if (DesktopPlatform->OpenDirectoryDialog(ParentWindowWindowHandle, DialogTitle.ToString(), DefaultPath, OutputDirectory))
+		{
+			LocalizationCommandletTasks::ImportDialogueScriptForTarget(ParentWindow.ToSharedRef(), LocalizationTarget.Get(), TOptional<FString>(OutputDirectory));
+
+			UpdateTargetFromReports();
+		}
+	}
+}
+
+bool FLocalizationTargetDetailCustomization::CanExportDialogueScriptAllCultures() const
+{
+	return LocalizationTarget.IsValid() && LocalizationTarget->Settings.SupportedCulturesStatistics.Num() > 0 && LocalizationTarget->Settings.SupportedCulturesStatistics.IsValidIndex(LocalizationTarget->Settings.NativeCultureIndex);
+}
+
+void FLocalizationTargetDetailCustomization::ExportDialogueScriptAllCultures()
+{
+	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+	if (LocalizationTarget.IsValid() && DesktopPlatform)
+	{
+		void* ParentWindowWindowHandle = NULL;
+		const TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindWidgetWindow(DetailLayoutBuilder->GetDetailsView().AsShared());
+		if (ParentWindow.IsValid() && ParentWindow->GetNativeWindow().IsValid())
+		{
+			ParentWindowWindowHandle = ParentWindow->GetNativeWindow()->GetOSWindowHandle();
+		}
+
+		const FString DefaultPath = FPaths::ConvertRelativePathToFull(LocalizationConfigurationScript::GetDataDirectory(LocalizationTarget.Get()));
+
+		FText DialogTitle;
+		{
+			FFormatNamedArguments FormatArguments;
+			FormatArguments.Add(TEXT("TargetName"), FText::FromString(LocalizationTarget->Settings.Name));
+			DialogTitle = FText::Format(LOCTEXT("ExportAllDialogueScriptsForTargetDialogTitleFormat", "Export All Dialogue Scripts for {TargetName} to Directory"), FormatArguments);
+		}
+
+		// Prompt the user for the directory
+		FString OutputDirectory;
+		if (DesktopPlatform->OpenDirectoryDialog(ParentWindowWindowHandle, DialogTitle.ToString(), DefaultPath, OutputDirectory))
+		{
+			LocalizationCommandletTasks::ExportDialogueScriptForTarget(ParentWindow.ToSharedRef(), LocalizationTarget.Get(), TOptional<FString>(OutputDirectory));
+		}
+	}
+}
+
+bool FLocalizationTargetDetailCustomization::CanImportDialogueAllCultures() const
+{
+	return LocalizationTarget.IsValid() && LocalizationTarget->Settings.SupportedCulturesStatistics.Num() > 0 && LocalizationTarget->Settings.SupportedCulturesStatistics.IsValidIndex(LocalizationTarget->Settings.NativeCultureIndex);
+}
+
+void FLocalizationTargetDetailCustomization::ImportDialogueAllCultures()
+{
+	if (LocalizationTarget.IsValid())
+	{
+		// Warn about potentially loaded audio assets
+		{
+			TArray<ULocalizationTarget*> Targets;
+			Targets.Add(LocalizationTarget.Get());
+
+			if (!LocalizationCommandletTasks::ReportLoadedAudioAssets(Targets))
+			{
+				return;
+			}
+		}
+
+		// Execute import dialogue.
+		const TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindWidgetWindow(DetailLayoutBuilder->GetDetailsView().AsShared());
+		LocalizationCommandletTasks::ImportDialogueForTarget(ParentWindow.ToSharedRef(), LocalizationTarget.Get());
 	}
 }
 
 bool FLocalizationTargetDetailCustomization::CanCountWords() const
 {
-	return LocalizationTarget.IsValid() && LocalizationTarget->Settings.SupportedCulturesStatistics.Num() > 0;
+	return LocalizationTarget.IsValid() && LocalizationTarget->Settings.SupportedCulturesStatistics.Num() > 0 && LocalizationTarget->Settings.SupportedCulturesStatistics.IsValidIndex(LocalizationTarget->Settings.NativeCultureIndex);
 }
 
 void FLocalizationTargetDetailCustomization::CountWords()
@@ -812,18 +934,18 @@ void FLocalizationTargetDetailCustomization::CountWords()
 	}
 }
 
-bool FLocalizationTargetDetailCustomization::CanCompileAllCultures() const
+bool FLocalizationTargetDetailCustomization::CanCompileTextAllCultures() const
 {
-	return LocalizationTarget.IsValid() && LocalizationTarget->Settings.SupportedCulturesStatistics.Num() > 0;
+	return LocalizationTarget.IsValid() && LocalizationTarget->Settings.SupportedCulturesStatistics.Num() > 0 && LocalizationTarget->Settings.SupportedCulturesStatistics.IsValidIndex(LocalizationTarget->Settings.NativeCultureIndex);
 }
 
-void FLocalizationTargetDetailCustomization::CompileAllCultures()
+void FLocalizationTargetDetailCustomization::CompileTextAllCultures()
 {
 	if (LocalizationTarget.IsValid())
 	{
 		// Execute compile.
 		const TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindWidgetWindow(DetailLayoutBuilder->GetDetailsView().AsShared());
-		LocalizationCommandletTasks::CompileTarget(ParentWindow.ToSharedRef(), LocalizationTarget.Get());
+		LocalizationCommandletTasks::CompileTextForTarget(ParentWindow.ToSharedRef(), LocalizationTarget.Get());
 	}
 }
 

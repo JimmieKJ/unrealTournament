@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ContentBrowserPCH.h"
 #include "CollectionViewTypes.h"
@@ -164,6 +164,17 @@ TSharedPtr<SWidget> FCollectionContextMenu::MakeCollectionTreeContextMenu(TShare
 				FUIAction(
 					FExecuteAction::CreateSP( this, &FCollectionContextMenu::ExecuteUpdateCollection ),
 					FCanExecuteAction::CreateLambda( [=]{ return bAnyNeedSCCUpdate; } )
+					)
+				);
+
+			// Refresh
+			MenuBuilder.AddMenuEntry(
+				LOCTEXT("RefreshCollection", "Refresh"),
+				LOCTEXT("RefreshCollectionTooltip", "Refresh the source control status of this collection."),
+				FSlateIcon(),
+				FUIAction(
+					FExecuteAction::CreateSP( this, &FCollectionContextMenu::ExecuteRefreshCollection ),
+					FCanExecuteAction::CreateLambda( [=]{ return bAnyManagedBySCC; } )
 					)
 				);
 		}
@@ -460,6 +471,33 @@ void FCollectionContextMenu::ExecuteUpdateCollection()
 	for (const auto& SelectedCollection : SelectedCollections)
 	{
 		CollectionManagerModule.Get().UpdateCollection(SelectedCollection->CollectionName, SelectedCollection->CollectionType);
+	}
+}
+
+void FCollectionContextMenu::ExecuteRefreshCollection()
+{
+	if ( !ensure(CollectionView.IsValid()) )
+	{
+		return;
+	}
+
+	FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
+	ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+
+	TArray<TSharedPtr<FCollectionItem>> SelectedCollections = CollectionView.Pin()->CollectionTreePtr->GetSelectedItems();
+
+	TArray<FString> CollectionFilesToRefresh;
+	for (const auto& SelectedCollection : SelectedCollections)
+	{
+		FCollectionStatusInfo StatusInfo;
+		if (CollectionManagerModule.Get().GetCollectionStatusInfo(SelectedCollection->CollectionName, SelectedCollection->CollectionType, StatusInfo))
+		{
+			if (StatusInfo.bUseSCC && StatusInfo.SCCState.IsValid() && StatusInfo.SCCState->IsSourceControlled())
+			{
+				// Forcing a status update will refresh the collection state
+				SourceControlProvider.GetState(StatusInfo.SCCState->GetFilename(), EStateCacheUsage::ForceUpdate);
+			}
+		}
 	}
 }
 

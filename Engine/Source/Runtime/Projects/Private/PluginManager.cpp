@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ProjectsPrivatePCH.h"
 
@@ -48,6 +48,14 @@ namespace PluginSystemDefs
 			}
 		} while (SearchStr != nullptr);
 
+#if IS_PROGRAM
+		// For programs that have the project dir set, look for plugins under the project directory
+		const FProjectDescriptor *Project = IProjectManager::Get().GetCurrentProject();
+		if (Project != nullptr)
+		{
+			PluginPathsOut.Add(FPaths::GetPath(FPaths::GetProjectFilePath()) / TEXT("Plugins"));
+		}
+#endif
 		return PluginCount;
 	}
 }
@@ -292,6 +300,35 @@ public:
 	}
 };
 
+bool FPluginManager::IsPluginSupportedByCurrentTarget(TSharedRef<FPlugin> Plugin) const
+{
+	bool bSupported = false;
+	if (Plugin->GetDescriptor().Modules.Num())
+	{
+		for (const FModuleDescriptor& Module : Plugin->GetDescriptor().Modules)
+		{
+			// Programs support only program type plugins
+			// Non-program targets don't support from plugins
+#if IS_PROGRAM
+			if (Module.Type == EHostType::Program)
+			{
+				bSupported = true;
+			}
+#else
+			if (Module.Type != EHostType::Program)
+			{
+				bSupported = true;
+			}
+#endif
+		}
+	}
+	else
+	{
+		bSupported = true;
+	}
+	return bSupported;
+}
+
 bool FPluginManager::ConfigureEnabledPlugins()
 {
 	if(!bHaveConfiguredEnabledPlugins)
@@ -301,13 +338,47 @@ bool FPluginManager::ConfigureEnabledPlugins()
 
 		// If a current project is set, check that we know about any plugin that's explicitly enabled
 		const FProjectDescriptor *Project = IProjectManager::Get().GetCurrentProject();
-		if(Project != nullptr)
+		const bool bHasProjectFile = Project != nullptr;
+
+		// Get all the enabled plugin names
+		TArray< FString > EnabledPluginNames;
+#if IS_PROGRAM
+		// Programs can also define the list of enabled plugins in ini
+		GConfig->GetArray(TEXT("Plugins"), TEXT("ProgramEnabledPlugins"), EnabledPluginNames, GEngineIni);
+#endif
+#if !IS_PROGRAM || HACK_HEADER_GENERATOR
+		if (!FParse::Param(FCommandLine::Get(), TEXT("NoEnginePlugins")))
+		{
+			FProjectManager::Get().GetEnabledPlugins(EnabledPluginNames);
+		}
+#endif
+
+		// Build a set from the array
+		TSet< FString > AllEnabledPlugins;
+		AllEnabledPlugins.Append(MoveTemp(EnabledPluginNames));
+
+		// Enable all the plugins by name
+		for (const TSharedRef< FPlugin > Plugin : AllPlugins)
+		{
+			if (AllEnabledPlugins.Contains(Plugin->Name))
+			{
+				Plugin->bEnabled = (!IS_PROGRAM || !bHasProjectFile) || IsPluginSupportedByCurrentTarget(Plugin);
+				if (!Plugin->bEnabled)
+				{
+					AllEnabledPlugins.Remove(Plugin->Name);
+				}
+			}
+		}
+
+		if (bHasProjectFile)
 		{
 			// Take a copy of the Project's plugins as we may remove some
 			TArray<FPluginReferenceDescriptor> PluginsCopy = Project->Plugins;
 			for(const FPluginReferenceDescriptor& Plugin: PluginsCopy)
 			{
-				if (Plugin.bEnabled && !FindPluginInstance(Plugin.Name).IsValid() && !Plugin.bOptional)
+				bool bShouldBeEnabled = Plugin.bEnabled && Plugin.IsEnabledForPlatform(FPlatformMisc::GetUBTPlatform()) && Plugin.IsEnabledForTarget(FPlatformMisc::GetUBTTarget());
+				if ((bShouldBeEnabled && !FindPluginInstance(Plugin.Name).IsValid() && !Plugin.bOptional) &&
+					 (!IS_PROGRAM || AllEnabledPlugins.Contains(Plugin.Name))) // skip if this is a program and the plugin is not enabled
 				{
 					FText Caption(LOCTEXT("PluginMissingCaption", "Plugin missing"));
 					if(Plugin.MarketplaceURL.Len() > 0)
@@ -323,7 +394,7 @@ bool FPluginManager::ConfigureEnabledPlugins()
 					else
 					{
 						FString Description = (Plugin.Description.Len() > 0) ? FString::Printf(TEXT("\n\n%s"), *Plugin.Description) : FString();
-						FMessageDialog::Open(EAppMsgType::Ok, FText::Format(LOCTEXT("PluginMissingError", "This project requires the {0} plugin. {1}"), FText::FromString(Plugin.Name), FText::FromString(Description)), &Caption);
+						FMessageDialog::Open(EAppMsgType::Ok, FText::Format(LOCTEXT("PluginRequiredError", "This project requires the {0} plugin. {1}"), FText::FromString(Plugin.Name), FText::FromString(Description)), &Caption);
 						
 						if (FMessageDialog::Open(EAppMsgType::YesNo, FText::Format(LOCTEXT("PluginMissingDisable", "Would you like to disable {0}? You will no longer be able to open any assets created using it."), FText::FromString(Plugin.Name)), &Caption) == EAppReturnType::No)
 						{
@@ -342,27 +413,6 @@ bool FPluginManager::ConfigureEnabledPlugins()
 
 		// If we made it here, we have all the required plugins
 		bHaveAllRequiredPlugins = true;
-
-		// Get all the enabled plugin names
-		TArray< FString > EnabledPluginNames;
-		#if IS_PROGRAM
-			GConfig->GetArray(TEXT("Plugins"), TEXT("ProgramEnabledPlugins"), EnabledPluginNames, GEngineIni);
-		#else
-			FProjectManager::Get().GetEnabledPlugins(EnabledPluginNames);
-		#endif
-
-		// Build a set from the array
-		TSet< FString > AllEnabledPlugins;
-		AllEnabledPlugins.Append( MoveTemp(EnabledPluginNames) );
-
-		// Enable all the plugins by name
-		for( const TSharedRef< FPlugin > Plugin : AllPlugins )
-		{
-			if ( AllEnabledPlugins.Contains(Plugin->Name) )
-			{
-				Plugin->bEnabled = true;
-			}
-		}
 
 		for(const TSharedRef<FPlugin>& Plugin: AllPlugins)
 		{
@@ -443,7 +493,7 @@ bool FPluginManager::ConfigureEnabledPlugins()
 					{
 						if (FCoreDelegates::OnMountPak.IsBound())
 						{
-							FCoreDelegates::OnMountPak.Execute(PakPath, 0);
+							FCoreDelegates::OnMountPak.Execute(PakPath, 0, nullptr);
 						}
 					}
 				}

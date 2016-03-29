@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayTag.h"
@@ -13,11 +13,11 @@ UAbilityTask_WaitGameplayTagAdded::UAbilityTask_WaitGameplayTagAdded(const FObje
 
 }
 
-UAbilityTask_WaitGameplayTagAdded* UAbilityTask_WaitGameplayTagAdded::WaitGameplayTagAdd(UObject* WorldContextObject, FGameplayTag Tag, AActor* OptionalExternalTarget, bool OnlyTriggerOnce)
+UAbilityTask_WaitGameplayTagAdded* UAbilityTask_WaitGameplayTagAdded::WaitGameplayTagAdd(UObject* WorldContextObject, FGameplayTag Tag, AActor* InOptionalExternalTarget, bool OnlyTriggerOnce)
 {
 	auto MyObj = NewAbilityTask<UAbilityTask_WaitGameplayTagAdded>(WorldContextObject);
 	MyObj->Tag = Tag;
-	MyObj->SetExternalTarget(OptionalExternalTarget);
+	MyObj->SetExternalTarget(InOptionalExternalTarget);
 	MyObj->OnlyTriggerOnce = OnlyTriggerOnce;
 
 	return MyObj;
@@ -59,11 +59,11 @@ UAbilityTask_WaitGameplayTagRemoved::UAbilityTask_WaitGameplayTagRemoved(const F
 
 }
 
-UAbilityTask_WaitGameplayTagRemoved* UAbilityTask_WaitGameplayTagRemoved::WaitGameplayTagRemove(UObject* WorldContextObject, FGameplayTag Tag, AActor* OptionalExternalTarget, bool OnlyTriggerOnce)
+UAbilityTask_WaitGameplayTagRemoved* UAbilityTask_WaitGameplayTagRemoved::WaitGameplayTagRemove(UObject* WorldContextObject, FGameplayTag Tag, AActor* InOptionalExternalTarget, bool OnlyTriggerOnce)
 {
 	auto MyObj = NewAbilityTask<UAbilityTask_WaitGameplayTagRemoved>(WorldContextObject);
 	MyObj->Tag = Tag;
-	MyObj->SetExternalTarget(OptionalExternalTarget);
+	MyObj->SetExternalTarget(InOptionalExternalTarget);
 	MyObj->OnlyTriggerOnce = OnlyTriggerOnce;
 
 	return MyObj;

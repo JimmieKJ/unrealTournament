@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "SImage.h"
@@ -36,6 +36,12 @@ public:
 
 	/** Set attribute for determining if pin is editable */
 	void SetIsEditable(TAttribute<bool> InIsEditable);
+
+	/** Retrieves the full horizontal box that contains the pin's row content */
+	TWeakPtr<SHorizontalBox> GetFullPinHorizontalRowWidget()
+	{
+		return FullPinHorizontalRowWidget;
+	}
 
 	/** Handle clicking on the pin */
 	virtual FReply OnPinMouseDown(const FGeometry& SenderGeometry, const FPointerEvent& MouseEvent);
@@ -108,6 +114,9 @@ public:
 	/** Gets Node Offset */
 	FVector2D GetNodeOffset() const;
 
+	/** Returns whether or not this pin is currently connectable */
+	bool GetIsConnectable() const;
+
 protected:
 	FText GetPinLabel() const;
 
@@ -147,7 +156,6 @@ protected:
 
 	/** Spawns a FDragConnection or similar class for the pin drag event */
 	virtual TSharedRef<FDragDropOperation> SpawnPinDragEvent(const TSharedRef<class SGraphPanel>& InGraphPanel, const TArray< TSharedRef<SGraphPin> >& InStartingPins, bool bShiftOperation);
-private:
 	
 	/** True if pin can be edited */
 	bool IsEditingEnabled() const;
@@ -164,6 +172,9 @@ protected:
 
 	/** Image of pin */
 	TSharedPtr<SImage> PinImage;
+
+	/** Horizontal box that holds the full detail pin widget, useful for outsiders to inject widgets into the pin */
+	TWeakPtr<SHorizontalBox> FullPinHorizontalRowWidget;
 
 	/** The GraphPin that this widget represents. */
 	class UEdGraphPin* GraphPinObj;

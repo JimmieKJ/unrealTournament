@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "NewsFeedPrivatePCH.h"
 #include "ISettingsModule.h"
@@ -304,7 +304,8 @@ void SNewsFeed::HandleNewsListViewSelectionChanged( FNewsFeedItemPtr Selection, 
 			}
 			else if (Selection->Url.StartsWith(TEXT("ue4://market/")))
 			{
-				Succeeded = DesktopPlatform->OpenLauncher(false, FString::Printf(TEXT("ue/marketplace/%s"), *Selection->Url.RightChop(13)), FString());
+				FOpenLauncherOptions Options(FString::Printf(TEXT("ue/marketplace/%s"), *Selection->Url.RightChop(13)));
+				Succeeded = DesktopPlatform->OpenLauncher(Options);
 			}
 //			else if (Selection->Url.StartsWith(TEXT("ue4://")))
 //			{

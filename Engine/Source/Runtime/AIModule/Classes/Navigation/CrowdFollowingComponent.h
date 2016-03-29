@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "AI/Navigation/NavigationAvoidanceTypes.h"
@@ -21,6 +21,13 @@ namespace ECrowdAvoidanceQuality
 	};
 }
 
+enum class ECrowdSimulationState : uint8
+{
+	Enabled,
+	ObstacleOnly	UMETA(DisplayName="Disabled, avoided by others"),
+	Disabled		UMETA(DisplayName="Disabled, ignored by others"),
+};
+
 UCLASS(BlueprintType)
 class AIMODULE_API UCrowdFollowingComponent : public UPathFollowingComponent, public ICrowdAgentInterface
 {
@@ -29,11 +36,16 @@ class AIMODULE_API UCrowdFollowingComponent : public UPathFollowingComponent, pu
 	UPROPERTY()
 	FVector CrowdAgentMoveDirection;
 
+	virtual void BeginDestroy() override;
+
 	// ICrowdAgentInterface BEGIN
 	virtual FVector GetCrowdAgentLocation() const override;
 	virtual FVector GetCrowdAgentVelocity() const override;
 	virtual void GetCrowdAgentCollisions(float& CylinderRadius, float& CylinderHalfHeight) const override;
 	virtual float GetCrowdAgentMaxSpeed() const override;
+	virtual int32 GetCrowdAgentAvoidanceGroup() const override;
+	virtual int32 GetCrowdAgentGroupsToAvoid() const override;
+	virtual int32 GetCrowdAgentGroupsToIgnore() const override;
 	// ICrowdAgentInterface END
 
 	// PathFollowingComponent BEGIN
@@ -65,7 +77,7 @@ class AIMODULE_API UCrowdFollowingComponent : public UPathFollowingComponent, pu
 	virtual void SuspendCrowdSteering(bool bSuspend);
 
 	/** switch between crowd simulation and parent implementation (following path segments) */
-	virtual void SetCrowdSimulation(bool bEnable);
+	virtual void SetCrowdSimulationState(ECrowdSimulationState NewState);
 
 	/** called when agent moved to next nav node (poly) */
 	virtual void OnNavNodeChanged(NavNodeRef NewPolyRef, NavNodeRef PrevPolyRef, int32 CorridorSize);
@@ -81,14 +93,14 @@ class AIMODULE_API UCrowdFollowingComponent : public UPathFollowingComponent, pu
 	void SetCrowdCollisionQueryRange(float Range, bool bUpdateAgent = true);
 	void SetCrowdPathOptimizationRange(float Range, bool bUpdateAgent = true);
 	void SetCrowdAvoidanceQuality(ECrowdAvoidanceQuality::Type Quality, bool bUpdateAgent = true);
-	void SetCrowdAvoidanceRangeMultiplier(float Multipler, bool bUpdateAgent = true);
+	void SetCrowdAvoidanceRangeMultiplier(float Multiplier, bool bUpdateAgent = true);
 	void SetCrowdAffectFallingVelocity(bool bEnable);
 	void SetCrowdRotateToVelocity(bool bEnable);
 	void SetAvoidanceGroup(int32 GroupFlags, bool bUpdateAgent = true);
 	void SetGroupsToAvoid(int32 GroupFlags, bool bUpdateAgent = true);
 	void SetGroupsToIgnore(int32 GroupFlags, bool bUpdateAgent = true);
 
-	FORCEINLINE bool IsCrowdSimulationEnabled() const { return bEnableCrowdSimulation; }
+	FORCEINLINE bool IsCrowdSimulationEnabled() const { return SimulationState == ECrowdSimulationState::Enabled; }
 	FORCEINLINE bool IsCrowdSimulatioSuspended() const { return bSuspendCrowdSimulation; }
 	FORCEINLINE bool IsCrowdAnticipateTurnsEnabled() const { return bEnableAnticipateTurns; }
 	FORCEINLINE bool IsCrowdObstacleAvoidanceEnabled() const { return bEnableObstacleAvoidance; }
@@ -100,6 +112,7 @@ class AIMODULE_API UCrowdFollowingComponent : public UPathFollowingComponent, pu
 	FORCEINLINE bool IsCrowdAffectFallingVelocityEnabled() const { return bAffectFallingVelocity; }
 	FORCEINLINE bool IsCrowdRotateToVelocityEnabled() const { return bRotateToVelocity; }
 
+	FORCEINLINE ECrowdSimulationState GetCrowdSimulationState() const { return SimulationState; }
 	FORCEINLINE bool IsCrowdSimulationActive() const { return IsCrowdSimulationEnabled() && !IsCrowdSimulatioSuspended(); }
 	/** checks if bEnableAnticipateTurns is set to true, and if crowd simulation is not suspended */
 	FORCEINLINE bool IsCrowdAnticipateTurnsActive() const { return IsCrowdAnticipateTurnsEnabled() && !IsCrowdSimulatioSuspended(); }
@@ -123,6 +136,11 @@ class AIMODULE_API UCrowdFollowingComponent : public UPathFollowingComponent, pu
 #if ENABLE_VISUAL_LOG
 	virtual void DescribeSelfToVisLog(struct FVisualLogEntry* Snapshot) const override;
 #endif // ENABLE_VISUAL_LOG
+
+	DEPRECATED(4.11, "Use SetCrowdSimulationState function instead.")
+	virtual void SetCrowdSimulation(bool bEnable);
+
+	void UpdateDestinationForMovingGoal(const FVector& NewDestination);
 
 protected:
 
@@ -150,8 +168,11 @@ protected:
 	/** if set, move velocity will be updated in every tick */
 	uint32 bUpdateDirectMoveVelocity : 1;
 
-	/** if set, agent will be simulated by crowd, otherwise it will act only as an obstacle */
+	DEPRECATED(4.11, "Please use IsCrowdSimulationEnabled(), SetCrowdSimulationState() and SimulationState member for initialization.")
 	uint32 bEnableCrowdSimulation : 1;
+
+	/** set when agent is registered in crowd simulation (either controlled or an obstacle) */
+	uint32 bRegisteredWithCrowdSimulation : 1;
 
 	/** if set, avoidance and steering will be suspended (used for direct move requests) */
 	uint32 bSuspendCrowdSimulation : 1;
@@ -186,6 +207,7 @@ protected:
 	int32 LastPathPolyIndex;
 
 	TEnumAsByte<ECrowdAvoidanceQuality::Type> AvoidanceQuality;
+	ECrowdSimulationState SimulationState;
 
 	// PathFollowingComponent BEGIN
 	virtual int32 DetermineStartingPathPoint(const FNavigationPath* ConsideredPath) const override;
@@ -202,10 +224,13 @@ protected:
 	bool ShouldSwitchPathPart(int32 CorridorSize) const;
 	bool HasMovedDuringPause() const;
 	void UpdateCachedDirections(const FVector& NewVelocity, const FVector& NextPathCorner, bool bTraversingLink);
+
+	DEPRECATED(4.12, "This function is now deprecated and was renamed to ShouldTrackMovingGoal.")
 	virtual bool UpdateCachedGoal(FVector& NewGoalPos);
+	virtual bool ShouldTrackMovingGoal(FVector& OutGoalLocation) const;
 	
 	void OnPendingNavigationInit();
-	bool RegisterCrowdAgent();
+	void RegisterCrowdAgent();
 
 	friend UCrowdManager;
 };

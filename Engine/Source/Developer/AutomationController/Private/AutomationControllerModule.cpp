@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AutomationControllerModule.cpp: Implements the FAutomationControllerModule class.
@@ -72,3 +72,5 @@ bool FAutomationControllerModule::SupportsDynamicReloading()
  *****************************************************************************/
 
 IAutomationControllerManagerPtr FAutomationControllerModule::AutomationControllerSingleton = NULL;
+
+#undef LOCTEXT_NAMESPACE

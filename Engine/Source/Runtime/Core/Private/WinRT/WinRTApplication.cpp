@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "WinRTApplication.h"
@@ -101,6 +101,9 @@ void FDisplayMetrics::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 	OutDisplayMetrics.VirtualDisplayRect.Top = 0;
 	OutDisplayMetrics.VirtualDisplayRect.Right = 1920;
 	OutDisplayMetrics.VirtualDisplayRect.Bottom = 1080;
+
+	// Apply the debug safe zones
+	OutDisplayMetrics.ApplyDefaultSafeZones();
 }
 
 TSharedRef< class FGenericApplicationMessageHandler > FWinRTApplication::GetMessageHandler() const

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "InputCorePrivatePCH.h"
 #include "PropertyTag.h"
@@ -172,6 +172,8 @@ const FKey EKeys::Gamepad_RightTriggerAxis("Gamepad_RightTriggerAxis");
 const FKey EKeys::Gamepad_LeftThumbstick("Gamepad_LeftThumbstick");
 const FKey EKeys::Gamepad_RightThumbstick("Gamepad_RightThumbstick");
 const FKey EKeys::Gamepad_Special_Left("Gamepad_Special_Left");
+const FKey EKeys::Gamepad_Special_Left_X("Gamepad_Special_Left_X");
+const FKey EKeys::Gamepad_Special_Left_Y("Gamepad_Special_Left_Y");
 const FKey EKeys::Gamepad_Special_Right("Gamepad_Special_Right");
 const FKey EKeys::Gamepad_FaceButton_Bottom("Gamepad_FaceButton_Bottom");
 const FKey EKeys::Gamepad_FaceButton_Right("Gamepad_FaceButton_Right");
@@ -221,6 +223,7 @@ const FKey EKeys::TouchKeys[NUM_TOUCH_KEYS] =
 // Gestures
 const FKey EKeys::Gesture_Pinch("Gesture_Pinch");
 const FKey EKeys::Gesture_Flick("Gesture_Flick");
+const FKey EKeys::Gesture_Rotate("Gesture_Rotate");
 
 // Motion Controllers
 //		Left Controller
@@ -563,22 +566,25 @@ void EKeys::Initialize()
 	AddKey(FKeyDetails(EKeys::Acceleration, LOCTEXT("Acceleration", "Acceleration"), FKeyDetails::VectorAxis, "Motion"));
 
 	// Fingers
-	AddKey(FKeyDetails(EKeys::TouchKeys[ETouchIndex::Touch1], LOCTEXT("Touch1", "Touch 1"), FKeyDetails::NotBlueprintBindableKey));
-	AddKey(FKeyDetails(EKeys::TouchKeys[ETouchIndex::Touch2], LOCTEXT("Touch2", "Touch 2"), FKeyDetails::NotBlueprintBindableKey));
-	AddKey(FKeyDetails(EKeys::TouchKeys[ETouchIndex::Touch3], LOCTEXT("Touch3", "Touch 3"), FKeyDetails::NotBlueprintBindableKey));
-	AddKey(FKeyDetails(EKeys::TouchKeys[ETouchIndex::Touch4], LOCTEXT("Touch4", "Touch 4"), FKeyDetails::NotBlueprintBindableKey));
-	AddKey(FKeyDetails(EKeys::TouchKeys[ETouchIndex::Touch5], LOCTEXT("Touch5", "Touch 5"), FKeyDetails::NotBlueprintBindableKey));
-	AddKey(FKeyDetails(EKeys::TouchKeys[ETouchIndex::Touch6], LOCTEXT("Touch6", "Touch 6"), FKeyDetails::NotBlueprintBindableKey));
-	AddKey(FKeyDetails(EKeys::TouchKeys[ETouchIndex::Touch7], LOCTEXT("Touch7", "Touch 7"), FKeyDetails::NotBlueprintBindableKey));
-	AddKey(FKeyDetails(EKeys::TouchKeys[ETouchIndex::Touch8], LOCTEXT("Touch8", "Touch 8"), FKeyDetails::NotBlueprintBindableKey));
-	AddKey(FKeyDetails(EKeys::TouchKeys[ETouchIndex::Touch9], LOCTEXT("Touch9", "Touch 9"), FKeyDetails::NotBlueprintBindableKey));
-	AddKey(FKeyDetails(EKeys::TouchKeys[ETouchIndex::Touch10], LOCTEXT("Touch10", "Touch 10"), FKeyDetails::NotBlueprintBindableKey));
+	AddMenuCategoryDisplayInfo("Touch", LOCTEXT("TouchSubCateogry", "Touch"), TEXT("GraphEditor.TouchEvent_16x"));
+
+	AddKey(FKeyDetails(EKeys::TouchKeys[ETouchIndex::Touch1], LOCTEXT("Touch1", "Touch 1"), 0, "Touch"));
+	AddKey(FKeyDetails(EKeys::TouchKeys[ETouchIndex::Touch2], LOCTEXT("Touch2", "Touch 2"), 0, "Touch"));
+	AddKey(FKeyDetails(EKeys::TouchKeys[ETouchIndex::Touch3], LOCTEXT("Touch3", "Touch 3"), 0, "Touch"));
+	AddKey(FKeyDetails(EKeys::TouchKeys[ETouchIndex::Touch4], LOCTEXT("Touch4", "Touch 4"), 0, "Touch"));
+	AddKey(FKeyDetails(EKeys::TouchKeys[ETouchIndex::Touch5], LOCTEXT("Touch5", "Touch 5"), 0, "Touch"));
+	AddKey(FKeyDetails(EKeys::TouchKeys[ETouchIndex::Touch6], LOCTEXT("Touch6", "Touch 6"), 0, "Touch"));
+	AddKey(FKeyDetails(EKeys::TouchKeys[ETouchIndex::Touch7], LOCTEXT("Touch7", "Touch 7"), 0, "Touch"));
+	AddKey(FKeyDetails(EKeys::TouchKeys[ETouchIndex::Touch8], LOCTEXT("Touch8", "Touch 8"), 0, "Touch"));
+	AddKey(FKeyDetails(EKeys::TouchKeys[ETouchIndex::Touch9], LOCTEXT("Touch9", "Touch 9"), 0, "Touch"));
+	AddKey(FKeyDetails(EKeys::TouchKeys[ETouchIndex::Touch10], LOCTEXT("Touch10", "Touch 10"), 0, "Touch"));
 
 	// Gestures
 	AddMenuCategoryDisplayInfo("Gesture", LOCTEXT("GestureSubCateogry", "Gesture"), TEXT("GraphEditor.KeyEvent_16x"));
 
 	AddKey(FKeyDetails(EKeys::Gesture_Pinch, LOCTEXT("Gesture_Pinch", "Pinch"), 0, "Gesture"));
 	AddKey(FKeyDetails(EKeys::Gesture_Flick, LOCTEXT("Gesture_Flick", "Flick"), 0, "Gesture"));
+	AddKey(FKeyDetails(EKeys::Gesture_Rotate, LOCTEXT("Gesture_Rotate", "Rotate"), 0, "Gesture"));
 
 	// Motion Controllers
 	AddMenuCategoryDisplayInfo("MotionController", LOCTEXT("MotionControllerSubCategory", "Motion Controller"), TEXT("GraphEditor.PadEvent_16x"));
@@ -634,7 +640,7 @@ void EKeys::Initialize()
 	AddKey(FKeyDetails(EKeys::MotionController_Left_TriggerAxis, LOCTEXT("MotionController_Left_TriggerAxis", "MotionController (L) TriggerAxis"), FKeyDetails::GamepadKey | FKeyDetails::FloatAxis));
 	AddKey(FKeyDetails(EKeys::MotionController_Left_Grip1Axis, LOCTEXT("MotionController_Left_Grip1Axis", "MotionController (L) Grip1 Axis"), FKeyDetails::GamepadKey | FKeyDetails::FloatAxis));
 	AddKey(FKeyDetails(EKeys::MotionController_Left_Grip2Axis, LOCTEXT("MotionController_Left_Grip2Axis", "MotionController (L) Grip2 Axis"), FKeyDetails::GamepadKey | FKeyDetails::FloatAxis));
-	
+
 	//	Right Controller
 	AddKey(FKeyDetails(EKeys::MotionController_Right_Thumbstick_X, LOCTEXT("MotionController_Right_Thumbstick_X", "MotionController (R) Thumbstick X"), FKeyDetails::GamepadKey | FKeyDetails::FloatAxis));
 	AddKey(FKeyDetails(EKeys::MotionController_Right_Thumbstick_Y, LOCTEXT("MotionController_Right_Thumbstick_Y", "MotionController (R) Thumbstick Y"), FKeyDetails::GamepadKey | FKeyDetails::FloatAxis));
@@ -644,7 +650,10 @@ void EKeys::Initialize()
 
 	// PS4-specific
 	AddMenuCategoryDisplayInfo("PS4", LOCTEXT("PS4SubCategory", "PS4"), TEXT("GraphEditor.PadEvent_16x"));
-	AddKey(FKeyDetails(EKeys::PS4_Special, LOCTEXT("PS4_Special", "PS4_Special"), FKeyDetails::NotBlueprintBindableKey));
+	AddKey(FKeyDetails(EKeys::PS4_Special, LOCTEXT("PS4_Special", "PS4_Special"), FKeyDetails::NotBlueprintBindableKey, "PS4"));
+	AddKey(FKeyDetails(EKeys::Gamepad_Special_Left_X, LOCTEXT("PS4_Gamepad_Special_Left_X", "PS4 Touchpad Button X Axis"), FKeyDetails::GamepadKey | FKeyDetails::FloatAxis, "PS4"));
+	AddKey(FKeyDetails(EKeys::Gamepad_Special_Left_Y, LOCTEXT("PS4_Gamepad_Special_Left_Y", "PS4 Touchpad Button Y Axis"), FKeyDetails::GamepadKey | FKeyDetails::FloatAxis, "PS4"));
+
 
 	// Steam Controller specific
 	AddMenuCategoryDisplayInfo("Steam", LOCTEXT("SteamSubCateogry", "Steam"), TEXT("GraphEditor.PadEvent_16x"));

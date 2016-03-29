@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -25,6 +25,7 @@ public:
 		, _HAlign(HAlign_Fill)
 		, _VAlign(VAlign_Center)
 		, _Method()
+		, _CollapseMenuOnParentFocus(false)
 		{}
 
 		SLATE_STYLE_ARGUMENT( FComboButtonStyle, ComboButtonStyle )
@@ -54,6 +55,10 @@ public:
 
 		/** Spawn a new window or reuse current window for this combo*/
 		SLATE_ARGUMENT( TOptional<EPopupMethod>, Method )
+
+		/** True if this combo's menu should be collapsed when our parent receives focus, false (default) otherwise */
+		SLATE_ARGUMENT(bool, CollapseMenuOnParentFocus)
+
 	SLATE_END_ARGS()
 
 	// SMenuAnchor interface
@@ -80,6 +85,7 @@ protected:
 	 * Handle the button being clicked by summoning the ComboButton.
 	 */
 	virtual FReply OnButtonClicked();
+	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
 
 protected:
 	/** Area where the button's content resides */

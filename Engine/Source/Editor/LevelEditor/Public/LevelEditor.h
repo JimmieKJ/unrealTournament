@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #ifndef __LevelEditor_h__
 #define __LevelEditor_h__
@@ -8,6 +8,7 @@
 #include "ModuleInterface.h"
 #include "SEditorViewport.h"
 #include "Toolkits/AssetEditorToolkit.h" // For FExtensibilityManager
+#include "ViewportTypeDefinition.h"
 
 extern const FName LevelEditorApp;
 
@@ -204,6 +205,7 @@ public:
 	virtual TArray<FLevelEditorMenuExtender>& GetAllLevelEditorToolbarCompileMenuExtenders() {return LevelEditorToolbarCompileMenuExtenders;}
 	virtual TArray<FLevelEditorMenuExtender>& GetAllLevelEditorToolbarSourceControlMenuExtenders() { return LevelEditorToolbarSourceControlMenuExtenders; }
 	virtual TArray<FLevelEditorMenuExtender>& GetAllLevelEditorToolbarCreateMenuExtenders() { return LevelEditorToolbarCreateMenuExtenders; }
+	virtual TArray<FLevelEditorMenuExtender>& GetAllLevelEditorToolbarPlayMenuExtenders() { return LevelEditorToolbarPlayMenuExtenders; }
 	virtual TArray<TSharedPtr<FExtender>>& GetAllLevelEditorToolbarCinematicsMenuExtenders() {return LevelEditorToolbarCinematicsMenuExtenders;}
 	
 	/** Gets the extensibility managers for outside entities to extend static mesh editor's menus and toolbars */
@@ -221,6 +223,36 @@ public:
 	/** Called when a high res screenshot is requested. */
 	DECLARE_EVENT( FLevelEditorModule, FTakeHighResScreenShotsEvent );
 	virtual FTakeHighResScreenShotsEvent& OnTakeHighResScreenShots() { return TakeHighResScreenShotsEvent; }
+
+	/** Delegate used to capture skeltal meshes to single-frame animations when 'keeping simulation changes' */
+	DECLARE_DELEGATE_RetVal_OneParam(UAnimSequence*, FCaptureSingleFrameAnimSequence, USkeletalMeshComponent* /*Component*/);
+	virtual FCaptureSingleFrameAnimSequence& OnCaptureSingleFrameAnimSequence() { return CaptureSingleFrameAnimSequenceDelegate; }
+
+public:
+	
+	/** Register a viewport type for the level editor */
+	void RegisterViewportType(FName InLayoutName, const FViewportTypeDefinition& InDefinition)
+	{
+		CustomViewports.Add(InLayoutName, InDefinition);
+	}
+
+	/** Unregister a previously registered viewport type */
+	void UnregisterViewportType(FName InLayoutName)
+	{
+		CustomViewports.Remove(InLayoutName);
+	}
+
+	/** Iterate all registered viewport types */
+	void IterateViewportTypes(TFunctionRef<void(FName, const FViewportTypeDefinition&)> Iter)
+	{
+		for (auto& Pair : CustomViewports)
+		{
+			Iter(Pair.Key, Pair.Value);
+		}
+	}
+
+	/** Create an instance of a custom viewport from the specified viewport type name */
+	TSharedRef<IViewportLayoutEntity> FactoryViewport(FName InTypeName, const FViewportConstructionArgs& ConstructionArgs) const;
 
 private:
 	/**
@@ -271,6 +303,9 @@ private:
 	/** Multicast delegate executed when a map is changed (loaded,saved,new map, etc) */
 	FMapChangedEvent MapChangedEvent;
 
+	/** Delegate used to capture skeltal meshes to single-frame animations when 'keeping simulation changes' */
+	FCaptureSingleFrameAnimSequence CaptureSingleFrameAnimSequenceDelegate;
+
 	/** All extender delegates for the level viewport menus */
 	TArray<FLevelViewportMenuExtender_SelectedObjects> LevelViewportDragDropContextMenuExtenders;
 	TArray<FLevelViewportMenuExtender_SelectedActors> LevelViewportContextMenuExtenders;
@@ -280,6 +315,7 @@ private:
 	TArray<FLevelEditorMenuExtender> LevelEditorToolbarCompileMenuExtenders;
 	TArray<FLevelEditorMenuExtender> LevelEditorToolbarSourceControlMenuExtenders;
 	TArray<FLevelEditorMenuExtender> LevelEditorToolbarCreateMenuExtenders;
+	TArray<FLevelEditorMenuExtender> LevelEditorToolbarPlayMenuExtenders;
 	TArray<TSharedPtr<FExtender>> LevelEditorToolbarCinematicsMenuExtenders;
 
 	/* Pointer to the current level Editor instance */
@@ -290,6 +326,9 @@ private:
 
 	/* Holds the Editor's tab manager */
 	TSharedPtr<FTabManager> LevelEditorTabManager;
+
+	/** Map of named viewport types to factory functions */
+	TMap<FName, FViewportTypeDefinition> CustomViewports;
 };
 
 #endif // __LevelEditor_h__

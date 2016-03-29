@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "NetcodeUnitTestPCH.h"
 
@@ -12,6 +12,14 @@
 #include "Net/UnitTestPackageMap.h"
 #include "Net/UnitTestActorChannel.h"
 
+
+/**
+ * Static variables
+ */
+
+bool UUnitTestNetConnection::bForceEnableHandler = false;
+
+
 /**
  * Default constructor
  */
@@ -19,6 +27,7 @@ UUnitTestNetConnection::UUnitTestNetConnection(const FObjectInitializer& ObjectI
 	: Super(ObjectInitializer)
 	, LowLevelSendDel()
 	, ReceivedRawPacketDel()
+	, bDisableValidateSend(false)
 {
 }
 
@@ -55,13 +64,59 @@ void UUnitTestNetConnection::InitConnection(UNetDriver* InDriver, EConnectionSta
 #endif
 }
 
-void UUnitTestNetConnection::LowLevelSend(void* Data, int32 Count)
+void UUnitTestNetConnection::InitHandler()
 {
-	LowLevelSendDel.ExecuteIfBound(Data, Count);
+	// @todo #JohnB: Broken/redundant, after addition of stateless challenge?
+#if 0
+	// Copy-pasted from UNetConnection
+	if (bForceEnableHandler)
+	{
+		check(!Handler.IsValid());
 
-	Super::LowLevelSend(Data, Count);
+		Handler = MakeUnique<PacketHandler>();
 
-	GSentBunch = true;
+		Handler->bEnabled = true;
+
+		if (Handler.IsValid())
+		{
+			Handler::Mode Mode = Driver->ServerConnection != nullptr ? Handler::Mode::Client : Handler::Mode::Server;
+			Handler->Initialize(Mode);
+
+			MaxPacketHandlerBits = Handler->GetTotalPacketOverheadBits();
+		}
+	}
+	else
+#endif
+	{
+		Super::InitHandler();
+	}
+}
+
+void UUnitTestNetConnection::LowLevelSend(void* Data, int32 CountBytes, int32 CountBits)
+{
+	bool bBlockSend = false;
+
+	LowLevelSendDel.ExecuteIfBound(Data, CountBytes, bBlockSend);
+
+	if (!bBlockSend)
+	{
+		// Only attach the SocketHook when it is needed - not all the time
+		SocketHook.Attach(Socket);
+
+		Super::LowLevelSend(Data, CountBytes, CountBits);
+
+		SocketHook.Detach(Socket);
+
+		GSentBunch = !SocketHook.bLastSendToBlocked;
+	}
+}
+
+void UUnitTestNetConnection::ValidateSendBuffer()
+{
+	if (!bDisableValidateSend)
+	{
+		Super::ValidateSendBuffer();
+	}
 }
 
 void UUnitTestNetConnection::ReceivedRawPacket(void* Data, int32 Count)
@@ -114,6 +169,5 @@ void UUnitTestNetConnection::HandleClientPlayer(class APlayerController* PC, cla
 		NotifyHook->NotifyHandleClientPlayer(PC, NetConnection);
 	}
 }
-
 
 

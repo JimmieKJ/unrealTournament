@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /**
  *
@@ -38,7 +38,7 @@ class ENGINE_API UAnimSingleNodeInstance : public UAnimInstance
 	TArray<FBlendSampleData> BlendSampleData;
 
 	/** Random cached values to play each asset **/
-	UPROPERTY(transient)
+	DEPRECATED(4.11, "Please use FAnimSingleNodeInstanceProxy::BlendFilter")
 	FBlendFilter BlendFilter;
 
 	/** Shared parameters for previewing blendspace or animsequence **/
@@ -82,6 +82,8 @@ public:
 	void SetReverse(bool bInReverse);
 	UFUNCTION(BlueprintCallable, Category="Animation")
 	void SetPosition(float InPosition, bool bFireNotifies=true);
+	UFUNCTION(BlueprintCallable, Category="Animation")
+	void SetPositionWithPreviousTime(float InPosition, float InPreviousTime, bool bFireNotifies=true);
 	UFUNCTION(BlueprintCallable, Category="Animation")
 	void SetBlendSpaceInput(const FVector& InBlendInput);
 	UFUNCTION(BlueprintCallable, Category="Animation")
@@ -136,6 +138,8 @@ public:
 	/** Get the currently playing vertex animation. Can return NULL */
 	UVertexAnimation* GetCurrentVertexAnimation();
 
+	/** Get the last filter output */
+	FVector GetFilterLastOutput();
 protected:
 	virtual FAnimInstanceProxy* CreateAnimInstanceProxy() override;
 };

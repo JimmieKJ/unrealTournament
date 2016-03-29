@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BuildPatchUtil.h: Declares miscellaneous utility functions.
@@ -96,6 +96,14 @@ struct FBuildPatchUtils
 	 * @return		true if no errors occurred and the data is not corrupted
 	 */
 	static bool UncompressChunkFile(TArray<uint8>& ChunkFileArray);
+
+	/**
+	 * Helper function to to inject a known SHA1 hash into the header of chunk data
+	 * @param ChunkFileArray	IN OUT		The data array, should contain full chunk - header plus data. Header will be overwritten to contain with sha data.
+	 * @param SHAHash			IN			The SHA1 data to be injected
+	 * @return		true if no errors occurred and the data is not corrupted
+	 */
+	static bool InjectShaToChunkFile(TArray<uint8>& ChunkFileArray, const FSHAHashData& SHAHash);
 
 	/**
 	 * Helper function to uncompress file part data. Can be called without knowing if needed and process will be just skipped.

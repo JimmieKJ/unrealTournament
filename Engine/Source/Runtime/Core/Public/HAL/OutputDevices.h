@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -150,9 +150,9 @@ protected:
 	uint8 Verbosity;
 	/** Holds the break flag **/
 	bool DebugBreakOnLog;
-	/** Holds default supression **/
+	/** Holds default suppression **/
 	uint8 DefaultVerbosity;
-	/** Holds compile time supression **/
+	/** Holds compile time suppression **/
 	uint8 CompileTimeVerbosity;
 	/** FName for this category **/
 	FName CategoryFName;

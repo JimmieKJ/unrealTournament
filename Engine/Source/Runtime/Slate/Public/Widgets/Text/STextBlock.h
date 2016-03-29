@@ -1,8 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
  
 #pragma once
 
 #include "IBreakIterator.h"
+#include "UniquePtr.h"
 
 class FTextBlockLayout;
 
@@ -108,11 +109,10 @@ public:
 	SLATE_END_ARGS()
 
 	/** Constructor */
-	STextBlock()
-	{
-		bCanTick = false;
-		bCanSupportFocus = false;
-	}
+	STextBlock();
+
+	/** Destructor */
+	~STextBlock();
 
 	/**
 	 * Construct this widget
@@ -163,6 +163,12 @@ public:
 
 	/** See TextStyle argument */
 	void SetTextStyle(const FTextBlockStyle* InTextStyle);
+
+	/** See TextShapingMethod attribute */
+	void SetTextShapingMethod(const TOptional<ETextShapingMethod>& InTextShapingMethod);
+
+	/** See TextFlowDirection attribute */
+	void SetTextFlowDirection(const TOptional<ETextFlowDirection>& InTextFlowDirection);
 
 	/** See WrapTextAt attribute */
 	void SetWrapTextAt(const TAttribute<float>& InWrapTextAt);
@@ -225,12 +231,8 @@ private:
 	/** The text displayed in this text block */
 	TAttribute< FText > BoundText;
 
-#if WITH_FANCY_TEXT
-
 	/** The wrapped layout for this text block */
-	TSharedPtr< FTextBlockLayout > TextLayoutCache;
-
-#endif//WITH_FANCY_TEXT
+	TUniquePtr< FTextBlockLayout > TextLayoutCache;
 
 	/** Default style used by the TextLayout */
 	const FTextBlockStyle* TextStyle;

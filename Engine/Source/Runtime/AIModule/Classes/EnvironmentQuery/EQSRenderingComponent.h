@@ -1,10 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "DebugRenderSceneProxy.h"
 #include "Debug/DebugDrawService.h"
 #include "EnvQueryTypes.h"
 #include "EnvQueryDebugHelpers.h"
+#include "Components/PrimitiveComponent.h"
 #include "EQSRenderingComponent.generated.h"
 
 class IEQSQueryResultSourceInterface;

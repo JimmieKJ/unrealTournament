@@ -13,9 +13,7 @@
 
 // Disable macro redefinition warning for compatibility with Windows SDK 8+
 #pragma warning(push)
-#if _MSC_VER >= 1700
 #pragma warning(disable : 4005)	// macro redefinition
-#endif
 
 // D3D headers.
 #if PLATFORM_64BITS

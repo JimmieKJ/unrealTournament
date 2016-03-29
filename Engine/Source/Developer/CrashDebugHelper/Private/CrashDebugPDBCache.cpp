@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CrashDebugHelperPrivatePCH.h"
 #include "CrashDebugPDBCache.h"
@@ -14,10 +14,10 @@ void FPDBCache::Init()
 {
 	// PDB Cache
 	// Default configuration
-	//PDBCachePath=F:/CrashReportPDBCache/
+	//PDBCachePath=G:/CrashReportPDBCache/
 	//DepotRoot=F:/depot
 	//DaysToDeleteUnusedFilesFromPDBCache=3
-	//PDBCacheSizeGB=128
+	//PDBCacheSizeGB=300
 	//MinDiskFreeSpaceGB=256
 
 	// Can be enabled only through the command line.
@@ -197,7 +197,7 @@ FPDBCacheEntryRef FPDBCache::CreateAndAddPDBCacheEntry( const FString& OriginalL
 	const FString EntryDirectory = PDBCachePath / CleanedLabelName;
 	const FString EntryTimeStampFilename = EntryDirectory / PDBTimeStampFile;
 
-	const FString LocalDepotDir = DepotRoot / DepotName.Replace( ICrashDebugHelper::P4_DEPOT_PREFIX, TEXT( "" ) );
+	const FString LocalDepotDir = EscapePath( DepotRoot / DepotName );
 
 	UE_LOG( LogCrashDebugHelper, Warning, TEXT( "PDB Cache entry: %s is being copied from: %s, it will take some time" ), *CleanedLabelName, *OriginalLabelName );
 	for( const auto& Filename : FilesToBeCached )

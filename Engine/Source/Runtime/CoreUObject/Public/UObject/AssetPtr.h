@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AssetPtr.h: Pointer to UObject asset, keeps extra information so that it is robust to missing assets.
@@ -33,6 +33,15 @@ public:
 	FORCEINLINE FAssetPtr(const FAssetPtr &Other)
 	{
 		(*this)=Other;
+	}
+
+	/**  
+	 * Construct from a unique object identifier
+	 * @param ObjectID Object identifier to create a weak pointer to
+	**/
+	explicit FORCEINLINE FAssetPtr(const FStringAssetReference &ObjectID)
+		: TPersistentObjectPtr<FStringAssetReference>(ObjectID)
+	{
 	}
 
 	/**  
@@ -103,6 +112,15 @@ public:
 	**/
 	FORCEINLINE TAssetPtr(const T* Object)
 		: AssetPtr(Object)
+	{
+	}
+
+	/**  
+	 * Construct from a unique object identifier
+	 * @param ObjectID Object identifier to create a weak pointer to
+	**/
+	explicit FORCEINLINE TAssetPtr(const FStringAssetReference &ObjectID)
+		: AssetPtr(ObjectID)
 	{
 	}
 
@@ -326,6 +344,15 @@ public:
 	{
 	}
 
+	/**  
+	 * Construct from a unique object identifier
+	 * @param ObjectID Object identifier to create a weak pointer to
+	**/
+	explicit FORCEINLINE TAssetSubclassOf(const FStringAssetReference &ObjectID)
+		: AssetPtr(ObjectID)
+	{
+	}
+
 	/**
 	 * Reset the lazy pointer back to the NULL state
 	 */
@@ -480,6 +507,24 @@ public:
 	FORCEINLINE friend uint32 GetTypeHash(const TAssetSubclassOf<TClass>& Other)
 	{
 		return GetTypeHash(static_cast<const TPersistentObjectPtr<FStringAssetReference>&>(Other.AssetPtr));
+	}
+
+	/**  
+	 * Synchronously load (if necessary) and return the asset object represented by this asset ptr
+	 */
+	UClass* LoadSynchronous()
+	{
+		UObject* Asset = AssetPtr.Get();
+		if (Asset == nullptr && IsPending())
+		{
+			Asset = AssetPtr.LoadSynchronous();
+		}
+		UClass* Class = dynamic_cast<UClass*>(Asset);
+		if (!Class || !Class->IsChildOf(TClass::StaticClass()))
+		{
+			return nullptr;
+		}
+		return Class;
 	}
 
 	friend FArchive& operator<<(FArchive& Ar, TAssetSubclassOf<TClass>& Other)

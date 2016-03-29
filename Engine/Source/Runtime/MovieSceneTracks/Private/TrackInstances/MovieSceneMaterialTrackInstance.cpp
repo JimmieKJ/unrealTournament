@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneTracksPrivatePCH.h"
 #include "MovieSceneMaterialTrack.h"
@@ -9,10 +9,12 @@ FMovieSceneMaterialTrackInstance::FMovieSceneMaterialTrackInstance( UMovieSceneM
 	MaterialTrack = &InMaterialTrack;
 }
 
-void FMovieSceneMaterialTrackInstance::SaveState(const TArray<UObject*>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
+void FMovieSceneMaterialTrackInstance::SaveState(const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
 {
-	for( UObject* Object : RuntimeObjects )
+	for (auto ObjectPtr : RuntimeObjects)
 	{
+		UObject* Object = ObjectPtr.Get();
+
 		if (RuntimeObjectToOriginalMaterialMap.Find(FObjectKey(Object)) == nullptr)
 		{
 			UMaterialInterface* CurrentMaterial = GetMaterialForObject(Object);
@@ -36,10 +38,12 @@ void FMovieSceneMaterialTrackInstance::SaveState(const TArray<UObject*>& Runtime
 	}
 }
 
-void FMovieSceneMaterialTrackInstance::RestoreState(const TArray<UObject*>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
+void FMovieSceneMaterialTrackInstance::RestoreState(const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
 {
-	for( UObject* Object : RuntimeObjects )
+	for (auto ObjectPtr : RuntimeObjects)
 	{
+		UObject* Object = ObjectPtr.Get();
+
 		if (!IsValid(Object))
 		{
 			continue;
@@ -53,11 +57,11 @@ void FMovieSceneMaterialTrackInstance::RestoreState(const TArray<UObject*>& Runt
 	}
 }
 
-void FMovieSceneMaterialTrackInstance::Update( float Position, float LastPosition, const TArray<UObject*>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance, EMovieSceneUpdatePass UpdatePass ) 
+void FMovieSceneMaterialTrackInstance::Update(EMovieSceneUpdateData& UpdateData, const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance ) 
 {
 	TArray<FScalarParameterNameAndValue> ScalarValues;
 	TArray<FColorParameterNameAndValue> VectorValues;
-	MaterialTrack->Eval( Position, ScalarValues, VectorValues );
+	MaterialTrack->Eval( UpdateData.Position, ScalarValues, VectorValues );
 
 	// Iterate from back to front to allow for fast remove of invalid weak pointers.
 	for ( int32 i = DynamicMaterialInstances.Num() - 1; i >= 0; i--)
@@ -81,19 +85,23 @@ void FMovieSceneMaterialTrackInstance::Update( float Position, float LastPositio
 	}
 }
 
-void FMovieSceneMaterialTrackInstance::RefreshInstance( const TArray<UObject*>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance )
+void FMovieSceneMaterialTrackInstance::RefreshInstance( const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance )
 {
 	DynamicMaterialInstances.Empty();
-	for ( UObject* Object : RuntimeObjects )
+
+	for (auto ObjectPtr : RuntimeObjects)
 	{
+		UObject* Object = ObjectPtr.Get();
 		UMaterialInterface* Material = GetMaterialForObject( Object );
 		UMaterialInstanceDynamic* DynamicMaterialInstance = Cast<UMaterialInstanceDynamic>(Material);
-		if ( DynamicMaterialInstance == nullptr )
+
+		if (DynamicMaterialInstance == nullptr )
 		{
 			DynamicMaterialInstance = UMaterialInstanceDynamic::Create(Material, Object);
 			SetMaterialForObject( Object, DynamicMaterialInstance );
 			DynamicMaterialToOriginalMaterialMap.Add( FObjectKey( DynamicMaterialInstance ), Material );
 		}
+
 		DynamicMaterialInstances.Add( DynamicMaterialInstance );
 	}
 }

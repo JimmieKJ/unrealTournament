@@ -1,9 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "KeyAreaLayout.h"
+#include "SectionLayout.h"
 
+class FSequencerSectionPainter;
 
 class SSequencerSection : public SCompoundWidget
 {
@@ -17,7 +18,7 @@ public:
 	TSharedPtr<ISequencerSection> GetSectionInterface() const { return SectionInterface; }
 
 	/** Caches the parent geometry to be given to section interfaces that need it on tick */
-	void CacheParentGeometry(const FGeometry& InParentGeometry) {ParentGeometry = InParentGeometry;}
+	void CacheParentGeometry(const FGeometry& InParentGeometry) { ParentGeometry = InParentGeometry; }
 
 	virtual FVector2D ComputeDesiredSize(float) const override;
 
@@ -30,7 +31,7 @@ private:
 	 * @param SectionGeometry	The geometry of the section
 	 * @return The geometry of the key area
 	 */
-	FGeometry GetKeyAreaGeometry( const FKeyAreaLayoutElement& KeyArea, const FGeometry& SectionGeometry ) const;
+	FGeometry GetKeyAreaGeometry( const FSectionLayoutElement& KeyArea, const FGeometry& SectionGeometry ) const;
 
 	/**
 	 * Determines the key that is under the mouse
@@ -70,22 +71,14 @@ private:
 	/**
 	 * Paints keys visible inside the section
 	 *
-	 * @param AllottedGeometry	The geometry of the section where keys are painted
-	 * @param MyClippingRect	ClippingRect of the section
-	 * @param OutDrawElements	List of draw elements to add to
-	 * @param LayerId			The starting draw area
+	 * @param InPainter			Section painter
 	 */
-	void PaintKeys( const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const;
+	void PaintKeys( FSequencerSectionPainter& InPainter, const FWidgetStyle& InWidgetStyle, const FSlateRect& KeyClippingRect ) const;
 
 	/**
 	 * Draw the section resize handles.
 	 */
-	void DrawSectionHandles( const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, ESlateDrawEffect::Type DrawEffects, FLinearColor SelectionColor ) const;
-
-	/**
-	 * Draw a box representing this section's selection
-	 */
-	void DrawSelectionBorder( const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, ESlateDrawEffect::Type DrawEffects, FLinearColor SelectionColor ) const;
+	void DrawSectionHandles( const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, ESlateDrawEffect::Type DrawEffects, FLinearColor SelectionColor, const ISequencerHotspot* Hotspot ) const;
 
 	/** @return the sequencer interface */
 	FSequencer& GetSequencer() const;
@@ -110,11 +103,13 @@ private:
 	/** Section area where this section resides */
 	TSharedPtr<FSequencerTrackNode> ParentSectionArea;
 	/** Cached layout generated each tick */
-	TOptional<FKeyAreaLayout> Layout;
+	TOptional<FSectionLayout> Layout;
 	/** The index of this section in the parent section area */
 	int32 SectionIndex;
 	/** Cached parent geometry to pass down to any section interfaces that need it during tick */
 	FGeometry ParentGeometry;
 	/** The end time for a throbbing animation for selected keys */
 	static double SelectionThrobEndTime;
+	/** Handle offset amount in pixels */
+	float HandleOffsetPx;
 };

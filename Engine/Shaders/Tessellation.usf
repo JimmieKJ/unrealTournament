@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Tessellation.usf: Shader #include dispatch for tessellation
@@ -65,9 +65,9 @@ float GetTessellationMultiplier(FPassSpecificVSToDS I)
 // Flag set if inside frustum
 int3 GetClipFlag( float3 Origin, float Radius )
 {
-	//float3 ClipExpand = Radius * float3( View.ViewToClip[0][0], View.ViewToClip[1][1], View.ViewToClip[2][2] );
-	float4 ClipExpand = mul( float4( Radius, Radius, Radius, 0 ), View.ViewToClip );
-	float4 ClipPos = mul( float4( Origin, 1.0 ), View.TranslatedWorldToClip );
+	//float3 ClipExpand = Radius * float3( ResolvedView.ViewToClip[0][0], ResolvedView.ViewToClip[1][1], ResolvedView.ViewToClip[2][2] );
+	float4 ClipExpand = mul( float4( Radius, Radius, Radius, 0 ), ResolvedView.ViewToClip );
+	float4 ClipPos = mul( float4( Origin, 1.0 ), ResolvedView.TranslatedWorldToClip );
     int3 Clip0 = ClipPos.xyz - ClipExpand.xyz <  ClipPos.w + ClipExpand.w;
     int3 Clip1 = ClipPos.xyz + ClipExpand.xyz > -ClipPos.w - ClipExpand.w;
     return Clip0 + 2 * Clip1;
@@ -101,9 +101,9 @@ float4 CalculateCompositeTessellationFactors(float3 Control0, float3 Control1, f
 	float3 Edge1 = ( Control1 - Control2 );
 	float3 Edge2 = ( Control2 - Control0 );
 
-	float3 ToMidpoint0 = 0.5 * ( Control0 + Control1 ) - View.TranslatedWorldCameraOrigin;
-	float3 ToMidpoint1 = 0.5 * ( Control1 + Control2 ) - View.TranslatedWorldCameraOrigin;
-	float3 ToMidpoint2 = 0.5 * ( Control2 + Control0 ) - View.TranslatedWorldCameraOrigin;
+	float3 ToMidpoint0 = 0.5 * ( Control0 + Control1 ) - ResolvedView.TranslatedWorldCameraOrigin;
+	float3 ToMidpoint1 = 0.5 * ( Control1 + Control2 ) - ResolvedView.TranslatedWorldCameraOrigin;
+	float3 ToMidpoint2 = 0.5 * ( Control2 + Control0 ) - ResolvedView.TranslatedWorldCameraOrigin;
 
 	// Use spherical projection instead of planer
 	float4 CompositeFactors = float4(
@@ -113,8 +113,8 @@ float4 CalculateCompositeTessellationFactors(float3 Control0, float3 Control1, f
 		1 );
 	CompositeFactors.w = 0.333 * ( CompositeFactors.x + CompositeFactors.y + CompositeFactors.z );
 
-	// The adaptive tessellation factor is 0.5 * View.ViewToClip[1][1] * ViewSizeY / PixelsPerEdge and CompositeFactors is 2 * PercentageOfScreen.  
-	return View.AdaptiveTessellationFactor * CompositeFactors;
+	// The adaptive tessellation factor is 0.5 * ResolvedView.ViewToClip[1][1] * ViewSizeY / PixelsPerEdge and CompositeFactors is 2 * PercentageOfScreen.  
+	return Frame.AdaptiveTessellationFactor * CompositeFactors;
 #else
 	return float4( 1.0,1.0,1.0,1.0 );
 #endif

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	TextureRenderTarget.cpp: UTextureRenderTarget implementation
@@ -26,7 +26,8 @@ UTextureRenderTarget::UTextureRenderTarget(const FObjectInitializer& ObjectIniti
 
 FTextureRenderTargetResource* UTextureRenderTarget::GetRenderTargetResource()
 {
-	check( IsInRenderingThread() );
+	check(IsInRenderingThread() || 
+		(IsInParallelRenderingThread() && (!Resource || Resource->IsInitialized()))); // we allow this in parallel, but only if the resource is initialized...otherwise it might be a race on intialization
 	FTextureRenderTargetResource* Result = NULL;
 	if( Resource &&
 		Resource->IsInitialized() )

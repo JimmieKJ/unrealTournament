@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -64,7 +64,7 @@ private:
 	int32 UseSingleLayerIndex;
 
 	// Should we draw a single layer?
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category=Rendering, meta=(InlineEditConditionToggle))
 	bool bUseSingleLayer;
 
 #if WITH_EDITOR

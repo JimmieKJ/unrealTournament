@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "PersonaPrivatePCH.h"
@@ -1897,7 +1897,7 @@ bool SAnimationEditorViewportTabBody::IsSectionsDisplayMode(int32 DisplayMode) c
 EVisibility SAnimationEditorViewportTabBody::GetViewportCornerImageVisibility() const
 {
 	TSharedPtr<FPersona> Persona = PersonaPtr.Pin();	
-	return Persona->Recorder.InRecording()? EVisibility::Visible : EVisibility::Collapsed;
+	return Persona->IsRecording() ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 const FSlateBrush* SAnimationEditorViewportTabBody::GetViewportCornerImage() const
@@ -1928,7 +1928,7 @@ const FSlateBrush* SAnimationEditorViewportTabBody::GetViewportCornerImage() con
 EVisibility SAnimationEditorViewportTabBody::GetViewportCornerTextVisibility() const
 {
 	TSharedPtr<FPersona> Persona = PersonaPtr.Pin();
-	if (Persona->Recorder.InRecording())
+	if (Persona->IsRecording())
 	{
 		return EVisibility::Visible;
 	}
@@ -1947,10 +1947,11 @@ EVisibility SAnimationEditorViewportTabBody::GetViewportCornerTextVisibility() c
 FText SAnimationEditorViewportTabBody::GetViewportCornerText() const
 {
 	TSharedPtr<FPersona> Persona = PersonaPtr.Pin();
-	if(Persona->Recorder.InRecording())
+	if(Persona->IsRecording())
 	{
-		const FString& Name = Persona->Recorder.GetAnimationObject()->GetName();
-		float TimeRecorded = Persona->Recorder.GetTimeRecorded();
+		UAnimSequence* Recording = Persona->GetCurrentRecording();
+		const FString& Name = Recording ? Recording->GetName() : TEXT("None");
+		float TimeRecorded = Persona->GetCurrentRecordingTime();
 		FNumberFormattingOptions NumberOption;
 		NumberOption.MaximumFractionalDigits = 2;
 		NumberOption.MinimumFractionalDigits = 2;
@@ -1983,7 +1984,7 @@ FText SAnimationEditorViewportTabBody::GetViewportCornerText() const
 FText SAnimationEditorViewportTabBody::GetViewportCornerTooltip() const
 {
 	TSharedPtr<FPersona> Persona = PersonaPtr.Pin();
-	if(Persona->Recorder.InRecording())
+	if(Persona->IsRecording())
 	{
 		return LOCTEXT("RecordingStatusTooltip", "Shows the status of animation recording.\nClick to stop the recording.");
 	}
@@ -2000,9 +2001,9 @@ FReply SAnimationEditorViewportTabBody::ClickedOnViewportCornerText()
 	TSharedPtr<FPersona> Persona = PersonaPtr.Pin();
 	// if it's recording, it won't be able to see the message
 	// so disable it
-	if (Persona->Recorder.InRecording())
+	if (Persona->IsRecording())
 	{
-		Persona->Recorder.StopRecord(true);
+		Persona->StopRecording();
 	}
 	else 
 	{

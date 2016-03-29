@@ -1,13 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LogVisualizer.h"
 #include "SVisualLoggerView.h"
-#include "TimeSliderController.h"
 #include "ITimeSlider.h"
-#include "STimeSlider.h"
 #include "SSearchBox.h"
-#include "SSequencerSectionOverlay.h"
-#include "STimelinesContainer.h"
 #include "SVisualLoggerLogsList.h"
 #include "LogVisualizerSettings.h"
 

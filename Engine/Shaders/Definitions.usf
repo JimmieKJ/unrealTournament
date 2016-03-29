@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Definitions.usf: Defines undefined defines to 0 as Cg can't handle them.
@@ -118,6 +118,14 @@
 #define	VULKAN_PROFILE									0
 #endif
 
+#ifndef VULKAN_PROFILE_SM4
+#define	VULKAN_PROFILE_SM4								0
+#endif
+
+#ifndef VULKAN_PROFILE_SM5
+#define	VULKAN_PROFILE_SM5								0
+#endif
+
 #ifndef IOS
 #define IOS												0
 #endif
@@ -180,16 +188,12 @@
 #define ENABLE_RE_Z
 #endif
 
-#ifndef USE_CLEARCOAT
-#define USE_CLEARCOAT									0
-#endif
+#ifndef INSTANCED_STEREO
+#define INSTANCED_STEREO								0
+#endif	
 
-#ifndef USE_CLOTH
-#define USE_CLOTH										0
-#endif
-
-#ifndef USE_EYE
-#define USE_EYE										0
+#ifndef TEX_COORD_SCALE_ANALYSIS
+#define TEX_COORD_SCALE_ANALYSIS						0		
 #endif
 
 #if SM5_PROFILE || COMPILER_SUPPORTS_ATTRIBUTES
@@ -215,6 +219,9 @@
 #endif
 #ifndef FLATTEN
 #define FLATTEN
+#endif
+#ifndef ALLOW_UAV_CONDITION	
+#define ALLOW_UAV_CONDITION	
 #endif
 #endif
 

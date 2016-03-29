@@ -1,46 +1,68 @@
-﻿using System;
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using System.Xml.Serialization;
 
 namespace AutomationTool
 {
+	/// <summary>
+	/// Defines a collection of other nodes.
+	/// </summary>
 	[DebuggerDisplay("{Name}")]
-	public class AggregateNodeTemplate
+	public class AggregateNodeDefinition : ElementDefinition
 	{
+		/// <summary>
+		/// The name of this node.
+		/// </summary>
+		[XmlAttribute]
 		public string Name;
-		public bool IsPromotableAggregate;
-		public bool IsSeparatePromotable;
-		public string DependencyNames;
-	}
 
-	[DebuggerDisplay("{Name}")]
-	public class AggregateNode
-	{
-		public string Name;
-		public bool IsPromotableAggregate;
-		public bool IsSeparatePromotable;
-		public BuildNode[] Dependencies;
+		/// <summary>
+		/// List of nodes that this aggregate depends on.
+		/// </summary>
+		[XmlAttribute]
+		public string DependsOn;
 
-		public AggregateNode(AggregateNodeTemplate Template)
+		/// <summary>
+		/// Add this element to the build graph.
+		/// </summary>
+		/// <param name="Context">Context for the graph traversal</param>
+		/// <param name="AggregateNodeDefinitions">List of aggregate nodes defined so far</param>
+		/// <param name="BuildNodeDefinitions">List of build nodes defined so far</param>
+		public override void AddToGraph(BuildGraphContext Context, List<AggregateNodeDefinition> AggregateNodeDefinitions, List<BuildNodeDefinition> BuildNodeDefinitions)
 		{
-			Name = Template.Name;
-			IsPromotableAggregate = Template.IsPromotableAggregate;
-			IsSeparatePromotable = Template.IsSeparatePromotable;
+			AggregateNodeDefinitions.Add(this);
 		}
 	}
 
-	[DebuggerDisplay("{Definition.Name}")]
-	class AggregateNodePair
+	/// <summary>
+	/// Collection of other nodes, which can be used as a build target. Aggregate nodes do not exist in EC, but are expanded out when linked into the build graph.
+	/// </summary>
+	[DebuggerDisplay("{Name}")]
+	class AggregateNode
 	{
-		public readonly AggregateNodeTemplate Template;
-		public readonly AggregateNode Node;
+		/// <summary>
+		/// The name of this node.
+		/// </summary>
+		public string Name;
 
-		public AggregateNodePair(AggregateNodeTemplate InTemplate)
+		/// <summary>
+		/// Nodes which this aggregate includes.
+		/// </summary>
+		public BuildNode[] Dependencies;
+
+		/// <summary>
+		/// Construct an aggregate node from the given definition
+		/// </summary>
+		/// <param name="Definition">Definition for this node</param>
+		public AggregateNode(AggregateNodeDefinition Definition)
 		{
-			Template = InTemplate;
-			Node = new AggregateNode(Template);
+			Name = Definition.Name;
 		}
 	}
 }

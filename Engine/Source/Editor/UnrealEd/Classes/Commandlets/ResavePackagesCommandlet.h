@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "Commandlets/Commandlet.h"
@@ -143,6 +143,8 @@ protected:
 
 	// Get the changelist description to use if automatically checking packages out
 	virtual FText GetChangelistDescription() const;
+
+	bool CheckoutFile(const FString& Filename);
 
 	// Print out a message only if running in very verbose mode
 	void VerboseMessage(const FString& Message);

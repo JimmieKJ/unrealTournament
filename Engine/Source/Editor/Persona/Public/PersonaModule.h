@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #ifndef __PersonaModule_h__
@@ -8,8 +8,16 @@
 
 #include "Toolkits/IToolkit.h"		// For EToolkitMode::Type
 #include "Toolkits/AssetEditorToolkit.h" 
+#include "ModuleInterface.h"
 
 extern const FName PersonaAppName;
+
+DECLARE_DELEGATE_TwoParams(FIsRecordingActive, USkeletalMeshComponent* /*Component*/, bool& /* bIsRecording */);
+DECLARE_DELEGATE_OneParam(FRecord, USkeletalMeshComponent* /*Component*/);
+DECLARE_DELEGATE_OneParam(FStopRecording, USkeletalMeshComponent* /*Component*/);
+DECLARE_DELEGATE_TwoParams(FGetCurrentRecording, USkeletalMeshComponent* /*Component*/, UAnimSequence*& /* OutRecording */);
+DECLARE_DELEGATE_TwoParams(FGetCurrentRecordingTime, USkeletalMeshComponent* /*Component*/, float& /* OutTime */);
+DECLARE_DELEGATE_TwoParams(FTickRecording, USkeletalMeshComponent* /*Component*/, float /* DeltaSeconds */);
 
 /**
  * Persona module manages the lifetime of all instances of Persona editors.
@@ -49,6 +57,21 @@ public:
 	virtual TSharedPtr<FExtensibilityManager> GetMenuExtensibilityManager() {return MenuExtensibilityManager;}
 	virtual TSharedPtr<FExtensibilityManager> GetToolBarExtensibilityManager() {return ToolBarExtensibilityManager;}
 
+	/** Delegate used to query whether recording is active */
+	FIsRecordingActive& OnIsRecordingActive() { return IsRecordingActiveDelegate; }
+
+	/** Delegate used to start recording animation */
+	FRecord& OnRecord() { return RecordDelegate; }
+
+	/** Delegate used to stop recording animation */
+	FStopRecording& OnStopRecording() { return StopRecordingDelegate; }
+
+	/** Delegate used to get the currently recording animation */
+	FGetCurrentRecording& OnGetCurrentRecording() { return GetCurrentRecordingDelegate; }
+
+	/** Delegate used to get the currently recording animation time */
+	FGetCurrentRecordingTime& OnGetCurrentRecordingTime() { return GetCurrentRecordingTimeDelegate; }
+
 private:
 	/** When a new AnimBlueprint is created, this will handle post creation work such as adding non-event default nodes */
 	void OnNewBlueprintCreated(UBlueprint* InBlueprint);
@@ -56,6 +79,24 @@ private:
 private:
 	TSharedPtr<FExtensibilityManager> MenuExtensibilityManager;
 	TSharedPtr<FExtensibilityManager> ToolBarExtensibilityManager;
+
+	/** Delegate used to query whether recording is active */
+	FIsRecordingActive IsRecordingActiveDelegate;
+
+	/** Delegate used to start recording animation */
+	FRecord RecordDelegate;
+
+	/** Delegate used to stop recording animation */
+	FStopRecording StopRecordingDelegate;
+
+	/** Delegate used to get the currently recording animation */
+	FGetCurrentRecording GetCurrentRecordingDelegate;
+
+	/** Delegate used to get the currently recording animation time */
+	FGetCurrentRecordingTime GetCurrentRecordingTimeDelegate;
+
+	/** Delegate used to tick the skelmesh component recording */
+	FTickRecording TickRecordingDelegate;
 };
 
 

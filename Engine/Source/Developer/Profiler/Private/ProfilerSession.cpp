@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ProfilerPrivatePCH.h"
 
@@ -21,49 +21,47 @@ FProfilerStat::FProfilerStat( const uint32 InStatID /*= 0 */ )
 -----------------------------------------------------------------------------*/
 
 FProfilerSession::FProfilerSession( EProfilerSessionTypes::Type InSessionType, const ISessionInstanceInfoPtr InSessionInstanceInfo, FGuid InSessionInstanceID, FString InDataFilepath )
-: ClientStatMetadata( nullptr )
-, bRequestStatMetadataUpdate( false )
+: bRequestStatMetadataUpdate( false )
 , bLastPacket( false )
 , StatMetaDataSize( 0 )
 , OnTick( FTickerDelegate::CreateRaw( this, &FProfilerSession::HandleTicker ) )
 , DataProvider( MakeShareable( new FArrayDataProvider() ) )
 , StatMetaData( MakeShareable( new FProfilerStatMetaData() ) )
-, EventGraphDataTotal( MakeShareable( new FEventGraphData() ) )
-, EventGraphDataMaximum( MakeShareable( new FEventGraphData() ) )
-, EventGraphDataCurrent( MakeShareable( new FEventGraphData() ) )
+, EventGraphDataCurrent( nullptr )
 , CreationTime( FDateTime::Now() )
 , SessionType( InSessionType )
 , SessionInstanceInfo( InSessionInstanceInfo )
 , SessionInstanceID( InSessionInstanceID )
 , DataFilepath( InDataFilepath )
+, NumFrames( 0 )
+, NumFramesProcessed( 0 )
 , bDataPreviewing( false )
 , bDataCapturing( false )
 , bHasAllProfilerData( false )
 
-, FPSAnalyzer( MakeShareable( new FFPSAnalyzer( 5, 0, 60 ) ) )
+, FPSAnalyzer( MakeShareable( new FFPSAnalyzer( 5, 0, 90 ) ) )
 {}
 
 FProfilerSession::FProfilerSession( const ISessionInstanceInfoPtr InSessionInstanceInfo )
-: ClientStatMetadata( nullptr )
-, bRequestStatMetadataUpdate( false )
+: bRequestStatMetadataUpdate( false )
 , bLastPacket( false )
 , StatMetaDataSize( 0 )
 , OnTick( FTickerDelegate::CreateRaw( this, &FProfilerSession::HandleTicker ) )
 , DataProvider( MakeShareable( new FArrayDataProvider() ) )
 , StatMetaData( MakeShareable( new FProfilerStatMetaData() ) )
-, EventGraphDataTotal( MakeShareable( new FEventGraphData() ) )
-, EventGraphDataMaximum( MakeShareable( new FEventGraphData() ) )
-, EventGraphDataCurrent( MakeShareable( new FEventGraphData() ) )
+, EventGraphDataCurrent( nullptr )
 , CreationTime( FDateTime::Now() )
 , SessionType( EProfilerSessionTypes::Live )
 , SessionInstanceInfo( InSessionInstanceInfo )
 , SessionInstanceID( InSessionInstanceInfo->GetInstanceId() )
 , DataFilepath( TEXT("") )
+, NumFrames( 0 )
+, NumFramesProcessed( 0 )
 , bDataPreviewing( false )
 , bDataCapturing( false )
 , bHasAllProfilerData( false )
 
-, FPSAnalyzer( MakeShareable( new FFPSAnalyzer( 5, 0, 60 ) ) )
+, FPSAnalyzer( MakeShareable( new FFPSAnalyzer( 5, 0, 90 ) ) )
 {
 	// Randomize creation time to test loading profiler captures with different creation time and different amount of data.
 	CreationTime = FDateTime::Now() += FTimespan( 0, 0, FMath::RandRange( 2, 8 ) );
@@ -71,26 +69,25 @@ FProfilerSession::FProfilerSession( const ISessionInstanceInfoPtr InSessionInsta
 }
 
 FProfilerSession::FProfilerSession( const FString& InDataFilepath )
-: ClientStatMetadata( nullptr )
-, bRequestStatMetadataUpdate( false )
+: bRequestStatMetadataUpdate( false )
 , bLastPacket( false )
 , StatMetaDataSize( 0 )
 , OnTick( FTickerDelegate::CreateRaw( this, &FProfilerSession::HandleTicker ) )
 , DataProvider( MakeShareable( new FArrayDataProvider() ) )
 , StatMetaData( MakeShareable( new FProfilerStatMetaData() ) )
-, EventGraphDataTotal( MakeShareable( new FEventGraphData() ) )
-, EventGraphDataMaximum( MakeShareable( new FEventGraphData() ) )
-, EventGraphDataCurrent( MakeShareable( new FEventGraphData() ) )
+, EventGraphDataCurrent( nullptr )
 , CreationTime( FDateTime::Now() )
 , SessionType( EProfilerSessionTypes::StatsFile )
 , SessionInstanceInfo( nullptr )
 , SessionInstanceID( FGuid::NewGuid() )
 , DataFilepath( InDataFilepath.Replace( *FStatConstants::StatsFileExtension, TEXT( "" ) ) )
+, NumFrames( 0 )
+, NumFramesProcessed( 0 )
 , bDataPreviewing( false )
 , bDataCapturing( false )
 , bHasAllProfilerData( false )
 
-, FPSAnalyzer( MakeShareable( new FFPSAnalyzer( 5, 0, 60 ) ) )
+, FPSAnalyzer( MakeShareable( new FFPSAnalyzer( 5, 0, 90 ) ) )
 {
 	// Randomize creation time to test loading profiler captures with different creation time and different amount of data.
 	CreationTime = FDateTime::Now() += FTimespan( 0, 0, FMath::RandRange( 2, 8 ) );
@@ -102,56 +99,47 @@ FProfilerSession::~FProfilerSession()
 	FTicker::GetCoreTicker().RemoveTicker( OnTickHandle );	
 }
 
+const FEventGraphDataRef FProfilerSession::GetEventGraphDataTotal() const
+{
+	return EventGraphDataTotal.ToSharedRef();
+}
+
+const FEventGraphDataRef FProfilerSession::GetEventGraphDataMaximum() const
+{
+	return EventGraphDataMaximum.ToSharedRef();
+}
+
+const FEventGraphDataRef FProfilerSession::GetEventGraphDataAverage() const
+{
+	return EventGraphDataAverage.ToSharedRef();
+}
+
 FGraphDataSourceRefConst FProfilerSession::CreateGraphDataSource( const uint32 InStatID )
 {
 	FGraphDataSource* GraphDataSource = new FGraphDataSource( AsShared(), InStatID );
 	return MakeShareable( GraphDataSource );
 }
 
-FEventGraphDataRef FProfilerSession::CreateEventGraphData( const uint32 FrameStartIndex, const uint32 FrameEndIndex, const EEventGraphTypes::Type EventGraphType )
-{
-	static FTotalTimeAndCount Current(0.0f, 0);
-	PROFILER_SCOPE_LOG_TIME( TEXT( "FProfilerSession::CreateEventGraphData" ), &Current );
-
-	FEventGraphData* EventGraphData = new FEventGraphData();
-
-	if( EventGraphType == EEventGraphTypes::Average )
-	{
-		for( uint32 FrameIndex = FrameStartIndex; FrameIndex < FrameEndIndex+1; ++FrameIndex )
-		{
-			// Create a temporary event graph data for the specified frame.
-			const FEventGraphData CurrentEventGraphData( AsShared(), FrameIndex );
-			EventGraphData->CombineAndAdd( CurrentEventGraphData );
-		}
-	
-		EventGraphData->Advance( FrameStartIndex, FrameEndIndex+1 );
-		EventGraphData->Divide( (double)EventGraphData->GetNumFrames() );
-	}
-	else if( EventGraphType == EEventGraphTypes::Maximum )
-	{
-		for( uint32 FrameIndex = FrameStartIndex; FrameIndex < FrameEndIndex+1; ++FrameIndex )
-		{
-			// Create a temporary event graph data for the specified frame.
-			const FEventGraphData CurrentEventGraphData( AsShared(), FrameIndex );
-			EventGraphData->CombineAndFindMax( CurrentEventGraphData );
-		}
-		EventGraphData->Advance( FrameStartIndex, FrameEndIndex+1 );
-	}
-
-	return MakeShareable( EventGraphData );
-}
-
 void FProfilerSession::UpdateAggregatedStats( const uint32 FrameIndex )
 {
+	static FTotalTimeAndCount TimeAndCount( 0.0f, 0 );
+	PROFILER_SCOPE_LOG_TIME( TEXT( "2 FProfilerSession::UpdateAggregatedStats" ), &TimeAndCount );
+
 	const FIntPoint& IndicesForFrame = DataProvider->GetSamplesIndicesForFrame( FrameIndex );
 	const uint32 SampleStartIndex = IndicesForFrame.X;
 	const uint32 SampleEndIndex = IndicesForFrame.Y;
 
+	// Aggregate counters etc.
 	const FProfilerSampleArray& Collection = DataProvider->GetCollection();
-
 	for( uint32 SampleIndex = SampleStartIndex; SampleIndex < SampleEndIndex; SampleIndex++ )
 	{
 		const FProfilerSample& ProfilerSample = Collection[ SampleIndex ];
+
+		// Skip hierarchical samples to ignore misleading recursion which would be counted twice etc.
+		if (ProfilerSample.Type() == EProfilerSampleTypes::HierarchicalTime)
+		{
+			continue;
+		}
 		
 		const uint32 StatID = ProfilerSample.StatID();
 		FProfilerAggregatedStat* AggregatedStat = AggregatedStats.Find( StatID );
@@ -160,7 +148,24 @@ void FProfilerSession::UpdateAggregatedStats( const uint32 FrameIndex )
 			const FProfilerStat& ProfilerStat = GetMetaData()->GetStatByID( StatID );
 			AggregatedStat = &AggregatedStats.Add( ProfilerSample.StatID(), FProfilerAggregatedStat( ProfilerStat.Name(), ProfilerStat.OwningGroup().Name(), ProfilerSample.Type() ) );
 		}
-		(*AggregatedStat) += ProfilerSample;
+		AggregatedStat->Aggregate( ProfilerSample, StatMetaData );
+	}
+
+	// Aggregate hierarchical stat.
+	const TMap<uint32, FInclusiveTime>& InclusiveAggregates = GetInclusiveAggregateStackStats( FrameIndex );
+	for (const auto& It : InclusiveAggregates)
+	{
+		const uint32 StatID = It.Key;
+		const FInclusiveTime InclusiveTime = It.Value;
+		const FProfilerStat& ProfilerStat = GetMetaData()->GetStatByID( StatID );
+
+		FProfilerAggregatedStat* AggregatedStat = AggregatedStats.Find( StatID );
+		if (!AggregatedStat)
+		{
+			AggregatedStat = &AggregatedStats.Add( StatID, FProfilerAggregatedStat( ProfilerStat.Name(), ProfilerStat.OwningGroup().Name(), ProfilerStat.Type() ) );
+		}
+		FProfilerSample MinimalSample( 0, 0, 0, InclusiveTime.DurationCycles, InclusiveTime.CallCount );
+		AggregatedStat->Aggregate( MinimalSample, StatMetaData );
 	}
 
 	for( auto It = AggregatedStats.CreateIterator(); It; ++It )
@@ -168,183 +173,316 @@ void FProfilerSession::UpdateAggregatedStats( const uint32 FrameIndex )
 		FProfilerAggregatedStat& AggregatedStat = It.Value();
 		AggregatedStat.Advance();
 	}
-
-	// @TODO: Create map for stats TMap<uint32, TArray<uint32> >; StatID -> Sample indices for faster lookup in data providers
 }
 
-void FProfilerSession::EventGraphCombineAndMax( const FEventGraphDataRef Current, const uint32 NumFrames )
+FEventGraphData* FProfilerSession::CombineEventGraphs( const uint32 FrameStartIndex, const uint32 FrameEndIndex )
 {
-	EventGraphDataMaximum->CombineAndFindMax( Current.Get() );
-	EventGraphDataMaximum->Advance( 0, NumFrames );
+	FEventGraphData* EventGraphData = new FEventGraphData( this, FrameStartIndex );
+	for (uint32 FrameIndex = FrameStartIndex + 1; FrameIndex < FrameEndIndex; ++FrameIndex)
+	{
+		// Create a temporary event graph data for the specified frame.
+		const FEventGraphData CurrentEventGraphData( this, FrameIndex );
+		EventGraphData->Combine( CurrentEventGraphData );
+	}
+	return EventGraphData;
 }
 
-void FProfilerSession::EventGraphCombineAndAdd( const FEventGraphDataRef Current, const uint32 NumFrames )
+void FProfilerSession::CombineEventGraphsTask( const uint32 FrameStartIndex, const uint32 FrameEndIndex )
 {
-	EventGraphDataTotal->CombineAndAdd( Current.Get() );
-	EventGraphDataTotal->Advance( 0, NumFrames );
+	FEventGraphData* SubEventGraph = CombineEventGraphs( FrameStartIndex, FrameEndIndex );
+	CombinedSubEventGraphsLFL.Push( SubEventGraph );
+}
+
+FEventGraphContainer FProfilerSession::CreateEventGraphData( const uint32 FrameStartIndex, const uint32 FrameEndIndex )
+{
+	static FTotalTimeAndCount Current( 0.0f, 0 );
+	SCOPE_LOG_TIME_FUNC_WITH_GLOBAL( &Current );
+	
+	const uint32 TotalNumFrames = FrameEndIndex - FrameStartIndex + 1;
+	enum
+	{
+		// Minimum number of frames to combine per task
+		MIN_NUM_FRAMES_PER_TASK = 8
+	};
+
+	FEventGraphData* EventGraphData = nullptr;
+
+	static const bool bUseTaskGraph = true;
+	if (!bUseTaskGraph)
+	{
+		EventGraphData = CombineEventGraphs( FrameStartIndex, FrameEndIndex );
+	}
+	else
+	{
+		uint32 NumWorkerThreads = (uint32)FTaskGraphInterface::Get().GetNumWorkerThreads();
+		uint32 NumFramesPerTask = TotalNumFrames / (NumWorkerThreads + 1);
+
+		// Find the best configuration to utilize all worker threads.
+		while (NumFramesPerTask < MIN_NUM_FRAMES_PER_TASK)
+		{
+			NumWorkerThreads--;
+			NumFramesPerTask = TotalNumFrames / (NumWorkerThreads + 1);
+
+			if (NumWorkerThreads <= 0)
+			{
+				break;
+			}
+		}
+
+		UE_LOG( LogStats, Verbose, TEXT( "NumFrames: %u, NumWorkerThreads: %u, NumFramesPerTask: %u" ), TotalNumFrames, NumWorkerThreads, NumFramesPerTask );
+
+		uint32 NumRemainingFrames = TotalNumFrames;
+		uint32 MyFrameStartIndex = FrameStartIndex;
+		FGraphEventArray CompletionEvents;
+
+		// Don't run parallel code if not really needed.
+		if (NumFramesPerTask >= MIN_NUM_FRAMES_PER_TASK)
+		{
+			for (uint32 ThreadIndex = 0; ThreadIndex < NumWorkerThreads; ++ThreadIndex)
+			{
+				CompletionEvents.Add(FSimpleDelegateGraphTask::CreateAndDispatchWhenReady
+				(
+					FSimpleDelegateGraphTask::FDelegate::CreateRaw( this, &FProfilerSession::CombineEventGraphsTask, MyFrameStartIndex, MyFrameStartIndex + NumFramesPerTask ),
+					TStatId()
+				));
+
+				NumRemainingFrames -= NumFramesPerTask;
+				MyFrameStartIndex += NumFramesPerTask;
+			}
+		}
+
+		// Final job for remaining frames.
+		FEventGraphData* FinalSubEventGraph = CombineEventGraphs( MyFrameStartIndex, MyFrameStartIndex + NumRemainingFrames );
+		
+		// Wait for results.
+		FTaskGraphInterface::Get().WaitUntilTasksComplete( CompletionEvents );
+
+		// Combine with sub event graphs.
+		TArray<FEventGraphData*> CombinedSubEventGraphs;
+		CombinedSubEventGraphsLFL.PopAll( CombinedSubEventGraphs );
+
+		for (const auto& It : CombinedSubEventGraphs)
+		{
+			FEventGraphData * const SubEventGraph = It;
+			FinalSubEventGraph->Combine( *SubEventGraph );
+			delete SubEventGraph;
+		}
+		EventGraphData = FinalSubEventGraph;
+	}
+
+	check( EventGraphData );
+	EventGraphData->Finalize( FrameStartIndex, FrameEndIndex + 1 );
+
+	FEventGraphDataRef Total = MakeShareable( EventGraphData );
+
+	FEventGraphDataRef Average = Total->DuplicateAsRef();
+	Average->SetAsAverage();
+
+	FEventGraphDataRef Maximum = Total->DuplicateAsRef();
+	Maximum->SetAsMaximim();
+	
+	FEventGraphContainer EventGraphContainer( FrameStartIndex, FrameEndIndex + 1, Average, Maximum, Total );
+	return EventGraphContainer;
+}
+
+void FProfilerSession::EventGraphCombine( const FEventGraphData* Current, const uint32 InNumFrames )
+{
+	if (EventGraphDataTotal.IsValid())
+	{
+		EventGraphDataTotal->Combine( *Current );
+	}
+	else
+	{
+		EventGraphDataTotal = MakeShareable( new FEventGraphData( *Current ) );
+	}
+	
+	if (InNumFrames > 0)
+	{
+		UpdateAllEventGraphs( InNumFrames );
+	}
+}
+
+void FProfilerSession::UpdateAllEventGraphs( const uint32 InNumFrames )
+{
+	EventGraphDataTotal->Finalize( 0, DataProvider->GetNumFrames() );
+	
+	EventGraphDataAverage = EventGraphDataTotal->DuplicateAsRef();
+	EventGraphDataAverage->SetAsAverage();
+
+	EventGraphDataMaximum = EventGraphDataTotal->DuplicateAsRef();
+	EventGraphDataMaximum->SetAsMaximim();
 }
 
 void FProfilerSession::UpdateAggregatedEventGraphData( const uint32 FrameIndex )
 {
-	if( CompletionSync.GetReference() && !CompletionSync->IsComplete() )
-	{
-		static FTotalTimeAndCount JoinTasksTimeAndCont(0.0f, 0);
-		PROFILER_SCOPE_LOG_TIME( TEXT( "FProfilerSession::CombineJoinAndContinue" ), &JoinTasksTimeAndCont );
+	static FTotalTimeAndCount TimeAndCount( 0.0f, 0 );
+	PROFILER_SCOPE_LOG_TIME( TEXT( "3  FProfilerSession::UpdateAggregatedEventGraphData" ), &TimeAndCount );
 
-		FTaskGraphInterface::Get().WaitUntilTaskCompletes(CompletionSync, ENamedThreads::GameThread);
-	}
-
-	static FTotalTimeAndCount TimeAndCount(0.0f, 0);
-	PROFILER_SCOPE_LOG_TIME( TEXT( "FProfilerSession::UpdateAggregatedEventGraphData" ), &TimeAndCount );
+	CompletionSyncAggregatedEventGraphData();
 
 	// Create a temporary event graph data for the specified frame.
-	EventGraphDataCurrent = MakeShareable( new FEventGraphData( AsShared(), FrameIndex ) );
-	const uint32 NumFrames = DataProvider->GetNumFrames();
+	delete EventGraphDataCurrent;
+	EventGraphDataCurrent = new FEventGraphData( this, FrameIndex );
+	const uint32 NumFramesLocal = SessionType == EProfilerSessionTypes::Live ? DataProvider->GetNumFrames() : 0;
 
 	static const bool bUseTaskGraph = true;
 
 	if( bUseTaskGraph )
 	{
-		FGraphEventArray EventGraphCombineTasks;
-
-		DECLARE_CYCLE_STAT(TEXT("FSimpleDelegateGraphTask.EventGraphData.CombineAndFindMax"),
-			STAT_FSimpleDelegateGraphTask_EventGraphData_CombineAndFindMax,
-			STATGROUP_TaskGraphTasks);
-		DECLARE_CYCLE_STAT(TEXT("FSimpleDelegateGraphTask.EventGraphData.EventGraphCombineAndAdd"),
-			STAT_FSimpleDelegateGraphTask_EventGraphData_EventGraphCombineAndAdd,
+		DECLARE_CYCLE_STAT(TEXT("FSimpleDelegateGraphTask.EventGraphData.GraphCombine"),
+			STAT_FSimpleDelegateGraphTask_EventGraphData_GraphCombine,
 			STATGROUP_TaskGraphTasks);
 
-		new (EventGraphCombineTasks)FGraphEventRef(FSimpleDelegateGraphTask::CreateAndDispatchWhenReady
+		CompletionSync = FSimpleDelegateGraphTask::CreateAndDispatchWhenReady
 		(
-			FSimpleDelegateGraphTask::FDelegate::CreateRaw( this, &FProfilerSession::EventGraphCombineAndMax, EventGraphDataCurrent, NumFrames ), 
-			GET_STATID(STAT_FSimpleDelegateGraphTask_EventGraphData_CombineAndFindMax), nullptr
-		));
-
-		new (EventGraphCombineTasks) FGraphEventRef(FSimpleDelegateGraphTask::CreateAndDispatchWhenReady
-		(
-			FSimpleDelegateGraphTask::FDelegate::CreateRaw( this, &FProfilerSession::EventGraphCombineAndAdd, EventGraphDataCurrent, NumFrames ), 
-			GET_STATID(STAT_FSimpleDelegateGraphTask_EventGraphData_EventGraphCombineAndAdd), nullptr
-		));
-
-		DECLARE_CYCLE_STAT(TEXT("FNullGraphTask.EventGraphData.CombineJoinAndContinue"),
-			STAT_FNullGraphTask_EventGraphData_CombineJoinAndContinue,
-			STATGROUP_TaskGraphTasks);
-
-		// JoinThreads
-		CompletionSync = TGraphTask<FNullGraphTask>::CreateTask( &EventGraphCombineTasks, ENamedThreads::GameThread )
-			.ConstructAndDispatchWhenReady(GET_STATID(STAT_FNullGraphTask_EventGraphData_CombineJoinAndContinue), ENamedThreads::AnyThread);
+			FSimpleDelegateGraphTask::FDelegate::CreateRaw( this, &FProfilerSession::EventGraphCombine, EventGraphDataCurrent, NumFramesLocal ), 
+			GET_STATID( STAT_FSimpleDelegateGraphTask_EventGraphData_GraphCombine )
+		);
+		
 	}
 	else
 	{
-		EventGraphCombineAndMax( EventGraphDataCurrent, NumFrames );
-		EventGraphCombineAndAdd( EventGraphDataCurrent, NumFrames );
+		EventGraphCombine( EventGraphDataCurrent, NumFramesLocal );
 	}
 }
 
+void FProfilerSession::CompletionSyncAggregatedEventGraphData()
+{
+	if (CompletionSync.GetReference() && !CompletionSync->IsComplete())
+	{
+		static FTotalTimeAndCount JoinTasksTimeAndCont( 0.0f, 0 );
+		PROFILER_SCOPE_LOG_TIME( TEXT( "4   FProfilerSession::CombineJoinAndContinue" ), &JoinTasksTimeAndCont );
+
+		FTaskGraphInterface::Get().WaitUntilTaskCompletes( CompletionSync, ENamedThreads::GameThread );
+	}
+}
+
+enum
+{
+	ProfilerThreadRoot = 1
+};
+
 bool FProfilerSession::HandleTicker( float DeltaTime )
 {
-	static FTotalTimeAndCount Current( 0.0f, 0 );
-	PROFILER_SCOPE_LOG_TIME( TEXT( "FProfilerSession::HandleTicker" ), &Current );
-
 	// Update metadata if needed
 	if( bRequestStatMetadataUpdate )
 	{
-		StatMetaData->Update( *ClientStatMetadata );
+		StatMetaData->Update( ClientStatMetadata );
 		bRequestStatMetadataUpdate = false;
 	}
 
-	// Limit processing to 30ms per frame.
-	const double TimeLimit = 30 / 1000.0;
+	static double ProcessingTime = 1.0;
+	ProcessingTime -= DeltaTime;
+
+	static int32 NumFramesProcessedLastTime = 0;
+
+	if (ProcessingTime < 0.0)
+	{
+		UE_LOG( LogStats, Verbose, TEXT( "NumFramesProcessedLastTime: %4i / %4i" ), NumFramesProcessedLastTime, FrameToProcess.Num() );
+		ProcessingTime = 1.0;
+		NumFramesProcessedLastTime = 0;
+	}
+
+	// Limit processing to 50ms per frame.
+	const double TimeLimit = 50 / 1000.0;
 	double Seconds = 0;
-	
-	for( int32 FrameNumber = 0; FrameNumber < FrameToProcess.Num(); FrameNumber++ )
+
+	for( int32 It = 0; It < FrameToProcess.Num(); It++ )
 	{	
 		if( Seconds > TimeLimit )
 		{
 			break;
 		}
 
+		static FTotalTimeAndCount Current( 0.0f, 0 );
+		PROFILER_SCOPE_LOG_TIME( TEXT( "1 FProfilerSession::HandleTicker" ), &Current );
+
+		NumFramesProcessedLastTime++;
+		NumFramesProcessed++;
+
 		FSimpleScopeSecondsCounter SecondsCounter(Seconds);
 
-		const uint32 FrameIndex = FrameToProcess[0];
+		const uint32 TargetFrame = FrameToProcess[0];
 		FrameToProcess.RemoveAt( 0 );
 
-		FProfilerDataFrame& CurrentProfilerData = FrameToProfilerDataMapping.FindChecked( FrameIndex );
+		FProfilerDataFrame& CurrentProfilerData = FrameToProfilerDataMapping.FindChecked( TargetFrame );
 
-		const FProfilerStatMetaDataRef MetaData = GetMetaData();
 		TMap<uint32, float> ThreadMS;
 
 		// Preprocess the hierarchical samples for the specified frame.
 		const TMap<uint32, FProfilerCycleGraph>& CycleGraphs = CurrentProfilerData.CycleGraphs;
 
 		// Add a root sample for this frame.
-		// HACK 2013-07-19, 13:44 STAT_Root == ThreadRoot in stats2
-		const uint32 FrameRootSampleIndex = DataProvider->AddHierarchicalSample( 0, MetaData->GetStatByID(1).OwningGroup().ID(), 1, 0.0f, 0.0f, 1 );
+		const uint32 FrameRootSampleIndex = DataProvider->AddHierarchicalSample( 0, StatMetaData->GetStatByID( 1 ).OwningGroup().ID(), ProfilerThreadRoot, 0, 0 );
 		
-		double GameThreadTimeMS = 0.0f;
-		double MaxThreadTimeMS = 0.0f;
+		uint32 GameThreadCycles = 0;
+		uint32 MaxThreadCycles = 0;
 
-		double ThreadStartTimeMS = 0.0;
+		TMap<uint32, FInclusiveTime> StatIDToInclusiveTime;
+
 		for( auto ThreadIt = CycleGraphs.CreateConstIterator(); ThreadIt; ++ThreadIt )
 		{
 			const uint32 ThreadID = ThreadIt.Key();
 			const FProfilerCycleGraph& ThreadGraph = ThreadIt.Value();
 
 			// Calculate total time for this thread.
-			double ThreadDurationTimeMS = 0.0;
-			ThreadStartTimeMS = CurrentProfilerData.FrameStart;
+			FInclusiveTime ThreadDuration;
+			ThreadDuration.CallCount = 1;
+
 			for( int32 Index = 0; Index < ThreadGraph.Children.Num(); Index++ )
 			{
-				ThreadDurationTimeMS += MetaData->ConvertCyclesToMS( ThreadGraph.Children[Index].Value );
+				ThreadDuration.DurationCycles += ThreadGraph.Children[Index].Value;
 			}
 
-			if (ThreadDurationTimeMS > 0.0)
+			if (ThreadDuration.DurationCycles > 0)
 			{
 				// Check for game thread.
 				const FString GameThreadName = FName( NAME_GameThread ).GetPlainNameString();
-				const bool bGameThreadFound = MetaData->GetThreadDescriptions().FindChecked( ThreadID ).Contains( GameThreadName );
+				const bool bGameThreadFound = StatMetaData->GetThreadDescriptions().FindChecked( ThreadID ).Contains( GameThreadName );
 				if( bGameThreadFound )
 				{
-					GameThreadTimeMS = ThreadDurationTimeMS;
+					GameThreadCycles = ThreadDuration.DurationCycles;
 				}
 
 				// Add a root sample for each thread.
-				const uint32& NewThreadID = MetaData->ThreadIDtoStatID.FindChecked( ThreadID );
+				const uint32& StatThreadID = StatMetaData->ThreadIDtoStatID.FindChecked( ThreadID );
+
 				const uint32 ThreadRootSampleIndex = DataProvider->AddHierarchicalSample
 				( 
-					NewThreadID/*ThreadID*/, 
-					MetaData->GetStatByID(NewThreadID).OwningGroup().ID(), 
-					NewThreadID, 
-					ThreadStartTimeMS, 
-					ThreadDurationTimeMS, 
-					1, 
+					StatThreadID, 
+					StatMetaData->GetStatByID(StatThreadID).OwningGroup().ID(), 
+					StatThreadID, 
+					ThreadDuration.DurationCycles, 1, 
 					FrameRootSampleIndex 
 				);
-				ThreadMS.FindOrAdd( ThreadID ) = (float)ThreadDurationTimeMS;
+				ThreadMS.FindOrAdd( ThreadID ) = StatMetaData->ConvertCyclesToMS( ThreadDuration.DurationCycles );
 
 				// Recursively add children and parent to the root samples.
 				for( int32 Index = 0; Index < ThreadGraph.Children.Num(); Index++ )
 				{
 					const FProfilerCycleGraph& CycleGraph = ThreadGraph.Children[Index];
-					const double CycleDurationMS = MetaData->ConvertCyclesToMS( CycleGraph.Value );
-					const double CycleStartTimeMS = ThreadStartTimeMS;
+					const uint32 ChildDurationCycles = CycleGraph.Value;
 
-					if (CycleDurationMS > 0.0)
-					{
-						PopulateHierarchy_Recurrent( CycleGraph, CycleStartTimeMS, CycleDurationMS, ThreadRootSampleIndex );
+					if (ChildDurationCycles > 0.0)
+					{					
+						PopulateHierarchy_Recurrent( StatThreadID, CycleGraph, ChildDurationCycles, ThreadRootSampleIndex, StatIDToInclusiveTime );
 					}
-					ThreadStartTimeMS += CycleDurationMS;
 				}
 
-				MaxThreadTimeMS = FMath::Max( MaxThreadTimeMS, ThreadDurationTimeMS );
+				StatIDToInclusiveTime.Add( StatThreadID, ThreadDuration );
+				MaxThreadCycles = FMath::Max( MaxThreadCycles, ThreadDuration.DurationCycles );
 			}
 		}
 
+		InclusiveAggregateStackStats.Add( MoveTemp( StatIDToInclusiveTime ) );
+		
 		// Fix the root stat time.
 		FProfilerSampleArray& MutableCollection = const_cast<FProfilerSampleArray&>(DataProvider->GetCollection());
-		MutableCollection[FrameRootSampleIndex].SetDurationMS( GameThreadTimeMS != 0.0f ? GameThreadTimeMS : MaxThreadTimeMS );
+		MutableCollection[FrameRootSampleIndex].SetDurationCycles( GameThreadCycles != 0 ? GameThreadCycles : MaxThreadCycles );
 
-		FPSAnalyzer->AddSample( GameThreadTimeMS > 0.0f ? 1000.0f/GameThreadTimeMS : 0.0f );
+		// Update FPS analyzer.
+		const float GameThreadTimeMS = StatMetaData->ConvertCyclesToMS( GameThreadCycles );
+		FPSAnalyzer->AddSample( GameThreadTimeMS > 0.0f ? 1000.0f / GameThreadTimeMS : 0.0f );
 
 		// Process the non-hierarchical samples for the specified frame.
 		{
@@ -352,38 +490,43 @@ bool FProfilerSession::HandleTicker( float DeltaTime )
 			for( int32 Index = 0; Index < CurrentProfilerData.CountAccumulators.Num(); Index++ )
 			{
 				const FProfilerCountAccumulator& IntCounter = CurrentProfilerData.CountAccumulators[Index];
-				const EProfilerSampleTypes::Type ProfilerSampleType = MetaData->GetSampleTypeForStatID( IntCounter.StatId );
-				DataProvider->AddCounterSample( MetaData->GetStatByID(IntCounter.StatId).OwningGroup().ID(), IntCounter.StatId, (double)IntCounter.Value, ProfilerSampleType );
+				const EProfilerSampleTypes::Type ProfilerSampleType = StatMetaData->GetSampleTypeForStatID( IntCounter.StatId );
+				DataProvider->AddCounterSample( StatMetaData->GetStatByID(IntCounter.StatId).OwningGroup().ID(), IntCounter.StatId, (double)IntCounter.Value, ProfilerSampleType );
 			}
 
 			// Process floating point counters.
 			for( int32 Index = 0; Index < CurrentProfilerData.FloatAccumulators.Num(); Index++ )
 			{
 				const FProfilerFloatAccumulator& FloatCounter = CurrentProfilerData.FloatAccumulators[Index];
-				DataProvider->AddCounterSample( MetaData->GetStatByID(FloatCounter.StatId).OwningGroup().ID(), FloatCounter.StatId, (double)FloatCounter.Value, EProfilerSampleTypes::NumberFloat );
+				DataProvider->AddCounterSample( StatMetaData->GetStatByID(FloatCounter.StatId).OwningGroup().ID(), FloatCounter.StatId, (double)FloatCounter.Value, EProfilerSampleTypes::NumberFloat );
 			}
 		}
 
 		// Advance frame
-		const uint32 LastFrameIndex = DataProvider->GetNumFrames();
-		DataProvider->AdvanceFrame( MaxThreadTimeMS );
+		const uint32 DataProviderFrameIndex = DataProvider->GetNumFrames();
+		DataProvider->AdvanceFrame( StatMetaData->ConvertCyclesToMS( MaxThreadCycles ) );
 
 		// Update aggregated stats
-		UpdateAggregatedStats( LastFrameIndex );
+		UpdateAggregatedStats( DataProviderFrameIndex );
 
 		// Update aggregated events.
-		UpdateAggregatedEventGraphData( LastFrameIndex );
+		UpdateAggregatedEventGraphData( DataProviderFrameIndex );
 
 		// Update mini-view.
-		OnAddThreadTime.ExecuteIfBound( LastFrameIndex, ThreadMS, StatMetaData );
-
-		FrameToProfilerDataMapping.Remove( FrameIndex );
+		OnAddThreadTime.ExecuteIfBound( DataProviderFrameIndex, ThreadMS, StatMetaData );
+		
+		FrameToProfilerDataMapping.Remove( TargetFrame );
 	}	
 
 	if( SessionType == EProfilerSessionTypes::StatsFile )
 	{
 		if( FrameToProcess.Num() == 0 && bHasAllProfilerData )
 		{
+			CompletionSyncAggregatedEventGraphData();
+
+			// Advance event graphs.
+			UpdateAllEventGraphs( DataProvider->GetNumFrames() );
+
 			// Broadcast that a capture file has been fully processed.
 			OnCaptureFileProcessed.ExecuteIfBound( GetInstanceID() );
 
@@ -397,65 +540,116 @@ bool FProfilerSession::HandleTicker( float DeltaTime )
 
 void FProfilerSession::PopulateHierarchy_Recurrent
 ( 
+	const uint32 StatThreadID,
 	const FProfilerCycleGraph& ParentGraph, 
-	const double ParentStartTimeMS, 
-	const double ParentDurationMS,
-	const uint32 ParentSampleIndex 
+	const uint32 ParentDurationCycles,
+	const uint32 ParentSampleIndex,
+	TMap<uint32, FInclusiveTime>& StatIDToInclusiveTime
 )
 {
 	const FProfilerStatMetaDataRef MetaData = GetMetaData();
-	const uint32& ThreadID = MetaData->ThreadIDtoStatID.FindChecked( ParentGraph.ThreadId );
+
+#if	UE_BUILD_DEBUG
+	const FName& ParentStatName = MetaData->GetStatByID( ParentGraph.StatId ).Name();
+	const FName& ParentGroupName = MetaData->GetStatByID( ParentGraph.StatId ).OwningGroup().Name();
+#endif // UE_BUILD_DEBUG
+
+	{
+		FInclusiveTime& InclusiveTime = StatIDToInclusiveTime.FindOrAdd( ParentGraph.StatId );
+		InclusiveTime.Recursion++;
+	}
 
 	const uint32 SampleIndex = DataProvider->AddHierarchicalSample
 	( 
-		ThreadID, 
+		StatThreadID, 
 		MetaData->GetStatByID(ParentGraph.StatId).OwningGroup().ID(), 
 		ParentGraph.StatId, 
-		ParentStartTimeMS, ParentDurationMS, 
-		ParentGraph.CallsPerFrame, 
+		ParentDurationCycles, ParentGraph.CallsPerFrame, 
 		ParentSampleIndex 
 	);
 
-	double ChildStartTimeMS = ParentStartTimeMS;
-	double ChildrenDurationMS = 0.0f;
+	uint32 ChildrenDurationCycles = 0;
 
 	for( int32 DataIndex = 0; DataIndex < ParentGraph.Children.Num(); DataIndex++ )
 	{
 		const FProfilerCycleGraph& ChildCyclesCounter = ParentGraph.Children[DataIndex];
-		const double ChildDurationMS = MetaData->ConvertCyclesToMS( ChildCyclesCounter.Value );
+		const uint32 ChildDurationCycles = ChildCyclesCounter.Value;
 
-		if (ChildDurationMS > 0.0)
+		if (ChildDurationCycles > 0.0)
 		{
-			PopulateHierarchy_Recurrent( ChildCyclesCounter, ChildStartTimeMS, ChildDurationMS, SampleIndex );
+			PopulateHierarchy_Recurrent( StatThreadID, ChildCyclesCounter, ChildDurationCycles, SampleIndex, StatIDToInclusiveTime );
 		}
-		ChildStartTimeMS += ChildDurationMS;
-		ChildrenDurationMS += ChildDurationMS;
+		ChildrenDurationCycles += ChildDurationCycles;
 	}
 
-	const double SelfTimeMS = ParentDurationMS - ChildrenDurationMS;
-	if( SelfTimeMS > 0.0f && ParentGraph.Children.Num() > 0 )
+	const uint32 SelfTimeCycles = ParentDurationCycles - ChildrenDurationCycles;
+	if( SelfTimeCycles > 0.0f && ParentGraph.Children.Num() > 0 )
 	{
-		const FName& ParentStatName = MetaData->GetStatByID( ParentGraph.StatId ).Name();
-		const FName& ParentGroupName = MetaData->GetStatByID( ParentGraph.StatId ).OwningGroup().Name();
-
 		// Create a fake stat that represents this profiler sample's exclusive time.
 		// This is required if we want to create correct combined event graphs later.
 		DataProvider->AddHierarchicalSample
 		(
-			ThreadID,
+			StatThreadID,
 			MetaData->GetStatByID(0).OwningGroup().ID(),
 			0, // @see FProfilerStatMetaData.Update, 0 means "Self"
-			ChildStartTimeMS, 
-			SelfTimeMS,
-			1,
+			SelfTimeCycles,	1,
 			SampleIndex
 		);
+	}
+
+	{
+		FInclusiveTime& InclusiveTime = StatIDToInclusiveTime.FindChecked( ParentGraph.StatId );
+		InclusiveTime.Recursion--;
+
+		if (InclusiveTime.Recursion == 0)
+		{
+			InclusiveTime.DurationCycles += ParentDurationCycles;
+			InclusiveTime.CallCount++;
+		}
 	}
 }
 
 void FProfilerSession::LoadComplete()
 {
 	bHasAllProfilerData = true;
+}
+
+void FProfilerSession::SetNumberOfFrames( int32 InNumFrames )
+{
+	NumFrames = InNumFrames;
+
+	InclusiveAggregateStackStats.Reserve( NumFrames );
+	AggregatedStats.Reserve( 4096 );
+
+	FrameToProfilerDataMapping.Reserve( 256 );
+}
+
+float FProfilerSession::GetProgress() const
+{
+	if (NumFrames > 0)
+	{
+		return (float)NumFramesProcessed / NumFrames;
+	}
+	return 0.0f;
+}
+
+const SIZE_T FProfilerSession::GetMemoryUsage() const
+{
+	SIZE_T MemoryUsage = 0;
+	MemoryUsage += DataProvider->GetMemoryUsage();
+	MemoryUsage += StatMetaData->GetMemoryUsage();
+
+	MemoryUsage += AggregatedStats.GetAllocatedSize();
+
+	MemoryUsage += InclusiveAggregateStackStats.GetAllocatedSize();
+	for (const auto& It : InclusiveAggregateStackStats)
+	{
+		MemoryUsage += It.GetAllocatedSize();
+	}
+
+	MemoryUsage += FPSAnalyzer->GetMemoryUsage();
+
+	return MemoryUsage;
 }
 
 void FProfilerSession::UpdateProfilerData( const FProfilerDataFrame& Content )
@@ -466,417 +660,44 @@ void FProfilerSession::UpdateProfilerData( const FProfilerDataFrame& Content )
 
 void FProfilerSession::UpdateMetadata( const FStatMetaData& InClientStatMetaData )
 {
-	const uint32 CurrentStatMetaDataSize = InClientStatMetaData.GetMetaDataSize();
-	if( CurrentStatMetaDataSize != StatMetaDataSize )
+	const uint32 NewStatMetaDataSize = InClientStatMetaData.GetMetaDataSize();
+	if( NewStatMetaDataSize != StatMetaDataSize )
 	{
-		ClientStatMetadata = &InClientStatMetaData;
+		ClientStatMetadata = InClientStatMetaData;
 		bRequestStatMetadataUpdate = true;
-
-		StatMetaDataSize = CurrentStatMetaDataSize;
+		StatMetaDataSize = NewStatMetaDataSize;
 	}
 }
-
-/*-----------------------------------------------------------------------------
-	FRawProfilerSession
------------------------------------------------------------------------------*/
-
-FRawProfilerSession::FRawProfilerSession( const FString& InRawStatsFileFileath )
-: FProfilerSession( EProfilerSessionTypes::StatsFileRaw, nullptr, FGuid::NewGuid(), InRawStatsFileFileath.Replace( *FStatConstants::StatsFileRawExtension, TEXT( "" ) ) )
-, CurrentMiniViewFrame( 0 )
-{
-	OnTick = FTickerDelegate::CreateRaw( this, &FRawProfilerSession::HandleTicker );
-}
-
-FRawProfilerSession::~FRawProfilerSession()
-{
-	FTicker::GetCoreTicker().RemoveTicker( OnTickHandle );
-}
-
-bool FRawProfilerSession::HandleTicker( float DeltaTime )
-{
-#if	0
-	StatsThreadStats;
-	Stream;
-
-	enum
-	{
-		MAX_NUM_DATA_PER_TICK = 30
-	};
-	int32 NumDataThisTick = 0;
-
-	// Add the data to the mini-view.
-	for( int32 FrameIndex = CurrentMiniViewFrame; FrameIndex < Stream.FramesInfo.Num(); ++FrameIndex )
-	{
-		const FStatsFrameInfo& StatsFrameInfo = Stream.FramesInfo[FrameIndex];
-		// Convert from cycles to ms.
-		TMap<uint32, float> ThreadMS;
-		for( auto InnerIt = StatsFrameInfo.ThreadCycles.CreateConstIterator(); InnerIt; ++InnerIt )
-		{
-			ThreadMS.Add( InnerIt.Key(), StatMetaData->ConvertCyclesToMS( InnerIt.Value() ) );
-		}
-
-		// Pass the reference to the stats' metadata.
-		// @TODO yrx 2014-04-03 Figure out something better later.
-		OnAddThreadTime.ExecuteIfBound( FrameIndex, ThreadMS, StatMetaData );
-
-		//CurrentMiniViewFrame++;
-		NumDataThisTick++;
-		if( NumDataThisTick > MAX_NUM_DATA_PER_TICK )
-		{
-			break;
-		}
-	}
-#endif // 0
-
-	return true;
-}
-
-static double GetSecondsPerCycle( const FStatPacketArray& Frame )
-{
-	const FName SecondsPerCycleFName = FName(TEXT("//STATGROUP_Engine//STAT_SecondsPerCycle///Seconds$32$Per$32$Cycle///////STATCAT_Advanced////"));
-	double Result = 0;
-
-	for( int32 PacketIndex = 0; PacketIndex < Frame.Packets.Num(); PacketIndex++ )
-	{
-		const FStatPacket& Packet = *Frame.Packets[PacketIndex];
-		const FStatMessagesArray& Data = Packet.StatMessages;
-
-		if( Packet.ThreadType == EThreadType::Game )
-		{
-			for( int32 Index = 0; Index < Data.Num(); Index++ )
-			{
-				const FStatMessage& Item = Data[Index];
-				check( Item.NameAndInfo.GetFlag( EStatMetaFlags::DummyAlwaysOne ) ); 
-
-				const FName LongName = Item.NameAndInfo.GetEncodedName();
-				const FName RawName = Item.NameAndInfo.GetRawName();
-				if( LongName.IsEqual( SecondsPerCycleFName, ENameCase::IgnoreCase, false ) )
-				{
-					Result = Item.GetValue_double();
-					UE_LOG( LogStats, Log, TEXT( "STAT_SecondsPerCycle is %f [ns]" ), Result*1000*1000 );
-
-					PacketIndex = Frame.Packets.Num();
-					break;
-				}
-			}	
-		}
-			
-	}
-	return Result;
-}
-
-static int64 GetFastThreadFrameTimeInternal( const FStatPacketArray& Frame, EThreadType::Type ThreadType )
-{
-	int64 Result = 0;
-
-	for( int32 PacketIndex = 0; PacketIndex < Frame.Packets.Num(); PacketIndex++ )
-	{
-		const FStatPacket& Packet = *Frame.Packets[PacketIndex];
-
-		if( Packet.ThreadType == ThreadType )
-		{
-			const FStatMessagesArray& Data = Packet.StatMessages;
-			for (int32 Index = 0; Index < Data.Num(); Index++)
-			{
-				FStatMessage const& Item = Data[Index];
-				EStatOperation::Type Op = Item.NameAndInfo.GetField<EStatOperation>();
-				FName LongName = Item.NameAndInfo.GetRawName();
-				if (Op == EStatOperation::CycleScopeStart)
-				{
-					check(Item.NameAndInfo.GetFlag(EStatMetaFlags::IsCycle));
-					Result -= Item.GetValue_int64();
-					break;
-				}
-			}
-			for (int32 Index = Data.Num() - 1; Index >= 0; Index--)
-			{
-				FStatMessage const& Item = Data[Index];
-				EStatOperation::Type Op = Item.NameAndInfo.GetField<EStatOperation>();
-				FName LongName = Item.NameAndInfo.GetRawName();
-				if (Op == EStatOperation::CycleScopeEnd)
-				{
-
-					check(Item.NameAndInfo.GetFlag(EStatMetaFlags::IsCycle));
-					Result += Item.GetValue_int64();
-					break;
-				}
-			}
-		}
-	}
-	return Result;
-}
-
-void FRawProfilerSession::PrepareLoading()
-{
-	SCOPE_LOG_TIME_FUNC();
-
-	const FString Filepath = DataFilepath + FStatConstants::StatsFileRawExtension;
-	const int64 Size = IFileManager::Get().FileSize( *Filepath );
-	if( Size < 4 )
-	{
-		UE_LOG( LogStats, Error, TEXT( "Could not open: %s" ), *Filepath );
-		return;
-	}
-	TAutoPtr<FArchive> FileReader( IFileManager::Get().CreateFileReader( *Filepath ) );
-	if( !FileReader )
-	{
-		UE_LOG( LogStats, Error, TEXT( "Could not open: %s" ), *Filepath );
-		return;
-	}
-
-	if( !Stream.ReadHeader( *FileReader ) )
-	{
-		UE_LOG( LogStats, Error, TEXT( "Could not open, bad magic: %s" ), *Filepath );
-		return;
-	}
-
-	const bool bIsFinalized = Stream.Header.IsFinalized();
-	check( bIsFinalized );
-	check( Stream.Header.Version == EStatMagicWithHeader::VERSION_5 );
-	StatsThreadStats.MarkAsLoaded();
-
-	TArray<FStatMessage> Messages;
-	if( Stream.Header.bRawStatsFile )
-	{
-		// Read metadata.
-		TArray<FStatMessage> MetadataMessages;
-		Stream.ReadFNamesAndMetadataMessages( *FileReader, MetadataMessages );
-		StatsThreadStats.ProcessMetaDataOnly( MetadataMessages );
-
-		const FName F00245 = FName(245, 245, 0);
-		
-		const FName F11602 = FName(11602, 11602, 0);
-		const FName F06394 = FName(6394, 6394, 0);
-
-		const int64 CurrentFilePos = FileReader->Tell();
-
-		// Update profiler's metadata.
-		StatMetaData->UpdateFromStatsState( StatsThreadStats );
-		const uint32 GameThreadID = GetMetaData()->GetGameThreadID();
-
-		// Read frames offsets.
-		Stream.ReadFramesOffsets( *FileReader );
-
-		// Buffer used to store the compressed and decompressed data.
-		TArray<uint8> SrcArray;
-		TArray<uint8> DestArray;
-		const bool bHasCompressedData = Stream.Header.HasCompressedData();
-		check(bHasCompressedData);
-
-		TMap<int64, FStatPacketArray> CombinedHistory;
-		int64 TotalPacketSize = 0;
-		int64 MaximumPacketSize = 0;
-		// Read all packets sequentially, force by the memory profiler which is now a part of the raw stats.
-		// !!CAUTION!! Frame number in the raw stats is pointless, because it is time based, not frame based.
-		// Background threads usually execute time consuming operations, so the frame number won't be valid.
-		// Needs to be combined by the thread and the time, not by the frame number.
-		{
-			int64 FrameOffset0 = Stream.FramesInfo[0].FrameFileOffset;
-			FileReader->Seek( FrameOffset0 );
-
-			const int64 FileSize = FileReader->TotalSize();
-
-			while( FileReader->Tell() < FileSize )
-			{
-				// Read the compressed data.
-				FCompressedStatsData UncompressedData( SrcArray, DestArray );
-				*FileReader << UncompressedData;
-				if( UncompressedData.HasReachedEndOfCompressedData() )
-				{
-					break;
-				}
-
-				FMemoryReader MemoryReader( DestArray, true );
-
-				FStatPacket* StatPacket = new FStatPacket();
-				Stream.ReadStatPacket( MemoryReader, *StatPacket );
-				
-				const int64 FrameNum = StatPacket->Frame;
-				FStatPacketArray& Frame = CombinedHistory.FindOrAdd(FrameNum);
-			
-				// Check if we need to combine packets from the same thread.
-				FStatPacket** CombinedPacket = Frame.Packets.FindByPredicate([&](FStatPacket* Item) -> bool
-				{
-					return Item->ThreadId == StatPacket->ThreadId;
-				});
-				
-				if( CombinedPacket )
-				{
-					(*CombinedPacket)->StatMessages += StatPacket->StatMessages;
-				}
-				else
-				{
-					Frame.Packets.Add(StatPacket);
-				}
-
-				const int64 CurrentPos = FileReader->Tell();
-				const int32 PctPos = int32(100.0f*CurrentPos/FileSize);
-
-				UE_LOG( LogStats, Log, TEXT( "%3i Processing FStatPacket: Frame %5i for thread %5i with %6i messages (%.1f MB)" ), 
-					PctPos, 
-					StatPacket->Frame, 
-					StatPacket->ThreadId, 
-					StatPacket->StatMessages.Num(), 
-					StatPacket->StatMessages.GetAllocatedSize()/1024.0f/1024.0f );
-
-				const int64 PacketSize = StatPacket->StatMessages.GetAllocatedSize();
-				TotalPacketSize += PacketSize;
-				MaximumPacketSize = FMath::Max( MaximumPacketSize, PacketSize );
-			}
-		}
-
-		UE_LOG( LogStats, Log, TEXT( "TotalPacketSize: %.1f MB, Max: %1f MB" ), 
-			TotalPacketSize/1024.0f/1024.0f, 
-			MaximumPacketSize/1024.0f/1024.0f );
-
-		TArray<int64> Frames;
-		CombinedHistory.GenerateKeyArray(Frames);
-		Frames.Sort();
-		const int64 MiddleFrame = Frames[Frames.Num()/2];
-
-
-		// Remove all frames without the game thread messages.
-		for (int32 FrameIndex = 0; FrameIndex < Frames.Num(); ++FrameIndex)
-		{
-			const int64 TargetFrame = Frames[FrameIndex];
-			const FStatPacketArray& Frame = CombinedHistory.FindChecked( TargetFrame );
-
-			const double GameThreadTimeMS = GetMetaData()->ConvertCyclesToMS( GetFastThreadFrameTimeInternal( Frame, EThreadType::Game ) );
-
-			if (GameThreadTimeMS == 0.0f)
-			{
-				CombinedHistory.Remove( TargetFrame );
-				Frames.RemoveAt( FrameIndex );
-				FrameIndex--;
-			}
-		}
-		
-	
-		StatMetaData->SecondsPerCycle = GetSecondsPerCycle( CombinedHistory.FindChecked(MiddleFrame) );
-		check( StatMetaData->GetSecondsPerCycle() > 0.0 );
-
-		//const int32 FirstGameThreadFrame = FindFirstFrameWithGameThread( CombinedHistory, Frames );
-
-		// Prepare profiler frame.
-		{
-			SCOPE_LOG_TIME( TEXT( "Preparing profiler frames" ), nullptr );
-
-			// Prepare profiler frames.
-			double ElapsedTimeMS = 0;
-
-			for( int32 FrameIndex = 0; FrameIndex < Frames.Num(); ++FrameIndex )
-			{
-				const int64 TargetFrame = Frames[FrameIndex];
-				const FStatPacketArray& Frame = CombinedHistory.FindChecked(TargetFrame);
-
-				const double GameThreadTimeMS = GetMetaData()->ConvertCyclesToMS( GetFastThreadFrameTimeInternal(Frame,EThreadType::Game) );
-
-				if( GameThreadTimeMS == 0.0f )
-				{
-					continue;
-				}
-
-				const double RenderThreadTimeMS = GetMetaData()->ConvertCyclesToMS( GetFastThreadFrameTimeInternal(Frame,EThreadType::Renderer) );
-
-				// Update mini-view, convert from cycles to ms.
-				TMap<uint32, float> ThreadTimesMS;
-				ThreadTimesMS.Add( GameThreadID, GameThreadTimeMS );
-				ThreadTimesMS.Add( GetMetaData()->GetRenderThreadID()[0], RenderThreadTimeMS );
-
-				// Pass the reference to the stats' metadata.
-				OnAddThreadTime.ExecuteIfBound( FrameIndex, ThreadTimesMS, StatMetaData );
-
-				// Create a new profiler frame and add it to the stream.
-				ElapsedTimeMS += GameThreadTimeMS;
-				FProfilerFrame* ProfilerFrame = new FProfilerFrame( TargetFrame, GameThreadTimeMS, ElapsedTimeMS );
-				ProfilerFrame->ThreadTimesMS = ThreadTimesMS;
-				ProfilerStream.AddProfilerFrame( TargetFrame, ProfilerFrame );
-			}
-		}
-	
-		// Process the raw stats data.
-		{
-			SCOPE_LOG_TIME( TEXT( "Processing the raw stats" ), nullptr );
-
-			double CycleCounterAdjustmentMS = 0.0f;
-
-			// Read the raw stats messages.
-			for( int32 FrameIndex = 0; FrameIndex < Frames.Num()-1; ++FrameIndex )
-			{
-				const int64 TargetFrame = Frames[FrameIndex];
-				const FStatPacketArray& Frame = CombinedHistory.FindChecked(TargetFrame);
-
-				FProfilerFrame* ProfilerFrame = ProfilerStream.GetProfilerFrame( FrameIndex );
-
-				UE_CLOG( FrameIndex % 8 == 0, LogStats, Log, TEXT( "Processing raw stats frame: %4i/%4i" ), FrameIndex, Frames.Num() );
-
-				ProcessStatPacketArray( Frame, *ProfilerFrame, FrameIndex ); // or ProfilerFrame->TargetFrame
-
-				// Find the first cycle counter for the game thread.
-				if( CycleCounterAdjustmentMS == 0.0f )
-				{
-					CycleCounterAdjustmentMS = ProfilerFrame->Root->CycleCounterStartTimeMS;
-				}
-
-				// Update thread time and mark profiler frame as valid and ready for use.
-				ProfilerFrame->MarkAsValid();
-			}
-
-			// Adjust all profiler frames.
-			ProfilerStream.AdjustCycleCounters( CycleCounterAdjustmentMS );
-		}
-	}
-
-	const int64 AllocatedSize = ProfilerStream.GetAllocatedSize();
-
-	// We have the whole metadata and basic information about the raw stats file, start ticking the profiler session.
-	//OnTickHandle = FTicker::GetCoreTicker().AddTicker( OnTick, 0.25f );
-
-#if	0
-	if( SessionType == EProfilerSessionTypes::OfflineRaw )
-	{
-		// Broadcast that a capture file has been fully processed.
-		OnCaptureFileProcessed.ExecuteIfBound( GetInstanceID() );
-	}
-#endif // 0
-}
-
 
 void FProfilerStatMetaData::Update( const FStatMetaData& ClientStatMetaData )
 {
 	PROFILER_SCOPE_LOG_TIME( TEXT( "FProfilerStatMetaData.Update" ), nullptr );
 
-	FStatMetaData LocalCopy;
-	{
-		FScopeLock Lock( ClientStatMetaData.CriticalSection );
-		LocalCopy = ClientStatMetaData;
-	}
-
 	// Iterate through all thread descriptions.
-	ThreadDescriptions.Append( LocalCopy.ThreadDescriptions );
+	ThreadDescriptions.Append( ClientStatMetaData.ThreadDescriptions );
 
 	// Initialize fake stat for Self.
 	const uint32 NoGroupID = 0;
 
 	InitializeGroup( NoGroupID, "NoGroup" );
 	InitializeStat( 0, NoGroupID, TEXT( "Self" ), STATTYPE_CycleCounter );
-	InitializeStat( 1, NoGroupID, FStatConstants::NAME_ThreadRoot.GetPlainNameString(), STATTYPE_CycleCounter, FStatConstants::NAME_ThreadRoot );
+	InitializeStat( ProfilerThreadRoot, NoGroupID, FStatConstants::NAME_ThreadRoot.GetPlainNameString(), STATTYPE_CycleCounter, FStatConstants::NAME_ThreadRoot );
 
 	// Iterate through all stat group descriptions.
-	for( auto It = LocalCopy.GroupDescriptions.CreateConstIterator(); It; ++It )
+	for( auto It = ClientStatMetaData.GroupDescriptions.CreateConstIterator(); It; ++It )
 	{
 		const FStatGroupDescription& GroupDesc = It.Value();
 		InitializeGroup( GroupDesc.ID, GroupDesc.Name );
 	}
 
 	// Iterate through all stat descriptions.
-	for( auto It = LocalCopy.StatDescriptions.CreateConstIterator(); It; ++It )
+	for( auto It = ClientStatMetaData.StatDescriptions.CreateConstIterator(); It; ++It )
 	{
 		const FStatDescription& StatDesc = It.Value();
 		InitializeStat( StatDesc.ID, StatDesc.GroupID, StatDesc.Name, (EStatType)StatDesc.StatType );
 	}
 
-	SecondsPerCycle = LocalCopy.SecondsPerCycle;
+	SecondsPerCycle = ClientStatMetaData.SecondsPerCycle;
 }
 
 
@@ -998,194 +819,163 @@ void FProfilerStatMetaData::UpdateFromStatsState( const FStatsThreadState& Stats
 	}
 }
 
-void FRawProfilerSession::ProcessStatPacketArray( const FStatPacketArray& StatPacketArray, FProfilerFrame& out_ProfilerFrame, int32 FrameIndex )
+/*-----------------------------------------------------------------------------
+	FProfilerAggregatedStat
+-----------------------------------------------------------------------------*/
+
+FProfilerAggregatedStat::FProfilerAggregatedStat( const FName& InStatName, const FName& InGroupName, EProfilerSampleTypes::Type InStatType ) : _StatName( InStatName )
+, _GroupName( InGroupName )
+, _ValueOneFrame( 0.0f )
+, _ValueAllFrames( 0.0f )
+, _MinValueAllFrames( FLT_MAX )
+, _MaxValueAllFrames( FLT_MIN )
+
+, _NumCallsAllFrames( 0 )
+, _NumCallsOneFrame( 0 )
+, _MinNumCallsAllFrames( MAX_uint32 )
+, _MaxNumCallsAllFrames( 0 )
+
+, _NumFrames( 0 )
+, _NumFramesWithCall( 0 )
+
+, StatType( InStatType )
 {
-	// @TODO yrx 2014-03-24 Standardize thread names and id
-	// @TODO yrx 2014-04-22 Remove all references to the data provider, event graph etc once data graph can visualize.
 
-	// Raw stats callstack for this stat packet array.
-	TMap<FName,FProfilerStackNode*> ThreadNodes;
+}
 
-	const FProfilerStatMetaDataRef MetaData = GetMetaData();
-	
-	FProfilerSampleArray& MutableCollection = const_cast<FProfilerSampleArray&>(DataProvider->GetCollection());
-
-	// Add a root sample for this frame.
-	const uint32 FrameRootSampleIndex = DataProvider->AddHierarchicalSample( 0, MetaData->GetStatByID( 1 ).OwningGroup().ID(), 1, 0.0f, 0.0f, 1 );
-
-	// Iterate through all stats packets and raw stats messages.
-	FName GameThreadFName = NAME_None;
-	for( int32 PacketIndex = 0; PacketIndex < StatPacketArray.Packets.Num(); PacketIndex++ )
+FString FProfilerAggregatedStat::ToString() const
+{
+	FString FormattedValueStr;
+	if (StatType == EProfilerSampleTypes::HierarchicalTime)
 	{
-		const FStatPacket& StatPacket = *StatPacketArray.Packets[PacketIndex];
-		FName ThreadFName = StatsThreadStats.Threads.FindChecked( StatPacket.ThreadId );
-		const uint32 NewThreadID = MetaData->ThreadIDtoStatID.FindChecked( StatPacket.ThreadId );
+		FormattedValueStr = FString::Printf( TEXT( "{Value Min:%.3f Avg:%.3f Max:%.3f (MS) / Calls (%.1f%%) Min:%.1f Avg:%.1f Max:%.1f}" ),
+											 MinValue(), AvgValue(), MaxValue(),
+											 FramesWithCallPct(), MinNumCalls(), AvgNumCalls(), MaxNumCalls() );
+	}
+	else if (StatType == EProfilerSampleTypes::Memory)
+	{
+		FormattedValueStr = FString::Printf( TEXT( "{Min:%.2f Avg:%.2f Max:%.2f (KB)}" ), MinValue(), AvgValue(), MaxValue() );
+	}
+	else if (StatType == EProfilerSampleTypes::NumberInt)
+	{
+		FormattedValueStr = FString::Printf( TEXT( "{Min:%.2f Avg:%.2f Max:%.2f}" ), MinValue(), AvgValue(), MaxValue() );
+	}
+	else if (StatType == EProfilerSampleTypes::NumberFloat)
+	{
+		FormattedValueStr = FString::Printf( TEXT( "{Min:%.2f Avg:%.2f Max:%.2f}" ), MinValue(), AvgValue(), MaxValue() );
+	}
+	else
+	{
+		check( 0 );
+	}
+	return FormattedValueStr;
+}
 
-		// @TODO yrx 2014-04-29 Only game or render thread is supported at this moment.
-		if( StatPacket.ThreadType != EThreadType::Game && StatPacket.ThreadType != EThreadType::Renderer )
+FString FProfilerAggregatedStat::GetFormattedValue( const Type ValueType ) const
+{
+	check( ValueType < Type::EInvalidOrMax );
+	const double ValueArray[Type::EInvalidOrMax] =
+	{
+		AvgValue(),
+		MinValue(),
+		MaxValue(),
+
+		AvgNumCalls(),
+		MinNumCalls(),
+		MaxNumCalls(),
+
+		FramesWithCallPct(),
+	};
+
+	FString FormatValueStr;
+	if (StatType == EProfilerSampleTypes::HierarchicalTime)
+	{
+		if (ValueType == EMinValue || ValueType == EAvgValue || ValueType == EMaxValue)
 		{
-			continue;
+			FormatValueStr = FString::Printf( TEXT( "%.3f (MS)" ), ValueArray[ValueType] );
+		}
+		else if (ValueType == EFramesWithCallPct)
+		{
+			FormatValueStr = FString::Printf( TEXT( "%.1f%%" ), ValueArray[EFramesWithCallPct] );
+		}
+		else
+		{
+			FormatValueStr = FString::Printf( TEXT( "%.1f" ), ValueArray[ValueType] );
+		}
+	}
+	else if (StatType == EProfilerSampleTypes::Memory)
+	{
+		FormatValueStr = FString::Printf( TEXT( "%.2f (KB)" ), ValueArray[ValueType] );
+	}
+	else if (StatType == EProfilerSampleTypes::NumberInt)
+	{
+		FormatValueStr = FString::Printf( TEXT( "%.2f" ), ValueArray[ValueType] );
+	}
+	else if (StatType == EProfilerSampleTypes::NumberFloat)
+	{
+		FormatValueStr = FString::Printf( TEXT( "%.2f" ), ValueArray[ValueType] );
+	}
+	else
+	{
+		check( 0 );
+	}
+	return FormatValueStr;
+}
+
+void FProfilerAggregatedStat::Advance()
+{
+	_NumFrames++;
+
+	_NumCallsAllFrames += _NumCallsOneFrame;
+	_ValueAllFrames += _ValueOneFrame;
+
+	// Calculate new extreme values.
+	if (StatType == EProfilerSampleTypes::HierarchicalTime)
+	{
+		// Update the extreme values only if this stat has been called at least once.
+		if (_NumCallsOneFrame > 0)
+		{
+			_NumFramesWithCall++;
 		}
 
-		// Workaround for issue with rendering thread names.
-		if( StatPacket.ThreadType == EThreadType::Renderer )
 		{
-			ThreadFName = NAME_RenderThread;
+			_MinValueAllFrames = FMath::Min<float>( _MinValueAllFrames, _ValueOneFrame );
+			_MaxValueAllFrames = FMath::Max<float>( _MaxValueAllFrames, _ValueOneFrame );
+
+			_MinNumCallsAllFrames = FMath::Min<float>( _MinNumCallsAllFrames, _NumCallsOneFrame );
+			_MaxNumCallsAllFrames = FMath::Max<float>( _MaxNumCallsAllFrames, _NumCallsOneFrame );
 		}
-		else if( StatPacket.ThreadType == EThreadType::Game )
+	}
+	else
+	{
+		_MinValueAllFrames = FMath::Min<float>( _MinValueAllFrames, _ValueOneFrame );
+		_MaxValueAllFrames = FMath::Max<float>( _MaxValueAllFrames, _ValueOneFrame );
+	}
+
+	_ValueOneFrame = 0.0f;
+	_NumCallsOneFrame = 0;
+}
+
+void FProfilerAggregatedStat::Aggregate(const FProfilerSample& Sample, const FProfilerStatMetaDataRef& Metadata)
+{
+	double TypedValue = 0.0;
+
+	// Determine whether to we are reading a time hierarchical sample or not.
+	if (Sample.Type() == EProfilerSampleTypes::HierarchicalTime)
+	{
+		TypedValue = Metadata->ConvertCyclesToMS( Sample.GetDurationCycles() );
+		_NumCallsOneFrame += Sample.GetCallCount();
+	}
+	else
+	{
+		TypedValue = Sample.GetDoubleValue();
+
+		if (Sample.Type() == EProfilerSampleTypes::Memory)
 		{
-			GameThreadFName = ThreadFName;
-		}
-
-		FProfilerStackNode* ThreadNode = ThreadNodes.FindRef( ThreadFName );
-		if( !ThreadNode )
-		{
-			FString ThreadIdName = FStatsUtils::BuildUniqueThreadName( StatPacket.ThreadId );
-			FStatMessage ThreadMessage( ThreadFName, EStatDataType::ST_int64, STAT_GROUP_TO_FStatGroup( STATGROUP_Threads )::GetGroupName(), STAT_GROUP_TO_FStatGroup( STATGROUP_Threads )::GetGroupCategory(), *ThreadIdName, true, true );
-			//FStatMessage ThreadMessage( ThreadFName, EStatDataType::ST_int64, nullptr, nullptr, TEXT( "" ), true, true );
-			ThreadMessage.NameAndInfo.SetFlag( EStatMetaFlags::IsPackedCCAndDuration, true );
-			ThreadMessage.Clear();
-
-			// Add a thread sample.
-			const uint32 ThreadRootSampleIndex = DataProvider->AddHierarchicalSample
-			(
-				NewThreadID,
-				MetaData->GetStatByID( NewThreadID ).OwningGroup().ID(),
-				NewThreadID,
-				-1.0f,
-				-1.0f,
-				1,
-				FrameRootSampleIndex
-			);
-
-			ThreadNode = ThreadNodes.Add( ThreadFName, new FProfilerStackNode( nullptr, ThreadMessage, ThreadRootSampleIndex, FrameIndex ) );
-		}
-
-
-		TArray<const FStatMessage*> StartStack;
-		TArray<FProfilerStackNode*> Stack;
-		Stack.Add( ThreadNode );
-		FProfilerStackNode* Current = Stack.Last();
-
-		const FStatMessagesArray& Data = StatPacket.StatMessages;
-		for( int32 Index = 0; Index < Data.Num(); Index++ )
-		{
-			const FStatMessage& Item = Data[Index];
-
-			const EStatOperation::Type Op = Item.NameAndInfo.GetField<EStatOperation>();
-			const FName LongName = Item.NameAndInfo.GetRawName();
-			const FName ShortName = Item.NameAndInfo.GetShortName();
-
-			const FName RenderingThreadTickCommandName = TEXT("RenderingThreadTickCommand");
-
-			// Workaround for render thread hierarchy. EStatOperation::AdvanceFrameEventRenderThread is called within the scope.
-			if( ShortName == RenderingThreadTickCommandName )
-			{
-				continue;
-			}
-
-			if( Op == EStatOperation::CycleScopeStart || Op == EStatOperation::CycleScopeEnd || Op == EStatOperation::AdvanceFrameEventRenderThread )
-			{
-				//check( Item.NameAndInfo.GetFlag( EStatMetaFlags::IsCycle ) );
-				if( Op == EStatOperation::CycleScopeStart )
-				{
-					FProfilerStackNode* ChildNode = new FProfilerStackNode( Current, Item, -1, FrameIndex );
-					Current->Children.Add( ChildNode );
-
-					// Add a child sample.
-					const uint32 SampleIndex = DataProvider->AddHierarchicalSample
-					(
-						NewThreadID,
-						MetaData->GetStatByFName( ShortName ).OwningGroup().ID(), // GroupID
-						MetaData->GetStatByFName( ShortName ).ID(), // StatID
-						MetaData->ConvertCyclesToMS( ChildNode->CyclesStart ), // StartMS 
-						MetaData->ConvertCyclesToMS( 0 ), // DurationMS
-						1,
-						Current->SampleIndex
-					);
-					ChildNode->SampleIndex = SampleIndex;
-
-					Stack.Add( ChildNode );
-					StartStack.Add( &Item );
-					Current = ChildNode;
-				}
-				// Workaround for render thread hierarchy. EStatOperation::AdvanceFrameEventRenderThread is called within the scope.
-				if( Op == EStatOperation::AdvanceFrameEventRenderThread )
-				{
-					int k=0;k++;
-				}
-				if( Op == EStatOperation::CycleScopeEnd )
-				{
-					const FStatMessage ScopeStart = *StartStack.Pop();
-					const FStatMessage ScopeEnd = Item;
-					const int64 Delta = int32( uint32( ScopeEnd.GetValue_int64() ) - uint32( ScopeStart.GetValue_int64() ) );
-					Current->CyclesEnd = Current->CyclesStart + Delta;
-
-					Current->CycleCounterStartTimeMS = MetaData->ConvertCyclesToMS( Current->CyclesStart );
-					Current->CycleCounterEndTimeMS = MetaData->ConvertCyclesToMS( Current->CyclesEnd );
-
-					if( Current->CycleCounterStartTimeMS > Current->CycleCounterEndTimeMS )
-					{
-						int k=0;k++;
-					}
-
-					check( Current->CycleCounterEndTimeMS >= Current->CycleCounterStartTimeMS );
-
-					FProfilerStackNode* ChildNode = Current;
-
-					// Update the child sample's DurationMS.
-					MutableCollection[ChildNode->SampleIndex].SetDurationMS( MetaData->ConvertCyclesToMS( Delta ) );
-
-					verify( Current == Stack.Pop() );
-					Current = Stack.Last();				
-				}
-			}
+			// @TODO: Remove later
+			TypedValue *= 1.0f / 1024.0f;
 		}
 	}
 
-	// Calculate thread times.
-	for( auto It = ThreadNodes.CreateIterator(); It; ++It )
-	{
-		FProfilerStackNode& ThreadNode = *It.Value();
-		const int32 ChildrenNum = ThreadNode.Children.Num();
-		if( ChildrenNum > 0 )
-		{
-			const int32 LastChildIndex = ThreadNode.Children.Num() - 1;
-			ThreadNode.CyclesStart = ThreadNode.Children[0]->CyclesStart;
-			ThreadNode.CyclesEnd = ThreadNode.Children[LastChildIndex]->CyclesEnd;
-			ThreadNode.CycleCounterStartTimeMS = MetaData->ConvertCyclesToMS( ThreadNode.CyclesStart );
-			ThreadNode.CycleCounterEndTimeMS = MetaData->ConvertCyclesToMS( ThreadNode.CyclesEnd );
-
-			FProfilerSample& ProfilerSample = MutableCollection[ThreadNode.SampleIndex];
-			ProfilerSample.SetStartAndEndMS( MetaData->ConvertCyclesToMS( ThreadNode.CyclesStart ), MetaData->ConvertCyclesToMS( ThreadNode.CyclesEnd ) );
-		}
-	}
-
-	// Get the game thread time.
-	check( GameThreadFName != NAME_None );
-	const FProfilerStackNode& GameThreadNode = *ThreadNodes.FindChecked( GameThreadFName );
-	const double GameThreadStartMS = MetaData->ConvertCyclesToMS( GameThreadNode.CyclesStart );
-	const double GameThreadEndMS = MetaData->ConvertCyclesToMS( GameThreadNode.CyclesEnd );
-	MutableCollection[FrameRootSampleIndex].SetStartAndEndMS( GameThreadStartMS, GameThreadEndMS );
-	
-	// Advance frame
-	const uint32 LastFrameIndex = DataProvider->GetNumFrames();
-	DataProvider->AdvanceFrame( GameThreadEndMS - GameThreadStartMS );
- 
-	// Update aggregated stats
-	UpdateAggregatedStats( LastFrameIndex );
- 
-	// Update aggregated events.
-	UpdateAggregatedEventGraphData( LastFrameIndex );
-
-	// RootNode is the same as the game thread node.
-	out_ProfilerFrame.Root->CycleCounterStartTimeMS = GameThreadStartMS;
-	out_ProfilerFrame.Root->CycleCounterEndTimeMS = GameThreadEndMS;
-
-	for( auto It = ThreadNodes.CreateIterator(); It; ++It )
-	{
-		out_ProfilerFrame.AddChild( It.Value() );
-	}
-
-	out_ProfilerFrame.SortChildren();
+	_ValueOneFrame += TypedValue;
 }

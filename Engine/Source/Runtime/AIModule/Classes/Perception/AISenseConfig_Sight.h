@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -10,7 +10,7 @@ class UAISense_Sight;
 UCLASS(meta = (DisplayName = "AI Sight config"))
 class AIMODULE_API UAISenseConfig_Sight : public UAISenseConfig
 {
-	GENERATED_BODY()
+	GENERATED_UCLASS_BODY()
 
 public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sense", NoClear, config)
@@ -37,10 +37,8 @@ public:
 	float AutoSuccessRangeFromLastSeenLocation;
 		
 	virtual TSubclassOf<UAISense> GetSenseImplementation() const override;
-#if !UE_BUILD_SHIPPING
-	//----------------------------------------------------------------------//
-	// DEBUG
-	//----------------------------------------------------------------------//
-	virtual void GetDebugData(TArray<FString>& OnScreenStrings, TArray<FGameplayDebuggerShapeElement>& DebugShapes, const UAIPerceptionComponent& PerceptionComponent) const override;
-#endif // !UE_BUILD_SHIPPING
+
+#if WITH_GAMEPLAY_DEBUGGER
+	virtual void DescribeSelfToGameplayDebugger(const UAIPerceptionComponent* PerceptionComponent, FGameplayDebuggerCategory* DebuggerCategory) const;
+#endif // WITH_GAMEPLAY_DEBUGGER
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -108,6 +108,13 @@ private:
 	 * @param Cameras	The list of cameras to add
 	 */
 	void GeneratePlacedCameraMenuEntries( FMenuBuilder& Builder, TArray<ACameraActor*> Cameras ) const;
+
+	/**
+	 * Generates menu entries for changing the type of the viewport
+	 *
+	 * @param Builder	The menu builder to add menu entries to
+	 */
+	void GenerateViewportTypeMenu( FMenuBuilder& Builder ) const;
 
 	/**
 	 * Generates the toolbar view menu content 

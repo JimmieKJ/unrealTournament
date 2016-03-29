@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 #include "GameplayEffectAggregator.h"
@@ -97,6 +97,26 @@ float FAggregator::ReverseEvaluate(float FinalValue, const FAggregatorEvaluatePa
 float FAggregator::EvaluateBonus(const FAggregatorEvaluateParameters& Parameters) const
 {
 	return (Evaluate(Parameters) - GetBaseValue());
+}
+
+float FAggregator::EvaluateContribution(const FAggregatorEvaluateParameters& Parameters, FActiveGameplayEffectHandle ActiveHandle) const
+{
+	FAggregator Temp;
+	Temp.BaseValue = BaseValue;
+
+	if (ActiveHandle.IsValid())
+	{
+		for (int32 Idx = 0; Idx < ARRAY_COUNT(Mods); ++Idx)
+		{
+			Temp.Mods[Idx] = Mods[Idx];
+
+			Temp.RemoveModsWithActiveHandle(Temp.Mods[Idx], ActiveHandle);
+		}
+
+		return Evaluate(Parameters) - Temp.Evaluate(Parameters);
+	}
+
+	return 0.f;
 }
 
 float FAggregator::GetBaseValue() const
@@ -306,7 +326,9 @@ void FAggregator::BroadcastOnDirty()
 	OnDirty.Broadcast(this);
 
 
-	TArray<FActiveGameplayEffectHandle>	ValidDependents;
+	static TArray<FActiveGameplayEffectHandle>	ValidDependents;
+	ValidDependents.Reset();
+
 	for (FActiveGameplayEffectHandle Handle : Dependents)
 	{
 		UAbilitySystemComponent* ASC = Handle.GetOwningAbilitySystemComponent();

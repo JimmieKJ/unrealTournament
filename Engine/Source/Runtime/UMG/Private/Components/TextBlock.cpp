@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 #include "SInvalidationPanel.h"
@@ -16,7 +16,6 @@ UTextBlock::UTextBlock(const FObjectInitializer& ObjectInitializer)
 	ShadowOffset = FVector2D(1.0f, 1.0f);
 	ColorAndOpacity = FLinearColor::White;
 	ShadowColorAndOpacity = FLinearColor::Transparent;
-	LineHeightPercentage = 1.0f;
 
 	if (!IsRunningDedicatedServer())
 	{
@@ -145,12 +144,9 @@ void UTextBlock::SynchronizeProperties()
 		MyTextBlock->SetColorAndOpacity( ColorAndOpacityBinding );
 		MyTextBlock->SetShadowOffset( ShadowOffset );
 		MyTextBlock->SetShadowColorAndOpacity( ShadowColorAndOpacityBinding );
-		MyTextBlock->SetAutoWrapText( AutoWrapText );
-		MyTextBlock->SetWrapTextAt( WrapTextAt != 0 ? WrapTextAt : TAttribute<float>() );
 		MyTextBlock->SetMinDesiredWidth( MinDesiredWidth );
-		MyTextBlock->SetLineHeightPercentage( LineHeightPercentage );
-		MyTextBlock->SetMargin( Margin );
-		MyTextBlock->SetJustification( Justification );
+
+		Super::SynchronizeTextLayoutProperties( *MyTextBlock );
 	}
 }
 
@@ -173,19 +169,6 @@ void UTextBlock::SetText(FText InText)
 	}
 }
 
-void UTextBlock::PostLoad()
-{
-	Super::PostLoad();
-
-	if ( GetLinkerUE4Version() < VER_UE4_DEPRECATE_UMG_STYLE_ASSETS )
-	{
-		if ( Style_DEPRECATED != nullptr )
-		{
-			Style_DEPRECATED = nullptr;
-		}
-	}
-}
-
 #if WITH_EDITOR
 
 FString UTextBlock::GetLabelMetadata() const
@@ -202,11 +185,6 @@ void UTextBlock::HandleTextCommitted(const FText& InText, ETextCommit::Type Comm
 	//TODO UMG How will this migrate to the template?  Seems to me we need the previews to have access to their templates!
 	//TODO UMG How will the user click the editable area?  There is an overlay blocking input so that other widgets don't get them.
 	//     Need a way to recognize one particular widget and forward things to them!
-}
-
-const FSlateBrush* UTextBlock::GetEditorIcon()
-{
-	return FUMGStyle::Get().GetBrush("Widget.TextBlock");
 }
 
 const FText UTextBlock::GetPaletteCategory()

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ProfilerClientModule.cpp: Implements the FProfilerClientModule class.
@@ -48,9 +48,6 @@ FProfilerClientManager::FProfilerClientManager( const IMessageBusRef& InMessageB
 	LastPingTime = FDateTime::Now();
 	RetryTime = 5.f;
 
-#if PROFILER_THREADED_LOAD
-	LoadTask = nullptr;
-#endif
 	LoadConnection = nullptr;
 	MessageDelegateHandle = FTicker::GetCoreTicker().AddTicker(MessageDelegate, 0.1f);
 #endif
@@ -59,21 +56,7 @@ FProfilerClientManager::FProfilerClientManager( const IMessageBusRef& InMessageB
 FProfilerClientManager::~FProfilerClientManager()
 {
 #if STATS
-	// Delete all active file writers and remove temporary files.
-	for( auto It = ActiveTransfers.CreateIterator(); It; ++It )
-	{
-		FReceivedFileInfo& ReceivedFileInfo = It.Value();
-		
-		delete ReceivedFileInfo.FileWriter;
-		ReceivedFileInfo.FileWriter = nullptr;
-
-		IFileManager::Get().Delete( *ReceivedFileInfo.DestFilepath );
-
-		UE_LOG( LogProfilerClient, Log, TEXT( "File service-client transfer aborted: %s" ), *It.Key() );
-	}
-
-	FTicker::GetCoreTicker().RemoveTicker(MessageDelegateHandle);
-	FTicker::GetCoreTicker().RemoveTicker(TickDelegateHandle);
+	Shutdown();
 
 	Unsubscribe();
 
@@ -133,34 +116,6 @@ void FProfilerClientManager::Track( const FGuid& Instance )
 		TickDelegateHandle = FTicker::GetCoreTicker().AddTicker(TickDelegate, RetryTime);
 
 		UE_LOG( LogProfilerClient, Verbose, TEXT( "Track Session: %s, Instance: %s" ), *ActiveSessionId.ToString(), *Instance.ToString() );
-	}
-#endif
-}
-
-void FProfilerClientManager::Track( const TArray<TSharedPtr<ISessionInstanceInfo>>& Instances )
-{
-#if STATS
-	if (MessageEndpoint.IsValid() && ActiveSessionId.IsValid())
-	{
-		TArray<FGuid> ActiveInstances;
-		Connections.GenerateKeyArray(ActiveInstances);
-
-		for (int32 i = 0; i < Instances.Num(); ++i)
-		{
-			if (Connections.Find(Instances[i]->GetInstanceId()) == nullptr)
-			{
-				Track(Instances[i]->GetInstanceId());
-			}
-			else
-			{
-				ActiveInstances.Remove(Instances[i]->GetInstanceId());
-			}
-		}
-
-		for (int32 i = 0; i < ActiveInstances.Num(); ++i)
-		{
-			Untrack(ActiveInstances[i]);
-		}
 	}
 #endif
 }
@@ -246,76 +201,117 @@ void FProfilerClientManager::SetPreviewState( const bool bRequestedPreviewState,
 #endif
 }
 
+/*-----------------------------------------------------------------------------
+	New read test, still temporary, but around 4x faster
+-----------------------------------------------------------------------------*/
+
+class FNewStatsReader : public FStatsReadFile
+{
+	friend struct FStatsReader<FNewStatsReader>;
+	typedef FStatsReadFile Super;
+
+public:
+	/** Initialize. */
+	void Initialize( FProfilerClientManager* InProfilerClientManager, FServiceConnection* InLoadConnection )
+	{
+		ProfilerClientManager = InProfilerClientManager;
+		LoadConnection = InLoadConnection;
+	}
+
+protected:
+
+	/** Initialization constructor. */
+	FNewStatsReader( const TCHAR* InFilename )
+		: FStatsReadFile( InFilename, false )
+		, ProfilerClientManager( nullptr )
+		, LoadConnection( nullptr )
+	{
+		// Keep only the last frame.
+		SetHistoryFrames( 1 );
+	}	
+
+	/** Called every each frame has been read from the file. */
+	virtual void ReadStatsFrame( const TArray<FStatMessage>& CondensedMessages, const int64 Frame ) override
+	{
+		SCOPE_CYCLE_COUNTER( STAT_PC_GenerateDataFrame );
+
+		FProfilerDataFrame& DataFrame = LoadConnection->CurrentData;
+
+		DataFrame.Frame = Frame;
+		DataFrame.FrameStart = 0.0;
+		DataFrame.CountAccumulators.Reset();
+		DataFrame.CycleGraphs.Reset();
+		DataFrame.FloatAccumulators.Reset();
+		DataFrame.MetaDataUpdated = false;
+
+		// Get the stat stack root and the non frame stats.
+		FRawStatStackNode Stack;
+		TArray<FStatMessage> NonFrameStats;
+		State.UncondenseStackStats( CondensedMessages, Stack, nullptr, &NonFrameStats );
+
+		LoadConnection->GenerateCycleGraphs( Stack, DataFrame.CycleGraphs );
+		LoadConnection->GenerateAccumulators( NonFrameStats, DataFrame.CountAccumulators, DataFrame.FloatAccumulators );
+
+		// Create a copy of the stats metadata.
+		FStatMetaData* MetaDataPtr = nullptr;
+
+		if (DataFrame.MetaDataUpdated)
+		{
+			MetaDataPtr = new FStatMetaData();
+			*MetaDataPtr = LoadConnection->StatMetaData;
+		}
+
+		// Create a copy of the stats data.
+		FProfilerDataFrame* DataFramePtr = new FProfilerDataFrame();
+		*DataFramePtr = DataFrame;
+
+		// Send to game thread.
+		FSimpleDelegateGraphTask::CreateAndDispatchWhenReady
+		(
+			FSimpleDelegateGraphTask::FDelegate::CreateRaw( ProfilerClientManager, &FProfilerClientManager::SendProfilerDataFrameToGame, DataFramePtr, MetaDataPtr ),
+			TStatId(), nullptr, ENamedThreads::GameThread
+		);
+	}
+
+	/** Called after reading all data from the file. */
+	virtual void PreProcessStats() override
+	{
+		FFunctionGraphTask::CreateAndDispatchWhenReady( [=]()
+		{
+			ProfilerClientManager->FinalizeLoading();
+		}
+		, TStatId(), NULL, ENamedThreads::GameThread );
+	}
+
+	FProfilerClientManager* ProfilerClientManager;
+	FServiceConnection* LoadConnection;
+};
+
+void FServiceConnection::LoadCapture( const FString& DataFilepath, FProfilerClientManager* ProfilerClientManager )
+{
+	StatsReader = FStatsReader<FNewStatsReader>::Create( *DataFilepath );
+	if (StatsReader)
+	{
+		StatsReader->Initialize( ProfilerClientManager, this );
+		StatsReader->ReadAndProcessAsynchronously();
+	}
+}
+
+
+
 void FProfilerClientManager::LoadCapture( const FString& DataFilepath, const FGuid& ProfileId )
 {
 #if STATS
-	UE_LOG( LogStats, Warning, TEXT( "Started loading: %s" ), *DataFilepath );
-
-	// start an async load
+	// Start an async load.
 	LoadConnection = &Connections.FindOrAdd(ProfileId);
 	LoadConnection->InstanceId = ProfileId;
-	LoadConnection->MetaData.CriticalSection = &LoadConnection->CriticalSection;
-	LoadConnection->MetaData.SecondsPerCycle = FPlatformTime::GetSecondsPerCycle(); // fix this by adding a message which specifies this
+	LoadConnection->StatMetaData.SecondsPerCycle = FPlatformTime::GetSecondsPerCycle(); // fix this by adding a message which specifies this
 
-	const int64 Size = IFileManager::Get().FileSize( *DataFilepath );
-	if( Size < 4 )
-	{
-		UE_LOG( LogProfilerClient, Error, TEXT( "Could not open: %s" ), *DataFilepath );
-		return;
-	}
-
-#if PROFILER_THREADED_LOAD
-	FArchive* FileReader = IFileManager::Get().CreateFileReader(*DataFilepath);
-#else
-	FileReader = IFileManager::Get().CreateFileReader( *DataFilepath );
-#endif
-
-	if( !FileReader )
-	{
-		UE_LOG( LogProfilerClient, Error, TEXT( "Could not open: %s" ), *DataFilepath );
-		return;
-	}
-
-	if( !LoadConnection->Stream.ReadHeader( *FileReader ) )
-	{
-		UE_LOG( LogProfilerClient, Error, TEXT( "Could not open, bad magic: %s" ), *DataFilepath );
-		delete FileReader;
-		return;
-	}
-
-	// This shouldn't happen.
-	if( LoadConnection->Stream.Header.bRawStatsFile )
-	{
-		delete FileReader;
-		return;
-	}
-
-	const bool bIsFinalized = LoadConnection->Stream.Header.IsFinalized();
-	if( bIsFinalized )
-	{
-		// Read metadata.
-		TArray<FStatMessage> MetadataMessages;
-		LoadConnection->Stream.ReadFNamesAndMetadataMessages( *FileReader, MetadataMessages );
-		LoadConnection->CurrentThreadState.ProcessMetaDataOnly( MetadataMessages );
-
-		// Read frames offsets.
-		LoadConnection->Stream.ReadFramesOffsets( *FileReader );
-		FileReader->Seek( LoadConnection->Stream.FramesInfo[0].FrameFileOffset );
-	}
-
-	if( LoadConnection->Stream.Header.HasCompressedData() )
-	{
-		UE_CLOG( !bIsFinalized, LogProfilerClient, Fatal, TEXT( "Compressed stats file has to be finalized" ) );
-	}
-
-#if PROFILER_THREADED_LOAD
-	LoadTask = new FAsyncTask<FAsyncReadWorker>(LoadConnection, FileReader);
-	LoadTask->StartBackgroundTask();
-#endif
+	ProfilerLoadStartedDelegate.Broadcast( ProfileId );
+	LoadConnection->LoadCapture( DataFilepath, this );
 
 	RetryTime = 0.05f;
-	TickDelegateHandle = FTicker::GetCoreTicker().AddTicker(TickDelegate, RetryTime);
-	ProfilerLoadStartedDelegate.Broadcast(ProfileId);
+	TickDelegateHandle = FTicker::GetCoreTicker().AddTicker(TickDelegate, RetryTime);	
 #endif
 }
 
@@ -352,7 +348,7 @@ void FProfilerClientManager::RequestLastCapturedFile( const FGuid& InstanceId /*
 void FProfilerClientManager::HandleMessageBusShutdown()
 {
 #if STATS
-	Unsubscribe();
+	Shutdown();
 
 	MessageEndpoint.Reset();
 	MessageBus.Reset();
@@ -369,7 +365,7 @@ void FProfilerClientManager::HandleServiceAuthorizeMessage( const FProfilerServi
 		Connection.Initialize(Message, Context);
 
 		// Fire a meta data update message
-		ProfilerMetaDataUpdatedDelegate.Broadcast(Message.InstanceId);
+		//ProfilerMetaDataUpdatedDelegate.Broadcast(Message.InstanceId);
 
 		// Fire the client connection event
 		ProfilerClientConnectedDelegate.Broadcast(ActiveSessionId, Message.InstanceId);
@@ -379,41 +375,47 @@ void FProfilerClientManager::HandleServiceAuthorizeMessage( const FProfilerServi
 #endif
 }
 
+/*-----------------------------------------------------------------------------
+	FServiceConnection
+-----------------------------------------------------------------------------*/
+
+FServiceConnection::FServiceConnection() 
+	: StatsReader( nullptr )
+{
+}
+
+FServiceConnection::FServiceConnection( const FServiceConnection& InConnnection )
+{
+}
+
+FServiceConnection::~FServiceConnection()
+{
+	if (StatsReader)
+	{
+		StatsReader->RequestStop();
+
+		while (StatsReader->IsBusy())
+		{
+			FPlatformProcess::Sleep( 2.0f );
+			UE_LOG( LogStats, Log, TEXT( "RequestStop: Stage: %s / %3i%%" ), *StatsReader->GetProcessingStageAsString(), StatsReader->GetStageProgress() );
+		}
+
+		delete StatsReader;
+		StatsReader = nullptr;
+	}
+
+	for (const auto& It : ReceivedData)
+	{
+		delete It.Value;
+	}
+}
+
 void FServiceConnection::Initialize( const FProfilerServiceAuthorize& Message, const IMessageContextRef& Context )
 {
 #if STATS
 	ProfilerServiceAddress = Context->GetSender();
 	InstanceId = Message.InstanceId;
 	CurrentData.Frame = 0;
-
-	// Add the supplied meta data.
-	FMemoryReader MemoryReader( Message.Data );
-
-	MetaData.CriticalSection = &CriticalSection;
-	int64 Size = MemoryReader.TotalSize();
-
-	const bool bVerifyHeader = Stream.ReadHeader( MemoryReader );
-	//check( bVerifyHeader );
-
-	// Read in the data.
-	TArray<FStatMessage> StatMessages;
-	{
-		SCOPE_CYCLE_COUNTER(STAT_PC_ReadStatMessages);
-		while(MemoryReader.Tell() < Size)
-		{
-			// read the message
-			new (StatMessages)FStatMessage( Stream.ReadMessage( MemoryReader ) );
-		}
-		new (StatMessages) FStatMessage(FStatConstants::AdvanceFrame.GetEncodedName(), EStatOperation::AdvanceFrameEventGameThread, 1LL, false);
-	}
-
-	// generate a thread state from the data
-	{
-		SCOPE_CYCLE_COUNTER(STAT_PC_AddStatMessages);
-		CurrentThreadState.AddMessages(StatMessages);
-	}
-
-	UpdateMetaData();
 #endif
 }
 
@@ -553,36 +555,6 @@ void FProfilerClientManager::HandleServicePingMessage( const FProfilerServicePin
 #endif
 }
 
-#if PROFILER_THREADED_LOAD
-bool FProfilerClientManager::AsyncLoad()
-{
-#if STATS
-	BroadcastMetadataUpdate();
-
-	if (LoadTask->IsDone())
-	{
-		FinalizeLoading();
-		return false;
-	}
-#endif
-	return true;
-}
-#else
-bool FProfilerClientManager::SyncLoad()
-{
-#if STATS
-	const bool bFinalize = LoadConnection->ReadAndConvertStatMessages( *FileReader, false );
-	BroadcastMetadataUpdate();
-
-	if( bFinalize )
-	{
-		FinalizeLoading();
-		return false;
-	}
-#endif
-	return true;
-}
-#endif
 
 bool FProfilerClientManager::HandleTicker( float DeltaTime )
 {
@@ -600,14 +572,6 @@ bool FProfilerClientManager::HandleTicker( float DeltaTime )
 		}
 		LastPingTime = FDateTime::Now();
 	}
-	else if (LoadConnection)
-	{
-#if PROFILER_THREADED_LOAD
-		return AsyncLoad();
-#else
-		return SyncLoad();
-#endif
-	}
 #endif
 	return false;
 }
@@ -620,7 +584,7 @@ bool FProfilerClientManager::HandleMessagesTicker( float DeltaTime )
 		FServiceConnection& Connection = It.Value();
 
 		TArray<int64> Frames;
-		Connection.PendingMessages.GenerateKeyArray( Frames );
+		Connection.ReceivedData.GenerateKeyArray( Frames );
 		Frames.Sort();
 
 		// MessageBus sends all data in out of order fashion.
@@ -629,38 +593,32 @@ bool FProfilerClientManager::HandleMessagesTicker( float DeltaTime )
 
 		for( int32 Index = 0; Index < Frames.Num(); Index++ )
 		{
-			if (Connection.PendingMessages.Num() < NUM_BUFFERED_FRAMES)
+			if (Connection.ReceivedData.Num() < NUM_BUFFERED_FRAMES)
 			{
 				break;
 			}
 
-			int64 FrameNum = Frames[Index];
-			TArray<uint8>& Data = *Connection.PendingMessages.Find( FrameNum );
+			//FScopeLogTime SLT( "HandleMessagesTicker" );
 
-			// Pass the data to the visualization code.
-			FMemoryReader MemoryReader( Data );
-
-			int64 Size = MemoryReader.TotalSize();
+			const int64 FrameNum = Frames[Index];
+			const TArray<uint8>* const Data = Connection.ReceivedData.FindChecked( FrameNum );
 			FStatsReadStream& Stream = Connection.Stream;
 
-			UE_LOG( LogProfilerClient, VeryVerbose, TEXT( "Frame=%i/%i, FNamesIndexMap=%i, CurrentMetadataSize=%i" ), FrameNum, Frames.Num(), Connection.Stream.FNamesIndexMap.Num(), Connection.CurrentThreadState.ShortNameToLongName.Num() );
 
-			// read in the data and post if we reach a 
+			// Read all messages from the uncompressed buffer.
+			FMemoryReader MemoryReader( *Data, true );
+			while (MemoryReader.Tell() < MemoryReader.TotalSize())
 			{
-				SCOPE_CYCLE_COUNTER(STAT_PC_ReadStatMessages);
-				while(MemoryReader.Tell() < Size)
-				{
-					// read the message
-					FStatMessage Message(Stream.ReadMessage(MemoryReader));
-
-					if (Message.NameAndInfo.GetField<EStatOperation>() == EStatOperation::AdvanceFrameEventGameThread)
-					{
-						Connection.AddCollectedStatMessages( Message );
-					}
-
-					new (Connection.Messages) FStatMessage(Message);
-				}
+				// Read the message.
+				FStatMessage Message( Stream.ReadMessage( MemoryReader ) );
+				new (Connection.PendingStatMessagesMessages)FStatMessage( Message );
 			}
+
+			// Adds a new from from the pending messages, the pending messages will be removed after the call.
+			Connection.CurrentThreadState.ProcessMetaDataAndLeaveDataOnly( Connection.PendingStatMessagesMessages );
+			Connection.CurrentThreadState.AddFrameFromCondensedMessages( Connection.PendingStatMessagesMessages );
+
+			UE_LOG( LogProfilerClient, VeryVerbose, TEXT( "Frame=%i/%i, FNamesIndexMap=%i, CurrentMetadataSize=%i" ), FrameNum, Frames.Num(), Connection.Stream.FNamesIndexMap.Num(), Connection.CurrentThreadState.ShortNameToLongName.Num() );
 
 			// create an old format data frame from the data
 			Connection.GenerateProfilerDataFrame();
@@ -668,13 +626,14 @@ bool FProfilerClientManager::HandleMessagesTicker( float DeltaTime )
 			// Fire a meta data update message
 			if (Connection.CurrentData.MetaDataUpdated)
 			{
-				ProfilerMetaDataUpdatedDelegate.Broadcast(Connection.InstanceId);
+				ProfilerMetaDataUpdatedDelegate.Broadcast( Connection.InstanceId, Connection.StatMetaData );
 			}
 
 			// send the data out
-			ProfilerDataDelegate.Broadcast( Connection.InstanceId, Connection.CurrentData, 0.0f );
+			ProfilerDataDelegate.Broadcast( Connection.InstanceId, Connection.CurrentData );
 
-			Connection.PendingMessages.Remove( FrameNum );
+			delete Data;
+			Connection.ReceivedData.Remove( FrameNum );
 		}
 	}
 
@@ -705,7 +664,7 @@ bool FProfilerClientManager::HandleMessagesTicker( float DeltaTime )
 void FProfilerClientManager::HandleServicePreviewAckMessage( const FProfilerServicePreviewAck& Message, const IMessageContextRef& Context )
 {
 #if STATS
-	if (ActiveSessionId.IsValid() && Connections.Find(Message.InstanceId) != NULL)
+	if (ActiveSessionId.IsValid() && Connections.Find(Message.InstanceId) != nullptr)
 	{
 		FServiceConnection& Connection = *Connections.Find(Message.InstanceId);
 
@@ -756,14 +715,14 @@ void FProfilerClientManager::DecompressDataAndSendToGame( FProfilerServiceData2*
 
 	FSimpleDelegateGraphTask::CreateAndDispatchWhenReady
 	(
-		FSimpleDelegateGraphTask::FDelegate::CreateRaw( this, &FProfilerClientManager::SendToGame, DateToGame, ToProcess->Frame, ToProcess->InstanceId ), 
+		FSimpleDelegateGraphTask::FDelegate::CreateRaw( this, &FProfilerClientManager::SendDataToGame, DateToGame, ToProcess->Frame, ToProcess->InstanceId ), 
 		TStatId(), nullptr, ENamedThreads::GameThread
 	);
 
 	delete ToProcess;
 }
 
-void FProfilerClientManager::SendToGame( TArray<uint8>* DataToGame, int64 Frame, const FGuid InstanceId )
+void FProfilerClientManager::SendDataToGame( TArray<uint8>* DataToGame, int64 Frame, const FGuid InstanceId )
 {
 	if (ActiveSessionId.IsValid() && Connections.Find( InstanceId ) != nullptr)
 	{
@@ -771,99 +730,57 @@ void FProfilerClientManager::SendToGame( TArray<uint8>* DataToGame, int64 Frame,
 
 		// Add the message to the connections queue.
 		UE_LOG( LogProfilerClient, VeryVerbose, TEXT( "Frame: %i, UncompressedSize: %i, InstanceId: %s" ), Frame, DataToGame->Num(), *InstanceId.ToString() );
-		Connection.PendingMessages.Add( Frame, MoveTemp( *DataToGame ) );
+		Connection.ReceivedData.Add( Frame, DataToGame );
 	}
-
-	delete DataToGame;
 }
 
-void FProfilerClientManager::BroadcastMetadataUpdate()
+void FProfilerClientManager::SendProfilerDataFrameToGame( FProfilerDataFrame* NewData, FStatMetaData* MetaDataPtr )
 {
-	while( LoadConnection->DataFrames.Num() > 0 )
+	if (MetaDataPtr)
 	{
-		FScopeLock ScopeLock( &(LoadConnection->CriticalSection) );
-
-		// Fire a meta data update message
-		if( LoadConnection->DataFrames[0].MetaDataUpdated )
-		{
-			ProfilerMetaDataUpdatedDelegate.Broadcast( LoadConnection->InstanceId );
-			ProfilerLoadedMetaDataDelegate.Broadcast( LoadConnection->InstanceId );
-		}
-
-		FProfilerDataFrame& DataFrame = LoadConnection->DataFrames[0];
-		ProfilerDataDelegate.Broadcast( LoadConnection->InstanceId, DataFrame, LoadConnection->DataLoadingProgress );
-		LoadConnection->DataFrames.RemoveAt( 0 );
+		ProfilerMetaDataUpdatedDelegate.Broadcast( LoadConnection->InstanceId, *MetaDataPtr );
+		delete MetaDataPtr;
+		MetaDataPtr = nullptr;
 	}
+
+	if (NewData)
+	{
+		ProfilerDataDelegate.Broadcast( LoadConnection->InstanceId, *NewData );
+		delete NewData;
+		NewData = nullptr;
+	}
+}
+
+void FProfilerClientManager::Shutdown()
+{
+	// Delete all active file writers and remove temporary files.
+	for (auto It = ActiveTransfers.CreateIterator(); It; ++It)
+	{
+		FReceivedFileInfo& ReceivedFileInfo = It.Value();
+
+		delete ReceivedFileInfo.FileWriter;
+		ReceivedFileInfo.FileWriter = nullptr;
+
+		IFileManager::Get().Delete( *ReceivedFileInfo.DestFilepath );
+
+		UE_LOG( LogProfilerClient, Log, TEXT( "File service-client transfer aborted: %s" ), *It.Key() );
+	}
+
+	FTicker::GetCoreTicker().RemoveTicker( MessageDelegateHandle );
+	FTicker::GetCoreTicker().RemoveTicker( TickDelegateHandle );
 }
 
 void FProfilerClientManager::FinalizeLoading()
 {
 	ProfilerLoadCompletedDelegate.Broadcast( LoadConnection->InstanceId );
+	delete LoadConnection->StatsReader;
+	LoadConnection->StatsReader = nullptr;
 	LoadConnection = nullptr;
-#if	PROFILER_THREADED_LOAD
-	delete LoadTask;
-	LoadTask = nullptr;
-#else
-	delete FileReader;
-	FileReader = nullptr;
-#endif // PROFILER_THREADED_LOAD
+
 	RetryTime = 5.f;
 }
 
-void FProfilerClientManager::FAsyncReadWorker::DoWork()
-{
 #if STATS
-	const bool bFinalize = LoadConnection->ReadAndConvertStatMessages( *FileReader, true );
-	if( bFinalize )
-	{
-		FileReader->Close();
-		delete FileReader;
-	}
-#endif
-}
-
-#if STATS
-void FServiceConnection::UpdateMetaData()
-{
-	// loop through the stats meta data messages
-	for (auto It = CurrentThreadState.ShortNameToLongName.CreateConstIterator(); It; ++It)
-	{
-		FStatMessage const& LongName = It.Value();
-		const FName GroupName = LongName.NameAndInfo.GetGroupName();
-
-		uint32 StatType = STATTYPE_Error;
-		if (LongName.NameAndInfo.GetField<EStatDataType>() == EStatDataType::ST_int64)
-		{
-			if( LongName.NameAndInfo.GetFlag( EStatMetaFlags::IsCycle ) )
-			{
-				StatType = STATTYPE_CycleCounter;
-			}
-			else if( LongName.NameAndInfo.GetFlag( EStatMetaFlags::IsMemory ) )
-			{
-				StatType = STATTYPE_MemoryCounter;
-			}
-			else
-			{
-				StatType = STATTYPE_AccumulatorDWORD;
-			}
-		}
-		else if (LongName.NameAndInfo.GetField<EStatDataType>() == EStatDataType::ST_double)
-		{
-			StatType = STATTYPE_AccumulatorFLOAT;
-		}
-		if (StatType != STATTYPE_Error)
-		{
-			FindOrAddStat(LongName.NameAndInfo, StatType);
-		}
-
-		// Threads metadata.
-		const bool bIsThread = FStatConstants::NAME_ThreadGroup == GroupName;
-		if( bIsThread )
-		{
-			FindOrAddThread( LongName.NameAndInfo );
-		}	
-	}
-}
 
 int32 FServiceConnection::FindOrAddStat( const FStatNameAndInfo& StatNameAndInfo, uint32 StatType)
 {
@@ -939,14 +856,11 @@ int32 FServiceConnection::FindOrAddStat( const FStatNameAndInfo& StatNameAndInfo
 			GroupDescription.Name.RemoveFromStart(TEXT("STATGROUP_"));
 
 			// add to the meta data
-			FScopeLock ScopeLock(&CriticalSection);
-			MetaData.GroupDescriptions.Add(GroupDescription.ID, GroupDescription);
+			StatMetaData.GroupDescriptions.Add(GroupDescription.ID, GroupDescription);
 		}
-		{
-			StatDescription.GroupID = GroupID;
-			FScopeLock ScopeLock(&CriticalSection);
-			MetaData.StatDescriptions.Add(StatDescription.ID, StatDescription);
-		}
+
+		StatDescription.GroupID = GroupID;
+		StatMetaData.StatDescriptions.Add(StatDescription.ID, StatDescription);
 	}
 	// return the stat id
 	return StatID;
@@ -963,10 +877,9 @@ int32 FServiceConnection::FindOrAddThread(const FStatNameAndInfo& Thread)
 	const FName ShortName = Thread.GetShortName();
 
 	// add to the meta data
-	FScopeLock ScopeLock( &CriticalSection );
-	const int32 OldNum = MetaData.ThreadDescriptions.Num();
-	MetaData.ThreadDescriptions.Add( ThreadID, ShortName.ToString() );
-	const int32 NewNum = MetaData.ThreadDescriptions.Num();
+	const int32 OldNum = StatMetaData.ThreadDescriptions.Num();
+	StatMetaData.ThreadDescriptions.Add( ThreadID, ShortName.ToString() );
+	const int32 NewNum = StatMetaData.ThreadDescriptions.Num();
 
 	// meta data has been updated
 	CurrentData.MetaDataUpdated = CurrentData.MetaDataUpdated || OldNum != NewNum;
@@ -980,7 +893,6 @@ void FServiceConnection::GenerateAccumulators(TArray<FStatMessage>& Stats, TArra
 	for (int32 Index = 0; Index < Stats.Num(); ++Index)
 	{
 		const FStatMessage& StatMessage = Stats[Index];
-		const FName GroupName = StatMessage.NameAndInfo.GetGroupName();
 
 		uint32 StatType = STATTYPE_Error;
 		if (StatMessage.NameAndInfo.GetField<EStatDataType>() == EStatDataType::ST_int64)
@@ -1023,11 +935,10 @@ void FServiceConnection::GenerateAccumulators(TArray<FStatMessage>& Stats, TArra
 				Data.Value = StatMessage.GetValue_double();
 				FloatAccumulators.Add( Data );
 
-				const FName StatName = StatMessage.NameAndInfo.GetShortName();
-				if (StatName == FStatConstants::NAME_SecondsPerCycle)
+				const FName StatName = StatMessage.NameAndInfo.GetRawName();
+				if (StatName == FStatConstants::RAW_SecondsPerCycle)
 				{
-					FScopeLock ScopeLock( &CriticalSection );
-					MetaData.SecondsPerCycle = StatMessage.GetValue_double();
+					StatMetaData.SecondsPerCycle = StatMessage.GetValue_double();
 				}
 			}
 		}
@@ -1099,99 +1010,6 @@ void FServiceConnection::GenerateCycleGraphs(const FRawStatStackNode& Root, TMap
 		// add to the map
 		CycleGraphs.Add(Graph.ThreadId, Graph);
 	}
-}
-
-bool FServiceConnection::ReadAndConvertStatMessages( FArchive& Reader, bool bUseInAsync )
-{
-	// Buffer used to store the compressed and decompressed data.
-	TArray<uint8> SrcData;
-	TArray<uint8> DestData;
-
-	const bool bHasCompressedData = Stream.Header.HasCompressedData();
-	const bool bIsFinalized = Stream.Header.IsFinalized();
-
-	SCOPE_CYCLE_COUNTER( STAT_PC_ReadStatMessages );
-	if( bHasCompressedData )
-	{
-		while( Reader.Tell() < Reader.TotalSize() )
-		{
-			// Read the compressed data.
-			FCompressedStatsData UncompressedData( SrcData, DestData );
-			Reader << UncompressedData;
-			if( UncompressedData.HasReachedEndOfCompressedData() )
-			{
-				GenerateNewFrame( FStatMessage( FStatConstants::AdvanceFrame.GetEncodedName(), EStatOperation::AdvanceFrameEventGameThread, 0ll, false ), Reader, bUseInAsync );
-				return true;
-			}
-
-			FMemoryReader MemoryReader( DestData );
-
-			while( MemoryReader.Tell() < MemoryReader.TotalSize() )
-			{
-				// read the message
-				FStatMessage Message( Stream.ReadMessage( MemoryReader, bIsFinalized ) );
-				ReadMessages++;
-
-				if( Message.NameAndInfo.GetShortName() != TEXT( "Unknown FName" ) )
-				{
-					if( Message.NameAndInfo.GetField<EStatOperation>() == EStatOperation::AdvanceFrameEventGameThread && ReadMessages > 2 )
-					{
-						GenerateNewFrame( Message, Reader, bUseInAsync );
-					}
-
-					new (Messages)FStatMessage( Message );			
-				}
-				else
-				{
-					break;
-				}	
-			}
-
-			if( !bUseInAsync && DataFrames.Num() < FProfilerClientManager::MaxFramesPerTick )
-			{
-				return false;
-			}
-		}
-	}
-	// Obsolete. Remove later.
-	
-	if( Reader.Tell() >= Reader.TotalSize() )
-	{
-		return true;
-	}
-
-	return false;
-}
-
-void FServiceConnection::GenerateNewFrame( FStatMessage Message, FArchive &Reader, bool bUseInAsync )
-{
-	AddCollectedStatMessages( Message );
-
-	// create an old format data frame from the data
-	GenerateProfilerDataFrame();
-
-	{
-		// add the frame to the work list
-		FScopeLock ScopeLock( &CriticalSection );
-		DataFrames.Add( CurrentData );
-		DataLoadingProgress = (double)Reader.Tell() / (double)Reader.TotalSize();
-	}
-
-	if (bUseInAsync)
-	{
-		if (DataFrames.Num() > FProfilerClientManager::MaxFramesPerTick)
-		{
-			FPlatformProcess::Sleep( 0.1f );
-		}
-	}
-}
-
-void FServiceConnection::AddCollectedStatMessages( FStatMessage Message )
-{
-	SCOPE_CYCLE_COUNTER( STAT_PC_AddStatMessages );
-	new (Messages)FStatMessage( Message );
-	CurrentThreadState.AddMessages( Messages );
-	Messages.Reset();
 }
 
 void FServiceConnection::GenerateProfilerDataFrame()

@@ -1,11 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerPrivatePCH.h"
 
 USequencerSettings::USequencerSettings( const FObjectInitializer& ObjectInitializer )
 	: Super( ObjectInitializer )
 {
-	bAutoKeyEnabled = false;
+	AutoKeyMode = EAutoKeyMode::KeyNone;
 	bKeyAllEnabled = false;
 	bKeyInterpPropertiesOnly = false;
 	KeyInterpolation = EMovieSceneKeyInterpolation::Auto;
@@ -18,8 +18,10 @@ USequencerSettings::USequencerSettings( const FObjectInitializer& ObjectInitiali
 	bSnapKeyTimesToKeys = true;
 	bSnapSectionTimesToInterval = true;
 	bSnapSectionTimesToSections = true;
+	bSnapPlayTimeToKeys = false;
 	bSnapPlayTimeToInterval = true;
 	bSnapPlayTimeToDraggedKey = false;
+	bFixedTimeStepPlayback = true;
 	CurveValueSnapInterval = 10.0f;
 	bSnapCurveValueToInterval = true;
 	bDetailsViewVisible = false;
@@ -27,20 +29,27 @@ USequencerSettings::USequencerSettings( const FObjectInitializer& ObjectInitiali
 	bAutoScrollEnabled = false;
 	bShowCurveEditor = false;
 	bShowCurveEditorCurveToolTips = true;
+	bLinkCurveEditorTimeRange = false;
 	bLooping = false;
 	bKeepCursorInPlayRange = true;
+	bKeepPlayRangeInSectionBounds = true;
+	ZeroPadFrames = 0;
+	bShowCombinedKeyframes = true;
+	bInfiniteKeyAreas = false;
+	bShowChannelColors = false;
+	bShowViewportTransportControls = true;
 }
 
-bool USequencerSettings::GetAutoKeyEnabled() const
+EAutoKeyMode USequencerSettings::GetAutoKeyMode() const
 {
-	return bAutoKeyEnabled;
+	return AutoKeyMode;
 }
 
-void USequencerSettings::SetAutoKeyEnabled(bool InbAutoKeyEnabled)
+void USequencerSettings::SetAutoKeyMode(EAutoKeyMode InAutoKeyMode)
 {
-	if ( bAutoKeyEnabled != InbAutoKeyEnabled )
+	if ( AutoKeyMode != InAutoKeyMode )
 	{
-		bAutoKeyEnabled = InbAutoKeyEnabled;
+		AutoKeyMode = InAutoKeyMode;
 		SaveConfig();
 	}
 }
@@ -213,6 +222,20 @@ void USequencerSettings::SetSnapSectionTimesToSections( bool InbSnapSectionTimes
 	}
 }
 
+bool USequencerSettings::GetSnapPlayTimeToKeys() const
+{
+	return bSnapPlayTimeToKeys;
+}
+
+void USequencerSettings::SetSnapPlayTimeToKeys(bool InbSnapPlayTimeToKeys)
+{
+	if ( bSnapPlayTimeToKeys != InbSnapPlayTimeToKeys )
+	{
+		bSnapPlayTimeToKeys = InbSnapPlayTimeToKeys;
+		SaveConfig();
+	}
+}
+
 bool USequencerSettings::GetSnapPlayTimeToInterval() const
 {
 	return bSnapPlayTimeToInterval;
@@ -237,6 +260,20 @@ void USequencerSettings::SetSnapPlayTimeToDraggedKey(bool InbSnapPlayTimeToDragg
 	if ( bSnapPlayTimeToDraggedKey != InbSnapPlayTimeToDraggedKey )
 	{
 		bSnapPlayTimeToDraggedKey = InbSnapPlayTimeToDraggedKey;
+		SaveConfig();
+	}
+}
+
+bool USequencerSettings::GetFixedTimeStepPlayback() const
+{
+	return bFixedTimeStepPlayback;
+}
+
+void USequencerSettings::SetFixedTimeStepPlayback(bool InbFixedTimeStepPlayback)
+{
+	if ( bFixedTimeStepPlayback != InbFixedTimeStepPlayback )
+	{
+		bFixedTimeStepPlayback = InbFixedTimeStepPlayback;
 		SaveConfig();
 	}
 }
@@ -355,6 +392,20 @@ void USequencerSettings::SetKeepCursorInPlayRange(bool bInKeepCursorInPlayRange)
 	}
 }
 
+bool USequencerSettings::ShouldKeepPlayRangeInSectionBounds() const
+{
+	return bKeepPlayRangeInSectionBounds;
+}
+
+void USequencerSettings::SetKeepPlayRangeInSectionBounds(bool bInKeepPlayRangeInSectionBounds)
+{
+	if (bKeepPlayRangeInSectionBounds != bInKeepPlayRangeInSectionBounds)
+	{
+		bKeepPlayRangeInSectionBounds = bInKeepPlayRangeInSectionBounds;
+		SaveConfig();
+	}
+}
+
 bool USequencerSettings::GetShowCurveEditorCurveToolTips() const
 {
 	return bShowCurveEditorCurveToolTips;
@@ -369,6 +420,94 @@ void USequencerSettings::SetShowCurveEditorCurveToolTips(bool InbShowCurveEditor
 	}
 }
 
+
+bool USequencerSettings::GetLinkCurveEditorTimeRange() const
+{
+	return bLinkCurveEditorTimeRange;
+}
+
+void USequencerSettings::SetLinkCurveEditorTimeRange(bool InbLinkCurveEditorTimeRange)
+{
+	if (bLinkCurveEditorTimeRange != InbLinkCurveEditorTimeRange)
+	{
+		bLinkCurveEditorTimeRange = InbLinkCurveEditorTimeRange;
+		SaveConfig();
+	}
+}
+
+
+uint8 USequencerSettings::GetZeroPadFrames() const
+{
+	return ZeroPadFrames;
+}
+
+void USequencerSettings::SetZeroPadFrames(uint8 InZeroPadFrames)
+{
+	if (ZeroPadFrames != InZeroPadFrames)
+	{
+		ZeroPadFrames = InZeroPadFrames;
+		SaveConfig();
+	}
+}
+
+bool USequencerSettings::GetShowCombinedKeyframes() const
+{
+	return bShowCombinedKeyframes;
+}
+
+void USequencerSettings::SetShowCombinedKeyframes(bool InbShowCombinedKeyframes)
+{
+	if (bShowCombinedKeyframes != InbShowCombinedKeyframes)
+	{
+		bShowCombinedKeyframes = InbShowCombinedKeyframes;
+		SaveConfig();
+	}
+}
+
+
+bool USequencerSettings::GetInfiniteKeyAreas() const
+{
+	return bInfiniteKeyAreas;
+}
+
+void USequencerSettings::SetInfiniteKeyAreas(bool InbInfiniteKeyAreas)
+{
+	if (bInfiniteKeyAreas != InbInfiniteKeyAreas)
+	{
+		bInfiniteKeyAreas = InbInfiniteKeyAreas;
+		SaveConfig();
+	}
+}
+
+
+bool USequencerSettings::GetShowChannelColors() const
+{
+	return bShowChannelColors;
+}
+
+void USequencerSettings::SetShowChannelColors(bool InbShowChannelColors)
+{
+	if (bShowChannelColors != InbShowChannelColors)
+	{
+		bShowChannelColors = InbShowChannelColors;
+		SaveConfig();
+	}
+}
+
+bool USequencerSettings::GetShowViewportTransportControls() const
+{
+	return bShowViewportTransportControls;
+}
+
+void USequencerSettings::SetShowViewportTransportControls(bool bVisible)
+{
+	if (bShowViewportTransportControls != bVisible)
+	{
+		bShowViewportTransportControls = bVisible;
+		SaveConfig();
+	}
+}
+
 float USequencerSettings::SnapTimeToInterval( float InTimeValue ) const
 {
 	return TimeSnapInterval > 0
@@ -379,13 +518,4 @@ float USequencerSettings::SnapTimeToInterval( float InTimeValue ) const
 USequencerSettings::FOnShowCurveEditorChanged& USequencerSettings::GetOnShowCurveEditorChanged()
 {
 	return OnShowCurveEditorChanged;
-}
-
-/** Level editor specific sequencer settings */
-ULevelEditorSequencerSettings::ULevelEditorSequencerSettings( const FObjectInitializer& ObjectInitializer )
-	: Super( ObjectInitializer )
-{
-	bKeyInterpPropertiesOnly = true;
-	TimeSnapInterval = 0.033334f;
-	bShowRangeSlider = true;
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MeshPaintPrivatePCH.h"
 
@@ -93,7 +93,6 @@ FEdModeMeshPaint::FEdModeMeshPaint()
 	  PaintingStartTime( 0.0 ),
 	  ModifiedStaticMeshes(),
 	  TexturePaintingCurrentMeshComponent( NULL ),
-	  TexturePaintingStaticMeshOctree(NULL),
 	  TexturePaintingStaticMeshLOD(0),
 	  PaintingTexture2D( NULL ),
 	  bDoRestoreRenTargets( false ),
@@ -396,7 +395,8 @@ bool FEdModeMeshPaint::InputKey( FEditorViewportClient* InViewportClient, FViewp
 	bool bHandled = false;
 
 	const bool bIsLeftButtonDown = ( InKey == EKeys::LeftMouseButton && InEvent != IE_Released ) || InViewport->KeyState( EKeys::LeftMouseButton );
-	const bool bIsCtrlDown = ( ( InKey == EKeys::LeftControl || InKey == EKeys::RightControl ) && InEvent != IE_Released ) || InViewport->KeyState( EKeys::LeftControl ) || InViewport->KeyState( EKeys::RightControl );
+	const bool bIsRightButtonDown = (InKey == EKeys::RightMouseButton && InEvent != IE_Released) || InViewport->KeyState(EKeys::RightMouseButton);
+	const bool bIsCtrlDown = ((InKey == EKeys::LeftControl || InKey == EKeys::RightControl) && InEvent != IE_Released) || InViewport->KeyState(EKeys::LeftControl) || InViewport->KeyState(EKeys::RightControl);
 	const bool bIsShiftDown = ( ( InKey == EKeys::LeftShift || InKey == EKeys::RightShift ) && InEvent != IE_Released ) || InViewport->KeyState( EKeys::LeftShift ) || InViewport->KeyState( EKeys::RightShift );
 	const bool bIsAltDown = ( ( InKey == EKeys::LeftAlt || InKey == EKeys::RightAlt ) && InEvent != IE_Released ) || InViewport->KeyState( EKeys::LeftAlt ) || InViewport->KeyState( EKeys::RightAlt );
 
@@ -463,7 +463,7 @@ bool FEdModeMeshPaint::InputKey( FEditorViewportClient* InViewportClient, FViewp
 	if( !bIsAltDown && InViewportClient->IsPerspective() && InViewportClient->EngineShowFlags.ModeWidgets)
 	{
 		// Does the user want to paint right now?
-		const bool bUserWantsPaint = bIsLeftButtonDown && !bIsAltDown;
+		const bool bUserWantsPaint = bIsLeftButtonDown && !bIsRightButtonDown && !bIsAltDown;
 		bool bAnyPaintAbleActorsUnderCursor = false;
 
 		// Stop current tracking if the user is no longer painting
@@ -943,8 +943,11 @@ IMeshPaintGeometryAdapter* FEdModeMeshPaint::FindOrAddGeometryAdapter(UMeshCompo
 	{
 		// If this component hasn't yet been seen, make an adapter for it and add it to the map
 		TSharedPtr<IMeshPaintGeometryAdapter> NewAdapter = FMeshPaintAdapterFactory::CreateAdapterForMesh(MeshComponent, PaintingMeshLODIndex, /*TODO: Shouldn't be part of the construction contract: FMeshPaintSettings::Get().UVChannel*/ 0);
-		ComponentToAdapterMap.Add(MeshComponent, NewAdapter);
-		NewAdapter->OnAdded();
+		if (NewAdapter.IsValid())
+		{
+			ComponentToAdapterMap.Add(MeshComponent, NewAdapter);
+			NewAdapter->OnAdded();
+		}
 		return NewAdapter.Get();
 	}
 	else
@@ -959,7 +962,7 @@ void FEdModeMeshPaint::CleanStaleGeometryAdapters(const TArray<UMeshComponent*>&
 	// Remove any stale components from the map
 	for (auto It = ComponentToAdapterMap.CreateIterator(); It; ++It)
 	{
-		if (!ValidComponents.Contains(It.Key()))
+		if (!It.Value()->IsValid() || !ValidComponents.Contains(It.Key()))
 		{
 			It.Value()->OnRemoved();
 			It.RemoveCurrent();
@@ -1022,7 +1025,10 @@ void FEdModeMeshPaint::DoPaint( const FVector& InCameraOrigin,
 		for (UMeshComponent* MeshComponent : SelectedMeshComponents)
 		{
 			IMeshPaintGeometryAdapter* MeshAdapter = FindOrAddGeometryAdapter(MeshComponent);
-			check(MeshAdapter);
+			if (!MeshAdapter)
+			{
+				continue;
+			}
 
 			//@TODO: MESHPAINT: This is copied from the original logic, but the split between this loop and the next still feels a bit off
 			if (InPaintAction == EMeshPaintAction::Fill)
@@ -1246,7 +1252,7 @@ void FEdModeMeshPaint::DoPaint( const FVector& InCameraOrigin,
 						FStaticMeshLODResources& LODModel = StaticMeshComponent->StaticMesh->RenderData->LODResources[PaintingMeshLODIndex];
 
 						// Painting vertex colors
-						PaintMeshVertices(StaticMeshComponent, Params, bShouldApplyPaint, LODModel, ComponentSpaceCameraPosition, ComponentToWorldMatrix, PDI, VisualBiasDistance, *MeshAdapter);
+						PaintMeshVertices(StaticMeshComponent, Params, bShouldApplyPaint, LODModel, ComponentSpaceCameraPosition, ComponentToWorldMatrix, ComponentSpaceSquaredBrushRadius, ComponentSpaceBrushPosition, PDI, VisualBiasDistance, *MeshAdapter);
 					}
 				}
 			}
@@ -1352,7 +1358,9 @@ void FEdModeMeshPaint::PaintMeshVertices(
 	const bool bShouldApplyPaint, 
 	FStaticMeshLODResources& LODModel, 
 	const FVector& ComponentSpaceCameraPosition, 
-	const FMatrix& ComponentToWorldMatrix, 
+	const FMatrix& ComponentToWorldMatrix,
+	const float ComponentSpaceSquaredBrushRadius,
+	const FVector& ComponentSpaceBrushPosition,
 	FPrimitiveDrawInterface* PDI, 
 	const float VisualBiasDistance,
 	const IMeshPaintGeometryAdapter& GeometryInfo)
@@ -1547,48 +1555,35 @@ void FEdModeMeshPaint::PaintMeshVertices(
 			}
 			else
 			{
-				// @todo MeshPaint: Use a spatial database to reduce the triangle set here (kdop)
+				// Get a list of (optionally front-facing) triangles that are within a reasonable distance to the brush
+				TArray<uint32> InfluencedTriangles = GeometryInfo.SphereIntersectTriangles(
+					ComponentSpaceSquaredBrushRadius,
+					ComponentSpaceBrushPosition,
+					ComponentSpaceCameraPosition,
+					bOnlyFrontFacing);
 
 				// Make sure we're dealing with triangle lists
 				FIndexArrayView Indices = LODModel.IndexBuffer.GetArrayView();
 				const int32 NumIndexBufferIndices = Indices.Num();
-				check( NumIndexBufferIndices % 3 == 0 );
+				check(NumIndexBufferIndices % 3 == 0);
 
-				// We don't want to paint the same vertex twice and many vertices are shared between
-				// triangles, so we use a set to track unique front-facing vertex indices
-				static TBitArray<> FrontFacingVertexIndices;
-				FrontFacingVertexIndices.Init( false, NumIndexBufferIndices );
-
-				// For each triangle in the mesh
-				const int32 NumTriangles = NumIndexBufferIndices / 3;
-				for( int32 TriIndex = 0; TriIndex < NumTriangles; ++TriIndex )
+				// Get a list of unique vertices indexed by the influenced triangles
+				TSet<int32> InfluencedVertices;
+				InfluencedVertices.Reserve(InfluencedTriangles.Num());
+				for (int32 InfluencedTriangle : InfluencedTriangles)
 				{
-					// Grab the vertex indices and points for this triangle
-					int32 VertexIndices[ 3 ];
-					FVector TriVertices[ 3 ];
-					for( int32 TriVertexNum = 0; TriVertexNum < 3; ++TriVertexNum )
-					{
-						VertexIndices[ TriVertexNum ] = Indices[ TriIndex * 3 + TriVertexNum ];
-						TriVertices[ TriVertexNum ] = GeometryInfo.GetMeshVertex( VertexIndices[ TriVertexNum ] );
-					}
-
-					// Check to see if the triangle is front facing
-					FVector TriangleNormal = ( TriVertices[ 1 ] - TriVertices[ 0 ] ^ TriVertices[ 2 ] - TriVertices[ 0 ] ).GetSafeNormal();
-					const float SignedPlaneDist = FVector::PointPlaneDist( ComponentSpaceCameraPosition, TriVertices[ 0 ], TriangleNormal );
-					if( !bOnlyFrontFacing || SignedPlaneDist < 0.0f )
-					{
-						FrontFacingVertexIndices[VertexIndices[ 0 ]] = true;
-						FrontFacingVertexIndices[VertexIndices[ 1 ]] = true;
-						FrontFacingVertexIndices[VertexIndices[ 2 ]] = true;
-					}
+					InfluencedVertices.Add(Indices[InfluencedTriangle * 3 + 0]);
+					InfluencedVertices.Add(Indices[InfluencedTriangle * 3 + 1]);
+					InfluencedVertices.Add(Indices[InfluencedTriangle * 3 + 2]);
 				}
 
-				
-				for( TConstSetBitIterator<> CurIndexIt(FrontFacingVertexIndices); CurIndexIt; ++CurIndexIt )
+				// Get mesh vertex array
+				const TArray<FVector>& MeshVertices = GeometryInfo.GetMeshVertices();
+
+				for (int32 VertexIndex : InfluencedVertices)
 				{
 					// Grab the mesh vertex and transform it to world space
-					const int32 VertexIndex = CurIndexIt.GetIndex();
-					FVector	ModelSpaceVertexPosition = GeometryInfo.GetMeshVertex( VertexIndex );
+					FVector	ModelSpaceVertexPosition = MeshVertices[ VertexIndex ];
 					FVector WorldSpaceVertexPosition = ComponentToWorldMatrix.TransformPosition( ModelSpaceVertexPosition );
 
 					FColor OriginalVertexColor = FColor( 255, 255, 255 );
@@ -1727,131 +1722,53 @@ void FEdModeMeshPaint::PaintMeshTexture( UMeshComponent* MeshComponent, const FM
 		}
 	}
 
-	// Keep a list of front-facing triangles that are within a reasonable distance to the brush
-	TArray< int32 > InfluencedTriangles;
+	// Get a list of (optionally front-facing) triangles that are within a reasonable distance to the brush
+	TArray<uint32> InfluencedTriangles = GeometryInfo.SphereIntersectTriangles(
+		ComponentSpaceSquaredBrushRadius,
+		ComponentSpaceBrushPosition,
+		ComponentSpaceCameraPosition,
+		bOnlyFrontFacing);
 
-
-
-	// @todo MeshPaint: Use a spatial database to reduce the triangle set here (kdop)
 	UStaticMeshComponent* StaticMeshComponent = Cast<UStaticMeshComponent>(MeshComponent);
 
 	if ((StaticMeshComponent != nullptr) && (StaticMeshComponent->StaticMesh != nullptr))
 	{
-		//@TODO: MESHPAINT: Move this code to the adapter (need to determine if flushing the octree every frame is disastrous and if so how to add multi-frame state to the adapters)
+		//@TODO: Find a better way to move this generically to the adapter
 		check(StaticMeshComponent->StaticMesh->GetNumLODs() > PaintingMeshLODIndex);
 		FStaticMeshLODResources& LODModel = StaticMeshComponent->StaticMesh->RenderData->LODResources[PaintingMeshLODIndex];
 		const int32 NumSections = LODModel.Sections.Num();
 
-
-		// Make sure we're dealing with triangle lists
-		FIndexArrayView Indices = LODModel.IndexBuffer.GetArrayView();
-		const uint32 NumIndexBufferIndices = Indices.Num();
-		check( NumIndexBufferIndices % 3 == 0 );
-		const uint32 NumTriangles = NumIndexBufferIndices / 3;
-		InfluencedTriangles.Empty(NumTriangles);
-
-		// Use a bit of distance bias to make sure that we get all of the overlapping triangles.  We
-		// definitely don't want our brush to be cut off by a hard triangle edge
-		const float SquaredRadiusBias = ComponentSpaceSquaredBrushRadius * 0.025f;
-
-		if( (TexturePaintingStaticMeshOctree != NULL) && ((TexturePaintingCurrentMeshComponent != MeshComponent) || (TexturePaintingStaticMeshLOD != PaintingMeshLODIndex)) )
+		// Filter out triangles whose subelements don't use our paint target texture in their material
+		for (int32 TriIndex = 0; TriIndex < InfluencedTriangles.Num(); ++TriIndex)
 		{
-			delete TexturePaintingStaticMeshOctree;
-			TexturePaintingStaticMeshOctree = NULL;
-		}
+			bool bKeepTri = false;
 
-		if( TexturePaintingStaticMeshOctree == NULL )
-		{
-			TexturePaintingStaticMeshLOD = PaintingMeshLODIndex;
-			FBox Bounds; 
-			for (int32 VertIndex = 0; VertIndex < Indices.Num(); ++VertIndex)
+			// Check to see if the sub-element that this triangle belongs to actually uses our paint target texture in its material
+			for (int32 SectionIndex = 0; SectionIndex < NumSections; SectionIndex++)
 			{
-				FVector	CurVector = GeometryInfo.GetMeshVertex( Indices[ VertIndex ] );
-				if(VertIndex > 0)
+				FStaticMeshSection& Section = LODModel.Sections[SectionIndex];
+
+				if ((InfluencedTriangles[TriIndex] >= Section.FirstIndex / 3) &&
+					(InfluencedTriangles[TriIndex] < Section.FirstIndex / 3 + Section.NumTriangles))
 				{
-					Bounds.Min.X = FMath::Min<float>( Bounds.Min.X, CurVector.X );
-					Bounds.Min.Y = FMath::Min<float>( Bounds.Min.Y, CurVector.Y );
-					Bounds.Min.Z = FMath::Min<float>( Bounds.Min.Z, CurVector.Z );
-
-					Bounds.Max.X = FMath::Max<float>( Bounds.Max.X, CurVector.X );
-					Bounds.Max.Y = FMath::Max<float>( Bounds.Max.Y, CurVector.Y );
-					Bounds.Max.Z = FMath::Max<float>( Bounds.Max.Z, CurVector.Z );
-				}
-				else
-				{
-					Bounds.Min = CurVector;
-					Bounds.Max = CurVector;
-				}
-			}
-			
-			TexturePaintingStaticMeshOctree = new FMeshTriOctree( Bounds.GetCenter(), Bounds.GetExtent().GetMax() );
-			for( uint32 TriIndex = 0; TriIndex < NumTriangles; ++TriIndex )
-			{
-				// Grab the vertex indices and points for this triangle
-				FMeshTriangle MeshTri;
-				for( int32 TriVertexNum = 0; TriVertexNum < 3; ++TriVertexNum )
-				{
-					const int32 VertexIndex = Indices[ TriIndex * 3 + TriVertexNum ];
-					MeshTri.Vertices[ TriVertexNum ] = GeometryInfo.GetMeshVertex( VertexIndex );
-				}
-				MeshTri.Index = TriIndex;
-				FBox TriBox;
-				TriBox.Min.X = FMath::Min3(MeshTri.Vertices[0].X, MeshTri.Vertices[1].X, MeshTri.Vertices[2].X);
-				TriBox.Min.Y = FMath::Min3(MeshTri.Vertices[0].Y, MeshTri.Vertices[1].Y, MeshTri.Vertices[2].Y);
-				TriBox.Min.Z = FMath::Min3(MeshTri.Vertices[0].Z, MeshTri.Vertices[1].Z, MeshTri.Vertices[2].Z);
-
-				TriBox.Max.X = FMath::Max3(MeshTri.Vertices[0].X, MeshTri.Vertices[1].X, MeshTri.Vertices[2].X);
-				TriBox.Max.Y = FMath::Max3(MeshTri.Vertices[0].Y, MeshTri.Vertices[1].Y, MeshTri.Vertices[2].Y);
-				TriBox.Max.Z = FMath::Max3(MeshTri.Vertices[0].Z, MeshTri.Vertices[1].Z, MeshTri.Vertices[2].Z);
-				MeshTri.BoxCenterAndExtent = FBoxCenterAndExtent( TriBox );
-				TexturePaintingStaticMeshOctree->AddElement(MeshTri);
-			}
-		}
-
-		for(FMeshTriOctree::TConstElementBoxIterator<> TriIt(*TexturePaintingStaticMeshOctree, FBoxCenterAndExtent(ComponentSpaceBrushPosition, FVector(FMath::Sqrt( ComponentSpaceSquaredBrushRadius + SquaredRadiusBias )))); TriIt.HasPendingElements(); TriIt.Advance())
-		{
-			// Check to see if the triangle is front facing
-			FMeshTriangle const& CurrentTri = TriIt.GetCurrentElement();
-			FVector TriangleNormal = ( CurrentTri.Vertices[ 1 ] - CurrentTri.Vertices[ 0 ] ^ CurrentTri.Vertices[ 2 ] - CurrentTri.Vertices[ 0 ] ).GetSafeNormal();
-			const float SignedPlaneDist = FVector::PointPlaneDist( ComponentSpaceCameraPosition, CurrentTri.Vertices[ 0 ], TriangleNormal );
-			if( !bOnlyFrontFacing || SignedPlaneDist < 0.0f )
-			{
-				// At least one triangle vertex was influenced.
-				bool bAddTri = false;
-
-				// Check to see if the sub-element that this triangle belongs to actually uses our paint target texture in its material
-				for (int32 SectionIndex = 0; SectionIndex < NumSections; SectionIndex++)
-				{
-					FStaticMeshSection& Section = LODModel.Sections[ SectionIndex ];
-
-					if( ( CurrentTri.Index >= Section.FirstIndex / 3 ) && 
-						( CurrentTri.Index < Section.FirstIndex / 3 + Section.NumTriangles ) )
+					// The triangle belongs to this element, now we need to check to see if the element material uses our target texture.
+					if ((TargetTexture2D != NULL) && SectionUsesTargetTexture.IsValidIndex(Section.MaterialIndex) && SectionUsesTargetTexture[Section.MaterialIndex])
 					{
-						// The triangle belongs to this element, now we need to check to see if the element material uses our target texture.
-						if ((TargetTexture2D != NULL) && SectionUsesTargetTexture.IsValidIndex(Section.MaterialIndex) && (SectionUsesTargetTexture[Section.MaterialIndex] == true))
-						{
-							bAddTri = true;
-						}
-
-						// Triangles can only be part of one element so we do not need to continue to other elements.
-						break;
+						bKeepTri = true;
 					}
 
+					// Triangles can only be part of one element so we do not need to continue to other elements.
+					break;
 				}
+			}
 
-				if( bAddTri == true )
-				{
-					InfluencedTriangles.Add( CurrentTri.Index );
-				}
+			if (!bKeepTri)
+			{
+				InfluencedTriangles.RemoveAtSwap(TriIndex);
+				TriIndex--;
 			}
 		}
 	}
-	else
-	{
-		// Try the adapter
-		GeometryInfo.SphereIntersectTriangles(InfluencedTriangles, ComponentSpaceSquaredBrushRadius, ComponentSpaceBrushPosition);
-	}
-
 
 	if ((TexturePaintingCurrentMeshComponent != nullptr) && (TexturePaintingCurrentMeshComponent != MeshComponent))
 	{
@@ -2036,7 +1953,7 @@ void FEdModeMeshPaint::StartPaintingTexture(UMeshComponent* InMeshComponent, con
 
 /** Paints on a texture */
 void FEdModeMeshPaint::PaintTexture( const FMeshPaintParameters& InParams,
-									 const TArray< int32 >& InInfluencedTriangles,
+									 const TArray< uint32 >& InInfluencedTriangles,
 									 const FMatrix& InComponentToWorldMatrix,
 									 const IMeshPaintGeometryAdapter& GeometryInfo)
 {
@@ -2137,7 +2054,7 @@ void FEdModeMeshPaint::PaintTexture( const FMeshPaintParameters& InParams,
 	// Process the influenced triangles - storing off a large list is much slower than processing in a single loop
 	for( int32 CurIndex = 0; CurIndex < InInfluencedTriangles.Num(); ++CurIndex )
 	{
-		const int32 TriIndex = InInfluencedTriangles[ CurIndex ];
+		const uint32 TriIndex = InInfluencedTriangles[ CurIndex ];
 		FTexturePaintTriangleInfo CurTriangle;
 		GeometryInfo.GetTriangleInfo(TriIndex, CurTriangle);
 
@@ -2599,12 +2516,6 @@ void FEdModeMeshPaint::FinishPaintingTexture( )
 
 		PaintingTexture2D = NULL;
 		TexturePaintingCurrentMeshComponent = NULL;
-
-		if(!bIsPainting && TexturePaintingStaticMeshOctree != NULL)
-		{
-			delete TexturePaintingStaticMeshOctree;
-			TexturePaintingStaticMeshOctree = NULL;
-		}
 	}
 }
 
@@ -2628,6 +2539,7 @@ void FEdModeMeshPaint::PostUndo()
 {
 	FEdMode::PostUndo();
 	bDoRestoreRenTargets = true;
+	RemoveAllGeometryAdapters();
 }
 
 /** Returns true if we need to force a render/update through based fill/copy */
@@ -2868,19 +2780,22 @@ bool FEdModeMeshPaint::Select( AActor* InActor, bool bInSelected )
 			if (!ComponentToAdapterMap.Contains(MeshComponent))
 			{
 				TSharedPtr<IMeshPaintGeometryAdapter> GeomInfo = FMeshPaintAdapterFactory::CreateAdapterForMesh(MeshComponent, PaintingMeshLODIndex, /*TODO: Shouldn't be part of the construction contract: FMeshPaintSettings::Get().UVChannel*/ 0);
-				ComponentToAdapterMap.Add(MeshComponent, GeomInfo);
-				GeomInfo->OnAdded();
+				if (GeomInfo.IsValid())
+				{
+					ComponentToAdapterMap.Add(MeshComponent, GeomInfo);
+					GeomInfo->OnAdded();
 
-				if (FMeshPaintSettings::Get().ResourceType == EMeshPaintResource::Texture)
-				{
-					SetAllTextureOverrides(*GeomInfo.Get(), MeshComponent);
-				}
-				else if (FMeshPaintSettings::Get().ResourceType == EMeshPaintResource::VertexColors)
-				{
-					//Painting is done on LOD0 so force the mesh to render only LOD0.
-					ApplyOrRemoveForceBestLOD(*GeomInfo.Get(), MeshComponent, /*bApply=*/ true);
+					if (FMeshPaintSettings::Get().ResourceType == EMeshPaintResource::Texture)
 					{
-						FComponentReregisterContext ReregisterContext(MeshComponent);
+						SetAllTextureOverrides(*GeomInfo.Get(), MeshComponent);
+					}
+					else if (FMeshPaintSettings::Get().ResourceType == EMeshPaintResource::VertexColors)
+					{
+						//Painting is done on LOD0 so force the mesh to render only LOD0.
+						ApplyOrRemoveForceBestLOD(*GeomInfo.Get(), MeshComponent, /*bApply=*/ true);
+						{
+							FComponentReregisterContext ReregisterContext(MeshComponent);
+						}
 					}
 				}
 			}
@@ -3811,8 +3726,10 @@ void FEdModeMeshPaint::ApplyOrRemoveForceBestLOD(bool bApply)
 	for (UMeshComponent* MeshComponent : SelectedMeshComponents)
 	{
 		IMeshPaintGeometryAdapter* MeshAdapter = FindOrAddGeometryAdapter(MeshComponent);
-		check(MeshAdapter);
-		ApplyOrRemoveForceBestLOD(*MeshAdapter, MeshComponent, bApply);
+		if (MeshAdapter)
+		{
+			ApplyOrRemoveForceBestLOD(*MeshAdapter, MeshComponent, bApply);
+		}
 	}
 
 	CleanStaleGeometryAdapters(SelectedMeshComponents);
@@ -3835,8 +3752,10 @@ void FEdModeMeshPaint::ApplyVertexColorsToAllLODs()
 	for (UMeshComponent* MeshComponent : SelectedMeshComponents)
 	{
 		IMeshPaintGeometryAdapter* MeshAdapter = FindOrAddGeometryAdapter(MeshComponent);
-		check(MeshAdapter);
-		ApplyVertexColorsToAllLODs(*MeshAdapter, MeshComponent);
+		if (MeshAdapter)
+		{
+			ApplyVertexColorsToAllLODs(*MeshAdapter, MeshComponent);
+		}
 	}
 
 	CleanStaleGeometryAdapters(SelectedMeshComponents);
@@ -4744,8 +4663,10 @@ void FEdModeMeshPaint::Tick(FEditorViewportClient* ViewportClient,float DeltaTim
 		for (UMeshComponent* MeshComponent : SelectedMeshComponents)
 		{
 			IMeshPaintGeometryAdapter* MeshAdapter = FindOrAddGeometryAdapter(MeshComponent);
-			check(MeshAdapter != nullptr);
-			SetSpecificTextureOverrideForMesh(*MeshAdapter, GetSelectedTexture());
+			if (MeshAdapter)
+			{
+				SetSpecificTextureOverrideForMesh(*MeshAdapter, GetSelectedTexture());
+			}
 		}
 
 		CleanStaleGeometryAdapters(SelectedMeshComponents);

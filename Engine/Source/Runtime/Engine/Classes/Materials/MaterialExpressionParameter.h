@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -30,6 +30,10 @@ class UMaterialExpressionParameter : public UMaterialExpression
 	virtual void SetEditableName(const FString& NewName) override;
 #endif
 	//~ End UMaterialExpression Interface
+
+	//~ Begin UObject Interface
+	virtual bool NeedsLoadForClient() const override;
+	//~ End UObject Interface
 
 	ENGINE_API virtual FGuid& GetParameterExpressionId() override
 	{

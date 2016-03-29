@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MetalCommandEncoder.cpp: Metal command encoder wrapper.
@@ -10,8 +10,9 @@
 
 #pragma mark - Public C++ Boilerplate -
 
-FMetalCommandEncoder::FMetalCommandEncoder(void)
-: FrontFacingWinding(MTLWindingClockwise)
+FMetalCommandEncoder::FMetalCommandEncoder(FMetalCommandList& CmdList)
+: CommandList(CmdList)
+, FrontFacingWinding(MTLWindingClockwise)
 , CullMode(MTLCullModeNone)
 #if METAL_API_1_1
 , DepthClipMode(MTLDepthClipModeClip)
@@ -35,7 +36,7 @@ FMetalCommandEncoder::FMetalCommandEncoder(void)
 	Viewport = {0.0, 0.0, 0.0, 0.0, FLT_MIN, FLT_MAX};
 	DepthBias[0] = DepthBias[1] = 0.0f;
 	DepthBias[2] = FLT_MAX;
-	ScissorRect = {0,0, 0,0};
+	ScissorRect = {0,0, 1,1};
 	FMemory::Memzero(BlendColor);
 	StencilRef[0] = StencilRef[1] = 0xff;
 	
@@ -53,8 +54,11 @@ FMetalCommandEncoder::FMetalCommandEncoder(void)
 
 FMetalCommandEncoder::~FMetalCommandEncoder(void)
 {
-	EndEncoding();
-	CommitCommandBuffer(false);
+	if (CommandBuffer)
+	{
+		EndEncoding();
+		CommitCommandBuffer(false);
+	}
 	
 	if(ComputePipelineState)
 	{
@@ -69,8 +73,81 @@ FMetalCommandEncoder::~FMetalCommandEncoder(void)
 		[DepthStencilState release];
 	}
 	[RenderPassDesc release];
-}
+
+	if(DebugGroups)
+	{
+		[DebugGroups release];
+	}
 	
+	for(int32 i = 0; i < SF_NumFrequencies; i++)
+	{
+		for(int32 j = 0; j < ML_MaxSamplers; j++)
+		{
+			if(ShaderSamplers[i].Samplers[j])
+			{
+				[ShaderSamplers[i].Samplers[j] release];
+			}
+		}
+	}
+}
+
+void FMetalCommandEncoder::Reset(void)
+{
+	check(!CommandBuffer);
+	
+	if(ComputePipelineState)
+	{
+		[ComputePipelineState release];
+		ComputePipelineState = nil;
+	}
+	if(RenderPipelineState)
+	{
+		[RenderPipelineState release];
+		RenderPipelineState = nil;
+	}
+	if(DepthStencilState)
+	{
+		[DepthStencilState release];
+		DepthStencilState = nil;
+	}
+	[RenderPassDesc release];
+	RenderPassDesc = nil;
+	
+	[DebugGroups removeAllObjects];
+	
+	FrontFacingWinding = MTLWindingClockwise;
+	CullMode = MTLCullModeNone;
+#if METAL_API_1_1
+	DepthClipMode = MTLDepthClipModeClip;
+#endif
+	FillMode = MTLTriangleFillModeFill;
+	VisibilityMode = MTLVisibilityResultModeDisabled;
+	
+	Viewport = {0.0, 0.0, 0.0, 0.0, FLT_MIN, FLT_MAX};
+	DepthBias[0] = DepthBias[1] = 0.0f;
+	DepthBias[2] = FLT_MAX;
+	ScissorRect = {0,0, 1,1};
+	FMemory::Memzero(BlendColor);
+	StencilRef[0] = StencilRef[1] = 0xff;
+	
+	FMemory::Memzero(ShaderBuffers);
+	FMemory::Memzero(ShaderTextures);
+	for(int32 i = 0; i < SF_NumFrequencies; i++)
+	{
+		for(int32 j = 0; j < ML_MaxSamplers; j++)
+		{
+			if(ShaderSamplers[i].Samplers[j])
+			{
+				[ShaderSamplers[i].Samplers[j] release];
+			}
+			ShaderSamplers[i].Samplers[j] = nil;
+			ShaderSamplers[i].MaxLods[j] = FLT_MAX;
+			ShaderSamplers[i].MinLods[j] = 0.0;
+		}
+		ShaderSamplers[i].Bound = 0;
+	}
+}
+
 #pragma mark - Public Command Buffer Mutators -
 
 void FMetalCommandEncoder::StartCommandBuffer(id<MTLCommandBuffer> const InCommandBuffer)
@@ -83,6 +160,11 @@ void FMetalCommandEncoder::StartCommandBuffer(id<MTLCommandBuffer> const InComma
 	id<MTLCommandBuffer> OldCommandBuffer = CommandBuffer;
 	CommandBuffer = InCommandBuffer;
 	[OldCommandBuffer release];
+	
+	if ([DebugGroups count] > 0)
+	{
+		[InCommandBuffer setLabel:[DebugGroups lastObject]];
+	}
 }
 	
 void FMetalCommandEncoder::CommitCommandBuffer(bool const bWait)
@@ -90,11 +172,13 @@ void FMetalCommandEncoder::CommitCommandBuffer(bool const bWait)
 	check(CommandBuffer);
 	check(IsRenderCommandEncoderActive() == false && IsComputeCommandEncoderActive() == false && IsBlitCommandEncoderActive() == false);
 	
-	[CommandBuffer commit];
-	if(bWait)
+	if (CommandBuffer.label == nil && [DebugGroups count] > 0)
 	{
-		[CommandBuffer waitUntilCompleted];
+		[CommandBuffer setLabel:[DebugGroups lastObject]];
 	}
+	
+	CommandList.Commit(CommandBuffer, bWait);
+
 	[CommandBuffer release];
 	CommandBuffer = nil;
 }
@@ -133,35 +217,26 @@ id<MTLBlitCommandEncoder> FMetalCommandEncoder::GetBlitCommandEncoder(void) cons
 	
 #pragma mark - Public Command Encoder Mutators -
 
-void FMetalCommandEncoder::BeginRenderCommandEncoding(MTLRenderPassDescriptor* const RenderPass)
+void FMetalCommandEncoder::BeginRenderCommandEncoding(void)
 {
-	check(RenderPass);
+	check(RenderPassDesc);
 	check(CommandBuffer);
 	check(IsRenderCommandEncoderActive() == false && IsComputeCommandEncoderActive() == false && IsBlitCommandEncoderActive() == false);
 	
-	if(RenderPass != RenderPassDesc)
-	{
-		[RenderPass retain];
-		if(RenderPassDesc)
-		{
-			GetMetalDeviceContext().ReleaseObject(RenderPassDesc);
-		}
-		RenderPassDesc = RenderPass;
-	}
-	
-	RenderCommandEncoder = [[CommandBuffer renderCommandEncoderWithDescriptor:RenderPass] retain];
+	RenderCommandEncoder = [[CommandBuffer renderCommandEncoderWithDescriptor:RenderPassDesc] retain];
 	
 	if(GEmitDrawEvents)
 	{
 		NSString* Label = [DebugGroups count] > 0 ? [DebugGroups lastObject] : (NSString*)CFSTR("InitialPass");
 		[RenderCommandEncoder setLabel:Label];
-    }
-    
-    for(uint32 i = 0; i < SF_NumFrequencies; i++)
-    {
-        ShaderBuffers[i].Bound = 0;
-		ShaderTextures[i].Bound = 0;
-		ShaderSamplers[i].Bound = 0;
+		
+		if([DebugGroups count])
+		{
+			for (NSString* Group in DebugGroups)
+			{
+				[RenderCommandEncoder pushDebugGroup:Group];
+			}
+		}
     }
 }
 
@@ -171,7 +246,7 @@ void FMetalCommandEncoder::RestoreRenderCommandEncoding(void)
 	check(CommandBuffer);
 	check(IsRenderCommandEncoderActive() == false && IsComputeCommandEncoderActive() == false && IsBlitCommandEncoderActive() == false);
 	
-	BeginRenderCommandEncoding(RenderPassDesc);
+	BeginRenderCommandEncoding();
 	RestoreRenderCommandEncodingState();
 }
 
@@ -216,43 +291,37 @@ void FMetalCommandEncoder::RestoreRenderCommandEncodingState(void)
 	
 	for(uint32 i = 0; i < ML_MaxBuffers; i++)
 	{
-		if(ShaderBuffers[SF_Vertex].Buffers[i] != nil)
+		if(ShaderBuffers[SF_Vertex].Buffers[i] != nil && (ShaderBuffers[SF_Vertex].Bound & (1 << i)))
 		{
-            ShaderBuffers[SF_Vertex].Bound |= (1 << i);
 			[RenderCommandEncoder setVertexBuffer:ShaderBuffers[SF_Vertex].Buffers[i] offset:ShaderBuffers[SF_Vertex].Offsets[i] atIndex:i];
 		}
-		if(ShaderBuffers[SF_Pixel].Buffers[i] != nil)
+		if(ShaderBuffers[SF_Pixel].Buffers[i] != nil && (ShaderBuffers[SF_Pixel].Bound & (1 << i)))
         {
-            ShaderBuffers[SF_Pixel].Bound |= (1 << i);
 			[RenderCommandEncoder setFragmentBuffer:ShaderBuffers[SF_Pixel].Buffers[i] offset:ShaderBuffers[SF_Pixel].Offsets[i] atIndex:i];
 		}
 	}
 	
 	for(uint32 i = 0; i < ML_MaxTextures; i++)
 	{
-		if(ShaderTextures[SF_Vertex].Textures[i])
+		if(ShaderTextures[SF_Vertex].Textures[i] && (ShaderTextures[SF_Vertex].Bound & (1 << i)))
 		{
-			ShaderTextures[SF_Vertex].Bound |= (1 << i);
 			[RenderCommandEncoder setVertexTexture:ShaderTextures[SF_Vertex].Textures[i] atIndex:i];
 		}
 		
-		if(ShaderTextures[SF_Pixel].Textures[i])
+		if(ShaderTextures[SF_Pixel].Textures[i] && (ShaderTextures[SF_Pixel].Bound & (1 << i)))
 		{
-			ShaderTextures[SF_Pixel].Bound |= (1 << i);
 			[RenderCommandEncoder setFragmentTexture:ShaderTextures[SF_Pixel].Textures[i] atIndex:i];
 		}
 	}
 	
 	for(uint32 i = 0; i < ML_MaxSamplers; i++)
 	{
-		if(ShaderSamplers[SF_Vertex].Samplers[i] != nil)
+		if(ShaderSamplers[SF_Vertex].Samplers[i] != nil && (ShaderSamplers[SF_Vertex].Bound & (1 << i)))
 		{
-			ShaderSamplers[SF_Vertex].Bound |= (1 << i);
 			[RenderCommandEncoder setVertexSamplerState:ShaderSamplers[SF_Vertex].Samplers[i] lodMinClamp:ShaderSamplers[SF_Vertex].MinLods[i] lodMaxClamp:ShaderSamplers[SF_Vertex].MaxLods[i] atIndex:i];
 		}
-		if(ShaderSamplers[SF_Pixel].Samplers[i] != nil)
+		if(ShaderSamplers[SF_Pixel].Samplers[i] != nil && (ShaderSamplers[SF_Pixel].Bound & (1 << i)))
 		{
-			ShaderSamplers[SF_Pixel].Bound |= (1 << i);
 			[RenderCommandEncoder setFragmentSamplerState:ShaderSamplers[SF_Pixel].Samplers[i] lodMinClamp:ShaderSamplers[SF_Pixel].MinLods[i] lodMaxClamp:ShaderSamplers[SF_Pixel].MaxLods[i] atIndex:i];
 		}
 	}
@@ -271,6 +340,14 @@ void FMetalCommandEncoder::BeginComputeCommandEncoding(void)
 	{
 		NSString* Label = [DebugGroups count] > 0 ? [DebugGroups lastObject] : (NSString*)CFSTR("InitialPass");
 		[ComputeCommandEncoder setLabel:Label];
+		
+		if([DebugGroups count])
+		{
+			for (NSString* Group in DebugGroups)
+			{
+				[ComputeCommandEncoder pushDebugGroup:Group];
+			}
+		}
 	}
 	
     for(uint32 i = 0; i < SF_NumFrequencies; i++)
@@ -281,12 +358,64 @@ void FMetalCommandEncoder::BeginComputeCommandEncoding(void)
     }
 }
 
+void FMetalCommandEncoder::RestoreComputeCommandEncodingState(void)
+{
+	check(ComputeCommandEncoder);
+	
+	PushDebugGroup(@"RestoreComputeCommandEncodingState");
+	
+	[ComputeCommandEncoder setComputePipelineState:ComputePipelineState];
+	
+	for(uint32 i = 0; i < ML_MaxBuffers; i++)
+	{
+		if(ShaderBuffers[SF_Compute].Buffers[i] != nil)
+		{
+			ShaderBuffers[SF_Compute].Bound |= (1 << i);
+			[ComputeCommandEncoder setBuffer:ShaderBuffers[SF_Compute].Buffers[i] offset:ShaderBuffers[SF_Compute].Offsets[i] atIndex:i];
+		}
+	}
+	
+	for(uint32 i = 0; i < ML_MaxTextures; i++)
+	{
+		if(ShaderTextures[SF_Compute].Textures[i])
+		{
+			ShaderTextures[SF_Compute].Bound |= (1 << i);
+			[ComputeCommandEncoder setTexture:ShaderTextures[SF_Compute].Textures[i] atIndex:i];
+		}
+	}
+	
+	for(uint32 i = 0; i < ML_MaxSamplers; i++)
+	{
+		if(ShaderSamplers[SF_Compute].Samplers[i] != nil)
+		{
+			ShaderSamplers[SF_Compute].Bound |= (1 << i);
+			[ComputeCommandEncoder setSamplerState:ShaderSamplers[SF_Compute].Samplers[i] lodMinClamp:ShaderSamplers[SF_Compute].MinLods[i] lodMaxClamp:ShaderSamplers[SF_Compute].MaxLods[i] atIndex:i];
+		}
+	}
+	
+	PopDebugGroup();
+}
+
 void FMetalCommandEncoder::BeginBlitCommandEncoding(void)
 {
 	check(CommandBuffer);
 	check(IsRenderCommandEncoderActive() == false && IsComputeCommandEncoderActive() == false && IsBlitCommandEncoderActive() == false);
 	
 	BlitCommandEncoder = [[CommandBuffer blitCommandEncoder] retain];
+	
+	if(GEmitDrawEvents)
+	{
+		NSString* Label = [DebugGroups count] > 0 ? [DebugGroups lastObject] : (NSString*)CFSTR("InitialPass");
+		[BlitCommandEncoder setLabel:Label];
+		
+		if([DebugGroups count])
+		{
+			for (NSString* Group in DebugGroups)
+			{
+				[BlitCommandEncoder pushDebugGroup:Group];
+			}
+		}
+	}
 }
 
 void FMetalCommandEncoder::EndEncoding(void)
@@ -315,47 +444,117 @@ void FMetalCommandEncoder::EndEncoding(void)
 
 void FMetalCommandEncoder::InsertDebugSignpost(NSString* const String)
 {
-	[RenderCommandEncoder insertDebugSignpost:String];
+	if (RenderCommandEncoder)
+	{
+		[RenderCommandEncoder insertDebugSignpost:String];
+	}
+	if (ComputeCommandEncoder)
+	{
+		[ComputeCommandEncoder insertDebugSignpost:String];
+	}
+	if (BlitCommandEncoder)
+	{
+		[BlitCommandEncoder insertDebugSignpost:String];
+	}
 }
 
 void FMetalCommandEncoder::PushDebugGroup(NSString* const String)
 {
 	[DebugGroups addObject:String];
-	[RenderCommandEncoder pushDebugGroup:String];
+	if (RenderCommandEncoder)
+	{
+		[RenderCommandEncoder pushDebugGroup:String];
+	}
+	else if (ComputeCommandEncoder)
+	{
+		[ComputeCommandEncoder pushDebugGroup:String];
+	}
+	else if (BlitCommandEncoder)
+	{
+		[BlitCommandEncoder pushDebugGroup:String];
+	}
 }
 
 void FMetalCommandEncoder::PopDebugGroup(void)
 {
 	[DebugGroups removeLastObject];
-	[RenderCommandEncoder popDebugGroup];
+	if (RenderCommandEncoder)
+	{
+		[RenderCommandEncoder popDebugGroup];
+	}
+	else if (ComputeCommandEncoder)
+	{
+		[ComputeCommandEncoder popDebugGroup];
+	}
+	else if (BlitCommandEncoder)
+	{
+		[BlitCommandEncoder popDebugGroup];
+	}
 }
 	
 #pragma mark - Public Render State Mutators -
+
+void FMetalCommandEncoder::SetRenderPassDescriptor(MTLRenderPassDescriptor* const RenderPass, bool const bReset)
+{
+	check(IsRenderCommandEncoderActive() == false && IsComputeCommandEncoderActive() == false && IsBlitCommandEncoderActive() == false);
+	
+	if(RenderPass != RenderPassDesc)
+	{
+		[RenderPass retain];
+		if(RenderPassDesc)
+		{
+			GetMetalDeviceContext().ReleaseObject(RenderPassDesc);
+		}
+		RenderPassDesc = RenderPass;
+	}
+	
+	if (bReset)
+	{
+		for(uint32 i = 0; i < SF_NumFrequencies; i++)
+		{
+			ShaderBuffers[i].Bound = 0;
+			ShaderTextures[i].Bound = 0;
+			ShaderSamplers[i].Bound = 0;
+		}
+	}
+}
 
 void FMetalCommandEncoder::SetRenderPipelineState(id<MTLRenderPipelineState> PipelineState)
 {
 	[PipelineState retain];
 	[RenderPipelineState release];
 	RenderPipelineState = PipelineState;
-	[RenderCommandEncoder setRenderPipelineState:RenderPipelineState];
+	if (RenderCommandEncoder)
+	{
+		[RenderCommandEncoder setRenderPipelineState:RenderPipelineState];
+	}
 }
 
 void FMetalCommandEncoder::SetViewport(MTLViewport const& InViewport)
 {
 	Viewport = InViewport;
-	[RenderCommandEncoder setViewport:Viewport];
+	if (RenderCommandEncoder)
+	{
+		[RenderCommandEncoder setViewport:Viewport];
+	}
 }
 
 void FMetalCommandEncoder::SetFrontFacingWinding(MTLWinding const InFrontFacingWinding)
 {
 	FrontFacingWinding = InFrontFacingWinding;
-	[RenderCommandEncoder setFrontFacingWinding:FrontFacingWinding];
+	if (RenderCommandEncoder)
+	{
+		[RenderCommandEncoder setFrontFacingWinding:FrontFacingWinding];
+	}
 }
 
 void FMetalCommandEncoder::SetCullMode(MTLCullMode const InCullMode)
 {
 	CullMode = InCullMode;
-	[RenderCommandEncoder setCullMode:InCullMode];
+	if (RenderCommandEncoder)
+	{
+		[RenderCommandEncoder setCullMode:InCullMode];
+	}
 }
 
 #if METAL_API_1_1
@@ -364,7 +563,10 @@ void FMetalCommandEncoder::SetDepthClipMode(MTLDepthClipMode const InDepthClipMo
 	DepthClipMode = InDepthClipMode;
 	if(GetMetalDeviceContext().SupportsFeature(EMetalFeaturesDepthClipMode))
 	{
-		[RenderCommandEncoder setDepthClipMode:InDepthClipMode];
+		if (RenderCommandEncoder)
+		{
+			[RenderCommandEncoder setDepthClipMode:InDepthClipMode];
+		}
 	}
 	else
 	{
@@ -378,19 +580,28 @@ void FMetalCommandEncoder::SetDepthBias(float const InDepthBias, float const InS
 	DepthBias[0] = InDepthBias;
 	DepthBias[1] = InSlopeScale;
 	DepthBias[2] = InClamp;
-	[RenderCommandEncoder setDepthBias:InDepthBias slopeScale:InSlopeScale clamp:InClamp];
+	if (RenderCommandEncoder)
+	{
+		[RenderCommandEncoder setDepthBias:InDepthBias slopeScale:InSlopeScale clamp:InClamp];
+	}
 }
 
 void FMetalCommandEncoder::SetScissorRect(MTLScissorRect const& Rect)
 {
 	ScissorRect = Rect;
-	[RenderCommandEncoder setScissorRect:ScissorRect];
+	if (RenderCommandEncoder)
+	{
+		[RenderCommandEncoder setScissorRect:ScissorRect];
+	}
 }
 
 void FMetalCommandEncoder::SetTriangleFillMode(MTLTriangleFillMode const InFillMode)
 {
 	FillMode = InFillMode;
-	[RenderCommandEncoder setTriangleFillMode:FillMode];
+	if (RenderCommandEncoder)
+	{
+		[RenderCommandEncoder setTriangleFillMode:FillMode];
+	}
 }
 
 void FMetalCommandEncoder::SetBlendColor(float const Red, float const Green, float const Blue, float const Alpha)
@@ -399,7 +610,10 @@ void FMetalCommandEncoder::SetBlendColor(float const Red, float const Green, flo
 	BlendColor[1] = Green;
 	BlendColor[2] = Blue;
 	BlendColor[3] = Alpha;
-	[RenderCommandEncoder setBlendColorRed:Red green:Green blue:Blue alpha:Alpha];
+	if (RenderCommandEncoder)
+	{
+		[RenderCommandEncoder setBlendColorRed:Red green:Green blue:Blue alpha:Alpha];
+	}
 }
 
 void FMetalCommandEncoder::SetDepthStencilState(id<MTLDepthStencilState> const InDepthStencilState)
@@ -407,30 +621,39 @@ void FMetalCommandEncoder::SetDepthStencilState(id<MTLDepthStencilState> const I
 	[InDepthStencilState retain];
 	[DepthStencilState release];
 	DepthStencilState = InDepthStencilState;
-	[RenderCommandEncoder setDepthStencilState:InDepthStencilState];
+	if (RenderCommandEncoder)
+	{
+		[RenderCommandEncoder setDepthStencilState:InDepthStencilState];
+	}
 }
 
 void FMetalCommandEncoder::SetStencilReferenceValue(uint32 const ReferenceValue)
 {
 	StencilRef[0] = ReferenceValue;
 	StencilRef[1] = ReferenceValue;
-	[RenderCommandEncoder setStencilReferenceValue:ReferenceValue];
+	if (RenderCommandEncoder)
+	{
+		[RenderCommandEncoder setStencilReferenceValue:ReferenceValue];
+	}
 }
 
 void FMetalCommandEncoder::SetStencilReferenceValue(uint32 const FrontReferenceValue, uint32 const BackReferenceValue)
 {
 	StencilRef[0] = FrontReferenceValue;
 	StencilRef[1] = BackReferenceValue;
+	if (RenderCommandEncoder)
+	{
 #if METAL_API_1_1
-	if(GetMetalDeviceContext().SupportsFeature(EMetalFeaturesSeparateStencil))
-	{
-		[RenderCommandEncoder setStencilFrontReferenceValue: FrontReferenceValue backReferenceValue:BackReferenceValue];
-	}
-	else
+		if(GetMetalDeviceContext().SupportsFeature(EMetalFeaturesSeparateStencil))
+		{
+			[RenderCommandEncoder setStencilFrontReferenceValue: FrontReferenceValue backReferenceValue:BackReferenceValue];
+		}
+		else
 #endif
-	{
-		UE_LOG(LogMetal, Warning, TEXT("Attempting to set separate stencil ref on device which only supports unified stencil ref."));
-		[RenderCommandEncoder setStencilReferenceValue: FrontReferenceValue];
+		{
+			UE_LOG(LogMetal, Warning, TEXT("Attempting to set separate stencil ref on device which only supports unified stencil ref."));
+			[RenderCommandEncoder setStencilReferenceValue: FrontReferenceValue];
+		}
 	}
 }
 
@@ -438,7 +661,10 @@ void FMetalCommandEncoder::SetVisibilityResultMode(MTLVisibilityResultMode const
 {
 	VisibilityMode = Mode;
 	VisibilityOffset = Offset;
-	[RenderCommandEncoder setVisibilityResultMode: Mode offset:Offset];
+	if (RenderCommandEncoder)
+	{
+		[RenderCommandEncoder setVisibilityResultMode: Mode offset:Offset];
+	}
 }
 	
 #pragma mark - Public Shader Resource Mutators -
@@ -465,14 +691,22 @@ void FMetalCommandEncoder::SetShaderBuffer(EShaderFrequency Frequency, id<MTLBuf
         switch (Frequency)
         {
             case SF_Vertex:
-                [RenderCommandEncoder setVertexBuffer:Buffer offset:Offset atIndex:index];
+				if (RenderCommandEncoder)
+				{
+					[RenderCommandEncoder setVertexBuffer:Buffer offset:Offset atIndex:index];
+				}
                 break;
             case SF_Pixel:
-                [RenderCommandEncoder setFragmentBuffer:Buffer offset:Offset atIndex:index];
+				if (RenderCommandEncoder)
+				{
+					[RenderCommandEncoder setFragmentBuffer:Buffer offset:Offset atIndex:index];
+				}
                 break;
             case SF_Compute:
-                checkf(ComputeCommandEncoder != nil, TEXT("Attempted to use ComputeCommandEncoder before calling FMetalContext::ConditionalSwitchToCompute(void) to create the encoder"));
-                [ComputeCommandEncoder setBuffer:Buffer offset:Offset atIndex:index];
+				if (ComputeCommandEncoder)
+				{
+					[ComputeCommandEncoder setBuffer:Buffer offset:Offset atIndex:index];
+				}
                 break;
             default:
                 check(false);
@@ -492,14 +726,22 @@ void FMetalCommandEncoder::SetShaderBufferOffset(EShaderFrequency Frequency, NSU
 		switch (Frequency)
 		{
 			case SF_Vertex:
-				[RenderCommandEncoder setVertexBufferOffset:Offset atIndex:index];
+				if (RenderCommandEncoder)
+				{
+					[RenderCommandEncoder setVertexBufferOffset:Offset atIndex:index];
+				}
 				break;
 			case SF_Pixel:
-				[RenderCommandEncoder setFragmentBufferOffset:Offset atIndex:index];
+				if (RenderCommandEncoder)
+				{
+					[RenderCommandEncoder setFragmentBufferOffset:Offset atIndex:index];
+				}
 				break;
 			case SF_Compute:
-				checkf(ComputeCommandEncoder != nil, TEXT("Attempted to use ComputeCommandEncoder before calling FMetalContext::ConditionalSwitchToCompute(void) to create the encoder"));
-				[ComputeCommandEncoder setBufferOffset:Offset atIndex:index];
+				if (ComputeCommandEncoder)
+				{
+					[ComputeCommandEncoder setBufferOffset:Offset atIndex:index];
+				}
 				break;
 			default:
 				check(false);
@@ -532,14 +774,22 @@ void FMetalCommandEncoder::SetShaderBuffers(EShaderFrequency Frequency, id<MTLBu
 	switch (Frequency)
 	{
 		case SF_Vertex:
-			[RenderCommandEncoder setVertexBuffers:Buffers offsets:Offsets withRange:Range];
+			if (RenderCommandEncoder)
+			{
+				[RenderCommandEncoder setVertexBuffers:Buffers offsets:Offsets withRange:Range];
+			}
 			break;
 		case SF_Pixel:
-			[RenderCommandEncoder setFragmentBuffers:Buffers offsets:Offsets withRange:Range];
+			if (RenderCommandEncoder)
+			{
+				[RenderCommandEncoder setFragmentBuffers:Buffers offsets:Offsets withRange:Range];
+			}
 			break;
 		case SF_Compute:
-			checkf(ComputeCommandEncoder != nil, TEXT("Attempted to use ComputeCommandEncoder before calling FMetalContext::ConditionalSwitchToCompute(void) to create the encoder"));
-			[ComputeCommandEncoder setBuffers:Buffers offsets:Offsets withRange:Range];
+			if (ComputeCommandEncoder)
+			{
+				[ComputeCommandEncoder setBuffers:Buffers offsets:Offsets withRange:Range];
+			}
 			break;
 		default:
 			check(false);
@@ -565,14 +815,22 @@ void FMetalCommandEncoder::SetShaderTexture(EShaderFrequency Frequency, id<MTLTe
 	switch (Frequency)
 	{
 		case SF_Vertex:
-			[RenderCommandEncoder setVertexTexture:Texture atIndex:index];
+			if (RenderCommandEncoder)
+			{
+				[RenderCommandEncoder setVertexTexture:Texture atIndex:index];
+			}
 			break;
 		case SF_Pixel:
-			[RenderCommandEncoder setFragmentTexture:Texture atIndex:index];
+			if (RenderCommandEncoder)
+			{
+				[RenderCommandEncoder setFragmentTexture:Texture atIndex:index];
+			}
 			break;
 		case SF_Compute:
-			checkf(ComputeCommandEncoder != nil, TEXT("Attempted to use ComputeCommandEncoder before calling FMetalContext::ConditionalSwitchToCompute(void) to create the encoder"));
-			[ComputeCommandEncoder setTexture:Texture atIndex:index];
+			if (ComputeCommandEncoder)
+			{
+				[ComputeCommandEncoder setTexture:Texture atIndex:index];
+			}
 			break;
 		default:
 			check(false);
@@ -600,14 +858,22 @@ void FMetalCommandEncoder::SetShaderTextures(EShaderFrequency Frequency, const i
 	switch (Frequency)
 	{
 		case SF_Vertex:
-			[RenderCommandEncoder setVertexTextures:Textures withRange:Range];
+			if (RenderCommandEncoder)
+			{
+				[RenderCommandEncoder setVertexTextures:Textures withRange:Range];
+			}
 			break;
 		case SF_Pixel:
-			[RenderCommandEncoder setFragmentTextures:Textures withRange:Range];
+			if (RenderCommandEncoder)
+			{
+				[RenderCommandEncoder setFragmentTextures:Textures withRange:Range];
+			}
 			break;
 		case SF_Compute:
-			checkf(ComputeCommandEncoder != nil, TEXT("Attempted to use ComputeCommandEncoder before calling FMetalContext::ConditionalSwitchToCompute(void) to create the encoder"));
-			[ComputeCommandEncoder setTextures:Textures withRange:Range];
+			if (ComputeCommandEncoder)
+			{
+				[ComputeCommandEncoder setTextures:Textures withRange:Range];
+			}
 			break;
 		default:
 			check(false);
@@ -637,14 +903,22 @@ void FMetalCommandEncoder::SetShaderSamplerState(EShaderFrequency Frequency, id<
 	switch (Frequency)
 	{
 		case SF_Vertex:
-			[RenderCommandEncoder setVertexSamplerState:Sampler atIndex:index];
+			if (RenderCommandEncoder)
+			{
+				[RenderCommandEncoder setVertexSamplerState:Sampler atIndex:index];
+			}
 			break;
 		case SF_Pixel:
-			[RenderCommandEncoder setFragmentSamplerState:Sampler atIndex:index];
+			if (RenderCommandEncoder)
+			{
+				[RenderCommandEncoder setFragmentSamplerState:Sampler atIndex:index];
+			}
 			break;
 		case SF_Compute:
-			checkf(ComputeCommandEncoder != nil, TEXT("Attempted to use ComputeCommandEncoder before calling FMetalContext::ConditionalSwitchToCompute(void) to create the encoder"));
-			[ComputeCommandEncoder setSamplerState:Sampler atIndex:index];
+			if (ComputeCommandEncoder)
+			{
+				[ComputeCommandEncoder setSamplerState:Sampler atIndex:index];
+			}
 			break;
 		default:
 			check(false);
@@ -677,14 +951,22 @@ void FMetalCommandEncoder::SetShaderSamplerStates(EShaderFrequency Frequency, co
 	switch (Frequency)
 	{
 		case SF_Vertex:
-			[RenderCommandEncoder setVertexSamplerStates:Samplers withRange:Range];
+			if (RenderCommandEncoder)
+			{
+				[RenderCommandEncoder setVertexSamplerStates:Samplers withRange:Range];
+			}
 			break;
 		case SF_Pixel:
-			[RenderCommandEncoder setFragmentSamplerStates:Samplers withRange:Range];
+			if (RenderCommandEncoder)
+			{
+				[RenderCommandEncoder setFragmentSamplerStates:Samplers withRange:Range];
+			}
 			break;
 		case SF_Compute:
-			checkf(ComputeCommandEncoder != nil, TEXT("Attempted to use ComputeCommandEncoder before calling FMetalContext::ConditionalSwitchToCompute(void) to create the encoder"));
-			[ComputeCommandEncoder setSamplerStates:Samplers withRange:Range];
+			if (ComputeCommandEncoder)
+			{
+				[ComputeCommandEncoder setSamplerStates:Samplers withRange:Range];
+			}
 			break;
 		default:
 			check(false);
@@ -714,14 +996,22 @@ void FMetalCommandEncoder::SetShaderSamplerState(EShaderFrequency Frequency, id<
 	switch (Frequency)
 	{
 		case SF_Vertex:
-			[RenderCommandEncoder setVertexSamplerState:Sampler lodMinClamp:lodMinClamp lodMaxClamp:lodMaxClamp atIndex:index];
+			if (RenderCommandEncoder)
+			{
+				[RenderCommandEncoder setVertexSamplerState:Sampler lodMinClamp:lodMinClamp lodMaxClamp:lodMaxClamp atIndex:index];
+			}
 			break;
 		case SF_Pixel:
-			[RenderCommandEncoder setFragmentSamplerState:Sampler lodMinClamp:lodMinClamp lodMaxClamp:lodMaxClamp atIndex:index];
+			if (RenderCommandEncoder)
+			{
+				[RenderCommandEncoder setFragmentSamplerState:Sampler lodMinClamp:lodMinClamp lodMaxClamp:lodMaxClamp atIndex:index];
+			}
 			break;
 		case SF_Compute:
-			checkf(ComputeCommandEncoder != nil, TEXT("Attempted to use ComputeCommandEncoder before calling FMetalContext::ConditionalSwitchToCompute(void) to create the encoder"));
-			[ComputeCommandEncoder setSamplerState:Sampler lodMinClamp:lodMinClamp lodMaxClamp:lodMaxClamp atIndex:index];
+			if (ComputeCommandEncoder)
+			{
+				[ComputeCommandEncoder setSamplerState:Sampler lodMinClamp:lodMinClamp lodMaxClamp:lodMaxClamp atIndex:index];
+			}
 			break;
 		default:
 			check(false);
@@ -753,14 +1043,22 @@ void FMetalCommandEncoder::SetShaderSamplerStates(EShaderFrequency Frequency, co
 	switch (Frequency)
 	{
 		case SF_Vertex:
-			[RenderCommandEncoder setVertexSamplerStates:Samplers lodMinClamps:LodMinClamps lodMaxClamps:LodMaxClamps withRange:Range];
+			if (RenderCommandEncoder)
+			{
+				[RenderCommandEncoder setVertexSamplerStates:Samplers lodMinClamps:LodMinClamps lodMaxClamps:LodMaxClamps withRange:Range];
+			}
 			break;
 		case SF_Pixel:
-			[RenderCommandEncoder setFragmentSamplerStates:Samplers lodMinClamps:LodMinClamps lodMaxClamps:LodMaxClamps withRange:Range];
+			if (RenderCommandEncoder)
+			{
+				[RenderCommandEncoder setFragmentSamplerStates:Samplers lodMinClamps:LodMinClamps lodMaxClamps:LodMaxClamps withRange:Range];
+			}
 			break;
 		case SF_Compute:
-			checkf(ComputeCommandEncoder != nil, TEXT("Attempted to use ComputeCommandEncoder before calling FMetalContext::ConditionalSwitchToCompute(void) to create the encoder"));
-			[ComputeCommandEncoder setSamplerStates:Samplers lodMinClamps:LodMinClamps lodMaxClamps:LodMaxClamps withRange:Range];
+			if (ComputeCommandEncoder)
+			{
+				[ComputeCommandEncoder setSamplerStates:Samplers lodMinClamps:LodMinClamps lodMaxClamps:LodMaxClamps withRange:Range];
+			}
 			break;
 		default:
 			check(false);
@@ -772,11 +1070,13 @@ void FMetalCommandEncoder::SetShaderSamplerStates(EShaderFrequency Frequency, co
 
 void FMetalCommandEncoder::SetComputePipelineState(id<MTLComputePipelineState> const State)
 {
-	checkf(ComputeCommandEncoder != nil, TEXT("Attempted to use ComputeCommandEncoder before calling FMetalContext::ConditionalSwitchToCompute(void) to create the encoder"));
 	[State retain];
 	[ComputePipelineState release];
 	ComputePipelineState = State;
-	[ComputeCommandEncoder setComputePipelineState:State];
+	if (ComputeCommandEncoder)
+	{
+		[ComputeCommandEncoder setComputePipelineState:State];
+	}
 }
 
 #pragma mark - Public Extension Accessors -

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "CoreUObjectPrivate.h"
 #include "SecureHash.h"
 #include "DebuggingDefines.h"
@@ -745,6 +745,7 @@ FLinkerLoad::FLinkerLoad(UPackage* InParent, const TCHAR* InFilename, uint32 InL
 ,	LoadProgressScope( nullptr )
 #endif // WITH_EDITOR
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+,	bForceBlueprintFinalization(false)
 ,	DeferredCDOIndex(INDEX_NONE)
 ,	ResolvingDeferredPlaceholder(nullptr)
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
@@ -1245,19 +1246,12 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::SerializeNameMap()
 	while( bFinishedPrecaching && NameMapIndex < Summary.NameCount && !IsTimeLimitExceeded(TEXT("serializing name map"),100) )
 	{
 		// Read the name entry from the file.
-		FNameEntry NameEntry(ENAME_LinkerConstructor);
+		FNameEntrySerialized NameEntry(ENAME_LinkerConstructor);
 		*this << NameEntry;
 
-		// Add it to the name table. We disregard the context flags as we don't support flags on names for final release builds.
+		// Add it to the name table with no splitting and no hash calculations
+		NameMap.Add(FName(NameEntry));
 
-		// now, we make sure we DO NOT split the name here because it will have been written out
-		// split, and we don't want to keep splitting A_3_4_9 every time
-
-		NameMap.Add( 
-			NameEntry.IsWide() ? 
-				FName(ENAME_LinkerConstructor, NameEntry.GetWideName()) : 
-				FName(ENAME_LinkerConstructor, NameEntry.GetAnsiName())
-			);
 		NameMapIndex++;
 	}
 
@@ -1884,7 +1878,7 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::FinalizeCreation()
 //			UE_LOG(LogLinker, Log, TEXT("Found a user created pacakge (%s)"), *(FPaths::GetBaseFilename(Filename)));
 		}
 
-		if( !(LoadFlags & LOAD_NoVerify))
+		if ( !(LoadFlags & LOAD_NoVerify) )
 		{
 			Verify();
 		}
@@ -1991,6 +1985,7 @@ void FLinkerLoad::Verify()
 			}
 		}
 	}
+
 	bHaveImportsBeenVerified = true;
 }
 
@@ -2294,6 +2289,7 @@ FLinkerLoad::EVerifyResult FLinkerLoad::VerifyImport(int32 ImportIndex)
 		{
 			// put us back the way we were and peace out
 			Import = OriginalImport;
+
 			// if the original VerifyImportInner told us that we need to throw an exception if we weren't redirected,
 			// then do the throw here
 			if (bCrashOnFail)
@@ -2304,29 +2300,35 @@ FLinkerLoad::EVerifyResult FLinkerLoad::VerifyImport(int32 ImportIndex)
 			// otherwise just printout warnings, and if in the editor, popup the EdLoadWarnings box
 			else
 			{
-				// try to get a pointer to the class of the original object so that we can display the class name of the missing resource
-				UObject* ClassPackage = FindObject<UPackage>( NULL, *Import.ClassPackage.ToString() );
-				UClass* FindClass = ClassPackage ? FindObject<UClass>( ClassPackage, *OriginalImport.ClassName.ToString() ) : NULL;
+				bool bSupressLinkerError = false;
+#if WITH_EDITOR
 				if( GIsEditor && !IsRunningCommandlet())
 				{
-					FDeferredMessageLog LoadErrors(NAME_LoadErrors);
-					// put something into the load warnings dialog, with any extra information from above (in WarningAppend)
-					TSharedRef<FTokenizedMessage> TokenizedMessage = LoadErrors.Error(FText());
-					TokenizedMessage->AddToken(FAssetNameToken::Create(LinkerRoot->GetName()));
-					TokenizedMessage->AddToken(FTextToken::Create(FText::Format(LOCTEXT("ImportFailure", " : Failed import for {ImportClass}"), FText::FromName(GetImportClassName(ImportIndex)))));
-					TokenizedMessage->AddToken(FAssetNameToken::Create(GetImportPathName(ImportIndex)));					
-
-					if (!WarningAppend.IsEmpty())
+					bSupressLinkerError = IsSuppressableBlueprintImportError(ImportIndex);
+					if (!bSupressLinkerError)
 					{
-						TokenizedMessage->AddToken(FTextToken::Create(FText::Format(LOCTEXT("ImportFailure_WarningIn", "{0} in {1}"),
-							FText::FromString(WarningAppend),
-							FText::FromString(LinkerRoot->GetName())))
-						);
+						FDeferredMessageLog LoadErrors(NAME_LoadErrors);
+						// put something into the load warnings dialog, with any extra information from above (in WarningAppend)
+						TSharedRef<FTokenizedMessage> TokenizedMessage = LoadErrors.Error(FText());
+						TokenizedMessage->AddToken(FAssetNameToken::Create(LinkerRoot->GetName()));
+						TokenizedMessage->AddToken(FTextToken::Create(FText::Format(LOCTEXT("ImportFailure", " : Failed import for {ImportClass}"), FText::FromName(GetImportClassName(ImportIndex)))));
+						TokenizedMessage->AddToken(FAssetNameToken::Create(GetImportPathName(ImportIndex)));
+
+						if (!WarningAppend.IsEmpty())
+						{
+							TokenizedMessage->AddToken(FTextToken::Create(FText::Format(LOCTEXT("ImportFailure_WarningIn", "{0} in {1}"),
+								FText::FromString(WarningAppend),
+								FText::FromString(LinkerRoot->GetName())))
+								);
+						}
 					}
 				}
-
+#endif // WITH_EDITOR
 #if UE_BUILD_DEBUG
-				if( !IgnoreMissingReferencedClass( Import.ObjectName ) )
+				// try to get a pointer to the class of the original object so that we can display the class name of the missing resource
+				UObject* ClassPackage = FindObject<UPackage>(NULL, *Import.ClassPackage.ToString());
+				UClass* FindClass = ClassPackage ? FindObject<UClass>(ClassPackage, *OriginalImport.ClassName.ToString()) : NULL;
+				if( !bSupressLinkerError && !IgnoreMissingReferencedClass( Import.ObjectName ) )
 				{
 					FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
 					// failure to load a class, most likely deleted instead of deprecated
@@ -2719,7 +2721,7 @@ bool FLinkerLoad::VerifyImportInner(const int32 ImportIndex, FString& WarningSuf
 
 				UObject* FindObject = FindImport(FindClass, FindOuter, *Import.ObjectName.ToString());
 				// Reference to in memory-only package's object, native transient class or CDO of such a class.
-				bool bIsInMemoryOnlyOrNativeTransient = bCameFromMemoryOnlyPackage || (FindObject != NULL && (FindObject->HasAllFlags(EObjectFlags(RF_Public | RF_MarkAsNative | RF_Transient)) || (FindObject->HasAnyFlags(RF_ClassDefaultObject) && FindObject->GetClass()->HasAllFlags(EObjectFlags(RF_Public | RF_MarkAsNative | RF_Transient)))));
+				bool bIsInMemoryOnlyOrNativeTransient = bCameFromMemoryOnlyPackage || (FindObject != NULL && ((FindObject->IsNative() && FindObject->HasAllFlags(RF_Public | RF_Transient)) || (FindObject->HasAnyFlags(RF_ClassDefaultObject) && FindObject->GetClass()->IsNative() && FindObject->GetClass()->HasAllFlags(RF_Public | RF_Transient))));
 				// Check for structs which have been moved to another header (within the same class package).
 				if (!FindObject && bIsInMemoryOnlyOrNativeTransient && FindClass == UScriptStruct::StaticClass())
 				{
@@ -3531,7 +3533,7 @@ UObject* FLinkerLoad::CreateExport( int32 Index )
 				// SuperStruct needs to be fully linked so that UStruct::Link will have access to UObject::SuperStruct->PropertySize. 
 				// There are other attempts to force our super struct to load, and I have not verified that they can all be removed
 				// in favor of this one:
-				if (!SuperStruct->HasAnyFlags(RF_LoadCompleted)
+				if (!SuperStruct->HasAnyFlags(RF_LoadCompleted | RF_Dynamic)
 					&& !SuperStruct->IsNative()
 					&& SuperStruct->GetLinker()
 					&& Export.SuperIndex.IsImport())
@@ -3573,6 +3575,10 @@ UObject* FLinkerLoad::CreateExport( int32 Index )
 #endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
 					return Export.Object;
 				}				
+			}
+			else if (Cast<ULinkerPlaceholderExportObject>(Export.Object))
+			{
+				return Export.Object;
 			}
 #else  // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 			Preload(LoadClass);
@@ -3723,7 +3729,7 @@ UObject* FLinkerLoad::CreateExport( int32 Index )
 					// Do this for all subobjects created in the native constructor.
 					FUObjectThreadContext::Get().ObjLoaded.AddUnique(Export.Object);
 					if (!Export.Object->HasAnyFlags(RF_LoadCompleted) &&
-						(Export.Object->HasAnyFlags(RF_DefaultSubObject) || (ThisParent && ThisParent->HasAnyFlags(RF_ClassDefaultObject))))
+						(Export.Object->HasAnyFlags(RF_DefaultSubObject) || (ThisParent && ThisParent->IsTemplate(RF_ClassDefaultObject))))
 					{
 						Export.Object->SetFlags(RF_NeedLoad | RF_NeedPostLoad | RF_NeedPostLoadSubobjects | RF_WasLoaded);
 					}
@@ -3817,10 +3823,14 @@ UObject* FLinkerLoad::CreateExport( int32 Index )
 			EInternalObjectFlags::None,
 			Template
 		);
-		if (FPlatformProperties::RequiresCookedData() && GIsInitialLoad)
+		if (FPlatformProperties::RequiresCookedData())
+		{
+			if (GIsInitialLoad || GUObjectArray.IsOpenForDisregardForGC())
 		{
 			Export.Object->AddToRoot();
 		}
+		}
+		
 		LoadClass = Export.Object->GetClass(); // this may have changed if we are overwriting a CDO component
 
 		if (NewName != Export.ObjectName)
@@ -4099,17 +4109,77 @@ UObject* FLinkerLoad::IndexToObject( FPackageIndex Index )
 {
 	if( Index.IsExport() )
 	{
-		check(ExportMap.IsValidIndex( Index.ToExport() ) );
+		#if PLATFORM_DESKTOP
+			// Show a message box indicating, possible, corrupt data (desktop platforms only)
+			if ( !ExportMap.IsValidIndex( Index.ToExport() ) )
+			{
+				FText ErrorMessage, ErrorCaption;
+				GConfig->GetText(TEXT("/Script/Engine.Engine"),
+									TEXT("SerializationOutOfBoundsErrorMessage"),
+									ErrorMessage,
+									GEngineIni);
+				GConfig->GetText(TEXT("/Script/Engine.Engine"),
+					TEXT("SerializationOutOfBoundsErrorMessageCaption"),
+					ErrorCaption,
+					GEngineIni);
+
+				UE_LOG( LogLinker, Error, TEXT("Invalid export object index=%d while reading %s. File is most likely corrupted. Please verify your installation."), Index.ToExport(), *Filename );
+
+				if (GLog)
+				{
+					GLog->Flush();
+				}
+
+				FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, *ErrorMessage.ToString(), *ErrorCaption.ToString());
+
+				check(false);
+			}
+		#else
+			{
+				UE_CLOG( !ExportMap.IsValidIndex( Index.ToExport() ), LogLinker, Fatal, TEXT("Invalid export object index=%d while reading %s. File is most likely corrupted. Please verify your installation."), Index.ToExport(), *Filename );
+			}
+		#endif
+
 		return CreateExport( Index.ToExport() );
 	}
 	else if( Index.IsImport() )
 	{
-		check(ImportMap.IsValidIndex( Index.ToImport() ) );
+		#if PLATFORM_DESKTOP
+			// Show a message box indicating, possible, corrupt data (desktop platforms only)
+			if ( !ImportMap.IsValidIndex( Index.ToImport() ) )
+			{
+				FText ErrorMessage, ErrorCaption;
+				GConfig->GetText(TEXT("/Script/Engine.Engine"),
+									TEXT("SerializationOutOfBoundsErrorMessage"),
+									ErrorMessage,
+									GEngineIni);
+				GConfig->GetText(TEXT("/Script/Engine.Engine"),
+					TEXT("SerializationOutOfBoundsErrorMessageCaption"),
+					ErrorCaption,
+					GEngineIni);
+
+				UE_LOG( LogLinker, Error, TEXT("Invalid import object index=%d while reading %s. File is most likely corrupted. Please verify your installation."), Index.ToImport(), *Filename );
+
+				if (GLog)
+				{
+					GLog->Flush();
+				}
+
+				FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, *ErrorMessage.ToString(), *ErrorCaption.ToString());
+
+				check(false);
+			}
+		#else
+			{
+				UE_CLOG( !ImportMap.IsValidIndex( Index.ToImport() ), LogLinker, Fatal, TEXT("Invalid import object index=%d while reading %s. File is most likely corrupted. Please verify your installation."), Index.ToImport(), *Filename );
+			}
+		#endif
+
 		return CreateImport( Index.ToImport() );
 	}
 	else 
 	{
-		return NULL;
+		return nullptr;
 	}
 }
 
@@ -4352,7 +4422,11 @@ FArchive& FLinkerLoad::operator<<( FName& Name )
 
 	if( !NameMap.IsValidIndex(NameIndex) )
 	{
-		UE_LOG(LogLinker, Fatal, TEXT("Bad name index %i/%i"), NameIndex, NameMap.Num() );
+		UE_LOG(LogLinker, Error, TEXT("Bad name index %i/%i"), NameIndex, NameMap.Num() );
+		ArIsError = true;
+		ArIsCriticalError = true;
+		Name = NAME_None;
+		return *this;
 	}
 
 	// if the name wasn't loaded (because it wasn't valid in this context)

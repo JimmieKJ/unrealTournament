@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using AutomationTool;
 using System;
@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using UnrealBuildTool;
 
 namespace AutomationTool
 {
@@ -137,6 +138,19 @@ namespace AutomationTool
 		}
 
 		/// <summary>
+		/// Adds several rules to the filter
+		/// </summary>
+		/// <param name="Rules">List of patterns to match.</param>
+		/// <param name="Type">Whether the rules are include or exclude rules</param>
+		public void AddRules(IEnumerable<string> Rules, FileFilterType Type)
+		{
+			foreach(string Rule in Rules)
+			{
+				AddRule(Rule, Type);
+			}
+		}
+
+		/// <summary>
 		/// Adds several rules in the given lines. Rules may be prefixed with conditions of the syntax {Key=Value, Key2=Value2}, which
 		/// will be evaluated using variables in the given dictionary before being added.
 		/// </summary>
@@ -173,6 +187,20 @@ namespace AutomationTool
 			foreach (string FileName in FileNames)
 			{
 				AddRule("/" + CommandUtils.StripBaseDirectory(Path.GetFullPath(FileName), FullBaseDirectoryName), Type);
+			}
+		}
+
+		/// <summary>
+		/// Adds rules for files which match the given names
+		/// </summary>
+		/// <param name="FileName">The filenames to rules for</param>
+		/// <param name="BaseDirectoryName">Base directory for the rules</param>
+		/// <param name="Type">Whether to add an include or exclude rule</param>
+		public void AddRuleForFiles(IEnumerable<FileReference> Files, DirectoryReference BaseDirectory, FileFilterType Type)
+		{
+			foreach (FileReference File in Files)
+			{
+				AddRule("/" + File.MakeRelativeTo(BaseDirectory), Type);
 			}
 		}
 
@@ -253,12 +281,13 @@ namespace AutomationTool
 		{
 			string NormalizedPattern = Pattern.Replace('\\', '/');
 
-			// We don't want a slash at the start, but if there was not one specified, it's not anchored to the root of the tree.
+			// Remove the slash from the start of the pattern. Any exclude pattern that doesn't contain a directory separator is assumed to apply to any directory (eg. *.cpp), otherwise it's 
+			// taken relative to the root.
 			if (NormalizedPattern.StartsWith("/"))
 			{
 				NormalizedPattern = NormalizedPattern.Substring(1);
 			}
-			else if(!NormalizedPattern.StartsWith("..."))
+			else if(!NormalizedPattern.Contains("/") && !NormalizedPattern.StartsWith("...") && Type == FileFilterType.Exclude)
 			{
 				NormalizedPattern = ".../" + NormalizedPattern;
 			}
@@ -385,10 +414,9 @@ namespace AutomationTool
 		/// </summary>
 		/// <param name="FileNames">List of filenames</param>
 		/// <returns>List of filenames which match the filter</returns>
-		public IEnumerable<string> ApplyTo(string BaseDirectory, IEnumerable<string> FileNames)
+		public IEnumerable<FileReference> ApplyTo(DirectoryReference BaseDirectory, IEnumerable<FileReference> FileNames)
 		{
-			string FullBaseDirectory = Path.GetFullPath(BaseDirectory);
-			return FileNames.Where(x => Matches(AutomationTool.CommandUtils.StripBaseDirectory(Path.GetFullPath(x), FullBaseDirectory)));
+			return FileNames.Where(x => Matches(x.MakeRelativeTo(BaseDirectory)));
 		}
 
 		/// <summary>
@@ -406,6 +434,30 @@ namespace AutomationTool
 		/// <summary>
 		/// Finds a list of files within a given directory which match the filter.
 		/// </summary>
+		/// <param name="DirectoryName">File to match</param>
+		/// <returns>List of files that pass the filter</returns>
+		public List<FileReference> ApplyToDirectory(DirectoryReference DirectoryName, bool bIgnoreSymlinks)
+		{
+			List<FileReference> MatchingFileNames = new List<FileReference>();
+			FindMatchesFromDirectory(new DirectoryInfo(DirectoryName.FullName), "", bIgnoreSymlinks, MatchingFileNames);
+			return MatchingFileNames;
+		}
+
+		/// <summary>
+		/// Finds a list of files within a given directory which match the filter.
+		/// </summary>
+		/// <param name="DirectoryName">File to match</param>
+		/// <returns>List of files that pass the filter</returns>
+		public List<FileReference> ApplyToDirectory(DirectoryReference DirectoryName, string PrefixPath, bool bIgnoreSymlinks)
+		{
+			List<FileReference> MatchingFileNames = new List<FileReference>();
+			FindMatchesFromDirectory(new DirectoryInfo(DirectoryName.FullName), PrefixPath.Replace('\\', '/'), bIgnoreSymlinks, MatchingFileNames);
+			return MatchingFileNames;
+		}
+
+		/// <summary>
+		/// Finds a list of files within a given directory which match the filter.
+		/// </summary>
 		/// <param name="FolderName">File to match</param>
 		/// <returns>True if the file passes the filter</returns>
 		void FindMatchesFromDirectory(DirectoryInfo CurrentDirectory, string NamePrefix, bool bIgnoreSymlinks, List<string> MatchingFileNames)
@@ -416,6 +468,31 @@ namespace AutomationTool
 				if (Matches(FileName) && (!bIgnoreSymlinks || !NextFile.Attributes.HasFlag(FileAttributes.ReparsePoint)))
 				{
 					MatchingFileNames.Add(FileName);
+				}
+			}
+			foreach (DirectoryInfo NextDirectory in CurrentDirectory.EnumerateDirectories())
+			{
+				string NextNamePrefix = NamePrefix + NextDirectory.Name;
+				if (PossiblyMatches(NextNamePrefix))
+				{
+					FindMatchesFromDirectory(NextDirectory, NextNamePrefix + "/", bIgnoreSymlinks, MatchingFileNames);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Finds a list of files within a given directory which match the filter.
+		/// </summary>
+		/// <param name="FolderName">File to match</param>
+		/// <returns>True if the file passes the filter</returns>
+		void FindMatchesFromDirectory(DirectoryInfo CurrentDirectory, string NamePrefix, bool bIgnoreSymlinks, List<FileReference> MatchingFileNames)
+		{
+			foreach (FileInfo NextFile in CurrentDirectory.EnumerateFiles())
+			{
+				string FileName = NamePrefix + NextFile.Name;
+				if (Matches(FileName) && (!bIgnoreSymlinks || !NextFile.Attributes.HasFlag(FileAttributes.ReparsePoint)))
+				{
+					MatchingFileNames.Add(new FileReference(NextFile));
 				}
 			}
 			foreach (DirectoryInfo NextDirectory in CurrentDirectory.EnumerateDirectories())

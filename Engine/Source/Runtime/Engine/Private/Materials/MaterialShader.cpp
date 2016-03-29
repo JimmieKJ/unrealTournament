@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "DiagnosticTable.h"
@@ -15,142 +15,6 @@ static FAutoConsoleVariableRef CVarCreateShadersOnLoad(
 	GCreateShadersOnLoad,
 	TEXT("Whether to create shaders on load, which can reduce hitching, but use more memory.  Otherwise they will be created as needed.")
 	);
-
-
-
-//
-// Cooking Stats
-// 
-#define MATERIAL_COOKING_STATS 1
-
-#if MATERIAL_COOKING_STATS
-
-#include "CookingStatsModule.h"
-#include "ModuleManager.h"
-
-
-static FString GetMaterialShaderMapKeyString(const FMaterialShaderMapId& ShaderMapId, EShaderPlatform Platform);
-
-namespace MaterialStats
-{
-
-	ICookingStats* GetCookingStats()
-	{
-		static ICookingStats* CookingStats = nullptr;
-		static bool bInitialized = false;
-		if (bInitialized == false)
-		{
-			FCookingStatsModule* CookingStatsModule = FModuleManager::LoadModulePtr<FCookingStatsModule>(TEXT("CookingStats"));
-			if (CookingStatsModule)
-			{
-				CookingStats = &CookingStatsModule->Get();
-			}
-			bInitialized = true;
-		}
-		return CookingStats;
-	}
-
-	FCriticalSection CookingStatsSyncObject;
-
-	struct FMaterialTimingInfo
-	{
-	public:
-		FName TransactionGuid;
-		TMap<FName, double> TagStartTime;
-	};
-
-	TMap<FMaterialShaderMapId, FMaterialTimingInfo> CurrentCookingStats;
-	int32 CurrentIndex;
-	FName TransactionGuid;
-
-	FName GenerateNewTransactionName()
-	{
-		FScopeLock ScopeSync(&CookingStatsSyncObject);
-		++CurrentIndex;
-		if (CurrentIndex <= 1)
-		{
-			FString TransactionGuidString = TEXT("MaterialTransactionId");
-			TransactionGuidString += FGuid::NewGuid().ToString();
-			TransactionGuid = FName(*TransactionGuidString);
-			CurrentIndex = 1;
-		}
-		check(TransactionGuid != NAME_None);
-
-		return FName(TransactionGuid, CurrentIndex);
-	}
-
-	void StartStat(const FMaterialShaderMapId& ShaderMapId, const EShaderPlatform Platform, const FName& TagName)
-	{
-		ICookingStats* CookingStats = GetCookingStats();
-		if (CookingStats)
-		{
-			FScopeLock ScopeSync(&CookingStatsSyncObject);
-
-			FMaterialTimingInfo* TimingInfo = CurrentCookingStats.Find(ShaderMapId);
-
-			if (TimingInfo == nullptr)
-			{
-				TimingInfo = &CurrentCookingStats.Add(ShaderMapId);
-				TimingInfo->TransactionGuid = GenerateNewTransactionName();
-				static const FName NAME_CacheKey(TEXT("CacheKey"));
-
-				FString CacheKeyString = GetMaterialShaderMapKeyString(ShaderMapId, Platform);
-
-				CookingStats->AddTagValue(TimingInfo->TransactionGuid, NAME_CacheKey, CacheKeyString);
-			}
-
-			double* StartTime = TimingInfo->TagStartTime.Find(TagName);
-			if (!StartTime)
-			{
-				TimingInfo->TagStartTime.Add(TagName, FPlatformTime::Seconds());
-			}
-		}
-	}
-
-	void StopStat(const FMaterialShaderMapId& ShaderMapId, const FName& TagName)
-	{
-		ICookingStats* CookingStats = GetCookingStats();
-		if (CookingStats)
-		{
-			FScopeLock ScopeSync(&CookingStatsSyncObject);
-
-			FMaterialTimingInfo* TimingInfo = CurrentCookingStats.Find(ShaderMapId);
-			if (TimingInfo == nullptr)
-			{
-				UE_LOG(LogShaders, Warning, TEXT("Stat tag wasn't found for stat %s, probably caused by calling COOKING_STAT_STOP before COOKING_STAT_START"), *TagName.ToString());
-				return;
-			}
-			check(TimingInfo); // did you call stop stat before calling start
-			double* StartTime = TimingInfo->TagStartTime.Find(TagName);
-			if (StartTime == nullptr)
-			{
-				UE_LOG(LogShaders, Warning, TEXT("Stat start time wasn't found for stat %s, probably caused by calling COOKING_STAT_STOP before COOKING_STAT_START"), *TagName.ToString());
-				return;
-			}
-			check(StartTime); // did you call stop stat before calling start for that tag
-			
-			double Duration = FPlatformTime::Seconds() - *StartTime;
-			TimingInfo->TagStartTime.Remove(TagName);
-
-			CookingStats->AddTagValue(TimingInfo->TransactionGuid, TagName, FString::Printf(TEXT("%fms"), Duration*1000.0f));
-		}
-	}
-
-};
-
-#define COOKING_STAT_START(TagName, ShaderMapID, Platform) \
-	static const FName NAME_##TagName(TEXT(#TagName)); \
-	MaterialStats::StartStat(ShaderMapID, Platform, NAME_##TagName);
-
-#define COOKING_STAT_STOP(TagName, ShaderMapID) \
-	static const FName NAME_##TagName(TEXT(#TagName)); \
-	MaterialStats::StopStat(ShaderMapID, NAME_##TagName);
-
-
-#else
-#endif
-
-
 
 //
 // Globals
@@ -867,7 +731,7 @@ FShader* FMaterialShaderType::FinishCompileShader(
 	const FUniformExpressionSet& UniformExpressionSet,
 	const FSHAHash& MaterialShaderMapHash,
 	const FShaderCompileJob& CurrentJob,
-	const FShaderPipelineType* ShaderPipeline,
+	const FShaderPipelineType* ShaderPipelineType,
 	const FString& InDebugDescription
 	)
 {
@@ -879,13 +743,19 @@ FShader* FMaterialShaderType::FinishCompileShader(
 	// This allows FShaders to share compiled bytecode and RHI shader references
 	FShaderResource* Resource = FShaderResource::FindOrCreateShaderResource(CurrentJob.Output, SpecificType);
 
+	if (ShaderPipelineType && !ShaderPipelineType->ShouldOptimizeUnusedOutputs())
+	{
+		// If sharing shaders in this pipeline, remove it from the type/id so it uses the one in the shared shadermap list
+		ShaderPipelineType = nullptr;
+	}
+
 	// Find a shader with the same key in memory
-	FShader* Shader = CurrentJob.ShaderType->FindShaderById(FShaderId(MaterialShaderMapHash, ShaderPipeline, CurrentJob.VFType, CurrentJob.ShaderType, CurrentJob.Input.Target));
+	FShader* Shader = CurrentJob.ShaderType->FindShaderById(FShaderId(MaterialShaderMapHash, ShaderPipelineType, CurrentJob.VFType, CurrentJob.ShaderType, CurrentJob.Input.Target));
 
 	// There was no shader with the same key so create a new one with the compile output, which will bind shader parameters
 	if (!Shader)
 	{
-		Shader = (*ConstructCompiledRef)(CompiledShaderInitializerType(this, CurrentJob.Output, Resource, UniformExpressionSet, MaterialShaderMapHash, ShaderPipeline, nullptr, InDebugDescription));
+		Shader = (*ConstructCompiledRef)(CompiledShaderInitializerType(this, CurrentJob.Output, Resource, UniformExpressionSet, MaterialShaderMapHash, ShaderPipelineType, nullptr, InDebugDescription));
 		CurrentJob.Output.ParameterMap.VerifyBindingsAreComplete(GetName(), (EShaderFrequency)CurrentJob.Output.Target.Frequency, CurrentJob.VFType);
 	}
 
@@ -1281,8 +1151,6 @@ void FMaterialShaderMap::Compile(
 		}
 		else
 		{
-			COOKING_STAT_START(ShaderCompilation, InShaderMapId, InPlatform);
-
 			// Assign a unique identifier so that shaders from this shader map can be associated with it after a deferred compile
 			CompilingId = NextCompilingId;
 			check(NextCompilingId < UINT_MAX);
@@ -1714,8 +1582,6 @@ bool FMaterialShaderMap::ProcessCompilationResults(const TArray<FShaderCommonCom
 
 		// The shader map can now be used on the rendering thread
 		bCompilationFinalized = true;
-
-		COOKING_STAT_STOP(ShaderCompilation, ShaderMapId)
 
 		return true;
 	}

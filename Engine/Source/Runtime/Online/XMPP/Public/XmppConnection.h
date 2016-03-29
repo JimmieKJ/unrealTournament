@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -26,6 +26,7 @@ public:
 		, PingInterval(60.0f)
 		, PingTimeout(30.0f)
 		, MaxPingRetries(1)
+		, bPrivateChatFriendsOnly(false)
 	{}
 
 	/** ip/host to connect to */
@@ -48,6 +49,8 @@ public:
 	float PingTimeout;
 	/** max number of retries on ping timeout before connection is abandoned and logged out */
 	int32 MaxPingRetries;
+	/** limit private chat to friends only */
+	bool bPrivateChatFriendsOnly;
 };
 
 /**
@@ -77,14 +80,28 @@ public:
 	/**
 	 * Get the components that comprise the resource
 	 *
+	 * @param InResource The resource to parse
 	 * @param OutAppId The app id the user is using
 	 * @param OutPlatform The platform the user is using
 	 *
 	 * @return Whether the Resource was successfully parsed or not
 	 */
-	bool ParseResource(FString& OutAppId, FString& OutPlatform) const;
+	static bool ParseResource(const FString& InResource, FString& OutAppId, FString& OutPlatform);
 
-	bool operator==(const FXmppUserJid& Other)
+	/** 
+	 * Get the components that comprise the resource
+	 *
+	 * @param OutAppId The app id the user is using
+	 * @param OutPlatform The platform the user is using
+	 *
+	 * @return Whether the Resource was successfully parsed or not
+	 */
+	bool ParseResource(FString& OutAppId, FString& OutPlatform) const
+	{
+		return ParseResource(Resource, OutAppId, OutPlatform);
+	}
+
+	bool operator==(const FXmppUserJid& Other) const
 	{
 		return 
 			Other.Id == Id && 
@@ -111,6 +128,11 @@ public:
 	bool IsValid() const
 	{
 		return !Id.IsEmpty() && !Domain.IsEmpty();
+	}
+
+	FString ToDebugString() const
+	{
+		return FString::Printf(TEXT("%s:%s:%s"), *Id, *Domain, *Resource);
 	}
 };
 

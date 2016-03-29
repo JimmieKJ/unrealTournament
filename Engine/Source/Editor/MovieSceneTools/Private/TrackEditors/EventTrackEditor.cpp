@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneToolsPrivatePCH.h"
 #include "EventTrackEditor.h"
@@ -29,17 +29,11 @@ FEventTrackEditor::FEventTrackEditor(TSharedRef<ISequencer> InSequencer)
 /* ISequencerTrackEditor interface
  *****************************************************************************/
 
-void FEventTrackEditor::AddKey(const FGuid& ObjectGuid, UObject* AdditionalAsset)
-{
-	// todo gmp: Sequencer: implement event track section
-}
-
-
 void FEventTrackEditor::BuildAddTrackMenu(FMenuBuilder& MenuBuilder)
 {
 	UMovieSceneSequence* RootMovieSceneSequence = GetSequencer()->GetRootMovieSceneSequence();
 
-	if ((RootMovieSceneSequence == nullptr) || (RootMovieSceneSequence->GetClass()->GetName() != TEXT("LevelSequence")))
+	if (RootMovieSceneSequence == nullptr)
 	{
 		return;
 	}
@@ -76,6 +70,10 @@ bool FEventTrackEditor::SupportsType(TSubclassOf<UMovieSceneTrack> Type) const
 	return (Type == UMovieSceneEventTrack::StaticClass());
 }
 
+const FSlateBrush* FEventTrackEditor::GetIconBrush() const
+{
+	return FEditorStyle::GetBrush("Sequencer.Tracks.Event");
+}
 
 /* FEventTrackEditor callbacks
  *****************************************************************************/

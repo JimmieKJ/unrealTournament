@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -18,11 +18,8 @@ public:
 	/** ~ IMovieSceneSpawnRegister interface */
 	virtual UObject* SpawnObject(const FGuid& BindingId, FMovieSceneSequenceInstance& SequenceInstance, IMovieScenePlayer&) override;
 	virtual void DestroySpawnedObject(const FGuid& BindingId, FMovieSceneSequenceInstance& SequenceInstance, IMovieScenePlayer&) override;
-	virtual void DestroyObjectsOwnedByInstance(FMovieSceneSequenceInstance&, IMovieScenePlayer&) override;
-	virtual void DestroyObjectsSpawnedByInstance(FMovieSceneSequenceInstance&, IMovieScenePlayer&) override;
-	virtual void DestroyAllOwnedObjects(IMovieScenePlayer&) override;
+	virtual void DestroyObjectsByPredicate(IMovieScenePlayer& Player, const TFunctionRef<bool(const FGuid&, ESpawnOwnership, FMovieSceneSequenceInstance&)>& Predicate) override;
 	virtual void ForgetExternallyOwnedSpawnedObjects(IMovieScenePlayer& Player) override;
-	virtual void DestroyAllObjects(IMovieScenePlayer&) override;
 	virtual void PreUpdateSequenceInstance(FMovieSceneSequenceInstance& Instance, IMovieScenePlayer&) override;
 	virtual void PostUpdateSequenceInstance(FMovieSceneSequenceInstance& Instance, IMovieScenePlayer&) override;
 
@@ -31,10 +28,14 @@ protected:
 	/** Structure holding information pertaining to a spawned object */
 	struct FSpawnedObject
 	{
-		FSpawnedObject(UObject& InObject, ESpawnOwnership InOwnership)
-			: Object(&InObject)
+		FSpawnedObject(const FGuid& InGuid, UObject& InObject, ESpawnOwnership InOwnership)
+			: Guid(InGuid)
+			, Object(&InObject)
 			, Ownership(InOwnership)
 		{}
+
+		/** The ID of the sequencer object binding that this object relates to */
+		FGuid Guid;
 
 		/** The object that has been spawned */
 		TWeakObjectPtr<UObject> Object;

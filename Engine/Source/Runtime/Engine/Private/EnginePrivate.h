@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 EnginePrivate.h: Unreal engine private header file.
@@ -100,3 +100,4 @@ EnginePrivate.h: Unreal engine private header file.
 #include "Engine/TextureLODSettings.h"
 #include "DeviceProfiles/DeviceProfile.h"
 #include "DeviceProfiles/DeviceProfileManager.h"
+#include "Engine/SkeletalMeshReductionSettings.h"

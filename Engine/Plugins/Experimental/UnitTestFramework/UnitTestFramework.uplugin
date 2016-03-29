@@ -1,31 +1,30 @@
 {
 	"FileVersion" : 3,
-	
-	"FriendlyName"     : "Unit Test Framework",
-	"Version"          : 1,
-	"VersionName"      : "1.0",
-	"CreatedBy"        : "Epic Games, Inc.",
-	"CreatedByURL"     : "http://epicgames.com",
-	"EngineVersion"    : "4.9",
-	"Description"      : "",
-	"Category"         : "Experimental",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"FriendlyName" : "Unit Test Framework",
+	"Description" : "",
+	"Category" : "Experimental",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"DocsURL" : "",
+	"MarketplaceURL" : "",
+	"SupportURL" : "",
 	"EnabledByDefault" : false,
-
+	"CanContainContent" : true,
+	"IsBetaVersion" : false,
+	"Installed" : false,
 	"Modules" :
 	[
 		{
-			"Name"               : "UnitTestFramework",
-			"Type"               : "Runtime",
-			"LoadingPhase"       : "Default",
-			"BlacklistPlatforms" : []
+			"Name" : "UnitTestFramework",
+			"Type" : "Runtime",
+			"LoadingPhase" : "Default"
 		},
 		{
-			"Name"               : "UnitTestFrameworkEditor",
-			"Type"               : "Editor",
-			"LoadingPhase"       : "Default",
-			"BlacklistPlatforms" : []
-		},
-	],
-
-	"CanContainContent" : true
+			"Name" : "UnitTestFrameworkEditor",
+			"Type" : "Editor",
+			"LoadingPhase" : "Default"
+		}
+	]
 }

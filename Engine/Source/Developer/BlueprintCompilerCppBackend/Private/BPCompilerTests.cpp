@@ -1,20 +1,26 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintCompilerCppBackendModulePrivatePCH.h"
 
 class FArchiveSkipTransientObjectCRC32 : public FArchiveObjectCrc32
 {
-	// Begin FArchive Interface
-	virtual bool ShouldSkipProperty(const UProperty* InProperty) const override
+public:
+	static bool CanPropertBeyDifferentInConvertedCDO(const UProperty* InProperty)
 	{
-		return FArchiveObjectCrc32::ShouldSkipProperty(InProperty)
-			|| InProperty->HasAllPropertyFlags(CPF_Transient)
+		check(InProperty);
+		return InProperty->HasAllPropertyFlags(CPF_Transient)
 			|| InProperty->HasAllPropertyFlags(CPF_EditorOnly)
 			|| InProperty->GetName() == TEXT("BlueprintCreatedComponents")
 			|| InProperty->GetName() == TEXT("CreationMethod")
 			|| InProperty->GetName() == TEXT("InstanceComponents")
 			|| InProperty->GetName() == TEXT("bNetAddressable")
 			|| InProperty->GetName() == TEXT("OwnedComponents");
+	}
+	// Begin FArchive Interface
+	virtual bool ShouldSkipProperty(const UProperty* InProperty) const override
+	{
+		return FArchiveObjectCrc32::ShouldSkipProperty(InProperty)
+			|| CanPropertBeyDifferentInConvertedCDO(InProperty);
 	}
 	// End FArchive Interface
 };
@@ -89,11 +95,12 @@ static UClass* GetGeneratedClass(const TCHAR* TestFolder, const TCHAR* ClassName
 
 static UClass* GetNativeClass(const TCHAR* TestFolder, const TCHAR* ClassName, FAutomationTestBase* Context, FOwnedObjectsHelper &OwnedObjects)
 {
-	FString FullName = FString::Printf(TEXT("/Game/Blueprints/CompilerTests/%s/%s"), TestFolder, ClassName);
+	CollectGarbage(RF_NoFlags);
+
+	FString FullName = FString::Printf(TEXT("/Engine/NotForLicensees/Automation/CompilerTests/%s/%s"), TestFolder, ClassName);
 	UPackage* NativePackage = CreatePackage(NULL, *FullName);
 	check(NativePackage);
 
-	CollectGarbage(RF_NoFlags);
 	const FString FStringFullPathName = FString::Printf(TEXT("%s.%s_C"), *FullName, ClassName);
 	UClass* Ret = (UClass*)ConstructDynamicType(*FStringFullPathName); //FindObjectFast<UClass>(NativePackage, *(FString(ClassName) + TEXT("_C")));
 
@@ -214,21 +221,40 @@ bool FBPCompilerArrayTest::RunTest(const FString& Parameters)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBPCompilerCDOTest, "Project.Blueprints.NativeBackend.CDOTest", CompilerTestFlags)
 bool FBPCompilerCDOTest::RunTest(const FString& Parameters)
 {
-	auto TestBody = [](ClassAccessor F, FAutomationTestBase* Context)
+	FOwnedObjectsHelper OwnedObjects;
+	UObject* GeneratedTestInstance = NewTestObject(GetGeneratedClass(TEXT("CDO"), TEXT("BP_CDO_Basic"), this, OwnedObjects), OwnedObjects);
+	UObject* NativeTestInstance = NewTestObject(GetNativeClass(TEXT("CDO"), TEXT("BP_CDO_Basic"), this, OwnedObjects), OwnedObjects);
+	
+	if (!GeneratedTestInstance || !NativeTestInstance)
 	{
-		FOwnedObjectsHelper OwnedObjects;
+		AddError(TEXT("Test failed to run!"));
+		return true;
+	}
 
-		UObject* TestInstance = NewTestObject(F(TEXT("CDO"), TEXT("BP_CDO_Basic"), Context, OwnedObjects), OwnedObjects);
-		if (!TestInstance)
+	for (UProperty* NativeProperty : TFieldRange<UProperty>(NativeTestInstance->GetClass()))
+	{
+		if ((NativeProperty->GetOwnerClass() == UObject::StaticClass()) || (FArchiveSkipTransientObjectCRC32::CanPropertBeyDifferentInConvertedCDO(NativeProperty)))
 		{
-			return 0u;
+			continue;
+		}
+		UProperty* BPProperty = FindField<UProperty>(GeneratedTestInstance->GetClass(), *NativeProperty->GetName());
+		if (!BPProperty)
+		{
+			AddError(*FString::Printf(TEXT("Cannot find property %s in BPGC"), *NativeProperty->GetName()));
+			return true;
 		}
 
-		FArchiveSkipTransientObjectCRC32 Results;
-		return Results.Crc32(TestInstance->GetClass()->ClassDefaultObject);
-	};
+		uint8* NativeValue = NativeProperty->ContainerPtrToValuePtr<uint8>(NativeTestInstance->GetClass()->GetDefaultObject());
+		uint8* BPGCValue = BPProperty->ContainerPtrToValuePtr<uint8>(GeneratedTestInstance->GetClass()->GetDefaultObject());
+		if (!NativeProperty->Identical(NativeValue, BPGCValue))
+		{
+			AddError(*FString::Printf(TEXT("Different value of property %s"), *NativeProperty->GetName()));
+			return true;
+		}
+	}
 
-	return RunTestHelper(TestBody, this);
+	return true;
+
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBPCompilerCommunicationTest, "Project.Blueprints.NativeBackend.CommunicationTest", CompilerTestFlags)

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlatePrivatePCH.h"
 
@@ -9,6 +9,16 @@
 #include "IRichTextMarkupParser.h"
 #include "RichTextMarkupProcessing.h"
 #include "RichTextLayoutMarshaller.h"
+#include "ReflectionMetadata.h"
+
+SRichTextBlock::SRichTextBlock()
+{
+}
+
+SRichTextBlock::~SRichTextBlock()
+{
+	// Needed to avoid "deletion of pointer to incomplete type 'FTextBlockLayout'; no destructor called" error when using TUniquePtr
+}
 
 void SRichTextBlock::Construct( const FArguments& InArgs )
 {
@@ -29,13 +39,19 @@ void SRichTextBlock::Construct( const FArguments& InArgs )
 			Parser = FDefaultRichTextMarkupParser::Create();
 		}
 
-		TSharedRef<FRichTextLayoutMarshaller> Marshaller = FRichTextLayoutMarshaller::Create(Parser, nullptr, InArgs._Decorators, InArgs._DecoratorStyleSet);
-		for ( const TSharedRef< ITextDecorator >& Decorator : InArgs.InlineDecorators )
+		TSharedPtr<FRichTextLayoutMarshaller> Marshaller = InArgs._Marshaller;
+		if (!Marshaller.IsValid())
 		{
-			Marshaller->AppendInlineDecorator( Decorator );
+			Marshaller = FRichTextLayoutMarshaller::Create(Parser, nullptr, InArgs._Decorators, InArgs._DecoratorStyleSet);
+		}
+		
+		for (const TSharedRef< ITextDecorator >& Decorator : InArgs.InlineDecorators)
+		{
+			Marshaller->AppendInlineDecorator(Decorator);
 		}
 
-		TextLayoutCache = FTextBlockLayout::Create(TextStyle, InArgs._TextShapingMethod, InArgs._TextFlowDirection, Marshaller, nullptr);
+		TextLayoutCache = MakeUnique<FTextBlockLayout>(TextStyle, InArgs._TextShapingMethod, InArgs._TextFlowDirection, Marshaller.ToSharedRef(), nullptr);
+		TextLayoutCache->SetDebugSourceInfo(TAttribute<FString>::Create(TAttribute<FString>::FGetter::CreateLambda([this]{ return FReflectionMetaData::GetWidgetDebugInfo(this); })));
 	}
 }
 
@@ -71,16 +87,72 @@ void SRichTextBlock::OnArrangeChildren( const FGeometry& AllottedGeometry, FArra
 void SRichTextBlock::SetText( const TAttribute<FText>& InTextAttr )
 {
 	BoundText = InTextAttr;
+	Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void SRichTextBlock::SetHighlightText( const TAttribute<FText>& InHighlightText )
 {
 	HighlightText = InHighlightText;
+	Invalidate(EInvalidateWidget::Layout);
+}
+
+void SRichTextBlock::SetTextShapingMethod(const TOptional<ETextShapingMethod>& InTextShapingMethod)
+{
+	TextLayoutCache->SetTextShapingMethod(InTextShapingMethod);
+	Invalidate(EInvalidateWidget::Layout);
+}
+
+void SRichTextBlock::SetTextFlowDirection(const TOptional<ETextFlowDirection>& InTextFlowDirection)
+{
+	TextLayoutCache->SetTextFlowDirection(InTextFlowDirection);
+	Invalidate(EInvalidateWidget::Layout);
+}
+
+void SRichTextBlock::SetWrapTextAt(const TAttribute<float>& InWrapTextAt)
+{
+	WrapTextAt = InWrapTextAt;
+	Invalidate(EInvalidateWidget::Layout);
+}
+
+void SRichTextBlock::SetAutoWrapText(const TAttribute<bool>& InAutoWrapText)
+{
+	AutoWrapText = InAutoWrapText;
+	Invalidate(EInvalidateWidget::Layout);
+}
+
+void SRichTextBlock::SetLineHeightPercentage(const TAttribute<float>& InLineHeightPercentage)
+{
+	LineHeightPercentage = InLineHeightPercentage;
+	Invalidate(EInvalidateWidget::Layout);
+}
+
+void SRichTextBlock::SetMargin(const TAttribute<FMargin>& InMargin)
+{
+	Margin = InMargin;
+	Invalidate(EInvalidateWidget::Layout);
+}
+
+void SRichTextBlock::SetJustification(const TAttribute<ETextJustify::Type>& InJustification)
+{
+	Justification = InJustification;
+	Invalidate(EInvalidateWidget::Layout);
+}
+
+void SRichTextBlock::SetTextStyle(const FTextBlockStyle& InTextStyle)
+{
+	TextStyle = InTextStyle;
+	Invalidate(EInvalidateWidget::Layout);
 }
 
 void SRichTextBlock::Refresh()
 {
 	TextLayoutCache->DirtyLayout();
+	Invalidate(EInvalidateWidget::Layout);
+}
+
+bool SRichTextBlock::ComputeVolatility() const
+{
+	return SWidget::ComputeVolatility() || BoundText.IsBound();
 }
 
 #endif //WITH_FANCY_TEXT

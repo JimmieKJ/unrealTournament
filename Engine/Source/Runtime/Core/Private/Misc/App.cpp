@@ -1,9 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "Runtime/Launch/Resources/Version.h"
 #include "Misc/App.h"
 
+DEFINE_LOG_CATEGORY_STATIC(LogApp, Log, All);
 
 /* FApp static initialization
  *****************************************************************************/
@@ -22,6 +23,8 @@ double FApp::LastTime = 0.0;
 double FApp::DeltaTime = 1 / 30.0;
 float FApp::VolumeMultiplier = 1.0f;
 float FApp::UnfocusedVolumeMultiplier = 0.0f;
+bool FApp::bUseVRFocus = false;
+bool FApp::bHasVRFocus = false;
 
 
 /* FApp static interface
@@ -44,6 +47,21 @@ FString FApp::GetEpicProductIdentifier()
 	return FString(TEXT(EPIC_PRODUCT_IDENTIFIER));
 }
 
+const TCHAR * FApp::GetDeploymentName()
+{
+	static TCHAR StaticDeploymentName[64] = {0};
+	static bool bHaveDeployment = false;
+
+	if (!bHaveDeployment)
+	{
+		// use -epicapp value from the commandline. Default deployment is not captured by this,
+		// but this may not be a problem as that would be the case only during the development
+		FParse::Value(FCommandLine::Get(), TEXT("EPICAPP="), StaticDeploymentName, ARRAY_COUNT(StaticDeploymentName) - 1);
+		bHaveDeployment = true;
+	}
+
+	return StaticDeploymentName;
+}
 
 EBuildConfigurations::Type FApp::GetBuildConfiguration()
 {
@@ -132,8 +150,27 @@ bool FApp::IsInstalled()
 
 bool FApp::IsEngineInstalled()
 {
-	static bool bIsInstalledEngine = IsInstalled() || (FRocketSupport::IsRocket() ? !FParse::Param(FCommandLine::Get(), TEXT("NotInstalledEngine")) : FParse::Param(FCommandLine::Get(), TEXT("InstalledEngine")));
-	return bIsInstalledEngine;
+	static int32 EngineInstalledState = -1;
+
+	if (EngineInstalledState == -1)
+	{
+		bool bIsInstalledEngine = IsInstalled();
+		FString InstalledBuildFile = FPaths::RootDir() / TEXT("Engine/Build/InstalledBuild.txt");
+		FPaths::NormalizeFilename(InstalledBuildFile);
+		bIsInstalledEngine |= IFileManager::Get().FileExists(*InstalledBuildFile);
+		// Allow commandline options to disable/enable installed engine behavior
+		if (bIsInstalledEngine)
+		{
+			bIsInstalledEngine = !FParse::Param(FCommandLine::Get(), TEXT("NotInstalledEngine"));
+		}
+		else
+		{
+			bIsInstalledEngine = FParse::Param(FCommandLine::Get(), TEXT("InstalledEngine"));
+		}
+		EngineInstalledState = bIsInstalledEngine ? 1 : 0;
+	}
+
+	return EngineInstalledState == 1;
 }
 
 
@@ -161,4 +198,16 @@ void FApp::SetUnfocusedVolumeMultiplier(float InVolumeMultiplier)
 {
 	UnfocusedVolumeMultiplier = InVolumeMultiplier;
 	GUnfocusedVolumeMultiplierItialised = true;
+}
+
+void FApp::SetUseVRFocus(bool bInUseVRFocus)
+{
+	UE_CLOG(bUseVRFocus != bInUseVRFocus, LogApp, Log, TEXT("UseVRFocus has changed to %d"), int(bInUseVRFocus));
+	bUseVRFocus = bInUseVRFocus;
+}
+
+void FApp::SetHasVRFocus(bool bInHasVRFocus)
+{
+	UE_CLOG(bHasVRFocus != bInHasVRFocus, LogApp, Log, TEXT("HasVRFocus has changed to %d"), int(bInHasVRFocus));
+	bHasVRFocus = bInHasVRFocus;
 }

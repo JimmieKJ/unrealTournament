@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Epic Games, Inc. All Rights Reserved.
+ * Copyright (C) 2015-2016 Epic Games, Inc. All Rights Reserved.
  */
 package com.epicgames.replayserver;
 

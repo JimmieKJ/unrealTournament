@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -28,6 +28,18 @@ public:
 	 * @return the Index of the mesh data that was added; cache this value for use with @see FRenderRun.
 	 */
 	uint32 AddMesh(USlateVectorArtData& InMeshData);
+
+	/** Much like AddMesh, but also enables instancing support for this MeshId. */
+	uint32 AddMeshWithInstancing(USlateVectorArtData& InMeshData, int32 InitialBufferSize = 1);
+
+	/**
+	 * Switch from static material to material instance dynamic.
+	 * 
+	 * @param MeshId    The index of the mesh; returned from AddMesh.
+	 * 
+	 * @return The MID for this Asset on which parameters can be set.
+	 */
+	UMaterialInstanceDynamic* ConvertToMID( uint32 MeshId );
 
 	/** Discard any previous runs and reserve space for new render runs if needed. */
 	void ClearRuns(int32 NumRuns);
@@ -64,8 +76,7 @@ protected:
 
 protected:
 	static void PushUpdate(uint32 VectorArtId, const SMeshWidget& Widget, const FVector2D& Position, float Scale, uint32 BaseAddress);
-
-private:
+	static void PushUpdate(uint32 VectorArtId, const SMeshWidget& Widget, const FVector2D& Position, float Scale, float OptionalFloat = 0);
 
 	struct FRenderData
 	{
@@ -82,6 +93,7 @@ private:
 	};
 	TArray<FRenderData, TInlineAllocator<3>> RenderData;
 
+private:
 	/** Which mesh to draw, starting with which instance offset and how many instances to draw in this run/batch. */
 	class FRenderRun
 	{

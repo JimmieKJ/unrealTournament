@@ -1,10 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "PreviewScene.h"
 #include "PhysicsPublic.h"
-#include "AnimationRecorder.h"
 
 class UPhATEdSkeletalMeshComponent;
 class UPhysicsHandleComponent;
@@ -214,8 +213,6 @@ public:
 
 	UBodySetup * CopiedBodySetup;
 	UPhysicsConstraintTemplate * CopiedConstraintTemplate;
-
-	struct FAnimationRecorder Recorder;
 
 	/** Constraint editing */
 	TArray<FSelection> SelectedConstraints;

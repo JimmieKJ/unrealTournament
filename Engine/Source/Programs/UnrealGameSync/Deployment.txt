@@ -1,0 +1,129 @@
+Setting up UnrealGameSync
+=========================
+
+UnrealGameSync provides a graphical frontend to sync and build UE4 projects from Perforce, designed to facilitate low overhead and fast iteration 
+times between designers, programmers and artists.
+
+* Developers can sync to a changelist as soon as it's submitted, and locally compile the source code matching that change. They can comments on each 
+  change, or flag builds as good or bad for other developers.
+* Individual engineers can flag to the rest of the team when they're taking responsibility for the build being broken and working on a fix.
+* CIS results can be surfaced directly alongside the list of submitted changelists, along with a link to the build logs.
+* Zipped editor builds compiled by CIS can be synced and decompressed automatically for artists without Visual Studio.
+
+Projects
+--------
+
+* UnrealGameSync: Main tool to sync and build from Perforce.
+* UnrealGameSyncLauncher: Launcher for UnrealGameSync, which auto-updates the program executables from a path in Perforce. It does not require a clientspec which has the path mapped.
+* Installer: MSI installer for UnrealGameSyncLauncher. This is typically used to get the bootstrap launcher onto developer machines, which can then auto-update and 
+  run the actual program from Perforce. Requires Wix 3.8 to build.
+* PostBuildInfoTool: Small utility to poke CIS results into the database that UGS reads from.
+* Custom build steps allow setting up project-specific tools and utilities.
+
+Site-specific Configuration
+---------------------------
+
+Several of these tools require site-specific configuration for Perforce paths and database server connection settings. The defaults are left blank, and are defined 
+at the top of the Program.cs file in each tool. 
+
+	In UnrealGameSync:
+
+		string SqlConnectionString (Standard C# syntax suitable for constructing a SqlConnection object)
+
+	In PostBuildInfoTool:
+
+		string SqlConnectionString (Standard C# syntax suitable for constructing a SqlConnection object)
+		
+	In UnrealGameSyncLauncher:
+
+		string StableSyncPath (Path to auto-update UnrealGameSync executables from)
+		string UnstableSyncPath (Path to update pre-release UnrealGameSync executables from. Hold down the SHIFT key when running UnrealGameSyncLauncher to use pre-release executables).
+
+Epic's settings are in a NotForLicensees/ProgramSettings.cs file under each tool, which are included by the project files if present, but which we do not distribute. In each case, this 
+file uses the 'partial class' feature of C# to implement a static constructor for the Program class, which initializes these settings. Licensees may add their own version of these files,
+similarly to this:
+
+	using System;
+	using System.Data.SqlClient;
+
+	namespace UnrealGameSync
+	{
+		static partial class Program
+		{
+			static Program()
+			{
+				SqlConnectionStringBuilder SqlConnectionStringBuilder = new SqlConnectionStringBuilder();
+				SqlConnectionStringBuilder.DataSource = "database.mycompany.com";
+				// SqlConnectionStringBuilder.IntegratedSecurity = ...
+				// SqlConnectionStringBuilder.UserID = ...
+				// SqlConnectionStringBuilder.Password = ...
+				SqlConnectionStringBuilder.InitialCatalog = "UnrealGameSync";
+				SqlConnectionStringBuilder.ConnectTimeout = 10;
+
+				SqlConnectionString = SqlConnectionStringBuilder.ToString();
+			}
+		}
+	}
+
+Database Setup
+--------------
+
+UnrealGameSync uses a database to store user feedback, compile results, telemetry, and the results of any external CIS results posted using PostBuildInfoTool. While it can run without this
+being set up, some of the more powerful features will not be available.
+
+Create scripts for the tables used are below:
+
+	CREATE TABLE [dbo].[CIS] (
+		[Id]           INT           IDENTITY (1, 1) NOT NULL,
+		[ChangeNumber] INT           NOT NULL,
+		[BuildType]    NCHAR (32)    NOT NULL,
+		[Result]       NCHAR (10)    NOT NULL,
+		[Url]          VARCHAR (512) NOT NULL,
+		[Project]      VARCHAR (256) NULL,
+		[ArchivePath]  VARCHAR (512) NULL,
+		PRIMARY KEY CLUSTERED ([Id] ASC)
+	);
+
+	CREATE TABLE [dbo].[Comments] (
+		[Id]           INT            IDENTITY (1, 1) NOT NULL,
+		[ChangeNumber] INT            NOT NULL,
+		[UserName]     VARCHAR (128)  NOT NULL,
+		[Text]         VARCHAR (140)  NOT NULL,
+		[Project]      NVARCHAR (256) NOT NULL,
+		PRIMARY KEY CLUSTERED ([Id] ASC)
+	);
+
+	CREATE TABLE [dbo].[Errors] (
+		[Id]        INT            IDENTITY (1, 1) NOT NULL,
+		[Type]      VARCHAR (50)   NOT NULL,
+		[Text]      VARCHAR (1024) NOT NULL,
+		[UserName]  NVARCHAR (128) NOT NULL,
+		[Project]   VARCHAR (128)  NULL,
+		[Timestamp] DATETIME       NOT NULL,
+		[Version]   VARCHAR (64)   NOT NULL,
+		[IpAddress] VARCHAR (64)   NOT NULL,
+		PRIMARY KEY CLUSTERED ([Id] ASC)
+	);
+
+	CREATE TABLE [dbo].[Telemetry.v2] (
+		[Id]        INT            IDENTITY (1, 1) NOT NULL,
+		[Action]    VARCHAR (128)  NOT NULL,
+		[Result]    VARCHAR (128)  NOT NULL,
+		[UserName]  NVARCHAR (128) NOT NULL,
+		[Project]   VARCHAR (128)  NOT NULL,
+		[Timestamp] DATETIME       NOT NULL,
+		[Duration]  REAL           NOT NULL,
+		[Version]   VARCHAR (64)   NULL,
+		[IpAddress] VARCHAR (64)   NULL,
+		PRIMARY KEY CLUSTERED ([Id] ASC)
+	);
+
+	CREATE TABLE [dbo].[UserVotes] (
+		[Id]         BIGINT         IDENTITY (1, 1) NOT NULL,
+		[Changelist] INT            NOT NULL,
+		[UserName]   NVARCHAR (128) NOT NULL,
+		[Verdict]    NCHAR (32)     NOT NULL,
+		[Project]    NVARCHAR (256) NULL,
+		PRIMARY KEY CLUSTERED ([Id] ASC)
+	);
+

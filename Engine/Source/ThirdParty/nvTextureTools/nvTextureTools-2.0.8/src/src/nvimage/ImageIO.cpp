@@ -1,5 +1,5 @@
 // This code is in the public domain -- castanyo@yahoo.es
-// Modifications copyright 2014-2015 Epic Games, Inc.
+// Modifications copyright 2014-2016 Epic Games, Inc.
 
 #include <nvcore/Ptr.h>
 #include <nvcore/Containers.h>

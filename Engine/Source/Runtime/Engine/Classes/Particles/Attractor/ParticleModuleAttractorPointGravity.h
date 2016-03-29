@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*==============================================================================
 	ParticleModuleAttractorPointGravity: Causes particles to accelerate towards
@@ -23,8 +23,12 @@ class UParticleModuleAttractorPointGravity : public UParticleModuleAttractorBase
 	float Radius;
 
 	/** The strength of the point source. */
+	UPROPERTY()
+	class UDistributionFloat* Strength_DEPRECATED;
+
+	/** The strength of the point source. */
 	UPROPERTY(EditAnywhere, noclear, Category=PointGravitySource)
-	class UDistributionFloat* Strength;
+	FRawDistributionFloat StrengthRaw;
 
 	/** Initializes the default values for this property */
 	void InitializeDefaults();
@@ -34,6 +38,7 @@ class UParticleModuleAttractorPointGravity : public UParticleModuleAttractorBase
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 	virtual void PostInitProperties() override;
+	virtual void PostLoad() override;
 	//End UObject Interface
 
 	//Begin UParticleModule Interface

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.IO;
@@ -16,14 +16,13 @@ public class Engine : ModuleRules
 				"Developer/DerivedDataCache/Public",
 				"Runtime/Online/OnlineSubsystem/Public",
 				"Runtime/Online/OnlineSubsystemUtils/Public",
-                "Developer/SynthBenchmark/Public",
+                "Runtime/SynthBenchmark/Public",
                 "Runtime/Engine/Private",
 			}
 		);
 
 		PrivateIncludePathModuleNames.AddRange(
-			new string[] {
-				"CrashTracker",
+			new string[] {				
 				"OnlineSubsystem",
 				"TargetPlatform",
 				"ImageWrapper",
@@ -34,6 +33,8 @@ public class Engine : ModuleRules
 				"AutomationWorker",
                 "Analytics",
 				"MovieSceneCapture",
+				"DesktopPlatform",
+				"Analytics"
 			}
 		);
 
@@ -70,14 +71,26 @@ public class Engine : ModuleRules
 				"RHI",
 				"ShaderCore",
 				"AssetRegistry", // Here until FAssetData is moved to engine
-                "CookingStats",
 				"EngineMessages",
 				"EngineSettings",
 				"SynthBenchmark",
                 "AIModule",
 				"DatabaseSupport",
+                		"PacketHandler",
+				"HardwareSurvey",
 			}
 		);
+
+		if (Target.Type == TargetRules.TargetType.Editor)
+		{
+			PrivateIncludePathModuleNames.AddRange(new string[] { "CrashTracker" });
+			DynamicallyLoadedModuleNames.AddRange(new string[] { "CrashTracker" });
+			PublicDependencyModuleNames.AddRange(
+				new string[] {
+			}
+			);
+		}
+
 
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
@@ -89,13 +102,37 @@ public class Engine : ModuleRules
 				"Projects",
 				"Niagara",
                 "Internationalization",
-                "PacketHandler",
                 "MaterialShaderQualitySettings",
 			}
         );
 
-        if (Target.Platform != UnrealTargetPlatform.XboxOne)
+		bool bVariadicTemplatesSupported = true;
+		if (Target.Platform == UnrealTargetPlatform.XboxOne)
+		{
+			// Use reflection to allow type not to exist if console code is not present
+			System.Type XboxOnePlatformType = System.Type.GetType("UnrealBuildTool.XboxOnePlatform,UnrealBuildTool");
+			if (XboxOnePlatformType != null)
+			{
+				System.Object VersionName = XboxOnePlatformType.GetMethod("GetVisualStudioCompilerVersionName").Invoke(null, null);
+				if (VersionName.ToString().Equals("2012"))
+				{
+					bVariadicTemplatesSupported = false;
+				}
+			}
+		}
+
+		if (bVariadicTemplatesSupported)
         {
+            PrivateIncludePathModuleNames.AddRange(
+                new string[] {
+                    "MessagingRpc",
+                    "PortalRpc",
+                    "PortalServices",
+                }
+            );
+
+            if (Target.Type == TargetRules.TargetType.Editor)
+            {
             // these modules require variadic templates
             PrivateDependencyModuleNames.AddRange(
                 new string[] {
@@ -104,6 +141,7 @@ public class Engine : ModuleRules
                     "PortalServices",
                 }
             );
+        }
         }
 
         CircularlyReferencedDependentModules.Add("AIModule");
@@ -232,7 +270,6 @@ public class Engine : ModuleRules
         {
 		    DynamicallyLoadedModuleNames.AddRange(
 			    new string[] {
-				    "CrashTracker",
 				    "ImageWrapper",
 					"GameLiveStreaming"
 			    }
@@ -244,7 +281,8 @@ public class Engine : ModuleRules
 			DynamicallyLoadedModuleNames.AddRange(
 				new string[] {
 					"DerivedDataCache", 
-					"TargetPlatform"
+					"TargetPlatform",
+                    "DesktopPlatform"
 				}
 			);
 		}
@@ -283,7 +321,7 @@ public class Engine : ModuleRules
 		if ((Target.Platform == UnrealTargetPlatform.Win64) ||
 			(Target.Platform == UnrealTargetPlatform.Win32))
 		{
-			AddThirdPartyPrivateStaticDependencies(Target,
+			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"UEOgg",
 				"Vorbis",
 				"VorbisFile",
@@ -292,7 +330,7 @@ public class Engine : ModuleRules
 
 			if (UEBuildConfiguration.bCompileLeanAndMeanUE == false)
 			{
-				AddThirdPartyPrivateStaticDependencies(Target, "DirectShow");
+				AddEngineThirdPartyPrivateStaticDependencies(Target, "DirectShow");
 			}
 
             // Head Mounted Display support
@@ -302,7 +340,7 @@ public class Engine : ModuleRules
 
 		if (Target.Platform == UnrealTargetPlatform.HTML5 && Target.Architecture == "-win32")
         {
-			AddThirdPartyPrivateStaticDependencies(Target, 
+			AddEngineThirdPartyPrivateStaticDependencies(Target, 
                     "UEOgg",
                     "Vorbis",
                     "VorbisFile"
@@ -315,7 +353,7 @@ public class Engine : ModuleRules
 
 		if (Target.Platform == UnrealTargetPlatform.Mac)
 		{
-			AddThirdPartyPrivateStaticDependencies(Target, 
+			AddEngineThirdPartyPrivateStaticDependencies(Target, 
 				"UEOgg",
 				"Vorbis",
 				"libOpus"
@@ -325,7 +363,7 @@ public class Engine : ModuleRules
 
 		if (Target.Platform == UnrealTargetPlatform.Android)
         {
-			AddThirdPartyPrivateStaticDependencies(Target,
+			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"UEOgg",
 				"Vorbis",
 				"VorbisFile"
@@ -334,7 +372,7 @@ public class Engine : ModuleRules
 
 		if (Target.Platform == UnrealTargetPlatform.Linux)
 		{
-			AddThirdPartyPrivateStaticDependencies(Target,
+			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"UEOgg",
 				"Vorbis",
 				"VorbisFile",

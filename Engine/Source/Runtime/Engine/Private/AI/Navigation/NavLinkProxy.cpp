@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "ObjectEditorUtils.h"
@@ -29,13 +29,26 @@ ANavLinkProxy::ANavLinkProxy(const FObjectInitializer& ObjectInitializer) : Supe
 	SpriteComponent = CreateEditorOnlyDefaultSubobject<UBillboardComponent>(TEXT("Sprite"));
 	if (!IsRunningCommandlet() && (SpriteComponent != NULL))
 	{
-		static ConstructorHelpers::FObjectFinderOptional<UTexture2D> SpriteTexture(TEXT("/Engine/EditorResources/AI/S_NavLink"));
+		struct FConstructorStatics
+		{
+			ConstructorHelpers::FObjectFinderOptional<UTexture2D> SpriteTexture;
+			FName ID_Decals;
+			FText NAME_Decals;
+			FConstructorStatics()
+				: SpriteTexture(TEXT("/Engine/EditorResources/AI/S_NavLink"))
+				, ID_Decals(TEXT("Navigation"))
+				, NAME_Decals(NSLOCTEXT("SpriteCategory", "Navigation", "Navigation"))
+			{
+			}
+		};
+		static FConstructorStatics ConstructorStatics;
 
-		SpriteComponent->Sprite = SpriteTexture.Get();
+		SpriteComponent->Sprite = ConstructorStatics.SpriteTexture.Get();
 		SpriteComponent->RelativeScale3D = FVector(0.5f, 0.5f, 0.5f);
 		SpriteComponent->bHiddenInGame = true;
 		SpriteComponent->bVisible = true;
-
+		SpriteComponent->SpriteInfo.Category = ConstructorStatics.ID_Decals;
+		SpriteComponent->SpriteInfo.DisplayName = ConstructorStatics.NAME_Decals;
 		SpriteComponent->AttachParent = RootComponent;
 		SpriteComponent->SetAbsolute(false, false, true);
 		SpriteComponent->bIsScreenSizeScaled = true;
@@ -83,6 +96,12 @@ void ANavLinkProxy::PostEditChangeProperty(FPropertyChangedEvent& PropertyChange
 }
 #endif // WITH_EDITOR
 
+void ANavLinkProxy::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+	SmartLinkComp->SetNavigationRelevancy(bSmartLinkIsRelevant);
+}
+
 #if ENABLE_VISUAL_LOG
 void ANavLinkProxy::BeginPlay()
 {
@@ -91,6 +110,8 @@ void ANavLinkProxy::BeginPlay()
 	{
 		REDIRECT_OBJECT_TO_VLOG(this, NavSys);
 	}
+
+	Super::BeginPlay();
 }
 #endif // ENABLE_VISUAL_LOG
 
@@ -107,7 +128,7 @@ FBox ANavLinkProxy::GetNavigationBounds() const
 
 bool ANavLinkProxy::IsNavigationRelevant() const
 {
-	return (PointLinks.Num() > 0) || (SegmentLinks.Num() > 0);
+	return (PointLinks.Num() > 0) || (SegmentLinks.Num() > 0) || bSmartLinkIsRelevant;
 }
 
 bool ANavLinkProxy::GetNavigationLinksClasses(TArray<TSubclassOf<UNavLinkDefinition> >& OutClasses) const

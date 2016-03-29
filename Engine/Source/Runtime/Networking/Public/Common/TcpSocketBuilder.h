@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -15,7 +15,7 @@ public:
 	 *
 	 * @param InDescription Debug description for the socket.
 	 */
-	FTcpSocketBuilder( const FString& InDescription )
+	FTcpSocketBuilder(const FString& InDescription)
 		: Blocking(false)
 		, Bound(false)
 		, BoundEndpoint(FIPv4Address::Any, 0)
@@ -79,9 +79,9 @@ public:
 	 * @return This instance (for method chaining).
 	 * @see BoundToEndpoint, BoundToPort
 	 */
-	FTcpSocketBuilder BoundToAddress( const FIPv4Address& Address )
+	FTcpSocketBuilder BoundToAddress(const FIPv4Address& Address)
 	{
-		BoundEndpoint = FIPv4Endpoint(Address, BoundEndpoint.GetPort());
+		BoundEndpoint = FIPv4Endpoint(Address, BoundEndpoint.Port);
 		Bound = true;
 
 		return *this;
@@ -94,7 +94,7 @@ public:
 	 * @return This instance (for method chaining).
 	 * @see BoundToAddress, BoundToPort
 	 */
-	FTcpSocketBuilder BoundToEndpoint( const FIPv4Endpoint& Endpoint )
+	FTcpSocketBuilder BoundToEndpoint(const FIPv4Endpoint& Endpoint)
 	{
 		BoundEndpoint = Endpoint;
 		Bound = true;
@@ -112,9 +112,9 @@ public:
 	 * @return This instance (for method chaining).
 	 * @see BoundToAddress, BoundToEndpoint
 	 */
-	FTcpSocketBuilder BoundToPort( int32 Port )
+	FTcpSocketBuilder BoundToPort(int32 Port)
 	{
-		BoundEndpoint = FIPv4Endpoint(BoundEndpoint.GetAddress(), Port);
+		BoundEndpoint = FIPv4Endpoint(BoundEndpoint.Address, Port);
 		Bound = true;
 
 		return *this;
@@ -126,7 +126,7 @@ public:
 	 * @param Timeout The amount of time to linger before closing.
 	 * @return This instance (for method chaining).
 	 */
-	FTcpSocketBuilder Lingering( int32 Timeout )
+	FTcpSocketBuilder Lingering(int32 Timeout)
 	{
 		Linger = true;
 		LingerTimeout = Timeout;
@@ -140,7 +140,7 @@ public:
 	 * @param MaxBacklog The number of connections to queue before refusing them.
 	 * @return This instance (for method chaining).
 	 */
-	FTcpSocketBuilder Listening( int32 MaxBacklog )
+	FTcpSocketBuilder Listening(int32 MaxBacklog)
 	{
 		Listen = true;
 		ListenBacklog = MaxBacklog;
@@ -217,7 +217,7 @@ public:
 
 				if (!Error)
 				{
-					Error = Bound && !Socket->Bind(*SocketSubsystem->CreateInternetAddr(BoundEndpoint.GetAddress().GetValue(), BoundEndpoint.GetPort()));
+					Error = Bound && !Socket->Bind(*BoundEndpoint.ToInternetAddr());
 				}
 
 				if (!Error)

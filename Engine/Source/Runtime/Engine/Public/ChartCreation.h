@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /** 
  * ChartCreation
@@ -90,7 +90,7 @@ struct FHitchChartEntry
 
 
 /** Hitch histogram.  How many times the game experienced hitches of various lengths. */
-extern FHitchChartEntry GHitchChart[ STAT_FPSChart_LastHitchBucketStat - STAT_FPSChart_FirstHitchStat ];
+extern ENGINE_API FHitchChartEntry GHitchChart[ STAT_FPSChart_LastHitchBucketStat - STAT_FPSChart_FirstHitchStat ];
 
 #endif // DO_CHARTING
 

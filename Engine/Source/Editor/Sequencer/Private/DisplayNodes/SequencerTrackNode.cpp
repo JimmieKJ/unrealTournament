@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerPrivatePCH.h"
 #include "IKeyArea.h"
@@ -8,7 +8,7 @@
 #include "MovieSceneNameableTrack.h"
 #include "Sequencer.h"
 #include "ISequencerTrackEditor.h"
-
+#include "SKeyNavigationButtons.h"
 
 namespace SequencerNodeConstants
 {
@@ -19,10 +19,11 @@ namespace SequencerNodeConstants
 /* FTrackNode structors
  *****************************************************************************/
 
-FSequencerTrackNode::FSequencerTrackNode(UMovieSceneTrack& InAssociatedTrack, ISequencerTrackEditor& InAssociatedEditor, TSharedPtr<FSequencerDisplayNode> InParentNode, FSequencerNodeTree& InParentTree)
+FSequencerTrackNode::FSequencerTrackNode(UMovieSceneTrack& InAssociatedTrack, ISequencerTrackEditor& InAssociatedEditor, bool bInCanBeDragged, TSharedPtr<FSequencerDisplayNode> InParentNode, FSequencerNodeTree& InParentTree)
 	: FSequencerDisplayNode(InAssociatedTrack.GetTrackName(), InParentNode, InParentTree)
 	, AssociatedEditor(InAssociatedEditor)
 	, AssociatedTrack(&InAssociatedTrack)
+	, bCanBeDragged(bInCanBeDragged)
 { }
 
 
@@ -38,6 +39,11 @@ void FSequencerTrackNode::SetSectionAsKeyArea(TSharedRef<IKeyArea>& KeyArea)
 	}
 
 	TopLevelKeyNode->AddKeyArea( KeyArea );
+}
+
+void FSequencerTrackNode::AddKey(const FGuid& ObjectGuid)
+{
+	AssociatedEditor.AddKey(ObjectGuid);
 }
 
 
@@ -105,15 +111,18 @@ void FSequencerTrackNode::BuildContextMenu(FMenuBuilder& MenuBuilder)
 
 bool FSequencerTrackNode::CanRenameNode() const
 {
-	UMovieSceneTrack* Track = AssociatedTrack.Get();
-	return (Track != nullptr) && Track->IsA(UMovieSceneNameableTrack::StaticClass());
+	auto NameableTrack = Cast<UMovieSceneNameableTrack>(AssociatedTrack.Get());
+
+	if (NameableTrack != nullptr)
+	{
+		return NameableTrack->CanRename();
+	}
+	return false;
 }
 
-
-TSharedRef<SWidget> FSequencerTrackNode::GenerateEditWidgetForOutliner()
+TSharedRef<SWidget> FSequencerTrackNode::GetCustomOutlinerContent()
 {
 	TSharedPtr<FSequencerSectionKeyAreaNode> KeyAreaNode = GetTopLevelKeyNode();
-
 	if (KeyAreaNode.IsValid())
 	{
 		// @todo - Sequencer - Support multiple sections/key areas?
@@ -121,10 +130,44 @@ TSharedRef<SWidget> FSequencerTrackNode::GenerateEditWidgetForOutliner()
 
 		if (KeyAreas.Num() > 0)
 		{
+			// Create the widgets for the key editor and key navigation buttons
+			TSharedRef<SHorizontalBox> BoxPanel = SNew(SHorizontalBox);
+
 			if (KeyAreas[0]->CanCreateKeyEditor())
 			{
-				return KeyAreas[0]->CreateKeyEditor(&GetSequencer());
+				BoxPanel->AddSlot()
+				.HAlign(HAlign_Right)
+				.VAlign(VAlign_Center)
+				[
+					SNew(SBox)
+					.WidthOverride(100)
+					.HAlign(HAlign_Left)
+					[
+						KeyAreas[0]->CreateKeyEditor(&GetSequencer())
+					]
+				];
 			}
+			else
+			{
+				BoxPanel->AddSlot()
+				[
+					SNew(SSpacer)
+				];
+			}
+
+			BoxPanel->AddSlot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			[
+				SNew(SKeyNavigationButtons, AsShared())
+			];
+
+			return SNew(SBox)
+				.VAlign(VAlign_Center)
+				.HAlign(HAlign_Right)
+				[
+					BoxPanel
+				];
 		}
 	}
 	else
@@ -136,15 +179,72 @@ TSharedRef<SWidget> FSequencerTrackNode::GenerateEditWidgetForOutliner()
 		{
 			ObjectBinding = StaticCastSharedPtr<FSequencerObjectBindingNode>(ParentNode)->GetObjectBinding();
 		}
+		FBuildEditWidgetParams Params;
+		Params.NodeIsHovered = TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FSequencerDisplayNode::IsHovered));
 
-		TSharedPtr<SWidget> EditWidget = AssociatedEditor.BuildOutlinerEditWidget(ObjectBinding, AssociatedTrack.Get());
-		if (EditWidget.IsValid())
+		TSharedPtr<SWidget> Widget = AssociatedEditor.BuildOutlinerEditWidget(ObjectBinding, AssociatedTrack.Get(), Params);
+
+		TSharedRef<SHorizontalBox> BoxPanel = SNew(SHorizontalBox);
+
+		bool bHasKeyableAreas = false;
+
+		TArray<TSharedRef<FSequencerSectionKeyAreaNode>> ChildKeyAreaNodes;
+		FSequencerDisplayNode::GetChildKeyAreaNodesRecursively(ChildKeyAreaNodes);
+		for (int32 ChildIndex = 0; ChildIndex < ChildKeyAreaNodes.Num() && !bHasKeyableAreas; ++ChildIndex)
 		{
-			return EditWidget.ToSharedRef();
+			TArray< TSharedRef<IKeyArea> > ChildKeyAreas = ChildKeyAreaNodes[ChildIndex]->GetAllKeyAreas();
+
+			for (int32 ChildKeyAreaIndex = 0; ChildKeyAreaIndex < ChildKeyAreas.Num() && !bHasKeyableAreas; ++ChildKeyAreaIndex)
+			{
+				if (ChildKeyAreas[ChildKeyAreaIndex]->CanCreateKeyEditor())
+				{
+					bHasKeyableAreas = true;
+				}
+			}
 		}
+
+		if (Widget.IsValid())
+		{
+			BoxPanel->AddSlot()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Right)
+			[
+				Widget.ToSharedRef()
+			];
+		}
+
+		if (bHasKeyableAreas)
+		{
+			BoxPanel->AddSlot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			[
+				SNew(SKeyNavigationButtons, AsShared())
+			];
+		}
+
+		return SNew(SBox)
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Right)
+			[
+				BoxPanel
+			];
 	}
 
-	return FSequencerDisplayNode::GenerateEditWidgetForOutliner();
+
+	return SNew(SSpacer);
+}
+
+
+const FSlateBrush* FSequencerTrackNode::GetIconBrush() const
+{
+	return AssociatedEditor.GetIconBrush();
+}
+
+
+bool FSequencerTrackNode::CanDrag() const
+{
+	return bCanBeDragged;
 }
 
 
@@ -167,15 +267,18 @@ FText FSequencerTrackNode::GetDisplayName() const
 
 float FSequencerTrackNode::GetNodeHeight() const
 {
-	return (Sections.Num() > 0)
-		? Sections[0]->GetSectionHeight() * (GetMaxRowIndex() + 1)
-		: SequencerLayoutConstants::SectionAreaDefaultHeight;
+	if (Sections.Num() > 0)
+	{
+		return (Sections[0]->GetSectionHeight() + 2 * SequencerNodeConstants::CommonPadding) * (GetMaxRowIndex() + 1);
+	}
+
+	return SequencerLayoutConstants::SectionAreaDefaultHeight + 2*SequencerNodeConstants::CommonPadding;
 }
 
 
 FNodePadding FSequencerTrackNode::GetNodePadding() const
 {
-	return FNodePadding(SequencerNodeConstants::CommonPadding);
+	return FNodePadding(0.f);
 }
 
 

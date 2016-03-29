@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "LatentActions.h"
@@ -323,15 +323,25 @@ private:
 	/** @return Name of the LOD package on disk to load to the new package named PackageName, Name_None otherwise					*/
 	FName GetLODPackageNameToLoad() const;
 
+	enum EReqLevelBlock
+	{
+		/** Block load AlwaysLoaded levels. Otherwise Async load. */
+		BlockAlwaysLoadedLevelsOnly,	
+		/** Block all loads */
+		AlwaysBlock,
+		/** Never block loads */
+		NeverBlock,
+	};
+
 	/** 
 	 * Try to find loaded level in memory, issue a loading request otherwise
 	 *
 	 * @param	PersistentWorld			Persistent world
 	 * @param	bAllowLevelLoadRequests	Whether to allow level load requests
-	 * @param	bBlockOnLoad			Whether loading operation should block
+	 * @param	BlockPolicy				Whether loading operation should block
 	 * @return							true if the load request was issued or a package was already loaded
 	 */
-	bool RequestLevel(UWorld* PersistentWorld, bool bAllowLevelLoadRequests, bool bBlockOnLoad);
+	bool RequestLevel(UWorld* PersistentWorld, bool bAllowLevelLoadRequests, EReqLevelBlock BlockPolicy);
 	
 	/** Sets the value of LoadedLevel */
 	void SetLoadedLevel(class ULevel* Level);

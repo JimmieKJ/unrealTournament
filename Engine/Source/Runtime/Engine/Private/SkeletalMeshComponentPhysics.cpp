@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "PhysicsPublic.h"
@@ -49,7 +49,7 @@ DECLARE_CYCLE_STAT(TEXT("Cloth Total"), STAT_ClothTotalTime, STATGROUP_Physics);
 void FSkeletalMeshComponentClothTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(FSkeletalMeshComponentClothTickFunction_ExecuteTick);
-	FActorComponentTickFunction::ExecuteTickHelper(Target, DeltaTime, TickType, [this](float DilatedTime)
+	FActorComponentTickFunction::ExecuteTickHelper(Target,/*bTickInEditor=*/ false, DeltaTime, TickType, [this](float DilatedTime)
 	{
 		Target->TickClothing(DilatedTime, *this);
 	});
@@ -63,7 +63,7 @@ FString FSkeletalMeshComponentClothTickFunction::DiagnosticMessage()
 void FSkeletalMeshComponentPostPhysicsTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(FSkeletalMeshComponentPostPhysicsTickFunction_ExecuteTick);
-	FActorComponentTickFunction::ExecuteTickHelper(Target, DeltaTime, TickType, [this](float DilatedTime)
+	FActorComponentTickFunction::ExecuteTickHelper(Target, /*bTickInEditor=*/ false, DeltaTime, TickType, [this](float DilatedTime)
 	{
 		Target->PostPhysicsTickComponent(*this);
 	});
@@ -739,6 +739,43 @@ void USkeletalMeshComponent::SetPhysMaterialOverride(UPhysicalMaterial* NewPhysM
 	}
 }
 
+void USkeletalMeshComponent::SetEnableGravity(bool bGravityEnabled)
+{
+	if (!bEnablePhysicsOnDedicatedServer && IsRunningDedicatedServer())
+	{
+		return;
+	}
+
+	BodyInstance.bEnableGravity = bGravityEnabled;
+
+	if (UPhysicsAsset * PhysAsset = GetPhysicsAsset())
+	{
+		for (int32 BodyIdx = 0; BodyIdx < Bodies.Num(); ++BodyIdx)
+		{
+			if (FBodyInstance* BodyInstance = Bodies[BodyIdx])
+			{
+				if (UBodySetup * PhysAssetBodySetup = PhysAsset->BodySetup[BodyIdx])
+				{
+					bool bUseGravityEnabled = bGravityEnabled;
+					
+					//If the default body instance has gravity turned off then turning it ON for skeletal mesh component does not turn the instance on
+					if(bUseGravityEnabled && !PhysAssetBodySetup->DefaultInstance.bEnableGravity)	
+					{
+						bUseGravityEnabled = false;
+					}
+				
+					BodyInstance->SetEnableGravity(bUseGravityEnabled);
+				}
+			}
+		}
+	}
+}
+
+bool USkeletalMeshComponent::IsGravityEnabled() const
+{
+	return BodyInstance.bEnableGravity;
+}
+
 DECLARE_CYCLE_STAT(TEXT("Init Articulated"), STAT_InitArticulated, STATGROUP_Physics);
 
 TAutoConsoleVariable<int32> CVarEnableRagdollPhysics(TEXT("p.RagdollPhysics"), 1, TEXT("If 1, ragdoll physics will be used. Otherwise just root body is simulated"));
@@ -761,7 +798,7 @@ void USkeletalMeshComponent::InitArticulated(FPhysScene* PhysScene)
 	}
 
 	FVector Scale3D = ComponentToWorld.GetScale3D();
-	float Scale = Scale3D.X;
+	const float Scale = Scale3D.GetAbsMin();
 
 	// Find root physics body
 	int32 RootBodyIndex = INDEX_NONE;
@@ -823,6 +860,8 @@ void USkeletalMeshComponent::InitArticulated(FPhysScene* PhysScene)
 			BodyInst->InstanceBodyIndex = i; // Set body index 
 			BodyInst->InstanceBoneIndex = BoneIndex; // Set bone index
 
+			BodyInst->bStartAwake = BodyInstance.bStartAwake;	//We don't allow customization here. Just use whatever the component is set to
+
 			if (i == RootBodyIndex)
 			{
 				BodyInst->DOFMode = BodyInstance.DOFMode;
@@ -869,7 +908,6 @@ void USkeletalMeshComponent::InitArticulated(FPhysScene* PhysScene)
 	SetRootBodyIndex(RootBodyIndex);
 
 #if WITH_PHYSX
-
 	if (PhysScene)
 	{
 		// Get the scene type from the SkeletalMeshComponent's BodyInstance
@@ -880,23 +918,6 @@ void USkeletalMeshComponent::InitArticulated(FPhysScene* PhysScene)
 		if (Aggregate && Aggregate->getNbActors() > 0)
 		{
 			PScene->addAggregate(*Aggregate);
-
-			// If we've used an aggregate, InitBody would not be able to set awake status as we *must* have a scene
-			// to do that, so we reconcile this here.
-			AActor* Owner = GetOwner();
-			bool bShouldSleep = !BodyInstance.bStartAwake && (Owner && Owner->GetVelocity().SizeSquared() <= KINDA_SMALL_NUMBER);
-
-			for (FBodyInstance* Body : Bodies)
-			{
-				// Creates a DOF constraint if necessary for the body - also requires the scene to exist within the actor
-				Body->CreateDOFLock();
-
-				// Set to sleep if necessary
-				if (bShouldSleep  && Body->GetPxRigidDynamic_AssumesLocked())
-				{
-					Body->GetPxRigidDynamic_AssumesLocked()->putToSleep();
-				}
-			}
 		}
 	}
 
@@ -1405,17 +1426,13 @@ void USkeletalMeshComponent::OnUpdateTransform(bool bSkipPhysicsMove, ETeleportT
 #endif
 	}
 
-	if (MeshObject)
-	{
-		MeshObject->UpdateShadowShapes(this);
-	}
-
 #if WITH_APEX_CLOTHING
 	if(ClothingActors.Num() > 0)
 	{
+		
 		//@todo: Should cloth know whether we're teleporting?
 		// Updates cloth animation states because transform is updated
-		UpdateClothTransform();
+		UpdateClothTransform(Teleport);
 	}
 #endif //#if WITH_APEX_CLOTHING
 }
@@ -1424,6 +1441,14 @@ void USkeletalMeshComponent::UpdateOverlaps(TArray<FOverlapInfo> const* PendingO
 {
 	// Parent class (USkinnedMeshComponent) routes only to children, but we really do want to test our own bodies for overlaps.
 	UPrimitiveComponent::UpdateOverlaps(PendingOverlaps, bDoNotifies, OverlapsAtEndLocation);
+}
+
+bool USkeletalMeshComponent::ShouldCreatePhysicsState() const
+{
+	bool bShouldCreatePhysicsState = Super::ShouldCreatePhysicsState();
+	bShouldCreatePhysicsState &= (MasterPoseComponent.IsValid() == false);
+	
+	return bShouldCreatePhysicsState;
 }
 
 void USkeletalMeshComponent::CreatePhysicsState()
@@ -1441,6 +1466,9 @@ void USkeletalMeshComponent::CreatePhysicsState()
 		BodySetup->CreatePhysicsMeshes();
 		Super::CreatePhysicsState();	//If we're doing per poly we'll use the body instance of the primitive component
 	}
+
+	// Notify physics created
+	OnSkelMeshPhysicsCreated.Broadcast();
 }
 
 
@@ -1928,6 +1956,81 @@ float USkeletalMeshComponent::GetDistanceToCollision(const FVector& Point, FVect
 	return ClosestPointDistance;
 }
 
+DECLARE_CYCLE_STAT(TEXT("GetClosestPointOnPhysicsAsset"), STAT_GetClosestPointOnPhysicsAsset, STATGROUP_Physics);
+
+bool USkeletalMeshComponent::GetClosestPointOnPhysicsAsset(const FVector& WorldPosition, FClosestPointOnPhysicsAsset& ClosestPointOnPhysicsAsset, bool bApproximate) const
+{
+	SCOPE_CYCLE_COUNTER(STAT_GetClosestPointOnPhysicsAsset);
+
+	bool bSuccess = false;
+	const UPhysicsAsset* PhysicsAsset = GetPhysicsAsset();
+	const FReferenceSkeleton* RefSkeleton = SkeletalMesh ? &SkeletalMesh->RefSkeleton : nullptr;
+	if(PhysicsAsset && RefSkeleton)
+	{
+		const TArray<FTransform>& SpaceBases = GetSpaceBases();
+		const bool bHasMasterPoseComponent = MasterPoseComponent.IsValid();
+		const FVector ComponentPosition = ComponentToWorld.InverseTransformPosition(WorldPosition);
+	
+		float CurrentClosestDistance = FLT_MAX;
+		int32 CurrentClosestBoneIndex = INDEX_NONE;
+		const UBodySetup* CurrentClosestBodySetup = nullptr;
+
+		for(const UBodySetup* BodySetupInstance : PhysicsAsset->BodySetup)
+		{
+			ClosestPointOnPhysicsAsset.Distance = FLT_MAX;
+			const FName BoneName = BodySetupInstance->BoneName;
+			const int32 BoneIndex = RefSkeleton->FindBoneIndex(BoneName);
+			if(BoneIndex != INDEX_NONE)
+			{
+				const FTransform BoneTM = bHasMasterPoseComponent ? GetBoneTransform(BoneIndex) : SpaceBases[BoneIndex];
+				const float Dist = bApproximate ? (BoneTM.GetLocation() - ComponentPosition).SizeSquared() : BodySetupInstance->GetShortestDistanceToPoint(ComponentPosition, BoneTM);
+
+				if (Dist < CurrentClosestDistance)
+				{
+					CurrentClosestDistance = Dist;
+					CurrentClosestBoneIndex = BoneIndex;
+					CurrentClosestBodySetup = BodySetupInstance;
+
+					if(Dist <= 0.f) { break; }
+				}
+			}
+		}
+
+		if(CurrentClosestBoneIndex >= 0)
+		{
+			bSuccess = true;
+
+			const FTransform BoneTM = bHasMasterPoseComponent ? GetBoneTransform(CurrentClosestBoneIndex) : (SpaceBases[CurrentClosestBoneIndex] * ComponentToWorld);
+			ClosestPointOnPhysicsAsset.Distance = CurrentClosestBodySetup->GetClosestPointAndNormal(WorldPosition, BoneTM, ClosestPointOnPhysicsAsset.ClosestWorldPosition, ClosestPointOnPhysicsAsset.Normal);
+			ClosestPointOnPhysicsAsset.BoneName = CurrentClosestBodySetup->BoneName;
+		}
+	}
+
+	return bSuccess;
+}
+
+bool USkeletalMeshComponent::K2_GetClosestPointOnPhysicsAsset(const FVector& WorldPosition, FVector& ClosestWorldPosition, FVector& Normal, FName& BoneName, float& Distance) const
+{
+	FClosestPointOnPhysicsAsset ClosestPointOnPhysicsAsset;
+	bool bSuccess = GetClosestPointOnPhysicsAsset(WorldPosition, ClosestPointOnPhysicsAsset, /*bApproximate =*/ false);
+	if(bSuccess)
+	{
+		ClosestWorldPosition = ClosestPointOnPhysicsAsset.ClosestWorldPosition;
+		Normal = ClosestPointOnPhysicsAsset.Normal;
+		BoneName = ClosestPointOnPhysicsAsset.BoneName;
+		Distance = ClosestPointOnPhysicsAsset.Distance;
+	}
+	else
+	{
+		ClosestWorldPosition = FVector::ZeroVector;
+		Normal = FVector::ZeroVector;
+		BoneName = NAME_None;
+		Distance = -1;
+	}
+
+	return bSuccess;
+}
+
 bool USkeletalMeshComponent::LineTraceComponent(struct FHitResult& OutHit, const FVector Start, const FVector End, const struct FCollisionQueryParams& Params)
 {
 	UWorld* const World = GetWorld();
@@ -2042,21 +2145,30 @@ bool USkeletalMeshComponent::ComponentOverlapMultiImpl(TArray<struct FOverlapRes
 
 
 
-void USkeletalMeshComponent::AddClothingBounds(FBoxSphereBounds& InOutBounds) const
+void USkeletalMeshComponent::AddClothingBounds(FBoxSphereBounds& InOutBounds, const FTransform& LocalToWorld) const
 {
-	for(const FClothingActor& ClothingActor : ClothingActors)
-		{
+	for (const FClothingActor& ClothingActor : ClothingActors)
+	{
 		if(NxClothingActor* Actor = ClothingActor.ApexClothingActor)
+		{
+			physx::PxBounds3 ApexClothingBounds = Actor->getBounds();
+			if (!ApexClothingBounds.isEmpty())
 			{
-				physx::PxBounds3 ApexClothingBounds = Actor->getBounds();
+				const physx::PxMat44& ApexGlobalPose = Actor->getGlobalPose();
 
-				if (!ApexClothingBounds.isEmpty())
-				{
-					FBoxSphereBounds BoxBounds = FBox( P2UVector(ApexClothingBounds.minimum), P2UVector(ApexClothingBounds.maximum) );
-					InOutBounds = InOutBounds + BoxBounds;
-				}
+				FBoxSphereBounds BoxBounds = FBox( P2UVector(ApexClothingBounds.minimum), P2UVector(ApexClothingBounds.maximum) );
+
+				//It's possible that the cloth sim has never run, in which case its global pose is 0,0,0 - In this case the final bounds will be huge because of our LocalToWorld.
+				//It's also possible that after submitting ComponentToWorld on the game thread we modified it. In this case the cloth sim will have a different bounds origin, so again we'll get a huge final bounds
+				//To fix this we convert the bounds to local space and then to world. Note that this ignores scale! If this becomes an issue feel free to use both LocalToWorld and ApexGlobalPose to solve the issue.
+
+				BoxBounds.Origin -= P2UVector(ApexGlobalPose.getPosition());	//to local world
+				BoxBounds.Origin += LocalToWorld.GetLocation();					//to world as seen by our final bounds
+
+				InOutBounds = InOutBounds + BoxBounds;
 			}
 		}
+	}
 }
 
 bool USkeletalMeshComponent::HasValidClothingActors() const
@@ -2161,6 +2273,7 @@ bool USkeletalMeshComponent::CreateClothingActor(int32 AssetIndex, physx::apex::
 	verify(NxParameterized::setParamF32(*ActorDesc,"lodWeights.benefitsBias",0));
 
 	verify(NxParameterized::setParamBool(*ActorDesc, "localSpaceSim", bLocalSpaceSimulation));
+	verify(NxParameterized::setParamBool(*ActorDesc, "flags.ComputeRenderData", false));
 
 	// Initialize the global pose
 
@@ -2235,6 +2348,7 @@ bool USkeletalMeshComponent::CreateClothingActor(int32 AssetIndex, physx::apex::
 void USkeletalMeshComponent::SetClothingLOD(int32 LODIndex)
 {
 	bool bFrozen = false;
+	bool bResetSim = false;
 
 	for (FClothingActor& ClothingActor : ClothingActors)
 	{
@@ -2243,10 +2357,10 @@ void USkeletalMeshComponent::SetClothingLOD(int32 LODIndex)
 			int32 CurLODIndex = (int32)ClothingActor.ApexClothingActor->getGraphicalLod();
 
 			// check whether clothing LOD is mapped for this LOD index
-			bool IsMappedClothLOD = SkeletalMesh->IsMappedClothingLOD(LODIndex, ClothingActor.ParentClothingAssetIndex);
+			bool bIsNewLodMapped = SkeletalMesh->IsMappedClothingLOD(LODIndex, ClothingActor.ParentClothingAssetIndex);
 
 			// Change Clothing LOD if a new LOD index is different from the current index
-			if (IsMappedClothLOD && CurLODIndex != LODIndex)
+			if (bIsNewLodMapped && CurLODIndex != LODIndex)
 			{
 				//physical LOD is changed by graphical LOD
 				ClothingActor.ApexClothingActor->setGraphicalLOD(LODIndex);
@@ -2260,13 +2374,15 @@ void USkeletalMeshComponent::SetClothingLOD(int32 LODIndex)
 			int32 NumClothLODs = ClothingActor.ParentClothingAsset->getNumGraphicalLodLevels();
 
 			// decide whether should enable or disable
-			if (!IsMappedClothLOD || (LODIndex >= NumClothLODs))
+			if (!bIsNewLodMapped || (LODIndex >= NumClothLODs))
 			{
 				//disable clothing simulation
 				ClothingActor.bSimulateForCurrentLOD = false;
 			}
-			else
+			else if(!ClothingActor.bSimulateForCurrentLOD)
 			{	
+				// Was disabled, will require a reset to animated position.
+				bResetSim = true;
 				ClothingActor.bSimulateForCurrentLOD = true;
 			}
 		}
@@ -2281,6 +2397,14 @@ void USkeletalMeshComponent::SetClothingLOD(int32 LODIndex)
 		FreezeClothSection(false);
 	}
 
+	if(bResetSim)
+	{
+		ForceClothNextUpdateTeleportAndReset();
+	}
+	else
+	{
+		ForceClothNextUpdateTeleport();
+	}
 }
 
 void USkeletalMeshComponent::RemoveAllClothingActors()
@@ -3182,7 +3306,7 @@ void USkeletalMeshComponent::PostPhysicsTickComponent(FSkeletalMeshComponentPost
 
 #if WITH_APEX_CLOTHING
 
-void USkeletalMeshComponent::UpdateClothTransform()
+void USkeletalMeshComponent::UpdateClothTransformImp()
 {
 	int32 NumActors = ClothingActors.Num();
 
@@ -3212,20 +3336,13 @@ void USkeletalMeshComponent::UpdateClothTransform()
 		ComponentToWorld.SetIdentity();
 	}
 //#endif
+}
 
-	physx::PxMat44 PxGlobalPose = U2PMatrix(ComponentToWorld.ToMatrixWithScale());
-
-	for(FClothingActor& ClothingActor : ClothingActors)
-	{
-		if(NxClothingActor* ApexClothingActor = ClothingActor.ApexClothingActor)
-		{
-			NxParameterized::Interface* ActorDesc = ApexClothingActor->getActorDesc();
-			if(ActorDesc != nullptr)
-			{
-				verify(NxParameterized::setParamMat44(*ActorDesc, "globalPose", PxGlobalPose));
-			}
-		}
-	}
+void USkeletalMeshComponent::UpdateClothTransform(ETeleportType TeleportType)
+{
+	//Note that it's not safe to run the update here. This is because cloth sim could still be running on another thread. We defer it
+	InternalClothSimulationContext.bPendingClothUpdateTransform = true;
+	InternalClothSimulationContext.PendingTeleportType = TeleportType;
 }
 
 void USkeletalMeshComponent::CheckClothTeleport()
@@ -3511,6 +3628,14 @@ void USkeletalMeshComponent::UpdateClothMorphTarget()
 	}
 }
 
+FAutoConsoleTaskPriority CPrio_FParallelClothTask(
+	TEXT("TaskGraph.TaskPriorities.ParallelClothTask"),
+	TEXT("Task and thread priority for parallel cloth."),
+	ENamedThreads::HighThreadPriority, // if we have high priority task threads, then use them...
+	ENamedThreads::NormalTaskPriority, // .. at normal task priority
+	ENamedThreads::HighTaskPriority // if we don't have hi pri threads, then use normal priority threads at high task priority instead
+	);
+
 class FParallelClothTask
 {
 	const USkeletalMeshComponent& SkeletalMeshComponent;
@@ -3531,7 +3656,7 @@ public:
 	}
 	static ENamedThreads::Type GetDesiredThread()
 	{
-		return ENamedThreads::AnyThread;
+		return CPrio_FParallelClothTask.Get();
 	}
 	static ESubsequentsMode::Type GetSubsequentsMode()
 	{
@@ -3654,7 +3779,7 @@ void USkeletalMeshComponent::ParallelEvaluateCloth(float DeltaTime, const FCloth
 		if (BoneIndex != INDEX_NONE)
 		{
 			BoneMatrices[Index] = U2PMatrix(BoneTransforms[BoneIndex].ToMatrixWithScale());
-			if (BoneTransforms[BoneIndex].GetScale3D().IsNearlyZero())
+			if (BoneIndex == INDEX_NONE || BoneTransforms[BoneIndex].GetScale3D().IsNearlyZero())
 			{
 				BoneMatrices[Index].column0 = PxMat44::createIdentity().column0;
 				BoneMatrices[Index].column1 = PxMat44::createIdentity().column1;

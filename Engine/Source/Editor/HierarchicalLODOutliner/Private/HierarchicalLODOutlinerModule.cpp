@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "HierarchicalLODOutlinerPrivatePCH.h"
 #include "HierarchicalLODOutlinerModule.h"
@@ -69,8 +69,8 @@ void FHierarchicalLODOutlinerModule::OnHLODLevelsArrayChangedEvent()
 
 TSharedRef<SWidget> FHierarchicalLODOutlinerModule::CreateHLODOutlinerWidget()
 {
-	TSharedRef<HLODOutliner::SHLODOutliner> HLODWindow = SNew(HLODOutliner::SHLODOutliner);
-	return HLODWindow;
+	SAssignNew(HLODWindow, HLODOutliner::SHLODOutliner);		
+	return HLODWindow->AsShared();
 }
 
 IMPLEMENT_MODULE(FHierarchicalLODOutlinerModule, HLODPluginModule);

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "EnginePrivate.h"
@@ -125,6 +125,23 @@ struct FPendingApexDamageManager
 
 #if WITH_PHYSX
 
+FAutoConsoleTaskPriority CPrio_FPhysXTask(
+	TEXT("TaskGraph.TaskPriorities.PhysXTask"),
+	TEXT("Task and thread priority for FPhysXTask."),
+	ENamedThreads::HighThreadPriority, // if we have high priority task threads, then use them...
+	ENamedThreads::NormalTaskPriority, // .. at normal task priority
+	ENamedThreads::HighTaskPriority // if we don't have hi pri threads, then use normal priority threads at high task priority instead
+	);
+
+FAutoConsoleTaskPriority CPrio_FPhysXTask_Cloth(
+	TEXT("TaskGraph.TaskPriorities.PhysXTask.Cloth"),
+	TEXT("Task and thread priority for FPhysXTask (cloth)."),
+	ENamedThreads::HighThreadPriority, // if we have high priority task threads, then use them...
+	ENamedThreads::NormalTaskPriority, // .. at normal task priority
+	ENamedThreads::HighTaskPriority // if we don't have hi pri threads, then use normal priority threads at high task priority instead
+	);
+
+
 template <bool IsCloth>
 class FPhysXTask
 {
@@ -141,7 +158,7 @@ public:
 		Task.release();
 	}
 
-	FORCEINLINE TStatId GetStatId() const
+	static FORCEINLINE TStatId GetStatId()
 	{
 		if (!IsCloth)
 		{
@@ -153,11 +170,18 @@ public:
 		}
 
 	}
-	static ENamedThreads::Type GetDesiredThread()
+	static FORCEINLINE ENamedThreads::Type GetDesiredThread()
 	{
-		return ENamedThreads::HiPri(ENamedThreads::AnyThread);
+		if (!IsCloth)
+		{
+			return CPrio_FPhysXTask.Get();
+		}
+		else
+		{
+			return CPrio_FPhysXTask_Cloth.Get();
+		}
 	}
-	static ESubsequentsMode::Type GetSubsequentsMode()
+	static FORCEINLINE ESubsequentsMode::Type GetSubsequentsMode()
 	{
 		return ESubsequentsMode::TrackSubsequents;
 	}
@@ -242,10 +266,8 @@ FPhysScene::FPhysScene()
 	FrameTimeSmoothingFactor[PST_Sync] = PhysSetting->SyncSceneSmoothingFactor;
 	FrameTimeSmoothingFactor[PST_Async] = PhysSetting->AsyncSceneSmoothingFactor;
 
-#if WITH_SUBSTEPPING
 	bSubstepping = PhysSetting->bSubstepping;
 	bSubsteppingAsync = PhysSetting->bSubsteppingAsync;
-#endif
 	bAsyncSceneEnabled = PhysSetting->bEnableAsyncScene;
 	NumPhysScenes = bAsyncSceneEnabled ? PST_Async + 1 : PST_Cloth + 1;
 
@@ -281,6 +303,8 @@ FPhysScene::FPhysScene()
 	GApexModuleDestructible->setWorldSupportPhysXScene(*ApexScene, SyncPhysXScene);
 	GApexModuleDestructible->setDamageApplicationRaycastFlags(NxDestructibleActorRaycastFlags::AllChunks, *ApexScene);
 #endif
+
+	PreGarbageCollectDelegateHandle = FCoreUObjectDelegates::PreGarbageCollect.AddRaw(this, &FPhysScene::WaitPhysScenes);
 }
 
 void FPhysScene::SetOwningWorld(UWorld* InOwningWorld)
@@ -291,6 +315,7 @@ void FPhysScene::SetOwningWorld(UWorld* InOwningWorld)
 /** Exposes destruction of physics-engine scene outside Engine. */
 FPhysScene::~FPhysScene()
 {
+	FCoreUObjectDelegates::PreGarbageCollect.Remove(PreGarbageCollectDelegateHandle);
 	// Make sure no scenes are left simulating (no-ops if not simulating)
 	WaitPhysScenes();
 	// Loop through scene types to get all scenes
@@ -321,7 +346,6 @@ bool FPhysScene::GetKinematicTarget_AssumesLocked(const FBodyInstance* BodyInsta
 #if WITH_PHYSX
 	if (PxRigidDynamic * PRigidDynamic = BodyInstance->GetPxRigidDynamic_AssumesLocked())
 	{
-#if WITH_SUBSTEPPING
 		uint32 BodySceneType = SceneType_AssumesLocked(BodyInstance);
 		if (IsSubstepping(BodySceneType))
 		{
@@ -329,7 +353,6 @@ bool FPhysScene::GetKinematicTarget_AssumesLocked(const FBodyInstance* BodyInsta
 			return PhysSubStepper->GetKinematicTarget_AssumesLocked(BodyInstance, OutTM);
 		}
 		else
-#endif
 		{
 			PxTransform POutTM;
 			bool validTM = PRigidDynamic->getKinematicTarget(POutTM);
@@ -352,19 +375,27 @@ void FPhysScene::SetKinematicTarget_AssumesLocked(FBodyInstance* BodyInstance, c
 #if WITH_PHYSX
 	if (PxRigidDynamic * PRigidDynamic = BodyInstance->GetPxRigidDynamic_AssumesLocked())
 	{
-#if WITH_SUBSTEPPING
-		uint32 BodySceneType = SceneType_AssumesLocked(BodyInstance);
-		if (bAllowSubstepping && IsSubstepping(BodySceneType))
+		const bool bIsKinematicTarget = IsRigidBodyKinematicAndInSimulationScene_AssumesLocked(PRigidDynamic);
+		if(bIsKinematicTarget)
 		{
-			FPhysSubstepTask * PhysSubStepper = PhysSubSteppers[BodySceneType];
-			PhysSubStepper->SetKinematicTarget_AssumesLocked(BodyInstance, TargetTransform);
+			uint32 BodySceneType = SceneType_AssumesLocked(BodyInstance);
+			if (bAllowSubstepping && IsSubstepping(BodySceneType))
+			{
+				FPhysSubstepTask * PhysSubStepper = PhysSubSteppers[BodySceneType];
+				PhysSubStepper->SetKinematicTarget_AssumesLocked(BodyInstance, TargetTransform);
+			}
+			else
+			{
+				const PxTransform PNewPose = U2PTransform(TargetTransform);
+				PRigidDynamic->setKinematicTarget(PNewPose);
+			}
 		}
 		else
-#endif
 		{
 			const PxTransform PNewPose = U2PTransform(TargetTransform);
-			PRigidDynamic->setKinematicTarget(PNewPose);
+			PRigidDynamic->setGlobalPose(PNewPose);
 		}
+
 	}
 #endif
 }
@@ -372,7 +403,6 @@ void FPhysScene::SetKinematicTarget_AssumesLocked(FBodyInstance* BodyInstance, c
 void FPhysScene::AddCustomPhysics_AssumesLocked(FBodyInstance* BodyInstance, FCalculateCustomPhysics& CalculateCustomPhysics)
 {
 #if WITH_PHYSX
-#if WITH_SUBSTEPPING
 	uint32 BodySceneType = SceneType_AssumesLocked(BodyInstance);
 	if (IsSubstepping(BodySceneType))
 	{
@@ -380,7 +410,6 @@ void FPhysScene::AddCustomPhysics_AssumesLocked(FBodyInstance* BodyInstance, FCa
 		PhysSubStepper->AddCustomPhysics_AssumesLocked(BodyInstance, CalculateCustomPhysics);
 	}
 	else
-#endif
 	{
 		// Since physics frame is set up before "pre-physics" tick group is called, can just fetch delta time from there
 		CalculateCustomPhysics.ExecuteIfBound(this->DeltaSeconds, BodyInstance);
@@ -394,7 +423,6 @@ void FPhysScene::AddForce_AssumesLocked(FBodyInstance* BodyInstance, const FVect
 
 	if (PxRigidBody * PRigidBody = BodyInstance->GetPxRigidBody_AssumesLocked())
 	{
-#if WITH_SUBSTEPPING
 		uint32 BodySceneType = SceneType_AssumesLocked(BodyInstance);
 		if (bAllowSubstepping && IsSubstepping(BodySceneType))
 		{
@@ -402,7 +430,6 @@ void FPhysScene::AddForce_AssumesLocked(FBodyInstance* BodyInstance, const FVect
 			PhysSubStepper->AddForce_AssumesLocked(BodyInstance, Force, bAccelChange);
 		}
 		else
-#endif
 		{
 			PRigidBody->addForce(U2PVector(Force), bAccelChange ? PxForceMode::eACCELERATION : PxForceMode::eFORCE, true);
 		}
@@ -416,7 +443,6 @@ void FPhysScene::AddForceAtPosition_AssumesLocked(FBodyInstance* BodyInstance, c
 
 	if (PxRigidBody * PRigidBody = BodyInstance->GetPxRigidBody_AssumesLocked())
 	{
-#if WITH_SUBSTEPPING
 		uint32 BodySceneType = SceneType_AssumesLocked(BodyInstance);
 		if (bAllowSubstepping && IsSubstepping(BodySceneType))
 		{
@@ -424,7 +450,6 @@ void FPhysScene::AddForceAtPosition_AssumesLocked(FBodyInstance* BodyInstance, c
 			PhysSubStepper->AddForceAtPosition_AssumesLocked(BodyInstance, Force, Position);
 		}
 		else
-#endif
 		{
 			PxRigidBodyExt::addForceAtPos(*PRigidBody, U2PVector(Force), U2PVector(Position), PxForceMode::eFORCE, true);
 		}
@@ -438,7 +463,6 @@ void FPhysScene::AddRadialForceToBody_AssumesLocked(FBodyInstance* BodyInstance,
 
 	if (PxRigidBody * PRigidBody = BodyInstance->GetPxRigidBody_AssumesLocked())
 	{
-#if WITH_SUBSTEPPING
 		uint32 BodySceneType = SceneType_AssumesLocked(BodyInstance);
 		if (bAllowSubstepping && IsSubstepping(BodySceneType))
 		{
@@ -446,7 +470,6 @@ void FPhysScene::AddRadialForceToBody_AssumesLocked(FBodyInstance* BodyInstance,
 			PhysSubStepper->AddRadialForceToBody_AssumesLocked(BodyInstance, Origin, Radius, Strength, Falloff, bAccelChange);
 		}
 		else
-#endif
 		{
 			AddRadialForceToPxRigidBody_AssumesLocked(*PRigidBody, Origin, Radius, Strength, Falloff, bAccelChange);
 		}
@@ -460,7 +483,6 @@ void FPhysScene::AddTorque_AssumesLocked(FBodyInstance* BodyInstance, const FVec
 
 	if (PxRigidBody * PRigidBody = BodyInstance->GetPxRigidBody_AssumesLocked())
 	{
-#if WITH_SUBSTEPPING
 		uint32 BodySceneType = SceneType_AssumesLocked(BodyInstance);
 		if (bAllowSubstepping && IsSubstepping(BodySceneType))
 		{
@@ -468,7 +490,6 @@ void FPhysScene::AddTorque_AssumesLocked(FBodyInstance* BodyInstance, const FVec
 			PhysSubStepper->AddTorque_AssumesLocked(BodyInstance, Torque, bAccelChange);
 		}
 		else
-#endif
 		{
 			PRigidBody->addTorque(U2PVector(Torque), bAccelChange ? PxForceMode::eACCELERATION : PxForceMode::eFORCE, true);
 		}
@@ -492,10 +513,8 @@ void FPhysScene::TermBody_AssumesLocked(FBodyInstance* BodyInstance)
 {
 	if (PxRigidBody* PRigidBody = BodyInstance->GetPxRigidBody_AssumesLocked())
 	{
-#if WITH_SUBSTEPPING
 		FPhysSubstepTask* PhysSubStepper = PhysSubSteppers[SceneType_AssumesLocked(BodyInstance)];
 		PhysSubStepper->RemoveBodyInstance_AssumesLocked(BodyInstance);
-#endif
 	}
 
 	// Remove body from any pending deferred addition / removal
@@ -515,8 +534,6 @@ void FPhysScene::TermBody_AssumesLocked(FBodyInstance* BodyInstance)
 #endif
 }
 
-#if WITH_SUBSTEPPING
-
 #if WITH_APEX
 void FPhysScene::AddPendingDamageEvent(UDestructibleComponent* DestructibleComponent, const NxApexDamageEventReportData& DamageEvent)
 {
@@ -524,6 +541,14 @@ void FPhysScene::AddPendingDamageEvent(UDestructibleComponent* DestructibleCompo
 	FPendingApexDamageEvent* Pending = new (PendingApexDamageManager->PendingDamageEvents) FPendingApexDamageEvent(DestructibleComponent, DamageEvent);
 }
 #endif
+
+FAutoConsoleTaskPriority CPrio_PhysXStepSimulation(
+	TEXT("TaskGraph.TaskPriorities.PhysXStepSimulation"),
+	TEXT("Task and thread priority for FPhysSubstepTask::StepSimulation."),
+	ENamedThreads::HighThreadPriority, // if we have high priority task threads, then use them...
+	ENamedThreads::NormalTaskPriority, // .. at normal task priority
+	ENamedThreads::HighTaskPriority // if we don't have hi pri threads, then use normal priority threads at high task priority instead
+	);
 
 bool FPhysScene::SubstepSimulation(uint32 SceneType, FGraphEventRef &InOutCompletionEvent)
 {
@@ -539,7 +564,7 @@ bool FPhysScene::SubstepSimulation(uint32 SceneType, FGraphEventRef &InOutComple
 	{
 		//we have valid scene and subtime so enqueue task
 		PhysXCompletionTask* Task = new PhysXCompletionTask(InOutCompletionEvent, SceneType, PScene->getTaskManager());
-		ENamedThreads::Type NamedThread = PhysSingleThreadedMode() ? ENamedThreads::GameThread : ENamedThreads::HiPri(ENamedThreads::AnyThread);
+		ENamedThreads::Type NamedThread = PhysSingleThreadedMode() ? ENamedThreads::GameThread : CPrio_PhysXStepSimulation.Get();
 
 		DECLARE_CYCLE_STAT(TEXT("FSimpleDelegateGraphTask.SubstepSimulationImp"),
 			STAT_FSimpleDelegateGraphTask_SubstepSimulationImp,
@@ -554,8 +579,6 @@ bool FPhysScene::SubstepSimulation(uint32 SceneType, FGraphEventRef &InOutComple
 #endif
 
 }
-
-#endif //#if WITH_SUBSTEPPING
 
 /** Adds to queue of skelmesh we want to add to collision disable table */
 void FPhysScene::DeferredAddCollisionDisableTable(uint32 SkelMeshCompID, TMap<struct FRigidBodyIndexPair, bool> * CollisionDisableTable)
@@ -807,13 +830,11 @@ void FPhysScene::TickPhysScene(uint32 SceneType, FGraphEventRef& InOutCompletion
 		return;
 	}
 
-#if WITH_SUBSTEPPING
 	if (IsSubstepping(SceneType))	//we don't bother sub-stepping cloth
 	{
 		//We're about to start stepping so swap buffers. Might want to find a better place for this?
 		PhysSubSteppers[SceneType]->SwapBuffers();
 	}
-#endif
 
 	/**
 	* clamp down... if this happens we are simming physics slower than real-time, so be careful with it.
@@ -862,16 +883,13 @@ void FPhysScene::TickPhysScene(uint32 SceneType, FGraphEventRef& InOutCompletion
 	if (VehicleManager && SceneType == PST_Sync)
 	{
 		float TickTime = AveragedFrameTime[SceneType];
-#if WITH_SUBSTEPPING
 		if (IsSubstepping(SceneType))
 		{
 			TickTime = UseSyncTime(SceneType) ? SyncDeltaSeconds : DeltaSeconds;
 		}
-#endif
 		VehicleManager->PreTick(TickTime);
-#if WITH_SUBSTEPPING
+
 		if (IsSubstepping(SceneType) == false)
-#endif
 		{
 			VehicleManager->Update(AveragedFrameTime[SceneType]);
 		}
@@ -886,13 +904,11 @@ void FPhysScene::TickPhysScene(uint32 SceneType, FGraphEventRef& InOutCompletion
 	if (ApexScene && UseDelta > 0.f)
 #endif
 	{
-#if WITH_SUBSTEPPING
 		if (IsSubstepping(SceneType)) //we don't bother sub-stepping cloth
 		{
 			bTaskOutstanding = SubstepSimulation(SceneType, InOutCompletionEvent);
 		}
 		else
-#endif
 		{
 #if !WITH_APEX
 			PhysXCompletionTask* Task = new PhysXCompletionTask(InOutCompletionEvent, SceneType, PScene->getTaskManager());
@@ -922,10 +938,8 @@ void FPhysScene::TickPhysScene(uint32 SceneType, FGraphEventRef& InOutCompletion
 		TArray<FBaseGraphTask*> NewTasks;
 		InOutCompletionEvent->DispatchSubsequents(NewTasks, ENamedThreads::AnyThread); // nothing to do, so nothing to wait for
 	}
-#if WITH_SUBSTEPPING
 	bSubstepping = UPhysicsSettings::Get()->bSubstepping;
 	bSubsteppingAsync = UPhysicsSettings::Get()->bSubsteppingAsync;
-#endif
 }
 
 void FPhysScene::KillVisualDebugger()
@@ -1005,6 +1019,8 @@ void FPhysScene::ProcessPhysScene(uint32 SceneType)
 
 	// Reset execution flag
 
+	bool bSuccess = false;
+
 //This fetches and gets active transforms. It's important that the function that calls this locks because getting the transforms and using the data must be an atomic operation
 #if WITH_PHYSX
 	PxScene* PScene = GetPhysXScene(SceneType);
@@ -1013,16 +1029,20 @@ void FPhysScene::ProcessPhysScene(uint32 SceneType)
 
 #if !WITH_APEX
 	PScene->lockWrite();
-	PScene->fetchResults(true, &OutErrorCode);
+	bSuccess = PScene->fetchResults(true, &OutErrorCode);
 	PScene->unlockWrite();
 #else	//	#if !WITH_APEX
 	// The APEX scene calls the fetchResults function for the PhysX scene, so we only call ApexScene->fetchResults().
 	NxApexScene* ApexScene = GetApexScene(SceneType);
 	check(ApexScene);
-	ApexScene->fetchResults(true, &OutErrorCode);
+	bSuccess = ApexScene->fetchResults(true, &OutErrorCode);
 #endif	//	#if !WITH_APEX
 
-	UpdateActiveTransforms(SceneType);
+	if(bSuccess)
+	{
+		UpdateActiveTransforms(SceneType);
+	}
+	
 	if (OutErrorCode != 0)
 	{
 		UE_LOG(LogPhysics, Log, TEXT("PHYSX FETCHRESULTS ERROR: %d"), OutErrorCode);
@@ -1218,6 +1238,16 @@ void FPhysScene::SetUpForFrame(const FVector* NewGrav, float InDeltaSeconds, flo
 #endif
 }
 
+FAutoConsoleTaskPriority CPrio_PhyXSceneCompletion(
+	TEXT("TaskGraph.TaskPriorities.PhyXSceneCompletion"),
+	TEXT("Task and thread priority for PhysicsSceneCompletion."),
+	ENamedThreads::HighThreadPriority, // if we have high priority task threads, then use them...
+	ENamedThreads::HighTaskPriority, // .. at high task priority
+	ENamedThreads::HighTaskPriority // if we don't have hi pri threads, then use normal priority threads at high task priority instead
+	);
+
+
+
 void FPhysScene::StartFrame()
 {
 	FGraphEventArray FinishPrerequisites;
@@ -1288,7 +1318,7 @@ void FPhysScene::StartFrame()
 				STATGROUP_TaskGraphTasks);
 
 			PhysicsSceneCompletion = TGraphTask<FNullGraphTask>::CreateTask(&FinishPrerequisites, ENamedThreads::GameThread).ConstructAndDispatchWhenReady(
-				GET_STATID(STAT_FNullGraphTask_ProcessPhysScene_Join), PhysSingleThreadedMode() ? ENamedThreads::GameThread : ENamedThreads::HiPri(ENamedThreads::AnyThread));
+				GET_STATID(STAT_FNullGraphTask_ProcessPhysScene_Join), PhysSingleThreadedMode() ? ENamedThreads::GameThread : CPrio_PhyXSceneCompletion.Get());
 		}
 		else
 		{
@@ -1602,8 +1632,11 @@ void FPhysScene::InitPhysScene(uint32 SceneType)
 	
 #endif
 
-	// We want to use 'active transforms'
-	PSceneDesc.flags |= PxSceneFlag::eENABLE_ACTIVETRANSFORMS;
+	if(!UPhysicsSettings::Get()->bDisableActiveTransforms)
+	{
+		// We want to use 'active transforms'
+		PSceneDesc.flags |= PxSceneFlag::eENABLE_ACTIVETRANSFORMS;
+	}
 
 	// @TODO Should we set up PSceneDesc.limits? How?
 
@@ -1680,7 +1713,6 @@ void FPhysScene::InitPhysScene(uint32 SceneType)
 	}
 #endif
 
-#if WITH_SUBSTEPPING
 	//Initialize substeppers
 	//we don't bother sub-stepping cloth
 #if WITH_PHYSX
@@ -1697,8 +1729,6 @@ void FPhysScene::InitPhysScene(uint32 SceneType)
 	}
 #endif
 	
-#endif
-
 #endif // WITH_PHYSX
 }
 
@@ -1726,8 +1756,6 @@ void FPhysScene::TermPhysScene(uint32 SceneType)
 		}
 #endif
 
-#if WITH_SUBSTEPPING
-
 		if (SceneType == PST_Sync && PhysSubSteppers[SceneType])
 		{
 			PhysSubSteppers[SceneType]->SetVehicleManager(NULL);
@@ -1735,7 +1763,6 @@ void FPhysScene::TermPhysScene(uint32 SceneType)
 
 		delete PhysSubSteppers[SceneType];
 		PhysSubSteppers[SceneType] = NULL;
-#endif
 
 		// @todo block on any running scene before calling this
 		GPhysCommandHandler->DeferredRelease(PScene);

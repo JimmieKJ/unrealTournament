@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Lightmass.h: lightmass import/export implementation.
@@ -2562,7 +2562,7 @@ bool FLightmassProcessor::BeginRun()
 #endif
 	const int32 RequiredDependencyPaths64Count = ARRAY_COUNT(RequiredDependencyPaths64);
 
-	// Set up optional dependencies.  These might not exist in Rocket distributions, for example.
+	// Set up optional dependencies.  These might not exist in Launcher distributions, for example.
 	const TCHAR* OptionalDependencyPaths32[] =
 	{
 		TEXT("../Win32/UnrealLightmass.pdb"),
@@ -2891,7 +2891,6 @@ bool FLightmassProcessor::Update()
 		bIsFinished = true;
 		bProcessingFailed = Status != 0;
 		bProcessingSuccessful = !bProcessingFailed;
-		bQuitReceived = true;
 	}
 #endif
 
@@ -3380,7 +3379,7 @@ void FLightmassProcessor::ImportMeshAreaLightData()
 					Direction = LMCurrentLightData.Direction;
 					// Spawn a AGeneratedMeshAreaLight to handle the light's influence on dynamic objects
 					FActorSpawnParameters SpawnInfo;
-					SpawnInfo.Owner = CurrentLevel->Actors[0];
+					SpawnInfo.Owner = CurrentLevel->GetWorldSettings();
 					AGeneratedMeshAreaLight* NewGeneratedLight = CurrentLevel->OwningWorld->SpawnActor<AGeneratedMeshAreaLight>(Position, Direction.Rotation());
 					USpotLightComponent* SpotComponent = CastChecked<USpotLightComponent>(NewGeneratedLight->GetLightComponent());
 					// Unregister the component before we change its attributes

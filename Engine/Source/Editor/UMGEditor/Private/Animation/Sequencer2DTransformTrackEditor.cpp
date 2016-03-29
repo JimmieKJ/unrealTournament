@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGEditorPrivatePCH.h"
 #include "Sequencer2DTransformTrackEditor.h"
@@ -42,9 +42,9 @@ public:
 		ShearYKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetSheerCurve(EAxis::Y), TransformSection, GreenKeyAreaColor));
 
 		// This generates the tree structure for the transform section
-		LayoutBuilder.PushCategory("Location", NSLOCTEXT("F2DTransformSection", "LocationArea", "Location"));
-			LayoutBuilder.AddKeyArea("Location.X", NSLOCTEXT("F2DTransformSection", "LocXArea", "X"), TranslationXKeyArea.ToSharedRef());
-			LayoutBuilder.AddKeyArea("Location.Y", NSLOCTEXT("F2DTransformSection", "LocYArea", "Y"), TranslationYKeyArea.ToSharedRef());
+		LayoutBuilder.PushCategory("Translation", NSLOCTEXT("F2DTransformSection", "TranslationArea", "Translation"));
+			LayoutBuilder.AddKeyArea("Translation.X", NSLOCTEXT("F2DTransformSection", "TransXArea", "X"), TranslationXKeyArea.ToSharedRef());
+			LayoutBuilder.AddKeyArea("Translation.Y", NSLOCTEXT("F2DTransformSection", "TransYArea", "Y"), TranslationYKeyArea.ToSharedRef());
 		LayoutBuilder.PopCategory();
 
 		LayoutBuilder.PushCategory("Rotation", NSLOCTEXT("F2DTransformSection", "RotationArea", "Rotation"));
@@ -121,21 +121,23 @@ TSharedRef<FPropertySection> F2DTransformTrackEditor::MakePropertySectionInterfa
 }
 
 
-void F2DTransformTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<F2DTransformKey>& GeneratedKeys )
+void F2DTransformTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<F2DTransformKey>& NewGeneratedKeys, TArray<F2DTransformKey>& DefaultGeneratedKeys )
 {
 	FName ChannelName = PropertyChangedParams.StructPropertyNameToKey;
 	FWidgetTransform Transform = PropertyChangedParams.GetPropertyValue<FWidgetTransform>();
 
-	GeneratedKeys.Add( F2DTransformKey(EKey2DTransformChannel::Translation, EKey2DTransformAxis::X, Transform.Translation.X, ChannelName == NAME_None || ChannelName == TranslationName ? EKey2DTransformValueType::Key : EKey2DTransformValueType::Default ) );
-	GeneratedKeys.Add( F2DTransformKey( EKey2DTransformChannel::Translation, EKey2DTransformAxis::Y, Transform.Translation.Y, ChannelName == NAME_None || ChannelName == TranslationName ? EKey2DTransformValueType::Key : EKey2DTransformValueType::Default ) );
-	GeneratedKeys.Add( F2DTransformKey( EKey2DTransformChannel::Scale, EKey2DTransformAxis::X, Transform.Scale.X, ChannelName == NAME_None || ChannelName == ScaleName ? EKey2DTransformValueType::Key : EKey2DTransformValueType::Default ) );
-	GeneratedKeys.Add( F2DTransformKey( EKey2DTransformChannel::Scale, EKey2DTransformAxis::Y, Transform.Scale.Y, ChannelName == NAME_None || ChannelName == ScaleName ? EKey2DTransformValueType::Key : EKey2DTransformValueType::Default ) );
-	GeneratedKeys.Add( F2DTransformKey( EKey2DTransformChannel::Shear, EKey2DTransformAxis::X, Transform.Shear.X, ChannelName == NAME_None || ChannelName == ShearName ? EKey2DTransformValueType::Key : EKey2DTransformValueType::Default ) );
-	GeneratedKeys.Add( F2DTransformKey( EKey2DTransformChannel::Shear, EKey2DTransformAxis::Y, Transform.Shear.Y, ChannelName == NAME_None || ChannelName == ShearName ? EKey2DTransformValueType::Key : EKey2DTransformValueType::Default ) );
-	GeneratedKeys.Add( F2DTransformKey( EKey2DTransformChannel::Rotation, EKey2DTransformAxis::None, Transform.Angle, ChannelName == NAME_None || ChannelName == AngleName ? EKey2DTransformValueType::Key : EKey2DTransformValueType::Default ) );
-}
+	TArray<F2DTransformKey>& TranslationKeys = ChannelName == NAME_None || ChannelName == TranslationName ? NewGeneratedKeys : DefaultGeneratedKeys;
+	TranslationKeys.Add( F2DTransformKey( EKey2DTransformChannel::Translation, EKey2DTransformAxis::X, Transform.Translation.X ) );
+	TranslationKeys.Add( F2DTransformKey( EKey2DTransformChannel::Translation, EKey2DTransformAxis::Y, Transform.Translation.Y ) );
 
-bool F2DTransformTrackEditor::ShouldAddKey(UMovieScene2DTransformTrack* InTrack, F2DTransformKey InKey, FKeyParams InKeyParams) const
-{
-	return FPropertyTrackEditor::ShouldAddKey(InTrack, InKey, InKeyParams) && InKey.ValueType == EKey2DTransformValueType::Key;
+	TArray<F2DTransformKey>& ScaleKeys = ChannelName == NAME_None || ChannelName == ScaleName ? NewGeneratedKeys : DefaultGeneratedKeys;
+	ScaleKeys.Add( F2DTransformKey( EKey2DTransformChannel::Scale, EKey2DTransformAxis::X, Transform.Scale.X ) );
+	ScaleKeys.Add( F2DTransformKey( EKey2DTransformChannel::Scale, EKey2DTransformAxis::Y, Transform.Scale.Y ) );
+
+	TArray<F2DTransformKey>& ShearKeys = ChannelName == NAME_None || ChannelName == ShearName ? NewGeneratedKeys : DefaultGeneratedKeys;
+	ShearKeys.Add( F2DTransformKey( EKey2DTransformChannel::Shear, EKey2DTransformAxis::X, Transform.Shear.X ) );
+	ShearKeys.Add( F2DTransformKey( EKey2DTransformChannel::Shear, EKey2DTransformAxis::Y, Transform.Shear.Y ) );
+
+	TArray<F2DTransformKey>& AngleKeys = ChannelName == NAME_None || ChannelName == AngleName ? NewGeneratedKeys : DefaultGeneratedKeys;
+	AngleKeys.Add( F2DTransformKey( EKey2DTransformChannel::Rotation, EKey2DTransformAxis::None, Transform.Angle ) );
 }

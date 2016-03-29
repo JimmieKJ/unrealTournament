@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateRHIRendererPrivatePCH.h"
 #include "SlateElementIndexBuffer.h"
@@ -18,7 +18,7 @@ FSlateElementIndexBuffer::~FSlateElementIndexBuffer()
 
 void FSlateElementIndexBuffer::Init( int32 MinNumIndices )
 {
-	MinBufferSize = sizeof(SlateIndex) * FMath::Max( MinNumIndices, 200 );
+	MinBufferSize = sizeof(SlateIndex) * FMath::Max( MinNumIndices, 100 );
 
 	if ( IsInRenderingThread() )
 	{
@@ -104,17 +104,6 @@ void* FSlateElementIndexBuffer::LockBuffer_RenderThread(int32 NumIndices)
 void FSlateElementIndexBuffer::UnlockBuffer_RenderThread()
 {
 	RHIUnlockIndexBuffer( IndexBufferRHI );
-}
-
-void* FSlateElementIndexBuffer::LockBuffer_RHIThread(int32 NumIndices)
-{
-	uint32 RequiredBufferSize = NumIndices*sizeof(SlateIndex);		
-	return GDynamicRHI->RHILockIndexBuffer( IndexBufferRHI, 0, RequiredBufferSize, RLM_WriteOnly );
-}
-
-void FSlateElementIndexBuffer::UnlockBuffer_RHIThread()
-{
-	GDynamicRHI->RHIUnlockIndexBuffer( IndexBufferRHI );
 }
 
 /** Releases the index buffers RHI resource. */

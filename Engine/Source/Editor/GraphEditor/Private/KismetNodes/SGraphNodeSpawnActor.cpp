@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "GraphEditorCommon.h"
 #include "SGraphNode.h"
@@ -120,7 +120,6 @@ void SGraphNodeSpawnActor::CreatePinWidgets()
 	{
 		TSharedPtr<SGraphPinActorBasedBlueprintClass> NewPin = SNew(SGraphPinActorBasedBlueprintClass, BlueprintPin);
 		check(NewPin.IsValid());
-		NewPin->SetIsEditable(IsEditable);
 
 		this->AddPin(NewPin.ToSharedRef());
 	}

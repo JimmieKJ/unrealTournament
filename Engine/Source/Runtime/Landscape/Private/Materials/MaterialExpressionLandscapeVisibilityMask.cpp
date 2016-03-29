@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "Landscape.h"
 #include "MaterialCompiler.h"
@@ -38,11 +38,13 @@ FGuid& UMaterialExpressionLandscapeVisibilityMask::GetParameterExpressionId()
 	return ExpressionGUID;
 }
 
+#if WITH_EDITOR
 int32 UMaterialExpressionLandscapeVisibilityMask::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex)
 {
 	int32 MaskLayerCode = Compiler->StaticTerrainLayerWeight(ParameterName, Compiler->Constant(0.f));
 	return MaskLayerCode == INDEX_NONE ? Compiler->Constant(1.f) : Compiler->Sub(Compiler->Constant(1.f), MaskLayerCode);
 }
+#endif // WITH_EDITOR
 
 UTexture* UMaterialExpressionLandscapeVisibilityMask::GetReferencedTexture()
 {
@@ -60,9 +62,16 @@ void UMaterialExpressionLandscapeVisibilityMask::GetAllParameterNames(TArray<FNa
 	}
 }
 
+#if WITH_EDITOR
 void UMaterialExpressionLandscapeVisibilityMask::GetCaption(TArray<FString>& OutCaptions) const
 {
 	OutCaptions.Add(FString(TEXT("Landscape Visibility Mask")));
+}
+#endif // WITH_EDITOR
+
+bool UMaterialExpressionLandscapeVisibilityMask::NeedsLoadForClient() const
+{
+	return ParameterName != NAME_None;
 }
 
 #undef LOCTEXT_NAMESPACE

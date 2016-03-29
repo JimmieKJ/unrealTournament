@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "Core.h"
 #include "CoreMisc.h"
@@ -351,7 +351,7 @@ class FTextureFormatASTC : public ITextureFormat
 			   ((BuildSettings.TextureFormatName == GTextureFormatNameASTC_RGBAuto) && bImageHasAlphaChannel))
 		{
 			CompressedPixelFormat = GetQualityFormat();
-			CompressionParameters = FString::Printf(TEXT("%s %s -esw bgra -ch 1 1 1 1 -alphablend"), *GetQualityString(), /*BuildSettings.bSRGB ? TEXT("-srgb") :*/ TEXT("") );
+			CompressionParameters = FString::Printf(TEXT("%s %s -esw bgra -ch 1 1 1 1"), *GetQualityString(), /*BuildSettings.bSRGB ? TEXT("-srgb") :*/ TEXT("") );
 		}
 		else if (BuildSettings.TextureFormatName == GTextureFormatNameASTC_NormalAG)
 		{

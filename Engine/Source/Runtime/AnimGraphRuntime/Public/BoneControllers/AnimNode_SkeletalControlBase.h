@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /**
  *	Abstract base class for a skeletal controller.
@@ -37,18 +37,22 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_SkeletalControlBase : public FAnimNode_Bas
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Performance, meta = (DisplayName = "LOD Threshold"))
 	int32 LODThreshold;
 
+	UPROPERTY(Transient)
+	float ActualAlpha;
+
 public:
 
 	FAnimNode_SkeletalControlBase()
 		: Alpha(1.0f)
 		, LODThreshold(INDEX_NONE)
+		, ActualAlpha(0.f)
 	{
 	}
 
 public:
 #if WITH_EDITORONLY_DATA
 	// forwarded pose data from the wired node which current node's skeletal control is not applied yet
-	FCSPose<FCompactPose> ForwardedPose;
+	FCSPose<FCompactHeapPose> ForwardedPose;
 #endif //#if WITH_EDITORONLY_DATA
 
 	// FAnimNode_Base interface
@@ -62,6 +66,8 @@ protected:
 	// Interface for derived skeletal controls to implement
 	// use this function to update for skeletal control base
 	virtual void UpdateInternal(const FAnimationUpdateContext& Context);
+	// use this function to evaluate for skeletal control base
+	virtual void EvaluateComponentSpaceInternal(FComponentSpacePoseContext& Context);
 	// Evaluate the new component-space transforms for the affected bones.
 	virtual void EvaluateBoneTransforms(USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases, TArray<FBoneTransform>& OutBoneTransforms) {}
 	// return true if it is valid to Evaluate

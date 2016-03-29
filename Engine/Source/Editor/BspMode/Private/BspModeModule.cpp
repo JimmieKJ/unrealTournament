@@ -1,9 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "BspModePrivatePCH.h"
 #include "BspModeModule.h"
 #include "BspMode.h"
 #include "SBspPalette.h"
+#include "IPlacementModeModule.h"
 
 #define LOCTEXT_NAMESPACE "BspMode"
 
@@ -26,6 +27,12 @@ void FBspModeModule::StartupModule()
 	RegisterBspBuilderType(ULinearStairBuilder::StaticClass(), LOCTEXT("LinearStairBuilderName", "Linear Stair"), LOCTEXT("LinearStairBuilderToolTip", "Make a linear stair brush"), FBspModeStyle::Get().GetBrush(TEXT("BspMode.LinearStairBrush")));
 	RegisterBspBuilderType(USpiralStairBuilder::StaticClass(), LOCTEXT("SpiralStairBuilderName", "Spiral Stair"), LOCTEXT("SpiralStairBuilderToolTip", "Make a spiral stair brush"), FBspModeStyle::Get().GetBrush(TEXT("BspMode.SpiralStairBrush")));
 	RegisterBspBuilderType(UTetrahedronBuilder::StaticClass(), LOCTEXT("SphereBuilderName", "Sphere"), LOCTEXT("SphereBuilderToolTip", "Make a sphere brush"), FBspModeStyle::Get().GetBrush(TEXT("BspMode.SphereBrush")));
+
+	IPlacementModeModule& PlacementModeModule = IPlacementModeModule::Get();
+
+	FPlacementCategoryInfo CategoryInfo(LOCTEXT("PlacementMode_Geometry", "Geometry"), "Geometry", TEXT("PMGeometry"), 35);
+	CategoryInfo.CustomGenerator = []() -> TSharedRef<SWidget> { return SNew(SBspPalette); };
+	PlacementModeModule.RegisterPlacementCategory(CategoryInfo);
 }
 
 
@@ -34,12 +41,6 @@ void FBspModeModule::ShutdownModule()
 	FEditorModeRegistry::Get().UnregisterMode( FBuiltinEditorModes::EM_Bsp );
 
 	BspBuilderTypes.Empty();
-}
-
-
-TSharedRef< SWidget > FBspModeModule::CreateBspModeWidget() const
-{
-	return SNew(SBspPalette);
 }
 
 

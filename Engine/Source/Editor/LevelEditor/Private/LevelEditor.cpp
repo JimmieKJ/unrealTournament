@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "LevelEditor.h"
@@ -21,6 +21,8 @@
 #include "TargetPlatform.h"
 #include "IIntroTutorials.h"
 #include "IProjectManager.h"
+#include "LevelViewportLayout.h"
+#include "LevelViewportLayoutEntity.h"
 
 // @todo Editor: remove this circular dependency
 #include "Editor/MainFrame/Public/Interfaces/IMainFrameModule.h"
@@ -230,6 +232,8 @@ void FLevelEditorModule::StartupModule()
 
 	// Bind level editor commands shared across an instance
 	BindGlobalLevelEditorCommands();
+
+	RegisterViewportType("Default", FViewportTypeDefinition::FromType<FLevelViewportLayoutEntity>());
 
 	const IWorkspaceMenuStructure& MenuStructure = WorkspaceMenu::GetMenuStructure();
 
@@ -532,6 +536,17 @@ TSharedPtr<ILevelEditor> FLevelEditorModule::GetFirstLevelEditor()
 TSharedPtr<SDockTab> FLevelEditorModule::GetLevelEditorTab() const
 {
 	return LevelEditorInstanceTabPtr.Pin();
+}
+
+TSharedRef<IViewportLayoutEntity> FLevelEditorModule::FactoryViewport(FName InTypeName, const FViewportConstructionArgs& ConstructionArgs) const
+{
+	const FViewportTypeDefinition* Definition = CustomViewports.Find(InTypeName);
+	if (Definition)
+	{
+		return Definition->FactoryFunction(ConstructionArgs);
+	}
+
+	return FViewportTypeDefinition::FromType<FLevelViewportLayoutEntity>().FactoryFunction(ConstructionArgs);
 }
 
 void FLevelEditorModule::BindGlobalLevelEditorCommands()
@@ -1324,6 +1339,12 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 		);
 
 	ActionList.MapAction(
+		Commands.FindActorLevelInContentBrowser,
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::OnFindActorLevelInContentBrowser),
+		FCanExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::CanExecuteFindActorLevelInContentBrowser)
+		);
+
+	ActionList.MapAction(
 		Commands.FindLevelsInLevelBrowser,
 		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::OnFindLevelsInLevelBrowser )
 		);
@@ -1378,6 +1399,9 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 	ActionList.MapAction(Commands.BuildLODsOnly,
 		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::BuildLODsOnly_Execute));
 	
+	ActionList.MapAction(Commands.BuildTextureStreamingOnly,
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::BuildTextureStreamingOnly_Execute));
+
 	ActionList.MapAction( 
 		Commands.LightingQuality_Production, 
 		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::SetLightingQuality, (ELightingBuildQuality)Quality_Production ),

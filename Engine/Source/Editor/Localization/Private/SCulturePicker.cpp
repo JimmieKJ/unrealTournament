@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LocalizationPrivatePCH.h"
 #include "SCulturePicker.h"
@@ -11,7 +11,7 @@ void SCulturePicker::Construct( const FArguments& InArgs )
 {
 	OnCultureSelectionChanged = InArgs._OnSelectionChanged;
 	IsCulturePickable = InArgs._IsCulturePickable;
-	UseNativeDisplayNames = InArgs._UseNativeDisplayNames;
+	DisplayNameFormat = InArgs._DisplayNameFormat;
 	CanSelectNone = InArgs._CanSelectNone;
 
 	TArray<FString> AllCultureNames;
@@ -66,7 +66,7 @@ void SCulturePicker::Construct( const FArguments& InArgs )
 	const TSharedPtr<FCultureEntry>* InitialSelection = RootEntries.FindByPredicate(IsInitialSelection);
 	if (InitialSelection)
 	{
-		TGuardValue<bool> SupressSelectionGuard(SupressSelectionCallback, true);
+		TGuardValue<bool> SuppressSelectionGuard(SuppressSelectionCallback, true);
 		TreeView->SetSelection(*InitialSelection);
 	}
 }
@@ -95,7 +95,10 @@ void SCulturePicker::BuildStockEntries()
 			for (const auto& ParentCultureName : ParentCultureNames)
 			{
 				const FCulturePtr ParentCulture = FInternationalization::Get().GetCulture(ParentCultureName);
-				StockCultures.AddUnique(ParentCulture);
+				if (ParentCulture.IsValid())
+				{
+					StockCultures.AddUnique(ParentCulture);
+				}
 			}
 		}
 	}
@@ -178,10 +181,9 @@ void SCulturePicker::BuildStockEntries()
 	// Sort entries.
 	const auto& CultureEntryComparator = [this](const TSharedPtr<FCultureEntry>& LHS, const TSharedPtr<FCultureEntry>& RHS) -> bool
 	{
-		return UseNativeDisplayNames ?
-			LHS->Culture->GetNativeName() < RHS->Culture->GetNativeName()
-			:
-			LHS->Culture->GetDisplayName() < RHS->Culture->GetDisplayName();
+		const FString LHSDisplayName = GetCultureDisplayName(LHS->Culture.ToSharedRef(), false);
+		const FString RHSDisplayName = GetCultureDisplayName(RHS->Culture.ToSharedRef(), false);
+		return LHSDisplayName < RHSDisplayName;
 	};
 	StockEntries.Sort(CultureEntryComparator);
 }
@@ -216,8 +218,9 @@ void SCulturePicker::RebuildEntries()
 			if (!FilterString.IsEmpty())
 			{
 				const FString Name = OutEntry->Culture->GetName();
-				const FString DisplayName = UseNativeDisplayNames ? OutEntry->Culture->GetNativeName() : OutEntry->Culture->GetDisplayName();
-				IsFilteredOut = !Name.Contains(FilterString) && !DisplayName.Contains(FilterString);
+				const FString DisplayName = OutEntry->Culture->GetDisplayName();
+				const FString NativeName = OutEntry->Culture->GetNativeName();
+				IsFilteredOut = !Name.Contains(FilterString) && !DisplayName.Contains(FilterString) && !NativeName.Contains(FilterString);
 			}
 
 			// If has children, must be added. If it is not filtered and it is pickable, should be added.
@@ -241,7 +244,7 @@ TSharedRef<ITableRow> SCulturePicker::OnGenerateRow(TSharedPtr<FCultureEntry> En
 	return	SNew(STableRow< TSharedPtr<FCultureEntry> >, Table)
 			[
 				SNew(STextBlock)
-				.Text(Entry->Culture.IsValid() ? FText::FromString(UseNativeDisplayNames ? Entry->Culture->GetNativeName() : Entry->Culture->GetDisplayName()) : LOCTEXT("None", "None"))
+				.Text(Entry->Culture.IsValid() ? FText::FromString(GetCultureDisplayName(Entry->Culture.ToSharedRef(), RootEntries.Contains(Entry))) : LOCTEXT("None", "None"))
 				.ToolTip(
 						SNew(SToolTip)
 						.Content()
@@ -266,10 +269,9 @@ void SCulturePicker::OnGetChildren(TSharedPtr<FCultureEntry> Entry, TArray< TSha
 		// Sort entries.
 		const auto& CultureEntryComparator = [this](const TSharedPtr<FCultureEntry>& LHS, const TSharedPtr<FCultureEntry>& RHS) -> bool
 		{
-			return UseNativeDisplayNames ? 
-				LHS->Culture->GetNativeName() < RHS->Culture->GetNativeName()
-				:
-				LHS->Culture->GetDisplayName() < RHS->Culture->GetDisplayName();
+			const FString LHSDisplayName = GetCultureDisplayName(LHS->Culture.ToSharedRef(), false);
+			const FString RHSDisplayName = GetCultureDisplayName(RHS->Culture.ToSharedRef(), false);
+			return LHSDisplayName < RHSDisplayName;
 		};
 		Children.Sort(CultureEntryComparator);
 	}
@@ -277,7 +279,7 @@ void SCulturePicker::OnGetChildren(TSharedPtr<FCultureEntry> Entry, TArray< TSha
 
 void SCulturePicker::OnSelectionChanged(TSharedPtr<FCultureEntry> Entry, ESelectInfo::Type SelectInfo)
 {
-	if (SupressSelectionCallback)
+	if (SuppressSelectionCallback)
 	{
 		return;
 	}
@@ -287,6 +289,39 @@ void SCulturePicker::OnSelectionChanged(TSharedPtr<FCultureEntry> Entry, ESelect
 	{
 		OnCultureSelectionChanged.ExecuteIfBound( Entry->Culture, SelectInfo );
 	}
+}
+
+FString SCulturePicker::GetCultureDisplayName(const FCultureRef& Culture, const bool bIsRootItem) const
+{
+	const FString DisplayName = Culture->GetDisplayName();
+	if (DisplayNameFormat == ECultureDisplayFormat::ActiveCultureDisplayName)
+	{
+		return DisplayName;
+	}
+
+	const FString NativeName = Culture->GetNativeName();
+	if (DisplayNameFormat == ECultureDisplayFormat::NativeCultureDisplayName)
+	{
+		return NativeName;
+	}
+
+	if (DisplayNameFormat == ECultureDisplayFormat::ActiveAndNativeCultureDisplayName)
+	{
+		// Only show both names if they're different (to avoid repetition), and we're a root item (to avoid noise)
+		return (bIsRootItem && !NativeName.Equals(DisplayName, ESearchCase::CaseSensitive))
+			? FString::Printf(TEXT("%s (%s)"), *DisplayName, *NativeName)
+			: DisplayName;
+	}
+
+	if (DisplayNameFormat == ECultureDisplayFormat::NativeAndActiveCultureDisplayName)
+	{
+		// Only show both names if they're different (to avoid repetition), and we're a root item (to avoid noise)
+		return (bIsRootItem && !NativeName.Equals(DisplayName, ESearchCase::CaseSensitive))
+			? FString::Printf(TEXT("%s (%s)"), *NativeName, *DisplayName)
+			: NativeName;
+	}
+
+	return DisplayName;
 }
 
 #undef LOCTEXT_NAMESPACE

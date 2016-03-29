@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "FontEditorModule.h"
 #include "Factories.h"
@@ -374,6 +374,16 @@ void FFontEditor::OnPreviewTextChanged(const FText& Text)
 	FontPreviewWidget->SetPreviewText(Text);
 }
 
+ECheckBoxState FFontEditor::GetDrawFontMetricsState() const
+{
+	return (FontPreviewWidget->GetPreviewFontMetrics()) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+}
+
+void FFontEditor::OnDrawFontMetricsStateChanged(ECheckBoxState NewState)
+{
+	FontPreviewWidget->SetPreviewFontMetrics(NewState == ECheckBoxState::Checked);
+}
+
 void FFontEditor::PostUndo(bool bSuccess)
 {
 	// Make sure we're using the correct layout, as the undo/redo may have changed the font cache type property
@@ -562,10 +572,29 @@ void FFontEditor::CreateInternalWidgets()
 	+SVerticalBox::Slot()
 	.AutoHeight()
 	[
-		SAssignNew(FontPreviewText, SEditableTextBox)
-		.Text(LOCTEXT("DefaultPreviewText", "The quick brown fox jumps over the lazy dog"))
-		.SelectAllTextWhenFocused(true)
-		.OnTextChanged(this, &FFontEditor::OnPreviewTextChanged)
+		SNew(SHorizontalBox)
+
+		+SHorizontalBox::Slot()
+		[
+			SAssignNew(FontPreviewText, SEditableTextBox)
+			.Text(LOCTEXT("DefaultPreviewText", "The quick brown fox jumps over the lazy dog"))
+			.SelectAllTextWhenFocused(true)
+			.OnTextChanged(this, &FFontEditor::OnPreviewTextChanged)
+		]
+
+		+SHorizontalBox::Slot()
+		.AutoWidth()
+		.Padding(FMargin(2.0f, 0.0f, 0.0f, 0.0f))
+		[
+			SNew(SCheckBox)
+			.IsChecked(this, &FFontEditor::GetDrawFontMetricsState)
+			.OnCheckStateChanged(this, &FFontEditor::OnDrawFontMetricsStateChanged)
+			.ToolTipText(LOCTEXT("DrawFontMetricsToolTip", "Draw the font metrics (line height, glyph bounding boxes, and base-line) as part of the preview?"))
+			[
+				SNew(STextBlock)
+				.Text(LOCTEXT("DrawFontMetricsLabel", "Draw Font Metrics"))
+			]
+		]
 	];
 
 	FDetailsViewArgs Args;

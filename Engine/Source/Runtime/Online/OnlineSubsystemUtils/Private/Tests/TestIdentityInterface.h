@@ -1,9 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "Core.h"
 #include "OnlineIdentityInterface.h"
+
+#if WITH_DEV_AUTOMATION_TESTS
 
 /**
  * Class used to test the identity interface
@@ -90,3 +92,5 @@
 
 	bool IsTheUserLoggedIn();
  };
+
+#endif //WITH_DEV_AUTOMATION_TESTS

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 // ActorComponent.cpp: Actor component implementation.
 
 #include "EnginePrivate.h"
@@ -396,7 +396,7 @@ void UActorComponent::BeginDestroy()
 	// Ensure that we call OnComponentDestroyed before we destroy this component
 	if (bHasBeenCreated)
 	{
-		OnComponentDestroyed();
+		OnComponentDestroyed(GExitPurge);
 	}
 
 	World = NULL;
@@ -501,6 +501,12 @@ void UActorComponent::PostEditUndo()
 	// so they can leave an EditReregisterContexts entry around if they are deleted by an undo action.
 	if( IsPendingKill() )
 	{
+		// For the redo case, ensure that we're no longer in the OwnedComponents array.
+		if (AActor* OwningActor = GetOwner())
+		{
+			OwningActor->RemoveOwnedComponent(this);
+		}
+
 		// The reregister context won't bother attaching components that are 'pending kill'. 
 		FComponentReregisterContext* ReregisterContext = nullptr;
 		if (EditReregisterContexts.RemoveAndCopyValue(this, ReregisterContext))
@@ -521,6 +527,8 @@ void UActorComponent::PostEditUndo()
 	}
 	else
 	{
+		bIsBeingDestroyed = false;
+
 		Owner = GetTypedOuter<AActor>();
 		bCanUseCachedOwner = true;
 
@@ -559,6 +567,8 @@ void UActorComponent::PostEditUndo()
 
 void UActorComponent::ConsolidatedPostEditChange(const FPropertyChangedEvent& PropertyChangedEvent)
 {
+	static const FName NAME_CanEverAffectNavigation = GET_MEMBER_NAME_CHECKED(UActorComponent, bCanEverAffectNavigation);
+
 	FComponentReregisterContext* ReregisterContext = nullptr;
 	if(EditReregisterContexts.RemoveAndCopyValue(this, ReregisterContext))
 	{
@@ -580,6 +590,11 @@ void UActorComponent::ConsolidatedPostEditChange(const FPropertyChangedEvent& Pr
 				It.RemoveCurrent();
 			}
 		}
+	}
+
+	if (PropertyChangedEvent.Property != nullptr && PropertyChangedEvent.Property->GetFName() == NAME_CanEverAffectNavigation)
+	{
+		HandleCanEverAffectNavigationChange(/*bForce=*/true);
 	}
 
 	// The component or its outer could be pending kill when calling PostEditChange when applying a transaction.
@@ -688,7 +703,7 @@ FActorComponentInstanceData* UActorComponent::GetComponentInstanceData() const
 
 void FActorComponentTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 {
-	ExecuteTickHelper(Target, DeltaTime, TickType, [this, TickType](float DilatedTime)
+	ExecuteTickHelper(Target, Target->bTickInEditor, DeltaTime, TickType, [this, TickType](float DilatedTime)
 	{
 		Target->TickComponent(DilatedTime, TickType, this);
 	});
@@ -976,7 +991,7 @@ void UActorComponent::DestroyComponent(bool bPromoteChildren/*= false*/)
 	}
 
 	// Tell the component it is being destroyed
-	OnComponentDestroyed();
+	OnComponentDestroyed(false);
 
 	// Finally mark pending kill, to NULL out any other refs
 	MarkPendingKill();
@@ -988,7 +1003,7 @@ void UActorComponent::OnComponentCreated()
 	bHasBeenCreated = true;
 }
 
-void UActorComponent::OnComponentDestroyed()
+void UActorComponent::OnComponentDestroyed(bool bDestroyingHierarchy)
 {
 	// @TODO: Would be nice to ensure(bHasBeenCreated), but there are still many places where components are created without calling OnComponentCreated
 	bHasBeenCreated = false;
@@ -1448,12 +1463,21 @@ bool UActorComponent::IsSupportedForNetworking() const
 
 void UActorComponent::SetIsReplicated(bool ShouldReplicate)
 {
-	check(GetComponentClassCanReplicate()); // Only certain component classes can replicate!
-	bReplicates = ShouldReplicate;
-
-	if (AActor* MyOwner = GetOwner())
+	if (bReplicates != ShouldReplicate)
 	{
-		MyOwner->UpdateReplicatedComponent( this );
+		if (GetComponentClassCanReplicate())
+		{
+			bReplicates = ShouldReplicate;
+
+			if (AActor* MyOwner = GetOwner())
+			{
+				MyOwner->UpdateReplicatedComponent( this );
+			}
+		}
+		else
+		{
+			UE_LOG(LogActorComponent, Error, TEXT("Calling SetIsReplicated on component of Class '%s' which cannot replicate."), *GetClass()->GetName());
+		}
 	}
 }
 
@@ -1588,10 +1612,10 @@ void UActorComponent::SetCanEverAffectNavigation(bool bRelevant)
 	}
 }
 
-void UActorComponent::HandleCanEverAffectNavigationChange()
+void UActorComponent::HandleCanEverAffectNavigationChange(bool bForceUpdate)
 {
 	// update octree if already registered
-	if (bRegistered)
+	if (bRegistered || bForceUpdate)
 	{
 		if (bCanEverAffectNavigation)
 		{
@@ -1602,6 +1626,16 @@ void UActorComponent::HandleCanEverAffectNavigationChange()
 		{
 			UNavigationSystem::OnComponentUnregistered(this);
 		}
+	}
+}
+
+void UActorComponent::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	if (Ar.IsLoading() && (Ar.HasAnyPortFlags(PPF_DuplicateForPIE)||!Ar.HasAnyPortFlags(PPF_Duplicate)))
+	{
+		bHasBeenCreated = true;
 	}
 }
 

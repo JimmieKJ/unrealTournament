@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -707,6 +707,18 @@ public:
 	void PlayAnimation(const UWidgetAnimation* InAnimation, float StartAtTime = 0.0f, int32 NumLoopsToPlay = 1, EUMGSequencePlayMode::Type PlayMode = EUMGSequencePlayMode::Forward);
 
 	/**
+	 * Plays an animation in this widget a specified number of times stoping at a specified time
+	 * 
+	 * @param InAnimation The animation to play
+	 * @param StartAtTime The time in the animation from which to start playing, relative to the start position. For looped animations, this will only affect the first playback of the animation.
+	 * @param EndAtTime The absolute time in the animation where to stop, this is only considered in the last loop.
+	 * @param NumLoopsToPlay The number of times to loop this animation (0 to loop indefinitely)
+	 * @param PlayMode Specifies the playback mode
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="User Interface|Animation")
+	void PlayAnimationTo(const UWidgetAnimation* InAnimation, float StartAtTime = 0.0f, float EndAtTime = 0.0f, int32 NumLoopsToPlay = 1, EUMGSequencePlayMode::Type PlayMode = EUMGSequencePlayMode::Forward);
+
+	/**
 	 * Stops an already running animation in this widget
 	 * 
 	 * @param The name of the animation to stop
@@ -731,6 +743,23 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="User Interface|Animation")
 	bool IsAnimationPlaying(const UWidgetAnimation* InAnimation) const;
+
+	/**
+	* Changes the number of loops to play given a playing animation
+	*
+	* @param InAnimation The animation that is already playing
+	* @param NumLoopsToPlay The number of loops to play. (0 to loop indefinitely)
+	*/
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "User Interface|Animation")
+	void SetNumLoopsToPlay(const UWidgetAnimation* InAnimation, int32 NumLoopsToPlay);
+
+	/**
+	* If an animation is playing, this function will reverse the playback.
+	*
+	* @param InAnimation The playing animation that we want to reverse
+	*/
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "User Interface|Animation")
+	void ReverseAnimation(const UWidgetAnimation* InAnimation);
 
 	/** Called when a sequence player is finished playing an animation */
 	void OnAnimationFinishedPlaying(UUMGSequencePlayer& Player );
@@ -765,7 +794,6 @@ public:
 
 #if WITH_EDITOR
 	//~ Begin UWidget Interface
-	virtual const FSlateBrush* GetEditorIcon() override;
 	virtual const FText GetPaletteCategory() override;
 	//~ End UWidget Interface
 
@@ -862,13 +890,13 @@ public:
 protected:
 
 	/** Adds the widget to the screen, either to the viewport or to the player's screen depending on if the LocalPlayer is null. */
-	void AddToScreen(ULocalPlayer* LocalPlayer, int32 ZOrder);
+	virtual void AddToScreen(ULocalPlayer* LocalPlayer, int32 ZOrder);
 
 	/**
 	 * Called when a top level widget is in the viewport and the world is potentially coming to and end. When this occurs, 
 	 * it's not save to keep widgets on the screen.  We automatically remove them when this happens and mark them for pending kill.
 	 */
-	void OnLevelRemovedFromWorld(ULevel* InLevel, UWorld* InWorld);
+	virtual void OnLevelRemovedFromWorld(ULevel* InLevel, UWorld* InWorld);
 
 	virtual TSharedRef<SWidget> RebuildWidget() override;
 	virtual void OnWidgetRebuilt() override;
@@ -924,6 +952,9 @@ protected:
 	void TickActionsAndAnimation(const FGeometry& MyGeometry, float InDeltaTime);
 
 	void RemoveObsoleteBindings(const TArray<FName>& NamedSlots);
+
+	UUMGSequencePlayer* GetOrAddPlayer(const UWidgetAnimation* InAnimation);
+	void Invalidate();
 	
 	UFUNCTION( BlueprintCallable, Category = "Input", meta = ( BlueprintProtected = "true" ) )
 	void ListenForInputAction( FName ActionName, TEnumAsByte< EInputEvent > EventType, bool bConsume, FOnInputAction Callback );
@@ -944,6 +975,8 @@ protected:
 	void SetInputActionBlocking( bool bShouldBlock );
 
 	void OnInputAction( FOnInputAction Callback );
+
+	virtual void InitializeInputComponent();
 
 	UPROPERTY( transient )
 	class UInputComponent* InputComponent;
@@ -967,7 +1000,7 @@ private:
 #define LOCTEXT_NAMESPACE "UMG"
 
 template< class T >
-T* CreateWidget(UWorld* World, UClass* UserWidgetClass)
+T* CreateWidget(UWorld* World, UClass* UserWidgetClass  = T::StaticClass() )
 {
 	if ( World == nullptr )
 	{
@@ -1002,7 +1035,7 @@ T* CreateWidget(UWorld* World, UClass* UserWidgetClass)
 }
 
 template< class T >
-T* CreateWidget(APlayerController* OwningPlayer, UClass* UserWidgetClass)
+T* CreateWidget(APlayerController* OwningPlayer, UClass* UserWidgetClass = T::StaticClass() )
 {
 	if ( OwningPlayer == nullptr )
 	{
@@ -1046,7 +1079,7 @@ T* CreateWidget(APlayerController* OwningPlayer, UClass* UserWidgetClass)
 }
 
 template< class T >
-T* CreateWidget(UGameInstance* OwningGame, UClass* UserWidgetClass)
+T* CreateWidget(UGameInstance* OwningGame, UClass* UserWidgetClass = T::StaticClass() )
 {
 	if ( OwningGame == nullptr )
 	{

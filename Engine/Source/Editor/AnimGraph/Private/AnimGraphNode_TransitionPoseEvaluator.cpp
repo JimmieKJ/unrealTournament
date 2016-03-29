@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimGraphPrivatePCH.h"
 #include "AnimGraphNode_TransitionPoseEvaluator.h"
@@ -6,6 +6,11 @@
 
 #include "CompilerResultsLog.h"
 #include "GraphEditorActions.h"
+
+#include "DetailCategoryBuilder.h"
+#include "DetailLayoutBuilder.h"
+#include "PropertyHandle.h"
+#include "IDetailPropertyRow.h"
 
 /////////////////////////////////////////////////////
 // UAnimGraphNode_TransitionPoseEvaluator
@@ -61,6 +66,31 @@ bool UAnimGraphNode_TransitionPoseEvaluator::CanUserDeleteNode() const
 void UAnimGraphNode_TransitionPoseEvaluator::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const
 {
 	// Intentionally empty: Don't allow an option to create them, as they're auto-created when custom blend graphs are made
+}
+
+void UAnimGraphNode_TransitionPoseEvaluator::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
+{
+	IDetailCategoryBuilder& PoseCategory = DetailBuilder.EditCategory("Pose", LOCTEXT("PoseCategoryName", "Pose"));
+
+	FString CacheFramesPropertyName = FString::Printf(TEXT("Node.%s"), GET_MEMBER_NAME_STRING_CHECKED(FAnimNode_TransitionPoseEvaluator, FramesToCachePose));
+	TSharedPtr<IPropertyHandle> FramesToCachePoseProperty = DetailBuilder.GetProperty(*CacheFramesPropertyName, GetClass());
+
+	// Hide this property, we only want this to appear when using delayed freeze
+	FramesToCachePoseProperty->MarkHiddenByCustomization();
+	
+	// Bind visibility helper for the property
+	TAttribute<EVisibility> VisibilityAttr;
+	VisibilityAttr.BindUObject(this, &UAnimGraphNode_TransitionPoseEvaluator::GetCacheFramesVisibility);
+	PoseCategory.AddProperty(FramesToCachePoseProperty).Visibility(VisibilityAttr);
+}
+
+EVisibility UAnimGraphNode_TransitionPoseEvaluator::GetCacheFramesVisibility() const
+{
+	if(Node.EvaluatorMode != EEvaluatorMode::EM_DelayedFreeze)
+	{
+		return EVisibility::Hidden;
+	}
+	return EVisibility::Visible;
 }
 
 #undef LOCTEXT_NAMESPACE

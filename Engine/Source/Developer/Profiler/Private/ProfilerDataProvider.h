@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -34,7 +34,7 @@ protected:
 	 * @return A shared reference with a new instance of the data provider.
 	 */
 	template< class TDataProviderType >
-	TSharedRef<IDataProvider> Duplicate( const uint32 FrameStartIndex, const uint32 NumFrames = 1 )
+	TSharedRef<IDataProvider> Duplicate( const uint32 FrameStartIndex, const uint32 NumFrames = 1 ) const
 	{
 		const uint32 TotalNumFrames = GetNumFrames();
 		check( NumFrames <= TotalNumFrames )
@@ -53,7 +53,7 @@ protected:
 
 protected:
 	/** Helper method used to create a copy of a specified data provider. Removes the template parameters, so can be implemented in the source file. */
-	void InternalDuplicate( const IDataProviderRef& DataProvider, const uint32 FrameStartIndex, const uint32 FrameEndIndex );
+	void InternalDuplicate( const IDataProviderRef& DataProvider, const uint32 FrameStartIndex, const uint32 FrameEndIndex ) const;
 
 public:
 	/**
@@ -73,8 +73,7 @@ public:
 		const uint32 InThreadID, 
 		const uint32 InGroupID, 
 		const uint32 InStatID, 
-		const double InStartMS, 
-		const double InDurationMS, 
+		const uint32 InDurationCycles, 
 		const uint32 InCallsPerFrame, 
 		const uint32 InParentIndex = FProfilerSample::InvalidIndex 
 	) = 0;
@@ -185,7 +184,7 @@ public:
 		return ElapsedFrameTimes[ InFrameIndex ];
 	}
  
-	virtual const uint64 GetMemoryUsage() const = 0;
+	virtual const SIZE_T GetMemoryUsage() const = 0;
 		
 protected:
 	/** An array of indices to the frame's range. */
@@ -239,8 +238,7 @@ public:
 		const uint32 InThreadID, 
 		const uint32 InGroupID, 
 		const uint32 InStatID, 
-		const double InStartMS, 
-		const double InDurationMS, 
+		const uint32 InDurationCycles,
 		const uint32 InCallsPerFrame, 
 		const uint32 InParentIndex = FProfilerSample::InvalidIndex 
 	) override;
@@ -257,7 +255,7 @@ public:
 
 	virtual const uint32 GetNumSamples() const override;
 
-	virtual const uint64 GetMemoryUsage() const override;;
+	virtual const SIZE_T GetMemoryUsage() const override;;
 
 	virtual const FProfilerSampleArray& GetCollection() const override
 	{

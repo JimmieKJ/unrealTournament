@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "AITypes.h"
@@ -12,6 +12,7 @@ AIMODULE_API DECLARE_LOG_CATEGORY_EXTERN(LogPathFollowing, Warning, All);
 class UNavMovementComponent;
 class UCanvas;
 class AActor;
+class APawn;
 class INavLinkCustomInterface;
 class INavAgentInterface;
 class UNavigationComponent;
@@ -415,6 +416,15 @@ protected:
 	/** direction of current move segment */
 	FVector MoveSegmentDirection;
 
+	/** braking distance for acceleration driven path following */
+	float CachedBrakingDistance;
+
+	/** max speed used for CachedBrakingDistance */
+	float CachedBrakingMaxSpeed;
+
+	/** index of path point for starting deceleration */
+	int32 DecelerationSegmentIndex;
+
 	/** reset path following data */
 	virtual void Reset();
 
@@ -435,6 +445,9 @@ protected:
 
 	/** update blocked movement detection, @returns true if new sample was added */
 	virtual bool UpdateBlockDetection();
+
+	/** updates braking distance and deceleration segment */
+	virtual void UpdateDecelerationData();
 
 	/** check if move is completed */
 	bool HasReachedDestination(const FVector& CurrentLocation) const;

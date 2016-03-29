@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraPrivate.h"
 #include "NiagaraSequence.h"
@@ -33,6 +33,11 @@ UObject* UNiagaraSequence::FindPossessableObject(const FGuid& ObjectId, UObject*
 	return nullptr;
 }
 
+
+FGuid UNiagaraSequence::FindPossessableObjectId(UObject& Object) const
+{
+	return FGuid();
+}
 
 UMovieScene* UNiagaraSequence::GetMovieScene() const
 {

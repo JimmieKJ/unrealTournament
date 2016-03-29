@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 #include "AbilityTask.h"
 #include "AbilityTask_ApplyRootMotionMoveToForce.generated.h"
@@ -6,6 +6,15 @@
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FApplyRootMotionMoveToForceDelegate);
 
 class AActor;
+
+UENUM()
+enum class EOrionRootMotionFinishVelocityMode : uint8
+{
+	// Maintain the last velocity root motion gave to the character
+	MaintainLastRootMotionVelocity = 0,
+	// Set Velocity to the specified value (for example, 0,0,0 to stop the character)
+	SetVelocity,
+};
 
 /**
  *	Applies force to character's movement
@@ -25,7 +34,7 @@ class UAbilityTask_ApplyRootMotionMoveToForce : public UAbilityTask
 
 	/** Apply force to character's movement */
 	UFUNCTION(BlueprintCallable, Category = "Ability|Tasks", meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", BlueprintInternalUseOnly = "TRUE"))
-	static UAbilityTask_ApplyRootMotionMoveToForce* ApplyRootMotionMoveToForce(UObject* WorldContextObject, FName TaskInstanceName, FVector TargetLocation, float Duration, bool bSetNewMovementMode, EMovementMode MovementMode, bool bRestrictSpeedToExpected, UCurveVector* PathOffsetCurve);
+	static UAbilityTask_ApplyRootMotionMoveToForce* ApplyRootMotionMoveToForce(UObject* WorldContextObject, FName TaskInstanceName, FVector TargetLocation, float Duration, bool bSetNewMovementMode, EMovementMode MovementMode, bool bRestrictSpeedToExpected, UCurveVector* PathOffsetCurve, EOrionRootMotionFinishVelocityMode VelocityOnFinishMode, FVector SetVelocityOnFinish);
 
 	virtual void Activate() override;
 
@@ -57,11 +66,22 @@ protected:
 	UPROPERTY(Replicated)
 	TEnumAsByte<EMovementMode> NewMovementMode;
 
+	/** If enabled, we limit velocity to the initial expected velocity to go distance to the target over Duration.
+	 *  This prevents cases of getting really high velocity the last few frames of the root motion if you were being blocked by
+	 *  collision. Disabled means we do everything we can to velocity during the move to get to the TargetLocation. */
 	UPROPERTY(Replicated)
 	bool bRestrictSpeedToExpected;
 
 	UPROPERTY(Replicated)
 	UCurveVector* PathOffsetCurve;
+
+	/** What to do with character's Velocity when root motion finishes */
+	UPROPERTY(Replicated)
+	EOrionRootMotionFinishVelocityMode VelocityOnFinishMode;
+
+	/** If VelocityOnFinish mode is "SetVelocity", character velocity is set to this value when root motion finishes */
+	UPROPERTY(Replicated)
+	FVector SetVelocityOnFinish;
 
 	uint16 RootMotionSourceID;
 	EMovementMode PreviousMovementMode;

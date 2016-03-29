@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "NetcodeUnitTestPCH.h"
 #include "SLogWidget.h"
@@ -887,8 +887,9 @@ TSharedRef<SDockTab> SLogWidget::SpawnLogTab(const FSpawnTabArgs& InSpawnTabArgs
 									.OnClicked_Lambda(
 										[&]()
 										{
-											auto CurTabInfo = GetActiveTabInfo();
-											ScrollToText(CurTabInfo.ToSharedRef(), CurTabInfo->FindBox->GetText().ToString(), true);
+											auto ActiveTabInfo = GetActiveTabInfo();
+											ScrollToText(ActiveTabInfo.ToSharedRef(), ActiveTabInfo->FindBox->GetText().ToString(),
+															true);
 
 											return FReply::Handled();
 										})
@@ -910,8 +911,8 @@ TSharedRef<SDockTab> SLogWidget::SpawnLogTab(const FSpawnTabArgs& InSpawnTabArgs
 									.OnClicked_Lambda(
 										[&]()
 										{
-											auto CurTabInfo = GetActiveTabInfo();
-											ScrollToText(CurTabInfo.ToSharedRef(), CurTabInfo->FindBox->GetText().ToString());
+											auto ActiveTabInfo = GetActiveTabInfo();
+											ScrollToText(ActiveTabInfo.ToSharedRef(), ActiveTabInfo->FindBox->GetText().ToString());
 
 											return FReply::Handled();
 										})
@@ -945,8 +946,9 @@ TSharedRef<SDockTab> SLogWidget::SpawnLogTab(const FSpawnTabArgs& InSpawnTabArgs
 										{
 											if (InCommitType == ETextCommit::OnEnter)
 											{
-												auto CurTabInfo = GetActiveTabInfo();
-												ScrollToText(CurTabInfo.ToSharedRef(), InText.ToString(), CurTabInfo->bLastFindWasUp);
+												auto ActiveTabInfo = GetActiveTabInfo();
+												ScrollToText(ActiveTabInfo.ToSharedRef(), InText.ToString(),
+																ActiveTabInfo->bLastFindWasUp);
 											}
 										})
 								]
@@ -968,9 +970,9 @@ TSharedRef<SDockTab> SLogWidget::SpawnLogTab(const FSpawnTabArgs& InSpawnTabArgs
 				{
 					TSharedRef<SButton> CurButton = StaticCastSharedRef<SButton>(InWidget);
 					const FButtonStyle* ButtonStyle = GET_PRIVATE(SButton, CurButton, Style);
-					const FDockTabStyle& TabStyle = CALL_PROTECTED(SDockTab, ReturnVal, GetCurrentStyle)();
+					const FDockTabStyle& CurTabStyle = CALL_PROTECTED(SDockTab, ReturnVal, GetCurrentStyle)();
 
-					bFound = ButtonStyle == &TabStyle.CloseButtonStyle;
+					bFound = ButtonStyle == &CurTabStyle.CloseButtonStyle;
 				}
 
 				return bFound;

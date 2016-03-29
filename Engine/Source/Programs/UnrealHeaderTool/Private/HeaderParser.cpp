@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "UnrealHeaderTool.h"
@@ -360,9 +360,24 @@ namespace
 
 				case EFunctionSpecifier::BlueprintPure:
 				{
+					bool bIsPure = true;
+					if (Specifier.Values.Num() == 1)
+					{
+						FString IsPureStr = Specifier.Values[0];
+						bIsPure = IsPureStr.ToBool();
+					}
+
 					// This function can be called, and is also pure.
 					FuncInfo.FunctionFlags |= FUNC_BlueprintCallable;
-					FuncInfo.FunctionFlags |= FUNC_BlueprintPure;
+
+					if (bIsPure)
+					{
+						FuncInfo.FunctionFlags |= FUNC_BlueprintPure;
+					}
+					else
+					{
+						FuncInfo.bForceBlueprintImpure = true;
+					}
 				}
 				break;
 
@@ -427,6 +442,11 @@ namespace
 		if (FuncInfo.bSealedEvent && FuncInfo.FunctionFlags & FUNC_BlueprintEvent)
 		{
 			FError::Throwf(TEXT("SealedEvent cannot be used on Blueprint events"));
+		}
+
+		if (FuncInfo.bForceBlueprintImpure && (FuncInfo.FunctionFlags & FUNC_BlueprintPure) != 0)
+		{
+			FError::Throwf(TEXT("BlueprintPure (or BlueprintPure=true) and BlueprintPure=false should not both appear on the same function, they are mutually exclusive"));
 		}
 	}
 
@@ -829,7 +849,7 @@ namespace
 
 			if (NewKey != NAME_None)
 			{
-				UE_LOG(LogCompile, Warning, TEXT("Remapping old metadata key '%s' to new key '%s', please update the declaration."), *CurrentKey.ToString(), *NewKey.ToString());
+				UE_LOG_WARNING_UHT(TEXT("Remapping old metadata key '%s' to new key '%s', please update the declaration."), *CurrentKey.ToString(), *NewKey.ToString());
 				CurrentKey = NewKey;
 			}
 
@@ -1746,7 +1766,7 @@ UScriptStruct* FHeaderParser::CompileStructDeclaration(FClasses& AllClasses)
 
 			case EStructSpecifier::NoExport:
 			{
-				//UE_LOG(LogCompile, Warning, TEXT("Struct named %s in %s is still marked noexport"), *EffectiveStructName, *(Class->GetName()));//@TODO: UCREMOVAL: Debug printing
+				//UE_LOG_WARNING_UHT(TEXT("Struct named %s in %s is still marked noexport"), *EffectiveStructName, *(Class->GetName()));//@TODO: UCREMOVAL: Debug printing
 				StructFlags &= ~STRUCT_Native;
 				StructFlags |= STRUCT_NoExport;
 			}
@@ -2423,9 +2443,14 @@ void FHeaderParser::FixupDelegateProperties( FClasses& AllClasses, UStruct* Stru
 							for (TFieldIterator<UProperty> PropIt(SourceDelegateFunction); PropIt && (PropIt->PropertyFlags & CPF_Parm); ++PropIt)
 							{
 								UProperty* FuncParam = *PropIt;
-								if(FuncParam->HasAllPropertyFlags(CPF_OutParm) && !FuncParam->HasAllPropertyFlags(CPF_ConstParm))
+								if(FuncParam->HasAllPropertyFlags(CPF_OutParm) && !FuncParam->HasAllPropertyFlags(CPF_ConstParm)  )
 								{
-									FError::Throwf(TEXT("BlueprintAssignable delegates do not support non-const references at the moment. Function: %s Parameter: '%s'"), *SourceDelegateFunction->GetName(), *FuncParam->GetName());
+									const bool bClassGeneratedFromBP = FClass::IsDynamic(Struct);
+									const bool bAllowedArrayRefFromBP = bClassGeneratedFromBP && FuncParam->IsA<UArrayProperty>();
+									if (!bAllowedArrayRefFromBP)
+									{
+										FError::Throwf(TEXT("BlueprintAssignable delegates do not support non-const references at the moment. Function: %s Parameter: '%s'"), *SourceDelegateFunction->GetName(), *FuncParam->GetName());
+									}
 								}
 							}
 						}
@@ -2713,6 +2738,8 @@ FIndexRange*                    ParsedVarIndexRange
 	TArray<FPropertySpecifier> SpecifiersFound;
 
 	TMap<FName, FString> MetaDataFromNewStyle;
+	bool bNativeConst = false;
+	bool bNativeConstTemplateArg = false;
 
 	const bool bIsParamList = (VariableCategory != EVariableCategory::Member) && MatchIdentifier(TEXT("UPARAM"));
 
@@ -2732,6 +2759,7 @@ FIndexRange*                    ParsedVarIndexRange
 		if (MatchIdentifier(TEXT("const")))
 		{
 			Flags |= CPF_ConstParm;
+			bNativeConst = true;
 		}
 	}
 
@@ -2897,7 +2925,7 @@ FIndexRange*                    ParsedVarIndexRange
 
 				case EVariableSpecifier::NonPIETransient:
 				{
-					UE_LOG(LogCompile, Warning, TEXT("NonPIETransient is deprecated - NonPIEDuplicateTransient should be used instead"));
+					UE_LOG_WARNING_UHT(TEXT("NonPIETransient is deprecated - NonPIEDuplicateTransient should be used instead"));
 					Flags |= CPF_NonPIEDuplicateTransient;
 				}
 				break;
@@ -3084,11 +3112,11 @@ FIndexRange*                    ParsedVarIndexRange
 		{
 			if (0 != (CPF_DisableEditOnInstance & Flags))
 			{
-				UE_LOG(LogCompile, Warning, TEXT("Property cannot have 'DisableEditOnInstance' or 'BlueprintReadOnly' and 'ExposeOnSpawn' flags"));
+				UE_LOG_WARNING_UHT(TEXT("Property cannot have 'DisableEditOnInstance' or 'BlueprintReadOnly' and 'ExposeOnSpawn' flags"));
 			}
 			if (0 == (CPF_BlueprintVisible & Flags))
 			{
-				UE_LOG(LogCompile, Warning, TEXT("Property cannot have 'ExposeOnSpawn' with 'BlueprintVisible' flag."));
+				UE_LOG_WARNING_UHT(TEXT("Property cannot have 'ExposeOnSpawn' with 'BlueprintVisible' flag."));
 			}
 			Flags |= CPF_ExposeOnSpawn;
 		}
@@ -3153,6 +3181,7 @@ FIndexRange*                    ParsedVarIndexRange
 	{
 		//@TODO: UCREMOVAL: Should use this to set the new (currently non-existent) CPF_Const flag appropriately!
 		bUnconsumedConstKeyword = true;
+		bNativeConst = true;
 	}
 
 	if (MatchIdentifier(TEXT("mutable")))
@@ -3284,6 +3313,11 @@ FIndexRange*                    ParsedVarIndexRange
 		if (VarProperty.ArrayType != EArrayType::None || VarProperty.MapKeyProp.IsValid())
 		{
 			FError::Throwf(TEXT("Nested containers are not supported.") );
+		}
+
+		if (VarProperty.MetaData.Find(TEXT("NativeConst")))
+		{
+			bNativeConstTemplateArg = true;
 		}
 
 		OriginalVarTypeFlags |= VarProperty.PropertyFlags & (CPF_ContainsInstancedReference | CPF_InstancedReference); // propagate these to the array, we will fix them later
@@ -3493,7 +3527,45 @@ FIndexRange*                    ParsedVarIndexRange
 			bStripped = true;
 		}
 
-		if (Struct)
+		auto SetDelegateType = [&](UFunction* InFunction, const FString& InIdentifierStripped)
+		{
+			bHandledType = true;
+
+			VarProperty = FPropertyBase(InFunction->HasAnyFunctionFlags(FUNC_MulticastDelegate) ? CPT_MulticastDelegate : CPT_Delegate);
+			VarProperty.DelegateName = *InIdentifierStripped;
+
+			if (!(Disallow & CPF_InstancedReference))
+			{
+				Flags |= CPF_InstancedReference;
+			}
+		};
+
+		if (!Struct && MatchSymbol(TEXT("::")))
+		{
+			FToken DelegateName;
+			if (GetIdentifier(DelegateName))
+			{
+				UClass* LocalOwnerClass = AllClasses.FindClass(*IdentifierStripped);
+				if (LocalOwnerClass)
+				{
+					TSharedRef<FScope> LocScope = FScope::GetTypeScope(LocalOwnerClass);
+					const FString DelegateIdentifierStripped = GetClassNameWithPrefixRemoved(DelegateName.Identifier);
+					if (UFunction* DelegateFunc = Cast<UFunction>(LocScope->FindTypeByName(*(DelegateIdentifierStripped + HEADER_GENERATED_DELEGATE_SIGNATURE_SUFFIX))))
+					{
+						SetDelegateType(DelegateFunc, DelegateIdentifierStripped);
+					}
+				}
+				else
+				{
+					FError::Throwf(TEXT("Cannot find class '%s', to resolve delegate '%s'"), *IdentifierStripped, DelegateName.Identifier);
+				}
+			}
+		}
+
+		if (bHandledType)
+		{
+		}
+		else if (Struct)
 		{
 			if (bStripped)
 			{
@@ -3529,15 +3601,7 @@ FIndexRange*                    ParsedVarIndexRange
 		}
 		else if (UFunction* DelegateFunc = Cast<UFunction>(Scope->FindTypeByName(*(IdentifierStripped + HEADER_GENERATED_DELEGATE_SIGNATURE_SUFFIX))))
 		{
-			bHandledType = true;
-
-			VarProperty = FPropertyBase( DelegateFunc->HasAnyFunctionFlags(FUNC_MulticastDelegate) ? CPT_MulticastDelegate : CPT_Delegate);
-			VarProperty.DelegateName = *IdentifierStripped;
-
-			if (!(Disallow & CPF_InstancedReference))
-			{
-				Flags |= CPF_InstancedReference;
-			}
+			SetDelegateType(DelegateFunc, IdentifierStripped);
 		}
 		else
 		{
@@ -3579,7 +3643,7 @@ FIndexRange*                    ParsedVarIndexRange
 				MatchIdentifier(TEXT("class"));
 
 				// Also consume const
-				MatchIdentifier(TEXT("const"));
+				bNativeConstTemplateArg |= MatchIdentifier(TEXT("const"));
 				
 				// Find the lazy/weak class
 				FToken InnerClass;
@@ -3684,7 +3748,7 @@ FIndexRange*                    ParsedVarIndexRange
 				if (!(Flags & CPF_UObjectWrapper))
 				{
 					// Const after variable type but before pointer symbol
-					MatchIdentifier(TEXT("const"));
+					bNativeConst |= MatchIdentifier(TEXT("const"));
 
 					RequireSymbol(TEXT("*"), TEXT("Expected a pointer type"));
 
@@ -3708,15 +3772,7 @@ FIndexRange*                    ParsedVarIndexRange
 		{
 			if (UFunction* DelegateFunc = (UFunction*)StaticFindObject(UFunction::StaticClass(), ANY_PACKAGE, *(IdentifierStripped + HEADER_GENERATED_DELEGATE_SIGNATURE_SUFFIX)))
 			{
-				bHandledType = true;
-
-				VarProperty = FPropertyBase( DelegateFunc->HasAnyFunctionFlags(FUNC_MulticastDelegate) ? CPT_MulticastDelegate : CPT_Delegate);
-				VarProperty.DelegateName = *IdentifierStripped;
-					
-				if (!(Disallow & CPF_InstancedReference))
-				{
-					Flags |= CPF_InstancedReference;
-				}
+				SetDelegateType(DelegateFunc, IdentifierStripped);
 			}
 
 			if (!bHandledType)
@@ -3732,6 +3788,7 @@ FIndexRange*                    ParsedVarIndexRange
 		if (MatchIdentifier(TEXT("const")))
 		{
 			Flags |= CPF_ConstParm;
+			bNativeConst = true;
 		}
 	}
 
@@ -3771,7 +3828,7 @@ FIndexRange*                    ParsedVarIndexRange
 	if (VariableCategory == EVariableCategory::Member && OwnerStruct->IsA<UClass>() && ((UClass*)OwnerStruct)->HasAnyClassFlags(CLASS_Const))
 	{
 		// Eat a 'not quite truthful' const after the type; autogenerated for member variables of const classes.
-		MatchIdentifier(TEXT("const"));
+		bNativeConst |= MatchIdentifier(TEXT("const"));
 	}
 
 	// Arrays are passed by reference but are only implicitly so; setting it explicitly could cause a problem with replicated functions
@@ -3901,7 +3958,15 @@ FIndexRange*                    ParsedVarIndexRange
 	}
 
 	VarProperty.MetaData = MetaDataFromNewStyle;
-
+	if (bNativeConst)
+	{
+		VarProperty.MetaData.Add(TEXT("NativeConst"), TEXT(""));
+	}
+	if (bNativeConstTemplateArg)
+	{
+		VarProperty.MetaData.Add(TEXT("NativeConstTemplateArg"), TEXT(""));
+	}
+	
 	if (ParsedVarIndexRange)
 	{
 		ParsedVarIndexRange->Count = InputPos - ParsedVarIndexRange->StartIndex;
@@ -3994,7 +4059,7 @@ UProperty* FHeaderParser::GetVarNameAndDim
 			// Warn if a deprecated property is visible
 			if (VarProperty.PropertyFlags & (CPF_Edit | CPF_EditConst | CPF_BlueprintVisible | CPF_BlueprintReadOnly) && !(VarProperty.ImpliedPropertyFlags & CPF_BlueprintReadOnly))
 			{
-				UE_LOG(LogCompile, Warning, TEXT("%s: Deprecated property '%s' should not be marked as visible or editable"), HintText, *VarName);
+				UE_LOG_WARNING_UHT(TEXT("%s: Deprecated property '%s' should not be marked as visible or editable"), HintText, *VarName);
 			}
 
 			VarProperty.PropertyFlags |= CPF_Deprecated;
@@ -4010,29 +4075,30 @@ UProperty* FHeaderParser::GetVarNameAndDim
 
 	if (Existing != NULL)
 	{
-		if (Existing->GetOuter() == Scope)
+		bool bErrorDueToShadowing = true;
+
+		if (Existing->IsA(UFunction::StaticClass()) && (VariableCategory != EVariableCategory::Member))
 		{
-			FError::Throwf(TEXT("%s: '%s' already defined"), HintText, VarProperty.Identifier);
+			// A function parameter with the same name as a method is allowed
+			bErrorDueToShadowing = false;
 		}
-		else if ((Cast<UFunction>(Scope) != NULL || Cast<UClass>(Scope) != NULL)	// declaring class member or function local/parm
-				&& Cast<UFunction>(Existing) == NULL								// and the existing field isn't a function
-				&& Cast<UClass>(Existing->GetOuter()) != NULL )						// and the existing field is a class member (don't care about locals in other functions)
+
+		//@TODO: This exception does not seem sound either, but there is enough existing code that it will need to be
+		// fixed up first before the exception it is removed.
+ 		{
+ 			UProperty* ExistingProp = Cast<UProperty>(Existing);
+ 			const bool bExistingPropDeprecated = (ExistingProp != nullptr) && ExistingProp->HasAnyPropertyFlags(CPF_Deprecated);
+ 			const bool bNewPropDeprecated = (VariableCategory == EVariableCategory::Member) && ((VarProperty.PropertyFlags & CPF_Deprecated) != 0);
+ 			if (bNewPropDeprecated || bExistingPropDeprecated)
+ 			{
+ 				// if this is a property and one of them is deprecated, ignore it since it will be removed soon
+ 				bErrorDueToShadowing = false;
+ 			}
+ 		}
+
+		if (bErrorDueToShadowing)
 		{
-			// don't allow it to obscure class properties either
-			if (Existing->IsA(UScriptStruct::StaticClass()))
-			{
-				FError::Throwf(TEXT("%s: '%s' conflicts with struct defined in %s'%s'"), HintText, VarProperty.Identifier, (OuterContextCount > 0) ? TEXT("'within' class") : TEXT(""), *Existing->GetOuter()->GetName());
-			}
-			else
-			{
-				// if this is a property and one of them is deprecated, ignore it since it will be removed soon
-				UProperty* ExistingProp = Cast<UProperty>(Existing);
-				if ( ExistingProp == NULL
-				|| (!ExistingProp->HasAnyPropertyFlags(CPF_Deprecated) && (VarProperty.PropertyFlags & CPF_Deprecated) == 0) )
-				{
-					FError::Throwf(TEXT("%s: '%s' conflicts with previously defined field in %s'%s'"), HintText, VarProperty.Identifier, (OuterContextCount > 0) ? TEXT("'within' class") : TEXT(""), *Existing->GetOuter()->GetName() );
-				}
-			}
+			FError::Throwf(TEXT("%s: '%s' cannot be defined in '%s' as it is already defined in scope '%s' (shadowing is not allowed)"), HintText, VarProperty.Identifier, *Scope->GetName(), *Existing->GetOuter()->GetName());
 		}
 	}
 
@@ -4483,16 +4549,16 @@ bool FHeaderParser::CompileDeclaration(FClasses& AllClasses, FToken& Token)
 			PopNest(TopNest->NestType, TEXT("'Interface'"));
 			PostPopNestInterface(AllClasses, CurrentClass);
 
-			// Ensure the UINTERFACE classes have a GENERATED_UINTERFACE_BODY declaration
+			// Ensure the UINTERFACE classes have a GENERATED_BODY declaration
 			if (bHaveSeenUClass && !bClassHasGeneratedUInterfaceBody)
 			{
-				FError::Throwf(TEXT("Expected a GENERATED_UINTERFACE_BODY() at the start of class"));
+				FError::Throwf(TEXT("Expected a GENERATED_BODY() at the start of class"));
 			}
 
-			// Ensure the non-UINTERFACE interface classes have a GENERATED_IINTERFACE_BODY declaration
+			// Ensure the non-UINTERFACE interface classes have a GENERATED_BODY declaration
 			if (!bHaveSeenUClass && !bClassHasGeneratedIInterfaceBody)
 			{
-				FError::Throwf(TEXT("Expected a GENERATED_IINTERFACE_BODY() at the start of class"));
+				FError::Throwf(TEXT("Expected a GENERATED_BODY() at the start of class"));
 			}
 		}
 		else
@@ -4500,10 +4566,10 @@ bool FHeaderParser::CompileDeclaration(FClasses& AllClasses, FToken& Token)
 			PopNest(NEST_Class, TEXT("'Class'"));
 			PostPopNestClass(CurrentClass);
 
-			// Ensure classes have a GENERATED_UCLASS_BODY declaration
+			// Ensure classes have a GENERATED_BODY declaration
 			if (bHaveSeenUClass && !bClassHasGeneratedBody)
 			{
-				FError::Throwf(TEXT("Expected a GENERATED_UCLASS_BODY() at the start of class"));
+				FError::Throwf(TEXT("Expected a GENERATED_BODY() at the start of class"));
 			}
 		}
 
@@ -4863,6 +4929,10 @@ void FHeaderParser::CompileClassDeclaration(FClasses& AllClasses)
 	ReadSpecifierSetInsideMacro(SpecifiersFound, TEXT("Class"), MetaData);
 
 	auto PrologFinishLine = InputLine;
+
+	// Members of classes have a default private access level in c++
+	// Setting this directly should be ok as we don't support nested classes, so the outer scope access should not need restoring
+	CurrentAccessSpecifier = ACCESS_Private;
 
 	AddFormattedPrevCommentAsTooltipMetaData(MetaData);
 
@@ -5692,7 +5762,7 @@ void FHeaderParser::CompileFunctionDeclaration(FClasses& AllClasses)
 
 			else
 			{
-				UE_LOG(LogCompile, Warning, TEXT("BlueprintImplementableEvents should not be virtual. Use BlueprintNativeEvent instead."));
+				UE_LOG_WARNING_UHT(TEXT("BlueprintImplementableEvents should not be virtual. Use BlueprintNativeEvent instead."));
 			}
 		}
 	}
@@ -5826,7 +5896,12 @@ void FHeaderParser::CompileFunctionDeclaration(FClasses& AllClasses)
 	}
 	if ( (bHasAnyOutputs == false) && (FuncInfo.FunctionFlags & (FUNC_BlueprintPure)) )
 	{
-		FError::Throwf(TEXT("BlueprintPure specifier is not allowed for functions with no return value and no output parameters."));
+		// This bad behavior would be treated as a warning in the Blueprint editor, so when converted assets generates these bad functions
+		// we don't want to prevent compilation:
+		if (!bClassGeneratedFromBP)
+		{
+			FError::Throwf(TEXT("BlueprintPure specifier is not allowed for functions with no return value and no output parameters."));
+		}
 	}
 
 
@@ -5846,8 +5921,8 @@ void FHeaderParser::CompileFunctionDeclaration(FClasses& AllClasses)
 		// or we could just rely on the use marking things BlueprintPure. Either way, checking the C++
 		// const identifier to determine purity is not desirable. We should remove the following logic:
 
-		// If its a const BlueprintCallable function with some sort of output, mark it as BlueprintPure as well
-		if ( bHasAnyOutputs && ((FuncInfo.FunctionFlags & FUNC_BlueprintCallable) != 0) )
+		// If its a const BlueprintCallable function with some sort of output and is not being marked as an BlueprintPure=false function, mark it as BlueprintPure as well
+		if ( bHasAnyOutputs && ((FuncInfo.FunctionFlags & FUNC_BlueprintCallable) != 0) && !FuncInfo.bForceBlueprintImpure)
 		{
 			FuncInfo.FunctionFlags |= FUNC_BlueprintPure;
 		}
@@ -6513,7 +6588,7 @@ void FHeaderParser::FinalizeScriptExposedFunctions(UClass* Class)
 		}
 		else
 		{
-			UE_LOG(LogCompile, Warning, TEXT("Unknown and unexpected child named %s of type %s in %s\n"), *ChildStruct->GetName(), *ChildStruct->GetClass()->GetName(), *Class->GetName());
+			UE_LOG_WARNING_UHT(TEXT("Unknown and unexpected child named %s of type %s in %s\n"), *ChildStruct->GetName(), *ChildStruct->GetClass()->GetName(), *Class->GetName());
 			check(false);
 		}
 	}
@@ -6678,7 +6753,7 @@ ECompilationResult::Type FHeaderParser::ParseHeader(FClasses& AllClasses, FUnrea
 		// Handle compiler error.
 		{
 			TGuardValue<ELogTimes::Type> DisableLogTimes(GPrintLogTimes, ELogTimes::None);
-			FString FormattedErrorMessageWithContext = FString::Printf(TEXT("%s: %s"), *GetContext(), ErrorMsg);
+			FString FormattedErrorMessageWithContext = FString::Printf(TEXT("%s: Error: %s"), *GetContext(), ErrorMsg);
 
 			UE_LOG(LogCompile, Log,  TEXT("%s"), *FormattedErrorMessageWithContext );
 			Warn->Log(ELogVerbosity::Error, ErrorMsg);
@@ -6705,7 +6780,7 @@ ECompilationResult::Type FHeaderParser::ParseRestOfModulesSourceFiles(FClasses& 
 		if (SourceFile->GetPackage() == ModulePackage && (!SourceFile->IsParsed() || SourceFile->GetDefinedClassesCount() == 0))
 		{
 			ECompilationResult::Type Result;
-			if ((Result = ParseHeaders(AllClasses, HeaderParser, SourceFile, true, UHTMakefile)) != ECompilationResult::Succeeded)
+			if ((Result = ParseHeaders(AllClasses, HeaderParser, SourceFile, UHTMakefile)) != ECompilationResult::Succeeded)
 			{
 				return Result;
 			}
@@ -6716,7 +6791,7 @@ ECompilationResult::Type FHeaderParser::ParseRestOfModulesSourceFiles(FClasses& 
 }
 
 // Parse Class's annotated headers and optionally its child classes.
-ECompilationResult::Type FHeaderParser::ParseHeaders(FClasses& AllClasses, FHeaderParser& HeaderParser, FUnrealSourceFile* SourceFile, bool bParseSubclasses, FUHTMakefile& UHTMakefile)
+ECompilationResult::Type FHeaderParser::ParseHeaders(FClasses& AllClasses, FHeaderParser& HeaderParser, FUnrealSourceFile* SourceFile, FUHTMakefile& UHTMakefile)
 {
 	ECompilationResult::Type Result = ECompilationResult::Succeeded;
 
@@ -6760,19 +6835,11 @@ ECompilationResult::Type FHeaderParser::ParseHeaders(FClasses& AllClasses, FHead
 	{
 		SourceFile->GetScope()->IncludeScope(&RequiredFile->GetScope().Get());
 
-		ECompilationResult::Type SuperClassParseResult = ParseHeaders(AllClasses, HeaderParser, RequiredFile, true, UHTMakefile);
+		ECompilationResult::Type ParseResult = ParseHeaders(AllClasses, HeaderParser, RequiredFile, UHTMakefile);
 
-		if (SuperClassParseResult == ECompilationResult::Succeeded)
+		if (ParseResult != ECompilationResult::Succeeded)
 		{
-			continue;
-		}
-
-		SuperClassParseResult = ParseHeaders(AllClasses, HeaderParser, RequiredFile, false, UHTMakefile);
-
-		if (SuperClassParseResult != ECompilationResult::Succeeded)
-		{
-			Result = SuperClassParseResult;
-			break;
+			return ParseResult;
 		}
 	}
 
@@ -6885,7 +6952,7 @@ void FHeaderParser::ExportNativeHeaders(
 			}
 			else
 			{
-				UE_LOG(LogCompile, Warning, TEXT("Exporting native class declarations for %s"), *CurrentPackage->GetName());
+				UE_LOG_WARNING_UHT(TEXT("Exporting native class declarations for %s"), *CurrentPackage->GetName());
 			}
 		}
 		else
@@ -6896,7 +6963,7 @@ void FHeaderParser::ExportNativeHeaders(
 			}
 			else
 			{
-				UE_LOG(LogCompile, Warning, TEXT("Exporting native class declarations"));
+				UE_LOG_WARNING_UHT(TEXT("Exporting native class declarations"));
 			}
 		}
 		UHTMakefile.StartExporting();
@@ -7072,7 +7139,7 @@ ECompilationResult::Type FHeaderParser::ParseAllHeadersInside(
 			{
 				if (SourceFile->GetPackage() == CurrentPackage && (!SourceFile->IsParsed() || SourceFile->GetDefinedClassesCount() == 0))
 				{
-					Result = ParseHeaders(ModuleClasses, HeaderParser, SourceFile, true, UHTMakefile);
+					Result = ParseHeaders(ModuleClasses, HeaderParser, SourceFile, UHTMakefile);
 					if (Result != ECompilationResult::Succeeded)
 					{
 						return Result;
@@ -7240,10 +7307,10 @@ void FHeaderParser::SimplifiedClassParse(const TCHAR* InBuffer, TArray<FSimplifi
 		if( bIf || FParse::Command(&Str,TEXT("#ifdef")) || FParse::Command(&Str,TEXT("#ifndef")) )
 		{
 			FStringOutputDevice TextDumpDummy;
-			int32 PreprocessorNest = 1;
 			FStringOutputDevice* Target = NULL;
 			FStringOutputDevice* SpacerTarget = NULL;
-			bool bKeepPreprocessorDirectives = true;
+			TArray<bool, TInlineAllocator<8>> KeepPreprocessorDirectiveStack;
+			KeepPreprocessorDirectiveStack.Push(true);
 			bool bNotCPP = false;
 			bool bCPP = false;
 			bool bUnknownDirective = false;
@@ -7257,14 +7324,14 @@ void FHeaderParser::SimplifiedClassParse(const TCHAR* InBuffer, TArray<FSimplifi
 			else if( bIf && FParse::Command(&Str,TEXT("!CPP")) )
 			{
 				Target = &ClassHeaderTextStrippedOfCppText;
-				bKeepPreprocessorDirectives = false;
+				KeepPreprocessorDirectiveStack.Top() = false;
 				bNotCPP = true;
 			}
 #if WITH_HOT_RELOAD_CTORS
 			else if (bIf && FParse::Command(&Str, TEXT("WITH_HOT_RELOAD")))
 			{
 				Target = &ClassHeaderTextStrippedOfCppText;
-				bKeepPreprocessorDirectives = false;
+				KeepPreprocessorDirectiveStack.Top() = false;
 			}
 #endif // WITH_HOT_RELOAD_CTORS
 			else if (bIf && (FParse::Command(&Str,TEXT("WITH_EDITORONLY_DATA")) || FParse::Command(&Str,TEXT("WITH_EDITOR"))))
@@ -7280,7 +7347,7 @@ void FHeaderParser::SimplifiedClassParse(const TCHAR* InBuffer, TArray<FSimplifi
 				SpacerTarget = &ClassHeaderTextStrippedOfCppText;
 			}
 
-			if (bKeepPreprocessorDirectives)
+			if (KeepPreprocessorDirectiveStack.Top())
 			{
 				Target->Logf( TEXT("%s\r\n"), *StrLine );
 			}
@@ -7295,7 +7362,7 @@ void FHeaderParser::SimplifiedClassParse(const TCHAR* InBuffer, TArray<FSimplifi
 				SpacerTarget->Logf( TEXT("\r\n") );
 			}
 
-			while ((PreprocessorNest > 0) && FParse::Line(&Buffer, StrLine, 1))
+			while ((KeepPreprocessorDirectiveStack.Num() > 0) && FParse::Line(&Buffer, StrLine, 1))
 			{
 				if (SpacerTarget != NULL)
 				{
@@ -7305,22 +7372,29 @@ void FHeaderParser::SimplifiedClassParse(const TCHAR* InBuffer, TArray<FSimplifi
 
 				CurrentLine++;
 				Str = *StrLine;
+				bool bKeepPreprocessorDirective = KeepPreprocessorDirectiveStack.Top();
 				bool bIsPrep = false;
 				if( FParse::Command(&Str,TEXT("#endif")) )
 				{
-					PreprocessorNest--;
+					KeepPreprocessorDirectiveStack.Pop();
 					bIsPrep = true;
 				}
 				else if( FParse::Command(&Str,TEXT("#if")) || FParse::Command(&Str,TEXT("#ifdef")) || FParse::Command(&Str,TEXT("#ifndef")) )
 				{
-					PreprocessorNest++;
+					bKeepPreprocessorDirective = FParse::Command(&Str, TEXT("WITH_EDITORONLY_DATA")) || FParse::Command(&Str, TEXT("WITH_EDITOR"));
+					KeepPreprocessorDirectiveStack.Push(bKeepPreprocessorDirective);
+					bIsPrep = true;
+				}
+				else if (FParse::Command(&Str, TEXT("#ifndef")))
+				{
+					KeepPreprocessorDirectiveStack.Push(false);
 					bIsPrep = true;
 				}
 				else if( FParse::Command(&Str,TEXT("#elif")) )
 				{
 					bIsPrep = true;
 				}
-				else if(PreprocessorNest == 1 && FParse::Command(&Str,TEXT("#else")))
+				else if (KeepPreprocessorDirectiveStack.Num() == 1 && FParse::Command(&Str, TEXT("#else")))
 				{
 					if (!bUnknownDirective)
 					{
@@ -7333,12 +7407,12 @@ void FHeaderParser::SimplifiedClassParse(const TCHAR* InBuffer, TArray<FSimplifi
 						{
 							Target = &TextDumpDummy;
 							SpacerTarget = &ClassHeaderTextStrippedOfCppText;
-							bKeepPreprocessorDirectives = true;
+							KeepPreprocessorDirectiveStack.Top() = true;
 							StrLine = TEXT("#if CPP\r\n");
 						}
 						else
 						{
-							bKeepPreprocessorDirectives = false;
+							KeepPreprocessorDirectiveStack.Top() = false;
 							Target = &ClassHeaderTextStrippedOfCppText;
 							SpacerTarget = NULL;
 						}
@@ -7346,7 +7420,7 @@ void FHeaderParser::SimplifiedClassParse(const TCHAR* InBuffer, TArray<FSimplifi
 					bIsPrep = true;
 				}
 
-				if (bKeepPreprocessorDirectives || !bIsPrep)
+				if (bKeepPreprocessorDirective || !bIsPrep)
 				{
 					Target->Logf( TEXT("%s\r\n"), *StrLine );
 				}

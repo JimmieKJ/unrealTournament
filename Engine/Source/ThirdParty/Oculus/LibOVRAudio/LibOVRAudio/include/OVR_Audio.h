@@ -46,9 +46,9 @@ typedef struct ovrPosef_ ovrPosef;
 typedef struct ovrPoseStatef_ ovrPoseStatef;
 #endif
 
-#define OVR_AUDIO_MAJOR_VERSION 0
-#define OVR_AUDIO_MINOR_VERSION 11
-#define OVR_AUDIO_PATCH_VERSION 3
+#define OVR_AUDIO_MAJOR_VERSION 1
+#define OVR_AUDIO_MINOR_VERSION 0
+#define OVR_AUDIO_PATCH_VERSION 0
 
 #ifdef _WIN32
 #ifdef OVR_AUDIO_DLL
@@ -110,8 +110,6 @@ typedef enum
     ovrAudioSpatializationProvider_OVR_Simple            = 1,       ///< (Compatibility only) Maps to OVR_OculusHQ internally
     ovrAudioSpatializationProvider_OVR_HQ                = 2,       ///< (Compatibility only) Maps to OVR_OculusHQ internally
     ovrAudioSpatializationProvider_OVR_OculusHQ          = 3,       ///< OculusHQ path w/ reflections and reverberation
-    ovrAudioSpatializationProvider_OVR_Simple_DEPRECATED = 4,       ///< DO NOT USE! Deprecated implementation of simple spatializer without reflections/reverb
-    ovrAudioSpatializationProvider_OVR_HQ_DEPRECATED     = 5,       ///< DO NOT USE! Deprecated implementation of high quality spatializer with reflections/reverb
 
     ovrAudioSpatializationProvider_COUNT
 } ovrAudioSpatializationProvider;
@@ -184,8 +182,15 @@ typedef enum
 /// \see ovrAudio_SetHeadphoneModel.
 typedef enum
 {
-    ovrAudioHeadphones_CV1         = 0,   ///< Apply correction for default headphones on CV1
-    ovrAudioHeadphones_Custom      = 1,   ///< Apply correction using custom IR
+    ovrAudioHeadphones_None           = -1,  ///< No correction applied
+    ovrAudioHeadphones_Rift           = 0,   ///< Apply correction for default headphones on Rift
+    ovrAudioHeadphones_Rift_INTERNAL0 = 1,   ///< Apply correction for default headphones on Rift
+    ovrAudioHeadphones_Rift_INTERNAL1 = 2,   ///< Apply correction for default headphones on Rift
+    ovrAudioHeadphones_Rift_INTERNAL2 = 3,   ///< Apply correction for default headphones on Rift
+    ovrAudioHeadphones_Rift_INTERNAL3 = 4,   ///< Apply correction for default headphones on Rift
+    ovrAudioHeadphones_Rift_INTERNAL4 = 5,   ///< Apply correction for default headphones on Rift
+
+    ovrAudioHeadphones_Custom         = 10,  ///< Apply correction using custom IR
     
     ovrAudioHeadphones_COUNT
 } ovrAudioHeadphones;
@@ -205,6 +210,7 @@ typedef enum
 /// Opaque type definitions for audio source and context
 typedef struct ovrAudioSource_   ovrAudioSource;
 typedef struct ovrAudioContext_ *ovrAudioContext;
+typedef struct ovrAudioAmbisonicStream_ *ovrAudioAmbisonicStream;
 
 /// Initialize OVRAudio
 ///
@@ -508,8 +514,6 @@ OVRA_EXPORT ovrResult ovrAudio_SpatializeMonoSourceLR( ovrAudioContext Context,
 
 /// Set the headphone model used by the headphone correction algorithm.
 ///
-/// NOTE: Currently unimplemented
-///
 /// \param Context[in] context to use
 /// \param Model[in] model to use
 /// \param ImpulseResponse[in] impulse response to use
@@ -589,6 +593,56 @@ OVRA_EXPORT ovrResult ovrAudio_GetPerformanceCounter( ovrAudioContext Context,
 OVRA_EXPORT ovrResult ovrAudio_ResetPerformanceCounter( ovrAudioContext Context, 
                                                         ovrAudioPerformanceCounter Counter );
 
+/// Quad-binaural spatialization 
+///
+/// \param ForwardLR[in] pointer to stereo interleaved floating point binaural audio for the forward direction (0 degrees)
+/// \param RightLR[in] pointer to stereo interleaved floating point binaural audio for the right direction (90 degrees)
+/// \param BackLR[in] pointer to stereo interleaved floating point binaural audio for the backward direction (180 degrees)
+/// \param LeftLR[in] pointer to stereo interleaved floating point binaural audio for the left direction (270 degrees)
+/// \param LookDirectionX[in] X component of the listener direction vector
+/// \param LookDirectionY[in] Y component of the listener direction vector
+/// \param LookDirectionZ[in] Z component of the listener direction vector
+/// \param NumSamples[in] size of audio buffers (in samples)
+/// \param Dst[out] pointer to stereo interleaved floating point destination buffer
+///
+OVRA_EXPORT ovrResult ovrAudio_ProcessQuadBinaural(const float *ForwardLR, const float *RightLR, const float *BackLR, const float *LeftLR,
+                                                   float LookDirectionX, float LookDirectionY, float LookDirectionZ, 
+                                                   int NumSamples, float *Dst);
+
+/// Create an ambisonic stream instance for spatializing B-format ambisonic audio
+///
+/// \param SampleRate[in] sample rate of B-format signal (16000 to 48000, but 44100 and 48000 are recommended for best quality)
+/// \param AudioBufferLength[in] size of audio buffers
+/// \param pContext[out] pointer to store address of stream.
+///
+OVRA_EXPORT ovrResult ovrAudio_CreateAmbisonicStream(int SampleRate, int AudioBufferLength, ovrAudioAmbisonicStream* pAmbisonicStream);
+
+/// Destroy a previously created ambisonic stream.
+///
+/// \param[in] Context a valid ambisonic stream
+/// \see ovrAudio_CreateAmbisonicStream
+///
+OVRA_EXPORT ovrResult ovrAudio_DestroyAmbisonicStream(ovrAudioAmbisonicStream AmbisonicStream);
+
+/// Spatialize ambisonic stream
+///
+/// \param Src[in] pointer to 4 channel interleaved B-format floating point buffer to spatialize
+/// \param Dst[out] pointer to stereo interleaved floating point destination buffer
+///
+OVRA_EXPORT ovrResult ovrAudio_ProcessAmbisonicStreamInterleaved(ovrAudioAmbisonicStream AmbisonicStream, const float *Src, float *Dst, int NumSamples);
+
+/// Set listener orientation for ambisonic stream
+///
+/// \param LookDirectionX[in] X component of the listener direction vector
+/// \param LookDirectionY[in] Y component of the listener direction vector
+/// \param LookDirectionZ[in] Z component of the listener direction vector
+/// \param UpDirectionX[in] X component of the listener up vector
+/// \param UpDirectionY[in] Y component of the listener up vector
+/// \param UpDirectionZ[in] Z component of the listener up vector
+///
+OVRA_EXPORT ovrResult ovrAudio_SetAmbisonicListenerOrientation(ovrAudioAmbisonicStream AmbisonicStream,
+                                                               float LookDirectionX, float LookDirectionY, float LookDirectionZ,
+                                                               float UpDirectionX, float UpDirectionY, float UpDirectionZ);
 
 // Testing interface
 // Register custom HRTF dataset
@@ -597,17 +651,6 @@ OVRA_EXPORT ovrResult ovrAudio_RegisterHRTFDataSet(const HRTFDataSet *dataSet, i
 
 // Switch data set
 OVRA_EXPORT ovrResult ovrAudio_SetHRTFDataSetIndex(int index);
-
-// Configure snowman model
-OVRA_EXPORT ovrResult ovrAudio_SetSnowman(float headRadius, 
-                                          float torsoRadius, 
-                                          float neckHeight, 
-                                          float alphaMin, 
-                                          float thetaMin, 
-                                          float torsoReflect);
-
-// Toggle snowman model on/off
-OVRA_EXPORT ovrResult ovrAudio_SetSnowmanEnabled(int enabled);
 
 // Toggle randomization (in time) of reflections
 OVRA_EXPORT ovrResult ovrAudio_SetReflectionRandomizationEnabled(int enabled);
@@ -925,7 +968,7 @@ highly dependent on frequency response, removing the transducer contribution fro
 signals generally helps with spatialization.
 
 The Audio SDK provides an optional set of APIs to perform this deconvolution. It 
-requires having an impulse response for your headphones. For CV1, we have provided 
+requires having an impulse response for your headphones. For Rift, we have provided 
 the impulse response internally.
 
 void AdjustStereoForHeadphones( ovrAudioContext Context,
@@ -934,8 +977,8 @@ void AdjustStereoForHeadphones( ovrAudioContext Context,
         int Length )
 {
    // Normally we'd set headphone model just once
-   // Note: IR is supplied for CV1
-   ovrAudio_SetHeadphoneModel( Context, ovrAudioHeadphones_CV1, NULL, 0 );
+   // Note: IR is supplied for Rift
+   ovrAudio_SetHeadphoneModel( Context, ovrAudioHeadphones_Rift, NULL, 0 );
    ovrAudio_HeadphoneCorrection( Context, 
       OutLeft, OutRight, 
       InLeft, InRight, 

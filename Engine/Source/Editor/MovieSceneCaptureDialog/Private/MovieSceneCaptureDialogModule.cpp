@@ -1,14 +1,19 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneCaptureDialogModule.h"
 #include "MovieSceneCapture.h"
+
+#include "UnrealEdMisc.h"
+
+#include "SlateBasics.h"
+#include "SlateExtras.h"
+#include "SceneViewport.h"
+
 #include "SDockTab.h"
 #include "JsonObjectConverter.h"
 #include "INotificationWidget.h"
 #include "SNotificationList.h"
 #include "NotificationManager.h"
-
-#include "SlateExtras.h"
 
 #include "EditorStyle.h"
 #include "Editor.h"
@@ -19,6 +24,8 @@
 #include "ISessionInstanceInfo.h"
 #include "ISessionInfo.h"
 #include "ISessionManager.h"
+
+#include "SLevelViewport.h"
 
 #define LOCTEXT_NAMESPACE "MovieSceneCaptureDialog"
 
@@ -119,26 +126,43 @@ private:
 	UMovieSceneCapture* MovieSceneCapture;
 };
 
-DECLARE_DELEGATE_OneParam(FOnProcessClosed, int32);
+enum class ECaptureState
+{
+	Pending,
+	Success,
+	Failure
+};
+
+DECLARE_DELEGATE_OneParam(FOnCaptureFinished, bool /*bCancelled*/);
 
 class SCaptureMovieNotification : public SCompoundWidget, public INotificationWidget
 {
 public:
 	SLATE_BEGIN_ARGS(SCaptureMovieNotification){}
-		SLATE_EVENT(FOnProcessClosed, OnProcessClosed)
-		SLATE_ARGUMENT(FString, BrowseToFolder)
+
+		SLATE_ATTRIBUTE(ECaptureState, CaptureState)
+
+		SLATE_EVENT(FOnCaptureFinished, OnCaptureFinished)
+
+		SLATE_EVENT(FSimpleDelegate, OnCancel)
+
+		SLATE_ARGUMENT(FString, CapturePath)
+
 	SLATE_END_ARGS()
 
-	void Construct(const FArguments& InArgs, FProcHandle InProcHandle)
+	void Construct(const FArguments& InArgs)
 	{
-		OnProcessClosed = InArgs._OnProcessClosed;
-		ProcHandle = InProcHandle;
+		CaptureState = InArgs._CaptureState;
+		OnCaptureFinished = InArgs._OnCaptureFinished;
+		OnCancel = InArgs._OnCancel;
 
-		FString BrowseToFolder = FPaths::ConvertRelativePathToFull(InArgs._BrowseToFolder);
-		BrowseToFolder.RemoveFromEnd(TEXT("\\"));
+		CachedState = ECaptureState::Pending;
+
+		FString CapturePath = FPaths::ConvertRelativePathToFull(InArgs._CapturePath);
+		CapturePath.RemoveFromEnd(TEXT("\\"));
 
 		auto OnBrowseToFolder = [=]{
-			FPlatformProcess::ExploreFolder(*BrowseToFolder);
+			FPlatformProcess::ExploreFolder(*CapturePath);
 		};
 
 		ChildSlot
@@ -208,15 +232,25 @@ public:
 			return;
 		}
 
-		if (!ProcHandle.IsValid() || !FPlatformProcess::IsProcRunning(ProcHandle))
-		{
-			int32 RetCode = 0;
-			FPlatformProcess::GetProcReturnCode(ProcHandle, &RetCode);
-			OnProcessClosed.ExecuteIfBound(RetCode);
+		ECaptureState StateThisFrame = CaptureState.Get();
 
-			if (RetCode == 0)
+		if (CachedState != StateThisFrame)
+		{
+			CachedState = StateThisFrame;
+			
+			if (CachedState == ECaptureState::Success)
 			{
-				TextBlock->SetText(LOCTEXT("Finished", "Capture Finished"));
+				TextBlock->SetText(LOCTEXT("CaptureFinished", "Capture Finished"));
+				OnCaptureFinished.ExecuteIfBound(true);
+			}
+			else if (CachedState == ECaptureState::Failure)
+			{
+				TextBlock->SetText(LOCTEXT("CaptureFailed", "Capture Failed"));
+				OnCaptureFinished.ExecuteIfBound(false);
+			}
+			else
+			{
+				ensureMsgf(false, TEXT("Cannot move from a finished to a pending state."));
 			}
 		}
 	}
@@ -243,34 +277,7 @@ private:
 	{
 		if (State == SNotificationItem::CS_Pending)
 		{
-			bool bFoundInstance = false;
-
-			// Attempt to send a remote command to gracefully terminate the process
-			ISessionServicesModule& SessionServices = FModuleManager::Get().LoadModuleChecked<ISessionServicesModule>("SessionServices");
-			TSharedRef<ISessionManager> SessionManager = SessionServices.GetSessionManager();
-
-			TArray<TSharedPtr<ISessionInfo>> Sessions;
-			SessionManager->GetSessions(Sessions);
-
-			for (const TSharedPtr<ISessionInfo>& Session : Sessions)
-			{
-				if (Session->GetSessionName() == MovieCaptureSessionName)
-				{
-					TArray<TSharedPtr<ISessionInstanceInfo>> Instances;
-					Session->GetInstances(Instances);
-
-					for (const TSharedPtr<ISessionInstanceInfo>& Instance : Instances)
-					{
-						Instance->ExecuteCommand("exit");
-						bFoundInstance = true;
-					}
-				}
-			}
-
-			if (!bFoundInstance)
-			{
-				FPlatformProcess::TerminateProc(ProcHandle);
-			}
+			OnCancel.ExecuteIfBound();
 		}
 		return FReply::Handled();
 	}
@@ -279,8 +286,149 @@ private:
 	TSharedPtr<SWidget> Button, Throbber, Hyperlink;
 	TSharedPtr<STextBlock> TextBlock;
 	SNotificationItem::ECompletionState State;
-	FOnProcessClosed OnProcessClosed;
-	FProcHandle ProcHandle;
+
+	FSimpleDelegate OnCancel;
+	ECaptureState CachedState;
+	TAttribute<ECaptureState> CaptureState;
+	FOnCaptureFinished OnCaptureFinished;
+};
+
+struct FInEditorCapture
+{
+	FInEditorCapture(UMovieSceneCapture* InCaptureObject, TFunction<void()> InOnStarted)
+		: CaptureObject(InCaptureObject)
+	{
+		ULevelEditorPlaySettings* PlayInEditorSettings = GetMutableDefault<ULevelEditorPlaySettings>();
+
+		bScreenMessagesWereEnabled = GAreScreenMessagesEnabled;
+		GAreScreenMessagesEnabled = false;
+		OnStarted = InOnStarted;
+		FObjectWriter(PlayInEditorSettings, BackedUpPlaySettings);
+		OverridePlaySettings(PlayInEditorSettings);
+
+		CaptureObject->AddToRoot();
+		CaptureObject->OnCaptureFinished().AddRaw(this, &FInEditorCapture::OnEnd);
+
+		UGameViewportClient::OnViewportCreated().AddRaw(this, &FInEditorCapture::OnStart);
+		FEditorDelegates::EndPIE.AddRaw(this, &FInEditorCapture::OnEndPIE);
+		
+		GEditor->RequestPlaySession(true, nullptr, false);
+	}
+
+	void OverridePlaySettings(ULevelEditorPlaySettings* PlayInEditorSettings)
+	{
+		const FMovieSceneCaptureSettings& Settings = CaptureObject->GetSettings();
+
+		PlayInEditorSettings->NewWindowWidth = Settings.Resolution.ResX;
+		PlayInEditorSettings->NewWindowHeight = Settings.Resolution.ResY;
+		PlayInEditorSettings->CenterNewWindow = true;
+		PlayInEditorSettings->LastExecutedPlayModeType = EPlayModeType::PlayMode_InEditorFloating;
+
+		TSharedRef<SWindow> CustomWindow = SNew(SWindow)
+			.Title(LOCTEXT("MovieRenderPreviewTitle", "Movie Render - Preview"))
+			.AutoCenter(EAutoCenter::PrimaryWorkArea)
+			.UseOSWindowBorder(true)
+			.FocusWhenFirstShown(false)
+			.ActivateWhenFirstShown(false)
+			.HasCloseButton(true)
+			.SupportsMaximize(false)
+			.SupportsMinimize(true)
+			.SizingRule(ESizingRule::FixedSize);
+
+		FSlateApplication::Get().AddWindow(CustomWindow);
+
+		PlayInEditorSettings->CustomPIEWindow = CustomWindow;
+
+		// Reset everything else
+		PlayInEditorSettings->GameGetsMouseControl = false;
+		PlayInEditorSettings->ShowMouseControlLabel = false;
+		PlayInEditorSettings->ViewportGetsHMDControl = false;
+		PlayInEditorSettings->EnableSound = false;
+		PlayInEditorSettings->bOnlyLoadVisibleLevelsInPIE = false;
+		PlayInEditorSettings->bPreferToStreamLevelsInPIE = false;
+		PlayInEditorSettings->PIEAlwaysOnTop = false;
+		PlayInEditorSettings->DisableStandaloneSound = true;
+		PlayInEditorSettings->AdditionalLaunchParameters = TEXT("");
+		PlayInEditorSettings->BuildGameBeforeLaunch = EPlayOnBuildMode::PlayOnBuild_Never;
+		PlayInEditorSettings->LaunchConfiguration = EPlayOnLaunchConfiguration::LaunchConfig_Default;
+		PlayInEditorSettings->SetPlayNetMode(EPlayNetMode::PIE_Standalone);
+		PlayInEditorSettings->SetRunUnderOneProcess(true);
+		PlayInEditorSettings->SetPlayNetDedicated(false);
+		PlayInEditorSettings->SetPlayNumberOfClients(1);
+	}
+
+	void OnStart()
+	{
+		for (const FWorldContext& Context : GEngine->GetWorldContexts())
+		{
+			if (Context.WorldType == EWorldType::PIE)
+			{
+				FSlatePlayInEditorInfo* SlatePlayInEditorSession = GEditor->SlatePlayInEditorMap.Find(Context.ContextHandle);
+				if (SlatePlayInEditorSession)
+				{
+					TSharedPtr<SWindow> Window = SlatePlayInEditorSession->SlatePlayInEditorWindow.Pin();
+
+					const FMovieSceneCaptureSettings& Settings = CaptureObject->GetSettings();
+
+					SlatePlayInEditorSession->SlatePlayInEditorWindowViewport->SetViewportSize(Settings.Resolution.ResX,Settings.Resolution.ResY);
+
+					FVector2D PreviewWindowSize(Settings.Resolution.ResX, Settings.Resolution.ResY);
+
+					// Keep scaling down the window size while we're bigger than half the destop width/height
+					{
+						FDisplayMetrics DisplayMetrics;
+						FSlateApplication::Get().GetDisplayMetrics(DisplayMetrics);
+						
+						while(PreviewWindowSize.X >= DisplayMetrics.PrimaryDisplayWidth*.5f || PreviewWindowSize.Y >= DisplayMetrics.PrimaryDisplayHeight*.5f)
+						{
+							PreviewWindowSize *= .5f;
+						}
+					}
+					
+					Window->Resize(PreviewWindowSize);
+
+					CaptureObject->Initialize(SlatePlayInEditorSession->SlatePlayInEditorWindowViewport, Context.PIEInstance);
+					OnStarted();
+				}
+				return;
+			}
+		}
+
+		// todo: error?
+	}
+
+	void Shutdown()
+	{
+		FEditorDelegates::EndPIE.RemoveAll(this);
+		UGameViewportClient::OnViewportCreated().RemoveAll(this);
+		CaptureObject->OnCaptureFinished().RemoveAll(this);
+
+		GAreScreenMessagesEnabled = bScreenMessagesWereEnabled;
+
+		FObjectReader(GetMutableDefault<ULevelEditorPlaySettings>(), BackedUpPlaySettings);
+
+		CaptureObject->Close();
+		CaptureObject->RemoveFromRoot();
+
+	}
+	void OnEndPIE(bool bIsSimulating)
+	{
+		Shutdown();
+		delete this;
+	}
+
+	void OnEnd()
+	{
+		Shutdown();
+		delete this;
+
+		GEditor->RequestEndPlayMap();
+	}
+
+	TFunction<void()> OnStarted;
+	bool bScreenMessagesWereEnabled;
+	TArray<uint8> BackedUpPlaySettings;
+	UMovieSceneCapture* CaptureObject;
 };
 
 class FMovieSceneCaptureDialogModule : public IMovieSceneCaptureDialogModule
@@ -325,9 +473,9 @@ class FMovieSceneCaptureDialogModule : public IMovieSceneCaptureDialogModule
 		CaptureSettingsWindow = ExistingWindow;
 	}
 
-	void OnMovieCaptureProcessClosed(int32 RetCode)
+	void OnCaptureFinished(bool bSuccess)
 	{
-		if (RetCode == 0)
+		if (bSuccess)
 		{
 			InProgressCaptureNotification->SetCompletionState(SNotificationItem::CS_Success);
 		}
@@ -383,13 +531,54 @@ class FMovieSceneCaptureDialogModule : public IMovieSceneCaptureDialogModule
 			return LOCTEXT("AlreadyCapturing", "There is already a movie scene capture process open. Please close it and try again.");
 		}
 
-		// If buffer visualization dumping is enabled, we need to tell capture process to enable it too
-		static const auto CVarDumpFrames = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.BufferVisualizationDumpFrames"));
-		if (CVarDumpFrames && CVarDumpFrames->GetValueOnGameThread())
+		CaptureObject->SaveConfig();
+		if (CaptureObject->ProtocolSettings)
 		{
-			CaptureObject->bBufferVisualizationDumpFrames = true;
+			CaptureObject->ProtocolSettings->SaveConfig();
 		}
 
+		return CaptureObject->bUseSeparateProcess ? CaptureInNewProcess(CaptureObject, MapNameToLoad) : CaptureInEditor(CaptureObject, MapNameToLoad);
+	}
+
+	FText CaptureInEditor(UMovieSceneCapture* CaptureObject, const FString& MapNameToLoad)
+	{
+		auto GetCaptureStatus = [=]{
+			for (const FWorldContext& Context : GEngine->GetWorldContexts())
+			{
+				if (Context.WorldType == EWorldType::PIE)
+				{
+					return ECaptureState::Pending;
+				}
+			}
+
+			return ECaptureState::Success;
+		};
+
+		auto OnCaptureStarted = [=]{
+
+			FNotificationInfo Info(
+				SNew(SCaptureMovieNotification)
+				.CaptureState_Lambda(GetCaptureStatus)
+				.CapturePath(CaptureObject->Settings.OutputDirectory.Path)
+				.OnCaptureFinished_Raw(this, &FMovieSceneCaptureDialogModule::OnCaptureFinished)
+				.OnCancel_Lambda([]{
+					GEditor->RequestEndPlayMap();
+				})
+			);
+			Info.bFireAndForget = false;
+			Info.ExpireDuration = 5.f;
+			InProgressCaptureNotification = FSlateNotificationManager::Get().AddNotification(Info);
+			InProgressCaptureNotification->SetCompletionState(SNotificationItem::CS_Pending);
+		};
+
+		// deliberately 'leak' the object, since it owns itself
+		new FInEditorCapture(CaptureObject, OnCaptureStarted);
+
+		return FText();
+	}
+
+	FText CaptureInNewProcess(UMovieSceneCapture* CaptureObject, const FString& MapNameToLoad)
+	{
 		// Save out the capture manifest to json
 		FString Filename = FPaths::GameSavedDir() / TEXT("MovieSceneCapture/Manifest.json");
 
@@ -399,6 +588,16 @@ class FMovieSceneCaptureDialogModule : public IMovieSceneCaptureDialogModule
 			TSharedRef<FJsonObject> RootObject = MakeShareable(new FJsonObject);
 			RootObject->SetField(TEXT("Type"), MakeShareable(new FJsonValueString(CaptureObject->GetClass()->GetPathName())));
 			RootObject->SetField(TEXT("Data"), MakeShareable(new FJsonValueObject(Object)));
+
+			if (CaptureObject->ProtocolSettings)
+			{
+				RootObject->SetField(TEXT("ProtocolType"), MakeShareable(new FJsonValueString(CaptureObject->ProtocolSettings->GetClass()->GetPathName())));
+				TSharedRef<FJsonObject> ProtocolDataObject = MakeShareable(new FJsonObject);
+				if (FJsonObjectConverter::UStructToJsonObject(CaptureObject->ProtocolSettings->GetClass(), CaptureObject->ProtocolSettings, ProtocolDataObject, 0, 0))
+				{
+					RootObject->SetField(TEXT("ProtocolData"), MakeShareable(new FJsonValueObject(ProtocolDataObject)));
+				}
+			}
 
 			FString Json;
 			TSharedRef<TJsonWriter<> > JsonWriter = TJsonWriterFactory<>::Create(&Json, 0);
@@ -449,8 +648,6 @@ class FMovieSceneCaptureDialogModule : public IMovieSceneCaptureDialogModule
 		// Ensure game session is correctly set up 
 		EditorCommandLine += FString::Printf(TEXT(" -messaging -SessionName=\"%s\""), MovieCaptureSessionName);
 
-		CaptureObject->SaveConfig();
-
 		FString Params;
 		if (FPaths::IsProjectFilePathSet())
 		{
@@ -464,13 +661,64 @@ class FMovieSceneCaptureDialogModule : public IMovieSceneCaptureDialogModule
 		FString GamePath = FPlatformProcess::GenerateApplicationPath(FApp::GetName(), FApp::GetBuildConfiguration());
 		FProcHandle ProcessHandle = FPlatformProcess::CreateProc(*GamePath, *Params, true, false, false, nullptr, 0, nullptr, nullptr);
 
-		// @todo: progress reporting, UI feedback
 		if (ProcessHandle.IsValid())
 		{
+			if (CaptureObject->bCloseEditorWhenCaptureStarts)
+			{
+				FPlatformMisc::RequestExit(false);
+				return FText();
+			}
+
+			TSharedRef<FProcHandle> SharedProcHandle = MakeShareable(new FProcHandle(ProcessHandle));
+			auto GetCaptureStatus = [=]{
+				if (!FPlatformProcess::IsProcRunning(*SharedProcHandle))
+				{
+					int32 RetCode = 0;
+					FPlatformProcess::GetProcReturnCode(*SharedProcHandle, &RetCode);
+					return RetCode == 0 ? ECaptureState::Success : ECaptureState::Failure;
+				}
+				else
+				{
+					return ECaptureState::Pending;
+				}
+			};
+
+			auto OnCancel = [=]{
+				bool bFoundInstance = false;
+
+				// Attempt to send a remote command to gracefully terminate the process
+				ISessionServicesModule& SessionServices = FModuleManager::Get().LoadModuleChecked<ISessionServicesModule>("SessionServices");
+				TSharedRef<ISessionManager> SessionManager = SessionServices.GetSessionManager();
+
+				TArray<TSharedPtr<ISessionInfo>> Sessions;
+				SessionManager->GetSessions(Sessions);
+
+				for (const TSharedPtr<ISessionInfo>& Session : Sessions)
+				{
+					if (Session->GetSessionName() == MovieCaptureSessionName)
+					{
+						TArray<TSharedPtr<ISessionInstanceInfo>> Instances;
+						Session->GetInstances(Instances);
+
+						for (const TSharedPtr<ISessionInstanceInfo>& Instance : Instances)
+						{
+							Instance->ExecuteCommand("exit");
+							bFoundInstance = true;
+						}
+					}
+				}
+
+				if (!bFoundInstance)
+				{
+					FPlatformProcess::TerminateProc(*SharedProcHandle);
+				}
+			};
 			FNotificationInfo Info(
-				SNew(SCaptureMovieNotification, ProcessHandle)
-				.BrowseToFolder(CaptureObject->Settings.OutputDirectory.Path)
-				.OnProcessClosed_Raw(this, &FMovieSceneCaptureDialogModule::OnMovieCaptureProcessClosed)
+				SNew(SCaptureMovieNotification)
+				.CaptureState_Lambda(GetCaptureStatus)
+				.CapturePath(CaptureObject->Settings.OutputDirectory.Path)
+				.OnCaptureFinished_Raw(this, &FMovieSceneCaptureDialogModule::OnCaptureFinished)
+				.OnCancel_Lambda(OnCancel)
 			);
 			Info.bFireAndForget = false;
 			Info.ExpireDuration = 5.f;

@@ -1,47 +1,58 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneCapturePCH.h"
 #include "LevelCapture.h"
 
-void ULevelCapture::SetPrerequisiteActor(AActor* InPrerequisiteActor)
+ULevelCapture::ULevelCapture(const FObjectInitializer& Init)
+	: Super(Init)
 {
-	PrerequisiteActor = InPrerequisiteActor;
-	PrerequisiteActorId = PrerequisiteActor.GetUniqueID().GetGuid();
+	bAutoStartCapture = true;
 }
 
-void ULevelCapture::Initialize(TWeakPtr<FSceneViewport> InViewport)
+void ULevelCapture::SetPrerequisiteActor(AActor* InPrerequisiteActor)
 {
-	// Ensure the PrerequisiteActor is up to date with the PrerequisiteActorId, since this may have been deserialized from JSON
-	PrerequisiteActor = FUniqueObjectGuid(PrerequisiteActorId);
+	PrerequisiteActorId = TLazyObjectPtr<>(InPrerequisiteActor).GetUniqueID().GetGuid();
+}
 
-	Super::Initialize(InViewport);
+void ULevelCapture::Initialize(TSharedPtr<FSceneViewport> InViewport, int32 PIEInstance)
+{
 	CaptureStrategy = MakeShareable(new FFixedTimeStepCaptureStrategy(Settings.FrameRate));
+	Super::Initialize(InViewport, PIEInstance);
+
+	PIECaptureInstance = PIEInstance;
+
+	if (bAutoStartCapture)
+	{
+		StartCapture();
+	}
 }
 
 void ULevelCapture::Tick(float DeltaSeconds)
 {
-	Super::Tick(DeltaSeconds);
-
 	if (!GWorld->HasBegunPlay())
 	{
 		return;
 	}
 
-	AActor* PrerequisiteActorPtr = PrerequisiteActor.Get();
-	if (!PrerequisiteActorId.IsValid() || (PrerequisiteActorPtr && PrerequisiteActorPtr->HasActorBegunPlay()))
+	AActor* Actor = PrerequisiteActor.Get();
+	if (!Actor)
 	{
-		if (!bCapturing)
+		// We need to look the actor up
+		TLazyObjectPtr<AActor> LazyActor;
+		if (PIECaptureInstance != -1)
 		{
-			StartCapture();
+			LazyActor = FUniqueObjectGuid(PrerequisiteActorId).FixupForPIE(PIECaptureInstance);
+		}
+		else
+		{
+			LazyActor = FUniqueObjectGuid(PrerequisiteActorId);
 		}
 
-		PrepareForScreenshot();
+		PrerequisiteActor = Actor = LazyActor.Get();
+	}
+
+	if (!PrerequisiteActorId.IsValid() || (Actor && Actor->HasActorBegunPlay()))
+	{
+		CaptureThisFrame(DeltaSeconds);
 	}
 }
-
-#if WITH_EDITOR
-void ULevelCapture::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
-{
-	PrerequisiteActorId = PrerequisiteActor.GetUniqueID().GetGuid();
-}
-#endif

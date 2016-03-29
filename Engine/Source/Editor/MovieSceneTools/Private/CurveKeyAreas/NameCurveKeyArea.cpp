@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneToolsPrivatePCH.h"
 #include "NameCurveKeyArea.h"
@@ -59,9 +59,9 @@ void FNameCurveKeyArea::DeleteKey(FKeyHandle KeyHandle)
 }
 
 
-FLinearColor FNameCurveKeyArea::GetColor()
+TOptional<FLinearColor> FNameCurveKeyArea::GetColor()
 {
-	return FLinearColor(0.1f, 0.1f, 0.1f, 0.7f);
+	return TOptional<FLinearColor>();
 }
 
 
@@ -74,6 +74,12 @@ ERichCurveExtrapolation FNameCurveKeyArea::GetExtrapolationMode(bool bPreInfinit
 ERichCurveInterpMode FNameCurveKeyArea::GetKeyInterpMode(FKeyHandle Keyhandle) const
 {
 	return RCIM_None;
+}
+
+
+TSharedPtr<FStructOnScope> FNameCurveKeyArea::GetKeyStruct(FKeyHandle KeyHandle)
+{
+	return MakeShareable(new FStructOnScope(FNameCurveKey::StaticStruct(), (uint8*)&Curve.GetKey(KeyHandle)));
 }
 
 

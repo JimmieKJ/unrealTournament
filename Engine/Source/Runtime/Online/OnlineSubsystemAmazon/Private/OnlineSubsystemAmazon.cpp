@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemAmazonPCH.h"
 #include "OnlineSubsystemAmazon.h"
@@ -105,6 +105,10 @@ FString FOnlineSubsystemAmazon::GetAppId() const
 
 bool FOnlineSubsystemAmazon::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) 
 {
+	if (FOnlineSubsystemImpl::Exec(InWorld, Cmd, Ar))
+	{
+		return true;
+	}
 	return false;
 }
 

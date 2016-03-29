@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /**
  * This header contains the code for serialization of script bytecode and [eventually] tagged property values.
@@ -53,6 +53,50 @@
 		iCode += sizeof(FScriptName); \
 	}
 #endif	//XFERNAME
+
+// ASCII string
+#ifndef XFERSTRING
+	#define XFERSTRING() \
+	{ \
+		do XFER(uint8) while( Script[iCode-1] ); \
+	}
+#endif	//XFERSTRING
+
+// UTF-16 string
+#ifndef XFERUNICODESTRING
+	#define XFERUNICODESTRING() \
+	{ \
+		do XFER(uint16) while( Script[iCode-1] || Script[iCode-2] ); \
+	}
+#endif	//XFERUNICODESTRING
+
+//FText
+#ifndef XFERTEXT
+	#define XFERTEXT() \
+	{ \
+		XFER(uint8); \
+		const EBlueprintTextLiteralType TextLiteralType = (EBlueprintTextLiteralType)Script[iCode - 1]; \
+		switch (TextLiteralType) \
+		{ \
+		case EBlueprintTextLiteralType::Empty: \
+			break; \
+		case EBlueprintTextLiteralType::LocalizedText: \
+			SerializeExpr( iCode, Ar );	\
+			SerializeExpr( iCode, Ar ); \
+			SerializeExpr( iCode, Ar ); \
+			break; \
+		case EBlueprintTextLiteralType::InvariantText: \
+			SerializeExpr( iCode, Ar );	\
+			break; \
+		case EBlueprintTextLiteralType::LiteralString: \
+			SerializeExpr( iCode, Ar );	\
+			break; \
+		default: \
+			checkf(false, TEXT("Unknown EBlueprintTextLiteralType! Please update XFERTEXT to handle this type of text.")); \
+			break; \
+		} \
+	}
+#endif	//XFERTEXT
 
 #ifndef XFERPTR 
 	#define XFERPTR(T) \
@@ -284,19 +328,17 @@
 		}
 		case EX_StringConst:
 		{
-			do XFER(uint8) while( Script[iCode-1] );
+			XFERSTRING();
 			break;
 		}
 		case EX_UnicodeStringConst:
 		{
-			do XFER(uint16) while( Script[iCode-1] || Script[iCode-2] );
+			XFERUNICODESTRING();
 			break;
 		}
 		case EX_TextConst:
 		{
-			SerializeExpr( iCode, Ar );
-			SerializeExpr( iCode, Ar );
-			SerializeExpr( iCode, Ar );
+			XFERTEXT();
 			break;
 		}
 		case EX_ObjectConst:
@@ -428,7 +470,12 @@
 		case EX_SwitchValue:
 		{
 			XFER(uint16); // number of cases, without default one
+#ifdef REQUIRES_ALIGNED_INT_ACCESS
+			uint16 NumCases;
+			FMemory::Memcpy( &NumCases, &Script[iCode - sizeof(uint16)], sizeof(uint16) );
+#else
 			const uint16 NumCases = *(uint16*)(&Script[iCode - sizeof(uint16)]);
+#endif
 			XFER(CodeSkipSizeType); // Code offset, go to it, when done.
 			SerializeExpr(iCode, Ar);	//index term
 
@@ -442,6 +489,12 @@
 			SerializeExpr(iCode, Ar);	//default term
 			break;
 		}
+		case EX_ArrayGetByRef:
+			{
+				SerializeExpr( iCode, Ar );
+				SerializeExpr( iCode, Ar );
+				break;
+			}
 		default:
 		{
 			// This should never occur.
@@ -450,5 +503,18 @@
 		}
 	}
 
-#endif	//!TAGGED_PROPERTIES_ONLY || SERIALIZEEXPR_ONLY
+#endif	//SERIALIZEEXPR_INC
 
+
+#ifdef SERIALIZEEXPR_AUTO_UNDEF_XFER_MACROS
+	#undef XFER
+	#undef XFERPTR
+	#undef XFERNAME
+	#undef XFERSTRING
+	#undef XFERUNICODESTRING
+	#undef XFERTEXT
+	#undef XFER_FUNC_POINTER
+	#undef XFER_FUNC_NAME
+	#undef XFER_PROP_POINTER
+	#undef FIXUP_EXPR_OBJECT_POINTER
+#endif	//SERIALIZEEXPR_AUTO_UNDEF_XFER_MACROS

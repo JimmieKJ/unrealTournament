@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "Ticker.h"
@@ -30,7 +30,7 @@ struct FGenericStatsUpdater
 	/** Called once per second, enqueues stats update. */
 	static bool EnqueueUpdateStats( float /*InDeltaTime*/ )
 	{
-		AsyncTask( ENamedThreads::AnyThread, []()
+		AsyncTask( ENamedThreads::AnyBackgroundThreadNormalTask, []()
 		{
 			DoUpdateStats();
 		} );
@@ -125,17 +125,21 @@ void FGenericPlatformMemory::OnOutOfMemory(uint64 Size, uint32 Alignment)
 	}
 	UE_LOG(LogMemory, Warning, TEXT("MemoryStats:")\
 		TEXT("\n\tAvailablePhysical %llu")\
-		TEXT("\n\tAvailableVirtual %llu")\
-		TEXT("\n\tUsedPhysical %llu")\
-		TEXT("\n\tPeakUsedPhysical %llu")\
-		TEXT("\n\tUsedVirtual %llu")\
-		TEXT("\n\tPeakUsedVirtual %llu"),
+		TEXT("\n\t AvailableVirtual %llu")\
+		TEXT("\n\t     UsedPhysical %llu")\
+		TEXT("\n\t PeakUsedPhysical %llu")\
+		TEXT("\n\t      UsedVirtual %llu")\
+		TEXT("\n\t  PeakUsedVirtual %llu"),
 		(uint64)PlatformMemoryStats.AvailablePhysical,
 		(uint64)PlatformMemoryStats.AvailableVirtual,
 		(uint64)PlatformMemoryStats.UsedPhysical,
 		(uint64)PlatformMemoryStats.PeakUsedPhysical,
 		(uint64)PlatformMemoryStats.UsedVirtual,
 		(uint64)PlatformMemoryStats.PeakUsedVirtual);
+	if (GWarn)
+	{
+		GMalloc->DumpAllocatorStats(*GWarn);
+	}
 	UE_LOG(LogMemory, Fatal, TEXT("Ran out of memory allocating %llu bytes with alignment %u"), Size, Alignment);
 }
 
@@ -179,6 +183,12 @@ const FPlatformMemoryConstants& FGenericPlatformMemory::GetConstants()
 uint32 FGenericPlatformMemory::GetPhysicalGBRam()
 {
 	return FPlatformMemory::GetConstants().TotalPhysicalGB;
+}
+
+bool FGenericPlatformMemory::PageProtect(void* const Ptr, const SIZE_T Size, const bool bCanRead, const bool bCanWrite)
+{
+	UE_LOG(LogMemory, Verbose, TEXT("FGenericPlatformMemory::PageProtect not implemented on this platform"));
+	return false;
 }
 
 void* FGenericPlatformMemory::BinnedAllocFromOS( SIZE_T Size )

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
@@ -56,10 +56,10 @@ UAbilitySystemComponent* UAbilityTask_WaitGameplayEvent::GetTargetASC()
 {
 	if (UseExternalTarget)
 	{
-		return OptionalExternalTarget.Get();
+		return OptionalExternalTarget;
 	}
 
-	return AbilitySystemComponent.Get();
+	return AbilitySystemComponent;
 }
 
 void UAbilityTask_WaitGameplayEvent::OnDestroy(bool AbilityEnding)

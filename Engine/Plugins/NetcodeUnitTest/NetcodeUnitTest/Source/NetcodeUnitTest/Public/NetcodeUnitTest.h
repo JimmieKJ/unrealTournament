@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -33,6 +33,7 @@
  * List of mainline UE4 engine changelists, that required a NetcodeUnitTest compatibility adjustment (newest first)
  * Every time you update NetcodeUnitTest code, to toggle based on a changelist, add a define for it with the CL number here
  */
+#define CL_STATELESSCONNECT	2866629	// @todo #JohnB: Refers to Dev-Networking, update so it refers to /UE4//Main merge CL
 #define CL_FENGINEVERSION	2655102
 #define CL_INITCONNPARAM	2567692
 #define CL_CONSTUNIQUEID	2540329
@@ -56,7 +57,7 @@
  *
  * If in doubt, set to the top CL from list above ('List of mainline UE4 engine changelists'), and work your way down until it compiles.
  */
-#define TARGET_UE4_CL 2664876	// IMPORTANT: If you're hovering over this because compiling failed, you need to adjust this value.
+#define TARGET_UE4_CL 2866631	// IMPORTANT: If you're hovering over this because compiling failed, you need to adjust this value.
 
 
 /**
@@ -238,25 +239,25 @@ inline ELogType OptionalFlags(ELogType InFlags=ELogType::None)
 	UNIT_LOG_BEGIN(UnitTestObj, UnitLogTypeFlags); \
 		if ((OptionalFlags(UnitLogTypeFlags) & ELogType::StatusError) == ELogType::StatusError) \
 		{ \
-			UE_LOG(LogUnitTest, Error, Format, __VA_ARGS__); \
+			UE_LOG(LogUnitTest, Error, Format, ##__VA_ARGS__); \
 		} \
 		else if ((OptionalFlags(UnitLogTypeFlags) & ELogType::StatusWarning) == ELogType::StatusWarning) \
 		{ \
-			UE_LOG(LogUnitTest, Warning, Format, __VA_ARGS__); \
+			UE_LOG(LogUnitTest, Warning, Format, ##__VA_ARGS__); \
 		} \
 		else \
 		{ \
-			UE_LOG(LogUnitTest, Log, Format, __VA_ARGS__); \
+			UE_LOG(LogUnitTest, Log, Format, ##__VA_ARGS__); \
 		} \
 	UNIT_LOG_END(); \
 	UNIT_LOG_VOID_START(); \
 	if ((OptionalFlags(UnitLogTypeFlags) & ELogType::StatusError) == ELogType::StatusError) \
 	{ \
-		UE_LOG(LogUnitTest, Error, TEXT("%s: %s"), *UnitTestObj->GetUnitTestName(), *FString::Printf(Format, __VA_ARGS__)); \
+		UE_LOG(LogUnitTest, Error, TEXT("%s: %s"), *UnitTestObj->GetUnitTestName(), *FString::Printf(Format, ##__VA_ARGS__)); \
 	} \
 	else if ((OptionalFlags(UnitLogTypeFlags) & ELogType::StatusWarning) == ELogType::StatusWarning) \
 	{ \
-		UE_LOG(LogUnitTest, Warning, TEXT("%s: %s"), *UnitTestObj->GetUnitTestName(), *FString::Printf(Format, __VA_ARGS__)); \
+		UE_LOG(LogUnitTest, Warning, TEXT("%s: %s"), *UnitTestObj->GetUnitTestName(), *FString::Printf(Format, ##__VA_ARGS__)); \
 	} \
 	UNIT_LOG_VOID_END();
 
@@ -264,7 +265,7 @@ inline ELogType OptionalFlags(ELogType InFlags=ELogType::None)
 // More-concise version of the above macro
 
 #define UNIT_LOG(UnitLogTypeFlags, Format, ...) \
-	UNIT_LOG_OBJ(this, UnitLogTypeFlags, Format, __VA_ARGS__)
+	UNIT_LOG_OBJ(this, UnitLogTypeFlags, Format, ##__VA_ARGS__)
 
 
 // @todo #JohnBDoc: Document these macros
@@ -302,12 +303,12 @@ inline ELogType OptionalFlags(ELogType InFlags=ELogType::None)
 		GActiveLogTypeFlags = ELogType::GlobalStatus | OptionalFlags(UnitLogTypeFlags); \
 		UUnitTestManager* Manager = UUnitTestManager::Get(); \
 		Manager->SetStatusLog(true); \
-		Manager->Logf(Format, __VA_ARGS__); \
+		Manager->Logf(Format, ##__VA_ARGS__); \
 		Manager->SetStatusLog(false); \
 		\
 		if ((GActiveLogTypeFlags & ELogType::StatusAutomation) == ELogType::StatusAutomation && GIsAutomationTesting) \
 		{ \
-			GWarn->Logf(Format, __VA_ARGS__); \
+			GWarn->Logf(Format, ##__VA_ARGS__); \
 		} \
 		\
 		GActiveLogTypeFlags = ELogType::None; \
@@ -322,11 +323,11 @@ inline ELogType OptionalFlags(ELogType InFlags=ELogType::None)
 		{ \
 			if (SourceUnitTest != NULL) \
 			{ \
-				UE_LOG(LogUnitTest, Error, TEXT("%s: %s"), *SourceUnitTest->GetUnitTestName(), *FString::Printf(Format, __VA_ARGS__)); \
+				UE_LOG(LogUnitTest, Error, TEXT("%s: %s"), *SourceUnitTest->GetUnitTestName(), *FString::Printf(Format, ##__VA_ARGS__)); \
 			} \
 			else \
 			{ \
-				UE_LOG(LogUnitTest, Error, Format, __VA_ARGS__) \
+				UE_LOG(LogUnitTest, Error, Format, ##__VA_ARGS__) \
 			} \
 		} \
 		else if ((GActiveLogTypeFlags & ELogType::StatusWarning) == ELogType::StatusWarning) \
@@ -334,34 +335,34 @@ inline ELogType OptionalFlags(ELogType InFlags=ELogType::None)
 			if (SourceUnitTest != NULL) \
 			{ \
 				UE_LOG(LogUnitTest, Warning, TEXT("%s: %s"), *SourceUnitTest->GetUnitTestName(), \
-						*FString::Printf(Format, __VA_ARGS__)); \
+						*FString::Printf(Format, ##__VA_ARGS__)); \
 			} \
 			else \
 			{ \
-				UE_LOG(LogUnitTest, Warning, Format, __VA_ARGS__) \
+				UE_LOG(LogUnitTest, Warning, Format, ##__VA_ARGS__) \
 			} \
 		} \
 		else \
 		{ \
-			UE_LOG(LogUnitTest, Log, Format, __VA_ARGS__) \
+			UE_LOG(LogUnitTest, Log, Format, ##__VA_ARGS__) \
 		} \
 		UNIT_EVENT_RESTORE; \
-		STATUS_LOG_BASE(UnitLogTypeFlags, Format, __VA_ARGS__) \
+		STATUS_LOG_BASE(UnitLogTypeFlags, Format, ##__VA_ARGS__) \
 		GActiveLogTypeFlags = ELogType::None; \
 	}
 
-#define STATUS_LOG(UnitLogTypeFlags, Format, ...) STATUS_LOG_OBJ(NULL, UnitLogTypeFlags, Format, __VA_ARGS__)
+#define STATUS_LOG(UnitLogTypeFlags, Format, ...) STATUS_LOG_OBJ(NULL, UnitLogTypeFlags, Format, ##__VA_ARGS__)
 
 /**
  * Version of the above, for unit test status window entries, which are from specific unit tests
  */
 #define UNIT_STATUS_LOG_OBJ(UnitTestObj, UnitLogTypeFlags, Format, ...) \
 	UNIT_LOG_BEGIN(UnitTestObj, UnitLogTypeFlags); \
-	STATUS_LOG_OBJ(UnitTestObj, UnitLogTypeFlags, Format, __VA_ARGS__) \
+	STATUS_LOG_OBJ(UnitTestObj, UnitLogTypeFlags, Format, ##__VA_ARGS__) \
 	UNIT_LOG_END();
 
 #define UNIT_STATUS_LOG(UnitLogTypeFlags, Format, ...) \
-	UNIT_STATUS_LOG_OBJ(this, UnitLogTypeFlags, Format, __VA_ARGS__)
+	UNIT_STATUS_LOG_OBJ(this, UnitLogTypeFlags, Format, ##__VA_ARGS__)
 
 
 /**

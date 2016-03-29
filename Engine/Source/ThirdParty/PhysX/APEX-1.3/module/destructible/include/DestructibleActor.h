@@ -529,7 +529,7 @@ public:
 	}
 
 	/**
-		Return ture means these core data of Damage Event should be saved for the damage coloring
+		Return true means these core data of Damage Event should be saved for the damage coloring
 	*/
 	bool					applyDamageColoring(physx::PxU16 indexInAsset, const physx::PxVec3& position, physx::PxF32 damage, physx::PxF32 damageRadius);
 	bool					applyDamageColoringRecursive(physx::PxU16 indexInAsset, const physx::PxVec3& position, physx::PxF32 damage, physx::PxF32 damageRadius);

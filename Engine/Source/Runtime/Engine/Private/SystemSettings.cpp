@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ScalabilityOptions.cpp: Unreal engine HW compat scalability system.
@@ -153,7 +153,11 @@ void FSystemSettings::RegisterShowFlagConsoleVariables()
 				ShowFlagIndex,
 				(uint8*)&This.Force0Mask,
 				(uint8*)&This.Force1Mask,
-				TEXT("ShowFlag 0:force off, 1:force on, 2 or other value to not apply any adjustments"),
+				TEXT("Allows to override a specific showflag (works in editor and game, \"show\" only works in game and UI only in editor)\n")
+				TEXT("Useful to run a build many time with the same showflags (when put in consolevariables.ini like \"showflag.abc=0\")\n")
+				TEXT(" 0: force the showflag to be OFF\n")
+				TEXT(" 1: force the showflag to be ON\n")
+				TEXT(" 2: do not override this showflag (default)"),
 				ECVF_Cheat);
 
 			return true;

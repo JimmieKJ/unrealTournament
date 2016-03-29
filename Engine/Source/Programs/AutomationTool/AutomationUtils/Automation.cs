@@ -1,4 +1,4 @@
-ï»¿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+ï»¿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -115,17 +115,19 @@ namespace AutomationTool
         public static CommandLineArg NoCompileEditor = new CommandLineArg("-NoCompileEditor");
 		public static CommandLineArg Help = new CommandLineArg("-Help");
 		public static CommandLineArg List = new CommandLineArg("-List");
-		public static CommandLineArg Rocket = new CommandLineArg("-Rocket");
 		public static CommandLineArg VS2015 = new CommandLineArg("-2015");
 		public static CommandLineArg NoKill = new CommandLineArg("-NoKill");
 		public static CommandLineArg Installed = new CommandLineArg("-Installed");
 		public static CommandLineArg UTF8Output = new CommandLineArg("-UTF8Output");
-		public static CommandLineArg NoAutoSDK = new CommandLineArg("-NoAutoSDK");
+        public static CommandLineArg AllowStdOutLogVerbosity = new CommandLineArg("-AllowStdOutLogVerbosity");
+        public static CommandLineArg NoAutoSDK = new CommandLineArg("-NoAutoSDK");
 		public static CommandLineArg IgnoreJunk = new CommandLineArg("-ignorejunk");
         /// <summary>
         /// Allows you to use local storage for your root build storage dir (default of P:\Builds (on PC) is changed to Engine\Saved\LocalBuilds). Used for local testing.
         /// </summary>
         public static CommandLineArg UseLocalBuildStorage = new CommandLineArg("-UseLocalBuildStorage");
+		public static CommandLineArg InstalledEngine = new CommandLineArg("-InstalledEngine");
+		public static CommandLineArg NotInstalledEngine = new CommandLineArg("-NotInstalledEngine");
 
 		/// <summary>
 		/// Force initialize static members by calling this.
@@ -417,11 +419,6 @@ AutomationTool.exe [-verbose] [-compileonly] [-p4] Command0 [-Arg0 -Arg1 -Arg2 â
 			{
 				throw new AutomationException("{0} and {1} can't be set simultaneously.", GlobalCommandLine.NoSubmit.Name, GlobalCommandLine.Submit.Name);
 			}
-
-			if (GlobalCommandLine.Rocket)
-			{
-				UnrealBuildTool.UnrealBuildTool.bRunningRocket = true;
-			}
 		}
 
 		#endregion
@@ -479,7 +476,6 @@ AutomationTool.exe [-verbose] [-compileonly] [-p4] Command0 [-Arg0 -Arg1 -Arg2 â
 			ProjectUtils.CleanupFolders();
 
 			// Compile scripts.
-			Log.TraceInformation("Compiling scripts.");
 			ScriptCompiler Compiler = new ScriptCompiler();
 			using(TelemetryStopwatch ScriptCompileStopwatch = new TelemetryStopwatch("ScriptCompile"))
 			{
@@ -609,6 +605,35 @@ AutomationTool.exe [-verbose] [-compileonly] [-p4] Command0 [-Arg0 -Arg1 -Arg2 â
 			}
 			CommandUtils.Log(Message);
 		}
+
+		#endregion
+
+		#region HelperFunctions
+
+		/// <summary>
+		/// Returns true if AutomationTool is running using installed Engine components
+		/// </summary>
+		/// <returns>True if running using installed Engine components</returns>
+		static public bool IsEngineInstalled()
+		{
+			if (!bIsEngineInstalled.HasValue)
+			{
+				bIsEngineInstalled = GlobalCommandLine.Installed;
+				string InstalledBuildFile = Path.Combine(CommandUtils.CmdEnv.LocalRoot, "Engine", "Build", "InstalledBuild.txt");
+				bIsEngineInstalled |= File.Exists(InstalledBuildFile);
+				if (bIsEngineInstalled.Value)
+				{
+					bIsEngineInstalled = !GlobalCommandLine.NotInstalledEngine;
+				}
+				else
+				{
+					bIsEngineInstalled = GlobalCommandLine.InstalledEngine;
+				}
+			}
+
+			return bIsEngineInstalled.Value;
+		}
+		static private bool? bIsEngineInstalled;
 
 		#endregion
 

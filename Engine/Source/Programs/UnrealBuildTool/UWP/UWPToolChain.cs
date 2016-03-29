@@ -1,4 +1,4 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -198,7 +198,7 @@ namespace UnrealBuildTool
 					}
 					// We need to add this so VS won't lock the PDB file and prevent synchronous updates. This forces serialization through MSPDBSRV.exe.
 					// See http://msdn.microsoft.com/en-us/library/dn502518.aspx for deeper discussion of /FS switch.
-					if (BuildConfiguration.bUseIncrementalLinking && WindowsPlatform.Compiler >= WindowsCompiler.VisualStudio2013)
+					if (BuildConfiguration.bUseIncrementalLinking && WindowsPlatform.Compiler >= WindowsCompiler.VisualStudio2015)
 					{
 						Arguments.Append(" /FS");
 					}
@@ -322,6 +322,12 @@ namespace UnrealBuildTool
 			{
 				// Output debug info for the linked executable.
 				Arguments.Append(" /DEBUG");
+
+				// Allow partial PDBs for faster linking
+				if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015 && BuildConfiguration.bUseFastPDBLinking)
+				{
+					Arguments.Append(":FASTLINK");
+				}
 			}
 
 			// Prompt the user before reporting internal errors to Microsoft.

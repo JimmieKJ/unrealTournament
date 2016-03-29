@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Character.cpp: ACharacter implementation
@@ -60,6 +60,8 @@ ACharacter::ACharacter(const FObjectInitializer& ObjectInitializer)
 	bClientCheckEncroachmentOnNetUpdate = true;
 	JumpKeyHoldTime = 0.0f;
 	JumpMaxHoldTime = 0.0f;
+
+	AnimRootMotionTranslationScale = 1.0f;
 
 #if WITH_EDITORONLY_DATA
 	ArrowComponent = CreateEditorOnlyDefaultSubobject<UArrowComponent>(TEXT("Arrow"));
@@ -1306,6 +1308,7 @@ void ACharacter::PreReplication( IRepChangedPropertyTracker & ChangedPropertyTra
 		DOREPLIFETIME_ACTIVE_OVERRIDE( ACharacter, RepRootMotion, false );
 	}
 
+	ReplicatedServerLastTransformUpdateTimeStamp = CharacterMovement->GetServerLastTransformUpdateTimeStamp();
 	ReplicatedMovementMode = CharacterMovement->PackNetworkMovementMode();	
 	ReplicatedBasedMovement = BasedMovement;
 
@@ -1321,16 +1324,39 @@ void ACharacter::PreReplication( IRepChangedPropertyTracker & ChangedPropertyTra
 			ReplicatedBasedMovement.Rotation = GetActorRotation();
 		}
 	}
+
+	if ( ChangedPropertyTracker.IsReplay() )
+	{
+		// If this is a replay, we save out certain values we need to runtime to do smooth interpolation
+		// We'll be able to look ahead in the replay to have these ahead of time for smoother playback
+		FCharacterReplaySample ReplaySample;
+
+		ReplaySample.Location			= GetActorLocation();
+		ReplaySample.Rotation			= GetActorRotation();
+		ReplaySample.Velocity			= GetVelocity();
+		ReplaySample.Acceleration		= CharacterMovement->GetCurrentAcceleration();
+		ReplaySample.RemoteViewPitch	= RemoteViewPitch;
+
+		FBitWriter Writer( 0, true );
+		Writer << ReplaySample;
+
+		ChangedPropertyTracker.SetExternalData( Writer.GetData(), Writer.GetNumBits() );
+	}
 }
 
 void ACharacter::GetLifetimeReplicatedProps( TArray< FLifetimeProperty > & OutLifetimeProps ) const
 {
 	Super::GetLifetimeReplicatedProps( OutLifetimeProps );
 
-	DOREPLIFETIME_CONDITION( ACharacter, RepRootMotion,				COND_SimulatedOnly );
-	DOREPLIFETIME_CONDITION( ACharacter, ReplicatedBasedMovement,	COND_SimulatedOnly );
-	DOREPLIFETIME_CONDITION( ACharacter, ReplicatedMovementMode,	COND_SimulatedOnly );
-	DOREPLIFETIME_CONDITION( ACharacter, bIsCrouched,				COND_SimulatedOnly );
+	DOREPLIFETIME_CONDITION( ACharacter, RepRootMotion,						COND_SimulatedOnlyNoReplay );
+	DOREPLIFETIME_CONDITION( ACharacter, ReplicatedBasedMovement,			COND_SimulatedOnly );
+	DOREPLIFETIME_CONDITION( ACharacter, ReplicatedServerLastTransformUpdateTimeStamp, COND_SimulatedOnlyNoReplay );
+	DOREPLIFETIME_CONDITION( ACharacter, ReplicatedMovementMode,			COND_SimulatedOnly );
+	DOREPLIFETIME_CONDITION( ACharacter, bIsCrouched,						COND_SimulatedOnly );
+	DOREPLIFETIME_CONDITION( ACharacter, AnimRootMotionTranslationScale,	COND_SimulatedOnly );
+
+	// Change the condition of the replicated movement property to not replicate in replays since we handle this specifically via saving this out in external replay data
+	DOREPLIFETIME_CHANGE_CONDITION( AActor, ReplicatedMovement,				COND_SimulatedOrPhysicsNoReplay );
 }
 
 bool ACharacter::IsPlayingRootMotion() const
@@ -1359,6 +1385,16 @@ bool ACharacter::IsPlayingNetworkedRootMotionMontage() const
 		}
 	}
 	return false;
+}
+
+void ACharacter::SetAnimRootMotionTranslationScale(float InAnimRootMotionTranslationScale)
+{
+	AnimRootMotionTranslationScale = InAnimRootMotionTranslationScale;
+}
+
+float ACharacter::GetAnimRootMotionTranslationScale() const
+{
+	return AnimRootMotionTranslationScale;
 }
 
 float ACharacter::PlayAnimMontage(class UAnimMontage* AnimMontage, float InPlayRate, FName StartSectionName)

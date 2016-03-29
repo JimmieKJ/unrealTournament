@@ -1,8 +1,14 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "EnginePrivate.h"
 #include "AI/Navigation/NavAreas/NavArea_Obstacle.h"
+
+#if WITH_PHYSX
+	#include "PhysicsEngine/PhysXSupport.h"
+#endif // WITH_PHYSX
+
+
 
 UShapeComponent::UShapeComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -20,6 +26,8 @@ UShapeComponent::UShapeComponent(const FObjectInitializer& ObjectInitializer)
 	bCastDynamicShadow = false;
 	ShapeColor = FColor(223, 149, 157, 255);
 	bShouldCollideWhenPlacing = false;
+
+	bUseArchetypeBodySetup = !IsTemplate();
 	
 	bHasCustomNavigableGeometry = EHasCustomNavigableGeometry::Yes;
 	bCanEverAffectNavigation = true;
@@ -82,3 +90,52 @@ bool UShapeComponent::IsNavigationRelevant() const
 
 	return (bDynamicObstacle && CanEverAffectNavigation()) || Super::IsNavigationRelevant();
 }
+
+template <> void UShapeComponent::AddShapeToGeomArray<FKBoxElem>() { ShapeBodySetup->AggGeom.BoxElems.Add(FKBoxElem()); }
+template <> void UShapeComponent::AddShapeToGeomArray<FKSphereElem>() { ShapeBodySetup->AggGeom.SphereElems.Add(FKSphereElem()); }
+template <> void UShapeComponent::AddShapeToGeomArray<FKSphylElem>() { ShapeBodySetup->AggGeom.SphylElems.Add(FKSphylElem()); }
+
+#if WITH_PHYSX
+template <> void UShapeComponent::SetShapeToNewGeom<FKBoxElem>(PxShape* PShape) { PShape->userData = (void*)ShapeBodySetup->AggGeom.BoxElems[0].GetUserData(); }
+template <> void UShapeComponent::SetShapeToNewGeom<FKSphereElem>(PxShape* PShape) { PShape->userData = (void*)ShapeBodySetup->AggGeom.SphereElems[0].GetUserData(); }
+template <> void UShapeComponent::SetShapeToNewGeom<FKSphylElem>(PxShape* PShape) { PShape->userData = (void*)ShapeBodySetup->AggGeom.SphylElems[0].GetUserData(); }
+#endif
+
+template <typename ShapeElemType>
+void UShapeComponent::CreateShapeBodySetupIfNeeded()
+{
+	if (ShapeBodySetup == nullptr || ShapeBodySetup->IsPendingKill())
+	{
+		ShapeBodySetup = NewObject<UBodySetup>(this);
+		if (GUObjectArray.IsDisregardForGC(this))
+		{
+			ShapeBodySetup->AddToRoot();
+		}
+
+		ShapeBodySetup->CollisionTraceFlag = CTF_UseSimpleAsComplex;
+		AddShapeToGeomArray<ShapeElemType>();
+		ShapeBodySetup->bNeverNeedsCookedCollisionData = true;
+		bUseArchetypeBodySetup = false;	//We're making our own body setup, so don't use the archetype's.
+
+		//Update bodyinstance and shapes
+		BodyInstance.BodySetup = ShapeBodySetup;
+		{
+			if(BodyInstance.IsValidBodyInstance())
+			{
+#if WITH_PHYSX
+				SCOPED_SCENE_READ_LOCK(GetPhysXSceneFromIndex(BodyInstance.GetSceneIndex()));
+				TArray<PxShape *> PShapes;
+				BodyInstance.GetAllShapes_AssumesLocked(PShapes);
+
+				check(PShapes.Num() == 1);	//Shape component should only have 1 shape
+				SetShapeToNewGeom<ShapeElemType>(PShapes[0]);
+#endif
+			}
+		}
+	}
+}
+
+//Explicit instantiation of the different shape components
+template void UShapeComponent::CreateShapeBodySetupIfNeeded<FKSphylElem>();
+template void UShapeComponent::CreateShapeBodySetupIfNeeded<FKBoxElem>();
+template void UShapeComponent::CreateShapeBodySetupIfNeeded<FKSphereElem>();

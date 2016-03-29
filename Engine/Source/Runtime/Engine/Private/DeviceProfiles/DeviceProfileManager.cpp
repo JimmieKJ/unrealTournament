@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "DeviceProfiles/DeviceProfileManager.h"
@@ -6,6 +6,9 @@
 #include "TargetPlatform.h"
 #include "IDeviceProfileSelectorModule.h"
 #include "IConsoleManager.h"
+#if WITH_EDITOR
+#include "PlatformInfo.h"
+#endif
 
 FString UDeviceProfileManager::DeviceProfileFileName;
 
@@ -232,6 +235,7 @@ void UDeviceProfileManager::LoadProfiles()
 			}
 		}
 
+#if WITH_EDITOR
 		if (!FPlatformProperties::RequiresCookedData())
 		{
 			// Register Texture LOD settings with each Target Platform
@@ -240,13 +244,14 @@ void UDeviceProfileManager::LoadProfiles()
 			for (int32 PlatformIndex = 0; PlatformIndex < TargetPlatforms.Num(); ++PlatformIndex)
 			{
 				ITargetPlatform* Platform = TargetPlatforms[PlatformIndex];
-				if (const UTextureLODSettings* TextureLODSettingsObj = (UTextureLODSettings*)&FindProfile(Platform->PlatformName()))
+				if (const UTextureLODSettings* TextureLODSettingsObj = (UTextureLODSettings*)&FindProfile(*Platform->GetPlatformInfo().VanillaPlatformName.ToString()))
 				{
 					// Set TextureLODSettings
 					Platform->RegisterTextureLODSettings(TextureLODSettingsObj);
 				}
 			}
 		}
+#endif
 
 		ManagerUpdatedDelegate.Broadcast();
 	}

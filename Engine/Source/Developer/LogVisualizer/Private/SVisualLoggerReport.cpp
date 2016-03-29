@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LogVisualizer.h"
 #include "Debug/ReporterGraph.h"
@@ -18,7 +18,7 @@
 #define LOCTEXT_NAMESPACE "SVisualLoggerReport"
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
-void SVisualLoggerReport::Construct(const FArguments& InArgs, TArray< TSharedPtr<class STimeline> >& InSelectedItems, TSharedPtr<class SVisualLoggerView> VisualLoggerView)
+void SVisualLoggerReport::Construct(const FArguments& InArgs, TArray< TSharedPtr<class SLogVisualizerTimeline> >& InSelectedItems, TSharedPtr<class SVisualLoggerView> VisualLoggerView)
 {
 	SelectedItems = InSelectedItems;
 	GenerateReportText();
@@ -91,7 +91,7 @@ void SVisualLoggerReport::GenerateReportText()
 
 
 	OutString.Append(TEXT("<RichText.HeaderText1>Report Details</>\n"));
-	for (TSharedPtr<class STimeline> LogItem : SelectedItems)
+	for (TSharedPtr<class SLogVisualizerTimeline> LogItem : SelectedItems)
 	{
 		TArray<FVisualLogEvent> AllEvents;
 

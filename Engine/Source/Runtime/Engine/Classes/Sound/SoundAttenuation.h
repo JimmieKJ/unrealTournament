@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -70,6 +70,14 @@ struct ENGINE_API FAttenuationSettings
 	/** Whether or not listener-focus calculations are enabled for this attenuation. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Focus, meta = (EditCondition = "bSpatialize"))
 	uint32 bEnableListenerFocus:1;
+
+	/** Whether or not to enable line-of-sight occlusion checking for the sound that plays in this audio component. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Occlusion, meta = (EditCondition = "bSpatialize"))
+	uint32 bEnableOcclusion:1;
+
+	/** Whether or not to enable complex geometry occlusion checks. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Occlusion)
+	uint32 bUseComplexCollisionForOcclusion:1;
 
 	/* The type of volume versus distance algorithm to use for the attenuation model. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Attenuation )
@@ -149,30 +157,48 @@ struct ENGINE_API FAttenuationSettings
 	float NonFocusAzimuth;
 
 	/** Amount to scale the distance calculation of sounds that are in-focus. Can be used to make in-focus sounds appear to be closer or further away than they actually are. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Focus, meta = (EditCondition = "bEnableListenerFocus"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Focus, meta = (ClampMin = "0.0", UIMin = "0.0", EditCondition = "bEnableListenerFocus"))
 	float FocusDistanceScale;
 
 	/** Amount to scale the distance calculation of sounds that are not in-focus. Can be used to make in-focus sounds appear to be closer or further away than they actually are.  */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Focus, meta = (EditCondition = "bEnableListenerFocus"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Focus, meta = (ClampMin = "0.0", UIMin = "0.0", EditCondition = "bEnableListenerFocus"))
 	float NonFocusDistanceScale;
 
 	/** Amount to scale the priority of sounds that are in focus. Can be used to boost the priority of sounds that are in focus. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Focus, meta = (EditCondition = "bEnableListenerFocus"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Focus, meta = (ClampMin = "0.0", UIMin = "0.0", EditCondition = "bEnableListenerFocus"))
 	float FocusPriorityScale;
 
 	/** Amount to scale the priority of sounds that are not in-focus. Can be used to reduce the priority of sounds that are not in focus. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Focus, meta = (EditCondition = "bEnableListenerFocus"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Focus, meta = (ClampMin = "0.0", UIMin = "0.0", EditCondition = "bEnableListenerFocus"))
 	float NonFocusPriorityScale;
 
+	/** Amount to attenuate sounds that are in focus. Can be overridden at the sound-level. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Focus, meta = (ClampMin = "0.0", UIMin = "0.0", EditCondition = "bEnableListenerFocus"))
+	float FocusVolumeAttenuation;
+
 	/** Amount to attenuate sounds that are not in focus. Can be overridden at the sound-level. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Focus, meta = (EditCondition = "bEnableListenerFocus"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Focus, meta = (ClampMin = "0.0", UIMin = "0.0", EditCondition = "bEnableListenerFocus"))
 	float NonFocusVolumeAttenuation;
+
+	/** The low pass filter frequency (in hertz) to apply if the sound playing in this audio component is occluded. This will override the frequency set in LowPassFilterFrequency. A frequency of 0.0 is the device sample rate and will bypass the filter. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Occlusion, meta = (ClampMin = "0.0", UIMin = "0.0", EditCondition = "bEnableOcclusion"))
+	float OcclusionLowPassFilterFrequency;
+
+	/** The amount of volume attenuation to apply to sounds which are occluded. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Occlusion, meta = (ClampMin = "0.0", UIMin = "0.0", EditCondition = "bEnableOcclusion"))
+	float OcclusionVolumeAttenuation;
+
+	/** The amount of time in seconds to interpolate to the target OcclusionLowPassFilterFrequency when a sound is occluded. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Occlusion, meta = (ClampMin = "0", UIMin = "0.0", EditCondition = "bEnableOcclusion"))
+	float OcclusionInterpolationTime;
 
 	FAttenuationSettings()
 		: bAttenuate(true)
 		, bSpatialize(true)
 		, bAttenuateWithLPF(false)
 		, bEnableListenerFocus(false)
+		, bEnableOcclusion(false)
+		, bUseComplexCollisionForOcclusion(false)
 		, DistanceAlgorithm(ATTENUATION_Linear)
 		, DistanceType_DEPRECATED(SOUNDDISTANCE_Normal)
 		, AttenuationShape(EAttenuationShape::Sphere)
@@ -195,7 +221,11 @@ struct ENGINE_API FAttenuationSettings
 		, NonFocusDistanceScale(1.0f)
 		, FocusPriorityScale(1.0f)
 		, NonFocusPriorityScale(1.0f)
+		, FocusVolumeAttenuation(1.0f)
 		, NonFocusVolumeAttenuation(1.0f)
+		, OcclusionLowPassFilterFrequency(20000.f)
+		, OcclusionVolumeAttenuation(1.0f)
+		, OcclusionInterpolationTime(0.1f)
 	{
 	}
 
@@ -211,6 +241,9 @@ struct ENGINE_API FAttenuationSettings
 
 	void CollectAttenuationShapesForVisualization(TMultiMap<EAttenuationShape::Type, AttenuationShapeDetails>& ShapeDetailsMap) const;
 	float GetMaxDimension() const;
+	float GetFocusPriorityScale(const struct FGlobalFocusSettings& FocusSettings, float FocusFactor) const;
+	float GetFocusAttenuation(const struct FGlobalFocusSettings& FocusSettings, float FocusFactor) const;
+	float GetFocusDistanceScale(const struct FGlobalFocusSettings& FocusSettings, float FocusFactor) const;
 	float AttenuationEval(const float Distance, const float Falloff, const float DistanceScale) const;
 	float AttenuationEvalBox(const FTransform& SoundLocation, const FVector ListenerLocation, const float DistanceScale) const;
 	float AttenuationEvalCapsule(const FTransform& SoundLocation, const FVector ListenerLocation, const float DistanceScale) const;

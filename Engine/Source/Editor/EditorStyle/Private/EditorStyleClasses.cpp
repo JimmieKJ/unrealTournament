@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EditorStylePrivatePCH.h"
 
@@ -12,7 +12,7 @@ UEditorStyleSettings::UEditorStyleSettings( const FObjectInitializer& ObjectInit
 	InactiveSelectionColor = FLinearColor(0.25f, 0.25f, 0.25f);
 	PressedSelectionColor = FLinearColor(0.701f, 0.225f, 0.003f);
 
-	bOpenAssetEditorTabsInNewWindow = true;
+	AssetEditorOpenLocation = EAssetEditorOpenLocation::Default;
 
 	bShowFriendlyNames = true;
 	LogTimestampMode = ELogTimes::None;

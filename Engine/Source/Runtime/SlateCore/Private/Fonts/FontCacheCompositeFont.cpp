@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateCorePrivatePCH.h"
 #include "FontCacheCompositeFont.h"
@@ -52,6 +52,21 @@ const FFontData* FCachedTypefaceData::GetFontData(const FName& InName) const
 		return (FoundFontData) ? *FoundFontData : nullptr;
 	}
 	return SingularFontData;
+}
+
+void FCachedTypefaceData::GetCachedFontData(TArray<const FFontData*>& OutFontData) const
+{
+	if (NameToFontDataMap.Num() > 0)
+	{
+		for (const auto& NameToFontDataPair : NameToFontDataMap)
+		{
+			OutFontData.Add(NameToFontDataPair.Value);
+		}
+	}
+	else
+	{
+		OutFontData.Add(SingularFontData);
+	}
 }
 
 
@@ -119,6 +134,14 @@ const FCachedTypefaceData* FCachedCompositeFontData::GetTypefaceForCharacter(con
 	}
 
 	return CachedTypefaces[0].Get();
+}
+
+void FCachedCompositeFontData::GetCachedFontData(TArray<const FFontData*>& OutFontData) const
+{
+	for (const auto& CachedTypeface : CachedTypefaces)
+	{
+		CachedTypeface->GetCachedFontData(OutFontData);
+	}
 }
 
 
@@ -204,6 +227,8 @@ TSharedPtr<FFreeTypeFace> FCompositeFontCache::GetFontFace(const FFontData& InFo
 	TSharedPtr<FFreeTypeFace> FaceAndMemory = FontFaceMap.FindRef(&InFontData);
 	if (!FaceAndMemory.IsValid() && InFontData.BulkDataPtr)
 	{
+		FScopeCycleCounterUObject ContextScope(InFontData.BulkDataPtr);
+
 		int32 LockedFontDataSizeBytes = 0;
 		const void* const LockedFontData = InFontData.BulkDataPtr->Lock(LockedFontDataSizeBytes);
 		if (LockedFontDataSizeBytes > 0)
@@ -232,6 +257,23 @@ const TSet<FName>& FCompositeFontCache::GetFontAttributes(const FFontData& InFon
 
 	TSharedPtr<FFreeTypeFace> FaceAndMemory = GetFontFace(InFontData);
 	return (FaceAndMemory.IsValid()) ? FaceAndMemory->GetAttributes() : DummyAttributes;
+}
+
+void FCompositeFontCache::FlushCompositeFont(const FCompositeFont& InCompositeFont)
+{
+	TSharedPtr<FCachedCompositeFontData>* const FoundCompositeFontData = CompositeFontToCachedDataMap.Find(&InCompositeFont);
+	if (FoundCompositeFontData)
+	{
+		// Also clear out any font face map entries for the cached data
+		TArray<const FFontData*> AllCachedFontData;
+		(*FoundCompositeFontData)->GetCachedFontData(AllCachedFontData);
+		for (const FFontData* CachedFontData : AllCachedFontData)
+		{
+			FontFaceMap.Remove(CachedFontData);
+		}
+
+		CompositeFontToCachedDataMap.Remove(&InCompositeFont);
+	}
 }
 
 void FCompositeFontCache::FlushCache()

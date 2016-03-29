@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -319,6 +319,8 @@ private:
 	uint64				IORequestIndices[MAX_TEXTURE_MIP_COUNT];
 	/** Number of file I/O requests for current request														*/
 	int32					IORequestCount;
+
+	FThreadSafeCounter AsyncReallocateCounter;
 
 #if WITH_EDITORONLY_DATA
 	/** Pending async derived data streaming tasks															*/

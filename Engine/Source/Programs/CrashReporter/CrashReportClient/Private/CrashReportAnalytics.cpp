@@ -1,11 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CrashReportClientApp.h"
 
 #include "CrashReportAnalytics.h"
 #include "EngineBuildSettings.h"
-#include "Runtime/Analytics/Analytics/Public/Analytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
+#include "Runtime/Analytics/AnalyticsET/Public/AnalyticsET.h"
 
 // WARNING! Copied from EngineAnalytics.cpp
 
@@ -13,16 +12,23 @@ bool FCrashReportAnalytics::bIsInitialized;
 TSharedPtr<IAnalyticsProvider> FCrashReportAnalytics::Analytics;
 
 /**
- * Engine analytics config log to initialize the engine analytics provider.
- * External code should bind this delegate if engine analytics are desired,
- * preferably in private code that won't be redistributed.
+ * Default config func that essentially tells the crash reporter to disable analytics.
  */
-FAnalytics::FProviderConfigurationDelegate& GetCrashReportAnalyticsOverrideConfigDelegate()
+FAnalyticsET::Config DefaultAnalyticsConfigFunc()
 {
-	static FAnalytics::FProviderConfigurationDelegate Delegate;
-	return Delegate;
+	return FAnalyticsET::Config();
 }
 
+/**
+* Engine analytics config to initialize the crash reporter analytics provider.
+* External code should bind this delegate if crash reporter analytics are desired,
+* preferably in private code that won't be redistributed.
+*/
+TFunction<FAnalyticsET::Config()>& GetCrashReportAnalyticsConfigFunc()
+{
+	static TFunction<FAnalyticsET::Config()> Config;
+	return Config;
+}
 
 /**
  * On-demand construction of the singleton. 
@@ -37,46 +43,11 @@ void FCrashReportAnalytics::Initialize()
 {
 	checkf(!bIsInitialized, TEXT("FCrashReportAnalytics::Initialize called more than once."));
 
+	FAnalyticsET::Config Config = GetCrashReportAnalyticsConfigFunc()();
+	if (!Config.APIServerET.IsEmpty())
 	{
-		// Setup some default engine analytics if there is nothing custom bound
-		FAnalytics::FProviderConfigurationDelegate DefaultEngineAnalyticsConfig;
-		DefaultEngineAnalyticsConfig.BindStatic(
-			[]( const FString& KeyName, bool bIsValueRequired ) -> FString
-		{
-			static TMap<FString, FString> ConfigMap;
-			if( ConfigMap.Num() == 0 )
-			{
-				ConfigMap.Add( TEXT( "ProviderModuleName" ), TEXT( "AnalyticsET" ) );
-				ConfigMap.Add( TEXT( "APIServerET" ), TEXT( "http://etsource.epicgames.com/ET2/" ) );
-
-				// We always use the "Release" analytics account unless we're running in analytics test mode (usually with
-				// a command-line parameter), or we're an internal Epic build
-				bool bUseReleaseAccount =
-					(FAnalytics::Get().GetBuildType() == FAnalytics::Development ||
-					FAnalytics::Get().GetBuildType() == FAnalytics::Release) &&
-					!FEngineBuildSettings::IsInternalBuild();	// Internal Epic build
-
-				ConfigMap.Add( TEXT( "APIKeyET" ), bUseReleaseAccount ? TEXT("CrashReporter.Release") : TEXT("CrashReporter.Dev") );
-			}
-
-			// Check for overrides
-			if( GetCrashReportAnalyticsOverrideConfigDelegate().IsBound() )
-			{
-				const FString OverrideValue = GetCrashReportAnalyticsOverrideConfigDelegate().Execute( KeyName, bIsValueRequired );
-				if( !OverrideValue.IsEmpty() )
-				{
-					return OverrideValue;
-				}
-			}
-
-			FString* ConfigValue = ConfigMap.Find( KeyName );
-			return ConfigValue != NULL ? *ConfigValue : TEXT( "" );
-		} );
-
 		// Connect the engine analytics provider (if there is a configuration delegate installed)
-		Analytics = FAnalytics::Get().CreateAnalyticsProvider(
-			FName( *DefaultEngineAnalyticsConfig.Execute( TEXT( "ProviderModuleName" ), true ) ),
-			DefaultEngineAnalyticsConfig );
+		Analytics = FAnalyticsET::Get().CreateAnalyticsProvider(Config);
 		if( Analytics.IsValid() )
 		{
 			Analytics->SetUserID(FString::Printf(TEXT("%s|%s|%s"), *FPlatformMisc::GetMachineId().ToString(EGuidFormats::Digits).ToLower(), *FPlatformMisc::GetEpicAccountId(), *FPlatformMisc::GetOperatingSystemId()));

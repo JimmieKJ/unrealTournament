@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -33,9 +33,9 @@ class UMaterialExpressionLinearInterpolate : public UMaterialExpression
 
 
 	//~ Begin UMaterialExpression Interface
+#if WITH_EDITOR
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
-#if WITH_EDITOR
 	virtual FText GetKeywords() const override {return FText::FromString(TEXT("lerp"));}
 #endif // WITH_EDITOR
 	//~ End UMaterialExpression Interface

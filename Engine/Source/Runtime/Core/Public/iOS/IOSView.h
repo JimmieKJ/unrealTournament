@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -43,6 +43,8 @@
 	bool bIsUsingMetal;
 }
 
++(bool)IsDeviceOnIOS8;
+
 //// SHARED FUNCTIONALITY
 @property (nonatomic) GLuint SwapCount;
 
@@ -69,7 +71,13 @@
 /**
  * A view controller subclass that handles loading our IOS view as well as autorotation
  */
+#if PLATFORM_TVOS
+#import <GameController/GameController.h>
+// if TVOS doesn't use the GCEventViewController, it will background the app when the user presses Menu/Pause
+@interface IOSViewController : GCEventViewController
+#else
 @interface IOSViewController : UIViewController
+#endif
 {
 
 }

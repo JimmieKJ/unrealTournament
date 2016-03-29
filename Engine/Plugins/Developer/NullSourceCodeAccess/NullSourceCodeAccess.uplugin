@@ -1,22 +1,29 @@
 {
 	"FileVersion" : 3,
-    "FriendlyName": "Linux Compiler-only Integration",
 	"Version" : 1,
 	"VersionName" : "1.0",
-	"CreatedBy" : "Salamanderrake" ,
-	"CreatedByURL" : "/dev/null",
-	"EngineVersion" : "4.7.0",
+	"FriendlyName" : "Linux Compiler-only Integration",
 	"Description" : "Allows access to c++ projects while only looking for clang++",
 	"Category" : "Programming",
+	"CreatedBy" : "Salamanderrake",
+	"CreatedByURL" : "/dev/null",
+	"DocsURL" : "",
+	"MarketplaceURL" : "",
+	"SupportURL" : "",
 	"EnabledByDefault" : true,
-	
+	"CanContainContent" : false,
+	"IsBetaVersion" : false,
+	"Installed" : false,
 	"Modules" :
 	[
 		{
 			"Name" : "NullSourceCodeAccess",
 			"Type" : "Developer",
-			"WhitelistPlatforms" : [ "Linux" ],
-			"LoadingPhase" : "PreDefault"
+			"LoadingPhase" : "PreDefault",
+			"WhitelistPlatforms" :
+			[
+				"Linux"
+			]
 		}
 	]
 }

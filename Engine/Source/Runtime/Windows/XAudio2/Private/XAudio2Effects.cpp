@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	XeAudioDevice.cpp: Unreal XAudio2 Audio interface object.
@@ -290,7 +290,7 @@ XAPO_REGISTRATION_PROPERTIES FXAudio2RadioEffect::Registration =
 {
 	__uuidof( FXAudio2RadioEffect ),
 	TEXT( "FXAudio2RadioEffect" ), 
-	TEXT( "Copyright 1998-2015 Epic Games, Inc. All Rights Reserved." ),
+	TEXT( "Copyright 1998-2016 Epic Games, Inc. All Rights Reserved." ),
 	1, 0,
 	XAPO_FLAG_INPLACE_REQUIRED	| XAPO_FLAG_CHANNELS_MUST_MATCH
 								| XAPO_FLAG_FRAMERATE_MUST_MATCH
@@ -588,21 +588,21 @@ void FXAudio2EffectsManager::SetEQEffectParameters( const FAudioEQEffect& EQEffe
 	{
 		FXEQ_PARAMETERS NativeParameters;
 
-		NativeParameters.FrequencyCenter0 = EQEffectParameters.LFFrequency;
-		NativeParameters.Gain0 = EQEffectParameters.LFGain;
-		NativeParameters.Bandwidth0 = FXEQ_DEFAULT_BANDWIDTH;
+		NativeParameters.FrequencyCenter0 = EQEffectParameters.FrequencyCenter0;
+		NativeParameters.Gain0 = EQEffectParameters.Gain0;
+		NativeParameters.Bandwidth0 = EQEffectParameters.Bandwidth0;
 
-		NativeParameters.FrequencyCenter1 = EQEffectParameters.MFCutoffFrequency;
-		NativeParameters.Gain1 = EQEffectParameters.MFGain;
-		NativeParameters.Bandwidth1 = EQEffectParameters.MFBandwidth;
+		NativeParameters.FrequencyCenter1 = EQEffectParameters.FrequencyCenter1;
+		NativeParameters.Gain1 = EQEffectParameters.Gain1;
+		NativeParameters.Bandwidth1 = EQEffectParameters.Bandwidth1;
 
-		NativeParameters.FrequencyCenter2 = EQEffectParameters.HFFrequency;
-		NativeParameters.Gain2 = EQEffectParameters.HFGain;
-		NativeParameters.Bandwidth2 = FXEQ_DEFAULT_BANDWIDTH;
+		NativeParameters.FrequencyCenter2 = EQEffectParameters.FrequencyCenter2;
+		NativeParameters.Gain2 = EQEffectParameters.Gain2;
+		NativeParameters.Bandwidth2 = EQEffectParameters.Bandwidth2;
 
-		NativeParameters.FrequencyCenter3 = FXEQ_DEFAULT_FREQUENCY_CENTER_3;
-		NativeParameters.Gain3 = FXEQ_DEFAULT_GAIN;
-		NativeParameters.Bandwidth3 = FXEQ_DEFAULT_BANDWIDTH;
+		NativeParameters.FrequencyCenter3 = EQEffectParameters.FrequencyCenter3;
+		NativeParameters.Gain3 = EQEffectParameters.Gain3;
+		NativeParameters.Bandwidth3 = EQEffectParameters.Bandwidth3;
 
 		XAudio2Device->ValidateAPICall( TEXT( "SetEffectParameters (EQ)" ), 
 			EQPremasterVoice->SetEffectParameters( 0, &NativeParameters, sizeof( NativeParameters ) ) );

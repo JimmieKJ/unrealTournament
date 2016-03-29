@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "BaseTextLayoutMarshaller.h"
@@ -224,7 +224,8 @@ protected:
 
 	FOutputLogTextLayoutMarshaller(TArray< TSharedPtr<FLogMessage> > InMessages);
 
-	void AppendMessageToTextLayout(const TSharedPtr<FLogMessage>& Message);
+	void AppendMessageToTextLayout(const TSharedPtr<FLogMessage>& InMessage);
+	void AppendMessagesToTextLayout(const TArray<TSharedPtr<FLogMessage>>& InMessages);
 
 	/** All log messages to show in the text box */
 	TArray< TSharedPtr<FLogMessage> > Messages;

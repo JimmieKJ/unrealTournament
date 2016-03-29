@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -63,7 +63,7 @@ public:
 
 private:
 
-	/** A pointer to the button to allow us to adjust the size, padding...etc at runtime. */
+	/** A pointer to the border to allow us to adjust the size, padding...etc at runtime. */
 	TSharedPtr<SBorder> Border;
 
 	friend UBorder;

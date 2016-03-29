@@ -1,15 +1,19 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+
 struct FCollectionNameType;
+
 
 /**
  * A widget to display and work with all game and engine content
  */
-class SContentBrowser : public SCompoundWidget
+class SContentBrowser
+	: public SCompoundWidget
 {
 public:
+
 	SLATE_BEGIN_ARGS( SContentBrowser )
 		: _ContainingTab()
 		, _InitiallyLocked(false)
@@ -69,6 +73,7 @@ public:
 	virtual FReply OnMouseButtonDoubleClick( const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent ) override;
 
 private:
+
 	/** Called to retrieve the text that should be highlighted on assets */
 	FText GetHighlightedText() const;
 
@@ -222,28 +227,28 @@ private:
 	FReply ForwardClicked();
 
 	/** Handler to check to see if a rename command is allowed */
-	bool CanRename() const;
+	bool HandleRenameCommandCanExecute() const;
 
 	/** Handler for Rename */
-	void OnRename();
+	void HandleRenameCommand();
 
 	/** Handler to check to see if a delete command is allowed */
-	bool CanDelete() const;
+	bool HandleDeleteCommandCanExecute() const;
 
 	/** Handler for Delete */
-	void OnDelete();
+	void HandleDeleteCommandExecute();
 
 	/** Handler for opening assets or folders */
-	void OnOpenAssetsOrFolders();
+	void HandleOpenAssetsOrFoldersCommandExecute();
 
 	/** Handler for previewing assets */
-	void OnPreviewAssets();
+	void HandlePreviewAssetsCommandEecute();
+
+	/** Handler for creating new folder */
+	void HandleCreateNewFolderCommandExecute();
 
 	/** Handler for clicking the directory up button */
-	void OnDirectoryUp();
-
-	/** Handler for clicking the directory up button */
-	FReply OnDirectoryUpClicked();
+	void HandleDirectoryUpCommandExecute();
 
 	/** True if the user may use the history back button */
 	bool IsBackEnabled() const;
@@ -331,6 +336,7 @@ private:
 
 	/** Gets the visibility of the collection view */
 	EVisibility GetCollectionViewVisibility() const;
+
 private:
 
 	/** The tab that contains this browser */

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "AnimationUtils.h"
@@ -24,18 +24,9 @@ UAnimSequenceBase::UAnimSequenceBase(const FObjectInitializer& ObjectInitializer
 template <typename DataType>
 void UAnimSequenceBase::VerifyCurveNames(USkeleton* Skeleton, const FName& NameContainer, TArray<DataType>& CurveList)
 {
-	FSmartNameMapping* NameMapping = Skeleton->SmartNames.GetContainer(NameContainer);
-
 	// since this is verify function that makes sure it exists after loaded
 	// we should add it if it doesn't exist
-	if (!NameMapping)
-	{
-		// if it doens't exists, we should add it
-		Skeleton->Modify(true);
-		Skeleton->SmartNames.AddContainer(NameContainer);
-		NameMapping = Skeleton->SmartNames.GetContainer(NameContainer);
-		check(NameMapping);
-	}
+	const FSmartNameMapping* NameMapping = Skeleton->GetOrAddSmartNameContainer(NameContainer);
 
 	TArray<DataType*> UnlinkedCurves;
 	for(DataType& Curve : CurveList)
@@ -59,7 +50,7 @@ void UAnimSequenceBase::VerifyCurveNames(USkeleton* Skeleton, const FName& NameC
 
 	for(DataType* Curve : UnlinkedCurves)
 	{
-		NameMapping->AddOrFindName(Curve->LastObservedName, Curve->CurveUid);
+		Skeleton->AddSmartNameAndModify(NameContainer, Curve->LastObservedName, Curve->CurveUid);
 	}
 }
 
@@ -96,12 +87,10 @@ void UAnimSequenceBase::PostLoad()
 		// Fix up the existing curves to work with smartnames
 		if(GetLinkerUE4Version() < VER_UE4_SKELETON_ADD_SMARTNAMES)
 		{
-			// Get the name mapping object for curves
-			FSmartNameMapping* NameMapping = Skeleton->SmartNames.GetContainer(USkeleton::AnimCurveMappingName);
 			for(FFloatCurve& Curve : RawCurveData.FloatCurves)
 			{
 				// Add the names of the curves into the smartname mapping and store off the curve uid which will be saved next time the sequence saves.
-				NameMapping->AddOrFindName(Curve.LastObservedName, Curve.CurveUid);
+				Skeleton->AddSmartNameAndModify(USkeleton::AnimCurveMappingName, Curve.LastObservedName, Curve.CurveUid);
 			}
 		}
 		else
@@ -151,7 +140,8 @@ void UAnimSequenceBase::GetAnimNotifies(const float& StartTime, const float& Del
 		const ETypeAdvanceAnim AdvanceType = FAnimationRuntime::AdvanceTime(false, DesiredDeltaMove, CurrentPosition, SequenceLength);
 
 		// Verify position assumptions
-		checkf(bPlayingBackwards ? (CurrentPosition <= PreviousPosition) : (CurrentPosition >= PreviousPosition), TEXT("in Animsequence %s"), *GetName());
+		ensureMsgf(bPlayingBackwards ? (CurrentPosition <= PreviousPosition) : (CurrentPosition >= PreviousPosition), TEXT("in Animation %s(Skeleton %s) : bPlayingBackwards(%d), PreviousPosition(%0.2f), Current Position(%0.2f)"), 
+			*GetName(), *GetNameSafe(GetSkeleton()), bPlayingBackwards, PreviousPosition, CurrentPosition);
 		
 		GetAnimNotifiesFromDeltaPositions(PreviousPosition, CurrentPosition, OutActiveNotifies);
 	
@@ -252,16 +242,24 @@ void UAnimSequenceBase::TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimN
 	else
 	{
 		// Follow the leader
-		if (Instance.bCanUseMarkerSync && Context.CanUseMarkerPosition() && Context.MarkerTickContext.IsMarkerSyncStartValid())
+		if (Instance.bCanUseMarkerSync)
 		{
-			TickByMarkerAsFollower(*Instance.MarkerTickRecord, Context.MarkerTickContext, CurrentTime, PreviousTime, Context.GetLeaderDelta(), Instance.bLooping);
+			if (Context.CanUseMarkerPosition() && Context.MarkerTickContext.IsMarkerSyncStartValid())
+			{
+				TickByMarkerAsFollower(*Instance.MarkerTickRecord, Context.MarkerTickContext, CurrentTime, PreviousTime, Context.GetLeaderDelta(), Instance.bLooping);
+			}
+			else
+			{
+				// If leader is not valid, advance time as normal, do not jump position and pop.
+				FAnimationRuntime::AdvanceTime(Instance.bLooping, MoveDelta, CurrentTime, SequenceLength);
+				UE_LOG(LogAnimMarkerSync, Log, TEXT("Follower (%s) (normal advance)  - PreviousTime (%0.2f), CurrentTime (%0.2f), MoveDelta (%0.2f), Looping (%d) "), *GetName(), PreviousTime, CurrentTime, MoveDelta, Instance.bLooping ? 1 : 0);
+			}
 		}
 		else
 		{
 			CurrentTime = Context.GetAnimationPositionRatio() * SequenceLength;
-			UE_LOG(LogAnimMarkerSync, Log, TEXT("Follower (%s) (normal advance) - PreviousTime (%0.2f), CurrentTime (%0.2f), MoveDelta (%0.2f), Looping (%d) "), *GetName(), PreviousTime, CurrentTime, MoveDelta, Instance.bLooping ? 1 : 0);
+			UE_LOG(LogAnimMarkerSync, Log, TEXT("Follower (%s) (normalized position advance) - PreviousTime (%0.2f), CurrentTime (%0.2f), MoveDelta (%0.2f), Looping (%d) "), *GetName(), PreviousTime, CurrentTime, MoveDelta, Instance.bLooping ? 1 : 0);
 		}
-
 
 		//@TODO: NOTIFIES: Calculate AdvanceType based on what the new delta time is
 
@@ -492,7 +490,7 @@ void UAnimSequenceBase::Serialize(FArchive& Ar)
 	{
 		if(USkeleton* Skeleton = GetSkeleton())
 		{
-			FSmartNameMapping* Mapping = GetSkeleton()->SmartNames.GetContainer(USkeleton::AnimCurveMappingName);
+			const FSmartNameMapping* Mapping = GetSkeleton()->GetSmartNameContainer(USkeleton::AnimCurveMappingName);
 			check(Mapping); // Should always exist
 			RawCurveData.UpdateLastObservedNames(Mapping);
 		}
@@ -506,7 +504,7 @@ void UAnimSequenceBase::Serialize(FArchive& Ar)
 			// we don't add track curve container unless it has been edited. 
 			if ( RawCurveData.TransformCurves.Num() > 0 )
 			{
-				FSmartNameMapping* Mapping = GetSkeleton()->SmartNames.GetContainer(USkeleton::AnimTrackCurveMappingName);
+				const FSmartNameMapping* Mapping = GetSkeleton()->GetSmartNameContainer(USkeleton::AnimTrackCurveMappingName);
 				// this name might not exists because it's only available if you edit animation
 				if (Mapping)
 				{

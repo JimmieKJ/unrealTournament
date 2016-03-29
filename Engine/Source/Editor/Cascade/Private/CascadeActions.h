@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -56,6 +56,10 @@ public:
 	TSharedPtr<FUICommandInfo> DetailMode_Low;
 	TSharedPtr<FUICommandInfo> DetailMode_Medium;
 	TSharedPtr<FUICommandInfo> DetailMode_High;
+	TSharedPtr<FUICommandInfo> Significance_Critical;
+	TSharedPtr<FUICommandInfo> Significance_High;
+	TSharedPtr<FUICommandInfo> Significance_Medium;
+	TSharedPtr<FUICommandInfo> Significance_Low;
 	TSharedPtr<FUICommandInfo> JumpToHighestLOD;
 	TSharedPtr<FUICommandInfo> JumpToHigherLOD;
 	TSharedPtr<FUICommandInfo> AddLODAfterCurrent;

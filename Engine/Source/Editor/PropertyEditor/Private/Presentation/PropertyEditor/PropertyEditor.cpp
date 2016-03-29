@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "PropertyEditorPrivatePCH.h"
 #include "PropertyEditorConstants.h"
@@ -582,20 +582,41 @@ bool FPropertyEditor::SupportsEditConditionToggle( UProperty* InProperty )
 {
 	bool bShowEditConditionToggle = false;
 
-	if (!InProperty->HasMetaData(TEXT("HideEditConditionToggle")))
+	static const FName Name_HideEditConditionToggle("HideEditConditionToggle");
+	if (!InProperty->HasMetaData(Name_HideEditConditionToggle))
 	{
 		bool bNegateValue = false;
 		UBoolProperty* ConditionalProperty = PropertyCustomizationHelpers::GetEditConditionProperty( InProperty, bNegateValue );
 		if( ConditionalProperty != NULL )
 		{
-			bShowEditConditionToggle = true;
-
-			if( ConditionalProperty->HasAllPropertyFlags( CPF_Edit ) )
+			if (!ConditionalProperty->HasAllPropertyFlags(CPF_Edit))
 			{
-				// Conditionally-dependent property is already exposed for editing, so no need to draw another
-				// check box next to this property's label
-				bShowEditConditionToggle = false;
+				// Warn if the editcondition property is not marked as editable; this will break when the component is added to a Blueprint.
+				UObject* PropertyScope = InProperty->GetOwnerClass();
+				UObject* ConditionalPropertyScope = ConditionalProperty->GetOwnerClass();
+				if (!PropertyScope)
+				{
+					PropertyScope = InProperty->GetOwnerStruct();
+					ConditionalPropertyScope = ConditionalProperty->GetOwnerStruct();
+				}
+				const FString PropertyScopeName = PropertyScope ? PropertyScope->GetName() : FString();
+				const FString ConditionalPropertyScopeName = ConditionalPropertyScope ? ConditionalPropertyScope->GetName() : FString();
+
+				// Show the toggle box anyway, with a warning
+				UE_LOG(LogPropertyNode, Warning, TEXT("Property %s::%s is an editcondition for %s::%s, but is not marked as EditAnywhere."),
+						*ConditionalPropertyScopeName, *ConditionalProperty->GetName(), *PropertyScopeName, *InProperty->GetName());
+
+				bShowEditConditionToggle = true;
 			}
+			else
+			{
+				// If it's editable, then only put an inline toggle box if the metadata specifies it
+				static const FName Name_InlineEditConditionToggle("InlineEditConditionToggle");
+				if (ConditionalProperty->HasMetaData(Name_InlineEditConditionToggle))
+				{
+					bShowEditConditionToggle = true;
+				}
+			}		
 		}
 	}
 

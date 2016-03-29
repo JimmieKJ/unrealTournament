@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "HAL/Platform.h"
@@ -10,9 +10,9 @@
 #elif PLATFORM_XBOXONE
 #include "XboxOne/XboxOneHttp.h"
 #elif PLATFORM_MAC
-#include "Mac/MacPlatformHttp.h"
+#include "Apple/ApplePlatformHttp.h"
 #elif PLATFORM_IOS
-#include "IOS/IOSPlatformHttp.h"
+#include "Apple/ApplePlatformHttp.h"
 #elif PLATFORM_ANDROID
 #include "Android/AndroidHttp.h"
 #elif PLATFORM_WINRT

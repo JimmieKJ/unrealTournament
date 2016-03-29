@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -8,27 +8,39 @@ namespace EAutomationTestFlags
 {
 	enum Type
 	{
-		//Application context required for the test - not specifying means it will be valid for any context
-		EditorContext				= 0x00000001,	// Test is suitable for running within the editor
-		ClientContext				= 0x00000002,	// Test is suitable for running within the client
-		ServerContext				= 0x00000004,	// Test is suitable for running within the server
-		CommandletContext			= 0x00000008,	// Test is suitable for running within a commandlet
+		//~ Application context required for the test - not specifying means it will be valid for any context
+		// Test is suitable for running within the editor
+		EditorContext				= 0x00000001,
+		// Test is suitable for running within the client
+		ClientContext				= 0x00000002,
+		// Test is suitable for running within the server
+		ServerContext				= 0x00000004,
+		// Test is suitable for running within a commandlet
+		CommandletContext			= 0x00000008,
 		ApplicationContextMask		= EditorContext | ClientContext | ServerContext | CommandletContext,
 
-		//Features required for the test - not specifying means it is valid for any feature combination
-		NonNullRHI					= 0x00000100,	// Test requires a non-null RHI to run correctly
-		RequiresUser				= 0x00000200,	// Test requires a user instigated session
+		//~ Features required for the test - not specifying means it is valid for any feature combination
+		// Test requires a non-null RHI to run correctly
+		NonNullRHI					= 0x00000100,
+		// Test requires a user instigated session
+		RequiresUser				= 0x00000200,
 		FeatureMask					= NonNullRHI | RequiresUser,
 
-		//One-off flag to allow for fast disabling of tests without commenting code out
-		Disabled					= 0x00010000,	// Temp disabled and never returns for a filter
+		//~ One-off flag to allow for fast disabling of tests without commenting code out
+		// Temp disabled and never returns for a filter
+		Disabled					= 0x00010000,
 
-		//Speed of the test
-		SmokeFilter					= 0x01000000,	//Super Fast Filter
-		EngineFilter				= 0x02000000,	//Engine Level Test
-		ProductFilter				= 0x04000000,	//Product Level Test
-		PerfFilter					= 0x08000000,	//Performance Test
-		StressFilter				= 0x10000000,	//Stress Test
+		//~ Speed of the test
+		//Super Fast Filter
+		SmokeFilter					= 0x01000000,
+		//Engine Level Test
+		EngineFilter				= 0x02000000,
+		//Product Level Test
+		ProductFilter				= 0x04000000,
+		//Performance Test
+		PerfFilter					= 0x08000000,
+		//Stress Test
+		StressFilter				= 0x10000000,
 		FilterMask = SmokeFilter | EngineFilter | ProductFilter | PerfFilter | StressFilter
 	};
 };
@@ -325,7 +337,7 @@ protected:
 	}
 
 	/** For timers, track the first time this ticks */
-	float StartTime;
+	double StartTime;
 
 	friend class FAutomationTestFramework;
 };
@@ -532,7 +544,7 @@ public:
 private:
 
 	/** Special feedback context used exclusively while automation testing */
-	class FAutomationTestFeedbackContext : public FFeedbackContext
+	 class FAutomationTestFeedbackContext : public FFeedbackContext
 	{
 	public:
 
@@ -571,6 +583,7 @@ private:
 		class FAutomationTestBase* CurTest;
 	};
 
+	 friend class FAutomationTestFeedbackContext;
 	/** Helper method called to prepare settings for automation testing to follow */
 	void PrepForAutomationTests();
 

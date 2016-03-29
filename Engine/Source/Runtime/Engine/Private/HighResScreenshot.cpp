@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "EnginePrivate.h"
 #include "HighResScreenshot.h"
 #include "Slate/SceneViewport.h"
@@ -23,13 +23,19 @@ FHighResScreenshotConfig::FHighResScreenshotConfig()
 	SetHDRCapture(false);
 }
 
-void FHighResScreenshotConfig::Init()
+void FHighResScreenshotConfig::Init(uint32 NumAsyncWriters)
 {
 	IImageWrapperModule* ImageWrapperModule = FModuleManager::LoadModulePtr<IImageWrapperModule>(FName("ImageWrapper"));
 	if (ImageWrapperModule != nullptr)
 	{
-		ImageCompressorLDR = ImageWrapperModule->CreateImageWrapper(EImageFormat::PNG);
-		ImageCompressorHDR = ImageWrapperModule->CreateImageWrapper(EImageFormat::EXR);
+		ImageCompressorsLDR.Reserve(NumAsyncWriters);
+		ImageCompressorsHDR.Reserve(NumAsyncWriters);
+
+		for (uint32 Index = 0; Index != NumAsyncWriters; ++Index)
+		{
+			ImageCompressorsLDR.Emplace(ImageWrapperModule->CreateImageWrapper(EImageFormat::PNG));
+			ImageCompressorsHDR.Emplace(ImageWrapperModule->CreateImageWrapper(EImageFormat::EXR));
+		}
 	}
 
 #if WITH_EDITOR
@@ -160,7 +166,30 @@ bool FHighResScreenshotConfig::SaveImage(const FString& File, const TArray<TPixe
 	IFileManager* FileManager = &IFileManager::Get();
 	const size_t BitsPerPixel = (sizeof(TPixelType) / 4) * 8;
 
-	TSharedPtr<class IImageWrapper> ImageCompressor = bIsWritingHDRImage ? ImageCompressorHDR : ImageCompressorLDR;
+	const FImageWriter* ImageWriter = nullptr;
+	{
+		const TArray<FImageWriter>& ArrayToUse = bIsWritingHDRImage ? ImageCompressorsHDR : ImageCompressorsLDR;
+
+		// Find a free image writer to use. This can potentially be called on many threads at the same time
+		for (;;)
+		{
+			for (const FImageWriter& Writer : ArrayToUse)
+			{
+				if (!Writer.bInUse.AtomicSet(true))
+				{
+					ImageWriter = &Writer;
+					break;
+				}
+			}
+
+			if (ImageWriter)
+			{
+				break;
+			}
+
+			FPlatformProcess::Sleep(0.001f);
+		}
+	}
 
 	// here we require the input file name to have an extension
 	FString NewExtension = bIsWritingHDRImage ? TEXT(".exr") : TEXT(".png");
@@ -170,25 +199,32 @@ bool FHighResScreenshotConfig::SaveImage(const FString& File, const TArray<TPixe
 	{
 		*OutFilename = Filename;
 	}
+	
+	bool bSuccess = false;
 
-	if (ImageCompressor.IsValid() && ImageCompressor->SetRaw((void*)&Bitmap[0], sizeof(TPixelType)* x * y, x, y, Traits::SourceChannelLayout, BitsPerPixel))
+	if (ImageWriter && ImageWriter->ImageWrapper->SetRaw((void*)&Bitmap[0], sizeof(TPixelType)* x * y, x, y, Traits::SourceChannelLayout, BitsPerPixel))
 	{
 		FArchive* Ar = FileManager->CreateFileWriter(Filename.GetCharArray().GetData());
 		if (Ar != nullptr)
 		{
-			const TArray<uint8>& CompressedData = ImageCompressor->GetCompressed();
+			const TArray<uint8>& CompressedData = ImageWriter->ImageWrapper->GetCompressed();
 			int32 CompressedSize = CompressedData.Num();
 			Ar->Serialize((void*)CompressedData.GetData(), CompressedSize);
 			delete Ar;
-		}
-		else
-		{
-			return false;
+
+			bSuccess = true;
 		}
 	}
 
-	return true;
+	ImageWriter->bInUse = false;
+
+	return bSuccess;
 }
 
 template ENGINE_API bool FHighResScreenshotConfig::SaveImage<FColor>(const FString& File, const TArray<FColor>& Bitmap, const FIntPoint& BitmapSize, FString* OutFilename) const;
 template ENGINE_API bool FHighResScreenshotConfig::SaveImage<FFloat16Color>(const FString& File, const TArray<FFloat16Color>& Bitmap, const FIntPoint& BitmapSize, FString* OutFilename) const;
+
+FHighResScreenshotConfig::FImageWriter::FImageWriter(const TSharedPtr<class IImageWrapper>& InWrapper)
+	: ImageWrapper(InWrapper)
+{
+}

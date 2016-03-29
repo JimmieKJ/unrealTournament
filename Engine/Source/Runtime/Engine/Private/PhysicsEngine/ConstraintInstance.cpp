@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "PhysicsPublic.h"
@@ -127,6 +127,7 @@ bool FConstraintInstance::ExecuteOnUnbrokenJointReadWrite(TFunctionRef<void(phys
 
 void FConstraintInstance::UpdateLinearLimit()
 {
+	const float UseScale = bScaleLinearLimits ? LastKnownScale : 1.f;
 #if WITH_PHYSX
 	ExecuteOnUnbrokenJointReadWrite([&] (PxD6Joint* Joint)
 	{
@@ -140,7 +141,7 @@ void FConstraintInstance::UpdateLinearLimit()
 		if (LinearXMotion != LCM_Free || LinearYMotion != LCM_Free || LinearZMotion != LCM_Free)
 		{
 			// If limit drops below RB_MinSizeToLockDOF, just pass RB_MinSizeToLockDOF to physics - that axis will be locked anyway, and PhysX dislikes 0 here
-			float LinearLimit = FMath::Max<float>(LinearLimitSize, RB_MinSizeToLockDOF);
+			float LinearLimit = FMath::Max<float>(LinearLimitSize * UseScale, RB_MinSizeToLockDOF);
 			PxJointLinearLimit PLinearLimit(GPhysXSDK->getTolerancesScale(), LinearLimit, 0.05f * GPhysXSDK->getTolerancesScale().length);
 			SetSoftLimitParams_AssumesLocked(&PLinearLimit, bLinearLimitSoft, LinearLimitStiffness*AverageMass, LinearLimitDamping*AverageMass);
 			Joint->setLinearLimit(PLinearLimit);
@@ -235,6 +236,7 @@ FConstraintInstance::FConstraintInstance()
 	, SwingLimitDamping(5)
 	, TwistLimitStiffness(50)
 	, TwistLimitDamping(5)
+	, bScaleLinearLimits(true)
 	, bLinearPositionDrive(false)
 	, bLinearVelocityDrive(false)
 	, LinearPositionTarget(ForceInit)
@@ -359,7 +361,14 @@ bool GetPActors_AssumesLocked(const FBodyInstance* Body1, const FBodyInstance* B
 	// Do not create joint unless one of the actors is dynamic
 	if ((!PActor1 || !PActor1->isRigidBody()) && (!PActor2 || !PActor2->isRigidBody()))
 	{
-		UE_LOG(LogPhysics, Log, TEXT("Attempting to create a joint between actors that are static.  No joint created."));
+		UE_LOG(LogPhysics, Warning, TEXT("Attempting to create a joint between actors that are static.  No joint created."));
+		return false;
+	}
+
+	if(PActor1 == PActor2)
+	{
+		const UPrimitiveComponent* PrimComp = Body1->OwnerComponent.Get();
+		UE_LOG(LogPhysics, Warning, TEXT("Attempting to create a joint between the same actor (%s)"), *PrimComp->GetReadableName());
 		return false;
 	}
 
@@ -384,16 +393,24 @@ bool GetPActors_AssumesLocked(const FBodyInstance* Body1, const FBodyInstance* B
 	return true;
 }
 
-bool FConstraintInstance::CreatePxJoint_AssumesLocked(physx::PxRigidActor* PActor1, physx::PxRigidActor* PActor2, physx::PxScene* PScene, const float Scale)
+bool FConstraintInstance::CreatePxJoint_AssumesLocked(physx::PxRigidActor* PActor1, physx::PxRigidActor* PActor2, physx::PxScene* PScene)
 {
 	ConstraintData = nullptr;
 
 	FTransform Local1 = GetRefFrame(EConstraintFrame::Frame1);
-	Local1.ScaleTranslation(FVector(Scale));
+	if(PActor1)
+	{
+		Local1.ScaleTranslation(FVector(LastKnownScale));
+	}
+
 	checkf(Local1.IsValid() && !Local1.ContainsNaN(), TEXT("%s"), *Local1.ToString());
 
 	FTransform Local2 = GetRefFrame(EConstraintFrame::Frame2);
-	Local2.ScaleTranslation(FVector(Scale));
+	if(PActor2)
+	{
+		Local2.ScaleTranslation(FVector(LastKnownScale));
+	}
+	
 	checkf(Local2.IsValid() && !Local2.ContainsNaN(), TEXT("%s"), *Local2.ToString());
 
 	SCOPED_SCENE_WRITE_LOCK(PScene);
@@ -470,12 +487,12 @@ void EnsureSleepingActorsStaySleeping_AssumesLocked(PxRigidActor* PActor1, PxRig
 	// creation of joints wakes up rigid bodies, so we put them to sleep again if both were initially asleep
 	if (bActor1Asleep && bActor2Asleep)
 	{
-		if (PActor1 && IsRigidBodyNonKinematic_AssumesLocked(PActor1->isRigidDynamic()))
+		if (PActor1 && !IsRigidBodyKinematic_AssumesLocked(PActor1->isRigidDynamic()))
 		{
 			PActor1->isRigidDynamic()->putToSleep();
 		}
 
-		if (PActor2 && IsRigidBodyNonKinematic_AssumesLocked(PActor2->isRigidDynamic()))
+		if (PActor2 && !IsRigidBodyKinematic_AssumesLocked(PActor2->isRigidDynamic()))
 		{
 			PActor2->isRigidDynamic()->putToSleep();
 		}
@@ -487,9 +504,10 @@ void EnsureSleepingActorsStaySleeping_AssumesLocked(PxRigidActor* PActor1, PxRig
 /** 
  *	Create physics engine constraint.
  */
-void FConstraintInstance::InitConstraint(USceneComponent* Owner, FBodyInstance* Body1, FBodyInstance* Body2, float Scale)
+void FConstraintInstance::InitConstraint(USceneComponent* Owner, FBodyInstance* Body1, FBodyInstance* Body2, float InScale)
 {
 	OwnerComponent = Owner;
+	LastKnownScale = InScale;
 
 #if WITH_PHYSX
 	PhysxUserData = FPhysxUserData(this);
@@ -505,12 +523,11 @@ void FConstraintInstance::InitConstraint(USceneComponent* Owner, FBodyInstance* 
 	PxScene* PScene = GetPScene_LockFree(Body1, Body2);
 	SCOPED_SCENE_WRITE_LOCK(PScene);
 
-	const bool bValidConstraintSetup = PScene && GetPActors_AssumesLocked(Body1, Body2, &PActor1, &PActor2) && CreatePxJoint_AssumesLocked(PActor1, PActor2, PScene, Scale);
+	const bool bValidConstraintSetup = PScene && GetPActors_AssumesLocked(Body1, Body2, &PActor1, &PActor2) && CreatePxJoint_AssumesLocked(PActor1, PActor2, PScene);
 	if (!bValidConstraintSetup)
 	{
 		return;
 	}
-
 
 	// update mass
 	UpdateAverageMass_AssumesLocked(PActor1, PActor2);

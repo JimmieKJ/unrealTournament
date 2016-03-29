@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MetalRHIPrivate.h"
 #include "MetalProfiler.h"
@@ -7,6 +7,7 @@ DEFINE_STAT(STAT_MetalMakeDrawableTime);
 DEFINE_STAT(STAT_MetalDrawCallTime);
 DEFINE_STAT(STAT_MetalPrepareDrawTime);
 DEFINE_STAT(STAT_MetalUniformBufferCleanupTime);
+DEFINE_STAT(STAT_MetalTotalUniformBufferMemory);
 DEFINE_STAT(STAT_MetalFreeUniformBufferMemory);
 DEFINE_STAT(STAT_MetalNumFreeUniformBuffers);
 DEFINE_STAT(STAT_MetalPipelineStateTime);
@@ -14,6 +15,19 @@ DEFINE_STAT(STAT_MetalBoundShaderStateTime);
 DEFINE_STAT(STAT_MetalVertexDeclarationTime);
 DEFINE_STAT(STAT_MetalBufferPageOffTime);
 DEFINE_STAT(STAT_MetalTexturePageOffTime);
+#if PLATFORM_MAC
+DEFINE_STAT(STAT_MetalDeviceUtilisation);
+DEFINE_STAT(STAT_MetalDeviceUtilisationAtPState);
+DEFINE_STAT(STAT_MetalDevice0Utilisation);
+DEFINE_STAT(STAT_MetalDevice1Utilisation);
+DEFINE_STAT(STAT_MetalDevice2Utilisation);
+DEFINE_STAT(STAT_MetalDevice3Utilisation);
+DEFINE_STAT(STAT_MetalVRAMUsedBytes);
+DEFINE_STAT(STAT_MetalVRAMFreeBytes);
+DEFINE_STAT(STAT_MetalVRAMLargestFreeBytes);
+DEFINE_STAT(STAT_MetalInUseVidMemBytes);
+DEFINE_STAT(STAT_MetalInUseSysMemBytes);
+#endif
 
 #if METAL_STATISTICS
 void FMetalEventNode::GetStats(FMetalPipelineStats& OutStats)
@@ -219,14 +233,20 @@ void FMetalEventNodeFrame::LogDisjointQuery()
 	
 }
 
+FGPUProfilerEventNode* FMetalGPUProfiler::CreateEventNode(const TCHAR* InName, FGPUProfilerEventNode* InParent)
+{
+	FMetalEventNode* EventNode = new FMetalEventNode(FMetalContext::GetCurrentContext(), InName, InParent, false, false);
+	return EventNode;
+}
+
 void FMetalGPUProfiler::Cleanup()
 {
 	
 }
 
-void FMetalGPUProfiler::PushEvent(const TCHAR* Name)
+void FMetalGPUProfiler::PushEvent(const TCHAR* Name, FColor Color)
 {
-	FGPUProfiler::PushEvent(Name);
+	FGPUProfiler::PushEvent(Name, Color);
 }
 
 void FMetalGPUProfiler::PopEvent()
@@ -298,7 +318,7 @@ void FMetalGPUProfiler::BeginFrame()
 			}*/
         }
         
-        PushEvent(TEXT("FRAME"));
+        PushEvent(TEXT("FRAME"), FColor(0, 255, 0, 255));
     }
     NumNestedFrames++;
 }
@@ -307,8 +327,90 @@ void FMetalGPUProfiler::EndFrame()
 {
     if(--NumNestedFrames == 0)
     {
-        PopEvent();
-        
+		PopEvent();
+		
+#if PLATFORM_MAC
+		TArray<FMacPlatformMisc::FGPUDescriptor> const& GPUs = FPlatformMisc::GetGPUDescriptors();
+		FMacPlatformMisc::FGPUDescriptor const& GPU = GPUs[GetMetalDeviceContext().GetDeviceIndex()];
+		TMap<FString, float> Stats = GPU.GetPerformanceStatistics();
+		float DeviceUtil = 0.0f;
+		if(Stats.Contains(TEXT("Device Utilization %")))
+		{
+			DeviceUtil = Stats.FindRef(TEXT("Device Utilization %"));
+		}
+		SET_FLOAT_STAT(STAT_MetalDeviceUtilisation, DeviceUtil);
+		
+		DeviceUtil = 0.0f;
+		if(Stats.Contains(TEXT("Device Utilization % at cur p-state")))
+		{
+			DeviceUtil = Stats.FindRef(TEXT("Device Utilization % at cur p-state"));
+		}
+		SET_FLOAT_STAT(STAT_MetalDeviceUtilisationAtPState, DeviceUtil);
+		
+		DeviceUtil = 0.0f;
+		if(Stats.Contains(TEXT("Device Unit 0 Utilization %")))
+		{
+			DeviceUtil = Stats.FindRef(TEXT("Device Unit 0 Utilization %"));
+		}
+		SET_FLOAT_STAT(STAT_MetalDevice0Utilisation, DeviceUtil);
+		
+		DeviceUtil = 0.0f;
+		if(Stats.Contains(TEXT("Device Unit 1 Utilization %")))
+		{
+			DeviceUtil = Stats.FindRef(TEXT("Device Unit 1 Utilization %"));
+		}
+		SET_FLOAT_STAT(STAT_MetalDevice1Utilisation, DeviceUtil);
+		
+		DeviceUtil = 0.0f;
+		if(Stats.Contains(TEXT("Device Unit 2 Utilization %")))
+		{
+			DeviceUtil = Stats.FindRef(TEXT("Device Unit 2 Utilization %"));
+		}
+		SET_FLOAT_STAT(STAT_MetalDevice2Utilisation, DeviceUtil);
+		
+		DeviceUtil = 0.0f;
+		if(Stats.Contains(TEXT("Device Unit 3 Utilization %")))
+		{
+			DeviceUtil = Stats.FindRef(TEXT("Device Unit 3 Utilization %"));
+		}
+		SET_FLOAT_STAT(STAT_MetalDevice3Utilisation, DeviceUtil);
+		
+		int64 Memory = 0;
+		if(Stats.Contains(TEXT("vramUsedBytes")))
+		{
+			Memory = Stats.FindRef(TEXT("vramUsedBytes"));
+		}
+		SET_MEMORY_STAT(STAT_MetalVRAMUsedBytes, Memory);
+		
+		Memory = 0;
+		if(Stats.Contains(TEXT("vramFreeBytes")))
+		{
+			Memory = Stats.FindRef(TEXT("vramFreeBytes"));
+		}
+		SET_MEMORY_STAT(STAT_MetalVRAMFreeBytes, Memory);
+		
+		Memory = 0;
+		if(Stats.Contains(TEXT("vramLargestFreeBytes")))
+		{
+			Memory = Stats.FindRef(TEXT("vramLargestFreeBytes"));
+		}
+		SET_MEMORY_STAT(STAT_MetalVRAMLargestFreeBytes, Memory);
+		
+		Memory = 0;
+		if(Stats.Contains(TEXT("inUseVidMemoryBytes")))
+		{
+			Memory = Stats.FindRef(TEXT("inUseVidMemoryBytes"));
+		}
+		SET_MEMORY_STAT(STAT_MetalInUseVidMemBytes, Memory);
+		
+		Memory = 0;
+		if(Stats.Contains(TEXT("inUseSysMemoryBytes")))
+		{
+			Memory = Stats.FindRef(TEXT("inUseSysMemoryBytes"));
+		}
+		SET_MEMORY_STAT(STAT_MetalInUseSysMemBytes, Memory);
+#endif
+		
         if(CurrentEventNodeFrame)
         {
             CurrentEventNodeFrame->EndFrame();

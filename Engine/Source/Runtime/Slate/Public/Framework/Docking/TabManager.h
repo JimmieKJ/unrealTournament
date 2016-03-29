@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -500,6 +500,41 @@ class SLATE_API FTabManager : public TSharedFromThis<FTabManager>
 		FTabManager::FPrivateApi& GetPrivateApi();
 
 	public:
+		class SLATE_API FSearchPreference
+		{
+		public:
+			virtual TSharedPtr<SDockTab> Search(const FTabManager& Manager, FName PlaceholderId, const TSharedRef<SDockTab>& UnmanagedTab) const = 0;
+			virtual ~FSearchPreference() {}
+		};
+
+		class SLATE_API FRequireClosedTab : public FSearchPreference
+		{
+		public:
+			virtual TSharedPtr<SDockTab> Search(const FTabManager& Manager, FName PlaceholderId, const TSharedRef<SDockTab>& UnmanagedTab) const override;
+		};
+
+		class SLATE_API FLiveTabSearch : public FSearchPreference
+		{
+		public:
+			FLiveTabSearch(FName InSearchForTabId = NAME_None);
+
+			virtual TSharedPtr<SDockTab> Search(const FTabManager& Manager, FName PlaceholderId, const TSharedRef<SDockTab>& UnmanagedTab) const override;
+
+		private:
+			FName SearchForTabId;
+		};
+
+		class SLATE_API FLastMajorOrNomadTab : public FSearchPreference
+		{
+		public:
+			FLastMajorOrNomadTab(FName InFallbackTabId);
+
+			virtual TSharedPtr<SDockTab> Search(const FTabManager& Manager, FName PlaceholderId, const TSharedRef<SDockTab>& UnmanagedTab) const override;
+		private:
+			FName FallbackTabId;
+		};
+
+	public:
 		static TSharedRef<FLayout> NewLayout( const FName LayoutName )
 		{
 			return MakeShareable( new FLayout(LayoutName) );
@@ -582,6 +617,9 @@ class SLATE_API FTabManager : public TSharedFromThis<FTabManager>
 				RequireClosedTab
 			};
 		};
+
+		/** Insert a new UnmanagedTab document tab next to an existing tab (closed or open) that has the PlaceholdId. */
+		void InsertNewDocumentTab( FName PlaceholderId, const FSearchPreference& SearchPreference, const TSharedRef<SDockTab>& UnmanagedTab );
 		
 		/** Insert a new UnmanagedTab document tab next to an existing tab (closed or open) that has the PlaceholdId. */
 		void InsertNewDocumentTab( FName PlaceholderId, ESearchPreference::Type SearchPreference, const TSharedRef<SDockTab>& UnmanagedTab );
@@ -619,6 +657,12 @@ class SLATE_API FTabManager : public TSharedFromThis<FTabManager>
 		/** Provide a tab that will be the main tab and cannot be closed. */
 		void SetMainTab(const TSharedRef<const SDockTab>& InTab);
 
+		/* Prevent or allow all tabs to be drag */
+		void SetCanDoDragOperation(bool CanDoDragOperation) { bCanDoDragOperation = CanDoDragOperation; }
+		
+		/* Return true if we can do drag operation */
+		bool GetCanDoDragOperation() { return bCanDoDragOperation; }
+
 		/** @return if the provided tab can be closed. */
 		bool IsTabCloseable(const TSharedRef<const SDockTab>& InTab) const;
 
@@ -645,13 +689,20 @@ class SLATE_API FTabManager : public TSharedFromThis<FTabManager>
 
 	protected:
 		
-		void InsertDocumentTab( FName PlaceholderId, ESearchPreference::Type SearchPreference, const TSharedRef<SDockTab>& UnmanagedTab, bool bPlaySpawnAnim );
+		void InsertDocumentTab(FName PlaceholderId, const FSearchPreference& SearchPreference, const TSharedRef<SDockTab>& UnmanagedTab, bool bPlaySpawnAnim);
 			
 		void PopulateTabSpawnerMenu_Helper( FMenuBuilder& PopulateMe, struct FPopulateTabSpawnerMenu_Args Args );
 
 		void MakeSpawnerMenuEntry( FMenuBuilder &PopulateMe, const TSharedPtr<FTabSpawnerEntry> &SpawnerNode );
 
 		TSharedRef<SDockTab> InvokeTab_Internal( const FTabId& TabId );
+
+		/** Finds the first instance of an existing tab with the given tab id. */
+		TSharedPtr<SDockTab> FindExistingLiveTab(const FTabId& TabId) const;
+
+		/** Finds the last major or nomad tab in a particular window. */
+		TSharedPtr<SDockTab> FindLastTabInWindow(TSharedPtr<SWindow> Window) const;
+
 		TSharedPtr<SDockingTabStack> FindPotentiallyClosedTab( const FTabId& ClosedTabId );
 
 		typedef TMap< FName, TSharedRef<FTabSpawnerEntry> > FTabSpawner;
@@ -672,7 +723,6 @@ class SLATE_API FTabManager : public TSharedFromThis<FTabManager>
 		bool IsValidTabForSpawning( const FTab& SomeTab ) const;
 		TSharedRef<SDockTab> SpawnTab( const FTabId& TabId, const TSharedPtr<SWindow>& ParentWindow );
 
-		TSharedPtr<SDockTab> FindExistingLiveTab( const FTabId& TabId ) const;
 		TSharedPtr<class SDockingTabStack> FindTabInLiveAreas( const FTabMatcher& TabMatcher ) const;
 		static TSharedPtr<class SDockingTabStack> FindTabInLiveArea( const FTabMatcher& TabMatcher, const TSharedRef<SDockingArea>& InArea );
 
@@ -751,6 +801,12 @@ class SLATE_API FTabManager : public TSharedFromThis<FTabManager>
 
 		/** The main tab, this tab cannot be closed. */
 		TWeakPtr<const SDockTab> MainNonCloseableTab;
+
+		/** The last window we docked a nomad or major tab into */
+		TWeakPtr<SWindow> LastMajorDockWindow;
+
+		/* Prevent or allow Drag operation. */
+		bool bCanDoDragOperation;
 };
 
 

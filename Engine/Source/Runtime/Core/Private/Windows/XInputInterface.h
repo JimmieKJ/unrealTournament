@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "GenericPlatform/GenericApplicationMessageHandler.h"
@@ -49,6 +49,8 @@ public:
 	*/
 	void SetChannelValues( const int32 ControllerId, const FForceFeedbackValues& Values );
 
+	bool IsGamepadAttached() const { return bIsGamepadAttached; }
+
 private:
 
 	XInputInterface( const TSharedRef< FGenericApplicationMessageHandler >& MessageHandler );
@@ -92,6 +94,8 @@ private:
 
 	/** If we've been notified by the system that the controller state may have changed */
 	bool bNeedsControllerStateUpdate;
+
+	bool bIsGamepadAttached;
 
 	/** In the engine, all controllers map to xbox controllers for consistency */
 	uint8	X360ToXboxControllerMapping[MAX_NUM_CONTROLLER_BUTTONS];

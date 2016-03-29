@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "UnrealHeaderTool.h"
@@ -8,6 +8,8 @@
 IMPLEMENT_APPLICATION(UnrealHeaderTool, "UnrealHeaderTool");
 
 DEFINE_LOG_CATEGORY(LogCompile);
+
+bool GUHTWarningLogged = false;
 
 /**
  * Application entry point
@@ -48,8 +50,7 @@ INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
 	{
 		const TCHAR* CmdLinePtr = *ShortCmdLine;
 
-		// Parse the game name.  UHT doesn't care about this directly, but the engine init code will be
-		// expecting it when it parses the command-line itself.
+		// Parse the game name or project filename.  UHT reads the list of plugins from there in case one of the plugins is UHT plugin.
 		FString GameName = FParse::Token(CmdLinePtr, false);
 
 		// This parameter is the absolute path to the file which contains information about the modules
@@ -58,7 +59,11 @@ INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
 	}
 
 	GIsUCCMakeStandaloneHeaderGenerator = true;
-	GEngineLoop.PreInit(*ShortCmdLine);
+	if (GEngineLoop.PreInit(*ShortCmdLine) != 0)
+	{
+		UE_LOG(LogCompile, Error, TEXT("Failed to initialize the engine (PreInit failed)."));
+		return ECompilationResult::CrashOrAssert;
+	}
 
 	// Log full command line for UHT as UBT overrides LogInit verbosity settings
 	UE_LOG(LogCompile, Log, TEXT("UHT Command Line: %s"), *CmdLine);
@@ -68,7 +73,7 @@ INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
 		if (!FPlatformMisc::IsDebuggerPresent())
 		{
 			UE_LOG(LogCompile, Error, TEXT( "Missing module info filename on command line" ));
-			return 1;
+			return ECompilationResult::OtherCompilationError;
 		}
 
 		// If we have a debugger, let's use a pre-existing manifest file to streamline debugging
@@ -81,6 +86,11 @@ INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
 
 	FEngineLoop::AppPreExit();
 	FEngineLoop::AppExit();
+
+	if (Result == ECompilationResult::Succeeded && GUHTWarningLogged && GWarn->TreatWarningsAsErrors)
+	{
+		Result = ECompilationResult::OtherCompilationError;
+	}
 
 	return Result;
 }

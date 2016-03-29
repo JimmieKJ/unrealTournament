@@ -1,23 +1,29 @@
 {
 	"FileVersion" : 3,
-	
-	"FriendlyName" : "Android Device Profile Selector",
 	"Version" : 1,
 	"VersionName" : "1.0",
-	"CreatedBy" : "Epic Games, Inc.",
-	"CreatedByURL" : "http://epicgames.com",
-	"EngineVersion" : "4.2.0",
+	"FriendlyName" : "Android Device Profile Selector",
 	"Description" : "Android Device Profile Selector used show selection of device profiles on hardware",
 	"Category" : "Device Profile Selectors",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"DocsURL" : "",
+	"MarketplaceURL" : "",
+	"SupportURL" : "",
 	"EnabledByDefault" : true,
-	
+	"CanContainContent" : false,
+	"IsBetaVersion" : false,
+	"Installed" : false,
 	"Modules" :
 	[
 		{
 			"Name" : "AndroidDeviceProfileSelector",
 			"Type" : "RuntimeNoCommandlet",
 			"LoadingPhase" : "PostConfigInit",
-			"WhitelistPlatforms" : [ "Android" ]
+			"WhitelistPlatforms" :
+			[
+				"Android"
+			]
 		}
 	]
 }

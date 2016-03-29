@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "Curves/CurveFloat.h"
@@ -13,6 +13,46 @@ enum FoliageVertexColorMask
 	FOLIAGEVERTEXCOLORMASK_Green	UMETA(DisplayName="Green"),
 	FOLIAGEVERTEXCOLORMASK_Blue		UMETA(DisplayName="Blue"),
 	FOLIAGEVERTEXCOLORMASK_Alpha	UMETA(DisplayName="Alpha"),
+};
+
+UENUM()
+enum class EVertexColorMaskChannel : uint8
+{
+	Red,
+	Green,
+	Blue,
+	Alpha,
+
+	MAX_None	UMETA(Hidden)
+};
+
+USTRUCT()
+struct FFoliageVertexColorChannelMask
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** 
+	 *  When checked, foliage will be masked from this mesh using this color channel
+	 */
+	UPROPERTY(EditAnywhere, Category=VertexColorMask)
+	uint32 UseMask:1;
+
+	/** Specifies the threshold value above which the static mesh vertex color value must be, in order for foliage instances to be placed in a specific area */
+	UPROPERTY(EditAnywhere, Category=VertexColorMask)
+	float MaskThreshold;
+
+	/** 
+	 *  When unchecked, foliage instances will be placed only when the vertex color in the specified channel(s) is above the threshold amount. 
+	 *  When checked, the vertex color must be less than the threshold amount 
+	 */
+	UPROPERTY(EditAnywhere, Category=VertexColorMask)
+	uint32 InvertMask:1;
+
+	FFoliageVertexColorChannelMask()
+		: UseMask(false)
+		, MaskThreshold(0.5f)
+		, InvertMask(false)
+	{}
 };
 
 namespace EHasCustomNavigableGeometry
@@ -103,23 +143,26 @@ public:
 	UPROPERTY(EditAnywhere, Category=Painting, meta=(ClampMin="0.001", UIMin="0.001", ReapplyCondition="ReapplyScaleZ"))
 	FFloatInterval ScaleZ;
 
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Painting, meta=(HideBehind="VertexColorMask"))
+	FFoliageVertexColorChannelMask VertexColorMaskByChannel[(uint8)EVertexColorMaskChannel::MAX_None];
+
 	/** 
 	 *  When painting on static meshes, foliage instance placement can be limited to areas where the static mesh has values in the selected vertex color channel(s). 
 	 *  This allows a static mesh to mask out certain areas to prevent foliage from being placed there
 	 */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Painting, meta=(ReapplyCondition="ReapplyVertexColorMask"))
-	TEnumAsByte<enum FoliageVertexColorMask> VertexColorMask;
+	UPROPERTY()
+	TEnumAsByte<enum FoliageVertexColorMask> VertexColorMask_DEPRECATED;
 
 	/** Specifies the threshold value above which the static mesh vertex color value must be, in order for foliage instances to be placed in a specific area */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Painting, meta=(HideBehind="VertexColorMask"))
-	float VertexColorMaskThreshold;
+	UPROPERTY()
+	float VertexColorMaskThreshold_DEPRECATED;
 
 	/** 
 	 *  When unchecked, foliage instances will be placed only when the vertex color in the specified channel(s) is above the threshold amount. 
 	 *  When checked, the vertex color must be less than the threshold amount 
 	 */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Painting, meta=(HideBehind="VertexColorMask"))
-	uint32 VertexColorMaskInvert:1;
+	UPROPERTY()
+	uint32 VertexColorMaskInvert_DEPRECATED:1;
 
 public:
 	// PLACEMENT
@@ -226,7 +269,7 @@ public:
 	uint32 bReceivesDecals : 1;
 	
 	/** Whether to override the lightmap resolution defined in the static mesh. */
-	UPROPERTY(BlueprintReadOnly, Category=InstanceSettings)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=InstanceSettings, meta=(InlineEditConditionToggle))
 	uint32 bOverrideLightMapRes:1;
 
 	/** Overrides the lightmap resolution defined in the static mesh */

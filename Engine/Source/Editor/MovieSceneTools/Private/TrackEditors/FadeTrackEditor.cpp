@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneToolsPrivatePCH.h"
 #include "MovieSceneFadeTrack.h"
@@ -52,6 +52,11 @@ void FFadeTrackEditor::BuildAddTrackMenu(FMenuBuilder& MenuBuilder)
 bool FFadeTrackEditor::SupportsType(TSubclassOf<UMovieSceneTrack> Type) const
 {
 	return (Type == UMovieSceneFadeTrack::StaticClass());
+}
+
+const FSlateBrush* FFadeTrackEditor::GetIconBrush() const
+{
+	return FEditorStyle::GetBrush("Sequencer.Tracks.Fade");
 }
 
 

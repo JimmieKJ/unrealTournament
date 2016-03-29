@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ForwardShadingRenderer.cpp: Scene rendering code for the ES2 feature level.
@@ -131,7 +131,9 @@ void FForwardShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 
 	const bool bGammaSpace = !IsMobileHDR();
 	const bool bRequiresUpscale = !ViewFamily.bUseSeparateRenderTarget && ((uint32)ViewFamily.RenderTarget->GetSizeXY().X > ViewFamily.FamilySizeX || (uint32)ViewFamily.RenderTarget->GetSizeXY().Y > ViewFamily.FamilySizeY);
-	const bool bRenderToScene = bRequiresUpscale || FSceneRenderer::ShouldCompositeEditorPrimitives(View);
+	// ES2 requires that the back buffer and depth match dimensions.
+	// For the most part this is not the case when using scene captures. Thus scene captures always render to scene color target.
+	const bool bRenderToScene = bRequiresUpscale || FSceneRenderer::ShouldCompositeEditorPrimitives(View) || View.bIsSceneCapture;
 
 	if (bGammaSpace && !bRenderToScene)
 	{
@@ -161,6 +163,7 @@ void FForwardShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	// Notify the FX system that opaque primitives have been rendered.
 	if (Scene->FXSystem)
 	{
+		//#todo-rco: This is switching to another RT!
 		Scene->FXSystem->PostRenderOpaque(RHICmdList);
 	}
 
@@ -171,7 +174,7 @@ void FForwardShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_TranslucencyDrawTime);
 
-		// Note: Forward pass has no SeparateTranslucency, so refraction effect order with Transluency is different.
+		// Note: Forward pass has no SeparateTranslucency, so refraction effect order with Translucency is different.
 		// Having the distortion applied between two different translucency passes would make it consistent with the deferred pass.
 		// This is not done yet.
 
@@ -247,9 +250,12 @@ void FForwardShadingSceneRenderer::BasicPostProcess(FRHICommandListImmediate& RH
 	FRenderingCompositePassContext CompositeContext(RHICmdList, View);
 	FPostprocessContext Context(RHICmdList, CompositeContext.Graph, View);
 
-	if (bDoUpscale)
-	{	// simple bilinear upscaling for ES2.
-		FRenderingCompositePass* Node = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessUpscale(1));
+	const bool bBlitRequired = !bDoUpscale && !bDoEditorPrimitives;
+
+	if (bDoUpscale || bBlitRequired)
+	{	// blit from sceneRT to view family target, simple bilinear if upscaling otherwise point filtered.
+		uint32 UpscaleQuality = bDoUpscale ? 1 : 0;
+		FRenderingCompositePass* Node = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessUpscale(UpscaleQuality));
 
 		Node->SetInput(ePId_Input0, FRenderingCompositeOutputRef(Context.FinalOutput));
 		Node->SetInput(ePId_Input1, FRenderingCompositeOutputRef(Context.FinalOutput));
@@ -298,7 +304,8 @@ void FForwardShadingSceneRenderer::ConditionalResolveSceneDepth(FRHICommandListI
 #if !PLATFORM_HTML5
 	auto ShaderPlatform = ViewFamily.GetShaderPlatform();
 
-	if (IsMobilePlatform(ShaderPlatform) 
+	if (IsMobileHDR() 
+		&& IsMobilePlatform(ShaderPlatform) 
 		&& !IsPCPlatform(ShaderPlatform)) // exclude mobile emulation on PC
 	{
 		bool bSceneDepthInAlpha = (SceneContext.GetSceneColor()->GetDesc().Format == PF_FloatRGBA);
@@ -312,9 +319,10 @@ void FForwardShadingSceneRenderer::ConditionalResolveSceneDepth(FRHICommandListI
 
 			if (bDecals || bModulatedShadows)
 			{
-				// Switch depth target to force hardware flush current depth to texture
+				// Switch target to force hardware flush current depth to texture
+				FTextureRHIRef DummySceneColor = GSystemTextures.BlackDummy->GetRenderTargetItem().TargetableTexture;
 				FTextureRHIRef DummyDepthTarget = GSystemTextures.DepthDummy->GetRenderTargetItem().TargetableTexture;
-				SetRenderTarget(RHICmdList, SceneContext.GetSceneColorSurface(), DummyDepthTarget, ESimpleRenderTargetMode::EUninitializedColorClearDepth, FExclusiveDepthStencil::DepthWrite_StencilWrite);
+				SetRenderTarget(RHICmdList, DummySceneColor, DummyDepthTarget, ESimpleRenderTargetMode::EUninitializedColorClearDepth, FExclusiveDepthStencil::DepthWrite_StencilWrite);
 				RHICmdList.DiscardRenderTargets(true, true, 0);
 			}
 		}

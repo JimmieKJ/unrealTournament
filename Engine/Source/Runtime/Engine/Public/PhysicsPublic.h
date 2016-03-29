@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PhysicsPublic.h
@@ -432,13 +432,9 @@ public:
 	/** @return Whether physics scene is using substepping */
 	bool IsSubstepping(uint32 SceneType) const
 	{
-#if WITH_SUBSTEPPING
 		if (SceneType == PST_Sync) return bSubstepping;
 		if (SceneType == PST_Async) return bSubsteppingAsync;
 		return false;
-#else
-		return false;
-#endif
 	}
 	
 	/** Shifts physics scene origin by specified offset */
@@ -567,10 +563,8 @@ private:
 	/** Process kinematic updates on any deferred skeletal meshes */
 	void UpdateKinematicsOnDeferredSkelMeshes();
 
-#if WITH_SUBSTEPPING
 	/** Task created from TickPhysScene so we can substep without blocking */
 	bool SubstepSimulation(uint32 SceneType, FGraphEventRef& InOutCompletionEvent);
-#endif
 
 #if WITH_PHYSX
 	/** User data wrapper passed to physx */
@@ -586,12 +580,10 @@ private:
 
 #endif
 
-#if WITH_SUBSTEPPING
 	class FPhysSubstepTask * PhysSubSteppers[PST_MAX];
 
 #if WITH_APEX
 	TUniquePtr<struct FPendingApexDamageManager> PendingApexDamageManager;
-#endif
 #endif
 
 	struct FPendingCollisionDisableTable
@@ -624,6 +616,8 @@ private:
 
 	/** Map of SkeletalMeshComponents that need their bone transforms sent to the physics engine before simulation. */
 	TMap<USkeletalMeshComponent*, FDeferredKinematicUpdateInfo>	DeferredKinematicUpdateSkelMeshes;
+
+	FDelegateHandle PreGarbageCollectDelegateHandle;
 };
 
 /**

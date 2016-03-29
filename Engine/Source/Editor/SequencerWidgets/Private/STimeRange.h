@@ -1,22 +1,25 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "ITimeSlider.h"
 
-class STimeRangeSlider;
-
-DECLARE_DELEGATE_RetVal( bool, STimeRangeGetter );
-
-class STimeRange : public ITimeSlider, public TDefaultNumericTypeInterface<float>
+class STimeRange : public ITimeSlider
 {
 public:
 	SLATE_BEGIN_ARGS(STimeRange)
+		: _ShowWorkingRange(true), _ShowViewRange(false), _ShowPlaybackRange(false)
 	{}
 		/* If we should show frame numbers on the timeline */
 		SLATE_ARGUMENT( TAttribute<bool>, ShowFrameNumbers )
-		/* The time snap interval for the timeline */
-		SLATE_ARGUMENT( TAttribute<float>, TimeSnapInterval )
+		/** Whether to show the working range */
+		SLATE_ARGUMENT( bool, ShowWorkingRange )
+		/** Whether to show the view range */
+		SLATE_ARGUMENT( bool, ShowViewRange )
+		/** Whether to show the playback range */
+		SLATE_ARGUMENT( bool, ShowPlaybackRange )
+		/* Content to display inside the time range */
+		SLATE_DEFAULT_SLOT( FArguments, CenterContent )
 	SLATE_END_ARGS()
 
 	/**
@@ -24,47 +27,59 @@ public:
 	 * 
 	 * @param InArgs   A declaration from which to construct the widget
 	 */
-	void Construct( const FArguments& InArgs, TSharedRef<ITimeSliderController> InTimeSliderController );
-
-	float GetTimeSnapInterval() const;
-
-	using ITimeSlider::ToString;
+	void Construct( const FArguments& InArgs, TSharedRef<ITimeSliderController> InTimeSliderController, TSharedRef<INumericTypeInterface<float>> NumericTypeInterface );
 	
 protected:
-	float InTime() const;
-	float OutTime() const;
-	float StartTime() const;
-	float EndTime() const;
 
-	TOptional<float> MinInTime() const;
-	TOptional<float> MaxInTime() const;
-	TOptional<float> MinOutTime() const;
-	TOptional<float> MaxOutTime() const;
-	TOptional<float> MaxStartTime() const;
-	TOptional<float> MinEndTime() const;
-	
-	void OnStartTimeCommitted(float NewValue, ETextCommit::Type InTextCommit);
-	void OnEndTimeCommitted(float NewValue, ETextCommit::Type InTextCommit);
-	void OnInTimeCommitted(float NewValue, ETextCommit::Type InTextCommit);
-	void OnOutTimeCommitted(float NewValue, ETextCommit::Type InTextCommit);
+	float PlayStartTime() const;
+	float PlayEndTime() const;
 
-	void OnStartTimeChanged(float NewValue);
-	void OnEndTimeChanged(float NewValue);
-	void OnInTimeChanged(float NewValue);
-	void OnOutTimeChanged(float NewValue);
+	TOptional<float> MinPlayStartTime() const;
+	TOptional<float> MaxPlayStartTime() const;
+	TOptional<float> MinPlayEndTime() const;
+	TOptional<float> MaxPlayEndTime() const;
 
-	FText InTimeTooltip() const;
-	FText OutTimeTooltip() const;
-	FText StartTimeTooltip() const;
-	FText EndTimeTooltip() const;
+	void OnPlayStartTimeCommitted(float NewValue, ETextCommit::Type InTextCommit);
+	void OnPlayEndTimeCommitted(float NewValue, ETextCommit::Type InTextCommit);
 
-	/** Convert the type to/from a string */
-	virtual FString ToString(const float& Value) const override;
-	virtual TOptional<float> FromString(const FString& InString) override;
+	void OnPlayStartTimeChanged(float NewValue);
+	void OnPlayEndTimeChanged(float NewValue);
+
+	FText PlayStartTimeTooltip() const;
+	FText PlayEndTimeTooltip() const;
+
+protected:
+
+	float ViewStartTime() const;
+	float ViewEndTime() const;
+
+	TOptional<float> MaxViewStartTime() const;
+	TOptional<float> MinViewEndTime() const;
+
+	void OnViewStartTimeCommitted(float NewValue, ETextCommit::Type InTextCommit);
+	void OnViewEndTimeCommitted(float NewValue, ETextCommit::Type InTextCommit);
+
+	void OnViewStartTimeChanged(float NewValue);
+	void OnViewEndTimeChanged(float NewValue);
+
+	FText ViewStartTimeTooltip() const;
+	FText ViewEndTimeTooltip() const;
+
+protected:
+
+	float WorkingStartTime() const;
+	float WorkingEndTime() const;
+
+	TOptional<float> MaxWorkingStartTime() const;
+	TOptional<float> MinWorkingEndTime() const;
+
+	void OnWorkingStartTimeCommitted(float NewValue, ETextCommit::Type InTextCommit);
+	void OnWorkingEndTimeCommitted(float NewValue, ETextCommit::Type InTextCommit);
+
+	void OnWorkingStartTimeChanged(float NewValue);
+	void OnWorkingEndTimeChanged(float NewValue);
 
 private:
 	TSharedPtr<ITimeSliderController> TimeSliderController;
-	TSharedPtr<STimeRangeSlider> TimeRangeSlider;
 	TAttribute<bool> ShowFrameNumbers;
-	TAttribute<float> TimeSnapInterval;
 };

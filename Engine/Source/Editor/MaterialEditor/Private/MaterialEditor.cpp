@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MaterialEditorModule.h"
 
@@ -864,6 +864,18 @@ bool FMaterialEditor::ApproveSetPreviewAsset(UObject* InAsset)
 	return bApproved;
 }
 
+void FMaterialEditor::GetSaveableObjects(TArray<UObject*>& OutObjects) const
+{
+	if ((MaterialFunction != nullptr) && MaterialFunction->ParentFunction)
+	{
+		OutObjects.Add(MaterialFunction->ParentFunction);
+	}
+	else
+	{
+		OutObjects.Add(OriginalMaterial);
+	}
+}
+
 void FMaterialEditor::SaveAsset_Execute()
 {
 	UE_LOG(LogMaterialEditor, Log, TEXT("Saving and Compiling material %s"), *GetEditingObjects()[0]->GetName());
@@ -873,20 +885,19 @@ void FMaterialEditor::SaveAsset_Execute()
 		UpdateOriginalMaterial();
 	}
 
-	UPackage* Package = OriginalMaterial->GetOutermost();
+	IMaterialEditor::SaveAsset_Execute();
+}
 
-	if (MaterialFunction != NULL && MaterialFunction->ParentFunction)
-	{
-		Package = MaterialFunction->ParentFunction->GetOutermost();
-	}
-	
-	if (Package)
-	{
-		TArray<UPackage*> PackagesToSave;
-		PackagesToSave.Add(Package);
+void FMaterialEditor::SaveAssetAs_Execute()
+{
+	UE_LOG(LogMaterialEditor, Log, TEXT("Saving and Compiling material %s"), *GetEditingObjects()[0]->GetName());
 
-		FEditorFileUtils::PromptForCheckoutAndSave(PackagesToSave, false, false);
+	if (bMaterialDirty)
+	{
+		UpdateOriginalMaterial();
 	}
+
+	IMaterialEditor::SaveAssetAs_Execute();
 }
 
 bool FMaterialEditor::OnRequestClose()
@@ -1086,9 +1097,19 @@ bool FMaterialEditor::SetPreviewAssetByName(const TCHAR* InAssetName)
 
 void FMaterialEditor::SetPreviewMaterial(UMaterialInterface* InMaterialInterface)
 {
-	if (PreviewViewport.IsValid())
+	if (Material->IsUIMaterial())
 	{
-		PreviewViewport->SetPreviewMaterial(InMaterialInterface);
+		if (PreviewUIViewport.IsValid())
+		{
+			PreviewUIViewport->SetPreviewMaterial(InMaterialInterface);
+		}
+	}
+	else
+	{
+		if (PreviewViewport.IsValid())
+		{
+			PreviewViewport->SetPreviewMaterial(InMaterialInterface);
+		}
 	}
 }
 
@@ -1392,18 +1413,26 @@ void FMaterialEditor::UpdateOriginalMaterial()
 		for (int32 ExpressionIndex = 0; ExpressionIndex < MaterialFunction->ParentFunction->FunctionExpressions.Num(); ExpressionIndex++)
 		{
 			UMaterialExpression* CurrentExpression = MaterialFunction->ParentFunction->FunctionExpressions[ExpressionIndex];
+			ensureMsgf(CurrentExpression, TEXT("Invalid expression at index [%i] whilst saving material function."), ExpressionIndex);
 
 			// Link the expressions back to their function
-			CurrentExpression->Material = NULL;
-			CurrentExpression->Function = MaterialFunction->ParentFunction;
+			if (CurrentExpression)
+			{
+				CurrentExpression->Material = NULL;
+				CurrentExpression->Function = MaterialFunction->ParentFunction;
+			}	
 		}
 		for (int32 ExpressionIndex = 0; ExpressionIndex < MaterialFunction->ParentFunction->FunctionEditorComments.Num(); ExpressionIndex++)
 		{
 			UMaterialExpressionComment* CurrentExpression = MaterialFunction->ParentFunction->FunctionEditorComments[ExpressionIndex];
+			ensureMsgf(CurrentExpression, TEXT("Invalid comment at index [%i] whilst saving material function."), ExpressionIndex);
 
 			// Link the expressions back to their function
-			CurrentExpression->Material = NULL;
-			CurrentExpression->Function = MaterialFunction->ParentFunction;
+			if (CurrentExpression)
+			{
+				CurrentExpression->Material = NULL;
+				CurrentExpression->Function = MaterialFunction->ParentFunction;
+			}
 		}
 
 		// mark the parent function as changed
@@ -2300,6 +2329,7 @@ void FMaterialEditor::OnPreviewNode()
 			UMaterialGraphNode* GraphNode = Cast<UMaterialGraphNode>(*NodeIt);
 			if (GraphNode)
 			{
+				GraphEditor->NotifyGraphChanged();
 				SetPreviewExpression(GraphNode->MaterialExpression);
 			}
 		}
@@ -2822,8 +2852,12 @@ void FMaterialEditor::SetPreviewExpression(UMaterialExpression* NewPreviewExpres
 		if( ExpressionPreviewMaterial == NULL )
 		{
 			// Create the expression preview material if it hasnt already been created
-			ExpressionPreviewMaterial = NewObject<UMaterial>(GetTransientPackage(), NAME_None, RF_Public);
+			ExpressionPreviewMaterial = NewObject<UPreviewMaterial>(GetTransientPackage(), NAME_None, RF_Public);
 			ExpressionPreviewMaterial->bIsPreviewMaterial = true;
+			if (Material->IsUIMaterial())
+			{
+				ExpressionPreviewMaterial->MaterialDomain = MD_UI;
+			}
 		}
 
 		if (FunctionOutput)
@@ -3367,6 +3401,7 @@ void FMaterialEditor::PasteNodesHere(const FVector2D& Location)
 			}
 
 			NewExpression->UpdateParameterGuid(true, true);
+			Material->AddExpressionParameter(NewExpression, Material->EditorParameters);
 
 			UMaterialExpressionFunctionInput* FunctionInput = Cast<UMaterialExpressionFunctionInput>( NewExpression );
 			if( FunctionInput )
@@ -3554,6 +3589,20 @@ void FMaterialEditor::NotifyPostChange( const FPropertyChangedEvent& PropertyCha
 			TArray<TWeakObjectPtr<UObject>> SelectedObjects = MaterialDetailsView->GetSelectedObjects();
 			MaterialDetailsView->SetObjects( SelectedObjects, true );
 
+			if (ExpressionPreviewMaterial)
+			{
+				if (Material->IsUIMaterial())
+				{
+					ExpressionPreviewMaterial->MaterialDomain = MD_UI;
+				}
+				else
+				{
+					ExpressionPreviewMaterial->MaterialDomain = MD_Surface;
+				}
+
+				SetPreviewMaterial(ExpressionPreviewMaterial);
+			}
+
 			UpdatePreviewViewportsVisibility();
 		}
 
@@ -3595,6 +3644,8 @@ void FMaterialEditor::NotifyPostChange( const FPropertyChangedEvent& PropertyCha
 			RefreshExpressionPreviews();
 			RegenerateCodeView();
 		}
+
+		GetDefault<UMaterialGraphSchema>()->ForceVisualizationCacheClear();
 	}
 
 	delete ScopedTransaction;
@@ -3602,8 +3653,6 @@ void FMaterialEditor::NotifyPostChange( const FPropertyChangedEvent& PropertyCha
 
 	Material->MarkPackageDirty();
 	SetMaterialDirty();
-
-	GetDefault<UMaterialGraphSchema>()->ForceVisualizationCacheClear();
 }
 
 void FMaterialEditor::ToggleCollapsed(UMaterialExpression* MaterialExpression)

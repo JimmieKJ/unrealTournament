@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "DetailCustomizationsPrivatePCH.h"
 #include "SceneComponentDetails.h"
@@ -251,7 +251,7 @@ void FSceneComponentDetails::MakeTransformDetails( IDetailLayoutBuilder& DetailB
 		for (int32 ComponentIndex = 0; bShouldShowTransform && ComponentIndex < SceneComponentObjects.Num(); ++ComponentIndex)
 		{
 			USceneComponent* SceneComponent = Cast<USceneComponent>(SceneComponentObjects[ComponentIndex].Get());
-			if (SceneComponent && SceneComponent->AttachParent == NULL && SceneComponent->GetOuter()->HasAnyFlags(RF_ClassDefaultObject))
+			if (SceneComponent && SceneComponent->GetAttachParent() == NULL && SceneComponent->GetOuter()->HasAnyFlags(RF_ClassDefaultObject))
 			{
 				bShouldShowTransform = false;
 			}

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	RHI.cpp: Render Hardware Interface implementation.
@@ -29,6 +29,13 @@ DEFINE_STAT(STAT_IndexBufferMemory);
 DEFINE_STAT(STAT_VertexBufferMemory);
 DEFINE_STAT(STAT_StructuredBufferMemory);
 DEFINE_STAT(STAT_PixelBufferMemory);
+
+static FAutoConsoleVariable CVarUseVulkanRealUBs(
+	TEXT("r.Vulkan.UseRealUBs"),
+	0,
+	TEXT("If true, enable using emulated uniform buffers on Vulkan ES2 mode."),
+	ECVF_ReadOnly
+	);
 
 const FString FResourceTransitionUtility::ResourceTransitionAccessStrings[(int32)EResourceTransitionAccess::EMaxAccess + 1] =
 {
@@ -81,15 +88,15 @@ const FClearValueBinding FClearValueBinding::DepthNear((float)ERHIZBuffer::NearP
 const FClearValueBinding FClearValueBinding::DepthFar((float)ERHIZBuffer::FarPlane, 0);
 
 
-TLockFreePointerListUnordered<FRHIResource> FRHIResource::PendingDeletes;
+TLockFreePointerListUnordered<FRHIResource, PLATFORM_CACHE_LINE_SIZE> FRHIResource::PendingDeletes;
 FRHIResource* FRHIResource::CurrentlyDeleting = nullptr;
+TArray<FRHIResource::ResourcesToDelete> FRHIResource::DeferredDeletionQueue;
+uint32 FRHIResource::CurrentFrame = 0;
 
-#if !DISABLE_RHI_DEFFERED_DELETE
 bool FRHIResource::Bypass()
 {
 	return GRHICommandList.Bypass();
 }
-#endif
 
 DECLARE_CYCLE_STAT(TEXT("Delete Resources"), STAT_DeleteResources, STATGROUP_RHICMDLIST);
 
@@ -100,14 +107,9 @@ void FRHIResource::FlushPendingDeletes()
 	check(IsInRenderingThread());
 	FRHICommandListExecutor::CheckNoOutstandingCmdLists();
 	FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::FlushRHIThread);
-	while (1)
+
+	auto Delete = [](TArray<FRHIResource*>& ToDelete)
 	{
-		TArray<FRHIResource*> ToDelete;
-		PendingDeletes.PopAll(ToDelete);
-		if (!ToDelete.Num())
-		{
-			break;
-		}
 		for (int32 Index = 0; Index < ToDelete.Num(); Index++)
 		{
 			FRHIResource* Ref = ToDelete[Index];
@@ -124,9 +126,58 @@ void FRHIResource::FlushPendingDeletes()
 				FPlatformMisc::MemoryBarrier();
 			}
 		}
+	};
+
+	while (1)
+	{
+		if (PendingDeletes.IsEmpty())
+		{
+			break;
+		}
+		if (PlatformNeedsExtraDeletionLatency())
+		{
+			const int32 Index = DeferredDeletionQueue.AddDefaulted();
+			ResourcesToDelete& ResourceBatch = DeferredDeletionQueue[Index];
+			ResourceBatch.FrameDeleted = CurrentFrame;
+			PendingDeletes.PopAll(ResourceBatch.Resources);
+			check(ResourceBatch.Resources.Num());
+		}
+		else
+		{
+			TArray<FRHIResource*> ToDelete;
+			PendingDeletes.PopAll(ToDelete);
+			check(ToDelete.Num());
+			Delete(ToDelete);
+		}
+	}
+
+	const uint32 NumFramesToExpire = 3;
+
+	if (DeferredDeletionQueue.Num())
+	{
+		int32 DeletedBatchCount = 0;
+		while (DeletedBatchCount < DeferredDeletionQueue.Num())
+		{
+			ResourcesToDelete& ResourceBatch = DeferredDeletionQueue[DeletedBatchCount];
+			if (((ResourceBatch.FrameDeleted + NumFramesToExpire) < CurrentFrame) || !GIsRHIInitialized)
+			{
+				Delete(ResourceBatch.Resources);
+				++DeletedBatchCount;
+			}
+			else
+			{
+				break;
+			}
+		}
+
+		if (DeletedBatchCount)
+		{
+			DeferredDeletionQueue.RemoveAt(0, DeletedBatchCount);
+		}
+
+		++CurrentFrame;
 	}
 }
-
 
 static_assert(ERHIZBuffer::FarPlane != ERHIZBuffer::NearPlane, "Near and Far planes must be different!");
 static_assert((int32)ERHIZBuffer::NearPlane == 0 || (int32)ERHIZBuffer::NearPlane == 1, "Invalid Values for Near Plane, can only be 0 or 1!");
@@ -187,20 +238,29 @@ int32 GMaxTextureMipCount = MAX_TEXTURE_MIP_COUNT;
 bool GSupportsQuadBufferStereo = false;
 bool GSupportsDepthFetchDuringDepthTest = true;
 FString GRHIAdapterName;
+FString GRHIAdapterInternalDriverVersion;
+FString GRHIAdapterUserDriverVersion;
+FString GRHIAdapterDriverDate;
 uint32 GRHIVendorId = 0;
+uint32 GRHIDeviceId = 0;
 bool GSupportsRenderDepthTargetableShaderResources = true;
 bool GSupportsRenderTargetFormat_PF_G8 = true;
 bool GSupportsRenderTargetFormat_PF_FloatRGBA = true;
 bool GSupportsShaderFramebufferFetch = false;
 bool GSupportsShaderDepthStencilFetch = false;
+bool GSupportsTimestampRenderQueries = false;
 bool GHardwareHiddenSurfaceRemoval = false;
 bool GRHISupportsAsyncTextureCreation = false;
 bool GSupportsQuads = false;
 bool GSupportsVolumeTextureRendering = true;
 bool GSupportsSeparateRenderTargetBlendState = false;
 bool GSupportsDepthRenderTargetWithoutColorRenderTarget = true;
+bool GSupportsTexture3D = true;
+bool GSupportsResourceView = true;
+bool GSupportsMultipleRenderTargets = true;
 float GMinClipZ = 0.0f;
 float GProjectionSignY = 1.0f;
+bool GRHINeedsExtraDeletionLatency = false;
 int32 GMaxShadowDepthBufferSizeX = 2048;
 int32 GMaxShadowDepthBufferSizeY = 2048;
 int32 GMaxTextureDimensions = 2048;
@@ -210,9 +270,12 @@ bool GUsingNullRHI = false;
 int32 GDrawUPVertexCheckCount = MAX_int32;
 int32 GDrawUPIndexCheckCount = MAX_int32;
 bool GTriggerGPUProfile = false;
+FString GGPUTraceFileName;
 bool GRHISupportsTextureStreaming = false;
 bool GSupportsDepthBoundsTest = false;
+bool GSupportsEfficientAsyncCompute = false;
 bool GRHISupportsBaseVertexIndex = true;
+bool GRHISupportsInstancing = true;
 bool GRHISupportsFirstInstance = false;
 bool GRHIRequiresEarlyBackBufferRenderTarget = true;
 bool GRHISupportsRHIThread = false;
@@ -313,8 +376,13 @@ static FName NAME_SF_METAL(TEXT("SF_METAL"));
 static FName NAME_SF_METAL_MRT(TEXT("SF_METAL_MRT"));
 static FName NAME_GLSL_310_ES_EXT(TEXT("GLSL_310_ES_EXT"));
 static FName NAME_SF_METAL_SM5(TEXT("SF_METAL_SM5"));
-static FName NAME_PC_VULKAN_ES2(TEXT("PC_VULKAN_ES2"));
+static FName NAME_VULKAN_ES3_1_ANDROID(TEXT("SF_VKES31_ANDROID"));
+static FName NAME_VULKAN_ES3_1(TEXT("SF_VKES31"));
+static FName NAME_VULKAN_ES3_1_UB(TEXT("SF_VKES31_UB"));
+static FName NAME_VULKAN_SM4(TEXT("SF_VULKAN_SM4"));
+static FName NAME_VULKAN_SM5(TEXT("SF_VULKAN_SM5"));
 static FName NAME_SF_METAL_SM4(TEXT("SF_METAL_SM4"));
+static FName NAME_SF_METAL_MACES3_1(TEXT("SF_METAL_MACES3_1"));
 
 FName LegacyShaderPlatformToShaderFormat(EShaderPlatform Platform)
 {
@@ -359,10 +427,21 @@ FName LegacyShaderPlatformToShaderFormat(EShaderPlatform Platform)
 		return NAME_SF_METAL_SM4;
 	case SP_METAL_SM5:
 		return NAME_SF_METAL_SM5;
+	case SP_METAL_MACES3_1:
+		return NAME_SF_METAL_MACES3_1;
 	case SP_OPENGL_ES31_EXT:
 		return NAME_GLSL_310_ES_EXT;
-	case SP_VULKAN_ES2:
-		return NAME_PC_VULKAN_ES2;
+	case SP_VULKAN_SM4:
+		return NAME_VULKAN_SM4;
+	case SP_VULKAN_SM5:
+		return NAME_VULKAN_SM5;
+	case SP_VULKAN_PCES3_1:
+	{
+		static auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Vulkan.UseRealUBs"));
+		return (CVar && CVar->GetValueOnAnyThread() != 0) ? NAME_VULKAN_ES3_1_UB : NAME_VULKAN_ES3_1;
+	}
+	case SP_VULKAN_ES3_1_ANDROID:
+		return NAME_VULKAN_ES3_1_ANDROID;
 
 	default:
 		check(0);
@@ -381,8 +460,8 @@ EShaderPlatform ShaderFormatToLegacyShaderPlatform(FName ShaderFormat)
 	if (ShaderFormat == NAME_SF_PS4)				return SP_PS4;
 	if (ShaderFormat == NAME_SF_XBOXONE)			return SP_XBOXONE;
 	if (ShaderFormat == NAME_GLSL_430)			return SP_OPENGL_SM5;
-	if (ShaderFormat == NAME_GLSL_150_ES2 || ShaderFormat == NAME_GLSL_150_ES2_NOUB)
-												return SP_OPENGL_PCES2;
+	if (ShaderFormat == NAME_GLSL_150_ES2)			return SP_OPENGL_PCES2;
+	if (ShaderFormat == NAME_GLSL_150_ES2_NOUB)		return SP_OPENGL_PCES2;
 	if (ShaderFormat == NAME_GLSL_150_ES31)		return SP_OPENGL_PCES3_1;
 	if (ShaderFormat == NAME_GLSL_ES2)			return SP_OPENGL_ES2_ANDROID;
 	if (ShaderFormat == NAME_GLSL_ES2_WEBGL)	return SP_OPENGL_ES2_WEBGL;
@@ -391,8 +470,13 @@ EShaderPlatform ShaderFormatToLegacyShaderPlatform(FName ShaderFormat)
 	if (ShaderFormat == NAME_SF_METAL_MRT)		return SP_METAL_MRT;
 	if (ShaderFormat == NAME_GLSL_310_ES_EXT)	return SP_OPENGL_ES31_EXT;
 	if (ShaderFormat == NAME_SF_METAL_SM5)		return SP_METAL_SM5;
-	if (ShaderFormat == NAME_PC_VULKAN_ES2)		return SP_VULKAN_ES2;
+	if (ShaderFormat == NAME_VULKAN_SM4)			return SP_VULKAN_SM4;
+	if (ShaderFormat == NAME_VULKAN_SM5)			return SP_VULKAN_SM5;
+	if (ShaderFormat == NAME_VULKAN_ES3_1_ANDROID)	return SP_VULKAN_ES3_1_ANDROID;
+	if (ShaderFormat == NAME_VULKAN_ES3_1)			return SP_VULKAN_ES3_1_ANDROID;
+	if (ShaderFormat == NAME_VULKAN_ES3_1_UB)		return SP_VULKAN_ES3_1_ANDROID;
 	if (ShaderFormat == NAME_SF_METAL_SM4)		return SP_METAL_SM4;
+	if (ShaderFormat == NAME_SF_METAL_MACES3_1)	return SP_METAL_MACES3_1;
 	return SP_NumPlatforms;
 }
 

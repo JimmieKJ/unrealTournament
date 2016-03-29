@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.IO;
 using System.Text;
@@ -11,16 +11,49 @@ namespace UnrealBuildTool
 {
 	public class HTML5SDKInfo
 	{
-		static string SDKBase { get { return Path.GetFullPath(Path.Combine(new string[] { BuildConfiguration.RelativeEnginePath, "Source", "ThirdParty", "HTML5", "emsdk" })); } }
-		// A GUID as a string. Allows updates to flush the emscripten install without bumping the SDK version number. Useful if a programming-error causes a bogus install.
-		static string SDKInfoGUID = "49CA9678-2667-48BC-A6A9-25D6FB341F08";
-		static string SDKVersion = "1.30.0";
+		static string SDKVersion = "1.35.0";
+		static string NODE_VER = "4.1.1_64bit";
+		static string LLVM_VER = "e1.35.0_64bit";
+		static string PYTHON_VER = "2.7.5.3_64bit";
+
+		// --------------------------------------------------
+		// --------------------------------------------------
+		static string SDKBase { get { return Path.GetFullPath(Path.Combine(BuildConfiguration.RelativeEnginePath, "Source", "ThirdParty", "HTML5", "emsdk")); } }
 		static string EMSCRIPTEN_ROOT { get { return Path.Combine(SDKBase, "emscripten", SDKVersion); } }
-
-		static string PYTHON_WIN { get { return Path.Combine(SDKBase, "Win64", "python", "2.7.5.3_64bit", "python.exe"); } }
-		// python is default installed on mac. 
-		static string PYTHON_MAC { get { return Path.Combine("/usr/bin/python"); } }
-
+		// --------------------------------------------------
+		// --------------------------------------------------
+		static string CURRENT_PLATFORM
+		{
+			get
+			{
+				switch (BuildHostPlatform.Current.Platform)
+				{
+					case UnrealTargetPlatform.Win64:
+						return "Win64";
+					case UnrealTargetPlatform.Mac:
+						return "Mac";
+					default:
+						return "error_unknown_platform";
+				}
+			}
+		}
+		static string PLATFORM_EXE
+		{
+			get
+			{
+				switch (BuildHostPlatform.Current.Platform)
+				{
+					case UnrealTargetPlatform.Win64:
+						return ".exe";
+					case UnrealTargetPlatform.Mac:
+						return "";
+					default:
+						return "error_unknown_platform";
+				}
+			}
+		}
+		static string NODE_JS { get { return Path.Combine(SDKBase, CURRENT_PLATFORM, "node", NODE_VER, "bin", "node" + PLATFORM_EXE); } }
+		static string LLVM_ROOT { get { return Path.Combine(SDKBase, CURRENT_PLATFORM, "clang", LLVM_VER); } }
 		static string PYTHON
 		{
 			get
@@ -28,98 +61,33 @@ namespace UnrealBuildTool
 				switch (BuildHostPlatform.Current.Platform)
 				{
 					case UnrealTargetPlatform.Win64:
-						return PYTHON_WIN;
-					case UnrealTargetPlatform.Mac:
-						return PYTHON_MAC;
+						return Path.Combine(SDKBase, "Win64", "python", PYTHON_VER, "python.exe");
+					case UnrealTargetPlatform.Mac: // python is default installed on mac. 
+						return "/usr/bin/python";
 					default:
-						return "";
+						return "error_unknown_platform";
 				}
 			}
 		}
-
-		static string LLVM_ROOT_WIN { get { return Path.Combine(SDKBase, "Win64", "clang", "e" + SDKVersion + "_64bit"); } }
-		static string LLVM_ROOT_MAC { get { return Path.Combine(SDKBase, "Mac", "clang", "e" + SDKVersion + "_64bit"); } }
-
-		static string LLVM_ROOT
+		// --------------------------------------------------
+		// --------------------------------------------------
+		static string HTML5Intermediatory
 		{
 			get
 			{
-				switch (BuildHostPlatform.Current.Platform)
+                string HTML5IntermediatoryPath = Path.GetFullPath(Path.Combine(BuildConfiguration.RelativeEnginePath, BuildConfiguration.BaseIntermediateFolder, "HTML5"));
+                if (!Directory.Exists(HTML5IntermediatoryPath))
 				{
-					case UnrealTargetPlatform.Win64:
-						return LLVM_ROOT_WIN;
-					case UnrealTargetPlatform.Mac:
-						return LLVM_ROOT_MAC;
-					default:
-						return "";
+                    Directory.CreateDirectory(HTML5IntermediatoryPath);
 				}
+                return HTML5IntermediatoryPath;
 			}
 		}
-
-		static string NODE_JS_WIN { get { return Path.Combine(SDKBase, "Win64", "node", "0.12.2_64bit", "node.exe"); } }
-		static string NODE_JS_MAC { get { return Path.Combine(SDKBase, "Mac", "node", "0.12.2_64bit", "bin", "node"); } }
-
-		static string NODE_JS
-		{
-			get
-			{
-				switch (BuildHostPlatform.Current.Platform)
-				{
-					case UnrealTargetPlatform.Win64:
-						return NODE_JS_WIN;
-					case UnrealTargetPlatform.Mac:
-						return NODE_JS_MAC;
-					default:
-						return "";
-				}
-			}
-		}
-
-		static string OPTIMIZER_NAME
-		{
-			get
-			{
-				switch (BuildHostPlatform.Current.Platform)
-				{
-					case UnrealTargetPlatform.Win64:
-						return "optimizer.exe";
-					case UnrealTargetPlatform.Mac:
-						return "optimizer";
-					default:
-						return "";
-				}
-			}
-		}
-
-		static public string DOT_EMSCRIPTEN
-		{
-			get
-			{
-				var TempPath = Path.GetFullPath(Path.Combine(BuildConfiguration.RelativeEnginePath, BuildConfiguration.BaseIntermediateFolder, "HTML5"));
-				if (!Directory.Exists(TempPath))
-				{
-					Directory.CreateDirectory(TempPath);
-				}
-				return Path.Combine(TempPath, ".emscripten");
-			}
-		}
-
-		static public string EMSCRIPTEN_CACHE
-		{
-			get
-			{
-				var TempPath = Path.GetFullPath(Path.Combine(BuildConfiguration.RelativeEnginePath, BuildConfiguration.BaseIntermediateFolder, "HTML5"));
-				if (!Directory.Exists(TempPath))
-				{
-					Directory.CreateDirectory(TempPath);
-				}
-				return Path.Combine(TempPath, "EmscriptenCache"); ;
-			}
-		}
+		static public string DOT_EMSCRIPTEN { get { return Path.Combine(HTML5Intermediatory, ".emscripten"); } }
+		static public string EMSCRIPTEN_CACHE { get { return Path.Combine(HTML5Intermediatory, "EmscriptenCache"); ; } }
 
 		public static string SetupEmscriptenTemp()
 		{
-			string HTML5Intermediatory = Path.GetFullPath(Path.Combine(BuildConfiguration.RelativeEnginePath, BuildConfiguration.BaseIntermediateFolder, "HTML5"));
 			string TempPath = Path.Combine(HTML5Intermediatory, "EmscriptenTemp");
 			try
 			{
@@ -138,35 +106,72 @@ namespace UnrealBuildTool
 			return TempPath;
 		}
 
-		public static string SetUpEmscriptenConfigFile()
+		static string PLATFORM_USER_HOME
 		{
-			string ConfigFile = DOT_EMSCRIPTEN;
-
-			if (!File.Exists(ConfigFile) || !File.ReadAllText(ConfigFile).Contains("GENERATEDBYUE4='" + SDKVersion + "+" + SDKInfoGUID + "'"))
+			get
 			{
-				var ConfigString = String.Join(
-								Environment.NewLine,
-								"import os",
-								"SPIDERMONKEY_ENGINE = ''",
-								"LLVM_ROOT='" + LLVM_ROOT + "'",
-								"NODE_JS= '" + NODE_JS + "'",
-								"PYTHON= '" + PYTHON + "'",
-								"EMSCRIPTEN_NATIVE_OPTIMIZER='" + Path.Combine(LLVM_ROOT, OPTIMIZER_NAME) + "'",
-								"EMSCRIPTEN_ROOT= '" + EMSCRIPTEN_ROOT + "'",
-								"TEMP_DIR= '" + SetupEmscriptenTemp() + "'",
-								"COMPILER_ENGINE = NODE_JS",
-								"JS_ENGINES = [NODE_JS]",
-								"V8_ENGINE = ''",
-								"GENERATEDBYUE4='" + SDKVersion + "+" + SDKInfoGUID + "'"
-								);
-				File.WriteAllText(ConfigFile, ConfigString.Replace("\\", "/"));
+				switch (BuildHostPlatform.Current.Platform)
+				{
+					case UnrealTargetPlatform.Win64:
+						return "USERPROFILE";
+					case UnrealTargetPlatform.Mac:
+						return "HOME";
+					default:
+						return "error_unknown_platform";
+				}
 			}
-			return ConfigFile;
 		}
 
-		public static string EmscriptenBase()
+        public static string SetUpEmscriptenConfigFile()
 		{
-			return EMSCRIPTEN_ROOT;
+			// make a fresh .emscripten resource file
+			if (File.Exists(DOT_EMSCRIPTEN))
+			{
+				File.Delete(DOT_EMSCRIPTEN);
+			}
+
+			// the best way to generate .emscripten resource file,
+			// is to run "emcc -v" (show version info) without an existing one
+			// --------------------------------------------------
+			// save a few things 
+			string PATH_SAVE = Environment.GetEnvironmentVariable("PATH");
+			string HOME_SAVE = Environment.GetEnvironmentVariable(PLATFORM_USER_HOME);
+			// warm up the .emscripten resource file
+			string NODE_ROOT = Path.GetDirectoryName(NODE_JS);
+			string PYTHON_ROOT = Path.GetDirectoryName(PYTHON);
+			Environment.SetEnvironmentVariable("PATH", NODE_ROOT + Path.PathSeparator + LLVM_ROOT + Path.PathSeparator + PYTHON_ROOT + Path.PathSeparator + EMSCRIPTEN_ROOT + Path.PathSeparator + PATH_SAVE);
+			Environment.SetEnvironmentVariable(PLATFORM_USER_HOME, HTML5Intermediatory);
+			// --------------------------------------------------
+				string cmd = "\"" + Path.Combine(EMSCRIPTEN_ROOT, "emcc") + "\"";
+				ProcessStartInfo processInfo = new ProcessStartInfo(PYTHON, cmd + " -v");
+				processInfo.CreateNoWindow = true;
+				processInfo.UseShellExecute = false;
+// jic output dump is needed...
+//				processInfo.RedirectStandardError = true;
+//				processInfo.RedirectStandardOutput = true;
+				Process process = Process.Start(processInfo);
+//				process.OutputDataReceived += (object sender, DataReceivedEventArgs e) => Console.WriteLine("output>>" + e.Data);
+//				process.BeginOutputReadLine();
+//				process.ErrorDataReceived += (object sender, DataReceivedEventArgs e) => Console.WriteLine("error>>" + e.Data);
+//				process.BeginErrorReadLine();
+				process.WaitForExit();
+//				Console.WriteLine("ExitCode: {0}", process.ExitCode);
+				process.Close();
+				// uncomment OPTIMIZER (GUBP on build machines needs this)
+				// and PYTHON (reduce warnings on EMCC_DEBUG=1)
+				string pyth = Regex.Replace(PYTHON, @"\\", @"\\");
+				string optz = Regex.Replace(Path.Combine(LLVM_ROOT, "optimizer") + PLATFORM_EXE, @"\\", @"\\");
+				File.WriteAllText(DOT_EMSCRIPTEN, Regex.Replace(
+							Regex.Replace(File.ReadAllText(DOT_EMSCRIPTEN), "#(PYTHON).*", "$1 = '" + pyth + "'"),
+							"# (EMSCRIPTEN_NATIVE_OPTIMIZER).*", "$1 = '" + optz + "'"));
+			// --------------------------------------------------
+			// --------------------------------------------------
+			// restore a few things
+			Environment.SetEnvironmentVariable(PLATFORM_USER_HOME, HOME_SAVE);
+			Environment.SetEnvironmentVariable("PATH", PATH_SAVE);
+			// --------------------------------------------------
+
+			return DOT_EMSCRIPTEN;
 		}
 
 		public static string EmscriptenVersion()
@@ -174,39 +179,29 @@ namespace UnrealBuildTool
 			return SDKVersion;
 		}
 
+		public static string EmscriptenPackager()
+		{
+			return Path.Combine(EMSCRIPTEN_ROOT, "tools", "file_packager.py");
+		}
+
+		public static string EmscriptenCompiler()
+		{
+			return "\"" + Path.Combine(EMSCRIPTEN_ROOT, "emcc") + "\"";
+		}
+
 		public static string Python()
 		{
 			return PYTHON;
 		}
 
-		public static string EmscriptenPackager()
-		{
-			return Path.Combine(EmscriptenBase(), "tools", "file_packager.py");
-		}
-
-		public static string EmscriptenCompiler()
-		{
-			return "\"" + Path.Combine(EmscriptenBase(), "emcc") + "\"";
-		}
-
 		public static bool IsSDKInstalled()
 		{
-			bool SDK = File.Exists(GetVersionInfoPath());
-
-			switch (BuildHostPlatform.Current.Platform)
-			{
-				case UnrealTargetPlatform.Win64:
-					return SDK && Directory.Exists(Path.Combine(SDKBase, "Win64"));
-				case UnrealTargetPlatform.Mac:
-					return SDK && Directory.Exists(Path.Combine(SDKBase, "Mac")) && File.Exists(PYTHON);
-				default:
-					return false;
-			}
+			return Directory.Exists(EMSCRIPTEN_ROOT) && File.Exists(NODE_JS) && Directory.Exists(LLVM_ROOT) && File.Exists(PYTHON);
 		}
 
-		static string GetVersionInfoPath()
-		{
-			return Path.Combine(EmscriptenBase(), "emscripten-version.txt");
-		}
+		// this script is used at:
+		// HTML5ToolChain.cs
+		// UEBuildHTML5.cs
+		// HTML5Platform.[PakFiles.]Automation.cs
 	}
 }

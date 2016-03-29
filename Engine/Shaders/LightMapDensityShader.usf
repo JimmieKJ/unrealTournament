@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LightMapDensityShader.hlsl: Shader for rendering lightmap density as a color
@@ -9,7 +9,6 @@
 #include "Common.usf"
 #include "Material.usf"
 #include "VertexFactory.usf"
-
 
 struct FLightMapDensityVSToPS
 {
@@ -53,7 +52,7 @@ struct FLightMapDensityVSToPS
 		// Finally, transform position to clip-space
 		ISOLATE
 		{
-			O.Position = mul(WorldPosition, View.TranslatedWorldToClip);
+			O.Position = mul(WorldPosition, ResolvedView.TranslatedWorldToClip);
 		}
 
 		O.WorldPosition = WorldPosition;
@@ -74,6 +73,8 @@ void MainVertexShader(
 	out FLightMapDensityVSOutput Output
 	)
 {
+	ResolvedView = ResolveView();
+
 	FVertexFactoryIntermediates VFIntermediates = GetVertexFactoryIntermediates(Input);
 	float4 WorldPosition = VertexFactoryGetWorldPosition(Input, VFIntermediates);
 	float3x3 TangentToLocal = VertexFactoryGetTangentToLocal(Input, VFIntermediates);
@@ -91,7 +92,7 @@ void MainVertexShader(
 	ISOLATE
 	{
 		float4 RasterizedWorldPosition = VertexFactoryGetRasterizedWorldPosition(Input, VFIntermediates, Output.WorldPosition);
-		Output.Position = mul(RasterizedWorldPosition, View.TranslatedWorldToClip);
+		Output.Position = mul(RasterizedWorldPosition, ResolvedView.TranslatedWorldToClip);
 	}
 	Output.FactoryInterpolants = VertexFactoryGetInterpolantsVSToPS(Input, VFIntermediates, VertexParameters);
 
@@ -158,9 +159,12 @@ void MainPixelShader(
 	out float4 OutColor		: SV_Target0
 	)
 {
+	ResolvedView = ResolveView();
+
 	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(FactoryInterpolants, SvPosition);
-	CalcMaterialParameters(MaterialParameters, SvPosition, bIsFrontFace);
-	GetMaterialCoverageAndClipping(MaterialParameters);
+	FPixelMaterialInputs PixelMaterialInputs;
+	CalcMaterialParameters(MaterialParameters, PixelMaterialInputs, SvPosition, bIsFrontFace);
+	GetMaterialCoverageAndClipping(MaterialParameters, PixelMaterialInputs);
 
 	float2 LightMapUV,LightMapUV1;
 #if HQ_TEXTURE_LIGHTMAP || LQ_TEXTURE_LIGHTMAP

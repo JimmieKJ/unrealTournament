@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "PersonaPrivatePCH.h"
@@ -73,7 +73,7 @@ TSharedRef<SWidget> SSmartNameListRow::GenerateWidgetForColumn(const FName& Colu
 
 FText SSmartNameListRow::GetItemName() const
 {
-	const FSmartNameMapping* Mapping = Item->Skeleton->SmartNames.GetContainer(Item->ContainerName);
+	const FSmartNameMapping* Mapping = Item->Skeleton->GetSmartNameContainer(Item->ContainerName);
 	check(Mapping);
 	FName ItemName;
 	Mapping->GetName(Item->NameUid, ItemName);
@@ -234,7 +234,7 @@ TSharedPtr<SWidget> SSkeletonSmartNameManager::OnGetContextMenu() const
 
 void SSkeletonSmartNameManager::GenerateDisplayedList(const FText& FilterText)
 {
-	FSmartNameMapping* Mapping = CurrentSkeleton->SmartNames.GetContainer(ContainerName);
+	const FSmartNameMapping* Mapping = CurrentSkeleton->GetSmartNameContainer(ContainerName);
 	if(Mapping)
 	{
 		DisplayedInfoList.Empty();
@@ -278,7 +278,7 @@ void SSkeletonSmartNameManager::GenerateDisplayedList(const FText& FilterText)
 
 void SSkeletonSmartNameManager::OnNameCommitted(const FText& InNewName, ETextCommit::Type, TSharedPtr<FDisplayedSmartNameInfo> Item)
 {
-	FSmartNameMapping* Mapping = CurrentSkeleton->SmartNames.GetContainer(ContainerName);
+	const FSmartNameMapping* Mapping = CurrentSkeleton->GetSmartNameContainer(ContainerName);
 	if(Mapping)
 	{
 		FName NewName(*InNewName.ToString());
@@ -349,11 +349,11 @@ void SSkeletonSmartNameManager::CreateNewNameEntry(const FText& CommittedText, E
 	FSlateApplication::Get().DismissAllMenus();
 	if(!CommittedText.IsEmpty() && CommitType == ETextCommit::OnEnter)
 	{
-		if(FSmartNameMapping* NameMapping = CurrentSkeleton->SmartNames.GetContainer(ContainerName))
+		if (const FSmartNameMapping* NameMapping = CurrentSkeleton->GetSmartNameContainer(ContainerName))
 		{
 			FName NewName = FName(*CommittedText.ToString());
 			FSmartNameMapping::UID NewUid;
-			if(CurrentSkeleton->AddSmartnameAndModify(ContainerName, NewName, NewUid))
+			if(CurrentSkeleton->AddSmartNameAndModify(ContainerName, NewName, NewUid))
 			{
 				// Successfully added
 				GenerateDisplayedList(CurrentFilterText);
@@ -472,12 +472,7 @@ void SCurveNameManager::OnDeleteNameClicked()
 	if(SelectedUids.Num() > 0)
 	{
 		// Remove names from skeleton
-		CurrentSkeleton->Modify(true);
-		FSmartNameMapping* Mapping = CurrentSkeleton->SmartNames.GetContainer(ContainerName);
-		for(FSmartNameMapping::UID Uid : SelectedUids)
-		{
-			Mapping->Remove(Uid);
-		}
+		CurrentSkeleton->RemoveSmartnamesAndModify(ContainerName, SelectedUids);
 	}
 
 	GenerateDisplayedList(CurrentFilterText);

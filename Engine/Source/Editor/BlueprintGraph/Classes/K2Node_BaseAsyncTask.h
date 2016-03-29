@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -9,6 +9,18 @@
 class UK2Node_CustomEvent;
 class UEdGraphPin;
 class UK2Node_TemporaryVariable;
+
+/** struct to remap pins for Async Tasks.
+ * a single K2 node is shared by many proxy classes.
+ * This allows redirecting pins by name per proxy class.
+ * Add entries similar to this one in Engine.ini:
+ * +K2AsyncTaskPinRedirects=(ProxyClassName="AbilityTask_PlayMontageAndWait", OldPinName="OnComplete", NewPinName="OnBlendOut")
+ */
+
+struct FAsyncTaskPinRedirectMapInfo
+{
+	TMap<FString, TArray<UClass*> > OldPinToProxyClassMap;
+};
 
 /** !!! The proxy object should have RF_StrongRefOnFrame flag. !!! */
 
@@ -31,6 +43,8 @@ class BLUEPRINTGRAPH_API UK2Node_BaseAsyncTask : public UK2Node
 	virtual FName GetCornerIcon() const override;
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
 	virtual FText GetMenuCategory() const override;
+	/** Whether or not two pins match for purposes of reconnection after reconstruction.  This allows pins that may have had their names changed via reconstruction to be matched to their old values on a node-by-node basis, if needed*/
+	virtual ERedirectType DoPinsMatchForReconstruction(const UEdGraphPin* NewPin, int32 NewPinIndex, const UEdGraphPin* OldPin, int32 OldPinIndex) const override;
 	// End of UK2Node interface
 
 protected:
@@ -74,4 +88,8 @@ protected:
 
 		static const FString& GetAsyncTaskProxyName();
 	};
+
+	// Pin Redirector support
+	static TMap<FString, FAsyncTaskPinRedirectMapInfo> AsyncTaskPinRedirectMap;
+	static bool bAsyncTaskPinRedirectMapInitialized;
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "DetailCustomizationsPrivatePCH.h"
 #include "ComponentTransformDetails.h"
@@ -667,7 +667,22 @@ void FComponentTransformDetails::OnToggleAbsoluteLocation( bool bEnable )
 				}
 
 				SceneComponent->bAbsoluteLocation = !SceneComponent->bAbsoluteLocation;
-
+				
+				// Update RelativeLocation to maintain/stabilize position when switching between relative and world.
+				if (SceneComponent->AttachParent)
+				{
+					if (SceneComponent->bAbsoluteLocation)
+					{
+						SceneComponent->RelativeLocation = SceneComponent->ComponentToWorld.GetTranslation();
+					}
+					else
+					{
+						FTransform ParentToWorld = SceneComponent->AttachParent->GetSocketTransform(SceneComponent->AttachSocketName);
+						FTransform RelativeTM = SceneComponent->ComponentToWorld.GetRelativeTransform(ParentToWorld);
+						SceneComponent->RelativeLocation = RelativeTM.GetTranslation();
+					}
+				}
+				
 				FPropertyChangedEvent PropertyChangedEvent( AbsoluteLocationProperty );
 				Object->PostEditChangeProperty(PropertyChangedEvent);
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Canvas.cpp: Unreal canvas rendering.
@@ -820,11 +820,11 @@ void FCanvasBorderItem::Draw( class FCanvas* InCanvas )
 }
 
 
-void FCanvasTextItem::Draw( class FCanvas* InCanvas )
+void FCanvasTextItemBase::Draw( class FCanvas* InCanvas )
 {	
 	SCOPE_CYCLE_COUNTER(STAT_Canvas_TextItemTime);
 
-	if (InCanvas == nullptr || Font == nullptr || Text.IsEmpty())
+	if (InCanvas == nullptr || !HasValidText())
 	{
 		return;
 	}
@@ -835,55 +835,15 @@ void FCanvasTextItem::Draw( class FCanvas* InCanvas )
 		// EnableShadow will set a default ShadowOffset value
 		EnableShadow( FLinearColor::Black );
 	}
-	if (Font->ImportOptions.bUseDistanceFieldAlpha)
-	{
-		// convert blend mode to distance field type
-		switch(BlendMode)
-		{
-		case SE_BLEND_Translucent:
-			BlendMode = (bHasShadow) ? SE_BLEND_TranslucentDistanceFieldShadowed : SE_BLEND_TranslucentDistanceField;
-			break;
-		case SE_BLEND_Masked:
-			BlendMode = (bHasShadow) ? SE_BLEND_MaskedDistanceFieldShadowed : SE_BLEND_MaskedDistanceField;
-			break;
-		}
-	}
-	if (GetFontCacheType() == EFontCacheType::Runtime)
-	{
-		// The runtime font cache uses an alpha-only texture, so we have to force this blend mode so we use the correct shader
-		check(BlendMode == SE_BLEND_Translucent || BlendMode == SE_BLEND_TranslucentAlphaOnly);
-		BlendMode = SE_BLEND_TranslucentAlphaOnly;
-	}
+	BlendMode = GetTextBlendMode( bHasShadow );
 
 	FVector2D DrawPos( Position.X , Position.Y );
 
 	// If we are centering the string or we want to fix stereoscopic rendering issues we need to measure the string
 	if( ( bCentreX || bCentreY ) || ( !bDontCorrectStereoscopic ) )
 	{
-		FVector2D MeasuredTextSize;
-		switch( GetFontCacheType() )
-		{
-		case EFontCacheType::Offline:
-			{
-				FTextSizingParameters Parameters( Font, Scale.X ,Scale.Y );
-				UCanvas::CanvasStringSize( Parameters, *Text.ToString() );
-				MeasuredTextSize.X = Parameters.DrawXL;
-				MeasuredTextSize.Y = Parameters.DrawYL;
-			}
-			break;
-
-		case EFontCacheType::Runtime:
-			{
-				const FSlateFontInfo LegacyFontInfo = (SlateFontInfo.IsSet()) ? SlateFontInfo.GetValue() : Font->GetLegacySlateFontInfo();
-				const TSharedRef<FSlateFontMeasure> FontMeasure = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
-				MeasuredTextSize = FontMeasure->Measure( Text, LegacyFontInfo ) * Scale;
-			}
-			break;
-
-		default:
-			break;
-		}
-				
+		const FVector2D MeasuredTextSize = GetTextSize();
+		
 		// Calculate the offset if we are centering
 		if( bCentreX || bCentreY )
 		{		
@@ -914,6 +874,17 @@ void FCanvasTextItem::Draw( class FCanvas* InCanvas )
 	
 	FLinearColor DrawColor;
 	BatchedElements = nullptr;
+
+	// If we have a shadow - draw it now
+	if (bHasShadow)
+	{
+		DrawColor = ShadowColor;
+		// Copy the Alpha from the shadow otherwise if we fade the text the shadow wont fade - which is almost certainly not what we will want.
+		DrawColor.A = Color.A;
+		DrawColor.A *= InCanvas->AlphaModulate;
+		DrawStringInternal(InCanvas, DrawPos + ShadowOffset, DrawColor);
+	}
+
 	if( bOutlined )
 	{
 		DrawColor = OutlineColor;
@@ -923,23 +894,74 @@ void FCanvasTextItem::Draw( class FCanvas* InCanvas )
 		DrawStringInternal( InCanvas, DrawPos + FVector2D( 1.0f, 1.0f ), DrawColor );
 		DrawStringInternal( InCanvas, DrawPos + FVector2D( 1.0f, -1.0f ), DrawColor );
 	}
-	// If we have a shadow - draw it now
-	if( bHasShadow )
-	{
-		DrawColor = ShadowColor;
-		// Copy the Alpha from the shadow otherwise if we fade the text the shadow wont fade - which is almost certainly not what we will want.
-		DrawColor.A = Color.A;
-		DrawColor.A *= InCanvas->AlphaModulate;
-		DrawStringInternal( InCanvas, DrawPos + ShadowOffset, DrawColor );
-	}
+
 	DrawColor = Color;
 	DrawColor.A *= InCanvas->AlphaModulate;	
 	DrawStringInternal( InCanvas, DrawPos, DrawColor );
 }
 
+
 EFontCacheType FCanvasTextItem::GetFontCacheType() const
 {
 	return Font->FontCacheType;
+}
+
+bool FCanvasTextItem::HasValidText() const
+{
+	return Font && !Text.IsEmpty();
+}
+
+ESimpleElementBlendMode FCanvasTextItem::GetTextBlendMode( const bool bHasShadow ) const
+{
+	ESimpleElementBlendMode BlendModeToUse = BlendMode;
+	if (Font->ImportOptions.bUseDistanceFieldAlpha)
+	{
+		// convert blend mode to distance field type
+		switch(BlendMode)
+		{
+		case SE_BLEND_Translucent:
+			BlendModeToUse = (bHasShadow) ? SE_BLEND_TranslucentDistanceFieldShadowed : SE_BLEND_TranslucentDistanceField;
+			break;
+		case SE_BLEND_Masked:
+			BlendModeToUse = (bHasShadow) ? SE_BLEND_MaskedDistanceFieldShadowed : SE_BLEND_MaskedDistanceField;
+			break;
+		}
+	}
+	if (GetFontCacheType() == EFontCacheType::Runtime)
+	{
+		// The runtime font cache uses an alpha-only texture, so we have to force this blend mode so we use the correct shader
+		check(BlendModeToUse == SE_BLEND_Translucent || BlendModeToUse == SE_BLEND_TranslucentAlphaOnly);
+		BlendModeToUse = SE_BLEND_TranslucentAlphaOnly;
+	}
+	return BlendModeToUse;
+}
+
+FVector2D FCanvasTextItem::GetTextSize() const
+{
+	FVector2D MeasuredTextSize = FVector2D::ZeroVector;
+	switch( GetFontCacheType() )
+	{
+	case EFontCacheType::Offline:
+		{
+			FTextSizingParameters Parameters( Font, Scale.X ,Scale.Y );
+			UCanvas::CanvasStringSize( Parameters, *Text.ToString() );
+			MeasuredTextSize.X = Parameters.DrawXL;
+			MeasuredTextSize.Y = Parameters.DrawYL;
+		}
+		break;
+
+	case EFontCacheType::Runtime:
+		{
+			const FSlateFontInfo LegacyFontInfo = (SlateFontInfo.IsSet()) ? SlateFontInfo.GetValue() : Font->GetLegacySlateFontInfo();
+			const TSharedRef<FSlateFontMeasure> FontMeasure = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
+			MeasuredTextSize = FontMeasure->Measure( Text, LegacyFontInfo ) * Scale;
+		}
+		break;
+
+	default:
+		break;
+	}
+	return MeasuredTextSize;
 }
 
 void FCanvasTextItem::DrawStringInternal( FCanvas* InCanvas, const FVector2D& DrawPos, const FLinearColor& InColor )
@@ -1039,11 +1061,10 @@ void FCanvasTextItem::DrawStringInternal_OfflineCache( FCanvas* InCanvas, const 
 			const float SizeU	= Char.USize * InvTextureSize.X;
 			const float SizeV	= Char.VSize * InvTextureSize.Y;				
 
-			float Left, Top, Right, Bottom;
-			Left = X * Depth;
-			Top = Y * Depth;
-			Right = (X + SizeX) * Depth;
-			Bottom = (Y + SizeY) * Depth;
+			const float Left = X * Depth;
+			const float Top = Y * Depth;
+			const float Right = (X + SizeX) * Depth;
+			const float Bottom = (Y + SizeY) * Depth;
 
 			int32 V00 = BatchedElements->AddVertex(
 				FVector4( Left, Top, 0.f, Depth ),
@@ -1116,11 +1137,7 @@ void FCanvasTextItem::DrawStringInternal_RuntimeCache( FCanvas* InCanvas, const 
 	float InvTextureSizeX = 0;
 	float InvTextureSizeY = 0;
 
-	float LineX = 0;
-
 	FCharacterEntry PreviousCharEntry;
-
-	int32 Kerning = 0;
 
 	FVector2D TopLeft(0,0);
 
@@ -1130,7 +1147,7 @@ void FCanvasTextItem::DrawStringInternal_RuntimeCache( FCanvas* InCanvas, const 
 	const float ScaledHorizSpacingAdjust = HorizSpacingAdjust * Scale.X;
 	const float ScaledMaxHeight = CharacterList.GetMaxHeight() * Scale.Y;
 
-	LineX = PosX;
+	float LineX = PosX;
 	
 	for( int32 CharIndex = 0; CharIndex < TextString.Len(); ++CharIndex )
 	{
@@ -1155,7 +1172,7 @@ void FCanvasTextItem::DrawStringInternal_RuntimeCache( FCanvas* InCanvas, const 
 		}
 		else
 		{
-			const FCharacterEntry& Entry = CharacterList.GetCharacter(LegacyFontInfo, CurrentChar);
+			const FCharacterEntry& Entry = CharacterList.GetCharacter(CurrentChar, LegacyFontInfo.FontFallback);
 
 			if( FontTexture == nullptr || Entry.TextureIndex != FontTextureIndex )
 			{
@@ -1174,13 +1191,10 @@ void FCanvasTextItem::DrawStringInternal_RuntimeCache( FCanvas* InCanvas, const 
 
 			const bool bIsWhitespace = FChar::IsWhitespace(CurrentChar);
 
+			int32 Kerning = 0;
 			if( !bIsWhitespace && PreviousCharEntry.IsCached() )
 			{
 				Kerning = CharacterList.GetKerning( PreviousCharEntry, Entry ) * Scale.X;
-			}
-			else
-			{
-				Kerning = 0;
 			}
 
 			LineX += Kerning;
@@ -1199,11 +1213,10 @@ void FCanvasTextItem::DrawStringInternal_RuntimeCache( FCanvas* InCanvas, const 
 				const float SizeU = Entry.USize * InvTextureSizeX;
 				const float SizeV = Entry.VSize * InvTextureSizeY;
 
-				float Left, Top, Right, Bottom;
-				Left = X * Depth;
-				Top = Y * Depth;
-				Right = (X + SizeX) * Depth;
-				Bottom = (Y + SizeY) * Depth;
+				const float Left = X * Depth;
+				const float Top = Y * Depth;
+				const float Right = (X + SizeX) * Depth;
+				const float Bottom = (Y + SizeY) * Depth;
 
 				int32 V00 = BatchedElements->AddVertex(
 					FVector4( Left, Top, 0.f, Depth ),
@@ -1241,6 +1254,137 @@ void FCanvasTextItem::DrawStringInternal_RuntimeCache( FCanvas* InCanvas, const 
 		}
 	}
 }
+
+
+bool FCanvasShapedTextItem::HasValidText() const
+{
+	return ShapedGlyphSequence.IsValid() && ShapedGlyphSequence->GetGlyphsToRender().Num();
+}
+
+ESimpleElementBlendMode FCanvasShapedTextItem::GetTextBlendMode( const bool bHasShadow ) const
+{
+	ESimpleElementBlendMode BlendModeToUse = BlendMode;
+
+	// The runtime font cache uses an alpha-only texture, so we have to force this blend mode so we use the correct shader
+	check(BlendModeToUse == SE_BLEND_Translucent || BlendModeToUse == SE_BLEND_TranslucentAlphaOnly);
+	BlendModeToUse = SE_BLEND_TranslucentAlphaOnly;
+
+	return BlendModeToUse;
+}
+
+FVector2D FCanvasShapedTextItem::GetTextSize() const
+{
+	return FVector2D(ShapedGlyphSequence->GetMeasuredWidth(), ShapedGlyphSequence->GetMaxTextHeight());
+}
+
+void FCanvasShapedTextItem::DrawStringInternal( FCanvas* InCanvas, const FVector2D& DrawPos, const FLinearColor& InColor )
+{
+	DrawnSize = FVector2D::ZeroVector;
+
+	TSharedPtr<FSlateFontCache> FontCache = FEngineFontServices::Get().GetFontCache();
+	if( !FontCache.IsValid() )
+	{
+		return;
+	}
+
+	FHitProxyId HitProxyId = InCanvas->GetHitProxyId();
+
+	uint32 FontTextureIndex = 0;
+	FTextureResource* FontTexture = nullptr;
+
+	float InvTextureSizeX = 0;
+	float InvTextureSizeY = 0;
+
+	FVector2D TopLeft(0,0);
+
+	const float PosX = TopLeft.X;
+	float PosY = TopLeft.Y;
+
+	const float ScaledHorizSpacingAdjust = HorizSpacingAdjust * Scale.X;
+	const float ScaledMaxHeight = ShapedGlyphSequence->GetMaxTextHeight() * Scale.Y;
+	const float ScaledBaseline = ShapedGlyphSequence->GetTextBaseline() * Scale.Y;
+
+	float LineX = PosX;
+	
+	for( const auto& GlyphToRender : ShapedGlyphSequence->GetGlyphsToRender() )
+	{
+		if (DrawnSize.Y == 0)
+		{
+			// We have a valid glyph so initialize vertical DrawnSize
+			DrawnSize.Y = ScaledMaxHeight;
+		}
+
+		if( GlyphToRender.bIsVisible )
+		{
+			const FShapedGlyphFontAtlasData GlyphAtlasData = FontCache->GetShapedGlyphFontAtlasData(GlyphToRender);
+
+			if( FontTexture == nullptr || GlyphAtlasData.TextureIndex != FontTextureIndex )
+			{
+				// Font has a new texture for this glyph. Refresh the batch we use and the index we are currently using
+				FontTextureIndex = GlyphAtlasData.TextureIndex;
+				FontTexture = FontCache->GetEngineTextureResource( FontTextureIndex );
+				check(FontTexture);
+
+				FBatchedElementParameters* BatchedElementParameters = nullptr;
+				BatchedElements = InCanvas->GetBatchedElements(FCanvas::ET_Triangle, BatchedElementParameters, FontTexture, BlendMode, FontRenderInfo.GlowInfo);
+				check(BatchedElements);
+
+				InvTextureSizeX = 1.0f/FontTexture->GetSizeX();
+				InvTextureSizeY = 1.0f/FontTexture->GetSizeY();
+			}
+
+			const float X = DrawPos.X + LineX + (GlyphAtlasData.HorizontalOffset * Scale.X) + (GlyphToRender.XOffset  * Scale.X);
+			// Note PosX,PosY is the upper left corner of the bounding box representing the string.  This computes the Y position of the baseline where text will sit
+
+			const float Y = DrawPos.Y + PosY - (GlyphAtlasData.VerticalOffset * Scale.Y) + (GlyphToRender.YOffset * Scale.Y) + ScaledBaseline + ScaledMaxHeight;
+			const float U = GlyphAtlasData.StartU * InvTextureSizeX;
+			const float V = GlyphAtlasData.StartV * InvTextureSizeY;
+			const float SizeX = GlyphAtlasData.USize * Scale.X;
+			const float SizeY = GlyphAtlasData.VSize * Scale.Y;
+			const float SizeU = GlyphAtlasData.USize * InvTextureSizeX;
+			const float SizeV = GlyphAtlasData.VSize * InvTextureSizeY;
+
+			const float Left = X * Depth;
+			const float Top = Y * Depth;
+			const float Right = (X + SizeX) * Depth;
+			const float Bottom = (Y + SizeY) * Depth;
+
+			int32 V00 = BatchedElements->AddVertex(
+				FVector4( Left, Top, 0.f, Depth ),
+				FVector2D( U, V ),
+				InColor,
+				HitProxyId );
+			int32 V10 = BatchedElements->AddVertex(
+				FVector4( Right, Top, 0.0f, Depth ),
+				FVector2D( U + SizeU, V ),			
+				InColor,
+				HitProxyId );
+			int32 V01 = BatchedElements->AddVertex(
+				FVector4( Left, Bottom, 0.0f, Depth ),
+				FVector2D( U, V + SizeV ),	
+				InColor,
+				HitProxyId);
+			int32 V11 = BatchedElements->AddVertex(
+				FVector4( Right, Bottom, 0.0f, Depth ),
+				FVector2D( U + SizeU, V + SizeV ),
+				InColor,
+				HitProxyId);
+
+			BatchedElements->AddTriangle(V00, V10, V11, FontTexture, BlendMode, FontRenderInfo.GlowInfo);
+			BatchedElements->AddTriangle(V00, V11, V01, FontTexture, BlendMode, FontRenderInfo.GlowInfo);
+		}
+
+		LineX += GlyphToRender.XAdvance * Scale.X;
+		LineX += ScaledHorizSpacingAdjust;
+
+		// Increase the Horizontal DrawnSize
+		if (LineX > DrawnSize.X)
+		{
+			DrawnSize.X = LineX;
+		}
+	}
+}
+
 
 void FCanvasLineItem::Draw( class FCanvas* InCanvas )
 {

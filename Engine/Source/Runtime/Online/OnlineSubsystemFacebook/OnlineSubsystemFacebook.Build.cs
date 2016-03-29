@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -20,9 +20,9 @@ public class OnlineSubsystemFacebook : ModuleRules
             }
             );
 
-        if (Target.Platform == UnrealTargetPlatform.IOS)
+        if (Target.Platform == UnrealTargetPlatform.IOS || Target.Platform == UnrealTargetPlatform.TVOS)
         {
-			AddThirdPartyPrivateStaticDependencies(Target, "Facebook");
+			AddEngineThirdPartyPrivateStaticDependencies(Target, "Facebook");
 
             PrivateIncludePaths.Add("Runtime/Online/OnlineSubsystemFacebook/Private/IOS");
         }
@@ -30,5 +30,9 @@ public class OnlineSubsystemFacebook : ModuleRules
         {
             PrivateIncludePaths.Add("Runtime/Online/OnlineSubsystemFacebook/Private/Windows");
         }
+		else
+		{
+			PrecompileForTargets = PrecompileTargetsType.None;
+		}
 	}
 }

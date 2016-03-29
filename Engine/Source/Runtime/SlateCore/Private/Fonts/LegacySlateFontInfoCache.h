@@ -1,14 +1,13 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 /**
  * Cache used to efficiently upgrade legacy FSlateFontInfo structs to use a composite font by reducing the amount of duplicate instances that are created
  */
-class FLegacySlateFontInfoCache : public FGCObject
+class FLegacySlateFontInfoCache : public FGCObject, public TSharedFromThis<FLegacySlateFontInfoCache>
 {
 public:
-
 	/**
 	 * Get (or create) the singleton instance of this cache
 	 */
@@ -27,12 +26,17 @@ public:
 	/**
 	 * Get (or create) the culture specific fallback font
 	 */
-	TSharedPtr<const FCompositeFont> GetFallbackFont();
+	const FFontData& GetLocalizedFallbackFontData();
 
 	/**
-	 * Get (or create) the culture specific fallback font
+	 * Get the revision index of the currently active localized fallback font.
 	 */
-	const FFontData& GetFallbackFontData();
+	int32 GetLocalizedFallbackFontRevision() const;
+
+	/**
+	 * Get (or create) the last resort fallback font
+	 */
+	TSharedPtr<const FCompositeFont> GetLastResortFont();
 
 	/**
 	 * Get (or create) the last resort fallback font
@@ -43,6 +47,13 @@ public:
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 
 private:
+	FLegacySlateFontInfoCache();
+
+	/**
+	 * Called after the active culture has changed
+	 */
+	void HandleCultureChanged();
+
 	struct FLegacyFontKey
 	{
 		FLegacyFontKey()
@@ -81,16 +92,18 @@ private:
 
 	TMap<FLegacyFontKey, TSharedPtr<const FCompositeFont>> LegacyFontNameToCompositeFont;
 	TSharedPtr<const FCompositeFont> SystemFont;
-	TSharedPtr<const FCompositeFont> FallbackFont;
+	TSharedPtr<const FCompositeFont> LastResortFont;
 	
-	TSharedPtr<const FFontData> FallbackFontData;
+	TSharedPtr<const FFontData> LocalizedFallbackFontData;
 	TSharedPtr<const FFontData> LastResortFontData;
 
-	int32 FallbackFontHistoryVersion;
-	int32 FallbackFontDataHistoryVersion;
+	TMap<FString, TSharedPtr<const FFontData>> AllLocalizedFallbackFontData;
+	int32 LocalizedFallbackFontRevision;
+	int32 LocalizedFallbackFontDataHistoryVersion;
+	uint64 LocalizedFallbackFontFrameCounter;
 
-	FCriticalSection FallbackFontCS;
-	FCriticalSection FallbackFontDataCS;
+	FCriticalSection LocalizedFallbackFontDataCS;
+	FCriticalSection LastResortFontCS;
 	FCriticalSection LastResortFontDataCS;
 
 	static TSharedPtr<FLegacySlateFontInfoCache> Singleton;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -17,19 +17,6 @@ public class Slate : ModuleRules
 				"SlateCore",
 			}
 		);
-
-		if (Target.Type.Value != TargetRules.TargetType.Server && UEBuildConfiguration.bCompileFreeType)
-        {
-			AddThirdPartyPrivateStaticDependencies(Target, "FreeType2");
-			AddThirdPartyPrivateStaticDependencies(Target, "HarfBuzz");
-			AddThirdPartyPrivateStaticDependencies(Target, "ICU");
-			Definitions.Add("WITH_FREETYPE=1");
-		}
-		else
-		{
-			Definitions.Add("WITH_FREETYPE=0");
-			Definitions.Add("WITH_HARFBUZZ=0");
-		}
 
 		PrivateIncludePaths.AddRange(
 			new string[] {
@@ -66,7 +53,7 @@ public class Slate : ModuleRules
 		if ((Target.Platform == UnrealTargetPlatform.Win64) ||
 			(Target.Platform == UnrealTargetPlatform.Win32))
 		{
-			AddThirdPartyPrivateStaticDependencies(Target, "XInput");
+			AddEngineThirdPartyPrivateStaticDependencies(Target, "XInput");
 		}
 	}
 }

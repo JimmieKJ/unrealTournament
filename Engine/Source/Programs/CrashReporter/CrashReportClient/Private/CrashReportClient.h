@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -160,10 +160,10 @@ private:
 	FPlatformErrorReport ErrorReport;
 
 	/** Object that uploads report files to the server */
-	FCrashUpload Uploader;
+	FCrashUploadToReceiver ReceiverUploader;
 
-	/** Whether BeginUpload has been called. */
-	bool bBeginUploadCalled;
+	/** Object that uploads report files to the server */
+	FCrashUploadToDataRouter DataRouterUploader;
 
 	/** Whether the main window should be hidden. */
 	bool bShouldWindowBeHidden;

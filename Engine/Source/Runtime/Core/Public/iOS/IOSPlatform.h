@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*================================================================================
 	IOSPlatform.h: Setup for the iOS platform
@@ -37,6 +37,7 @@ typedef FIOSPlatformTypes FPlatformTypes;
 #define PLATFORM_MAX_FILEPATH_LENGTH					MAX_PATH
 #define PLATFORM_SUPPORTS_TEXTURE_STREAMING				1
 #define PLATFORM_USES_ES2								1
+#define PLATFORM_BUILTIN_VERTEX_HALF_FLOAT				0
 #define PLATFORM_SUPPORTS_MULTIPLE_NATIVE_WINDOWS		0
 #define PLATFORM_ALLOW_NULL_RHI							1
 #define PLATFORM_HAS_TOUCH_MAIN_SCREEN					1
@@ -47,11 +48,12 @@ typedef FIOSPlatformTypes FPlatformTypes;
 #define FORCE_ANSI_ALLOCATOR 1
 
 // Function type macros.
-#define VARARGS														/* Functions with variable arguments */
-#define CDECL														/* Standard C function */
-#define STDCALL														/* Standard calling convention */
-#define FORCEINLINE inline __attribute__ ((always_inline))			/* Force code to be inline */
-#define FORCENOINLINE __attribute__((noinline))						/* Force code to NOT be inline */
+#define VARARGS																		/* Functions with variable arguments */
+#define CDECL																		/* Standard C function */
+#define STDCALL																		/* Standard calling convention */
+#define FORCEINLINE inline __attribute__ ((always_inline))							/* Force code to be inline */
+#define FORCENOINLINE __attribute__((noinline))										/* Force code to NOT be inline */
+#define FUNCTION_CHECK_RETURN(...) __VA_ARGS__ __attribute__ ((warn_unused_result))	/* Wrap a function signature in this to warn that callers should not ignore the return value. */
 
 #define TEXT_HELPER(a,b)	a ## b
 #define TEXT(s)				TEXT_HELPER(L, s)

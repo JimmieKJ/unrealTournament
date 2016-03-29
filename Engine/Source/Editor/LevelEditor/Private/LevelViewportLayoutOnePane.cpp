@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LevelEditor.h"
 #include "LevelViewportLayoutOnePane.h"
@@ -29,34 +29,42 @@ TSharedRef<SWidget> FLevelViewportLayoutOnePane::MakeViewportLayout(const FStrin
 	FEngineShowFlags PerspectiveShowFlags(ESFIM_Editor);
 	ApplyViewMode(VMI_Lit, true, PerspectiveShowFlags);
 
-	FString ViewportKey;
+	FString ViewportKey, ViewportType;
 	if (!SpecificLayoutString.IsEmpty())
 	{
+		const FString& IniSection = FLayoutSaveRestore::GetAdditionalLayoutConfigIni();
+
 		ViewportKey = SpecificLayoutString + TEXT(".Viewport0");
+		GConfig->GetString(*IniSection, *(ViewportKey + TEXT(".TypeWithinLayout")), ViewportType, GEditorPerProjectIni);
 	}
 
-	TSharedPtr<SLevelViewport> ViewportWidget;
+	FLevelEditorModule& LevelEditor = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
+
+	// Set up the viewport
+	FViewportConstructionArgs Args;
+	Args.ParentLayout = AsShared();
+	Args.ParentLevelEditor = ParentLevelEditor;
+	Args.IsEnabled = FSlateApplication::Get().GetNormalExecutionAttribute();
+	Args.bRealtime = true;
+	Args.ConfigKey = ViewportKey;
+	Args.ViewportType = LVT_Perspective;
+	TSharedRef<IViewportLayoutEntity> Viewport = LevelEditor.FactoryViewport(*ViewportType, Args);
 
 	ViewportBox =
 		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
 		[
-			SAssignNew(ViewportWidget, SLevelViewport)
-			.ViewportType(LVT_Perspective)
-			.Realtime(true)
-			.ParentLayout(AsShared())
-			.ParentLevelEditor(ParentLevelEditor)
-			.ConfigKey(ViewportKey)
+			Viewport->AsWidget()
 		];
 
-	Viewports.Add(ViewportWidget);
+	Viewports.Add( *ViewportKey, Viewport );
 
 	// Make newly-created perspective viewports active by default
-	GCurrentLevelEditingViewportClient = &ViewportWidget->GetLevelViewportClient();
+	GCurrentLevelEditingViewportClient = &Viewport->GetLevelViewportClient();
 
-	InitCommonLayoutFromString(SpecificLayoutString);
+	InitCommonLayoutFromString(SpecificLayoutString, NAME_None);
 
-	return StaticCastSharedRef<SWidget>(ViewportBox.ToSharedRef());
+	return ViewportBox.ToSharedRef();
 }
 
 void FLevelViewportLayoutOnePane::ReplaceWidget(TSharedRef<SWidget> Source, TSharedRef<SWidget> Replacement)

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UnMath.cpp: Unreal math routines
@@ -1186,20 +1186,25 @@ FQuat FQuat::SlerpFullPath_NotNormalized(const FQuat &quat1, const FQuat &quat2,
 
 FQuat FQuat::Squad(const FQuat& quat1, const FQuat& tang1, const FQuat& quat2, const FQuat& tang2, float Alpha)
 {
-	const FQuat Q1 = FQuat::SlerpFullPath_NotNormalized(quat1, quat2, Alpha);
-	//UE_LOG(LogUnrealMath, Log, TEXT("Q1: %f %f %f %f"), Q1.X, Q1.Y, Q1.Z, Q1.W);
-
+	// Always slerp along the short path from quat1 to quat2 to prevent axis flipping.
+	// This approach is taken by OGRE engine, amongst others.
+	const FQuat Q1 = FQuat::Slerp_NotNormalized(quat1, quat2, Alpha);
 	const FQuat Q2 = FQuat::SlerpFullPath_NotNormalized(tang1, tang2, Alpha);
-	//UE_LOG(LogUnrealMath, Log, TEXT("Q2: %f %f %f %f"), Q2.X, Q2.Y, Q2.Z, Q2.W);
-
 	const FQuat Result = FQuat::SlerpFullPath(Q1, Q2, 2.f * Alpha * (1.f - Alpha));
-	//FQuat Result = FQuat::Slerp(Q1, Q2, 2.f * Alpha * (1.f - Alpha));
-	//UE_LOG(LogUnrealMath, Log, TEXT("Result: %f %f %f %f"), Result.X, Result.Y, Result.Z, Result.W);
 
 	return Result;
 }
 
-void FQuat::CalcTangents( const FQuat& PrevP, const FQuat& P, const FQuat& NextP, float Tension, FQuat& OutTan )
+FQuat FQuat::SquadFullPath(const FQuat& quat1, const FQuat& tang1, const FQuat& quat2, const FQuat& tang2, float Alpha)
+{
+	const FQuat Q1 = FQuat::SlerpFullPath_NotNormalized(quat1, quat2, Alpha);
+	const FQuat Q2 = FQuat::SlerpFullPath_NotNormalized(tang1, tang2, Alpha);
+	const FQuat Result = FQuat::SlerpFullPath(Q1, Q2, 2.f * Alpha * (1.f - Alpha));
+
+	return Result;
+}
+
+void FQuat::CalcTangents(const FQuat& PrevP, const FQuat& P, const FQuat& NextP, float Tension, FQuat& OutTan)
 {
 	const FQuat InvP = P.Inverse();
 	const FQuat Part1 = (InvP * PrevP).Log();
@@ -2054,28 +2059,30 @@ FVector FMath::ClosestPointOnTetrahedronToPoint(const FVector& Point, const FVec
 	return Result;
 }
 
-void FMath::SphereDistToLine(FVector SphereOrigin, float SphereRadius, FVector LineOrigin, FVector LineDir, FVector& OutClosestPoint)
+void FMath::SphereDistToLine(FVector SphereOrigin, float SphereRadius, FVector LineOrigin, FVector NormalizedLineDir, FVector& OutClosestPoint)
 {
-	const float A	= LineDir | LineDir;
-	const float B	= 2.f * (LineDir | (LineOrigin - SphereOrigin));
-	const float C	= (SphereOrigin|SphereOrigin) + (LineOrigin|LineOrigin) - 2.f *(SphereOrigin|LineOrigin) - FMath::Square(SphereRadius);
-	const float D	= FMath::Square(B) - 4.f * A * C;
+	//const float A = NormalizedLineDir | NormalizedLineDir  (this is 1 because normalized)
+	//solving quadratic formula in terms of t where closest point = LineOrigin + t * NormalizedLineDir
+	const FVector LineOriginToSphereOrigin = SphereOrigin - LineOrigin;
+	const float B = -2.f * (NormalizedLineDir | LineOriginToSphereOrigin);
+	const float C = LineOriginToSphereOrigin.SizeSquared() - FMath::Square(SphereRadius);
+	const float D	= FMath::Square(B) - 4.f * C;
 
 	if( D <= KINDA_SMALL_NUMBER )
 	{
 		// line is not intersecting sphere (or is tangent at one point if D == 0 )
-		const FVector PointOnLine = LineOrigin + ( -B / 2.f * A ) * LineDir;
+		const FVector PointOnLine = LineOrigin + ( -B * 0.5f ) * NormalizedLineDir;
 		OutClosestPoint = SphereOrigin + (PointOnLine - SphereOrigin).GetSafeNormal() * SphereRadius;
 	}
 	else
 	{
 		// Line intersecting sphere in 2 points. Pick closest to line origin.
 		const float	E	= FMath::Sqrt(D);
-		const float T1	= (-B + E) / (2.f * A);
-		const float T2	= (-B - E) / (2.f * A);
-		const float T	= FMath::Abs(T1) < FMath::Abs(T2) ? T1 : T2;
+		const float T1	= (-B + E) * 0.5f;
+		const float T2	= (-B - E) * 0.5f;
+		const float T	= FMath::Abs( T1 ) == FMath::Abs( T2 ) ? FMath::Abs( T1 ) : FMath::Abs( T1 ) < FMath::Abs( T2 ) ? T1 : T2;	// In the case where both points are exactly the same distance we take the one in the direction of LineDir
 
-		OutClosestPoint	= LineOrigin + T * LineDir;
+		OutClosestPoint	= LineOrigin + T * NormalizedLineDir;
 	}
 }
 
@@ -2345,7 +2352,7 @@ CORE_API FRotator FMath::RInterpTo( const FRotator& Current, const FRotator& Tar
 CORE_API float FMath::FInterpTo( float Current, float Target, float DeltaTime, float InterpSpeed )
 {
 	// If no interp speed, jump to target value
-	if( InterpSpeed == 0.f )
+	if( InterpSpeed <= 0.f )
 	{
 		return Target;
 	}
@@ -3097,6 +3104,16 @@ bool FMath::Eval( FString Str, float& OutValue )
 	}
 
 	return bResult;
+}
+
+void FMath::WindRelativeAnglesDegrees(float InAngle0, float& InOutAngle1)
+{
+	const float Diff = InAngle0 - InOutAngle1;
+	const float AbsDiff = Abs(Diff);
+	if(AbsDiff > 180.0f)
+	{
+		InOutAngle1 += 360.0f * Sign(Diff) * FloorToFloat((AbsDiff / 360.0f) + 0.5f);
+	}
 }
 
 float FMath::FixedTurn(float InCurrent, float InDesired, float InDeltaRate)

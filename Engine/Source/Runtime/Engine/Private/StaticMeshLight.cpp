@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	StaticMeshLight.cpp: Static mesh lighting code.
@@ -287,7 +287,7 @@ void FStaticMeshStaticLightingTextureMapping::Apply(FQuantizedLightmapData* Quan
 #if WITH_EDITOR
 void UStaticMeshComponent::GetStaticLightingInfo(FStaticLightingPrimitiveInfo& OutPrimitiveInfo,const TArray<ULightComponent*>& InRelevantLights,const FLightingBuildOptions& Options)
 {
-	if( HasValidSettingsForStaticLighting() )
+	if( HasValidSettingsForStaticLighting(false) )
 	{
 		int32		BaseLightMapWidth	= 0;
 		int32		BaseLightMapHeight	= 0;
@@ -347,7 +347,7 @@ void UStaticMeshComponent::GetStaticLightingInfo(FStaticLightingPrimitiveInfo& O
 ELightMapInteractionType UStaticMeshComponent::GetStaticLightingType() const
 {
 	bool bUseTextureMap = false;
-	if( HasValidSettingsForStaticLighting() )
+	if( HasValidSettingsForStaticLighting(false) )
 	{
 		// Process each LOD separately.
 		TArray<FStaticMeshStaticLightingMesh*> StaticLightingMeshes;

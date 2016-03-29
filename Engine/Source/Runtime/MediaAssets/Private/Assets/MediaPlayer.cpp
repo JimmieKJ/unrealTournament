@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MediaAssetsPrivatePCH.h"
 #include "IMediaModule.h"
@@ -8,7 +8,7 @@
 /* UMediaPlayer structors
  *****************************************************************************/
 
-UMediaPlayer::UMediaPlayer( const FObjectInitializer& ObjectInitializer )
+UMediaPlayer::UMediaPlayer(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, Looping(true)
 	, Player(nullptr)
@@ -96,13 +96,13 @@ bool UMediaPlayer::IsPlaying() const
 }
 
 
-bool UMediaPlayer::IsStopped() const
+bool UMediaPlayer::IsReady() const
 {
-	return !Player.IsValid() || !Player->IsReady();
+	return Player.IsValid() && Player->IsReady();
 }
 
 
-bool UMediaPlayer::OpenUrl( const FString& NewUrl )
+bool UMediaPlayer::OpenUrl(const FString& NewUrl)
 {
 	URL = NewUrl;
 	InitializePlayer();
@@ -129,25 +129,25 @@ bool UMediaPlayer::Rewind()
 }
 
 
-bool UMediaPlayer::SetLooping( bool InLooping )
+bool UMediaPlayer::SetLooping(bool InLooping)
 {
 	return Player.IsValid() && Player->SetLooping(InLooping);
 }
 
 
-bool UMediaPlayer::SetRate( float Rate )
+bool UMediaPlayer::SetRate(float Rate)
 {
 	return Player.IsValid() && Player->SetRate(Rate);
 }
 
 
-bool UMediaPlayer::Seek( const FTimespan& InTime )
+bool UMediaPlayer::Seek(const FTimespan& InTime)
 {
 	return Player.IsValid() && Player->Seek(InTime);
 }
 
 
-bool UMediaPlayer::SupportsRate( float Rate, bool Unthinned ) const
+bool UMediaPlayer::SupportsRate(float Rate, bool Unthinned) const
 {
 	return Player.IsValid() && Player->GetMediaInfo().SupportsRate(Rate, Unthinned);
 }
@@ -204,7 +204,7 @@ void UMediaPlayer::PostLoad()
 
 #if WITH_EDITOR
 
-void UMediaPlayer::PostEditChangeProperty( FPropertyChangedEvent& PropertyChangedEvent )
+void UMediaPlayer::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
@@ -224,74 +224,65 @@ void UMediaPlayer::InitializePlayer()
 		return;
 	}
 
-	if (URL != CurrentUrl)
+	if (URL == CurrentUrl)
 	{
-		// close previous player
-		CurrentUrl = FString();
-
-		if (Player.IsValid())
-		{
-			Player->Close();
-			Player->OnClosed().RemoveAll(this);
-			Player->OnOpened().RemoveAll(this);
-			Player->OnOpenFailed().RemoveAll(this);
-			Player->OnTracksChanged().RemoveAll(this);
-			Player.Reset();
-		}
-
-		if (URL.IsEmpty())
-		{
-			return;
-		}
-
-		// create new player
-		IMediaModule* MediaModule = FModuleManager::LoadModulePtr<IMediaModule>("Media");
-
-		if (MediaModule == nullptr)
-		{
-			return;
-		}
-
-		Player = MediaModule->CreatePlayer(URL);
-
-		if (!Player.IsValid())
-		{
-			return;
-		}
-
-		Player->OnClosed().AddUObject(this, &UMediaPlayer::HandlePlayerMediaClosed);
-		Player->OnOpened().AddUObject(this, &UMediaPlayer::HandlePlayerMediaOpened);
-		Player->OnOpenFailed().AddUObject(this, &UMediaPlayer::HandlePlayerMediaOpenFailed);
-		Player->OnTracksChanged().AddUObject(this, &UMediaPlayer::HandlePlayerTracksChanged);
-
-		// open the new media file
-		bool OpenedSuccessfully = false;
-
-		if (URL.Contains(TEXT("://")))
-		{
-			OpenedSuccessfully = Player->Open(URL);
-		}
-		else
-		{
-			const FString FullUrl = FPaths::ConvertRelativePathToFull(
-				FPaths::IsRelative(URL)
-					? FPaths::GameContentDir() / URL
-					: URL
-			);
-
-			OpenedSuccessfully = Player->Open(FullUrl);
-		}
-
-		// finish initialization
-		if (OpenedSuccessfully)
-		{
-			CurrentUrl = URL;
-		}
+		return;
 	}
+
+	// close previous player
+	CurrentUrl = FString();
 
 	if (Player.IsValid())
 	{
-		Player->SetLooping(Looping);
+		Player->Close();
+		Player->OnMediaEvent().RemoveAll(this);
+		Player.Reset();
+	}
+
+	if (URL.IsEmpty())
+	{
+		return;
+	}
+
+	// create new player
+	IMediaModule* MediaModule = FModuleManager::LoadModulePtr<IMediaModule>("Media");
+
+	if (MediaModule == nullptr)
+	{
+		return;
+	}
+
+	Player = MediaModule->CreatePlayer(URL);
+
+	if (!Player.IsValid())
+	{
+		return;
+	}
+
+	Player->OnMediaEvent().AddUObject(this, &UMediaPlayer::HandlePlayerMediaEvent);
+
+	// open the new media file
+	bool OpenedSuccessfully = false;
+
+	if (URL.Contains(TEXT("://")))
+	{
+		OpenedSuccessfully = Player->Open(URL);
+	}
+	else
+	{
+		const FString FullUrl = FPaths::ConvertRelativePathToFull(
+			FPaths::IsRelative(URL)
+				? FPaths::GameContentDir() / URL
+				: URL
+		);
+
+		OpenedSuccessfully = Player->Open(FullUrl);
+	}
+
+	// finish initialization
+	if (OpenedSuccessfully)
+	{
+		CurrentUrl = URL;
 	}
 }
 
@@ -299,27 +290,38 @@ void UMediaPlayer::InitializePlayer()
 /* UMediaPlayer callbacks
  *****************************************************************************/
 
-void UMediaPlayer::HandlePlayerMediaClosed()
+void UMediaPlayer::HandlePlayerMediaEvent(EMediaEvent Event)
 {
-	MediaChangedEvent.Broadcast();
-	OnMediaClosed.Broadcast();
-}
+	switch(Event)
+	{
+	case EMediaEvent::MediaClosed:
+		MediaChangedEvent.Broadcast();
+		OnMediaClosed.Broadcast();
+		break;
 
+	case EMediaEvent::MediaOpened:
+		Player->SetLooping(Looping);
+		MediaChangedEvent.Broadcast();
+		OnMediaOpened.Broadcast(URL);
+		break;
 
-void UMediaPlayer::HandlePlayerMediaOpened(FString OpenedUrl)
-{
-	MediaChangedEvent.Broadcast();
-	OnMediaOpened.Broadcast(OpenedUrl);
-}
+	case EMediaEvent::MediaOpenFailed:
+		OnMediaOpenFailed.Broadcast(URL);
+		break;
 
+	case EMediaEvent::PlaybackEndReached:
+		OnEndReached.Broadcast();
+		break;
 
-void UMediaPlayer::HandlePlayerMediaOpenFailed(FString FailedUrl)
-{
-	OnMediaOpenFailed.Broadcast(FailedUrl);
-}
+	case EMediaEvent::PlaybackResumed:
+		OnPlaybackResumed.Broadcast();
+		break;
 
+	case EMediaEvent::PlaybackSuspended:
+		OnPlaybackSuspended.Broadcast();
+		break;
 
-void UMediaPlayer::HandlePlayerTracksChanged()
-{
-	TracksChangedEvent.Broadcast();
+	case EMediaEvent::TracksChanged:
+		TracksChangedEvent.Broadcast();
+	}
 }

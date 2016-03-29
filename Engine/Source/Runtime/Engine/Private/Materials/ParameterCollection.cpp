@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "ParameterCollection.h"
@@ -31,6 +31,67 @@ void UMaterialParameterCollection::PostLoad()
 
 #if WITH_EDITOR
 
+template<typename ParameterType>
+FName CreateUniqueName(TArray<ParameterType>& Parameters, int32 RenameParameterIndex)
+{
+	FString RenameString;
+	Parameters[RenameParameterIndex].ParameterName.ToString(RenameString);
+
+	int32 NumberStartIndex = RenameString.FindLastCharByPredicate([](TCHAR Letter){ return !FChar::IsDigit(Letter); }) + 1;
+	
+	int32 RenameNumber = 0;
+	if (NumberStartIndex < RenameString.Len() - 1)
+	{
+		FString RenameStringNumberPart = RenameString.RightChop(NumberStartIndex);
+		ensure(RenameStringNumberPart.IsNumeric());
+
+		TTypeFromString<int32>::FromString(RenameNumber, *RenameStringNumberPart);
+	}
+
+	FString BaseString = RenameString.Left(NumberStartIndex);
+
+	FName Renamed = FName(*FString::Printf(TEXT("%s%u"), *BaseString, ++RenameNumber));
+
+	bool bMatchFound = false;
+	
+	do
+	{
+		bMatchFound = false;
+
+		for (int32 i = 0; i < Parameters.Num(); ++i)
+		{
+			if (Parameters[i].ParameterName == Renamed && RenameParameterIndex != i)
+			{
+				Renamed = FName(*FString::Printf(TEXT("%s%u"), *BaseString, ++RenameNumber));
+				bMatchFound = true;
+				break;
+			}
+		}
+	} while (bMatchFound);
+	
+	return Renamed;
+}
+
+template<typename ParameterType>
+void SanatizeParameters(TArray<ParameterType>& Parameters)
+{
+	for (int32 i = 0; i < Parameters.Num() - 1; ++i)
+	{
+		for (int32 j = i + 1; j < Parameters.Num(); ++j)
+		{
+			if (Parameters[i].Id == Parameters[j].Id)
+			{
+				FPlatformMisc::CreateGuid(Parameters[j].Id);
+			}
+
+			if (Parameters[i].ParameterName == Parameters[j].ParameterName)
+			{
+				Parameters[j].ParameterName = CreateUniqueName(Parameters, j);
+			}
+		}
+	}
+}
+
 TArray<FCollectionScalarParameter> PreviousScalarParameters;
 TArray<FCollectionVectorParameter> PreviousVectorParameters;
 
@@ -44,6 +105,9 @@ void UMaterialParameterCollection::PreEditChange(class FEditPropertyChain& Prope
 
 void UMaterialParameterCollection::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
+	SanatizeParameters(ScalarParameters);
+	SanatizeParameters(VectorParameters);
+
 	// If the array counts have changed, an element has been added or removed, and we need to update the uniform buffer layout,
 	// Which also requires recompiling any referencing materials
 	if (ScalarParameters.Num() != PreviousScalarParameters.Num()
@@ -160,61 +224,6 @@ void UMaterialParameterCollection::PostEditChangeProperty(FPropertyChangedEvent&
 	PreviousVectorParameters.Empty();
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
-}
-
-/**
- * Helper function for creating unique item names within a list of existing items
- *   InBaseName - Desired name prefix (will generate Prefix<N>)
- *   InExistingItems - Array of existing items which we want to ensure uniqueness within
- *   OutName - Target FName for result
- *   InNewIndex - Index of value that has just been added, so we can make sure we don't check against ourselves
- **/
-template <class T>
-inline void CreateUniqueName(const TCHAR* InBaseName, TArray<T>& InExistingItems, FName& OutName, int32 InNewIndex)
-{
-	int32 Index = 0;
-	bool bMatchFound = true;
-
-	while (bMatchFound)
-	{
-		bMatchFound = false;
-		OutName = FName(*FString::Printf(TEXT("%s%u"), InBaseName, Index++));
-
-		for (int32 i = 0; i < InExistingItems.Num(); ++i)
-		{
-			if (i != InNewIndex && InExistingItems[i].ParameterName == OutName)
-			{
-				bMatchFound = true;
-				break;
-			}
-		}
-	}
-}
-
-void UMaterialParameterCollection::PostEditChangeChainProperty(struct FPropertyChangedChainEvent& PropertyChangedEvent)
-{
-	// Auto-populate with useful parameter names
-	if (ScalarParameters.Num() > PreviousScalarParameters.Num())
-	{
-		int32 NewArrayIndex = PropertyChangedEvent.GetArrayIndex("ScalarParameters");
-
-		if (ScalarParameters.IsValidIndex(NewArrayIndex))
-		{
-			CreateUniqueName<FCollectionScalarParameter>(TEXT("Scalar"), ScalarParameters, ScalarParameters[NewArrayIndex].ParameterName, NewArrayIndex);
-		}
-	}
-
-	if (VectorParameters.Num() > PreviousVectorParameters.Num())
-	{
-		int32 NewArrayIndex = PropertyChangedEvent.GetArrayIndex("VectorParameters");
-
-		if (VectorParameters.IsValidIndex(NewArrayIndex))
-		{
-			CreateUniqueName<FCollectionVectorParameter>(TEXT("Vector"), VectorParameters, VectorParameters[NewArrayIndex].ParameterName, NewArrayIndex);
-		}
-	}
-
-	Super::PostEditChangeChainProperty(PropertyChangedEvent);
 }
 
 #endif // WITH_EDITOR

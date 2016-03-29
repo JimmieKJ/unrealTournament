@@ -6,21 +6,14 @@ Description:アンリアル・エンジン 4 チュートリアル入門の内�
 [EXCERPT:Stage1]
 ##Visual Studioのインストール
 
-Visual Studio 2013がインストールされていないようです。 
+Visual Studio 2015がインストールされていないようです。 
 
-Visual Studio 2013をインストールすることにより、アンリアルのヘッダファイルの表示に加え、ユーザー独自のコードプロジェクトのコンパイルが有効になります。
+Visual Studio 2015をインストールすることにより、アンリアルのヘッダファイルの表示に加え、ユーザー独自のコードプロジェクトのコンパイルが有効になります。
 
-以下のMicrosoftのリンクから、無償でVisual Studio 2013をインストールすることができます。
-
-
-
-[Download Visual Studio 2013](http://www.microsoft.com/en-us/download/details.aspx?id=40787)
+以下のMicrosoftのリンクから、無償でVisual Studio 2015をインストールすることができます。
 
 
-[![](DownloadVSHighlight.png)](http://www.microsoft.com/en-us/download/details.aspx?id=40787)
 
----
-
-**インストールを簡単に行うために、ダウンロードは「wdexpress_full.exe」を選択します。**
+[Download Visual Studio 2015](http://go.microsoft.com/fwlink/?LinkId=532606)
 
 [/EXCERPT:Stage1]

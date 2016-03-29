@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -16,7 +16,14 @@ class SAnimationOutlinerTreeNode
 {
 public:
 
+	SAnimationOutlinerTreeNode(){}
+	~SAnimationOutlinerTreeNode();
+	
 	SLATE_BEGIN_ARGS(SAnimationOutlinerTreeNode){}
+		SLATE_ATTRIBUTE(const FSlateBrush*, IconBrush)
+		SLATE_ATTRIBUTE(const FSlateBrush*, IconOverlayBrush)
+		SLATE_ATTRIBUTE(FText, IconToolTipText)
+		SLATE_NAMED_SLOT(FArguments, CustomContent)
 	SLATE_END_ARGS()
 
 	void Construct( const FArguments& InArgs, TSharedRef<FSequencerDisplayNode> Node, const TSharedRef<SSequencerTreeViewRow>& InTableRow );
@@ -27,33 +34,49 @@ public:
 	void EnterRenameMode();
 
 	/**
-	 * @return The display node used by this widget                                                              
+	 * @return The display node used by this widget.                                                           
 	 */
-	const TSharedPtr<FSequencerDisplayNode> GetDisplayNode() const { return DisplayNode; }
-
-	/**
-	 * Gets a tint to apply buttons on hover
-	 */
-	FLinearColor GetHoverTint() const;
+	const TSharedPtr<FSequencerDisplayNode> GetDisplayNode() const
+	{
+		return DisplayNode;
+	}
 
 private:
 
 	// SWidget interface
 
-	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
-	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
+	void OnMouseEnter(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
+	void OnMouseLeave(const FPointerEvent& MouseEvent) override;
 
 	FSlateColor GetForegroundBasedOnSelection() const;
 
+	/** Get the tint to apply to the color indicator based on this node's track */
+	FSlateColor GetTrackColorTint() const;
+
 	/**
-	 * @return The border image to show in the tree node
+	 * @return The border image to show in the tree node.
 	 */
 	const FSlateBrush* GetNodeBorderImage() const;
 	
 	/**
-	 * @return The expander visibility of this node
+	 * @return The tint to apply to the border image
+	 */
+	FSlateColor GetNodeBackgroundTint() const;
+
+	/**
+	 * @return The expander visibility of this node.
 	 */
 	EVisibility GetExpanderVisibility() const;
+
+	/**
+	 * @return The color used to draw the display name.
+	 */
+	FSlateColor GetDisplayNameColor() const;
+
+	/**
+	 * @return The text displayed for the tool tip for the diplay name label. 
+	 */
+	FText GetDisplayNameToolTipText() const;
 
 	/**
 	 * @return The display name for this node.
@@ -66,41 +89,29 @@ private:
 	/** Callback for when the node label text has changed. */
 	void HandleNodeLabelTextChanged(const FText& NewLabel);
 
-	/** Handles the previous key button being clicked. */
-	FReply OnPreviousKeyClicked();
-
-	/** Handles the next key button being clicked. */
-	FReply OnNextKeyClicked();
-
-	/** Handles the add key button being clicked. */
-	FReply OnAddKeyClicked();
-
-	/** Get all descendant nodes from the given root node */
+	/** Get all descendant nodes from the given root node. */
 	void GetAllDescendantNodes(TSharedPtr<FSequencerDisplayNode> RootNode, TArray<TSharedRef<FSequencerDisplayNode> >& AllNodes);
 
-	/** Return the root node given an object node */
-	TSharedPtr<FSequencerDisplayNode> GetRootNode(TSharedPtr<FSequencerDisplayNode> ObjectNode);
-
-	/** Called when nodes are selected */
-	void OnSelectionChanged(TArray<TSharedPtr<FSequencerDisplayNode>> AffectedNodes);
+	/** Called when the user clicks the track color */
+	TSharedRef<SWidget> OnGetColorPicker() const;
 
 private:
 
-	/** Layout node the widget is visualizing */
+	/** Layout node the widget is visualizing. */
 	TSharedPtr<FSequencerDisplayNode> DisplayNode;
 
-	/** Holds the editable text label widge.t */
+	/** Holds the editable text label widget. */
 	TSharedPtr<SEditableLabel> EditableLabel;
 
-	/** Brush to display a border around the widget when it is selected */
-	const FSlateBrush* SelectedBrush;
+	/** True if this node is a top level node, false otherwise */
+	bool bIsTopLevelNode;
 
-	/** Brush to display a border around the widget when it is selected but inactive */
-	const FSlateBrush* SelectedBrushInactive;
+	/** Default background brush for this node when expanded */
+	const FSlateBrush* ExpandedBackgroundBrush;
 
-	/** Brush to use if the node is not selected */
-	const FSlateBrush* NotSelectedBrush;
+	/** Default background brush for this node when collapsed */
+	const FSlateBrush* CollapsedBackgroundBrush;
 
-	/** The table row style used for nodes in the tree. This is required as we don't actually use the tree for selection */
+	/** The table row style used for nodes in the tree. This is required as we don't actually use the tree for selection. */
 	const FTableRowStyle* TableRowStyle;
 };

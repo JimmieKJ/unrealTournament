@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AnimationRuntime.h: Skeletal mesh animation utilities
@@ -66,6 +66,25 @@ public:
 	* The blend is done by taking a weighted sum of each atom, and re-normalizing the quaternion part at the end, not using SLERP.
 	* This allows n-way blends, and makes the code much faster, though the angular velocity will not be constant across the blend.
 	*
+	* SourceWeightsIndices is used to index SourceWeights, to prevent caller having to supply an ordered weights array 
+	*
+	* @param	ResultPose		Output pose of relative bone transforms.
+	*/
+	static void BlendPosesTogether(
+		const TFixedSizeArrayView<FCompactPose>& SourcePoses,
+		const TFixedSizeArrayView<FBlendedCurve>& SourceCurves,
+		const TFixedSizeArrayView<float>& SourceWeights,
+		const TFixedSizeArrayView<int32>& SourceWeightsIndices,
+		/*out*/ FCompactPose& ResultPose,
+		/*out*/ FBlendedCurve& ResultCurve);
+
+	/**
+	* Blends together a set of poses, each with a given weight.
+	* This function is lightweight, it does not cull out nearly zero weights or check to make sure weights sum to 1.0, the caller should take care of that if needed.
+	*
+	* The blend is done by taking a weighted sum of each atom, and re-normalizing the quaternion part at the end, not using SLERP.
+	* This allows n-way blends, and makes the code much faster, though the angular velocity will not be constant across the blend.
+	*
 	* @param	ResultPose		Output pose of relative bone transforms.
 	*/
 	static void BlendPosesTogetherIndirect(
@@ -104,8 +123,25 @@ public:
 		const TFixedSizeArrayView<FCompactPose>& SourcePoses,
 		const TFixedSizeArrayView<FBlendedCurve>& SourceCurves,
 		const IInterpolationIndexProvider* IndexProvider,
-		const TArray<FBlendSampleData>& BlendSampleDataCache,
+		const TFixedSizeArrayView<FBlendSampleData>& BlendSampleDataCache,
 		/*out*/ FCompactPose& ResultPose, 
+		/*out*/ FBlendedCurve& ResultCurve);
+
+	/**
+	* Blends together a set of poses, each with a given weight.
+	* This function is for BlendSpace per bone blending. BlendSampleDataCache contains the weight information and is indexed using BlendSampleDataCacheIndices, to prevent caller having to supply an ordered array 
+	*
+	* This blends in local space
+	*
+	* @param	ResultPose		Output pose of relative bone transforms.
+	*/
+	static void BlendPosesTogetherPerBone(
+		const TFixedSizeArrayView<FCompactPose>& SourcePoses,
+		const TFixedSizeArrayView<FBlendedCurve>& SourceCurves,
+		const IInterpolationIndexProvider* IndexProvider,
+		const TFixedSizeArrayView<FBlendSampleData>& BlendSampleDataCache,
+		const TFixedSizeArrayView<int32>& BlendSampleDataCacheIndices,
+		/*out*/ FCompactPose& ResultPose,
 		/*out*/ FBlendedCurve& ResultCurve);
 
 	/**
@@ -120,7 +156,7 @@ public:
 		TFixedSizeArrayView<FCompactPose>& SourcePoses,
 		const TFixedSizeArrayView<FBlendedCurve>& SourceCurves,
 		const UBlendSpaceBase* BlendSpace,
-		const TArray<FBlendSampleData>& BlendSampleDataCache,
+		const TFixedSizeArrayView<FBlendSampleData>& BlendSampleDataCache,
 		/*out*/ FCompactPose& ResultPose,
 		/*out*/ FBlendedCurve& ResultCurve);
 
@@ -270,7 +306,7 @@ public:
 	/**
 	* Combine CurveKeys (that reference morph targets by name) and ActiveAnims (that reference vertex anims by reference) into the ActiveVertexAnims array.
 	*/
-	static TArray<struct FActiveVertexAnim> UpdateActiveVertexAnims(const USkeletalMesh* InSkeletalMesh, const TMap<FName, float>& InMorphCurveAnims, const TArray<FActiveVertexAnim>& InActiveAnims);
+ 	static void AppendActiveVertexAnims(const USkeletalMesh* InSkeletalMesh, const TMap<FName, float>& InMorphCurveAnims, TArray<FActiveVertexAnim>& InOutActiveAnims);
 
 private:
 	/** 

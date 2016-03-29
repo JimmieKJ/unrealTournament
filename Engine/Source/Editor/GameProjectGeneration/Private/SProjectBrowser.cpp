@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "GameProjectGenerationPrivatePCH.h"
@@ -259,7 +259,7 @@ void SProjectBrowser::Construct( const FArguments& InArgs )
 
 				// Auto-load project
 				+ SHorizontalBox::Slot()
-				.FillWidth(1.0f)
+				.AutoWidth()
 				.VAlign(VAlign_Center)
 				[
 					SNew(SCheckBox)			
@@ -271,6 +271,11 @@ void SProjectBrowser::Construct( const FArguments& InArgs )
 					]
 				]
 
+				+SHorizontalBox::Slot()
+				.FillWidth(1.0f)
+				[
+					SNullWidget::NullWidget
+				]
 				// Browse Button
 				+SHorizontalBox::Slot()
 				.AutoWidth()
@@ -1308,7 +1313,8 @@ FReply SProjectBrowser::HandleMarketplaceTabButtonClicked()
 	{
 		TArray<FAnalyticsEventAttribute> EventAttributes;
 
-		if (DesktopPlatform->OpenLauncher(false, TEXT("ue/marketplace"), FString()))
+		FOpenLauncherOptions OpenOptions(TEXT("ue/marketplace"));
+		if ( DesktopPlatform->OpenLauncher(OpenOptions) )
 		{
 			EventAttributes.Add(FAnalyticsEventAttribute(TEXT("OpenSucceeded"), TEXT("TRUE")));
 		}
@@ -1318,7 +1324,8 @@ FReply SProjectBrowser::HandleMarketplaceTabButtonClicked()
 
 			if (EAppReturnType::Yes == FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("InstallMarketplacePrompt", "The Marketplace requires the Epic Games Launcher, which does not seem to be installed on your computer. Would you like to install it now?")))
 			{
-				if (!DesktopPlatform->OpenLauncher(true, TEXT("ue/marketplace"), FString()))
+				FOpenLauncherOptions InstallOptions(true, TEXT("ue/marketplace"));
+				if ( !DesktopPlatform->OpenLauncher(InstallOptions) )
 				{
 					EventAttributes.Add(FAnalyticsEventAttribute(TEXT("InstallSucceeded"), TEXT("FALSE")));
 					FMessageDialog::Open(EAppMsgType::Ok, FText::FromString(TEXT("Sorry, there was a problem installing the Launcher.\nPlease try to install it manually!")));

@@ -1,12 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "RendererPrivate.h"
 #include "OneColorShader.h"
 
 FGlobalBoundShaderState GClearMRTBoundShaderState[8];
 
-// TODO support ExcludeRect
-void DrawClearQuadMRT(FRHICommandList& RHICmdList, ERHIFeatureLevel::Type FeatureLevel, bool bClearColor, int32 NumClearColors, const FLinearColor* ClearColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil)
+static void ClearQuadSetup( FRHICommandList& RHICmdList, ERHIFeatureLevel::Type FeatureLevel, bool bClearColor, int32 NumClearColors, const FLinearColor* ClearColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil )
 {
 	// Set new states
 	FBlendStateRHIParamRef BlendStateRHI;
@@ -100,51 +99,67 @@ void DrawClearQuadMRT(FRHICommandList& RHICmdList, ERHIFeatureLevel::Type Featur
 
 	SetGlobalBoundShaderState(RHICmdList, FeatureLevel, GClearMRTBoundShaderState[FMath::Max(NumClearColors - 1, 0)], GetVertexDeclarationFVector4(), *VertexShader, PixelShader);	
 	PixelShader->SetColors(RHICmdList, ClearColorArray, NumClearColors);
-		
+}
+
+void DrawClearQuadMRT( FRHICommandList& RHICmdList, ERHIFeatureLevel::Type FeatureLevel, bool bClearColor, int32 NumClearColors, const FLinearColor* ClearColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil )
+{
+	ClearQuadSetup( RHICmdList, FeatureLevel, bClearColor, NumClearColors, ClearColorArray, bClearDepth, Depth, bClearStencil, Stencil );
+
+	// without a hole
+	FVector4 Vertices[4];
+	Vertices[0].Set( -1.0f,  1.0f, Depth, 1.0f );
+	Vertices[1].Set(  1.0f,  1.0f, Depth, 1.0f );
+	Vertices[2].Set( -1.0f, -1.0f, Depth, 1.0f );
+	Vertices[3].Set(  1.0f, -1.0f, Depth, 1.0f );
+	DrawPrimitiveUP(RHICmdList, PT_TriangleStrip, 2, Vertices, sizeof(Vertices[0]));
+}
+
+void DrawClearQuadMRT( FRHICommandList& RHICmdList, ERHIFeatureLevel::Type FeatureLevel, bool bClearColor, int32 NumClearColors, const FLinearColor* ClearColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntPoint ViewSize, FIntRect ExcludeRect )
+{
+	ClearQuadSetup( RHICmdList, FeatureLevel, bClearColor, NumClearColors, ClearColorArray, bClearDepth, Depth, bClearStencil, Stencil );
+
+	// Draw a fullscreen quad
+	if(ExcludeRect.Width() > 0 && ExcludeRect.Height() > 0)
 	{
-		// Draw a fullscreen quad
-		/*if(ExcludeRect.Width() > 0 && ExcludeRect.Height() > 0)
-		{
-			// with a hole in it (optimization in case the hardware has non constant clear performance)
-			FVector4 OuterVertices[4];
-			OuterVertices[0].Set( -1.0f,  1.0f, Depth, 1.0f );
-			OuterVertices[1].Set(  1.0f,  1.0f, Depth, 1.0f );
-			OuterVertices[2].Set(  1.0f, -1.0f, Depth, 1.0f );
-			OuterVertices[3].Set( -1.0f, -1.0f, Depth, 1.0f );
+		// with a hole in it
+		FVector4 OuterVertices[4];
+		OuterVertices[0].Set( -1.0f,  1.0f, Depth, 1.0f );
+		OuterVertices[1].Set(  1.0f,  1.0f, Depth, 1.0f );
+		OuterVertices[2].Set(  1.0f, -1.0f, Depth, 1.0f );
+		OuterVertices[3].Set( -1.0f, -1.0f, Depth, 1.0f );
 
-			float InvViewWidth = 1.0f / Viewport.Width;
-			float InvViewHeight = 1.0f / Viewport.Height;
-			FVector4 FractionRect = FVector4(ExcludeRect.Min.X * InvViewWidth, ExcludeRect.Min.Y * InvViewHeight, (ExcludeRect.Max.X - 1) * InvViewWidth, (ExcludeRect.Max.Y - 1) * InvViewHeight);
+		float InvViewWidth = 1.0f / ViewSize.X;
+		float InvViewHeight = 1.0f / ViewSize.Y;
+		FVector4 FractionRect = FVector4(ExcludeRect.Min.X * InvViewWidth, ExcludeRect.Min.Y * InvViewHeight, (ExcludeRect.Max.X - 1) * InvViewWidth, (ExcludeRect.Max.Y - 1) * InvViewHeight);
 
-			FVector4 InnerVertices[4];
-			InnerVertices[0].Set( FMath::Lerp(-1.0f,  1.0f, FractionRect.X), FMath::Lerp(1.0f, -1.0f, FractionRect.Y), Depth, 1.0f );
-			InnerVertices[1].Set( FMath::Lerp(-1.0f,  1.0f, FractionRect.Z), FMath::Lerp(1.0f, -1.0f, FractionRect.Y), Depth, 1.0f );
-			InnerVertices[2].Set( FMath::Lerp(-1.0f,  1.0f, FractionRect.Z), FMath::Lerp(1.0f, -1.0f, FractionRect.W), Depth, 1.0f );
-			InnerVertices[3].Set( FMath::Lerp(-1.0f,  1.0f, FractionRect.X), FMath::Lerp(1.0f, -1.0f, FractionRect.W), Depth, 1.0f );
+		FVector4 InnerVertices[4];
+		InnerVertices[0].Set( FMath::Lerp(-1.0f,  1.0f, FractionRect.X), FMath::Lerp(1.0f, -1.0f, FractionRect.Y), Depth, 1.0f );
+		InnerVertices[1].Set( FMath::Lerp(-1.0f,  1.0f, FractionRect.Z), FMath::Lerp(1.0f, -1.0f, FractionRect.Y), Depth, 1.0f );
+		InnerVertices[2].Set( FMath::Lerp(-1.0f,  1.0f, FractionRect.Z), FMath::Lerp(1.0f, -1.0f, FractionRect.W), Depth, 1.0f );
+		InnerVertices[3].Set( FMath::Lerp(-1.0f,  1.0f, FractionRect.X), FMath::Lerp(1.0f, -1.0f, FractionRect.W), Depth, 1.0f );
 				
-			FVector4 Vertices[10];
-			Vertices[0] = OuterVertices[0];
-			Vertices[1] = InnerVertices[0];
-			Vertices[2] = OuterVertices[1];
-			Vertices[3] = InnerVertices[1];
-			Vertices[4] = OuterVertices[2];
-			Vertices[5] = InnerVertices[2];
-			Vertices[6] = OuterVertices[3];
-			Vertices[7] = InnerVertices[3];
-			Vertices[8] = OuterVertices[0];
-			Vertices[9] = InnerVertices[0];
+		FVector4 Vertices[10];
+		Vertices[0] = OuterVertices[0];
+		Vertices[1] = InnerVertices[0];
+		Vertices[2] = OuterVertices[1];
+		Vertices[3] = InnerVertices[1];
+		Vertices[4] = OuterVertices[2];
+		Vertices[5] = InnerVertices[2];
+		Vertices[6] = OuterVertices[3];
+		Vertices[7] = InnerVertices[3];
+		Vertices[8] = OuterVertices[0];
+		Vertices[9] = InnerVertices[0];
 
-			DrawPrimitiveUP(RHICmdList, PT_TriangleStrip, 8, Vertices, sizeof(Vertices[0]) );
-		}
-		else*/
-		{
-			// without a hole
-			FVector4 Vertices[4];
-			Vertices[0].Set( -1.0f,  1.0f, Depth, 1.0f );
-			Vertices[1].Set(  1.0f,  1.0f, Depth, 1.0f );
-			Vertices[2].Set( -1.0f, -1.0f, Depth, 1.0f );
-			Vertices[3].Set(  1.0f, -1.0f, Depth, 1.0f );
-			DrawPrimitiveUP(RHICmdList, PT_TriangleStrip, 2, Vertices, sizeof(Vertices[0]));
-		}
+		DrawPrimitiveUP(RHICmdList, PT_TriangleStrip, 8, Vertices, sizeof(Vertices[0]) );
+	}
+	else
+	{
+		// without a hole
+		FVector4 Vertices[4];
+		Vertices[0].Set( -1.0f,  1.0f, Depth, 1.0f );
+		Vertices[1].Set(  1.0f,  1.0f, Depth, 1.0f );
+		Vertices[2].Set( -1.0f, -1.0f, Depth, 1.0f );
+		Vertices[3].Set(  1.0f, -1.0f, Depth, 1.0f );
+		DrawPrimitiveUP(RHICmdList, PT_TriangleStrip, 2, Vertices, sizeof(Vertices[0]));
 	}
 }

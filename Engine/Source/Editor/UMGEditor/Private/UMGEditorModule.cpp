@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGEditorPrivatePCH.h"
 
@@ -19,12 +19,23 @@
 #include "DesignerCommands.h"
 #include "WidgetBlueprint.h"
 
+#include "SlateStyleRegistry.h"
+#include "ClassIconFinder.h"
+
 #include "Settings/WidgetDesignerSettings.h"
 #include "ISettingsModule.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
 const FName UMGEditorAppIdentifier = FName(TEXT("UMGEditorApp"));
+
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+const FSlateBrush* GetEditorIcon_Deprecated(UWidget* Widget)
+{
+	const FSlateBrush* Brush = Widget->GetEditorIcon();
+	return Brush ? Brush : FClassIconFinder::FindIconForClass(Widget->GetClass());
+}
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 class FUMGEditorModule : public IUMGEditorModule, public IBlueprintCompiler
 {
@@ -72,11 +83,23 @@ public:
 				GetMutableDefault<UWidgetDesignerSettings>()
 				);
 		}
+
+		const ISlateStyle* UMGStyle = FSlateStyleRegistry::FindSlateStyle("UMGStyle");
+		if (UMGStyle)
+		{
+			FClassIconFinder::RegisterIconSource(UMGStyle);
+		}
 	}
 
 	/** Called before the module is unloaded, right before the module object is destroyed. */
 	virtual void ShutdownModule() override
 	{
+		const ISlateStyle* UMGStyle = FSlateStyleRegistry::FindSlateStyle("UMGStyle");
+		if (UMGStyle)
+		{
+			FClassIconFinder::UnregisterIconSource(UMGStyle);
+		}
+
 		MenuExtensibilityManager.Reset();
 		ToolBarExtensibilityManager.Reset();
 

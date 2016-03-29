@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "IDetailCustomization.h"
@@ -33,16 +33,30 @@ private:
 	void OnTargetDependencyCheckStateChanged(ULocalizationTarget* const OtherLocalizationTarget, const ECheckBoxState State);
 	ECheckBoxState IsTargetDependencyChecked(ULocalizationTarget* const OtherLocalizationTarget) const;
 
-	bool CanGather() const;
-	void Gather();
-	bool CanImportAllCultures() const;
-	void ImportAllCultures();
-	bool CanExportAllCultures() const;
-	void ExportAllCultures();
+	bool CanGatherText() const;
+	void GatherText();
+
+	bool CanImportTextAllCultures() const;
+	void ImportTextAllCultures();
+	
+	bool CanExportTextAllCultures() const;
+	void ExportTextAllCultures();
+
+	bool CanImportDialogueScriptAllCultures() const;
+	void ImportDialogueScriptAllCultures();
+
+	bool CanExportDialogueScriptAllCultures() const;
+	void ExportDialogueScriptAllCultures();
+	
+	bool CanImportDialogueAllCultures() const;
+	void ImportDialogueAllCultures();
+
 	bool CanCountWords() const;
 	void CountWords();
-	bool CanCompileAllCultures() const;
-	void CompileAllCultures();
+	
+	bool CanCompileTextAllCultures() const;
+	void CompileTextAllCultures();
+	
 	void UpdateTargetFromReports();
 
 	void BuildListedCulturesList();

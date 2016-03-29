@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UpdateTextureShaders.usf: Compute shaders for copying and updating textures.
@@ -49,3 +49,26 @@ void CopyTexture2DCS( uint3 ThreadId : SV_DispatchThreadID )
 {
 	DestTexture[ThreadId.xy] = SrcTexture.Load(int3(ThreadId.x, ThreadId.y, 0));
 }
+
+Buffer<uint4> SrcCopyBuffer;
+RWBuffer<uint4> DestBuffer;
+
+//.x Num elements per thread.
+uint CopyElementsPerThread;
+
+[numthreads(64,1,1)]
+void CopyData2CS(uint3 ThreadGroupId : SV_GroupID, uint3 GroupThreadId : SV_GroupThreadID)
+{
+	int Offset1 = (ThreadGroupId.x * 2 + 0) * 64 + GroupThreadId.x;
+	int Offset2 = (ThreadGroupId.x * 2 + 1) * 64 + GroupThreadId.x;
+	DestBuffer[Offset1] = SrcCopyBuffer[Offset1];
+	DestBuffer[Offset2] = SrcCopyBuffer[Offset2];	
+}
+
+[numthreads(64,1,1)]
+void CopyData1CS(uint3 ThreadId : SV_DispatchThreadID)
+{
+	uint offset = ThreadId.x;	
+	DestBuffer[offset + 0].xyzw = SrcCopyBuffer.Load(offset + 0).xyzw;	
+}
+

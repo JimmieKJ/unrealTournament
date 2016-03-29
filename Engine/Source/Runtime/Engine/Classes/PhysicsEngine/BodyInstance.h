@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -12,9 +12,10 @@ struct FCollisionShape;
 struct FConstraintInstance;
 class UPhysicsConstraintComponent;
 enum class ETeleportType;
+class UBodySetup;
 
 /** Delegate for applying custom physics forces upon the body. Can be passed to "AddCustomPhysics" so 
-  * custom forces and torques can be calculated induvidually for every physics substep.
+  * custom forces and torques can be calculated individually for every physics substep.
   * The function provides delta time for a physics step and pointer to body instance upon which forces must be added.
   * 
   * Do not expect this callback to be called from the main game thread! It may get called from a physics simulation thread. */
@@ -148,7 +149,6 @@ struct ENGINE_API FBodyInstance
 	int16 InstanceBoneIndex;
 
 	/** Current scale of physics - used to know when and how physics must be rescaled to match current transform of OwnerComponent. */
-	UPROPERTY()
 	FVector Scale3D;
 
 	/** Physics scene index for the synchronous scene. */
@@ -197,7 +197,7 @@ public:
 	uint32 bSimulatePhysics : 1;
 
 	/** If true, mass will not be automatically computed and you must set it directly */
-	UPROPERTY(meta = (DisplayName = "Override"))
+	UPROPERTY(EditAnywhere, Category = Physics, meta = (InlineEditConditionToggle))
 	uint32 bOverrideMass : 1;
 
 	/** If object should have the force of gravity applied */
@@ -256,7 +256,7 @@ public:
 	uint32 bLockZRotation : 1;
 
 	/** Override the default max angular velocity */
-	UPROPERTY(meta = (editcondition = "bSimulatePhysics"))
+	UPROPERTY(EditAnywhere, Category = Physics, meta = (editcondition = "bSimulatePhysics", InlineEditConditionToggle))
 	uint32 bOverrideMaxAngularVelocity : 1;
 
 	/** When initializing dynamic instances their component or velocity can override the bStartAwake flag */
@@ -271,11 +271,11 @@ protected:
 	uint32 bUseAsyncScene:1;
 
 	/** Whether this body instance has its own custom MaxDepenetrationVelocity*/
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category = Physics, meta=(InlineEditConditionToggle))
 	uint32 bOverrideMaxDepenetrationVelocity : 1;
 
 	/** Whether this instance of the object has its own custom walkable slope override setting. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category = Physics, meta = (InlineEditConditionToggle))
 	uint32 bOverrideWalkableSlopeOnInstance : 1;
 
 	uint32 bHasSharedShapes : 1;
@@ -284,12 +284,22 @@ protected:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Physics, meta = (editcondition = "bOverrideMaxDepenetrationVelocity", ClampMin = "0.0", UIMin = "0.0"))
 	float MaxDepenetrationVelocity;
 
-public:
+	/** The body setup holding the default body instance and its collision profile. */
+	TWeakObjectPtr<UBodySetup> ExternalCollisionProfileBodySetup;
 
+	
 	/**Mass of the body in KG. By default we compute this based on physical material and mass scale.
 	*@see bOverrideMass to set this directly */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Physics, meta = (editcondition = "bOverrideMass", ClampMin = "0.001", UIMin = "0.001"))
-	float MassInKg;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Physics, meta = (editcondition = "bOverrideMass", ClampMin = "0.001", UIMin = "0.001", DisplayName = "MassInKg"))
+	float MassInKgOverride;
+
+public:
+
+	/** Returns the mass override. See MassInKgOverride for documentation */
+	float GetMassOverride() const { return MassInKgOverride; }
+
+	/** Sets the mass override */
+	void SetMassOverride(float MassInKG);
 
 	/** 'Drag' force added to reduce linear movement */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Physics)
@@ -310,6 +320,11 @@ public:
 	/** Per-instance scaling of mass */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = Physics)
 	float MassScale;
+
+	/** Use the collision profile found in the given BodySetup's default BodyInstance */
+	void UseExternalCollisionProfile(UBodySetup* InExternalCollisionProfileBodySetup);
+
+	void ClearExternalCollisionProfile();
 
 	/** Locks physical movement along axis. */
 	void SetDOFLock(EDOFMode::Type NewDOFMode);
@@ -398,7 +413,7 @@ public:
 	TWeakObjectPtr<class UPrimitiveComponent> OwnerComponent;
 
 	/** BodySetup pointer that this instance is initialized from */
-	TWeakObjectPtr<class UBodySetup> BodySetup;
+	TWeakObjectPtr<UBodySetup> BodySetup;
 
 	/** Constructor **/
 	FBodyInstance();
@@ -426,7 +441,7 @@ public:
 	 *	@param InRBScene The physics scene to place the body into
 	 *	@param InAggregate An aggregate to place the body into
 	 */
-	void InitBody(class UBodySetup* Setup, const FTransform& Transform, class UPrimitiveComponent* PrimComp, class FPhysScene* InRBScene, PhysXAggregateType InAggregate = NULL);
+	void InitBody(UBodySetup* Setup, const FTransform& Transform, class UPrimitiveComponent* PrimComp, class FPhysScene* InRBScene, PhysXAggregateType InAggregate = NULL);
 
 	/** Validate a body transform, outputting debug info
 	 *	@param Transform Transform to debug
@@ -443,7 +458,7 @@ public:
 	 *	@param InRBScene
 	 *  @param PhysicsSerializer
 	 */
-	static void InitStaticBodies(const TArray<FBodyInstance*>& Bodies, const TArray<FTransform>& Transforms, class UBodySetup* BodySetup, class UPrimitiveComponent* PrimitiveComp, class FPhysScene* InRBScene, class UPhysicsSerializer* PhysicsSerializer);
+	static void InitStaticBodies(const TArray<FBodyInstance*>& Bodies, const TArray<FTransform>& Transforms, UBodySetup* BodySetup, class UPrimitiveComponent* PrimitiveComp, class FPhysScene* InRBScene, class UPhysicsSerializer* PhysicsSerializer);
 
 	/** Obtains the appropriate PhysX scene lock for READING and executes the passed in lambda. */
 	void ExecuteOnPhysicsReadOnly(TFunctionRef<void()> Func) const;
@@ -813,9 +828,8 @@ public:
 
 	/** Return the ignore mask filter. */
 	FORCEINLINE FMaskFilter GetMaskFilter() const { return MaskFilter; }
-
-	/** Get the current collision profile assigned to this body */
-	FORCEINLINE_DEBUGGABLE FName GetCollisionProfileName() const { return CollisionProfileName; }
+	/** Returns the collision profile name that will be used. */
+	FName GetCollisionProfileName() const;
 
 	/** return true if it uses Collision Profile System. False otherwise*/
 	bool DoesUseCollisionProfile() const;
@@ -1026,7 +1040,7 @@ private:
 	/** 
 	 * Helper function to update per shape filtering info. This should interface is not very friendly and should only be used from inside FBodyInstance
 	 */
-	void UpdatePhysicsShapeFilterData(uint32 SkelMeshCompID, bool bUseComplexAsSimple, bool bUseSimpleAsComplex, bool bPhysicsStatic, const TEnumAsByte<ECollisionEnabled::Type> * CollisionEnabledOverride, FCollisionResponseContainer * ResponseOverride, bool * bNotifyOverride);
+	void UpdatePhysicsShapeFilterData(uint32 ComponentID, bool bUseComplexAsSimple, bool bUseSimpleAsComplex, bool bPhysicsStatic, const TEnumAsByte<ECollisionEnabled::Type> * CollisionEnabledOverride, FCollisionResponseContainer * ResponseOverride, bool * bNotifyOverride);
 
 	/** Check if the shape is owned by this body instance */
 	bool IsShapeBoundToBody(const physx::PxShape* PShape) const;

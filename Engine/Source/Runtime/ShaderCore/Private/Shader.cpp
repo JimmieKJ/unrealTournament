@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Shader.cpp: Shader implementation.
@@ -424,6 +424,12 @@ void FShaderResource::Serialize(FArchive& Ar)
 		check(Canary != FShader::ShaderMagic_CleaningUp);
 		Canary = FShader::ShaderMagic_Initialized;
 	}
+#if WITH_EDITORONLY_DATA
+	else if (Ar.IsCooking())
+	{
+		FShaderCache::CookShader((EShaderPlatform)Target.Platform, (EShaderFrequency)Target.Frequency, OutputHash, Code);
+	}
+#endif
 }
 
 
@@ -1329,6 +1335,11 @@ void FShaderPipeline::Validate()
 	}
 }
 
+void FShaderPipeline::CookPipeline(FShaderPipeline* Pipeline)
+{
+	FShaderCache::CookPipeline(Pipeline);
+}
+
 void DumpShaderStats(EShaderPlatform Platform, EShaderFrequency Frequency)
 {
 #if ALLOW_DEBUG_FILES
@@ -1458,6 +1469,45 @@ void DumpShaderStats(EShaderPlatform Platform, EShaderFrequency Frequency)
 #endif
 }
 
+void DumpShaderPipelineStats(EShaderPlatform Platform)
+{
+#if ALLOW_DEBUG_FILES
+	FDiagnosticTableViewer ShaderTypeViewer(*FDiagnosticTableViewer::GetUniqueTemporaryFilePath(TEXT("ShaderPipelineStats")));
+
+	int32 TotalNumPipelines = 0;
+	int32 TotalSize = 0;
+	float TotalSizePerType = 0;
+
+	// Write a row of headings for the table's columns.
+	ShaderTypeViewer.AddColumn(TEXT("Type"));
+	ShaderTypeViewer.AddColumn(TEXT("Shared/Unique"));
+
+	// Exclude compute
+	for (int32 Index = 0; Index < SF_NumFrequencies - 1; ++Index)
+	{
+		ShaderTypeViewer.AddColumn(GetShaderFrequencyString((EShaderFrequency)Index));
+	}
+	ShaderTypeViewer.CycleRow();
+
+	int32 TotalTypeCount = 0;
+	for (TLinkedList<FShaderPipelineType*>::TIterator It(FShaderPipelineType::GetTypeList()); It; It.Next())
+	{
+		const FShaderPipelineType* Type = *It;
+
+		// Write a row for the shader type.
+		ShaderTypeViewer.AddColumn(Type->GetName());
+		ShaderTypeViewer.AddColumn(Type->ShouldOptimizeUnusedOutputs() ? TEXT("U") : TEXT("S"));
+
+		for (int32 Index = 0; Index < SF_NumFrequencies - 1; ++Index)
+		{
+			const FShaderType* ShaderType = Type->GetShader((EShaderFrequency)Index);
+			ShaderTypeViewer.AddColumn(ShaderType ? ShaderType->GetName() : TEXT(""));
+		}
+
+		ShaderTypeViewer.CycleRow();
+	}
+#endif
+}
 
 FShaderType* FindShaderTypeByName(FName ShaderTypeName)
 {
@@ -1562,6 +1612,14 @@ void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString)
 	}
 
 	{
+		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.InstancedStereo"));
+		if ((Platform == EShaderPlatform::SP_PCD3D_SM5 || Platform == EShaderPlatform::SP_PS4) && (CVar && CVar->GetValueOnGameThread() != 0))
+		{
+			KeyString += TEXT("_VRIS");
+		}
+	}
+
+	{
 		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.SelectiveBasePassOutputs"));
 		if (CVar && CVar->GetValueOnGameThread() != 0)
 		{
@@ -1591,6 +1649,16 @@ void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString)
 		static const auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Shaders.Optimize"));
 		KeyString += (CVar && CVar->GetInt() != 0) ? TEXT("") : TEXT("_NoOpt");
 	}
+	
+	{
+		static const auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Shaders.FastMath"));
+		KeyString += (CVar && CVar->GetInt() != 0) ? TEXT("") : TEXT("_NoFastMath");
+	}
+	
+	{
+		static const auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Shaders.AvoidFlowControl"));
+		KeyString += (CVar && CVar->GetInt() != 0) ? TEXT("_Unroll") : TEXT("_Flow");
+	}
 
 	if (Platform == SP_PS4)
 	{
@@ -1616,6 +1684,14 @@ void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString)
 			{
 				KeyString += FString::Printf(TEXT("TT%d"), CVar->GetValueOnAnyThread());
 			}
+		}
+	}
+
+	{
+		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.EarlyZPass"));
+		if (CVar)
+		{
+			KeyString += FString::Printf(TEXT("_EARLYZ%d"), CVar->GetValueOnAnyThread());
 		}
 	}
 }

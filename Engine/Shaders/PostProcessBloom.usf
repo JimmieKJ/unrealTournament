@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessBloom.usf: PostProcessing bloom
@@ -20,15 +20,8 @@ void MainPostprocessCommonVS(
 	out float4 OutPosition : SV_POSITION
 	)
 {
-	// hlslcc creates temporaries with noperspective qualifier, which is a bad thing
-#if COMPILER_GLSL || COMPILER_GLSL_ES2
-	float2 Temp;
-	DrawRectangle(InPosition, InTexCoord, OutPosition, Temp);
-	OutTexCoord = float4(Temp.x, Temp.y, OutPosition.x, OutPosition.y);
-#else
 	DrawRectangle(InPosition, InTexCoord, OutPosition, OutTexCoord.xy);
 	OutTexCoord.zw = OutPosition.xy;
-#endif
 }
 
 void VisualizeBloomSetupPS(

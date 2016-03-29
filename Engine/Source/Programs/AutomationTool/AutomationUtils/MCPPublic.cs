@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -62,31 +62,31 @@ namespace EpicGames.MCP.Automation
         }
     }
 
-	/// <summary>
-	/// Enum that defines the MCP backend-compatible platform
-	/// </summary>
-	public enum MCPPlatform
-	{
-		/// <summary>
+    /// <summary>
+    /// Enum that defines the MCP backend-compatible platform
+    /// </summary>
+    public enum MCPPlatform
+    {
+        /// <summary>
 		/// MCP uses Windows for Win64
-		/// </summary>
-		Windows,
+        /// </summary>
+        Windows,
 
-		/// <summary>
+        /// <summary>
 		/// 32 bit Windows
 		/// </summary>
 		Win32,
 
 		/// <summary>
-		/// Mac platform.
-		/// </summary>
-		Mac,
+        /// Mac platform.
+        /// </summary>
+        Mac,
 
 		/// <summary>
 		/// Linux platform.
 		/// </summary>
 		Linux
-}
+    }
 
     /// <summary>
     /// Enum that defines CDN types
@@ -171,17 +171,17 @@ namespace EpicGames.MCP.Automation
         /// <summary>
 		/// If set, this allows us to over-ride the automatically constructed ManifestFilename
 		/// </summary>
-		private readonly string _ManifestFilename;
+		protected string _ManifestFilename;
 
-		/// <summary>
+        /// <summary>
 		/// Determine the platform name
-		/// </summary>
-		static public MCPPlatform ToMCPPlatform(UnrealTargetPlatform TargetPlatform)
-		{
-			if (TargetPlatform != UnrealTargetPlatform.Win64 && TargetPlatform != UnrealTargetPlatform.Win32 && TargetPlatform != UnrealTargetPlatform.Mac && TargetPlatform != UnrealTargetPlatform.Linux)
-			{
-				throw new AutomationException("Platform {0} is not properly supported by the MCP backend yet", TargetPlatform);
-			}
+        /// </summary>
+        static public MCPPlatform ToMCPPlatform(UnrealTargetPlatform TargetPlatform)
+        {
+            if (TargetPlatform != UnrealTargetPlatform.Win64 && TargetPlatform != UnrealTargetPlatform.Win32 && TargetPlatform != UnrealTargetPlatform.Mac && TargetPlatform != UnrealTargetPlatform.Linux)
+            {
+                throw new AutomationException("Platform {0} is not properly supported by the MCP backend yet", TargetPlatform);
+            }
 
 			if (TargetPlatform == UnrealTargetPlatform.Win64)
 			{
@@ -197,16 +197,16 @@ namespace EpicGames.MCP.Automation
 			}
 
 			return MCPPlatform.Linux;
-		}
-		/// <summary>
+        }
+        /// <summary>
 		/// Determine the platform name
-		/// </summary>
-		static public UnrealTargetPlatform FromMCPPlatform(MCPPlatform TargetPlatform)
-		{
+        /// </summary>
+        static public UnrealTargetPlatform FromMCPPlatform(MCPPlatform TargetPlatform)
+        {
 			if (TargetPlatform != MCPPlatform.Windows && TargetPlatform != MCPPlatform.Win32 && TargetPlatform != MCPPlatform.Mac && TargetPlatform != MCPPlatform.Linux)
-			{
-				throw new AutomationException("Platform {0} is not properly supported by the MCP backend yet", TargetPlatform);
-			}
+            {
+                throw new AutomationException("Platform {0} is not properly supported by the MCP backend yet", TargetPlatform);
+            }
 
 			if (TargetPlatform == MCPPlatform.Windows)
 			{
@@ -222,7 +222,7 @@ namespace EpicGames.MCP.Automation
 			}
 
 			return UnrealTargetPlatform.Linux;
-		}
+        }
         /// <summary>
         /// Returns the build root path (P:\Builds on build machines usually)
         /// </summary>
@@ -296,6 +296,19 @@ namespace EpicGames.MCP.Automation
 			CloudDirRelativePath = CommandUtils.CombinePaths(stagingDirRelativePath, "CloudDir");
 			CloudDir = CommandUtils.CombinePaths(BuildRootPath, CloudDirRelativePath);
 		}
+
+		/// <summary>
+		/// Constructor which supports being able to just simply call BuildPatchToolBase.Get().Execute
+		/// </summary>
+		public BuildPatchToolStagingInfo(BuildCommand InOwnerCommand, string InAppName, int InAppID, string InBuildVersion, MCPPlatform InPlatform, string InCloudDir)
+		{
+			OwnerCommand = InOwnerCommand;
+			AppName = InAppName;
+			AppID = InAppID;
+			BuildVersion = InBuildVersion;
+			Platform = InPlatform;
+			CloudDir = InCloudDir;
+		}
     }
 
     /// <summary>
@@ -355,6 +368,14 @@ namespace EpicGames.MCP.Automation
             /// Matches the corresponding BuildPatchTool command line argument.
             /// </summary>
             public string AppLaunchCmdArgs;
+            /// <summary>
+            /// Matches the corresponding BuildPatchTool command line argument.
+            /// </summary>
+            public string PrereqPath;
+            /// <summary>
+            /// Matches the corresponding BuildPatchTool command line argument.
+            /// </summary>
+            public string PrereqArgs;
             /// <summary>
             /// Corresponds to the -nochunks parameter
             /// </summary>
@@ -594,45 +615,8 @@ namespace EpicGames.MCP.Automation
         /// <param name="ManifestRelativePath">Relative path to the Manifest file relative to the global build root (which is like P:\Builds) </param>
         /// <param name="LabelName">Name of the label that we will be setting.</param>
         abstract public void BuildPromotionCompleted(BuildPatchToolStagingInfo stagingInfo, string AppName, string BuildVersion, string ManifestRelativePath, string PlatformName, string LabelName);
-
-        /// <summary>
-        /// Mounts the production CDN share (allows overriding via -CDNDrive command line arg)
-        /// </summary>
-        /// <param name="command"></param>
-        /// <returns>Path to the share (allows for override)</returns>
-        abstract public string MountProductionCDNShare();
-
-        /// <summary>
-        /// Mounts the production CDN share (allows overriding via -CDNDrive command line arg)
-        /// </summary>
-        /// <param name="command"></param>
-        /// <returns>Path to the share (allows for override)</returns>
-        abstract public string MountInternalCDNShare();
-
-		/// <summary>
-		/// Checks for a stagingInfo's manifest on the production CDN.
-		/// </summary>
-		/// <param name="stagingInfo">Staging info used to determine where the chunks are to copy.</param>
-		abstract public bool IsManifestOnProductionCDN(BuildPatchToolStagingInfo stagingInfo);
-
-        /// <summary>
-        /// Copies chunks from a staged location to the production CDN.
-        /// </summary>
-        /// <param name="command">Build command (used to allow the -CDNDrive cmdline override).</param>
-        /// <param name="stagingInfo">Staging info used to determine where the chunks are to copy.</param>
-        abstract public void CopyChunksToProductionCDN(BuildPatchToolStagingInfo stagingInfo);
-
-        /// <summary>
-        /// Copies chunks from a staged location to the production CDN.
-        /// NOTE: This code assumes the location of the BuildRootPath at the time this build 
-        /// by calling <see cref="BuildPatchToolStagingInfo.GetBuildRootPath"/> (usually P:\Builds).
-        /// If this path changes then this code posting older builds will break because we won't know
-        /// where the BuildRootPath for the older build was!
-        /// </summary>
-        /// <param name="command">Build command (used to allow the -CDNDrive cmdline override).</param>
-        /// <param name="manifestUrlPath">relative path to the manifest file from the build info service</param>
-        abstract public void CopyChunksToProductionCDN(string manifestUrlPath);
 	}
+
     /// <summary>
     /// Helpers for using the MCP account service
     /// </summary>
@@ -750,7 +734,7 @@ namespace EpicGames.MCP.Automation
 		/// </summary>
 		/// <param name="Container">The name of the folder or container from which contains the file being checked.</param>
 		/// <param name="Identifier">The identifier or filename of the file to check.</param>
-		/// <param name="bQuiet">If set to true, all log output for the operation is supressed.</param>
+        	/// <param name="bQuiet">If set to true, all log output for the operation is suppressed.</param>
 		/// <returns>True if the file exists in cloud storage, false otherwise.</returns>
 		abstract public bool FileExists(string Container, string Identifier, bool bQuiet = false);
 
@@ -772,7 +756,7 @@ namespace EpicGames.MCP.Automation
 		/// <param name="ContentType">The MIME type of the file being uploaded.</param>
 		/// <param name="bOverwrite">If true, will overwrite an existing file.  If false, will throw an exception if the file exists.</param>
 		/// <param name="bMakePublic">Specified whether the file should be made public readable.</param>
-		/// <param name="bQuiet">If set to true, all log output for the operation is supressed.</param>
+        	/// <param name="bQuiet">If set to true, all log output for the operation is suppressed.</param>
 		public PostFileResult PostFile(string Container, string Identifier, byte[] Contents, string ContentType = null, bool bOverwrite = true, bool bMakePublic = false, bool bQuiet = false)
 		{
 			return PostFileAsync(Container, Identifier, Contents, ContentType, bOverwrite, bMakePublic, bQuiet).Result;
@@ -787,7 +771,7 @@ namespace EpicGames.MCP.Automation
 		/// <param name="ContentType">The MIME type of the file being uploaded.</param>
 		/// <param name="bOverwrite">If true, will overwrite an existing file.  If false, will throw an exception if the file exists.</param>
 		/// <param name="bMakePublic">Specified whether the file should be made public readable.</param>
-		/// <param name="bQuiet">If set to true, all log output for the operation is supressed.</param>
+        	/// <param name="bQuiet">If set to true, all log output for the operation is suppressed.</param>
 		abstract public Task<PostFileResult> PostFileAsync(string Container, string Identifier, byte[] Contents, string ContentType = null, bool bOverwrite = true, bool bMakePublic = false, bool bQuiet = false);
 
 		/// <summary>
@@ -798,7 +782,8 @@ namespace EpicGames.MCP.Automation
 		/// <param name="SourceFilePath">The full path of the file to upload.</param>
 		/// <param name="ContentType">The MIME type of the file being uploaded.</param>
 		/// <param name="bOverwrite">If true, will overwrite an existing file.  If false, will throw an exception if the file exists.</param>
-		/// <param name="bQuiet">If set to true, all log output for the operation is supressed.</param>
+		/// <param name="bMakePublic">Specified whether the file should be made public readable.</param>
+	        /// <param name="bQuiet">If set to true, all log output for the operation is suppressed.</param>
 		public PostFileResult PostFile(string Container, string Identifier, string SourceFilePath, string ContentType = null, bool bOverwrite = true, bool bMakePublic = false, bool bQuiet = false)
 		{
 			return PostFileAsync(Container, Identifier, SourceFilePath, ContentType, bOverwrite, bMakePublic, bQuiet).Result;
@@ -813,7 +798,7 @@ namespace EpicGames.MCP.Automation
 		/// <param name="ContentType">The MIME type of the file being uploaded.</param>
 		/// <param name="bOverwrite">If true, will overwrite an existing file.  If false, will throw an exception if the file exists.</param>
 		/// <param name="bMakePublic">Specified whether the file should be made public readable.</param>
-		/// <param name="bQuiet">If set to true, all log output for the operation is supressed.</param>
+	        /// <param name="bQuiet">If set to true, all log output for the operation is suppressed.</param>
 		abstract public Task<PostFileResult> PostFileAsync(string Container, string Identifier, string SourceFilePath, string ContentType = null, bool bOverwrite = true, bool bMakePublic = false, bool bQuiet = false);
 
 		/// <summary>

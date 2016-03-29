@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "K2Node_StructMemberSet.h"
@@ -10,6 +10,11 @@ UCLASS(MinimalAPI)
 class UK2Node_MakeStruct : public UK2Node_StructMemberSet
 {
 	GENERATED_UCLASS_BODY()
+
+	/** Helper property to handle upgrades from an old system of displaying pins for
+	 *	the override values that properties referenced as a conditional of being set in a struct */
+	UPROPERTY()
+	bool bMadeAfterOverridePinRemoval;
 
 	/**
 	* Returns false if:
@@ -27,6 +32,10 @@ class UK2Node_MakeStruct : public UK2Node_StructMemberSet
 	*/
 	BLUEPRINTGRAPH_API static bool CanBeMade(const UScriptStruct* Struct, bool bIncludeEditAnywhere = true, bool bMustHaveValidProperties = false);
 	
+	// UObject interface
+	virtual void Serialize(FArchive& Ar) override;
+	// End of UObject interface
+
 	//~ Begin UEdGraphNode Interface
 	virtual void AllocateDefaultPins() override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
@@ -34,6 +43,7 @@ class UK2Node_MakeStruct : public UK2Node_StructMemberSet
 	virtual FText GetTooltipText() const override;
 	virtual void ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const override;
 	virtual FName GetPaletteIcon(FLinearColor& OutColor) const override{ return TEXT("GraphEditor.MakeStruct_16x"); }
+	virtual void PostPlacedNewNode() override;
 	//~ End  UEdGraphNode Interface
 
 	//~ Begin K2Node Interface

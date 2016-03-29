@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 
@@ -72,11 +72,6 @@ TSharedRef<SWidget> UHorizontalBox::RebuildWidget()
 }
 
 #if WITH_EDITOR
-
-const FSlateBrush* UHorizontalBox::GetEditorIcon()
-{
-	return FUMGStyle::Get().GetBrush("Widget.HorizontalBox");
-}
 
 const FText UHorizontalBox::GetPaletteCategory()
 {

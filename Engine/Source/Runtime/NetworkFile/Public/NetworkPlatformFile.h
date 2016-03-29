@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -44,6 +44,17 @@ public:
 	virtual IPlatformFile* GetLowerLevel() override
 	{
 		return InnerPlatformFile;
+	}
+
+	virtual void GetTimeStampPair(const TCHAR* PathA, const TCHAR* PathB, FDateTime& OutTimeStampA, FDateTime& OutTimeStampB)
+	{
+		OutTimeStampA = GetTimeStamp(PathA);
+		OutTimeStampB = GetTimeStamp(PathB);
+
+		if (GetLowerLevel() && OutTimeStampA == FDateTime::MinValue() && OutTimeStampB == FDateTime::MinValue())
+		{
+			GetLowerLevel()->GetTimeStampPair(PathA, PathB, OutTimeStampA, OutTimeStampB);
+		}
 	}
 
 	virtual const TCHAR* GetName() const override
@@ -224,6 +235,7 @@ private:
 	class ITransport* Transport; 
 
 	static FString MP4Extension;
+	static FString BulkFileExtension;
 };
 
 class SOCKETS_API FNetworkFileHandle : public IFileHandle

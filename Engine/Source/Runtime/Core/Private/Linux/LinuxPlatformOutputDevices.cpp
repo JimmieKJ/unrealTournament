@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LinuxOutputDevices.cpp: Linux implementations of OutputDevices functions
@@ -40,6 +40,12 @@ void								FLinuxOutputDevices::SetupOutputDevices()
 	}
 
 	// debug and event logging is not really supported on Linux. 
+}
+
+FString								FLinuxOutputDevices::GetAbsoluteLogFilename()
+{
+	// FIXME: this function should not exist once FGenericPlatformOutputDevices::GetAbsoluteLogFilename() returns absolute filename (see UE-25650)
+	return FPaths::ConvertRelativePathToFull(FGenericPlatformOutputDevices::GetAbsoluteLogFilename());
 }
 
 class FOutputDeviceError*			FLinuxOutputDevices::GetError()

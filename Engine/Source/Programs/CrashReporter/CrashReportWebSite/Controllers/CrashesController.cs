@@ -1,8 +1,9 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using System.Web.Mvc;
 
 using Tools.DotNETCommon.XmlHandler;
@@ -161,12 +162,19 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 
 				CrashReporterResult NewCrashResult = new CrashReporterResult();
 				NewCrashResult.ID = -1;
+				string PayloadString = string.Empty;
 
 				for (int Index = 0; Index < 3; Index++)
 				{
 					try
 					{
-						UnsafeAddCrash( NewCrashResult, Crashes );
+						using (StreamReader Reader = new StreamReader( Request.InputStream, Request.ContentEncoding ))
+						{
+							PayloadString = Reader.ReadToEnd();
+							CrashDescription NewCrash = XmlHandler.FromXmlString<CrashDescription>(PayloadString);
+							NewCrashResult.ID = Crashes.AddNewCrash( NewCrash );
+							NewCrashResult.bSuccess = true;
+						}
 						break;
 					}
 					catch (SqlException SqlExc)
@@ -184,7 +192,13 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 					}
 					catch (Exception Ex)
 					{
-						NewCrashResult.Message = Ex.ToString();
+						StringBuilder MessageBuilder = new StringBuilder();
+						MessageBuilder.AppendLine("Exception was:");
+						MessageBuilder.AppendLine(Ex.ToString());
+						MessageBuilder.AppendLine("Received payload was:");
+						MessageBuilder.AppendLine(PayloadString);
+
+						NewCrashResult.Message = MessageBuilder.ToString();
 						NewCrashResult.bSuccess = false;
 						break;
 					}
@@ -193,17 +207,6 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 
 				string ReturnResult = XmlHandler.ToXmlString<CrashReporterResult>( NewCrashResult );
 				return Content( ReturnResult, "text/xml" );
-			}
-		}
-
-		private void UnsafeAddCrash( CrashReporterResult NewCrashResult, CrashRepository Crashes )
-		{
-			using (StreamReader Reader = new StreamReader( Request.InputStream, Request.ContentEncoding ))
-			{
-				string Result = Reader.ReadToEnd();
-				CrashDescription NewCrash = XmlHandler.FromXmlString<CrashDescription>( Result );
-				NewCrashResult.ID = Crashes.AddNewCrash( NewCrash );
-				NewCrashResult.bSuccess = true;
 			}
 		}
 	}

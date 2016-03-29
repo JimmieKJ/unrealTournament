@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -16,7 +16,7 @@ class UMaterialExpressionTime : public UMaterialExpression
 	uint32 bIgnorePause:1;
 
 	/** Enables or disables the Period value. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category = MaterialExpressionTime, meta=(InlineEditConditionToggle))
 	uint32 bOverride_Period:1;
 
 	/** Time will loop around once it gets to Period. */
@@ -24,9 +24,11 @@ class UMaterialExpressionTime : public UMaterialExpression
 	float Period;
 
 	//~ Begin UMaterialExpression Interface
+#if WITH_EDITOR
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 	virtual bool NeedsRealtimePreview() override { return true; }
+#endif
 	//~ End UMaterialExpression Interface
 
 };

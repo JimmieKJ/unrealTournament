@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SoundCueGraphNode.cpp
@@ -13,6 +13,7 @@
 #include "GenericCommands.h"
 #include "Sound/SoundCue.h"
 #include "Engine/Font.h"
+#include "Sound/SoundNodeDialoguePlayer.h"
 
 #define LOCTEXT_NAMESPACE "SoundCueGraphNode"
 
@@ -240,6 +241,10 @@ void USoundCueGraphNode::GetContextMenuActions(const FGraphNodeContextMenuBuilde
 			Context.MenuBuilder->AddMenuEntry(FSoundCueGraphEditorCommands::Get().PlayNode);
 
 			if ( Cast<USoundNodeWavePlayer>(SoundNode) )
+			{
+				Context.MenuBuilder->AddMenuEntry(FSoundCueGraphEditorCommands::Get().BrowserSync);
+			}
+			else if (Cast<USoundNodeDialoguePlayer>(SoundNode))
 			{
 				Context.MenuBuilder->AddMenuEntry(FSoundCueGraphEditorCommands::Get().BrowserSync);
 			}

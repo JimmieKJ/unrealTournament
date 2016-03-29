@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -14,9 +14,11 @@ class UEdGraphNode;
 USTRUCT(noexport)
 struct FExpressionInput
 {
+#if WITH_EDITORONLY_DATA
 	/** UMaterial expression that this input is connected to, or NULL if not connected. */
 	UPROPERTY()
 	class UMaterialExpression* Expression;
+#endif
 
 	/** Index into Expression's outputs array that this input is connected to. */
 	UPROPERTY()
@@ -44,14 +46,17 @@ struct FExpressionInput
 	UPROPERTY()
 	int32 MaskA;
 
+	/** Material expression name that this input is connected to, or None if not connected. Used only in cooked builds */
 	UPROPERTY()
-	int32 GCC64_Padding;    // @todo 64: if the C++ didn't mismirror this structure (with MaterialInput), we might not need this
+	FName ExpressionName;
 
 };
 
 USTRUCT(noexport)
 struct FMaterialAttributesInput : public FExpressionInput
 {
+	UPROPERTY(transient)
+	int32 PropertyConnectedBitmask;
 };
 
 #endif
@@ -184,11 +189,18 @@ class ENGINE_API UMaterialExpression : public UObject
 	virtual void PostEditImport() override;
 	virtual bool CanEditChange( const UProperty* InProperty ) const override;
 #endif // WITH_EDITOR
-
+	
 	virtual bool Modify( bool bAlwaysMarkDirty=true ) override;
 	virtual void Serialize( FArchive& Ar ) override;
+	virtual bool NeedsLoadForClient() const override;
+	virtual bool NeedsLoadForServer() const override;
+	virtual bool NeedsLoadForEditorGame() const override
+	{
+		return true;
+	}
 	//~ End UObject Interface.
 
+#if WITH_EDITOR
 	/**
 	 * Create the new shader code chunk needed for the Abs expression
 	 *
@@ -198,6 +210,7 @@ class ENGINE_API UMaterialExpression : public UObject
 	 */	
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) { return INDEX_NONE; }
 	virtual int32 CompilePreview(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) { return Compile(Compiler, OutputIndex, MultiplexIndex); }
+#endif
 
 	/** 
 	 * Callback to get any texture reference this expression emits.
@@ -234,13 +247,13 @@ class ENGINE_API UMaterialExpression : public UObject
 	virtual bool UsesLeftGutter() const;
 	virtual bool UsesRightGutter() const;
 
+#if WITH_EDITOR
 	/**
 	 *	Returns the text to display on the material expression (in the material editor).
 	 *
 	 *	@return	FString		The text to display.
 	 */
 	virtual void GetCaption(TArray<FString>& OutCaptions) const;
-#if WITH_EDITOR
 	/** Get a single line description of the material expression (used for lists) */
 	virtual FString GetDescription() const;
 	/** Get a tooltip for the specified connector. */
@@ -255,13 +268,16 @@ class ENGINE_API UMaterialExpression : public UObject
 	 *	@return int32			The padding (in pixels).
 	 */
 	virtual int GetLabelPadding() { return 0; }
+#if WITH_EDITOR
 	virtual int32 CompilerError(class FMaterialCompiler* Compiler, const TCHAR* pcMessage);
-
+#endif // WITH_EDITOR
 
 	/**
 	 * @return whether the expression preview needs realtime update
 	 */
+#if WITH_EDITOR
 	virtual bool NeedsRealtimePreview() { return false; }
+#endif
 
 	/**
 	 * MatchesSearchQuery: Check this expression to see if it matches the search query
@@ -270,6 +286,7 @@ class ENGINE_API UMaterialExpression : public UObject
 	 */
 	virtual bool MatchesSearchQuery( const TCHAR* SearchQuery );
 
+#if WITH_EDITOR
 	/**
 	 * Copy the SrcExpressions into the specified material, preserving internal references.
 	 * New material expressions are created within the specified material.
@@ -286,12 +303,15 @@ class ENGINE_API UMaterialExpression : public UObject
 	 * Connects the specified output to the passed material for previewing. 
 	 */
 	void ConnectToPreviewMaterial(UMaterial* InMaterial, int32 OutputIndex);
+#endif // WITH_EDITOR
 
+#if WITH_EDITOR
 	/**
 	 * Connects the specified input expression to the specified output of this expression.
 	 */
 	void ConnectExpression(FExpressionInput* Input, int32 OutputIndex);
-	
+#endif // WITH_EDITOR
+
 	/** 
 	* Generates a GUID for the parameter expression if one doesn't already exist and we are one.
 	*

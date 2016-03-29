@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AnimStateTransitionNode.cpp
@@ -215,6 +215,13 @@ void UAnimStateTransitionNode::PinConnectionListChanged(UEdGraphPin* Pin)
 	{
 		// Commit suicide; transitions must always have an input and output connection
 		Modify();
+
+		// Our parent graph will have our graph in SubGraphs so needs to be modified to record that.
+		if(UEdGraph* ParentGraph = GetGraph())
+		{
+			ParentGraph->Modify();
+		}
+
 		DestroyNode();
 	}
 }
@@ -410,7 +417,12 @@ void UAnimStateTransitionNode::CreateBoundGraph()
 	Schema->CreateDefaultNodesForGraph(*BoundGraph);
 
 	// Add the new graph as a child of our parent graph
-	GetGraph()->SubGraphs.Add(BoundGraph);
+	UEdGraph* ParentGraph = GetGraph();
+
+	if(ParentGraph->SubGraphs.Find(BoundGraph) == INDEX_NONE)
+	{
+		ParentGraph->SubGraphs.Add(BoundGraph);
+	}
 }
 
 void UAnimStateTransitionNode::CreateCustomTransitionGraph()
@@ -432,8 +444,13 @@ void UAnimStateTransitionNode::CreateCustomTransitionGraph()
 	Schema->CreateDefaultNodesForGraph(*CustomTransitionGraph);
 
 	// Add the new graph as a child of our parent graph
-	GetGraph()->Modify();
-	GetGraph()->SubGraphs.Add(CustomTransitionGraph);
+	UEdGraph* ParentGraph = GetGraph();
+
+	if(ParentGraph->SubGraphs.Find(CustomTransitionGraph) == INDEX_NONE)
+	{
+		ParentGraph->Modify();
+		ParentGraph->SubGraphs.Add(CustomTransitionGraph);
+	}
 }
 
 void UAnimStateTransitionNode::DestroyNode()

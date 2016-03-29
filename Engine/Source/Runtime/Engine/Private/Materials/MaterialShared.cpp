@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MaterialShared.cpp: Shared material implementation.
@@ -25,6 +25,8 @@
 #include "VertexFactory.h"
 #include "RendererInterface.h"
 #include "MaterialShaderQualitySettings.h"
+#include "UObject/CoreObjectVersion.h"
+
 DEFINE_LOG_CATEGORY(LogMaterial);
 
 FName MaterialQualityLevelNames[] = 
@@ -64,17 +66,21 @@ int32 FMaterialCompiler::Errorf(const TCHAR* Format,...)
 	return Error(ErrorText);
 }
 
-//
-//	FExpressionInput::Compile
-//
+IMPLEMENT_STRUCT(ExpressionInput);
+IMPLEMENT_STRUCT(ColorMaterialInput);
+IMPLEMENT_STRUCT(ScalarMaterialInput);
+IMPLEMENT_STRUCT(VectorMaterialInput);
+IMPLEMENT_STRUCT(Vector2MaterialInput);
+IMPLEMENT_STRUCT(MaterialAttributesInput);
 
+#if WITH_EDITOR
 int32 FExpressionInput::Compile(class FMaterialCompiler* Compiler, int32 MultiplexIndex)
 {
 	if(Expression)
 	{
 		Expression->ValidateState();
 		
-		int32 ExpressionResult = Compiler->CallExpression(FMaterialExpressionKey(Expression, OutputIndex, MultiplexIndex),Compiler);
+		int32 ExpressionResult = Compiler->CallExpression(FMaterialExpressionKey(Expression, OutputIndex, MultiplexIndex, Compiler->IsCurrentlyCompilingForPreviousFrame()),Compiler);
 
 		if(Mask && ExpressionResult != INDEX_NONE)
 		{
@@ -106,7 +112,96 @@ void FExpressionInput::Connect( int32 InOutputIndex, class UMaterialExpression* 
 	MaskB = Output->MaskB;
 	MaskA = Output->MaskA;
 }
+#endif // WITH_EDITOR
 
+/** Native serialize for FMaterialExpression struct */
+static bool SerializeExpressionInput(FArchive& Ar, FExpressionInput& Input)
+{
+	Ar.UsingCustomVersion(FCoreObjectVersion::GUID);
+
+	if (Ar.CustomVer(FCoreObjectVersion::GUID) < FCoreObjectVersion::MaterialInputNativeSerialize)
+	{
+		return false;
+	}
+
+#if WITH_EDITORONLY_DATA
+	if (!Ar.IsCooking())
+	{
+		Ar << Input.Expression;
+	}
+#endif
+	Ar << Input.OutputIndex;
+	Ar << Input.InputName;
+	Ar << Input.Mask;
+	Ar << Input.MaskR;
+	Ar << Input.MaskG;
+	Ar << Input.MaskB;
+	Ar << Input.MaskA;
+
+	// Some expressions may have been stripped when cooking and Expression can be null after loading
+	// so make sure we keep the information about the connected node in cooked packages
+	if (FPlatformProperties::RequiresCookedData() || (Ar.IsSaving() && Ar.IsCooking()))
+	{
+#if WITH_EDITORONLY_DATA
+		if (Ar.IsSaving())
+		{
+			Input.ExpressionName = Input.Expression ? Input.Expression->GetFName() : NAME_None;
+		}
+#endif // WITH_EDITORONLY_DATA
+		Ar << Input.ExpressionName;
+	}
+
+	return true;
+}
+
+template <typename InputType>
+static bool SerializeMaterialInput(FArchive& Ar, FMaterialInput<InputType>& Input)
+{
+	if (SerializeExpressionInput(Ar, Input))
+	{
+		bool bUseConstantValue = Input.UseConstant;
+		Ar << bUseConstantValue;
+		Input.UseConstant = bUseConstantValue;
+		Ar << Input.Constant;
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+bool FExpressionInput::Serialize(FArchive& Ar)
+{
+	return SerializeExpressionInput(Ar, *this);
+}
+
+bool FColorMaterialInput::Serialize(FArchive& Ar)
+{
+	return SerializeMaterialInput<FColor>(Ar, *this);
+}
+
+bool FScalarMaterialInput::Serialize(FArchive& Ar)
+{
+	return SerializeMaterialInput<float>(Ar, *this);
+}
+
+bool FVectorMaterialInput::Serialize(FArchive& Ar)
+{
+	return SerializeMaterialInput<FVector>(Ar, *this);
+}
+
+bool FVector2MaterialInput::Serialize(FArchive& Ar)
+{
+	return SerializeMaterialInput<FVector2D>(Ar, *this);
+}
+
+bool FMaterialAttributesInput::Serialize(FArchive& Ar)
+{
+	return SerializeExpressionInput(Ar, *this);
+}
+
+#if WITH_EDITOR
 int32 FColorMaterialInput::CompileWithDefault(class FMaterialCompiler* Compiler, EMaterialProperty Property)
 {
 	if (UseConstant)
@@ -206,6 +301,7 @@ int32 FMaterialAttributesInput::CompileWithDefault(class FMaterialCompiler* Comp
 
 	return Ret;
 }
+#endif  // WITH_EDITOR
 
 EMaterialValueType GetMaterialPropertyType(EMaterialProperty Property)
 {
@@ -306,7 +402,7 @@ void FMaterial::GetShaderMapIDsWithUnfinishedCompilation(TArray<int32>& ShaderMa
 	}
 }
 
-bool FMaterial::IsCompilationFinished()
+bool FMaterial::IsCompilationFinished() const
 {
 	// Build an array of the shader map Id's are not finished compiling.
 	if (GameThreadShaderMap && !GameThreadShaderMap->IsCompilationFinalized())
@@ -320,7 +416,7 @@ bool FMaterial::IsCompilationFinished()
 	return true;
 }
 
-bool FMaterial::HasValidGameThreadShaderMap()
+bool FMaterial::HasValidGameThreadShaderMap() const
 {
 	if(!GameThreadShaderMap || !GameThreadShaderMap->IsCompilationFinalized())
 	{
@@ -687,7 +783,7 @@ bool IsTranslucentBlendMode(EBlendMode BlendMode)
 }
 
 int32 FMaterialResource::GetMaterialDomain() const { return Material->MaterialDomain; }
-bool FMaterialResource::IsTangentSpaceNormal() const { return Material->bTangentSpaceNormal || (Material->Normal.Expression == nullptr && !Material->bUseMaterialAttributes); }
+bool FMaterialResource::IsTangentSpaceNormal() const { return Material->bTangentSpaceNormal || (!Material->Normal.IsConnected() && !Material->bUseMaterialAttributes); }
 bool FMaterialResource::ShouldInjectEmissiveIntoLPV() const { return Material->bUseEmissiveForDynamicAreaLighting; }
 bool FMaterialResource::ShouldBlockGI() const { return Material->bBlockGI; }
 bool FMaterialResource::ShouldGenerateSphericalParticleNormals() const { return Material->bGenerateSphericalParticleNormals; }
@@ -700,9 +796,9 @@ bool FMaterialResource::IsLightFunction() const { return Material->MaterialDomai
 bool FMaterialResource::IsUsedWithEditorCompositing() const { return Material->bUsedWithEditorCompositing; }
 bool FMaterialResource::IsUsedWithDeferredDecal() const { return Material->MaterialDomain == MD_DeferredDecal; }
 bool FMaterialResource::IsSpecialEngineMaterial() const { return Material->bUsedAsSpecialEngineMaterial; }
-bool FMaterialResource::HasVertexPositionOffsetConnected() const { return !Material->bUseMaterialAttributes && Material->WorldPositionOffset.Expression != nullptr; }
-bool FMaterialResource::HasPixelDepthOffsetConnected() const { return !Material->bUseMaterialAttributes && Material->PixelDepthOffset.Expression != nullptr; }
-bool FMaterialResource::HasMaterialAttributesConnected() const { return Material->bUseMaterialAttributes && Material->MaterialAttributes.Expression != nullptr; }
+bool FMaterialResource::HasVertexPositionOffsetConnected() const { return !Material->bUseMaterialAttributes && Material->WorldPositionOffset.IsConnected(); }
+bool FMaterialResource::HasPixelDepthOffsetConnected() const { return !Material->bUseMaterialAttributes && Material->PixelDepthOffset.IsConnected(); }
+bool FMaterialResource::HasMaterialAttributesConnected() const { return Material->bUseMaterialAttributes && Material->MaterialAttributes.IsConnected(); }
 FString FMaterialResource::GetBaseMaterialPathName() const { return Material->GetPathName(); }
 
 bool FMaterialResource::IsUsedWithSkeletalMesh() const
@@ -780,6 +876,11 @@ bool FMaterialResource::IsSeparateTranslucencyEnabled() const
 	return Material->bEnableSeparateTranslucency && !IsUIMaterial();
 }
 
+bool FMaterialResource::IsMobileSeparateTranslucencyEnabled() const
+{
+	return Material->bEnableMobileSeparateTranslucency && !IsUIMaterial();
+}
+
 bool FMaterialResource::IsAdaptiveTessellationEnabled() const
 {
 	return Material->bEnableAdaptiveTessellation;
@@ -788,6 +889,16 @@ bool FMaterialResource::IsAdaptiveTessellationEnabled() const
 bool FMaterialResource::IsFullyRough() const
 {
 	return Material->bFullyRough;
+}
+
+bool FMaterialResource::IsUsingHQForwardReflections() const
+{
+	return Material->bUseHQForwardReflections;
+}
+
+bool FMaterialResource::IsUsingPlanarReflection() const
+{
+	return Material->bAcceptsPlanarReflection;
 }
 
 bool FMaterialResource::OutputsVelocityOnBasePass() const
@@ -1124,6 +1235,10 @@ FMaterial::~FMaterial()
 	}
 
 	FMaterialShaderMap::RemovePendingMaterial(this);
+
+	// If the material becomes invalid, then the debug view material will also be invalid
+	void ClearAllDebugViewMaterials();
+	ClearAllDebugViewMaterials();
 }
 
 // could be more to a more central DBuffer file
@@ -1255,6 +1370,8 @@ void FMaterial::SetupMaterialEnvironment(
 	OutEnvironment.SetDefine(TEXT("GENERATE_SPHERICAL_PARTICLE_NORMALS"),ShouldGenerateSphericalParticleNormals() ? TEXT("1") : TEXT("0"));
 	OutEnvironment.SetDefine(TEXT("MATERIAL_USES_SCENE_COLOR_COPY"), RequiresSceneColorCopy_GameThread() ? TEXT("1") : TEXT("0"));
 	OutEnvironment.SetDefine(TEXT("MATERIAL_FULLY_ROUGH"), IsFullyRough() ? TEXT("1") : TEXT("0"));
+	OutEnvironment.SetDefine(TEXT("MATERIAL_HQ_FORWARD_REFLECTIONS"), IsUsingHQForwardReflections() ? TEXT("1") : TEXT("0"));
+	OutEnvironment.SetDefine(TEXT("MATERIAL_USE_PLANAR_REFLECTION"), IsUsingPlanarReflection() ? TEXT("1") : TEXT("0"));
 	OutEnvironment.SetDefine(TEXT("MATERIAL_NONMETAL"), IsNonmetal() ? TEXT("1") : TEXT("0"));
 	OutEnvironment.SetDefine(TEXT("MATERIAL_USE_LM_DIRECTIONALITY"), UseLmDirectionality() ? TEXT("1") : TEXT("0"));
 	OutEnvironment.SetDefine(TEXT("MATERIAL_INJECT_EMISSIVE_INTO_LPV"), ShouldInjectEmissiveIntoLPV() ? TEXT("1") : TEXT("0"));
@@ -1309,6 +1426,13 @@ void FMaterial::SetupMaterialEnvironment(
 	if( IsUsedWithEditorCompositing() )
 	{
 		OutEnvironment.SetDefine(TEXT("EDITOR_PRIMITIVE_MATERIAL"),TEXT("1"));
+	}
+
+	{	
+		// Note: Should be kept in sync with DDM_AllOccluders enum entry in DepthRendering.h.
+		const int32 EarlyZMode_DDM_AllOccluders = 2; 
+		static const auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.EarlyZPass"));
+		OutEnvironment.SetDefine(TEXT("USE_STENCIL_LOD_DITHER_DEFAULT"), ((CVar ? CVar->GetInt() : 0) == EarlyZMode_DDM_AllOccluders) ? 1 : 0);
 	}
 }
 
@@ -1368,6 +1492,9 @@ bool FMaterial::CacheShaders(const FMaterialShaderMapId& ShaderMapId, EShaderPla
 		}
 	}
 
+	// Log which shader, pipeline or factory is missing when about to have a fatal error
+	const bool bLogShaderMapFailInfo = IsSpecialEngineMaterial() && (bContainsInlineShaders || FPlatformProperties::RequiresCookedData());
+
 	if (GameThreadShaderMap && GameThreadShaderMap->TryToAddToExistingCompilationTask(this))
 	{
 		OutstandingCompileShaderMapIds.Add(GameThreadShaderMap->GetCompilingId());
@@ -1375,7 +1502,7 @@ bool FMaterial::CacheShaders(const FMaterialShaderMapId& ShaderMapId, EShaderPla
 		GameThreadShaderMap = nullptr;
 		bSucceeded = true;
 	}
-	else if (!GameThreadShaderMap || !GameThreadShaderMap->IsComplete(this, true))
+	else if (!GameThreadShaderMap || !GameThreadShaderMap->IsComplete(this, !bLogShaderMapFailInfo))
 	{
 		if (bContainsInlineShaders || FPlatformProperties::RequiresCookedData())
 		{
@@ -1433,6 +1560,7 @@ bool FMaterial::CacheShaders(const FMaterialShaderMapId& ShaderMapId, EShaderPla
 		bSucceeded = true;
 	}
 
+	// Note: this is safe to set from the game thread because we should be between the RenderFences of an FMaterialUpdateContext
 	RenderingThreadShaderMap = GameThreadShaderMap;
 
 	return bSucceeded;
@@ -1475,7 +1603,7 @@ bool FMaterial::BeginCompileShaderMap(
 		const FString MaterialShaderCode = MaterialTranslator.GetMaterialShaderCode();
 		const bool bSynchronousCompile = RequiresSynchronousCompilation() || !GShaderCompilingManager->AllowAsynchronousShaderCompiling();
 
-		MaterialEnvironment->IncludeFileNameToContentsMap.Add(TEXT("Material.usf"), MaterialShaderCode);
+		MaterialEnvironment->IncludeFileNameToContentsMap.Add(TEXT("Material.usf"), StringToArray<ANSICHAR>(*MaterialShaderCode, MaterialShaderCode.Len() + 1));
 
 		// Compile the shaders for the material.
 		NewShaderMap->Compile(this, ShaderMapId, MaterialEnvironment, NewCompilationOutput, Platform, bSynchronousCompile, bApplyCompletedShaderMapForRendering);
@@ -1687,11 +1815,11 @@ void FMaterialRenderProxy::CacheUniformExpressions()
 
 			// Do not cache uniform expressions for fallback materials. This step could
 			// be skipped where we don't allow for asynchronous shader compiling.
-			bool bIsFallbackMaterial = (Material != GetMaterialNoFallback(FeatureLevel));
+			bool bIsFallbackMaterial = (Material != MaterialNoFallback);
 
 			if (!bIsFallbackMaterial)
 			{
-				FMaterialRenderContext MaterialRenderContext(this, *Material, nullptr);
+				FMaterialRenderContext MaterialRenderContext(this , *Material, nullptr);
 				MaterialRenderContext.bShowSelection = GIsEditor;
 				EvaluateUniformExpressions(UniformExpressionCache[(int32)FeatureLevel], MaterialRenderContext);
 			}
@@ -2153,6 +2281,12 @@ void FMaterialUpdateContext::AddMaterialInstance(UMaterialInstance* Instance)
 	UpdatedMaterialInterfaces.Add(Instance);
 }
 
+void FMaterialUpdateContext::AddMaterialInterface(UMaterialInterface* Interface)
+{
+	UpdatedMaterials.Add(Interface->GetMaterial());
+	UpdatedMaterialInterfaces.Add(Interface);
+}
+
 FMaterialUpdateContext::~FMaterialUpdateContext()
 {
 	double StartTime = FPlatformTime::Seconds();
@@ -2228,17 +2362,23 @@ FMaterialUpdateContext::~FMaterialUpdateContext()
 
 	// Material instances that use this base material must have their uniform expressions recached 
 	// However, some material instances that use this base material may also depend on another MI with static parameters
-	// So we must update the MI's with static parameters first, and do other MI's in a second pass
+	// So we must traverse upwards and ensure all parent instances that need updating are recached first.
 	int32 NumInstancesWithStaticPermutations = 0;
-	for (int32 MIIndex = 0; MIIndex < InstancesToUpdate.Num(); MIIndex++)
-	{
-		UMaterialInstance* CurrentMaterialInstance = InstancesToUpdate[MIIndex];
 
-		if (CurrentMaterialInstance->bHasStaticPermutationResource)
+	TFunction<void(UMaterialInstance* MI)> UpdateInstance = [&](UMaterialInstance* MI)
+	{
+		if (MI->Parent && InstancesToUpdate.Contains(MI->Parent))
+		{
+			if (UMaterialInstance* ParentInst = Cast<UMaterialInstance>(MI->Parent))
+			{
+				UpdateInstance(ParentInst);
+			}
+		}
+
+		MI->InitStaticPermutation();//bHasStaticPermutation can change.
+		if (MI->bHasStaticPermutationResource)
 		{
 			NumInstancesWithStaticPermutations++;
-			CurrentMaterialInstance->InitStaticPermutation();
-
 			// Collect FMaterial's that have been recompiled
 			if (bUpdateStaticDrawLists)
 			{
@@ -2246,23 +2386,18 @@ FMaterialUpdateContext::~FMaterialUpdateContext()
 				{
 					for (int32 FeatureLevelIndex = 0; FeatureLevelIndex < ERHIFeatureLevel::Num; FeatureLevelIndex++)
 					{
-						FMaterialResource* CurrentResource = CurrentMaterialInstance->StaticPermutationMaterialResources[QualityLevelIndex][FeatureLevelIndex];
+						FMaterialResource* CurrentResource = MI->StaticPermutationMaterialResources[QualityLevelIndex][FeatureLevelIndex];
 						MaterialResourcesToUpdate.Add(CurrentResource);
 					}
 				}
 			}
 		}
-	}
+		InstancesToUpdate.Remove(MI);
+	};
 
-	// Recache uniform expressions on dependent MI's without static parameters
-	for (int32 MIIndex = 0; MIIndex < InstancesToUpdate.Num(); MIIndex++)
+	while (InstancesToUpdate.Num() > 0)
 	{
-		UMaterialInstance* CurrentMaterialInstance = InstancesToUpdate[MIIndex];
-
-		if (!CurrentMaterialInstance->bHasStaticPermutationResource)
-		{
-			CurrentMaterialInstance->InitStaticPermutation();
-		}
+		UpdateInstance(InstancesToUpdate.Last());
 	}
 
 	if (bUpdateStaticDrawLists)
@@ -2438,6 +2573,7 @@ bool UMaterialInterface::IsPropertyActive(EMaterialProperty InProperty)const
 	return false;
 }
 
+#if WITH_EDITOR
 int32 UMaterialInterface::CompilePropertyEx( class FMaterialCompiler* Compiler, EMaterialProperty Property )
 {
 	return INDEX_NONE;
@@ -2454,6 +2590,7 @@ int32 UMaterialInterface::CompileProperty(FMaterialCompiler* Compiler, EMaterial
 		return GetDefaultExpressionForMaterialProperty(Compiler, Property);
 	}
 }
+#endif // WITH_EDITOR
 
 void UMaterialInterface::AnalyzeMaterialProperty(EMaterialProperty InProperty, int32& OutNumTextureCoordinates, bool& bOutRequiresVertexData)
 {
@@ -2500,6 +2637,7 @@ void UMaterialInterface::AnalyzeMaterialProperty(EMaterialProperty InProperty, i
 #endif
 }
 
+#if WITH_EDITORONLY_DATA
 //Reorder the output index for any FExpressionInput connected to a UMaterialExpressionBreakMaterialAttributes.
 //If the order of pins in the material results or the make/break attributes nodes changes 
 //then the OutputIndex stored in any FExpressionInput coming from UMaterialExpressionBreakMaterialAttributes will be wrong and needs reordering.
@@ -2534,7 +2672,7 @@ void DoMaterialAttributeReorder(FExpressionInput* Input, int32 UE4Ver)
 		}
 	}
 }
-
+#endif // WITH_EDITORONLY_DATA
 //////////////////////////////////////////////////////////////////////////
 
 FMaterialInstanceBasePropertyOverrides::FMaterialInstanceBasePropertyOverrides()

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,6 +6,7 @@
 #include "OnlineSubsystemGooglePlayPackage.h"
 
 #include "gpg/status.h"
+#include "gpg/player.h"
 
 class FOnlineIdentityGooglePlay :
 	public IOnlineIdentity
@@ -44,6 +45,9 @@ PACKAGE_SCOPE:
 	TSharedPtr<const FUniqueNetIdString> GetCurrentUserId() const { return UniqueNetId; }
 
 	void SetCurrentUserId(TSharedPtr<const FUniqueNetIdString> InUniqueNetId) { UniqueNetId = InUniqueNetId; }
+
+	/** Called from ExternalUIInterface to set UniqueId and PlayerAlias after authentication */
+	void SetPlayerDataFromFetchSelfResponse(const gpg::Player& PlayerData);
 
 public:
 

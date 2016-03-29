@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -10,8 +10,10 @@ namespace UnrealBuildTool
 {
 	public enum ModuleHostType
 	{
+		Default,
 		Runtime,
 		RuntimeNoCommandlet,
+		RuntimeAndProgram,
 		Developer,
 		Editor,
 		EditorNoCommandlet,
@@ -27,6 +29,7 @@ namespace UnrealBuildTool
 		PostConfigInit,
 		PreLoadingScreen,
 		PostEngineInit,
+		None,
 	}
 
 	[DebuggerDisplay("Name={Name}")]
@@ -182,6 +185,8 @@ namespace UnrealBuildTool
 			{
 				case ModuleHostType.Runtime:
 				case ModuleHostType.RuntimeNoCommandlet:
+					return TargetType != TargetRules.TargetType.Program;
+				case ModuleHostType.RuntimeAndProgram:
 					return true;
 				case ModuleHostType.Developer:
 					return bBuildDeveloperTools;

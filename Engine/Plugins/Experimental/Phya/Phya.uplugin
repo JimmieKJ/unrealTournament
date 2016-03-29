@@ -1,20 +1,25 @@
 {
 	"FileVersion" : 3,
-	
-	"FriendlyName" : "Phya Integration",
 	"Version" : 1,
 	"VersionName" : "1.0",
-	"CreatedBy" : "Epic Games, Inc.",
-	"CreatedByURL" : "http://epicgames.com",
-	"EngineVersion" : "4.2.0",
+	"FriendlyName" : "Phya Integration",
 	"Description" : "Phya physically based audio integration.",
 	"Category" : "Audio",
-	
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"DocsURL" : "",
+	"MarketplaceURL" : "",
+	"SupportURL" : "",
+	"EnabledByDefault" : false,
+	"CanContainContent" : false,
+	"IsBetaVersion" : false,
+	"Installed" : false,
 	"Modules" :
 	[
 		{
 			"Name" : "Phya",
-			"Type" : "Editor"
+			"Type" : "Editor",
+			"LoadingPhase" : "Default"
 		}
 	]
 }

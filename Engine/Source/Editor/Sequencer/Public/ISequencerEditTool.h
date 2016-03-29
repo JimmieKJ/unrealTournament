@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -61,20 +61,15 @@ public:
 
 	// @todo sequencer: documentation needed
 	virtual void OnMouseCaptureLost() = 0;
-	virtual void OnMouseEnter(SWidget& OwnerWidget, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) = 0;
-	virtual void OnMouseLeave(SWidget& OwnerWidget, const FPointerEvent& MouseEvent) = 0;
 	virtual int32 OnPaint(const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId) const = 0;
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) = 0;
 	virtual FCursorReply OnCursorQuery(const FGeometry& MyGeometry, const FPointerEvent& CursorEvent) const = 0;
 	virtual ISequencer& GetSequencer() const = 0;
+	virtual void OnMouseEnter(SWidget& OwnerWidget, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) = 0;
+	virtual void OnMouseLeave(SWidget& OwnerWidget, const FPointerEvent& MouseEvent) = 0;
 	virtual FName GetIdentifier() const = 0;
-
-	/** Get the current active hotspot */
-	virtual TSharedPtr<ISequencerHotspot> GetHotspot() const = 0;
-
-	/** Set the hotspot to something else */
-	virtual void SetHotspot(TSharedPtr<ISequencerHotspot> NewHotspot) = 0;
-
+	virtual bool CanDeactivate() const = 0;
+	virtual const ISequencerHotspot* GetDragHotspot() const = 0;
+	
 public:
 
 	/** Virtual destructor. */

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 
@@ -9,7 +9,9 @@ DEFINE_STAT(STAT_GameplayEffectsTick);
 DEFINE_STAT(STAT_GameplayEffectsCanApplyAttributeModifiers);
 DEFINE_STAT(STAT_GameplayEffectsGetActiveEffectsTimeRemaining);
 DEFINE_STAT(STAT_GameplayEffectsGetActiveEffectsDuration);
+DEFINE_STAT(STAT_GameplayEffectsGetActiveEffectsTimeRemainingAndDuration);
 DEFINE_STAT(STAT_GameplayEffectsGetActiveEffects);
+DEFINE_STAT(STAT_GameplayEffectsGetAllActiveEffectHandles);
 DEFINE_STAT(STAT_GameplayEffectsModifyActiveEffectStartTime);
 DEFINE_STAT(STAT_GameplayAbilityGetCooldownTimeRemaining);
 DEFINE_STAT(STAT_GameplayAbilityGetCooldownTimeRemainingAndDuration);
@@ -28,3 +30,4 @@ DEFINE_STAT(STAT_HandleGameplayCueNotifyActor);
 DEFINE_STAT(STAT_ApplyGameplayEffectToTarget);
 DEFINE_STAT(STAT_OnActiveGameplayEffectAdded);
 DEFINE_STAT(STAT_OnActiveGameplayEffectRemoved);
+DEFINE_STAT(STAT_GameplayCueInterface_HandleGameplayCue);

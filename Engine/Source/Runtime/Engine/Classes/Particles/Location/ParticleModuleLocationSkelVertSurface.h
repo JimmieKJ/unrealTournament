@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -14,7 +14,7 @@ enum ELocationSkelVertSurfaceSource
 };
 
 UCLASS(editinlinenew, hidecategories=Object, meta=(DisplayName = "Skel Vert/Surf Location"))
-class UParticleModuleLocationSkelVertSurface : public UParticleModuleLocationBase
+class ENGINE_API UParticleModuleLocationSkelVertSurface : public UParticleModuleLocationBase
 {
 	GENERATED_UCLASS_BODY()
 
@@ -99,8 +99,8 @@ class UParticleModuleLocationSkelVertSurface : public UParticleModuleLocationBas
 	virtual void Update(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime) override;
 	virtual void FinalUpdate(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime) override;
 	virtual uint32	PrepPerInstanceBlock(FParticleEmitterInstance* Owner, void* InstData) override;
-	virtual uint32	RequiredBytes(FParticleEmitterInstance* Owner = NULL) override;
-	virtual uint32	RequiredBytesPerInstance(FParticleEmitterInstance* Owner = NULL) override;
+	virtual uint32	RequiredBytes(UParticleModuleTypeDataBase* TypeData) override;
+	virtual uint32	RequiredBytesPerInstance() override;
 	virtual bool	TouchesMeshRotation() const override { return true; }
 	virtual void	AutoPopulateInstanceProperties(UParticleSystemComponent* PSysComp) override;
 	virtual bool CanTickInAnyThread() override

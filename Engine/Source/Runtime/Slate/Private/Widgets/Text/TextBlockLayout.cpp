@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlatePrivatePCH.h"
 #include "TextBlockLayout.h"
@@ -7,14 +7,7 @@
 #include "SlateTextHighlightRunRenderer.h"
 #include "SlateStats.h"
 
-#if WITH_FANCY_TEXT
-
 SLATE_DECLARE_CYCLE_COUNTER(GSlateTextBlockLayoutComputeDesiredSize, "FTextBlockLayout ComputeDesiredSize");
-
-TSharedRef<FTextBlockLayout> FTextBlockLayout::Create(FTextBlockStyle InDefaultTextStyle, const TOptional<ETextShapingMethod> InTextShapingMethod, const TOptional<ETextFlowDirection> InTextFlowDirection, TSharedRef<ITextLayoutMarshaller> InMarshaller, TSharedPtr<IBreakIterator> InLineBreakPolicy)
-{
-	return MakeShareable(new FTextBlockLayout(MoveTemp(InDefaultTextStyle), InTextShapingMethod, InTextFlowDirection, MoveTemp(InMarshaller), MoveTemp(InLineBreakPolicy)));
-}
 
 FTextBlockLayout::FTextBlockLayout(FTextBlockStyle InDefaultTextStyle, const TOptional<ETextShapingMethod> InTextShapingMethod, const TOptional<ETextFlowDirection> InTextFlowDirection, TSharedRef<ITextLayoutMarshaller> InMarshaller, TSharedPtr<IBreakIterator> InLineBreakPolicy)
 	: TextLayout(FSlateTextLayout::Create(MoveTemp(InDefaultTextStyle)))
@@ -148,6 +141,21 @@ void FTextBlockLayout::OverrideTextStyle(const FTextBlockStyle& InTextStyle)
 	}
 }
 
+void FTextBlockLayout::SetTextShapingMethod(const TOptional<ETextShapingMethod>& InTextShapingMethod)
+{
+	TextLayout->SetTextShapingMethod((InTextShapingMethod.IsSet()) ? InTextShapingMethod.GetValue() : GetDefaultTextShapingMethod());
+}
+
+void FTextBlockLayout::SetTextFlowDirection(const TOptional<ETextFlowDirection>& InTextFlowDirection)
+{
+	TextLayout->SetTextFlowDirection((InTextFlowDirection.IsSet()) ? InTextFlowDirection.GetValue() : GetDefaultTextFlowDirection());
+}
+
+void FTextBlockLayout::SetDebugSourceInfo(const TAttribute<FString>& InDebugSourceInfo)
+{
+	TextLayout->SetDebugSourceInfo(InDebugSourceInfo);
+}
+
 FChildren* FTextBlockLayout::GetChildren()
 {
 	return TextLayout->GetChildren();
@@ -237,5 +245,3 @@ float FTextBlockLayout::CalculateWrappingWidth(const FWidgetArgs& InWidgetArgs) 
 
 	return FMath::Max(0.0f, WrappingWidth);
 }
-
-#endif //WITH_FANCY_TEXT

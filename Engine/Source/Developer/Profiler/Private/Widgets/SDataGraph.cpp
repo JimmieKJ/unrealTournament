@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ProfilerPrivatePCH.h"
 
@@ -22,11 +22,11 @@ public:
 
 	SLATE_BEGIN_ARGS( SDataGraphSummary )
 		: _ParentWidget()
-		, _GraphDescription()
+		, _TrackedStat()
 		{}
 
 		SLATE_ARGUMENT( TSharedPtr<SDataGraph>, ParentWidget )
-		SLATE_ARGUMENT( FGraphDescription, GraphDescription )
+		SLATE_ARGUMENT( FTrackedStatPtr, TrackedStat )
 		SLATE_EVENT( FGetHoveredFrameIndexDelegate, OnGetMouseFrameIndex )
 	SLATE_END_ARGS()
 
@@ -39,13 +39,13 @@ public:
 	void Construct( const FArguments& InArgs )
 	{
 		ParentWidget = InArgs._ParentWidget;
-		GraphDescription = InArgs._GraphDescription;
+		TrackedStat = InArgs._TrackedStat;
 		OnGetMouseFrameIndex = InArgs._OnGetMouseFrameIndex;
 
-		const FSlateColor TextColor( GraphDescription.ColorAverage );
+		const FSlateColor TextColor( TrackedStat->GraphColor );
 		const FName CloseButtonStyle = TEXT("Docking.MajorTab.CloseButton");
 		FFormatNamedArguments Args;
-		Args.Add( TEXT("StatName"), FText::FromString( GraphDescription.CombinedGraphDataSource->GetStatName() ) );
+		Args.Add( TEXT("StatName"), FText::FromString( TrackedStat->GraphDataSource->GetStatName() ) );
 		const FText ToolTipText = FText::Format( LOCTEXT("DataGraphSummary_CloseButton_TT", "Click to stop tracking '{StatName}' stat"), Args );
 
 		ChildSlot
@@ -116,23 +116,23 @@ protected:
 	/** Stops tracking the associated stat and removes it from the data graph. */
 	FReply CloseButton_OnClicked()
 	{
-		FProfilerManager::Get()->UntrackStat( GraphDescription.CombinedGraphDataSource->GetStatID() );	
+		FProfilerManager::Get()->UntrackStat( TrackedStat->GraphDataSource->GetStatID() );	
 		return FReply::Handled();
 	}
 
 	FText SummaryInformation_GetSummary() const
 	{
 		FText SummaryText = LOCTEXT("DataGraphSummary_Warning", "Not implemented yet");
-		const bool bCanDisplayData = GraphDescription.CombinedGraphDataSource->CanBeDisplayedAsIndexBased() && ParentWidget->GetViewMode() == EDataGraphViewModes::Index;
+		const bool bCanDisplayData = TrackedStat->GraphDataSource->CanBeDisplayedAsIndexBased() && ParentWidget.Pin()->GetViewMode() == EDataGraphViewModes::Index;
 
 		const uint32 FrameIndex = OnGetMouseFrameIndex.IsBound() ? (uint32)OnGetMouseFrameIndex.Execute() : 0;
-		const FGraphDataSourceRefConst* GraphDataSource = GraphDescription.CombinedGraphDataSource->GetFirstSource();
+		const FGraphDataSourceRefConst& GraphDataSource = TrackedStat->GraphDataSource;
 
-		if( bCanDisplayData && GraphDataSource && FrameIndex < (*GraphDataSource)->GetNumFrames() )
+		if( bCanDisplayData && FrameIndex < GraphDataSource->GetNumFrames() )
 		{
-			const double SampleValue = (*GraphDataSource)->GetValueFromIndex( FrameIndex );
-			const EProfilerSampleTypes::Type UnitType = (*GraphDataSource)->GetSampleType();
-			const FProfilerAggregatedStat& Aggregated = *(*GraphDataSource)->GetAggregatedStat();
+			const double SampleValue = GraphDataSource->GetValueFromIndex( FrameIndex );
+			const EProfilerSampleTypes::Type UnitType = GraphDataSource->GetSampleType();
+			const FProfilerAggregatedStat& Aggregated = *GraphDataSource->GetAggregatedStat();
 
 			static const FNumberFormattingOptions SampleValueFormattingOptions = FNumberFormattingOptions()
 				.SetMinimumFractionalDigits(2)
@@ -146,19 +146,20 @@ protected:
 
 	FText SummaryInformation_GetGroupName() const
 	{
-		return FText::Format(LOCTEXT("DataGraphSummary_GroupNameFmt", "({0})"), FText::FromString(GraphDescription.CombinedGraphDataSource->GetGroupName()));
+		return FText::Format(LOCTEXT("DataGraphSummary_GroupNameFmt", "({0})"), FText::FromString(TrackedStat->GraphDataSource->GetGroupName()));
 	}
 
 	FText SummaryInformation_GetStatName() const
 	{
-		return FText::FromString(FProfilerHelper::ShortenName( GraphDescription.CombinedGraphDataSource->GetStatName(), 32 ));
+		return FText::FromString(FProfilerHelper::ShortenName( TrackedStat->GraphDataSource->GetStatName(), 32 ));
 	}
 
 private:
-	FGraphDescription GraphDescription;
+	/** A shared pointer to the traced stat. */
+	FTrackedStatPtr TrackedStat;
 
-	/** A shared pointer to the parent widget. */
-	TSharedPtr<SDataGraph> ParentWidget;
+	/** A weak pointer to the parent widget. */
+	TWeakPtr<SDataGraph> ParentWidget;
 
 	/** The delegate to be invoked when the data graph summary widget wants to know the frame index pointed by the mouse. */
 	FGetHoveredFrameIndexDelegate OnGetMouseFrameIndex;
@@ -236,32 +237,24 @@ void SDataGraph::Tick( const FGeometry& AllottedGeometry, const double InCurrent
 
 void SDataGraph::UpdateState()
 {
-	const FGraphDescription* GraphDesc = GetFirstGraph();
-	if( GraphDesc )
+	const FTrackedStatPtr FirstTrackedStat = GetFirstGraph();
+	if( FirstTrackedStat.IsValid() )
 	{
-		// Check if we need to force time based view mode.
-		const bool bCanBeDisplayedAsMulti = GraphDesc->CombinedGraphDataSource->CanBeDisplayedAsMulti();
-		if( bCanBeDisplayedAsMulti )
-		{
-			ViewMode = EDataGraphViewModes::Time;
-		}
-
 		// If the view mode is index based, use the first source for reading the number of frames.
 		if( ViewMode == EDataGraphViewModes::Index )
 		{
-			const FGraphDataSourceRefConst* GraphDataSource = GraphDesc->CombinedGraphDataSource->GetFirstSource();
-			NumDataPoints = GraphDataSource ? (int32)(*GraphDataSource)->GetNumFrames() : 0;
+			NumDataPoints = FirstTrackedStat->GraphDataSource->GetNumFrames();
 		}
 		else
 		{
-			NumDataPoints = (int32)GraphDesc->CombinedGraphDataSource->GetNumFrames();
+			NumDataPoints = (int32)FirstTrackedStat->GraphDataSource->GetNumFrames();
 		}
 
 		NumVisiblePoints = FMath::Max( 0, FMath::TruncToInt(ThisGeometry.Size.X) / DistanceBetweenPoints );
 		// GraphOffset - Updated by OnMouseMove or by ScrollTo
 		GraphOffset = FMath::Clamp( GraphOffset, 0, FMath::Max(NumDataPoints-NumVisiblePoints,0) );
 		
-		DataTotalTimeMS = GraphDesc->CombinedGraphDataSource->GetTotalTimeMS();
+		DataTotalTimeMS = FirstTrackedStat->GraphDataSource->GetTotalTimeMS();
 		VisibleTimeMS = NumVisiblePoints * FTimeAccuracy::AsFrameTime( TimeBasedAccuracy );
 		GraphOffsetMS = GraphOffset * FTimeAccuracy::AsFrameTime( TimeBasedAccuracy );
 	}
@@ -324,22 +317,22 @@ int32 SDataGraph::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeom
 	{
 		SCOPE_CYCLE_COUNTER(STAT_DG_OnPaint);
 
-		const FGraphDescription& GraphDescription = It.Value();
+		const FTrackedStat& TrackedStat = *It.Value();
 		const float GraphYScale = AllottedGeometry.Size.Y/ScaleY;
 		
-		const float UnitTypeScale = GraphDescription.CombinedGraphDataSource->GetSampleType() == EProfilerSampleTypes::HierarchicalTime ? 1.0f : CounterToTimeScale;
+		const float UnitTypeScale = TrackedStat.GraphDataSource->GetSampleType() != EProfilerSampleTypes::Memory ? 1.0f : CounterToTimeScale;
 		const float TimeAccuracyMS = FTimeAccuracy::AsFrameTime( TimeBasedAccuracy );
 
 		if( ViewMode == EDataGraphViewModes::Time )
 		{
 			const float GraphRangeEndMS = FMath::Min( GraphOffsetMS+VisibleTimeMS, DataTotalTimeMS ) - TimeAccuracyMS;
 
-			if( MultiMode == EDataGraphMultiModes::Combined && GraphDescription.CombinedGraphDataSource->GetSourcesNum() > 0 )
+			/*if( MultiMode == EDataGraphMultiModes::Combined && TrackedStat.CombinedGraphDataSource->GetSourcesNum() > 0 )
 			{
 				// Draw combined line graph where X=Min, Y=Max, Z=Avg
 				for( float GraphStartTimeMS = GraphOffsetMS; GraphStartTimeMS < GraphRangeEndMS; GraphStartTimeMS += TimeAccuracyMS )
 				{
-					const FVector Value = GraphDescription.CombinedGraphDataSource->GetValueFromTimeRange( GraphStartTimeMS, GraphStartTimeMS+TimeAccuracyMS );
+					const FVector Value = TrackedStat.CombinedGraphDataSource->GetValueFromTimeRange( GraphStartTimeMS, GraphStartTimeMS+TimeAccuracyMS );
 					const float XPos = DistanceBetweenPoints*GraphPoints.Num();
 
 					// X=Min
@@ -370,7 +363,7 @@ int32 SDataGraph::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeom
 					GraphPoints,
 					MyClippingRect,
 					DrawEffects,
-					InWidgetStyle.GetColorAndOpacityTint() * GraphDescription.ColorBackground,
+					InWidgetStyle.GetColorAndOpacityTint() * TrackedStat.ColorBackground,
 					false
 				);
 				GraphPoints.Empty( NumVisiblePoints );
@@ -384,7 +377,7 @@ int32 SDataGraph::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeom
 					GraphPoints2,
 					MyClippingRect,
 					DrawEffects,
-					InWidgetStyle.GetColorAndOpacityTint() * GraphDescription.ColorExtremes,
+					InWidgetStyle.GetColorAndOpacityTint() * TrackedStat.ColorExtremes,
 					false
 				);
 				GraphPoints2.Empty( NumVisiblePoints );
@@ -398,75 +391,72 @@ int32 SDataGraph::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeom
 					GraphPoints3,
 					MyClippingRect,
 					DrawEffects,
-					InWidgetStyle.GetColorAndOpacityTint() * GraphDescription.ColorAverage,
+					InWidgetStyle.GetColorAndOpacityTint() * TrackedStat.ColorAverage,
 					false
 				);
 				GraphPoints3.Empty( NumVisiblePoints );
 				
 				LayerId++;
 			}
-			else if( MultiMode == EDataGraphMultiModes::OneLinePerDataSource )
+			else*/
+			if( MultiMode == EDataGraphMultiModes::OneLinePerDataSource )
 			{
 				// Draw line graph for each graph data source.
-				for( auto GraphSourceIt = GraphDescription.CombinedGraphDataSource->GetSourcesIterator(); GraphSourceIt; ++GraphSourceIt )
+
+				const FGraphDataSourceRefConst& GraphDataSource = TrackedStat.GraphDataSource;
+
+				for (float GraphStartTimeMS = GraphOffsetMS; GraphStartTimeMS < GraphRangeEndMS; GraphStartTimeMS += TimeAccuracyMS)
 				{
-					const FGraphDataSourceRefConst& GraphDataSource = GraphSourceIt.Value();
- 
-					for( float GraphStartTimeMS = GraphOffsetMS; GraphStartTimeMS < GraphRangeEndMS; GraphStartTimeMS += TimeAccuracyMS )
-					{
-						const float Value = GraphDataSource->GetValueFromTimeRange( GraphStartTimeMS, GraphStartTimeMS+TimeAccuracyMS );
-						const float XPos = DistanceBetweenPoints*GraphPoints.Num();
-						const float YPos = FMath::Clamp( AllottedGeometry.Size.Y - GraphYScale*Value*UnitTypeScale, 0.0f, AllottedGeometry.Size.Y );
-						new (GraphPoints) FVector2D(XPos,YPos);
-					}
- 
-					FSlateDrawElement::MakeLines
-					(
-						OutDrawElements,
-						LayerId,
-						AllottedGeometry.ToPaintGeometry(),
-						GraphPoints,
-						MyClippingRect,
-						DrawEffects,
-						InWidgetStyle.GetColorAndOpacityTint() * GraphDescription.ColorAverage,
-						false
-					);
-					GraphPoints.Empty( NumVisiblePoints );
+					const float Value = GraphDataSource->GetValueFromTimeRange( GraphStartTimeMS, GraphStartTimeMS + TimeAccuracyMS );
+					const float XPos = DistanceBetweenPoints*GraphPoints.Num();
+					const float YPos = FMath::Clamp( AllottedGeometry.Size.Y - GraphYScale*Value*UnitTypeScale, 0.0f, AllottedGeometry.Size.Y );
+					new (GraphPoints)FVector2D( XPos, YPos );
 				}
-				LayerId++;
+
+				FSlateDrawElement::MakeLines
+				(
+					OutDrawElements,
+					LayerId,
+					AllottedGeometry.ToPaintGeometry(),
+					GraphPoints,
+					MyClippingRect,
+					DrawEffects,
+					InWidgetStyle.GetColorAndOpacityTint() * TrackedStat.GraphColor,
+					false
+				);
+				GraphPoints.Empty( NumVisiblePoints );
 			}
+			LayerId++;
+
 		}
 		else if( ViewMode == EDataGraphViewModes::Index )
 		{
 			if( MultiMode == EDataGraphMultiModes::OneLinePerDataSource )
-			{
-				for( auto GraphSourceIt = GraphDescription.CombinedGraphDataSource->GetSourcesIterator(); GraphSourceIt; ++GraphSourceIt )
-				{			
-					const FGraphDataSourceRefConst& GraphDataSource = GraphSourceIt.Value();
-					const int32 GraphRangeEndIndex = FMath::Min( GraphOffset+NumVisiblePoints+1, NumDataPoints );
+			{						
+				const FGraphDataSourceRefConst& GraphDataSource = TrackedStat.GraphDataSource;
+				const int32 GraphRangeEndIndex = FMath::Min( GraphOffset+NumVisiblePoints+1, NumDataPoints );
  
-					for( uint32 GraphStartIndex = (uint32)GraphOffset; GraphStartIndex < (uint32)GraphRangeEndIndex; GraphStartIndex++ )
-					{
-						const float Value = GraphDataSource->GetValueFromIndex( GraphStartIndex );
-						const float XPos = DistanceBetweenPoints*(float)GraphPoints.Num();
-						const float YPos = FMath::Clamp( AllottedGeometry.Size.Y - GraphYScale*Value*UnitTypeScale, 0.0f, AllottedGeometry.Size.Y );
-						GraphPoints.Add( FVector2D(XPos,YPos) );
-					}
- 
-					FSlateDrawElement::MakeLines
-					(
-						OutDrawElements,
-						LayerId,
-						AllottedGeometry.ToPaintGeometry(),
-						GraphPoints,
-						MyClippingRect,
-						DrawEffects,
-						InWidgetStyle.GetColorAndOpacityTint() * GraphDescription.ColorAverage,
-						false
-					);
-					GraphPoints.Empty( NumVisiblePoints );
+				for( uint32 GraphStartIndex = (uint32)GraphOffset; GraphStartIndex < (uint32)GraphRangeEndIndex; GraphStartIndex++ )
+				{
+					const float Value = GraphDataSource->GetValueFromIndex( GraphStartIndex );
+					const float XPos = DistanceBetweenPoints*(float)GraphPoints.Num();
+					const float YPos = FMath::Clamp( AllottedGeometry.Size.Y - GraphYScale*Value*UnitTypeScale, 0.0f, AllottedGeometry.Size.Y );
+					GraphPoints.Add( FVector2D(XPos,YPos) );
 				}
  
+				FSlateDrawElement::MakeLines
+				(
+					OutDrawElements,
+					LayerId,
+					AllottedGeometry.ToPaintGeometry(),
+					GraphPoints,
+					MyClippingRect,
+					DrawEffects,
+					InWidgetStyle.GetColorAndOpacityTint() * TrackedStat.GraphColor,
+					false
+				);
+				GraphPoints.Empty( NumVisiblePoints );
+				
 				LayerId++;
 			}
 		}
@@ -492,18 +482,18 @@ int32 SDataGraph::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeom
 	TArray<FVector2D> LinePoints;
 	const float LabelSize = MaxFontCharHeight * 7.0f;
 
-	const FGraphDescription* GraphDesc = GetFirstGraph();
-	if( GraphDesc && GraphDesc->CombinedGraphDataSource->GetFirstSource() )
+	const FTrackedStatPtr FirstTrackedStat = GetFirstGraph();
+	if( FirstTrackedStat.IsValid() )
 	{
-		const FGraphDataSourceRefConst* GraphDataSource = GraphDesc->CombinedGraphDataSource->GetFirstSource();
+		const FGraphDataSourceRefConst& GraphDataSource = FirstTrackedStat->GraphDataSource;
+		const IDataProviderRef DataProvider = GraphDataSource->GetDataProvider();
 
 		if( ViewMode == EDataGraphViewModes::Index )
 		{
 			// Draw a vertical line every 60 frames.
 			const int32 AvgFrameRate = 60;
 			const int32 FrameStartIndex = GraphOffset + AvgFrameRate - (GraphOffset % AvgFrameRate);
-			const int32 FrameEndIndex = FMath::Min( GraphOffset + NumVisiblePoints, NumDataPoints );
-			const IDataProviderRef DataProvider = (*GraphDataSource)->GetDataProvider();
+			const int32 FrameEndIndex = FMath::Min( GraphOffset + NumVisiblePoints, NumDataPoints );		
 
 			for( int32 FrameIndex = FrameStartIndex; FrameIndex < FrameEndIndex; FrameIndex += AvgFrameRate )
 			{
@@ -566,8 +556,7 @@ int32 SDataGraph::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeom
 			const int32 FrameStartIndex = GraphOffset + AvgFrameRate - (GraphOffset % AvgFrameRate);
 			const int32 FrameEndIndex = FMath::Min( GraphOffset + NumVisiblePoints, NumDataPoints );
 
-			const bool bCanBeDisplayedAsMulti = GraphDesc->CombinedGraphDataSource->CanBeDisplayedAsMulti();
-			const IDataProviderRef DataProvider = (*GraphDataSource)->GetDataProvider();
+			const bool bCanBeDisplayedAsMulti = false;
 
 			for( int32 FrameIndex = FrameStartIndex; FrameIndex < FrameEndIndex; FrameIndex += AvgFrameRate )
 			{
@@ -649,21 +638,21 @@ int32 SDataGraph::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeom
 
 	const int32 MaxGridPixelSpacing = 160.0f;
 
-	// Draw a horizontal lines every 150 pixels and draw a few basic lines like 5ms, 10ms, 16ms, 33ms
+	// Draw a horizontal lines every 150 pixels and draw a few basic lines
 	static const TArray<float> DefaultTimeValueHints = TArrayBuilder<float>()
-		.Add( 5.0f )
-		.Add( 10.0f )
-		.Add( 16.6f )
-		.Add( 33.0f );
+		.Add( 11.1f )	// 90fps
+		.Add( 16.6f )	// 60fps
+		.Add( 33.3f )	// 30fps
+		.Add( 50.0f );	// 20fps
 
-	const FLinearColor HintColor05(0.0f,1.0f,1.0f, 0.5f);
-	const FLinearColor HintColor33(0.5f,1.0f,0.0f, 0.5f);
+	const FLinearColor HintColor90FPS(0.0f,1.0f,1.0f, 0.5f);
+	const FLinearColor HintColor20FPS(0.5f,1.0f,0.0f, 0.5f);
 
 	static TMap<float,FLinearColor> DefaultTimeValueHintColors = TMapBuilder<float,FLinearColor>()
-		.Add( 5.0f, FMath::Lerp(HintColor05,HintColor33,0.0f) )
-		.Add( 10.0f, FMath::Lerp(HintColor05,HintColor33,0.33f) )
-		.Add( 16.6f, FMath::Lerp(HintColor05,HintColor33,0.66f) )
-		.Add( 33.0f, FMath::Lerp(HintColor05,HintColor33,1.0f) );
+		.Add( 11.1f, FMath::Lerp(HintColor90FPS,HintColor20FPS,0.0f) )
+		.Add( 16.6f, FMath::Lerp(HintColor90FPS,HintColor20FPS,0.33f) )
+		.Add( 33.3f, FMath::Lerp(HintColor90FPS,HintColor20FPS,0.66f) )
+		.Add( 50.0f, FMath::Lerp(HintColor90FPS,HintColor20FPS,1.0f) );
 
 
 	// Time value hints based on the graph height and maximum value the can be displayed on this graph.
@@ -969,17 +958,8 @@ int32 SDataGraph::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeom
 
 
 
-void SDataGraph::AddInnerGraph
-(
-	const uint32 InStatID, 	
-	const FLinearColor InColorAverage,
-	const FLinearColor InColorExtremes,
-	const FLinearColor InColorBackground, 
-	const FCombinedGraphDataSourceRef& CombinedGraphDataSource  
-)
+void SDataGraph::AddInnerGraph( const FTrackedStatPtr& TrackedStat )
 {
-	FGraphDescription GraphDescriptionLine( CombinedGraphDataSource, InColorAverage, InColorExtremes, InColorBackground );
-
 	TSharedPtr<SWidget> GraphSummary;
 	GraphDescriptionsVBox->AddSlot()
 	.AutoHeight()
@@ -989,23 +969,22 @@ void SDataGraph::AddInnerGraph
 	[
 		SAssignNew(GraphSummary,SDataGraphSummary)
 		.ParentWidget( SharedThis(this) )
-		.GraphDescription( GraphDescriptionLine )
+		.TrackedStat( TrackedStat )
 		.OnGetMouseFrameIndex( this, &SDataGraph::DataGraphSummary_GetHoveredFrameIndex )
 	];
-
-	StatIDToGraphDescriptionMapping.Add( InStatID, GraphDescriptionLine );
-	StatIDToWidgetMapping.Add( InStatID, GraphSummary.ToSharedRef() );
+ 
+	StatIDToGraphDescriptionMapping.Add( TrackedStat->StatID, TrackedStat );
+	StatIDToWidgetMapping.Add( TrackedStat->StatID, GraphSummary.ToSharedRef() );
 
 	UpdateState();
 }
 
 void SDataGraph::RemoveInnerGraph( const uint32 InStatID )
 {
-	FGraphDescription* GraphDescription = StatIDToGraphDescriptionMapping.Find( InStatID );
-	if( GraphDescription )
+	FTrackedStatPtr TrackedStat = StatIDToGraphDescriptionMapping.FindRef( InStatID );
+	if( TrackedStat.IsValid() )
 	{
 		TSharedRef<SWidget> DataGraphSummary = StatIDToWidgetMapping.FindChecked( InStatID );
-
 		GraphDescriptionsVBox->RemoveSlot( DataGraphSummary );
 		
 		StatIDToWidgetMapping.Remove( InStatID );
@@ -1177,36 +1156,6 @@ FReply SDataGraph::OnMouseWheel( const FGeometry& MyGeometry, const FPointerEven
 	return FReply::Handled();
 }
 
-const FEventGraphDataHandlerRef SDataGraph::PrepareEventGraphDataHandler( const FVector2D& ScreenSpacePosition )
-{
-	const FGraphDescription* GraphDescription = GetFirstGraph();
-
-	if( GraphDescription )
-	{
-		if( ViewMode == EDataGraphViewModes::Time )
-		{
-			TMap<FGuid,uint32> StartIndices;
-			const float TimeAccuracyMS = FTimeAccuracy::AsFrameTime( TimeBasedAccuracy );
-			GraphDescription->CombinedGraphDataSource->GetStartIndicesFromTimeRange( FrameTimesMS[0], FrameTimesMS[1], StartIndices );
-
-			const FEventGraphDataHandlerRef Params = MakeShareable( new FEventGraphDataHandler( /*StartIndices*/ ) ); 
-			return Params;
-		}
-		else if( ViewMode == EDataGraphViewModes::Index )
-		{
-			const FGraphDataSourceRefConst* GraphDataSource = GraphDescription->CombinedGraphDataSource->GetFirstSource();
-
-			if( GraphDataSource )
-			{
-				const FEventGraphDataHandlerRef Params = MakeShareable( new FEventGraphDataHandler( (*GraphDataSource)->GetSessionInstanceID(), FrameIndices[0], FrameIndices[1], EEventGraphTypes::Maximum ) ); 
-				return Params;
-			}
-		}
-	}
-
-	return MakeShareable( new FEventGraphDataHandler() );
-}
-
 FReply SDataGraph::OnMouseButtonDoubleClick( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
 	return FReply::Unhandled();
@@ -1284,76 +1233,8 @@ void SDataGraph::ShowContextMenu(const FVector2D& ScreenSpacePosition, const FPo
 	const FProfilerActionManager& ProfilerActionManager = FProfilerManager::GetActionManager();
 
 	// Build data required for opening event graph(s).
-	const FEventGraphDataHandlerRef EventGraphDataHandler = PrepareEventGraphDataHandler( ScreenSpacePosition );
-
 	const bool bShouldCloseWindowAfterMenuSelection = true;
 	FMenuBuilder MenuBuilder( bShouldCloseWindowAfterMenuSelection, ProfilerCommandList );
-
-	if( !FProfilerManager::GetSettings().bSingleInstanceMode )
-	{
-		MenuBuilder.BeginSection( "ProfilerInstances", LOCTEXT("ContextMenu_ProfilerInstances", "Profiler Instances") );
-		{
-			// @TODO: Add to FProfilerMenuBuilder
-			struct FProfilerSessionMenu
-			{
-				static void Build( FMenuBuilder& InMenuBuilder, const FGuid SessionInstanceID, const FEventGraphDataHandlerRef InEventGraphDataHandler )
-				{
-					const FProfilerCommands& Commands = FProfilerManager::GetCommands();
-					const FProfilerActionManager& ProfilerActionMgr = FProfilerManager::GetActionManager();
-
-					FProfilerMenuBuilder::AddMenuEntry
-					( 
-						InMenuBuilder, 
-						Commands.ToggleDataPreview, 
-						ProfilerActionMgr.ToggleDataPreview_Custom(SessionInstanceID) 
-					);
-
-					FProfilerMenuBuilder::AddMenuEntry
-					( 
-						InMenuBuilder, 
-						Commands.ToggleDataCapture, 
-						ProfilerActionMgr.ToggleDataCapture_Custom(SessionInstanceID) 
-					);
-
-					if( SessionInstanceID.IsValid() )
-					{
-						FProfilerMenuBuilder::AddMenuEntry
-						( 
-							InMenuBuilder, 
-							Commands.ToggleShowDataGraph, 
-							ProfilerActionMgr.ToggleShowDataGraph_Custom(SessionInstanceID) 
-						);
-					}
-				}
-			};
-
-			if( FProfilerManager::Get()->GetProfilerInstancesNum() > 1 )
-			{
-				MenuBuilder.AddSubMenu
-				( 
-					LOCTEXT("ContextMenu_AllProfilerInstances", "AllInstances"), 
-					LOCTEXT("ContextMenu_AllProfilerInstances_TT", "All profiler instances options"), 
-					FNewMenuDelegate::CreateStatic( &FProfilerSessionMenu::Build, FGuid(), EventGraphDataHandler )
-				);
-			}
-
-			MenuBuilder.AddMenuSeparator();
-
-			for( auto It = FProfilerManager::Get()->GetProfilerInstancesIterator(); It; ++It )
-			{
-				const FProfilerSessionRef& ProfilerSession = It.Value();
-				const FGuid SessionInstanceID = ProfilerSession->GetInstanceID();
-
-				MenuBuilder.AddSubMenu
-				( 
-					FText::FromString( ProfilerSession->GetShortName() ), 
-					LOCTEXT("ContextMenu_InstancesList_TT", "Profiler instance options"), 
-					FNewMenuDelegate::CreateStatic( &FProfilerSessionMenu::Build, SessionInstanceID, EventGraphDataHandler )
-				);	
-			}
-		}
-		MenuBuilder.EndSection();
-	}
 	
 	MenuBuilder.BeginSection( "ViewMode", LOCTEXT("ContextMenu_ViewMode", "View Mode") );
 	{
@@ -1362,16 +1243,6 @@ void SDataGraph::ShowContextMenu(const FVector2D& ScreenSpacePosition, const FPo
 		//MenuBuilder.AddMenuEntry( ProfilerCommands.DataGraph_ViewMode_SetTimeBased );
 	}
 	MenuBuilder.EndSection();
-
-	if( !FProfilerManager::GetSettings().bSingleInstanceMode )
-	{
-		MenuBuilder.BeginSection( "MultiMode", LOCTEXT("ContextMenu_MultiMode", "Multi Mode") );
-		{
-			MenuBuilder.AddMenuEntry( ProfilerCommands.DataGraph_MultiMode_SetCombined );
-			MenuBuilder.AddMenuEntry( ProfilerCommands.DataGraph_MultiMode_SetOneLinePerDataSource );
-		}
-		MenuBuilder.EndSection();
-	}
 
 	MenuBuilder.BeginSection( TEXT("Misc"), LOCTEXT("Miscellaneous", "Miscellaneous") );
 	{
@@ -1409,24 +1280,6 @@ void SDataGraph::BindCommands()
 		FCanExecuteAction::CreateSP( this, &SDataGraph::ViewMode_SetTimeBased_CanExecute ),
 		FIsActionChecked::CreateSP( this, &SDataGraph::ViewMode_SetTimeBased_IsChecked )
 	);
- 
-	// DataGraph_MultiMode_SetCombined
-	ProfilerCommandList->MapAction
-	( 
-		ProfilerCommands.DataGraph_MultiMode_SetCombined,
-		FExecuteAction::CreateSP( this, &SDataGraph::MultiMode_SetCombined_Execute ),
-		FCanExecuteAction::CreateSP( this, &SDataGraph::MultiMode_SetCombined_CanExecute ),
-		FIsActionChecked::CreateSP( this, &SDataGraph::MultiMode_SetCombined_IsChecked )
-	);
- 
-	// DataGraph_MultiMode_SetCombined
-	ProfilerCommandList->MapAction
-	( 
-		ProfilerCommands.DataGraph_MultiMode_SetOneLinePerDataSource,
-		FExecuteAction::CreateSP( this, &SDataGraph::MultiMode_SetOneLinePerDataSource_Execute ),
-		FCanExecuteAction::CreateSP( this, &SDataGraph::MultiMode_SetOneLinePerDataSource_CanExecute ),
-		FIsActionChecked::CreateSP( this, &SDataGraph::MultiMode_SetOneLinePerDataSource_IsChecked )
-	);
 }
 
 /*-----------------------------------------------------------------------------
@@ -1442,7 +1295,7 @@ void SDataGraph::ViewMode_SetIndexBased_Execute()
 
 bool SDataGraph::ViewMode_SetIndexBased_CanExecute() const
 {
-	const bool bCanBeDisplayedAsIndexBased = GetFirstGraph() ? GetFirstGraph()->CombinedGraphDataSource->CanBeDisplayedAsIndexBased() : false;
+	const bool bCanBeDisplayedAsIndexBased = GetFirstGraph().IsValid() ? GetFirstGraph()->GraphDataSource->CanBeDisplayedAsIndexBased() : false;
 	return ViewMode != EDataGraphViewModes::Index && bCanBeDisplayedAsIndexBased;
 }
 
@@ -1464,7 +1317,7 @@ void SDataGraph::ViewMode_SetTimeBased_Execute()
 
 bool SDataGraph::ViewMode_SetTimeBased_CanExecute() const
 {
-	const bool bCanBeDisplayedAsTimeBased = GetFirstGraph() ? GetFirstGraph()->CombinedGraphDataSource->CanBeDisplayedAsTimeBased() : false;
+	const bool bCanBeDisplayedAsTimeBased = GetFirstGraph().IsValid() ? GetFirstGraph()->GraphDataSource->CanBeDisplayedAsTimeBased() : false;
 	return ViewMode != EDataGraphViewModes::Time && bCanBeDisplayedAsTimeBased;
 }
 
@@ -1473,45 +1326,15 @@ bool SDataGraph::ViewMode_SetTimeBased_IsChecked() const
 	return ViewMode == EDataGraphViewModes::Time;
 }
 
-/*-----------------------------------------------------------------------------
-	MultiMode_SetCombined
------------------------------------------------------------------------------*/
-
-void SDataGraph::MultiMode_SetCombined_Execute()
+const FTrackedStatPtr SDataGraph::GetFirstGraph() const
 {
-	MultiMode = EDataGraphMultiModes::Combined;
-	UpdateState();
-}
-
-bool SDataGraph::MultiMode_SetCombined_CanExecute() const
-{
-	const bool bCanBeDisplayedAsMulti = GetFirstGraph() ? GetFirstGraph()->CombinedGraphDataSource->CanBeDisplayedAsMulti() : false;
-	return MultiMode != EDataGraphMultiModes::Combined && bCanBeDisplayedAsMulti && ViewMode == EDataGraphViewModes::Time;
-}
-
-bool SDataGraph::MultiMode_SetCombined_IsChecked() const
-{
-	return MultiMode == EDataGraphMultiModes::Combined;
-}
-
-/*-----------------------------------------------------------------------------
-	MultiMode_SetOneLinePerDataSource
------------------------------------------------------------------------------*/
-
-void SDataGraph::MultiMode_SetOneLinePerDataSource_Execute()
-{
-	MultiMode = EDataGraphMultiModes::OneLinePerDataSource;
-	UpdateState();
-}
-
-bool SDataGraph::MultiMode_SetOneLinePerDataSource_CanExecute() const
-{
-	return MultiMode != EDataGraphMultiModes::OneLinePerDataSource;
-}
-
-bool SDataGraph::MultiMode_SetOneLinePerDataSource_IsChecked() const
-{
-	return MultiMode == EDataGraphMultiModes::OneLinePerDataSource;
+	FTrackedStatPtr Result;
+	for (const auto& It : StatIDToGraphDescriptionMapping)
+	{
+		Result = It.Value; 
+		break;
+	}
+	return Result;
 }
 
 void SDataGraph::EventGraph_OnRestoredFromHistory( uint32 FrameStartIndex, uint32 FrameEndIndex )

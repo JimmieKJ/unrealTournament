@@ -1,8 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreUObjectPrivate.h"
 #include "Archive.h"
 #include "PropertyHelper.h"
+#include "LinkerPlaceholderBase.h" // for FScopedPlaceholderPropertyTracker
 
 static inline void PreloadInnerStructMembers(UStructProperty* StructProperty)
 {
@@ -104,6 +105,10 @@ bool UStructProperty::UseBinaryOrNativeSerialization(const FArchive& Ar) const
 void UStructProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const
 {
 	check(Struct);
+
+#if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+	FScopedPlaceholderPropertyTracker ImportPropertyTracker(this);
+#endif
 
 	Struct->SerializeItem(Ar, Value, Defaults);
 }
@@ -279,6 +284,9 @@ void UStructProperty::ExportTextItem( FString& ValueStr, const void* PropertyVal
 
 const TCHAR* UStructProperty::ImportText_Internal(const TCHAR* InBuffer, void* Data, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText) const
 {
+#if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+	FScopedPlaceholderPropertyTracker ImportPropertyTracker(this);
+#endif 
 	return ImportText_Static(Struct, GetName(), InBuffer, Data, PortFlags, Parent, ErrorText);
 }
 

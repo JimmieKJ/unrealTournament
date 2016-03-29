@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "UnrealEd.h"
@@ -677,7 +677,7 @@ FSuppressableWarningDialog::FSuppressableWarningDialog(const FSetupInfo& Info)
 			.bHasCancelButton(!Info.CancelText.IsEmpty())
 			.ConfirmText(Info.ConfirmText)
 			.CancelText(Info.CancelText)
-			.bDefaultCheckValue(Info.bDefaultToSupressInTheFuture)
+			.bDefaultCheckValue(Info.bDefaultToSuppressInTheFuture)
 			.CheckboxMessage(Info.CheckBoxText)
 			.ParentWindow(ModalWindow)
 			.Image((Info.Image != NULL) ? Info.Image : DefaultImage);
@@ -711,7 +711,7 @@ FSuppressableWarningDialog::EResult FSuppressableWarningDialog::ShowModal() cons
 	else
 	{
 		// If the dialog is suppressed, log the warning
-		UE_LOG(LogDialogs, Warning, TEXT("Supressed: %s"), *Prompt.ToString());
+		UE_LOG(LogDialogs, Warning, TEXT("Suppressed: %s"), *Prompt.ToString());
 	}
 
 	return RetCode;

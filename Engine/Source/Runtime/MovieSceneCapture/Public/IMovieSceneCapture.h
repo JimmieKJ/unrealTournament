@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -22,12 +22,10 @@ public:
 	GENERATED_BODY()
 
 	/** Initialize this capture object by binding it to the specified viewport */
-	virtual void Initialize(TWeakPtr<FSceneViewport> Viewport) = 0;
+	virtual void Initialize(TSharedPtr<FSceneViewport> Viewport, int32 PIEInstance = -1) = 0;
 
-	/** Called after initialization to allow the movie scene capture object to override the range of frames to 
-	    capture.  It's called after initialization so you can be sure that the FrameRate and other variables are
-		fully initialized first. */
-	virtual void SetupFrameRange() = 0;
+	/** Instruct this capture to start capturing frames */
+	virtual void StartCapturing() = 0;
 
 	/** Shut down this movie capture */
 	virtual void Close() = 0;

@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="StandAlone">
+      <UniqueIdentifier>{a52fcfe6-fda5-4456-8ca9-19a52ce96dcd}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\src\glslang_exe\StandAlone\Worklist.h">
+      <Filter>StandAlone</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\..\src\glslang_exe\StandAlone\spirv-remap.cpp">
+      <Filter>StandAlone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\glslang_exe\StandAlone\StandAlone.cpp">
+      <Filter>StandAlone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\glslang_exe\main.cpp" />
+  </ItemGroup>
+</Project>

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AssetRegistryPCH.h"
 
@@ -20,8 +20,19 @@ FPackageReader::~FPackageReader()
 bool FPackageReader::OpenPackageFile(const FString& InPackageFilename)
 {
 	PackageFilename = InPackageFilename;
-	Loader = IFileManager::Get().CreateFileReader( *PackageFilename );
+	Loader = IFileManager::Get().CreateFileReader(*PackageFilename);
+	return OpenPackageFile();
+}
 
+bool FPackageReader::OpenPackageFile(FArchive* InLoader)
+{
+	Loader = InLoader;
+	PackageFilename = Loader->GetArchiveName();
+	return OpenPackageFile();
+}
+
+bool FPackageReader::OpenPackageFile()
+{
 	if( Loader == NULL )
 	{
 		// Couldn't open the file
@@ -331,14 +342,10 @@ void FPackageReader::SerializeNameMap()
 		for ( int32 NameMapIdx = 0; NameMapIdx < PackageFileSummary.NameCount; ++NameMapIdx )
 		{
 			// Read the name entry from the file.
-			FNameEntry NameEntry(ENAME_LinkerConstructor);
+			FNameEntrySerialized NameEntry(ENAME_LinkerConstructor);
 			*this << NameEntry;
 
-			NameMap.Add( 
-				NameEntry.IsWide() ? 
-					FName(ENAME_LinkerConstructor, NameEntry.GetWideName()) : 
-					FName(ENAME_LinkerConstructor, NameEntry.GetAnsiName())
-				);
+			NameMap.Add(FName(NameEntry));
 		}
 	}
 }

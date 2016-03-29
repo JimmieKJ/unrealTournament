@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessDOF.cpp: Post process Depth of Field implementation.
@@ -23,12 +23,13 @@ class FPostProcessDOFSetupPS : public FGlobalShader
 
 	static bool ShouldCache(EShaderPlatform Platform)
 	{
-		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4);
+		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::ES3_1);
 	}
 
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		FGlobalShader::ModifyCompilationEnvironment(Platform,OutEnvironment);
+		OutEnvironment.SetDefine(TEXT("FORWARD_SHADING"), IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) ? 0u : 1u);
 		OutEnvironment.SetDefine(TEXT("NEAR_BLUR"), (uint32)(NearBlur >= 1));
 		OutEnvironment.SetDefine(TEXT("DOF_VIGNETTE"), (uint32)(NearBlur == 2));
 		OutEnvironment.SetDefine(TEXT("MRT_COUNT"), FarBlur + (NearBlur > 0));
@@ -65,7 +66,15 @@ public:
 
 		FGlobalShader::SetParameters(Context.RHICmdList, ShaderRHI, Context.View);
 
-		PostprocessParameter.SetPS(ShaderRHI, Context, TStaticSamplerState<SF_Point,AM_Border,AM_Border,AM_Clamp>::GetRHI());
+		if (Context.GetFeatureLevel() < ERHIFeatureLevel::SM4)
+		{
+			// Trying bilin here to attempt to alleviate some issues with 1/4 res input...
+			PostprocessParameter.SetPS(ShaderRHI, Context, TStaticSamplerState<SF_Bilinear, AM_Border, AM_Border, AM_Clamp>::GetRHI());
+		}
+		else
+		{
+			PostprocessParameter.SetPS(ShaderRHI, Context, TStaticSamplerState<SF_Point, AM_Border, AM_Border, AM_Clamp>::GetRHI());
+		}
 
 		DeferredParameters.Set(Context.RHICmdList, ShaderRHI, Context.View);
 
@@ -155,7 +164,16 @@ void FRCPassPostProcessDOFSetup::Process(FRenderingCompositePassContext& Context
 		DestRenderTarget0.TargetableTexture,
 		DestRenderTarget1.TargetableTexture
 	};
-	SetRenderTargets(Context.RHICmdList, NumRenderTargets, RenderTargets, FTextureRHIParamRef(), 0, NULL);
+	//@todo Ronin find a way to use the same codepath for all platforms.
+	const EShaderPlatform ShaderPlatform = GShaderPlatformForFeatureLevel[Context.GetFeatureLevel()];
+	if (IsVulkanMobilePlatform(ShaderPlatform))
+	{
+		SetRenderTargets(Context.RHICmdList, NumRenderTargets, RenderTargets, FTextureRHIParamRef(), ESimpleRenderTargetMode::EClearColorAndDepth, FExclusiveDepthStencil());
+	}
+	else
+	{
+		SetRenderTargets(Context.RHICmdList, NumRenderTargets, RenderTargets, FTextureRHIParamRef(), 0, NULL);
+	}
 	
 	FLinearColor ClearColors[2] = 
 	{
@@ -185,7 +203,7 @@ void FRCPassPostProcessDOFSetup::Process(FRenderingCompositePassContext& Context
 			NearBlur = (DOFVignetteSize < 200.0f) ? 2 : 1;
 		}
 	}
-	
+		
 	FShader* VertexShader = 0;
 
 	if(bFarBlur)
@@ -244,6 +262,8 @@ FPooledRenderTargetDesc FRCPassPostProcessDOFSetup::ComputeOutputDesc(EPassOutpu
 	// more precision for additive blending and we need the alpha channel
 	Ret.Format = PF_FloatRGBA;
 
+	Ret.ClearValue = FClearValueBinding(FLinearColor(0,0,0,0));
+
 	return Ret;
 }
 
@@ -260,7 +280,7 @@ class FPostProcessDOFRecombinePS : public FGlobalShader
 
 	static bool ShouldCache(EShaderPlatform Platform)
 	{
-		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4);
+		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::ES3_1);
 	}
 
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
@@ -268,6 +288,7 @@ class FPostProcessDOFRecombinePS : public FGlobalShader
 		FGlobalShader::ModifyCompilationEnvironment(Platform,OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("FAR_BLUR"), FarBlur);
 		OutEnvironment.SetDefine(TEXT("NEAR_BLUR"), NearBlur);
+		OutEnvironment.SetDefine(TEXT("FORWARD_SHADING"), IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) ? 0u : 1u);
 	}
 
 	/** Default constructor. */
@@ -381,10 +402,19 @@ void FRCPassPostProcessDOFRecombine::Process(FRenderingCompositePassContext& Con
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 
 	// Set the view family's render target/viewport.
-	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
 
-	// is optimized away if possible (RT size=view size, )
-	Context.RHICmdList.Clear(true, FLinearColor::Black, false, 1.0f, false, 0, View.ViewRect);
+	//@todo Ronin find a way to use the same codepath for all platforms.
+	const EShaderPlatform ShaderPlatform = GShaderPlatformForFeatureLevel[Context.GetFeatureLevel()];
+	if (IsVulkanMobilePlatform(ShaderPlatform))
+	{
+		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
+	}
+	else
+	{
+		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
+		// is optimized away if possible (RT size=view size, )
+		Context.RHICmdList.Clear(true, FLinearColor::Black, false, 1.0f, false, 0, View.ViewRect);
+	}
 
 	Context.SetViewportAndCallRHI(View.ViewRect);
 
@@ -405,7 +435,7 @@ void FRCPassPostProcessDOFRecombine::Process(FRenderingCompositePassContext& Con
 			VertexShader = SetDOFRecombineShaderTempl<1, 1>(Context);
 		}
 		else
-		{
+	{
 			VertexShader = SetDOFRecombineShaderTempl<1, 0>(Context);
 		}
 	}
@@ -438,6 +468,8 @@ FPooledRenderTargetDesc FRCPassPostProcessDOFRecombine::ComputeOutputDesc(EPassO
 	Ret.Reset();
 	Ret.AutoWritable = false;
 	Ret.DebugName = TEXT("DOFRecombine");
+
+	Ret.ClearValue = FClearValueBinding(FLinearColor::Black);
 
 	return Ret;
 }

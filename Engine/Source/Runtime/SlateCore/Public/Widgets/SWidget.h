@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -626,7 +626,7 @@ public:
 	TOptional<EFocusCause> HasUserFocus(int32 UserIndex) const;
 
 	/**
-	 * Gets whether or not any users users has this widget focused, and if so the type of focus (first one found).
+	 * Gets whether or not any users have this widget focused, and if so the type of focus (first one found).
 	 *
 	 * @return The optional will be set with the focus cause, if unset this widget doesn't have focus.
 	 */
@@ -643,6 +643,11 @@ public:
 	 * @return Whether this widget has any descendants with keyboard focus
 	 */
 	bool HasFocusedDescendants() const;
+
+	/**
+	 * @return whether or not any users have this widget focused, or any descendant focused.
+	 */
+	bool HasAnyUserFocusOrFocusedDescendants() const;
 
 	/**
 	 * Checks to see if this widget is the current mouse captor

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 
@@ -16,6 +16,15 @@ void ENGINE_API PerfCountersSet(const FString& Name, float Val, uint32 Flags)
 }
 
 void ENGINE_API PerfCountersSet(const FString& Name, int32 Val, uint32 Flags)
+{
+	IPerfCounters* PerfCounters = IPerfCountersModule::Get().GetPerformanceCounters();
+	if (PerfCounters)
+	{
+		PerfCounters->Set(Name, Val, Flags);
+	}
+}
+
+void ENGINE_API PerfCountersSet(const FString& Name, const FString& Val, uint32 Flags)
 {
 	IPerfCounters* PerfCounters = IPerfCountersModule::Get().GetPerformanceCounters();
 	if (PerfCounters)

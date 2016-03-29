@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LightFunctionRendering.cpp: Implementation for rendering light functions.
@@ -165,14 +165,14 @@ IMPLEMENT_MATERIAL_SHADER_TYPE(,FLightFunctionPS,TEXT("LightFunctionPixelShader"
 /** Returns a fade fraction for a light function and a given view based on the appropriate fade settings. */
 static float GetLightFunctionFadeFraction(const FViewInfo& View, FSphere LightBounds)
 {
-	extern float CalculateShadowFadeAlpha(float MaxUnclampedResolution, int32 ShadowFadeResolution, int32 MinShadowResolution);
+	extern float CalculateShadowFadeAlpha(const float MaxUnclampedResolution, const uint32 ShadowFadeResolution, const uint32 MinShadowResolution);
 
 	// Override the global settings with the light's settings if the light has them specified
 	static auto CVarMinShadowResolution = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Shadow.MinResolution"));
 	static auto CVarShadowFadeResolution = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Shadow.FadeResolution"));
 
-	const uint32 MinShadowResolution = CVarMinShadowResolution->GetValueOnRenderThread();
-	const int32 ShadowFadeResolution = CVarShadowFadeResolution->GetValueOnRenderThread();
+	const uint32 MinShadowResolution  = FMath::Max<int32>(0, CVarMinShadowResolution->GetValueOnRenderThread());
+	const uint32 ShadowFadeResolution = FMath::Max<int32>(0, CVarShadowFadeResolution->GetValueOnRenderThread());
 
 	// Project the bounds onto the view
 	const FVector4 ScreenPosition = View.WorldToScreen(LightBounds.Center);

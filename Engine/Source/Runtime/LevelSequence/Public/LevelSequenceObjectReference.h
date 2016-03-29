@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -23,6 +23,14 @@ struct FLevelSequenceObjectReference
 	 * @param InContext The object to use as a context for the generation (e.g. a UWorld)
 	 */
 	LEVELSEQUENCE_API FLevelSequenceObjectReference(UObject* InObject, UObject* InContext);
+
+	/**
+	 * Generates a new reference to an object.
+	 *
+	 * @param InObjectId	Primary method of resolution - object ID, stored as an annotation on the object in the world, resolvable through TLazyObjectPtr
+	 * @param InObjectPath	Secondary method of resolution - path to the object within the context
+	 */
+	LEVELSEQUENCE_API FLevelSequenceObjectReference(const FUniqueObjectGuid& InObjectId, const FString& InObjectPath);
 
 	GENERATED_BODY();
 
@@ -96,6 +104,14 @@ struct FLevelSequenceObjectReferenceMap
 	 * @param InContext	A context in which InObject resides
 	 */
 	void CreateBinding(const FGuid& ObjectId, UObject* InObject, UObject* InContext);
+
+	/**
+	 * Create a binding for the specified ID
+	 *
+	 * @param ObjectId	The ID to associate the object with
+	 * @param ObjectReference	The object reference to bind
+	 */
+	void CreateBinding(const FGuid& ObjectId, const FLevelSequenceObjectReference& ObjectReference);
 
 	/**
 	 * Resolve a binding for the specified ID using a given context

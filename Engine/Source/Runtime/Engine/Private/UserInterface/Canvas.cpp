@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Canvas.cpp: Unreal canvas rendering.
@@ -1948,7 +1948,7 @@ void UCanvas::K2_DrawTriangle(UTexture* RenderTexture, TArray<FCanvasUVTri> Tria
 	if (Triangles.Num() > 0)
 	{
 		FCanvasTriangleItem TriangleItem(FVector2D::ZeroVector, FVector2D::ZeroVector, FVector2D::ZeroVector, (RenderTexture) ? RenderTexture->Resource : GWhiteTexture);
-		TriangleItem.TriangleList = Triangles;
+		TriangleItem.TriangleList = MoveTemp(Triangles);
 		DrawItem(TriangleItem);
 	}
 }
@@ -1959,7 +1959,7 @@ void UCanvas::K2_DrawMaterialTriangle(UMaterialInterface* RenderMaterial, TArray
 	{
 		FCanvasTriangleItem TriangleItem(FVector2D::ZeroVector, FVector2D::ZeroVector, FVector2D::ZeroVector, NULL);
 		TriangleItem.MaterialRenderProxy = RenderMaterial->GetRenderProxy(0);
-		TriangleItem.TriangleList = Triangles;
+		TriangleItem.TriangleList = MoveTemp(Triangles);
 		DrawItem(TriangleItem);
 	}
 }
@@ -2011,15 +2011,21 @@ void FDisplayDebugManager::DrawString(const FString& InDebugString, const float&
 {
 	if (Canvas)
 	{
+		const float TextScale = GetTextScale();
+		DebugTextItem.Scale = FVector2D(TextScale, TextScale);
+
 		DebugTextItem.Text = FText::FromString(InDebugString);
 		Canvas->DrawItem(DebugTextItem, FVector2D(CurrentPos.X + OptionalXOffset, CurrentPos.Y));
 
 		NextColumXPos = FMath::Max(NextColumXPos, CurrentPos.X + OptionalXOffset + DebugTextItem.DrawnSize.X);
-		MaxCharHeight = FMath::Max(MaxCharHeight, DebugTextItem.DrawnSize.Y);
-
-		CurrentPos.Y += GetYStep();
+		CurrentPos.Y += FMath::Max(GetYStep(), DebugTextItem.DrawnSize.Y);
 		AddColumnIfNeeded();
 	}
+}
+
+float FDisplayDebugManager::GetTextScale() const
+{
+	return Canvas ? FMath::Max(Canvas->SizeX / 1920.f, 1.f) : 1.f;
 }
 
 void FDisplayDebugManager::AddColumnIfNeeded()

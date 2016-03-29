@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "ISourceControlModule.h"
@@ -14,6 +14,9 @@
 #include "EditorProjectSettings.h"
 
 #include "SourceCodeNavigation.h"
+
+#include "Developer/BlueprintProfiler/Public/BlueprintProfilerModule.h"
+#include "ScriptPerfData.h"
 
 #define LOCTEXT_NAMESPACE "SettingsClasses"
 
@@ -67,7 +70,8 @@ UEditorExperimentalSettings::UEditorExperimentalSettings( const FObjectInitializ
 	, bUnifiedBlueprintEditor(true)
 	, bBlueprintableComponents(true)
 	, bBlueprintPerformanceAnalysisTools(false)
-	, BlueprintProfilerAverageSampleCount(20)
+	, BlueprintProfilerRecentSampleBias(0.2f)
+	, bUseOpenCLForConvexHullDecomp(false)
 {
 }
 
@@ -90,6 +94,22 @@ void UEditorExperimentalSettings::PostEditChangeProperty( struct FPropertyChange
 			FModuleManager::Get().LoadModule(TEXT("EnvironmentQueryEditor"));
 		}
 	}
+	else if (Name == FName(TEXT("bBlueprintPerformanceAnalysisTools")))
+	{
+		if (!bBlueprintPerformanceAnalysisTools)
+		{
+			IBlueprintProfilerInterface* ProfilerInterface = FModuleManager::GetModulePtr<IBlueprintProfilerInterface>("BlueprintProfiler");
+			if (ProfilerInterface && ProfilerInterface->IsProfilerEnabled())
+			{
+				// Force Profiler off
+				ProfilerInterface->ToggleProfilingCapture();
+			}
+		}
+	}
+	else if (Name == FName(TEXT("BlueprintProfilerRecentSampleBias")))
+	{
+		FScriptPerfData::SetRecentSampleBias(BlueprintProfilerRecentSampleBias);
+	}
 
 	if (!FUnrealEdMisc::Get().IsDeletePreferences())
 	{
@@ -110,7 +130,7 @@ UEditorLoadingSavingSettings::UEditorLoadingSavingSettings( const FObjectInitial
 	, AutoReimportThreshold(3.f)
 	, bAutoCreateAssets(true)
 	, bAutoDeleteAssets(true)
-	, bDetectChangesOnRestart(true)
+	, bDetectChangesOnStartup(false)
 	, bDeleteSourceFilesWithAssets(false)
 {
 	TextDiffToolPath.FilePath = TEXT("P4Merge.exe");
@@ -171,7 +191,7 @@ void UEditorLoadingSavingSettings::CheckSourceControlCompatability()
 		return;
 	}
 
-	if (ISourceControlModule::Get().IsEnabled() && bDetectChangesOnRestart)
+	if (ISourceControlModule::Get().IsEnabled() && bDetectChangesOnStartup)
 	{
 		// Persistent shared payload captured by the lambdas below
 		struct FPersistentPayload { TSharedPtr<SNotificationItem> Notification; };
@@ -181,7 +201,7 @@ void UEditorLoadingSavingSettings::CheckSourceControlCompatability()
 
  		auto OnTurnOffClicked = [=]{
 			auto* Settings = GetMutableDefault<UEditorLoadingSavingSettings>();
-			Settings->bDetectChangesOnRestart = false;
+			Settings->bDetectChangesOnStartup = false;
 			Settings->SaveConfig();
 
 			Payload->Notification->SetEnabled(false);

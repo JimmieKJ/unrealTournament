@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SceneOutlinerPrivatePCH.h"
 
@@ -109,9 +109,9 @@ SHeaderRow::FColumn::FArguments FActorInfoColumn::ConstructHeaderRowColumn()
 {
 	if( ModeOptions.Num() == 0 )
 	{
-		for( auto CurModeIndex = 0; CurModeIndex < ECustomColumnMode::Count; ++CurModeIndex )
+		for( ECustomColumnMode::Type CurMode : TEnumRange<ECustomColumnMode::Type>() )
 		{
-			ModeOptions.Add( MakeShareable( new ECustomColumnMode::Type( ( ECustomColumnMode::Type )CurModeIndex ) ) );
+			ModeOptions.Add( MakeShareable( new ECustomColumnMode::Type( CurMode ) ) );
 		}
 	}
 

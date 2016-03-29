@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -287,7 +287,7 @@ public:
 		if(bReallocate)
 		{
 			// Allocate memory for the new bits.
-			const uint32 MaxDWORDs = AllocatorInstance.CalculateSlack(
+			const uint32 MaxDWORDs = AllocatorInstance.CalculateSlackGrow(
 				FMath::DivideAndRoundUp(NumBits, NumBitsPerDWORD),
 				FMath::DivideAndRoundUp(MaxBits, NumBitsPerDWORD),
 				sizeof(uint32)
@@ -309,6 +309,7 @@ public:
 	{
 		NumBits = 0;
 
+		ExpectedNumBits = FMath::DivideAndRoundUp(ExpectedNumBits, NumBitsPerDWORD) * NumBitsPerDWORD;
 		// If the expected number of bits doesn't match the allocated number of bits, reallocate.
 		if(MaxBits != ExpectedNumBits)
 		{
@@ -701,7 +702,7 @@ private:
 	int32         NumBits;
 	int32         MaxBits;
 
-	void Realloc(int32 PreviousNumBits)
+	FORCENOINLINE void Realloc(int32 PreviousNumBits)
 	{
 		const int32 PreviousNumDWORDs = FMath::DivideAndRoundUp(PreviousNumBits, NumBitsPerDWORD);
 		const int32 MaxDWORDs = FMath::DivideAndRoundUp(MaxBits, NumBitsPerDWORD);
@@ -797,7 +798,8 @@ private:
 	void FindFirstSetBit()
 	{
 		const uint32* ArrayData      = Array.GetData();
-		const int32   LastDWORDIndex = (Array.Num() - 1) / NumBitsPerDWORD;
+		const int32   ArrayNum       = Array.Num();
+		const int32   LastDWORDIndex = (ArrayNum - 1) / NumBitsPerDWORD;
 
 		// Advance to the next non-zero uint32.
 		uint32 RemainingBitMask = ArrayData[this->DWORDIndex] & UnvisitedBitMask;
@@ -808,7 +810,7 @@ private:
 			if (this->DWORDIndex > LastDWORDIndex)
 			{
 				// We've advanced past the end of the array.
-				CurrentBitIndex = Array.Num();
+				CurrentBitIndex = ArrayNum;
 				return;
 			}
 
@@ -825,6 +827,13 @@ private:
 
 		// If the Nth bit was the lowest set bit of BitMask, then this gives us N
 		CurrentBitIndex = BaseBitIndex + NumBitsPerDWORD - 1 - FMath::CountLeadingZeros(this->Mask);
+
+		// If we've accidentally iterated off the end of an array but still within the same DWORD
+		// then set the index to the last index of the array
+		if (CurrentBitIndex > ArrayNum)
+		{
+			CurrentBitIndex = ArrayNum;
+		}
 	}
 };
 
@@ -976,6 +985,7 @@ public:
 	{
 		NumBits = 0;
 
+		Slack = FMath::DivideAndRoundUp(Slack, NumBitsPerDWORD) * NumBitsPerDWORD;
 		// If the expected number of bits doesn't match the allocated number of bits, reallocate.
 		if (MaxBits != Slack)
 		{
@@ -987,24 +997,12 @@ public:
 	int32 Add(const bool Value)
 	{
 		const int32 Index = NumBits;
-		const bool bReallocate = (NumBits + 1) > MaxBits;
-
 		NumBits++;
-
-		if(bReallocate)
+		if (NumBits > MaxBits)
 		{
-			// Allocate memory for the new bits.
-			const uint32 MaxDWORDs = AllocatorInstance.CalculateSlack(
-				FMath::DivideAndRoundUp(NumBits, NumBitsPerDWORD),
-				FMath::DivideAndRoundUp(MaxBits, NumBitsPerDWORD),
-				sizeof(uint32)
-				);
-			MaxBits = MaxDWORDs * NumBitsPerDWORD;
-			Realloc(NumBits - 1);
+			ReallocGrow(NumBits - 1);
 		}
-
 		(*this)[Index] = Value;
-
 		return Index;
 	}
 
@@ -1046,14 +1044,35 @@ private:
 		return (const uint32*)AllocatorInstance.GetAllocation();
 	}
 
-	void Realloc(int32 PreviousNumBits)
+	FORCENOINLINE void Realloc(int32 PreviousNumBits)
 	{
+		const uint32 MaxDWORDs = AllocatorInstance.CalculateSlackReserve(
+			FMath::DivideAndRoundUp(MaxBits, NumBitsPerDWORD),
+			sizeof(uint32)
+			);
+		MaxBits = MaxDWORDs * NumBitsPerDWORD;
 		const int32 PreviousNumDWORDs = FMath::DivideAndRoundUp(PreviousNumBits, NumBitsPerDWORD);
-		const int32 MaxDWORDs = FMath::DivideAndRoundUp(MaxBits, NumBitsPerDWORD);
 
 		AllocatorInstance.ResizeAllocation(PreviousNumDWORDs, MaxDWORDs, sizeof(uint32));
 
-		if (MaxDWORDs)
+		if (MaxDWORDs && MaxDWORDs - PreviousNumDWORDs > 0)
+		{
+			// Reset the newly allocated slack DWORDs.
+			FMemory::Memzero((uint32*)AllocatorInstance.GetAllocation() + PreviousNumDWORDs, (MaxDWORDs - PreviousNumDWORDs) * sizeof(uint32));
+		}
+	}
+	FORCENOINLINE void ReallocGrow(int32 PreviousNumBits)
+	{
+		// Allocate memory for the new bits.
+		const uint32 MaxDWORDs = AllocatorInstance.CalculateSlackGrow(
+			FMath::DivideAndRoundUp(NumBits, NumBitsPerDWORD),
+			FMath::DivideAndRoundUp(MaxBits, NumBitsPerDWORD),
+			sizeof(uint32)
+			);
+		MaxBits = MaxDWORDs * NumBitsPerDWORD;
+		const int32 PreviousNumDWORDs = FMath::DivideAndRoundUp(PreviousNumBits, NumBitsPerDWORD);
+		AllocatorInstance.ResizeAllocation(PreviousNumDWORDs, MaxDWORDs, sizeof(uint32));
+		if (MaxDWORDs && MaxDWORDs - PreviousNumDWORDs > 0)
 		{
 			// Reset the newly allocated slack DWORDs.
 			FMemory::Memzero((uint32*)AllocatorInstance.GetAllocation() + PreviousNumDWORDs, (MaxDWORDs - PreviousNumDWORDs) * sizeof(uint32));

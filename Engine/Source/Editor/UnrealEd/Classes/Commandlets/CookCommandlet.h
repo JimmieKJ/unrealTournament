@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	CookCommandlet.cpp: Commandlet for cooking content
@@ -38,6 +38,10 @@ class UCookCommandlet
 	bool bErrorOnEngineContentUse;
 	/** Use historical serialization system for generating package dependencies (use for historical reasons only this method has been depricated, only affects cooked manifests) */
 	bool bUseSerializationForGeneratingPackageDependencies;
+	/** Only cook packages specified on commandline options (for debugging)*/
+	bool bCookSinglePackage;
+	/** Should we output additional verbose cooking warnings */
+	bool bVerboseCookerWarnings;
 	/** All commandline tokens */
 	TArray<FString> Tokens;
 	/** All commandline switches */

@@ -1,3 +1,5 @@
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
 #include "SimplygonSwarmPrivatePCH.h"
 #include "SimplygonRESTClient.h"
 
@@ -5,16 +7,11 @@
 #define PORT ":55002"
 
 
-FSimplygonSwarmTask::FSimplygonSwarmTask(FString InZipFile, FString InSPLFile, FString InOutputZipFile, FString InJobDirectory, FCriticalSection* InStateLock, FGuid InJobID, FProxyCompleteDelegate InDelegate)
-	:ZipFilePath(InZipFile),
-	SplFilePath(InSPLFile),
-	OutputFilename(InOutputZipFile),
+FSimplygonSwarmTask::FSimplygonSwarmTask(const FTaskData& InTaskData)
+	: 
 	State(SRS_UNKNOWN),
-	StateLock(InStateLock),
 	IsCompleted(false),
-	JobDirectory(InJobDirectory),
-	TestJobID(InJobID),
-	TestDelegate(InDelegate)
+	TaskData(InTaskData)
 {
 }
 
@@ -22,17 +19,15 @@ FSimplygonSwarmTask::~FSimplygonSwarmTask()
 {
 }
 
-
-
 SimplygonRESTState FSimplygonSwarmTask::GetState() const
 {
-	FScopeLock Lock(StateLock);
+	FScopeLock Lock(TaskData.StateLock);
 	return State;
 }
 
 void FSimplygonSwarmTask::SetState(SimplygonRESTState InState)
 {
-	FScopeLock Lock(StateLock);
+	FScopeLock Lock(TaskData.StateLock);
 	State = InState;
 	if (State == SRS_ASSETDOWNLOADED)
 	{
@@ -42,7 +37,7 @@ void FSimplygonSwarmTask::SetState(SimplygonRESTState InState)
 
 bool FSimplygonSwarmTask::IsFinished() const
 {
-	FScopeLock Lock(StateLock);
+	FScopeLock Lock(TaskData.StateLock);
 	return IsCompleted;
 }
 
@@ -106,7 +101,7 @@ uint32 FSimplygonRESTClient::Run()
 		switch (SwarmTask->GetState())
 		{
 		case SRS_UNKNOWN:
-			UploadAsset(TEXT("UE4_TEST"), SwarmTask->ZipFilePath);
+			UploadAsset(TEXT("UE4_TEST"), SwarmTask->TaskData.ZipFilePath);
 			break;
 		case SRS_FAILED:
 			return 0;
@@ -115,7 +110,7 @@ uint32 FSimplygonRESTClient::Run()
 			CreateJob(TEXT("UE4_TEST"), SwarmTask->InputAssetId);
 			break;
 		case SRS_JOBCREATED:
-			UploadJobSettings(SwarmTask->JobId, SwarmTask->SplFilePath);
+			UploadJobSettings(SwarmTask->JobId, SwarmTask->TaskData.SplFilePath);
 			break;
 		case SRS_JOBSETTINGSUPLOADED:
 			ProcessJob(SwarmTask->JobId);
@@ -456,9 +451,9 @@ void FSimplygonRESTClient::DownloadAsset_Response(FHttpRequestPtr Request, FHttp
 	{
 		TArray<uint8> data = Response->GetContent();
 		
-		if (!FFileHelper::SaveArrayToFile(data, *SwarmTask->OutputFilename))
+		if (!FFileHelper::SaveArrayToFile(data, *SwarmTask->TaskData.OutputZipFilePath))
 		{
-			UE_LOG(LogSimplygonRESTClient, Log, TEXT("Unable to save file %S"), *SwarmTask->OutputFilename);
+			UE_LOG(LogSimplygonRESTClient, Log, TEXT("Unable to save file %s"), *SwarmTask->TaskData.OutputZipFilePath);
 			SwarmTask->SetState(SRS_FAILED);
 			
 		}

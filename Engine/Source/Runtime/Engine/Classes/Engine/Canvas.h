@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -98,9 +98,11 @@ public:
 
 	void AddColumnIfNeeded();
 
+	float GetTextScale() const;
+
 	float GetYStep() const
 	{
-		return MaxCharHeight * 1.15f;
+		return MaxCharHeight * 1.15f * GetTextScale();
 	}
 
 	float GetXPos() const

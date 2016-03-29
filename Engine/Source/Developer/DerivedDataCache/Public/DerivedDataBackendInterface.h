@@ -1,7 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
+
+class FDerivedDataCacheUsageStats;
+
 DECLARE_LOG_CATEGORY_EXTERN(LogDerivedDataCache, Log, All);
 
 DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Gets"),STAT_DDC_NumGets,STATGROUP_DDC, );
@@ -13,21 +16,6 @@ DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("ASync Wait Time"),STAT_DDC_ASyncWait
 DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Sync Put Time"),STAT_DDC_PutTime,STATGROUP_DDC, );
 DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Sync Build Time"),STAT_DDC_SyncBuildTime,STATGROUP_DDC, );
 DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Exists Time"),STAT_DDC_ExistTime,STATGROUP_DDC, );
-
-struct FCacheStatRecord
-{
-	FString CacheKey;
-	uint32 DataSize;
-	double StartTime;
-	double EndTime;
-	double GetDuration;
-	double PutDuration;
-	uint32 CacheGet;
-	bool bSynchronous;
-	bool bFromNetwork;
-	bool bToNetwork;
-};
-
 
 /** 
  * Interface for cache server backends. 
@@ -66,7 +54,7 @@ public:
 	 * @param	OutData		Buffer to receive the results, if any were found
 	 * @return				true if any data was found, and in this case OutData is non-empty
 	 */
-	virtual bool GetCachedData(const TCHAR* CacheKey, TArray<uint8>& OutData, FCacheStatRecord* Stats = NULL)=0;
+	virtual bool GetCachedData(const TCHAR* CacheKey, TArray<uint8>& OutData)=0;
 	/**
 	 * Asynchronous, fire-and-forget placement of a cache item
 	 *
@@ -74,7 +62,7 @@ public:
 	 * @param	InData				Buffer containing the data to cache, can be destroyed after the call returns, immediately
 	 * @param	bPutEvenIfExists	If true, then do not attempt skip the put even if CachedDataProbablyExists returns true
 	 */
-	virtual void PutCachedData(const TCHAR* CacheKey, TArray<uint8>& InData, bool bPutEvenIfExists, FCacheStatRecord* Stats = NULL) = 0;
+	virtual void PutCachedData(const TCHAR* CacheKey, TArray<uint8>& InData, bool bPutEvenIfExists) = 0;
 
 	/**
 	 * Remove data from cache (used in the event that corruption is detected at a higher level and possibly house keeping)
@@ -83,6 +71,14 @@ public:
 	 * @param	bTransient	true if the data is transient and it is up to the backend to decide when and if to remove cached data.
 	 */
 	virtual void RemoveCachedData(const TCHAR* CacheKey, bool bTransient)=0;
+
+	/**
+	 * Retrieve usage stats for this backend. If the backend holds inner backends, this is expected to be passed down recursively.
+	 * @param	UsageStatsMap		The map of usages. Each backend instance should give itself a unique name if possible (ie, use the filename associated).
+	 * @param	GraphPath			Path to the node in the graph. If you have inner nodes, add their index to the current path as ". <n>".
+	 *								This will create a path such as "0. 1. 0. 2", which can uniquely identify this node.
+	 */
+	virtual void GatherUsageStats(TMap<FString, FDerivedDataCacheUsageStats>& UsageStatsMap, FString&& GraphPath) = 0;
 };
 
 class FDerivedDataBackend
@@ -124,6 +120,6 @@ public:
 	 */
 	virtual bool UnmountPakFile(const TCHAR* PakFilename) = 0;
 
+	virtual void GatherUsageStats(TMap<FString, FDerivedDataCacheUsageStats>& UsageStats) = 0;
+
 };
-
-

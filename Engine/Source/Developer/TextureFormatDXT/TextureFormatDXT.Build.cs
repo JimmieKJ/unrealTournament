@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -22,6 +22,6 @@ public class TextureFormatDXT : ModuleRules
 			}
 			);
 
-		AddThirdPartyPrivateStaticDependencies(Target, "nvTextureTools");
+		AddEngineThirdPartyPrivateStaticDependencies(Target, "nvTextureTools");
 	}
 }

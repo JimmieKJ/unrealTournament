@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -56,6 +56,16 @@ enum EMeasuringToolUnits
 	MeasureUnits_Kilometers  UMETA(DisplayName="Kilometers")
 };
 
+/**
+ * Scroll gesture direction
+ */
+UENUM()
+enum class EScrollGestureDirection : uint8
+{
+	UseSystemSetting	UMETA(DisplayName = "Use system setting"),
+	Standard			UMETA(DisplayName = "Standard"),
+	Natural				UMETA(DisplayName = "Natural"),
+};
 
 /**
  * Implements the Level Editor's per-instance view port settings.
@@ -78,6 +88,7 @@ struct UNREALED_API FLevelEditorViewportInstanceSettings
 		, bIsRealtime(false)
 		, bShowFPS_DEPRECATED(false)
 		, bShowStats(false)
+		, bShowFullToolbar(true)
 	{ }
 
 	/** The viewport type */
@@ -137,6 +148,10 @@ struct UNREALED_API FLevelEditorViewportInstanceSettings
 	/* Whether viewport statistics should be enabled by default. */
 	UPROPERTY(config)
 	TArray<FString> EnabledStats;
+
+	/** When enabled, the full viewport toolbar will be shown. When disabled, a compact toolbar is used. */
+	UPROPERTY(EditAnywhere, config, Category=LookAndFeel)
+	bool bShowFullToolbar;
 };
 
 
@@ -249,6 +264,14 @@ class UNREALED_API ULevelEditorViewportSettings
 	/** When checked, orbit the camera by using the L or U keys when unchecked, Alt and Left Mouse Drag will orbit around the look at point */
 	UPROPERTY(EditAnywhere, config, Category=Controls, meta=(DisplayName="Use UE3 Orbit Controls"), AdvancedDisplay)
 	bool bUseUE3OrbitControls;
+
+	/** Direction of the scroll gesture for 3D viewports */
+	UPROPERTY(EditAnywhere, config, Category=Controls, meta=(DisplayName="Scroll gesture direction for 3D viewports"))
+	EScrollGestureDirection ScrollGestureDirectionFor3DViewports;
+
+	/** Direction of the scroll gesture for orthographic viewports */
+	UPROPERTY(EditAnywhere, config, Category=Controls, meta=(DisplayName="Scroll gesture direction for orthographic viewports"))
+	EScrollGestureDirection ScrollGestureDirectionForOrthoViewports;
 
 public:
 

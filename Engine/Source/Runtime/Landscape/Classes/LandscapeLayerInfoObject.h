@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -22,6 +22,10 @@ class ULandscapeLayerInfoObject : public UObject
 	UPROPERTY(VisibleAnywhere, Category=LandscapeLayerInfoObject)
 	uint32 bNoWeightBlend:1;
 #endif // WITH_EDITORONLY_DATA
+
+	/* The color to use for layer usage debug */
+	UPROPERTY(EditAnywhere, Category = LandscapeLayerInfoObject)
+	FLinearColor LayerUsageDebugColor;
 
 #if WITH_EDITOR
 	//~ Begin UObject Interface

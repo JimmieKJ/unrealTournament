@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -61,8 +61,10 @@ namespace ESlateDrawEffect
 	const Type DisabledEffect = 1 << 0;
 	/** Don't read from texture alpha channel */
 	const Type IgnoreTextureAlpha = 1 << 1;
-	/** If this is provided, we will not perform pre-multiply of alpha of the source texture in the slate pixel shader, expecting it to already be the case. */
-	const Type PreMultipliedAlpha = 1 << 2;
+	/** No gamma correction should be done */
+	const Type NoGamma			  = 1 << 2;
+	/** Rather than perform alpha blending, perform alpha compositing instead. */
+	const Type AlphaCompositing	  =	1 << 3;
 };
 
 
@@ -73,15 +75,17 @@ namespace ESlateBatchDrawFlag
 	/** No draw flags */
 	const Type None					=		0;
 	/** Draw the element with no blending */
-	const Type NoBlending			=		0x01;
+	const Type NoBlending			=		1 << 0;
 	/** Draw the element as wireframe */
-	const Type Wireframe			=		0x02;
+	const Type Wireframe			=		1 << 1;
 	/** The element should be tiled horizontally */
-	const Type TileU				=		0x04;
+	const Type TileU				=		1 << 3;
 	/** The element should be tiled vertically */
-	const Type TileV				=		0x08;
+	const Type TileV				=		1 << 4;
 	/** No gamma correction should be done */
-	const Type NoGamma				=		0x10;
+	const Type NoGamma				=		1 << 5;
+	/** Rather than perform alpha blending, perform alpha compositing instead. */
+	const Type AlphaCompositing		=		1 << 6;
 };
 
 namespace ESlateLineJoinType
@@ -518,6 +522,21 @@ public:
 	 * Called when the viewports top level window is being closed
 	 */
 	virtual void OnViewportClosed()
+	{
+	}
+
+	/**
+	 * Called when the viewports top level window is being Activated
+	 */
+	virtual FReply OnViewportActivated(const FWindowActivateEvent& InActivateEvent)
+	{
+		return FReply::Unhandled();
+	}
+
+	/**
+	 * Called when the viewports top level window is being Deactivated
+	 */
+	virtual void OnViewportDeactivated(const FWindowActivateEvent& InActivateEvent)
 	{
 	}
 };

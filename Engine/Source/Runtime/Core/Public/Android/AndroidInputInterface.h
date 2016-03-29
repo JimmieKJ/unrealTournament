@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include <android/input.h>
@@ -194,7 +194,7 @@ public:
 	 */
 	void SendControllerEvents();
 
-	static void QueueTouchInput(TArray<TouchInput> InTouchEvents);
+	static void QueueTouchInput(const TArray<TouchInput>& InTouchEvents);
 
 	static void ResetGamepadAssignments();
 	static void ResetGamepadAssignmentToController(int32 ControllerId);

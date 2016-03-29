@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIGraphPrivatePCH.h"
 #include "GraphEditorActions.h"
@@ -439,6 +439,7 @@ void FAIGraphEditor::PasteNodesHere(const FVector2D& Location)
 	if (AIGraph)
 	{
 		AIGraph->UpdateClassData();
+		AIGraph->OnNodesPasted(TextToImport);
 		AIGraph->UnlockUpdates();
 	}
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -15,10 +15,9 @@ public:
 	, HighResScreenshotCaptureRegionMaterial(NULL)
 	, bBufferVisualizationDumpRequired(false)
 	{
-		// to avoid reallocations we reserve some elements
-
-		ContributingCubemaps.Empty(8);
-		ContributingLUTs.Empty(8);
+		// to avoid reallocations we reserve some 
+		ContributingCubemaps.Reserve(8);
+		ContributingLUTs.Reserve(8);
 
 		SetLUT(0);
 	}
@@ -49,6 +48,7 @@ public:
 	void UpdateEntry(const FCubemapEntry &Entry, float Weight)
 	{
 		bool Existing = false;
+		// Note: make sure to read the array size each loop here, since we remove elements.
 		for(int32 i = 0; i < ContributingCubemaps.Num(); ++i)
 		{
 			FCubemapEntry& Local = ContributingCubemaps[i];
@@ -65,7 +65,8 @@ public:
 
 			if(Local.AmbientCubemapTintMulScaleValue.IsAlmostBlack())
 			{
-				ContributingCubemaps.RemoveAt(i);
+				ContributingCubemaps.RemoveAt(i, /*bAllowShrinking=*/ false);
+				i--; // Maintain same index in the loop after loop increment since we removed an element.
 			}
 		}
 
@@ -144,14 +145,14 @@ public:
 	void SetLUT(UTexture* Texture)
 	{
 		// intentionally no deallocations
-		ContributingLUTs.Empty();
+		ContributingLUTs.Reset();
 
 		PushLUT(Texture, 1.0f);
 	}
 
 	// was not merged during blending unlike e.g. BloomThreshold 
-	TArray<FCubemapEntry> ContributingCubemaps;
-	TArray<FLUTBlenderEntry> ContributingLUTs;
+	TArray<FCubemapEntry, TInlineAllocator<8>> ContributingCubemaps;
+	TArray<FLUTBlenderEntry, TInlineAllocator<8>> ContributingLUTs;
 
 	// List of materials to use in the buffer visualization overview
 	TArray<UMaterialInterface*> BufferVisualizationOverviewMaterials;

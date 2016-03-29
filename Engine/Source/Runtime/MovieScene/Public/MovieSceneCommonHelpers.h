@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -34,6 +34,20 @@ public:
 	 */
 	static UMovieSceneSection* FindNearestSectionAtTime( const TArray<UMovieSceneSection*>& Sections, float Time );
 
+	/*
+	 * Fix up consecutive sections so that there are no gaps
+	 * 
+	 * @param Sections All the sections
+	 * @param Section The section that was modified 
+	 * @param bDelete Was this a deletion?
+	 */
+	static void FixupConsecutiveSections(TArray<UMovieSceneSection*>& Sections, UMovieSceneSection& Section, bool bDelete);
+
+	/*
+ 	 * Sort consecutive sections so that they are in order based on start time
+ 	 */
+	static void SortConsecutiveSections(TArray<UMovieSceneSection*>& Sections);
+
 	/**
 	 * Get the scene component from the runtime object
 	 *
@@ -42,7 +56,23 @@ public:
 	 */	
 	static USceneComponent* SceneComponentFromRuntimeObject(UObject* Object);
 
-	/*
+	/**
+	 * Get the active camera component from the actor 
+	 *
+	 * @param InActor The actor to look for the camera component on
+	 * @return The active camera component
+	 */
+	static UCameraComponent* CameraComponentFromActor(const AActor* InActor);
+
+	/**
+	 * Find and return camera component from the runtime object
+	 *
+	 * @param Object The object to get the camera component for
+	 * @return The found camera component
+	 */	
+	static UCameraComponent* CameraComponentFromRuntimeObject(UObject* RuntimeObject);
+
+	/**
 	 * Set the runtime object movable
 	 *
 	 * @param Object The object to set the mobility for
@@ -96,7 +126,7 @@ public:
 	 *
 	 * @param InRuntimeObjects	The objects to rebuild mappings for
 	 */
-	void UpdateBindings( const TArray<UObject*>& InRuntimeObjects );
+	void UpdateBindings( const TArray<TWeakObjectPtr<UObject>>& InRuntimeObjects );
 
 	/**
 	 * Gets the UProperty that is bound to the track instance

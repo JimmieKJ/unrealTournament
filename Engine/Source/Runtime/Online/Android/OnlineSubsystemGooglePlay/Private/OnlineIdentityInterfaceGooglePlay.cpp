@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemGooglePlayPrivatePCH.h"
 
@@ -185,4 +185,11 @@ FPlatformUserId FOnlineIdentityGooglePlay::GetPlatformUserIdFromUniqueNetId(cons
 FString FOnlineIdentityGooglePlay::GetAuthType() const
 {
 	return TEXT("");
+}
+
+void FOnlineIdentityGooglePlay::SetPlayerDataFromFetchSelfResponse(const gpg::Player& PlayerData)
+{
+	FString PlayerId(PlayerData.Id().c_str());
+	UniqueNetId = MakeShareable(new FUniqueNetIdString(PlayerId));
+	PlayerAlias = PlayerData.Name().c_str();
 }

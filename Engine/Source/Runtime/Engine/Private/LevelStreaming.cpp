@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Engine/LevelStreamingAlwaysLoaded.h"
@@ -324,7 +324,7 @@ void ULevelStreaming::DiscardPendingUnloadLevel(UWorld* PersistentWorld)
 	}
 }
 
-bool ULevelStreaming::RequestLevel(UWorld* PersistentWorld, bool bAllowLevelLoadRequests, bool bBlockOnLoad)
+bool ULevelStreaming::RequestLevel(UWorld* PersistentWorld, bool bAllowLevelLoadRequests, EReqLevelBlock BlockPolicy)
 {
 	// Quit early in case load request already issued
 	if (bHasLoadRequestPending)
@@ -420,7 +420,7 @@ bool ULevelStreaming::RequestLevel(UWorld* PersistentWorld, bool bAllowLevelLoad
 		const FString NonPrefixedLevelName = UWorld::StripPIEPrefixFromPackageName(DesiredPackageName.ToString(), PersistentWorld->StreamingLevelsPrefix);
 		UPackage* EditorLevelPackage = FindObjectFast<UPackage>(nullptr, FName(*NonPrefixedLevelName));
 		
-		bool bShouldDuplicate = EditorLevelPackage && (bBlockOnLoad || EditorLevelPackage->IsDirty() || !GEngine->PreferToStreamLevelsInPIE());
+		bool bShouldDuplicate = EditorLevelPackage && (BlockPolicy == AlwaysBlock || EditorLevelPackage->IsDirty() || !GEngine->PreferToStreamLevelsInPIE());
 		if (bShouldDuplicate)
 		{
 			// Do the duplication
@@ -485,7 +485,7 @@ bool ULevelStreaming::RequestLevel(UWorld* PersistentWorld, bool bAllowLevelLoad
 
 			// streamingServer: server loads everything?
 			// Editor immediately blocks on load and we also block if background level streaming is disabled.
-			if (bBlockOnLoad || ShouldBeAlwaysLoaded())
+			if (BlockPolicy == AlwaysBlock || (ShouldBeAlwaysLoaded() && BlockPolicy != NeverBlock))
 			{
 				// Finish all async loading.
 				FlushAsyncLoading();

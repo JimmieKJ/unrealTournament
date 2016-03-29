@@ -1,23 +1,25 @@
 {
-	"FileVersion" : 1,
-	
-	"FriendlyName" : "CharacterAI",
+	"FileVersion" : 3,
 	"Version" : 1,
 	"VersionName" : "0.1",
-	"CreatedBy" : "Epic Games, Inc.",
-	"CreatedByURL" : "http://epicgames.com",
-	"EngineVersion" : "4.5.0",
+	"FriendlyName" : "CharacterAI",
 	"Description" : "Adds code and assets related to implementing AI in a character-based project.",
 	"Category" : "Gameplay",
-    "EnabledByDefault": true,
-    "IsBetaVersion": true,
-
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"DocsURL" : "",
+	"MarketplaceURL" : "",
+	"SupportURL" : "",
+	"EnabledByDefault" : true,
+	"CanContainContent" : false,
+	"IsBetaVersion" : true,
+	"Installed" : false,
 	"Modules" :
 	[
 		{
 			"Name" : "CharacterAI",
 			"Type" : "Runtime",
 			"LoadingPhase" : "PostEngineInit"
-		},
+		}
 	]
 }

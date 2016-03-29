@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	TranslucentLighting.cpp: Translucent lighting implementation.
@@ -24,7 +24,7 @@ FAutoConsoleVariableRef CVarUseTranslucentLightingVolumes(
 	GUseTranslucentLightingVolumes,
 	TEXT("Whether to allow updating the translucent lighting volumes.\n")
 	TEXT("0:off, otherwise on, default is 1"),
-	ECVF_Cheat | ECVF_RenderThreadSafe
+	ECVF_RenderThreadSafe
 	);
 
 float GTranslucentVolumeMinFOV = 45;
@@ -184,9 +184,9 @@ public:
 		ShadowParameters.SetVertexShader(RHICmdList, this, View, ShadowInfo, MaterialRenderProxy);
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement, float DitheredLODTransitionValue)
+	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FMeshDrawingRenderState& DrawRenderState)
 	{
-		FMeshMaterialShader::SetMesh(RHICmdList, GetVertexShader(),VertexFactory,View,Proxy,BatchElement,DitheredLODTransitionValue);
+		FMeshMaterialShader::SetMesh(RHICmdList, GetVertexShader(),VertexFactory,View,Proxy,BatchElement,DrawRenderState);
 	}
 
 private:
@@ -268,9 +268,9 @@ public:
 		TranslucencyProjectionParameters.Set(RHICmdList, this);
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement, float DitheredLODTransitionValue)
+	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FMeshDrawingRenderState& DrawRenderState)
 	{
-		FMeshMaterialShader::SetMesh(RHICmdList, GetPixelShader(),VertexFactory,View,Proxy,BatchElement,DitheredLODTransitionValue);
+		FMeshMaterialShader::SetMesh(RHICmdList, GetPixelShader(),VertexFactory,View,Proxy,BatchElement,DrawRenderState);
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
@@ -333,7 +333,7 @@ public:
 		const FMaterial& InMaterialResource,
 		bool bInDirectionalLight
 		):
-		FMeshDrawingPolicy(InVertexFactory,InMaterialRenderProxy,InMaterialResource,false,false)
+		FMeshDrawingPolicy(InVertexFactory,InMaterialRenderProxy,InMaterialResource)
 	{
 		const bool bUsePerspectiveCorrectShadowDepths = !bInDirectionalLight;
 
@@ -381,16 +381,16 @@ public:
 		const FMeshBatch& Mesh,
 		int32 BatchElementIndex,
 		bool bBackFace,
-		float DitheredLODTransitionValue,
+		const FMeshDrawingRenderState& DrawRenderState,
 		const ElementDataType& ElementData,
 		const ContextDataType PolicyContext
 		) const
 	{
 		const FMeshBatchElement& BatchElement = Mesh.Elements[BatchElementIndex];
-		VertexShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement,DitheredLODTransitionValue);
-		PixelShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement,DitheredLODTransitionValue);
+		VertexShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement,DrawRenderState);
+		PixelShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement,DrawRenderState);
 
-		FMeshDrawingPolicy::SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace, DitheredLODTransitionValue,ElementData,PolicyContext);
+		FMeshDrawingPolicy::SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace,DrawRenderState,ElementData,PolicyContext);
 	}
 
 private:
@@ -439,13 +439,14 @@ public:
 				FTranslucencyShadowDepthDrawingPolicy DrawingPolicy(Mesh.VertexFactory, MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(FeatureLevel), DrawingContext.bDirectionalLight);
 				RHICmdList.BuildAndSetLocalBoundShaderState(DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
 				DrawingPolicy.SetSharedState(RHICmdList, &View, FTranslucencyShadowDepthDrawingPolicy::ContextDataType(DrawingContext.ShadowInfo));
+				const FMeshDrawingRenderState DrawRenderState(Mesh.DitheredLODTransitionAlpha);
 
 				for (int32 BatchElementIndex = 0; BatchElementIndex < Mesh.Elements.Num(); BatchElementIndex++)
 				{
 					TDrawEvent<FRHICommandList> MeshEvent;
 					BeginMeshDrawEvent(RHICmdList, PrimitiveSceneProxy, Mesh, MeshEvent);
 
-					DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace,Mesh.DitheredLODTransitionAlpha,
+					DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace,DrawRenderState,
 						FTranslucencyShadowDepthDrawingPolicy::ElementDataType(),
 						FTranslucencyShadowDepthDrawingPolicy::ContextDataType(DrawingContext.ShadowInfo)
 						);
@@ -516,14 +517,17 @@ void FProjectedShadowInfo::RenderTranslucencyDepths(FRHICommandList& RHICmdList,
 	}
 	check(FoundView); 
 
-	TUniformBufferRef<FViewUniformShaderParameters> OriginalUniformBuffer;
+	TUniformBufferRef<FViewUniformShaderParameters> OriginalViewUniformBuffer;
+	TUniformBufferRef<FFrameUniformShaderParameters> OriginalFrameUniformBuffer;
+
 	FMatrix OriginalViewMatrix;
 
 	if (!bMakeViewSnapshot)
 	{
 		check(!FRHICommandListImmediate::AnyRenderThreadTasksOutstanding()); // we should add tasks that use the hacked view if it wasn't cloned.
 		// Backup properties of the view that we will override
-		OriginalUniformBuffer = FoundView->UniformBuffer;
+		OriginalViewUniformBuffer = FoundView->ViewUniformBuffer;
+		OriginalFrameUniformBuffer = FoundView->FrameUniformBuffer;
 		OriginalViewMatrix = FoundView->ViewMatrices.ViewMatrix;
 	}
 
@@ -531,7 +535,9 @@ void FProjectedShadowInfo::RenderTranslucencyDepths(FRHICommandList& RHICmdList,
 	// Override the view matrix so that billboarding primitives will be aligned to the light
 	FoundView->ViewMatrices.ViewMatrix = ShadowViewMatrix;
 	FBox VolumeBounds[TVC_MAX];
-	FoundView->UniformBuffer = FoundView->CreateUniformBuffer(
+	FoundView->CreateUniformBuffer(
+		FoundView->ViewUniformBuffer, 
+		FoundView->FrameUniformBuffer, 
 		RHICmdList,
 		nullptr,
 		ShadowViewMatrix, 
@@ -630,7 +636,8 @@ void FProjectedShadowInfo::RenderTranslucencyDepths(FRHICommandList& RHICmdList,
 	if (!bMakeViewSnapshot)
 	{
 		check(!FRHICommandListImmediate::AnyRenderThreadTasksOutstanding()); // we should add tasks that use the hacked view if it wasn't cloned.
-		FoundView->UniformBuffer = OriginalUniformBuffer;
+		FoundView->ViewUniformBuffer = OriginalViewUniformBuffer;
+		FoundView->FrameUniformBuffer = OriginalFrameUniformBuffer;
 		FoundView->ViewMatrices.ViewMatrix = OriginalViewMatrix;
 	}
 }
@@ -923,13 +930,27 @@ public:
 		{
 			SetShaderValue(RHICmdList, ShaderRHI, DepthBiasParameters, FVector2D(ShadowMap->GetShaderDepthBias(), 1.0f / (ShadowMap->MaxSubjectZ - ShadowMap->MinSubjectZ)));
 
+			FTexture2DRHIParamRef ShadowDepthTextureResource = nullptr;
+			if (InjectionType == LightType_Point)
+			{
+				if (GBlackTexture && GBlackTexture->TextureRHI)
+				{
+					ShadowDepthTextureResource = GBlackTexture->TextureRHI->GetTexture2D();
+				}
+			}
+			else
+			{
+				ShadowDepthTextureResource = FSceneRenderTargets::Get(RHICmdList).GetShadowDepthZTexture().GetReference();
+			}
+
+			
 			SetTextureParameter(
 				RHICmdList, 
 				ShaderRHI,
 				ShadowDepthTexture,
 				ShadowDepthTextureSampler,
 				TStaticSamplerState<SF_Point,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(),
-				FSceneRenderTargets::Get(RHICmdList).GetShadowDepthZTexture()
+				ShadowDepthTextureResource
 				);
 		}
 

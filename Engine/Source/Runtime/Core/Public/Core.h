@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -94,7 +94,6 @@
 #include "CircularQueue.h"
 #include "Queue.h"
 #include "Ticker.h"						// Efficient scheduled delegate manager
-#include "RocketSupport.h"				// Core support for launching in "Rocket" mode
 #include "ProfilingHelpers.h"			// Misc profiling helpers.
 #include "ConfigCacheIni.h"				// The configuration cache declarations
 #include "IConsoleManager.h"
@@ -115,4 +114,5 @@
 #include "Attribute.h"
 #include "Optional.h"
 #include "EnumClassFlags.h"
+#include "EnumRange.h"
 #include "Misc/DisableOldUETypes.h"

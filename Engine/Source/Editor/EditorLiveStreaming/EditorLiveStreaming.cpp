@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "EditorLiveStreamingModule.h"
 #include "EditorLiveStreaming.h"
 #include "EditorLiveStreamingSettings.h"
@@ -24,7 +24,8 @@ FEditorLiveStreaming::FEditorLiveStreaming()
 	  SubmittedVideoFrameCount( 0 ),
 	  ReadbackBufferIndex( 0 )
 {
-	ReadbackBuffers[0] = ReadbackBuffers[1] = nullptr;
+	ReadbackBuffers[0].Reset();
+	ReadbackBuffers[1].Reset();
 }
 
 
@@ -222,7 +223,7 @@ void FEditorLiveStreaming::StopBroadcastingEditor()
 		bIsBroadcasting = false;
 		for( int32 BufferIndex = 0; BufferIndex < 2; ++BufferIndex )
 		{
-			ReadbackBuffers[ BufferIndex ] = nullptr;
+			ReadbackBuffers[BufferIndex].Reset();
 		}
 		ReadbackBufferIndex = 0;
 		SubmittedVideoFrameCount = 0;
@@ -242,9 +243,12 @@ void FEditorLiveStreaming::BroadcastEditorVideoFrame()
 			{
 				FSlateRenderer* SlateRenderer = FSlateApplication::Get().GetRenderer().Get();
 
-				if( ReadbackBuffers[ ReadbackBufferIndex ] != nullptr )
+				const FMappedTextureBuffer& CurrentBuffer = ReadbackBuffers[ReadbackBufferIndex];
+
+				if ( CurrentBuffer.IsValid() )
 				{
- 					LiveStreamer->PushVideoFrame( (FColor*)ReadbackBuffers[ ReadbackBufferIndex ] );
+					//TODO PushVideoFrame Needs to Take Width and Height
+					LiveStreamer->PushVideoFrame((FColor*)CurrentBuffer.Data/*, CurrentBuffer.Width, CurrentBuffer.Height*/);
 					++SubmittedVideoFrameCount;
 
 					// If this is the first frame we've submitted, then we can fade out our notification UI, since broadcasting is in progress
@@ -262,7 +266,7 @@ void FEditorLiveStreaming::BroadcastEditorVideoFrame()
 
 				TArray<FString> UnusedKeypressBuffer;
 				SlateRenderer->CopyWindowsToVirtualScreenBuffer( UnusedKeypressBuffer );
-				SlateRenderer->MapVirtualScreenBuffer( &ReadbackBuffers[ ReadbackBufferIndex ] );
+				SlateRenderer->MapVirtualScreenBuffer(&ReadbackBuffers[ReadbackBufferIndex]);
 
 				// Ping pong between buffers
 				ReadbackBufferIndex = ( ReadbackBufferIndex + 1 ) % 2;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Components/BrushComponent.h"
@@ -57,6 +57,30 @@ void APhysicsVolume::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	if (MyWorld)
 	{
 		MyWorld->RemovePhysicsVolume(this);
+
+		if ((EndPlayReason == EEndPlayReason::RemovedFromWorld) || (EndPlayReason == EEndPlayReason::Destroyed))
+		{
+			// Prevent UpdatePhysicsVolume() calls below from returning this component.
+			UPrimitiveComponent* Brush = GetBrushComponent();
+			const bool bSavedGenerateOverlapEvents = Brush->bGenerateOverlapEvents;
+			Brush->bGenerateOverlapEvents = false;
+
+			// Refresh physics volume on any components touching this volume.
+			// TODO: Physics volume tracking code needs a cleanup, ideally it just uses normal begin/end overlap events,
+			// but there are subtleties with the stacking and priority rules.
+			const TArray<FOverlapInfo>& Overlaps = Brush->GetOverlapInfos();
+			for (const FOverlapInfo& Info : Overlaps)
+			{
+				UPrimitiveComponent* OtherPrim = Info.OverlapInfo.GetComponent();
+				if (OtherPrim && OtherPrim->bShouldUpdatePhysicsVolume)
+				{
+					OtherPrim->UpdatePhysicsVolume(true);
+				}
+			}
+
+			// Restore saved flag, since we may stream back in.
+			Brush->bGenerateOverlapEvents = bSavedGenerateOverlapEvents;
+		}
 	}
 	Super::EndPlay(EndPlayReason);
 }
@@ -78,7 +102,8 @@ bool APhysicsVolume::IsOverlapInVolume(const class USceneComponent& TestComponen
 
 float APhysicsVolume::GetGravityZ() const
 {
-	return GetWorld()->GetGravityZ();
+	const UWorld* MyWorld = GetWorld();
+	return MyWorld ? MyWorld->GetGravityZ() : UPhysicsSettings::Get()->DefaultGravityZ;
 }
 
 void APhysicsVolume::ActorEnteredVolume(AActor* Other) {}

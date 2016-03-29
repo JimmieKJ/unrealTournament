@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessWeightedSampleSum.h: Post processing weight sample sum implementation.
@@ -8,79 +8,6 @@
 
 #include "RenderingCompositionGraph.h"
 #include "PostProcessing.h"
-
-
-/** A vertex shader which filters a texture. Can re reused by other postprocessing pixel shaders. */
-template<uint32 NumSamples>
-class TFilterVS : public FGlobalShader
-{
-	DECLARE_SHADER_TYPE(TFilterVS,Global);
-public:
-
-	/** The number of 4D constant registers used to hold the packed 2D sample offsets. */
-	enum { NumSampleChunks = (NumSamples + 1) / 2 };
-
-	static bool ShouldCache(EShaderPlatform Platform)
-	{
-		if (IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5))
-		{
-			return true;
-		}
-		else if (IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4))
-		{
-			return NumSamples <= 16;
-		}
-		else
-		{
-			return NumSamples <= 7;
-		}
-	}
-
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
-	{
-		FGlobalShader::ModifyCompilationEnvironment(Platform, OutEnvironment);
-		OutEnvironment.SetDefine(TEXT("NUM_SAMPLES"), NumSamples);
-	}
-
-	/** Default constructor. */
-	TFilterVS() {}
-
-	/** Initialization constructor. */
-	TFilterVS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):
-	FGlobalShader(Initializer)
-	{
-		SampleOffsets.Bind(Initializer.ParameterMap,TEXT("SampleOffsets"));
-	}
-
-	/** Serializer */
-	virtual bool Serialize(FArchive& Ar) override
-	{
-		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << SampleOffsets;
-
-		return bShaderHasOutdatedParameters;
-	}
-
-	/** Sets shader parameter values */
-	void SetParameters(FRHICommandList& RHICmdList, const FVector2D* SampleOffsetsValue)
-	{
-		FVector4 PackedSampleOffsetsValue[NumSampleChunks];
-		for(int32 SampleIndex = 0;SampleIndex < NumSamples;SampleIndex += 2)
-		{
-			PackedSampleOffsetsValue[SampleIndex / 2].X = SampleOffsetsValue[SampleIndex + 0].X;
-			PackedSampleOffsetsValue[SampleIndex / 2].Y = SampleOffsetsValue[SampleIndex + 0].Y;
-			if(SampleIndex + 1 < NumSamples)
-			{
-				PackedSampleOffsetsValue[SampleIndex / 2].W = SampleOffsetsValue[SampleIndex + 1].X;
-				PackedSampleOffsetsValue[SampleIndex / 2].Z = SampleOffsetsValue[SampleIndex + 1].Y;
-			}
-		}
-		SetShaderValueArray(RHICmdList, GetVertexShader(),SampleOffsets,PackedSampleOffsetsValue,NumSampleChunks);
-	}
-
-private:
-	FShaderParameter SampleOffsets;
-};
 
 enum EFilterCombineMethod
 {
@@ -125,7 +52,9 @@ public:
 	void SetCrossCenterWeight(float InCrossCenterWeight) { check(InCrossCenterWeight >= 0.0f); CrossCenterWeight = InCrossCenterWeight; }
 
 private:
-	void DrawQuad(FRHICommandListImmediate& RHICmdList, bool bDoFastBlur, FIntRect SrcRect, FIntRect DestRect, bool bRequiresClear, FIntPoint DestSize, FIntPoint SrcSize, FShader* VertexShader) const;
+	void AdjustRectsForFastBlur(FIntRect& SrcRect, FIntRect& DestRect) const;
+	void DrawClear(FRHICommandListImmediate& RHICmdList, ERHIFeatureLevel::Type FeatureLevel, bool bDoFastBlur, FIntRect SrcRect, FIntRect DestRect, FIntPoint DestSize) const;
+	void DrawQuad(FRHICommandListImmediate& RHICmdList, ERHIFeatureLevel::Type FeatureLevel, bool bDoFastBlur, FIntRect SrcRect, FIntRect DestRect, FIntPoint DestSize, FIntPoint SrcSize, FShader* VertexShader) const;
 	static uint32 GetMaxNumSamples(ERHIFeatureLevel::Type InFeatureLevel);
 
 	// e.g. EFS_Horiz or EFS_Vert

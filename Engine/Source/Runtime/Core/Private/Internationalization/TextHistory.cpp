@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 
@@ -576,6 +576,8 @@ FText FTextHistory_AsCurrency::ToText(bool bInAsSource) const
 {
 	TSharedPtr< FCulture, ESPMode::ThreadSafe > CurrentCulture = bInAsSource? FInternationalization::Get().GetInvariantCulture() : TargetCulture;
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	// when we remove AsCurrency should be easy to switch these to AsCurrencyBase and change SourceValue to be BaseVal in AsCurrencyBase (currently is the pre-divided value)
 	const FNumberFormattingOptions* FormatOptionsPtr = (FormatOptions.IsSet()) ? &FormatOptions.GetValue() : nullptr;
 	switch(SourceValue.GetType())
 	{
@@ -601,6 +603,7 @@ FText FTextHistory_AsCurrency::ToText(bool bInAsSource) const
 			check(0);
 		}
 	}
+PRAGMA_ENABLE_DEPRECATION_WARNINGS 
 	return FText();
 }
 

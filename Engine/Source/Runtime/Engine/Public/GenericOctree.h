@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	GenericOctree.h: Generic octree definition.
@@ -629,7 +629,7 @@ public:
 				if (LocalElementIt)
 				{
 					FPlatformMisc::Prefetch( &(*LocalElementIt) );
-					FPlatformMisc::Prefetch( &(*LocalElementIt), CACHE_LINE_SIZE );
+					FPlatformMisc::Prefetch( &(*LocalElementIt), PLATFORM_CACHE_LINE_SIZE );
 
 					// this is redundantly pull out of the while loop to prevent LHS on the iterator
 					// Check if the current element intersects the bounding box.
@@ -643,7 +643,7 @@ public:
 					// Check if we've advanced past the elements in the current node.
 					while(++LocalElementIt)
 					{
-						FPlatformMisc::Prefetch( &(*LocalElementIt), CACHE_LINE_SIZE );
+						FPlatformMisc::Prefetch( &(*LocalElementIt), PLATFORM_CACHE_LINE_SIZE );
 
 						// Check if the current element intersects the bounding box.
 						if(Intersect(OctreeSemantics::GetBoundingBox(*LocalElementIt),IteratorBounds))

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	TextureRenderTarget2D.cpp: UTextureRenderTarget2D implementation
@@ -17,7 +17,7 @@ UTextureRenderTarget2D::UTextureRenderTarget2D(const FObjectInitializer& ObjectI
 	bHDR = true;
 	bAutoGenerateMips = false;
 	NumMips = 0;
-	ClearColor = FLinearColor(0.0f, 1.0f, 0.0f, 1.0f);
+	ClearColor = FLinearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	OverrideFormat = PF_Unknown;
 	bForceLinearGamma = true;
 }

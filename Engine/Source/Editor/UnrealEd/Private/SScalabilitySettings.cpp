@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "SScalabilitySettings.h"
@@ -39,7 +39,7 @@ void SScalabilitySettings::OnGroupQualityLevelChanged(ECheckBoxState NewState, c
 
 void SScalabilitySettings::OnResolutionScaleChanged(float InValue)
 {
-	CachedQualityLevels.ResolutionQuality = (int32)(FMath::Lerp(Scalability::MinResolutionScale, Scalability::MaxResolutionScale, InValue));
+	CachedQualityLevels.ResolutionQuality = FMath::Lerp(Scalability::MinResolutionScale, Scalability::MaxResolutionScale, InValue);
 
 	Scalability::SetQualityLevels(CachedQualityLevels);
 	Scalability::SaveState(GEditorSettingsIni);
@@ -53,7 +53,7 @@ float SScalabilitySettings::GetResolutionScale() const
 
 FText SScalabilitySettings::GetResolutionScaleString() const
 {
-	return FText::AsPercent(FMath::Square((float)CachedQualityLevels.ResolutionQuality / 100.0f));
+	return FText::AsPercent(FMath::Square(CachedQualityLevels.ResolutionQuality / 100.0f));
 }
 
 TSharedRef<SWidget> SScalabilitySettings::MakeButtonWidget(const FText& InName, const TCHAR* InGroupName, int32 InQualityLevel, const FText& InToolTip)

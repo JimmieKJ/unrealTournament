@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "PersonaPrivatePCH.h"
 #include "AssetSearchBoxUtilPersona.h"
@@ -103,7 +103,7 @@ TArray<FString> SAssetSearchBoxForCurves::GetCurveSearchSuggestions() const
 	TArray<FString> PossibleSuggestions;
 	if (USkeleton* Skel = Skeleton.Get())
 	{
-		if (FSmartNameMapping* Mapping = Skel->SmartNames.GetContainer(USkeleton::AnimCurveMappingName))
+		if (const FSmartNameMapping* Mapping = Skel->GetSmartNameContainer(USkeleton::AnimCurveMappingName))
 		{
 			TArray<FName> Names; 
 			Mapping->FillNameArray(Names);

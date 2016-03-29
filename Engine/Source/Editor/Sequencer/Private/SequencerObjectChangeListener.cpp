@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerPrivatePCH.h"
 #include "SequencerObjectChangeListener.h"
@@ -206,6 +206,11 @@ bool FSequencerObjectChangeListener::FindPropertySetter( const UClass& ObjectCla
 
 bool FSequencerObjectChangeListener::CanKeyProperty(FCanKeyPropertyParams CanKeyPropertyParams) const
 {
+	if (CanKeyPropertyParams.PropertyPath.Num() == 0)
+	{
+		return false;
+	}
+
 	const UStructProperty* StructProperty = Cast<const UStructProperty>(CanKeyPropertyParams.PropertyPath.Last());
 	const UStructProperty* ParentStructProperty = nullptr;
 	if (CanKeyPropertyParams.PropertyPath.Num() > 1)
@@ -288,7 +293,7 @@ void FSequencerObjectChangeListener::OnObjectPreEditChange( UObject* Object, con
 				FPropertyListenerSettings Settings;
 				// Ignore array and object properties
 				Settings.bIgnoreArrayProperties = true;
-				Settings.bIgnoreObjectProperties = true;
+				Settings.bIgnoreObjectProperties = false;
 				// Property flags which must be on the property
 				Settings.RequiredPropertyFlags = 0;
 				// Property flags which cannot be on the property

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "EdGraph/EdGraphNode.h"
@@ -6,55 +6,93 @@
 #include "EngineLogs.h"
 #include "K2Node.generated.h"
 
+class UActorComponent;
 class UBlueprintNodeSpawner;
 class FBlueprintActionDatabaseRegistrar;
 class UDynamicBlueprintBinding;
+
+/** Helper structure to cache old data for optional pins so the data can be restored during reconstruction */
+struct FOldOptionalPinSettings
+{
+	/** TRUE if optional pin was previously visible */
+	bool bOldVisibility;
+	/** TRUE if the optional pin's override value was previously enabled */
+	bool bIsOldOverrideEnabled;
+	/** TRUE if the optional pin's value was previously editable */
+	bool bIsOldSetValuePinVisible;
+	/** TRUE if the optional pin's override value was previously editable */
+	bool bIsOldOverridePinVisible;
+
+	FOldOptionalPinSettings(bool bInOldVisibility, bool bInIsOldOverrideEnabled, bool bInIsOldSetValuePinVisible, bool bInIsOldOverridePinVisible)
+		: bOldVisibility(bInOldVisibility)
+		, bIsOldOverrideEnabled(bInIsOldOverrideEnabled)
+		, bIsOldSetValuePinVisible(bInIsOldSetValuePinVisible)
+		, bIsOldOverridePinVisible(bInIsOldOverridePinVisible)
+	{}
+};
 
 USTRUCT()
 struct FOptionalPinFromProperty
 {
 	GENERATED_USTRUCT_BODY()
 
-	UPROPERTY(EditAnywhere, Category=Hi, BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, Category= OptionalPin, BlueprintReadOnly)
 	FName PropertyName;
 
-	UPROPERTY(EditAnywhere, Category=Hi, BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, Category= OptionalPin, BlueprintReadOnly)
 	FString PropertyFriendlyName;
 
-	//~ Using WITH_EDITORONLY_DATA within an Editor module to exclude this FText property from the gather for games
-#if WITH_EDITORONLY_DATA
-	UPROPERTY(EditAnywhere, Category=Hi, BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, Category= OptionalPin, BlueprintReadOnly)
 	FText PropertyTooltip;
-#endif //~ WITH_EDITORONLY_DATA
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Hi)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=OptionalPin)
 	bool bShowPin;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Hi)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=OptionalPin)
 	bool bCanToggleVisibility;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Hi)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=OptionalPin)
 	bool bPropertyIsCustomized;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Hi)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=OptionalPin)
 	FName CategoryName;
 
-	UPROPERTY(EditAnywhere, Category = Hi)
+	UPROPERTY(EditAnywhere, Category=OptionalPin)
 	bool bHasOverridePin;
 
+	/** TRUE if the override value is enabled for use */
+	UPROPERTY(EditAnywhere, Category = OptionalPin)
+	bool bIsOverrideEnabled;
+
+	/** TRUE if the override value should be set through this pin */
+	UPROPERTY(EditAnywhere, Category = OptionalPin)
+	bool bIsSetValuePinVisible;
+
+	/** TRUE if the override pin is visible */
+	UPROPERTY(EditAnywhere, Category = OptionalPin)
+	bool bIsOverridePinVisible;
+
 	FOptionalPinFromProperty()
+		: bIsOverrideEnabled(true)
+		, bIsSetValuePinVisible(true)
+		, bIsOverridePinVisible(true)
 	{
 	}
 	
 	FOptionalPinFromProperty(FName InPropertyName, bool bInShowPin, bool bInCanToggleVisibility, const FString& InFriendlyName, const FText& InTooltip, bool bInPropertyIsCustomized, FName InCategoryName, bool bInHasOverridePin)
 		: PropertyName(InPropertyName)
 		, PropertyFriendlyName(InFriendlyName)
+#if WITH_EDITORONLY_DATA
 		, PropertyTooltip(InTooltip)
+#endif
 		, bShowPin(bInShowPin)
 		, bCanToggleVisibility(bInCanToggleVisibility)
 		, bPropertyIsCustomized(bInPropertyIsCustomized)
 		, CategoryName(InCategoryName)
 		, bHasOverridePin(bInHasOverridePin)
+		, bIsOverrideEnabled(true)
+		, bIsSetValuePinVisible(true)
+		, bIsOverridePinVisible(true)
 	{
 	}
 };
@@ -83,7 +121,7 @@ public:
 protected:
 	virtual void PostInitNewPin(UEdGraphPin* Pin, FOptionalPinFromProperty& Record, int32 ArrayIndex, UProperty* Property, uint8* PropertyAddress) const {}
 	virtual void PostRemovedOldPin(FOptionalPinFromProperty& Record, int32 ArrayIndex, UProperty* Property, uint8* PropertyAddress) const {}
-	void RebuildProperty(UProperty* TestProperty, FName CategoryName, TArray<FOptionalPinFromProperty>& Properties, UStruct* SourceStruct, TMap<FName, bool>& OldVisibility);
+	void RebuildProperty(UProperty* TestProperty, FName CategoryName, TArray<FOptionalPinFromProperty>& Properties, UStruct* SourceStruct, TMap<FName, FOldOptionalPinSettings>& OldSettings);
 };
 
 enum ERenamePinResult
@@ -110,7 +148,7 @@ class UK2Node : public UEdGraphNode
 	BLUEPRINTGRAPH_API virtual FLinearColor GetNodeTitleColor() const override;
 	BLUEPRINTGRAPH_API virtual void AutowireNewNode(UEdGraphPin* FromPin) override;
 	BLUEPRINTGRAPH_API void PinConnectionListChanged(UEdGraphPin* Pin) override;
-	virtual UObject* GetJumpTargetForDoubleClick() const override { return GetReferencedLevelActor(); }
+    BLUEPRINTGRAPH_API virtual UObject* GetJumpTargetForDoubleClick() const override;
 	BLUEPRINTGRAPH_API virtual FString GetDocumentationLink() const override;
 	BLUEPRINTGRAPH_API virtual void GetPinHoverText(const UEdGraphPin& Pin, FString& HoverTextOut) const override;
 	BLUEPRINTGRAPH_API virtual bool ShowPaletteIconOnNode() const override { return true; }
@@ -120,6 +158,9 @@ class UK2Node : public UEdGraphNode
 	// End of UEdGraphNode interface
 
 	// K2Node interface
+
+	UPROPERTY()
+	TMap<UEdGraphPin*, UEdGraphPin*> ByRefMatchupPins;
 
 	// Reallocate pins during reconstruction; by default ignores the old pins and calls AllocateDefaultPins()
 	BLUEPRINTGRAPH_API virtual void ReallocatePinsDuringReconstruction(TArray<UEdGraphPin*>& OldPins);

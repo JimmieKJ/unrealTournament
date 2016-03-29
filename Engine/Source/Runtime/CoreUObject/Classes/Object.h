@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 
@@ -216,7 +216,7 @@ namespace EMouseCursor
 
 /** A set of numerical unit types supported by the engine. Mirrored from UnitConversion.h */
 UENUM(BlueprintType)
-enum class EUnit
+enum class EUnit : uint8
 {
 	/** Scalar distance/length unit. */
 
@@ -269,6 +269,10 @@ enum class EUnit
 	/** Time units */
 	
 	Milliseconds, Seconds, Minutes, Hours, Days, Months, Years,
+
+	/** Arbitrary multiplier */
+	
+	Multiplier,
 
 
 	/** Symbolic entry, not specifiable on meta data. */
@@ -545,7 +549,7 @@ struct FBox2D
 	FVector2D Max;
 
 	UPROPERTY()
-	bool bIsValid;
+	uint8 IsValid;
 
 };
 

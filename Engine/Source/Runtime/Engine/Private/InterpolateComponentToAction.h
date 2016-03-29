@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -109,7 +109,7 @@ public:
 				TargetComponent->SetRelativeLocation(NewLocation, false);
 			}
 
-			if(bInterpRotation)
+			if(bInterpRotation && TargetComponent.IsValid())
 			{
 				FRotator NewRotation = bComplete ? TargetRotation : FMath::Lerp(InitialRotation, TargetRotation, BlendPct);
 				TargetComponent->SetRelativeRotation(NewRotation, false);

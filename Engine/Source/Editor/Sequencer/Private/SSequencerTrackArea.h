@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -9,6 +9,7 @@ class FSequencerTimeSliderController;
 class FSequencer;
 
 #include "SequencerInputHandlerStack.h"
+#include "ISequencerEditTool.h"
 
 /**
  * Structure representing a slot in the track area.
@@ -65,6 +66,9 @@ public:
 	/** Assign a tree view to this track area. */
 	void SetTreeView(const TSharedPtr<SSequencerTreeView>& InTreeView);
 
+	/** Access the currently active track area edit tool */
+	const ISequencerEditTool* GetEditTool() const { return EditTool.IsValid() ? EditTool.Get() : nullptr; }
+
 public:
 
 	// SWidget interface
@@ -83,6 +87,18 @@ public:
 	virtual FVector2D ComputeDesiredSize(float) const override;
 	virtual FChildren* GetChildren() override;
 
+protected:
+
+	/** Check whether it's possible to activate the specified tool */
+	bool CanActivateEditTool(FName Identifier) const;
+
+	/** Attempt to activate the tool specified by the template parameter */
+	template<typename EditToolType>
+	bool AttemptToActivateTool();
+
+	/** Update any hover state required for the track area */
+	void UpdateHoverStates( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent );
+
 private:
 
 	/** The track area's children. */
@@ -97,7 +113,7 @@ private:
 	TMap<TSharedPtr<FSequencerDisplayNode>, TWeakPtr<SSequencerTrackLane>> TrackSlots;
 
 	/** Weak pointer to the sequencer widget. */
-	TSharedPtr<FSequencer> Sequencer;
+	TWeakPtr<FSequencer> Sequencer;
 
 	/** Weak pointer to the tree view (used for scrolling interactions). */
 	TWeakPtr<SSequencerTreeView> TreeView;
@@ -107,6 +123,9 @@ private:
 
 	/** Keep a hold of the size of the area so we can maintain zoom levels. */
 	TOptional<FVector2D> SizeLastFrame;
+
+	/** The currently active edit tool on this track area */
+	TUniquePtr<ISequencerEditTool> EditTool;
 
 private:
 

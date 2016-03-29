@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "NavigationModifier.h"
@@ -53,6 +53,60 @@ void FNavigationLinkBase::PostSerialize(const FArchive& Ar)
 		SupportedAgents.MarkInitialized();
 	}
 }
+
+#if WITH_EDITOR
+
+void FNavigationLinkBase::DescribeCustomFlags(const TArray<FString>& EditableFlagNames, UClass* NavLinkPropertiesOwnerClass)
+{
+	if (NavLinkPropertiesOwnerClass == nullptr)
+	{
+		NavLinkPropertiesOwnerClass = UNavLinkDefinition::StaticClass();
+	}
+
+	const int32 MaxFlags = FMath::Min(8, EditableFlagNames.Num());
+	const FString CustomNameMeta = TEXT("DisplayName");
+
+	for (TFieldIterator<UProperty> PropertyIt(NavLinkPropertiesOwnerClass, EFieldIteratorFlags::IncludeSuper); PropertyIt; ++PropertyIt)
+	{
+		UProperty* Prop = *PropertyIt;
+
+		UArrayProperty* ArrayProp = Cast<UArrayProperty>(Prop);
+		UStructProperty* StructProp = Cast<UStructProperty>(ArrayProp ? ArrayProp->Inner : Prop);
+
+		if (StructProp)
+		{
+			for (UStruct* StructIt = StructProp->Struct; StructIt; StructIt = StructIt->GetSuperStruct())
+			{
+				if (StructIt->GetFName() == TEXT("NavigationLinkBase"))
+				{
+					for (int32 Idx = 0; Idx < 8; Idx++)
+					{
+						FString PropName(TEXT("bCustomFlag"));
+						PropName += TTypeToString<int32>::ToString(Idx);
+
+						UProperty* FlagProp = FindField<UProperty>(StructIt, *PropName);
+						if (FlagProp)
+						{
+							if (Idx < MaxFlags)
+							{
+								FlagProp->SetPropertyFlags(CPF_Edit);
+								FlagProp->SetMetaData(*CustomNameMeta, *EditableFlagNames[Idx]);
+							}
+							else
+							{
+								FlagProp->ClearPropertyFlags(CPF_Edit);
+							}
+						}
+					}
+
+					break;
+				}
+			}
+		}
+	}
+}
+
+#endif // WITH_EDITOR
 
 //----------------------------------------------------------------------//
 // UNavLinkDefinition

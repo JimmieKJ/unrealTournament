@@ -47,6 +47,7 @@
     </Compile>
     <Compile Include="DependencyManifest.cs" />
     <Compile Include="ForkReadStream.cs" />
+    <Compile Include="IgnoreFile.cs" />
     <Compile Include="Log.cs" />
     <Compile Include="NotifyReadStream.cs" />
     <Compile Include="Program.cs" />

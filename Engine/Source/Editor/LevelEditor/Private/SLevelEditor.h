@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #ifndef __SLevelEditor_h__
@@ -94,12 +94,12 @@ public:
 	 * @param MyGeometry		Information about the size and position of the viewport widget
 	 * @param InKeyEvent	The event which just occurred	
 	 */
-	virtual FReply OnKeyDownInViewport( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent );
+	virtual FReply OnKeyDownInViewport( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent ) override;
 
 	bool CanCloseApp();
 
 	/** Returns the full action list for this level editor instance */
-	const TSharedPtr< FUICommandList >& GetLevelEditorActions() const
+	virtual const TSharedPtr< FUICommandList >& GetLevelEditorActions() const override
 	{
 		return LevelEditorCommands;
 	}
@@ -119,7 +119,7 @@ public:
 	}
 
 	// Tab Management
-	TSharedRef<FTabManager> GetTabManager() const;
+	virtual TSharedRef<FTabManager> GetTabManager() const override;
 	
 	/** Attaches a sequencer asset editor used to animate objects in the level to this level editor */
 	void AttachSequencer( TSharedPtr<SWidget> SequencerWidget, TSharedPtr<IAssetEditorInstance> NewSequencerAssetEditor );

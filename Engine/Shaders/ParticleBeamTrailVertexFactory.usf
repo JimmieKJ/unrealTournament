@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ParticleBeamTrailVertexFactory.hlsl: Particle vertex factory shader code.
@@ -16,6 +16,11 @@ struct FVertexFactoryInput
 #if USE_DYNAMIC_PARAMETERS
 	float4 DynamicParameter0		: ATTRIBUTE5;
 #endif	//USE_DYNAMIC_PARAMETERS
+
+/** Optional instance ID for vertex layered rendering */
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER
+	uint InstanceId	: SV_InstanceID;
+#endif
 };
 
 struct FVertexFactoryInterpolantsVSToPS
@@ -34,6 +39,10 @@ struct FVertexFactoryInterpolantsVSToPS
 #if USE_DYNAMIC_PARAMETERS
 	float4 DynamicParameter0	: TEXCOORD4;
 #endif	//USE_DYNAMIC_PARAMETERS
+
+#if INSTANCED_STEREO
+	nointerpolation uint PackedEyeIndex : PACKED_EYE_INDEX;
+#endif
 };
 
 struct FVertexFactoryIntermediates
@@ -125,7 +134,7 @@ void GetTangents(FVertexFactoryInput Input,out float4 Right,out float4 Up)
 	float4	Position			= TransformLocalToTranslatedWorld(Input.Position.xyz),
 			OldPosition			= TransformLocalToTranslatedWorld(Input.OldPosition.xyz);
 
-	float3	CameraDirection		= SafeNormalize(View.WorldCameraOrigin - Position.xyz),
+	float3	CameraDirection		= SafeNormalize(ResolvedView.WorldCameraOrigin - Position.xyz),
 			ParticleDirection	= SafeNormalize(Position.xyz - OldPosition.xyz);
 
 	float4	Right_Square		= BeamTrailVF.CameraRight,
@@ -182,6 +191,11 @@ float4 VertexFactoryGetRasterizedWorldPosition(FVertexFactoryInput Input, FVerte
 	return InWorldPosition;
 }
 
+float3 VertexFactoryGetPositionForVertexLighting(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates, float3 TranslatedWorldPosition)
+{
+	return TranslatedWorldPosition;
+}
+
 FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates, FMaterialVertexParameters VertexParameters)
 {
 	FVertexFactoryInterpolantsVSToPS Interpolants;
@@ -201,6 +215,10 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 	Interpolants.TangentToWorld0 = TangentToWorld[0];
 	Interpolants.TangentToWorld2 = float4(TangentToWorld[2], sign(determinant(TangentToLocal)));
 
+#if INSTANCED_STEREO
+	Interpolants.PackedEyeIndex = 0;
+#endif
+
 	return Interpolants;
 }
 
@@ -219,3 +237,10 @@ float3x3 VertexFactoryGetTangentToLocal( FVertexFactoryInput Input, FVertexFacto
 {
 	return CalcTangentBasis(Input);
 }
+
+#if INSTANCED_STEREO
+uint VertexFactoryGetEyeIndex(uint InstanceId)
+{
+	return InstanceId & 1;
+}
+#endif

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AsyncIOSystemBase.h: Base implementation of the async IO system
@@ -164,6 +164,11 @@ struct CORE_API FAsyncIOSystemBase : public FIOSystem, FRunnable, FSingleThreadR
 	 */
 	virtual int64 MinimumReadSize() override;
 
+	/**
+	 * Flush the pending logs if any.
+	 */
+	virtual void FlushLog() override;
+
 protected:
 
 	/**
@@ -198,7 +203,14 @@ protected:
 		uint32			bIsDestroyHandleRequest : 1;
 		/** Whether we already requested the handle to be cached.									*/
 		uint32			bHasAlreadyRequestedHandleToBeCached : 1;
-
+#if !UE_BUILD_SHIPPING
+		/** The Time at which the request was made.													*/
+		double			TimeOfRequest;
+		/** Time it took before the request was processed.											*/
+		double			WaitTime;
+		/** Time it took to do the actual read														*/
+		double			ReadTime;
+#endif
 		/** Constructor, initializing all member variables. */
 		FAsyncIORequest()
 		:	RequestIndex(0)
@@ -211,17 +223,34 @@ protected:
 		,	Counter(NULL)
 		,	Priority(AIOP_MIN)
 		,	bIsDestroyHandleRequest(false)
-		, bHasAlreadyRequestedHandleToBeCached(false)
+		,	bHasAlreadyRequestedHandleToBeCached(false)
+#if !UE_BUILD_SHIPPING
+		,	TimeOfRequest(-1)
+		,	WaitTime(-1)
+		,	ReadTime(-1)
+#endif
 		{}
 
 		/**
 		 * @returns human readable string with information about request
 		 */
-		FString ToString() const
+		FString ToString(bool bShowTiming) const
 		{
-			return FString::Printf(TEXT("%11.1f, %10d, %12lld, %12lld, %12lld, 0x%p, 0x%08x, 0x%08x, %d, %s"),
-				(double)RequestIndex, FileSortKey, Offset, Size, UncompressedSize, Dest, (uint32)CompressionFlags,
-				(uint32)Priority, bIsDestroyHandleRequest ? 1 : 0, *FileName);
+			if (bShowTiming)
+			{
+#if !UE_BUILD_SHIPPING
+				return FString::Printf(TEXT("%12lld, %12lld, %d, %.2f, %.3f, %1.3f, %1.3f, %s"),
+					Offset, Size, (uint32)Priority, TimeOfRequest, WaitTime, ReadTime, *FileName);
+#else
+				return FString();
+#endif
+			}
+			else
+			{
+				return FString::Printf(TEXT("%11.1f, %10d, %12lld, %12lld, %12lld, 0x%p, 0x%08x, 0x%08x, %d, %s"),
+					(double)RequestIndex, FileSortKey, Offset, Size, UncompressedSize, Dest, (uint32)CompressionFlags,
+					(uint32)Priority, bIsDestroyHandleRequest ? 1 : 0, *FileName);
+			}
 		}
 	};
 
@@ -390,13 +419,15 @@ protected:
 	TMap<uint32, IFileHandle*>		NameHashToHandleMap;
 	/** Array of outstanding requests, processed in FIFO order										*/
 	TArray<FAsyncIORequest>			OutstandingRequests;
+	/** Array of processed requests, with timings													*/
+	TArray<FAsyncIORequest>			ProcessedRequestForLogs;
 	/** Event that is signaled if there are outstanding requests									*/
 	FEvent*							OutstandingRequestsEvent;
 	/** Thread safe counter that is 1 if the thread is currently busy with request, 0 otherwise		*/
 	FThreadSafeCounter				BusyWithRequest;
 	/** Thread safe counter that is 1 if the thread is available to process requests, 0 otherwise	*/
 	FThreadSafeCounter				IsRunning;
-	/** Current request index. We don't really worry about wrapping around with a uint64				*/
+	/** Current request index. We don't really worry about wrapping around with a uint64			*/
 	uint64							RequestIndex;
 	/** Counter to indicate that the application requested that IO should be suspended				*/
 	FThreadSafeCounter				SuspendCount;

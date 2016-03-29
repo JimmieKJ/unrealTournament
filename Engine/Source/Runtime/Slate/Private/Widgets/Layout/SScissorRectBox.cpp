@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlatePrivatePCH.h"
 #include "SScissorRectBox.h"
@@ -9,12 +9,13 @@ SScissorRectBox::SScissorRectBox()
 
 void SScissorRectBox::Construct(const FArguments& InArgs)
 {
+	bCanTick = false;
+
 	ChildSlot
 	[
 		InArgs._Content.Widget
 	];
 }
-
 
 FVector2D SScissorRectBox::ComputeDesiredSize( float ) const
 {

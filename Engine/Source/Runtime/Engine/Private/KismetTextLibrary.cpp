@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Kismet/KismetTextLibrary.h"
@@ -145,7 +145,13 @@ FText UKismetTextLibrary::Conv_FloatToText(float Value, TEnumAsByte<ERoundingMod
 	return FText::AsNumber(Value, &NumberFormatOptions);
 }
 
+FText UKismetTextLibrary::AsCurrencyBase(int32 BaseValue, const FString& CurrencyCode)
+{
+	return FText::AsCurrencyBase(BaseValue, CurrencyCode);
+}
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+// FIXME: we need to deprecate this kismet api too
 FText UKismetTextLibrary::AsCurrency_Integer(int32 Value, TEnumAsByte<ERoundingMode> RoundingMode, bool bUseGrouping/* = true*/, int32 MinimumIntegralDigits/* = 1*/, int32 MaximumIntegralDigits/* = 324*/, int32 MinimumFractionalDigits/* = 0*/, int32 MaximumFractionalDigits/* = 3*/, const FString& CurrencyCode)
 {
 	FNumberFormattingOptions NumberFormatOptions;
@@ -155,11 +161,8 @@ FText UKismetTextLibrary::AsCurrency_Integer(int32 Value, TEnumAsByte<ERoundingM
 	NumberFormatOptions.MaximumIntegralDigits = MaximumIntegralDigits;
 	NumberFormatOptions.MinimumFractionalDigits = MinimumFractionalDigits;
 	NumberFormatOptions.MaximumFractionalDigits = MaximumFractionalDigits;
-
 	return FText::AsCurrency(Value, CurrencyCode, &NumberFormatOptions);
 }
-
-
 FText UKismetTextLibrary::AsCurrency_Float(float Value, TEnumAsByte<ERoundingMode> RoundingMode, bool bUseGrouping/* = true*/, int32 MinimumIntegralDigits/* = 1*/, int32 MaximumIntegralDigits/* = 324*/, int32 MinimumFractionalDigits/* = 0*/, int32 MaximumFractionalDigits/* = 3*/, const FString& CurrencyCode)
 {
 	FNumberFormattingOptions NumberFormatOptions;
@@ -169,10 +172,9 @@ FText UKismetTextLibrary::AsCurrency_Float(float Value, TEnumAsByte<ERoundingMod
 	NumberFormatOptions.MaximumIntegralDigits = MaximumIntegralDigits;
 	NumberFormatOptions.MinimumFractionalDigits = MinimumFractionalDigits;
 	NumberFormatOptions.MaximumFractionalDigits = MaximumFractionalDigits;
-
 	return FText::AsCurrency(Value, CurrencyCode, &NumberFormatOptions);
 }
-
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 FText UKismetTextLibrary::AsPercent_Float(float Value, TEnumAsByte<ERoundingMode> RoundingMode, bool bUseGrouping/* = true*/, int32 MinimumIntegralDigits/* = 1*/, int32 MaximumIntegralDigits/* = 324*/, int32 MinimumFractionalDigits/* = 0*/, int32 MaximumFractionalDigits/* = 3*/)
 {

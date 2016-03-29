@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	HlslParser.cpp - Implementation for parsing hlsl.
@@ -93,6 +93,19 @@ namespace CrossCompiler
 		}
 
 		return EParseResult::NotMatched;
+	}
+
+	bool MatchPragma(FHlslParser& Parser, FLinearAllocator* Allocator, AST::FNode** OutNode)
+	{
+		const auto* Peek = Parser.Scanner.GetCurrentToken();
+		if (Parser.Scanner.MatchToken(EHlslToken::Pragma))
+		{
+			auto* Pragma = new(Allocator)AST::FPragma(Allocator, *Peek->String, Peek->SourceInfo);
+			*OutNode = Pragma;
+			return true;
+		}
+
+		return false;
 	}
 
 	EParseResult ParseDeclarationArrayBracketsAndIndex(FHlslScanner& Scanner, FSymbolScope* SymbolScope, bool bNeedsDimension, FLinearAllocator* Allocator, AST::FExpression** OutExpression)
@@ -980,6 +993,11 @@ Done:
 
 	EParseResult ParseStatement(FHlslParser& Parser, FLinearAllocator* Allocator, AST::FNode** OutStatement)
 	{
+		if (MatchPragma(Parser, Allocator, OutStatement))
+		{
+			return EParseResult::Matched;
+		}
+
 		const auto* Token = Parser.Scanner.PeekToken();
 		if (Token && Token->Token == EHlslToken::RightBrace)
 		{
@@ -1630,6 +1648,11 @@ check(0);
 
 	EParseResult TryTranslationUnit(FHlslParser& Parser, FLinearAllocator* Allocator, AST::FNode** OutNode)
 	{
+		if (MatchPragma(Parser, Allocator, OutNode))
+		{
+			return EParseResult::Matched;
+		}
+
 		if (Parser.Scanner.MatchToken(EHlslToken::CBuffer))
 		{
 			auto Result = ParseCBuffer(Parser, Allocator, OutNode);

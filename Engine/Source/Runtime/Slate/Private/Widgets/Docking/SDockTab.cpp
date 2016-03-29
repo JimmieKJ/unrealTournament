@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlatePrivatePCH.h"
 #include "SDockTab.h"
@@ -70,9 +70,24 @@ FReply SDockTab::OnDragDetected( const FGeometry& MyGeometry, const FPointerEven
 		FMath::Clamp(TabGrabOffset.Y / TabSize.Y, 0.0f, 1.0f) );
 	
 	auto PinnedParent = ParentPtr.Pin();
-	return ensure(PinnedParent.IsValid())
-		? PinnedParent->StartDraggingTab(SharedThis(this), TabGrabOffsetFraction, MouseEvent)
-		: FReply::Unhandled();
+	if (PinnedParent.IsValid())
+	{
+		//See if we can drag tabs contain in this manager
+		if (GetTabManager()->GetCanDoDragOperation())
+		{
+			return PinnedParent->StartDraggingTab(SharedThis(this), TabGrabOffsetFraction, MouseEvent);
+		}
+		else
+		{
+			return FReply::Handled();
+		}
+	}
+	else
+	{
+		// Should never get here (but sometimes does, under unknown circumstances)
+		// TODO: investigate how the parent pointer can become invalid
+		return FReply::Unhandled();
+	}
 }
 
 FReply SDockTab::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )

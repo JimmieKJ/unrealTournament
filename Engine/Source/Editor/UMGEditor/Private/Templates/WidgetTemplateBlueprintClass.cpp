@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGEditorPrivatePCH.h"
 #include "Blueprint/UserWidget.h"
@@ -64,10 +64,14 @@ UWidget* FWidgetTemplateBlueprintClass::Create(UWidgetTree* Tree)
 	return FWidgetTemplateClass::CreateNamed(Tree, FName(*FBlueprintEditorUtils::GetClassNameWithoutSuffix(WidgetClass.Get())));
 }
 
+const FSlateBrush* GetEditorIcon_Deprecated(UWidget* Widget);
+
 const FSlateBrush* FWidgetTemplateBlueprintClass::GetIcon() const
 {
+	// @todo UMG: remove after 4.12
 	auto DefaultUserWidget = UUserWidget::StaticClass()->GetDefaultObject<UUserWidget>();
-	return DefaultUserWidget->GetEditorIcon();
+	return GetEditorIcon_Deprecated(DefaultUserWidget);
+	// return FClassIconFinder::FindIconForClass(UUserWidget::StaticClass());
 }
 
 TSharedRef<IToolTip> FWidgetTemplateBlueprintClass::GetToolTip() const

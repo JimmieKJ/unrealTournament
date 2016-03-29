@@ -1,0 +1,130 @@
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	TextureStreamingAnalysis.usf: Pixel shader to analyse coordinate scale per texture
+=============================================================================*/
+
+#define TEX_COORD_SCALE_ANALYSIS 1
+#define DEBUG_MATERIAL_PARAMETERS 1
+#define INITIAL_GPU_SCALE 1024
+
+#include "Common.usf"
+#include "SHCommon.usf"
+
+// Scale is 16 bits interger, 16 bits fractionnal.
+const static uint FRACTIONNAL_SCALE = 0xFFFF;
+
+uint FloatToDiscreteScale(float Value)
+{
+	return (uint)(Value * (float)FRACTIONNAL_SCALE); 
+}
+
+RWTexture2D<uint> RWCoordScales : register(u7);
+
+ // If -1, output everything to the RW texture.
+float4 AccuracyColors[5];
+uint TextureAnalysisIndex;
+float CPUScale;
+
+// Global var used to reduce the number of param passed to the shaders.
+uint2 PixelPosition;
+uint CoordScaleHeight;
+uint CoordScaleWidth;
+float OneOverDDX0;
+float OneOverDDY0;
+float GPUScale;
+float TexSample;
+  
+MaterialFloat StoreTexCoordScale(float2 UV, uint TextureReferenceIndex)
+{
+ 	// Take the minimum scale since high scale requires less resolution.
+	float Scale = min(length(ddx(UV)) * OneOverDDX0, length(ddy(UV)) * OneOverDDY0);
+
+	if (TextureAnalysisIndex == TextureReferenceIndex)
+	{
+		GPUScale = min(Scale, GPUScale);
+	} 
+
+	[branch]
+	if (TextureAnalysisIndex == -1) 
+	{
+		InterlockedMin(RWCoordScales[PixelPosition + uint2(TextureReferenceIndex * CoordScaleWidth, 0)], FloatToDiscreteScale(Scale));
+	}
+
+	return 1.f;
+}
+
+MaterialFloat StoreTexSample(float4 C, uint TextureReferenceIndex)
+{
+	if (TextureAnalysisIndex == TextureReferenceIndex)
+	{
+		// Alpha?
+		TexSample = lerp(.25f, 1.f, Luminance(C.rgb));
+	}
+
+	return 1.f;
+}
+
+
+#include "Material.usf"
+#include "DebugViewModeCommon.usf"
+
+void Main(
+	in FDebugPSIn DebugInputs
+	OPTIONAL_IsFrontFace,
+	out float4 OutColor : SV_Target0
+	)
+{
+#if INSTANCED_STEREO
+	ResolvedView = ResolveView(DebugInputs.EyeIndex);
+#else
+	ResolvedView = ResolveView();
+#endif
+
+
+	float3 Result = float3(.1, .1, .1);
+
+	// Set global var used for outputting data
+	PixelPosition = DebugInputs.SvPosition;
+	RWCoordScales.GetDimensions(CoordScaleWidth, CoordScaleHeight);
+	OneOverDDX0 = 1 / length(ddx(DebugInputs.TexCoord0));
+	OneOverDDY0 = 1 / length(ddy(DebugInputs.TexCoord0));
+	GPUScale = INITIAL_GPU_SCALE;
+	TexSample = 1.f;
+
+	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(DebugInputs, DebugInputs.SvPosition);
+	FPixelMaterialInputs PixelMaterialInputs;
+	CalcMaterialParameters(MaterialParameters, PixelMaterialInputs, DebugInputs.SvPosition, bIsFrontFace);
+
+	// Sample material properties. The results are not used, but the calls to StoreTexCoordScale are still be made.
+	half3 BaseColor = GetMaterialBaseColor(PixelMaterialInputs);
+	half  Metallic = GetMaterialMetallic(PixelMaterialInputs);
+	half  Specular = GetMaterialSpecular(PixelMaterialInputs);
+	float Roughness = GetMaterialRoughness(PixelMaterialInputs);
+	half3 Emissive = GetMaterialEmissive(PixelMaterialInputs);
+	half Opacity = GetMaterialOpacity(PixelMaterialInputs);
+	half Mask = GetMaterialMask(PixelMaterialInputs);
+	half4 SSData = GetMaterialSubsurfaceData(MaterialParameters);
+	float Custom0 = GetMaterialCustomData0(MaterialParameters);
+	float Custom1 = GetMaterialCustomData1(MaterialParameters);
+	float MaterialAO = GetMaterialAmbientOcclusion(PixelMaterialInputs);
+	float PixelDepthOffset = GetMaterialPixelDepthOffset(PixelMaterialInputs);
+
+	// Output accuracy
+	if (GPUScale != INITIAL_GPU_SCALE)
+	{
+		float Accuracy = clamp(log2(GPUScale) - log2(CPUScale), -1.99, 1.99);
+		int ColorIndex = floor(Accuracy) + 2;
+
+		Result = TexSample * lerp(AccuracyColors[ColorIndex].rgb, AccuracyColors[ColorIndex + 1].rgb, frac(Accuracy));
+	}
+
+	OutColor = RETURN_COLOR(float4(Result, .25f));
+
+}
+
+
+
+
+
+

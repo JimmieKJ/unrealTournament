@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 // Core includes.
@@ -64,6 +64,9 @@ void FRedirectCollector::OnStringAssetReferenceLoaded(const FString& InString)
 			{
 				ContainingPackageAndProperty.Property = FString::Printf(TEXT("%s:%s"), *ThreadContext.SerializedObject->GetPathName(), *Linker->GetSerializedProperty()->GetName());
 			}
+#if WITH_EDITORONLY_DATA
+			ContainingPackageAndProperty.bReferencedByEditorOnlyProperty = Linker->IsEditorOnlyPropertyOnTheStack();
+#endif
 		}
 	}
 	StringAssetReferences.AddUnique(InString, ContainingPackageAndProperty);
@@ -112,7 +115,7 @@ void FRedirectCollector::ResolveStringAssetReference(FString FilterPackage)
 
 			StringAssetRefFilenameStack.Push(RefFilenameAndProperty.Package);
 
-			UObject *Loaded = LoadObject<UObject>(NULL, *ToLoad, NULL, LOAD_None, NULL);
+			UObject *Loaded = LoadObject<UObject>(NULL, *ToLoad, NULL, RefFilenameAndProperty.bReferencedByEditorOnlyProperty ? LOAD_EditorOnly : LOAD_None, NULL);
 			StringAssetRefFilenameStack.Pop();
 
 			UObjectRedirector* Redirector = dynamic_cast<UObjectRedirector*>(Loaded);
@@ -139,7 +142,8 @@ void FRedirectCollector::ResolveStringAssetReference(FString FilterPackage)
 			}
 			else
 			{
-				UE_LOG(LogRedirectors, Warning, TEXT("String Asset Reference '%s' was not found!"), *ToLoad);
+				const FString Referencer = RefFilenameAndProperty.Property.Len() ? RefFilenameAndProperty.Property : TEXT("Unknown");
+				UE_LOG(LogRedirectors, Warning, TEXT("String Asset Reference '%s' was not found! (Referencer '%s')"), *ToLoad, *Referencer);
 			}
 		}
 	}

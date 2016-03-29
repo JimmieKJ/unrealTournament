@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	D3D11Query.cpp: D3D query RHI implementation.
@@ -211,27 +211,43 @@ void FD3D11BufferedGPUTiming::PlatformStaticInitialize(void* UserData)
 	QueryDesc.Query = D3D11_QUERY_TIMESTAMP_DISJOINT;
 	QueryDesc.MiscFlags = 0;
 
-	D3DResult = D3DRHI->GetDevice()->CreateQuery(&QueryDesc, FreqQuery.GetInitReference() );
-	if ( D3DResult == S_OK )
 	{
-		D3D11DeviceContext->Begin(FreqQuery);
-		D3D11DeviceContext->End(FreqQuery);
+		// to track down some rare event where GTimingFrequency is 0 or <1000*1000
+		uint32 DebugState = 0;
+		uint32 DebugCounter = 0;
 
-		D3D11_QUERY_DATA_TIMESTAMP_DISJOINT FreqQueryData;
-
-		D3DResult = D3D11DeviceContext->GetData(FreqQuery,&FreqQueryData,sizeof(D3D11_QUERY_DATA_TIMESTAMP_DISJOINT),0);
-		double StartTime = FPlatformTime::Seconds();
-		while ( D3DResult == S_FALSE && (FPlatformTime::Seconds() - StartTime) < 0.1 )
+		D3DResult = D3DRHI->GetDevice()->CreateQuery(&QueryDesc, FreqQuery.GetInitReference());
+		if (D3DResult == S_OK)
 		{
-			FPlatformProcess::Sleep( 0.005f );
-			D3DResult = D3D11DeviceContext->GetData(FreqQuery,&FreqQueryData,sizeof(D3D11_QUERY_DATA_TIMESTAMP_DISJOINT),0);
+			DebugState = 1;
+			D3D11DeviceContext->Begin(FreqQuery);
+			D3D11DeviceContext->End(FreqQuery);
+
+			D3D11_QUERY_DATA_TIMESTAMP_DISJOINT FreqQueryData;
+
+			D3DResult = D3D11DeviceContext->GetData(FreqQuery, &FreqQueryData, sizeof(D3D11_QUERY_DATA_TIMESTAMP_DISJOINT), 0);
+			double StartTime = FPlatformTime::Seconds();
+			while (D3DResult == S_FALSE && (FPlatformTime::Seconds() - StartTime) < 0.5f)
+			{
+				++DebugCounter;
+				FPlatformProcess::Sleep(0.005f);
+				D3DResult = D3D11DeviceContext->GetData(FreqQuery, &FreqQueryData, sizeof(D3D11_QUERY_DATA_TIMESTAMP_DISJOINT), 0);
+			}
+
+			if (D3DResult == S_OK)
+			{
+				DebugState = 2;
+				GTimingFrequency = FreqQueryData.Frequency;
+				checkSlow(!FreqQueryData.Disjoint);
+
+				if (FreqQueryData.Disjoint)
+				{
+					DebugState = 3;
+				}
+			}
 		}
 
-		if(D3DResult == S_OK)
-		{
-			GTimingFrequency = FreqQueryData.Frequency;
-			checkSlow(!FreqQueryData.Disjoint);
-		}
+		UE_LOG(LogD3D11RHI, Log, TEXT("GPU Timing Frequency: %f (Debug: %d %d)"), GTimingFrequency / (double)(1000 * 1000), DebugState, DebugCounter);
 	}
 
 	FreqQuery = NULL;

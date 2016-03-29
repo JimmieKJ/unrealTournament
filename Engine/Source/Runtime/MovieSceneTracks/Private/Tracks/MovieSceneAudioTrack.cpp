@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneTracksPrivatePCH.h"
 #include "MovieSceneAudioSection.h"
@@ -17,7 +17,11 @@
 
 UMovieSceneAudioTrack::UMovieSceneAudioTrack( const FObjectInitializer& ObjectInitializer )
 	: Super( ObjectInitializer )
-{ }
+{
+#if WITH_EDITORONLY_DATA
+	TrackTint = FColor(0, 9, 186);
+#endif
+}
 
 
 TSharedPtr<IMovieSceneTrackInstance> UMovieSceneAudioTrack::CreateInstance()

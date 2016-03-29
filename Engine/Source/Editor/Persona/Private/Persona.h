@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -9,7 +9,6 @@
 #include "PersonaModule.h"
 #include "PersonaCommands.h"
 
-#include "AnimationRecorder.h"
 //////////////////////////////////////////////////////////////////////////
 // FPersona
 
@@ -177,6 +176,18 @@ public:
 	/** Called when the blend profile tab selects a profile */
 	void SetSelectedBlendProfile(UBlendProfile* InBlendProfile);
 
+	/** Check whether this Persona instance is recording */
+	bool IsRecording() const;
+
+	/** Stop recording in this Persona instance */
+	void StopRecording();
+
+	/** Get the currently recording animation */
+	UAnimSequence* GetCurrentRecording() const;
+
+	/** Get the currently recording animation time */
+	float GetCurrentRecordingTime() const;
+
 public:
 	//~ Begin IToolkit Interface
 	virtual FName GetToolkitContextFName() const override;
@@ -186,7 +197,6 @@ public:
 	virtual FText GetToolkitToolTipText() const override;
 	virtual FString GetWorldCentricTabPrefix() const override;
 	virtual FLinearColor GetWorldCentricTabColorScale() const override;
-	virtual void SaveAsset_Execute() override;
 	//~ End IToolkit Interface
 
 	/** Saves all animation assets related to a skeleton */
@@ -287,6 +297,10 @@ protected:
 	void OnSkeletonHierarchyChanged();
 
 protected:
+	//~ IToolkit interface
+	virtual void GetSaveableObjects(TArray<UObject*>& OutObjects) const override;
+
+protected:
 	USkeleton* TargetSkeleton;
 	TWeakObjectPtr<UObject> CachedPreviewAsset;
 
@@ -299,9 +313,6 @@ public:
 	// The animation document currently being edited
 	mutable TWeakObjectPtr<UObject> SharedAnimAssetBeingEdited;
 	TWeakPtr<SDockTab> SharedAnimDocumentTab;
-
-	/** Animation recorder **/
-	FAnimationRecorder Recorder;
 
 public:
 	/** Viewport widget */

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -74,6 +74,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 
 		private static DateTime LastBranchesDate = DateTime.UtcNow.AddDays(-1);
 		private static List<SelectListItem> BranchesAsSelectList = null;
+
 		/// <summary>
 		/// Retrieves a list of distinct UE4 Branches from the CrashRepository
 		/// </summary>
@@ -87,16 +88,17 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 
 				if (Now - LastBranchesDate > TimeSpan.FromHours( 1 ))
 				{
-					var BranchList = Context.Crashes
-					.Where( n => n.TimeOfCrash > DateTime.Now.AddMonths( -3 ) )
-					// Depot || Stream
-					.Where( n => n.Branch.StartsWith( "UE4" ) || n.Branch.StartsWith( "//UE4" ) )
-					.Select( n => n.Branch )
-					.Distinct()
-					.ToList();
-					BranchesAsSelectList = BranchList
-						.Select( listitem => new SelectListItem { Selected = false, Text = listitem, Value = listitem } )
-						.ToList();
+                    var BranchList = Context.Crashes
+                    .Where( n => n.TimeOfCrash > DateTime.Now.AddDays( -14 ) )
+                    .Where(c => c.CrashType != 3) // Ignore ensures
+                    // Depot - //depot/UE4* || Stream //UE4, //Something etc.
+                    .Where( n => n.Branch.StartsWith( "UE4" ) || n.Branch.StartsWith( "//" ) )
+                    .Select( n => n.Branch )
+                    .Distinct()
+                    .ToList();
+                    BranchesAsSelectList = BranchList
+                        .Select( listitem => new SelectListItem { Selected = false, Text = listitem, Value = listitem } )
+                        .ToList();
 					BranchesAsSelectList.Insert( 0, new SelectListItem { Selected = true, Text = "", Value = "" } );
 
 					LastBranchesDate = Now;
@@ -141,28 +143,29 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 
 				if (Now - LastVersionDate > TimeSpan.FromHours( 1 ))
 				{
-					var BuildVersions = Context.Crashes
-					.Where( c => c.TimeOfCrash > DateTime.Now.AddMonths( -3 ) )
-					.Select( c => c.BuildVersion )
-					.Distinct()
-					.ToList();
+                    var BuildVersions = Context.Crashes
+                    .Where(c => c.TimeOfCrash > DateTime.Now.AddDays(-14))
+                    .Where(c => c.CrashType != 3) // Ignore ensures
+                    .Select(c => c.BuildVersion)
+                    .Distinct()
+                    .ToList();
 
 					DistinctBuildVersions = new HashSet<string>();
 
-					foreach (var BuildVersion in BuildVersions)
-					{
-						var BVParts = BuildVersion.Split( new char[] { '.' }, StringSplitOptions.RemoveEmptyEntries );
-						if (BVParts.Length > 2 && BVParts[0] != "0")
-						{
-							string CleanBV = string.Format( "{0}.{1}.{2}", BVParts[0], BVParts[1], BVParts[2] );
-							DistinctBuildVersions.Add( CleanBV );
-						}
-					}
+                    foreach (var BuildVersion in BuildVersions)
+                    {
+                        var BVParts = BuildVersion.Split(new char[] { '.' }, StringSplitOptions.RemoveEmptyEntries);
+                        if (BVParts.Length > 2 && BVParts[0] != "0")
+                        {
+                            string CleanBV = string.Format("{0}.{1}.{2}", BVParts[0], BVParts[1], BVParts[2]);
+                            DistinctBuildVersions.Add(CleanBV);
+                        }
+                    }
 
 
-					VersionsAsSelectList = DistinctBuildVersions
-						.Select( listitem => new SelectListItem { Selected = false, Text = listitem, Value = listitem } )
-						.ToList();
+                    VersionsAsSelectList = DistinctBuildVersions
+                        .Select( listitem => new SelectListItem { Selected = false, Text = listitem, Value = listitem } )
+                        .ToList();
 					VersionsAsSelectList.Insert( 0, new SelectListItem { Selected = true, Text = "", Value = "" } );
 
 					LastVersionDate = Now;
@@ -490,6 +493,24 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			}
 		}
 
+        /// <summary>
+        /// Filter a set of crashes to a date range but do not enumerate the data.
+        /// This allows further filtering on the query expression to take place before the data is retrieved from the data source.
+        /// </summary>
+        /// <param name="Results">The unfiltered set of crashes.</param>
+        /// <param name="DateFrom">The earliest date to filter by.</param>
+        /// <param name="DateTo">The latest date to filter by.</param>
+        /// <returns>A query statement describing the set of crashes between the earliest and latest date.</returns>
+        public IQueryable<Crash> QueryByDate(IQueryable<Crash> Results, DateTime DateFrom, DateTime DateTo)
+        {
+            using (FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer(this.GetType().ToString() + " SQL"))
+            {
+                IQueryable<Crash> CrashesInTimeFrame = Results
+                    .Where(MyCrash => MyCrash.TimeOfCrash >= DateFrom && MyCrash.TimeOfCrash <= DateTo.AddDays(1));
+                return CrashesInTimeFrame;
+            }
+        }
+
 		/// <summary>
 		/// 
 		/// </summary>
@@ -722,6 +743,8 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			// 
 			//NewCrash.HasDiagnosticsFile = true;		
 			//NewCrash.HasMetaData = true;
+
+			NewCrash.UserActivityHint = NewCrashInfo.UserActivityHint;
 
 			// Add the crash to the database
 			Context.Crashes.InsertOnSubmit( NewCrash );

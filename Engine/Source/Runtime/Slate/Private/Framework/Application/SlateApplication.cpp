@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "SlatePrivatePCH.h"
@@ -10,6 +10,7 @@
 #include "GenericCommands.h"
 #include "NotificationManager.h"
 #include "IInputProcessor.h"
+#include "ITextInputMethodSystem.h"
 #include "ToolboxModule.h"
 #include "TabCommands.h"
 
@@ -277,6 +278,7 @@ DECLARE_CYCLE_STAT( TEXT("SlatePrepass"), STAT_SlatePrepass, STATGROUP_Slate );
 DECLARE_CYCLE_STAT( TEXT("Draw Window And Children Time"), STAT_SlateDrawWindowTime, STATGROUP_Slate );
 DECLARE_CYCLE_STAT( TEXT("TickWidgets"), STAT_SlateTickWidgets, STATGROUP_Slate );
 DECLARE_CYCLE_STAT( TEXT("TickRegisteredWidgets"), STAT_SlateTickRegisteredWidgets, STATGROUP_Slate );
+DECLARE_CYCLE_STAT( TEXT("Slate::PreTickEvent"), STAT_SlatePreTickEvent, STATGROUP_Slate );
 
 DECLARE_CYCLE_STAT(TEXT("ProcessKeyDown"), STAT_ProcessKeyDown, STATGROUP_Slate);
 DECLARE_CYCLE_STAT(TEXT("ProcessKeyUp"), STAT_ProcessKeyUp, STATGROUP_Slate);
@@ -346,9 +348,6 @@ namespace SlateDefs
 
 	// How far tool tips should be pushed out from a force field border, in pixels
 	static const FVector2D ToolTipOffsetFromForceField( 4.0f, 3.0f );
-
-	// When true we will clear keyboard focus from widgets within the game view port when the window loses focus
-	static bool ClearGameViewportFocusWhenWindowLosesFocus = false;
 }
 
 
@@ -857,6 +856,21 @@ void FSlateApplication::SetCursorPos( const FVector2D& MouseCoordinate )
 
 FWidgetPath FSlateApplication::LocateWindowUnderMouse( FVector2D ScreenspaceMouseCoordinate, const TArray< TSharedRef< SWindow > >& Windows, bool bIgnoreEnabledStatus )
 {
+	// First, give the OS a chance to tell us which window to use, in case a child window is not guaranteed to stay on top of its parent window
+	TSharedPtr<FGenericWindow> NativeWindowUnderMouse = PlatformApplication->GetWindowUnderCursor();
+	if (NativeWindowUnderMouse.IsValid())
+	{
+		TSharedPtr<SWindow> Window = FSlateWindowHelper::FindWindowByPlatformWindow(Windows, NativeWindowUnderMouse.ToSharedRef());
+		if (Window.IsValid())
+		{
+			FWidgetPath PathToLocatedWidget = LocateWidgetInWindow(ScreenspaceMouseCoordinate, Window.ToSharedRef(), bIgnoreEnabledStatus);
+			if (PathToLocatedWidget.IsValid())
+			{
+				return PathToLocatedWidget;
+			}
+		}
+	}
+
 	bool bPrevWindowWasModal = false;
 
 	for (int32 WindowIndex = Windows.Num() - 1; WindowIndex >= 0; --WindowIndex)
@@ -1215,15 +1229,18 @@ void FSlateApplication::PrivateDrawWindows( TSharedPtr<SWindow> DrawOnlyThisWind
 		}
 	}
 
-
-	// Some windows may have been destroyed/removed.
-	// Do not attempt to draw any windows that have been removed.
-	TArray<TSharedRef<SWindow>> AllWindows = GatherAllDescendants(SlateWindows);
-	DrawWindowArgs.OutDrawBuffer.GetWindowElementLists().RemoveAll([&]( TSharedPtr<FSlateWindowElementList>& Candidate )
+	// This is potentially dangerous on the movie playback thread that slate sometimes runs on
+	if(!IsInSlateThread())
 	{
-		TSharedPtr<SWindow> CandidateWindow = Candidate->GetWindow();
-		return !CandidateWindow.IsValid() || !AllWindows.Contains(CandidateWindow.ToSharedRef());
-	});
+		// Some windows may have been destroyed/removed.
+		// Do not attempt to draw any windows that have been removed.
+		TArray<TSharedRef<SWindow>> AllWindows = GatherAllDescendants(SlateWindows);
+		DrawWindowArgs.OutDrawBuffer.GetWindowElementLists().RemoveAll([&](TSharedPtr<FSlateWindowElementList>& Candidate)
+		{
+			TSharedPtr<SWindow> CandidateWindow = Candidate->GetWindow();
+			return !CandidateWindow.IsValid() || !AllWindows.Contains(CandidateWindow.ToSharedRef());
+		});
+	}
 
 	{	
 		SLATE_CYCLE_COUNTER_SCOPE(GSlateRendererDrawWindows);
@@ -1308,12 +1325,55 @@ extern SLATECORE_API int32 bFoldTick;
 
 void FSlateApplication::Tick()
 {
-	{
-	SCOPE_CYCLE_COUNTER( STAT_SlateTickTime );
-	SLATE_CYCLE_COUNTER_SCOPE(GSlateTotalTickTime);
+	FScopeLock SlateTickAccess(&SlateTickCriticalSection);
 
 	FPlatformMisc::BeginNamedEvent(FColor::Magenta, "Slate::Tick");
 
+	{
+		SCOPE_CYCLE_COUNTER(STAT_SlateTickTime);
+		SLATE_CYCLE_COUNTER_SCOPE(GSlateTotalTickTime);
+
+		const float DeltaTime = GetDeltaTime();
+
+		TickPlatform(DeltaTime);
+		TickApplication(DeltaTime);
+	}
+
+	// Update Slate Stats
+	SLATE_STATS_END_FRAME(GetCurrentTime());
+
+	FPlatformMisc::EndNamedEvent();
+}
+
+void FSlateApplication::TickPlatform(float DeltaTime)
+{
+	FPlatformMisc::BeginNamedEvent(FColor::Magenta, "Slate::TickPlatform");
+
+	{
+		SCOPE_CYCLE_COUNTER(STAT_SlateMessageTick);
+
+		// We need to pump messages here so that slate can receive input.  
+		if ( ( ActiveModalWindows.Num() > 0 ) || GIntraFrameDebuggingGameThread )
+		{
+			// We only need to pump messages for slate when a modal window or blocking mode is active is up because normally message pumping is handled in FEngineLoop::Tick
+			PlatformApplication->PumpMessages(DeltaTime);
+
+			if ( FCoreDelegates::StarvedGameLoop.IsBound() )
+			{
+				FCoreDelegates::StarvedGameLoop.Execute();
+			}
+		}
+
+		PlatformApplication->Tick(DeltaTime);
+
+		PlatformApplication->ProcessDeferredEvents(DeltaTime);
+	}
+
+	FPlatformMisc::EndNamedEvent();
+}
+
+void FSlateApplication::TickApplication(float DeltaTime)
+{
 	if (Renderer.IsValid())
 	{
 		// Release any temporary material or texture resources we may have cached and are reporting to prevent
@@ -1321,36 +1381,13 @@ void FSlateApplication::Tick()
 		// be queued up to be released.
 		Renderer->ReleaseAccessedResources(/* Flush State */ false);
 	}
-	
 
-	const float DeltaTime = GetDeltaTime();
-
+	FPlatformMisc::BeginNamedEvent(FColor::Magenta, "Slate::PreTick");
 	{
-		SCOPE_CYCLE_COUNTER( STAT_SlateMessageTick );
-
-		//FPlatformMisc::BeginNamedEvent(FColor::Magenta, "Slate::Platform");
-
-		// We need to pump messages here so that slate can receive input.  
-		if( (ActiveModalWindows.Num() > 0) || GIntraFrameDebuggingGameThread )
-		{
-			// We only need to pump messages for slate when a modal window or blocking mode is active is up because normally message pumping is handled in FEngineLoop::Tick
-			PlatformApplication->PumpMessages( DeltaTime );
-
-			if (FCoreDelegates::StarvedGameLoop.IsBound())
-			{
-				FCoreDelegates::StarvedGameLoop.Execute();
-			}
-		}
-
-		PlatformApplication->Tick( DeltaTime );
-
-		PlatformApplication->ProcessDeferredEvents( DeltaTime );
-
-		//FPlatformMisc::EndNamedEvent();
+		SCOPE_CYCLE_COUNTER(STAT_SlatePreTickEvent);
+		PreTickEvent.Broadcast(DeltaTime);
 	}
-
-	UpdateRetainerWidgetsEvent.Broadcast( DeltaTime );
-
+	FPlatformMisc::EndNamedEvent();
 
 	//FPlatformMisc::BeginNamedEvent(FColor::Magenta, "Slate::UpdateCursorLockRegion");
 	// The widget locking the cursor to its bounds may have been reshaped.
@@ -1506,12 +1543,8 @@ void FSlateApplication::Tick()
 		// Draw all windows
 		DrawWindows();
 	}
-	}
 
-	FPlatformMisc::EndNamedEvent();
-
-	// Update Slate Stats
-	SLATE_STATS_END_FRAME(GetCurrentTime());
+	PostTickEvent.Broadcast(DeltaTime);
 }
 
 
@@ -1650,6 +1683,8 @@ TSharedRef< FGenericWindow > FSlateApplication::MakeWindow( TSharedRef<SWindow> 
 	}
 
 	TSharedRef< FGenericWindowDefinition > Definition = MakeShareable( new FGenericWindowDefinition() );
+
+	Definition->Type = InSlateWindow->GetType();
 
 	const FVector2D Size = InSlateWindow->GetInitialDesiredSizeInScreen();
 	Definition->WidthDesiredOnScreen = Size.X;
@@ -1810,8 +1845,32 @@ void FSlateApplication::AddModalWindow( TSharedRef<SWindow> InSlateWindow, const
 		// Tick slate from here in the event that we should not return until the modal window is closed.
 		while( InSlateWindow == GetActiveModalWindow() )
 		{
-			// Tick and render Slate
-			Tick();
+			FPlatformMisc::BeginNamedEvent(FColor::Magenta, "Slate::Tick");
+
+			{
+				SCOPE_CYCLE_COUNTER(STAT_SlateTickTime);
+				SLATE_CYCLE_COUNTER_SCOPE(GSlateTotalTickTime);
+
+				const float DeltaTime = GetDeltaTime();
+
+				// Tick and pump messages for the platform.
+				TickPlatform(DeltaTime);
+
+				// It's possible that during ticking the platform we'll find out the modal dialog was closed.
+				// in which case we need to abort the current flow.
+				if ( InSlateWindow != GetActiveModalWindow() )
+				{
+					break;
+				}
+
+				// Tick and render Slate
+				TickApplication(DeltaTime);
+			}
+
+			// Update Slate Stats
+			SLATE_STATS_END_FRAME(GetCurrentTime());
+
+			FPlatformMisc::EndNamedEvent();
 
 			// Synchronize the game thread and the render thread so that the render thread doesn't get too far behind.
 			Renderer->Sync();
@@ -2098,32 +2157,17 @@ void FSlateApplication::InvalidateAllViewports()
 	Renderer->InvalidateAllViewports();
 }
 
-
 void FSlateApplication::RegisterGameViewport( TSharedRef<SViewport> InViewport )
 {
 	InViewport->SetActive(true);
 	GameViewportWidget = InViewport;
 	
-	FWidgetPath PathToViewport;
-	// If we cannot find the window it could have been destroyed.
-	if (FSlateWindowHelper::FindPathToWidget(SlateWindows, InViewport, PathToViewport, EVisibility::All))
-	{
-		FReply Reply = FReply::Handled().SetUserFocus(InViewport, EFocusCause::SetDirectly, true);
-	
-		// Set keyboard focus on the actual OS window for the top level Slate window in the viewport path
-		// This is needed because some OS messages are only sent to the window with keyboard focus
-		// Slate will translate the message and send it to the actual widget with focus.
-		// Without this we don't get WM_KEYDOWN or WM_CHAR messages in play in viewport sessions.
-		PathToViewport.GetWindow()->GetNativeWindow()->SetWindowFocus();
-
-		ProcessReply( PathToViewport, Reply, nullptr, nullptr );
-	}
+	ActivateGameViewport();
 }
-
 
 void FSlateApplication::UnregisterGameViewport()
 {
-	ResetToDefaultInputSettings();
+	ResetToDefaultPointerInputSettings();
 
 	if (GameViewportWidget.IsValid())
 	{
@@ -2195,6 +2239,36 @@ void FSlateApplication::SetAllUserFocusToGameViewport(EFocusCause ReasonFocusIsC
 void FSlateApplication::SetJoystickCaptorToGameViewport()
 {
 	SetAllUserFocusToGameViewport();
+}
+
+void FSlateApplication::ActivateGameViewport()
+{
+	// Only focus the window if the application is active, if not the application activation sequence will take care of it.
+	if (bAppIsActive && GameViewportWidget.IsValid())
+	{
+		TSharedRef<SViewport> GameViewportWidgetRef = GameViewportWidget.Pin().ToSharedRef();
+		
+		FWidgetPath PathToViewport;
+		// If we cannot find the window it could have been destroyed.
+		if (FSlateWindowHelper::FindPathToWidget(SlateWindows, GameViewportWidgetRef, PathToViewport, EVisibility::All))
+		{
+			TSharedRef<SWindow> Window = PathToViewport.GetWindow();
+
+			// Set keyboard focus on the actual OS window for the top level Slate window in the viewport path
+			// This is needed because some OS messages are only sent to the window with keyboard focus
+			// Slate will translate the message and send it to the actual widget with focus.
+			// Without this we don't get WM_KEYDOWN or WM_CHAR messages in play in viewport sessions.
+			Window->GetNativeWindow()->SetWindowFocus();
+
+			// Activate the viewport and process the reply 
+			FWindowActivateEvent ActivateEvent(FWindowActivateEvent::EA_Activate, Window);
+			FReply ViewportActivatedReply = GameViewportWidgetRef->OnViewportActivated(ActivateEvent);
+			if (ViewportActivatedReply.IsEventHandled())
+			{
+				ProcessReply(PathToViewport, ViewportActivatedReply, nullptr, nullptr);
+			}
+		}
+	}
 }
 
 void FSlateApplication::SetUserFocus(uint32 UserIndex, const TSharedPtr<SWidget>& WidgetToFocus, EFocusCause ReasonFocusIsChanging /* = EFocusCause::SetDirectly*/)
@@ -2430,15 +2504,6 @@ bool FSlateApplication::SetUserFocus(const uint32 InUserIndex, const FWidgetPath
 	if (NewFocusedWidget.IsValid())
 	{
 		TSharedPtr<SWindow> FocusedWindow = NewFocusedWidgetPath.GetWindow();
-		
-		// Set the windows restore state - we do this before calling OnFocusReceived to ensure that if
-		// OnFocusReceived returns a new UserFocus, the WidgetToFocusOnActivate will get set correctly
-		//@Todo Slate: We need to store the full focus state
-		//@Todo Slate: Why are we checking FocusedWindow != NewFocusedWidget?
-		if (FocusedWindow.IsValid() && FocusedWindow != NewFocusedWidget)
-		{
-			FocusedWindow->SetWidgetToFocusOnActivate(NewFocusedWidget);
-		}
 
 		// Switch worlds for widgets in the new path
 		FScopedSwitchWorldHack SwitchWorld(FocusedWindow);
@@ -2464,6 +2529,18 @@ void FSlateApplication::SetAllUserFocus(const FWidgetPath& InFocusPath, const EF
 	}
 }
 
+void FSlateApplication::SetAllUserFocusAllowingDescendantFocus(const FWidgetPath& InFocusPath, const EFocusCause InCause)
+{
+	TSharedRef<SWidget> FocusWidget = InFocusPath.Widgets.Last().Widget;
+	for (int32 SlateUserIndex = 0; SlateUserIndex < SlateApplicationDefs::MaxUsers; ++SlateUserIndex)
+	{
+		const FUserFocusEntry& UserFocusEntry = UserFocusEntries[SlateUserIndex];
+		if (!UserFocusEntry.WidgetPath.ContainsWidget(FocusWidget))
+		{
+			SetUserFocus(SlateUserIndex, InFocusPath, InCause);
+		}
+	}
+}
 
 FModifierKeysState FSlateApplication::GetModifierKeys() const
 {
@@ -2637,48 +2714,60 @@ void FSlateApplication::ProcessReply( const FWidgetPath& CurrentEventPath, const
 		});
 	}
 	
-	TSharedPtr<SWidget> RequestedMouseCaptor = TheReply.GetMouseCaptor();
-	// Do not capture the mouse if we are also starting a drag and drop.
-	if( RequestedMouseCaptor.IsValid() && !bStartingDragDrop )
+	// Setting mouse capture, mouse position, and locking the mouse
+	// are all operations that we shouldn't do if our application isn't Active (The OS ignores half of it, and we'd be in a half state)
+	// We do allow the release of capture and lock when deactivated, this is innocuous of some platforms but required on others when 
+	// the Application deactivated before the window. (Mac is an example of this)
+	if (bAppIsActive)
 	{
-		MouseCaptor.SetMouseCaptor(UserIndex, PointerIndex, CurrentEventPath, RequestedMouseCaptor );
-	}
-	
-	if( CurrentEventPath.IsValid() && ( TheReply.ShouldReleaseMouse() || RequestedMouseCaptor.IsValid() ) )
-	{
-		// If the mouse is being captured or released, toggle high precision raw input if requested by the reply.
-		// Raw input is only used with mouse capture
-		const TSharedRef< SWindow> Window = CurrentEventPath.GetWindow();
-
-		if ( TheReply.ShouldUseHighPrecisionMouse() )
+		TSharedPtr<SWidget> RequestedMouseCaptor = TheReply.GetMouseCaptor();
+		// Do not capture the mouse if we are also starting a drag and drop.
+		if (RequestedMouseCaptor.IsValid() && !bStartingDragDrop)
 		{
-			PlatformApplication->SetCapture( Window->GetNativeWindow() );
-			PlatformApplication->SetHighPrecisionMouseMode( true, Window->GetNativeWindow() );
+			MouseCaptor.SetMouseCaptor(UserIndex, PointerIndex, CurrentEventPath, RequestedMouseCaptor);
 		}
-		else if ( PlatformApplication->IsUsingHighPrecisionMouseMode() )
+
+		if (CurrentEventPath.IsValid() && RequestedMouseCaptor.IsValid())
 		{
-			PlatformApplication->SetHighPrecisionMouseMode( false, nullptr );
-			PlatformApplication->SetCapture( nullptr );
+			// If the mouse is being captured or released, toggle high precision raw input if requested by the reply.
+			// Raw input is only used with mouse capture
+			if (TheReply.ShouldUseHighPrecisionMouse())
+			{
+				const TSharedRef< SWindow> Window = CurrentEventPath.GetWindow();
+				PlatformApplication->SetCapture(Window->GetNativeWindow());
+				PlatformApplication->SetHighPrecisionMouseMode(true, Window->GetNativeWindow());
+			}
+		}
+
+		TOptional<FIntPoint> RequestedMousePos = TheReply.GetRequestedMousePos();
+		if (RequestedMousePos.IsSet())
+		{
+			const FVector2D Position = RequestedMousePos.GetValue();
+			PointerIndexLastPositionMap.Add(CursorPointerIndex, Position);
+			SetCursorPos(Position);
+		}
+
+		if (TheReply.GetMouseLockWidget().IsValid())
+		{
+			// The reply requested mouse lock so tell the native application to lock the mouse to the widget receiving the event
+			LockCursor(TheReply.GetMouseLockWidget());
 		}
 	}
 
-	TOptional<FIntPoint> RequestedMousePos = TheReply.GetRequestedMousePos();
-	if( RequestedMousePos.IsSet() )
+	// Releasing Mouse capture
+	if (CurrentEventPath.IsValid() && TheReply.ShouldReleaseMouse())
 	{
-		const FVector2D Position = RequestedMousePos.GetValue();
-		PointerIndexLastPositionMap.Add(CursorPointerIndex, Position);
-		SetCursorPos( Position );
+		if (PlatformApplication->IsUsingHighPrecisionMouseMode())
+		{
+			PlatformApplication->SetHighPrecisionMouseMode(false, nullptr);
+			PlatformApplication->SetCapture(nullptr);
+		}
 	}
 
-	if( TheReply.GetMouseLockWidget().IsValid() )
+	// Releasing Mouse Lock
+	if (TheReply.ShouldReleaseMouseLock())
 	{
-		// The reply requested mouse lock so tell the native application to lock the mouse to the widget receiving the event
-		LockCursor( TheReply.GetMouseLockWidget() );
-	}
-	else if( TheReply.ShouldReleaseMouseLock() )
-	{
-		// Unlock the mouse
-		LockCursor( nullptr );
+		LockCursor(nullptr);
 	}
 	
 	// If we have a valid Navigation request and enough time has passed since the last navigation then try to navigate.
@@ -2858,6 +2947,7 @@ void FSlateApplication::QueryCursor()
 				for (int32 WidgetIndex = WidgetsToQueryForCursor.Widgets.Num() - 1; WidgetIndex >= 0; --WidgetIndex)
 				{
 					const FArrangedWidget& ArrangedWidget = WidgetsToQueryForCursor.Widgets[WidgetIndex];
+
 					CursorReply = ArrangedWidget.Widget->OnCursorQuery(ArrangedWidget.Geometry, CursorEvent);
 					if (CursorReply.IsEventHandled())
 					{
@@ -2971,9 +3061,12 @@ void FSlateApplication::SpawnToolTip( const TSharedRef<IToolTip>& InToolTip, con
 void FSlateApplication::CloseToolTip()
 {
 	// Notify the source widget that its tooltip is closing
-	if ( SWidget* SourceWidget = ActiveToolTipWidgetSource.Pin().Get() )
 	{
-		SourceWidget->OnToolTipClosing();
+		TSharedPtr<SWidget> SourceWidget = ActiveToolTipWidgetSource.Pin();
+		if (SourceWidget.IsValid())
+		{
+			SourceWidget->OnToolTipClosing();
+		}
 	}
 
 	// Notify the active tooltip that it's being closed.
@@ -3002,7 +3095,7 @@ void FSlateApplication::UpdateToolTip( bool AllowSpawningOfNewToolTips )
 	const bool bCheckForToolTipChanges =
 		bAllowToolTips &&					// Tool-tips must be enabled
 		!IsUsingHighPrecisionMouseMovment() && // If we are using HighPrecision movement then we can't rely on the OS cursor to be accurate
-		!IsDragDropping();					// We must not currently be in the middle of a drag-drop action
+		!IsDragDropping();					// We must not currwently be in the middle of a drag-drop action
 	
 	// We still want to show tooltips for widgets that are disabled
 	const bool bIgnoreEnabledStatus = true;
@@ -3301,10 +3394,12 @@ void FSlateApplication::EnterDebuggingMode()
 	TSharedPtr<SViewport> PreviousGameViewport;
 
 	// Disable any game viewports while we are in debug mode so that mouse capture is released and the cursor is visible
+	// We need to retain the keyboard input for debugging purposes, so this is called directly rather than calling UnregisterGameViewport which resets input.
 	if (GameViewportWidget.IsValid())
 	{
 		PreviousGameViewport = GameViewportWidget.Pin();
-		UnregisterGameViewport();
+		PreviousGameViewport->SetActive(false);
+		GameViewportWidget.Reset();
 	}
 
 	Renderer->FlushCommands();
@@ -3682,7 +3777,7 @@ bool FSlateApplication::TakeScreenshot(const TSharedRef<SWidget>& Widget, const 
 	OutSize.X = ScreenshotRect.Size().X;
 	OutSize.Y = ScreenshotRect.Size().Y;
 
-	return true;
+	return (OutSize.X != 0 && OutSize.Y != 0);
 }
 
 TSharedPtr< FSlateWindowElementList > FSlateApplication::GetCachableElementList(const TSharedPtr<SWindow>& CurrentWindow, const ILayoutCache* LayoutCache)
@@ -3704,7 +3799,7 @@ TSharedPtr< FSlateWindowElementList > FSlateApplication::FCacheElementPools::Get
 	TSharedPtr< FSlateWindowElementList > NextElementList;
 
 	// Move any inactive element lists in the active pool to the inactive pool.
-	for ( int32 i = 0; i < ActiveCachedElementListPool.Num(); i++ )
+	for ( int32 i = ActiveCachedElementListPool.Num() - 1; i >= 0; i-- )
 	{
 		if ( ActiveCachedElementListPool[i]->IsCachedRenderDataInUse() == false )
 		{
@@ -3714,7 +3809,7 @@ TSharedPtr< FSlateWindowElementList > FSlateApplication::FCacheElementPools::Get
 	}
 
 	// Remove inactive lists that don't belong to this window.
-	for ( int32 i = 0; i < InactiveCachedElementListPool.Num(); i++ )
+	for ( int32 i = InactiveCachedElementListPool.Num() - 1; i >= 0; i-- )
 	{
 		if ( InactiveCachedElementListPool[i]->GetWindow() != CurrentWindow )
 		{
@@ -4227,8 +4322,12 @@ bool FSlateApplication::IsFakingTouchEvents() const
 	return bIsFakingTouch || bIsGameFakingTouch;
 }
 
+bool FSlateApplication::OnMouseDown(const TSharedPtr< FGenericWindow >& PlatformWindow, const EMouseButtons::Type Button)
+{
+	return OnMouseDown(PlatformWindow, Button, GetCursorPos());
+}
 
-bool FSlateApplication::OnMouseDown( const TSharedPtr< FGenericWindow >& PlatformWindow, const EMouseButtons::Type Button )
+bool FSlateApplication::OnMouseDown( const TSharedPtr< FGenericWindow >& PlatformWindow, const EMouseButtons::Type Button, const FVector2D CursorPos )
 {
 	// convert to touch event if we are faking it	
 	if (bIsFakingTouch || bIsGameFakingTouch)
@@ -4241,7 +4340,7 @@ bool FSlateApplication::OnMouseDown( const TSharedPtr< FGenericWindow >& Platfor
 
 	FPointerEvent MouseEvent(
 		CursorPointerIndex,
-		GetCursorPos(),
+		CursorPos,
 		GetLastCursorPos(),
 		PressedMouseButtons,
 		Key,
@@ -4341,6 +4440,13 @@ bool FSlateApplication::ProcessMouseButtonDownEvent( const TSharedPtr< FGenericW
 
 FReply FSlateApplication::RoutePointerDownEvent(FWidgetPath& WidgetsUnderPointer, FPointerEvent& PointerEvent)
 {
+#if PLATFORM_MAC
+	NSWindow* ActiveWindow = [NSApp keyWindow];
+	const bool bNeedToActivateWindow = (ActiveWindow == nullptr);
+#else
+	const bool bNeedToActivateWindow = false;
+#endif
+
 	const TSharedPtr<SWidget> PreviouslyFocusedWidget = GetKeyboardFocusedWidget();
 
 	FReply Reply = FEventRouter::Route<FReply>(this, FEventRouter::FTunnelPolicy(WidgetsUnderPointer), PointerEvent, [] (const FArrangedWidget TargetWidget, const FPointerEvent& Event)
@@ -4368,13 +4474,6 @@ FReply FSlateApplication::RoutePointerDownEvent(FWidgetPath& WidgetsUnderPointer
 		});
 	}
 	LOG_EVENT(EEventLog::MouseButtonDown, Reply);
-
-#if PLATFORM_MAC
-		NSWindow* ActiveWindow = [NSApp keyWindow];
-		const bool bNeedToActivateWindow = (ActiveWindow == nullptr);
-#else
-		const bool bNeedToActivateWindow = false;
-#endif
 
 	// If none of the widgets requested keyboard focus to be set (or set the keyboard focus explicitly), set it to the leaf-most widget under the mouse.
 	// On Mac we prevent the OS from activating the window on mouse down, so we have full control and can activate only if there's nothing draggable under the mouse cursor.
@@ -4423,21 +4522,24 @@ FReply FSlateApplication::RoutePointerDownEvent(FWidgetPath& WidgetsUnderPointer
 }
 
 
-void FSlateApplication::RoutePointerUpEvent(FWidgetPath& WidgetsUnderPointer, FPointerEvent& PointerEvent)
+bool FSlateApplication::RoutePointerUpEvent(FWidgetPath& WidgetsUnderPointer, FPointerEvent& PointerEvent)
 {
+#if PLATFORM_MAC
+	NSWindow* ActiveNativeWindow = [NSApp keyWindow];
+	TSharedPtr<SWindow> TopLevelWindow;
+#endif
+	FReply Reply = FReply::Unhandled();
+
 	if (MouseCaptor.HasCaptureForPointerIndex(PointerEvent.GetUserIndex(), PointerEvent.GetPointerIndex()))
 	{
 		//FWidgetPath MouseCaptorPath = MouseCaptor.ToWidgetPath(PointerEvent.GetPointerIndex());
 		FWidgetPath MouseCaptorPath = MouseCaptor.ToWidgetPath( FWeakWidgetPath::EInterruptedPathHandling::Truncate, &PointerEvent );
 		if ( ensureMsgf(MouseCaptorPath.Widgets.Num() > 0, TEXT("A window had a widget with mouse capture. That entire window has been dismissed before the mouse up could be processed.")) )
 		{
-#if PLATFORM_MAC
-			NSWindow* ActiveNativeWindow = [NSApp keyWindow];
-#endif
 			// Switch worlds widgets in the current path
 			FScopedSwitchWorldHack SwitchWorld( MouseCaptorPath );
 
-			FReply Reply =
+			Reply =
 				FEventRouter::Route<FReply>( this, FEventRouter::FToLeafmostPolicy(MouseCaptorPath), PointerEvent, [this]( const FArrangedWidget& TargetWidget, const FPointerEvent& Event )
 				{
 					FReply TempReply = FReply::Unhandled();
@@ -4454,13 +4556,7 @@ void FSlateApplication::RoutePointerUpEvent(FWidgetPath& WidgetsUnderPointer, FP
 				});
 
 #if PLATFORM_MAC
-			// Activate a window under the mouse if it's inactive and mouse up didn't bring any window to front
-			TSharedPtr<SWindow> ActiveWindow = GetActiveTopLevelWindow();
-			if ( PointerEvent.GetEffectingButton() == EKeys::LeftMouseButton && MouseCaptorPath.TopLevelWindow.IsValid() && ActiveWindow != MouseCaptorPath.TopLevelWindow
-				&& ActiveNativeWindow == [NSApp keyWindow] && ![(NSWindow*)MouseCaptorPath.TopLevelWindow->GetNativeWindow()->GetOSWindowHandle() isMiniaturized] )
-			{
-				MouseCaptorPath.TopLevelWindow->BringToFront(true);
-			}
+			TopLevelWindow = MouseCaptorPath.TopLevelWindow;
 #endif
 			LOG_EVENT( EEventLog::MouseButtonUp, Reply );
 		}
@@ -4477,7 +4573,7 @@ void FSlateApplication::RoutePointerUpEvent(FWidgetPath& WidgetsUnderPointer, FP
 		TSharedPtr< FDragDropOperation > LocalDragDropContent = DragDropContent;
 		DragDropContent.Reset();
 
-		FReply Reply = FEventRouter::Route<FReply>( this, FEventRouter::FBubblePolicy(LocalWidgetsUnderCursor), PointerEvent, [&](const FArrangedWidget& CurWidget, const FPointerEvent& Event)
+		Reply = FEventRouter::Route<FReply>( this, FEventRouter::FBubblePolicy(LocalWidgetsUnderCursor), PointerEvent, [&](const FArrangedWidget& CurWidget, const FPointerEvent& Event)
 		{
 			FReply TempReply = FReply::Unhandled();
 			if (Event.IsTouchEvent())
@@ -4504,8 +4600,26 @@ void FSlateApplication::RoutePointerUpEvent(FWidgetPath& WidgetsUnderPointer, FP
 
 			WidgetsUnderCursorLastEvent.Remove( FUserAndPointer( PointerEvent.GetUserIndex(), PointerEvent.GetPointerIndex() ) );
 		}
-
+#if PLATFORM_MAC
+		else if (ActiveNativeWindow == nullptr) // activate only if the app is in the background
+		{
+			TopLevelWindow = LocalWidgetsUnderCursor.TopLevelWindow;
+		}
+#endif
 	}
+
+#if PLATFORM_MAC
+	// Activate a window under the mouse if it's inactive and mouse up didn't bring any window to front
+	TSharedPtr<SWindow> ActiveWindow = GetActiveTopLevelWindow();
+	if ( PointerEvent.GetEffectingButton() == EKeys::LeftMouseButton && TopLevelWindow.IsValid() && ActiveWindow != TopLevelWindow
+		&& ActiveNativeWindow == [NSApp keyWindow] && ![(NSWindow*)TopLevelWindow->GetNativeWindow()->GetOSWindowHandle() isMiniaturized] )
+	{
+		FPlatformMisc::ActivateApplication();
+		TopLevelWindow->BringToFront(true);
+	}
+#endif
+
+	return Reply.IsEventHandled();
 }
 
 bool FSlateApplication::RoutePointerMoveEvent(const FWidgetPath& WidgetsUnderPointer, FPointerEvent& PointerEvent, bool bIsSynthetic)
@@ -4744,6 +4858,11 @@ bool FSlateApplication::RoutePointerMoveEvent(const FWidgetPath& WidgetsUnderPoi
 
 bool FSlateApplication::OnMouseDoubleClick( const TSharedPtr< FGenericWindow >& PlatformWindow, const EMouseButtons::Type Button )
 {
+	return OnMouseDoubleClick(PlatformWindow, Button, GetCursorPos());
+}
+
+bool FSlateApplication::OnMouseDoubleClick( const TSharedPtr< FGenericWindow >& PlatformWindow, const EMouseButtons::Type Button, const FVector2D CursorPos )
+{
 	if (bIsFakingTouch || bIsGameFakingTouch)
 	{
 		bIsFakingTouched = true;
@@ -4754,7 +4873,7 @@ bool FSlateApplication::OnMouseDoubleClick( const TSharedPtr< FGenericWindow >& 
 
 	FPointerEvent MouseEvent(
 		CursorPointerIndex,
-		GetCursorPos(),
+		CursorPos,
 		GetLastCursorPos(),
 		PressedMouseButtons,
 		Key,
@@ -4802,6 +4921,11 @@ bool FSlateApplication::ProcessMouseButtonDoubleClickEvent( const TSharedPtr< FG
 
 bool FSlateApplication::OnMouseUp( const EMouseButtons::Type Button )
 {
+	return OnMouseUp(Button, GetCursorPos());
+}
+
+bool FSlateApplication::OnMouseUp( const EMouseButtons::Type Button, const FVector2D CursorPos )
+{
 	// convert to touch event if we are faking it	
 	if (bIsFakingTouch || bIsGameFakingTouch)
 	{
@@ -4813,7 +4937,7 @@ bool FSlateApplication::OnMouseUp( const EMouseButtons::Type Button )
 
 	FPointerEvent MouseEvent(
 		CursorPointerIndex,
-		GetCursorPos(),
+		CursorPos,
 		GetLastCursorPos(),
 		PressedMouseButtons,
 		Key,
@@ -4841,8 +4965,7 @@ bool FSlateApplication::ProcessMouseButtonUpEvent( FPointerEvent& MouseEvent )
 
 	// An empty widget path is passed in.  As an optimization, one will be generated only if a captured mouse event isnt routed
 	FWidgetPath EmptyPath;
-	RoutePointerUpEvent( EmptyPath, MouseEvent );
-	
+	const bool bHandled = RoutePointerUpEvent( EmptyPath, MouseEvent );
 
 	// If in responsive mode throttle, leave it on mouse up.
 	if( MouseButtonDownResponsivnessThrottle.IsValid() )
@@ -4856,17 +4979,20 @@ bool FSlateApplication::ProcessMouseButtonUpEvent( FPointerEvent& MouseEvent )
 		PlatformApplication->SetCapture( nullptr );
 	}
 
-	return true;
+	return bHandled;
 }
 
 bool FSlateApplication::OnMouseWheel( const float Delta )
 {
-	const FVector2D CurrentCursorPosition = GetCursorPos();
+	return OnMouseWheel(Delta, GetCursorPos());
+}
 
+bool FSlateApplication::OnMouseWheel( const float Delta, const FVector2D CursorPos )
+{
 	FPointerEvent MouseWheelEvent(
 		CursorPointerIndex,
-		CurrentCursorPosition,
-		CurrentCursorPosition,
+		CursorPos,
+		CursorPos,
 		PressedMouseButtons,
 		EKeys::Invalid,
 		Delta,
@@ -4883,7 +5009,7 @@ bool FSlateApplication::ProcessMouseWheelOrGestureEvent( FPointerEvent& InWheelE
 	QueueSynthesizedMouseMove();
 
 	const bool bShouldProcessEvent = InWheelEvent.GetWheelDelta() != 0 ||
-		(InGestureEvent != nullptr && InGestureEvent->GetGestureDelta()!=FVector2D::ZeroVector);
+		(InGestureEvent != nullptr && InGestureEvent->GetGestureDelta() != FVector2D::ZeroVector);
 	
 	if ( !bShouldProcessEvent )
 	{
@@ -4894,34 +5020,45 @@ bool FSlateApplication::ProcessMouseWheelOrGestureEvent( FPointerEvent& InWheelE
 	
 	// NOTE: We intentionally don't reset LastUserInteractionTimeForThrottling here so that the UI can be responsive while scrolling
 
-	FWidgetPath EventPath = ( MouseCaptor.HasCaptureForPointerIndex(InWheelEvent.GetUserIndex(), InWheelEvent.GetPointerIndex()) )
-		? MouseCaptor.ToWidgetPath( InWheelEvent.GetUserIndex(), InWheelEvent.GetPointerIndex() )
-		: LocateWindowUnderMouse( InWheelEvent.GetScreenSpacePosition(), GetInteractiveTopLevelWindows() );
+	FWidgetPath EventPath = LocateWindowUnderMouse(InWheelEvent.GetScreenSpacePosition(), GetInteractiveTopLevelWindows());
+
+	return RouteMouseWheelOrGestureEvent(EventPath, InWheelEvent, InGestureEvent).IsEventHandled();
+}
+
+FReply FSlateApplication::RouteMouseWheelOrGestureEvent(const FWidgetPath& WidgetsUnderPointer, const FPointerEvent& InWheelEvent, const FPointerEvent* InGestureEvent)
+{
+	FWidgetPath MouseCaptorPath;
+	if ( MouseCaptor.HasCaptureForPointerIndex(InWheelEvent.GetUserIndex(), InWheelEvent.GetPointerIndex()) )
+	{
+		MouseCaptorPath = MouseCaptor.ToWidgetPath(FWeakWidgetPath::EInterruptedPathHandling::ReturnInvalid, &InWheelEvent);
+	}
+
+	const FWidgetPath& EventPath = MouseCaptorPath.IsValid() ? MouseCaptorPath : WidgetsUnderPointer;
 
 	// Switch worlds widgets in the current path
-	FScopedSwitchWorldHack SwitchWorld( EventPath );
+	FScopedSwitchWorldHack SwitchWorld(EventPath);
 
-	FReply Reply = FEventRouter::Route<FReply>( this, FEventRouter::FBubblePolicy(EventPath), InWheelEvent, [&InGestureEvent](const FArrangedWidget& CurWidget, const FPointerEvent& Event)
+	FReply Reply = FEventRouter::Route<FReply>(this, FEventRouter::FBubblePolicy(EventPath), InWheelEvent, [&InGestureEvent] (const FArrangedWidget& CurWidget, const FPointerEvent& Event)
 	{
 		FReply TempReply = FReply::Unhandled();
 		// Gesture event gets first shot, if slate doesn't respond to it, we'll try the wheel event.
-		if( InGestureEvent != nullptr )
+		if ( InGestureEvent != nullptr && InGestureEvent->GetGestureDelta() != FVector2D::ZeroVector )
 		{
-			TempReply = CurWidget.Widget->OnTouchGesture( CurWidget.Geometry, *InGestureEvent );
+			TempReply = CurWidget.Widget->OnTouchGesture(CurWidget.Geometry, *InGestureEvent);
 		}
-		
+
 		// Send the mouse wheel event if we haven't already handled the gesture version of this event.
-		if( !TempReply.IsEventHandled() )
+		if ( !TempReply.IsEventHandled() && Event.GetWheelDelta() != 0 )
 		{
-			TempReply = CurWidget.Widget->OnMouseWheel( CurWidget.Geometry, Event );
+			TempReply = CurWidget.Widget->OnMouseWheel(CurWidget.Geometry, Event);
 		}
 
 		return TempReply;
-	} );
+	});
 
-	LOG_EVENT( bIsGestureEvent ? EEventLog::TouchGesture : EEventLog::MouseWheel, Reply );
+	LOG_EVENT(bIsGestureEvent ? EEventLog::TouchGesture : EEventLog::MouseWheel, Reply);
 
-	return Reply.IsEventHandled();
+	return Reply;
 }
 
 bool FSlateApplication::OnMouseMove()
@@ -4994,6 +5131,8 @@ bool FSlateApplication::ProcessMouseMoveEvent( FPointerEvent& MouseEvent, bool b
 
 	if ( !bIsSynthetic )
 	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_ProcessMouseMove_Tooltip);
+
 		QueueSynthesizedMouseMove();
 
 		// Detecting a mouse move of zero delta is our way of filtering out synthesized move events
@@ -5013,7 +5152,14 @@ bool FSlateApplication::ProcessMouseMoveEvent( FPointerEvent& MouseEvent, bool b
 		? LocateWindowUnderMouse(MouseEvent.GetScreenSpacePosition(), GetInteractiveTopLevelWindows())
 		: FWidgetPath();
 
-	return RoutePointerMoveEvent( WidgetsUnderCursor, MouseEvent, bIsSynthetic );
+	bool bResult;
+
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_ProcessMouseMove_RoutePointerMoveEvent);
+		bResult = RoutePointerMoveEvent(WidgetsUnderCursor, MouseEvent, bIsSynthetic);
+	}
+
+	return bResult;
 }
 
 bool FSlateApplication::OnCursorSet()
@@ -5117,7 +5263,7 @@ bool FSlateApplication::OnControllerButtonReleased( FGamepadKeyNames::Type KeyNa
 	return ProcessKeyUpEvent(KeyEvent);
 }
 
-bool FSlateApplication::OnTouchGesture( EGestureEvent::Type GestureType, const FVector2D &Delta, const float MouseWheelDelta )
+bool FSlateApplication::OnTouchGesture( EGestureEvent::Type GestureType, const FVector2D &Delta, const float MouseWheelDelta, bool bIsDirectionInvertedFromDevice )
 {
 	const FVector2D CurrentCursorPosition = GetCursorPos();
 	
@@ -5127,7 +5273,8 @@ bool FSlateApplication::OnTouchGesture( EGestureEvent::Type GestureType, const F
 		PressedMouseButtons,
 		PlatformApplication->GetModifierKeys(),
 		GestureType,
-		Delta
+		Delta,
+		bIsDirectionInvertedFromDevice
 	);
 	
 	FPointerEvent MouseWheelEvent(
@@ -5364,12 +5511,18 @@ bool FSlateApplication::ProcessWindowActivatedEvent( const FWindowActivateEvent&
 
 	if ( ActivateEvent.GetActivationType() != FWindowActivateEvent::EA_Deactivate )
 	{
+		const bool bActivatedByMouse = ActivateEvent.GetActivationType() == FWindowActivateEvent::EA_ActivateByMouse;
+		
 		// Only window activate by mouse is considered a user interaction
-		if (ActivateEvent.GetActivationType() == FWindowActivateEvent::EA_ActivateByMouse)
+		if (bActivatedByMouse)
 		{
 			LastUserInteractionTime = this->GetCurrentTime();
 		}
 		
+		// Widgets that happen to be under the mouse need to update if activation changes
+		// This also serves as a force redraw which is needed when restoring a window that was previously inactive.
+		QueueSynthesizedMouseMove();
+
 		// NOTE: The window is brought to front even when a modal window is active and this is not the modal window one of its children 
 		// The reason for this is so that the Slate window order is in sync with the OS window order when a modal window is open.  This is important so that when the modal window closes the proper window receives input from Slate.
 		// If you change this be sure to test windows are activated properly and receive input when they are opened when a modal dialog is open.
@@ -5408,12 +5561,35 @@ bool FSlateApplication::ProcessWindowActivatedEvent( const FWindowActivateEvent&
 			// This allows us to force ourselves back to the correct resolution after alt-tabbing out of a fullscreen
 			// window and then going back in again.
 			Renderer->RestoreSystemResolution(ActivateEvent.GetAffectedWindow());
+
+			// Synthesize mouse move to resume rendering in the next tick if Slate is sleeping
+			QueueSynthesizedMouseMove();
 		}
 		else
 		{
 			// An attempt is being made to activate another window when a modal window is running
 			ActiveModalWindow->BringToFront();
 			ActiveModalWindow->FlashWindow();
+		}
+
+		// Notify the GameViewport that it's been activated if it's a descendant of the top level window were activating 
+		if (GameViewportWidget.IsValid())
+		{
+			TSharedPtr<SViewport> GameViewportWidgetPtr = GameViewportWidget.Pin();
+			FWidgetPath PathToViewport;
+			// If we cannot find the window it could have been destroyed.
+			if (FSlateWindowHelper::FindPathToWidget(SlateWindows, GameViewportWidgetPtr.ToSharedRef(), PathToViewport, EVisibility::All))
+			{
+				if (PathToViewport.GetWindow() == ActiveTopLevelWindow)
+				{
+					// Activate the viewport and process the reply 
+					FReply ViewportActivatedReply = GameViewportWidgetPtr->OnViewportActivated(ActivateEvent);
+					if (ViewportActivatedReply.IsEventHandled())
+					{
+						ProcessReply(PathToViewport, ViewportActivatedReply, nullptr, nullptr);
+					}
+				}
+			}
 		}
 	}
 	else
@@ -5433,6 +5609,12 @@ bool FSlateApplication::ProcessWindowActivatedEvent( const FWindowActivateEvent&
 		// Switch worlds for the activated window
 		FScopedSwitchWorldHack SwitchWorld( ActivateEvent.GetAffectedWindow() );
 		ActivateEvent.GetAffectedWindow()->OnIsActiveChanged( ActivateEvent );
+		
+		// Notify the GameViewport that it's been deactivated
+		if (GameViewportWidget.IsValid())
+		{
+			GameViewportWidget.Pin()->OnViewportDeactivated(ActivateEvent);
+		}
 
 		// A window was deactivated; mouse capture should be cleared
 		ResetToDefaultPointerInputSettings();
@@ -5447,12 +5629,11 @@ bool FSlateApplication::OnApplicationActivationChanged( const bool IsActive )
 	return true;
 }
 
-void FSlateApplication::ProcessApplicationActivationEvent( bool InAppActivated )
+void FSlateApplication::ProcessApplicationActivationEvent(bool InAppActivated)
 {
 	const bool UserSwitchedAway = bAppIsActive && !InAppActivated;
 
 	bAppIsActive = InAppActivated;
-
 
 	// If the user switched to a different application then we should dismiss our pop-ups.  In the case
 	// where a user clicked on a different Slate window, OnWindowActivatedMessage() will be call MenuStack.OnWindowActivated()
@@ -5468,25 +5649,19 @@ void FSlateApplication::ProcessApplicationActivationEvent( bool InAppActivated )
 		// No slate window is active when our entire app becomes inactive
 		bSlateWindowActive = false;
 
-		// Clear keyboard focus when the app is deactivated, if the widget isn't a child of the game viewport.
-		bool bClearKeyboardFocus = true;
-
-		if (!SlateDefs::ClearGameViewportFocusWhenWindowLosesFocus && GameViewportWidget.IsValid())
-		{
-			FUserFocusEntry& UserFocusEntry = UserFocusEntries[GetUserIndexForKeyboard()];
-			bClearKeyboardFocus = !(UserFocusEntry.WidgetPath.ContainsWidget(GameViewportWidget.Pin().ToSharedRef()));
-		}
-		if (bClearKeyboardFocus)
-		{
-			ClearKeyboardFocus(EFocusCause::OtherWidgetLostFocus);
-		}
-
 		// If we have a slate-only drag-drop occurring, stop the drag drop.
-		if ( IsDragDropping() && !DragDropContent->IsExternalOperation() )
+		if (IsDragDropping() && !DragDropContent->IsExternalOperation())
 		{
 			DragDropContent.Reset();
 		}
 	}
+	else
+	{
+		//Ensure that slate ticks/renders next frame
+		QueueSynthesizedMouseMove();
+	}
+
+	OnApplicationActivationStateChanged().Broadcast(InAppActivated);
 }
 
 

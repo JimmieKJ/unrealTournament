@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SteamVRControllerPrivatePCH.h"
 #include "ISteamVRControllerPlugin.h"
@@ -244,8 +244,10 @@ public:
 						if ( ControllerState.TouchPadYAnalog != VRControllerState.rAxis[TOUCHPAD_AXIS].y)
 						{
 							const FGamepadKeyNames::Type AxisButton = (HandToUse == EControllerHand::Left) ? FGamepadKeyNames::MotionController_Left_Thumbstick_Y : FGamepadKeyNames::MotionController_Right_Thumbstick_Y;
-							MessageHandler->OnControllerAnalog(AxisButton, ControllerIndex, VRControllerState.rAxis[TOUCHPAD_AXIS].y);
-							ControllerState.TouchPadYAnalog = VRControllerState.rAxis[TOUCHPAD_AXIS].y;
+							// Invert the y to match UE4 convention
+							const float Value = -VRControllerState.rAxis[TOUCHPAD_AXIS].y;
+							MessageHandler->OnControllerAnalog(AxisButton, ControllerIndex, Value);
+							ControllerState.TouchPadYAnalog = Value;
 						}
 
 						if ( ControllerState.TriggerAnalog != VRControllerState.rAxis[TRIGGER_AXIS].x)
@@ -390,6 +392,19 @@ public:
  		}
 
 		return RetVal;
+	}
+
+	virtual ETrackingStatus GetControllerTrackingStatus(const int32 ControllerIndex, const EControllerHand DeviceHand) const
+	{
+		ETrackingStatus TrackingStatus = ETrackingStatus::NotTracked;
+
+		FSteamVRHMD* SteamVRHMD = GetSteamVRHMD();
+ 		if (SteamVRHMD)
+ 		{
+			TrackingStatus = SteamVRHMD->GetControllerTrackingStatus(ControllerIndex, DeviceHand);
+ 		}
+
+		return TrackingStatus;
 	}
 
 	virtual bool Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar ) override

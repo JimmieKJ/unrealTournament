@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LandscapeEditorPrivatePCH.h"
 #include "LandscapeEdMode.h"
@@ -310,9 +310,10 @@ public:
 
 	virtual void Render(const FSceneView* View, FViewport* Viewport, FPrimitiveDrawInterface* PDI) override
 	{
-		if (NumPoints > 0)
+		// The editor can try to render the tool before the UpdateLandscapeEditorData command runs and the landscape editor realizes that the landscape has been hidden/deleted
+		const ALandscapeProxy* LandscapeProxy = EdMode->CurrentToolTarget.LandscapeInfo->GetLandscapeProxy();
+		if (LandscapeProxy && NumPoints > 0)
 		{
-			const ALandscapeProxy* LandscapeProxy = EdMode->CurrentToolTarget.LandscapeInfo->GetLandscapeProxy();
 			const FTransform LandscapeToWorld = LandscapeProxy->LandscapeActorToWorld();
 
 			const FLinearColor SelectedSpriteColor = FLinearColor::White + (GEngine->GetSelectedMaterialColor() * GEngine->SelectionHighlightIntensity * 10);
@@ -403,7 +404,12 @@ public:
 	{
 		if (SelectedPoint != INDEX_NONE)
 		{
-			return true;
+			// The editor can try to render the transform widget before the landscape editor ticks and realizes that the landscape has been hidden/deleted
+			const ALandscapeProxy* LandscapeProxy = EdMode->CurrentToolTarget.LandscapeInfo->GetLandscapeProxy();
+			if (LandscapeProxy)
+			{
+				return true;
+			}
 		}
 
 		return false;
@@ -431,9 +437,11 @@ public:
 		if (SelectedPoint != INDEX_NONE)
 		{
 			const ALandscapeProxy* LandscapeProxy = EdMode->CurrentToolTarget.LandscapeInfo->GetLandscapeProxy();
-			const FTransform LandscapeToWorld = LandscapeProxy->LandscapeActorToWorld();
-
-			return LandscapeToWorld.TransformPosition(Points[SelectedPoint]);
+			if (LandscapeProxy)
+			{
+				const FTransform LandscapeToWorld = LandscapeProxy->LandscapeActorToWorld();
+				return LandscapeToWorld.TransformPosition(Points[SelectedPoint]);
+			}
 		}
 
 		return FVector::ZeroVector;
@@ -444,9 +452,11 @@ public:
 		if (SelectedPoint != INDEX_NONE)
 		{
 			const ALandscapeProxy* LandscapeProxy = EdMode->CurrentToolTarget.LandscapeInfo->GetLandscapeProxy();
-			const FTransform LandscapeToWorld = LandscapeProxy->LandscapeActorToWorld();
-
-			return FQuatRotationTranslationMatrix(LandscapeToWorld.GetRotation(), FVector::ZeroVector);
+			if (LandscapeProxy)
+			{
+				const FTransform LandscapeToWorld = LandscapeProxy->LandscapeActorToWorld();
+				return FQuatRotationTranslationMatrix(LandscapeToWorld.GetRotation(), FVector::ZeroVector);
+			}
 		}
 
 		return FMatrix::Identity;

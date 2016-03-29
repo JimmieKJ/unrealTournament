@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	WorldCollision.cpp: UWorld collision implementation
@@ -47,7 +47,7 @@ FCollisionResponseContainer FCollisionResponseContainer::DefaultResponseContaine
 /* This is default response param that's used by trace query **/
 FCollisionResponseParams		FCollisionResponseParams::DefaultResponseParam;
 FCollisionObjectQueryParams		FCollisionObjectQueryParams::DefaultObjectQueryParam;
-FCollisionQueryParams			FCollisionQueryParams::DefaultQueryParam(TEXT("DefaultQueryParam"));   // note this variable declaration was (and still is currently) calling FCollisionQueryParams::FCollisionQueryParams(bool)  instead FCollisionQueryParams(FName,...),   The latter is probably the actual intention of this line of code
+FCollisionQueryParams			FCollisionQueryParams::DefaultQueryParam(TEXT("DefaultQueryParam"),true);   
 FComponentQueryParams			FComponentQueryParams::DefaultComponentQueryParams(TEXT("DefaultComponentQueryParam"));
 FCollisionShape					FCollisionShape::LineShape;
 
@@ -174,22 +174,6 @@ bool UWorld::OverlapAnyTestByChannel(const FVector& Pos, const FQuat& Rot, EColl
 
 }
 
-bool UWorld::OverlapSingle(struct FOverlapResult& OutOverlap, const FVector& Pos, const FQuat& Rot, ECollisionChannel TraceChannel, const struct FCollisionShape& CollisionShape, const struct FCollisionQueryParams& Params, const struct FCollisionResponseParams& ResponseParam) const
-{
-	bool bBlocking = false;
-#if UE_WITH_PHYSICS
-	TArray<FOverlapResult> Overlaps;
-	return GeomOverlapMulti(this, CollisionShape, Pos, Rot, Overlaps, TraceChannel, Params, ResponseParam, FCollisionObjectQueryParams::DefaultObjectQueryParam);
-	if (Overlaps.Num())
-	{
-		OutOverlap = Overlaps[0];
-		bBlocking = Overlaps[0].bBlockingHit;
-	}
-#endif
-
-	return bBlocking;
-}
-
 bool UWorld::OverlapMultiByChannel(TArray<struct FOverlapResult>& OutOverlaps, const FVector& Pos, const FQuat& Rot, ECollisionChannel TraceChannel, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params /* = FCollisionQueryParams::DefaultQueryParam */, const FCollisionResponseParams& ResponseParam /* = FCollisionResponseParams::DefaultResponseParam */) const
 {
 #if UE_WITH_PHYSICS
@@ -310,24 +294,6 @@ bool UWorld::OverlapAnyTestByObjectType(const FVector& Pos, const FQuat& Rot, co
 	return bBlocking;
 }
 
-
-bool UWorld::OverlapSingle(struct FOverlapResult& OutOverlap, const FVector& Pos, const FQuat& Rot, const struct FCollisionShape& CollisionShape, const struct FCollisionQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams) const
-{
-	bool bBlocking = false;
-#if UE_WITH_PHYSICS
-	TArray<FOverlapResult> Overlaps;
-	GeomOverlapMulti(this, CollisionShape, Pos, Rot, Overlaps, DefaultCollisionChannel, Params, FCollisionResponseParams::DefaultResponseParam, ObjectQueryParams);
-	if (Overlaps.Num() > 0)
-	{
-		OutOverlap = Overlaps[0];
-		bBlocking = true;
-	}
-#endif
-
-	return bBlocking;
-}
-
-
 // profile interfaces
 static void GetCollisionProfileChannelAndResponseParams(FName ProfileName, ECollisionChannel &CollisionChannel, FCollisionResponseParams &ResponseParams)
 {
@@ -413,21 +379,6 @@ bool UWorld::OverlapAnyTestByProfile(const FVector& Pos, const FQuat& Rot, FName
 	GetCollisionProfileChannelAndResponseParams(ProfileName, TraceChannel, ResponseParam);
 
 	return OverlapAnyTestByChannel(Pos, Rot, TraceChannel, CollisionShape, Params, ResponseParam);
-}
-
-bool UWorld::OverlapSingleByProfile(struct FOverlapResult& OutOverlap, const FVector& Pos, const FQuat& Rot, FName ProfileName, const struct FCollisionShape& CollisionShape, const struct FCollisionQueryParams& Params) const
-{
-	TArray<FOverlapResult> Overlaps;
-	OverlapMultiByProfile(Overlaps, Pos, Rot, ProfileName, CollisionShape, Params);
-
-	bool bBlocking = false;
-	if (Overlaps.Num())
-	{
-		bBlocking = Overlaps[0].bBlockingHit;
-		OutOverlap = Overlaps[0];
-	}
-
-	return bBlocking;
 }
 
 bool UWorld::OverlapMultiByProfile(TArray<struct FOverlapResult>& OutOverlaps, const FVector& Pos, const FQuat& Rot, FName ProfileName, const struct FCollisionShape& CollisionShape, const struct FCollisionQueryParams& Params) const

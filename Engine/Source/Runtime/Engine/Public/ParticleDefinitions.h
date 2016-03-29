@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /**
  * This file is just used to indirectly include EngineParticleClasses.h with all of the C++ headers it depends on included first.

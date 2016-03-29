@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
 #include "BehaviorTree/BehaviorTree.h"
@@ -293,6 +293,7 @@ void UBehaviorTreeComponent::StopTree(EBTStopMode::Type StopMode)
 	bRequestedFlowUpdate = false;
 	bRequestedStop = false;
 	bIsRunning = false;
+	bWaitingForAbortingTasks = false;
 }
 
 void UBehaviorTreeComponent::RestartTree()
@@ -1014,6 +1015,7 @@ void UBehaviorTreeComponent::TickComponent(float DeltaTime, enum ELevelTick Tick
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	SCOPE_CYCLE_COUNTER(STAT_AI_BehaviorTree_Tick);
+	SCOPE_CYCLE_COUNTER(STAT_AI_Overall);
 
 	check(this != nullptr && this->IsPendingKill() == false);
 
@@ -1270,6 +1272,9 @@ void UBehaviorTreeComponent::ProcessExecutionRequest()
 		ExecutionRequest = FBTNodeExecutionInfo();
 	}
 
+	// unlock execution data, can get locked again if AbortCurrentTask starts any new requests
+	PendingExecution.Unlock();
+
 	if (bIsSearchValid)
 	{
 		// abort task if needed
@@ -1287,8 +1292,6 @@ void UBehaviorTreeComponent::ProcessExecutionRequest()
 		UE_VLOG(GetOwner(), LogBehaviorTree, Verbose, TEXT("Search result is not valid, reverted all changes."));
 	}
 
-	// it could be locked by failed search attempt
-	PendingExecution.Unlock();
 	ProcessPendingExecution();
 }
 

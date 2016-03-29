@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGEditorPrivatePCH.h"
 #include "MovieSceneMarginTrack.h"
@@ -79,18 +79,20 @@ TSharedRef<FPropertySection> FMarginTrackEditor::MakePropertySectionInterface( U
 }
 
 
-void FMarginTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<FMarginKey>& GeneratedKeys )
+void FMarginTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<FMarginKey>& NewGeneratedKeys, TArray<FMarginKey>& DefaultGeneratedKeys)
 {
 	FName ChannelName = PropertyChangedParams.StructPropertyNameToKey;
 	FMargin Margin = PropertyChangedParams.GetPropertyValue<FMargin>();
 
-	GeneratedKeys.Add( FMarginKey( EKeyMarginChannel::Left, Margin.Left, ChannelName == NAME_None || ChannelName == LeftName ? EKeyMarginValueType::Key : EKeyMarginValueType::Default ) );
-	GeneratedKeys.Add( FMarginKey( EKeyMarginChannel::Top, Margin.Top, ChannelName == NAME_None || ChannelName == TopName ? EKeyMarginValueType::Key : EKeyMarginValueType::Default ) );
-	GeneratedKeys.Add( FMarginKey( EKeyMarginChannel::Right, Margin.Right, ChannelName == NAME_None || ChannelName == RightName ? EKeyMarginValueType::Key : EKeyMarginValueType::Default ) );
-	GeneratedKeys.Add( FMarginKey( EKeyMarginChannel::Bottom, Margin.Bottom, ChannelName == NAME_None || ChannelName == BottomName ? EKeyMarginValueType::Key : EKeyMarginValueType::Default ) );
-}
+	TArray<FMarginKey>& LeftKeys = ChannelName == NAME_None || ChannelName == LeftName ? NewGeneratedKeys : DefaultGeneratedKeys;
+	LeftKeys.Add( FMarginKey( EKeyMarginChannel::Left, Margin.Left ) );
 
-bool FMarginTrackEditor::ShouldAddKey(UMovieSceneMarginTrack* InTrack, FMarginKey InKey, FKeyParams InKeyParams) const
-{
-	return FPropertyTrackEditor::ShouldAddKey(InTrack, InKey, InKeyParams) && InKey.ValueType == EKeyMarginValueType::Key;
+	TArray<FMarginKey>& TopKeys = ChannelName == NAME_None || ChannelName == TopName ? NewGeneratedKeys : DefaultGeneratedKeys;
+	TopKeys.Add( FMarginKey( EKeyMarginChannel::Top, Margin.Top ) );
+
+	TArray<FMarginKey>& RightKeys = ChannelName == NAME_None || ChannelName == RightName ? NewGeneratedKeys : DefaultGeneratedKeys;
+	RightKeys.Add( FMarginKey( EKeyMarginChannel::Right, Margin.Right ) );
+
+	TArray<FMarginKey>& BottomKeys = ChannelName == NAME_None || ChannelName == BottomName ? NewGeneratedKeys : DefaultGeneratedKeys;
+	BottomKeys.Add( FMarginKey( EKeyMarginChannel::Bottom, Margin.Bottom ) );
 }

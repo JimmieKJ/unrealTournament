@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 
@@ -9,6 +9,15 @@
 bool FText::IsWhitespace( const TCHAR Char )
 {
 	return FChar::IsWhitespace(Char);
+}
+
+FText FText::AsCurrencyBase(int64 BaseVal, const FString& CurrencyCode, const FCulturePtr& TargetCulture)
+{
+	FInternationalization& I18N = FInternationalization::Get();
+	checkf(I18N.IsInitialized() == true, TEXT("FInternationalization is not initialized. An FText formatting method was likely used in static object initialization - this is not supported."));
+	const FCulture& Culture = TargetCulture.IsValid() ? *TargetCulture : *I18N.GetCurrentCulture();
+	double Val = static_cast<double>(BaseVal) / FMath::Pow(10.0f, Culture.NumberFormattingRule.CurrencyDecimalDigits);
+	return FText::CreateNumericalText(MakeShareable(new TGeneratedTextData<FTextHistory_AsCurrency>(Culture.NumberFormattingRule.AsCurrency(Val), FTextHistory_AsCurrency(Val, CurrencyCode, nullptr, TargetCulture))));
 }
 
 FText FText::AsDate( const FDateTime& DateTime, const EDateTimeStyle::Type DateStyle, const FString& TimeZone, const FCulturePtr& TargetCulture )
@@ -34,32 +43,6 @@ FText FText::AsDateTime( const FDateTime& DateTime, const EDateTimeStyle::Type D
 {
 	checkf(FInternationalization::Get().IsInitialized() == true, TEXT("FInternationalization is not initialized. An FText formatting method was likely used in static object initialization - this is not supported."));
 	return FText::FromString(DateTime.ToString(TEXT("%Y.%m.%d-%H.%M.%S")));
-}
-
-FText FText::AsMemory( SIZE_T NumBytes, const FNumberFormattingOptions* const Options, const FCulturePtr& TargetCulture )
-{
-	checkf(FInternationalization::Get().IsInitialized() == true, TEXT("FInternationalization is not initialized. An FText formatting method was likely used in static object initialization - this is not supported."));
-	FFormatNamedArguments Args;
-
-	if (NumBytes < 1024)
-	{
-		Args.Add( TEXT("Number"), FText::AsNumber( (uint64)NumBytes, Options, TargetCulture) );
-		Args.Add( TEXT("Unit"), FText::FromString( FString( TEXT("B") ) ) );
-		return FText::Format( NSLOCTEXT("Internationalization", "ComputerMemoryFormatting", "{Number} {Unit}"), Args );
-	}
-
-	static const TCHAR* Prefixes = TEXT("kMGTPEZY");
-	int32 Prefix = 0;
-
-	for (; NumBytes > 1024 * 1024; NumBytes >>= 10)
-	{
-		++Prefix;
-	}
-
-	const double MemorySizeAsDouble = (double)NumBytes / 1024.0;
-	Args.Add( TEXT("Number"), FText::AsNumber( MemorySizeAsDouble, Options, TargetCulture) );
-	Args.Add( TEXT("Unit"), FText::FromString( FString( 1, &Prefixes[Prefix] ) + TEXT("B") ) );
-	return FText::Format( NSLOCTEXT("Internationalization", "ComputerMemoryFormatting", "{Number} {Unit}"), Args);
 }
 
 int32 FText::CompareTo( const FText& Other, const ETextComparisonLevel::Type ComparisonLevel ) const

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerPrivatePCH.h"
 #include "GroupedKeyArea.h"
@@ -24,34 +24,118 @@ namespace
 	TMap<FIndexKey, FIndexEntry> GlobalIndex;
 }
 
-
-FGroupedKeyArea::FGroupedKeyArea(FSequencerDisplayNode& InNode, int32 InSectionIndex)
-	: Section(nullptr)
-	, IndexKey(FString(), nullptr)
+FGroupedKeyCollection::FGroupedKeyCollection()
+	: IndexKey(FString(), nullptr)
 {
+	GroupingThreshold = SMALL_NUMBER;
+}
+
+void FGroupedKeyCollection::InitializeExplicit(const TArray<FSequencerDisplayNode*>& InNodes, float DuplicateThreshold)
+{
+	KeyAreas.Reset();
+	Groups.Reset();
+
+	TArray<TSharedRef<FSequencerSectionKeyAreaNode>> AllKeyAreaNodes;
+	AllKeyAreaNodes.Reserve(36);
+	for (const FSequencerDisplayNode* Node : InNodes)
+	{
+		const FSequencerSectionKeyAreaNode* KeyAreaNode = nullptr;
+
+		if (Node->GetType() == ESequencerNode::KeyArea)
+		{
+			KeyAreaNode = static_cast<const FSequencerSectionKeyAreaNode*>(Node);
+		}
+		else if (Node->GetType() == ESequencerNode::Track)
+		{
+			KeyAreaNode = static_cast<const FSequencerTrackNode*>(Node)->GetTopLevelKeyNode().Get();
+		}
+
+		if (!KeyAreaNode)
+		{
+			continue;
+		}
+
+		const TArray<TSharedRef<IKeyArea>>& AllKeyAreas = KeyAreaNode->GetAllKeyAreas();
+		KeyAreas.Reserve(KeyAreas.Num() + AllKeyAreas.Num());
+
+		for (const TSharedRef<IKeyArea>& KeyArea : AllKeyAreas)
+		{
+			AddKeyArea(KeyArea);
+		}
+	}
+
+	RemoveDuplicateKeys(DuplicateThreshold);
+}
+
+void FGroupedKeyCollection::InitializeRecursive(const TArray<FSequencerDisplayNode*>& InNodes, float DuplicateThreshold)
+{
+	KeyAreas.Reset();
+	Groups.Reset();
+
+	TArray<TSharedRef<FSequencerSectionKeyAreaNode>> AllKeyAreaNodes;
+	AllKeyAreaNodes.Reserve(36);
+	for (FSequencerDisplayNode* Node : InNodes)
+	{
+		if (Node->GetType() == ESequencerNode::KeyArea)
+		{
+			AllKeyAreaNodes.Add(StaticCastSharedRef<FSequencerSectionKeyAreaNode>(Node->AsShared()));
+		}
+
+		Node->GetChildKeyAreaNodesRecursively(AllKeyAreaNodes);
+	}
+
+	for (const auto& Node : AllKeyAreaNodes)
+	{
+		const TArray<TSharedRef<IKeyArea>>& AllKeyAreas = Node->GetAllKeyAreas();
+		KeyAreas.Reserve(KeyAreas.Num() + AllKeyAreas.Num());
+
+		for (const TSharedRef<IKeyArea>& KeyArea : AllKeyAreas)
+		{
+			AddKeyArea(KeyArea);
+		}
+	}
+
+	RemoveDuplicateKeys(DuplicateThreshold);
+}
+
+void FGroupedKeyCollection::InitializeRecursive(FSequencerDisplayNode& InNode, int32 InSectionIndex, float DuplicateThreshold)
+{
+	KeyAreas.Reset();
+	Groups.Reset();
+
 	TArray<TSharedRef<FSequencerSectionKeyAreaNode>> AllKeyAreaNodes;
 	AllKeyAreaNodes.Reserve(36);
 	InNode.GetChildKeyAreaNodesRecursively(AllKeyAreaNodes);
 
 	for (const auto& Node : AllKeyAreaNodes)
 	{
-		TSharedRef<IKeyArea> KeyArea = Node->GetKeyArea(InSectionIndex);
-
-		const int32 KeyAreaIndex = KeyAreas.Num();
-		KeyAreas.Add(KeyArea);
-
+		TSharedPtr<IKeyArea> KeyArea = Node->GetKeyArea(InSectionIndex);
+		if (KeyArea.IsValid())
 		{
-			auto* OwningSection = KeyArea->GetOwningSection();
-			// Ensure they all belong to the same section
-			ensure(!Section || Section == OwningSection);
-			Section = OwningSection;
-		}
-
-		for (const FKeyHandle& KeyHandle : KeyArea->GetUnsortedKeyHandles())
-		{
-			Groups.Emplace(KeyArea->GetKeyTime(KeyHandle), KeyAreaIndex, KeyHandle);
+			AddKeyArea(KeyArea.ToSharedRef());
 		}
 	}
+
+	RemoveDuplicateKeys(DuplicateThreshold);
+}
+
+void FGroupedKeyCollection::AddKeyArea(const TSharedRef<IKeyArea>& InKeyArea)
+{
+	const int32 KeyAreaIndex = KeyAreas.Num();
+	KeyAreas.Add(InKeyArea);
+
+	TArray<FKeyHandle> AllKeyHandles = InKeyArea->GetUnsortedKeyHandles();
+	Groups.Reserve(Groups.Num() + AllKeyHandles.Num());
+
+	for (const FKeyHandle& KeyHandle : AllKeyHandles)
+	{
+		Groups.Emplace(InKeyArea->GetKeyTime(KeyHandle), KeyAreaIndex, KeyHandle);
+	}
+}
+
+void FGroupedKeyCollection::RemoveDuplicateKeys(float DuplicateThreshold)
+{
+	GroupingThreshold = DuplicateThreshold;
 
 	Groups.Sort([](const FKeyGrouping& A, const FKeyGrouping& B){
 		return A.RepresentativeTime < B.RepresentativeTime;
@@ -65,7 +149,7 @@ FGroupedKeyArea::FGroupedKeyArea(FSequencerDisplayNode& InNode, int32 InSectionI
 		int32 NumToMerge = 0;
 		for (int32 DuplIndex = Index + 1; DuplIndex < Groups.Num(); ++DuplIndex)
 		{
-			if (!FMath::IsNearlyEqual(CurrentTime, Groups[DuplIndex].RepresentativeTime))
+			if (!FMath::IsNearlyEqual(CurrentTime, Groups[DuplIndex].RepresentativeTime, DuplicateThreshold))
 			{
 				break;
 			}
@@ -83,15 +167,9 @@ FGroupedKeyArea::FGroupedKeyArea(FSequencerDisplayNode& InNode, int32 InSectionI
 			Groups.RemoveAt(Start, NumToMerge, false);
 		}
 	}
-
-	if (Section)
-	{
-		IndexKey = FIndexKey(InNode.GetPathName(), Section);
-		UpdateIndex();
-	}
 }
 
-void FGroupedKeyArea::UpdateIndex() const
+void FGroupedKeyCollection::UpdateIndex() const
 {
 	auto& IndexEntry = GlobalIndex.FindOrAdd(IndexKey);
 
@@ -131,7 +209,64 @@ void FGroupedKeyArea::UpdateIndex() const
 	IndexEntry.RepresentativeTimes = MoveTemp(NewRepresentativeTimes);
 }
 
-const FKeyGrouping* FGroupedKeyArea::FindGroup(FKeyHandle InHandle) const
+void FGroupedKeyCollection::IterateKeys(const TFunctionRef<bool(float)>& Iter)
+{
+	for (const FKeyGrouping& Grouping : Groups)
+	{
+		if (!Iter(Grouping.RepresentativeTime))
+		{
+			return;
+		}
+	}
+}
+
+float FGroupedKeyCollection::GetKeyGroupingThreshold() const
+{
+	return GroupingThreshold;
+}
+
+TOptional<float> FGroupedKeyCollection::FindFirstKeyInRange(const TRange<float>& InRange, EFindKeyDirection Direction) const
+{
+	// @todo: linear search may be slow where there are lots of keys
+
+	bool bWithinRange = false;
+	if (Direction == EFindKeyDirection::Backwards)
+	{
+		for (int32 Index = Groups.Num() - 1; Index >= 0; --Index)
+		{
+			if (Groups[Index].RepresentativeTime < InRange.GetUpperBoundValue())
+			{
+				// Just entered the range
+				return Groups[Index].RepresentativeTime;
+			}
+			else if (InRange.HasLowerBound() && Groups[Index].RepresentativeTime < InRange.GetLowerBoundValue())
+			{
+				// No longer inside the range
+				return TOptional<float>();
+			}
+		}
+	}
+	else
+	{
+		for (int32 Index = 0; Index < Groups.Num(); ++Index)
+		{
+			if (Groups[Index].RepresentativeTime > InRange.GetLowerBoundValue())
+			{
+				// Just entered the range
+				return Groups[Index].RepresentativeTime;
+			}
+			else if (InRange.HasUpperBound() && Groups[Index].RepresentativeTime > InRange.GetUpperBoundValue())
+			{
+				// No longer inside the range
+				return TOptional<float>();
+			}
+		}
+	}
+
+	return TOptional<float>();
+}
+
+const FKeyGrouping* FGroupedKeyCollection::FindGroup(FKeyHandle InHandle) const
 {
 	if (auto* IndexEntry = GlobalIndex.Find(IndexKey))
 	{
@@ -143,7 +278,7 @@ const FKeyGrouping* FGroupedKeyArea::FindGroup(FKeyHandle InHandle) const
 	return nullptr;
 }
 
-FKeyGrouping* FGroupedKeyArea::FindGroup(FKeyHandle InHandle)
+FKeyGrouping* FGroupedKeyCollection::FindGroup(FKeyHandle InHandle)
 {
 	if (auto* IndexEntry = GlobalIndex.Find(IndexKey))
 	{
@@ -155,13 +290,13 @@ FKeyGrouping* FGroupedKeyArea::FindGroup(FKeyHandle InHandle)
 	return nullptr;
 }
 
-FLinearColor FGroupedKeyArea::GetKeyTint(FKeyHandle InHandle) const
+FLinearColor FGroupedKeyCollection::GetKeyTint(FKeyHandle InHandle) const
 {
 	// Everything is untinted for now
 	return FLinearColor::White;
 }
 
-const FSlateBrush* FGroupedKeyArea::GetBrush(FKeyHandle InHandle) const
+const FSlateBrush* FGroupedKeyCollection::GetBrush(FKeyHandle InHandle) const
 {
 	static const FSlateBrush* PartialKeyBrush = FEditorStyle::GetBrush("Sequencer.PartialKey");
 	const auto* Group = FindGroup(InHandle);
@@ -176,6 +311,27 @@ const FSlateBrush* FGroupedKeyArea::GetBrush(FKeyHandle InHandle) const
 	}
 
 	return nullptr;
+}
+
+FGroupedKeyArea::FGroupedKeyArea(FSequencerDisplayNode& InNode, int32 InSectionIndex)
+	: Section(nullptr)
+{
+	// Calling this virtual function is safe here, as it's just called through standard name-lookup, not runtime dispatch
+	FGroupedKeyCollection::InitializeRecursive(InNode, InSectionIndex);
+
+	for (const TSharedPtr<IKeyArea>& KeyArea : KeyAreas)
+	{
+		auto* OwningSection = KeyArea->GetOwningSection();
+		// Ensure they all belong to the same section
+		ensure(!Section || Section == OwningSection);
+		Section = OwningSection;
+	}
+
+	if (Section)
+	{
+		IndexKey = FIndexKey(InNode.GetPathName(), Section);
+		UpdateIndex();
+	}
 }
 
 TArray<FKeyHandle> FGroupedKeyArea::GetUnsortedKeyHandles() const
@@ -343,6 +499,18 @@ ERichCurveExtrapolation FGroupedKeyArea::GetExtrapolationMode(bool bPreInfinity)
 	return ExtrapMode;
 }
 
+bool FGroupedKeyArea::CanSetExtrapolationMode() const
+{
+	for (auto& Area : KeyAreas)
+	{
+		if (Area->CanSetExtrapolationMode())
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 TArray<FKeyHandle> FGroupedKeyArea::AddKeyUnique(float Time, EMovieSceneKeyInterpolation InKeyInterpolation, float TimeToCopyFrom)
 {
 	TArray<FKeyHandle> AddedKeyHandles;
@@ -465,9 +633,29 @@ TSharedRef<SWidget> FGroupedKeyArea::CreateKeyEditor(ISequencer* Sequencer)
 }
 
 
-FLinearColor FGroupedKeyArea::GetColor()
+TOptional<FLinearColor> FGroupedKeyArea::GetColor()
 {
-	return FLinearColor(0.1f, 0.1f, 0.1f, 0.7f);
+	return TOptional<FLinearColor>();
+}
+
+
+TSharedPtr<FStructOnScope> FGroupedKeyArea::GetKeyStruct(FKeyHandle KeyHandle)
+{
+	FKeyGrouping* Group = FindGroup(KeyHandle);
+	
+	if (Group == nullptr)
+	{
+		return nullptr;
+	}
+
+	TArray<FKeyHandle> KeyHandles;
+
+	for (auto& Key : Group->Keys)
+	{
+		KeyHandles.Add(Key.KeyHandle);
+	}
+
+	return Section->GetKeyStruct(KeyHandles);
 }
 
 

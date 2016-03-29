@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "UnrealEd.h"
@@ -468,6 +468,12 @@ bool UUnrealEdEngine::CanSelectActor(AActor* Actor, bool bInSelected, bool bSele
 			return false;
 		}
 
+		// If the actor explicitly makes itself unselectable, leave.
+		if (!Actor->IsSelectable())
+		{
+			return false;
+		}
+
 		// Ensure that neither the level nor the actor is being destroyed or is unreachable
 		const EObjectFlags InvalidSelectableFlags = RF_BeginDestroyed;
 		if (Actor->GetLevel()->HasAnyFlags(InvalidSelectableFlags) || Actor->GetLevel()->IsPendingKillOrUnreachable())
@@ -533,9 +539,9 @@ void UUnrealEdEngine::SelectActor(AActor* Actor, bool bInSelected, bool bNotify,
 		if(bInSelected)
 		{
 			// If trying to select an Actor spawned by a ChildACtorComponent, instead select Actor that spawned us
-			if(Actor->ParentComponentActor.IsValid())
+			if (UChildActorComponent* ParentComponent = Actor->GetParentComponent())
 			{
-				Actor = Actor->ParentComponentActor.Get();
+				Actor = ParentComponent->GetOwner();
 			}
 		}
 
@@ -675,7 +681,7 @@ bool UUnrealEdEngine::IsComponentSelected(const UPrimitiveComponent* PrimCompone
 	bool bIsSelected = false;
 	if (GetSelectedComponentCount() > 0)
 	{
-		bIsSelected = GetSelectedComponents()->IsSelected(PrimComponent->IsEditorOnly() ? PrimComponent->AttachParent : PrimComponent);
+		bIsSelected = GetSelectedComponents()->IsSelected(PrimComponent->IsEditorOnly() ? PrimComponent->GetAttachParent() : PrimComponent);
 	}
 
 	return bIsSelected;

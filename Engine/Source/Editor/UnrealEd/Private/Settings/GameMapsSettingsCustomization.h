@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -26,14 +26,6 @@ public:
 
 	virtual void CustomizeDetails( IDetailLayoutBuilder& LayoutBuilder ) override
 	{
-		IDetailCategoryBuilder& DefaultMapsCategory = LayoutBuilder.EditCategory("DefaultMaps");
-		{
-			CustomizeMapSetting(LayoutBuilder, DefaultMapsCategory, "GameDefaultMap");
-			CustomizeMapSetting(LayoutBuilder, DefaultMapsCategory, "ServerDefaultMap");
-			CustomizeMapSetting(LayoutBuilder, DefaultMapsCategory, "EditorStartupMap");
-			CustomizeMapSetting(LayoutBuilder, DefaultMapsCategory, "TransitionMap");
-		}
-
 		// Add extra info around 'Global Default Game Mode'
 		IDetailCategoryBuilder& DefaultModesCategory = LayoutBuilder.EditCategory("DefaultModes");
 		{

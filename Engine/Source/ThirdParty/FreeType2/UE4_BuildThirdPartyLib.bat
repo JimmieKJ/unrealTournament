@@ -4,21 +4,21 @@ pushd FreeType2-2.6\Builds
 
 	p4 edit %THIRD_PARTY_CHANGELIST% ..\lib\Win32\...
 	p4 edit %THIRD_PARTY_CHANGELIST% ..\lib\Win64\...	
-	p4 edit %THIRD_PARTY_CHANGELIST% ..\lib\PS4\...	
-	p4 edit %THIRD_PARTY_CHANGELIST% ..\lib\Linux\...
-	p4 edit %THIRD_PARTY_CHANGELIST% ..\lib\XboxOne\...
 
-	REM vs2012
-	pushd win32\vc2012
+	REM vs2015
+	pushd windows\VS2015
 	msbuild freetype.sln /target:Clean,freetype /p:Platform=Win32;Configuration="Release"
 	msbuild freetype.sln /target:Clean,freetype /p:Platform=Win64;Configuration="Release"
 	popd
 	
-	REM vs2013
-	pushd win32\vc2013
-	msbuild freetype.sln /target:Clean,freetype /p:Platform=Win32;Configuration="Release"
-	msbuild freetype.sln /target:Clean,freetype /p:Platform=Win64;Configuration="Release"
-	popd
+popd
+pushd FreeType2-2.4.12\Builds
+	
+	REM FreeType2-2.4.12
+
+	p4 edit %THIRD_PARTY_CHANGELIST% ..\lib\PS4\...	
+	p4 edit %THIRD_PARTY_CHANGELIST% ..\lib\Linux\...
+	p4 edit %THIRD_PARTY_CHANGELIST% ..\lib\XboxOne\...
 	
 	REM PS4
 	pushd PS4

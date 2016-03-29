@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemEditorPrivatePCH.h"
 #include "KismetEditorUtilities.h"
@@ -35,12 +35,12 @@ class SAttributeItem : public SComboRow< TSharedPtr<FAttributeViewerNode> >
 public:
 
 	SLATE_BEGIN_ARGS(SAttributeItem)
-		: _HighlightText(nullptr)
+		: _HighlightText()
 		, _TextColor(FLinearColor(1.0f, 1.0f, 1.0f, 1.0f))
 	{}
 
 	/** The text this item should highlight, if any. */
-	SLATE_ARGUMENT(const FText*, HighlightText)
+	SLATE_ARGUMENT(FText, HighlightText)
 	/** The color text this item will use. */
 	SLATE_ARGUMENT(FSlateColor, TextColor)
 	/** The node this item is associated with. */
@@ -68,7 +68,7 @@ public:
 					[
 						SNew(STextBlock)
 						.Text(FText::FromString(*AssociatedNode->AttributeName.Get()))
-						.HighlightText(*InArgs._HighlightText)
+						.HighlightText(InArgs._HighlightText)
 						.ColorAndOpacity(this, &SAttributeItem::GetTextColor)
 						.IsEnabled(true)
 					]
@@ -237,7 +237,7 @@ void SAttributeListWidget::Construct(const FArguments& InArgs)
 TSharedRef< ITableRow > SAttributeListWidget::OnGenerateRowForAttributeViewer(TSharedPtr<FAttributeViewerNode> Item, const TSharedRef< STableViewBase >& OwnerTable)
 {
 	TSharedRef< SAttributeItem > ReturnRow = SNew(SAttributeItem, OwnerTable)
-		.HighlightText(&SearchBoxPtr->GetText())
+		.HighlightText(SearchBoxPtr->GetText())
 		.TextColor(FLinearColor(1.0f, 1.0f, 1.0f, 1.f))
 		.AssociatedNode(Item);
 

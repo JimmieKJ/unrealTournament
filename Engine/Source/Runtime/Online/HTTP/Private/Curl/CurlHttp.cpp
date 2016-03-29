@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "HttpPrivatePCH.h"
 #include "CurlHttp.h"
@@ -9,7 +9,7 @@
 
 // FCurlHttpRequest
 
-FCurlHttpRequest::FCurlHttpRequest(CURLM * InMultiHandle)
+FCurlHttpRequest::FCurlHttpRequest(CURLM * InMultiHandle, CURLSH* InShareHandle)
 	:	MultiHandle(InMultiHandle)
 	,	EasyHandle(NULL)
 	,	HeaderList(NULL)
@@ -35,6 +35,8 @@ FCurlHttpRequest::FCurlHttpRequest(CURLM * InMultiHandle)
 		curl_easy_setopt(EasyHandle, CURLOPT_VERBOSE, 1L);
 
 #endif // !UE_BUILD_SHIPPING && !UE_BUILD_TEST
+
+		curl_easy_setopt(EasyHandle, CURLOPT_SHARE, InShareHandle);
 
 		// set certificate verification (disable to allow self-signed certificates)
 		if (FCurlHttpManager::CurlRequestOptions.bVerifyPeer)
@@ -198,6 +200,22 @@ void FCurlHttpRequest::SetHeader(const FString& HeaderName, const FString& Heade
 	Headers.Add(HeaderName, HeaderValue);
 }
 
+void FCurlHttpRequest::AppendToHeader(const FString& HeaderName, const FString& AdditionalHeaderValue)
+{
+	if (!HeaderName.IsEmpty() && !AdditionalHeaderValue.IsEmpty())
+	{
+		FString* PreviousValue = Headers.Find(HeaderName);
+		FString NewValue;
+		if (PreviousValue != nullptr && !PreviousValue->IsEmpty())
+		{
+			NewValue = (*PreviousValue) + TEXT(", ");
+		}
+		NewValue += AdditionalHeaderValue;
+
+		SetHeader(HeaderName, NewValue);
+	}
+}
+
 FString FCurlHttpRequest::GetVerb()
 {
 	return Verb;
@@ -269,15 +287,25 @@ size_t FCurlHttpRequest::ReceiveResponseHeaderCallback(void* Ptr, size_t SizeInB
 
 			UE_LOG(LogHttp, Verbose, TEXT("%p: Received response header '%s'."), this, *Header);
 
-			FString HeaderName, Param;
-			if (Header.Split(TEXT(": "), &HeaderName, &Param))
+			FString HeaderKey, HeaderValue;
+			if (Header.Split(TEXT(": "), &HeaderKey, &HeaderValue))
 			{
-				Response->Headers.Add(HeaderName, Param);
-
-				//Store the content length so OnRequestProgress() delegates have something to work with
-				if (HeaderName == TEXT("Content-Length"))
+				if (!HeaderKey.IsEmpty() && !HeaderValue.IsEmpty())
 				{
-					Response->ContentLength = FCString::Atoi(*Param);
+					FString* PreviousValue = Response->Headers.Find(HeaderKey);
+					FString NewValue;
+					if (PreviousValue != nullptr && !PreviousValue->IsEmpty())
+					{
+						NewValue = (*PreviousValue) + TEXT(", ");
+					}
+					NewValue += HeaderValue;
+					Response->Headers.Add(HeaderKey, NewValue);
+
+					//Store the content length so OnRequestProgress() delegates have something to work with
+					if (HeaderKey == TEXT("Content-Length"))
+					{
+						Response->ContentLength = FCString::Atoi(*HeaderValue);
+					}
 				}
 			}
 			return HeaderSize;
@@ -386,7 +414,12 @@ size_t FCurlHttpRequest::DebugCallback(CURL * Handle, curl_infotype DebugInfoTyp
 			break;
 
 		case CURLINFO_HEADER_OUT:
-			UE_LOG(LogHttp, VeryVerbose, TEXT("%p: Sent header (%d bytes)"), this, DebugInfoSize);
+			{
+				FString DebugText(ANSI_TO_TCHAR(DebugInfo));
+				DebugText.ReplaceInline(TEXT("\n"), TEXT(""), ESearchCase::CaseSensitive);
+				DebugText.ReplaceInline(TEXT("\r"), TEXT(""), ESearchCase::CaseSensitive);
+				UE_LOG(LogHttp, VeryVerbose, TEXT("%p: Sent header (%d bytes) - %s"), this, DebugInfoSize, *DebugText);
+			}
 			break;
 
 		case CURLINFO_DATA_IN:
@@ -715,8 +748,41 @@ void FCurlHttpRequest::FinishedRequest()
 	if (Response.IsValid() &&
 		Response->bSucceeded)
 	{
-		UE_LOG(LogHttp, Verbose, TEXT("%p: request has been successfully processed. HTTP code: %d, content length: %d, actual payload size: %d"), 
-			this, Response->HttpCode, Response->ContentLength, Response->Payload.Num() );
+		const bool bDebugServerResponse = Response->GetResponseCode() >= 500 && Response->GetResponseCode() <= 505;
+
+		// log info about error responses to identify failed downloads
+		if (UE_LOG_ACTIVE(LogHttp, Verbose) ||
+			bDebugServerResponse)
+		{
+			if (bDebugServerResponse)
+			{
+				UE_LOG(LogHttp, Warning, TEXT("%p: request has been successfully processed. URL: %s, HTTP code: %d, content length: %d, actual payload size: %d"),
+					this, *GetURL(), Response->HttpCode, Response->ContentLength, Response->Payload.Num());
+			}
+			else
+			{
+				UE_LOG(LogHttp, Verbose, TEXT("%p: request has been successfully processed. URL: %s, HTTP code: %d, content length: %d, actual payload size: %d"),
+					this, *GetURL(), Response->HttpCode, Response->ContentLength, Response->Payload.Num());
+			}
+
+			TArray<FString> AllHeaders = Response->GetAllHeaders();
+			for (TArray<FString>::TConstIterator It(AllHeaders); It; ++It)
+			{
+				const FString& HeaderStr = *It;
+				if (!HeaderStr.StartsWith(TEXT("Authorization")) && !HeaderStr.StartsWith(TEXT("Set-Cookie")))
+				{
+					if (bDebugServerResponse)
+					{
+						UE_LOG(LogHttp, Warning, TEXT("%p Response Header %s"), this, *HeaderStr);
+					}
+					else
+					{
+						UE_LOG(LogHttp, Verbose, TEXT("%p Response Header %s"), this, *HeaderStr);
+					}
+				}
+			}
+		}
+
 
 		// Mark last request attempt as completed successfully
 		CompletionStatus = EHttpRequestStatus::Succeeded;
@@ -728,9 +794,20 @@ void FCurlHttpRequest::FinishedRequest()
 		UE_LOG(LogHttp, Verbose, TEXT("%p: request failed, libcurl error: %d (%s)"), this, (int32)CurlCompletionResult, ANSI_TO_TCHAR(curl_easy_strerror(CurlCompletionResult)));
 
 		// Mark last request attempt as completed but failed
-		CompletionStatus = EHttpRequestStatus::Failed;
+		switch (CurlCompletionResult)
+		{
+		case CURLE_COULDNT_CONNECT:
+		case CURLE_COULDNT_RESOLVE_PROXY:
+		case CURLE_COULDNT_RESOLVE_HOST:
+			// report these as connection errors (safe to retry)
+			CompletionStatus = EHttpRequestStatus::Failed_ConnectionError;
+			break;
+		default:
+			CompletionStatus = EHttpRequestStatus::Failed;
+		}
 		// No response since connection failed
 		Response = NULL;
+
 		// Call delegate with failure
 		OnProcessRequestComplete().ExecuteIfBound(SharedThis(this),NULL,false);
 	}

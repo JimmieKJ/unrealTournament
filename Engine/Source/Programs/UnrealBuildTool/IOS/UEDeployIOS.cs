@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -12,7 +12,7 @@ namespace UnrealBuildTool
 {
 	public class UEDeployIOS : UEBuildDeploy
 	{
-		class VersionUtilities
+		protected class VersionUtilities
 		{
 			public static string BuildDirectory
 			{
@@ -150,7 +150,12 @@ namespace UnrealBuildTool
 			}
 		}
 
-		public static bool GeneratePList(string ProjectDirectory, bool bIsUE4Game, string GameName, string ProjectName, string InEngineDir, string AppDirectory)
+		protected virtual string GetTargetPlatformName()
+		{
+			return "IOS";
+		}
+
+		public static bool GenerateIOSPList(string ProjectDirectory, bool bIsUE4Game, string GameName, string ProjectName, string InEngineDir, string AppDirectory)
 		{
 			// generate the Info.plist for future use
 			string BuildDirectory = ProjectDirectory + "/Build/IOS";
@@ -173,7 +178,8 @@ namespace UnrealBuildTool
 
 			// get the settings from the ini file
 			// plist replacements
-			ConfigCacheIni Ini = ConfigCacheIni.CreateConfigCacheIni(UnrealTargetPlatform.IOS, "Engine", bIsUE4Game? null : new DirectoryReference(ProjectDirectory));
+			DirectoryReference DirRef = bIsUE4Game ? (!string.IsNullOrEmpty(UnrealBuildTool.GetRemoteIniPath()) ? new DirectoryReference(UnrealBuildTool.GetRemoteIniPath()) : null) : new DirectoryReference(ProjectDirectory);
+			ConfigCacheIni Ini = ConfigCacheIni.CreateConfigCacheIni(UnrealTargetPlatform.IOS, "Engine", DirRef);
 
 			// orientations
 			string SupportedOrientations = "";
@@ -228,11 +234,14 @@ namespace UnrealBuildTool
 					case "IOS_8":
 						MinVersion = "8.0";
 						break;
+					case "IOS_9":
+						MinVersion = "9.0";
+						break;
 				}
 			}
 			else
 			{
-				MinVersion = "6.1";
+				MinVersion = "7.0";
 			}
 
 			// Get Facebook Support details
@@ -302,6 +311,8 @@ namespace UnrealBuildTool
 			Text.AppendLine("\t<true/>");
 			Text.AppendLine("\t<key>UIStatusBarHidden</key>");
 			Text.AppendLine("\t<true/>");
+			Text.AppendLine("\t<key>UIRequiresFullScreen</key>");
+			Text.AppendLine("\t<true/>");
 			Text.AppendLine("\t<key>UIViewControllerBasedStatusBarAppearance</key>");
 			Text.AppendLine("\t<false/>");
 			Text.AppendLine("\t<key>UISupportedInterfaceOrientations</key>");
@@ -337,6 +348,7 @@ namespace UnrealBuildTool
 			Text.AppendLine("\t\t\t\t<string>Icon57.png</string>");
 			Text.AppendLine("\t\t\t\t<string>Icon57@2x.png</string>");
 			Text.AppendLine("\t\t\t\t<string>Icon60@2x.png</string>");
+			Text.AppendLine("\t\t\t\t<string>Icon60@3x.png</string>");
 			Text.AppendLine("\t\t\t</array>");
 			Text.AppendLine("\t\t\t<key>UIPrerenderedIcon</key>");
 			Text.AppendLine("\t\t\t<true/>");
@@ -358,6 +370,7 @@ namespace UnrealBuildTool
 			Text.AppendLine("\t\t\t\t<string>Icon72@2x.png</string>");
 			Text.AppendLine("\t\t\t\t<string>Icon76.png</string>");
 			Text.AppendLine("\t\t\t\t<string>Icon76@2x.png</string>");
+			Text.AppendLine("\t\t\t\t<string>Icon83.5@2x.png</string>");
 			Text.AppendLine("\t\t\t</array>");
 			Text.AppendLine("\t\t\t<key>UIPrerenderedIcon</key>");
 			Text.AppendLine("\t\t\t<true/>");
@@ -376,23 +389,23 @@ namespace UnrealBuildTool
 				// eventually we want to generate this based on what the user has set in the project settings
 				string[] IPhoneConfigs =  
 					{ 
-						"Default-IPhone6", "Landscape", "{375, 667}", 
-						"Default-IPhone6", "Portrait", "{375, 667}", 
-						"Default-IPhone6Plus-Landscape", "Landscape", "{414, 736}", 
-						"Default-IPhone6Plus-Portrait", "Portrait", "{414, 736}", 
-						"Default", "Landscape", "{320, 480}",
-						"Default", "Portrait", "{320, 480}",
-						"Default-568h", "Landscape", "{320, 568}",
-						"Default-568h", "Portrait", "{320, 568}",
+						"Default-IPhone6-Landscape", "Landscape", "{375, 667}", "8.0", 
+						"Default-IPhone6", "Portrait", "{375, 667}",  "8.0",
+						"Default-IPhone6Plus-Landscape", "Landscape", "{414, 736}",  "8.0",
+						"Default-IPhone6Plus-Portrait", "Portrait", "{414, 736}",  "8.0",
+						"Default", "Landscape", "{320, 480}", "7.0",
+						"Default", "Portrait", "{320, 480}", "7.0",
+						"Default-568h", "Landscape", "{320, 568}", "7.0",
+						"Default-568h", "Portrait", "{320, 568}", "7.0",
 					};
 
 				Text.AppendLine("\t<key>UILaunchImages~iphone</key>");
 				Text.AppendLine("\t<array>");
-				for (int ConfigIndex = 0; ConfigIndex < IPhoneConfigs.Length; ConfigIndex += 3)
+				for (int ConfigIndex = 0; ConfigIndex < IPhoneConfigs.Length; ConfigIndex += 4)
 				{
 					Text.AppendLine("\t\t<dict>");
 					Text.AppendLine("\t\t\t<key>UILaunchImageMinimumOSVersion</key>");
-					Text.AppendLine("\t\t\t<string>8.0</string>");
+					Text.AppendLine(string.Format("\t\t\t<string>{0}</string>", IPhoneConfigs[ConfigIndex + 3]));
 					Text.AppendLine("\t\t\t<key>UILaunchImageName</key>");
 					Text.AppendLine(string.Format("\t\t\t<string>{0}</string>", IPhoneConfigs[ConfigIndex + 0]));
 					Text.AppendLine("\t\t\t<key>UILaunchImageOrientation</key>");
@@ -404,36 +417,43 @@ namespace UnrealBuildTool
 
 				// close it out
 				Text.AppendLine("\t</array>");
+
+				// this is a temp way to inject the iPad Pro without needing to upgrade everyone's plist
+				// eventually we want to generate this based on what the user has set in the project settings
+				string[] IPadConfigs =  
+					{ 
+						"Default-Landscape", "Landscape", "{768, 1024}", "7.0", 
+						"Default-Portrait", "Portrait", "{768, 1024}",  "7.0",
+						"Default-Landscape-1336", "Landscape", "{1024, 1366}",  "9.0",
+						"Default-Portrait-1336", "Portrait", "{1024, 1366}",  "9.0",
+					};
+
+				Text.AppendLine("\t<key>UILaunchImages~ipad</key>");
+				Text.AppendLine("\t<array>");
+				for (int ConfigIndex = 0; ConfigIndex < IPadConfigs.Length; ConfigIndex += 4)
+				{
+					Text.AppendLine("\t\t<dict>");
+					Text.AppendLine("\t\t\t<key>UILaunchImageMinimumOSVersion</key>");
+					Text.AppendLine(string.Format("\t\t\t<string>{0}</string>", IPhoneConfigs[ConfigIndex + 3]));
+					Text.AppendLine("\t\t\t<key>UILaunchImageName</key>");
+					Text.AppendLine(string.Format("\t\t\t<string>{0}</string>", IPhoneConfigs[ConfigIndex + 0]));
+					Text.AppendLine("\t\t\t<key>UILaunchImageOrientation</key>");
+					Text.AppendLine(string.Format("\t\t\t<string>{0}</string>", IPhoneConfigs[ConfigIndex + 1]));
+					Text.AppendLine("\t\t\t<key>UILaunchImageSize</key>");
+					Text.AppendLine(string.Format("\t\t\t<string>{0}</string>", IPhoneConfigs[ConfigIndex + 2]));
+					Text.AppendLine("\t\t</dict>");
+				}
+				Text.AppendLine("\t</array>");
 			}
-			Text.AppendLine("\t<key>UILaunchImages~ipad</key>");
-			Text.AppendLine("\t<array>");
-			Text.AppendLine("\t\t<dict>");
-			Text.AppendLine("\t\t\t<key>UILaunchImageMinimumOSVersion</key>");
-			Text.AppendLine("\t\t\t<string>7.0</string>");
-			Text.AppendLine("\t\t\t<key>UILaunchImageName</key>");
-			Text.AppendLine("\t\t\t<string>Default-Landscape</string>");
-			Text.AppendLine("\t\t\t<key>UILaunchImageOrientation</key>");
-			Text.AppendLine("\t\t\t<string>Landscape</string>");
-			Text.AppendLine("\t\t\t<key>UILaunchImageSize</key>");
-			Text.AppendLine("\t\t\t<string>{768, 1024}</string>");
-			Text.AppendLine("\t\t</dict>");
-			Text.AppendLine("\t\t<dict>");
-			Text.AppendLine("\t\t\t<key>UILaunchImageMinimumOSVersion</key>");
-			Text.AppendLine("\t\t\t<string>7.0</string>");
-			Text.AppendLine("\t\t\t<key>UILaunchImageName</key>");
-			Text.AppendLine("\t\t\t<string>Default-Portrait</string>");
-			Text.AppendLine("\t\t\t<key>UILaunchImageOrientation</key>");
-			Text.AppendLine("\t\t\t<string>Portrait</string>");
-			Text.AppendLine("\t\t\t<key>UILaunchImageSize</key>");
-			Text.AppendLine("\t\t\t<string>{768, 1024}</string>");
-			Text.AppendLine("\t\t</dict>");
-			Text.AppendLine("\t</array>");
 			Text.AppendLine("\t<key>CFBundleSupportedPlatforms</key>");
 			Text.AppendLine("\t<array>");
 			Text.AppendLine("\t\t<string>iPhoneOS</string>");
 			Text.AppendLine("\t</array>");
 			Text.AppendLine("\t<key>MinimumOSVersion</key>");
 			Text.AppendLine(string.Format("\t<string>{0}</string>", MinVersion));
+			// disable exempt encryption
+			Text.AppendLine("\t<key>ITSAppUsesNonExemptEncryption</key>");
+			Text.AppendLine("\t<false/>");
 			if (bEnableFacebookSupport)
 			{
 				Text.AppendLine("\t<key>FacebookAppID</key>");
@@ -472,12 +492,20 @@ namespace UnrealBuildTool
 			return bSkipDefaultPNGs;
 		}
 
+		public virtual bool GeneratePList(string ProjectDirectory, bool bIsUE4Game, string GameName, string ProjectName, string InEngineDir, string AppDirectory)
+		{
+			return GenerateIOSPList(ProjectDirectory, bIsUE4Game, GameName, ProjectName, InEngineDir, AppDirectory);
+		}
+
+		
 		public override bool PrepForUATPackageOrDeploy(FileReference ProjectFile, string InProjectName, string InProjectDirectory, string InExecutablePath, string InEngineDir, bool bForDistribution, string CookFlavor, bool bIsDataDeploy)
 		{
 			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
 			{
 				throw new BuildException("UEDeployIOS.PrepForUATPackageOrDeploy only supports running on the Mac");
 			}
+
+			string SubDir = GetTargetPlatformName();
 
 			bool bIsUE4Game = InExecutablePath.Contains("UE4Game");
 			string BinaryPath = Path.GetDirectoryName(InExecutablePath);
@@ -486,8 +514,8 @@ namespace UnrealBuildTool
 			string PayloadDirectory = BinaryPath + "/Payload";
 			string AppDirectory = PayloadDirectory + "/" + GameName + ".app";
 			string CookedContentDirectory = AppDirectory + "/cookeddata";
-			string BuildDirectory = InProjectDirectory + "/Build/IOS";
-			string IntermediateDirectory = (bIsUE4Game ? InEngineDir : InProjectDirectory) + "/Intermediate/IOS";
+			string BuildDirectory = InProjectDirectory + "/Build/" + SubDir;
+			string IntermediateDirectory = (bIsUE4Game ? InEngineDir : InProjectDirectory) + "/Intermediate/" + SubDir;
 
 			Directory.CreateDirectory(BinaryPath);
 			Directory.CreateDirectory(PayloadDirectory);
@@ -517,6 +545,7 @@ namespace UnrealBuildTool
 
 			// install the provision
 			FileInfo DestFileInfo;
+			// always look for provisions in the IOS dir, even for TVOS
 			string ProvisionWithPrefix = InEngineDir + "/Build/IOS/UE4Game.mobileprovision";
 			if (File.Exists(BuildDirectory + "/" + InProjectName + ".mobileprovision"))
 			{
@@ -530,7 +559,7 @@ namespace UnrealBuildTool
 				}
 				else if (!File.Exists(ProvisionWithPrefix))
 				{
-					ProvisionWithPrefix = InEngineDir + "/Build/IOS/NotForLicensees/UE4Game.mobileprovision";
+					ProvisionWithPrefix = InEngineDir + "/Build/" + SubDir + "/NotForLicensees/UE4Game.mobileprovision";
 				}
 			}
 			if (File.Exists(ProvisionWithPrefix))
@@ -571,6 +600,7 @@ namespace UnrealBuildTool
 
 				// copy all of the provisions from the engine directory to the library
 				{
+					// always look for provisions in the IOS dir, even for TVOS
 					if (Directory.Exists(InEngineDir + "/Build/IOS"))
 					{
 						foreach (string Provision in Directory.EnumerateFiles(InEngineDir + "/Build/IOS", "*.mobileprovision", SearchOption.AllDirectories))
@@ -621,11 +651,12 @@ namespace UnrealBuildTool
 			}
 
 			// compile the launch .xib
-			//			string LaunchXib = InEngineDir + "/Build/IOS/Resources/Interface/LaunchScreen.xib";
-			//			if (File.Exists(BuildDirectory + "/Resources/Interface/LaunchScreen.xib"))
-			//			{
-			//				LaunchXib = BuildDirectory + "/Resources/Interface/LaunchScreen.xib";
-			//			}
+			// @todo tvos: Is this needed for IOS, but not TVOS?
+//			string LaunchXib = InEngineDir + "/Build/IOS/Resources/Interface/LaunchScreen.xib";
+//			if (File.Exists(BuildDirectory + "/Resources/Interface/LaunchScreen.xib"))
+//			{
+//				LaunchXib = BuildDirectory + "/Resources/Interface/LaunchScreen.xib";
+//			}
 
 			bool bSkipDefaultPNGs = GeneratePList(InProjectDirectory, bIsUE4Game, GameName, InProjectName, InEngineDir, AppDirectory);
 
@@ -641,7 +672,7 @@ namespace UnrealBuildTool
 
 			if (!BuildConfiguration.bCreateStubIPA)
 			{
-				// copy engine assets in
+				// copy engine assets in (IOS and TVOS shared in IOS)
 				if (bSkipDefaultPNGs)
 				{
 					// we still want default icons
@@ -652,12 +683,14 @@ namespace UnrealBuildTool
 					CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "*.png", true);
 				}
 				// merge game assets on top
+				// @todo tvos: Do we want to copy IOS and TVOS both in? (Engine/IOS -> Game/IOS -> Game/TVOS)?
 				if (Directory.Exists(BuildDirectory + "/Resources/Graphics"))
 				{
 					CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "*.png", true);
 				}
 
 				// copy additional engine framework assets in
+				// @todo tvos: TVOS probably needs its own assets?
 				string FrameworkAssetsPath = InEngineDir + "/Intermediate/IOS/FrameworkAssets";
 
 				// Let project override assets if they exist
@@ -680,8 +713,10 @@ namespace UnrealBuildTool
 
 		public override bool PrepTargetForDeployment(UEBuildTarget InTarget)
 		{
+			string SubDir = GetTargetPlatformName();
+
 			string GameName = InTarget.TargetName;
-			string BuildPath = (GameName == "UE4Game" ? "../../Engine" : InTarget.ProjectDirectory.FullName) + "/Binaries/IOS";
+			string BuildPath = (GameName == "UE4Game" ? "../../Engine" : InTarget.ProjectDirectory.FullName) + "/Binaries/" + SubDir;
 			string ProjectDirectory = InTarget.ProjectDirectory.FullName;
 			bool bIsUE4Game = GameName.Contains("UE4Game");
 
@@ -701,6 +736,7 @@ namespace UnrealBuildTool
 			}
 			else
 			{
+				// @todo tvos merge: This used to copy the bundle back - where did that code go? It needs to be fixed up for TVOS directories
 				GeneratePList(ProjectDirectory, bIsUE4Game, GameName, (InTarget.ProjectFile == null) ? "" : Path.GetFileNameWithoutExtension(InTarget.ProjectFile.FullName), "../../Engine", "");
 			}
 			return true;
@@ -710,6 +746,7 @@ namespace UnrealBuildTool
 		{
 			// get the settings from the ini file
 			// plist replacements
+			// @todo tvos: Separate TVOS version?
 			ConfigCacheIni Ini = ConfigCacheIni.CreateConfigCacheIni(UnrealTargetPlatform.IOS, "Engine", DirectoryReference.FromFile(ProjectFile));
 			bool bSupported = false;
 			Ini.GetBool("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bEnableCloudKitSupport", out bSupported);

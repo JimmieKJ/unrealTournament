@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -86,18 +86,22 @@ class ENGINE_API UMaterialExpressionTextureSample : public UMaterialExpressionTe
 	virtual FString GetInputName(int32 InputIndex) const override;
 	virtual int32 GetWidth() const override;
 	virtual int32 GetLabelPadding() override { return 8; }
+#if WITH_EDITOR
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
+#endif // WITH_EDITOR
 	virtual bool MatchesSearchQuery( const TCHAR* SearchQuery ) override;
 #if WITH_EDITOR
 	virtual uint32 GetInputType(int32 InputIndex) override;
-#endif
+#endif // WITH_EDITOR
 	//~ End UMaterialExpression Interface
 
 	void UpdateTextureResource(class UTexture* InTexture);
 	
+#if WITH_EDITOR
 	int32 CompileMipValue0(class FMaterialCompiler* Compiler);
 	int32 CompileMipValue1(class FMaterialCompiler* Compiler);
+#endif // WITH_EDITOR
 };
 
 

@@ -1,5 +1,5 @@
 /**
- * Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+ * Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
  */
 
 using System;
@@ -155,7 +155,7 @@ namespace iPhonePackager
 			}
 			else
 			{
-				NameDecoration = "-IOS-" + Program.GameConfiguration + Program.Architecture;
+				NameDecoration = "-" + Config.OSString + "-" + Program.GameConfiguration + Program.Architecture;
 			}
 
 			// Copy and un-decorate the binary name

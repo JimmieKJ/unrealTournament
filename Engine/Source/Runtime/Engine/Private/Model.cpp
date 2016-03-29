@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Model.cpp: Unreal model functions
@@ -24,7 +24,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogModel, Log, All);
  */
 bool FBspSurf::IsHiddenEd() const
 {
-	return bHiddenEdTemporary || bHiddenEdLevel;
+	return bHiddenEdTemporary || bHiddenEdLevel || bHiddenEdLayer;
 }
 
 /**
@@ -60,6 +60,7 @@ FArchive& operator<<( FArchive& Ar, FBspSurf& Surf )
 	{
 		Ar << Surf.bHiddenEdTemporary;
 		Ar << Surf.bHiddenEdLevel;
+		Ar << Surf.bHiddenEdLayer;
 	}
 
 	return Ar;
@@ -352,6 +353,11 @@ void UModel::PostLoad()
 			FBspSurf& CurSurf = *SurfIter;
 			CurSurf.bHiddenEdTemporary = ( ( CurSurf.PolyFlags & PF_HiddenEd ) != 0 );
 			CurSurf.bHiddenEdLevel = 0;
+#if WITH_EDITOR
+			CurSurf.bHiddenEdLayer = CurSurf.Actor ? CurSurf.Actor->bHiddenEdLayer : 0;
+#else
+			CurSurf.bHiddenEdLayer = 0;
+#endif
 		}
 
 #if WITH_EDITOR
@@ -712,7 +718,7 @@ void UModel::UpdateVertices()
 			FLocalVertexFactory*,VertexFactory,&VertexFactory,
 			FVertexBuffer*,VertexBuffer,&VertexBuffer,
 			{
-				FLocalVertexFactory::DataType Data;
+				FLocalVertexFactory::FDataType Data;
 				Data.PositionComponent = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(VertexBuffer,FModelVertex,Position,VET_Float3);
 				Data.TangentBasisComponents[0] = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(VertexBuffer,FModelVertex,TangentX,VET_PackedNormal);
 				Data.TangentBasisComponents[1] = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(VertexBuffer,FModelVertex,TangentZ,VET_PackedNormal);

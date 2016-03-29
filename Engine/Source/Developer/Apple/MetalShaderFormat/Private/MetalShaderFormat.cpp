@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MetalShaderFormat.h"
 #include "Core.h"
@@ -12,18 +12,19 @@ static FName NAME_SF_METAL(TEXT("SF_METAL"));
 static FName NAME_SF_METAL_MRT(TEXT("SF_METAL_MRT"));
 static FName NAME_SF_METAL_SM4(TEXT("SF_METAL_SM4"));
 static FName NAME_SF_METAL_SM5(TEXT("SF_METAL_SM5"));
+static FName NAME_SF_METAL_MACES3_1(TEXT("SF_METAL_MACES3_1"));
 
 class FMetalShaderFormat : public IShaderFormat
 {
 	enum
 	{
-		HEADER_VERSION = 26,
+		HEADER_VERSION = 29,
 	};
+	
 	struct FVersion
 	{
-		uint16 HLSLCCMajor		: 3;
-		uint16 HLSLCCMinor		: 7;
-		uint16 Format			: 5;
+		uint16 HLSLCCMinor		: 8;
+		uint16 Format			: 7;
 		uint16 OfflineCompiled	: 1;
 	};
 public:
@@ -37,13 +38,11 @@ public:
 		} Version;
 
 		Version.Version.Format = HEADER_VERSION;
-		Version.Version.HLSLCCMajor = HLSLCC_VersionMajor;
 		Version.Version.HLSLCCMinor = HLSLCC_VersionMinor;
 		Version.Version.OfflineCompiled = METAL_OFFLINE_COMPILE;
 		
 		// Check that we didn't overwrite any bits
 		check(Version.Version.Format == HEADER_VERSION);
-		check(Version.Version.HLSLCCMajor == HLSLCC_VersionMajor);
 		check(Version.Version.HLSLCCMinor == HLSLCC_VersionMinor);
 		check(Version.Version.OfflineCompiled == METAL_OFFLINE_COMPILE);
 
@@ -55,10 +54,11 @@ public:
 		OutFormats.Add(NAME_SF_METAL_MRT);
 		OutFormats.Add(NAME_SF_METAL_SM4);
 		OutFormats.Add(NAME_SF_METAL_SM5);
+		OutFormats.Add(NAME_SF_METAL_MACES3_1);
 	}
 	virtual void CompileShader(FName Format, const struct FShaderCompilerInput& Input, struct FShaderCompilerOutput& Output,const FString& WorkingDirectory) const
 	{
-		check(Format == NAME_SF_METAL || Format == NAME_SF_METAL_MRT || Format == NAME_SF_METAL_SM4 || Format == NAME_SF_METAL_SM5);
+		check(Format == NAME_SF_METAL || Format == NAME_SF_METAL_MRT || Format == NAME_SF_METAL_SM4 || Format == NAME_SF_METAL_SM5 || Format == NAME_SF_METAL_MACES3_1);
 		CompileShader_Metal(Input, Output, WorkingDirectory);
 	}
 };

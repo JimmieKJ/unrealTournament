@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	
@@ -17,7 +17,9 @@
 // Copies into render target, optionally flipping it in the Y-axis
 static void CopyCaptureToTarget(FRHICommandListImmediate& RHICmdList, const FRenderTarget* Target, const FIntPoint& TargetSize, FViewInfo& View, const FIntRect& ViewRect, FTextureRHIParamRef SourceTextureRHI, bool bNeedsFlippedRenderTarget)
 {
-	SetRenderTarget(RHICmdList, Target->GetRenderTargetTexture(), NULL);
+	FRHIRenderTargetView ColorView(Target->GetRenderTargetTexture(), 0, -1, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::EStore);
+	FRHISetRenderTargetsInfo Info(1, &ColorView, FRHIDepthRenderTargetView());
+	RHICmdList.SetRenderTargetsAndClear(Info);
 
 	RHICmdList.SetRasterizerState(TStaticRasterizerState<FM_Solid, CM_None>::GetRHI());
 	RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
@@ -61,8 +63,27 @@ static void CopyCaptureToTarget(FRHICommandListImmediate& RHICmdList, const FRen
 	}
 }
 
-static void UpdateSceneCaptureContent_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneRenderer* SceneRenderer, FTextureRenderTargetResource* TextureRenderTarget, const FName OwnerName, const FResolveParams& ResolveParams, bool bUseSceneColorTexture)
+static void UpdateSceneCaptureContent_RenderThread(
+	FRHICommandListImmediate& RHICmdList, 
+	FSceneRenderer* SceneRenderer, 
+	FTextureRenderTargetResource* TextureRenderTarget, 
+	const FName OwnerName, 
+	const FResolveParams& ResolveParams, 
+	bool bUseSceneColorTexture, 
+	bool bIsPlanarReflection, 
+	FVector4& ReflectionPlane
+	)
 {
+	// Early out?
+	if (bIsPlanarReflection)
+	{
+		static const auto* const PlanarReflectionCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.EnablePlanarReflections"));
+		if (PlanarReflectionCVar && PlanarReflectionCVar->GetValueOnRenderThread() == 0)
+		{
+			return;
+		}
+	}
+
 	FMemMark MemStackMark(FMemStack::Get());
 
 	// update any resources that needed a deferred update
@@ -79,7 +100,8 @@ static void UpdateSceneCaptureContent_RenderThread(FRHICommandListImmediate& RHI
 
 		const bool bIsMobileHDR = IsMobileHDR();
 		const bool bRHINeedsFlip = RHINeedsToSwitchVerticalAxis(GMaxRHIShaderPlatform);
-		const bool bNeedsFlippedRenderTarget = !bIsMobileHDR && bRHINeedsFlip;
+		// note that ES2 will flip the image during post processing. this needs flipping again so it is correct for texture addressing.
+		const bool bNeedsFlippedRenderTarget = (!bIsMobileHDR || !bUseSceneColorTexture) && bRHINeedsFlip;
 
 		// Intermediate render target that will need to be flipped (needed on !IsMobileHDR())
 		TRefCountPtr<IPooledRenderTarget> FlippedPooledRenderTarget;
@@ -128,7 +150,13 @@ static void UpdateSceneCaptureContent_RenderThread(FRHICommandListImmediate& RHI
 				// Hijack the render target
 				SceneRenderer->ViewFamily.RenderTarget = &FlippedRenderTarget; //-V506
 			}
+
+			// Setup planar reflection
+			View.bIsPlanarReflectionCapture = bIsPlanarReflection;
+			View.ReflectionPlane = ReflectionPlane;
+
 			SceneRenderer->Render(RHICmdList);
+
 			if (bNeedsFlippedRenderTarget)
 			{
 				// And restore it
@@ -136,19 +164,17 @@ static void UpdateSceneCaptureContent_RenderThread(FRHICommandListImmediate& RHI
 			}
 		}
 
+		const FIntPoint TargetSize(UnconstrainedViewRect.Width(), UnconstrainedViewRect.Height());
 		if (bNeedsFlippedRenderTarget)
 		{
 			// We need to flip this texture upside down (since we depended on tonemapping to fix this on the hdr path)
 			SCOPED_DRAW_EVENT(RHICmdList, FlipCapture);
-
-			FIntPoint TargetSize(UnconstrainedViewRect.Width(), UnconstrainedViewRect.Height());
 			CopyCaptureToTarget(RHICmdList, Target, TargetSize, View, ViewRect, FlippedRenderTarget.GetTextureParamRef(), true);
 		}
-		else if (bUseSceneColorTexture && (bIsMobileHDR || SceneRenderer->FeatureLevel >= ERHIFeatureLevel::SM4))
+		else if (bUseSceneColorTexture && (!bIsPlanarReflection || SceneRenderer->FeatureLevel >= ERHIFeatureLevel::SM4))
 		{
 			// Copy the captured scene into the destination texture (only required on HDR or deferred as that implies post-processing)
 			SCOPED_DRAW_EVENT(RHICmdList, CaptureSceneColor);
-			FIntPoint TargetSize(UnconstrainedViewRect.Width(), UnconstrainedViewRect.Height());
 			CopyCaptureToTarget(RHICmdList, Target, TargetSize, View, ViewRect, FSceneRenderTargets::Get(RHICmdList).GetSceneColorTexture(), false);
 		}
 
@@ -255,36 +281,77 @@ void FScene::UpdateSceneCaptureContents(USceneCaptureComponent2D* CaptureCompone
 {
 	check(CaptureComponent);
 
+	FVector ViewLocation;
+	FMatrix ViewRotationMatrix;
+	float FOV = CaptureComponent->FOVAngle * (float)PI / 360.0f;
 	if (CaptureComponent->TextureTarget)
 	{
-		FTransform Transform = CaptureComponent->GetComponentToWorld();
-		FVector ViewLocation = Transform.GetTranslation();
+		//!! HACK!
 
-		// Remove the translation from Transform because we only need rotation.
-		Transform.SetTranslation(FVector::ZeroVector);
-		FMatrix ViewRotationMatrix = Transform.ToInverseMatrixWithScale();
+		// Attempt to query the local player so we can use the players view for planar reflections.
+		const APlayerController* const LocalPlayer = UGameplayStatics::GetPlayerController(CaptureComponent, 0);
+		
+		// Standard capture
+		if (!CaptureComponent->bIsPlanarReflection || LocalPlayer == nullptr)
+		{
+			FTransform Transform = CaptureComponent->GetComponentToWorld();
+			ViewLocation = Transform.GetTranslation();
 
-		// swap axis st. x=z,y=x,z=y (unreal coord space) so that z is up
-		ViewRotationMatrix = ViewRotationMatrix * FMatrix(
-			FPlane(0,	0,	1,	0),
-			FPlane(1,	0,	0,	0),
-			FPlane(0,	1,	0,	0),
-			FPlane(0,	0,	0,	1));
-		const float FOV = CaptureComponent->FOVAngle * (float)PI / 360.0f;
+			// Remove the translation from Transform because we only need rotation.
+			Transform.SetTranslation(FVector::ZeroVector);
+			ViewRotationMatrix = Transform.ToInverseMatrixWithScale();
+
+			// swap axis st. x=z,y=x,z=y (unreal coord space) so that z is up
+			ViewRotationMatrix = ViewRotationMatrix * FMatrix(
+				FPlane(0, 0, 1, 0),
+				FPlane(1, 0, 0, 0),
+				FPlane(0, 1, 0, 0),
+				FPlane(0, 0, 0, 1));
+		}
+
+		// Planar reflection capture
+		else
+		{
+			FRotator ViewRotation;
+			LocalPlayer->GetPlayerViewPoint(ViewLocation, ViewRotation);
+
+			const FTransform Rotation(ViewRotation);
+			ViewRotationMatrix = Rotation.ToInverseMatrixWithScale();
+
+			// swap axis st. x=z,y=x,z=y (unreal coord space) so that z is up
+			ViewRotationMatrix *= FMatrix(
+				FPlane(0, 0, 1, 0),
+				FPlane(1, 0, 0, 0),
+				FPlane(0, 1, 0, 0),
+				FPlane(0, 0, 0, 1));
+
+			if (LocalPlayer->PlayerCameraManager != nullptr)
+			{
+				FOV = LocalPlayer->PlayerCameraManager->GetFOVAngle() * (float)PI / 360.0f;
+			}
+		}
+		
 		const bool bUseSceneColorTexture = CaptureComponent->CaptureSource == SCS_SceneColorHDR;
+		const bool bIsPlanarReflection = CaptureComponent->bIsPlanarReflection;
+
+		const FVector ReflectionPlaneNormal(CaptureComponent->ReflectionPlaneNormal.GetSafeNormal() * static_cast<float>(bIsPlanarReflection));
+		const FVector4 ReflectionPlane(ReflectionPlaneNormal, CaptureComponent->ReflectionPlaneHeight);
+				
 		FSceneRenderer* SceneRenderer = CreateSceneRenderer(CaptureComponent, CaptureComponent->TextureTarget, ViewRotationMatrix , ViewLocation, FOV, CaptureComponent->MaxViewDistanceOverride, bUseSceneColorTexture, &CaptureComponent->PostProcessSettings, CaptureComponent->PostProcessBlendWeight);
 
 		FTextureRenderTargetResource* TextureRenderTarget = CaptureComponent->TextureTarget->GameThread_GetRenderTargetResource();
 		const FName OwnerName = CaptureComponent->GetOwner() ? CaptureComponent->GetOwner()->GetFName() : NAME_None;
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_FOURPARAMETER( 
+		ENQUEUE_UNIQUE_RENDER_COMMAND_SIXPARAMETER( 
 			CaptureCommand,
 			FSceneRenderer*, SceneRenderer, SceneRenderer,
 			FTextureRenderTargetResource*, TextureRenderTarget, TextureRenderTarget,
 			FName, OwnerName, OwnerName,
-			bool, bUseSceneColorTexture, bUseSceneColorTexture,
+			bool, bUseSceneColorTexture, bUseSceneColorTexture, 
+			bool, bIsPlanarReflection, bIsPlanarReflection,
+			FVector4, ReflectionPlane, ReflectionPlane,
 		{
-			UpdateSceneCaptureContent_RenderThread(RHICmdList, SceneRenderer, TextureRenderTarget, OwnerName, FResolveParams(), bUseSceneColorTexture);
+			UpdateSceneCaptureContent_RenderThread(RHICmdList, SceneRenderer, TextureRenderTarget, OwnerName, FResolveParams(), bUseSceneColorTexture, bIsPlanarReflection, ReflectionPlane);
 		});
 	}
 }
@@ -347,15 +414,17 @@ void FScene::UpdateSceneCaptureContents(USceneCaptureComponentCube* CaptureCompo
 
 			FTextureRenderTargetCubeResource* TextureRenderTarget = static_cast<FTextureRenderTargetCubeResource*>(CaptureComponent->TextureTarget->GameThread_GetRenderTargetResource());
 			const FName OwnerName = CaptureComponent->GetOwner() ? CaptureComponent->GetOwner()->GetFName() : NAME_None;
+			const FVector4 ReflectionPlane(0.0f);
 
-			ENQUEUE_UNIQUE_RENDER_COMMAND_FOURPARAMETER( 
+			ENQUEUE_UNIQUE_RENDER_COMMAND_FIVEPARAMETER( 
 				CaptureCommand,
 				FSceneRenderer*, SceneRenderer, SceneRenderer,
 				FTextureRenderTargetCubeResource*, TextureRenderTarget, TextureRenderTarget,
 				FName, OwnerName, OwnerName,
 				ECubeFace, TargetFace, TargetFace,
+				FVector4, ReflectionPlane, ReflectionPlane,
 			{
-				UpdateSceneCaptureContent_RenderThread(RHICmdList, SceneRenderer, TextureRenderTarget, OwnerName, FResolveParams(FResolveRect(), TargetFace), true);
+				UpdateSceneCaptureContent_RenderThread(RHICmdList, SceneRenderer, TextureRenderTarget, OwnerName, FResolveParams(FResolveRect(), TargetFace), true, false, ReflectionPlane);
 			});
 		}
 	}

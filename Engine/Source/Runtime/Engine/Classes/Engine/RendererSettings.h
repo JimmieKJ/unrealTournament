@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -84,6 +84,19 @@ namespace EAntiAliasingMethodUI
 	};
 }
 
+/** used by FPostProcessSettings AutoExposure*/
+UENUM()
+namespace EAutoExposureMethodUI
+{
+	enum Type
+	{
+		/** Not supported on mobile, requires compute shader to construct 64 bin histogram */
+		AEM_Histogram  UMETA(DisplayName = "Auto Exposure Histogram"),
+		/** Not supported on mobile, faster method that computes single value by downsampling */
+		AEM_Basic      UMETA(DisplayName = "Auto Exposure Basic"),
+		AEM_MAX,
+	};
+}
 
 /**
  * Rendering settings.
@@ -109,6 +122,11 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ToolTip = "If this setting is enabled, the same shader will be used for any number of dynamic point lights (up to the maximum specified above) hitting a surface. This is slightly slower but reduces the number of shaders generated. Changing this setting requires restarting the editor.",
 		ConfigRestartRequired = true))
 	uint32 bMobileDynamicPointLightsUseStaticBranch : 1;
+
+	UPROPERTY(config, EditAnywhere, Category = Materials, meta = (
+		ConsoleVariable = "r.DiscardUnusedQuality", DisplayName = "Game Discards Unused Material Quality Levels",
+		ToolTip = "When running in game mode, whether to keep shaders for all quality levels in memory or only those needed for the current quality level.\nUnchecked: Keep all quality levels in memory allowing a runtime quality level change. (default)\nChecked: Discard unused quality levels when loading content for the game, saving some memory."))
+		uint32 bDiscardUnusedQualityLevels : 1;
 
 	UPROPERTY(config, EditAnywhere, Category=Culling, meta=(
 		ConsoleVariable="r.AllowOcclusionQueries",DisplayName="Occlusion Culling",
@@ -213,6 +231,11 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ConsoleVariable = "r.DefaultFeature.AutoExposure", DisplayName = "Auto Exposure",
 		ToolTip = "Whether the default for AutoExposure is enabled or not (postprocess volume/camera/game setting can still override and enable or disable it independently)"))
 	uint32 bDefaultFeatureAutoExposure : 1;
+	
+	UPROPERTY(config, EditAnywhere, Category = DefaultPostprocessingSettings, meta = (
+		ConsoleVariable = "r.DefaultFeature.AutoExposure.Method", DisplayName = "Auto Exposure",
+		ToolTip = "The default method for AutoExposure(postprocess volume/camera/game setting can still override and enable or disable it independently)"))
+	TEnumAsByte<EAutoExposureMethodUI::Type> DefaultFeatureAutoExposure; 
 
 	UPROPERTY(config, EditAnywhere, Category = DefaultPostprocessingSettings, meta = (
 		ConsoleVariable = "r.DefaultFeature.MotionBlur", DisplayName = "Motion Blur",
@@ -231,7 +254,8 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 
 	UPROPERTY(config, EditAnywhere, Category = Optimizations, meta = (
 		ConsoleVariable="r.EarlyZPass",DisplayName="Early Z-pass",
-		ToolTip="Whether to use a depth only pass to initialize Z culling for the base pass. Need to reload the level!"))
+		ToolTip="Whether to use a depth only pass to initialize Z culling for the base pass. Requires a restart!",
+		ConfigRestartRequired=true))
 	TEnumAsByte<EEarlyZPass::Type> EarlyZPass;
 
 	UPROPERTY(config, EditAnywhere, Category=Optimizations, meta=(
@@ -260,6 +284,12 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ToolTip="Enables not exporting to the GBuffer rendertargets that are not relevant. Changing this setting requires restarting the editor.",
 		ConfigRestartRequired=true))
 	uint32 bSelectiveBasePassOutputs:1;
+
+	UPROPERTY(config, EditAnywhere, Category=VR, meta=(
+		ConsoleVariable="vr.InstancedStereo", DisplayName="Instanced Stereo",
+		ToolTip="Enable instanced stereo rendering (only available for D3D SM5 or PS4).",
+		ConfigRestartRequired=true))
+	uint32 bInstancedStereo:1;
 
 	UPROPERTY(config, EditAnywhere, Category=Editor, meta=(
 		ConsoleVariable="r.WireframeCullThreshold",DisplayName="Wireframe Cull Threshold",

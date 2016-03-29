@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -18,36 +18,56 @@ class BuildPlugin : BuildCommand
 	public override void ExecuteBuild()
 	{
 		// Get the plugin filename
-		string PluginFileName = ParseParamValue("Plugin");
-		if(PluginFileName == null)
+		string PluginParam = ParseParamValue("Plugin");
+		if(PluginParam == null)
 		{
 			throw new AutomationException("Plugin file name was not specified via the -plugin argument");
 		}
 
 		// Read the plugin
-		PluginDescriptor Plugin = PluginDescriptor.FromFile(new FileReference(PluginFileName));
+		FileReference PluginFile = new FileReference(PluginParam);
+		DirectoryReference PluginDirectory = PluginFile.Directory;
+		PluginDescriptor Plugin = PluginDescriptor.FromFile(PluginFile);
 
 		// Clean the intermediate build directory
-		string IntermediateBuildDirectory = Path.Combine(Path.GetDirectoryName(PluginFileName), "Intermediate", "Build");
-		if(CommandUtils.DirectoryExists(IntermediateBuildDirectory))
+		DirectoryReference IntermediateBuildDirectory = DirectoryReference.Combine(PluginDirectory, "Intermediate", "Build");
+		if(CommandUtils.DirectoryExists(IntermediateBuildDirectory.FullName))
 		{
-			CommandUtils.DeleteDirectory(IntermediateBuildDirectory);
+			CommandUtils.DeleteDirectory(IntermediateBuildDirectory.FullName);
 		}
+
+		// Create a host project for the plugin. For script generator plugins, we need to have UHT be able to load it - and that can only happen if it's enabled in a project.
+		DirectoryReference HostProjectDirectory = DirectoryReference.Combine(new DirectoryReference(CommandUtils.CmdEnv.LocalRoot), "HostProject");
+		if (CommandUtils.DirectoryExists(HostProjectDirectory.FullName))
+		{
+			CommandUtils.DeleteDirectory(HostProjectDirectory.FullName);
+		}
+
+		DirectoryReference HostProjectPluginDirectory = DirectoryReference.Combine(HostProjectDirectory, "Plugins", PluginFile.GetFileNameWithoutExtension());
+
+		string[] CopyPluginFiles = Directory.EnumerateFiles(PluginDirectory.FullName, "*", SearchOption.AllDirectories).ToArray();
+		foreach (string CopyPluginFile in CopyPluginFiles)
+		{
+			CommandUtils.CopyFile(CopyPluginFile, CommandUtils.MakeRerootedFilePath(CopyPluginFile, PluginDirectory.FullName, HostProjectPluginDirectory.FullName));
+		}
+
+		FileReference HostProjectPluginFile = FileReference.Combine(HostProjectPluginDirectory, PluginFile.GetFileName());
+		FileReference HostProjectFile = FileReference.Combine(HostProjectDirectory, "HostProject.uproject");
+		File.WriteAllText(HostProjectFile.FullName, "{ \"FileVersion\": 3, \"Plugins\": [ { \"Name\": \"" + PluginFile.GetFileNameWithoutExtension() + "\", \"Enabled\": true } ] }");
 
 		// Get any additional arguments from the commandline
 		string AdditionalArgs = "";
-		if(ParseParam("Rocket"))
-		{
-			AdditionalArgs += " -Rocket";
-		}
 
 		// Build the host platforms
 		List<string> ReceiptFileNames = new List<string>();
-		UE4Build.BuildAgenda Agenda = new UE4Build.BuildAgenda();
 		UnrealTargetPlatform HostPlatform = BuildHostPlatform.Current.Platform;
 		if(!ParseParam("NoHostPlatform"))
 		{
-			AddPluginToAgenda(Agenda, PluginFileName, Plugin, "UE4Editor", TargetRules.TargetType.Editor, HostPlatform, UnrealTargetConfiguration.Development, ReceiptFileNames, AdditionalArgs);
+			if (Plugin.bCanBeUsedWithUnrealHeaderTool)
+			{
+				BuildPluginWithUBT(PluginFile, Plugin, null, "UnrealHeaderTool", TargetRules.TargetType.Program, HostPlatform, UnrealTargetConfiguration.Development, ReceiptFileNames, String.Format("{0} -plugin {1}", AdditionalArgs, CommandUtils.MakePathSafeToUseWithCommandLine(HostProjectPluginFile.FullName)));
+			}
+			BuildPluginWithUBT(PluginFile, Plugin, HostProjectFile, "UE4Editor", TargetRules.TargetType.Editor, HostPlatform, UnrealTargetConfiguration.Development, ReceiptFileNames, AdditionalArgs);
 		}
 
 		// Add the game targets
@@ -56,25 +76,21 @@ class BuildPlugin : BuildCommand
 		{
 			if(Rocket.RocketBuild.IsCodeTargetPlatform(HostPlatform, TargetPlatform))
 			{
-				AddPluginToAgenda(Agenda, PluginFileName, Plugin, "UE4Game", TargetRules.TargetType.Game, TargetPlatform, UnrealTargetConfiguration.Development, ReceiptFileNames, AdditionalArgs);
-				AddPluginToAgenda(Agenda, PluginFileName, Plugin, "UE4Game", TargetRules.TargetType.Game, TargetPlatform, UnrealTargetConfiguration.Shipping, ReceiptFileNames, AdditionalArgs);
+				BuildPluginWithUBT(PluginFile, Plugin, HostProjectFile, "UE4Game", TargetRules.TargetType.Game, TargetPlatform, UnrealTargetConfiguration.Development, ReceiptFileNames, AdditionalArgs);
+				BuildPluginWithUBT(PluginFile, Plugin, HostProjectFile, "UE4Game", TargetRules.TargetType.Game, TargetPlatform, UnrealTargetConfiguration.Shipping, ReceiptFileNames, AdditionalArgs);
 			}
 		}
-
-		// Build it
-		UE4Build Build = new UE4Build(this);
-		Build.Build(Agenda, InDeleteBuildProducts: true, InUpdateVersionFiles: false);
 
 		// Package the plugin to the output folder
 		string PackageDirectory = ParseParamValue("Package");
 		if(PackageDirectory != null)
 		{
-			List<BuildProduct> BuildProducts = GetBuildProductsFromReceipts(ReceiptFileNames);
-			PackagePlugin(PluginFileName, BuildProducts, PackageDirectory);
+			List<BuildProduct> BuildProducts = GetBuildProductsFromReceipts(UnrealBuildTool.UnrealBuildTool.EngineDirectory, HostProjectDirectory, ReceiptFileNames);
+			PackagePlugin(HostProjectPluginFile, BuildProducts, PackageDirectory);
 		}
 	}
 
-	static void AddPluginToAgenda(UE4Build.BuildAgenda Agenda, string PluginFileName, PluginDescriptor Plugin, string TargetName, TargetRules.TargetType TargetType, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, List<string> ReceiptFileNames, string InAdditionalArgs)
+	void BuildPluginWithUBT(FileReference PluginFile, PluginDescriptor Plugin, FileReference HostProjectFile, string TargetName, TargetRules.TargetType TargetType, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, List<string> ReceiptFileNames, string InAdditionalArgs)
 	{
 		// Find a list of modules that need to be built for this plugin
 		List<string> ModuleNames = new List<string>();
@@ -91,13 +107,15 @@ class BuildPlugin : BuildCommand
 		// Add these modules to the build agenda
 		if(ModuleNames.Count > 0)
 		{
-			string Arguments = String.Format("-plugin {0}", CommandUtils.MakePathSafeToUseWithCommandLine(PluginFileName));
+			string Arguments = "";// String.Format("-plugin {0}", CommandUtils.MakePathSafeToUseWithCommandLine(PluginFile.FullName));
 			foreach(string ModuleName in ModuleNames)
 			{
 				Arguments += String.Format(" -module {0}", ModuleName);
 			}
 
-			string ReceiptFileName = TargetReceipt.GetDefaultPath(Path.GetDirectoryName(PluginFileName), TargetName, Platform, Configuration, "");
+			string Architecture = UEBuildPlatform.GetBuildPlatform(Platform).CreateContext(HostProjectFile).GetActiveArchitecture();
+
+			string ReceiptFileName = TargetReceipt.GetDefaultPath(Path.GetDirectoryName(PluginFile.FullName), TargetName, Platform, Configuration, Architecture);
 			Arguments += String.Format(" -receipt {0}", CommandUtils.MakePathSafeToUseWithCommandLine(ReceiptFileName));
 			ReceiptFileNames.Add(ReceiptFileName);
 			
@@ -106,11 +124,11 @@ class BuildPlugin : BuildCommand
 				Arguments += InAdditionalArgs;
 			}
 
-			Agenda.AddTarget(TargetName, Platform, Configuration, InAddArgs: Arguments);
+			CommandUtils.RunUBT(CmdEnv, UE4Build.GetUBTExecutable(), String.Format("{0} {1} {2}{3} {4}", TargetName, Platform, Configuration, (HostProjectFile == null)? "" : String.Format(" -project=\"{0}\"", HostProjectFile.FullName), Arguments));
 		}
 	}
 
-	static List<BuildProduct> GetBuildProductsFromReceipts(List<string> ReceiptFileNames)
+	static List<BuildProduct> GetBuildProductsFromReceipts(DirectoryReference EngineDir, DirectoryReference ProjectDir, List<string> ReceiptFileNames)
 	{
 		List<BuildProduct> BuildProducts = new List<BuildProduct>();
 		foreach(string ReceiptFileName in ReceiptFileNames)
@@ -120,32 +138,33 @@ class BuildPlugin : BuildCommand
 			{
 				throw new AutomationException("Missing or invalid target receipt ({0})", ReceiptFileName);
 			}
+			Receipt.ExpandPathVariables(EngineDir, ProjectDir);
 			BuildProducts.AddRange(Receipt.BuildProducts);
 		}
 		return BuildProducts;
 	}
 
-	static void PackagePlugin(string PluginFileName, List<BuildProduct> BuildProducts, string PackageDirectory)
+	static void PackagePlugin(FileReference PluginFile, List<BuildProduct> BuildProducts, string PackageDirectory)
 	{
 		// Clear the output directory
 		CommandUtils.DeleteDirectoryContents(PackageDirectory);
 
 		// Copy all the files to the output directory
-		List<string> MatchingFileNames = FilterPluginFiles(PluginFileName, BuildProducts);
+		List<string> MatchingFileNames = FilterPluginFiles(PluginFile.FullName, BuildProducts);
 		foreach(string MatchingFileName in MatchingFileNames)
 		{
-			string SourceFileName = Path.Combine(Path.GetDirectoryName(PluginFileName), MatchingFileName);
+			string SourceFileName = Path.Combine(Path.GetDirectoryName(PluginFile.FullName), MatchingFileName);
 			string TargetFileName = Path.Combine(PackageDirectory, MatchingFileName);
 			CommandUtils.CopyFile(SourceFileName, TargetFileName);
 			CommandUtils.SetFileAttributes(TargetFileName, ReadOnly: false);
 		}
 
 		// Get the output plugin filename
-		string TargetPluginFileName = CommandUtils.MakeRerootedFilePath(Path.GetFullPath(PluginFileName), Path.GetDirectoryName(Path.GetFullPath(PluginFileName)), PackageDirectory);
-		PluginDescriptor NewDescriptor = PluginDescriptor.FromFile(new FileReference(TargetPluginFileName));
+		FileReference TargetPluginFile = FileReference.Combine(new DirectoryReference(PackageDirectory), PluginFile.GetFileName());
+		PluginDescriptor NewDescriptor = PluginDescriptor.FromFile(TargetPluginFile);
 		NewDescriptor.bEnabledByDefault = true;
 		NewDescriptor.bInstalled = true;
-		NewDescriptor.Save(TargetPluginFileName);
+		NewDescriptor.Save(TargetPluginFile.FullName);
 	}
 
 	static List<string> FilterPluginFiles(string PluginFileName, List<BuildProduct> BuildProducts)

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Collision.cpp: AActor collision implementation
@@ -183,7 +183,12 @@ static FORCEINLINE_DEBUGGABLE bool CheckForCollision(const AActor* Actor)
 	// tell phsx that we still require queries( See FBodyInstance::UpdatePhysicsFilterData).  Doing so allows us to perform editor only traces against objects with collision disabled.  Due to this, we cannot assume that the collision enabled flag here
 	// setting is correct compared to physx and so we still ignore specified components regardless of their collision setting
 #if WITH_EDITOR
-	const bool bCheckForCollision = Actor && Actor->GetWorld() && Actor->GetWorld()->IsGameWorld();
+	bool bCheckForCollision = false;
+	if (Actor)
+	{
+		const UWorld* World = Actor->GetWorld();
+		bCheckForCollision = World && World->IsGameWorld();
+	}
 #else
 	const bool bCheckForCollision = true;
 #endif
@@ -197,7 +202,12 @@ static FORCEINLINE_DEBUGGABLE bool CheckForCollision(const UPrimitiveComponent* 
 	// tell phsx that we still require queries( See FBodyInstance::UpdatePhysicsFilterData).  Doing so allows us to perform editor only traces against objects with collision disabled.  Due to this, we cannot assume that the collision enabled flag here
 	// setting is correct compared to physx and so we still ignore specified components regardless of their collision setting
 #if WITH_EDITOR
-	bool bCheckForCollision = PrimComponent && PrimComponent->GetWorld() && PrimComponent->GetWorld()->IsGameWorld();
+	bool bCheckForCollision = false;
+	if (PrimComponent)
+	{
+		const UWorld* World = PrimComponent->GetWorld();
+		bCheckForCollision = World && World->IsGameWorld();
+	}
 #else
 	const bool bCheckForCollision = true;
 #endif
@@ -209,22 +219,7 @@ void FCollisionQueryParams::AddIgnoredActor(const AActor* InIgnoreActor)
 {
 	if (InIgnoreActor)
 	{	
-		const bool bCheckForCollision = CheckForCollision(InIgnoreActor);
-		const int32 InitialCount = IgnoreComponents.Num();
-		for (const UActorComponent* ActorComponent : InIgnoreActor->GetComponents())
-		{
-			const UPrimitiveComponent* PrimComponent = Cast<const UPrimitiveComponent>(ActorComponent);
-			if (PrimComponent && (!bCheckForCollision || IsQueryCollisionEnabled(PrimComponent)) )
-			{
-				IgnoreComponents.Add(PrimComponent->GetUniqueID());
-			}
-		}
-
-		// If we added entries to a non-empty array, we aren't sure if the list is unique. Assumes GetComponents() above contains no duplicates.
-		if ((InitialCount != 0) && (IgnoreComponents.Num() - InitialCount > 0))
-		{
-			bComponentListUnique = false;
-		}
+		IgnoreActors.Add(InIgnoreActor->GetUniqueID());
 	}
 }
 
@@ -518,7 +513,7 @@ bool FSeparatingAxisPointCheck::FindSeparatingAxisGeneric()
 
 
 
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if !UE_BUILD_SHIPPING
 
 DECLARE_LOG_CATEGORY_EXTERN(LogCollisionCommands, Log, All);
 DEFINE_LOG_CATEGORY(LogCollisionCommands);
@@ -952,7 +947,7 @@ namespace CollisionResponseConsoleCommands
 
 }
 
-#endif //!(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#endif //!UE_BUILD_SHIPPING
 
 
 

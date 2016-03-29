@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 #include "K2Node_Tunnel.h"
 #include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
@@ -12,6 +12,10 @@ class UK2Node_Composite : public UK2Node_Tunnel
 	// The graph that this composite node is representing
 	UPROPERTY()
 	class UEdGraph* BoundGraph;
+
+	//~ Begin UObject Interface
+	virtual void PostEditUndo() override;
+	//~ End UObject Interface
 
 	//~ Begin UEdGraphNode Interface
 	BLUEPRINTGRAPH_API virtual void AllocateDefaultPins() override;
@@ -36,6 +40,10 @@ class UK2Node_Composite : public UK2Node_Tunnel
 	// Get the entry/exit nodes inside this collapsed graph
 	BLUEPRINTGRAPH_API UK2Node_Tunnel* GetEntryNode() const;
 	BLUEPRINTGRAPH_API UK2Node_Tunnel* GetExitNode() const;
+
+protected:
+	/** Fixes up the input and output sink when needed, useful after PostEditUndo which changes which graph these nodes point to */
+	void FixupInputAndOutputSink();
 
 private:
 	/** Rename the BoundGraph to a unique name

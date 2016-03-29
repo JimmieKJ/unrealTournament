@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	D3D11Device.cpp: D3D device RHI implementation.
@@ -34,7 +34,7 @@ TAutoConsoleVariable<int32> CVarD3D11ZeroBufferSizeInMB(
 	ECVF_ReadOnly
 	);
 
-FD3D11DynamicRHI::FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEVEL InFeatureLevel, int32 InChosenAdapter) :
+FD3D11DynamicRHI::FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEVEL InFeatureLevel, int32 InChosenAdapter, const DXGI_ADAPTER_DESC& InChosenDescription) :
 	DXGIFactory1(InDXGIFactory1),
 	bDeviceRemoved(false),
 	FeatureLevel(InFeatureLevel),
@@ -55,7 +55,8 @@ FD3D11DynamicRHI::FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEV
 	PendingNumIndices(0),
 	PendingIndexDataStride(0),
 	GPUProfilingData(this),
-	ChosenAdapter(InChosenAdapter)
+	ChosenAdapter(InChosenAdapter),
+	ChosenDescription(InChosenDescription)
 {
 	// This should be called once at the start 
 	check(ChosenAdapter >= 0);
@@ -185,6 +186,7 @@ FD3D11DynamicRHI::FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEV
 	GMaxTextureMipCount = FMath::Min<int32>( MAX_TEXTURE_MIP_COUNT, GMaxTextureMipCount );
 	GMaxShadowDepthBufferSizeX = 4096;
 	GMaxShadowDepthBufferSizeY = 4096;
+	GSupportsTimestampRenderQueries = true;
 
 	// Initialize the constant buffers.
 	InitConstantBuffers();
@@ -226,9 +228,9 @@ void FD3D11DynamicRHI::Shutdown()
 	ZeroBufferSize = 0;
 }
 
-void FD3D11DynamicRHI::RHIPushEvent(const TCHAR* Name)
+void FD3D11DynamicRHI::RHIPushEvent(const TCHAR* Name, FColor Color)
 { 
-	GPUProfilingData.PushEvent(Name);
+	GPUProfilingData.PushEvent(Name, Color);
 }
 
 void FD3D11DynamicRHI::RHIPopEvent()

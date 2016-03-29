@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -45,5 +45,17 @@ public:
 	 *	Cpp is generated from a duplicate of the original Blueprint. This map stores info about the original BPGC.
 	 */
 	virtual TMap<TWeakObjectPtr<UClass>, TWeakObjectPtr<UClass> >& GetOriginalClassMap() = 0;
+
+	/**
+	 *	Provides a hook so that external modules can mark some unconverted blueprints as necessary for the generated native code.
+	 */
+	DECLARE_DELEGATE_OneParam(FMarkUnconvertedBlueprintAsNecessary, TAssetPtr<UBlueprint>);
+	virtual FMarkUnconvertedBlueprintAsNecessary& OnIncludingUnconvertedBP() = 0;
+
+	DECLARE_DELEGATE_RetVal_OneParam(bool, FIsFunctionUsedInADelegate, const UFunction*);
+	virtual FIsFunctionUsedInADelegate& GetIsFunctionUsedInADelegateCallback() = 0;
+
+	// Collect functions that are used by delegates - they must have UFUNCTION macro
+	BLUEPRINTCOMPILERCPPBACKEND_API static TArray<class UFunction*> CollectBoundFunctions(class UBlueprint* BP);
 };
 

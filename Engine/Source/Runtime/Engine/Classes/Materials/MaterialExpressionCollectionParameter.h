@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /**
  * MaterialExpressionCollectionParameter.h - a node that references a single parameter in a MaterialParameterCollection
@@ -30,11 +30,14 @@ class UMaterialExpressionCollectionParameter : public UMaterialExpression
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 	virtual void PostLoad() override;
+	virtual bool NeedsLoadForClient() const override;
 	//~ End UObject Interface.
 
 	//~ Begin UMaterialExpression Interface
+#if WITH_EDITOR
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
+#endif
 	virtual bool MatchesSearchQuery( const TCHAR* SearchQuery ) override;
 	//~ End UMaterialExpression Interface
 };

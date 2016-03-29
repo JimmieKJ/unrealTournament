@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SceneManagement.h: Scene manager definitions.
@@ -139,25 +139,39 @@ public:
 
 	/** Resets pool for GetReusableMID() */
 	virtual void OnStartPostProcessing(FSceneView& CurrentView) = 0;
+
 	/**
 	 * Allows MIDs being created and released during view rendering without the overhead of creating and releasing objects
 	 * As MID are not allowed to be parent of MID this gets fixed up by parenting it to the next Material or MIC
 	 * @param InSource can be Material, MIC or MID, must not be 0
 	 */
 	virtual UMaterialInstanceDynamic* GetReusableMID(class UMaterialInterface* InSource) = 0;
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	/** If frozen view matrices are available, set those as active on the SceneView */
+	virtual void ActivateFrozenViewMatrices(FSceneView& SceneView) = 0;
+
+	/** If frozen view matrices were set, restore the previous view matrices */
+	virtual void RestoreUnfrozenViewMatrices(FSceneView& SceneView) = 0;
+#endif
+
 	/** Returns the temporal LOD struct from the viewstate */
 	virtual FTemporalLODState& GetTemporalLODState() = 0;
 	virtual const FTemporalLODState& GetTemporalLODState() const = 0;
+
 	/** 
 	 * Returns the blend factor between the last two LOD samples
 	 */
 	virtual float GetTemporalLODTransition() const = 0;
+
 	/** 
 	 * returns a unique key for the view state, non-zero
 	 */
 	virtual uint32 GetViewKey() const = 0;
+
 	//
 	virtual uint32 GetCurrentTemporalAASampleIndex() const = 0;
+
 	/** 
 	 * returns the occlusion frame counter 
 	 */
@@ -173,7 +187,33 @@ private:
 	int32							NumChildren;
 };
 
+class FFrozenSceneViewMatricesGuard
+{
+public:
+	FFrozenSceneViewMatricesGuard(FSceneView& SV)
+		: SceneView(SV)
+	{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		if (SceneView.State)
+		{
+			SceneView.State->ActivateFrozenViewMatrices(SceneView);
+		}
+#endif
+	}
 
+	~FFrozenSceneViewMatricesGuard()
+	{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		if (SceneView.State)
+		{
+			SceneView.State->RestoreUnfrozenViewMatrices(SceneView);
+		}
+#endif
+	}
+
+private:
+	FSceneView& SceneView;
+};
 
 /**
  * The types of interactions between a light and a primitive.
@@ -183,7 +223,9 @@ enum ELightInteractionType
 	LIT_CachedIrrelevant,
 	LIT_CachedLightMap,
 	LIT_Dynamic,
-	LIT_CachedSignedDistanceFieldShadowMap2D
+	LIT_CachedSignedDistanceFieldShadowMap2D,
+
+	LIT_MAX
 };
 
 /**
@@ -202,17 +244,14 @@ public:
 	// Accessors.
 	ELightInteractionType GetType() const { return Type; }
 
-private:
-
 	/**
 	 * Minimal initialization constructor.
 	 */
-	FLightInteraction(
-		ELightInteractionType InType
-		):
-		Type(InType)
+	FLightInteraction(ELightInteractionType InType)
+		: Type(InType)
 	{}
 
+private:
 	ELightInteractionType Type;
 };
 
@@ -520,20 +559,106 @@ private:
 	EShadowMapInteractionType Type;
 };
 
+class FLightMap;
+class FShadowMap;
+
 /**
  * An interface to cached lighting for a specific mesh.
  */
 class FLightCacheInterface
 {
 public:
-	virtual FLightInteraction GetInteraction(const class FLightSceneProxy* LightSceneProxy) const = 0;
-	virtual FLightMapInteraction GetLightMapInteraction(ERHIFeatureLevel::Type InFeatureLevel) const = 0;
-	virtual FShadowMapInteraction GetShadowMapInteraction() const { return FShadowMapInteraction::None(); }
-	virtual FUniformBufferRHIRef GetPrecomputedLightingBuffer() const = 0;
+	FLightCacheInterface(const FLightMap* InLightMap, const FShadowMap* InShadowMap)
+		: LightMap(InLightMap)
+		, ShadowMap(InShadowMap)
+	{
+	}
 
-	 // WARNING : This can be called with buffers valid for a single frame only, don't cache anywhere. See FPrimitiveSceneInfo::UpdatePrecomputedLightingBuffer()
-	virtual void SetPrecomputedLightingBuffer(FUniformBufferRHIParamRef InPrecomputedLightingUniformBuffer) = 0;
+	// @param LightSceneProxy must not be 0
+	virtual FLightInteraction GetInteraction(const class FLightSceneProxy* LightSceneProxy) const = 0;
+
+	// helper function to implement GetInteraction(), call after checking for this: if(LightSceneProxy->HasStaticShadowing())
+	// @param LightSceneProxy same as in GetInteraction(), must not be 0
+	ENGINE_API ELightInteractionType GetStaticInteraction(const FLightSceneProxy* LightSceneProxy, const TArray<FGuid>& IrrelevantLights) const;
+	
+	// @param InLightMap may be 0
+	void SetLightMap(const FLightMap* InLightMap)
+	{
+		LightMap = InLightMap;
+	}
+
+	// @return may be 0
+	const FLightMap* GetLightMap() const
+	{
+		return LightMap;
+	}
+
+	// @param InShadowMap may be 0
+	void SetShadowMap(const FShadowMap* InShadowMap)
+	{
+		ShadowMap = InShadowMap;
+	}
+
+	// @return may be 0
+	const FShadowMap* GetShadowMap() const
+	{
+		return ShadowMap;
+	}
+
+	// WARNING : This can be called with buffers valid for a single frame only, don't cache anywhere. See FPrimitiveSceneInfo::UpdatePrecomputedLightingBuffer()
+	void SetPrecomputedLightingBuffer(FUniformBufferRHIParamRef InPrecomputedLightingUniformBuffer)
+	{
+		PrecomputedLightingUniformBuffer = InPrecomputedLightingUniformBuffer;
+	}
+
+	FUniformBufferRHIParamRef GetPrecomputedLightingBuffer() const
+	{
+		return PrecomputedLightingUniformBuffer;
+	}
+
+	ENGINE_API FLightMapInteraction GetLightMapInteraction(ERHIFeatureLevel::Type InFeatureLevel) const;
+
+	ENGINE_API FShadowMapInteraction GetShadowMapInteraction() const;
+
+private:
+	// The light-map used by the element. may be 0
+	const FLightMap* LightMap;
+
+	// The shadowmap used by the element, may be 0
+	const FShadowMap* ShadowMap;
+
+	/** The uniform buffer holding mapping the lightmap policy resources. */
+	FUniformBufferRHIRef PrecomputedLightingUniformBuffer;
 };
+
+
+template<typename TPendingTextureType>
+class FAsyncEncode : public IQueuedWork
+{
+private:
+	TPendingTextureType* PendingTexture;
+	FThreadSafeCounter& Counter;
+public:
+
+	FAsyncEncode(TPendingTextureType* InPendingTexture, FThreadSafeCounter& InCounter) : PendingTexture(nullptr), Counter(InCounter)
+	{
+		PendingTexture = InPendingTexture;
+	}
+
+	void Abandon()
+	{
+		PendingTexture->StartEncoding();
+		Counter.Decrement();
+	}
+
+	void DoThreadedWork()
+	{
+		PendingTexture->StartEncoding();
+		Counter.Decrement();
+	}
+};
+
+
 
 // Information about a single shadow cascade.
 class FShadowCascadeSettings
@@ -747,6 +872,9 @@ public:
 	/** Whether this light should create per object shadows for dynamic objects. */
 	virtual bool ShouldCreatePerObjectShadowsForDynamicObjects() const;
 
+	/** Whether this light should create CSM for dynamic objects only (forward renderer) */
+	virtual bool UseCSMForDynamicObjects() const;
+
 	/** Returns the number of view dependent shadows this light will create, not counting distance field shadow cascades. */
 	virtual uint32 GetNumViewDependentWholeSceneShadows(const FSceneView& View, bool bPrecomputedLightingIsValid) const { return 0; }
 
@@ -837,6 +965,7 @@ public:
 	inline bool CastsTranslucentShadows() const { return bCastTranslucentShadows; }
 	inline bool CastsShadowsFromCinematicObjectsOnly() const { return bCastShadowsFromCinematicObjectsOnly; }
 	inline bool CastsModulatedShadows() const { return bCastModulatedShadows; }
+	inline bool StationaryLightUsesCSMForMovableShadows() const { return bStationaryLightUsesCSMForMovableShadows; }
 	inline const FLinearColor& GetModulatedShadowColor() const { return ModulatedShadowColor; }
 	inline bool AffectsTranslucentLighting() const { return bAffectTranslucentLighting; }
 	inline bool UseRayTracedDistanceFieldShadows() const { return bUseRayTracedDistanceFieldShadows; }
@@ -964,6 +1093,12 @@ protected:
 	/** Whether to use ray traced distance field area shadows. */
 	const uint32 bUseRayTracedDistanceFieldShadows : 1;
 
+	/** Whether the light will cast modulated shadows when using the forward renderer (mobile). */
+	uint32 bCastModulatedShadows : 1;
+
+	/** Whether to render csm shadows for movable objects only (mobile). */
+	uint32 bStationaryLightUsesCSMForMovableShadows : 1;
+
 	float RayStartOffsetDepthScale;
 
 	/** The light type (ELightComponentType) */
@@ -985,12 +1120,10 @@ protected:
 
 	/** Only for whole scene directional lights, 0: no FarShadowCascades, otherwise the count of cascades between WholeSceneDynamicShadowRadius and FarShadowDistance that are covered by distant shadow cascades. */
 	uint32 FarShadowCascadeCount;
-
-	/** Whether the light will cast modulated shadows when using the forward renderer (mobile). */
-	uint32 bCastModulatedShadows : 1;
-
+	
 	/** Modulated shadow color. */
 	FLinearColor ModulatedShadowColor;
+
 	/**
 	 * Updates the light proxy's cached transforms.
 	 * @param InLightToWorld - The new light-to-world transform.
@@ -1016,6 +1149,8 @@ public:
 	 */
 	void SetTransformIncludingDecalSize(const FTransform& InComponentToWorldIncludingDecalSize);
 
+	void InitializeFadingParameters(float AbsSpawnTime, float FadeDuration, float FadeStartDelay);
+
 	/** Pointer back to the game thread decal component. */
 	const UDecalComponent* Component;
 
@@ -1034,6 +1169,16 @@ public:
 
 	/** Larger values draw later (on top). */
 	int32 SortOrder;
+
+	float InvFadeDuration;
+
+	/**
+	* FadeT = saturate(1 - (AbsTime - FadeStartDelay - AbsSpawnTime) / FadeDuration)
+	*
+	*		refactored as muladd:
+	*		FadeT = saturate((AbsTime * -InvFadeDuration) + ((FadeStartDelay + AbsSpawnTime + FadeDuration) * InvFadeDuration))
+	*/
+	float FadeStartDelayNormalized;
 };
 
 /** Reflection capture shapes. */

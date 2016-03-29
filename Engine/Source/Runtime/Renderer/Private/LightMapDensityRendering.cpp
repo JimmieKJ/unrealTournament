@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LightMapDensityRendering.cpp: Implementation for rendering lightmap density.
@@ -94,6 +94,7 @@ bool FLightMapDensityDrawingPolicyFactory::DrawDynamicMesh(
 	const FMaterialRenderProxy* MaterialRenderProxy = Mesh.MaterialRenderProxy;
 	const FMaterial* Material = MaterialRenderProxy->GetMaterial(FeatureLevel);
 	const EBlendMode BlendMode = Material->GetBlendMode();
+	const FMeshDrawingRenderState DrawRenderState(Mesh.DitheredLODTransitionAlpha);
 
 	const bool bMaterialMasked = Material->IsMasked();
 	const bool bMaterialModifiesMesh = Material->MaterialModifiesMeshPosition_RenderThread();
@@ -121,7 +122,7 @@ bool FLightMapDensityDrawingPolicyFactory::DrawDynamicMesh(
 				DrawingPolicy.SetSharedState(RHICmdList, &View, TLightMapDensityDrawingPolicy< FUniformLightMapPolicy >::ContextDataType());
 				for (int32 BatchElementIndex = 0; BatchElementIndex < Mesh.Elements.Num(); BatchElementIndex++)
 				{
-					DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace,Mesh.DitheredLODTransitionAlpha,
+					DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace,DrawRenderState,
 						Mesh.LCI,
 						TLightMapDensityDrawingPolicy<FUniformLightMapPolicy>::ContextDataType()
 						);
@@ -136,7 +137,7 @@ bool FLightMapDensityDrawingPolicyFactory::DrawDynamicMesh(
 				DrawingPolicy.SetSharedState(RHICmdList, &View, TLightMapDensityDrawingPolicy< FUniformLightMapPolicy >::ContextDataType());
 				for (int32 BatchElementIndex = 0; BatchElementIndex < Mesh.Elements.Num(); BatchElementIndex++)
 				{
-					DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace,Mesh.DitheredLODTransitionAlpha,
+					DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace,DrawRenderState,
 						Mesh.LCI,
 						TLightMapDensityDrawingPolicy<FUniformLightMapPolicy>::ContextDataType()
 						);
@@ -152,7 +153,7 @@ bool FLightMapDensityDrawingPolicyFactory::DrawDynamicMesh(
 			DrawingPolicy.SetSharedState(RHICmdList, &View, TLightMapDensityDrawingPolicy<FUniformLightMapPolicy >::ContextDataType());
 			for (int32 BatchElementIndex = 0; BatchElementIndex < Mesh.Elements.Num(); BatchElementIndex++)
 			{
-				DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace,Mesh.DitheredLODTransitionAlpha,
+				DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace,DrawRenderState,
 					Mesh.LCI,
 					TLightMapDensityDrawingPolicy<FUniformLightMapPolicy>::ContextDataType()
 					);
@@ -168,7 +169,7 @@ bool FLightMapDensityDrawingPolicyFactory::DrawDynamicMesh(
 		DrawingPolicy.SetSharedState(RHICmdList, &View, TLightMapDensityDrawingPolicy<TUniformLightMapPolicy<LMP_NO_LIGHTMAP> >::ContextDataType());
 		for (int32 BatchElementIndex = 0; BatchElementIndex < Mesh.Elements.Num(); BatchElementIndex++)
 		{
-			DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace,Mesh.DitheredLODTransitionAlpha,
+			DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace,DrawRenderState,
 				Mesh.LCI,
 				TLightMapDensityDrawingPolicy<FUniformLightMapPolicy>::ContextDataType()
 				);

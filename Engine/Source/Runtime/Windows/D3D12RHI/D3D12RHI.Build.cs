@@ -19,9 +19,9 @@ public class D3D12RHI : ModuleRules
 			}
 			);
 
-        AddThirdPartyPrivateStaticDependencies(Target, "DX12");
-        AddThirdPartyPrivateStaticDependencies(Target, "DX11");
-        AddThirdPartyPrivateStaticDependencies(Target, "NVAPI");
+        AddEngineThirdPartyPrivateStaticDependencies(Target, "DX12");
+        AddEngineThirdPartyPrivateStaticDependencies(Target, "DX11");
+        AddEngineThirdPartyPrivateStaticDependencies(Target, "NVAPI");
         
 		if (Target.Configuration != UnrealTargetConfiguration.Shipping)
 		{

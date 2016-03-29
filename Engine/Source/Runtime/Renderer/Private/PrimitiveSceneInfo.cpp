@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PrimitiveSceneInfo.cpp: Primitive scene info implementation.
@@ -200,6 +200,11 @@ void FPrimitiveSceneInfo::AddToScene(FRHICommandListImmediate& RHICmdList, bool 
 	Scene->PrimitiveOctree.AddElement(LocalCompactPrimitiveSceneInfo);
 	check(OctreeId.IsValidId());
 
+	if (Proxy->CastsCapsuleIndirectShadow())
+	{
+		Scene->CapsuleIndirectCasterPrimitives.Add(this);
+	}
+
 	// Set bounds.
 	FPrimitiveBounds& PrimitiveBounds = Scene->PrimitiveBounds[PackedIndex];
 	FBoxSphereBounds BoxSphereBounds = Proxy->GetBounds();
@@ -294,6 +299,11 @@ void FPrimitiveSceneInfo::RemoveFromScene(bool bUpdateStaticDrawLists)
 	check(Scene->PrimitiveOctree.GetElementById(OctreeId).PrimitiveSceneInfo == this);
 	Scene->PrimitiveOctree.RemoveElement(OctreeId);
 	OctreeId = FOctreeElementId();
+
+	if (Proxy->CastsCapsuleIndirectShadow())
+	{
+		Scene->CapsuleIndirectCasterPrimitives.RemoveSingleSwap(this);
+	}
 
 	IndirectLightingCacheAllocation = NULL;
 	ClearPrecomputedLightingBuffer(false);
@@ -575,7 +585,7 @@ void FPrimitiveSceneInfo::UpdatePrecomputedLightingBuffer()
 	// The update is invalid if the lighting cache allocation was not in a functional state.
 	if (bPrecomputedLightingBufferDirty && (!IndirectLightingCacheAllocation || (Scene->IndirectLightingCache.IsInitialized() && IndirectLightingCacheAllocation->bHasEverUpdatedSingleSample)))
 	{
-		EUniformBufferUsage BufferUsage = /*Proxy->IsOftenMoving() ? UniformBuffer_SingleFrame : */ UniformBuffer_MultiFrame;
+		EUniformBufferUsage BufferUsage = Proxy->IsOftenMoving() ? UniformBuffer_SingleFrame : UniformBuffer_MultiFrame;
 
 		// If the PrimitiveInfo has no precomputed lighting buffer, it will fallback to the global Empty buffer.
 		if (IndirectLightingCacheAllocation)
@@ -611,7 +621,7 @@ void FPrimitiveSceneInfo::UpdatePrecomputedLightingBuffer()
 
 void FPrimitiveSceneInfo::ClearPrecomputedLightingBuffer(bool bSingleFrameOnly)
 {
-	if (!bSingleFrameOnly /* || Proxy->IsOftenMoving()*/)
+	if (!bSingleFrameOnly || Proxy->IsOftenMoving())
 	{
 		IndirectLightingCacheUniformBuffer.SafeRelease();
 

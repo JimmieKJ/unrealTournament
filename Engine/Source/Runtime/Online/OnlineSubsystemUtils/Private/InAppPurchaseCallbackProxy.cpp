@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "InAppPurchaseCallbackProxy.h"
@@ -21,7 +21,7 @@ void UInAppPurchaseCallbackProxy::Trigger(APlayerController* PlayerController, c
 	WorldPtr = (PlayerController != nullptr) ? PlayerController->GetWorld() : nullptr;
 	if (APlayerState* PlayerState = (PlayerController != nullptr) ? PlayerController->PlayerState : nullptr)
 	{
-		if (IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::Get())
+		if (IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::IsLoaded() ? IOnlineSubsystem::Get() : nullptr)
 		{
 			IOnlineStorePtr StoreInterface = OnlineSub->GetStoreInterface();
 			if (StoreInterface.IsValid())
@@ -66,9 +66,18 @@ void UInAppPurchaseCallbackProxy::OnInAppPurchaseComplete(EInAppPurchaseState::T
     
 	if (UWorld* World = WorldPtr.Get())
 	{
-		// Use a local timer handle as we don't need to store it for later but we don't need to look for something to clear
-		FTimerHandle TimerHandle;
-		World->GetTimerManager().SetTimer(OnInAppPurchaseComplete_DelayedTimerHandle, this, &UInAppPurchaseCallbackProxy::OnInAppPurchaseComplete_Delayed, 0.001f, false);
+		DECLARE_CYCLE_STAT(TEXT("FSimpleDelegateGraphTask.DelayInAppPurchaseComplete"), STAT_FSimpleDelegateGraphTask_DelayInAppPurchaseComplete, STATGROUP_TaskGraphTasks);
+
+		FSimpleDelegateGraphTask::CreateAndDispatchWhenReady(
+			FSimpleDelegateGraphTask::FDelegate::CreateLambda([=](){
+
+				OnInAppPurchaseComplete_Delayed();
+
+			}),
+			GET_STATID(STAT_FSimpleDelegateGraphTask_DelayInAppPurchaseComplete), 
+			nullptr, 
+			ENamedThreads::GameThread
+		);
     }
     else
     {
@@ -80,8 +89,8 @@ void UInAppPurchaseCallbackProxy::OnInAppPurchaseComplete(EInAppPurchaseState::T
 void UInAppPurchaseCallbackProxy::OnInAppPurchaseComplete_Delayed()
 {
     /** Cached product details of the purchased product */
-    FInAppPurchaseProductInfo ProductInformation;
-    
+    FInAppPurchaseProductInfo ProductInformation; 
+
     if (SavedPurchaseState == EInAppPurchaseState::Success && PurchaseRequest.IsValid())
     {
         ProductInformation = PurchaseRequest->ProvidedProductInformation;
@@ -104,7 +113,7 @@ void UInAppPurchaseCallbackProxy::RemoveDelegate()
 {
 	if (!bFailedToEvenSubmit)
 	{
-		if (IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get())
+		if (IOnlineSubsystem* OnlineSub = IOnlineSubsystem::IsLoaded() ? IOnlineSubsystem::Get() : nullptr)
 		{
 			IOnlineStorePtr InAppPurchases = OnlineSub->GetStoreInterface();
 			if (InAppPurchases.IsValid())

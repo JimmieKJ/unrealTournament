@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 #include "GameplayTask.h"
 #include "GameplayAbility.h"
@@ -67,10 +67,13 @@ UENUM()
 enum class EAbilityTaskWaitState : uint8
 {
 	/** Task is waiting for the game to do something */
-	WaitingOnGame,
+	WaitingOnGame = 0x01,
 
 	/** Waiting for the user to do something */
-	WaitingOnUser,
+	WaitingOnUser = 0x02,
+
+	/** Waiting on Avatar (Character/Pawn/Actor) to do something (usually something physical in the world, like land, move, etc) */
+	WaitingOnAvatar = 0x04
 };
 
 UCLASS(Abstract)
@@ -84,9 +87,11 @@ class GAMEPLAYABILITIES_API UAbilityTask : public UGameplayTask
 	void SetAbilitySystemComponent(UAbilitySystemComponent* InAbilitySystemComponent);
 
 	/** GameplayAbility that created us */
-	TWeakObjectPtr<UGameplayAbility> Ability;
+	UPROPERTY()
+	UGameplayAbility* Ability;
 
-	TWeakObjectPtr<UAbilitySystemComponent> AbilitySystemComponent;
+	UPROPERTY()
+	UAbilitySystemComponent* AbilitySystemComponent;
 
 	/** Returns true if the ability is a locally predicted ability running on a client. Usually this means we need to tell the server something. */
 	bool IsPredictingClient() const;
@@ -131,11 +136,15 @@ class GAMEPLAYABILITIES_API UAbilityTask : public UGameplayTask
 	/** Called when the ability task is waiting on remote player data. IF the remote player ends the ability prematurely, and a task with this set is still running, the ability is killed. */
 	void SetWaitingOnRemotePlayerData();
 	void ClearWaitingOnRemotePlayerData();
-
 	virtual bool IsWaitingOnRemotePlayerdata() const override;
 
+	/** same as RemotePlayerData but for ACharacter type of state (movement state, etc) */
+	void SetWaitingOnAvatar();
+	void ClearWaitingOnAvatar();
+	virtual bool IsWaitingOnAvatar() const override;
+
 	/** What we are waiting on */
-	EAbilityTaskWaitState WaitState;
+	uint8 WaitStateBitMask;
 
 protected:
 	/** Helper method for registering client replicated callbacks */
@@ -158,7 +167,6 @@ struct FAbilityInstanceNamePredicate
 	FName InstanceName;
 };
 
-
 struct FAbilityInstanceClassPredicate
 {
 	FAbilityInstanceClassPredicate(TSubclassOf<UAbilityTask> Class)
@@ -173,3 +181,10 @@ struct FAbilityInstanceClassPredicate
 
 	TSubclassOf<UAbilityTask> TaskClass;
 };
+
+#define ABILITYTASK_MSG(Format, ...) \
+	if (ENABLE_ABILITYTASK_DEBUGMSG) \
+	{ \
+		if (Ability) \
+			Ability->AddAbilityTaskDebugMessage(this, FString::Printf(TEXT(Format), ##__VA_ARGS__)); \
+	} 

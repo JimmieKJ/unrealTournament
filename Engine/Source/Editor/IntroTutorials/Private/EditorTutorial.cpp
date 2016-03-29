@@ -1,13 +1,35 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "IntroTutorialsPrivatePCH.h"
 #include "LevelEditor.h"
 #include "SDockTab.h"
 #include "EditorTutorial.h"
 
+#if WITH_EDITORONLY_DATA
+namespace
+{
+	void GatherEditorTutorialForLocalization(const UObject* const Object, FPropertyLocalizationDataGatherer& PropertyLocalizationDataGatherer, const EPropertyLocalizationGathererTextFlags GatherTextFlags)
+	{
+		const UEditorTutorial* const EditorTutorial = CastChecked<UEditorTutorial>(Object);
+
+		// Editor Tutorial assets never exist at runtime, so treat all of their properties and script data as editor-only (as they may be derived from by a blueprint)
+		PropertyLocalizationDataGatherer.GatherLocalizationDataFromObject(EditorTutorial, GatherTextFlags | EPropertyLocalizationGathererTextFlags::ForceEditorOnly);
+	}
+}
+#endif
+
 UEditorTutorial::UEditorTutorial(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
+	static struct FAutomaticRegistrationOfLocalizationGatherer
+	{
+		FAutomaticRegistrationOfLocalizationGatherer()
+		{
+			FPropertyLocalizationDataGatherer::GetTypeSpecificLocalizationDataGatheringCallbacks().Add(UEditorTutorial::StaticClass(), &GatherEditorTutorialForLocalization);
+		}
+	} AutomaticRegistrationOfLocalizationGatherer;
+#endif
 }
 
 UWorld* UEditorTutorial::GetWorld() const

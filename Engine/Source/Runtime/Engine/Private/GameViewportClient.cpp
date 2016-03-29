@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Engine/Console.h"
@@ -119,6 +119,7 @@ UGameViewportClient::UGameViewportClient(const FObjectInitializer& ObjectInitial
 	, bHideCursorDuringCapture(false)
 	, AudioDeviceHandle(INDEX_NONE)
 	, bHasAudioFocus(false)
+	, bActive(false)
 {
 
 	TitleSafeZone.MaxPercentX = 0.9f;
@@ -177,6 +178,7 @@ UGameViewportClient::UGameViewportClient(FVTableHelper& Helper)
 	, bHideCursorDuringCapture(false)
 	, AudioDeviceHandle(INDEX_NONE)
 	, bHasAudioFocus(false)
+	, bActive(false)
 {
 
 }
@@ -275,6 +277,9 @@ void UGameViewportClient::Init(struct FWorldContext& WorldContext, UGameInstance
 	// remember our game instance
 	GameInstance = OwningGameInstance;
 
+	// Set the projects default viewport mouse capture mode
+	MouseCaptureMode = GetDefault<UInputSettings>()->DefaultViewportMouseCaptureMode;
+
 	// Create the cursor Widgets
 	UUserInterfaceSettings* UISettings = GetMutableDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass());
 
@@ -305,6 +310,7 @@ void UGameViewportClient::Init(struct FWorldContext& WorldContext, UGameInstance
 	AddCursor(EMouseCursor::Default, UISettings->DefaultCursor);
 	AddCursor(EMouseCursor::TextEditBeam, UISettings->TextEditBeamCursor);
 	AddCursor(EMouseCursor::Crosshairs, UISettings->CrosshairsCursor);
+	AddCursor(EMouseCursor::Hand, UISettings->HandCursor);
 	AddCursor(EMouseCursor::GrabHand, UISettings->GrabHandCursor);
 	AddCursor(EMouseCursor::GrabHandClosed, UISettings->GrabHandClosedCursor);
 	AddCursor(EMouseCursor::SlashedCircle, UISettings->SlashedCircleCursor);
@@ -590,43 +596,14 @@ bool UGameViewportClient::RequiresUncapturedAxisInput() const
 
 EMouseCursor::Type UGameViewportClient::GetCursor(FViewport* InViewport, int32 X, int32 Y)
 {
-	//bool bIsPlayingMovie = false;//GetMoviePlayer()->IsMovieCurrentlyPlaying();
-
-#if !PLATFORM_WINDOWS
-	bool bIsWithinTitleBar = false;
-#else
-	POINT CursorPos = { X, Y };
-	RECT WindowRect;
-
-	bool bIsWithinWindow = true;
-
-	// For Slate based windows the viewport doesnt have access to the OS window handle and shouln't need it
-	bool bIsWithinTitleBar = false;
-	if( InViewport->GetWindow() )
-	{
-		ClientToScreen( (HWND)InViewport->GetWindow(), &CursorPos );
-		GetWindowRect( (HWND)InViewport->GetWindow(), &WindowRect );
-		bIsWithinWindow = ( CursorPos.x >= WindowRect.left && CursorPos.x <= WindowRect.right &&
-			CursorPos.y >= WindowRect.top && CursorPos.y <= WindowRect.bottom );
-
-		// The user is mousing over the title bar if Y is less than zero and within the window rect
-		bIsWithinTitleBar = Y < 0 && bIsWithinWindow;
-	}
-
-#endif
-
-	if ((!InViewport->HasMouseCapture() && !InViewport->HasFocus()) || (ViewportConsole && ViewportConsole->ConsoleActive()))
+	// If the viewport isn't active or the console is active we don't want to override the cursor
+	if (!bActive || (!InViewport->HasMouseCapture() && !InViewport->HasFocus()) || (ViewportConsole && ViewportConsole->ConsoleActive()))
 	{
 		return EMouseCursor::Default;
 	}
-	else if ( /*(!bIsPlayingMovie) && */(InViewport->IsFullscreen() || !bIsWithinTitleBar) ) //bIsPlayingMovie has always false value
+	else if (GameInstance && GameInstance->GetFirstLocalPlayerController())
 	{
-		if (GameInstance && GameInstance->GetFirstLocalPlayerController())
-		{
-			return GameInstance->GetFirstLocalPlayerController()->GetMouseCursor();
-		}
-
-		return EMouseCursor::None;
+		return GameInstance->GetFirstLocalPlayerController()->GetMouseCursor();
 	}
 
 	return FViewportClient::GetCursor(InViewport, X, Y);
@@ -838,11 +815,6 @@ void UGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 		EngineShowFlags)
 		.SetRealtimeUpdate(true));
 
-	if (GEngine->ViewExtensions.Num())
-	{
-		ViewFamily.ViewExtensions.Append(GEngine->ViewExtensions.GetData(), GEngine->ViewExtensions.Num());
-	}
-
 	// Allow HMD to modify the view later, just before rendering
 	if (GEngine->HMDDevice.IsValid() && GEngine->IsStereoscopic3D(InViewport))
 	{
@@ -850,8 +822,17 @@ void UGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 		if (HmdViewExt.IsValid())
 		{
 			ViewFamily.ViewExtensions.Add(HmdViewExt);
-			HmdViewExt->SetupViewFamily(ViewFamily);
 		}
+	}
+
+	if (GEngine->ViewExtensions.Num())
+	{
+		ViewFamily.ViewExtensions.Append(GEngine->ViewExtensions.GetData(), GEngine->ViewExtensions.Num());
+	}
+
+	for (auto ViewExt : ViewFamily.ViewExtensions)
+	{
+		ViewExt->SetupViewFamily(ViewFamily);
 	}
 
 	if (bStereoRendering && GEngine->HMDDevice.IsValid())
@@ -1001,6 +982,14 @@ void UGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 								PlayerController->GetAudioListenerPosition(/*out*/ Location, /*out*/ ProjFront, /*out*/ ProjRight);
 
 								FTransform ListenerTransform(FRotationMatrix::MakeFromXY(ProjFront, ProjRight));
+
+								// Allow the HMD to adjust based on the head position of the player, as opposed to the view location
+								if (GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsStereoEnabled())
+								{
+									const FVector Offset = GEngine->HMDDevice->GetAudioListenerOffset();
+									Location += ListenerTransform.TransformPositionNoScale(Offset);
+								}
+
 								ListenerTransform.SetTranslation(Location);
 								ListenerTransform.NormalizeRotation();
 
@@ -1310,8 +1299,6 @@ void UGameViewportClient::ProcessScreenShots(FViewport* InViewport)
 				TArray<uint8> CompressedBitmap;
 				FImageUtils::CompressImageArray(Size.X, Size.Y, Bitmap, CompressedBitmap);
 				FFileHelper::SaveArrayToFile(CompressedBitmap, *ScreenShotName);
-
-//				FFileHelper::CreateBitmap(*ScreenShotName, InViewport->GetSizeXY().X, InViewport->GetSizeXY().Y, Bitmap.GetData(), &SourceRect, &IFileManager::Get(), NULL, bWriteAlpha);
 			}
 		}
 
@@ -1401,6 +1388,18 @@ void UGameViewportClient::ReceivedFocus(FViewport* InViewport)
 bool UGameViewportClient::IsFocused(FViewport* InViewport)
 {
 	return InViewport->HasFocus() || InViewport->HasMouseCapture();
+}
+
+void UGameViewportClient::Activated(FViewport* InViewport, const FWindowActivateEvent& InActivateEvent)
+{
+	ReceivedFocus(InViewport);
+	bActive = true;
+}
+
+void UGameViewportClient::Deactivated(FViewport* InViewport, const FWindowActivateEvent& InActivateEvent)
+{
+	LostFocus(InViewport);
+	bActive = false;
 }
 
 void UGameViewportClient::CloseRequested(FViewport* InViewport)
@@ -2758,6 +2757,7 @@ bool UGameViewportClient::HandleToggleFullscreenCommand()
 		if( UserSettings != nullptr )
 		{
 			UserSettings->SetFullscreenMode( FullScreenMode );
+			UserSettings->ConfirmVideoMode();
 		}
 	}
 

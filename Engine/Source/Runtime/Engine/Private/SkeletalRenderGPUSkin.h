@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SkeletalRenderGPUSkin.h: GPU skinned mesh object and resource definitions
@@ -27,8 +27,6 @@ class FDynamicSkelMeshObjectDataGPUSkin
 
 	virtual ~FDynamicSkelMeshObjectDataGPUSkin()
 	{
-		// we leak these
-		check(0);
 	}
 
 	void Clear();
@@ -104,12 +102,12 @@ public:
 struct FMorphGPUSkinVertex
 {
 	FVector			DeltaPosition;
-	FPackedNormal	DeltaTangentZ;
+	FVector			DeltaTangentZ;
 
 	FMorphGPUSkinVertex() {};
 	
 	/** Construct for special case **/
-	FMorphGPUSkinVertex(const FVector& InDeltaPosition, const FPackedNormal& InDeltaTangentZ)
+	FMorphGPUSkinVertex(const FVector& InDeltaPosition, const FVector& InDeltaTangentZ)
 	{
 		DeltaPosition = InDeltaPosition;
 		DeltaTangentZ = InDeltaTangentZ;
@@ -173,10 +171,22 @@ public:
 	/** Has been updated or not by UpdateMorphVertexBuffer**/
 	bool bHasBeenUpdated;
 
+	// @param guaranteed only to be valid if the vertex buffer is valid
+	FShaderResourceViewRHIParamRef GetSRV() const
+	{
+		return SRVValue;
+	}
+
+	FStaticLODModel* GetStaticLODModel() const { return &SkelMeshResource->LODModels[LODIdx]; }
+
+protected:
+	// guaranteed only to be valid if the vertex buffer is valid
+	FShaderResourceViewRHIRef SRVValue;
+
 private:
 	/** index to the SkelMeshResource.LODModels */
 	int32	LODIdx;
-	/** parent mesh containing the source data */
+	// parent mesh containing the source data, never 0
 	FSkeletalMeshResource* SkelMeshResource;
 };
 
@@ -200,6 +210,7 @@ public:
 	virtual void CacheVertices(int32 LODIndex, bool bForce) const override {}
 	virtual bool IsCPUSkinned() const override { return false; }
 	virtual TArray<FTransform>* GetSpaceBases() const override;
+	virtual const TArray<FMatrix>& GetReferenceToLocalMatrices() const override;
 
 	virtual int32 GetLOD() const override
 	{
@@ -270,16 +281,16 @@ private:
 		FVertexFactoryData() {}
 
 		/** one vertex factory for each chunk */
-		TIndirectArray<FGPUBaseSkinVertexFactory> VertexFactories;
+		TArray<TUniquePtr<FGPUBaseSkinVertexFactory>> VertexFactories;
 
 		/** one passthrough vertex factory for each chunk */
-		TIndirectArray<FGPUBaseSkinVertexFactory> PassthroughVertexFactories;
+		TArray<TUniquePtr<FGPUSkinPassthroughVertexFactory>> PassthroughVertexFactories;
 
 		/** Vertex factory defining both the base mesh as well as the morph delta vertex decals */
-		TIndirectArray<FGPUBaseSkinVertexFactory> MorphVertexFactories;
+		TArray<TUniquePtr<FGPUBaseSkinVertexFactory>> MorphVertexFactories;
 
 		/** Vertex factory defining both the base mesh as well as the APEX cloth vertex data */
-		TArray<FGPUBaseSkinAPEXClothVertexFactory*> ClothVertexFactories;
+		TArray<TUniquePtr<FGPUBaseSkinAPEXClothVertexFactory>> ClothVertexFactories;
 
 		/** 
 		 * Init default vertex factory resources for this LOD 
@@ -339,6 +350,10 @@ private:
 
 			return Size;
 		}	
+
+		private:
+			FVertexFactoryData(const FVertexFactoryData&);
+			FVertexFactoryData& operator=(const FVertexFactoryData&);
 	};
 
 	/** vertex data for rendering a single LOD */
@@ -375,14 +390,6 @@ private:
 		 */
 		void ReleaseMorphResources();
 
-		/** 
-		 * Update the contents of the vertex buffer with new data. Note that this
-		 * function is called from the render thread.
-		 * @param	NewVertices - array of new vertex data
-		 * @param	NumVertices - Number of vertices
-		 */
-		void UpdateShadowVertexBuffer( const FVector* NewVertices, uint32 NumVertices ) const;
-
 		/**
 		 * @return memory in bytes of size of the resources for this LOD
 		 */
@@ -396,6 +403,7 @@ private:
 		}
 
 		FSkeletalMeshResource* SkelMeshResource;
+		// index into FSkeletalMeshResource::LODModels[]
 		int32 LODIndex;
 
 		/** Vertex buffer that stores the morph target vertex deltas. Updated on the CPU */
@@ -409,7 +417,7 @@ private:
 		 * delta positions and delta normals from the set of active vertex anims
 		 * @param ActiveVertexAnims - vertex anims to accumulate. assumed to be weighted and have valid targets
 		 */
-		void UpdateMorphVertexBuffer( const TArray<FActiveVertexAnim>& ActiveVertexAnims );
+		void UpdateMorphVertexBuffer(FRHICommandListImmediate& RHICmdList, const TArray<FActiveVertexAnim>& ActiveVertexAnims);
 
 		/**
 		 * Determine the current vertex buffers valid for this LOD
@@ -417,6 +425,10 @@ private:
 		 * @param OutVertexBuffers output vertex buffers
 		 */
 		void GetVertexBuffers(FVertexFactoryBuffers& OutVertexBuffers,FStaticLODModel& LODModel,const FSkelMeshObjectLODInfo& MeshLODInfo);
+
+		// Temporary arrays used on UpdateMorphVertexBuffer(); these grow to the max and are not thread safe.
+		static TArray<FVector> MorphDeltaTangentZAccumulationArray;
+		static TArray<float> MorphAccumulatedWeightArray;
 	};
 
 	/** 

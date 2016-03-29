@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /**
  * Camera modifier that provides support for code-based oscillating camera shakes.
@@ -36,14 +36,21 @@ public:
 	/**
 	 * Stops and removes the camera shake of the given class from the camera.
 	 * @param Shake - the camera shake class to remove.
+	 * @param bImmediately		If true, shake stops right away regardless of blend out settings. If false, shake may blend out according to its settings.
 	 */
-	virtual void RemoveCameraShake(UCameraShake* ShakeInst);
+	virtual void RemoveCameraShake(UCameraShake* ShakeInst, bool bImmediately = true);
 
-	/** Stops and removes all camera shakes of the given class from the camera. */
-	virtual void RemoveAllCameraShakesOfClass(TSubclassOf<class UCameraShake> ShakeClass);
+	/**
+	 * Stops and removes all camera shakes of the given class from the camera. 
+	 * @param bImmediately		If true, shake stops right away regardless of blend out settings. If false, shake may blend out according to its settings.
+	 */
+	virtual void RemoveAllCameraShakesOfClass(TSubclassOf<class UCameraShake> ShakeClass, bool bImmediately = true);
 
-	/** Stops and removes all camera shakes from the camera. */
-	virtual void RemoveAllCameraShakes();
+	/** 
+	 * Stops and removes all camera shakes from the camera. 
+	 * @param bImmediately		If true, shake stops right away regardless of blend out settings. If false, shake may blend out according to its settings.
+	 */
+	virtual void RemoveAllCameraShakes(bool bImmediately = true);
 	
 	//~ Begin UCameraModifer Interface
 	virtual bool ModifyCamera(float DeltaTime, struct FMinimalViewInfo& InOutPOV) override;

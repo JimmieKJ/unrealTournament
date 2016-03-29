@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ShaderComplexityAccumulatePixelShader.usf: Outputs complexity
@@ -11,14 +11,14 @@ float3 NormalizedComplexity;
 bool bShowQuadOverdraw;
 
 #include "QuadOverdraw.usf"
+#include "DebugViewModeCommon.usf"
 
 #if OUTPUT_QUAD_OVERDRAW
 
 // Needed because UAV accesses disable early depth test otherwises.
 EARLYDEPTHSTENCIL
 void Main(
-	in float4 SvPosition : SV_Position,
-	in uint SvPrimitiveID : SV_PrimitiveID,
+	in FDebugPSInLean Input,
 	out float4 OutColor : SV_Target0
 	)
 {
@@ -27,7 +27,7 @@ void Main(
 	[branch]
 	if (bShowQuadOverdraw && NormalizedComplexity.x > 0)
 	{
-		uint Coverage = ComputeQuadCoverage(SvPosition.xy, SvPrimitiveID, 24, false, false, 0);
+		uint Coverage = ComputeQuadCoverage(Input.SvPosition.xy, Input.PrimitiveID, 24, false, false, 0);
 		// The extra cost from quad overdraw is assumed to be linear.
 		FinalComplexity.x *= 4.f / (float)(Coverage);
 	}

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "TimerManager.h"
@@ -124,6 +124,9 @@ protected:
 
 	/** Updates the match state and calls the appropriate transition functions */
 	virtual void SetMatchState(FName NewState);
+
+	/** Overridable virtual function to dispatch the appropriate transition functions before GameState and Blueprints get SetMatchState calls. */
+	virtual void OnMatchStateSet();
 
 	/** Implementable event to respond to match state changes */
 	UFUNCTION(BlueprintImplementableEvent, Category="Game", meta=(DisplayName="OnSetMatchState"))
@@ -634,10 +637,10 @@ public:
 	 * only dynamic actors in the PersistentLevel may be moved (this includes all actors spawned during gameplay)
 	 * this is called for both parts of the transition because actors might change while in the middle (e.g. players might join or leave the game)
 	 * @see also PlayerController::GetSeamlessTravelActorList() (the function that's called on clients)
-	 * @param bToEntry true if we are going from old level -> entry, false if we are going from entry -> new level
+	 * @param bToTransition true if we are going from old level to transition map, false if we are going from transition map to new level
 	 * @param ActorList (out) list of actors to maintain
 	 */
-	virtual void GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& ActorList);
+	virtual void GetSeamlessTravelActorList(bool bToTransition, TArray<AActor*>& ActorList);
 
 	/** Allow the game to specify a place for clients to download MapName */
 	DEPRECATED(4.11, "Override GameWelcomePlayer() instead")

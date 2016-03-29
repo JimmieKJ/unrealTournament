@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -18,6 +18,10 @@ struct FGameplayTagTableRow : public FTableRowBase
 	/** Text that describes this category - not all tags have categories */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=GameplayTag)
 	FText CategoryText;
+
+	/** Developer comment clarifying the usage of a particular tag, not user facing */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=GameplayTag)
+	FString DevComment;
 
 	/** Constructors */
 	FGameplayTagTableRow() { CategoryText = NSLOCTEXT("TAGCATEGORY", "TAGCATEGORYTESTING", "Category and Category"); }
@@ -291,13 +295,16 @@ class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 	 * @param GameplayTag		tag to get parents of
 	 * @return					pointer to container of parents, if any
 	 */
-	FORCEINLINE_DEBUGGABLE const FGameplayTagContainer* GetAllParentsContainer(const FGameplayTag& GameplayTag)
+	FORCEINLINE const FGameplayTagContainer* GetAllParentsContainer(const FGameplayTag& GameplayTag)
 	{
 		const TSharedPtr<FGameplayTagNode>* TagNode = GameplayTagNodeMap.Find(GameplayTag);
 		if (TagNode)
 		{
 			return &((*TagNode)->Parents);
 		}
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		UE_LOG(LogGameplayTags, Warning, TEXT("::GetAllParentsContainer Failed to find tag %s in GameplayTagNodeMap. Is this tag not in the dictionary?"), *GameplayTag.ToString());
+#endif
 		return nullptr;
 	}
 
@@ -309,14 +316,51 @@ class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 	/** Returns true if we should import tags from UGameplayTagsSettings objects (configured by INI files) */
 	static bool ShouldImportTagsFromINI();
 
-	/** Should use fast replication */
-	static bool ShouldUseFastReplication();
+	/** TEMP - Returns true if we should warn on invalid (missing) tags */
+	static bool ShouldWarnOnInvalidTags();
 
-	void RedirectTagsForContainer(FGameplayTagContainer& Container, TSet<FName>& DeprecatedTagNamesNotFoundInTagMap);
+	/** Should use fast replication */
+	bool ShouldUseFastReplication()
+	{
+		return bUseFastReplication;
+	}
+
+	/** Handles redirectors for an entire container, will also error on invalid tags */
+	void RedirectTagsForContainer(FGameplayTagContainer& Container, TSet<FName>& DeprecatedTagNamesNotFoundInTagMap, UProperty* SerializingProperty);
+
+	/** Handles redirectors for a single tag, will also error on invalid tag. This is only called for when individual tags are serialized on their own */
+	void RedirectSingleGameplayTag(FGameplayTag& Tag, UProperty* SerializingProperty);
 
 	/** Gets a tag name from net index and vice versa, used for replication efficiency */
 	FName GetTagNameFromNetIndex(FGameplayTagNetIndex Index);
 	FGameplayTagNetIndex GetNetIndexFromTag(const FGameplayTag &InTag);
+
+	/** Cached number of bits we need to replicate tags. That is, Log2(Number of Tags). Will always be <= 16. */
+	static int32 NetIndexTrueBitNum;
+	
+	/** The length in bits of the first segment when net serializing tags. We will serialize NetIndexFirstBitSegment + 1 bit to indicatore "more" (more = second segment that is NetIndexTrueBitNum - NetIndexFirstBitSegment) */
+	static int32 NetIndexFirstBitSegment;
+
+	/** Numbers of bits to use for replicating container size. This can be set via config. */
+	static int32 NumBitsForContainerSize;
+
+	/** This is the actual value for an invalid tag "None". This is computed at runtime as (Total number of tags) + 1 */
+	FGameplayTagNetIndex InvalidTagNetIndex;
+
+	/** Cached runtime value for whether we are using fast replication or not. Initialized from config setting. */
+	bool bUseFastReplication;
+	
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	/** Mechanism for tracking what tags are frequently replicated */
+
+	static void PrintReplicationFrequencyReport();
+	static void NotifyTagReplicated(FGameplayTag Tag, bool WasInContainer);
+
+	static TMap<FGameplayTag, int32>	ReplicationCountMap;
+	static TMap<FGameplayTag, int32>	ReplicationCountMap_SingleTags;
+	static TMap<FGameplayTag, int32>	ReplicationCountMap_Containers;
+#endif
 
 private:
 
@@ -358,6 +402,9 @@ private:
 
 	/** Map of Names to tags - Internal use only */
 	TMap<FName, FGameplayTag> GameplayTagMap;
+
+	/** Our aggregated, sorted list of commonly replicated tags. These tags are given lower indices to ensure they replicate in the first bit segment. */
+	TArray<FGameplayTag> CommonlyReplicatedTags;
 
 #if WITH_EDITOR
 	// This critical section is to handle and editor-only issue where tag requests come from another thread when async loading from a background thread in FGameplayTagContainer::Serialize.

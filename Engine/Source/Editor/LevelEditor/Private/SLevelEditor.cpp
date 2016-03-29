@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "LevelEditor.h"
@@ -37,7 +37,7 @@
 #include "SActorDetails.h"
 #include "ScopedTransaction.h"
 #include "GameFramework/WorldSettings.h"
-
+#include "LevelViewportLayout.h"
 #include "HierarchicalLODOutlinerModule.h"
 
 
@@ -300,15 +300,14 @@ bool SLevelEditor::HasActivePlayInEditorViewport() const
 		if (ViewportTab.IsValid())
 		{
 			// Get all the viewports in the layout
-			const TArray< TSharedPtr< SLevelViewport > >* LevelViewports = ViewportTab.Pin()->GetViewports();
+			const TMap< FName, TSharedPtr< IViewportLayoutEntity > >* LevelViewports = ViewportTab.Pin()->GetViewports();
 
 			if (LevelViewports != NULL)
 			{
 				// Search for a viewport with a pie session
-				for( int32 ViewportIndex = 0; ViewportIndex < LevelViewports->Num(); ++ViewportIndex )
+				for (auto& Pair : *LevelViewports)
 				{
-					const TSharedPtr< SLevelViewport >& Viewport = (*LevelViewports)[ ViewportIndex ];
-					if( Viewport->IsPlayInEditorViewportActive() )
+					if (Pair.Value->IsPlayInEditorViewportActive())
 					{
 						return true;
 					}
@@ -336,15 +335,14 @@ TSharedPtr<SLevelViewport> SLevelEditor::GetActiveViewport()
 			// Only check the viewports in the tab if its visible
 			if( ViewportTab->IsVisible() )
 			{
-				const TArray< TSharedPtr< SLevelViewport > >* LevelViewports = ViewportTab->GetViewports();
+				const TMap< FName, TSharedPtr< IViewportLayoutEntity > >* LevelViewports = ViewportTab->GetViewports();
 
 				if (LevelViewports != NULL)
 				{
-					for( int32 ViewportIndex = 0; ViewportIndex < LevelViewports->Num(); ++ViewportIndex )
+					for(auto& Pair : *LevelViewports)
 					{
-						const TSharedPtr< SLevelViewport >& Viewport = (*LevelViewports)[ ViewportIndex ];
-
-						if( Viewport->IsInForegroundTab() )
+						TSharedPtr<SLevelViewport> Viewport = Pair.Value->AsLevelViewport();
+						if( Viewport.IsValid() && Viewport->IsInForegroundTab() )
 						{
 							if( &Viewport->GetLevelViewportClient() == GCurrentLevelEditingViewportClient )
 							{
@@ -385,15 +383,14 @@ TSharedPtr<FLevelViewportTabContent> SLevelEditor::GetActiveViewportTab()
 			// Only check the viewports in the tab if its visible
 			if( ViewportTab->IsVisible() )
 			{
-				const TArray< TSharedPtr< SLevelViewport > >* LevelViewports = ViewportTab->GetViewports();
+				const TMap< FName, TSharedPtr< IViewportLayoutEntity > >* LevelViewports = ViewportTab->GetViewports();
 
 				if (LevelViewports != NULL)
 				{
-					for( int32 ViewportIndex = 0; ViewportIndex < LevelViewports->Num(); ++ViewportIndex )
+					for (auto& Pair : *LevelViewports)
 					{
-						const TSharedPtr< SLevelViewport >& Viewport = (*LevelViewports)[ ViewportIndex ];
-
-						if( Viewport->IsVisible() )
+						TSharedPtr<SLevelViewport> Viewport = Pair.Value->AsLevelViewport();
+						if( Viewport.IsValid() && Viewport->IsVisible() )
 						{
 							if( &Viewport->GetLevelViewportClient() == GCurrentLevelEditingViewportClient )
 							{
@@ -517,7 +514,12 @@ void SLevelEditor::AttachSequencer( TSharedPtr<SWidget> SequencerWidget, TShared
 	{
 		static void OnSequencerClosed( TSharedRef<SDockTab> DockTab, TWeakPtr<IAssetEditorInstance> InSequencerAssetEditor )
 		{
-			InSequencerAssetEditor.Pin()->CloseWindow();
+			TSharedPtr<IAssetEditorInstance> AssetEditorInstance = InSequencerAssetEditor.Pin();
+
+			if (AssetEditorInstance.IsValid())
+			{
+				InSequencerAssetEditor.Pin()->CloseWindow();
+			}
 		}
 	};
 
@@ -533,10 +535,10 @@ void SLevelEditor::AttachSequencer( TSharedPtr<SWidget> SequencerWidget, TShared
 			SequencerAssetEditor.Pin()->CloseWindow();
 		}
 
+		TSharedRef<SDockTab> Tab = InvokeTab("Sequencer");
+
 		if(SequencerWidget.IsValid() && NewSequencerAssetEditor.IsValid())
 		{
-			TSharedRef<SDockTab> Tab = InvokeTab("Sequencer");
-
 			Tab->SetOnTabClosed(SDockTab::FOnTabClosedCallback::CreateStatic(&Local::OnSequencerClosed, TWeakPtr<IAssetEditorInstance>(NewSequencerAssetEditor)));
 			Tab->SetContent(SequencerWidget.ToSharedRef());
 
@@ -544,6 +546,7 @@ void SLevelEditor::AttachSequencer( TSharedPtr<SWidget> SequencerWidget, TShared
 		}
 		else
 		{
+			Tab->SetContent(SNullWidget::NullWidget);
 			SequencerAssetEditor.Reset();
 		}
 	}
@@ -891,12 +894,18 @@ void SLevelEditor::OnViewportTabClosed(TSharedRef<SDockTab> ClosedTab)
 
 void SLevelEditor::SaveViewportTabInfo(TSharedRef<const FLevelViewportTabContent> ViewportTabContent)
 {
-	const TArray<TSharedPtr<SLevelViewport>>* const Viewports = ViewportTabContent->GetViewports();
+	const TMap<FName, TSharedPtr<IViewportLayoutEntity>>* const Viewports = ViewportTabContent->GetViewports();
 	if(Viewports)
 	{
 		const FString& LayoutId = ViewportTabContent->GetLayoutString();
-		for(const auto& Viewport : *Viewports)
+		for (auto& Pair : *Viewports)
 		{
+			TSharedPtr<SLevelViewport> Viewport = Pair.Value->AsLevelViewport();
+			if( !Viewport.IsValid() )
+			{
+				continue;
+			}
+
 			//@todo there could potentially be more than one of the same viewport type.  This effectively takes the last one of a specific type
 			const FLevelEditorViewportClient& LevelViewportClient = Viewport->GetLevelViewportClient();
 			const FString Key = FString::Printf(TEXT("%s[%d]"), *LayoutId, static_cast<int32>(LevelViewportClient.ViewportType));
@@ -913,12 +922,18 @@ void SLevelEditor::SaveViewportTabInfo(TSharedRef<const FLevelViewportTabContent
 
 void SLevelEditor::RestoreViewportTabInfo(TSharedRef<FLevelViewportTabContent> ViewportTabContent) const
 {
-	const TArray<TSharedPtr<SLevelViewport>>* const Viewports = ViewportTabContent->GetViewports();
+	const TMap<FName, TSharedPtr<IViewportLayoutEntity>>* const Viewports = ViewportTabContent->GetViewports();
 	if(Viewports)
 	{
 		const FString& LayoutId = ViewportTabContent->GetLayoutString();
-		for(const auto& Viewport : *Viewports)
+		for (auto& Pair : *Viewports)
 		{
+			TSharedPtr<SLevelViewport> Viewport = Pair.Value->AsLevelViewport();
+			if( !Viewport.IsValid() )
+			{
+				continue;
+			}
+
 			FLevelEditorViewportClient& LevelViewportClient = Viewport->GetLevelViewportClient();
 			bool bInitializedOrthoViewport = false;
 			for (int32 ViewportType = 0; ViewportType < LVT_MAX; ViewportType++)
@@ -1401,15 +1416,17 @@ TArray< TSharedPtr< ILevelViewport > > SLevelEditor::GetViewports() const
 		
 		if (ViewportTab.IsValid())
 		{
-			const TArray< TSharedPtr< SLevelViewport > >* LevelViewports = ViewportTab->GetViewports();
+			const TMap< FName, TSharedPtr< IViewportLayoutEntity > >* LevelViewports = ViewportTab->GetViewports();
 
 			if (LevelViewports != NULL)
 			{
-				for( int32 ViewportIndex = 0; ViewportIndex < LevelViewports->Num(); ++ViewportIndex )
+				for (auto& Pair : *LevelViewports)
 				{
-					const TSharedPtr< SLevelViewport >& Viewport = (*LevelViewports)[ ViewportIndex ];
-
-					OutViewports.Add(Viewport);
+					TSharedPtr<SLevelViewport> Viewport = Pair.Value->AsLevelViewport();
+					if( Viewport.IsValid() )
+					{
+						OutViewports.Add(Viewport);
+					}
 				}
 			}
 		}

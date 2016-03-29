@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreUObjectPrivate.h"
 #include "PropertyHelper.h"
@@ -76,14 +76,29 @@ const TCHAR* UClassProperty::ImportText_Internal( const TCHAR* Buffer, void* Dat
 	const TCHAR* Result = UObjectProperty::ImportText_Internal( Buffer, Data, PortFlags, Parent, ErrorText );
 	if( Result )
 	{
-		// Validate metaclass.
-		UClass* C = (UClass*)GetObjectPropertyValue(Data);
-		if (C && (!dynamic_cast<UClass*>(C) || !C->IsChildOf(MetaClass)))
+		if (UClass* AssignedPropertyClass = dynamic_cast<UClass*>(GetObjectPropertyValue(Data)))
 		{
-			// the object we imported doesn't implement our interface class
-			ErrorText->Logf(TEXT("Invalid object '%s' specified for property '%s'"), *C->GetFullName(), *GetName());
-			SetObjectPropertyValue(Data, NULL);
-			Result = NULL;
+#if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+			FLinkerLoad* ObjectLinker = (Parent != nullptr) ? Parent->GetClass()->GetLinker() : GetLinker();
+			bool const bIsDeferringValueLoad = ((ObjectLinker == nullptr) || (ObjectLinker->LoadFlags & LOAD_DeferDependencyLoads)) &&
+				(Cast<ULinkerPlaceholderClass>(MetaClass) || Cast<ULinkerPlaceholderClass>(AssignedPropertyClass));
+
+#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+			check( bIsDeferringValueLoad || !(Cast<ULinkerPlaceholderClass>(MetaClass) || Cast<ULinkerPlaceholderClass>(AssignedPropertyClass)) );
+#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+
+#else  // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING 
+			bool const bIsDeferringValueLoad = false;
+#endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+
+			// Validate metaclass.
+			if ((!AssignedPropertyClass->IsChildOf(MetaClass)) && !bIsDeferringValueLoad)
+			{
+				// the object we imported doesn't implement our interface class
+				ErrorText->Logf(TEXT("Invalid object '%s' specified for property '%s'"), *AssignedPropertyClass->GetFullName(), *GetName());
+				SetObjectPropertyValue(Data, NULL);
+				Result = NULL;
+			}
 		}
 	}
 	return Result;

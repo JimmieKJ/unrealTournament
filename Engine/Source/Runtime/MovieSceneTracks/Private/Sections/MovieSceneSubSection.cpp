@@ -1,10 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneTracksPrivatePCH.h"
 #include "IMovieScenePlayer.h"
 #include "MovieSceneSequence.h"
 #include "MovieSceneSubSection.h"
 
+TWeakObjectPtr<UMovieSceneSubSection> UMovieSceneSubSection::TheRecordingSection;
 
 /* UMovieSceneSubSection structors
  *****************************************************************************/
@@ -12,4 +13,89 @@
 UMovieSceneSubSection::UMovieSceneSubSection()
 	: StartOffset(0.0f)
 	, TimeScale(1.0f)
-{ }
+	, PrerollTime(0.0f)
+{
+}
+
+void UMovieSceneSubSection::SetSequence(UMovieSceneSequence* Sequence)
+{
+	SubSequence = Sequence;
+
+#if WITH_EDITOR
+	OnSequenceChangedDelegate.ExecuteIfBound(SubSequence);
+#endif
+}
+
+UMovieSceneSequence* UMovieSceneSubSection::GetSequence() const
+{
+	// when recording we need to act as if we have no sequence
+	// the sequence is patched at the end of recording
+	if(GetRecordingSection() == this)
+	{
+		return nullptr;
+	}
+	else
+	{
+		return SubSequence;
+	}
+}
+
+UMovieSceneSubSection* UMovieSceneSubSection::GetRecordingSection()
+{
+	// check if the section is still valid and part of a track (i.e. it has not been deleted or GCed)
+	if(TheRecordingSection.IsValid())
+	{
+		UMovieSceneTrack* TrackOuter = Cast<UMovieSceneTrack>(TheRecordingSection->GetOuter());
+		if(TrackOuter)
+		{
+			if(TrackOuter->HasSection(*TheRecordingSection.Get()))
+			{
+				return TheRecordingSection.Get();
+			}
+		}
+	}
+
+	return nullptr;
+}
+
+void UMovieSceneSubSection::SetAsRecording(bool bRecord)
+{
+	if(bRecord)
+	{
+		TheRecordingSection = this;
+	}
+	else
+	{
+		TheRecordingSection = nullptr;
+	}
+}
+
+bool UMovieSceneSubSection::IsSetAsRecording()
+{
+	return GetRecordingSection() != nullptr;
+}
+
+const FString& UMovieSceneSubSection::GetActorToRecord()
+{
+	UMovieSceneSubSection* RecordingSection = GetRecordingSection();
+	if(RecordingSection)
+	{
+		return RecordingSection->NameOfActorToRecord;
+	}
+
+	static FString EmptyString;
+	return EmptyString;
+}
+
+#if WITH_EDITOR
+void UMovieSceneSubSection::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	// recreate runtime instance when sequence is changed
+	if (PropertyChangedEvent.Property && PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(UMovieSceneSubSection, SubSequence))
+	{
+		OnSequenceChangedDelegate.ExecuteIfBound(SubSequence);
+	}
+}
+#endif

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include"BlueprintGraphPrivatePCH.h"
 
@@ -426,7 +426,7 @@ void UK2Node_EaseFunction::ExpandNode(class FKismetCompilerContext& CompilerCont
 		CompilerContext.MovePinLinksToIntermediate(*StepsPin, *CallFunction->FindPinChecked(FEaseFunctionNodeHelper::GetStepsPinName()));
 	}
 
-	// Cleanup links to ourselfs and we are done!
+	// Cleanup links to ourself and we are done!
 	BreakAllNodeLinks();
 }
 
@@ -451,7 +451,8 @@ void UK2Node_EaseFunction::RefreshPinVisibility()
 
 	UEdGraphPin* BlendExpPin = FindPinChecked(FEaseFunctionNodeHelper::GetBlendExpPinName());
 
-	if (NewEasingFunc == EEasingFunc::EaseIn ||
+	if (NewEasingFunc == -1 ||
+		NewEasingFunc == EEasingFunc::EaseIn ||
 		NewEasingFunc == EEasingFunc::EaseOut ||
 		NewEasingFunc == EEasingFunc::EaseInOut)
 	{
@@ -466,7 +467,8 @@ void UK2Node_EaseFunction::RefreshPinVisibility()
 	}
 
 	UEdGraphPin* StepsPin = FindPinChecked(FEaseFunctionNodeHelper::GetStepsPinName());
-	if (NewEasingFunc == EEasingFunc::Step)
+	if (NewEasingFunc == -1 || 
+		NewEasingFunc == EEasingFunc::Step)
 	{
 		// Show the Steps pin:
 		StepsPin->bHidden = false;

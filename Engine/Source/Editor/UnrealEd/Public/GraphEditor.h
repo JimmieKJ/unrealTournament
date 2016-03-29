@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -393,6 +393,15 @@ public:
 		if (Implementation.IsValid())
 		{
 			Implementation->AddNotification(Info, bSuccess);
+		}
+	}
+
+	/** Capture keyboard */
+	virtual void CaptureKeyboard()
+	{
+		if (Implementation.IsValid())
+		{
+			Implementation->CaptureKeyboard();
 		}
 	}
 

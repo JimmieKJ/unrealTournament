@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -53,16 +53,18 @@ public:
 	
 public:
 
-	bool IsValid() const
+	/**
+	 * Determines if the rectangle has positive dimensions.
+	 */
+	FORCEINLINE bool IsValid() const
 	{
 		return !(Left == -1 && Right == -1 && Bottom == -1 && Top == -1) && Right >= Left && Bottom >= Top;
 	}
 
-
 	/**
-	 * @return true, if the rectangle is empty. Should be used in conjunction with IntersectionWith.
+	 * @return true, if the rectangle has a size of 0.
 	 */
-	bool IsEmpty() const
+	FORCEINLINE bool IsEmpty() const
 	{
 		return GetSize().SizeSquared() == 0.0f;
 	}
@@ -72,7 +74,7 @@ public:
 	 *
 	 * @return The size as a vector.
 	 */
-	FVector2D GetSize() const
+	FORCEINLINE FVector2D GetSize() const
 	{
 		return FVector2D( Right - Left, Bottom - Top );
 	}
@@ -82,7 +84,7 @@ public:
 	 * 
 	 * @return The center point.
 	 */
-	FVector2D GetCenter() const
+	FORCEINLINE FVector2D GetCenter() const
 	{
 		return FVector2D( Left, Top ) + GetSize() * 0.5f;
 	}
@@ -92,7 +94,7 @@ public:
 	 * 
 	 * @return The top-left position.
 	 */
-	FVector2D GetTopLeft() const
+	FORCEINLINE FVector2D GetTopLeft() const
 	{
 		return FVector2D( Left, Top );
 	}
@@ -102,7 +104,7 @@ public:
 	 *
 	 * @return The top-right position.
 	 */
-	FVector2D GetTopRight() const
+	FORCEINLINE FVector2D GetTopRight() const
 	{
 		return FVector2D(Right, Top);
 	}
@@ -112,7 +114,7 @@ public:
 	 * 
 	 * @return The bottom-right position.
 	 */
-	FVector2D GetBottomRight() const
+	FORCEINLINE FVector2D GetBottomRight() const
 	{
 		return FVector2D( Right, Bottom );
 	}
@@ -122,7 +124,7 @@ public:
 	 * 
 	 * @return The bottom-left position.
 	 */
-	FVector2D GetBottomLeft() const
+	FORCEINLINE FVector2D GetBottomLeft() const
 	{
 		return FVector2D( Left, Bottom );
 	}
@@ -166,16 +168,40 @@ public:
 		return FSlateRect( FMath::Min( Left, Other.Left ), FMath::Min( Top, Other.Top ), FMath::Max( Right, Other.Right ), FMath::Max( Bottom, Other.Bottom ) );
 	}
 
-	FSlateRect IntersectionWith( const FSlateRect& Other ) const 
+
+	/**
+	 * Returns the rectangle that is the intersection of this rectangle and Other.
+	 * 
+	 * @param	Other	The other rectangle
+	 *
+	 * @return	Rectangle over intersection.
+	 */
+	FSlateRect IntersectionWith(const FSlateRect& Other) const
+	{
+		bool DummyOverlapping;
+		return IntersectionWith(Other, DummyOverlapping);
+	}
+
+	/**
+	 * Returns the rectangle that is the intersection of this rectangle and Other, as well as if they were overlapping at all.
+	 * 
+	 * @param	Other	The other rectangle
+	 * @param	OutOverlapping	[Out] Was there any overlap with the other rectangle.
+	 *
+	 * @return	Rectangle over intersection.
+	 */
+	FSlateRect IntersectionWith(const FSlateRect& Other, bool& OutOverlapping) const
 	{
 		FSlateRect Intersected( FMath::Max( this->Left, Other.Left ), FMath::Max(this->Top, Other.Top), FMath::Min( this->Right, Other.Right ), FMath::Min( this->Bottom, Other.Bottom ) );
 		if ( (Intersected.Bottom < Intersected.Top) || (Intersected.Right < Intersected.Left) )
 		{
+			OutOverlapping = false;
 			// The intersection has 0 area and should not be rendered at all.
 			return FSlateRect(0,0,0,0);
 		}
 		else
 		{
+			OutOverlapping = true;
 			return Intersected;
 		}
 	}

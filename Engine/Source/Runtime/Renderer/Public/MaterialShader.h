@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MaterialShader.h: Shader base classes
@@ -110,14 +110,28 @@ public:
 	FUniformBufferRHIParamRef GetParameterCollectionBuffer(const FGuid& Id, const FSceneInterface* SceneInterface) const;
 
 	template<typename ShaderRHIParamRef>
-	void SetParameters(FRHICommandList& RHICmdList, const ShaderRHIParamRef ShaderRHI,const FSceneView& View)
+	FORCEINLINE_DEBUGGABLE void SetParameters(FRHICommandList& RHICmdList, const ShaderRHIParamRef ShaderRHI, const FSceneView& View)
 	{
-		CheckShaderIsValid();
-		const auto& ViewUBParameter = GetUniformBufferParameter<FViewUniformShaderParameters>();
-		SetUniformBufferParameter(RHICmdList, ShaderRHI, ViewUBParameter, View.UniformBuffer);
-
+		const auto& ViewUniformBufferParameter = GetUniformBufferParameter<FViewUniformShaderParameters>();
+		const auto& FrameUniformBufferParameter = GetUniformBufferParameter<FFrameUniformShaderParameters>();
 		const auto& BuiltinSamplersUBParameter = GetUniformBufferParameter<FBuiltinSamplersParameters>();
+		CheckShaderIsValid();
+		SetUniformBufferParameter(RHICmdList, ShaderRHI, ViewUniformBufferParameter, View.ViewUniformBuffer);
+		SetUniformBufferParameter(RHICmdList, ShaderRHI, FrameUniformBufferParameter, View.FrameUniformBuffer);
+#if USE_GBuiltinSamplersUniformBuffer
 		SetUniformBufferParameter(RHICmdList, ShaderRHI, BuiltinSamplersUBParameter, GBuiltinSamplersUniformBuffer.GetUniformBufferRHI());
+#endif
+
+		// Skip if instanced stereo is not enabled
+		if (View.bIsInstancedStereoEnabled && View.Family->Views.Num() > 0)
+		{
+			// When drawing the left eye in a stereo scene, copy the right eye view values into the instanced view uniform buffer.
+			const EStereoscopicPass StereoPassIndex = (View.StereoPass != eSSP_FULL) ? eSSP_RIGHT_EYE : eSSP_FULL;
+
+			const FSceneView& InstancedView = View.Family->GetStereoEyeView(StereoPassIndex);
+			const auto& InstancedViewUniformBufferParameter = GetUniformBufferParameter<FInstancedViewUniformShaderParameters>();
+			SetUniformBufferParameter(RHICmdList, ShaderRHI, InstancedViewUniformBufferParameter, InstancedView.ViewUniformBuffer);
+		}
 	}
 
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
@@ -134,7 +148,8 @@ public:
 		const FMaterial& Material,
 		const FSceneView& View, 
 		bool bDeferredPass, 
-		ESceneRenderTargetsMode::Type TextureMode );
+		ESceneRenderTargetsMode::Type TextureMode, 
+		const bool bIsInstancedStereo = false);
 
 	FTextureRHIRef& GetEyeAdaptation(FRHICommandList& RHICmdList, const FSceneView& View);
 
@@ -154,20 +169,8 @@ private:
 	FShaderResourceParameter LightAttenuation;
 	FShaderResourceParameter LightAttenuationSampler;
 
-	// For materials using atmospheric fog color 
-	FAtmosphereShaderTextureParameters AtmosphericFogTextureParameters;
-
 	//Use of the eye adaptation texture here is experimental and potentially dangerous as it can introduce a feedback loop. May be removed.
 	FShaderResourceParameter EyeAdaptation;
-
-	/** The PerlinNoiseGradientTexture parameter for materials that use GradientNoise */
-	FShaderResourceParameter PerlinNoiseGradientTexture;
-	FShaderResourceParameter PerlinNoiseGradientTextureSampler;
-	/** The PerlinNoise3DTexture parameter for materials that use GradientNoise */
-	FShaderResourceParameter PerlinNoise3DTexture;
-	FShaderResourceParameter PerlinNoise3DTextureSampler;
-
-	FGlobalDistanceFieldParameters GlobalDistanceFieldParameters;
 
 	FDebugUniformExpressionSet	DebugUniformExpressionSet;
 	FRHIUniformBufferLayout		DebugUniformExpressionUBLayout;

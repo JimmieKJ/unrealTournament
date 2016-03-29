@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -20,7 +20,8 @@ public:
 
 	// UMovieScene3DConstraintTrack interface
 
-	virtual void AddConstraint( float Time, float ConstraintEndTime, const FName SocketName, const FGuid& ConstraintId ) override;
+	virtual void AddConstraint( float Time, float ConstraintEndTime, const FName SocketName, const FName ComponentName, const FGuid& ConstraintId ) override;
+	virtual class UMovieSceneSection* CreateNewSection() override;
 
 public:
 

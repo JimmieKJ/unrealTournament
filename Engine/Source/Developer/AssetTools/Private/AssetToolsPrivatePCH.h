@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #ifndef __AssetToolsPrivatePCH_h__
 #define __AssetToolsPrivatePCH_h__
@@ -22,6 +22,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogAssetTools, Log, All);
 #include "AssetTypeActions/AssetTypeActions_Curve.h"
 #include "AssetTypeActions/AssetTypeActions_MaterialInterface.h"
 #include "AssetTypeActions/AssetTypeActions_SkeletalMesh.h"
+#include "AssetTypeActions/AssetTypeActions_FbxSceneImportData.h"
 #include "AssetTypeActions/AssetTypeActions_SoundBase.h"
 #include "AssetTypeActions/AssetTypeActions_Texture.h"
 #include "AssetTypeActions/AssetTypeActions_TextureRenderTarget.h"

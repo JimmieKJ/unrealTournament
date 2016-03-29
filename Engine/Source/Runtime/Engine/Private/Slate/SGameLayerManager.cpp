@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 
@@ -242,7 +242,10 @@ TSharedPtr<SGameLayerManager::FPlayerLayer> SGameLayerManager::FindOrCreatePlaye
 			.VAlign(VAlign_Fill)
 			.Expose(NewLayer->Slot)
 			[
-				NewLayer->Widget.ToSharedRef()
+				SNew(SScissorRectBox)
+				[
+					NewLayer->Widget.ToSharedRef()
+				]
 			];
 
 		PlayerLayerPtr = &PlayerLayers.Add(LocalPlayer, NewLayer);
@@ -304,11 +307,31 @@ void SGameLayerManager::AddOrUpdatePlayerLayers(const FGeometry& AllottedGeometr
 			Position.X = SplitData.OriginX;
 			Position.Y = SplitData.OriginY;
 
-			Size = Size * AllottedGeometry.GetLocalSize() * InverseDPIScale;
-			Position = Position * AllottedGeometry.GetLocalSize() * InverseDPIScale;
+			FVector2D AspectRatioInset = GetAspectRatioInset(Player);
+
+			Size = ( Size * AllottedGeometry.GetLocalSize() + ( AspectRatioInset * 2.0f ) ) * InverseDPIScale;
+			Position = ( Position * AllottedGeometry.GetLocalSize() - AspectRatioInset ) * InverseDPIScale;
 
 			PlayerLayer->Slot->Size(Size);
 			PlayerLayer->Slot->Position(Position);
 		}
 	}
+}
+
+FVector2D SGameLayerManager::GetAspectRatioInset(ULocalPlayer* LocalPlayer) const
+{
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_SGameLayerManager_GetAspectRatioInset);
+	FVector2D Offset(0.f, 0.f);
+	if (LocalPlayer)
+	{
+		FSceneViewInitOptions ViewInitOptions;
+		if (LocalPlayer->CalcSceneViewInitOptions(ViewInitOptions, LocalPlayer->ViewportClient->Viewport))
+		{
+			FIntRect UnscaledViewRect = ViewInitOptions.GetConstrainedViewRect();
+			Offset.X = -UnscaledViewRect.Min.X;
+			Offset.Y = -UnscaledViewRect.Min.Y;
+		}
+	}
+
+	return Offset;
 }

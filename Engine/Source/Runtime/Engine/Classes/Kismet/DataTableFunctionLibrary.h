@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "Engine/DataTable.h"
@@ -26,7 +26,7 @@ class ENGINE_API UDataTableFunctionLibrary : public UBlueprintFunctionLibrary
 	GENERATED_UCLASS_BODY()
 
 	UFUNCTION(BlueprintCallable, Category = "DataTable", meta = (ExpandEnumAsExecs="OutResult", DataTablePin="CurveTable"))
-	static void EvaluateCurveTableRow(UCurveTable* CurveTable, FName RowName, float InXY, TEnumAsByte<EEvaluateCurveTableResult::Type>& OutResult, float& OutXY);
+	static void EvaluateCurveTableRow(UCurveTable* CurveTable, FName RowName, float InXY, TEnumAsByte<EEvaluateCurveTableResult::Type>& OutResult, float& OutXY,const FString& ContextString);
     
 	UFUNCTION(BlueprintCallable, Category = "DataTable")
 	static void GetDataTableRowNames(UDataTable* Table, TArray<FName>& OutRowNames);
@@ -47,7 +47,8 @@ class ENGINE_API UDataTableFunctionLibrary : public UBlueprintFunctionLibrary
         void* OutRowPtr = Stack.MostRecentPropertyAddress;
         
         P_FINISH;
-        
+		P_NATIVE_BEGIN;
 		*(bool*)RESULT_PARAM = Generic_GetDataTableRowFromName(Table, RowName, OutRowPtr);
+		P_NATIVE_END;
     }
 };

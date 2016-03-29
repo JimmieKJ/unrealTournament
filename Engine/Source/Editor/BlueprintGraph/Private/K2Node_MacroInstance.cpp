@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintGraphPrivatePCH.h"
 #include "SlateBasics.h"
@@ -425,6 +425,21 @@ bool UK2Node_MacroInstance::HasExternalDependencies(TArray<class UStruct*>* Opti
 		if (UClass* OtherClass = *OtherBlueprint->GeneratedClass)
 		{
 			OptionalOutput->AddUnique(OtherClass);
+		}
+
+		for (UEdGraphPin* Pin : Pins)
+		{
+			if (Pin->PinType.PinSubCategoryObject.IsValid())
+			{
+				if (UStruct* Struct = Cast<UStruct>(Pin->PinType.PinSubCategoryObject.Get()))
+				{
+					OptionalOutput->AddUnique(Struct);
+				}
+				else
+				{
+					OptionalOutput->AddUnique(Pin->PinType.PinSubCategoryObject.Get()->GetClass());
+				}
+			}
 		}
 	}
 	const bool bSuperResult = Super::HasExternalDependencies(OptionalOutput);

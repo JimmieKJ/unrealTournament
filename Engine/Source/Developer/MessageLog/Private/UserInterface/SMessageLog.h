@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -42,8 +42,11 @@ private:
 	/** Callback for changing the selected item in the categories list. */
 	void HandleCategoriesListSelectionChanged( IMessageLogListingPtr Selection, ESelectInfo::Type SelectInfo );
 
-	/** Handles the broadcast message sent the current log listing is changed */
+	/** Handles the broadcast message sent when the current log listing selection is changed */
 	void HandleSelectionUpdated();
+
+	/** Handles the broadcast message sent when the current log listing is updated */
+	void RefreshCategoryList();
 
 private:	
 

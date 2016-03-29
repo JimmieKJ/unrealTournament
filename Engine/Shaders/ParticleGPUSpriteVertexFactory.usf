@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ParticleGPUSpriteVertexFactory.usf: Vertex factory for GPU simulated particles.
@@ -100,6 +100,10 @@ struct FVertexFactoryInterpolantsVSToPS
 #if USE_PARTICLE_SIZE
 	float2 ParticleSize			: PARTICLE_SIZE;
 #endif
+
+#if INSTANCED_STEREO
+	nointerpolation uint PackedEyeIndex : PACKED_EYE_INDEX;
+#endif
 };
 
 /**
@@ -164,11 +168,11 @@ void GetSpriteTangents(
 	float3 ParticleWorldDirection )
 {
 	// Select camera up/right vectors.
-	float3 CameraRight = lerp(View.ViewRight, EmitterDynamicUniforms.AxisLockRight.xyz, EmitterDynamicUniforms.AxisLockRight.w);
-	float3 CameraUp = lerp(-View.ViewUp, EmitterDynamicUniforms.AxisLockUp.xyz, EmitterDynamicUniforms.AxisLockUp.w);
+	float3 CameraRight = lerp(ResolvedView.ViewRight, EmitterDynamicUniforms.AxisLockRight.xyz, EmitterDynamicUniforms.AxisLockRight.w);
+	float3 CameraUp = lerp(-ResolvedView.ViewUp, EmitterDynamicUniforms.AxisLockUp.xyz, EmitterDynamicUniforms.AxisLockUp.w);
 
 	// Determine the vector from the particle to the camera and the particle's movement direction.
-	float3 CameraDirection	= SafeNormalize(View.TranslatedWorldCameraOrigin - ParticleWorldPosition.xyz);
+	float3 CameraDirection	= SafeNormalize(ResolvedView.TranslatedWorldCameraOrigin - ParticleWorldPosition.xyz);
 	float3 RightVector = CameraRight.xyz;
 	float3 UpVector = CameraUp.xyz;
 
@@ -211,7 +215,7 @@ void GetSpriteTangents(
 FVertexFactoryIntermediates GetVertexFactoryIntermediates( FVertexFactoryInput Input )
 {
 	// Sample the position and velocity textures to get the current state of the particle.
-	uint InstanceId = Input.InstanceId * PARTICLES_PER_INSTANCE + Input.VertexId / 4;
+	uint InstanceId = GetLayerInstanceID(Input.InstanceId) * PARTICLES_PER_INSTANCE + Input.VertexId / 4;
 	float2 ParticleIndex = ParticleIndices[ParticleIndicesOffset + InstanceId];
 	float4 PositionSample = Texture2DSampleLevel(PositionTexture, PositionTextureSampler, ParticleIndex, 0);
 	float4 VelocitySample = Texture2DSampleLevel(VelocityTexture, VelocityTextureSampler, ParticleIndex, 0);
@@ -294,7 +298,7 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates( FVertexFactoryInput I
 
 	// Optional camera motion blur.
 #if USES_PARTICLE_MOTION_BLUR
-	float3 MblurVector = -View.WorldCameraMovementSinceLastFrame;
+	float3 MblurVector = -Frame.WorldCameraMovementSinceLastFrame;
 	float3 MblurDirection = normalize(MblurVector + 0.0001f);
 	//float MblurFactor = saturate(dot(MblurDirection,normalize(VertexWorldOffset)) * 100000.0f);
 	float MblurFactor = clamp(dot(MblurDirection,normalize(VertexWorldOffset)) * 100000.0f,-1.0f,1.0f);
@@ -317,7 +321,7 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates( FVertexFactoryInput I
 #if USE_PARTICLE_LIGHTING_OFFSET
 	// Hash function based on the particle ID to generate a uniformly distributed 3d offset
 	float3 RandomParticleOffset = frac((ParticleIndex.x + 10) * (ParticleIndex.y + 10) * float3(1341.456345, 2633.578, 5623.983)) * 2 - 1;
-	Intermediates.LightingPositionOffset = .5 * View.TranslucencyLightingVolumeInvSize[0].w * RandomParticleOffset;
+	Intermediates.LightingPositionOffset = .5 * Frame.TranslucencyLightingVolumeInvSize[0].w * RandomParticleOffset;
 #endif
 
 	Intermediates.TexCoord = TexCoord;
@@ -414,9 +418,9 @@ FMaterialPixelParameters GetMaterialPixelParameters( FVertexFactoryInterpolantsV
 	// can be optimized
 	{
 		float4 ScreenPosition = SvPositionToScreenPosition(SvPosition);
-		float3 TranslatedWorldPosition = SvPositionToTranslatedWorld(SvPosition);
+		float3 TranslatedWorldPosition = SvPositionToResolvedTranslatedWorld(SvPosition);
 
-		Result.TangentToWorld = GetSphericalParticleNormal(TranslatedWorldPosition + View.WorldCameraOrigin, Interpolants.ParticlePositionAndSize.xyz, Interpolants.ParticlePositionAndSize.w);
+		Result.TangentToWorld = GetSphericalParticleNormal(TranslatedWorldPosition + ResolvedView.WorldCameraOrigin, Interpolants.ParticlePositionAndSize.xyz, Interpolants.ParticlePositionAndSize.w);
 	}
 #else
 	half3 TangentToWorld0 = Interpolants.TangentToWorld0.xyz;
@@ -485,7 +489,7 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 #endif
 
 #if USE_PARTICLE_POSITION
-	Result.Particle.PositionAndSize = float4(Intermediates.ParticleWorldPosition - View.PreViewTranslation, Intermediates.ParticleRadius);
+	Result.Particle.PositionAndSize = float4(Intermediates.ParticleWorldPosition - ResolvedView.PreViewTranslation, Intermediates.ParticleRadius);
 #endif
 
 	Result.Particle.Color = Intermediates.Color;
@@ -539,6 +543,11 @@ float4 VertexFactoryGetRasterizedWorldPosition(FVertexFactoryInput Input, FVerte
 #else
 	return TranslatedWorldPosition;
 #endif
+}
+
+float3 VertexFactoryGetPositionForVertexLighting(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates, float3 TranslatedWorldPosition)
+{
+	return TranslatedWorldPosition;
 }
 
 /**
@@ -599,7 +608,7 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS( FVertexFact
 #endif
 
 #if USE_PARTICLE_POSITION
-	Interpolants.ParticlePositionAndSize = float4(Intermediates.ParticleWorldPosition - View.PreViewTranslation, Intermediates.ParticleRadius);
+	Interpolants.ParticlePositionAndSize = float4(Intermediates.ParticleWorldPosition - ResolvedView.PreViewTranslation, Intermediates.ParticleRadius);
 #endif
 
 #if USE_PARTICLE_VELOCITY
@@ -625,6 +634,10 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS( FVertexFact
 	Interpolants.ParticleSize = Intermediates.ParticleSize;
 #endif
 
+#if INSTANCED_STEREO
+	Interpolants.PackedEyeIndex = 0;
+#endif
+
 	return Interpolants;
 }
 
@@ -638,3 +651,14 @@ float4 VertexFactoryGetPreviousWorldPosition( FVertexFactoryInput Input, FVertex
 {
 	return float4(Intermediates.VertexWorldPosition,1);
 }
+
+#if INSTANCED_STEREO
+
+// Instanced stereo sets the eye index explicitly for instanced geometry
+uint InstancedEyeIndex;	 
+
+uint VertexFactoryGetEyeIndex(uint InstanceId)
+{
+	return InstancedEyeIndex & bIsInstancedStereo;
+}
+#endif

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateReflectorPrivatePCH.h"
 #include "SWidgetSnapshotVisualizer.h"
@@ -87,6 +87,11 @@ public:
 	bool GetIsPicking() const
 	{
 		return bIsPicking;
+	}
+
+	void SetSelectedWidgets(const TArray<TSharedRef<FWidgetReflectorNodeBase>>& InSelectedWidgets)
+	{
+		SelectedWidgets = InSelectedWidgets;
 	}
 
 	virtual void OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const override
@@ -232,37 +237,20 @@ public:
 		LayerId = SPanel::OnPaint(Args, AllottedGeometry, MyClippingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
 		LayerId = ScrollyZoomy.PaintSoftwareCursorIfNeeded(AllottedGeometry, MyClippingRect, OutDrawElements, LayerId);
 
-		if (PickedWidgets.Num() > 0)
+		TSharedPtr<FWidgetReflectorNodeBase> Window = SnapshotDataPtr->GetWindow(SelectedWindowIndex);
+		if (Window.IsValid())
 		{
-			TSharedPtr<FWidgetReflectorNodeBase> Window = SnapshotDataPtr->GetWindow(SelectedWindowIndex);
-			if (Window.IsValid())
+			const FVector2D RootDrawOffset = PhysicalOffset - Window->GetAccumulatedLayoutTransform().GetTranslation();
+			if (bIsPicking)
 			{
-				const FVector2D RootDrawOffset = PhysicalOffset - Window->GetAccumulatedLayoutTransform().GetTranslation();
-				if (bIsPicking)
-				{
-					const FLinearColor TopmostWidgetColor(1.0f, 0.0f, 0.0f);
-					const FLinearColor LeafmostWidgetColor(0.0f, 1.0f, 0.0f);
+				const FLinearColor TopmostWidgetColor(1.0f, 0.0f, 0.0f);
+				const FLinearColor LeafmostWidgetColor(0.0f, 1.0f, 0.0f);
 
-					for (int32 WidgetIndex = 0; WidgetIndex < PickedWidgets.Num(); ++WidgetIndex)
-					{
-						const TSharedRef<FWidgetReflectorNodeBase>& PickedWidget = PickedWidgets[WidgetIndex];
-						const float ColorFactor = static_cast<float>(WidgetIndex)/PickedWidgets.Num();
-						const FLinearColor Tint(1.0f - ColorFactor, ColorFactor, 0.0f, 1.0f);
-
-						FSlateDrawElement::MakeBox(
-							OutDrawElements,
-							++LayerId,
-							AllottedGeometry.ToPaintGeometry(RootDrawOffset + PickedWidget->GetAccumulatedLayoutTransform().GetTranslation(), TransformPoint(PickedWidget->GetAccumulatedLayoutTransform().GetScale(), PickedWidget->GetLocalSize())),
-							FCoreStyle::Get().GetBrush(TEXT("Debug.Border")),
-							MyClippingRect,
-							ESlateDrawEffect::None,
-							FMath::Lerp(TopmostWidgetColor, LeafmostWidgetColor, ColorFactor)
-						);
-					}
-				}
-				else
+				for (int32 WidgetIndex = 0; WidgetIndex < PickedWidgets.Num(); ++WidgetIndex)
 				{
-					const TSharedRef<FWidgetReflectorNodeBase>& PickedWidget = PickedWidgets.Last();
+					const TSharedRef<FWidgetReflectorNodeBase>& PickedWidget = PickedWidgets[WidgetIndex];
+					const float ColorFactor = static_cast<float>(WidgetIndex)/PickedWidgets.Num();
+					const FLinearColor Tint(1.0f - ColorFactor, ColorFactor, 0.0f, 1.0f);
 
 					FSlateDrawElement::MakeBox(
 						OutDrawElements,
@@ -271,7 +259,22 @@ public:
 						FCoreStyle::Get().GetBrush(TEXT("Debug.Border")),
 						MyClippingRect,
 						ESlateDrawEffect::None,
-						PickedWidget->GetTint()
+						FMath::Lerp(TopmostWidgetColor, LeafmostWidgetColor, ColorFactor)
+					);
+				}
+			}
+			else
+			{
+				for (const auto& SelectedWidget : SelectedWidgets)
+				{
+					FSlateDrawElement::MakeBox(
+						OutDrawElements,
+						++LayerId,
+						AllottedGeometry.ToPaintGeometry(RootDrawOffset + SelectedWidget->GetAccumulatedLayoutTransform().GetTranslation(), TransformPoint(SelectedWidget->GetAccumulatedLayoutTransform().GetScale(), SelectedWidget->GetLocalSize())),
+						FCoreStyle::Get().GetBrush(TEXT("Debug.Border")),
+						MyClippingRect,
+						ESlateDrawEffect::None,
+						SelectedWidget->GetTint()
 					);
 				}
 			}
@@ -352,6 +355,8 @@ private:
 
 	bool bIsPicking;
 	TArray<TSharedRef<FWidgetReflectorNodeBase>> PickedWidgets;
+
+	TArray<TSharedRef<FWidgetReflectorNodeBase>> SelectedWidgets;
 };
 
 
@@ -789,6 +794,14 @@ void SWidgetSnapshotVisualizer::SnapshotDataUpdated()
 	{
 		WindowPickerCombo->RefreshOptions();
 		WindowPickerCombo->SetSelectedItem(SnapshotDataPtr->GetWindow(0));
+	}
+}
+
+void SWidgetSnapshotVisualizer::SetSelectedWidgets(const TArray<TSharedRef<FWidgetReflectorNodeBase>>& InSelectedWidgets)
+{
+	if (SnapshotImage.IsValid())
+	{
+		SnapshotImage->SetSelectedWidgets(InSelectedWidgets);
 	}
 }
 

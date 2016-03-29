@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "SGlobalTabSwitchingDialog.h"
@@ -8,6 +8,10 @@
 #include "AssetThumbnail.h"
 #include "LevelEditor.h"
 #include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
+
+#if PLATFORM_MAC
+#include "MacApplication.h"
+#endif
 
 #define LOCTEXT_NAMESPACE "SGlobalTabSwitchingDialog"
 
@@ -193,6 +197,15 @@ protected:
 
 bool SGlobalTabSwitchingDialog::bIsAlreadyOpen = false;
 
+SGlobalTabSwitchingDialog::~SGlobalTabSwitchingDialog()
+{
+	bIsAlreadyOpen = false;
+
+#if PLATFORM_MAC
+	MacApplication->SetIsRightClickEmulationEnabled(true);
+#endif
+}
+
 SGlobalTabSwitchingDialog::FTabListItemPtr SGlobalTabSwitchingDialog::GetMainTabListSelectedItem() const
 {
 	TArray<FTabListItemPtr> SelectedItems = MainTabsListWidget->GetSelectedItems();
@@ -348,6 +361,11 @@ void SGlobalTabSwitchingDialog::Construct(const FArguments& InArgs, FVector2D In
 {
 	check(!bIsAlreadyOpen);
 	bIsAlreadyOpen = true;
+
+#if PLATFORM_MAC
+	// On Mac we emulate right click with ctrl+left click. This needs to be disabled for tab navigator, so that users can click on its widgets while they keep the ctrl key pressed
+	MacApplication->SetIsRightClickEmulationEnabled(false);
+#endif
 
 	TriggerChord = InTriggerChord;
 

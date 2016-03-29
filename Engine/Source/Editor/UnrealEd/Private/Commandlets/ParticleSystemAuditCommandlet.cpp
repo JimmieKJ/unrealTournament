@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "Runtime/Engine/Public/ObjectEditorUtils.h"
@@ -52,6 +52,9 @@ bool UParticleSystemAuditCommandlet::ProcessParticleSystems()
 	AssetRegistry.SearchAllAssets(true);
 
 	FARFilter Filter;
+	Filter.PackagePaths.Add(TEXT("/Game"));
+	Filter.bRecursivePaths = true;
+
 	Filter.ClassNames.Add(UParticleSystem::StaticClass()->GetFName());
 	if (!FilterCollection.IsEmpty())
 	{

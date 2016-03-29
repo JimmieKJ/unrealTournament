@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "DetailCustomizationsPrivatePCH.h"
 #include "MaterialProxySettingsCustomizations.h"
@@ -103,4 +103,4 @@ EVisibility FMaterialProxySettingsCustomizations::IsTextureSizeEnabled() const
 	return EVisibility::Visible;	
 }
 
-#undef LOCTEXT_NAMESPACE // MaterialProxySettingsCustomizations
+#undef LOCTEXT_NAMESPACE

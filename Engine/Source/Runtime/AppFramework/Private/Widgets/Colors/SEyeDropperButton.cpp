@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AppFrameworkPrivatePCH.h"
 #include "SEyeDropperButton.h"
@@ -41,14 +41,14 @@ void SEyeDropperButton::Construct(const FArguments& InArgs)
 	);
 }
 
-EActiveTimerReturnType SEyeDropperButton::ActiveTick(double InCurrentTime, float InDeltaTime)
+void SEyeDropperButton::OnPreTick(float InDeltaTime)
 {
-	if ( bWasClickActivated )
+	if (bWasClickActivated)
 	{
-		if ( HasMouseCapture() && bWasLeft && !bWasReEntered )
+		if (HasMouseCapture() && bWasLeft && !bWasReEntered)
 		{
 			FVector2D CurrentCursorPosition = FSlateApplication::Get().GetCursorPos();
-			if ( CurrentCursorPosition != LastCursorPosition )
+			if (CurrentCursorPosition != LastCursorPosition)
 			{
 				// In dropper mode and outside the button - sample the pixel color and push it to the client
 				// Convert the display gamma into a ratio of gamma from the default gamma.
@@ -60,11 +60,11 @@ EActiveTimerReturnType SEyeDropperButton::ActiveTick(double InCurrentTime, float
 			LastCursorPosition = CurrentCursorPosition;
 		}
 
-		return EActiveTimerReturnType::Continue;
+		return;
 	}
-	
+
 	LastCursorPosition.Reset();
-	return EActiveTimerReturnType::Stop;
+	FSlateApplication::Get().OnPreTick().RemoveAll(this);
 }
 
 FReply SEyeDropperButton::OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
@@ -119,7 +119,7 @@ FReply SEyeDropperButton::OnMouseButtonUp(const FGeometry& MyGeometry, const FPo
 
 		Reply.CaptureMouse(this->AsShared());
 
-		RegisterActiveTimer(0, FWidgetActiveTimerDelegate::CreateSP(this, &SEyeDropperButton::ActiveTick));
+		FSlateApplication::Get().OnPreTick().AddSP(this, &SEyeDropperButton::OnPreTick);
 	}
 	bWasClicked = false;
 

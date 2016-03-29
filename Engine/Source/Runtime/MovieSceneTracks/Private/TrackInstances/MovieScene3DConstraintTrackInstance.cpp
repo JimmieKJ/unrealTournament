@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneTracksPrivatePCH.h"
 #include "MovieSceneCommonHelpers.h"
@@ -15,35 +15,39 @@ FMovieScene3DConstraintTrackInstance::FMovieScene3DConstraintTrackInstance( UMov
 }
 
 
-void FMovieScene3DConstraintTrackInstance::SaveState(const TArray<UObject*>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
+void FMovieScene3DConstraintTrackInstance::SaveState(const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
 {
 	for (int32 ObjIndex = 0; ObjIndex < RuntimeObjects.Num(); ++ObjIndex)
 	{
-		USceneComponent* SceneComponent = MovieSceneHelpers::SceneComponentFromRuntimeObject(RuntimeObjects[ObjIndex]);
+		UObject* Object = RuntimeObjects[ObjIndex].Get();
+		USceneComponent* SceneComponent = MovieSceneHelpers::SceneComponentFromRuntimeObject(Object);
+
 		if (SceneComponent != nullptr)
 		{
-			if (InitTransformMap.Find(RuntimeObjects[ObjIndex]) == nullptr)
+			if (InitTransformMap.Find(Object) == nullptr)
 			{
-				InitTransformMap.Add(RuntimeObjects[ObjIndex], SceneComponent->GetRelativeTransform());
+				InitTransformMap.Add(Object, SceneComponent->GetRelativeTransform());
 			}
 		}
 	}
 }
 
 
-void FMovieScene3DConstraintTrackInstance::RestoreState(const TArray<UObject*>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
+void FMovieScene3DConstraintTrackInstance::RestoreState(const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
 {
 	for (int32 ObjIndex = 0; ObjIndex < RuntimeObjects.Num(); ++ObjIndex)
 	{
-		if (!IsValid(RuntimeObjects[ObjIndex]))
+		UObject* Object = RuntimeObjects[ObjIndex].Get();
+
+		if (!IsValid(Object))
 		{
 			continue;
 		}
 
-		USceneComponent* SceneComponent = MovieSceneHelpers::SceneComponentFromRuntimeObject(RuntimeObjects[ObjIndex]);
+		USceneComponent* SceneComponent = MovieSceneHelpers::SceneComponentFromRuntimeObject(Object);
 		if (SceneComponent != nullptr)
 		{
-			FTransform *Transform = InitTransformMap.Find(RuntimeObjects[ObjIndex]);
+			FTransform *Transform = InitTransformMap.Find(Object);
 			if (Transform != nullptr)
 			{
 				SceneComponent->SetRelativeTransform(*Transform);
@@ -53,7 +57,7 @@ void FMovieScene3DConstraintTrackInstance::RestoreState(const TArray<UObject*>& 
 }
 
 
-void FMovieScene3DConstraintTrackInstance::Update( float Position, float LastPosition, const TArray<UObject*>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance, EMovieSceneUpdatePass UpdatePass ) 
+void FMovieScene3DConstraintTrackInstance::Update(EMovieSceneUpdateData& UpdateData, const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance) 
 {
 	UMovieScene3DConstraintSection* FirstConstraintSection = nullptr;
 
@@ -63,22 +67,29 @@ void FMovieScene3DConstraintTrackInstance::Update( float Position, float LastPos
 	{
 		UMovieScene3DConstraintSection* ConstraintSection = CastChecked<UMovieScene3DConstraintSection>(ConstraintSections[ConstraintIndex]);
 
-		if (ConstraintSection->IsTimeWithinSection(Position) &&
+		if (ConstraintSection->IsTimeWithinSection(UpdateData.Position) &&
 			(FirstConstraintSection == nullptr || FirstConstraintSection->GetRowIndex() > ConstraintSection->GetRowIndex()))
 		{
-			TArray<UObject*> ConstraintObjects;
+			TArray<TWeakObjectPtr<UObject>> ConstraintObjects;
 			FGuid ConstraintId = ConstraintSection->GetConstraintId();
 
 			if (ConstraintId.IsValid())
 			{
 				Player.GetRuntimeObjects( Player.GetRootMovieSceneSequenceInstance(), ConstraintId, ConstraintObjects);
 
+				// Also look in this current sequence instance for the constrained object
+				UObject* FoundObject = SequenceInstance.FindObject(ConstraintId, Player);
+				if (FoundObject && ConstraintObjects.Find(FoundObject) == INDEX_NONE)
+				{
+					ConstraintObjects.Add(FoundObject);
+				}
+
 				for (int32 ConstraintObjectIndex = 0; ConstraintObjectIndex < ConstraintObjects.Num(); ++ConstraintObjectIndex)
 				{
-					AActor* Actor = Cast<AActor>(ConstraintObjects[ConstraintObjectIndex]);
+					AActor* Actor = Cast<AActor>(ConstraintObjects[ConstraintObjectIndex].Get());
 					if (Actor)
 					{
-						UpdateConstraint(Position, RuntimeObjects, Actor, ConstraintSection);
+						UpdateConstraint(UpdateData.Position, RuntimeObjects, Actor, ConstraintSection);
 					}	
 				}
 			}

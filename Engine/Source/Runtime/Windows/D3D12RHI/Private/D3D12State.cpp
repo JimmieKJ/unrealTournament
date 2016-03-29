@@ -201,7 +201,9 @@ FSamplerStateRHIRef FD3D12Device::CreateSamplerState(const FSamplerStateInitiali
 
 FRasterizerStateRHIRef FD3D12DynamicRHI::RHICreateRasterizerState(const FRasterizerStateInitializerRHI& Initializer)
 {
-	D3D12_RASTERIZER_DESC RasterizerDesc;
+	FD3D12RasterizerState* RasterizerState = new FD3D12RasterizerState;
+
+	D3D12_RASTERIZER_DESC& RasterizerDesc = RasterizerState->Desc;
 	FMemory::Memzero(&RasterizerDesc, sizeof(D3D12_RASTERIZER_DESC));
 
 	RasterizerDesc.CullMode = TranslateCullMode(Initializer.CullMode);
@@ -211,9 +213,6 @@ FRasterizerStateRHIRef FD3D12DynamicRHI::RHICreateRasterizerState(const FRasteri
 	RasterizerDesc.DepthBias = FMath::FloorToInt(Initializer.DepthBias * (float)(1 << 24));
 	RasterizerDesc.DepthClipEnable = true;
 	RasterizerDesc.MultisampleEnable = Initializer.bAllowMSAA;
-
-	FD3D12RasterizerState* RasterizerState = new FD3D12RasterizerState;
-	RasterizerState->Desc = RasterizerDesc;
 
 	return RasterizerState;
 }

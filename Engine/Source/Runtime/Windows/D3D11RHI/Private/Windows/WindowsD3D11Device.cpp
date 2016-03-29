@@ -1,7 +1,7 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
-	D3D11Device.cpp: D3D device RHI implementation.
+	WindowsD3D11Device.cpp: Windows D3D device RHI implementation.
 =============================================================================*/
 
 #include "D3D11RHIPrivate.h"
@@ -10,7 +10,8 @@
 #include "HideWindowsPlatformTypes.h"
 
 #include "HardwareInfo.h"
-
+#include "Runtime/HeadMountedDisplay/Public/IHeadMountedDisplayModule.h"
+#include "GenericPlatformDriver.h"			// FGPUDriverInfo
 
 extern bool D3D11RHI_ShouldCreateWithD3DDebug();
 extern bool D3D11RHI_ShouldAllowAsyncResourceCreation();
@@ -18,10 +19,20 @@ extern bool D3D11RHI_ShouldAllowAsyncResourceCreation();
 static TAutoConsoleVariable<int32> CVarGraphicsAdapter(
 	TEXT("r.GraphicsAdapter"),
 	-1,
-	TEXT("User request to pick a specific graphics adapter (e.g. when using a integrated graphics card with a descrete one)\n")
-	TEXT("At the moment this only works on Direct3D 11.\n")
+	TEXT("User request to pick a specific graphics adapter (e.g. when using a integrated graphics card with a discrete one)\n")
+	TEXT("At the moment this only works on Direct3D 11. Unless a specific adapter is chosen we reject Microsoft adapters because we don't want the software emulation.\n")
 	TEXT(" -2: Take the first one that fulfills the criteria\n")
-	TEXT(" -1: Favour non integrated because there are usually faster\n")
+	TEXT(" -1: Favour non integrated because there are usually faster (default)\n")
+	TEXT("  0: Adpater #0\n")
+	TEXT("  1: Adpater #1, ..."),
+	ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<int32> CVarHmdGraphicsAdapter(
+	TEXT("hmd.D3D11GraphicsAdapter"),
+	-1,
+	TEXT("Specifies the index of the graphics adapter where the HMD is connected.  Overrides r.GraphicsAdapter when the Hmd is enabled.\n")
+	TEXT("At the moment this only works on Direct3D 11.\n")
+	TEXT(" -1: Unknown\n")
 	TEXT("  0: Adpater #0\n")
 	TEXT("  1: Adpater #1, ..."),
 	ECVF_RenderThreadSafe);
@@ -240,7 +251,11 @@ void FD3D11DynamicRHIModule::FindAdapter()
 	bAllowPerfHUD = false;
 #endif
 
-	int32 CVarValue = CVarGraphicsAdapter.GetValueOnGameThread();
+	// Allow HMD to override which graphics adapter is chosen, so we pick the adapter where the HMD is connected
+	bool bUseHmdGraphicsAdapter = CVarHmdGraphicsAdapter.GetValueOnGameThread() >= 0 && 
+		IModularFeatures::Get().IsModularFeatureAvailable(IHeadMountedDisplayModule::GetModularFeatureName());
+
+	int32 CVarValue = bUseHmdGraphicsAdapter ? CVarHmdGraphicsAdapter.GetValueOnGameThread() : CVarGraphicsAdapter.GetValueOnGameThread();
 
 	const bool bFavorNonIntegrated = CVarValue == -1;
 
@@ -249,14 +264,22 @@ void FD3D11DynamicRHIModule::FindAdapter()
 
 	FD3D11Adapter FirstWithoutIntegratedAdapter;
 	FD3D11Adapter FirstAdapter;
+	// indexed by AdapterIndex, we store it instead of query it later from the created device to prevent some Optimus bug reporting the data/name of the wrong adapter
+	TArray<DXGI_ADAPTER_DESC> AdapterDescription;
 
 	bool bIsAnyAMD = false;
 	bool bIsAnyIntel = false;
 	bool bIsAnyNVIDIA = false;
 
+	UE_LOG(LogD3D11RHI, Log, TEXT("D3D11 adapters:"));
+
 	// Enumerate the DXGIFactory's adapters.
 	for(uint32 AdapterIndex = 0; DXGIFactory1->EnumAdapters(AdapterIndex,TempAdapter.GetInitReference()) != DXGI_ERROR_NOT_FOUND; ++AdapterIndex)
 	{
+		// to make sure the array elements can be indexed with AdapterIndex
+		DXGI_ADAPTER_DESC AdapterDesc;
+		ZeroMemory(&AdapterDesc, sizeof(DXGI_ADAPTER_DESC));
+
 		// Check that if adapter supports D3D11.
 		if(TempAdapter)
 		{
@@ -264,27 +287,28 @@ void FD3D11DynamicRHIModule::FindAdapter()
 			if(SafeTestD3D11CreateDevice(TempAdapter,MaxAllowedFeatureLevel,&ActualFeatureLevel))
 			{
 				// Log some information about the available D3D11 adapters.
-				DXGI_ADAPTER_DESC AdapterDesc;
 				VERIFYD3D11RESULT(TempAdapter->GetDesc(&AdapterDesc));
 				uint32 OutputCount = CountAdapterOutputs(TempAdapter);
 
 				UE_LOG(LogD3D11RHI, Log,
-					TEXT("Found D3D11 adapter %u: %s (Feature Level %s)"),
+					TEXT("  %2u. '%s' (Feature Level %s)"),
 					AdapterIndex,
 					AdapterDesc.Description,
 					GetFeatureLevelString(ActualFeatureLevel)
 					);
 				UE_LOG(LogD3D11RHI, Log,
-					TEXT("Adapter has %uMB of dedicated video memory, %uMB of dedicated system memory, and %uMB of shared system memory, %d output[s]"),
+					TEXT("      %u/%u/%u MB DedicatedVideo/DedicatedSystem/SharedSystem, Outputs:%d, VendorId:0x%x"),
 					(uint32)(AdapterDesc.DedicatedVideoMemory / (1024*1024)),
 					(uint32)(AdapterDesc.DedicatedSystemMemory / (1024*1024)),
 					(uint32)(AdapterDesc.SharedSystemMemory / (1024*1024)),
-					OutputCount
+					OutputCount,
+					AdapterDesc.VendorId
 					);
 
 				bool bIsAMD = AdapterDesc.VendorId == 0x1002;
 				bool bIsIntel = AdapterDesc.VendorId == 0x8086;
 				bool bIsNVIDIA = AdapterDesc.VendorId == 0x10DE;
+				bool bIsMicrosoft = AdapterDesc.VendorId == 0x1414;
 
 				if(bIsAMD) bIsAnyAMD = true;
 				if(bIsIntel) bIsAnyIntel = true;
@@ -297,10 +321,13 @@ void FD3D11DynamicRHIModule::FindAdapter()
 
 				FD3D11Adapter CurrentAdapter(AdapterIndex, ActualFeatureLevel);
 
-				if(!OutputCount)
+				if(bIsMicrosoft && CVarValue < 0 && !bUseHmdGraphicsAdapter)
 				{
-					// This device has no outputs. Reject it, 
-					// http://msdn.microsoft.com/en-us/library/windows/desktop/bb205075%28v=vs.85%29.aspx#WARP_new_for_Win8
+					// Add special check to support HMDs, which do not have associated outputs.
+
+					// To reject the software emulation, unless the cvar wants it.
+					// https://msdn.microsoft.com/en-us/library/windows/desktop/bb205075(v=vs.85).aspx#WARP_new_for_Win8
+					// Before we tested for no output devices but that failed where a laptop had a Intel (with output) and NVidia (with no output)
 					continue;
 				}
 
@@ -327,6 +354,8 @@ void FD3D11DynamicRHIModule::FindAdapter()
 				}
 			}
 		}
+		
+		AdapterDescription.Add(AdapterDesc);
 	}
 
 	if(bFavorNonIntegrated && (bIsAnyAMD || bIsAnyNVIDIA))
@@ -346,7 +375,8 @@ void FD3D11DynamicRHIModule::FindAdapter()
 
 	if(ChosenAdapter.IsValid())
 	{
-		UE_LOG(LogD3D11RHI, Log, TEXT("Chosen D3D11 Adapter Id = %u"), ChosenAdapter.AdapterIndex);
+		ChosenDescription = AdapterDescription[ChosenAdapter.AdapterIndex];
+		UE_LOG(LogD3D11RHI, Log, TEXT("Chosen D3D11 Adapter: %u"), ChosenAdapter.AdapterIndex);
 	}
 	else
 	{
@@ -359,12 +389,49 @@ FDynamicRHI* FD3D11DynamicRHIModule::CreateRHI()
 	TRefCountPtr<IDXGIFactory1> DXGIFactory1;
 	SafeCreateDXGIFactory(DXGIFactory1.GetInitReference());
 	check(DXGIFactory1);
-	return new FD3D11DynamicRHI(DXGIFactory1,ChosenAdapter.MaxSupportedFeatureLevel,ChosenAdapter.AdapterIndex);
+	return new FD3D11DynamicRHI(DXGIFactory1,ChosenAdapter.MaxSupportedFeatureLevel,ChosenAdapter.AdapterIndex,ChosenDescription);
 }
 
 void FD3D11DynamicRHI::Init()
 {
 	InitD3DDevice();
+}
+
+void FD3D11DynamicRHI::FlushPendingLogs()
+{
+#if !(UE_BUILD_SHIPPING && WITH_EDITOR)
+	if (D3D11RHI_ShouldCreateWithD3DDebug())
+	{
+		TRefCountPtr<ID3D11InfoQueue> InfoQueue = nullptr;
+		VERIFYD3D11RESULT(Direct3DDevice->QueryInterface(IID_ID3D11InfoQueue, (void**)InfoQueue.GetInitReference()));
+		if (InfoQueue)
+		{
+			FString FullMessage;
+			uint64 NumMessages = InfoQueue->GetNumStoredMessagesAllowedByRetrievalFilter();
+			for (uint64 Index = 0; Index < NumMessages; ++Index)
+			{
+				SIZE_T Length = 0;
+				if (SUCCEEDED(InfoQueue->GetMessage(Index, nullptr, &Length)))
+				{
+					TArray<uint8> Bytes;
+					Bytes.AddUninitialized((int32)Length);
+					D3D11_MESSAGE* Message = (D3D11_MESSAGE*)Bytes.GetData();
+					if (SUCCEEDED(InfoQueue->GetMessage(Index, Message, &Length)))
+					{
+						FullMessage += TEXT("\n\t");
+						FullMessage += Message->pDescription;
+					}
+				}
+			}
+
+			if (FullMessage.Len() > 0)
+			{
+				UE_LOG(LogD3D11RHI, Warning, TEXT("d3debug warnings/errors found:%s"), *FullMessage);
+			}
+			InfoQueue->ClearStoredMessages();
+		}
+	}
+#endif
 }
 
 void FD3D11DynamicRHI::InitD3DDevice()
@@ -394,12 +461,12 @@ void FD3D11DynamicRHI::InitD3DDevice()
 
 		bDeviceRemoved = false;
 
-		// Cleanup the D3D device.
-		CleanupD3DDevice();
-
 		// We currently don't support removed devices because FTexture2DResource can't recreate its RHI resources from scratch.
 		// We would also need to recreate the viewport swap chains from scratch.
 		UE_LOG(LogD3D11RHI, Fatal, TEXT("The Direct3D 11 device that was being used has been removed (Error: %d '%s').  Please restart the game."), hRes, Reason);
+
+		// UE4 no longer supports clean-up and recovery.
+		//CleanupD3DDevice();
 	}
 
 	// If we don't have a device yet, either because this is the first viewport, or the old device was removed, create a device.
@@ -439,88 +506,99 @@ void FD3D11DynamicRHI::InitD3DDevice()
 		{
 			if (EnumAdapter)// && EnumAdapter->CheckInterfaceSupport(__uuidof(ID3D11Device),NULL) == S_OK)
 			{
-				DXGI_ADAPTER_DESC AdapterDesc;
-				if (SUCCEEDED(EnumAdapter->GetDesc(&AdapterDesc)))
+				// we don't use AdapterDesc.Description as there is a bug with Optimus where it can report the wrong name
+				DXGI_ADAPTER_DESC AdapterDesc = ChosenDescription;
+				Adapter = EnumAdapter;
+
+				GRHIAdapterName = AdapterDesc.Description;
+				GRHIVendorId = AdapterDesc.VendorId;
+				GRHIDeviceId = AdapterDesc.DeviceId;
+
+				UE_LOG(LogD3D11RHI, Log, TEXT("    GPU DeviceId: 0x%x (for the marketing name, search the web for \"GPU Device Id\")"), 
+					AdapterDesc.DeviceId);
+
+				// get driver version (todo: share with other RHIs)
 				{
-					Adapter = EnumAdapter;
+					FGPUDriverInfo GPUDriverInfo = FPlatformMisc::GetGPUDriverInfo(GRHIAdapterName);
 
-					GRHIAdapterName = AdapterDesc.Description;
-					GRHIVendorId = AdapterDesc.VendorId;
+					GRHIAdapterUserDriverVersion = GPUDriverInfo.UserDriverVersion;
+					GRHIAdapterInternalDriverVersion = GPUDriverInfo.InternalDriverVersion;
+					GRHIAdapterDriverDate = GPUDriverInfo.DriverDate;
 
-					// Issue: 32bit windows doesn't report 64bit value, we take what we get.
-					FD3D11GlobalStats::GDedicatedVideoMemory = int64(AdapterDesc.DedicatedVideoMemory);
-					FD3D11GlobalStats::GDedicatedSystemMemory = int64(AdapterDesc.DedicatedSystemMemory);
-					FD3D11GlobalStats::GSharedSystemMemory = int64(AdapterDesc.SharedSystemMemory);
+					UE_LOG(LogD3D11RHI, Log, TEXT("    Adapter Name: %s"), *GRHIAdapterName);
+					UE_LOG(LogD3D11RHI, Log, TEXT("  Driver Version: %s (internal:%s, unified:%s)"), *GRHIAdapterUserDriverVersion, *GRHIAdapterInternalDriverVersion, *GPUDriverInfo.GetUnifiedDriverVersion());
+					UE_LOG(LogD3D11RHI, Log, TEXT("     Driver Date: %s"), *GRHIAdapterDriverDate);
+				}
 
-					// Total amount of system memory, clamped to 8 GB
-					int64 TotalPhysicalMemory = FMath::Min(int64(FPlatformMemory::GetConstants().TotalPhysicalGB), 8ll) * (1024ll * 1024ll * 1024ll);
+				// Issue: 32bit windows doesn't report 64bit value, we take what we get.
+				FD3D11GlobalStats::GDedicatedVideoMemory = int64(AdapterDesc.DedicatedVideoMemory);
+				FD3D11GlobalStats::GDedicatedSystemMemory = int64(AdapterDesc.DedicatedSystemMemory);
+				FD3D11GlobalStats::GSharedSystemMemory = int64(AdapterDesc.SharedSystemMemory);
 
-					// Consider 50% of the shared memory but max 25% of total system memory.
-					int64 ConsideredSharedSystemMemory = FMath::Min( FD3D11GlobalStats::GSharedSystemMemory / 2ll, TotalPhysicalMemory / 4ll );
+				// Total amount of system memory, clamped to 8 GB
+				int64 TotalPhysicalMemory = FMath::Min(int64(FPlatformMemory::GetConstants().TotalPhysicalGB), 8ll) * (1024ll * 1024ll * 1024ll);
 
-					FD3D11GlobalStats::GTotalGraphicsMemory = 0;
-					if ( IsRHIDeviceIntel() )
-					{
-						// It's all system memory.
-						FD3D11GlobalStats::GTotalGraphicsMemory = FD3D11GlobalStats::GDedicatedVideoMemory;
-						FD3D11GlobalStats::GTotalGraphicsMemory += FD3D11GlobalStats::GDedicatedSystemMemory;
-						FD3D11GlobalStats::GTotalGraphicsMemory += ConsideredSharedSystemMemory;
-					}
-					else if ( FD3D11GlobalStats::GDedicatedVideoMemory >= 200*1024*1024 )
-					{
-						// Use dedicated video memory, if it's more than 200 MB
-						FD3D11GlobalStats::GTotalGraphicsMemory = FD3D11GlobalStats::GDedicatedVideoMemory;
-					}
-					else if ( FD3D11GlobalStats::GDedicatedSystemMemory >= 200*1024*1024 )
-					{
-						// Use dedicated system memory, if it's more than 200 MB
-						FD3D11GlobalStats::GTotalGraphicsMemory = FD3D11GlobalStats::GDedicatedSystemMemory;
-					}
-					else if ( FD3D11GlobalStats::GSharedSystemMemory >= 400*1024*1024 )
-					{
-						// Use some shared system memory, if it's more than 400 MB
-						FD3D11GlobalStats::GTotalGraphicsMemory = ConsideredSharedSystemMemory;
-					}
-					else
-					{
-						// Otherwise consider 25% of total system memory for graphics.
-						FD3D11GlobalStats::GTotalGraphicsMemory = TotalPhysicalMemory / 4ll;
-					}
+				// Consider 50% of the shared memory but max 25% of total system memory.
+				int64 ConsideredSharedSystemMemory = FMath::Min( FD3D11GlobalStats::GSharedSystemMemory / 2ll, TotalPhysicalMemory / 4ll );
 
-					if ( sizeof(SIZE_T) < 8 )
-					{
-						// Clamp to 1 GB if we're less than 64-bit
-						FD3D11GlobalStats::GTotalGraphicsMemory = FMath::Min( FD3D11GlobalStats::GTotalGraphicsMemory, 1024ll * 1024ll * 1024ll );
-					}
-					else
-					{
-						// Clamp to 1.9 GB if we're 64-bit
-						FD3D11GlobalStats::GTotalGraphicsMemory = FMath::Min( FD3D11GlobalStats::GTotalGraphicsMemory, 1945ll * 1024ll * 1024ll );
-					}
-
-					if ( GPoolSizeVRAMPercentage > 0 )
-					{
-						float PoolSize = float(GPoolSizeVRAMPercentage) * 0.01f * float(FD3D11GlobalStats::GTotalGraphicsMemory);
-
-						// Truncate GTexturePoolSize to MB (but still counted in bytes)
-						GTexturePoolSize = int64(FGenericPlatformMath::TruncToFloat(PoolSize / 1024.0f / 1024.0f)) * 1024 * 1024;
-
-						UE_LOG(LogRHI,Log,TEXT("Texture pool is %llu MB (%d%% of %llu MB)"),
-							GTexturePoolSize / 1024 / 1024,
-							GPoolSizeVRAMPercentage,
-							FD3D11GlobalStats::GTotalGraphicsMemory / 1024 / 1024);
-					}
-
-					const bool bIsPerfHUD = !FCString::Stricmp(AdapterDesc.Description,TEXT("NVIDIA PerfHUD"));
-
-					if(bIsPerfHUD)
-					{
-						DriverType =  D3D_DRIVER_TYPE_REFERENCE;
-					}
+				FD3D11GlobalStats::GTotalGraphicsMemory = 0;
+				if ( IsRHIDeviceIntel() )
+				{
+					// It's all system memory.
+					FD3D11GlobalStats::GTotalGraphicsMemory = FD3D11GlobalStats::GDedicatedVideoMemory;
+					FD3D11GlobalStats::GTotalGraphicsMemory += FD3D11GlobalStats::GDedicatedSystemMemory;
+					FD3D11GlobalStats::GTotalGraphicsMemory += ConsideredSharedSystemMemory;
+				}
+				else if ( FD3D11GlobalStats::GDedicatedVideoMemory >= 200*1024*1024 )
+				{
+					// Use dedicated video memory, if it's more than 200 MB
+					FD3D11GlobalStats::GTotalGraphicsMemory = FD3D11GlobalStats::GDedicatedVideoMemory;
+				}
+				else if ( FD3D11GlobalStats::GDedicatedSystemMemory >= 200*1024*1024 )
+				{
+					// Use dedicated system memory, if it's more than 200 MB
+					FD3D11GlobalStats::GTotalGraphicsMemory = FD3D11GlobalStats::GDedicatedSystemMemory;
+				}
+				else if ( FD3D11GlobalStats::GSharedSystemMemory >= 400*1024*1024 )
+				{
+					// Use some shared system memory, if it's more than 400 MB
+					FD3D11GlobalStats::GTotalGraphicsMemory = ConsideredSharedSystemMemory;
 				}
 				else
 				{
-					check(!"Internal error, GetDesc() failed but before it worked")
+					// Otherwise consider 25% of total system memory for graphics.
+					FD3D11GlobalStats::GTotalGraphicsMemory = TotalPhysicalMemory / 4ll;
+				}
+
+				if ( sizeof(SIZE_T) < 8 )
+				{
+					// Clamp to 1 GB if we're less than 64-bit
+					FD3D11GlobalStats::GTotalGraphicsMemory = FMath::Min( FD3D11GlobalStats::GTotalGraphicsMemory, 1024ll * 1024ll * 1024ll );
+				}
+				else
+				{
+					// Clamp to 1.9 GB if we're 64-bit
+					FD3D11GlobalStats::GTotalGraphicsMemory = FMath::Min( FD3D11GlobalStats::GTotalGraphicsMemory, 1945ll * 1024ll * 1024ll );
+				}
+
+				if ( GPoolSizeVRAMPercentage > 0 )
+				{
+					float PoolSize = float(GPoolSizeVRAMPercentage) * 0.01f * float(FD3D11GlobalStats::GTotalGraphicsMemory);
+
+					// Truncate GTexturePoolSize to MB (but still counted in bytes)
+					GTexturePoolSize = int64(FGenericPlatformMath::TruncToFloat(PoolSize / 1024.0f / 1024.0f)) * 1024 * 1024;
+
+					UE_LOG(LogRHI,Log,TEXT("Texture pool is %llu MB (%d%% of %llu MB)"),
+						GTexturePoolSize / 1024 / 1024,
+						GPoolSizeVRAMPercentage,
+						FD3D11GlobalStats::GTotalGraphicsMemory / 1024 / 1024);
+				}
+
+				const bool bIsPerfHUD = !FCString::Stricmp(AdapterDesc.Description,TEXT("NVIDIA PerfHUD"));
+
+				if(bIsPerfHUD)
+				{
+					DriverType =  D3D_DRIVER_TYPE_REFERENCE;
 				}
 			}
 		}
@@ -600,9 +678,9 @@ void FD3D11DynamicRHI::InitD3DDevice()
 		// Add some filter outs for known debug spew messages (that we don't care about)
 		if(DeviceFlags & D3D11_CREATE_DEVICE_DEBUG)
 		{
-			ID3D11InfoQueue *pd3dInfoQueue = NULL;
-			VERIFYD3D11RESULT(Direct3DDevice->QueryInterface( IID_ID3D11InfoQueue, (void**)&pd3dInfoQueue));
-			if(pd3dInfoQueue)
+			TRefCountPtr<ID3D11InfoQueue> InfoQueue;
+			VERIFYD3D11RESULT(Direct3DDevice->QueryInterface( IID_ID3D11InfoQueue, (void**)InfoQueue.GetInitReference()));
+			if (InfoQueue)
 			{
 				D3D11_INFO_QUEUE_FILTER NewFilter;
 				FMemory::Memzero(&NewFilter,sizeof(NewFilter));
@@ -643,20 +721,18 @@ void FD3D11DynamicRHI::InitD3DDevice()
 				NewFilter.DenyList.NumIDs = sizeof(DenyIds)/sizeof(D3D11_MESSAGE_ID);
 				NewFilter.DenyList.pIDList = (D3D11_MESSAGE_ID*)&DenyIds;
 
-				pd3dInfoQueue->PushStorageFilter(&NewFilter);
+				InfoQueue->PushStorageFilter(&NewFilter);
 
 				// Break on D3D debug errors.
-				pd3dInfoQueue->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_ERROR,true);
+				InfoQueue->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_ERROR,true);
 
 				// Enable this to break on a specific id in order to quickly get a callstack
-				//pd3dInfoQueue->SetBreakOnID(D3D11_MESSAGE_ID_DEVICE_DRAW_CONSTANT_BUFFER_TOO_SMALL, true);
+				//InfoQueue->SetBreakOnID(D3D11_MESSAGE_ID_DEVICE_DRAW_CONSTANT_BUFFER_TOO_SMALL, true);
 
-				if(FParse::Param(FCommandLine::Get(),TEXT("d3dbreakonwarning")))
+				if (FParse::Param(FCommandLine::Get(),TEXT("d3dbreakonwarning")))
 				{
-					pd3dInfoQueue->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_WARNING,true);
+					InfoQueue->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_WARNING,true);
 				}
-
-				pd3dInfoQueue->Release();
 			}
 		}
 #endif
@@ -729,22 +805,44 @@ bool FD3D11DynamicRHI::RHIGetAvailableResolutions(FScreenResolutionArray& Resolu
 
 		// TODO: GetDisplayModeList is a terribly SLOW call.  It can take up to a second per invocation.
 		//  We might want to work around some DXGI badness here.
-		DXGI_FORMAT Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-		uint32 NumModes = 0;
-		HResult = Output->GetDisplayModeList(Format, 0, &NumModes, NULL);
-		if(HResult == DXGI_ERROR_NOT_FOUND)
+		const DXGI_FORMAT DisplayFormats[] = {DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_B8G8R8A8_UNORM};
+		DXGI_FORMAT Format = DisplayFormats[0];
+		uint32 NumModes = 0;	
+
+		for (DXGI_FORMAT CurrentFormat : DisplayFormats)
 		{
-			continue;
-		}
-		else if(HResult == DXGI_ERROR_NOT_CURRENTLY_AVAILABLE)
-		{
-			UE_LOG(LogD3D11RHI, Warning,
-				TEXT("RHIGetAvailableResolutions does not return results when running under remote desktop.")
-				);
-			return false;
+			HResult = Output->GetDisplayModeList(CurrentFormat, 0, &NumModes, NULL);
+
+			if(FAILED(HResult))
+			{
+				if (HResult == DXGI_ERROR_NOT_FOUND)
+				{
+					continue;
+				}
+				else if (HResult == DXGI_ERROR_MORE_DATA)
+				{
+					UE_LOG(LogD3D11RHI, Warning, TEXT("RHIGetAvailableResolutions failed trying to return too much data."));
+					continue;
+				}
+				else if (HResult == DXGI_ERROR_NOT_CURRENTLY_AVAILABLE)
+				{
+					UE_LOG(LogD3D11RHI, Warning, TEXT("RHIGetAvailableResolutions does not return results when running under remote desktop."));
+					return false;
+				}
+				else
+				{
+					UE_LOG(LogD3D11RHI, Warning, TEXT("RHIGetAvailableResolutions failed with unknown error (0x%x)."), HResult);
+					return false;
+				}
+			}
+			else if(NumModes)
+			{
+				Format = CurrentFormat;
+				break;
+			}
 		}
 
-		checkf(NumModes > 0, TEXT("No display modes found for the standard format DXGI_FORMAT_R8G8B8A8_UNORM!"));
+		checkf(NumModes > 0, TEXT("No display modes found for DXGI_FORMAT_R8G8B8A8_UNORM or DXGI_FORMAT_B8G8R8A8_UNORM formats!"));
 
 		DXGI_MODE_DESC* ModeList = new DXGI_MODE_DESC[ NumModes ];
 		VERIFYD3D11RESULT(Output->GetDisplayModeList(Format, 0, &NumModes, ModeList));

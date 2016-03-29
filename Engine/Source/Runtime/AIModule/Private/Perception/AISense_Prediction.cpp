@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
 #include "Perception/AISense_Prediction.h"
@@ -6,8 +6,6 @@
 UAISense_Prediction::UAISense_Prediction(const FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer)
 {
-	DebugName = TEXT("Prediction");
-	DebugDrawColor = FColorList::Grey;
 }
 
 float UAISense_Prediction::Update()

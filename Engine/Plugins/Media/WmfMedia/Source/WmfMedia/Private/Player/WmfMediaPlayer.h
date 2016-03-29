@@ -1,7 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "IWmfMediaResolverCallbacks.h"
 #include "AllowWindowsPlatformTypes.h"
 
 
@@ -11,6 +12,7 @@
 class FWmfMediaPlayer
 	: public IMediaInfo
 	, public IMediaPlayer
+	, protected IWmfMediaResolverCallbacks
 {
 public:
 
@@ -52,29 +54,18 @@ public:
 	virtual bool SetLooping(bool Looping) override;
 	virtual bool SetRate(float Rate) override;
 
-	DECLARE_DERIVED_EVENT(FWmfMediaPlayer, IMediaPlayer::FOnMediaClosed, FOnMediaClosed);
-	virtual FOnMediaClosed& OnClosed() override
+	DECLARE_DERIVED_EVENT(FWmfMediaPlayer, IMediaPlayer::FOnMediaEvent, FOnMediaEvent);
+	virtual FOnMediaEvent& OnMediaEvent() override
 	{
-		return ClosedEvent;
+		return MediaEvent;
 	}
 
-	DECLARE_DERIVED_EVENT(FWmfMediaPlayer, IMediaPlayer::FOnMediaOpened, FOnMediaOpened);
-	virtual FOnMediaOpened& OnOpened() override
-	{
-		return OpenedEvent;
-	}
+protected:
 
-	DECLARE_DERIVED_EVENT(FWmfMediaPlayer, IMediaPlayer::FOnMediaOpenFailed, FOnMediaOpenFailed);
-	virtual FOnMediaOpenFailed& OnOpenFailed() override
-	{
-		return OpenFailedEvent;
-	}
+	// IWmfMediaResolverCallbacks interface
 
-	DECLARE_DERIVED_EVENT(FWmfMediaPlayer, IMediaPlayer::FOnTracksChanged, FOnTracksChanged);
-	virtual FOnTracksChanged& OnTracksChanged() override
-	{
-		return TracksChangedEvent;
-	}
+	virtual void ProcessResolveComplete(TComPtr<IUnknown> SourceObject, FString ResolvedUrl) override;
+	virtual void ProcessResolveFailed(FString FailedUrl) override;
 
 protected:
 
@@ -103,6 +94,9 @@ private:
 	/** Handles session errors. */
 	void HandleSessionError(HRESULT Error);
 
+	/** Handles session events. */
+	void HandleSessionEvent(MediaEventType EventType);
+
 private:
 
 	/** The available audio tracks. */
@@ -113,6 +107,9 @@ private:
 
 	/** The duration of the currently loaded media. */
 	FTimespan Duration;
+
+	/** Holds an event delegate that is invoked when a media event occurred. */
+	FOnMediaEvent MediaEvent;
 
 	/** Holds the asynchronous callback object for the media stream. */
 	TComPtr<FWmfMediaSession> MediaSession;
@@ -128,20 +125,6 @@ private:
 
 	/** The available video tracks. */
 	TArray<IMediaVideoTrackRef> VideoTracks;
-
-private:
-
-	/** Holds an event delegate that is invoked when media has been closed. */
-	FOnMediaClosed ClosedEvent;
-
-	/** Holds an event delegate that is invoked when media has been opened. */
-	FOnMediaOpened OpenedEvent;
-
-	/** Holds an event delegate that is invoked when media failed to open. */
-	FOnMediaOpenFailed OpenFailedEvent;
-
-	/** Holds an event delegate that is invoked when the media tracks have changed. */
-	FOnTracksChanged TracksChangedEvent;
 };
 
 

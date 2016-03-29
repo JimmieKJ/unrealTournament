@@ -1,9 +1,24 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "EnginePrivate.h"
 #include "SoundDefinitions.h"
 #include "Sound/SoundNodeConcatenator.h"
+#include "Sound/SoundWave.h"
+
+// Payload used for instances of a concatenator node
+struct FSoundNodeConcatenatorPayload
+{
+	/** Which child node we're currently playing back in the concatenation sequence */
+	int32 NodeIndex;
+
+	/** Which child node sound index we're currently playing in the current child node */
+	int32 CurrentChildNodeSoundIndex;
+
+	/** The number of sounds playing in current child node */
+	int32 CurrentChildNodeNumSound;
+};
+
 
 /*-----------------------------------------------------------------------------
          USoundNodeConcatenator implementation.
@@ -13,23 +28,43 @@ USoundNodeConcatenator::USoundNodeConcatenator(const FObjectInitializer& ObjectI
 {
 }
 
-
 bool USoundNodeConcatenator::NotifyWaveInstanceFinished( FWaveInstance* WaveInstance )
 {
 	FActiveSound& ActiveSound = *WaveInstance->ActiveSound;
 	const UPTRINT NodeWaveInstanceHash = WaveInstance->NotifyBufferFinishedHooks.GetHashForNode(this);
-	RETRIEVE_SOUNDNODE_PAYLOAD( sizeof( int32 ) );
-	DECLARE_SOUNDNODE_ELEMENT( int32, NodeIndex );
+	RETRIEVE_SOUNDNODE_PAYLOAD(sizeof(FSoundNodeConcatenatorPayload));
+	DECLARE_SOUNDNODE_ELEMENT(FSoundNodeConcatenatorPayload, ConcatenatorPayload);
 	check( *RequiresInitialization == 0 );
 
-	// Allow wave instance to be played again the next iteration.
-	WaveInstance->bIsStarted = false;
-	WaveInstance->bIsFinished = false;
+	// Only bump up the node index if all the current child node's sounds have finished playing. 
+	// Otherwise, this will end up cutting short sounds played through a mixer.
 
-	// Advance index.
-	NodeIndex++;
+	ConcatenatorPayload.CurrentChildNodeSoundIndex++;
+	if (ConcatenatorPayload.NodeIndex < ChildNodes.Num())
+	{
+		USoundNode* CurrentChildNode = ChildNodes[ConcatenatorPayload.NodeIndex];
+		check(CurrentChildNode);
 
-	return (NodeIndex < ChildNodes.Num());
+		if (ConcatenatorPayload.CurrentChildNodeSoundIndex == ConcatenatorPayload.CurrentChildNodeNumSound)
+		{
+			// Find the next non-null index
+			for (++ConcatenatorPayload.NodeIndex; ConcatenatorPayload.NodeIndex < ChildNodes.Num(); ++ConcatenatorPayload.NodeIndex)
+			{
+				if (ChildNodes[ConcatenatorPayload.NodeIndex])
+				{
+					break;
+				}
+			}
+
+			ConcatenatorPayload.CurrentChildNodeSoundIndex = 0;
+
+			// Allow wave instance to be played again the next iteration.
+			WaveInstance->bIsStarted = false;
+			WaveInstance->bIsFinished = false;
+		}
+	}
+
+	return (ConcatenatorPayload.NodeIndex < ChildNodes.Num());
 }
 
 
@@ -46,6 +81,12 @@ float USoundNodeConcatenator::GetDuration()
 		}
 	}
 	return Duration;
+}
+
+int32 USoundNodeConcatenator::GetNumSounds(const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound) const
+{
+	// Counter-intuitively, a node concatenator will always play 1 sound from the perspective of other node-concatenators
+	return 1;
 }
 
 void USoundNodeConcatenator::CreateStartingConnectors()
@@ -72,28 +113,54 @@ void USoundNodeConcatenator::RemoveChildNode( int32 Index )
 
 void USoundNodeConcatenator::ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances )
 {
-	RETRIEVE_SOUNDNODE_PAYLOAD( sizeof( int32 ) );
-	DECLARE_SOUNDNODE_ELEMENT( int32, NodeIndex );
+	// Local stack copy of the payload. We need to do this because ParseNodes may resize the payload map
+	FSoundNodeConcatenatorPayload LocalPayload;
 
-	// Start from the beginning.
-	if( *RequiresInitialization )
 	{
-		NodeIndex = 0;
-		*RequiresInitialization = false;
+		RETRIEVE_SOUNDNODE_PAYLOAD(sizeof(FSoundNodeConcatenatorPayload));
+		DECLARE_SOUNDNODE_ELEMENT(FSoundNodeConcatenatorPayload, ConcatenatorPayload);
+
+		// Start from the beginning.
+		if (*RequiresInitialization)
+		{
+			ConcatenatorPayload.NodeIndex = 0;
+			ConcatenatorPayload.CurrentChildNodeSoundIndex = 0;
+			ConcatenatorPayload.CurrentChildNodeNumSound = 0;
+			*RequiresInitialization = false;
+		}
+
+		ConcatenatorPayload.CurrentChildNodeNumSound = 0;
+
+		LocalPayload = ConcatenatorPayload;
 	}
 
 	// Play the current node.
-	if( NodeIndex < ChildNodes.Num() )
+	while (LocalPayload.NodeIndex < ChildNodes.Num())
 	{
-		FSoundParseParameters UpdatedParams = ParseParams;
-		UpdatedParams.NotifyBufferFinishedHooks.AddNotify(this, NodeWaveInstanceHash);
-
-		// Play currently active node.
-		USoundNode* ChildNode = ChildNodes[ NodeIndex ];
-		if( ChildNode )
+		USoundNode* ChildNode = ChildNodes[LocalPayload.NodeIndex];
+		if (ChildNode)
 		{
-			UpdatedParams.VolumeMultiplier *= InputVolume[NodeIndex];
-			ChildNode->ParseNodes( AudioDevice, GetNodeWaveInstanceHash(NodeWaveInstanceHash, ChildNode, NodeIndex), ActiveSound, UpdatedParams, WaveInstances);
+			// Play currently active node.
+			FSoundParseParameters UpdatedParams = ParseParams;
+			UpdatedParams.NotifyBufferFinishedHooks.AddNotify(this, NodeWaveInstanceHash);
+			UpdatedParams.VolumeMultiplier *= InputVolume[LocalPayload.NodeIndex];
+
+			const UPTRINT ChildNodeWaveInstanceHash = GetNodeWaveInstanceHash(NodeWaveInstanceHash, ChildNode, LocalPayload.NodeIndex);
+			ChildNode->ParseNodes(AudioDevice, ChildNodeWaveInstanceHash, ActiveSound, UpdatedParams, WaveInstances);
+
+			// Update the payload with the number of sounds played and update our local copy
+			RETRIEVE_SOUNDNODE_PAYLOAD(sizeof(FSoundNodeConcatenatorPayload));
+			DECLARE_SOUNDNODE_ELEMENT(FSoundNodeConcatenatorPayload, ConcatenatorPayload);
+
+			ConcatenatorPayload = LocalPayload;
+			ConcatenatorPayload.CurrentChildNodeNumSound = ChildNode->GetNumSounds(ChildNodeWaveInstanceHash, ActiveSound);
+
+			break;
+		}
+		else
+		{
+			LocalPayload.CurrentChildNodeSoundIndex = 0;
+			++LocalPayload.NodeIndex;
 		}
 	}
 }

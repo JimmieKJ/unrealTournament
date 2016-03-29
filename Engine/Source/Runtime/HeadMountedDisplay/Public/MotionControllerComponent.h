@@ -1,12 +1,12 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "IMotionController.h"
 #include "SceneViewExtension.h"
 #include "MotionControllerComponent.generated.h"
 
-UCLASS(MinimalAPI, Blueprintable, meta = (BlueprintSpawnableComponent), ClassGroup = MotionController)
-class UMotionControllerComponent : public UPrimitiveComponent
+UCLASS(Blueprintable, meta = (BlueprintSpawnableComponent), ClassGroup = MotionController)
+class HEADMOUNTEDDISPLAY_API UMotionControllerComponent : public UPrimitiveComponent
 {
 	GENERATED_UCLASS_BODY()
 
@@ -23,6 +23,10 @@ class UMotionControllerComponent : public UPrimitiveComponent
 	/** If false, render transforms within the motion controller hierarchy will be updated a second time immediately before rendering. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MotionController")
 	uint32 bDisableLowLatencyUpdate:1;
+
+	/** The tracking status for the device (e.g. full tracking, inertial tracking only, no tracking) */
+	UPROPERTY(BlueprintReadOnly, Category = "MotionController")
+	TEnumAsByte<ETrackingStatus> CurrentTrackingStatus;
 
 	void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 
@@ -59,15 +63,27 @@ private:
 	private:
 		friend class UMotionControllerComponent;
 
-		/** Walks the component hierarchy gathering scene proxies */
-		void GatherSceneProxies(USceneComponent* Component);
-
 		/** Motion controller component associated with this view extension */
 		UMotionControllerComponent* MotionControllerComponent;
 
-		/** Scene proxies that need late updates */
-		FPrimitiveSceneProxy*	LateUpdateSceneProxies[16];
-		int32					LateUpdateSceneProxyCount;
+		/*
+		 *	Late update primitive info for accessing valid scene proxy info. From the time the info is gathered
+		 *  to the time it is later accessed the render proxy can be deleted. To ensure we only access a proxy that is
+		 *  still valid we cache the primitive's scene info AND a pointer to it's own cached index. If the primitive
+		 *  is deleted or removed from the scene then attempting to access it via it's index will result in a different
+		 *  scene info than the cached scene info.
+		 */
+		struct LateUpdatePrimitiveInfo
+		{
+			const int32*			IndexAddress;
+			FPrimitiveSceneInfo*	SceneInfo;
+		};
+
+		/** Walks the component hierarchy gathering scene proxies */
+		void GatherLateUpdatePrimitives(USceneComponent* Component, TArray<LateUpdatePrimitiveInfo>& Primitives);
+
+		/** Primitives that need late update before rendering */
+		TArray<LateUpdatePrimitiveInfo> LateUpdatePrimitives;
 	};
 	TSharedPtr< FViewExtension, ESPMode::ThreadSafe > ViewExtension;
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "ContentBrowserPCH.h"
@@ -210,7 +210,7 @@ void FContentBrowserSingleton::CreateNewAsset(const FString& DefaultAssetName, c
 	}
 }
 
-void FContentBrowserSingleton::SyncBrowserToAssets(const TArray<FAssetData>& AssetDataList, bool bAllowLockedBrowsers)
+void FContentBrowserSingleton::SyncBrowserToAssets(const TArray<FAssetData>& AssetDataList, bool bAllowLockedBrowsers, bool bFocusContentBrowser)
 {
 	TSharedPtr<SContentBrowser> ContentBrowserToSync;
 
@@ -256,7 +256,10 @@ void FContentBrowserSingleton::SyncBrowserToAssets(const TArray<FAssetData>& Ass
 	if ( ContentBrowserToSync.IsValid() )
 	{
 		// Finally, focus and sync the browser that was found
-		FocusContentBrowser(ContentBrowserToSync);
+		if (bFocusContentBrowser)
+		{
+			FocusContentBrowser(ContentBrowserToSync);
+		}
 		ContentBrowserToSync->SyncToAssets(AssetDataList);
 	}
 	else
@@ -265,7 +268,7 @@ void FContentBrowserSingleton::SyncBrowserToAssets(const TArray<FAssetData>& Ass
 	}
 }
 
-void FContentBrowserSingleton::SyncBrowserToAssets(const TArray<UObject*>& AssetList, bool bAllowLockedBrowsers)
+void FContentBrowserSingleton::SyncBrowserToAssets(const TArray<UObject*>& AssetList, bool bAllowLockedBrowsers, bool bFocusContentBrowser)
 {
 	// Convert UObject* array to FAssetData array
 	TArray<FAssetData> AssetDataList;
@@ -277,7 +280,7 @@ void FContentBrowserSingleton::SyncBrowserToAssets(const TArray<UObject*>& Asset
 		}
 	}
 
-	SyncBrowserToAssets(AssetDataList, bAllowLockedBrowsers);
+	SyncBrowserToAssets(AssetDataList, bAllowLockedBrowsers, bFocusContentBrowser);
 }
 
 void FContentBrowserSingleton::GetSelectedAssets(TArray<FAssetData>& SelectedAssets)
@@ -287,6 +290,12 @@ void FContentBrowserSingleton::GetSelectedAssets(TArray<FAssetData>& SelectedAss
 		PrimaryContentBrowser.Pin()->GetSelectedAssets(SelectedAssets);
 	}
 }
+
+void FContentBrowserSingleton::CaptureThumbnailFromViewport(FViewport* InViewport, TArray<FAssetData>& SelectedAssets)
+{
+	ContentBrowserUtils::CaptureThumbnailFromViewport(InViewport, SelectedAssets);
+}
+
 
 void FContentBrowserSingleton::OnEditorLoadSelectedAssetsIfNeeded()
 {

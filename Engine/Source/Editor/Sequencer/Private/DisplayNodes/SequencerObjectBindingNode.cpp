@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerPrivatePCH.h"
 #include "SequencerObjectBindingNode.h"
@@ -8,7 +8,9 @@
 #include "MovieSceneTrack.h"
 #include "ObjectEditorUtils.h"
 #include "AssetEditorManager.h"
-
+#include "SequencerUtilities.h"
+#include "ClassIconFinder.h"
+#include "SequencerCommands.h"
 
 #define LOCTEXT_NAMESPACE "FObjectBindingNode"
 
@@ -60,6 +62,28 @@ struct PropertyMenuData
 };
 
 
+
+FSequencerObjectBindingNode::FSequencerObjectBindingNode(FName NodeName, const FText& InDisplayName, const FGuid& InObjectBinding, TSharedPtr<FSequencerDisplayNode> InParentNode, FSequencerNodeTree& InParentTree)
+	: FSequencerDisplayNode(NodeName, InParentNode, InParentTree)
+	, ObjectBinding(InObjectBinding)
+	, DefaultDisplayName(InDisplayName)
+{
+	UMovieScene* MovieScene = GetSequencer().GetFocusedMovieSceneSequence()->GetMovieScene();
+
+	if (MovieScene->FindPossessable(ObjectBinding))
+	{
+		BindingType = EObjectBindingType::Possessable;
+	}
+	else if (MovieScene->FindSpawnable(ObjectBinding))
+	{
+		BindingType = EObjectBindingType::Spawnable;
+	}
+	else
+	{
+		BindingType = EObjectBindingType::Unknown;
+	}
+}
+
 /* FSequencerDisplayNode interface
  *****************************************************************************/
 
@@ -86,6 +110,13 @@ void FSequencerObjectBindingNode::BuildContextMenu(FMenuBuilder& MenuBuilder)
 					}))
 				);
 			}
+
+			MenuBuilder.AddSubMenu(
+				LOCTEXT("OwnerLabel", "Spawned Object Owner"),
+				LOCTEXT("OwnerTooltip", "Specifies how the spawned object is to be owned"),
+				FNewMenuDelegate::CreateSP(this, &FSequencerObjectBindingNode::AddSpawnOwnershipMenu)
+			);
+
 		}
 		else
 		{
@@ -100,9 +131,10 @@ void FSequencerObjectBindingNode::BuildContextMenu(FMenuBuilder& MenuBuilder)
 					FText::Format( LOCTEXT("AssignActorTooltip", "Assign an actor to this track"), Args ),
 					FNewMenuDelegate::CreateRaw(&GetSequencer(), &FSequencer::AssignActor, ObjectBinding));
 			}
+
+			MenuBuilder.AddMenuEntry( FSequencerCommands::Get().ConvertToSpawnable );
 		}
 
-#if 0
 		MenuBuilder.BeginSection("Organize", LOCTEXT("OrganizeContextMenuSectionName", "Organize"));
 		{
 			MenuBuilder.AddSubMenu(
@@ -112,61 +144,104 @@ void FSequencerObjectBindingNode::BuildContextMenu(FMenuBuilder& MenuBuilder)
 			);
 		}
 		MenuBuilder.EndSection();
-#endif
 	}
 
 	FSequencerDisplayNode::BuildContextMenu(MenuBuilder);
 }
 
+void FSequencerObjectBindingNode::AddSpawnOwnershipMenu(FMenuBuilder& MenuBuilder)
+{
+	FMovieSceneSpawnable* Spawnable = GetSequencer().GetFocusedMovieSceneSequence()->GetMovieScene()->FindSpawnable(ObjectBinding);
+	if (!Spawnable)
+	{
+		return;
+	}
+
+	MenuBuilder.AddMenuEntry(
+		LOCTEXT("ThisSequence_Label", "This Sequence"),
+		LOCTEXT("ThisSequence_Tooltip", "Indicates that this sequence will own the spawned object. The object will be destroyed at the end of the sequence."),
+		FSlateIcon(),
+		FUIAction(
+			FExecuteAction::CreateLambda([=]{ Spawnable->SetSpawnOwnership(ESpawnOwnership::InnerSequence); }),
+			FCanExecuteAction(),
+			FIsActionChecked::CreateLambda([=]{ return Spawnable->GetSpawnOwnership() == ESpawnOwnership::InnerSequence; })
+		),
+		NAME_None,
+		EUserInterfaceActionType::ToggleButton
+	);
+
+	MenuBuilder.AddMenuEntry(
+		LOCTEXT("MasterSequence_Label", "Master Sequence"),
+		LOCTEXT("MasterSequence_Tooltip", "Indicates that the outermost sequence will own the spawned object. The object will be destroyed when the outermost sequence stops playing."),
+		FSlateIcon(),
+		FUIAction(
+			FExecuteAction::CreateLambda([=]{ Spawnable->SetSpawnOwnership(ESpawnOwnership::MasterSequence); }),
+			FCanExecuteAction(),
+			FIsActionChecked::CreateLambda([=]{ return Spawnable->GetSpawnOwnership() == ESpawnOwnership::MasterSequence; })
+		),
+		NAME_None,
+		EUserInterfaceActionType::ToggleButton
+	);
+
+	MenuBuilder.AddMenuEntry(
+		LOCTEXT("External_Label", "External"),
+		LOCTEXT("External_Tooltip", "Indicates this object's lifetime is managed externally once spawned. It will not be destroyed by sequencer."),
+		FSlateIcon(),
+		FUIAction(
+			FExecuteAction::CreateLambda([=]{ Spawnable->SetSpawnOwnership(ESpawnOwnership::External); }),
+			FCanExecuteAction(),
+			FIsActionChecked::CreateLambda([=]{ return Spawnable->GetSpawnOwnership() == ESpawnOwnership::External; })
+		),
+		NAME_None,
+		EUserInterfaceActionType::ToggleButton
+	);
+
+	MenuBuilder.AddMenuSeparator();
+	MenuBuilder.AddMenuEntry(
+		LOCTEXT("IgnoreOwnership_Label", "Keep Alive Outside Playback Range (In Sequencer)"),
+		LOCTEXT("IgnoreOwnership_Tooltip", "Keeps the spawned object alive when viewing this specific sequence outside of its playback range. Does not apply to runtime evaluation."),
+		FSlateIcon(),
+		FUIAction(
+			FExecuteAction::CreateLambda([=]{
+				Spawnable->SetIgnoreOwnershipInEditor(!Spawnable->ShouldIgnoreOwnershipInEditor());
+				GetSequencer().SetGlobalTimeDirectly(GetSequencer().GetGlobalTime());
+			}),
+			FCanExecuteAction(),
+			FIsActionChecked::CreateLambda([=]{ return Spawnable->ShouldIgnoreOwnershipInEditor(); })
+		),
+		NAME_None,
+		EUserInterfaceActionType::ToggleButton
+	);
+}
 
 bool FSequencerObjectBindingNode::CanRenameNode() const
 {
 	return true;
 }
 
-
-TSharedRef<SWidget> FSequencerObjectBindingNode::GenerateEditWidgetForOutliner()
+TSharedRef<SWidget> FSequencerObjectBindingNode::GetCustomOutlinerContent()
 {
 	// Create a container edit box
-	TSharedPtr<class SHorizontalBox> EditBox;
-	SAssignNew(EditBox, SHorizontalBox);	
+	TSharedRef<SHorizontalBox> BoxPanel = SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		[
+			SNew(SSpacer)
+		];
 
-	// Add the property combo box
-	EditBox.Get()->AddSlot()
+
+	TAttribute<bool> HoverState = TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FSequencerDisplayNode::IsHovered));
+
+	BoxPanel->AddSlot()
+	.AutoWidth()
+	.VAlign(VAlign_Center)
 	[
-		SNew(SComboButton)
-			.ButtonStyle(FEditorStyle::Get(), "FlatButton.Light")
-			.OnGetMenuContent(this, &FSequencerObjectBindingNode::HandleAddTrackComboButtonGetMenuContent)
-			.ContentPadding(FMargin(2, 0))
-			.ButtonContent()
-			[
-				SNew(SHorizontalBox)
-
-				+ SHorizontalBox::Slot()
-					.VAlign(VAlign_Center)
-					.AutoWidth()
-					[
-						SNew(STextBlock)
-							.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.8"))
-							.Text(FText::FromString(FString(TEXT("\xf067"))) /*fa-plus*/)
-					]
-
-				+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.Padding(4, 0, 0, 0)
-					[
-						SNew(STextBlock)
-							.Font(FEditorStyle::GetFontStyle("Sequencer.AnimationOutliner.RegularFont"))
-							.Text(LOCTEXT("AddTrackButton", "Track"))
-					]
-			]
+		FSequencerUtilities::MakeAddButton(LOCTEXT("TrackText", "Track"), FOnGetContent::CreateSP(this, &FSequencerObjectBindingNode::HandleAddTrackComboButtonGetMenuContent), HoverState)
 	];
 
 	const UClass* ObjectClass = GetClassForObjectBinding();
+	GetSequencer().BuildObjectBindingEditButtons(BoxPanel, ObjectBinding, ObjectClass);
 
-	GetSequencer().BuildObjectBindingEditButtons(EditBox, ObjectBinding, ObjectClass);
-
-	return EditBox.ToSharedRef();
+	return BoxPanel;
 }
 
 
@@ -182,16 +257,73 @@ FText FSequencerObjectBindingNode::GetDisplayName() const
 	return DefaultDisplayName;
 }
 
+FLinearColor FSequencerObjectBindingNode::GetDisplayNameColor() const
+{
+	FSequencer& Sequencer = ParentTree.GetSequencer();
+	TArray<TWeakObjectPtr<UObject>> RuntimeObjects;
+	Sequencer.GetRuntimeObjects( Sequencer.GetFocusedMovieSceneSequenceInstance(), ObjectBinding, RuntimeObjects );
+	if ( RuntimeObjects.Num() == 0 )
+	{
+		return FLinearColor::Red;
+	}
+	else
+	{
+		return FSequencerDisplayNode::GetDisplayNameColor();
+	}
+}
+
+FText FSequencerObjectBindingNode::GetDisplayNameToolTipText() const
+{
+	FSequencer& Sequencer = ParentTree.GetSequencer();
+	TArray<TWeakObjectPtr<UObject>> RuntimeObjects;
+	Sequencer.GetRuntimeObjects( Sequencer.GetFocusedMovieSceneSequenceInstance(), ObjectBinding, RuntimeObjects );
+	if ( RuntimeObjects.Num() == 0 )
+	{
+		return LOCTEXT("InvalidBoundObjectToolTip", "The object bound to this track is missing.");
+	}
+	else
+	{
+		return FText();
+	}
+}
+
+const FSlateBrush* FSequencerObjectBindingNode::GetIconBrush() const
+{
+	return FClassIconFinder::FindIconForClass(GetClassForObjectBinding());
+}
+
+const FSlateBrush* FSequencerObjectBindingNode::GetIconOverlayBrush() const
+{
+	if (BindingType == EObjectBindingType::Spawnable)
+	{
+		return FEditorStyle::GetBrush("Sequencer.SpawnableIconOverlay");
+	}
+	return nullptr;
+}
+
+FText FSequencerObjectBindingNode::GetIconToolTipText() const
+{
+	if (BindingType == EObjectBindingType::Spawnable)
+	{
+		return LOCTEXT("SpawnableToolTip", "This item is spawned by sequencer according to this object's spawn track.");
+	}
+	else if (BindingType == EObjectBindingType::Possessable)
+	{
+		return LOCTEXT("PossessableToolTip", "This item is a possessable reference to an existing object.");
+	}
+
+	return FText();
+}
 
 float FSequencerObjectBindingNode::GetNodeHeight() const
 {
-	return SequencerLayoutConstants::ObjectNodeHeight;
+	return SequencerLayoutConstants::ObjectNodeHeight + SequencerNodeConstants::CommonPadding*2;
 }
 
 
 FNodePadding FSequencerObjectBindingNode::GetNodePadding() const
 {
-	return FNodePadding(SequencerNodeConstants::CommonPadding * 2, 0.f);
+	return FNodePadding(0.f);//SequencerNodeConstants::CommonPadding);
 }
 
 
@@ -209,6 +341,13 @@ void FSequencerObjectBindingNode::SetDisplayName(const FText& NewDisplayName)
 	{
 		MovieScene->SetObjectDisplayName(ObjectBinding, NewDisplayName);
 	}
+}
+
+
+bool FSequencerObjectBindingNode::CanDrag() const
+{
+	TSharedPtr<FSequencerDisplayNode> ParentNode = GetParent();
+	return ParentNode.IsValid() == false || ParentNode->GetType() != ESequencerNode::Object;
 }
 
 
@@ -263,10 +402,8 @@ void FSequencerObjectBindingNode::AddPropertyMenuItems(FMenuBuilder& AddTrackMen
 }
 
 
-const UClass* FSequencerObjectBindingNode::GetClassForObjectBinding()
+const UClass* FSequencerObjectBindingNode::GetClassForObjectBinding() const
 {
-	FSequencer& ParentSequencer = GetSequencer();
-
 	UMovieScene* MovieScene = GetSequencer().GetFocusedMovieSceneSequence()->GetMovieScene();
 	FMovieSceneSpawnable* Spawnable = MovieScene->FindSpawnable(ObjectBinding);
 	FMovieScenePossessable* Possessable = MovieScene->FindPossessable(ObjectBinding);
@@ -279,6 +416,41 @@ const UClass* FSequencerObjectBindingNode::GetClassForObjectBinding()
 	return ObjectClass;
 }
 
+UObject* FSequencerObjectBindingNode::FindRepresentativeObject()
+{
+	FSequencer& Sequencer = GetSequencer();
+	
+	UObject* BoundObject = Sequencer.GetFocusedMovieSceneSequenceInstance()->FindObject(ObjectBinding, Sequencer);
+	if (BoundObject)
+	{
+		return BoundObject;
+	}
+
+	UMovieScene* FocusedMovieScene = Sequencer.GetFocusedMovieSceneSequence()->GetMovieScene();
+
+	FMovieScenePossessable* Possessable = FocusedMovieScene->FindPossessable(ObjectBinding);
+	// If we're a possessable with a parent spawnable and we don't have the object, we look the object up within the default object of the spawnable
+	if (Possessable && Possessable->GetParent().IsValid())
+	{
+		// If we're a spawnable and we don't have the object, use the default object to build up the track menu
+		FMovieSceneSpawnable* ParentSpawnable = FocusedMovieScene->FindSpawnable(Possessable->GetParent());
+		if (ParentSpawnable)
+		{
+			UObject* ParentObject = ParentSpawnable->GetClass()->GetDefaultObject();
+			if (ParentObject)
+			{
+				return Sequencer.GetFocusedMovieSceneSequence()->FindPossessableObject(ObjectBinding, ParentObject);
+			}
+		}
+	}
+	// If we're a spawnable and we don't have the object, use the default object to build up the track menu
+	else if (FMovieSceneSpawnable* Spawnable = FocusedMovieScene->FindSpawnable(ObjectBinding))
+	{
+		return Spawnable->GetClass()->GetDefaultObject();
+	}
+
+	return nullptr;
+}
 
 /* FSequencerObjectBindingNode callbacks
  *****************************************************************************/
@@ -290,7 +462,7 @@ TSharedRef<SWidget> FSequencerObjectBindingNode::HandleAddTrackComboButtonGetMen
 	//@todo need to resolve this between UMG and the level editor sequencer
 	const bool bUseSubMenus = Sequencer.IsLevelEditorSequencer();
 
-	UObject* BoundObject = Sequencer.GetFocusedMovieSceneSequenceInstance()->FindObject(ObjectBinding, Sequencer);
+	UObject* BoundObject = FindRepresentativeObject();
 
 	ISequencerModule& SequencerModule = FModuleManager::GetModuleChecked<ISequencerModule>( "Sequencer" );
 	TSharedRef<FUICommandList> CommandList(new FUICommandList);
@@ -451,15 +623,14 @@ void FSequencerObjectBindingNode::HandleAddTrackSubMenuNew(FMenuBuilder& AddTrac
 
 void FSequencerObjectBindingNode::HandleLabelsSubMenuCreate(FMenuBuilder& MenuBuilder)
 {
-	UMovieScene* MovieScene = GetSequencer().GetFocusedMovieSceneSequence()->GetMovieScene();
-	MenuBuilder.AddWidget(SNew(SSequencerLabelEditor, MovieScene, ObjectBinding), FText::GetEmpty(), true);
+	MenuBuilder.AddWidget(SNew(SSequencerLabelEditor, GetSequencer(), ObjectBinding), FText::GetEmpty(), true);
 }
 
 
 void FSequencerObjectBindingNode::HandlePropertyMenuItemExecute(TArray<UProperty*> PropertyPath)
 {
 	FSequencer& Sequencer = GetSequencer();
-	UObject* BoundObject = Sequencer.GetFocusedMovieSceneSequenceInstance()->FindObject(ObjectBinding, Sequencer);
+	UObject* BoundObject = FindRepresentativeObject();
 
 	TArray<UObject*> KeyableBoundObjects;
 	if (BoundObject != nullptr)

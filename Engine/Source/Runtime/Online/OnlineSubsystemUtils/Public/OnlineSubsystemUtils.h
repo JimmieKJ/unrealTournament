@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -149,6 +149,7 @@ namespace Online
 	/** Reimplement all the interfaces of Online.h with support for UWorld accessors */
 	IMPLEMENT_GET_INTERFACE(Session);
 	IMPLEMENT_GET_INTERFACE(Party);
+	IMPLEMENT_GET_INTERFACE(Chat);
 	IMPLEMENT_GET_INTERFACE(Friends);
 	IMPLEMENT_GET_INTERFACE(User);
 	IMPLEMENT_GET_INTERFACE(SharedCloud);

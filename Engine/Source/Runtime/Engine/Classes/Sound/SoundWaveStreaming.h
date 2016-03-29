@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #ifdef _MSC_VER
     #pragma message(__FILE__"(9): warning : #include SoundWaveProcedural.h instead of SoundWaveStreaming.h")

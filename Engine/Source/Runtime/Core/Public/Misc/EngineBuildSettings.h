@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -22,7 +22,7 @@ public:
 	static bool IsSourceDistribution();
 
 	/**
-	 * @return True if a given engine distribution contains source (as opposed to, say, Rocket builds)
+	 * @return True if a given engine distribution contains source (as opposed to, say, Launcher builds)
 	 */
 	static bool IsSourceDistribution(const FString& RootDir);
 };

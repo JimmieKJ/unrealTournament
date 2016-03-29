@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessUpscale.h: Post processing Upscale implementation.
@@ -27,11 +27,19 @@ public:
 		// Panini screen fit factor (lerp between vertical and horizontal) 
 		float ScreenFit;
 
+		// constructor off
 		PaniniParams()
 			: D(0.0f)
 			, S(0.0f)
 			, ScreenFit(1.0f)
 		{}
+
+		PaniniParams(const FViewInfo& View);
+
+		bool IsEnabled() const
+		{
+			return D > 0.01f;
+		}
 
 		static const PaniniParams Default;
 	};
@@ -46,9 +54,11 @@ public:
 	FRCPassPostProcessUpscale(uint32 InUpscaleQuality, const PaniniParams& InPaniniConfig = PaniniParams::Default);
 
 	// interface FRenderingCompositePass ---------
+
 	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual void Release() override { delete this; }
 	FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
+
 private:
 	// @param InCylinderDistortion 0=none..1=full in percent, must be in that range
 	template <uint32 Quality, uint32 bTesselatedQuad> static FShader* SetShader(const FRenderingCompositePassContext& Context, const PaniniParams& PaniniConfig);

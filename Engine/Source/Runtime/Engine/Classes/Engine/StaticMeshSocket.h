@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -50,6 +50,8 @@ class UStaticMeshSocket : public UObject
 	 *	@return	bool			true if successful, false if not
 	 */
 	ENGINE_API bool AttachActor(AActor* Actor, class UStaticMeshComponent* MeshComp) const;
+
+	virtual void Serialize(FArchive& Ar) override;
 
 public:
 #if WITH_EDITOR

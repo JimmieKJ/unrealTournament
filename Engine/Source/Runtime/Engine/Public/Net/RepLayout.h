@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	RepLayout.h:
@@ -31,12 +31,14 @@ public:
 class FRepChangedPropertyTracker : public IRepChangedPropertyTracker
 {
 public:
-	FRepChangedPropertyTracker(bool InForceAlwaysActive)
+	FRepChangedPropertyTracker( const bool InbIsReplay, const bool InbIsClientReplayRecording )
 		: LastReplicationGroupFrame( 0 )
 		, LastReplicationFrame( 0 )
 		, ActiveStatusChanged( false )
 		, UnconditionalPropChanged( false )
-		, ForceAlwaysActive( InForceAlwaysActive ) { }
+		, bIsReplay( InbIsReplay )
+		, bIsClientReplayRecording( InbIsClientReplayRecording )
+		, ExternalDataNumBits( 0 ) {}
 	virtual ~FRepChangedPropertyTracker() { }
 
 	virtual void SetCustomIsActiveOverride( const uint16 RepIndex, const bool bIsActive ) override
@@ -45,7 +47,7 @@ public:
 
 		checkSlow( Parent.IsConditional );
 
-		Parent.Active = (bIsActive || ForceAlwaysActive) ? 1 : 0;
+		Parent.Active = (bIsActive || bIsClientReplayRecording) ? 1 : 0;
 
 		if ( Parent.Active != Parent.OldActive )
 		{
@@ -53,6 +55,18 @@ public:
 		}
 
 		Parent.OldActive = Parent.Active;
+	}
+
+	virtual void SetExternalData( const uint8* Src, const int32 NumBits ) override
+	{
+		ExternalDataNumBits = NumBits;
+		ExternalData.AddUninitialized( ( NumBits + 7 ) >> 3 );
+		FMemory::Memcpy( ExternalData.GetData(), Src, ( NumBits + 7 ) >> 3 );
+	}
+
+	virtual bool IsReplay() const override
+	{
+		return bIsReplay;
 	}
 
 	uint32						LastReplicationGroupFrame;		// Most recent frame number of the last FRepState that was compared this frame
@@ -63,7 +77,11 @@ public:
 
 	uint32						ActiveStatusChanged;
 	bool						UnconditionalPropChanged;
-	bool						ForceAlwaysActive;				// Used for client replay recording. The server has already evaluated any custom conditions, so the client doesn't need to.
+	bool						bIsReplay;							// True when recording/playing replays
+	bool						bIsClientReplayRecording;			// True when recording client replays
+
+	TArray< uint8 >				ExternalData;
+	uint32						ExternalDataNumBits;
 };
 
 class FRepLayout;
@@ -292,7 +310,7 @@ public:
 
 	ENGINE_API void InitFromObjectClass( UClass * InObjectClass );
 
-	bool ReceiveProperties( UClass * InObjectClass, FRepState * RESTRICT RepState, void* RESTRICT Data, FNetBitReader & InBunch, bool & bOutHasUnmapped ) const;
+	bool ReceiveProperties( UClass * InObjectClass, FRepState * RESTRICT RepState, void* RESTRICT Data, FNetBitReader & InBunch, bool & bOutHasUnmapped, const bool bEnableRepNotifies ) const;
 	void UpdateUnmappedObjects( FRepState *	RepState, UPackageMap * PackageMap, UObject* Object, bool & bOutSomeObjectsWereMapped, bool & bOutHasMoreUnmapped ) const;
 
 	void CallRepNotifies( FRepState * RepState, UObject* Object ) const;
@@ -306,7 +324,7 @@ public:
 
 	void MergeDirtyList( FRepState * RepState, const void* RESTRICT Data, const TArray< uint16 > & Dirty1, const TArray< uint16 > & Dirty2, TArray< uint16 > & MergedDirty ) const;
 
-	bool DiffProperties( FRepState * RepState, const void* RESTRICT Data, const bool bSync ) const;
+	bool DiffProperties( TArray<UProperty*>* RepNotifies, void* RESTRICT Destination, const void* RESTRICT Source, const bool bSync ) const;
 
 	void GetLifetimeCustomDeltaProperties(TArray< int32 > & OutCustom, TArray< ELifetimeCondition >	& OutConditions);
 

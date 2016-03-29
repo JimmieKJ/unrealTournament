@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 //~=============================================================================
 // ParticleEmitter
@@ -79,6 +79,9 @@ struct FParticleBurst
 		}
 	
 };
+
+DECLARE_STATS_GROUP(TEXT("Emitters"), STATGROUP_Emitters, STATCAT_Advanced);
+DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("STAT_EmittersStatGroupTester"), STAT_EmittersStatGroupTester, STATGROUP_Emitters, ENGINE_API);
 
 UCLASS(hidecategories=Object, editinlinenew, abstract, MinimalAPI)
 class UParticleEmitter : public UObject
@@ -172,6 +175,48 @@ class UParticleEmitter : public UObject
 	/** When true, if the current LOD is disabled the emitter will be kept alive. Otherwise, the emitter will be considered complete if the current LOD is disabled. */
 	UPROPERTY(EditAnywhere, Category = Particle)
 	uint32 bDisabledLODsKeepEmitterAlive : 1;
+	
+		/** When true, emitters deemed insignificant will have their tick and render disabled Instantly. When false they will simple stop spawning new particles. */
+	UPROPERTY(EditAnywhere, Category = Significance)
+	uint32 bDisableWhenInsignficant : 1;
+
+	/** The significance level required of this emitter's owner for this emitter to be active. */
+	UPROPERTY(EditAnywhere, Category = Significance)
+	EParticleSignificanceLevel SignificanceLevel;
+
+	//////////////////////////////////////////////////////////////////////////
+	// Below is information udpated by calling CacheEmitterModuleInfo
+
+	uint32 bRequiresLoopNotification : 1;
+	uint32 bAxisLockEnabled : 1;
+	uint32 bMeshRotationActive : 1;
+	TEnumAsByte<EParticleAxisLock> LockAxisFlags;
+
+	/** Map module pointers to their offset into the particle data.		*/
+	TMap<UParticleModule*, uint32> ModuleOffsetMap;
+
+	/** Map module pointers to their offset into the instance data.		*/
+	TMap<UParticleModule*, uint32> ModuleInstanceOffsetMap;
+
+	/** Materials collected from any MeshMaterial modules */
+	TArray<class UMaterialInterface*> MeshMaterials;
+
+	int32 DynamicParameterDataOffset;
+	int32 LightDataOffset;
+	int32 CameraPayloadOffset;
+	int32 ParticleSize;
+	int32 ReqInstanceBytes;
+	FVector2D PivotOffset;
+	int32 TypeDataOffset;
+	int32 TypeDataInstanceOffset;
+
+	// Array of modules that want emitter instance data
+	TArray<UParticleModule*> ModulesNeedingInstanceData;
+
+	/** SubUV animation asset to use for cutout geometry. */
+	class USubUVAnimation* RESTRICT SubUVAnimation;
+
+	//////////////////////////////////////////////////////////////////////////
 
 	//~ Begin UObject Interface
 #if WITH_EDITOR
@@ -310,6 +355,9 @@ class UParticleEmitter : public UObject
 	 */
 	void Build();
 
+	/** Pre-calculate data size/offset and other info from modules in this Emitter */
+	void CacheEmitterModuleInfo();
+
 	/**
 	 *   Calculate spawn rate multiplier based on global effects quality level and emitter's quality scale
  	 */
@@ -317,7 +365,38 @@ class UParticleEmitter : public UObject
 
 	/** Returns true if the is emitter has any enabled LODs, false otherwise. */
 	bool HasAnyEnabledLODs()const;
-};
 
+	/** Stat id of this object, 0 if nobody asked for it yet */
+	STAT(mutable TStatId StatID;)
+		
+	/**
+	* Returns the stat ID of the object...
+	* We can't use the normal version of this because those names are meaningless; we need the special name in the emitter
+	**/
+	FORCEINLINE TStatId GetStatID(bool bForDeferredUse = false) const
+	{
+#if STATS
+		// this is done to avoid even registering stats for a disabled group (unless we plan on using it later)
+		if (bForDeferredUse || FThreadStats::IsCollectingData(GET_STATID(STAT_EmittersStatGroupTester)))
+		{
+			if (!StatID.IsValidStat())
+			{
+				CreateStatID();
+			}
+			return StatID;
+		}
+#endif
+		return TStatId(); // not doing stats at the moment, or ever
+	}
+	/**
+	* Creates this stat ID for the emitter...and handle a null this pointer
+	**/
+#if STATS
+	void CreateStatID() const;
+#endif
+
+	/** Returns if this emitter is considered significant for the passed requirement. */
+	ENGINE_API bool IsSignificant(EParticleSignificanceLevel RequiredSignificance);
+};
 
 

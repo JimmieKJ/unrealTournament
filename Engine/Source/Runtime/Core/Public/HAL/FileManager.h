@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "GenericPlatform/GenericPlatformFile.h"
@@ -165,6 +165,11 @@ public:
 	 * @return the modification time of the given file (or FDateTime::MinValue() on failure)
 	 */
 	virtual FDateTime GetTimeStamp( const TCHAR* Path ) = 0;
+
+	/**
+	* @return the modification time of the given file (or FDateTime::MinValue() on failure)
+	*/
+	virtual void GetTimeStampPair(const TCHAR* PathA, const TCHAR* PathB, FDateTime& OutTimeStampA, FDateTime& OutTimeStampB) = 0;
 
 	/** 
 	 * Sets the modification time of the given file

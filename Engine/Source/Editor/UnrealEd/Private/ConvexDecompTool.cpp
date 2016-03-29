@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ConvexDecompTool.cpp: Utility for turning graphics mesh into convex hulls.
@@ -83,13 +83,26 @@ void DecomposeMeshToHulls(UBodySetup* InBodySetup, const TArray<FVector>& InVert
 
 	bool bSuccess = false;
 
+	// Validate input by checking bounding box
+	FBox VertBox(0);
+	for (FVector Vert : InVertices)
+	{
+		VertBox += Vert;
+	}
+
+	// If box is invalid, or the largest dimension is less than 1 unit, or smallest is less than 0.1, skip trying to generate collision (V-HACD often crashes...)
+	if (VertBox.IsValid == 0 || VertBox.GetSize().GetMax() < 1.f || VertBox.GetSize().GetMin() < 0.1f)
+	{
+		return;
+	}
+
 #if USE_VHACD
 	FVHACDProgressCallback VHACD_Callback;
 
 	IVHACD::Parameters VHACD_Params;
-	VHACD_Params.m_resolution = 1000000;
-	VHACD_Params.m_maxNumVerticesPerCH = InMaxHullVerts;
-	VHACD_Params.m_concavity = 0.3f * (1.f - FMath::Clamp(InAccuracy, 0.f, 1.f));
+	VHACD_Params.m_resolution = 1000000; // Maximum number of voxels generated during the voxelization stage (default=100,000, range=10,000-16,000,000)
+	VHACD_Params.m_maxNumVerticesPerCH = InMaxHullVerts; // Controls the maximum number of triangles per convex-hull (default=64, range=4-1024)
+	VHACD_Params.m_concavity = 0.3f * (1.f - FMath::Clamp(InAccuracy, 0.f, 1.f)); // Maximum allowed concavity (default=0.0025, range=0.0-1.0)
 	VHACD_Params.m_callback = &VHACD_Callback;
 	VHACD_Params.m_oclAcceleration = false;
 
@@ -98,62 +111,65 @@ void DecomposeMeshToHulls(UBodySetup* InBodySetup, const TArray<FVector>& InVert
 	IVHACD* InterfaceVHACD = CreateVHACD();
 	
 #if CL_VERSION_1_1
-	cl_device_id max_gflops_device = NULL;
-	int max_gflops = 0;
-	
-	cl_uint NumPlatforms = 0;
-	cl_int Result = clGetPlatformIDs(0, NULL, &NumPlatforms);
-	if(Result == CL_SUCCESS && NumPlatforms > 0)
+	if (GetDefault<UEditorExperimentalSettings>()->bUseOpenCLForConvexHullDecomp)
 	{
-		cl_platform_id* Platforms = new cl_platform_id[NumPlatforms];
-		Result = clGetPlatformIDs(NumPlatforms, Platforms, NULL);
-		ANSICHAR PlatformVersion[1024];
-		for(cl_uint i = 0; Result == CL_SUCCESS && i < NumPlatforms; i++)
+		cl_device_id max_gflops_device = NULL;
+		int max_gflops = 0;
+		
+		cl_uint NumPlatforms = 0;
+		cl_int Result = clGetPlatformIDs(0, NULL, &NumPlatforms);
+		if(Result == CL_SUCCESS && NumPlatforms > 0)
 		{
-			clGetPlatformInfo(Platforms[i], CL_PLATFORM_VERSION, sizeof(PlatformVersion), PlatformVersion, nullptr);
-			
-			int32 Major = 0;
-			int32 Minor = 0;
-			sscanf(PlatformVersion, "OpenCL %d.%d", &Major, &Minor);
-			
-			if(Major > 1 || (Major == 1 && Minor >= 1))
+			cl_platform_id* Platforms = new cl_platform_id[NumPlatforms];
+			Result = clGetPlatformIDs(NumPlatforms, Platforms, NULL);
+			ANSICHAR PlatformVersion[1024];
+			for(cl_uint i = 0; Result == CL_SUCCESS && i < NumPlatforms; i++)
 			{
-				cl_uint NumGPUs = 0;
-				Result = clGetDeviceIDs(Platforms[i], CL_DEVICE_TYPE_GPU, 0, NULL, &NumGPUs);
-				if ( Result == CL_SUCCESS )
+				clGetPlatformInfo(Platforms[i], CL_PLATFORM_VERSION, sizeof(PlatformVersion), PlatformVersion, nullptr);
+				
+				int32 Major = 0;
+				int32 Minor = 0;
+				sscanf(PlatformVersion, "OpenCL %d.%d", &Major, &Minor);
+				
+				if(Major > 1 || (Major == 1 && Minor >= 1))
 				{
-					cl_device_id* Devices = new cl_device_id[NumGPUs];
-					Result = clGetDeviceIDs(Platforms[i], CL_DEVICE_TYPE_GPU, NumGPUs, Devices, NULL);
-					for(cl_uint j = 0; j < NumGPUs; j++)
+					cl_uint NumGPUs = 0;
+					Result = clGetDeviceIDs(Platforms[i], CL_DEVICE_TYPE_GPU, 0, NULL, &NumGPUs);
+					if ( Result == CL_SUCCESS )
 					{
-						clGetDeviceInfo(Devices[j], CL_DEVICE_VERSION, sizeof(PlatformVersion), PlatformVersion, nullptr);
-						Major = 0;
-						Minor = 0;
-						sscanf(PlatformVersion, "OpenCL %d.%d", &Major, &Minor);
-						if(Major > 1 || (Major == 1 && Minor >= 1))
+						cl_device_id* Devices = new cl_device_id[NumGPUs];
+						Result = clGetDeviceIDs(Platforms[i], CL_DEVICE_TYPE_GPU, NumGPUs, Devices, NULL);
+						for(cl_uint j = 0; j < NumGPUs; j++)
 						{
-							cl_uint Freq = 0;
-							clGetDeviceInfo(Devices[j], CL_DEVICE_MAX_CLOCK_FREQUENCY, sizeof(Freq), &Freq, NULL);
-							size_t Units = 0;
-							clGetDeviceInfo(Devices[j], CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(Units), &Units, NULL);
-							int gflops = Units * Freq;
-							if (gflops > max_gflops)
+							clGetDeviceInfo(Devices[j], CL_DEVICE_VERSION, sizeof(PlatformVersion), PlatformVersion, nullptr);
+							Major = 0;
+							Minor = 0;
+							sscanf(PlatformVersion, "OpenCL %d.%d", &Major, &Minor);
+							if(Major > 1 || (Major == 1 && Minor >= 1))
 							{
-								max_gflops = gflops;
-								max_gflops_device = Devices[j];
+								cl_uint Freq = 0;
+								clGetDeviceInfo(Devices[j], CL_DEVICE_MAX_CLOCK_FREQUENCY, sizeof(Freq), &Freq, NULL);
+								size_t Units = 0;
+								clGetDeviceInfo(Devices[j], CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(Units), &Units, NULL);
+								int gflops = Units * Freq;
+								if (gflops > max_gflops)
+								{
+									max_gflops = gflops;
+									max_gflops_device = Devices[j];
+								}
 							}
 						}
+						delete [] Devices;
 					}
-					delete [] Devices;
 				}
 			}
+			delete [] Platforms;
 		}
-		delete [] Platforms;
-	}
-	if ( max_gflops_device )
-	{
-		VHACD_Params.m_oclAcceleration = true;
-		InterfaceVHACD->OCLInit(&max_gflops_device);
+		if ( max_gflops_device )
+		{
+			VHACD_Params.m_oclAcceleration = true;
+			InterfaceVHACD->OCLInit(&max_gflops_device);
+		}
 	}
 #endif
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -178,6 +178,10 @@ private:
 	void OnToggleShowEmptySections();
 	bool IsShowingEmptySections() const;
 	
+	/** Support functions for view options for Show Replicated Variables only */
+	void OnToggleShowReplicatedVariablesOnly();
+	bool IsShowingReplicatedVariablesOnly() const;
+
 	/** Helper function to open the selected graph */
 	void OpenGraph(FDocumentTracker::EOpenDocumentCause InCause);
 
@@ -274,4 +278,7 @@ private:
 
 	/** Flag to indicate whether or not we need to refresh the panel */
 	bool bNeedsRefresh;
+
+	/** If set we'll show only replicated variables (local to a particular blueprint view). */
+	bool bShowReplicatedVariablesOnly;
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ShaderCore.h: Shader core module definitions.
@@ -112,8 +112,9 @@ enum ECompilerFlags
 	/** Shader should use on chip memory instead of main memory ring buffer memory. */
 	CFLAG_OnChip,
 	CFLAG_KeepDebugInfo,
-	// Skip using the cached usf file system and directly open the file (for debugging)
-	CFLAG_OpenFileFromFullPath,
+	CFLAG_NoFastMath,
+	// Compile ES2 with ES3.1 features
+	CFLAG_FeatureLevelES31
 };
 
 /**
@@ -320,7 +321,7 @@ inline FArchive& operator<<(FArchive& Ar, FResourceTableEntry& Entry)
 /** The environment used to compile a shader. */
 struct FShaderCompilerEnvironment : public FRefCountedObject
 {
-	TMap<FString,FString> IncludeFileNameToContentsMap;
+	TMap<FString,TArray<ANSICHAR>> IncludeFileNameToContentsMap;
 	TArray<uint32> CompilerFlags;
 	TMap<uint32,uint8> RenderTargetOutputFormatsMap;
 	TMap<FString,FResourceTableEntry> ResourceTableMap;
@@ -386,13 +387,17 @@ struct FShaderCompilerEnvironment : public FRefCountedObject
 	{
 		// Merge the include maps
 		// Merge the values of any existing keys
-		for (TMap<FString,FString>::TConstIterator It(Other.IncludeFileNameToContentsMap); It; ++It )
+		for (TMap<FString,TArray<ANSICHAR>>::TConstIterator It(Other.IncludeFileNameToContentsMap); It; ++It )
 		{
-			FString* ExistingContents = IncludeFileNameToContentsMap.Find(It.Key());
+			TArray<ANSICHAR>* ExistingContents = IncludeFileNameToContentsMap.Find(It.Key());
 
 			if (ExistingContents)
 			{
-				(*ExistingContents) += It.Value();
+				if (ExistingContents->Num() > 0)
+				{
+					ExistingContents->RemoveAt(ExistingContents->Num() - 1);
+				}
+				ExistingContents->Append(It.Value());
 			}
 			else
 			{
@@ -421,17 +426,32 @@ struct FShaderCompilerInput
 	// e.g. BasePassPixelShader, ReflectionEnvironmentShaders, SlateElementPixelShader, PostProcessCombineLUTs
 	FString SourceFilename;
 	FString EntryPointName;
+
+	// Skips the preprocessor and instead loads the usf file directly
+	bool bSkipPreprocessedCache;
+
+	// Shader pipeline information
 	bool bCompilingForShaderPipeline;
 	bool bIncludeUsedOutputs;
 	TArray<FString> UsedOutputs;
+
 	// Dump debug path (up to platform) e.g. "D:/MMittring-Z3941-A/UE4-Orion/OrionGame/Saved/ShaderDebugInfo/PCD3D_SM5"
 	FString DumpDebugInfoRootPath;
 	// only used if enabled by r.DumpShaderDebugInfo (platform/groupname) e.g. ""
 	FString DumpDebugInfoPath;
 	// materialname or "Global" "for debugging and better error messages
 	FString DebugGroupName;
+
+	// Compilation Environment
 	FShaderCompilerEnvironment Environment;
 	TRefCountPtr<FShaderCompilerEnvironment> SharedEnvironment;
+
+	FShaderCompilerInput() :
+		bSkipPreprocessedCache(false),
+		bCompilingForShaderPipeline(false),
+		bIncludeUsedOutputs(false)
+	{
+	}
 
 	// generate human readable name for debugging
 	FString GenerateShaderName() const
@@ -463,6 +483,7 @@ struct FShaderCompilerInput
 		Ar << Input.SourceFilePrefix;
 		Ar << Input.SourceFilename;
 		Ar << Input.EntryPointName;
+		Ar << Input.bSkipPreprocessedCache;
 		Ar << Input.bCompilingForShaderPipeline;
 		Ar << Input.bIncludeUsedOutputs;
 		Ar << Input.UsedOutputs;

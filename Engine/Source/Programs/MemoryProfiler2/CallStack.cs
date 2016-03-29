@@ -1,5 +1,5 @@
 /**
- * Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+ * Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
  */
 using System;
 using System.IO;
@@ -35,6 +35,9 @@ namespace MemoryProfiler2
 
 		/// <summary> Current amount of memory that is allocated in this callstack. </summary>
 		public long LatestSize;
+
+		/// <summary> The last processed stream index </summary>
+		private ulong LastStreamIndex = ulong.MaxValue;
 
 		/// <summary> Array of graph points used to draw a timeline graph in the callstack history view. </summary>
 		public List<FSizeGraphPoint> SizeGraphPoints;
@@ -504,6 +507,7 @@ namespace MemoryProfiler2
 
 		public void PropagateSizeGraphPoint(FAllocationLifecycle Lifecycle, ulong StreamIndex, int SizeChange)
 		{
+#if NOT_ENABLED
 			if (SizeGraphPoints == null)
 			{
 				return;
@@ -526,27 +530,12 @@ namespace MemoryProfiler2
 				PreviousCallStack = PreviousLifecycle.AllocEvent.PreviousCallStack;
 				PreviousLifecycle = PreviousLifecycle.AllocEvent.PreviousLifecycle;
 			}
-		}
-
-		// Not used, causes stack overflow exception.
-		public void PropagateSizeGraphPointOld(FAllocationLifecycle Lifecycle, ulong StreamIndex, int SizeChange)
-		{
-			if (SizeGraphPoints == null)
-			{
-				return;
-			}
-
-			PropagateSizeGraphPointInner(StreamIndex, SizeChange);
-
-			if (Lifecycle.AllocEvent.PreviousCallStack != null)
-			{
-				Lifecycle.AllocEvent.PreviousCallStack.PropagateSizeGraphPoint(Lifecycle.AllocEvent.PreviousLifecycle, StreamIndex, SizeChange);
-			}
+#endif
 		}
 
 		private void PropagateSizeGraphPointInner(ulong StreamIndex, int SizeChange)
 		{
-			if (SizeGraphPoints.Count > 0 && SizeGraphPoints[SizeGraphPoints.Count - 1].StreamIndex == StreamIndex)
+			if (LastStreamIndex == StreamIndex)
 			{
 				FSizeGraphPoint LastPoint = SizeGraphPoints[SizeGraphPoints.Count - 1];
 
@@ -567,6 +556,7 @@ namespace MemoryProfiler2
 				}
 
 				SizeGraphPoints.Add(new FSizeGraphPoint(StreamIndex, SizeChange, false));
+				LastStreamIndex = StreamIndex;
 			}
 		}
 	};
@@ -678,9 +668,9 @@ namespace MemoryProfiler2
 			if (ReallocsEvents == null)
 			{
 				ReallocsEvents = new List<FReallocationEvent>();
+				ReallocsEvents.Capacity = 1;
 			}
 			ReallocsEvents.Add(new FReallocationEvent(StreamToken, ReallocCallStack));
-			ReallocsEvents.TrimExcess();
 
 			if (ReallocCallStack != InitialCallStack)
 			{

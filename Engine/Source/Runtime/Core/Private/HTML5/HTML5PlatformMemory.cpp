@@ -1,11 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	HTML5PlatformMemory.cpp: HTML5 platform memory functions
 =============================================================================*/
 
 #include "CorePrivatePCH.h"
-#include "MallocBinned2.h"
+#include "MallocBinned.h"
 #include "MallocAnsi.h"
 
 void FHTML5PlatformMemory::Init()
@@ -51,7 +51,7 @@ FMalloc* FHTML5PlatformMemory::BaseAllocator()
 #if !PLATFORM_HTML5_WIN32 
 	return new FMallocAnsi();
 #else 
-	return new FMallocBinned2(32 * 1024, 1 << 30 );
+	return new FMallocBinned(32 * 1024, 1 << 30 );
 #endif 
 }
 

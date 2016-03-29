@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessAmbient.cpp: Post processing ambient implementation.
@@ -12,10 +12,9 @@
 #include "SceneUtils.h"
 
 /** Encapsulates the post processing ambient pixel shader. */
-template<bool bUseClearCoat>
-class TPostProcessAmbientPS : public FGlobalShader
+class FPostProcessAmbientPS : public FGlobalShader
 {
-	DECLARE_SHADER_TYPE(TPostProcessAmbientPS, Global);
+	DECLARE_SHADER_TYPE(FPostProcessAmbientPS, Global);
 
 	static bool ShouldCache(EShaderPlatform Platform)
 	{
@@ -25,11 +24,10 @@ class TPostProcessAmbientPS : public FGlobalShader
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		FGlobalShader::ModifyCompilationEnvironment(Platform,OutEnvironment);
-		OutEnvironment.SetDefine(TEXT("USE_CLEARCOAT"), (uint32)bUseClearCoat);
 	}	
 
 	/** Default constructor. */
-	TPostProcessAmbientPS() {}
+	FPostProcessAmbientPS() {}
 
 public:
 	FPostProcessPassParameters PostprocessParameter;
@@ -39,7 +37,7 @@ public:
 	FShaderResourceParameter PreIntegratedGFSampler;
 
 	/** Initialization constructor. */
-	TPostProcessAmbientPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
+	FPostProcessAmbientPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer)
 	{
 		PostprocessParameter.Bind(Initializer.ParameterMap);
@@ -69,14 +67,13 @@ public:
 	}
 };
 
-IMPLEMENT_SHADER_TYPE(template<>, TPostProcessAmbientPS<false>, TEXT("PostProcessAmbient"), TEXT("MainPS"), SF_Pixel);
-IMPLEMENT_SHADER_TYPE(template<>, TPostProcessAmbientPS<true>, TEXT("PostProcessAmbient"), TEXT("MainPS"), SF_Pixel);
+IMPLEMENT_SHADER_TYPE(, FPostProcessAmbientPS, TEXT("PostProcessAmbient"), TEXT("MainPS"), SF_Pixel);
 
 template<bool bUseClearCoat>
 void FRCPassPostProcessAmbient::Render(FRenderingCompositePassContext& Context)
 {
-	TShaderMapRef<TPostProcessAmbientPS<bUseClearCoat>> PixelShader(Context.GetShaderMap());
 	TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
+	TShaderMapRef<FPostProcessAmbientPS> PixelShader(Context.GetShaderMap());
 	const FSceneView& View = Context.View;
 
 	static FGlobalBoundShaderState BoundShaderState;

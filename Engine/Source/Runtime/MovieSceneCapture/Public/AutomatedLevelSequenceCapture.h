@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -21,47 +21,42 @@ public:
 	/** Set the level sequence asset that we are to record. We will spawn a new actor at runtime for this asset for playback. */
 	void SetLevelSequenceAsset(FString InAssetPath);
 
-	/** Set the level sequence actor that we are to record */
-	void SetLevelSequenceActor(ALevelSequenceActor* InActor);
-
 	/** When enabled, the StartFrame setting will override the default starting frame number */
-	UPROPERTY(config, EditAnywhere, Category=CaptureSettings, AdvancedDisplay)
+	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay)
 	bool bUseCustomStartFrame;
 
 	/** Frame number to start capturing.  The frame number range depends on whether the bUseRelativeFrameNumbers option is enabled. */
-	UPROPERTY(config, EditAnywhere, Category=CaptureSettings, AdvancedDisplay, meta=(EditCondition="bUseCustomStartFrame"))
+	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay, meta=(EditCondition="bUseCustomStartFrame"))
 	int32 StartFrame;
 
 	/** When enabled, the EndFrame setting will override the default ending frame number */
-	UPROPERTY(config, EditAnywhere, Category=CaptureSettings, AdvancedDisplay)
+	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay)
 	bool bUseCustomEndFrame;
 
 	/** Frame number to end capturing.  The frame number range depends on whether the bUseRelativeFrameNumbers option is enabled. */
-	UPROPERTY(config, EditAnywhere, Category=CaptureSettings, AdvancedDisplay, meta=(EditCondition="bUseCustomEndFrame"))
+	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay, meta=(EditCondition="bUseCustomEndFrame"))
 	int32 EndFrame;
 
 	/** The number of extra frames to play before the sequence's start frame, to "warm up" the animation.  This is useful if your
 	    animation contains particles or other runtime effects that are spawned into the scene earlier than your capture start frame */
-	UPROPERTY(config, EditAnywhere, Category=CaptureSettings, AdvancedDisplay)
+	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay)
 	int32 WarmUpFrameCount;
 
 	/** The number of seconds to wait (in real-time) before we start playing back the warm up frames.  Useful for allowing post processing effects to settle down before capturing the animation. */
-	UPROPERTY(config, EditAnywhere, Category=CaptureSettings, AdvancedDisplay, meta=(Units=Seconds, ClampMin=0))
+	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay, meta=(Units=Seconds, ClampMin=0))
 	float DelayBeforeWarmUp;
 
 public:
 	// UMovieSceneCapture interface
-	virtual void Initialize(TWeakPtr<FSceneViewport> InViewport) override;
-	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
-	virtual void SetupFrameRange() override;
+	virtual void Initialize(TSharedPtr<FSceneViewport> InViewport, int32 PIEInstance = -1) override;
 
 private:
 
-	/** Called when this capture has stopped */
-	virtual void OnCaptureStopped() override;
-
 	/** Called when the level sequence has updated the world */
 	void SequenceUpdated(const ULevelSequencePlayer& Player, float CurrentTime, float PreviousTime);
+
+	/** Called to set up the player's playback range */
+	void SetupFrameRange();
 
 	/** Delegate binding for the above callback */
 	FDelegateHandle OnPlayerUpdatedBinding;
@@ -76,16 +71,12 @@ private:
 
 	/** The pre-existing level sequence actor to use for capture that specifies playback settings */
 	UPROPERTY()
-	TLazyObjectPtr<ALevelSequenceActor> LevelSequenceActor;
-
-	/** Copy of the level sequence ID from Level Sequence. Required because JSON serialization exports the path of the object, rather that its GUID */
-	UPROPERTY()
-	FGuid LevelSequenceActorId;
+	TWeakObjectPtr<ALevelSequenceActor> LevelSequenceActor;
 
 	/** Which state we're in right now */
 	enum class ELevelSequenceCaptureState
 	{
-		Staging,
+		Setup,
 		DelayBeforeWarmUp,
 		ReadyToWarmUp,
 		WarmingUp,
@@ -97,6 +88,9 @@ private:
 
 	/** The number of warm up frames left before we actually start saving out images */
 	int32 RemainingWarmUpFrames;
+
+	/** The delta of the last sequence updat */
+	float LastSequenceUpdateDelta;
 	
 #endif
 };

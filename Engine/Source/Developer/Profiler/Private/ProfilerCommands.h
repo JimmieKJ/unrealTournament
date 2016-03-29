@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -66,25 +66,14 @@ public:
 	/** Toggles the real time live preview. Global version. */
 	TSharedPtr< FUICommandInfo > ProfilerManager_ToggleLivePreview;
 
-
 	/** Toggles the data graph view mode between time based and index based. */
 	TSharedPtr< FUICommandInfo > DataGraph_ToggleViewMode;
-
-	/** Toggles the data graph multi mode between displaying area line graph for each graph data source. */
-	TSharedPtr< FUICommandInfo > DataGraph_ToggleMultiMode;
-
 
 	/** Sets the data graph view mode to the time based. */
 	TSharedPtr< FUICommandInfo > DataGraph_ViewMode_SetTimeBased;
 
 	/** Sets the data graph view mode to the index based. */
 	TSharedPtr< FUICommandInfo > DataGraph_ViewMode_SetIndexBased;
-
-	/** Set the data graph multi mode to the displaying area line graph. */
-	TSharedPtr< FUICommandInfo > DataGraph_MultiMode_SetCombined;
-
-	/** Set the data graph multi mode to the displaying one line graph for each graph data source. */
-	TSharedPtr< FUICommandInfo > DataGraph_MultiMode_SetOneLinePerDataSource;
 
 	/** Select all frame in the data graph and display them in the event graph, technically switches to the begin of history. */
 	TSharedPtr< FUICommandInfo > EventGraph_SelectAllFrames;
@@ -192,29 +181,6 @@ protected:
 	bool ToggleDataCapture_CanExecute( const FGuid SessionInstanceID ) const;
 	/** Handles FGetActionCheckState for ToggleDataCapture. */
 	ECheckBoxState ToggleDataCapture_GetCheckState( const FGuid SessionInstanceID ) const;
-
-	/*-----------------------------------------------------------------------------
-		ToggleShowDataGraph
-	-----------------------------------------------------------------------------*/
-public:
-
-	/**
-	 * UI action that toggles showing data graph for the specified session instance.
-	 *
-	 * @param SessionInstanceID - the session instance that this action will be executed on, if not valid, all session instances will be used
-	 *
-	 */
-	const FUIAction ToggleShowDataGraph_Custom( const FGuid SessionInstanceID ) const;
-
-protected:
-	/** Handles FExecuteAction for ToggleShowDataGraph_Execute. */
-	void ToggleShowDataGraph_Execute( const FGuid SessionInstanceID );
-	/** Handles FCanExecuteAction for ToggleShowDataGraph_Execute. */
-	bool ToggleShowDataGraph_CanExecute( const FGuid SessionInstanceID ) const;
-	/** Handles FGetActionCheckState for ToggleShowDataGraph_Execute. */
-	ECheckBoxState ToggleShowDataGraph_GetCheckState( const FGuid SessionInstanceID ) const;
-	/** Handles IsActionButtonVisible for ToggleShowDataGraph_Execute. */
-	bool ToggleShowDataGraph_IsActionButtonVisible( const FGuid SessionInstanceID ) const;
 
 private:
 	/** Private constructor. */

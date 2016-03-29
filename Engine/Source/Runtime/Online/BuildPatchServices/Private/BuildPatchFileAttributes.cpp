@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "BuildPatchServicesPrivatePCH.h"
 
@@ -264,7 +264,7 @@ bool FBuildPatchFileAttributesImpl::SetFileUnixExecutableFlag(const FString& Fil
 	}
 	return bSuccess;
 }
-#elif PLATFORM_LINUX
+#else
 bool FBuildPatchFileAttributesImpl::GetCurrentFileAttributes(const FString& FilePath, bool& OutFileExists, bool& OutIsReadonly, bool& OutIsCompressed, bool& OutIsUnixExecutable)
 {
 	// Not implemented

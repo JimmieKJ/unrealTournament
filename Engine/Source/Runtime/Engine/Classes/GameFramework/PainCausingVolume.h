@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 //=============================================================================
 // PhysicsVolume:  a bounding volume which affects actor physics
@@ -57,6 +57,7 @@ class ENGINE_API APainCausingVolume : public APhysicsVolume
 
 	//Begin AActor Interface
 	virtual void PostInitializeComponents() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	/* reset actor to initial state - used when restarting level without reloading. */
 	virtual void Reset() override;

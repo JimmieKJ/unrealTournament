@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ObjectBase.h: Unreal object base class.
@@ -44,8 +44,8 @@ enum ELoadFlags
 	LOAD_None						= 0x00000000,	// No flags.
 	LOAD_SeekFree					= 0x00000001,	// Loads the package via the seek free loading path/ reader
 	LOAD_NoWarn						= 0x00000002,	// Don't display warning if load fails.
-//	LOAD_Unused						= 0x00000004,
-//	LOAD_Unused						= 0x00000008,
+	LOAD_EditorOnly					= 0x00000004, // Load for editor-only purposes and by editor-only code
+	LOAD_ResolvingDeferredExports	= 0x00000008,	// Denotes that we should not defer export loading (as we're resolving them)
 	LOAD_Verify						= 0x00000010,	// Only verify existance; don't actually load.
 	LOAD_AllowDll					= 0x00000020,	// Allow plain DLLs.
 //	LOAD_Unused						= 0x00000040
@@ -63,6 +63,7 @@ enum ELoadFlags
 	LOAD_NoSeekFreeLinkerDetatch	= 0x00040000,	// Do not detach linkers for this package when seek-free loading
 	LOAD_PackageForPIE				= 0x00080000,   // This package is being loaded for PIE, it must be flagged as such immediately
 	LOAD_DeferDependencyLoads       = 0x00100000,   // Do not load external (blueprint) dependencies (instead, track them for deferred loading)
+	LOAD_ForFileDiff				= 0x00200000,	// Load the package (not for diffing in the editor), instead verify at the two packages serialized output are the same, if they are not then debug break so that you can get the callstack and object information
 };
 
 //
@@ -78,6 +79,7 @@ enum ESaveFlags
 	SAVE_Async			= 0x00000010,	// Save to a memory writer, then actually write to disk async
 	SAVE_Unversioned	= 0x00000020,	// Save all versions as zero. Upon load this is changed to the current version. This is only reasonable to use with full cooked builds for distribution.
 	SAVE_CutdownPackage	= 0x00000040,	// Saving cutdown packages in a temp location WITHOUT renaming the package.
+	SAVE_KeepEditorOnlyCookedPackages = 0x00000080,  // keep packages which are marked as editor only even though we are cooking
 };
 
 //
@@ -473,7 +475,7 @@ enum EObjectFlags
 };
 
 	// Special all and none masks
-#define RF_AllFlags				(EObjectFlags)0x03ffffff	///< All flags, used mainly for error checking
+#define RF_AllFlags				(EObjectFlags)0x07ffffff	///< All flags, used mainly for error checking
 
 	// Predefined groups of the above
 #define RF_Load						((EObjectFlags)(RF_Public | RF_Standalone | RF_Transactional | RF_ClassDefaultObject | RF_ArchetypeObject | RF_DefaultSubObject | RF_TextExportTransient | RF_InheritableComponentTemplate)) // Flags to load from Unrealfiles.
@@ -510,6 +512,8 @@ enum class EInternalObjectFlags : int32
 {
 	None = 0,
 	// All the other bits are reserved, DO NOT ADD NEW FLAGS HERE!
+	ReachableInCluster = 1 << 23, /// External reference to object in cluster exists
+	ClusterRoot = 1 << 24, ///< Root of a cluster
 	Native = 1 << 25, ///< Native (UClass only).
 	Async = 1 << 26, ///< Object exists only on a different thread than the game thread.
 	AsyncLoading = 1 << 27, ///< Object is being asynchronously loaded.
@@ -520,7 +524,7 @@ enum class EInternalObjectFlags : int32
 
 	GarbageCollectionKeepFlags = Native | Async | AsyncLoading,
 	// Make sure this is up to date!
-	AllFlags = Native | Async | AsyncLoading | Unreachable | PendingKill | RootSet | NoStrongReference
+	AllFlags = ReachableInCluster | ClusterRoot | Native | Async | AsyncLoading | Unreachable | PendingKill | RootSet | NoStrongReference
 };
 ENUM_CLASS_FLAGS(EInternalObjectFlags);
 
@@ -1069,6 +1073,9 @@ namespace UM
 		/// [PropertyMetadata] Used for FColor and FLinearColor properties. Indicates that the Alpha property should be hidden when displaying the property widget in the details.
 		HideAlphaChannel,
 
+		/// [PropertyMetadata] Signifies that the bool property is only displayed inline as an edit condition toggle in other properties, and should not be shown on its own row.
+		InlineEditConditionToggle,
+
 		/// [PropertyMetadata] Used for FStringClassReference properties.  Indicates whether only blueprint classes should be shown in the class picker.
 		IsBlueprintBaseOnly,
 
@@ -1107,6 +1114,9 @@ namespace UM
 
 		/// [PropertyMetadta] Used by FDirectoryPath properties. Indicates that the directory dialog will output a path relative to the game content directory when setting the property.
 		RelativeToGameContentDir,
+
+		/// [PropertyMetadta] Used by FDirectoryPath properties. Indicates that the path will be picked using the Slate-style directory picker inside the game Content dir.
+		ContentDir,
 
 		// [PropertyMetadata] Used by struct properties. Indicates that the inner properties will not be shown inside an expandable struct, but promoted up a level.
 		ShowOnlyInnerProperties,

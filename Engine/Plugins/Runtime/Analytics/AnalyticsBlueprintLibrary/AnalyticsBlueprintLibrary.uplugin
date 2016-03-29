@@ -1,21 +1,25 @@
 {
-    "FileVersion": 3,
-
-    "FriendlyName": "Analytics Blueprint Library",
-    "Version": 1,
-    "VersionName": "1.0",
-    "CreatedBy": "Epic Games, Inc.",
-    "CreatedByURL": "http://epicgames.com",
+	"FileVersion" : 3,
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"FriendlyName" : "Analytics Blueprint Library",
+	"Description" : "Blueprint Library for using an analytic event provider",
+	"Category" : "Analytics",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
 	"DocsURL" : "https://docs.unrealengine.com/latest/INT/Gameplay/Analytics/Blueprints/index.html",
-    "EngineVersion": "4.2.0",
-    "Description": "Blueprint Library for using an analytic event provider",
-    "Category": "Analytics",
-
-    "Modules": [
-        {
-            "Name": "AnalyticsBlueprintLibrary",
-            "LoadingPhase": "PreDefault",
-            "Type": "Runtime"
-        }
-    ]
+	"MarketplaceURL" : "",
+	"SupportURL" : "",
+	"EnabledByDefault" : false,
+	"CanContainContent" : false,
+	"IsBetaVersion" : false,
+	"Installed" : false,
+	"Modules" :
+	[
+		{
+			"Name" : "AnalyticsBlueprintLibrary",
+			"Type" : "Runtime",
+			"LoadingPhase" : "PreDefault"
+		}
+	]
 }

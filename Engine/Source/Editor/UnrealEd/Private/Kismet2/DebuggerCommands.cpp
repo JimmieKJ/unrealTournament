@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "UnrealEd.h"
@@ -33,6 +33,8 @@
 
 #include "IProjectManager.h"
 
+#include "InstalledPlatformInfo.h"
+
 
 #define LOCTEXT_NAMESPACE "DebuggerCommands"
 
@@ -56,7 +58,7 @@ public:
 	static bool PlayInViewport_CanExecute();
 	static void PlayInEditorFloating_Clicked();
 	static bool PlayInEditorFloating_CanExecute();
-	static void PlayInNewProcess_Clicked( bool MobilePreview );
+	static void PlayInNewProcess_Clicked( bool MobilePreview, bool VulkanPreview );
 	static bool PlayInNewProcess_CanExecute();
 	static void PlayInVR_Clicked();
 	static bool PlayInVR_CanExecute();
@@ -90,11 +92,14 @@ public:
 	static FText GetResumePlaySessionToolTip();
 	static void ResumePlaySession_Clicked();
 	static void StopPlaySession_Clicked();
+	static void LateJoinSession_Clicked();
 	static void PausePlaySession_Clicked();
 	static void SingleFrameAdvance_Clicked();
 
 	static void ShowCurrentStatement_Clicked();
 	static void StepInto_Clicked();
+	static void StepOver_Clicked();
+	static void StepOut_Clicked();
 
 	static void TogglePlayPause_Clicked();
 
@@ -107,6 +112,8 @@ public:
 	static bool HasPlayWorld();
 	static bool HasPlayWorldAndPaused();
 	static bool HasPlayWorldAndRunning();
+	static bool CanLateJoin();
+	static bool CanShowLateJoinButton();
 
 	static bool IsStoppedAtBreakpoint();
 
@@ -227,10 +234,11 @@ void FPlayWorldCommands::RegisterCommands()
 
 	// PIE
 	UI_COMMAND( RepeatLastPlay, "Play", "Launches a game preview session in the same mode as the last game preview session launched from the Game Preview Modes dropdown next to the Play button on the level editor toolbar", EUserInterfaceActionType::Button, FInputChord( EKeys::P, EModifierKey::Alt ) )
-	UI_COMMAND( PlayInViewport, "Selected Viewport (PIE)", "Play this level in the active level editor viewport", EUserInterfaceActionType::Check, FInputChord() );
+	UI_COMMAND( PlayInViewport, "Selected Viewport", "Play this level in the active level editor viewport", EUserInterfaceActionType::Check, FInputChord() );
 	UI_COMMAND( PlayInEditorFloating, "New Editor Window (PIE)", "Play this level in a new window", EUserInterfaceActionType::Check, FInputChord() );
 	UI_COMMAND( PlayInVR, "VR Preview", "Play this level in VR", EUserInterfaceActionType::Check, FInputChord() );
 	UI_COMMAND( PlayInMobilePreview, "Mobile Preview (PIE)", "Play this level as a mobile device preview (runs in its own process)", EUserInterfaceActionType::Check, FInputChord() );
+	UI_COMMAND( PlayInVulkanPreview, "Vulkan Preview (PIE)", "Play this level using mobile Vulkan rendering (runs in its own process)", EUserInterfaceActionType::Check, FInputChord() );
 	UI_COMMAND( PlayInNewProcess, "Standalone Game", "Play this level in a new window that runs in its own process", EUserInterfaceActionType::Check, FInputChord() );
 	UI_COMMAND( PlayInCameraLocation, "Current Camera Location", "Spawn the player at the current camera location", EUserInterfaceActionType::RadioButton, FInputChord() );
 	UI_COMMAND( PlayInDefaultPlayerStart, "Default Player Start", "Spawn the player at the map's default player start", EUserInterfaceActionType::RadioButton, FInputChord() );
@@ -242,11 +250,14 @@ void FPlayWorldCommands::RegisterCommands()
 	UI_COMMAND( StopPlaySession, "Stop", "Stop simulation", EUserInterfaceActionType::Button, FInputChord() );
 	UI_COMMAND( ResumePlaySession, "Resume", "Resume simulation", EUserInterfaceActionType::Button, FInputChord() );
 	UI_COMMAND( PausePlaySession, "Pause", "Pause simulation", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( LateJoinSession, "Add Client", "Add another client", EUserInterfaceActionType::Button, FInputChord());
 	UI_COMMAND( SingleFrameAdvance, "Frame Skip", "Advances a single frame", EUserInterfaceActionType::Button, FInputChord() );
 	UI_COMMAND( TogglePlayPauseOfPlaySession, "Toggle Play/Pause", "Resume playing if paused, or pause if playing", EUserInterfaceActionType::Button, FInputChord( EKeys::Pause ) );
 	UI_COMMAND( PossessEjectPlayer, "Possess or Eject Player", "Possesses or ejects the player from the camera", EUserInterfaceActionType::Button, FInputChord( EKeys::F8 ) );
 	UI_COMMAND( ShowCurrentStatement, "Find Node", "Show the current node", EUserInterfaceActionType::Button, FInputChord() );
-	UI_COMMAND( StepInto, "Step", "Step to the next node to be executed", EUserInterfaceActionType::Button, FInputChord( EKeys::F10) );
+	UI_COMMAND( StepInto, "Step Into", "Step Into the next node to be executed", EUserInterfaceActionType::Button, FInputChord( EKeys::F10) );
+	UI_COMMAND( StepOver, "Step Over", "Step to the next node to be executed in the current graph", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( StepOut, "Step Out", "Step Out to the next node to be executed in the parent graph", EUserInterfaceActionType::Button, FInputChord() );
 
 	// Launch
 	UI_COMMAND( RepeatLastLaunch, "Launch", "Launches the game on the device as the last session launched from the dropdown next to the Play on Device button on the level editor toolbar", EUserInterfaceActionType::Button, FInputChord( EKeys::P, EModifierKey::Alt | EModifierKey::Shift ) )
@@ -302,14 +313,21 @@ void FPlayWorldCommands::BindGlobalPlayWorldCommands()
 		);
 
 	ActionList.MapAction( Commands.PlayInMobilePreview,
-		FExecuteAction::CreateStatic( &FInternalPlayWorldCommandCallbacks::PlayInNewProcess_Clicked, true ),
+		FExecuteAction::CreateStatic( &FInternalPlayWorldCommandCallbacks::PlayInNewProcess_Clicked, true, false ),
 		FCanExecuteAction::CreateStatic( &FInternalPlayWorldCommandCallbacks::PlayInNewProcess_CanExecute ),
 		FIsActionChecked::CreateStatic( &FInternalPlayWorldCommandCallbacks::PlayInModeIsChecked, PlayMode_InMobilePreview ),
 		FIsActionButtonVisible::CreateStatic( &FInternalPlayWorldCommandCallbacks::CanShowNonPlayWorldOnlyActions )
 		);
 
-	ActionList.MapAction( Commands.PlayInNewProcess,
-		FExecuteAction::CreateStatic( &FInternalPlayWorldCommandCallbacks::PlayInNewProcess_Clicked, false ),
+	ActionList.MapAction(Commands.PlayInVulkanPreview,
+		FExecuteAction::CreateStatic(&FInternalPlayWorldCommandCallbacks::PlayInNewProcess_Clicked, false, true),
+		FCanExecuteAction::CreateStatic(&FInternalPlayWorldCommandCallbacks::PlayInNewProcess_CanExecute),
+		FIsActionChecked::CreateStatic(&FInternalPlayWorldCommandCallbacks::PlayInModeIsChecked, PlayMode_InVulkanPreview),
+		FIsActionButtonVisible::CreateStatic(&FInternalPlayWorldCommandCallbacks::CanShowNonPlayWorldOnlyActions)
+		);
+
+	ActionList.MapAction(Commands.PlayInNewProcess,
+		FExecuteAction::CreateStatic( &FInternalPlayWorldCommandCallbacks::PlayInNewProcess_Clicked, false, false ),
 		FCanExecuteAction::CreateStatic( &FInternalPlayWorldCommandCallbacks::PlayInNewProcess_CanExecute ),
 		FIsActionChecked::CreateStatic( &FInternalPlayWorldCommandCallbacks::PlayInModeIsChecked, PlayMode_InNewProcess ),
 		FIsActionButtonVisible::CreateStatic( &FInternalPlayWorldCommandCallbacks::CanShowNonPlayWorldOnlyActions )
@@ -356,6 +374,14 @@ void FPlayWorldCommands::BindGlobalPlayWorldCommands()
 		FCanExecuteAction::CreateStatic( &FInternalPlayWorldCommandCallbacks::HasPlayWorld ),
 		FIsActionChecked(),
 		FIsActionButtonVisible::CreateStatic( &FInternalPlayWorldCommandCallbacks::HasPlayWorld )
+		);
+
+	// Late join session
+	ActionList.MapAction(Commands.LateJoinSession,
+		FExecuteAction::CreateStatic(&FInternalPlayWorldCommandCallbacks::LateJoinSession_Clicked),
+		FCanExecuteAction::CreateStatic(&FInternalPlayWorldCommandCallbacks::CanLateJoin),
+		FIsActionChecked(),
+		FIsActionButtonVisible::CreateStatic(&FInternalPlayWorldCommandCallbacks::CanShowLateJoinButton)
 		);
 
 	// Play, Pause, Toggle between play and pause
@@ -405,6 +431,20 @@ void FPlayWorldCommands::BindGlobalPlayWorldCommands()
 
 	ActionList.MapAction( Commands.StepInto,
 		FExecuteAction::CreateStatic( &FInternalPlayWorldCommandCallbacks::StepInto_Clicked ),
+		FCanExecuteAction::CreateStatic( &FInternalPlayWorldCommandCallbacks::IsStoppedAtBreakpoint ),
+		FIsActionChecked(),
+		FIsActionChecked::CreateStatic( &FInternalPlayWorldCommandCallbacks::IsStoppedAtBreakpoint )
+		);
+
+	ActionList.MapAction( Commands.StepOver,
+		FExecuteAction::CreateStatic( &FInternalPlayWorldCommandCallbacks::StepOver_Clicked ),
+		FCanExecuteAction::CreateStatic( &FInternalPlayWorldCommandCallbacks::IsStoppedAtBreakpoint ),
+		FIsActionChecked(),
+		FIsActionChecked::CreateStatic( &FInternalPlayWorldCommandCallbacks::IsStoppedAtBreakpoint )
+		);
+
+	ActionList.MapAction( Commands.StepOut,
+		FExecuteAction::CreateStatic( &FInternalPlayWorldCommandCallbacks::StepOut_Clicked ),
 		FCanExecuteAction::CreateStatic( &FInternalPlayWorldCommandCallbacks::IsStoppedAtBreakpoint ),
 		FIsActionChecked(),
 		FIsActionChecked::CreateStatic( &FInternalPlayWorldCommandCallbacks::IsStoppedAtBreakpoint )
@@ -482,6 +522,9 @@ void FPlayWorldCommands::BuildToolbar( FToolBarBuilder& ToolbarBuilder, bool bIn
 	// Stop
 	ToolbarBuilder.AddToolBarButton(FPlayWorldCommands::Get().StopPlaySession, NAME_None, TAttribute<FText>(), TAttribute<FText>(), TAttribute<FSlateIcon>(), FName(TEXT("StopPlaySession")));
 
+	// Late Join
+	ToolbarBuilder.AddToolBarButton(FPlayWorldCommands::Get().LateJoinSession, NAME_None, TAttribute<FText>(), TAttribute<FText>(), TAttribute<FSlateIcon>(), FName(TEXT("LateJoinSession")));
+
 	// Eject/possess toggle
 	ToolbarBuilder.AddToolBarButton(FPlayWorldCommands::Get().PossessEjectPlayer, NAME_None, 
 		TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateStatic(&FInternalPlayWorldCommandCallbacks::GetPossessEjectLabel)),
@@ -497,6 +540,20 @@ void FPlayWorldCommands::BuildToolbar( FToolBarBuilder& ToolbarBuilder, bool bIn
 
 TSharedRef< SWidget > FPlayWorldCommands::GeneratePlayMenuContent( TSharedRef<FUICommandList> InCommandList )
 {
+	// Get all menu extenders for this context menu from the level editor module
+	FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor"));
+	TArray<FLevelEditorModule::FLevelEditorMenuExtender> MenuExtenderDelegates = LevelEditorModule.GetAllLevelEditorToolbarPlayMenuExtenders();
+
+	TArray<TSharedPtr<FExtender>> Extenders;
+	for ( int32 i = 0; i < MenuExtenderDelegates.Num(); ++i )
+	{
+		if ( MenuExtenderDelegates[i].IsBound() )
+		{
+			Extenders.Add(MenuExtenderDelegates[i].Execute(InCommandList));
+		}
+	}
+	TSharedPtr<FExtender> MenuExtender = FExtender::Combine(Extenders);
+
 	struct FLocal
 	{
 		static void AddPlayModeMenuEntry( FMenuBuilder& MenuBuilder, EPlayModeType PlayMode )
@@ -511,6 +568,10 @@ TSharedRef< SWidget > FPlayWorldCommands::GeneratePlayMenuContent( TSharedRef<FU
 
 			case PlayMode_InMobilePreview:
 				PlayModeCommand = FPlayWorldCommands::Get().PlayInMobilePreview;
+				break;
+
+			case PlayMode_InVulkanPreview:
+				PlayModeCommand = FPlayWorldCommands::Get().PlayInVulkanPreview;
 				break;
 
 			case PlayMode_InNewProcess:
@@ -538,13 +599,14 @@ TSharedRef< SWidget > FPlayWorldCommands::GeneratePlayMenuContent( TSharedRef<FU
 	};
 
 	const bool bShouldCloseWindowAfterMenuSelection = true;
-	FMenuBuilder MenuBuilder( bShouldCloseWindowAfterMenuSelection, InCommandList );
+	FMenuBuilder MenuBuilder( bShouldCloseWindowAfterMenuSelection, InCommandList, MenuExtender );
 
 	// play in view port
 	MenuBuilder.BeginSection("LevelEditorPlayModes", LOCTEXT("PlayButtonModesSection", "Modes"));
 	{
 		FLocal::AddPlayModeMenuEntry(MenuBuilder, PlayMode_InViewPort);
 		FLocal::AddPlayModeMenuEntry(MenuBuilder, PlayMode_InMobilePreview);
+		FLocal::AddPlayModeMenuEntry(MenuBuilder, PlayMode_InVulkanPreview);
 		FLocal::AddPlayModeMenuEntry(MenuBuilder, PlayMode_InEditorFloating);
 		FLocal::AddPlayModeMenuEntry(MenuBuilder, PlayMode_InVR);
 		FLocal::AddPlayModeMenuEntry(MenuBuilder, PlayMode_InNewProcess);
@@ -632,13 +694,14 @@ TSharedRef< SWidget > FPlayWorldCommands::GenerateLaunchMenuContent( TSharedRef<
 	PlatformsToCheckFlavorsFor.Add(TEXT("IOS"));
 	TArray<FName> PlatformsWithNoDevices;
 	TArray<PlatformInfo::FPlatformInfo> PlatformsToAddInstallLinksFor;
+	EProjectType ProjectType = FGameProjectGenerationModule::Get().ProjectHasCodeFiles() ? EProjectType::Code : EProjectType::Content;
 
 	MenuBuilder.BeginSection("LevelEditorLaunchDevices", LOCTEXT("LaunchButtonDevicesSection", "Devices"));
 	{
 		for (const PlatformInfo::FVanillaPlatformEntry& VanillaPlatform : VanillaPlatforms)
 		{
 			// for the Editor we are only interested in launching standalone games
-			if (VanillaPlatform.PlatformInfo->PlatformType != PlatformInfo::EPlatformType::Game || !VanillaPlatform.PlatformInfo->bEnabledForUse || (!VanillaPlatform.PlatformInfo->bEnabledInBinary && FRocketSupport::IsRocket()))
+			if (VanillaPlatform.PlatformInfo->PlatformType != PlatformInfo::EPlatformType::Game || !VanillaPlatform.PlatformInfo->bEnabledForUse || !FInstalledPlatformInfo::Get().CanDisplayPlatform(VanillaPlatform.PlatformInfo->BinaryFolderName, ProjectType))
 			{
 				continue;
 			}
@@ -1026,6 +1089,10 @@ const TSharedRef < FUICommandInfo > GetLastPlaySessionCommand()
 		Command = Commands.PlayInMobilePreview.ToSharedRef();
 		break;
 
+	case PlayMode_InVulkanPreview:
+		Command = Commands.PlayInVulkanPreview.ToSharedRef();
+		break;
+
 	case PlayMode_InNewProcess:
 		Command = Commands.PlayInNewProcess.ToSharedRef();
 		break;
@@ -1082,6 +1149,10 @@ void RecordLastExecutedPlayMode()
 
 		case PlayMode_InMobilePreview:
 			PlayModeString = TEXT("InMobilePreview");
+			break;
+
+		case PlayMode_InVulkanPreview:
+			PlayModeString = TEXT("InVulkanPreview");
 			break;
 
 		case PlayMode_InNewProcess:
@@ -1295,11 +1366,15 @@ bool FInternalPlayWorldCommandCallbacks::PlayInVR_CanExecute()
 }
 
 
-void FInternalPlayWorldCommandCallbacks::PlayInNewProcess_Clicked( bool MobilePreview )
+void FInternalPlayWorldCommandCallbacks::PlayInNewProcess_Clicked( bool MobilePreview, bool VulkanPreview )
 {
 	if (MobilePreview)
 	{
 		SetLastExecutedPlayMode(PlayMode_InMobilePreview);
+	}
+	else if (VulkanPreview)
+	{
+		SetLastExecutedPlayMode(PlayMode_InVulkanPreview);
 	}
 	else
 	{
@@ -1328,7 +1403,7 @@ void FInternalPlayWorldCommandCallbacks::PlayInNewProcess_Clicked( bool MobilePr
 		}
 
 		// Spawn a new window to play in.
-		GUnrealEd->RequestPlaySession(StartLoc, StartRot, MobilePreview);
+		GUnrealEd->RequestPlaySession(StartLoc, StartRot, MobilePreview, VulkanPreview);
 	}
 	else
 	{
@@ -1681,7 +1756,8 @@ void FInternalPlayWorldCommandCallbacks::PausePlaySession_Clicked()
 void FInternalPlayWorldCommandCallbacks::SingleFrameAdvance_Clicked()
 {
 	// We want to function just like Single stepping where we will stop at a breakpoint if one is encountered but we also want to stop after 1 tick if a breakpoint is not encountered.
-	FKismetDebugUtilities::RequestSingleStepping();
+	const bool bAllowStepIn = true;
+	FKismetDebugUtilities::RequestSingleStepping(bAllowStepIn);
 	if (HasPlayWorld())
 	{
 		GUnrealEd->PlayWorld->bDebugFrameStepExecution = true;
@@ -1700,6 +1776,14 @@ void FInternalPlayWorldCommandCallbacks::StopPlaySession_Clicked()
 	}
 }
 
+void FInternalPlayWorldCommandCallbacks::LateJoinSession_Clicked()
+{
+	if (HasPlayWorld())
+	{
+		GEditor->RequestLateJoin();
+	}
+}
+
 
 void FInternalPlayWorldCommandCallbacks::ShowCurrentStatement_Clicked()
 {
@@ -1713,7 +1797,8 @@ void FInternalPlayWorldCommandCallbacks::ShowCurrentStatement_Clicked()
 
 void FInternalPlayWorldCommandCallbacks::StepInto_Clicked()
 {
-	FKismetDebugUtilities::RequestSingleStepping();
+	const bool bAllowStepIn = true;
+	FKismetDebugUtilities::RequestSingleStepping(bAllowStepIn);
 	if (HasPlayWorld())
 	{
 		LeaveDebuggingMode();
@@ -1721,6 +1806,26 @@ void FInternalPlayWorldCommandCallbacks::StepInto_Clicked()
 	}
 }
 
+void FInternalPlayWorldCommandCallbacks::StepOver_Clicked()
+{
+	const bool bAllowStepIn = false;
+	FKismetDebugUtilities::RequestSingleStepping(bAllowStepIn);
+	if (HasPlayWorld())
+	{
+		LeaveDebuggingMode();
+		GUnrealEd->PlaySessionSingleStepped();
+	}
+}
+
+void FInternalPlayWorldCommandCallbacks::StepOut_Clicked()
+{
+	FKismetDebugUtilities::RequestStepOut();
+	if (HasPlayWorld())
+	{
+		LeaveDebuggingMode();
+		GUnrealEd->PlaySessionSingleStepped();
+	}
+}
 
 void FInternalPlayWorldCommandCallbacks::TogglePlayPause_Clicked()
 {
@@ -1753,6 +1858,16 @@ bool FInternalPlayWorldCommandCallbacks::CanShowVROnlyActions()
 bool FInternalPlayWorldCommandCallbacks::HasPlayWorld()
 {
 	return GEditor->PlayWorld != NULL;
+}
+
+bool FInternalPlayWorldCommandCallbacks::CanLateJoin()
+{
+	return HasPlayWorld();
+}
+
+bool FInternalPlayWorldCommandCallbacks::CanShowLateJoinButton()
+{
+	return GetDefault<UEditorExperimentalSettings>()->bAllowLateJoinInPIE && HasPlayWorld();
 }
 
 

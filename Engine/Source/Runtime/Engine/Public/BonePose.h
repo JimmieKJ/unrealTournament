@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -8,8 +8,7 @@
 #include "CustomBoneIndexArray.h"
 #include "AnimEncoding.h"
 #include "Animation/AnimStats.h"
-
-struct FCompactPose;
+#include "Animation/AnimTypes.h"
 
 struct FBoneTransform
 {
@@ -39,7 +38,7 @@ struct FCompareBoneTransformIndex
 };
 
 
-template<class BoneIndexType>
+template<class BoneIndexType, typename InAllocator>
 struct FBasePose
 {
 public:
@@ -85,12 +84,274 @@ public:
 		IterType end() { return Pose.MakeEndIterReverse(); }
 	};
 
+	const TArray<FTransform, InAllocator>& GetBones() const { return Bones; }
 protected:
-	TArray<FTransform> Bones;
+	TArray<FTransform, InAllocator> Bones;
 };
 
+struct FCompactPoseBoneIndexIterator
+{
+	int32 Index;
 
-struct FMeshPose : public FBasePose<FMeshPoseBoneIndex>
+	FCompactPoseBoneIndexIterator(int32 InIndex) : Index(InIndex) {}
+
+	FCompactPoseBoneIndexIterator& operator++() { ++Index; return (*this); }
+	bool operator==(FCompactPoseBoneIndexIterator& Rhs) { return Index == Rhs.Index; }
+	bool operator!=(FCompactPoseBoneIndexIterator& Rhs) { return Index != Rhs.Index; }
+	FCompactPoseBoneIndex operator*() const { return FCompactPoseBoneIndex(Index); }
+};
+
+struct FCompactPoseBoneIndexReverseIterator
+{
+	int32 Index;
+
+	FCompactPoseBoneIndexReverseIterator(int32 InIndex) : Index(InIndex) {}
+
+	FCompactPoseBoneIndexReverseIterator& operator++() { --Index; return (*this); }
+	bool operator==(FCompactPoseBoneIndexReverseIterator& Rhs) { return Index == Rhs.Index; }
+	bool operator!=(FCompactPoseBoneIndexReverseIterator& Rhs) { return Index != Rhs.Index; }
+	FCompactPoseBoneIndex operator*() const { return FCompactPoseBoneIndex(Index); }
+};
+
+template <typename InAllocator>
+struct FBaseCompactPose : FBasePose<FCompactPoseBoneIndex, InAllocator>
+{
+public:
+	typedef FCompactPoseBoneIndex BoneIndexType;
+	typedef InAllocator   Allocator;
+	//--------------------------------------------------------------------------
+	//Bone Index Iteration
+	typedef typename FBasePose<FCompactPoseBoneIndex, Allocator>::template FRangedForSupport<FBaseCompactPose, FCompactPoseBoneIndexIterator> RangedForBoneIndexFwd;
+	typedef typename FBasePose<FCompactPoseBoneIndex, Allocator>::template FRangedForReverseSupport<FBaseCompactPose, FCompactPoseBoneIndexReverseIterator> RangedForBoneIndexBwd;
+
+	FORCEINLINE RangedForBoneIndexFwd ForEachBoneIndex() const
+	{
+		return RangedForBoneIndexFwd(*this);
+	}
+
+	FORCEINLINE RangedForBoneIndexBwd ForEachBoneIndexReverse() const
+	{
+		return RangedForBoneIndexBwd(*this);
+	}
+
+	FORCEINLINE FCompactPoseBoneIndexIterator MakeBeginIter() const { return FCompactPoseBoneIndexIterator(0); }
+
+	FORCEINLINE FCompactPoseBoneIndexIterator MakeEndIter() const { return FCompactPoseBoneIndexIterator(this->GetNumBones()); }
+
+	FORCEINLINE FCompactPoseBoneIndexReverseIterator MakeBeginIterReverse() const { return FCompactPoseBoneIndexReverseIterator(this->GetNumBones() - 1); }
+
+	FORCEINLINE FCompactPoseBoneIndexReverseIterator MakeEndIterReverse() const { return FCompactPoseBoneIndexReverseIterator(-1); }
+	//--------------------------------------------------------------------------
+
+	const FBoneContainer& GetBoneContainer() const 
+	{
+		checkSlow(BoneContainer && BoneContainer->IsValid());
+		return *BoneContainer;
+	}
+
+	void SetBoneContainer(const FBoneContainer* InBoneContainer)
+	{
+		check(InBoneContainer && InBoneContainer->IsValid());
+		BoneContainer = InBoneContainer;
+		this->InitBones(BoneContainer->GetBoneIndicesArray().Num());
+	}
+
+	void InitFrom(const FBaseCompactPose& SrcPose)
+	{
+		SetBoneContainer(SrcPose.BoneContainer);
+		this->Bones = SrcPose.Bones;
+	}
+
+	// Copy bone transform from SrcPose to this
+	template <typename OtherAllocator>
+	void CopyBonesFrom(const FBaseCompactPose<OtherAllocator>& SrcPose)
+	{
+		this->Bones = SrcPose.GetBones();
+		BoneContainer = &SrcPose.GetBoneContainer();
+	}
+
+	void CopyBonesFrom(const FBaseCompactPose<Allocator>& SrcPose)
+	{
+		if (this != &SrcPose)
+		{
+			this->Bones = SrcPose.GetBones();
+			BoneContainer = &SrcPose.GetBoneContainer();
+		}
+	}
+	
+	template <typename OtherAllocator>
+	void CopyBonesFrom(const TArray<FTransform, OtherAllocator>& SrcPoseBones)
+	{
+		// only allow if the size is same
+		// if size doesn't match, we can't guarantee the bonecontainer would work
+		// so we can't accept
+		if (this->Bones.Num() == SrcPoseBones.Num())
+		{
+			this->Bones = SrcPoseBones;
+		}
+	}
+	// Sets this pose to its ref pose
+	void ResetToRefPose()
+	{
+		ResetToRefPose(GetBoneContainer());
+	}
+
+	// Sets this pose to the supplied BoneContainers ref pose
+	void ResetToRefPose(const FBoneContainer& RequiredBones)
+	{
+		const TArray<FTransform>& RefPoseCompactArray = RequiredBones.GetRefPoseCompactArray();
+		this->Bones.Reset();
+		this->Bones.Append(RefPoseCompactArray);
+
+		// If retargeting is disabled, copy ref pose from Skeleton, rather than mesh.
+		// this is only used in editor and for debugging.
+		if (RequiredBones.GetDisableRetargeting())
+		{
+			checkSlow(RequiredBones.IsValid());
+			// Only do this if we have a mesh. otherwise we're not retargeting animations.
+			if (RequiredBones.GetSkeletalMeshAsset())
+			{
+				TArray<FTransform> const & SkeletonRefPose = RequiredBones.GetSkeletonAsset()->GetRefLocalPoses();
+
+				for (const FCompactPoseBoneIndex BoneIndex : ForEachBoneIndex())
+				{
+					const int32 SkeletonBoneIndex = GetBoneContainer().GetSkeletonIndex(BoneIndex);
+
+					// Pose bone index should always exist in Skeleton
+					checkSlow(SkeletonBoneIndex != INDEX_NONE);
+					this->Bones[BoneIndex.GetInt()] = SkeletonRefPose[SkeletonBoneIndex];
+				}
+			}
+		}
+	}
+
+	// Sets every bone transform to Identity
+	void ResetToIdentity()
+	{
+		for (FTransform& Bone : this->Bones)
+		{
+			Bone.SetIdentity();
+		}
+	}
+
+	// returns true if all bone rotations are normalized
+	bool IsNormalized() const
+	{
+		for (const FTransform& Bone : this->Bones)
+		{
+			if (!Bone.IsRotationNormalized())
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	// Returns true if any bone rotation contains NaN
+	bool ContainsNaN() const
+	{
+		for (const FTransform& Bone : this->Bones)
+		{
+			if (Bone.ContainsNaN())
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+
+	// Normalizes all rotations in this pose
+	void NormalizeRotations()
+	{
+		for (FTransform& Bone : this->Bones)
+		{
+			Bone.NormalizeRotation();
+		}
+	}
+
+	bool IsValid() const
+	{
+		return (BoneContainer && BoneContainer->IsValid());
+	}
+
+	// Returns the bone index for the parent bone
+	BoneIndexType GetParentBoneIndex(const BoneIndexType& BoneIndex) const
+	{
+		return GetBoneContainer().GetParentBoneIndex(BoneIndex);
+	}
+
+	// Returns the ref pose for the supplied bone
+	const FTransform& GetRefPose(const BoneIndexType& BoneIndex) const
+	{
+		return GetBoneContainer().GetRefPoseTransform(BoneIndex);
+	}
+
+	// Populates this pose from the supplied animation and track data
+	void PopulateFromAnimation(
+		const UAnimSequence& Seq,
+		const BoneTrackArray& RotationTracks,
+		const BoneTrackArray& TranslationTracks,
+		const BoneTrackArray& ScaleTracks,
+		float Time)
+	{
+		// @todo fixme 
+		FTransformArray LocalBones;
+		LocalBones = this->Bones;
+
+		AnimationFormat_GetAnimationPose(
+			LocalBones, //@TODO:@ANIMATION: Nasty hack
+			RotationTracks,
+			TranslationTracks,
+			ScaleTracks,
+			Seq,
+			Time);
+		this->Bones = LocalBones;
+	}
+
+protected:
+
+	//Reference to our BoneContainer
+	const FBoneContainer* BoneContainer;
+};
+
+struct FCompactHeapPose;
+
+struct ENGINE_API FCompactPose : public FBaseCompactPose<FAnimStackAllocator>
+{
+};
+
+struct ENGINE_API FCompactHeapPose : public FBaseCompactPose<FDefaultAllocator>
+{
+	// Moves transform data out of the supplied SrcPose (SrcPose will be left empty)
+	void MoveBonesFrom(FCompactHeapPose& SrcPose)
+	{
+		Bones = MoveTemp(SrcPose.Bones);
+		BoneContainer = SrcPose.BoneContainer;
+		SrcPose.BoneContainer = NULL;
+	}
+
+	//Moves transform data to supplied array (pose will be left empty)
+	void MoveBonesTo(TArray<FTransform>& OutTransforms)
+	{
+		OutTransforms = MoveTemp(Bones);
+		BoneContainer = NULL;
+	}
+
+	// Moves transform data out of the supplied InTransforms. InTransform will be left empty
+	void MoveBonesFrom(TArray<FTransform>& InTransforms)
+	{
+		// if number doesn't match it is not compatible to start with
+		if (InTransforms.Num() == Bones.Num())
+		{
+			Bones = MoveTemp(InTransforms);
+		}
+	}
+};
+
+struct FMeshPose : public FBasePose<FMeshPoseBoneIndex, FDefaultAllocator>
 {
 public:
 	typedef FMeshPoseBoneIndex BoneIndexType;
@@ -108,7 +369,7 @@ public:
 		InitBones(BoneContainer->GetNumBones());
 	}
 
-	void InitFrom(FCompactPose& CompactPose);
+	//void InitFrom(FCompactPose& CompactPose);
 
 	void MoveBonesTo(TArray<FTransform>& OutTransforms)
 	{
@@ -140,173 +401,6 @@ protected:
 	const FBoneContainer* BoneContainer;
 };
 
-struct FCompactPoseBoneIndexIterator
-{
-	int32 Index;
-
-	FCompactPoseBoneIndexIterator(int32 InIndex) : Index(InIndex) {}
-
-	FCompactPoseBoneIndexIterator& operator++() { ++Index; return (*this); }
-	bool operator==(FCompactPoseBoneIndexIterator& Rhs) { return Index == Rhs.Index; }
-	bool operator!=(FCompactPoseBoneIndexIterator& Rhs) { return Index != Rhs.Index; }
-	FCompactPoseBoneIndex operator*() const { return FCompactPoseBoneIndex(Index); }
-};
-
-struct FCompactPoseBoneIndexReverseIterator
-{
-	int32 Index;
-
-	FCompactPoseBoneIndexReverseIterator(int32 InIndex) : Index(InIndex) {}
-
-	FCompactPoseBoneIndexReverseIterator& operator++() { --Index; return (*this); }
-	bool operator==(FCompactPoseBoneIndexReverseIterator& Rhs) { return Index == Rhs.Index; }
-	bool operator!=(FCompactPoseBoneIndexReverseIterator& Rhs) { return Index != Rhs.Index; }
-	FCompactPoseBoneIndex operator*() const { return FCompactPoseBoneIndex(Index); }
-};
-
-struct ENGINE_API FCompactPose : FBasePose<FCompactPoseBoneIndex>
-{
-public:
-	typedef FCompactPoseBoneIndex BoneIndexType;
-
-	//--------------------------------------------------------------------------
-	//Bone Index Iteration
-		typedef FBasePose<FCompactPoseBoneIndex>::FRangedForSupport<FCompactPose, FCompactPoseBoneIndexIterator> RangedForBoneIndexFwd;
-		typedef FBasePose<FCompactPoseBoneIndex>::FRangedForReverseSupport<FCompactPose, FCompactPoseBoneIndexReverseIterator> RangedForBoneIndexBwd;
-
-		FORCEINLINE RangedForBoneIndexFwd ForEachBoneIndex() const
-		{
-			return RangedForBoneIndexFwd(*this);
-		}
-
-		FORCEINLINE RangedForBoneIndexBwd ForEachBoneIndexReverse() const
-		{
-			return RangedForBoneIndexBwd(*this);
-		}
-
-		FORCEINLINE FCompactPoseBoneIndexIterator MakeBeginIter() const { return FCompactPoseBoneIndexIterator(0); }
-
-		FORCEINLINE FCompactPoseBoneIndexIterator MakeEndIter() const { return FCompactPoseBoneIndexIterator(GetNumBones()); }
-
-		FORCEINLINE FCompactPoseBoneIndexReverseIterator MakeBeginIterReverse() const { return FCompactPoseBoneIndexReverseIterator(GetNumBones() - 1); }
-
-		FORCEINLINE FCompactPoseBoneIndexReverseIterator MakeEndIterReverse() const { return FCompactPoseBoneIndexReverseIterator(-1); }
-	//--------------------------------------------------------------------------
-
-	const FBoneContainer& GetBoneContainer() const 
-	{
-		checkSlow(BoneContainer && BoneContainer->IsValid());
-		return *BoneContainer;
-	}
-
-	void SetBoneContainer(const FBoneContainer* InBoneContainer)
-	{
-		check(InBoneContainer && InBoneContainer->IsValid());
-		BoneContainer = InBoneContainer;
-		InitBones(BoneContainer->GetBoneIndicesArray().Num());
-	}
-
-	void InitFrom(const FCompactPose& SrcPose)
-	{
-		SetBoneContainer(SrcPose.BoneContainer);
-		Bones = SrcPose.Bones;
-	}
-
-	// Moves transform data out of the supplied SrcPose (SrcPose will be left empty)
-	void MoveBonesFrom(FCompactPose& SrcPose)
-	{
-		Bones = MoveTemp(SrcPose.Bones);
-		BoneContainer = SrcPose.BoneContainer;
-		SrcPose.BoneContainer = NULL;
-	}
-
-	//Moves transform data to supplied array (pose will be left empty)
-	void MoveBonesTo(TArray<FTransform>& OutTransforms)
-	{
-		OutTransforms = MoveTemp(Bones);
-		BoneContainer = NULL;
-	}
-
-	// Moves transform data out of the supplied InTransforms. InTransform will be left empty
-	void MoveBonesFrom(TArray<FTransform>& InTransforms)
-	{
-		// if number doesn't match it is not compatible to start with
-		if (InTransforms.Num() == Bones.Num())
-		{
-			Bones = MoveTemp(InTransforms);
-		}
-	}
-
-	// Copy bone transform from SrcPose to this
-	void CopyBonesFrom(const FCompactPose& SrcPose)
-	{
-		if (this != &SrcPose)
-		{
-			Bones = SrcPose.Bones;
-			BoneContainer = SrcPose.BoneContainer;
-		}
-	}
-
-	// Sets this pose to its ref pose
-	void ResetToRefPose()
-	{
-		ResetToRefPose(GetBoneContainer());
-	}
-
-	// Sets this pose to the supplied BoneContainers ref pose
-	void ResetToRefPose(const FBoneContainer& RequiredBones);
-
-	// Sets every bone transform to Identity
-	void ResetToIdentity();
-
-	// returns true if all bone rotations are normalized
-	bool IsNormalized() const;
-
-	// Returns true if any bone rotation contains NaN
-	bool ContainsNaN() const;
-
-	// Normalizes all rotations in this pose
-	void NormalizeRotations();
-
-	bool IsValid() const
-	{
-		return (BoneContainer && BoneContainer->IsValid());
-	}
-
-	// Returns the bone index for the parent bone
-	BoneIndexType GetParentBoneIndex(const BoneIndexType& BoneIndex) const
-	{
-		return GetBoneContainer().GetParentBoneIndex(BoneIndex);
-	}
-
-	// Returns the ref pose for the supplied bone
-	const FTransform& GetRefPose(const BoneIndexType& BoneIndex) const
-	{
-		return GetBoneContainer().GetRefPoseTransform(BoneIndex);
-	}
-
-	// Populates this pose from the supplied animation and track data
-	void PopulateFromAnimation(
-		const UAnimSequence& Seq,
-		const BoneTrackArray& RotationTracks,
-		const BoneTrackArray& TranslationTracks,
-		const BoneTrackArray& ScaleTracks,
-		float Time)
-	{
-		AnimationFormat_GetAnimationPose(
-			*((FTransformArray*)&Bones), //@TODO:@ANIMATION: Nasty hack
-			RotationTracks,
-			TranslationTracks,
-			ScaleTracks,
-			Seq,
-			Time);
-	}
-protected:
-
-	//Reference to our BoneContainer
-	const FBoneContainer* BoneContainer;
-};
-
 template<class PoseType>
 struct FCSPose
 {
@@ -331,7 +425,17 @@ struct FCSPose
 		ComponentSpaceFlags.AddZeroed(Pose.GetNumBones());
 		ComponentSpaceFlags[0] = 1;
 	}
+
+	// Copy Pose
+	template <typename OtherPoseType>
+	void CopyPose(const OtherPoseType& SrcPose)
+	{
+		Pose.CopyBonesFrom(SrcPose.GetPose());
+		ComponentSpaceFlags = SrcPose.GetComponentSpaceFlags();
+	}
+
 	const PoseType& GetPose() const { return Pose; }
+	const TCustomBoneIndexArray<uint8, BoneIndexType>& GetComponentSpaceFlags() const { return ComponentSpaceFlags; }
 
 	// Get transform for supplied bone in local space
 	FTransform GetLocalSpaceTransform(BoneIndexType BoneIndex);

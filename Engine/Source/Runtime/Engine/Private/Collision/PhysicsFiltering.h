@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -43,7 +43,7 @@ struct FPhysicsFilterBuilder
 		Word3 |= ExtraFilterMask;
 	}
 
-	inline void GetQueryData(uint32 ComponentID, uint32& OutWord0, uint32& OutWord1, uint32& OutWord2, uint32& OutWord3) const
+	inline void GetQueryData(uint32 ActorID, uint32& OutWord0, uint32& OutWord1, uint32& OutWord2, uint32& OutWord3) const
 	{
 		/**
 		 * Format for QueryData : 
@@ -52,13 +52,13 @@ struct FPhysicsFilterBuilder
 		 *		word2 (touching channels)
 		 *		word3 (ExtraFilter (top 4) MyChannel (top 5) as ECollisionChannel + Flags (lower 23))
 		 */
-		OutWord0 = ComponentID;
+		OutWord0 = ActorID;
 		OutWord1 = BlockingBits;
 		OutWord2 = TouchingBits;
 		OutWord3 = Word3;
 	}
 
-	inline void GetSimData(uint32 BodyIndex, uint32 SkelMeshCompID, uint32& OutWord0, uint32& OutWord1, uint32& OutWord2, uint32& OutWord3) const
+	inline void GetSimData(uint32 BodyIndex, uint32 ComponentID, uint32& OutWord0, uint32& OutWord1, uint32& OutWord2, uint32& OutWord3) const
 	{
 		/**
 		 * Format for SimData : 
@@ -69,7 +69,7 @@ struct FPhysicsFilterBuilder
 		 */
 		OutWord0 = BodyIndex;
 		OutWord1 = BlockingBits;
-		OutWord2 = SkelMeshCompID;
+		OutWord2 = ComponentID;
 		OutWord3 = Word3;
 	}
 
@@ -91,9 +91,9 @@ private:
 inline void CreateShapeFilterData(
 	const uint8 MyChannel,
 	const FMaskFilter MaskFilter,
-	const int32 ComponentID,
+	const int32 ActorID,
 	const FCollisionResponseContainer& ResponseToChannels,
-	uint32 SkelMeshCompID,
+	uint32 ComponentID,
 	uint16 BodyIndex,
 	PxFilterData& OutQueryData,
 	PxFilterData& OutSimData,
@@ -110,8 +110,8 @@ inline void CreateShapeFilterData(
 
 	OutQueryData.setToDefault();
 	OutSimData.setToDefault();
-	Builder.GetQueryData(ComponentID, OutQueryData.word0, OutQueryData.word1, OutQueryData.word2, OutQueryData.word3);
-	Builder.GetSimData(BodyIndex, SkelMeshCompID, OutSimData.word0, OutSimData.word1, OutSimData.word2, OutSimData.word3);
+	Builder.GetQueryData(ActorID, OutQueryData.word0, OutQueryData.word1, OutQueryData.word2, OutQueryData.word3);
+	Builder.GetSimData(BodyIndex, ComponentID, OutSimData.word0, OutSimData.word1, OutSimData.word2, OutSimData.word3);
 }
 #endif //WITH_PHYSX
 

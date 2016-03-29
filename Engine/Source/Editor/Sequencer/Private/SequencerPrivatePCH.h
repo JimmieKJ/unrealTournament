@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -15,6 +15,7 @@
 #include "SequencerCommands.h"
 #include "SequencerNodeTree.h"
 #include "SequencerDisplayNode.h"
+#include "SequencerFolderNode.h"
 #include "SequencerObjectBindingNode.h"
 #include "SequencerSectionCategoryNode.h"
 #include "SequencerSectionKeyAreaNode.h"

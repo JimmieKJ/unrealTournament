@@ -1,49 +1,57 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 #include "GameplayAbility.h"
 #include "AbilitySystemComponent.h"
 #include "GameplayPrediction.h"
 
+/** The key to understanding this function is that when a key is received by the server, we note which connection gave it to us. We only serialize the key back to that client.  */
 bool FPredictionKey::NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
 {
-	// Read bit for server initiated first
-	uint8 ServerInitiatedByte = bIsServerInitiated;
-	Ar.SerializeBits(&ServerInitiatedByte, 1);
-	bIsServerInitiated = ServerInitiatedByte & 1;
-
-	if (Ar.IsLoading())
-	{
-		Ar << Current;
-		if (Current > 0)
-		{
-			Ar << Base;
-		}
-		if (!bIsServerInitiated)
-		{
-			PredictiveConnection = Map;
-		}
-	}
-	else
+	// First bit for valid key for this connection or not. (most keys are not valid)
+	uint8 ValidKeyForConnection = 0;
+	if (Ar.IsSaving())
 	{
 		/**
 		 *	Only serialize the payload if we have no owning connection (Client sending to server)
 		 *	or if the owning connection is this connection (Server only sends the prediction key to the client who gave it to us)
 		 *  or if this is a server initiated key (valid on all connections)
-		 */
-		
-		if (PredictiveConnection == nullptr || (Map == PredictiveConnection) || bIsServerInitiated)
+		 */		
+		ValidKeyForConnection = (PredictiveConnection == nullptr || (Map == PredictiveConnection) || bIsServerInitiated) && (Current > 0);
+	}
+	Ar.SerializeBits(&ValidKeyForConnection, 1);
+
+	// Second bit for base key (only if valid connection)
+	uint8 HasBaseKey = 0;
+	if (ValidKeyForConnection)
+	{
+		if (Ar.IsSaving())
 		{
-			Ar << Current;
-			if (Current > 0)
-			{
-				Ar << Base;
-			}
+			HasBaseKey = Base > 0;
 		}
-		else
+		Ar.SerializeBits(&HasBaseKey, 1);
+	}
+
+	// Third bit for server initiated
+	uint8 ServerInitiatedByte = bIsServerInitiated;
+	Ar.SerializeBits(&ServerInitiatedByte, 1);
+	bIsServerInitiated = ServerInitiatedByte & 1;
+
+	// Conditionally Serialize the Current and Base keys
+	if (ValidKeyForConnection)
+	{
+		Ar << Current;
+		if (HasBaseKey)
 		{
-			KeyType Payload = 0;
-			Ar << Payload;
+			Ar << Base;
+		}
+	}	
+	if (Ar.IsLoading())
+	{
+		// We are reading this key: the connection that gave us this key is the predictive connection, and we will only serialize this key back to it.
+		if (!bIsServerInitiated)
+		{
+			PredictiveConnection = Map;
 		}
 	}
 
@@ -161,8 +169,10 @@ void FPredictionKeyDelegates::NewRejectOrCaughtUpDelegate(FPredictionKey::KeyTyp
 void FPredictionKeyDelegates::BroadcastRejectedDelegate(FPredictionKey::KeyType Key)
 {
 	// Intentionally making a copy of the delegate list since it may change when firing one of the delegates
-	TArray<FPredictionKeyEvent> DelegateList = Get().DelegateMap.FindOrAdd(Key).RejectedDelegates;
-	for (auto Delegate : DelegateList)
+	static TArray<FPredictionKeyEvent> DelegateList;
+	DelegateList.Reset();
+	DelegateList = Get().DelegateMap.FindOrAdd(Key).RejectedDelegates;
+	for (auto& Delegate : DelegateList)
 	{
 		Delegate.ExecuteIfBound();
 	}
@@ -171,8 +181,10 @@ void FPredictionKeyDelegates::BroadcastRejectedDelegate(FPredictionKey::KeyType 
 void FPredictionKeyDelegates::BroadcastCaughtUpDelegate(FPredictionKey::KeyType Key)
 {
 	// Intentionally making a copy of the delegate list since it may change when firing one of the delegates
-	TArray<FPredictionKeyEvent> DelegateList = Get().DelegateMap.FindOrAdd(Key).CaughtUpDelegates;
-	for (auto Delegate : DelegateList)
+	static TArray<FPredictionKeyEvent> DelegateList;
+	DelegateList.Reset();
+	DelegateList = Get().DelegateMap.FindOrAdd(Key).CaughtUpDelegates;
+	for (auto& Delegate : DelegateList)
 	{
 		Delegate.ExecuteIfBound();
 	}
@@ -183,7 +195,7 @@ void FPredictionKeyDelegates::Reject(FPredictionKey::KeyType Key)
 	FDelegates* DelPtr = Get().DelegateMap.Find(Key);
 	if (DelPtr)
 	{
-		for (auto Delegate : DelPtr->RejectedDelegates)
+		for (auto& Delegate : DelPtr->RejectedDelegates)
 		{
 			Delegate.ExecuteIfBound();
 		}
@@ -198,7 +210,7 @@ void FPredictionKeyDelegates::CatchUpTo(FPredictionKey::KeyType Key)
 	{
 		if (MapIt.Key() <= Key)
 		{		
-			for (auto Delegate : MapIt.Value().CaughtUpDelegates)
+			for (auto& Delegate : MapIt.Value().CaughtUpDelegates)
 			{
 				Delegate.ExecuteIfBound();
 			}
@@ -213,7 +225,7 @@ void FPredictionKeyDelegates::CaughtUp(FPredictionKey::KeyType Key)
 	FDelegates* DelPtr = Get().DelegateMap.Find(Key);
 	if (DelPtr)
 	{
-		for (auto Delegate : DelPtr->CaughtUpDelegates)
+		for (auto& Delegate : DelPtr->CaughtUpDelegates)
 		{
 			Delegate.ExecuteIfBound();
 		}

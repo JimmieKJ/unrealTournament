@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once 
 
@@ -101,7 +101,7 @@ namespace UAudio
 
 		// Align the size of the FNode struct to ensure that two 
 		// FNode objects won't occupy the same cache line (to avoid "cache-line ping-ponging")
-		struct MS_ALIGN(CACHE_LINE_SIZE) FNode
+		struct MS_ALIGN(PLATFORM_CACHE_LINE_SIZE) FNode
 		{
 			FNode(ElementType* InElement)
 				: Element(InElement)
@@ -112,10 +112,10 @@ namespace UAudio
 			FNode* Next;
 		};
 
-		MS_ALIGN(CACHE_LINE_SIZE) FNode*			First;
-		MS_ALIGN(CACHE_LINE_SIZE) volatile int32	ConsumerLock;
-		MS_ALIGN(CACHE_LINE_SIZE) FNode*			Last;
-		MS_ALIGN(CACHE_LINE_SIZE) volatile int32	ProducerLock;
+		MS_ALIGN(PLATFORM_CACHE_LINE_SIZE) FNode*			First;
+		MS_ALIGN(PLATFORM_CACHE_LINE_SIZE) volatile int32	ConsumerLock;
+		MS_ALIGN(PLATFORM_CACHE_LINE_SIZE) FNode*			Last;
+		MS_ALIGN(PLATFORM_CACHE_LINE_SIZE) volatile int32	ProducerLock;
 	};
 
 	/**
@@ -186,9 +186,9 @@ namespace UAudio
 			FNode* Next;
 		};
 
-		MS_ALIGN(CACHE_LINE_SIZE) FNode* First;		// For producer
-		MS_ALIGN(CACHE_LINE_SIZE) FNode* Last;		// Shared
-		MS_ALIGN(CACHE_LINE_SIZE) FNode* Divider;	// Shared
+		MS_ALIGN(PLATFORM_CACHE_LINE_SIZE) FNode* First;		// For producer
+		MS_ALIGN(PLATFORM_CACHE_LINE_SIZE) FNode* Last;		// Shared
+		MS_ALIGN(PLATFORM_CACHE_LINE_SIZE) FNode* Divider;	// Shared
 	};
 
 	class FSafeFloat

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "OnlineSubsystemIOSPrivatePCH.h"
@@ -17,7 +17,7 @@ FString FOnlineFriendIOS::GetRealName() const
 	return Result;
 }
 
-FString FOnlineFriendIOS::GetDisplayName() const
+FString FOnlineFriendIOS::GetDisplayName(const FString& Platform) const
 {
 	FString Result;
 	GetAccountData(TEXT("nickname"), Result);
@@ -303,4 +303,8 @@ bool FOnlineFriendsIOS::QueryBlockedPlayers(const FUniqueNetId& UserId)
 bool FOnlineFriendsIOS::GetBlockedPlayers(const FUniqueNetId& UserId, TArray< TSharedRef<FOnlineBlockedPlayer> >& OutBlockedPlayers)
 {
 	return false;
+}
+
+void FOnlineFriendsIOS::DumpBlockedPlayers() const
+{
 }

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections;
@@ -47,7 +47,7 @@ namespace UnrealBuildTool
 		/// <returns>XML element representing config class.</returns>
 		private static XElement CreateConfigTypeXMLElement(Type ConfigType)
 		{
-			var NS = XNamespace.Get("https://www.unrealengine.com/BuildConfiguration");
+			XNamespace NS = XNamespace.Get("https://www.unrealengine.com/BuildConfiguration");
 
 			return new XElement(NS + ConfigType.Name,
 				from Field in GetConfigurableFields(ConfigType)
@@ -61,7 +61,7 @@ namespace UnrealBuildTool
 		/// <returns>XML representing current config.</returns>
 		private static XDocument GetConfigXML()
 		{
-			var NS = XNamespace.Get("https://www.unrealengine.com/BuildConfiguration");
+			XNamespace NS = XNamespace.Get("https://www.unrealengine.com/BuildConfiguration");
 			return new XDocument(
 					new XElement(NS + "Configuration",
 						from ConfigType in GetAllConfigurationTypes()
@@ -76,7 +76,7 @@ namespace UnrealBuildTool
 		/// <returns>Default config XML.</returns>
 		public static string GetDefaultXML()
 		{
-			var Comment = @"
+			string Comment = @"
 	#########################################################################
 	#																		#
 	#	This is an XML with default UBT configuration. If you want to		#
@@ -121,7 +121,7 @@ namespace UnrealBuildTool
 	priority. Not defined classes and fields are left alone.
 ";
 
-			var DefaultXml = GetConfigXML();
+			XDocument DefaultXml = GetConfigXML();
 
 			DefaultXml.AddFirst(new XComment(Comment));
 
@@ -153,7 +153,7 @@ namespace UnrealBuildTool
 		public static string BuildXSD()
 		{
 			// all elements use this namespace
-			var NS = XNamespace.Get("http://www.w3.org/2001/XMLSchema");
+			XNamespace NS = XNamespace.Get("http://www.w3.org/2001/XMLSchema");
 
 			return WriteToBuffer(new XDocument(
 				// define the root element that declares the schema and target namespace it is validating.
@@ -205,7 +205,7 @@ namespace UnrealBuildTool
 
 			LoadData();
 
-			foreach (var ConfClass in Data.Keys)
+			foreach (Type ConfClass in Data.Keys)
 			{
 				Load(ConfClass);
 			}
@@ -225,7 +225,7 @@ namespace UnrealBuildTool
 			{
 				if (bReadOnlyFile && File.Exists(FilePath))
 				{
-					var Attributes = File.GetAttributes(FilePath);
+					FileAttributes Attributes = File.GetAttributes(FilePath);
 					if (Attributes.HasFlag(FileAttributes.ReadOnly))
 					{
 						File.SetAttributes(FilePath, Attributes & ~FileAttributes.ReadOnly);
@@ -263,7 +263,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		private static void LoadDefaults()
 		{
-			foreach (var ConfigType in GetAllConfigurationTypes())
+			foreach (Type ConfigType in GetAllConfigurationTypes())
 			{
 				InvokeIfExists(ConfigType, "LoadDefaults");
 			}
@@ -279,12 +279,12 @@ namespace UnrealBuildTool
 			/// </summary>
 			public void LoadXmlData()
 			{
-				foreach (var DataPair in DataMap)
+				foreach (KeyValuePair<FieldInfo, object> DataPair in DataMap)
 				{
 					DataPair.Key.SetValue(null, DataPair.Value);
 				}
 
-				foreach (var PropertyPair in PropertyMap)
+				foreach (KeyValuePair<PropertyInfo, object> PropertyPair in PropertyMap)
 				{
 					PropertyPair.Key.SetValue(null, PropertyPair.Value, null);
 				}
@@ -351,11 +351,11 @@ namespace UnrealBuildTool
 				const string ConfigXmlFileName = "BuildConfiguration.xml";
 
 				// Filter out non-existing
-				var ExistingLocations = new List<string>();
+				List<string> ExistingLocations = new List<string>();
 
-				foreach (var PossibleLocation in PossibleLocations)
+				foreach (string PossibleLocation in PossibleLocations)
 				{
-					var FilePath = Path.Combine(PossibleLocation, ConfigXmlFileName);
+					string FilePath = Path.Combine(PossibleLocation, ConfigXmlFileName);
 
 					if (File.Exists(FilePath))
 					{
@@ -430,7 +430,7 @@ namespace UnrealBuildTool
 				{
 					Directory.CreateDirectory(Path.GetDirectoryName(FSLocation));
 
-					var FilePath = Path.Combine(FSLocation);
+					string FilePath = Path.Combine(FSLocation);
 
 					const string TemplateContent =
 						"<?xml version=\"1.0\" encoding=\"utf-8\" ?>" +
@@ -478,7 +478,7 @@ namespace UnrealBuildTool
 				{
 					Directory.CreateDirectory(Path.GetDirectoryName(FSLocation));
 
-					var FilePath = Path.Combine(FSLocation);
+					string FilePath = Path.Combine(FSLocation);
 
 					OverwriteIfDifferent(FilePath, GetDefaultXML(), true);
 					bExists = true;
@@ -516,7 +516,7 @@ namespace UnrealBuildTool
 			 *	priority. Not defined classes and fields are left alone.
 			 */
 
-			var UE4EnginePath = new FileInfo(Path.Combine(Path.GetDirectoryName(Assembly.GetEntryAssembly().GetOriginalLocation()), "..", "..")).FullName;
+			string UE4EnginePath = new FileInfo(Path.Combine(Path.GetDirectoryName(Assembly.GetEntryAssembly().GetOriginalLocation()), "..", "..")).FullName;
 
 			ConfigLocationHierarchy = new XmlConfigLocation[]
 			{
@@ -543,7 +543,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		private static void LoadData()
 		{
-			foreach (var PossibleConfigLocation in ConfigLocationHierarchy)
+			foreach (XmlConfigLocation PossibleConfigLocation in ConfigLocationHierarchy)
 			{
 				if (!PossibleConfigLocation.bExists)
 				{
@@ -567,7 +567,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		private static void CreateUserXmlConfigTemplate()
 		{
-			foreach (var PossibleConfigLocation in ConfigLocationHierarchy)
+			foreach (XmlConfigLocation PossibleConfigLocation in ConfigLocationHierarchy)
 			{
 				if (!PossibleConfigLocation.IfShouldCreateFile())
 				{
@@ -583,12 +583,12 @@ namespace UnrealBuildTool
 		/// </summary>
 		private static XmlSchema ReadConfigSchema()
 		{
-			var Settings = new XmlReaderSettings();
+			XmlReaderSettings Settings = new XmlReaderSettings();
 			Settings.ValidationType = ValidationType.DTD;
 
-			using (var SR = new StringReader(File.ReadAllText(GetXSDPath(), Encoding.UTF8)))
+			using (StringReader SR = new StringReader(File.ReadAllText(GetXSDPath(), Encoding.UTF8)))
 			{
-				using (var XR = XmlReader.Create(SR, Settings))
+				using (XmlReader XR = XmlReader.Create(SR, Settings))
 				{
 					return XmlSchema.Read(XR, (object Sender, System.Xml.Schema.ValidationEventArgs EventArgs) =>
 					{
@@ -622,10 +622,10 @@ namespace UnrealBuildTool
 		/// <param name="ConfigurationXmlPath">The path to the file with values.</param>
 		private static void LoadDataFromFile(string ConfigurationXmlPath)
 		{
-			var ConfigDocument = new XmlDocument();
-			var NS = new XmlNamespaceManager(ConfigDocument.NameTable);
+			XmlDocument ConfigDocument = new XmlDocument();
+			XmlNamespaceManager NS = new XmlNamespaceManager(ConfigDocument.NameTable);
 			NS.AddNamespace("ns", "https://www.unrealengine.com/BuildConfiguration");
-			var ReaderSettings = new XmlReaderSettings();
+			XmlReaderSettings ReaderSettings = new XmlReaderSettings();
 
 			ReaderSettings.ValidationEventHandler += (object Sender, System.Xml.Schema.ValidationEventArgs EventArgs) =>
 			{
@@ -636,13 +636,13 @@ namespace UnrealBuildTool
 			ReaderSettings.ValidationType = ValidationType.Schema;
 			ReaderSettings.Schemas.Add(GetConfigSchema());
 
-			using (var SR = new StringReader(File.ReadAllText(ConfigurationXmlPath, Encoding.UTF8)))
+			using (StringReader SR = new StringReader(File.ReadAllText(ConfigurationXmlPath, Encoding.UTF8)))
 			{
-				var Reader = XmlReader.Create(SR, ReaderSettings);
+				XmlReader Reader = XmlReader.Create(SR, ReaderSettings);
 				ConfigDocument.Load(Reader);
 			}
 
-			var XmlClasses = ConfigDocument.DocumentElement.SelectNodes("/ns:Configuration/*", NS);
+			XmlNodeList XmlClasses = ConfigDocument.DocumentElement.SelectNodes("/ns:Configuration/*", NS);
 
 			if (XmlClasses.Count == 0)
 			{
@@ -650,7 +650,7 @@ namespace UnrealBuildTool
 				{
 					ConfigDocument.DocumentElement.SetAttribute("xmlns", "https://www.unrealengine.com/BuildConfiguration");
 
-					var NSDoc = new XmlDocument();
+					XmlDocument NSDoc = new XmlDocument();
 
 					NSDoc.LoadXml(ConfigDocument.OuterXml);
 
@@ -669,7 +669,7 @@ namespace UnrealBuildTool
 
 			foreach (XmlNode XmlClass in XmlClasses)
 			{
-				var ClassType = Type.GetType("UnrealBuildTool." + XmlClass.Name);
+				Type ClassType = Type.GetType("UnrealBuildTool." + XmlClass.Name);
 
 				if (ClassType == null)
 				{
@@ -691,7 +691,7 @@ namespace UnrealBuildTool
 					Data.Add(ClassType, ClassData);
 				}
 
-				var XmlFields = XmlClass.SelectNodes("*");
+				XmlNodeList XmlFields = XmlClass.SelectNodes("*");
 
 				foreach (XmlNode XmlField in XmlFields)
 				{
@@ -722,13 +722,13 @@ namespace UnrealBuildTool
 					if (Field.FieldType.IsArray)
 					{
 						// If the type is an array type get items for it.
-						var XmlItems = XmlField.SelectNodes("ns:Item", NS);
+						XmlNodeList XmlItems = XmlField.SelectNodes("ns:Item", NS);
 
 						// Get the C# type of the array.
-						var ItemType = Field.FieldType.GetElementType();
+						Type ItemType = Field.FieldType.GetElementType();
 
 						// Create the array according to the ItemType.
-						var OutputArray = Array.CreateInstance(ItemType, XmlItems.Count);
+						Array OutputArray = Array.CreateInstance(ItemType, XmlItems.Count);
 
 						int Id = 0;
 						foreach (XmlNode XmlItem in XmlItems)
@@ -792,7 +792,7 @@ namespace UnrealBuildTool
 			// InvariantCulture.
 
 			bool bWithCulture = true;
-			var ParseMethod = ParsingType.GetMethod("Parse", new Type[] { typeof(System.String), typeof(IFormatProvider) });
+			MethodInfo ParseMethod = ParsingType.GetMethod("Parse", new Type[] { typeof(System.String), typeof(IFormatProvider) });
 
 			if (ParseMethod == null)
 			{
@@ -805,7 +805,7 @@ namespace UnrealBuildTool
 				throw new BuildException("BuildConfiguration Loading: Parsing of the type {0} is not supported.", ParsingType.Name);
 			}
 
-			var ParametersList = new List<object> { UnparsedValue };
+			List<object> ParametersList = new List<object> { UnparsedValue };
 
 			if (bWithCulture)
 			{
@@ -885,7 +885,7 @@ namespace UnrealBuildTool
 		/// <param name="MethodName">Name of the method.</param>
 		private static void InvokeIfExists(Type ClassType, string MethodName)
 		{
-			var Method = ClassType.GetMethod(MethodName, new Type[] { }, new ParameterModifier[] { });
+			MethodInfo Method = ClassType.GetMethod(MethodName, new Type[] { }, new ParameterModifier[] { });
 
 			if (Method != null && Method.IsPublic && Method.IsStatic)
 			{
@@ -910,7 +910,7 @@ namespace UnrealBuildTool
 		/// <returns>String representation of xsd type corresponding given field type.</returns>
 		private static string GetFieldXSDType(Type FieldType)
 		{
-			var TypeMap = new Dictionary<Type, string>
+			Dictionary<Type, string> TypeMap = new Dictionary<Type, string>
 			{
 				{ typeof(string), "string" },
 				{ typeof(bool), "boolean" },
@@ -933,12 +933,12 @@ namespace UnrealBuildTool
 		/// <returns>Array field value as XML elements.</returns>
 		private static XElement[] GetArrayFieldXMLValue(FieldInfo Field)
 		{
-			var NS = XNamespace.Get("http://www.w3.org/2001/XMLSchema");
+			XNamespace NS = XNamespace.Get("http://www.w3.org/2001/XMLSchema");
 
-			var Array = Field.GetValue(null) as IEnumerable;
-			var ElementList = new List<XElement>();
+			IEnumerable Array = Field.GetValue(null) as IEnumerable;
+			List<XElement> ElementList = new List<XElement>();
 
-			foreach (var Element in Array)
+			foreach (object Element in Array)
 			{
 				ElementList.Add(new XElement(NS + "Item", GetObjectXMLValue(Field.FieldType.GetElementType(), Element)));
 			}
@@ -988,7 +988,7 @@ namespace UnrealBuildTool
 
 		private static XElement CreateXSDElementForField(FieldInfo Field)
 		{
-			var NS = XNamespace.Get("http://www.w3.org/2001/XMLSchema");
+			XNamespace NS = XNamespace.Get("http://www.w3.org/2001/XMLSchema");
 
 			if (Field.FieldType.IsArray)
 			{
@@ -1018,7 +1018,7 @@ namespace UnrealBuildTool
 
 		private static XElement CreateFieldXMLElement(FieldInfo Field)
 		{
-			var NS = XNamespace.Get("https://www.unrealengine.com/BuildConfiguration");
+			XNamespace NS = XNamespace.Get("https://www.unrealengine.com/BuildConfiguration");
 
 			if (Field.FieldType.IsArray)
 			{
@@ -1032,7 +1032,7 @@ namespace UnrealBuildTool
 
 		private static string WriteToBuffer(XmlDocument Document)
 		{
-			using (var Reader = new XmlNodeReader(Document))
+			using (XmlNodeReader Reader = new XmlNodeReader(Document))
 			{
 				Reader.MoveToContent();
 				return WriteToBuffer(XDocument.Load(Reader));
@@ -1041,16 +1041,16 @@ namespace UnrealBuildTool
 
 		private static string WriteToBuffer(XDocument Document)
 		{
-			var Settings = new XmlWriterSettings();
+			XmlWriterSettings Settings = new XmlWriterSettings();
 			Settings.Indent = true;
 			Settings.IndentChars = "\t";
 			Settings.CloseOutput = true;
 
-			using (var MS = new MemoryStream())
+			using (MemoryStream MS = new MemoryStream())
 			{
-				using (var SW = new StreamWriter(MS, Encoding.UTF8))
+				using (StreamWriter SW = new StreamWriter(MS, Encoding.UTF8))
 				{
-					using (var Writer = XmlWriter.Create(SW, Settings))
+					using (XmlWriter Writer = XmlWriter.Create(SW, Settings))
 					{
 						Document.WriteTo(Writer);
 					}

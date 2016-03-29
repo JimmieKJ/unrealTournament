@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LocalizationDashboardPrivatePCH.h"
 #include "GatherTextDetailCustomizations.h"
@@ -55,8 +55,10 @@ namespace
 	class SGatherTextPathPicker : public SCompoundWidget
 	{
 		SLATE_BEGIN_ARGS(SGatherTextPathPicker)
-			: _ShouldCoercePathAsWildcardPattern(false)
+			: _Font()
+			, _ShouldCoercePathAsWildcardPattern(false)
 		{}
+			SLATE_ATTRIBUTE(FSlateFontInfo, Font)
 			SLATE_ARGUMENT(bool, ShouldCoercePathAsWildcardPattern)
 		SLATE_END_ARGS()
 
@@ -89,6 +91,7 @@ namespace
 				.Padding(2.0f, 0.0f)
 				[
 					SNew(STextBlock)
+					.Font(Args._Font)
 					.Text( FText::FromString( FString::Printf( TEXT("%s/"), *(FPaths::GetBaseFilename(LocalizationTarget->IsMemberOfEngineTargetSet() ? FPaths::EngineDir() : FPaths::GameDir())) ) ) )
 				]
 				+SHorizontalBox::Slot()
@@ -225,6 +228,7 @@ void FGatherTextSearchDirectoryStructCustomization::CustomizeStructHeader( TShar
 		.MaxDesiredWidth(TOptional<float>())
 		[
 			SNew(SGatherTextPathPicker, PathPropertyHandle.ToSharedRef())
+			.Font(StructCustomizationUtils.GetRegularFont())
 		];
 }
 
@@ -277,6 +281,7 @@ void FGatherTextIncludePathStructCustomization::CustomizeStructHeader( TSharedRe
 		.MaxDesiredWidth(TOptional<float>())
 		[
 			SNew(SGatherTextPathPicker, PatternPropertyHandle.ToSharedRef())
+			.Font(StructCustomizationUtils.GetRegularFont())
 			.ShouldCoercePathAsWildcardPattern(true)
 		];
 }
@@ -323,6 +328,7 @@ void FGatherTextExcludePathStructCustomization::CustomizeStructHeader( TSharedRe
 		.MaxDesiredWidth(TOptional<float>())
 		[
 			SNew(SGatherTextPathPicker, PatternPropertyHandle.ToSharedRef())
+			.Font(StructCustomizationUtils.GetRegularFont())
 			.ShouldCoercePathAsWildcardPattern(true)
 		];
 }

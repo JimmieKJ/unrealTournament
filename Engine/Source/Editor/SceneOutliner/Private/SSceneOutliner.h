@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "SOutlinerTreeView.h"
@@ -39,6 +39,9 @@ namespace SceneOutliner
 			Rename			= 1 << 2,
 		};
 	}
+
+	/** Get a description of a world to display in the scene outliner */
+	FText GetWorldDescription(UWorld* World);
 
 	/**
 	 * Scene Outliner widget
@@ -320,10 +323,16 @@ namespace SceneOutliner
 		ESelectionMode::Type GetSelectionMode() const;
 
 		/** @return the content for the view button */
-		TSharedRef<SWidget> GetViewButtonContent();
+		TSharedRef<SWidget> GetViewButtonContent(bool bWorldPickerOnly);
+
+		/** Build the content for the world picker submenu */
+		void BuildWorldPickerContent(FMenuBuilder& MenuBuilder);
 
 		/** @return the foreground color for the view button */
 		FSlateColor GetViewButtonForegroundColor() const;
+
+		/** @return the foreground color for the world picker button */
+		FSlateColor GetWorldPickerForegroundColor() const;
 
 		/** The brush to use when in Editor mode */
 		const FSlateBrush* NoBorder;
@@ -500,6 +509,11 @@ namespace SceneOutliner
 		/** Sort the specified array of items based on the current sort column */
 		void SortItems(TArray<FTreeItemPtr>& Items) const;
 
+		/** Select the world we want to view */
+		void OnSelectWorld(TWeakObjectPtr<UWorld> InWorld);
+
+		/** Display a checkbox next to the world we are viewing */
+		bool IsWorldChecked(TWeakObjectPtr<UWorld> InWorld);
 	};
 
 }		// namespace SceneOutliner

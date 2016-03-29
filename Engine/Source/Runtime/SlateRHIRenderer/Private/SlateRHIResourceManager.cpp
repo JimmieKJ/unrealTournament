@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateRHIRendererPrivatePCH.h"
 #include "ImageWrapper.h"
@@ -53,7 +53,6 @@ void FDynamicResourceMap::AddUTextureResource( UTexture* TextureObject, TSharedR
 		TextureMap.Add(TextureObject, InResource);
 
 		TextureMemorySincePurge += TextureObject->GetResourceSize(EResourceSizeMode::Inclusive);
-		RemoveExpiredTextureResources();
 	}
 }
 
@@ -61,8 +60,6 @@ void FDynamicResourceMap::AddMaterialResource( const UMaterialInterface* Materia
 {
 	check( Material == InMaterialResource->GetMaterialObject() );
 	MaterialMap.Add(Material, InMaterialResource);
-
-	RemoveExpiredMaterialResources();
 }
 
 void FDynamicResourceMap::RemoveDynamicTextureResource(FName ResourceName)
@@ -120,7 +117,7 @@ void FDynamicResourceMap::ReleaseResources()
 	}
 }
 
-void FDynamicResourceMap::RemoveExpiredTextureResources()
+void FDynamicResourceMap::RemoveExpiredTextureResources(TArray< TSharedPtr<FSlateUTextureResource> >& RemovedTextures)
 {
 	// We attempt to purge every 10Mb of accumulated textures.
 	static const uint64 PurgeAfterAddingNewBytes = 1024 * 1024 * 10; // 10Mb
@@ -129,8 +126,11 @@ void FDynamicResourceMap::RemoveExpiredTextureResources()
 	{
 		for ( TextureResourceMap::TIterator It(TextureMap); It; ++It )
 		{
-			if ( It.Key().IsStale() )
+			TWeakObjectPtr<UTexture>& Key = It.Key();
+			if ( !Key.IsValid() )
 			{
+				RemovedTextures.Push(It.Value());
+
 				It.RemoveCurrent();
 			}
 		}
@@ -139,16 +139,19 @@ void FDynamicResourceMap::RemoveExpiredTextureResources()
 	}
 }
 
-void FDynamicResourceMap::RemoveExpiredMaterialResources()
+void FDynamicResourceMap::RemoveExpiredMaterialResources(TArray< TSharedPtr<FSlateMaterialResource> >& RemovedMaterials)
 {
-	static const int32 CheckingIncrement = 10;
+	static const int32 CheckingIncrement = 20;
 
 	if ( MaterialMap.Num() > ( LastExpiredMaterialNumMarker + CheckingIncrement ) )
 	{
 		for ( MaterialResourceMap::TIterator It(MaterialMap); It; ++It )
 		{
-			if ( It.Key().IsStale() )
+			TWeakObjectPtr<UMaterialInterface>& Key = It.Key();
+			if ( !Key.IsValid() )
 			{
+				RemovedMaterials.Push(It.Value());
+
 				It.RemoveCurrent();
 			}
 		}
@@ -219,6 +222,42 @@ FSlateShaderResource* FSlateRHIResourceManager::GetAtlasPageResource(const int32
 bool FSlateRHIResourceManager::IsAtlasPageResourceAlphaOnly() const
 {
 	return false;
+}
+
+void FSlateRHIResourceManager::Tick(float DeltaSeconds)
+{
+	// Don't need to do this if there's no RHI thread.
+	if ( GRHIThread )
+	{
+		struct FDeleteCachedRenderDataContext
+		{
+			FSlateRHIResourceManager* ResourceManager;
+		};
+		FDeleteCachedRenderDataContext DeleteCachedRenderDataContext =
+		{
+			this,
+		};
+		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+			DeleteCachedRenderData,
+			FDeleteCachedRenderDataContext, Context, DeleteCachedRenderDataContext,
+			{
+				// Go through the pending delete buffers and see if any of their fences has cleared
+				// the RHI thread, if so, they should be safe to delete now.
+				for ( int32 BufferIndex = Context.ResourceManager->PooledBuffersPendingRelease.Num() - 1; BufferIndex >= 0; BufferIndex-- )
+				{
+					FCachedRenderBuffers* PooledBuffer = Context.ResourceManager->PooledBuffersPendingRelease[BufferIndex];
+
+					if ( PooledBuffer->ReleaseResourcesFence->IsComplete() )
+					{
+						PooledBuffer->VertexBuffer.Destroy();
+						PooledBuffer->IndexBuffer.Destroy();
+						delete PooledBuffer;
+
+						Context.ResourceManager->PooledBuffersPendingRelease.RemoveAt(BufferIndex);
+					}
+				}
+			});
+	}
 }
 
 void FSlateRHIResourceManager::AddReferencedObjects(FReferenceCollector& Collector)
@@ -684,8 +723,6 @@ FSlateMaterialResource* FSlateRHIResourceManager::GetMaterialResource(const UObj
 	}
 	else
 	{
-		// Keep the resource up to date
-		MaterialResource->UpdateRenderResource(Material->GetRenderProxy(false, false));
 		MaterialResource->SlateProxy->ActualSize = ImageSize.IntPoint();
 	}
 
@@ -696,6 +733,8 @@ FSlateMaterialResource* FSlateRHIResourceManager::GetMaterialResource(const UObj
 
 void FSlateRHIResourceManager::OnAppExit()
 {
+	FlushRenderingCommands();
+
 	ReleaseResources();
 
 	FlushRenderingCommands();
@@ -743,10 +782,10 @@ void FSlateRHIResourceManager::ReleaseDynamicResource( const FSlateBrush& InBrus
 
 				if (MaterialResource.IsValid())
 				{
+					MaterialResource->ResetMaterial();
 					MaterialResourceFreeList.Add( MaterialResource );
 				}
 			}
-		
 		}
 		else if( !ResourceObject )
 		{
@@ -765,7 +804,6 @@ void FSlateRHIResourceManager::ReleaseDynamicResource( const FSlateBrush& InBrus
 				DEC_DWORD_STAT_BY(STAT_SlateNumDynamicTextures, 1);
 			}
 		}
-		
 	}
 }
 
@@ -790,6 +828,9 @@ void FSlateRHIResourceManager::BeginReleasingAccessedResources(bool bImmediately
 	// IsInGameThread returns true when you're in the slate loading thread
 	if ( IsInGameThread() && !IsInSlateThread() )
 	{
+		DynamicResourceMap.RemoveExpiredTextureResources(UTextureFreeList);
+		DynamicResourceMap.RemoveExpiredMaterialResources(MaterialResourceFreeList);
+
 		if ( CurrentAccessedUObject )
 		{
 			DirtyAccessedObjectSets.Enqueue(CurrentAccessedUObject);
@@ -833,7 +874,7 @@ TSet<UObject*>& FSlateRHIResourceManager::GetAccessedUObjects()
 			CurrentAccessedUObject = AllAccessedUObject.Last();
 		}
 	}
-	
+
 	return *CurrentAccessedUObject;
 }
 
@@ -847,6 +888,9 @@ void FSlateRHIResourceManager::UpdateTextureAtlases()
 
 FCachedRenderBuffers* FSlateRHIResourceManager::FindOrCreateCachedBuffersForHandle(const TSharedRef<FSlateRenderDataHandle, ESPMode::ThreadSafe>& RenderHandle)
 {
+	// Should only be called by the rendering thread
+	check(IsInRenderingThread());
+
 	FCachedRenderBuffers* Buffers = CachedBuffers.FindRef(&RenderHandle.Get());
 	if ( Buffers == nullptr )
 	{
@@ -861,8 +905,8 @@ FCachedRenderBuffers* FSlateRHIResourceManager::FindOrCreateCachedBuffersForHand
 		if ( Pool.Num() == 0 )
 		{
 			Buffers = new FCachedRenderBuffers();
-			Buffers->VertexBuffer.Init(200);
-			Buffers->IndexBuffer.Init(200);
+			Buffers->VertexBuffer.Init(100);
+			Buffers->IndexBuffer.Init(100);
 		}
 		else
 		{
@@ -877,16 +921,35 @@ FCachedRenderBuffers* FSlateRHIResourceManager::FindOrCreateCachedBuffersForHand
 	return Buffers;
 }
 
-void FSlateRHIResourceManager::ReleaseCachedRenderData(FSlateRenderDataHandle* InRenderHandle)
+void FSlateRHIResourceManager::BeginReleasingRenderData(const FSlateRenderDataHandle* RenderHandle)
 {
-	// Should only be called by the rendering thread
-	check(IsInRenderingThread());
-	check(InRenderHandle);
+	struct FReleaseCachedRenderDataContext
+	{
+		FSlateRHIResourceManager* ResourceManager;
+		const FSlateRenderDataHandle* RenderDataHandle;
+		const ILayoutCache* LayoutCacher;
+	};
+	FReleaseCachedRenderDataContext ReleaseCachedRenderDataContext =
+	{
+		this,
+		RenderHandle,
+		RenderHandle->GetCacher()
+	};
+	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+		ReleaseCachedRenderData,
+		FReleaseCachedRenderDataContext, Context, ReleaseCachedRenderDataContext,
+		{
+			Context.ResourceManager->ReleaseCachedRenderData(RHICmdList, Context.RenderDataHandle, Context.LayoutCacher);
+		});
+}
 
-	FCachedRenderBuffers* PooledBuffer = CachedBuffers.FindRef(InRenderHandle);
+void FSlateRHIResourceManager::ReleaseCachedRenderData(FRHICommandListImmediate& RHICmdList, const FSlateRenderDataHandle* RenderHandle, const ILayoutCache* LayoutCacher)
+{
+	check(IsInRenderingThread());
+
+	FCachedRenderBuffers* PooledBuffer = CachedBuffers.FindRef(RenderHandle);
 	if ( ensure(PooledBuffer != nullptr) )
 	{
-		const ILayoutCache* LayoutCacher = InRenderHandle->GetCacher();
 		TArray< FCachedRenderBuffers* >* Pool = CachedBufferPool.Find(LayoutCacher);
 		if ( Pool )
 		{
@@ -894,29 +957,43 @@ void FSlateRHIResourceManager::ReleaseCachedRenderData(FSlateRenderDataHandle* I
 		}
 		else
 		{
-			// The buffer pool may have already been released, so lets just delete this buffer.
-			PooledBuffer->VertexBuffer.Destroy();
-			PooledBuffer->IndexBuffer.Destroy();
-			delete PooledBuffer;
+			ReleaseCachedBuffer(RHICmdList, PooledBuffer);
 		}
 
-		CachedBuffers.Remove(InRenderHandle);
+		CachedBuffers.Remove(RenderHandle);
 	}
 }
 
-void FSlateRHIResourceManager::ReleaseCachingResourcesFor(const ILayoutCache* Cacher)
+void FSlateRHIResourceManager::ReleaseCachingResourcesFor(FRHICommandListImmediate& RHICmdList, const ILayoutCache* Cacher)
 {
+	check(IsInRenderingThread());
+
 	TArray< FCachedRenderBuffers* >* Pool = CachedBufferPool.Find(Cacher);
 	if ( Pool )
 	{
 		for ( FCachedRenderBuffers* PooledBuffer : *Pool )
 		{
-			PooledBuffer->VertexBuffer.Destroy();
-			PooledBuffer->IndexBuffer.Destroy();
-			delete PooledBuffer;
+			ReleaseCachedBuffer(RHICmdList, PooledBuffer);
 		}
 
 		CachedBufferPool.Remove(Cacher);
+	}
+}
+
+void FSlateRHIResourceManager::ReleaseCachedBuffer(FRHICommandListImmediate& RHICmdList, FCachedRenderBuffers* PooledBuffer)
+{
+	check(IsInRenderingThread());
+
+	if ( GRHIThread )
+	{
+		PooledBuffersPendingRelease.Add(PooledBuffer);
+		PooledBuffer->ReleaseResourcesFence = RHICmdList.RHIThreadFence();
+	}
+	else
+	{
+		PooledBuffer->VertexBuffer.Destroy();
+		PooledBuffer->IndexBuffer.Destroy();
+		delete PooledBuffer;
 	}
 }
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "PhATModule.h"
 #include "PhATEdSkeletalMeshComponent.h"
@@ -18,6 +18,7 @@
 #include "PhysicsEngine/PhysicsSettings.h"
 #include "PhysicsEngine/PhysicsHandleComponent.h"
 #include "DrawDebugHelpers.h"
+#include "PersonaModule.h"
 
 FPhATEdPreviewViewportClient::FPhATEdPreviewViewportClient(TWeakPtr<FPhAT> InPhAT, TSharedPtr<FPhATSharedData> Data, const TSharedRef<SPhATPreviewViewport>& InPhATPreviewViewport)
 	: FEditorViewportClient(nullptr, &Data->PreviewScene, StaticCastSharedRef<SEditorViewport>(InPhATPreviewViewport))
@@ -683,12 +684,6 @@ void FPhATEdPreviewViewportClient::Tick(float DeltaSeconds)
 	}
 
 	World->Tick(LEVELTICK_All, DeltaSeconds * SharedData->EditorSimOptions->TimeDilation);
-
-	if(SharedData->Recorder.InRecording())
-	{
-		// make sure you don't allow switch SharedData->EditorSkelComp
-		SharedData->Recorder.UpdateRecord(SharedData->EditorSkelComp, DeltaSeconds);
-	}
 }
 
 FSceneInterface* FPhATEdPreviewViewportClient::GetScene() const

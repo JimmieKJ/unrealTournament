@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
 #include "EnvironmentQuery/Contexts/EnvQueryContext_Querier.h"
@@ -7,7 +7,6 @@
 #include "EnvironmentQuery/Generators/EnvQueryGenerator_BlueprintBase.h"
 #include "EnvironmentQuery/Items/EnvQueryItemType_Actor.h"
 #include "AI/Navigation/RecastNavMesh.h"
-#include "VisualLogger/VisualLogger.h"
 
 #define LOCTEXT_NAMESPACE "EnvQueryGenerator"
 
@@ -43,15 +42,33 @@ void UEnvQueryGenerator_BlueprintBase::GenerateItems(FEnvQueryInstance& QueryIns
 void UEnvQueryGenerator_BlueprintBase::AddGeneratedVector(FVector Vector) const
 {
 	check(CachedQueryInstance);
-	ensure(ItemType->IsChildOf<UEnvQueryItemType_VectorBase>());
-	CachedQueryInstance->AddItemData<UEnvQueryItemType_Point>(Vector);
+	if (ensure(ItemType->IsChildOf<UEnvQueryItemType_ActorBase>() == false))
+	{
+		CachedQueryInstance->AddItemData<UEnvQueryItemType_Point>(Vector);
+	}
+	else
+	{
+		UE_LOG(LogEQS, Error, TEXT("Trying to generate a Vector item while generator %s is configured to produce Actor items")
+			, *GetName());
+	}
 }
 
 void UEnvQueryGenerator_BlueprintBase::AddGeneratedActor(AActor* Actor) const
 {
 	check(CachedQueryInstance);
-	ensure(ItemType->IsChildOf<UEnvQueryItemType_ActorBase>());
-	CachedQueryInstance->AddItemData<UEnvQueryItemType_Actor>(Actor);
+	if (ensure(ItemType->IsChildOf<UEnvQueryItemType_ActorBase>()))
+	{
+		CachedQueryInstance->AddItemData<UEnvQueryItemType_Actor>(Actor);
+	}
+	else
+	{
+		UE_LOG(LogEQS, Error, TEXT("Trying to generate an Actor item while generator %s is configured to produce Vector items. Will use Actor\'s location, but please update your BP code.")
+			, *GetName());
+		if (Actor)
+		{
+			CachedQueryInstance->AddItemData<UEnvQueryItemType_Point>(Actor->GetActorLocation());
+		}
+	}
 }
 
 UObject* UEnvQueryGenerator_BlueprintBase::GetQuerier() const

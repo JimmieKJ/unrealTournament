@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -52,6 +52,23 @@ namespace EEasingFunc
 		/** Easing is based on two half circles. */
 		CircularInOut,
 
+	};
+}
+
+/** Different methods for interpolating rotation between transforms */
+UENUM(BlueprintType)
+namespace ELerpInterpolationMode
+{
+	enum Type
+	{
+		/** Shortest Path or Quaternion interpolation for the rotation. */
+		QuatInterp,
+
+		/** Rotor or Euler Angle interpolation. */
+		EulerInterp,
+
+		/** Dual quaternion interpolation, follows helix or screw-motion path between keyframes.   */
+		DualQuatInterp
 	};
 }
 
@@ -124,6 +141,14 @@ class ENGINE_API UKismetMathLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, meta=(DisplayName = "Byte - Byte", CompactNodeTitle = "-", Keywords = "- subtract minus"), Category="Math|Byte")
 	static uint8 Subtract_ByteByte(uint8 A, uint8 B = 1);
 
+	/* Returns the minimum value of A and B */
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "Min (Byte)", CompactNodeTitle = "MIN", CommutativeAssociativeBinaryOperator = "true"), Category = "Math|Byte")
+	static uint8 BMin(uint8 A, uint8 B);
+
+	/* Returns the maximum value of A and B */
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "Max (Byte)", CompactNodeTitle = "MAX", CommutativeAssociativeBinaryOperator = "true"), Category = "Math|Byte")
+	static uint8 BMax(uint8 A, uint8 B);
+	
 	/* Returns true if A is less than B (A < B) */
 	UFUNCTION(BlueprintPure, meta=(DisplayName = "Byte < Byte", CompactNodeTitle = "<", Keywords = "< less"), Category="Math|Byte")
 	static bool Less_ByteByte(uint8 A, uint8 B);
@@ -415,6 +440,10 @@ class ENGINE_API UKismetMathLibrary : public UBlueprintFunctionLibrary
 	/* Returns the value of PI */
 	UFUNCTION(BlueprintPure, meta=(DisplayName = "Get PI", CompactNodeTitle = "PI"), Category="Math|Trig")
 	static float GetPI();
+
+	/* Returns the value of TAU (= 2 * PI) */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Get TAU", CompactNodeTitle = "TAU"), Category="Math|Trig")
+	static float GetTAU();
 
 	/* Returns radians value based on the input degrees */
 	UFUNCTION(BlueprintPure, meta=(DisplayName = "Degrees To Radians", CompactNodeTitle = "D2R"), Category="Math|Trig")
@@ -747,7 +776,17 @@ class ENGINE_API UKismetMathLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, Category="Math|Vector", meta=(Keywords = "ProjectOnTo"))
 	static FVector ProjectVectorOnToVector(FVector V, FVector Target);
 
-	 /**
+	/**
+	* Projects a point onto a plane defined by a point on the plane and a plane normal.
+	*
+	* @param  A1 Start of first line segment
+	* @param  PlaneBase A point on the plane.
+	* @param  PlaneNormal Normal of the plane.
+	*/
+	UFUNCTION(BlueprintPure, Category = "Math|Vector")
+	static void FindNearestPointsOnLineSegments(FVector Segment1Start, FVector Segment1End, FVector Segment2Start, FVector Segment2End, FVector& Segment1Point, FVector& Segment2Point);
+	
+	/**
 	 * Projects a point onto a plane defined by a point on the plane and a plane normal.
 	 *
 	 * @param  Point Point to project onto the plane.
@@ -892,6 +931,20 @@ class ENGINE_API UKismetMathLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, meta=(DisplayName = "LinearColor * Float", CompactNodeTitle = "*", Keywords = "* multiply"), Category="Math|Color")
 	static FLinearColor Multiply_LinearColorFloat(FLinearColor A, float B);
 
+	//
+	// Plane functions.
+	//
+	
+	/** 
+	* Creates a plane with a facing direction of Normal at the given Point
+	* 
+	* @param Point	A point on the plane
+	* @param Normal  The Normal of the plane at Point
+	* @return Plane instance
+	*/
+	UFUNCTION(BlueprintPure, Category = "Math|Plane", meta=(Keywords="make plane"))
+	static FPlane MakePlaneFromPointAndNormal(FVector Point, FVector Normal);
+	
 	//
 	// DateTime functions.
 	//
@@ -1546,8 +1599,8 @@ class ENGINE_API UKismetMathLibrary : public UBlueprintFunctionLibrary
 	static FTransform InvertTransform(const FTransform& T);
 
 	/** Linearly interpolates between A and B based on Alpha (100% of A when Alpha=0 and 100% of B when Alpha=1). */
-	UFUNCTION(BlueprintPure, meta=(DisplayName = "Lerp (Transform)"), Category="Math|Transform")
-	static FTransform TLerp(const FTransform& A, const FTransform& B, float Alpha);
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Lerp (Transform)", AdvancedDisplay = "3"), Category="Math|Transform")
+	static FTransform TLerp(const FTransform& A, const FTransform& B, float Alpha, TEnumAsByte<ELerpInterpolationMode::Type> InterpMode = ELerpInterpolationMode::QuatInterp);
 
 	/** Ease between A and B using a specified easing function. */
 	UFUNCTION(BlueprintPure, meta = (DisplayName = "Ease (Transform)", BlueprintInternalUseOnly = "true"), Category = "Math|Interpolation")
@@ -1598,6 +1651,14 @@ class ENGINE_API UKismetMathLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, meta=(DisplayName = "vector2d - float", CompactNodeTitle = "-", Keywords = "- subtract minus"), Category="Math|Vector2D")
 	static FVector2D Subtract_Vector2DFloat(FVector2D A, float B);
 
+	/* Returns true if vector2D A is equal to vector2D B (A == B) within a specified error tolerance */
+    UFUNCTION(BlueprintPure, meta=(DisplayName = "Equal (vector2D)", CompactNodeTitle = "==", Keywords = "== equal"), Category="Math|Vector2D")
+    static bool EqualEqual_Vector2DVector2D(FVector2D A, FVector2D B, float ErrorTolerance = 1.e-4f);
+
+    /* Returns true if vector2D A is not equal to vector2D B (A != B) within a specified error tolerance */
+    UFUNCTION(BlueprintPure, meta=(DisplayName = "Not Equal (vector2D)", CompactNodeTitle = "!=", Keywords = "!= not equal"), Category="Math|Vector2D")
+    static bool NotEqual_Vector2DVector2D(FVector2D A, FVector2D B, float ErrorTolerance = 1.e-4f);
+	
 	/**
 	 * Tries to reach Target based on distance from Current position, giving a nice smooth feeling when tracking a position.
 	 *

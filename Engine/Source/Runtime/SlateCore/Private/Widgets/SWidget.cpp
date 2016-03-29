@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateCorePrivatePCH.h"
 #include "Widgets/SWidget.h"
@@ -446,6 +446,11 @@ bool SWidget::HasUserFocusedDescendants(int32 UserIndex) const
 bool SWidget::HasFocusedDescendants() const
 {
 	return FSlateApplicationBase::Get().HasFocusedDescendants(SharedThis(this));
+}
+
+bool SWidget::HasAnyUserFocusOrFocusedDescendants() const
+{
+	return HasAnyUserFocus().IsSet() || HasFocusedDescendants();
 }
 
 const FSlateBrush* SWidget::GetFocusBrush() const

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LevelEditor.h"
 #include "LevelViewportLayoutTwoPanes.h"
@@ -18,16 +18,8 @@ TSharedRef<SWidget> TLevelViewportLayoutTwoPanes<TOrientation>::MakeViewportLayo
 {
 	FString SpecificLayoutString = GetTypeSpecificLayoutString(LayoutString);
 
-	TSharedPtr< SLevelViewport > ViewportWidget0;
-	TSharedPtr< SLevelViewport > ViewportWidget1;
-
-	FEngineShowFlags OrthoShowFlags(ESFIM_Editor);	
-	ApplyViewMode(VMI_BrushWireframe, false, OrthoShowFlags);
-
-	FEngineShowFlags PerspectiveShowFlags(ESFIM_Editor);	
-	ApplyViewMode(VMI_Lit, true, PerspectiveShowFlags);
-
 	FString ViewportKey0, ViewportKey1;
+	FString ViewportType0, ViewportType1;
 	float SplitterPercentage = ViewportLayoutTwoPanesDefs::DefaultSplitterPercentage;
 
 	if (!SpecificLayoutString.IsEmpty())
@@ -38,13 +30,39 @@ TSharedRef<SWidget> TLevelViewportLayoutTwoPanes<TOrientation>::MakeViewportLayo
 		ViewportKey0 = SpecificLayoutString + TEXT(".Viewport0");
 		ViewportKey1 = SpecificLayoutString + TEXT(".Viewport1");
 
+		GConfig->GetString(*IniSection, *(ViewportKey0 + TEXT(".TypeWithinLayout")), ViewportType0, GEditorPerProjectIni);
+		GConfig->GetString(*IniSection, *(ViewportKey1 + TEXT(".TypeWithinLayout")), ViewportType1, GEditorPerProjectIni);
 
 		FString PercentageString;
 		if(GConfig->GetString(*IniSection, *(SpecificLayoutString + TEXT(".Percentage")), PercentageString, GEditorPerProjectIni))
 		{
 			TTypeFromString<float>::FromString(SplitterPercentage, *PercentageString);
-		}						
+		}
 	}
+
+	FLevelEditorModule& LevelEditor = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
+
+	// Set up the viewports
+	FViewportConstructionArgs Args;
+	Args.ParentLayout = AsShared();
+	Args.ParentLevelEditor = ParentLevelEditor;
+	Args.IsEnabled = FSlateApplication::Get().GetNormalExecutionAttribute();
+
+	Args.bRealtime = false;
+	Args.ConfigKey = ViewportKey0;
+	Args.ViewportType = LVT_OrthoXY;
+	TSharedRef<IViewportLayoutEntity> Viewport0 = LevelEditor.FactoryViewport(*ViewportType0, Args);
+
+	Args.bRealtime = true;
+	Args.ConfigKey = ViewportKey1;
+	Args.ViewportType = LVT_Perspective;
+	TSharedRef<IViewportLayoutEntity> Viewport1 = LevelEditor.FactoryViewport(*ViewportType1, Args);
+
+	Viewports.Add( *ViewportKey0, Viewport0 );
+	Viewports.Add( *ViewportKey1, Viewport1 );
+
+	// Make newly-created perspective viewports active by default
+	GCurrentLevelEditingViewportClient = &Viewport0->GetLevelViewportClient();
 
 	SplitterWidget = 
 		SNew( SSplitter )
@@ -52,30 +70,15 @@ TSharedRef<SWidget> TLevelViewportLayoutTwoPanes<TOrientation>::MakeViewportLayo
 		+SSplitter::Slot()
 		.Value(SplitterPercentage)
 		[
-			SAssignNew( ViewportWidget0, SLevelViewport )
-			.ViewportType( LVT_OrthoXY )	
-			.ParentLayout( AsShared() )
-			.ParentLevelEditor( ParentLevelEditor )
-			.ConfigKey( ViewportKey0 )
+			Viewport0->AsWidget()
 		]
 	+SSplitter::Slot()
 		.Value(1.0f - SplitterPercentage)
 		[
-			SAssignNew( ViewportWidget1, SLevelViewport )
-			.ViewportType( LVT_Perspective )
-			.Realtime( true )
-			.ParentLayout( AsShared() )
-			.ParentLevelEditor( ParentLevelEditor )
-			.ConfigKey( ViewportKey1 )
+			Viewport1->AsWidget()
 		];
 
-	Viewports.Add( ViewportWidget0 );
-	Viewports.Add( ViewportWidget1 );
-
-	// Make newly-created perspective viewports active by default
-	GCurrentLevelEditingViewportClient = &ViewportWidget1->GetLevelViewportClient();
-
-	InitCommonLayoutFromString(SpecificLayoutString);
+	InitCommonLayoutFromString(SpecificLayoutString, *ViewportKey1);
 
 	return SplitterWidget.ToSharedRef();
 }

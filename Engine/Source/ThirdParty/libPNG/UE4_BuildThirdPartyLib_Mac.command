@@ -23,4 +23,14 @@ xcodebuild -sdk iphonesimulator
 cp build/Release-iphonesimulator/libpng152.a ../../../lib/IOS/Simulator/libpng152.a
 popd
 
+# compile TVOS
+pushd projects/IOS/png152
+xcodebuild -sdk appletvos clean
+xcodebuild -sdk appletvos
+cp build/Release-appletvos/libpng152.a ../../../lib/TVOS/Device/libpng152.a
+xcodebuild -sdk appletvsimulator clean
+xcodebuild -sdk appletvsimulator
+cp build/Release-appletvsimulator/libpng152.a ../../../lib/TVOS/Simulator/libpng152.a
+popd
+
 popd

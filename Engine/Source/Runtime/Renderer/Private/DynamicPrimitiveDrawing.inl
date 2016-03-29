@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DynamicPrimitiveDrawing.inl: Dynamic primitive drawing implementation.
@@ -48,7 +48,7 @@ void DrawViewElementsInner(
 }
 
 template<typename DrawingPolicyFactoryType>
-class FDrawViewElementsAnyThreadTask
+class FDrawViewElementsAnyThreadTask : public FRenderTask
 {
 	FRHICommandList& RHICmdList;
 	const FViewInfo& View;
@@ -84,11 +84,6 @@ public:
 	FORCEINLINE TStatId GetStatId() const
 	{
 		RETURN_QUICK_DECLARE_CYCLE_STAT(FDrawViewElementsAnyThreadTask, STATGROUP_TaskGraphTasks);
-	}
-
-	ENamedThreads::Type GetDesiredThread()
-	{
-		return ENamedThreads::AnyThread;
 	}
 
 	static ESubsequentsMode::Type GetSubsequentsMode() { return ESubsequentsMode::TrackSubsequents; }

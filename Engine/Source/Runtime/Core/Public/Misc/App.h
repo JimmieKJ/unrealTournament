@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -27,6 +27,15 @@ public:
 	 * @return The build configuration.
 	 */
 	static EBuildConfigurations::Type GetBuildConfiguration();
+
+	/**
+	 * Gets the deployment name (also known as "EpicApp" in the launcher), e.g. DevPlaytest, PublicTest, Live etc.
+	 *
+	 * Does not return FString because it can be used during crash handling, so it should avoid memory allocation.
+	 *
+	 * @return The branch name (guaranteed not to be nullptr).
+	 */
+	static const TCHAR * GetDeploymentName();
 
 	/**
 	 * Gets the date at which this application was built.
@@ -308,6 +317,18 @@ public:
 	}
 
 	/**
+	 * Checks whether this application should run with the null RHI.
+	 *
+	 * Distinct from GUsingNullRHI which tells you whether the engine has actually initialized and is running a null RHI.
+	 *
+	 * @return true if the application should use null RHI.
+	 */
+	FORCEINLINE static bool ShouldUseNullRHI()
+	{
+		return (USE_NULL_RHI || FParse::Param(FCommandLine::Get(), TEXT("nullrhi")) || !CanEverRender());
+	}
+
+	/**
 	 * Checks whether this application has been installed.
 	 *
 	 * Non-server desktop shipping builds are assumed to be installed.
@@ -520,6 +541,37 @@ public:
 	*/
 	static void SetUnfocusedVolumeMultiplier(float InVolumeMultiplier);
 
+	/**
+	 * Sets if VRFocus should be used.
+	 *
+	 * @param  bInUseVRFocus	new bUseVRFocus value
+	 */
+	static void SetUseVRFocus(bool bInUseVRFocus);
+
+	/**
+	 * Gets if VRFocus should be used
+	 */
+	FORCEINLINE static bool UseVRFocus()
+	{
+		return bUseVRFocus;
+	}
+	/**
+	 * Sets VRFocus, which indicates that the application should continue to render 
+	 * Audio and Video as if it had window focus, even though it may not.
+	 *
+	 * @param  bInVRFocus	new VRFocus value
+	 */
+	static void SetHasVRFocus(bool bInHasVRFocus);
+
+	/**
+	 * Gets VRFocus, which indicates that the application should continue to render 
+	 * Audio and Video as if it had window focus, even though it may not.
+	 */
+	FORCEINLINE static bool HasVRFocus()
+	{
+		return bHasVRFocus;
+	}
+
 private:
 
 	/** Holds the instance identifier. */
@@ -563,6 +615,12 @@ private:
 
 	/** Read from config to define the volume when app loses focus */
 	static float UnfocusedVolumeMultiplier;
+
+	/** Holds a flag indicating if VRFocus should be used */
+	static bool bUseVRFocus;
+
+	/** Holds a flag indicating if app has focus in side the VR headset */
+	static bool bHasVRFocus;
 };
 
 

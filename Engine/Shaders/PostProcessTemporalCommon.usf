@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	   PostProcessTemporalCommon.usf: Common Temporal AA Functionality
@@ -6,6 +6,9 @@
 This is the common bits of the temporal AA shader
 which can be configured via defines for various temporal AA passes.
 =============================================================================*/
+
+// 0 / 1(default) This can be set to 0 to debug the velocity vectors
+#define NEIGHBORHOOD_CLAMPING 1
 
 // 1 = Use tighter AABB clamp for history.
 // 0 = Use simple min/max clamp.
@@ -108,6 +111,11 @@ which can be configured via defines for various temporal AA passes.
 	#define AA_DOF 0
 #endif
 
+// Tone map to kill fireflies
+#ifndef AA_TONE
+	#define AA_TONE 1
+#endif
+
 
 	// FIND MOTION OF PIXEL AND NEAREST IN NEIGHBORHOOD
     // ------------------------------------------------
@@ -170,7 +178,7 @@ which can be configured via defines for various temporal AA passes.
 	float3 PrevTranslatedWorld = ThisTranslatedWorld.xyz + (View.PrevPreViewTranslation - View.PreViewTranslation);
 	float4 PrevClip = mul(float4(PrevTranslatedWorld, 1), View.PrevTranslatedWorldToClip);
 	float2 PrevScreen = PrevClip.xy / PrevClip.w;
-	//float2 PrevUV = PrevScreen.xy * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz;
+	//float2 PrevUV = PrevScreen.xy * Frame.ScreenPositionScaleBias.xy + Frame.ScreenPositionScaleBias.wz;
 
 	float2 BackN =  SvPositionToScreenPosition(SvPosition).xy - PrevScreen - (View.ViewToClip[2].xy - View.PrevProjection[2].xy);
 #else // AA_DOF	
@@ -236,7 +244,7 @@ which can be configured via defines for various temporal AA passes.
 		Neighbor4.rgb = RGBToYCoCg(Neighbor4.rgb);
 		Neighbor5.rgb = RGBToYCoCg(Neighbor5.rgb);
 		Neighbor7.rgb = RGBToYCoCg(Neighbor7.rgb);
-		#if 1
+		#if AA_TONE
 			Neighbor1.xyz *= HdrWeightY(Neighbor1.x, InExposureScale);
 			Neighbor3.xyz *= HdrWeightY(Neighbor3.x, InExposureScale);
 			Neighbor4.xyz *= HdrWeightY(Neighbor4.x, InExposureScale);
@@ -393,7 +401,7 @@ which can be configured via defines for various temporal AA passes.
 	#endif
 	#if AA_YCOCG
 		OutColor.rgb = RGBToYCoCg(OutColor.rgb);
-		#if 1
+		#if AA_TONE
 			OutColor.xyz *= HdrWeightY(OutColor.x, InExposureScale);
 		#endif
 	#else
@@ -428,6 +436,8 @@ which can be configured via defines for various temporal AA passes.
 		#endif
 	#endif
 	float LumaContrast = LumaMax - LumaMin;
+
+#if NEIGHBORHOOD_CLAMPING
 	#if AA_YCOCG
 		OutColor.rgb = clamp(OutColor.rgb, NeighborMin.rgb, NeighborMax.rgb);
 		#if (AA_ALPHA == 0)
@@ -450,6 +460,7 @@ which can be configured via defines for various temporal AA passes.
 	#if AA_DEBUG
 		OutColor.rg = float2(0.0, 0.0);
 	#endif
+#endif
 
 	// ADD BACK IN ALIASING TO SHARPEN
     // -------------------------------
@@ -484,10 +495,15 @@ which can be configured via defines for various temporal AA passes.
 		float HistoryFactor = DistToClamp * HistoryAmount * (1.0 + HistoryBlur * HistoryAmount * 8.0);
 	#endif
 	float BlendFinal = saturate(HistoryFactor / (DistToClamp + LumaMax - LumaMin));
-	BlendFinal = 0.04;
+	#if AA_TONE
+		BlendFinal = 0.04;
+	#endif
 	#if RESPONSIVE
 		// Responsive forces 1/4 of new frame.
 		BlendFinal = 1.0/4.0;
+	#elif AA_NAN && (COMPILER_GLSL || COMPILER_METAL)
+		// The current Metal & GLSL compilers don't handle saturate(NaN) -> 0, instead they return NaN/INF.
+		BlendFinal = -min(-BlendFinal, 0.0);
 	#endif
 
 	// Offscreen feedback resets.
@@ -524,7 +540,7 @@ which can be configured via defines for various temporal AA passes.
 		OutColor = lerp(OutColor, Filtered, FixedLerp);
 	#endif
 	#if AA_YCOCG
-		#if 1
+		#if AA_TONE
 			OutColor.xyz *= HdrWeightInvY(OutColor.x, InExposureScale);
 		#endif
 		OutColor.rgb = YCoCgToRGB(OutColor.rgb);
@@ -564,3 +580,4 @@ which can be configured via defines for various temporal AA passes.
 #undef AA_YCOCG
 #undef AA_BICUBIC
 #undef AA_DOF
+#undef AA_TONE

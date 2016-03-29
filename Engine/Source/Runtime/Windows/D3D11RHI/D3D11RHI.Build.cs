@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -19,9 +19,8 @@ public class D3D11RHI : ModuleRules
 			}
 			);
 
-		AddThirdPartyPrivateStaticDependencies(Target, "DX11");
-        AddThirdPartyPrivateStaticDependencies(Target, "NVAPI");
-        AddThirdPartyPrivateStaticDependencies(Target, "AMD");
+		AddEngineThirdPartyPrivateStaticDependencies(Target, "DX11");
+        AddEngineThirdPartyPrivateStaticDependencies(Target, "NVAPI");
 
 		if (Target.Configuration != UnrealTargetConfiguration.Shipping)
 		{

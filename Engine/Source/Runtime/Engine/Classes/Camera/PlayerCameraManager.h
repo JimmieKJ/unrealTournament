@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -384,10 +384,6 @@ protected:
 	uint32 bAlwaysApplyModifiers : 1;
 
 public:
-	/** True if camera's orientation should be updated by most recent HMD orientation. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PlayerCameraManager)
-	uint32 bFollowHmdOrientation : 1;
-
 	/** Minimum view pitch, in degrees. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PlayerCameraManager)
 	float ViewPitchMin;
@@ -652,15 +648,15 @@ public:
 	
 	/** Immediately stops the given shake instance and invalidates it. */
 	UFUNCTION(BlueprintCallable, Category = "Camera Shakes")
-	virtual void StopCameraShake(class UCameraShake* ShakeInstance);
+	virtual void StopCameraShake(class UCameraShake* ShakeInstance, bool bImmediately = true);
 
 	/** Stops playing CameraShake of the given class. */
 	UFUNCTION(BlueprintCallable, Category = "Camera Shakes")
-	virtual void StopAllInstancesOfCameraShake(TSubclassOf<class UCameraShake> Shake);
+	virtual void StopAllInstancesOfCameraShake(TSubclassOf<class UCameraShake> Shake, bool bImmediately = true);
 
 	/** Stops all active camera shakes on this camera. */
 	UFUNCTION(BlueprintCallable, Category = "Camera Shakes")
-	virtual void StopAllCameraShakes();
+	virtual void StopAllCameraShakes(bool bImmediately = true);
 
 	//
 	//  CameraAnim fades.

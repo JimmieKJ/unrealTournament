@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -104,5 +104,5 @@ private:
 	FVector GetAlignVector(EAxis::Type AxisOption, bool bInvert);
 
 	// skeleton index
-	TArray<FBoneIndexType> ChainBoneIndices;
+	TArray<int32> ChainBoneIndices;
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGEditorPrivatePCH.h"
 
@@ -194,6 +194,7 @@ void FWidgetBlueprintCompiler::CreateClassVariablesFromBlueprint()
 	Super::CreateClassVariablesFromBlueprint();
 
 	UWidgetBlueprint* Blueprint = WidgetBlueprint();
+	UClass* ParentClass = Blueprint->ParentClass;
 
 	ValidateWidgetNames();
 
@@ -202,16 +203,7 @@ void FWidgetBlueprintCompiler::CreateClassVariablesFromBlueprint()
 	Blueprint->WidgetTree->GetAllWidgets(Widgets);
 
 	// Sort the widgets alphabetically
-	{
-		struct FWidgetSorter
-		{
-			bool operator()(const UWidget& A, const UWidget& B) const
-			{
-				return B.GetFName() < A.GetFName();
-			}
-		};
-		Widgets.Sort(FWidgetSorter());
-	}
+	Widgets.Sort( []( const UWidget& Lhs, const UWidget& Rhs ) { return Rhs.GetFName() < Lhs.GetFName(); } );
 
 	// Add widget variables
 	for ( UWidget* Widget : Widgets )
@@ -222,7 +214,22 @@ void FWidgetBlueprintCompiler::CreateClassVariablesFromBlueprint()
 			continue;
 		}
 
-		FEdGraphPinType WidgetPinType(Schema->PC_Object, TEXT(""), Widget->GetClass(), false, false);
+		// This code was added to fix the problem of recompiling dependent widgets, not using the newest
+		// class thus resulting in REINST failures in dependent blueprints.
+		UClass* WidgetClass = Widget->GetClass();
+		if ( UBlueprintGeneratedClass* BPWidgetClass = Cast<UBlueprintGeneratedClass>(WidgetClass) )
+		{
+			WidgetClass = BPWidgetClass->GetAuthoritativeClass();
+		}
+
+		UProperty* ExistingProperty = ParentClass->FindPropertyByName( Widget->GetFName() );
+		if ( ExistingProperty && ExistingProperty->HasMetaData( "BindWidget" ) )
+		{
+			WidgetToMemberVariableMap.Add( Widget, ExistingProperty );
+			continue;
+		}
+
+		FEdGraphPinType WidgetPinType(Schema->PC_Object, TEXT(""), WidgetClass, false, false);
 		
 		// Always name the variable according to the underlying FName of the widget object
 		UProperty* WidgetProperty = CreateVariable(Widget->GetFName(), WidgetPinType);
@@ -265,6 +272,10 @@ void FWidgetBlueprintCompiler::FinishCompilingClass(UClass* Class)
 	if ( Blueprint->SkeletonGeneratedClass != Class )
 	{
 		UWidgetBlueprintGeneratedClass* BPGClass = CastChecked<UWidgetBlueprintGeneratedClass>(Class);
+		if( !Blueprint->bHasBeenRegenerated )
+		{
+			FBlueprintEditorUtils::ForceLoadMembers(Blueprint->WidgetTree);
+		}
 		BPGClass->WidgetTree = BPGClass->DesignerWidgetTree = DuplicateObject<UWidgetTree>(Blueprint->WidgetTree, BPGClass);
 
 		for ( const UWidgetAnimation* Animation : Blueprint->Animations )
@@ -299,6 +310,25 @@ void FWidgetBlueprintCompiler::FinishCompilingClass(UClass* Class)
 				BPGClass->NamedSlots.Add(Widget->GetFName());
 			}
 		});
+	}
+
+	UClass* ParentClass = Blueprint->ParentClass;
+	for ( TUObjectPropertyBase<UWidget*>* WidgetProperty : TFieldRange<TUObjectPropertyBase<UWidget*>>( ParentClass ) )
+	{
+		if ( WidgetProperty->HasMetaData( "BindWidget" ) && ( !WidgetProperty->HasMetaData( "OptionalWidget" ) || !WidgetProperty->GetBoolMetaData( "OptionalWidget" ) ) )
+		{
+			UWidget* const* Widget = WidgetToMemberVariableMap.FindKey( WidgetProperty );
+			if ( !Widget )
+			{
+				MessageLog.Error( *LOCTEXT( "RequiredWidget_NotBound", "Non-optional widget binding @@ not found." ).ToString(),
+				                    WidgetProperty );
+			}
+			else if ( !( *Widget )->IsA( WidgetProperty->PropertyClass ) )
+			{
+				MessageLog.Error( *LOCTEXT( "IncorrectWidgetTypes", "@@ is of type @@ property is of type @@." ).ToString(), *Widget,
+				                    ( *Widget )->GetClass(), WidgetProperty->PropertyClass );
+			}
+		}
 	}
 
 	Super::FinishCompilingClass(Class);

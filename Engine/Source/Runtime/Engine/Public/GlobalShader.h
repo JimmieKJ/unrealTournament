@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	GlobalShader.h: Shader manager definitions.
@@ -125,12 +125,15 @@ public:
 	template<typename ShaderRHIParamRef, typename TRHICmdList>
 	void SetParameters(TRHICmdList& RHICmdList, const ShaderRHIParamRef ShaderRHI, const FSceneView& View)
 	{
+		const auto& ViewUniformBufferParameter = GetUniformBufferParameter<FViewUniformShaderParameters>();
+		const auto& FrameUniformBufferParameter = GetUniformBufferParameter<FFrameUniformShaderParameters>();
+		const auto& BuiltinSamplersUBParameter = GetUniformBufferParameter<FBuiltinSamplersParameters>();
 		CheckShaderIsValid();
-		auto& ViewUBParameter = GetUniformBufferParameter<FViewUniformShaderParameters>();
-		SetUniformBufferParameter(RHICmdList, ShaderRHI, ViewUBParameter, View.UniformBuffer);
-
-		auto& BuiltinSamplersUBParameter = GetUniformBufferParameter<FBuiltinSamplersParameters>();
+		SetUniformBufferParameter(RHICmdList, ShaderRHI, ViewUniformBufferParameter, View.ViewUniformBuffer);
+		SetUniformBufferParameter(RHICmdList, ShaderRHI, FrameUniformBufferParameter, View.FrameUniformBuffer);
+#if USE_GBuiltinSamplersUniformBuffer
 		SetUniformBufferParameter(RHICmdList, ShaderRHI, BuiltinSamplersUBParameter, GBuiltinSamplersUniformBuffer.GetUniformBufferRHI());
+#endif
 	}
 
 	typedef void (*ModifyCompilationEnvironmentType)(EShaderPlatform, FShaderCompilerEnvironment&);

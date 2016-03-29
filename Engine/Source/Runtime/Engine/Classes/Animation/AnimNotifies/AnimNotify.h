@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -8,6 +8,32 @@ class UAnimSequence;
 class UAnimSequenceBase;
 class USkeletalMeshComponent;
 struct FAnimNotifyEvent;
+
+USTRUCT()
+struct FBranchingPointNotifyPayload
+{
+public:
+	GENERATED_USTRUCT_BODY()
+
+	USkeletalMeshComponent* SkelMeshComponent;
+	UAnimSequenceBase* SequenceAsset;
+	FAnimNotifyEvent* NotifyEvent;
+	int32 MontageInstanceID;
+
+	FBranchingPointNotifyPayload()
+		: SkelMeshComponent(nullptr)
+		, SequenceAsset(nullptr)
+		, NotifyEvent(nullptr)
+		, MontageInstanceID(INDEX_NONE)
+	{}
+
+	FBranchingPointNotifyPayload(USkeletalMeshComponent* InSkelMeshComponent, UAnimSequenceBase* InSequenceAsset, FAnimNotifyEvent* InNotifyEvent, int32 InMontageInstanceID)
+		: SkelMeshComponent(InSkelMeshComponent)
+		, SequenceAsset(InSequenceAsset)
+		, NotifyEvent(InNotifyEvent)
+		, MontageInstanceID(InMontageInstanceID)
+	{}
+};
 
 UCLASS(abstract, Blueprintable, const, hidecategories=Object, collapsecategories)
 class ENGINE_API UAnimNotify : public UObject
@@ -34,6 +60,7 @@ class ENGINE_API UAnimNotify : public UObject
 #endif
 
 	virtual void Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation);
+	virtual void BranchingPointNotify(FBranchingPointNotifyPayload& BranchingPointPayload);
 
 	// @todo document 
 	virtual FString GetEditorComment() 
@@ -63,6 +90,9 @@ class ENGINE_API UAnimNotify : public UObject
 	/** UObject Interface */
 	virtual void PostLoad() override;
 	/** End UObject Interface */
+
+	/** This notify is always a branching point when used on Montages. */
+	bool bIsNativeBranchingPoint;
 
 private:
 	/* The mesh we're currently triggering a UAnimNotify for (so we can retrieve per instance information) */

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	TranslucentRendering.h: Translucent rendering definitions.
@@ -78,7 +78,7 @@ private:
 		const FMeshBatch& Mesh,
 		const uint64& BatchElementMask,
 		bool bBackFace,
-		float DitheredLODTransitionValue,
+		const FMeshDrawingRenderState& DrawRenderState,
 		bool bPreFog,
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 		FHitProxyId HitProxyId,
@@ -98,6 +98,11 @@ public:
 	enum { bAllowSimpleElements = true };
 	struct ContextType 
 	{
+		bool bRenderingSeparateTranslucency;
+
+		ContextType(bool InbRenderingSeparateTranslucency)
+		:	bRenderingSeparateTranslucency(InbRenderingSeparateTranslucency)
+		{}
 	};
 
 	/**

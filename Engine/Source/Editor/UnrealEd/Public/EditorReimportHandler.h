@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -46,10 +46,11 @@ public:
 	 * @param	Obj	Object to try reimporting
 	 * @param	bAskForNewFileIfMissing If the file is missing, open a dialog to ask for a new one
 	 * @param	bShowNotification True to show a notification when complete, false otherwise
+	 * @param	PreferedReimportFile if not empty, will be use in case the original file is missing and bAskForNewFileIfMissing is set to false
 	 *
 	 * @return	true if the object was handled by one of the reimport handlers; false otherwise
 	 */
-	UNREALED_API virtual bool Reimport( UObject* Obj, bool bAskForNewFileIfMissing = false, bool bShowNotification = true );
+	UNREALED_API virtual bool Reimport( UObject* Obj, bool bAskForNewFileIfMissing = false, bool bShowNotification = true, FString PreferedReimportFile = TEXT("") );
 
 	/**
 	 * Update the reimport paths for the specified object

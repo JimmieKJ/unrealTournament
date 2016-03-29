@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "TaskGraphInterfaces.h"
@@ -138,7 +138,7 @@ struct FStatParams
 	 *	Maximum number of frames to be included in the history. 
 	 *	-maxhistoryframes=[20:20-120]
 	 */
-	// #YRX_STATS 2014-08-21 Replace with TParsedValueWithDefaultAndRange
+	// #Stats: 2014-08-21 Replace with TParsedValueWithDefaultAndRange
 	TParsedValueWithDefault<int32> MaxHistoryFrames;
 
 	/**
@@ -1050,9 +1050,15 @@ struct FHUDGroupManager
 		else
 		{
 			TSet<FName> HierEnabledItems;
-			for( auto It = EnabledGroups.CreateConstIterator(); It; ++It )
+			for( auto It = EnabledGroups.CreateIterator(); It; ++It )
 			{
-				HierEnabledItems.Append( It.Value().EnabledItems );
+				if(It.Value().ThreadBudgetMap.Num() == 0)
+				{
+					QUICK_SCOPE_CYCLE_COUNTER(STAT_GetStatsForGroup_EveryFrame);
+					GetStatsForGroup(It.Value().EnabledItems, It.Key());
+				}
+
+				HierEnabledItems.Append(It.Value().EnabledItems);
 			}
 		
 			
@@ -1421,7 +1427,7 @@ struct FHUDGroupManager
 
 	void GetStatsForGroup( TSet<FName>& out_EnabledItems, const FName GroupName )
 	{
-		out_EnabledItems.Empty();
+		out_EnabledItems.Reset();
 	
 		TArray<FName> GroupItems;
 		Stats.Groups.MultiFind( GroupName, GroupItems );
@@ -1462,6 +1468,7 @@ bool FGroupFilter::IsRoot(const FName& MessageName) const
 
 static int32 MaxDepth = MAX_int32;
 static FString NameFilter;
+static FString LeafFilter;
 static FDelegateHandle DumpFrameDelegateHandle;
 static FDelegateHandle DumpCPUDelegateHandle;
 
@@ -1535,7 +1542,18 @@ struct FDumpMultiple
 			{
 				Stack->CullByCycles( int64( DumpCull / FPlatformTime::ToMilliseconds( 1 ) ) );
 			}
-			Stack->DebugPrint(*NameFilter, MaxDepth);
+			if (!NameFilter.IsEmpty() && !LeafFilter.IsEmpty())
+			{
+				UE_LOG(LogStats, Log, TEXT("You can't have both a root and a leaf filter (though this wouldn't be hard to add)."));
+			}
+			else if (!LeafFilter.IsEmpty())
+			{
+				Stack->DebugPrintLeafFilter(*LeafFilter);
+			}
+			else
+			{
+				Stack->DebugPrint(*NameFilter, MaxDepth);
+			}
 			delete Stack;
 			Stack = NULL;
 		}
@@ -1676,38 +1694,8 @@ static void PrintStatsHelpToOutputDevice( FOutputDevice& Ar )
 	Ar.Log( TEXT("stat stopfile - stops tracking all memory operations and writes the results to the file"));
 
 	Ar.Log( TEXT("stat namedmarker #markername# - adds a custom marker to the stats stream"));
-}
 
-// @TODO yrx 2014-12-01 Move to StatsFile.cpp/.h
-static void CommandTestFile()
-{
-	const FString& LastFileSaved = FCommandStatsFile::Get().LastFileSaved;
-
-	FStatsThreadState Loaded( LastFileSaved );
-	if( Loaded.GetLatestValidFrame() < 0 )
-	{
-		UE_LOG( LogStats, Log, TEXT( "Failed to stats file: %s" ), *LastFileSaved );
-		return;
-	}
-	UE_LOG( LogStats, Log, TEXT( "Loaded stats file: %s, %lld frame" ), *LastFileSaved, 1 + Loaded.GetLatestValidFrame() - Loaded.GetOldestValidFrame() );
-	{
-		int64 TestFrame = Loaded.GetOldestValidFrame();
-		UE_LOG( LogStats, Log, TEXT( "**************************** Test Frame %lld" ), TestFrame );
-		DumpHistoryFrame( Loaded, TestFrame );
-	}
-	{
-		int64 TestFrame = (Loaded.GetLatestValidFrame() + Loaded.GetOldestValidFrame()) / 2;
-		if( Loaded.IsFrameValid( TestFrame ) )
-		{
-			UE_LOG( LogStats, Log, TEXT( "**************************** Test Frame %lld" ), TestFrame );
-			DumpHistoryFrame( Loaded, TestFrame );
-		}
-	}
-	{
-		int64 TestFrame = Loaded.GetLatestValidFrame();
-		UE_LOG( LogStats, Log, TEXT( "**************************** Test Frame %lld" ), TestFrame );
-		DumpHistoryFrame( Loaded, TestFrame );
-	}
+	Ar.Log( TEXT( "stat testfile - loads the last saved capture and dumps first, middle and last frame" ) );
 }
 
 #endif
@@ -1723,8 +1711,10 @@ static void StatCmd(FString InCmd, bool bStatCommand)
 		DumpCull = 1.0f;
 		MaxDepth = MAX_int32;
 		NameFilter.Empty();
+		LeafFilter.Empty();
 
 		FParse::Value(Cmd, TEXT("ROOT="), NameFilter);
+		FParse::Value(Cmd, TEXT("LEAF="), LeafFilter);
 		FParse::Value(Cmd, TEXT("MS="), DumpCull);
 		FParse::Value(Cmd, TEXT("DEPTH="), MaxDepth);
 		if (FParse::Command(&Cmd, TEXT("DUMPFRAME")))
@@ -1866,7 +1856,7 @@ static void StatCmd(FString InCmd, bool bStatCommand)
 		}
 		else if (FParse::Command(&Cmd, TEXT("TESTFILE")))
 		{
-			CommandTestFile();
+			FCommandStatsFile::Get().TestLastSaved();
 		}
 		else if (FParse::Command(&Cmd, TEXT("testdisable")))
 		{
@@ -1904,10 +1894,10 @@ static void StatCmd(FString InCmd, bool bStatCommand)
 			{
 				// This will be executed on the game thread.
 				FSimpleDelegateGraphTask::CreateAndDispatchWhenReady
-					(
+				(
 					FSimpleDelegateGraphTask::FDelegate::CreateStatic(&FLocal::OnGameThread, MarkerName),
 					TStatId(), nullptr, ENamedThreads::GameThread
-					);
+				);
 			}
 		}
 		// @see FStatHierParams

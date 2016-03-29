@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -67,7 +67,7 @@ protected:
 	enum
 	{
 		/** Size of the PDB cache, in GBs. */
-		PDB_CACHE_SIZE_GB = 128,
+		PDB_CACHE_SIZE_GB = 300,
 		MIN_FREESPACE_GB = 64,
 		/** Age of file when it should be deleted from the PDB cache. */
 		DAYS_TO_DELETE_UNUSED_FILES = 14,

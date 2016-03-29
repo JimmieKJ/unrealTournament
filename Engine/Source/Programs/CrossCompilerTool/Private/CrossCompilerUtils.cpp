@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "CrossCompilerTool.h"
@@ -58,6 +58,9 @@ namespace CCT
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-ds\tCompile as a Domain Shader"));
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\tTargets:"));
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-metal\tCompile for Metal"));
+		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-vulkan\tCompile for Vulkan ES3.1"));
+		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-vulkansm4\tCompile for Vulkan SM4"));
+		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-vulkansm5\tCompile for Vulkan SM5"));
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-es2\tCompile for OpenGL ES 2"));
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-es31ext\tCompile for OpenGL ES 3.1 with AEP"));
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-gl3\tCompile for OpenGL 3.2"));
@@ -186,6 +189,42 @@ namespace CCT
 				{
 					Target = HCT_FeatureLevelES3_1Ext;
 					OutBackEnd = BE_OpenGL;
+				}
+			}
+			else if (Switch == "vulkan")
+			{
+				if (Target != HCT_InvalidTarget)
+				{
+					UE_LOG(LogCrossCompilerTool, Warning, TEXT("Ignoring extra command line argument -vulkan!"));
+				}
+				else
+				{
+					Target = HCT_FeatureLevelES3_1;
+					OutBackEnd = BE_Vulkan;
+				}
+			}
+			else if (Switch == "vulkansm4")
+			{
+				if (Target != HCT_InvalidTarget)
+				{
+					UE_LOG(LogCrossCompilerTool, Warning, TEXT("Ignoring extra command line argument -vulkansm4!"));
+				}
+				else
+				{
+					Target = HCT_FeatureLevelSM4;
+					OutBackEnd = BE_Vulkan;
+				}
+			}
+			else if (Switch == "vulkansm5")
+			{
+				if (Target != HCT_InvalidTarget)
+				{
+					UE_LOG(LogCrossCompilerTool, Warning, TEXT("Ignoring extra command line argument -vulkansm5!"));
+				}
+				else
+				{
+					Target = HCT_FeatureLevelSM5;
+					OutBackEnd = BE_Vulkan;
 				}
 			}
 			else if (Switch == "metal")

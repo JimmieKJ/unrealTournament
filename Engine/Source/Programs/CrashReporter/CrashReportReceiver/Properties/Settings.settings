@@ -1,0 +1,15 @@
+﻿<?xml version='1.0' encoding='utf-8'?>
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="Tools.CrashReporter.CrashReportReceiver.Properties" GeneratedClassName="Settings">
+  <Profiles />
+  <Settings>
+    <Setting Name="MaxAllowedBandwidthMB" Type="System.Int32" Scope="Application">
+      <Value Profile="(Default)">10</Value>
+    </Setting>
+    <Setting Name="MaxAllowedCPUtilizationPct" Type="System.Single" Scope="Application">
+      <Value Profile="(Default)">75</Value>
+    </Setting>
+    <Setting Name="CrashReportRepository" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">U:\CRASHREPORT\DMZ</Value>
+    </Setting>
+  </Settings>
+</SettingsFile>

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	FeedbackContextEditor.h: Feedback context tailored to UnrealEd
@@ -30,6 +30,7 @@ public:
 	virtual void StartSlowTask( const FText& Task, bool bShowCancelButton=false ) override;
 	virtual void FinalizeSlowTask( ) override;
 	virtual void ProgressReported( const float TotalProgressInterp, FText DisplayMessage ) override;
+	virtual bool IsPlayingInEditor() const override;
 
 	void SetContext( FContextSupplier* InSupplier ) override {}
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlatePrivatePCH.h"
 
@@ -39,6 +39,15 @@ void SProgressBar::SetPercent(TAttribute< TOptional<float> > InPercent)
 void SProgressBar::SetStyle(const FProgressBarStyle* InStyle)
 {
 	Style = InStyle;
+
+	if (Style == nullptr)
+	{
+		FArguments Defaults;
+		Style = Defaults._Style;
+	}
+
+	check(Style);
+
 	Invalidate(EInvalidateWidget::Layout);
 }
 
@@ -243,7 +252,7 @@ int32 SProgressBar::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGe
 			CurrentMarqueeImage,
 			ForegroundClippingRect,
 			DrawEffects,
-			ColorAndOpacitySRGB
+			CurrentMarqueeImage->TintColor.GetSpecifiedColor() * ColorAndOpacitySRGB
 			);
 
 	}

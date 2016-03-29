@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "AndroidInputInterface.h"
@@ -918,7 +918,7 @@ void FAndroidInputInterface::SendControllerEvents()
 	}
 }
 
-void FAndroidInputInterface::QueueTouchInput(TArray<TouchInput> InTouchEvents)
+void FAndroidInputInterface::QueueTouchInput(const TArray<TouchInput>& InTouchEvents)
 {
 	FScopeLock Lock(&TouchInputCriticalSection);
 

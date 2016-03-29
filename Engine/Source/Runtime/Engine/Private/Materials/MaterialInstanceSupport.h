@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MaterialInstance.h: MaterialInstance definitions.
@@ -91,11 +91,7 @@ public:
 	virtual bool GetScalarValue(const FName ParameterName,float* OutValue, const FMaterialRenderContext& Context) const override;
 	virtual bool GetTextureValue(const FName ParameterName,const UTexture** OutValue, const FMaterialRenderContext& Context) const override;
 
-	/** Sets the material instance's parent. */
-	void GameThread_SetParent(UMaterialInterface* InParent);
-
-	/** Called from the game thread to update the overridable base properties in the proxy. */
-	void GameThread_UpdateOverridableBaseProperties(const UMaterialInterface* MaterialInterface);
+	void GameThread_SetParent(UMaterialInterface* ParentMaterialInterface);
 
 	/**
 	 * Clears all parameters set on this material instance.
@@ -150,13 +146,7 @@ public:
 		}
 		return NULL;
 	}
-
-	float GetOpacityMaskClipValue()const{ return OpacityMaskClipValue; }
-	EBlendMode GetBlendMode()const{ return BlendMode; }
-	EMaterialShadingModel GetShadingModel()const{ return ShadingModel; }
-	bool IsTwoSided()const{ return TwoSided; }
-	bool IsDitheredLODTransition()const{ return DitheredLODTransition; }
-
+	
 private:
 	/**
 	 * Retrieves the array of values for a given type.
@@ -172,23 +162,13 @@ private:
 
 	/** The game thread accessible parent of the material instance. */
 	UMaterialInterface* GameThreadParent;
-
+	
 	/** Vector parameters for this material instance. */
 	TArray<TNamedParameter<FLinearColor> > VectorParameterArray;
 	/** Scalar parameters for this material instance. */
 	TArray<TNamedParameter<float> > ScalarParameterArray;
 	/** Texture parameters for this material instance. */
 	TArray<TNamedParameter<const UTexture*> > TextureParameterArray;
-
-	/** 
-		Potentially overridden properties of the base material. 
-		Cached here from the game thread so that the render thread doesn't have to traverse up the parent chain.
-	*/
-	float OpacityMaskClipValue;
-	EBlendMode BlendMode;
-	EMaterialShadingModel ShadingModel;
-	bool TwoSided;
-	bool DitheredLODTransition;
 };
 
 template <> FORCEINLINE TArray<FMaterialInstanceResource::TNamedParameter<float> >& FMaterialInstanceResource::GetValueArray() { return ScalarParameterArray; }

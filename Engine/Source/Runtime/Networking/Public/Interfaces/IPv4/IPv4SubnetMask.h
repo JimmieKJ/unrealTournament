@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -10,24 +10,16 @@ namespace EIPv4SubnetClasses
 	 */
 	enum Type
 	{
-		/**
-		 * Invalid subnet mask.
-		 */
+		/** Invalid subnet mask. */
 		Invalid,
 
-		/**
-		 * Class A subnet.
-		 */
+		/** Class A subnet. */
 		ClassA,
 
-		/**
-		 * Class B subnet.
-		 */
+		/** Class B subnet. */
 		ClassB,
 
-		/**
-		 * Class C subnet.
-		 */
+		/** Class C subnet. */
 		ClassC
 	};
 }
@@ -36,55 +28,76 @@ namespace EIPv4SubnetClasses
 /**
  * Implements an IPv4 subnet mask.
  */
-class FIPv4SubnetMask
+struct FIPv4SubnetMask
 {
+	union
+	{
+		/** The subnet mask value as A.B.C.D components. */
+		struct
+		{
+#if PLATFORM_LITTLE_ENDIAN
+	#if _MSC_VER
+			uint8 D, C, B, A;
+	#else
+			uint8 D GCC_ALIGN(4);
+			uint8 C, B, A;
+	#endif
+#else
+			uint8 A, B, C, D;
+#endif
+		};
+
+		/** The subnet mask value in host byte order. */
+		int32 Value;
+	};
+
 public:
 
-	/**
-	 * Default constructor.
-	 */
-	FIPv4SubnetMask( ) { }
+	/** Default constructor. */
+	FIPv4SubnetMask() { }
 
 	/**
 	 * Creates and initializes a new IPv4 subnet mask with the specified components.
 	 *
 	 * The created subnet mask has the value A.B.C.D.
 	 *
-	 * @param A - The first component.
-	 * @param B - The second component.
-	 * @param C - The third component.
-	 * @param D - The fourth component.
+	 * @param InA The first component.
+	 * @param InB The second component.
+	 * @param InC The third component.
+	 * @param InD The fourth component.
 	 */
-	FIPv4SubnetMask( uint8 A, uint8 B, uint8 C, uint8 D )
-	{
-		Bytes[0] = D;
-		Bytes[1] = C;
-		Bytes[2] = B;
-		Bytes[3] = A;
-	}
+	FIPv4SubnetMask(uint8 InA, uint8 InB, uint8 InC, uint8 InD)
+#if PLATFORM_LITTLE_ENDIAN
+		: D(InD)
+		, C(InC)
+		, B(InB)
+		, A(InA)
+#else
+		: A(InA)
+		, B(InB)
+		, C(InC)
+		, D(InD)
+#endif // PLATFORM_LITTLE_ENDIAN
+	{ }
 	
 	/**
 	 * Creates and initializes a new IPv4 subnet mask with the specified value.
 	 *
-	 * Note: The byte ordering of the passed in value is platform dependent.
-	 *
-	 * @param InValue - The address value.
+	 * @param InValue The address value (in host byte order).
 	 */
-	FIPv4SubnetMask( uint32 InValue )
+	FIPv4SubnetMask(uint32 InValue)
 		: Value(InValue)
 	{ }
-
 
 public:
 
 	/**
 	 * Compares this subnet mask with the given mask for equality.
 	 *
-	 * @param other - The subnet mask to compare with.
-	 *
+	 * @param Other The subnet mask to compare with.
 	 * @return true if the subnet masks are equal, false otherwise.
 	 */
-	bool operator==( const FIPv4SubnetMask& Other ) const
+	bool operator==(const FIPv4SubnetMask& Other) const
 	{
 		return (Value == Other.Value);
 	}
@@ -92,11 +105,10 @@ public:
 	/**
 	 * Compares this subnet mask with the given address for inequality.
 	 *
-	 * @param other - The subnet mask to compare with.
-	 *
+	 * @param Other The subnet mask to compare with.
 	 * @return true if the subnet masks are not equal, false otherwise.
 	 */
-	bool operator!=( const FIPv4SubnetMask& Other ) const
+	bool operator!=(const FIPv4SubnetMask& Other) const
 	{
 		return (Value != Other.Value);
 	}
@@ -106,7 +118,7 @@ public:
 	 *
 	 * @return Inverted subnet mask.
 	 */
-	FIPv4SubnetMask operator~( ) const
+	FIPv4SubnetMask operator~() const
 	{
 		return FIPv4SubnetMask(~Value);
 	}
@@ -114,43 +126,29 @@ public:
 	/**
 	 * Serializes the given subnet mask from or into the specified archive.
 	 *
-	 * @param Ar - The archive to serialize from or into.
-	 * @param SubnetMask - The subnet mask to serialize.
-	 *
+	 * @param Ar The archive to serialize from or into.
+	 * @param SubnetMask The subnet mask to serialize.
 	 * @return The archive.
 	 */
-	friend FArchive& operator<<( FArchive& Ar, FIPv4SubnetMask& SubnetMask )
+	friend FArchive& operator<<(FArchive& Ar, FIPv4SubnetMask& SubnetMask)
 	{
 		return Ar << SubnetMask.Value;
 	}
 
-
 public:
-
-	/**
-	 * Gets a byte component.
-	 *
-	 * @param Index - The index of the byte component to return.
-	 *
-	 * @return Byte component.
-	 */
-	uint8 GetByte( int32 Index ) const
-	{
-		return Bytes[Index];
-	}
 
 	/**
 	 * Gets the subnet class that this mask specifies.
 	 *
 	 * @return Subnet class.
 	 */
-	EIPv4SubnetClasses::Type GetClass( ) const
+	EIPv4SubnetClasses::Type GetClass() const
 	{
-		if (Bytes[3] == 255)
+		if (A == 255)
 		{
-			if (Bytes[2] == 255)
+			if (B == 255)
 			{
-				if (Bytes[1] == 255)
+				if (C == 255)
 				{
 					return EIPv4SubnetClasses::ClassC;
 				}
@@ -165,61 +163,46 @@ public:
 	}
 
 	/**
-	 * Gets the address value.
-	 *
-	 * Note: The byte ordering of the returned value is platform dependent.
-	 *
-	 * @return Address value.
-	 */
-	uint32 GetValue( ) const
-	{
-		return Value;
-	}
-
-	/**
 	 * Converts this IP address to its string representation.
 	 *
 	 * @return String representation.
+	 * @see Parse, ToText
 	 */
-	NETWORKING_API FText ToText( ) const;
+	NETWORKING_API FString ToString() const;
 
+	/**
+	* Gets the display text representation.
+	*
+	* @return Text representation.
+	* @see ToString
+	*/
+	FText ToText() const
+	{
+		return FText::FromString(ToString());
+	}
 
 public:
 
 	/**
 	 * Gets the hash for specified IPv4 subnet mask.
 	 *
-	 * @param SubnetMask - The subnet mask to get the hash for.
-	 *
+	 * @param SubnetMask The subnet mask to get the hash for.
 	 * @return Hash value.
 	 */
-	friend uint32 GetTypeHash( const FIPv4SubnetMask& SubnetMask )
+	friend uint32 GetTypeHash(const FIPv4SubnetMask& SubnetMask)
 	{
 		return GetTypeHash(SubnetMask.Value);
 	}
-
 
 public:
 	
 	/**
 	 * Converts a string to an IPv4 subnet mask.
 	 *
-	 * @param MaskString - The string to convert.
-	 * @param OutAddress - Will contain the parsed subnet mask.
-	 *
+	 * @param MaskString The string to convert.
+	 * @param OutMask Will contain the parsed subnet mask.
 	 * @return true if the string was converted successfully, false otherwise.
+	 * @see ToString
 	 */
-	static NETWORKING_API bool Parse( const FString& MaskString, FIPv4SubnetMask& OutMask );
-
-
-private:
-
-	union
-	{
-		// Holds the address as an array of bytes.
-		uint8 Bytes[4];
-
-		// Holds the address as an integer.
-		int32 Value;
-	};
+	static NETWORKING_API bool Parse(const FString& MaskString, FIPv4SubnetMask& OutMask);
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "BlueprintUtilities.h"
@@ -32,18 +32,53 @@ UActorComponent* USCS_Node::GetActualComponentTemplate(UBlueprintGeneratedClass*
 	static const FBoolConfigValueHelper EnableInheritableComponents(TEXT("Kismet"), TEXT("bEnableInheritableComponents"), GEngineIni);
 	if (EnableInheritableComponents)
 	{
-		const FComponentKey ComponentKey(this);
-		while (!OverridenComponentTemplate && ActualBPGC)
+		const USimpleConstructionScript* SCS = GetSCS();
+		if (SCS != ActualBPGC->SimpleConstructionScript)
 		{
-			auto InheritableComponentHandler = ActualBPGC->GetInheritableComponentHandler();
-			if (InheritableComponentHandler)
+			const FComponentKey ComponentKey(this);
+			
+			do
 			{
-				OverridenComponentTemplate = InheritableComponentHandler->GetOverridenComponentTemplate(ComponentKey);
-			}
-			ActualBPGC = Cast<UBlueprintGeneratedClass>(ActualBPGC->GetSuperClass());
+				auto InheritableComponentHandler = ActualBPGC->GetInheritableComponentHandler();
+				if (InheritableComponentHandler)
+				{
+					OverridenComponentTemplate = InheritableComponentHandler->GetOverridenComponentTemplate(ComponentKey);
+				}
+
+				ActualBPGC = Cast<UBlueprintGeneratedClass>(ActualBPGC->GetSuperClass());
+
+			} while (!OverridenComponentTemplate && ActualBPGC && SCS != ActualBPGC->SimpleConstructionScript);
 		}
 	}
 	return OverridenComponentTemplate ? OverridenComponentTemplate : ComponentTemplate;
+}
+
+const FBlueprintCookedComponentInstancingData* USCS_Node::GetActualComponentTemplateData(UBlueprintGeneratedClass* ActualBPGC) const
+{
+	const FBlueprintCookedComponentInstancingData* OverridenComponentTemplateData = nullptr;
+	static const FBoolConfigValueHelper EnableInheritableComponents(TEXT("Kismet"), TEXT("bEnableInheritableComponents"), GEngineIni);
+	if (EnableInheritableComponents)
+	{
+		const USimpleConstructionScript* SCS = GetSCS();
+		if (SCS != ActualBPGC->SimpleConstructionScript)
+		{
+			const FComponentKey ComponentKey(this);
+			
+			do
+			{
+				auto InheritableComponentHandler = ActualBPGC->GetInheritableComponentHandler();
+				if (InheritableComponentHandler)
+				{
+					OverridenComponentTemplateData = InheritableComponentHandler->GetOverridenComponentTemplateData(ComponentKey);
+				}
+
+				ActualBPGC = Cast<UBlueprintGeneratedClass>(ActualBPGC->GetSuperClass());
+
+			} while (!OverridenComponentTemplateData && ActualBPGC && SCS != ActualBPGC->SimpleConstructionScript);
+		}
+	}
+
+	return OverridenComponentTemplateData ? OverridenComponentTemplateData : &CookedComponentInstancingData;
 }
 
 UActorComponent* USCS_Node::ExecuteNodeOnActor(AActor* Actor, USceneComponent* ParentComponent, const FTransform* RootTransform, bool bIsDefaultTransform)
@@ -51,11 +86,20 @@ UActorComponent* USCS_Node::ExecuteNodeOnActor(AActor* Actor, USceneComponent* P
 	check(Actor != nullptr);
 	check((ParentComponent != nullptr && !ParentComponent->IsPendingKill()) || (RootTransform != nullptr)); // must specify either a parent component or a world transform
 
-	auto ActualBPGC = Cast<UBlueprintGeneratedClass>(Actor->GetClass());
-	UActorComponent* ActualComponentTemplate = GetActualComponentTemplate(ActualBPGC);
-
 	// Create a new component instance based on the template
-	UActorComponent* NewActorComp = Actor->CreateComponentFromTemplate(ActualComponentTemplate, VariableName);
+	UActorComponent* NewActorComp = nullptr;
+	auto ActualBPGC = Cast<UBlueprintGeneratedClass>(Actor->GetClass());
+	auto ActualComponentTemplateData = FPlatformProperties::RequiresCookedData() ? GetActualComponentTemplateData(ActualBPGC) : nullptr;
+	if (ActualComponentTemplateData && ActualComponentTemplateData->bIsValid)
+	{
+		// Use cooked instancing data if valid (fast path).
+		NewActorComp = Actor->CreateComponentFromTemplateData(ActualComponentTemplateData, VariableName);
+	}
+	else if (UActorComponent* ActualComponentTemplate = GetActualComponentTemplate(ActualBPGC))
+	{
+		NewActorComp = Actor->CreateComponentFromTemplate(ActualComponentTemplate, VariableName);
+	}
+
 	if(NewActorComp != nullptr)
 	{
 		NewActorComp->CreationMethod = EComponentCreationMethod::SimpleConstructionScript;
@@ -351,6 +395,21 @@ void USCS_Node::RemoveMetaData(const FName& Key)
 	}
 }
 
+void USCS_Node::PostLoad()
+{
+	Super::PostLoad();
+
+#if WITH_EDITOR
+	ValidateGuid();
+#endif
+
+	// If valid, load cooked component instancing data.
+	if (ComponentTemplate && CookedComponentInstancingData.bIsValid)
+	{
+		CookedComponentInstancingData.LoadCachedPropertyDataForSerialization(ComponentTemplate);
+	}
+}
+
 #if WITH_EDITOR
 void USCS_Node::SetParent(USCS_Node* InParentNode)
 {
@@ -458,13 +517,6 @@ USceneComponent* USCS_Node::GetParentComponentTemplate(UBlueprint* InBlueprint) 
 	}
 
 	return ParentComponentTemplate;
-}
-
-void USCS_Node::PostLoad()
-{
-	Super::PostLoad();
-
-	ValidateGuid();
 }
 
 void USCS_Node::ValidateGuid()

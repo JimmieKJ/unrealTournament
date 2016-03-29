@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /**
  * Movement component that is compatible with the navigation system's PathFollowingComponent
@@ -19,19 +19,31 @@ class UCapsuleComponent;
 /**
  * NavMovementComponent defines base functionality for MovementComponents that move any 'agent' that may be involved in AI pathfinding.
  */
-UCLASS(abstract)
+UCLASS(abstract, config=Engine)
 class ENGINE_API UNavMovementComponent : public UMovementComponent
 {
 	GENERATED_UCLASS_BODY()
 
 	/** Properties that define how the component can move. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Movement Capabilities", meta=(DisplayName="Movement Capabilities", Keywords="Nav Agent"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = NavMovement, meta = (DisplayName = "Movement Capabilities", Keywords = "Nav Agent"))
 	FNavAgentProperties NavAgentProps;
 
 protected:
+	/** Braking distance override used with acceleration driven path following (bUseAccelerationForPaths) */
+	UPROPERTY(EditAnywhere, Category = NavMovement, meta = (EditCondition = "bUseFixedBrakingDistanceForPaths"))
+	float FixedPathBrakingDistance;
+
 	/** If set to true NavAgentProps' radius and height will be updated with Owner's collision capsule size */
-	UPROPERTY(EditAnywhere, Category=MovementComponent)
+	UPROPERTY(EditAnywhere, Category = NavMovement)
 	uint32 bUpdateNavAgentWithOwnersCollision:1;
+
+	/** If set, FixedPathBrakingDistance will be used for path following deceleration */
+	UPROPERTY(EditAnywhere, Category = NavMovement, GlobalConfig)
+	uint32 bUseAccelerationForPaths : 1;
+
+	/** If set, FixedPathBrakingDistance will be used for path following deceleration */
+	UPROPERTY(EditAnywhere, Category = NavMovement, meta = (EditCondition = "bUseAccelerationForPaths"))
+	uint32 bUseFixedBrakingDistanceForPaths : 1;
 
 private:
 	/** If set, StopActiveMovement call will abort current path following request */
@@ -71,12 +83,20 @@ public:
 	/** @returns navigation location of controlled actor */
 	FORCEINLINE FVector GetActorNavLocation() const { INavAgentInterface* MyOwner = Cast<INavAgentInterface>(GetOwner()); return MyOwner ? MyOwner->GetNavAgentLocation() : FNavigationSystem::InvalidLocation; }
 
-	/** request direct movement */
+	/** path following: request new velocity */
 	virtual void RequestDirectMove(const FVector& MoveVelocity, bool bForceMaxSpeed);
+
+	/** path following: request new move input (normal vector = full strength) */
+	virtual void RequestPathMove(const FVector& MoveInput);
 
 	/** check if current move target can be reached right now if positions are matching
 	 *  (e.g. performing scripted move and can't stop) */
 	virtual bool CanStopPathFollowing() const;
+
+	/** @returns braking distance for acceleration driven path following */
+	virtual float GetPathFollowingBrakingDistance(float MaxSpeed) const;
+
+	FORCEINLINE bool UseAccelerationForPathFollowing() const { return bUseAccelerationForPaths; }
 
 	/** @returns the NavAgentProps(const) */
 	FORCEINLINE const FNavAgentProperties& GetNavAgentPropertiesRef() const { return NavAgentProps; }

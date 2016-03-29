@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "AI/Navigation/AbstractNavData.h"
@@ -48,7 +48,15 @@ FPathFindingResult AAbstractNavData::FindPathAbstract(const FNavAgentProperties&
 	}
 
 	FPathFindingResult Result;
-	Result.Path = Query.PathInstanceToFill.IsValid() ? Query.PathInstanceToFill : Self->CreatePathInstance<FAbstractNavigationPath>(Query.Owner.Get());
+	if (Query.PathInstanceToFill.IsValid())
+	{
+		Result.Path = Query.PathInstanceToFill;
+		Result.Path->ResetForRepath();
+	}
+	else
+	{
+		Result.Path = Self->CreatePathInstance<FAbstractNavigationPath>(Query);
+	}
 
 	Result.Path->GetPathPoints().Reset();
 	Result.Path->GetPathPoints().Add(FNavPathPoint(Query.StartLocation));

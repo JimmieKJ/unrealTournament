@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "IOSWindow.h"
@@ -27,6 +27,7 @@ void FIOSWindow::Initialize( class FIOSApplication* const Application, const TSh
 
 	Window = [[UIApplication sharedApplication] keyWindow];
 
+#if !PLATFORM_TVOS
 	if(InParent.Get() != NULL)
 	{
 		dispatch_async(dispatch_get_main_queue(),^ {
@@ -62,6 +63,7 @@ void FIOSWindow::Initialize( class FIOSApplication* const Application, const TSh
 			}
 		} );
 	}
+#endif
 }
 
 FPlatformRect FIOSWindow::GetScreenRect()

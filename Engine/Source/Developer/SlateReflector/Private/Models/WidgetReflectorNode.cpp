@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateReflectorPrivatePCH.h"
 #include "WidgetReflectorNode.h"
@@ -554,25 +554,7 @@ FText FWidgetReflectorNodeUtils::GetWidgetVisibilityText(const TSharedPtr<SWidge
 
 FText FWidgetReflectorNodeUtils::GetWidgetReadableLocation(const TSharedPtr<SWidget>& InWidget)
 {
-	FText ReadableLocationText;
-
-	if (InWidget.IsValid())
-	{
-		// UMG widgets have meta-data to help track them
-		TSharedPtr<FReflectionMetaData> MetaData = InWidget->GetMetaData<FReflectionMetaData>();
-		if (MetaData.IsValid() && MetaData->Asset.Get() != nullptr)
-		{
-			const FText AssetNameText = FText::FromName(MetaData->Asset->GetFName());
-			const FText WidgetNameText = FText::FromName(MetaData->Name);
-			ReadableLocationText = FText::Format(LOCTEXT("AssetReadableLocationFmt", "{0} [{1}]"), AssetNameText, WidgetNameText);
-		}
-		else
-		{
-			ReadableLocationText = FText::FromString(InWidget->GetReadableLocation());
-		}
-	}
-	
-	return ReadableLocationText;
+	return (InWidget.IsValid()) ? FText::FromString(FReflectionMetaData::GetWidgetDebugInfo(InWidget.Get())) : FText::GetEmpty();
 }
 
 FString FWidgetReflectorNodeUtils::GetWidgetFile(const TSharedPtr<SWidget>& InWidget)

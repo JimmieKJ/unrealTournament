@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Engine/TriggerBase.h"
@@ -48,8 +48,3 @@ ATriggerBase::ATriggerBase(const FObjectInitializer& ObjectInitializer)
 		SpriteComponent->bIsScreenSizeScaled = true;
 	}
 }
-
-/** Returns CollisionComponent subobject **/
-UShapeComponent* ATriggerBase::GetCollisionComponent() const { return CollisionComponent; }
-/** Returns SpriteComponent subobject **/
-UBillboardComponent* ATriggerBase::GetSpriteComponent() const { return SpriteComponent; }

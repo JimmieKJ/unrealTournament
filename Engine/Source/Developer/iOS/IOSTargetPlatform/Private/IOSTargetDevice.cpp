@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "IOSTargetPlatformPrivatePCH.h"
 
@@ -41,7 +41,7 @@ FString FIOSTargetDevice::GetName() const
 
 FString FIOSTargetDevice::GetOperatingSystemName()
 {
-	return TEXT("IOS");
+	return TargetPlatform.PlatformName();
 }
 
 const class ITargetPlatform& FIOSTargetDevice::GetTargetPlatform() const

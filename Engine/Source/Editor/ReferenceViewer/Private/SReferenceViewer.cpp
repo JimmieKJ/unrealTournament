@@ -1,8 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ReferenceViewerPrivatePCH.h"
 #include "GraphEditor.h"
 #include "AssetRegistryModule.h"
+#include "CollectionManagerModule.h"
 #include "AssetEditorManager.h"
 #include "AssetThumbnail.h"
 #include "ReferenceViewerActions.h"
@@ -525,18 +526,33 @@ void SReferenceViewer::RegisterActions()
 		FCanExecuteAction::CreateSP(this, &SReferenceViewer::HasExactlyOneNodeSelected));
 
 	ReferenceViewerActions->MapAction(
-		FReferenceViewerActions::Get().MakeLocalCollectionWithReferencedAssets,
-		FExecuteAction::CreateSP(this, &SReferenceViewer::MakeCollectionWithReferencedAssets, ECollectionShareType::CST_Local),
+		FReferenceViewerActions::Get().MakeLocalCollectionWithReferencers,
+		FExecuteAction::CreateSP(this, &SReferenceViewer::MakeCollectionWithReferenersOrDependencies, ECollectionShareType::CST_Local, true),
 		FCanExecuteAction::CreateSP(this, &SReferenceViewer::HasExactlyOneNodeSelected));
 	
 	ReferenceViewerActions->MapAction(
-		FReferenceViewerActions::Get().MakePrivateCollectionWithReferencedAssets,
-		FExecuteAction::CreateSP(this, &SReferenceViewer::MakeCollectionWithReferencedAssets, ECollectionShareType::CST_Private),
+		FReferenceViewerActions::Get().MakePrivateCollectionWithReferencers,
+		FExecuteAction::CreateSP(this, &SReferenceViewer::MakeCollectionWithReferenersOrDependencies, ECollectionShareType::CST_Private, true),
 		FCanExecuteAction::CreateSP(this, &SReferenceViewer::HasExactlyOneNodeSelected));
 	
 	ReferenceViewerActions->MapAction(
-		FReferenceViewerActions::Get().MakeSharedCollectionWithReferencedAssets,
-		FExecuteAction::CreateSP(this, &SReferenceViewer::MakeCollectionWithReferencedAssets, ECollectionShareType::CST_Shared),
+		FReferenceViewerActions::Get().MakeSharedCollectionWithReferencers,
+		FExecuteAction::CreateSP(this, &SReferenceViewer::MakeCollectionWithReferenersOrDependencies, ECollectionShareType::CST_Shared, true),
+		FCanExecuteAction::CreateSP(this, &SReferenceViewer::HasExactlyOneNodeSelected));
+
+	ReferenceViewerActions->MapAction(
+		FReferenceViewerActions::Get().MakeLocalCollectionWithDependencies,
+		FExecuteAction::CreateSP(this, &SReferenceViewer::MakeCollectionWithReferenersOrDependencies, ECollectionShareType::CST_Local, false),
+		FCanExecuteAction::CreateSP(this, &SReferenceViewer::HasExactlyOneNodeSelected));
+
+	ReferenceViewerActions->MapAction(
+		FReferenceViewerActions::Get().MakePrivateCollectionWithDependencies,
+		FExecuteAction::CreateSP(this, &SReferenceViewer::MakeCollectionWithReferenersOrDependencies, ECollectionShareType::CST_Private, false),
+		FCanExecuteAction::CreateSP(this, &SReferenceViewer::HasExactlyOneNodeSelected));
+
+	ReferenceViewerActions->MapAction(
+		FReferenceViewerActions::Get().MakeSharedCollectionWithDependencies,
+		FExecuteAction::CreateSP(this, &SReferenceViewer::MakeCollectionWithReferenersOrDependencies, ECollectionShareType::CST_Shared, false),
 		FCanExecuteAction::CreateSP(this, &SReferenceViewer::HasExactlyOneNodeSelected));
 	
 	ReferenceViewerActions->MapAction(
@@ -610,14 +626,100 @@ void SReferenceViewer::ListObjectsThatReference()
 	}
 }
 
-void SReferenceViewer::MakeCollectionWithReferencedAssets(ECollectionShareType::Type ShareType)
+void SReferenceViewer::MakeCollectionWithReferenersOrDependencies(ECollectionShareType::Type ShareType, bool bReferencers)
 {
-	UObject* SelectedObject = GetObjectFromSingleSelectedNode();
+	TSet<FName> AllSelectedPackageNames;
+	GetPackageNamesFromSelectedNodes(AllSelectedPackageNames);
 
-	if ( SelectedObject )
+	if (AllSelectedPackageNames.Num() > 0)
 	{
-		FString DefaultName = FText::Format(NSLOCTEXT("UnrealEd", "Resources", "{0}_Resources"), FText::FromString(SelectedObject->GetName())).ToString();
-		ObjectTools::ShowReferencedObjs(SelectedObject, DefaultName, ShareType);
+		if (ensure(ShareType != ECollectionShareType::CST_All))
+		{
+			FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
+
+			FText CollectionNameAsText;
+			FString FirstAssetName = FPackageName::GetLongPackageAssetName(AllSelectedPackageNames.Array()[0].ToString());
+			if (bReferencers)
+			{
+				if (AllSelectedPackageNames.Num() > 1)
+				{
+					CollectionNameAsText = FText::Format(LOCTEXT("ReferencersForMultipleAssetNames", "{0}AndOthers_Referencers"), FText::FromString(FirstAssetName));
+				}
+				else
+				{
+					CollectionNameAsText = FText::Format(LOCTEXT("ReferencersForSingleAsset", "{0}_Referencers"), FText::FromString(FirstAssetName));
+				}
+			}
+			else
+			{
+				if (AllSelectedPackageNames.Num() > 1)
+				{
+					CollectionNameAsText = FText::Format(LOCTEXT("DependenciesForMultipleAssetNames", "{0}AndOthers_Dependencies"), FText::FromString(FirstAssetName));
+				}
+				else
+				{
+					CollectionNameAsText = FText::Format(LOCTEXT("DependenciesForSingleAsset", "{0}_Dependencies"), FText::FromString(FirstAssetName));
+				}
+			}
+
+			FName CollectionName;
+			CollectionManagerModule.Get().CreateUniqueCollectionName(*CollectionNameAsText.ToString(), ShareType, CollectionName);
+
+			FText ResultsMessage;
+			
+			FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+			TArray<FName> PackageNamesToAddToCollection;
+			if (bReferencers)
+			{
+				for (FName SelectedPackage : AllSelectedPackageNames)
+				{
+					AssetRegistryModule.Get().GetReferencers(SelectedPackage, PackageNamesToAddToCollection);
+				}
+			}
+			else
+			{
+				for (FName SelectedPackage : AllSelectedPackageNames)
+				{
+					AssetRegistryModule.Get().GetDependencies(SelectedPackage, PackageNamesToAddToCollection);
+				}
+			}
+
+			TSet<FName> ObjectPathsToAddToCollection;
+			for (FName PackageToAdd : PackageNamesToAddToCollection)
+			{
+				if (!AllSelectedPackageNames.Contains(PackageToAdd))
+				{
+					const FString PackageString = PackageToAdd.ToString();
+					const FName ObjectPath = *FString::Printf(TEXT("%s.%s"), *PackageString, *FPackageName::GetLongPackageAssetName(PackageString));
+					ObjectPathsToAddToCollection.Add(ObjectPath);
+				}
+			}
+
+			if (ObjectPathsToAddToCollection.Num() > 0)
+			{
+				if (CollectionManagerModule.Get().CreateCollection(CollectionName, ShareType, ECollectionStorageMode::Static))
+				{
+					if (CollectionManagerModule.Get().AddToCollection(CollectionName, ShareType, ObjectPathsToAddToCollection.Array()))
+					{
+						ResultsMessage = FText::Format(LOCTEXT("CreateCollectionSucceeded", "Created collection {0}"), FText::FromName(CollectionName));
+					}
+					else
+					{
+						ResultsMessage = FText::Format(LOCTEXT("AddToCollectionFailed", "Failed to add to the collection. {0}"), CollectionManagerModule.Get().GetLastError());
+					}
+				}
+				else
+				{
+					ResultsMessage = FText::Format(LOCTEXT("CreateCollectionFailed", "Failed to create the collection. {0}"), CollectionManagerModule.Get().GetLastError());
+				}
+			}
+			else
+			{
+				ResultsMessage = LOCTEXT("NothingToAddToCollection", "Nothing to add to collection.");
+			}
+
+			FMessageDialog::Open(EAppMsgType::Ok, ResultsMessage);
+		}
 	}
 }
 
@@ -715,6 +817,21 @@ UObject* SReferenceViewer::GetObjectFromSingleSelectedNode() const
 	}
 
 	return NULL;
+}
+
+void SReferenceViewer::GetPackageNamesFromSelectedNodes(TSet<FName>& OutNames) const
+{
+	TSet<UObject*> SelectedNodes = GraphEditorPtr->GetSelectedNodes();
+	for (UObject* Node : SelectedNodes)
+	{
+		UEdGraphNode_Reference* ReferenceNode = Cast<UEdGraphNode_Reference>(Node);
+		if (ReferenceNode)
+		{
+			TArray<FName> NodePackageNames;
+			ReferenceNode->GetAllPackageNames(NodePackageNames);
+			OutNames.Append(NodePackageNames);
+		}
+	}
 }
 
 bool SReferenceViewer::HasExactlyOneNodeSelected() const

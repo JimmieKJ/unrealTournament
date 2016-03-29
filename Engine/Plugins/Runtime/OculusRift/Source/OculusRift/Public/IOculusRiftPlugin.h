@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -45,9 +45,9 @@ public:
 	virtual bool PoseToOrientationAndPosition( const struct ovrPosef_& Pose, FQuat& OutOrientation, FVector& OutPosition ) const = 0;
 
 	/**
-	 * Returns current ovrHmd handle
+	 * Returns current ovrSession handle
 	 */
-	virtual struct ovrHmdStruct* GetHmd() = 0;
+	virtual struct ovrHmdStruct* GetSession() = 0;
 
 	/**
 	 * Returns current ovrTrackingState

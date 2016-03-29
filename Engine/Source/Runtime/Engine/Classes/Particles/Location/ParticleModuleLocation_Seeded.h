@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -6,7 +6,7 @@
 #include "ParticleModuleLocation_Seeded.generated.h"
 
 UCLASS(editinlinenew, hidecategories=Object, meta=(DisplayName = "Initial Location (Seed)"))
-class UParticleModuleLocation_Seeded : public UParticleModuleLocation
+class ENGINE_API UParticleModuleLocation_Seeded : public UParticleModuleLocation
 {
 	GENERATED_UCLASS_BODY()
 
@@ -17,7 +17,7 @@ class UParticleModuleLocation_Seeded : public UParticleModuleLocation
 
 	//Begin UParticleModule Interface
 	virtual void Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase) override;
-	virtual uint32 RequiredBytesPerInstance(FParticleEmitterInstance* Owner = NULL) override;
+	virtual uint32 RequiredBytesPerInstance() override;
 	virtual uint32 PrepPerInstanceBlock(FParticleEmitterInstance* Owner, void* InstData) override;
 	virtual FParticleRandomSeedInfo* GetRandomSeedInfo() override
 	{

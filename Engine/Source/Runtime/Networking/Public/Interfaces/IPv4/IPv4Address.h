@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,55 +6,76 @@
 /**
  * Implements an IPv4 address.
  */
-class FIPv4Address
+struct FIPv4Address
 {
+	union
+	{
+		/** The IP address value as A.B.C.D components. */
+		struct
+		{
+#if PLATFORM_LITTLE_ENDIAN
+	#if _MSC_VER
+			uint8 D, C, B, A;
+	#else
+			uint8 D GCC_ALIGN(4);
+			uint8 C, B, A;
+	#endif
+#else
+			uint8 A, B, C, D;
+#endif
+		};
+
+		/** The IP address value in host byte order. */
+		uint32 Value;
+	};
+
 public:
 	
-	/**
-	 * Default constructor.
-	 */
-	FIPv4Address( ) { }
+	/** Default constructor. */
+	FIPv4Address() { }
 
 	/**
 	 * Creates and initializes a new IPv4 address with the specified components.
 	 *
 	 * The created IP address has the value A.B.C.D.
 	 *
-	 * @param A - The first component.
-	 * @param B - The second component.
-	 * @param C - The third component.
-	 * @param D - The fourth component.
+	 * @param InA The first component.
+	 * @param InB The second component.
+	 * @param InC The third component.
+	 * @param InD The fourth component.
 	 */
-	FIPv4Address( uint8 A, uint8 B, uint8 C, uint8 D )
-	{
-		Bytes[0] = D;
-		Bytes[1] = C;
-		Bytes[2] = B;
-		Bytes[3] = A;
-	}
-	
+	FIPv4Address(uint8 InA, uint8 InB, uint8 InC, uint8 InD)
+#if PLATFORM_LITTLE_ENDIAN
+		: D(InD)
+		, C(InC)
+		, B(InB)
+		, A(InA)
+#else
+		: A(InA)
+		, B(InB)
+		, C(InC)
+		, D(InD)
+#endif // PLATFORM_LITTLE_ENDIAN
+	{ }
+
 	/**
 	 * Creates and initializes a new IPv4 address with the specified value.
 	 *
-	 * Note: The byte ordering of the passed in value is platform dependent.
-	 *
-	 * @param InValue - The address value.
+	 * @param InValue The address value (in host byte order).
 	 */
-	FIPv4Address( uint32 InValue )
+	FIPv4Address(uint32 InValue)
 		: Value(InValue)
 	{ }
-
 
 public:
 
 	/**
 	 * Compares this IPv4 address with the given address for equality.
 	 *
-	 * @param Other - The address to compare with.
-	 *
+	 * @param Other The address to compare with.
 	 * @return true if the addresses are equal, false otherwise.
 	 */
-	bool operator==( const FIPv4Address& Other ) const
+	bool operator==(const FIPv4Address& Other) const
 	{
 		return (Value == Other.Value);
 	}
@@ -62,11 +83,10 @@ public:
 	/**
 	 * Compares this IPv4 address with the given address for inequality.
 	 *
-	 * @param Other - The address to compare with.
-	 *
+	 * @param Other The address to compare with.
 	 * @return true if the addresses are not equal, false otherwise.
 	 */
-	bool operator!=( const FIPv4Address& Other ) const
+	bool operator!=(const FIPv4Address& Other) const
 	{
 		return (Value != Other.Value);
 	}
@@ -74,78 +94,38 @@ public:
 	/**
 	 * OR operator for masking IP addresses with a subnet mask.
 	 *
-	 * @param SubnetMask - The subnet mask.
-	 *
+	 * @param SubnetMask The subnet mask.
 	 * @return The masked IP address.
 	 */
-	FIPv4Address operator|( const FIPv4SubnetMask& SubnetMask ) const
+	FIPv4Address operator|(const FIPv4SubnetMask& SubnetMask) const
 	{
-		return FIPv4Address(Value | SubnetMask.GetValue());
+		return FIPv4Address(Value | SubnetMask.Value);
 	}
 
 	/**
 	 * AND operator for masking IP addresses with a subnet mask.
 	 *
-	 * @param SubnetMask - The subnet mask.
-	 *
+	 * @param SubnetMask The subnet mask.
 	 * @return The masked IP address.
 	 */
-	FIPv4Address operator&( const FIPv4SubnetMask& SubnetMask ) const
+	FIPv4Address operator&(const FIPv4SubnetMask& SubnetMask) const
 	{
-		return FIPv4Address(Value & SubnetMask.GetValue());
+		return FIPv4Address(Value & SubnetMask.Value);
 	}
 
 	/**
 	 * Serializes the given IPv4 address from or into the specified archive.
 	 *
-	 * @param Ar - The archive to serialize from or into.
-	 * @param IpAddress - The address to serialize.
-	 *
+	 * @param Ar The archive to serialize from or into.
+	 * @param IpAddress The address to serialize.
 	 * @return The archive.
 	 */
-	friend FArchive& operator<<( FArchive& Ar, FIPv4Address& IpAddress )
+	friend FArchive& operator<<(FArchive& Ar, FIPv4Address& IpAddress)
 	{
 		return Ar << IpAddress.Value;
 	}
 
-	
 public:
-
-	/**
-	 * Gets a byte component.
-	 *
-	 * The IP address components have the following indices:
-	 *		A = 3
-	 *		B = 2
-	 *		C = 1
-	 *		D = 0
-	 *
-	 * @param Index - The index of the byte component to return.
-	 *
-	 * @return Byte component.
-	 *
-	 * @see GetValue
-	 */
-	uint8 GetByte( int32 Index ) const
-	{
-		check((Index >= 0) && (Index <= 3));
-
-		return Bytes[Index];
-	}
-
-	/**
-	 * Gets the address value.
-	 *
-	 * Note: The byte ordering of the returned value is platform dependent.
-	 *
-	 * @return Address value.
-	 *
-	 * @see GetByte
-	 */
-	uint32 GetValue( ) const
-	{
-		return Value;
-	}
 
 	/**
 	 * Checks whether this IP address is a global multicast address.
@@ -153,15 +133,11 @@ public:
 	 * Global multicast addresses are in the range 224.0.1.0 to 238.255.255.255.
 	 *
 	 * @return true if it is a global multicast address, false otherwise.
-	 *
-	 * @see IsLinkLocalMulticast
-	 * @see IsOrganizationLocalMulticast
-	 * @see IsSiteLocalMulticast
+	 * @see IsLinkLocalMulticast, IsOrganizationLocalMulticast, IsSiteLocalMulticast
 	 */
-	bool IsGlobalMulticast( ) const
+	bool IsGlobalMulticast() const
 	{
-		return (((Bytes[3] >= 224) && Bytes[3] <= 238) &&
-			!((Bytes[3] == 224) && (Bytes[2] == 0) && (Bytes[1] == 0)));
+		return (((A >= 224) && A <= 238) && !((A == 224) && (B == 0) && (C == 0)));
 	}
 
 	/**
@@ -171,9 +147,9 @@ public:
 	 *
 	 * @return true if it is link local, false otherwise.
 	 */
-	bool IsLinkLocal( ) const
+	bool IsLinkLocal() const
 	{
-		return ((Bytes[3] == 169) && (Bytes[2] == 254));
+		return ((A == 169) && (B == 254));
 	}
 
 	/**
@@ -182,14 +158,11 @@ public:
 	 * Link local multicast addresses have the form 224.0.0.x.
 	 *
 	 * @return true if it is a link local multicast address, false otherwise.
-	 *
-	 * @see IsGlobalMulticast
-	 * @see IsOrganizationLocalMulticast
-	 * @see IsSiteLocalMulticast
+	 * @see IsGlobalMulticast, IsOrganizationLocalMulticast, IsSiteLocalMulticast
 	 */
-	bool IsLinkLocalMulticast( ) const
+	bool IsLinkLocalMulticast() const
 	{
-		return ((Bytes[3] >= 224) && (Bytes[2] == 0) && (Bytes[1] == 0));
+		return ((A >= 224) && (B == 0) && (C == 0));
 	}
 
 	/**
@@ -198,12 +171,11 @@ public:
 	 * Loopback addresses have the form 127.x.x.x
 	 *
 	 * @return true if it is a loopback address, false otherwise.
-	 *
 	 * @see IsMulticastAddress
 	 */
-	bool IsLoopbackAddress( ) const
+	bool IsLoopbackAddress() const
 	{
-		return (Bytes[3] == 127);
+		return (A == 127);
 	}
 
 	/**
@@ -212,12 +184,11 @@ public:
 	 * Multicast addresses are in the range 224.0.0.0 to 239.255.255.255.
 	 *
 	 * @return true if it is a multicast address, false otherwise.
-	 *
 	 * @see IsLoopbackAddress
 	 */
-	bool IsMulticastAddress( ) const
+	bool IsMulticastAddress() const
 	{
-		return ((Bytes[3] >= 224) && (Bytes[3] <= 239));
+		return ((A >= 224) && (A <= 239));
 	}
 
 	/**
@@ -226,14 +197,11 @@ public:
 	 * Organization local multicast addresses are in the range 239.192.x.x to 239.195.x.x.
 	 *
 	 * @return true if it is a site local multicast address, false otherwise.
-	 *
-	 * @see IsGlobalMulticast
-	 * @see IsLinkLocalMulticast
-	 * @see IsSiteLocalMulticast
+	 * @see IsGlobalMulticast, IsLinkLocalMulticast, IsSiteLocalMulticast
 	 */
-	bool IsOrganizationLocalMulticast( ) const
+	bool IsOrganizationLocalMulticast() const
 	{
-		return ((Bytes[3] == 239) && (Bytes[2] >= 192) && (Bytes[2] <= 195));
+		return ((A == 239) && (B >= 192) && (B <= 195));
 	}
 
 	/**
@@ -246,11 +214,9 @@ public:
 	 *
 	 * @return true if it is a site local address, false otherwise.
 	 */
-	bool IsSiteLocalAddress( ) const
+	bool IsSiteLocalAddress() const
 	{
-		return ((Bytes[3] == 10) ||
-				((Bytes[3] == 172) && (Bytes[2] == 16)) ||
-				((Bytes[3] == 192) && (Bytes[2] == 168)));
+		return ((A == 10) || ((A == 172) && (B == 16)) || ((A == 192) && (B == 168)));
 	}
 
 	/**
@@ -259,78 +225,65 @@ public:
 	 * Site local multicast addresses have the form 239.255.0.x.
 	 *
 	 * @return true if it is a site local multicast address, false otherwise.
-	 *
-	 * @see IsGlobalMulticast
-	 * @see IsLinkLocalMulticast
-	 * @see IsOrganizationLocalMulticast
+	 * @see IsGlobalMulticast, IsLinkLocalMulticast, IsOrganizationLocalMulticast
 	 */
-	bool IsSiteLocalMulticast( ) const
+	bool IsSiteLocalMulticast() const
 	{
-		return ((Bytes[3] == 239) && (Bytes[2] == 255));
+		return ((A == 239) && (B == 255));
 	}
 
 	/**
 	 * Gets the string representation for this address.
 	 *
 	 * @return String representation.
+	 * @see Parse, ToText
 	 */
-	NETWORKING_API FText ToText( ) const;
+	NETWORKING_API FString ToString() const;
 
+	/**
+	* Gets the display text representation.
+	*
+	* @return Text representation.
+	* @see ToString
+	*/
+	FText ToText() const
+	{
+		return FText::FromString(ToString());
+	}
 
 public:
 
 	/**
 	 * Gets the hash for specified IPv4 address.
 	 *
-	 * @param Address - The address to get the hash for.
-	 *
+	 * @param Address The address to get the hash for.
 	 * @return Hash value.
 	 */
-	friend uint32 GetTypeHash( const FIPv4Address& Address )
+	friend uint32 GetTypeHash(const FIPv4Address& Address)
 	{
 		return Address.Value;
 	}
 
-
 public:
-	
+
 	/**
 	 * Converts a string to an IPv4 address.
 	 *
-	 * @param AddressString - The string to convert.
-	 * @param OutAddress - Will contain the parsed address.
-	 *
+	 * @param AddressString The string to convert.
+	 * @param OutAddress Will contain the parsed address.
 	 * @return true if the string was converted successfully, false otherwise.
+	 * @see ToString
 	 */
-	static NETWORKING_API bool Parse( const FString& AddressString, FIPv4Address& OutAddress );
+	static NETWORKING_API bool Parse(const FString& AddressString, FIPv4Address& OutAddress);
 
-	
 public:
 
-	/**
-	 * Defines the wild card address, which is 0.0.0.0
-	 */
+	/** Defines the wild card address, which is 0.0.0.0	*/
 	static NETWORKING_API const FIPv4Address Any;
 
-	/**
-	 * Defines the internal loopback address, which is 127.0.0.1
-	 */
+	/** Defines the internal loopback address, which is 127.0.0.1 */
 	static NETWORKING_API const FIPv4Address InternalLoopback;
 
-	/**
-	 * Defines the broadcast address for the 'zero network' (i.e. LAN), which is 255.255.255.255.
-	 */
+	/** Defines the broadcast address for the 'zero network' (i.e. LAN), which is 255.255.255.255. */
 	static NETWORKING_API const FIPv4Address LanBroadcast;
-
-
-private:
-
-	union
-	{
-		// Holds the address as an array of bytes.
-		uint8 Bytes[4];
-
-		// Holds the address as an integer.
-		uint32 Value;
-	};
 };

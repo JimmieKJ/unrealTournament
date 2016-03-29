@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VectorFieldVisualizationVertexFactory.usf: Vertex factory for GPU simulated particles.
@@ -30,6 +30,10 @@ struct FVertexFactoryInterpolantsVSToPS
 {
 	/** Dummy value to interpolate. */
 	float2 DummyTexCoord : TEXCOORD0;
+
+#if INSTANCED_STEREO
+	nointerpolation uint PackedEyeIndex : PACKED_EYE_INDEX;
+#endif
 };
 
 /**
@@ -52,7 +56,7 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates( FVertexFactoryInput I
 	const float3 VoxelSize = VectorFieldVis.VoxelSize.xyz;
 	const float3 HalfVoxelOffset = VoxelSize.xyz * 0.5f;
 	const float3 VoxelMultipliers = float3(1, VoxelSize.x, VoxelSize.x * VoxelSize.y);
-	const float3 VoxelIndex = floor(float3(Input.InstanceId.xxx) * VoxelMultipliers.xyz);
+	const float3 VoxelIndex = floor(float3(GetLayerInstanceID(Input.InstanceId).xxx) * VoxelMultipliers.xyz);
 	const float3 VoxelUV = frac(VoxelIndex.xyz * VoxelSize.xyz) + HalfVoxelOffset;
 
 	// Read vector for this voxel.
@@ -61,7 +65,7 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates( FVertexFactoryInput I
 	const float3 Vec = normalize(Force) * ForceScale;
 
 	// The base position for this vector.
-	const float3 BasePosition = mul(float4(VoxelUV.xyz,1), VectorFieldVis.VolumeToWorld).xyz - View.WorldCameraOrigin;
+	const float3 BasePosition = mul(float4(VoxelUV.xyz,1), VectorFieldVis.VolumeToWorld).xyz - ResolvedView.WorldCameraOrigin;
 	const float3 Position = BasePosition + float(Input.VertexId) * 
 		mul(float4(Vec,0), VectorFieldVis.VolumeToWorldNoScale).xyz;
 
@@ -131,6 +135,11 @@ float4 VertexFactoryGetRasterizedWorldPosition(FVertexFactoryInput Input, FVerte
 	return TranslatedWorldPosition;
 }
 
+float3 VertexFactoryGetPositionForVertexLighting(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates, float3 TranslatedWorldPosition)
+{
+	return TranslatedWorldPosition;
+}
+
 /**
  * Constructs values that need to be interpolated from the vertex shader to the pixel shader.
  * @param Input - Vertex attributes.
@@ -141,6 +150,11 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS( FVertexFact
 {
 	FVertexFactoryInterpolantsVSToPS Interpolants;
 	Interpolants.DummyTexCoord = float2(0,0);
+
+#if INSTANCED_STEREO
+	Interpolants.PackedEyeIndex = 0;
+#endif
+
 	return Interpolants;
 }
 
@@ -169,3 +183,10 @@ float3x3 VertexFactoryGetTangentToLocal( FVertexFactoryInput Input, FVertexFacto
 	TangentToLocal[2] = float3(0,0,1);
 	return TangentToLocal;
 }
+
+#if INSTANCED_STEREO
+uint VertexFactoryGetEyeIndex(uint InstanceId)
+{
+	return 0;
+}
+#endif

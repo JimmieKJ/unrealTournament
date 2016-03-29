@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "LandscapeMaterialInstanceConstant.generated.h"
@@ -10,12 +10,6 @@ class ULandscapeMaterialInstanceConstant : public UMaterialInstanceConstant
 
 	UPROPERTY()
 	uint32 bIsLayerThumbnail:1;
-
-	UPROPERTY()
-	int32 DataWeightmapIndex;
-
-	UPROPERTY()
-	int32 DataWeightmapSize;
 };
 
 

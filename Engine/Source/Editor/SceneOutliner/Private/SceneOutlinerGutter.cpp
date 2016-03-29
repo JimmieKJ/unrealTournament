@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "SceneOutlinerPrivatePCH.h"
@@ -41,9 +41,9 @@ bool FGetVisibilityVisitor::Get(const FActorTreeItem& ActorItem) const
 	}
 	else
 	{
-		const auto* Actor = ActorItem.Actor.Get();
+		const AActor* Actor = ActorItem.Actor.Get();
 
-		const bool bIsVisible = Actor && !Actor->IsTemporarilyHiddenInEditor();
+		const bool bIsVisible = Actor && !Actor->IsTemporarilyHiddenInEditor(true);
 		VisibilityInfo.Add(&ActorItem, bIsVisible);
 
 		return bIsVisible;
@@ -69,7 +69,7 @@ struct FSetVisibilityVisitor : IMutableTreeItemVisitor
 
 	virtual void Visit(FActorTreeItem& ActorItem) const override
 	{
-		auto* Actor = ActorItem.Actor.Get();
+		AActor* Actor = ActorItem.Actor.Get();
 		if (Actor)
 		{
 			// Save the actor to the transaction buffer to support undo/redo, but do

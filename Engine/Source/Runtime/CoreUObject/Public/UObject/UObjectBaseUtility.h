@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UObjectBaseUtility.h: Unreal UObject functions that only depend on UObjectBase
@@ -286,11 +286,46 @@ public:
 	 */
 	FString GetPathName( const UObject* StopOuter=NULL ) const;
 
+public:
+
+	/**
+	* Called after load to determine if the object can be a cluster root
+	*
+	* @return	true if this object can be a cluster root
+	*/
+	virtual bool CanBeClusterRoot() const
+	{
+		return false;
+	}
+
+	/**
+	* Called during cluster construction if the object can be added to a cluster
+	*
+	* @return	true if this object can be inside of a cluster
+	*/
+	virtual bool CanBeInCluster() const;
+
+	/**
+	* Called during PostLoad to create UObject cluster
+	*/
+	virtual void CreateCluster();
+
+	/** 
+	 * Adds this objects to a GC cluster that already exists 
+	 * @param ClusterRootOrObjectFromCluster Object that belongs to the cluster we want to add this object to.
+	 */
+	virtual void AddToCluster(UObjectBaseUtility* ClusterRootOrObjectFromCluster);
+
 protected:
+
+	/** Helper function to create a cluster from UObject */
+	static void CreateClusterFromObject(UObjectBaseUtility* ClusterRootObject, UObjectBaseUtility* ReferencingObject);
+
 	/**
 	 * Internal version of GetPathName() that eliminates lots of copies.
 	 */
 	void GetPathName( const UObject* StopOuter, FString& ResultString ) const;
+
 public:
 	/**
 	 * Walks up the chain of packages until it reaches the top level, which it ignores.

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "SceneOutlinerPrivatePCH.h"
@@ -35,6 +35,56 @@ DEFINE_LOG_CATEGORY_STATIC(LogSceneOutliner, Log, All);
 
 namespace SceneOutliner
 {
+	FText GetWorldDescription(UWorld* World)
+	{
+		FText Description;
+		if(World)
+		{
+			FText PostFix;
+			const FWorldContext* WorldContext = nullptr;
+			for (const FWorldContext& Context : GEngine->GetWorldContexts())
+			{
+				if(Context.World() == World)
+				{
+					WorldContext = &Context;
+					break;
+				}
+			}
+
+			if (World->WorldType == EWorldType::PIE)
+			{
+				switch(World->GetNetMode())
+				{
+					case NM_Client:
+						if(WorldContext)
+						{
+							PostFix = FText::Format(LOCTEXT("ClientPostfixFormat", "(Client {0})"), FText::AsNumber(WorldContext->PIEInstance - 1));
+						}
+						else
+						{
+							PostFix = LOCTEXT("ClientPostfixFormat", "(Client)");
+						}
+						break;
+					case NM_DedicatedServer:
+					case NM_ListenServer:
+						PostFix = LOCTEXT("ServerPostfix", "(Server)");
+						break;
+					case NM_Standalone:
+						PostFix = LOCTEXT("PlayInEditorPostfix", "(Play In Editor)");
+						break;
+				}
+			}
+			else if(World->WorldType == EWorldType::Editor)
+			{
+				PostFix = LOCTEXT("EditorPostfix", "(Editor)");
+			}
+
+			Description = FText::Format(LOCTEXT("WorldFormat", "{0} {1}"), FText::FromString(World->GetFName().GetPlainNameString()), PostFix);	
+		}
+
+		return Description;
+	}
+
 	TSharedPtr< FOutlinerFilter > CreateSelectedActorFilter()
 	{
 		auto* Filter = new FOutlinerPredicateFilter(FActorFilterPredicate::CreateStatic([](const AActor* InActor){	return InActor->IsSelected(); }), EDefaultFilterBehaviour::Fail);
@@ -283,16 +333,16 @@ namespace SceneOutliner
 			]
 		];
 
+		// Separator
+		VerticalBox->AddSlot()
+		.AutoHeight()
+		.Padding(0, 0, 0, 1)
+		[
+			SNew(SSeparator)
+		];
+
 		if (SharedData->Mode == ESceneOutlinerMode::ActorBrowsing)
 		{
-			// Separator
-			VerticalBox->AddSlot()
-			.AutoHeight()
-			.Padding(0, 0, 0, 1)
-			[
-				SNew(SSeparator)
-			];
-
 			// Bottom panel
 			VerticalBox->AddSlot()
 			.AutoHeight()
@@ -318,7 +368,7 @@ namespace SceneOutliner
 					.ContentPadding(0)
 					.ForegroundColor( this, &SSceneOutliner::GetViewButtonForegroundColor )
 					.ButtonStyle( FEditorStyle::Get(), "ToggleButton" ) // Use the tool bar item style for this button
-					.OnGetMenuContent( this, &SSceneOutliner::GetViewButtonContent )
+					.OnGetMenuContent( this, &SSceneOutliner::GetViewButtonContent, false )
 					.ButtonContent()
 					[
 						SNew(SHorizontalBox)
@@ -341,6 +391,46 @@ namespace SceneOutliner
 				]
 			];
 		} //end if (SharedData->Mode == ESceneOutlinerMode::ActorBrowsing)
+		else
+		{
+			// Bottom panel
+			VerticalBox->AddSlot()
+			.AutoHeight()
+			[
+				SNew(SHorizontalBox)
+
+				// World picker combo button
+				+SHorizontalBox::Slot()
+				.FillWidth(1.0f)
+				.HAlign(HAlign_Right)
+				[
+					SAssignNew( ViewOptionsComboButton, SComboButton )
+					.ContentPadding(0)
+					.ForegroundColor( this, &SSceneOutliner::GetViewButtonForegroundColor )
+					.ButtonStyle( FEditorStyle::Get(), "ToggleButton" ) // Use the tool bar item style for this button
+					.OnGetMenuContent( this, &SSceneOutliner::GetViewButtonContent, true )
+					.ButtonContent()
+					[
+						SNew(SHorizontalBox)
+
+						+SHorizontalBox::Slot()
+						.AutoWidth()
+						.VAlign(VAlign_Center)
+						[
+							SNew(SImage).Image( FEditorStyle::GetBrush("SceneOutliner.World") )
+						]
+
+						+SHorizontalBox::Slot()
+						.AutoWidth()
+						.Padding(2, 0, 0, 0)
+						.VAlign(VAlign_Center)
+						[
+							SNew(STextBlock).Text( LOCTEXT("ChooseWorldMenu", "Choose World") )
+						]
+					]
+				]
+			];
+		}
 
 
 		// Don't allow tool-tips over the header
@@ -491,56 +581,112 @@ namespace SceneOutliner
 		return ViewOptionsComboButton->IsHovered() ? FEditorStyle::GetSlateColor(InvertedForegroundName) : FEditorStyle::GetSlateColor(DefaultForegroundName);
 	}
 
-	TSharedRef<SWidget> SSceneOutliner::GetViewButtonContent()
+	TSharedRef<SWidget> SSceneOutliner::GetViewButtonContent(bool bWorldPickerOnly)
 	{
-		FMenuBuilder MenuBuilder(true, NULL);
+		FMenuBuilder MenuBuilder(!bWorldPickerOnly, NULL);
 
-		MenuBuilder.BeginSection("AssetThumbnails", LOCTEXT("ShowHeading", "Show"));
+		if(bWorldPickerOnly)
 		{
-			MenuBuilder.AddMenuEntry(
-				LOCTEXT("ToggleShowOnlySelected", "Only Selected"),
-				LOCTEXT("ToggleShowOnlySelectedToolTip", "When enabled, only displays actors that are currently selected."),
-				FSlateIcon(),
-				FUIAction(
-				FExecuteAction::CreateSP( this, &SSceneOutliner::ToggleShowOnlySelected ),
-				FCanExecuteAction(),
-				FIsActionChecked::CreateSP( this, &SSceneOutliner::IsShowingOnlySelected )
-				),
-				NAME_None,
-				EUserInterfaceActionType::ToggleButton
-			);
-
-			MenuBuilder.AddMenuEntry(
-				LOCTEXT("ToggleHideTemporaryActors", "Hide Temporary Actors"),
-				LOCTEXT("ToggleHideTemporaryActorsToolTip", "When enabled, hides temporary/run-time Actors."),
-				FSlateIcon(),
-				FUIAction(
-				FExecuteAction::CreateSP( this, &SSceneOutliner::ToggleHideTemporaryActors ),
-				FCanExecuteAction(),
-				FIsActionChecked::CreateSP( this, &SSceneOutliner::IsHidingTemporaryActors )
-				),
-				NAME_None,
-				EUserInterfaceActionType::ToggleButton
-			);
-
-			MenuBuilder.AddMenuEntry(
-				LOCTEXT("ToggleShowOnlyCurrentLevel", "Only in Current Level"),
-				LOCTEXT("ToggleShowOnlyCurrentLevelToolTip", "When enabled, only shows Actors that are in the Current Level."),
-				FSlateIcon(),
-				FUIAction(
-				FExecuteAction::CreateSP( this, &SSceneOutliner::ToggleShowOnlyCurrentLevel ),
-				FCanExecuteAction(),
-				FIsActionChecked::CreateSP( this, &SSceneOutliner::IsShowingOnlyCurrentLevel )
-				),
-				NAME_None,
-				EUserInterfaceActionType::ToggleButton
-			);
+			BuildWorldPickerContent(MenuBuilder);
 		}
-		MenuBuilder.EndSection();
+		else
+		{
+			MenuBuilder.BeginSection("AssetThumbnails", LOCTEXT("ShowHeading", "Show"));
+			{
+				MenuBuilder.AddMenuEntry(
+					LOCTEXT("ToggleShowOnlySelected", "Only Selected"),
+					LOCTEXT("ToggleShowOnlySelectedToolTip", "When enabled, only displays actors that are currently selected."),
+					FSlateIcon(),
+					FUIAction(
+					FExecuteAction::CreateSP( this, &SSceneOutliner::ToggleShowOnlySelected ),
+					FCanExecuteAction(),
+					FIsActionChecked::CreateSP( this, &SSceneOutliner::IsShowingOnlySelected )
+					),
+					NAME_None,
+					EUserInterfaceActionType::ToggleButton
+				);
+
+				MenuBuilder.AddMenuEntry(
+					LOCTEXT("ToggleHideTemporaryActors", "Hide Temporary Actors"),
+					LOCTEXT("ToggleHideTemporaryActorsToolTip", "When enabled, hides temporary/run-time Actors."),
+					FSlateIcon(),
+					FUIAction(
+					FExecuteAction::CreateSP( this, &SSceneOutliner::ToggleHideTemporaryActors ),
+					FCanExecuteAction(),
+					FIsActionChecked::CreateSP( this, &SSceneOutliner::IsHidingTemporaryActors )
+					),
+					NAME_None,
+					EUserInterfaceActionType::ToggleButton
+				);
+
+				MenuBuilder.AddMenuEntry(
+					LOCTEXT("ToggleShowOnlyCurrentLevel", "Only in Current Level"),
+					LOCTEXT("ToggleShowOnlyCurrentLevelToolTip", "When enabled, only shows Actors that are in the Current Level."),
+					FSlateIcon(),
+					FUIAction(
+					FExecuteAction::CreateSP( this, &SSceneOutliner::ToggleShowOnlyCurrentLevel ),
+					FCanExecuteAction(),
+					FIsActionChecked::CreateSP( this, &SSceneOutliner::IsShowingOnlyCurrentLevel )
+					),
+					NAME_None,
+					EUserInterfaceActionType::ToggleButton
+				);
+			}
+			MenuBuilder.EndSection();
+
+			MenuBuilder.BeginSection("AssetThumbnails", LOCTEXT("ShowWorldHeading", "World"));
+			{
+				MenuBuilder.AddSubMenu(
+					LOCTEXT("ChooseWorldSubMenu", "Choose World"),
+					LOCTEXT("ChooseWorldSubMenuToolTip", "Choose the world to display in the outliner."),
+					FNewMenuDelegate::CreateSP(this, &SSceneOutliner::BuildWorldPickerContent)
+				);
+			}
+			MenuBuilder.EndSection();
+		}
 
 		return MenuBuilder.MakeWidget();
 	}
 
+	void SSceneOutliner::BuildWorldPickerContent(FMenuBuilder& MenuBuilder)
+	{
+		MenuBuilder.BeginSection("Worlds", LOCTEXT("WorldsHeading", "Worlds"));
+		{
+			MenuBuilder.AddMenuEntry(
+				LOCTEXT("AutoWorld", "Auto"),
+				LOCTEXT("AutoWorldToolTip", "Automatically pick the world to display based on context."),
+				FSlateIcon(),
+				FUIAction(
+				FExecuteAction::CreateSP( this, &SSceneOutliner::OnSelectWorld, TWeakObjectPtr<UWorld>() ),
+				FCanExecuteAction(),
+				FIsActionChecked::CreateSP( this, &SSceneOutliner::IsWorldChecked, TWeakObjectPtr<UWorld>() )
+				),
+				NAME_None,
+				EUserInterfaceActionType::RadioButton
+			);
+
+			for (const FWorldContext& Context : GEngine->GetWorldContexts())
+			{
+				UWorld* World = Context.World();
+				if (World && (World->WorldType == EWorldType::PIE || Context.WorldType == EWorldType::Editor))
+				{
+					MenuBuilder.AddMenuEntry(
+						GetWorldDescription(World),
+						LOCTEXT("ChooseWorldToolTip", "Display actors for this world."),
+						FSlateIcon(),
+						FUIAction(
+						FExecuteAction::CreateSP( this, &SSceneOutliner::OnSelectWorld, TWeakObjectPtr<UWorld>(World) ),
+						FCanExecuteAction(),
+						FIsActionChecked::CreateSP( this, &SSceneOutliner::IsWorldChecked, TWeakObjectPtr<UWorld>(World) )
+						),
+						NAME_None,
+						EUserInterfaceActionType::RadioButton
+					);
+				}
+			}
+		}
+		MenuBuilder.EndSection();
+	}
 
 	/** FILTERS */
 
@@ -687,16 +833,60 @@ namespace SceneOutliner
 		// while we doing this
 		TGuardValue<bool> ReentrantGuard(bIsReentrant, true);
 
-		for (const FWorldContext& Context : GEngine->GetWorldContexts())
+		SharedData->RepresentingWorld = nullptr;
+
+		// check if the user-chosen world is valid and in the editor contexts
+		if(SharedData->UserChosenWorld.IsValid())
 		{
-			if (Context.WorldType == EWorldType::PIE)
+			for (const FWorldContext& Context : GEngine->GetWorldContexts())
 			{
-				SharedData->RepresentingWorld = Context.World();
-				break;
+				if(SharedData->UserChosenWorld.Get() == Context.World())
+				{
+					SharedData->RepresentingWorld = Context.World();
+					break;
+				}
 			}
-			else if (Context.WorldType == EWorldType::Editor)
+		}
+		
+		if(SharedData->RepresentingWorld == nullptr)
+		{
+			// try to pick the most suitable world context
+
+			// ideally we want a PIE world that is standalone or the first client
+			for (const FWorldContext& Context : GEngine->GetWorldContexts())
 			{
-				SharedData->RepresentingWorld = Context.World();
+				UWorld* World = Context.World();
+				if (World && Context.WorldType == EWorldType::PIE)
+				{
+					if(World->GetNetMode() == NM_Standalone)
+					{
+						SharedData->RepresentingWorld = World;
+						break;
+					}
+					else if(World->GetNetMode() == NM_Client && Context.PIEInstance == 2)	// Slightly dangerous: assumes server is always PIEInstance = 1;
+					{
+						SharedData->RepresentingWorld = World;
+						break;						
+					}
+				}
+			}
+		}
+
+		if(SharedData->RepresentingWorld == nullptr)
+		{
+			// still not world so fallback to old logic where we just prefer PIE over Editor
+
+			for (const FWorldContext& Context : GEngine->GetWorldContexts())
+			{
+				if (Context.WorldType == EWorldType::PIE)
+				{
+					SharedData->RepresentingWorld = Context.World();
+					break;
+				}
+				else if (Context.WorldType == EWorldType::Editor)
+				{
+					SharedData->RepresentingWorld = Context.World();
+				}
 			}
 		}
 		
@@ -2363,6 +2553,16 @@ namespace SceneOutliner
 		}
 	}
 
+	void SSceneOutliner::OnSelectWorld(TWeakObjectPtr<UWorld> InWorld)
+	{
+		SharedData->UserChosenWorld = InWorld;
+		FullRefresh();
+	}
+
+	bool SSceneOutliner::IsWorldChecked(TWeakObjectPtr<UWorld> InWorld)
+	{
+		return (InWorld == SharedData->UserChosenWorld);
+	}
 }	// namespace SceneOutliner
 
 #undef LOCTEXT_NAMESPACE

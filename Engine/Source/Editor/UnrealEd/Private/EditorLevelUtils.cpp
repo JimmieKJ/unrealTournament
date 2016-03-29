@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	EditorLevelUtils.cpp: Editor-specific level management routines
@@ -217,27 +217,22 @@ namespace EditorLevelUtils
 			InWorld->MarkPackageDirty();
 
 			NewLevel = StreamingLevel->GetLoadedLevel();
-			if ( NewLevel != NULL )
+			if ( NewLevel != nullptr)
 			{
 				EditorLevelUtils::SetLevelVisibility( NewLevel, true, true );
-			}
 
-			// Levels migrated from other projects may fail to load their world settings
-			// If so we create a new AWorldSettings actor here.
-			if ( NewLevel->Actors[0] == NULL )
-			{
-				UWorld *SubLevelWorld = CastChecked<UWorld>(NewLevel->GetOuter());
-				if (SubLevelWorld != NULL)
+				// Levels migrated from other projects may fail to load their world settings
+				// If so we create a new AWorldSettings actor here.
+				if ( NewLevel->GetWorldSettings(false) == nullptr )
 				{
+					UWorld* SubLevelWorld = CastChecked<UWorld>(NewLevel->GetOuter());
+
 					FActorSpawnParameters SpawnInfo;
 					SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 					SpawnInfo.Name = GEngine->WorldSettingsClass->GetFName();
 					AWorldSettings* NewWorldSettings = SubLevelWorld->SpawnActor<AWorldSettings>( GEngine->WorldSettingsClass, SpawnInfo );
-					NewLevel->Actors[0] = NewWorldSettings;
-				}
-				else
-				{
-					FMessageDialog::Open( EAppMsgType::Ok, NSLOCTEXT("UnrealEd", "LevelHasNoWorldSettings", "AddLevelToWorld: The level has no World Settings.") );
+
+					NewLevel->SetWorldSettings(NewWorldSettings);
 				}
 			}
 		}

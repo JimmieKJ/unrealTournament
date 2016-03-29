@@ -1,7 +1,7 @@
 ﻿USE [CrashReport]
 GO
 
-/****** Object:  StoredProcedure [dbo].[UpdateCrashesByPattern]    Script Date: 08/18/2015 16:45:13 ******/
+/****** Object:  StoredProcedure [dbo].[UpdateCrashesByPattern]    Script Date: 2015-12-21 12:19:27 ******/
 SET ANSI_NULLS ON
 GO
 
@@ -29,6 +29,9 @@ BEGIN
 
 	
 	--Create Buggs
+	-- #1 most expensive query (~50%?)
+	-- Changed on 2015-12-15 to only read new crashes, by looking at the max crash date in Bugg. 
+	-- Merge statement changed to increment NumberOfCrashes and NumberOfUsers rather than calculate the entire thing.
 
 	MERGE Buggs AS B
 	USING 
@@ -72,7 +75,10 @@ BEGIN
 			  FROM [dbo].[Crashes] c 
 			  WHERE
 
-				Pattern is not NULL AND Pattern not like ''
+				Pattern is not NULL 
+			  AND Pattern not like ''
+			  AND TimeOfCrash > (select max(TimeOfLastCrash) from dbo.Buggs)
+
 			  group by Pattern
 
 		  ) as s
@@ -119,14 +125,14 @@ BEGIN
 
 
 	WHEN MATCHED 
-		THEN UPDATE SET B.[NumberOfCrashes] = C.[NumberOfCrashes]
+		THEN UPDATE SET B.[NumberOfCrashes] = B.[NumberOfCrashes] + C.[NumberOfCrashes]
 
 						, B.[TimeOfLastCrash] = C.[TimeOfLastCrash]
 						, B.[BuildVersion] = C.[BuildVersion]
 
 						, B.[CrashType] = C.[CrashType]
 
-						, B.[NumberOfUsers] = C.[NumberOfUsers]
+						, B.[NumberOfUsers] = B.[NumberOfUsers] + C.[NumberOfUsers]
 
 
 	OUTPUT $action, Inserted.*, Deleted.*;
@@ -233,6 +239,7 @@ BEGIN
 	/*** Update Crashes to match the Bugg Status, TTPID, and Fixed Change List ****/
 
 	-- This handles new crashes that enter the system; it has the side effect of making the Bugg authoritative in this case but that's how they should be used.
+	-- #2 most expensive query (~20%?)
 	update C
 
 	SET 

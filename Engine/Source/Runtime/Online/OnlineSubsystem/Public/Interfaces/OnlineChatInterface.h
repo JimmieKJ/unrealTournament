@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "OnlineDelegateMacros.h"
@@ -23,21 +23,32 @@ public:
 	virtual bool IsPrivate() const = 0;
 	virtual bool IsJoined() const = 0;
 	virtual const class FChatRoomConfig& GetRoomConfig() const = 0;
+	virtual FString ToDebugString() const = 0;
 };
 
 /**
- * Configuration for creating a chat room
+ * Configuration for creating/joining a chat room
  */
 class FChatRoomConfig
 {
 public:
 	FChatRoomConfig()
-		: bPasswordRequired(false)
+		: bRejoinOnDisconnect(false)
+		, bPasswordRequired(false)
 		, Password(TEXT(""))
 	{}
 
+	/** Should this room be rejoined on disconnection */
+	bool bRejoinOnDisconnect;
+	/** Is there a password required to join the room (owner only) */
 	bool bPasswordRequired;
+	/** Password to join the room (owner only) */
 	FString Password;
+
+	FString ToDebugString() const
+	{
+		return FString::Printf(TEXT("bPassReqd: %d Pass: %s"), bPasswordRequired, *Password);
+	}
 
 private:
 	// Below are unused, move to public when hooking up to functionality
@@ -201,14 +212,14 @@ public:
 	virtual bool CreateRoom(const FUniqueNetId& UserId, const FChatRoomId& RoomId, const FString& Nickname, const FChatRoomConfig& ChatRoomConfig) = 0;
 
 	/**
-	* Kick off request for configuring a chat room with a provided configuration
-	*
-	* @param UserId id of user that is creating the room
-	* @param RoomId name of room to create
-	* @param RoomConfig configuration for the room
-	*
-	* @return if successfully started the async operation
-	*/
+	 * Kick off request for configuring a chat room with a provided configuration
+	 *
+	 * @param UserId id of user that is creating the room
+	 * @param RoomId name of room to create
+	 * @param RoomConfig configuration for the room
+	 *
+	 * @return if successfully started the async operation
+	 */
 	virtual bool ConfigureRoom(const FUniqueNetId& UserId, const FChatRoomId& RoomId, const FChatRoomConfig& ChatRoomConfig) = 0;
 	
 	/**
@@ -217,22 +228,23 @@ public:
 	 * @param UserId id of user that is joining
 	 * @param RoomId name of room to join
 	 * @param Nickname display name for the chat room. Name must be unique and is reserved for duration of join
+	 * @param ChatRoomConfig configuration parameters needed to join
 	 *
 	 * @return if successfully started the async operation
 	 */
-	virtual bool JoinPublicRoom(const FUniqueNetId& UserId, const FChatRoomId& RoomId, const FString& Nickname) = 0;
+	virtual bool JoinPublicRoom(const FUniqueNetId& UserId, const FChatRoomId& RoomId, const FString& Nickname, const FChatRoomConfig& ChatRoomConfig) = 0;
 
 	/**
-	* Kick off request for joining a private chat room
-	*
-	* @param UserId id of user that is joining
-	* @param RoomId name of room to join
-	* @param Nickname display name for the chat room. Name must be unique and is reserved for duration of join
-	* @param Password for the room
-	*
-	* @return if successfully started the async operation
-	*/
-	virtual bool JoinPrivateRoom(const FUniqueNetId& UserId, const FChatRoomId& RoomId, const FString& Nickname, const FString& Password) = 0;
+	 * Kick off request for joining a private chat room
+	 *
+	 * @param UserId id of user that is joining
+	 * @param RoomId name of room to join
+	 * @param Nickname display name for the chat room. Name must be unique and is reserved for duration of join
+	 * @param ChatRoomConfig configuration parameters needed to join
+	 *
+	 * @return if successfully started the async operation
+	 */
+	virtual bool JoinPrivateRoom(const FUniqueNetId& UserId, const FChatRoomId& RoomId, const FString& Nickname, const FChatRoomConfig& ChatRoomConfig) = 0;
 
 	/**
 	 * Kick off request for exiting a previously joined chat room
@@ -265,6 +277,16 @@ public:
 	 * @return if successfully started the async operation
 	 */
 	virtual bool SendPrivateChat(const FUniqueNetId& UserId, const FUniqueNetId& RecipientId, const FString& MsgBody) = 0;
+
+	/**
+	 * Determine if chat is allowed for a given user
+	 * 
+	 * @param UserId id of user that is sending the message
+	 * @param RecipientId id of user to send the chat to
+	 *
+	 * @return if chat is allowed
+	 */
+	virtual bool IsChatAllowed(const FUniqueNetId& UserId, const FUniqueNetId& RecipientId) const = 0;
 
 	/**
 	 * Get cached list of rooms that have been joined
@@ -317,6 +339,11 @@ public:
 	 * @return true if found
 	 */
 	virtual bool GetLastMessages(const FUniqueNetId& UserId, const FChatRoomId& RoomId, int32 NumMessages, TArray< TSharedRef<FChatMessage> >& OutMessages) = 0;
+
+	/**
+	 * Dump state information about chat rooms
+	 */
+	virtual void DumpChatState() const = 0;
 
 	// delegate callbacks (see declarations above)
 	DEFINE_ONLINE_DELEGATE_FOUR_PARAM(OnChatRoomCreated, const FUniqueNetId&, const FChatRoomId&, bool, const FString&);

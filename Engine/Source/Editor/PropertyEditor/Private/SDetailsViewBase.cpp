@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "PropertyEditorPrivatePCH.h"
 #include "SDetailsViewBase.h"
@@ -594,7 +594,7 @@ void SDetailsViewBase::QueryCustomDetailLayout(FDetailLayoutBuilderImpl& CustomD
 				for (FClassInstanceToPropertyMap::TIterator InstanceIt(InstancedPropertyMap); InstanceIt; ++InstanceIt)
 				{
 					FName Key = InstanceIt.Key();
-					CustomDetailLayout.SetCurrentCustomizationClass(CastChecked<UClass>(Class), Key);
+					CustomDetailLayout.SetCurrentCustomizationClass(Class, Key);
 
 					const FOnGetDetailCustomizationInstance& DetailDelegate = LayoutIt.Value()->DetailLayoutDelegate;
 
@@ -679,11 +679,16 @@ void SDetailsViewBase::Tick( const FGeometry& AllottedGeometry, const double InC
 		ensure(CustomizationClassInstancesPendingDelete[i].IsUnique());
 	}
 
-	if (RootNodePendingKill.IsValid())
+	// Release any pending kill nodes.
+	for ( TSharedPtr<FComplexPropertyNode>& PendingKillNode : RootNodesPendingKill )
 	{
-		RootNodePendingKill->Disconnect();
-		RootNodePendingKill.Reset();
+		if ( PendingKillNode.IsValid() )
+		{
+			PendingKillNode->Disconnect();
+			PendingKillNode.Reset();
+		}
 	}
+	RootNodesPendingKill.Reset();
 
 	// Empty all the customization instances that need to be deleted
 	CustomizationClassInstancesPendingDelete.Empty();
@@ -711,8 +716,14 @@ void SDetailsViewBase::Tick( const FGeometry& AllottedGeometry, const double InC
 		DeferredActions.Empty();
 	}
 
-	if( RootPropertyNode == RootNodePendingKill )
+	TSharedPtr<FComplexPropertyNode> LastRootPendingKill;
+	if ( RootNodesPendingKill.Num() > 0 )
 	{
+		LastRootPendingKill = RootNodesPendingKill.Last();
+	}
+
+	if ( RootPropertyNode == LastRootPendingKill )
+	{ 
 		// Reaquire the root property node.  It may have been changed by the deferred actions if something like a blueprint editor forcefully resets a details panel during a posteditchange
 		RootPropertyNode = GetRootNode();
 
@@ -830,7 +841,7 @@ void GetExpandedItems(TSharedPtr<FPropertyNode> InPropertyNode, TArray<FString>&
 * @param InNode			The node to set expanded items on
 * @param OutExpandedItems	List of expanded items to set
 */
-void SetExpandedItems(TSharedPtr<FPropertyNode> InPropertyNode, const TArray<FString>& InExpandedItems)
+void SetExpandedItems(TSharedPtr<FPropertyNode> InPropertyNode, const TSet<FString>& InExpandedItems)
 {
 	if (InExpandedItems.Num() > 0)
 	{
@@ -839,13 +850,9 @@ void SetExpandedItems(TSharedPtr<FPropertyNode> InPropertyNode, const TArray<FSt
 		Path.Empty(128);
 		InPropertyNode->GetQualifiedName(Path, bWithArrayIndex);
 
-		for (int32 ItemIndex = 0; ItemIndex < InExpandedItems.Num(); ++ItemIndex)
+		if (InExpandedItems.Contains(Path))
 		{
-			if (InExpandedItems[ItemIndex] == Path)
-			{
-				InPropertyNode->SetNodeFlags(EPropertyNodeFlags::Expanded, true);
-				break;
-			}
+			InPropertyNode->SetNodeFlags(EPropertyNodeFlags::Expanded, true);
 		}
 
 		for (int32 NodeIndex = 0; NodeIndex < InPropertyNode->GetNumChildNodes(); ++NodeIndex)
@@ -922,17 +929,20 @@ void SDetailsViewBase::RestoreExpandedItems(TSharedRef<FPropertyNode> InitialSta
 
 	ExpandedDetailNodes.Empty();
 
-	TArray<FString> ExpandedPropertyItems;
 	FString ExpandedCustomItems;
 
 	UStruct* BestBaseStruct = StartNode->FindComplexParent()->GetBaseStructure();
 
 	//while a valid class, and we're either the same as the base class (for multiple actors being selected and base class is AActor) OR we're not down to AActor yet)
+	TArray<FString> DetailPropertyExpansionStrings;
 	for (UStruct* Struct = BestBaseStruct; Struct && ((BestBaseStruct == Struct) || (Struct != AActor::StaticClass())); Struct = Struct->GetSuperStruct())
 	{
-		GConfig->GetSingleLineArray(TEXT("DetailPropertyExpansion"), *Struct->GetName(), ExpandedPropertyItems, GEditorPerProjectIni);
-		SetExpandedItems(StartNode, ExpandedPropertyItems);
+		GConfig->GetSingleLineArray(TEXT("DetailPropertyExpansion"), *Struct->GetName(), DetailPropertyExpansionStrings, GEditorPerProjectIni);
 	}
+
+	TSet<FString> ExpandedPropertyItems;
+	ExpandedPropertyItems.Append(DetailPropertyExpansionStrings);
+	SetExpandedItems(StartNode, ExpandedPropertyItems);
 
 	if (BestBaseStruct)
 	{
@@ -1196,3 +1206,21 @@ void SDetailsViewBase::UpdatePropertyMap()
 	DetailLayout->GenerateDetailLayout();
 }
 
+void SDetailsViewBase::RegisterInstancedCustomPropertyLayoutInternal(UStruct* Class, FOnGetDetailCustomizationInstance DetailLayoutDelegate)
+{
+	check( Class );
+
+	FDetailLayoutCallback Callback;
+	Callback.DetailLayoutDelegate = DetailLayoutDelegate;
+	// @todo: DetailsView: Fix me: this specifies the order in which detail layouts should be queried
+	Callback.Order = InstancedClassToDetailLayoutMap.Num();
+
+	InstancedClassToDetailLayoutMap.Add( Class, Callback );	
+}
+
+void SDetailsViewBase::UnregisterInstancedCustomPropertyLayoutInternal(UStruct* Class)
+{
+	check( Class );
+
+	InstancedClassToDetailLayoutMap.Remove( Class );	
+}

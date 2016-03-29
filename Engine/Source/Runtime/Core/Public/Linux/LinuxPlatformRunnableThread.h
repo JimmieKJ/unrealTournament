@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================================
 	LinuxPlatformThreading.h: Linux platform threading functions
@@ -13,16 +13,29 @@
 **/
 class FRunnableThreadLinux : public FRunnableThreadPThread
 {
-	enum
+	struct EConstants
 	{
-		LinuxThreadNameLimit = 15			// the limit for thread name is just 15 chars :( http://man7.org/linux/man-pages/man3/pthread_setname_np.3.html
+		enum
+		{
+			LinuxThreadNameLimit = 15,			// the limit for thread name is just 15 chars :( http://man7.org/linux/man-pages/man3/pthread_setname_np.3.html
+			CrashHandlerStackSize = SIGSTKSZ + 128 * 1024	// should be at least SIGSTKSIZE, plus 128K because we do logging in crash handler
+		};
 	};
 
+	/** Each thread needs a separate stack for the signal handler, so possible stack overflows in the thread are handled */
+	void* ThreadCrashHandlingStack;
+
 public:
-    FRunnableThreadLinux() : FRunnableThreadPThread()
-    {
-    }
-    
+
+	/** Separate stack for the signal handler (so possible stack overflows don't go unnoticed), shared between threads. */
+	static char MainThreadSignalHandlerStack[EConstants::CrashHandlerStackSize];
+
+	FRunnableThreadLinux()
+		:	FRunnableThreadPThread()
+		,	ThreadCrashHandlingStack(nullptr)
+	{
+	}
+
 private:
 
 	/**
@@ -32,27 +45,27 @@ private:
 	{
 		FString SizeLimitedThreadName = ThreadName;
 
-		if (SizeLimitedThreadName.Len() > LinuxThreadNameLimit)
+		if (SizeLimitedThreadName.Len() > EConstants::LinuxThreadNameLimit)
 		{
 			// first, attempt to cut out common and meaningless substrings
 			SizeLimitedThreadName = SizeLimitedThreadName.Replace(TEXT("Thread"), TEXT(""));
 			SizeLimitedThreadName = SizeLimitedThreadName.Replace(TEXT("Runnable"), TEXT(""));
 
 			// if still larger
-			if (SizeLimitedThreadName.Len() > LinuxThreadNameLimit)
+			if (SizeLimitedThreadName.Len() > EConstants::LinuxThreadNameLimit)
 			{
 				FString Temp = SizeLimitedThreadName;
 
 				// cut out the middle and replace with a substitute
 				const TCHAR Dash[] = TEXT("-");
 				const int32 DashLen = ARRAY_COUNT(Dash) - 1;
-				int NumToLeave = (LinuxThreadNameLimit - DashLen) / 2;
+				int NumToLeave = (EConstants::LinuxThreadNameLimit - DashLen) / 2;
 
-				SizeLimitedThreadName = Temp.Left(LinuxThreadNameLimit - (NumToLeave + DashLen));
+				SizeLimitedThreadName = Temp.Left(EConstants::LinuxThreadNameLimit - (NumToLeave + DashLen));
 				SizeLimitedThreadName += Dash;
 				SizeLimitedThreadName += Temp.Right(NumToLeave);
 
-				check(SizeLimitedThreadName.Len() <= LinuxThreadNameLimit);
+				check(SizeLimitedThreadName.Len() <= EConstants::LinuxThreadNameLimit);
 			}
 		}
 
@@ -60,6 +73,38 @@ private:
 		if (ErrCode != 0)
 		{
 			UE_LOG(LogHAL, Warning, TEXT("pthread_setname_np(, '%s') failed with error %d (%s)."), *ThreadName, ErrCode, ANSI_TO_TCHAR(strerror(ErrCode)));
+		}
+
+		// set the alternate stack for handling crashes due to stack overflow
+		ThreadCrashHandlingStack = FMemory::Malloc(EConstants::CrashHandlerStackSize);
+		if (ThreadCrashHandlingStack)
+		{
+			stack_t SignalHandlerStack;
+			FMemory::Memzero(SignalHandlerStack);
+			SignalHandlerStack.ss_sp = ThreadCrashHandlingStack;
+			SignalHandlerStack.ss_size = EConstants::CrashHandlerStackSize;
+
+			if (sigaltstack(&SignalHandlerStack, nullptr) < 0)
+			{
+				int ErrNo = errno;
+				UE_LOG(LogLinux, Warning, TEXT("Unable to set alternate stack for crash handler, sigaltstack() failed with errno=%d (%s)"),
+					ErrNo,
+					UTF8_TO_TCHAR(strerror(ErrNo))
+					);
+
+				// free the memory immediately
+				FMemory::Free(ThreadCrashHandlingStack);
+				ThreadCrashHandlingStack = nullptr;
+			}
+		}
+	}
+
+	virtual void PostRun()
+	{
+		if (ThreadCrashHandlingStack)
+		{
+			FMemory::Free(ThreadCrashHandlingStack);
+			ThreadCrashHandlingStack = nullptr;
 		}
 	}
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UnrealEngine.h: Unreal engine helper definitions.
@@ -9,7 +9,6 @@
 #include "Engine/Engine.h"
 
 ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogEngine, Log, All);
-ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogAutomationAnalytics, Log, All);
 //
 //	FLocalPlayerIterator - Iterates over local players in the game.
 //	There are no advantages to using this over GEngine->GetLocalPlayerIterator(GetWorld());

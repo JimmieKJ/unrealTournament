@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ContentStreaming.h: Definitions of classes used for content streaming.
@@ -18,11 +18,14 @@
 DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Streaming Textures"),STAT_StreamingTextures,STATGROUP_Streaming, );
 DECLARE_MEMORY_STAT_POOL_EXTERN(TEXT("Pool Memory Size"), STAT_TexturePoolSize, STATGROUP_Streaming, FPlatformMemory::MCR_TexturePool, );
 DECLARE_MEMORY_STAT_POOL_EXTERN(TEXT("Pool Memory Used"), STAT_TexturePoolAllocatedSize, STATGROUP_Streaming, FPlatformMemory::MCR_TexturePool, );
+DECLARE_MEMORY_STAT_POOL_EXTERN(TEXT("Effective Streaming Pool Size"), STAT_EffectiveStreamingPoolSize, STATGROUP_Streaming, FPlatformMemory::MCR_TexturePool, );
 DECLARE_MEMORY_STAT_POOL_EXTERN(TEXT("Streaming Textures"),STAT_StreamingTexturesSize,STATGROUP_Streaming,FPlatformMemory::MCR_TexturePool, );
 DECLARE_MEMORY_STAT_POOL_EXTERN(TEXT("Non-streaming Textures"),STAT_NonStreamingTexturesSize,STATGROUP_Streaming,FPlatformMemory::MCR_TexturePool, );
 DECLARE_MEMORY_STAT_POOL_EXTERN(TEXT("Textures On Disk"),STAT_StreamingTexturesMaxSize,STATGROUP_StreamingDetails,FPlatformMemory::MCR_TexturePool, );
 DECLARE_MEMORY_STAT_POOL_EXTERN(TEXT("Lightmaps In Memory"),STAT_LightmapMemorySize,STATGROUP_StreamingDetails,FPlatformMemory::MCR_TexturePool, );
 DECLARE_MEMORY_STAT_POOL_EXTERN(TEXT("Lightmaps On Disk"),STAT_LightmapDiskSize,STATGROUP_StreamingDetails,FPlatformMemory::MCR_TexturePool, );
+DECLARE_MEMORY_STAT_POOL_EXTERN(TEXT("HLOD Textures In Memory"), STAT_HLODTextureMemorySize, STATGROUP_StreamingDetails, FPlatformMemory::MCR_TexturePool, );
+DECLARE_MEMORY_STAT_POOL_EXTERN(TEXT("HLOD Textures On Disk"), STAT_HLODTextureDiskSize, STATGROUP_StreamingDetails, FPlatformMemory::MCR_TexturePool, );
 DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Requests In Cancelation Phase"),STAT_RequestsInCancelationPhase,STATGROUP_StreamingDetails, );
 DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Requests In Update Phase"),STAT_RequestsInUpdatePhase,STATGROUP_StreamingDetails, );
 DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Requests in Finalize Phase"),STAT_RequestsInFinalizePhase,STATGROUP_StreamingDetails, );
@@ -35,6 +38,7 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("Game Thread Update Time"),STAT_GameThreadUpdateT
 DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Streaming Latency, Average (sec)"),STAT_StreamingLatency,STATGROUP_StreamingDetails, );
 DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Streaming Bandwidth, Average (MB/s)"),STAT_StreamingBandwidth,STATGROUP_StreamingDetails, );
 DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Dynamic Streaming Total Time (sec)"),STAT_DynamicStreamingTotal,STATGROUP_StreamingDetails, );
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Visible Textures With Low Resolutions"),STAT_NumVisibleTexturesWithLowResolutions,STATGROUP_StreamingDetails, );
 DECLARE_CYCLE_STAT_EXTERN( TEXT( "Buffer Creation" ), STAT_AudioResourceCreationTime, STATGROUP_Audio , );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Volume Streaming Tick"),STAT_VolumeStreamingTickTime,STATGROUP_StreamingDetails, );
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Streaming Volumes"),STAT_VolumeStreamingChecks,STATGROUP_StreamingDetails, );
@@ -67,6 +71,8 @@ class FSoundSource;
 template<typename T>
 class FAsyncTask;
 struct FStreamingManagerTexture;
+class FDynamicComponentTextureManager;
+class FTextureBoundsVisibility;
 
 /** Helper function to flush resource streaming. */
 void FlushResourceStreaming();
@@ -476,6 +482,15 @@ struct ITextureStreamingManager : public IStreamingManager
 	virtual bool IsManagedStreamingTexture(const UTexture2D* Texture2D) = 0;
 
 	virtual int64 GetMemoryOverBudget() const = 0;
+
+	/** Max required textures ever seen in bytes. */
+	virtual int64 GetMaxEverRequired() const = 0;
+
+	/** Resets the max ever required textures.  For possibly when changing resolutions or screen pct. */
+	virtual void ResetMaxEverRequired() = 0;
+
+	/** Set current pause state for texture streaming */
+	virtual void PauseTextureStreaming(bool bInShouldPause) = 0;
 };
 
 /**
@@ -720,72 +735,6 @@ struct FSpawnedTextureInstance
 	float			InvOriginalRadius;
 };
 
-/**
- * Helper class for tracking upcoming changes to the texture memory,
- * and how much of the currently allocated memory is used temporarily for streaming.
- */
-struct FStreamMemoryTracker
-{
-#if WINVER < 0x0600
-	// Windows XP does not have InterlockedIncrement64
-	typedef int32 TSize;
-#else
-	typedef int64 TSize;
-#endif
-
-	/** Stream-in memory that hasn't been allocated yet. */
-	volatile TSize PendingStreamIn;
-	/** Temp memory that hasn't been allocated yet. */
-	volatile TSize PendingTempMemory;
-	/** Stream-out memory that is allocated but hasn't been freed yet. */
-	volatile TSize CurrentStreamOut;
-	/** Temp memory that is allocated, but not freed yet. */
-	volatile TSize CurrentTempMemory;
-
-	//@TODO: Possibly track canceling early (on the gamethread), not just in finalize.
-	//@TODO: Add support for pre-planned in-place reallocs
-
-	/** Constructor for the texture streaming memory tracker. */
-	FStreamMemoryTracker();
-
-	/** Track 'start streaming' on the gamethread. (Memory not yet affected.) */
-	void GameThread_BeginUpdate( const UTexture2D& Texture );
-
-	/**
-	 * Track 'start streaming' on the renderthread. (Memory is now allocated/deallocated.)
-	 * 
-	 * @param Texture				Texture that is beginning to stream
-	 * @param bSuccessful			Whether the update succeeded or not
-	 */
-	void RenderThread_Update( const UTexture2D& Texture, bool bSuccessful );
-
-	/**
-	 * Track 'streaming finished' on the renderthread.
-	 * Note: Only called if the RenderThread Update was successful.
-	 *
-	 * @param Texture				Texture that is being finalized
-	 * @param bSuccessful			Whether the finalize succeeded or not
-	 */
-	void RenderThread_Finalize( const UTexture2D& Texture, bool bSuccessful );
-
-	/** Calculate how much texture memory is currently available for streaming. */
-	TSize CalcAvailableNow( TSize TotalFreeMemory, TSize MemoryMargin );
-
-	/** Calculate how much texture memory will available later for streaming. */
-	TSize CalcAvailableLater( TSize TotalFreeMemory, TSize MemoryMargin );
-
-	/** Calculate how much texture memory is currently being used for temporary texture data during streaming. */
-	TSize CalcTempMemory();
-};
-
-/*-----------------------------------------------------------------------------
-	Globals.
------------------------------------------------------------------------------*/
-
-/** Texture streaming memory tracker. */
-extern FStreamMemoryTracker GStreamMemoryTracker;
-
-
 /*-----------------------------------------------------------------------------
 	Texture streaming.
 -----------------------------------------------------------------------------*/
@@ -796,13 +745,7 @@ struct FTexturePriority;
 #define NUM_LATENCYSAMPLES 512
 
 typedef TArray<int32, TMemStackAllocator<> > FStreamingRequests;
-
-enum FStreamoutLogic
-{
-	StreamOut_UnwantedMips,
-	StreamOut_AllMips,
-};
-
+typedef TArray<const UTexture2D*, TInlineAllocator<12> > FRemovedTextureArray;
 
 /**
  * Structure containing all information needed for determining the screen space
@@ -811,21 +754,40 @@ enum FStreamoutLogic
 struct FStreamableTextureInstance4
 {
 	FStreamableTextureInstance4()
-	:	BoundingSphereX( 3.402823466e+38F, 3.402823466e+38F, 3.402823466e+38F, 3.402823466e+38F )
-	,	BoundingSphereY( 0, 0, 0, 0 )
-	,	BoundingSphereZ( 0, 0, 0, 0 )
+	:	BoundsOriginX( MAX_FLT, MAX_FLT, MAX_FLT, MAX_FLT )
+	,	BoundsOriginY( 0, 0, 0, 0 )
+	,	BoundsOriginZ( 0, 0, 0, 0 )
+	,	BoxExtentSizeX( 0, 0, 0, 0 )
+	,	BoxExtentSizeY( 0, 0, 0, 0 )
+	,	BoxExtentSizeZ( 0, 0, 0, 0 )
 	,	BoundingSphereRadius( 0, 0, 0, 0 )
+	,	MinDistanceSq( 0, 0, 0, 0 )
+	,	MaxDistanceSq( MAX_FLT, MAX_FLT, MAX_FLT, MAX_FLT )
 	,	TexelFactor( 0, 0, 0, 0 )
 	{
 	}
-	/** X coordinates for the bounding sphere origin of 4 texture instances */
-	FVector4 BoundingSphereX;
-	/** Y coordinates for the bounding sphere origin of 4 texture instances */
-	FVector4 BoundingSphereY;
-	/** Z coordinates for the bounding sphere origin of 4 texture instances */
-	FVector4 BoundingSphereZ;
+
+	/** X coordinates for the bounds origin of 4 texture instances */
+	FVector4 BoundsOriginX;
+	/** Y coordinates for the bounds origin of 4 texture instances */
+	FVector4 BoundsOriginY;
+	/** Z coordinates for the bounds origin of 4 texture instances */
+	FVector4 BoundsOriginZ;
+
+	/** X size of the bounds box extent of 4 texture instances */
+	FVector4 BoxExtentSizeX;
+	/** Y size of the bounds box extent of 4 texture instances */
+	FVector4 BoxExtentSizeY;
+	/** Z size of the bounds box extent of 4 texture instances */
+	FVector4 BoxExtentSizeZ;
+
 	/** Sphere radii for the bounding sphere of 4 texture instances */
 	FVector4 BoundingSphereRadius;
+	/** Minimal distance ^2 (between the bounding sphere origin and the view origin) for which this entry is valid */
+	FVector4 MinDistanceSq;
+	/** Maximal distance ^2 (between the bounding sphere origin and the view origin) for which this entry is valid */
+	FVector4 MaxDistanceSq;
+
 	/** Texel scale factors for 4 texture instances */
 	FVector4 TexelFactor;
 };
@@ -903,6 +865,10 @@ struct FStreamingManagerTexture : public ITextureStreamingManager
 
 	virtual int64 GetMemoryOverBudget() const override { return MemoryOverBudget; }
 
+	virtual int64 GetMaxEverRequired() const override { return MaxEverRequired; }
+
+	virtual void ResetMaxEverRequired() override { MaxEverRequired = 0; }
+
 	/**
 	 * Allows the streaming manager to process exec commands.
 	 *
@@ -925,7 +891,8 @@ struct FStreamingManagerTexture : public ITextureStreamingManager
 	bool HandleListStreamingTexturesReportReadyCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleListStreamingTexturesReportCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 #endif // STATS
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if !UE_BUILD_SHIPPING
+	bool HandleResetMaxEverRequiredTexturesCommand(const TCHAR* Cmd, FOutputDevice& Ar);
 	bool HandleLightmapStreamingFactorCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleCancelTextureStreamingCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleShadowmapStreamingFactorCommand( const TCHAR* Cmd, FOutputDevice& Ar );
@@ -939,7 +906,7 @@ struct FStreamingManagerTexture : public ITextureStreamingManager
 	bool HandleStreamingManagerMemoryCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );
 	bool HandleTextureGroupsCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleInvestigateTextureCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#endif // !UE_BUILD_SHIPPING
 	/** Adds a new texture to the streaming manager. */
 	virtual void AddStreamingTexture( UTexture2D* Texture ) override;
 
@@ -994,9 +961,6 @@ struct FStreamingManagerTexture : public ITextureStreamingManager
 	 */
 	virtual void NotifyPrimitiveUpdated( const UPrimitiveComponent* Primitive ) override;
 
-	bool AddDynamicPrimitive( const UPrimitiveComponent* Primitive, EDynamicPrimitiveType DynamicType );
-	bool RemoveDynamicPrimitive( const UPrimitiveComponent* Primitive, EDynamicPrimitiveType DynamicType );
-
 	/** Returns the corresponding FStreamingTexture for a UTexture2D. */
 	FStreamingTexture& GetStreamingTexture( const UTexture2D* Texture2D );
 
@@ -1005,17 +969,6 @@ struct FStreamingManagerTexture : public ITextureStreamingManager
 
 	/** Updates the I/O state of a texture (allowing it to progress to the next stage) and some stats. */
 	void UpdateTextureStatus( FStreamingTexture& StreamingTexture, FStreamingContext& Context );
-
-	/**
-	 * Starts streaming in/out a texture.
-	 *
-	 * @param StreamingTexture			Texture to start to stream in/out
-	 * @param WantedMips				Number of mips we want in memory for this texture.
-	 * @param Context					Context for the current frame
-	 * @param bIgnoreMemoryConstraints	Whether to ignore memory constraints and always start streaming
-	 * @return							true if the texture is now in flight
-	 */
-	bool StartStreaming( FStreamingTexture& StreamingTexture, int32 WantedMips, FStreamingContext& Context, bool bIgnoreMemoryConstraints );
 
 	/**
 	 * Cancels the current streaming request for the specified texture.
@@ -1063,11 +1016,17 @@ struct FStreamingManagerTexture : public ITextureStreamingManager
 	static float BandwidthMinimum;
 #endif
 
+	/** Set current pause state for texture streaming */
+	virtual void PauseTextureStreaming(bool bInShouldPause) override
+	{
+		bPauseTextureStreaming = bInShouldPause;
+	}
 
 protected:
 //BEGIN: Thread-safe functions and data
 		friend class FAsyncTextureStreaming;
 		friend struct FStreamingHandlerTextureStatic;
+		friend struct FStreamingHandlerTextureDynamic;
 
 		/** Calculates the minimum and maximum number of mip-levels for a streaming texture. */
 		void CalcMinMaxMips( FStreamingTexture& StreamingTexture );
@@ -1110,12 +1069,6 @@ protected:
 		 */
 		void BoostTextures( AActor* Actor, float BoostFactor ) override;
 
-		/** Updates the thread-safe cache information for dynamic primitives. */
-		void UpdateDynamicPrimitiveCache();
-
-		/** Calculates DynamicWantedMips and DynamicMinDistance for all dynamic textures. */
-		void CalcDynamicWantedMips();
-
 		/**
 		 * Stream textures in/out, based on the priorities calculated by the async work.
 		 *
@@ -1124,28 +1077,25 @@ protected:
 		void StreamTextures( bool bProcessEverything );
 
 		/**
-		 * Try to stream out textures based on the specified logic.
-		 *
-		 * @param StreamoutLogic		The logic to use for streaming out
-		 * @param AvailableLater		[in/out] Estimated amount of memory that will be free at a later time (after all pending stream in/out)
-		 * @param TempMemoryUsed		[in/out] Estimated amount of temp memory required for streaming
-		 * @param StartIndex			First priority index to try
-		 * @param StopIndex				Last priority index to try
-		 * @param LowPrioIndex			[in/out] The lowest-priority texture that can stream out
-		 * @param PrioritizedTextures	Indices to the working set of streaming textures, sorted from highest priority to lowest
-		 * @param StreamingRequests		[in/out] Indices to textures that are going to be streamed this frame
-		 * @return						The last priority index considered (may be sooner that StopIndex)
-		 */
-		int32 StreamoutTextures( FStreamoutLogic StreamoutLogic, int64& AvailableLater, int64& TempMemoryUsed, int32 StartIndex, int32 StopIndex, int32& LowPrioIndex, const TArray<FTexturePriority>& PrioritizedTextures, FStreamingRequests& StreamingRequests );
-
-		/**
-		 * Stream textures in/out, when no texture pool with limited size is used by the platform.
+		 * Keep as many unnecessary mips as possible.
 		 *
 		 * @param Context				Context for the current stage
-		 * @param PrioritizedTextures	Array of prioritized textures to process
-		 * @param TempMemoryUsed		Current amount of temporary memory used by the streaming system, in bytes
 		 */
-		void StreamTexturesUnlimited( FStreamingContext& Context, const TArray<FTexturePriority>& PrioritizedTextures, int64 TempMemoryUsed );
+		void KeepUnwantedMips( FStreamingContext& Context );
+
+		/**
+		 * Drop as many mips required to fit in budget.
+		 *
+		 * @param Context				Context for the current stage
+		 */
+		void DropWantedMips( FStreamingContext& Context );
+
+		/**
+		 * Drop as many forced required to fit in budget.
+		 *
+		 * @param Context				Context for the current stage
+		 */
+		void DropForcedMips( FStreamingContext& Context );
 
 		/** Thread-safe helper struct for per-level information. */
 		struct FThreadLevelData
@@ -1162,31 +1112,13 @@ protected:
 			TMap<const UTexture2D*,TArray<FStreamableTextureInstance4> > ThreadTextureInstances;
 		};
 
-		/** Texture instance data for a spawned primitive. Stored in the ThreadSettings.SpawnedPrimitives map. */
-		struct FSpawnedPrimitiveData
-		{
-			FSpawnedPrimitiveData()
-			:	bAttached( false )
-			,	bPendingUpdate( false )
-			{
-			}
-			/** Texture instances used by primitive. */
-			TArray<FSpawnedTextureInstance> TextureInstances;
-			/** Bounding sphere of primitive. */
-			FSphere		BoundingSphere;
-			/** Dynamic primitive tracking type. */
-			EDynamicPrimitiveType DynamicType;
-			/** Whether the primitive that uses this texture is currently attached to the scene or not. */
-			uint32	bAttached : 1;
-			/** Set to true when it's marked for Attach or Detach. Don't touch this primitive until it's been fully updated. */
-			uint32	bPendingUpdate : 1;
-		};
-
 		typedef TKeyValuePair< class ULevel*, FThreadLevelData >	FLevelData;
 
 		/** Thread-safe helper struct for streaming information. */
 		struct FThreadSettings
 		{
+			FThreadSettings() : TextureBoundsVisibility(nullptr) {}
+			
 			/** Cached from the system settings. */
 			int32 NumStreamedMips[TEXTUREGROUP_MAX];
 
@@ -1196,12 +1128,12 @@ protected:
 			/** Cached from FStreamingManagerBase. */
 			TArray<FStreamingViewInfo> ThreadViewInfos;
 
-			/** Maps spawned primitives to texture instances. Owns the instance data. */
-			TMap<const UPrimitiveComponent*,FSpawnedPrimitiveData> SpawnedPrimitives;
+			FTextureBoundsVisibility* TextureBoundsVisibility;
 
 			/** from cvar, >=0 */
 			float MipBias;
 		};
+
 
 		/** Thread-safe helper data for streaming information. */
 		FThreadSettings	ThreadSettings;
@@ -1214,12 +1146,12 @@ protected:
 //END: Thread-safe functions and data
 
 	/**
-	 * Mark the textures instances with a timestamp. They're about to lose their location-based heuristic and we don't want them to
+	 * Mark the textures with a timestamp. They're about to lose their location-based heuristic and we don't want them to
 	 * start using LastRenderTime heuristic for a few seconds until they are garbage collected!
 	 *
-	 * @param PrimitiveData		Our data structure for the spawned primitive that is being detached.
+	 * @param RemovedTextures	List of removed textures.
 	 */
-	void	SetInstanceRemovedTimestamp( FSpawnedPrimitiveData& PrimitiveData );
+	void	SetTexturesRemovedTimestamp(const FRemovedTextureArray& RemovedTextures);
 
 	void	DumpTextureGroupStats( bool bDetailedStats );
 
@@ -1231,7 +1163,7 @@ protected:
 	 */
 	void	InvestigateTexture( const FString& InvestigateTextureName );
 
-	void	DumpTextureInstances( const UPrimitiveComponent* Primitive, FSpawnedPrimitiveData& PrimitiveData, UTexture2D* Texture2D );
+	void	DumpTextureInstances( const UPrimitiveComponent* Primitive, UTexture2D* Texture2D );
 
 	/** Next sync, dump texture group stats. */
 	bool	bTriggerDumpTextureGroupStats;
@@ -1248,21 +1180,11 @@ protected:
 	/** Async work for calculating priorities for all textures. */
 	FAsyncTask<FAsyncTextureStreaming>*	AsyncWork;
 
+	/** Textures from dynamic primitives. */
+	FDynamicComponentTextureManager* DynamicComponentTextureManager;
+
 	/** New textures, before they've been added to the thread-safe container. */
 	TArray<UTexture2D*>		PendingStreamingTextures;
-
-	struct FPendingPrimitiveType
-	{
-		FPendingPrimitiveType( EDynamicPrimitiveType InDynamicType, bool bInShouldTrack )
-		:	DynamicType( InDynamicType)
-		,	bShouldTrack( bInShouldTrack )
-		{
-		}
-		EDynamicPrimitiveType DynamicType;
-		bool bShouldTrack;
-	};
-	/** Textures on newly spawned primitives, before they've been added to the thread-safe container. */
-	TMap<const UPrimitiveComponent*,FPendingPrimitiveType>	PendingSpawnedPrimitives;
 
 	/** New levels, before they've been added to the thread-safe container. */
 	TArray<class ULevel*>	PendingLevels;
@@ -1273,13 +1195,13 @@ protected:
 	/** Total number of processing stages (N). */
 	int32					NumTextureProcessingStages;
 
-	/** Maximum amount of temp memory used for streaming, at any given time. */
-	int64					MaxTempMemoryUsed;
-
 	/** Whether to support texture instance streaming for dynamic (movable/spawned) objects. */
 	bool					bUseDynamicStreaming;
 
 	float					BoostPlayerTextures;
+
+	/** Extra distance added to the range test, to start streaming the texture before they are actually used. */
+	float					RangePrefetchDistance;
 
 	/** Array of texture streaming objects to use during update. */
 	TArray<FStreamingHandlerTextureBase*> TextureStreamingHandlers;
@@ -1289,6 +1211,9 @@ protected:
 
 	/** Minimum number of bytes to evict when we need to stream out textures because of a failed allocation. */
 	int64					MinEvictSize;
+
+	/** The actual memory pool size available to stream textures, excludes non-streaming texture, temp memory (for streaming mips), memory margin (allocator overhead). */
+	int64					EffectiveStreamingPoolSize;
 
 	/** If set, UpdateResourceStreaming() will only process this texture. */
 	UTexture2D*				IndividualStreamingTexture;
@@ -1315,6 +1240,10 @@ protected:
 	uint64 TotalLightmapMemorySize;
 	/** Total number of bytes on disk, for all streaming lightmap textures. */
 	uint64 TotalLightmapDiskSize;
+	/** Total number of bytes in memory, for all HLOD textures. */
+	uint64 TotalHLODMemorySize;
+	/** Total number of bytes on disk, for all HLOD textures. */
+	uint64 TotalHLODDiskSize;
 	/** Number of mip count increase requests in flight. */
 	uint32 TotalMipCountIncreaseRequestsInFlight;
 	/** Total number of bytes in memory, if all textures were streamed perfectly with a 1.0 fudge factor. */
@@ -1328,6 +1257,7 @@ protected:
 	/** Total number of bytes using ForcedIntoMemory heuristics, currently in memory. */
 	uint64 TotalForcedHeuristicSize;
 	int64 MemoryOverBudget;
+	int64 MaxEverRequired;
 
 	/** Unmodified texture pool size, in bytes, as specified in the .ini file. */
 	int64 OriginalTexturePoolSize;
@@ -1425,6 +1355,29 @@ struct FStreamingHandlerTextureStatic : public FStreamingHandlerTextureBase
 	FStreamingHandlerTextureStatic()
 	{
 		HandlerName = TEXT("Static");
+	}
+
+	/**
+	 * Returns mip count wanted by this handler for the passed in texture. 
+	 * 
+	 * @param	StreamingManager	Streaming manager
+	 * @param	Streaming Texture	Texture to determine wanted mip count for
+	 * @param	MinDistance			[out] Distance to the closest instance of this texture, in world space units.
+	 * @return	Number of miplevels that should be streamed in or INDEX_NONE if texture isn't handled by this handler.
+	 */
+	virtual FFloatMipLevel GetWantedMips( FStreamingManagerTexture& StreamingManager, FStreamingTexture& StreamingTexture, float& MinDistance );
+};
+
+
+/**
+ * Dynamic texture streaming handler. Used to stream textures for dynamic primitives.
+ */
+struct FStreamingHandlerTextureDynamic : public FStreamingHandlerTextureBase
+{
+	/** Default constructor. */
+	FStreamingHandlerTextureDynamic()
+	{
+		HandlerName = TEXT("Dynamic");
 	}
 
 	/**

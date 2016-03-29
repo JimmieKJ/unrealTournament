@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -12,6 +12,7 @@ DECLARE_MULTICAST_DELEGATE(FOnGotoTimeMCDelegate);
 DECLARE_DELEGATE_OneParam(FOnGotoTimeDelegate, const bool /* bWasSuccessful */);
 
 class UDemoNetDriver;
+class UDemoNetConnection;
 
 class FQueuedReplayTask
 {
@@ -31,6 +32,29 @@ public:
 	UDemoNetDriver* Driver;
 };
 
+class FReplayExternalData
+{
+public:
+	FReplayExternalData() : TimeSeconds( 0.0f )
+	{
+	}
+
+	FReplayExternalData( const FBitReader& InReader, const float InTimeSeconds ) : Reader( InReader ), TimeSeconds( InTimeSeconds )
+	{
+	}
+
+	FBitReader	Reader;
+	float		TimeSeconds;
+};
+
+typedef TArray< FReplayExternalData > FReplayExternalDataArray;
+
+struct FPlaybackPacket
+{
+	TArray< uint8 > Data;
+	float			TimeSeconds;
+};
+
 /**
  * Simulated network driver for recording and playing back game sessions.
  */
@@ -45,9 +69,6 @@ class ENGINE_API UDemoNetDriver : public UNetDriver
 	/** Current record/playback frame number */
 	int32 DemoFrameNum;
 
-	/** Last time (in real seconds) that we recorded a frame */
-	double LastRecordTime;
-
 	/** Total time of demo in seconds */
 	float DemoTotalTime;
 
@@ -59,9 +80,6 @@ class ENGINE_API UDemoNetDriver : public UNetDriver
 
 	/** Total number of frames in the demo */
 	int32 DemoTotalFrames;
-
-	/** True if we're in the middle of recording a frame */
-	bool bIsRecordingDemoFrame;
 
 	/** True if we are at the end of playing a demo */
 	bool bDemoPlaybackDone;
@@ -87,16 +105,27 @@ class ENGINE_API UDemoNetDriver : public UNetDriver
 	double		LastCheckpointTime;
 
 	void		SaveCheckpoint();
-
 	void		LoadCheckpoint( FArchive* GotoCheckpointArchive, int64 GotoCheckpointSkipExtraTimeInMS );
+
+	void		SaveExternalData( FArchive& Ar );
+	void		LoadExternalData( FArchive& Ar, const float TimeSeconds );
 
 	/** Public delegate for external systems to be notified when scrubbing is complete. Only called for successful scrub. */
 	FOnGotoTimeMCDelegate OnGotoTimeDelegate;
+
+	bool		IsLoadingCheckpoint() const { return bIsLoadingCheckpoint; }
+
+	/** ExternalDataToObjectMap is used to map a FNetworkGUID to the proper FReplayExternalDataArray */
+	TMap< FNetworkGUID, FReplayExternalDataArray > ExternalDataToObjectMap;
+		
+	/** PlaybackPackets are used to buffer packets up when we read a demo frame, which we can then process when the time is right */
+	TArray< FPlaybackPacket > PlaybackPackets;
 
 private:
 	bool		bIsFastForwarding;
 	bool		bIsFastForwardingForCheckpoint;
 	bool		bWasStartStreamingSuccessful;
+	bool		bIsLoadingCheckpoint;
 
 	TArray<FNetworkGUID> NonQueuedGUIDsForScrubbing;
 
@@ -108,6 +137,12 @@ private:
 	/** Set via GotoTimeInSeconds, only fired once (at most). Called for successful or failed scrub. */
 	FOnGotoTimeDelegate OnGotoTimeDelegate_Transient;
 	
+	/** Saved server time after loading a checkpoint, so that we can set the server time as accurately as possible after the fast-forward */
+	float SavedReplicatedWorldTimeSeconds;
+
+	/** Saved fast-forward time, used for correcting world time after the fast-forward is complete */
+	float SavedSecondsToSkip;
+
 public:
 
 	// UNetDriver interface.
@@ -117,6 +152,7 @@ public:
 	virtual FString LowLevelGetNetworkNumber() override;
 	virtual bool InitConnect( FNetworkNotify* InNotify, const FURL& ConnectURL, FString& Error ) override;
 	virtual bool InitListen( FNetworkNotify* InNotify, FURL& ListenURL, bool bReuseAddressAndPort, FString& Error ) override;
+	virtual void TickFlush( float DeltaSeconds ) override;
 	virtual void TickDispatch( float DeltaSeconds ) override;
 	virtual void ProcessRemoteFunction( class AActor* Actor, class UFunction* Function, void* Parameters, struct FOutParmRec* OutParms, struct FFrame* Stack, class UObject* SubObject = nullptr ) override;
 	virtual bool IsAvailable() const override { return true; }
@@ -128,6 +164,7 @@ public:
 	virtual bool ShouldQueueBunchesForActorGUID(FNetworkGUID InGUID) const override;
 	virtual FNetworkGUID GetGUIDForActor(const AActor* InActor) const override;
 	virtual AActor* GetActorForGUID(FNetworkGUID InGUID) const override;
+	virtual bool ShouldReceiveRepNotifiesForObject(UObject* Object) const override;
 
 	/** 
 	 * Scrubs playback to the given time. 
@@ -137,8 +174,8 @@ public:
 	*/
 	void GotoTimeInSeconds(const float TimeInSeconds, const FOnGotoTimeDelegate& InOnGotoTimeDelegate = FOnGotoTimeDelegate());
 
-	bool IsRecording();
-	bool IsPlaying();
+	bool IsRecording() const;
+	bool IsPlaying() const;
 
 public:
 
@@ -159,8 +196,17 @@ public:
 
 	void TickDemoRecord( float DeltaSeconds );
 	void PauseChannels( const bool bPause );
-	bool ConditionallyReadDemoFrame();
-	bool ReadDemoFrame( FArchive* Archive );
+
+	bool ConditionallyProcessPlaybackPackets();
+	void ProcessAllPlaybackPackets();
+	bool ReadPacket( FArchive& Archive, uint8* OutReadBuffer, int32& OutBufferSize, const int32 MaxBufferSize );
+	bool ReadDemoFrameIntoPlaybackPackets( FArchive& Ar );
+	bool ConditionallyReadDemoFrameIntoPlaybackPackets( FArchive& Ar );
+	bool ProcessPacket( uint8* Data, int32 Count );
+
+	void WriteDemoFrameFromQueuedDemoPackets( FArchive& Ar, UDemoNetConnection* Connection );
+	void WritePacket( FArchive& Ar, uint8* Data, int32 Count );
+
 	void TickDemoPlayback( float DeltaSeconds );
 	void FinalizeFastForward( const float StartTime );
 	void SpawnDemoRecSpectator( UNetConnection* Connection, const FURL& ListenURL );
@@ -170,6 +216,8 @@ public:
 	void EnumerateEvents(const FString& Group, FEnumerateEventsCompleteDelegate& EnumerationCompleteDelegate);
 	void RequestEventData(const FString& EventID, FOnRequestEventDataComplete& RequestEventDataCompleteDelegate);
 	virtual bool IsFastForwarding() { return bIsFastForwarding; }
+
+	FReplayExternalDataArray* GetExternalDataArrayForObject( UObject* Object );
 
 	/**
 	 * Adds a join-in-progress user to the set of users associated with the currently recording replay (if any)

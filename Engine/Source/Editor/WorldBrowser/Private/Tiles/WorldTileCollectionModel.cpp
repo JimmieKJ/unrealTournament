@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "WorldBrowserPrivatePCH.h"
 
 #include "Engine/WorldComposition.h"
@@ -320,6 +320,8 @@ void FWorldTileCollectionModel::BuildWorldCompositionMenu(FMenuBuilder& InMenuBu
 			LOCTEXT("LockHeader", "Lock"),
 			LOCTEXT("LockSubMenu_ToolTip", "Selected Level(s) lock commands"),
 			FNewMenuDelegate::CreateSP(this, &FWorldTileCollectionModel::FillLockSubMenu ) );
+
+		InMenuBuilder.AddMenuEntry(Commands.World_FindInContentBrowser);
 	}
 	InMenuBuilder.EndSection();
 
@@ -423,6 +425,7 @@ void FWorldTileCollectionModel::BuildHierarchyMenu(FMenuBuilder& InMenuBuilder) 
 			LOCTEXT("LockSubMenu_ToolTip", "Selected Level(s) lock commands"),
 			FNewMenuDelegate::CreateSP(this, &FWorldTileCollectionModel::FillLockSubMenu ) );
 	
+		InMenuBuilder.AddMenuEntry(Commands.World_FindInContentBrowser);
 	}
 	InMenuBuilder.EndSection();
 
@@ -1959,7 +1962,6 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 			ProxySettings.ScreenSize = ProxySettings.ScreenSize*(SimplificationDetails.DetailsPercentage/100.f);
 			ProxySettings.MaterialSettings = SimplificationDetails.StaticMeshMaterialSettings;
 
-			TArray<UObject*> OutAssets;
 			FString ProxyPackageName = FString::Printf(TEXT("PROXY_%s_LOD%d"), *FPackageName::GetShortName(TileModel->TileDetails->PackageName), TargetLODIndex + 1);
 			
 			// Generate proxy mesh and proxy material assets 
@@ -1971,17 +1973,17 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 				if (AssetsToSync.Num())
 				{
 					UStaticMesh* ProxyMesh = nullptr;
-					if (OutAssets.FindItemByClass(&ProxyMesh))
+					if (AssetsToSync.FindItemByClass(&ProxyMesh))
 					{
 						new(AssetsToSpawn)FAssetToSpawnInfo(ProxyMesh, FTransform(-ActorsOffset));
 					}
 
-					GeneratedAssets.Append(OutAssets);
+					GeneratedAssets.Append(AssetsToSync);
 				}
 			});
 
 			FGuid JobGuid = FGuid::NewGuid();
-			MeshUtilities.CreateProxyMesh(Actors, ProxySettings, NULL, ProxyPackageName, JobGuid, ProxyDelegate);
+			MeshUtilities.CreateProxyMesh(Actors, ProxySettings, AssetsOuter, AssetsPath + ProxyPackageName, JobGuid, ProxyDelegate);
 		}
 
 		// Convert landscape actors into static meshes
@@ -2040,29 +2042,7 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 			LandscapeFlattenMaterial.SpecularSize = SimplificationDetails.LandscapeMaterialSettings.bSpecularMap ? SimplificationDetails.LandscapeMaterialSettings.TextureSize : FIntPoint::ZeroValue;
 			
 			FMaterialUtilities::ExportLandscapeMaterial(Landscape, PrimitivesToHide, LandscapeFlattenMaterial);
-
-			// Fill landscape material constants
-			{
-				if (LandscapeFlattenMaterial.MetallicSamples.Num() == 0)
-				{
-					LandscapeFlattenMaterial.MetallicSize = FIntPoint(1, 1);
-					LandscapeFlattenMaterial.MetallicSamples.SetNum(1);
-					LandscapeFlattenMaterial.MetallicSamples[0].DWColor() = *(uint32*)(&SimplificationDetails.LandscapeMaterialSettings.MetallicConstant);
-				}
-				if (LandscapeFlattenMaterial.RoughnessSamples.Num() == 0)
-				{
-					LandscapeFlattenMaterial.RoughnessSize = FIntPoint(1, 1);
-					LandscapeFlattenMaterial.RoughnessSamples.SetNum(1);
-					LandscapeFlattenMaterial.RoughnessSamples[0].DWColor() = *(uint32*)(&SimplificationDetails.LandscapeMaterialSettings.RoughnessConstant);
-				}
-				if (LandscapeFlattenMaterial.SpecularSamples.Num() == 0)
-				{
-					LandscapeFlattenMaterial.SpecularSize = FIntPoint(1, 1);
-					LandscapeFlattenMaterial.SpecularSamples.SetNum(1);
-					LandscapeFlattenMaterial.SpecularSamples[0].DWColor() = *(uint32*)(&SimplificationDetails.LandscapeMaterialSettings.SpecularConstant);
-				}
-			}
-		
+					
 			if (SimplificationDetails.bBakeGrassToLandscape)
 			{
 				Landscape->FlushGrassComponents(); // wipe this and let it fix itself later
@@ -2070,7 +2050,7 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 			FString LandscapeBaseAssetName = FString::Printf(TEXT("%s_LOD%d"), *Landscape->GetName(), TargetLODIndex + 1);
 			// Construct landscape material
 			UMaterial* StaticLandscapeMaterial = FMaterialUtilities::CreateMaterial(
-				LandscapeFlattenMaterial, AssetsOuter, *(AssetsPath + LandscapeBaseAssetName), RF_Public|RF_Standalone, GeneratedAssets);
+				LandscapeFlattenMaterial, AssetsOuter, *(AssetsPath + LandscapeBaseAssetName), RF_Public | RF_Standalone, SimplificationDetails.LandscapeMaterialSettings, GeneratedAssets);
 			// Currently landscape exports world space normal map
 			StaticLandscapeMaterial->bTangentSpaceNormal = false;
 			StaticLandscapeMaterial->PostEditChange();

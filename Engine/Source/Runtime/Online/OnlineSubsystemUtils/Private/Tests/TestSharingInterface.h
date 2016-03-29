@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -8,6 +8,7 @@
 // Module includes
 #include "OnlineSharingInterface.h"
 
+#if WITH_DEV_AUTOMATION_TESTS
 
 /**
  * Class used to test the sharing interface
@@ -151,3 +152,5 @@ public:
 	 */
 	void Test(class UWorld* InWorld, bool bWithImage);
  };
+
+#endif //WITH_DEV_AUTOMATION_TESTS

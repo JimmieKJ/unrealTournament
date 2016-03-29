@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	OpenGLDevice.cpp: OpenGL device RHI implementation.
@@ -470,9 +470,9 @@ void InitDebugContext()
 #elif ENABLE_OPENGL_DEBUG_GROUPS && !defined(GL_ARB_debug_output) && GL_KHR_debug
 	if(glDebugMessageControlKHR)
 	{
-		glDebugMessageControlKHR(GL_DEBUG_SOURCE_APPLICATION_KHR, GL_DEBUG_TYPE_MARKER, GL_DONT_CARE, 0, NULL, GL_FALSE);
-		glDebugMessageControlKHR(GL_DEBUG_SOURCE_APPLICATION_KHR, GL_DEBUG_TYPE_PUSH_GROUP, GL_DONT_CARE, 0, NULL, GL_FALSE);
-		glDebugMessageControlKHR(GL_DEBUG_SOURCE_APPLICATION_KHR, GL_DEBUG_TYPE_POP_GROUP, GL_DONT_CARE, 0, NULL, GL_FALSE);
+		glDebugMessageControlKHR(GL_DEBUG_SOURCE_APPLICATION_KHR, GL_DEBUG_TYPE_MARKER_KHR, GL_DONT_CARE, 0, NULL, GL_FALSE);
+		glDebugMessageControlKHR(GL_DEBUG_SOURCE_APPLICATION_KHR, GL_DEBUG_TYPE_PUSH_GROUP_KHR, GL_DONT_CARE, 0, NULL, GL_FALSE);
+		glDebugMessageControlKHR(GL_DEBUG_SOURCE_APPLICATION_KHR, GL_DEBUG_TYPE_POP_GROUP_KHR, GL_DONT_CARE, 0, NULL, GL_FALSE);
 		glDebugMessageControlKHR(GL_DEBUG_SOURCE_API_KHR, GL_DEBUG_TYPE_OTHER_KHR, GL_DEBUG_SEVERITY_NOTIFICATION, 0, NULL, GL_FALSE);
 		UE_LOG(LogRHI,Verbose,TEXT("disabling reporting back of debug groups and markers to the OpenGL debug output callback"));
 	}
@@ -610,7 +610,10 @@ static void InitRHICapabilitiesForGL()
 	GMaxOpenGLIntegerSamples = Value_GL_MAX_INTEGER_SAMPLES;
 
 	// Verify some assumptions.
+	// Android seems like reports one color attachment even when it supports MRT
+#if !PLATFORM_ANDROID
 	check(Value_GL_MAX_COLOR_ATTACHMENTS >= MaxSimultaneousRenderTargets || !FOpenGL::SupportsMultipleRenderTargets());
+#endif
 
 	// We don't check for compressed formats right now because vendors have not
 	// done a great job reporting what is actually supported:
@@ -691,12 +694,18 @@ static void InitRHICapabilitiesForGL()
 	GSupportsDepthBoundsTest = FOpenGL::SupportsDepthBoundsTest();
 
 	GSupportsRenderTargetFormat_PF_FloatRGBA = FOpenGL::SupportsColorBufferHalfFloat();
-
+	
+	GSupportsMultipleRenderTargets = FOpenGL::SupportsMultipleRenderTargets();
+	GSupportsTexture3D = FOpenGL::SupportsTexture3D();
+	GSupportsResourceView = FOpenGL::SupportsResourceView();
+		
 	GSupportsShaderFramebufferFetch = FOpenGL::SupportsShaderFramebufferFetch();
 	GSupportsShaderDepthStencilFetch = FOpenGL::SupportsShaderDepthStencilFetch();
 	GMaxShadowDepthBufferSizeX = FMath::Min<int32>(Value_GL_MAX_RENDERBUFFER_SIZE, 4096); // Limit to the D3D11 max.
 	GMaxShadowDepthBufferSizeY = FMath::Min<int32>(Value_GL_MAX_RENDERBUFFER_SIZE, 4096);
 	GHardwareHiddenSurfaceRemoval = FOpenGL::HasHardwareHiddenSurfaceRemoval();
+	GRHISupportsInstancing = FOpenGL::SupportsInstancing(); // HTML5 does not support it. Android supports it with OpenGL ES3.0+ 
+	GSupportsTimestampRenderQueries = FOpenGL::SupportsTimestampQueries();
 
 	GSupportsHDR32bppEncodeModeIntrinsic = FOpenGL::SupportsHDR32bppEncodeModeIntrinsic();
 
@@ -813,7 +822,7 @@ static void InitRHICapabilitiesForGL()
 		GLuint RGBA8 = FOpenGL::SupportsRGBA8() ? GL_RGBA8_OES : GL_RGBA;
 
 	#if PLATFORM_ANDROID
-		SetupTextureFormat(PF_B8G8R8A8, FOpenGLTextureFormat(GL_BGRA, FOpenGL::SupportsSRGB() ? GL_SRGB_ALPHA_EXT : GL_BGRA, BGRA8888, GL_UNSIGNED_BYTE, false, false));
+		SetupTextureFormat(PF_B8G8R8A8, FOpenGLTextureFormat(BGRA8888, FOpenGL::SupportsSRGB() ? GL_SRGB_ALPHA_EXT : BGRA8888, BGRA8888, GL_UNSIGNED_BYTE, false, false));
 	#else
 		SetupTextureFormat(PF_B8G8R8A8, FOpenGLTextureFormat(GL_RGBA, FOpenGL::SupportsSRGB() ? GL_SRGB_ALPHA_EXT : GL_RGBA, GL_BGRA8_EXT, FOpenGL::SupportsSRGB() ? GL_SRGB8_ALPHA8_EXT : GL_BGRA8_EXT, BGRA8888, GL_UNSIGNED_BYTE, false, false));
 	#endif
@@ -837,6 +846,22 @@ static void InitRHICapabilitiesForGL()
 		else
 		{
 			SetupTextureFormat( PF_FloatRGBA, FOpenGLTextureFormat(GL_RGBA, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, false, false));
+		}
+
+		if (FOpenGL::SupportsColorBufferFloat() && FOpenGL::SupportsTextureFloat())
+		{
+			SetupTextureFormat( PF_G16,				FOpenGLTextureFormat( GL_R16,					GL_R16,					GL_RED,			GL_UNSIGNED_SHORT,					false,	false));
+			SetupTextureFormat( PF_R32_FLOAT,		FOpenGLTextureFormat( GL_R32F,					GL_R32F,				GL_RED,			GL_FLOAT,							false,	false));
+#ifdef GL_RG_EXT
+			SetupTextureFormat( PF_G16R16F,			FOpenGLTextureFormat( GL_RG16F,					GL_RG16F,				GL_RG_EXT,		GL_HALF_FLOAT,						false,	false));
+			SetupTextureFormat( PF_G16R16F_FILTER,	FOpenGLTextureFormat( GL_RG16F,					GL_RG16F,				GL_RG_EXT,		GL_HALF_FLOAT,						false,	false));
+			SetupTextureFormat( PF_G32R32F,			FOpenGLTextureFormat( GL_RG32F,					GL_RG32F,				GL_RG_EXT,		GL_FLOAT,							false,	false));
+#endif
+#ifdef GL_UNSIGNED_INT_2_10_10_10_REV
+			SetupTextureFormat( PF_A2B10G10R10,		FOpenGLTextureFormat( GL_RGB10_A2,				GL_RGB10_A2,			GL_RGBA,		GL_UNSIGNED_INT_2_10_10_10_REV,		false,	false));
+#endif
+			SetupTextureFormat( PF_R16F,			FOpenGLTextureFormat( GL_R16F,					GL_R16F,				GL_RED,			GL_HALF_FLOAT,						false,	false));
+			SetupTextureFormat( PF_R16F_FILTER,		FOpenGLTextureFormat( GL_R16F,					GL_R16F,				GL_RED,			GL_HALF_FLOAT,						false,	false));
 		}
 
 		if (FOpenGL::SupportsPackedDepthStencil())
@@ -1022,7 +1047,7 @@ static void CheckVaryingLimit()
 		UE_LOG(LogRHI, Display, TEXT("Testing for gl_FragCoord requiring a varying since mosaic is enabled"));
 		FOpenGL::bIsCheckingShaderCompilerHacks = true;
 
-		const ANSICHAR* TestVertexProgram = "\n"
+		static const ANSICHAR* TestVertexProgram = "\n"
 			"#version 100\n"
 			"attribute vec4 in_ATTRIBUTE0;\n"
 			"attribute vec4 in_ATTRIBUTE1;\n"
@@ -1046,7 +1071,7 @@ static void CheckVaryingLimit()
 			"   TexCoord7 = in_ATTRIBUTE1 * vec4(0.56,0.66,0.76,0.86);\n"
 			"	gl_Position.xyzw = in_ATTRIBUTE0;\n"
 			"}\n";
-		const ANSICHAR* TestFragmentProgram = "\n"
+		static const ANSICHAR* TestFragmentProgram = "\n"
 			"#version 100\n"
 			"varying highp vec4 TexCoord0;\n"
 			"varying highp vec4 TexCoord1;\n"
@@ -1061,35 +1086,39 @@ static void CheckVaryingLimit()
 			"   gl_FragColor = TexCoord0 * TexCoord1 * TexCoord2 * TexCoord3 * TexCoord4 * TexCoord5 * TexCoord6 * TexCoord7 * gl_FragCoord.xyxy;"
 			"}\n";
 
-		FOpenGLCodeHeader Header;
-		Header.FrequencyMarker = 0x5653;
-		Header.GlslMarker = 0x474c534c;
-		TArray<uint8> VertexCode;
+		FShaderCode VertexShaderCode;
 		{
-			FMemoryWriter Writer(VertexCode);
+			FOpenGLCodeHeader Header;
+			Header.FrequencyMarker = 0x5653;
+			Header.GlslMarker = 0x474c534c;
+
+			FMemoryWriter Writer(VertexShaderCode.GetWriteAccess(), true);
 			Writer << Header;
-			Writer.Serialize((void*)(TestVertexProgram), strlen(TestVertexProgram) + 1);
+			Writer.Serialize((void*)TestVertexProgram, sizeof(TestVertexProgram));
 			Writer.Close();
 		}
-		Header.FrequencyMarker = 0x5053;
-		Header.GlslMarker = 0x474c534c;
-		TArray<uint8> FragmentCode;
+
+		FShaderCode FragmentShaderCode;
 		{
-			FMemoryWriter Writer(FragmentCode);
+			FOpenGLCodeHeader Header;
+			Header.FrequencyMarker = 0x5053;
+			Header.GlslMarker = 0x474c534c;
+
+			FMemoryWriter Writer(FragmentShaderCode.GetWriteAccess(), true);
 			Writer << Header;
-			Writer.Serialize((void*)(TestFragmentProgram), strlen(TestFragmentProgram) + 1);
+			Writer.Serialize((void*)(TestFragmentProgram), sizeof(TestFragmentProgram));
 			Writer.Close();
 		}
 
 		// Try to compile test shaders
-		TRefCountPtr<FOpenGLVertexShader> VertexShader = (FOpenGLVertexShader*)(RHICreateVertexShader(VertexCode).GetReference());
+		TRefCountPtr<FOpenGLVertexShader> VertexShader = (FOpenGLVertexShader*)(RHICreateVertexShader(VertexShaderCode.GetReadAccess()).GetReference());
 		if (!VerifyCompiledShader(VertexShader->Resource, TestVertexProgram, false))
 		{
 			UE_LOG(LogRHI, Warning, TEXT("Vertex shader for varying test failed to compile. Try running anyway."));
 			FOpenGL::bIsCheckingShaderCompilerHacks = false;
 			return;
 		}
-		TRefCountPtr<FOpenGLPixelShader> PixelShader = (FOpenGLPixelShader*)(RHICreatePixelShader(FragmentCode).GetReference());
+		TRefCountPtr<FOpenGLPixelShader> PixelShader = (FOpenGLPixelShader*)(RHICreatePixelShader(FragmentShaderCode.GetReadAccess()).GetReference());
 		if (!VerifyCompiledShader(PixelShader->Resource, TestFragmentProgram, false))
 		{
 			UE_LOG(LogRHI, Warning, TEXT("Fragment shader for varying test failed to compile. Try running anyway."));
@@ -1145,26 +1174,22 @@ static void CheckTextureCubeLodSupport()
 			"	gl_FragColor = textureCubeLodEXT(Texture,TexCoord, 4.0);\n"
 			"}\n";
 
-		FShaderCode ShaderCode;
-		{
-			TArray<uint8>& Code = ShaderCode.GetWriteAccess();
-			Code.AddUninitialized(sizeof(TestFragmentProgram));
-			FMemory::Memcpy(Code.GetData(), TestFragmentProgram, sizeof(TestFragmentProgram));
-		}
-
 		FOpenGL::bRequiresDontEmitPrecisionForTextureSamplers = false;
 		FOpenGL::bRequiresTextureCubeLodEXTToTextureCubeLodDefine = false;
 
-		FOpenGLCodeHeader Header{};
-		Header.FrequencyMarker = 0x5053;
-		Header.GlslMarker = 0x474c534c;
-		TArray<uint8> Code;
+		FShaderCode ShaderCode;
 		{
-			FMemoryWriter Writer(Code);
+			FOpenGLCodeHeader Header;
+			Header.FrequencyMarker = 0x5053;
+			Header.GlslMarker = 0x474c534c;
+
+			FMemoryWriter Writer(ShaderCode.GetWriteAccess(), true);
 			Writer << Header;
-			Writer << ShaderCode;
+			Writer.Serialize((void*)TestFragmentProgram, sizeof(TestFragmentProgram));
 			Writer.Close();
 		}
+		const TArray<uint8>& Code = ShaderCode.GetReadAccess();
+
 		// try to compile without any hacks
 		TRefCountPtr<FOpenGLPixelShader> PixelShader = (FOpenGLPixelShader*)(RHICreatePixelShader(Code).GetReference());
 

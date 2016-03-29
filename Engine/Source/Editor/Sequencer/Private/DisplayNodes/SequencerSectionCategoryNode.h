@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -34,6 +34,7 @@ public:
 	// FSequencerDisplayNode interface
 
 	virtual bool CanRenameNode() const override;
+	virtual TSharedRef<SWidget> GetCustomOutlinerContent() override;
 	virtual FText GetDisplayName() const override;
 	virtual float GetNodeHeight() const override;
 	virtual FNodePadding GetNodePadding() const override;

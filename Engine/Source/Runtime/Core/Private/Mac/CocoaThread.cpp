@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "CocoaThread.h"
@@ -457,7 +457,11 @@ void RunGameThread(id Target, SEL Selector)
 	
 	// Create a separate game thread and set it to the stack size to be the same as the main thread default of 8MB ( http://developer.apple.com/library/mac/#qa/qa1419/_index.html )
 	FCocoaGameThread* GameThread = [[FCocoaGameThread alloc] initWithTarget:Target selector:Selector object:nil];
-	[GameThread setStackSize:16*1024*1024];
+#if UE_BUILD_DEBUG
+	[GameThread setStackSize:64*1024*1024];
+#else
+	[GameThread setStackSize:32*1024*1024];
+#endif
 	[GameThread start];
 #else
 	[Target performSelector:Selector withObject:nil];

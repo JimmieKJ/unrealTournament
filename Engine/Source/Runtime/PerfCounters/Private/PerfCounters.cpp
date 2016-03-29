@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "PerfCounters.h"
 #include "SocketSubsystem.h"
@@ -11,6 +11,7 @@
 
 FPerfCounters::FPerfCounters(const FString& InUniqueInstanceId)
 : UniqueInstanceId(InUniqueInstanceId)
+, InternalCountersUpdateInterval(60)
 , Socket(nullptr)
 {
 }
@@ -30,6 +31,13 @@ FPerfCounters::~FPerfCounters()
 
 bool FPerfCounters::Initialize()
 {
+	float ConfigInternalCountersUpdateInterval = 60.0;
+	if (GConfig->GetFloat(TEXT("PerfCounters"), TEXT("InternalCountersUpdateInterval"), ConfigInternalCountersUpdateInterval, GEngineIni))
+	{
+		InternalCountersUpdateInterval = ConfigInternalCountersUpdateInterval;
+	}
+	LastTimeInternalCountersUpdated = FPlatformTime::Seconds() - InternalCountersUpdateInterval * FMath::FRand();	// randomize between servers
+
 	// get the requested port from the command line (if specified)
 	int32 StatsPort = -1;
 	FParse::Value(FCommandLine::Get(), TEXT("statsPort="), StatsPort);
@@ -231,6 +239,32 @@ bool FPerfCounters::Tick(float DeltaTime)
 		}
 	}
 
+	// set some internal perf stats ([RCL] FIXME 2015-12-08: move to a better place)
+	float CurrentTime = FPlatformTime::Seconds();
+	if (CurrentTime - LastTimeInternalCountersUpdated > InternalCountersUpdateInterval)
+	{
+		// get CPU stats first
+		FCPUTime CPUStats = FPlatformTime::GetCPUTime();
+		Set(TEXT("ProcessCPUUsageRelativeToCore"), CPUStats.CPUTimePctRelative);
+
+		// memory
+		FPlatformMemoryStats Stats = FPlatformMemory::GetStats();
+		Set(TEXT("AvailablePhysicalMemoryMB"), static_cast<uint64>(Stats.AvailablePhysical / (1024 * 1024)));
+		Set(TEXT("AvailableVirtualMemoryMB"), static_cast<uint64>(Stats.AvailableVirtual / (1024 * 1024)));
+		Set(TEXT("ProcessPhysicalMemoryMB"), static_cast<uint64>(Stats.UsedPhysical/ (1024 * 1024)));
+		Set(TEXT("ProcessVirtualMemoryMB"), static_cast<uint64>(Stats.UsedVirtual / (1024 * 1024)));
+
+		// disk space
+		const FString LogFilename = FPlatformOutputDevices::GetAbsoluteLogFilename();
+		uint64 TotalBytesOnLogDrive = 0, FreeBytesOnLogDrive = 0;
+		if (FPlatformMisc::GetDiskTotalAndFreeSpace(LogFilename, TotalBytesOnLogDrive, FreeBytesOnLogDrive))
+		{
+			Set(TEXT("FreeSpaceOnLogFileDiskInMB"), static_cast<uint64>(FreeBytesOnLogDrive / (1024 * 1024)));
+		}
+
+		LastTimeInternalCountersUpdated = CurrentTime;
+	}
+
 	// keep ticking
 	return true;
 }
@@ -279,14 +313,6 @@ bool FPerfCounters::ProcessRequest(uint8* Buffer, int32 BufferLen, FResponse& Re
 			else if (Tokens[1].StartsWith(TEXT("/stats")))
 			{
 				Response.Body = GetAllCountersAsJson();
-
-				// retrieving stats resets them by default, unless ?peek parameter is passed
-				const int kStatsTokenLength = 6; // strlen("/stats");
-				FString TokenRemainder = Tokens[1].Mid(kStatsTokenLength);
-				if (TokenRemainder != TEXT("?peek"))
-				{
-					ResetStatsForNextPeriod();
-				}
 			}
 			else if (Tokens[1].StartsWith(TEXT("/exec?c=")))
 			{

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "Misc/App.h"
@@ -49,68 +49,6 @@ namespace
 	TMap<FString, FConfigFile> HierarchyCache;
 #endif
 }
-
-class FTextFriendHelper
-{
-	friend class FConfigFile;
-	friend class FConfigCacheIni;
-
-	static FString AsString( const FText& Text )
-	{
-		if( Text.IsTransient() )
-		{
-			UE_LOG( LogConfig, Warning, TEXT( "FTextFriendHelper::AsString() Transient FText") );
-			return FString(TEXT("Error: Transient FText"));
-		}
-
-		FString Str;
-		if( FTextInspector::GetSourceString(Text) )
-		{
-			FString SourceString( *FTextInspector::GetSourceString(Text) );
-			for( auto Iter( SourceString.CreateConstIterator()); Iter; ++Iter )
-			{
-				const TCHAR Ch = *Iter;
-				if( Ch == '\"' )
-				{
-					Str += TEXT("\\\"");
-				}
-				else if( Ch == '\t' )
-				{
-					Str += TEXT("\\t");
-				}
-				else if( Ch == '\r' )
-				{
-					Str += TEXT("\\r");
-				}
-				else if( Ch == '\n' )
-				{
-					Str += TEXT("\\n");
-				}
-				else if( Ch == '\\' )
-				{
-					Str += TEXT("\\\\");
-				}
-				else
-				{
-					Str += Ch;
-				}
-			}
-		}
-
-		//this prevents our source code text gatherer from trying to gather the following messages
-#define LOC_DEFINE_REGION
-		if( Text.IsCultureInvariant() )
-		{
-			return FString::Printf( TEXT( "NSLOCTEXT(\"\",\"\",\"%s\")" ), *Str );
-		}
-		else
-		{
-			return FString::Printf( TEXT( "NSLOCTEXT(\"%s\",\"%s\",\"%s\")" ),
-				*FTextInspector::GetNamespace(Text).Get(TEXT("")), *FTextInspector::GetKey(Text).Get(TEXT("")), *Str );
-		}
-#undef LOC_DEFINE_REGION
-	}
-};
 
 /*-----------------------------------------------------------------------------
 	FConfigSection
@@ -593,7 +531,7 @@ bool FConfigFile::ShouldExportQuotedString(const FString& PropertyValue) const
 }
 
 
-#if !UE_BUILD_SHIPPING
+#if ALLOW_INI_OVERRIDE_FROM_COMMANDLINE
 
 /** A collection of identifiers which will help us parse the commandline opions. */
 namespace CommandlineOverrideSpecifiers
@@ -859,7 +797,7 @@ bool PropertySetFromCommandlineOption(const FConfigFile* InConfigFile, const FSt
 {
 	bool bFromCommandline = false;
 
-#if !UE_BUILD_SHIPPING
+#if ALLOW_INI_OVERRIDE_FROM_COMMANDLINE
 	for (const FConfigCommandlineOverride& CommandlineOverride : InConfigFile->CommandlineOptions)
 	{
 		if (CommandlineOverride.PropertyKey.Equals(InPropertyName.ToString(), ESearchCase::IgnoreCase) &&
@@ -870,7 +808,7 @@ bool PropertySetFromCommandlineOption(const FConfigFile* InConfigFile, const FSt
 			bFromCommandline = true;
 		}
 	}
-#endif // !UE_BUILD_SHIPPING
+#endif // ALLOW_INI_OVERRIDE_FROM_COMMANDLINE
 
 	return bFromCommandline;
 }
@@ -1115,20 +1053,8 @@ bool FConfigFile::GetString( const TCHAR* Section, const TCHAR* Key, FString& Va
 	{
 		return false;
 	}
-
-	//this prevents our source code text gatherer from trying to gather the following messages
-#define LOC_DEFINE_REGION
-	if( FCString::Strstr( **PairString, TEXT("LOCTEXT") ) )
-	{
-		UE_LOG( LogConfig, Warning, TEXT( "FConfigFile::GetString( %s, %s ) contains LOCTEXT"), Section, Key );
-		return false;
-	}
-	else
-	{
-		Value = **PairString;
-		return true;
-	}
-#undef LOC_DEFINE_REGION
+	Value = **PairString;
+	return true;
 }
 
 bool FConfigFile::GetText( const TCHAR* Section, const TCHAR* Key, FText& Value ) const
@@ -1143,7 +1069,7 @@ bool FConfigFile::GetText( const TCHAR* Section, const TCHAR* Key, FText& Value 
 	{
 		return false;
 	}
-	return FParse::Text( **PairString, Value, Section );
+	return FTextStringHelper::ReadFromString( **PairString, Value, Section );
 }
 
 bool FConfigFile::GetInt64( const TCHAR* Section, const TCHAR* Key, int64& Value ) const
@@ -1188,9 +1114,10 @@ void FConfigFile::SetText( const TCHAR* Section, const TCHAR* Key, const FText& 
 		Sec = &Add( Section, FConfigSection() );
 	}
 
-	FString* Str = Sec->Find( Key );
-	const FString StrValue = FTextFriendHelper::AsString( Value );
+	FString StrValue;
+	FTextStringHelper::WriteToString(StrValue, Value);
 
+	FString* Str = Sec->Find( Key );
 	if( Str == NULL )
 	{
 		Sec->Add( Key, StrValue );
@@ -1670,20 +1597,8 @@ bool FConfigCacheIni::GetString( const TCHAR* Section, const TCHAR* Key, FString
 	{
 		return false;
 	}
-
-	//this prevents our source code text gatherer from trying to gather the following messages
-#define LOC_DEFINE_REGION
-	if( FCString::Strstr( **PairString, TEXT("LOCTEXT") ) )
-	{
-		UE_LOG( LogConfig, Warning, TEXT( "FConfigCacheIni::GetString( %s, %s, %s ) contains LOCTEXT"), Section, Key, *Filename );
-		return false;
-	}
-	else
-	{
-		Value = **PairString;
-		return true;
-	}
-#undef LOC_DEFINE_REGION
+	Value = **PairString;
+	return true;
 }
 
 bool FConfigCacheIni::GetText( const TCHAR* Section, const TCHAR* Key, FText& Value, const FString& Filename )
@@ -1707,7 +1622,7 @@ bool FConfigCacheIni::GetText( const TCHAR* Section, const TCHAR* Key, FText& Va
 	{
 		return false;
 	}
-	return FParse::Text( **PairString, Value, Section );
+	return FTextStringHelper::ReadFromString( **PairString, Value, Section );
 }
 
 bool FConfigCacheIni::GetSection( const TCHAR* Section, TArray<FString>& Result, const FString& Filename )
@@ -1791,9 +1706,10 @@ void FConfigCacheIni::SetText( const TCHAR* Section, const TCHAR* Key, const FTe
 		Sec = &File->Add( Section, FConfigSection() );
 	}
 
-	FString* Str = Sec->Find( Key );
-	const FString StrValue = FTextFriendHelper::AsString( Value );
+	FString StrValue;
+	FTextStringHelper::WriteToString(StrValue, Value);
 
+	FString* Str = Sec->Find( Key );
 	if( !Str )
 	{
 		Sec->Add( Key, StrValue );
@@ -2609,7 +2525,7 @@ static bool GenerateDestIniFile(FConfigFile& DestConfigFile, const FString& Dest
 	}
 	LoadAnIniFile(DestIniFilename, DestConfigFile);
 
-#if !UE_BUILD_SHIPPING
+#if ALLOW_INI_OVERRIDE_FROM_COMMANDLINE
 	// process any commandline overrides
 	OverrideFromCommandline(&DestConfigFile, DestIniFilename);
 #endif
@@ -2907,6 +2823,8 @@ void FConfigCacheIni::InitializeConfigSystem()
 
 	// Load scalability settings.
 	FConfigCacheIni::LoadGlobalIniFile(GScalabilityIni, TEXT("Scalability"));
+	// Load driver blacklist
+	FConfigCacheIni::LoadGlobalIniFile(GHardwareIni, TEXT("Hardware"));
 	
 	// Load user game settings .ini, allowing merging. This also updates the user .ini if necessary.
 	FConfigCacheIni::LoadGlobalIniFile(GGameUserSettingsIni, TEXT("GameUserSettings"));

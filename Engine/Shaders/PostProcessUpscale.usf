@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessUpscale.usf: PostProcessing shader to upscale
@@ -44,7 +44,7 @@ float2 PaniniProjectionScreenPos(float2 InScreenPos)
 	const float s = PaniniParams.y;
 	const float OutScreenPosScale = PaniniParams.z;
 #if 0
-	const float2 ScreenSpaceToPaniniFactor = tan(0.5 * View.FieldOfViewWideAngles);
+	const float2 ScreenSpaceToPaniniFactor = tan(0.5 * Frame.FieldOfViewWideAngles);
 	const float2 PaniniToScreenSpaceFactor = 1 / ScreenSpaceToPaniniFactor;
 #else
 	const float2 ScreenSpaceToPaniniFactor = GetTanHalfFieldOfView();
@@ -88,7 +88,11 @@ void MainPS(noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPosition :
 {
 #if METHOD == 0
 	// Nearest sampling (not blurry but blocky, more for testing)
-	OutColor = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, UVAndScreenPos.xy, 0, int2(0, 0));
+	#if ES2_PROFILE
+		OutColor = Texture2DSample(PostprocessInput1, PostprocessInput1Sampler, UVAndScreenPos.xy);
+	#else
+		OutColor = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, UVAndScreenPos.xy, 0, int2(0, 0));
+	#endif
 #endif
 
 #if METHOD == 1

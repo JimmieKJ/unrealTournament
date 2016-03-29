@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "UnrealEd.h"
@@ -419,10 +419,9 @@ void UDebugSkelMeshComponent::GenSpaceBases(TArray<FTransform>& OutSpaceBases)
 {
 	TArray<FTransform> TempLocalAtoms;
 	TempLocalAtoms.AddUninitialized(OutSpaceBases.Num());
-	TArray<FActiveVertexAnim> TempVertexAnims;
 	FVector TempRootBoneTranslation;
-	FBlendedCurve TempCurve;
-	PerformAnimationEvaluation(SkeletalMesh, AnimScriptInstance, OutSpaceBases, TempLocalAtoms, TempVertexAnims, TempRootBoneTranslation, TempCurve);
+	FBlendedHeapCurve TempCurve;
+	PerformAnimationEvaluation(SkeletalMesh, AnimScriptInstance, OutSpaceBases, TempLocalAtoms, TempRootBoneTranslation, TempCurve);
 }
 
 void UDebugSkelMeshComponent::RefreshBoneTransforms(FActorComponentTickFunction* TickFunction)
@@ -495,17 +494,32 @@ void UDebugSkelMeshComponent::RefreshBoneTransforms(FActorComponentTickFunction*
 				FCSPose<FCompactPose> CSAdditiveBasePose;
 				{
 					FCompactPose AdditiveBasePose;
-					FBlendedCurve AdditiveCurve(PreviewInstance);
+					FBlendedCurve AdditiveCurve;
+					AdditiveCurve.InitFrom(AnimScriptInstance->GetSkelMeshComponent()->GetCachedAnimCurveMappingNameUids());
 					AdditiveBasePose.SetBoneContainer(&PreviewInstance->GetRequiredBones());
 					Sequence->GetAdditiveBasePose(AdditiveBasePose, AdditiveCurve, FAnimExtractContext(PreviewInstance->GetCurrentTime()));
 					CSAdditiveBasePose.InitPose(AdditiveBasePose);
 				}
 
-				AdditiveBasePoses.AddUninitialized(PreviewInstance->GetRequiredBones().GetNumBones());
+				FBoneContainer& BoneContainer = PreviewInstance->GetRequiredBones();
+				const int32 NumSkeletonBones = BoneContainer.GetNumBones();
+
+				AdditiveBasePoses.AddUninitialized(NumSkeletonBones);
+
 				for (int32 i = 0; i < AdditiveBasePoses.Num(); ++i)
 				{
-					FCompactPoseBoneIndex CompactIndex = PreviewInstance->GetRequiredBones().MakeCompactPoseIndex(FMeshPoseBoneIndex(i));
-					AdditiveBasePoses[i] = CSAdditiveBasePose.GetComponentSpaceTransform(CompactIndex);
+					FCompactPoseBoneIndex CompactIndex = BoneContainer.MakeCompactPoseIndex(FMeshPoseBoneIndex(i));
+
+					// AdditiveBasePoses has one entry for every bone in the asset ref skeleton - if we're on a LOD
+					// we need to check this is actually valid for the current pose.
+					if(CSAdditiveBasePose.GetPose().IsValidIndex(CompactIndex))
+					{
+						AdditiveBasePoses[i] = CSAdditiveBasePose.GetComponentSpaceTransform(CompactIndex);
+					}
+					else
+					{
+						AdditiveBasePoses[i] = FTransform::Identity;
+					}
 				}
 			}
 		}

@@ -1,11 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	GPUSkinPublicDefs.h: Public definitions for GPU skinning.
 =============================================================================*/
 
-#ifndef __GPUSKINPUBLICDEFS_H__
-#define __GPUSKINPUBLICDEFS_H__
+#pragma once
+
 
 /** Max number of bone influences that a single skinned vert can have. */
 #define MAX_TOTAL_INFLUENCES		8
@@ -36,5 +36,5 @@ namespace SkinningTools
 	}
 }
 
-
-#endif // __GPUSKINPUBLICDEFS_H__
+// Number of frames buffered (2 would be enough for normal rendering as GPU produces and consumes but we need one more frame for velocity)
+#define GPUSKINCACHE_FRAMES 3

@@ -1,7 +1,7 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
-#include "MallocBinned2.h"
+#include "MallocBinned.h"
 #include "MallocAnsi.h"
 #include "unistd.h"
 #include <jni.h>
@@ -92,7 +92,7 @@ FMalloc* FAndroidPlatformMemory::BaseAllocator()
 	uint64 MemoryLimit = FMath::Min<uint64>( uint64(1) << FMath::CeilLogTwo(MemoryConstants.TotalPhysical), 0x100000000);
 
 	//return new FMallocAnsi();
-	return new FMallocBinned2(MemoryConstants.PageSize, MemoryLimit);
+	return new FMallocBinned(MemoryConstants.PageSize, MemoryLimit);
 }
 
 void* FAndroidPlatformMemory::BinnedAllocFromOS( SIZE_T Size )

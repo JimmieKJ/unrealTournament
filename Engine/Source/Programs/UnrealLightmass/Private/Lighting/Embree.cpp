@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "stdafx.h"
 #include "LightingSystem.h"
@@ -133,7 +133,7 @@ struct FEmbreeFilterProcessor
 	/**
 	 * Test if the ray comes from an HLOD (massive LOD) ignore intersection from other LODs of this HLOD.
 	 *
-	 * @return		true if the ray is allowed to intersect with this geometry.
+	 * @return		true if the ray is rejected.
      */
 	EMBREE_INLINE bool HitRejectedByHLODTest() const
 	{
@@ -142,8 +142,8 @@ struct FEmbreeFilterProcessor
 			uint32 GeoHLODIndex = (Geo.Mesh->GetLODIndices() & 0xFFFF0000) >> 16;
 			uint32 RayHLODIndex = (Ray.MappingMesh->GetLODIndices() & 0xFFFF0000) >> 16;
 
-			// If they are from the same HLOD (0xFFFF and 0 being invalid HLOD).
-			if (GeoHLODIndex != 0 && GeoHLODIndex != 0xFFFF && GeoHLODIndex == RayHLODIndex) 
+			// If either Geo or Ray is a HLOD (0xFFFF being invalid HLOD).
+			if (GeoHLODIndex != 0xFFFF || RayHLODIndex != 0xFFFF)
 			{
 				uint32 GeoHLODRange = Geo.Mesh->GetHLODRange();
 				uint32 GeoHLODRangeStart = GeoHLODRange & 0xFFFF;
@@ -153,10 +153,18 @@ struct FEmbreeFilterProcessor
 				uint32 RayHLODRangeStart = RayHLODRange & 0xFFFF;
 				uint32 RayHLODRangeEnd = (RayHLODRange & 0xFFFF0000) >> 16;
 
-				// If both are not leaf nodes (Start == End)
-				if (GeoHLODRangeStart != GeoHLODRangeEnd || RayHLODRangeStart != RayHLODRangeEnd)
+				// Different rules apply if we're dealing with the same cluster.
+				if (GeoHLODIndex != RayHLODIndex)
 				{
-					// If they are not the same HLOD mesh (identical ranges), ignore the children of this HLOD node (range would intersect)
+					// Allow HLOD leaf nodes (Start == End) to interact with other meshes, else reject.
+					if (GeoHLODRangeStart != GeoHLODRangeEnd)
+					{
+						return true;
+					}
+				}
+				else
+				{
+					// Allow HLOD nodes to self-shadow (identical ranges), else reject where range intersects.
 					if (GeoHLODRange != RayHLODRange && 
 						GeoHLODRangeStart <= RayHLODRangeEnd && RayHLODRangeStart <= GeoHLODRangeEnd)
 					{
@@ -421,12 +429,13 @@ bool EmbreeMemoryMonitor(const ssize_t bytes, const bool post)
 FEmbreeAggregateMesh::FEmbreeAggregateMesh(const FScene& InScene):
 	FStaticLightingAggregateMesh(InScene),
 	EmbreeDevice(NULL),
-	EmbreeScene(NULL)
+	EmbreeScene(NULL),
+	TotalNumTriangles(0)
 {
 	rtcDeviceSetMemoryMonitorFunction(InScene.EmbreeDevice, EmbreeMemoryMonitor);
 
 	EmbreeDevice = InScene.EmbreeDevice;
-	EmbreeScene = rtcDeviceNewScene(InScene.EmbreeDevice, RTC_SCENE_STATIC | RTC_SCENE_COHERENT, RTC_INTERSECT1);
+	EmbreeScene = rtcDeviceNewScene(InScene.EmbreeDevice, RTC_SCENE_STATIC, RTC_INTERSECT1);
 	check(rtcDeviceGetError(EmbreeDevice) == RTC_NO_ERROR);
 }
 
@@ -462,6 +471,8 @@ void FEmbreeAggregateMesh::AddMesh(const FStaticLightingMesh* Mesh, const FStati
 		// Sum the total triangle area of everything in the aggregate mesh
 		SceneSurfaceArea += Geo->SurfaceArea;
 		SceneSurfaceAreaWithinImportanceVolume += Geo->SurfaceAreaWithinImportanceVolume;
+
+		TotalNumTriangles += Mesh->NumTriangles;
 	}
 }
 
@@ -484,10 +495,14 @@ void FEmbreeAggregateMesh::DumpStats() const
 		LightmapUV += Geo->LightmapUVs.GetAllocatedSize();
 	}
 
-	UE_LOG(LogLightmass, Log, TEXT("Embree MeshInfos      : %7.1fMb"), MeshInfoSize / 1048576.0f);
-	UE_LOG(LogLightmass, Log, TEXT("Embree UVs            : %7.1fMb"), UVSize / 1048576.0f);
-	UE_LOG(LogLightmass, Log, TEXT("Embree LightmapUVs    : %7.1fMb"), LightmapUV / 1048576.0f);
-	UE_LOG(LogLightmass, Log, TEXT("Embree Allocations    : %7.1fMb"), GEmbreeAllocatedSpace / 1048576.0f);
+	UE_LOG(LogLightmass, Log, TEXT("\n"));
+	UE_LOG(LogLightmass, Log, TEXT("Collision Mesh Overview:"));
+	UE_LOG(LogLightmass, Log, TEXT("Num Triangles         : %d"), TotalNumTriangles);
+	UE_LOG(LogLightmass, Log, TEXT("MeshInfos             : %7.1fMb"), MeshInfoSize / 1048576.0f);
+	UE_LOG(LogLightmass, Log, TEXT("UVs                   : %7.1fMb"), UVSize / 1048576.0f);
+	UE_LOG(LogLightmass, Log, TEXT("LightmapUVs           : %7.1fMb"), LightmapUV / 1048576.0f);
+	UE_LOG(LogLightmass, Log, TEXT("Embree Used Memory    : %7.1fMb"), GEmbreeAllocatedSpace / 1048576.0f);
+	UE_LOG(LogLightmass, Log, TEXT("\n"));
 }
 
 bool FEmbreeAggregateMesh::IntersectLightRay(

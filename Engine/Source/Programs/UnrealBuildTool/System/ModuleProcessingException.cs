@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -18,7 +18,7 @@ namespace UnrealBuildTool
 			// Our build exceptions do not show the callstack so they are more friendly to users.
 			if (!string.IsNullOrEmpty(Message))
 			{
-				var Result = Message;
+				string Result = Message;
 				if (InnerException != null)
 				{
 					Result += '\n' + InnerException.ToString();

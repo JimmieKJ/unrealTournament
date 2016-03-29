@@ -1,8 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 class IAnalyticsProvider;
+class FEngineSessionManager;
 
 /**
  * The public interface for the engine's analytics provider singleton.
@@ -24,16 +25,19 @@ public:
 	 */
 	static ENGINE_API IAnalyticsProvider& GetProvider();
 	/** Helper function to determine if the provider is valid. */
-	static ENGINE_API bool IsAvailable() { return bShouldSendUsageEvents && Analytics.IsValid(); }
+	static ENGINE_API bool IsAvailable() { return Analytics.IsValid(); }
 	/** Called to initialize the singleton. */
-	static void Initialize();
+	static ENGINE_API void Initialize();
 	/** Called to shut down the singleton */
-	static void Shutdown();
+	static ENGINE_API void Shutdown(bool bIsEngineShutdown = false);
+
+	static ENGINE_API void Tick(float DeltaTime);
 
 private:
 	static bool bIsInitialized;
-	/** This allows us to "opt-out" of engine analytics. We still create a session, but we don't send any usage events. */
-	static bool bShouldSendUsageEvents;
+	static bool bIsEditorRun;
+	static bool bIsGameRun;
 	static TSharedPtr<IAnalyticsProvider> Analytics;
+	static TSharedPtr<FEngineSessionManager> SessionManager;
 };
 

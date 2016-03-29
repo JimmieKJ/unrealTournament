@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "ParticleDefinitions.h"
@@ -650,13 +650,27 @@ UParticleSystemComponent* UGameplayStatics::SpawnEmitterAtLocation(UObject* Worl
 		if (UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject))
 		{
 			UParticleSystemComponent* PSC = CreateParticleSystem(EmitterTemplate, World, World->GetWorldSettings(), bAutoDestroy);
-			PSC->SetAbsolute(true, true, true);
-			PSC->SetWorldLocationAndRotation(SpawnLocation, SpawnRotation);
-			PSC->SetRelativeScale3D(FVector(1.f));
+
+			PSC->bAbsoluteLocation = true;
+			PSC->bAbsoluteRotation = true;
+			PSC->bAbsoluteScale = true;
+			PSC->RelativeLocation = SpawnLocation;
+			PSC->RelativeRotation = SpawnRotation;
+			PSC->RelativeScale3D = FVector(1.f);
 
 			PSC->RegisterComponentWithWorld(World);
 
 			PSC->ActivateSystem(true);
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+			if (PSC->Template && PSC->Template->IsImmortal())
+			{
+				UE_LOG(LogParticles, Warning, TEXT("GameplayStatics::SpawnEmitterAtLocation spawned potentially immortal particle system! %s (%s) may stay in world despite never spawning particles after burst spawning is over."),
+					*(PSC->GetPathName()), *(PSC->Template->GetPathName())
+					);
+			}
+#endif
+
 			return PSC;
 		}
 	}
@@ -670,12 +684,26 @@ UParticleSystemComponent* UGameplayStatics::SpawnEmitterAtLocation(UWorld* World
 	{
 		PSC = CreateParticleSystem(EmitterTemplate, World, World->GetWorldSettings(), bAutoDestroy);
 
-		PSC->SetAbsolute(true, true, true);
-		PSC->SetWorldTransform(SpawnTransform);
+		PSC->bAbsoluteLocation = true;
+		PSC->bAbsoluteRotation = true;
+		PSC->bAbsoluteScale = true;
+		PSC->RelativeLocation = SpawnTransform.GetLocation();
+		PSC->RelativeRotation = SpawnTransform.GetRotation().Rotator();
+		PSC->RelativeScale3D = SpawnTransform.GetScale3D();
 
 		PSC->RegisterComponentWithWorld(World);
 
 		PSC->ActivateSystem(true);
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		if (PSC->Template && PSC->Template->IsImmortal())
+		{
+			UE_LOG(LogParticles, Warning, TEXT("GameplayStatics::SpawnEmitterAtLocation spawned potentially immortal particle system! %s (%s) may stay in world despite never spawning particles after burst spawning is over."),
+				*(PSC->GetPathName()), *(PSC->Template->GetPathName())
+				);
+		}
+#endif
+
 	}
 	return PSC;
 }
@@ -696,18 +724,36 @@ UParticleSystemComponent* UGameplayStatics::SpawnEmitterAttached(UParticleSystem
 			if (World && World->GetNetMode() != NM_DedicatedServer)
 			{
 				PSC = CreateParticleSystem(EmitterTemplate, World, AttachToComponent->GetOwner(), bAutoDestroy);
-				PSC->AttachTo(AttachToComponent, AttachPointName);
+				
+				PSC->AttachParent = AttachToComponent;
+				PSC->AttachSocketName = AttachPointName;
+
 				if (LocationType == EAttachLocation::KeepWorldPosition)
 				{
-					PSC->SetWorldLocationAndRotation(Location, Rotation);
+					const FTransform ParentToWorld = AttachToComponent->GetSocketTransform(AttachPointName);
+					const FTransform ComponentToWorld(Rotation, Location);
+					const FTransform RelativeTM = ComponentToWorld.GetRelativeTransform(ParentToWorld);
+					PSC->RelativeLocation = RelativeTM.GetLocation();
+					PSC->RelativeRotation = RelativeTM.GetRotation().Rotator();
 				}
 				else
 				{
-					PSC->SetRelativeLocationAndRotation(Location, Rotation);
+					PSC->RelativeLocation = Location;
+					PSC->RelativeRotation = Rotation;
 				}
-				PSC->SetRelativeScale3D(FVector(1.f));
+				PSC->RelativeScale3D = FVector(1.f);
+
 				PSC->RegisterComponentWithWorld(World);
 				PSC->ActivateSystem(true);
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+				if (PSC->Template && PSC->Template->IsImmortal())
+				{
+					UE_LOG(LogParticles, Log, TEXT("GameplayStatics::SpawnEmitterAttached spawned potentially immortal particle system! %s (%s) may stay in world despite never spawning particles after burst spawning is over."),
+						*(PSC->GetPathName()), *(PSC->Template->GetPathName())
+						);
+				}
+#endif
 			}
 		}
 	}
@@ -730,6 +776,26 @@ void UGameplayStatics::BreakHitResult(const FHitResult& Hit, bool& bBlockingHit,
 	HitItem = Hit.Item;
 	TraceStart = Hit.TraceStart;
 	TraceEnd = Hit.TraceEnd;
+}
+
+FHitResult UGameplayStatics::MakeHitResult(bool bBlockingHit, bool bInitialOverlap, float Time, FVector Location, FVector ImpactPoint, FVector Normal, FVector ImpactNormal, class UPhysicalMaterial* PhysMat, class AActor* HitActor, class UPrimitiveComponent* HitComponent, FName HitBoneName, int32 HitItem, FVector TraceStart, FVector TraceEnd)
+{
+	FHitResult Hit;
+	Hit.bBlockingHit = bBlockingHit;
+	Hit.bStartPenetrating = bInitialOverlap;
+	Hit.Time = Time;
+	Hit.Location = Location;
+	Hit.ImpactPoint = ImpactPoint;
+	Hit.Normal = Normal;
+	Hit.ImpactNormal = ImpactNormal;
+	Hit.PhysMaterial = PhysMat;
+	Hit.Actor = HitActor;
+	Hit.Component = HitComponent;
+	Hit.BoneName = HitBoneName;
+	Hit.Item = HitItem;
+	Hit.TraceStart = TraceStart;
+	Hit.TraceEnd = TraceEnd;
+	return Hit;
 }
 
 EPhysicalSurface UGameplayStatics::GetSurfaceType(const struct FHitResult& Hit)
@@ -779,6 +845,31 @@ void UGameplayStatics::SetGlobalPitchModulation(UObject* WorldContextObject, flo
 	}
 }
 
+void UGameplayStatics::SetGlobalListenerFocusParameters(UObject* WorldContextObject, float FocusAzimuthScale, float NonFocusAzimuthScale, float FocusDistanceScale, float NonFocusDistanceScale, float FocusVolumeScale, float NonFocusVolumeScale, float FocusPriorityScale, float NonFocusPriorityScale)
+{
+	if (!GEngine || !GEngine->UseSound())
+	{
+		return;
+	}
+
+	UWorld* ThisWorld = GEngine->GetWorldFromContextObject(WorldContextObject);
+	if (!ThisWorld || !ThisWorld->bAllowAudioPlayback || ThisWorld->GetNetMode() == NM_DedicatedServer)
+	{
+		return;
+	}
+
+	if (FAudioDevice* AudioDevice = ThisWorld->GetAudioDevice())
+	{
+		AudioDevice->GlobalFocusSettings.FocusAzimuthScale = FMath::Max(FocusAzimuthScale, 0.0f);
+		AudioDevice->GlobalFocusSettings.NonFocusAzimuthScale = FMath::Max(NonFocusAzimuthScale, 0.0f);
+		AudioDevice->GlobalFocusSettings.FocusDistanceScale = FMath::Max(FocusDistanceScale, 0.0f);
+		AudioDevice->GlobalFocusSettings.NonFocusDistanceScale = FMath::Max(NonFocusDistanceScale, 0.0f);
+		AudioDevice->GlobalFocusSettings.FocusVolumeScale = FMath::Max(FocusVolumeScale, 0.0f);
+		AudioDevice->GlobalFocusSettings.NonFocusVolumeScale = FMath::Max(NonFocusVolumeScale, 0.0f);
+		AudioDevice->GlobalFocusSettings.FocusPriorityScale = FMath::Max(FocusPriorityScale, 0.0f);
+		AudioDevice->GlobalFocusSettings.NonFocusPriorityScale = FMath::Max(NonFocusPriorityScale, 0.0f);
+	}
+}
 
 void UGameplayStatics::PlaySound2D(UObject* WorldContextObject, class USoundBase* Sound, float VolumeMultiplier, float PitchMultiplier, float StartTime, class USoundConcurrency* ConcurrencySettings)
 {
@@ -834,7 +925,7 @@ UAudioComponent* UGameplayStatics::CreateSound2D(UObject* WorldContextObject, cl
 		AudioComponent->bAllowSpatialization = false;
 		AudioComponent->bIsUISound = true;
 		AudioComponent->bAutoDestroy = true;
-		AudioComponent->SubtitlePriority = 10000.f; // Fixme: pass in? Do we want that exposed to blueprints though?		
+		AudioComponent->SubtitlePriority = Sound->GetSubtitlePriority();
 	}
 	return AudioComponent;
 }
@@ -864,51 +955,7 @@ void UGameplayStatics::PlaySoundAtLocation(UObject* WorldContextObject, class US
 
 	if (FAudioDevice* AudioDevice = ThisWorld->GetAudioDevice())
 	{
-		if (Sound->IsAudibleSimple(AudioDevice, Location, AttenuationSettings))
-		{
-			const bool bIsInGameWorld = ThisWorld->IsGameWorld();
-
-			FActiveSound NewActiveSound;
-			NewActiveSound.World = ThisWorld;
-			NewActiveSound.Sound = Sound;
-
-			NewActiveSound.VolumeMultiplier = VolumeMultiplier;
-			NewActiveSound.PitchMultiplier = PitchMultiplier;
-
-			NewActiveSound.RequestedStartTime = FMath::Max(0.f, StartTime);
-
-			NewActiveSound.bLocationDefined = true;
-			NewActiveSound.Transform.SetTranslation(Location);
-			NewActiveSound.Transform.SetRotation(FQuat(Rotation));
-
-			NewActiveSound.bIsUISound = !bIsInGameWorld;
-			NewActiveSound.bHandleSubtitles = true;
-			NewActiveSound.SubtitlePriority = 10000.f; // Fixme: pass in? Do we want that exposed to blueprints though?
-
-			const FAttenuationSettings* AttenuationSettingsToApply = (AttenuationSettings ? &AttenuationSettings->Attenuation : Sound->GetAttenuationSettingsToApply());
-
-			NewActiveSound.bHasAttenuationSettings = (bIsInGameWorld && AttenuationSettingsToApply);
-			if (NewActiveSound.bHasAttenuationSettings)
-			{
-				NewActiveSound.AttenuationSettings = *AttenuationSettingsToApply;
-				NewActiveSound.MaxDistance = NewActiveSound.AttenuationSettings.GetMaxDimension();
-			}
-			else
-			{
-				NewActiveSound.MaxDistance = Sound->GetMaxAudibleDistance();
-			}
-
-			NewActiveSound.ConcurrencySettings = ConcurrencySettings;
-			NewActiveSound.Priority = Sound->Priority;
-
-			// TODO - Audio Threading. This call would be a task call to dispatch to the audio thread
-			AudioDevice->AddNewActiveSound(NewActiveSound);
-		}
-		else
-		{
-			// Don't play a sound for short sounds that start out of range of any listener
-			UE_LOG(LogAudio, Log, TEXT("Sound not played for out of range Sound %s"), *Sound->GetName());
-		}
+		AudioDevice->PlaySoundAtLocation(Sound, ThisWorld, VolumeMultiplier, PitchMultiplier, StartTime, Location, Rotation, AttenuationSettings, ConcurrencySettings);
 	}
 }
 
@@ -937,7 +984,7 @@ UAudioComponent* UGameplayStatics::SpawnSoundAtLocation(UObject* WorldContextObj
 		AudioComponent->bAllowSpatialization	= bIsInGameWorld;
 		AudioComponent->bIsUISound				= !bIsInGameWorld;
 		AudioComponent->bAutoDestroy			= true;
-		AudioComponent->SubtitlePriority		= 10000.f; // Fixme: pass in? Do we want that exposed to blueprints though?
+		AudioComponent->SubtitlePriority		= DEFAULT_SUBTITLE_PRIORITY; // Fixme: pass in? Do we want that exposed to blueprints though?
 		AudioComponent->Play(StartTime);
 	}
 
@@ -961,11 +1008,18 @@ class UAudioComponent* UGameplayStatics::SpawnSoundAttached(class USoundBase* So
 	FVector TestLocation = Location;
 	if (LocationType != EAttachLocation::KeepWorldPosition)
 	{
-		TestLocation = AttachToComponent->GetRelativeTransform().TransformPosition(Location);
+		if (AttachPointName != NAME_None)
+		{
+			TestLocation = AttachToComponent->GetSocketTransform(AttachPointName).TransformPosition(Location);
+		}
+		else
+		{
+			TestLocation = AttachToComponent->GetComponentTransform().TransformPosition(Location);
+		}
 	}
 
 	UAudioComponent* AudioComponent = FAudioDevice::CreateComponent(Sound, AttachToComponent->GetWorld(), AttachToComponent->GetOwner(), false, bStopWhenAttachedToDestroyed, &TestLocation, AttenuationSettings, ConcurrencySettings);
-	if (AudioComponent)
+	if (AudioComponent && AudioComponent->GetWorld())
 	{
 		const bool bIsInGameWorld = AudioComponent->GetWorld()->IsGameWorld();
 
@@ -983,7 +1037,7 @@ class UAudioComponent* UGameplayStatics::SpawnSoundAttached(class USoundBase* So
 		AudioComponent->bAllowSpatialization	= bIsInGameWorld;
 		AudioComponent->bIsUISound				= !bIsInGameWorld;
 		AudioComponent->bAutoDestroy			= true;
-		AudioComponent->SubtitlePriority		= 10000.f; // Fixme: pass in? Do we want that exposed to blueprints though?
+		AudioComponent->SubtitlePriority		= DEFAULT_SUBTITLE_PRIORITY; // Fixme: pass in? Do we want that exposed to blueprints though?
 		AudioComponent->Play(StartTime);
 	}
 
@@ -1068,6 +1122,44 @@ void UGameplayStatics::PushSoundMixModifier(UObject* WorldContextObject, USoundM
 	if (FAudioDevice* AudioDevice = ThisWorld->GetAudioDevice())
 	{
 		AudioDevice->PushSoundMixModifier(InSoundMixModifier);
+	}
+}
+
+void UGameplayStatics::SetSoundMixClassOverride(UObject* WorldContextObject, class USoundMix* InSoundMixModifier, class USoundClass* InSoundClass, float Volume, float Pitch, float FadeInTime, bool bApplyToChildren)
+{
+	if (!InSoundMixModifier || !GEngine || !GEngine->UseSound())
+	{
+		return;
+	}
+
+	UWorld* ThisWorld = GEngine->GetWorldFromContextObject(WorldContextObject);
+	if (!ThisWorld || !ThisWorld->bAllowAudioPlayback)
+	{
+		return;
+	}
+
+	if (FAudioDevice* AudioDevice = ThisWorld->GetAudioDevice())
+	{
+		AudioDevice->SetSoundMixClassOverride(InSoundMixModifier, InSoundClass, Volume, Pitch, FadeInTime, bApplyToChildren);
+	}
+}
+
+void UGameplayStatics::ClearSoundMixClassOverride(UObject* WorldContextObject, class USoundMix* InSoundMixModifier, class USoundClass* InSoundClass, float FadeOutTime)
+{
+	if (!InSoundMixModifier || !GEngine || !GEngine->UseSound())
+	{
+		return;
+	}
+
+	UWorld* ThisWorld = GEngine->GetWorldFromContextObject(WorldContextObject);
+	if (!ThisWorld || !ThisWorld->bAllowAudioPlayback)
+	{
+		return;
+	}
+
+	if (FAudioDevice* AudioDevice = ThisWorld->GetAudioDevice())
+	{
+		AudioDevice->ClearSoundMixClassOverride(InSoundMixModifier, InSoundClass, FadeOutTime);
 	}
 }
 

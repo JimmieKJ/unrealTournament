@@ -1,9 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "ClassIconFinder.h"
 #include "AssetData.h"
 #include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
+#include "IPlacementModeModule.h"
 
 /**
  * A tile representation of the class or the asset.  These are embedded into the views inside
@@ -12,25 +13,14 @@
 class SPlacementAssetEntry : public SCompoundWidget
 {
 public:
+	SLATE_BEGIN_ARGS(SPlacementAssetEntry){}
 
-	SLATE_BEGIN_ARGS(SPlacementAssetEntry)
-		: _LabelOverride()
-		, _AlwaysUseGenericThumbnail(false)
-	{}
-	
-	/** Highlight this text in the text block */
-	SLATE_ATTRIBUTE(FText, HighlightText)
+		/** Highlight this text in the text block */
+		SLATE_ATTRIBUTE(FText, HighlightText)
 
-	SLATE_ARGUMENT(FText, LabelOverride)
-
-	SLATE_ARGUMENT(FName, ClassThumbnailBrushOverride)
-
-	SLATE_ARGUMENT(bool, AlwaysUseGenericThumbnail)
-
-	SLATE_ARGUMENT(TOptional<FLinearColor>, AssetTypeColorOverride)
 	SLATE_END_ARGS()
 
-	void Construct(const FArguments& InArgs, UActorFactory* InFactory, const FAssetData& InAsset);
+	void Construct(const FArguments& InArgs, const TSharedPtr<FPlaceableItem>& InItem);
 
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
@@ -38,10 +28,7 @@ public:
 
 	bool IsPressed() const;
 
-	FText AssetDisplayName;
-
-	UActorFactory* FactoryToUse;
-	FAssetData AssetData;
+	TSharedPtr<FPlaceableItem> Item;
 
 private:
 	const FSlateBrush* GetBorder() const;
@@ -68,89 +55,85 @@ public:
 
 private:
 
-	// Gets the border image for the tab, this is the 'active' orange bar.
-	const FSlateBrush* PlacementGroupBorderImage( int32 PlacementGroupIndex ) const;
-
-	// When the tab is clicked we adjust the check state, so that the right style is displayed.
-	void OnPlacementTabChanged( ECheckBoxState NewState, int32 PlacementGroupIndex );
-
-	// Gets the tab 'active' state, so that we can show the active style
-	ECheckBoxState GetPlacementTabCheckedState( int32 PlacementGroupIndex ) const;
-
-	// Create the standard panel displayed when no search is being performed.
-	TSharedRef< SWidget > CreateStandardPanel();
-
-	// Creates a tab widget to show on the left that when clicked actives the right widget switcher index.
-	TSharedRef< SWidget > CreatePlacementGroupTab( int32 TabIndex, FText TabText, bool Important );
-
-	// Builds the lights collection widget.
-	TSharedRef< SWidget > BuildLightsWidget();
-
-	// Builds the visual collection widget.
-	TSharedRef< SWidget > BuildVisualWidget();
-
-	// Builds the 'Basic' collection widget.
-	TSharedRef< SWidget > BuildBasicWidget();
-
-	// Called when the recently placed assets changes.
-	void UpdateRecentlyPlacedAssets( const TArray< FActorPlacementInfo >& RecentlyPlaced );
-
-	// Rebuilds the recently placed widget
-	void RefreshRecentlyPlaced();
-
-	// Rebuilds the 'Classes' widget.
-	void RefreshPlaceables();
-
-	// Rebuilds the 'Volumes' widget.
-	void RefreshVolumes();
-
 	// Begin SWidget
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 	virtual FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent ) override;
 	// End SWidget
 
 private:
+
+	/** Creates a tab widget to show on the left that when clicked sets the currently active tab */
+	TSharedRef< SWidget > CreatePlacementGroupTab( const FPlacementCategoryInfo& Info );
+
+	/** Generates a widget for the specified item */
+	TSharedRef<ITableRow> OnGenerateWidgetForItem(TSharedPtr<FPlaceableItem> InItem, const TSharedRef<STableViewBase>& OwnerTable);
+
+	/** Get the identifier of the currently active tab */
+	FName GetActiveTab() const;
+
+	/** Check if a search is active */
+	bool IsSearchActive() const;
+
+	/** Update the list of filtered items */
+	void UpdateFilteredItems();
+
+	/** Called when the recently placed assets changes. */
+	void UpdateRecentlyPlacedAssets( const TArray< FActorPlacementInfo >& RecentlyPlaced );
+
+private:
+
+	/** Gets the border image for the tab, this is the 'active' orange bar. */
+	const FSlateBrush* PlacementGroupBorderImage( FName CategoryName ) const;
+
+	/** When the tab is clicked we adjust the check state, so that the right style is displayed. */
+	void OnPlacementTabChanged( ECheckBoxState NewState, FName CategoryName );
+
+	/** Gets the tab 'active' state, so that we can show the active style */
+	ECheckBoxState GetPlacementTabCheckedState( FName CategoryName ) const;
+
+private:
+
+	/** Gets the visibility for the failed search text */
+	EVisibility GetFailedSearchVisibility() const;
+
+	/** Gets the visibility for the list view */
+	EVisibility GetListViewVisibility() const;
+
+	/** Gets the visibility for tabs */
+	EVisibility GetTabsVisibility() const;
+
+private:
+
+	/** Called when the search text changes */
 	void OnSearchChanged(const FText& InFilterText);
 
+	/** Get the text that should be highlighted on any items */
 	FText GetHighlightText() const;
 
-	// Get the selected panel (normal or search results)
-	int32 GetSelectedPanel() const;
-
-	void RebuildPlaceableClassWidgetCache();
-
-	// Flag set when the placeable widget needs to be rebuilt.
-	bool bPlaceablesRefreshRequested;
-
-	// Flag set when the placeable widget needs to be rebuilt including the placeable widget cache.
+private:
+	/** Flags to invoke updates of particular caregories on tick */
+	bool bRecentlyPlacedRefreshRequested;
 	bool bPlaceablesFullRefreshRequested;
 
-	// Flag set when the volumes widget needs to be rebuilt.
-	bool bVolumesRefreshRequested;
+	/** Flag to indicate that we need to update the filtered items array */
+	bool bNeedsUpdate;
 
 	// The text filter used to filter the classes
-	typedef TTextFilter<TSharedRef<SPlacementAssetEntry>> FPlacementAssetEntryTextFilter;
+	typedef TTextFilter<const FPlaceableItem&> FPlacementAssetEntryTextFilter;
 	TSharedPtr<FPlacementAssetEntryTextFilter> SearchTextFilter;
 
-	// The search box used to update the filter text
+	/** Custom content slot, where a category has a custom generator */
+	TSharedPtr<SBox> CustomContent;
+
+	/* The search box used to update the filter text */
 	TSharedPtr<SSearchBox> SearchBoxPtr;
 
-	// The list of placeable classes in widget form, these get put in the search results or
-	// the all classes view depending on which is currently visible.
-	TArray< TSharedRef<SPlacementAssetEntry> > PlaceableClassWidgets;
+	/** Array of filtered items to show in the list view */
+	TArray<TSharedPtr<FPlaceableItem>> FilteredItems;
 
-	// Holds the widget switcher.
-	TSharedPtr<SWidgetSwitcher> WidgetSwitcher;
+	/** The name of the currently active tab (where no search is active) */
+	FName ActiveTabName;
 
-	// The container widget for the recently placed.
-	TSharedPtr< SVerticalBox > RecentlyPlacedContainer;
-
-	// The container widget for the volumes.
-	TSharedPtr< SVerticalBox > VolumesContainer;
-
-	// The container widget for the classes.
-	TSharedPtr< SVerticalBox > PlaceablesContainer;
-
-	// The container widget for the classes search results.
-	TSharedPtr< SVerticalBox > SearchResultsContainer;
+	/** List view that shows placeable items */
+	TSharedPtr<SListView<TSharedPtr<FPlaceableItem>>> ListView;
 };

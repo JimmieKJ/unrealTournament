@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -31,6 +31,9 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_ApplyAdditive : public FAnimNode_Base
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Performance, meta=(DisplayName="LOD Threshold"))
 	int32 LODThreshold;
+
+	UPROPERTY(Transient)
+	float ActualAlpha;
 
 public:	
 	FAnimNode_ApplyAdditive();

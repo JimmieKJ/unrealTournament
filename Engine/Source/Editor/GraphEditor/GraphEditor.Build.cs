@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -25,12 +25,6 @@ public class GraphEditor : ModuleRules
             }
         );
 
-		PrivateIncludePathModuleNames.AddRange(
-			new string[] { 
-				"EditorWidgets"
-			}
-		);
-
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
                 "AppFramework",
@@ -41,6 +35,7 @@ public class GraphEditor : ModuleRules
 				"Slate",
 				"SlateCore",
                 "EditorStyle",
+				"EditorWidgets",
 				"UnrealEd",
 				"AssetRegistry",
 				"ClassViewer",
@@ -56,7 +51,6 @@ public class GraphEditor : ModuleRules
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[] {
 				"ContentBrowser",
-				"EditorWidgets"
 			}
 		);
 	}

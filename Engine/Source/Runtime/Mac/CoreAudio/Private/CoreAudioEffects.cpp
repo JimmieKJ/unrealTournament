@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	CodeAudioEffects.cpp: Unreal CoreAudio audio effects interface object.
@@ -164,9 +164,10 @@ void FCoreAudioEffectsManager::SetReverbEffectParameters( const FAudioReverbEffe
  */
 void FCoreAudioEffectsManager::SetEQEffectParameters( const FAudioEQEffect& Params )
 {
-	float LowGain = VolumeToDeciBels(Params.LFGain);
-	float CenterGain = VolumeToDeciBels(Params.MFGain);
-	float HighGain = VolumeToDeciBels(Params.HFGain);
+	float Gain0 = VolumeToDeciBels(Params.Gain0);
+	float Gain1 = VolumeToDeciBels(Params.Gain1);
+	float Gain2 = VolumeToDeciBels(Params.Gain2);
+	float Gain3 = VolumeToDeciBels(Params.Gain3);
 
 	for( uint32 Index = 1; Index < CORE_AUDIO_MAX_CHANNELS + 1; Index++ )
 	{
@@ -175,21 +176,21 @@ void FCoreAudioEffectsManager::SetEQEffectParameters( const FAudioEQEffect& Para
 		{
 			if (Source->EQUnit)
 			{
-				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Frequency + 0,	kAudioUnitScope_Global, 0, Params.LFFrequency,			0);
-				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Gain + 0,			kAudioUnitScope_Global, 0, LowGain,						0);
-				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Bandwidth + 0,	kAudioUnitScope_Global, 0, 1.0f,						0);	// from FXEQ_DEFAULT_BANDWIDTH
+				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Frequency + 0,	kAudioUnitScope_Global, 0, Params.FrequencyCenter0,		0);
+				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Gain + 0,			kAudioUnitScope_Global, 0, Gain0,						0);
+				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Bandwidth + 0,	kAudioUnitScope_Global, 0, Params.Bandwidth0,			0);
 
-				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Frequency + 1,	kAudioUnitScope_Global, 0, Params.MFCutoffFrequency,	0);
-				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Gain + 1,			kAudioUnitScope_Global, 0, CenterGain,					0);
-				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Bandwidth + 1,	kAudioUnitScope_Global, 0, Params.MFBandwidth,			0);
+				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Frequency + 1,	kAudioUnitScope_Global, 0, Params.FrequencyCenter1,		0);
+				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Gain + 1,			kAudioUnitScope_Global, 0, Gain1,						0);
+				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Bandwidth + 1,	kAudioUnitScope_Global, 0, Params.Bandwidth1,			0);
 
-				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Frequency + 2,	kAudioUnitScope_Global, 0, Params.HFFrequency,			0);
-				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Gain + 2,			kAudioUnitScope_Global, 0, HighGain,					0);
-				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Bandwidth + 2,	kAudioUnitScope_Global, 0, 1.0f,						0); // from FXEQ_DEFAULT_BANDWIDTH
+				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Frequency + 2,	kAudioUnitScope_Global, 0, Params.FrequencyCenter2,		0);
+				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Gain + 2,			kAudioUnitScope_Global, 0, Gain2,						0);
+				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Bandwidth + 2,	kAudioUnitScope_Global, 0, Params.Bandwidth2,			0);
 
-				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Frequency + 3,	kAudioUnitScope_Global, 0, 10000.0f,					0);	// from FXEQ_DEFAULT_CENTER_3
-				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Gain + 3,			kAudioUnitScope_Global, 0, 1.0,							0); // from FXEQ_DEFAULT_GAIN
-				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Bandwidth + 3,	kAudioUnitScope_Global, 0, 1.0f,						0); // from FXEQ_DEFAULT_BANDWIDTH
+				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Frequency + 3,	kAudioUnitScope_Global, 0, Params.FrequencyCenter3,		0);
+				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Gain + 3,			kAudioUnitScope_Global, 0, Gain3,						0);
+				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Bandwidth + 3,	kAudioUnitScope_Global, 0, Params.Bandwidth3,			0);
 			}
 
 			if (Source->LowPassUnit && Source->LPFFrequency < MAX_FILTER_FREQUENCY)
