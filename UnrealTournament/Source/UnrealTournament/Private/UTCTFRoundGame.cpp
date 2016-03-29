@@ -671,10 +671,28 @@ void AUTCTFRoundGame::ScoreOutOfLives(int32 WinningTeamIndex)
 
 void AUTCTFRoundGame::CheckGameTime()
 {
-	if ((GetMatchState() == MatchState::InProgress) && TimeLimit > 0 && UTGameState->RemainingTime <= 0)
+	if ((GetMatchState() == MatchState::InProgress) && TimeLimit > 0)
 	{
-		// Round is over, defense wins.
-		ScoreOutOfLives(bRedToCap ? 1 : 0);
+		if (UTGameState && UTGameState->RemainingTime <= 0)
+		{
+			// Round is over, defense wins.
+			ScoreOutOfLives(bRedToCap ? 1 : 0);
+		}
+		else
+		{
+			// increase defender respawn time by one second every minute
+			if (UTGameState->RemainingTime % 60 == 0)
+			{
+				for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+				{
+					AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+					if (PS && !PS->bOutOfLives && !PS->bIsInactive && bAsymmetricVictoryConditions && !IsPlayerOnLifeLimitedTeam(*PS))
+					{
+						PS->RespawnWaitTime += 1.f;
+					}
+				}
+			}
+		}
 	}
 	else
 	{
