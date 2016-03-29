@@ -124,10 +124,6 @@ public:
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = NotifyTeamChanged, Category = PlayerState)
 	class AUTTeamInfo* Team;
 
-	/** Whether this player is waiting to enter match */
-	UPROPERTY(BlueprintReadOnly, replicated, Category = PlayerState)
-	uint32 bWaitingPlayer:1;
-
 	/** Whether this player has confirmed ready to play */
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	uint32 bReadyToPlay:1;
@@ -424,9 +420,6 @@ public:
 
 	UFUNCTION()
 	virtual void ClearCarriedObject(AUTCarriedObject* OldCarriedObject);
-
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
-	virtual void SetWaitingPlayer(bool B);
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
 	virtual void IncrementKills(TSubclassOf<UDamageType> DamageType, bool bEnemyKill, AUTPlayerState* VictimPS=NULL);

@@ -42,7 +42,6 @@ static inline ELoadFlags GetCosmeticLoadFlags()
 AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	bWaitingPlayer = false;
 	bReadyToPlay = false;
 	bPendingTeamSwitch = false;
 	bCaster = false;
@@ -82,7 +81,6 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AUTPlayerState, CarriedObject);
-	DOREPLIFETIME(AUTPlayerState, bWaitingPlayer);
 	DOREPLIFETIME(AUTPlayerState, bReadyToPlay);
 	DOREPLIFETIME(AUTPlayerState, bPendingTeamSwitch);
 	DOREPLIFETIME(AUTPlayerState, RespawnWaitTime);
@@ -341,13 +339,6 @@ void AUTPlayerState::NotifyTeamChanged_Implementation()
 			}
 		}
 	}
-}
-
-void AUTPlayerState::SetWaitingPlayer(bool B)
-{
-	bIsSpectator = B;
-	bWaitingPlayer = B;
-	ForceNetUpdate();
 }
 
 void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bEnemyKill, AUTPlayerState* VictimPS)
