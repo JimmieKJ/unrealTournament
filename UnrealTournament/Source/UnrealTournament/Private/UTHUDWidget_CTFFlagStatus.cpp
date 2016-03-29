@@ -104,7 +104,8 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 			FVector ViewDir = ViewRotation.Vector();
 			bDrawInWorld = true;
 			float Edge = CircleBorder[Team].GetWidth()* WorldRenderScale;
-			ScreenPosition = GetAdjustedScreenPosition(WorldPosition, ViewPoint, ViewDir, Dist, Edge, bDrawEdgeArrow);
+			float EdgeYPos = (Team == 0) ? 0.3f*GetCanvas()->ClipY : 0.25f*Canvas->ClipY;
+			ScreenPosition = GetAdjustedScreenPosition(WorldPosition, ViewPoint, ViewDir, Dist, Edge, EdgeYPos, bDrawEdgeArrow);
 
 			if (bDrawInWorld && (Base->GetCarriedObject()->IsHome() || !GS->bAsymmetricVictoryConditions))
 			{
@@ -154,7 +155,7 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 				}
 
 				bDrawInWorld = true;
-				ScreenPosition = GetAdjustedScreenPosition(WorldPosition, ViewPoint, ViewDir, Dist, Edge, bDrawEdgeArrow);
+				ScreenPosition = GetAdjustedScreenPosition(WorldPosition, ViewPoint, ViewDir, Dist, Edge, EdgeYPos, bDrawEdgeArrow);
 			}
 
 			if (bDrawInWorld)
@@ -275,15 +276,16 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 	}	
 }
 
-FVector UUTHUDWidget_CTFFlagStatus::GetAdjustedScreenPosition(const FVector& WorldPosition, const FVector& ViewPoint, const FVector& ViewDir, float Dist, float Edge, bool& bDrawEdgeArrow)
+FVector UUTHUDWidget_CTFFlagStatus::GetAdjustedScreenPosition(const FVector& WorldPosition, const FVector& ViewPoint, const FVector& ViewDir, float Dist, float Edge, float EdgeYPos, bool& bDrawEdgeArrow)
 {
 	FVector ScreenPosition;
+	float ExtraPadding = 0.05f * Canvas->ClipX;
 	if ((ViewDir | (WorldPosition - ViewPoint)) < 0.f)
 	{
 		bool bLeftOfScreen = (ScreenPosition.X < 0.5f*GetCanvas()->ClipX);
 		bDrawEdgeArrow = true;
-		ScreenPosition.X = bLeftOfScreen ? Edge : GetCanvas()->ClipX - Edge;
-		ScreenPosition.Y = 0.3f*GetCanvas()->ClipY;
+		ScreenPosition.X = bLeftOfScreen ? Edge+ ExtraPadding : GetCanvas()->ClipX - Edge - ExtraPadding;
+		ScreenPosition.Y = EdgeYPos;
 		return ScreenPosition;
 	}
 	ScreenPosition = GetCanvas()->Project(WorldPosition);
@@ -291,8 +293,8 @@ FVector UUTHUDWidget_CTFFlagStatus::GetAdjustedScreenPosition(const FVector& Wor
 	{
 		bool bLeftOfScreen = (ScreenPosition.X < 0.f);
 		bDrawEdgeArrow = true;
-		ScreenPosition.X = bLeftOfScreen ? Edge : GetCanvas()->ClipX - Edge;
-		ScreenPosition.Y = 0.3f*GetCanvas()->ClipY;
+		ScreenPosition.X = bLeftOfScreen ? Edge+ ExtraPadding : GetCanvas()->ClipX - Edge - ExtraPadding;
+		ScreenPosition.Y = EdgeYPos;
 	}
 	else
 	{
