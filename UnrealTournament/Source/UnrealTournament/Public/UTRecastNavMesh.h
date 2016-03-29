@@ -52,6 +52,7 @@ protected:
 	/** set if this is a direct target with no navmesh bindings (AI moving to this will go in a straight line from its current location) */
 	UPROPERTY()
 	bool bDirectTarget;
+
 public:
 	/** polygon to target to reach this route point
 	 * for nodes, this is the first poly on the node that connects to the previous node
@@ -376,6 +377,13 @@ class UNREALTOURNAMENT_API AUTRecastNavMesh : public ARecastNavMesh
 	virtual void RemoveFromNavigation(AActor* OldPOI);
 
 private:
+	
+	// Hopefully the only magic number needed for nav mesh versions, but being safe
+	uint32 NavMeshMagicNumberVersion1;
+
+	// The last released serialization version
+	int32 UE4VerForUnversionedNavMesh;
+
 	// hidden, use UTFindNearestPoly() instead
 	NavNodeRef FindNearestPoly(FVector const& Loc, FVector const& Extent, TSharedPtr<const FNavigationQueryFilter> Filter = NULL, const UObject* Querier = NULL) const
 	{
