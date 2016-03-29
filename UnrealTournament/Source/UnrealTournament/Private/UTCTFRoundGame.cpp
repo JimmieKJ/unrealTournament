@@ -133,11 +133,8 @@ void AUTCTFRoundGame::GiveDefaultInventory(APawn* PlayerPawn)
 	{
 		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(UTCharacter->PlayerState);
 		bool bOnLastLife = (UTPlayerState && (UTPlayerState->RemainingLives == 0) && UTPlayerState->bHasLifeLimit);
-		if (bOnLastLife || (CTFGameState && (CTFGameState->CTFRound > 2)))
-		{
-			TSubclassOf<AUTInventory> StartingArmor = bOnLastLife  ? ShieldBeltClass : ThighPadClass;
-			UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(StartingArmor, FVector(0.0f), FRotator(0.f, 0.f, 0.f)), true);
-		}
+		TSubclassOf<AUTInventory> StartingArmor = bOnLastLife  ? ShieldBeltClass : ThighPadClass;
+		UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(StartingArmor, FVector(0.0f), FRotator(0.f, 0.f, 0.f)), true);
 	}
 }
 
