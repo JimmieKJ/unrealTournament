@@ -325,6 +325,11 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 		}
 	}
 
+	if (GameSession->MaxPlayers <= 0)
+	{
+		GameSession->MaxPlayers = 16;
+	}
+
 	PostInitGame(Options);
 
 	UE_LOG(UT, Log, TEXT("LobbyInstanceID: %i"), LobbyInstanceID);

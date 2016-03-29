@@ -52,6 +52,10 @@ void AUTTeamShowdownGame::InitGame(const FString& MapName, const FString& Option
 		BotFillCount = UGameplayStatics::GetIntOption(Options, TEXT("BotFill"), SavedBotFillCount);
 	}
 	GameSession->MaxPlayers = UGameplayStatics::GetIntOption(Options, TEXT("MaxPlayers"), 8);
+	if (GameSession->MaxPlayers <= 0)
+	{
+		GameSession->MaxPlayers = 6;
+	}
 }
 
 bool AUTTeamShowdownGame::CheckRelevance_Implementation(AActor* Other)
