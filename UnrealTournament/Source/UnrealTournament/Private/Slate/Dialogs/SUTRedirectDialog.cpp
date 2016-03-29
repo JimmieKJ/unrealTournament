@@ -204,7 +204,7 @@ void SUTRedirectDialog::HttpRequestComplete(FHttpRequestPtr InHttpRequest, FHttp
 
 				if (FCoreDelegates::OnMountPak.IsBound())
 				{
-					FCoreDelegates::OnMountPak.Execute(FullFilePath, 0);
+					FCoreDelegates::OnMountPak.Execute(FullFilePath, 0, nullptr);
 					UTEngine->MountedDownloadedContentChecksums.Add(BaseFilename, MD5);
 					UTEngine->AddAssetRegistry(BaseFilename);
 				}

@@ -57,8 +57,8 @@ UUTMatchmaking::UUTMatchmaking(const FObjectInitializer& ObjectInitializer) :
 
 	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
-		FQosInterface* QosInterface = FQosInterface::Get();
-		QosEvaluator = ensure(QosInterface) ? QosInterface->CreateQosEvaluator() : nullptr;
+		TSharedRef<FQosInterface> QosInterface = FQosInterface::Get();
+		//QosEvaluator = ensure(QosInterface) ? QosInterface->CreateQosEvaluator() : nullptr;
 	}
 }
 
@@ -263,12 +263,13 @@ void UUTMatchmaking::CancelMatchmaking()
 	if (Matchmaking)
 	{
 		ensure(ReservationBeaconClient == nullptr);
+		/*
 		if (QosEvaluator && QosEvaluator->IsActive())
 		{
 			UE_LOG(LogOnlineGame, Verbose, TEXT("Cancelling during qos evaluation"));
 			QosEvaluator->Cancel();
 		}
-		else
+		else*/
 		{
 			UE_LOG(LogOnlineGame, Verbose, TEXT("Cancelling during matchmaking"));
 			Matchmaking->CancelMatchmaking();
@@ -527,7 +528,7 @@ void UUTMatchmaking::LookupTeamElo(EQosCompletionResult Result, const FString& D
 {
 	UE_LOG(LogOnline, Log, TEXT("LookupTeamElo %d"), (int32)Result);
 
-	QosEvaluator->SetAnalyticsProvider(nullptr);
+	//QosEvaluator->SetAnalyticsProvider(nullptr);
 	
 	UUTMcpUtils* McpUtils = nullptr;
 	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
@@ -544,9 +545,7 @@ void UUTMatchmaking::LookupTeamElo(EQosCompletionResult Result, const FString& D
 		}
 	}
 
-	if (McpUtils && Matchmaking &&
-		(Result == EQosCompletionResult::Cached || Result == EQosCompletionResult::Success)
-		)
+	if (McpUtils && Matchmaking && Result == EQosCompletionResult::Success)
 	{
 		InParams.DatacenterId = DatacenterId;
 

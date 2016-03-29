@@ -292,7 +292,7 @@ void UUTGameInstance::StartRecordingReplay(const FString& Name, const FString& F
 	}
 	else
 	{
-		UE_LOG(UT, VeryVerbose, TEXT("Num Network Actors: %i"), CurrentWorld->NetworkActors.Num());
+		//UE_LOG(UT, VeryVerbose, TEXT("Num Network Actors: %i"), CurrentWorld->NetworkActors.Num());
 	}
 }
 void UUTGameInstance::PlayReplay(const FString& Name, UWorld* WorldOverride, const TArray<FString>& AdditionalOptions)

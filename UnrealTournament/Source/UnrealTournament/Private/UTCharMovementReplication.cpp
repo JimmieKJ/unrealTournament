@@ -782,7 +782,7 @@ void UUTCharacterMovement::ProcessServerMove(float TimeStamp, FVector InAccel, F
 	const FVector Accel = bServerReadyForClient ? InAccel : FVector::ZeroVector;
 
 	// Save move parameters.
-	const float DeltaTime = ServerData->GetServerMoveDeltaTime(TimeStamp) * CharacterOwner->CustomTimeDilation;
+	const float DeltaTime = ServerData->GetServerMoveDeltaTime(TimeStamp, CharacterOwner->CustomTimeDilation);
 	ServerData->CurrentClientTimeStamp = TimeStamp;
 	ServerData->ServerTimeStamp = GetWorld()->GetTimeSeconds();
 	if (PC)
@@ -950,7 +950,7 @@ void UUTCharacterMovement::ProcessQuickServerMove(float TimeStamp, FVector InAcc
 	const FVector Accel = bServerReadyForClient ? InAccel : FVector::ZeroVector;
 
 	// Save move parameters.
-	const float DeltaTime = ServerData->GetServerMoveDeltaTime(TimeStamp) * CharacterOwner->CustomTimeDilation;
+	const float DeltaTime = ServerData->GetServerMoveDeltaTime(TimeStamp, CharacterOwner->CustomTimeDilation);
 	ServerData->CurrentClientTimeStamp = TimeStamp;
 	ServerData->ServerTimeStamp = GetWorld()->GetTimeSeconds();
 	//UE_LOG(UT, Warning, TEXT("2ServerTimeStamp to %f"), ServerData->ServerTimeStamp);
@@ -989,7 +989,7 @@ void UUTCharacterMovement::ProcessSavedServerMove(float TimeStamp, FVector InAcc
 	const FVector Accel = bServerReadyForClient ? InAccel : FVector::ZeroVector;
 
 	// Save move parameters.
-	const float DeltaTime = ServerData->GetServerMoveDeltaTime(TimeStamp) * CharacterOwner->CustomTimeDilation;
+	const float DeltaTime = ServerData->GetServerMoveDeltaTime(TimeStamp, CharacterOwner->CustomTimeDilation);
 	ServerData->CurrentClientTimeStamp = TimeStamp;
 	ServerData->ServerTimeStamp = GetWorld()->GetTimeSeconds();
 	//UE_LOG(UT, Warning, TEXT("3ServerTimeStamp to %f"), ServerData->ServerTimeStamp);
@@ -1047,7 +1047,7 @@ void UUTCharacterMovement::ProcessOldServerMove(float OldTimeStamp, FVector OldA
 	}
 
 	//UE_LOG(LogNetPlayerMovement, Warning, TEXT("Recovered move from OldTimeStamp %f, DeltaTime: %f"), OldTimeStamp, OldTimeStamp - ServerData->CurrentClientTimeStamp);
-	const float MaxResponseTime = ServerData->MaxResponseTime * CharacterOwner->GetWorldSettings()->GetEffectiveTimeDilation();
+	const float MaxResponseTime = ServerData->MaxMoveDeltaTime * CharacterOwner->GetWorldSettings()->GetEffectiveTimeDilation();
 
 	MoveAutonomous(OldTimeStamp, FMath::Min(OldTimeStamp - ServerData->CurrentClientTimeStamp, MaxResponseTime), OldMoveFlags, OldAccel);
 	ServerData->CurrentClientTimeStamp = OldTimeStamp;

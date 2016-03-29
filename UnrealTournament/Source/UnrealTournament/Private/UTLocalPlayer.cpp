@@ -3297,7 +3297,7 @@ bool UUTLocalPlayer::ContentExists(const FPackageRedirectReference& Redirect)
 				// Mount the pak
 				if (FCoreDelegates::OnMountPak.IsBound())
 				{
-					FCoreDelegates::OnMountPak.Execute(Path, 0);
+					FCoreDelegates::OnMountPak.Execute(Path, 0, nullptr);
 					UTEngine->MountedDownloadedContentChecksums.Add(Redirect.PackageName, Redirect.PackageChecksum);
 				}
 

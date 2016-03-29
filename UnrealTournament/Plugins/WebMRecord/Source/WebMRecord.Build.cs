@@ -52,7 +52,7 @@ namespace UnrealBuildTool.Rules
             PublicAdditionalLibraries.Add(GDLibPath);
             Definitions.Add("BGDWIN32");
 
-            AddThirdPartyPrivateStaticDependencies(Target, "Vorbis", "UEOgg");
+            AddEngineThirdPartyPrivateStaticDependencies(Target, "Vorbis", "UEOgg");
 
             string VorbisPath = UEBuildConfiguration.UEThirdPartySourceDirectory + "Vorbis/libvorbis-1.3.2/";
 

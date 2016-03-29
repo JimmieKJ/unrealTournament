@@ -226,12 +226,12 @@ private:
 	TSharedRef<FOnlineHttpRequest> CreateRequest(const FString& Verb, const FString& Path) const;
 
 	/** Generic send http request */
-	void SendRequest(const TSharedRef<class FOnlineHttpRequest>& Request, const TFunction<bool(const FHttpResponsePtr& HttpResponse)>& OnComplete);
+	void SendRequest(const TSharedRef<class IHttpRequest>& Request, const TFunction<bool(const FHttpResponsePtr& HttpResponse)>& OnComplete);
 
 	/**
-	* Delegate fired when Http Requests complete (generic)
-	*/
-	void HttpRequestComplete(TSharedRef<FHttpRetrySystem::FRequest>& HttpRequest, bool bSucceeded, TFunction<bool(const FHttpResponsePtr& HttpResponse)> OnComplete);
+	 * Delegate fired when Http Requests complete (generic)
+	 */
+	void HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded, TFunction<bool(const FHttpResponsePtr& HttpResponse)> OnComplete);
 #endif
 
 	TWeakObjectPtr<UWorld> OwnerWorld;

@@ -133,24 +133,24 @@ void SUTWebBrowserPanel::OnHidePanel()
 	}
 }
 
-bool SUTWebBrowserPanel::BeforeBrowse(const FString& TargetURL, bool bRedirect)
+bool SUTWebBrowserPanel::BeforeBrowse(const FString& TargetURL, const FWebNavigationRequest& WebRequest)
 {
 	if (OnBeforeBrowse.IsBound())
 	{
-		return OnBeforeBrowse.Execute(TargetURL, bRedirect);
+		return OnBeforeBrowse.Execute(TargetURL, WebRequest);
 	}
 	
 	return false;
 }
 
-bool SUTWebBrowserPanel::BeforePopup(FString URL, FString Target)
+bool SUTWebBrowserPanel::BeforePopup(FString TargetURL, FString FrameName)
 {
 	if (OnBeforePopup.IsBound())
 	{
-		return OnBeforePopup.Execute(URL, Target);
+		return OnBeforePopup.Execute(TargetURL, FrameName);
 	}
 
-	DesiredURL = URL;
+	DesiredURL = TargetURL;
 	// These events happen on the render thread.  So we have to stall and wait for the game thread otherwise
 	// slate will "crash" via assert.
 	bShowWarning = true;	

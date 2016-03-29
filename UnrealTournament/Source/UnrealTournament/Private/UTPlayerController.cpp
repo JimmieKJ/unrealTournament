@@ -20,6 +20,7 @@
 #include "UTDroppedPickup.h"
 #include "UTGameEngine.h"
 #include "UnrealNetwork.h"
+#include "Engine/NetConnection.h"
 #include "UTProfileSettings.h"
 #include "UTProgressionStorage.h"
 #include "UTViewPlaceholder.h"
@@ -1563,16 +1564,16 @@ void AUTPlayerController::TouchStarted(const ETouchIndex::Type FingerIndex, cons
 void AUTPlayerController::HearSound(USoundBase* InSoundCue, AActor* SoundPlayer, const FVector& SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume)
 {
 	bool bIsOccluded = false;
-	if (SoundPlayer == this || (GetViewTarget() != NULL && (bAmplifyVolume || InSoundCue->IsAudible(SoundLocation, GetViewTarget()->GetActorLocation(), (SoundPlayer != NULL) ? SoundPlayer : this, bIsOccluded, true))))
+	if (SoundPlayer == this || (GetViewTarget() != NULL && (bAmplifyVolume || InSoundCue->GetMaxAudibleDistance() <= (SoundLocation - GetViewTarget()->GetActorLocation()).Size())))
 	{
 		// we don't want to replicate the location if it's the same as Actor location (so the sound gets played attached to the Actor), but we must if the source Actor isn't relevant
 		UNetConnection* Conn = Cast<UNetConnection>(Player);
 		FVector RepLoc = (SoundPlayer != NULL && SoundPlayer->GetActorLocation() == SoundLocation && (Conn == NULL || Conn->ActorChannels.Contains(SoundPlayer))) ? FVector::ZeroVector : SoundLocation;
-		ClientHearSound(InSoundCue, SoundPlayer, RepLoc, bStopWhenOwnerDestroyed, bIsOccluded, bAmplifyVolume);
+		ClientHearSound(InSoundCue, SoundPlayer, RepLoc, bStopWhenOwnerDestroyed, bAmplifyVolume);
 	}
 }
 
-void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, AActor* SoundPlayer, FVector_NetQuantize SoundLocation, bool bStopWhenOwnerDestroyed, bool bIsOccluded, bool bAmplifyVolume)
+void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, AActor* SoundPlayer, FVector_NetQuantize SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume)
 {
 	if (TheSound != NULL && (SoundPlayer != NULL || !SoundLocation.IsZero()))
 	{
@@ -1602,7 +1603,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 		else
 		{
 			USoundAttenuation* AttenuationOverride = NULL;
-			float VolumeMultiplier = bIsOccluded ? 0.5f : 1.0f;
+			float VolumeMultiplier = 1.0f;
 			if (bAmplifyVolume)
 			{
 				// the UGameplayStatics functions copy the FAttenuationSettings by value so no need to create more than one, just reuse
@@ -1631,6 +1632,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 					AttenuationOverride->Attenuation.FalloffDistance *= 1.7f;
 				}
 			}
+
 			if (!SoundLocation.IsZero() && (SoundPlayer == NULL || SoundLocation != SoundPlayer->GetActorLocation()))
 			{
 				UGameplayStatics::PlaySoundAtLocation(GetWorld(), TheSound, SoundLocation, VolumeMultiplier, 1.0f, 0.0f, AttenuationOverride);

@@ -1194,6 +1194,11 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             AddDependency(WaitForUnrealTournamentBuildUserInputNode.StaticGetFullName(GameProj));
         }
 
+        public override string[] GetAgentTypes()
+        {
+            return new string[] { };
+        }
+
         public static string StaticGetFullName(BranchInfo.BranchUProject InGameProj)
         {
             return InGameProj.GameName + "_MakeBuild";
@@ -1966,7 +1971,7 @@ public class MakeUTDLC : BuildCommand
                 ExecutablesToStage,
                 InDedicatedServer,
                 Params.Cook || Params.CookOnTheFly,
-                Params.CrashReporter && !(StagePlatform == UnrealTargetPlatform.Linux && Params.Rocket), // can't include the crash reporter from binary Linux builds
+                Params.CrashReporter && !(StagePlatform == UnrealTargetPlatform.Linux), // can't include the crash reporter from binary Linux builds
                 Params.Stage,
                 Params.CookOnTheFly,
                 Params.Archive,

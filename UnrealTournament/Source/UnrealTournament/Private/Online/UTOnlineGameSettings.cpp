@@ -3,8 +3,8 @@
 #include "UnrealTournament.h"
 #include "UTOnlineGameSettings.h"
 #include "UTOnlineGameSettingsBase.h"
-#include "Qos.h"
 #include "UTPartyBeaconState.h"
+#include "QosInterface.h"
 
 FUTOnlineSessionSettings::FUTOnlineSessionSettings(bool bIsLAN, bool bIsPresence, int32 MaxNumPlayers)
 {
@@ -19,7 +19,7 @@ FUTOnlineSessionSettings::FUTOnlineSessionSettings(bool bIsLAN, bool bIsPresence
 	bAllowJoinViaPresence = true;
 	bAllowJoinViaPresenceFriendsOnly = false;
 	
-	FString Region = UQosEvaluator::GetDefaultRegionString();
+	FString Region = FQosInterface::GetDefaultRegionString();
 	FString RegionOverride;
 	if (FParse::Value(FCommandLine::Get(), TEXT("REGION="), RegionOverride))
 	{

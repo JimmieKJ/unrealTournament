@@ -76,16 +76,12 @@ class UNREALTOURNAMENT_API AUTReplicatedEmitter : public AActor
 
 	UFUNCTION()
 	virtual void OnParticlesFinished(UParticleSystemComponent* FinishedPSC)
-#if CPP // hack around UHT fail
 	{
 		if (GetNetMode() != NM_DedicatedServer)
 		{
 			Destroy();
 		}
 	}
-#else
-	;
-#endif
 
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic)
 	void OnAttachedTo(USceneComponent* BaseComponent);

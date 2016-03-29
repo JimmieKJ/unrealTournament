@@ -1989,7 +1989,8 @@ void AUTBot::NotifyJumpApex()
 						FVector TestLoc = UTChar->GetActorLocation() + Diff.GetSafeNormal2D() * UTChar->GetCharacterMovement()->MaxWalkSpeed * ZTime;
 						TestLoc.Z = GetMovePoint().Z;
 						// make sure no wall that we need to get over
-						if (!GetWorld()->LineTraceTestByChannel(UTChar->GetActorLocation(), TestLoc, ECC_Pawn, FCollisionQueryParams(false), WorldResponseParams))
+						static FName NotifyJumpApexTraceTag(TEXT("NotifyJumpApex"));
+						if (!GetWorld()->LineTraceTestByChannel(UTChar->GetActorLocation(), TestLoc, ECC_Pawn, FCollisionQueryParams(NotifyJumpApexTraceTag, false), WorldResponseParams))
 						{
 							// test if projected landing is on navmesh and walk reachable
 							TestLoc.Z -= UTChar->GetCharacterMovement()->MaxStepHeight; // mirrors AUTCharacter::GetNavAgentLocation()
@@ -3085,8 +3086,9 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 					break;
 				}
 			}
+			static FName DoHuntTraceTag(TEXT("DoHuntTrace"));
 			if ( !bRemoved && ( NavData->HasReachedTarget(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), FRouteCacheItem(RemainingSpots[i])) ||
-								!GetWorld()->LineTraceTestByChannel(GetPawn()->GetActorLocation() + FVector(0.0f, 0.0f, GetPawn()->BaseEyeHeight), RemainingSpots[i] + FVector(0.0f, 0.0f, GetPawn()->BaseEyeHeight), ECC_Visibility, FCollisionQueryParams(true), WorldResponseParams) ) )
+								!GetWorld()->LineTraceTestByChannel(GetPawn()->GetActorLocation() + FVector(0.0f, 0.0f, GetPawn()->BaseEyeHeight), RemainingSpots[i] + FVector(0.0f, 0.0f, GetPawn()->BaseEyeHeight), ECC_Visibility, FCollisionQueryParams(DoHuntTraceTag, true), WorldResponseParams) ) )
 			{
 				HuntingCheckedSpots.Add(RemainingSpots[i]);
 				RemainingSpots.RemoveAt(i);

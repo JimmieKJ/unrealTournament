@@ -134,7 +134,7 @@ EVisibility SUTChatEditBox::TypedMsgVis() const
 
 const FSlateBrush* SUTChatEditBox::GetBorderImage() const
 {
-	if ( EditableText->GetIsReadOnly() )
+	if ( EditableText->IsTextReadOnly() )
 	{
 		return &Style->BackgroundImageReadOnly;
 	}

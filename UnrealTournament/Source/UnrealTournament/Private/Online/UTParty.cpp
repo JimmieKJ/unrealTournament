@@ -27,11 +27,12 @@ UUTPartyGameState* UUTParty::GetUTPersistentParty() const
 	return Cast<UUTPartyGameState>(GetPersistentParty());
 }
 
-void UUTParty::GetDefaultPersistentPartySettings(EPartyType& PartyType, bool& bLeaderFriendsOnly, bool& bLeaderInvitesOnly)
+void UUTParty::GetDefaultPersistentPartySettings(EPartyType& PartyType, bool& bLeaderFriendsOnly, bool& bLeaderInvitesOnly, bool& bAllowInvites)
 {
 	PartyType = EPartyType::Public;
 	bLeaderFriendsOnly = false;
 	bLeaderInvitesOnly = false;
+	bAllowInvites = true;
 
 	UUTGameInstance* UTGameInstance = GetUTGameInstance();
 	check(UTGameInstance);
