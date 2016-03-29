@@ -472,6 +472,7 @@ void FRazerChroma::Tick(float DeltaTime)
 
 	if (!UTPC || !GS)
 	{
+		PlayTextScroller(DeltaTime);
 		return;
 	}
 
@@ -606,15 +607,16 @@ void FRazerChroma::Tick(float DeltaTime)
 		
 		ChromaSDK::Headset::STATIC_EFFECT_TYPE HeadsetEffect = {};
 		HeadsetEffect.Color = TeamColor;
-		CreateHeadsetEffect(ChromaSDK::Headset::CHROMA_STATIC, &HeadsetEffect, NULL);
+		Result = CreateHeadsetEffect(ChromaSDK::Headset::CHROMA_STATIC, &HeadsetEffect, NULL);
 
 		ChromaSDK::Mouse::STATIC_EFFECT_TYPE MouseEffect = {};
 		MouseEffect.Color = TeamColor;
-		CreateMouseEffect(ChromaSDK::Mouse::CHROMA_STATIC, &MouseEffect, NULL);
+		MouseEffect.LEDId = RZLED_ALL;
+		Result = CreateMouseEffect(ChromaSDK::Mouse::CHROMA_STATIC, &MouseEffect, NULL);
 
 		ChromaSDK::Mousepad::STATIC_EFFECT_TYPE MousepadEffect = {};
 		MousepadEffect.Color = TeamColor;
-		CreateMousepadEffect(ChromaSDK::Mousepad::CHROMA_STATIC, &MousepadEffect, NULL);
+		Result = CreateMousepadEffect(ChromaSDK::Mousepad::CHROMA_STATIC, &MousepadEffect, NULL);
 	}
 	else
 	{
