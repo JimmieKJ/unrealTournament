@@ -1608,11 +1608,11 @@ void SUTServerBrowserPanel::OnServerBeaconResult(AUTServerBeaconClient* Sender, 
 							}
 						}
 
-						if (bFound) Count++;
+						if (!bFound) Count++;
 					}
 				}
 
-				Count += PingTrackers[i].Server->Players.Num() / 3;
+				Count += PingTrackers[i].Server->Players.Num();
 				PingTrackers[i].Server->NumPlayers = Count;
 			}
 
