@@ -330,6 +330,9 @@ protected:
 			Json->WriteObjectEnd();
 		}
 		Json->WriteArrayEnd();
+		// FIXME: un-hardcode these
+		Json->WriteValue(TEXT("recentXPCap"), 2000);
+		Json->WriteValue(TEXT("recentXPDecayPerMin"), 30);
 		Json->WriteObjectEnd();
 		Json->WriteObjectEnd();
 		Json->WriteArrayEnd();
