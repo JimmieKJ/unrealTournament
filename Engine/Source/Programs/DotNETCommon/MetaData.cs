@@ -19,6 +19,6 @@ using System.Resources;
 #if !SPECIFIC_VERSION
 // Automatically generate a version number based on the time of compilation
 [assembly: AssemblyVersion( "4.0.0.0" )]
-[assembly: AssemblyInformationalVersion("4.11.0-2923307+++depot+UE4-UT-Releases")]
+[assembly: AssemblyInformationalVersion("4.11.0-2925613+++depot+UE4-UT-Releases")]
 #endif
 
