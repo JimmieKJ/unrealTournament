@@ -1075,10 +1075,8 @@ void AUTGameMode::RecreateLobbyBeacon()
 		if (LobbyBeacon)
 		{
 			FString IP = HubAddress.IsEmpty() ? TEXT("127.0.0.1") : HubAddress;
-
 			FURL LobbyURL(nullptr, *IP, TRAVEL_Absolute);
 			LobbyURL.Port = HostLobbyListenPort;
-
 			LobbyBeacon->InitLobbyBeacon(LobbyURL, LobbyInstanceID, ServerInstanceGUID, HubKey);
 			UE_LOG(UT, Verbose, TEXT("..... Connecting back to lobby on port %i!"), HostLobbyListenPort);
 		}
@@ -2408,9 +2406,8 @@ bool AUTGameMode::ShouldSpawnAtStartSpot(AController* Player)
 		return true;
 	}
 
-	return ( GetWorld()->GetNetMode() == NM_Standalone && Player != NULL && Player->StartSpot.IsValid() &&
-		(GetMatchState() == MatchState::WaitingToStart || (Player->PlayerState != NULL && Cast<AUTPlayerState>(Player->PlayerState)->bWaitingPlayer))
-		 && (RatePlayerStart(Cast<APlayerStart>(Player->StartSpot.Get()), Player) >= 0.f) );
+	return ( GetWorld()->GetNetMode() == NM_Standalone && Player && Player->StartSpot.IsValid() && 
+		 (RatePlayerStart(Cast<APlayerStart>(Player->StartSpot.Get()), Player) >= 0.f) );
 }
 
 
