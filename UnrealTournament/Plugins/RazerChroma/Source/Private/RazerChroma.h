@@ -85,11 +85,16 @@ struct FRazerChroma : FTickableGameObject, IModuleInterface
 	DELETEEFFECT DeleteEffect;
 	QUERYDEVICE QueryDevice;
 
+	bool bPlayingIdleColors;
+	bool bPlayingUDamage;
+	bool bPlayingBerserk;
+	bool bPlayingShieldBelt;
+
 #define UNREALTEXTSCROLLERFRAMES 11
 	RZEFFECTID UnrealTextScroller[UNREALTEXTSCROLLERFRAMES];
 	int32 TextScrollerFrame;
 	float TextScrollerDeltaTimeAccumulator;
 	float TextScrollerFrameTimeMinimum;
 
-	void PlayTextScroller(float DeltaTime);
+	void UpdateIdleColors(float DeltaTime);
 };
