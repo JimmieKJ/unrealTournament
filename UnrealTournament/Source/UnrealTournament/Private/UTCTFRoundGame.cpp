@@ -25,6 +25,7 @@
 #include "UTArmor.h"
 #include "UTTimedPowerup.h"
 #include "UTPlayerState.h"
+#include "UTFlagRunHUD.h"
 
 AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -47,7 +48,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	FlagPickupDelay = 10;
 	RemainingPickupDelay = 0;
 	RollingAttackerRespawnDelay = 8.f;
-
+	HUDClass = AUTFlagRunHUD::StaticClass();
 	// remove translocator - fixmesteve make this an option
 	TranslocatorObject = nullptr;
 
