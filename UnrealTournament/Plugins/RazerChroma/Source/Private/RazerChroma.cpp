@@ -688,6 +688,24 @@ void FRazerChroma::Tick(float DeltaTime)
 					Effect.Color[HIBYTE(RZKEY_RIGHT)][LOBYTE(RZKEY_RIGHT)] = GREEN;
 				}
 			}
+			UTPC->ResolveKeybindToFKey(TEXT("TurnLeft"), Keys, false, true);
+			for (int i = 0; i < Keys.Num(); i++)
+			{
+				FString KeyName = Keys[i].ToString();
+				if (KeyName == TEXT("Left"))
+				{
+					Effect.Color[HIBYTE(RZKEY_LEFT)][LOBYTE(RZKEY_LEFT)] = GREEN;
+				}
+			}
+			UTPC->ResolveKeybindToFKey(TEXT("TurnRight"), Keys, false, true);
+			for (int i = 0; i < Keys.Num(); i++)
+			{
+				FString KeyName = Keys[i].ToString();
+				if (KeyName == TEXT("Right"))
+				{
+					Effect.Color[HIBYTE(RZKEY_LEFT)][LOBYTE(RZKEY_LEFT)] = GREEN;
+				}
+			}
 
 			bool bFoundWeapon = false;
 			for (int32 i = 0; i < 10; i++)
@@ -719,32 +737,32 @@ void FRazerChroma::Tick(float DeltaTime)
 					uint32 WeaponColor;
 					switch (i)
 					{
-					case 1:
+					case 0:
 					default:
 						WeaponColor = GREY;
 						break;
-					case 2:
+					case 1:
 						WeaponColor = WHITE;
 						break;
-					case 3:
+					case 2:
 						WeaponColor = GREEN;
 						break;
-					case 4:
+					case 3:
 						WeaponColor = PURPLE;
 						break;
-					case 5:
+					case 4:
 						WeaponColor = CYAN;
 						break;
-					case 6:
+					case 5:
 						WeaponColor = BLUE;
 						break;
-					case 7:
+					case 6:
 						WeaponColor = YELLOW;
 						break;
-					case 8:
+					case 7:
 						WeaponColor = RED;
 						break;
-					case 9:
+					case 8:
 						WeaponColor = WHITE;
 						break;
 					}
@@ -881,25 +899,25 @@ void FRazerChroma::UpdateIdleColors(float DeltaTime)
 
 		ChromaSDK::Keyboard::BREATHING_EFFECT_TYPE KeyboardEffect = {};
 		KeyboardEffect.Type = ChromaSDK::Keyboard::BREATHING_EFFECT_TYPE::Type::TWO_COLORS;
-		KeyboardEffect.Color1 = RED;
-		KeyboardEffect.Color2 = BLUE;
+		KeyboardEffect.Color1 = GREEN;
+		KeyboardEffect.Color2 = BLACK;
 		Result = CreateKeyboardEffect(ChromaSDK::Keyboard::CHROMA_BREATHING, &KeyboardEffect, NULL);
 
 		ChromaSDK::Headset::BREATHING_EFFECT_TYPE HeadsetEffect = {};
-		HeadsetEffect.Color = ORANGE;
+		HeadsetEffect.Color = GREEN;
 		Result = CreateHeadsetEffect(ChromaSDK::Headset::CHROMA_BREATHING, &HeadsetEffect, NULL);
 
 		ChromaSDK::Mouse::BREATHING_EFFECT_TYPE MouseEffect = {};
 		MouseEffect.Type = ChromaSDK::Mouse::BREATHING_EFFECT_TYPE::Type::TWO_COLORS;
-		MouseEffect.Color1 = RED;
-		MouseEffect.Color2 = BLUE;
+		MouseEffect.Color1 = GREEN;
+		MouseEffect.Color2 = BLACK;
 		MouseEffect.LEDId = RZLED_ALL;
 		Result = CreateMouseEffect(ChromaSDK::Mouse::CHROMA_BREATHING, &MouseEffect, NULL);
 
 		ChromaSDK::Mousepad::BREATHING_EFFECT_TYPE MousepadEffect = {};
 		MousepadEffect.Type = ChromaSDK::Mousepad::BREATHING_EFFECT_TYPE::Type::TWO_COLORS;
-		MousepadEffect.Color1 = RED;
-		MousepadEffect.Color2 = BLUE;
+		MousepadEffect.Color1 = GREEN;
+		MousepadEffect.Color2 = BLACK;
 		Result = CreateMousepadEffect(ChromaSDK::Mousepad::CHROMA_BREATHING, &MousepadEffect, NULL);
 
 		bPlayingIdleColors = true;
