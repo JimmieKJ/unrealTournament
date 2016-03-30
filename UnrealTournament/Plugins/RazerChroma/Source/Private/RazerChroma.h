@@ -98,4 +98,6 @@ struct FRazerChroma : FTickableGameObject, IModuleInterface
 	float TextScrollerFrameTimeMinimum;
 
 	void UpdateIdleColors(float DeltaTime);
+
+	int32 AtoZToRZKEY[26];
 };
