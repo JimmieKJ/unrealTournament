@@ -1307,12 +1307,12 @@ void AUTPlayerState::ReadMMRFromBackend()
 			WeakPlayerState->ShowdownRank = Response.Ratings[4];
 			WeakPlayerState->RankedShowdownRank = Response.Ratings[5];
 
-			WeakPlayerState->DuelMatchesPlayed = Response.NumGamesPlayed[0];
-			WeakPlayerState->TDMMatchesPlayed = Response.NumGamesPlayed[1];
-			WeakPlayerState->DMMatchesPlayed = Response.NumGamesPlayed[2];
-			WeakPlayerState->CTFMatchesPlayed = Response.NumGamesPlayed[3];
-			WeakPlayerState->ShowdownMatchesPlayed = Response.NumGamesPlayed[4];
-			WeakPlayerState->RankedShowdownMatchesPlayed = Response.NumGamesPlayed[5];
+			WeakPlayerState->DuelMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[0]);
+			WeakPlayerState->TDMMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[1]);
+			WeakPlayerState->DMMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[2]);
+			WeakPlayerState->CTFMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[3]);
+			WeakPlayerState->ShowdownMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[4]);
+			WeakPlayerState->RankedShowdownMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[5]);
 			
 			AUTBaseGameMode* BaseGame = WeakPlayerState->GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
 			if (BaseGame)
