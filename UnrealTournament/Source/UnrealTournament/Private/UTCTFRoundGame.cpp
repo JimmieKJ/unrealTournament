@@ -310,7 +310,9 @@ void AUTCTFRoundGame::ToggleSpecialFor(AUTCharacter* C)
 	if (PS && (PS->RemainingBoosts > 0))
 	{
 		PS->RemainingBoosts--;
-		C->AddInventory(GetWorld()->SpawnActor<AUTInventory>(UDamageClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f)), true);
+		AUTInventory* TriggeredUDamage = GetWorld()->SpawnActor<AUTInventory>(UDamageClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f));
+		TriggeredUDamage->bAlwaysDropOnDeath = false;
+		C->AddInventory(TriggeredUDamage, true);
 	}
 }
 
