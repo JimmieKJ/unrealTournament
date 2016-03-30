@@ -2588,34 +2588,7 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 					// overlapping - would telefrag
 					return -10.f;
 				}
-
-				float NextDist = (OtherCharacter->GetActorLocation() - StartLoc).Size();
-				static FName NAME_RatePlayerStart = FName(TEXT("RatePlayerStart"));
-				bool bIsLastKiller = (OtherCharacter->PlayerState == Cast<AUTPlayerState>(Player->PlayerState)->LastKillerPlayerState);
-
-				if (((NextDist < 8000.0f) || bTwoPlayerGame) && !UTGameState->OnSameTeam(Player, OtherController))
-				{
-					if (!GetWorld()->LineTraceTestByChannel(StartLoc, OtherCharacter->GetActorLocation() + FVector(0.f, 0.f, OtherCharacter->GetCapsuleComponent()->GetScaledCapsuleHalfHeight()), ECC_Visibility, FCollisionQueryParams(NAME_RatePlayerStart, false)))
-					{
-						// Avoid the last person that killed me
-						if (bIsLastKiller)
-						{
-							Score -= 7.f;
-						}
-
-						Score -= (5.f - 0.0003f * NextDist);
-					}
-					else if (NextDist < 4000.0f)
-					{
-						// Avoid the last person that killed me
-						Score -= bIsLastKiller ? 5.f : 0.0005f * (5000.f - NextDist);
-
-						if (!GetWorld()->LineTraceTestByChannel(StartLoc, OtherCharacter->GetActorLocation(), ECC_Visibility, FCollisionQueryParams(NAME_RatePlayerStart, false, this)))
-						{
-							Score -= 2.f;
-						}
-					}
-				}
+				Score += AdjustNearbyPlayerStartScore(Player, OtherController, OtherCharacter, StartLoc, P);
 			}
 			else if (bHasRespawnChoices && OtherController->PlayerState && !OtherController->GetPawn() && !OtherController->PlayerState->bOnlySpectator)
 			{
@@ -2647,6 +2620,40 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 		}
 	}
 	return FMath::Max(Score, 0.2f);
+}
+
+float AUTGameMode::AdjustNearbyPlayerStartScore(const AController* Player, const AController* OtherController, const ACharacter* OtherCharacter, const FVector& StartLoc, const APlayerStart* P)
+{
+	float ScoreAdjust = 0.f;
+	float NextDist = (OtherCharacter->GetActorLocation() - StartLoc).Size();
+	bool bTwoPlayerGame = (NumPlayers + NumBots == 2);
+
+	if (((NextDist < 8000.0f) || bTwoPlayerGame) && !UTGameState->OnSameTeam(Player, OtherController))
+	{
+		static FName NAME_RatePlayerStart = FName(TEXT("RatePlayerStart"));
+		bool bIsLastKiller = (OtherCharacter->PlayerState == Cast<AUTPlayerState>(Player->PlayerState)->LastKillerPlayerState);
+		if (!GetWorld()->LineTraceTestByChannel(StartLoc, OtherCharacter->GetActorLocation() + FVector(0.f, 0.f, OtherCharacter->GetCapsuleComponent()->GetScaledCapsuleHalfHeight()), ECC_Visibility, FCollisionQueryParams(NAME_RatePlayerStart, false)))
+		{
+			// Avoid the last person that killed me
+			if (bIsLastKiller)
+			{
+				ScoreAdjust -= 7.f;
+			}
+
+			ScoreAdjust -= (5.f - 0.0003f * NextDist);
+		}
+		else if (NextDist < 4000.0f)
+		{
+			// Avoid the last person that killed me
+			ScoreAdjust -= bIsLastKiller ? 5.f : 0.0005f * (5000.f - NextDist);
+
+			if (!GetWorld()->LineTraceTestByChannel(StartLoc, OtherCharacter->GetActorLocation(), ECC_Visibility, FCollisionQueryParams(NAME_RatePlayerStart, false, this)))
+			{
+				ScoreAdjust -= 2.f;
+			}
+		}
+	}
+	return ScoreAdjust;
 }
 
 bool AUTGameMode::AvoidPlayerStart(AUTPlayerStart* P)

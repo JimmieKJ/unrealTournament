@@ -487,6 +487,7 @@ public:
 	virtual class AActor* FindPlayerStart_Implementation(AController* Player, const FString& IncomingName = TEXT("")) override;
 	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
 	virtual float RatePlayerStart(APlayerStart* P, AController* Player);
+	virtual float AdjustNearbyPlayerStartScore(const AController* Player, const AController* OtherController, const ACharacter* OtherCharacter, const FVector& StartLoc, const APlayerStart* P);
 
 	virtual bool ReadyToStartMatch_Implementation() override;
 

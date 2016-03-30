@@ -58,6 +58,15 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY()
 		int32 RemainingPickupDelay;
 
+	UPROPERTY()
+		float RollingAttackerRespawnDelay;
+
+	UPROPERTY()
+		float LastAttackerSpawnTime;
+
+	UPROPERTY()
+		float RemainingAttackerRespawnDelay;
+
 	virtual void InitFlags();
 
 	virtual void FlagCountDown();
@@ -79,6 +88,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual bool ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast) override;
 	virtual void CheckGameTime() override;
 	virtual void HandleMatchIntermission() override;
+	virtual float AdjustNearbyPlayerStartScore(const AController* Player, const AController* OtherController, const ACharacter* OtherCharacter, const FVector& StartLoc, const APlayerStart* P) override;
 
 	virtual void TossSkull(TSubclassOf<AUTSkullPickup> SkullPickupClass, const FVector& StartLocation, const FVector& TossVelocity, AUTCharacter* FormerInstigator);
 
