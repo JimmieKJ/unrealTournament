@@ -2162,12 +2162,12 @@ void UUTLocalPlayer::ReadMMRFromBackend()
 					UTPS->ShowdownRank = WeakLocalPlayer->Showdown_ELO;
 					UTPS->RankedShowdownRank = WeakLocalPlayer->RankedShowdown_ELO;
 
-					UTPS->DuelMatchesPlayed = WeakLocalPlayer->DuelMatchesPlayed;
-					UTPS->TDMMatchesPlayed = WeakLocalPlayer->TDMMatchesPlayed;
-					UTPS->DMMatchesPlayed = WeakLocalPlayer->FFAMatchesPlayed;
-					UTPS->CTFMatchesPlayed = WeakLocalPlayer->CTFMatchesPlayed;
-					UTPS->ShowdownMatchesPlayed = WeakLocalPlayer->ShowdownMatchesPlayed;
-					UTPS->RankedShowdownMatchesPlayed = WeakLocalPlayer->RankedShowdownMatchesPlayed;
+					UTPS->DuelMatchesPlayed = FMath::Min(255, WeakLocalPlayer->DuelMatchesPlayed);
+					UTPS->TDMMatchesPlayed = FMath::Min(255, WeakLocalPlayer->TDMMatchesPlayed);
+					UTPS->DMMatchesPlayed = FMath::Min(255, WeakLocalPlayer->FFAMatchesPlayed);
+					UTPS->CTFMatchesPlayed = FMath::Min(255, WeakLocalPlayer->CTFMatchesPlayed);
+					UTPS->ShowdownMatchesPlayed = FMath::Min(255, WeakLocalPlayer->ShowdownMatchesPlayed);
+					UTPS->RankedShowdownMatchesPlayed = FMath::Min(255, WeakLocalPlayer->RankedShowdownMatchesPlayed);
 				}
 			}
 		}
