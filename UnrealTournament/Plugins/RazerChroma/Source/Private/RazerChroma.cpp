@@ -812,6 +812,7 @@ void FRazerChroma::Tick(float DeltaTime)
 
 void FRazerChroma::UpdateIdleColors(float DeltaTime)
 {
+	/*
 	SetEffect(UnrealTextScroller[TextScrollerFrame]);
 
 	TextScrollerDeltaTimeAccumulator += DeltaTime;
@@ -821,11 +822,18 @@ void FRazerChroma::UpdateIdleColors(float DeltaTime)
 		TextScrollerFrame++;
 		TextScrollerFrame %= UNREALTEXTSCROLLERFRAMES;
 	}
+	*/
 
 	if (!bPlayingIdleColors)
 	{
 		// Might need to check that this isn't already set
 		RZRESULT Result = RZRESULT_INVALID;
+
+		ChromaSDK::Keyboard::BREATHING_EFFECT_TYPE KeyboardEffect = {};
+		KeyboardEffect.Type = ChromaSDK::Keyboard::BREATHING_EFFECT_TYPE::Type::TWO_COLORS;
+		KeyboardEffect.Color1 = RED;
+		KeyboardEffect.Color2 = BLUE;
+		Result = CreateKeyboardEffect(ChromaSDK::Keyboard::CHROMA_BREATHING, &KeyboardEffect, NULL);
 
 		ChromaSDK::Headset::BREATHING_EFFECT_TYPE HeadsetEffect = {};
 		HeadsetEffect.Color = ORANGE;
