@@ -5,6 +5,8 @@
 #include "UnrealTournament.h"
 #include "UTPlayerController.h"
 #include "UTGameState.h"
+#include "UTArmor.h"
+#include "UTTimedPowerup.h"
 
 #ifdef _WIN64
 #define CHROMASDKDLL        _T("RzChromaSDK64.dll")
@@ -51,6 +53,11 @@ FRazerChroma::FRazerChroma()
 	DeleteEffect = nullptr;
 	QueryDevice = nullptr;
 	UnInit = nullptr;
+
+	bPlayingIdleColors = false;
+	bPlayingUDamage = false;
+	bPlayingBerserk = false;
+	bPlayingShieldBelt = false;
 }
 
 IMPLEMENT_MODULE(FRazerChroma, RazerChroma)
@@ -472,7 +479,7 @@ void FRazerChroma::Tick(float DeltaTime)
 
 	if (!UTPC || !GS)
 	{
-		PlayTextScroller(DeltaTime);
+		UpdateIdleColors(DeltaTime);
 		return;
 	}
 
@@ -499,14 +506,65 @@ void FRazerChroma::Tick(float DeltaTime)
 			}
 		}
 
-		PlayTextScroller(DeltaTime);
+		UpdateIdleColors(DeltaTime);
 	}
 	else if (GS->HasMatchStarted())
 	{
-		ChromaSDK::Keyboard::CUSTOM_EFFECT_TYPE Effect = {};
-		
+		bPlayingIdleColors = false;
+
+		// Spectators and DM players are all on 255
+		int32 TeamNum = UTPC->GetTeamNum();
+
+		uint32 TeamColor = ORANGE;
+		if (TeamNum == 0)
+		{
+			TeamColor = RED;
+		}
+		else if (TeamNum == 1)
+		{
+			TeamColor = BLUE;
+		}
+
+		ChromaSDK::Keyboard::CUSTOM_EFFECT_TYPE Effect;
+		for (int i = 0; i < ChromaSDK::Keyboard::MAX_ROW; i++)
+			for (int j = 0; j < ChromaSDK::Keyboard::MAX_COLUMN; j++)
+		{
+			Effect.Color[i][j] = TeamColor;
+		}
+
+		bool bHasShieldBelt = false;
+		bool bHasUDamage = false;
+		bool bHasBerserk = false;
+
 		if (UTPC->GetUTCharacter() && !UTPC->GetUTCharacter()->IsDead())
 		{
+			for (TInventoryIterator<> It(UTPC->GetUTCharacter()); It; ++It)
+			{
+				AUTArmor* Armor = Cast<AUTArmor>(*It);
+				if (Armor)
+				{
+					if (Armor->ArmorType == ArmorTypeName::ShieldBelt)
+					{
+						bHasShieldBelt = true;
+					}
+				}
+				AUTTimedPowerup* TimedPowerUp = Cast<AUTTimedPowerup>(*It);
+				if (TimedPowerUp)
+				{
+					// There's gotta be a cleaner way than this
+					static FName UDamageName = TEXT("UDamageCount");
+					static FName BerserkName = TEXT("BerserkCount");
+					if (TimedPowerUp->StatsNameCount == UDamageName)
+					{
+						bHasUDamage = true;
+					}
+					if (TimedPowerUp->StatsNameCount == BerserkName)
+					{
+						bHasBerserk = true;
+					}
+				}
+			}
+
 			float HealthPct = (float)UTPC->GetUTCharacter()->Health / 100.0f;
 			HealthPct = FMath::Clamp(HealthPct, 0.0f, 1.0f);
 			int32 KeysToFill = FMath::Clamp((int)(HealthPct * 12), 0, 12);
@@ -526,11 +584,60 @@ void FRazerChroma::Tick(float DeltaTime)
 				Effect.Color[HIBYTE(RZKEY_F1 + i)][LOBYTE(RZKEY_F1 + i)] = HealthColor;
 			}
 
-			Effect.Color[HIBYTE(RZKEY_W)][LOBYTE(RZKEY_W)] = BLUE;
-			Effect.Color[HIBYTE(RZKEY_A)][LOBYTE(RZKEY_A)] = BLUE;
-			Effect.Color[HIBYTE(RZKEY_S)][LOBYTE(RZKEY_S)] = BLUE;
-			Effect.Color[HIBYTE(RZKEY_D)][LOBYTE(RZKEY_D)] = BLUE;
-			Effect.Color[HIBYTE(RZKEY_SPACE)][LOBYTE(RZKEY_SPACE)] = BLUE;
+			// Find WASD and other variants like ESDF or IJKL
+			TArray<FKey> Keys;
+			UTPC->ResolveKeybindToFKey(TEXT("MoveForward"), Keys, false, true);
+			for (int i = 0; i < Keys.Num(); i++)
+			{
+				FString KeyName = Keys[i].ToString();
+				if (KeyName.Len() == 1)
+				{
+					if (KeyName.GetCharArray()[0] >= 'A' && KeyName.GetCharArray()[0] <= 'Z')
+					{
+						int32 Offset = KeyName.GetCharArray()[0] - 'A';
+						Effect.Color[HIBYTE(RZKEY_A + Offset)][LOBYTE(RZKEY_A + Offset)] = GREEN;
+					}
+				}
+			}
+			UTPC->ResolveKeybindToFKey(TEXT("MoveBackward"), Keys, false, true);
+			for (int i = 0; i < Keys.Num(); i++)
+			{
+				FString KeyName = Keys[i].ToString();
+				if (KeyName.Len() == 1)
+				{
+					if (KeyName.GetCharArray()[0] >= 'A' && KeyName.GetCharArray()[0] <= 'Z')
+					{
+						int32 Offset = KeyName.GetCharArray()[0] - 'A';
+						Effect.Color[HIBYTE(RZKEY_A + Offset)][LOBYTE(RZKEY_A + Offset)] = GREEN;
+					}
+				}
+			}
+			UTPC->ResolveKeybindToFKey(TEXT("MoveLeft"), Keys, false, true);
+			for (int i = 0; i < Keys.Num(); i++)
+			{
+				FString KeyName = Keys[i].ToString();
+				if (KeyName.Len() == 1)
+				{
+					if (KeyName.GetCharArray()[0] >= 'A' && KeyName.GetCharArray()[0] <= 'Z')
+					{
+						int32 Offset = KeyName.GetCharArray()[0] - 'A';
+						Effect.Color[HIBYTE(RZKEY_A + Offset)][LOBYTE(RZKEY_A + Offset)] = GREEN;
+					}
+				}
+			}
+			UTPC->ResolveKeybindToFKey(TEXT("MoveRight"), Keys, false, true);
+			for (int i = 0; i < Keys.Num(); i++)
+			{
+				FString KeyName = Keys[i].ToString();
+				if (KeyName.Len() == 1)
+				{
+					if (KeyName.GetCharArray()[0] >= 'A' && KeyName.GetCharArray()[0] <= 'Z')
+					{
+						int32 Offset = KeyName.GetCharArray()[0] - 'A';
+						Effect.Color[HIBYTE(RZKEY_A + Offset)][LOBYTE(RZKEY_A + Offset)] = GREEN;
+					}
+				}
+			}
 
 			bool bFoundWeapon = false;
 			for (int32 i = 0; i < 10; i++)
@@ -556,76 +663,156 @@ void FRazerChroma::Tick(float DeltaTime)
 					}
 				}
 
-				if ((i + 1) == CurrentWeaponGroup)
+				
+				if (bFoundWeapon)
 				{
-					Effect.Color[HIBYTE(RZKEY_1 + i)][LOBYTE(RZKEY_1 + i)] = RED;
+					uint32 WeaponColor;
+					switch (i)
+					{
+					case 1:
+					default:
+						WeaponColor = GREY;
+						break;
+					case 2:
+						WeaponColor = WHITE;
+						break;
+					case 3:
+						WeaponColor = GREEN;
+						break;
+					case 4:
+						WeaponColor = PURPLE;
+						break;
+					case 5:
+						WeaponColor = CYAN;
+						break;
+					case 6:
+						WeaponColor = BLUE;
+						break;
+					case 7:
+						WeaponColor = YELLOW;
+						break;
+					case 8:
+						WeaponColor = RED;
+						break;
+					case 9:
+						WeaponColor = WHITE;
+						break;
+					}
+					Effect.Color[HIBYTE(RZKEY_1 + i)][LOBYTE(RZKEY_1 + i)] = WeaponColor;
 				}
-				else if (bFoundWeapon)
+				else
 				{
-					Effect.Color[HIBYTE(RZKEY_1 + i)][LOBYTE(RZKEY_1 + i)] = GREEN;
+					Effect.Color[HIBYTE(RZKEY_1 + i)][LOBYTE(RZKEY_1 + i)] = BLACK;
 				}
 			}
 		}
 
-		// Spectators and DM players are all on 255
-		int32 TeamNum = UTPC->GetTeamNum();
-
-		uint32 TeamColor = ORANGE;
-		if (TeamNum == 0)
-		{
-			TeamColor = RED;
-		}
-		else if (TeamNum == 1)
-		{
-			TeamColor = BLUE;
-		}
-
-		ChromaSDK::DEVICE_INFO_TYPE DeviceInfo;
-		Result = QueryDevice(BLACKWIDOW_CHROMA_TE, DeviceInfo);
-		bool bBlackWidowChromaTE = DeviceInfo.Connected ? true : false;
-
-		// On keyboards without numpads, don't draw the U
-		if (!bBlackWidowChromaTE)
-		{
-			Effect.Color[HIBYTE(RZKEY_NUMLOCK)][LOBYTE(RZKEY_NUMLOCK)] = TeamColor;
-			Effect.Color[HIBYTE(RZKEY_NUMPAD7)][LOBYTE(RZKEY_NUMPAD7)] = TeamColor;
-			Effect.Color[HIBYTE(RZKEY_NUMPAD4)][LOBYTE(RZKEY_NUMPAD4)] = TeamColor;
-			Effect.Color[HIBYTE(RZKEY_NUMPAD1)][LOBYTE(RZKEY_NUMPAD1)] = TeamColor;
-			Effect.Color[HIBYTE(RZKEY_NUMPAD2)][LOBYTE(RZKEY_NUMPAD2)] = TeamColor;
-			Effect.Color[HIBYTE(RZKEY_NUMPAD9)][LOBYTE(RZKEY_NUMPAD9)] = TeamColor;
-			Effect.Color[HIBYTE(RZKEY_NUMPAD6)][LOBYTE(RZKEY_NUMPAD6)] = TeamColor;
-			Effect.Color[HIBYTE(RZKEY_NUMPAD3)][LOBYTE(RZKEY_NUMPAD3)] = TeamColor;
-			Effect.Color[HIBYTE(RZKEY_NUMPAD_MULTIPLY)][LOBYTE(RZKEY_NUMPAD_MULTIPLY)] = TeamColor;
-			Effect.Color[HIBYTE(RZKEY_NUMPAD_ADD)][LOBYTE(RZKEY_NUMPAD_ADD)] = TeamColor;
-			Effect.Color[HIBYTE(RZKEY_NUMPAD_ENTER)][LOBYTE(RZKEY_NUMPAD_ENTER)] = TeamColor;
-			Effect.Color[HIBYTE(RZKEY_PAGEUP)][LOBYTE(RZKEY_PAGEUP)] = TeamColor;
-			Effect.Color[HIBYTE(RZKEY_PAGEDOWN)][LOBYTE(RZKEY_PAGEDOWN)] = TeamColor;
-			Effect.Color[HIBYTE(RZKEY_END)][LOBYTE(RZKEY_END)] = TeamColor;
-		}
-
 		Result = CreateKeyboardEffect(ChromaSDK::Keyboard::CHROMA_CUSTOM, &Effect, NULL);
 		
-		ChromaSDK::Headset::STATIC_EFFECT_TYPE HeadsetEffect = {};
-		HeadsetEffect.Color = TeamColor;
-		Result = CreateHeadsetEffect(ChromaSDK::Headset::CHROMA_STATIC, &HeadsetEffect, NULL);
+		if (bHasUDamage)
+		{
+			if (!bPlayingUDamage)
+			{
+				ChromaSDK::Headset::BREATHING_EFFECT_TYPE HeadsetEffect = {};
+				HeadsetEffect.Color = PURPLE;
+				Result = CreateHeadsetEffect(ChromaSDK::Headset::CHROMA_BREATHING, &HeadsetEffect, NULL);
 
-		ChromaSDK::Mouse::STATIC_EFFECT_TYPE MouseEffect = {};
-		MouseEffect.Color = TeamColor;
-		MouseEffect.LEDId = RZLED_ALL;
-		Result = CreateMouseEffect(ChromaSDK::Mouse::CHROMA_STATIC, &MouseEffect, NULL);
+				ChromaSDK::Mouse::BREATHING_EFFECT_TYPE MouseEffect = {};
+				MouseEffect.Type = ChromaSDK::Mouse::BREATHING_EFFECT_TYPE::Type::ONE_COLOR;
+				MouseEffect.Color1 = PURPLE;
+				MouseEffect.LEDId = RZLED_ALL;
+				Result = CreateMouseEffect(ChromaSDK::Mouse::CHROMA_BREATHING, &MouseEffect, NULL);
 
-		ChromaSDK::Mousepad::STATIC_EFFECT_TYPE MousepadEffect = {};
-		MousepadEffect.Color = TeamColor;
-		Result = CreateMousepadEffect(ChromaSDK::Mousepad::CHROMA_STATIC, &MousepadEffect, NULL);
+				ChromaSDK::Mousepad::BREATHING_EFFECT_TYPE MousepadEffect = {};
+				MousepadEffect.Type = ChromaSDK::Mousepad::BREATHING_EFFECT_TYPE::Type::TWO_COLORS;
+				MousepadEffect.Color1 = PURPLE;
+				MousepadEffect.Color2 = WHITE;
+				Result = CreateMousepadEffect(ChromaSDK::Mousepad::CHROMA_BREATHING, &MousepadEffect, NULL);
+
+				bPlayingUDamage = true;
+			}
+			bPlayingBerserk = false;
+			bPlayingShieldBelt = false;
+		}
+		else if (bHasShieldBelt)
+		{
+			if (!bPlayingShieldBelt)
+			{
+				ChromaSDK::Headset::BREATHING_EFFECT_TYPE HeadsetEffect = {};
+				HeadsetEffect.Color = YELLOW;
+				Result = CreateHeadsetEffect(ChromaSDK::Headset::CHROMA_BREATHING, &HeadsetEffect, NULL);
+
+				ChromaSDK::Mouse::BREATHING_EFFECT_TYPE MouseEffect = {};
+				MouseEffect.Type = ChromaSDK::Mouse::BREATHING_EFFECT_TYPE::Type::ONE_COLOR;
+				MouseEffect.Color1 = YELLOW;
+				MouseEffect.LEDId = RZLED_ALL;
+				Result = CreateMouseEffect(ChromaSDK::Mouse::CHROMA_BREATHING, &MouseEffect, NULL);
+
+				ChromaSDK::Mousepad::BREATHING_EFFECT_TYPE MousepadEffect = {};
+				MousepadEffect.Type = ChromaSDK::Mousepad::BREATHING_EFFECT_TYPE::Type::TWO_COLORS;
+				MousepadEffect.Color1 = YELLOW;
+				MousepadEffect.Color2 = WHITE;
+				Result = CreateMousepadEffect(ChromaSDK::Mousepad::CHROMA_BREATHING, &MousepadEffect, NULL);
+
+				bPlayingShieldBelt = true;
+			}
+			bPlayingBerserk = false;
+			bPlayingUDamage = false;
+		}
+		else if (bHasBerserk)
+		{
+			if (!bPlayingBerserk)
+			{
+				ChromaSDK::Headset::BREATHING_EFFECT_TYPE HeadsetEffect = {};
+				HeadsetEffect.Color = RED;
+				Result = CreateHeadsetEffect(ChromaSDK::Headset::CHROMA_BREATHING, &HeadsetEffect, NULL);
+
+				ChromaSDK::Mouse::BREATHING_EFFECT_TYPE MouseEffect = {};
+				MouseEffect.Type = ChromaSDK::Mouse::BREATHING_EFFECT_TYPE::Type::ONE_COLOR;
+				MouseEffect.Color1 = RED;
+				MouseEffect.LEDId = RZLED_ALL;
+				Result = CreateMouseEffect(ChromaSDK::Mouse::CHROMA_BREATHING, &MouseEffect, NULL);
+
+				ChromaSDK::Mousepad::BREATHING_EFFECT_TYPE MousepadEffect = {};
+				MousepadEffect.Type = ChromaSDK::Mousepad::BREATHING_EFFECT_TYPE::Type::TWO_COLORS;
+				MousepadEffect.Color1 = RED;
+				MousepadEffect.Color2 = WHITE;
+				Result = CreateMousepadEffect(ChromaSDK::Mousepad::CHROMA_BREATHING, &MousepadEffect, NULL);
+
+				bPlayingBerserk = true;
+			}
+			bPlayingShieldBelt = false;
+			bPlayingUDamage = false;
+		}
+		else
+		{
+			bPlayingShieldBelt = false;
+			bPlayingUDamage = false;
+			bPlayingBerserk = false;
+
+			ChromaSDK::Headset::STATIC_EFFECT_TYPE HeadsetEffect = {};
+			HeadsetEffect.Color = TeamColor;
+			Result = CreateHeadsetEffect(ChromaSDK::Headset::CHROMA_STATIC, &HeadsetEffect, NULL);
+
+			ChromaSDK::Mouse::STATIC_EFFECT_TYPE MouseEffect = {};
+			MouseEffect.Color = TeamColor;
+			MouseEffect.LEDId = RZLED_ALL;
+			Result = CreateMouseEffect(ChromaSDK::Mouse::CHROMA_STATIC, &MouseEffect, NULL);
+
+			ChromaSDK::Mousepad::STATIC_EFFECT_TYPE MousepadEffect = {};
+			MousepadEffect.Color = TeamColor;
+			Result = CreateMousepadEffect(ChromaSDK::Mousepad::CHROMA_STATIC, &MousepadEffect, NULL);
+		}
 	}
 	else
 	{
-		PlayTextScroller(DeltaTime);
+		UpdateIdleColors(DeltaTime);
 	}
 }
 
-void FRazerChroma::PlayTextScroller(float DeltaTime)
+void FRazerChroma::UpdateIdleColors(float DeltaTime)
 {
+	/*
 	SetEffect(UnrealTextScroller[TextScrollerFrame]);
 
 	TextScrollerDeltaTimeAccumulator += DeltaTime;
@@ -634,5 +821,40 @@ void FRazerChroma::PlayTextScroller(float DeltaTime)
 		TextScrollerDeltaTimeAccumulator = 0;
 		TextScrollerFrame++;
 		TextScrollerFrame %= UNREALTEXTSCROLLERFRAMES;
+	}
+	*/
+
+	if (!bPlayingIdleColors)
+	{
+		// Might need to check that this isn't already set
+		RZRESULT Result = RZRESULT_INVALID;
+
+		ChromaSDK::Keyboard::BREATHING_EFFECT_TYPE KeyboardEffect = {};
+		KeyboardEffect.Type = ChromaSDK::Keyboard::BREATHING_EFFECT_TYPE::Type::TWO_COLORS;
+		KeyboardEffect.Color1 = RED;
+		KeyboardEffect.Color2 = BLUE;
+		Result = CreateKeyboardEffect(ChromaSDK::Keyboard::CHROMA_BREATHING, &KeyboardEffect, NULL);
+
+		ChromaSDK::Headset::BREATHING_EFFECT_TYPE HeadsetEffect = {};
+		HeadsetEffect.Color = ORANGE;
+		Result = CreateHeadsetEffect(ChromaSDK::Headset::CHROMA_BREATHING, &HeadsetEffect, NULL);
+
+		ChromaSDK::Mouse::BREATHING_EFFECT_TYPE MouseEffect = {};
+		MouseEffect.Type = ChromaSDK::Mouse::BREATHING_EFFECT_TYPE::Type::TWO_COLORS;
+		MouseEffect.Color1 = RED;
+		MouseEffect.Color2 = BLUE;
+		MouseEffect.LEDId = RZLED_ALL;
+		Result = CreateMouseEffect(ChromaSDK::Mouse::CHROMA_BREATHING, &MouseEffect, NULL);
+
+		ChromaSDK::Mousepad::BREATHING_EFFECT_TYPE MousepadEffect = {};
+		MousepadEffect.Type = ChromaSDK::Mousepad::BREATHING_EFFECT_TYPE::Type::TWO_COLORS;
+		MousepadEffect.Color1 = RED;
+		MousepadEffect.Color2 = BLUE;
+		Result = CreateMousepadEffect(ChromaSDK::Mousepad::CHROMA_BREATHING, &MousepadEffect, NULL);
+
+		bPlayingIdleColors = true;
+		bPlayingShieldBelt = false;
+		bPlayingUDamage = false;
+		bPlayingBerserk = false;
 	}
 }

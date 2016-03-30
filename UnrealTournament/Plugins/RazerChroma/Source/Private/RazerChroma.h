@@ -36,9 +36,10 @@ struct FRazerChroma : FTickableGameObject, IModuleInterface
 	const uint32 GREY = UTRGB(125, 125, 125);
 
 	FRazerChroma();
-	virtual void Tick(float DeltaTime);
-	virtual bool IsTickable() const { return true; }
-	virtual bool IsTickableInEditor() const { return true; }
+	virtual void Tick(float DeltaTime) override;
+	virtual bool IsTickable() const override { return true; }
+	virtual bool IsTickableInEditor() const override { return true; }
+	virtual bool IsTickableWhenPaused() const override { return true; }
 
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
@@ -85,11 +86,16 @@ struct FRazerChroma : FTickableGameObject, IModuleInterface
 	DELETEEFFECT DeleteEffect;
 	QUERYDEVICE QueryDevice;
 
+	bool bPlayingIdleColors;
+	bool bPlayingUDamage;
+	bool bPlayingBerserk;
+	bool bPlayingShieldBelt;
+
 #define UNREALTEXTSCROLLERFRAMES 11
 	RZEFFECTID UnrealTextScroller[UNREALTEXTSCROLLERFRAMES];
 	int32 TextScrollerFrame;
 	float TextScrollerDeltaTimeAccumulator;
 	float TextScrollerFrameTimeMinimum;
 
-	void PlayTextScroller(float DeltaTime);
+	void UpdateIdleColors(float DeltaTime);
 };
