@@ -11,6 +11,38 @@
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 
+/** True if this server was instructed to gracefully shutdown at the next convenience */
+bool AUTGameSession::bGracefulShutdown = false;
+
+/** The exit code to exit with when gracefully shutting down */
+int32 AUTGameSession::GracefulExitCode = 0;
+
+static void GracefulShutdown_Execute(const TArray<FString>& Args, UWorld* World)
+{
+	AUTGameSession::bGracefulShutdown = true;
+
+	if (Args.Num() > 0)
+	{
+		AUTGameSession::GracefulExitCode = TCString<TCHAR>::Atoi(*Args[0]);
+	}
+
+	AGameMode* GameMode = World->GetAuthGameMode();
+	if (GameMode)
+	{
+		AUTGameSession* GameSession = Cast<AUTGameSession>(GameMode->GameSession);
+		if (GameSession)
+		{
+			GameSession->GracefulShutdown(AUTGameSession::GracefulExitCode);
+		}
+	}
+}
+
+static FAutoConsoleCommandWithWorldAndArgs UTGracefulShutdown_ExeuteCmd(
+	TEXT("GracefulShutdown"),
+	TEXT("Gracefully shuts down the server with the given exit code the next time the server is available to do so"),
+	FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(GracefulShutdown_Execute)
+	);
+
 AUTGameSession::AUTGameSession(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
@@ -213,4 +245,118 @@ void AUTGameSession::OnDestroySessionComplete(FName SessionName, bool bWasSucces
 		// Wait for any other processes to finish/cleanup before we start advertising
 		GetWorldTimerManager().SetTimer(StartServerTimerHandle, this, &ThisClass::StartServer, 0.1f);
 	}
+}
+
+bool AUTGameSession::ShouldStopServer()
+{
+	if (ServerSecondsToLive > 0)
+	{
+		double AbsoluteServerSeconds = FApp::GetCurrentTime() - GStartTime;
+		if (AbsoluteServerSeconds >= ServerSecondsToLive)
+		{
+			UE_LOG(LogOnlineGame, Log, TEXT("[AGameSessionCommon::ShouldStopServer] Server time limit hit (lives for %f seconds, configured to live %f seconds)"),
+				AbsoluteServerSeconds, ServerSecondsToLive);
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void AUTGameSession::CheckForPossibleRestart()
+{
+	UWorld* const World = GetWorld();
+	AGameMode* const GameMode = World->GetAuthGameMode();
+	check(GameMode);
+
+	UE_LOG(LogOnlineGame, Log, TEXT("[AUTGameSession::CheckForPossibleRestart] Checking for possible restart..."));
+	
+	/*
+	if (IsDevelopment())
+	{
+		UE_LOG(LogOnlineGame, Log, TEXT("[AUTGameSession::CheckForPossibleRestart] Ignoring restart for development build"));
+		return;
+	}
+	*/
+
+	// check if an unattended match is in progress
+	if (FParse::Param(FCommandLine::Get(), TEXT("Unattended")))
+	{
+		UE_LOG(LogOnlineGame, Log, TEXT("[AUTGameSession::CheckForPossibleRestart] Ignoring restart due to -unattended switch, assuming performance test."));
+		return;
+	}
+
+	// If there are no players, but there is a reservation, check back later
+	// reservations will clear out and it will be caught in a future call
+	if (GameMode->GetNumPlayers() == 0)
+	{
+		UE_LOG(LogOnlineGame, Log, TEXT("[AUTGameSession::CheckForPossibleRestart] Game is empty with no reservations, restarting"));
+		Restart();
+	}
+}
+
+void AUTGameSession::Restart()
+{
+	//LockPlayersToSession(false);
+
+	if (bGracefulShutdown)
+	{
+		ShutdownServer(TEXT("Graceful shutdown requested"), GracefulExitCode);
+	}
+	else
+	{
+		// check for shutdown/exit logic first
+		if (ShouldStopServer())
+		{
+			UE_LOG(LogOnlineGame, Log, TEXT("[AUTGameSession::Restart] Configured server stop criteria hit, shutting down gracefully."));
+			ShutdownServer(TEXT("Controlled shutdown due to stop criteria."), EXIT_CODE_GRACEFUL);
+		}
+		else
+		{
+			UE_LOG(LogOnlineGame, Log, TEXT("[AUTGameSession::Restart] Restarting dedicated server"));
+			/*
+			GetWorldTimerManager().ClearTimer(StartServerTimerHandle);
+			StartServerTimerHandle.Invalidate();
+
+			// Deny future beacon traffic while we restart
+			//PauseReservationRequests(true);
+
+			// Don't preserve beacon state, doing a full restart
+			DestroyHostBeacon(false);
+
+			// Server travel back to the empty map
+			UUTGameInstance* const GameInstance = CastChecked<UUTGameInstance>(GetGameInstance());
+			const FString& TravelURL = UGameMapsSettings::GetGameDefaultMap();
+			GameInstance->ServerTravel(TravelURL, true, true);*/
+		}
+	}
+}
+
+void AUTGameSession::GracefulShutdown(int32 ExitCode)
+{
+	bGracefulShutdown = true;
+	GracefulExitCode = ExitCode;
+
+	UE_LOG(LogOnlineGame, Log, TEXT("[AUTGameSession::GracefulShutdown] Flagged for graceful shutdown with ExitCode: %i"), ExitCode);
+
+	// Will shutdown the server right now if possible
+	CheckForPossibleRestart();
+}
+
+void AUTGameSession::ShutdownServer(const FString& Reason, int32 ExitCode)
+{
+	if (IsRunningDedicatedServer() == false)
+	{
+		return;
+	}
+
+	UE_LOG(LogOnlineGame, Warning, TEXT("[AUTGameSession::ShutdownServer] Shutting down dedicated server, Reason: %s, ExitCode: %d"), *Reason, ExitCode);
+	
+	//UnregisterServerDelegates();
+	DestroyHostBeacon(false);
+
+	GetWorldTimerManager().ClearTimer(StartServerTimerHandle);
+	StartServerTimerHandle.Invalidate();
+
+	FPlatformMisc::RequestExitWithStatus(false, ExitCode);
 }

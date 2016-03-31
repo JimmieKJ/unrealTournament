@@ -38,6 +38,13 @@ void AUTGameSessionRanked::RegisterServer()
 
 void AUTGameSessionRanked::StartServer()
 {
+	// Do one last check to see if we have been requested to shutdown, which could have happened during a restart
+	if (bGracefulShutdown)
+	{
+		ShutdownServer(TEXT("Graceful shutdown requested"), GracefulExitCode);
+		return;
+	}
+
 	const auto OnlineSub = IOnlineSubsystem::Get();
 	if (OnlineSub && GetWorld()->GetNetMode() == NM_DedicatedServer)
 	{
@@ -732,6 +739,41 @@ void AUTGameSessionRanked::UpdateSession(FName SessionName, FOnlineSessionSettin
 		{
 			OnUpdateSessionCompleteDelegateHandle = SessionInt->AddOnUpdateSessionCompleteDelegate_Handle(OnUpdateSessionCompleteDelegate);
 			SessionInt->UpdateSession(SessionName, SessionSettings, true);
+		}
+	}
+}
+
+void AUTGameSessionRanked::CheckForPossibleRestart()
+{
+	UWorld* const World = GetWorld();
+	AGameMode* const GameMode = World->GetAuthGameMode();
+	check(GameMode);
+
+	UE_LOG(LogOnlineGame, Log, TEXT("[AUTGameSession::CheckForPossibleRestart] Checking for possible restart..."));
+
+	/*
+	if (IsDevelopment())
+	{
+	UE_LOG(LogOnlineGame, Log, TEXT("[AUTGameSession::CheckForPossibleRestart] Ignoring restart for development build"));
+	return;
+	}
+	*/
+
+	// check if an unattended match is in progress
+	if (FParse::Param(FCommandLine::Get(), TEXT("Unattended")))
+	{
+		UE_LOG(LogOnlineGame, Log, TEXT("[AUTGameSession::CheckForPossibleRestart] Ignoring restart due to -unattended switch, assuming performance test."));
+		return;
+	}
+
+	// If there are no players, but there is a reservation, check back later
+	// reservations will clear out and it will be caught in a future call
+	if (GameMode->GetNumPlayers() == 0)
+	{
+		if (ReservationBeaconHost && ReservationBeaconHost->GetReservationCount() == 0)
+		{
+			UE_LOG(LogOnlineGame, Log, TEXT("[AUTGameSession::CheckForPossibleRestart] Game is empty with no reservations, restarting"));
+			Restart();
 		}
 	}
 }

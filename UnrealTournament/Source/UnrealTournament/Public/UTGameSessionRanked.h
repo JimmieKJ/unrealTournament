@@ -118,7 +118,7 @@ public:
 	 *
 	 * @param bPreserveReservations should beacon reservation state be preserved (typically during map travel)
 	 */
-	virtual void DestroyHostBeacon(bool bPreserveReservations = false);
+	virtual void DestroyHostBeacon(bool bPreserveReservations = false) override;
 
 
 	const int32 GetPlaylistId() const;
@@ -144,4 +144,5 @@ public:
 	/** Current host settings */
 	TSharedPtr<FOnlineSessionSettings> HostSettings;
 
+	virtual void CheckForPossibleRestart() override;
 };
