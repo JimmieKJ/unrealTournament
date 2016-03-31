@@ -233,7 +233,7 @@ float AUTCTFRoundGame::AdjustNearbyPlayerStartScore(const AController* Player, c
 				}
 			}
 		}
-		else if ((NextDist < 3000.f) && Player && Cast<AUTPlayerState>(Player->PlayerState) && IsPlayerOnLifeLimitedTeam(*((AUTPlayerState *)(Player->PlayerState))))
+		else if ((NextDist < 3000.f) && Player && Cast<AUTPlayerState>(Player->PlayerState) && IsPlayerOnLifeLimitedTeam(Cast<AUTPlayerState>(Player->PlayerState)))
 		{
 			ScoreAdjust += (3000.f - NextDist) / 1000.f;
 		}
@@ -531,7 +531,7 @@ void AUTCTFRoundGame::InitRound()
 			}
 			else if (PS)
 			{
-				PS->RemainingLives = (!bAsymmetricVictoryConditions || (IsPlayerOnLifeLimitedTeam(*PS))) ? RoundLives : 0;
+				PS->RemainingLives = (!bAsymmetricVictoryConditions || (IsPlayerOnLifeLimitedTeam(PS))) ? RoundLives : 0;
 				PS->bHasLifeLimit = (PS->RemainingLives > 0);
 				PS->SetOutOfLives(false);
 				if (bAsymmetricVictoryConditions && !PS->bHasLifeLimit)
@@ -603,7 +603,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 			}
 			return;
 		}
-		if (!bAsymmetricVictoryConditions || (IsPlayerOnLifeLimitedTeam(*PS)))
+		if (!bAsymmetricVictoryConditions || (IsPlayerOnLifeLimitedTeam(PS)))
 		{
 			PS->RemainingLives--;
 			if (PS->RemainingLives < 0)
@@ -634,7 +634,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 
 	if (aPlayer->GetPawn() && !bPerPlayerLives && (RoundLives > 0) && PS && PS->Team && CTFGameState && CTFGameState->IsMatchInProgress())
 	{
-		if ((PS->Team->TeamIndex == 0) && (!bAsymmetricVictoryConditions || IsPlayerOnLifeLimitedTeam(*PS)))
+		if ((PS->Team->TeamIndex == 0) && (!bAsymmetricVictoryConditions || IsPlayerOnLifeLimitedTeam(PS)))
 		{
 			CTFGameState->RedLivesRemaining--;
 			if (CTFGameState->RedLivesRemaining <= 0)
@@ -649,7 +649,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 				BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 7);
 			}
 		}
-		else if ((PS->Team->TeamIndex == 1) && (!bAsymmetricVictoryConditions || IsPlayerOnLifeLimitedTeam(*PS)))
+		else if ((PS->Team->TeamIndex == 1) && (!bAsymmetricVictoryConditions || IsPlayerOnLifeLimitedTeam(PS)))
 		{
 			CTFGameState->BlueLivesRemaining--;
 			if (CTFGameState->BlueLivesRemaining <= 0)
@@ -727,7 +727,7 @@ void AUTCTFRoundGame::CheckGameTime()
 				for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 				{
 					AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-					if (PS && !PS->bOutOfLives && !PS->bIsInactive && bAsymmetricVictoryConditions && !IsPlayerOnLifeLimitedTeam(*PS))
+					if (PS && !PS->bOnlySpectator && !PS->bOutOfLives && !PS->bIsInactive && bAsymmetricVictoryConditions && !IsPlayerOnLifeLimitedTeam(PS))
 					{
 						PS->RespawnWaitTime += 1.f;
 					}
@@ -752,7 +752,12 @@ bool AUTCTFRoundGame::IsTeamOnDefense(int32 TeamNumber) const
 	return !IsTeamOnOffense(TeamNumber);
 }
 
-bool AUTCTFRoundGame::IsPlayerOnLifeLimitedTeam(AUTPlayerState& PlayerState) const
+bool AUTCTFRoundGame::IsPlayerOnLifeLimitedTeam(AUTPlayerState* PlayerState) const
 {
-	return IsTeamOnOffense(PlayerState.Team->TeamIndex);
+	if (!PlayerState || !PlayerState->Team)
+	{
+		return false;
+	}
+
+	return IsTeamOnOffense(PlayerState->Team->TeamIndex);
 }

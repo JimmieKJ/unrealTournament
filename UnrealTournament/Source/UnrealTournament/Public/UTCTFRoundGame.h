@@ -119,5 +119,5 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 protected:
 	virtual bool IsTeamOnOffense(int32 TeamNumber) const;
 	virtual bool IsTeamOnDefense(int32 TeamNumber) const;
-	virtual bool IsPlayerOnLifeLimitedTeam(AUTPlayerState& PlayerState) const;
+	virtual bool IsPlayerOnLifeLimitedTeam(AUTPlayerState* PlayerState) const;
 };

@@ -221,7 +221,12 @@ void AUTCTFRoundGameTommy::RestartPlayer(AController* aPlayer)
 	}
 }
 
-bool AUTCTFRoundGameTommy::IsPlayerOnLifeLimitedTeam(AUTPlayerState& PlayerState) const
+bool AUTCTFRoundGameTommy::IsPlayerOnLifeLimitedTeam(AUTPlayerState* PlayerState) const
 {
-	return IsTeamOnDefense(PlayerState.Team->TeamIndex);
+	if (!PlayerState || !PlayerState->Team)
+	{
+		return false;
+	}
+
+	return IsTeamOnDefense(PlayerState->Team->TeamIndex);
 }
