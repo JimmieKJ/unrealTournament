@@ -9,11 +9,11 @@ class UNREALTOURNAMENT_API AUTFlagRunHUD : public AUTHUD_CTF
 {
 	GENERATED_UCLASS_BODY()
 
-	virtual void AUTFlagRunHUD::DrawHUD() override;
+	virtual void DrawHUD() override;
 
 	/** icon for player starts on the minimap (foreground) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, NoClear)
-		FCanvasIcon PlayerStartIcon;
+	FCanvasIcon PlayerStartIcon;
 
 	int32 RedPlayerCount;
 	int32 BluePlayerCount;
