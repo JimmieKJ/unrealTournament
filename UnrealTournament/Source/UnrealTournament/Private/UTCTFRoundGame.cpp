@@ -524,7 +524,7 @@ void AUTCTFRoundGame::InitRound()
 			PS->bHasLifeLimit = false;
 			PS->RespawnWaitTime = 0.f;
 			PS->RemainingBoosts = (CTFGameState && CTFGameState->CTFRound > 2) ? 1 : 0;
-			if (PS && (PS->bIsInactive || !PS->Team))
+			if (PS && (PS->bIsInactive || !PS->Team || PS->bOnlySpectator))
 			{
 				PS->RemainingLives = 0;
 				PS->SetOutOfLives(true);
