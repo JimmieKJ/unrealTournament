@@ -4761,11 +4761,17 @@ void UUTLocalPlayer::StartMatchmaking(int32 PlaylistId)
 		MatchmakingParams.PlaylistId = PlaylistId;
 		if (GetProfileSettings() && !GetProfileSettings()->MatchmakingRegion.IsEmpty())
 		{
-			MatchmakingParams.DatacenterId =  GetProfileSettings()->MatchmakingRegion;
+			MatchmakingParams.DatacenterId = GetProfileSettings()->MatchmakingRegion;
 		}
 		else
 		{
-			MatchmakingParams.DatacenterId = TEXT("USA");
+			MatchmakingParams.DatacenterId = TEXT("NA");
+		}
+
+		// Fix up USA to NA
+		if (MatchmakingParams.DatacenterId == TEXT("USA"))
+		{
+			MatchmakingParams.DatacenterId = TEXT("NA");
 		}
 
 		UUTParty* Party = UTGameInstance->GetParties();
