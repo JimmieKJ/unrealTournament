@@ -214,19 +214,19 @@ public:
 	bool bFirstBloodOccurred;
 
 	/** Minimum number of players that must have joined match before it will start. */
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly, BLueprintReadWrite, Category="MatchStart")
 	int32 MinPlayersToStart;
 
 	/** Minimum number of players that must have joined quickmatch before it will start. */
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly, BLueprintReadWrite, Category = "MatchStart")
 		int32 QuickPlayersToStart;
 
 	/** After this wait, add bots to min players level */
-	UPROPERTY()
-	int32 MaxWaitForPlayers;
+	UPROPERTY(EditDefaultsOnly, BLueprintReadWrite, Category = "MatchStart")
+		int32 MaxWaitForPlayers;
 
 	/** Wait at least this long in quick match to fill to QuickPlayersToStart */
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly, BLueprintReadWrite, Category = "MatchStart")
 		int32 MaxWaitForQuickMatch;
 
 	/** World time when match was first ready to start. */
