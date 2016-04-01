@@ -475,8 +475,6 @@ public:
 
 	virtual void GiveDefaultInventory(APawn* PlayerPawn);
 
-	virtual void ToggleSpecialFor(AUTCharacter* C);
-
 	virtual void ChangeName(AController* Other, const FString& S, bool bNameChange);
 
 	/** Return true if playerstart P should be avoided for this game mode. */

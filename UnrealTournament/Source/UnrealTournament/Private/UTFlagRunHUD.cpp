@@ -36,9 +36,9 @@ void AUTFlagRunHUD::DrawHUD()
 		for (APlayerState* PS : GS->PlayerArray)
 		{
 			AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
-			if (UTPS != NULL && UTPS->Team != NULL && !UTPS->bOnlySpectator)
+			if (UTPS != NULL && UTPS->Team != NULL && !UTPS->bOnlySpectator  && !UTPS->bIsInactive)
 			{
-				if (UTPS->bHasLifeLimit && !UTPS->bIsInactive)
+				if (UTPS->bHasLifeLimit)
 				{
 					if (UTPS->Team->TeamIndex == 0)
 					{
@@ -53,7 +53,7 @@ void AUTFlagRunHUD::DrawHUD()
 				{
 					// @todo fixmesteve optimize - one pass through pawns, set the value of cachedcharacter, show those with none or dead
 					AUTCharacter* Character = UTPS->GetUTCharacter();
-					if (!Character || Character->IsDead()) 
+					if (!Character || Character->IsDead())
 					{
 						if (UTPS->Team->TeamIndex == 0)
 						{

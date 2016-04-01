@@ -305,18 +305,6 @@ bool AUTCTFRoundGame::CheckReachedGoalScore(AUTTeamInfo* ScoringTeam)
 	return false;
 }
 
-void AUTCTFRoundGame::ToggleSpecialFor(AUTCharacter* C)
-{
-	AUTPlayerState* PS = C ? Cast<AUTPlayerState>(C->PlayerState) : nullptr;
-	if (PS && (PS->RemainingBoosts > 0))
-	{
-		PS->RemainingBoosts--;
-		AUTInventory* TriggeredUDamage = GetWorld()->SpawnActor<AUTInventory>(UDamageClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f));
-		TriggeredUDamage->bAlwaysDropOnDeath = false;
-		C->AddInventory(TriggeredUDamage, true);
-	}
-}
-
 void AUTCTFRoundGame::HandleFlagCapture(AUTPlayerState* Holder)
 {
 	CheckScore(Holder);
@@ -523,7 +511,8 @@ void AUTCTFRoundGame::InitRound()
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 			PS->bHasLifeLimit = false;
 			PS->RespawnWaitTime = 0.f;
-			PS->RemainingBoosts = (CTFGameState && CTFGameState->CTFRound > 2) ? 1 : 0;
+			PS->RemainingBoosts = 1;
+			PS->BoostClass = UDamageClass;
 			if (PS && (PS->bIsInactive || !PS->Team || PS->bOnlySpectator))
 			{
 				PS->RemainingLives = 0;

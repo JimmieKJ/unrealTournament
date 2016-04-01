@@ -178,9 +178,9 @@ public:
 	UFUNCTION(reliable, server, WithValidation)
 	void ServerRestartPlayerAltFire();
 
-	/** Attempts to restart this player, generally called from the client upon respawn request. */
+	/** Trigger boost. */
 	UFUNCTION(unreliable, server, WithValidation)
-		void ServerToggleSpecial();
+		void ServerTriggerBoost();
 
 
 	/** Selected an unavailable spawn location. */

@@ -114,7 +114,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 		TSubclassOf<class AUTTimedPowerup> UDamageClass;
 
 	virtual void GiveDefaultInventory(APawn* PlayerPawn) override;
-	virtual void ToggleSpecialFor(AUTCharacter* C) override;
 
 protected:
 	virtual bool IsTeamOnOffense(int32 TeamNumber) const;

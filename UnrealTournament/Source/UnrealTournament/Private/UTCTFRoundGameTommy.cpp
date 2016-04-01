@@ -100,6 +100,7 @@ void AUTCTFRoundGameTommy::ScoreOutOfLives(int32 WinningTeamIndex)
 	Super::ScoreOutOfLives(WinningTeamIndex);
 }
 
+/* FIXME - use boostclass (see ServerTriggerBoost in UTPlayerController
 void AUTCTFRoundGameTommy::ToggleSpecialFor(AUTCharacter* C)
 {
 	AUTPlayerState* PS = C ? Cast<AUTPlayerState>(C->PlayerState) : nullptr;
@@ -126,7 +127,7 @@ void AUTCTFRoundGameTommy::ToggleSpecialFor(AUTCharacter* C)
 		}
 	}
 }
-
+*/
 void AUTCTFRoundGameTommy::DiscardInventory(APawn* Other, AController* Killer)
 {
 	AUTPlayerState* KillerPS = Killer ? Cast<AUTPlayerState>(Killer->PlayerState) : nullptr;

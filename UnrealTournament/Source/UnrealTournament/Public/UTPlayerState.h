@@ -543,6 +543,10 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 		uint8 RemainingBoosts;
 
+	/** Inventory item that is created on boost. */
+	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
+		TSubclassOf<class AUTInventory> BoostClass;
+
 private:
 	UPROPERTY()
 	UObject* McpProfile;

@@ -29,8 +29,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameTommy : public AUTCTFRoundGame
 
 	virtual void GiveDefaultInventory(APawn* PlayerPawn) override;
 
-	virtual void ToggleSpecialFor(AUTCharacter* C) override;
-
 protected:
 	virtual bool IsPlayerOnLifeLimitedTeam(AUTPlayerState* PlayerState) const override;
 

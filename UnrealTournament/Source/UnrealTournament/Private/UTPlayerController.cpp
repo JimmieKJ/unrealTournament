@@ -690,17 +690,19 @@ void AUTPlayerController::NextWeapon()
 	SwitchWeaponInSequence(false);
 }
 
-bool AUTPlayerController::ServerToggleSpecial_Validate()
+bool AUTPlayerController::ServerTriggerBoost_Validate()
 {
 	return true;
 }
 
-void AUTPlayerController::ServerToggleSpecial_Implementation()
+void AUTPlayerController::ServerTriggerBoost_Implementation()
 {
-	AUTGameMode* UTGM = GetWorld()->GetAuthGameMode<AUTGameMode>();
-	if (UTGM && UTCharacter)
+	if (UTCharacter && UTPlayerState && (UTPlayerState->RemainingBoosts > 0) && UTPlayerState->BoostClass)
 	{
-		UTGM->ToggleSpecialFor(UTCharacter);
+		UTPlayerState->RemainingBoosts--;
+		AUTInventory* TriggeredBoost = GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->BoostClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f));
+		TriggeredBoost->bAlwaysDropOnDeath = false;
+		UTCharacter->AddInventory(TriggeredBoost, true);
 	}
 }
 
@@ -709,7 +711,7 @@ void AUTPlayerController::ToggleTranslocator()
 	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
 	if (UTCharacter && UTGameState && UTGameState->bOverrideToggle)
 	{
-		ServerToggleSpecial();
+		ServerTriggerBoost();
 		return;
 	}
 	if (UTCharacter != NULL && UTCharacter->GetWeapon() != NULL && IsLocalPlayerController())
