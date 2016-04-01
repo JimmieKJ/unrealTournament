@@ -1104,7 +1104,7 @@ namespace UnrealBuildTool
 					AppendMacLine(FinalizeAppBundleScript, "touch -c \"{0}.app\"", ExeName);
 
 					FinalizeAppBundleScript.Close();
-
+                     
 					// copy over some needed files
 					// @todo mac: Make a QueueDirectoryForBatchUpload
 					QueueFileForBatchUpload(FileItem.GetItemByFileReference(new FileReference("../../Engine/Source/Runtime/Launch/Resources/Mac/" + GameName + ".icns")));
@@ -1465,6 +1465,10 @@ namespace UnrealBuildTool
 					{
 						IconName = "EpicGamesLauncher";
 					}
+
+                    // Hack for UT non-monolithic compile
+                    IconName = "UE4";
+
 					BuildProducts.Add(FileReference.Combine(BundleContentsDirectory, "Resources/" + IconName + ".icns"), BuildProductType.RequiredResource);
 				}
 			}
