@@ -482,6 +482,7 @@ void AUTCTFRoundGame::InitRound()
 	}
 
 	bRedToCap = !bRedToCap;
+	CTFGameState->bRedToCap = bRedToCap;
 	if (FlagPickupDelay > 0)
 	{
 		for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
