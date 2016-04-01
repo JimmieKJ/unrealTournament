@@ -464,16 +464,16 @@ struct FPackageRedirectReference
 {
 	GENERATED_USTRUCT_BODY()
 
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly, Category = Ruleset)
 	FString PackageName;
 
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly, Category = Ruleset)
 	FString PackageURLProtocol;
 
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly, Category = Ruleset)
 	FString PackageURL;
 
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly, Category = Ruleset)
 	FString PackageChecksum;
 
 	FPackageRedirectReference()
