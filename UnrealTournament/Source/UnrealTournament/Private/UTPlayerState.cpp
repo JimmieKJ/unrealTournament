@@ -660,6 +660,14 @@ void AUTPlayerState::UpdateWeaponSkinPrefFromProfile(TSubclassOf<AUTWeapon> Weap
 
 void AUTPlayerState::ServerReceiveWeaponSkin_Implementation(const FString& NewWeaponSkin)
 {
+#if WITH_EDITOR
+	// Intentionally break this in network games until hitches can get fixed
+	if (NM_Standalone != GetNetMode())
+	{
+		return;
+	}
+#endif
+
 	if (!bOnlySpectator)
 	{
 		UUTWeaponSkin* WeaponSkin = LoadObject<UUTWeaponSkin>(NULL, *NewWeaponSkin, NULL, GetCosmeticLoadFlags(), NULL);
