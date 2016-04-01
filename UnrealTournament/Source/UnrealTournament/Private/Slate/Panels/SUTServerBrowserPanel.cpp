@@ -1596,12 +1596,12 @@ void SUTServerBrowserPanel::OnServerBeaconResult(AUTServerBeaconClient* Sender, 
 				int32 Count = 0;
 				for (int32 ins=0; ins < PingTrackers[i].Server->HUBInstances.Num(); ins++)
 				{
-					for (int32 pi = 0; pi < PingTrackers[i].Server->HUBInstances[ins]->Players.Num(); pi++ )
+					for (int32 PlayerIdx = 0; PlayerIdx < PingTrackers[i].Server->HUBInstances[ins]->Players.Num(); PlayerIdx++ )
 					{
 						bool bFound = false;
 						for (int32 p = 0; p < PingTrackers[i].Server->Players.Num(); p++)
 						{
-							if (PingTrackers[i].Server->HUBInstances[ins]->Players[pi].PlayerId == PingTrackers[i].Server->Players[p]->Id)
+							if (PingTrackers[i].Server->HUBInstances[ins]->Players[PlayerIdx].PlayerId == PingTrackers[i].Server->Players[p]->Id)
 							{
 								bFound = true;
 								break;
