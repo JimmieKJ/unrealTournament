@@ -688,7 +688,7 @@ void FRazerChroma::Tick(float DeltaTime)
 					Effect.Color[HIBYTE(RZKEY_RIGHT)][LOBYTE(RZKEY_RIGHT)] = GREEN;
 				}
 			}
-			UTPC->ResolveKeybindToFKey(TEXT("TurnLeft"), Keys, false, true);
+			UTPC->ResolveKeybindToFKey(TEXT("TurnRate"), Keys, false, true);
 			for (int i = 0; i < Keys.Num(); i++)
 			{
 				FString KeyName = Keys[i].ToString();
@@ -696,10 +696,6 @@ void FRazerChroma::Tick(float DeltaTime)
 				{
 					Effect.Color[HIBYTE(RZKEY_LEFT)][LOBYTE(RZKEY_LEFT)] = GREEN;
 				}
-			}
-			UTPC->ResolveKeybindToFKey(TEXT("TurnRight"), Keys, false, true);
-			for (int i = 0; i < Keys.Num(); i++)
-			{
 				FString KeyName = Keys[i].ToString();
 				if (KeyName == TEXT("Right"))
 				{
