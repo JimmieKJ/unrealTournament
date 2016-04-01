@@ -696,10 +696,9 @@ void FRazerChroma::Tick(float DeltaTime)
 				{
 					Effect.Color[HIBYTE(RZKEY_LEFT)][LOBYTE(RZKEY_LEFT)] = GREEN;
 				}
-				FString KeyName = Keys[i].ToString();
 				if (KeyName == TEXT("Right"))
 				{
-					Effect.Color[HIBYTE(RZKEY_LEFT)][LOBYTE(RZKEY_LEFT)] = GREEN;
+					Effect.Color[HIBYTE(RZKEY_RIGHT)][LOBYTE(RZKEY_RIGHT)] = GREEN;
 				}
 			}
 
