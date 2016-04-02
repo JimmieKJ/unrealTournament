@@ -40,13 +40,16 @@ void AUTFlagRunHUD::DrawHUD()
 			{
 				if (GS->bRedToCap == (UTPS->Team->TeamIndex == 0))
 				{
-					if (UTPS->Team->TeamIndex == 0)
+					if (!UTPS->bOutOfLives)
 					{
-						RedPlayerCount++;
-					}
-					else
-					{
-						BluePlayerCount++;
+						if (UTPS->Team->TeamIndex == 0)
+						{
+							RedPlayerCount++;
+						}
+						else
+						{
+							BluePlayerCount++;
+						}
 					}
 				}
 				else
