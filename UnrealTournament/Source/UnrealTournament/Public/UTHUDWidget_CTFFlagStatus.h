@@ -63,6 +63,14 @@ class UNREALTOURNAMENT_API UUTHUDWidget_CTFFlagStatus : public UUTHUDWidget
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 		bool bStatusDir;
 
+	/** Transient value used to keep offscreen indicators from flipping sides too much. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+		bool bRedWasLeft;
+
+	/** Transient value used to keep offscreen indicators from flipping sides too much. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+		bool bBlueWasLeft;
+
 	/** Distance to start scaling in world indicators. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 		float ScalingStartDist;
@@ -87,7 +95,7 @@ class UNREALTOURNAMENT_API UUTHUDWidget_CTFFlagStatus : public UUTHUDWidget
 		return !bShowScores;
 	}
 
-	virtual FVector GetAdjustedScreenPosition(const FVector& WorldPosition, const FVector& ViewPoint, const FVector& ViewDir, float Dist, float Edge, float EdgeYPos, bool& bDrawEdgeArrow);
+	virtual FVector GetAdjustedScreenPosition(const FVector& WorldPosition, const FVector& ViewPoint, const FVector& ViewDir, float Dist, float Edge, float EdgeYPos, bool& bDrawEdgeArrow, int32 Team);
 
 	virtual void DrawEdgeArrow(FVector ScreenPosition, float CurrentWorldAlpha, float WorldRenderScale, int32 Team);
 
