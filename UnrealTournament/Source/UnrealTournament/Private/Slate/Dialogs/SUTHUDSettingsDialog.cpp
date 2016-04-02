@@ -173,7 +173,7 @@ void SUTHUDSettingsDialog::Construct(const FArguments& InArgs)
 				[
 					SNew(STextBlock)
 					.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium.Bold")
-					.Text(NSLOCTEXT("SUTHUDSettingsDialog","NoProfile","Currently, you must be logged in with an active profile to adjust your HUD.  It will change but #PreAlpha!"))
+					.Text(NSLOCTEXT("SUTHUDSettingsDialog","NoProfile","You must be logged in with an active profile to adjust your HUD."))
 				]
 			];
 		}
