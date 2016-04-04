@@ -351,6 +351,7 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 		return;
 	}
 
+	UE_LOG(UT, Warning, TEXT("Remove any ghost flag"));
 	if (MyGhostFlag != nullptr)
 	{
 		MyGhostFlag->Destroy();
@@ -613,6 +614,7 @@ void AUTCarriedObject::SendHomeWithNotify()
 
 void AUTCarriedObject::PutGhostFlagAt(const FVector NewGhostLocation)
 {
+	UE_LOG(UT, Warning, TEXT("ADD ghost flag"));
 	if (GhostFlagClass)
 	{
 		if ((MyGhostFlag == nullptr) || MyGhostFlag->IsPendingKillPending())
@@ -635,9 +637,10 @@ void AUTCarriedObject::SendHome()
 
 	DetachRootComponentFromParent(true);
 	if (ObjectState == CarriedObjectState::Home) return;	// Don't both if we are already home
+	UE_LOG(UT, Warning, TEXT("SEND HOME"));
 
 	NoLongerHeld();
-	if (bGradualAutoReturn && (PastPositions.Num() > 0))
+	if (bGradualAutoReturn && (PastPositions.Num() > 0) && (Role == ROLE_Authority))
 	{
 		if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1]).Size() < MinGradualReturnDist)
 		{
