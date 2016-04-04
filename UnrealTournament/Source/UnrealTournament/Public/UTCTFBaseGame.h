@@ -33,6 +33,9 @@ class UNREALTOURNAMENT_API AUTCTFBaseGame : public AUTTeamGameMode
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CTF)
 		int32 FlagCapScore;
 
+	UPROPERTY(transient)
+		bool bPlacingPlayersAtIntermission;
+
 	virtual int32 IntermissionTeamToView(AUTPlayerController* PC);
 
 	TAssetSubclassOf<AUTWeapon> TranslocatorObject;

@@ -455,7 +455,7 @@ void AUTCTFBaseGame::PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNum
 	FVector FlagLoc = CTFGameState->FlagBases[FlagTeamNum]->GetActorLocation();
 	float AngleSlices = 360.0f / MaxPlayers;
 	int32 PlacementCounter = 0;
-
+	bPlacingPlayersAtIntermission = true;
 	// respawn dead pawns
 	for (AController* C : Members)
 	{
@@ -472,7 +472,7 @@ void AUTCTFBaseGame::PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNum
 			}
 		}
 	}
-
+	bPlacingPlayersAtIntermission = false;
 	bool bSecondLevel = false;
 	FVector PlacementOffset = FVector(200.f, 0.f, 0.f);
 	float StartAngle = 0.f;

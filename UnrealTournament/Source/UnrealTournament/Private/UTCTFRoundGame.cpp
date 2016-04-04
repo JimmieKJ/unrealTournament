@@ -34,7 +34,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	GoalScore = 5;
 	TimeLimit = 5;
 	DisplayName = NSLOCTEXT("UTGameMode", "CTFR", "Flag Run");
-	RoundLives = 1;
+	RoundLives = 1;// 5
 	bPerPlayerLives = true;
 	bNeedFiveKillsMessage = true;
 	FlagCapScore = 2;
@@ -574,7 +574,10 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 	if (GetMatchState() == MatchState::MatchIntermission)
 	{
 		// placing players during intermission
-		Super::RestartPlayer(aPlayer);
+		if (bPlacingPlayersAtIntermission)
+		{
+			Super::RestartPlayer(aPlayer);
+		}
 		return;
 	}
 	AUTPlayerState* PS = Cast<AUTPlayerState>(aPlayer->PlayerState);
