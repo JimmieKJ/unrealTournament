@@ -88,11 +88,7 @@ void AUTCTFFlagBase::RecallFlag()
 			MyFlag->SendHome();
 			MyFlag->bGradualAutoReturn = bGradualAutoReturn;
 		}
-		if (MyFlag->MyGhostFlag != nullptr)
-		{
-			MyFlag->MyGhostFlag->Destroy();
-			MyFlag->MyGhostFlag = nullptr;
-		}
+		MyFlag->ClearGhostFlag();
 	}
 }
 

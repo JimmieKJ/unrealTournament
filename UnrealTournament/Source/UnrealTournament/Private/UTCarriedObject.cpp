@@ -352,11 +352,7 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 	}
 
 	UE_LOG(UT, Warning, TEXT("Remove any ghost flag"));
-	if (MyGhostFlag != nullptr)
-	{
-		MyGhostFlag->Destroy();
-		MyGhostFlag = nullptr;
-	}
+	ClearGhostFlag();
 	bool bWasHome = (ObjectState == CarriedObjectState::Home);
 	ChangeState(CarriedObjectState::Held);
 
@@ -612,6 +608,15 @@ void AUTCarriedObject::SendHomeWithNotify()
 	SendHome();
 }
 
+void AUTCarriedObject::ClearGhostFlag()
+{
+	if (MyGhostFlag != nullptr)
+	{
+		MyGhostFlag->Destroy();
+		MyGhostFlag = nullptr;
+	}
+}
+
 void AUTCarriedObject::PutGhostFlagAt(const FVector NewGhostLocation)
 {
 	UE_LOG(UT, Warning, TEXT("ADD ghost flag"));
@@ -676,19 +681,14 @@ void AUTCarriedObject::SendHome()
 			}
 			OnObjectStateChanged();
 			ForceNetUpdate();
-			if (MyGhostFlag && !bWantsGhostFlag)
+			if (!bWantsGhostFlag)
 			{
-				MyGhostFlag->Destroy();
-				MyGhostFlag = nullptr;
+				ClearGhostFlag();
 			}
 			return;
 		}
 	}
-	if (MyGhostFlag)
-	{
-		MyGhostFlag->Destroy();
-		MyGhostFlag = nullptr;
-	}
+	ClearGhostFlag();
 	ChangeState(CarriedObjectState::Home);
 	HomeBase->ObjectReturnedHome(LastHoldingPawn);
 	MoveToHome();

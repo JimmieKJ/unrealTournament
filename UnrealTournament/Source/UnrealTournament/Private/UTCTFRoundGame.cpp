@@ -34,7 +34,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	GoalScore = 5;
 	TimeLimit = 5;
 	DisplayName = NSLOCTEXT("UTGameMode", "CTFR", "Flag Run");
-	RoundLives = 1;// 5
+	RoundLives = 5;
 	bPerPlayerLives = true;
 	bNeedFiveKillsMessage = true;
 	FlagCapScore = 2;
@@ -372,11 +372,7 @@ void AUTCTFRoundGame::InitFlags()
 			Flag->bDisplayHolderTrail = true;
 			Flag->bShouldPingFlag = true;
 			UE_LOG(UT, Warning, TEXT("InitFlags"));
-			if (Flag->MyGhostFlag != nullptr)
-			{
-				Flag->MyGhostFlag->Destroy();
-				Flag->MyGhostFlag = nullptr;
-			}
+			Flag->ClearGhostFlag();
 			if (bAsymmetricVictoryConditions)
 			{
 				Flag->bSendHomeOnScore = !bNoFlagReturn;
