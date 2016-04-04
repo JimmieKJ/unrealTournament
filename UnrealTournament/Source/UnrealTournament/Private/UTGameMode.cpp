@@ -2407,8 +2407,7 @@ bool AUTGameMode::ShouldSpawnAtStartSpot(AController* Player)
 		return true;
 	}
 
-	return ( GetWorld()->GetNetMode() == NM_Standalone && Player && Player->StartSpot.IsValid() && 
-		 (RatePlayerStart(Cast<APlayerStart>(Player->StartSpot.Get()), Player) >= 0.f) );
+	return false;
 }
 
 
