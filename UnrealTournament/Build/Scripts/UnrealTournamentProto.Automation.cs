@@ -264,7 +264,7 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
             {
                 // verify the files we need exist first
                 string RawImagePathMac = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "MacNoEditor");
-                string RawImageManifestMac = CombinePaths(RawImagePathMac, "Mac_Manifest_NonUFSFiles.txt");
+                string RawImageManifestMac = CombinePaths(RawImagePathMac, "Manifest_NonUFSFiles_Mac.txt");
 
                 if (!FileExists(RawImageManifestMac))
                 {
@@ -311,7 +311,7 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
             {
                 // verify the files we need exist first
                 string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "WindowsNoEditor");
-                string RawImageManifest = CombinePaths(RawImagePath, "Win64_Manifest_NonUFSFiles.txt");
+                string RawImageManifest = CombinePaths(RawImagePath, "Manifest_NonUFSFiles_Win64.txt");
 
                 if (!FileExists(RawImageManifest))
                 {
@@ -326,7 +326,7 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
                 {
                     StagingInfo = StagingInfo,
                     BuildRoot = RawImagePath,
-                    FileIgnoreList = CommandUtils.CombinePaths(RawImagePath, "Win64_Manifest_DebugFiles.txt"),
+                    FileIgnoreList = CommandUtils.CombinePaths(RawImagePath, "Manifest_DebugFiles_Win64.txt"),
                     AppLaunchCmd = @".\Engine\Binaries\Win64\UE4-Win64-Shipping.exe",
                     AppLaunchCmdArgs = "UnrealTournament",
                     AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
@@ -357,7 +357,7 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
             {
                 // verify the files we need exist first
                 string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "WindowsNoEditor");
-                string RawImageManifest = CombinePaths(RawImagePath, "Win32_Manifest_NonUFSFiles.txt");
+                string RawImageManifest = CombinePaths(RawImagePath, "Manifest_NonUFSFiles_Win32.txt");
 
                 if (!FileExists(RawImageManifest))
                 {
@@ -372,7 +372,7 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
                 {
                     StagingInfo = StagingInfo,
                     BuildRoot = RawImagePath,
-                    FileIgnoreList = CommandUtils.CombinePaths(RawImagePath, "Win32_Manifest_DebugFiles.txt"),
+                    FileIgnoreList = CommandUtils.CombinePaths(RawImagePath, "Manifest_DebugFiles_Win32.txt"),
                     AppLaunchCmd = @".\Engine\Binaries\Win32\UE4-Win32-Shipping.exe",
                     AppLaunchCmdArgs = "UnrealTournament",
                     AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
