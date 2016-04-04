@@ -81,6 +81,7 @@ void AUTCTFFlagBase::RecallFlag()
 	{
 		bool bGradualAutoReturn = MyFlag->bGradualAutoReturn;
 		MyFlag->bGradualAutoReturn = false;
+		MyFlag->PastPositions.Empty();
 		MyFlag->SendHome();
 		MyFlag->bGradualAutoReturn = bGradualAutoReturn;
 	}

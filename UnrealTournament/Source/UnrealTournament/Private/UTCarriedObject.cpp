@@ -596,6 +596,7 @@ void AUTCarriedObject::Drop(AController* Killer)
 		if (PastPositions.Num() > 0)
 		{
 			PutGhostFlagAt(PastPositions[PastPositions.Num() - 1]);
+			PastPositions.RemoveAt(PastPositions.Num() - 1);
 		}
 	}
 }
@@ -614,7 +615,7 @@ void AUTCarriedObject::PutGhostFlagAt(const FVector NewGhostLocation)
 {
 	if (GhostFlagClass)
 	{
-		if (MyGhostFlag == nullptr)
+		if ((MyGhostFlag == nullptr) || MyGhostFlag->IsPendingKillPending())
 		{
 			FActorSpawnParameters Params;
 			Params.Owner = this;

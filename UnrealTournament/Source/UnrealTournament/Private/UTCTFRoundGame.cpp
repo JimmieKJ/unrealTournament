@@ -26,6 +26,7 @@
 #include "UTTimedPowerup.h"
 #include "UTPlayerState.h"
 #include "UTFlagRunHUD.h"
+#include "UTGhostFlag.h"
 
 AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -79,7 +80,6 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 		GoalScore = 5;
 	}
 
-	UE_LOG(UT, Warning, TEXT("Init Game"));
 	if (!ShieldBeltObject.IsNull())
 	{
 		ShieldBeltClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *ShieldBeltObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
@@ -371,6 +371,11 @@ void AUTCTFRoundGame::InitFlags()
 			Flag->bGradualAutoReturn = true;
 			Flag->bDisplayHolderTrail = true;
 			Flag->bShouldPingFlag = true;
+			if (Flag->MyGhostFlag != nullptr)
+			{
+				Flag->MyGhostFlag->Destroy();
+				Flag->MyGhostFlag = nullptr;
+			}
 			if (bAsymmetricVictoryConditions)
 			{
 				Flag->bSendHomeOnScore = !bNoFlagReturn;
