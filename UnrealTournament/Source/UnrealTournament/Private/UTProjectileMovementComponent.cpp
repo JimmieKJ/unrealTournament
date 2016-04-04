@@ -88,7 +88,7 @@ bool UUTProjectileMovementComponent::MoveUpdatedComponentImpl(const FVector& Del
 		float ShortestMoveSize = InitialMoveSize;
 		bool bGotHit = EarliestHit.bBlockingHit;
 		bool bPenetrating = EarliestHit.bStartPenetrating;
-		float PenetrationDepth = (bPenetrating ? EarliestHit.PenetrationDepth : 0.f);
+		float PenetrationDepth = (bPenetrating ? EarliestHit.PenetrationDepth : -1.0f);
 
 		// move children
 		for (int32 i = 0; i < AddlUpdatedComponents.Num(); i++)
