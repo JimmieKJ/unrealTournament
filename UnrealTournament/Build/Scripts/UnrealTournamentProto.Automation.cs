@@ -1491,6 +1491,18 @@ namespace UnrealTournamentGame.Automation
 			bool bIsStagePromotion = StageApps.Contains(ToGameApp);
 			bool bIsProdPromotion = ProdApps.Contains(ToGameApp);
 
+			// Set this to false to disable dedicated server fleet deployment
+			bool bEnableServerDeploy = true;
+
+			// Booleans related to dedicated server deployments
+			bool bDistributeServerBuild = false;
+			bool bSetLiveServerBuild = false;
+			if (bEnableServerDeploy)
+			{
+				bDistributeServerBuild = bIsStagePromotion;
+				bSetLiveServerBuild = bIsProdPromotion;
+			}
+
 			// Determine the environment for the target app
 			string TargetAppMcpConfig;
 			if (bIsProdPromotion)
@@ -1667,6 +1679,14 @@ namespace UnrealTournamentGame.Automation
 			// Execute additional logic required for each promotion
 			//
 
+			GameServerManager GameServerManager = new GameServerManager(ToGameApp, "ut-builds", BuildVersion);
+
+			// Create dedicated server VM images
+			if (bDistributeServerBuild)
+			{
+				GameServerManager.DistributeImagesAsync();
+			}
+
 			Log("Performing build promotion actions for promoting to label {0} of app {1}/{2}.", LiveLabel, ToGameApp.ToString(), ToEditorApp.ToString());
 			if (bIsStagePromotion)
 			{
@@ -1695,6 +1715,19 @@ namespace UnrealTournamentGame.Automation
 				Log("Ensuring build is posted to {0} app {1}/{2} for stage promotion", StagingMcpConfigString, ToGameApp.ToString(), ToEditorApp.ToString());
 				EnsureBuildIsRegistered(StagingMcpConfigString, GameStagingInfos);
 				EnsureBuildIsRegistered(StagingMcpConfigString, EditorStagingInfos);
+			}
+
+			// Wait for images to finish being created and distributed
+			if (bDistributeServerBuild)
+			{
+				GameServerManager.DistributeImagesWait(3600);
+			}
+
+			// Set dedicated servers fleets live. 
+			if (bSetLiveServerBuild)
+			{
+				GameServerManager.DeployNewFleets(900);
+				GameServerManager.DegradeOldFleets(900);
 			}
 
 			// Apply game rollback label to preserve info about last Live build
