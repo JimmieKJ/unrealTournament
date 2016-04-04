@@ -637,7 +637,7 @@ void AUTCarriedObject::SendHome()
 
 	DetachRootComponentFromParent(true);
 	if (ObjectState == CarriedObjectState::Home) return;	// Don't both if we are already home
-	UE_LOG(UT, Warning, TEXT("SEND HOME"));
+	UE_LOG(UT, Warning, TEXT("SEND HOME gradual %d"), bGradualAutoReturn);
 
 	NoLongerHeld();
 	if (bGradualAutoReturn && (PastPositions.Num() > 0) && (Role == ROLE_Authority))

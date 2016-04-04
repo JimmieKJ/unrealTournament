@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTCTFFlagBase.h"
 #include "Net/UnrealNetwork.h"
+#include "UTGhostFlag.h"
 
 AUTCTFFlagBase::AUTCTFFlagBase(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -77,13 +78,21 @@ FName AUTCTFFlagBase::GetFlagState()
 
 void AUTCTFFlagBase::RecallFlag()
 {
-	if (MyFlag != NULL && MyFlag->ObjectState != CarriedObjectState::Home)
+	if (MyFlag != NULL)
 	{
-		bool bGradualAutoReturn = MyFlag->bGradualAutoReturn;
-		MyFlag->bGradualAutoReturn = false;
-		MyFlag->PastPositions.Empty();
-		MyFlag->SendHome();
-		MyFlag->bGradualAutoReturn = bGradualAutoReturn;
+		if (MyFlag->ObjectState != CarriedObjectState::Home)
+		{
+			bool bGradualAutoReturn = MyFlag->bGradualAutoReturn;
+			MyFlag->bGradualAutoReturn = false;
+			MyFlag->PastPositions.Empty();
+			MyFlag->SendHome();
+			MyFlag->bGradualAutoReturn = bGradualAutoReturn;
+		}
+		if (MyFlag->MyGhostFlag != nullptr)
+		{
+			MyFlag->MyGhostFlag->Destroy();
+			MyFlag->MyGhostFlag = nullptr;
+		}
 	}
 }
 
