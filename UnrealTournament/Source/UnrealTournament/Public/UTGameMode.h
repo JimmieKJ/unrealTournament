@@ -741,6 +741,8 @@ protected:
 	UPROPERTY(transient)
 	AUTServerBeaconLobbyClient* LobbyBeacon;
 
+	FTimerHandle ServerRestartTimerHandle;
+
 	float LastLobbyUpdateTime;
 	virtual void ForceLobbyUpdate();
 

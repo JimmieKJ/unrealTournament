@@ -346,6 +346,12 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	{
 		AntiCheatEngine = &IModularFeatures::Get().GetModularFeature<UTAntiCheatModularFeature>(AntiCheatFeatureName);
 	}
+
+	if (bRankedSession)
+	{
+		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
+		GetWorldTimerManager().SetTimer(ServerRestartTimerHandle, UTGameSession, &AUTGameSession::CheckForPossibleRestart, 60.0f, true);
+	}
 }
 
 void AUTGameMode::AddMutator(const FString& MutatorPath)
@@ -2093,6 +2099,8 @@ void AUTGameMode::TravelToNextMap_Implementation()
 
 	if (bRankedSession)
 	{
+		GetWorldTimerManager().ClearTimer(ServerRestartTimerHandle);
+
 		SendEveryoneBackToLobby();
 
 		AUTGameSessionRanked* RankedGameSession = Cast<AUTGameSessionRanked>(GameSession);
@@ -2741,6 +2749,8 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 			bool bMaxWaitComplete = (MaxReadyWaitTime > 0) && !bRequireReady && (GetNetMode() != NM_Standalone) && (ElapsedWaitTime > MaxReadyWaitTime);
 			if (bRankedSession && bMaxWaitComplete)
 			{
+				GetWorldTimerManager().ClearTimer(ServerRestartTimerHandle);
+
 				if (IOnlineSubsystem::Get() != NULL)
 				{
 					IOnlineSessionPtr OnlineSessionInterface = IOnlineSubsystem::Get()->GetSessionInterface();

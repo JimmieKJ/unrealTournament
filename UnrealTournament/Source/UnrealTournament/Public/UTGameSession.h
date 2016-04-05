@@ -80,7 +80,6 @@ protected:
 	UPROPERTY(Config)
 		float ServerSecondsToLive;
 
-	virtual void CheckForPossibleRestart();
 	virtual bool ShouldStopServer();
 	virtual void Restart() override;
 	virtual void ShutdownServer(const FString& Reason, int32 ExitCode = 0);
@@ -88,7 +87,9 @@ protected:
 	virtual void DestroyHostBeacon(bool bPreserveReservations = false) {}
 
 public:
-	
+
+	virtual void CheckForPossibleRestart();
+
 	/**
 	 * Gracefully shuts down the server the next time it is free.
 	 *
