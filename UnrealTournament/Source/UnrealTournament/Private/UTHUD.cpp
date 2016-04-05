@@ -157,7 +157,7 @@ void AUTHUD::AddSpectatorWidgets()
 	if (VerifySpawnWindow(UTGameState) && UTGameState && PS)
 	{
 		bool bNeedSpawnWindow = false;
-		if (UTGameState && PS && UTGameState->IsMatchIntermission() || UTGameState->HasMatchEnded() || !UTGameState->HasMatchStarted())
+		if (UTGameState && PS && (UTGameState->IsMatchIntermission() || UTGameState->HasMatchEnded() || !UTGameState->HasMatchStarted()))
 		{
 			bNeedSpawnWindow = true;
 		}
