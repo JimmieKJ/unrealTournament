@@ -203,11 +203,18 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 
 				if (PowerupInfo.Label.IsEmpty())
 				{
-					TArray<FString> Keys;
-					UTPlayerOwner->ResolveKeybind(TEXT("ToggleTranslocator"), Keys, false, false);
-					if (Keys.Num() > 0)
+					UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+					if (InputSettings)
 					{
-						PowerupInfo.Label = FText::FromString(UTPlayerOwner->FixedupKeyname(Keys[0]));
+						for (int32 inputIndex = 0; inputIndex < InputSettings->ActionMappings.Num(); ++inputIndex)
+						{
+							FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
+							if (Action.ActionName == "StartActivatePowerup")
+							{
+								PowerupInfo.Label = Action.Key.GetDisplayName();
+								break;
+							}
+						}
 					}
 				}
 			}

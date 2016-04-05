@@ -309,6 +309,10 @@ void SUTControlSettingsDialog::CreateBinds()
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Translocator", "Select Translocator")))
 		->AddCustomBinding("SelectTranslocator")
 		->AddDefaults(FKey())));
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Activate Powerup", "Activate Powerup")))
+		->AddActionMapping("StartActivatePowerup")
+		->AddActionMapping("StopActivatePowerup")
+		->AddDefaults(EKeys::Q)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select WeaponGroup1", "Select Group 1")))
 		->AddCustomBinding("SwitchWeapon 1")
 		->AddDefaults(EKeys::One)));
@@ -1058,6 +1062,7 @@ FReply SUTControlSettingsDialog::OKClick()
 	if (UTPC != nullptr)
 	{
 		UTPC->UpdateWeaponGroupKeys();
+		UTPC->UpdateInventoryKeys();
 	}
 
 	//Update the playing players custom binds

@@ -179,16 +179,15 @@ public:
 	void ServerRestartPlayerAltFire();
 
 	/** Trigger boost. */
-	UFUNCTION(unreliable, server, WithValidation)
-		void ServerTriggerBoost();
-
-
+	UFUNCTION(reliable, server, WithValidation)
+	void ServerTriggerBoost();
+	
 	/** Selected an unavailable spawn location. */
 	UPROPERTY()
-		USoundBase* BadSelectSound;
+	USoundBase* BadSelectSound;
 
 	UFUNCTION(client, unreliable)
-		virtual void ClientPlayBadSelectionSound();
+	virtual void ClientPlayBadSelectionSound();
 
 	/**	We overload ServerRestartPlayer so that we can set the bReadyToPlay flag if the game hasn't begun	 **/
 	virtual void ServerRestartPlayer_Implementation();
@@ -828,6 +827,32 @@ protected:
 	 * makes weapons feel a little more responsive while strafing
 	 */
 	TArray< FDeferredFireInput, TInlineAllocator<2> > DeferredFireInputs;
+
+	UFUNCTION(Reliable, Server, WithValidation)
+	void ServerActivatePowerUpPress();
+
+	UFUNCTION(Reliable, Server, WithValidation)
+	void ServerActivatePowerUpRelease();
+
+public:
+	/** Hold down Power-Up handling **/
+	void OnActivatePowerupPress();
+	void OnActivatePowerupRelease();
+
+	UPROPERTY(Replicated)
+	float PowerUpButtonHoldPercentage;
+	
+	UPROPERTY(Replicated)
+	float TimeToHoldPowerUpButtonToActivate;
+
+private:
+	bool bAlreadyActivatedPowerupThisHold;
+	
+	UPROPERTY(Replicated)
+	float LastPowerUpButtonPressTime;
+
+	void UpdatePowerUpButtonHoldPercentage();
+
 public:
 
 	void ApplyDeferredFireInputs();
@@ -876,6 +901,8 @@ public:
 
 	TMap<int32,FString> WeaponGroupKeys;
 	virtual void UpdateWeaponGroupKeys();
+
+	virtual void UpdateInventoryKeys();
 
 	UFUNCTION(server, reliable, withvalidation)
 	void ServerRegisterBanVote(AUTPlayerState* BadGuy);

@@ -88,6 +88,10 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	
 	DilationIndex = 2;
 
+	bAlreadyActivatedPowerupThisHold = false;
+	PowerUpButtonHoldPercentage = 0.0f;
+	LastPowerUpButtonPressTime = 0.0f;
+
 	static ConstructorHelpers::FObjectFinder<USoundBase> PressedSelect(TEXT("SoundCue'/Game/RestrictedAssets/UI/UT99UI_LittleSelect_Cue.UT99UI_LittleSelect_Cue'"));
 	SelectSound = PressedSelect.Object;
 
@@ -133,6 +137,10 @@ void AUTPlayerController::Destroyed()
 void AUTPlayerController::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	
+	DOREPLIFETIME(AUTPlayerController, TimeToHoldPowerUpButtonToActivate);
+	DOREPLIFETIME(AUTPlayerController, PowerUpButtonHoldPercentage);
+	DOREPLIFETIME(AUTPlayerController, LastPowerUpButtonPressTime);
 
 	DOREPLIFETIME_CONDITION(AUTPlayerController, MaxPredictionPing, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerController, PredictionFudgeFactor, COND_OwnerOnly);
@@ -330,6 +338,9 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("TapForwardRelease", IE_Released, this, &AUTPlayerController::OnTapForwardRelease);
 	InputComponent->BindAction("TapBackRelease", IE_Released, this, &AUTPlayerController::OnTapBackRelease);
 
+	InputComponent->BindAction("StartActivatePowerup", IE_Pressed, this, &AUTPlayerController::OnActivatePowerupPress);
+	InputComponent->BindAction("StopActivatePowerup", IE_Released, this, &AUTPlayerController::OnActivatePowerupRelease);
+
 	// We have 2 versions of the rotation bindings to handle different kinds of devices differently
 	// "turn" handles devices that provide an absolute delta, such as a mouse.
 	// "turnrate" is for devices that we choose to treat as a rate of change, such as an analog joystick
@@ -362,6 +373,7 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("ShowBuyMenu", IE_Pressed, this, &AUTPlayerController::ShowBuyMenu);
 
 	UpdateWeaponGroupKeys();
+	UpdateInventoryKeys();
 }
 
 void AUTPlayerController::ProcessPlayerInput(const float DeltaTime, const bool bGamePaused)
@@ -691,6 +703,67 @@ void AUTPlayerController::NextWeapon()
 	SwitchWeaponInSequence(false);
 }
 
+void AUTPlayerController::OnActivatePowerupPress()
+{
+	ServerActivatePowerUpPress();
+}
+
+void AUTPlayerController::OnActivatePowerupRelease()
+{
+	ServerActivatePowerUpRelease();
+}
+
+void AUTPlayerController::UpdatePowerUpButtonHoldPercentage()
+{
+	PowerUpButtonHoldPercentage = 0.0f;
+	if ((TimeToHoldPowerUpButtonToActivate > SMALL_NUMBER) && (LastPowerUpButtonPressTime > SMALL_NUMBER))
+	{
+		if (GetWorld() && GetWorld()->GetGameState())
+		{
+			const float HeldTime = GetWorld()->GetGameState()->GetServerWorldTimeSeconds() - LastPowerUpButtonPressTime;
+			PowerUpButtonHoldPercentage = HeldTime / TimeToHoldPowerUpButtonToActivate;
+		}
+	}
+	else if (LastPowerUpButtonPressTime > SMALL_NUMBER)
+	{
+		PowerUpButtonHoldPercentage = 1.0f;
+	}
+
+	if (PowerUpButtonHoldPercentage >= 1.0f && !bAlreadyActivatedPowerupThisHold)
+	{
+		bAlreadyActivatedPowerupThisHold = true;
+		ServerTriggerBoost();
+	}
+}
+
+bool AUTPlayerController::ServerActivatePowerUpPress_Validate()
+{
+	return true;
+}
+
+void AUTPlayerController::ServerActivatePowerUpPress_Implementation()
+{
+	bAlreadyActivatedPowerupThisHold = false;
+
+	LastPowerUpButtonPressTime = 0.0f;
+
+	if (GetWorld())
+	{
+		LastPowerUpButtonPressTime = GetWorld()->TimeSeconds;
+	}
+}
+
+bool AUTPlayerController::ServerActivatePowerUpRelease_Validate()
+{
+	return true;
+}
+
+void AUTPlayerController::ServerActivatePowerUpRelease_Implementation()
+{
+	LastPowerUpButtonPressTime = 0.0f;
+	PowerUpButtonHoldPercentage = 0.0f;
+}
+
 bool AUTPlayerController::ServerTriggerBoost_Validate()
 {
 	return true;
@@ -709,12 +782,6 @@ void AUTPlayerController::ServerTriggerBoost_Implementation()
 
 void AUTPlayerController::ToggleTranslocator()
 {
-	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
-	if (UTCharacter && UTGameState && UTGameState->bOverrideToggle)
-	{
-		ServerTriggerBoost();
-		return;
-	}
 	if (UTCharacter != NULL && UTCharacter->GetWeapon() != NULL && IsLocalPlayerController())
 	{
 		int32 CurrentGroup = UTCharacter->GetWeapon()->Group;
@@ -2921,6 +2988,8 @@ void AUTPlayerController::Tick(float DeltaTime)
 	{
 		ServerViewProjectile_Implementation();
 	}
+
+	UpdatePowerUpButtonHoldPercentage();
 }
 
 void AUTPlayerController::ChooseBestCamera()
@@ -3826,6 +3895,18 @@ void AUTPlayerController::UpdateWeaponGroupKeys()
 	if (GetUTCharacter())
 	{
 		for (TInventoryIterator<AUTWeapon> It(GetUTCharacter()); It; ++It)
+		{
+			It->UpdateHUDText();
+		}
+	}
+}
+
+void AUTPlayerController::UpdateInventoryKeys()
+{
+	//Let the UT Inventory Items know that any HUD text needs to be updated
+	if (GetUTCharacter())
+	{
+		for (TInventoryIterator<AUTInventory> It(GetUTCharacter()); It; ++It)
 		{
 			It->UpdateHUDText();
 		}

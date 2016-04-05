@@ -103,6 +103,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	TAssetSubclassOf<class AUTArmor> ShieldBeltObject;
 	TAssetSubclassOf<class AUTArmor> ThighPadObject;
 	TAssetSubclassOf<class AUTTimedPowerup> UDamageObject;
+	TAssetSubclassOf<class AUTInventory> ActivatedPowerupPlaceholderObject;
 
 	UPROPERTY()
 		TSubclassOf<class AUTArmor> ShieldBeltClass;
@@ -112,6 +113,9 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 
 	UPROPERTY()
 		TSubclassOf<class AUTTimedPowerup> UDamageClass;
+
+	UPROPERTY()
+		TSubclassOf<class AUTInventory> ActivatedPowerupPlaceholderClass;
 
 	virtual void GiveDefaultInventory(APawn* PlayerPawn) override;
 

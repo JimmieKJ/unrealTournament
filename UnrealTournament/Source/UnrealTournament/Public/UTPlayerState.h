@@ -540,7 +540,7 @@ public:
 	FName Avatar;
 
 	/*  Used to determine whether boost can be triggered. */
-	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
+	UPROPERTY(Replicated, BlueprintReadWrite, Category = PlayerState)
 		uint8 RemainingBoosts;
 
 	/** Inventory item that is created on boost. */
