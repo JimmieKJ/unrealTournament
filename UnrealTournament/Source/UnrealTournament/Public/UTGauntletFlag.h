@@ -11,10 +11,9 @@ class UNREALTOURNAMENT_API AUTGauntletFlag : public AUTCTFFlag
 	GENERATED_UCLASS_BODY()
 
 public:
-	// Will hold the 5 second countdown once a flag is dropped until it switches to the other team.
-	// NOTE: when you pick it back up, it recharges back to 5.
-	UPROPERTY(BlueprintReadOnly, replicated)
-	int32 TimeUntilTeamSwitch;
+
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Pickup)
+	UParticleSystemComponent* TimerEffect;
 
 	// If true, the flag has switched sides and can't be picked up by the other team.
 	UPROPERTY(BlueprintReadOnly, replicated)
@@ -31,12 +30,9 @@ public:
 	virtual void OnRep_Team();
 	virtual void MoveToHome();
 
-	// Replicated amount of time left until the spawn.  
+	// Holds the actual amount of time before doing a team swap.  Counts down to 0.
 	UPROPERTY(Replicated)
-	int32 SwapTimer;
-
-	// Holds the actual amount of time before doing a teamswap.
-	float ActualSwapTimer;
+	float SwapTimer;
 
 	void Tick(float DeltaSeconds);
 	virtual void ChangeState(FName NewCarriedObjectState);

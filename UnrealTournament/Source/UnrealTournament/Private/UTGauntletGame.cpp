@@ -205,10 +205,10 @@ void AUTGauntletGame::ScoreKill_Implementation(AController* Killer, AController*
 	AUTPlayerState* PS = Other ? Cast<AUTPlayerState>(Other->PlayerState) : nullptr;
 	AUTPlayerState* KillerPS = Killer ? Cast<AUTPlayerState>(Killer->PlayerState) : nullptr;
 
-/*
+
 	if (PS && KillerPS && PS->GetTeamNum() != KillerPS->GetTeamNum())
 	{
-		float NewCurrency = 250.0f + (PS->GetAvailableCurrency() * 0.25f);
+		float NewCurrency = 250.0f + FMath::Max<float>( (PS->GetAvailableCurrency() * 0.25f), 250.0f);
 		KillerPS->AdjustCurrency(NewCurrency);
 		for (int32 i=0; i < UTGameState->PlayerArray.Num(); i++)
 		{
@@ -219,7 +219,7 @@ void AUTGauntletGame::ScoreKill_Implementation(AController* Killer, AController*
 			}
 		}
 	}
-*/
+
 	// Not Env or self
 	if ( KilledPawn ) // Killer != nullptr && Killer != Other)
 	{

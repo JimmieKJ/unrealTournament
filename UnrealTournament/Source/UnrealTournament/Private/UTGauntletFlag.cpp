@@ -11,25 +11,31 @@
 #include "UTCTFRewardMessage.h"
 #include "UnrealNetwork.h"
 
-const float DEFAULT_SWAP_TIME = 10.0f;
-
 AUTGauntletFlag::AUTGauntletFlag(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	bTeamPickupSendsHome = false;
 	bAnyoneCanPickup = true;
-	TimeUntilTeamSwitch = 5;
 	bTeamLocked = false;
 
 	WeightSpeedPctModifier = 0.85f;
 
+	TimerEffect = ObjectInitializer.CreateDefaultSubobject<UParticleSystemComponent>(this, TEXT("TimerEffect"));
+	if (TimerEffect != NULL)
+	{
+		TimerEffect->SetHiddenInGame(true);
+		TimerEffect->AttachParent = RootComponent;
+		TimerEffect->LDMaxDrawDistance = 1024.0f;
+		TimerEffect->RelativeLocation.Z = 40.0f;
+		TimerEffect->Mobility = EComponentMobility::Movable;
+		TimerEffect->SetCastShadow(false);
+	}
 }
 
 void AUTGauntletFlag::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(AUTGauntletFlag, TimeUntilTeamSwitch);
 	DOREPLIFETIME(AUTGauntletFlag, bTeamLocked);
 	DOREPLIFETIME(AUTGauntletFlag, SwapTimer);
 	DOREPLIFETIME(AUTGauntletFlag, bPendingTeamSwitch);
@@ -115,6 +121,13 @@ void AUTGauntletFlag::OnObjectStateChanged()
 		{
 			if (ObjectState == CarriedObjectState::Dropped)
 			{
+
+				AUTGauntletGameState* GauntletGameState = GetWorld()->GetGameState<AUTGauntletGameState>();
+				if (GauntletGameState && ObjectState == CarriedObjectState::Dropped)
+				{
+					TimerEffect->SetFloatParameter(NAME_Progress, 0.0f);
+					TimerEffect->SetFloatParameter(NAME_RespawnTime, 60);
+				}
 				PC->MyHUD->AddPostRenderedActor(this);
 			}
 			else
@@ -127,28 +140,6 @@ void AUTGauntletFlag::OnObjectStateChanged()
 
 void AUTGauntletFlag::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir)
 {
-	if (bPendingTeamSwitch)
-	{
-		float XL, YL;
-
-		float Scale = Canvas->ClipX / 1920;
-
-		UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->MediumFont;
-		FString Text = FString::Printf(TEXT("%i"), SwapTimer);
-		Canvas->TextSize(TinyFont, *Text, XL, YL, Scale, Scale);
-
-		FVector ScreenPosition = Canvas->Project(GetActorLocation() + FVector(0, 0, 15.f));
-		float XPos = ScreenPosition.X - (XL * 0.5);
-		if (XPos < Canvas->ClipX || XPos + XL < 0.0f)
-		{
-			FCanvasTextItem TextItem(FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos), FMath::TruncToFloat(Canvas->OrgY + ScreenPosition.Y - YL)), FText::FromString(Text), TinyFont, FLinearColor::White);
-			TextItem.Scale = FVector2D(Scale, Scale);
-			TextItem.BlendMode = SE_BLEND_Translucent;
-			TextItem.FontRenderInfo = Canvas->CreateFontRenderInfo(true, false);
-			Canvas->DrawItem(TextItem);
-		}
-	}
-
 	if (PC->GetPawn())
 	{
 		float Scale = Canvas->ClipY / 1080.0f;
@@ -169,8 +160,31 @@ void AUTGauntletFlag::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVec
 			Canvas->SetDrawColor(255,255,255,255);
 			Canvas->DrawTile(HUD->HUDAtlas, ScreenPosition.X - (Size.X * 0.5f), ScreenPosition.Y - Size.Y, Size.X, Size.Y,843,87,44,41);
 		}
-	}	
 
+/*
+		if (bPendingTeamSwitch)
+		{
+			float XL, YL;
+
+			UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->MediumFont;
+			FString Text = FString::Printf(TEXT("%i"), SwapTimer);
+			Canvas->TextSize(TinyFont, *Text, XL, YL, Scale, Scale);
+
+			FVector ScreenPosition = Canvas->Project(GetActorLocation() + FVector(0, 0, 15.f));
+			PC->GetPawn()->GetActorEyesViewPoint(LookVec,LookDir);
+			if (HUD && FVector::DotProduct(LookDir.Vector().GetSafeNormal(), (FlagLoc - LookVec)) > 0.0f && 
+				ScreenPosition.X > 0 && ScreenPosition.X < Canvas->ClipX && 
+				ScreenPosition.Y > 0 && ScreenPosition.Y < Canvas->ClipY)
+			{
+				FCanvasTextItem TextItem(FVector2D( FMath::TruncToFloat(ScreenPosition.X - (XL * 0.5f)), FMath::TruncToFloat(ScreenPosition.Y - (YL * 0.5f)) ), FText::FromString(Text), TinyFont, FLinearColor::White);
+				TextItem.Scale = FVector2D(Scale, Scale);
+				TextItem.BlendMode = SE_BLEND_Translucent;
+				TextItem.FontRenderInfo = Canvas->CreateFontRenderInfo(true, false);
+				Canvas->DrawItem(TextItem);
+			}
+		}
+*/
+	}	
 }
 
 
@@ -194,33 +208,52 @@ void AUTGauntletFlag::Tick(float DeltaSeconds)
 	if (Role == ROLE_Authority)
 	{
 		AUTGauntletGameState* GauntletGameState = GetWorld()->GetGameState<AUTGauntletGameState>();
-		int32 DefaultSwapTime = GauntletGameState ? GauntletGameState->FlagSwapTime : DEFAULT_SWAP_TIME;
-
-		if (ObjectState == CarriedObjectState::Dropped)
+		if (GauntletGameState)
 		{
-			if (bPendingTeamSwitch)
+			float DefaultSwapTime = float(GauntletGameState->FlagSwapTime);
+
+			if (ObjectState == CarriedObjectState::Dropped)
 			{
-				ActualSwapTimer -= DeltaSeconds;
-				if (ActualSwapTimer < 0)
+				if (bPendingTeamSwitch)
 				{
-					TeamReset();
+					SwapTimer -= DeltaSeconds;
+					if (SwapTimer <= 0)
+					{
+						TeamReset();
+					}
 				}
 			}
-		}
-		else if (ObjectState == CarriedObjectState::Held)
-		{
-			if (ActualSwapTimer < DEFAULT_SWAP_TIME)
+			else if (ObjectState == CarriedObjectState::Held)
 			{
-				ActualSwapTimer = FMath::Clamp<float>(ActualSwapTimer + DeltaSeconds, 0.0f, DefaultSwapTime);
+				if (SwapTimer < DefaultSwapTime)
+				{
+					SwapTimer += DeltaSeconds;
+				}
 			}
-		}
-		else if (ObjectState == CarriedObjectState::Home)
-		{
-			ActualSwapTimer = DEFAULT_SWAP_TIME;
-		}
+			else if (ObjectState == CarriedObjectState::Home)
+			{
+				SwapTimer = DefaultSwapTime;
+			}
 
-		SwapTimer = FMath::Clamp<int32>(int32(ActualSwapTimer + 1), 0, int32(DefaultSwapTime));
+			SwapTimer = FMath::Clamp<float>(SwapTimer, 0, DefaultSwapTime);
+		}
 	}
+
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+
+		TimerEffect->SetHiddenInGame(!bPendingTeamSwitch);
+
+		AUTGauntletGameState* GauntletGameState = GetWorld()->GetGameState<AUTGauntletGameState>();
+		if (GauntletGameState && ObjectState == CarriedObjectState::Dropped)
+		{
+			float DefaultSwapTime = float(GauntletGameState->FlagSwapTime);
+			float ActualTime = SwapTimer >= DefaultSwapTime ? 0.0f : DefaultSwapTime - (DefaultSwapTime - SwapTimer); 
+			TimerEffect->SetFloatParameter(NAME_Progress, 1.0 - (ActualTime/DefaultSwapTime) );			
+			TimerEffect->SetFloatParameter(NAME_RespawnTime, 60);
+		}
+	}
+
 }
 
 void AUTGauntletFlag::SetTeam(AUTTeamInfo* NewTeam)
@@ -246,13 +279,14 @@ void AUTGauntletFlag::SetTeam(AUTTeamInfo* NewTeam)
 void AUTGauntletFlag::TeamReset()
 {
 	AUTGauntletGameState* GauntletGameState = GetWorld()->GetGameState<AUTGauntletGameState>();
-	int32 DefaultSwapTime = GauntletGameState ? GauntletGameState->FlagSwapTime : DEFAULT_SWAP_TIME;
+	if (GauntletGameState && ObjectState == CarriedObjectState::Dropped)
+	{
+		bPendingTeamSwitch = false;
+		SwapTimer = float(GauntletGameState->FlagSwapTime);
 
-	bPendingTeamSwitch = false;
-	ActualSwapTimer = DefaultSwapTime;
-
-	SetTeam(nullptr);
-	PlayCaptureEffect();
+		SetTeam(nullptr);
+		PlayCaptureEffect();
+	}
 }
 
 bool AUTGauntletFlag::CanBePickedUpBy(AUTCharacter* Character)

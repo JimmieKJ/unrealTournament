@@ -9,6 +9,13 @@ AUTHUD_Gauntlet::AUTHUD_Gauntlet(const FObjectInitializer& ObjectInitializer)
 {
 }
 
+void AUTHUD_Gauntlet::DrawHUD()
+{
+	Super::DrawHUD();
+	FText Points = FText::Format(NSLOCTEXT("Gauntlet","Format","{0} Points"), FText::AsNumber(int32(UTPlayerOwner->UTPlayerState->GetAvailableCurrency())));
+	DrawString(Points, Canvas->ClipX - 10, 10, ETextHorzPos::Right, ETextVertPos::Top, SmallFont, FLinearColor::White, 1.0, true);
+}
+
 void AUTHUD_Gauntlet::DrawMinimapSpectatorIcons()
 {
 	AUTGauntletGameState* GS = Cast<AUTGauntletGameState>(GetWorld()->GetGameState());
