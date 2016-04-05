@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTTeamGameMode.h"
 #include "UTHUD_Gauntlet.h"
+#include "UTCTFGameMode.h"
 #include "UTGauntletGame.h"
 #include "UTGauntletFlagBase.h"
 #include "UTGauntletFlag.h"
@@ -24,6 +25,8 @@
 #include "UTShowdownRewardMessage.h"
 #include "UTShowdownGameMessage.h"
 #include "UTDroppedAmmoBox.h"
+#include "SUTGauntletSpawnWindow.h"
+#include "UTDroppedLife.h"
 
 AUTGauntletGame::AUTGauntletGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -35,8 +38,8 @@ AUTGauntletGame::AUTGauntletGame(const FObjectInitializer& ObjectInitializer)
 	IntermissionDuration = 30.f;
 	GameStateClass = AUTGauntletGameState::StaticClass();
 	HUDClass = AUTHUD_Gauntlet::StaticClass();
-	RoundLives=32;
-	bPerPlayerLives = false;
+	RoundLives=3;
+	bPerPlayerLives = true;
 	bAsymmetricVictoryConditions = false;
 	FlagSwapTime=10;
 	FlagPickupDelay=0;
@@ -44,9 +47,12 @@ AUTGauntletGame::AUTGauntletGame(const FObjectInitializer& ObjectInitializer)
 	bHideInUI = true;
 }
 
+
 void AUTGauntletGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
+
+	bForceRespawn = false;
 
 	FlagSwapTime = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("FlagSwapTime"), FlagSwapTime));
 
@@ -163,34 +169,24 @@ void AUTGauntletGame::RestartPlayer(AController* aPlayer)
 {
 	AUTPlayerState* PS = Cast<AUTPlayerState>(aPlayer->PlayerState);
 
+	if (PS) PS->RemainingBoosts = 0;
+
 	if (PS && PS->bSpawnCostLives)
 	{
-		int32 TeamLivesRemaining = PS->GetTeamNum() == 0 ? GauntletGameState->RedLivesRemaining : GauntletGameState->BlueLivesRemaining;
-		if (TeamLivesRemaining > 0)
+		UE_LOG(UT,Log,TEXT("Lives Remaining: %i"), PS->RemainingLives);
+
+		if (PS->RemainingLives > 0)
 		{
 			// Allow the player to spawn.  Skip Steve's code as we suplant it.
 			AUTCTFBaseGame::RestartPlayer(aPlayer);
 		
-			if (PS->GetTeamNum() == 0)
+			PS->RemainingLives--;
+			if (PS->RemainingLives == 0)
 			{
-				GauntletGameState->RedLivesRemaining--;
-			}
-			else
-			{
-				GauntletGameState->BlueLivesRemaining--;
-			}
-
-			// Check if we are == 5 lives remaining and if we are tell the team they are close to death
-			TeamLivesRemaining = PS->GetTeamNum() == 0 ? GauntletGameState->RedLivesRemaining : GauntletGameState->BlueLivesRemaining;
-			if (TeamLivesRemaining == 5)
-			{
-				for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+				AUTPlayerController* PC = Cast<AUTPlayerController>(aPlayer);
+				if (PC)
 				{
-					AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-					if (PC->GetTeamNum() == PS->GetTeamNum())
-					{
-						PC->ClientReceiveLocalizedMessage(UUTShowdownGameMessage::StaticClass(), 7);
-					}
+					PC->ClientReceiveLocalizedMessage(UUTGauntletGameMessage::StaticClass(), 4);
 				}
 			}
 		}
@@ -209,6 +205,7 @@ void AUTGauntletGame::ScoreKill_Implementation(AController* Killer, AController*
 	AUTPlayerState* PS = Other ? Cast<AUTPlayerState>(Other->PlayerState) : nullptr;
 	AUTPlayerState* KillerPS = Killer ? Cast<AUTPlayerState>(Killer->PlayerState) : nullptr;
 
+/*
 	if (PS && KillerPS && PS->GetTeamNum() != KillerPS->GetTeamNum())
 	{
 		float NewCurrency = 250.0f + (PS->GetAvailableCurrency() * 0.25f);
@@ -220,6 +217,19 @@ void AUTGauntletGame::ScoreKill_Implementation(AController* Killer, AController*
 			{
 				Teammate->AdjustCurrency(NewCurrency * 0.25f);
 			}
+		}
+	}
+*/
+	// Not Env or self
+	if ( KilledPawn ) // Killer != nullptr && Killer != Other)
+	{
+		FActorSpawnParameters Params;
+		Params.Instigator = KilledPawn;
+		AUTDroppedLife* LifeSkull = GetWorld()->SpawnActor<AUTDroppedLife>(AUTDroppedLife::StaticClass(), KilledPawn->GetActorLocation(), KilledPawn->GetActorRotation(), Params);
+		if (LifeSkull != NULL)
+		{
+			LifeSkull->OwnerPlayerState = PS;
+			PS->CriticalObject = LifeSkull;
 		}
 	}
 
@@ -244,7 +254,7 @@ void AUTGauntletGame::ScoreKill_Implementation(AController* Killer, AController*
 				AUTGauntletFlag* GauntletFlag = Cast<AUTGauntletFlag>(FlagDispenser->MyFlag);
 				if (GauntletFlag)
 				{
-					GauntletFlag->TeamSwap();
+					GauntletFlag->TeamReset();
 				}
 			}
 		}
@@ -317,4 +327,59 @@ void AUTGauntletGame::DiscardInventory(APawn* Other, AController* Killer)
 		}
 	}
 	Super::DiscardInventory(Other, Killer);
+}
+
+APawn* AUTGauntletGame::SpawnDefaultPawnFor_Implementation(AController* NewPlayer, AActor* StartSpot)
+{
+	AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(NewPlayer);
+	if (UTPlayerController != nullptr && UTPlayerController->bUseAltSpawnPoint)
+	{
+		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(NewPlayer->PlayerState);
+		if (UTPlayerState && UTPlayerState->CriticalObject != nullptr)
+		{
+			APawn* Result = Super::SpawnDefaultPawnFor_Implementation(NewPlayer, UTPlayerState->CriticalObject);
+			UTPlayerState->CriticalObject->Destroy();
+			return Result;
+		}
+	}
+
+	return Super::SpawnDefaultPawnFor_Implementation(NewPlayer, StartSpot);
+
+}
+
+#if !UE_SERVER
+TSharedPtr<SUTHUDWindow> AUTGauntletGame::CreateSpawnWindow(TWeakObjectPtr<UUTLocalPlayer> PlayerOwner)
+{
+	TSharedPtr<SUTGauntletSpawnWindow> SpawnWindow;
+	SAssignNew(SpawnWindow, SUTGauntletSpawnWindow, PlayerOwner);
+	return SpawnWindow;
+}
+#endif
+
+void AUTGauntletGame::GenericPlayerInitialization(AController* C)
+{
+	Super::GenericPlayerInitialization(C);
+
+	AUTPlayerState* PlayerState = Cast<AUTPlayerState>(C->PlayerState);
+	if (PlayerState && UTGameState)
+	{
+		AUTReplicatedLoadoutInfo* Enforcer = UTGameState->FindLoadoutItem(FName(TEXT("Enforcer")));
+		if (Enforcer)
+		{
+			PlayerState->PrimarySpawnInventory = Enforcer;
+		}
+
+		AUTReplicatedLoadoutInfo* ImpactHammer = UTGameState->FindLoadoutItem(FName(TEXT("ImpactHammer")));
+		if (ImpactHammer)
+		{
+			PlayerState->SecondarySpawnInventory = ImpactHammer;
+		}
+	}
+
+}
+
+void AUTGauntletGame::GiveDefaultInventory(APawn* PlayerPawn)
+{
+	// Skip the super since it assigns a bunch of stuff.
+	AUTGameMode::GiveDefaultInventory(PlayerPawn);
 }

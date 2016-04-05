@@ -907,6 +907,36 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerSetLoadoutPack(const FName& NewLoadoutPackTag);
 
+	// DO NOT USE: This is WIP temp code and may go away.
+	UPROPERTY(Replicated)
+	AActor* CriticalObject;
+
+	// DO NOT USE: This is WIP temp code and may go away.
+	UPROPERTY(Replicated)
+	AUTReplicatedLoadoutInfo* PrimarySpawnInventory;
+
+	// DO NOT USE: This is WIP temp code and may go away.
+	UPROPERTY(Replicated)
+	AUTReplicatedLoadoutInfo* SecondarySpawnInventory;
+
+	// Holds a list of loadout items that are allowed by this player
+	UPROPERTY(Replicated)
+	TArray<FName> AllowedLoadoutItemTags;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerUnlockItem(FName ItemTag, bool bSecondary);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerSelectLoadout(FName ItemTag, bool bSecondary);
+
+	UPROPERTY(Replicated, replicatedUsing = OnUnlockList)
+	TArray<FName> UnlockList;
+
+
+protected:
+	UFUNCTION()
+	virtual void OnUnlockList();
+
 };
 
 USTRUCT()

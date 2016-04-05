@@ -13,6 +13,7 @@ UUTGauntletGameMessage::UUTGauntletGameMessage(const FObjectInitializer& ObjectI
 	FlagSpawnMessage = NSLOCTEXT("GauntletGameMessage", "FlagSpawn", "Flag spawns in...");
 	YouAreOnOffenseMessage = NSLOCTEXT("GauntletGameMessage", "OnOffense", "You are on OFFENSE!");
 	YouAreOnDefenseMessage = NSLOCTEXT("GauntletGameMessage", "OnDefense", "You are on DEFENSE!");
+	LastLifeMessage = NSLOCTEXT("GauntletGameMessage", "LastLife", "This is your last life!");
 }
 
 FText UUTGauntletGameMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const
@@ -24,6 +25,7 @@ FText UUTGauntletGameMessage::GetText(int32 Switch, bool bTargetsPlayerState1, A
 		case 1 : return FlagSpawnMessage; break;
 		case 2 : return YouAreOnOffenseMessage; break;
 		case 3 : return YouAreOnDefenseMessage; break;
+		case 4 : return LastLifeMessage; break;
 	}
 
 	return Super::GetText(Switch, bTargetsPlayerState1, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);

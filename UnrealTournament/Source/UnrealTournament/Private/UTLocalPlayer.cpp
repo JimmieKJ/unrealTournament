@@ -3994,6 +3994,11 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 	CloseQuickChat();
 	HideHUDSettings();
 
+	while (WindowStack.Num() > 0)
+	{
+		CloseWindow(WindowStack[0]);
+	}
+
 	if (ToastList.Num() > 0)
 	{
 		GEngine->GameViewport->RemoveViewportWidgetContent(ToastList[0].ToSharedRef());

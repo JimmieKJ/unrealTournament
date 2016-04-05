@@ -108,6 +108,10 @@ struct FSelectedBot
 	{}
 };
 
+#if !UE_SERVER
+class SUTHUDWindow;
+#endif
+
 UCLASS(Config = Game, Abstract)
 class UNREALTOURNAMENT_API AUTGameMode : public AUTBaseGameMode
 {
@@ -858,5 +862,9 @@ public:
 	// Return INDEX_NONE if thbe pack is invalid, otherwise returns the index of the pack
 	virtual int32 LoadoutPackIsValid(const FName& PackTag);
 
+#if !UE_SERVER
+	// The hud will create a spawn window that is displayed when the player has died.  
+	virtual TSharedPtr<SUTHUDWindow> CreateSpawnWindow(TWeakObjectPtr<UUTLocalPlayer> PlayerOwner);
+#endif
 };
 

@@ -1032,6 +1032,9 @@ public:
 	UFUNCTION(exec)
 	void QSSave();
 
+	UPROPERTY()
+	bool bUseAltSpawnPoint;
+
 
 };
 

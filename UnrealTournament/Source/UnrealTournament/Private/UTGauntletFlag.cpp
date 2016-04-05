@@ -193,7 +193,6 @@ void AUTGauntletFlag::Tick(float DeltaSeconds)
 
 	if (Role == ROLE_Authority)
 	{
-
 		AUTGauntletGameState* GauntletGameState = GetWorld()->GetGameState<AUTGauntletGameState>();
 		int32 DefaultSwapTime = GauntletGameState ? GauntletGameState->FlagSwapTime : DEFAULT_SWAP_TIME;
 
@@ -204,7 +203,7 @@ void AUTGauntletFlag::Tick(float DeltaSeconds)
 				ActualSwapTimer -= DeltaSeconds;
 				if (ActualSwapTimer < 0)
 				{
-					TeamSwap();
+					TeamReset();
 				}
 			}
 		}
@@ -228,21 +227,23 @@ void AUTGauntletFlag::SetTeam(AUTTeamInfo* NewTeam)
 {
 	Super::SetTeam(NewTeam);
 
+	UE_LOG(UT,Log,TEXT("SetTeam %s"), NewTeam == nullptr ? TEXT("NULL") : *FString::Printf(TEXT("%i"), NewTeam->GetTeamNum() ));
+
 	// Fake the replication
 	if (Role == ROLE_Authority)
 	{
 		AUTGauntletGame* Game = GetWorld()->GetAuthGameMode<AUTGauntletGame>();
-		if (Game && NewTeam)
+		if (Game)
 		{
 			OnRep_Team();
 
 			// Notify the game.
-			Game->FlagTeamChanged(NewTeam->GetTeamNum());
+			Game->FlagTeamChanged(NewTeam ? NewTeam->GetTeamNum() : 255);
 		}
 	}
 }
 
-void AUTGauntletFlag::TeamSwap()
+void AUTGauntletFlag::TeamReset()
 {
 	AUTGauntletGameState* GauntletGameState = GetWorld()->GetGameState<AUTGauntletGameState>();
 	int32 DefaultSwapTime = GauntletGameState ? GauntletGameState->FlagSwapTime : DEFAULT_SWAP_TIME;
@@ -250,20 +251,8 @@ void AUTGauntletFlag::TeamSwap()
 	bPendingTeamSwitch = false;
 	ActualSwapTimer = DefaultSwapTime;
 
-	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-	AUTGauntletGame* Game = GetWorld()->GetAuthGameMode<AUTGauntletGame>();
-
-	uint8 NewTeamNum = 1 - GetTeamNum();
-	if (Game && GameState && GameState->Teams.IsValidIndex(NewTeamNum))
-	{
-		// Before we can swap teams, look to see if the new team has any players left alive or with lives remaining
-
-		if (Game->CanFlagTeamSwap(NewTeamNum))
-		{
-			PlayCaptureEffect();
-			SetTeam(GameState->Teams[NewTeamNum]);
-		}
-	}
+	SetTeam(nullptr);
+	PlayCaptureEffect();
 }
 
 bool AUTGauntletFlag::CanBePickedUpBy(AUTCharacter* Character)

@@ -46,6 +46,8 @@
 #include "UTGameSessionNonRanked.h"
 #include "UTPlayerStart.h"
 
+#include "SUTSpawnWindow.h"
+
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {}
@@ -4539,3 +4541,14 @@ int32 AUTGameMode::LoadoutPackIsValid(const FName& PackTag)
 	}
 	return INDEX_NONE;
 }
+
+#if !UE_SERVER
+TSharedPtr<SUTHUDWindow> AUTGameMode::CreateSpawnWindow(TWeakObjectPtr<UUTLocalPlayer> PlayerOwner)
+{
+	TSharedPtr<SUTSpawnWindow> SpawnWindow;
+	SAssignNew(SpawnWindow, SUTSpawnWindow, PlayerOwner);
+
+	return SpawnWindow;
+}
+#endif
+

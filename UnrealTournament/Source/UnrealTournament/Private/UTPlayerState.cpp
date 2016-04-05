@@ -152,6 +152,13 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, ReadyMode);
 
 	DOREPLIFETIME(AUTPlayerState, CurrentLoadoutPackTag);
+
+	DOREPLIFETIME_CONDITION(AUTPlayerState, PrimarySpawnInventory, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTPlayerState, SecondarySpawnInventory, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTPlayerState, AllowedLoadoutItemTags, COND_OwnerOnly);
+
+	DOREPLIFETIME_CONDITION(AUTPlayerState, CriticalObject, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTPlayerState, UnlockList, COND_OwnerOnly);
 }
 
 void AUTPlayerState::Destroyed()
@@ -2980,3 +2987,79 @@ void AUTPlayerState::ServerSetLoadoutPack_Implementation(const FName& NewLoadout
 		}
 	}
 }
+
+
+bool AUTPlayerState::ServerUnlockItem_Validate(FName ItemTag, bool bSecondary) { return true; }
+void AUTPlayerState::ServerUnlockItem_Implementation(FName ItemTag, bool bSecondary)
+{
+	if (UnlockList.Find(ItemTag) == INDEX_NONE)
+	{
+		AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+		if (UTGameState)
+		{
+			AUTReplicatedLoadoutInfo* Loadout = UTGameState->FindLoadoutItem(ItemTag);
+			if (Loadout)
+			{
+				AdjustCurrency(Loadout->CurrentCost * -1);
+				UnlockList.Add(ItemTag);
+				ServerSelectLoadout(ItemTag, bSecondary);
+				if (GetWorld()->GetNetMode() != NM_DedicatedServer)
+				{
+					OnUnlockList();
+				}
+			}
+		}
+	}
+
+	for (int32 i=0; i < UnlockList.Num() ; i++)
+	{
+		UE_LOG(UT,Log,TEXT("Unlock: %s"), *UnlockList[i].ToString());
+	}
+}
+
+bool AUTPlayerState::ServerSelectLoadout_Validate(FName ItemTag, bool bSecondary) { return true; }
+void AUTPlayerState::ServerSelectLoadout_Implementation(FName ItemTag, bool bSecondary)
+{
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState)
+	{
+		AUTReplicatedLoadoutInfo* Loadout = UTGameState->FindLoadoutItem(ItemTag);
+		if (Loadout)
+		{
+			if (bSecondary)
+			{
+				SecondarySpawnInventory = Loadout;
+			}
+			else
+			{
+				PrimarySpawnInventory = Loadout;
+			}
+		}
+	}
+
+}
+
+void AUTPlayerState::OnUnlockList()
+{
+	// Need a better way but until I'm sure this is what we want this will do.
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState)
+	{
+		for (int32 j=0; j < UTGameState->AvailableLoadout.Num();j++)
+		{
+			UTGameState->AvailableLoadout[j]->bUnlocked = false;
+		}
+
+		for (int32 i=0; i < UnlockList.Num(); i++)
+		{
+			for (int32 k = 0; k < UTGameState->AvailableLoadout.Num(); k++)
+			{
+				if (UTGameState->AvailableLoadout[k]->ItemTag == UnlockList[i])
+				{
+					UTGameState->AvailableLoadout[k]->bUnlocked = true;
+				}
+			}
+		}
+	}
+}
+

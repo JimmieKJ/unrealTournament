@@ -3002,6 +3002,23 @@ void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> Default
 	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerState);
 	if (UTPlayerState)
 	{
+		if (UTPlayerState->PrimarySpawnInventory || UTPlayerState->SecondarySpawnInventory)
+		{
+			// Use the Spawn Inventory
+			if (UTPlayerState->PrimarySpawnInventory)
+			{
+				AddInventory(GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->PrimarySpawnInventory->ItemClass, FVector(0.0f), FRotator(0, 0, 0)), true);
+			}
+
+			// Use the Spawn Inventory
+			if (UTPlayerState->SecondarySpawnInventory)
+			{
+				AddInventory(GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->SecondarySpawnInventory->ItemClass, FVector(0.0f), FRotator(0, 0, 0)), true);
+			}
+
+			return;
+		}
+
 		if ( UTPlayerState->Loadout.Num() > 0 )
 		{
 			for (int32 i=0; i < UTPlayerState->Loadout.Num(); i++)

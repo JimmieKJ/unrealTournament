@@ -68,5 +68,15 @@ protected:
 
 	void SpawnInitalFlag();
 
+public:
 
+	virtual APawn* SpawnDefaultPawnFor_Implementation(AController* NewPlayer, AActor* StartSpot);
+
+#if !UE_SERVER
+	// When the hud builds the SpawnMenu, this function will be called so that the GameMode cna define what type of panel will be displayed
+	virtual TSharedPtr<SUTHUDWindow> CreateSpawnWindow(TWeakObjectPtr<UUTLocalPlayer> PlayerOwner);
+#endif
+
+	void GenericPlayerInitialization(AController* C);
+	void GiveDefaultInventory(APawn* PlayerPawn);
 };

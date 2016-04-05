@@ -210,7 +210,10 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 						PowerupInfo.Label = FText::FromString(UTPlayerOwner->FixedupKeyname(Keys[0]));
 					}
 				}
-
+			}
+			else
+			{
+				PowerupInfo.Value = 0;
 			}
 		}
 		else

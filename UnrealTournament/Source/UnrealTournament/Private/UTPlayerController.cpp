@@ -36,6 +36,7 @@
 #include "UTProfileItem.h"
 #include "UTMutator.h"
 #include "UTVictimMessage.h"
+#include "SUTSpawnWindow.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -2020,6 +2021,9 @@ UUTLocalPlayer* AUTPlayerController::GetUTLocalPlayer()
 
 void AUTPlayerController::ServerRestartPlayer_Implementation()
 {
+
+	bUseAltSpawnPoint = false;
+
 	if (UTPlayerState != nullptr)
 	{
 		UTPlayerState->bChosePrimaryRespawnChoice = true;
@@ -2119,6 +2123,8 @@ bool AUTPlayerController::ServerSwitchTeam_Validate()
 
 void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 {
+	bUseAltSpawnPoint = true;
+
 	if (UTPlayerState != nullptr)
 	{
 		UTPlayerState->bChosePrimaryRespawnChoice = false;
@@ -3708,12 +3714,7 @@ void AUTPlayerController::ClientPumpkinPickedUp_Implementation(float GainedAmoun
 
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
-	AUTCharacter* Char = Cast<AUTCharacter>(GetPawn());
-	if (Char)
-	{
-		float NewPct = FCString::Atof(*TestCommand);
-		Char->MaxSpeedPctModifier = Char->MaxSpeedPctModifier != 1.0f ? 1.0f : NewPct;
-	}
+	Cast<AUTPlayerState>(PlayerState)->AdjustCurrency(7000);
 }
 
 void AUTPlayerController::ClientRequireContentItemListComplete_Implementation()

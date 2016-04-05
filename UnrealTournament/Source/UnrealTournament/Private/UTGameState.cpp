@@ -977,7 +977,7 @@ void AUTGameState::AddLoadoutItem(const FLoadoutInfo& Item)
 		NewLoadoutInfo->CurrentCost = Item.InitialCost;
 		NewLoadoutInfo->bDefaultInclude = Item.bDefaultInclude;
 		NewLoadoutInfo->bPurchaseOnly = Item.bPurchaseOnly;
-
+		NewLoadoutInfo->LoadItemImage();
 		AvailableLoadout.Add(NewLoadoutInfo);
 	}
 }

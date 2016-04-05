@@ -44,7 +44,7 @@ public:
 	virtual void PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir);
 
 	virtual void SetTeam(AUTTeamInfo* NewTeam);
-	virtual void TeamSwap();
+	virtual void TeamReset();
 
 	void NoLongerHeld(AController* InstigatedBy);
 
