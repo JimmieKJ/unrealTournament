@@ -69,6 +69,20 @@ void UUTProfileSettings::VersionFixup()
 		ResetHUD();
 	}
 
+	if (SettingsRevisionNum < ACTIVATEPOWERUP_FIXUP_PROFILESETTINGS_VERSION)
+	{
+		FInputActionKeyMapping ActivatePowerup;
+		FInputActionKeyMapping ActivatePowerupRelease;
+
+		ActivatePowerup.ActionName = FName(TEXT("StartActivatePowerup"));
+		ActivatePowerupRelease = FName(TEXT("StopActivatePowerup"));
+		ActivatePowerup.Key = EKeys::Q;
+		ActivatePowerupRelease.Key = EKeys::Q;
+
+		ActionMappings.AddUnique(ActivatePowerup);
+		ActionMappings.AddUnique(ActivatePowerupRelease);
+	}
+
 	// The format has changed during Dev versions.  So in case some people have written out unlocks, clear them here.
 	if (SettingsRevisionNum <= CHALLENGE_FIXUP_VERSION)
 	{
