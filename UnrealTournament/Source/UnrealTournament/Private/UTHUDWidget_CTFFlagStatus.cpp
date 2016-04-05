@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTHUDWidget_CTFFlagStatus.h"
 #include "UTCTFGameState.h"
+#include "UTSecurityCameraComponent.h"
 
 UUTHUDWidget_CTFFlagStatus::UUTHUDWidget_CTFFlagStatus(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -56,6 +57,7 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 		float FlagStateX = CircleSlate[Team].Position.X;
 		float FlagStateY = 8.f + 0.5f * FlagIconTemplate.GetHeight();
 		FlagIconTemplate.RenderColor = Team == 0 ? RedColor : BlueColor;
+		CameraIconTemplate.RenderColor = FlagIconTemplate.RenderColor;
 
 		FName FlagState = GS->GetFlagState(Team);
 		if (FlagState == CarriedObjectState::Held)
@@ -138,23 +140,34 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 			bool bShouldDrawFlagIcon = (FlagState == CarriedObjectState::Dropped) || Flag->bCurrentlyPinged || (bIsEnemyFlag ? Flag->bEnemyCanPickup : Flag->bFriendlyCanPickup);
 			bDrawEdgeArrow = false;
 
-			if ((bSpectating || bShouldDrawFlagIcon) && (Flag->Holder != UTPlayerOwner->PlayerState) && (FlagState != CarriedObjectState::Home))
+			if ((bSpectating || bShouldDrawFlagIcon || Flag->GetDetectingCamera()) && (Flag->Holder != UTPlayerOwner->PlayerState) && (FlagState != CarriedObjectState::Home))
 			{
-				WorldPosition = Flag->GetActorLocation();
-				if (FlagState == CarriedObjectState::Held)
+				if (!bSpectating && !bShouldDrawFlagIcon)
 				{
-					Holder = Cast<AUTCharacter>(Flag->AttachmentReplication.AttachParent);
-					if (Holder)
+					bDrawInWorld = (Flag->GetDetectingCamera() != nullptr);
+					if (bDrawInWorld)
 					{
-						WorldPosition = Holder->GetMesh()->GetComponentLocation() + FVector(0.f, 0.f, Holder->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 2.25f);
+						WorldPosition = Flag->GetDetectingCamera()->K2_GetComponentLocation();
 					}
 				}
 				else
 				{
-					WorldPosition += FVector(0.f, 0.f, Flag->Collision->GetUnscaledCapsuleHalfHeight() * 0.75f);
+					WorldPosition = Flag->GetActorLocation();
+					if (FlagState == CarriedObjectState::Held)
+					{
+						Holder = Cast<AUTCharacter>(Flag->AttachmentReplication.AttachParent);
+						if (Holder)
+						{
+							WorldPosition = Holder->GetMesh()->GetComponentLocation() + FVector(0.f, 0.f, Holder->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 2.25f);
+						}
+					}
+					else
+					{
+						WorldPosition += FVector(0.f, 0.f, Flag->Collision->GetUnscaledCapsuleHalfHeight() * 0.75f);
+					}
+					bDrawInWorld = true;
 				}
 
-				bDrawInWorld = true;
 				ScreenPosition = GetAdjustedScreenPosition(WorldPosition, ViewPoint, ViewDir, Dist, Edge, EdgeYPos, bDrawEdgeArrow, Team);
 			}
 
@@ -194,7 +207,12 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 				{
 					DrawEdgeArrow(ScreenPosition, CurrentWorldAlpha, WorldRenderScale, Team);
 				}
-				if (FlagState == CarriedObjectState::Held)
+				if (!bSpectating && !bShouldDrawFlagIcon)
+				{
+					// Drawing detecting camera
+					RenderObj_TextureAt(CameraIconTemplate, ScreenPosition.X - 0.25f * CameraIconTemplate.GetWidth()* WorldRenderScale, ScreenPosition.Y - 0.25f * CameraIconTemplate.GetHeight()* WorldRenderScale, CameraIconTemplate.GetWidth()* WorldRenderScale, CameraIconTemplate.GetHeight()* WorldRenderScale);
+				}
+				else if (FlagState == CarriedObjectState::Held)
 				{
 					TakenIconTemplate.RenderOpacity = CurrentWorldAlpha;
 					RenderObj_TextureAt(TakenIconTemplate, ScreenPosition.X, ScreenPosition.Y, 1.1f * TakenIconTemplate.GetWidth()* WorldRenderScale, 1.1f * TakenIconTemplate.GetHeight()* WorldRenderScale);

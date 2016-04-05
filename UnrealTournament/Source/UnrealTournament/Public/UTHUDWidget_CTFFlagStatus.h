@@ -47,6 +47,9 @@ class UNREALTOURNAMENT_API UUTHUDWidget_CTFFlagStatus : public UUTHUDWidget
 		FHUDRenderObject_Texture FlagGoneIconTemplate;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+		FHUDRenderObject_Texture CameraIconTemplate;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Text FlagStatusText;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")

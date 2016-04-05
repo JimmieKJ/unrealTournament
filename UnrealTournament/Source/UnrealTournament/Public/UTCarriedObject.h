@@ -6,6 +6,7 @@
 #include "UTCarriedObjectMessage.h"
 #include "UTTeamInterface.h"
 #include "UTProjectileMovementComponent.h"
+#include "UTSecurityCameraComponent.h"
 
 #include "UTCarriedObject.generated.h"
 
@@ -91,6 +92,13 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 
 	UPROPERTY(EditDefaultsOnly, Category = GameObject)
 		TSubclassOf<class AUTGhostFlag> GhostFlagClass;
+
+	virtual bool SetDetectingCamera(class UUTSecurityCameraComponent* NewDetectingCamera);
+
+	virtual class UUTSecurityCameraComponent* GetDetectingCamera();
+protected:
+	UPROPERTY(BlueprintReadOnly, Category = GameObject)
+	class UUTSecurityCameraComponent* DetectingCamera;
 
 private:
 	UPROPERTY()

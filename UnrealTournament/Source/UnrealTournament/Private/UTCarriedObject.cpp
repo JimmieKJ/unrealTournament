@@ -8,6 +8,7 @@
 #include "UTLift.h"
 #include "UTFlagReturnTrail.h"
 #include "UTGhostFlag.h"
+#include "UTSecurityCameraComponent.h"
 
 AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -39,6 +40,11 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 	bDisplayHolderTrail = false;
 	MinGradualReturnDist = 1000.f;
 	bSendHomeOnScore = true;
+}
+
+UUTSecurityCameraComponent* AUTCarriedObject::GetDetectingCamera()
+{
+	return DetectingCamera;
 }
 
 void AUTCarriedObject::GetActorEyesViewPoint(FVector& OutLocation, FRotator& OutRotation) const
@@ -598,6 +604,17 @@ void AUTCarriedObject::Drop(AController* Killer)
 	}
 }
 
+bool AUTCarriedObject::SetDetectingCamera(class UUTSecurityCameraComponent* NewDetectingCamera)
+{
+	if (DetectingCamera && ((GetActorLocation() - DetectingCamera->K2_GetComponentLocation()).SizeSquared() < (GetActorLocation() - NewDetectingCamera->K2_GetComponentLocation()).SizeSquared()))
+	{
+		// change only if new one is closer
+		return false;
+	}
+	DetectingCamera = NewDetectingCamera;
+	return true;
+}
+
 void AUTCarriedObject::Use()
 {
 	// Use should be managed in child classes.
@@ -610,6 +627,7 @@ void AUTCarriedObject::SendHomeWithNotify()
 
 void AUTCarriedObject::ClearGhostFlag()
 {
+	UE_LOG(UT, Warning, TEXT("Clear ghost flag %s"), MyGhostFlag ? *MyGhostFlag->GetName() :TEXT("NONE"));
 	if (MyGhostFlag != nullptr)
 	{
 		MyGhostFlag->Destroy();
@@ -619,7 +637,6 @@ void AUTCarriedObject::ClearGhostFlag()
 
 void AUTCarriedObject::PutGhostFlagAt(const FVector NewGhostLocation)
 {
-	UE_LOG(UT, Warning, TEXT("ADD ghost flag"));
 	if (GhostFlagClass)
 	{
 		if ((MyGhostFlag == nullptr) || MyGhostFlag->IsPendingKillPending())
@@ -627,10 +644,12 @@ void AUTCarriedObject::PutGhostFlagAt(const FVector NewGhostLocation)
 			FActorSpawnParameters Params;
 			Params.Owner = this;
 			MyGhostFlag = GetWorld()->SpawnActor<AUTGhostFlag>(GhostFlagClass, NewGhostLocation, GetActorRotation(), Params);
+			UE_LOG(UT, Warning, TEXT("ADD ghost flag %s "), MyGhostFlag ? *MyGhostFlag->GetName() : TEXT("NONE"));
 		}
 		else
 		{
 			MyGhostFlag->SetActorLocation(NewGhostLocation);
+			UE_LOG(UT, Warning, TEXT("MOVE ghost flag %s "), MyGhostFlag ? *MyGhostFlag->GetName() : TEXT("NONE"));
 		}
 	}
 }
