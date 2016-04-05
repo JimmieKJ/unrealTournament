@@ -198,6 +198,8 @@ void SUTStyle::SetIcons(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.Icon.ChangeTeam.Red", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.ChangeTeam.Red", FVector2D(48, 48)));
 	Style.Set("UT.Icon.ChangeTeam.Blue", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.ChangeTeam.Blue", FVector2D(48, 48)));
 
+	Style.Set("UT.Icon.PartyMember", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.PartyMember", FVector2D(48, 48)));
+	Style.Set("UT.Icon.PartyLeader.Overlay", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.PartyLeader.Overlay", FVector2D(48, 48)));
 }
 
 

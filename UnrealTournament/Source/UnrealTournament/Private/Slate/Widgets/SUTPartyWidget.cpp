@@ -96,14 +96,11 @@ void SUTPartyWidget::SetupPartyMemberBox()
 	{
 		TSharedPtr<SUTComboButton> DropDownButton = NULL;
 		
+		bool bIsPartyLeader = false;
 		FSlateColor PartyMemberColor = FLinearColor::White;
 		if (PartyMemberIds[i] == PartyLeaderId)
 		{
-			PartyMemberColor = FLinearColor::Blue;
-		}
-		if (LocalPlayerId == PartyMemberIds[i])
-		{
-			PartyMemberColor = FLinearColor::Green;
+			bIsPartyLeader = true;
 		}
 
 		PartyMemberBox->AddSlot()
@@ -115,13 +112,29 @@ void SUTPartyWidget::SetupPartyMemberBox()
 			.ToolTipText(PartyMembers[i])
 			.ButtonContent()
 			[
-				SNew(SBox)
-				.WidthOverride(96)
-				.HeightOverride(96)
+				SNew(SOverlay)
+				+ SOverlay::Slot()
 				[
-					SNew(SImage)
-					.Image(SUTStyle::Get().GetBrush("UT.Icon.PlayerCard"))
-					.ColorAndOpacity(PartyMemberColor)
+					SNew(SBox)
+					.WidthOverride(96)
+					.HeightOverride(96)
+					[
+						SNew(SImage)
+						.Image(SUTStyle::Get().GetBrush("UT.Icon.PartyLeader.Overlay"))
+						.ColorAndOpacity(FLinearColor::Blue)
+						.Visibility(bIsPartyLeader ? EVisibility::Visible : EVisibility::Hidden)
+					]
+				]
+				+ SOverlay::Slot()
+				[
+					SNew(SBox)
+					.WidthOverride(96)
+					.HeightOverride(96)
+					[
+						SNew(SImage)
+						.Image(SUTStyle::Get().GetBrush("UT.Icon.PartyMember"))
+						.ColorAndOpacity(PartyMemberColor)
+					]
 				]
 			]
 		];
