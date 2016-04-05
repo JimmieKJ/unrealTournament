@@ -1011,7 +1011,11 @@ EInputMode::Type AUTHUD::GetInputMode_Implementation() const
 		}
 	}
 
+#if UE_SERVER
+	return EInputMode::EIM_None;
+#else
 	return bSpawnWindowVisible ? SpawnWindow->GetInputMode() : EInputMode::EIM_None;
+#endif
 }
 
 UUTCrosshair* AUTHUD::GetCrosshair(TSubclassOf<AUTWeapon> Weapon)
