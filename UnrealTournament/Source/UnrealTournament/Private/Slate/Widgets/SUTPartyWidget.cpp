@@ -104,6 +104,7 @@ void SUTPartyWidget::SetupPartyMemberBox()
 		}
 
 		PartyMemberBox->AddSlot()
+		.Padding(FMargin(2.0f, 0.0f))
 		[
 			SAssignNew(DropDownButton, SUTComboButton)
 			.HasDownArrow(false)
