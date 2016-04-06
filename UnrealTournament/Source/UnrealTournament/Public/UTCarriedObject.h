@@ -158,7 +158,7 @@ public:
 		uint32 bSendHomeOnScore : 1;
 
 	// How long before this object is automatically returned to it's base
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = GameObject)
+	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadWrite, Category = GameObject)
 	float AutoReturnTime;
 
 	/** Replicated time till flag auto returns. */

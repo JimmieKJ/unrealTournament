@@ -114,6 +114,7 @@ void AUTCarriedObject::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & 
 	DOREPLIFETIME(AUTCarriedObject, bCurrentlyPinged);
 	DOREPLIFETIME(AUTCarriedObject, bDisplayHolderTrail);
 	DOREPLIFETIME(AUTCarriedObject, bGradualAutoReturn);
+	DOREPLIFETIME(AUTCarriedObject, AutoReturnTime);
 }
 
 void AUTCarriedObject::AttachTo(USkeletalMeshComponent* AttachToMesh)
@@ -630,6 +631,7 @@ void AUTCarriedObject::ClearGhostFlag()
 	UE_LOG(UT, Warning, TEXT("Clear ghost flag %s"), MyGhostFlag ? *MyGhostFlag->GetName() :TEXT("NONE"));
 	if (MyGhostFlag != nullptr)
 	{
+		MyGhostFlag->MyCarriedObject = nullptr;
 		MyGhostFlag->Destroy();
 		MyGhostFlag = nullptr;
 	}
@@ -644,6 +646,7 @@ void AUTCarriedObject::PutGhostFlagAt(const FVector NewGhostLocation)
 			FActorSpawnParameters Params;
 			Params.Owner = this;
 			MyGhostFlag = GetWorld()->SpawnActor<AUTGhostFlag>(GhostFlagClass, NewGhostLocation, GetActorRotation(), Params);
+			if (MyGhostFlag) MyGhostFlag->MyCarriedObject = this;
 			UE_LOG(UT, Warning, TEXT("ADD ghost flag %s "), MyGhostFlag ? *MyGhostFlag->GetName() : TEXT("NONE"));
 		}
 		else

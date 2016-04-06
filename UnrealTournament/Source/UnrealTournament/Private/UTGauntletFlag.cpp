@@ -20,16 +20,6 @@ AUTGauntletFlag::AUTGauntletFlag(const FObjectInitializer& ObjectInitializer)
 
 	WeightSpeedPctModifier = 0.85f;
 
-	TimerEffect = ObjectInitializer.CreateDefaultSubobject<UParticleSystemComponent>(this, TEXT("TimerEffect"));
-	if (TimerEffect != NULL)
-	{
-		TimerEffect->SetHiddenInGame(true);
-		TimerEffect->AttachParent = RootComponent;
-		TimerEffect->LDMaxDrawDistance = 1024.0f;
-		TimerEffect->RelativeLocation.Z = 40.0f;
-		TimerEffect->Mobility = EComponentMobility::Movable;
-		TimerEffect->SetCastShadow(false);
-	}
 }
 
 void AUTGauntletFlag::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -121,13 +111,7 @@ void AUTGauntletFlag::OnObjectStateChanged()
 		{
 			if (ObjectState == CarriedObjectState::Dropped)
 			{
-
 				AUTGauntletGameState* GauntletGameState = GetWorld()->GetGameState<AUTGauntletGameState>();
-				if (GauntletGameState && ObjectState == CarriedObjectState::Dropped)
-				{
-					TimerEffect->SetFloatParameter(NAME_Progress, 0.0f);
-					TimerEffect->SetFloatParameter(NAME_RespawnTime, 60);
-				}
 				PC->MyHUD->AddPostRenderedActor(this);
 			}
 			else
@@ -238,22 +222,6 @@ void AUTGauntletFlag::Tick(float DeltaSeconds)
 			SwapTimer = FMath::Clamp<float>(SwapTimer, 0, DefaultSwapTime);
 		}
 	}
-
-	if (GetNetMode() != NM_DedicatedServer)
-	{
-
-		TimerEffect->SetHiddenInGame(!bPendingTeamSwitch);
-
-		AUTGauntletGameState* GauntletGameState = GetWorld()->GetGameState<AUTGauntletGameState>();
-		if (GauntletGameState && ObjectState == CarriedObjectState::Dropped)
-		{
-			float DefaultSwapTime = float(GauntletGameState->FlagSwapTime);
-			float ActualTime = SwapTimer >= DefaultSwapTime ? 0.0f : DefaultSwapTime - (DefaultSwapTime - SwapTimer); 
-			TimerEffect->SetFloatParameter(NAME_Progress, 1.0 - (ActualTime/DefaultSwapTime) );			
-			TimerEffect->SetFloatParameter(NAME_RespawnTime, 60);
-		}
-	}
-
 }
 
 void AUTGauntletFlag::SetTeam(AUTTeamInfo* NewTeam)

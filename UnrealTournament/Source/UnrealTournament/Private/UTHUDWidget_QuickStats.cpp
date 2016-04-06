@@ -209,6 +209,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 					BoostIcon.UVs.UL = InventoryItem->HUDIcon.UL;
 					BoostIcon.UVs.VL = InventoryItem->HUDIcon.VL;
 					BoostIcon.Atlas = InventoryItem->HUDIcon.Texture;
+					BoostIcon.Size = FVector2D(InventoryItem->HUDIcon.UL * 1.07f, 35);
 				}
 				if (PowerupInfo.Label.IsEmpty())
 				{

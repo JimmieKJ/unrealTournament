@@ -2,11 +2,20 @@
 
 #pragma once
 
+#include "UTCarriedObject.h"
 #include "UTGhostFlag.generated.h"
 
-UCLASS()
+UCLASS(meta = (ChildCanTick))
 class UNREALTOURNAMENT_API AUTGhostFlag : public AActor
 {
 	GENERATED_UCLASS_BODY()
+
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Pickup)
+	UParticleSystemComponent* TimerEffect;
+
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = Flag)
+	AUTCarriedObject* MyCarriedObject;
+
+	virtual void Tick(float DeltaTime) override;
 
 };

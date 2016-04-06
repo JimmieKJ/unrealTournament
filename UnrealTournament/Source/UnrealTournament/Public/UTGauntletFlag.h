@@ -11,10 +11,6 @@ class UNREALTOURNAMENT_API AUTGauntletFlag : public AUTCTFFlag
 	GENERATED_UCLASS_BODY()
 
 public:
-
-	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Pickup)
-	UParticleSystemComponent* TimerEffect;
-
 	// If true, the flag has switched sides and can't be picked up by the other team.
 	UPROPERTY(BlueprintReadOnly, replicated)
 	bool bTeamLocked;
