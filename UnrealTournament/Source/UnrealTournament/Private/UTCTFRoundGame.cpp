@@ -56,6 +56,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	ShieldBeltObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Armor/Armor_ShieldBelt.Armor_ShieldBelt_C"));
 	ThighPadObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Armor/Armor_ThighPads.Armor_ThighPads_C"));
 	UDamageObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_UDamage_RCTF.BP_UDamage_RCTF_C"));
+	ArmorVestObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Armor/Armor_Chest.Armor_Chest_C"));
 	ActivatedPowerupPlaceholderObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_ActivatedPowerup_UDamage.BP_ActivatedPowerup_UDamage_C"));
 }
 //589,0 45,39 HUDAtlas01
@@ -92,6 +93,10 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 	if (!UDamageObject.IsNull())
 	{
 		UDamageClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *UDamageObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
+	}
+	if (!ArmorVestObject.IsNull())
+	{
+		ArmorVestClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *ArmorVestObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
 	}
 	if (!ActivatedPowerupPlaceholderObject.IsNull())
 	{
@@ -379,7 +384,7 @@ void AUTCTFRoundGame::InitFlags()
 		if (Base != NULL && Base->MyFlag)
 		{
 			AUTCarriedObject* Flag = Base->MyFlag;
-			Flag->AutoReturnTime = 8.f; // fixmesteve make config
+			Flag->AutoReturnTime = 6.f; // fixmesteve make config
 			Flag->bGradualAutoReturn = true;
 			Flag->bDisplayHolderTrail = true;
 			Flag->bShouldPingFlag = true;
@@ -528,6 +533,10 @@ void AUTCTFRoundGame::InitRound()
 			PS->RespawnWaitTime = 0.f;
 			PS->RemainingBoosts = 1;
 			PS->BoostClass = UDamageClass;
+			if (bAsymmetricVictoryConditions && !IsPlayerOnLifeLimitedTeam(PS))
+			{
+				PS->BoostClass = ArmorVestClass;
+			}
 			if (PS && (PS->bIsInactive || !PS->Team || PS->bOnlySpectator))
 			{
 				PS->RemainingLives = 0;

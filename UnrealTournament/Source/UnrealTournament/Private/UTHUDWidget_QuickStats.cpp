@@ -200,7 +200,16 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 				PowerupInfo.bAltIcon = true;
 				PowerupInfo.bUseLabel = true;
 				PowerupInfo.Value = 1;
-
+				
+				if (UTPlayerState->BoostClass)
+				{
+					AUTInventory* InventoryItem = UTPlayerState->BoostClass->GetDefaultObject<AUTInventory>();
+					BoostIcon.UVs.U = InventoryItem->HUDIcon.U;
+					BoostIcon.UVs.V = InventoryItem->HUDIcon.V;
+					BoostIcon.UVs.UL = InventoryItem->HUDIcon.UL;
+					BoostIcon.UVs.VL = InventoryItem->HUDIcon.VL;
+					BoostIcon.Atlas = InventoryItem->HUDIcon.Texture;
+				}
 				if (PowerupInfo.Label.IsEmpty())
 				{
 					UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();

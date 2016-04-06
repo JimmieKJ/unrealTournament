@@ -170,7 +170,19 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 
 				ScreenPosition = GetAdjustedScreenPosition(WorldPosition, ViewPoint, ViewDir, Dist, Edge, EdgeYPos, bDrawEdgeArrow, Team);
 			}
-
+			float CurrentWorldTime = Base->GetWorld()->GetTimeSeconds();
+			if (bIsEnemyFlag)
+			{
+				if (bDrawInWorld && !bEnemyFlagWasDrawn)
+				{
+					EnemyFlagStartDrawTime = CurrentWorldTime;
+				}
+				if (CurrentWorldTime - EnemyFlagStartDrawTime < 0.3f)
+				{
+					WorldRenderScale *= (1.f + 3.f * (0.3f - CurrentWorldTime + EnemyFlagStartDrawTime));
+				}
+				bEnemyFlagWasDrawn = bDrawInWorld;
+			}
 			if (bDrawInWorld)
 			{
 				float PctFromCenter = (ScreenPosition - FVector(0.5f*GetCanvas()->ClipX, 0.5f*GetCanvas()->ClipY, 0.f)).Size() / GetCanvas()->ClipX;

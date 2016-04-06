@@ -59,8 +59,14 @@ class UNREALTOURNAMENT_API UUTHUDWidget_CTFFlagStatus : public UUTHUDWidget
 		float InWorldAlpha;
 
 	/** Transient value used to pulse color of status indicators. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WorldOverlay")
+	UPROPERTY(BlueprintReadWrite, Category = "WorldOverlay")
 		float StatusScale;
+
+	UPROPERTY(BlueprintReadWrite, Category = "WorldOverlay")
+		float EnemyFlagStartDrawTime;
+
+	UPROPERTY(BlueprintReadWrite, Category = "WorldOverlay")
+		bool bEnemyFlagWasDrawn;
 
 	/** Transient value used to pulse color of status indicators. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")

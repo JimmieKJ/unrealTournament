@@ -38,7 +38,7 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 	bInitialized = false;
 	WeightSpeedPctModifier = 1.0f;
 	bDisplayHolderTrail = false;
-	MinGradualReturnDist = 1000.f;
+	MinGradualReturnDist = 1400.f;
 	bSendHomeOnScore = true;
 }
 
