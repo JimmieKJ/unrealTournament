@@ -11,7 +11,6 @@ const uint32 MAX_DAMAGE_INDICATORS = 3;		// # of damage indicators on the screen
 const float DAMAGE_FADE_DURATION = 1.0f;	// How fast a damage indicator fades out
 
 class UUTProfileSettings;
-class SUTHUDWindow;
 
 USTRUCT()
 struct FDamageHudIndicator
@@ -553,26 +552,5 @@ protected:
 public:
 	bool VerifyProfileSettings();
 	virtual void Destroyed();
-
-	FText GetSpectatorMessageText(bool &bViewingMessage);
-
-	// Used to control the Spectator Window.  
-	void SpawnWindowControl(bool bVisible);
-	bool bSpawnWindowVisible;
-
-protected:
-	/** Last viewed player. */
-	UPROPERTY()
-	class AUTPlayerState* LastViewedPS;
-
-	/** Last time viewed player changed. */
-	float ViewCharChangeTime;
-
-	bool VerifySpawnWindow(AUTGameState* UTGameState);
-
-#if !UE_SERVER
-	TSharedPtr<SUTHUDWindow> SpawnWindow;
-#endif
-
 };
 

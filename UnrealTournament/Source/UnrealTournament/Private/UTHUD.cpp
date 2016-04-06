@@ -22,9 +22,6 @@
 #include "UTCrosshair.h"
 #include "UTATypes.h"
 #include "UTDemoRecSpectator.h"
-#include "UTCTFGameState.h"
-#include "SUTSpawnWindow.h"
-
 
 AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -148,28 +145,6 @@ void AUTHUD::BeginPlay()
 
 void AUTHUD::AddSpectatorWidgets()
 {
-	// This is called every frame.  See if we should show the spawn menu here.
-
-	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
-	AUTPlayerState* PS = UTPlayerOwner->UTPlayerState;
-	AUTCharacter* UTCharacter = Cast<AUTCharacter>(UTPlayerOwner->GetPawn());
-
-	if (VerifySpawnWindow(UTGameState) && UTGameState && PS)
-	{
-		bool bNeedSpawnWindow = false;
-		if (UTGameState && PS && (UTGameState->IsMatchIntermission() || UTGameState->HasMatchEnded() || !UTGameState->HasMatchStarted()))
-		{
-			bNeedSpawnWindow = true;
-		}
-
-		if (PS->bOnlySpectator || PS->bOutOfLives || UTCharacter == nullptr || UTCharacter->IsDead())
-		{
-			bNeedSpawnWindow = true;
-		}
-
-		SpawnWindowControl(bNeedSpawnWindow);
-	}	
-
 	if (bHaveAddedSpectatorWidgets)
 	{
 		return;
@@ -190,7 +165,6 @@ void AUTHUD::PostInitializeComponents()
 	if (UTPlayerOwner)
 	{
 		UTPlayerOwner->UpdateCrosshairs(this);
-		bSpawnWindowVisible = false;
 	}
 }
 
@@ -1010,12 +984,7 @@ EInputMode::Type AUTHUD::GetInputMode_Implementation() const
 			}
 		}
 	}
-
-#if UE_SERVER
 	return EInputMode::EIM_None;
-#else
-	return bSpawnWindowVisible ? SpawnWindow->GetInputMode() : EInputMode::EIM_None;
-#endif
 }
 
 UUTCrosshair* AUTHUD::GetCrosshair(TSubclassOf<AUTWeapon> Weapon)
@@ -1413,195 +1382,4 @@ float AUTHUD::GetQuickStatsBob()
 	return VerifyProfileSettings() ? CachedProfileSettings->bQuickStatsBob : true;
 }
 
-FText AUTHUD::GetSpectatorMessageText(bool &bViewingMessage)
-{
-	FText SpectatorMessage;
 
-	AUTGameState* UTGameState = Cast<AUTGameState>(GetWorld()->GetGameState());
-	AUTCharacter* UTCharacterOwner = PlayerOwner->GetPawn() ? Cast<AUTCharacter>(PlayerOwner->GetPawn()) : nullptr;
-	if (UTGameState)
-	{
-		AUTPlayerState* UTPS = UTPlayerOwner->UTPlayerState;
-		if (!UTGameState->HasMatchStarted())
-		{
-			// Look to see if we are waiting to play and if we must be ready.  If we aren't, just exit cause we don
-			if (UTGameState->IsMatchInCountdown())
-			{
-				if (UTPS && UTPS->RespawnChoiceA && UTPS->RespawnChoiceB)
-				{
-					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "Choose Start", "Choose your start position");
-				}
-				else
-				{
-					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "MatchStarting", "Match is about to start");
-				}
-			}
-			else if (UTGameState->PlayersNeeded > 0)
-			{
-				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "WaitingForPlayers", "Waiting for players to join.");
-			}
-			else if (UTPS && UTPS->bReadyToPlay)
-			{
-				SpectatorMessage = (UTGameState->bTeamGame && UTGameState->bAllowTeamSwitches)
-					? NSLOCTEXT("UUTHUDWidget_Spectator", "IsReadyTeam", "You are ready, press [ALTFIRE] to change teams.")
-					: NSLOCTEXT("UUTHUDWidget_Spectator", "IsReady", "You are ready to play.");
-			}
-			else if (UTPS && UTPS->bCaster)
-			{
-				SpectatorMessage = (UTGameState->AreAllPlayersReady())
-					? NSLOCTEXT("UUTHUDWidget_Spectator", "WaitingForCaster", "All players are ready. Press [Enter] to start match.")
-					: NSLOCTEXT("UUTHUDWidget_Spectator", "WaitingForReady", "Waiting for players to ready up.");
-			}
-			else if (UTPS && UTPS->bOnlySpectator)
-			{
-				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "WaitingForReady", "Waiting for players to ready up.");
-			}
-			else if (MyUTScoreboard && MyUTScoreboard->IsInteractive())
-			{
-				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "CloseMenu", "Press [ESC] to close menu.");
-			}
-			else
-			{
-				SpectatorMessage = (UTGameState->bTeamGame && UTGameState->bAllowTeamSwitches)
-					? NSLOCTEXT("UUTHUDWidget_Spectator", "GetReadyTeam", "Press [FIRE] to ready up, [ALTFIRE] to change teams.")
-					: NSLOCTEXT("UUTHUDWidget_Spectator", "GetReady", "Press [FIRE] when you are ready.");
-			}
-		}
-		else if (!UTGameState->HasMatchEnded())
-		{
-			if (UTGameState->IsMatchIntermission())
-			{
-				if (UTGameState->bCasterControl && UTGameState->bStopGameClock == true && UTPS != nullptr)
-				{
-					SpectatorMessage = (UTPS->bCaster)
-						? NSLOCTEXT("UUTHUDWidget_Spectator", "WaitingCasterHalfTime", "Press [Enter] to start next half.")
-						: NSLOCTEXT("UUTHUDWidget_Spectator", "WaitingForCasterHalfTime", "Waiting for caster to start next half.");
-				}
-				else
-				{
-					FFormatNamedArguments Args;
-					Args.Add("Time", FText::AsNumber(UTGameState->RemainingTime));
-					AUTCTFGameState* CTFGameState = Cast<AUTCTFGameState>(UTGameState);
-					SpectatorMessage = !CTFGameState || (CTFGameState->CTFRound == 0)
-											? FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "HalfTime", "HALFTIME - Game resumes in {Time}"), Args)
-											: FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "Intermission", "Game resumes in {Time}"), Args);
-				}
-			}
-			else if (UTPS && (UTPS->bOnlySpectator || UTPS->bOutOfLives))
-			{
-				AActor* ViewActor = UTPlayerOwner->GetViewTarget();
-				AUTCharacter* ViewCharacter = Cast<AUTCharacter>(ViewActor);
-				if (!ViewCharacter)
-				{
-					AUTCarriedObject* Flag = Cast<AUTCarriedObject>(ViewActor);
-					if (Flag && Flag->Holder)
-					{
-						ViewCharacter = Cast<AUTCharacter>(Flag->AttachmentReplication.AttachParent);
-					}
-				}
-				if (ViewCharacter && ViewCharacter->PlayerState)
-				{
-					if (LastViewedPS != ViewCharacter->PlayerState)
-					{
-						ViewCharChangeTime = ViewCharacter->GetWorld()->GetTimeSeconds();
-						LastViewedPS = Cast<AUTPlayerState>(ViewCharacter->PlayerState);
-					}
-					FFormatNamedArguments Args;
-					Args.Add("PlayerName", FText::AsCultureInvariant(ViewCharacter->PlayerState->PlayerName));
-					bViewingMessage = true;
-					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "{PlayerName}"), Args);
-				}
-				else
-				{
-					LastViewedPS = NULL;
-				}
-			}
-			else if (UTPS && (UTCharacterOwner ? UTCharacterOwner->IsDead() : (UTPlayerOwner->GetPawn() == NULL)))
-			{
-				if (UTPS->RespawnTime > 0.0f)
-				{
-					FFormatNamedArguments Args;
-					static const FNumberFormattingOptions RespawnTimeFormat = FNumberFormattingOptions()
-						.SetMinimumFractionalDigits(0)
-						.SetMaximumFractionalDigits(0);
-					Args.Add("RespawnTime", FText::AsNumber(UTPlayerOwner->UTPlayerState->RespawnTime + 1, &RespawnTimeFormat));
-					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "RespawnWaitMessage", "You can respawn in {RespawnTime}..."), Args);
-				}
-				else if (!UTPS->bOutOfLives)
-				{
-					SpectatorMessage = (UTPS->RespawnChoiceA != nullptr)
-						? NSLOCTEXT("UUTHUDWidget_Spectator", "ChooseRespawnMessage", "Choose a respawn point with [FIRE] or [ALT-FIRE]")
-						: NSLOCTEXT("UUTHUDWidget_Spectator", "RespawnMessage", "Press [FIRE] to respawn...");
-				}
-			}
-		}
-		else
-		{
-			AUTCharacter* ViewCharacter = Cast<AUTCharacter>(UTPlayerOwner->GetViewTarget());
-			AUTPlayerState* PS = ViewCharacter ? Cast<AUTPlayerState>(ViewCharacter->PlayerState) : NULL;
-			if (PS)
-			{
-				FFormatNamedArguments Args;
-				Args.Add("PlayerName", FText::AsCultureInvariant(PS->PlayerName));
-				bViewingMessage = true;
-				if (UTGameState->bTeamGame && PS && PS->Team && (!UTGameState->GameModeClass || !UTGameState->GameModeClass->GetDefaultObject<AUTTeamGameMode>() || UTGameState->GameModeClass->GetDefaultObject<AUTTeamGameMode>()->bAnnounceTeam))
-				{
-					SpectatorMessage = (PS->Team->TeamIndex == 0)
-						? FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatchingRed", "Red Team Led by {PlayerName}"), Args)
-						: FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatchingBlue", "Blue Team Led by {PlayerName}"), Args);
-				}
-				else
-				{
-					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "{PlayerName}"), Args);
-				}
-			}
-		}
-	}
-	return SpectatorMessage;
-}
-
-bool AUTHUD::VerifySpawnWindow(AUTGameState* UTGameState)
-{
-#if !UE_SERVER
-
-	// If we don't have a spawn window, then try to make one.  But we have to wait for replication to complete first.
-	if (!SpawnWindow.IsValid() && UTGameState && UTGameState->GameModeClass)
-	{
-		AUTGameMode* UTDefaultGameModeObject = UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>();
-		UUTLocalPlayer* LocalPlayerOwner = Cast<UUTLocalPlayer>(UTPlayerOwner->Player);
-		if (UTDefaultGameModeObject && LocalPlayerOwner)
-		{
-			SpawnWindow = UTDefaultGameModeObject->CreateSpawnWindow(LocalPlayerOwner);
-		}
-	}
-
-	if (SpawnWindow.IsValid()) return true;
-#endif
-
-	return false;
-}
-
-void AUTHUD::SpawnWindowControl(bool bVisible)
-{
-#if !UE_SERVER
-	UUTLocalPlayer* UTLocalPlayer = UTPlayerOwner ? Cast<UUTLocalPlayer>(UTPlayerOwner->Player) : NULL;
-	if (SpawnWindow.IsValid() && UTLocalPlayer && bVisible != bSpawnWindowVisible)
-	{
-		if (bVisible)
-		{
-			UTLocalPlayer->OpenWindow(SpawnWindow);			
-			bSpawnWindowVisible = bVisible;
-
-		}
-		else
-		{
-			if (SpawnWindow->CanWindowClose())
-			{
-				UTLocalPlayer->CloseWindow(SpawnWindow);
-				bSpawnWindowVisible = bVisible;
-			}
-		}
-
-	}
-#endif
-}

@@ -91,6 +91,7 @@ void SUTSpawnWindow::BuildSpawnBar(float YPosition)
 
 FText SUTSpawnWindow::GetSpawnBarText() const
 {
+/*
 	if (PlayerOwner.IsValid() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->MyHUD)
 	{
 		AUTHUD* HUD = Cast<AUTHUD>(PlayerOwner->PlayerController->MyHUD);
@@ -100,7 +101,7 @@ FText SUTSpawnWindow::GetSpawnBarText() const
 			return HUD->GetSpectatorMessageText(bVisingMessage);
 		}
 	}
-
+*/
 	return FText::GetEmpty();
 }
 
