@@ -544,7 +544,7 @@ public:
 		uint8 RemainingBoosts;
 
 	/** Inventory item that is created on boost. */
-	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
+	UPROPERTY(Replicated, BlueprintReadWrite, Category = PlayerState)
 		TSubclassOf<class AUTInventory> BoostClass;
 
 private:
