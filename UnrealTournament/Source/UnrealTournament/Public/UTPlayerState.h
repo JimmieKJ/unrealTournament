@@ -784,7 +784,9 @@ public:
 	TSharedRef<SWidget> BuildRank(AUTBaseGameMode* DefaultGame, bool bRankedSession, FText RankName);
 	TSharedRef<SWidget> BuildLeague(AUTBaseGameMode* DefaultGame, FText LeagueName);
 	TSharedRef<SWidget> BuildLeagueDataRow(FText Label, FText Data);
+	TSharedRef<SWidget> BuildLeagueDivision(int32 Tier, int32 Division);
 	FText LeagueTierToText(int32 Tier);
+	FString LeagueTierToBrushName(int32 Tier);
 	void EpicIDClicked();
 #endif
 

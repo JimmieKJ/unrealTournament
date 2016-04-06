@@ -531,6 +531,12 @@ void SUTStyle::SetRankBadges(TSharedRef<FSlateStyleSet> StyleRef)
 
 	Style.Set("UT.RankStar.Empty", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankStar.Five.48x48", FVector2D(48.0f, 48.0f), FLinearColor(1.0f, 1.0f, 1.0f, 0.0f) ));
 
+	Style.Set("UT.RankedBronze", new IMAGE_BRUSH("UTStyle/RankBadges/UT.RankedBronze.128x128", FVector2D(128.0f, 128.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.RankedSilver", new IMAGE_BRUSH("UTStyle/RankBadges/UT.RankedSilver.128x128", FVector2D(128.0f, 128.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.RankedGold", new IMAGE_BRUSH("UTStyle/RankBadges/UT.RankedGold.128x128", FVector2D(128.0f, 128.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.RankedPlatinum", new IMAGE_BRUSH("UTStyle/RankBadges/UT.RankedPlatinum.128x128", FVector2D(128.0f, 128.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.RankedMaster", new IMAGE_BRUSH("UTStyle/RankBadges/UT.RankedMaster.128x128", FVector2D(128.0f, 128.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	
 }
 
 

@@ -1796,6 +1796,24 @@ FText AUTPlayerState::LeagueTierToText(int32 Tier)
 	return NSLOCTEXT("Generic", "BronzeLeague", "Bronze");
 }
 
+FString AUTPlayerState::LeagueTierToBrushName(int32 Tier)
+{
+	switch (Tier)
+	{
+	case 5:
+	case 4:
+		return L"UT.RankedMaster";
+	case 3:
+		return L"UT.RankedPlatinum";
+	case 2:
+		return L"UT.RankedGold";
+	case 1:
+		return L"UT.RankedSilver";
+	}
+
+	return L"UT.RankedBronze";
+}
+
 TSharedRef<SWidget> AUTPlayerState::BuildLeague(AUTBaseGameMode* DefaultGame, FText LeagueName)
 {
 	APlayerController* PC = Cast<APlayerController>(GetOwner());
@@ -1937,13 +1955,11 @@ TSharedRef<SWidget> AUTPlayerState::BuildLeagueInfo()
 		}
 		else
 		{
-			FText PlacementText = FText::Format(NSLOCTEXT("Generic", "3v3ShowdownPlacement", "{0} {1}"), LeagueTierToText(LP->GetShowdownLeagueTier()), FText::AsNumber(LP->GetShowdownLeagueDivision() + 1));
-
 			VBox->AddSlot()
 			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 			.AutoHeight()
 			[
-				BuildLeagueDataRow(NSLOCTEXT("Generic", "3v3ShowdownPlacementLabel", "Division :"), PlacementText)
+				BuildLeagueDivision(LP->GetShowdownLeagueTier(), LP->GetShowdownLeagueDivision())
 			];
 			
 			VBox->AddSlot()
@@ -1986,6 +2002,71 @@ TSharedRef<SWidget> AUTPlayerState::BuildLeagueInfo()
 		}
 	}
 	return VBox;
+}
+
+TSharedRef<SWidget> AUTPlayerState::BuildLeagueDivision(int32 Tier, int32 Division)
+{
+	TSharedRef<SHorizontalBox> HBox = SNew(SHorizontalBox);
+	
+	HBox->AddSlot()
+	.HAlign(HAlign_Left)
+	.VAlign(VAlign_Center)
+	.AutoWidth()
+	[
+		SNew(SBox)
+		.WidthOverride(300)
+		[
+			SNew(STextBlock)
+			.Text(NSLOCTEXT("Generic", "3v3ShowdownPlacementLabel", "Division :"))
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+			.ColorAndOpacity(FLinearColor::Gray)
+		]
+	];
+	
+	FText PlacementText = FText::Format(NSLOCTEXT("Generic", "3v3ShowdownPlacement", "{0} {1}"), LeagueTierToText(Tier), FText::AsNumber(Division + 1));
+
+	HBox->AddSlot()
+	.HAlign(HAlign_Left)
+	.VAlign(VAlign_Center)
+	.AutoWidth()
+	[
+		SNew(SVerticalBox)
+		+ SVerticalBox::Slot()
+		.HAlign(HAlign_Center)
+		.AutoHeight()
+		[
+			SNew(SOverlay)
+			+ SOverlay::Slot()
+			[
+				SNew(SImage)
+				.Image(SUTStyle::Get().GetBrush(*LeagueTierToBrushName(Tier)))
+			]
+			+ SOverlay::Slot()
+			[
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
+				.MaxHeight(128)
+				[
+					SNew(STextBlock)
+					.Text(FText::AsNumber(Division + 1))
+					.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Large.Bold")
+					.ColorAndOpacity(FLinearColor::White)
+				]
+			]
+		]
+		+SVerticalBox::Slot()
+		.HAlign(HAlign_Center)
+		[
+			SNew(STextBlock)
+			.Text(PlacementText)
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+			.ColorAndOpacity(FLinearColor::Gray)
+		]
+	];
+
+	return HBox;
 }
 
 TSharedRef<SWidget> AUTPlayerState::BuildLeagueDataRow(FText Label, FText Data)
