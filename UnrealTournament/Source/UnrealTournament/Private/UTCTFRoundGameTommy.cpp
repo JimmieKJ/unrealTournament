@@ -71,7 +71,7 @@ void AUTCTFRoundGameTommy::InitRound()
 		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 		PS->RemainingBoosts = 0; //No boosts by default
 		PS->RespawnWaitTime = UnlimitedRespawnWaitTime; //No respawn time limits by default
-		PS->RoundKills = 0.f;s
+		PS->RoundKills = 0.f;
 
 		if (IsTeamOnDefense(PS->GetTeamNum()))
 		{
