@@ -52,6 +52,8 @@ class UNREALTOURNAMENT_API AUTCTFBaseGame : public AUTTeamGameMode
 	UFUNCTION(exec)
 		void CheatScore();
 
+	virtual int32 PickCheatWinTeam();
+
 	/** Admin control for restarting competitive matches with appropriate status. */
 	UFUNCTION(exec)
 		void SetRedScore(int32 NewScore);

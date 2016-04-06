@@ -67,11 +67,16 @@ void AUTCTFBaseGame::InitGameState()
 	CTFGameState->SetMaxNumberOfTeams(NumTeams);
 }
 
+int32 AUTCTFBaseGame::PickCheatWinTeam()
+{
+	return (FMath::FRand() < 0.5f) ? 0 : 1;
+}
+
 void AUTCTFBaseGame::CheatScore()
 {
 	if ((GetNetMode() == NM_Standalone) && !bOfflineChallenge && !bBasicTrainingGame)
 	{
-		int32 ScoringTeam = (FMath::FRand() < 0.5f) ? 0 : 1;
+		int32 ScoringTeam = PickCheatWinTeam();
 		TArray<AController*> Members = Teams[ScoringTeam]->GetTeamMembers();
 		if (Members.Num() > 0)
 		{

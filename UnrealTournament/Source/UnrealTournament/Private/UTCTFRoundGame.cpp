@@ -290,16 +290,25 @@ bool AUTCTFRoundGame::CheckScore_Implementation(AUTPlayerState* Scorer)
 	return true;
 }
 
+int32 AUTCTFRoundGame::PickCheatWinTeam()
+{
+	bool bPickRedTeam = bAsymmetricVictoryConditions ? bRedToCap : (FMath::FRand() < 0.5f);
+	return bPickRedTeam ? 0 : 1;
+}
+
 bool AUTCTFRoundGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 {
+	UE_LOG(UT, Warning, TEXT("CheckForWinner round %d out of %d"), CTFGameState->CTFRound, NumRounds)
 	if (ScoringTeam && CTFGameState && (CTFGameState->CTFRound >= NumRounds) && (CTFGameState->CTFRound % 2 == 0))
 	{
+		UE_LOG(UT, Warning, TEXT("CheckForWinner THERE scorint team %s"), *ScoringTeam->GetName());
 		AUTTeamInfo* BestTeam = ScoringTeam;
 		bool bHaveTie = false;
 
 		// Check if team with highest score has reached goal score
 		for (AUTTeamInfo* Team : Teams)
 		{
+			UE_LOG(UT, Warning, TEXT("Check against team %s"), *Team->GetName());
 			if (Team->Score > BestTeam->Score)
 			{
 				BestTeam = Team;
@@ -307,26 +316,114 @@ bool AUTCTFRoundGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 			}
 			else if ((Team != BestTeam) && (Team->Score == BestTeam->Score))
 			{
+				UE_LOG(UT, Warning, TEXT("Tie with secondary %d %d"),Team->SecondaryScore, BestTeam->SecondaryScore);
 				bHaveTie = true;
-				if (Team->SecondaryScore > BestTeam->SecondaryScore)
+				if (Team->SecondaryScore != BestTeam->SecondaryScore)
 				{
-					BestTeam = Team;
+					BestTeam = (Team->SecondaryScore > BestTeam->SecondaryScore) ? Team : BestTeam;
 					bHaveTie = false;
 				}
 			}
 		}
 		if (!bHaveTie)
 		{
-			EndGame(nullptr, FName(TEXT("scorelimit")));
+			UE_LOG(UT, Warning, TEXT("ENDGAME"));
+			EndTeamGame(BestTeam, FName(TEXT("scorelimit")));
 			return true;
 		}
 	}
 	return false;
 }
 
+
+void AUTCTFRoundGame::EndTeamGame(AUTTeamInfo* Winner, FName Reason)
+{
+	// Dont ever end the game in PIE
+	if (GetWorld()->WorldType == EWorldType::PIE) return;
+
+	APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
+	UUTLocalPlayer* LP = LocalPC ? Cast<UUTLocalPlayer>(LocalPC->Player) : NULL;
+	if (LP)
+	{
+		LP->EarnedStars = 0;
+		LP->RosterUpgradeText = FText::GetEmpty();
+		if (bOfflineChallenge && PlayerWonChallenge())
+		{
+			LP->ChallengeCompleted(ChallengeTag, ChallengeDifficulty + 1);
+		}
+	}
+
+	UTGameState->WinningTeam = Winner;
+	EndTime = GetWorld()->TimeSeconds;
+
+	if (IsGameInstanceServer() && LobbyBeacon)
+	{
+		FString MatchStats = FString::Printf(TEXT("%i"), GetWorld()->GetGameState()->ElapsedTime);
+
+		FMatchUpdate MatchUpdate;
+		MatchUpdate.GameTime = UTGameState->ElapsedTime;
+		MatchUpdate.NumPlayers = NumPlayers;
+		MatchUpdate.NumSpectators = NumSpectators;
+		MatchUpdate.MatchState = MatchState;
+		MatchUpdate.bMatchHasBegun = HasMatchStarted();
+		MatchUpdate.bMatchHasEnded = HasMatchEnded();
+
+		UpdateLobbyScore(MatchUpdate);
+		LobbyBeacon->EndGame(MatchUpdate);
+	}
+
+	// SETENDGAMEFOCUS
+	PlacePlayersAroundFlagBase(Winner->TeamIndex, bRedToCap ? 1 : 0);
+	AUTCTFFlagBase* WinningBase = CTFGameState->FlagBases[bRedToCap ? 1 : 0];
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+	{
+		AUTPlayerController* Controller = Cast<AUTPlayerController>(*Iterator);
+		if (Controller && Controller->UTPlayerState)
+		{
+			AUTCTFFlagBase* BaseToView = WinningBase;
+			// If we don't have a winner, view my base
+			if (BaseToView == NULL)
+			{
+				AUTTeamInfo* MyTeam = Controller->UTPlayerState->Team;
+				if (MyTeam)
+				{
+					BaseToView = CTFGameState->FlagBases[MyTeam->GetTeamNum()];
+				}
+			}
+
+			if (BaseToView)
+			{
+				Controller->GameHasEnded(BaseToView, (Controller->UTPlayerState->Team && (Controller->UTPlayerState->Team->TeamIndex == Winner->TeamIndex)));
+			}
+		}
+	}
+
+	// Allow replication to happen before reporting scores, stats, etc.
+	FTimerHandle TempHandle;
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::HandleMatchHasEnded, 1.5f);
+	bGameEnded = true;
+
+	// Setup a timer to pop up the final scoreboard on everyone
+	FTimerHandle TempHandle2;
+	GetWorldTimerManager().SetTimer(TempHandle2, this, &AUTGameMode::ShowFinalScoreboard, EndScoreboardDelay*GetActorTimeDilation());
+
+	// Setup a timer to continue to the next map.  Need enough time for match summaries
+	EndTime = GetWorld()->TimeSeconds;
+	float TravelDelay = GetTravelDelay();
+	FTimerHandle TempHandle3;
+	GetWorldTimerManager().SetTimer(TempHandle3, this, &AUTGameMode::TravelToNextMap, TravelDelay*GetActorTimeDilation());
+
+	FTimerHandle TempHandle4;
+	float EndReplayDelay = TravelDelay - 10.f;
+	GetWorldTimerManager().SetTimer(TempHandle4, this, &AUTGameMode::StopReplayRecording, EndReplayDelay);
+
+	SendEndOfGameStats(Reason);
+	EndMatch();
+}
+
 void AUTCTFRoundGame::HandleFlagCapture(AUTPlayerState* Holder)
 {
-	if (UTGameState && Holder->Team)
+	if (UTGameState && Holder && Holder->Team)
 	{
 		Holder->Team->SecondaryScore += UTGameState->RemainingTime;
 	}
@@ -720,10 +817,6 @@ void AUTCTFRoundGame::ScoreOutOfLives(int32 WinningTeamIndex)
 				{
 					Spread = FMath::Min<int32>(Spread, LastTeamToScore->Score - OtherTeam->Score);
 				}
-			}
-			if (Spread >= MercyScore)
-			{
-				EndGame(NULL, FName(TEXT("MercyScore")));
 			}
 		}
 		if (UTGameState->IsMatchInProgress())
