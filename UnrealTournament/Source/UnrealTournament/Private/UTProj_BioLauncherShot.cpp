@@ -137,6 +137,11 @@ void AUTProj_BioLauncherShot::SpawnWeb(FVector HitNormal)
 			WebCapsule->RegisterComponent();
 			WebCapsule->SetWorldLocation(GetActorLocation() + Dir * 0.5f);
 			WebCapsule->SetWorldRotation(FRotationMatrix::MakeFromZ(Dir.GetSafeNormal()).Rotator());
+			if (bExploded || IsPendingKill())
+			{
+				// the web capsule immediately collided and blew up
+				return;
+			}
 		}
 
 		bSpawnedWeb = true;
