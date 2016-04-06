@@ -386,7 +386,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UAnimMontage* CurrentFirstPersonTaunt;
 
 	// Keep track of emote count so we can clear CurrentEmote
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly, Category=Taunt)
 	int32 TauntCount;
 
 	UFUNCTION()
