@@ -26,8 +26,14 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameTommy : public AUTCTFRoundGame
 	UPROPERTY()
 	TSubclassOf<class AUTArmor> ChestArmorClass;
 	TAssetSubclassOf<class AUTArmor> ChestArmorObject;
+	
+	UPROPERTY()
+	TSubclassOf<class AUTInventory> DefenseActivatedPowerupClass;
+	TAssetSubclassOf<class AUTInventory> DefenseActivatedPowerupObject;
 
 	virtual void GiveDefaultInventory(APawn* PlayerPawn) override;
+
+	virtual void ToggleSpecialFor(AUTCharacter* C) override;
 
 protected:
 	virtual bool IsPlayerOnLifeLimitedTeam(AUTPlayerState* PlayerState) const override;

@@ -2010,6 +2010,11 @@ bool AUTGameMode::UTIsHandlingReplays()
 	return bRecordReplays && GetNetMode() == ENetMode::NM_DedicatedServer;
 }
 
+void AUTGameMode::ToggleSpecialFor(AUTCharacter* C)
+{
+	//do nothing by default
+}
+
 void AUTGameMode::InstanceNextMap(const FString& NextMap)
 {
 	if (NextMap != TEXT(""))

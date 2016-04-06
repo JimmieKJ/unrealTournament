@@ -87,6 +87,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, bOutOfLives);
 	DOREPLIFETIME(AUTPlayerState, RemainingLives);
 	DOREPLIFETIME(AUTPlayerState, Kills);
+	DOREPLIFETIME(AUTPlayerState, RoundKills);
 	DOREPLIFETIME(AUTPlayerState, Deaths);
 	DOREPLIFETIME(AUTPlayerState, Team);
 	DOREPLIFETIME(AUTPlayerState, FlagCaptures);
@@ -466,6 +467,7 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 
 		LastKillTime = GetWorld()->TimeSeconds;
 		Kills++;
+		RoundKills++;
 
 		if (bAnnounceWeaponSpree)
 		{
@@ -957,6 +959,7 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->PartySize = PartySize;
 		PS->StatsID = StatsID;
 		PS->Kills = Kills;
+		PS->RoundKills = RoundKills;
 		PS->DamageDone = DamageDone;
 		PS->Deaths = Deaths;
 		PS->Assists = Assists;

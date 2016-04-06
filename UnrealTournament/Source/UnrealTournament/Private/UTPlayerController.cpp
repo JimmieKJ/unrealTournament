@@ -771,12 +771,27 @@ bool AUTPlayerController::ServerTriggerBoost_Validate()
 
 void AUTPlayerController::ServerTriggerBoost_Implementation()
 {
-	if (UTCharacter && UTPlayerState && (UTPlayerState->RemainingBoosts > 0) && UTPlayerState->BoostClass)
+	if (UTCharacter && UTPlayerState && (UTPlayerState->RemainingBoosts > 0))
 	{
 		UTPlayerState->RemainingBoosts--;
-		AUTInventory* TriggeredBoost = GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->BoostClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f));
-		TriggeredBoost->bAlwaysDropOnDeath = false;
-		UTCharacter->AddInventory(TriggeredBoost, true);
+
+		if (UTPlayerState->BoostClass)
+		{
+			AUTInventory* TriggeredBoost = GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->BoostClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f));
+			TriggeredBoost->bAlwaysDropOnDeath = false;
+			UTCharacter->AddInventory(TriggeredBoost, true);
+		}
+		else
+		{
+			if (GetWorld())
+			{
+				AUTGameMode* UTGM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+				if (UTGM)
+				{
+					UTGM->ToggleSpecialFor(UTCharacter);
+				}
+			}
+		}
 	}
 }
 

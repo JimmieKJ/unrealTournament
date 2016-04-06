@@ -24,14 +24,18 @@
 #include "UTSkullPickup.h"
 #include "UTArmor.h"
 #include "UTTimedPowerup.h"
+#include "UTFlagRunTommyHUD.h"
 
 AUTCTFRoundGameTommy::AUTCTFRoundGameTommy(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	DisplayName = NSLOCTEXT("UTGameMode", "RCTFT", "TommyTestMode");
 
-	ChestArmorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Armor/Armor_Chest.Armor_Chest_C"));
+	HUDClass = AUTFlagRunTommyHUD::StaticClass();
 
+	ChestArmorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Armor/Armor_Chest.Armor_Chest_C"));
+	DefenseActivatedPowerupObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_ActivatedPowerup_Respawn.BP_ActivatedPowerup_Respawn_C"));
+	
 	TimeLimit = 3;
 
 	OffenseKills = 0;
@@ -49,6 +53,10 @@ void AUTCTFRoundGameTommy::InitGame(const FString& MapName, const FString& Optio
 	{
 		ChestArmorClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *ChestArmorObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
 	}
+	if (!DefenseActivatedPowerupObject.IsNull())
+	{
+		DefenseActivatedPowerupClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *DefenseActivatedPowerupObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
+	}
 }
 
 void AUTCTFRoundGameTommy::InitRound()
@@ -63,6 +71,18 @@ void AUTCTFRoundGameTommy::InitRound()
 		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 		PS->RemainingBoosts = 0; //No boosts by default
 		PS->RespawnWaitTime = UnlimitedRespawnWaitTime; //No respawn time limits by default
+		PS->RoundKills = 0.f;s
+
+		if (IsTeamOnDefense(PS->GetTeamNum()))
+		{
+			//a null pointer here will check with the game mode on how to handle the powerup.
+			TSubclassOf<class AUTInventory> NullPointer;
+			PS->BoostClass = NullPointer;
+		}
+		else
+		{
+			PS->BoostClass = UDamageClass;
+		}
 	}
 }
 
@@ -75,11 +95,26 @@ void AUTCTFRoundGameTommy::GiveDefaultInventory(APawn* PlayerPawn)
 	if (UTCharacter != NULL)
 	{
 		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(UTCharacter->PlayerState);
-		//Give defenders extra stuff	
-		if (IsTeamOnDefense(UTPlayerState->Team->TeamIndex))
+		if (UTPlayerState)
 		{
-			UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(ThighPadClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f)), true);
-			UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(ChestArmorClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f)), true);
+			AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTPlayerState->GetOwner());
+			if (UTPC)
+			{
+				UTPC->TimeToHoldPowerUpButtonToActivate = 0.75f;
+
+				if (IsTeamOnDefense(UTPlayerState->Team->TeamIndex))
+				{
+					UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(ThighPadClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f)), true);
+					UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(ChestArmorClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f)), true);
+
+					UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(DefenseActivatedPowerupClass, FVector(0.0f), FRotator(0.0f, 0.0f, 0.0f)), true);
+				}
+				else
+				{
+					UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(ThighPadClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f)), true);
+					UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(ActivatedPowerupPlaceholderClass, FVector(0.0f), FRotator(0.0f, 0.0f, 0.0f)), true);
+				}
+			}
 		}
 	}
 }
@@ -100,34 +135,24 @@ void AUTCTFRoundGameTommy::ScoreOutOfLives(int32 WinningTeamIndex)
 	Super::ScoreOutOfLives(WinningTeamIndex);
 }
 
-/* FIXME - use boostclass (see ServerTriggerBoost in UTPlayerController
 void AUTCTFRoundGameTommy::ToggleSpecialFor(AUTCharacter* C)
 {
 	AUTPlayerState* PS = C ? Cast<AUTPlayerState>(C->PlayerState) : nullptr;
-	if (PS && (PS->RemainingBoosts > 0))
+	if (PS && PS->Team && IsTeamOnDefense(PS->Team->TeamIndex))
 	{	
-		//offense has same Special as RCTF base game
-		if (IsTeamOnOffense(PS->Team->TeamIndex))
+		//FIXMETOMMY - This is a ghetto way to implemnt this. Lets not suicide in the future, but fine for testing the idea.
+		AUTPlayerController* PC = Cast<AUTPlayerController>(PS->GetOwner());
+		if (PC)
 		{
-			Super::ToggleSpecialFor(C);
-		}
-		else
-		{
-			PS->RemainingBoosts--;
-			//FIXMETOMMY - This is a ghetto way to implemnt this. Lets not suicide in the future, but fine for testing the idea.
-			AUTPlayerController* PC = Cast<AUTPlayerController>(PS->GetOwner());
-			if (PC)
-			{
-				//Defense gets a respawn without it costing them a life
-				PS->RemainingLives++;
+			//Defense gets a respawn without it costing them a life
+			PS->RemainingLives++;
 
-				//Respawn
-				C->PlayerSuicide();
-			}
+			//Respawn
+			C->PlayerSuicide();
 		}
 	}
 }
-*/
+
 void AUTCTFRoundGameTommy::DiscardInventory(APawn* Other, AController* Killer)
 {
 	AUTPlayerState* KillerPS = Killer ? Cast<AUTPlayerState>(Killer->PlayerState) : nullptr;

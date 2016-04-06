@@ -542,6 +542,8 @@ public:
 	/** The standard IsHandlingReplays() codepath is not flexible enough for UT, this is the compromise */
 	virtual bool UTIsHandlingReplays();
 
+	virtual void ToggleSpecialFor(AUTCharacter* C);
+
 protected:
 
 	/** Returns random bot character skill matched to current GameDifficulty. */

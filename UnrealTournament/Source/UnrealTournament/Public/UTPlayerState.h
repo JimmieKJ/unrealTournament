@@ -202,7 +202,7 @@ public:
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = PlayerState)
 	int32 Spree;
 
-	/** Kills by this player.  Not replicated but calculated client-side */
+	/** Kills by this player.  */
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	int32 Kills;
 
@@ -214,8 +214,8 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 		int32 RoundDamageDone;
 
-	/** Enemy kills by this player this round.  Not replicated. */
-	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
+	/** Enemy kills by this player this round. */
+	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 		int32 RoundKills;
 
 	/** If limited lives, remaining lives for this player. */
