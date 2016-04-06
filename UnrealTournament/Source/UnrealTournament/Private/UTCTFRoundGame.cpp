@@ -32,7 +32,6 @@
 AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	GoalScore = 5;
 	TimeLimit = 5;
 	DisplayName = NSLOCTEXT("UTGameMode", "CTFR", "Flag Run");
 	RoundLives = 5;
@@ -52,6 +51,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	RollingAttackerRespawnDelay = 8.f;
 	HUDClass = AUTFlagRunHUD::StaticClass();
 	GameStateClass = AUTCTFRoundGameState::StaticClass();
+	NumRounds = 6;
 
 	// remove translocator - fixmesteve make this an option
 	TranslocatorObject = nullptr;
@@ -80,10 +80,6 @@ bool AUTCTFRoundGame::AvoidPlayerStart(AUTPlayerStart* P)
 void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
-	if (GoalScore == 0)
-	{
-		GoalScore = 5;
-	}
 
 	if (!ShieldBeltObject.IsNull())
 	{
@@ -290,13 +286,13 @@ void AUTCTFRoundGame::TossSkull(TSubclassOf<AUTSkullPickup> SkullPickupClass, co
 
 bool AUTCTFRoundGame::CheckScore_Implementation(AUTPlayerState* Scorer)
 {
-	CheckReachedGoalScore(Scorer->Team);
+	CheckForWinner(Scorer->Team);
 	return true;
 }
 
-bool AUTCTFRoundGame::CheckReachedGoalScore(AUTTeamInfo* ScoringTeam)
+bool AUTCTFRoundGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 {
-	if (ScoringTeam && CTFGameState)
+	if (ScoringTeam && CTFGameState && (CTFGameState->CTFRound >= NumRounds) && (CTFGameState->CTFRound % 2 == 0))
 	{
 		AUTTeamInfo* BestTeam = ScoringTeam;
 		bool bHaveTie = false;
@@ -312,16 +308,17 @@ bool AUTCTFRoundGame::CheckReachedGoalScore(AUTTeamInfo* ScoringTeam)
 			else if ((Team != BestTeam) && (Team->Score == BestTeam->Score))
 			{
 				bHaveTie = true;
+				if (Team->SecondaryScore > BestTeam->SecondaryScore)
+				{
+					BestTeam = Team;
+					bHaveTie = false;
+				}
 			}
 		}
-		if (!bHaveTie && (BestTeam->Score >= GoalScore))
+		if (!bHaveTie)
 		{
-			// game can end after even number of rounds, or if losing team cannot catch up
-			if ((CTFGameState->CTFRound % 2 == 0) || (Teams.Num() <2) || !Teams[0] || !Teams[1] || (FMath::Abs(Teams[0]->Score - Teams[1]->Score) > FlagCapScore))
-			{
-				EndGame(nullptr, FName(TEXT("scorelimit")));
-				return true;
-			}
+			EndGame(nullptr, FName(TEXT("scorelimit")));
+			return true;
 		}
 	}
 	return false;
@@ -329,6 +326,10 @@ bool AUTCTFRoundGame::CheckReachedGoalScore(AUTTeamInfo* ScoringTeam)
 
 void AUTCTFRoundGame::HandleFlagCapture(AUTPlayerState* Holder)
 {
+	if (UTGameState && Holder->Team)
+	{
+		Holder->Team->SecondaryScore += UTGameState->RemainingTime;
+	}
 	CheckScore(Holder);
 	if (UTGameState && UTGameState->IsMatchInProgress())
 	{
@@ -710,7 +711,7 @@ void AUTCTFRoundGame::ScoreOutOfLives(int32 WinningTeamIndex)
 		WinningTeam->ForceNetUpdate();
 		LastTeamToScore = WinningTeam;
 		BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 3 + WinningTeam->TeamIndex);
-		if (!CheckReachedGoalScore(LastTeamToScore) && (MercyScore > 0))
+		if (!CheckForWinner(LastTeamToScore) && (MercyScore > 0))
 		{
 			int32 Spread = LastTeamToScore->Score;
 			for (AUTTeamInfo* OtherTeam : Teams)

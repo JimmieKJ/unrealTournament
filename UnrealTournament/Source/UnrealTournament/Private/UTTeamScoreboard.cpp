@@ -31,7 +31,12 @@ void UUTTeamScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
 	DrawTexture(TextureAtlas, XOffset + FrontSize + MiddleSize, YOffset + 22, EndSize, 65, 39,188,64,65, 1.0, FLinearColor::Red);
 
 	DrawText(RedTeamText, 36, YOffset + 40.f, UTHUDOwner->HugeFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
-	DrawText(FText::AsNumber(UTGameState->Teams[0]->Score), Width * 0.9, YOffset + 48.f, UTHUDOwner->ScoreFont, false, FVector2D(0, 0), FLinearColor::Black, true, FLinearColor::Black, 0.75, 1.0, FLinearColor::White, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Right, ETextVertPos::Center);
+	DrawText(FText::AsNumber(UTGameState->Teams[0]->Score), Width * 0.9f, YOffset + 48.f, UTHUDOwner->ScoreFont, false, FVector2D(0, 0), FLinearColor::Black, true, FLinearColor::Black, 0.75, 1.0, FLinearColor::White, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Right, ETextVertPos::Center);
+	bool bDrawSecondaryScores = (UTGameState->Teams[0]->SecondaryScore + UTGameState->Teams[1]->SecondaryScore > 0);
+	if (bDrawSecondaryScores)
+	{
+		DrawText(FText::AsNumber(UTGameState->Teams[0]->SecondaryScore), Width * 0.9f, YOffset + 96.f, UTHUDOwner->SmallFont, false, FVector2D(0, 0), FLinearColor::Black, true, FLinearColor::Black, 0.75, 1.0, FLinearColor::White, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f), ETextHorzPos::Right, ETextVertPos::Center);
+	}
 
 	XOffset = Size.X - Width;
 
@@ -41,6 +46,10 @@ void UUTTeamScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
 
 	DrawText(BlueTeamText, 1237, YOffset + 40.f, UTHUDOwner->HugeFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 	DrawText(FText::AsNumber(UTGameState->Teams[1]->Score), Size.X - Width + (Width * 0.1), YOffset + 48.f, UTHUDOwner->ScoreFont, false, FVector2D(0, 0), FLinearColor::Black, true, FLinearColor::Black, 0.75, 1.0, FLinearColor::White, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Left, ETextVertPos::Center);
+	if (bDrawSecondaryScores)
+	{
+		DrawText(FText::AsNumber(UTGameState->Teams[1]->SecondaryScore), Width * 0.9f, YOffset + 96.f, UTHUDOwner->SmallFont, false, FVector2D(0, 0), FLinearColor::Black, true, FLinearColor::Black, 0.75, 1.0, FLinearColor::White, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f), ETextHorzPos::Right, ETextVertPos::Center);
+	}
 	YOffset += 119;
 }
 

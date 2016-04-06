@@ -252,6 +252,7 @@ void AUTTeamInfo::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLife
 	DOREPLIFETIME_CONDITION(AUTTeamInfo, TeamColor, COND_InitialOnly);
 	DOREPLIFETIME(AUTTeamInfo, bFromPreviousLevel);
 	DOREPLIFETIME(AUTTeamInfo, Score);
+	DOREPLIFETIME(AUTTeamInfo, SecondaryScore);
 	DOREPLIFETIME(AUTTeamInfo, TopAttacker);
 	DOREPLIFETIME(AUTTeamInfo, TopDefender);
 	DOREPLIFETIME(AUTTeamInfo, TopSupporter);

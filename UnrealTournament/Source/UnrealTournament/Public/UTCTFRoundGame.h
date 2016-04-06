@@ -43,6 +43,9 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		bool bPerPlayerLives;
 
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		int32 NumRounds;
+
 	UPROPERTY()
 		bool bNeedFiveKillsMessage;
 
@@ -75,7 +78,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual void RestartPlayer(AController* aPlayer) override;
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual bool CheckScore_Implementation(AUTPlayerState* Scorer);
-	virtual bool CheckReachedGoalScore(AUTTeamInfo* ScoringTeam);
+	virtual bool CheckForWinner(AUTTeamInfo* ScoringTeam);
 	void BuildServerResponseRules(FString& OutRules);
 	virtual void HandleFlagCapture(AUTPlayerState* Holder) override;
 	virtual void HandleExitingIntermission() override;
