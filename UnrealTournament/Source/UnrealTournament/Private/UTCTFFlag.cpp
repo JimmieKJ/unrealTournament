@@ -127,6 +127,18 @@ void AUTCTFFlag::SendHomeWithNotify()
 {
 	if (bGradualAutoReturn)
 	{
+		// if team member nearby, wait a bit longer
+		AUTCTFGameState* GameState = GetWorld()->GetGameState<AUTCTFGameState>();
+		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+		{
+			AUTCharacter* TeamChar = Cast<AUTCharacter>(*It);
+			if (TeamChar && !TeamChar->IsDead() && ((GetActorLocation() - TeamChar->GetActorLocation()).SizeSquared() < 200.f) && GameState && GameState->OnSameTeam(TeamChar, this))
+			{
+				GetWorldTimerManager().SetTimer(SendHomeWithNotifyHandle, this, &AUTCTFFlag::SendHomeWithNotify, 0.2f, false);
+				return;
+			}
+		}
+
 		AUTCTFFlagBase* FlagBase = Cast<AUTCTFFlagBase>(HomeBase);
 		if (FlagBase)
 		{
