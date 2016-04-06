@@ -27,6 +27,7 @@
 #include "UTPlayerState.h"
 #include "UTFlagRunHUD.h"
 #include "UTGhostFlag.h"
+#include "UTCTFRoundGameState.h"
 
 AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -50,6 +51,8 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	RemainingPickupDelay = 0;
 	RollingAttackerRespawnDelay = 8.f;
 	HUDClass = AUTFlagRunHUD::StaticClass();
+	GameStateClass = AUTCTFRoundGameState::StaticClass();
+
 	// remove translocator - fixmesteve make this an option
 	TranslocatorObject = nullptr;
 
@@ -215,7 +218,9 @@ void AUTCTFRoundGame::HandleMatchIntermission()
 
 	CTFGameState->bIsAtIntermission = true;
 	CTFGameState->OnIntermissionChanged();
-	CTFGameState->SetTimeLimit(IntermissionDuration);	// Reset the Game Clock for intermission
+
+	CTFGameState->bStopGameClock = true;
+	Cast<AUTCTFRoundGameState>(CTFGameState)->IntermissionTime  = IntermissionDuration;
 }
 
 float AUTCTFRoundGame::AdjustNearbyPlayerStartScore(const AController* Player, const AController* OtherController, const ACharacter* OtherCharacter, const FVector& StartLoc, const APlayerStart* P)
@@ -367,6 +372,7 @@ void AUTCTFRoundGame::HandleMatchHasStarted()
 
 void AUTCTFRoundGame::HandleExitingIntermission()
 {
+	CTFGameState->bStopGameClock = false;
 	InitRound();
 	Super::HandleExitingIntermission();
 }
@@ -728,7 +734,15 @@ void AUTCTFRoundGame::ScoreOutOfLives(int32 WinningTeamIndex)
 
 void AUTCTFRoundGame::CheckGameTime()
 {
-	if ((GetMatchState() == MatchState::InProgress) && TimeLimit > 0)
+	if (CTFGameState->IsMatchIntermission())
+	{
+		AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
+		if (RCTFGameState && (RCTFGameState->IntermissionTime <= 0))
+		{
+			SetMatchState(MatchState::MatchExitingIntermission);
+		}
+	}
+	else if ((GetMatchState() == MatchState::InProgress) && TimeLimit > 0)
 	{
 		if (UTGameState && UTGameState->RemainingTime <= 0)
 		{

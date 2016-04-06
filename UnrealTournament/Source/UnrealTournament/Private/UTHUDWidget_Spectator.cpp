@@ -170,7 +170,7 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 				else
 				{
 					FFormatNamedArguments Args;
-					Args.Add("Time", FText::AsNumber(UTGameState->RemainingTime));
+					Args.Add("Time", FText::AsNumber(UTGameState->GetIntermissionTime()));
 					AUTCTFGameState* CTFGameState = Cast<AUTCTFGameState>(UTGameState);
 					SpectatorMessage = !CTFGameState || (CTFGameState->CTFRound == 0)
 											? FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "HalfTime", "HALFTIME - Game resumes in {Time}"), Args)

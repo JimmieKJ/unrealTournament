@@ -139,6 +139,9 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	/** Returns time in seconds that should be displayed on game clock. */
 	virtual float GetClockTime();
 
+	/** Return remaining intermission time. */
+	virtual float GetIntermissionTime();
+
 	// How long a player can wait before being forced respawned (added to RespawnWaitTime).  Set to 0 for no delay.
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
 	float ForceRespawnTime;

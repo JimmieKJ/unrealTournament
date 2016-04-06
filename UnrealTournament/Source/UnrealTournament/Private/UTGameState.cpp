@@ -421,6 +421,11 @@ float AUTGameState::GetClockTime()
 	return ((TimeLimit > 0.f) || !HasMatchStarted()) ? RemainingTime : ElapsedTime;
 }
 
+float AUTGameState::GetIntermissionTime()
+{
+	return RemainingTime;
+}
+
 void AUTGameState::OnRep_RemainingTime()
 {
 	// if we received RemainingTime, it takes precedence
