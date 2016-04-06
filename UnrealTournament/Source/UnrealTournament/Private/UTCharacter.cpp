@@ -5218,7 +5218,7 @@ void AUTCharacter::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay, float Emo
 					bIncompatibleWeaponForFP = true;
 				}
 
-				if (TauntToPlay->GetDefaultObject<AUTTaunt>()->FirstPersonTauntMontage == nullptr || bIncompatibleWeaponForFP)
+				if (TauntToPlay->GetDefaultObject<AUTTaunt>()->FirstPersonTauntMontage == nullptr || bIncompatibleWeaponForFP || !TauntToPlay->GetDefaultObject<AUTTaunt>()->bAllowMovementWithFirstPersonTaunt)
 				{
 					// This flag is set for 3rd person taunts
 					UTCharacterMovement->bIsTaunting = true;
