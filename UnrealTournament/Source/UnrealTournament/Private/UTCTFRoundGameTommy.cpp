@@ -69,19 +69,22 @@ void AUTCTFRoundGameTommy::InitRound()
 	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-		PS->RemainingBoosts = 0; //No boosts by default
-		PS->RespawnWaitTime = UnlimitedRespawnWaitTime; //No respawn time limits by default
-		PS->RoundKills = 0.f;
+		if (PS && !PS->bOnlySpectator)
+		{
+			PS->RemainingBoosts = 0; //No boosts by default
+			PS->RespawnWaitTime = UnlimitedRespawnWaitTime; //No respawn time limits by default
+			PS->RoundKills = 0.f;
 
-		if (IsTeamOnDefense(PS->GetTeamNum()))
-		{
-			//a null pointer here will check with the game mode on how to handle the powerup.
-			TSubclassOf<class AUTInventory> NullPointer;
-			PS->BoostClass = NullPointer;
-		}
-		else
-		{
-			PS->BoostClass = UDamageClass;
+			if (IsTeamOnDefense(PS->GetTeamNum()))
+			{
+				//a null pointer here will check with the game mode on how to handle the powerup.
+				TSubclassOf<class AUTInventory> NullPointer;
+				PS->BoostClass = NullPointer;
+			}
+			else
+			{
+				PS->BoostClass = UDamageClass;
+			}
 		}
 	}
 }
@@ -95,7 +98,7 @@ void AUTCTFRoundGameTommy::GiveDefaultInventory(APawn* PlayerPawn)
 	if (UTCharacter != NULL)
 	{
 		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(UTCharacter->PlayerState);
-		if (UTPlayerState)
+		if (UTPlayerState && !UTPlayerState->bOnlySpectator && UTPlayerState->Team)
 		{
 			AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTPlayerState->GetOwner());
 			if (UTPC)
@@ -182,23 +185,26 @@ void AUTCTFRoundGameTommy::DiscardInventory(APawn* Other, AController* Killer)
 		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-			if (IsTeamOnOffense(PS->Team->TeamIndex))
+			if (PS && !PS->bOnlySpectator && PS->Team)
 			{
-				PS->RemainingBoosts = 1;
+				if (IsTeamOnOffense(PS->Team->TeamIndex))
+				{
+					PS->RemainingBoosts = 1;
+
+					AUTPlayerController* PC = Cast<AUTPlayerController>(PS->GetOwner());
+					if (PC)
+					{
+						PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 6, KillerPS);
+					}
+
+					continue;
+				}
 
 				AUTPlayerController* PC = Cast<AUTPlayerController>(PS->GetOwner());
 				if (PC)
 				{
-					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 6, KillerPS);
+					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 7, KillerPS);
 				}
-
-				continue;
-			}
-			
-			AUTPlayerController* PC = Cast<AUTPlayerController>(PS->GetOwner());
-			if (PC)
-			{
-				PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 7, KillerPS);
 			}
 		}
 	}
@@ -211,24 +217,27 @@ void AUTCTFRoundGameTommy::DiscardInventory(APawn* Other, AController* Killer)
 		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-			if (IsTeamOnDefense(PS->Team->TeamIndex))
+			if (PS && !PS->bOnlySpectator && PS->Team)
 			{
-				PS->RemainingBoosts = 1;
+				if (IsTeamOnDefense(PS->Team->TeamIndex))
+				{
+					PS->RemainingBoosts = 1;
+
+					AUTPlayerController* PC = Cast<AUTPlayerController>(PS->GetOwner());
+					if (PC)
+					{
+						PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 6, KillerPS);
+					}
+
+					continue;
+				}
 
 				AUTPlayerController* PC = Cast<AUTPlayerController>(PS->GetOwner());
 				if (PC)
 				{
-					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 6, KillerPS);
+					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 7, KillerPS);
 				}
-
-				continue;
 			}
-
-			AUTPlayerController* PC = Cast<AUTPlayerController>(PS->GetOwner());
-			if (PC)
-			{
-				PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 7, KillerPS);
-			}	
 		}
 	}
 
