@@ -430,6 +430,7 @@ void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, 
 	}*/
 
 	ARFilter.bRecursivePaths = true;
+	ARFilter.bRecursiveClasses = true;
 	ARFilter.bIncludeOnlyOnDiskAssets = true;
 
 	if (BaseClass == NULL)
