@@ -42,6 +42,8 @@ public:
 	virtual void PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir);
 
 protected:
+
+	UPROPERTY()
 	TArray<AUTCharacter*> TouchingCharacters;
 
 };
