@@ -357,7 +357,72 @@ public:
 
 // Helper functions
 template<typename T>
-void FillCornerValues(uint8& CornerSet, T* CornerValues);
+void FillCornerValues(uint8& CornerSet, T* CornerValues)
+{
+	uint8 OriginalSet = CornerSet;
+
+	if (CornerSet)
+	{
+		// Fill unset values
+		while (CornerSet != 15)
+		{
+			if (CornerSet != 15 && (OriginalSet & 1))
+			{
+				if (!(CornerSet & 1 << 1))
+				{
+					CornerValues[1] = CornerValues[0];
+					CornerSet |= 1 << 1;
+				}
+				if (!(CornerSet & 1 << 2))
+				{
+					CornerValues[2] = CornerValues[0];
+					CornerSet |= 1 << 2;
+				}
+			}
+			if (CornerSet != 15 && (OriginalSet & 1 << 1))
+			{
+				if (!(CornerSet & 1))
+				{
+					CornerValues[0] = CornerValues[1];
+					CornerSet |= 1;
+				}
+				if (!(CornerSet & 1 << 3))
+				{
+					CornerValues[3] = CornerValues[1];
+					CornerSet |= 1 << 3;
+				}
+			}
+			if (CornerSet != 15 && (OriginalSet & 1 << 2))
+			{
+				if (!(CornerSet & 1))
+				{
+					CornerValues[0] = CornerValues[2];
+					CornerSet |= 1;
+				}
+				if (!(CornerSet & 1 << 3))
+				{
+					CornerValues[3] = CornerValues[2];
+					CornerSet |= 1 << 3;
+				}
+			}
+			if (CornerSet != 15 && (OriginalSet & 1 << 3))
+			{
+				if (!(CornerSet & 1 << 1))
+				{
+					CornerValues[1] = CornerValues[3];
+					CornerSet |= 1 << 1;
+				}
+				if (!(CornerSet & 1 << 2))
+				{
+					CornerValues[2] = CornerValues[3];
+					CornerSet |= 1 << 2;
+				}
+			}
+
+			OriginalSet = CornerSet;
+		}
+	}
+}
 
 
 
