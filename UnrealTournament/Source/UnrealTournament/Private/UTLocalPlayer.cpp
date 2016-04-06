@@ -71,6 +71,7 @@
 #include "IBlueprintContextModule.h"
 #include "SUTChatEditBox.h"
 #include "SUTMatchmakingRegionDialog.h"
+#include "SUTLeagueMatchResultsDialog.h"
 #include "UserWidget.h"
 #include "WidgetBlueprintLibrary.h"
 #include "BlueprintContextLibrary.h"
@@ -1953,15 +1954,17 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 					if (Response.Tier < 4)
 					{
 						FText PlacementText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownPlacement", "You've been placed in {0} {1}."), FText::FromString(TierString), FText::AsNumber(Response.Division + 1));
-						ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownPlacementTitle", "You've Been Placed!"),
+						ShowLeagueMatchResultDialog(Response.Tier, Response.Division,
+							NSLOCTEXT("UTLocalPlayer", "ShowdownPlacementTitle", "You've Been Placed!"),
 							PlacementText,
-							UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
+							UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.5, 0.4));
 					}
 					else
 					{
-						ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownPlacementTitle", "You've Been Placed!"),
+						ShowLeagueMatchResultDialog(Response.Tier, Response.Division,
+							NSLOCTEXT("UTLocalPlayer", "ShowdownPlacementTitle", "You've Been Placed!"),
 							NSLOCTEXT("UTLocalPlayer", "ShowdownPlacementMasterTier", "You've been placed in Master Tier!"),
-							UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
+							UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.5, 0.4));
 					}
 				}
 				else if (Response.PlacementMatchesAttempted < 10)
@@ -1994,24 +1997,27 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 					}
 
 					// Report that we're in a promo series
-					ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesTitle", "Promotion Series!"),
+					ShowLeagueMatchResultDialog(Response.Tier, Response.Division,
+						NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesTitle", "Promotion Series!"),
 						PromoSeriesText,
-						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
+						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.5, 0.4));
 				}
 				else if (bShowdownLeaguePromotionSeries && !Response.IsInPromotionSeries)
 				{
 					// Report if we got promoted or failed the series
 					if (Response.Division == ShowdownLeagueDivision && Response.Tier == ShowdownLeagueTier)
 					{
-						ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesFailedTitle", "Better Luck Next Time!"),
+						ShowLeagueMatchResultDialog(Response.Tier, Response.Division,
+							NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesFailedTitle", "Better Luck Next Time!"),
 							NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesFailed", "You didn't get promoted! Don't be discouraged, you'll do better next time!"),
-							UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
+							UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.5, 0.4));
 					}
 					else
 					{
-						ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesSuccessTitle", "Great Job!"),
+						ShowLeagueMatchResultDialog(Response.Tier, Response.Division,
+							NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesSuccessTitle", "Great Job!"),
 							NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesSuccess", "All your hard work has paid off! We've promoted you! Keep up the great work!"),
-							UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
+							UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.5, 0.4));
 					}
 				}
 				else if (Response.IsInPromotionSeries)
@@ -2037,35 +2043,38 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 						PromoSeriesText = NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesProgressSingular", "You only need 1 more win for a promotion!");
 					}
 
-					ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesProgressTitle", "Promotion Series Progress"),
+					ShowLeagueMatchResultDialog(Response.Tier, Response.Division,
+						NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesProgressTitle", "Promotion Series Progress"),
 						PromoSeriesText,
-						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
+						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.5, 0.4));
 				}
 				else if (Response.Tier < ShowdownLeagueTier || (ShowdownLeagueTier == Response.Tier && Response.Division < ShowdownLeagueDivision))
 				{
 					// Report a demotion
-					ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownDemotionTitle", "Demoted"),
+					ShowLeagueMatchResultDialog(Response.Tier, Response.Division,
+						NSLOCTEXT("UTLocalPlayer", "ShowdownDemotionTitle", "Demoted"),
 						NSLOCTEXT("UTLocalPlayer", "ShowdownDemotion", "We're sorry about the demotion, hopefully players in this lower bracket are more your speed!"),
-						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
+						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.5, 0.4));
 				}
 				else if (Response.Points > ShowdownLeaguePoints)
 				{
 					FText WinText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownWin", "Great Win! You now have {0} league points!"), FText::AsNumber(Response.Points));
 
 					// Report a regular win
-					ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownWinTitle", "You Won!"),
+					ShowLeagueMatchResultDialog(Response.Tier, Response.Division,
+						NSLOCTEXT("UTLocalPlayer", "ShowdownWinTitle", "You Won!"),
 						WinText,
-						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
+						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.5, 0.4));
 				}
 				else
 				{
 					// Report a regular loss
-					FText WinText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownLoss", "That was a rough loss, at least you still have {0} league points!"), FText::AsNumber(Response.Points));
+					FText LossText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownLoss", "That was a rough loss, at least you still have {0} league points!"), FText::AsNumber(Response.Points));
 
-					// Report a regular win
-					ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdowLossTitle", "Tough Luck!"),
-						WinText,
-						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
+					ShowLeagueMatchResultDialog(Response.Tier, Response.Division,
+						NSLOCTEXT("UTLocalPlayer", "ShowdowLossTitle", "Tough Luck!"),
+						LossText,
+						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.5, 0.4));
 				}
 #endif
 				ShowdownLeaguePlacementMatches = Response.PlacementMatchesAttempted;
@@ -2079,6 +2088,40 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 		});
 	}
 }
+
+#if !UE_SERVER
+TSharedPtr<class SUTDialogBase> UUTLocalPlayer::ShowLeagueMatchResultDialog(int32 Tier, int32 Division, FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback, FVector2D DialogSize)
+{
+	TSharedPtr<class SUTDialogBase> NewDialog;
+	if (DialogSize.IsNearlyZero())
+	{
+		SAssignNew(NewDialog, SUTLeagueMatchResultsDialog)
+			.PlayerOwner(this)
+			.Tier(Tier)
+			.Division(Division)
+			.DialogTitle(MessageTitle)
+			.MessageText(MessageText)
+			.ButtonMask(Buttons)
+			.OnDialogResult(Callback);
+	}
+	else
+	{
+		SAssignNew(NewDialog, SUTLeagueMatchResultsDialog)
+			.PlayerOwner(this)
+			.Tier(Tier)
+			.Division(Division)
+			.bDialogSizeIsRelative(true)
+			.DialogSize(DialogSize)
+			.DialogTitle(MessageTitle)
+			.MessageText(MessageText)
+			.ButtonMask(Buttons)
+			.OnDialogResult(Callback);
+	}
+
+	OpenDialog(NewDialog.ToSharedRef());
+	return NewDialog;
+}
+#endif
 
 void UUTLocalPlayer::ReadMMRFromBackend()
 {

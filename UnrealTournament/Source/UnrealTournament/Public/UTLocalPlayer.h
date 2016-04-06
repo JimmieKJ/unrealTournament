@@ -235,6 +235,7 @@ protected:
 
 	TSharedPtr<class SUTAdminDialog> AdminDialog;
 
+	virtual TSharedPtr<class SUTDialogBase> ShowLeagueMatchResultDialog(int32 Tier, int32 Division, FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback = FDialogResultDelegate(), FVector2D DialogSize = FVector2D(0.0, 0.0f));
 #endif
 
 	bool bWantsToConnectAsSpectator;
