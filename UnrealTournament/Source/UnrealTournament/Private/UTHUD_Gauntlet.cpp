@@ -9,32 +9,3 @@ AUTHUD_Gauntlet::AUTHUD_Gauntlet(const FObjectInitializer& ObjectInitializer)
 {
 }
 
-void AUTHUD_Gauntlet::DrawHUD()
-{
-	Super::DrawHUD();
-	FText Points = FText::Format(NSLOCTEXT("Gauntlet","Format","{0} Points"), FText::AsNumber(int32(UTPlayerOwner->UTPlayerState->GetAvailableCurrency())));
-	DrawString(Points, Canvas->ClipX - 10, 10, ETextHorzPos::Right, ETextVertPos::Top, SmallFont, FLinearColor::White, 1.0, true);
-}
-
-void AUTHUD_Gauntlet::DrawMinimapSpectatorIcons()
-{
-	AUTGauntletGameState* GS = Cast<AUTGauntletGameState>(GetWorld()->GetGameState());
-	if (GS == NULL) return;
-
-
-	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner);
-	if (PC == nullptr) return;
-
-	const float RenderScale = float(Canvas->SizeY) / 1080.0f * GetHUDMinimapScale();
-
-	Super::DrawMinimapSpectatorIcons();
-
-	if (GS && GS->Flag && (GS->Flag->GetTeamNum() != 1 - PC->GetTeamNum() || GS->Flag->ObjectState != CarriedObjectState::Held) )
-	{
-		FVector2D Pos = WorldToMapToScreen(GS->Flag->GetActorLocation());
-		uint8 FlagTeam = GS->Flag->GetTeamNum();
-		FColor FlagColor = FlagTeam == 255 ? FColor(0,255,0,255) : GS->Teams[FlagTeam]->TeamColor.ToFColor(true);
-		DrawMinimapIcon(HUDAtlas, Pos, FVector2D(30.f, 30.f), FVector2D(843.f, 87.f), FVector2D(43.f, 41.f), FlagColor, true);
-	}
-
-}

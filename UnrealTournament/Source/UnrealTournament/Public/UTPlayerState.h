@@ -831,10 +831,6 @@ public:
 
 	virtual void AdjustCurrency(float Adjustment);
 
-	// If true, then spawns for this player costs lives.
-	UPROPERTY()
-	bool bSpawnCostLives;
-
 protected:
 	TArray<FTempBanInfo> BanVotes;
 

@@ -53,6 +53,9 @@ class UNREALTOURNAMENT_API AUTCTFFlagBase : public AUTGameObjective
 	UFUNCTION()
 	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
+	virtual void PostInitializeComponents() override;
+	virtual void PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir);
+
 protected:
 	virtual void CreateCarriedObject();
 };

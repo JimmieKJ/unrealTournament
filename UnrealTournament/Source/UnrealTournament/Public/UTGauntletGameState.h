@@ -2,35 +2,13 @@
 
 #pragma once
 
-#include "UTCTFGameState.h"
+#include "UTSCTFGameState.h"
 #include "UTGauntletGameState.generated.h"
 
 class AUTGauntletFlag;
 
 UCLASS()
-class UNREALTOURNAMENT_API AUTGauntletGameState: public AUTCTFGameState
+class UNREALTOURNAMENT_API AUTGauntletGameState: public AUTSCTFGameState
 {
 	GENERATED_UCLASS_BODY()
-
-public:
-
-	UPROPERTY(Replicated, replicatedUsing = AttackingTeamChanged)
-	uint8 AttackingTeam;
-
-	UPROPERTY(Replicated) 
-	int32 FlagSpawnTimer;
-
-	UPROPERTY(Replicated) 
-	int32 FlagSwapTime;
-
-	UPROPERTY(Replicated)
-	AUTGauntletFlag* Flag;
-
-	virtual void DefaultTimer() override;
-
-	UFUNCTION()
-	void AttackingTeamChanged();
-
-	UFUNCTION()
-	virtual void SetFlagSpawnTimer(int32 NewValue);
 };

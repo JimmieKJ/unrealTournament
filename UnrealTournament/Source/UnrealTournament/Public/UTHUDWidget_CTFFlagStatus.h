@@ -98,7 +98,7 @@ class UNREALTOURNAMENT_API UUTHUDWidget_CTFFlagStatus : public UUTHUDWidget
 
 	virtual void Draw_Implementation(float DeltaTime);
 	virtual void InitializeWidget(AUTHUD* Hud);
-
+	virtual void DrawStatusMessage(float DeltaTime);
 	virtual bool ShouldDraw_Implementation(bool bShowScores)
 	{
 		return !bShowScores;
@@ -108,4 +108,5 @@ class UNREALTOURNAMENT_API UUTHUDWidget_CTFFlagStatus : public UUTHUDWidget
 
 	virtual void DrawEdgeArrow(FVector ScreenPosition, float CurrentWorldAlpha, float WorldRenderScale, int32 Team);
 
+	bool bSuppressMessage;
 };

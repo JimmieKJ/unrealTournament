@@ -23,6 +23,7 @@ UUTHUDWidget_CTFFlagStatus::UUTHUDWidget_CTFFlagStatus(const FObjectInitializer&
 	ScalingEndDist = 15000.f;
 	MaxIconScale = 1.f;
 	MinIconScale = 0.75f;
+	bSuppressMessage = false;
 }
 
 void UUTHUDWidget_CTFFlagStatus::InitializeWidget(AUTHUD* Hud)
@@ -250,6 +251,13 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 			bScaleByDesignedResolution = true;
 		}
 	}
+
+	DrawStatusMessage(DeltaTime);
+}
+void UUTHUDWidget_CTFFlagStatus::DrawStatusMessage(float DeltaTime)
+{
+	AUTCTFGameState* GS = Cast<AUTCTFGameState>(UTGameState);
+	if (bSuppressMessage || GS == NULL) return;
 
 	// Draw the Flag Status Message
 	if (GS->IsMatchInProgress() && UTHUDOwner != NULL && UTHUDOwner->PlayerOwner != NULL)

@@ -53,6 +53,9 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	GameStateClass = AUTCTFRoundGameState::StaticClass();
 	NumRounds = 6;
 
+	InitialBoostCount = 1;
+	bNoLivesEndRound = true;
+
 	// remove translocator - fixmesteve make this an option
 	TranslocatorObject = nullptr;
 
@@ -639,7 +642,7 @@ void AUTCTFRoundGame::InitRound()
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 			PS->bHasLifeLimit = false;
 			PS->RespawnWaitTime = 0.f;
-			PS->RemainingBoosts = 1;
+			PS->RemainingBoosts = InitialBoostCount;
 			PS->BoostClass = UDamageClass;
 			if (bAsymmetricVictoryConditions && !IsPlayerOnLifeLimitedTeam(PS))
 			{
@@ -732,20 +735,23 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 			PS->RemainingLives--;
 			if (PS->RemainingLives < 0)
 			{
-				// this player is out of lives
-				PS->SetOutOfLives(true);
-				for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+				if (bNoLivesEndRound)
 				{
-					AUTPlayerState* OtherPS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-					if (OtherPS && (OtherPS->Team == PS->Team) && !OtherPS->bOutOfLives && !OtherPS->bIsInactive)
+					// this player is out of lives
+					PS->SetOutOfLives(true);
+					for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 					{
-						// found a live teammate, so round isn't over - notify about termination though
-						BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 3, PS);
-						return;
+						AUTPlayerState* OtherPS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+						if (OtherPS && (OtherPS->Team == PS->Team) && !OtherPS->bOutOfLives && !OtherPS->bIsInactive)
+						{
+							// found a live teammate, so round isn't over - notify about termination though
+							BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 3, PS);
+							return;
+						}
 					}
+					BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 4);
+					ScoreOutOfLives((PS->Team->TeamIndex == 0) ? 1 : 0);
 				}
-				BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 4);
-				ScoreOutOfLives((PS->Team->TeamIndex == 0) ? 1 : 0);
 				return;
 			}
 			if (PS->RemainingLives == 0)
@@ -756,6 +762,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 					PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 5, PS, NULL, NULL);
 				}
 			}
+
 		}
 		else if (bAsymmetricVictoryConditions)
 		{

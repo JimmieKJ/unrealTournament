@@ -134,3 +134,18 @@ void AUTCTFFlagBase::ObjectReturnedHome(AUTCharacter* Returner)
 		}
 	}
 }
+
+void AUTCTFFlagBase::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+
+	APlayerController* PC = GEngine->GetFirstLocalPlayerController(GetWorld());
+	if (GetNetMode() != NM_DedicatedServer && PC != NULL && PC->MyHUD != NULL)
+	{
+		PC->MyHUD->AddPostRenderedActor(this);
+	}
+}
+
+void AUTCTFFlagBase::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir)
+{
+}

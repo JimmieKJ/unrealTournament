@@ -22,6 +22,8 @@ UUTCTFGameMessage::UUTCTFGameMessage(const FObjectInitializer& ObjectInitializer
 	RedFlagDelayMessage = NSLOCTEXT("CTFGameMessage", "RedFlagDelay", "Red Flag can be picked up in");
 	BlueFlagDelayMessage = NSLOCTEXT("CTFGameMessage", "BlueFlagDelay", "Blue Flag can be picked up in");
 	BothFlagDelayMessage = NSLOCTEXT("CTFGameMessage", "BothFlagDelay", "Flags can be picked up in");
+	LastLifeMessage = NSLOCTEXT("CTFGameMessage", "LastLife", "This is your last life");
+
 	bIsStatusAnnouncement = true;
 	bIsPartiallyUnique = true;
 }
@@ -51,6 +53,7 @@ FText UUTCTFGameMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlaye
 		case 17: return RedFlagDelayMessage; break;
 		case 18: return BlueFlagDelayMessage; break;
 		case 19: return BothFlagDelayMessage; break;
+		case 20: return LastLifeMessage; break;
 	}
 	return FText::GetEmpty();
 }

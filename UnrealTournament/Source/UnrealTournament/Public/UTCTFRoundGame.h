@@ -133,4 +133,11 @@ protected:
 	virtual bool IsTeamOnOffense(int32 TeamNumber) const;
 	virtual bool IsTeamOnDefense(int32 TeamNumber) const;
 	virtual bool IsPlayerOnLifeLimitedTeam(AUTPlayerState* PlayerState) const;
+
+	UPROPERTY()
+	bool bNoLivesEndRound;
+
+	UPROPERTY()
+	int32 InitialBoostCount;
+
 };

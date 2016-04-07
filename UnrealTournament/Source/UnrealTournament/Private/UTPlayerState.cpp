@@ -72,7 +72,6 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	bAnnounceWeaponReward = false;
 	ReadyMode = 0;
 	CurrentLoadoutPackTag = NAME_None;
-	bSpawnCostLives = false;
 	RespawnWaitTime = 0.f;
 }
 
