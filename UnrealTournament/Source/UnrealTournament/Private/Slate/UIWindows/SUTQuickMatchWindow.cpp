@@ -326,6 +326,7 @@ void SUTQuickMatchWindow::PingServer(TSharedPtr<FServerSearchInfo> ServerToPing)
 		ServerToPing->Beacon = Beacon;
 
 		FString BeaconIP;
+		bool bResolvedBeaconIP = false;
 
 		IOnlineSubsystem* OnlineSubsystem;
 		IOnlineSessionPtr OnlineSessionInterface;
@@ -336,14 +337,21 @@ void SUTQuickMatchWindow::PingServer(TSharedPtr<FServerSearchInfo> ServerToPing)
 		}
 		if (OnlineSessionInterface.IsValid())
 		{
-			OnlineSessionInterface->GetResolvedConnectString(ServerToPing->SearchResult, FName(TEXT("BeaconPort")), BeaconIP);
+			bResolvedBeaconIP = OnlineSessionInterface->GetResolvedConnectString(ServerToPing->SearchResult, FName(TEXT("BeaconPort")), BeaconIP);
 		}
 
-		Beacon->OnServerRequestResults = FServerRequestResultsDelegate::CreateSP(this, &SUTQuickMatchWindow::OnServerBeaconResult);
-		Beacon->OnServerRequestFailure = FServerRequestFailureDelegate::CreateSP(this, &SUTQuickMatchWindow::OnServerBeaconFailure);
-		FURL BeaconURL(nullptr, *BeaconIP, TRAVEL_Absolute);
-		Beacon->InitClient(BeaconURL);
-		PingTrackers.Add(FServerSearchPingTracker(ServerToPing, Beacon, PlayerOwner->GetWorld()->GetRealTimeSeconds()));
+		if (!BeaconIP.IsEmpty())
+		{
+			Beacon->OnServerRequestResults = FServerRequestResultsDelegate::CreateSP(this, &SUTQuickMatchWindow::OnServerBeaconResult);
+			Beacon->OnServerRequestFailure = FServerRequestFailureDelegate::CreateSP(this, &SUTQuickMatchWindow::OnServerBeaconFailure);
+			FURL BeaconURL(nullptr, *BeaconIP, TRAVEL_Absolute);
+			Beacon->InitClient(BeaconURL);
+			PingTrackers.Add(FServerSearchPingTracker(ServerToPing, Beacon, PlayerOwner->GetWorld()->GetRealTimeSeconds()));
+		}
+		else
+		{
+			OnServerBeaconFailure(Beacon);
+		}
 	}
 }
 
