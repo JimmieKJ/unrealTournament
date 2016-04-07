@@ -62,7 +62,6 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	ArmorVestObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Armor/Armor_Chest.Armor_Chest_C"));
 	ActivatedPowerupPlaceholderObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_ActivatedPowerup_UDamage.BP_ActivatedPowerup_UDamage_C"));
 }
-//589,0 45,39 HUDAtlas01
 
 void AUTCTFRoundGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
 {
@@ -748,6 +747,14 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 				BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 4);
 				ScoreOutOfLives((PS->Team->TeamIndex == 0) ? 1 : 0);
 				return;
+			}
+			if (PS->RemainingLives == 0)
+			{
+				AUTPlayerController* PC = Cast<AUTPlayerController>(aPlayer);
+				if (PC)
+				{
+					PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 5, PS, NULL, NULL);
+				}
 			}
 		}
 		else if (bAsymmetricVictoryConditions)
