@@ -316,7 +316,11 @@ void AUTCTFScoring::ScoreKill(AController* Killer, AController* Victim, APawn* K
 		if (WasThreateningFlagCarrier(VictimPS, KilledPawn, KillerPS))
 		{
 			Points += FlagCombatKillBonus;
-			CTFGameState->FlagBases[VictimPS->GetTeamNum()]->MyFlag->HolderRescuers.AddUnique(Killer);
+			AUTCTFFlagBase* FlagBase = CTFGameState->GetFlagBase(VictimPS->GetTeamNum());
+			if (FlagBase && FlagBase->MyFlag)
+			{
+				FlagBase->MyFlag->HolderRescuers.AddUnique(Killer);
+			}
 			KillerPS->ModifyStatsValue(NAME_FlagSupportKills, 1);
 			KillerPS->ModifyStatsValue(NAME_FlagSupportKillPoints, Points);
 			bIsSupportKill = true;
