@@ -52,7 +52,7 @@ void AUTFlagRunHUD::DrawHUD()
 						if (UTPS->Team->TeamIndex == 0)
 						{
 							RedPlayerCount++;
-							Canvas->SetLinearDrawColor((UTPS->RemainingLives == 0) ? FLinearColor::Yellow : FLinearColor::Red, 0.6f);
+							Canvas->SetLinearDrawColor((UTPS->RemainingLives == 0) ? FLinearColor::Yellow : FLinearColor::Red, 0.7f);
 							Canvas->DrawTile(PlayerStartIcon.Texture, XOffsetRed, YOffset, PipSize, PipSize, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL, BLEND_Translucent);
 							XOffsetText = XOffsetRed;
 							XOffsetRed -= 1.1f*PipSize;
@@ -60,7 +60,7 @@ void AUTFlagRunHUD::DrawHUD()
 						else
 						{
 							BluePlayerCount++;
-							Canvas->SetLinearDrawColor((UTPS->RemainingLives == 0) ? FLinearColor::Yellow : FLinearColor::Blue, 0.5f);
+							Canvas->SetLinearDrawColor((UTPS->RemainingLives == 0) ? FLinearColor::Yellow : FLinearColor::Blue, 0.7f);
 							Canvas->DrawTile(PlayerStartIcon.Texture, XOffsetBlue, YOffset, PipSize, PipSize, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL, BLEND_Translucent);
 							XOffsetText = XOffsetBlue;
 							XOffsetBlue += 1.1f*PipSize;
@@ -73,7 +73,7 @@ void AUTFlagRunHUD::DrawHUD()
 				{
 					// @todo fixmesteve optimize - one pass through pawns, set the value of cachedcharacter, show those with none or dead
 					AUTCharacter* Character = UTPS->GetUTCharacter();
-					Canvas->SetLinearDrawColor(FLinearColor::White, 0.5f);
+					Canvas->SetLinearDrawColor(FLinearColor::White, 0.7f);
 					if (!Character || Character->IsDead())
 					{
 						if (UTPS->Team->TeamIndex == 0)
