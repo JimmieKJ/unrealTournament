@@ -35,8 +35,6 @@ protected:
 
 	TSharedPtr<SHorizontalBox> WebBrowserBox;
 	TSharedPtr<SWebBrowser> StatsWebBrowser;
-	IOnlineSubsystem* OnlineSubsystem;
-	IOnlineIdentityPtr OnlineIdentityInterface;
 	virtual FString GetStatsFilename();
 
 	void ReadCloudStats();

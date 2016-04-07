@@ -134,11 +134,7 @@ private:
 
 	FText MinorStatusText;
 	bool bSearchInProgress;
-
-	IOnlineSubsystem* OnlineSubsystem;
-	IOnlineIdentityPtr OnlineIdentityInterface;
-	IOnlineSessionPtr OnlineSessionInterface;
-
+	
 	FDelegateHandle OnFindSessionCompleteHandle;
 	FDelegateHandle OnCancelFindSessionCompleteHandle;
 

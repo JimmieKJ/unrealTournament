@@ -54,11 +54,7 @@ private:
 	bool bCancelJoin;
 
 	TWeakObjectPtr<AUTServerBeaconClient> Beacon;
-
-	IOnlineSubsystem* OnlineSubsystem;
-	IOnlineIdentityPtr OnlineIdentityInterface;
-	IOnlineSessionPtr OnlineSessionInterface;
-
+	
 	FDelegateHandle OnFindSessionCompleteHandle;
 	FDelegateHandle OnCancelFindSessionCompleteHandle;
 

@@ -161,7 +161,9 @@ void SUTQuickMatchWindow::BeginQuickmatch()
 {
 	bCancelQuickmatch = false;
 	
-	OnlineSubsystem = IOnlineSubsystem::Get();
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	IOnlineIdentityPtr OnlineIdentityInterface;
+	IOnlineSessionPtr OnlineSessionInterface;
 	if (OnlineSubsystem) OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
 	if (OnlineSubsystem) OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
 
@@ -181,6 +183,9 @@ void SUTQuickMatchWindow::OnInitialFindCancel(bool bWasSuccessful)
 	// We don't really care if this succeeded since a failure just means there were
 	// no sessions.
 
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	IOnlineSessionPtr OnlineSessionInterface;
+	if (OnlineSubsystem) OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
 	if (OnlineSessionInterface.IsValid())
 	{
 		OnlineSessionInterface->ClearOnCancelFindSessionsCompleteDelegate_Handle(OnCancelFindSessionCompleteHandle);
@@ -199,6 +204,14 @@ void SUTQuickMatchWindow::OnInitialFindCancel(bool bWasSuccessful)
 
 void SUTQuickMatchWindow::FindHUBToJoin()
 {
+	IOnlineSubsystem* OnlineSubsystem;
+	IOnlineSessionPtr OnlineSessionInterface;
+	OnlineSubsystem = IOnlineSubsystem::Get();
+	if (OnlineSubsystem)
+	{
+		OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
+	}
+
 	if (OnlineSessionInterface.IsValid())
 	{
 		// Setup our Find complete Delegate
@@ -233,6 +246,14 @@ void SUTQuickMatchWindow::FindHUBToJoin()
 void SUTQuickMatchWindow::OnFindSessionsComplete(bool bWasSuccessful)
 {
 	Instances.Empty();
+
+	IOnlineSubsystem* OnlineSubsystem;
+	IOnlineSessionPtr OnlineSessionInterface;
+	OnlineSubsystem = IOnlineSubsystem::Get();
+	if (OnlineSubsystem)
+	{
+		OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
+	}
 
 	// Clear this delegate
 	if (OnlineSessionInterface.IsValid())
@@ -305,7 +326,18 @@ void SUTQuickMatchWindow::PingServer(TSharedPtr<FServerSearchInfo> ServerToPing)
 		ServerToPing->Beacon = Beacon;
 
 		FString BeaconIP;
-		OnlineSessionInterface->GetResolvedConnectString(ServerToPing->SearchResult, FName(TEXT("BeaconPort")), BeaconIP);
+
+		IOnlineSubsystem* OnlineSubsystem;
+		IOnlineSessionPtr OnlineSessionInterface;
+		OnlineSubsystem = IOnlineSubsystem::Get();
+		if (OnlineSubsystem)
+		{
+			OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
+		}
+		if (OnlineSessionInterface.IsValid())
+		{
+			OnlineSessionInterface->GetResolvedConnectString(ServerToPing->SearchResult, FName(TEXT("BeaconPort")), BeaconIP);
+		}
 
 		Beacon->OnServerRequestResults = FServerRequestResultsDelegate::CreateSP(this, &SUTQuickMatchWindow::OnServerBeaconResult);
 		Beacon->OnServerRequestFailure = FServerRequestFailureDelegate::CreateSP(this, &SUTQuickMatchWindow::OnServerBeaconFailure);
@@ -517,6 +549,13 @@ void SUTQuickMatchWindow::Cancel()
 	Instances.Empty();
 
 
+	IOnlineSubsystem* OnlineSubsystem;
+	IOnlineSessionPtr OnlineSessionInterface;
+	OnlineSubsystem = IOnlineSubsystem::Get();
+	if (OnlineSubsystem)
+	{
+		OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
+	}
 	if (OnlineSessionInterface.IsValid())
 	{
 		// Look to see if we are currently in the search phase.  If we are, we have to cancel it first.
@@ -542,6 +581,13 @@ void SUTQuickMatchWindow::Cancel()
 
 void SUTQuickMatchWindow::OnSearchCancelled(bool bWasSuccessful)
 {
+	IOnlineSubsystem* OnlineSubsystem;
+	IOnlineSessionPtr OnlineSessionInterface;
+	OnlineSubsystem = IOnlineSubsystem::Get();
+	if (OnlineSubsystem)
+	{
+		OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
+	}
 	if (OnlineSessionInterface.IsValid())
 	{
 		OnlineSessionInterface->ClearOnCancelFindSessionsCompleteDelegate_Handle(OnCancelFindSessionCompleteHandle);

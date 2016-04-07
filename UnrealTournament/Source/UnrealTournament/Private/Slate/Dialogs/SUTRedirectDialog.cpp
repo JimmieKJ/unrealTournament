@@ -16,12 +16,6 @@ void SUTRedirectDialog::Construct(const FArguments& InArgs)
 	NumSamples = 0;
 	CurrentSample = 0;
 
-	OnlineSubsystem = IOnlineSubsystem::Get();
-	if (OnlineSubsystem)
-	{
-		OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
-	}
-
 	SUTDialogBase::Construct(SUTDialogBase::FArguments()
 		.PlayerOwner(InArgs._PlayerOwner)
 		.DialogTitle(InArgs._DialogTitle)
@@ -242,6 +236,14 @@ bool SUTRedirectDialog::DownloadFile(FString URL)
 		FString NeedAuthUrl1 = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/cloudstorage/user/");
 		FString NeedAuthUrl2 = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/cloudstorage/user/");
 		FString NeedAuthUrl3 = TEXT("https://ut-public-service-publictest-prod12.ol.epicgames.com/ut/api/cloudstorage/user/");
+
+		IOnlineSubsystem* OnlineSubsystem;
+		IOnlineIdentityPtr OnlineIdentityInterface;
+		OnlineSubsystem = IOnlineSubsystem::Get();
+		if (OnlineSubsystem)
+		{
+			OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
+		}
 
 		if (OnlineIdentityInterface.IsValid())
 		{

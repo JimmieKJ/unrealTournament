@@ -70,10 +70,7 @@ protected:
 	
 	int32 AssetsTotalSize;
 	int32 AssetsDownloadedAmount;
-
-	IOnlineSubsystem* OnlineSubsystem;
-	IOnlineIdentityPtr OnlineIdentityInterface;
-
+	
 	FText BytesToText(int32 Bytes) const;
 	FText SecondsToText(float Seconds) const;
 

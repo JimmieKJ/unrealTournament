@@ -11,8 +11,6 @@ public:
 	FUTReplayStreamer();
 
 	virtual void ProcessRequestInternal( TSharedPtr< class IHttpRequest > Request ) override;
-
-	IOnlineIdentityPtr OnlineIdentityInterface;
 };
 
 class FUTReplayStreamingFactory : public FHttpNetworkReplayStreamingFactory
