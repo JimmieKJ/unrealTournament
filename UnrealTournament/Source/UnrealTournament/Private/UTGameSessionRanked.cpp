@@ -777,3 +777,17 @@ void AUTGameSessionRanked::CheckForPossibleRestart()
 		}
 	}
 }
+
+uint8 AUTGameSessionRanked::GetTeamForPlayer(const FUniqueNetIdRepl& PlayerId) const
+{
+	if (ReservationBeaconHost && PlayerId.IsValid())
+	{
+		int32 TeamNum = ReservationBeaconHost->GetTeamForCurrentPlayer(*PlayerId.GetUniqueNetId());
+		if (TeamNum != INDEX_NONE)
+		{
+			return TeamNum;
+		}
+	}
+
+	return 0;
+}

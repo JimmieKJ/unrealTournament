@@ -14,6 +14,7 @@
 #include "SlateGameResources.h"
 #include "SNumericEntryBox.h"
 #include "StatNames.h"
+#include "UTGameSessionRanked.h"
 
 UUTTeamInterface::UUTTeamInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -114,9 +115,22 @@ APlayerController* AUTTeamGameMode::Login(class UPlayer* NewPlayer, ENetRole Rem
 
 	if (PC != NULL && !PC->PlayerState->bOnlySpectator)
 	{
-		// FIXMESTEVE Does team get overwritten in postlogin if inactive player?
-		uint8 DesiredTeam = (GetNetMode() == NM_Standalone) ? 1 : uint8(FMath::Clamp<int32>(UGameplayStatics::GetIntOption(Options, TEXT("Team"), 255), 0, 255));
-		ChangeTeam(PC, DesiredTeam, false);
+		if (!bRankedSession)
+		{
+			// FIXMESTEVE Does team get overwritten in postlogin if inactive player?
+			uint8 DesiredTeam = (GetNetMode() == NM_Standalone) ? 1 : uint8(FMath::Clamp<int32>(UGameplayStatics::GetIntOption(Options, TEXT("Team"), 255), 0, 255));
+			ChangeTeam(PC, DesiredTeam, false);
+		}
+		else
+		{
+			uint8 DesiredTeam = 0;
+			AUTGameSessionRanked* UTGameSession = Cast<AUTGameSessionRanked>(GameSession);
+			if (UTGameSession)
+			{
+				DesiredTeam = UTGameSession->GetTeamForPlayer(UniqueId);
+			}
+			ChangeTeam(PC, DesiredTeam, false);
+		}
 	}
 
 	return PC;

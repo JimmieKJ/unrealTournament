@@ -113,6 +113,8 @@ public:
 
 	virtual void InitHostBeacon(FOnlineSessionSettings* SessionSettings);
 
+	uint8 GetTeamForPlayer(const FUniqueNetIdRepl& PlayerId) const;
+
 	/**
 	 * Cleanup host beacon
 	 *
