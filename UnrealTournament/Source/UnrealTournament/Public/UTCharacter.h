@@ -751,7 +751,7 @@ public:
 	/** whether spawn protection may potentially be applied (still must meet time since spawn check in UTGameMode)
 	 * set to false after firing weapon or any other action that is considered offensive
 	 */
-	UPROPERTY(BlueprintReadOnly, Replicated, Category = Pawn)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated, Category = Pawn)
 	bool bSpawnProtectionEligible;
 
 	/** returns whether spawn protection currently applies for this character (valid on client) */
