@@ -67,10 +67,19 @@ void UPartyContext::Initialize()
 	*/
 
 	UUTLocalPlayer* LocalPlayer = GetOwningPlayer<UUTLocalPlayer>();
+	if (LocalPlayer)
+	{
+		LocalPlayer->OnPlayerLoggedOut().AddUObject(this, &ThisClass::HandlePlayerLoggedOut);
+	}
+
 	/*
 	LocalPlayer.OnPlayerLoggedIn().AddUObject(this, &ThisClass::OnPlayerLoggedIn);
-	LocalPlayer.OnPlayerLoggedOut().AddUObject(this, &ThisClass::OnPlayerLoggedOut);
 	*/
+}
+
+void UPartyContext::HandlePlayerLoggedOut()
+{
+	OnPartyLeft.Broadcast();
 }
 
 void UPartyContext::HandlePartyJoined(UPartyGameState* PartyState)
