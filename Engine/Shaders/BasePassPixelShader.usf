@@ -668,7 +668,14 @@ void Main(
 
 	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(Interpolants, SvPosition);
 	FPixelMaterialInputs PixelMaterialInputs;
-	
+
+#if HQ_TEXTURE_LIGHTMAP && USES_AO_MATERIAL_MASK && !MATERIAL_SHADINGMODEL_UNLIT
+	float2 LightmapUV0, LightmapUV1;
+	GetLightMapCoordinates(Interpolants, LightmapUV0, LightmapUV1);
+	// Must be computed before BaseColor, Normal, etc are evaluated
+	MaterialParameters.AOMaterialMask = GetAOMaterialMask(LightmapUV0 * float2(1, 2));
+#endif
+
 	#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
 		{
 			float4 ScreenPosition = SvPositionToScreenPosition(SvPosition);
@@ -693,13 +700,6 @@ void Main(
 	{
 		GetMaterialCoverageAndClipping(MaterialParameters, PixelMaterialInputs);
 	}
-
-#if HQ_TEXTURE_LIGHTMAP && USES_AO_MATERIAL_MASK && !MATERIAL_SHADINGMODEL_UNLIT
-	float2 LightmapUV0, LightmapUV1;
-	GetLightMapCoordinates(Interpolants, LightmapUV0, LightmapUV1);
-	// Must be computed before GetMaterialBaseColor
-	MaterialParameters.AOMaterialMask = GetAOMaterialMask(LightmapUV0 * float2(1, 2));
-#endif
 
 	// Store the results in local variables and reuse instead of calling the functions multiple times.
 	half3 BaseColor = GetMaterialBaseColor(PixelMaterialInputs);
