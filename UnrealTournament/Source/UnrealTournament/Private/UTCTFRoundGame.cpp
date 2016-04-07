@@ -595,6 +595,7 @@ void AUTCTFRoundGame::FlagCountDown()
 void AUTCTFRoundGame::InitRound()
 {
 	bFirstBloodOccurred = false;
+	bLastManOccurred = false;
 	bNeedFiveKillsMessage = true;
 	if (CTFGameState)
 	{
@@ -801,6 +802,40 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 			{
 				bNeedFiveKillsMessage = false;
 				BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 7);
+			}
+		}
+	}
+}
+
+void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
+{
+	Super::ScoreKill_Implementation(Killer, Other, KilledPawn, DamageType);
+
+	AUTPlayerState* OtherPS = Other ? Cast<AUTPlayerState>(Other->PlayerState) : nullptr;
+	if (!bLastManOccurred && OtherPS && IsPlayerOnLifeLimitedTeam(OtherPS) && (OtherPS->RemainingLives > 0))
+	{
+		// check if just transitioned to last man
+		bLastManOccurred = true;
+		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+			if (PS && (PS != OtherPS) && (OtherPS->Team == PS->Team) && !PS->bOutOfLives && !PS->bIsInactive)
+			{
+				bLastManOccurred = false;
+				break;
+			}
+		}
+		if (bLastManOccurred)
+		{
+			for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+			{
+				AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+				AUTPlayerController* PC = PS ? Cast<AUTPlayerController>(PS->GetOwner()) : nullptr;
+				if (PC)
+				{
+					int32 MessageType = (OtherPS->Team == PS->Team) ? 1 : 0;
+					PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), MessageType, PS, NULL, NULL);
+				}
 			}
 		}
 	}
