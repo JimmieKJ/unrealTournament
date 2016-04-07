@@ -1580,37 +1580,24 @@ void AUTGameMode::FindAndMarkHighScorer()
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 		AController* C = (PS != NULL) ? Cast<AController>(PS->GetOwner()) : NULL;
-		if (PS != nullptr && PS->Score == BestScore)
+		AUTCharacter *UTChar = (C != nullptr) ? Cast<AUTCharacter>(C->GetPawn()) : nullptr;
+		if (UTChar != nullptr)
 		{
-			PS->bHasHighScore = true;
-			if (C != nullptr)
+			bool bOldHighScorer = UTChar->bHasHighScore;
+			UTChar->bHasHighScore = (PS != nullptr && PS->Score == BestScore);
+			if (bOldHighScorer != UTChar->bHasHighScore)
 			{
-				AUTCharacter *UTChar = Cast<AUTCharacter>(C->GetPawn());
-				if (UTChar && !UTChar->bHasHighScore)
-				{
-					UTChar->bHasHighScore = true;
-					UTChar->HasHighScoreChanged();
-				}
-			}
-		}
-		else
-		{
-			// Clear previous high scores
-			if (PS != NULL)
-			{
-				PS->bHasHighScore = false;
-			}
-			if (C != nullptr)
-			{
-				AUTCharacter *UTChar = Cast<AUTCharacter>(C->GetPawn());
-				if (UTChar && UTChar->bHasHighScore)
-				{
-					UTChar->bHasHighScore = false;
-					UTChar->HasHighScoreChanged();
-				}
+				UTChar->HasHighScoreChanged();
+				AdjustLeaderHatFor(UTChar);
 			}
 		}
 	}
+}
+
+void AUTGameMode::AdjustLeaderHatFor(AUTCharacter* UTChar)
+{
+	UTChar->bShouldWearLeaderHat = UTChar->bHasHighScore;
+	UTChar->LeaderHatStatusChanged();
 }
 
 void AUTGameMode::StartMatch()

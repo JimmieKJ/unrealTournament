@@ -1597,6 +1597,16 @@ public:
 	UFUNCTION()
 	void OnRep_HasHighScore();
 
+	/** Mark this pawn as should wear leader hat */
+	UPROPERTY(ReplicatedUsing = OnRep_ShouldWearLeaderHat, BlueprintReadOnly, Category = Pawn)
+		bool bShouldWearLeaderHat;
+
+	UFUNCTION()
+		void OnRep_ShouldWearLeaderHat();
+
+	UFUNCTION(BlueprintNativeEvent)
+		void LeaderHatStatusChanged();
+
 	UFUNCTION(BlueprintNativeEvent)
 	void HasHighScoreChanged();
 	

@@ -153,6 +153,11 @@ void AUTCTFRoundGame::GiveDefaultInventory(APawn* PlayerPawn)
 			UTPC->TimeToHoldPowerUpButtonToActivate = 0.75f;
 			UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(ActivatedPowerupPlaceholderClass, FVector(0.0f), FRotator(0.0f, 0.0f, 0.0f)), true);
 		}
+		if (bOnLastLife)
+		{
+			UTCharacter->bShouldWearLeaderHat = true;
+			UTCharacter->LeaderHatStatusChanged();
+		}
 	}
 }
 
@@ -785,6 +790,11 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 			}
 		}
 	}
+}
+
+void AUTCTFRoundGame::AdjustLeaderHatFor(AUTCharacter* UTChar)
+{
+// no leader hat for high score, only for last life
 }
 
 void AUTCTFRoundGame::ScoreOutOfLives(int32 WinningTeamIndex)

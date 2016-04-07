@@ -452,6 +452,7 @@ public:
 	bool CheckScore(AUTPlayerState* Scorer);
 
 	virtual void FindAndMarkHighScorer();
+	virtual void AdjustLeaderHatFor(AUTCharacter* UTChar);
 	virtual void SetEndGameFocus(AUTPlayerState* Winner);
 
 	UFUNCTION(BlueprintCallable, Category = UTGame)

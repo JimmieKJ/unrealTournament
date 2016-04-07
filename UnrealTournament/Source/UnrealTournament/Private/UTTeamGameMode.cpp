@@ -842,11 +842,16 @@ void AUTTeamGameMode::FindAndMarkHighScorer()
 				AUTPlayerState *PS = Cast<AUTPlayerState>(Teams[i]->GetTeamMembers()[PlayerIdx]->PlayerState);
 				if (PS != nullptr)
 				{
-					PS->bHasHighScore = (BestScore == PS->Score);
 					AUTCharacter *UTChar = Cast<AUTCharacter>(Teams[i]->GetTeamMembers()[PlayerIdx]->GetPawn());
 					if (UTChar)
 					{
+						bool bOldHighScorer = UTChar->bHasHighScore;
 						UTChar->bHasHighScore = (BestScore == PS->Score);
+						if (bOldHighScorer != UTChar->bHasHighScore)
+						{
+							UTChar->HasHighScoreChanged();
+							AdjustLeaderHatFor(UTChar);
+						}
 					}
 				}
 			}
@@ -861,7 +866,6 @@ void AUTTeamGameMode::UpdateLobbyScore(FMatchUpdate& MatchUpdate)
 		MatchUpdate.TeamScores.Add(UTGameState->Teams[i]->Score);
 	}
 }
-
 
 void AUTTeamGameMode::GetGood()
 {

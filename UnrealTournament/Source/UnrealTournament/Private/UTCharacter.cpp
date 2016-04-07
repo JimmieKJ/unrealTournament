@@ -2941,6 +2941,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, bSpawnProtectionEligible, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, DrivenVehicle, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bHasHighScore, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, bShouldWearLeaderHat, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WalkMovementReductionPct, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WalkMovementReductionTime, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bInvisible, COND_None);
@@ -4638,7 +4639,7 @@ void AUTCharacter::NotifyTeamChanged()
 			LeaderHat->Destroy();
 			LeaderHat = nullptr;
 		}
-		HasHighScoreChanged();
+		LeaderHatStatusChanged();
 	}
 }
 
@@ -5043,9 +5044,9 @@ void AUTCharacter::SetHatClass(TSubclassOf<AUTHat> HatClass)
 			Hat->SetActorHiddenInGame(bInvisible);
 
 			// If replication of has high score happened before hat replication, locally update it here
-			if (bHasHighScore)
+			if (bShouldWearLeaderHat)
 			{
-				HasHighScoreChanged();
+				LeaderHatStatusChanged();
 			}
 
 			// Flatten the hair so it won't show through hats
@@ -5682,8 +5683,16 @@ void AUTCharacter::OnRep_HasHighScore()
 }
 
 void AUTCharacter::HasHighScoreChanged_Implementation()
+{}
+
+void AUTCharacter::OnRep_ShouldWearLeaderHat()
 {
-	if (bHasHighScore)
+	LeaderHatStatusChanged_Implementation();
+}
+
+void AUTCharacter::LeaderHatStatusChanged_Implementation()
+{
+	if (bShouldWearLeaderHat)
 	{
 		if (LeaderHat == nullptr)
 		{

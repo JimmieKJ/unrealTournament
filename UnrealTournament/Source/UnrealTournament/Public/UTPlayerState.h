@@ -258,9 +258,6 @@ public:
 	bool bIsRconAdmin;
 
 	UPROPERTY(BlueprintReadOnly, replicated, Category = PlayerState)
-	bool bHasHighScore;
-
-	UPROPERTY(BlueprintReadOnly, replicated, Category = PlayerState)
 	bool bIsDemoRecording;
 
 	/** Whether this player currently has a limited number of lives. */

@@ -96,6 +96,8 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual void TossSkull(TSubclassOf<AUTSkullPickup> SkullPickupClass, const FVector& StartLocation, const FVector& TossVelocity, AUTCharacter* FormerInstigator);
 	virtual void EndTeamGame(AUTTeamInfo* Winner, FName Reason);
 
+	virtual void AdjustLeaderHatFor(AUTCharacter* UTChar) override;
+
 	/** Score round ending due to team out of lives. */
 	virtual void ScoreOutOfLives(int32 WinningTeamIndex);
 
