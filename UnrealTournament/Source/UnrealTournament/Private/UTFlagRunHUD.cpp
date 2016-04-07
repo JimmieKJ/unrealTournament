@@ -37,6 +37,9 @@ void AUTFlagRunHUD::DrawHUD()
 		float XOffsetRed = 0.5f * Canvas->ClipX - XAdjust - PipSize;
 		float XOffsetBlue = 0.5f * Canvas->ClipX + XAdjust;
 		float YOffset = 0.1f * Canvas->ClipY * GetHUDWidgetScaleOverride();
+		float XOffsetText = 0.f;
+		FFontRenderInfo TextRenderInfo;
+		TextRenderInfo.bEnableShadow = true;
 		for (APlayerState* PS : GS->PlayerArray)
 		{
 			AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
@@ -49,17 +52,21 @@ void AUTFlagRunHUD::DrawHUD()
 						if (UTPS->Team->TeamIndex == 0)
 						{
 							RedPlayerCount++;
-							Canvas->SetLinearDrawColor(FLinearColor::Red, 0.5f);
+							Canvas->SetLinearDrawColor((UTPS->RemainingLives == 0) ? FLinearColor::Yellow : FLinearColor::Red, 0.6f);
 							Canvas->DrawTile(PlayerStartIcon.Texture, XOffsetRed, YOffset, PipSize, PipSize, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL, BLEND_Translucent);
+							XOffsetText = XOffsetRed;
 							XOffsetRed -= 1.1f*PipSize;
 						}
 						else
 						{
 							BluePlayerCount++;
-							Canvas->SetLinearDrawColor(FLinearColor::Blue, 0.5f);
+							Canvas->SetLinearDrawColor((UTPS->RemainingLives == 0) ? FLinearColor::Yellow : FLinearColor::Blue, 0.5f);
 							Canvas->DrawTile(PlayerStartIcon.Texture, XOffsetBlue, YOffset, PipSize, PipSize, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL, BLEND_Translucent);
+							XOffsetText = XOffsetBlue;
 							XOffsetBlue += 1.1f*PipSize;
 						}
+						Canvas->SetLinearDrawColor(FLinearColor::White, 1.f);
+						Canvas->DrawText(TinyFont, FText::AsNumber(UTPS->RemainingLives), XOffsetText + 0.4f*PipSize, YOffset, 0.5f, 0.5f, TextRenderInfo);
 					}
 				}
 				else
@@ -72,13 +79,17 @@ void AUTFlagRunHUD::DrawHUD()
 						if (UTPS->Team->TeamIndex == 0)
 						{
 							Canvas->DrawTile(HUDAtlas, XOffsetRed, YOffset, SkullPipSize, SkullPipSize, 725, 0, 28, 36, BLEND_Translucent);
+							XOffsetText = XOffsetRed;
 							XOffsetRed -= 1.8f*SkullPipSize;
 						}
 						else
 						{
 							Canvas->DrawTile(HUDAtlas, XOffsetBlue, YOffset, SkullPipSize, SkullPipSize, 725, 0, 28, 36, BLEND_Translucent);
+							XOffsetText = XOffsetBlue;
 							XOffsetBlue += 1.8f*SkullPipSize;
 						}
+						Canvas->SetLinearDrawColor(FLinearColor::White, 1.f);
+						Canvas->DrawText(TinyFont, FText::AsNumber(int32(UTPS->RespawnTime + 1.f)), XOffsetText + 0.4f*SkullPipSize, YOffset, 0.5f, 0.5f, TextRenderInfo);
 					}
 				}
 			}
