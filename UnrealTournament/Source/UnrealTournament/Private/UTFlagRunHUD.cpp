@@ -31,8 +31,12 @@ void AUTFlagRunHUD::DrawHUD()
 		int32 OldBlueCount = BluePlayerCount;
 		RedPlayerCount = 0;
 		BluePlayerCount = 0;
-		RedDeathCount = 0;
-		BlueDeathCount = 0;
+		float XAdjust = 0.015f * Canvas->ClipX * GetHUDWidgetScaleOverride();
+		float PipSize = 0.02f * Canvas->ClipX * GetHUDWidgetScaleOverride();
+		float SkullPipSize = PipSize * 0.6f;
+		float XOffsetRed = 0.5f * Canvas->ClipX - XAdjust - PipSize;
+		float XOffsetBlue = 0.5f * Canvas->ClipX + XAdjust;
+		float YOffset = 0.1f * Canvas->ClipY * GetHUDWidgetScaleOverride();
 		for (APlayerState* PS : GS->PlayerArray)
 		{
 			AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
@@ -45,10 +49,16 @@ void AUTFlagRunHUD::DrawHUD()
 						if (UTPS->Team->TeamIndex == 0)
 						{
 							RedPlayerCount++;
+							Canvas->SetLinearDrawColor(FLinearColor::Red, 0.5f);
+							Canvas->DrawTile(PlayerStartIcon.Texture, XOffsetRed, YOffset, PipSize, PipSize, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL, BLEND_Translucent);
+							XOffsetRed -= 1.1f*PipSize;
 						}
 						else
 						{
 							BluePlayerCount++;
+							Canvas->SetLinearDrawColor(FLinearColor::Blue, 0.5f);
+							Canvas->DrawTile(PlayerStartIcon.Texture, XOffsetBlue, YOffset, PipSize, PipSize, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL, BLEND_Translucent);
+							XOffsetBlue += 1.1f*PipSize;
 						}
 					}
 				}
@@ -56,15 +66,18 @@ void AUTFlagRunHUD::DrawHUD()
 				{
 					// @todo fixmesteve optimize - one pass through pawns, set the value of cachedcharacter, show those with none or dead
 					AUTCharacter* Character = UTPS->GetUTCharacter();
+					Canvas->SetLinearDrawColor(FLinearColor::White, 0.5f);
 					if (!Character || Character->IsDead())
 					{
 						if (UTPS->Team->TeamIndex == 0)
 						{
-							RedDeathCount++;
+							Canvas->DrawTile(HUDAtlas, XOffsetRed, YOffset, SkullPipSize, SkullPipSize, 725, 0, 28, 36, BLEND_Translucent);
+							XOffsetRed -= 1.8f*SkullPipSize;
 						}
 						else
 						{
-							BlueDeathCount++;
+							Canvas->DrawTile(HUDAtlas, XOffsetBlue, YOffset, SkullPipSize, SkullPipSize, 725, 0, 28, 36, BLEND_Translucent);
+							XOffsetBlue += 1.8f*SkullPipSize;
 						}
 					}
 				}
@@ -79,55 +92,20 @@ void AUTFlagRunHUD::DrawHUD()
 			BlueDeathTime = GetWorld()->GetTimeSeconds();
 		}
 
-		float XAdjust = 0.015f * Canvas->ClipX * GetHUDWidgetScaleOverride();
-		float PipSize = 0.02f * Canvas->ClipX * GetHUDWidgetScaleOverride();
-		float XOffset = 0.5f * Canvas->ClipX - XAdjust - PipSize;
-		float YOffset = 0.1f * Canvas->ClipY * GetHUDWidgetScaleOverride();
-
-		Canvas->SetLinearDrawColor(FLinearColor::Red, 0.5f);
-		for (int32 i = 0; i < RedPlayerCount; i++)
-		{
-			Canvas->DrawTile(PlayerStartIcon.Texture, XOffset, YOffset, PipSize, PipSize, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL, BLEND_Translucent);
-			XOffset -= 1.1f*PipSize;
-		}
 		float TimeSinceRedDeath = GetWorld()->GetTimeSeconds() - RedDeathTime;
 		if (TimeSinceRedDeath < 0.5f)
 		{
 			Canvas->SetLinearDrawColor(FLinearColor::Red, 0.5f - TimeSinceRedDeath);
 			float ScaledSize = 1.f + 2.f*TimeSinceRedDeath;
-			Canvas->DrawTile(PlayerStartIcon.Texture, XOffset - 0.5f*(ScaledSize - 1.f)*PipSize, YOffset - 0.5f*(ScaledSize - 1.f)*PipSize, PipSize, PipSize, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL, BLEND_Translucent);
+			Canvas->DrawTile(PlayerStartIcon.Texture, XOffsetRed - 0.5f*(ScaledSize - 1.f)*PipSize, YOffset - 0.5f*(ScaledSize - 1.f)*PipSize, PipSize, PipSize, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL, BLEND_Translucent);
 		}
 
-		XOffset = 0.5f * Canvas->ClipX + XAdjust;
-		Canvas->SetLinearDrawColor(FLinearColor::Blue, 0.5f);
-		for (int32 i = 0; i < BluePlayerCount; i++)
-		{
-			Canvas->DrawTile(PlayerStartIcon.Texture, XOffset, YOffset, PipSize, PipSize, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL, BLEND_Translucent);
-			XOffset += 1.1f*PipSize;
-		}
 		float TimeSinceBlueDeath = GetWorld()->GetTimeSeconds() - BlueDeathTime;
 		if (TimeSinceBlueDeath < 0.5f)
 		{
 			Canvas->SetLinearDrawColor(FLinearColor::Blue, 0.5f - TimeSinceBlueDeath);
 			float ScaledSize = 1.f + 2.f*TimeSinceBlueDeath;
-			Canvas->DrawTile(PlayerStartIcon.Texture, XOffset - 0.5f*(ScaledSize - 1.f)*PipSize, YOffset - 0.5f*(ScaledSize - 1.f)*PipSize, PipSize, PipSize, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL, BLEND_Translucent);
-		}
-
-		// draw skull here
-		PipSize *= 0.6f;
-		Canvas->SetLinearDrawColor(FLinearColor::White, 0.5f);
-		XOffset = 0.5f * Canvas->ClipX - XAdjust - PipSize;
-		for (int32 i = 0; i < RedDeathCount; i++)
-		{
-			Canvas->DrawTile(HUDAtlas, XOffset, YOffset, PipSize, PipSize, 725, 0, 28, 36, BLEND_Translucent);
-			XOffset -= 1.8f*PipSize;
-		}
-
-		XOffset = 0.5f * Canvas->ClipX + XAdjust;
-		for (int32 i = 0; i < BlueDeathCount; i++)
-		{
-			Canvas->DrawTile(HUDAtlas, XOffset, YOffset, PipSize, PipSize, 725, 0, 28, 36, BLEND_Translucent);
-			XOffset += 1.8f*PipSize;
+			Canvas->DrawTile(PlayerStartIcon.Texture, XOffsetBlue - 0.5f*(ScaledSize - 1.f)*PipSize, YOffset - 0.5f*(ScaledSize - 1.f)*PipSize, PipSize, PipSize, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL, BLEND_Translucent);
 		}
 	}
 }

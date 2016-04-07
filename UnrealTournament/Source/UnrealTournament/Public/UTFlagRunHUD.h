@@ -17,8 +17,6 @@ class UNREALTOURNAMENT_API AUTFlagRunHUD : public AUTHUD_CTF
 
 	int32 RedPlayerCount;
 	int32 BluePlayerCount;
-	int32 RedDeathCount;
-	int32 BlueDeathCount;
 	float RedDeathTime;
 	float BlueDeathTime;
 };
