@@ -11,6 +11,8 @@
 #include "UTRconAdminInfo.h"
 #include "UTLocalPlayer.h"
 #include "UTProfileSettings.h"
+#include "UTGameInstance.h"
+#include "UTParty.h"
 
 AUTBasePlayerController::AUTBasePlayerController(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -490,6 +492,19 @@ void AUTBasePlayerController::ClientReturnedToMenus()
 	{
 		LP->LeaveSession();	
 		LP->UpdatePresence(TEXT("In Menus"), false, false, false, false);
+
+		if (LP->IsPartyLeader())
+		{
+			UUTGameInstance* GameInstance = Cast<UUTGameInstance>(LP->GetGameInstance());
+			if (GameInstance)
+			{
+				UUTParty* Party = GameInstance->GetParties();
+				if (Party)
+				{
+					Party->RestorePersistentPartyState();
+				}
+			}
+		}
 	}
 }
 
