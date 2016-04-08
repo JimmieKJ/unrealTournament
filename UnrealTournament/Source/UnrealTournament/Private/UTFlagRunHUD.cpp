@@ -49,10 +49,11 @@ void AUTFlagRunHUD::DrawHUD()
 				{
 					if (!UTPS->bOutOfLives)
 					{
+						bool bLastLife = (UTPS->RemainingLives == 0);
 						if (UTPS->Team->TeamIndex == 0)
 						{
 							RedPlayerCount++;
-							Canvas->SetLinearDrawColor((UTPS->RemainingLives == 0) ? FLinearColor::Yellow : FLinearColor::Red, 0.7f);
+							Canvas->SetLinearDrawColor(bLastLife ? FLinearColor::Yellow : FLinearColor::Red, 0.7f);
 							Canvas->DrawTile(PlayerStartIcon.Texture, XOffsetRed, YOffset, PipSize, PipSize, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL, BLEND_Translucent);
 							XOffsetText = XOffsetRed;
 							XOffsetRed -= 1.1f*PipSize;
@@ -60,13 +61,16 @@ void AUTFlagRunHUD::DrawHUD()
 						else
 						{
 							BluePlayerCount++;
-							Canvas->SetLinearDrawColor((UTPS->RemainingLives == 0) ? FLinearColor::Yellow : FLinearColor::Blue, 0.7f);
+							Canvas->SetLinearDrawColor(bLastLife ? FLinearColor::Yellow : FLinearColor::Blue, 0.7f);
 							Canvas->DrawTile(PlayerStartIcon.Texture, XOffsetBlue, YOffset, PipSize, PipSize, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL, BLEND_Translucent);
 							XOffsetText = XOffsetBlue;
 							XOffsetBlue += 1.1f*PipSize;
 						}
-						Canvas->SetLinearDrawColor(FLinearColor::White, 1.f);
-						Canvas->DrawText(TinyFont, FText::AsNumber(UTPS->RemainingLives), XOffsetText + 0.4f*PipSize, YOffset, 0.5f, 0.5f, TextRenderInfo);
+						if (!bLastLife)
+						{
+							Canvas->SetLinearDrawColor(FLinearColor::White, 1.f);
+							Canvas->DrawText(TinyFont, FText::AsNumber(UTPS->RemainingLives), XOffsetText + 0.4f*PipSize, YOffset, 0.5f, 0.5f, TextRenderInfo);
+						}
 					}
 				}
 				else
