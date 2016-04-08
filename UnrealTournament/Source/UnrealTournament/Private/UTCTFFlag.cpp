@@ -132,7 +132,7 @@ void AUTCTFFlag::SendHomeWithNotify()
 		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 		{
 			AUTCharacter* TeamChar = Cast<AUTCharacter>(*It);
-			if (TeamChar && !TeamChar->IsDead() && ((GetActorLocation() - TeamChar->GetActorLocation()).SizeSquared() < 200.f) && GameState && GameState->OnSameTeam(TeamChar, this))
+			if (TeamChar && !TeamChar->IsDead() && ((GetActorLocation() - TeamChar->GetActorLocation()).SizeSquared() < 250000.f) && GameState && GameState->OnSameTeam(TeamChar, this))
 			{
 				GetWorldTimerManager().SetTimer(SendHomeWithNotifyHandle, this, &AUTCTFFlag::SendHomeWithNotify, 0.2f, false);
 				return;
@@ -212,7 +212,7 @@ void AUTCTFFlag::Drop(AController* Killer)
 		{
 			PastPositions.RemoveAt(PastPositions.Num() - 1);
 		}
-		if (PastPositions.Num() > 0)
+		if (PastPositions.Num() > 0)// fimxesteve why?
 		{
 			PutGhostFlagAt(PastPositions[PastPositions.Num() - 1]);
 		}
