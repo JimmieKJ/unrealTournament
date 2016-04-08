@@ -500,6 +500,19 @@ bool UUTGameInstance::ClientTravelToSession(int32 ControllerId, FName InSessionN
 					//Parties->NotifyPreClientTravel();
 				}
 
+				// Save the last ranked match in case we crash
+				FNamedOnlineSession* Session = SessionInt->GetNamedSession(InSessionName);
+				if (Session && Session->SessionInfo.IsValid())
+				{
+					UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
+					if (LP)
+					{
+						LP->LastRankedMatchSessionId = Session->SessionInfo->GetSessionId().ToString();
+						LP->LastRankedMatchUniqueId = Online::GetIdentityInterface()->GetUniquePlayerId(LP->GetControllerId())->ToString();
+						LP->SaveConfig();
+					}
+				}
+
 				PC->ClientTravel(URL, TRAVEL_Absolute);
 				return true;
 			}

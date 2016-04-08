@@ -152,4 +152,20 @@ void UMatchmakingContext::StartMatchmaking(int32 InPlaylistId)
 	}
 }
 
+void UMatchmakingContext::AttemptReconnect(const FString& OldSessionId)
+{
+	UUTLocalPlayer* LocalPlayer = GetOwningPlayer<UUTLocalPlayer>();
+	if (LocalPlayer)
+	{
+		if (!LocalPlayer->IsPartyLeader())
+		{
+			// Show error dialog
+			LocalPlayer->MessageBox(LOCTEXT("ReconnectNotPartyLeaderTitle", "Must Be The Party Leader"), LOCTEXT("ReconnectNotPartyLeader", "You must be the party leader to initiate matchmaking."));
+			return;
+		}
+
+		LocalPlayer->AttemptMatchmakingReconnect(OldSessionId);
+	}
+}
+
 #undef LOCTEXT_NAMESPACE

@@ -35,6 +35,8 @@ class SUTMatchSummaryPanel;
 class SUTChatEditBox;
 class SUTQuickChatWindow;
 
+enum class EMatchmakingCompleteResult : uint8;
+
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FPlayerOnlineStatusChanged, class UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
 
 DECLARE_DELEGATE_TwoParams(FUTProfilesLoaded, bool, const FText&);
@@ -344,16 +346,16 @@ protected:
 
 	// Holds the local copy of the player nickname.
 	UPROPERTY(config)
-		FString PlayerNickname;
+	FString PlayerNickname;
 
 	// What is the Epic ID associated with this player.
 	UPROPERTY(config)
-		FString LastEpicIDLogin;
+	FString LastEpicIDLogin;
 
 	// The RememberMe Token for this player. 
 	UPROPERTY(config)
-		FString LastEpicRememberMeToken;
-
+	FString LastEpicRememberMeToken;
+	
 	// Called to insure the OSS is cleaned up properly
 	virtual void CleanUpOnlineSubSystyem();
 
@@ -382,6 +384,16 @@ protected:
 public:
 	// Call this function to Attempt to load the Online Profile Settings for this user.
 	virtual void GetAuth(FString ErrorMessage = TEXT(""));
+
+	UPROPERTY(config)
+	FString LastRankedMatchUniqueId;
+
+	UPROPERTY(config)
+	FString LastRankedMatchSessionId;
+
+#if !UE_SERVER
+	virtual void RankedReconnectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+#endif
 
 private:
 
@@ -889,6 +901,8 @@ public:
 
 	/** Matchmaking related items */
 	void StartMatchmaking(int32 PlaylistId);
+	void AttemptMatchmakingReconnect(const FString& OldSessionId);
+	void AttemptMatchmakingReconnectResult(EMatchmakingCompleteResult Result);
 
 	void InvalidateLastSession();
 	void Reconnect(bool bAsSpectator);

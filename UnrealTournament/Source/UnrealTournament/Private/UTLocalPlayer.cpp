@@ -1091,6 +1091,17 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 			PC->ClientGenericInitialization();
 		}
 
+#if !UE_SERVER
+		if (UniqueID.ToString() == LastRankedMatchUniqueId && !LastRankedMatchSessionId.IsEmpty())
+		{
+			// Ask player if they want to try to rejoin last ranked game
+			ShowMessage(NSLOCTEXT("UTLocalPlayer", "RankedReconnectTitle", "Reconnect To Ranked Match?"),
+				NSLOCTEXT("UTLocalPlayer", "RankedReconnect", "Would you like to reconnect to the last ranked match?"),
+				UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO,
+				FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::RankedReconnectResult));
+		}
+#endif
+
 		// If we have a pending session, then join it.
 		JoinPendingSession();
 
@@ -1100,6 +1111,24 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 
 	PlayerOnlineStatusChanged.Broadcast(this, LoginStatus, UniqueID);
 }
+
+#if !UE_SERVER
+void UUTLocalPlayer::RankedReconnectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_YES)
+	{
+		UMatchmakingContext* MatchmakingContext = Cast<UMatchmakingContext>(UBlueprintContextLibrary::GetContext(GetWorld(), UMatchmakingContext::StaticClass()));
+		if (MatchmakingContext)
+		{
+			MatchmakingContext->AttemptReconnect(LastRankedMatchSessionId);
+		}
+	}
+
+	LastRankedMatchUniqueId.Empty();
+	LastRankedMatchSessionId.Empty();
+	SaveConfig();
+}
+#endif
 
 void UUTLocalPlayer::ReadCloudFileListing()
 {
@@ -4845,6 +4874,42 @@ void UUTLocalPlayer::StartMatchmaking(int32 PlaylistId)
 		}
 
 		bool bSuccessfullyStarted = Matchmaking->FindGatheringSession(MatchmakingParams);
+	}
+}
+
+void UUTLocalPlayer::AttemptMatchmakingReconnect(const FString& OldSessionId)
+{
+	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
+	UUTMatchmaking* Matchmaking = UTGameInstance->GetMatchmaking();
+	if (ensure(Matchmaking))
+	{
+		FMatchmakingParams MatchmakingParams;
+		MatchmakingParams.ControllerId = GetControllerId();
+		MatchmakingParams.StartWith = EMatchmakingStartLocation::FindSingle;
+		MatchmakingParams.SessionId = OldSessionId;
+		MatchmakingParams.Flags = EMatchmakingFlags::NoReservation;
+
+		Matchmaking->OnMatchmakingComplete().AddUObject(this, &ThisClass::AttemptMatchmakingReconnectResult);
+		bool bSuccessfullyStarted = Matchmaking->FindSessionAsClient(MatchmakingParams);
+	}
+}
+
+void UUTLocalPlayer::AttemptMatchmakingReconnectResult(EMatchmakingCompleteResult Result)
+{
+	HideMatchmakingDialog();
+
+	if (Result == EMatchmakingCompleteResult::Success)
+	{
+		UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
+		UUTMatchmaking* Matchmaking = UTGameInstance->GetMatchmaking();
+		if (ensure(Matchmaking))
+		{
+			Matchmaking->TravelToServer();
+		}
+	}
+	else if (Result != EMatchmakingCompleteResult::Cancelled)
+	{
+		// Show error message about reconnect failing
 	}
 }
 

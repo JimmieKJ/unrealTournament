@@ -307,6 +307,13 @@ uint8 AUTBasePlayerController::GetTeamNum() const
 
 void AUTBasePlayerController::ClientReturnToLobby_Implementation()
 {
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP)
+	{
+		LP->LastRankedMatchSessionId.Empty();
+		LP->LastRankedMatchUniqueId.Empty();
+	}
+
 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
 	if (GameState && GameState->HubGuid.IsValid())
 	{

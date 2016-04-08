@@ -75,15 +75,26 @@ class AUTPartyBeaconHost : public APartyBeaconHost
 	 * @return the index of the game mode in use
 	 */
 	const int32 GetPlaylistId() const { return UTState ? UTState->GetPlaylistId() : INDEX_NONE; }
-
+	
+	/**
+	 * Lock down existing reservations.  Only prevents existing reservations from being removed.
+	 * Does not currently prevent new reservations
+	 *
+	 * @param bNewLockState true locks reservations, false unlocks
+	 */
+	void LockReservations(bool bNewLockState);
 protected:
 
 	// Begin APartyBeaconHost Interface 
 	virtual TSubclassOf<UPartyBeaconState> GetPartyBeaconHostClass() const override;
 	// End APartyBeaconHost Interface 
-
+	
 	/** Cached version of the host state */
 	UUTPartyBeaconState* UTState;
+
+	/** Are reservations currently locked and not removed when a user logs out */
+	UPROPERTY()
+	bool bReservationsLocked;
 
 	/** Delegate triggered when processing a reconnect request for a client */
 	FOnProcessReconnectForClient ProcessReconnectForClient;

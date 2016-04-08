@@ -76,4 +76,5 @@ public:
 	virtual void Finalize() override;
 
 	void StartMatchmaking(int32 InPlaylistId);
+	void AttemptReconnect(const FString& OldSessionId);
 };

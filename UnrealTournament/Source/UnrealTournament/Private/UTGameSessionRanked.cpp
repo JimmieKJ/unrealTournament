@@ -15,6 +15,7 @@ AUTGameSessionRanked::AUTGameSessionRanked()
 {
 	ReservationBeaconHostClass = AUTPartyBeaconHost::StaticClass();
 	QosBeaconHostClass = AQosBeaconHost::StaticClass();
+	bSessionRegistrationLocked = false;
 
 	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
@@ -265,8 +266,20 @@ void AUTGameSessionRanked::PauseBeaconRequests(bool bPause)
 	}
 }
 
+void AUTGameSessionRanked::LockPlayersToSession(bool bNewLockState)
+{
+	bSessionRegistrationLocked = bNewLockState;
+
+	if (ReservationBeaconHost)
+	{
+		ReservationBeaconHost->LockReservations(bNewLockState);
+	}
+}
+
 void AUTGameSessionRanked::Restart()
 {
+	LockPlayersToSession(false);
+
 	UWorld* const World = GetWorld();
 	check(World);
 
@@ -790,4 +803,21 @@ uint8 AUTGameSessionRanked::GetTeamForPlayer(const FUniqueNetIdRepl& PlayerId) c
 	}
 
 	return 0;
+}
+
+void AUTGameSessionRanked::UnregisterPlayer(FName InSessionName, const FUniqueNetIdRepl& UniqueId)
+{
+	if (!bSessionRegistrationLocked)
+	{
+		// if locked out
+		Super::UnregisterPlayer(InSessionName, UniqueId);
+	}
+}
+
+void AUTGameSessionRanked::UnregisterPlayer(const APlayerController* ExitingPlayer)
+{
+	if (!bSessionRegistrationLocked)
+	{
+		Super::UnregisterPlayer(ExitingPlayer);
+	}
 }

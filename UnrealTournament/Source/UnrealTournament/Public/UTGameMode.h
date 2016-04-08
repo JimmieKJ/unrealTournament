@@ -763,6 +763,16 @@ protected:
 	
 	// When players leave/join or during the end of game state
 	virtual void UpdatePlayersPresence();
+	
+	/**
+	 * Lock down the session and prevent current/future players from unregistering with this session until the match is complete
+	 */
+	void LockSession();
+
+	/**
+	 * Unlock the session and remove currently inactive players from it
+	 */
+	void UnlockSession();
 
 public:
 	virtual void SendEveryoneBackToLobby();

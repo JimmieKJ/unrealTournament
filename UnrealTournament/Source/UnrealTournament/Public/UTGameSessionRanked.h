@@ -84,6 +84,8 @@ public:
 	virtual void RegisterServer() override;
 	virtual void CleanUpOnlineSubsystem() override;
 	virtual void StartServer() override;
+	virtual void UnregisterPlayer(FName InSessionName, const FUniqueNetIdRepl& UniqueId) override;
+	virtual void UnregisterPlayer(const APlayerController* ExitingPlayer) override;
 
 	virtual void ShutdownDedicatedServer();
 	virtual void Restart();
@@ -115,6 +117,8 @@ public:
 
 	uint8 GetTeamForPlayer(const FUniqueNetIdRepl& PlayerId) const;
 
+	void LockPlayersToSession(bool bNewLockState);
+
 	/**
 	 * Cleanup host beacon
 	 *
@@ -134,6 +138,10 @@ public:
 	/** Class of beacon to be used for receiving Qos requests */
 	UPROPERTY(Transient)
 	TSubclassOf<AOnlineBeaconHostObject> QosBeaconHostClass;
+
+	/** Is the current session locked, preventing unregistration on logout */
+	UPROPERTY(Transient)
+	bool bSessionRegistrationLocked;
 
 	/** General beacon listener for registering beacons with */
 	AOnlineBeaconHost* BeaconHostListener;

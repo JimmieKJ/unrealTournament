@@ -298,6 +298,8 @@ private:
 	/** Internal notification that the matchmaking has completed, routes externally */
 	void OnMatchmakingCompleteInternal(EMatchmakingCompleteResult Result, const FOnlineSessionSearchResult& SearchResult);
 
+	friend class UUTLocalPlayer;
+
 	void TravelToServer();
 
 	/** Reservation beacon class */

@@ -1969,6 +1969,7 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 	GetWorldTimerManager().SetTimer(TempHandle4, this, &AUTGameMode::StopReplayRecording, EndReplayDelay);
 
 	SendEndOfGameStats(Reason);
+	UnlockSession();
 	EndMatch();
 }
 
@@ -2743,22 +2744,7 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 			{
 				GetWorldTimerManager().ClearTimer(ServerRestartTimerHandle);
 
-				if (IOnlineSubsystem::Get() != NULL)
-				{
-					IOnlineSessionPtr OnlineSessionInterface = IOnlineSubsystem::Get()->GetSessionInterface();
-					if (OnlineSessionInterface.IsValid())
-					{
-						FOnlineSessionSettings* GameSettings = OnlineSessionInterface->GetSessionSettings(TEXT("Game"));
-						if (GameSettings != NULL)
-						{
-							GameSettings->bAllowInvites = false;
-							GameSettings->bAllowJoinInProgress = false;
-							GameSettings->bAllowJoinViaPresence = false;
-							GameSettings->bAllowJoinViaPresenceFriendsOnly = false;
-							OnlineSessionInterface->UpdateSession(TEXT("Game"), *GameSettings, true);
-						}
-					}
-				}
+				LockSession();
 
 				return true;
 			}
@@ -4554,3 +4540,26 @@ TSharedPtr<SUTHUDWindow> AUTGameMode::CreateSpawnWindow(TWeakObjectPtr<UUTLocalP
 }
 #endif
 
+void AUTGameMode::LockSession()
+{
+	if (bRankedSession)
+	{
+		AUTGameSessionRanked* UTGameSession = Cast<AUTGameSessionRanked>(GameSession);
+		if (UTGameSession)
+		{
+			UTGameSession->LockPlayersToSession(false);
+		}
+	}
+}
+
+void AUTGameMode::UnlockSession()
+{
+	if (bRankedSession)
+	{
+		AUTGameSessionRanked* UTGameSession = Cast<AUTGameSessionRanked>(GameSession);
+		if (UTGameSession)
+		{
+			UTGameSession->LockPlayersToSession(false);
+		}
+	}
+}
