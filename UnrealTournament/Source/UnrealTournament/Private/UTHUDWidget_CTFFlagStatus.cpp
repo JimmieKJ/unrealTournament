@@ -223,7 +223,7 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 				if (!bSpectating && !bShouldDrawFlagIcon)
 				{
 					// Drawing detecting camera
-					RenderObj_TextureAt(CameraIconTemplate, ScreenPosition.X - 0.25f * CameraIconTemplate.GetWidth()* WorldRenderScale, ScreenPosition.Y - 0.25f * CameraIconTemplate.GetHeight()* WorldRenderScale, CameraIconTemplate.GetWidth()* WorldRenderScale, CameraIconTemplate.GetHeight()* WorldRenderScale);
+					RenderObj_TextureAt(CameraIconTemplate, ScreenPosition.X, ScreenPosition.Y, CameraIconTemplate.GetWidth()* WorldRenderScale, CameraIconTemplate.GetHeight()* WorldRenderScale);
 				}
 				else if (FlagState == CarriedObjectState::Held)
 				{
@@ -318,7 +318,7 @@ FVector UUTHUDWidget_CTFFlagStatus::GetAdjustedScreenPosition(const FVector& Wor
 {
 	FVector Cross = (ViewDir ^ FVector(0.f, 0.f, 1.f)).GetSafeNormal();
 	FVector ScreenPosition;
-	float ExtraPadding = 0.05f * Canvas->ClipX;
+	float ExtraPadding = 0.1f * Canvas->ClipX;
 	if ((ViewDir | (WorldPosition - ViewPoint)) < 0.f)
 	{
 		bool bWasLeft = (Team == 0) ? bRedWasLeft : bBlueWasLeft;
