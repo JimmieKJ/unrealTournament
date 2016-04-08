@@ -25,6 +25,9 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "SecurityCam")
 		class AUTCharacter* DetectedFlagCarrier;
 
+	UPROPERTY(BlueprintReadOnly, Category = "SecurityCam")
+		class AUTCarriedObject* DetectedFlag;
+
 	/** Event called when a flag carrier is detected that wasn't previously tracked. */
 	UFUNCTION(BlueprintImplementableEvent, Category = "SecurityCam")
 		void OnFlagCarrierDetected(class AUTCharacter* FlagCarrier);

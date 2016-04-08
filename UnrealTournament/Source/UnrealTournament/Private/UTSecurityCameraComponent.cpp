@@ -10,6 +10,7 @@ UUTSecurityCameraComponent::UUTSecurityCameraComponent()
 	bWantsBeginPlay = true;
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.bStartWithTickEnabled = true;
+	PrimaryComponentTick.SetTickFunctionEnable(true);
 	DetectionRadius = 5000.f;
 	bCameraEnabled = true;
 }
@@ -25,7 +26,7 @@ void UUTSecurityCameraComponent::TickComponent(float DeltaTime, ELevelTick TickT
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	if (!GetOwner() || (GetOwner()->Role != ROLE_Authority))
+	if (!GetOwner())
 	{
 		PrimaryComponentTick.SetTickFunctionEnable(false);
 		return;
@@ -36,13 +37,13 @@ void UUTSecurityCameraComponent::TickComponent(float DeltaTime, ELevelTick TickT
 		static FName NAME_LineOfSight = FName(TEXT("LineOfSight"));
 		FCollisionQueryParams CollisionParams(NAME_LineOfSight, true, GetOwner());
 		FVector CameraLoc = K2_GetComponentLocation();
-		if (DetectedFlagCarrier)
+		if (DetectedFlag)
 		{
 			// verify if still visible
-			if (GetWorld()->LineTraceTestByChannel(CameraLoc, DetectedFlagCarrier->GetActorLocation() + FVector(0.f, 0.f,DetectedFlagCarrier->GetCapsuleComponent()->GetScaledCapsuleHalfHeight()), COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParams))
+			if (GetWorld()->LineTraceTestByChannel(CameraLoc, DetectedFlag->GetActorLocation() + FVector(0.f, 0.f,60.f), COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParams))
 			{
 				OnFlagCarrierDetectionLost(DetectedFlagCarrier);
-				DetectedFlagCarrier = nullptr;
+				DetectedFlag = nullptr;
 			}
 		}
 		else
@@ -53,9 +54,10 @@ void UUTSecurityCameraComponent::TickComponent(float DeltaTime, ELevelTick TickT
 				AUTCharacter* UTChar = Cast<AUTCharacter>((*It).Get());
 				if (UTChar && UTChar->GetCarriedObject() && ((UTChar->GetActorLocation() - CameraLoc).SizeSquared() < DetectionRadius * DetectionRadius))
 				{
-					if (!GetWorld()->LineTraceTestByChannel(CameraLoc, UTChar->GetActorLocation() + FVector(0.f, 0.f, UTChar->GetCapsuleComponent()->GetScaledCapsuleHalfHeight()), COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParams)
+					if (!GetWorld()->LineTraceTestByChannel(CameraLoc, UTChar->GetActorLocation() + FVector(0.f, 0.f, 60.f), COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParams)
 						&& UTChar->GetCarriedObject()->SetDetectingCamera(this))
 					{
+						DetectedFlag = UTChar->GetCarriedObject();
 						DetectedFlagCarrier = UTChar;
 						OnFlagCarrierDetected(DetectedFlagCarrier);
 						break;
@@ -63,9 +65,11 @@ void UUTSecurityCameraComponent::TickComponent(float DeltaTime, ELevelTick TickT
 				}
 			}
 		}
+		DetectedFlagCarrier = DetectedFlag ? DetectedFlag->HoldingPawn : nullptr;
 	}
 	else
 	{
+		DetectedFlag = nullptr;
 		DetectedFlagCarrier = nullptr;
 	}
 }
