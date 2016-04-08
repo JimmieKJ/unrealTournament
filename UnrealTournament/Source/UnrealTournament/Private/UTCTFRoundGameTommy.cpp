@@ -77,9 +77,7 @@ void AUTCTFRoundGameTommy::InitRound()
 
 			if (IsTeamOnDefense(PS->GetTeamNum()))
 			{
-				//a null pointer here will check with the game mode on how to handle the powerup.
-				TSubclassOf<class AUTInventory> NullPointer;
-				PS->BoostClass = NullPointer;
+				PS->BoostClass = RepulsorClass;
 			}
 			else
 			{
@@ -156,94 +154,6 @@ void AUTCTFRoundGameTommy::ToggleSpecialFor(AUTCharacter* C)
 	}
 }
 
-void AUTCTFRoundGameTommy::DiscardInventory(APawn* Other, AController* Killer)
-{
-	AUTPlayerState* KillerPS = Killer ? Cast<AUTPlayerState>(Killer->PlayerState) : nullptr;
-	AUTPlayerState* VictimPS = Other ? Cast<AUTPlayerState>(Other->PlayerState) : nullptr;
-
-	if (VictimPS && VictimPS->Team && KillerPS && KillerPS->Team)
-	{
-		//No credit for suicides
-		if (VictimPS->Team->TeamIndex != KillerPS->Team->TeamIndex)
-		{
-			if (IsTeamOnDefense(VictimPS->Team->TeamIndex))
-			{
-				++OffenseKills;
-			}
-			else
-			{
-				++DefenseKills;
-			}
-		}
-	}
-
-	if (OffenseKills >= OffenseKillsNeededForPowerUp)
-	{
-		OffenseKills = 0;
-
-		//go through offense and gift them a powerup
-		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
-		{
-			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-			if (PS && !PS->bOnlySpectator && PS->Team)
-			{
-				if (IsTeamOnOffense(PS->Team->TeamIndex))
-				{
-					PS->RemainingBoosts = 1;
-
-					AUTPlayerController* PC = Cast<AUTPlayerController>(PS->GetOwner());
-					if (PC)
-					{
-						PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 6, KillerPS);
-					}
-
-					continue;
-				}
-
-				AUTPlayerController* PC = Cast<AUTPlayerController>(PS->GetOwner());
-				if (PC)
-				{
-					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 7, KillerPS);
-				}
-			}
-		}
-	}
-
-	if (DefenseKills >= DefenseKillsNeededForPowerUp)
-	{
-		DefenseKills = 0;
-
-		//go through defense and gift them a powerup
-		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
-		{
-			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-			if (PS && !PS->bOnlySpectator && PS->Team)
-			{
-				if (IsTeamOnDefense(PS->Team->TeamIndex))
-				{
-					PS->RemainingBoosts = 1;
-
-					AUTPlayerController* PC = Cast<AUTPlayerController>(PS->GetOwner());
-					if (PC)
-					{
-						PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 6, KillerPS);
-					}
-
-					continue;
-				}
-
-				AUTPlayerController* PC = Cast<AUTPlayerController>(PS->GetOwner());
-				if (PC)
-				{
-					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 7, KillerPS);
-				}
-			}
-		}
-	}
-
-	Super::DiscardInventory(Other, Killer);
-}
-
 void AUTCTFRoundGameTommy::RestartPlayer(AController* aPlayer)
 {
 	Super::RestartPlayer(aPlayer);
@@ -264,4 +174,13 @@ bool AUTCTFRoundGameTommy::IsPlayerOnLifeLimitedTeam(AUTPlayerState* PlayerState
 	}
 
 	return IsTeamOnDefense(PlayerState->Team->TeamIndex);
+}
+
+void AUTCTFRoundGameTommy::HandlePowerupUnlocks(APawn* Other, AController* Killer)
+{
+	//normal RCTF turns off powerups after they are unlocked. We want to keep them going, so make sure they are always grantable.
+	bGrantDefensePowerupsWithKills = true;
+	bGrantDefensePowerupsWithKills = true;
+
+	Super::HandlePowerupUnlocks(Other, Killer);
 }

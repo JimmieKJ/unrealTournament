@@ -20,9 +20,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameTommy : public AUTCTFRoundGame
 
 	/** Score round ending due to team out of lives. */
 	virtual void ScoreOutOfLives(int32 WinningTeamIndex) override;
-
-	virtual void DiscardInventory(APawn* Other, AController* Killer) override;
-
+	
 	UPROPERTY()
 	TSubclassOf<class AUTArmor> ChestArmorClass;
 	TAssetSubclassOf<class AUTArmor> ChestArmorObject;
@@ -36,11 +34,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameTommy : public AUTCTFRoundGame
 	virtual void ToggleSpecialFor(AUTCharacter* C) override;
 
 protected:
+	virtual void HandlePowerupUnlocks(APawn* Other, AController* Killer);
+
 	virtual bool IsPlayerOnLifeLimitedTeam(AUTPlayerState* PlayerState) const override;
-
-	int OffenseKills;
-	int OffenseKillsNeededForPowerUp;
-
-	int DefenseKills;
-	int DefenseKillsNeededForPowerUp;
 };

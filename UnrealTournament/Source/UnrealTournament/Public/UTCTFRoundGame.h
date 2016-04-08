@@ -46,6 +46,18 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		int32 NumRounds;
 
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		bool bGrantOffensePowerupsWithKills;
+
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		int OffenseKillsNeededForPowerUp;
+
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		bool bGrantDefensePowerupsWithKills;
+
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		int DefenseKillsNeededForPowerUp;
+
 	UPROPERTY()
 		bool bNeedFiveKillsMessage;
 
@@ -72,7 +84,11 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 
 	UPROPERTY()
 		bool bLastManOccurred;
+	
+	UPROPERTY(config)
+		bool bShouldAllowPowerupSelection;
 
+	
 	virtual void InitFlags();
 
 	virtual void FlagCountDown();
@@ -116,6 +132,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	TAssetSubclassOf<class AUTArmor> ArmorVestObject;
 	TAssetSubclassOf<class AUTTimedPowerup> UDamageObject;
 	TAssetSubclassOf<class AUTInventory> ActivatedPowerupPlaceholderObject;
+	TAssetSubclassOf<class AUTInventory> RepulsorObject;
 
 	UPROPERTY()
 		TSubclassOf<class AUTArmor> ShieldBeltClass;
@@ -132,6 +149,9 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY()
 		TSubclassOf<class AUTInventory> ActivatedPowerupPlaceholderClass;
 
+	UPROPERTY()
+		TSubclassOf<class AUTInventory> RepulsorClass;
+
 	virtual void GiveDefaultInventory(APawn* PlayerPawn) override;
 
 protected:
@@ -139,10 +159,17 @@ protected:
 	virtual bool IsTeamOnDefense(int32 TeamNumber) const;
 	virtual bool IsPlayerOnLifeLimitedTeam(AUTPlayerState* PlayerState) const;
 
+	virtual void HandlePowerupUnlocks(APawn* Other, AController* Killer);
+	virtual void UpdatePowerupUnlockProgress(AUTPlayerState* VictimPS, AUTPlayerState* KillerPS);
+	virtual void GrantPowerupToTeam(int TeamIndex, AUTPlayerState* PlayerToHighlight);
+
 	UPROPERTY()
 	bool bNoLivesEndRound;
 
 	UPROPERTY()
 	int32 InitialBoostCount;
 
+	//Used to track powerup unlock progress
+	int OffenseKills;
+	int DefenseKills;
 };

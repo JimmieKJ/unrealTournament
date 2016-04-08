@@ -53,7 +53,16 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	GameStateClass = AUTCTFRoundGameState::StaticClass();
 	NumRounds = 6;
 
-	InitialBoostCount = 1;
+	OffenseKills = 0;
+	OffenseKillsNeededForPowerUp = 10;
+
+	DefenseKills = 0;
+	DefenseKillsNeededForPowerUp = 10;
+
+	bGrantOffensePowerupsWithKills = true;
+	bGrantDefensePowerupsWithKills = true;
+
+	InitialBoostCount = 0;
 	bNoLivesEndRound = true;
 
 	// remove translocator - fixmesteve make this an option
@@ -64,6 +73,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	UDamageObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_UDamage_RCTF.BP_UDamage_RCTF_C"));
 	ArmorVestObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Armor/Armor_Chest.Armor_Chest_C"));
 	ActivatedPowerupPlaceholderObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_ActivatedPowerup_UDamage.BP_ActivatedPowerup_UDamage_C"));
+	RepulsorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Repulsor.BP_Repulsor_C"));
 }
 
 void AUTCTFRoundGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
@@ -102,6 +112,10 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 	if (!ActivatedPowerupPlaceholderObject.IsNull())
 	{
 		ActivatedPowerupPlaceholderClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *ActivatedPowerupPlaceholderObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
+	}
+	if (!RepulsorObject.IsNull())
+	{
+		RepulsorClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *RepulsorObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
 	}
 
 	// key options are ?Respawnwait=xx?RoundLives=xx?CTFMode=xx?Dash=xx?Asymm=xx?PerPlayerLives=xx
@@ -189,6 +203,8 @@ void AUTCTFRoundGame::DiscardInventory(APawn* Other, AController* Killer)
 		UTC->RedSkullCount = 0;
 		UTC->BlueSkullCount = 0;
 	}
+
+	HandlePowerupUnlocks(Other, Killer);
 
 	Super::DiscardInventory(Other, Killer);
 }
@@ -594,6 +610,8 @@ void AUTCTFRoundGame::FlagCountDown()
 
 void AUTCTFRoundGame::InitRound()
 {
+	bGrantOffensePowerupsWithKills = true;
+	bGrantDefensePowerupsWithKills = true;
 	bFirstBloodOccurred = false;
 	bLastManOccurred = false;
 	bNeedFiveKillsMessage = true;
@@ -647,7 +665,7 @@ void AUTCTFRoundGame::InitRound()
 			PS->BoostClass = UDamageClass;
 			if (bAsymmetricVictoryConditions && !IsPlayerOnLifeLimitedTeam(PS))
 			{
-				PS->BoostClass = ArmorVestClass;
+				PS->BoostClass = RepulsorClass;
 			}
 			if (PS && (PS->bIsInactive || !PS->Team || PS->bOnlySpectator))
 			{
@@ -943,4 +961,79 @@ bool AUTCTFRoundGame::IsPlayerOnLifeLimitedTeam(AUTPlayerState* PlayerState) con
 	}
 
 	return IsTeamOnOffense(PlayerState->Team->TeamIndex);
+}
+
+void AUTCTFRoundGame::HandlePowerupUnlocks(APawn* Other, AController* Killer)
+{
+	AUTPlayerState* KillerPS = Killer ? Cast<AUTPlayerState>(Killer->PlayerState) : nullptr;
+	AUTPlayerState* VictimPS = Other ? Cast<AUTPlayerState>(Other->PlayerState) : nullptr;
+
+	UpdatePowerupUnlockProgress(VictimPS, KillerPS);
+
+	const int RedTeamIndex = 0;
+	const int BlueTeamIndex = 1;
+
+	if (bGrantOffensePowerupsWithKills && (OffenseKills >= OffenseKillsNeededForPowerUp))
+	{
+		OffenseKills = 0;
+
+		GrantPowerupToTeam(IsTeamOnOffense(RedTeamIndex) ? RedTeamIndex : BlueTeamIndex, KillerPS);
+		bGrantOffensePowerupsWithKills = false;
+	}
+
+	if (bGrantDefensePowerupsWithKills && (DefenseKills >= DefenseKillsNeededForPowerUp))
+	{
+		DefenseKills = 0;
+
+		GrantPowerupToTeam(IsTeamOnDefense(RedTeamIndex) ? RedTeamIndex : BlueTeamIndex, KillerPS);
+		bGrantDefensePowerupsWithKills = false;
+	}
+}
+
+void AUTCTFRoundGame::UpdatePowerupUnlockProgress(AUTPlayerState* VictimPS, AUTPlayerState* KillerPS)
+{
+	if (VictimPS && VictimPS->Team && KillerPS && KillerPS->Team)
+	{
+		//No credit for suicides
+		if (VictimPS->Team->TeamIndex != KillerPS->Team->TeamIndex)
+		{
+			if (IsTeamOnDefense(VictimPS->Team->TeamIndex))
+			{
+				++OffenseKills;
+			}
+			else
+			{
+				++DefenseKills;
+			}
+		}
+	}
+}
+
+void AUTCTFRoundGame::GrantPowerupToTeam(int TeamIndex, AUTPlayerState* PlayerToHighlight)
+{
+	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		if (PS && !PS->bOnlySpectator && PS->Team)
+		{
+			if (PS->Team->TeamIndex == TeamIndex)
+			{
+				PS->RemainingBoosts = 1;
+
+				AUTPlayerController* PC = Cast<AUTPlayerController>(PS->GetOwner());
+				if (PC)
+				{
+					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 6, PlayerToHighlight);
+				}
+
+				continue;
+			}
+
+			AUTPlayerController* PC = Cast<AUTPlayerController>(PS->GetOwner());
+			if (PC)
+			{
+				PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 7, PlayerToHighlight);
+			}
+		}
+	}
 }
