@@ -195,7 +195,7 @@ public:
 	int32 GoalScore;    
 
 	/** How long should the match be.  Can be overridden with TIMELIMIT=x on the url */
-	UPROPERTY(config, BlueprintReadWrite, Category = "Game")
+	UPROPERTY(BlueprintReadWrite, Category = "Game")
 	int32 TimeLimit;    
 
 	/** multiplier to all XP awarded */

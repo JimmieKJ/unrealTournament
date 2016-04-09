@@ -170,6 +170,8 @@ public:
 
 	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
 	virtual void Draw_Implementation(float DeltaTime);
+	virtual bool ShouldDraw_Implementation(bool bShowScores) override;
+
 
 	// This function is called each frame and is used to age out messages in the queue. 
 	UFUNCTION(BlueprintNativeEvent)

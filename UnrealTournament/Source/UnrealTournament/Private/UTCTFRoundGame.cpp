@@ -449,6 +449,16 @@ void AUTCTFRoundGame::HandleFlagCapture(AUTPlayerState* Holder)
 	if (UTGameState && Holder && Holder->Team)
 	{
 		Holder->Team->SecondaryScore += UTGameState->RemainingTime;
+		if (UTGameState->RemainingTime < 60)
+		{
+			// give defense a bonus
+			int32 DefenderTeamIndex = 1 - Holder->Team->TeamIndex;
+			if ((DefenderTeamIndex >= 0) && (DefenderTeamIndex < Teams.Num()) && Teams[DefenderTeamIndex])
+			{
+				Teams[DefenderTeamIndex]->SecondaryScore += 60 - UTGameState->RemainingTime;
+				BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 160 - UTGameState->RemainingTime, NULL, NULL, Teams[DefenderTeamIndex]);
+			}
+		}
 	}
 	CheckScore(Holder);
 	if (UTGameState && UTGameState->IsMatchInProgress())

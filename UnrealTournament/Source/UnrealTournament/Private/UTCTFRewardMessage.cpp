@@ -11,7 +11,7 @@ UUTCTFRewardMessage::UUTCTFRewardMessage(const class FObjectInitializer& ObjectI
 	bIsUnique = true;
 	bIsSpecial = true;
 	Lifetime = 3.0f;
-	MessageArea = FName(TEXT("DeathMessage"));
+	MessageArea = FName(TEXT("MajorRewardMessage"));
 	bIsConsoleMessage = false;
 	AssistMessage = NSLOCTEXT("CTFRewardMessage", "Assist", "Assist!");
 	DeniedMessage = NSLOCTEXT("CTFRewardMessage", "Denied", "Denied!");
@@ -19,6 +19,7 @@ UUTCTFRewardMessage::UUTCTFRewardMessage(const class FObjectInitializer& ObjectI
 	RedScoreMessage = NSLOCTEXT("CTFRewardMessage", "Red Score", "RED Team Scores!");
 	HatTrickMessage = NSLOCTEXT("CTFRewardMessage", "HatTrick", "Hat Trick!");
 	OtherHatTrickMessage = NSLOCTEXT("CTFRewardMessage", "OtherHatTrick", "{Player1Name} got a Hat Trick!");
+	StoutDefenseMessage = NSLOCTEXT("CTFRewardMessage", "StoutDefense", "Stout Defense Bonus +{BonusAmount}");
 	bIsStatusAnnouncement = false;
 	bWantsBotReaction = true;
 }
@@ -68,7 +69,7 @@ FName UUTCTFRewardMessage::GetAnnouncementName_Implementation(int32 Switch, cons
 
 bool UUTCTFRewardMessage::ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const
 {
-	return IsLocalForAnnouncement(ClientData, true, true);
+	return IsLocalForAnnouncement(ClientData, true, true) || (ClientData.MessageIndex > 100);
 }
 
 FText UUTCTFRewardMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const
@@ -80,6 +81,12 @@ FText UUTCTFRewardMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APla
 	case 3: return RedScoreMessage; break;
 	case 4: return BlueScoreMessage; break;
 	case 5: return (bTargetsPlayerState1 ? HatTrickMessage : OtherHatTrickMessage); break;
+	}
+	if (Switch > 100)
+	{
+		FFormatNamedArguments Args;
+		Args.Add("BonusAmount", FText::AsNumber(Switch - 100));
+		return FText::Format(StoutDefenseMessage, Args);
 	}
 
 	return FText::GetEmpty();

@@ -11,7 +11,7 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 {
 	bSecondHalf = false;
 	bIsAtIntermission = false;
-	HalftimeScoreDelay = 2.f;
+	HalftimeScoreDelay = 3.5f;
 	GoalScoreText = NSLOCTEXT("UTScoreboard", "CTFGoalScoreFormat", "First to {0} Caps");
 	bAsymmetricVictoryConditions = false;
 	bRedToCap = false;

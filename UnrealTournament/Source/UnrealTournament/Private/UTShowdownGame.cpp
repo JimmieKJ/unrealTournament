@@ -23,7 +23,7 @@ AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 	ExtraHealth = 100;
 	bForceRespawn = false;
 	DisplayName = NSLOCTEXT("UTGameMode", "Showdown", "Duel Showdown");
-	TimeLimit = 2.0f; // per round
+	TimeLimit = 2; // per round
 	GoalScore = 5;
 	SpawnSelectionTime = 9;
 	PowerupDuration = 20.0f;

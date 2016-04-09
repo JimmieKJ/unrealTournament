@@ -79,6 +79,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	PlayerControllerClass = AUTPlayerController::StaticClass();
 	BotClass = AUTBot::StaticClass();
 
+	TimeLimit = 15;
 	bUseSeamlessTravel = false;
 	CountDown = 3;
 	bPauseable = false;

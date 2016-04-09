@@ -29,6 +29,9 @@ class UNREALTOURNAMENT_API UUTCTFRewardMessage : public UUTLocalMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText OtherHatTrickMessage;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText StoutDefenseMessage;
+
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override;
 	virtual bool ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const override;
 	virtual FLinearColor GetMessageColor_Implementation(int32 MessageIndex) const override;

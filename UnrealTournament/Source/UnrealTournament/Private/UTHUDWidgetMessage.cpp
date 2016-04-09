@@ -40,6 +40,11 @@ void UUTHUDWidgetMessage::InitializeWidget(AUTHUD* Hud)
 	MegaFont = Hud->GetFontFromSizeIndex(3);
 }
 
+bool UUTHUDWidgetMessage::ShouldDraw_Implementation(bool bShowScores)
+{
+	return !bShowScores;
+}
+
 float UUTHUDWidgetMessage::GetDrawScaleOverride()
 {
 	return (UTHUDOwner) ? UTHUDOwner->GetHUDMessageScaleOverride() : 1.f;
