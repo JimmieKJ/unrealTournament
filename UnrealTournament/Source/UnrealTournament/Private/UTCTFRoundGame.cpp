@@ -620,6 +620,8 @@ void AUTCTFRoundGame::FlagCountDown()
 
 void AUTCTFRoundGame::InitRound()
 {
+	OffenseKills = 0;
+	DefenseKills = 0;
 	bGrantOffensePowerupsWithKills = true;
 	bGrantDefensePowerupsWithKills = true;
 	bFirstBloodOccurred = false;
