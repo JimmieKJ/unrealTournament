@@ -921,7 +921,7 @@ void SUTPlayerSettingsDialog::AddReferencedObjects(FReferenceCollector& Collecto
 FString SUTPlayerSettingsDialog::GetFOVLabelText(float SliderValue)
 {
 	int32 FOVAngle = FMath::TruncToInt(SliderValue * (FOV_CONFIG_MAX - FOV_CONFIG_MIN) + FOV_CONFIG_MIN);
-	return FText::Format(NSLOCTEXT("SUTPlayerSettingsDialog", "FOV", "Field of View ({Value})"), FText::FromString(FString::Printf(TEXT("%i"), FOVAngle))).ToString();
+	return FText::Format(NSLOCTEXT("SUTPlayerSettingsDialog", "FOV", "Field of View ({0})"), FText::FromString(FString::Printf(TEXT("%i"), FOVAngle))).ToString();
 }
 
 void SUTPlayerSettingsDialog::OnFOVChange(float NewValue)
