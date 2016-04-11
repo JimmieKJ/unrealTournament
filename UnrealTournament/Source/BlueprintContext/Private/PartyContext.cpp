@@ -58,6 +58,7 @@ void UPartyContext::Initialize()
 		UTParty->OnPartyLeft().AddUObject(this, &ThisClass::HandlePartyLeft);
 		UTParty->OnPartyMemberJoined().AddUObject(this, &ThisClass::HandlePartyMemberJoined);
 		UTParty->OnPartyMemberLeft().AddUObject(this, &ThisClass::HandlePartyMemberLeft);
+		UTParty->OnPartyMemberLeaving().AddUObject(this, &ThisClass::HandlePartyMemberLeaving);
 		UTParty->OnPartyMemberPromoted().AddUObject(this, &ThisClass::HandlePartyMemberPromoted);
 	}
 
@@ -97,6 +98,22 @@ void UPartyContext::HandlePartyJoined(UPartyGameState* PartyState)
 void UPartyContext::HandlePartyLeft(UPartyGameState* PartyState, EMemberExitedReason Reason)
 {
 	OnPartyLeft.Broadcast();
+
+	if (PartyState && !PartyState->IsLocalPartyLeader())
+	{
+		UUTLocalPlayer* LocalPlayer = GetOwningPlayer<UUTLocalPlayer>();
+		if (LocalPlayer)
+		{
+			if (Reason == EMemberExitedReason::Kicked)
+			{
+				LocalPlayer->ShowToast(NSLOCTEXT("UPartyContext", "PartyLeftKicked", "You have been kicked from the party"));
+			}
+			else
+			{
+				LocalPlayer->ShowToast(NSLOCTEXT("UPartyContext", "PartyLeft", "You have left the party"));
+			}
+		}
+	}
 }
 
 void UPartyContext::HandlePartyMemberJoined(UPartyGameState* PartyState, const FUniqueNetIdRepl& UniqueId)
@@ -107,6 +124,40 @@ void UPartyContext::HandlePartyMemberJoined(UPartyGameState* PartyState, const F
 	{
 		UE_LOG(LogParty, Verbose, TEXT("HandlePartyMemberJoined: Registering team member!"));
 		OnPlayerStateChanged.Broadcast();
+
+		UUTLocalPlayer* LocalPlayer = GetOwningPlayer<UUTLocalPlayer>();
+		if (LocalPlayer)
+		{
+			TSharedPtr<const FUniqueNetId> LocalUserId = LocalPlayer->GetPreferredUniqueNetId();
+			if (LocalUserId.IsValid() && UniqueId.ToString() != LocalUserId->ToString())
+			{
+				FText PartyMessage = FText::Format(NSLOCTEXT("UPartyContext", "JoinMessage", "{0} has joined your party"), NewUTPartyMember->DisplayName);
+				LocalPlayer->ShowToast(PartyMessage);
+			}
+		}
+	}
+}
+
+void UPartyContext::HandlePartyMemberLeaving(UPartyGameState* PartyState, const FUniqueNetIdRepl& RemovedMemberId, EMemberExitedReason Reason)
+{
+	UPartyMemberState* LeavingPartyMember = PartyState->GetPartyMember(RemovedMemberId);
+	UUTPartyMemberState* LeavingUTPartyMember = Cast<UUTPartyMemberState>(LeavingPartyMember);
+	if (LeavingUTPartyMember)
+	{
+		UUTLocalPlayer* LocalPlayer = GetOwningPlayer<UUTLocalPlayer>();
+		if (LocalPlayer)
+		{
+			if (Reason == EMemberExitedReason::Kicked)
+			{
+				FText PartyMessage = FText::Format(NSLOCTEXT("UPartyContext", "LeaveMessageKicked", "{0} was kicked from your party"), LeavingUTPartyMember->DisplayName);
+				LocalPlayer->ShowToast(PartyMessage);
+			}
+			else
+			{
+				FText PartyMessage = FText::Format(NSLOCTEXT("UPartyContext", "LeaveMessage", "{0} has left your party"), LeavingUTPartyMember->DisplayName);
+				LocalPlayer->ShowToast(PartyMessage);
+			}
+		}
 	}
 }
 
@@ -118,6 +169,18 @@ void UPartyContext::HandlePartyMemberLeft(UPartyGameState* PartyState, const FUn
 void UPartyContext::HandlePartyMemberPromoted(UPartyGameState* PartyState, const FUniqueNetIdRepl& InMemberId)
 {
 	OnPartyMemberPromoted.Broadcast();
+
+	UPartyMemberState* LeaderPartyMember = PartyState->GetPartyMember(InMemberId);
+	UUTPartyMemberState* LeaderUTPartyMember = Cast<UUTPartyMemberState>(LeaderPartyMember);
+	if (LeaderUTPartyMember)
+	{
+		UUTLocalPlayer* LocalPlayer = GetOwningPlayer<UUTLocalPlayer>();
+		if (LocalPlayer)
+		{
+			FText PartyMessage = FText::Format(NSLOCTEXT("UPartyContext", "NewLeader", "{0} is now the party leader"), LeaderUTPartyMember->DisplayName);
+			LocalPlayer->ShowToast(PartyMessage);
+		}
+	}
 }
 
 void UPartyContext::Finalize()
