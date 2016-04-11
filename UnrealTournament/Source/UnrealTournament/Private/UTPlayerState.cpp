@@ -806,6 +806,11 @@ void AUTPlayerState::ServerReceiveHatClass_Implementation(const FString& NewHatC
 			HatClass = nullptr;
 		}
 
+		if (NewHatClass.IsEmpty())
+		{
+			HatClass = nullptr;
+		}
+
 		if (HatClass != nullptr)
 		{
 			ValidateEntitlements();
@@ -829,6 +834,11 @@ void AUTPlayerState::ServerReceiveLeaderHatClass_Implementation(const FString& N
 			LeaderHatClass = LoadClass<AUTHatLeader>(NULL, *NewLeaderHatClass, NULL, GetCosmeticLoadFlags(), NULL);
 		}
 
+		if (NewLeaderHatClass.IsEmpty())
+		{
+			LeaderHatClass = nullptr;
+		}
+
 		if (LeaderHatClass != nullptr)
 		{
 			ValidateEntitlements();
@@ -848,6 +858,11 @@ void AUTPlayerState::ServerReceiveEyewearClass_Implementation(const FString& New
 		if (!NewEyewearClass.IsEmpty())
 		{
 			EyewearClass = LoadClass<AUTEyewear>(NULL, *NewEyewearClass, NULL, GetCosmeticLoadFlags(), NULL);
+		}
+
+		if (NewEyewearClass.IsEmpty())
+		{
+			EyewearClass = nullptr;
 		}
 
 		OnRepEyewear();

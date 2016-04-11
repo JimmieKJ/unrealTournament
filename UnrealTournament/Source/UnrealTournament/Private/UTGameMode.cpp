@@ -4067,6 +4067,11 @@ void AUTGameMode::BuildPlayerInfo(AUTPlayerState* PlayerState, TSharedPtr<SUTTab
 
 bool AUTGameMode::ValidateHat(AUTPlayerState* HatOwner, const FString& HatClass)
 {
+	if (HatClass.IsEmpty())
+	{
+		return true;
+	}
+
 	// Load the hat and make sure it's not override only.
 	UClass* HatClassObject = LoadClass<AUTHat>(NULL, *HatClass, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
 	if (HatClassObject)
