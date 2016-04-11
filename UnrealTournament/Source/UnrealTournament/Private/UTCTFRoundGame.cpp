@@ -32,7 +32,7 @@
 AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	TimeLimit = 1;
+	TimeLimit = 5;
 	DisplayName = NSLOCTEXT("UTGameMode", "CTFR", "Flag Run");
 	RoundLives = 5;
 	bPerPlayerLives = true;
@@ -527,9 +527,9 @@ void AUTCTFRoundGame::InitFlags()
 			Flag->bShouldPingFlag = true;
 			UE_LOG(UT, Warning, TEXT("InitFlags"));
 			Flag->ClearGhostFlag();
+			Flag->bSendHomeOnScore = false;
 			if (bAsymmetricVictoryConditions)
 			{
-				Flag->bSendHomeOnScore = !bNoFlagReturn;
 				if (bRedToCap == (Flag->GetTeamNum() == 0))
 				{
 					Flag->bEnemyCanPickup = !bCarryOwnFlag;

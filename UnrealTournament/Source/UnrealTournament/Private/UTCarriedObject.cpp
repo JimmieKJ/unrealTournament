@@ -436,6 +436,7 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 
 void AUTCarriedObject::NoLongerHeld(AController* InstigatedBy)
 {
+	UE_LOG(UT, Warning, TEXT("NO LONGER HELD"));
 	// Have the holding pawn drop the object
 	if (HoldingPawn != NULL)
 	{
@@ -482,6 +483,7 @@ void AUTCarriedObject::NoLongerHeld(AController* InstigatedBy)
 
 void AUTCarriedObject::TossObject(AUTCharacter* ObjectHolder)
 {
+	UE_LOG(UT, Warning, TEXT("TOSS OBJECT"));
 	// Throw the object.
 	if (ObjectHolder != NULL)
 	{
@@ -574,6 +576,7 @@ bool AUTCarriedObject::TeleportTo(const FVector& DestLocation, const FRotator& D
 
 void AUTCarriedObject::Drop(AController* Killer)
 {
+	UE_LOG(UT, Warning, TEXT("DROP"));
 	UUTGameplayStatics::UTPlaySound(GetWorld(), DropSound, (HoldingPawn != NULL) ? (AActor*)HoldingPawn : (AActor*)this);
 
 	SendGameMessage(3, Holder, NULL);
@@ -758,15 +761,18 @@ void AUTCarriedObject::MoveToHome()
 
 void AUTCarriedObject::Score_Implementation(FName Reason, AUTCharacter* ScoringPawn, AUTPlayerState* ScoringPS)
 {
-	LastGameMessageTime = GetWorld()->GetTimeSeconds();
-	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
-	if (Game != NULL)
+	if (Role == ROLE_Authority)
 	{
-		Game->ScoreObject(this, ScoringPawn, ScoringPS, Reason);
-	}
-	if (bSendHomeOnScore)
-	{
-		SendHome();
+		LastGameMessageTime = GetWorld()->GetTimeSeconds();
+		AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (Game != NULL)
+		{
+			Game->ScoreObject(this, ScoringPawn, ScoringPS, Reason);
+		}
+		if (bSendHomeOnScore)
+		{
+			SendHome();
+		}
 	}
 }
 
