@@ -255,6 +255,11 @@ FReply SUTMainMenu::OnShowCustomGamePanel()
 
 void SUTMainMenu::ShowGamePanel()
 {
+	if (!PlayerOwner->IsPartyLeader())
+	{
+		return;
+	}
+
 	if ( !ChallengePanel.IsValid() )
 	{
 		SAssignNew(ChallengePanel, SUTChallengePanel, PlayerOwner);
@@ -265,6 +270,11 @@ void SUTMainMenu::ShowGamePanel()
 
 void SUTMainMenu::ShowCustomGamePanel()
 {
+	if (!PlayerOwner->IsPartyLeader())
+	{
+		return;
+	}
+
 	if (TickCountDown <= 0)
 	{
 		PlayerOwner->ShowContentLoadingMessage();
@@ -392,6 +402,11 @@ FReply SUTMainMenu::OnPlayQuickMatch(FString QuickMatchType)
 
 void SUTMainMenu::QuickPlay(const FString& QuickMatchType)
 {
+	if (!PlayerOwner->IsPartyLeader())
+	{
+		return;
+	}
+
 	if (!PlayerOwner->IsLoggedIn())
 	{
 		PlayerOwner->GetAuth();
@@ -410,6 +425,11 @@ FReply SUTMainMenu::OnBootCampClick()
 
 void SUTMainMenu::OpenTutorialMenu()
 {
+	if (!PlayerOwner->IsPartyLeader())
+	{
+		return;
+	}
+
 	if (!TutorialPanel.IsValid())
 	{
 		SAssignNew(TutorialPanel,SUTUMGPanel,PlayerOwner).UMGClass(TEXT("/Game/RestrictedAssets/Tutorials/Blueprints/TutMainMenuWidget.TutMainMenuWidget_C"));
