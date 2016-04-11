@@ -55,6 +55,7 @@ namespace Gu
 		FloatV min0, max0;
 		FloatV min1, max1;
 		Vec3V tempAxis = V3UnitY();
+		const FloatV eps = FEps();
 		const BoolV bTrue = BTTTT();
 
 		//ML: project capsule to polydata axis 
@@ -80,7 +81,12 @@ namespace Gu
 				//transform v to shape space
 				const Vec3V shapeSpaceV = M33TrnspsMulV3(map->shape2Vertex, vertexSpaceV);
 			
-				const Vec3V normal = V3Normalize(V3Cross(capsuleAxis, shapeSpaceV));
+				const Vec3V dir = V3Cross(capsuleAxis, shapeSpaceV);
+				const FloatV lenSq = V3Dot(dir, dir);
+				if (FAllGrtr(eps, lenSq))
+					continue;
+				const Vec3V normal = V3ScaleInv(dir, FSqrt(lenSq));
+
 
 				map->doSupport(normal, min0, max0);
 
