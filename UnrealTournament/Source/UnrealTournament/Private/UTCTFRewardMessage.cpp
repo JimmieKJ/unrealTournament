@@ -8,7 +8,7 @@
 UUTCTFRewardMessage::UUTCTFRewardMessage(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	bIsUnique = true;
+	bIsPartiallyUnique = true;
 	bIsSpecial = true;
 	Lifetime = 3.0f;
 	MessageArea = FName(TEXT("MajorRewardMessage"));
@@ -19,7 +19,8 @@ UUTCTFRewardMessage::UUTCTFRewardMessage(const class FObjectInitializer& ObjectI
 	RedScoreMessage = NSLOCTEXT("CTFRewardMessage", "Red Score", "RED Team Scores!");
 	HatTrickMessage = NSLOCTEXT("CTFRewardMessage", "HatTrick", "Hat Trick!");
 	OtherHatTrickMessage = NSLOCTEXT("CTFRewardMessage", "OtherHatTrick", "{Player1Name} got a Hat Trick!");
-	StoutDefenseMessage = NSLOCTEXT("CTFRewardMessage", "StoutDefense", "Stout Defense Bonus +{BonusAmount}");
+	RedStoutDefenseMessage = NSLOCTEXT("CTFRewardMessage", "RedStoutDefense", "RED Stout Defense Bonus +{BonusAmount}");
+	BlueStoutDefenseMessage = NSLOCTEXT("CTFRewardMessage", "BlueStoutDefense", "Blue Stout Defense Bonus +{BonusAmount}");
 	bIsStatusAnnouncement = false;
 	bWantsBotReaction = true;
 }
@@ -84,9 +85,10 @@ FText UUTCTFRewardMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APla
 	}
 	if (Switch > 100)
 	{
+		AUTTeamInfo* DefendingTeam = Cast<AUTTeamInfo>(OptionalObject);
 		FFormatNamedArguments Args;
 		Args.Add("BonusAmount", FText::AsNumber(Switch - 100));
-		return FText::Format(StoutDefenseMessage, Args);
+		return (DefendingTeam && DefendingTeam->TeamIndex == 1) ? FText::Format(BlueStoutDefenseMessage, Args) : FText::Format(RedStoutDefenseMessage, Args);
 	}
 
 	return FText::GetEmpty();

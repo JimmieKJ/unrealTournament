@@ -165,7 +165,6 @@ public:
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = Flag)
 		uint8 FlagReturnTime;
 
-	// If true, when a player on the team matching this object's team picks it up, it will be sent home instead of being picked up.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
 	TSubclassOf<UUTCarriedObjectMessage> MessageClass;
 

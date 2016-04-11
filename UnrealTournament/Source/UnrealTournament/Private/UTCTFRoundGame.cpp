@@ -32,7 +32,7 @@
 AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	TimeLimit = 5;
+	TimeLimit = 1;
 	DisplayName = NSLOCTEXT("UTGameMode", "CTFR", "Flag Run");
 	RoundLives = 5;
 	bPerPlayerLives = true;
