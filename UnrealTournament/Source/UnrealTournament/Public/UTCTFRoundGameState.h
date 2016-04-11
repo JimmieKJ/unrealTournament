@@ -10,9 +10,20 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 {
 	GENERATED_UCLASS_BODY()
 
-
 		UPROPERTY(Replicated)
 		uint32 IntermissionTime;
+
+		UPROPERTY(Replicated)
+		int OffenseKills;
+
+		UPROPERTY(Replicated)
+		int DefenseKills;
+
+		UPROPERTY(Replicated)
+		int OffenseKillsNeededForPowerup;
+
+		UPROPERTY(Replicated)
+		int DefenseKillsNeededForPowerup;
 
 	virtual float GetIntermissionTime() override;
 	virtual void DefaultTimer() override;

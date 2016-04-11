@@ -53,10 +53,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	GameStateClass = AUTCTFRoundGameState::StaticClass();
 	NumRounds = 6;
 
-	OffenseKills = 0;
 	OffenseKillsNeededForPowerUp = 10;
-
-	DefenseKills = 0;
 	DefenseKillsNeededForPowerUp = 10;
 
 	bGrantOffensePowerupsWithKills = true;
@@ -82,6 +79,8 @@ void AUTCTFRoundGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyB
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &BotFillCount, TEXT("BotFill"))));
 	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bBalanceTeams, TEXT("BalanceTeams"))));
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &MercyScore, TEXT("MercyScore"))));
+	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &OffenseKillsNeededForPowerUp, TEXT("OffKillsForPowerup"))));
+	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &OffenseKillsNeededForPowerUp, TEXT("DefKillsForPowerup"))));
 }
 
 bool AUTCTFRoundGame::AvoidPlayerStart(AUTPlayerStart* P)
@@ -118,7 +117,7 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 		RepulsorClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *RepulsorObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
 	}
 
-	// key options are ?Respawnwait=xx?RoundLives=xx?CTFMode=xx?Dash=xx?Asymm=xx?PerPlayerLives=xx
+	// key options are ?Respawnwait=xx?RoundLives=xx?CTFMode=xx?Dash=xx?Asymm=xx?PerPlayerLives=xx?OffKillsForPowerup=xx?DefKillsForPowerup=xx
 	RoundLives = FMath::Max(1, UGameplayStatics::GetIntOption(Options, TEXT("RoundLives"), RoundLives));
 
 	FString InOpt = UGameplayStatics::ParseOption(Options, TEXT("Dash"));
@@ -139,6 +138,9 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 
 	ExtraHealth = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("XHealth"), ExtraHealth));
 	FlagPickupDelay = FMath::Max(1, UGameplayStatics::GetIntOption(Options, TEXT("FlagDelay"), FlagPickupDelay));
+
+	OffenseKillsNeededForPowerUp = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("OffKillsForPowerup"), OffenseKillsNeededForPowerUp));
+	DefenseKillsNeededForPowerUp = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("DefKillsForPowerup"), DefenseKillsNeededForPowerUp));
 }
 
 void AUTCTFRoundGame::SetPlayerDefaults(APawn* PlayerPawn)
@@ -620,8 +622,6 @@ void AUTCTFRoundGame::FlagCountDown()
 
 void AUTCTFRoundGame::InitRound()
 {
-	OffenseKills = 0;
-	DefenseKills = 0;
 	bGrantOffensePowerupsWithKills = true;
 	bGrantDefensePowerupsWithKills = true;
 	bFirstBloodOccurred = false;
@@ -639,6 +639,15 @@ void AUTCTFRoundGame::InitRound()
 		{
 			CTFGameState->RedLivesRemaining += CTFGameState->FlagBases[0] ? CTFGameState->FlagBases[0]->RoundLivesAdjustment : 0;
 			CTFGameState->BlueLivesRemaining += CTFGameState->FlagBases[1] ? CTFGameState->FlagBases[0]->RoundLivesAdjustment : 0;
+		}
+
+		AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
+		if (RCTFGameState)
+		{
+			RCTFGameState->OffenseKills = 0;
+			RCTFGameState->DefenseKills = 0;
+			RCTFGameState->OffenseKillsNeededForPowerup = OffenseKillsNeededForPowerUp;
+			RCTFGameState->DefenseKillsNeededForPowerup = DefenseKillsNeededForPowerUp;
 		}
 	}
 
@@ -984,38 +993,44 @@ void AUTCTFRoundGame::HandlePowerupUnlocks(APawn* Other, AController* Killer)
 
 	const int RedTeamIndex = 0;
 	const int BlueTeamIndex = 1;
-
-	if (bGrantOffensePowerupsWithKills && (OffenseKills >= OffenseKillsNeededForPowerUp))
+	
+	AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
+	if (RCTFGameState)
 	{
-		OffenseKills = 0;
+		if (bGrantOffensePowerupsWithKills && (RCTFGameState->OffenseKills >= OffenseKillsNeededForPowerUp))
+		{
+			RCTFGameState->OffenseKills = 0;
 
-		GrantPowerupToTeam(IsTeamOnOffense(RedTeamIndex) ? RedTeamIndex : BlueTeamIndex, KillerPS);
-		bGrantOffensePowerupsWithKills = false;
-	}
+			GrantPowerupToTeam(IsTeamOnOffense(RedTeamIndex) ? RedTeamIndex : BlueTeamIndex, KillerPS);
+			bGrantOffensePowerupsWithKills = false;
+		}
 
-	if (bGrantDefensePowerupsWithKills && (DefenseKills >= DefenseKillsNeededForPowerUp))
-	{
-		DefenseKills = 0;
+		if (bGrantDefensePowerupsWithKills && (RCTFGameState->DefenseKills >= DefenseKillsNeededForPowerUp))
+		{
+			RCTFGameState->DefenseKills = 0;
 
-		GrantPowerupToTeam(IsTeamOnDefense(RedTeamIndex) ? RedTeamIndex : BlueTeamIndex, KillerPS);
-		bGrantDefensePowerupsWithKills = false;
+			GrantPowerupToTeam(IsTeamOnDefense(RedTeamIndex) ? RedTeamIndex : BlueTeamIndex, KillerPS);
+			bGrantDefensePowerupsWithKills = false;
+		}
 	}
 }
 
 void AUTCTFRoundGame::UpdatePowerupUnlockProgress(AUTPlayerState* VictimPS, AUTPlayerState* KillerPS)
 {
-	if (VictimPS && VictimPS->Team && KillerPS && KillerPS->Team)
+	AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
+
+	if (RCTFGameState && VictimPS && VictimPS->Team && KillerPS && KillerPS->Team)
 	{
 		//No credit for suicides
 		if (VictimPS->Team->TeamIndex != KillerPS->Team->TeamIndex)
 		{
 			if (IsTeamOnDefense(VictimPS->Team->TeamIndex))
 			{
-				++OffenseKills;
+				++(RCTFGameState->OffenseKills);
 			}
 			else
 			{
-				++DefenseKills;
+				++(RCTFGameState->DefenseKills);
 			}
 		}
 	}

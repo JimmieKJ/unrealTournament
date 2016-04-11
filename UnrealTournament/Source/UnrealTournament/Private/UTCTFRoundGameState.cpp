@@ -17,6 +17,10 @@ void AUTCTFRoundGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty 
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AUTCTFRoundGameState, IntermissionTime);
+	DOREPLIFETIME(AUTCTFRoundGameState, OffenseKills);
+	DOREPLIFETIME(AUTCTFRoundGameState, DefenseKills);
+	DOREPLIFETIME(AUTCTFRoundGameState, OffenseKillsNeededForPowerup);
+	DOREPLIFETIME(AUTCTFRoundGameState, DefenseKillsNeededForPowerup);
 }
 
 void AUTCTFRoundGameState::DefaultTimer()

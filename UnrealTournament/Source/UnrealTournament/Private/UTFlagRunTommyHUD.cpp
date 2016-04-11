@@ -4,6 +4,7 @@
 #include "UTCTFGameState.h"
 #include "UTCTFGameMode.h"
 #include "UTCTFScoreboard.h"
+#include "UTCTFRoundGameState.h"
 
 AUTFlagRunTommyHUD::AUTFlagRunTommyHUD(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -17,54 +18,56 @@ void AUTFlagRunTommyHUD::DrawHUD()
 
 	if (GetWorld())
 	{
-		AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
-		if (GS)
+		AUTCTFRoundGameState* GS = GetWorld()->GetGameState<AUTCTFRoundGameState>();
+		if (GS && !bShowScores && GS->GetMatchState() == MatchState::InProgress)
 		{
 			int RedKills = 0;
 			int BlueKills = 0;
+			int RedKillsRemaining = 0;
+			int BlueKillsRemaining = 0;
 
-			for (APlayerState* PS : GS->PlayerArray)
+			if (GS->bRedToCap)
 			{
-				AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
-				if (UTPS && UTPS->Team)
-				{
-					if (UTPS->Team->TeamIndex == 0)
-					{
-						RedKills += UTPS->RoundKills;
-					}
-					else
-					{
-						BlueKills += UTPS->RoundKills;
-					}
-				}
+				RedKills = GS->OffenseKills;
+				BlueKills = GS->DefenseKills;
+
+				RedKills = RedKills % GS->OffenseKillsNeededForPowerup;
+				BlueKills = BlueKills % GS->DefenseKillsNeededForPowerup;
+
+				RedKillsRemaining = GS->OffenseKillsNeededForPowerup - RedKills;
+				BlueKillsRemaining = GS->DefenseKillsNeededForPowerup - BlueKills;
 			}
+			else
+			{
+				RedKills = GS->DefenseKills;
+				BlueKills = GS->OffenseKills;
 
-			RedKills = RedKills % 10;
-			BlueKills = BlueKills % 10;
+				RedKills = RedKills % GS->DefenseKillsNeededForPowerup;
+				BlueKills = BlueKills % GS->OffenseKillsNeededForPowerup;
 
-			const int RedKillsRemaining = 10 - RedKills;
-			const int BlueKillsRemaining = 10 - BlueKills;
-
+				RedKillsRemaining = GS->DefenseKillsNeededForPowerup - RedKills;
+				BlueKillsRemaining = GS->OffenseKillsNeededForPowerup - BlueKills;
+			}
+						
 			FFontRenderInfo FontInfo;
 			FontInfo.bClipText = true;
 			FontInfo.bEnableShadow = true;
-
 
 			float CharHeight = 1.f;
 			float CharWidth = 1.f;
 			MediumFont->GetCharSize('0', CharWidth, CharHeight);
 			
-			float XAdjustRed = 0.085f * Canvas->ClipX;
-			float XAdjustBlue = 0.015f * Canvas->ClipX;
+			float XAdjust = 0.35f * Canvas->ClipX;
+			float BlueSentenceLengthOffset = 0.5f * CharWidth * GetHUDWidgetScaleOverride() * 21; //21 = the number of characters in "Blue Kills Needed: XX"
+
+
+			float XOffsetRed = (0.5f * Canvas->ClipX) - XAdjust;
+			float XOffsetBlue = (0.5f * Canvas->ClipX) + XAdjust - BlueSentenceLengthOffset;
 			
-			float XOffsetRed = 0.5f * Canvas->ClipX - XAdjustRed - (CharWidth * 20);
-			float YOffsetRed = 0.17f * Canvas->ClipY;
-
-			float XOffsetBlue = 0.5f * Canvas->ClipX + XAdjustBlue + (CharWidth * 21);
-			float YOffsetBlue = 0.17f * Canvas->ClipY;
-
-			Canvas->DrawText(MediumFont, FString("Red Kills Needed: ") + FString::FromInt(RedKillsRemaining), XOffsetRed, YOffsetRed, 1.f, 1.f, FontInfo);
-			Canvas->DrawText(MediumFont, FString("Blue Kills Needed: ") + FString::FromInt(BlueKillsRemaining), XOffsetBlue, YOffsetBlue, 1.f, 1.f, FontInfo);
+			float YOffset = 0.17f * Canvas->ClipY * GetHUDWidgetScaleOverride();
+						
+			Canvas->DrawText(MediumFont, FString("Red Kills Needed: ") + FString::FromInt(RedKillsRemaining), XOffsetRed, YOffset, GetHUDWidgetScaleOverride(), GetHUDWidgetScaleOverride(), FontInfo);
+			Canvas->DrawText(MediumFont, FString("Blue Kills Needed: ") + FString::FromInt(BlueKillsRemaining), XOffsetBlue, YOffset, GetHUDWidgetScaleOverride(), GetHUDWidgetScaleOverride(), FontInfo);
 
 		}
 	}

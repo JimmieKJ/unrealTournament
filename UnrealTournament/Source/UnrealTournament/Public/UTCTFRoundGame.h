@@ -168,8 +168,4 @@ protected:
 
 	UPROPERTY()
 	int32 InitialBoostCount;
-
-	//Used to track powerup unlock progress
-	int OffenseKills;
-	int DefenseKills;
 };

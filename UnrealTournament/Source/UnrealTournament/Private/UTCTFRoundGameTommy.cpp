@@ -38,10 +38,7 @@ AUTCTFRoundGameTommy::AUTCTFRoundGameTommy(const FObjectInitializer& ObjectIniti
 	
 	TimeLimit = 3;
 
-	OffenseKills = 0;
 	OffenseKillsNeededForPowerUp = 10;
-
-	DefenseKills = 0;
 	DefenseKillsNeededForPowerUp = 10;
 }
 
@@ -62,9 +59,7 @@ void AUTCTFRoundGameTommy::InitGame(const FString& MapName, const FString& Optio
 void AUTCTFRoundGameTommy::InitRound()
 {
 	Super::InitRound();
-
-	OffenseKills = 0;
-
+	
 	//Fixup for Differences between RCTFT and RCTF
 	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 	{
