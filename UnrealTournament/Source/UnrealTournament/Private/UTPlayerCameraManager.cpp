@@ -5,6 +5,7 @@
 #include "UTCTFFlagBase.h"
 #include "UTViewPlaceholder.h"
 #include "UTNoCameraVolume.h"
+#include "UTRemoteRedeemer.h"
 
 AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -152,6 +153,7 @@ float AUTPlayerCameraManager::RatePlayerCamera(AUTPlayerState* InPS, AUTCharacte
 	return Score;
 }
 
+static const FName NAME_FirstPerson = FName(TEXT("FirstPerson"));
 void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTime)
 {
 	static const FName NAME_FreeCam = FName(TEXT("FreeCam"));
@@ -270,6 +272,9 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 	}
 	else
 	{
+		bool bSavedAlwaysApplyModifiers = bAlwaysApplyModifiers;
+		bAlwaysApplyModifiers = bAlwaysApplyModifiers || CameraStyle == NAME_FirstPerson;
+
 		LastThirdPersonCameraLoc = FVector::ZeroVector;
 		Super::UpdateViewTarget(OutVT, DeltaTime);
 		AUTCharacter* UTCharacter = Cast<AUTCharacter>(OutVT.Target);
@@ -291,6 +296,8 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 			CurrentCameraRoll = (1.f - AdjustRate) * CurrentCameraRoll + AdjustRate*DesiredRoll;
 			OutVT.POV.Rotation.Roll = CurrentCameraRoll;
 		}
+
+		bAlwaysApplyModifiers = bSavedAlwaysApplyModifiers;
 	}
 
 	bIsForcingGoodCamLoc = false;
@@ -366,6 +373,20 @@ void AUTPlayerCameraManager::ApplyCameraModifiers(float DeltaTime, FMinimalViewI
 		FPostProcessSettings OverrideSettings;
 		OverrideSettings.bOverride_BloomDirtMaskIntensity = true;
 		OverrideSettings.BloomDirtMaskIntensity = 0.0f;
+		PostProcessBlendCache.Add(OverrideSettings);
+		PostProcessBlendCacheWeights.Add(1.0f);
+	}
+	
+	UMaterialInterface* PPOverlay = NULL;
+	AUTRemoteRedeemer* Redeemer = Cast<AUTRemoteRedeemer>(GetViewTargetPawn());
+	if (Redeemer != NULL)
+	{
+		PPOverlay = Redeemer->GetPostProcessMaterial();
+	}
+	if (PPOverlay != NULL)
+	{
+		FPostProcessSettings OverrideSettings;
+		OverrideSettings.AddBlendable(PPOverlay, 1.0f);
 		PostProcessBlendCache.Add(OverrideSettings);
 		PostProcessBlendCacheWeights.Add(1.0f);
 	}

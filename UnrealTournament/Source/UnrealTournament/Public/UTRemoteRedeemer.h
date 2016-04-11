@@ -2,6 +2,7 @@
 #pragma once
 
 #include "UTProj_Redeemer.h"
+#include "Classes/Kismet/KismetMaterialLibrary.h"
 #include "UTRemoteRedeemer.generated.h"
 
 UCLASS(Abstract, config = Game)
@@ -77,11 +78,27 @@ class UNREALTOURNAMENT_API AUTRemoteRedeemer : public APawn, public IUTTeamInter
 	* the material can use the parameter 'TeamColor' to receive the player's team color in team games (won't be changed in FFA modes)
 	*/
 	UPROPERTY(EditDefaultsOnly, Category = Overlay)
-		UMaterialInterface* OverlayMat;
+	UMaterialInterface* OverlayMat;
 
 	/** material instance for e.g. team coloring */
-	UPROPERTY()
-		UMaterialInstanceDynamic* OverlayMI;
+	UPROPERTY(Transient)
+	UMaterialInstanceDynamic* OverlayMI;
+
+	virtual UMaterialInterface* GetPostProcessMaterial()
+	{
+		if (OverlayMat != NULL)
+		{
+			if (OverlayMI == NULL)
+			{
+				OverlayMI = UKismetMaterialLibrary::CreateDynamicMaterialInstance(this, OverlayMat);
+			}
+			return OverlayMI;
+		}
+		else
+		{
+			return NULL;
+		}
+	}
 
 	/** material for drawing enemy indicators */
 	UPROPERTY(EditDefaultsOnly, Category = Overlay)
