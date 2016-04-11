@@ -388,7 +388,10 @@ void UUTLocalPlayer::WindowClosed(TSharedPtr<SUTWindowBase> WindowThatWasClosed)
 {
 	if (WindowStack.Find(WindowThatWasClosed) != INDEX_NONE)
 	{
-		GEngine->GameViewport->RemoveViewportWidgetContent(WindowThatWasClosed.ToSharedRef());
+		if (GEngine->GameViewport != NULL) // might already be gone if in PIE
+		{
+			GEngine->GameViewport->RemoveViewportWidgetContent(WindowThatWasClosed.ToSharedRef());
+		}
 		WindowStack.Remove(WindowThatWasClosed);
 	}
 }
