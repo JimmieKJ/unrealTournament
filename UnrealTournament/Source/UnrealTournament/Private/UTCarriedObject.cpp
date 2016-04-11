@@ -607,7 +607,7 @@ void AUTCarriedObject::Drop(AController* Killer)
 
 bool AUTCarriedObject::SetDetectingCamera(class UUTSecurityCameraComponent* NewDetectingCamera)
 {
-	if (DetectingCamera && ((GetActorLocation() - DetectingCamera->K2_GetComponentLocation()).SizeSquared() < (GetActorLocation() - NewDetectingCamera->K2_GetComponentLocation()).SizeSquared()))
+	if (DetectingCamera && NewDetectingCamera && ((GetActorLocation() - DetectingCamera->K2_GetComponentLocation()).SizeSquared() < (GetActorLocation() - NewDetectingCamera->K2_GetComponentLocation()).SizeSquared()))
 	{
 		// change only if new one is closer
 		return false;
