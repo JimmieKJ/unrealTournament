@@ -292,6 +292,7 @@ AInfo* AUTShowdownGame::GetTiebreakWinner(FName* WinReason) const
 	AUTPlayerState* RoundWinner = NULL;
 	int32 BestTotalHealth = 0;
 	bool bTied = false;
+	bool bStartingHealth = false;
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
 		AUTCharacter* UTC = Cast<AUTCharacter>(It->Get());
@@ -309,6 +310,7 @@ AInfo* AUTShowdownGame::GetTiebreakWinner(FName* WinReason) const
 				else if (UTC->Health == BestTotalHealth)
 				{
 					bTied = true;
+					bStartingHealth = UTC->Health == UTC->GetClass()->GetDefaultObject<AUTCharacter>()->HealthMax + ExtraHealth;
 				}
 			}
 		}
@@ -316,29 +318,33 @@ AInfo* AUTShowdownGame::GetTiebreakWinner(FName* WinReason) const
 
 	if (WinReason != NULL)
 	{
-		*WinReason = FName(TEXT("Health"));
+		*WinReason = (bTied && bStartingHealth) ? FName(TEXT("NoAction")) : FName(TEXT("Health"));
 	}
 	return (bTied ? NULL : RoundWinner);
 }
 
 void AUTShowdownGame::ScoreExpiredRoundTime()
 {
-	AUTPlayerState* RoundWinner = Cast<AUTPlayerState>(GetTiebreakWinner());
+	FName WinReason;
+	AUTPlayerState* RoundWinner = Cast<AUTPlayerState>(GetTiebreakWinner(&WinReason));
 	if (RoundWinner == NULL)
 	{
-		// both players score a point
-		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+		if (WinReason != FName(TEXT("NoAction")))
 		{
-			AUTCharacter* UTC = Cast<AUTCharacter>(It->Get());
-			if (UTC != NULL && !UTC->IsDead())
+			// both players score a point
+			for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 			{
-				AUTPlayerState* PS = Cast<AUTPlayerState>(UTC->PlayerState);
-				if (PS != NULL)
+				AUTCharacter* UTC = Cast<AUTCharacter>(It->Get());
+				if (UTC != NULL && !UTC->IsDead())
 				{
-					PS->Score += 1.0f;
-					if (PS->Team != NULL)
+					AUTPlayerState* PS = Cast<AUTPlayerState>(UTC->PlayerState);
+					if (PS != NULL)
 					{
-						PS->Team->Score += 1.0f;
+						PS->Score += 1.0f;
+						if (PS->Team != NULL)
+						{
+							PS->Team->Score += 1.0f;
+						}
 					}
 				}
 			}
