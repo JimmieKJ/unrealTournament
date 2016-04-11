@@ -674,11 +674,11 @@ namespace UnrealTournamentGame.Automation
 				AddDependency(GUBP.EditorGameNode.StaticGetFullName(HostPlatform, GameProj));
 				AddDependency(GUBP.ToolsNode.StaticGetFullName(HostPlatform));
 				AddDependency(GUBP.ToolsForCompileNode.StaticGetFullName(HostPlatform));
-				AddDependency(UnrealTournamentBuildNode.StaticGetFullName(InGameProj));
+                AddDependency(UnrealTournamentBuildNode.StaticGetFullName(InGameProj));
 
-				AgentSharingGroup = "UnrealTournament_MakeEditorBuild" + StaticGetHostPlatformSuffix(InHostPlatform);
-			}
-			public static string StaticGetFullName(BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform)
+                AgentSharingGroup = "UnrealTournament_MakeEditorBuild" + StaticGetHostPlatformSuffix(InHostPlatform);
+            }
+            public static string StaticGetFullName(BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform)
 			{
 				return "UT_CopyEditor" + StaticGetHostPlatformSuffix(InHostPlatform);
 			}
@@ -795,16 +795,16 @@ namespace UnrealTournamentGame.Automation
 					Filter.Include("/Engine/Binaries/Win64/tbbmalloc.dll");
 
 					Filter.Include("/Engine/Binaries/ThirdParty/CEF3/Win64/...");
-					Filter.Include("/Engine/Binaries/ThirdParty/ICU/icu4c-53_1/Win64/VS2013/*.dll");
-					Filter.Include("/Engine/Binaries/ThirdParty/PhysX/APEX-1.3/Win64/VS2013/*.dll");
-					Filter.Include("/Engine/Binaries/ThirdParty/PhysX/PhysX-3.3/Win64/VS2013/*.dll");
+					Filter.Include("/Engine/Binaries/ThirdParty/ICU/icu4c-53_1/Win64/VS2015/*.dll");
+					Filter.Include("/Engine/Binaries/ThirdParty/PhysX/APEX-1.3/Win64/VS2015/*.dll");
+					Filter.Include("/Engine/Binaries/ThirdParty/PhysX/PhysX-3.3/Win64/VS2015/*.dll");
 					Filter.Exclude("/Engine/Binaries/ThirdParty/PhysX/.../*DEBUG*");
 					Filter.Exclude("/Engine/Binaries/ThirdParty/PhysX/.../*CHECKED*");
-					Filter.Include("/Engine/Binaries/ThirdParty/Ogg/Win64/VS2013/*.dll");
-					Filter.Include("/Engine/Binaries/ThirdParty/Vorbis/Win64/VS2013/*.dll");
+					Filter.Include("/Engine/Binaries/ThirdParty/Ogg/Win64/VS2015/*.dll");
+					Filter.Include("/Engine/Binaries/ThirdParty/Vorbis/Win64/VS2015/*.dll");
 					Filter.Include("/Engine/Binaries/ThirdParty/nvTextureTools/Win64/*.dll");
 					Filter.Include("/Engine/Binaries/ThirdParty/Oculus/Audio/Win64/*.dll");
-					Filter.Include("/Engine/Binaries/ThirdParty/OpenSSL/Win64/VS2013/*.dll");
+					Filter.Include("/Engine/Binaries/ThirdParty/OpenSSL/Win64/VS2015/*.dll");
 				}
 				else if (Platform == UnrealTargetPlatform.Mac)
 				{
