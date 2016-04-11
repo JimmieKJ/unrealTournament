@@ -43,7 +43,12 @@ void UUTSecurityCameraComponent::TickComponent(float DeltaTime, ELevelTick TickT
 			if (GetWorld()->LineTraceTestByChannel(CameraLoc, DetectedFlag->GetActorLocation() + FVector(0.f, 0.f,60.f), COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParams))
 			{
 				OnFlagCarrierDetectionLost(DetectedFlagCarrier);
+				if (DetectedFlag)
+				{
+					DetectedFlag->SetDetectingCamera(nullptr);
+				}
 				DetectedFlag = nullptr;
+				DetectedFlagCarrier = nullptr;
 			}
 		}
 		else
@@ -69,6 +74,10 @@ void UUTSecurityCameraComponent::TickComponent(float DeltaTime, ELevelTick TickT
 	}
 	else
 	{
+		if (DetectedFlag)
+		{
+			DetectedFlag->SetDetectingCamera(nullptr);
+		}
 		DetectedFlag = nullptr;
 		DetectedFlagCarrier = nullptr;
 	}
