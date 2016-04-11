@@ -522,3 +522,14 @@ void UUTCheatManager::McpGetVersion()
 	}
 #endif
 }
+
+void UUTCheatManager::CheatShowRankedReconnectDialog()
+{
+#if !UE_BUILD_SHIPPING
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(GetOuterAPlayerController()->Player);
+	if (LP)
+	{
+		LP->ShowRankedReconnectDialog(LP->LastRankedMatchUniqueId);
+	}
+#endif
+}

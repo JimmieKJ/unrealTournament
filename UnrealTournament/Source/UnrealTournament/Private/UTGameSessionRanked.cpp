@@ -674,12 +674,17 @@ void AUTGameSessionRanked::InitHostBeacon(FOnlineSessionSettings* SessionSetting
 
 		//ReservationBeaconHost->OnValidatePlayers().BindUObject(this, &AUTGameSessionRanked::OnBeaconValidatePlayers);
 		ReservationBeaconHost->OnReservationChanged().BindUObject(this, &AUTGameSessionRanked::OnBeaconReservationChange);
-		//ReservationBeaconHost->OnReservationsFull().BindUObject(this, &AUTGameSessionRanked::OnBeaconReservationsFull);
+		ReservationBeaconHost->OnReservationsFull().BindUObject(this, &AUTGameSessionRanked::OnBeaconReservationsFull);
 		ReservationBeaconHost->OnDuplicateReservation().BindUObject(this, &AUTGameSessionRanked::OnDuplicateReservation);
 		//ReservationBeaconHost->OnCancelationReceived().BindUObject(this, &AUTGameSessionRanked::OnCancelationReceived);
 		//ReservationBeaconHost->OnProcessReconnectForClient().BindUObject(this, &AUTGameSessionRanked::OnProcessReconnectForClient);
 		PauseBeaconRequests(false);
 	}
+}
+
+void AUTGameSessionRanked::OnBeaconReservationsFull()
+{
+	LockPlayersToSession(true);
 }
 
 void AUTGameSessionRanked::OnBeaconReservationChange()

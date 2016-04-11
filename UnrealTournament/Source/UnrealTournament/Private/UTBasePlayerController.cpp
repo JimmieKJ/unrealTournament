@@ -312,6 +312,7 @@ void AUTBasePlayerController::ClientReturnToLobby_Implementation()
 	{
 		LP->LastRankedMatchSessionId.Empty();
 		LP->LastRankedMatchUniqueId.Empty();
+		LP->SaveConfig();
 	}
 
 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();

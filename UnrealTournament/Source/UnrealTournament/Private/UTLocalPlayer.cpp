@@ -1106,13 +1106,6 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 	PlayerOnlineStatusChanged.Broadcast(this, LoginStatus, UniqueID);
 }
 
-void UUTLocalPlayer::CheatShowRankedReconnectDialog()
-{
-#if !UE_BUILD_SHIPPING
-	ShowRankedReconnectDialog(LastRankedMatchUniqueId);
-#endif
-}
-
 void UUTLocalPlayer::ShowRankedReconnectDialog(const FString& UniqueID)
 {
 #if !UE_SERVER

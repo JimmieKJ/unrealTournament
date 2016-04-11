@@ -4553,7 +4553,7 @@ void AUTGameMode::LockSession()
 		AUTGameSessionRanked* UTGameSession = Cast<AUTGameSessionRanked>(GameSession);
 		if (UTGameSession)
 		{
-			UTGameSession->LockPlayersToSession(false);
+			UTGameSession->LockPlayersToSession(true);
 		}
 	}
 }

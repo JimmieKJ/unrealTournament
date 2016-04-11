@@ -70,7 +70,7 @@ public:
 	virtual void OnBeaconReservationChange();
 
 	/** Delegate fired when the beacon indicates all reservations are taken */
-	//virtual void OnBeaconReservationsFull();
+	virtual void OnBeaconReservationsFull();
 
 	/** Delegate fired when the beacon indicates a duplicate reservation request */
 	virtual void OnDuplicateReservation(const FPartyReservation& DuplicateReservation);
