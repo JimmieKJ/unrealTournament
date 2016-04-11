@@ -631,7 +631,7 @@ void AUTCarriedObject::SendHomeWithNotify()
 
 void AUTCarriedObject::ClearGhostFlag()
 {
-	UE_LOG(UT, Warning, TEXT("Clear ghost flag %s"), MyGhostFlag ? *MyGhostFlag->GetName() :TEXT("NONE"));
+	UE_LOG(UT, Warning, TEXT("%s Clear ghost flag %s"), *GetName(), MyGhostFlag ? *MyGhostFlag->GetName() :TEXT("NONE"));
 	if (MyGhostFlag != nullptr)
 	{
 		MyGhostFlag->MyCarriedObject = nullptr;
@@ -650,12 +650,12 @@ void AUTCarriedObject::PutGhostFlagAt(const FVector NewGhostLocation)
 			Params.Owner = this;
 			MyGhostFlag = GetWorld()->SpawnActor<AUTGhostFlag>(GhostFlagClass, NewGhostLocation, GetActorRotation(), Params);
 			if (MyGhostFlag) MyGhostFlag->MyCarriedObject = this;
-			UE_LOG(UT, Warning, TEXT("ADD ghost flag %s "), MyGhostFlag ? *MyGhostFlag->GetName() : TEXT("NONE"));
+			UE_LOG(UT, Warning, TEXT("%s ADD ghost flag %s "), *GetName(), MyGhostFlag ? *MyGhostFlag->GetName() : TEXT("NONE"));
 		}
 		else
 		{
 			MyGhostFlag->SetActorLocation(NewGhostLocation);
-			UE_LOG(UT, Warning, TEXT("MOVE ghost flag %s "), MyGhostFlag ? *MyGhostFlag->GetName() : TEXT("NONE"));
+			UE_LOG(UT, Warning, TEXT("%s MOVE ghost flag %s "), *GetName(), MyGhostFlag ? *MyGhostFlag->GetName() : TEXT("NONE"));
 		}
 	}
 }
