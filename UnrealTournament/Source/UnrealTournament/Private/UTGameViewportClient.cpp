@@ -502,7 +502,7 @@ void UUTGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 					for (USceneComponent* Attachment : UTC->GetWeapon()->GetMesh()->AttachChildren)
 					{
 						// any additional weapon meshes are assumed to be projected in the shader if desired
-						if (!WeaponMeshes.Contains(Attachment) && !SavedTransforms.ContainsByPredicate([Attachment](const FSavedTransform& TestItem) { return TestItem.Component == Attachment; }))
+						if (!Attachment->IsPendingKill() && !WeaponMeshes.Contains(Attachment) && !SavedTransforms.ContainsByPredicate([Attachment](const FSavedTransform& TestItem) { return TestItem.Component == Attachment; }))
 						{
 							FVector AdjustedLoc = PaniniProjectLocation(SceneView, Attachment->GetComponentLocation(), UTC->GetWeapon()->GetMesh()->GetMaterial(0));
 
