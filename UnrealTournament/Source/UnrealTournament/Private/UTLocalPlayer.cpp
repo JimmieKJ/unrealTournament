@@ -1094,16 +1094,7 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 			PC->ClientGenericInitialization();
 		}
 
-#if !UE_SERVER
-		if (UniqueID.ToString() == LastRankedMatchUniqueId && !LastRankedMatchSessionId.IsEmpty())
-		{
-			// Ask player if they want to try to rejoin last ranked game
-			ShowMessage(NSLOCTEXT("UTLocalPlayer", "RankedReconnectTitle", "Reconnect To Ranked Match?"),
-				NSLOCTEXT("UTLocalPlayer", "RankedReconnect", "Would you like to reconnect to the last ranked match?"),
-				UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO,
-				FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::RankedReconnectResult));
-		}
-#endif
+		ShowRankedReconnectDialog(UniqueID.ToString());
 
 		// If we have a pending session, then join it.
 		JoinPendingSession();
@@ -1113,6 +1104,27 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 
 
 	PlayerOnlineStatusChanged.Broadcast(this, LoginStatus, UniqueID);
+}
+
+void UUTLocalPlayer::CheatShowRankedReconnectDialog()
+{
+#if !UE_BUILD_SHIPPING
+	ShowRankedReconnectDialog(LastRankedMatchUniqueId);
+#endif
+}
+
+void UUTLocalPlayer::ShowRankedReconnectDialog(const FString& UniqueID)
+{
+#if !UE_SERVER
+	if (UniqueID == LastRankedMatchUniqueId && !LastRankedMatchSessionId.IsEmpty())
+	{
+		// Ask player if they want to try to rejoin last ranked game
+		ShowMessage(NSLOCTEXT("UTLocalPlayer", "RankedReconnectTitle", "Reconnect To Ranked Match?"),
+			NSLOCTEXT("UTLocalPlayer", "RankedReconnect", "Would you like to reconnect to the last ranked match?"),
+			UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO,
+			FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::RankedReconnectResult));
+	}
+#endif
 }
 
 #if !UE_SERVER

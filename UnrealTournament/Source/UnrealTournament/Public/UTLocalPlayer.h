@@ -391,6 +391,12 @@ public:
 	UPROPERTY(config)
 	FString LastRankedMatchSessionId;
 
+	UFUNCTION(exec)
+	void CheatShowRankedReconnectDialog();
+
+	UFUNCTION()
+	void ShowRankedReconnectDialog(const FString& UniqueID);
+
 #if !UE_SERVER
 	virtual void RankedReconnectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 #endif
