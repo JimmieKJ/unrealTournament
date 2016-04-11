@@ -5430,6 +5430,24 @@ void AUTCharacter::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTr
 	DOREPLIFETIME_ACTIVE_OVERRIDE(ACharacter, RemoteViewPitch, false);
 
 	LastTakeHitReplicatedTime = GetWorld()->TimeSeconds;
+
+	if (ChangedPropertyTracker.IsReplay())
+	{
+		// If this is a replay, we save out certain values we need to runtime to do smooth interpolation
+		// We'll be able to look ahead in the replay to have these ahead of time for smoother playback
+		FCharacterReplaySample ReplaySample;
+
+		ReplaySample.Location = GetActorLocation();
+		ReplaySample.Rotation = GetActorRotation();
+		ReplaySample.Velocity = GetVelocity();
+		ReplaySample.Acceleration = GetCharacterMovement()->GetCurrentAcceleration();
+		ReplaySample.RemoteViewPitch = RemoteViewPitch;
+
+		FBitWriter Writer(0, true);
+		Writer << ReplaySample;
+
+		ChangedPropertyTracker.SetExternalData(Writer.GetData(), Writer.GetNumBits());
+	}
 }
 
 bool AUTCharacter::GatherUTMovement()
