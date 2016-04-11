@@ -890,7 +890,7 @@ bool AUTWeapon::CancelImpactEffect(const FHitResult& ImpactHit)
 	return (!ImpactHit.Actor.IsValid() && !ImpactHit.Component.IsValid()) || Cast<AUTCharacter>(ImpactHit.Actor.Get()) || Cast<AUTProjectile>(ImpactHit.Actor.Get());
 }
 
-void AUTWeapon::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation)
+void AUTWeapon::PlayImpactEffects_Implementation(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation)
 {
 	if (GetNetMode() != NM_DedicatedServer)
 	{

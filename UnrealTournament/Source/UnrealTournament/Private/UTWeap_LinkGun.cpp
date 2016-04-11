@@ -460,10 +460,10 @@ void AUTWeap_LinkGun::ClearLinks()
 	ClearLinksTo();
 }
 
-void AUTWeap_LinkGun::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation)
+void AUTWeap_LinkGun::PlayImpactEffects_Implementation(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation)
 {
 	FVector ModifiedTargetLoc = TargetLoc;
-	Super::PlayImpactEffects(ModifiedTargetLoc, FireMode, SpawnLocation, SpawnRotation);
+	Super::PlayImpactEffects_Implementation(ModifiedTargetLoc, FireMode, SpawnLocation, SpawnRotation);
 
 	// color beam if linked
 	if (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL)

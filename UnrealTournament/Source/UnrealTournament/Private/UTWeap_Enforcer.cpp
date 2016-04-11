@@ -243,7 +243,7 @@ void AUTWeap_Enforcer::PlayFiringEffects()
 }
 
 
-void AUTWeap_Enforcer::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation)
+void AUTWeap_Enforcer::PlayImpactEffects_Implementation(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation)
 {
 	UUTWeaponStateFiringBurst* BurstFireMode = Cast<UUTWeaponStateFiringBurst>(FiringState[GetCurrentFireMode()]);
 	if (GetNetMode() != NM_DedicatedServer)
@@ -290,7 +290,7 @@ void AUTWeap_Enforcer::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMod
 		}
 		else
 		{
-			Super::PlayImpactEffects(TargetLoc, FireMode, SpawnLocation, SpawnRotation);
+			Super::PlayImpactEffects_Implementation(TargetLoc, FireMode, SpawnLocation, SpawnRotation);
 		}
 
 		ImpactCount++;

@@ -176,7 +176,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = LinkGun)
 	virtual void ClearLinksFrom();
 
-	virtual void PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation) override;
+	virtual void PlayImpactEffects_Implementation(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation) override;
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = LinkGun)
 	virtual void ClearLinks();

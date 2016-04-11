@@ -96,7 +96,7 @@ class UNREALTOURNAMENT_API AUTWeap_Enforcer : public AUTWeapon
 	virtual void FireInstantHit(bool bDealDamage, FHitResult* OutHit) override;
 	virtual bool StackPickup_Implementation(AUTInventory* ContainedInv) override; 
 	virtual void BringUp(float OverflowTime) override;
-	virtual void PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation) override;
+	virtual void PlayImpactEffects_Implementation(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation) override;
 	virtual void UpdateOverlays() override;
 	virtual void SetSkin(UMaterialInterface* NewSkin) override;
 	virtual void GotoEquippingState(float OverflowTime) override;

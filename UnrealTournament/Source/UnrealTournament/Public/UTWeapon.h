@@ -608,10 +608,11 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	 * called only if FlashLocation has been set (instant hit weapon)
 	 * Call GetImpactSpawnPosition() to set SpawnLocation and SpawnRotation
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	virtual void PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation);
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Weapon")
+	void PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation);
 
 	/** shared code between UTWeapon and UTWeaponAttachment to refine replicated FlashLocation into impact effect transform via trace */
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	static FHitResult GetImpactEffectHit(APawn* Shooter, const FVector& StartLoc, const FVector& TargetLoc);
 
 	/** return start point for weapons fire */
