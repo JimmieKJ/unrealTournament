@@ -42,6 +42,16 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 	bSendHomeOnScore = true;
 }
 
+void AUTCarriedObject::Destroyed()
+{
+	Super::Destroyed();
+	if (MyGhostFlag)
+	{
+		MyGhostFlag->Destroy();
+		MyGhostFlag = nullptr;
+	}
+}
+
 UUTSecurityCameraComponent* AUTCarriedObject::GetDetectingCamera()
 {
 	return DetectingCamera;

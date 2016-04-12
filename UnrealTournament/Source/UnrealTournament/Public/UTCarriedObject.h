@@ -256,6 +256,7 @@ public:
 	class UUTProjectileMovementComponent* MovementComponent;
 
 	virtual void OnConstruction(const FTransform& Transform) override;
+	virtual void Destroyed() override;
 
 	void FellOutOfWorld(const UDamageType& dmgType);
 
