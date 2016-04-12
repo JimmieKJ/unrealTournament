@@ -40,7 +40,7 @@ void UUTSecurityCameraComponent::TickComponent(float DeltaTime, ELevelTick TickT
 		if (DetectedFlag)
 		{
 			// verify if still visible
-			if (GetWorld()->LineTraceTestByChannel(CameraLoc, DetectedFlag->GetActorLocation() + FVector(0.f, 0.f,60.f), COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParams))
+			if (((DetectedFlag->GetActorLocation() - CameraLoc).SizeSquared() > DetectionRadius * DetectionRadius) || GetWorld()->LineTraceTestByChannel(CameraLoc, DetectedFlag->GetActorLocation() + FVector(0.f, 0.f,60.f), COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParams))
 			{
 				OnFlagCarrierDetectionLost(DetectedFlagCarrier);
 				if (DetectedFlag)
@@ -57,7 +57,7 @@ void UUTSecurityCameraComponent::TickComponent(float DeltaTime, ELevelTick TickT
 			for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 			{
 				AUTCharacter* UTChar = Cast<AUTCharacter>((*It).Get());
-				if (UTChar && UTChar->GetCarriedObject() && ((UTChar->GetActorLocation() - CameraLoc).SizeSquared() < DetectionRadius * DetectionRadius))
+				if (UTChar && UTChar->GetCarriedObject() && ((UTChar->GetCarriedObject()->GetActorLocation() - CameraLoc).SizeSquared() < DetectionRadius * DetectionRadius))
 				{
 					if (!GetWorld()->LineTraceTestByChannel(CameraLoc, UTChar->GetActorLocation() + FVector(0.f, 0.f, 60.f), COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParams)
 						&& UTChar->GetCarriedObject()->SetDetectingCamera(this))
