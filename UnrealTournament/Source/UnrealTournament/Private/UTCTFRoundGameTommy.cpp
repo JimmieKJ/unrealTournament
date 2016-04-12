@@ -36,7 +36,7 @@ AUTCTFRoundGameTommy::AUTCTFRoundGameTommy(const FObjectInitializer& ObjectIniti
 	ChestArmorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Armor/Armor_Chest.Armor_Chest_C"));
 	DefenseActivatedPowerupObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_ActivatedPowerup_Respawn.BP_ActivatedPowerup_Respawn_C"));
 	
-	TimeLimit = 3;
+	TimeLimit = 5;
 
 	OffenseKillsNeededForPowerUp = 10;
 	DefenseKillsNeededForPowerUp = 10;
