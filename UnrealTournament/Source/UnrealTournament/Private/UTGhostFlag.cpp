@@ -75,6 +75,7 @@ void AUTGhostFlag::OnSetCarriedObject()
 		Params.Owner = this;
 		Trail = GetWorld()->SpawnActor<AUTFlagReturnTrail>(AUTFlagReturnTrail::StaticClass(), MyCarriedObject->GetActorLocation(), MyCarriedObject->GetActorRotation(), Params);
 		Trail->EndPoint = GetActorLocation();
+		TeamIndex = (MyCarriedObject && MyCarriedObject->Team) ? MyCarriedObject->Team->TeamIndex : 0;
 		Trail->SetTeamIndex(TeamIndex);
 		Trail->CustomTimeDilation = 0.1f;
 	}
@@ -83,7 +84,6 @@ void AUTGhostFlag::OnSetCarriedObject()
 void AUTGhostFlag::SetCarriedObject(AUTCarriedObject* NewCarriedObject)
 {
 	MyCarriedObject = NewCarriedObject;
-	TeamIndex = (MyCarriedObject && MyCarriedObject->Team) ? MyCarriedObject->Team->TeamIndex : 0;
 	OnSetCarriedObject();
 }
 
