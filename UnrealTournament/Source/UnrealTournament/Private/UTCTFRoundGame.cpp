@@ -62,6 +62,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 
 	InitialBoostCount = 0;
 	bNoLivesEndRound = true;
+	MaxTimeScoreBonus = 200;
 
 	// remove translocator - fixmesteve make this an option
 	TranslocatorObject = nullptr;
@@ -444,7 +445,7 @@ void AUTCTFRoundGame::HandleFlagCapture(AUTPlayerState* Holder)
 {
 	if (UTGameState && Holder && Holder->Team)
 	{
-		Holder->Team->SecondaryScore += UTGameState->RemainingTime;
+		Holder->Team->SecondaryScore += FMath::Min(MaxTimeScoreBonus, UTGameState->RemainingTime);
 		if (UTGameState->RemainingTime < 60)
 		{
 			// give defense a bonus

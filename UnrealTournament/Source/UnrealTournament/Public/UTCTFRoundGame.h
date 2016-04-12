@@ -76,6 +76,9 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 		int32 RemainingPickupDelay;
 
 	UPROPERTY()
+		int32 MaxTimeScoreBonus;
+
+	UPROPERTY()
 		bool bRollingAttackerSpawns;
 
 	UPROPERTY()
