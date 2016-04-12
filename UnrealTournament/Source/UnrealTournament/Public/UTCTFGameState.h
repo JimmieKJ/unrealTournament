@@ -158,6 +158,13 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	UPROPERTY(Replicated)
 		uint32 bRedToCap : 1;
 
+	UPROPERTY(Replicated)
+		bool bAttackerLivesLimited;
+
+	UPROPERTY(Replicated)
+		bool bDefenderLivesLimited;
+
+
 	/** Delay before bringing up scoreboard at halftime. */
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = CTF)
 		float HalftimeScoreDelay;

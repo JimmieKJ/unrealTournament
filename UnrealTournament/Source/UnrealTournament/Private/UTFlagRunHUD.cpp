@@ -45,7 +45,8 @@ void AUTFlagRunHUD::DrawHUD()
 			AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
 			if (UTPS != NULL && UTPS->Team != NULL && !UTPS->bOnlySpectator  && !UTPS->bIsInactive)
 			{
-				if (GS->bRedToCap == (UTPS->Team->TeamIndex == 0))
+				bool bIsAttacker = (GS->bRedToCap == (UTPS->Team->TeamIndex == 0));
+				if (bIsAttacker ? GS->bAttackerLivesLimited : GS->bDefenderLivesLimited)
 				{
 					if (!UTPS->bOutOfLives)
 					{

@@ -44,6 +44,12 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 		bool bPerPlayerLives;
 
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		bool bAttackerLivesLimited;
+
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		bool bDefenderLivesLimited;
+
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		int32 NumRounds;
 
 	UPROPERTY(BlueprintReadOnly, Category = CTF)

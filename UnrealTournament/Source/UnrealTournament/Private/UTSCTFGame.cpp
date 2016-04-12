@@ -47,8 +47,9 @@ AUTSCTFGame::AUTSCTFGame(const FObjectInitializer& ObjectInitializer)
 	MapPrefix = TEXT("GAU");
 	bHideInUI = true;
 	bNoLivesEndRound = false;
+	bAttackerLivesLimited = false;
+	bDefenderLivesLimited = false;
 }
-
 
 void AUTSCTFGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {

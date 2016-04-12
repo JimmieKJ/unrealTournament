@@ -167,7 +167,7 @@ void AUTCTFFlag::MoveToHome()
 
 void AUTCTFFlag::Drop(AController* Killer)
 {
-	UE_LOG(UT, Warning, TEXT("DROP"));
+	UE_LOG(UT, Warning, TEXT("DROP FLAG"));
 	UUTGameplayStatics::UTPlaySound(GetWorld(), DropSound, (HoldingPawn != NULL) ? (AActor*)HoldingPawn : (AActor*)this);
 
 	bool bDelayDroppedMessage = false;

@@ -108,6 +108,8 @@ void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & O
 	DOREPLIFETIME(AUTCTFGameState, BlueLivesRemaining);
 	DOREPLIFETIME(AUTCTFGameState, bAsymmetricVictoryConditions);
 	DOREPLIFETIME(AUTCTFGameState, bRedToCap);
+	DOREPLIFETIME(AUTCTFGameState, bAttackerLivesLimited);
+	DOREPLIFETIME(AUTCTFGameState, bDefenderLivesLimited);
 }
 
 bool AUTCTFGameState::AllowMinimapFor(AUTPlayerState* PS)

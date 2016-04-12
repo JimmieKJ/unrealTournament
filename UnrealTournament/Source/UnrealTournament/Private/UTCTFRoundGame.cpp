@@ -53,6 +53,9 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	GameStateClass = AUTCTFRoundGameState::StaticClass();
 	NumRounds = 6;
 
+	bAttackerLivesLimited = true;
+	bDefenderLivesLimited = true;
+
 	OffenseKillsNeededForPowerUp = 10;
 	DefenseKillsNeededForPowerUp = 10;
 
@@ -122,9 +125,6 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 
 	FString InOpt = UGameplayStatics::ParseOption(Options, TEXT("Dash"));
 	bUseDash = EvalBoolOptions(InOpt, bUseDash);
-
-	InOpt = UGameplayStatics::ParseOption(Options, TEXT("Asymm"));
-	bAsymmetricVictoryConditions = EvalBoolOptions(InOpt, bAsymmetricVictoryConditions);
 
 	InOpt = UGameplayStatics::ParseOption(Options, TEXT("OwnFlag"));
 	bCarryOwnFlag = EvalBoolOptions(InOpt, bCarryOwnFlag);
@@ -497,6 +497,8 @@ void AUTCTFRoundGame::HandleMatchHasStarted()
 		InitRound();
 		CTFGameState->CTFRound = 1;
 		CTFGameState->bAsymmetricVictoryConditions = bAsymmetricVictoryConditions;
+		CTFGameState->bDefenderLivesLimited = bDefenderLivesLimited;
+		CTFGameState->bAttackerLivesLimited = bAttackerLivesLimited;
 		CTFGameState->bOverrideToggle = true;
 		bFirstRoundInitialized = true;
 	}
@@ -684,7 +686,7 @@ void AUTCTFRoundGame::InitRound()
 			PS->RespawnWaitTime = 0.f;
 			PS->RemainingBoosts = InitialBoostCount;
 			PS->BoostClass = UDamageClass;
-			if (bAsymmetricVictoryConditions && !IsPlayerOnLifeLimitedTeam(PS))
+			if (PS->Team && (bRedToCap != (PS->Team->TeamIndex == 0)))
 			{
 				PS->BoostClass = RepulsorClass;
 			}
@@ -981,7 +983,7 @@ bool AUTCTFRoundGame::IsPlayerOnLifeLimitedTeam(AUTPlayerState* PlayerState) con
 		return false;
 	}
 
-	return IsTeamOnOffense(PlayerState->Team->TeamIndex);
+	return IsTeamOnOffense(PlayerState->Team->TeamIndex) ? bAttackerLivesLimited : bDefenderLivesLimited;
 }
 
 void AUTCTFRoundGame::HandlePowerupUnlocks(APawn* Other, AController* Killer)
