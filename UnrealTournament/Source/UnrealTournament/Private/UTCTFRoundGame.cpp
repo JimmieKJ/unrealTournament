@@ -764,6 +764,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 		if (bAsymmetricVictoryConditions && PS->Team && IsTeamOnDefense(PS->Team->TeamIndex))
 		{
 			PS->RespawnWaitTime += 1.f;
+			PS->OnRespawnWaitReceived();
 		}
 		if (!bAsymmetricVictoryConditions || IsPlayerOnLifeLimitedTeam(PS))
 		{
@@ -846,7 +847,7 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 	Super::ScoreKill_Implementation(Killer, Other, KilledPawn, DamageType);
 
 	AUTPlayerState* OtherPS = Other ? Cast<AUTPlayerState>(Other->PlayerState) : nullptr;
-	if (OtherPS && OtherPS->Team && bRollingAttackerSpawns)
+	if (OtherPS && OtherPS->Team && IsTeamOnOffense(OtherPS->Team->TeamIndex) && bRollingAttackerSpawns)
 	{
 		if (LastAttackerSpawnTime < 1.f)
 		{
@@ -861,6 +862,7 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 			RollingSpawnStartTime = GetWorld()->GetTimeSeconds();
 			OtherPS->RespawnWaitTime = RollingAttackerRespawnDelay;
 		}
+		OtherPS->OnRespawnWaitReceived();
 	}
 	if (!bLastManOccurred && OtherPS && IsPlayerOnLifeLimitedTeam(OtherPS) && (OtherPS->RemainingLives > 0))
 	{
@@ -960,9 +962,10 @@ void AUTCTFRoundGame::CheckGameTime()
 				for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 				{
 					AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-					if (PS && !PS->bOnlySpectator && !PS->bOutOfLives && !PS->bIsInactive && bAsymmetricVictoryConditions && !IsPlayerOnLifeLimitedTeam(PS))
+					if (PS && !PS->bOnlySpectator && !PS->bOutOfLives && !PS->bIsInactive && bAsymmetricVictoryConditions && PS->Team && IsTeamOnDefense(PS->Team->TeamIndex))
 					{
 						PS->RespawnWaitTime += 1.f;
+						PS->OnRespawnWaitReceived();
 					}
 				}
 			}

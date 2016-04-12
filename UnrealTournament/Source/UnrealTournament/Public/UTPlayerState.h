@@ -232,8 +232,11 @@ public:
 	uint32 bOutOfLives:1;
 
 	/** Max of this and game respawn time is min respawntime */
-	UPROPERTY(replicated)
+	UPROPERTY(ReplicatedUsing = OnRespawnWaitReceived)
 		float RespawnWaitTime;
+
+	UFUNCTION()
+		void OnRespawnWaitReceived();
 
 	/** How many times associated player has died */
 	UPROPERTY(BlueprintReadOnly, replicated, ReplicatedUsing = OnDeathsReceived, Category = PlayerState)

@@ -557,7 +557,7 @@ void AUTPlayerState::AdjustScore(int32 ScoreAdjustment)
 	ForceNetUpdate();
 }
 
-void AUTPlayerState::OnDeathsReceived()
+void AUTPlayerState::OnRespawnWaitReceived()
 {
 	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
 	if (UTGameState != NULL)
@@ -565,6 +565,11 @@ void AUTPlayerState::OnDeathsReceived()
 		RespawnTime = UTGameState->GetRespawnWaitTimeFor(this);
 		ForceRespawnTime = RespawnTime + UTGameState->ForceRespawnTime;
 	}
+}
+
+void AUTPlayerState::OnDeathsReceived()
+{
+	OnRespawnWaitReceived();
 }
 
 void AUTPlayerState::SetOutOfLives(bool bNewValue)
