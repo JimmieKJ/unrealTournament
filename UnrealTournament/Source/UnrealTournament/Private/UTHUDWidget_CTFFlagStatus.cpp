@@ -141,33 +141,22 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 			bool bShouldDrawFlagIcon = (FlagState == CarriedObjectState::Dropped) || Flag->bCurrentlyPinged || (bIsEnemyFlag ? Flag->bEnemyCanPickup : Flag->bFriendlyCanPickup);
 			bDrawEdgeArrow = false;
 
-			if ((bSpectating || bShouldDrawFlagIcon || Flag->GetDetectingCamera()) && (Flag->Holder != UTPlayerOwner->PlayerState) && (FlagState != CarriedObjectState::Home))
+			if ((bSpectating || bShouldDrawFlagIcon) && (Flag->Holder != UTPlayerOwner->PlayerState) && (FlagState != CarriedObjectState::Home))
 			{
-				if (!bSpectating && !bShouldDrawFlagIcon)
+				WorldPosition = Flag->GetActorLocation();
+				if (FlagState == CarriedObjectState::Held)
 				{
-					bDrawInWorld = (Flag->GetDetectingCamera() != nullptr);
-					if (bDrawInWorld)
+					Holder = Cast<AUTCharacter>(Flag->AttachmentReplication.AttachParent);
+					if (Holder)
 					{
-						WorldPosition = Flag->GetDetectingCamera()->K2_GetComponentLocation();
+						WorldPosition = Holder->GetMesh()->GetComponentLocation() + FVector(0.f, 0.f, Holder->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 2.25f);
 					}
 				}
 				else
 				{
-					WorldPosition = Flag->GetActorLocation();
-					if (FlagState == CarriedObjectState::Held)
-					{
-						Holder = Cast<AUTCharacter>(Flag->AttachmentReplication.AttachParent);
-						if (Holder)
-						{
-							WorldPosition = Holder->GetMesh()->GetComponentLocation() + FVector(0.f, 0.f, Holder->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 2.25f);
-						}
-					}
-					else
-					{
-						WorldPosition += FVector(0.f, 0.f, Flag->Collision->GetUnscaledCapsuleHalfHeight() * 0.75f);
-					}
-					bDrawInWorld = true;
+					WorldPosition += FVector(0.f, 0.f, Flag->Collision->GetUnscaledCapsuleHalfHeight() * 0.75f);
 				}
+				bDrawInWorld = true;
 
 				ScreenPosition = GetAdjustedScreenPosition(WorldPosition, ViewPoint, ViewDir, Dist, Edge, EdgeYPos, bDrawEdgeArrow, Team);
 			}
@@ -213,35 +202,31 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 				FlagIconTemplate.RenderOpacity = CurrentWorldAlpha;
 				CircleBorder[Team].RenderOpacity = CurrentWorldAlpha;
 				CircleSlate[Team].RenderOpacity = CurrentWorldAlpha;
-				RenderObj_TextureAt(CircleSlate[Team], ScreenPosition.X, ScreenPosition.Y, CircleSlate[Team].GetWidth()* WorldRenderScale, CircleSlate[Team].GetHeight()* WorldRenderScale);
-				RenderObj_TextureAt(CircleBorder[Team], ScreenPosition.X, ScreenPosition.Y, CircleBorder[Team].GetWidth()* WorldRenderScale, CircleBorder[Team].GetHeight()* WorldRenderScale);
+				float InWorldFlagScale = GS->bAsymmetricVictoryConditions ? WorldRenderScale*StatusScale : WorldRenderScale;
+				RenderObj_TextureAt(CircleSlate[Team], ScreenPosition.X, ScreenPosition.Y, CircleSlate[Team].GetWidth()* InWorldFlagScale, CircleSlate[Team].GetHeight()* InWorldFlagScale);
+				RenderObj_TextureAt(CircleBorder[Team], ScreenPosition.X, ScreenPosition.Y, CircleBorder[Team].GetWidth()* InWorldFlagScale, CircleBorder[Team].GetHeight()* InWorldFlagScale);
 
 				if (bDrawEdgeArrow)
 				{
 					DrawEdgeArrow(ScreenPosition, CurrentWorldAlpha, WorldRenderScale, Team);
 				}
-				if (!bSpectating && !bShouldDrawFlagIcon)
-				{
-					// Drawing detecting camera
-					RenderObj_TextureAt(CameraIconTemplate, ScreenPosition.X, ScreenPosition.Y, CameraIconTemplate.GetWidth()* WorldRenderScale, CameraIconTemplate.GetHeight()* WorldRenderScale);
-				}
-				else if (FlagState == CarriedObjectState::Held)
+				if (FlagState == CarriedObjectState::Held)
 				{
 					TakenIconTemplate.RenderOpacity = CurrentWorldAlpha;
-					RenderObj_TextureAt(TakenIconTemplate, ScreenPosition.X, ScreenPosition.Y, 1.1f * TakenIconTemplate.GetWidth()* WorldRenderScale, 1.1f * TakenIconTemplate.GetHeight()* WorldRenderScale);
-					RenderObj_TextureAt(FlagIconTemplate, ScreenPosition.X - 0.25f * FlagIconTemplate.GetWidth()* WorldRenderScale, ScreenPosition.Y - 0.25f * FlagIconTemplate.GetHeight()* WorldRenderScale, FlagIconTemplate.GetWidth()* WorldRenderScale, FlagIconTemplate.GetHeight()* WorldRenderScale);
+					RenderObj_TextureAt(TakenIconTemplate, ScreenPosition.X, ScreenPosition.Y, 1.1f * TakenIconTemplate.GetWidth()* InWorldFlagScale, 1.1f * TakenIconTemplate.GetHeight()* InWorldFlagScale);
+					RenderObj_TextureAt(FlagIconTemplate, ScreenPosition.X - 0.25f * FlagIconTemplate.GetWidth()* InWorldFlagScale, ScreenPosition.Y - 0.25f * FlagIconTemplate.GetHeight()* InWorldFlagScale, FlagIconTemplate.GetWidth()* InWorldFlagScale, FlagIconTemplate.GetHeight()* InWorldFlagScale);
 				}
 				else
 				{
-					RenderObj_TextureAt(FlagIconTemplate, ScreenPosition.X, ScreenPosition.Y, 1.25f*FlagIconTemplate.GetWidth()* WorldRenderScale, 1.25f*FlagIconTemplate.GetHeight()* WorldRenderScale);
+					RenderObj_TextureAt(FlagIconTemplate, ScreenPosition.X, ScreenPosition.Y, 1.25f*FlagIconTemplate.GetWidth()* InWorldFlagScale, 1.25f*FlagIconTemplate.GetHeight()* InWorldFlagScale);
 
 					if (FlagState == CarriedObjectState::Dropped)
 					{
 						float DroppedAlpha = DroppedIconTemplate.RenderOpacity;
 						DroppedIconTemplate.RenderOpacity = CurrentWorldAlpha;
-						RenderObj_TextureAt(DroppedIconTemplate, ScreenPosition.X, ScreenPosition.Y, 1.25f*DroppedIconTemplate.GetWidth()* WorldRenderScale, 1.25f*DroppedIconTemplate.GetHeight()* WorldRenderScale);
+						RenderObj_TextureAt(DroppedIconTemplate, ScreenPosition.X, ScreenPosition.Y, 1.25f*DroppedIconTemplate.GetWidth()* InWorldFlagScale, 1.25f*DroppedIconTemplate.GetHeight()* InWorldFlagScale);
 						DroppedIconTemplate.RenderOpacity = DroppedAlpha;
-						DrawText(FText::AsNumber(Flag->FlagReturnTime), ScreenPosition.X, ScreenPosition.Y, TinyFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, 1.5f*WorldRenderScale, 0.5f + 0.5f*CurrentWorldAlpha, FLinearColor::White, FLinearColor(0.f, 0.f, 0.f, 0.f), ETextHorzPos::Center, ETextVertPos::Center);
+						DrawText(FText::AsNumber(Flag->FlagReturnTime), ScreenPosition.X, ScreenPosition.Y, TinyFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, 1.5f*InWorldFlagScale, 0.5f + 0.5f*CurrentWorldAlpha, FLinearColor::White, FLinearColor(0.f, 0.f, 0.f, 0.f), ETextHorzPos::Center, ETextVertPos::Center);
 					}
 				}
 			}
