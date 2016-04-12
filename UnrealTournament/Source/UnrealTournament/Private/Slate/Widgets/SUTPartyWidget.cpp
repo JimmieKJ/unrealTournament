@@ -70,6 +70,10 @@ void SUTPartyWidget::SetupPartyMemberBox()
 	TArray<FUniqueNetIdRepl> PartyMemberIds;
 	PartyContext->GetLocalPartyMemberIDs(PartyMemberIds);
 
+	EPartyType PartyType = EPartyType::Public;
+	bool bLeaderInvitesOnly = false;
+	bool bLeaderFriendsOnly = false;
+
 	TSharedPtr<const FUniqueNetId> PartyLeaderId = nullptr;
 	IOnlinePartyPtr PartyInt = Online::GetPartyInterface();
 	if (PartyInt.IsValid())
@@ -82,6 +86,10 @@ void SUTPartyWidget::SetupPartyMemberBox()
 			if (PersistentParty)
 			{
 				PartyLeaderId = PersistentParty->GetPartyLeader();
+
+				PartyType = PersistentParty->GetPartyType();
+				bLeaderInvitesOnly = PersistentParty->IsLeaderInvitesOnly();
+				bLeaderFriendsOnly = PersistentParty->IsLeaderFriendsOnly();
 			}
 		}
 	}
@@ -141,19 +149,38 @@ void SUTPartyWidget::SetupPartyMemberBox()
 			]
 		];
 
-		if (LocalPlayerId == PartyLeaderId && PartyMemberIds[i] != PartyLeaderId)
+		if (LocalPlayerId == PartyLeaderId)
 		{
 			DropDownButton->AddSubMenuItem(PartyMembers[i], FOnClicked::CreateSP(this, &SUTPartyWidget::PlayerNameClicked, i));
 			DropDownButton->AddSpacer();
-			DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "PromoteToLeader", "Promote To Leader"), FOnClicked::CreateSP(this, &SUTPartyWidget::PromoteToLeader, i));
-			DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "KickFromParty", "Kick From Party"), FOnClicked::CreateSP(this, &SUTPartyWidget::KickFromParty, i), true);
+
+			if (PartyMemberIds[i] == PartyLeaderId)
+			{
+				if (PartyType != EPartyType::Public)
+				{
+					DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "MakePartyPublic", "Make Party Public"), FOnClicked::CreateSP(this, &SUTPartyWidget::ChangePartyType, EPartyType::Public));
+				}
+				if (PartyType != EPartyType::FriendsOnly)
+				{
+					DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "MakePartyFriendsOnly", "Make Party Friends Only"), FOnClicked::CreateSP(this, &SUTPartyWidget::ChangePartyType, EPartyType::FriendsOnly));
+				}
+				if (PartyType != EPartyType::Private)
+				{
+					DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "MakePartyPrivate", "Make Party Private"), FOnClicked::CreateSP(this, &SUTPartyWidget::ChangePartyType, EPartyType::Private));
+				}
+			}
+			else
+			{
+				DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "PromoteToLeader", "Promote To Leader"), FOnClicked::CreateSP(this, &SUTPartyWidget::PromoteToLeader, i));
+				DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "KickFromParty", "Kick From Party"), FOnClicked::CreateSP(this, &SUTPartyWidget::KickFromParty, i), true);
+			}
 		}
 		else
 		{
 			DropDownButton->AddSubMenuItem(PartyMembers[i], FOnClicked::CreateSP(this, &SUTPartyWidget::PlayerNameClicked, i), true);
 		}
 
-		if (LocalPlayerId == PartyMemberIds[i])
+		if (LocalPlayerId == PartyMemberIds[i] && PartyMemberIds[i] != PartyLeaderId)
 		{
 			DropDownButton->AddSpacer();
 			DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "LeaveParty", "Leave Party"), FOnClicked::CreateSP(this, &SUTPartyWidget::LeaveParty), true);
@@ -239,6 +266,28 @@ FReply SUTPartyWidget::PromoteToLeader(int32 PartyMemberIdx)
 			PartyContext->PromotePartyMemberToLeader(PartyMemberIds[PartyMemberIdx]);
 		}
 	}
+
+	return FReply::Handled();
+}
+
+FReply SUTPartyWidget::ChangePartyType(EPartyType InNewPartyType)
+{
+	IOnlinePartyPtr PartyInt = Online::GetPartyInterface();
+	if (PartyInt.IsValid())
+	{
+		UUTGameInstance* GameInstance = CastChecked<UUTGameInstance>(Ctx.GetPlayerController()->GetGameInstance());
+		UUTParty* Party = GameInstance->GetParties();
+		if (Party)
+		{
+			UPartyGameState* PersistentParty = Party->GetPersistentParty();
+			if (PersistentParty)
+			{
+				PersistentParty->SetPartyType(InNewPartyType, PersistentParty->IsLeaderFriendsOnly(), PersistentParty->IsLeaderInvitesOnly());
+			}
+		}
+	}
+
+	SetupPartyMemberBox();
 
 	return FReply::Handled();
 }
