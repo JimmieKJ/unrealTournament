@@ -4978,20 +4978,13 @@ void UUTLocalPlayer::ShowMatchmakingDialog()
 		return;
 	}
 	
-	// Only the party leader can cancel
-	uint16 ButtonMask = 0;
-	if (IsPartyLeader())
-	{
-		ButtonMask = UTDIALOG_BUTTON_CANCEL;
-	}
-
 	OpenDialog(
 		SAssignNew(MatchmakingDialog, SUTMatchmakingDialog)
 		.PlayerOwner(this)
 		.DialogSize(FVector2D(0.6f, 0.4f))
 		.DialogPosition(FVector2D(0.5f, 0.5f))
 		.DialogTitle(NSLOCTEXT("UUTLocalPlayer", "MatchmakingSearch", "Searching For Match"))
-		.ButtonMask(ButtonMask)
+		.ButtonMask(UTDIALOG_BUTTON_CANCEL)
 		.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::MatchmakingResult))
 		);
 #endif
@@ -5023,7 +5016,15 @@ void UUTLocalPlayer::MatchmakingResult(TSharedPtr<SCompoundWidget> Widget, uint1
 		UUTParty* Party = UTGameInstance->GetParties();
 		if (Party)
 		{
-			Party->RestorePersistentPartyState();
+			// Non party leader leaving should leave the party
+			if (!IsPartyLeader())
+			{
+				Party->LeaveAndRestorePersistentParty();
+			}
+			else
+			{
+				Party->RestorePersistentPartyState();
+			}
 		}
 	}
 
