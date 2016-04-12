@@ -649,12 +649,15 @@ void AUTCarriedObject::PutGhostFlagAt(const FVector NewGhostLocation)
 			FActorSpawnParameters Params;
 			Params.Owner = this;
 			MyGhostFlag = GetWorld()->SpawnActor<AUTGhostFlag>(GhostFlagClass, NewGhostLocation, GetActorRotation(), Params);
-			if (MyGhostFlag) MyGhostFlag->MyCarriedObject = this;
+			if (MyGhostFlag)
+			{
+				MyGhostFlag->SetCarriedObject(this);
+			}
 			UE_LOG(UT, Warning, TEXT("%s ADD ghost flag %s "), *GetName(), MyGhostFlag ? *MyGhostFlag->GetName() : TEXT("NONE"));
 		}
 		else
 		{
-			MyGhostFlag->SetActorLocation(NewGhostLocation);
+			MyGhostFlag->MoveTo(NewGhostLocation);
 			UE_LOG(UT, Warning, TEXT("%s MOVE ghost flag %s "), *GetName(), MyGhostFlag ? *MyGhostFlag->GetName() : TEXT("NONE"));
 		}
 	}
@@ -679,14 +682,6 @@ void AUTCarriedObject::SendHome()
 		if (PastPositions.Num() > 0)
 		{
 			bool bWantsGhostFlag = false;
-			FActorSpawnParameters Params;
-			Params.Owner = this;
-			AUTFlagReturnTrail* Trail = GetWorld()->SpawnActor<AUTFlagReturnTrail>(AUTFlagReturnTrail::StaticClass(), GetActorLocation(), GetActorRotation(), Params);
-			if (Trail)
-			{
-				Trail->EndPoint = PastPositions[PastPositions.Num() - 1];
-				Trail->SetTeamIndex(Team ? Team->TeamIndex : 0);
-			}
 			DetachRootComponentFromParent(true);
 			MovementComponent->Velocity = FVector(0.0f, 0.0f, 0.0f);
 			Collision->SetRelativeRotation(FRotator(0, 0, 0));

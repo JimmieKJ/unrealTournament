@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTGhostFlag.h"
 #include "Net/UnrealNetwork.h"
+#include "UTFlagReturnTrail.h"
 
 AUTGhostFlag::AUTGhostFlag(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -31,6 +32,15 @@ AUTGhostFlag::AUTGhostFlag(const FObjectInitializer& ObjectInitializer)
 	}
 }
 
+void AUTGhostFlag::Destroyed()
+{
+	Super::Destroyed();
+	if (Trail)
+	{
+		Trail->Destroy();
+	}
+}
+
 void AUTGhostFlag::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -51,5 +61,41 @@ void AUTGhostFlag::Tick(float DeltaTime)
 	{
 		TimerEffect->SetHiddenInGame(true);
 	}
+}
+
+void AUTGhostFlag::OnSetCarriedObject()
+{
+	if (MyCarriedObject && (GetNetMode() != NM_DedicatedServer))
+	{
+		if (Trail)
+		{
+			Trail->Destroy();
+		}
+		FActorSpawnParameters Params;
+		Params.Owner = this;
+		Trail = GetWorld()->SpawnActor<AUTFlagReturnTrail>(AUTFlagReturnTrail::StaticClass(), MyCarriedObject->GetActorLocation(), MyCarriedObject->GetActorRotation(), Params);
+		Trail->EndPoint = GetActorLocation();
+		Trail->SetTeamIndex(TeamIndex);
+		Trail->CustomTimeDilation = 0.1f;
+	}
+}
+
+void AUTGhostFlag::SetCarriedObject(AUTCarriedObject* NewCarriedObject)
+{
+	MyCarriedObject = NewCarriedObject;
+	TeamIndex = (MyCarriedObject && MyCarriedObject->Team) ? MyCarriedObject->Team->TeamIndex : 0;
+	OnSetCarriedObject();
+}
+
+void AUTGhostFlag::MoveTo(const FVector& NewLocation)
+{
+	SetActorLocation(NewLocation);
+	OnSetCarriedObject(); 
+}
+
+void AUTGhostFlag::OnRep_ReplicatedMovement()
+{
+	Super::OnRep_ReplicatedMovement();
+	OnSetCarriedObject();
 }
 

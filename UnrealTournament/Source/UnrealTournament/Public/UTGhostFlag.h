@@ -13,9 +13,21 @@ class UNREALTOURNAMENT_API AUTGhostFlag : public AActor
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Pickup)
 	UParticleSystemComponent* TimerEffect;
 
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = Flag)
+	UPROPERTY(ReplicatedUsing=OnSetCarriedObject, BlueprintReadOnly, Category = Flag)
 	AUTCarriedObject* MyCarriedObject;
 
-	virtual void Tick(float DeltaTime) override;
+	UPROPERTY()
+		class AUTFlagReturnTrail* Trail;
 
+	UPROPERTY()
+		int32 TeamIndex;
+
+	UFUNCTION()
+		virtual void OnSetCarriedObject();
+
+	virtual void MoveTo(const FVector& NewLocation);
+	virtual void SetCarriedObject(AUTCarriedObject* NewCarriedObject);
+	virtual void Tick(float DeltaTime) override;
+	virtual void Destroyed() override;
+	virtual void OnRep_ReplicatedMovement() override;
 };
