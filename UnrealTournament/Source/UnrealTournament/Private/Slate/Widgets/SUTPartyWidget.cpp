@@ -57,15 +57,16 @@ void SUTPartyWidget::SetupPartyMemberBox()
 	PartyMemberBox->ClearChildren();
 
 	UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(Ctx.GetWorld(), UPartyContext::StaticClass()));
-	
-	TArray<FText> PartyMembers;
-	PartyContext->GetLocalPartyMemberNames(PartyMembers);
 
-	if (PartyMembers.Num() <= 1)
+	const int32 PartySize = PartyContext->GetPartySize();
+	if (PartySize < 1)
 	{
 		return;
 	}
-
+	
+	TArray<FText> PartyMembers;
+	PartyContext->GetLocalPartyMemberNames(PartyMembers);
+	
 	TArray<FUniqueNetIdRepl> PartyMemberIds;
 	PartyContext->GetLocalPartyMemberIDs(PartyMemberIds);
 
@@ -157,6 +158,38 @@ void SUTPartyWidget::SetupPartyMemberBox()
 			DropDownButton->AddSpacer();
 			DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "LeaveParty", "Leave Party"), FOnClicked::CreateSP(this, &SUTPartyWidget::LeaveParty), true);
 		}
+	}
+
+	for (int i = PartyMembers.Num(); i < 5; i++)
+	{
+		TSharedPtr<SUTComboButton> DropDownButton = NULL;
+
+		PartyMemberBox->AddSlot()
+		.Padding(FMargin(2.0f, 0.0f))
+		[
+			SAssignNew(DropDownButton, SUTComboButton)
+			.HasDownArrow(false)
+			.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
+			.ContentPadding(FMargin(0.0f, 0.0f))
+			.ToolTipText(NSLOCTEXT("SUTPartyWidget", "EmptySlotTip", "Empty Slot"))
+			.ButtonContent()
+			[
+				SNew(SOverlay)
+				+ SOverlay::Slot()
+				[
+					SNew(SBox)
+					.WidthOverride(96)
+					.HeightOverride(96)
+					[
+						SNew(SImage)
+						.Image(SUTStyle::Get().GetBrush("UT.Icon.PartyMember.Empty"))
+						.ColorAndOpacity(FLinearColor::Gray)
+					]
+				]
+			]
+		];
+
+		DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "EmptySlot", "Empty Slot"), FOnClicked(), true);
 	}
 }
 
