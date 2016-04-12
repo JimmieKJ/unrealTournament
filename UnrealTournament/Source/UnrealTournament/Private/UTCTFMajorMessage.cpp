@@ -45,7 +45,7 @@ bool UUTCTFMajorMessage::UseLargeFont(int32 MessageIndex) const
 
 bool UUTCTFMajorMessage::UseMegaFont(int32 MessageIndex) const
 {
-	return true;
+	return false;
 }
 
 float UUTCTFMajorMessage::GetAnnouncementPriority(int32 Switch) const

@@ -10,7 +10,7 @@ UUTHUDWidgetMessage_MajorRewardMessage::UUTHUDWidgetMessage_MajorRewardMessage(c
 {
 	ManagedMessageArea = FName(TEXT("MajorRewardMessage"));
 	Position = FVector2D(0.0f, 0.0f);
-	ScreenPosition = FVector2D(0.5f, 0.45f);
+	ScreenPosition = FVector2D(0.5f, 0.46f);
 	Size = FVector2D(0.0f, 0.0f);
 	Origin = FVector2D(0.5f, 0.0f);
 	FadeTime = 1.f;
