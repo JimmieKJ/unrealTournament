@@ -257,6 +257,7 @@ void SUTMainMenu::ShowGamePanel()
 {
 	if (!PlayerOwner->IsPartyLeader())
 	{
+		PlayerOwner->ShowToast(NSLOCTEXT("SUTMenuBase", "ShowGamePanelNotLeader", "Only the party leader may do this"));
 		return;
 	}
 
@@ -272,6 +273,7 @@ void SUTMainMenu::ShowCustomGamePanel()
 {
 	if (!PlayerOwner->IsPartyLeader())
 	{
+		PlayerOwner->ShowToast(NSLOCTEXT("SUTMenuBase", "ShowCustomGamePanelNotLeader", "Only the party leader may do this"));
 		return;
 	}
 
@@ -404,6 +406,7 @@ void SUTMainMenu::QuickPlay(const FString& QuickMatchType)
 {
 	if (!PlayerOwner->IsPartyLeader())
 	{
+		PlayerOwner->ShowToast(NSLOCTEXT("SUTMenuBase", "QuickPlayNotLeader", "Only the party leader may start Quick Play"));
 		return;
 	}
 
@@ -427,6 +430,7 @@ void SUTMainMenu::OpenTutorialMenu()
 {
 	if (!PlayerOwner->IsPartyLeader())
 	{
+		PlayerOwner->ShowToast(NSLOCTEXT("SUTMenuBase", "TutorialNotLeader", "You may not enter tutorials while in a party"));
 		return;
 	}
 
