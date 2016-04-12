@@ -383,4 +383,7 @@ private:
 
 	/** Timer handle for waiting for join acknowledgment */
 	FTimerHandle JoiningAckTimerHandle;
+
+	UPROPERTY()
+	bool bQueuedTravelToServer;
 };

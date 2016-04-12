@@ -239,7 +239,16 @@ void UUTMatchmaking::OnClientPartyStateChanged(EUTPartyState NewPartyState)
 
 	if (NewPartyState == EUTPartyState::TravelToServer)
 	{
-		TravelToServer();
+		if (Matchmaking->GetMatchmakingState().State == EMatchmakingState::Type::JoinSuccess)
+		{
+			UE_LOG(LogOnlineGame, Display, TEXT("Follower matchmaking complete, travelling to server"));
+			TravelToServer();
+		}
+		else
+		{
+			UE_LOG(LogOnlineGame, Display, TEXT("Follower matchmaking not ready to travel to server, queuing travel request"));
+			bQueuedTravelToServer = true;
+		}
 	}
 }
 
@@ -296,6 +305,8 @@ void UUTMatchmaking::CancelMatchmaking()
 	}
 
 	ClearCachedMatchmakingData();
+
+	bQueuedTravelToServer = false;
 }
 
 void UUTMatchmaking::DisconnectFromLobby()
@@ -695,7 +706,13 @@ void UUTMatchmaking::ConnectToReservationBeacon(FOnlineSessionSearchResult Searc
 		}
 		else
 		{
-			// Lobby connection here, but probably unnecessary for UT
+			// Follower was fetching server info when the leader told the client to join
+			if (bQueuedTravelToServer)
+			{
+				UE_LOG(LogOnlineGame, Display, TEXT("Follower matchmaking complete, travelling to server"));
+				TravelToServer();
+				bQueuedTravelToServer = false;
+			}
 		}
 	}
 	else
