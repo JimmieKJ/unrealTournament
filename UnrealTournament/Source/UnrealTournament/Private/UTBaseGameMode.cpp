@@ -36,7 +36,7 @@ void AUTBaseGameMode::PostInitProperties()
 	Super::PostInitProperties();
 
 #if WITH_PROFILE
-	if (!IsTemplate())
+	if (!IsTemplate() && !IsRunningCommandlet())
 	{
 		McpProfileManager = NewObject<UUtMcpProfileManager>(this);
 		GetMcpProfileManager()->Init(NULL, NULL, TEXT("Server"), FUtMcpRequestComplete());
