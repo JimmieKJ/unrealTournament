@@ -368,7 +368,6 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 		return;
 	}
 
-	UE_LOG(UT, Warning, TEXT("Remove any ghost flag"));
 	ClearGhostFlag();
 	bool bWasHome = (ObjectState == CarriedObjectState::Home);
 	ChangeState(CarriedObjectState::Held);
@@ -446,7 +445,6 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 
 void AUTCarriedObject::NoLongerHeld(AController* InstigatedBy)
 {
-	UE_LOG(UT, Warning, TEXT("NO LONGER HELD"));
 	// Have the holding pawn drop the object
 	if (HoldingPawn != NULL)
 	{
@@ -493,7 +491,6 @@ void AUTCarriedObject::NoLongerHeld(AController* InstigatedBy)
 
 void AUTCarriedObject::TossObject(AUTCharacter* ObjectHolder)
 {
-	UE_LOG(UT, Warning, TEXT("TOSS OBJECT"));
 	// Throw the object.
 	if (ObjectHolder != NULL)
 	{
@@ -586,7 +583,6 @@ bool AUTCarriedObject::TeleportTo(const FVector& DestLocation, const FRotator& D
 
 void AUTCarriedObject::Drop(AController* Killer)
 {
-	UE_LOG(UT, Warning, TEXT("DROP"));
 	UUTGameplayStatics::UTPlaySound(GetWorld(), DropSound, (HoldingPawn != NULL) ? (AActor*)HoldingPawn : (AActor*)this);
 
 	SendGameMessage(3, Holder, NULL);
@@ -641,7 +637,6 @@ void AUTCarriedObject::SendHomeWithNotify()
 
 void AUTCarriedObject::ClearGhostFlag()
 {
-	UE_LOG(UT, Warning, TEXT("%s Clear ghost flag %s"), *GetName(), MyGhostFlag ? *MyGhostFlag->GetName() :TEXT("NONE"));
 	if (MyGhostFlag != nullptr)
 	{
 		MyGhostFlag->MyCarriedObject = nullptr;
@@ -663,12 +658,10 @@ void AUTCarriedObject::PutGhostFlagAt(const FVector NewGhostLocation)
 			{
 				MyGhostFlag->SetCarriedObject(this);
 			}
-			UE_LOG(UT, Warning, TEXT("%s ADD ghost flag %s "), *GetName(), MyGhostFlag ? *MyGhostFlag->GetName() : TEXT("NONE"));
 		}
 		else
 		{
 			MyGhostFlag->MoveTo(NewGhostLocation);
-			UE_LOG(UT, Warning, TEXT("%s MOVE ghost flag %s "), *GetName(), MyGhostFlag ? *MyGhostFlag->GetName() : TEXT("NONE"));
 		}
 	}
 }
@@ -680,7 +673,6 @@ void AUTCarriedObject::SendHome()
 
 	DetachRootComponentFromParent(true);
 	if (ObjectState == CarriedObjectState::Home) return;	// Don't both if we are already home
-	UE_LOG(UT, Warning, TEXT("SEND HOME gradual %d"), bGradualAutoReturn);
 
 	NoLongerHeld();
 	if (bGradualAutoReturn && (PastPositions.Num() > 0) && (Role == ROLE_Authority))
@@ -728,7 +720,6 @@ FVector AUTCarriedObject::GetHomeLocation() const
 {
 	if (HomeBase == NULL)
 	{
-		UE_LOG(UT, Warning, TEXT("Carried object querying home location with no home"), *GetName());
 		return GetActorLocation();
 	}
 	else
@@ -740,7 +731,6 @@ FRotator AUTCarriedObject::GetHomeRotation() const
 {
 	if (HomeBase == NULL)
 	{
-		UE_LOG(UT, Warning, TEXT("Carried object querying home rotation with no home"), *GetName());
 		return GetActorRotation();
 	}
 	else

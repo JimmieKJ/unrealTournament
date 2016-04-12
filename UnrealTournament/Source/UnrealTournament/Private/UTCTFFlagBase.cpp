@@ -78,7 +78,6 @@ FName AUTCTFFlagBase::GetFlagState()
 
 void AUTCTFFlagBase::RecallFlag()
 {
-	UE_LOG(UT, Warning, TEXT("RECALL FLAGS"));
 	if (MyFlag != NULL)
 	{
 		if (MyFlag->ObjectState != CarriedObjectState::Home)

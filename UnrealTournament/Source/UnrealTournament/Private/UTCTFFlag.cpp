@@ -100,7 +100,6 @@ void AUTCTFFlag::ClientUpdateAttachment(bool bNowAttachedToPawn)
 
 void AUTCTFFlag::OnObjectStateChanged()
 {
-	UE_LOG(UT, Warning, TEXT("OnObjectStateChanged"));
 	Super::OnObjectStateChanged();
 
 	if (Role == ROLE_Authority)
@@ -120,7 +119,6 @@ void AUTCTFFlag::OnObjectStateChanged()
 
 void AUTCTFFlag::SendHome()
 {
-	UE_LOG(UT, Warning, TEXT("SENDHOME"));
 	PlayReturnedEffects();
 	Super::SendHome();
 }
@@ -159,7 +157,6 @@ void AUTCTFFlag::SendHomeWithNotify()
 
 void AUTCTFFlag::MoveToHome()
 {
-	UE_LOG(UT, Warning, TEXT("MOVETOHOME"));
 	Super::MoveToHome();
 	GetMesh()->SetRelativeLocation(MeshOffset);
 	GetMesh()->ClothBlendWeight = ClothBlendHome;
@@ -167,7 +164,6 @@ void AUTCTFFlag::MoveToHome()
 
 void AUTCTFFlag::Drop(AController* Killer)
 {
-	UE_LOG(UT, Warning, TEXT("DROP FLAG"));
 	UUTGameplayStatics::UTPlaySound(GetWorld(), DropSound, (HoldingPawn != NULL) ? (AActor*)HoldingPawn : (AActor*)this);
 
 	bool bDelayDroppedMessage = false;

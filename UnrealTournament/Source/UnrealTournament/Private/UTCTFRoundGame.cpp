@@ -322,17 +322,14 @@ int32 AUTCTFRoundGame::PickCheatWinTeam()
 
 bool AUTCTFRoundGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 {
-	UE_LOG(UT, Warning, TEXT("CheckForWinner round %d out of %d"), CTFGameState->CTFRound, NumRounds)
 	if (ScoringTeam && CTFGameState && (CTFGameState->CTFRound >= NumRounds) && (CTFGameState->CTFRound % 2 == 0))
 	{
-		UE_LOG(UT, Warning, TEXT("CheckForWinner THERE scoring team %s"), *ScoringTeam->GetName());
 		AUTTeamInfo* BestTeam = ScoringTeam;
 		bool bHaveTie = false;
 
 		// Check if team with highest score has reached goal score
 		for (AUTTeamInfo* Team : Teams)
 		{
-			UE_LOG(UT, Warning, TEXT("Check against team %s"), *Team->GetName());
 			if (Team->Score > BestTeam->Score)
 			{
 				BestTeam = Team;
@@ -340,7 +337,6 @@ bool AUTCTFRoundGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 			}
 			else if ((Team != BestTeam) && (Team->Score == BestTeam->Score))
 			{
-				UE_LOG(UT, Warning, TEXT("Tie with secondary %d %d"),Team->SecondaryScore, BestTeam->SecondaryScore);
 				bHaveTie = true;
 				if (Team->SecondaryScore != BestTeam->SecondaryScore)
 				{
@@ -351,7 +347,6 @@ bool AUTCTFRoundGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 		}
 		if (!bHaveTie)
 		{
-			UE_LOG(UT, Warning, TEXT("ENDGAME"));
 			EndTeamGame(BestTeam, FName(TEXT("scorelimit")));
 			return true;
 		}
@@ -528,7 +523,6 @@ void AUTCTFRoundGame::InitFlags()
 			Flag->bGradualAutoReturn = true;
 			Flag->bDisplayHolderTrail = true;
 			Flag->bShouldPingFlag = true;
-			UE_LOG(UT, Warning, TEXT("InitFlags"));
 			Flag->ClearGhostFlag();
 			Flag->bSendHomeOnScore = false;
 			if (bAsymmetricVictoryConditions)
