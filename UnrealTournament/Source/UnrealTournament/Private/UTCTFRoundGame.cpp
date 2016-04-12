@@ -40,7 +40,6 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	FlagCapScore = 1;
 	UnlimitedRespawnWaitTime = 2.f;
 	bForceRespawn = true;
-	bUseDash = false;
 	bAsymmetricVictoryConditions = true;
 	bCarryOwnFlag = true;
 	bNoFlagReturn = true;
@@ -48,7 +47,6 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	ExtraHealth = 0;
 	FlagPickupDelay = 10;
 	RemainingPickupDelay = 0;
-	RollingAttackerRespawnDelay = 8.f;
 	HUDClass = AUTFlagRunHUD::StaticClass();
 	GameStateClass = AUTCTFRoundGameState::StaticClass();
 	NumRounds = 6;
@@ -74,6 +72,11 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	ArmorVestObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Armor/Armor_Chest.Armor_Chest_C"));
 	ActivatedPowerupPlaceholderObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_ActivatedPowerup_UDamage.BP_ActivatedPowerup_UDamage_C"));
 	RepulsorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Repulsor.BP_Repulsor_C"));
+
+	RollingAttackerRespawnDelay = 10.f;
+	LastAttackerSpawnTime = 0.f;
+	RollingSpawnStartTime = 0.f;
+	bRollingAttackerSpawns = true;
 }
 
 void AUTCTFRoundGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
@@ -120,15 +123,11 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 		RepulsorClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *RepulsorObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
 	}
 
-	// key options are ?Respawnwait=xx?RoundLives=xx?CTFMode=xx?Dash=xx?Asymm=xx?PerPlayerLives=xx?OffKillsForPowerup=xx?DefKillsForPowerup=xx
+	// key options are ?RoundLives=xx?Dash=xx?Asymm=xx?PerPlayerLives=xx?OffKillsForPowerup=xx?DefKillsForPowerup=xx
 	RoundLives = FMath::Max(1, UGameplayStatics::GetIntOption(Options, TEXT("RoundLives"), RoundLives));
 
-	FString InOpt = UGameplayStatics::ParseOption(Options, TEXT("Dash"));
-	bUseDash = EvalBoolOptions(InOpt, bUseDash);
-
-	InOpt = UGameplayStatics::ParseOption(Options, TEXT("OwnFlag"));
+	FString InOpt = UGameplayStatics::ParseOption(Options, TEXT("OwnFlag"));
 	bCarryOwnFlag = EvalBoolOptions(InOpt, bCarryOwnFlag);
-	// FIXMESTEVE - if carry own flag, need option whether enemy flag needs to be home to score, and need base effect if not
 
 	InOpt = UGameplayStatics::ParseOption(Options, TEXT("FlagReturn"));
 	bNoFlagReturn = EvalBoolOptions(InOpt, bNoFlagReturn);
@@ -326,7 +325,7 @@ bool AUTCTFRoundGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 	UE_LOG(UT, Warning, TEXT("CheckForWinner round %d out of %d"), CTFGameState->CTFRound, NumRounds)
 	if (ScoringTeam && CTFGameState && (CTFGameState->CTFRound >= NumRounds) && (CTFGameState->CTFRound % 2 == 0))
 	{
-		UE_LOG(UT, Warning, TEXT("CheckForWinner THERE scorint team %s"), *ScoringTeam->GetName());
+		UE_LOG(UT, Warning, TEXT("CheckForWinner THERE scoring team %s"), *ScoringTeam->GetName());
 		AUTTeamInfo* BestTeam = ScoringTeam;
 		bool bHaveTie = false;
 
@@ -534,7 +533,7 @@ void AUTCTFRoundGame::InitFlags()
 			Flag->bSendHomeOnScore = false;
 			if (bAsymmetricVictoryConditions)
 			{
-				if (bRedToCap == (Flag->GetTeamNum() == 0))
+				if (IsTeamOnOffense(Flag->GetTeamNum()))
 				{
 					Flag->bEnemyCanPickup = !bCarryOwnFlag;
 					Flag->bFriendlyCanPickup = bCarryOwnFlag;
@@ -584,7 +583,7 @@ void AUTCTFRoundGame::BroadcastVictoryConditions()
 			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
 			if (PC)
 			{
-				if (bRedToCap == (PC->GetTeamNum() == 0))
+				if (IsTeamOnOffense(PC->GetTeamNum()))
 				{
 					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), bRedToCap ? 1 : 2);
 				}
@@ -683,10 +682,10 @@ void AUTCTFRoundGame::InitRound()
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 			PS->bHasLifeLimit = false;
-			PS->RespawnWaitTime = 0.f;
+			PS->RespawnWaitTime = UnlimitedRespawnWaitTime;
 			PS->RemainingBoosts = InitialBoostCount;
 			PS->BoostClass = UDamageClass;
-			if (PS->Team && (bRedToCap != (PS->Team->TeamIndex == 0)))
+			if (PS->Team && IsTeamOnDefense(PS->Team->TeamIndex))
 			{
 				PS->BoostClass = RepulsorClass;
 			}
@@ -700,10 +699,6 @@ void AUTCTFRoundGame::InitRound()
 				PS->RemainingLives = (!bAsymmetricVictoryConditions || (IsPlayerOnLifeLimitedTeam(PS))) ? RoundLives : 0;
 				PS->bHasLifeLimit = (PS->RemainingLives > 0);
 				PS->SetOutOfLives(false);
-				if (bAsymmetricVictoryConditions && !PS->bHasLifeLimit)
-				{
-					PS->RespawnWaitTime = UnlimitedRespawnWaitTime;
-				}
 			}
 		}
 	}
@@ -772,7 +767,11 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 			}
 			return;
 		}
-		if (!bAsymmetricVictoryConditions || (IsPlayerOnLifeLimitedTeam(PS)))
+		if (bAsymmetricVictoryConditions && PS->Team && IsTeamOnDefense(PS->Team->TeamIndex))
+		{
+			PS->RespawnWaitTime += 1.f;
+		}
+		if (!bAsymmetricVictoryConditions || IsPlayerOnLifeLimitedTeam(PS))
 		{
 			PS->RemainingLives--;
 			if (PS->RemainingLives < 0)
@@ -806,10 +805,10 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 			}
 
 		}
-		else if (bAsymmetricVictoryConditions)
-		{
-			PS->RespawnWaitTime += 1.f;
-		}
+	}
+	if (PS->Team && IsTeamOnOffense(PS->Team->TeamIndex))
+	{
+		LastAttackerSpawnTime = GetWorld()->GetTimeSeconds();
 	}
 	Super::RestartPlayer(aPlayer);
 
@@ -853,6 +852,22 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 	Super::ScoreKill_Implementation(Killer, Other, KilledPawn, DamageType);
 
 	AUTPlayerState* OtherPS = Other ? Cast<AUTPlayerState>(Other->PlayerState) : nullptr;
+	if (OtherPS && OtherPS->Team && bRollingAttackerSpawns)
+	{
+		if (LastAttackerSpawnTime < 1.f)
+		{
+			OtherPS->RespawnWaitTime = 1.f;
+		}
+		else if (GetWorld()->GetTimeSeconds() - RollingSpawnStartTime < RollingAttackerRespawnDelay)
+		{
+			OtherPS->RespawnWaitTime = RollingAttackerRespawnDelay - GetWorld()->GetTimeSeconds() + RollingSpawnStartTime;
+		}
+		else
+		{
+			RollingSpawnStartTime = GetWorld()->GetTimeSeconds();
+			OtherPS->RespawnWaitTime = RollingAttackerRespawnDelay;
+		}
+	}
 	if (!bLastManOccurred && OtherPS && IsPlayerOnLifeLimitedTeam(OtherPS) && (OtherPS->RemainingLives > 0))
 	{
 		// check if just transitioned to last man

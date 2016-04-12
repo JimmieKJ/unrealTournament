@@ -27,10 +27,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		bool bNoFlagReturn;
 
-	/** Q engages rechargeable through the air dash instead of having translocator. */
-	UPROPERTY(BlueprintReadOnly, Category = CTF)
-		bool bUseDash;
-
 	/** If true, red team is trying to cap with asymmetric conditions. */
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		bool bRedToCap;
@@ -80,13 +76,16 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 		int32 RemainingPickupDelay;
 
 	UPROPERTY()
+		bool bRollingAttackerSpawns;
+
+	UPROPERTY()
 		float RollingAttackerRespawnDelay;
 
 	UPROPERTY()
 		float LastAttackerSpawnTime;
 
 	UPROPERTY()
-		float RemainingAttackerRespawnDelay;
+		float RollingSpawnStartTime;
 
 	UPROPERTY()
 		bool bLastManOccurred;
