@@ -40,7 +40,7 @@ AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 	ClothBlendHome = 0.f;
 	ClothBlendHeld = 0.5f;
 	bEnemyCanPickup = true;
-	PingedDuration = 2.5f;
+	PingedDuration = 3.f;
 	bShouldPingFlag = false;
 }
 

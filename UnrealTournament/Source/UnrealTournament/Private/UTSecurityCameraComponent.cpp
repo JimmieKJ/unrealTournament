@@ -71,6 +71,10 @@ void UUTSecurityCameraComponent::TickComponent(float DeltaTime, ELevelTick TickT
 			}
 		}
 		DetectedFlagCarrier = DetectedFlag ? DetectedFlag->HoldingPawn : nullptr;
+		if (DetectedFlag && (DetectedFlag->Role == ROLE_Authority))
+		{
+			DetectedFlag->LastPingedTime = GetWorld()->GetTimeSeconds();
+		}
 	}
 	else
 	{
