@@ -774,6 +774,9 @@ protected:
 	 */
 	void UnlockSession();
 
+	UPROPERTY()
+	int32 ExpectedPlayerCount;
+
 public:
 	virtual void SendEveryoneBackToLobby();
 

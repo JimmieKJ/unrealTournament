@@ -670,7 +670,7 @@ void AUTGameSessionRanked::InitHostBeacon(FOnlineSessionSettings* SessionSetting
 	if (ReservationBeaconHost)
 	{
 		// Setup values for the world manager when it is created later. This uses either the old beacon data or the session settings
-		//UTGame->CurrentPlaylistId = PlaylistId;
+		UTGame->CurrentPlaylistId = PlaylistId;
 
 		//ReservationBeaconHost->OnValidatePlayers().BindUObject(this, &AUTGameSessionRanked::OnBeaconValidatePlayers);
 		ReservationBeaconHost->OnReservationChanged().BindUObject(this, &AUTGameSessionRanked::OnBeaconReservationChange);
