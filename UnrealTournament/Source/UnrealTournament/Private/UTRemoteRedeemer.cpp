@@ -1,5 +1,4 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-
 #include "UnrealTournament.h"
 #include "UnrealNetwork.h"
 #include "UTProjectileMovementComponent.h"
@@ -8,6 +7,7 @@
 #include "UTCTFRewardMessage.h"
 #include "UTHUD.h"
 #include "StatNames.h"
+#include "UTWorldSettings.h"
 
 AUTRemoteRedeemer::AUTRemoteRedeemer(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -191,9 +191,13 @@ void AUTRemoteRedeemer::BlowUp()
 		bExploded = true;
 		bTearOff = true;
 
-		if (Role == ROLE_Authority)
+		if (OverlayMI != NULL)
 		{
-			DriverLeave(true);
+			AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+			if (WS != NULL)
+			{
+				WS->AddTimedMaterialParameter(OverlayMI, FName(TEXT("Static")), OverlayStaticCurve);
+			}
 		}
 
 		ProjectileMovement->SetActive(false);
@@ -448,6 +452,10 @@ void AUTRemoteRedeemer::ExplodeStage2()
 }
 void AUTRemoteRedeemer::ExplodeStage3()
 {
+	if (Role == ROLE_Authority)
+	{
+		DriverLeave(true);
+	}
 	ExplodeStage(ExplosionRadii[2]);
 	FTimerHandle TempHandle;
 	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTRemoteRedeemer::ExplodeStage4, ExplosionTimings[2]);

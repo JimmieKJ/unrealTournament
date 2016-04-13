@@ -79,10 +79,12 @@ class UNREALTOURNAMENT_API AUTRemoteRedeemer : public APawn, public IUTTeamInter
 	*/
 	UPROPERTY(EditDefaultsOnly, Category = Overlay)
 	UMaterialInterface* OverlayMat;
-
 	/** material instance for e.g. team coloring */
 	UPROPERTY(Transient)
 	UMaterialInstanceDynamic* OverlayMI;
+	/** curve for static ramp up on overlay when exploding */
+	UPROPERTY(EditDefaultsOnly, Category = Overlay)
+	UCurveFloat* OverlayStaticCurve;
 
 	virtual UMaterialInterface* GetPostProcessMaterial()
 	{
