@@ -6,7 +6,7 @@
 #include "UTHUDWidget_SCTFStatus.generated.h"
 
 UCLASS()
-class UNREALTOURNAMENT_API UUTHUDWidget_SCTFStatus : public UUTHUDWidget
+class UNREALTOURNAMENT_API UUTHUDWidget_SCTFStatus : public UUTHUDWidget_CTFFlagStatus
 {
 	GENERATED_UCLASS_BODY()
 
@@ -51,7 +51,12 @@ class UNREALTOURNAMENT_API UUTHUDWidget_SCTFStatus : public UUTHUDWidget
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Text SecondaryMessage;
 
-	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
-	void InitializeWidget(AUTHUD* Hud);
+	virtual void DrawStatusMessage(float DeltaTime);
 
+
+protected:
+	virtual void DrawIndicators(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation);
+	virtual FText GetFlagReturnTime(AUTCTFFlag* Flag);
+	virtual FText GetBaseMessage(AUTCTFFlagBase* Base, AUTCTFFlag* Flag);
+	virtual bool ShouldDrawFlag(AUTCTFFlag* Flag, bool bIsEnemyFlag);
 };

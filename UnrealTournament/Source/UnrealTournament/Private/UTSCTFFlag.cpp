@@ -70,8 +70,6 @@ void AUTSCTFFlag::NoLongerHeld(AController* InstigatedBy)
 
 void AUTSCTFFlag::SetHolder(AUTCharacter* NewHolder)
 {
-	Super::SetHolder(NewHolder);
-
 	// Set the team to match the team of the holder.
 
 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
@@ -90,6 +88,9 @@ void AUTSCTFFlag::SetHolder(AUTCharacter* NewHolder)
 			bTeamLocked = false;
 		}
 	}
+
+	Super::SetHolder(NewHolder);
+
 	if (NewHolder) NewHolder->ResetMaxSpeedPctModifier();
 }
 

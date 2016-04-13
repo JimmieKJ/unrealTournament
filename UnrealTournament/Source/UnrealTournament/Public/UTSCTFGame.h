@@ -42,13 +42,6 @@ protected:
 	UPROPERTY()
 	int32 FlagSpawnDelay;
 
-	// Holds a list of available Flag Bases.  Single Flag CTF bases can be flagged as score bases where the scoring happens.
-	UPROPERTY(BlueprintReadOnly)
-	TArray<AUTSCTFFlagBase*> FlagBases;
-
-	// The the base that dispenses the flag.  
-	AUTSCTFFlagBase* FlagDispenser;
-
 	virtual void RoundReset();
 	void SpawnInitalFlag();
 };

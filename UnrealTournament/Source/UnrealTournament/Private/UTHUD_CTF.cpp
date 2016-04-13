@@ -85,10 +85,13 @@ bool AUTHUD_CTF::ShouldInvertMinimap()
 			for (int32 TeamIndex = 0; TeamIndex < 2; TeamIndex++)
 			{
 				AUTCTFFlagBase* EnemyBase = GS->GetFlagBase(TeamIndex);
-				FVector2D BasePos(WorldToMapToScreen(EnemyBase->GetActorLocation()));
-				if ((EnemyBase != HomeBase) && (BasePos.Y > HomeBasePos.Y))
+				if (EnemyBase)
 				{
-					return true;
+					FVector2D BasePos(WorldToMapToScreen(EnemyBase->GetActorLocation()));
+					if ((EnemyBase != HomeBase) && (BasePos.Y > HomeBasePos.Y))
+					{
+						return true;
+					}
 				}
 			}
 		}

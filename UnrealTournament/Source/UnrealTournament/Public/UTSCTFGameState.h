@@ -3,6 +3,7 @@
 #pragma once
 
 #include "UTCTFRoundGameState.h"
+#include "UTSCTFFlagBase.h"
 #include "UTSCTFGameState.generated.h"
 
 class AUTSCTFFlag;
@@ -24,6 +25,11 @@ public:
 
 	UPROPERTY(Replicated)
 	AUTSCTFFlag* Flag;
+
+	// The the base that dispenses the flag.  
+	UPROPERTY(Replicated)
+	AUTSCTFFlagBase* FlagDispenser;
+
 
 	virtual void DefaultTimer() override;
 

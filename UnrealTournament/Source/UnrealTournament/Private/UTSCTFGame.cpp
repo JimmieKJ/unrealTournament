@@ -38,7 +38,7 @@ AUTSCTFGame::AUTSCTFGame(const FObjectInitializer& ObjectInitializer)
 	IntermissionDuration = 30.f;
 	GameStateClass = AUTSCTFGameState::StaticClass();
 	HUDClass = AUTHUD_SCTF::StaticClass();
-	RoundLives=3;
+	RoundLives=5;
 	bPerPlayerLives = true;
 	bAsymmetricVictoryConditions = false;
 	FlagSwapTime=10;
@@ -60,21 +60,6 @@ void AUTSCTFGame::InitGame(const FString& MapName, const FString& Options, FStri
 	FlagSwapTime = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("FlagSwapTime"), FlagSwapTime));
 	FlagSpawnDelay = float(FMath::Max<int32>(0.0f, UGameplayStatics::GetIntOption(Options, TEXT("FlagSpawnDelay"), FlagSpawnDelay)));
 
-	FlagBases.AddZeroed(2);
-	for (TActorIterator<AUTSCTFFlagBase> It(GetWorld()); It; ++It)
-	{
-		if (It->bScoreBase )
-		{
-			if ( FlagBases.IsValidIndex(It->GetTeamNum()) )
-			{
-				FlagBases[It->GetTeamNum()] = *It;
-			}
-		}
-		else if (FlagDispenser == nullptr)
-		{
-			FlagDispenser = *It;
-		}
-	}
 }
 
 void AUTSCTFGame::BroadcastVictoryConditions()
@@ -87,6 +72,22 @@ void AUTSCTFGame::InitGameState()
 	SCTFGameState = Cast<AUTSCTFGameState>(UTGameState);
 	if (SCTFGameState)
 	{
+		SCTFGameState->FlagBases.AddZeroed(2);
+		for (TActorIterator<AUTSCTFFlagBase> It(GetWorld()); It; ++It)
+		{
+			if (It->bScoreBase )
+			{
+				if ( SCTFGameState->FlagBases.IsValidIndex(It->GetTeamNum()) )
+				{
+					SCTFGameState->FlagBases[It->GetTeamNum()] = *It;
+				}
+			}
+			else if (SCTFGameState->FlagDispenser == nullptr)
+			{
+				SCTFGameState->FlagDispenser = *It;
+			}
+		}
+
 		SCTFGameState->FlagSwapTime = FlagSwapTime;
 	}
 }
@@ -100,10 +101,14 @@ void AUTSCTFGame::HandleMatchHasStarted()
 
 void AUTSCTFGame::RoundReset()
 {
-	if (FlagDispenser) FlagDispenser->RoundReset();
-	for (int32 i = 0; i < FlagBases.Num(); i++)
+	if (SCTFGameState->FlagDispenser) SCTFGameState->FlagDispenser->RoundReset();
+	for (int32 i = 0; i < SCTFGameState->FlagBases.Num(); i++)
 	{
-		FlagBases[i]->RoundReset();
+		AUTSCTFFlagBase* Base  = Cast<AUTSCTFFlagBase>(SCTFGameState->FlagBases[i]);
+		if (Base)
+		{
+			Base->RoundReset();
+		}
 	}
 
 	SCTFGameState->AttackingTeam = 255;
@@ -114,24 +119,28 @@ void AUTSCTFGame::RoundReset()
 
 void AUTSCTFGame::SpawnInitalFlag()
 {
-	if (FlagDispenser)
+	if (SCTFGameState->FlagDispenser)
 	{
-		FlagDispenser->Activate();	
+		SCTFGameState->FlagDispenser->Activate();	
 	}
 }
 
 void AUTSCTFGame::FlagTeamChanged(uint8 NewTeamIndex)
 {
 	SCTFGameState->AttackingTeam = NewTeamIndex;
-	for (int32 i = 0; i < FlagBases.Num(); i++)
+	for (int32 i = 0; i < SCTFGameState->FlagBases.Num(); i++)
 	{
-		if (FlagBases[i]->GetTeamNum() != NewTeamIndex)
+		AUTSCTFFlagBase* Base  = Cast<AUTSCTFFlagBase>(SCTFGameState->FlagBases[i]);
+		if (Base)
 		{
-			FlagBases[i]->Deactivate();
-		}
-		else
-		{
-			FlagBases[i]->Activate();
+			if (Base->GetTeamNum() != NewTeamIndex)
+			{
+				Base->Deactivate();
+			}
+			else
+			{
+				Base->Activate();
+			}
 		}
 	}
 
@@ -169,9 +178,9 @@ void AUTSCTFGame::ScoreKill_Implementation(AController* Killer, AController* Oth
 			}
 
 			// If the flag isn't associated with the current team, then swap it..
-			if (FlagDispenser->MyFlag && FlagDispenser->MyFlag->GetTeamNum() != OtherTeamNum)
+			if (SCTFGameState->FlagDispenser->MyFlag && SCTFGameState->FlagDispenser->MyFlag->GetTeamNum() != OtherTeamNum)
 			{
-				AUTSCTFFlag* SCTFFlag = Cast<AUTSCTFFlag>(FlagDispenser->MyFlag);
+				AUTSCTFFlag* SCTFFlag = Cast<AUTSCTFFlag>(SCTFGameState->FlagDispenser->MyFlag);
 				if (SCTFFlag)
 				{
 					SCTFFlag->TeamReset();

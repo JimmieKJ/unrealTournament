@@ -167,6 +167,7 @@ void AUTSCTFFlagBase::CreateFlag()
 	if (MyFlag && MyFlag->GetMesh())
 	{
 		MyFlag->GetMesh()->ClothBlendWeight = MyFlag->ClothBlendHome;
+		MyFlag->bShouldPingFlag = true;
 	}
 }
 

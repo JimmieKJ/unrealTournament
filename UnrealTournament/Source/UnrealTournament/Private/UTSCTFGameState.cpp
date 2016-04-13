@@ -21,6 +21,7 @@ void AUTSCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & 
 	DOREPLIFETIME(AUTSCTFGameState, FlagSpawnTimer);
 	DOREPLIFETIME(AUTSCTFGameState, FlagSwapTime);
 	DOREPLIFETIME(AUTSCTFGameState, Flag);
+	DOREPLIFETIME(AUTSCTFGameState, FlagDispenser);
 	
 }
 
