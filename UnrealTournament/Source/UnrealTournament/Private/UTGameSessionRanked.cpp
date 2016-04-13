@@ -268,11 +268,14 @@ void AUTGameSessionRanked::PauseBeaconRequests(bool bPause)
 
 void AUTGameSessionRanked::LockPlayersToSession(bool bNewLockState)
 {
-	bSessionRegistrationLocked = bNewLockState;
-
-	if (ReservationBeaconHost)
+	if (bSessionRegistrationLocked != bNewLockState)
 	{
-		ReservationBeaconHost->LockReservations(bNewLockState);
+		bSessionRegistrationLocked = bNewLockState;
+
+		if (ReservationBeaconHost)
+		{
+			ReservationBeaconHost->LockReservations(bNewLockState);
+		}
 	}
 }
 
@@ -684,7 +687,7 @@ void AUTGameSessionRanked::InitHostBeacon(FOnlineSessionSettings* SessionSetting
 
 void AUTGameSessionRanked::OnBeaconReservationsFull()
 {
-	LockPlayersToSession(true);
+
 }
 
 void AUTGameSessionRanked::OnBeaconReservationChange()

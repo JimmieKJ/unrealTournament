@@ -2729,6 +2729,7 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 			if (ExpectedPlayerCount != 0 && ExpectedPlayerCount == NumPlayers)
 			{
 				MaxReadyWaitTime = FMath::Min(10, MaxReadyWaitTime);
+				LockSession();
 			}
 
 			bool bMaxWaitComplete = (MaxReadyWaitTime > 0) && !bRequireReady && (GetNetMode() != NM_Standalone) && (ElapsedWaitTime > MaxReadyWaitTime);
