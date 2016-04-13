@@ -1,5 +1,6 @@
 // Dropped pickup that avoids being destroyed via environmental effects and has a HUD beacon
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+#pragma once
 
 #include "UTDroppedPickup.h"
 
