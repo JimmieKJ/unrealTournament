@@ -52,7 +52,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	GameStateClass = AUTCTFRoundGameState::StaticClass();
 	NumRounds = 6;
 
-	bAttackerLivesLimited = true;
+	bAttackerLivesLimited = false;
 	bDefenderLivesLimited = true;
 
 	OffenseKillsNeededForPowerUp = 10;
@@ -63,7 +63,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 
 	InitialBoostCount = 0;
 	bNoLivesEndRound = true;
-	MaxTimeScoreBonus = 200;
+	MaxTimeScoreBonus = 150;
 
 	// remove translocator - fixmesteve make this an option
 	TranslocatorObject = nullptr;
@@ -702,6 +702,7 @@ void AUTCTFRoundGame::InitRound()
 			PS->bSpecialPlayer = false;
 			if (PS->Team && IsTeamOnDefense(PS->Team->TeamIndex))
 			{
+				PS->RespawnWaitTime += 2.f;
 				PS->BoostClass = RepulsorClass;
 			}
 			if (PS && (PS->bIsInactive || !PS->Team || PS->bOnlySpectator))
