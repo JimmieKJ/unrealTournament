@@ -453,6 +453,8 @@ void AUTCarriedObject::NoLongerHeld(AController* InstigatedBy)
 	LastHolder = Holder;
 	if (Holder != NULL)
 	{
+		Holder->bSpecialTeamPlayer = false;
+		Holder->bSpecialPlayer = false;
 		Holder->ClearCarriedObject(this);
 	}
 
@@ -480,12 +482,6 @@ void AUTCarriedObject::NoLongerHeld(AController* InstigatedBy)
 				TeamIter->NotifyObjectiveEvent(HomeBase, InstigatedBy, FName(TEXT("FlagStatusChange")));
 			}
 		}
-	}
-
-	AUTPlayerState* LastHoldingPS = LastHoldingPawn ? Cast<AUTPlayerState>(LastHoldingPawn->PlayerState) : nullptr;
-	if (LastHoldingPS)
-	{
-		LastHoldingPS->bSpecialTeamPlayer = false;
 	}
 }
 
@@ -647,7 +643,7 @@ void AUTCarriedObject::ClearGhostFlag()
 
 void AUTCarriedObject::PutGhostFlagAt(const FVector NewGhostLocation)
 {
-	if (GhostFlagClass)
+	if (GhostFlagClass && !IsPendingKillPending())
 	{
 		if ((MyGhostFlag == nullptr) || MyGhostFlag->IsPendingKillPending())
 		{

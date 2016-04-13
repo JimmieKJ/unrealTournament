@@ -698,6 +698,8 @@ void AUTCTFRoundGame::InitRound()
 			PS->RespawnWaitTime = UnlimitedRespawnWaitTime;
 			PS->RemainingBoosts = InitialBoostCount;
 			PS->BoostClass = UDamageClass;
+			PS->bSpecialTeamPlayer = false;
+			PS->bSpecialPlayer = false;
 			if (PS->Team && IsTeamOnDefense(PS->Team->TeamIndex))
 			{
 				PS->BoostClass = RepulsorClass;
