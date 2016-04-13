@@ -2816,8 +2816,7 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 		{
 			int32 WaitCountDown = (NumPlayers > 1) ? MaxReadyWaitTime  : FMath::Max(MaxReadyWaitTime, MaxWaitForPlayers);
 			WaitCountDown -= ElapsedWaitTime;
-			UTGameState->RemainingTime = FMath::Max(0, WaitCountDown);
-			UTGameState->RemainingMinute = UTGameState->RemainingTime;
+			UTGameState->SetRemainingTime(FMath::Max(0, WaitCountDown));
 		}
 	}
 	return false;
@@ -2978,7 +2977,7 @@ void AUTGameMode::CheckCountDown()
 
 void AUTGameMode::CheckGameTime()
 {
-	if (IsMatchInProgress() && !HasMatchEnded() && TimeLimit > 0 && UTGameState->RemainingTime <= 0)
+	if (IsMatchInProgress() && !HasMatchEnded() && TimeLimit > 0 && UTGameState->GetRemainingTime() <= 0)
 	{
 		// Game should be over.. look to see if we need to go in to overtime....	
 
@@ -3688,7 +3687,7 @@ void AUTGameMode::UpdateLobbyMatchStats()
 		FMatchUpdate MatchUpdate;
 		MatchUpdate.TimeLimit = TimeLimit;
 		MatchUpdate.GoalScore = GoalScore;
-		MatchUpdate.GameTime = TimeLimit > 0 ? UTGameState->RemainingTime : UTGameState->ElapsedTime;
+		MatchUpdate.GameTime = TimeLimit > 0 ? UTGameState->GetRemainingTime() : UTGameState->ElapsedTime;
 		MatchUpdate.NumPlayers = NumPlayers;
 		MatchUpdate.NumSpectators = NumSpectators;
 		MatchUpdate.MatchState = MatchState;
@@ -4412,7 +4411,7 @@ void AUTGameMode::GetGood()
 #if !(UE_BUILD_SHIPPING)
 	if (GetNetMode() == NM_Standalone)
 	{
-		UTGameState->RemainingTime = 1;
+		UTGameState->SetRemainingTime(1);
 		TimeLimit = 2;
 
 		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)

@@ -171,7 +171,7 @@ void AUTTeamShowdownGame::DiscardInventory(APawn* Other, AController* Killer)
 
 void AUTTeamShowdownGame::ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
-	if (GetMatchState() != MatchState::MatchIntermission && (TimeLimit <= 0 || UTGameState->RemainingTime > 0))
+	if (GetMatchState() != MatchState::MatchIntermission && (TimeLimit <= 0 || UTGameState->GetRemainingTime() > 0))
 	{
 		if (Killer != Other && Killer != NULL && UTGameState->OnSameTeam(Killer, Other))
 		{

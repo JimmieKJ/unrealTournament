@@ -137,7 +137,7 @@ void AUTCTFGameMode::CheckGameTime()
 	if ( CTFGameState->IsMatchInProgress() && (TimeLimit != 0) )
 	{
 		// If the match is in progress and we are not playing advantage, then enter the halftime/end of game logic depending on the half
-		if (CTFGameState->RemainingTime <= 0)
+		if (CTFGameState->GetRemainingTime() <= 0)
 		{
 			if (!CTFGameState->IsMatchInOvertime() && CTFGameState->bSecondHalf && bAllowOvertime)
 			{
@@ -456,11 +456,11 @@ void AUTCTFGameMode::SetRemainingTime(int32 RemainingSeconds)
 	if (RemainingSeconds > TimeLimit)
 	{
 		// still in first half;
-		UTGameState->RemainingTime = RemainingSeconds - TimeLimit;
+		UTGameState->SetRemainingTime(RemainingSeconds - TimeLimit);
 	}
 	else
 	{
-		UTGameState->RemainingTime = 1;
+		UTGameState->SetRemainingTime(1);
 		TimeLimit = RemainingSeconds;
 		IntermissionDuration = 5;
 	}

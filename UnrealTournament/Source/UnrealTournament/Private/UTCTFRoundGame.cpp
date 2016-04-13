@@ -455,16 +455,16 @@ void AUTCTFRoundGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, A
 	{
 		if (UTGameState && Holder && Holder->Team)
 		{
-			Holder->Team->RoundBonus = FMath::Min(MaxTimeScoreBonus, UTGameState->RemainingTime);
+			Holder->Team->RoundBonus = FMath::Min(MaxTimeScoreBonus, UTGameState->GetRemainingTime());
 			Holder->Team->SecondaryScore += Holder->Team->RoundBonus;
-			if (UTGameState->RemainingTime < 60)
+			if (UTGameState->GetRemainingTime() < 60)
 			{
 				// give defense a bonus
 				int32 DefenderTeamIndex = 1 - Holder->Team->TeamIndex;
 				if ((DefenderTeamIndex >= 0) && (DefenderTeamIndex < Teams.Num()) && Teams[DefenderTeamIndex])
 				{
-					Teams[DefenderTeamIndex]->SecondaryScore += 60 - UTGameState->RemainingTime;
-					BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 160 - UTGameState->RemainingTime, NULL, NULL, Teams[DefenderTeamIndex]);
+					Teams[DefenderTeamIndex]->SecondaryScore += 60 - UTGameState->GetRemainingTime();
+					BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 160 - UTGameState->GetRemainingTime(), NULL, NULL, Teams[DefenderTeamIndex]);
 				}
 			}
 		}
@@ -982,7 +982,7 @@ void AUTCTFRoundGame::CheckGameTime()
 	}
 	else if ((GetMatchState() == MatchState::InProgress) && TimeLimit > 0)
 	{
-		if (UTGameState && UTGameState->RemainingTime <= 0)
+		if (UTGameState && UTGameState->GetRemainingTime() <= 0)
 		{
 			// Round is over, defense wins.
 			ScoreOutOfLives(bRedToCap ? 1 : 0);
@@ -990,7 +990,7 @@ void AUTCTFRoundGame::CheckGameTime()
 		else
 		{
 			// increase defender respawn time by one second every minute
-			if (UTGameState->RemainingTime % 60 == 0)
+			if (UTGameState->GetRemainingTime() % 60 == 0)
 			{
 				for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 				{

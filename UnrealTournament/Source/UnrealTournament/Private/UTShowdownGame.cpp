@@ -208,7 +208,7 @@ void AUTShowdownGame::SetPlayerDefaults(APawn* PlayerPawn)
 
 void AUTShowdownGame::ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
-	if (GetMatchState() != MatchState::MatchIntermission && (TimeLimit <= 0 || UTGameState->RemainingTime > 0))
+	if (GetMatchState() != MatchState::MatchIntermission && (TimeLimit <= 0 || UTGameState->GetRemainingTime() > 0))
 	{
 		if (Other != NULL)
 		{
@@ -367,7 +367,7 @@ void AUTShowdownGame::ScoreExpiredRoundTime()
 void AUTShowdownGame::CheckGameTime()
 {
 	static FName NAME_StartIntermission(TEXT("StartIntermission"));
-	if (IsMatchInProgress() && !HasMatchEnded() && TimeLimit > 0 && UTGameState->RemainingTime <= 0 && !IsTimerActiveUFunc(this, NAME_StartIntermission))
+	if (IsMatchInProgress() && !HasMatchEnded() && TimeLimit > 0 && UTGameState->GetRemainingTime() <= 0 && !IsTimerActiveUFunc(this, NAME_StartIntermission))
 	{
 		ScoreExpiredRoundTime();
 		SetTimerUFunc(this, NAME_StartIntermission, 2.0f, false);
@@ -521,8 +521,7 @@ void AUTShowdownGame::HandleMatchIntermission()
 	GS->bFinalIntermissionDelay = false;
 	RemainingPicks.Empty();
 	GS->SpawnSelector = NULL;
-	GS->RemainingMinute = 0;
-	GS->RemainingTime = 0;
+	GS->SetRemainingTime(0);
 	// reset timer for consistency
 	GetWorldTimerManager().SetTimer(TimerHandle_DefaultTimer, this, &AUTGameMode::DefaultTimer, GetWorldSettings()->GetEffectiveTimeDilation() / GetWorldSettings()->DemoPlayTimeDilation, true);
 

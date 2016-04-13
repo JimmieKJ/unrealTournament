@@ -151,7 +151,7 @@ float AUTCTFGameState::GetClockTime()
 	{
 		return ElapsedTime - OvertimeStartTime;
 	}
-	return ((TimeLimit > 0.f) || !HasMatchStarted()) ? RemainingTime : ElapsedTime;
+	return ((TimeLimit > 0.f) || !HasMatchStarted()) ? GetRemainingTime() : ElapsedTime;
 }
 
 void AUTCTFGameState::OnRep_MatchState()
@@ -162,7 +162,7 @@ void AUTCTFGameState::OnRep_MatchState()
 	if (IsMatchInOvertime())
 	{
 		OvertimeStartTime = ElapsedTime;
-		RemainingTime = 0;
+		SetRemainingTime(0);
 	}
 }
 

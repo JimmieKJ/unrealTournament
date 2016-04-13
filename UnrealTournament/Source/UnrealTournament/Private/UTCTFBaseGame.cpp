@@ -269,7 +269,7 @@ void AUTCTFBaseGame::CheckGameTime()
 {
 	if (CTFGameState->IsMatchIntermission())
 	{
-		if (CTFGameState->RemainingTime <= 0)
+		if (CTFGameState->GetRemainingTime() <= 0)
 		{
 			SetMatchState(MatchState::MatchExitingIntermission);
 		}

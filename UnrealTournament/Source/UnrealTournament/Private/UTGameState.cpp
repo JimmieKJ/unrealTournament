@@ -262,7 +262,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(AUTGameState, RemainingMinute);
+	DOREPLIFETIME(AUTGameState, ReplicatedRemainingTime);
 	DOREPLIFETIME(AUTGameState, WinnerPlayerState);
 	DOREPLIFETIME(AUTGameState, WinningTeam);
 	DOREPLIFETIME(AUTGameState, bStopGameClock);
@@ -426,11 +426,10 @@ float AUTGameState::GetIntermissionTime()
 	return RemainingTime;
 }
 
-void AUTGameState::OnRep_RemainingTime()
+void AUTGameState::SetRemainingTime(int32 NewRemainingTime)
 {
-	// if we received RemainingTime, it takes precedence
-	// note that this relies on all variables being received prior to any notifies being called
-	RemainingMinute = 0;
+	RemainingTime = NewRemainingTime;
+	ReplicatedRemainingTime = RemainingTime;
 }
 
 void AUTGameState::DefaultTimer()
@@ -455,10 +454,10 @@ void AUTGameState::DefaultTimer()
 
 	if (GetWorld()->GetNetMode() == NM_Client)
 	{
-		if (RemainingMinute > 0)
+		if (ReplicatedRemainingTime > 0)
 		{
-			RemainingTime = RemainingMinute;
-			RemainingMinute = 0;
+			RemainingTime = ReplicatedRemainingTime;
+			ReplicatedRemainingTime = 0;
 		}
 
 		// might have been deferred while waiting for teams to replicate
@@ -475,10 +474,10 @@ void AUTGameState::DefaultTimer()
 			RemainingTime--;
 			if (GetWorld()->GetNetMode() != NM_Client)
 			{
-				int32 RepTimeInterval = (RemainingTime > 60) ? 60 : 12;
+				int32 RepTimeInterval = 10;
 				if (RemainingTime % RepTimeInterval == 0)
 				{
-					RemainingMinute = RemainingTime;
+					ReplicatedRemainingTime = RemainingTime;
 				}
 				AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
 				if (Game && (RemainingTime < 0.8f * TimeLimit))
@@ -626,7 +625,7 @@ void AUTGameState::SetTimeLimit(int32 NewTimeLimit)
 {
 	TimeLimit = NewTimeLimit;
 	RemainingTime = TimeLimit;
-	RemainingMinute = TimeLimit;
+	ReplicatedRemainingTime = TimeLimit;
 
 	ForceNetUpdate();
 }
