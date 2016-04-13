@@ -36,7 +36,7 @@ void AUTCTFFlagBase::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 void AUTCTFFlagBase::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	AUTCharacter* Character = Cast<AUTCharacter>(OtherActor);
-	if (Character != NULL)
+	if (Character != NULL && Role == ROLE_Authority)
 	{
 		AUTCTFFlag* CharFlag = Cast<AUTCTFFlag>(Character->GetCarriedObject());
 		if ( CharFlag != NULL && CharFlag != CarriedObject && CarriedObject != NULL && CarriedObject->ObjectState == CarriedObjectState::Home && CharFlag->GetTeamNum() != GetTeamNum() &&
