@@ -287,6 +287,10 @@ void AUTCTFFlag::Tick(float DeltaTime)
 	if (Role == ROLE_Authority)
 	{
 		bCurrentlyPinged = bShouldPingFlag && (GetWorld()->GetTimeSeconds() - LastPingedTime < PingedDuration);
+		if (Holder)
+		{
+			Holder->bSpecialPlayer = bCurrentlyPinged;
+		}
 		if ((ObjectState == CarriedObjectState::Held) && (GetWorld()->GetTimeSeconds() - LastPositionUpdateTime > 1.f) && HoldingPawn && HoldingPawn->GetCharacterMovement() && HoldingPawn->GetCharacterMovement()->IsWalking() && (!HoldingPawn->GetMovementBase() || !MovementBaseUtility::UseRelativeLocation(HoldingPawn->GetMovementBase())))
 		{
 			FVector PreviousPos = (PastPositions.Num() > 0) ? PastPositions[PastPositions.Num() - 1] : (HomeBase ? HomeBase->GetActorLocation() : FVector(0.f));

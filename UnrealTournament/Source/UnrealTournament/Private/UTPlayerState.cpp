@@ -2746,12 +2746,13 @@ int32 AUTPlayerState::CountBanVotes()
 
 void AUTPlayerState::OnRepSpecialPlayer()
 {
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetWorld()->GetFirstPlayerController());
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
 		AUTCharacter* Character = Cast<AUTCharacter>(*It);
 		if (Character != NULL && Character->PlayerState == this && !Character->bTearOff)
 		{
-			Character->UpdateTacComMesh(bSpecialPlayer);
+			UpdateSpecialTacComFor(Character, UTPC);
 		}
 	}
 }
@@ -2764,11 +2765,15 @@ void AUTPlayerState::OnRepSpecialTeamPlayer()
 		AUTCharacter* Character = Cast<AUTCharacter>(*It);
 		if (Character != NULL && Character->PlayerState == this && !Character->bTearOff)
 		{
-			Character->UpdateTacComMesh(bSpecialTeamPlayer && UTPC->GetTeamNum() == GetTeamNum());
+			UpdateSpecialTacComFor(Character, UTPC);
 		}
 	}
 }
 
+void AUTPlayerState::UpdateSpecialTacComFor(AUTCharacter* Character, AUTPlayerController* UTPC)
+{
+	Character->UpdateTacComMesh(bSpecialPlayer || (bSpecialTeamPlayer && UTPC && UTPC->GetTeamNum() == GetTeamNum()));
+}
 
 float AUTPlayerState::GetStatsValue(FName StatsName) const
 {

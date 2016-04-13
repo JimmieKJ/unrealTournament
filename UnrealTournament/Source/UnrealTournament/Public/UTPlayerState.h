@@ -804,6 +804,8 @@ public:
 	UFUNCTION()
 	virtual void OnRepSpecialTeamPlayer();
 
+	virtual void UpdateSpecialTacComFor(AUTCharacter* Character, AUTPlayerController* UTPC);
+
 	// Allows gametypes to force a given hat on someone
 	UPROPERTY(replicatedUsing = OnRepOverrideHat)
 	TSubclassOf<AUTHat> OverrideHatClass;
