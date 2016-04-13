@@ -80,6 +80,10 @@ void UUTHUDWidget_Powerups::Draw_Implementation(float DeltaTime)
 
 bool UUTHUDWidget_Powerups::ShouldDraw_Implementation(bool bShowScores)
 {
+	if (!UTHUDOwner->GetQuickStatsHidden())
+	{
+		return false;
+	}
 	if (UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState && UTHUDOwner->UTPlayerOwner->UTPlayerState->bOnlySpectator)
 	{
 		return !UTHUDOwner->UTPlayerOwner->bShowCameraBinds && !UTHUDOwner->UTPlayerOwner->bRequestingSlideOut && Super::ShouldDraw_Implementation(bShowScores);

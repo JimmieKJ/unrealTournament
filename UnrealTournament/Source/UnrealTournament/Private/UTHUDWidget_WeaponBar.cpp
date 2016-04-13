@@ -174,11 +174,6 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 
 		for (int32 GroupIdx = 0; GroupIdx < WeaponGroups.Num(); GroupIdx++)
 		{
-			if (WeaponGroups[GroupIdx].Group == 0)
-			{
-				// skip translocator on weapon bar
-				continue;
-			}
 			// We have now allied all of the animation and we know the biggest anim scale, so we can figure out how wide this group should be.
 			float Y2 = YPosition;
 			float TextXPosition = 0.f;
