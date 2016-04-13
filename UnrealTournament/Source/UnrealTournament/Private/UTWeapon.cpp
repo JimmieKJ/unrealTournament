@@ -284,7 +284,7 @@ void AUTWeapon::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 
 void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 {
-	if (bMustBeHolstered && UTOwner && HasAnyAmmo())
+	if (bMustBeHolstered && UTOwner && (HasAnyAmmo() || bCanRegenerateAmmo))
 	{
 		AttachToHolster();
 	}
@@ -747,7 +747,7 @@ void AUTWeapon::DetachFromOwner_Implementation()
 	// unregister components so they go away
 	UnregisterAllComponents();
 
-	if (bMustBeHolstered && HasAnyAmmo() && UTOwner && !UTOwner->IsDead() && !IsPendingKillPending())
+	if (bMustBeHolstered && (HasAnyAmmo() || bCanRegenerateAmmo) && UTOwner != NULL && !UTOwner->IsDead() && !IsPendingKillPending())
 	{
 		AttachToHolster();
 	}
@@ -1010,8 +1010,11 @@ void AUTWeapon::OnRep_Ammo()
 		AUTPlayerController* PC = Cast<AUTPlayerController>(UTOwner->Controller);
 		if (PC != NULL)
 		{
-			//UE_LOG(UT, Warning, TEXT("********** %s ran out of ammo for %s"), *GetName(), *PC->GetHumanReadableName());
-			PC->SwitchToBestWeapon();
+			if (!bCanRegenerateAmmo)
+			{
+				//UE_LOG(UT, Warning, TEXT("********** %s ran out of ammo for %s"), *GetName(), *PC->GetHumanReadableName());
+				PC->SwitchToBestWeapon();
+			}
 		}
 		else
 		{

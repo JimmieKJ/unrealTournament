@@ -133,6 +133,12 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	TArray<int32> AmmoCost;
 
+	/** whether this weapon has a condition by which it recharges ammo automatically
+	 * note that setting this doesn't enable any such property; it's just informing the internal weapon code that a subclass has implemented it to e.g. don't switch when out of ammo
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	bool bCanRegenerateAmmo;
+
 	/** projectile class for fire mode (if applicable) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	TArray< TSubclassOf<AUTProjectile> > ProjClass;
