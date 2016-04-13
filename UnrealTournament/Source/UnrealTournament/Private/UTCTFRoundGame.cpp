@@ -74,10 +74,11 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	ActivatedPowerupPlaceholderObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_ActivatedPowerup_UDamage.BP_ActivatedPowerup_UDamage_C"));
 	RepulsorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Repulsor.BP_Repulsor_C"));
 
-	RollingAttackerRespawnDelay = 10.f;
+	RollingAttackerRespawnDelay = 5.f;
 	LastAttackerSpawnTime = 0.f;
 	RollingSpawnStartTime = 0.f;
 	bRollingAttackerSpawns = true;
+	ForceRespawnTime = 0.1f;
 }
 
 void AUTCTFRoundGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
@@ -854,14 +855,28 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 		{
 			OtherPS->RespawnWaitTime = 1.f;
 		}
-		else if (GetWorld()->GetTimeSeconds() - RollingSpawnStartTime < RollingAttackerRespawnDelay)
-		{
-			OtherPS->RespawnWaitTime = RollingAttackerRespawnDelay - GetWorld()->GetTimeSeconds() + RollingSpawnStartTime;
-		}
 		else
 		{
-			RollingSpawnStartTime = GetWorld()->GetTimeSeconds();
-			OtherPS->RespawnWaitTime = RollingAttackerRespawnDelay;
+			if (GetWorld()->GetTimeSeconds() - RollingSpawnStartTime < RollingAttackerRespawnDelay)
+			{
+				OtherPS->RespawnWaitTime = RollingAttackerRespawnDelay - GetWorld()->GetTimeSeconds() + RollingSpawnStartTime;
+			}
+			else
+			{
+				RollingSpawnStartTime = GetWorld()->GetTimeSeconds();
+				OtherPS->RespawnWaitTime = RollingAttackerRespawnDelay;
+			}
+			// if friendly hanging near flag base, respawn right away
+			AUTCTFFlagBase* TeamBase = CTFGameState->FlagBases[OtherPS->Team->TeamIndex];
+			for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+			{
+				AUTCharacter* Teammate = Cast<AUTCharacter>(*It);
+				if (Teammate && !Teammate->IsDead() && CTFGameState && CTFGameState->OnSameTeam(OtherPS, Teammate) && ((Teammate->GetActorLocation() - TeamBase->GetActorLocation()).SizeSquared() < 4000000.f))
+				{
+					OtherPS->RespawnWaitTime = 1.f;
+					break;
+				}
+			}
 		}
 		OtherPS->OnRespawnWaitReceived();
 	}
