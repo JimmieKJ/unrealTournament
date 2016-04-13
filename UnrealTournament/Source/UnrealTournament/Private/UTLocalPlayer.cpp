@@ -4936,10 +4936,12 @@ bool UUTLocalPlayer::IsPartyLeader()
 			{
 				return true;
 			}
+
+			return false;
 		}
 	}
 
-	return false;
+	return true;
 }
 
 void UUTLocalPlayer::ShowRegionSelectDialog(int32 InPlaylistId)

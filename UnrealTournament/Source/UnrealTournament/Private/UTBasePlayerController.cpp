@@ -507,7 +507,7 @@ void AUTBasePlayerController::ClientReturnedToMenus()
 			if (GameInstance)
 			{
 				UUTParty* Party = GameInstance->GetParties();
-				if (Party)
+				if (Party && Party->GetPersistentParty())
 				{
 					Party->RestorePersistentPartyState();
 				}
