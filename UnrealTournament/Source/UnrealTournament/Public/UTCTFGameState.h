@@ -107,6 +107,12 @@ struct FCTFScoringPlay
 	int32 ScoredByCaps;
 
 	UPROPERTY()
+		int32 RedBonus;
+
+	UPROPERTY()
+		int32 BlueBonus;
+
+	UPROPERTY()
 		TArray<FCTFAssist> Assists;
 	/** Remaining time in seconds when the cap happened */
 	UPROPERTY()

@@ -238,6 +238,8 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 				Assist.AssistName.PlayerState->bNeedsAssistAnnouncement = true;
 			}
 		}
+		NewScoringPlay.RedBonus = CTFGameState->Teams[0] ? CTFGameState->Teams[0]->RoundBonus : 0;
+		NewScoringPlay.BlueBonus = CTFGameState->Teams[1] ? CTFGameState->Teams[1]->RoundBonus : 0;
 		CTFGameState->AddScoringPlay(NewScoringPlay);
 	}
 }
