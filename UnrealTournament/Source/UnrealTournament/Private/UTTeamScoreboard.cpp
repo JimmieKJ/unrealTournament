@@ -45,10 +45,10 @@ void UUTTeamScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
 	DrawTexture(TextureAtlas, XOffset, YOffset + 22, EndSize, 65, 117, 188, 16, 65, 1.0, FLinearColor::Blue);
 
 	DrawText(BlueTeamText, 1237, YOffset + 40.f, UTHUDOwner->HugeFont, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
-	DrawText(FText::AsNumber(UTGameState->Teams[1]->Score), Size.X - Width + (Width * 0.1f), YOffset + 48.f, UTHUDOwner->ScoreFont, false, FVector2D(0, 0), FLinearColor::Black, true, FLinearColor::Black, 0.75, 1.0, FLinearColor::White, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Left, ETextVertPos::Center);
+	DrawText(FText::AsNumber(UTGameState->Teams[1]->Score), Size.X - Width + (Width * 0.1f), YOffset + 48.f, UTHUDOwner->ScoreFont, false, FVector2D(0, 0), FLinearColor::Black, true, FLinearColor::Black, 0.75f, 1.f, FLinearColor::White, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Left, ETextVertPos::Center);
 	if (bDrawSecondaryScores)
 	{
-		DrawText(FText::AsNumber(UTGameState->Teams[1]->SecondaryScore), Size.X - Width + (Width * 0.1f), YOffset + 96.f, UTHUDOwner->SmallFont, false, FVector2D(0, 0), FLinearColor::Black, true, FLinearColor::Black, 0.75, 1.0, FLinearColor::White, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f), ETextHorzPos::Right, ETextVertPos::Center);
+		DrawText(FText::AsNumber(UTGameState->Teams[1]->SecondaryScore), Size.X - Width + (Width * 0.1f), YOffset + 80.f, UTHUDOwner->SmallFont, false, FVector2D(0.f, 0.f), FLinearColor::Black, true, FLinearColor::Black, 1.f, 1.f, FLinearColor::White, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f), ETextHorzPos::Right, ETextVertPos::Center);
 	}
 	YOffset += 119;
 }

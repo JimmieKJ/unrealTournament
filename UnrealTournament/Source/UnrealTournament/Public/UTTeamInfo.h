@@ -66,6 +66,8 @@ class UNREALTOURNAMENT_API AUTTeamInfo : public AInfo, public IUTTeamInterface
 	UPROPERTY(BlueprintReadWrite, Replicated, Category = Team)
 		int32 SecondaryScore;
 
+	UPROPERTY(BlueprintReadWrite, Replicated, Category = Team)
+		int32 RoundBonus;
 
 	/** For team stats. */
 	UPROPERTY(BlueprintReadWrite, Replicated, Category = Team)

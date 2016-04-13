@@ -6,6 +6,7 @@
 #include "UTCTFGameMessage.h"
 #include "UTCTFRoleMessage.h"
 #include "UTCTFRewardMessage.h"
+#include "UTCTFMajorMessage.h"
 #include "UTFirstBloodMessage.h"
 #include "UTCountDownMessage.h"
 #include "UTPickup.h"
@@ -178,6 +179,12 @@ void AUTCTFRoundGame::GiveDefaultInventory(APawn* PlayerPawn)
 			UTCharacter->LeaderHatStatusChanged();
 		}
 	}
+}
+
+void AUTCTFRoundGame::BroadcastScoreUpdate(APlayerState* ScoringPlayer, AUTTeamInfo* ScoringTeam, int32 OldScore)
+{
+	BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 200 + ScoringTeam->RoundBonus, ScoringPlayer, NULL, ScoringTeam);
+	BroadcastLocalized(this, UUTCTFMajorMessage::StaticClass(), 2, ScoringPlayer, NULL, ScoringTeam);
 }
 
 void AUTCTFRoundGame::DiscardInventory(APawn* Other, AController* Killer)
@@ -442,22 +449,32 @@ void AUTCTFRoundGame::EndTeamGame(AUTTeamInfo* Winner, FName Reason)
 	EndMatch();
 }
 
-void AUTCTFRoundGame::HandleFlagCapture(AUTPlayerState* Holder)
+void AUTCTFRoundGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)
 {
-	if (UTGameState && Holder && Holder->Team)
+	if (Reason == FName("FlagCapture"))
 	{
-		Holder->Team->SecondaryScore += FMath::Min(MaxTimeScoreBonus, UTGameState->RemainingTime);
-		if (UTGameState->RemainingTime < 60)
+		if (UTGameState && Holder && Holder->Team)
 		{
-			// give defense a bonus
-			int32 DefenderTeamIndex = 1 - Holder->Team->TeamIndex;
-			if ((DefenderTeamIndex >= 0) && (DefenderTeamIndex < Teams.Num()) && Teams[DefenderTeamIndex])
+			Holder->Team->RoundBonus = FMath::Min(MaxTimeScoreBonus, UTGameState->RemainingTime);
+			Holder->Team->SecondaryScore += Holder->Team->RoundBonus;
+			if (UTGameState->RemainingTime < 60)
 			{
-				Teams[DefenderTeamIndex]->SecondaryScore += 60 - UTGameState->RemainingTime;
-				BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 160 - UTGameState->RemainingTime, NULL, NULL, Teams[DefenderTeamIndex]);
+				// give defense a bonus
+				int32 DefenderTeamIndex = 1 - Holder->Team->TeamIndex;
+				if ((DefenderTeamIndex >= 0) && (DefenderTeamIndex < Teams.Num()) && Teams[DefenderTeamIndex])
+				{
+					Teams[DefenderTeamIndex]->SecondaryScore += 60 - UTGameState->RemainingTime;
+					BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 160 - UTGameState->RemainingTime, NULL, NULL, Teams[DefenderTeamIndex]);
+				}
 			}
 		}
 	}
+
+	Super::ScoreObject_Implementation(GameObject, HolderPawn, Holder, Reason);
+}
+
+void AUTCTFRoundGame::HandleFlagCapture(AUTPlayerState* Holder)
+{
 	CheckScore(Holder);
 	if (UTGameState && UTGameState->IsMatchInProgress())
 	{

@@ -25,19 +25,36 @@ void AUTFlagRunHUD::DrawHUD()
 	AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
 	if (!bShowScores && GS && GS->GetMatchState() == MatchState::InProgress && GS->bAsymmetricVictoryConditions)
 	{
+		float XAdjust = 0.05f * Canvas->ClipX * GetHUDWidgetScaleOverride();
+		float XOffsetRed = 0.5f * Canvas->ClipX - XAdjust;
+		float XOffsetBlue = 0.49f * Canvas->ClipX + XAdjust;
+		float YOffset = 0.03f * Canvas->ClipY * GetHUDWidgetScaleOverride();
+		FFontRenderInfo TextRenderInfo;
+
+		// draw secondary scores
+		if (GS->Teams.Num() > 1 && GS->Teams[0] && GS->Teams[1] && ((GS->Teams[0]->SecondaryScore > 0) || (GS->Teams[1]->SecondaryScore > 0)))
+		{
+			FText BlueSecondaryScore = FText::AsNumber(GS->Teams[1]->SecondaryScore);
+			Canvas->SetLinearDrawColor(FLinearColor::Black, 1.f);
+			Canvas->DrawText(TinyFont, FText::AsNumber(GS->Teams[0]->SecondaryScore), XOffsetRed, YOffset, 0.8f, 0.8f, TextRenderInfo);
+			Canvas->DrawText(TinyFont, BlueSecondaryScore, XOffsetBlue, YOffset, 0.8f, 0.8f, TextRenderInfo);
+			Canvas->SetLinearDrawColor(FLinearColor::Yellow, 1.f);
+			Canvas->DrawText(TinyFont, FText::AsNumber(GS->Teams[0]->SecondaryScore), XOffsetRed, YOffset, 0.75f, 0.75f, TextRenderInfo);
+			Canvas->DrawText(TinyFont, BlueSecondaryScore, XOffsetBlue, YOffset, 0.75f, 0.75f, TextRenderInfo);
+		}
+
 		// draw pips for players alive on each team @TODO move to widget
+		TextRenderInfo.bEnableShadow = true;
 		int32 OldRedCount = RedPlayerCount;
 		int32 OldBlueCount = BluePlayerCount;
 		RedPlayerCount = 0;
 		BluePlayerCount = 0;
-		float XAdjust = 0.015f * Canvas->ClipX * GetHUDWidgetScaleOverride();
 		float BasePipSize = 0.025f * Canvas->ClipX * GetHUDWidgetScaleOverride();
-		float XOffsetRed = 0.5f * Canvas->ClipX - XAdjust - BasePipSize;
-		float XOffsetBlue = 0.5f * Canvas->ClipX + XAdjust;
-		float YOffset = 0.1f * Canvas->ClipY * GetHUDWidgetScaleOverride();
+		XAdjust = 0.015f * Canvas->ClipX * GetHUDWidgetScaleOverride(); 
+		XOffsetRed = 0.5f * Canvas->ClipX - XAdjust - BasePipSize;
+		XOffsetBlue = 0.5f * Canvas->ClipX + XAdjust;
+		YOffset = 0.1f * Canvas->ClipY * GetHUDWidgetScaleOverride();
 		float XOffsetText = 0.f;
-		FFontRenderInfo TextRenderInfo;
-		TextRenderInfo.bEnableShadow = true;
 		TArray<AUTPlayerState*> LivePlayers;
 		AUTPlayerState* HUDPS = GetScorerPlayerState();
 		for (APlayerState* PS : GS->PlayerArray)
