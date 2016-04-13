@@ -10,8 +10,6 @@ class UNREALTOURNAMENT_API AUTActivatedPowerUpPlaceholder : public AUTInventory
 	GENERATED_UCLASS_BODY()
 
 	virtual void Tick(float DeltaTime) override;
-	virtual FText GetHUDText() const override;
-	virtual void UpdateHUDText() override;
 	virtual bool HUDShouldRender_Implementation(UUTHUDWidget* TargetWidget) override;
 
 	virtual void AddOverlayMaterials_Implementation(AUTGameState* GS) const override;
@@ -22,23 +20,10 @@ class UNREALTOURNAMENT_API AUTActivatedPowerUpPlaceholder : public AUTInventory
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
 	FOverlayEffect OverlayEffect1P;
 
-	//This determines what the FlashTimer value will be overrriden to when the ActivatePowerup button has been held long enough.
-	UPROPERTY(EditDefaultsOnly,BlueprintReadWrite, Category = Effects)
-	float FlashTimerOverride;
-
-	//This determines what the InitialFlashTimer value will be overriden to when the ActivatePowerup Button has been held long enough
-	UPROPERTY(EditDefaultsOnly,BlueprintReadWrite, Category = Effects)
-	float InitialFlashTimeOverride;
-
-	//This determines what the InitialFlashScale value will be overriden to when the ActivatePowerup Button has been held long enough
-	UPROPERTY(EditDefaultsOnly,BlueprintReadWrite, Category = Effects)
-	float InitialFlashScaleOverride;
-
 	/** Event when play begins for this actor. */
 	virtual void BeginPlay() override;
 
 private:
-	float OriginalHUDIconUL;
 	bool bHasOverlayBeenAddedAlready;
 
 };

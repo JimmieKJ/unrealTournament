@@ -34,7 +34,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameTommy : public AUTCTFRoundGame
 	virtual void ToggleSpecialFor(AUTCharacter* C) override;
 
 protected:
-	virtual void HandlePowerupUnlocks(APawn* Other, AController* Killer);
 
 	virtual bool IsPlayerOnLifeLimitedTeam(AUTPlayerState* PlayerState) const override;
 };

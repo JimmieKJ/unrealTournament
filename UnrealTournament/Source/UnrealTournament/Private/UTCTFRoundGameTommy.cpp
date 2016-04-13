@@ -40,6 +40,8 @@ AUTCTFRoundGameTommy::AUTCTFRoundGameTommy(const FObjectInitializer& ObjectIniti
 
 	OffenseKillsNeededForPowerUp = 10;
 	DefenseKillsNeededForPowerUp = 10;
+
+	bRollingAttackerSpawns = false;
 }
 
 void AUTCTFRoundGameTommy::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
@@ -169,13 +171,4 @@ bool AUTCTFRoundGameTommy::IsPlayerOnLifeLimitedTeam(AUTPlayerState* PlayerState
 	}
 
 	return IsTeamOnDefense(PlayerState->Team->TeamIndex);
-}
-
-void AUTCTFRoundGameTommy::HandlePowerupUnlocks(APawn* Other, AController* Killer)
-{
-	//normal RCTF turns off powerups after they are unlocked. We want to keep them going, so make sure they are always grantable.
-	bGrantDefensePowerupsWithKills = true;
-	bGrantDefensePowerupsWithKills = true;
-
-	Super::HandlePowerupUnlocks(Other, Killer);
 }
