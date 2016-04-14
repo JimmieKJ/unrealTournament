@@ -80,6 +80,8 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	RollingSpawnStartTime = 0.f;
 	bRollingAttackerSpawns = true;
 	ForceRespawnTime = 0.1f;
+
+	EndScoreboardDelay = 6.f;
 }
 
 void AUTCTFRoundGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
@@ -513,6 +515,7 @@ void AUTCTFRoundGame::HandleMatchHasStarted()
 		CTFGameState->bDefenderLivesLimited = bDefenderLivesLimited;
 		CTFGameState->bAttackerLivesLimited = bAttackerLivesLimited;
 		CTFGameState->bOverrideToggle = true;
+		CTFGameState->HalftimeScoreDelay = 6.f;
 		bFirstRoundInitialized = true;
 	}
 	Super::HandleMatchHasStarted();

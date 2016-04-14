@@ -10,7 +10,7 @@ UUTCTFRewardMessage::UUTCTFRewardMessage(const class FObjectInitializer& ObjectI
 {
 	bIsPartiallyUnique = true;
 	bIsSpecial = true;
-	Lifetime = 3.0f;
+	Lifetime = 5.0f;
 	MessageArea = FName(TEXT("MajorRewardMessage"));
 	bIsConsoleMessage = false;
 	AssistMessage = NSLOCTEXT("CTFRewardMessage", "Assist", "Assist!");
