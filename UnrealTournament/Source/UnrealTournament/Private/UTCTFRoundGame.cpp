@@ -166,7 +166,7 @@ void AUTCTFRoundGame::GiveDefaultInventory(APawn* PlayerPawn)
 	{
 		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(UTCharacter->PlayerState);
 		bool bOnLastLife = (UTPlayerState && (UTPlayerState->RemainingLives == 0) && UTPlayerState->bHasLifeLimit);
-		TSubclassOf<AUTInventory> StartingArmor = bOnLastLife  ? ShieldBeltClass : ThighPadClass;
+		TSubclassOf<AUTInventory> StartingArmor = (bOnLastLife && UTPlayerState->Team && IsTeamOnOffense(UTPlayerState->Team->TeamIndex)) ? ShieldBeltClass : ThighPadClass;
 		UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(StartingArmor, FVector(0.0f), FRotator(0.f, 0.f, 0.f)), true);
 		
 		AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTPlayerState->GetOwner());
@@ -705,7 +705,7 @@ void AUTCTFRoundGame::InitRound()
 			PS->bSpecialPlayer = false;
 			if (PS->Team && IsTeamOnDefense(PS->Team->TeamIndex))
 			{
-				PS->RespawnWaitTime += 2.f;
+				PS->RespawnWaitTime += 1.f;
 				PS->BoostClass = RepulsorClass;
 			}
 			if (PS && (PS->bIsInactive || !PS->Team || PS->bOnlySpectator))
@@ -822,8 +822,8 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 				{
 					PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 5, PS, NULL, NULL);
 				}
+				PS->RespawnWaitTime = 2.f;
 			}
-
 		}
 	}
 	if (PS->Team && IsTeamOnOffense(PS->Team->TeamIndex))
@@ -995,8 +995,8 @@ void AUTCTFRoundGame::CheckGameTime()
 		}
 		else
 		{
-			// increase defender respawn time by one second every minute
-			if (UTGameState->GetRemainingTime() % 60 == 0)
+			// increase defender respawn time by1 seconds every two minutes
+			if (UTGameState->GetRemainingTime() % 120 == 0)
 			{
 				for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 				{
