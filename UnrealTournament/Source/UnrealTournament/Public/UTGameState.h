@@ -138,6 +138,10 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(BlueprintReadOnly, Category = GameState)
 	float MatchEndTime;
 
+// deprecated, not called
+	UFUNCTION()
+	virtual void OnRep_RemainingTime() {};
+
 	/** Returns time in seconds that should be displayed on game clock. */
 	virtual float GetClockTime();
 
