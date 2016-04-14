@@ -72,6 +72,7 @@ AUTRemoteRedeemer::AUTRemoteRedeemer(const class FObjectInitializer& ObjectIniti
 	CollisionFreeRadius = 1000.f;
 	StatsHitCredit = 0.f;
 	HitsStatsName = NAME_RedeemerHits;
+	ProjHealth = 35;
 }
 
 FVector AUTRemoteRedeemer::GetVelocity() const
@@ -219,6 +220,8 @@ void AUTRemoteRedeemer::BlowUp()
 
 void AUTRemoteRedeemer::Detonate()
 {
+	BlowUp();
+/*
 	if (!bExploded)
 	{
 		bShotDown = true;
@@ -272,6 +275,7 @@ void AUTRemoteRedeemer::Detonate()
 
 		ShutDown();
 	}
+	*/
 }
 
 void AUTRemoteRedeemer::PlayDetonateEffects()
@@ -608,9 +612,12 @@ float AUTRemoteRedeemer::TakeDamage(float Damage, const FDamageEvent& DamageEven
 					EventInstigator->InstigatedAnyDamage(ActualDamage, DamageTypeCDO, this, DamageCauser);
 					DamageInstigator = EventInstigator;
 				}
-				
-				// small explosion when damaged
-				Detonate();
+				ProjHealth -= ActualDamage;
+				if (ProjHealth <= 0)
+				{
+					// small explosion when damaged
+					Detonate();
+				}
 			}
 		}
 		return float(ResultDamage);

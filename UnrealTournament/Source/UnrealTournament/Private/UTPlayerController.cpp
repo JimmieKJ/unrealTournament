@@ -269,17 +269,17 @@ void AUTPlayerController::ServerNP_Implementation()
 	}
 }
 
-bool AUTPlayerController::ServerNotifyProjectileHit_Validate(AUTProjectile* HitProj, FVector_NetQuantize HitLocation, AActor* DamageCauser, float TimeStamp)
+bool AUTPlayerController::ServerNotifyProjectileHit_Validate(AUTProjectile* HitProj, FVector_NetQuantize HitLocation, AActor* DamageCauser, float TimeStamp, int32 Damage)
 {
 	return true;
 }
 
-void AUTPlayerController::ServerNotifyProjectileHit_Implementation(AUTProjectile* HitProj, FVector_NetQuantize HitLocation, AActor* DamageCauser, float TimeStamp)
+void AUTPlayerController::ServerNotifyProjectileHit_Implementation(AUTProjectile* HitProj, FVector_NetQuantize HitLocation, AActor* DamageCauser, float TimeStamp, int32 Damage)
 {
 	// @TODO FIXMESTEVE - need to verify shot from player's location at timestamp to HitLocation is valid, and that projectile should have been there at that time
 	if (HitProj)
 	{
-		HitProj->NotifyClientSideHit(this, HitLocation, DamageCauser);
+		HitProj->NotifyClientSideHit(this, HitLocation, DamageCauser, Damage);
 	}
 }
 

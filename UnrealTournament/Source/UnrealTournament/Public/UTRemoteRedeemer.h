@@ -148,6 +148,9 @@ class UNREALTOURNAMENT_API AUTRemoteRedeemer : public APawn, public IUTTeamInter
 	float RollMultiplier;
 
 	UPROPERTY()
+		int32 ProjHealth;
+
+	UPROPERTY()
 	float RollSmoothingMultiplier;
 
 	float ExplosionTimings[5];
