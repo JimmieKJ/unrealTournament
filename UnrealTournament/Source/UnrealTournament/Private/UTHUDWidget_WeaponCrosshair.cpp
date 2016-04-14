@@ -3,10 +3,16 @@
 #include "UnrealTournament.h"
 #include "UTHUDWidget_WeaponCrosshair.h"
 
+const float MAX_HIT_INDICATOR_TIME = 1.5f;
+const float MAX_HIT_MOVEMENT = 100.0f;
+const float MAX_HIT_DAMAGE = 150.0f;
+
 UUTHUDWidget_WeaponCrosshair::UUTHUDWidget_WeaponCrosshair(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	Size=FVector2D(0.0f,0.0f);
 	ScreenPosition=FVector2D(0.5f, 0.5f);
+	LastHitTime = -100;
+	LastHitMagnitude = 0.0f;
 }
 
 void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
@@ -63,6 +69,35 @@ void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 				float Opacity = 0.8f - 0.8f*FlagPct;
 				DrawTexture(UTHUDOwner->HUDAtlas, 0.f, -48.f, Size, Size, 843.f, 87.f, 43.f, 41.f, Opacity, FlagColor, FVector2D(0.5f, 0.5f));
 			}
+		}
+	}
+
+	if (UTHUDOwner)
+	{
+		// Display hit/kill indicators...		
+		if (UTHUDOwner->LastConfirmedHitTime != LastHitTime)
+		{
+			// We have store it here since the amount of time and distance the indicator moves is dependent on the size of the hit and if there was a kill.
+			LastHitTime = UTHUDOwner->LastConfirmedHitTime;
+			LastHitMagnitude = FMath::Clamp<float>(float(UTHUDOwner->LastConfirmedHitDamage) / MAX_HIT_DAMAGE, 0.25f, 1.0f);
+		}
+
+		float TimeSinceLastKill = GetWorld()->GetTimeSeconds() - UTHUDOwner->LastConfirmedHitTime;
+		if (TimeSinceLastKill < MAX_HIT_INDICATOR_TIME * LastHitMagnitude)
+		{
+			float Perc = TimeSinceLastKill / (MAX_HIT_INDICATOR_TIME * LastHitMagnitude);
+			float DrawYOffset = 32.0f + (MAX_HIT_MOVEMENT * LastHitMagnitude * Perc);
+			float Opacity = 1.0f * (1.0f - Perc);
+			float DamageScale = 1.25f + (1.75f * LastHitMagnitude);
+
+			DrawTexture(UTHUDOwner->HUDAtlas, 0, DrawYOffset * -1.0f, 56.0f * DamageScale, 26.0f * DamageScale, 62.0f, 612.0f, 56.0f, 26.0f, Opacity , FLinearColor::White, FVector2D(0.5f, 1.0f));
+			DrawTexture(UTHUDOwner->HUDAtlas, 0, DrawYOffset, 56.0f * DamageScale, 26.0f * DamageScale, 62.0f, 640.0f, 56.0f, 26.0f, Opacity , FLinearColor::White, FVector2D(0.5f, 0.0f));
+			if (UTHUDOwner->LastConfirmedHitWasAKill) 
+			{
+				DrawTexture(UTHUDOwner->HUDAtlas, 0, DrawYOffset * -1.0f, 56.0f * DamageScale, 26.0f * DamageScale, 4.0f, 612.0f, 56.0f, 26.0f, Opacity , FLinearColor::White, FVector2D(0.5f, 1.0f));
+				DrawTexture(UTHUDOwner->HUDAtlas, 0, DrawYOffset, 56.0f * DamageScale, 26.0f * DamageScale, 4.0f, 640.0f, 56.0f, 26.0f, Opacity , FLinearColor::White, FVector2D(0.5f, 0.0f));
+			}
+
 		}
 	}
 }

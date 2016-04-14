@@ -3788,7 +3788,10 @@ void AUTPlayerController::ClientPumpkinPickedUp_Implementation(float GainedAmoun
 
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
-	Cast<AUTPlayerState>(PlayerState)->AdjustCurrency(7000);
+	int32 Value = FCString::Atoi(*TestCommand);
+	MyUTHUD->LastConfirmedHitTime = GetWorld()->GetTimeSeconds();
+	MyUTHUD->LastConfirmedHitDamage = Value;
+	MyUTHUD->LastConfirmedHitWasAKill = false;
 }
 
 void AUTPlayerController::ClientRequireContentItemListComplete_Implementation()

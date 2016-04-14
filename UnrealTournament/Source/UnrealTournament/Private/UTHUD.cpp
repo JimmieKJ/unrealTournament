@@ -725,7 +725,11 @@ void AUTHUD::CausedDamage(APawn* HitPawn, int32 Damage)
 	if (GS == NULL || !GS->OnSameTeam(HitPawn, PlayerOwner))
 	{
 		LastConfirmedHitTime = GetWorld()->TimeSeconds;
+		LastConfirmedHitDamage = Damage;
+		AUTCharacter* Char = Cast<AUTCharacter>(HitPawn);
+		LastConfirmedHitWasAKill = (Char && (Char->IsDead() || Char->Health <= 0));
 	}
+
 	if (bDrawDamageNumbers && (HitPawn != nullptr))
 	{
 		// add to current hit if there

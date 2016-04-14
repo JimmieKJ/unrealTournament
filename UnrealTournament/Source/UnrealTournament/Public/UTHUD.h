@@ -183,6 +183,15 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	float LastConfirmedHitTime;
 
+	/** Damage given in that hit */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
+	int32 LastConfirmedHitDamage;
+
+	/** if it was a kill,  this will be true */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
+	bool LastConfirmedHitWasAKill;
+
+
 	// Active Damage Indicators.  NOTE: if FadeTime == 0 then it's not in use
 	UPROPERTY()
 	TArray<struct FDamageHudIndicator> DamageIndicators;

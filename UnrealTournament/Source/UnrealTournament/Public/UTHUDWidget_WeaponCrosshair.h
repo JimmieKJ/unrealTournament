@@ -15,7 +15,10 @@ class UNREALTOURNAMENT_API UUTHUDWidget_WeaponCrosshair : public UUTHUDWidget
 public:
 
 	virtual void Draw_Implementation(float DeltaTime);
+
 protected:
+	float LastHitTime;
+	float LastHitMagnitude;
 
 private:
 };
