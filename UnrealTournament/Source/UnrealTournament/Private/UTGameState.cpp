@@ -281,7 +281,6 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME_CONDITION(AUTGameState, bAllowTeamSwitches, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, bWeaponStay, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, GoalScore, COND_InitialOnly);
-	DOREPLIFETIME_CONDITION(AUTGameState, RemainingTime, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, OverlayEffects, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, OverlayEffects1P, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, SpawnProtectionTime, COND_InitialOnly);
