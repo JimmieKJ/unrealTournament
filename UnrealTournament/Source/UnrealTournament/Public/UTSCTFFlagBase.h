@@ -48,6 +48,7 @@ class UNREALTOURNAMENT_API AUTSCTFFlagBase : public AUTCTFFlagBase
 	virtual void OnRep_bGhostMeshVisibile();
 
 	virtual void PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir);
+	virtual FText GetHUDStatusMessage(AUTHUD* HUD);
 
 protected:
 	// We override CreateCarriedObject as it's no longer used.  CreateGauntletObject() will be called by the game mode

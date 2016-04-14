@@ -7,10 +7,10 @@
 #include "UTTeamInterface.h"
 #include "UTProjectileMovementComponent.h"
 #include "UTSecurityCameraComponent.h"
-
 #include "UTCarriedObject.generated.h"
 
 class AUTCarriedObject;
+class AUTHUD;
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnCarriedObjectStateChangedDelegate, class AUTCarriedObject*, Sender, FName, NewState);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCarriedObjectHolderChangedDelegate, class AUTCarriedObject*, Sender);
 
@@ -385,5 +385,8 @@ public:
 	// The Speed modifier for this weapon if we are using weighted weapons
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	float WeightSpeedPctModifier;
+
+	// Returns a status message for this object on the hud.
+	virtual FText GetHUDStatusMessage(AUTHUD* HUD);
 
 };

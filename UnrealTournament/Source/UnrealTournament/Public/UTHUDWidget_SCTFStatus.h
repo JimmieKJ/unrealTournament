@@ -57,6 +57,5 @@ class UNREALTOURNAMENT_API UUTHUDWidget_SCTFStatus : public UUTHUDWidget_CTFFlag
 protected:
 	virtual void DrawIndicators(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation);
 	virtual FText GetFlagReturnTime(AUTCTFFlag* Flag);
-	virtual FText GetBaseMessage(AUTCTFFlagBase* Base, AUTCTFFlag* Flag);
 	virtual bool ShouldDrawFlag(AUTCTFFlag* Flag, bool bIsEnemyFlag);
 };

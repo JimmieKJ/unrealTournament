@@ -16,8 +16,6 @@ AUTSCTFFlag::AUTSCTFFlag(const FObjectInitializer& ObjectInitializer)
 {
 	bTeamPickupSendsHome = false;
 	bAnyoneCanPickup = true;
-	bTeamLocked = false;
-
 	WeightSpeedPctModifier = 0.85f;
 
 }
@@ -26,7 +24,6 @@ void AUTSCTFFlag::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLi
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(AUTSCTFFlag, bTeamLocked);
 	DOREPLIFETIME(AUTSCTFFlag, SwapTimer);
 	DOREPLIFETIME(AUTSCTFFlag, bPendingTeamSwitch);
 }
@@ -83,10 +80,6 @@ void AUTSCTFFlag::SetHolder(AUTCharacter* NewHolder)
 			uint8 NewTeamNum = HolderTeamNum;
 			SetTeam(GameState->Teams[NewTeamNum]);
 		}
-		else
-		{
-			bTeamLocked = false;
-		}
 	}
 
 	Super::SetHolder(NewHolder);
@@ -125,6 +118,7 @@ void AUTSCTFFlag::OnObjectStateChanged()
 
 void AUTSCTFFlag::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir)
 {
+/*
 	if (PC->GetPawn())
 	{
 		float Scale = Canvas->ClipY / 1080.0f;
@@ -146,6 +140,7 @@ void AUTSCTFFlag::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector 
 			Canvas->DrawTile(HUD->HUDAtlas, ScreenPosition.X - (Size.X * 0.5f), ScreenPosition.Y - Size.Y, Size.X, Size.Y,843,87,44,41);
 		}
 	}	
+*/
 }
 
 
@@ -256,3 +251,18 @@ bool AUTSCTFFlag::CanBePickedUpBy(AUTCharacter* Character)
 		return false;
 	}
 }
+
+
+FText AUTSCTFFlag::GetHUDStatusMessage(AUTHUD* HUD)
+{
+	if (GetTeamNum() == 255) // Anyone can pick this up
+	{
+		return NSLOCTEXT("UTSCTFFlag","AvailableForPickup","Grab the Flag");
+	}
+	if (bPendingTeamSwitch)
+	{
+		return NSLOCTEXT("UTSCTFFlag","Neutral","Becoming Neutral in");
+	}
+	return FText::GetEmpty();
+}
+

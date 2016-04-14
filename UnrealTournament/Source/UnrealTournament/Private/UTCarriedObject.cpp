@@ -889,3 +889,8 @@ float AUTCarriedObject::GetHeldTime(AUTPlayerState* TestHolder)
 	}
 	return CurrentHeldTime;
 }
+
+FText AUTCarriedObject::GetHUDStatusMessage(AUTHUD* HUD)
+{
+	return FText::GetEmpty();
+}

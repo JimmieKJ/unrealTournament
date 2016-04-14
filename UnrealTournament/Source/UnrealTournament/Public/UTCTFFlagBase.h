@@ -56,6 +56,11 @@ class UNREALTOURNAMENT_API AUTCTFFlagBase : public AUTGameObjective
 	virtual void PostInitializeComponents() override;
 	virtual void PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir);
 
+	// Returns a status message for this object on the hud.
+	virtual FText GetHUDStatusMessage(AUTHUD* HUD);
+
+
 protected:
 	virtual void CreateCarriedObject();
+
 };

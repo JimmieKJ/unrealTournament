@@ -11,9 +11,6 @@ class UNREALTOURNAMENT_API AUTSCTFFlag: public AUTCTFFlag
 	GENERATED_UCLASS_BODY()
 
 public:
-	// If true, the flag has switched sides and can't be picked up by the other team.
-	UPROPERTY(BlueprintReadOnly, replicated)
-	bool bTeamLocked;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = GameObject)
 	UMaterialInterface* NeutralMaterial;
@@ -40,10 +37,14 @@ public:
 
 	void NoLongerHeld(AController* InstigatedBy);
 
-protected:
-	virtual void OnObjectStateChanged();
+	// Returns a status message for this object on the hud.
+	virtual FText GetHUDStatusMessage(AUTHUD* HUD);
+
 	UPROPERTY(Replicated)
 	bool bPendingTeamSwitch;
+
+protected:
+	virtual void OnObjectStateChanged();
 
 
 };

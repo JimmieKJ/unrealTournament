@@ -23,31 +23,28 @@ UUTHUDWidget_SCTFStatus::UUTHUDWidget_SCTFStatus(const FObjectInitializer& Objec
 
 void UUTHUDWidget_SCTFStatus::DrawStatusMessage(float DeltaTime)
 {
-	AUTSCTFGameState* GGameState = Cast<AUTSCTFGameState>(UTGameState);
-	if (GGameState && GGameState->Flag && GGameState->AttackingTeam != 255)
+	AUTSCTFGameState* GameState = Cast<AUTSCTFGameState>(UTGameState);
+	if (GameState && GameState->Flag && GameState->AttackingTeam != 255)
 	{
 		PrimaryMessage.bHidden = false;
 		SecondaryMessage.bHidden = false;
-		bool bOnOffense = GGameState->AttackingTeam == UTPlayerOwner->GetTeamNum();
+		bool bOnOffense = GameState->AttackingTeam == UTPlayerOwner->GetTeamNum();
 
-		if ( GGameState->Flag->ObjectState == CarriedObjectState::Held )
+		if ( GameState->Flag->ObjectState == CarriedObjectState::Held )
 		{
 			PrimaryMessage.Text = bOnOffense ? OffensePrimaryMessage : DefensePrimaryMessage;
 			SecondaryMessage.Text = bOnOffense ? OffenseSecondaryMessage : DefenseSecondaryMessage;
 		}
-		else if ( GGameState->Flag->ObjectState == CarriedObjectState::Dropped )
+		else if ( GameState->Flag->ObjectState == CarriedObjectState::Dropped )
 		{
 			PrimaryMessage.Text = FlagDownPrimary;
-			SecondaryMessage.Text = FText::Format((bOnOffense ? FlagDownOffenseSecondaryMessage: FlagDownDefenseSecondaryMessage), FText::AsNumber(int32(GGameState->Flag->SwapTimer))); 
+			SecondaryMessage.Text = FText::Format((bOnOffense ? FlagDownOffenseSecondaryMessage: FlagDownDefenseSecondaryMessage), FText::AsNumber(int32(GameState->Flag->SwapTimer))); 
 		}
 		else
 		{
 			PrimaryMessage.Text = FlagHomePrimary;
 			SecondaryMessage.Text = bOnOffense ? FlagHomeOffenseSecondaryMessage: FlagHomeDefenseSecondaryMessage; 
 		}
-
-		float Scale = 0.85 + (0.3f * FMath::Abs<float>((FMath::Sin(UTHUDOwner->GetWorld()->GetTimeSeconds() * 2))));
-		PrimaryMessage.TextScale = Scale;
 	}
 	else
 	{
@@ -61,54 +58,41 @@ void UUTHUDWidget_SCTFStatus::DrawStatusMessage(float DeltaTime)
 
 void UUTHUDWidget_SCTFStatus::DrawIndicators(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation)
 {
-	AUTSCTFGameState* GGameState = Cast<AUTSCTFGameState>(GameState);
-	if (GGameState)
+	AUTSCTFGameState* SGameState = Cast<AUTSCTFGameState>(GameState);
+	if (SGameState)
 	{
 		// Flag is there and in the world.
-		if (GGameState->Flag && GGameState->Flag->ObjectState != CarriedObjectState::Home)
+		if (SGameState->Flag && SGameState->Flag->ObjectState != CarriedObjectState::Home)
 		{
-			uint8 TeamNum = GGameState->Flag->GetTeamNum();
-			AUTTeamInfo* TeamInfo = TeamNum != 255 && GameState->Teams.IsValidIndex(TeamNum) ? GameState->Teams[TeamNum] : nullptr;
-			AUTCTFFlagBase* FlagBase = TeamNum != 255 && GameState->FlagBases.IsValidIndex(TeamNum) ? GameState->FlagBases[TeamNum] : nullptr;
-			DrawFlagStatus(GameState, PlayerViewPoint, PlayerViewRotation, TeamNum, FVector2D(0.0f,0.0f), FlagBase, GGameState->Flag, GGameState->Flag->Holder);
-			DrawFlagWorld(GameState, PlayerViewPoint, PlayerViewRotation, TeamNum, FlagBase, GGameState->Flag, GGameState->Flag->Holder);
-			DrawFlagBaseWorld(GameState, PlayerViewPoint, PlayerViewRotation, TeamNum, FlagBase, GGameState->Flag, GGameState->Flag->Holder);
+			uint8 TeamNum = SGameState->Flag->GetTeamNum();
+			AUTTeamInfo* TeamInfo = TeamNum != 255 && SGameState->Teams.IsValidIndex(TeamNum) ? SGameState->Teams[TeamNum] : nullptr;
+			AUTCTFFlagBase* FlagBase = TeamNum != 255 && SGameState->FlagBases.IsValidIndex(TeamNum) ? SGameState->FlagBases[TeamNum] : nullptr;
+			DrawFlagStatus(GameState, PlayerViewPoint, PlayerViewRotation, TeamNum, FVector2D(0.0f,0.0f), FlagBase, SGameState->Flag, SGameState->Flag->Holder);
+			DrawFlagWorld(GameState, PlayerViewPoint, PlayerViewRotation, TeamNum, FlagBase, SGameState->Flag, SGameState->Flag->Holder);
+			DrawFlagBaseWorld(GameState, PlayerViewPoint, PlayerViewRotation, TeamNum, FlagBase, SGameState->Flag, SGameState->Flag->Holder);
 		}
 		else
 		{
-			DrawFlagBaseWorld(GameState, PlayerViewPoint, PlayerViewRotation, 255, GGameState->FlagDispenser, GGameState->Flag, GGameState->Flag ? GGameState->Flag->Holder : nullptr);
+			DrawFlagBaseWorld(GameState, PlayerViewPoint, PlayerViewRotation, 255, SGameState->FlagDispenser, SGameState->Flag, SGameState->Flag ? SGameState->Flag->Holder : nullptr);
 		}
 	}
 }
 
 FText UUTHUDWidget_SCTFStatus::GetFlagReturnTime(AUTCTFFlag* Flag)
 {	
-	AUTSCTFGameState* GGameState = Cast<AUTSCTFGameState>(UTGameState);
-	if (GGameState)
+	AUTSCTFGameState* GameState = Cast<AUTSCTFGameState>(UTGameState);
+	AUTSCTFFlag* SFlag = Cast<AUTSCTFFlag>(Flag);
+	if (GameState && SFlag)
 	{
-		if (GGameState->Flag->ObjectState == CarriedObjectState::Dropped)
+		if (SFlag->ObjectState == CarriedObjectState::Dropped && SFlag->bPendingTeamSwitch)
 		{
-			return FText::AsNumber(int32(GGameState->Flag->SwapTimer));
+			return FText::AsNumber(int32(GameState->Flag->SwapTimer));
 		}
 	}
 
 	return FText::GetEmpty();	
 }
 
-FText UUTHUDWidget_SCTFStatus::GetBaseMessage(AUTCTFFlagBase* Base, AUTCTFFlag* Flag)
-{
-	if (Base)
-	{
-		AUTSCTFFlagBase* SFlagBase = Cast<AUTSCTFFlagBase>(Base);
-		AUTSCTFGameState* GGameState = Cast<AUTSCTFGameState>(UTGameState);
-		if (SFlagBase && !SFlagBase->bScoreBase && Flag == nullptr && GGameState && GGameState->HasMatchStarted())
-		{
-			return FText::Format(NSLOCTEXT("SCTFStatus","FlagSpawnFormat","Flag Spawns in {0}"), FText::AsNumber(GGameState->FlagSpawnTimer));
-		}
-	}
-
-	return FText::GetEmpty();
-}
 
 bool UUTHUDWidget_SCTFStatus::ShouldDrawFlag(AUTCTFFlag* Flag, bool bIsEnemyFlag)
 {

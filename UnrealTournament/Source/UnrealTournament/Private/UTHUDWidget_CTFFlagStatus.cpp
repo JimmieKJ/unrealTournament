@@ -233,6 +233,14 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 			{
 				DrawEdgeArrow(ScreenPosition, CurrentWorldAlpha, WorldRenderScale, TeamNum);
 			}
+			else
+			{
+				FText FlagStatusMessage = Flag->GetHUDStatusMessage(UTHUDOwner);
+				if (!FlagStatusMessage.IsEmpty())
+				{
+					DrawText(FlagStatusMessage, ScreenPosition.X, ScreenPosition.Y - ((CircleTemplate.GetHeight() + 40) * WorldRenderScale), AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, 1.5f*WorldRenderScale, 0.5f + 0.5f*CurrentWorldAlpha, FLinearColor::White, FLinearColor(0.f, 0.f, 0.f, 0.f), ETextHorzPos::Center, ETextVertPos::Center);				
+				}
+			}
 			if (Flag && !bSpectating && !bShouldDrawFlagIcon)
 			{
 				// Drawing detecting camera
@@ -460,5 +468,5 @@ FText UUTHUDWidget_CTFFlagStatus::GetFlagReturnTime(AUTCTFFlag* Flag)
 
 FText UUTHUDWidget_CTFFlagStatus::GetBaseMessage(AUTCTFFlagBase* Base, AUTCTFFlag* Flag)
 {
-	return FText::GetEmpty();
+	return Base->GetHUDStatusMessage(UTHUDOwner);
 }

@@ -149,3 +149,8 @@ void AUTCTFFlagBase::PostInitializeComponents()
 void AUTCTFFlagBase::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir)
 {
 }
+
+FText AUTCTFFlagBase::GetHUDStatusMessage(AUTHUD* HUD)
+{
+	return FText::GetEmpty();
+}

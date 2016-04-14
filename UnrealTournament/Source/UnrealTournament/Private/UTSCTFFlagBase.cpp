@@ -171,4 +171,36 @@ void AUTSCTFFlagBase::CreateFlag()
 	}
 }
 
+FText AUTSCTFFlagBase::GetHUDStatusMessage(AUTHUD* HUD)
+{
+	AUTSCTFGameState* GameState = GetWorld()->GetGameState<AUTSCTFGameState>();
+
+	if (GameState && GameState->HasMatchStarted())
+	{
+		if (bScoreBase )
+		{
+			if (GameState->Flag && GameState->Flag->ObjectState == CarriedObjectState::Held && GameState->Flag->GetTeamNum() == GetTeamNum())
+			{
+				// This is a destination -- display the help tip..
+				if (GetTeamNum() == HUD->UTPlayerOwner->GetTeamNum())
+				{
+					return NSLOCTEXT("AUTSCTFFlagBase","CaptureMsg","Capture Here");
+				}
+				else
+				{
+					return NSLOCTEXT("AUTSCTFFlagBase","DefendMsg","Defend Here");
+				}
+			}
+		}
+		else
+		{
+			if (MyFlag == nullptr)
+			{
+				return FText::Format(NSLOCTEXT("AUTSCTFFlagBase","FlagSpawnFormat","Flag Spawns in {0}"), FText::AsNumber(GameState->FlagSpawnTimer));
+			}
+		}
+	}
+	return FText::GetEmpty();
+}
+
 
