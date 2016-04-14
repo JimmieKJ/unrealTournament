@@ -74,6 +74,8 @@ void AUTGhostFlag::OnSetCarriedObject()
 		FActorSpawnParameters Params;
 		Params.Owner = this;
 		Trail = GetWorld()->SpawnActor<AUTFlagReturnTrail>(AUTFlagReturnTrail::StaticClass(), MyCarriedObject->GetActorLocation(), MyCarriedObject->GetActorRotation(), Params);
+		Trail->StartActor = MyCarriedObject;
+		Trail->StartPoint = MyCarriedObject->GetActorLocation();
 		Trail->EndPoint = GetActorLocation();
 		TeamIndex = (MyCarriedObject && MyCarriedObject->Team) ? MyCarriedObject->Team->TeamIndex : 0;
 		Trail->SetTeamIndex(TeamIndex);
