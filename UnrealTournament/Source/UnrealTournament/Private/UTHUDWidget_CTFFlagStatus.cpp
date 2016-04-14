@@ -241,12 +241,7 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 					DrawText(FlagStatusMessage, ScreenPosition.X, ScreenPosition.Y - ((CircleTemplate.GetHeight() + 40) * WorldRenderScale), AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, 1.5f*WorldRenderScale, 0.5f + 0.5f*CurrentWorldAlpha, FLinearColor::White, FLinearColor(0.f, 0.f, 0.f, 0.f), ETextHorzPos::Center, ETextVertPos::Center);				
 				}
 			}
-			if (Flag && !bSpectating && !bShouldDrawFlagIcon)
-			{
-				// Drawing detecting camera
-				RenderObj_TextureAt(CameraIconTemplate, ScreenPosition.X, ScreenPosition.Y, CameraIconTemplate.GetWidth()* InWorldFlagScale, CameraIconTemplate.GetHeight()* InWorldFlagScale);
-			}
-			else if (Flag && Flag->ObjectState == CarriedObjectState::Held)
+			if (Flag && Flag->ObjectState == CarriedObjectState::Held)
 			{
 				TakenIconTemplate.RenderOpacity = CurrentWorldAlpha;
 				RenderObj_TextureAt(TakenIconTemplate, ScreenPosition.X, ScreenPosition.Y, 1.1f * TakenIconTemplate.GetWidth()* InWorldFlagScale, 1.1f * TakenIconTemplate.GetHeight()* InWorldFlagScale);
@@ -260,9 +255,9 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 				{
 					float DroppedAlpha = DroppedIconTemplate.RenderOpacity;
 					DroppedIconTemplate.RenderOpacity = CurrentWorldAlpha;
-					RenderObj_TextureAt(DroppedIconTemplate, ScreenPosition.X, ScreenPosition.Y, 1.25f*DroppedIconTemplate.GetWidth()* WorldRenderScale, 1.25f*DroppedIconTemplate.GetHeight()* WorldRenderScale);
+					RenderObj_TextureAt(DroppedIconTemplate, ScreenPosition.X, ScreenPosition.Y, 1.25f*DroppedIconTemplate.GetWidth()* InWorldFlagScale, 1.25f*DroppedIconTemplate.GetHeight()* InWorldFlagScale);
 					DroppedIconTemplate.RenderOpacity = DroppedAlpha;
-					DrawText(GetFlagReturnTime(Flag), ScreenPosition.X, ScreenPosition.Y, TinyFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, 1.5f*WorldRenderScale, 0.5f + 0.5f*CurrentWorldAlpha, FLinearColor::White, FLinearColor(0.f, 0.f, 0.f, 0.f), ETextHorzPos::Center, ETextVertPos::Center);
+					DrawText(GetFlagReturnTime(Flag), ScreenPosition.X, ScreenPosition.Y, TinyFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, 1.5f*InWorldFlagScale, 0.5f + 0.5f*CurrentWorldAlpha, FLinearColor::White, FLinearColor(0.f, 0.f, 0.f, 0.f), ETextHorzPos::Center, ETextVertPos::Center);
 				}
 			}
 		}
