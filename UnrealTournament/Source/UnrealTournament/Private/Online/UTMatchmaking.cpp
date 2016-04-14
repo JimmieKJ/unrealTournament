@@ -239,7 +239,7 @@ void UUTMatchmaking::OnClientPartyStateChanged(EUTPartyState NewPartyState)
 
 	if (NewPartyState == EUTPartyState::TravelToServer)
 	{
-		if (Matchmaking->GetMatchmakingState().State == EMatchmakingState::Type::JoinSuccess)
+		if (!Matchmaking || Matchmaking->GetMatchmakingState().State == EMatchmakingState::Type::JoinSuccess)
 		{
 			UE_LOG(LogOnlineGame, Display, TEXT("Follower matchmaking complete, travelling to server"));
 			TravelToServer();
@@ -661,6 +661,14 @@ void UUTMatchmaking::OnSingleSessionMatchmakingComplete(EMatchmakingCompleteResu
 			UTPC->GetWorldTimerManager().SetTimer(ConnectToReservationBeaconTimerHandle, TimerDelegate, CONNECT_TO_RESERVATION_BEACON_DELAY, false);
 		}
 
+		// Follower was fetching server info when the leader told the client to join
+		if (bQueuedTravelToServer)
+		{
+			UE_LOG(LogOnlineGame, Display, TEXT("Follower matchmaking complete, travelling to server"));
+			TravelToServer();
+			bQueuedTravelToServer = false;
+		}
+
 		OnMatchmakingCompleteInternal(Result, SearchResult);
 	}
 	else if (Result == EMatchmakingCompleteResult::Cancelled)
@@ -706,13 +714,6 @@ void UUTMatchmaking::ConnectToReservationBeacon(FOnlineSessionSearchResult Searc
 		}
 		else
 		{
-			// Follower was fetching server info when the leader told the client to join
-			if (bQueuedTravelToServer)
-			{
-				UE_LOG(LogOnlineGame, Display, TEXT("Follower matchmaking complete, travelling to server"));
-				TravelToServer();
-				bQueuedTravelToServer = false;
-			}
 		}
 	}
 	else
