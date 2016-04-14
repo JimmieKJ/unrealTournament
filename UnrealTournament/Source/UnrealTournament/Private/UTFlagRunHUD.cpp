@@ -23,7 +23,7 @@ void AUTFlagRunHUD::DrawHUD()
 	Super::DrawHUD();
 
 	AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
-	if (!bShowScores && GS && GS->GetMatchState() == MatchState::InProgress && GS->bAsymmetricVictoryConditions)
+	if (!bShowScores && GS && GS->GetMatchState() == MatchState::InProgress && GS->bOneFlagGameMode)
 	{
 		float XAdjust = 0.05f * Canvas->ClipX * GetHUDWidgetScaleOverride();
 		float XOffsetRed = 0.5f * Canvas->ClipX - XAdjust;

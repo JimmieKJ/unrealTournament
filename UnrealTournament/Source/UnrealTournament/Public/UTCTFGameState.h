@@ -159,7 +159,7 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 		uint32 bPlayingAdvantage : 1;
 
 	UPROPERTY(Replicated)
-		uint32 bAsymmetricVictoryConditions : 1;
+		uint32 bOneFlagGameMode : 1;
 
 	UPROPERTY(Replicated)
 		uint32 bRedToCap : 1;

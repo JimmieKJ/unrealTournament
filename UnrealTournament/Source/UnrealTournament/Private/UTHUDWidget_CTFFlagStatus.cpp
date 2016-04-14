@@ -225,7 +225,7 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 			CircleTemplate.RenderOpacity = CurrentWorldAlpha;
 			CircleBorderTemplate.RenderOpacity = CurrentWorldAlpha;
 
-			float InWorldFlagScale = GameState->bAsymmetricVictoryConditions ? WorldRenderScale*StatusScale : WorldRenderScale;
+			float InWorldFlagScale = GameState->bOneFlagGameMode ? WorldRenderScale*StatusScale : WorldRenderScale;
 			RenderObj_TextureAt(CircleTemplate, ScreenPosition.X, ScreenPosition.Y, CircleTemplate.GetWidth()* InWorldFlagScale, CircleTemplate.GetHeight()* InWorldFlagScale);
 			RenderObj_TextureAt(CircleBorderTemplate, ScreenPosition.X, ScreenPosition.Y, CircleBorderTemplate.GetWidth()* InWorldFlagScale, CircleBorderTemplate.GetHeight()* InWorldFlagScale);
 
@@ -300,7 +300,7 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagBaseWorld(AUTCTFGameState* GameState, F
 		float EdgeYPos = (TeamNum == 0) ? 0.35f * GetCanvas()->ClipY : 0.25f*Canvas->ClipY;
 		ScreenPosition = GetAdjustedScreenPosition(WorldPosition, PlayerViewPoint, ViewDir, Dist, Edge, EdgeYPos, bDrawEdgeArrow, TeamNum);
 		
-		if ( Flag == nullptr || bSpectating || Flag->IsHome() || !GameState->bAsymmetricVictoryConditions )
+		if ( Flag == nullptr || bSpectating || Flag->IsHome() || !GameState->bOneFlagGameMode )
 		{
 			float PctFromCenter = (ScreenPosition - FVector(0.5f*GetCanvas()->ClipX, 0.5f*GetCanvas()->ClipY, 0.f)).Size() / GetCanvas()->ClipX;
 			CurrentWorldAlpha = InWorldAlpha * FMath::Min(0.15f/WorldRenderScale + 12.f*PctFromCenter, 1.f);

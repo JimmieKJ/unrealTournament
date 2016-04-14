@@ -19,6 +19,10 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		bool bAsymmetricVictoryConditions;
 
+	/*  If single flag in game */
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		bool bOneFlagGameMode;
+
 	/*  If true, trying to deliver own flag to enemy base */ 
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		bool bCarryOwnFlag;

@@ -42,6 +42,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	UnlimitedRespawnWaitTime = 2.f;
 	bForceRespawn = true;
 	bAsymmetricVictoryConditions = true;
+	bOneFlagGameMode = true;
 	bCarryOwnFlag = true;
 	bNoFlagReturn = true;
 	bFirstRoundInitialized = false;
@@ -511,7 +512,7 @@ void AUTCTFRoundGame::HandleMatchHasStarted()
 	{
 		InitRound();
 		CTFGameState->CTFRound = 1;
-		CTFGameState->bAsymmetricVictoryConditions = bAsymmetricVictoryConditions;
+		CTFGameState->bOneFlagGameMode = bOneFlagGameMode;
 		CTFGameState->bDefenderLivesLimited = bDefenderLivesLimited;
 		CTFGameState->bAttackerLivesLimited = bAttackerLivesLimited;
 		CTFGameState->bOverrideToggle = true;
