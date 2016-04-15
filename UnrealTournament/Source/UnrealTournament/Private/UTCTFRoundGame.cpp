@@ -449,10 +449,18 @@ void AUTCTFRoundGame::EndTeamGame(AUTTeamInfo* Winner, FName Reason)
 
 	FTimerHandle TempHandle4;
 	float EndReplayDelay = TravelDelay - 10.f;
-	GetWorldTimerManager().SetTimer(TempHandle4, this, &AUTGameMode::StopReplayRecording, EndReplayDelay);
+	GetWorldTimerManager().SetTimer(TempHandle4, this, &AUTCTFRoundGame::StopRCTFReplayRecording, EndReplayDelay);
 
 	SendEndOfGameStats(Reason);
 	EndMatch();
+}
+
+void AUTCTFRoundGame::StopRCTFReplayRecording()
+{
+	if (Super::UTIsHandlingReplays() && GetGameInstance() != nullptr)
+	{
+		GetGameInstance()->StopRecordingReplay();
+	}
 }
 
 void AUTCTFRoundGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)
@@ -521,6 +529,11 @@ void AUTCTFRoundGame::HandleMatchHasStarted()
 		CTFGameState->bOverrideToggle = true;
 		CTFGameState->HalftimeScoreDelay = 6.f;
 		bFirstRoundInitialized = true;
+
+		if (Super::UTIsHandlingReplays() && GetGameInstance() != nullptr)
+		{
+			GetGameInstance()->StartRecordingReplay(GetWorld()->GetMapName(), GetWorld()->GetMapName());
+		}
 	}
 	Super::HandleMatchHasStarted();
 }

@@ -133,6 +133,9 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 
 	virtual void EndTeamGame(AUTTeamInfo* Winner, FName Reason);
 
+	virtual bool UTIsHandlingReplays() override { return false; }
+	virtual void StopRCTFReplayRecording();
+
 	/** Score round ending due to team out of lives. */
 	virtual void ScoreOutOfLives(int32 WinningTeamIndex);
 
