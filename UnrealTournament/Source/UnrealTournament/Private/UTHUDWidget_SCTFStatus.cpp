@@ -24,7 +24,7 @@ UUTHUDWidget_SCTFStatus::UUTHUDWidget_SCTFStatus(const FObjectInitializer& Objec
 void UUTHUDWidget_SCTFStatus::DrawStatusMessage(float DeltaTime)
 {
 	AUTSCTFGameState* GameState = Cast<AUTSCTFGameState>(UTGameState);
-	if (GameState && GameState->Flag && GameState->AttackingTeam != 255)
+	if (GameState && GameState->Flag && GameState->AttackingTeam != 255 && GameState->Flag->GetTeamNum() != 255)
 	{
 		PrimaryMessage.bHidden = false;
 		SecondaryMessage.bHidden = false;

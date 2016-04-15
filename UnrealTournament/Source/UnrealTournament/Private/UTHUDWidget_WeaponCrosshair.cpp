@@ -7,7 +7,7 @@ const float MAX_HIT_INDICATOR_TIME = 1.5f;
 const float MAX_HIT_MOVEMENT = 100.0f;
 const float MAX_HIT_DAMAGE = 150.0f;
 const float HIT_STRETCH_TIME=0.15f;
-const float FLASH_BLINK_TIME=0.1;
+const float FLASH_BLINK_TIME=0.5;
 
 
 UUTHUDWidget_WeaponCrosshair::UUTHUDWidget_WeaponCrosshair(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
@@ -16,7 +16,7 @@ UUTHUDWidget_WeaponCrosshair::UUTHUDWidget_WeaponCrosshair(const class FObjectIn
 	ScreenPosition=FVector2D(0.5f, 0.5f);
 	LastHitTime = -100;
 	LastHitMagnitude = 0.0f;
-	FlashStage = -1;
+	bFlashing = false;
 }
 
 void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
@@ -84,48 +84,40 @@ void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 			// We have store it here since the amount of time and distance the indicator moves is dependent on the size of the hit and if there was a kill.
 			LastHitTime = UTHUDOwner->LastConfirmedHitTime;
 			LastHitMagnitude = FMath::Clamp<float>(float(UTHUDOwner->LastConfirmedHitDamage) / MAX_HIT_DAMAGE, 0.25f, 1.0f);
-			FlashStage = 0;
-			FlashDuration = FLASH_BLINK_TIME;
+			bFlashing = true;
 			FlashTime = 0.0f;
 		}
 
 		float TimeSinceLastKill = GetWorld()->GetTimeSeconds() - UTHUDOwner->LastConfirmedHitTime;
-		if (FlashStage >= 0)
+		if (bFlashing)
 		{
-			float ThirdTime = FlashStage < 3 ? FlashDuration * 0.3f : 0.0f;
-			float Perc = FlashTime < ThirdTime ? 0.0f : (FlashTime - ThirdTime) / (FlashDuration - ThirdTime);
+			float Duration = FMath::Clamp<float>(FLASH_BLINK_TIME * LastHitMagnitude, 0.1, 1.0);
+			float Perc = FlashTime / Duration;
 			float Opacity = 1.0f - Perc;
-			float BackOpacity = FlashStage == 3 ? Opacity : 1.0f;
+			float BackOpacity = Opacity;
 
-			float Height = 64.0f + (32.0f * LastHitMagnitude);
+			float Height = 48.0f + (72.0f * LastHitMagnitude * Opacity) ;
+
+			UE_LOG(UT,Log,TEXT("Here %f %f %f %f"), Height, LastHitMagnitude, Opacity, Duration);
 
 			FVector2D DrawLocation;
 			DrawLocation = CalcRotatedDrawLocation(32.0f, 45.0f);
-			DrawTexture(UTHUDOwner->HUDAtlas, DrawLocation.X, DrawLocation.Y, 16.0f, Height, 36.0f, 679.0f, 32.0f, 72.0f, BackOpacity, FLinearColor::White, FVector2D(0.5f, 1.0f), 45.0f, FVector2D(0.5f, 1.0f));
 			DrawTexture(UTHUDOwner->HUDAtlas, DrawLocation.X, DrawLocation.Y, 16.0f, Height, 2.0f, 679.0f, 32.0f, 72.0f, Opacity, FLinearColor::White, FVector2D(0.5f, 1.0f), 45.0f, FVector2D(0.5f, 1.0f));
 
 			DrawLocation = CalcRotatedDrawLocation(32.0f, 135.0f);
-			DrawTexture(UTHUDOwner->HUDAtlas, DrawLocation.X, DrawLocation.Y, 16.0f, Height, 36.0f, 679.0f, 32.0f, 72.0f, BackOpacity, FLinearColor::White, FVector2D(0.5f, 1.0f), 135.0f, FVector2D(0.5f, 1.0f));
 			DrawTexture(UTHUDOwner->HUDAtlas, DrawLocation.X, DrawLocation.Y, 16.0f, Height, 2.0f, 679.0f, 32.0f, 72.0f, Opacity, FLinearColor::White, FVector2D(0.5f, 1.0f), 135.0f, FVector2D(0.5f, 1.0f));
 
 			DrawLocation = CalcRotatedDrawLocation(32.0f, 225.0f);
-			DrawTexture(UTHUDOwner->HUDAtlas, DrawLocation.X, DrawLocation.Y, 16.0f, Height, 36.0f, 679.0f, 32.0f, 72.0f, BackOpacity, FLinearColor::White, FVector2D(0.5f, 1.0f), 225.0f, FVector2D(0.5f, 1.0f));
 			DrawTexture(UTHUDOwner->HUDAtlas, DrawLocation.X, DrawLocation.Y, 16.0f, Height, 2.0f, 679.0f, 32.0f, 72.0f, Opacity, FLinearColor::White, FVector2D(0.5f, 1.0f), 225.0f, FVector2D(0.5f, 1.0f));
 
 			DrawLocation = CalcRotatedDrawLocation(32.0f, 315.0f);
-			DrawTexture(UTHUDOwner->HUDAtlas, DrawLocation.X, DrawLocation.Y, 16.0f, Height, 36.0f, 679.0f, 32.0f, 72.0f, BackOpacity, FLinearColor::White, FVector2D(0.5f, 1.0f), 315.0f, FVector2D(0.5f, 1.0f));
 			DrawTexture(UTHUDOwner->HUDAtlas, DrawLocation.X, DrawLocation.Y, 16.0f, Height, 2.0f, 679.0f, 32.0f, 72.0f, Opacity, FLinearColor::White, FVector2D(0.5f, 1.0f), 315.0f, FVector2D(0.5f, 1.0f));
 
 			FlashTime += DeltaTime;
-			if (FlashTime >= FlashDuration)
+			if (FlashTime >= Duration)
 			{
 				FlashTime = 0;
-				FlashStage++;
-
-				if (FlashStage >= 3)
-				{
-					FlashStage = -1;
-				}
+				bFlashing = false;
 			}
 		}
 	}
