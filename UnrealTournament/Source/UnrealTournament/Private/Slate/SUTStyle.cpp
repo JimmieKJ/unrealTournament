@@ -200,7 +200,7 @@ void SUTStyle::SetIcons(TSharedRef<FSlateStyleSet> StyleRef)
 
 	Style.Set("UT.Icon.PartyMember", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.PartyMember", FVector2D(48, 48)));
 	Style.Set("UT.Icon.PartyMember.Empty", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.PartyMember.Empty", FVector2D(48, 48)));
-	Style.Set("UT.Icon.PartyLeader.Overlay", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.PartyLeader.Overlay", FVector2D(48, 48)));
+	Style.Set("UT.Icon.PartyLeader", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.PartyLeader", FVector2D(48, 48)));
 }
 
 

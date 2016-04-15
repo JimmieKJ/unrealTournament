@@ -130,19 +130,7 @@ void SUTPartyWidget::SetupPartyMemberBox()
 					.HeightOverride(96)
 					[
 						SNew(SImage)
-						.Image(SUTStyle::Get().GetBrush("UT.Icon.PartyLeader.Overlay"))
-						.ColorAndOpacity(FLinearColor::Blue)
-						.Visibility(bIsPartyLeader ? EVisibility::Visible : EVisibility::Hidden)
-					]
-				]
-				+ SOverlay::Slot()
-				[
-					SNew(SBox)
-					.WidthOverride(96)
-					.HeightOverride(96)
-					[
-						SNew(SImage)
-						.Image(SUTStyle::Get().GetBrush("UT.Icon.PartyMember"))
+						.Image(SUTStyle::Get().GetBrush(bIsPartyLeader ? "UT.Icon.PartyLeader" : "UT.Icon.PartyMember"))
 						.ColorAndOpacity(PartyMemberColor)
 					]
 				]
