@@ -150,12 +150,15 @@ void AUTSCTFGame::FlagTeamChanged(uint8 NewTeamIndex)
 		}
 	}
 
-	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	if (SCTFGameState->Flag->GetTeamNum() != 255)
 	{
-		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-		if (PC)
+		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			PC->ClientReceiveLocalizedMessage(UUTSCTFGameMessage::StaticClass(), PC->GetTeamNum() == NewTeamIndex ? 2 : 3, nullptr, nullptr, nullptr);
+			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+			if (PC)
+			{
+				PC->ClientReceiveLocalizedMessage(UUTSCTFGameMessage::StaticClass(), PC->GetTeamNum() == NewTeamIndex ? 2 : 3, nullptr, nullptr, nullptr);
+			}
 		}
 	}
 
