@@ -19,9 +19,6 @@ UUTCTFGameMessage::UUTCTFGameMessage(const FObjectInitializer& ObjectInitializer
 	HalftimeMessage = NSLOCTEXT("CTFGameMessage", "Halftime", "");
 	OvertimeMessage = NSLOCTEXT("CTFGameMessage", "Overtime", "OVERTIME!");
 	NoReturnMessage = NSLOCTEXT("CTFGameMessage", "NoPickupFlag", "You can't pick up this flag.");
-	RedFlagDelayMessage = NSLOCTEXT("CTFGameMessage", "RedFlagDelay", "Red Flag can be picked up in");
-	BlueFlagDelayMessage = NSLOCTEXT("CTFGameMessage", "BlueFlagDelay", "Blue Flag can be picked up in");
-	BothFlagDelayMessage = NSLOCTEXT("CTFGameMessage", "BothFlagDelay", "Flags can be picked up in");
 	LastLifeMessage = NSLOCTEXT("CTFGameMessage", "LastLife", "This is your last life");
 
 	bIsStatusAnnouncement = true;
@@ -50,9 +47,6 @@ FText UUTCTFGameMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlaye
 		case 11: return HalftimeMessage; break;
 		case 12: return OvertimeMessage; break;
 		case 13: return NoReturnMessage; break;
-		case 17: return RedFlagDelayMessage; break;
-		case 18: return BlueFlagDelayMessage; break;
-		case 19: return BothFlagDelayMessage; break;
 		case 20: return LastLifeMessage; break;
 	}
 	return FText::GetEmpty();

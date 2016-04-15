@@ -13,6 +13,12 @@ class UNREALTOURNAMENT_API UUTCountDownMessage : public UUTLocalMessage
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Message")
 	FText CountDownText;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText RedFlagDelayMessage;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText BlueFlagDelayMessage;
+
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override
 	{
 		return FName(*FString::Printf(TEXT("CD%i"), Switch));
@@ -21,5 +27,7 @@ class UNREALTOURNAMENT_API UUTCountDownMessage : public UUTLocalMessage
 	virtual FText GetText(int32 Switch,bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const override;
 	virtual void PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const override;
 	virtual float GetScaleInSize_Implementation(int32 MessageIndex) const override;
+	virtual float GetLifeTime(int32 Switch) const override;
+
 };
 

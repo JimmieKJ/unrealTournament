@@ -42,15 +42,6 @@ class UNREALTOURNAMENT_API UUTCTFGameMessage : public UUTCarriedObjectMessage
 	FText NoReturnMessage;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-	FText RedFlagDelayMessage;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-	FText BlueFlagDelayMessage;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-	FText BothFlagDelayMessage;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 	FText LastLifeMessage;
 
 	virtual bool InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const override;

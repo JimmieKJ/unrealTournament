@@ -626,9 +626,7 @@ void AUTCTFRoundGame::FlagCountDown()
 	{
 		if (GetMatchState() == MatchState::InProgress)
 		{
-			int32 CountdownMessage = bAsymmetricVictoryConditions ? (bRedToCap ? 17 : 18) : 19;
-			BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), CountdownMessage, NULL, NULL, NULL);
-			BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), RemainingPickupDelay, NULL, NULL, NULL);
+			BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), (bRedToCap ? 1000 : 2000) + RemainingPickupDelay, NULL, NULL, NULL);
 		}
 
 		FTimerHandle TempHandle;
