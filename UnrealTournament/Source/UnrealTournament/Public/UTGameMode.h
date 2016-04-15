@@ -132,7 +132,7 @@ public:
 	float EndScoreboardDelay;			
 
 	/* How long to display the main scoreboard */
-	UPROPERTY(GlobalConfig, EditDefaultsOnly, Category = PostMatchTime)
+	UPROPERTY(EditDefaultsOnly, Category = PostMatchTime)
 		float MainScoreboardDisplayTime;
 
 	/* How long to display the scoring summary */

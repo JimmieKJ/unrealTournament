@@ -34,10 +34,7 @@ UUTCTFScoreboard::UUTCTFScoreboard(const FObjectInitializer& ObjectInitializer)
 
 void UUTCTFScoreboard::OpenScoringPlaysPage()
 {
-	if (UTHUDOwner && UTHUDOwner->ScoreboardPage == 0)
-	{
-		SetPage(1);
-	}
+	SetPage(1);
 }
 
 void UUTCTFScoreboard::PageChanged_Implementation()
@@ -275,7 +272,6 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 			Canvas->SetLinearDrawColor(CTFState->Teams[1]->TeamColor);
 			ScoreX += SingleXL;
 			Canvas->DrawText(UTHUDOwner->MediumFont, FString::Printf(TEXT(" %i"), Play.TeamScores[1]), ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
-			YPos = BoxYPos + CurrentScoreHeight + 8.f*RenderScale;
 
 			if ((Play.RedBonus > 0) || (Play.BlueBonus > 0))
 			{
@@ -285,6 +281,7 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 				FString BonusScorePart = FString::Printf(TEXT(" %i    %i"), Play.RedBonus, Play.BlueBonus);
 				Canvas->DrawText(UTHUDOwner->SmallFont, BonusScorePart, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
 			}
+			YPos = BoxYPos + CurrentScoreHeight + 8.f*RenderScale;
 		}
 	}
 }

@@ -35,6 +35,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 {
 	TimeLimit = 5;
 	DisplayName = NSLOCTEXT("UTGameMode", "CTFR", "Flag Run");
+	IntermissionDuration = 12.f;
 	RoundLives = 5;
 	bPerPlayerLives = true;
 	bNeedFiveKillsMessage = true;
@@ -82,6 +83,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	bRollingAttackerSpawns = true;
 	ForceRespawnTime = 0.1f;
 
+	MainScoreboardDisplayTime = 7.5f;
 	EndScoreboardDelay = 6.f;
 }
 

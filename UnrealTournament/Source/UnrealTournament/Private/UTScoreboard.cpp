@@ -178,7 +178,10 @@ AUTPlayerState* UUTScoreboard::GetNextScoringPlayer(int32 dir, int32& PSIndex)
 
 void UUTScoreboard::SetPage(int32 NewPage)
 {
-	UTHUDOwner->ScoreboardPage = FMath::Clamp<int32>(NewPage, 0, NumPages - 1);
+	if (UTHUDOwner)
+	{
+		UTHUDOwner->ScoreboardPage = FMath::Clamp<int32>(NewPage, 0, NumPages - 1);
+	}
 	PageChanged();
 }
 

@@ -308,10 +308,7 @@ void UUTTeamScoreboard::SwitchToScoringPlaysPage()
 
 void UUTTeamScoreboard::OpenScoringPlaysPage()
 {
-	if (UTHUDOwner && UTHUDOwner->ScoreboardPage == 0)
-	{
 		SetPage(1);
-	}
 }
 
 void UUTTeamScoreboard::DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)
