@@ -365,29 +365,16 @@ static void BuildMetalShaderOutput(
 				}
 				MetalPath = MetalToolsPath + TEXT("/metal");
 			}
-
-			// metal commandlines
-			FString MathMode = Header.bFastMath ? TEXT("-ffast-math") : TEXT("-fno-fast-math");
-			FString Params = FString::Printf(TEXT("%s -Wno-null-character %s %s -o %s"), *MathMode, Standard, *InputFilename, *ObjFilename);
-			FPlatformProcess::ExecProcess( *MetalPath, *Params, &ReturnCode, &Results, &Errors );
-
-			// handle compile error
-			if (ReturnCode != 0 || IFileManager::Get().FileSize(*ObjFilename) <= 0)
+			
+			if (IFileManager::Get().FileSize(*MetalPath) > 0)
 			{
-				FShaderCompilerError* Error = new(OutErrors) FShaderCompilerError();
-				Error->ErrorFile = InputFilename;
-				Error->ErrorLineString = TEXT("0");
-				Error->StrippedErrorMessage = Results + Errors;
-				bSucceeded = false;
-			}
-			else
-			{
-				Params = FString::Printf(TEXT("r %s %s"), *ArFilename, *ObjFilename);
-				FString MetalArPath = MetalToolsPath + TEXT("/metal-ar");
-				FPlatformProcess::ExecProcess( *MetalArPath, *Params, &ReturnCode, &Results, &Errors );
+				// metal commandlines
+				FString MathMode = Header.bFastMath ? TEXT("-ffast-math") : TEXT("-fno-fast-math");
+				FString Params = FString::Printf(TEXT("%s -Wno-null-character %s %s -o %s"), *MathMode, Standard, *InputFilename, *ObjFilename);
+				FPlatformProcess::ExecProcess( *MetalPath, *Params, &ReturnCode, &Results, &Errors );
 
 				// handle compile error
-				if (ReturnCode != 0 || IFileManager::Get().FileSize(*ArFilename) <= 0)
+				if (ReturnCode != 0 || IFileManager::Get().FileSize(*ObjFilename) <= 0)
 				{
 					FShaderCompilerError* Error = new(OutErrors) FShaderCompilerError();
 					Error->ErrorFile = InputFilename;
@@ -397,12 +384,12 @@ static void BuildMetalShaderOutput(
 				}
 				else
 				{
-					Params = FString::Printf(TEXT("-o %s %s"), *OutputFilename, *ArFilename);
-					FString MetalLibPath = MetalToolsPath + TEXT("/metallib");
-					FPlatformProcess::ExecProcess( *MetalLibPath, *Params, &ReturnCode, &Results, &Errors );
-			
+					Params = FString::Printf(TEXT("r %s %s"), *ArFilename, *ObjFilename);
+					FString MetalArPath = MetalToolsPath + TEXT("/metal-ar");
+					FPlatformProcess::ExecProcess( *MetalArPath, *Params, &ReturnCode, &Results, &Errors );
+
 					// handle compile error
-					if (ReturnCode != 0 || IFileManager::Get().FileSize(*OutputFilename) <= 0)
+					if (ReturnCode != 0 || IFileManager::Get().FileSize(*ArFilename) <= 0)
 					{
 						FShaderCompilerError* Error = new(OutErrors) FShaderCompilerError();
 						Error->ErrorFile = InputFilename;
@@ -412,30 +399,52 @@ static void BuildMetalShaderOutput(
 					}
 					else
 					{
-						bCompileAtRuntime = false;
-						
-						// Write out the header and compiled shader code
-						FMemoryWriter Ar(ShaderOutput.ShaderCode.GetWriteAccess(), true);
-						uint8 PrecompiledFlag = 1;
-						Ar << PrecompiledFlag;
-						Ar << Header;
+						Params = FString::Printf(TEXT("-o %s %s"), *OutputFilename, *ArFilename);
+						FString MetalLibPath = MetalToolsPath + TEXT("/metallib");
+						FPlatformProcess::ExecProcess( *MetalLibPath, *Params, &ReturnCode, &Results, &Errors );
+				
+						// handle compile error
+						if (ReturnCode != 0 || IFileManager::Get().FileSize(*OutputFilename) <= 0)
+						{
+							FShaderCompilerError* Error = new(OutErrors) FShaderCompilerError();
+							Error->ErrorFile = InputFilename;
+							Error->ErrorLineString = TEXT("0");
+							Error->StrippedErrorMessage = Results + Errors;
+							bSucceeded = false;
+						}
+						else
+						{
+							bCompileAtRuntime = false;
+							
+							// Write out the header and compiled shader code
+							FMemoryWriter Ar(ShaderOutput.ShaderCode.GetWriteAccess(), true);
+							uint8 PrecompiledFlag = 1;
+							Ar << PrecompiledFlag;
+							Ar << Header;
 
-						// load output
-						TArray<uint8> CompiledShader;
-						FFileHelper::LoadFileToArray(CompiledShader, *OutputFilename);
-						
-						// jam it into the output bytes
-						Ar.Serialize(CompiledShader.GetData(), CompiledShader.Num());
-						
-						// store data we can pickup later with ShaderCode.FindOptionalData('n'), could be removed for shipping
-						ShaderOutput.ShaderCode.AddOptionalData('n', TCHAR_TO_UTF8(*ShaderInput.GenerateShaderName()));
+							// load output
+							TArray<uint8> CompiledShader;
+							FFileHelper::LoadFileToArray(CompiledShader, *OutputFilename);
+							
+							// jam it into the output bytes
+							Ar.Serialize(CompiledShader.GetData(), CompiledShader.Num());
+							
+							// store data we can pickup later with ShaderCode.FindOptionalData('n'), could be removed for shipping
+							ShaderOutput.ShaderCode.AddOptionalData('n', TCHAR_TO_UTF8(*ShaderInput.GenerateShaderName()));
 
-						ShaderOutput.NumInstructions = 0;
-						ShaderOutput.NumTextureSamplers = Header.Bindings.NumSamplers;
-						ShaderOutput.bSucceeded = true;
-						bSucceeded = true;
+							ShaderOutput.NumInstructions = 0;
+							ShaderOutput.NumTextureSamplers = Header.Bindings.NumSamplers;
+							ShaderOutput.bSucceeded = true;
+							bSucceeded = true;
+						}
 					}
 				}
+			}
+			else
+			{
+				UE_LOG(LogMetalShaderCompiler, Warning, TEXT("Could not find offline 'metal' shader compiler - falling back to slower online compiled text shaders."));
+				bCompileAtRuntime = true;
+				bSucceeded = true;
 			}
 		}
 	#else
