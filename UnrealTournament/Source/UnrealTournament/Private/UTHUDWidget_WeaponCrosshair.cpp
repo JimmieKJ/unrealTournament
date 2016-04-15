@@ -5,7 +5,7 @@
 
 const float MAX_HIT_INDICATOR_TIME = 1.5f;
 const float MAX_HIT_MOVEMENT = 100.0f;
-const float MAX_HIT_DAMAGE = 150.0f;
+const float MAX_HIT_DAMAGE = 200.0f;
 const float HIT_STRETCH_TIME=0.15f;
 const float FLASH_BLINK_TIME=0.5;
 
@@ -83,7 +83,7 @@ void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 		{
 			// We have store it here since the amount of time and distance the indicator moves is dependent on the size of the hit and if there was a kill.
 			LastHitTime = UTHUDOwner->LastConfirmedHitTime;
-			LastHitMagnitude = FMath::Clamp<float>(float(UTHUDOwner->LastConfirmedHitDamage) / MAX_HIT_DAMAGE, 0.25f, 1.0f);
+			LastHitMagnitude = FMath::Clamp<float>(float(UTHUDOwner->LastConfirmedHitDamage) / MAX_HIT_DAMAGE, 0.0f, 1.0f);
 			bFlashing = true;
 			FlashTime = 0.0f;
 		}
@@ -91,14 +91,12 @@ void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 		float TimeSinceLastKill = GetWorld()->GetTimeSeconds() - UTHUDOwner->LastConfirmedHitTime;
 		if (bFlashing)
 		{
-			float Duration = FMath::Clamp<float>(FLASH_BLINK_TIME * LastHitMagnitude, 0.1, 1.0);
+			float Duration = FMath::Clamp<float>(FLASH_BLINK_TIME * LastHitMagnitude, 0.20, 1.0);
 			float Perc = FlashTime / Duration;
 			float Opacity = 1.0f - Perc;
 			float BackOpacity = Opacity;
 
-			float Height = 48.0f + (72.0f * LastHitMagnitude * Opacity) ;
-
-			UE_LOG(UT,Log,TEXT("Here %f %f %f %f"), Height, LastHitMagnitude, Opacity, Duration);
+			float Height = 16.0f + (128.0f * LastHitMagnitude * Opacity) ;
 
 			FVector2D DrawLocation;
 			DrawLocation = CalcRotatedDrawLocation(32.0f, 45.0f);
