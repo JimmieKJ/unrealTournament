@@ -359,6 +359,10 @@ protected:
 	// Get any scaling overrides.  
 	virtual float GetDrawScaleOverride();
 
+	// Given a distance and angle calc the pixel offsets from the origin
+	UFUNCTION(BlueprintCallable, Category="Widgets")
+	FVector2D CalcRotatedDrawLocation(float DistanceInPixels, float Angle);
+
 private:
 	// This is a sorted list of all RenderObjects in this widget.  
 	UPROPERTY()

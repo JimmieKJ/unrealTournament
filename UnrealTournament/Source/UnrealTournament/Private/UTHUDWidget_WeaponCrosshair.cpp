@@ -6,6 +6,9 @@
 const float MAX_HIT_INDICATOR_TIME = 1.5f;
 const float MAX_HIT_MOVEMENT = 100.0f;
 const float MAX_HIT_DAMAGE = 150.0f;
+const float HIT_STRETCH_TIME=0.15f;
+const float FLASH_BLINK_TIME=0.1;
+
 
 UUTHUDWidget_WeaponCrosshair::UUTHUDWidget_WeaponCrosshair(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -13,6 +16,7 @@ UUTHUDWidget_WeaponCrosshair::UUTHUDWidget_WeaponCrosshair(const class FObjectIn
 	ScreenPosition=FVector2D(0.5f, 0.5f);
 	LastHitTime = -100;
 	LastHitMagnitude = 0.0f;
+	FlashStage = -1;
 }
 
 void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
@@ -80,24 +84,49 @@ void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 			// We have store it here since the amount of time and distance the indicator moves is dependent on the size of the hit and if there was a kill.
 			LastHitTime = UTHUDOwner->LastConfirmedHitTime;
 			LastHitMagnitude = FMath::Clamp<float>(float(UTHUDOwner->LastConfirmedHitDamage) / MAX_HIT_DAMAGE, 0.25f, 1.0f);
+			FlashStage = 0;
+			FlashDuration = FLASH_BLINK_TIME;
+			FlashTime = 0.0f;
 		}
 
 		float TimeSinceLastKill = GetWorld()->GetTimeSeconds() - UTHUDOwner->LastConfirmedHitTime;
-		if (TimeSinceLastKill < MAX_HIT_INDICATOR_TIME * LastHitMagnitude)
+		if (FlashStage >= 0)
 		{
-			float Perc = TimeSinceLastKill / (MAX_HIT_INDICATOR_TIME * LastHitMagnitude);
-			float DrawYOffset = 32.0f + (MAX_HIT_MOVEMENT * LastHitMagnitude * Perc);
-			float Opacity = 1.0f * (1.0f - Perc);
-			float DamageScale = 1.25f + (1.75f * LastHitMagnitude);
+			float ThirdTime = FlashStage < 3 ? FlashDuration * 0.3f : 0.0f;
+			float Perc = FlashTime < ThirdTime ? 0.0f : (FlashTime - ThirdTime) / (FlashDuration - ThirdTime);
+			float Opacity = 1.0f - Perc;
+			float BackOpacity = FlashStage == 3 ? Opacity : 1.0f;
 
-			DrawTexture(UTHUDOwner->HUDAtlas, 0, DrawYOffset * -1.0f, 56.0f * DamageScale, 26.0f * DamageScale, 62.0f, 612.0f, 56.0f, 26.0f, Opacity , FLinearColor::White, FVector2D(0.5f, 1.0f));
-			DrawTexture(UTHUDOwner->HUDAtlas, 0, DrawYOffset, 56.0f * DamageScale, 26.0f * DamageScale, 62.0f, 640.0f, 56.0f, 26.0f, Opacity , FLinearColor::White, FVector2D(0.5f, 0.0f));
-			if (UTHUDOwner->LastConfirmedHitWasAKill) 
+			float Height = 64.0f + (32.0f * LastHitMagnitude);
+
+			FVector2D DrawLocation;
+			DrawLocation = CalcRotatedDrawLocation(32.0f, 45.0f);
+			DrawTexture(UTHUDOwner->HUDAtlas, DrawLocation.X, DrawLocation.Y, 16.0f, Height, 36.0f, 679.0f, 32.0f, 72.0f, BackOpacity, FLinearColor::White, FVector2D(0.5f, 1.0f), 45.0f, FVector2D(0.5f, 1.0f));
+			DrawTexture(UTHUDOwner->HUDAtlas, DrawLocation.X, DrawLocation.Y, 16.0f, Height, 2.0f, 679.0f, 32.0f, 72.0f, Opacity, FLinearColor::White, FVector2D(0.5f, 1.0f), 45.0f, FVector2D(0.5f, 1.0f));
+
+			DrawLocation = CalcRotatedDrawLocation(32.0f, 135.0f);
+			DrawTexture(UTHUDOwner->HUDAtlas, DrawLocation.X, DrawLocation.Y, 16.0f, Height, 36.0f, 679.0f, 32.0f, 72.0f, BackOpacity, FLinearColor::White, FVector2D(0.5f, 1.0f), 135.0f, FVector2D(0.5f, 1.0f));
+			DrawTexture(UTHUDOwner->HUDAtlas, DrawLocation.X, DrawLocation.Y, 16.0f, Height, 2.0f, 679.0f, 32.0f, 72.0f, Opacity, FLinearColor::White, FVector2D(0.5f, 1.0f), 135.0f, FVector2D(0.5f, 1.0f));
+
+			DrawLocation = CalcRotatedDrawLocation(32.0f, 225.0f);
+			DrawTexture(UTHUDOwner->HUDAtlas, DrawLocation.X, DrawLocation.Y, 16.0f, Height, 36.0f, 679.0f, 32.0f, 72.0f, BackOpacity, FLinearColor::White, FVector2D(0.5f, 1.0f), 225.0f, FVector2D(0.5f, 1.0f));
+			DrawTexture(UTHUDOwner->HUDAtlas, DrawLocation.X, DrawLocation.Y, 16.0f, Height, 2.0f, 679.0f, 32.0f, 72.0f, Opacity, FLinearColor::White, FVector2D(0.5f, 1.0f), 225.0f, FVector2D(0.5f, 1.0f));
+
+			DrawLocation = CalcRotatedDrawLocation(32.0f, 315.0f);
+			DrawTexture(UTHUDOwner->HUDAtlas, DrawLocation.X, DrawLocation.Y, 16.0f, Height, 36.0f, 679.0f, 32.0f, 72.0f, BackOpacity, FLinearColor::White, FVector2D(0.5f, 1.0f), 315.0f, FVector2D(0.5f, 1.0f));
+			DrawTexture(UTHUDOwner->HUDAtlas, DrawLocation.X, DrawLocation.Y, 16.0f, Height, 2.0f, 679.0f, 32.0f, 72.0f, Opacity, FLinearColor::White, FVector2D(0.5f, 1.0f), 315.0f, FVector2D(0.5f, 1.0f));
+
+			FlashTime += DeltaTime;
+			if (FlashTime >= FlashDuration)
 			{
-				DrawTexture(UTHUDOwner->HUDAtlas, 0, DrawYOffset * -1.0f, 56.0f * DamageScale, 26.0f * DamageScale, 4.0f, 612.0f, 56.0f, 26.0f, Opacity , FLinearColor::White, FVector2D(0.5f, 1.0f));
-				DrawTexture(UTHUDOwner->HUDAtlas, 0, DrawYOffset, 56.0f * DamageScale, 26.0f * DamageScale, 4.0f, 640.0f, 56.0f, 26.0f, Opacity , FLinearColor::White, FVector2D(0.5f, 0.0f));
-			}
+				FlashTime = 0;
+				FlashStage++;
 
+				if (FlashStage >= 3)
+				{
+					FlashStage = -1;
+				}
+			}
 		}
 	}
 }

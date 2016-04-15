@@ -43,4 +43,12 @@ public:
 	virtual AUTPlayerState* GetFlagHolder(uint8 TeamNum);
 	virtual AUTCTFFlagBase* GetFlagBase(uint8 TeamNum);
 
+	// Returns a pointer to the most important flag, or nullptr if there isn't one
+	virtual void GetImportantFlag(int32 TeamNum, TArray<AUTCTFFlag*>& ImportantFlags);
+
+	// Returns a pointer to the most important flag base or nullptr if there isn't one
+	virtual void GetImportantFlagBase(int32 TeamNum, TArray<AUTCTFFlagBase*>& ImportantBases);
+	
+
+
 };

@@ -774,3 +774,15 @@ FString UUTHUDWidget::GetClampedName(AUTPlayerState* PS, UFont* NameFont, float 
 	return PS->ClampedName;
 }
 
+FVector2D UUTHUDWidget::CalcRotatedDrawLocation(float DistanceInPixels, float Angle)
+{
+	float Sin = 0.f;
+	float Cos = 0.f;
+
+	FMath::SinCos(&Sin,&Cos, FMath::DegreesToRadians(Angle));
+	FVector2D NewPoint;
+
+	NewPoint.X = DistanceInPixels * Sin;
+	NewPoint.Y = -1.0f * DistanceInPixels * Cos;
+	return NewPoint;
+}

@@ -792,38 +792,45 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 			PS->RespawnWaitTime += 1.f;
 			PS->OnRespawnWaitReceived();
 		}
-		if (!bAsymmetricVictoryConditions || IsPlayerOnLifeLimitedTeam(PS))
+		if (IsPlayerOnLifeLimitedTeam(PS))
 		{
-			PS->RemainingLives--;
-			if (PS->RemainingLives < 0)
+			if (PS->RemainingLives > 0)
 			{
-				if (bNoLivesEndRound)
+				PS->RemainingLives--;
+				if (PS->RemainingLives < 0)
 				{
-					// this player is out of lives
-					PS->SetOutOfLives(true);
-					for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+					if (bNoLivesEndRound)
 					{
-						AUTPlayerState* OtherPS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-						if (OtherPS && (OtherPS->Team == PS->Team) && !OtherPS->bOutOfLives && !OtherPS->bIsInactive)
+						// this player is out of lives
+						PS->SetOutOfLives(true);
+						for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 						{
-							// found a live teammate, so round isn't over - notify about termination though
-							BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 3, PS);
-							return;
+							AUTPlayerState* OtherPS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+							if (OtherPS && (OtherPS->Team == PS->Team) && !OtherPS->bOutOfLives && !OtherPS->bIsInactive)
+							{
+								// found a live teammate, so round isn't over - notify about termination though
+								BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 3, PS);
+								return;
+							}
 						}
+						BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 4);
+						ScoreOutOfLives((PS->Team->TeamIndex == 0) ? 1 : 0);
 					}
-					BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 4);
-					ScoreOutOfLives((PS->Team->TeamIndex == 0) ? 1 : 0);
+					return;
 				}
-				return;
-			}
-			if (PS->RemainingLives == 0)
-			{
-				AUTPlayerController* PC = Cast<AUTPlayerController>(aPlayer);
-				if (PC)
+				if (PS->RemainingLives == 0)
 				{
-					PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 5, PS, NULL, NULL);
+					AUTPlayerController* PC = Cast<AUTPlayerController>(aPlayer);
+					if (PC)
+					{
+						PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 5, PS, NULL, NULL);
+					}
+					PS->RespawnWaitTime = 2.f;
 				}
-				PS->RespawnWaitTime = 2.f;
+			}
+			else
+			{
+				return;
 			}
 		}
 	}

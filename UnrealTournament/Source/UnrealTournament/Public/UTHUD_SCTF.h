@@ -2,11 +2,11 @@
 
 #pragma once
 
-#include "UTHUD_CTF.h"
+#include "UTFlagRunHUD.h"
 #include "UTHUD_SCTF.generated.h"
 
 UCLASS()
-class UNREALTOURNAMENT_API AUTHUD_SCTF : public AUTHUD_CTF
+class UNREALTOURNAMENT_API AUTHUD_SCTF : public AUTFlagRunHUD
 {
 	GENERATED_UCLASS_BODY()
 	virtual void DrawMinimapSpectatorIcons() override;

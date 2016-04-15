@@ -20,5 +20,9 @@ protected:
 	float LastHitTime;
 	float LastHitMagnitude;
 
+	int32 FlashStage;
+	float FlashTime;
+	float FlashDuration;
+
 private:
 };

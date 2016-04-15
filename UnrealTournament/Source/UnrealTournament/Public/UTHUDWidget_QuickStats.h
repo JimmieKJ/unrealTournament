@@ -168,7 +168,6 @@ private:
 	void UpdateStatScale(float DeltaTime, FStatInfo& Stat, bool bLookForChange = true);
 	void GetHighlightStrength(FStatInfo& Stat, float Perc, float WarnPerc);
 	FLinearColor InterpColor(FLinearColor DestinationColor, float Delta);
-	FVector2D CalcDrawLocation(float DistanceInPixels, float Angle);
 	FVector2D CalcRotOffset(FVector2D InitialPosition, float Angle);
 
 	// The Draw Angle this frame

@@ -79,3 +79,27 @@ AUTCTFFlagBase* AUTSCTFGameState::GetFlagBase(uint8 TeamNum)
 
 	return nullptr;
 }
+
+void AUTSCTFGameState::GetImportantFlag(int32 TeamNum, TArray<AUTCTFFlag*>& ImportantFlags)
+{
+	if (Flag)
+	{
+		ImportantFlags.Add(Flag);
+	}
+}
+
+void AUTSCTFGameState::GetImportantFlagBase(int32 TeamNum, TArray<AUTCTFFlagBase*>& ImportantBases)
+{
+	if (Flag == nullptr)
+	{
+		ImportantBases.Add(FlagDispenser);
+	}
+	else
+	{
+		uint8 TeamNum = Flag->GetTeamNum();
+		if (FlagBases.IsValidIndex(TeamNum))
+		{
+			ImportantBases.Add(FlagBases[TeamNum]);
+		}
+	}
+}

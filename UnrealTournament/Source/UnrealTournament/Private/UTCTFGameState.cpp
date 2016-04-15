@@ -548,3 +548,40 @@ void AUTCTFGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 		}
 	}
 }
+
+void AUTCTFGameState::GetImportantFlag(int32 TeamNum, TArray<AUTCTFFlag*>& ImportantFlags)
+{
+	if (bOneFlagGameMode)
+	{
+		uint8 DesiredTeamNum = bRedToCap ? 0 : 1;
+		if ( FlagBases.IsValidIndex(DesiredTeamNum))
+		{
+			AUTCTFFlag* Flag = Cast<AUTCTFFlag>(FlagBases[DesiredTeamNum]->GetCarriedObject());
+			if (Flag) ImportantFlags.Add(Flag);
+		}
+	}
+}
+
+void AUTCTFGameState::GetImportantFlagBase(int32 TeamNum, TArray<AUTCTFFlagBase*>& ImportantBases)
+{
+	if (bOneFlagGameMode)
+	{
+		if (FlagBases.Num() == 2 && FlagBases[0] && FlagBases[1])
+		{
+			uint8 OffensiveTeamNum = bRedToCap ? 0 : 1;
+			AUTCTFFlag* OffensiveFlag = Cast<AUTCTFFlag>(FlagBases[OffensiveTeamNum]->GetCarriedObject());
+			if (OffensiveFlag)
+			{
+				if (OffensiveFlag->ObjectState == CarriedObjectState::Home)
+				{
+					ImportantBases.Add(FlagBases[0]);
+					ImportantBases.Add(FlagBases[1]);
+				}
+				else
+				{
+					ImportantBases.Add(GetFlagBase(1-OffensiveTeamNum));
+				}
+			}			
+		}
+	}
+}

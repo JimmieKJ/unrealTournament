@@ -58,22 +58,39 @@ void UUTHUDWidget_SCTFStatus::DrawStatusMessage(float DeltaTime)
 
 void UUTHUDWidget_SCTFStatus::DrawIndicators(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation)
 {
-	AUTSCTFGameState* SGameState = Cast<AUTSCTFGameState>(GameState);
-	if (SGameState)
+	if (GameState)
 	{
+		uint8 OwnerTeam = UTHUDOwner->UTPlayerOwner->GetTeamNum();
+
+		TArray<AUTCTFFlag*> Flags;
+		GameState->GetImportantFlag(OwnerTeam, Flags);
+
+		TArray<AUTCTFFlagBase*> FlagBases;
+		GameState->GetImportantFlagBase(OwnerTeam, FlagBases); 
+
+		bool bDrawBasesInWorld = true;
 		// Flag is there and in the world.
-		if (SGameState->Flag && SGameState->Flag->ObjectState != CarriedObjectState::Home)
+		if (Flags.Num() > 0)
 		{
-			uint8 TeamNum = SGameState->Flag->GetTeamNum();
-			AUTTeamInfo* TeamInfo = TeamNum != 255 && SGameState->Teams.IsValidIndex(TeamNum) ? SGameState->Teams[TeamNum] : nullptr;
-			AUTCTFFlagBase* FlagBase = TeamNum != 255 && SGameState->FlagBases.IsValidIndex(TeamNum) ? SGameState->FlagBases[TeamNum] : nullptr;
-			DrawFlagStatus(GameState, PlayerViewPoint, PlayerViewRotation, TeamNum, FVector2D(0.0f,0.0f), FlagBase, SGameState->Flag, SGameState->Flag->Holder);
-			DrawFlagWorld(GameState, PlayerViewPoint, PlayerViewRotation, TeamNum, FlagBase, SGameState->Flag, SGameState->Flag->Holder);
-			DrawFlagBaseWorld(GameState, PlayerViewPoint, PlayerViewRotation, TeamNum, FlagBase, SGameState->Flag, SGameState->Flag->Holder);
+			AUTCTFFlag* Flag = Flags[0];
+			AUTCTFFlagBase* FlagBase = FlagBases.Num() > 0 ? FlagBases[0] : nullptr;
+
+			if (Flag->ObjectState != CarriedObjectState::Home)
+			{
+				uint8 TeamNum = Flag->GetTeamNum();
+				DrawFlagStatus(GameState, PlayerViewPoint, PlayerViewRotation, TeamNum, FVector2D(0.0f,0.0f), FlagBase, Flag, Flag->Holder);
+				DrawFlagWorld(GameState, PlayerViewPoint, PlayerViewRotation, TeamNum, FlagBase, Flag, Flag->Holder);
+				DrawFlagBaseWorld(GameState, PlayerViewPoint, PlayerViewRotation, FlagBase->GetTeamNum(), FlagBase, Flag, Flag->Holder);
+				bDrawBasesInWorld = false;
+			}
 		}
-		else
+		
+		if (FlagBases.Num() > 0 && bDrawBasesInWorld)
 		{
-			DrawFlagBaseWorld(GameState, PlayerViewPoint, PlayerViewRotation, 255, SGameState->FlagDispenser, SGameState->Flag, SGameState->Flag ? SGameState->Flag->Holder : nullptr);
+			for (int32 i = 0; i < FlagBases.Num(); i++)
+			{
+				DrawFlagBaseWorld(GameState, PlayerViewPoint, PlayerViewRotation, FlagBases[i]->GetTeamNum(), FlagBases[i], nullptr, nullptr);
+			}
 		}
 	}
 }

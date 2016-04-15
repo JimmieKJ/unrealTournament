@@ -50,7 +50,7 @@ void AUTFlagRunHUD::DrawHUD()
 		RedPlayerCount = 0;
 		BluePlayerCount = 0;
 		float BasePipSize = 0.025f * Canvas->ClipX * GetHUDWidgetScaleOverride();
-		XAdjust = 0.015f * Canvas->ClipX * GetHUDWidgetScaleOverride(); 
+		XAdjust = 128.0f * GetHUDWidgetScaleOverride(); 
 		XOffsetRed = 0.5f * Canvas->ClipX - XAdjust - BasePipSize;
 		XOffsetBlue = 0.5f * Canvas->ClipX + XAdjust;
 		YOffset = 0.1f * Canvas->ClipY * GetHUDWidgetScaleOverride();

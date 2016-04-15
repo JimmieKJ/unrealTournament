@@ -35,6 +35,7 @@ AUTSCTFGame::AUTSCTFGame(const FObjectInitializer& ObjectInitializer)
 	TimeLimit = 0;
 	InitialBoostCount = 0;
 	DisplayName = NSLOCTEXT("UTGameMode", "SCTF", "Single Flag CTF");
+	
 	IntermissionDuration = 30.f;
 	GameStateClass = AUTSCTFGameState::StaticClass();
 	HUDClass = AUTHUD_SCTF::StaticClass();
@@ -44,11 +45,13 @@ AUTSCTFGame::AUTSCTFGame(const FObjectInitializer& ObjectInitializer)
 	FlagSwapTime=10;
 	FlagPickupDelay=0;
 	FlagSpawnDelay=30;
-	MapPrefix = TEXT("GAU");
+	MapPrefix = TEXT("CTF");
 	bHideInUI = true;
 	bNoLivesEndRound = false;
-	bAttackerLivesLimited = false;
-	bDefenderLivesLimited = false;
+	bAttackerLivesLimited = true;
+	bDefenderLivesLimited = true;
+	bRollingAttackerSpawns = false;
+	ExtraHealth = 0;
 }
 
 void AUTSCTFGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
@@ -93,14 +96,10 @@ void AUTSCTFGame::InitGameState()
 }
 
 
-void AUTSCTFGame::HandleMatchHasStarted()
+void AUTSCTFGame::InitRound()
 {
-	RoundReset();
-	Super::HandleMatchHasStarted();
-}
+	Super::InitRound();
 
-void AUTSCTFGame::RoundReset()
-{
 	if (SCTFGameState->FlagDispenser) SCTFGameState->FlagDispenser->RoundReset();
 	for (int32 i = 0; i < SCTFGameState->FlagBases.Num(); i++)
 	{
@@ -115,6 +114,10 @@ void AUTSCTFGame::RoundReset()
 	SCTFGameState->SetFlagSpawnTimer(FlagSpawnDelay);	// TODO: Make me an option
 	FTimerHandle TempHandle;
 	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTSCTFGame::SpawnInitalFlag, FlagSpawnDelay * GetActorTimeDilation());
+
+	bGrantOffensePowerupsWithKills = false;
+	bGrantDefensePowerupsWithKills = false;
+
 }
 
 void AUTSCTFGame::SpawnInitalFlag()

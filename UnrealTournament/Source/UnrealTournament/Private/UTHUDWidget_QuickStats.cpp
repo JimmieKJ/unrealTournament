@@ -43,19 +43,6 @@ bool UUTHUDWidget_QuickStats::ShouldDraw_Implementation(bool bShowScores)
 	return (!bShowScores && UTC && !UTC->IsDead() && !UTHUDOwner->GetQuickStatsHidden());
 }
 
-FVector2D UUTHUDWidget_QuickStats::CalcDrawLocation(float DistanceInPixels, float Angle)
-{
-	float Sin = 0.f;
-	float Cos = 0.f;
-
-	FMath::SinCos(&Sin,&Cos, FMath::DegreesToRadians(Angle));
-	FVector2D NewPoint;
-
-	NewPoint.X = DistanceInPixels * Sin;
-	NewPoint.Y = -1.0f * DistanceInPixels * Cos;
-	return NewPoint;
-}
-
 FVector2D UUTHUDWidget_QuickStats::CalcRotOffset(FVector2D InitialPosition, float Angle)
 {
 	float Sin = 0.f;
@@ -97,7 +84,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		}
 	}
 
-	Position = CalcDrawLocation( 1920.0f * DrawDistance, DrawAngle);
+	Position = CalcRotatedDrawLocation( 1920.0f * DrawDistance, DrawAngle);
 	Super::PreDraw(DeltaTime, InUTHUDOwner, InCanvas, InCanvasCenter);
 
 	AUTCharacter* CharOwner = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
