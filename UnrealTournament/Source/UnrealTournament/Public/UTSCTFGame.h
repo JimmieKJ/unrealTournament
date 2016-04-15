@@ -19,7 +19,6 @@ class UNREALTOURNAMENT_API AUTSCTFGame : public AUTCTFRoundGame
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual void InitGameState() override;
 
-	virtual void HandleMatchHasStarted();
 
 	virtual void FlagTeamChanged(uint8 NewTeamIndex);
 	virtual void ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
@@ -28,6 +27,8 @@ class UNREALTOURNAMENT_API AUTSCTFGame : public AUTCTFRoundGame
 	bool CanFlagTeamSwap(uint8 NewTeamNum);
 
 	virtual void BroadcastVictoryConditions();
+
+	virtual void InitRound();
 
 protected:
 
@@ -42,6 +43,5 @@ protected:
 	UPROPERTY()
 	int32 FlagSpawnDelay;
 
-	virtual void RoundReset();
 	void SpawnInitalFlag();
 };
