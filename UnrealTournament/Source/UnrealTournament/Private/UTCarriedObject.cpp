@@ -45,6 +45,13 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 void AUTCarriedObject::Destroyed()
 {
 	Super::Destroyed();
+	if (Holder)
+	{
+		Holder->bSpecialTeamPlayer = false;
+		Holder->bSpecialPlayer = false;
+		Holder->ClearCarriedObject(this);
+		Holder = nullptr;
+	}
 	if (MyGhostFlag)
 	{
 		MyGhostFlag->Destroy();
