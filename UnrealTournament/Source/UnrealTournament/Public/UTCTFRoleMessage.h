@@ -21,8 +21,8 @@ public:
 		CapFlagMessage = NSLOCTEXT("CTFGameMessage", "TakeFlagToEnemy", "Get your flag to the enemy base!");
 		PreventCapMessage = NSLOCTEXT("CTFGameMessage", "StopEnemyFlag", "Keep other team's flag out, and exhaust their lives");
 		CapAndKillMessage = NSLOCTEXT("CTFGameMessage", "RCTFRules", "Capture or kill to win.");
-		EarnedSpecialMessage = NSLOCTEXT("CTFGameMessage", "EarnedSpecialMove", "{Player1Name} earned a special move for your team!");
-		EnemyTeamSpecialEarned = NSLOCTEXT("CTFGameMessage", "EnemyEarnedSpecialMove", "The enemy team has earned a special move thanks to {Player1Name}!");
+		EarnedSpecialMessage = NSLOCTEXT("CTFGameMessage", "EarnedSpecialMove", "{Player1Name} earned a power up for your team!");
+		EnemyTeamSpecialEarned = NSLOCTEXT("CTFGameMessage", "EnemyEarnedSpecialMove", "Enemy team has earned their power up!");
 	}
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)

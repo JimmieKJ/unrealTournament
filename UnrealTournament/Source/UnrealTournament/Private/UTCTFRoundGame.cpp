@@ -1097,25 +1097,16 @@ void AUTCTFRoundGame::GrantPowerupToTeam(int TeamIndex, AUTPlayerState* PlayerTo
 	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-		if (PS && !PS->bOnlySpectator && PS->Team)
+		if (PS && PS->Team)
 		{
 			if (PS->Team->TeamIndex == TeamIndex)
 			{
 				PS->RemainingBoosts = 1;
-
-				AUTPlayerController* PC = Cast<AUTPlayerController>(PS->GetOwner());
-				if (PC)
-				{
-					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 6, PlayerToHighlight);
-				}
-
-				continue;
 			}
-
 			AUTPlayerController* PC = Cast<AUTPlayerController>(PS->GetOwner());
 			if (PC)
 			{
-				PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 7, PlayerToHighlight);
+				PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), (PS->Team->TeamIndex == TeamIndex) ? 6 : 7, PlayerToHighlight);
 			}
 		}
 	}
