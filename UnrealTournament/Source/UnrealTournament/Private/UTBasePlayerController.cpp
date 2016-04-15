@@ -305,6 +305,23 @@ uint8 AUTBasePlayerController::GetTeamNum() const
 	return (UTPlayerState != NULL && UTPlayerState->Team != NULL) ? UTPlayerState->Team->TeamIndex : 255;
 }
 
+void AUTBasePlayerController::ClientRankedGameAbandoned_Implementation()
+{
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP)
+	{
+		LP->LastRankedMatchSessionId.Empty();
+		LP->LastRankedMatchUniqueId.Empty();
+		LP->SaveConfig();
+
+#if !UE_SERVER
+		LP->ShowMessage(NSLOCTEXT("AUTBasePlayerController", "RankedGameAbandonedTitle", "Game Abandoned"), NSLOCTEXT("AUTBasePlayerController", "RankedGameAbandoned", "There were not enough players to start that match so it was abandoned."), UTDIALOG_BUTTON_OK);
+#endif
+	}
+
+	ConsoleCommand("Disconnect");
+}
+
 void AUTBasePlayerController::ClientReturnToLobby_Implementation()
 {
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);

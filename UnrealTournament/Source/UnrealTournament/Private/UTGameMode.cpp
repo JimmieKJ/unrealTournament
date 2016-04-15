@@ -61,6 +61,7 @@ namespace MatchState
 	const FName MapVoteHappening = FName(TEXT("MapVoteHappening"));
 	const FName MatchIntermission = FName(TEXT("MatchIntermission"));
 	const FName MatchExitingIntermission = FName(TEXT("MatchExitingIntermission"));
+	const FName MatchRankedAbandon = FName(TEXT("MatchRankedAbandon"));
 }
 
 AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
@@ -2745,11 +2746,14 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 				}
 				else
 				{
+					UE_LOG(UT, Log, TEXT("Not enough players showed up, abandoning game"));
+
 					// Not enough players showed up for the match, just send them back to the lobby
 					GetWorldTimerManager().ClearTimer(ServerRestartTimerHandle);
 
-					SendEveryoneBackToLobby();
+					SendEveryoneBackToLobbyGameAbandoned();
 
+					SetMatchState(MatchState::MatchRankedAbandon);
 					AUTGameSessionRanked* RankedGameSession = Cast<AUTGameSessionRanked>(GameSession);
 					if (RankedGameSession)
 					{
@@ -3721,11 +3725,23 @@ void AUTGameMode::UpdateLobbyPlayerList()
 	}
 }
 
+void AUTGameMode::SendEveryoneBackToLobbyGameAbandoned()
+{
+	// Game Instance Servers just tell everyone to just return to the lobby.
+	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
+	{
+		AUTPlayerController* Controller = Cast<AUTPlayerController>(*Iterator);
+		if (Controller)
+		{
+			Controller->ClientRankedGameAbandoned();
+		}
+	}
+}
 
 void AUTGameMode::SendEveryoneBackToLobby()
 {
 	// Game Instance Servers just tell everyone to just return to the lobby.
-	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 	{
 		AUTPlayerController* Controller = Cast<AUTPlayerController>(*Iterator);
 		if (Controller)

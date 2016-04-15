@@ -18,6 +18,7 @@ namespace MatchState
 	extern UNREALTOURNAMENT_API const FName MapVoteHappening;				// The game is in mapvote stage
 	extern UNREALTOURNAMENT_API const FName MatchIntermission;				// The game is in a round intermission
 	extern UNREALTOURNAMENT_API const FName MatchExitingIntermission;		// Exiting Halftime
+	extern UNREALTOURNAMENT_API const FName MatchRankedAbandon;				// Exiting Halftime
 }
 
 USTRUCT()
@@ -520,6 +521,8 @@ public:
 	virtual void RecreateLobbyBeacon();
 	virtual void DefaultTimer() override;
 	virtual void CheckGameTime();
+
+	virtual void SendEveryoneBackToLobbyGameAbandoned();
 
 	/**  Used to check when time has run out if there is a winner.  If there is a tie, return NULL to enter overtime. **/	
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
