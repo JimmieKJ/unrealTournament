@@ -16,5 +16,5 @@ protected:
 	float PaddingBetweenTextAndDamageIcon;
 
 	virtual void DrawMessages(float DeltaTime);
-	virtual void DrawMessage(int32 QueueIndex, float X, float Y) override;
+	virtual FVector2D DrawMessage(int32 QueueIndex, float X, float Y) override;
 };

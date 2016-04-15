@@ -76,7 +76,7 @@ int32 UUTHUDWidgetMessage_KillIconMessages::GetNumberOfMessages()
 	return (NumVisibleLines < NumMessages ? NumVisibleLines : NumMessages);
 }
 
-void UUTHUDWidgetMessage_KillIconMessages::DrawMessage(int32 QueueIndex, float X, float Y)
+FVector2D UUTHUDWidgetMessage_KillIconMessages::DrawMessage(int32 QueueIndex, float X, float Y)
 {
 	MessageQueue[QueueIndex].bHasBeenRendered = true;
 
@@ -236,6 +236,7 @@ void UUTHUDWidgetMessage_KillIconMessages::DrawMessage(int32 QueueIndex, float X
 			DrawText(FText::FromString(DmgType->SpreeString), X, VictimSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->GetHUDWidgetOpacity(), FLinearColor::Yellow, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Left, ETextVertPos::Center);
 		}
 	}
+	return FVector2D(0.f, 0.f);
 }
 
 void UUTHUDWidgetMessage_KillIconMessages::LayoutMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)

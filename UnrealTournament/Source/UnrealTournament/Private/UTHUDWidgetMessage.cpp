@@ -16,6 +16,8 @@ UUTHUDWidgetMessage::UUTHUDWidgetMessage(const class FObjectInitializer& ObjectI
 	MessageFontIndex = 2;
 	SmallMessageFontIndex = 1;
 	NumVisibleLines = 3;
+	EmphasisOutlineColor = FLinearColor::Black;
+	EmphasisScaling = 1.5f;
 }
 
 void UUTHUDWidgetMessage::InitializeWidget(AUTHUD* Hud)
@@ -25,6 +27,7 @@ void UUTHUDWidgetMessage::InitializeWidget(AUTHUD* Hud)
 	{
 		MessageQueue[i].MessageClass = NULL;
 		MessageQueue[i].Text = FText::GetEmpty();
+		MessageQueue[i].EmphasisText = FText::GetEmpty();
 		MessageQueue[i].OptionalObject = NULL;
 		MessageQueue[i].DisplayFont = NULL;
 		MessageQueue[i].bHasBeenRendered = false;
@@ -91,10 +94,6 @@ void UUTHUDWidgetMessage::AgeMessages_Implementation(float DeltaTime)
 				QueueIndex--;
 				continue;
 			}
-			else
-			{
-				Canvas->TextSize(MessageQueue[QueueIndex].DisplayFont, MessageQueue[QueueIndex].Text.ToString(), MessageQueue[QueueIndex].TextWidth, MessageQueue[QueueIndex].TextHeight);
-			}
 		}
 		else if (MessageQueue[QueueIndex].MessageClass == NULL)
 		{
@@ -143,7 +142,7 @@ void UUTHUDWidgetMessage::DrawMessages(float DeltaTime)
 	}
 }
 
-void UUTHUDWidgetMessage::DrawMessage(int32 QueueIndex, float X, float Y)
+FVector2D UUTHUDWidgetMessage::DrawMessage(int32 QueueIndex, float X, float Y)
 {
 	MessageQueue[QueueIndex].bHasBeenRendered = true;
 	float CurrentTextScale = GetTextScale(QueueIndex);
@@ -160,13 +159,110 @@ void UUTHUDWidgetMessage::DrawMessage(int32 QueueIndex, float X, float Y)
 	{
 		Alpha = MessageQueue[QueueIndex].LifeLeft / FadeTime;
 	}
-	FText MessageText = MessageQueue[QueueIndex].Text;
-	if (MessageQueue[QueueIndex].MessageCount > 1)
-	{
-		MessageText = FText::FromString(MessageText.ToString() + " (" + TTypeToString<int32>::ToString(MessageQueue[QueueIndex].MessageCount) + ")");
-	}
+
 	ShadowDirection = (MessageQueue[QueueIndex].DisplayFont == MessageFont) ? LargeShadowDirection : SmallShadowDirection;
-	DrawText(MessageText, X, Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentTextScale, Alpha, MessageQueue[QueueIndex].DrawColor, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Center, ETextVertPos::Top);
+	if (!MessageQueue[QueueIndex].EmphasisText.IsEmpty())
+	{
+		
+		// draw emphasis text
+		if (MessageQueue[QueueIndex].DisplayFont && !MessageQueue[QueueIndex].Text.IsEmpty())
+		{
+			// FIXME - precache textsize
+			float XL = 0.0f;
+			float YL = 0.0f;
+			Canvas->StrLen(MessageQueue[QueueIndex].DisplayFont, MessageQueue[QueueIndex].Text.ToString(), XL, YL);
+			FVector2D RenderPos = FVector2D(RenderPosition.X + X, RenderPosition.Y + Y);
+			float TextScaling = bScaleByDesignedResolution ? RenderScale*CurrentTextScale : CurrentTextScale;
+
+			if (bScaleByDesignedResolution)
+			{
+				X *= RenderScale;
+				Y *= RenderScale;
+			}
+
+			// Handle Justification
+			XL *= TextScaling; // cleanup FIXME
+			YL *= TextScaling;
+			RenderPos.X -= XL * 0.5f;
+			RenderPos.Y -= YL * 0.5f;
+
+			FLinearColor DrawColor = MessageQueue[QueueIndex].DrawColor;
+			DrawColor.A = Opacity * Alpha * UTHUDOwner->WidgetOpacity;
+			Canvas->DrawColor = DrawColor.ToFColor(false);
+			FVector2D TextSize = FVector2D(XL, YL);
+
+			if (!WordWrapper.IsValid())
+			{
+				WordWrapper = MakeShareable(new FCanvasWordWrapper());
+			}
+			FFontRenderInfo FontRenderInfo = FFontRenderInfo();
+			FLinearColor FinalShadowColor = ShadowColor;
+			FinalShadowColor.A *= Alpha * UTHUDOwner->WidgetOpacity;
+
+			if (!MessageQueue[QueueIndex].PrefixText.IsEmpty())
+			{
+				FUTCanvasTextItem PrefixTextItem(RenderPos, MessageQueue[QueueIndex].PrefixText, MessageQueue[QueueIndex].DisplayFont, DrawColor, WordWrapper);
+				PrefixTextItem.FontRenderInfo = FontRenderInfo;
+
+				if (bShadowedText)
+				{
+					PrefixTextItem.EnableShadow(FinalShadowColor, ShadowDirection);
+				}
+				PrefixTextItem.Scale = FVector2D(TextScaling, TextScaling);
+				Canvas->DrawItem(PrefixTextItem);
+				float PreXL = 0.0f;
+				float PreYL = 0.0f;
+				Canvas->StrLen(MessageQueue[QueueIndex].DisplayFont, MessageQueue[QueueIndex].PrefixText.ToString(), PreXL, PreYL);
+				RenderPos.X += PreXL * TextScaling;
+			}
+
+			FVector2D EmphasisRenderPos = RenderPos;
+			EmphasisRenderPos.Y -= (EmphasisScaling - 1.f) * 0.5f * YL;
+			FLinearColor EmphasisColor = MessageQueue[QueueIndex].EmphasisColor;
+			EmphasisColor.A = Opacity * Alpha * UTHUDOwner->WidgetOpacity;
+			FUTCanvasTextItem EmphasisTextItem(EmphasisRenderPos, MessageQueue[QueueIndex].EmphasisText, MessageQueue[QueueIndex].DisplayFont, EmphasisColor, WordWrapper);
+			EmphasisTextItem.FontRenderInfo = FontRenderInfo;
+			EmphasisTextItem.bOutlined = true;
+			EmphasisTextItem.OutlineColor = EmphasisOutlineColor;
+			EmphasisTextItem.OutlineColor.A *= Alpha * UTHUDOwner->WidgetOpacity;
+			EmphasisTextItem.Scale = EmphasisScaling * FVector2D(TextScaling, TextScaling);
+			if (bShadowedText)
+			{
+				EmphasisTextItem.EnableShadow(FinalShadowColor, ShadowDirection);
+			}
+			Canvas->DrawItem(EmphasisTextItem);
+			float EmpXL = 0.0f;
+			float EmpYL = 0.0f;
+			Canvas->StrLen(MessageQueue[QueueIndex].DisplayFont, MessageQueue[QueueIndex].EmphasisText.ToString(), EmpXL, EmpYL);
+			RenderPos.X += EmphasisScaling * EmpXL * TextScaling;
+			TextSize.X += (EmphasisScaling - 1.f) * EmpXL * TextScaling;
+			TextSize.Y += (EmphasisScaling - 1.f) * EmpYL * TextScaling;
+			if (!MessageQueue[QueueIndex].PostfixText.IsEmpty())
+			{
+				FUTCanvasTextItem PostfixTextItem(RenderPos, MessageQueue[QueueIndex].PostfixText, MessageQueue[QueueIndex].DisplayFont, DrawColor, WordWrapper);
+				PostfixTextItem.FontRenderInfo = FontRenderInfo;
+
+				if (bShadowedText)
+				{
+					PostfixTextItem.EnableShadow(FinalShadowColor, ShadowDirection);
+				}
+				PostfixTextItem.Scale = FVector2D(TextScaling, TextScaling);
+				Canvas->DrawItem(PostfixTextItem);
+			}
+
+			return TextSize;
+		}
+	}
+	else
+	{
+		FText MessageText = MessageQueue[QueueIndex].Text;
+		if (MessageQueue[QueueIndex].MessageCount > 1)
+		{
+			MessageText = FText::FromString(MessageText.ToString() + " (" + TTypeToString<int32>::ToString(MessageQueue[QueueIndex].MessageCount) + ")");
+		}
+		return DrawText(MessageText, X, Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentTextScale, Alpha, MessageQueue[QueueIndex].DrawColor, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f), ETextHorzPos::Center, ETextVertPos::Top);
+	}
+	return FVector2D(0.f, 0.f);
 }
 
 void UUTHUDWidgetMessage::FadeMessage(FText FadeMessageText)
@@ -255,6 +351,7 @@ void UUTHUDWidgetMessage::AddMessage(int32 QueueIndex, TSubclassOf<class UUTLoca
 	MessageQueue[QueueIndex].MessageClass = MessageClass;
 	MessageQueue[QueueIndex].MessageIndex = MessageIndex;
 	MessageQueue[QueueIndex].Text = LocalMessageText;
+	GetDefault<UUTLocalMessage>(MessageClass)->GetEmphasisText(MessageQueue[QueueIndex].PrefixText, MessageQueue[QueueIndex].EmphasisText, MessageQueue[QueueIndex].PostfixText, MessageQueue[QueueIndex].EmphasisColor, MessageIndex, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 	MessageQueue[QueueIndex].LifeSpan = GetDefault<UUTLocalMessage>(MessageClass)->GetLifeTime(MessageIndex);
 	MessageQueue[QueueIndex].LifeLeft = MessageQueue[QueueIndex].LifeSpan;
 	MessageQueue[QueueIndex].ScaleInTime = GetDefault<UUTLocalMessage>(MessageClass)->GetScaleInTime(MessageIndex);

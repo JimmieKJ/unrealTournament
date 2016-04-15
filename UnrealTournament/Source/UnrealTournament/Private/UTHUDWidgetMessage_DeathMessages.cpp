@@ -39,13 +39,18 @@ bool UUTHUDWidgetMessage_DeathMessages::ShouldDraw_Implementation(bool bShowScor
 	return !bShowScores && GetWorld()->GetGameState() && (GetWorld()->GetGameState()->GetMatchState() != MatchState::MatchIntermission);
 }
 
-void UUTHUDWidgetMessage_DeathMessages::DrawMessage(int32 QueueIndex, float X, float Y)
+FVector2D UUTHUDWidgetMessage_DeathMessages::DrawMessage(int32 QueueIndex, float X, float Y)
 {
 	if (MessageQueue[QueueIndex].MessageClass && !MessageQueue[QueueIndex].MessageClass->GetDefaultObject<UUTLocalMessage>()->bDrawAsDeathMessage)
 	{
-		Super::DrawMessage(QueueIndex, X, Y);
-		return;
+		return FVector2D(0.f, 0.f);
 	}
+	FVector2D TextSize = FVector2D(0.f, 0.f);
+	if (UTHUDOwner->GetDrawCenteredKillMsg())
+	{
+		TextSize = Super::DrawMessage(QueueIndex, X, Y);
+	}
+
 	//Figure out the DamageType that we killed with
 	UClass* DamageTypeClass = Cast<UClass>(MessageQueue[QueueIndex].OptionalObject);
 	const UUTDamageType* DmgType = DamageTypeClass ? Cast<UUTDamageType>(DamageTypeClass->GetDefaultObject()) : nullptr;
@@ -53,14 +58,6 @@ void UUTHUDWidgetMessage_DeathMessages::DrawMessage(int32 QueueIndex, float X, f
 	{
 		//Make sure non UUTDamageType damages still get the default icon
 		DmgType = Cast<UUTDamageType>(UUTDamageType::StaticClass()->GetDefaultObject());
-	}
-
-	//Draw Kill Text
-	FVector2D TextSize = FVector2D(0, 0);
-	if (UTHUDOwner->GetDrawCenteredKillMsg())
-	{
-		ShadowDirection = (MessageQueue[QueueIndex].DisplayFont == MessageFont) ? LargeShadowDirection : SmallShadowDirection;
-		TextSize = DrawText(MessageQueue[QueueIndex].Text, X, Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, GetTextScale(QueueIndex), 1.0f /*alpha*/, MessageQueue[QueueIndex].DrawColor, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Center, ETextVertPos::Center);
 	}
 	
 	//Gather all the info needed to display the message
@@ -84,5 +81,6 @@ void UUTHUDWidgetMessage_DeathMessages::DrawMessage(int32 QueueIndex, float X, f
 
 		DrawTexture(DmgType->HUDIcon.Texture, X, Y, XL, YL, DmgType->HUDIcon.U, DmgType->HUDIcon.V, DmgType->HUDIcon.UL, DmgType->HUDIcon.VL, UTHUDOwner->GetHUDWidgetOpacity());
 	}
+	return TextSize;
 }
 

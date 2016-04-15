@@ -124,6 +124,13 @@ void UUTLocalMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Announc
 	}
 }
 
+void UUTLocalMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
+{
+	PrefixText = FText::GetEmpty();
+	EmphasisText = FText::GetEmpty();
+	PostfixText = FText::GetEmpty();
+}
+
 FText UUTLocalMessage::ResolveMessage_Implementation(int32 Switch, bool bTargetsPlayerState1, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const
 {
 	FFormatNamedArguments Args;

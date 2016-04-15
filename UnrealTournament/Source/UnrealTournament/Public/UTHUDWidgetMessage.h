@@ -29,6 +29,18 @@ struct UNREALTOURNAMENT_API FLocalizedMessageData
 	// The text of this message.  We build this once so we don't have to process the string each frame
 	UPROPERTY(BlueprintReadOnly, Category = HUD)
 	FText Text;
+	
+	// which section of text should have emphasis effects
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+		FText EmphasisText;
+
+	// which section of text should have emphasis effects
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+		FText PrefixText;
+
+	// which section of text should have emphasis effects
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+		FText PostfixText;
 
 	// How much time does this message have left
 	UPROPERTY(BlueprintReadOnly, Category = HUD)
@@ -60,6 +72,9 @@ struct UNREALTOURNAMENT_API FLocalizedMessageData
 	// palette/alpha shifts safely during render.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	FLinearColor DrawColor;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
+		FLinearColor EmphasisColor;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	UFont* DisplayFont;
@@ -140,6 +155,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = HUD)
 	FLinearColor OutlineColor;
 
+	// The outline color for this message.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = HUD)
+		FLinearColor EmphasisOutlineColor;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
+		float EmphasisScaling;
+
 	// If true, this text will be drawn with an shadow
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = HUD)
 	uint32 bShadowedText:1;
@@ -206,7 +228,9 @@ protected:
 	virtual void ClearMessage(FLocalizedMessageData& Message);
 	virtual void AddMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject);
 	virtual void LayoutMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject);
-	virtual void DrawMessage(int32 QueueIndex, float X, float Y);
+	
+	/** Returns the length of the drawn message. */
+	virtual FVector2D DrawMessage(int32 QueueIndex, float X, float Y);
 
 	// returns the text scaling factor for a given message.  Exposed here to make extending
 	// the widget easier.

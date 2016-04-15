@@ -12,7 +12,8 @@ UUTVictimMessage::UUTVictimMessage(const class FObjectInitializer& ObjectInitial
 	Lifetime = 2.6f;
 	MessageArea = FName(TEXT("DeathMessage"));
 	StyleTag = FName(TEXT("Victim"));
-	YouWereKilledByText = NSLOCTEXT("UTVictimMessage","YouWereKilledByText","Killed by {Player1Name}"); 
+	YouWereKilledByPrefix = NSLOCTEXT("UTVictimMessage","YouWereKilledByPrefix","Killed by "); 
+	YouWereKilledByPostfix = NSLOCTEXT("UTVictimMessage", "YouWereKilledByPostfix", "");
 	RespawnedVictimText = NSLOCTEXT("UTVictimMessage", "RespawnedVictimText", "   ");
 	bDrawAsDeathMessage = true;
 }
@@ -25,6 +26,20 @@ bool UUTVictimMessage::UseLargeFont(int32 MessageIndex) const
 FLinearColor UUTVictimMessage::GetMessageColor_Implementation(int32 MessageIndex) const
 {
 	return FLinearColor::White;
+}
+
+void UUTVictimMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
+{
+	if ((Switch == 1) || (Switch == 2))
+	{
+		Super::GetEmphasisText(PrefixText, EmphasisText, PostfixText, EmphasisColor, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+		return;
+	}
+	PrefixText = YouWereKilledByPrefix;
+	PostfixText = YouWereKilledByPostfix;
+	EmphasisText = RelatedPlayerState_1 ? FText::FromString(RelatedPlayerState_1->PlayerName) : FText::GetEmpty();
+	AUTPlayerState* KillerPS = Cast<AUTPlayerState>(RelatedPlayerState_1);
+	EmphasisColor = (KillerPS && KillerPS->Team) ? KillerPS->Team->TeamColor : FLinearColor::Red;
 }
 
 FText UUTVictimMessage::GetText(int32 Switch,bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const
@@ -43,6 +58,15 @@ FText UUTVictimMessage::GetText(int32 Switch,bool bTargetsPlayerState1,class APl
 	{
 		return RespawnedVictimText;
 	}
-	return GetDefault<UUTVictimMessage>()->YouWereKilledByText;
+
+	// fixme build from parts!
+	FText PrefixText, EmphasisText, PostfixText;
+	FLinearColor EmphasisColor;
+	GetEmphasisText(PrefixText, EmphasisText, PostfixText, EmphasisColor, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+	FFormatNamedArguments Args;
+	Args.Add(TEXT("PrefixText"), PrefixText);
+	Args.Add(TEXT("EmphasisText"), EmphasisText);
+	Args.Add(TEXT("PostfixText"), PostfixText);
+	return FText::Format(NSLOCTEXT("UTLocalMessage", "CombinedMessage", "{PrefixText}{EmphasisText}{PostfixText}"), Args);
 }
 
