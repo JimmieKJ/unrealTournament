@@ -28,7 +28,7 @@ void UUTSecurityCameraComponent::TickComponent(float DeltaTime, ELevelTick TickT
 
 	if (GetOwner())
 	{
-		AUTGameState* GS = PC->GetWorld()->GetGameState<AUTGameState>();
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (!GS || !GS->IsMatchInProgress() || GS->IsMatchIntermission())
 		{
 			return;
