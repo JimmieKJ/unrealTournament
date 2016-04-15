@@ -17,7 +17,7 @@ UUTHUDWidgetMessage::UUTHUDWidgetMessage(const class FObjectInitializer& ObjectI
 	SmallMessageFontIndex = 1;
 	NumVisibleLines = 3;
 	EmphasisOutlineColor = FLinearColor::Black;
-	EmphasisScaling = 1.5f;
+	EmphasisScaling = 1.25f;
 }
 
 void UUTHUDWidgetMessage::InitializeWidget(AUTHUD* Hud)
@@ -217,7 +217,7 @@ FVector2D UUTHUDWidgetMessage::DrawMessage(int32 QueueIndex, float X, float Y)
 			}
 
 			FVector2D EmphasisRenderPos = RenderPos;
-			EmphasisRenderPos.Y -= (EmphasisScaling - 1.f) * 0.5f * YL;
+			EmphasisRenderPos.Y -= (EmphasisScaling - 1.f) * YL;
 			FLinearColor EmphasisColor = MessageQueue[QueueIndex].EmphasisColor;
 			EmphasisColor.A = Opacity * Alpha * UTHUDOwner->WidgetOpacity;
 			FUTCanvasTextItem EmphasisTextItem(EmphasisRenderPos, MessageQueue[QueueIndex].EmphasisText, MessageQueue[QueueIndex].DisplayFont, EmphasisColor, WordWrapper);
@@ -235,7 +235,7 @@ FVector2D UUTHUDWidgetMessage::DrawMessage(int32 QueueIndex, float X, float Y)
 			float EmpYL = 0.0f;
 			Canvas->StrLen(MessageQueue[QueueIndex].DisplayFont, MessageQueue[QueueIndex].EmphasisText.ToString(), EmpXL, EmpYL);
 			RenderPos.X += EmphasisScaling * EmpXL * TextScaling;
-			TextSize.X += (EmphasisScaling - 1.f) * EmpXL * TextScaling;
+			TextSize.X += 2.f * (EmphasisScaling - 1.f) * EmpXL * TextScaling;
 			TextSize.Y += (EmphasisScaling - 1.f) * EmpYL * TextScaling;
 			if (!MessageQueue[QueueIndex].PostfixText.IsEmpty())
 			{
