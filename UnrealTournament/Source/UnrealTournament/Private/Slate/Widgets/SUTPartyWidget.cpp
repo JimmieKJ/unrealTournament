@@ -140,6 +140,19 @@ void SUTPartyWidget::SetupPartyMemberBox()
 		if (LocalPlayerId == PartyLeaderId)
 		{
 			DropDownButton->AddSubMenuItem(PartyMembers[i], FOnClicked::CreateSP(this, &SUTPartyWidget::PlayerNameClicked, i));
+			
+			if (PartyType == EPartyType::Public)
+			{
+				DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "PublicParty", "[Public Party]"), FOnClicked());
+			}
+			else if (PartyType == EPartyType::FriendsOnly)
+			{
+				DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "FriendsOnlyParty", "[Friends Only Party]"), FOnClicked());
+			}
+			else if (PartyType == EPartyType::Private)
+			{
+				DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "PrivateParty", "[Private Party]"), FOnClicked());
+			}			
 			DropDownButton->AddSpacer();
 
 			if (PartyMemberIds[i] == PartyLeaderId)
