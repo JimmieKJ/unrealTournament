@@ -53,6 +53,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	HUDClass = AUTFlagRunHUD::StaticClass();
 	GameStateClass = AUTCTFRoundGameState::StaticClass();
 	NumRounds = 6;
+	bGiveSpawnInventoryBonus = true;
 
 	bAttackerLivesLimited = false;
 	bDefenderLivesLimited = true;
@@ -165,7 +166,7 @@ void AUTCTFRoundGame::GiveDefaultInventory(APawn* PlayerPawn)
 {
 	Super::GiveDefaultInventory(PlayerPawn);
 	AUTCharacter* UTCharacter = Cast<AUTCharacter>(PlayerPawn);
-	if (UTCharacter != NULL)
+	if (UTCharacter != NULL && bGiveSpawnInventoryBonus)
 	{
 		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(UTCharacter->PlayerState);
 		bool bOnLastLife = (UTPlayerState && (UTPlayerState->RemainingLives == 0) && UTPlayerState->bHasLifeLimit);

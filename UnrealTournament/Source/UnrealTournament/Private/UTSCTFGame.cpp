@@ -52,6 +52,7 @@ AUTSCTFGame::AUTSCTFGame(const FObjectInitializer& ObjectInitializer)
 	bDefenderLivesLimited = true;
 	bRollingAttackerSpawns = false;
 	ExtraHealth = 0;
+	bGiveSpawnInventoryBonus = false;
 }
 
 void AUTSCTFGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
@@ -75,6 +76,8 @@ void AUTSCTFGame::InitGameState()
 	SCTFGameState = Cast<AUTSCTFGameState>(UTGameState);
 	if (SCTFGameState)
 	{
+		SCTFGameState->bWeightedCharacter = true;
+		SCTFGameState->FlagBases.Empty();
 		SCTFGameState->FlagBases.AddZeroed(2);
 		for (TActorIterator<AUTSCTFFlagBase> It(GetWorld()); It; ++It)
 		{

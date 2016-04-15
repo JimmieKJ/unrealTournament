@@ -58,8 +58,6 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 	DeathStatsName = NAME_RocketDeaths;
 	HitsStatsName = NAME_RocketHits;
 	ShotsStatsName = NAME_RocketShots;
-
-	WeightSpeedPctModifier = 0.7f;
 }
 
 void AUTWeap_RocketLauncher::Destroyed()

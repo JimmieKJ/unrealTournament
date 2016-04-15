@@ -182,4 +182,8 @@ protected:
 
 	UPROPERTY()
 	int32 InitialBoostCount;
+
+	UPROPERTY()
+	bool bGiveSpawnInventoryBonus;
+
 };

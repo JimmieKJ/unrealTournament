@@ -80,8 +80,11 @@ void UUTHUDWidget_SCTFStatus::DrawIndicators(AUTCTFGameState* GameState, FVector
 				uint8 TeamNum = Flag->GetTeamNum();
 				DrawFlagStatus(GameState, PlayerViewPoint, PlayerViewRotation, TeamNum, FVector2D(0.0f,0.0f), FlagBase, Flag, Flag->Holder);
 				DrawFlagWorld(GameState, PlayerViewPoint, PlayerViewRotation, TeamNum, FlagBase, Flag, Flag->Holder);
-				DrawFlagBaseWorld(GameState, PlayerViewPoint, PlayerViewRotation, FlagBase->GetTeamNum(), FlagBase, Flag, Flag->Holder);
-				bDrawBasesInWorld = false;
+				if (FlagBase)
+				{
+					DrawFlagBaseWorld(GameState, PlayerViewPoint, PlayerViewRotation, FlagBase->GetTeamNum(), FlagBase, Flag, Flag->Holder);
+					bDrawBasesInWorld = false;
+				}
 			}
 		}
 		
@@ -107,7 +110,7 @@ FText UUTHUDWidget_SCTFStatus::GetFlagReturnTime(AUTCTFFlag* Flag)
 		}
 	}
 
-	return FText::GetEmpty();	
+	return Super::GetFlagReturnTime(Flag);
 }
 
 
