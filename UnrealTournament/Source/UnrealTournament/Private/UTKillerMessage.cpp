@@ -12,7 +12,8 @@ UUTKillerMessage::UUTKillerMessage(const class FObjectInitializer& ObjectInitial
 	bIsUnique = true;
 	MessageArea = FName(TEXT("DeathMessage"));
 	StyleTag = FName(TEXT("Killer"));
-	YouKilledText = NSLOCTEXT("UTKillerMessage","YouKilledText","You killed {Player2Name}");
+	YouKilledPrefixText = NSLOCTEXT("UTKillerMessage","YouKilledPrefixText","You killed ");
+	YouKilledPostfixText = NSLOCTEXT("UTKillerMessage", "YouKilledPostfixText", "");
 	SpecKilledText = NSLOCTEXT("UTKillerMessage", "SpecKilledText", "{Player1Name} killed {Player2Name}");
 	bDrawAsDeathMessage = true;
 }
@@ -27,11 +28,25 @@ FLinearColor UUTKillerMessage::GetMessageColor_Implementation(int32 MessageIndex
 	return FLinearColor::White;
 }
 
+void UUTKillerMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
+{
+	if ((Switch == 1) || (Switch == 2))
+	{
+		Super::GetEmphasisText(PrefixText, EmphasisText, PostfixText, EmphasisColor, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+		return;
+	}
+	PrefixText = YouKilledPrefixText;
+	PostfixText = YouKilledPostfixText;
+	EmphasisText = RelatedPlayerState_2 ? FText::FromString(RelatedPlayerState_2->PlayerName) : FText::GetEmpty();
+	AUTPlayerState* VictimPS = Cast<AUTPlayerState>(RelatedPlayerState_2);
+	EmphasisColor = (VictimPS && VictimPS->Team) ? VictimPS->Team->TeamColor : FLinearColor::Red;
+}
+
 FText UUTKillerMessage::GetText(int32 Switch,bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const
 {
 	if (Switch == -99)
 	{
 		return GetDefault<UUTKillerMessage>(GetClass())->SpecKilledText;
 	}
-	return GetDefault<UUTKillerMessage>(GetClass())->YouKilledText;	
+	return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 }
