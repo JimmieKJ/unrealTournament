@@ -217,7 +217,7 @@ FVector2D UUTHUDWidgetMessage::DrawMessage(int32 QueueIndex, float X, float Y)
 			}
 
 			FVector2D EmphasisRenderPos = RenderPos;
-			EmphasisRenderPos.Y -= (EmphasisScaling - 1.f) * YL * 0.7f; // FIXMESTEVE 0.7f is guess - what is ideal?
+			EmphasisRenderPos.Y -= (EmphasisScaling - 1.f) * YL * 0.7f; // FIXMESTEVE 0.7f is guess - what is ideal? maybe less emphasis scaling?
 			FLinearColor EmphasisColor = MessageQueue[QueueIndex].EmphasisColor;
 			EmphasisColor.A = Opacity * Alpha * UTHUDOwner->WidgetOpacity;
 			FUTCanvasTextItem EmphasisTextItem(EmphasisRenderPos, MessageQueue[QueueIndex].EmphasisText, MessageQueue[QueueIndex].DisplayFont, EmphasisColor, WordWrapper);

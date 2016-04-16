@@ -34,16 +34,13 @@ class UNREALTOURNAMENT_API UUTGameMessage : public UUTLocalMessage
 	FText DidntMakeTheCut;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Message")
-		FText YouAreOnRed;
+		FText YouAreOn;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Message")
-		FText YouAreOnBlue;
+		FText RedTeamName;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Message")
-	FText Coronation;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Message")
-	FText GameChanger;
+		FText BlueTeamName;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Message")
 	FText KickVote;
@@ -60,5 +57,6 @@ class UNREALTOURNAMENT_API UUTGameMessage : public UUTLocalMessage
 	virtual bool UseLargeFont(int32 MessageIndex) const override;
 	virtual float GetScaleInSize_Implementation(int32 MessageIndex) const override;
 	virtual float GetLifeTime(int32 Switch) const override;
+	virtual void GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const override;
 };
 

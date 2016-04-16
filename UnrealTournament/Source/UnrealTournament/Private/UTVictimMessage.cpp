@@ -59,14 +59,6 @@ FText UUTVictimMessage::GetText(int32 Switch,bool bTargetsPlayerState1,class APl
 		return RespawnedVictimText;
 	}
 
-	// fixme build from parts!
-	FText PrefixText, EmphasisText, PostfixText;
-	FLinearColor EmphasisColor;
-	GetEmphasisText(PrefixText, EmphasisText, PostfixText, EmphasisColor, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
-	FFormatNamedArguments Args;
-	Args.Add(TEXT("PrefixText"), PrefixText);
-	Args.Add(TEXT("EmphasisText"), EmphasisText);
-	Args.Add(TEXT("PostfixText"), PostfixText);
-	return FText::Format(NSLOCTEXT("UTLocalMessage", "CombinedMessage", "{PrefixText}{EmphasisText}{PostfixText}"), Args);
+	return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 }
 

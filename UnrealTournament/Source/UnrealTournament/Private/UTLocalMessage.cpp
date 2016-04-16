@@ -131,6 +131,18 @@ void UUTLocalMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, FT
 	PostfixText = FText::GetEmpty();
 }
 
+FText UUTLocalMessage::BuildEmphasisText(int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
+{
+	FText PrefixText, EmphasisText, PostfixText;
+	FLinearColor EmphasisColor;
+	GetEmphasisText(PrefixText, EmphasisText, PostfixText, EmphasisColor, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+	FFormatNamedArguments Args;
+	Args.Add(TEXT("PrefixText"), PrefixText);
+	Args.Add(TEXT("EmphasisText"), EmphasisText);
+	Args.Add(TEXT("PostfixText"), PostfixText);
+	return FText::Format(NSLOCTEXT("UTLocalMessage", "CombinedMessage", "{PrefixText}{EmphasisText}{PostfixText}"), Args);
+}
+
 FText UUTLocalMessage::ResolveMessage_Implementation(int32 Switch, bool bTargetsPlayerState1, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const
 {
 	FFormatNamedArguments Args;
