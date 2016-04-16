@@ -14,8 +14,8 @@ UUTCountDownMessage::UUTCountDownMessage(const class FObjectInitializer& ObjectI
 	MessageArea = FName(TEXT("GameMessages"));
 	bIsStatusAnnouncement = true;
 	CountDownText = NSLOCTEXT("UTTimerMessage","MatBeginCountdown","{Count}");
-	RedFlagDelayMessage = NSLOCTEXT("CTFGameMessage", "RedFlagDelay", "Red Flag can be picked up in {Count}");
-	BlueFlagDelayMessage = NSLOCTEXT("CTFGameMessage", "BlueFlagDelay", "Blue Flag can be picked up in {Count}");
+	RedFlagDelayMessage = NSLOCTEXT("CTFGameMessage", "RedFlagDelay", "Red Flag can be picked up in ");
+	BlueFlagDelayMessage = NSLOCTEXT("CTFGameMessage", "BlueFlagDelay", "Blue Flag can be picked up in ");
 }
 
 float UUTCountDownMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
@@ -42,15 +42,38 @@ void UUTCountDownMessage::GetArgs(FFormatNamedArguments& Args, int32 Switch, boo
 	Args.Add(TEXT("Count"), FText::AsNumber(Switch));
 }
 
-FText UUTCountDownMessage::GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false,class APlayerState* RelatedPlayerState_1 = NULL,class APlayerState* RelatedPlayerState_2 = NULL,class UObject* OptionalObject = NULL) const
+void UUTCountDownMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
+{
+	if (Switch < 1000)
+	{
+		Super::GetEmphasisText(PrefixText, EmphasisText, PostfixText, EmphasisColor, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+		return;
+	}
+	PrefixText = (Switch >= 2000) ? BlueFlagDelayMessage : RedFlagDelayMessage;
+	PostfixText = FText::GetEmpty();
+	while (Switch >= 1000)
+	{
+		Switch -= 1000;
+	}
+	FFormatNamedArguments Args;
+	Args.Add(TEXT("Count"), FText::AsNumber(Switch));
+	EmphasisText = FText::Format(CountDownText, Args);;
+	EmphasisColor = FLinearColor::Yellow;
+}
+
+FText UUTCountDownMessage::GetText(int32 Switch, bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const
 {
 	if (Switch >= 1000)
 	{
-		if (Switch >= 2000)
-		{
-			return GetDefault<UUTCountDownMessage>(GetClass())->BlueFlagDelayMessage;
-		}
-		return GetDefault<UUTCountDownMessage>(GetClass())->RedFlagDelayMessage;
+		// fixme build from parts!
+		FText PrefixText, EmphasisText, PostfixText;
+		FLinearColor EmphasisColor;
+		GetEmphasisText(PrefixText, EmphasisText, PostfixText, EmphasisColor, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+		FFormatNamedArguments Args;
+		Args.Add(TEXT("PrefixText"), PrefixText);
+		Args.Add(TEXT("EmphasisText"), EmphasisText);
+		Args.Add(TEXT("PostfixText"), PostfixText);
+		return FText::Format(NSLOCTEXT("UTLocalMessage", "CombinedMessage", "{PrefixText}{EmphasisText}{PostfixText}"), Args);
 	}
 	return GetDefault<UUTCountDownMessage>(GetClass())->CountDownText;
 }
