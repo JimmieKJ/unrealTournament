@@ -15,14 +15,16 @@ UUTCTFRewardMessage::UUTCTFRewardMessage(const class FObjectInitializer& ObjectI
 	bIsConsoleMessage = false;
 	AssistMessage = NSLOCTEXT("CTFRewardMessage", "Assist", "Assist!");
 	DeniedMessage = NSLOCTEXT("CTFRewardMessage", "Denied", "Denied!");
-	BlueScoreMessage = NSLOCTEXT("CTFRewardMessage", "Blue Score", "BLUE Team Scores!");
-	RedScoreMessage = NSLOCTEXT("CTFRewardMessage", "Red Score", "RED Team Scores!");
+	BlueTeamName = NSLOCTEXT("CTFRewardMessage", "BlueTeamName", "BLUE TEAM");
+	RedTeamName = NSLOCTEXT("CTFRewardMessage", "RedTeamName", "RED TEAM");
+	TeamScorePrefix = NSLOCTEXT("CTFRewardMessage", "TeamScorePrefix", "");
+	TeamScorePostfix = NSLOCTEXT("CTFRewardMessage", "TeamScorePostfix", " Scores!");
 	HatTrickMessage = NSLOCTEXT("CTFRewardMessage", "HatTrick", "Hat Trick!");
 	OtherHatTrickMessage = NSLOCTEXT("CTFRewardMessage", "OtherHatTrick", "{Player1Name} got a Hat Trick!");
-	RedStoutDefenseMessage = NSLOCTEXT("CTFRewardMessage", "RedStoutDefense", "RED Stout Defense Bonus +{BonusAmount}");
-	BlueStoutDefenseMessage = NSLOCTEXT("CTFRewardMessage", "BlueStoutDefense", "Blue Stout Defense Bonus +{BonusAmount}");
-	BlueScoreBonusMessage = NSLOCTEXT("CTFRewardMessage", "Blue Score Bonus", "BLUE Team Scores!  Time Bonus +{BonusAmount}");
-	RedScoreBonusMessage = NSLOCTEXT("CTFRewardMessage", "Red Score Bonus", "RED Team Scores!  Time Bonus +{BonusAmount}");
+	StoutDefensePrefix = NSLOCTEXT("CTFRewardMessage", "StoutDefensePrefix", "");
+	StoutDefensePostfix = NSLOCTEXT("CTFRewardMessage", "StoutDefensePostfix", " Stout Defense Bonus +{BonusAmount}");
+	TeamScoreBonusPrefix = NSLOCTEXT("CTFRewardMessage", "TeamScoreBonusPrefix", "");
+	TeamScoreBonusPostfix = NSLOCTEXT("CTFRewardMessage", "TeamScoreBonusPostfix", " Scores!  Time Bonus +{BonusAmount}");
 	bIsStatusAnnouncement = false;
 	bWantsBotReaction = true;
 }
@@ -75,32 +77,53 @@ bool UUTCTFRewardMessage::ShouldPlayAnnouncement(const FClientReceiveData& Clien
 	return IsLocalForAnnouncement(ClientData, true, true) || (ClientData.MessageIndex > 100);
 }
 
+
+void UUTCTFRewardMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
+{
+	if ((Switch == 3) || (Switch == 4))
+	{
+		PrefixText = TeamScorePrefix;
+		PostfixText = TeamScorePostfix;
+		EmphasisText = (Switch == 3) ? RedTeamName : BlueTeamName;
+		EmphasisColor = (Switch == 3) ? FLinearColor::Red : FLinearColor::Blue;
+		return;
+	}
+	if (Switch >= 100)
+	{
+		FFormatNamedArguments Args;
+		if (Switch >= 200)
+		{
+			Args.Add("BonusAmount", FText::AsNumber(Switch - 200));
+			PrefixText = FText::Format(TeamScoreBonusPrefix, Args);
+			PostfixText = FText::Format(TeamScoreBonusPostfix, Args);
+		}
+		else
+		{
+			Args.Add("BonusAmount", FText::AsNumber(Switch - 100));
+			PrefixText = FText::Format(StoutDefensePrefix, Args);
+			PostfixText = FText::Format(StoutDefensePostfix, Args);
+		}
+		AUTTeamInfo* EmphasisTeam = Cast<AUTTeamInfo>(OptionalObject);
+		EmphasisText = (EmphasisTeam && EmphasisTeam->TeamIndex == 1) ? BlueTeamName : RedTeamName;
+		EmphasisColor = (EmphasisTeam && EmphasisTeam->TeamIndex == 1) ? FLinearColor::Blue : FLinearColor::Red;
+		return;
+	}
+	Super::GetEmphasisText(PrefixText, EmphasisText, PostfixText, EmphasisColor, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+}
+
 FText UUTCTFRewardMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const
 {
 	switch (Switch)
 	{
 	case 0: return DeniedMessage; break;
 	case 2: return AssistMessage; break;
-	case 3: return RedScoreMessage; break;
-	case 4: return BlueScoreMessage; break;
+	case 3: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
+	case 4: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
 	case 5: return (bTargetsPlayerState1 ? HatTrickMessage : OtherHatTrickMessage); break;
 	}
 	if (Switch > 100)
 	{
-		if (Switch >= 200)
-		{
-			AUTTeamInfo* AttackingTeam = Cast<AUTTeamInfo>(OptionalObject);
-			FFormatNamedArguments Args;
-			Args.Add("BonusAmount", FText::AsNumber(Switch - 200));
-			return (AttackingTeam && AttackingTeam->TeamIndex == 1) ? FText::Format(BlueScoreBonusMessage, Args) : FText::Format(RedScoreBonusMessage, Args);
-		}
-		else
-		{
-			AUTTeamInfo* DefendingTeam = Cast<AUTTeamInfo>(OptionalObject);
-			FFormatNamedArguments Args;
-			Args.Add("BonusAmount", FText::AsNumber(Switch - 100));
-			return (DefendingTeam && DefendingTeam->TeamIndex == 1) ? FText::Format(BlueStoutDefenseMessage, Args) : FText::Format(RedStoutDefenseMessage, Args);
-		}
+		return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 	}
 
 	return FText::GetEmpty();

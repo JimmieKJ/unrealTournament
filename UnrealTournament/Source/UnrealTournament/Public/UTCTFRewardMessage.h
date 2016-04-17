@@ -17,10 +17,16 @@ class UNREALTOURNAMENT_API UUTCTFRewardMessage : public UUTLocalMessage
 		FText DeniedMessage;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText BlueScoreMessage;
+		FText BlueTeamName;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText RedScoreMessage;
+		FText RedTeamName;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText TeamScorePrefix;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText TeamScorePostfix;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText HatTrickMessage;
@@ -30,16 +36,16 @@ class UNREALTOURNAMENT_API UUTCTFRewardMessage : public UUTLocalMessage
 		FText OtherHatTrickMessage;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText RedStoutDefenseMessage;
+		FText StoutDefensePrefix;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText BlueStoutDefenseMessage;
+		FText StoutDefensePostfix;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText BlueScoreBonusMessage;
+		FText TeamScoreBonusPrefix;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText RedScoreBonusMessage;
+		FText TeamScoreBonusPostfix;
 
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override;
 	virtual bool ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const override;
@@ -48,4 +54,5 @@ class UNREALTOURNAMENT_API UUTCTFRewardMessage : public UUTLocalMessage
 	virtual void PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const override;
 	virtual float GetAnnouncementDelay(int32 Switch) override;
 	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const override;
+	virtual void GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const override;
 };

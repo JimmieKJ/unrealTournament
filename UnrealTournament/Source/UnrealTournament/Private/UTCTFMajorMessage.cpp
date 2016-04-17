@@ -10,10 +10,11 @@ UUTCTFMajorMessage::UUTCTFMajorMessage(const FObjectInitializer& ObjectInitializ
 	bIsSpecial = true;
 	Lifetime = 3.0f;
 	MessageArea = FName(TEXT("MajorRewardMessage"));
-	CaptureMessage = NSLOCTEXT("CTFGameMessage", "CaptureMessage", "{Player1Name} scores for {OptionalTeam}!");
+	CaptureMessagePrefix = NSLOCTEXT("CTFGameMessage", "CaptureMessagePrefix", "");
+	CaptureMessagePostfix = NSLOCTEXT("CTFGameMessage", "CaptureMessagePostfix", " scores for {OptionalTeam}!");
 	HalftimeMessage = NSLOCTEXT("CTFGameMessage", "Halftime", "");
 	OvertimeMessage = NSLOCTEXT("CTFGameMessage", "Overtime", "OVERTIME!");
-	LastLifeMessage = NSLOCTEXT("CTFGameMessage", "LastLife", "This is your last life");
+	LastLifeMessage = NSLOCTEXT("CTFGameMessage", "LastLife", "This is your last life!");
 
 	bIsStatusAnnouncement = true;
 	bIsPartiallyUnique = true;
@@ -24,13 +25,28 @@ FLinearColor UUTCTFMajorMessage::GetMessageColor_Implementation(int32 MessageInd
 	return FLinearColor::Yellow;
 }
 
+void UUTCTFMajorMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
+{
+	if ((Switch == 2) || (Switch == 8) || (Switch == 9))
+	{
+		PrefixText = CaptureMessagePrefix;
+		PostfixText = CaptureMessagePostfix;
+		EmphasisText = RelatedPlayerState_1 ? FText::FromString(RelatedPlayerState_1->PlayerName) : FText::GetEmpty();
+		AUTPlayerState* PS = Cast<AUTPlayerState>(RelatedPlayerState_1);
+		EmphasisColor = (PS && PS->Team) ? PS->Team->TeamColor : FLinearColor::Red;
+		return;
+	}
+
+	Super::GetEmphasisText(PrefixText, EmphasisText, PostfixText, EmphasisColor, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+}
+
 FText UUTCTFMajorMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const
 {
 	switch (Switch)
 	{
-	case 2: return CaptureMessage; break;
-	case 8: return CaptureMessage; break;
-	case 9: return CaptureMessage; break;
+	case 2: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
+	case 8: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
+	case 9: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
 	case 11: return HalftimeMessage; break;
 	case 12: return OvertimeMessage; break;
 	case 20: return LastLifeMessage; break;

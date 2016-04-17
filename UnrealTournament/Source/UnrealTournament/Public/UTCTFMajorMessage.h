@@ -10,7 +10,10 @@ class UNREALTOURNAMENT_API UUTCTFMajorMessage : public UUTCarriedObjectMessage
 	GENERATED_UCLASS_BODY()
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText CaptureMessage;
+		FText CaptureMessagePrefix;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText CaptureMessagePostfix;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText HalftimeMessage;
@@ -35,6 +38,7 @@ class UNREALTOURNAMENT_API UUTCTFMajorMessage : public UUTCarriedObjectMessage
 	virtual float GetScaleInSize_Implementation(int32 MessageIndex) const override;
 	virtual float GetAnnouncementPriority(int32 Switch) const override;
 	virtual bool UseLargeFont(int32 MessageIndex) const override;
+	virtual void GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const override;
 };
 
 
