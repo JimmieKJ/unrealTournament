@@ -3133,7 +3133,7 @@ void AUTPlayerState::ServerSelectLoadout_Implementation(FName ItemTag, bool bSec
 	if (UTGameState)
 	{
 		AUTReplicatedLoadoutInfo* RepLoadout = UTGameState->FindLoadoutItem(ItemTag);
-		if (Loadout)
+		if (RepLoadout)
 		{
 			if (bSecondary)
 			{
