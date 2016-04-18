@@ -82,6 +82,11 @@ bool UUTGameInstance::PerfExecCmd(const FString& ExecCmd, FOutputDevice& Ar)
 
 void UUTGameInstance::StartGameInstance()
 {
+	if (IsRunningCommandlet())
+	{
+		return;
+	}
+
 	Super::StartGameInstance();
 
 	UWorld* World = GetWorld();
