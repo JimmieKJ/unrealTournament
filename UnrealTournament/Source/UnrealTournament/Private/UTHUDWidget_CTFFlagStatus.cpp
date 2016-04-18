@@ -286,7 +286,10 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagBaseWorld(AUTCTFGameState* GameState, F
 		bScaleByDesignedResolution = false;
 
 		FLinearColor TeamColor = FLinearColor::Green;
-		if (TeamNum != 255) TeamColor = GameState->Teams[TeamNum]->TeamColor;
+		if (GameState->Teams.IsValidIndex(TeamNum))
+		{
+			TeamColor = GameState->Teams[TeamNum]->TeamColor;
+		}
 	
 		FlagIconTemplate.RenderColor = TeamColor;
 
