@@ -2102,7 +2102,7 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 				}
 				else if (Response.Points > ShowdownLeaguePoints)
 				{
-					FText WinText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownWin", "Great Win! You now have {0} league points!"), FText::AsNumber(Response.Points));
+					FText WinText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownWin", "Great Win! You earned {0} league points! You now have {1} league points!"), FText::AsNumber(Response.Points - ShowdownLeaguePoints), FText::AsNumber(Response.Points));
 
 					// Report a regular win
 					LeagueMatchResultsDialog = ShowLeagueMatchResultDialog(Response.Tier, Response.Division,
@@ -2113,7 +2113,7 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 				else
 				{
 					// Report a regular loss
-					FText LossText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownLoss", "That was a rough loss, at least you still have {0} league points!"), FText::AsNumber(Response.Points));
+					FText LossText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownLoss", "That was a rough loss, you lost {0} league points. At least you still have {1} league points!"), FText::AsNumber(ShowdownLeaguePoints - Response.Points), FText::AsNumber(Response.Points));
 
 					LeagueMatchResultsDialog = ShowLeagueMatchResultDialog(Response.Tier, Response.Division,
 						NSLOCTEXT("UTLocalPlayer", "ShowdowLossTitle", "Tough Luck!"),
