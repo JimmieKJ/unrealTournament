@@ -8,6 +8,7 @@
 #include "UTWaterVolume.h"
 #include "UTBot.h"
 #include "StatNames.h"
+#include "UTCTFFlag.h"
 
 const float MAX_STEP_SIDE_Z = 0.08f;	// maximum z value for the normal on the vertical side of steps
 
@@ -711,6 +712,23 @@ bool UUTCharacterMovement::CanJump()
 	return (IsMovingOnGround() || CanMultiJump()) && CanEverJump() && !bWantsToCrouch && !bIsFloorSliding;
 }
 
+bool UUTCharacterMovement::IsCarryingFlag() const
+{
+	AUTCharacter* UTOwner = Cast<AUTCharacter>(CharacterOwner);
+
+	bool bIsFlagCarrier = false;
+	if (UTOwner)
+	{
+		AUTCTFFlag* UTCTFFlag = Cast<AUTCTFFlag>(UTOwner->GetCarriedObject());
+		if (UTCTFFlag)
+		{
+			bIsFlagCarrier = true;
+		}
+	}
+
+	return bIsFlagCarrier;
+}
+
 void UUTCharacterMovement::PerformWaterJump()
 {
 	if (!HasValidData())
@@ -1389,7 +1407,7 @@ bool UUTCharacterMovement::DoMultiJump()
 bool UUTCharacterMovement::CanMultiJump()
 {
 	return ( (MaxMultiJumpCount > 0) && (CurrentMultiJumpCount < MaxMultiJumpCount) && (!bIsDodging || bAllowDodgeMultijumps) && (bIsDodging || bAllowJumpMultijumps) &&
-			(bAlwaysAllowFallingMultiJump ? (Velocity.Z < MaxMultiJumpZSpeed) : (FMath::Abs(Velocity.Z) < MaxMultiJumpZSpeed)) );
+			(bAlwaysAllowFallingMultiJump ? (Velocity.Z < MaxMultiJumpZSpeed) : (FMath::Abs(Velocity.Z) < MaxMultiJumpZSpeed)) && !IsCarryingFlag() );
 }
 
 void UUTCharacterMovement::ClearDodgeInput()

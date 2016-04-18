@@ -3176,5 +3176,4 @@ bool AUTPlayerState::ServerSetBoostItem_Validate(TSubclassOf<class AUTInventory>
 void AUTPlayerState::ServerSetBoostItem_Implementation(TSubclassOf<class AUTInventory> PowerupClass)
 {
 	BoostClass = PowerupClass;
-	//BoostClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *AssetReferencePath, NULL, LOAD_NoWarn));
 }

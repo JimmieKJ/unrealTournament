@@ -71,15 +71,6 @@ void AUTCTFRoundGameTommy::InitRound()
 			PS->RemainingBoosts = 0; //No boosts by default
 			PS->RespawnWaitTime = UnlimitedRespawnWaitTime; //No respawn time limits by default
 			PS->RoundKills = 0.f;
-
-			if (IsTeamOnDefense(PS->GetTeamNum()))
-			{
-				PS->BoostClass = RepulsorClass;
-			}
-			else
-			{
-				PS->BoostClass = UDamageClass;
-			}
 		}
 	}
 }

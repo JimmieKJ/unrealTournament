@@ -173,6 +173,9 @@ public:
 		return PendingImpulseToApply;
 	}
 
+	//Checks if we are a flag carrier at the moment
+	virtual bool IsCarryingFlag() const;
+
 protected:
 	virtual void OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode) override;
 
