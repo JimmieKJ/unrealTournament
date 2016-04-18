@@ -205,7 +205,7 @@ void UUTHUDWidgetMessage::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage>
 		{
 			if (MessageQueue[QueueIndex].MessageClass == MessageClass)
 			{
-				if (DefaultMessageObject->ShouldCountInstances(MessageIndex) && MessageQueue[QueueIndex].Text.EqualTo(LocalMessageText))
+				if (DefaultMessageObject->ShouldCountInstances(MessageIndex, OptionalObject) && MessageQueue[QueueIndex].Text.EqualTo(LocalMessageText))
 				{
 					MessageCount = (MessageQueue[QueueIndex].MessageCount == 0) ? 2 : MessageQueue[QueueIndex].MessageCount + 1;
 				}

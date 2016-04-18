@@ -15,7 +15,7 @@ UUTHUDWidgetAnnouncements::UUTHUDWidgetAnnouncements(const class FObjectInitiali
 	Slots.Add(FAnnouncementSlot(FName(TEXT("GameMessages")), 0.7f));
 	Slots.Add(FAnnouncementSlot(FName(TEXT("CountDownMessages")), 0.77f));
 	Slots.Add(FAnnouncementSlot(FName(TEXT("MajorRewardMessage")), 0.46f));
-	Slots.Add(FAnnouncementSlot(FName(TEXT("PickupMessage")), 0.85f));
+	Slots.Add(FAnnouncementSlot(FName(TEXT("PickupMessage")), 0.51f));
 	Position = FVector2D(0.0f, 0.0f);
 	ScreenPosition = FVector2D(0.5f, 0.f);
 	Size = FVector2D(0.0f, 0.0f);

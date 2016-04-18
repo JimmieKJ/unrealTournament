@@ -128,7 +128,7 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	/** if true, if sent to HUD multiple times, count up instances (only if bIsUnique) */
 	/** return whether this announcement should be cancelled by the passed in announcement */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, BlueprintPure, Category = Message)
-	bool ShouldCountInstances(int32 MessageIndex) const;
+	bool ShouldCountInstances(int32 MessageIndex, UObject* OptionalObject) const;
 
 	/** return whether this announcement should interrupt/cancel the passed in announcement */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, BlueprintPure, Category = Message)

@@ -33,6 +33,7 @@
 #include "UTWaterVolume.h"
 #include "UTLift.h"
 #include "UTWeaponSkin.h"
+#include "UTPickupMessage.h"
 
 static FName NAME_HatSocket(TEXT("HatSocket"));
 
@@ -2643,6 +2644,10 @@ void AUTCharacter::SetPendingWeapon(AUTWeapon* NewPendingWeapon)
 {
 	PendingWeapon = NewPendingWeapon;
 	bIsSwitchingWeapon = (PendingWeapon != NULL);
+	if (bIsSwitchingWeapon && IsLocallyControlled() && Cast<APlayerController>(GetController()))
+	{
+		((APlayerController*)(GetController()))->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, NULL, NULL, PendingWeapon->GetClass());
+	}
 }
 
 void AUTCharacter::LocalSwitchWeapon(AUTWeapon* NewWeapon)

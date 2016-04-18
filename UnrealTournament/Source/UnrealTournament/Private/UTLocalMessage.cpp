@@ -240,7 +240,7 @@ float UUTLocalMessage::Blueprint_GetLifeTime_Implementation(int32 Switch) const
 	return GetDefault<UUTLocalMessage>(GetClass())->Lifetime;
 }
 
-bool UUTLocalMessage::ShouldCountInstances_Implementation(int32 MessageIndex) const
+bool UUTLocalMessage::ShouldCountInstances_Implementation(int32 MessageIndex, UObject* OptionalObject) const
 {
 	return false;
 }

@@ -43,7 +43,6 @@ void UUTHUDWidget_WeaponBar::InitializeWidget(AUTHUD* Hud)
 	{
 		HeaderTab.SetNumZeroed(2);
 	}
-	WeaponNameText.Font = Hud->MediumFont;
 	Super::InitializeWidget(Hud);
 }
 
@@ -123,25 +122,6 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 	if (SelectedWeapon == NULL) 
 	{
 		SelectedWeapon = UTCharacterOwner->GetWeapon();
-		if (SelectedWeapon)
-		{
-			WeaponNameText.Text = SelectedWeapon->DisplayName;
-		}
-	}
-	else
-	{
-		AUTWeapon* CurrentWeapon = UTCharacterOwner->GetWeapon();
-		if ((!CurrentWeapon || CurrentWeapon->IsUnEquipping()) && !WeaponNameText.Text.EqualTo(SelectedWeapon->DisplayName))
-		{
-			WeaponNameText.Text = SelectedWeapon->DisplayName;
-			WeaponNameText.RenderOpacity = 1.f;
-			WeaponNameDisplayTimer = WeaponNameDisplayTime;
-			UUTHUDWidgetMessage* DestinationWidget = (UTHUDOwner->HudMessageWidgets.FindRef(FName(TEXT("Announcements"))));
-			if (DestinationWidget != NULL)
-			{
-				DestinationWidget->FadeMessage(SelectedWeapon->DisplayName);
-			}
-		}
 	}
 
 	int32 SelectedGroup = -1;
@@ -307,28 +287,6 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 			}
 			RenderObj_TextAt(GroupText, TextXPosition + GroupText.Position.X, YPosition + ((Y2 - YPosition) * 0.5f) + GroupText.Position.Y);
 			YPosition -= PaddingBetweenCells;
-		}
-	}
-
-	if (WeaponNameText.RenderOpacity > 0.f)
-	{
-		bool bRealScaling = bScaleByDesignedResolution;
-		bScaleByDesignedResolution = false;
-		Opacity = 1.f;
-		DrawText(WeaponNameText.Text, Canvas->ClipX * 0.5f - RenderPosition.X, Canvas->ClipY * 0.83f - RenderPosition.Y, WeaponNameText.Font, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, 1.f, WeaponNameText.RenderOpacity, WeaponNameText.RenderColor, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Center, ETextVertPos::Top);
-		bScaleByDesignedResolution = bRealScaling;
-	}
-
-	if (WeaponNameDisplayTimer > 0.f)
-	{
-		WeaponNameDisplayTimer -= DeltaTime;
-		if ( WeaponNameDisplayTimer <= (WeaponNameDisplayTime * 0.5f) )
-		{
-			WeaponNameText.RenderOpacity = WeaponNameDisplayTimer / (WeaponNameDisplayTime * 0.5f);
-		}
-		else
-		{
-			Opacity = 1.f;
 		}
 	}
 }
