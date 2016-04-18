@@ -4925,6 +4925,9 @@ void UUTLocalPlayer::AttemptMatchmakingReconnectResult(EMatchmakingCompleteResul
 	else if (Result != EMatchmakingCompleteResult::Cancelled)
 	{
 		// Show error message about reconnect failing
+		ShowMessage(NSLOCTEXT("UUTLocalPlayer", "FailedToReconnectTitle", "Failed To Reconnect"),
+			NSLOCTEXT("UUTLocalPlayer", "FailedToReconnect", "Failed To reconnect matchmaking game. It is most likely already complete."),
+			UTDIALOG_BUTTON_OK);
 	}
 }
 
