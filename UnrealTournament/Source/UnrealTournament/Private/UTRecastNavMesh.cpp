@@ -2802,11 +2802,12 @@ void AUTRecastNavMesh::AddToNavigation(AActor* NewPOI)
 		// we don't early out because the POI may have moved
 		RemoveFromNavigation(NewPOI);
 
-		UUTPathNode* BestNode = FindNearestNode(NewPOI->GetActorLocation(), NewPOI->GetSimpleCollisionCylinderExtent());
+		const FVector Extent = GetPOIExtent(NewPOI);
+		UUTPathNode* BestNode = FindNearestNode(NewPOI->GetActorLocation(), Extent);
 		if (BestNode == NULL)
 		{
 			// try bottom of cylinder instead
-			BestNode = FindNearestNode(NewPOI->GetActorLocation() - FVector(0.0f, 0.0f, NewPOI->GetSimpleCollisionHalfHeight()), NewPOI->GetSimpleCollisionCylinderExtent());
+			BestNode = FindNearestNode(NewPOI->GetActorLocation() - FVector(0.0f, 0.0f, Extent.Z), Extent);
 		}
 		if (BestNode != NULL)
 		{
