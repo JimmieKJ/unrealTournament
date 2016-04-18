@@ -758,6 +758,13 @@ public:
 	void HideMatchmakingDialog();
 	bool IsPartyLeader();
 
+#if !UE_SERVER
+	TSharedPtr<SUTDialogBase> LeagueMatchResultsDialog;
+
+	TSharedPtr<SUTDialogBase> GameAbandonedDialog;
+	void ShowGameAbandonedDialog();
+#endif
+
 	virtual void VerifyGameSession(const FString& ServerSessionId);
 
 	/** Closes any slate UI elements that are open. **/

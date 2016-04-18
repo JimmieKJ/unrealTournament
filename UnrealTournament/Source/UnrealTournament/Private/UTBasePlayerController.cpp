@@ -315,7 +315,7 @@ void AUTBasePlayerController::ClientRankedGameAbandoned_Implementation()
 		LP->SaveConfig();
 
 #if !UE_SERVER
-		LP->ShowMessage(NSLOCTEXT("AUTBasePlayerController", "RankedGameAbandonedTitle", "Game Abandoned"), NSLOCTEXT("AUTBasePlayerController", "RankedGameAbandoned", "There were not enough players to start that match so it was abandoned."), UTDIALOG_BUTTON_OK);
+		LP->ShowGameAbandonedDialog();
 #endif
 	}
 
