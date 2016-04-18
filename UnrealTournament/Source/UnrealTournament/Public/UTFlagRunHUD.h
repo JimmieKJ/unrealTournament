@@ -28,5 +28,8 @@ protected:
 	bool IsTeamOnOffense(AUTPlayerState* PS) const;
 
 	bool bConstructedPowerupWindowForDefense;
+
+#if !UE_SERVER
 	TSharedPtr<SUTHUDWindow> PowerupSelectWindow;
+#endif
 };

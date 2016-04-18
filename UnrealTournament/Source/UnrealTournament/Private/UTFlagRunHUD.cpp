@@ -153,6 +153,7 @@ void AUTFlagRunHUD::DrawHUD()
 	}
 
 
+#if !UE_SERVER
 	if (GS && ((GS->GetMatchState() == MatchState::WaitingToStart) || (GS->GetMatchState() == MatchState::MatchIntermission)))
 	{
 		AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
@@ -184,16 +185,18 @@ void AUTFlagRunHUD::DrawHUD()
 	{
 		UTPlayerOwner->GetUTLocalPlayer()->CloseWindow(PowerupSelectWindow);
 	}
+#endif
 }
 
 EInputMode::Type AUTFlagRunHUD::GetInputMode_Implementation() const
 {
+#if !UE_SERVER
 	AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
 	if (PowerupSelectWindow.IsValid() && GS && ((GS->GetMatchState() == MatchState::WaitingToStart) || (GS->GetMatchState() == MatchState::MatchIntermission)))
 	{
 		return EInputMode::EIM_GameAndUI;
 	}
-
+#endif
 	return EInputMode::EIM_GameOnly;
 }
 
