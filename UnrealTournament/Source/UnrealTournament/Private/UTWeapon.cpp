@@ -341,7 +341,7 @@ void AUTWeapon::DropFrom(const FVector& StartLocation, const FVector& TossVeloci
 			DetachFromHolster();
 		}
 
-		if (!HasAnyAmmo())
+		if (!HasAnyAmmo() && !bCanRegenerateAmmo)
 		{
 			Destroy();
 		}
