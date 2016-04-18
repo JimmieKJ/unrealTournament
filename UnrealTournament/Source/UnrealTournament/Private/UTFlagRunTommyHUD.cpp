@@ -68,22 +68,6 @@ void AUTFlagRunTommyHUD::DrawHUD()
 						
 			Canvas->DrawText(MediumFont, FString("Red Kills Needed: ") + FString::FromInt(RedKillsRemaining), XOffsetRed, YOffset, GetHUDWidgetScaleOverride(), GetHUDWidgetScaleOverride(), FontInfo);
 			Canvas->DrawText(MediumFont, FString("Blue Kills Needed: ") + FString::FromInt(BlueKillsRemaining), XOffsetBlue, YOffset, GetHUDWidgetScaleOverride(), GetHUDWidgetScaleOverride(), FontInfo);
-
 		}
 	}
-}
-
-bool AUTFlagRunTommyHUD::IsTeamOnOffense(AUTPlayerState* PS) const
-{
-	if (GetWorld() && GetWorld()->GetGameState() && PS && PS->Team)
-	{
-		AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
-		if (GS)
-		{
-			const bool bIsOnRedTeam = (PS->Team->TeamIndex == 0);
-			return (GS->bRedToCap == bIsOnRedTeam);
-		}
-	}
-
-	return true;
 }

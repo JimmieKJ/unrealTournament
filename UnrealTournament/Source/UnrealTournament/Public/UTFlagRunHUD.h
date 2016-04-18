@@ -2,6 +2,8 @@
 
 #pragma once
 #include "UTHUD_CTF.h"
+#include "SUTHudWindow.h"
+
 #include "UTFlagRunHUD.generated.h"
 
 UCLASS()
@@ -19,4 +21,12 @@ class UNREALTOURNAMENT_API AUTFlagRunHUD : public AUTHUD_CTF
 	int32 BluePlayerCount;
 	float RedDeathTime;
 	float BlueDeathTime;
+
+	virtual EInputMode::Type GetInputMode_Implementation() const;
+
+protected:
+	bool IsTeamOnOffense(AUTPlayerState* PS) const;
+
+	bool bConstructedPowerupWindowForDefense;
+	TSharedPtr<SUTHUDWindow> PowerupSelectWindow;
 };

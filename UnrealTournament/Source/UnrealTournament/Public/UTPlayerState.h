@@ -907,6 +907,9 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerSetLoadoutPack(const FName& NewLoadoutPackTag);
 
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerSetBoostItem(TSubclassOf<class AUTInventory> PowerupClass);
+
 	// DO NOT USE: This is WIP temp code and may go away.
 	UPROPERTY(Replicated)
 	AActor* CriticalObject;

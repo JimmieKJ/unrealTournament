@@ -4,6 +4,7 @@
 #include "UTCTFGameState.h"
 #include "UTCTFGameMode.h"
 #include "UTCTFScoreboard.h"
+#include "Slate/UIWindows/SUTPowerupSelectWindow.h"
 
 AUTFlagRunHUD::AUTFlagRunHUD(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -150,4 +151,63 @@ void AUTFlagRunHUD::DrawHUD()
 			Canvas->DrawTile(PlayerStartIcon.Texture, XOffsetBlue - 0.5f*(ScaledSize - 1.f)*BasePipSize, YOffset - 0.5f*(ScaledSize - 1.f)*BasePipSize, BasePipSize, BasePipSize, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL, BLEND_Translucent);
 		}
 	}
+
+
+	if (GS && ((GS->GetMatchState() == MatchState::WaitingToStart) || (GS->GetMatchState() == MatchState::MatchIntermission)))
+	{
+		AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
+		const bool bIsOnDefense = !IsTeamOnOffense(UTPS);
+
+		// wait for replication to populate the playerstate and team info
+		if (UTPS && UTPS->Team)
+		{
+			if (!PowerupSelectWindow.IsValid() && UTPlayerOwner)
+			{
+				SAssignNew(PowerupSelectWindow, SUTPowerupSelectWindow, UTPlayerOwner->GetUTLocalPlayer(), bIsOnDefense);
+				UTPlayerOwner->GetUTLocalPlayer()->OpenWindow(PowerupSelectWindow);
+
+				bConstructedPowerupWindowForDefense = bIsOnDefense;
+			}
+			//if we switch teams nuke the old window and make a new one
+			else if (bIsOnDefense != bConstructedPowerupWindowForDefense)
+			{
+				UTPlayerOwner->GetUTLocalPlayer()->CloseWindow(PowerupSelectWindow);
+
+				SAssignNew(PowerupSelectWindow, SUTPowerupSelectWindow, UTPlayerOwner->GetUTLocalPlayer(), bIsOnDefense);
+				UTPlayerOwner->GetUTLocalPlayer()->OpenWindow(PowerupSelectWindow);
+
+				bConstructedPowerupWindowForDefense = bIsOnDefense;
+			}
+		}
+	}
+	else if (PowerupSelectWindow.IsValid())
+	{
+		UTPlayerOwner->GetUTLocalPlayer()->CloseWindow(PowerupSelectWindow);
+	}
+}
+
+EInputMode::Type AUTFlagRunHUD::GetInputMode_Implementation() const
+{
+	AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
+	if (PowerupSelectWindow.IsValid() && GS && ((GS->GetMatchState() == MatchState::WaitingToStart) || (GS->GetMatchState() == MatchState::MatchIntermission)))
+	{
+		return EInputMode::EIM_GameAndUI;
+	}
+
+	return EInputMode::EIM_GameOnly;
+}
+
+bool AUTFlagRunHUD::IsTeamOnOffense(AUTPlayerState* PS) const
+{
+	if (GetWorld() && GetWorld()->GetGameState() && PS && PS->Team)
+	{
+		AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
+		if (GS)
+		{
+			const bool bIsOnRedTeam = (PS->Team->TeamIndex == 0);
+			return (GS->bRedToCap == bIsOnRedTeam);
+		}
+	}
+
+	return true;
 }

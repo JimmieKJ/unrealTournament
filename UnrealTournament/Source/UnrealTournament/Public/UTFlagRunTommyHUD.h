@@ -10,7 +10,4 @@ class UNREALTOURNAMENT_API AUTFlagRunTommyHUD : public AUTFlagRunHUD
 	GENERATED_UCLASS_BODY()
 
 	virtual void DrawHUD() override;
-
-protected:
-	bool IsTeamOnOffense(AUTPlayerState* PS) const;
 };

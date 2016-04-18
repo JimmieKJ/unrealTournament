@@ -235,6 +235,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI")
 	UTexture2D* MenuGraphic;
 
+	//This will be the graphic used in the powerup selector
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI")
+	FCanvasIcon PowerupGraphic;
+
 	// This is the long description that will be displayed in the menu.  
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI")
 	FText MenuDescription;

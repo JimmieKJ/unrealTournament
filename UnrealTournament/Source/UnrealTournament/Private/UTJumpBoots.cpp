@@ -8,6 +8,7 @@
 #include "StatNames.h"
 #include "UTJumpbootMessage.h"
 #include "UTGhostComponent.h"
+#include "UTCTFFlag.h"
 
 AUTJumpBoots::AUTJumpBoots(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -98,6 +99,16 @@ void AUTJumpBoots::OwnerEvent_Implementation(FName EventName)
 {
 	if (Role == ROLE_Authority)
 	{
+		bool bIsFlagCarrier = false;
+		if (UTOwner)
+		{
+			AUTCTFFlag* UTCTFFlag = Cast<AUTCTFFlag>(UTOwner->GetCarriedObject());
+			if (UTCTFFlag)
+			{
+				bIsFlagCarrier = true;
+			}
+		}
+
 		if (EventName == InventoryEventName::Jump)
 		{
 			if (UTOwner && Cast<AUTPlayerController>(UTOwner->GetController()) && UTOwner->IsLocallyControlled() && (NumJumps == 3))
@@ -109,7 +120,7 @@ void AUTJumpBoots::OwnerEvent_Implementation(FName EventName)
 				}
 			}
 		}
-		else if (EventName == InventoryEventName::MultiJump)
+		else if ((EventName == InventoryEventName::MultiJump) && !bIsFlagCarrier)
 		{
 			NumJumps--;
 			if (SuperJumpEffect != NULL)
