@@ -808,7 +808,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 		}
 		if (IsPlayerOnLifeLimitedTeam(PS))
 		{
-			if (PS->RemainingLives > 0)
+			if (PS->RemainingLives >= 0)
 			{
 				PS->RemainingLives--;
 				if (PS->RemainingLives < 0)
@@ -840,6 +840,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 						PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 5, PS, NULL, NULL);
 					}
 					PS->RespawnWaitTime = 2.f;
+					PS->OnRespawnWaitReceived();
 				}
 			}
 			else
@@ -856,7 +857,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 
 	if (aPlayer->GetPawn() && !bPerPlayerLives && (RoundLives > 0) && PS && PS->Team && CTFGameState && CTFGameState->IsMatchInProgress())
 	{
-		if ((PS->Team->TeamIndex == 0) && (!bAsymmetricVictoryConditions || IsPlayerOnLifeLimitedTeam(PS)))
+		if ((PS->Team->TeamIndex == 0) && IsPlayerOnLifeLimitedTeam(PS))
 		{
 			CTFGameState->RedLivesRemaining--;
 			if (CTFGameState->RedLivesRemaining <= 0)
@@ -871,7 +872,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 				BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 7);
 			}
 		}
-		else if ((PS->Team->TeamIndex == 1) && (!bAsymmetricVictoryConditions || IsPlayerOnLifeLimitedTeam(PS)))
+		else if ((PS->Team->TeamIndex == 1) && IsPlayerOnLifeLimitedTeam(PS))
 		{
 			CTFGameState->BlueLivesRemaining--;
 			if (CTFGameState->BlueLivesRemaining <= 0)
