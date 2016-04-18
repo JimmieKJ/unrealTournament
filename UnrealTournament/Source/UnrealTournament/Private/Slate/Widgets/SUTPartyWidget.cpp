@@ -9,6 +9,10 @@
 #include "UTGameInstance.h"
 #include "../SUTStyle.h"
 
+#if WITH_SOCIAL
+#include "Social.h"
+#endif
+
 #if !UE_SERVER
 
 void SUTPartyWidget::Construct(const FArguments& InArgs, const FLocalPlayerContext& InCtx)
@@ -189,6 +193,9 @@ void SUTPartyWidget::SetupPartyMemberBox()
 
 		DropDownButton->RebuildMenuContent();
 	}
+	
+	TArray<FUTFriend> OnlineFriendsList;
+	UTLP->GetFriendsList(OnlineFriendsList);
 
 	for (int i = PartyMembers.Num(); i < 5; i++)
 	{
@@ -219,8 +226,37 @@ void SUTPartyWidget::SetupPartyMemberBox()
 			]
 		];
 
-		DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "EmptySlot", "Empty Slot"), FOnClicked(), true);
+		DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "EmptySlot", "Empty Slot"), FOnClicked());
+
+		int FriendIterator = 0;
+		int InviteTextAdded = 0;
+		while (InviteTextAdded < 5 && FriendIterator < OnlineFriendsList.Num())
+		{
+			if (OnlineFriendsList[FriendIterator].bIsOnline && OnlineFriendsList[FriendIterator].bIsPlayingThisGame)
+			{
+				if (InviteTextAdded == 0)
+				{
+					DropDownButton->AddSpacer();
+				}
+				FText FriendText = FText::Format(NSLOCTEXT("SUTPartyWidget", "InviteFriend", "Invite {0}"), FText::FromString(OnlineFriendsList[FriendIterator].DisplayName));
+				DropDownButton->AddSubMenuItem(FriendText, FOnClicked::CreateSP(this, &SUTPartyWidget::InviteToParty, OnlineFriendsList[FriendIterator].UserId));
+				InviteTextAdded++;
+			}
+
+			FriendIterator++;
+		}
+		DropDownButton->RebuildMenuContent();
 	}
+}
+
+FReply SUTPartyWidget::InviteToParty(FString UserId)
+{
+#if WITH_SOCIAL
+	TSharedPtr<IGameAndPartyService> GameAndPartyService = ISocialModule::Get().GetFriendsAndChatManager()->GetGameAndPartyService();
+	GameAndPartyService->SendPartyInvite(FUniqueNetIdString(UserId));
+#endif
+
+	return FReply::Handled();
 }
 
 FReply SUTPartyWidget::PlayerNameClicked(int32 PartyMemberIdx)

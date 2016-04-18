@@ -29,6 +29,7 @@ private:
 	FReply KickFromParty(int32 PartyMemberIdx);
 	FReply PromoteToLeader(int32 PartyMemberIdx);
 	FReply LeaveParty();
+	FReply InviteToParty(FString UserId);
 
 	FReply ChangePartyType(EPartyType InPartyType);
 

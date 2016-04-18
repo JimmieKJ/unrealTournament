@@ -92,8 +92,8 @@ public:
 	FUTFriend()
 	{}
 
-	FUTFriend(FString inUserId, FString inDisplayName, bool inActualFriend)
-		: UserId(inUserId), DisplayName(inDisplayName), bActualFriend(inActualFriend)
+	FUTFriend(FString inUserId, FString inDisplayName, bool inActualFriend, bool inIsOnline, bool inIsPlayingThisGame)
+		: UserId(inUserId), DisplayName(inDisplayName), bActualFriend(inActualFriend), bIsOnline(inIsOnline), bIsPlayingThisGame(inIsPlayingThisGame)
 	{}
 
 
@@ -105,6 +105,12 @@ public:
 
 	UPROPERTY()
 	bool bActualFriend;
+	
+	UPROPERTY()
+	bool bIsOnline;
+	
+	UPROPERTY()
+	bool bIsPlayingThisGame;
 };
 
 /** profile notification data from the backend */
