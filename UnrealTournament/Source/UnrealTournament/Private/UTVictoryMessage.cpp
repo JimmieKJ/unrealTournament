@@ -12,7 +12,8 @@ UUTVictoryMessage::UUTVictoryMessage(const class FObjectInitializer& ObjectIniti
 
 	bIsUnique = true;
 	Lifetime = 6.0f;
-	MessageArea = FName(TEXT("GameMessages"));
+	MessageArea = FName(TEXT("Announcements"));
+	MessageSlot = FName(TEXT("GameMessages"));
 
 	bIsStatusAnnouncement = true;
 

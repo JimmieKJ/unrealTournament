@@ -136,7 +136,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 			WeaponNameText.Text = SelectedWeapon->DisplayName;
 			WeaponNameText.RenderOpacity = 1.f;
 			WeaponNameDisplayTimer = WeaponNameDisplayTime;
-			UUTHUDWidgetMessage* DestinationWidget = (UTHUDOwner->HudMessageWidgets.FindRef(FName(TEXT("PickupMessage"))));
+			UUTHUDWidgetMessage* DestinationWidget = (UTHUDOwner->HudMessageWidgets.FindRef(FName(TEXT("Announcements"))));
 			if (DestinationWidget != NULL)
 			{
 				DestinationWidget->FadeMessage(SelectedWeapon->DisplayName);

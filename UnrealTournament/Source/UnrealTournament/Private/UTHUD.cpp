@@ -5,7 +5,6 @@
 #include "UTProfileSettings.h"
 #include "UTHUDWidgetMessage.h"
 #include "UTHUDWidget_Paperdoll.h"
-#include "UTHUDWidgetMessage_DeathMessages.h"
 #include "UTHUDWidgetMessage_ConsoleMessages.h"
 #include "UTHUDWidget_WeaponInfo.h"
 #include "UTHUDWidget_WeaponCrosshair.h"

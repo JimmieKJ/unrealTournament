@@ -11,7 +11,8 @@ UUTCountDownMessage::UUTCountDownMessage(const class FObjectInitializer& ObjectI
 	bIsUnique = true;
 	bOptionalSpoken = true;
 	Lifetime = 0.95;
-	MessageArea = FName(TEXT("GameMessages"));
+	MessageArea = FName(TEXT("Announcements"));
+	MessageSlot = FName(TEXT("CountDownMessages"));
 	bIsStatusAnnouncement = true;
 	CountDownText = NSLOCTEXT("UTTimerMessage","MatBeginCountdown","{Count}");
 	RedFlagDelayMessage = NSLOCTEXT("CTFGameMessage", "RedFlagDelay", "Red Flag can be picked up in ");

@@ -11,7 +11,8 @@ class UNREALTOURNAMENT_API UUTJumpbootMessage : public UUTLocalMessage
 	UUTJumpbootMessage(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	{
-		MessageArea = FName(TEXT("PickupMessage"));
+		MessageArea = FName(TEXT("Announcements"));
+		MessageSlot = FName(TEXT("PickupMessage"));
 		bIsSpecial = true;
 		bIsUnique = true;
 		bIsConsoleMessage = false;

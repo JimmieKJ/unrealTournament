@@ -21,7 +21,8 @@ class UNREALTOURNAMENT_API UUTTimerMessage : public UUTLocalMessage
 	UUTTimerMessage(const FObjectInitializer& ObjectInitializer)
 		: Super(ObjectInitializer)
 	{
-		MessageArea = FName(TEXT("GameMessages"));
+		MessageArea = FName(TEXT("Announcements"));
+		MessageSlot = FName(TEXT("CountdownMessages"));
 		StyleTag = FName(TEXT("Countdown"));
 		bIsUnique = true;
 		Lifetime = 2.0f;

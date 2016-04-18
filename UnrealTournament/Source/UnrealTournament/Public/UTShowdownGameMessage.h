@@ -15,7 +15,8 @@ public:
 	{
 		bIsStatusAnnouncement = true;
 		bIsPartiallyUnique = true;
-		MessageArea = FName(TEXT("GameMessages"));
+		MessageArea = FName(TEXT("Announcements"));
+		MessageSlot = FName(TEXT("GameMessages"));
 
 		WinByHealthMsg = NSLOCTEXT("ShowdownMessage", "WinByHealthMsg", "{0} had the most total remaining health and wins the round.");
 		TieByHealthMsg = NSLOCTEXT("ShowdownMessage", "TieByHealthMsg", "Both players had the same total remaining health and both get a point.");

@@ -6,7 +6,8 @@
 UUTSpectatorPickupMessage::UUTSpectatorPickupMessage(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	MessageArea = FName(TEXT("GameMessages"));
+	MessageArea = FName(TEXT("Announcements"));
+	MessageSlot = FName(TEXT("GameMessages"));
 	StyleTag = FName(TEXT("Default"));
 
 	bIsStatusAnnouncement = true;

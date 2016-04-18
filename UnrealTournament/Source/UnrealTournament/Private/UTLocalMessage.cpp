@@ -18,6 +18,8 @@ UUTLocalMessage::UUTLocalMessage(const class FObjectInitializer& ObjectInitializ
 	AnnouncementDelay = 0.f;
 	bWantsBotReaction = false;
 	bDrawAsDeathMessage = false;
+	bDrawAtIntermission = true;
+	ScaleInSize = 1.f;
 }
 
 void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const
@@ -104,7 +106,7 @@ float UUTLocalMessage::GetScaleInTime_Implementation(int32 MessageIndex) const
 
 float UUTLocalMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
 {
-	return 1.f;
+	return ScaleInSize;
 }
 
 void UUTLocalMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const

@@ -14,7 +14,8 @@
 UUTPickupMessage::UUTPickupMessage(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	MessageArea = FName(TEXT("PickupMessage"));
+	MessageArea = FName(TEXT("Announcements"));
+	MessageSlot = FName(TEXT("PickupMessage"));
 	StyleTag = FName(TEXT("Default"));
 
 	bIsUnique = true;

@@ -18,7 +18,8 @@ class UNREALTOURNAMENT_API UUTMultiKillMessage : public UUTLocalMessage
 	UUTMultiKillMessage(const FObjectInitializer& ObjectInitializer)
 		: Super(ObjectInitializer)
 	{
-		MessageArea = FName(TEXT("DeathMessage"));
+		MessageArea = FName(TEXT("Announcements"));
+		MessageSlot = FName(TEXT("MultiKill"));
 
 		AnnouncementText.Add(NSLOCTEXT("UTMultiKillMessage", "AnnouncementText[0]", "Double Kill!"));
 		AnnouncementText.Add(NSLOCTEXT("UTMultiKillMessage", "AnnouncementText[1]", "Multi Kill!"));
@@ -34,16 +35,12 @@ class UNREALTOURNAMENT_API UUTMultiKillMessage : public UUTLocalMessage
 		bIsConsoleMessage = false;
 		Lifetime = 3.0f;
 		bWantsBotReaction = true;
+		ScaleInSize = 3.f;
 	}
 
 	virtual FLinearColor GetMessageColor_Implementation(int32 MessageIndex) const override
 	{
 		return FLinearColor::Red;
-	}
-
-	virtual float GetScaleInSize(int32 MessageIndex) const
-	{
-		return 3.f;
 	}
 
 	virtual bool ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const override

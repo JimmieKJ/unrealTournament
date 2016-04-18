@@ -8,7 +8,8 @@
 UUTSCTFGameMessage::UUTSCTFGameMessage(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	MessageArea = FName(TEXT("GameMessages"));
+	MessageArea = FName(TEXT("Announcements"));
+	MessageSlot = FName(TEXT("CountdownMessages"));
 	InitialFlagSpawnMessage = NSLOCTEXT("SCTFGameMessage","FlagSpawnTimer","Flag spawns in 30 seconds!");
 	FlagSpawnMessage = NSLOCTEXT("SCTFGameMessage", "FlagSpawn", "Flag spawns in...");
 	YouAreOnOffenseMessage = NSLOCTEXT("SCTFGameMessage", "OnOffense", "You are on OFFENSE!");

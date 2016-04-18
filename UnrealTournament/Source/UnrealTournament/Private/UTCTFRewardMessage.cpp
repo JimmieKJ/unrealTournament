@@ -11,7 +11,8 @@ UUTCTFRewardMessage::UUTCTFRewardMessage(const class FObjectInitializer& ObjectI
 	bIsPartiallyUnique = true;
 	bIsSpecial = true;
 	Lifetime = 5.0f;
-	MessageArea = FName(TEXT("MajorRewardMessage"));
+	MessageArea = FName(TEXT("Announcements"));
+	MessageSlot = FName(TEXT("MajorRewardMessage"));
 	bIsConsoleMessage = false;
 	AssistMessage = NSLOCTEXT("CTFRewardMessage", "Assist", "Assist!");
 	DeniedMessage = NSLOCTEXT("CTFRewardMessage", "Denied", "Denied!");
@@ -27,6 +28,7 @@ UUTCTFRewardMessage::UUTCTFRewardMessage(const class FObjectInitializer& ObjectI
 	TeamScoreBonusPostfix = NSLOCTEXT("CTFRewardMessage", "TeamScoreBonusPostfix", " Scores!  Time Bonus +{BonusAmount}");
 	bIsStatusAnnouncement = false;
 	bWantsBotReaction = true;
+	ScaleInSize = 3.f;
 }
 
 FLinearColor UUTCTFRewardMessage::GetMessageColor_Implementation(int32 MessageIndex) const
@@ -48,11 +50,6 @@ void UUTCTFRewardMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Ann
 	{
 		Announcer->PrecacheAnnouncement(GetAnnouncementName(i, NULL));
 	}
-}
-
-float UUTCTFRewardMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
-{
-	return 3.f;
 }
 
 float UUTCTFRewardMessage::GetAnnouncementDelay(int32 Switch)

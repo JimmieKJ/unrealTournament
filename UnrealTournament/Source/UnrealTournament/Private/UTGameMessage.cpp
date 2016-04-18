@@ -8,8 +8,8 @@
 UUTGameMessage::UUTGameMessage(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	MessageArea = FName(TEXT("GameMessages"));
-
+	MessageArea = FName(TEXT("Announcements"));
+	MessageSlot = FName(TEXT("GameMessages"));
 	GameBeginsMessage = NSLOCTEXT("UTGameMessage","GameBeginsMessage","START!");
 	OvertimeMessage = NSLOCTEXT("UTGameMessage","OvertimeMessage","OVERTIME");
 	CantBeSpectator = NSLOCTEXT("UTGameMessage", "CantBeSpectator", "You can not become a spectator!");
@@ -44,7 +44,7 @@ float UUTGameMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
 
 FLinearColor UUTGameMessage::GetMessageColor_Implementation(int32 MessageIndex) const
 {
-	return FLinearColor::Yellow;
+	return ((MessageIndex == 9) || (MessageIndex == 10)) ? FLinearColor::White : FLinearColor::Yellow;
 }
 
 float UUTGameMessage::GetLifeTime(int32 MessageIndex) const

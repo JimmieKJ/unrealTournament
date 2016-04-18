@@ -38,6 +38,7 @@ class UNREALTOURNAMENT_API UUTSpreeMessage : public UUTLocalMessage
 	/** sound played when someone else is on a spree */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 	USoundBase* OtherSpreeSound;
+
 	/** sound played when someone else's spree is ended */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 	USoundBase* OtherSpreeEndedSound;
@@ -45,7 +46,8 @@ class UNREALTOURNAMENT_API UUTSpreeMessage : public UUTLocalMessage
 	UUTSpreeMessage(const FObjectInitializer& ObjectInitializer)
 		: Super(ObjectInitializer)
 	{
-		MessageArea = FName(TEXT("DeathMessage"));
+		MessageArea = FName(TEXT("Announcements"));
+		MessageSlot = FName(TEXT("Spree"));
 		StyleTag = FName(TEXT("Spree"));
 
 		OwnerAnnouncementText.Add(NSLOCTEXT("UTSpreeMessage", "OwnerAnnouncementText[0]", "Killing Spree!"));
@@ -111,7 +113,7 @@ class UNREALTOURNAMENT_API UUTSpreeMessage : public UUTLocalMessage
 		return (MessageIndex < 0) ? FLinearColor::White : FLinearColor(1.f, 0.5f, 0.f, 1.f);
 	}
 
-	virtual float GetScaleInSize(int32 MessageIndex) const
+	virtual float GetScaleInSize_Implementation(int32 MessageIndex) const
 	{
 		return UseLargeFont(MessageIndex) ? 3.f : 1.f;
 	}

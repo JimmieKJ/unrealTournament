@@ -10,12 +10,14 @@ UUTKillerMessage::UUTKillerMessage(const class FObjectInitializer& ObjectInitial
 	Lifetime=3.0;
 	bIsSpecial = true;
 	bIsUnique = true;
-	MessageArea = FName(TEXT("DeathMessage"));
+	MessageArea = FName(TEXT("Announcements"));
+	MessageSlot = FName(TEXT("DeathMessage"));
 	StyleTag = FName(TEXT("Killer"));
 	YouKilledPrefixText = NSLOCTEXT("UTKillerMessage","YouKilledPrefixText","You killed ");
 	YouKilledPostfixText = NSLOCTEXT("UTKillerMessage", "YouKilledPostfixText", "");
 	SpecKilledText = NSLOCTEXT("UTKillerMessage", "SpecKilledText", "{Player1Name} killed {Player2Name}");
 	bDrawAsDeathMessage = true;
+	bDrawAtIntermission = false;
 }
 
 bool UUTKillerMessage::UseLargeFont(int32 MessageIndex) const

@@ -9,7 +9,8 @@ UUTCTFMajorMessage::UUTCTFMajorMessage(const FObjectInitializer& ObjectInitializ
 {
 	bIsSpecial = true;
 	Lifetime = 3.0f;
-	MessageArea = FName(TEXT("MajorRewardMessage"));
+	MessageArea = FName(TEXT("Announcements"));
+	MessageSlot = FName(TEXT("MajorRewardMessage"));
 	CaptureMessagePrefix = NSLOCTEXT("CTFGameMessage", "CaptureMessagePrefix", "");
 	CaptureMessagePostfix = NSLOCTEXT("CTFGameMessage", "CaptureMessagePostfix", " scores for {OptionalTeam}!");
 	HalftimeMessage = NSLOCTEXT("CTFGameMessage", "Halftime", "");
@@ -18,6 +19,7 @@ UUTCTFMajorMessage::UUTCTFMajorMessage(const FObjectInitializer& ObjectInitializ
 
 	bIsStatusAnnouncement = true;
 	bIsPartiallyUnique = true;
+	ScaleInSize = 3.f;
 }
 
 FLinearColor UUTCTFMajorMessage::GetMessageColor_Implementation(int32 MessageIndex) const
@@ -67,11 +69,6 @@ bool UUTCTFMajorMessage::UseMegaFont(int32 MessageIndex) const
 float UUTCTFMajorMessage::GetAnnouncementPriority(int32 Switch) const
 {
 	return 1.f;
-}
-
-float UUTCTFMajorMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
-{
-	return 3.f;
 }
 
 bool UUTCTFMajorMessage::InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const

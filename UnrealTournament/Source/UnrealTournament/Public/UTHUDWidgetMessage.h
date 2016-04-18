@@ -93,6 +93,9 @@ struct UNREALTOURNAMENT_API FLocalizedMessageData
 	UPROPERTY(BlueprintReadOnly, Category = HUD)
 	int32 MessageCount;
 
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+		int32 RequestedSlot;
+
 	virtual bool ShouldDraw_Implementation(bool bShowScores)
 	{
 		return bShowScores;
@@ -154,13 +157,6 @@ public:
 	// The outline color for this message.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = HUD)
 	FLinearColor OutlineColor;
-
-	// The outline color for this message.
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = HUD)
-		FLinearColor EmphasisOutlineColor;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
-		float EmphasisScaling;
 
 	// If true, this text will be drawn with an shadow
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = HUD)

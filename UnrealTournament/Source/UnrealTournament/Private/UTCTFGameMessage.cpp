@@ -7,7 +7,8 @@
 UUTCTFGameMessage::UUTCTFGameMessage(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	MessageArea = FName(TEXT("GameMessages"));
+	MessageArea = FName(TEXT("Announcements"));
+	MessageSlot = FName(TEXT("GameMessages"));
 	ReturnMessage = NSLOCTEXT("CTFGameMessage","ReturnMessage","{Player1Name} returned the {OptionalTeam} Flag!");
 	ReturnedMessage = NSLOCTEXT("CTFGameMessage","ReturnedMessage","The {OptionalTeam} Flag was returned!");
 	CaptureMessage = NSLOCTEXT("CTFGameMessage","CaptureMessage","{Player1Name} scores for {OptionalTeam}!");

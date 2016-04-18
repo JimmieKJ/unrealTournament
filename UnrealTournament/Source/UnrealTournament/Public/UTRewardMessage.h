@@ -12,13 +12,15 @@ class UNREALTOURNAMENT_API UUTRewardMessage : public UUTLocalMessage
 	UUTRewardMessage(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	{
-		MessageArea = FName(TEXT("DeathMessage"));
+		MessageArea = FName(TEXT("Announcements"));
+		MessageSlot = FName(TEXT("VictimMessage"));
 		bIsSpecial = true;
 		bIsUnique = true;
 		bIsConsoleMessage = false;
 		Lifetime = 3.0f;
 		AnnouncementHS = FName(TEXT("RW_HolyShit"));
 		bWantsBotReaction = true;
+		ScaleInSize = 3.f;
 	}
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
@@ -43,15 +45,11 @@ class UNREALTOURNAMENT_API UUTRewardMessage : public UUTLocalMessage
 		return FLinearColor::Red;
 	}
 
-	virtual float GetScaleInSize(int32 MessageIndex) const
-	{
-		return 3.f;
-	}
-
 	virtual bool ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const
 	{
 		return true;
 	}
+
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override
 	{
 		if (Switch == 100)
@@ -68,10 +66,12 @@ class UNREALTOURNAMENT_API UUTRewardMessage : public UUTLocalMessage
 		}
 		return Announcement;
 	}
+
 	virtual FText GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const override
 	{
 		return MessageText;
 	}
+
 	virtual void PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const override
 	{
 		Announcer->PrecacheAnnouncement(Announcement);

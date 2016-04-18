@@ -13,9 +13,17 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 	FName MessageArea;
 
+	/** Message area on HUD (index into UTHUD.MessageOffset[]) */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FName MessageSlot;
+
 	/** Can be used by a message zone to stylize an incoming localized message */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 	FName StyleTag;
+
+	/** If true, can use alternate slot */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		uint32 bCanUseAltSlot : 1;
 
 	/** If true, this is a Game Status Announcement */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
@@ -45,10 +53,14 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 	uint32 bWantsBotReaction : 1;
 
-	/** Use special deathmessage handling (if rendered in DeathMessage area). */
+	/** Use special deathmessage handling. */
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 		uint32 bDrawAsDeathMessage : 1;
-	
+
+	/** Continue to display this message at intermission. */
+	UPROPERTY(EditDefaultsOnly, Category = Message)
+		uint32 bDrawAtIntermission : 1;
+
 	// # of seconds to stay in HUD message queue.
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 	float Lifetime;    
@@ -56,6 +68,9 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	// how long to delay playing this announcement
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 	float AnnouncementDelay;
+
+	UPROPERTY(EditDefaultsOnly, Category = Message)
+		float ScaleInSize;
 
 	virtual float GetAnnouncementDelay(int32 Switch);
 

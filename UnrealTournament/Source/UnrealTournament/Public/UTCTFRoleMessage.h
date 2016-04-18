@@ -15,7 +15,8 @@ public:
 	{
 		bIsStatusAnnouncement = true;
 		bIsPartiallyUnique = true;
-		MessageArea = FName(TEXT("DeathMessage"));
+		MessageArea = FName(TEXT("Announcements"));
+		MessageSlot = FName(TEXT("MultiKill"));
 		Lifetime = 8.f;
 
 		CapFlagMessage = NSLOCTEXT("CTFGameMessage", "TakeFlagToEnemy", "Get your flag to the enemy base!");

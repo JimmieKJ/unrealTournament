@@ -23,7 +23,7 @@
 #include "../Widgets/SUTTabWidget.h"
 #include "UTConsole.h"
 #include "UTHUDWidgetMessage.h"
-#include "UTHUDWidgetMessage_GameMessages.h"
+#include "UTHUDWidgetAnnouncements.h"
 #include "../Widgets/SUTXPBar.h"
 #include "../Widgets/SUTButton.h"
 
@@ -1585,7 +1585,7 @@ void SUTMatchSummaryPanel::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Hei
 			}
 		}
 
-		UUTHUDWidget* GameMessagesWidget = UTPC->MyUTHUD->FindHudWidgetByClass(UUTHUDWidgetMessage_GameMessages::StaticClass(), true);
+		UUTHUDWidget* GameMessagesWidget = UTPC->MyUTHUD->FindHudWidgetByClass(UUTHUDWidgetAnnouncements::StaticClass(), true);
 		if (GameMessagesWidget != nullptr)
 		{
 			DrawWidgets.Add(GameMessagesWidget);

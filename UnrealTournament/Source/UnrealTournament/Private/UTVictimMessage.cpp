@@ -10,12 +10,14 @@ UUTVictimMessage::UUTVictimMessage(const class FObjectInitializer& ObjectInitial
 {
 	bIsUnique = true;
 	Lifetime = 2.6f;
-	MessageArea = FName(TEXT("DeathMessage"));
+	MessageArea = FName(TEXT("Announcements"));
+	MessageSlot = FName(TEXT("VictimMessage"));
 	StyleTag = FName(TEXT("Victim"));
 	YouWereKilledByPrefix = NSLOCTEXT("UTVictimMessage","YouWereKilledByPrefix","Killed by "); 
 	YouWereKilledByPostfix = NSLOCTEXT("UTVictimMessage", "YouWereKilledByPostfix", "");
 	RespawnedVictimText = NSLOCTEXT("UTVictimMessage", "RespawnedVictimText", "   ");
 	bDrawAsDeathMessage = true;
+	bDrawAtIntermission = false;
 }
 
 bool UUTVictimMessage::UseLargeFont(int32 MessageIndex) const
