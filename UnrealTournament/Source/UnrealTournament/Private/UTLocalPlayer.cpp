@@ -2993,10 +2993,15 @@ void UUTLocalPlayer::HandleFriendsNotificationAvail(bool bAvailable)
 void UUTLocalPlayer::HandleFriendsActionNotification(TSharedRef<FFriendsAndChatMessage> FriendsAndChatMessage)
 {
 #if WITH_SOCIAL
-	if (FriendsAndChatMessage->GetMessageType() == EMessageType::GameInvite ||
-		FriendsAndChatMessage->GetMessageType() == EMessageType::FriendAccepted ||
+	if (FriendsAndChatMessage->GetMessageType() == EMessageType::FriendAccepted ||
 		FriendsAndChatMessage->GetMessageType() == EMessageType::FriendInvite ||
 		(FriendsAndChatMessage->GetMessageType() == EMessageType::ChatMessage && !bShowingFriendsMenu))
+	{
+		ShowToast(FText::FromString(FriendsAndChatMessage->GetMessage()));
+	}
+
+	// SUTPartyInviteWidget will show the invite if we're in menu game
+	if (FriendsAndChatMessage->GetMessageType() == EMessageType::GameInvite && !IsMenuGame())
 	{
 		ShowToast(FText::FromString(FriendsAndChatMessage->GetMessage()));
 	}
@@ -4924,10 +4929,12 @@ void UUTLocalPlayer::AttemptMatchmakingReconnectResult(EMatchmakingCompleteResul
 	}
 	else if (Result != EMatchmakingCompleteResult::Cancelled)
 	{
+#if !UE_SERVER
 		// Show error message about reconnect failing
 		ShowMessage(NSLOCTEXT("UUTLocalPlayer", "FailedToReconnectTitle", "Failed To Reconnect"),
 			NSLOCTEXT("UUTLocalPlayer", "FailedToReconnect", "Failed To reconnect matchmaking game. It is most likely already complete."),
 			UTDIALOG_BUTTON_OK);
+#endif
 	}
 }
 
