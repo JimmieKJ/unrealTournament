@@ -29,6 +29,7 @@
 #include "UTFlagRunHUD.h"
 #include "UTGhostFlag.h"
 #include "UTCTFRoundGameState.h"
+#include "UTAsymCTFSquadAI.h"
 
 AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -52,6 +53,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	RemainingPickupDelay = 0;
 	HUDClass = AUTFlagRunHUD::StaticClass();
 	GameStateClass = AUTCTFRoundGameState::StaticClass();
+	SquadType = AUTAsymCTFSquadAI::StaticClass();
 	NumRounds = 6;
 	bGiveSpawnInventoryBonus = true;
 
