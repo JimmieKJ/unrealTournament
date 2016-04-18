@@ -3106,10 +3106,10 @@ void AUTPlayerState::ServerUnlockItem_Implementation(FName ItemTag, bool bSecond
 		AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
 		if (UTGameState)
 		{
-			AUTReplicatedLoadoutInfo* Loadout = UTGameState->FindLoadoutItem(ItemTag);
-			if (Loadout)
+			AUTReplicatedLoadoutInfo* UnlockLoadout = UTGameState->FindLoadoutItem(ItemTag);
+			if (UnlockLoadout)
 			{
-				AdjustCurrency(Loadout->CurrentCost * -1);
+				AdjustCurrency(UnlockLoadout->CurrentCost * -1);
 				UnlockList.Add(ItemTag);
 				ServerSelectLoadout(ItemTag, bSecondary);
 				if (GetWorld()->GetNetMode() != NM_DedicatedServer)
