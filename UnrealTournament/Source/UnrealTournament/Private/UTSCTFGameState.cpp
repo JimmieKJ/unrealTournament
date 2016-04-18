@@ -88,7 +88,7 @@ void AUTSCTFGameState::GetImportantFlag(int32 TeamNum, TArray<AUTCTFFlag*>& Impo
 	}
 }
 
-void AUTSCTFGameState::GetImportantFlagBase(int32 TeamNum, TArray<AUTCTFFlagBase*>& ImportantBases)
+void AUTSCTFGameState::GetImportantFlagBase(int32 InTeamNum, TArray<AUTCTFFlagBase*>& ImportantBases)
 {
 	if (Flag == nullptr)
 	{
