@@ -3132,16 +3132,16 @@ void AUTPlayerState::ServerSelectLoadout_Implementation(FName ItemTag, bool bSec
 	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
 	if (UTGameState)
 	{
-		AUTReplicatedLoadoutInfo* Loadout = UTGameState->FindLoadoutItem(ItemTag);
+		AUTReplicatedLoadoutInfo* RepLoadout = UTGameState->FindLoadoutItem(ItemTag);
 		if (Loadout)
 		{
 			if (bSecondary)
 			{
-				SecondarySpawnInventory = Loadout;
+				SecondarySpawnInventory = RepLoadout;
 			}
 			else
 			{
-				PrimarySpawnInventory = Loadout;
+				PrimarySpawnInventory = RepLoadout;
 			}
 		}
 	}
