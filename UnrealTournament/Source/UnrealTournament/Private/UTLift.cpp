@@ -176,7 +176,11 @@ void AUTLift::NotifyHit(class UPrimitiveComponent* MyComp, class AActor* Other, 
 					DroppedFlag->MovementComponent->StopSimulating(Hit);
 					DroppedFlag->AttachRootComponentTo(EncroachComponent, NAME_None, EAttachLocation::KeepWorldPosition);
 				}
-				bMoveWasBlocked = true;
+				if (!bMoveWasBlocked)
+				{
+					bMoveWasBlocked = true;
+					return;
+				}
 			}
 
 			OnEncroachActor(Other);
