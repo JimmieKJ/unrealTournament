@@ -514,6 +514,7 @@ bool UUTGameInstance::ClientTravelToSession(int32 ControllerId, FName InSessionN
 					{
 						LP->LastRankedMatchSessionId = Session->SessionInfo->GetSessionId().ToString();
 						LP->LastRankedMatchUniqueId = Online::GetIdentityInterface()->GetUniquePlayerId(LP->GetControllerId())->ToString();
+						LP->LastRankedMatchTimeString = FDateTime::Now().ToString();
 						LP->SaveConfig();
 					}
 				}

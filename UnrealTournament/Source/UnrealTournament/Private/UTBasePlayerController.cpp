@@ -312,6 +312,7 @@ void AUTBasePlayerController::ClientRankedGameAbandoned_Implementation()
 	{
 		LP->LastRankedMatchSessionId.Empty();
 		LP->LastRankedMatchUniqueId.Empty();
+		LP->LastRankedMatchTimeString.Empty();
 		LP->SaveConfig();
 
 #if !UE_SERVER
@@ -329,6 +330,7 @@ void AUTBasePlayerController::ClientReturnToLobby_Implementation()
 	{
 		LP->LastRankedMatchSessionId.Empty();
 		LP->LastRankedMatchUniqueId.Empty();
+		LP->LastRankedMatchTimeString.Empty();
 		LP->SaveConfig();
 	}
 

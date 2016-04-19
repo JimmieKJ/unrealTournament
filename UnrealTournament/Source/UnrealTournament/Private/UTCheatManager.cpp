@@ -530,6 +530,7 @@ void UUTCheatManager::CheatShowRankedReconnectDialog()
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(GetOuterAPlayerController()->Player);
 	if (LP)
 	{
+		LP->LastRankedMatchTimeString = FDateTime::Now().ToString();
 		LP->ShowRankedReconnectDialog(LP->LastRankedMatchUniqueId);
 	}
 #endif

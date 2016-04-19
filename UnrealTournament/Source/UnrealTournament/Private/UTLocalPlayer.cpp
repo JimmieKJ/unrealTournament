@@ -1118,11 +1118,16 @@ void UUTLocalPlayer::ShowRankedReconnectDialog(const FString& UniqueID)
 #if !UE_SERVER
 	if (UniqueID == LastRankedMatchUniqueId && !LastRankedMatchSessionId.IsEmpty())
 	{
-		// Ask player if they want to try to rejoin last ranked game
-		ShowMessage(NSLOCTEXT("UTLocalPlayer", "RankedReconnectTitle", "Reconnect To Ranked Match?"),
-			NSLOCTEXT("UTLocalPlayer", "RankedReconnect", "Would you like to reconnect to the last ranked match?"),
-			UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO,
-			FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::RankedReconnectResult));
+		FDateTime LastRankedMatchTime;
+		FDateTime::Parse(LastRankedMatchTimeString, LastRankedMatchTime);
+		if ((FDateTime::Now() - LastRankedMatchTime).GetHours() < 1)
+		{
+			// Ask player if they want to try to rejoin last ranked game
+			ShowMessage(NSLOCTEXT("UTLocalPlayer", "RankedReconnectTitle", "Reconnect To Ranked Match?"),
+				NSLOCTEXT("UTLocalPlayer", "RankedReconnect", "Would you like to reconnect to the last ranked match?"),
+				UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO,
+				FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::RankedReconnectResult));
+		}
 	}
 #endif
 }
@@ -1141,6 +1146,7 @@ void UUTLocalPlayer::RankedReconnectResult(TSharedPtr<SCompoundWidget> Widget, u
 
 	LastRankedMatchUniqueId.Empty();
 	LastRankedMatchSessionId.Empty();
+	LastRankedMatchTimeString.Empty();
 	SaveConfig();
 }
 #endif

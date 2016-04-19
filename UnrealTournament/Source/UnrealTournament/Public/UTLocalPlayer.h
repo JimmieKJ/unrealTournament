@@ -396,7 +396,10 @@ public:
 
 	UPROPERTY(config)
 	FString LastRankedMatchSessionId;
-	
+
+	UPROPERTY(config)
+	FString LastRankedMatchTimeString;
+
 	UFUNCTION()
 	void ShowRankedReconnectDialog(const FString& UniqueID);
 
