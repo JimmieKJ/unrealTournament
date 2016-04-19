@@ -29,7 +29,7 @@ void UUTHUDWidget_QuickStats::InitializeWidget(AUTHUD* Hud)
 	HealthInfo.TextColor = FLinearColor(0.4f, 0.95f, 0.48f, 1.0f);
 	HealthInfo.IconColor = HealthInfo.TextColor;
 
-	FlagInfo.bNoText = true;
+	FlagInfo.bNoText = false;
 
 }
 
@@ -247,6 +247,25 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		{
 			FlagInfo.Value = 1;
 			FlagInfo.IconColor = UTPlayerState->CarriedObject->GetTeamNum() == 0 ? FLinearColor::Red : FLinearColor::Blue;
+			FlagInfo.bUseLabel = true;
+			FlagInfo.Label = FText::GetEmpty();
+
+			if (FlagInfo.Label.IsEmpty())
+			{
+				UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+				if (InputSettings)
+				{
+					for (int32 inputIndex = 0; inputIndex < InputSettings->ActionMappings.Num(); ++inputIndex)
+					{
+						FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
+						if (Action.ActionName == "DropCarriedObject")
+						{
+							FlagInfo.Label = Action.Key.GetDisplayName();
+							break;
+						}
+					}
+				}
+			}
 		}
 		else
 		{

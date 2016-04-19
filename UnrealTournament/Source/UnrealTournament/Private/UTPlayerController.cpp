@@ -781,6 +781,7 @@ void AUTPlayerController::ServerTriggerBoost_Implementation()
 		{
 			AUTInventory* TriggeredBoost = GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->BoostClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f));
 			TriggeredBoost->bAlwaysDropOnDeath = false;
+			TriggeredBoost->DroppedPickupClass = nullptr;
 			UTCharacter->AddInventory(TriggeredBoost, true);
 		}
 		else
