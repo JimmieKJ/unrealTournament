@@ -11,4 +11,8 @@ class UNREALTOURNAMENT_API AUTHUD_SCTF : public AUTFlagRunHUD
 	GENERATED_UCLASS_BODY()
 	virtual void DrawMinimapSpectatorIcons() override;
 	void DrawHUD();
+
+protected:
+	virtual void HandlePowerups(AUTCTFGameState* CTFGameState);
+
 };

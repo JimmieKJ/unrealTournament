@@ -3,7 +3,7 @@
 #pragma once
 #include "UTHUD_CTF.h"
 #include "SUTHudWindow.h"
-
+#include "UTCTFGameState.h"
 #include "UTFlagRunHUD.generated.h"
 
 UCLASS()
@@ -32,4 +32,8 @@ protected:
 #if !UE_SERVER
 	TSharedPtr<SUTHUDWindow> PowerupSelectWindow;
 #endif
+
+	// Manage the powerup select window.
+	virtual void HandlePowerups(AUTCTFGameState* CTFGameState);
+
 };

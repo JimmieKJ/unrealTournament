@@ -152,9 +152,14 @@ void AUTFlagRunHUD::DrawHUD()
 		}
 	}
 
+	HandlePowerups(GS);
+}
 
+
+void AUTFlagRunHUD::HandlePowerups(AUTCTFGameState* CTFGameState)
+{
 #if !UE_SERVER
-	if (GS && ((GS->GetMatchState() == MatchState::WaitingToStart) || (GS->GetMatchState() == MatchState::MatchIntermission)))
+	if (CTFGameState && ((CTFGameState->GetMatchState() == MatchState::WaitingToStart) || (CTFGameState->GetMatchState() == MatchState::MatchIntermission)))
 	{
 		AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
 		const bool bIsOnDefense = !IsTeamOnOffense(UTPS);
