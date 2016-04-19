@@ -82,6 +82,8 @@ void AUTSCTFFlag::SetHolder(AUTCharacter* NewHolder)
 		}
 	}
 
+	bPendingTeamSwitch = false;
+
 	Super::SetHolder(NewHolder);
 
 	if (NewHolder) NewHolder->ResetMaxSpeedPctModifier();

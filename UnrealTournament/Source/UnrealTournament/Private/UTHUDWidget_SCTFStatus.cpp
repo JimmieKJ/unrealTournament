@@ -106,7 +106,11 @@ FText UUTHUDWidget_SCTFStatus::GetFlagReturnTime(AUTCTFFlag* Flag)
 	{
 		if (SFlag->ObjectState == CarriedObjectState::Dropped && SFlag->bPendingTeamSwitch)
 		{
-			return FText::AsNumber(int32(GameState->Flag->SwapTimer));
+			return FText::AsNumber(FMath::Max<int32>(int32(GameState->Flag->SwapTimer),1));
+		}
+		else
+		{
+			return FText::GetEmpty();
 		}
 	}
 
