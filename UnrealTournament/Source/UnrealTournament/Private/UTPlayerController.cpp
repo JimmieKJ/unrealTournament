@@ -55,7 +55,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	LastTapRightTime = -10.f;
 	LastTapForwardTime = -10.f;
 	LastTapBackTime = -10.f;
-	bAllowSlideFromRun = true;
+	bCrouchTriggersSlide = true;
 	bSingleTapWallDodge = true;
 	bSingleTapAfterJump = true;
 	bAutoCam = true;

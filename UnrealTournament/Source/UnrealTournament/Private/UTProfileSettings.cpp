@@ -184,7 +184,7 @@ void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 		bSingleTapWallDodge = PC->bSingleTapWallDodge;
 		bSingleTapAfterJump = PC->bSingleTapAfterJump;
 		bAutoWeaponSwitch = PC->bAutoWeaponSwitch;
-		bAllowSlideFromRun = PC->bAllowSlideFromRun;
+		bAllowSlideFromRun = PC->bCrouchTriggersSlide;
 		bHearsTaunts = PC->bHearsTaunts;
 		WeaponBob = PC->WeaponBobGlobalScaling;
 		ViewBob = PC->EyeOffsetGlobalScaling;
@@ -299,7 +299,7 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 		PC->bSingleTapWallDodge = bSingleTapWallDodge;
 		PC->bSingleTapAfterJump = bSingleTapAfterJump;
 		PC->bAutoWeaponSwitch = bAutoWeaponSwitch;
-		PC->bAllowSlideFromRun = bAllowSlideFromRun;
+		PC->bCrouchTriggersSlide = bAllowSlideFromRun;
 		PC->bHearsTaunts = bHearsTaunts;
 		PC->WeaponBobGlobalScaling = WeaponBob;
 		PC->EyeOffsetGlobalScaling = ViewBob;

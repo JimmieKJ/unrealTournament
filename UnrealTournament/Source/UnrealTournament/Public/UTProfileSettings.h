@@ -306,6 +306,7 @@ protected:
 	UPROPERTY()
 	uint32 bSingleTapAfterJump : 1;
 
+	/** For backwards compatibility, maps to bCrouchTriggersSlide. */
 	UPROPERTY()
 	uint32 bAllowSlideFromRun : 1;
 

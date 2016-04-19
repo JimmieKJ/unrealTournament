@@ -894,18 +894,26 @@ void UUTCharacterMovement::HandleCrouchRequest()
 {
 	// if moving fast enough and pressing on move key, slide, else crouch
 	AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
-	UpdateFloorSlide(true);
+	AUTPlayerController* PC = CharacterOwner ? Cast<AUTPlayerController>(CharacterOwner->GetController()) : nullptr;
+	if (!PC || PC->bCrouchTriggersSlide)
+	{
+		UpdateFloorSlide(true);
+	}
 	bWantsToCrouch = true;
 	if (!Acceleration.IsNearlyZero() && (Velocity.Size() > 0.7f * MaxWalkSpeed) && UTCharacterOwner && UTCharacterOwner->CanDodge())
 	{
-		bPressedSlide = IsFalling() || (Cast<AUTPlayerController>(UTCharacterOwner->GetController()) && Cast<AUTPlayerController>(UTCharacterOwner->GetController())->bAllowSlideFromRun);
+		bPressedSlide = IsFalling() || (PC && PC->bCrouchTriggersSlide);
 	}
 }
 
 void UUTCharacterMovement::HandleUnCrouchRequest()
 {
 	bWantsToCrouch = false;
-	UpdateFloorSlide(false);
+	AUTPlayerController* PC = CharacterOwner ? Cast<AUTPlayerController>(CharacterOwner->GetController()) : nullptr;
+	if (!PC || PC->bCrouchTriggersSlide)
+	{
+		UpdateFloorSlide(false);
+	}
 }
 
 void UUTCharacterMovement::Crouch(bool bClientSimulation)

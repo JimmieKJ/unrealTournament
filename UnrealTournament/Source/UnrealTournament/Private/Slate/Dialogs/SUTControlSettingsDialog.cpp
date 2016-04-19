@@ -1021,7 +1021,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMovementTab()
 				[
 					SNew(STextBlock)
 					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-					.Text(NSLOCTEXT("SUTControlSettingsDialog", "Slide From Run", "Enable slide from run"))
+					.Text(NSLOCTEXT("SUTControlSettingsDialog", "Slide From Crouch", "Crouch button will trigger slide if moving."))
 				]
 			]
 			+ SHorizontalBox::Slot()
@@ -1030,7 +1030,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMovementTab()
 					SAssignNew(SlideFromRun, SCheckBox)
 					.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
 					.ForegroundColor(FLinearColor::White)
-					.IsChecked(PC->bAllowSlideFromRun ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
+					.IsChecked(PC->bCrouchTriggersSlide ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
 				]
 		];
 }
@@ -1141,7 +1141,7 @@ FReply SUTControlSettingsDialog::OKClick()
 		It->bSingleTapAfterJump = SingleTapAfterJump->IsChecked();
 		It->MaxDodgeClickTime = MaxDodgeClickTimeValue;
 		It->MaxDodgeTapTime = MaxDodgeTapTimeValue;
-		It->bAllowSlideFromRun = SlideFromRun->IsChecked();
+		It->bCrouchTriggersSlide = SlideFromRun->IsChecked();
 	}
 	AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>()->SaveConfig();
 	UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->SaveConfig();

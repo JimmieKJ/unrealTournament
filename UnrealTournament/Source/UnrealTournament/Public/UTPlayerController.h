@@ -363,7 +363,7 @@ public:
 
 	/** If true, will slide if running and press crouch. */
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
-		bool bAllowSlideFromRun;
+		bool bCrouchTriggersSlide;
 
 	/** If true, single quick tap will result in wall dodge on release.  Otherwise need double tap to wall dodge. */
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
