@@ -52,5 +52,5 @@ bool AUTCTFRoundGameState::IsTeamOnDefense(int32 TeamNumber) const
 
 float AUTCTFRoundGameState::GetKillsNeededForPowerup(bool bOnOffense)
 {
-	return 0.5f;
+	return 0.f;
 }
