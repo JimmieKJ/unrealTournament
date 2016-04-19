@@ -4915,13 +4915,20 @@ void UUTLocalPlayer::AttemptMatchmakingReconnect(const FString& OldSessionId)
 		MatchmakingParams.SessionId = OldSessionId;
 		MatchmakingParams.Flags = EMatchmakingFlags::NoReservation;
 
-		Matchmaking->OnMatchmakingComplete().AddUObject(this, &ThisClass::AttemptMatchmakingReconnectResult);
+		MatchmakingReconnectResultHandle = Matchmaking->OnMatchmakingComplete().AddUObject(this, &ThisClass::AttemptMatchmakingReconnectResult);
 		bool bSuccessfullyStarted = Matchmaking->FindSessionAsClient(MatchmakingParams);
 	}
 }
 
 void UUTLocalPlayer::AttemptMatchmakingReconnectResult(EMatchmakingCompleteResult Result)
 {
+	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
+	UUTMatchmaking* Matchmaking = UTGameInstance->GetMatchmaking();
+	if (ensure(Matchmaking))
+	{
+		Matchmaking->OnMatchmakingComplete().Remove(MatchmakingReconnectResultHandle);
+	}
+
 	HideMatchmakingDialog();
 
 	if (Result == EMatchmakingCompleteResult::Success)

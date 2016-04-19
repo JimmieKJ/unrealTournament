@@ -920,6 +920,8 @@ public:
 
 	/** Matchmaking related items */
 	void StartMatchmaking(int32 PlaylistId);
+
+	FDelegateHandle MatchmakingReconnectResultHandle;
 	void AttemptMatchmakingReconnect(const FString& OldSessionId);
 	void AttemptMatchmakingReconnectResult(EMatchmakingCompleteResult Result);
 
