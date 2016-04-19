@@ -15,7 +15,7 @@ public:
 	{}
 
 	/** Always at the end */
-	SLATE_END_ARGS()
+	SLATE_END_ARGS() 
 
 	/** Destructor */
 	virtual ~SUTPartyWidget();
