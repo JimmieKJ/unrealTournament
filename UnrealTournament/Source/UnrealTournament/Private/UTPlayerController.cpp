@@ -372,6 +372,8 @@ void AUTPlayerController::SetupInputComponent()
 
 	InputComponent->BindAction("ShowBuyMenu", IE_Pressed, this, &AUTPlayerController::ShowBuyMenu);
 
+	InputComponent->BindAction("DropCarriedObject", IE_Pressed, this, &AUTPlayerController::DropCarriedObject);
+
 	UpdateWeaponGroupKeys();
 	UpdateInventoryKeys();
 }
@@ -3984,6 +3986,19 @@ void AUTPlayerController::ShowBuyMenu()
 	if (GS && GS->AvailableLoadout.Num() > 0)
 	{
 		ClientOpenLoadout_Implementation(true);
+	}
+	// in RCTF we want to tie the BuyMenu button to the power select menu
+	else if (UTPlayerState)
+	{
+		UTPlayerState->bIsPowerupSelectWindowOpen = !UTPlayerState->bIsPowerupSelectWindowOpen;
+	}
+}
+
+void AUTPlayerController::DropCarriedObject()
+{
+	if (UTCharacter)
+	{
+		UTCharacter->DropCarriedObject();
 	}
 }
 

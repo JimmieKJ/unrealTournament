@@ -547,6 +547,9 @@ public:
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = PlayerState)
 		TSubclassOf<class AUTInventory> BoostClass;
 
+	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
+		bool bIsPowerupSelectWindowOpen;
+
 private:
 	UPROPERTY()
 	UObject* McpProfile;

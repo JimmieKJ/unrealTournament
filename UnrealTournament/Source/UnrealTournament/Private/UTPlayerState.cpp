@@ -73,6 +73,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	ReadyMode = 0;
 	CurrentLoadoutPackTag = NAME_None;
 	RespawnWaitTime = 0.f;
+	bIsPowerupSelectWindowOpen = false;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const

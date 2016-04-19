@@ -1903,10 +1903,12 @@ public:
 	/** legacy command for dropping the flag.  Just redirects to UseCarriedObject */
 	UFUNCTION(Exec)
 	virtual void DropFlag();
-protected:
+
 	/** uses the current carried object */
 	UFUNCTION(exec)
-	virtual void DropCarriedObject();
+		virtual void DropCarriedObject();
+
+protected:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerDropCarriedObject();

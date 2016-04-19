@@ -83,6 +83,19 @@ void UUTProfileSettings::VersionFixup()
 		ActionMappings.AddUnique(ActivatePowerupRelease);
 	}
 
+	if (SettingsRevisionNum < BUY_MENU_AND_DROP_FLAG_BUTTON_FIXUP_PROFILE_SETTINGS_VERSION)
+	{
+		FInputActionKeyMapping BuyMenu;
+		BuyMenu.ActionName = FName(TEXT("ShowBuyMenu"));
+		BuyMenu.Key = EKeys::B;
+		ActionMappings.AddUnique(BuyMenu);
+
+		FInputActionKeyMapping DropCarriedObject;
+		DropCarriedObject.ActionName = FName(TEXT("DropCarriedObject"));
+		DropCarriedObject.Key = EKeys::G;
+		ActionMappings.AddUnique(DropCarriedObject);
+	}
+
 	// The format has changed during Dev versions.  So in case some people have written out unlocks, clear them here.
 	if (SettingsRevisionNum <= CHALLENGE_FIXUP_VERSION)
 	{
