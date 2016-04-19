@@ -423,7 +423,7 @@ TSharedRef<ITableRow> SUTMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FT
 									SNew(SButton)
 									.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton.Medium")
 									.OnClicked(this, &SUTMatchPanel::SpectateMatchButtonClicked, InItem)
-									.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::CanSpectate)))
+									.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::CanSpectate, PlayerOwner)))
 									[
 										SNew(SVerticalBox)
 										+SVerticalBox::Slot().HAlign(HAlign_Center).AutoHeight()
@@ -1086,7 +1086,7 @@ FReply SUTMatchPanel::JoinMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem)
 }
 FReply SUTMatchPanel::SpectateMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem)
 {
-	if (InItem.IsValid() && InItem->CanSpectate())
+	if (InItem.IsValid() && InItem->CanSpectate(PlayerOwner))
 	{
 		bSuspendPopups = true;
 		if (ShouldUseLiveData())

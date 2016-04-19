@@ -1704,6 +1704,12 @@ void SUTServerBrowserPanel::ConnectTo(FServerData ServerData,bool bSpectate)
 		return;
 	}
 
+	if (!PlayerOwner->IsPartyLeader())
+	{
+		PlayerOwner->ShowToast(NSLOCTEXT("SUTServerBrowserPanel", "ConnectToNotLeader", "Only the party leader may do this"));
+		return;
+	}
+
 	ConnectToServerName = FText::Format(NSLOCTEXT("SUTServerBrowserPanel","ConnectToFormat","Connecting to {0}... "), ServerData.GetBrowserName());
 	SetBrowserState(EBrowserState::ConnectInProgress);	
 
