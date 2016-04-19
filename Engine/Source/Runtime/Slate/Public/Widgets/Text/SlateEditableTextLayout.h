@@ -338,7 +338,7 @@ private:
 	void InsertNewLineAtCursorImpl();
 
 	/** Implementation of Refresh that actually updates the layout. Optionally takes text to set, or will use the current editable text if none if provided */
-	bool RefreshImpl(const FText* InTextToSet);
+	bool RefreshImpl(const FText* InTextToSet, bool bForce = false);
 
 	/** Create a text or password run using the given text and style */
 	TSharedRef<IRun> CreateTextOrPasswordRun(const FRunInfo& InRunInfo, const TSharedRef<const FString>& InText, const FTextBlockStyle& InStyle);
