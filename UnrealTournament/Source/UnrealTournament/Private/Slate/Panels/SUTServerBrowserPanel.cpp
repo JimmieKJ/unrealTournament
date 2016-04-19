@@ -1111,7 +1111,8 @@ FReply SUTServerBrowserPanel::OnRefreshClick()
 void SUTServerBrowserPanel::RefreshServers()
 {
 	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
-	IOnlineSessionPtr OnlineSessionInterface;	if (OnlineSubsystem) OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
+	IOnlineSessionPtr OnlineSessionInterface;
+	if (OnlineSubsystem) OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
 
 	bWantsAFullRefilter = true;
 	if (PlayerOwner->IsLoggedIn() && OnlineSessionInterface.IsValid() && BrowserState == EBrowserState::BrowserIdle)
@@ -1144,7 +1145,8 @@ void SUTServerBrowserPanel::RefreshServers()
 }
 
 void SUTServerBrowserPanel::FoundServer(FOnlineSessionSearchResult& Result)
-{
+{
+
 	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
 	IOnlineSessionPtr OnlineSessionInterface;
 	if (OnlineSubsystem) OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
@@ -2408,6 +2410,11 @@ void SUTServerBrowserPanel::JoinQuickInstance(const FString& InstanceGuid, bool 
 		}
 
 		PlayerOwner->AttemptJoinInstance(SelectedHubs[0], InstanceGuid, bAsSpectator);
+		SetBrowserState(EBrowserState::ConnectInProgress);	
+
+		// Flag the browser as needing a refresh the next time it is shown
+		bNeedsRefresh = true;
+		CleanupQoS();
 	}
 
 }
