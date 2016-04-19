@@ -20,6 +20,12 @@ UUTLocalMessage::UUTLocalMessage(const class FObjectInitializer& ObjectInitializ
 	bDrawAsDeathMessage = false;
 	bDrawAtIntermission = true;
 	ScaleInSize = 1.f;
+	FontSizeIndex = 2;
+}
+
+int32 UUTLocalMessage::GetFontSizeIndex(int32 MessageIndex) const
+{
+	return FontSizeIndex;
 }
 
 void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const
@@ -87,11 +93,6 @@ float UUTLocalMessage::GetAnnouncementDelay(int32 Switch)
 float UUTLocalMessage::GetAnnouncementPriority(int32 Switch) const
 {
 	return bIsStatusAnnouncement ? 0.5f : 0.8f;
-}
-
-bool UUTLocalMessage::UseLargeFont(int32 MessageIndex) const
-{
-	return true;
 }
 
 FLinearColor UUTLocalMessage::GetMessageColor_Implementation(int32 MessageIndex) const

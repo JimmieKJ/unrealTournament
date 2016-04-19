@@ -113,14 +113,14 @@ class UNREALTOURNAMENT_API UUTSpreeMessage : public UUTLocalMessage
 		return (MessageIndex < 0) ? FLinearColor::White : FLinearColor(1.f, 0.5f, 0.f, 1.f);
 	}
 
-	virtual float GetScaleInSize_Implementation(int32 MessageIndex) const
+	virtual float GetScaleInSize_Implementation(int32 MessageIndex) const override
 	{
-		return UseLargeFont(MessageIndex) ? 3.f : 1.f;
+		return (MessageIndex >= 0) ? 3.f : 1.f;
 	}
 
-	virtual bool UseLargeFont(int32 MessageIndex) const override
+	virtual int32 GetFontSizeIndex(int32 MessageIndex) const override
 	{
-		return (MessageIndex >= 0);
+		return (MessageIndex >= 0) ? 2 : 1;
 	}
 
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override

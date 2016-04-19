@@ -12,12 +12,13 @@ class UNREALTOURNAMENT_API UUTTranslocatorMessage : public UUTLocalMessage
 	UUTTranslocatorMessage(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	{
-		MessageArea = FName(TEXT("PickupMessage"));
+		MessageArea = FName(TEXT("Announcements"));
 		MessageSlot = FName(TEXT("PickupMessage"));
 		bIsSpecial = true;
 		bIsUnique = true;
 		bIsConsoleMessage = false;
 		Lifetime = 4.0f;
+		FontSizeIndex = 0;
 		DisruptedText = NSLOCTEXT("UTTranslocatorMessage", "TranslocatorDisrupted", "Translocator Disk Disrupted - Regenerating.");
 	}
 
@@ -27,11 +28,6 @@ class UNREALTOURNAMENT_API UUTTranslocatorMessage : public UUTLocalMessage
 	virtual FText GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const override
 	{
 		return DisruptedText;
-	}
-
-	virtual bool UseLargeFont(int32 MessageIndex) const override
-	{
-		return false;
 	}
 };
 

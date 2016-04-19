@@ -56,16 +56,6 @@ FText UUTCTFMajorMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlay
 	return FText::GetEmpty();
 }
 
-bool UUTCTFMajorMessage::UseLargeFont(int32 MessageIndex) const
-{
-	return true;
-}
-
-bool UUTCTFMajorMessage::UseMegaFont(int32 MessageIndex) const
-{
-	return false;
-}
-
 float UUTCTFMajorMessage::GetAnnouncementPriority(int32 Switch) const
 {
 	return 1.f;

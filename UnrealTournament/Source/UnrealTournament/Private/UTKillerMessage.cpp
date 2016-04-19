@@ -18,11 +18,7 @@ UUTKillerMessage::UUTKillerMessage(const class FObjectInitializer& ObjectInitial
 	SpecKilledText = NSLOCTEXT("UTKillerMessage", "SpecKilledText", "{Player1Name} killed {Player2Name}");
 	bDrawAsDeathMessage = true;
 	bDrawAtIntermission = false;
-}
-
-bool UUTKillerMessage::UseLargeFont(int32 MessageIndex) const
-{
-	return false;
+	FontSizeIndex = 1;
 }
 
 FLinearColor UUTKillerMessage::GetMessageColor_Implementation(int32 MessageIndex) const

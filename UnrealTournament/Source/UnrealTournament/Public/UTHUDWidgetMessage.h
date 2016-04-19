@@ -96,6 +96,9 @@ struct UNREALTOURNAMENT_API FLocalizedMessageData
 	UPROPERTY(BlueprintReadOnly, Category = HUD)
 		int32 RequestedSlot;
 
+	UPROPERTY()
+		FVector2D ShadowDirection;
+
 	virtual bool ShouldDraw_Implementation(bool bShowScores)
 	{
 		return bShowScores;
@@ -131,25 +134,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	FName ManagedMessageArea;
 
-	// Index into HUD font list to use for messagefont (0=tiny, 1=small, etc.)
-	UPROPERTY(EditDefaultsOnly, Category = HUD)
-		int32 MessageFontIndex;
-
-	// Index into HUD font list to use for smallmessagefont (0=tiny, 1=small, etc.)
-	UPROPERTY(EditDefaultsOnly, Category = HUD)
-		int32 SmallMessageFontIndex;
-
-	// The large Font that messages will be displayed in. 
-	UPROPERTY(BlueprintReadWrite, Category = HUD)
-		UFont* MessageFont;
-
-	// The small Font that messages will be displayed in. 
-	UPROPERTY(BlueprintReadWrite, Category = HUD)
-	UFont* SmallMessageFont;
-
-	UPROPERTY(BlueprintReadWrite, Category = HUD)
-	UFont* MegaFont;
-
 	// If true, this text will be drawn with an outline
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = HUD)
 	uint32 bOutlinedText:1;
@@ -165,9 +149,6 @@ public:
 	// The shadow color for this message.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = HUD)
 	FLinearColor ShadowColor;
-	
-	UPROPERTY()
-		FVector2D ShadowDirection;
 
 	// The shadow direction with large fonts.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = HUD)

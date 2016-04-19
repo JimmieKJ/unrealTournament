@@ -12,8 +12,6 @@ UUTHUDWidgetMessage_ConsoleMessages::UUTHUDWidgetMessage_ConsoleMessages(const c
 	Size = FVector2D(0.0f, 0.0f);			
 	Origin = FVector2D(0.0f, 0.0f);				
 	NumVisibleLines=4;
-	MessageFontIndex = 0;
-	SmallMessageFontIndex = 0;
 	LargeShadowDirection = FVector2D(1.f, 1.f);
 	SmallShadowDirection = FVector2D(1.f, 1.f);
 }

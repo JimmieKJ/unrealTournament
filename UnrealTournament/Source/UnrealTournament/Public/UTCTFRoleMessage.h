@@ -62,11 +62,6 @@ public:
 		return FLinearColor::White;
 	}
 
-	virtual bool UseLargeFont(int32 MessageIndex) const override
-	{
-		return true;
-	}
-
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override
 	{
 		switch (Switch)

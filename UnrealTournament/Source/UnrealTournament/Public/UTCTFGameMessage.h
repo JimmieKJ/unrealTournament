@@ -54,10 +54,9 @@ class UNREALTOURNAMENT_API UUTCTFGameMessage : public UUTCarriedObjectMessage
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override;
 	virtual float GetAnnouncementSpacing_Implementation(int32 Switch, const UObject* OptionalObject) const override;
 	virtual void PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const override;
-	virtual bool UseMegaFont(int32 MessageIndex) const override;
+	virtual int32 GetFontSizeIndex(int32 MessageIndex) const override;
 	virtual float GetScaleInSize_Implementation(int32 MessageIndex) const override;
 	virtual float GetAnnouncementPriority(int32 Switch) const override;
-	virtual bool UseLargeFont(int32 MessageIndex) const override;
 };
 
 

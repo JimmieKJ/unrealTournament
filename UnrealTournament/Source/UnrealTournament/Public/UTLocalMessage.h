@@ -72,6 +72,12 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 		float ScaleInSize;
 
+	/** 0=smallest font, 3=largest font. */
+	UPROPERTY(EditDefaultsOnly, Category = Message)
+		int32 FontSizeIndex;
+
+	virtual int32 GetFontSizeIndex(int32 MessageIndex) const;
+
 	virtual float GetAnnouncementDelay(int32 Switch);
 
 	virtual bool ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const;
@@ -100,15 +106,6 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	/** return the sound to play for the announcement, if GetAnnouncementName() returned NAME_Custom. */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, BlueprintPure, Category = Message)
 	USoundBase* GetAnnouncementSound(int32 Switch, const UObject* OptionalObject) const;
-
-	/** Return true if message should be displayed with large font. */
-	virtual bool UseLargeFont(int32 MessageIndex) const;
-
-	/** @TODO FIXMESTEVE - hack.  Instead just let message classes return font size index. */
-	virtual bool UseMegaFont(int32 MessageIndex) const 
-	{
-		return false;
-	};
 
 	/** Return true if local player is viewing first or second playerstate. */
 	virtual bool IsLocalForAnnouncement(const FClientReceiveData& ClientData, bool bCheckFirstPS, bool bCheckSecondPS) const;

@@ -48,8 +48,4 @@ public:
 	{
 		return FLinearColor::White;
 	}
-	virtual bool UseLargeFont(int32 MessageIndex) const override
-	{
-		return true;
-	}
 };

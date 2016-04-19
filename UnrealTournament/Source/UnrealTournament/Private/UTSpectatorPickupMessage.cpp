@@ -12,6 +12,7 @@ UUTSpectatorPickupMessage::UUTSpectatorPickupMessage(const class FObjectInitiali
 
 	bIsStatusAnnouncement = true;
 	bIsPartiallyUnique = true;
+	FontSizeIndex = 1;
 
 	PickupFormat = NSLOCTEXT("UUTSpectatorPickupMessage", "PickupFormat", "{PlayerName} picked up the {DisplayName}");
 }
@@ -56,10 +57,5 @@ FText UUTSpectatorPickupMessage::ResolveMessage_Implementation(int32 Switch, boo
 		}
 	}
 	return NSLOCTEXT("PickupMessage", "NoPickupMessage", "No Pickup Message");
-}
-
-bool UUTSpectatorPickupMessage::UseLargeFont(int32 MessageIndex) const
-{
-	return false;
 }
 

@@ -18,11 +18,7 @@ UUTVictimMessage::UUTVictimMessage(const class FObjectInitializer& ObjectInitial
 	RespawnedVictimText = NSLOCTEXT("UTVictimMessage", "RespawnedVictimText", "   ");
 	bDrawAsDeathMessage = true;
 	bDrawAtIntermission = false;
-}
-
-bool UUTVictimMessage::UseLargeFont(int32 MessageIndex) const
-{
-	return false;
+	FontSizeIndex = 1;
 }
 
 FLinearColor UUTVictimMessage::GetMessageColor_Implementation(int32 MessageIndex) const

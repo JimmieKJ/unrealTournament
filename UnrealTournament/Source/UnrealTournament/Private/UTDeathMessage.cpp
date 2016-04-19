@@ -16,11 +16,7 @@ UUTDeathMessage::UUTDeathMessage(const class FObjectInitializer& ObjectInitializ
 	MessageArea = FName(TEXT("ConsoleMessage"));
 	bIsSpecial = false;
 	Lifetime = 3.5f;
-}
-
-bool UUTDeathMessage::UseLargeFont(int32 MessageIndex) const
-{
-	return false;
+	FontSizeIndex = 0;
 }
 
 FLinearColor UUTDeathMessage::GetMessageColor_Implementation(int32 MessageIndex) const

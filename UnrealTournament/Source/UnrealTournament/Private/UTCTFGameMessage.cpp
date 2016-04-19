@@ -53,14 +53,17 @@ FText UUTCTFGameMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlaye
 	return FText::GetEmpty();
 }
 
-bool UUTCTFGameMessage::UseLargeFont(int32 MessageIndex) const
+int32 UUTCTFGameMessage::GetFontSizeIndex(int32 MessageIndex) const
 {
-	return (MessageIndex == 2) || (MessageIndex == 2) || (MessageIndex > 5);
-}
-
-bool UUTCTFGameMessage::UseMegaFont(int32 MessageIndex) const
-{
-	return (MessageIndex == 11) || (MessageIndex == 12);
+	if ((MessageIndex == 11) || (MessageIndex == 12))
+	{
+		return 3;
+	}
+	if ((MessageIndex == 2) || (MessageIndex == 2) || (MessageIndex > 5))
+	{
+		return 2;
+	}
+	return 1;
 }
 
 float UUTCTFGameMessage::GetAnnouncementPriority(int32 Switch) const

@@ -15,7 +15,7 @@ UUTHUDWidgetAnnouncements::UUTHUDWidgetAnnouncements(const class FObjectInitiali
 	Slots.Add(FAnnouncementSlot(FName(TEXT("GameMessages")), 0.7f));
 	Slots.Add(FAnnouncementSlot(FName(TEXT("CountDownMessages")), 0.77f));
 	Slots.Add(FAnnouncementSlot(FName(TEXT("MajorRewardMessage")), 0.46f));
-	Slots.Add(FAnnouncementSlot(FName(TEXT("PickupMessage")), 0.51f));
+	Slots.Add(FAnnouncementSlot(FName(TEXT("PickupMessage")), 0.52f));
 	Position = FVector2D(0.0f, 0.0f);
 	ScreenPosition = FVector2D(0.5f, 0.f);
 	Size = FVector2D(0.0f, 0.0f);
@@ -104,7 +104,6 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 		Alpha = MessageQueue[QueueIndex].LifeLeft / FadeTime;
 	}
 
-	ShadowDirection = (MessageQueue[QueueIndex].DisplayFont == MessageFont) ? LargeShadowDirection : SmallShadowDirection;
 	if (!MessageQueue[QueueIndex].EmphasisText.IsEmpty())
 	{
 		// draw emphasis text
@@ -149,7 +148,7 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 
 				if (bShadowedText)
 				{
-					PrefixTextItem.EnableShadow(FinalShadowColor, ShadowDirection);
+					PrefixTextItem.EnableShadow(FinalShadowColor, MessageQueue[QueueIndex].ShadowDirection);
 				}
 				PrefixTextItem.Scale = FVector2D(TextScaling, TextScaling);
 				Canvas->DrawItem(PrefixTextItem);
@@ -171,7 +170,7 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 			EmphasisTextItem.Scale = EmphasisScaling * FVector2D(TextScaling, TextScaling);
 			if (bShadowedText)
 			{
-				EmphasisTextItem.EnableShadow(FinalShadowColor, ShadowDirection);
+				EmphasisTextItem.EnableShadow(FinalShadowColor, MessageQueue[QueueIndex].ShadowDirection);
 			}
 			Canvas->DrawItem(EmphasisTextItem);
 			float EmpXL = 0.0f;
@@ -187,7 +186,7 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 
 				if (bShadowedText)
 				{
-					PostfixTextItem.EnableShadow(FinalShadowColor, ShadowDirection);
+					PostfixTextItem.EnableShadow(FinalShadowColor, MessageQueue[QueueIndex].ShadowDirection);
 				}
 				PostfixTextItem.Scale = FVector2D(TextScaling, TextScaling);
 				Canvas->DrawItem(PostfixTextItem);
@@ -203,7 +202,7 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 		{
 			MessageText = FText::FromString(MessageText.ToString() + " (" + TTypeToString<int32>::ToString(MessageQueue[QueueIndex].MessageCount) + ")");
 		}
-		return DrawText(MessageText, X, Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentTextScale, Alpha, MessageQueue[QueueIndex].DrawColor, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f), ETextHorzPos::Center, ETextVertPos::Top);
+		return DrawText(MessageText, X, Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, MessageQueue[QueueIndex].ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentTextScale, Alpha, MessageQueue[QueueIndex].DrawColor, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f), ETextHorzPos::Center, ETextVertPos::Top);
 	}
 	return FVector2D(0.f, 0.f);
 }

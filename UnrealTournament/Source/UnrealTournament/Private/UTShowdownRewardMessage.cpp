@@ -57,11 +57,6 @@ FLinearColor UUTShowdownRewardMessage::GetMessageColor_Implementation(int32 Mess
 	return FLinearColor::White;
 }
 
-bool UUTShowdownRewardMessage::UseLargeFont(int32 MessageIndex) const
-{
-	return true;
-}
-
 FName UUTShowdownRewardMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const
 {
 	switch (Switch)

@@ -28,9 +28,9 @@ UUTGameMessage::UUTGameMessage(const class FObjectInitializer& ObjectInitializer
 	bIsStatusAnnouncement = true;
 }
 
-bool UUTGameMessage::UseLargeFont(int32 MessageIndex) const
+int32 UUTGameMessage::GetFontSizeIndex(int32 MessageIndex) const
 {
-	return (MessageIndex == 0) || (MessageIndex == 1) || (MessageIndex == 7) || (MessageIndex == 9) || (MessageIndex == 10);
+	return ((MessageIndex == 0) || (MessageIndex == 1) || (MessageIndex == 7) || (MessageIndex == 9) || (MessageIndex == 10)) ? 2 : 1;
 }
 
 float UUTGameMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
@@ -39,7 +39,7 @@ float UUTGameMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
 	{
 		return 1.f;
 	}
-	return UseLargeFont(MessageIndex) ? 3.f : 4.f;
+	return (GetFontSizeIndex(MessageIndex) > 1) ? 3.f : 4.f;
 }
 
 FLinearColor UUTGameMessage::GetMessageColor_Implementation(int32 MessageIndex) const

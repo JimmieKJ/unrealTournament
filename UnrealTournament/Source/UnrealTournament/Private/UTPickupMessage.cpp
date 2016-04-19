@@ -18,6 +18,7 @@ UUTPickupMessage::UUTPickupMessage(const class FObjectInitializer& ObjectInitial
 	MessageSlot = FName(TEXT("PickupMessage"));
 	StyleTag = FName(TEXT("Default"));
 	Lifetime = 1.5f;
+	FontSizeIndex = 0;
 
 	bIsUnique = true;
 	PendingWeaponPickupText = NSLOCTEXT("PickupMessage", "PendingWeaponPickup", "");
@@ -56,12 +57,6 @@ void UUTPickupMessage::ClientReceive(const FClientReceiveData& ClientData) const
 		}
 	}
 }
-
-bool UUTPickupMessage::UseLargeFont(int32 MessageIndex) const
-{
-	return false;
-}
-
 
 bool UUTPickupMessage::ShouldCountInstances_Implementation(int32 MessageIndex, UObject* OptionalObject) const
 {

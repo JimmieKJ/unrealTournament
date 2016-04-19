@@ -16,13 +16,10 @@ UUTChatMessage::UUTChatMessage(const class FObjectInitializer& ObjectInitializer
 	MessageArea = FName(TEXT("ConsoleMessage"));
 	bIsSpecial = false;
 	bIsConsoleMessage = true;
+	FontSizeIndex = 0;
 
 	Lifetime = 6.0f;
-}
-
-bool UUTChatMessage::UseLargeFont(int32 MessageIndex) const
-{
-	return false;
+	FontSizeIndex = 1;
 }
 
 FLinearColor UUTChatMessage::GetMessageColor_Implementation(int32 MessageIndex) const
