@@ -751,18 +751,37 @@ bool AUTCTFRoundGame::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroad
 			PS->RemainingLives = 0;
 			PS->SetOutOfLives(true);
 		}
-		if (OldTeam && UTGameState)
+		if (UTGameState)
 		{
-			// verify that OldTeam still has players
+			// verify that OldTeam and New team still have live players
+			AUTTeamInfo* NewTeam = PS->Team;
+			bool bOldTeamHasPlayers = false;
+			bool bNewTeamHasPlayers = false;
 			for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 			{
 				AUTPlayerState* OtherPS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-				if (OtherPS && (OtherPS->Team == OldTeam) && !OtherPS->bOutOfLives && !OtherPS->bIsInactive)
+				if (OtherPS && !OtherPS->bOutOfLives && !OtherPS->bIsInactive)
 				{
-					return bResult;
+					if (OldTeam && (OtherPS->Team == OldTeam))
+					{
+						bOldTeamHasPlayers = true;
+					}
+					if (NewTeam && (OtherPS->Team == NewTeam))
+					{
+						bNewTeamHasPlayers = true;
+					}
 				}
 			}
-			ScoreOutOfLives((OldTeam->TeamIndex == 0) ? 1 : 0);
+			if (!bOldTeamHasPlayers && OldTeam)
+			{
+				ScoreOutOfLives((OldTeam->TeamIndex == 0) ? 1 : 0);
+				return bResult;
+			}
+			if (!bNewTeamHasPlayers && NewTeam)
+			{
+				ScoreOutOfLives((NewTeam->TeamIndex == 0) ? 1 : 0);
+				return bResult;
+			}
 		}
 	}
 	return bResult;
