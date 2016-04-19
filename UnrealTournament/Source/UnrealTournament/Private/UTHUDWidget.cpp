@@ -305,6 +305,9 @@ UUTHUDWidget::UUTHUDWidget(const class FObjectInitializer& ObjectInitializer) : 
 	bScaleByDesignedResolution = true;
 	bMaintainAspectRatio = true;
 	DesignedResolution=720;
+
+	UTHUDOwner == nullptr;
+
 }
 
 void UUTHUDWidget::InitializeWidget(AUTHUD* Hud)
