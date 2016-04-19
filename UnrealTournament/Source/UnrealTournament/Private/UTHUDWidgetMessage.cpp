@@ -267,7 +267,7 @@ void UUTHUDWidgetMessage::LayoutMessage(int32 QueueIndex, TSubclassOf<class UUTL
 {
 	MessageQueue[QueueIndex].DrawColor = GetDefault<UUTLocalMessage>(MessageClass)->GetMessageColor(MessageIndex);
 	int32 FontIndex = GetDefault<UUTLocalMessage>(MessageClass)->GetFontSizeIndex(MessageIndex);
-	MessageQueue[QueueIndex].DisplayFont = UTHUDOwner->GetFontFromSizeIndex(FontIndex);
+	MessageQueue[QueueIndex].DisplayFont = UTHUDOwner ? UTHUDOwner->GetFontFromSizeIndex(FontIndex) : nullptr;
 	MessageQueue[QueueIndex].ShadowDirection = (FontIndex == 1) ? LargeShadowDirection : SmallShadowDirection;
 	MessageQueue[QueueIndex].OptionalObject = OptionalObject;
 }
