@@ -5,6 +5,7 @@
 #include "UTJumpBoots.h"
 #include "UTWeapon.h"
 #include "UTTimedPowerup.h"
+#include "UTCTFRoundGameState.h"
 
 const float BOUNCE_SCALE = 1.6f;			
 const float BOUNCE_TIME = 1.2f;		// SHould be (BOUNCE_SCALE - 1.0) * # of seconds
@@ -182,42 +183,52 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 
 		if (CurrentPowerup == nullptr)
 		{
-			if (UTPlayerState->RemainingBoosts > 0)
-			{
-				PowerupInfo.bAltIcon = true;
-				PowerupInfo.bUseLabel = true;
-				PowerupInfo.Value = 1;
+			PowerupInfo.bAltIcon = true;
+			PowerupInfo.bUseLabel = true;
+			PowerupInfo.Value = 1;
 				
-				if (UTPlayerState->BoostClass)
+			if (UTPlayerState->BoostClass)
+			{
+				AUTInventory* InventoryItem = UTPlayerState->BoostClass->GetDefaultObject<AUTInventory>();
+				BoostIcon.UVs.U = InventoryItem->HUDIcon.U;
+				BoostIcon.UVs.V = InventoryItem->HUDIcon.V;
+				BoostIcon.UVs.UL = InventoryItem->HUDIcon.UL;
+				BoostIcon.UVs.VL = InventoryItem->HUDIcon.VL;
+				BoostIcon.Atlas = InventoryItem->HUDIcon.Texture;
+				BoostIcon.Size = FVector2D(InventoryItem->HUDIcon.UL * 1.07f, 35);
+				
+				AUTCTFRoundGameState* RoundGameState = GetWorld()->GetGameState<AUTCTFRoundGameState>();
+				if (RoundGameState)
 				{
-					AUTInventory* InventoryItem = UTPlayerState->BoostClass->GetDefaultObject<AUTInventory>();
-					BoostIcon.UVs.U = InventoryItem->HUDIcon.U;
-					BoostIcon.UVs.V = InventoryItem->HUDIcon.V;
-					BoostIcon.UVs.UL = InventoryItem->HUDIcon.UL;
-					BoostIcon.UVs.VL = InventoryItem->HUDIcon.VL;
-					BoostIcon.Atlas = InventoryItem->HUDIcon.Texture;
-					BoostIcon.Size = FVector2D(InventoryItem->HUDIcon.UL * 1.07f, 35);
+					PowerupInfo.HighlightStrength = RoundGameState->GetKillsNeededForPowerup(RoundGameState->IsTeamOnOffense(UTPlayerState->GetTeamNum()));
+					PowerupInfo.Value = 1;
 				}
-				if (PowerupInfo.Label.IsEmpty())
+				else
 				{
-					UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
-					if (InputSettings)
-					{
-						for (int32 inputIndex = 0; inputIndex < InputSettings->ActionMappings.Num(); ++inputIndex)
-						{
-							FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
-							if (Action.ActionName == "StartActivatePowerup")
-							{
-								PowerupInfo.Label = Action.Key.GetDisplayName();
-								break;
-							}
-						}
-					}
+					PowerupInfo.Value = 0;
 				}
+
 			}
 			else
 			{
 				PowerupInfo.Value = 0;
+			}
+
+			if (PowerupInfo.Label.IsEmpty())
+			{
+				UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+				if (InputSettings)
+				{
+					for (int32 inputIndex = 0; inputIndex < InputSettings->ActionMappings.Num(); ++inputIndex)
+					{
+						FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
+						if (Action.ActionName == "StartActivatePowerup")
+						{
+							PowerupInfo.Label = Action.Key.GetDisplayName();
+							break;
+						}
+					}
+				}
 			}
 		}
 		else

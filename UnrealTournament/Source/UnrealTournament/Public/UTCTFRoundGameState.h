@@ -27,4 +27,15 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 
 	virtual float GetIntermissionTime() override;
 	virtual void DefaultTimer() override;
+
+	UFUNCTION(BlueprintCallable, Category = Team)
+	virtual bool IsTeamOnOffense(int32 TeamNumber) const;
+
+	UFUNCTION(BlueprintCallable, Category = Team)
+	virtual bool IsTeamOnDefense(int32 TeamNumber) const;
+
+	// return % that represense the # of kills needed to get a bonus.  1.0 = Bonus is available
+	virtual float GetKillsNeededForPowerup(bool bOnOffense);
+
+
 };

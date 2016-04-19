@@ -36,3 +36,21 @@ float AUTCTFRoundGameState::GetIntermissionTime()
 {
 	return IntermissionTime;
 }
+
+
+bool AUTCTFRoundGameState::IsTeamOnOffense(int32 TeamNumber) const
+{
+	const bool bIsOnRedTeam = (TeamNumber == 0);
+	return (bRedToCap == bIsOnRedTeam);
+}
+
+bool AUTCTFRoundGameState::IsTeamOnDefense(int32 TeamNumber) const
+{
+	return !IsTeamOnOffense(TeamNumber);
+}
+
+
+float AUTCTFRoundGameState::GetKillsNeededForPowerup(bool bOnOffense)
+{
+	return 0.5f;
+}
