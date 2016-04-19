@@ -16,8 +16,7 @@ UUTPickupMessage::UUTPickupMessage(const class FObjectInitializer& ObjectInitial
 {
 	MessageArea = FName(TEXT("Announcements"));
 	MessageSlot = FName(TEXT("PickupMessage"));
-	StyleTag = FName(TEXT("Default"));
-	Lifetime = 1.5f;
+	Lifetime = 1.2f;
 	FontSizeIndex = 0;
 
 	bIsUnique = true;

@@ -12,7 +12,6 @@ UUTVictimMessage::UUTVictimMessage(const class FObjectInitializer& ObjectInitial
 	Lifetime = 2.6f;
 	MessageArea = FName(TEXT("Announcements"));
 	MessageSlot = FName(TEXT("VictimMessage"));
-	StyleTag = FName(TEXT("Victim"));
 	YouWereKilledByPrefix = NSLOCTEXT("UTVictimMessage","YouWereKilledByPrefix","Killed by "); 
 	YouWereKilledByPostfix = NSLOCTEXT("UTVictimMessage", "YouWereKilledByPostfix", "");
 	RespawnedVictimText = NSLOCTEXT("UTVictimMessage", "RespawnedVictimText", "   ");

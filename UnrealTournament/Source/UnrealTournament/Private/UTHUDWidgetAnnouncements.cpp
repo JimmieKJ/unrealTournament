@@ -83,11 +83,6 @@ void UUTHUDWidgetAnnouncements::AddMessage(int32 QueueIndex, TSubclassOf<class U
 
 FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, float Y)
 {
-	if (MessageQueue[QueueIndex].MessageClass && MessageQueue[QueueIndex].MessageClass->GetDefaultObject<UUTLocalMessage>()->bDrawAsDeathMessage)
-	{
-		return DrawDeathMessage(QueueIndex, X, Y);
-	}
-		
 	MessageQueue[QueueIndex].bHasBeenRendered = true;
 	float CurrentTextScale = GetTextScale(QueueIndex);
 	float Alpha = 1.f;
@@ -104,6 +99,7 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 		Alpha = MessageQueue[QueueIndex].LifeLeft / FadeTime;
 	}
 
+	FVector2D TextSize(0.f, 0.f);
 	if (!MessageQueue[QueueIndex].EmphasisText.IsEmpty())
 	{
 		// draw emphasis text
@@ -131,7 +127,7 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 			FLinearColor DrawColor = MessageQueue[QueueIndex].DrawColor;
 			DrawColor.A = Opacity * Alpha * UTHUDOwner->WidgetOpacity;
 			Canvas->DrawColor = DrawColor.ToFColor(false);
-			FVector2D TextSize = FVector2D(XL, YL);
+			TextSize = FVector2D(XL, YL);
 
 			if (!WordWrapper.IsValid())
 			{
@@ -191,8 +187,6 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 				PostfixTextItem.Scale = FVector2D(TextScaling, TextScaling);
 				Canvas->DrawItem(PostfixTextItem);
 			}
-
-			return TextSize;
 		}
 	}
 	else
@@ -202,18 +196,20 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 		{
 			MessageText = FText::FromString(MessageText.ToString() + " (" + TTypeToString<int32>::ToString(MessageQueue[QueueIndex].MessageCount) + ")");
 		}
-		return DrawText(MessageText, X, Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, MessageQueue[QueueIndex].ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentTextScale, Alpha, MessageQueue[QueueIndex].DrawColor, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f), ETextHorzPos::Center, ETextVertPos::Top);
+		TextSize = DrawText(MessageText, X, Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, MessageQueue[QueueIndex].ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentTextScale, Alpha, MessageQueue[QueueIndex].DrawColor, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f), ETextHorzPos::Center, ETextVertPos::Top);
 	}
-	return FVector2D(0.f, 0.f);
+
+	if (MessageQueue[QueueIndex].MessageClass && MessageQueue[QueueIndex].MessageClass->GetDefaultObject<UUTLocalMessage>()->bDrawAsDeathMessage)
+	{
+		DrawDeathMessage(TextSize, QueueIndex, X, Y);
+	}
+	return TextSize;
 }
 
-FVector2D UUTHUDWidgetAnnouncements::DrawDeathMessage(int32 QueueIndex, float X, float Y)
+void UUTHUDWidgetAnnouncements::DrawDeathMessage(FVector2D TextSize, int32 QueueIndex, float X, float Y)
 {
-	FVector2D TextSize = FVector2D(0.f, 0.f);
 	if (UTHUDOwner->GetDrawCenteredKillMsg())
 	{
-		TextSize = Super::DrawMessage(QueueIndex, X, Y);
-
 		//Figure out the DamageType that we killed with
 		UClass* DamageTypeClass = Cast<UClass>(MessageQueue[QueueIndex].OptionalObject);
 		const UUTDamageType* DmgType = DamageTypeClass ? Cast<UUTDamageType>(DamageTypeClass->GetDefaultObject()) : nullptr;
@@ -245,5 +241,4 @@ FVector2D UUTHUDWidgetAnnouncements::DrawDeathMessage(int32 QueueIndex, float X,
 			DrawTexture(DmgType->HUDIcon.Texture, X, Y, XL, YL, DmgType->HUDIcon.U, DmgType->HUDIcon.V, DmgType->HUDIcon.UL, DmgType->HUDIcon.VL, UTHUDOwner->GetHUDWidgetOpacity());
 		}
 	}
-	return TextSize;
 }

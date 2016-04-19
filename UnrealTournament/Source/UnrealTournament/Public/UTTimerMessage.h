@@ -23,7 +23,6 @@ class UNREALTOURNAMENT_API UUTTimerMessage : public UUTLocalMessage
 	{
 		MessageArea = FName(TEXT("Announcements"));
 		MessageSlot = FName(TEXT("CountdownMessages"));
-		StyleTag = FName(TEXT("Countdown"));
 		bIsUnique = true;
 		Lifetime = 2.0f;
 		bIsStatusAnnouncement = true;

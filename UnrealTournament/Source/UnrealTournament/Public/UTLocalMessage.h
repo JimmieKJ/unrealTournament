@@ -17,10 +17,6 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FName MessageSlot;
 
-	/** Can be used by a message zone to stylize an incoming localized message */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-	FName StyleTag;
-
 	/** If true, this is a Game Status Announcement */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 	uint32 bIsStatusAnnouncement : 1;

@@ -48,7 +48,6 @@ class UNREALTOURNAMENT_API UUTSpreeMessage : public UUTLocalMessage
 	{
 		MessageArea = FName(TEXT("Announcements"));
 		MessageSlot = FName(TEXT("Spree"));
-		StyleTag = FName(TEXT("Spree"));
 
 		OwnerAnnouncementText.Add(NSLOCTEXT("UTSpreeMessage", "OwnerAnnouncementText[0]", "Killing Spree!"));
 		OwnerAnnouncementText.Add(NSLOCTEXT("UTSpreeMessage", "OwnerAnnouncementText[1]", "Rampage!"));

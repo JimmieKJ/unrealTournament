@@ -13,7 +13,6 @@ UUTLocalMessage::UUTLocalMessage(const class FObjectInitializer& ObjectInitializ
 {
 	Lifetime = 2.0;
 	MessageArea = FName(TEXT("ConsoleMessage"));
-	StyleTag = FName(TEXT("Default"));
 	bOptionalSpoken = false;
 	AnnouncementDelay = 0.f;
 	bWantsBotReaction = false;
