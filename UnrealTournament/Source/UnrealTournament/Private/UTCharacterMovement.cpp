@@ -715,18 +715,7 @@ bool UUTCharacterMovement::CanJump()
 bool UUTCharacterMovement::IsCarryingFlag() const
 {
 	AUTCharacter* UTOwner = Cast<AUTCharacter>(CharacterOwner);
-
-	bool bIsFlagCarrier = false;
-	if (UTOwner)
-	{
-		AUTCTFFlag* UTCTFFlag = Cast<AUTCTFFlag>(UTOwner->GetCarriedObject());
-		if (UTCTFFlag)
-		{
-			bIsFlagCarrier = true;
-		}
-	}
-
-	return bIsFlagCarrier;
+	return (UTOwner && UTOwner->GetCarriedObject());
 }
 
 void UUTCharacterMovement::PerformWaterJump()
