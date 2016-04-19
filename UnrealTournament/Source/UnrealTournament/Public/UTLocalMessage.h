@@ -21,10 +21,6 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 	FName StyleTag;
 
-	/** If true, can use alternate slot */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		uint32 bCanUseAltSlot : 1;
-
 	/** If true, this is a Game Status Announcement */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 	uint32 bIsStatusAnnouncement : 1;
