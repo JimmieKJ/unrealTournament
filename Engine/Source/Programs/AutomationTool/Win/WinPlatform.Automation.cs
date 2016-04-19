@@ -44,8 +44,8 @@ public abstract class BaseWinPlatform : Platform
 		// Copy the splash screen, windows specific
 		SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Content/Splash"), "Splash.bmp", false, null, null, true);
 
-		// Stage the bootstrap executable
-		if(!Params.NoBootstrapExe)
+        // Stage the bootstrap executable
+        if (!Params.NoBootstrapExe)
 		{
 			foreach(StageTarget Target in SC.StageTargets)
 			{
@@ -289,6 +289,10 @@ public class Win64Platform : BaseWinPlatform
 
         if (!SC.DedicatedServer)
         {
+            // Razer app info xml
+            string FinalChromaAppInfoPath = CombinePaths("Engine", "Binaries", "Win64");
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Build/WindowsNoEditor"), "ChromaAppInfo.xml", false, null, FinalChromaAppInfoPath, true);
+
             // Very UT specific because of non-monolithic build
             SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine"), "UE4-*Win32-*", true, null, null, true, true, null, true, false);
             SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.LocalRoot, SC.ShortProjectName), "UE4-*Win32-*", true, null, null, true, true, null, true, false);
@@ -317,6 +321,10 @@ public class Win32Platform : BaseWinPlatform
 
         if (!SC.DedicatedServer)
         {
+            // Razer app info xml
+            string FinalChromaAppInfoPath = CombinePaths("Engine", "Binaries", "Win32");
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Build/WindowsNoEditor"), "ChromaAppInfo.xml", false, null, FinalChromaAppInfoPath, true);
+
             // Very UT specific because of non-monolithic build
             SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine"), "UE4-*-Win64-*", true, null, null, true, true, null, true, false);
             SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.LocalRoot, SC.ShortProjectName), "UE4-*-Win64-*", true, null, null, true, true, null, true, false);
