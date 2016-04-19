@@ -620,11 +620,11 @@ void AUTCTFRoundGame::BroadcastVictoryConditions()
 			{
 				if (IsTeamOnOffense(PC->GetTeamNum()))
 				{
-					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), bRedToCap ? 1 : 2);
+					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), bDefenderLivesLimited ? 1 : 2);
 				}
 				else
 				{
-					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), bRedToCap ? 3 : 4);
+					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), bDefenderLivesLimited ? 3 : 4);
 				}
 			}
 		}

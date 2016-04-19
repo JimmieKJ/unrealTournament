@@ -19,8 +19,10 @@ public:
 		MessageSlot = FName(TEXT("MultiKill"));
 		Lifetime = 8.f;
 
-		CapFlagMessage = NSLOCTEXT("CTFGameMessage", "TakeFlagToEnemy", "Get your flag to the enemy base!");
-		PreventCapMessage = NSLOCTEXT("CTFGameMessage", "StopEnemyFlag", "Keep other team's flag out, and exhaust their lives");
+		CapFlagMessage = NSLOCTEXT("CTFGameMessage", "TakeFlagToEnemy", "Get your flag to the enemy base");
+		PreventCapMessage = NSLOCTEXT("CTFGameMessage", "StopEnemyFlag", "Keep other team's flag out");
+		ExhaustLivesMessage = NSLOCTEXT("CTFGameMessage", "ExhaustLivesMessage", "Get your flag to the enemy base or exhaust their lives.");
+		KeepLivesMessage = NSLOCTEXT("CTFGameMessage", "ExhaustLivesMessage", "Keep other team's flag out and don't run out of lives.");
 		CapAndKillMessage = NSLOCTEXT("CTFGameMessage", "RCTFRules", "Capture or kill to win.");
 		EarnedSpecialMessage = NSLOCTEXT("CTFGameMessage", "EarnedSpecialMove", "{Player1Name} earned a power up for your team!");
 		EnemyTeamSpecialEarned = NSLOCTEXT("CTFGameMessage", "EnemyEarnedSpecialMove", "Enemy team has earned their power up!");
@@ -34,7 +36,13 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText CapAndKillMessage;
-	
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText ExhaustLivesMessage;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText KeepLivesMessage;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText EarnedSpecialMessage;
 
@@ -45,9 +53,9 @@ public:
 	{
 		switch (Switch)
 		{
-			case 1: return CapFlagMessage; break;
+			case 1: return ExhaustLivesMessage; break;
 			case 2: return CapFlagMessage; break;
-			case 3: return PreventCapMessage; break;
+			case 3: return KeepLivesMessage; break;
 			case 4: return PreventCapMessage; break;
 			case 5: return CapAndKillMessage; break;
 			case 6: return EarnedSpecialMessage; break;
