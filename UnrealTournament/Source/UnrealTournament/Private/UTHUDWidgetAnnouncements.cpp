@@ -8,14 +8,14 @@ UUTHUDWidgetAnnouncements::UUTHUDWidgetAnnouncements(const class FObjectInitiali
 	EmphasisOutlineColor = FLinearColor::Black;
 	EmphasisScaling = 1.25f;
 	ManagedMessageArea = FName(TEXT("Announcements"));
-	Slots.Add(FAnnouncementSlot(FName(TEXT("DeathMessage")), 0.36f));
-	Slots.Add(FAnnouncementSlot(FName(TEXT("VictimMessage")), 0.41f));
-	Slots.Add(FAnnouncementSlot(FName(TEXT("MultiKill")), 0.25f));
-	Slots.Add(FAnnouncementSlot(FName(TEXT("Spree")), 0.31f));
+	Slots.Add(FAnnouncementSlot(FName(TEXT("MajorRewardMessage")), 0.17f));
+	Slots.Add(FAnnouncementSlot(FName(TEXT("MultiKill")), 0.23f));
+	Slots.Add(FAnnouncementSlot(FName(TEXT("Spree")), 0.29f));
+	Slots.Add(FAnnouncementSlot(FName(TEXT("DeathMessage")), 0.35f));
+	Slots.Add(FAnnouncementSlot(FName(TEXT("VictimMessage")), 0.42f));
+	Slots.Add(FAnnouncementSlot(FName(TEXT("PickupMessage")), 0.52f));
 	Slots.Add(FAnnouncementSlot(FName(TEXT("GameMessages")), 0.7f));
 	Slots.Add(FAnnouncementSlot(FName(TEXT("CountDownMessages")), 0.77f));
-	Slots.Add(FAnnouncementSlot(FName(TEXT("MajorRewardMessage")), 0.46f));
-	Slots.Add(FAnnouncementSlot(FName(TEXT("PickupMessage")), 0.52f));
 	Position = FVector2D(0.0f, 0.0f);
 	ScreenPosition = FVector2D(0.5f, 0.f);
 	Size = FVector2D(0.0f, 0.0f);
@@ -24,10 +24,8 @@ UUTHUDWidgetAnnouncements::UUTHUDWidgetAnnouncements(const class FObjectInitiali
 	PaddingBetweenTextAndDamageIcon = 10.f;
 }
 
-// draw in slots
 void UUTHUDWidgetAnnouncements::DrawMessages(float DeltaTime)
 {
-	// Pass 2 - Render the message
 	Canvas->Reset();
 
 	for (int32 SlotIndex = 0; SlotIndex < Slots.Num(); SlotIndex++)
@@ -79,6 +77,10 @@ void UUTHUDWidgetAnnouncements::AddMessage(int32 QueueIndex, TSubclassOf<class U
 	{
 		UE_LOG(UT, Warning, TEXT("No slot found for %s"), *MessageClass->GetName());
 	}
+/*	else
+	{
+		UE_LOG(UT, Warning, TEXT("Slot %d found for %s"), MessageQueue[QueueIndex].RequestedSlot, *MessageClass->GetName());
+	}*/
 }
 
 FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, float Y)
@@ -105,7 +107,7 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 		// draw emphasis text
 		if (MessageQueue[QueueIndex].DisplayFont && !MessageQueue[QueueIndex].Text.IsEmpty())
 		{
-			// FIXME - precache textsize
+			// FIXME - precache text XL, and YL
 			float XL = 0.0f;
 			float YL = 0.0f;
 			Canvas->StrLen(MessageQueue[QueueIndex].DisplayFont, MessageQueue[QueueIndex].Text.ToString(), XL, YL);
@@ -118,11 +120,11 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 				Y *= RenderScale;
 			}
 
-			// Handle Justification
-			XL *= TextScaling; // cleanup FIXME
+			// Handle justification
+			XL *= TextScaling; 
 			YL *= TextScaling;
 			RenderPos.X -= XL * 0.5f;
-			RenderPos.Y -= YL * 0.5f;
+		//	RenderPos.Y -= YL * 0.5f;
 
 			FLinearColor DrawColor = MessageQueue[QueueIndex].DrawColor;
 			DrawColor.A = Opacity * Alpha * UTHUDOwner->WidgetOpacity;
@@ -236,7 +238,7 @@ void UUTHUDWidgetAnnouncements::DrawDeathMessage(FVector2D TextSize, int32 Queue
 			}
 
 			////Center message on Y
-			Y -= (YL / 2);
+			Y = Y + (TextSize.Y - YL) / 2;
 
 			DrawTexture(DmgType->HUDIcon.Texture, X, Y, XL, YL, DmgType->HUDIcon.U, DmgType->HUDIcon.V, DmgType->HUDIcon.UL, DmgType->HUDIcon.VL, UTHUDOwner->GetHUDWidgetOpacity());
 		}

@@ -23,6 +23,8 @@
 #include "UTDeathMessage.h"
 #include "UTPickupMessage.h"
 #include "UTMultiKillMessage.h"
+#include "UTVictimMessage.h"
+#include "UTCTFMajorMessage.h"
 #include "UTGameMode.h"
 #include "UTWeap_Translocator.h"
 #include "UTWeap_Enforcer.h"
@@ -83,6 +85,9 @@ void UUTCheatManager::Ann(int32 Switch)
 	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTDeathMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
 	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
 	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTMultiKillMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
+	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTVictimMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
+	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
+	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTCTFRewardMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
 }
 
 void UUTCheatManager::Spread(float Scaling)
