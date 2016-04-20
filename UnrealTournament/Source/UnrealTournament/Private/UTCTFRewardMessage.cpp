@@ -67,13 +67,14 @@ FName UUTCTFRewardMessage::GetAnnouncementName_Implementation(int32 Switch, cons
 	case 1: return TEXT("LastSecondSave"); break;
 	case 2: return TEXT("Assist"); break;
 	case 5: return TEXT("HatTrick"); break;
+	case 6: return TEXT("Denied"); break;
 	}
 	return NAME_None;
 }
 
 bool UUTCTFRewardMessage::ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const
 {
-	return IsLocalForAnnouncement(ClientData, true, true) || (ClientData.MessageIndex > 100);
+	return (ClientData.MessageIndex == 6) || IsLocalForAnnouncement(ClientData, true, true) || (ClientData.MessageIndex > 100);
 }
 
 
@@ -127,6 +128,7 @@ FText UUTCTFRewardMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APla
 	case 3: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
 	case 4: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
 	case 5: return (bTargetsPlayerState1 ? HatTrickMessage : OtherHatTrickMessage); break;
+	case 6: return DeniedMessage; break;
 	}
 	if (Switch > 100)
 	{

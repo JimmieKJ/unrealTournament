@@ -181,7 +181,7 @@ void AUTCTFFlag::Drop(AController* Killer)
 				if (GM)
 				{
 					bDelayDroppedMessage = true;
-					GM->BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 0, Killer->PlayerState, Holder, NULL);
+					GM->BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 6, Killer->PlayerState, Holder, NULL);
 					GM->AddDeniedEventToReplay(Killer->PlayerState, Holder, Holder->Team);
 				}
 			}
