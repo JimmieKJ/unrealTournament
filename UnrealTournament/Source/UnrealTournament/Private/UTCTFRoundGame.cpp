@@ -480,7 +480,8 @@ void AUTCTFRoundGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, A
 				int32 DefenderTeamIndex = 1 - Holder->Team->TeamIndex;
 				if ((DefenderTeamIndex >= 0) && (DefenderTeamIndex < Teams.Num()) && Teams[DefenderTeamIndex])
 				{
-					Teams[DefenderTeamIndex]->SecondaryScore += 60 - UTGameState->GetRemainingTime();
+					Teams[DefenderTeamIndex]->RoundBonus = 60 - UTGameState->GetRemainingTime();
+					Teams[DefenderTeamIndex]->SecondaryScore += Teams[DefenderTeamIndex]->RoundBonus;
 					BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 160 - UTGameState->GetRemainingTime(), NULL, NULL, Teams[DefenderTeamIndex]);
 				}
 			}
