@@ -35,6 +35,12 @@ void AUTCTFScoring::BeginPlay()
 
 void AUTCTFScoring::FlagHeldTimer()
 {
+	if (!CTFGameState || !CTFGameState->IsMatchInProgress() || CTFGameState->IsMatchIntermission())
+	{
+		// no flag held stats incrementing during intermission or after match.
+		return;
+	}
+
 	for (int32 FlagTeam = 0; FlagTeam < CTFGameState->FlagBases.Num(); FlagTeam++)
 	{
 		AUTCTFFlag* Flag = CTFGameState->FlagBases[FlagTeam] ? CTFGameState->FlagBases[FlagTeam]->MyFlag : NULL;
