@@ -9,10 +9,10 @@ UUTHUDWidgetAnnouncements::UUTHUDWidgetAnnouncements(const class FObjectInitiali
 	EmphasisScaling = 1.25f;
 	ManagedMessageArea = FName(TEXT("Announcements"));
 	Slots.Add(FAnnouncementSlot(FName(TEXT("MajorRewardMessage")), 0.17f));
-	Slots.Add(FAnnouncementSlot(FName(TEXT("MultiKill")), 0.23f));
-	Slots.Add(FAnnouncementSlot(FName(TEXT("Spree")), 0.29f));
-	Slots.Add(FAnnouncementSlot(FName(TEXT("DeathMessage")), 0.35f));
-	Slots.Add(FAnnouncementSlot(FName(TEXT("VictimMessage")), 0.42f));
+	Slots.Add(FAnnouncementSlot(FName(TEXT("Spree")), 0.23f));
+	Slots.Add(FAnnouncementSlot(FName(TEXT("MultiKill")), 0.29f));
+	Slots.Add(FAnnouncementSlot(FName(TEXT("DeathMessage")), 0.36f));
+	Slots.Add(FAnnouncementSlot(FName(TEXT("VictimMessage")), 0.43f));
 	Slots.Add(FAnnouncementSlot(FName(TEXT("PickupMessage")), 0.52f));
 	Slots.Add(FAnnouncementSlot(FName(TEXT("GameMessages")), 0.7f));
 	Slots.Add(FAnnouncementSlot(FName(TEXT("CountDownMessages")), 0.77f));
@@ -101,6 +101,12 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 		Alpha = MessageQueue[QueueIndex].LifeLeft / FadeTime;
 	}
 
+	if (bScaleByDesignedResolution)
+	{
+		X /= RenderScale;
+		Y /= RenderScale;
+	}
+
 	FVector2D TextSize(0.f, 0.f);
 	if (!MessageQueue[QueueIndex].EmphasisText.IsEmpty())
 	{
@@ -111,14 +117,14 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 			float XL = 0.0f;
 			float YL = 0.0f;
 			Canvas->StrLen(MessageQueue[QueueIndex].DisplayFont, MessageQueue[QueueIndex].Text.ToString(), XL, YL);
-			FVector2D RenderPos = FVector2D(RenderPosition.X + X, RenderPosition.Y + Y);
-			float TextScaling = bScaleByDesignedResolution ? RenderScale*CurrentTextScale : CurrentTextScale;
 
 			if (bScaleByDesignedResolution)
 			{
 				X *= RenderScale;
 				Y *= RenderScale;
 			}
+			FVector2D RenderPos = FVector2D(RenderPosition.X + X, RenderPosition.Y + Y);
+			float TextScaling = bScaleByDesignedResolution ? RenderScale*CurrentTextScale : CurrentTextScale;
 
 			// Handle justification
 			XL *= TextScaling; 
