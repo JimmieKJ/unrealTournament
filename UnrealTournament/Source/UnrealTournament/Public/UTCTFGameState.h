@@ -187,6 +187,9 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 		int32 CTFRound;
 
 	UPROPERTY(Replicated)
+		int32 NumRounds;
+
+	UPROPERTY(Replicated)
 		int32 RedLivesRemaining;
 
 	UPROPERTY(Replicated)
@@ -200,6 +203,9 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 		FText RoundInProgressStatus;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
+		FText FullRoundInProgressStatus;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 		FText IntermissionStatus;

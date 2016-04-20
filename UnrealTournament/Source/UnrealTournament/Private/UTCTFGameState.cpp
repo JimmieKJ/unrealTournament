@@ -85,6 +85,7 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 	RedAdvantageStatus = NSLOCTEXT("UTCTFGameState", "RedAdvantage", "Red Advantage");
 	BlueAdvantageStatus = NSLOCTEXT("UTCTFGameState", "BlueAdvantage", "Blue Advantage");
 	RoundInProgressStatus = NSLOCTEXT("UTCharacter", "CTFRoundDisplay", "Round {RoundNum}");
+	FullRoundInProgressStatus = NSLOCTEXT("UTCharacter", "CTFRoundDisplay", "Round {RoundNum} / {NumRounds}");
 	IntermissionStatus = NSLOCTEXT("UTCTFGameState", "Intermission", "Intermission");
 	HalftimeStatus = NSLOCTEXT("UTCTFGameState", "HalfTime", "HalfTime");
 	OvertimeStatus = NSLOCTEXT("UTCTFGameState", "Overtime", "Overtime!");
@@ -109,7 +110,7 @@ void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & O
 	DOREPLIFETIME(AUTCTFGameState, bOneFlagGameMode);
 	DOREPLIFETIME(AUTCTFGameState, bRedToCap);
 	DOREPLIFETIME(AUTCTFGameState, bAttackerLivesLimited);
-	DOREPLIFETIME(AUTCTFGameState, bDefenderLivesLimited);
+	DOREPLIFETIME(AUTCTFGameState, NumRounds);
 }
 
 bool AUTCTFGameState::AllowMinimapFor(AUTPlayerState* PS)
@@ -313,7 +314,8 @@ FText AUTCTFGameState::GetGameStatusText()
 	{
 		FFormatNamedArguments Args;
 		Args.Add("RoundNum", FText::AsNumber(CTFRound));
-		return FText::Format(RoundInProgressStatus, Args);
+		Args.Add("NumRounds", FText::AsNumber(NumRounds));
+		return (NumRounds > 0) ? FText::Format(FullRoundInProgressStatus, Args) : FText::Format(RoundInProgressStatus, Args);
 	}
 	else if (IsMatchIntermission())
 	{
