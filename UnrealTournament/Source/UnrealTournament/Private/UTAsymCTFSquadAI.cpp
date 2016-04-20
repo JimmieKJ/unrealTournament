@@ -137,7 +137,11 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 {
 	FName CurrentOrders = GetCurrentOrders(B);
 
-	if (IsAttackingTeam())
+	if (Flag == NULL || Objective == NULL)
+	{
+		return Super::CheckSquadObjectives(B);
+	}
+	else if (IsAttackingTeam())
 	{
 		B->SetDefensePoint(NULL);
 		if (B->GetUTChar() != NULL && B->GetUTChar()->GetCarriedObject() != NULL)

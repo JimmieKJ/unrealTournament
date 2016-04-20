@@ -746,6 +746,12 @@ void AUTCTFRoundGame::InitRound()
 		}
 	}
 	CTFGameState->SetTimeLimit(TimeLimit);
+
+	// re-initialize all AI squads, in case objectives have changed sides
+	for (AUTTeamInfo* Team : Teams)
+	{
+		Team->ReinitSquads();
+	}
 }
 
 bool AUTCTFRoundGame::ChangeTeam(AController* Player, uint8 NewTeamIndex, bool bBroadcast)
