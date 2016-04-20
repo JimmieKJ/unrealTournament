@@ -73,19 +73,22 @@ void SUTBorder::Animate(FVector2D StartTransform, FVector2D EndTransform, float 
 
 void SUTBorder::UpdateAnim(float DeltaTime)
 {
-	if (bIsAnimating && AnimDuration > 0.0f)
+	if (bIsAnimating)
 	{
-		AnimTimer += DeltaTime;
-		float Alpha = FMath::Clamp<float>(AnimTimer / AnimDuration, 0.0f, 1.0f);
+		if (AnimDuration > 0.0f)
+		{
+			AnimTimer += DeltaTime;
+			float Alpha = FMath::Clamp<float>(AnimTimer / AnimDuration, 0.0f, 1.0f);
 
-		FVector2D FinalTransform = FMath::InterpEaseOut<FVector2D>(AnimTransforms[0], AnimTransforms[1], Alpha,2.0);
-		float FinalOpacity = FMath::InterpEaseOut<float>(AnimOpacity[0],AnimOpacity[1], Alpha,2.0);
+			FVector2D FinalTransform = FMath::InterpEaseOut<FVector2D>(AnimTransforms[0], AnimTransforms[1], Alpha,2.0);
+			float FinalOpacity = FMath::InterpEaseOut<float>(AnimOpacity[0],AnimOpacity[1], Alpha,2.0);
 
-		SetRenderTransform(FinalTransform);
-		SetColorAndOpacity(FLinearColor(1.0,1.0,1.0,FinalOpacity));
-		SetBorderBackgroundColor(FLinearColor(1.0,1.0,1.0,FinalOpacity));
+			SetRenderTransform(FinalTransform);
+			SetColorAndOpacity(FLinearColor(1.0,1.0,1.0,FinalOpacity));
+			SetBorderBackgroundColor(FLinearColor(1.0,1.0,1.0,FinalOpacity));
+		}
 
-		if (AnimTimer >= AnimDuration)
+		if (AnimDuration == 0 || AnimTimer >= AnimDuration)
 		{
 			bIsAnimating = false;
 			OnAnimEnd.ExecuteIfBound();

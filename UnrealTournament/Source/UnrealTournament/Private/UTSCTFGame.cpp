@@ -39,6 +39,7 @@ AUTSCTFGame::AUTSCTFGame(const FObjectInitializer& ObjectInitializer)
 	IntermissionDuration = 30.f;
 	GameStateClass = AUTSCTFGameState::StaticClass();
 	HUDClass = AUTHUD_SCTF::StaticClass();
+	SquadType = AUTCTFSquadAI::StaticClass();
 	RoundLives=5;
 	bPerPlayerLives = true;
 	bAsymmetricVictoryConditions = false;
