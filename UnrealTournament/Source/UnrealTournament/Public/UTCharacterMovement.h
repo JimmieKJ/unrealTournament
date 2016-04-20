@@ -114,6 +114,9 @@ public:
 	/** for replaying moves set up */
 	bool bIsSettingUpFirstReplayMove;
 
+	/** Used to disable jump boots if they are setup to be disabled on flag carrier */
+	bool bIsDoubleJumpAvailableForFlagCarrier;
+
 	/** Smoothed speed */
 	UPROPERTY()
 	float AvgSpeed;

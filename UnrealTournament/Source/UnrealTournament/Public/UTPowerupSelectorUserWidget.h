@@ -18,5 +18,8 @@ class UNREALTOURNAMENT_API UUTPowerupSelectorUserWidget : public UUserWidget
 	TSubclassOf<class AUTInventory> SelectedPowerup;
 
 	UFUNCTION(BlueprintCallable, Category = "UI Runnables")
+	FString GetBuyMenuKeyName();
+
+	UFUNCTION(BlueprintCallable, Category = "UI Runnables")
 	void SetPlayerPowerup();
 };

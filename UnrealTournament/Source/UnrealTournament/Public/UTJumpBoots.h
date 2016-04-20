@@ -20,10 +20,14 @@ class UNREALTOURNAMENT_API AUTJumpBoots : public AUTInventory
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = JumpBoots)
 	float MaxMultiJumpZSpeed;
 
+	/** Can an active flag carrier use these jump boots? */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = JumpBoots)
+	bool bIsDisabledOnFlagCarrier;
+
 	/** Air control during multijump while equipped */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = JumpBoots)
 	float MultiJumpAirControl;
-
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	USoundBase* SuperJumpSound;
 

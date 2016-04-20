@@ -356,6 +356,9 @@ void SUTControlSettingsDialog::CreateBinds()
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Feign Death", "Feign Death")))
 		->AddCustomBinding("FeignDeath")
 		->AddDefaults(EKeys::H)));
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Drop Carried Object", "Drop Carried Object")))
+		->AddActionMapping("DropCarriedObject")
+		->AddDefaults(EKeys::G)));
 	//Hud
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Hud", "Hud")))->MakeHeader()));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Show Scores", "Show Scores")))
@@ -373,9 +376,6 @@ void SUTControlSettingsDialog::CreateBinds()
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Team Talk", "Team Talk")))
 		->AddActionMapping("TeamTalk")
 		->AddDefaults(EKeys::Y)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Drop Carried Object", "Drop Carried Object")))
-		->AddActionMapping("DropCarriedObject")
-		->AddDefaults(EKeys::G)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Buy Menu", "Buy Menu")))
 		->AddActionMapping("ShowBuyMenu")
 		->AddDefaults(EKeys::B)));

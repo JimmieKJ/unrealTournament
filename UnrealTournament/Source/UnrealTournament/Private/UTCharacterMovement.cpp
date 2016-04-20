@@ -28,6 +28,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	MaxMultiJumpCount = 0;
 	bAllowDodgeMultijumps = false;
 	bAllowJumpMultijumps = true;
+	bIsDoubleJumpAvailableForFlagCarrier = true;
 	MultiJumpImpulse = 600.f;
 	DodgeJumpImpulse = 600.f;
 	DodgeLandingSpeedFactor = 0.19f;
@@ -1404,7 +1405,8 @@ bool UUTCharacterMovement::DoMultiJump()
 bool UUTCharacterMovement::CanMultiJump()
 {
 	return ( (MaxMultiJumpCount > 0) && (CurrentMultiJumpCount < MaxMultiJumpCount) && (!bIsDodging || bAllowDodgeMultijumps) && (bIsDodging || bAllowJumpMultijumps) &&
-			(bAlwaysAllowFallingMultiJump ? (Velocity.Z < MaxMultiJumpZSpeed) : (FMath::Abs(Velocity.Z) < MaxMultiJumpZSpeed)) && !IsCarryingFlag() );
+			(bAlwaysAllowFallingMultiJump ? (Velocity.Z < MaxMultiJumpZSpeed) : (FMath::Abs(Velocity.Z) < MaxMultiJumpZSpeed)) && 
+			(bIsDoubleJumpAvailableForFlagCarrier || !IsCarryingFlag()) );
 }
 
 void UUTCharacterMovement::ClearDodgeInput()

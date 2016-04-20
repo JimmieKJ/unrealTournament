@@ -783,6 +783,13 @@ void AUTPlayerController::ServerTriggerBoost_Implementation()
 			TriggeredBoost->bAlwaysDropOnDeath = false;
 			TriggeredBoost->DroppedPickupClass = nullptr;
 			UTCharacter->AddInventory(TriggeredBoost, true);
+
+			//if we gave you a weapon lets immediately switch on triggering the boost
+			AUTWeapon* BoostAsWeapon = Cast<AUTWeapon>(TriggeredBoost);
+			if (BoostAsWeapon)
+			{
+				UTCharacter->SwitchWeapon(BoostAsWeapon);
+			}
 		}
 		else
 		{

@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTFlagRunHUD.h"
 #include "UTCTFGameState.h"
+#include "UTCTFRoundGameState.h"
 #include "UTCTFGameMode.h"
 #include "UTCTFScoreboard.h"
 #include "Slate/UIWindows/SUTPowerupSelectWindow.h"
@@ -153,21 +154,24 @@ void AUTFlagRunHUD::DrawHUD()
 		}
 	}
 
-	HandlePowerups(GS);
+	HandlePowerups();
 }
 
 
-void AUTFlagRunHUD::HandlePowerups(AUTCTFGameState* CTFGameState)
+void AUTFlagRunHUD::HandlePowerups()
 {
 #if !UE_SERVER
-	if (CTFGameState && ((CTFGameState->GetMatchState() == MatchState::WaitingToStart) || (CTFGameState->GetMatchState() == MatchState::MatchIntermission)))
+	AUTCTFRoundGameState* GS = GetWorld()->GetGameState<AUTCTFRoundGameState>();
+
+	if (GS && ((GS->GetMatchState() == MatchState::WaitingToStart) || (GS->GetMatchState() == MatchState::MatchIntermission)))
 	{
 		AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
-		const bool bIsOnDefense = !IsTeamOnOffense(UTPS);
-
+		
 		// wait for replication to populate the playerstate and team info
 		if (UTPS && UTPS->Team)
 		{
+			const bool bIsOnDefense = GS->IsTeamOnDefenseNextRound(UTPS->Team->TeamIndex);
+			
 			if (!PowerupSelectWindow.IsValid() && UTPlayerOwner)
 			{
 				SAssignNew(PowerupSelectWindow, SUTPowerupSelectWindow, UTPlayerOwner->GetUTLocalPlayer(), bIsOnDefense);
@@ -208,19 +212,4 @@ EInputMode::Type AUTFlagRunHUD::GetInputMode_Implementation() const
 #endif
 
 	return EInputMode::EIM_GameOnly;
-}
-
-bool AUTFlagRunHUD::IsTeamOnOffense(AUTPlayerState* PS) const
-{
-	if (GetWorld() && GetWorld()->GetGameState() && PS && PS->Team)
-	{
-		AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
-		if (GS)
-		{
-			const bool bIsOnRedTeam = (PS->Team->TeamIndex == 0);
-			return (GS->bRedToCap == bIsOnRedTeam);
-		}
-	}
-
-	return true;
 }

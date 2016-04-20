@@ -19,6 +19,7 @@ AUTJumpBoots::AUTJumpBoots(const FObjectInitializer& ObjectInitializer)
 	bCallOwnerEvent = true;
 	BasePickupDesireability = 0.8f;
 	MaxMultiJumpZSpeed = 600.0f;
+	bIsDisabledOnFlagCarrier = false;
 }
 
 void AUTJumpBoots::AdjustOwner(bool bRemoveBonus)
@@ -36,6 +37,7 @@ void AUTJumpBoots::AdjustOwner(bool bRemoveBonus)
 			Movement->bAllowJumpMultijumps = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->GetCharacterMovement())->bAllowJumpMultijumps;
 			Movement->MaxMultiJumpZSpeed = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->GetCharacterMovement())->MaxMultiJumpZSpeed;
 			Movement->bAlwaysAllowFallingMultiJump = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->GetCharacterMovement())->bAlwaysAllowFallingMultiJump;
+			Movement->bIsDoubleJumpAvailableForFlagCarrier = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->GetCharacterMovement())->bIsDoubleJumpAvailableForFlagCarrier;
 
 			GetUTOwner()->MaxSafeFallSpeed = GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->MaxSafeFallSpeed;
 
@@ -52,6 +54,7 @@ void AUTJumpBoots::AdjustOwner(bool bRemoveBonus)
 			Movement->MultiJumpAirControl = MultiJumpAirControl;
 			Movement->MaxMultiJumpZSpeed = MaxMultiJumpZSpeed;
 			Movement->bAlwaysAllowFallingMultiJump = true;
+			Movement->bIsDoubleJumpAvailableForFlagCarrier = !bIsDisabledOnFlagCarrier;
 
 			if (Movement->MaxMultiJumpCount < 1)
 			{
@@ -120,7 +123,7 @@ void AUTJumpBoots::OwnerEvent_Implementation(FName EventName)
 				}
 			}
 		}
-		else if ((EventName == InventoryEventName::MultiJump) && !bIsFlagCarrier)
+		else if ((EventName == InventoryEventName::MultiJump) && (!bIsDisabledOnFlagCarrier || (bIsDisabledOnFlagCarrier && !bIsFlagCarrier)))
 		{
 			NumJumps--;
 			if (SuperJumpEffect != NULL)

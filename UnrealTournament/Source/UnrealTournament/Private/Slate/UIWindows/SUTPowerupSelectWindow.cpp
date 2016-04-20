@@ -36,13 +36,12 @@ void SUTPowerupSelectWindow::BuildPowerupSelect()
 	if (!PowerupSelectPanel.IsValid())
 	{
 		FString WidgetString;
-		WidgetString = TEXT("/Game/RestrictedAssets/Blueprints/BP_PowerupSelector_Base_UserWidget.BP_PowerupSelector_Base_UserWidget_C");
+		WidgetString = TEXT("/Game/RestrictedAssets/Blueprints/BP_PowerupSelector_Offense.BP_PowerupSelector_Offense_C");
 
-		//Needed if we change to Defense and Offense specific powerups or layouts
-		/*if (bShouldShowDefensePowerupSelectWindow)
+		if (bShouldShowDefensePowerupSelectWindow)
 		{
-			WidgetString = TEXT("/Game/RestrictedAssets/Blueprints/BP_PowerSelector_Defense_UserWidget.BP_PowerSelector_Defense_UserWidget_C");
-		}*/
+			WidgetString = TEXT("/Game/RestrictedAssets/Blueprints/BP_PowerupSelector_Defense.BP_PowerupSelector_Defense_C");
+		}
 		
 		Overlay->AddSlot().VAlign(VAlign_Fill).HAlign(HAlign_Fill)
 		[

@@ -24,3 +24,24 @@ void UUTPowerupSelectorUserWidget::SetPlayerPowerup()
 		}
 	}
 }
+
+FString UUTPowerupSelectorUserWidget::GetBuyMenuKeyName()
+{
+	FText returnValue = FText::GetEmpty();
+
+	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+	if (InputSettings)
+	{
+		for (int32 inputIndex = 0; inputIndex < InputSettings->ActionMappings.Num(); ++inputIndex)
+		{
+			FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
+			if (Action.ActionName == "ShowBuyMenu")
+			{
+				returnValue = Action.Key.GetDisplayName();
+				break;
+			}
+		}
+	}
+
+	return returnValue.ToString();
+}
