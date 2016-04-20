@@ -260,6 +260,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			FlagInfo.IconColor = UTPlayerState->CarriedObject->GetTeamNum() == 0 ? FLinearColor::Red : FLinearColor::Blue;
 			FlagInfo.bUseLabel = true;
 			FlagInfo.Label = FText::GetEmpty();
+			FlagInfo.HighlightStrength = 1.f;
 
 			if (FlagInfo.Label.IsEmpty())
 			{
