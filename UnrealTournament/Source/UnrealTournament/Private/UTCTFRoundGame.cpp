@@ -90,7 +90,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	RollingSpawnStartTime = 0.f;
 	bRollingAttackerSpawns = true;
 	ForceRespawnTime = 0.1f;
-	MaxRespawnWaitTime = 8.f;
+	MaxRespawnWaitTime = 7.f;
 
 	MainScoreboardDisplayTime = 7.5f;
 	EndScoreboardDelay = 6.f;
