@@ -314,7 +314,6 @@ void SUTControlSettingsDialog::CreateBinds()
 		->AddDefaults(FKey())));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Activate Powerup", "Activate Powerup")))
 		->AddActionMapping("StartActivatePowerup")
-		->AddActionMapping("StopActivatePowerup")
 		->AddDefaults(EKeys::Q)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select WeaponGroup1", "Select Group 1")))
 		->AddCustomBinding("SwitchWeapon 1")

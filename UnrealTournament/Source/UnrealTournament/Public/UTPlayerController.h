@@ -178,9 +178,10 @@ public:
 	UFUNCTION(reliable, server, WithValidation)
 	void ServerRestartPlayerAltFire();
 
+	FTimerHandle TriggerBoostTimerHandle;
+
 	/** Trigger boost. */
-	UFUNCTION(reliable, server, WithValidation)
-	void ServerTriggerBoost();
+	virtual void TriggerBoost();
 	
 	/** Selected an unavailable spawn location. */
 	UPROPERTY()
@@ -834,30 +835,14 @@ protected:
 	UFUNCTION(Reliable, Server, WithValidation)
 	void ServerActivatePowerUpPress();
 
-	UFUNCTION(Reliable, Server, WithValidation)
-	void ServerActivatePowerUpRelease();
-
 public:
 	/** Hold down Power-Up handling **/
 	void OnActivatePowerupPress();
-	void OnActivatePowerupRelease();
-
-	UPROPERTY(Replicated)
-	float PowerUpButtonHoldPercentage;
 	
-	UPROPERTY(Replicated)
+	UPROPERTY()
 	float TimeToHoldPowerUpButtonToActivate;
 
-private:
-	bool bAlreadyActivatedPowerupThisHold;
-	
-	UPROPERTY(Replicated)
-	float LastPowerUpButtonPressTime;
-
-	void UpdatePowerUpButtonHoldPercentage();
-
 public:
-
 	void ApplyDeferredFireInputs();
 
 	bool HasDeferredFireInputs();

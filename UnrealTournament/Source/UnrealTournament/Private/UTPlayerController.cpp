@@ -88,9 +88,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	
 	DilationIndex = 2;
 
-	bAlreadyActivatedPowerupThisHold = false;
-	PowerUpButtonHoldPercentage = 0.0f;
-	LastPowerUpButtonPressTime = 0.0f;
+	TimeToHoldPowerUpButtonToActivate = 0.75f;
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> PressedSelect(TEXT("SoundCue'/Game/RestrictedAssets/UI/UT99UI_LittleSelect_Cue.UT99UI_LittleSelect_Cue'"));
 	SelectSound = PressedSelect.Object;
@@ -137,10 +135,6 @@ void AUTPlayerController::Destroyed()
 void AUTPlayerController::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	
-	DOREPLIFETIME(AUTPlayerController, TimeToHoldPowerUpButtonToActivate);
-	DOREPLIFETIME(AUTPlayerController, PowerUpButtonHoldPercentage);
-	DOREPLIFETIME(AUTPlayerController, LastPowerUpButtonPressTime);
 
 	DOREPLIFETIME_CONDITION(AUTPlayerController, MaxPredictionPing, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerController, PredictionFudgeFactor, COND_OwnerOnly);
@@ -341,7 +335,6 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("TapBackRelease", IE_Released, this, &AUTPlayerController::OnTapBackRelease);
 
 	InputComponent->BindAction("StartActivatePowerup", IE_Pressed, this, &AUTPlayerController::OnActivatePowerupPress);
-	InputComponent->BindAction("StopActivatePowerup", IE_Released, this, &AUTPlayerController::OnActivatePowerupRelease);
 
 	// We have 2 versions of the rotation bindings to handle different kinds of devices differently
 	// "turn" handles devices that provide an absolute delta, such as a mouse.
@@ -614,14 +607,12 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 		return true;
 	}
 
-
 #if !UE_SERVER
 	else if (UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives) && (Key == EKeys::LeftMouseButton || Key == EKeys::RightMouseButton) && EventType == IE_Released && bSpectatorMouseChangesView)
 	{
 		SetSpectatorMouseChangesView(false);
 	}
 #endif
-
 
 	// hack for scoreboard until we have a real interactive system
 	if (MyUTHUD != NULL && MyUTHUD->bShowScores && MyUTHUD->GetScoreboard() != NULL && EventType == IE_Pressed)
@@ -712,34 +703,6 @@ void AUTPlayerController::OnActivatePowerupPress()
 	ServerActivatePowerUpPress();
 }
 
-void AUTPlayerController::OnActivatePowerupRelease()
-{
-	ServerActivatePowerUpRelease();
-}
-
-void AUTPlayerController::UpdatePowerUpButtonHoldPercentage()
-{
-	PowerUpButtonHoldPercentage = 0.0f;
-	if ((TimeToHoldPowerUpButtonToActivate > SMALL_NUMBER) && (LastPowerUpButtonPressTime > SMALL_NUMBER))
-	{
-		if (GetWorld() && GetWorld()->GetGameState())
-		{
-			const float HeldTime = GetWorld()->GetGameState()->GetServerWorldTimeSeconds() - LastPowerUpButtonPressTime;
-			PowerUpButtonHoldPercentage = HeldTime / TimeToHoldPowerUpButtonToActivate;
-		}
-	}
-	else if (LastPowerUpButtonPressTime > SMALL_NUMBER)
-	{
-		PowerUpButtonHoldPercentage = 1.0f;
-	}
-
-	if (PowerUpButtonHoldPercentage >= 1.0f && !bAlreadyActivatedPowerupThisHold)
-	{
-		bAlreadyActivatedPowerupThisHold = true;
-		ServerTriggerBoost();
-	}
-}
-
 bool AUTPlayerController::ServerActivatePowerUpPress_Validate()
 {
 	return true;
@@ -747,33 +710,36 @@ bool AUTPlayerController::ServerActivatePowerUpPress_Validate()
 
 void AUTPlayerController::ServerActivatePowerUpPress_Implementation()
 {
-	bAlreadyActivatedPowerupThisHold = false;
-
-	LastPowerUpButtonPressTime = 0.0f;
-
-	if (GetWorld())
+	if (UTCharacter && UTPlayerState && (UTPlayerState->RemainingBoosts > 0))
 	{
-		LastPowerUpButtonPressTime = GetWorld()->TimeSeconds;
+		AUTGameMode* UTGM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		TSubclassOf<AUTInventory> ActivatedPowerupPlaceholderClass = UTGM ? UTGM->GetActivatedPowerupPlaceholderClass() : nullptr;
+		if (GetWorldTimerManager().IsTimerActive(TriggerBoostTimerHandle))
+		{
+			GetWorldTimerManager().ClearTimer(TriggerBoostTimerHandle);
+			// kill effect
+			if (ActivatedPowerupPlaceholderClass)
+			{
+				AUTInventory* FoundEffect = UTCharacter->FindInventoryType<AUTInventory>(ActivatedPowerupPlaceholderClass, true);
+				if (FoundEffect)
+				{
+					FoundEffect->Destroy();
+				}
+			}
+		}
+		else
+		{
+			GetWorldTimerManager().SetTimer(TriggerBoostTimerHandle, this, &AUTPlayerController::TriggerBoost, TimeToHoldPowerUpButtonToActivate, false);
+			// spawn effect
+			if (ActivatedPowerupPlaceholderClass)
+			{
+				UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(ActivatedPowerupPlaceholderClass, FVector(0.0f), FRotator(0.0f, 0.0f, 0.0f)), true);
+			}
+		}
 	}
 }
 
-bool AUTPlayerController::ServerActivatePowerUpRelease_Validate()
-{
-	return true;
-}
-
-void AUTPlayerController::ServerActivatePowerUpRelease_Implementation()
-{
-	LastPowerUpButtonPressTime = 0.0f;
-	PowerUpButtonHoldPercentage = 0.0f;
-}
-
-bool AUTPlayerController::ServerTriggerBoost_Validate()
-{
-	return true;
-}
-
-void AUTPlayerController::ServerTriggerBoost_Implementation()
+void AUTPlayerController::TriggerBoost()
 {
 	if (UTCharacter && UTPlayerState && (UTPlayerState->RemainingBoosts > 0))
 	{
@@ -795,13 +761,10 @@ void AUTPlayerController::ServerTriggerBoost_Implementation()
 		}
 		else
 		{
-			if (GetWorld())
+			AUTGameMode* UTGM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+			if (UTGM)
 			{
-				AUTGameMode* UTGM = GetWorld()->GetAuthGameMode<AUTGameMode>();
-				if (UTGM)
-				{
-					UTGM->ToggleSpecialFor(UTCharacter);
-				}
+				UTGM->ToggleSpecialFor(UTCharacter);
 			}
 		}
 	}
@@ -3032,8 +2995,6 @@ void AUTPlayerController::Tick(float DeltaTime)
 	{
 		ServerViewProjectile_Implementation();
 	}
-
-	UpdatePowerUpButtonHoldPercentage();
 }
 
 void AUTPlayerController::ChooseBestCamera()

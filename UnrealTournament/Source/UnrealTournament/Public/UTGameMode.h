@@ -683,6 +683,9 @@ public:
 	*/
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	bool OverridePickupQuery(APawn* Other, TSubclassOf<AUTInventory> ItemClass, AActor* Pickup, bool& bAllowPickup);
+
+	virtual TSubclassOf<class AUTInventory> GetActivatedPowerupPlaceholderClass() { return nullptr; };
+
 protected:
 
 

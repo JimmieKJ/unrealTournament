@@ -72,15 +72,9 @@ void UUTProfileSettings::VersionFixup()
 	if (SettingsRevisionNum < ACTIVATEPOWERUP_FIXUP_PROFILESETTINGS_VERSION)
 	{
 		FInputActionKeyMapping ActivatePowerup;
-		FInputActionKeyMapping ActivatePowerupRelease;
-
 		ActivatePowerup.ActionName = FName(TEXT("StartActivatePowerup"));
-		ActivatePowerupRelease = FName(TEXT("StopActivatePowerup"));
 		ActivatePowerup.Key = EKeys::Q;
-		ActivatePowerupRelease.Key = EKeys::Q;
-
 		ActionMappings.AddUnique(ActivatePowerup);
-		ActionMappings.AddUnique(ActivatePowerupRelease);
 	}
 
 	if (SettingsRevisionNum < BUY_MENU_AND_DROP_FLAG_BUTTON_FIXUP_PROFILE_SETTINGS_VERSION)

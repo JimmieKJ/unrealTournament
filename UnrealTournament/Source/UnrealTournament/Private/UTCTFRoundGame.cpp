@@ -196,11 +196,6 @@ void AUTCTFRoundGame::GiveDefaultInventory(APawn* PlayerPawn)
 		UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(StartingArmor, FVector(0.0f), FRotator(0.f, 0.f, 0.f)), true);
 		
 		AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTPlayerState->GetOwner());
-		if (UTPC)
-		{
-			UTPC->TimeToHoldPowerUpButtonToActivate = 0.75f;
-			UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(ActivatedPowerupPlaceholderClass, FVector(0.0f), FRotator(0.0f, 0.0f, 0.0f)), true);
-		}
 		if (bOnLastLife)
 		{
 			UTCharacter->bShouldWearLeaderHat = true;
