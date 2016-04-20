@@ -622,7 +622,7 @@ void AUTCTFRoundGame::BroadcastVictoryConditions()
 			{
 				if (IsTeamOnOffense(PC->GetTeamNum()))
 				{
-					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), bDefenderLivesLimited ? 1 : 2);
+					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 10 * PC->GetTeamNum() + (bDefenderLivesLimited ? 1 : 2));
 				}
 				else
 				{
@@ -741,11 +741,11 @@ void AUTCTFRoundGame::InitRound()
 	CTFGameState->SetTimeLimit(TimeLimit);
 }
 
-bool AUTCTFRoundGame::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast)
+bool AUTCTFRoundGame::ChangeTeam(AController* Player, uint8 NewTeamIndex, bool bBroadcast)
 {
 	AUTPlayerState* PS = Cast<AUTPlayerState>(Player->PlayerState);
 	AUTTeamInfo* OldTeam = PS->Team;
-	bool bResult = Super::ChangeTeam(Player, NewTeam, bBroadcast);
+	bool bResult = Super::ChangeTeam(Player, NewTeamIndex, bBroadcast);
 	if (bResult && (GetMatchState() == MatchState::InProgress))
 	{
 		if (PS)
