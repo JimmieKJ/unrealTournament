@@ -36,6 +36,6 @@ void AUTHUD_SCTF::DrawMinimapSpectatorIcons()
 
 }
 
-void AUTHUD_SCTF::HandlePowerups(AUTCTFGameState* CTFGameState)
+void AUTHUD_SCTF::HandlePowerups()
 {
 }
