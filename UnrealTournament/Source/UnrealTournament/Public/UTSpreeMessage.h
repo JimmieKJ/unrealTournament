@@ -122,7 +122,7 @@ class UNREALTOURNAMENT_API UUTSpreeMessage : public UUTLocalMessage
 		return (MessageIndex >= 0) ? 2 : 1;
 	}
 
-	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override
+	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const override
 	{
 		if (Switch == 99)
 		{
@@ -149,7 +149,7 @@ class UNREALTOURNAMENT_API UUTSpreeMessage : public UUTLocalMessage
 		// switch 0 has no announcement, skip it
 		for (int32 i = 1; i < 50; i++)
 		{
-			FName SoundName = GetAnnouncementName(i, NULL);
+			FName SoundName = GetAnnouncementName(i, NULL, NULL, NULL);
 			if (SoundName != NAME_None)
 			{
 				Announcer->PrecacheAnnouncement(SoundName);

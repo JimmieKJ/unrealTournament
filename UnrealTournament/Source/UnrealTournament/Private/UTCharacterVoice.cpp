@@ -171,7 +171,7 @@ FText UUTCharacterVoice::GetText(int32 Switch, bool bTargetsPlayerState1, class 
 	return FText::Format(TauntText, Args);
 }
 
-FName UUTCharacterVoice::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const
+FName UUTCharacterVoice::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const
 {
 	return NAME_Custom;
 }

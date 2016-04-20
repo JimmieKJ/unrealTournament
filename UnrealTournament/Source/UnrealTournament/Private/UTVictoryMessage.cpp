@@ -29,7 +29,7 @@ FLinearColor UUTVictoryMessage::GetMessageColor_Implementation(int32 MessageInde
 }
 
 // @TODO FIXMESTEVE why not passing playerstates here too?
-FName UUTVictoryMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const
+FName UUTVictoryMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const
 {
 	if (Switch == 2)
 	{

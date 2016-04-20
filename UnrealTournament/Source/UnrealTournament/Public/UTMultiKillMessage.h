@@ -47,7 +47,7 @@ class UNREALTOURNAMENT_API UUTMultiKillMessage : public UUTLocalMessage
 	{
 		return IsLocalForAnnouncement(ClientData, true, true);
 	}
-	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override
+	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const override
 	{
 		// Switch is MultiKillLevel - 1 (e.g. 0 is double kill)
 		return AnnouncementNames.Num() > 0 ? AnnouncementNames[FMath::Clamp<int32>(Switch, 0, AnnouncementNames.Num() - 1)] : NAME_None;

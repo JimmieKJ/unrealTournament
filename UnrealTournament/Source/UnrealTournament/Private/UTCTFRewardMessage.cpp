@@ -48,7 +48,7 @@ void UUTCTFRewardMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Ann
 {
 	for (int32 i = 0; i < 6; i++)
 	{
-		Announcer->PrecacheAnnouncement(GetAnnouncementName(i, NULL));
+		Announcer->PrecacheAnnouncement(GetAnnouncementName(i, NULL, NULL, NULL));
 	}
 }
 
@@ -57,7 +57,7 @@ float UUTCTFRewardMessage::GetAnnouncementDelay(int32 Switch)
 	return ((Switch == 2) || (Switch == 5)) ? 1.5f : 0.f;
 }
 
-FName UUTCTFRewardMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const
+FName UUTCTFRewardMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const
 {
 	switch (Switch)
 	{

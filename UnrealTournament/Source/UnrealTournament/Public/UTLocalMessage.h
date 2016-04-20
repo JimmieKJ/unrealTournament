@@ -93,7 +93,7 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 
 	/** return the name of announcement to play for this message (if any); UTAnnouncer will map to an actual sound */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, BlueprintPure, Category = Message)
-	FName GetAnnouncementName(int32 Switch, const UObject* OptionalObject) const;
+	FName GetAnnouncementName(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const;
 
 	/** return the sound to play for the announcement, if GetAnnouncementName() returned NAME_Custom. */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, BlueprintPure, Category = Message)

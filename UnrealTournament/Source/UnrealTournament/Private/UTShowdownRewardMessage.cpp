@@ -57,7 +57,7 @@ FLinearColor UUTShowdownRewardMessage::GetMessageColor_Implementation(int32 Mess
 	return FLinearColor::White;
 }
 
-FName UUTShowdownRewardMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const
+FName UUTShowdownRewardMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const
 {
 	switch (Switch)
 	{

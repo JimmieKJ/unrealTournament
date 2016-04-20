@@ -114,7 +114,7 @@ void UUTLocalMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Announc
 	// naive default implementation just keeps querying until we get a fail
 	for (int32 i = 0; i < 50; i++)
 	{
-		FName SoundName = GetAnnouncementName(i, NULL);
+		FName SoundName = GetAnnouncementName(i, NULL, NULL, NULL);
 		if (SoundName != NAME_None)
 		{
 			Announcer->PrecacheAnnouncement(SoundName);
@@ -200,7 +200,7 @@ bool UUTLocalMessage::PartiallyDuplicates(int32 Switch1, int32 Switch2, UObject*
 	return (Switch1 == Switch2);
 }
 
-FName UUTLocalMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const
+FName UUTLocalMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const
 {
 	return NAME_None;
 }

@@ -61,7 +61,7 @@ class UNREALTOURNAMENT_API UUTTimerMessage : public UUTLocalMessage
 		CountDownAnnouncements.Add(TEXT("FiveMinuteWarning"));
 	}
 
-	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override
+	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const override
 	{
 		return (Switch >= 0 && Switch < CountDownAnnouncements.Num() ? CountDownAnnouncements[Switch] : NAME_None);
 	}

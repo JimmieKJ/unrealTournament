@@ -60,6 +60,8 @@ public:
 			case 5: return CapAndKillMessage; break;
 			case 6: return EarnedSpecialMessage; break;
 			case 7: return EnemyTeamSpecialEarned; break;
+			case 11: return ExhaustLivesMessage; break;
+			case 12: return CapFlagMessage; break;
 			default:
 				return FText();
 		}
@@ -70,14 +72,17 @@ public:
 		return FLinearColor::White;
 	}
 
-	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override
+	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const override
 	{
 		switch (Switch)
 		{
 			case 1: return TEXT("RedTeamOnOffense"); break;
-			case 2: return TEXT("BlueTeamOffence"); break;
-			case 3: return TEXT("RedTeamOnOffense"); break;
-			case 4: return TEXT("BlueTeamOffence"); break;
+			case 2: return TEXT("RedTeamOnOffense"); break;
+			case 3: return TEXT("YourTeamIsNowDefending_01"); break;
+			case 4: return TEXT("YourTeamIsNowDefending_01"); break;
+			case 6: return TEXT("UnlockedPowerup01"); break;
+			case 11: return TEXT("BlueTeamOffence"); break;
+			case 12: return TEXT("BlueTeamOffence"); break;
 		}
 		return NAME_None;
 	}
@@ -86,6 +91,8 @@ public:
 	{
 		Announcer->PrecacheAnnouncement(TEXT("RedTeamOnOffense"));
 		Announcer->PrecacheAnnouncement(TEXT("BlueTeamOffence"));
+		Announcer->PrecacheAnnouncement(TEXT("UnlockedPowerup01"));
+		Announcer->PrecacheAnnouncement(TEXT("YourTeamIsNowDefending_01"));
 	}
 
 	virtual float GetAnnouncementSpacing_Implementation(int32 Switch, const UObject* OptionalObject) const override

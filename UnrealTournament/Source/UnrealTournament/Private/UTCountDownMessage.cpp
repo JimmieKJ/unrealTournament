@@ -75,6 +75,6 @@ void UUTCountDownMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Ann
 {
 	for (int32 i = 0; i <= 10; i++)
 	{
-		Announcer->PrecacheAnnouncement(GetAnnouncementName(i, NULL));
+		Announcer->PrecacheAnnouncement(GetAnnouncementName(i, NULL, NULL, NULL));
 	}
 }

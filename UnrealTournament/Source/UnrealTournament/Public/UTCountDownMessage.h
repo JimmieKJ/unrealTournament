@@ -19,7 +19,7 @@ class UNREALTOURNAMENT_API UUTCountDownMessage : public UUTLocalMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText BlueFlagDelayMessage;
 
-	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override
+	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const override
 	{
 		return FName(*FString::Printf(TEXT("CD%i"), Switch));
 	}

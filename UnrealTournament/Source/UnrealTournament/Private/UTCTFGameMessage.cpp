@@ -133,9 +133,10 @@ void UUTCTFGameMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Annou
 	}
 	Announcer->PrecacheAnnouncement(GetTeamAnnouncement(11, 0));
 	Announcer->PrecacheAnnouncement(GetTeamAnnouncement(12, 0));
+	Announcer->PrecacheAnnouncement(TEXT("YouHaveTheFlag_02"));
 }
 
-FName UUTCTFGameMessage::GetTeamAnnouncement(int32 Switch, uint8 TeamNum) const
+FName UUTCTFGameMessage::GetTeamAnnouncement(int32 Switch, uint8 TeamNum, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const
 {
 	switch (Switch)
 	{
@@ -143,7 +144,12 @@ FName UUTCTFGameMessage::GetTeamAnnouncement(int32 Switch, uint8 TeamNum) const
 		case 1: return TeamNum == 0 ? TEXT("RedFlagReturned") : TEXT("BlueFlagReturned"); break;
 		case 2: return TeamNum == 0 ? TEXT("RedTeamScores") : TEXT("BlueTeamScores"); break;
 		case 3: return TeamNum == 0 ? TEXT("RedFlagDropped") : TEXT("BlueFlagDropped"); break;
-		case 4: return TeamNum == 0 ? TEXT("RedFlagTaken") : TEXT("BlueFlagTaken"); break;
+		case 4:
+			if (RelatedPlayerState_1 && Cast<AUTPlayerController>(RelatedPlayerState_1->GetOwner()))
+			{
+				return TEXT("YouHaveTheFlag_02"); break;
+			}
+			return TeamNum == 0 ? TEXT("RedFlagTaken") : TEXT("BlueFlagTaken"); break;
 		case 6: return TeamNum == 0 ? TEXT("RedTeamAdvantage") : TEXT("BlueTeamAdvantage"); break;
 		case 7: return TeamNum == 0 ? TEXT("LosingAdvantage") : TEXT("LosingAdvantage"); break;
 		case 8: return TeamNum == 0 ? TEXT("RedIncreasesLead") : TEXT("BlueIncreasesLead"); break;
@@ -157,10 +163,10 @@ FName UUTCTFGameMessage::GetTeamAnnouncement(int32 Switch, uint8 TeamNum) const
 	return NAME_None;
 }
 
-FName UUTCTFGameMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const
+FName UUTCTFGameMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const
 {
 	const AUTTeamInfo* TeamInfo = Cast<AUTTeamInfo>(OptionalObject);
 	uint8 TeamNum = (TeamInfo != NULL) ? TeamInfo->GetTeamNum() : 0;
-	return GetTeamAnnouncement(Switch, TeamNum);
+	return GetTeamAnnouncement(Switch, TeamNum, OptionalObject, RelatedPlayerState_1, RelatedPlayerState_2);
 }
 
