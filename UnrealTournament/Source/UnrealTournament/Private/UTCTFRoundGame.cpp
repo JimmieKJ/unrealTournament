@@ -37,9 +37,9 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	TimeLimit = 5;
 	GoldBonusTime = 120;
 	SilverBonusTime = 60;
-	GoldScore = 5;
-	SilverScore = 4;
-	BronzeScore = 3;
+	GoldScore = 3;
+	SilverScore = 2;
+	BronzeScore = 1;
 	DisplayName = NSLOCTEXT("UTGameMode", "CTFR", "Flag Run");
 	IntermissionDuration = 30.f;
 	RoundLives = 5;
