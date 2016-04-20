@@ -25,8 +25,6 @@ class UNREALTOURNAMENT_API AUTFlagRunHUD : public AUTHUD_CTF
 	virtual EInputMode::Type GetInputMode_Implementation() const;
 
 protected:
-	bool IsTeamOnOffense(AUTPlayerState* PS) const;
-
 	bool bConstructedPowerupWindowForDefense;
 
 #if !UE_SERVER
@@ -34,6 +32,6 @@ protected:
 #endif
 
 	// Manage the powerup select window.
-	virtual void HandlePowerups(AUTCTFGameState* CTFGameState);
+	virtual void HandlePowerups();
 
 };

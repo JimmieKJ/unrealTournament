@@ -37,5 +37,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 	// return % that represense the # of kills needed to get a bonus.  1.0 = Bonus is available
 	virtual float GetKillsNeededForPowerup(bool bOnOffense);
 
-
+	UFUNCTION(BlueprintCallable, Category = Team)
+	virtual bool IsTeamOnDefenseNextRound(int32 TeamNumber) const;
 };

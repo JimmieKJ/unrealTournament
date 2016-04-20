@@ -49,8 +49,14 @@ bool AUTCTFRoundGameState::IsTeamOnDefense(int32 TeamNumber) const
 	return !IsTeamOnOffense(TeamNumber);
 }
 
+bool AUTCTFRoundGameState::IsTeamOnDefenseNextRound(int32 TeamNumber) const 
+{
+	//We alternate teams, so if we are on offense now, next round we will be on defense
+	return IsTeamOnOffense(TeamNumber);
+}
 
 float AUTCTFRoundGameState::GetKillsNeededForPowerup(bool bOnOffense)
 {
 	return 0.f;
 }
+
