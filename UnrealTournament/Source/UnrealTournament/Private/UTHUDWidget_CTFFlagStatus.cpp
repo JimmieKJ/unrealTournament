@@ -110,12 +110,12 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagStatus(AUTCTFGameState* GameState, FVec
 		}
 		else
 		{
-			RenderObj_TextureAt(FlagIconTemplate, XPos, YPos, FlagIconTemplate.GetWidth(), FlagIconTemplate.GetHeight());
+			RenderObj_TextureAt(FlagIconTemplate, XPos, YPos, 1.5f*FlagIconTemplate.GetWidth(), 1.5f*FlagIconTemplate.GetHeight());
 			if (Flag->ObjectState == CarriedObjectState::Dropped)
 			{
-				RenderObj_TextureAt(DroppedIconTemplate, XPos, YPos, DroppedIconTemplate.GetWidth(), DroppedIconTemplate.GetHeight());
+				RenderObj_TextureAt(DroppedIconTemplate, XPos, YPos, 1.5f*DroppedIconTemplate.GetWidth(), 1.5f*DroppedIconTemplate.GetHeight());
 				UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
-				DrawText(GetFlagReturnTime(Flag), XPos, YPos, TinyFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, 1.5f, 1.f, FLinearColor::White, FLinearColor(0.f, 0.f, 0.f, 0.f), ETextHorzPos::Center, ETextVertPos::Center);
+				DrawText(GetFlagReturnTime(Flag), XPos, YPos, TinyFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, 2.f, 1.f, FLinearColor::White, FLinearColor(0.f, 0.f, 0.f, 0.f), ETextHorzPos::Center, ETextVertPos::Center);
 			}
 		}
 	}
