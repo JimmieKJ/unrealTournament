@@ -468,6 +468,13 @@ void AUTCTFRoundGame::StopRCTFReplayRecording()
 
 void AUTCTFRoundGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)
 {
+	for (int32 i = 0; i < Teams.Num(); i++)
+	{
+		if (Teams[i])
+		{
+			Teams[i]->RoundBonus = 0;
+		}
+	}
 	if (Reason == FName("FlagCapture"))
 	{
 		if (UTGameState && Holder && Holder->Team)
