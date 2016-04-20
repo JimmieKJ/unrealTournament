@@ -358,7 +358,11 @@ void AUTGameState::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// HACK: temporary hack around config property replication bug; force to be different from defaults
+	// HACK: temporary hack around config property replication bug; force to be different from defaults and clamp their sizes so they won't break networking
+
+	if (ServerMOTD.Len() > 512) ServerMOTD = ServerMOTD.Left(512);
+	if (ServerName.Len() > 512) ServerName = ServerName.Left(512);
+
 	ServerName += TEXT(" ");
 	ServerMOTD += TEXT(" ");
 
