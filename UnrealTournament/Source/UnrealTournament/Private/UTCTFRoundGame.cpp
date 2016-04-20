@@ -1071,16 +1071,16 @@ void AUTCTFRoundGame::CheckGameTime()
 		}
 		else
 		{
-			// bonus time countdowns - note done before remaining time updated, so off by one
-			if (RemainingTime <= GoldBonusTime + 11)
+			// bonus time countdowns
+			if (RemainingTime <= GoldBonusTime + 10)
 			{
 				if (RemainingTime > GoldBonusTime)
 				{
-					BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), 4000 + RemainingTime - GoldBonusTime - 1, NULL, NULL, NULL);
+					BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), 4000 + RemainingTime - GoldBonusTime, NULL, NULL, NULL);
 				}
-				else if ((RemainingTime <= SilverBonusTime + 11) && (RemainingTime > SilverBonusTime))
+				else if ((RemainingTime <= SilverBonusTime + 10) && (RemainingTime > SilverBonusTime))
 				{
-					BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), 3000 + RemainingTime - SilverBonusTime - 1, NULL, NULL, NULL);
+					BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), 3000 + RemainingTime - SilverBonusTime, NULL, NULL, NULL);
 				}
 			}
 			// increase defender respawn time by1 seconds every two minutes
