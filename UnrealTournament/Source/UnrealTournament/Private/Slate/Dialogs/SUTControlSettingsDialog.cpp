@@ -278,6 +278,9 @@ void SUTControlSettingsDialog::CreateBinds()
 		->AddAxisMapping("MoveUp", -1.0f)
 		->AddActionMapping("Crouch")
 		->AddDefaults(EKeys::LeftControl, EKeys::C)));
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Slide", "Slide")))
+		->AddActionMapping("Slide")
+		->AddDefaults(EKeys::LeftShift)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "One Tap Dodge", "One Tap Dodge")))
 		->AddActionMapping("SingleTapDodge")
 		->AddDefaults(EKeys::V)));

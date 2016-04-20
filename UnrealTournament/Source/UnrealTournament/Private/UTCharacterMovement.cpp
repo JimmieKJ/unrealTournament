@@ -891,6 +891,17 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	return true;
 }
 
+void UUTCharacterMovement::HandleSlideRequest()
+{
+	UpdateFloorSlide(true);
+	AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
+	if (!Acceleration.IsNearlyZero() && (Velocity.Size() > 0.7f * MaxWalkSpeed) && UTCharacterOwner->CanDodge())
+	{
+		bWantsToCrouch = true;
+		bPressedSlide = true;
+	}
+}
+
 void UUTCharacterMovement::HandleCrouchRequest()
 {
 	// if moving fast enough and pressing on move key, slide, else crouch
@@ -903,7 +914,7 @@ void UUTCharacterMovement::HandleCrouchRequest()
 	bWantsToCrouch = true;
 	if (!Acceleration.IsNearlyZero() && (Velocity.Size() > 0.7f * MaxWalkSpeed) && UTCharacterOwner && UTCharacterOwner->CanDodge())
 	{
-		bPressedSlide = IsFalling() || (PC && PC->bCrouchTriggersSlide);
+		bPressedSlide = (PC && PC->bCrouchTriggersSlide);
 	}
 }
 
@@ -927,6 +938,7 @@ void UUTCharacterMovement::Crouch(bool bClientSimulation)
 			NeedsClientAdjustment();
 		}
 		bPressedSlide = false;
+		bWantsToCrouch = false;
 		return;
 	}
 	Super::Crouch(bClientSimulation);

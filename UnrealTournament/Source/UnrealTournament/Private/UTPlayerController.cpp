@@ -324,6 +324,8 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("Crouch", IE_Pressed, this, &AUTPlayerController::Crouch);
 	InputComponent->BindAction("Crouch", IE_Released, this, &AUTPlayerController::UnCrouch);
 	InputComponent->BindAction("ToggleCrouch", IE_Pressed, this, &AUTPlayerController::ToggleCrouch);
+	InputComponent->BindAction("Slide", IE_Pressed, this, &AUTPlayerController::Slide);
+	InputComponent->BindAction("Slide", IE_Released, this, &AUTPlayerController::StopSlide);
 
 	InputComponent->BindAction("TapLeft", IE_Pressed, this, &AUTPlayerController::OnTapLeft);
 	InputComponent->BindAction("TapRight", IE_Pressed, this, &AUTPlayerController::OnTapRight);
@@ -1592,7 +1594,7 @@ void AUTPlayerController::Crouch()
 {
 	if (!IsMoveInputIgnored())
 	{
-		bIsHoldingFloorSlide = true;
+		bIsHoldingFloorSlide = bCrouchTriggersSlide;
 		if (UTCharacter)
 		{
 			UTCharacter->Crouch(false);
@@ -1602,10 +1604,37 @@ void AUTPlayerController::Crouch()
 
 void AUTPlayerController::UnCrouch()
 {
-	bIsHoldingFloorSlide = false;
+	if (bCrouchTriggersSlide)
+	{
+		bIsHoldingFloorSlide = false;
+	}
 	if (UTCharacter)
 	{
 		UTCharacter->UnCrouch(false);
+	}
+}
+
+void AUTPlayerController::Slide()
+{
+	if (!IsMoveInputIgnored())
+	{
+		bIsHoldingFloorSlide = true;
+		UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
+		if (MyCharMovement)
+		{
+			MyCharMovement->HandleSlideRequest();
+		}
+	}
+}
+
+void AUTPlayerController::StopSlide()
+{
+	bIsHoldingFloorSlide = false;
+	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
+	if (MyCharMovement)
+	{
+		MyCharMovement->bWantsToCrouch = false;
+		MyCharMovement->UpdateFloorSlide(false);
 	}
 }
 

@@ -422,6 +422,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "FloorSlide")
 		virtual bool WantsWallSlide();
 
+	virtual void HandleSlideRequest();
+
 	virtual void HandleCrouchRequest();
 
 	virtual void HandleUnCrouchRequest();
