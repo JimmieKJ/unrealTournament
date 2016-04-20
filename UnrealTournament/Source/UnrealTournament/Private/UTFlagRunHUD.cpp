@@ -92,7 +92,7 @@ void AUTFlagRunHUD::DrawHUD()
 					else
 					{
 						BluePlayerCount++;
-						Canvas->SetLinearDrawColor(bLastLife ? FLinearColor::Yellow : FLinearColor::Blue, 0.7f);
+						Canvas->SetLinearDrawColor(bLastLife ? FLinearColor::White : FLinearColor::Blue, 0.7f);
 						Canvas->DrawTile(PlayerStartIcon.Texture, XOffsetBlue, YOffset, PipSize, PipSize, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL, BLEND_Translucent);
 						XOffsetText = XOffsetBlue;
 						XOffsetBlue += 1.1f*PipSize;
