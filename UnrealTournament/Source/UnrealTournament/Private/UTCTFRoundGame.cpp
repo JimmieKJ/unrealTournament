@@ -35,6 +35,11 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	TimeLimit = 5;
+	GoldBonusTime = 120;
+	SilverBonusTime = 60;
+	GoldScore = 5;
+	SilverScore = 4;
+	BronzeScore = 3;
 	DisplayName = NSLOCTEXT("UTGameMode", "CTFR", "Flag Run");
 	IntermissionDuration = 30.f;
 	RoundLives = 5;
@@ -89,6 +94,20 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 
 	MainScoreboardDisplayTime = 7.5f;
 	EndScoreboardDelay = 6.f;
+}
+
+int32 AUTCTFRoundGame::GetFlagCapScore()
+{
+	int32 BonusTime = UTGameState->GetRemainingTime();
+	if (BonusTime >= GoldBonusTime)
+	{
+		return GoldScore;
+	}
+	if (BonusTime >= SilverBonusTime)
+	{
+		return SilverScore;
+	}
+	return BronzeScore;
 }
 
 void AUTCTFRoundGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
@@ -192,7 +211,17 @@ void AUTCTFRoundGame::GiveDefaultInventory(APawn* PlayerPawn)
 
 void AUTCTFRoundGame::BroadcastScoreUpdate(APlayerState* ScoringPlayer, AUTTeamInfo* ScoringTeam, int32 OldScore)
 {
-	BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 200 + ScoringTeam->RoundBonus, ScoringPlayer, NULL, ScoringTeam);
+	int32 BonusType = 100 + BronzeScore;
+	if (ScoringTeam->RoundBonus > GoldBonusTime)
+	{
+		BonusType = 300 + GoldScore;
+	}
+	else if (ScoringTeam->RoundBonus > SilverBonusTime)
+	{
+		BonusType = 200 + SilverScore;
+	}
+
+	BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), BonusType, ScoringPlayer, NULL, ScoringTeam);
 	BroadcastLocalized(this, UUTCTFMajorMessage::StaticClass(), 2, ScoringPlayer, NULL, ScoringTeam);
 }
 
@@ -481,17 +510,6 @@ void AUTCTFRoundGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, A
 		{
 			Holder->Team->RoundBonus = FMath::Min(MaxTimeScoreBonus, UTGameState->GetRemainingTime());
 			Holder->Team->SecondaryScore += Holder->Team->RoundBonus;
-			if (UTGameState->GetRemainingTime() < 60)
-			{
-				// give defense a bonus
-				int32 DefenderTeamIndex = 1 - Holder->Team->TeamIndex;
-				if ((DefenderTeamIndex >= 0) && (DefenderTeamIndex < Teams.Num()) && Teams[DefenderTeamIndex])
-				{
-					Teams[DefenderTeamIndex]->RoundBonus = 60 - UTGameState->GetRemainingTime();
-					Teams[DefenderTeamIndex]->SecondaryScore += Teams[DefenderTeamIndex]->RoundBonus;
-					BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 160 - UTGameState->GetRemainingTime(), NULL, NULL, Teams[DefenderTeamIndex]);
-				}
-			}
 		}
 	}
 
@@ -1000,7 +1018,7 @@ void AUTCTFRoundGame::ScoreOutOfLives(int32 WinningTeamIndex)
 	AUTTeamInfo* WinningTeam = (Teams.Num() > WinningTeamIndex) ? Teams[WinningTeamIndex] : NULL;
 	if (WinningTeam)
 	{
-		WinningTeam->Score++;
+		WinningTeam->Score += IsTeamOnOffense(WinningTeamIndex) ? GetFlagCapScore() : 1;
 		if (CTFGameState)
 		{
 			FCTFScoringPlay NewScoringPlay;
@@ -1045,15 +1063,28 @@ void AUTCTFRoundGame::CheckGameTime()
 	}
 	else if ((GetMatchState() == MatchState::InProgress) && TimeLimit > 0)
 	{
-		if (UTGameState && UTGameState->GetRemainingTime() <= 0)
+		int32 RemainingTime = UTGameState ? UTGameState->GetRemainingTime() : 100;
+		if (RemainingTime <= 0)
 		{
 			// Round is over, defense wins.
 			ScoreOutOfLives(bRedToCap ? 1 : 0);
 		}
 		else
 		{
+			// bonus time countdowns - note done before remaining time updated, so off by one
+			if (RemainingTime <= GoldBonusTime + 11)
+			{
+				if (RemainingTime > GoldBonusTime)
+				{
+					BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), 4000 + RemainingTime - GoldBonusTime - 1, NULL, NULL, NULL);
+				}
+				else if ((RemainingTime <= SilverBonusTime + 11) && (RemainingTime > SilverBonusTime))
+				{
+					BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), 3000 + RemainingTime - SilverBonusTime - 1, NULL, NULL, NULL);
+				}
+			}
 			// increase defender respawn time by1 seconds every two minutes
-			if (UTGameState->GetRemainingTime() % 120 == 0)
+			if (RemainingTime % 120 == 0)
 			{
 				for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 				{

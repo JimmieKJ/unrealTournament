@@ -211,11 +211,17 @@ void AUTCTFBaseGame::GameObjectiveInitialized(AUTGameObjective* Obj)
 	}
 }
 
+int32 AUTCTFBaseGame::GetFlagCapScore()
+{
+	return FlagCapScore;
+}
+
 void AUTCTFBaseGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)
 {
 	if (Holder != NULL && Holder->Team != NULL && !CTFGameState->HasMatchEnded() && !CTFGameState->IsMatchIntermission())
 	{
-		CTFScoring->ScoreObject(GameObject, HolderPawn, Holder, Reason, TimeLimit);
+		int32 NewFlagCapScore = GetFlagCapScore();
+		CTFScoring->ScoreObject(GameObject, HolderPawn, Holder, Reason, TimeLimit, NewFlagCapScore);
 
 		if (BaseMutator != NULL)
 		{
@@ -227,7 +233,7 @@ void AUTCTFBaseGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 		{
 			// Give the team a capture.
 			int32 OldScore = Holder->Team->Score;
-			Holder->Team->Score += FlagCapScore;
+			Holder->Team->Score += NewFlagCapScore;
 			Holder->Team->ForceNetUpdate();
 			LastTeamToScore = Holder->Team;
 			BroadcastScoreUpdate(Holder, Holder->Team, OldScore);

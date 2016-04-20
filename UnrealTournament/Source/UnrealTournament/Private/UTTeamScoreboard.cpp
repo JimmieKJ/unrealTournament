@@ -32,7 +32,7 @@ void UUTTeamScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
 
 	DrawText(RedTeamText, 36, YOffset + 40.f, UTHUDOwner->HugeFont, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 	DrawText(FText::AsNumber(UTGameState->Teams[0]->Score), Width * 0.9f, YOffset + 48.f, UTHUDOwner->ScoreFont, false, FVector2D(0, 0), FLinearColor::Black, true, FLinearColor::Black, 0.75, 1.0, FLinearColor::White, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Right, ETextVertPos::Center);
-	bool bDrawSecondaryScores = (UTGameState->Teams[0]->SecondaryScore + UTGameState->Teams[1]->SecondaryScore > 0);
+	bool bDrawSecondaryScores = false; // (UTGameState->Teams[0]->SecondaryScore + UTGameState->Teams[1]->SecondaryScore > 0);
 	if (bDrawSecondaryScores)
 	{
 		DrawText(FText::AsNumber(UTGameState->Teams[0]->SecondaryScore), Width * 0.9f, YOffset + 96.f, UTHUDOwner->SmallFont, false, FVector2D(0, 0), FLinearColor::Black, true, FLinearColor::Black, 0.75, 1.0, FLinearColor::White, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f), ETextHorzPos::Right, ETextVertPos::Center);

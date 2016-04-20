@@ -36,16 +36,22 @@ class UNREALTOURNAMENT_API UUTCTFRewardMessage : public UUTLocalMessage
 		FText OtherHatTrickMessage;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText StoutDefensePrefix;
+		FText GoldScoreBonusPrefix;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText StoutDefensePostfix;
+		FText GoldScoreBonusPostfix;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText TeamScoreBonusPrefix;
+		FText SilverScoreBonusPrefix;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText TeamScoreBonusPostfix;
+		FText SilverScoreBonusPostfix;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText BronzeScoreBonusPrefix;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText BronzeScoreBonusPostfix;
 
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const override;
 	virtual bool ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const override;

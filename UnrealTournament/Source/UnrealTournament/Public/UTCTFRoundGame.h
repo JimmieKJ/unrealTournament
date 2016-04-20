@@ -104,7 +104,23 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY(config)
 		bool bShouldAllowPowerupSelection;
 
-	
+	UPROPERTY()
+		int32 GoldBonusTime;
+
+	UPROPERTY()
+		int32 SilverBonusTime;
+
+	UPROPERTY()
+		int32 GoldScore;
+
+	UPROPERTY()
+		int32 SilverScore;
+
+	UPROPERTY()
+		int32 BronzeScore;
+
+	virtual int32 GetFlagCapScore() override;
+
 	virtual void InitFlags();
 
 	virtual void FlagCountDown();

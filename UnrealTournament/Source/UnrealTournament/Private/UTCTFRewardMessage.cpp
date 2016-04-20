@@ -22,10 +22,12 @@ UUTCTFRewardMessage::UUTCTFRewardMessage(const class FObjectInitializer& ObjectI
 	TeamScorePostfix = NSLOCTEXT("CTFRewardMessage", "TeamScorePostfix", " Scores!");
 	HatTrickMessage = NSLOCTEXT("CTFRewardMessage", "HatTrick", "Hat Trick!");
 	OtherHatTrickMessage = NSLOCTEXT("CTFRewardMessage", "OtherHatTrick", "{Player1Name} got a Hat Trick!");
-	StoutDefensePrefix = NSLOCTEXT("CTFRewardMessage", "StoutDefensePrefix", "");
-	StoutDefensePostfix = NSLOCTEXT("CTFRewardMessage", "StoutDefensePostfix", " Stout Defense Bonus +{BonusAmount}");
-	TeamScoreBonusPrefix = NSLOCTEXT("CTFRewardMessage", "TeamScoreBonusPrefix", "");
-	TeamScoreBonusPostfix = NSLOCTEXT("CTFRewardMessage", "TeamScoreBonusPostfix", " Scores!  Time Bonus +{BonusAmount}");
+	GoldScoreBonusPrefix = NSLOCTEXT("CTFRewardMessage", "GoldScoreBonusPrefix", "");
+	GoldScoreBonusPostfix = NSLOCTEXT("CTFRewardMessage", "GoldScoreBonusPostfix", " Scores!  Gold Bonus +{BonusAmount}");
+	SilverScoreBonusPrefix = NSLOCTEXT("CTFRewardMessage", "SilverScoreBonusPrefix", "");
+	SilverScoreBonusPostfix = NSLOCTEXT("CTFRewardMessage", "SilverScoreBonusPostfix", " Scores!  Silver Bonus +{BonusAmount}");
+	BronzeScoreBonusPrefix = NSLOCTEXT("CTFRewardMessage", "BronzeScoreBonusPrefix", "");
+	BronzeScoreBonusPostfix = NSLOCTEXT("CTFRewardMessage", "BronzeScoreBonusPostfix", " Scores!  Bronze Bonus +{BonusAmount}");
 	bIsStatusAnnouncement = false;
 	bWantsBotReaction = true;
 	ScaleInSize = 3.f;
@@ -87,19 +89,27 @@ void UUTCTFRewardMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText
 	}
 	if (Switch >= 100)
 	{
+		FText TeamScoreBonusPrefix = BronzeScoreBonusPrefix;
+		FText TeamScoreBonusPostfix = BronzeScoreBonusPostfix;
+		if (Switch >= 300)
+		{
+			TeamScoreBonusPrefix = GoldScoreBonusPrefix;
+			TeamScoreBonusPostfix = GoldScoreBonusPostfix;
+		}
+		else if (Switch >= 200)
+		{
+			TeamScoreBonusPrefix = SilverScoreBonusPrefix;
+			TeamScoreBonusPostfix = SilverScoreBonusPostfix;
+		}
+
+		while (Switch >= 100)
+		{
+			Switch -= 100;
+		}
 		FFormatNamedArguments Args;
-		if (Switch >= 200)
-		{
-			Args.Add("BonusAmount", FText::AsNumber(Switch - 200));
-			PrefixText = FText::Format(TeamScoreBonusPrefix, Args);
-			PostfixText = FText::Format(TeamScoreBonusPostfix, Args);
-		}
-		else
-		{
-			Args.Add("BonusAmount", FText::AsNumber(Switch - 100));
-			PrefixText = FText::Format(StoutDefensePrefix, Args);
-			PostfixText = FText::Format(StoutDefensePostfix, Args);
-		}
+		Args.Add("BonusAmount", FText::AsNumber(Switch));
+		PrefixText = FText::Format(TeamScoreBonusPrefix, Args);
+		PostfixText = FText::Format(TeamScoreBonusPostfix, Args);
 		AUTTeamInfo* EmphasisTeam = Cast<AUTTeamInfo>(OptionalObject);
 		EmphasisText = (EmphasisTeam && EmphasisTeam->TeamIndex == 1) ? BlueTeamName : RedTeamName;
 		EmphasisColor = (EmphasisTeam && EmphasisTeam->TeamIndex == 1) ? FLinearColor::Blue : FLinearColor::Red;

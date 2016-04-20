@@ -17,6 +17,8 @@ UUTCountDownMessage::UUTCountDownMessage(const class FObjectInitializer& ObjectI
 	CountDownText = NSLOCTEXT("UTTimerMessage","MatBeginCountdown","{Count}");
 	RedFlagDelayMessage = NSLOCTEXT("CTFGameMessage", "RedFlagDelay", "Red Flag can be picked up in ");
 	BlueFlagDelayMessage = NSLOCTEXT("CTFGameMessage", "BlueFlagDelay", "Blue Flag can be picked up in ");
+	GoldBonusMessage = NSLOCTEXT("CTFGameMessage", "GoldBonusMessage", "Gold Bonus ends in ");
+	SilverBonusMessage = NSLOCTEXT("CTFGameMessage", "SilverBonusMessage", "Silver Bonus ends in ");
 }
 
 float UUTCountDownMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
@@ -50,8 +52,21 @@ void UUTCountDownMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText
 		Super::GetEmphasisText(PrefixText, EmphasisText, PostfixText, EmphasisColor, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 		return;
 	}
-	PrefixText = (Switch >= 2000) ? BlueFlagDelayMessage : RedFlagDelayMessage;
-	PostfixText = FText::GetEmpty();
+	if (Switch > 4000)
+	{
+		PrefixText = GoldBonusMessage;
+		PostfixText = FText::GetEmpty();
+	}
+	else if (Switch > 3000)
+	{
+		PrefixText = SilverBonusMessage;
+		PostfixText = FText::GetEmpty();
+	}
+	else
+	{
+		PrefixText = (Switch >= 2000) ? BlueFlagDelayMessage : RedFlagDelayMessage;
+		PostfixText = FText::GetEmpty();
+	}
 	while (Switch >= 1000)
 	{
 		Switch -= 1000;

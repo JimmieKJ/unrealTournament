@@ -33,6 +33,8 @@ class UNREALTOURNAMENT_API AUTCTFBaseGame : public AUTTeamGameMode
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CTF)
 		int32 FlagCapScore;
 
+	virtual int32 GetFlagCapScore();
+
 	UPROPERTY(transient)
 		bool bPlacingPlayersAtIntermission;
 

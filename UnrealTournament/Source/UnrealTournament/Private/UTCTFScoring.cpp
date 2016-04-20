@@ -77,7 +77,7 @@ float AUTCTFScoring::GetTotalHeldTime(AUTCarriedObject* GameObject)
 	return TotalHeldTime;
 }
 
-void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* ScoringPawn, AUTPlayerState* ScorerPS, FName Reason, float TimeLimit)
+void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* ScoringPawn, AUTPlayerState* ScorerPS, FName Reason, float TimeLimit, int32 FlagCapScore)
 {
 	if (!CTFGameState)
 	{
@@ -107,7 +107,7 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 		NewScoringPlay.ScoredBy = FSafePlayerName(ScorerPS);
 		NewScoringPlay.TeamScores[0] = CTFGameState->Teams[0] ? CTFGameState->Teams[0]->Score : 0;
 		NewScoringPlay.TeamScores[1] = CTFGameState->Teams[1] ? CTFGameState->Teams[1]->Score : 0;
-		NewScoringPlay.TeamScores[ScorerPS->Team->TeamIndex] += (GM ? GM->FlagCapScore : 1);
+		NewScoringPlay.TeamScores[ScorerPS->Team->TeamIndex] += FlagCapScore;
 		NewScoringPlay.RemainingTime = CTFGameState->bPlayingAdvantage ? 0.f : CTFGameState->GetClockTime();
 
 		if (CTFGameState->IsMatchInOvertime())

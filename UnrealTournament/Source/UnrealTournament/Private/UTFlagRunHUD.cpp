@@ -35,7 +35,7 @@ void AUTFlagRunHUD::DrawHUD()
 		FFontRenderInfo TextRenderInfo;
 
 		// draw secondary scores
-		if (GS->Teams.Num() > 1 && GS->Teams[0] && GS->Teams[1] && ((GS->Teams[0]->SecondaryScore > 0) || (GS->Teams[1]->SecondaryScore > 0)))
+		if (false) //GS->Teams.Num() > 1 && GS->Teams[0] && GS->Teams[1] && ((GS->Teams[0]->SecondaryScore > 0) || (GS->Teams[1]->SecondaryScore > 0)))
 		{
 			FText BlueSecondaryScore = FText::AsNumber(GS->Teams[1]->SecondaryScore);
 			Canvas->SetLinearDrawColor(FLinearColor::Black, 1.f);
