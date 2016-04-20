@@ -81,7 +81,7 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagStatus(AUTCTFGameState* GameState, FVec
 {
 	// draw flag state in HUD
 	float XPos = IndicatorPosition.X;
-	float YPos = 8.f + 0.5f * FlagIconTemplate.GetHeight();
+	float YPos = (8.f * RenderScale) + 0.5f * FlagIconTemplate.GetHeight();
 	
 	FLinearColor TeamColor = FLinearColor::Green;
 	if (TeamNum != 255) TeamColor = GameState->Teams[TeamNum]->TeamColor;

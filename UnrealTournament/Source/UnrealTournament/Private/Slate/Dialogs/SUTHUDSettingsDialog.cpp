@@ -44,6 +44,7 @@ void SUTHUDSettingsDialog::Construct(const FArguments& InArgs)
 	AUTPlayerController* PC = Cast<AUTPlayerController>(InArgs._PlayerOwner->PlayerController);
 
 	ProfileSettings = InArgs._PlayerOwner->GetProfileSettings();
+	bInGame = !InArgs._PlayerOwner->IsMenuGame();
 
 	SUTDialogBase::Construct(SUTDialogBase::FArguments()
 							.PlayerOwner(InArgs._PlayerOwner)
