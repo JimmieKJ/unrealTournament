@@ -85,6 +85,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	RollingSpawnStartTime = 0.f;
 	bRollingAttackerSpawns = true;
 	ForceRespawnTime = 0.1f;
+	MaxRespawnWaitTime = 8.f;
 
 	MainScoreboardDisplayTime = 7.5f;
 	EndScoreboardDelay = 6.f;
@@ -822,7 +823,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 		}
 		if (bAsymmetricVictoryConditions && PS->Team && IsTeamOnDefense(PS->Team->TeamIndex))
 		{
-			PS->RespawnWaitTime += 1.f;
+			PS->RespawnWaitTime = FMath::Min(MaxRespawnWaitTime, PS->RespawnWaitTime+1.f);
 			PS->OnRespawnWaitReceived();
 		}
 		if (IsPlayerOnLifeLimitedTeam(PS))
@@ -1045,7 +1046,7 @@ void AUTCTFRoundGame::CheckGameTime()
 					AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 					if (PS && !PS->bOnlySpectator && !PS->bOutOfLives && !PS->bIsInactive && bAsymmetricVictoryConditions && PS->Team && IsTeamOnDefense(PS->Team->TeamIndex))
 					{
-						PS->RespawnWaitTime += 1.f;
+						PS->RespawnWaitTime = FMath::Min(MaxRespawnWaitTime, PS->RespawnWaitTime + 1.f);
 						PS->OnRespawnWaitReceived();
 					}
 				}

@@ -39,6 +39,10 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		float UnlimitedRespawnWaitTime;
 
+	/** Max Respawn wait time. */
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		float MaxRespawnWaitTime;
+
 	/** If true, round lives are per player. */
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		bool bPerPlayerLives;
