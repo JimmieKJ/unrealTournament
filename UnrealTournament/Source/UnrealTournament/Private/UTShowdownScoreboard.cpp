@@ -29,7 +29,7 @@ void UUTShowdownScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState,
 			float HealthPct = FMath::Clamp<float>(float(UTC->Health) / float(UTC->SuperHealthMax), 0.f, 1.f);
 			float ArmorPct = float(UTC->ArmorAmount) / float(UTC->MaxStackedArmor);
 			float Height = 8.f;
-			float YPos = YOffset + 0.5f*CellHeight;
+			float YPos = YOffset + 0.5f*CellHeight*RenderScale;
 			XOffset += 0.05f*Width;
 			Width *= 0.75f;
 			FLinearColor BarColor = FLinearColor(0.5f, 0.5f, 0.5f, 0.5f);
