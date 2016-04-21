@@ -501,10 +501,15 @@ void AUTCTFRoundGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, A
 	}
 	if (Reason == FName("FlagCapture"))
 	{
-		if (UTGameState && Holder && Holder->Team)
+		if (UTGameState)
 		{
-			Holder->Team->RoundBonus = FMath::Min(MaxTimeScoreBonus, UTGameState->GetRemainingTime());
-			Holder->Team->SecondaryScore += Holder->Team->RoundBonus;
+			// force replication of server clock time
+			UTGameState->SetRemainingTime(UTGameState->GetRemainingTime());
+			if (Holder && Holder->Team)
+			{
+				Holder->Team->RoundBonus = FMath::Min(MaxTimeScoreBonus, UTGameState->GetRemainingTime());
+				Holder->Team->SecondaryScore += Holder->Team->RoundBonus;
+			}
 		}
 	}
 
@@ -1024,6 +1029,9 @@ void AUTCTFRoundGame::ScoreOutOfLives(int32 WinningTeamIndex)
 			NewScoringPlay.TeamScores[1] = CTFGameState->Teams[1] ? CTFGameState->Teams[1]->Score : 0;
 			NewScoringPlay.RemainingTime = CTFGameState->GetClockTime();
 			CTFGameState->AddScoringPlay(NewScoringPlay);
+
+			// force replication of server clock time
+			CTFGameState->SetRemainingTime(CTFGameState->GetRemainingTime());
 		}
 
 		WinningTeam->ForceNetUpdate();
