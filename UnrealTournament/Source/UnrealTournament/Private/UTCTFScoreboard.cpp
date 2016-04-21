@@ -273,13 +273,18 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 			ScoreX += SingleXL;
 			Canvas->DrawText(UTHUDOwner->MediumFont, FString::Printf(TEXT(" %i"), Play.TeamScores[1]), ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
 
-			if ((Play.RedBonus > 0) || (Play.BlueBonus > 0))
+			int32 RoundBonus = FMath::Max(Play.RedBonus, Play.BlueBonus);
+			if (RoundBonus > 0)
 			{
 				YPos = BoxYPos + 0.52f*CurrentScoreHeight;
 				ScoreX = XOffset + 0.95f*ScoreWidth - ScoringOffsetX;
 				Canvas->SetLinearDrawColor(FLinearColor::Yellow);
-				FString BonusScorePart = FString::Printf(TEXT(" %i    %i"), Play.RedBonus, Play.BlueBonus);
-				Canvas->DrawText(UTHUDOwner->SmallFont, BonusScorePart, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
+				FString BonusString = (RoundBonus >= 60) ? TEXT("SILVER") : TEXT("BRONZE");
+				if (RoundBonus >= 120)
+				{
+					BonusString = TEXT("GOLD");
+				}
+				Canvas->DrawText(UTHUDOwner->SmallFont, BonusString, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
 			}
 			YPos = BoxYPos + CurrentScoreHeight + 8.f*RenderScale;
 		}
