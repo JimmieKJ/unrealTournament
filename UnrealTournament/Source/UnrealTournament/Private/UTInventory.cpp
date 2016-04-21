@@ -31,6 +31,8 @@ AUTInventory::AUTInventory(const FObjectInitializer& ObjectInitializer)
 	MenuDescription = NSLOCTEXT("UTWeapon","DefaultDescription","This space let intentionally blank");
 	IconColor = FLinearColor::White;
 	
+	bBoostPowerupSuppliedItem = false;
+
 	HUDText = FText::GetEmpty();
 }
 

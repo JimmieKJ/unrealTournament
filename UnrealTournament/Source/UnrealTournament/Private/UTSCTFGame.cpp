@@ -119,9 +119,8 @@ void AUTSCTFGame::InitRound()
 	FTimerHandle TempHandle;
 	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTSCTFGame::SpawnInitalFlag, FlagSpawnDelay * GetActorTimeDilation());
 
-	bGrantOffensePowerupsWithKills = false;
-	bGrantDefensePowerupsWithKills = false;
-
+	SCTFGameState->bIsDefenseAbleToGainPowerup = false;
+	SCTFGameState->bIsOffenseAbleToGainPowerup = false;
 }
 
 void AUTSCTFGame::SpawnInitalFlag()

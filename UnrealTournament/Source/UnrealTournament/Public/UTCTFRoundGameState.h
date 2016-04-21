@@ -13,17 +13,23 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 		UPROPERTY(Replicated)
 		uint32 IntermissionTime;
 
-		UPROPERTY(Replicated)
+	UPROPERTY(Replicated)
 		int OffenseKills;
 
-		UPROPERTY(Replicated)
+	UPROPERTY(Replicated)
 		int DefenseKills;
 
-		UPROPERTY(Replicated)
+	UPROPERTY(Replicated)
 		int OffenseKillsNeededForPowerup;
 
-		UPROPERTY(Replicated)
+	UPROPERTY(Replicated)
 		int DefenseKillsNeededForPowerup;
+
+	UPROPERTY(Replicated)
+		bool bIsDefenseAbleToGainPowerup;
+
+	UPROPERTY(Replicated)
+		bool bIsOffenseAbleToGainPowerup;
 
 	virtual float GetIntermissionTime() override;
 	virtual void DefaultTimer() override;
@@ -34,8 +40,11 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 	UFUNCTION(BlueprintCallable, Category = Team)
 	virtual bool IsTeamOnDefense(int32 TeamNumber) const;
 
-	// return % that represense the # of kills needed to get a bonus.  1.0 = Bonus is available
-	virtual float GetKillsNeededForPowerup(bool bOnOffense);
+	UFUNCTION(BlueprintCallable, Category = Team)
+	virtual int GetKillsNeededForPowerup(int32 TeamNumber) const;
+	
+	UFUNCTION(BlueprintCallable, Category = Team)
+	virtual bool IsTeamAbleToEarnPowerup(int32 TeamNumber) const;
 
 	UFUNCTION(BlueprintCallable, Category = Team)
 	virtual bool IsTeamOnDefenseNextRound(int32 TeamNumber) const;

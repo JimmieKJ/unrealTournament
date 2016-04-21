@@ -13,6 +13,6 @@ class UNREALTOURNAMENT_API AUTHUD_SCTF : public AUTFlagRunHUD
 	void DrawHUD();
 
 protected:
-	virtual void HandlePowerups();
+	virtual void HandlePowerups() override;
 
 };

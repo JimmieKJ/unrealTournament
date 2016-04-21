@@ -68,9 +68,6 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	OffenseKillsNeededForPowerUp = 10;
 	DefenseKillsNeededForPowerUp = 10;
 
-	bGrantOffensePowerupsWithKills = true;
-	bGrantDefensePowerupsWithKills = true;
-
 	InitialBoostCount = 0;
 	bNoLivesEndRound = true;
 	MaxTimeScoreBonus = 150;
@@ -684,8 +681,6 @@ void AUTCTFRoundGame::FlagCountDown()
 
 void AUTCTFRoundGame::InitRound()
 {
-	bGrantOffensePowerupsWithKills = true;
-	bGrantDefensePowerupsWithKills = true;
 	bFirstBloodOccurred = false;
 	bLastManOccurred = false;
 	bNeedFiveKillsMessage = true;
@@ -710,6 +705,8 @@ void AUTCTFRoundGame::InitRound()
 			RCTFGameState->DefenseKills = 0;
 			RCTFGameState->OffenseKillsNeededForPowerup = OffenseKillsNeededForPowerUp;
 			RCTFGameState->DefenseKillsNeededForPowerup = DefenseKillsNeededForPowerUp;
+			RCTFGameState->bIsOffenseAbleToGainPowerup = true;
+			RCTFGameState->bIsDefenseAbleToGainPowerup = true;
 		}
 	}
 
@@ -1142,20 +1139,20 @@ void AUTCTFRoundGame::HandlePowerupUnlocks(APawn* Other, AController* Killer)
 	AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
 	if (RCTFGameState)
 	{
-		if (bGrantOffensePowerupsWithKills && (RCTFGameState->OffenseKills >= OffenseKillsNeededForPowerUp))
+		if ((RCTFGameState->OffenseKills >= OffenseKillsNeededForPowerUp) && RCTFGameState->bIsOffenseAbleToGainPowerup)
 		{
 			RCTFGameState->OffenseKills = 0;
 
 			GrantPowerupToTeam(IsTeamOnOffense(RedTeamIndex) ? RedTeamIndex : BlueTeamIndex, KillerPS);
-			bGrantOffensePowerupsWithKills = false;
+			RCTFGameState->bIsOffenseAbleToGainPowerup = false;
 		}
 
-		if (bGrantDefensePowerupsWithKills && (RCTFGameState->DefenseKills >= DefenseKillsNeededForPowerUp))
+		if ((RCTFGameState->DefenseKills >= DefenseKillsNeededForPowerUp) && RCTFGameState->bIsDefenseAbleToGainPowerup)
 		{
 			RCTFGameState->DefenseKills = 0;
 
 			GrantPowerupToTeam(IsTeamOnDefense(RedTeamIndex) ? RedTeamIndex : BlueTeamIndex, KillerPS);
-			bGrantDefensePowerupsWithKills = false;
+			RCTFGameState->bIsDefenseAbleToGainPowerup = false;
 		}
 	}
 }

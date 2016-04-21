@@ -57,13 +57,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 		int32 NumRounds;
 
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
-		bool bGrantOffensePowerupsWithKills;
-
-	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		int OffenseKillsNeededForPowerUp;
-
-	UPROPERTY(BlueprintReadOnly, Category = CTF)
-		bool bGrantDefensePowerupsWithKills;
 
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		int DefenseKillsNeededForPowerUp;

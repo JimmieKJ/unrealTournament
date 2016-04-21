@@ -18,6 +18,8 @@ AUTFlagRunHUD::AUTFlagRunHUD(const FObjectInitializer& ObjectInitializer)
 	PlayerStartIcon.UL = 64;
 	PlayerStartIcon.VL = 64;
 	PlayerStartIcon.Texture = PlayerStartTextureObject.Object;
+
+	TimeToDelayMenuOpenForIntermission = 8.0f;
 }
 
 void AUTFlagRunHUD::DrawHUD()
@@ -163,15 +165,15 @@ void AUTFlagRunHUD::HandlePowerups()
 #if !UE_SERVER
 	AUTCTFRoundGameState* GS = GetWorld()->GetGameState<AUTCTFRoundGameState>();
 
-	if (GS && ((GS->GetMatchState() == MatchState::WaitingToStart) || (GS->GetMatchState() == MatchState::MatchIntermission)))
+	AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
+
+	// wait for replication to populate the playerstate and team info
+	if (UTPS && UTPS->Team)
 	{
-		AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
-		
-		// wait for replication to populate the playerstate and team info
-		if (UTPS && UTPS->Team)
+		if (GS && ((GS->GetMatchState() == MatchState::WaitingToStart) || (GS->GetMatchState() == MatchState::MatchIntermission)))
 		{
 			const bool bIsOnDefense = GS->IsTeamOnDefenseNextRound(UTPS->Team->TeamIndex);
-			
+
 			if (!PowerupSelectWindow.IsValid() && UTPlayerOwner)
 			{
 				SAssignNew(PowerupSelectWindow, SUTPowerupSelectWindow, UTPlayerOwner->GetUTLocalPlayer(), bIsOnDefense);
@@ -189,13 +191,52 @@ void AUTFlagRunHUD::HandlePowerups()
 
 				bConstructedPowerupWindowForDefense = bIsOnDefense;
 			}
+			else
+			{
+				//We need to force the powerup select window open
+				if (!bAlreadyForcedWindowOpening)
+				{
+					bAlreadyForcedWindowOpening = true;
+
+					//if they have already opened it manually, let it go
+					if (!UTPS->bIsPowerupSelectWindowOpen)
+					{
+						//Intermission we want a delay before forcing it open to give the scoring info time to display
+						if (GS->GetMatchState() == MatchState::MatchIntermission)
+						{
+							GetWorldTimerManager().SetTimer(MenuOpenDelayTimerHandle, this, &AUTFlagRunHUD::OpenPowerupSelectMenu, TimeToDelayMenuOpenForIntermission, false);
+						}
+						else
+						{
+							if (GetWorldTimerManager().IsTimerActive(MenuOpenDelayTimerHandle))
+							{
+								GetWorldTimerManager().ClearTimer(MenuOpenDelayTimerHandle);
+							}
+
+							OpenPowerupSelectMenu();
+						}
+					}
+				}
+			}
+		}
+		else if ((PowerupSelectWindow.IsValid()) && (PowerupSelectWindow->GetWindowState() == EUIWindowState::Active))
+		{
+			UTPS->bIsPowerupSelectWindowOpen = false;
+			bAlreadyForcedWindowOpening = false;
+			UTPlayerOwner->GetUTLocalPlayer()->CloseWindow(PowerupSelectWindow);
 		}
 	}
-	else if (PowerupSelectWindow.IsValid())
-	{
-		UTPlayerOwner->GetUTLocalPlayer()->CloseWindow(PowerupSelectWindow);
-	}
 #endif
+}
+
+void AUTFlagRunHUD::OpenPowerupSelectMenu()
+{
+	AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
+	if (UTPS)
+	{
+		UTPS->bIsPowerupSelectWindowOpen = true;
+		bAlreadyForcedWindowOpening = true;
+	}
 }
 
 EInputMode::Type AUTFlagRunHUD::GetInputMode_Implementation() const

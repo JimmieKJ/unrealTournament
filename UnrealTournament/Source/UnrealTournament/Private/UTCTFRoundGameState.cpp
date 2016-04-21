@@ -21,6 +21,8 @@ void AUTCTFRoundGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty 
 	DOREPLIFETIME(AUTCTFRoundGameState, DefenseKills);
 	DOREPLIFETIME(AUTCTFRoundGameState, OffenseKillsNeededForPowerup);
 	DOREPLIFETIME(AUTCTFRoundGameState, DefenseKillsNeededForPowerup);
+	DOREPLIFETIME(AUTCTFRoundGameState, bIsDefenseAbleToGainPowerup);
+	DOREPLIFETIME(AUTCTFRoundGameState, bIsOffenseAbleToGainPowerup);
 }
 
 void AUTCTFRoundGameState::DefaultTimer()
@@ -55,8 +57,13 @@ bool AUTCTFRoundGameState::IsTeamOnDefenseNextRound(int32 TeamNumber) const
 	return IsTeamOnOffense(TeamNumber);
 }
 
-float AUTCTFRoundGameState::GetKillsNeededForPowerup(bool bOnOffense)
+bool AUTCTFRoundGameState::IsTeamAbleToEarnPowerup(int32 TeamNumber) const 
 {
-	return 0.f;
+	return IsTeamOnOffense(TeamNumber) ? bIsOffenseAbleToGainPowerup : bIsDefenseAbleToGainPowerup;
+}
+
+int AUTCTFRoundGameState::GetKillsNeededForPowerup(int32 TeamNumber) const
+{
+	return IsTeamOnOffense(TeamNumber) ? (OffenseKillsNeededForPowerup - OffenseKills) : (DefenseKillsNeededForPowerup - DefenseKills);
 }
 

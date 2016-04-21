@@ -159,6 +159,12 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			if (CurrentPowerup == nullptr)
 			{
 				CurrentPowerup = Cast<AUTTimedPowerup>(*It);
+
+				//Ignore powerups given by a boost class as those are handled separately
+				if (CurrentPowerup && CurrentPowerup->bBoostPowerupSuppliedItem)
+				{
+					CurrentPowerup = nullptr;
+				}
 			}
 		}
 
@@ -181,57 +187,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			BootsInfo.Value = 0;
 		}
 
-		if (CurrentPowerup == nullptr)
-		{
-			PowerupInfo.bAltIcon = true;
-			PowerupInfo.bUseLabel = true;
-			PowerupInfo.Value = 1;
-				
-			if (UTPlayerState->BoostClass)
-			{
-				AUTInventory* InventoryItem = UTPlayerState->BoostClass->GetDefaultObject<AUTInventory>();
-				BoostIcon.UVs.U = InventoryItem->HUDIcon.U;
-				BoostIcon.UVs.V = InventoryItem->HUDIcon.V;
-				BoostIcon.UVs.UL = InventoryItem->HUDIcon.UL;
-				BoostIcon.UVs.VL = InventoryItem->HUDIcon.VL;
-				BoostIcon.Atlas = InventoryItem->HUDIcon.Texture;
-				BoostIcon.Size = FVector2D(InventoryItem->HUDIcon.UL * 1.07f, 35);
-				
-				AUTCTFRoundGameState* RoundGameState = GetWorld()->GetGameState<AUTCTFRoundGameState>();
-				if (RoundGameState)
-				{
-					PowerupInfo.HighlightStrength = RoundGameState->GetKillsNeededForPowerup(RoundGameState->IsTeamOnOffense(UTPlayerState->GetTeamNum()));
-					PowerupInfo.Value = 1;
-				}
-				else
-				{
-					PowerupInfo.Value = 0;
-				}
-
-			}
-			else
-			{
-				PowerupInfo.Value = 0;
-			}
-
-			if (PowerupInfo.Label.IsEmpty())
-			{
-				UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
-				if (InputSettings)
-				{
-					for (int32 inputIndex = 0; inputIndex < InputSettings->ActionMappings.Num(); ++inputIndex)
-					{
-						FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
-						if (Action.ActionName == "StartActivatePowerup")
-						{
-							PowerupInfo.Label = Action.Key.GetDisplayName();
-							break;
-						}
-					}
-				}
-			}
-		}
-		else
+		if (CurrentPowerup != nullptr)
 		{
 			PowerupInfo.bAltIcon = false;
 			PowerupInfo.bUseLabel = false;
@@ -245,7 +201,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			PowerupIcon.UVs.VL = CurrentPowerup->HUDIcon.VL;
 
 			PowerupIcon.Position.Y = -22;
-			PowerupIcon.RenderOffset = FVector2D(0.5f,0.5f);
+			PowerupIcon.RenderOffset = FVector2D(0.5f, 0.5f);
 			PowerupIcon.Size = FVector2D(PowerupIcon.UVs.UL * 1.07f, 35);
 
 			if (PowerupInfo.Value <= 5)
@@ -253,6 +209,84 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 				PowerupInfo.HighlightStrength = float(PowerupInfo.Value) / 5.0f;
 			}
 		}
+
+		if (UTPlayerState->BoostClass)
+		{
+			BoostProvidedPowerupInfo.bUseLabel = true;
+			BoostProvidedPowerupInfo.Label = FText::GetEmpty();
+			BoostProvidedPowerupInfo.Value = 0;
+			BoostProvidedPowerupInfo.HighlightStrength = 0.f;
+
+			AUTInventory* InventoryItem = UTPlayerState->BoostClass->GetDefaultObject<AUTInventory>();
+			BoostIcon.UVs.U = InventoryItem->HUDIcon.U;
+			BoostIcon.UVs.V = InventoryItem->HUDIcon.V;
+			BoostIcon.UVs.UL = InventoryItem->HUDIcon.UL;
+			BoostIcon.UVs.VL = InventoryItem->HUDIcon.VL;
+			BoostIcon.Atlas = InventoryItem->HUDIcon.Texture;
+			BoostIcon.Size = FVector2D(InventoryItem->HUDIcon.UL * 1.07f, 35);
+			
+			AUTInventory* ActiveBoost = nullptr;
+			for (TInventoryIterator<> It(CharOwner); It; ++It)
+			{
+				AUTInventory* InventoryItem = Cast<AUTInventory>(*It);
+				if (InventoryItem && InventoryItem->bBoostPowerupSuppliedItem)
+				{
+					ActiveBoost = InventoryItem;
+				}
+			}
+
+			if (ActiveBoost)
+			{
+				BoostProvidedPowerupInfo.HighlightStrength = 1.f;
+				BoostProvidedPowerupInfo.bUseLabel = false;
+
+				AUTTimedPowerup* TimedPowerup = Cast<AUTTimedPowerup>(ActiveBoost);
+				if (TimedPowerup)
+				{
+					BoostProvidedPowerupInfo.Value = static_cast<int>(TimedPowerup->TimeRemaining);
+				}
+
+				AUTWeapon* WeaponPowerup = Cast<AUTWeapon>(ActiveBoost);
+				if (WeaponPowerup)
+				{
+					BoostProvidedPowerupInfo.Value = WeaponPowerup->Ammo;
+				}
+			}
+			else
+			{
+				AUTCTFRoundGameState* RoundGameState = GetWorld()->GetGameState<AUTCTFRoundGameState>();
+				if (RoundGameState)
+				{
+					//Show info for actively having access to a powerup
+					if (UTPlayerState->RemainingBoosts >= 1)
+					{
+						BoostProvidedPowerupInfo.Value = UTPlayerState->RemainingBoosts;
+						BoostProvidedPowerupInfo.HighlightStrength = 0.5f;
+
+						UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+						if (InputSettings)
+						{
+							for (int32 inputIndex = 0; inputIndex < InputSettings->ActionMappings.Num(); ++inputIndex)
+							{
+								FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
+								if (Action.ActionName == "StartActivatePowerup")
+								{
+									BoostProvidedPowerupInfo.Label = Action.Key.GetDisplayName();
+									break;
+								}
+							}
+						}
+					}
+					//Show countdown to power up
+					else if (RoundGameState->IsTeamAbleToEarnPowerup(UTPlayerState->GetTeamNum()))
+					{
+						BoostProvidedPowerupInfo.Label = FText::FromString(FString::Printf(TEXT("Kill: %i"), RoundGameState->GetKillsNeededForPowerup(UTPlayerState->GetTeamNum())));
+						BoostProvidedPowerupInfo.Value = RoundGameState->GetKillsNeededForPowerup(UTPlayerState->GetTeamNum());
+					}
+				}
+			}
+		}
+
 
 		if (UTPlayerState->CarriedObject != nullptr)
 		{
@@ -324,9 +358,13 @@ void UUTHUDWidget_QuickStats::Draw_Implementation(float DeltaTime)
 
 	if (PowerupInfo.Value > 0)
 	{
-		DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].PowerupOffset, DrawAngle) :	Layouts[CurrentLayoutIndex].AmmoOffset, PowerupInfo, PowerupInfo.bUseLabel ? BoostIcon : PowerupIcon);
+		DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].PowerupOffset, DrawAngle) :	Layouts[CurrentLayoutIndex].AmmoOffset, PowerupInfo, PowerupIcon);
 	}
 
+	if (BoostProvidedPowerupInfo.Value > 0)
+	{
+		DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].BoostProvidedPowerupOffset, DrawAngle) : Layouts[CurrentLayoutIndex].BoostProvidedPowerupOffset, BoostProvidedPowerupInfo, BoostIcon );
+	}
 }
 
 void UUTHUDWidget_QuickStats::DrawStat(FVector2D StatOffset, FStatInfo& Info, FHUDRenderObject_Texture Icon)
@@ -360,6 +398,11 @@ void UUTHUDWidget_QuickStats::DrawStat(FVector2D StatOffset, FStatInfo& Info, FH
 	Icon.RenderColor = Info.IconColor;
 	Icon.RenderOpacity = ForegroundOpacity;
 	RenderObj_Texture(Icon, StatOffset);
+
+	if (Info.bUseLabelBackgroundImage)
+	{
+
+	}
 
 	if (!Info.bNoText)
 	{

@@ -750,6 +750,7 @@ void AUTPlayerController::TriggerBoost()
 			AUTInventory* TriggeredBoost = GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->BoostClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f));
 			TriggeredBoost->bAlwaysDropOnDeath = false;
 			TriggeredBoost->DroppedPickupClass = nullptr;
+			TriggeredBoost->bBoostPowerupSuppliedItem = true;
 			UTCharacter->AddInventory(TriggeredBoost, true);
 
 			//if we gave you a weapon lets immediately switch on triggering the boost

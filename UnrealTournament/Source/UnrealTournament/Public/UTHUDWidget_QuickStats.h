@@ -43,6 +43,10 @@ struct FQStatLayoutInfo
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layout")
 	FVector2D BootsOffset;
 
+	// Where should the boost widget go.  In Pixels based on 1080p
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layout")
+	FVector2D BoostProvidedPowerupOffset;
+
 	// If true, this layout will pivot based on the rotation of the widget on the hud
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layout")
 	bool bFollowRotation;
@@ -64,6 +68,7 @@ struct FStatInfo
 	float HighlightStrength;
 	bool bNoText;
 	bool bUseLabel;
+	bool bUseLabelBackgroundImage;
 	FText Label;
 
 	FStatInfo()
@@ -75,8 +80,9 @@ struct FStatInfo
 		bAltIcon = false;
 		bNoText = false;
 		bUseLabel = false;
+		bUseLabelBackgroundImage = false;
 		HighlightStrength = 0.0f;
-	
+		
 		IconColor = FLinearColor::White;
 		TextColor = FLinearColor::White;
 	}
@@ -144,6 +150,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
 	FHUDRenderObject_Texture BoostIcon;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
+	FHUDRenderObject_Texture LabelBackgroundIcon;
+
 	// NOTE: This icon will be generated from the data in the actual powerup
 	UPROPERTY()
 	FHUDRenderObject_Texture PowerupIcon;
@@ -163,6 +172,7 @@ private:
 	FStatInfo FlagInfo;
 	FStatInfo BootsInfo;
 	FStatInfo PowerupInfo;
+	FStatInfo BoostProvidedPowerupInfo;
 
 	AUTWeapon* LastWeapon;
 	void UpdateStatScale(float DeltaTime, FStatInfo& Stat, bool bLookForChange = true);
