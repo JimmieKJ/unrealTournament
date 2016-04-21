@@ -272,9 +272,6 @@ protected:
 	uint32 bEnableMouseSmoothing:1;
 
 	UPROPERTY()
-	uint32 bEnableFOVScaling:1;
-
-	UPROPERTY()
 	uint32 bInvertMouse;
 
 	UPROPERTY()
@@ -285,9 +282,6 @@ protected:
 
 	UPROPERTY()
 	float MouseAccelerationMax;
-
-	UPROPERTY()
-	float FOVScale;
 
 	UPROPERTY()
 	float DoubleClickTime;

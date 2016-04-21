@@ -243,8 +243,6 @@ void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 		}
 
 		bEnableMouseSmoothing = DefaultInputSettingsObject->bEnableMouseSmoothing;
-		bEnableFOVScaling = DefaultInputSettingsObject->bEnableFOVScaling;
-		FOVScale = DefaultInputSettingsObject->FOVScale;
 		DoubleClickTime = DefaultInputSettingsObject->DoubleClickTime;
 
 		if (DefaultInputSettingsObject->ConsoleKeys.Num() > 0)
@@ -373,8 +371,6 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 		}
 
 		DefaultInputSettingsObject->bEnableMouseSmoothing = bEnableMouseSmoothing;
-		DefaultInputSettingsObject->bEnableFOVScaling = bEnableFOVScaling;
-		DefaultInputSettingsObject->FOVScale = FOVScale;
 		DefaultInputSettingsObject->DoubleClickTime = DoubleClickTime;
 		DefaultInputSettingsObject->ConsoleKeys.Empty();
 		DefaultInputSettingsObject->ConsoleKeys.Add(ConsoleKey);
