@@ -853,7 +853,7 @@ void AUTWeapon::PlayLowAmmoSound()
 	UUTGameplayStatics::UTPlaySound(GetWorld(), LowAmmoSound, UTOwner, SRT_None);
 }
 
-void AUTWeapon::StopFiringEffects()
+void AUTWeapon::StopFiringEffects_Implementation()
 {
 	for (UParticleSystemComponent* MF : MuzzleFlash)
 	{

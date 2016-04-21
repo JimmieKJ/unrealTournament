@@ -596,8 +596,8 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** play firing effects not associated with the shot's results (e.g. muzzle flash but generally NOT emitter to target) */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void PlayFiringEffects();
-	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	virtual void StopFiringEffects();
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Weapon")
+	void StopFiringEffects();
 
 	/** blueprint hook to modify spawned instance of FireEffect (e.g. tracer or beam) */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon")
