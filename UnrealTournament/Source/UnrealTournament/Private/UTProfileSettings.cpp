@@ -90,6 +90,13 @@ void UUTProfileSettings::VersionFixup()
 		ActionMappings.AddUnique(DropCarriedObject);
 	}
 
+	if (SettingsRevisionNum < SLIDE_FIXUP_PROFILE_SETTINGS_VERSION)
+	{
+		FInputActionKeyMapping Slide;
+		Slide.ActionName = FName(TEXT("Slide"));
+		Slide.Key = EKeys::LeftShift;
+		ActionMappings.AddUnique(Slide);
+	}
 	// The format has changed during Dev versions.  So in case some people have written out unlocks, clear them here.
 	if (SettingsRevisionNum <= CHALLENGE_FIXUP_VERSION)
 	{
