@@ -41,6 +41,8 @@ void AUTSCTFFlag::OnRep_Team()
 	if (Team != nullptr)
 	{
 		uint8 TeamNum = GetTeamNum();
+		UE_LOG(UT,Verbose,TEXT("[UTSCTFFlag::OnRep_Team]  Team = %i (%s)"), TeamNum, *Team->GetName());
+
 		if ( TeamMaterials.IsValidIndex(TeamNum) )
 		{
 			UE_LOG(UT,Log,TEXT("Setting Material"));
@@ -49,6 +51,8 @@ void AUTSCTFFlag::OnRep_Team()
 	}
 	else
 	{
+		UE_LOG(UT,Verbose,TEXT("[UTSCTFFlag::OnRep_Team]  Team = 255 (nullptr)"));
+
 		UE_LOG(UT,Log,TEXT("Setting Neutral Material"));
 		Mesh->SetMaterial(1, NeutralMaterial);
 	}
@@ -67,26 +71,46 @@ void AUTSCTFFlag::NoLongerHeld(AController* InstigatedBy)
 
 void AUTSCTFFlag::SetHolder(AUTCharacter* NewHolder)
 {
+
+	FString DebugMsg = TEXT("[UTSCTFFlag::SetHolder] ");
+
 	// Set the team to match the team of the holder.
-
-	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-	uint8 HolderTeamNum = NewHolder->GetTeamNum();
-	if ( GameState && GameState->Teams.IsValidIndex(HolderTeamNum) )
+	if (NewHolder)
 	{
-		uint8 FlagTeamNum = GetTeamNum();
-		// If this was our flag, force it to switch teams.
-		if (FlagTeamNum == 255)
+		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+		uint8 HolderTeamNum = NewHolder->GetTeamNum();
+		if ( GameState && GameState->Teams.IsValidIndex(HolderTeamNum) )
 		{
-			uint8 NewTeamNum = HolderTeamNum;
-			SetTeam(GameState->Teams[NewTeamNum]);
-		}
-	}
+			uint8 FlagTeamNum = GetTeamNum();
+			DebugMsg += FString::Printf(TEXT("Holder = %s Team = %i FlagTeamNum = %i"), (NewHolder->PlayerState ? *NewHolder->PlayerState->PlayerName : TEXT("<nullptr>")), HolderTeamNum, FlagTeamNum );
 
-	bPendingTeamSwitch = false;
+			// If this was our flag, force it to switch teams.
+			if (FlagTeamNum == 255)
+			{
+				uint8 NewTeamNum = HolderTeamNum;
+				SetTeam(GameState->Teams[NewTeamNum]);
+	
+				DebugMsg += FString::Printf(TEXT(" TeamInfo: %s"), GameState->Teams[NewTeamNum] ? *GameState->Teams[NewTeamNum]->GetName() : TEXT("<nullptr>") );
+			}
+		}
+		else
+		{
+			DebugMsg += FString::Printf(TEXT("No Game State or Invalid Team (%i vs %i)"), HolderTeamNum, GameState ? GameState->Teams.Num() : -1);
+		}
+
+		bPendingTeamSwitch = false;
+	}
+	else
+	{
+		DebugMsg += TEXT("No Holder");
+	}
 
 	Super::SetHolder(NewHolder);
 
 	if (NewHolder) NewHolder->ResetMaxSpeedPctModifier();
+
+	UE_LOG(UT,Verbose, TEXT("%s"),*DebugMsg);
+
 }
 
 void AUTSCTFFlag::MoveToHome()
@@ -202,7 +226,7 @@ void AUTSCTFFlag::SetTeam(AUTTeamInfo* NewTeam)
 {
 	Super::SetTeam(NewTeam);
 
-	UE_LOG(UT,Log,TEXT("SetTeam %s"), NewTeam == nullptr ? TEXT("NULL") : *FString::Printf(TEXT("%i"), NewTeam->GetTeamNum() ));
+	UE_LOG(UT,Verbose,TEXT("[AUTSCTFFlag::SetTeam] %s"), NewTeam == nullptr ? TEXT("NULL") : *FString::Printf(TEXT("%i"), NewTeam->GetTeamNum() ));
 
 	// Fake the replication
 	if (Role == ROLE_Authority)
@@ -233,6 +257,16 @@ void AUTSCTFFlag::TeamReset()
 
 bool AUTSCTFFlag::CanBePickedUpBy(AUTCharacter* Character)
 {
+
+	if (Character && Character->PlayerState)
+	{
+		UE_LOG(UT,Verbose,TEXT("[UTSCTFFlag::CanBePickedUpBy] %s"), *Character->PlayerState->PlayerName);
+	}
+	else
+	{
+		UE_LOG(UT,Verbose,TEXT("[UTSCTFFlag::CanBePickedUpBy] %s"), Character ? TEXT("No Player State") : TEXT("No Character"));
+	}
+
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	if (GS != NULL && (!GS->IsMatchInProgress() || GS->IsMatchIntermission()))
 	{
