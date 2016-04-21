@@ -110,6 +110,7 @@ void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & O
 	DOREPLIFETIME(AUTCTFGameState, bOneFlagGameMode);
 	DOREPLIFETIME(AUTCTFGameState, bRedToCap);
 	DOREPLIFETIME(AUTCTFGameState, bAttackerLivesLimited);
+	DOREPLIFETIME(AUTCTFGameState, bDefenderLivesLimited);
 	DOREPLIFETIME(AUTCTFGameState, NumRounds);
 }
 
