@@ -1497,6 +1497,15 @@ void SUTServerBrowserPanel::AddServer(TSharedPtr<FServerData> Server)
 
 			return; 
 		}
+
+		if (AllInternetServers[i]->IP == Server->IP && AllInternetServers[i]->Name.Equals(Server->Name, ESearchCase::IgnoreCase))
+		{
+			// Server already exists in the list so update it
+			AllInternetServers[i]->Update(Server);
+			return;
+		}
+
+
 	}
 
 	AllInternetServers.Add(Server);
@@ -1533,10 +1542,17 @@ void SUTServerBrowserPanel::AddHub(TSharedPtr<FServerData> Hub)
 				}
 				return; 
 			}
+
+			if (AllHubServers[i]->IP == Hub->IP && AllHubServers[i]->Name.Equals(Hub->Name, ESearchCase::IgnoreCase))
+			{
+				// Server already exists in the list so update it
+				AllHubServers[i]->Update(Hub);
+				return;
+			}
+
 		}
 	}
 
-	UE_LOG(UT,Log,TEXT("ADDing HUB"));
 	AllHubServers.Add(Hub);
 	FilterHUB(Hub);
 }
