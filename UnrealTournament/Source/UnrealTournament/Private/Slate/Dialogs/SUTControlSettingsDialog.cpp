@@ -247,22 +247,18 @@ void SUTControlSettingsDialog::CreateBinds()
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Move Forward", "Move Forward")))
 		->AddAxisMapping("MoveForward", 1.0f)
 		->AddActionMapping("TapForward")
-		->AddActionMapping("TapForwardRelease")
 		->AddDefaults(EKeys::W, EKeys::Up)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Move Backward", "Move Backward")))
 		->AddAxisMapping("MoveBackward", 1.0f)
 		->AddActionMapping("TapBack")
-		->AddActionMapping("TapBackRelease")
 		->AddDefaults(EKeys::S, EKeys::Down)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Move Left", "Move Left")))
 		->AddAxisMapping("MoveLeft", 1.0f)
 		->AddActionMapping("TapLeft")
-		->AddActionMapping("TapLeftRelease")
 		->AddDefaults(EKeys::A)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Move Right", "Move Right")))
 		->AddAxisMapping("MoveRight", 1.0f)
 		->AddActionMapping("TapRight")
-		->AddActionMapping("TapRightRelease")
 		->AddDefaults(EKeys::D)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Turn Left", "Turn Left")))
 		->AddAxisMapping("TurnRate", -1.0f)

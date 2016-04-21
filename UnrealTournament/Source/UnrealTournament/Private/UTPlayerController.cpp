@@ -329,10 +329,10 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("HoldDodge", IE_Pressed, this, &AUTPlayerController::HoldDodge);
 	InputComponent->BindAction("HoldDodge", IE_Released, this, &AUTPlayerController::ReleaseDodge);
 
-	InputComponent->BindAction("TapLeftRelease", IE_Released, this, &AUTPlayerController::OnTapLeftRelease);
-	InputComponent->BindAction("TapRightRelease", IE_Released, this, &AUTPlayerController::OnTapRightRelease);
-	InputComponent->BindAction("TapForwardRelease", IE_Released, this, &AUTPlayerController::OnTapForwardRelease);
-	InputComponent->BindAction("TapBackRelease", IE_Released, this, &AUTPlayerController::OnTapBackRelease);
+	InputComponent->BindAction("TapLeft", IE_Released, this, &AUTPlayerController::OnTapLeftRelease);
+	InputComponent->BindAction("TapRight", IE_Released, this, &AUTPlayerController::OnTapRightRelease);
+	InputComponent->BindAction("TapForward", IE_Released, this, &AUTPlayerController::OnTapForwardRelease);
+	InputComponent->BindAction("TapBack", IE_Released, this, &AUTPlayerController::OnTapBackRelease);
 
 	InputComponent->BindAction("StartActivatePowerup", IE_Pressed, this, &AUTPlayerController::OnActivatePowerupPress);
 
