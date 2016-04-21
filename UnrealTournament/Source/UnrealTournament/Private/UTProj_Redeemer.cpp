@@ -152,6 +152,7 @@ void AUTProj_Redeemer::Explode_Implementation(const FVector& HitLocation, const 
 {
 	if (!bExploded)
 	{
+		bExploded = true;
 		if (bDetonated)
 		{
 			Detonate(NULL);
@@ -172,7 +173,6 @@ void AUTProj_Redeemer::Explode_Implementation(const FVector& HitLocation, const 
 		CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		ProjectileMovement->SetActive(false);
 
-		bExploded = true;
 		TArray<USceneComponent*> Components;
 		GetComponents<USceneComponent>(Components);
 		for (int32 i = 0; i < Components.Num(); i++)
