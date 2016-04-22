@@ -18,8 +18,8 @@ UUTCTFScoreboard::UUTCTFScoreboard(const FObjectInitializer& ObjectInitializer)
 	PeriodText[2] = NSLOCTEXT("UTScoreboard", "Overtime", "Overtime");
 
 	ColumnHeaderScoreX = 0.65;
-	ColumnHeaderCapsX = 0.73;
-	ColumnHeaderAssistsX = 0.79;
+	ColumnHeaderCapsX = 0.735;
+	ColumnHeaderAssistsX = 0.7925;
 	ColumnHeaderReturnsX = 0.85;
 	ReadyX = 0.7f;
 	NumPages = 3;
