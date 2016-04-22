@@ -14,13 +14,26 @@ UUTTeamScoreboard::UUTTeamScoreboard(const class FObjectInitializer& ObjectIniti
 	CenterBuffer = 520.f;
 }
 
+void UUTTeamScoreboard::Draw_Implementation(float RenderDelta)
+{
+	Super::Draw_Implementation(RenderDelta);
+
+	// draw minimap
+	if ((UTHUDOwner->ScoreboardPage == 0) && UTGameState && UTGameState->IsMatchInProgress() && !UTGameState->IsMatchIntermission() && UTHUDOwner->ShouldDrawMinimap())
+	{
+		float MapScale = 0.65f;
+		const float MapSize = float(Canvas->SizeY) * MapScale;
+		UTHUDOwner->DrawMinimap(FColor(192, 192, 192, 220), MapSize, FVector2D(0.5f*Canvas->ClipX - 0.5f*MapSize, 0.6f*Canvas->ClipY - 0.5f*MapSize));
+	}
+}
+
 void UUTTeamScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
 {
 	if (UTGameState == NULL || UTGameState->Teams.Num() < 2 || UTGameState->Teams[0] == NULL || UTGameState->Teams[1] == NULL) return;
 
 	float EdgeSize = 10.f * RenderScale;
 	float LeftEdge = EdgeSize;
-	float Width = 0.5f * (Size.X - CenterBuffer) * RenderScale;
+	float Width = 0.5f * (Size.X - 0.8f*CenterBuffer) * RenderScale;
 
 	float FrontSize = 35.f * RenderScale;
 	float EndSize = 16.f * RenderScale;

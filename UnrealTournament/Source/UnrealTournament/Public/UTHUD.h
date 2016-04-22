@@ -395,6 +395,8 @@ public:
 	UPROPERTY()
 	int32 ScoreboardPage;
 
+	virtual bool ShouldDrawMinimap();
+
 protected:
 
 	// We cache the team color so we only have to look it up once at the start of the render pass
@@ -404,7 +406,6 @@ protected:
 	UPROPERTY()
 	class UUTScoreboard* MyUTScoreboard;
 
-	virtual bool ShouldDrawMinimap();
 
 public:
 	// Takes a raw widget string and tries to build a widget from it.  It supports embedded JSON objects that define the widget as follows:

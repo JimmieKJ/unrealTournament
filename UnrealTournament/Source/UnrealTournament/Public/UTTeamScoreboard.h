@@ -52,5 +52,7 @@ protected:
 	void SwitchToScoringPlaysPage();
 	virtual void OpenScoringPlaysPage() override;
 	virtual void DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom) override;
+	virtual void Draw_Implementation(float RenderDelta);
+
 };
 
