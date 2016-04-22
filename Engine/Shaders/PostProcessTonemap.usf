@@ -95,14 +95,14 @@ float2 ViewportPosToUV(float2 ViewportPos)
 
 // vertex shader entry point
 void MainVS(
-	in float4 InPosition : ATTRIBUTE0,
-	in float2 InTexCoord : ATTRIBUTE1,
-	out noperspective float2 OutTexCoord : TEXCOORD0,
-	out noperspective float3 OutExposureScaleVignette : TEXCOORD1,
-	out noperspective float4 OutGrainUV : TEXCOORD2,
-	out noperspective float4 OutFringe : TEXCOORD3,
-	out noperspective float4 OutFullViewUV : TEXCOORD4,
-	out float4 OutPosition : SV_POSITION
+	in 					float4 InPosition 				: ATTRIBUTE0,
+	in 					float2 InTexCoord 				: ATTRIBUTE1,
+	out noperspective 	float2 OutTexCoord 				: TEXCOORD0,
+	out noperspective 	float3 OutExposureScaleVignette : TEXCOORD1,
+	out noperspective 	float4 OutGrainUV 				: TEXCOORD2,
+	out noperspective 	float4 OutFringe 				: TEXCOORD3,
+	out noperspective 	float4 OutFullViewUV 			: TEXCOORD4,
+	out 				float4 OutPosition 				: SV_POSITION
 	)
 {
 	DrawRectangle(InPosition, InTexCoord, OutPosition, OutTexCoord.xy);

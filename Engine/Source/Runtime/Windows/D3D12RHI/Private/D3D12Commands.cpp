@@ -533,7 +533,7 @@ void FD3D12CommandContext::RHISetShaderTexture(FVertexShaderRHIParamRef VertexSh
 
 	VALIDATE_BOUND_SHADER(VertexShaderRHI);
 
-	FD3D12TextureBase* NewTexture = GetD3D11TextureFromRHITexture(NewTextureRHI);
+	FD3D12TextureBase* NewTexture = GetD3D12TextureFromRHITexture(NewTextureRHI);
 	FD3D12ShaderResourceView* ShaderResourceView = NewTexture ? NewTexture->GetShaderResourceView() : NULL;
 	FD3D12ResourceLocation* ResourceLocation = NewTexture ? NewTexture->ResourceLocation : nullptr;
 
@@ -551,7 +551,7 @@ void FD3D12CommandContext::RHISetShaderTexture(FHullShaderRHIParamRef HullShader
 	uint32 Start = FPlatformTime::Cycles();
 	VALIDATE_BOUND_SHADER(HullShaderRHI);
 
-	FD3D12TextureBase* NewTexture = GetD3D11TextureFromRHITexture(NewTextureRHI);
+	FD3D12TextureBase* NewTexture = GetD3D12TextureFromRHITexture(NewTextureRHI);
 	FD3D12ShaderResourceView* ShaderResourceView = NewTexture ? NewTexture->GetShaderResourceView() : NULL;
 	FD3D12ResourceLocation* ResourceLocation = NewTexture ? NewTexture->ResourceLocation : nullptr;
 
@@ -570,7 +570,7 @@ void FD3D12CommandContext::RHISetShaderTexture(FDomainShaderRHIParamRef DomainSh
 
 	VALIDATE_BOUND_SHADER(DomainShaderRHI);
 
-	FD3D12TextureBase* NewTexture = GetD3D11TextureFromRHITexture(NewTextureRHI);
+	FD3D12TextureBase* NewTexture = GetD3D12TextureFromRHITexture(NewTextureRHI);
 	FD3D12ShaderResourceView* ShaderResourceView = NewTexture ? NewTexture->GetShaderResourceView() : NULL;
 	FD3D12ResourceLocation* ResourceLocation = NewTexture ? NewTexture->ResourceLocation : nullptr;
 
@@ -589,7 +589,7 @@ void FD3D12CommandContext::RHISetShaderTexture(FGeometryShaderRHIParamRef Geomet
 
 	VALIDATE_BOUND_SHADER(GeometryShaderRHI);
 
-	FD3D12TextureBase* NewTexture = GetD3D11TextureFromRHITexture(NewTextureRHI);
+	FD3D12TextureBase* NewTexture = GetD3D12TextureFromRHITexture(NewTextureRHI);
 	FD3D12ShaderResourceView* ShaderResourceView = NewTexture ? NewTexture->GetShaderResourceView() : NULL;
 	FD3D12ResourceLocation* ResourceLocation = NewTexture ? NewTexture->ResourceLocation : nullptr;
 
@@ -608,7 +608,7 @@ void FD3D12CommandContext::RHISetShaderTexture(FPixelShaderRHIParamRef PixelShad
 
 	VALIDATE_BOUND_SHADER(PixelShaderRHI);
 
-	FD3D12TextureBase* NewTexture = GetD3D11TextureFromRHITexture(NewTextureRHI);
+	FD3D12TextureBase* NewTexture = GetD3D12TextureFromRHITexture(NewTextureRHI);
 	FD3D12ShaderResourceView* ShaderResourceView = NewTexture ? NewTexture->GetShaderResourceView() : NULL;
 	FD3D12ResourceLocation* ResourceLocation = NewTexture ? NewTexture->ResourceLocation : nullptr;
 
@@ -627,7 +627,7 @@ void FD3D12CommandContext::RHISetShaderTexture(FComputeShaderRHIParamRef Compute
 
 	//VALIDATE_BOUND_SHADER(ComputeShaderRHI);
 
-	FD3D12TextureBase* NewTexture = GetD3D11TextureFromRHITexture(NewTextureRHI);
+	FD3D12TextureBase* NewTexture = GetD3D12TextureFromRHITexture(NewTextureRHI);
 	FD3D12ShaderResourceView* ShaderResourceView = NewTexture ? NewTexture->GetShaderResourceView() : NULL;
 	FD3D12ResourceLocation* ResourceLocation = NewTexture ? NewTexture->ResourceLocation : nullptr;
 
@@ -1088,7 +1088,7 @@ void FD3D12CommandContext::RHISetRenderTargets(
 	const FUnorderedAccessViewRHIParamRef* UAVs
 	)
 {
-	FD3D12TextureBase* NewDepthStencilTarget = GetD3D11TextureFromRHITexture(NewDepthStencilTargetRHI ? NewDepthStencilTargetRHI->Texture : nullptr);
+	FD3D12TextureBase* NewDepthStencilTarget = GetD3D12TextureFromRHITexture(NewDepthStencilTargetRHI ? NewDepthStencilTargetRHI->Texture : nullptr);
 
 #if CHECK_SRV_TRANSITIONS
 	// if the depth buffer is writable then it counts as unresolved.
@@ -1137,7 +1137,7 @@ void FD3D12CommandContext::RHISetRenderTargets(
 		{
 			int32 RTMipIndex = NewRenderTargetsRHI[RenderTargetIndex].MipIndex;
 			int32 RTSliceIndex = NewRenderTargetsRHI[RenderTargetIndex].ArraySliceIndex;
-			FD3D12TextureBase* NewRenderTarget = GetD3D11TextureFromRHITexture(NewRenderTargetsRHI[RenderTargetIndex].Texture);
+			FD3D12TextureBase* NewRenderTarget = GetD3D12TextureFromRHITexture(NewRenderTargetsRHI[RenderTargetIndex].Texture);
 			RenderTargetView = NewRenderTarget->GetRenderTargetView(RTMipIndex, RTSliceIndex);
 
 			ensureMsgf(RenderTargetView, TEXT("Texture being set as render target has no RTV"));
@@ -1502,14 +1502,16 @@ FORCEINLINE void SetResource(FD3D12CommandContext& CmdContext, uint32 BindIndex,
 }
 
 template <EShaderFrequency Frequency>
-FORCEINLINE void SetResource(FD3D12CommandContext& CmdContext, uint32 BindIndex, FD3D12ResourceLocation* RESTRICT ShaderResource, FD3D12SamplerState* RESTRICT SamplerState)
+FORCEINLINE void SetResource(FD3D12CommandContext& CmdContext, uint32 BindIndex, FD3D12SamplerState* RESTRICT SamplerState)
 {
 	CmdContext.StateCache.SetSamplerState<Frequency>(SamplerState, BindIndex);
 }
 
-template <class D3DResourceType, EShaderFrequency ShaderFrequency>
-inline int32 SetShaderResourcesFromBuffer(FD3D12CommandContext& CmdContext, FD3D12UniformBuffer* RESTRICT Buffer, const uint32 * RESTRICT ResourceMap, int32 BufferIndex)
+template <EShaderFrequency ShaderFrequency>
+inline int32 SetShaderResourcesFromBuffer_Surface(FD3D12CommandContext& CmdContext, FD3D12UniformBuffer* RESTRICT Buffer, const uint32 * RESTRICT ResourceMap, int32 BufferIndex)
 {
+	const TRefCountPtr<FRHIResource>* RESTRICT Resources = Buffer->ResourceTable.GetData();
+	float CurrentTime = FApp::GetCurrentTime();
 	int32 NumSetCalls = 0;
 	uint32 BufferOffset = ResourceMap[BufferIndex];
 	if (BufferOffset > 0)
@@ -1522,11 +1524,69 @@ inline int32 SetShaderResourcesFromBuffer(FD3D12CommandContext& CmdContext, FD3D
 			const uint16 ResourceIndex = FRHIResourceTableEntry::GetResourceIndex(ResourceInfo);
 			const uint8 BindIndex = FRHIResourceTableEntry::GetBindIndex(ResourceInfo);
 
-			// todo: could coalesce adjacent bound resources.
-			FD3D12UniformBuffer::FResourcePair* RESTRICT ResourcePair = &Buffer->RawResourceTable[ResourceIndex];
-			FD3D12ResourceLocation* ShaderResource = ResourcePair->ShaderResourceLocation;
-			D3DResourceType* D3D12Resource = (D3DResourceType*)ResourcePair->D3D11Resource;
-			SetResource<ShaderFrequency>(CmdContext, BindIndex, ShaderResource, D3D12Resource);
+			FD3D12BaseShaderResource* ShaderResource = nullptr;
+			FD3D12ShaderResourceView* D3D12Resource = nullptr;
+
+			FRHITexture* TextureRHI = (FRHITexture*)Resources[ResourceIndex].GetReference();
+			TextureRHI->SetLastRenderTime(CurrentTime);
+
+			FD3D12TextureBase* TextureD3D12 = GetD3D12TextureFromRHITexture(TextureRHI);
+			ShaderResource = TextureD3D12->GetBaseShaderResource();
+			D3D12Resource = TextureD3D12->GetShaderResourceView();
+
+			SetResource<ShaderFrequency>(CmdContext, BindIndex, ShaderResource->ResourceLocation, D3D12Resource);
+			NumSetCalls++;
+			ResourceInfo = *ResourceInfos++;
+		} while (FRHIResourceTableEntry::GetUniformBufferIndex(ResourceInfo) == BufferIndex);
+	}
+	return NumSetCalls;
+}
+
+template <EShaderFrequency ShaderFrequency>
+inline int32 SetShaderResourcesFromBuffer_SRV(FD3D12CommandContext& CmdContext, FD3D12UniformBuffer* RESTRICT Buffer, const uint32 * RESTRICT ResourceMap, int32 BufferIndex)
+{
+	const TRefCountPtr<FRHIResource>* RESTRICT Resources = Buffer->ResourceTable.GetData();
+	int32 NumSetCalls = 0;
+	uint32 BufferOffset = ResourceMap[BufferIndex];
+	if (BufferOffset > 0)
+	{
+		const uint32* RESTRICT ResourceInfos = &ResourceMap[BufferOffset];
+		uint32 ResourceInfo = *ResourceInfos++;
+		do
+		{
+			checkSlow(FRHIResourceTableEntry::GetUniformBufferIndex(ResourceInfo) == BufferIndex);
+			const uint16 ResourceIndex = FRHIResourceTableEntry::GetResourceIndex(ResourceInfo);
+			const uint8 BindIndex = FRHIResourceTableEntry::GetBindIndex(ResourceInfo);
+
+			FD3D12ShaderResourceView* ShaderResourceViewRHI = (FD3D12ShaderResourceView*)Resources[ResourceIndex].GetReference();
+
+			SetResource<ShaderFrequency>(CmdContext, BindIndex, ShaderResourceViewRHI->GetResourceLocation(), ShaderResourceViewRHI);
+			NumSetCalls++;
+			ResourceInfo = *ResourceInfos++;
+		} while (FRHIResourceTableEntry::GetUniformBufferIndex(ResourceInfo) == BufferIndex);
+	}
+	return NumSetCalls;
+}
+
+template <EShaderFrequency ShaderFrequency>
+inline int32 SetShaderResourcesFromBuffer_Sampler(FD3D12CommandContext& CmdContext, FD3D12UniformBuffer* RESTRICT Buffer, const uint32 * RESTRICT ResourceMap, int32 BufferIndex)
+{
+	const TRefCountPtr<FRHIResource>* RESTRICT Resources = Buffer->ResourceTable.GetData();
+	int32 NumSetCalls = 0;
+	uint32 BufferOffset = ResourceMap[BufferIndex];
+	if (BufferOffset > 0)
+	{
+		const uint32* RESTRICT ResourceInfos = &ResourceMap[BufferOffset];
+		uint32 ResourceInfo = *ResourceInfos++;
+		do
+		{
+			checkSlow(FRHIResourceTableEntry::GetUniformBufferIndex(ResourceInfo) == BufferIndex);
+			const uint16 ResourceIndex = FRHIResourceTableEntry::GetResourceIndex(ResourceInfo);
+			const uint8 BindIndex = FRHIResourceTableEntry::GetBindIndex(ResourceInfo);
+
+			FD3D12SamplerState* D3D12Resource = (FD3D12SamplerState*)Resources[ResourceIndex].GetReference();
+
+			SetResource<ShaderFrequency>(CmdContext, BindIndex, D3D12Resource);
 			NumSetCalls++;
 			ResourceInfo = *ResourceInfos++;
 		} while (FRHIResourceTableEntry::GetUniformBufferIndex(ResourceInfo) == BufferIndex);
@@ -1552,11 +1612,11 @@ void FD3D12CommandContext::SetResourcesFromTables(const ShaderType* RESTRICT Sha
 		check(Buffer);
 		check(BufferIndex < Shader->ShaderResourceTable.ResourceTableLayoutHashes.Num());
 		check(Buffer->GetLayout().GetHash() == Shader->ShaderResourceTable.ResourceTableLayoutHashes[BufferIndex]);
-		Buffer->CacheResources(OwningRHI.GetResourceTableFrameCounter());
 
 		// todo: could make this two pass: gather then set
-		NumSetCalls += SetShaderResourcesFromBuffer<FD3D12ShaderResourceView, (EShaderFrequency)ShaderType::StaticFrequency>(*this, Buffer, Shader->ShaderResourceTable.ShaderResourceViewMap.GetData(), BufferIndex);
-		NumSetCalls += SetShaderResourcesFromBuffer<FD3D12SamplerState, (EShaderFrequency)ShaderType::StaticFrequency>(*this, Buffer, Shader->ShaderResourceTable.SamplerMap.GetData(), BufferIndex);
+		NumSetCalls += SetShaderResourcesFromBuffer_Surface<(EShaderFrequency)ShaderType::StaticFrequency>(*this, Buffer, Shader->ShaderResourceTable.TextureMap.GetData(), BufferIndex);
+		NumSetCalls += SetShaderResourcesFromBuffer_SRV<(EShaderFrequency)ShaderType::StaticFrequency>(*this, Buffer, Shader->ShaderResourceTable.ShaderResourceViewMap.GetData(), BufferIndex);
+		NumSetCalls += SetShaderResourcesFromBuffer_Sampler<(EShaderFrequency)ShaderType::StaticFrequency>(*this, Buffer, Shader->ShaderResourceTable.SamplerMap.GetData(), BufferIndex);
 	}
 	DirtyUniformBuffers[ShaderType::StaticFrequency] = 0;
 	OwningRHI.IncrementSetTextureInTableCalls(NumSetCalls);

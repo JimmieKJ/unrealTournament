@@ -56,7 +56,7 @@ FUnorderedAccessViewRHIRef FD3D12DynamicRHI::RHICreateUnorderedAccessView(FStruc
 
 FUnorderedAccessViewRHIRef FD3D12DynamicRHI::RHICreateUnorderedAccessView(FTextureRHIParamRef TextureRHI, uint32 MipLevel)
 {
-	FD3D12TextureBase* Texture = GetD3D11TextureFromRHITexture(TextureRHI);
+	FD3D12TextureBase* Texture = GetD3D12TextureFromRHITexture(TextureRHI);
 
 	D3D12_UNORDERED_ACCESS_VIEW_DESC UAVDesc ={};
 

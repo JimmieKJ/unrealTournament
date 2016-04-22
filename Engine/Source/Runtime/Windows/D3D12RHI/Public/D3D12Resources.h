@@ -2881,13 +2881,19 @@ public:
 	bool IsCubemap() const { return bCubemap; }
 
 	/** FRHITexture override.  See FRHITexture::GetNativeResource() */
-	virtual void* GetNativeResource() const override
+	virtual void* GetNativeResource() const override final
 	{
 		return GetResource();
 	}
-	virtual void* GetNativeShaderResourceView() const override
+
+	virtual void* GetNativeShaderResourceView() const override final
 	{
 		return GetShaderResourceView();
+	}
+
+	virtual void* GetTextureBaseRHI() override final
+	{
+		return static_cast<FD3D12TextureBase*>(this);
 	}
 
 	// Modifiers.
@@ -2962,6 +2968,11 @@ public:
 	// Accessors.
 	FD3D12Resource* GetResource() const { return (FD3D12Resource*)FD3D12TextureBase::GetResource(); }
 
+	virtual void* GetTextureBaseRHI() override final
+	{
+		return static_cast<FD3D12TextureBase*>(this);
+	}
+
 	// IRefCountedObject interface.
 	virtual uint32 AddRef() const
 	{
@@ -3032,6 +3043,11 @@ public:
 		FRHITextureReference::SetReferencedTexture(InTexture);
 	}
 
+	virtual void* GetTextureBaseRHI() override final
+	{
+		return static_cast<FD3D12TextureBase*>(this);
+	}
+
 	// IRefCountedObject interface.
 	virtual uint32 AddRef() const
 	{
@@ -3047,38 +3063,17 @@ public:
 	}
 };
 
-/** Given a pointer to a RHI texture that was created by the D3D11 RHI, returns a pointer to the FD3D12TextureBase it encapsulates. */
-inline FD3D12TextureBase* GetD3D11TextureFromRHITexture(FRHITexture* Texture)
+/** Given a pointer to a RHI texture that was created by the D3D21 RHI, returns a pointer to the FD3D12TextureBase it encapsulates. */
+FORCEINLINE FD3D12TextureBase* GetD3D12TextureFromRHITexture(FRHITexture* Texture)
 {
 	if (!Texture)
 	{
 		return NULL;
 	}
-	else if (Texture->GetTexture2D())
-	{
-		return static_cast<FD3D12Texture2D*>(Texture);
-	}
-	else if (Texture->GetTextureReference())
-	{
-		return static_cast<FD3D12TextureReference*>(Texture);
-	}
-	else if (Texture->GetTexture2DArray())
-	{
-		return static_cast<FD3D12Texture2DArray*>(Texture);
-	}
-	else if (Texture->GetTexture3D())
-	{
-		return static_cast<FD3D12Texture3D*>(Texture);
-	}
-	else if (Texture->GetTextureCube())
-	{
-		return static_cast<FD3D12TextureCube*>(Texture);
-	}
-	else
-	{
-		UE_LOG(LogD3D12RHI, Fatal, TEXT("Unknown RHI texture type"));
-		return NULL;
-	}
+
+	FD3D12TextureBase* Result((FD3D12TextureBase*)Texture->GetTextureBaseRHI());
+	check(Result);
+	return Result;
 }
 
 /** D3D12 occlusion query */
@@ -3161,20 +3156,7 @@ public:
 
 	/** Resource table containing RHI references. */
 	TArray<TRefCountPtr<FRHIResource> > ResourceTable;
-
-	/** Cached resources need to retain the associated shader resource for bookkeeping purposes. */
-	struct FResourcePair
-	{
-		FD3D12ResourceLocation* ShaderResourceLocation;
-		IUnknown* D3D11Resource;
-	};
-
-	/** Raw resource table, cached once per frame. */
-	TArray<FResourcePair> RawResourceTable;
-
-	/** The frame in which RawResourceTable was last cached. */
-	uint32 LastCachedFrame;
-
+	
 	/** Index of the descriptor in the offline heap */
 	uint32 OfflineHeapIndex;
 
@@ -3182,7 +3164,6 @@ public:
 	FD3D12UniformBuffer(class FD3D12Device* InParent, const FRHIUniformBufferLayout& InLayout, FD3D12ResourceLocation* InResourceLocation, const FRingAllocation& InRingAllocation, uint64 InSequenceNumber)
 		: FRHIUniformBuffer(InLayout)
 		, ResourceLocation(InResourceLocation)
-		, LastCachedFrame((uint32)-1)
 		, OfflineHeapIndex(UINT_MAX)
 		, SequenceNumber(InSequenceNumber)
 		, FD3D12DeviceChild(InParent)
@@ -3192,20 +3173,8 @@ public:
 
 	virtual ~FD3D12UniformBuffer();
 
-	/** Cache resources if needed. */
-	inline void CacheResources(uint32 InFrameCounter)
-	{
-		if (InFrameCounter == INDEX_NONE || LastCachedFrame != InFrameCounter)
-		{
-			CacheResourcesInternal();
-			LastCachedFrame = InFrameCounter;
-		}
-	}
-
 private:
 	class FD3D12DynamicRHI* D3D12RHI;
-	/** Actually cache resources. */
-	void CacheResourcesInternal();
 };
 
 /** Index buffer resource class that stores stride information. */

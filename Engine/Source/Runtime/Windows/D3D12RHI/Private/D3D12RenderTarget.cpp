@@ -622,7 +622,7 @@ static uint32 ComputeBytesPerPixel(DXGI_FORMAT Format)
 TRefCountPtr<FD3D12Resource> FD3D12DynamicRHI::GetStagingTexture(FTextureRHIParamRef TextureRHI, FIntRect InRect, FIntRect& StagingRectOUT, FReadSurfaceDataFlags InFlags, D3D12_PLACED_SUBRESOURCE_FOOTPRINT &readbackHeapDesc)
 {
 	FD3D12CommandListHandle& hCommandList = GetRHIDevice()->GetDefaultCommandContext().CommandListHandle;
-	FD3D12TextureBase* Texture = GetD3D11TextureFromRHITexture(TextureRHI);
+	FD3D12TextureBase* Texture = GetD3D12TextureFromRHITexture(TextureRHI);
 	D3D12_RESOURCE_DESC const& SourceDesc = Texture->GetResource()->GetDesc();
 
 	// Ensure we're dealing with a Texture2D, which the rest of this function already assumes
@@ -720,7 +720,7 @@ TRefCountPtr<FD3D12Resource> FD3D12DynamicRHI::GetStagingTexture(FTextureRHIPara
 
 void FD3D12DynamicRHI::ReadSurfaceDataNoMSAARaw(FTextureRHIParamRef TextureRHI, FIntRect InRect, TArray<uint8>& OutData, FReadSurfaceDataFlags InFlags)
 {
-	FD3D12TextureBase* Texture = GetD3D11TextureFromRHITexture(TextureRHI);
+	FD3D12TextureBase* Texture = GetD3D12TextureFromRHITexture(TextureRHI);
 
 	const uint32 SizeX = InRect.Width();
 	const uint32 SizeY = InRect.Height();
@@ -1057,7 +1057,7 @@ void FD3D12DynamicRHI::RHIReadSurfaceData(FTextureRHIParamRef TextureRHI, FIntRe
 {
 	TArray<uint8> OutDataRaw;
 
-	FD3D12TextureBase* Texture = GetD3D11TextureFromRHITexture(TextureRHI);
+	FD3D12TextureBase* Texture = GetD3D12TextureFromRHITexture(TextureRHI);
 
 	// Wait for the command list if needed
 	FD3D12Texture2D* DestTexture2D = static_cast<FD3D12Texture2D*>(TextureRHI->GetTexture2D());
@@ -1109,7 +1109,7 @@ void FD3D12DynamicRHI::ReadSurfaceDataMSAARaw(FRHICommandList_RecursiveHazardous
 {
 	FD3D12CommandContext& DefaultContext = GetRHIDevice()->GetDefaultCommandContext();
 	FD3D12CommandListHandle& hCommandList = DefaultContext.CommandListHandle;
-	FD3D12TextureBase* Texture = GetD3D11TextureFromRHITexture(TextureRHI);
+	FD3D12TextureBase* Texture = GetD3D12TextureFromRHITexture(TextureRHI);
 
 	const uint32 SizeX = InRect.Width();
 	const uint32 SizeY = InRect.Height();
@@ -1252,7 +1252,7 @@ void FD3D12DynamicRHI::ReadSurfaceDataMSAARaw(FRHICommandList_RecursiveHazardous
 
 void FD3D12DynamicRHI::RHIMapStagingSurface(FTextureRHIParamRef TextureRHI, void*& OutData, int32& OutWidth, int32& OutHeight)
 {
-	FD3D12Resource* Texture = GetD3D11TextureFromRHITexture(TextureRHI)->GetResource();
+	FD3D12Resource* Texture = GetD3D12TextureFromRHITexture(TextureRHI)->GetResource();
 
 	DXGI_FORMAT Format = (DXGI_FORMAT)GPixelFormats[TextureRHI->GetFormat()].PlatformFormat;
 
@@ -1303,7 +1303,7 @@ void FD3D12DynamicRHI::RHIMapStagingSurface(FTextureRHIParamRef TextureRHI, void
 
 void FD3D12DynamicRHI::RHIUnmapStagingSurface(FTextureRHIParamRef TextureRHI)
 {
-	ID3D12Resource* Texture = GetD3D11TextureFromRHITexture(TextureRHI)->GetResource()->GetResource();
+	ID3D12Resource* Texture = GetD3D12TextureFromRHITexture(TextureRHI)->GetResource()->GetResource();
 
 	Texture->Unmap(0, nullptr);
 }
@@ -1312,7 +1312,7 @@ void FD3D12DynamicRHI::RHIReadSurfaceFloatData(FTextureRHIParamRef TextureRHI, F
 {
 	FD3D12CommandContext& DefaultContext = GetRHIDevice()->GetDefaultCommandContext();
 	FD3D12CommandListHandle& hCommandList = DefaultContext.CommandListHandle;
-	FD3D12TextureBase* Texture = GetD3D11TextureFromRHITexture(TextureRHI);
+	FD3D12TextureBase* Texture = GetD3D12TextureFromRHITexture(TextureRHI);
 
 	uint32 SizeX = InRect.Width();
 	uint32 SizeY = InRect.Height();
@@ -1432,7 +1432,7 @@ void FD3D12DynamicRHI::RHIRead3DSurfaceFloatData(FTextureRHIParamRef TextureRHI,
 {
 	FD3D12CommandContext& DefaultContext = GetRHIDevice()->GetDefaultCommandContext();
 	FD3D12CommandListHandle& hCommandList = DefaultContext.CommandListHandle;
-	FD3D12TextureBase* Texture = GetD3D11TextureFromRHITexture(TextureRHI);
+	FD3D12TextureBase* Texture = GetD3D12TextureFromRHITexture(TextureRHI);
 
 	uint32 SizeX = InRect.Width();
 	uint32 SizeY = InRect.Height();

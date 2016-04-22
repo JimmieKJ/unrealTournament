@@ -1438,7 +1438,7 @@ void FD3D12DynamicRHI::RHIGenerateMips(FTextureRHIParamRef TextureRHI)
 {
 	// MS: GenerateMips has been removed in D3D12.  However, this code path isn't executed in 
 	// available UE content, so there is no need to re-implement GenerateMips for now.
-	FD3D12TextureBase* Texture = GetD3D11TextureFromRHITexture(TextureRHI);
+	FD3D12TextureBase* Texture = GetD3D12TextureFromRHITexture(TextureRHI);
 	// Surface must have been created with D3D11_BIND_RENDER_TARGET for GenerateMips to work
 	check(Texture->GetShaderResourceView() && Texture->GetRenderTargetView(0, -1));
 	GPUProfilingData.RegisterGPUWork(0);
@@ -1457,7 +1457,7 @@ uint32 FD3D12DynamicRHI::RHIComputeMemorySize(FTextureRHIParamRef TextureRHI)
 		return 0;
 	}
 
-	FD3D12TextureBase* Texture = GetD3D11TextureFromRHITexture(TextureRHI);
+	FD3D12TextureBase* Texture = GetD3D12TextureFromRHITexture(TextureRHI);
 	return Texture->GetMemorySize();
 }
 
@@ -1964,7 +1964,7 @@ void FD3D12CommandContext::RHIUpdateTextureReference(FTextureReferenceRHIParamRe
 		FD3D12ShaderResourceView* NewSRV = NULL;
 		if (NewTextureRHI)
 		{
-			NewTexture = GetD3D11TextureFromRHITexture(NewTextureRHI);
+			NewTexture = GetD3D12TextureFromRHITexture(NewTextureRHI);
 			if (NewTexture)
 			{
 				NewSRV = NewTexture->GetShaderResourceView();
