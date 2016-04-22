@@ -1623,7 +1623,7 @@ void AUTGameMode::StartMatch()
 	}
 	else
 	{
-		if (bPlayPlayerIntro)
+		if (bPlayPlayerIntro && (NumPlayers+NumBots > 1))
 		{
 			SetMatchState(MatchState::PlayerIntro);
 		}
