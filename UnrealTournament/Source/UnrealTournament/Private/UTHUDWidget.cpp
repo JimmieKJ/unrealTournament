@@ -518,7 +518,6 @@ FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, bool
 			&& (Font != UTHUDOwner->MediumFont)
 			&& (Font != UTHUDOwner->LargeFont)
 			&& (Font != UTHUDOwner->HugeFont)
-			&& (Font != UTHUDOwner->ScoreFont)
 			&& (Font != UTHUDOwner->NumberFont))
 		{
 			UE_LOG(UT, Warning, TEXT("%s draw text with font %s"), *GetName(), *Font->GetName());

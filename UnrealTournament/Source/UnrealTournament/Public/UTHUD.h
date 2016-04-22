@@ -103,10 +103,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	class UFont* HugeFont;
 
-	// The score font to use
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
-	class UFont* ScoreFont;
-
 	// The font that only contains numbers
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	class UFont* NumberFont;

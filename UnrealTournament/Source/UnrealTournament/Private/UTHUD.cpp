@@ -45,9 +45,6 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	static ConstructorHelpers::FObjectFinder<UFont> HFont(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fntScoreboard_Huge.fntScoreboard_Huge'"));
 	HugeFont = HFont.Object;
 
-	static ConstructorHelpers::FObjectFinder<UFont> ScFont(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fntScoreboard_Score.fntScoreboard_Score'"));
-	ScoreFont = ScFont.Object;
-
 	// non-proportional FIXMESTEVE need better font and just numbers
 	static ConstructorHelpers::FObjectFinder<UFont> CFont(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fntScoreboard_Clock.fntScoreboard_Clock'"));
 	NumberFont = CFont.Object;
@@ -483,8 +480,6 @@ void AUTHUD::CacheFonts()
 	Canvas->DrawText(MediumFont, MessageText, 0.f, YPos, 0.1f, 0.1f, TextRenderInfo);
 	//YPos += 0.1f*Canvas->ClipY;
 	Canvas->DrawText(LargeFont, MessageText, 0.f, YPos, 0.1f, 0.1f, TextRenderInfo);
-	//YPos += 0.1f*Canvas->ClipY;
-	Canvas->DrawText(ScoreFont, MessageText, 0.f, YPos, 0.1f, 0.1f, TextRenderInfo);
 	//YPos += 0.1f*Canvas->ClipY;
 	Canvas->DrawText(NumberFont, MessageText, 0.f, YPos, 0.1f, 0.1f, TextRenderInfo);
 	//YPos += 0.1f*Canvas->ClipY;
