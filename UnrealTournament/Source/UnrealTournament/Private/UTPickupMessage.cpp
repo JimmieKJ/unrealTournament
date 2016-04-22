@@ -18,6 +18,7 @@ UUTPickupMessage::UUTPickupMessage(const class FObjectInitializer& ObjectInitial
 	MessageSlot = FName(TEXT("PickupMessage"));
 	Lifetime = 1.2f;
 	FontSizeIndex = 0;
+	bDrawAtIntermission = false;
 
 	bIsUnique = true;
 	PendingWeaponPickupText = NSLOCTEXT("PickupMessage", "PendingWeaponPickup", "");
