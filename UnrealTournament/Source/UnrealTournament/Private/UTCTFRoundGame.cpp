@@ -87,7 +87,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	RollingSpawnStartTime = 0.f;
 	bRollingAttackerSpawns = true;
 	ForceRespawnTime = 0.1f;
-	MaxRespawnWaitTime = 7.f;
+	LimitedRespawnWaitTime = 6.f;
 
 	MainScoreboardDisplayTime = 7.5f;
 	EndScoreboardDelay = 6.f;
@@ -740,14 +740,11 @@ void AUTCTFRoundGame::InitRound()
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 			PS->bHasLifeLimit = false;
-			PS->RespawnWaitTime = UnlimitedRespawnWaitTime;
+			PS->RespawnWaitTime = IsPlayerOnLifeLimitedTeam(PS) ? LimitedRespawnWaitTime : UnlimitedRespawnWaitTime;
+			PS->OnRespawnWaitReceived();
 			PS->RemainingBoosts = InitialBoostCount;
 			PS->bSpecialTeamPlayer = false;
 			PS->bSpecialPlayer = false;
-			if (PS->Team && IsTeamOnDefense(PS->Team->TeamIndex))
-			{
-				PS->RespawnWaitTime += 1.f;
-			}
 			if (PS && (PS->bIsInactive || !PS->Team || PS->bOnlySpectator))
 			{
 				PS->RemainingLives = 0;
@@ -850,11 +847,6 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 				}
 			}
 			return;
-		}
-		if (bAsymmetricVictoryConditions && PS->Team && IsTeamOnDefense(PS->Team->TeamIndex))
-		{
-			PS->RespawnWaitTime = FMath::Min(MaxRespawnWaitTime, PS->RespawnWaitTime+1.f);
-			PS->OnRespawnWaitReceived();
 		}
 		if (IsPlayerOnLifeLimitedTeam(PS))
 		{
@@ -1082,19 +1074,6 @@ void AUTCTFRoundGame::CheckGameTime()
 				else if ((RemainingTime <= SilverBonusTime + 10) && (RemainingTime > SilverBonusTime))
 				{
 					BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), 3000 + RemainingTime - SilverBonusTime, NULL, NULL, NULL);
-				}
-			}
-			// increase defender respawn time by1 seconds every two minutes
-			if (RemainingTime % 120 == 0)
-			{
-				for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
-				{
-					AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-					if (PS && !PS->bOnlySpectator && !PS->bOutOfLives && !PS->bIsInactive && bAsymmetricVictoryConditions && PS->Team && IsTeamOnDefense(PS->Team->TeamIndex))
-					{
-						PS->RespawnWaitTime = FMath::Min(MaxRespawnWaitTime, PS->RespawnWaitTime + 1.f);
-						PS->OnRespawnWaitReceived();
-					}
 				}
 			}
 		}
