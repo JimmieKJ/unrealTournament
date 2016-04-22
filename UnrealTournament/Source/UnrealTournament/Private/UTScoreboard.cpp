@@ -30,7 +30,7 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	ColumnMedalX = 0.55f;
 	FooterPosY = 996.f;
 	CellHeight = 32.f;
-	CenterBuffer = 10.f;
+	CenterBuffer = 420.f;
 	FlagX = 0.075f;
 
 	BadgeNumberUVs.Add(FVector2D(248,183));
@@ -215,7 +215,7 @@ void UUTScoreboard::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCa
 	}
 	ColumnY = 12.f *RenderScale;
 	ScaledEdgeSize = 10.f*RenderScale;
-	ScaledCellWidth = RenderScale * ((Size.X * 0.5f) - CenterBuffer);;
+	ScaledCellWidth = RenderScale * ((Size.X * 0.5f) - CenterBuffer);
 }
 
 void UUTScoreboard::Draw_Implementation(float RenderDelta)
