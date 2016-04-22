@@ -247,6 +247,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, NoClear)
 		UTexture2D* SelectedPlayerTexture;
 
+	/** background for help text over map */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, NoClear)
+		FCanvasIcon SpawnHelpTextBG;
+
 	UPROPERTY(BlueprintReadWrite, Category ="HUD")
 	uint32 bForceScores:1;
 
@@ -508,7 +512,15 @@ public:
 	/** render target for the minimap */
 	UPROPERTY()
 	UCanvasRenderTarget2D* MinimapTexture;
-	
+
+	/** Minimap Actor whose icon the mouse pointer is hovering over last time we checked */
+	UPROPERTY(BlueprintReadOnly)
+		AActor* LastHoveredActor;
+
+	/** most recent time LastHoveredActor changed - NOTE: This is in RealTimeSeconds! */
+	UPROPERTY(BlueprintReadOnly)
+		float LastHoveredActorChangeTime;
+
 	/** transformation matrix from world locations to minimap locations */
 	FMatrix MinimapTransform;
 

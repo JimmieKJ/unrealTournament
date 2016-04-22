@@ -30,18 +30,6 @@ class UNREALTOURNAMENT_API AUTHUD_Showdown : public AUTHUD_TeamDM
 	UPROPERTY()
 		USoundBase* OtherSelectSound;
 
-	/** Actor whose icon the mouse pointer is hovering over last time we checked */
-	UPROPERTY(BlueprintReadOnly)
-	AActor* LastHoveredActor;
-
-	/** most recent time LastHoveredActor changed - NOTE: This is in RealTimeSeconds! */
-	UPROPERTY(BlueprintReadOnly)
-	float LastHoveredActorChangeTime;
-
-	/** background for help text over map */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, NoClear)
-	FCanvasIcon SpawnHelpTextBG;
-
 	/** time we started flashing the help text because the player is running out of selection time */
 	float SpawnTextWarningTime;
 

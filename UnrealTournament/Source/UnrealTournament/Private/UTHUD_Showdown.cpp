@@ -24,13 +24,6 @@ AUTHUD_Showdown::AUTHUD_Showdown(const FObjectInitializer& OI)
 	ConstructorHelpers::FObjectFinder<UTexture2D> SelectedSpawnTextureObject(TEXT("/Game/RestrictedAssets/Weapons/Sniper/Assets/TargetCircle.TargetCircle"));
 	SelectedSpawnTexture = SelectedSpawnTextureObject.Object;
 
-	static ConstructorHelpers::FObjectFinder<UTexture2D> HelpBGTex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/UTScoreboard01.UTScoreboard01'"));
-	SpawnHelpTextBG.U = 4;
-	SpawnHelpTextBG.V = 2;
-	SpawnHelpTextBG.UL = 124;
-	SpawnHelpTextBG.VL = 128;
-	SpawnHelpTextBG.Texture = HelpBGTex.Object;
-
 	static ConstructorHelpers::FObjectFinder<USoundBase> MapOpen(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Showdown/A_MapOpen.A_MapOpen'")); 
 	MapOpenSound = MapOpen.Object;
 
@@ -172,39 +165,6 @@ void AUTHUD_Showdown::DrawMinimap(const FColor& DrawColor, float MapSize, FVecto
 				Canvas->DrawColor = FColor::White;
 			}
 		}
-	}
-
-	// draw pickup icons
-	AUTPickup* NamedPickup = NULL;
-	FVector2D NamedPickupPos = FVector2D::ZeroVector;
-	for (TActorIterator<AUTPickup> It(GetWorld()); It; ++It)
-	{
-		FCanvasIcon Icon = It->GetMinimapIcon();
-		if (Icon.Texture != NULL)
-		{
-			FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
-			const float Ratio = Icon.UL / Icon.VL;
-			Canvas->DrawColor = It->IconColor.ToFColor(false);
-			const float IconSize = (LastHoveredActor == *It) ? (48.0f * RenderScale * FMath::InterpEaseOut<float>(1.0f, 1.25f, FMath::Min<float>(0.2f, GetWorld()->RealTimeSeconds - LastHoveredActorChangeTime) * 5.0f, 2.0f)) : (48.0f * RenderScale);
-			Canvas->DrawTile(Icon.Texture, Pos.X - 0.5f * Ratio * IconSize, Pos.Y - 0.5f * IconSize, Ratio * IconSize, IconSize, Icon.U, Icon.V, Icon.UL, Icon.VL);
-			if (LastHoveredActor == *It)
-			{
-				NamedPickup = *It;
-				NamedPickupPos = Pos;
-			}
-		}
-	}
-	// draw name last so it is on top of any conflicting icons
-	if (NamedPickup != NULL)
-	{
-		float XL, YL;
-		Canvas->DrawColor = NamedPickup->IconColor.ToFColor(false);
-		Canvas->TextSize(TinyFont, NamedPickup->GetDisplayName().ToString(), XL, YL);
-		FColor TextColor = Canvas->DrawColor;
-		Canvas->DrawColor = FColor(0, 0, 0, 64);
-		Canvas->DrawTile(SpawnHelpTextBG.Texture, NamedPickupPos.X - XL * 0.5f, NamedPickupPos.Y - 26.0f * RenderScale - 0.8f*YL, XL, 0.8f*YL, 149, 138, 32, 32, BLEND_Translucent);
-		Canvas->DrawColor = TextColor;
-		Canvas->DrawText(TinyFont, NamedPickup->GetDisplayName(), NamedPickupPos.X - XL * 0.5f, NamedPickupPos.Y - 26.0f * RenderScale - YL);
 	}
 	Canvas->DrawColor = FColor::White;
 }
