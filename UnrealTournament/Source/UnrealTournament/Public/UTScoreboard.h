@@ -90,6 +90,12 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Scoreboard")
 		USoundBase* ScoreUpdateSound;
 
+	UPROPERTY()
+		float ScaledEdgeSize;
+
+	UPROPERTY()
+		float ScaledCellWidth;
+
 	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
 
 	UFUNCTION(BlueprintCallable, Category = "Scoreboard")
