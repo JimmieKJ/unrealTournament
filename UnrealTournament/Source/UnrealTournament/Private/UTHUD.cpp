@@ -1186,6 +1186,7 @@ bool AUTHUD::ShouldInvertMinimap()
 void AUTHUD::DrawMinimapSpectatorIcons()
 {
 	const float RenderScale = (float(Canvas->SizeY) / 1080.0f) * GetHUDMinimapScale();
+	const FVector2D PlayerIconScale = 32.f*RenderScale*FVector2D(1.f,1.f);
 	bool bOnlyShowTeammates = !UTPlayerOwner || !UTPlayerOwner->UTPlayerState || !UTPlayerOwner->UTPlayerState->bOnlySpectator;
 	for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 	{
@@ -1196,7 +1197,7 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 			if (UTChar->bTearOff)
 			{
 				// Draw skull at location
-				DrawMinimapIcon(HUDAtlas, Pos, FVector2D(20.f, 20.f), FVector2D(725.f, 0.f), FVector2D(28.f, 36.f), FLinearColor::White, true);
+				DrawMinimapIcon(HUDAtlas, Pos, FVector2D(20.f, 20.f) * RenderScale, FVector2D(725.f, 0.f), FVector2D(28.f, 36.f), FLinearColor::White, true);
 			}
 			else
 			{
@@ -1209,12 +1210,12 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 				FLinearColor PlayerColor = (PS && PS->Team) ? PS->Team->TeamColor : FLinearColor::Green;
 				PlayerColor.A = 0.75f;
 				float IconRotation = bInvertMinimap ? UTChar->GetActorRotation().Yaw - 90.0f : UTChar->GetActorRotation().Yaw + 90.0f;
-				Canvas->K2_DrawTexture(PlayerMinimapTexture, Pos - FVector2D(10.0f * RenderScale, 10.0f * RenderScale), FVector2D(20.0f, 20.0f) * RenderScale, FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f), PlayerColor, BLEND_Translucent, IconRotation);
+				Canvas->K2_DrawTexture(PlayerMinimapTexture, Pos - 0.5f*PlayerIconScale, PlayerIconScale, FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f), PlayerColor, BLEND_Translucent, IconRotation);
 
 				if (Cast<AUTPlayerController>(PlayerOwner) && (Cast<AUTPlayerController>(PlayerOwner)->LastSpectatedPlayerId == PS->SpectatingID))
 				{
 					Canvas->DrawColor = FColor(255, 255, 0, 255);
-					Canvas->DrawTile(SelectedPlayerTexture, Pos.X - 12.0f * RenderScale, Pos.Y - 12.0f * RenderScale, 24.0f * RenderScale, 24.0f * RenderScale, 0.0f, 0.0f, SelectedPlayerTexture->GetSurfaceWidth(), SelectedPlayerTexture->GetSurfaceHeight());
+					Canvas->DrawTile(SelectedPlayerTexture, Pos.X - 0.6f*PlayerIconScale.X, Pos.Y - 0.6f*PlayerIconScale.Y, 1.2f*PlayerIconScale.X, 1.2f*PlayerIconScale.Y, 0.0f, 0.0f, SelectedPlayerTexture->GetSurfaceWidth(), SelectedPlayerTexture->GetSurfaceHeight());
 				}
 			}
 		}
