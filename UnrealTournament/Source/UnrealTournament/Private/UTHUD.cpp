@@ -1334,7 +1334,7 @@ bool AUTHUD::GetPlayKillSoundMsg()
 
 bool AUTHUD::GetDrawCTFMinimapHUDSetting()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->bDrawCTFMinimapHUDSetting : true;
+	return VerifyProfileSettings() ? CachedProfileSettings->bDrawCTFMinimapHUDSetting : false;
 }
 
 float AUTHUD::GetHUDMinimapScale()

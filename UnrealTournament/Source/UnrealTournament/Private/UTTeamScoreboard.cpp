@@ -12,6 +12,7 @@ UUTTeamScoreboard::UUTTeamScoreboard(const class FObjectInitializer& ObjectIniti
 	RedTeamText = NSLOCTEXT("UTTeamScoreboard", "RedTeam", "RED");
 	BlueTeamText = NSLOCTEXT("UTTeamScoreboard", "BlueTeam", "BLUE");
 	CenterBuffer = 520.f;
+	bDrawMinimapInScoreboard = true;
 }
 
 void UUTTeamScoreboard::Draw_Implementation(float RenderDelta)
@@ -19,7 +20,7 @@ void UUTTeamScoreboard::Draw_Implementation(float RenderDelta)
 	Super::Draw_Implementation(RenderDelta);
 
 	// draw minimap
-	if ((UTHUDOwner->ScoreboardPage == 0) && UTGameState && UTGameState->IsMatchInProgress() && !UTGameState->IsMatchIntermission() && UTHUDOwner->ShouldDrawMinimap())
+	if ((UTHUDOwner->ScoreboardPage == 0) && UTGameState && UTGameState->IsMatchInProgress() && !UTGameState->IsMatchIntermission() && bDrawMinimapInScoreboard)
 	{
 		float MapScale = 0.65f;
 		const float MapSize = float(Canvas->SizeY) * MapScale;

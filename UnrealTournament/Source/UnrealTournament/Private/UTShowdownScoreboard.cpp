@@ -51,7 +51,7 @@ void UUTShowdownScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState,
 
 void UUTShowdownScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 {
-	float XOffset = 0.f;
+	float XOffset = ScaledEdgeSize;
 	float Height = 23.f*RenderScale;
 
 	for (int32 i = 0; i < 2; i++)

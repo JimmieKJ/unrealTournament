@@ -8,7 +8,7 @@
 AUTHUD_CTF::AUTHUD_CTF(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	bDrawMinimap = true;
+	bDrawMinimap = false;
 }
 
 FLinearColor AUTHUD_CTF::GetBaseHUDColor()

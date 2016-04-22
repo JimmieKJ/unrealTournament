@@ -129,7 +129,7 @@ void UUTProfileSettings::ResetHUD()
 	bDrawCenteredKillMsg = true;
 	bDrawHUDKillIconMsg = true;
 	bPlayKillSoundMsg = true;
-	bDrawCTFMinimapHUDSetting = true;
+	bDrawCTFMinimapHUDSetting = false;
 	HUDMinimapScale = 1.0f;
 }
 

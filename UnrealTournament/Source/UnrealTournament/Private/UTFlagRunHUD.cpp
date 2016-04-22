@@ -10,7 +10,7 @@
 AUTFlagRunHUD::AUTFlagRunHUD(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	bDrawMinimap = true;
+	bDrawMinimap = false;
 
 	ConstructorHelpers::FObjectFinder<UTexture2D> PlayerStartTextureObject(TEXT("/Game/RestrictedAssets/UI/MiniMap/minimap_atlas.minimap_atlas"));
 	PlayerStartIcon.U = 128;
