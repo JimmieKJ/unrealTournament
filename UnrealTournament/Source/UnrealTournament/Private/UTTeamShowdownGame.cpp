@@ -26,10 +26,16 @@ AUTTeamShowdownGame::AUTTeamShowdownGame(const FObjectInitializer& OI)
 	DisplayName = NSLOCTEXT("UTGameMode", "TeamShowdown", "Showdown");
 	bAnnounceTeam = true;
 	QuickPlayersToStart = 6;
+	ActivatedPowerupPlaceholderObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_ActivatedPowerup_UDamage.BP_ActivatedPowerup_UDamage_C"));
 }
 
 void AUTTeamShowdownGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
+	if (!ActivatedPowerupPlaceholderObject.IsNull())
+	{
+		ActivatedPowerupPlaceholderClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *ActivatedPowerupPlaceholderObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
+	}
+
 	int32 SavedBotFillCount = BotFillCount;
 
 	Super::InitGame(MapName, Options, ErrorMessage);
@@ -58,6 +64,13 @@ void AUTTeamShowdownGame::InitGame(const FString& MapName, const FString& Option
 	}
 }
 
+void AUTTeamShowdownGame::InitGameState()
+{
+	Super::InitGameState();
+
+	UTGameState->BoostRechargeTime = 240.0f;
+}
+
 bool AUTTeamShowdownGame::CheckRelevance_Implementation(AActor* Other)
 {
 	// weapons and ammo pickups are worth double ammo
@@ -84,6 +97,19 @@ bool AUTTeamShowdownGame::CheckRelevance_Implementation(AActor* Other)
 		}
 	}
 	return Super::CheckRelevance_Implementation(Other);
+}
+
+void AUTTeamShowdownGame::GenericPlayerInitialization(AController* C)
+{
+	Super::GenericPlayerInitialization(C);
+
+	AUTPlayerState* PS = Cast<AUTPlayerState>(C->PlayerState);
+	if (PS != NULL)
+	{
+		// default boost type
+		PS->BoostClass = LoadClass<AUTInventory>(NULL, TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Arsenal.BP_Arsenal_C"));
+		PS->SetRemainingBoosts(1);
+	}
 }
 
 void AUTTeamShowdownGame::RestartPlayer(AController* aPlayer)

@@ -254,34 +254,39 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			}
 			else
 			{
-				AUTCTFRoundGameState* RoundGameState = GetWorld()->GetGameState<AUTCTFRoundGameState>();
-				if (RoundGameState)
+				//Show info for actively having access to a powerup
+				if (UTPlayerState->GetRemainingBoosts() >= 1)
 				{
-					//Show info for actively having access to a powerup
-					if (UTPlayerState->RemainingBoosts >= 1)
-					{
-						BoostProvidedPowerupInfo.Value = UTPlayerState->RemainingBoosts;
-						BoostProvidedPowerupInfo.HighlightStrength = 0.5f;
+					BoostProvidedPowerupInfo.Value = UTPlayerState->GetRemainingBoosts();
+					BoostProvidedPowerupInfo.HighlightStrength = 0.5f;
 
-						UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
-						if (InputSettings)
+					UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+					if (InputSettings)
+					{
+						for (int32 inputIndex = 0; inputIndex < InputSettings->ActionMappings.Num(); ++inputIndex)
 						{
-							for (int32 inputIndex = 0; inputIndex < InputSettings->ActionMappings.Num(); ++inputIndex)
+							FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
+							if (Action.ActionName == "StartActivatePowerup")
 							{
-								FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
-								if (Action.ActionName == "StartActivatePowerup")
-								{
-									BoostProvidedPowerupInfo.Label = Action.Key.GetDisplayName();
-									break;
-								}
+								BoostProvidedPowerupInfo.Label = Action.Key.GetDisplayName();
+								break;
 							}
 						}
 					}
+				}
+				else
+				{
 					//Show countdown to power up
-					else if (RoundGameState->IsTeamAbleToEarnPowerup(UTPlayerState->GetTeamNum()))
+					AUTCTFRoundGameState* RoundGameState = GetWorld()->GetGameState<AUTCTFRoundGameState>();
+					if (RoundGameState != NULL && RoundGameState->IsTeamAbleToEarnPowerup(UTPlayerState->GetTeamNum()))
 					{
 						BoostProvidedPowerupInfo.Label = FText::FromString(FString::Printf(TEXT("Kill: %i"), RoundGameState->GetKillsNeededForPowerup(UTPlayerState->GetTeamNum())));
 						BoostProvidedPowerupInfo.Value = RoundGameState->GetKillsNeededForPowerup(UTPlayerState->GetTeamNum());
+					}
+					else if (UTGameState != NULL && UTGameState->BoostRechargeMaxCharges > 0 && UTGameState->BoostRechargeTime > 0.0f)
+					{
+						BoostProvidedPowerupInfo.Label = FText::FromString(FString::Printf(TEXT("CD: %i"), FMath::CeilToInt(UTPlayerState->BoostRechargeTimeRemaining)));
+						BoostProvidedPowerupInfo.Value = FMath::CeilToInt(UTPlayerState->BoostRechargeTimeRemaining);
 					}
 				}
 			}

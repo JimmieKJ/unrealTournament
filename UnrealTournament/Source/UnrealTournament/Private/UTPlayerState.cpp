@@ -99,6 +99,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, Avatar);
 	DOREPLIFETIME(AUTPlayerState, RemainingBoosts);
 	DOREPLIFETIME(AUTPlayerState, BoostClass);
+	DOREPLIFETIME(AUTPlayerState, BoostRechargeTimeRemaining);
 	DOREPLIFETIME(AUTPlayerState, ShowdownRank);
 	DOREPLIFETIME(AUTPlayerState, RankedShowdownRank);
 	DOREPLIFETIME(AUTPlayerState, DuelRank);
@@ -600,6 +601,26 @@ void AUTPlayerState::OnOutOfLives()
 	}
 }
 
+void AUTPlayerState::SetRemainingBoosts(uint8 NewRemainingBoosts)
+{
+	if (Role == ROLE_Authority)
+	{
+		RemainingBoosts = NewRemainingBoosts;
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS != NULL && RemainingBoosts < GS->BoostRechargeMaxCharges)
+		{
+			if (BoostRechargeTimeRemaining <= 0.0f)
+			{
+				BoostRechargeTimeRemaining = GS->BoostRechargeTime;
+			}
+		}
+		else
+		{
+			BoostRechargeTimeRemaining = 0.0f;
+		}
+	}
+}
+
 void AUTPlayerState::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -613,6 +634,30 @@ void AUTPlayerState::Tick(float DeltaTime)
 	if (ForceRespawnTime > 0.0f)
 	{
 		ForceRespawnTime -= DeltaTime;
+	}
+
+	if (BoostRechargeTimeRemaining > 0.0f)
+	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS != NULL && GS->IsMatchInProgress())
+		{
+			bool bIsDead = false;
+			if (Cast<AController>(GetOwner()) != NULL)
+			{
+				bIsDead = ((AController*)GetOwner())->GetPawn() == NULL;
+			}
+			else
+			{
+				bIsDead = GetUTCharacter() == NULL;
+			}
+
+			BoostRechargeTimeRemaining -= DeltaTime * (bIsDead ? GS->BoostRechargeRateDead : GS->BoostRechargeRateAlive);
+			if (BoostRechargeTimeRemaining <= 0.0f)
+			{
+				BoostRechargeTimeRemaining += GS->BoostRechargeTime;
+				SetRemainingBoosts(RemainingBoosts + 1); // note: will set BoostRechargeTimeRemaining to zero if we're no longer allowed to recharge
+			}
+		}
 	}
 }
 
@@ -994,6 +1039,8 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->TauntClass = TauntClass;
 		PS->Taunt2Class = Taunt2Class;
 		PS->bSkipELO = bSkipELO;
+		PS->RemainingBoosts = RemainingBoosts;
+		PS->BoostRechargeTimeRemaining = BoostRechargeTimeRemaining;
 		if (PS->StatManager)
 		{
 			PS->StatManager->InitializeManager(PS);

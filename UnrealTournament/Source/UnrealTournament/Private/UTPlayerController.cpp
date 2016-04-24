@@ -710,7 +710,7 @@ bool AUTPlayerController::ServerActivatePowerUpPress_Validate()
 
 void AUTPlayerController::ServerActivatePowerUpPress_Implementation()
 {
-	if (UTCharacter && UTPlayerState && (UTPlayerState->RemainingBoosts > 0))
+	if (UTCharacter != NULL && UTPlayerState != NULL && UTPlayerState->GetRemainingBoosts() > 0)
 	{
 		AUTGameMode* UTGM = GetWorld()->GetAuthGameMode<AUTGameMode>();
 		TSubclassOf<AUTInventory> ActivatedPowerupPlaceholderClass = UTGM ? UTGM->GetActivatedPowerupPlaceholderClass() : nullptr;
@@ -741,9 +741,9 @@ void AUTPlayerController::ServerActivatePowerUpPress_Implementation()
 
 void AUTPlayerController::TriggerBoost()
 {
-	if (UTCharacter && UTPlayerState && (UTPlayerState->RemainingBoosts > 0))
+	if (UTCharacter && UTPlayerState && (UTPlayerState->GetRemainingBoosts() > 0))
 	{
-		UTPlayerState->RemainingBoosts--;
+		UTPlayerState->SetRemainingBoosts(UTPlayerState->GetRemainingBoosts() - 1);
 
 		if (UTPlayerState->BoostClass)
 		{

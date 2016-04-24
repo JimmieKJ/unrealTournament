@@ -739,7 +739,7 @@ void AUTCTFRoundGame::InitRound()
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 			PS->bHasLifeLimit = false;
 			PS->RespawnWaitTime = IsPlayerOnLifeLimitedTeam(PS) ? LimitedRespawnWaitTime : UnlimitedRespawnWaitTime;
-			PS->RemainingBoosts = InitialBoostCount;
+			PS->SetRemainingBoosts(InitialBoostCount);
 			PS->bSpecialTeamPlayer = false;
 			PS->bSpecialPlayer = false;
 			if (PS && (PS->bIsInactive || !PS->Team || PS->bOnlySpectator))
@@ -1163,7 +1163,7 @@ void AUTCTFRoundGame::GrantPowerupToTeam(int TeamIndex, AUTPlayerState* PlayerTo
 		{
 			if (PS->Team->TeamIndex == TeamIndex)
 			{
-				PS->RemainingBoosts = 1;
+				PS->SetRemainingBoosts(1);
 			}
 			AUTPlayerController* PC = Cast<AUTPlayerController>(PS->GetOwner());
 			if (PC)

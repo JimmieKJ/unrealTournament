@@ -539,9 +539,21 @@ public:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = PlayerState)
 	FName Avatar;
 
+protected:
 	/*  Used to determine whether boost can be triggered. */
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = PlayerState)
+	uint8 RemainingBoosts;
+public:
+	inline uint8 GetRemainingBoosts() const
+	{
+		return RemainingBoosts;
+	}
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
+	void SetRemainingBoosts(uint8 NewRemainingBoosts);
+
+	/** if gametype supports a boost recharge/cooldown timer, the time that needs to pass for RemainingBoosts to be incremented */
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = PlayerState)
-		uint8 RemainingBoosts;
+	float BoostRechargeTimeRemaining;
 
 	/** Inventory item that is created on boost. */
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = PlayerState)

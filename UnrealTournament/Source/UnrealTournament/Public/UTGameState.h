@@ -539,6 +539,18 @@ public:
 	UPROPERTY(Replicated)
 	bool bWeightedCharacter;
 
+	/** if > 0 and BoostRechargeMaxCharges > 0 then player's activatable boost recharges after this many seconds */
+	UPROPERTY(BlueprintReadWrite, Replicated)
+	float BoostRechargeTime;
+	/** maximum number of boost charges that can be recharged through the timer */
+	UPROPERTY(BlueprintReadWrite, Replicated)
+	int32 BoostRechargeMaxCharges;
+	/** boost recharge rate while alive */
+	UPROPERTY(BlueprintReadWrite, Replicated)
+	float BoostRechargeRateAlive;
+	/** boost recharge rate while dead */
+	UPROPERTY(BlueprintReadWrite, Replicated)
+	float BoostRechargeRateDead;
 };
 
 
