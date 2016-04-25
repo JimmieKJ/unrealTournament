@@ -203,6 +203,10 @@ class ENGINE_API UPhysicsSettings : public UDeveloperSettings
 	/** Physics delta time initial average. */
 	UPROPERTY(config, EditAnywhere, AdvancedDisplay, meta = (ClampMin = "0.0013", UIMin = "1.0", ClampMax = "1.0", UIMax = "1.0"), Category = Framerate)
 	float InitialAverageFrameRate;
+	
+	/** Amount of memory to reserve for PhysX simulate() */
+	UPROPERTY(config, EditAnywhere, Category = Constants)
+	int32 SimulateScratchMemorySize;
 
 	// PhysicalMaterial Surface Types
 	UPROPERTY(config)

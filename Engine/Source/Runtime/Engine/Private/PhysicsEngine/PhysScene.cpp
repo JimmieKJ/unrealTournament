@@ -246,6 +246,9 @@ class FPhysXCPUDispatcherSingleThread : public PxCpuDispatcher
 };
 #endif
 
+uint32 GSimulateScratchMemorySize = 524288; // 512k is what coconut lizard was using
+uint8* GSimulateScratchMemory = nullptr;
+
 /** Exposes creation of physics-engine scene outside Engine (for use with PhAT for example). */
 FPhysScene::FPhysScene()
 #if WITH_APEX
@@ -291,6 +294,15 @@ FPhysScene::FPhysScene()
 	if (!bAsyncSceneEnabled)
 	{
 		PhysXSceneIndex[PST_Async] = 0;
+	}
+
+	if (!GSimulateScratchMemory)
+	{
+		if (PhysSetting->SimulateScratchMemorySize > 0)
+		{
+			GSimulateScratchMemorySize = PhysSetting->SimulateScratchMemorySize;
+		}
+		GSimulateScratchMemory = new uint8[GSimulateScratchMemorySize];
 	}
 
 	// Make sure we use the sync scene for apex world support of destructibles in the async scene
@@ -913,13 +925,13 @@ void FPhysScene::TickPhysScene(uint32 SceneType, FGraphEventRef& InOutCompletion
 #if !WITH_APEX
 			PhysXCompletionTask* Task = new PhysXCompletionTask(InOutCompletionEvent, SceneType, PScene->getTaskManager());
 			PScene->lockWrite();
-			PScene->simulate(AveragedFrameTime[SceneType], Task);
+			PScene->simulate(AveragedFrameTime[SceneType], Task, GSimulateScratchMemory, GSimulateScratchMemorySize);
 			PScene->unlockWrite();
 			Task->removeReference();
 			bTaskOutstanding = true;
 #else
 			PhysXCompletionTask* Task = new PhysXCompletionTask(InOutCompletionEvent, SceneType, ApexScene->getTaskManager());
-			ApexScene->simulate(AveragedFrameTime[SceneType], true, Task);
+			ApexScene->simulate(AveragedFrameTime[SceneType], true, Task, GSimulateScratchMemory, GSimulateScratchMemorySize);
 			Task->removeReference();
 			bTaskOutstanding = true;
 

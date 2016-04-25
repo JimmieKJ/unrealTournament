@@ -400,11 +400,14 @@ void FPhysSubstepTask::SubstepSimulationStart()
 
 	SubstepInterpolation(Interpolation, DeltaTime);
 
+	extern uint32 GSimulateScratchMemorySize;
+	extern uint8* GSimulateScratchMemory;
+
 #if WITH_APEX
-	PAScene->simulate(DeltaTime, bLastSubstep, SubstepTask);
+	PAScene->simulate(DeltaTime, bLastSubstep, SubstepTask, GSimulateScratchMemory, GSimulateScratchMemorySize);
 #else
 	PAScene->lockWrite();
-	PAScene->simulate(DeltaTime, SubstepTask);
+	PAScene->simulate(DeltaTime, SubstepTask, GSimulateScratchMemory, GSimulateScratchMemorySize);
 	PAScene->unlockWrite();
 #endif
 	SubstepTask->removeReference();
