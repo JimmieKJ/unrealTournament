@@ -237,6 +237,9 @@ public:
 	uint32 bShowScores:1;
 
 	UPROPERTY(BlueprintReadOnly, Category = "HUD")
+		uint32 bShowScoresWhileDead : 1;
+
+	UPROPERTY(BlueprintReadOnly, Category = "HUD")
 		uint32 bDrawMinimap : 1;
 
 	/** icon for player on the minimap (rotated BG that indicates direction) */

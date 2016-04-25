@@ -505,7 +505,8 @@ void AUTHUD::DrawHUD()
 
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		bool bPreMatchScoreBoard = (GS && !GS->HasMatchStarted() && !GS->IsMatchInCountdown());
-		bool bScoreboardIsUp = bShowScores || bPreMatchScoreBoard || bForceScores;
+		bShowScoresWhileDead = bShowScoresWhileDead && GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission() && UTPlayerOwner && !UTPlayerOwner->GetPawn();
+		bool bScoreboardIsUp = bShowScores || bPreMatchScoreBoard || bForceScores || bShowScoresWhileDead;
 		if (!bFontsCached)
 		{
 			CacheFonts();

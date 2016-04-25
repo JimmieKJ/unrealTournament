@@ -89,6 +89,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	DilationIndex = 2;
 
 	TimeToHoldPowerUpButtonToActivate = 0.75f;
+	ScoreboardDelayOnDeath = 2.f;
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> PressedSelect(TEXT("SoundCue'/Game/RestrictedAssets/UI/UT99UI_LittleSelect_Cue.UT99UI_LittleSelect_Cue'"));
 	SelectSound = PressedSelect.Object;
@@ -3524,6 +3525,20 @@ void AUTPlayerController::BeginInactiveState()
 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
 	float const MinRespawnDelay = GameState ? GameState->GetRespawnWaitTimeFor(UTPlayerState) : 1.0f;
 	GetWorldTimerManager().SetTimer(TimerHandle_UnFreeze, this, &APlayerController::UnFreeze, MinRespawnDelay);
+
+	if (GameState && MyUTHUD && GameState->IsMatchInProgress() && !GameState->IsMatchIntermission())
+	{
+		GetWorldTimerManager().SetTimer(TImerHandle_ShowScoreboardOnDeath, this, &AUTPlayerController::ShowScoreboardOnDeath, ScoreboardDelayOnDeath);
+	}
+}
+
+void AUTPlayerController::ShowScoreboardOnDeath()
+{
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (!GetPawn() && GameState && MyUTHUD && GameState->IsMatchInProgress() && !GameState->IsMatchIntermission())
+	{
+		MyUTHUD->bShowScoresWhileDead = true;
+	}
 }
 
 void AUTPlayerController::ServerViewPlaceholderAtLocation_Implementation(FVector Location)

@@ -85,15 +85,12 @@ public:
 	virtual void SetupInputComponent() override;
 	virtual void ProcessPlayerInput(const float DeltaTime, const bool bGamePaused) override;
 	virtual void PawnPendingDestroy(APawn* InPawn) override;
-
 	virtual void ClientRestart_Implementation(APawn* NewPawn) override;
 	virtual void ClientSetLocation_Implementation(FVector NewLocation, FRotator NewRotation) override;
-
+	virtual void BeginInactiveState() override;
 
 	UFUNCTION(Reliable, Client)
 		void ClientReceivePersonalMessage(TSubclassOf<ULocalMessage> Message, int32 Switch = 0, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL);
-
-	virtual void BeginInactiveState() override;
 
 	virtual void CheckAutoWeaponSwitch(class AUTWeapon* TestWeapon);
 
@@ -171,6 +168,13 @@ public:
 	UFUNCTION(client, reliable)
 	virtual void ClientToggleScoreboard(bool bShow);
 	
+	UPROPERTY()
+		float ScoreboardDelayOnDeath;
+
+	FTimerHandle TImerHandle_ShowScoreboardOnDeath;
+
+	virtual void ShowScoreboardOnDeath();
+
 	UFUNCTION(reliable, server, WithValidation)
 	void ServerSelectSpawnPoint(APlayerStart* DesiredStart);
 
