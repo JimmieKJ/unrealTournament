@@ -7,6 +7,7 @@
 #include "UTHUDWidgetMessage_KillIconMessages.h"
 #include "SUTPowerupSelectWindow.h"
 #include "UTTeamShowdownGame.h"
+#include "UTPickupAmmo.h"
 
 AUTHUD_Showdown::AUTHUD_Showdown(const FObjectInitializer& OI)
 : Super(OI)
@@ -25,6 +26,14 @@ AUTHUD_Showdown::AUTHUD_Showdown(const FObjectInitializer& OI)
 	PlayerStartIcon.Texture = PlayerStartTextureObject.Object;
 	ConstructorHelpers::FObjectFinder<UTexture2D> SelectedSpawnTextureObject(TEXT("/Game/RestrictedAssets/Weapons/Sniper/Assets/TargetCircle.TargetCircle"));
 	SelectedSpawnTexture = SelectedSpawnTextureObject.Object;
+
+	// TODO: get a real icon, stealing a 1024 isn't so good
+	ConstructorHelpers::FObjectFinder<UTexture2D> AmmoPickupIndicatorObject(TEXT("/Game/RestrictedAssets/Environments/Liandri/Textures/Decals/RK/T_Decal_Triangle_3.T_Decal_Triangle_3"));
+	AmmoPickupIndicator.Texture = AmmoPickupIndicatorObject.Object;
+	AmmoPickupIndicator.U = 0;
+	AmmoPickupIndicator.V = 0;
+	AmmoPickupIndicator.UL = 1024;
+	AmmoPickupIndicator.VL = 1024;
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> MapOpen(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Showdown/A_MapOpen.A_MapOpen'")); 
 	MapOpenSound = MapOpen.Object;
@@ -282,7 +291,7 @@ void AUTHUD_Showdown::DrawHUD()
 				PlayerOwner->SetIgnoreLookInput(false);
 				bLockedLookInput = false;
 			}
-			if (GS && GS->bTeamGame && GS->GetMatchState() == MatchState::InProgress)
+			if (GS != NULL && GS->bTeamGame && GS->GetMatchState() == MatchState::InProgress)
 			{
 				// draw pips for players alive on each team @TODO move to widget
 				TArray<AUTPlayerState*> LivePlayers;
@@ -346,6 +355,30 @@ void AUTHUD_Showdown::DrawHUD()
 					Canvas->SetLinearDrawColor(FLinearColor::Blue, 0.5f - TimeSinceBlueDeath);
 					float ScaledSize = 1.f + 2.f*TimeSinceBlueDeath;
 					Canvas->DrawTile(PlayerStartIcon.Texture, XOffset - 0.5f*(ScaledSize - 1.f)*PipSize, YOffset - 0.5f*(ScaledSize - 1.f)*PipSize, PipSize, PipSize, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL, BLEND_Translucent);
+				}
+			}
+		}
+	}
+
+	if (GS != NULL && GS->GetMatchState() == MatchState::InProgress)
+	{
+		AUTCharacter* UTC = Cast<AUTCharacter>(UTPlayerOwner->GetViewTarget());
+		if (UTC != NULL)
+		{
+			// draw relevant ammo
+			// TODO: optimize if we keep this
+			Canvas->DrawColor = WhiteColor;
+			for (TActorIterator<AUTPickupAmmo> It(GetWorld()); It; ++It)
+			{
+				if (It->State.bActive && GetWorld()->TimeSeconds - It->GetLastRenderTime() < 0.25f && UTC->FindInventoryType(It->Ammo.Type, true))
+				{
+					FVector Pos = Project(It->GetActorLocation() + FVector(0.0f, 0.0f, It->Collision->GetScaledCapsuleHalfHeight()));
+					if (Pos.X > 0.0f && Pos.Y > 0.0f && Pos.X < Canvas->SizeX && Pos.Y < Canvas->SizeY)
+					{
+						FVector2D Size(32.0f, 32.0f);
+						Size *= FMath::Clamp<float>(1.0f - (It->GetActorLocation() - UTC->GetActorLocation()).Size() / 5000.0f, 0.25f, 1.0f);
+						Canvas->DrawTile(AmmoPickupIndicator.Texture, Pos.X - Size.X * 0.5f, Pos.Y - Size.Y * 0.5f, Size.X, Size.Y, AmmoPickupIndicator.U, AmmoPickupIndicator.V, AmmoPickupIndicator.UL, AmmoPickupIndicator.VL);
+					}
 				}
 			}
 		}

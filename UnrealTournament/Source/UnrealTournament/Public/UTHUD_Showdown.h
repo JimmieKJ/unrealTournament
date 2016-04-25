@@ -25,11 +25,11 @@ class UNREALTOURNAMENT_API AUTHUD_Showdown : public AUTHUD_TeamDM
 
 	/** Sound played when player chooses spawn location. */
 	UPROPERTY()
-		USoundBase* SpawnSelectSound;
+	USoundBase* SpawnSelectSound;
 
 	/** Other player completed selection. */
 	UPROPERTY()
-		USoundBase* OtherSelectSound;
+	USoundBase* OtherSelectSound;
 
 	/** time we started flashing the help text because the player is running out of selection time */
 	float SpawnTextWarningTime;
@@ -38,7 +38,7 @@ class UNREALTOURNAMENT_API AUTHUD_Showdown : public AUTHUD_TeamDM
 	bool bNeedOnDeckNotify;
 
 	UPROPERTY()
-		AUTPlayerState* LastPlayerSelect;
+	AUTPlayerState* LastPlayerSelect;
 
 	/** scene capture for spawn preview */
 	UPROPERTY(VisibleAnywhere)
@@ -71,19 +71,19 @@ class UNREALTOURNAMENT_API AUTHUD_Showdown : public AUTHUD_TeamDM
 	virtual void NotifyKill(APlayerState* POVPS, APlayerState* KillerPS, APlayerState* VictimPS) override;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
-		USoundBase* MapOpenSound;
+	USoundBase* MapOpenSound;
 
 	/** sound played when teammate gets a kill. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
-		USoundBase* TeamKillSound;
+	USoundBase* TeamKillSound;
 
 	/** sound played when teammate is killed. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
-		USoundBase* TeamVictimSound;
+	USoundBase* TeamVictimSound;
 
 	/** sound played when teammate is killed. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
-		USoundBase* TeamLMSVictimSound;
+	USoundBase* TeamLMSVictimSound;
 
 	FTimerHandle PlayTeamKillHandle;
 	FTimerHandle PlayTeamVictimHandle;
@@ -98,6 +98,9 @@ class UNREALTOURNAMENT_API AUTHUD_Showdown : public AUTHUD_TeamDM
 	int32 BluePlayerCount;
 	float RedDeathTime;
 	float BlueDeathTime;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, NoClear)
+	FCanvasIcon AmmoPickupIndicator;
 
 protected:
 	/** set when PlayerOwner's look input has been locked for interacting with the spawn selection map, so we know to restore the input later */
