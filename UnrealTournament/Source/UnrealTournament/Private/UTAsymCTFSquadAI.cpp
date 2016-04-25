@@ -155,9 +155,9 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 			B->StartWaitForMove();
 			return true;
 		}
-		else if (Flag->HoldingPawn == NULL && B->TryPathToward(Flag, true, "Get flag"))
+		else if (Flag->HoldingPawn == NULL) 
 		{
-			return true;
+			return B->TryPathToward(Flag, true, "Get flag");
 		}
 		else if (CurrentOrders == NAME_Defend)
 		{
