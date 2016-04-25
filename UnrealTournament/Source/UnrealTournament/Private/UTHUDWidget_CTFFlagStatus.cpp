@@ -53,9 +53,7 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 	UTPlayerOwner->GetPlayerViewPoint(ViewPoint, ViewRotation);
 	DrawIndicators(GameState, ViewPoint, ViewRotation);
 	DrawStatusMessage(DeltaTime);
-
 }
-
 
 void UUTHUDWidget_CTFFlagStatus::DrawIndicators(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation)
 {
@@ -347,7 +345,6 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagBaseWorld(AUTCTFGameState* GameState, F
 		bScaleByDesignedResolution = true;
 	}
 }
-
 
 void UUTHUDWidget_CTFFlagStatus::DrawStatusMessage(float DeltaTime)
 {

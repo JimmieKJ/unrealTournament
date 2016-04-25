@@ -126,6 +126,9 @@ struct FCTFScoringPlay
 	bool bDefenseWon;
 
 	UPROPERTY()
+		bool bAnnihilation;
+
+	UPROPERTY()
 		int32 TeamScores[2];
 
 	FCTFScoringPlay()

@@ -115,6 +115,8 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 		NewScoringPlay.TeamScores[1] = CTFGameState->Teams[1] ? CTFGameState->Teams[1]->Score : 0;
 		NewScoringPlay.TeamScores[ScorerPS->Team->TeamIndex] += FlagCapScore;
 		NewScoringPlay.RemainingTime = CTFGameState->bPlayingAdvantage ? 0.f : CTFGameState->GetClockTime();
+		NewScoringPlay.bAnnihilation = false;
+		NewScoringPlay.bDefenseWon = false;
 
 		if (CTFGameState->IsMatchInOvertime())
 		{

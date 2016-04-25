@@ -199,6 +199,10 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 			{
 				ScoredByLine = FString::Printf(TEXT("Defense Won"));
 			}
+			else if (Play.bAnnihilation)
+			{
+				ScoredByLine = FString::Printf(TEXT("Annihilation"));
+			}
 			else
 			{
 				ScoredByLine = Play.ScoredBy.GetPlayerName();
@@ -232,7 +236,7 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 					}
 					AssistLine = AssistLine.LeftChop(2);
 				}
-				else if (!Play.bDefenseWon)
+				else if (!Play.bDefenseWon && !Play.bAnnihilation)
 				{
 					AssistLine = UnassistedText.ToString();
 				}
