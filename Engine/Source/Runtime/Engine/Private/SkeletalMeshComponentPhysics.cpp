@@ -2769,7 +2769,8 @@ bool USkeletalMeshComponent::GetClothCollisionDataFromStaticMesh(UPrimitiveCompo
 
 FName GetConvertedBoneName(NxClothingAsset* ApexClothingAsset, int32 BoneIndex)
 {
-	return FName(*FString(ApexClothingAsset->getBoneName(BoneIndex)).Replace(TEXT(" "), TEXT("-")));
+	check(!FString(ApexClothingAsset->getBoneName(BoneIndex)).Contains(" "));
+	return ApexClothingAsset->getBoneName(BoneIndex);
 }
 
 void USkeletalMeshComponent::FindClothCollisions(TArray<FApexClothCollisionVolumeData>& OutCollisions)
