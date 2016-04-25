@@ -1008,12 +1008,18 @@ void AUTCTFRoundGame::ScoreOutOfLives(int32 WinningTeamIndex)
 		WinningTeam->Score += IsTeamOnOffense(WinningTeamIndex) ? GetFlagCapScore() : 1;
 		if (CTFGameState)
 		{
+			WinningTeam->RoundBonus = FMath::Min(MaxTimeScoreBonus, CTFGameState->GetRemainingTime());
+			WinningTeam->SecondaryScore += WinningTeam->RoundBonus;
+
 			FCTFScoringPlay NewScoringPlay;
 			NewScoringPlay.Team = WinningTeam;
-			NewScoringPlay.bDefenseWon = true;
+			NewScoringPlay.bDefenseWon = !IsTeamOnOffense(WinningTeamIndex);
+			NewScoringPlay.bAnnihilation = true;
 			NewScoringPlay.TeamScores[0] = CTFGameState->Teams[0] ? CTFGameState->Teams[0]->Score : 0;
 			NewScoringPlay.TeamScores[1] = CTFGameState->Teams[1] ? CTFGameState->Teams[1]->Score : 0;
 			NewScoringPlay.RemainingTime = CTFGameState->GetClockTime();
+			NewScoringPlay.RedBonus = CTFGameState->Teams[0] ? CTFGameState->Teams[0]->RoundBonus : 0;
+			NewScoringPlay.BlueBonus = CTFGameState->Teams[1] ? CTFGameState->Teams[1]->RoundBonus : 0;
 			CTFGameState->AddScoringPlay(NewScoringPlay);
 
 			// force replication of server clock time
