@@ -483,7 +483,9 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	{}
 
 	/** firing entry point */
+	UFUNCTION(BlueprintCallable, Category = Weapon)
 	virtual void StartFire(uint8 FireModeNum);
+	UFUNCTION(BlueprintCallable, Category = Weapon)
 	virtual void StopFire(uint8 FireModeNum);
 
 	/** Tell server fire button was pressed.  bClientFired is true if client actually fired weapon. */
@@ -681,6 +683,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 		GotoState(ActiveState);
 	}
 
+	UFUNCTION(BlueprintCallable, Category = Weapon)
 	virtual void GotoFireMode(uint8 NewFireMode);
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
@@ -689,6 +692,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	virtual bool StackPickup_Implementation(AUTInventory* ContainedInv) override;
 
 	/** update any timers and such due to a weapon timing change; for example, a powerup that changes firing speed */
+	UFUNCTION(BlueprintCallable, Category = Weapon)
 	virtual void UpdateTiming();
 
 	virtual void Tick(float DeltaTime) override;
@@ -1013,6 +1017,9 @@ public:
 	/**Called when the weapon has zoomed all the way out. Default is EZoomState::EZS_NotZoomed*/
 	UFUNCTION(BlueprintNativeEvent)
 	void OnZoomedOut();
+
+	UFUNCTION(BlueprintPure, BlueprintCallable, Category = Zoom)
+	UMaterialInstanceDynamic* GetZoomMaterial(uint8 FireModeNum) const;
 
 	virtual void TickZoom(float DeltaTime);
 

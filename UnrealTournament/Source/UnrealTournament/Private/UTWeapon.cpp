@@ -2352,6 +2352,19 @@ void AUTWeapon::FiringEffectsUpdated_Implementation(uint8 InFireMode, FVector In
 	PlayImpactEffects(InFlashLocation, InFireMode, SpawnLocation, SpawnRotation);
 }
 
+UMaterialInstanceDynamic* AUTWeapon::GetZoomMaterial(uint8 FireModeNum) const
+{
+	UUTWeaponStateZooming* ZoomFireMode = FiringState.IsValidIndex(FireModeNum) ? Cast<UUTWeaponStateZooming>(FiringState[FireModeNum]) : NULL;
+	if (ZoomFireMode != NULL && ZoomFireMode->OverlayMI != NULL)
+	{
+		return ZoomFireMode->OverlayMI;
+	}
+	else
+	{
+		return NULL;
+	}
+}
+
 void AUTWeapon::TickZoom(float DeltaTime)
 {
 	if (GetUTOwner() != nullptr && ZoomModes.IsValidIndex(CurrentZoomMode))

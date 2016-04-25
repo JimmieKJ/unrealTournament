@@ -152,9 +152,7 @@ void AUTWeap_Enforcer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	// burst mode takes care of spread variation itself
 	if (!Cast<UUTWeaponStateFiringBurst>(FiringState[GetCurrentFireMode()]))
 	{
-		float TimeSinceFired = UTOwner->GetWorld()->GetTimeSeconds() - LastFireTime;
-		float SpreadScalingOverTime = FMath::Max(0.f, 1.f - (TimeSinceFired - FireInterval[GetCurrentFireMode()]) / (SpreadResetInterval - FireInterval[GetCurrentFireMode()]));
-		Spread[GetCurrentFireMode()] = FMath::Min(MaxSpread, Spread[GetCurrentFireMode()] + SpreadIncrease) * SpreadScalingOverTime;
+		ModifySpread();
 	}
 
 	Super::FireInstantHit(bDealDamage, OutHit);
@@ -162,6 +160,13 @@ void AUTWeap_Enforcer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	{
 		LastFireTime = UTOwner->GetWorld()->GetTimeSeconds();
 	}
+}
+
+void AUTWeap_Enforcer::ModifySpread_Implementation()
+{
+	float TimeSinceFired = UTOwner->GetWorld()->GetTimeSeconds() - LastFireTime;
+	float SpreadScalingOverTime = FMath::Max(0.f, 1.f - (TimeSinceFired - FireInterval[GetCurrentFireMode()]) / (SpreadResetInterval - FireInterval[GetCurrentFireMode()]));
+	Spread[GetCurrentFireMode()] = FMath::Min(MaxSpread, Spread[GetCurrentFireMode()] + SpreadIncrease) * SpreadScalingOverTime;
 }
 
 void AUTWeap_Enforcer::StateChanged()
