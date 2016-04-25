@@ -31,6 +31,7 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	CellHeight = 32.f;
 	CenterBuffer = 420.f;
 	FlagX = 0.075f;
+	MinimapCenter = FVector2D(0.75f, 0.5f);
 
 	BadgeNumberUVs.Add(FVector2D(248,183));
 	BadgeNumberUVs.Add(FVector2D(283,183));
@@ -96,6 +97,7 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	ArrowKeysText = NSLOCTEXT("UTScoreboard", "Pages", "Arrow keys to switch page ({0} of {1})");
 	ReadyColor = FLinearColor::White;
 	ReadyScale = 1.f;
+	bDrawMinimapInScoreboard = true;
 }
 
 void UUTScoreboard::AdvancePage(int32 Increment)
@@ -234,6 +236,15 @@ void UUTScoreboard::Draw_Implementation(float RenderDelta)
 		DrawScorePanel(RenderDelta, YOffset);
 	}
 	DrawServerPanel(RenderDelta, FooterPosY);
+
+	if ((UTHUDOwner->ScoreboardPage == 0) && UTGameState && UTGameState->IsMatchInProgress() && !UTGameState->IsMatchIntermission() && bDrawMinimapInScoreboard)
+	{
+		float MapScale = 0.65f;
+		const float MapSize = float(Canvas->SizeY) * MapScale;
+		FVector2D LeftCorner = FVector2D(MinimapCenter.X*Canvas->ClipX - 0.5f*MapSize, MinimapCenter.Y*Canvas->ClipY - 0.5f*MapSize);
+		DrawTexture(TextureAtlas, LeftCorner.X, LeftCorner.Y, MapSize, MapSize, 149, 138, 32, 32, 0.8f, FLinearColor::Black);
+		UTHUDOwner->DrawMinimap(FColor(192, 192, 192, 220), MapSize, LeftCorner);
+	}
 }
 
 void UUTScoreboard::DrawGamePanel(float RenderDelta, float& YOffset)
@@ -311,11 +322,10 @@ void UUTScoreboard::DrawScorePanel(float RenderDelta, float& YOffset)
 
 void UUTScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 {
-	float LeftEdge = 10.f * RenderScale;
 	float Height = 23.f * RenderScale;
 	int32 ColumnCnt = ((UTGameState && UTGameState->bTeamGame) || ActualPlayerCount > 16) ? 2 : 1;
 	float ColumnHeaderAdjustY = ColumnHeaderY * RenderScale;
-	float XOffset = ColumnCnt > 1 ? LeftEdge : (Canvas->ClipX * 0.5f) - (ScaledCellWidth * 0.5f);
+	float XOffset = ScaledEdgeSize;
 	for (int32 i = 0; i < ColumnCnt; i++)
 	{
 		// Draw the background Border
@@ -332,7 +342,7 @@ void UUTScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 			DrawText(CH_Ready, XOffset + (ScaledCellWidth * ColumnHeaderScoreX), YOffset + ColumnHeaderAdjustY, UTHUDOwner->TinyFont, RenderScale, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
 		}
 		DrawText((GetWorld()->GetNetMode() == NM_Standalone) ? CH_Skill : CH_Ping, XOffset + (ScaledCellWidth * ColumnHeaderPingX), YOffset + ColumnHeaderAdjustY, UTHUDOwner->TinyFont, RenderScale, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
-		XOffset = Canvas->ClipX - ScaledCellWidth - LeftEdge;
+		XOffset = Canvas->ClipX - ScaledCellWidth - ScaledEdgeSize;
 	}
 
 	YOffset += Height + 4.f * RenderScale;
@@ -348,7 +358,7 @@ void UUTScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 	int32 Place = 1;
 	int32 NumSpectators = 0;
 	int32 ColumnCnt = ((UTGameState && UTGameState->bTeamGame) || ActualPlayerCount > 16) ? 2 : 1;
-	float XOffset = ColumnCnt > 1 ? ScaledEdgeSize : (Canvas->ClipX * 0.5f) - (ScaledCellWidth * 0.5f);
+	float XOffset = ScaledEdgeSize;
 	float DrawOffset = YOffset;
 	for (int32 i=0; i<UTGameState->PlayerArray.Num(); i++)
 	{

@@ -626,9 +626,7 @@ FText AUTHUD::ConvertTime(FText Prefix, FText Suffix, int32 Seconds, bool bForce
 
 void AUTHUD::DrawString(FText Text, float X, float Y, ETextHorzPos::Type HorzAlignment, ETextVertPos::Type VertAlignment, UFont* Font, FLinearColor Color, float Scale, bool bOutline)
 {
-
 	FVector2D RenderPos = FVector2D(X,Y);
-
 	float XL, YL;
 	Canvas->TextSize(Font, Text.ToString(), XL, YL, Scale, Scale);
 
@@ -636,7 +634,6 @@ void AUTHUD::DrawString(FText Text, float X, float Y, ETextHorzPos::Type HorzAli
 	{
 		RenderPos.X -= HorzAlignment == ETextHorzPos::Right ? XL : XL * 0.5f;
 	}
-
 	if (VertAlignment != ETextVertPos::Top)
 	{
 		RenderPos.Y -= VertAlignment == ETextVertPos::Bottom ? YL : YL * 0.5f;
@@ -1204,7 +1201,7 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 			{
 				// draw team colored dot at location
 				AUTPlayerState* PS = Cast<AUTPlayerState>(UTChar->PlayerState);
-				if (!PS || !UTPlayerOwner->UTPlayerState || (bOnlyShowTeammates && PS->Team && (PS->Team != UTPlayerOwner->UTPlayerState->Team)))
+				if (!PS || !UTPlayerOwner->UTPlayerState || (bOnlyShowTeammates && !PS->bOnlySpectator && (PS != UTPlayerOwner->UTPlayerState) && (!PS->Team || (PS->Team != UTPlayerOwner->UTPlayerState->Team))))
 				{
 					continue;
 				}

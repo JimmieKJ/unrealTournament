@@ -12,22 +12,7 @@ UUTTeamScoreboard::UUTTeamScoreboard(const class FObjectInitializer& ObjectIniti
 	RedTeamText = NSLOCTEXT("UTTeamScoreboard", "RedTeam", "RED");
 	BlueTeamText = NSLOCTEXT("UTTeamScoreboard", "BlueTeam", "BLUE");
 	CenterBuffer = 520.f;
-	bDrawMinimapInScoreboard = true;
-}
-
-void UUTTeamScoreboard::Draw_Implementation(float RenderDelta)
-{
-	Super::Draw_Implementation(RenderDelta);
-
-	// draw minimap
-	if ((UTHUDOwner->ScoreboardPage == 0) && UTGameState && UTGameState->IsMatchInProgress() && !UTGameState->IsMatchIntermission() && bDrawMinimapInScoreboard)
-	{
-		float MapScale = 0.65f;
-		const float MapSize = float(Canvas->SizeY) * MapScale;
-		FVector2D LeftCorner = FVector2D(0.5f*Canvas->ClipX - 0.5f*MapSize, 0.5f*Canvas->ClipY - 0.5f*MapSize);
-		DrawTexture(TextureAtlas, LeftCorner.X, LeftCorner.Y, MapSize, MapSize, 149, 138, 32, 32, 0.8f, FLinearColor::Black);	
-		UTHUDOwner->DrawMinimap(FColor(192, 192, 192, 220), MapSize, LeftCorner);
-	}
+	MinimapCenter = FVector2D(0.5f, 0.5f);
 }
 
 void UUTTeamScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)

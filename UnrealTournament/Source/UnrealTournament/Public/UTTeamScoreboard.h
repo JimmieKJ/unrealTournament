@@ -21,9 +21,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		FText BlueTeamText;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
-		bool bDrawMinimapInScoreboard;
-
 protected:
 	virtual void DrawTeamPanel(float RenderDelta, float& YOffset);
 	virtual void DrawPlayerScores(float RenderDelta, float& DrawY);
@@ -55,7 +52,5 @@ protected:
 	void SwitchToScoringPlaysPage();
 	virtual void OpenScoringPlaysPage() override;
 	virtual void DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom) override;
-	virtual void Draw_Implementation(float RenderDelta);
-
 };
 
