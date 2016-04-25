@@ -96,11 +96,6 @@ void AUTProjectile::PreInitializeComponents()
 
 	Super::PreInitializeComponents();
 
-	if (SpawnInstigator != NULL)
-	{
-		Instigator = SpawnInstigator;
-	}
-
 	if (Instigator != NULL)
 	{
 		InstigatorController = Instigator->Controller;

@@ -343,12 +343,5 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	 */
 	UFUNCTION(BlueprintNativeEvent)
 	float GetMaxDamageRadius() const;
-
-protected:
-	/** workaround to Instigator not exposed in blueprint spawn at engine level
-	 * ONLY USED IN SPAWN ACTOR NODE
-	 */
-	UPROPERTY(BlueprintReadWrite, Meta = (ExposeOnSpawn = "true"), Category = "Spawn")
-	APawn* SpawnInstigator;
 };
 
