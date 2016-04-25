@@ -523,7 +523,7 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	{
 		if (PlayerState->bPendingTeamSwitch)
 		{
-			DrawText(TeamSwapText, XOffset + (ScaledCellWidth * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->MediumFont, RenderScale, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
+			DrawText(TeamSwapText, XOffset + (ScaledCellWidth * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->SmallFont, RenderScale, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
 		}
 		else
 		{
@@ -584,12 +584,12 @@ void UUTScoreboard::DrawReadyText(AUTPlayerState* PlayerState, float XOffset, fl
 		if ((PlayerState->ReadyMode == 3) && PlayerState->bReadyToPlay)
 		{
 			PlayerReady = NSLOCTEXT("UTScoreboard", "Plead", "COME ON!");
-			ReadyX += 30.f;
+			ReadyX += 30.f*RenderScale;
 		}
 		if ((PlayerState->ReadyMode == 5) && PlayerState->bReadyToPlay)
 		{
 			PlayerReady = NSLOCTEXT("UTScoreboard", "PleadRekt", "GET REKT!");
-			ReadyX += 30.f;
+			ReadyX += 30.f*RenderScale;
 		}
 		if (PlayerState->ReadyMode == 4)
 		{
@@ -603,7 +603,7 @@ void UUTScoreboard::DrawReadyText(AUTPlayerState* PlayerState, float XOffset, fl
 				ReadyColor.B = 0.5f;
 				ReadyColor.G = 0.5f;
 			}
-			DrawText(PlayerReady, ReadyX, YOffset + ColumnY, UTHUDOwner->SmallFont, ReadyScale, 1.0f, ReadyColor, ETextHorzPos::Left, ETextVertPos::Center);
+			DrawText(PlayerReady, ReadyX, YOffset + ColumnY, UTHUDOwner->SmallFont, ReadyScale*RenderScale, 1.0f, ReadyColor, ETextHorzPos::Left, ETextVertPos::Center);
 			return;
 		}
 	}
@@ -617,8 +617,8 @@ void UUTScoreboard::DrawReadyText(AUTPlayerState* PlayerState, float XOffset, fl
 
 void UUTScoreboard::DrawPlayerScore(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width, FLinearColor DrawColor)
 {
-	DrawText(FText::AsNumber(int32(PlayerState->Score)), XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
-	DrawText(FText::AsNumber(PlayerState->Deaths), XOffset + (Width * ColumnHeaderDeathsX), YOffset + ColumnY, UTHUDOwner->SmallFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+	DrawText(FText::AsNumber(int32(PlayerState->Score)), XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->SmallFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+	DrawText(FText::AsNumber(PlayerState->Deaths), XOffset + (Width * ColumnHeaderDeathsX), YOffset + ColumnY, UTHUDOwner->TinyFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 }
 
 void UUTScoreboard::DrawServerPanel(float RenderDelta, float YOffset)
