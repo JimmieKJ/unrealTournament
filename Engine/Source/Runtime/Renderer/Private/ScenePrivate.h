@@ -914,6 +914,7 @@ public:
 			NewMID->CopyInterpParameters(InputAsMID);
 		}
 
+		MIDUsedCount++;
 		check(NewMID->GetRenderProxy(false));
 		return NewMID;
 	}
