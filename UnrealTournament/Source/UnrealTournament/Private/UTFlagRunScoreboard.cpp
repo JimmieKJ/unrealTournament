@@ -47,13 +47,11 @@ void UUTFlagRunScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 
 void UUTFlagRunScoreboard::DrawPlayerScore(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width, FLinearColor DrawColor)
 {
-
 	DrawText(FText::AsNumber(int32(PlayerState->Score)), XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->SmallFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 	AUTCTFGameState* CTFState = Cast<AUTCTFGameState>(UTGameState);
 	if (CTFState && (CTFState->bAttackerLivesLimited || CTFState->bDefenderLivesLimited))
 	{
-		AUTInventory* SelectedPowerup = PlayerState->BoostClass->GetDefaultObject<AUTInventory>();
-		
+		AUTInventory* SelectedPowerup = PlayerState && PlayerState->BoostClass ? PlayerState->BoostClass->GetDefaultObject<AUTInventory>() : nullptr;
 		const float LivesXOffset = (Width * 0.5f*(ColumnHeaderPowerupX + ColumnHeaderPingX));
 
 		if (SelectedPowerup)
