@@ -33,10 +33,13 @@ void UUTHUDWidgetAnnouncements::DrawMessages(float DeltaTime)
 		Slots[SlotIndex].bHasBeenRendered = false;
 	}
 	bool bIsAtIntermission = UTGameState && UTGameState->IsMatchIntermission();
+	bool bNoLivePawnTarget = !UTCharacterOwner || UTCharacterOwner->IsDead();
 	for (int32 QueueIndex = 0; QueueIndex < MessageQueue.Num(); QueueIndex++)
 	{
 		// When we hit the empty section of the array, exit out
-		if ((MessageQueue[QueueIndex].MessageClass == NULL) || MessageQueue[QueueIndex].bHasBeenRendered || (bIsAtIntermission && !GetDefault<UUTLocalMessage>(MessageQueue[QueueIndex].MessageClass)->bDrawAtIntermission))
+		if ((MessageQueue[QueueIndex].MessageClass == NULL) || MessageQueue[QueueIndex].bHasBeenRendered 
+			|| (bIsAtIntermission && !GetDefault<UUTLocalMessage>(MessageQueue[QueueIndex].MessageClass)->bDrawAtIntermission)
+			|| (bNoLivePawnTarget && GetDefault<UUTLocalMessage>(MessageQueue[QueueIndex].MessageClass)->bDrawOnlyIfAlive))
 		{
 			continue;
 		}

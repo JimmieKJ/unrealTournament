@@ -18,6 +18,7 @@ UUTLocalMessage::UUTLocalMessage(const class FObjectInitializer& ObjectInitializ
 	bWantsBotReaction = false;
 	bDrawAsDeathMessage = false;
 	bDrawAtIntermission = true;
+	bDrawOnlyIfAlive = false;
 	ScaleInSize = 1.f;
 	FontSizeIndex = 2;
 }

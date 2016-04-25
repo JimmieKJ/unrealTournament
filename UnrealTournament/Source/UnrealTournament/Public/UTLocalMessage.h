@@ -53,6 +53,10 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 		uint32 bDrawAtIntermission : 1;
 
+	/** Display only if viewtarget is a live player. */
+	UPROPERTY(EditDefaultsOnly, Category = Message)
+		uint32 bDrawOnlyIfAlive : 1;
+
 	// # of seconds to stay in HUD message queue.
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 	float Lifetime;    
