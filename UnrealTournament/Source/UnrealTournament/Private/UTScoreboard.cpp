@@ -408,8 +408,8 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	// If we are interactive, store off the bounds of this cell for selection
 	if (bIsInteractive)
 	{
-		FVector4 Bounds = FVector4(RenderPosition.X + (XOffset * RenderScale), RenderPosition.Y + (YOffset * RenderScale), 
-										RenderPosition.X + ((XOffset + ScaledCellWidth) * RenderScale), RenderPosition.Y + ((YOffset + CellHeight) * RenderScale));
+		FVector4 Bounds = FVector4(RenderPosition.X + XOffset, RenderPosition.Y + YOffset, 
+										RenderPosition.X + XOffset + ScaledCellWidth, RenderPosition.Y + YOffset + CellHeight*RenderScale);
 		SelectionStack.Add(FSelectionObject(PlayerState, Bounds));
 		bIsUnderCursor = (CursorPosition.X >= Bounds.X && CursorPosition.X <= Bounds.Z && CursorPosition.Y >= Bounds.Y && CursorPosition.Y <= Bounds.W);
 	}
