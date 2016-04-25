@@ -135,8 +135,15 @@ FReply SUTPartyInviteWidget::AcceptInvite()
 	if (!LastInviteUniqueID.IsEmpty())
 	{
 		TSharedPtr<IGameAndPartyService> GameAndPartyService = ISocialModule::Get().GetFriendsAndChatManager()->GetGameAndPartyService();
-		TSharedPtr< IFriendItem > User = ISocialModule::Get().GetFriendsAndChatManager()->GetFriendsService()->FindUser(FUniqueNetIdString(LastInviteUniqueID));
-		GameAndPartyService->AcceptGameInvite(User);
+		TSharedPtr<IFriendsService> FriendsService = ISocialModule::Get().GetFriendsAndChatManager()->GetFriendsService();
+		if (GameAndPartyService.IsValid() && FriendsService.IsValid())
+		{
+			TSharedPtr< IFriendItem > User = FriendsService->FindUser(FUniqueNetIdString(LastInviteUniqueID));
+			if (User.IsValid())
+			{
+				GameAndPartyService->AcceptGameInvite(User);
+			}
+		}
 	}
 #endif
 	LastInviteTime = 0;
