@@ -389,6 +389,49 @@ bool AUTCTFRoundGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 			return true;
 		}
 	}
+
+	// Check if a team has an insurmountable lead
+	// current implementation assumes 6 rounds and 2 teams
+	if (CTFGameState && (CTFGameState->CTFRound >= NumRounds - 2) && Teams[0] && Teams[1])
+	{
+		if ((CTFGameState->CTFRound == NumRounds - 2) && (FMath::Abs(Teams[0]->Score - Teams[1]->Score) > DefenseScore + GoldScore))
+		{
+			AUTTeamInfo* BestTeam = (Teams[0]->Score > Teams[1]->Score) ? Teams[0] : Teams[1];
+			EndTeamGame(BestTeam, FName(TEXT("scorelimit")));
+			return true;
+		}
+		if (CTFGameState->CTFRound == NumRounds - 1)
+		{
+			if (bRedToCap)
+			{
+				// next round is blue cap
+				if (Teams[0]->Score > Teams[1]->Score + GoldScore)
+				{
+					EndTeamGame(Teams[0], FName(TEXT("scorelimit")));
+					return true;
+				}
+				if (Teams[1]->Score > Teams[0]->Score + DefenseScore)
+				{
+					EndTeamGame(Teams[1], FName(TEXT("scorelimit")));
+					return true;
+				}
+			}
+			else
+			{
+				// next round is red cap
+				if (Teams[0]->Score > Teams[1]->Score + DefenseScore)
+				{
+					EndTeamGame(Teams[0], FName(TEXT("scorelimit")));
+					return true;
+				}
+				if (Teams[1]->Score > Teams[0]->Score + GoldScore)
+				{
+					EndTeamGame(Teams[1], FName(TEXT("scorelimit")));
+					return true;
+				}
+			}
+		}
+	}
 	return false;
 }
 
@@ -1030,17 +1073,7 @@ void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 		WinningTeam->ForceNetUpdate();
 		LastTeamToScore = WinningTeam;
 		BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 3 + WinningTeam->TeamIndex);
-		if (!CheckForWinner(LastTeamToScore) && (MercyScore > 0))
-		{
-			int32 Spread = LastTeamToScore->Score;
-			for (AUTTeamInfo* OtherTeam : Teams)
-			{
-				if (OtherTeam != LastTeamToScore)
-				{
-					Spread = FMath::Min<int32>(Spread, LastTeamToScore->Score - OtherTeam->Score);
-				}
-			}
-		}
+		CheckForWinner(LastTeamToScore);
 		if (UTGameState->IsMatchInProgress())
 		{
 			SetMatchState(MatchState::MatchIntermission);
