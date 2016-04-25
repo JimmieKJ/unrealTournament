@@ -39,7 +39,7 @@ void FAnimNode_ModifyBone::EvaluateBoneTransforms(USkeletalMeshComponent* SkelCo
 	// the way we apply transform is same as FMatrix or FTransform
 	// we apply scale first, and rotation, and translation
 	// if you'd like to translate first, you'll need two nodes that first node does translate and second nodes to rotate.
-	const FBoneContainer BoneContainer = MeshBases.GetPose().GetBoneContainer();
+	const FBoneContainer& BoneContainer = MeshBases.GetPose().GetBoneContainer();
 
 	FCompactPoseBoneIndex CompactPoseBoneToModify = BoneToModify.GetCompactPoseIndex(BoneContainer);
 	FTransform NewBoneTM = MeshBases.GetComponentSpaceTransform(CompactPoseBoneToModify);
