@@ -4752,7 +4752,8 @@ void AUTCharacter::DropCarriedObject()
 void AUTCharacter::ServerDropCarriedObject_Implementation()
 {
 	AUTCarriedObject* Obj = GetCarriedObject();
-	if (Obj != NULL)
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (Obj && GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission())
 	{
 		Obj->Drop(NULL);
 	}
