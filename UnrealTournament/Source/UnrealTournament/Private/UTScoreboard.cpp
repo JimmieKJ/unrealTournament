@@ -28,7 +28,6 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	ColumnHeaderY = 8.f;
 	ColumnY = 12.f;
 	ColumnMedalX = 0.55f;
-	FooterPosY = 996.f;
 	CellHeight = 32.f;
 	CenterBuffer = 420.f;
 	FlagX = 0.075f;
@@ -216,6 +215,7 @@ void UUTScoreboard::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCa
 	ColumnY = 12.f *RenderScale;
 	ScaledEdgeSize = 10.f*RenderScale;
 	ScaledCellWidth = RenderScale * ((Size.X * 0.5f) - CenterBuffer);
+	FooterPosY = 996.f * RenderScale;
 }
 
 void UUTScoreboard::Draw_Implementation(float RenderDelta)
@@ -634,14 +634,13 @@ void UUTScoreboard::DrawServerPanel(float RenderDelta, float YOffset)
 		}
 
 		// Draw the Background
-		float LeftEdge = 0.f;
-		DrawTexture(TextureAtlas, LeftEdge, YOffset, Size.X, 38, 4, 132, 30, 38, 1.0);
-		DrawText(SpectatorMessage, LeftEdge + 10.f, YOffset + 13, UTHUDOwner->SmallFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
-		DrawText(FText::FromString(UTGameState->ServerDescription), Size.X - 200.f, YOffset + 13, UTHUDOwner->SmallFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
+		DrawTexture(TextureAtlas, ScaledEdgeSize, YOffset, Canvas->ClipX - 2.f*ScaledEdgeSize, 38.f*RenderScale, 4, 132, 30, 38, 1.0);
+		DrawText(SpectatorMessage, ScaledEdgeSize + 10.f*RenderScale, YOffset + 13.f*RenderScale, UTHUDOwner->SmallFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		DrawText(FText::FromString(UTGameState->ServerDescription), Canvas->ClipX - 200.f*RenderScale, YOffset + 13.f*RenderScale, UTHUDOwner->SmallFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 		if ((NumPages > 1) && UTGameState->HasMatchStarted())
 		{
 			FText PageText = FText::Format(ArrowKeysText, FText::AsNumber(UTHUDOwner->ScoreboardPage + 1), FText::AsNumber(NumPages - 1 + GetWorld()->GameState->PlayerArray.Num()));
-			DrawText(PageText, Size.X * 0.5f, YOffset + 13, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
+			DrawText(PageText, Canvas->ClipX * 0.5f, YOffset + 13.f*RenderScale, UTHUDOwner->SmallFont, RenderScale, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
 		}
 	}
 }
