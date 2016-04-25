@@ -113,6 +113,10 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY()
 		int32 BronzeScore;
 
+	// Score for a successful defense
+	UPROPERTY()
+		int32 DefenseScore;
+
 	virtual int32 GetFlagCapScore() override;
 
 	virtual void InitFlags();
@@ -150,8 +154,8 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual bool UTIsHandlingReplays() override { return false; }
 	virtual void StopRCTFReplayRecording();
 
-	/** Score round ending due to team out of lives. */
-	virtual void ScoreOutOfLives(int32 WinningTeamIndex);
+	/** Score round ending due some other reason than capture. */
+	virtual void ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason = 0);
 
 	/** Initialize for new round. */
 	virtual void InitRound();

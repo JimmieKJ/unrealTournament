@@ -40,6 +40,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	GoldScore = 3;
 	SilverScore = 2;
 	BronzeScore = 1;
+	DefenseScore = 1;
 	DisplayName = NSLOCTEXT("UTGameMode", "CTFR", "Flag Run");
 	IntermissionDuration = 30.f;
 	RoundLives = 5;
@@ -799,12 +800,12 @@ bool AUTCTFRoundGame::ChangeTeam(AController* Player, uint8 NewTeamIndex, bool b
 			}
 			if (!bOldTeamHasPlayers && OldTeam)
 			{
-				ScoreOutOfLives((OldTeam->TeamIndex == 0) ? 1 : 0);
+				ScoreAlternateWin((OldTeam->TeamIndex == 0) ? 1 : 0);
 				return bResult;
 			}
 			if (!bNewTeamHasPlayers && NewTeam)
 			{
-				ScoreOutOfLives((NewTeam->TeamIndex == 0) ? 1 : 0);
+				ScoreAlternateWin((NewTeam->TeamIndex == 0) ? 1 : 0);
 				return bResult;
 			}
 		}
@@ -867,7 +868,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 							}
 						}
 						BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 4);
-						ScoreOutOfLives((PS->Team->TeamIndex == 0) ? 1 : 0);
+						ScoreAlternateWin((PS->Team->TeamIndex == 0) ? 1 : 0);
 					}
 					return;
 				}
@@ -902,7 +903,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 			if (CTFGameState->RedLivesRemaining <= 0)
 			{
 				CTFGameState->RedLivesRemaining = 0;
-				ScoreOutOfLives(1);
+				ScoreAlternateWin(1);
 				return;
 			}
 			else if (bNeedFiveKillsMessage && (CTFGameState->RedLivesRemaining == 5))
@@ -917,7 +918,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 			if (CTFGameState->BlueLivesRemaining <= 0)
 			{
 				CTFGameState->BlueLivesRemaining = 0;
-				ScoreOutOfLives(0);
+				ScoreAlternateWin(0);
 				return;
 			}
 			else if (bNeedFiveKillsMessage && (CTFGameState->BlueLivesRemaining == 5))
@@ -999,13 +1000,13 @@ void AUTCTFRoundGame::AdjustLeaderHatFor(AUTCharacter* UTChar)
 // no leader hat for high score, only for last life
 }
 
-void AUTCTFRoundGame::ScoreOutOfLives(int32 WinningTeamIndex)
+void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 {
 	FindAndMarkHighScorer();
 	AUTTeamInfo* WinningTeam = (Teams.Num() > WinningTeamIndex) ? Teams[WinningTeamIndex] : NULL;
 	if (WinningTeam)
 	{
-		WinningTeam->Score += IsTeamOnOffense(WinningTeamIndex) ? GetFlagCapScore() : 1;
+		WinningTeam->Score += IsTeamOnOffense(WinningTeamIndex) ? GetFlagCapScore() : DefenseScore;
 		if (CTFGameState)
 		{
 			WinningTeam->RoundBonus = FMath::Min(MaxTimeScoreBonus, CTFGameState->GetRemainingTime());
@@ -1014,7 +1015,7 @@ void AUTCTFRoundGame::ScoreOutOfLives(int32 WinningTeamIndex)
 			FCTFScoringPlay NewScoringPlay;
 			NewScoringPlay.Team = WinningTeam;
 			NewScoringPlay.bDefenseWon = !IsTeamOnOffense(WinningTeamIndex);
-			NewScoringPlay.bAnnihilation = true;
+			NewScoringPlay.bAnnihilation = (Reason == 1);
 			NewScoringPlay.TeamScores[0] = CTFGameState->Teams[0] ? CTFGameState->Teams[0]->Score : 0;
 			NewScoringPlay.TeamScores[1] = CTFGameState->Teams[1] ? CTFGameState->Teams[1]->Score : 0;
 			NewScoringPlay.RemainingTime = CTFGameState->GetClockTime();
@@ -1063,7 +1064,7 @@ void AUTCTFRoundGame::CheckGameTime()
 		if (RemainingTime <= 0)
 		{
 			// Round is over, defense wins.
-			ScoreOutOfLives(bRedToCap ? 1 : 0);
+			ScoreAlternateWin(bRedToCap ? 1 : 0, 1);
 		}
 		else
 		{

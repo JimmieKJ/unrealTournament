@@ -108,7 +108,7 @@ void AUTCTFRoundGameTommy::GiveDefaultInventory(APawn* PlayerPawn)
 	}
 }
 
-void AUTCTFRoundGameTommy::ScoreOutOfLives(int32 WinningTeamIndex)
+void AUTCTFRoundGameTommy::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 {
 	//we want to give +2 points on an offense win so that they don't have to run the flag with no defender. 
 	//The Super call will already give +1, so lets add a pre-emptive +1 before the call
@@ -121,7 +121,7 @@ void AUTCTFRoundGameTommy::ScoreOutOfLives(int32 WinningTeamIndex)
 		}
 	}
 
-	Super::ScoreOutOfLives(WinningTeamIndex);
+	Super::ScoreAlternateWin(WinningTeamIndex, Reason);
 }
 
 void AUTCTFRoundGameTommy::ToggleSpecialFor(AUTCharacter* C)

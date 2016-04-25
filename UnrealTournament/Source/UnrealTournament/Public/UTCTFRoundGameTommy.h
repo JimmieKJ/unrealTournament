@@ -18,8 +18,8 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameTommy : public AUTCTFRoundGame
 
 	virtual void RestartPlayer(AController* aPlayer) override;
 
-	/** Score round ending due to team out of lives. */
-	virtual void ScoreOutOfLives(int32 WinningTeamIndex) override;
+	/** Score round ending due some other reason than capture. */
+	virtual void ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason=0) override;
 	
 	UPROPERTY()
 	TSubclassOf<class AUTArmor> ChestArmorClass;
