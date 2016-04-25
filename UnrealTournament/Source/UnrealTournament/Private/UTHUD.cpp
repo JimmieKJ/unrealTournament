@@ -1184,7 +1184,29 @@ bool AUTHUD::ShouldInvertMinimap()
 void AUTHUD::DrawMinimapSpectatorIcons()
 {
 	const float RenderScale = (float(Canvas->SizeY) / 1080.0f) * GetHUDMinimapScale();
-	const FVector2D PlayerIconScale = 32.f*RenderScale*FVector2D(1.f,1.f);
+
+	// draw pickup icons
+	AUTPickup* NamedPickup = NULL;
+	FVector2D NamedPickupPos = FVector2D::ZeroVector;
+	for (TActorIterator<AUTPickup> It(GetWorld()); It; ++It)
+	{
+		FCanvasIcon Icon = It->GetMinimapIcon();
+		if (Icon.Texture != NULL)
+		{
+			FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
+			const float Ratio = Icon.UL / Icon.VL;
+			Canvas->DrawColor = It->IconColor.ToFColor(false);
+			const float IconSize = (LastHoveredActor == *It) ? (48.0f * RenderScale * FMath::InterpEaseOut<float>(1.0f, 1.25f, FMath::Min<float>(0.2f, GetWorld()->RealTimeSeconds - LastHoveredActorChangeTime) * 5.0f, 2.0f)) : (32.0f * RenderScale);
+			Canvas->DrawTile(Icon.Texture, Pos.X - 0.5f * Ratio * IconSize, Pos.Y - 0.5f * IconSize, Ratio * IconSize, IconSize, Icon.U, Icon.V, Icon.UL, Icon.VL);
+			if (LastHoveredActor == *It)
+			{
+				NamedPickup = *It;
+				NamedPickupPos = Pos;
+			}
+		}
+	}
+
+	const FVector2D PlayerIconScale = 32.f*RenderScale*FVector2D(1.f, 1.f);
 	bool bOnlyShowTeammates = !UTPlayerOwner || !UTPlayerOwner->UTPlayerState || !UTPlayerOwner->UTPlayerState->bOnlySpectator;
 	for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 	{
@@ -1219,26 +1241,6 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 		}
 	}
 
-	// draw pickup icons
-	AUTPickup* NamedPickup = NULL;
-	FVector2D NamedPickupPos = FVector2D::ZeroVector;
-	for (TActorIterator<AUTPickup> It(GetWorld()); It; ++It)
-	{
-		FCanvasIcon Icon = It->GetMinimapIcon();
-		if (Icon.Texture != NULL)
-		{
-			FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
-			const float Ratio = Icon.UL / Icon.VL;
-			Canvas->DrawColor = It->IconColor.ToFColor(false);
-			const float IconSize = (LastHoveredActor == *It) ? (48.0f * RenderScale * FMath::InterpEaseOut<float>(1.0f, 1.25f, FMath::Min<float>(0.2f, GetWorld()->RealTimeSeconds - LastHoveredActorChangeTime) * 5.0f, 2.0f)) : (32.0f * RenderScale);
-			Canvas->DrawTile(Icon.Texture, Pos.X - 0.5f * Ratio * IconSize, Pos.Y - 0.5f * IconSize, Ratio * IconSize, IconSize, Icon.U, Icon.V, Icon.UL, Icon.VL);
-			if (LastHoveredActor == *It)
-			{
-				NamedPickup = *It;
-				NamedPickupPos = Pos;
-			}
-		}
-	}
 	// draw name last so it is on top of any conflicting icons
 	if (NamedPickup != NULL)
 	{
