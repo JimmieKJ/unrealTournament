@@ -16,6 +16,7 @@
 #include "UTMutator.h"
 #include "StatNames.h"
 #include "UTSpectatorCamera.h"
+#include "UTPickupAmmo.h"
 
 AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 : Super(OI)
@@ -96,7 +97,10 @@ void AUTShowdownGame::StartNewRound()
 		if (Pickup != NULL && Pickup != BreakerPickup)
 		{
 			Pickup->bDelayedSpawn = false;
-			Pickup->RespawnTime = 0.0f;
+			if (!Pickup->IsA<AUTPickupAmmo>())
+			{
+				Pickup->RespawnTime = 0.0f;
+			}
 		}
 		if (Cast<AUTCharacter>(*It) != NULL)
 		{

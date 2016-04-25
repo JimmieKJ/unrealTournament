@@ -116,6 +116,19 @@ void AUTTeamShowdownGame::RestartPlayer(AController* aPlayer)
 {
 	Super::RestartPlayer(aPlayer);
 
+	// default weapons have infinite ammo
+	AUTCharacter* UTC = Cast<AUTCharacter>(aPlayer->GetPawn());
+	if (UTC != NULL)
+	{
+		for (TInventoryIterator<AUTWeapon> It(UTC); It; ++It)
+		{
+			for (int32 i = 0; i < It->AmmoCost.Num(); i++)
+			{
+				It->AmmoCost[i] = 0;
+			}
+		}
+	}
+
 	// go to spectating if dead and can't respawn
 	if (!bAllowPlayerRespawns && IsMatchInProgress() && aPlayer->GetPawn() == NULL)
 	{
