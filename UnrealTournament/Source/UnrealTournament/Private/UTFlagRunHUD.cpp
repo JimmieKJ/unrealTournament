@@ -173,10 +173,11 @@ void AUTFlagRunHUD::HandlePowerups()
 		if (GS && ((GS->GetMatchState() == MatchState::WaitingToStart) || (GS->GetMatchState() == MatchState::MatchIntermission)))
 		{
 			const bool bIsOnDefense = GS->IsTeamOnDefenseNextRound(UTPS->Team->TeamIndex);
+			const FString WidgetPath = bIsOnDefense ? TEXT("/Game/RestrictedAssets/Blueprints/BP_PowerupSelector_Defense.BP_PowerupSelector_Defense_C") : TEXT("/Game/RestrictedAssets/Blueprints/BP_PowerupSelector_Offense.BP_PowerupSelector_Offense_C");
 
 			if (!PowerupSelectWindow.IsValid() && UTPlayerOwner)
 			{
-				SAssignNew(PowerupSelectWindow, SUTPowerupSelectWindow, UTPlayerOwner->GetUTLocalPlayer(), bIsOnDefense);
+				SAssignNew(PowerupSelectWindow, SUTPowerupSelectWindow, UTPlayerOwner->GetUTLocalPlayer(), WidgetPath);
 				UTPlayerOwner->GetUTLocalPlayer()->OpenWindow(PowerupSelectWindow);
 
 				bConstructedPowerupWindowForDefense = bIsOnDefense;
@@ -186,7 +187,7 @@ void AUTFlagRunHUD::HandlePowerups()
 			{
 				UTPlayerOwner->GetUTLocalPlayer()->CloseWindow(PowerupSelectWindow);
 
-				SAssignNew(PowerupSelectWindow, SUTPowerupSelectWindow, UTPlayerOwner->GetUTLocalPlayer(), bIsOnDefense);
+				SAssignNew(PowerupSelectWindow, SUTPowerupSelectWindow, UTPlayerOwner->GetUTLocalPlayer(), WidgetPath);
 				UTPlayerOwner->GetUTLocalPlayer()->OpenWindow(PowerupSelectWindow);
 
 				bConstructedPowerupWindowForDefense = bIsOnDefense;

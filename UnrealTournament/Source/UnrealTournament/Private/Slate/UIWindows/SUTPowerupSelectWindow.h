@@ -29,7 +29,7 @@ class UNREALTOURNAMENT_API SUTPowerupSelectWindow : public SUTHUDWindow
 
 public:
 
-	void Construct(const FArguments& InArgs, TWeakObjectPtr<UUTLocalPlayer> InPlayerOwner, bool bShouldShowDefensePowerupSelectWindowIn);
+	void Construct(const FArguments& InArgs, TWeakObjectPtr<UUTLocalPlayer> InPlayerOwner, const FString& BlueprintPath);
 
 	bool bShouldShowDefensePowerupSelectWindow;
 
@@ -39,6 +39,7 @@ protected:
 	virtual void BuildPowerupSelect();
 
 	TSharedPtr<SUTUMGPanel> PowerupSelectPanel;
+	FString WidgetString;
 };
 
 #endif

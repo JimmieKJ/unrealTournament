@@ -13,9 +13,9 @@
 
 #if !UE_SERVER
 
-void SUTPowerupSelectWindow::Construct(const FArguments& InArgs, TWeakObjectPtr<UUTLocalPlayer> InPlayerOwner, bool bShouldShowDefensePowerupSelectWindowIn)
+void SUTPowerupSelectWindow::Construct(const FArguments& InArgs, TWeakObjectPtr<UUTLocalPlayer> InPlayerOwner, const FString& BlueprintPath)
 {
-	bShouldShowDefensePowerupSelectWindow = bShouldShowDefensePowerupSelectWindowIn;
+	WidgetString = BlueprintPath;
 
 	SUTHUDWindow::Construct(InArgs, InPlayerOwner);
 }
@@ -35,14 +35,6 @@ void SUTPowerupSelectWindow::BuildPowerupSelect()
 {
 	if (!PowerupSelectPanel.IsValid())
 	{
-		FString WidgetString;
-		WidgetString = TEXT("/Game/RestrictedAssets/Blueprints/BP_PowerupSelector_Offense.BP_PowerupSelector_Offense_C");
-
-		if (bShouldShowDefensePowerupSelectWindow)
-		{
-			WidgetString = TEXT("/Game/RestrictedAssets/Blueprints/BP_PowerupSelector_Defense.BP_PowerupSelector_Defense_C");
-		}
-		
 		Overlay->AddSlot().VAlign(VAlign_Fill).HAlign(HAlign_Fill)
 		[
 			SAssignNew(PowerupSelectPanel, SUTUMGPanel, PlayerOwner)

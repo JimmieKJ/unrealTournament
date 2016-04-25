@@ -2,6 +2,7 @@
 #pragma once
 
 #include "UTHUD_TeamDM.h"
+#include "SUTHudWindow.h"
 
 #include "UTHUD_Showdown.generated.h"
 
@@ -101,4 +102,8 @@ class UNREALTOURNAMENT_API AUTHUD_Showdown : public AUTHUD_TeamDM
 protected:
 	/** set when PlayerOwner's look input has been locked for interacting with the spawn selection map, so we know to restore the input later */
 	bool bLockedLookInput;
+
+#if !UE_SERVER
+	TSharedPtr<SUTHUDWindow> PowerupSelectWindow;
+#endif
 };

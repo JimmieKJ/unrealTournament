@@ -5,6 +5,8 @@
 #include "UTShowdownGameMessage.h"
 #include "UTPlayerStart.h"
 #include "UTHUDWidgetMessage_KillIconMessages.h"
+#include "SUTPowerupSelectWindow.h"
+#include "UTTeamShowdownGame.h"
 
 AUTHUD_Showdown::AUTHUD_Showdown(const FObjectInitializer& OI)
 : Super(OI)
@@ -360,6 +362,27 @@ void AUTHUD_Showdown::DrawHUD()
 		bNeedOnDeckNotify = false;
 		PlayerOwner->ClientReceiveLocalizedMessage(UUTShowdownGameMessage::StaticClass(), 2, PlayerOwner->PlayerState, NULL, NULL);
 	}
+
+#if !UE_SERVER
+	AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
+	if (UTPS != NULL && UTPS->Team != NULL && GS != NULL && GS->GameModeClass != NULL && GS->GameModeClass->IsChildOf(AUTTeamShowdownGame::StaticClass()))
+	{
+		if (GS->GetMatchState() == MatchState::WaitingToStart)
+		{
+			if (!PowerupSelectWindow.IsValid())
+			{
+				SAssignNew(PowerupSelectWindow, SUTPowerupSelectWindow, UTPlayerOwner->GetUTLocalPlayer(), TEXT("/Game/RestrictedAssets/Blueprints/BP_PowerupSelector_Showdown.BP_PowerupSelector_Showdown_C"));
+				UTPlayerOwner->GetUTLocalPlayer()->OpenWindow(PowerupSelectWindow);
+				UTPS->bIsPowerupSelectWindowOpen = true;
+			}	
+		}
+		else if ((PowerupSelectWindow.IsValid()) && PowerupSelectWindow->GetWindowState() == EUIWindowState::Active)
+		{
+			UTPS->bIsPowerupSelectWindowOpen = false;
+			UTPlayerOwner->GetUTLocalPlayer()->CloseWindow(PowerupSelectWindow);
+		}
+	}
+#endif
 }
 
 void AUTHUD_Showdown::DrawPlayerList()
@@ -431,6 +454,13 @@ EInputMode::Type AUTHUD_Showdown::GetInputMode_Implementation() const
 	}
 	else
 	{
+#if !UE_SERVER
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerOwner->PlayerState);
+		if (PowerupSelectWindow.IsValid() && PS != NULL && PS->bIsPowerupSelectWindowOpen && GS != NULL && GS->GetMatchState() == MatchState::WaitingToStart)
+		{
+			return EInputMode::EIM_GameAndUI;
+		}
+#endif
 		return Super::GetInputMode_Implementation();
 	}
 }
