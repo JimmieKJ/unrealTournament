@@ -35,13 +35,6 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	TimeLimit = 5;
-	GoldBonusTime = 120;
-	SilverBonusTime = 60;
-	GoldScore = 3;
-	SilverScore = 2;
-	BronzeScore = 1;
-	DefenseScore = 1;
-	DisplayName = NSLOCTEXT("UTGameMode", "CTFR", "Flag Run");
 	IntermissionDuration = 30.f;
 	RoundLives = 5;
 	bPerPlayerLives = true;
@@ -49,7 +42,6 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	FlagCapScore = 1;
 	UnlimitedRespawnWaitTime = 2.f;
 	bForceRespawn = true;
-	bAsymmetricVictoryConditions = true;
 	bOneFlagGameMode = true;
 	bCarryOwnFlag = true;
 	bNoFlagReturn = true;
@@ -434,7 +426,6 @@ bool AUTCTFRoundGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 	}
 	return false;
 }
-
 
 void AUTCTFRoundGame::EndTeamGame(AUTTeamInfo* Winner, FName Reason)
 {
@@ -1052,16 +1043,23 @@ void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 		WinningTeam->Score += IsTeamOnOffense(WinningTeamIndex) ? GetFlagCapScore() : DefenseScore;
 		if (CTFGameState)
 		{
+			for (int32 i = 0; i < Teams.Num(); i++)
+			{
+				if (Teams[i])
+				{
+					Teams[i]->RoundBonus = 0;
+				}
+			}
 			WinningTeam->RoundBonus = FMath::Min(MaxTimeScoreBonus, CTFGameState->GetRemainingTime());
 			WinningTeam->SecondaryScore += WinningTeam->RoundBonus;
 
 			FCTFScoringPlay NewScoringPlay;
 			NewScoringPlay.Team = WinningTeam;
 			NewScoringPlay.bDefenseWon = !IsTeamOnOffense(WinningTeamIndex);
-			NewScoringPlay.bAnnihilation = (Reason == 1);
+			NewScoringPlay.bAnnihilation = (Reason == 0);
 			NewScoringPlay.TeamScores[0] = CTFGameState->Teams[0] ? CTFGameState->Teams[0]->Score : 0;
 			NewScoringPlay.TeamScores[1] = CTFGameState->Teams[1] ? CTFGameState->Teams[1]->Score : 0;
-			NewScoringPlay.RemainingTime = CTFGameState->GetClockTime();
+			NewScoringPlay.RemainingTime = CTFGameState->GetRemainingTime();
 			NewScoringPlay.RedBonus = CTFGameState->Teams[0] ? CTFGameState->Teams[0]->RoundBonus : 0;
 			NewScoringPlay.BlueBonus = CTFGameState->Teams[1] ? CTFGameState->Teams[1]->RoundBonus : 0;
 			CTFGameState->AddScoringPlay(NewScoringPlay);

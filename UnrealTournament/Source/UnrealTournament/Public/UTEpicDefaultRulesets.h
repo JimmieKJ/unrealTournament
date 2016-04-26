@@ -55,6 +55,7 @@ public:
 		Rules.Add(EEpicDefaultRuleTags::iTDM);
 		Rules.Add(EEpicDefaultRuleTags::iCTF);
 		Rules.Add(EEpicDefaultRuleTags::iCTFT);
+		Rules.Add(EEpicDefaultRuleTags::FlagRun);
 	}
 
 	static void InsureEpicDefaults(UUTGameRuleset* NewRuleset)
@@ -472,6 +473,33 @@ public:
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-CrashSite";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Quick";
 			NewRuleset->DefaultMap = "/Game/RestrictedAssets/Maps/CTF-TitanPass";
+		}
+		else if (NewRuleset->UniqueTag.Equals(EEpicDefaultRuleTags::FlagRun, ESearchCase::IgnoreCase))
+		{
+			NewRuleset->Categories.Empty();
+			NewRuleset->Categories.Add(TEXT("TeamPlay"));
+
+			NewRuleset->Title = TEXT("Flag Run");
+			NewRuleset->Tooltip = TEXT("Attackers must deliver their flag to the enemy base.");
+			NewRuleset->Description = TEXT("Flag Run.\n<UT.Hub.RulesText_Small>Maximum players : %maxplayers%</>");
+			NewRuleset->MinPlayersToStart = 8;
+			NewRuleset->MaxPlayers = 10;
+			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_CTF.GB_CTF'");
+			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTFlagRunGame");
+			NewRuleset->GameOptions = FString(TEXT(""));
+			NewRuleset->bTeamGame = true;
+			NewRuleset->MaxMapsInList = 16;
+
+			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/WIP/CTF-BlackStone";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-BigRock";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/CTF-TitanPass";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Pistola/CTF-Pistola";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Volcano";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Lance";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Mine";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-CrashSite";
+			NewRuleset->DefaultMap = "/Game/RestrictedAssets/Maps/WIP/CTF-BlackStone";
+			NewRuleset->QuickPlayMaps.Add(TEXT("/Game/RestrictedAssets/Maps/WIP/CTF-BlackStone"));
 		}
 	}
 };
