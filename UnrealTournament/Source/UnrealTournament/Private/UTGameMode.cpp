@@ -1957,8 +1957,6 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 		LobbyBeacon->EndGame(MatchUpdate);
 	}
 
-	SetEndGameFocus(Winner);
-
 	// Allow replication to happen before reporting scores, stats, etc.
 	FTimerHandle TempHandle;
 	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::HandleMatchHasEnded, 1.5f);
@@ -1981,6 +1979,9 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 	SendEndOfGameStats(Reason);
 	UnlockSession();
 	EndMatch();
+
+	// This should happen after EndMatch()
+	SetEndGameFocus(Winner);
 }
 
 float AUTGameMode::GetTravelDelay()
