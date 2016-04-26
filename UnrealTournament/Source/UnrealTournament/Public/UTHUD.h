@@ -349,10 +349,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
 	bool GetPlayKillSoundMsg();
-
-	UFUNCTION(BlueprintCallable, Category=HUD)
-	bool GetDrawCTFMinimapHUDSetting();
-
+	
 	UFUNCTION(BlueprintCallable, Category = HUD)
 	float GetHUDMinimapScale();
 

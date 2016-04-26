@@ -391,10 +391,7 @@ public:
 
 	UPROPERTY()
 	bool bPlayKillSoundMsg;
-
-	UPROPERTY()
-	bool bDrawCTFMinimapHUDSetting;
-
+	
 	UPROPERTY()
 	float HUDMinimapScale;
 
