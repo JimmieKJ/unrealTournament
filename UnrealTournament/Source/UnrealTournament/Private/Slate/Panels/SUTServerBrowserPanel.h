@@ -867,6 +867,8 @@ protected:
 	FTimerHandle RefreshTimerHandle;
 	virtual void RefreshSelectedServer();
 
+	void OnCancelComplete(bool bSuccessful);
+	FDelegateHandle OnCancelHandle;
 
 };
 
