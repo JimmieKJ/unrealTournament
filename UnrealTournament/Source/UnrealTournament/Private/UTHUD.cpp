@@ -82,6 +82,7 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	TeamIconUV[1] = FVector2D(333.f, 940.f);
 
 	bCustomWeaponCrosshairs = true;
+	bShowUTHUD = true;
 
 	TimerHours = NSLOCTEXT("UTHUD", "TIMERHOURS", "{Prefix}{Hours}:{Minutes}:{Seconds}{Suffix}");
 	TimerMinutes = NSLOCTEXT("UTHUD", "TIMERMINUTES", "{Prefix}{Minutes}:{Seconds}{Suffix}");
@@ -100,7 +101,6 @@ void AUTHUD::Destroyed()
 	CachedProfileSettings = nullptr;
 }
 
-
 bool AUTHUD::VerifyProfileSettings()
 {
 	if (CachedProfileSettings == nullptr)
@@ -108,7 +108,6 @@ bool AUTHUD::VerifyProfileSettings()
 		UUTLocalPlayer* UTLP = UTPlayerOwner ? Cast<UUTLocalPlayer>(UTPlayerOwner->Player) : NULL;
 		CachedProfileSettings = UTLP ? UTLP->GetProfileSettings() : nullptr;
 	}
-
 	return CachedProfileSettings != nullptr;
 }
 
@@ -370,11 +369,6 @@ UUTHUDWidget* AUTHUD::FindHudWidgetByClass(TSubclassOf<UUTHUDWidget> SearchWidge
 	return NULL;
 }
 
-void AUTHUD::CreateScoreboard(TSubclassOf<class UUTScoreboard> NewScoreboardClass)
-{
-	// Scoreboards are now HUD widgets
-}
-
 void AUTHUD::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, uint32 MessageIndex, FText LocalMessageText, UObject* OptionalObject)
 {
 	UUTHUDWidgetMessage* DestinationWidget = (HudMessageWidgets.FindRef(MessageClass->GetDefaultObject<UUTLocalMessage>()->MessageArea));
@@ -494,8 +488,20 @@ void AUTHUD::CacheFonts()
 	bFontsCached = true;
 }
 
+void AUTHUD::ShowHUD()
+{
+	bShowUTHUD = !bShowUTHUD;
+	bShowHUD = bShowUTHUD;
+	//Super::ShowHUD();
+}
+
 void AUTHUD::DrawHUD()
 {
+	// FIXMESTEVE - once bShowHUD is not config, can just use it without bShowUTHUD and bCinematicMode
+	if (!bShowUTHUD || (!bShowHUD && UTPlayerOwner && UTPlayerOwner->bCinematicMode))
+	{
+		return;
+	}
 	Super::DrawHUD();
 
 	if (!IsPendingKillPending() || !IsPendingKill())

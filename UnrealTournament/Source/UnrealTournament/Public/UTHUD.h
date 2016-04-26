@@ -257,9 +257,6 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category ="HUD")
 	uint32 bForceScores:1;
 
-	/** Creates the scoreboard */
-	virtual void CreateScoreboard(TSubclassOf<class UUTScoreboard> NewScoreboardClass);
-
 	virtual void PawnDamaged(uint8 ShotDirYaw, int32 DamageAmount, bool bFriendlyFire);
 	virtual void DrawDamageIndicators();
 
@@ -274,6 +271,11 @@ public:
 	virtual FLinearColor GetBaseHUDColor();
 
 	virtual void ShowDebugInfo(float& YL, float& YPos) override;
+
+	UPROPERTY()
+		bool bShowUTHUD;
+
+	virtual void ShowHUD() override;
 
 	/** get player state for which to display scoring info. */
 	virtual AUTPlayerState* GetScorerPlayerState();
