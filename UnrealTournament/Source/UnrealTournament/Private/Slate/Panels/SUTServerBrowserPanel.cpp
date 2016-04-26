@@ -1114,6 +1114,22 @@ void SUTServerBrowserPanel::RefreshServers()
 	IOnlineSessionPtr OnlineSessionInterface;
 	if (OnlineSubsystem) OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
 
+	FOnCancelFindSessionsCompleteDelegate Delegate;
+	Delegate = FOnCancelFindSessionsCompleteDelegate::CreateSP(this, &SUTServerBrowserPanel::OnCancelComplete);
+	OnCancelHandle = OnlineSessionInterface->AddOnCancelFindSessionsCompleteDelegate_Handle(Delegate);
+
+	OnlineSessionInterface->CancelFindSessions();
+}
+
+void SUTServerBrowserPanel::OnCancelComplete(bool bSuccessful)
+{
+
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	IOnlineSessionPtr OnlineSessionInterface;
+	if (OnlineSubsystem) OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
+
+	OnlineSessionInterface->ClearOnCancelFindSessionsCompleteDelegate_Handle(OnCancelHandle);
+
 	bWantsAFullRefilter = true;
 	if (PlayerOwner->IsLoggedIn() && OnlineSessionInterface.IsValid() && BrowserState == EBrowserState::BrowserIdle)
 	{
@@ -1121,9 +1137,6 @@ void SUTServerBrowserPanel::RefreshServers()
 
 		bNeedsRefresh = false;
 		CleanupQoS();
-
-		// Search for Internet Servers
-
 		SearchSettings = MakeShareable(new FUTOnlineGameSearchBase(false));
 		SearchSettings->MaxSearchResults = 10000;
 		SearchSettings->bIsLanQuery = false;
