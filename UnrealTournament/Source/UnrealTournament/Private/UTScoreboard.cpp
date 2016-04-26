@@ -584,12 +584,10 @@ void UUTScoreboard::DrawReadyText(AUTPlayerState* PlayerState, float XOffset, fl
 		if (PlayerState->ReadyMode == 3)
 		{
 			PlayerReady = NSLOCTEXT("UTScoreboard", "Plead", "COME ON!");
-			ReadyX += 30.f*RenderScale;
 		}
 		else if (PlayerState->ReadyMode == 5)
 		{
 			PlayerReady = NSLOCTEXT("UTScoreboard", "PleadRekt", "GET REKT!");
-			ReadyX += 30.f*RenderScale;
 		}
 		else if (PlayerState->ReadyMode == 4)
 		{
@@ -597,7 +595,7 @@ void UUTScoreboard::DrawReadyText(AUTPlayerState* PlayerState, float XOffset, fl
 			float XL, YL;
 			Canvas->TextSize(UTHUDOwner->SmallFont, "READY", XL, YL, ReadyScale*RenderScale, ReadyScale*RenderScale);
 			float Dist = 0.75f * ScaledCellWidth * (ColumnHeaderPingX - 0.5f) - 0.75f * XL * ReadyScale*RenderScale;
-			ReadyX = XOffset + 0.25f*ScaledCellWidth + 2.f * Dist * Scaling;
+			ReadyX = ReadyX + 2.f * Dist * Scaling;
 			if (ScaleTime < 0.5f)
 			{
 				ReadyColor.B = 0.5f;
