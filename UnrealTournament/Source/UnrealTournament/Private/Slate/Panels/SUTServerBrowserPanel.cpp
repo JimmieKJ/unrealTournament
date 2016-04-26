@@ -1438,6 +1438,7 @@ void SUTServerBrowserPanel::CleanupQoS()
 	PingList.Empty();
 }
 
+
 void SUTServerBrowserPanel::PingNextServer()
 {
 
@@ -1731,11 +1732,21 @@ void SUTServerBrowserPanel::ConnectTo(FServerData ServerData,bool bSpectate)
 	ConnectToServerName = FText::Format(NSLOCTEXT("SUTServerBrowserPanel","ConnectToFormat","Connecting to {0}... "), ServerData.GetBrowserName());
 	SetBrowserState(EBrowserState::ConnectInProgress);	
 
+	// Attempt to cancel any find session calls in progress
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	IOnlineSessionPtr OnlineSessionInterface;
+	if (OnlineSubsystem) OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
+	if (OnlineSessionInterface.IsValid())
+	{
+		OnlineSessionInterface->CancelFindSessions();	
+	}
+
 	// Flag the browser as needing a refresh the next time it is shown
 	bNeedsRefresh = true;
 	PlayerOwner->JoinSession(ServerData.SearchResult, bSpectate);
 	CleanupQoS();
 }
+
 
 void SUTServerBrowserPanel::FilterAllServers()
 {
@@ -2427,6 +2438,16 @@ void SUTServerBrowserPanel::JoinQuickInstance(const FString& InstanceGuid, bool 
 
 		PlayerOwner->AttemptJoinInstance(SelectedHubs[0], InstanceGuid, bAsSpectator);
 		SetBrowserState(EBrowserState::ConnectInProgress);	
+
+		// Attempt to cancel any find session calls in progress
+		IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+		IOnlineSessionPtr OnlineSessionInterface;
+		if (OnlineSubsystem) OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
+		if (OnlineSessionInterface.IsValid())
+		{
+			OnlineSessionInterface->CancelFindSessions();	
+		}
+
 
 		// Flag the browser as needing a refresh the next time it is shown
 		bNeedsRefresh = true;
