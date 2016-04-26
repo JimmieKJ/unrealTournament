@@ -181,8 +181,13 @@ FReply SUTMenuAnchor::UTOnButtonClicked(int32 ButtonIndex)
 			return FReply::Handled().SetUserFocus(WidgetToFocus.ToSharedRef(), EFocusCause::SetDirectly);
 		}
 	}
+	else if (MyButton.IsValid())
+	{
+		MyButton->BePressed();
+		FReply::Handled().CaptureMouse( MyButton.ToSharedRef() );
+	}
 
-	return FReply::Handled();
+	return FReply::Unhandled();
 }
 
 
