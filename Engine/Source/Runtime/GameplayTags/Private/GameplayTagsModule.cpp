@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "GameplayTagsModulePrivatePCH.h"
 
@@ -26,9 +26,20 @@ void FGameplayTagsModule::StartupModule()
 	GGameplayTagsManager->ConstructGameplayTagTree();
 }
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+int32 GameplayTagPrintReportOnShutdown = 0;
+static FAutoConsoleVariableRef CVarGameplayTagPrintReportOnShutdown(TEXT("GameplayTags.PrintReportOnShutdown"), GameplayTagPrintReportOnShutdown, TEXT("Print gameplay tag replication report on shutdown"), ECVF_Default );
+#endif
+
+
 void FGameplayTagsModule::ShutdownModule()
 {
-	// This function may be called during shutdown to clean up your module.  For modules that support dynamic reloading,
-	// we call this function before unloading the module.
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	if (GameplayTagPrintReportOnShutdown)
+	{
+		UGameplayTagsManager::PrintReplicationFrequencyReport();
+	}
+#endif
+
 	GGameplayTagsManager = NULL;
 }

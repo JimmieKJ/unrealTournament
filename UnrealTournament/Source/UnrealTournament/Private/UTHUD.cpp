@@ -5,7 +5,6 @@
 #include "UTProfileSettings.h"
 #include "UTHUDWidgetMessage.h"
 #include "UTHUDWidget_Paperdoll.h"
-#include "UTHUDWidgetMessage_DeathMessages.h"
 #include "UTHUDWidgetMessage_ConsoleMessages.h"
 #include "UTHUDWidget_WeaponInfo.h"
 #include "UTHUDWidget_WeaponCrosshair.h"
@@ -46,9 +45,6 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	static ConstructorHelpers::FObjectFinder<UFont> HFont(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fntScoreboard_Huge.fntScoreboard_Huge'"));
 	HugeFont = HFont.Object;
 
-	static ConstructorHelpers::FObjectFinder<UFont> ScFont(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fntScoreboard_Score.fntScoreboard_Score'"));
-	ScoreFont = ScFont.Object;
-
 	// non-proportional FIXMESTEVE need better font and just numbers
 	static ConstructorHelpers::FObjectFinder<UFont> CFont(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fntScoreboard_Clock.fntScoreboard_Clock'"));
 	NumberFont = CFont.Object;
@@ -68,6 +64,13 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	static ConstructorHelpers::FObjectFinder<USoundBase> KillSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Gameplay/A_Stinger_Kill01_Cue.A_Stinger_Kill01_Cue'"));
 	KillSound = KillSoundFinder.Object;
 
+	static ConstructorHelpers::FObjectFinder<UTexture2D> HelpBGTex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/UTScoreboard01.UTScoreboard01'"));
+	SpawnHelpTextBG.U = 4;
+	SpawnHelpTextBG.V = 2;
+	SpawnHelpTextBG.UL = 124;
+	SpawnHelpTextBG.VL = 128;
+	SpawnHelpTextBG.Texture = HelpBGTex.Object;
+
 	LastKillTime = -100.f;
 	LastConfirmedHitTime = -100.0f;
 	LastPickupTime = -100.f;
@@ -79,6 +82,7 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	TeamIconUV[1] = FVector2D(333.f, 940.f);
 
 	bCustomWeaponCrosshairs = true;
+	bShowUTHUD = true;
 
 	TimerHours = NSLOCTEXT("UTHUD", "TIMERHOURS", "{Prefix}{Hours}:{Minutes}:{Seconds}{Suffix}");
 	TimerMinutes = NSLOCTEXT("UTHUD", "TIMERMINUTES", "{Prefix}{Minutes}:{Seconds}{Suffix}");
@@ -97,7 +101,6 @@ void AUTHUD::Destroyed()
 	CachedProfileSettings = nullptr;
 }
 
-
 bool AUTHUD::VerifyProfileSettings()
 {
 	if (CachedProfileSettings == nullptr)
@@ -105,7 +108,6 @@ bool AUTHUD::VerifyProfileSettings()
 		UUTLocalPlayer* UTLP = UTPlayerOwner ? Cast<UUTLocalPlayer>(UTPlayerOwner->Player) : NULL;
 		CachedProfileSettings = UTLP ? UTLP->GetProfileSettings() : nullptr;
 	}
-
 	return CachedProfileSettings != nullptr;
 }
 
@@ -367,11 +369,6 @@ UUTHUDWidget* AUTHUD::FindHudWidgetByClass(TSubclassOf<UUTHUDWidget> SearchWidge
 	return NULL;
 }
 
-void AUTHUD::CreateScoreboard(TSubclassOf<class UUTScoreboard> NewScoreboardClass)
-{
-	// Scoreboards are now HUD widgets
-}
-
 void AUTHUD::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, uint32 MessageIndex, FText LocalMessageText, UObject* OptionalObject)
 {
 	UUTHUDWidgetMessage* DestinationWidget = (HudMessageWidgets.FindRef(MessageClass->GetDefaultObject<UUTLocalMessage>()->MessageArea));
@@ -485,16 +482,26 @@ void AUTHUD::CacheFonts()
 	//YPos += 0.1f*Canvas->ClipY;
 	Canvas->DrawText(LargeFont, MessageText, 0.f, YPos, 0.1f, 0.1f, TextRenderInfo);
 	//YPos += 0.1f*Canvas->ClipY;
-	Canvas->DrawText(ScoreFont, MessageText, 0.f, YPos, 0.1f, 0.1f, TextRenderInfo);
-	//YPos += 0.1f*Canvas->ClipY;
 	Canvas->DrawText(NumberFont, MessageText, 0.f, YPos, 0.1f, 0.1f, TextRenderInfo);
 	//YPos += 0.1f*Canvas->ClipY;
 	Canvas->DrawText(HugeFont, MessageText, 0.f, YPos, 0.1f, 0.1f, TextRenderInfo);
 	bFontsCached = true;
 }
 
+void AUTHUD::ShowHUD()
+{
+	bShowUTHUD = !bShowUTHUD;
+	bShowHUD = bShowUTHUD;
+	//Super::ShowHUD();
+}
+
 void AUTHUD::DrawHUD()
 {
+	// FIXMESTEVE - once bShowHUD is not config, can just use it without bShowUTHUD and bCinematicMode
+	if (!bShowUTHUD || (!bShowHUD && UTPlayerOwner && UTPlayerOwner->bCinematicMode))
+	{
+		return;
+	}
 	Super::DrawHUD();
 
 	if (!IsPendingKillPending() || !IsPendingKill())
@@ -504,7 +511,8 @@ void AUTHUD::DrawHUD()
 
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		bool bPreMatchScoreBoard = (GS && !GS->HasMatchStarted() && !GS->IsMatchInCountdown());
-		bool bScoreboardIsUp = bShowScores || bPreMatchScoreBoard || bForceScores;
+		bShowScoresWhileDead = bShowScoresWhileDead && GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission() && UTPlayerOwner && !UTPlayerOwner->GetPawn();
+		bool bScoreboardIsUp = bShowScores || bPreMatchScoreBoard || bForceScores || bShowScoresWhileDead;
 		if (!bFontsCached)
 		{
 			CacheFonts();
@@ -563,7 +571,7 @@ void AUTHUD::DrawHUD()
 				if (ShouldDrawMinimap())
 				{
 					bool bSpectatingMinimap = UTPlayerOwner->UTPlayerState && (UTPlayerOwner->UTPlayerState->bOnlySpectator || UTPlayerOwner->UTPlayerState->bOutOfLives);
-					float MapScale = (bSpectatingMinimap ? 0.75f : 0.25f) * HUDMinimapScale();
+					float MapScale = (bSpectatingMinimap ? 0.75f : 0.25f) * GetHUDMinimapScale();
 					const float MapSize = float(Canvas->SizeY) * MapScale;
 					uint8 MapAlpha = bSpectatingMinimap ? 210 : 100;
 					const float YOffsetToMaintainPosition = MapSize * MinimapOffset.Y * -.5f;
@@ -624,9 +632,7 @@ FText AUTHUD::ConvertTime(FText Prefix, FText Suffix, int32 Seconds, bool bForce
 
 void AUTHUD::DrawString(FText Text, float X, float Y, ETextHorzPos::Type HorzAlignment, ETextVertPos::Type VertAlignment, UFont* Font, FLinearColor Color, float Scale, bool bOutline)
 {
-
 	FVector2D RenderPos = FVector2D(X,Y);
-
 	float XL, YL;
 	Canvas->TextSize(Font, Text.ToString(), XL, YL, Scale, Scale);
 
@@ -634,7 +640,6 @@ void AUTHUD::DrawString(FText Text, float X, float Y, ETextHorzPos::Type HorzAli
 	{
 		RenderPos.X -= HorzAlignment == ETextHorzPos::Right ? XL : XL * 0.5f;
 	}
-
 	if (VertAlignment != ETextVertPos::Top)
 	{
 		RenderPos.Y -= VertAlignment == ETextVertPos::Bottom ? YL : YL * 0.5f;
@@ -725,7 +730,11 @@ void AUTHUD::CausedDamage(APawn* HitPawn, int32 Damage)
 	if (GS == NULL || !GS->OnSameTeam(HitPawn, PlayerOwner))
 	{
 		LastConfirmedHitTime = GetWorld()->TimeSeconds;
+		LastConfirmedHitDamage = Damage;
+		AUTCharacter* Char = Cast<AUTCharacter>(HitPawn);
+		LastConfirmedHitWasAKill = (Char && (Char->IsDead() || Char->Health <= 0));
 	}
+
 	if (bDrawDamageNumbers && (HitPawn != nullptr))
 	{
 		// add to current hit if there
@@ -909,12 +918,15 @@ float AUTHUD::GetCrosshairScale()
 
 FLinearColor AUTHUD::GetCrosshairColor(FLinearColor CrosshairColor) const
 {
+	return FLinearColor::White;
+/*
 	float TimeSinceHit = GetWorld()->TimeSeconds - LastConfirmedHitTime;
 	if (TimeSinceHit < 0.4f)
 	{
 		CrosshairColor = FMath::Lerp<FLinearColor>(FLinearColor::Red, CrosshairColor, FMath::Lerp<float>(0.f, 1.f, FMath::Pow((GetWorld()->TimeSeconds - LastConfirmedHitTime) / 0.4f, 2.0f)));
 	}
 	return CrosshairColor;
+*/
 }
 
 FText AUTHUD::GetPlaceSuffix(int32 Value)
@@ -1177,45 +1189,85 @@ bool AUTHUD::ShouldInvertMinimap()
 
 void AUTHUD::DrawMinimapSpectatorIcons()
 {
-	const float RenderScale = (float(Canvas->SizeY) / 1080.0f) * HUDMinimapScale();
-	bool bOnlyShowTeammates = !UTPlayerOwner || !UTPlayerOwner->UTPlayerState || !UTPlayerOwner->UTPlayerState->bOnlySpectator;
-	for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
-	{
-		AUTCharacter* UTChar = Cast<AUTCharacter>(*Iterator);
-		if (UTChar)
-		{
-			FVector2D Pos(WorldToMapToScreen(UTChar->GetActorLocation()));
-			if (UTChar->bTearOff)
-			{
-				// Draw skull at location
-				DrawMinimapIcon(HUDAtlas, Pos, FVector2D(20.f, 20.f), FVector2D(725.f, 0.f), FVector2D(28.f, 36.f), FLinearColor::White, true);
-			}
-			else
-			{
-				// draw team colored dot at location
-				AUTPlayerState* PS = Cast<AUTPlayerState>(UTChar->PlayerState);
-				if (!PS || !UTPlayerOwner->UTPlayerState || (bOnlyShowTeammates && PS->Team && (PS->Team != UTPlayerOwner->UTPlayerState->Team)))
-				{
-					continue;
-				}
-				FLinearColor PlayerColor = (PS && PS->Team) ? PS->Team->TeamColor : FLinearColor::Green;
-				PlayerColor.A = 0.75f;
-				float IconRotation = bInvertMinimap ? UTChar->GetActorRotation().Yaw - 90.0f : UTChar->GetActorRotation().Yaw + 90.0f;
-				Canvas->K2_DrawTexture(PlayerMinimapTexture, Pos - FVector2D(10.0f * RenderScale, 10.0f * RenderScale), FVector2D(20.0f, 20.0f) * RenderScale, FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f), PlayerColor, BLEND_Translucent, IconRotation);
+	const float RenderScale = (float(Canvas->SizeY) / 1080.0f) * GetHUDMinimapScale();
 
-				if (Cast<AUTPlayerController>(PlayerOwner) && (Cast<AUTPlayerController>(PlayerOwner)->LastSpectatedPlayerId == PS->SpectatingID))
+	// draw pickup icons
+	AUTPickup* NamedPickup = NULL;
+	FVector2D NamedPickupPos = FVector2D::ZeroVector;
+	for (TActorIterator<AUTPickup> It(GetWorld()); It; ++It)
+	{
+		FCanvasIcon Icon = It->GetMinimapIcon();
+		if (Icon.Texture != NULL)
+		{
+			FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
+			const float Ratio = Icon.UL / Icon.VL;
+			Canvas->DrawColor = It->IconColor.ToFColor(false);
+			const float IconSize = (LastHoveredActor == *It) ? (48.0f * RenderScale * FMath::InterpEaseOut<float>(1.0f, 1.25f, FMath::Min<float>(0.2f, GetWorld()->RealTimeSeconds - LastHoveredActorChangeTime) * 5.0f, 2.0f)) : (32.0f * RenderScale);
+			Canvas->DrawTile(Icon.Texture, Pos.X - 0.5f * Ratio * IconSize, Pos.Y - 0.5f * IconSize, Ratio * IconSize, IconSize, Icon.U, Icon.V, Icon.UL, Icon.VL);
+			if (LastHoveredActor == *It)
+			{
+				NamedPickup = *It;
+				NamedPickupPos = Pos;
+			}
+		}
+	}
+
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission())
+	{
+		const FVector2D PlayerIconScale = 32.f*RenderScale*FVector2D(1.f, 1.f);
+		bool bOnlyShowTeammates = !UTPlayerOwner || !UTPlayerOwner->UTPlayerState || !UTPlayerOwner->UTPlayerState->bOnlySpectator;
+		for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
+		{
+			AUTCharacter* UTChar = Cast<AUTCharacter>(*Iterator);
+			if (UTChar)
+			{
+				FVector2D Pos(WorldToMapToScreen(UTChar->GetActorLocation()));
+				if (UTChar->bTearOff)
 				{
-					Canvas->DrawColor = FColor(255, 255, 0, 255);
-					Canvas->DrawTile(SelectedPlayerTexture, Pos.X - 12.0f * RenderScale, Pos.Y - 12.0f * RenderScale, 24.0f * RenderScale, 24.0f * RenderScale, 0.0f, 0.0f, SelectedPlayerTexture->GetSurfaceWidth(), SelectedPlayerTexture->GetSurfaceHeight());
+					// Draw skull at location
+					DrawMinimapIcon(HUDAtlas, Pos, FVector2D(20.f, 20.f) * RenderScale, FVector2D(725.f, 0.f), FVector2D(28.f, 36.f), FLinearColor::White, true);
+				}
+				else
+				{
+					// draw team colored dot at location
+					AUTPlayerState* PS = Cast<AUTPlayerState>(UTChar->PlayerState);
+					if (!PS || !UTPlayerOwner->UTPlayerState || (bOnlyShowTeammates && !PS->bOnlySpectator && (PS != UTPlayerOwner->UTPlayerState) && (!PS->Team || (PS->Team != UTPlayerOwner->UTPlayerState->Team))))
+					{
+						continue;
+					}
+					FLinearColor PlayerColor = (PS && PS->Team) ? PS->Team->TeamColor : FLinearColor::Green;
+					PlayerColor.A = 0.75f;
+					float IconRotation = bInvertMinimap ? UTChar->GetActorRotation().Yaw - 90.0f : UTChar->GetActorRotation().Yaw + 90.0f;
+					Canvas->K2_DrawTexture(PlayerMinimapTexture, Pos - 0.5f*PlayerIconScale, PlayerIconScale, FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f), PlayerColor, BLEND_Translucent, IconRotation);
+
+					if (Cast<AUTPlayerController>(PlayerOwner) && (Cast<AUTPlayerController>(PlayerOwner)->LastSpectatedPlayerId == PS->SpectatingID))
+					{
+						Canvas->DrawColor = FColor(255, 255, 0, 255);
+						Canvas->DrawTile(SelectedPlayerTexture, Pos.X - 0.6f*PlayerIconScale.X, Pos.Y - 0.6f*PlayerIconScale.Y, 1.2f*PlayerIconScale.X, 1.2f*PlayerIconScale.Y, 0.0f, 0.0f, SelectedPlayerTexture->GetSurfaceWidth(), SelectedPlayerTexture->GetSurfaceHeight());
+					}
 				}
 			}
 		}
+	}
+
+	// draw name last so it is on top of any conflicting icons
+	if (NamedPickup != NULL)
+	{
+		float XL, YL;
+		Canvas->DrawColor = NamedPickup->IconColor.ToFColor(false);
+		Canvas->TextSize(TinyFont, NamedPickup->GetDisplayName().ToString(), XL, YL);
+		FColor TextColor = Canvas->DrawColor;
+		Canvas->DrawColor = FColor(0, 0, 0, 64);
+		Canvas->DrawTile(SpawnHelpTextBG.Texture, NamedPickupPos.X - XL * 0.5f, NamedPickupPos.Y - 26.0f * RenderScale - 0.8f*YL, XL, 0.8f*YL, 149, 138, 32, 32, BLEND_Translucent);
+		Canvas->DrawColor = TextColor;
+		Canvas->DrawText(TinyFont, NamedPickup->GetDisplayName(), NamedPickupPos.X - XL * 0.5f, NamedPickupPos.Y - 26.0f * RenderScale - YL);
 	}
 }
 
 void AUTHUD::DrawMinimapIcon(UTexture2D* Texture, FVector2D Pos, FVector2D DrawSize, FVector2D UV, FVector2D UVL, FLinearColor DrawColor, bool bDropShadow)
 {
-	const float RenderScale = (float(Canvas->SizeY) / 1080.0f) * HUDMinimapScale();
+	const float RenderScale = (float(Canvas->SizeY) / 1080.0f) * GetHUDMinimapScale();
 	float Height = DrawSize.X * RenderScale;
 	float Width = DrawSize.Y * RenderScale;
 	FVector2D RenderPos = FVector2D(Pos.X - (Width * 0.5f), Pos.Y - (Height * 0.5f));
@@ -1253,7 +1305,7 @@ void AUTHUD::NotifyKill(APlayerState* POVPS, APlayerState* KillerPS, APlayerStat
 
 void AUTHUD::PlayKillNotification()
 {
-	if (bPlayKillSoundMsg())
+	if (GetPlayKillSoundMsg())
 	{
 		PlayerOwner->ClientPlaySound(KillSound);
 	}
@@ -1261,123 +1313,123 @@ void AUTHUD::PlayKillNotification()
 
 // NOTE: Defaults are defined here because we don't currently have a local profile.
 
-float AUTHUD::HUDWidgetOpacity()
+float AUTHUD::GetHUDWidgetOpacity()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetOpacity : 1.0f;
 }
 
-float AUTHUD::HUDWidgetBorderOpacity()
+float AUTHUD::GetHUDWidgetBorderOpacity()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetBorderOpacity : 1.0f;
 }
 
-float AUTHUD::HUDWidgetSlateOpacity()
+float AUTHUD::GetHUDWidgetSlateOpacity()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetSlateOpacity: 0.5f;
 }
 
-float AUTHUD::HUDWidgetWeaponbarInactiveOpacity()
+float AUTHUD::GetHUDWidgetWeaponbarInactiveOpacity()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponbarInactiveOpacity : 0.25f;
 }
 
-float AUTHUD::HUDWidgetWeaponBarScaleOverride()
+float AUTHUD::GetHUDWidgetWeaponBarScaleOverride()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponBarScaleOverride : 0.9f;
 }
 
-float AUTHUD::HUDWidgetWeaponBarInactiveIconOpacity()
+float AUTHUD::GetHUDWidgetWeaponBarInactiveIconOpacity()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponBarInactiveIconOpacity : 0.25f;
 }
 
-float AUTHUD::HUDWidgetWeaponBarEmptyOpacity()
+float AUTHUD::GetHUDWidgetWeaponBarEmptyOpacity()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponBarEmptyOpacity : 0.0f;
 }
 
-float AUTHUD::HUDWidgetScaleOverride()
+float AUTHUD::GetHUDWidgetScaleOverride()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetScaleOverride : 0.7f;
 }
 
-float AUTHUD::HUDMessageScaleOverride()
+float AUTHUD::GetHUDMessageScaleOverride()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->HUDMessageScaleOverride : 1.0f;
 }
 
-bool AUTHUD::bUseWeaponColors()
+bool AUTHUD::GetUseWeaponColors()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->bUseWeaponColors : false;
 }
 
-bool AUTHUD::bDrawChatKillMsg()
+bool AUTHUD::GetDrawChatKillMsg()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->bDrawChatKillMsg : false;
 }
 
-bool AUTHUD::bDrawCenteredKillMsg()
+bool AUTHUD::GetDrawCenteredKillMsg()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->bDrawCenteredKillMsg : true;
 }
 
-bool AUTHUD::bDrawHUDKillIconMsg()
+bool AUTHUD::GetDrawHUDKillIconMsg()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->bDrawHUDKillIconMsg : true;
 }
 
-bool AUTHUD::bPlayKillSoundMsg()
+bool AUTHUD::GetPlayKillSoundMsg()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->bPlayKillSoundMsg : true;
 }
 
-bool AUTHUD::bDrawCTFMinimapHUDSetting()
+bool AUTHUD::GetDrawCTFMinimapHUDSetting()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->bDrawCTFMinimapHUDSetting : true;
+	return VerifyProfileSettings() ? CachedProfileSettings->bDrawCTFMinimapHUDSetting : false;
 }
 
-float AUTHUD::HUDMinimapScale()
+float AUTHUD::GetHUDMinimapScale()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->HUDMinimapScale : 1.0f;
 }
 
-float AUTHUD::QuickStatsAngle()
+float AUTHUD::GetQuickStatsAngle()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsAngle : 180.0f;
 }
 
-float AUTHUD::QuickStatsDistance()
+float AUTHUD::GetQuickStatsDistance()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsDistance : 0.1f;
 }
 
-float AUTHUD::QuickStatScaleOverride()
+float AUTHUD::GetQuickStatScaleOverride()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsScaleOverride: 1.0f;
 }
 
-FName AUTHUD::QuickStatsType()
+FName AUTHUD::GetQuickStatsType()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsType : EQuickStatsLayouts::Arc;
 
 }
 
-float AUTHUD::QuickStatsBackgroundAlpha()
+float AUTHUD::GetQuickStatsBackgroundAlpha()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsBackgroundAlpha: 0.15f;
 }
 
-float AUTHUD::QuickStatsForegroundAlpha()
+float AUTHUD::GetQuickStatsForegroundAlpha()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsForegroundAlpha : 1.0f;
 }
 
-float AUTHUD::bQuickStatsHidden()
+float AUTHUD::GetQuickStatsHidden()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->bQuickStatsHidden : false;
 }
 
-float AUTHUD::bQuickStatsBob()
+float AUTHUD::GetQuickStatsBob()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->bQuickStatsBob : true;
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "Editor/MaterialEditor/Public/MaterialEditorModule.h"
@@ -189,9 +189,12 @@ void UMaterialEditorInstanceConstant::PostEditChangeProperty(FPropertyChangedEve
 
 		if(PropertyThatChanged && PropertyThatChanged->GetName()==TEXT("Parent") )
 		{
+			FMaterialUpdateContext Context;
+
 			UpdateSourceInstanceParent();
 
-			FGlobalComponentRecreateRenderStateContext RecreateComponentsRenderState;
+			Context.AddMaterialInstance(SourceInstance);
+
 			// Fully update static parameters before recreating render state for all components
 			SetSourceInstance(SourceInstance);
 		}
@@ -585,17 +588,9 @@ void UMaterialEditorInstanceConstant::CopyToSourceInstance()
 			}
 		}
 
-		//Check for changes to see if we need to force a recompile
-		bool bForceRecompile = false;
-		if (SourceInstance->BasePropertyOverrides != BasePropertyOverrides)
-		{
-			bForceRecompile = true;
-			SourceInstance->BasePropertyOverrides = BasePropertyOverrides;
-		}
-		
 		FStaticParameterSet NewStaticParameters;
 		BuildStaticParametersForSourceInstance(NewStaticParameters);
-		SourceInstance->UpdateStaticPermutation(NewStaticParameters,bForceRecompile);
+		SourceInstance->UpdateStaticPermutation(NewStaticParameters, BasePropertyOverrides);
 
 		// Copy phys material back to source instance
 		SourceInstance->PhysMaterial = PhysMaterial;
@@ -726,7 +721,11 @@ void UMaterialEditorInstanceConstant::UpdateSourceInstanceParent()
 #if WITH_EDITOR
 void UMaterialEditorInstanceConstant::PostEditUndo()
 {
+	FMaterialUpdateContext UpdateContext;
+
 	UpdateSourceInstanceParent();
+
+	UpdateContext.AddMaterialInstance(SourceInstance);
 
 	Super::PostEditUndo();
 }

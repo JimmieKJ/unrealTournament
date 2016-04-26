@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "Engine/LatentActionManager.h"
@@ -324,6 +324,23 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 	static void SetGlobalPitchModulation(UObject* WorldContextObject, float PitchModulation, float TimeSec);
 
 	/**
+	* Sets the global listener focus parameters which will scale focus behavior of sounds based on their focus azimuth settings in their attenuation settings. 
+	*
+	* * Fire and Forget.
+	* * Not Replicated.
+	* @param FocusAzimuthScale - An angle scale value used to scale the azimuth angle that defines where sounds are in-focus.
+	* @param NonFocusAzimuthScale- An angle scale value used to scale the azimuth angle that defines where sounds are out-of-focus.
+	* @param FocusDistanceScale - A distance scale value to use for sounds which are in-focus. Values < 1.0 will reduce perceived distance to sounds, values > 1.0 will increase perceived distance to in-focus sounds.
+	* @param NonFocusDistanceScale - A distance scale value to use for sounds which are out-of-focus. Values < 1.0 will reduce perceived distance to sounds, values > 1.0 will increase perceived distance to in-focus sounds.
+	* @param FocusVolumeScale- A volume attenuation value to use for sounds which are in-focus.
+	* @param NonFocusVolumeScale- A volume attenuation value to use for sounds which are out-of-focus.
+	* @param FocusPriorityScale - A priority scale value (> 0.0) to use for sounds which are in-focus. Values < 1.0 will reduce the priority of in-focus sounds, values > 1.0 will increase the priority of in-focus sounds.
+	* @param NonFocusPriorityScale - A priority scale value (> 0.0) to use for sounds which are out-of-focus. Values < 1.0 will reduce the priority of sounds out-of-focus sounds, values > 1.0 will increase the priority of out-of-focus sounds.
+	*/
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "Audio", meta = (WorldContext = "WorldContextObject"))
+	static void SetGlobalListenerFocusParameters(UObject* WorldContextObject, float FocusAzimuthScale = 1.0f, float NonFocusAzimuthScale = 1.0f, float FocusDistanceScale = 1.0f, float NonFocusDistanceScale = 1.0f, float FocusVolumeScale = 1.0f, float NonFocusVolumeScale = 1.0f, float FocusPriorityScale = 1.0f, float NonFocusPriorityScale = 1.0f);
+
+	/**
 	 * Plays a sound directly with no attenuation, perfect for UI sounds.
 	 *
 	 * * Fire and Forget.
@@ -521,6 +538,25 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintCallable, Category="Audio", meta=(WorldContext = "WorldContextObject"))
 	static void SetBaseSoundMix(UObject* WorldContextObject, class USoundMix* InSoundMix);
 
+	/** Overrides the sound class adjuster in the given sound mix. If the sound class does not exist in the input sound mix, the sound class adjustment will be added to the sound mix.
+	 * @param InSoundMixModifier The sound mix to modify.
+	 * @param InSoundClass The sound class to override (or add) in the sound mix.
+	 * @param Volume The volume scale to set the sound class adjuster to.
+	 * @param Pitch The pitch scale to set the sound class adjuster to.
+	 * @param FadeInTime The interpolation time to use to go from the current sound class adjuster values to the new values.
+	 * @param bApplyToChildren Whether or not to apply this override to the sound class' children or to just the specified sound class.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Audio", meta = (WorldContext = "WorldContextObject"))
+	static void SetSoundMixClassOverride(UObject* WorldContextObject, class USoundMix* InSoundMixModifier, class USoundClass* InSoundClass, float Volume = 1.0f, float Pitch = 1.0f, float FadeInTime = 1.0f, bool bApplyToChildren = true);
+
+	/** Clears the override of the sound class adjuster in the given sound mix. If the override did not exist in the sound mix, this will do nothing.
+	 * @param InSoundMixModifier The sound mix to modify.
+	 * @param InSoundClass The sound class to override (or add) in the sound mix.
+	 * @param FadeOutTime The interpolation time to use to go from the current sound class adjuster override values to the non-override values.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Audio", meta = (WorldContext = "WorldContextObject"))
+	static void ClearSoundMixClassOverride(UObject* WorldContextObject, class USoundMix* InSoundMixModifier, class USoundClass* InSoundClass, float FadeOutTime = 1.0f);
+
 	/** Push a sound mix modifier onto the audio system **/
 	UFUNCTION(BlueprintCallable, Category="Audio", meta=(WorldContext = "WorldContextObject"))
 	static void PushSoundMixModifier(UObject* WorldContextObject, class USoundMix* InSoundMixModifier);
@@ -593,6 +629,26 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 	 */
 	UFUNCTION(BlueprintPure, Category = "Collision", meta=(NativeBreakFunc))
 	static void BreakHitResult(const struct FHitResult& Hit, bool& bBlockingHit, bool& bInitialOverlap, float& Time, FVector& Location, FVector& ImpactPoint, FVector& Normal, FVector& ImpactNormal, class UPhysicalMaterial*& PhysMat, class AActor*& HitActor, class UPrimitiveComponent*& HitComponent, FName& HitBoneName, int32& HitItem, FVector& TraceStart, FVector& TraceEnd);
+
+	/** 
+	 *	Create a HitResult struct
+	 * @param Hit			The source HitResult.
+	 * @param bBlockingHit	True if there was a blocking hit, false otherwise.
+	 * @param bInitialOverlap True if the hit started in an initial overlap. In this case some other values should be interpreted differently. Time will be 0, ImpactPoint will equal Location, and normals will be equal and indicate a depenetration vector.
+	 * @param Time			'Time' of impact along trace direction ranging from [0.0 to 1.0) if there is a hit, indicating time between start and end. Equals 1.0 if there is no hit.
+	 * @param Location		Location of the hit in world space. If this was a swept shape test, this is the location where we can place the shape in the world where it will not penetrate.
+	 * @param Normal		Normal of the hit in world space, for the object that was swept (e.g. for a sphere trace this points towards the sphere's center). Equal to ImpactNormal for line tests.
+	 * @param ImpactPoint	Location of the actual contact point of the trace shape with the surface of the hit object. Equal to Location in the case of an initial overlap.
+	 * @param ImpactNormal	Normal of the hit in world space, for the object that was hit by the sweep.
+	 * @param PhysMat		Physical material that was hit. Must set bReturnPhysicalMaterial to true in the query params for this to be returned.
+	 * @param HitActor		Actor hit by the trace.
+	 * @param HitComponent	PrimitiveComponent hit by the trace.
+	 * @param HitBoneName	Name of the bone hit (valid only if we hit a skeletal mesh).
+	 * @param HitItem		Primitive-specific data recording which item in the primitive was hit
+	 */
+	UFUNCTION(BlueprintPure, Category = "Collision", meta = (NativeMakeFunc, Normal="0,0,1", ImpactNormal="0,0,1"))
+	static FHitResult MakeHitResult(bool bBlockingHit, bool bInitialOverlap, float Time, FVector Location, FVector ImpactPoint, FVector Normal, FVector ImpactNormal, class UPhysicalMaterial* PhysMat, class AActor* HitActor, class UPrimitiveComponent* HitComponent, FName HitBoneName, int32 HitItem, FVector TraceStart, FVector TraceEnd);
+
 
 	/** Returns the EPhysicalSurface type of the given Hit. 
 	 * To edit surface type for your project, use ProjectSettings/Physics/PhysicalSurface section

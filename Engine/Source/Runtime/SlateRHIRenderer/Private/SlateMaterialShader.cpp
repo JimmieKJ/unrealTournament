@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateRHIRendererPrivatePCH.h"
 #include "SlateMaterialShader.h"
@@ -69,7 +69,6 @@ void FSlateMaterialShaderPS::ModifyCompilationEnvironment(EShaderPlatform Platfo
 	// Set defines based on what this shader will be used for
 	OutEnvironment.SetDefine( TEXT("USE_MATERIALS"), 1 );
 	OutEnvironment.SetDefine( TEXT("NUM_CUSTOMIZED_UVS"), Material->GetNumCustomizedUVs() );
-	OutEnvironment.SetDefine( TEXT("PRE_MULTIPLIED_ALPHA"), (uint32)0 );
 
 	FMaterialShader::ModifyCompilationEnvironment( Platform, Material, OutEnvironment );
 }

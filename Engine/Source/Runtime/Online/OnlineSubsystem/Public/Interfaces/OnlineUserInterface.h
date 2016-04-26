@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -14,6 +14,15 @@
  */
 DECLARE_MULTICAST_DELEGATE_FourParams(FOnQueryUserInfoComplete, int32, bool, const TArray< TSharedRef<const FUniqueNetId> >&, const FString&);
 typedef FOnQueryUserInfoComplete::FDelegate FOnQueryUserInfoCompleteDelegate;
+
+struct FExternalIdQueryOptions
+{
+	FExternalIdQueryOptions()
+	: bLookupByDisplayName(false) {}
+
+	FString AuthType;
+	bool bLookupByDisplayName; // Lookup by external display name as opposed to external id
+};
 
 /**
  *	Interface class for obtaining online User info
@@ -93,7 +102,7 @@ public:
 	 * @param ExternalIds array of external ids to attempt to map to user ids
 	 * @param Error string representing the error condition
 	 */
-	DECLARE_DELEGATE_FiveParams(FOnQueryExternalIdMappingsComplete, bool /*bWasSuccessful*/, const FUniqueNetId& /*UserId*/, const FString& /*AuthType*/, const TArray<FString>& /*ExternalIds*/, const FString& /*Error*/);
+	DECLARE_DELEGATE_FiveParams(FOnQueryExternalIdMappingsComplete, bool /*bWasSuccessful*/, const FUniqueNetId& /*UserId*/, const FExternalIdQueryOptions& /*QueryOptions*/, const TArray<FString>& /*ExternalIds*/, const FString& /*Error*/);
 
 	/**
 	 * Contacts server to obtain user ids from external ids
@@ -104,7 +113,7 @@ public:
 	 *
 	 * @return true if the operation was started successfully
 	 */
-	virtual bool QueryExternalIdMappings(const FUniqueNetId& UserId, const FString& AuthType, const TArray<FString>& ExternalIds, const FOnQueryExternalIdMappingsComplete& Delegate = FOnQueryExternalIdMappingsComplete()) = 0;
+	virtual bool QueryExternalIdMappings(const FUniqueNetId& UserId, const FExternalIdQueryOptions& QueryOptions, const TArray<FString>& ExternalIds, const FOnQueryExternalIdMappingsComplete& Delegate = FOnQueryExternalIdMappingsComplete()) = 0;
 
 	/**
 	 * Get the cached user ids for the specified external ids
@@ -113,7 +122,7 @@ public:
 	 * @param ExternalIds array of external ids to map to user ids
 	 * @param OutIds array of user ids that map to the specified external ids (can contain null entries)
 	 */
-	virtual void GetExternalIdMappings(const FString& AuthType, const TArray<FString>& ExternalIds, TArray<TSharedPtr<const FUniqueNetId>>& OutIds) = 0;
+	virtual void GetExternalIdMappings(const FExternalIdQueryOptions& QueryOptions, const TArray<FString>& ExternalIds, TArray<TSharedPtr<const FUniqueNetId>>& OutIds) = 0;
 
 	/**
 	 * Get the cached user id for the specified external id
@@ -123,5 +132,5 @@ public:
 
 	 * @return user info or null ptr if not found
 	 */
-	virtual TSharedPtr<const FUniqueNetId> GetExternalIdMapping(const FString& AuthType, const FString& ExternalId) = 0;
+	virtual TSharedPtr<const FUniqueNetId> GetExternalIdMapping(const FExternalIdQueryOptions& QueryOptions, const FString& ExternalId) = 0;
 };

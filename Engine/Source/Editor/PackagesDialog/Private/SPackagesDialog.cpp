@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "PackagesDialog.h"
@@ -25,24 +25,32 @@ UObject* FPackageItem::GetPackageObject() const
 {
 	if ( !EntryName.StartsWith(TEXT("/Temp/Untitled")) )
 	{
-		// Get the object which belongs in this package (there has to be a quicker function than GetObjectsInPackages!)
-		TArray<UPackage*> Packages;
-		Packages.Add( Package );
-		TArray<UObject*> ObjectsInPackages;
-		PackageTools::GetObjectsInPackages(&Packages, ObjectsInPackages);
-		return ( ObjectsInPackages.Num() > 0 ? ObjectsInPackages.Last() : NULL );
+		TArray<UObject*> ObjectsInPackage;
+		GetObjectsWithOuter(Package, ObjectsInPackage, false);
+		for (UObject* Obj : ObjectsInPackage)
+		{
+			if (Obj->IsAsset())
+			{
+				return Obj;
+			}
+		}
 	}
-	return NULL;
+	return nullptr;
 }
 
 bool FPackageItem::GetTypeNameAndColor(FString& OutName, FColor& OutColor) const
 {
-	const UObject* Object = GetPackageObject();
-	if ( Object )
+	// Resolve the object belonging to the package and cache.
+	if (!Object.IsValid())
+	{
+		Object = GetPackageObject();
+	}
+
+	if (Object.IsValid())
 	{
 		// Load the asset tools module to get access to the class color
 		const FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>(TEXT("AssetTools"));
-		const TSharedPtr<IAssetTypeActions> AssetTypeActions = AssetToolsModule.Get().GetAssetTypeActionsForClass( Object->GetClass() ).Pin();
+		const TSharedPtr<IAssetTypeActions> AssetTypeActions = AssetToolsModule.Get().GetAssetTypeActionsForClass(Object->GetClass()).Pin();
 		if ( AssetTypeActions.IsValid() )
 		{
 			const FColor EngineBorderColor = AssetTypeActions->GetTypeColor();

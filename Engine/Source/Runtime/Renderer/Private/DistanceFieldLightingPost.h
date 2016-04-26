@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DistanceFieldLightingPost.h
@@ -6,7 +6,7 @@
 
 #pragma once
 
-extern void AllocateOrReuseAORenderTarget(FRHICommandList& RHICmdList, TRefCountPtr<IPooledRenderTarget>& Target, const TCHAR* Name, bool bWithAlpha);
+extern void AllocateOrReuseAORenderTarget(FRHICommandList& RHICmdList, TRefCountPtr<IPooledRenderTarget>& Target, const TCHAR* Name, bool bWithAlphaOrFP16Precision);
 
 extern void UpdateHistory(
 	FRHICommandList& RHICmdList,
@@ -14,6 +14,7 @@ extern void UpdateHistory(
 	const TCHAR* BentNormalHistoryRTName,
 	const TCHAR* IrradianceHistoryRTName,
 	IPooledRenderTarget* VelocityTexture,
+	FSceneRenderTargetItem& DistanceFieldNormal,
 	/** Contains last frame's history, if non-NULL.  This will be updated with the new frame's history. */
 	TRefCountPtr<IPooledRenderTarget>* BentNormalHistoryState,
 	TRefCountPtr<IPooledRenderTarget>* IrradianceHistoryState,
@@ -40,5 +41,6 @@ extern void UpsampleBentNormalAO(
 	const TArray<FViewInfo>& Views, 
 	TRefCountPtr<IPooledRenderTarget>& DistanceFieldAOBentNormal, 
 	TRefCountPtr<IPooledRenderTarget>& DistanceFieldIrradiance,
+	bool bModulateSceneColor,
 	bool bVisualizeAmbientOcclusion,
 	bool bVisualizeGlobalIllumination);

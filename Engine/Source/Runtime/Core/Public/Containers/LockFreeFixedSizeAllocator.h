@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -12,7 +12,7 @@
  * never returns free space until program shutdown.
  * alignment isn't handled, assumes FMemory::Malloc will work
  */
-template<int32 SIZE, typename TTrackingCounter = FNoopCounter>
+template<int32 SIZE, int TPaddingForCacheContention, typename TTrackingCounter = FNoopCounter>
 class TLockFreeFixedSizeAllocator
 {
 	/**
@@ -97,7 +97,7 @@ public:
 private:
 
 	/** Lock free list of free memory blocks. */
-	FLockFreePointerListFIFOIntrusive<FFakeType> FreeList;
+	FLockFreePointerListFIFOIntrusive<FFakeType, TPaddingForCacheContention> FreeList;
 
 	/** Total number of blocks outstanding and not in the free list. */
 	TTrackingCounter NumUsed; 
@@ -112,7 +112,7 @@ private:
  * never returns free space until program shutdown.
  * alignment isn't handled, assumes FMemory::Malloc will work
  */
-template<int32 SIZE, typename TTrackingCounter = FNoopCounter>
+template<int32 SIZE, int TPaddingForCacheContention, typename TTrackingCounter = FNoopCounter>
 class TLockFreeFixedSizeAllocator
 {
 public:
@@ -188,7 +188,7 @@ public:
 private:
 
 	/** Lock free list of free memory blocks. */
-	TLockFreePointerListUnordered<void> FreeList;
+	TLockFreePointerListUnordered<void, TPaddingForCacheContention> FreeList;
 
 	/** Total number of blocks outstanding and not in the free list. */
 	TTrackingCounter NumUsed; 
@@ -203,8 +203,8 @@ private:
  * never returns free space, even at shutdown
  * alignment isn't handled, assumes FMemory::Malloc will work
  */
-template<int32 SIZE, typename TTrackingCounter = FNoopCounter>
-class TLockFreeFixedSizeAllocator_TLSCache : public TLockFreeFixedSizeAllocator_TLSCacheBase<SIZE, TLockFreePointerListUnordered<void*>, TTrackingCounter>
+template<int32 SIZE, int TPaddingForCacheContention, typename TTrackingCounter = FNoopCounter>
+class TLockFreeFixedSizeAllocator_TLSCache : public TLockFreeFixedSizeAllocator_TLSCacheBase<SIZE, TLockFreePointerListUnordered<void*, TPaddingForCacheContention>, TTrackingCounter>
 {
 };
 
@@ -213,8 +213,8 @@ class TLockFreeFixedSizeAllocator_TLSCache : public TLockFreeFixedSizeAllocator_
  *
  * Never returns free space until program shutdown.
  */
-template<class T>
-class TLockFreeClassAllocator : private TLockFreeFixedSizeAllocator<sizeof(T)>
+template<class T, int TPaddingForCacheContention>
+class TLockFreeClassAllocator : private TLockFreeFixedSizeAllocator<sizeof(T), TPaddingForCacheContention>
 {
 public:
 	/**
@@ -225,7 +225,7 @@ public:
 	 */
 	void* Allocate()
 	{
-		return TLockFreeFixedSizeAllocator<sizeof(T)>::Allocate();
+		return TLockFreeFixedSizeAllocator<sizeof(T), TPaddingForCacheContention>::Allocate();
 	}
 
 	/**
@@ -248,7 +248,7 @@ public:
 	void Free(T *Item)
 	{
 		Item->~T();
-		TLockFreeFixedSizeAllocator<sizeof(T)>::Free(Item);
+		TLockFreeFixedSizeAllocator<sizeof(T), TPaddingForCacheContention>::Free(Item);
 	}
 };
 
@@ -257,8 +257,8 @@ public:
  *
  * Never returns free space until program shutdown.
  */
-template<class T>
-class TLockFreeClassAllocator_TLSCache : private TLockFreeFixedSizeAllocator_TLSCache<sizeof(T)>
+template<class T, int TPaddingForCacheContention>
+class TLockFreeClassAllocator_TLSCache : private TLockFreeFixedSizeAllocator_TLSCache<sizeof(T), TPaddingForCacheContention>
 {
 public:
 	/**
@@ -269,7 +269,7 @@ public:
 	 */
 	void* Allocate()
 	{
-		return TLockFreeFixedSizeAllocator_TLSCache<sizeof(T)>::Allocate();
+		return TLockFreeFixedSizeAllocator_TLSCache<sizeof(T), TPaddingForCacheContention>::Allocate();
 	}
 
 	/**
@@ -292,6 +292,6 @@ public:
 	void Free(T *Item)
 	{
 		Item->~T();
-		TLockFreeFixedSizeAllocator_TLSCache<sizeof(T)>::Free(Item);
+		TLockFreeFixedSizeAllocator_TLSCache<sizeof(T), TPaddingForCacheContention>::Free(Item);
 	}
 };

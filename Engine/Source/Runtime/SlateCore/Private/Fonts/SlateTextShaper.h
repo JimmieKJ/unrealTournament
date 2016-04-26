@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -53,7 +53,7 @@ public:
 private:
 	void PerformTextShaping(const TCHAR* InText, const int32 InTextStart, const int32 InTextLen, const FSlateFontInfo &InFontInfo, const float InFontScale, const TextBiDi::ETextDirection InTextDirection, const ETextShapingMethod TextShapingMethod, TArray<FShapedGlyphEntry>& OutGlyphsToRender, FShapedGlyphClusterBlock& OutGlyphClusterBlock) const;
 
-	FShapedGlyphSequenceRef FinalizeTextShaping(TArray<FShapedGlyphEntry> InGlyphsToRender, TArray<FShapedGlyphClusterBlock> InGlyphClusterBlocks, const FSlateFontInfo &InFontInfo, const float InFontScale) const;
+	FShapedGlyphSequenceRef FinalizeTextShaping(TArray<FShapedGlyphEntry> InGlyphsToRender, TArray<FShapedGlyphClusterBlock> InGlyphClusterBlocks, const FSlateFontInfo &InFontInfo, const float InFontScale, const FShapedGlyphSequence::FSourceTextRange& InSourceTextRange) const;
 
 #if WITH_FREETYPE
 	void PerformKerningOnlyTextShaping(const TCHAR* InText, const int32 InTextStart, const int32 InTextLen, const FSlateFontInfo &InFontInfo, const float InFontScale, TArray<FShapedGlyphEntry>& OutGlyphsToRender) const;
@@ -62,6 +62,8 @@ private:
 #if WITH_HARFBUZZ
 	void PerformHarfBuzzTextShaping(const TCHAR* InText, const int32 InTextStart, const int32 InTextLen, const FSlateFontInfo &InFontInfo, const float InFontScale, const TextBiDi::ETextDirection InTextDirection, TArray<FShapedGlyphEntry>& OutGlyphsToRender) const;
 #endif // WITH_HARFBUZZ
+
+	bool InsertSubstituteGlyphs(const TCHAR* InText, const int32 InCharIndex, const FSlateFontInfo &InFontInfo, const float InFontScale, const TSharedRef<FShapedGlyphFaceData>& InShapedGlyphFaceData, TArray<FShapedGlyphEntry>& OutGlyphsToRender) const;
 
 	FFreeTypeGlyphCache* FTGlyphCache;
 	FFreeTypeAdvanceCache* FTAdvanceCache;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -59,7 +59,7 @@ namespace UnrealBuildTool
 		public List<string> GetIncludesPathsToSearch(FileItem SourceFile)
 		{
 			// Build a single list of include paths to search.
-			var IncludePathsToSearch = new List<string>();
+			List<string> IncludePathsToSearch = new List<string>();
 
 			if (SourceFile != null)
 			{
@@ -250,7 +250,7 @@ namespace UnrealBuildTool
 
 				Result = new List<FileItem>();
 
-				var IncludedFileList = new IncludedFilesSet();
+				IncludedFilesSet IncludedFileList = new IncludedFilesSet();
 				CPPEnvironment.FindAndCacheAllIncludedFiles(Target, SourceFile, BuildPlatform, CPPIncludeInfo, ref IncludedFileList, bOnlyCachedDependencies: bOnlyCachedDependencies);
 				foreach (FileItem IncludedFile in IncludedFileList)
 				{
@@ -260,8 +260,8 @@ namespace UnrealBuildTool
 				// Update cache
 				if (bUseFlatCPPIncludeDependencyCache && !bOnlyCachedDependencies)
 				{
-					var Dependencies = new List<FileReference>();
-					foreach (var IncludedFile in Result)
+					List<FileReference> Dependencies = new List<FileReference>();
+					foreach (FileItem IncludedFile in Result)
 					{
 						Dependencies.Add(IncludedFile.Reference);
 					}
@@ -283,10 +283,10 @@ namespace UnrealBuildTool
 		public static bool FindAndCacheAllIncludedFiles(UEBuildTarget Target, FileItem CPPFile, UEBuildPlatform BuildPlatform, CPPIncludeInfo CPPIncludeInfo, ref IncludedFilesSet Result, bool bOnlyCachedDependencies)
 		{
 			IncludedFilesSet IncludedFileList;
-			var IncludedFilesMap = bOnlyCachedDependencies ? OnlyCachedIncludedFilesMap : ExhaustiveIncludedFilesMap;
+			Dictionary<FileItem, IncludedFilesSet> IncludedFilesMap = bOnlyCachedDependencies ? OnlyCachedIncludedFilesMap : ExhaustiveIncludedFilesMap;
 			if (!IncludedFilesMap.TryGetValue(CPPFile, out IncludedFileList))
 			{
-				var TimerStartTime = DateTime.UtcNow;
+				DateTime TimerStartTime = DateTime.UtcNow;
 
 				IncludedFileList = new IncludedFilesSet();
 
@@ -297,7 +297,7 @@ namespace UnrealBuildTool
 				List<DependencyInclude> DirectIncludes = GetDirectIncludeDependencies(Target, CPPFile, BuildPlatform, bOnlyCachedDependencies: bOnlyCachedDependencies);
 
 				// Build a list of the unique set of files that are included by this file.
-				var DirectlyIncludedFiles = new HashSet<FileItem>();
+				HashSet<FileItem> DirectlyIncludedFiles = new HashSet<FileItem>();
 				// require a for loop here because we need to keep track of the index in the list.
 				for (int DirectlyIncludedFileNameIndex = 0; DirectlyIncludedFileNameIndex < DirectIncludes.Count; ++DirectlyIncludedFileNameIndex)
 				{
@@ -332,7 +332,7 @@ namespace UnrealBuildTool
 				TotalDirectIncludeResolves += DirectIncludes.Count;
 
 				// Convert the dictionary of files included by this file into a list.
-				foreach (var DirectlyIncludedFile in DirectlyIncludedFiles)
+				foreach (FileItem DirectlyIncludedFile in DirectlyIncludedFiles)
 				{
 					// Add the file we're directly including
 					IncludedFileList.Add(DirectlyIncludedFile);
@@ -353,7 +353,7 @@ namespace UnrealBuildTool
 
 				// All dependencies have been processed by now so update all circular dependencies
 				// with the full list.
-				foreach (var CircularDependency in IncludedFileList.CircularDependencies)
+				foreach (FileItem CircularDependency in IncludedFileList.CircularDependencies)
 				{
 					IncludedFilesSet CircularDependencyIncludedFiles = IncludedFilesMap[CircularDependency];
 					foreach (FileItem IncludedFile in IncludedFileList)
@@ -367,7 +367,7 @@ namespace UnrealBuildTool
 				// Done collecting files.
 				IncludedFileList.bIsInitialized = true;
 
-				var TimerDuration = DateTime.UtcNow - TimerStartTime;
+				TimeSpan TimerDuration = DateTime.UtcNow - TimerStartTime;
 				TotalTimeSpentGettingIncludes += TimerDuration.TotalSeconds;
 			}
 
@@ -435,13 +435,13 @@ namespace UnrealBuildTool
 				return Info;
 			}
 
-			var Result = new List<DependencyInclude>();
+			List<DependencyInclude> Result = new List<DependencyInclude>();
 			if (bOnlyCachedDependencies)
 			{
 				return Result;
 			}
 
-			var TimerStartTime = DateTime.UtcNow;
+			DateTime TimerStartTime = DateTime.UtcNow;
 			++CPPEnvironment.TotalDirectIncludeCacheMisses;
 
 			// Get the adjusted filename
@@ -509,7 +509,7 @@ namespace UnrealBuildTool
 		/// <param name="EndIndex"></param>
 		private static List<DependencyInclude> CollectHeaders(FileReference ProjectFile, FileItem CPPFile, string FileToRead, string FileContents, string InstalledFolder, int StartIndex, int EndIndex)
 		{
-			var Result = new List<DependencyInclude>();
+			List<DependencyInclude> Result = new List<DependencyInclude>();
 
 			Match M = CPPHeaderRegex.Match(FileContents, StartIndex, EndIndex - StartIndex);
 			CaptureCollection Captures = M.Groups["HeaderFile"].Captures;

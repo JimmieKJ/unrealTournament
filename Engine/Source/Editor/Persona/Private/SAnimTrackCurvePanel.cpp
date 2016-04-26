@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "PersonaPrivatePCH.h"
@@ -124,7 +124,7 @@ public:
 	{
 		if(BaseSequence.IsValid())
 		{
-			FSmartNameMapping* NameMapping = BaseSequence.Get()->GetSkeleton()->SmartNames.GetContainer(USkeleton::AnimTrackCurveMappingName);
+			const FSmartNameMapping* NameMapping = BaseSequence.Get()->GetSkeleton()->GetSmartNameContainer(USkeleton::AnimTrackCurveMappingName);
 			if(NameMapping)
 			{
 				FName CurveName;
@@ -584,7 +584,7 @@ void SAnimTrackCurvePanel::UpdatePanel()
 	if(Sequence != NULL)
 	{
 		USkeleton* CurrentSkeleton = Sequence->GetSkeleton();
-		FSmartNameMapping* MetadataNameMap = CurrentSkeleton->SmartNames.GetContainer(USkeleton::AnimTrackCurveMappingName);
+		const FSmartNameMapping* MetadataNameMap = CurrentSkeleton->GetSmartNameContainer(USkeleton::AnimTrackCurveMappingName);
 		// Sort the raw curves before setting up display
 		Sequence->RawCurveData.TransformCurves.Sort([MetadataNameMap](const FTransformCurve& A, const FTransformCurve& B)
 		{
@@ -615,7 +615,7 @@ void SAnimTrackCurvePanel::UpdatePanel()
 		Tracks.Empty();
 
 		// Updating new tracks
-		FSmartNameMapping* NameMapping = CurrentSkeleton->SmartNames.GetContainer(USkeleton::AnimTrackCurveMappingName);
+		const FSmartNameMapping* NameMapping = CurrentSkeleton->GetSmartNameContainer(USkeleton::AnimTrackCurveMappingName);
 
 		const int32 TotalCurve = Sequence->RawCurveData.TransformCurves.Num();
 		for(int32 CurrentIt = 0 ; CurrentIt < TotalCurve ; ++CurrentIt)
@@ -679,7 +679,7 @@ TSharedRef<SWidget> SAnimTrackCurvePanel::GenerateCurveList()
 			];
 
 		// Mapping to retrieve curve names
-		FSmartNameMapping* NameMapping = Sequence->GetSkeleton()->SmartNames.GetContainer(USkeleton::AnimTrackCurveMappingName);
+		const FSmartNameMapping* NameMapping = Sequence->GetSkeleton()->GetSmartNameContainer(USkeleton::AnimTrackCurveMappingName);
 		check(NameMapping);
 
 		for (auto Iter=Sequence->RawCurveData.TransformCurves.CreateConstIterator(); Iter; ++Iter)

@@ -70,6 +70,7 @@ powerpc*-*-linux*)
 *-*-nto*)	icu_cv_host_frag=mh-qnx ;;
 *-ncr-*)	icu_cv_host_frag=mh-mpras ;;
 *armv7*)	icu_cv_host_frag=mh-armv7 ;;
+*tvos*)	icu_cv_host_frag=mh-tvos ;;
 *) 		icu_cv_host_frag=mh-unknown ;;
 esac
 		]

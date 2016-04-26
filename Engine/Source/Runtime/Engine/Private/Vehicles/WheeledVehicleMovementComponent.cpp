@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "PhysicsPublic.h"
@@ -263,7 +263,7 @@ void UWheeledVehicleMovementComponent::SetupVehicleShapes()
 			CollisionResponse.SetAllChannels(ECR_Ignore);
 
 			PxFilterData PWheelQueryFilterData, PDummySimData;
-			CreateShapeFilterData(ECC_Vehicle, FMaskFilter(0), UpdatedComponent->GetUniqueID(), CollisionResponse, 0, 0, PWheelQueryFilterData, PDummySimData, false, false, false);
+			CreateShapeFilterData(ECC_Vehicle, FMaskFilter(0), UpdatedComponent->GetOwner()->GetUniqueID(), CollisionResponse, UpdatedComponent->GetUniqueID(), 0, PWheelQueryFilterData, PDummySimData, false, false, false);
 
 			//// Give suspension raycasts the same group ID as the chassis so that they don't hit each other
 			PWheelShape->setQueryFilterData(PWheelQueryFilterData);
@@ -634,6 +634,12 @@ void UWheeledVehicleMovementComponent::CreatePhysicsState()
 				//LogVehicleSettings( PVehicle );
 				SCOPED_SCENE_WRITE_LOCK(VehicleManager->GetScene());
 				PVehicle->getRigidDynamicActor()->wakeUp();
+
+				// Need to bind to the notify delegate on the mesh incase physics state is changed
+				if(USkeletalMeshComponent* MeshComp = Cast<USkeletalMeshComponent>(GetMesh()))
+				{
+					MeshOnPhysicsStateChangeHandle = MeshComp->RegisterOnPhysicsCreatedDelegate(FOnSkelMeshPhysicsCreated::CreateUObject(this, &UWheeledVehicleMovementComponent::RecreatePhysicsState));
+				}
 			}
 		}
 	}
@@ -649,6 +655,14 @@ void UWheeledVehicleMovementComponent::DestroyPhysicsState()
 
 		World->GetPhysicsScene()->GetVehicleManager()->RemoveVehicle( this );
 		PVehicle = NULL;
+
+		if(MeshOnPhysicsStateChangeHandle.IsValid())
+		{
+			if(USkeletalMeshComponent* MeshComp = Cast<USkeletalMeshComponent>(GetMesh()))
+			{
+				MeshComp->UnregisterOnPhysicsCreatedDelegate(MeshOnPhysicsStateChangeHandle);
+			}
+		}
 
 		if ( UpdatedComponent )
 		{

@@ -1,5 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
-
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #ifndef ANDROID_EVENT_MANAGER_H
 #define ANDROID_EVENT_MANAGER_H
@@ -48,6 +47,10 @@ public:
 	bool IsGamePaused();
 	bool WaitForEventInQueue(EAppEventState InState, double TimeoutSeconds);
 
+	void SetEmptyQueueHandlerEvent(FEvent* InEventHandlerEvent);
+	void WaitForEmptyQueue();
+	void TriggerEmptyQueue();
+
 protected:
 	FAppEventManager();
 
@@ -69,6 +72,7 @@ private:
 	pthread_mutex_t MainMutex;
 
 	FEvent* EventHandlerEvent;			// triggered every time the event handler thread fires off an event
+	FEvent* EmptyQueueHandlerEvent;		// triggered every time the queue is emptied
 
 	//states
 	bool FirstInitialized;

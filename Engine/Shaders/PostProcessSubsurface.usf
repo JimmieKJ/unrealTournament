@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessSubsurface.usf: Screenspace subsurface scattering shaders.
@@ -18,6 +18,10 @@ float4 SSSParams;
 
 // 0: (testing, could be faster), 1: higher quality
 #define FULLRES_WHERE_POSSIBLE 1
+
+#ifndef RECOMBINE_QUALITY
+	#define RECOMBINE_QUALITY 0
+#endif
 
 // ------------------------------------------
 
@@ -155,13 +159,13 @@ void VisualizePS(in noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPo
 
 	int2 PixelPos = (int2)SvPosition.xy;
 
-	float2 ViewLocalUV = (PixelPos - View.ViewRectMin.xy) * View.ViewSizeAndInvSize.zw;
+	float2 ViewLocalUV = (PixelPos - Frame.ViewRectMin.xy) * Frame.ViewSizeAndInvSize.zw;
 
 	float2 IDAreaLocalUV = ViewLocalUV * 2 - 1.0f;
 
 	if (InUnitBox(IDAreaLocalUV))
 	{
-		float2 UV = View.ViewRectMin.xy * View.BufferSizeAndInvSize.zw + IDAreaLocalUV * (View.ViewSizeAndInvSize.xy * View.BufferSizeAndInvSize.zw);
+		float2 UV = Frame.ViewRectMin.xy * Frame.BufferSizeAndInvSize.zw + IDAreaLocalUV * (Frame.ViewSizeAndInvSize.xy * Frame.BufferSizeAndInvSize.zw);
 
 		FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(UV);
 
@@ -226,7 +230,8 @@ struct SDiffuseAndSpecular
 };
 
 // @param UVSceneColor for the full res rendertarget (BufferSize) e.g. SceneColor or GBuffers
-SDiffuseAndSpecular ReconstructDiffuse(float2 UVSceneColor)
+// @param ReconstructDiffuseMethod 0/1/2/3 (should be a literal constant to allow compiler optimizations)
+SDiffuseAndSpecular ReconstructDiffuse(float2 UVSceneColor, uint ReconstructDiffuseMethod)
 {
 	SDiffuseAndSpecular Ret;
 
@@ -238,40 +243,49 @@ SDiffuseAndSpecular ReconstructDiffuse(float2 UVSceneColor)
 
 	// todo: expose as scalability setting (can be evaluate best without TemporalAA)
 	// 0:fast but pattern can appear, 1:better, 2: even better, 3: best but expensive
+	float3 Quant1;
 
-	// 0/1/2/3 With TemporalAA they all look the same but 0 has an offset which we can fixed by alternating the 2 (L R) or 4 directions (L R U D)
-	#define QUALITY_LEVEL 1
+	if(ReconstructDiffuseMethod == 0)
+	{
+		// cheap, crappy
+		Quant1 = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2(1, 0) * Frame.BufferSizeAndInvSize.zw).rgb;
+	}
+	else if(ReconstructDiffuseMethod == 1)
+	{
+		// acceptable but not perfect
+		Quant1 = 0.5f * (
+			Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2( 1,  0) * Frame.BufferSizeAndInvSize.zw).rgb +
+			Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2(-1,  0) * Frame.BufferSizeAndInvSize.zw).rgb);
+	}
+	else if(ReconstructDiffuseMethod == 2)
+	{
+		// almost same as 1?
+		Quant1 = 0.25f * (
+			Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2( 1,  0) * Frame.BufferSizeAndInvSize.zw).rgb +
+			Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2( 0,  1) * Frame.BufferSizeAndInvSize.zw).rgb +
+			Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2(-1,  0) * Frame.BufferSizeAndInvSize.zw).rgb +
+			Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2( 0, -1) * Frame.BufferSizeAndInvSize.zw).rgb);
+	}
+	else if(ReconstructDiffuseMethod == 3)
+	{
+		// very good 
+		float3 A = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2( 1,  0) * Frame.BufferSizeAndInvSize.zw).rgb;
+		float3 B = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2(-1,  0) * Frame.BufferSizeAndInvSize.zw).rgb;
+		float3 C = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2( 0,  1) * Frame.BufferSizeAndInvSize.zw).rgb;
+		float3 D = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2( 0, -1) * Frame.BufferSizeAndInvSize.zw).rgb;
 
-#if QUALITY_LEVEL == 0
-	float3 Quant1 = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2(1, 0) * View.BufferSizeAndInvSize.zw).rgb;
-#elif QUALITY_LEVEL == 1
-	float3 Quant1 = 0.5f * (
-		Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2( 1,  0) * View.BufferSizeAndInvSize.zw).rgb +
-		Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2(-1,  0) * View.BufferSizeAndInvSize.zw).rgb);
-#elif QUALITY_LEVEL == 2
-	float3 Quant1 = 0.25f * (
-		Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2( 1,  0) * View.BufferSizeAndInvSize.zw).rgb +
-		Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2( 0,  1) * View.BufferSizeAndInvSize.zw).rgb +
-		Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2(-1,  0) * View.BufferSizeAndInvSize.zw).rgb +
-		Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2( 0, -1) * View.BufferSizeAndInvSize.zw).rgb);
-#else // QUALITY_LEVEL == 3
-	float3 A = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2( 1,  0) * View.BufferSizeAndInvSize.zw).rgb;
-	float3 B = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2(-1,  0) * View.BufferSizeAndInvSize.zw).rgb;
-	float3 C = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2( 0,  1) * View.BufferSizeAndInvSize.zw).rgb;
-	float3 D = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2( 0, -1) * View.BufferSizeAndInvSize.zw).rgb;
+		// Luminance could be green channel only
+		float a = Luminance(A);
+		float b = Luminance(B);
+		float c = Luminance(C);
+		float d = Luminance(D);
 
-	// Luminance could be green channel only
-	float a = Luminance(A);
-	float b = Luminance(B);
-	float c = Luminance(C);
-	float d = Luminance(D);
+		float ab = abs(a - b);
+		float cd = abs(c - d);
 
-	float ab = abs(a - b);
-	float cd = abs(c - d);
-
-	// take the average in the direction that avoids dither pattern
-	float3 Quant1 = 0.5f * lerp(A + B, C + D, ab > cd);
-#endif
+		// take the average in the direction that avoids dither pattern
+		Quant1 = 0.5f * lerp(A + B, C + D, ab > cd);
+	}
 
 	Ret.Diffuse = lerp(Quant1, Quant0, bChecker);
 	Ret.Specular = lerp(Quant0, Quant1, bChecker);
@@ -289,7 +303,8 @@ float4 SetupSubsurfaceForOnePixel(float2 UVSceneColor)
 
 	FLATTEN if (ScreenSpaceData.GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE)
 	{
-		SDiffuseAndSpecular DiffuseAndSpecular = ReconstructDiffuse(UVSceneColor);
+		// '1' is lower quality but that is acceptable here
+		SDiffuseAndSpecular DiffuseAndSpecular = ReconstructDiffuse(UVSceneColor, 1);
 
 		Ret.rgb = DiffuseAndSpecular.Diffuse;
 
@@ -371,11 +386,11 @@ void MainPS(noperspective float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor
 	float2 ViewportDirectionUV = float2(1, 0) * SUBSURFACE_RADIUS_SCALE;
 #else
 	// vertical
-	float2 ViewportDirectionUV = float2(0, 1) * SUBSURFACE_RADIUS_SCALE * (View.ViewSizeAndInvSize.x * View.ViewSizeAndInvSize.w);
+	float2 ViewportDirectionUV = float2(0, 1) * SUBSURFACE_RADIUS_SCALE * (Frame.ViewSizeAndInvSize.x * Frame.ViewSizeAndInvSize.w);
 #endif
 
 	// can be optimized
-	float2 GBufferUV = (ViewportUV * View.ViewSizeAndInvSize.xy + View.ViewRectMin.xy) * View.BufferSizeAndInvSize.zw;
+	float2 GBufferUV = (ViewportUV * Frame.ViewSizeAndInvSize.xy + Frame.ViewRectMin.xy) * Frame.BufferSizeAndInvSize.zw;
 
 	OutColor = SSSSBlurPS(GBufferUV, ViewportUV, ViewportDirectionUV, false);
 
@@ -396,7 +411,7 @@ void SubsurfaceRecombinePS(noperspective float4 UVAndScreenPos : TEXCOORD0, floa
 	// recombine with the scene color
 
 	// can be optimized
-	float2 UVSceneColor = SvPosition.xy * View.BufferSizeAndInvSize.zw;
+	float2 UVSceneColor = SvPosition.xy * Frame.BufferSizeAndInvSize.zw;
 
 	FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(UVSceneColor);
 	
@@ -437,7 +452,9 @@ void SubsurfaceRecombinePS(noperspective float4 UVAndScreenPos : TEXCOORD0, floa
 	float3 StoredBaseColor = ScreenSpaceData.GBuffer.StoredBaseColor;
 	float3 StoredSpecular = ScreenSpaceData.GBuffer.StoredSpecular;
 
-	SDiffuseAndSpecular DiffuseAndSpecular = ReconstructDiffuse(UVSceneColor);
+	uint ReconstructDiffuseMethod = RECOMBINE_QUALITY ? 3 : 1;
+
+	SDiffuseAndSpecular DiffuseAndSpecular = ReconstructDiffuse(UVSceneColor, ReconstructDiffuseMethod);
 	
 	float3 ExtractedNonSubsurface = DiffuseAndSpecular.Specular * StoredSpecular;
 

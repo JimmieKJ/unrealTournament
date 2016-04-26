@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 #include "Abilities/GameplayAbility_Montage.h"
@@ -34,7 +34,7 @@ void UGameplayAbility_Montage::ActivateAbility(const FGameplayAbilitySpecHandle 
 		GetGameplayEffectsWhileAnimating(Effects);
 		for (const UGameplayEffect* Effect : Effects)
 		{
-			FActiveGameplayEffectHandle EffectHandle = ActorInfo->AbilitySystemComponent->ApplyGameplayEffectToSelf(Effect, 1.f, GetEffectContext(Handle, ActorInfo));
+			FActiveGameplayEffectHandle EffectHandle = ActorInfo->AbilitySystemComponent->ApplyGameplayEffectToSelf(Effect, 1.f, MakeEffectContext(Handle, ActorInfo));
 			if (EffectHandle.IsValid())
 			{
 				AppliedEffects.Add(EffectHandle);

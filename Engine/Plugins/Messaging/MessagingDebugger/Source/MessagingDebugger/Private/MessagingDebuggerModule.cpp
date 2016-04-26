@@ -1,8 +1,12 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MessagingDebuggerPrivatePCH.h"
 #include "Runtime/Core/Public/Features/IModularFeatures.h"
 #include "SDockTab.h"
+
+#if WITH_EDITOR
+	#include "WorkspaceMenuStructureModule.h"
+#endif
 
 
 #define LOCTEXT_NAMESPACE "FMessagingDebuggerModule"
@@ -27,18 +31,21 @@ public:
 		Style = MakeShareable(new FMessagingDebuggerStyle());
 
 		FMessagingDebuggerCommands::Register();
-
 		IModularFeatures::Get().RegisterModularFeature("MessagingDebugger", this);
-		
-		// This is still experimental in the editor, so it'll be invoked specifically in FMainMenu if the experimental settings flag is set.
-		// When no longer experimental, switch to the nomad spawner registration below
-		FGlobalTabmanager::Get()->RegisterTabSpawner(MessagingDebuggerTabName, FOnSpawnTab::CreateRaw(this, &FMessagingDebuggerModule::SpawnMessagingDebuggerTab));
+		FGlobalTabmanager::Get()->RegisterNomadTabSpawner(MessagingDebuggerTabName, FOnSpawnTab::CreateRaw(this, &FMessagingDebuggerModule::SpawnMessagingDebuggerTab))
+			.SetDisplayName(LOCTEXT("TabTitle", "Messaging Debugger"))
+#if WITH_EDITOR
+			.SetGroup(WorkspaceMenu::GetMenuStructure().GetDeveloperToolsDebugCategory())
+#else
+
+#endif
+			.SetIcon(FSlateIcon(Style->GetStyleSetName(), "MessagingDebuggerTabIcon"))
+			.SetTooltipText(LOCTEXT("TooltipText", "Visual debugger for the messaging sub-system."));
 	}
 
 	virtual void ShutdownModule() override
 	{
-		FGlobalTabmanager::Get()->UnregisterTabSpawner(MessagingDebuggerTabName);
-
+		FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(MessagingDebuggerTabName);
 		IModularFeatures::Get().UnregisterModularFeature("MessagingDebugger", this);
 		FMessagingDebuggerCommands::Unregister();
 	}
@@ -51,7 +58,7 @@ private:
 	 * @param SpawnTabArgs The arguments for the tab to spawn.
 	 * @return The spawned tab.
 	 */
-	TSharedRef<SDockTab> SpawnMessagingDebuggerTab( const FSpawnTabArgs& SpawnTabArgs )
+	TSharedRef<SDockTab> SpawnMessagingDebuggerTab(const FSpawnTabArgs& SpawnTabArgs)
 	{
 		const TSharedRef<SDockTab> MajorTab = SNew(SDockTab)
 			.TabRole(ETabRole::MajorTab);

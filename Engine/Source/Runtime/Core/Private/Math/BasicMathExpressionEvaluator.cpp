@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "BasicMathExpressionEvaluator.h"
@@ -10,9 +10,13 @@ namespace ExpressionParser
 	const TCHAR* const FSubExpressionStart::Moniker = TEXT("(");
 	const TCHAR* const FSubExpressionEnd::Moniker = TEXT(")");
 	const TCHAR* const FPlus::Moniker = TEXT("+");
+	const TCHAR* const FPlusEquals::Moniker = TEXT("+=");
 	const TCHAR* const FMinus::Moniker = TEXT("-");
+	const TCHAR* const FMinusEquals::Moniker = TEXT("-=");
 	const TCHAR* const FStar::Moniker = TEXT("*");
+	const TCHAR* const FStarEquals::Moniker = TEXT("*=");
 	const TCHAR* const FForwardSlash::Moniker = TEXT("/");
+	const TCHAR* const FForwardSlashEquals::Moniker = TEXT("/=");
 	const TCHAR* const FPercent::Moniker = TEXT("%");
 	const TCHAR* const FSquareRoot::Moniker = TEXT("sqrt");
 	const TCHAR* const FPower::Moniker = TEXT("^");
@@ -121,6 +125,10 @@ FBasicMathExpressionEvaluator::FBasicMathExpressionEvaluator()
 	TokenDefinitions.IgnoreWhitespace();
 	TokenDefinitions.DefineToken(&ConsumeSymbol<FSubExpressionStart>);
 	TokenDefinitions.DefineToken(&ConsumeSymbol<FSubExpressionEnd>);
+	TokenDefinitions.DefineToken(&ConsumeSymbol<FPlusEquals>);
+	TokenDefinitions.DefineToken(&ConsumeSymbol<FMinusEquals>);
+	TokenDefinitions.DefineToken(&ConsumeSymbol<FStarEquals>);
+	TokenDefinitions.DefineToken(&ConsumeSymbol<FForwardSlashEquals>);
 	TokenDefinitions.DefineToken(&ConsumeSymbol<FPlus>);
 	TokenDefinitions.DefineToken(&ConsumeSymbol<FMinus>);
 	TokenDefinitions.DefineToken(&ConsumeSymbol<FStar>);
@@ -168,9 +176,60 @@ FBasicMathExpressionEvaluator::FBasicMathExpressionEvaluator()
 	});
 }
 
-TValueOrError<double, FExpressionError> FBasicMathExpressionEvaluator::Evaluate(const TCHAR* InExpression) const
+TValueOrError<double, FExpressionError> FBasicMathExpressionEvaluator::Evaluate(const TCHAR* InExpression, double InExistingValue) const
 {
-	TValueOrError<FExpressionNode, FExpressionError> Result = ExpressionParser::Evaluate(InExpression, TokenDefinitions, Grammar, JumpTable);
+	using namespace ExpressionParser;
+
+	TValueOrError<TArray<FExpressionToken>, FExpressionError> LexResult = ExpressionParser::Lex(InExpression, TokenDefinitions);
+	if (!LexResult.IsValid())
+	{
+		return MakeError(LexResult.StealError());
+	}
+
+	// Handle the += and -= tokens.
+	TArray<FExpressionToken> Tokens = LexResult.StealValue();
+	if (Tokens.Num())
+	{
+		FStringToken Context = Tokens[0].Context;
+		const FExpressionNode& FirstNode = Tokens[0].Node;
+		bool WasOpAssign = true;
+
+		if (FirstNode.Cast<FPlusEquals>())
+		{
+			Tokens.Insert(FExpressionToken(Context, FPlus()), 0);
+		}
+		else if (FirstNode.Cast<FMinusEquals>())
+		{
+			Tokens.Insert(FExpressionToken(Context, FMinus()), 0);
+		}
+		else if (FirstNode.Cast<FStarEquals>())
+		{
+			Tokens.Insert(FExpressionToken(Context, FStar()), 0);
+		}
+		else if (FirstNode.Cast<FForwardSlashEquals>())
+		{
+			Tokens.Insert(FExpressionToken(Context, FForwardSlash()), 0);
+		}
+		else
+		{
+			WasOpAssign = false;
+		}
+
+		if (WasOpAssign)
+		{
+			Tokens.Insert(FExpressionToken(Context, InExistingValue), 0);
+			Tokens.RemoveAt(2, 1, false);
+		}
+	}
+
+	TValueOrError<TArray<FCompiledToken>, FExpressionError> CompilationResult = ExpressionParser::Compile(MoveTemp(Tokens), Grammar);
+	if (!CompilationResult.IsValid())
+	{
+		return MakeError(CompilationResult.StealError());
+	}
+
+	TOperatorEvaluationEnvironment<> Env(JumpTable, nullptr);
+	TValueOrError<FExpressionNode, FExpressionError> Result = ExpressionParser::Evaluate(CompilationResult.GetValue(), Env);
 	if (!Result.IsValid())
 	{
 		return MakeError(Result.GetError());
@@ -182,10 +241,8 @@ TValueOrError<double, FExpressionError> FBasicMathExpressionEvaluator::Evaluate(
 	{
 		return MakeValue(*Numeric);
 	}
-	else
-	{
-		return MakeError(LOCTEXT("UnrecognizedResult", "Unrecognized result returned from expression"));
-	}
+
+	return MakeError(LOCTEXT("UnrecognizedResult", "Unrecognized result returned from expression"));
 }
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -200,11 +257,13 @@ bool TestExpression(FAutomationTestBase* Test, const TCHAR* Expression, double E
 		Test->AddError(Result.GetError().Text.ToString());
 		return false;
 	}
-	else if (Result.GetValue() != Expected)
+	
+	if (Result.GetValue() != Expected)
 	{
 		Test->AddError(FString::Printf(TEXT("'%s' evaluation results: %.f != %.f"), Expression, Result.GetValue(), Expected));
 		return false;
 	}
+
 	return true;
 }
 

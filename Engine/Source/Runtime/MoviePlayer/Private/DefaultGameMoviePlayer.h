@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -99,7 +99,11 @@ private:
 
 	/** True if the movie player has been initialized */
 	bool bInitialized;
+
 private:
 	/** Singleton handle */
 	static TSharedPtr<FDefaultGameMoviePlayer> MoviePlayer;
+
+	/** Critical section to allow the slate loading thread and the render thread to safely utilize the synchronization mechanism for ticking Slate. */
+	FCriticalSection SyncMechanismCriticalSection;
 };

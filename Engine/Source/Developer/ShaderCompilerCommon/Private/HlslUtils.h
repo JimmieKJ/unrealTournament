@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	HlslUtils.h - Utilities for Hlsl.
@@ -32,13 +32,13 @@ namespace CrossCompiler
 				delete[] Begin;
 			}
 
-			static FPage* AllocatePage();
+			static FPage* AllocatePage(SIZE_T PageSize);
 			static void FreePage(FPage* Page);
 		};
 
 		enum
 		{
-			PageSize = 64 * 1024
+			MinPageSize = 64 * 1024
 		};
 	}
 
@@ -46,7 +46,7 @@ namespace CrossCompiler
 	{
 		FLinearAllocator()
 		{
-			auto* Initial = Memory::FPage::AllocatePage();
+			auto* Initial = Memory::FPage::AllocatePage(Memory::MinPageSize);
 			Pages.Add(Initial);
 		}
 
@@ -60,11 +60,11 @@ namespace CrossCompiler
 
 		inline void* Alloc(SIZE_T NumBytes)
 		{
-			check(NumBytes <= Memory::PageSize);
 			auto* Page = Pages.Last();
 			if (Page->Current + NumBytes > Page->End)
 			{
-				Page = Memory::FPage::AllocatePage();
+				SIZE_T PageSize = FMath::Max<SIZE_T>(Memory::MinPageSize, NumBytes);
+				Page = Memory::FPage::AllocatePage(PageSize);
 				Pages.Add(Page);
 			}
 
@@ -145,14 +145,27 @@ namespace CrossCompiler
 					}
 				}
 			}
-			int32 CalculateSlack(int32 NumElements, int32 NumAllocatedElements, int32 NumBytesPerElement) const
+			int32 CalculateSlackReserve(int32 NumElements, int32 NumBytesPerElement) const
 			{
-				return DefaultCalculateSlack(NumElements, NumAllocatedElements, NumBytesPerElement);
+				return DefaultCalculateSlackReserve(NumElements, NumBytesPerElement, false);
+			}
+			int32 CalculateSlackShrink(int32 NumElements, int32 NumAllocatedElements, int32 NumBytesPerElement) const
+			{
+				return DefaultCalculateSlackShrink(NumElements, NumAllocatedElements, NumBytesPerElement, false);
+			}
+			int32 CalculateSlackGrow(int32 NumElements, int32 NumAllocatedElements, int32 NumBytesPerElement) const
+			{
+				return DefaultCalculateSlackGrow(NumElements, NumAllocatedElements, NumBytesPerElement, false);
 			}
 
 			int32 GetAllocatedSize(int32 NumAllocatedElements, int32 NumBytesPerElement) const
 			{
 				return NumAllocatedElements * NumBytesPerElement;
+			}
+
+			bool HasAllocation()
+			{
+				return !!Data;
 			}
 
 			FLinearAllocator* LinearAllocator;

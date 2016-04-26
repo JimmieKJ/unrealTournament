@@ -14,9 +14,12 @@
 UUTPickupMessage::UUTPickupMessage(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	MessageArea = FName(TEXT("PickupMessage"));
-	StyleTag = FName(TEXT("Default"));
-
+	MessageArea = FName(TEXT("Announcements"));
+	MessageSlot = FName(TEXT("PickupMessage"));
+	Lifetime = 1.2f;
+	FontSizeIndex = 0;
+	bDrawAtIntermission = false;
+	bDrawOnlyIfAlive = true;
 	bIsUnique = true;
 	PendingWeaponPickupText = NSLOCTEXT("PickupMessage", "PendingWeaponPickup", "");
 }
@@ -55,14 +58,9 @@ void UUTPickupMessage::ClientReceive(const FClientReceiveData& ClientData) const
 	}
 }
 
-bool UUTPickupMessage::UseLargeFont(int32 MessageIndex) const
+bool UUTPickupMessage::ShouldCountInstances_Implementation(int32 MessageIndex, UObject* OptionalObject) const
 {
-	return false;
-}
-
-
-bool UUTPickupMessage::ShouldCountInstances_Implementation(int32 MessageIndex) const
-{
-	return true;
+	const AUTWeapon* Weapon = Cast<UClass>(OptionalObject) ? Cast<AUTWeapon>(Cast<UClass>(OptionalObject)->GetDefaultObject()) : NULL;
+	return (Weapon == nullptr);
 }
 

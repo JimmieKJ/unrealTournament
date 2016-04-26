@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "AIGraph.h"
@@ -31,6 +31,8 @@ protected:
 	void UpdateVersion_CollectClassData();
 
 	virtual void CollectAllNodeInstances(TSet<UObject*>& NodeInstances) override;
+	virtual void OnNodeInstanceRemoved(UObject* NodeInstance) override;
+	virtual void OnNodesPasted(const FString& ImportStr) override;
 
 	void SpawnMissingSubNodes(UEnvQueryOption* Option, TSet<UEnvQueryTest*> ExistingTests, UEnvironmentQueryGraphNode* OptionNode);
 };

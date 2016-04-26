@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -26,9 +26,13 @@ protected:
 
 	TSharedPtr< IPropertyHandle > bIsSpatializedHandle;
 	TSharedPtr< IPropertyHandle > bIsFocusedHandle;
+	TSharedPtr< IPropertyHandle > bIsOcclussionEnabledHandle;
 
 	bool IsFocusedEnabled() const;
 	TAttribute<bool> GetIsFocusEnabledAttribute() const;
+
+	bool IsOcclusionEnabled() const;
+	TAttribute<bool> GetIsOcclusionEnabledAttribute() const;
 
 	TAttribute<bool> IsFocusEnabledAttribute;
 };

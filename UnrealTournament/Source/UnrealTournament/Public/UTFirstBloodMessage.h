@@ -21,7 +21,8 @@ class UNREALTOURNAMENT_API UUTFirstBloodMessage : public UUTLocalMessage
 	UUTFirstBloodMessage(const FObjectInitializer& ObjectInitializer)
 		: Super(ObjectInitializer)
 	{
-		MessageArea = FName(TEXT("DeathMessage"));
+		MessageArea = FName(TEXT("Announcements"));
+		MessageSlot = FName(TEXT("Spree"));
 
 		FirstBloodLocalText = NSLOCTEXT("UTFirstBloodMessage", "FirstBloodLocalText", "First Blood!");
 		FirstBloodRemoteText = NSLOCTEXT("UTFirstBloodMessage", "FirstBloodRemoteText", "{Player1Name} drew First Blood!");
@@ -33,6 +34,7 @@ class UNREALTOURNAMENT_API UUTFirstBloodMessage : public UUTLocalMessage
 		bIsConsoleMessage = false;
 		Lifetime = 3.0f;
 		AnnouncementDelay = 0.5f;
+		ScaleInSize = 3.f;
 	}
 
 	virtual FLinearColor GetMessageColor_Implementation(int32 MessageIndex) const override
@@ -40,19 +42,16 @@ class UNREALTOURNAMENT_API UUTFirstBloodMessage : public UUTLocalMessage
 		return FLinearColor::Red;
 	}
 
-	virtual float GetScaleInSize(int32 MessageIndex) const
-	{
-		return 3.f;
-	}
-
 	virtual bool ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const override
 	{
 		return IsLocalForAnnouncement(ClientData, true, false);
 	}
-	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override
+
+	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const override
 	{
 		return AnnouncementNames.Num() > 0 ? AnnouncementNames[FMath::Clamp<int32>(Switch, 0, AnnouncementNames.Num() - 1)] : NAME_None;
 	}
+
 	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const override
 	{
 		if (bTargetsPlayerState1)

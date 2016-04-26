@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /**
  *	ParticleModuleTypeDataRibbon
@@ -166,7 +166,7 @@ class UParticleModuleTypeDataRibbon : public UParticleModuleTypeDataBase
 	//~ End UObject Interface
 
 	//~ Begin UParticleModule Interface
-	virtual uint32 RequiredBytes(FParticleEmitterInstance* Owner = NULL) override;
+	virtual uint32 RequiredBytes(UParticleModuleTypeDataBase* TypeData) override;
 	//~ End UParticleModule Interface
 
 	//~ Begin UParticleModuleTypeDataBase Interface

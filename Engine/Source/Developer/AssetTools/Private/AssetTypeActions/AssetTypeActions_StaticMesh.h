@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "Engine/StaticMesh.h"
@@ -24,9 +24,27 @@ private:
 	/** Handler for when CreateDestructibleMesh is selected */
 	void ExecuteCreateDestructibleMesh(TArray<TWeakObjectPtr<UStaticMesh>> Objects);
 
+	/** Handler for when CopyLODDData is selected */
+	void ExecuteCopyLODSettings(TArray<TWeakObjectPtr<UStaticMesh>> Objects);
+	
+	/** Whether there is a valid static mesh to copy LOD from */
+	bool CanCopyLODSettings(TArray<TWeakObjectPtr<UStaticMesh>> Objects) const;
+
+	/** Handler for when PasteLODDData is selected */
+	void ExecutePasteLODSettings(TArray<TWeakObjectPtr<UStaticMesh>> Objects);
+
+	/** Whether there is a valid static meshes to copy LOD to*/
+	bool CanPasteLODSettings(TArray<TWeakObjectPtr<UStaticMesh>> Objects) const;
+
 	// Handler for when SaveGeneratedLODsInPackage is selected
 	void ExecuteSaveGeneratedLODsInPackage(TArray<TWeakObjectPtr<UStaticMesh>> Objects);
 
 	/** Handler to provide the list of LODs that can be imported or reimported */
 	void GetImportLODMenu(class FMenuBuilder& MenuBuilder,TArray<TWeakObjectPtr<UStaticMesh>> Objects);
+
+	/** Handler to provide the LOD sub-menu. Hides away LOD actions - includes Import LOD sub menu */
+	void GetLODMenu(class FMenuBuilder& MenuBuilder, TArray<TWeakObjectPtr<UStaticMesh>> Meshes);
+private:
+
+	TWeakObjectPtr<UStaticMesh> LODCopyMesh;	
 };

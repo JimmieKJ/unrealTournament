@@ -78,6 +78,7 @@
       <Column Name="SourceContext" Type="System.String" DbType="VarChar(MAX)" CanBeNull="true" />
       <Column Name="EpicAccountId" Type="System.String" DbType="varchar(64)" CanBeNull="true" />
       <Column Name="EngineVersion" Type="System.String" DbType="varchar(64)" CanBeNull="true" />
+      <Column Name="UserActivityHint" Type="System.String" DbType="VarChar(512)" CanBeNull="true" />
       <Association Name="Crash_Buggs_Crash" Member="Buggs_Crashes" ThisKey="Id" OtherKey="CrashId" Type="Buggs_Crash" />
       <Association Name="User_Crash" Member="UserById" Storage="_User" ThisKey="UserNameId" OtherKey="Id" Type="User" IsForeignKey="true" />
     </Type>

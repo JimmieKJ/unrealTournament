@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	NetworkProfiler.h: network profiling support.
@@ -27,16 +27,6 @@ private:
 	/** Version number to detect version mismatches.	*/
 	uint32	Version;
 
-	/** Offset in file for name table.					*/
-	uint32	NameTableOffset;
-	/** Number of name table entries.					*/
-	uint32	NameTableEntries;
-
-	/** Offset in file for address table.				*/
-	uint32	AddressTableOffset;
-	/** Number of address table entries.				*/
-	uint32	AddressTableEntries;
-
 	/** Tag, set via -networkprofiler=TAG				*/
 	FString Tag;
 	/** Game name, e.g. Example							*/
@@ -50,20 +40,6 @@ public:
 
 	/** Resets the header info for a new session.		*/
 	void Reset(const FURL& InURL);
-
-	/** Sets the final name table values.				*/
-	void SetNameTableValues(uint32 Offset, uint32 Entries)
-	{
-		NameTableOffset = Offset;
-		NameTableEntries = Entries;
-	}
-
-	/** Sets the final address table values.				*/
-	void SetAddressTableValues( uint32 Offset, uint32 Entries )
-	{
-		AddressTableOffset = Offset;
-		AddressTableEntries = Entries;
-	}
 
 	/** Returns the URL stored in the header.			*/
 	FString GetURL() const { return URL; }
@@ -105,9 +81,6 @@ private:
 
 	/** Array of unique addresses																	*/
 	TArray<uint64>							AddressArray;
-
-	/**	Temp file used for sessions in progress.													*/
-	FString									TempFileName;
 
 	/** Whether noticeable network traffic has occured in this session. Used to discard it.			*/
 	bool									bHasNoticeableNetworkTrafficOccured;

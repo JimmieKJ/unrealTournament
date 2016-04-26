@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 #include "AbilitySystemComponent.h"
@@ -74,16 +74,16 @@ void UAbilityTask_ApplyRootMotionRadialForce::SharedInitAndApply()
 			RadialForce->StrengthOverTime = StrengthOverTime;
 			RootMotionSourceID = MovementComponent->ApplyRootMotionSource(RadialForce);
 
-			if (Ability.IsValid())
+			if (Ability)
 			{
-				Ability.Get()->SetMovementSyncPoint(ForceName);
+				Ability->SetMovementSyncPoint(ForceName);
 			}
 		}
 	}
 	else
 	{
 		ABILITY_LOG(Warning, TEXT("UAbilityTask_ApplyRootMotionRadialForce called in Ability %s with null MovementComponent; Task Instance Name %s."), 
-			Ability.IsValid() ? *Ability.Get()->GetName() : TEXT("NULL"), 
+			Ability ? *Ability->GetName() : TEXT("NULL"), 
 			*InstanceName.ToString());
 	}
 }

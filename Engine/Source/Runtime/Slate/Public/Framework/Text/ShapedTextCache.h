@@ -1,20 +1,20 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#if WITH_FANCY_TEXT
+#include "ShapedTextCacheFwd.h"
 
 class FSlateFontCache;
-class FShapedTextCache;
 
 /** Information representing a piece of shaped text */
 struct FCachedShapedTextKey
 {
 public:
-	FCachedShapedTextKey(const FTextRange& InTextRange, const float InScale, const FRunTextContext& InTextContext)
+	FCachedShapedTextKey(const FTextRange& InTextRange, const float InScale, const FShapedTextContext& InTextContext, const FSlateFontInfo& InFontInfo)
 		: TextRange(InTextRange)
 		, Scale(InScale)
 		, TextContext(InTextContext)
+		, FontInfo(InFontInfo)
 	{
 	}
 
@@ -22,7 +22,8 @@ public:
 	{
 		return TextRange == Other.TextRange 
 			&& Scale == Other.Scale
-			&& TextContext == Other.TextContext;
+			&& TextContext == Other.TextContext
+			&& FontInfo == Other.FontInfo;
 	}
 
 	FORCEINLINE bool operator!=(const FCachedShapedTextKey& Other) const
@@ -36,16 +37,15 @@ public:
 		KeyHash = HashCombine(KeyHash, GetTypeHash(Key.TextRange));
 		KeyHash = HashCombine(KeyHash, GetTypeHash(Key.Scale));
 		KeyHash = HashCombine(KeyHash, GetTypeHash(Key.TextContext));
+		KeyHash = HashCombine(KeyHash, GetTypeHash(Key.FontInfo));
 		return KeyHash;
 	}
 
 	FTextRange TextRange;
 	float Scale;
-	const FRunTextContext TextContext;
+	FShapedTextContext TextContext;
+	FSlateFontInfo FontInfo;
 };
-
-typedef TSharedPtr<FShapedTextCache> FShapedTextCachePtr;
-typedef TSharedRef<FShapedTextCache> FShapedTextCacheRef;
 
 /** Cache of shaped text */
 class SLATE_API FShapedTextCache
@@ -71,14 +71,13 @@ public:
 	 *
 	 * @param InKey					The key identifying the shaped text instance to add
 	 * @param InText				The text to shape. InKey may specify a sub-section of the entire text
-	 * @param InFont				The font to use when shaping
 	 * @param InTextDirection		The text direction of all of the text to be shaped. If present we do a unidirectional shape, otherwise we do a bidirectional shape
 	 * @param InShapedText			The shaped text instance to add
 	 *
 	 * @return The shaped text instance
 	 */
-	FShapedGlyphSequenceRef AddShapedText(const FCachedShapedTextKey& InKey, const TCHAR* InText, const FSlateFontInfo& InFont);
-	FShapedGlyphSequenceRef AddShapedText(const FCachedShapedTextKey& InKey, const TCHAR* InText, const FSlateFontInfo& InFont, const TextBiDi::ETextDirection InTextDirection);
+	FShapedGlyphSequenceRef AddShapedText(const FCachedShapedTextKey& InKey, const TCHAR* InText);
+	FShapedGlyphSequenceRef AddShapedText(const FCachedShapedTextKey& InKey, const TCHAR* InText, const TextBiDi::ETextDirection InTextDirection);
 	FShapedGlyphSequenceRef AddShapedText(const FCachedShapedTextKey& InKey, FShapedGlyphSequenceRef InShapedText);
 
 	/**
@@ -86,18 +85,25 @@ public:
 	 *
 	 * @param InKey					The key identifying the shaped text instance to find or add
 	 * @param InText				The text to shape if we can't find the shaped text in the cache. InKey may specify a sub-section of the entire text
-	 * @param InFont				The font to use when shaping if we can't find the shaped text in the cache
 	 * @param InTextDirection		The text direction of all of the text to be shaped. If present we do a unidirectional shape, otherwise we do a bidirectional shape
 	 *
 	 * @return The shaped text instance
 	 */
-	FShapedGlyphSequenceRef FindOrAddShapedText(const FCachedShapedTextKey& InKey, const TCHAR* InText, const FSlateFontInfo& InFont);
-	FShapedGlyphSequenceRef FindOrAddShapedText(const FCachedShapedTextKey& InKey, const TCHAR* InText, const FSlateFontInfo& InFont, const TextBiDi::ETextDirection InTextDirection);
+	FShapedGlyphSequenceRef FindOrAddShapedText(const FCachedShapedTextKey& InKey, const TCHAR* InText);
+	FShapedGlyphSequenceRef FindOrAddShapedText(const FCachedShapedTextKey& InKey, const TCHAR* InText, const TextBiDi::ETextDirection InTextDirection);
 
 	/**
 	 * Clear this cache
 	 */
 	void Clear();
+
+	/**
+	 * Get the font cache used by this instance
+	 */
+	FSlateFontCache& GetFontCache() const
+	{
+		return FontCache;
+	}
 
 private:
 	/** Constructor */
@@ -124,11 +130,23 @@ namespace ShapedTextCacheUtil
  * @param InRunKey				The key identifying the cached shaped text for the run
  * @param InMeasureRange		The range of text that should be measured
  * @param InText				The text to shape if we can't find the shaped text in the cache. InMeasureRange may specify a sub-section of the entire text
- * @param InFont				The font to use when shaping if we can't find the shaped text in the cache
  *
  * @return The measured size of the shaped text
  */
-SLATE_API FVector2D MeasureShapedText(const FShapedTextCacheRef& InShapedTextCache, const FCachedShapedTextKey& InRunKey, const FTextRange& InMeasureRange, const TCHAR* InText, const FSlateFontInfo& InFont);
+SLATE_API FVector2D MeasureShapedText(const FShapedTextCacheRef& InShapedTextCache, const FCachedShapedTextKey& InRunKey, const FTextRange& InMeasureRange, const TCHAR* InText);
+
+/**
+ * Find the character index at the specified position in pixels along the string horizontally
+ *
+ * @param InShapedTextCache		The shaped text cache to use
+ * @param InRunKey				The key identifying the cached shaped text for the run
+ * @param InTextRange			The range of text that should be extracted into its own shaped glyph sequence
+ * @param InText				The text to shape if we can't find the shaped text in the cache. InTextRange may specify a sub-section of the entire text
+ * @param InHorizontalOffset	The horizontal offset to get the character index for
+ *
+ * @return The index of the character closest to the specified horizontal offset
+ */
+SLATE_API int32 FindCharacterIndexAtOffset(const FShapedTextCacheRef& InShapedTextCache, const FCachedShapedTextKey& InRunKey, const FTextRange& InTextRange, const TCHAR* InText, const int32 InHorizontalOffset);
 
 /**
  * Get the kerning between two shaped glyphs
@@ -137,11 +155,10 @@ SLATE_API FVector2D MeasureShapedText(const FShapedTextCacheRef& InShapedTextCac
  * @param InRunKey				The key identifying the cached shaped text for the run
  * @param InGlyphIndex			The index of the glyph to get the kerning for (will get it between the given glyph, and it's next glyph)
  * @param InText				The text to shape if we can't find the shaped text in the cache. (InGlyphIndex, InGlyphIndex+1) will be the range used
- * @param InFont				The font to use when shaping if we can't find the shaped text in the cache
  *
  * @return The kerning
  */
-SLATE_API int8 GetShapedGlyphKerning(const FShapedTextCacheRef& InShapedTextCache, const FCachedShapedTextKey& InRunKey, const int32 InGlyphIndex, const TCHAR* InText, const FSlateFontInfo& InFont);
+SLATE_API int8 GetShapedGlyphKerning(const FShapedTextCacheRef& InShapedTextCache, const FCachedShapedTextKey& InRunKey, const int32 InGlyphIndex, const TCHAR* InText);
 
 /**
  * Extract a sub-section of a run of text into its own shaped glyph sequence
@@ -150,13 +167,10 @@ SLATE_API int8 GetShapedGlyphKerning(const FShapedTextCacheRef& InShapedTextCach
  * @param InRunKey				The key identifying the cached shaped text for the run
  * @param InTextRange			The range of text that should be extracted into its own shaped glyph sequence
  * @param InText				The text to shape if we can't find the shaped text in the cache. InTextRange may specify a sub-section of the entire text
- * @param InFont				The font to use when shaping if we can't find the shaped text in the cache
  * @param InTextDirection		The text direction of all of the text to be shaped
  *
  * @return The shaped text
  */
-SLATE_API FShapedGlyphSequenceRef GetShapedTextSubSequence(const FShapedTextCacheRef& InShapedTextCache, const FCachedShapedTextKey& InRunKey, const FTextRange& InTextRange, const TCHAR* InText, const FSlateFontInfo& InFont, const TextBiDi::ETextDirection InTextDirection);
+SLATE_API FShapedGlyphSequenceRef GetShapedTextSubSequence(const FShapedTextCacheRef& InShapedTextCache, const FCachedShapedTextKey& InRunKey, const FTextRange& InTextRange, const TCHAR* InText, const TextBiDi::ETextDirection InTextDirection);
 
 }
-
-#endif //WITH_FANCY_TEXT

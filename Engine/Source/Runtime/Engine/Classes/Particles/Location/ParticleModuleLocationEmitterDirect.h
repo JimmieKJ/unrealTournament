@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 //~=============================================================================
 // ParticleModuleLocationEmitterDirect
@@ -13,7 +13,7 @@
 #include "ParticleModuleLocationEmitterDirect.generated.h"
 
 UCLASS(editinlinenew, hidecategories=Object, meta=(DisplayName = "Emitter Direct Location"))
-class UParticleModuleLocationEmitterDirect : public UParticleModuleLocationBase
+class ENGINE_API UParticleModuleLocationEmitterDirect : public UParticleModuleLocationBase
 {
 	GENERATED_UCLASS_BODY()
 

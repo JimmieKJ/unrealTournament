@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "STableRow.h"
@@ -31,10 +31,27 @@ private:
 
 	void UpdateTargetFromReports();
 
-	FReply Edit();
-	FReply Import();
-	FReply Export();
-	FReply Compile();
+	bool CanEditText() const;
+	FReply EditText();
+
+	bool CanImportText() const;
+	FReply ImportText();
+
+	bool CanExportText() const;
+	FReply ExportText();
+
+	bool CanImportDialogueScript() const;
+	FReply ImportDialogueScript();
+
+	bool CanExportDialogueScript() const;
+	FReply ExportDialogueScript();
+
+	bool CanImportDialogue() const;
+	FReply ImportDialogue();
+
+	bool CanCompileText() const;
+	FReply CompileText();
+
 	bool CanDelete() const;
 	FReply EnqueueDeletion();
 	void Delete();

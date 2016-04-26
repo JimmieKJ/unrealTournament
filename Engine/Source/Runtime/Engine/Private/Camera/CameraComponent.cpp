@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "MessageLog.h"
@@ -6,6 +6,7 @@
 #include "MapErrors.h"
 #include "Camera/CameraComponent.h"
 #include "Components/DrawFrustumComponent.h"
+#include "IHeadMountedDisplay.h"
 
 #define LOCTEXT_NAMESPACE "CameraComponent"
 
@@ -37,6 +38,7 @@ UCameraComponent::UCameraComponent(const FObjectInitializer& ObjectInitializer)
 	bUseControllerViewRotation_DEPRECATED = true; // the previous default value before bUsePawnControlRotation replaced this var.
 	bUsePawnControlRotation = false;
 	bAutoActivate = true;
+	bLockToHmd = true;
 
 	// Init deprecated var, for old code that may refer to it.
 	SetDeprecatedControllerViewRotation(*this, bUsePawnControlRotation);
@@ -53,9 +55,9 @@ void UCameraComponent::AddReferencedObjects(UObject* InThis, FReferenceCollector
 	Super::AddReferencedObjects(InThis, Collector);
 }
 
-void UCameraComponent::OnComponentDestroyed()
+void UCameraComponent::OnComponentDestroyed(bool bDestroyingHierarchy)
 {
-	Super::OnComponentDestroyed();
+	Super::OnComponentDestroyed(bDestroyingHierarchy);
 
 	if (ProxyMeshComponent)
 	{
@@ -137,6 +139,16 @@ void UCameraComponent::PostLoad()
 		 }
 	 }
  }
+
+void UCameraComponent::ResetProxyMeshTransform()
+{
+	if (ProxyMeshComponent != nullptr)
+	{
+		ProxyMeshComponent->ResetRelativeTransform();
+	}
+}
+
+
 void UCameraComponent::RefreshVisualRepresentation()
 {
 	if (DrawFrustum != nullptr)
@@ -157,6 +169,8 @@ void UCameraComponent::RefreshVisualRepresentation()
 		DrawFrustum->FrustumAspectRatio = AspectRatio;
 		DrawFrustum->MarkRenderStateDirty();
 	}
+
+	ResetProxyMeshTransform();
 }
 
 void UCameraComponent::OverrideFrustumColor(FColor OverrideColor)
@@ -201,9 +215,25 @@ void UCameraComponent::Serialize(FArchive& Ar)
 
 void UCameraComponent::GetCameraView(float DeltaTime, FMinimalViewInfo& DesiredView)
 {
+	if (bLockToHmd && GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsHeadTrackingAllowed())
+	{
+		ResetRelativeTransform();
+		const FTransform ParentWorld = GetComponentToWorld();
+		GEngine->HMDDevice->SetupLateUpdate(ParentWorld, this);
+
+		FQuat Orientation;
+		FVector Position;
+		if (GEngine->HMDDevice->UpdatePlayerCamera(Orientation, Position))
+		{
+			SetRelativeTransform(FTransform(Orientation, Position));
+		}
+	}
+
 	if (bUsePawnControlRotation)
 	{
-		if (APawn* OwningPawn = Cast<APawn>(GetOwner()))
+		const APawn* OwningPawn = Cast<APawn>(GetOwner());
+		const AController* OwningController = OwningPawn ? OwningPawn->GetController() : nullptr;
+		if (OwningController && OwningController->IsLocalPlayerController())
 		{
 			const FRotator PawnViewRotation = OwningPawn->GetViewRotation();
 			if (!PawnViewRotation.Equals(GetComponentRotation()))
@@ -213,10 +243,34 @@ void UCameraComponent::GetCameraView(float DeltaTime, FMinimalViewInfo& DesiredV
 		}
 	}
 
-	DesiredView.Location = GetComponentLocation();
-	DesiredView.Rotation = GetComponentRotation();
+	if (bUseAdditiveOffset)
+	{
+		FTransform OffsetCamToBaseCam = AdditiveOffset;
+		FTransform BaseCamToWorld = GetComponentToWorld();
+		FTransform OffsetCamToWorld = OffsetCamToBaseCam * BaseCamToWorld;
 
-	DesiredView.FOV = FieldOfView;
+		DesiredView.Location = OffsetCamToWorld.GetLocation();
+		DesiredView.Rotation = OffsetCamToWorld.Rotator();
+
+#if WITH_EDITORONLY_DATA
+		if (ProxyMeshComponent)
+		{
+			ResetProxyMeshTransform();
+
+			FTransform LocalTransform = ProxyMeshComponent->GetRelativeTransform();
+			FTransform WorldTransform = LocalTransform * OffsetCamToWorld;
+
+			ProxyMeshComponent->SetWorldTransform(WorldTransform);
+		}
+#endif
+	}
+	else
+	{
+		DesiredView.Location = GetComponentLocation();
+		DesiredView.Rotation = GetComponentRotation();
+	}
+
+	DesiredView.FOV = bUseAdditiveOffset ? (FieldOfView + AdditiveFOVOffset) : FieldOfView;
 	DesiredView.AspectRatio = AspectRatio;
 	DesiredView.bConstrainAspectRatio = bConstrainAspectRatio;
 	DesiredView.bUseFieldOfViewForLOD = bUseFieldOfViewForLOD;
@@ -231,6 +285,10 @@ void UCameraComponent::GetCameraView(float DeltaTime, FMinimalViewInfo& DesiredV
 	{
 		DesiredView.PostProcessSettings = PostProcessSettings;
 	}
+
+#if WITH_EDITOR
+	ResetProxyMeshTransform();
+#endif //WITH_EDITOR
 }
 
 #if WITH_EDITOR
@@ -255,6 +313,18 @@ void SetDeprecatedControllerViewRotation(UCameraComponent& Component, bool bValu
 	Component.bUseControllerViewRotation = bValue;
 	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
+
+void UCameraComponent::NotifyCameraCut()
+{
+	// if we are owned by a camera actor, notify it too
+	// note: many camera components are not part of camera actors, so notification should begin at the
+	// component level.
+	ACameraActor* const OwningCamera = Cast<ACameraActor>(GetOwner());
+	if (OwningCamera)
+	{
+		OwningCamera->NotifyCameraCut();
+	}
+};
 
 
 #undef LOCTEXT_NAMESPACE

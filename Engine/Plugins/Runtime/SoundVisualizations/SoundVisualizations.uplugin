@@ -1,21 +1,29 @@
 {
 	"FileVersion" : 3,
-	
-	"FriendlyName" : "Sound Visualizations Plugin",
 	"Version" : 1,
 	"VersionName" : "1.0",
-	"CreatedBy" : "Epic Games, Inc.",
-	"CreatedByURL" : "http://epicgames.com",
-	"EngineVersion" : "4.2.0",
+	"FriendlyName" : "Sound Visualizations Plugin",
 	"Description" : "Contains functions to help with visualization of SoundWaves.",
 	"Category" : "Audio",
-	
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"DocsURL" : "",
+	"MarketplaceURL" : "",
+	"SupportURL" : "",
+	"EnabledByDefault" : false,
+	"CanContainContent" : false,
+	"IsBetaVersion" : false,
+	"Installed" : false,
 	"Modules" :
 	[
 		{
 			"Name" : "SoundVisualizations",
 			"Type" : "Runtime",
-			"BlacklistPlatforms" : [ "HTML5" ]
+			"LoadingPhase" : "Default",
+			"BlacklistPlatforms" :
+			[
+				"HTML5"
+			]
 		}
 	]
 }

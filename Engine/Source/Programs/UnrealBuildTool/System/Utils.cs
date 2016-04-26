@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -11,6 +11,7 @@ using System.Xml.Serialization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Linq;
+using System.Management;
 using Tools.DotNETCommon.CaselessDictionary;
 using Tools.DotNETCommon.HarvestEnvVars;
 using System.Web.Script.Serialization;
@@ -307,7 +308,7 @@ namespace UnrealBuildTool
 				throw new BuildException(Ex, "Failed to harvest environment variables");
 			}
 
-			foreach (var EnvVar in EnvVars)
+			foreach (KeyValuePair<string, string> EnvVar in EnvVars)
 			{
 				Environment.SetEnvironmentVariable(EnvVar.Key, EnvVar.Value);
 			}
@@ -367,13 +368,13 @@ namespace UnrealBuildTool
 		/// <param name="Args">Arguments to Command</param>
 		public static string RunLocalProcessAndReturnStdOut(string Command, string Args)
 		{
-			var StartInfo = new ProcessStartInfo(Command, Args);
+			ProcessStartInfo StartInfo = new ProcessStartInfo(Command, Args);
 			StartInfo.UseShellExecute = false;
 			StartInfo.RedirectStandardOutput = true;
 			StartInfo.CreateNoWindow = true;
 
 			string FullOutput = "";
-			using (var LocalProcess = Process.Start(StartInfo))
+			using (Process LocalProcess = Process.Start(StartInfo))
 			{
 				StreamReader OutputReader = LocalProcess.StandardOutput;
 				// trim off any extraneous new lines, helpful for those one-line outputs
@@ -392,7 +393,7 @@ namespace UnrealBuildTool
 		{
 			// Make a list of all platform name strings that we're *not* currently compiling, to speed
 			// up file path comparisons later on
-			var OtherPlatformNameStrings = new List<string>();
+			List<string> OtherPlatformNameStrings = new List<string>();
 			{
 				// look at each group to see if any supported platforms are in it
 				List<UnrealPlatformGroup> SupportedGroups = new List<UnrealPlatformGroup>();
@@ -525,20 +526,20 @@ namespace UnrealBuildTool
 				RelativeToDirectory = ".";
 			}
 
-			var AbsolutePath = SourcePath;
+			string AbsolutePath = SourcePath;
 			if (!Path.IsPathRooted(AbsolutePath))
 			{
 				AbsolutePath = Path.GetFullPath(SourcePath);
 			}
-			var SourcePathEndsWithDirectorySeparator = AbsolutePath.EndsWith(Path.DirectorySeparatorChar.ToString()) || AbsolutePath.EndsWith(Path.AltDirectorySeparatorChar.ToString());
+			bool SourcePathEndsWithDirectorySeparator = AbsolutePath.EndsWith(Path.DirectorySeparatorChar.ToString()) || AbsolutePath.EndsWith(Path.AltDirectorySeparatorChar.ToString());
 			if (AlwaysTreatSourceAsDirectory && !SourcePathEndsWithDirectorySeparator)
 			{
 				AbsolutePath += Path.DirectorySeparatorChar;
 			}
 
-			var AbsolutePathUri = new Uri(AbsolutePath);
+			Uri AbsolutePathUri = new Uri(AbsolutePath);
 
-			var AbsoluteRelativeDirectory = RelativeToDirectory;
+			string AbsoluteRelativeDirectory = RelativeToDirectory;
 			if (!Path.IsPathRooted(AbsoluteRelativeDirectory))
 			{
 				AbsoluteRelativeDirectory = Path.GetFullPath(AbsoluteRelativeDirectory);
@@ -552,11 +553,11 @@ namespace UnrealBuildTool
 			}
 
 			// Convert to URI form which is where we can make the relative conversion happen
-			var AbsoluteRelativeDirectoryUri = new Uri(AbsoluteRelativeDirectory);
+			Uri AbsoluteRelativeDirectoryUri = new Uri(AbsoluteRelativeDirectory);
 
 			// Ask the URI system to convert to a nicely formed relative path, then convert it back to a regular path string
-			var UriRelativePath = AbsoluteRelativeDirectoryUri.MakeRelativeUri(AbsolutePathUri);
-			var RelativePath = Uri.UnescapeDataString(UriRelativePath.ToString()).Replace('/', Path.DirectorySeparatorChar);
+			Uri UriRelativePath = AbsoluteRelativeDirectoryUri.MakeRelativeUri(AbsolutePathUri);
+			string RelativePath = Uri.UnescapeDataString(UriRelativePath.ToString()).Replace('/', Path.DirectorySeparatorChar);
 
 			// If we added a directory separator character earlier on, remove it now
 			if (!SourcePathEndsWithDirectorySeparator && AlwaysTreatSourceAsDirectory && RelativePath.EndsWith(Path.DirectorySeparatorChar.ToString()))
@@ -600,7 +601,7 @@ namespace UnrealBuildTool
 
 			// Display updated progress string and keep track of how long it was
 			float ProgressValue = Denominator > 0 ? ((float)Numerator / (float)Denominator) : 1.0f;
-			var ProgressString = String.Format("{0}%", Math.Round(ProgressValue * 100.0f));
+			string ProgressString = String.Format("{0}%", Math.Round(ProgressValue * 100.0f));
 			NumCharsToBackspaceOver = ProgressString.Length;
 			Console.Write(ProgressString);
 		}
@@ -731,7 +732,7 @@ namespace UnrealBuildTool
 		{
 			Filename = Path.GetFileName(Filename);
 
-			var DotIndex = Filename.IndexOf('.');
+			int DotIndex = Filename.IndexOf('.');
 			if (DotIndex == -1)
 			{
 				return Filename; // No need to copy string
@@ -768,7 +769,7 @@ namespace UnrealBuildTool
 		/// <returns></returns>
 		public static bool IsFileUnderDirectory(string FilePath, string Directory)
 		{
-			var DirectoryPathPlusSeparator = Path.GetFullPath(Directory);
+			string DirectoryPathPlusSeparator = Path.GetFullPath(Directory);
 			if (!DirectoryPathPlusSeparator.EndsWith(Path.DirectorySeparatorChar.ToString()))
 			{
 				DirectoryPathPlusSeparator += Path.DirectorySeparatorChar;
@@ -798,8 +799,8 @@ namespace UnrealBuildTool
 		/// <returns></returns>
 		public static string MakeRerootedFilePath(string FilePath, string BaseDirectory, string NewBaseDirectory)
 		{
-			var RelativeFile = StripBaseDirectory(FilePath, BaseDirectory);
-			var DestFile = Path.Combine(NewBaseDirectory, RelativeFile);
+			string RelativeFile = StripBaseDirectory(FilePath, BaseDirectory);
+			string DestFile = Path.Combine(NewBaseDirectory, RelativeFile);
 			return DestFile;
 		}
 
@@ -937,10 +938,10 @@ namespace UnrealBuildTool
 			try
 			{
 				int NumCores = 0;
-				using (var Mos = new System.Management.ManagementObjectSearcher("Select * from Win32_Processor"))
+				using (ManagementObjectSearcher Mos = new System.Management.ManagementObjectSearcher("Select * from Win32_Processor"))
 				{
-					var MosCollection = Mos.Get();
-					foreach (var Item in MosCollection)
+					ManagementObjectCollection MosCollection = Mos.Get();
+					foreach (ManagementBaseObject Item in MosCollection)
 					{
 						NumCores += int.Parse(Item["NumberOfCores"].ToString());
 					}
@@ -1506,8 +1507,8 @@ namespace UnrealBuildTool
 		{
 			totalBytesRead = 0;
 			const int BytesToRead = 4096;
-			var buf = new byte[BytesToRead];
-			var bytesReadThisTime = 0;
+			byte[] buf = new byte[BytesToRead];
+			int bytesReadThisTime = 0;
 			do
 			{
 				bytesReadThisTime = input.Read(buf, 0, BytesToRead);
@@ -1524,7 +1525,7 @@ namespace UnrealBuildTool
 		/// <returns>memory stream that contains the stream contents.</returns>
 		public static MemoryStream ReadIntoMemoryStream(this Stream input)
 		{
-			var data = new MemoryStream(4096);
+			MemoryStream data = new MemoryStream(4096);
 			data.ReadFrom(input);
 			return data;
 		}
@@ -1560,7 +1561,7 @@ namespace UnrealBuildTool
 		/// <returns></returns>
 		public static int GetHashCodeFromValues<T1>(T1 Value1)
 		{
-			var Result = BasePrimeNumber;
+			int Result = BasePrimeNumber;
 			if (Value1 != null)
 			{
 				Result *= Value1.GetHashCode() + FieldMutatorPrimeNumber;
@@ -1578,7 +1579,7 @@ namespace UnrealBuildTool
 		/// <returns></returns>
 		public static int GetHashCodeFromValues<T1, T2>(T1 Value1, T2 Value2)
 		{
-			var Result = BasePrimeNumber;
+			int Result = BasePrimeNumber;
 			if (Value1 != null)
 			{
 				Result *= Value1.GetHashCode() + FieldMutatorPrimeNumber;
@@ -1602,7 +1603,7 @@ namespace UnrealBuildTool
 		/// <returns></returns>
 		public static int GetHashCodeFromValues<T1, T2, T3>(T1 Value1, T2 Value2, T3 Value3)
 		{
-			var Result = BasePrimeNumber;
+			int Result = BasePrimeNumber;
 			if (Value1 != null)
 			{
 				Result *= Value1.GetHashCode() + FieldMutatorPrimeNumber;
@@ -1632,7 +1633,7 @@ namespace UnrealBuildTool
 		/// <returns></returns>
 		public static int GetHashCodeFromValues<T1, T2, T3, T4>(T1 Value1, T2 Value2, T3 Value3, T4 Value4)
 		{
-			var Result = BasePrimeNumber;
+			int Result = BasePrimeNumber;
 			if (Value1 != null)
 			{
 				Result *= Value1.GetHashCode() + FieldMutatorPrimeNumber;
@@ -1694,13 +1695,13 @@ namespace UnrealBuildTool
 
 		public void Dispose()
 		{
-			var TotalSeconds = (DateTime.UtcNow - StartTime).TotalSeconds;
-			var LogIndent = 0;
+			double TotalSeconds = (DateTime.UtcNow - StartTime).TotalSeconds;
+			int LogIndent = 0;
 			lock (IndentLock)
 			{
 				LogIndent = --Indent;
 			}
-			var IndentText = new StringBuilder(LogIndent * 2);
+			StringBuilder IndentText = new StringBuilder(LogIndent * 2);
 			IndentText.Append(' ', LogIndent * 2);
 
 			Log.WriteLine(Verbosity, "{0}{1} took {2}s", IndentText.ToString(), TimerName, TotalSeconds);
@@ -1750,7 +1751,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		public void Dispose()
 		{
-			var TotalSeconds = (DateTime.UtcNow - StartTime).TotalSeconds;
+			double TotalSeconds = (DateTime.UtcNow - StartTime).TotalSeconds;
 			ScopedAccumulator.Time += TotalSeconds;
 		}
 
@@ -1781,7 +1782,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		static public void DumpAllCounters()
 		{
-			foreach (var Counter in Accumulators)
+			foreach (KeyValuePair<string, Accumulator> Counter in Accumulators)
 			{
 				LogAccumulator(Counter.Key, Counter.Value);
 			}

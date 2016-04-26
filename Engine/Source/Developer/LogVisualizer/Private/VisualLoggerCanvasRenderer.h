@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 struct FVisualLoggerCanvasRenderer
@@ -12,7 +12,7 @@ struct FVisualLoggerCanvasRenderer
 
 	struct FGraphData
 	{
-		FGraphData() : Min(FVector2D(FLT_MAX, FLT_MAX)), Max(FVector2D(FLT_MIN, FLT_MIN)) {}
+		FGraphData() : Min(FVector2D(FLT_MAX, FLT_MAX)), Max(FVector2D(-FLT_MAX, -FLT_MAX)) {}
 
 		FVector2D Min, Max;
 		TMap<FName, FGraphLineData> GraphLines;

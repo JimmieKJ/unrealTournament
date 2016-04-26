@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SkeletalControl.cpp: SkeletalControl code and related.
@@ -24,7 +24,7 @@ UBoneMaskFilter::UBoneMaskFilter(const FObjectInitializer& ObjectInitializer)
 
 bool FBoneReference::Initialize(const FBoneContainer& RequiredBones)
 {
-	BoneName = *BoneName.ToString().Trim().TrimTrailing();
+	check(!BoneName.ToString().Contains(L" "));
 	BoneIndex = RequiredBones.GetPoseBoneIndexForBoneName(BoneName);
 
 	// If bone name is not found, look into the master skeleton to see if it's found there.
@@ -49,7 +49,7 @@ bool FBoneReference::Initialize(const USkeleton* Skeleton)
 {
 	if( Skeleton && (BoneName != NAME_None) )
 	{
-		BoneName = *BoneName.ToString().Trim().TrimTrailing();
+		check(!BoneName.ToString().Contains(L" "));
 		BoneIndex = Skeleton->GetReferenceSkeleton().FindBoneIndex(BoneName);
 	}
 	else

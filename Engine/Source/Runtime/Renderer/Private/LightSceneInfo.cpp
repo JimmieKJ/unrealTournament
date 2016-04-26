@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LightSceneInfo.cpp: Light scene info implementation.
@@ -210,8 +210,6 @@ void FLightSceneInfo::ReleaseRHI()
 		TileIntersectionResources->Release();
 	}
 
-	ShadowSphereShapesVertexBuffer.SafeRelease();
-	ShadowSphereShapesSRV.SafeRelease();
 	ShadowCapsuleShapesVertexBuffer.SafeRelease();
 	ShadowCapsuleShapesSRV.SafeRelease();
 }

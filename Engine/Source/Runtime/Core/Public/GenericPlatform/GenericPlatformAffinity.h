@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "HAL/Platform.h"
@@ -45,6 +45,11 @@ public:
 	}
 
 	static const CORE_API uint64 GetStatsThreadMask()
+	{
+		return 0xFFFFFFFFFFFFFFFF;
+	}
+
+	static const CORE_API uint64 GetAudioThreadMask()
 	{
 		return 0xFFFFFFFFFFFFFFFF;
 	}

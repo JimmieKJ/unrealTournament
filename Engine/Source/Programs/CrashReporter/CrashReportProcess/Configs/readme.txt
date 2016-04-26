@@ -1,0 +1,1 @@
+This config file contains overrides for crash report processor, to allow the internal landing zone to be set without recompiling. It should be copied into the same folder as processor exe.

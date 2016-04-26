@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 #include "AttributeSet.h"
@@ -9,6 +9,15 @@
 
 #include "ComponentReregisterContext.h"
 #include "PropertyTag.h"
+
+#if ENABLE_VISUAL_LOG
+namespace
+{
+	int32 bDoAttributeGraphVLogging = 1;
+	FAutoConsoleVariableRef PickUp_Debug_CVar(TEXT("g.debug.vlog.AttributeGraph")
+		, bDoAttributeGraphVLogging, TEXT("Controlls whether Attribute changes are being recorded by VisLog"), ECVF_Cheat);
+}
+#endif
 
 FGameplayAttribute::FGameplayAttribute(UProperty *NewProperty)
 {
@@ -26,10 +35,13 @@ void FGameplayAttribute::SetNumericValueChecked(float NewValue, class UAttribute
 
 #if ENABLE_VISUAL_LOG
 	// draw a graph of the changes to the attribute in the visual logger
-	AActor* OwnerActor = Dest->GetOwningAbilitySystemComponent()->OwnerActor;
-	if (OwnerActor)
+	if (bDoAttributeGraphVLogging && FVisualLogger::IsRecording())
 	{
-		ABILITY_VLOG_ATTRIBUTE_GRAPH(OwnerActor, Log, GetName(), OldValue, NewValue);
+		AActor* OwnerActor = Dest->GetOwningAbilitySystemComponent()->OwnerActor;
+		if (OwnerActor)
+		{
+			ABILITY_VLOG_ATTRIBUTE_GRAPH(OwnerActor, Log, GetName(), OldValue, NewValue);
+		}
 	}
 #endif
 }
@@ -148,25 +160,32 @@ FAttributeMetaData::FAttributeMetaData()
 
 }
 
-float FScalableFloat::GetValueAtLevel(float Level) const
+float FScalableFloat::GetValueAtLevel(float Level, const FString* ContextString) const
 {
 	if (Curve.CurveTable != nullptr)
 	{
-		if (FinalCurve == nullptr)
-		{
-			static const FString ContextString = TEXT("FScalableFloat::GetValueAtLevel");
-			FinalCurve = Curve.GetCurve(ContextString);
+		// We want to cache the FinalCurve when possible. However there are issue with this in CookOnTheFly scenerios where the backing UCurveTable
+		// will be destroyed and reallocated at the same memory adress via StaticAllocateObject. This will keep the UCurveTable* the same, but will shift
+		// the internal UCurveTable::RowMap memory, making our FinalCurve* into it invalid.
+		//
+		// Therefor: only do the caching in non editor builds. In editor builds we will also look up the FinalCurve* from our current UCurveTable*.
+		// 
+		// If this problems does happen in a mono build, we should consider caching the entire curve in the FScalableFloat, or have look into refactoring
+		// some of UCurveTable such that the actual curve data is stored in a global, more stable location.
 
-			RegisterOnCurveTablePostReimport();
+
+#if !WITH_EDITOR						// If not an editor build
+		if (FinalCurve == nullptr)		//		Only if we don't have a cached FRichCurve*, look it up
+#endif
+		
+		{
+			static const FString DefaultContextString = TEXT("FScalableFloat::GetValueAtLevel");
+			FinalCurve = Curve.GetCurve(ContextString ? *ContextString : DefaultContextString);
 		}
 
 		if (FinalCurve != nullptr)
 		{
 			return Value * FinalCurve->Eval(Level);
-		}
-		else
-		{
-			ABILITY_LOG(Error, TEXT("Unable to find RowName: %s for FScalableFloat."), *Curve.RowName.ToString());
 		}
 	}
 
@@ -236,7 +255,30 @@ bool FScalableFloat::SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchiv
 
 		return true;
 	}
+	else if (Tag.Type == NAME_IntProperty)
+	{
+		int32 OldValue;
+		Ar << OldValue;
+		*this = FScalableFloat((float)OldValue);
 
+		return true;
+	}
+	else if (Tag.Type == NAME_Int8Property)
+	{
+		int8 OldValue;
+		Ar << OldValue;
+		*this = FScalableFloat((float)OldValue);
+
+		return true;
+	}
+	else if (Tag.Type == NAME_Int16Property)
+	{
+		int16 OldValue;
+		Ar << OldValue;
+		*this = FScalableFloat((float)OldValue);
+
+		return true;
+	}
 	return false;
 }
 

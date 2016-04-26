@@ -1,0 +1,32 @@
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	MissingShaderPixelShader.usf: Outputs the wanted mips.
+=============================================================================*/
+
+#include "Common.usf"
+
+#include "DebugViewModeCommon.usf"
+
+// This returns a check board shader. Usefull to figure out that it has maximum variance.
+
+
+EARLYDEPTHSTENCIL
+void Main(
+	in FDebugPSIn DebugInputs,
+	out float4 OutColor : SV_Target0
+	)
+{
+#if INSTANCED_STEREO
+	ResolvedView = ResolveView(DebugInputs.EyeIndex);
+#else
+	ResolvedView = ResolveView();
+#endif
+
+	int2 CheckBoardCoord = DebugInputs.TexCoord0.xy * 64;
+	float CheckBoard = (CheckBoardCoord.x + CheckBoardCoord.y) % 2;
+
+	float3 Result = float3(CheckBoard, CheckBoard, CheckBoard);
+
+	OutColor = RETURN_COLOR(float4(Result, .25f));
+}

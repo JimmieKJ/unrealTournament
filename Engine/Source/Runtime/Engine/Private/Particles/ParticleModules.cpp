@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ParticleModules.cpp: Particle module implementation.
@@ -136,11 +136,31 @@ void UParticleModule::FinalUpdate(FParticleEmitterInstance* Owner, int32 Offset,
 {
 }
 
+uint32 UParticleModule::RequiredBytes(UParticleModuleTypeDataBase* TypeData)
+{
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+		// To try and handle deprecation, if function is not overriden, call old function
+	// Will fail though if actually trying to use Owner
+	return RequiredBytes(static_cast<FParticleEmitterInstance*>(nullptr));
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+}
+
+uint32 UParticleModule::RequiredBytesPerInstance()
+{
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	// To try and handle deprecation, if function is not overriden, call old function
+	// Will fail though if actually trying to use Owner
+	return RequiredBytesPerInstance(nullptr);
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+}
+
+// DEPRECATED 4.11
 uint32 UParticleModule::RequiredBytes(FParticleEmitterInstance* Owner)
 {
 	return 0;
 }
 
+// DEPRECATED 4.11
 uint32 UParticleModule::RequiredBytesPerInstance(FParticleEmitterInstance* Owner)
 {
 	return 0;
@@ -759,8 +779,15 @@ void UParticleModule::SetTransactionFlag()
 			if( (ObjectPropertyBase->PropertyClass == UDistributionFloat::StaticClass() ||
 				 ObjectPropertyBase->PropertyClass == UDistributionVector::StaticClass()) )
 			{
-				UObject* Distribution = ObjectPropertyBase->GetObjectPropertyValue( ObjectPropertyBase->ContainerPtrToValuePtr<void>(this) );
-				Distribution->SetFlags( RF_Transactional );
+				//We've deprecated all the UFloatDistribution* usage and in PostLoad we set them to nullptr. TODO: can we just remove this code instead of a null check?
+				if(UObject* Distribution = ObjectPropertyBase->GetObjectPropertyValue( ObjectPropertyBase->ContainerPtrToValuePtr<void>(this) ))
+				{
+					Distribution->SetFlags( RF_Transactional );
+				}
+				else
+				{
+					ensure(ObjectPropertyBase->HasAllPropertyFlags(CPF_Deprecated));
+				}
 			}
 		}
 		else if( UArrayProperty* ArrayProp = Cast<UArrayProperty>(Property) )
@@ -877,7 +904,7 @@ UParticleModuleSourceMovement::UParticleModuleSourceMovement(const FObjectInitia
 
 void UParticleModuleSourceMovement::InitializeDefaults()
 {
-	if (!SourceMovementScale.Distribution)
+	if (!SourceMovementScale.IsCreated())
 	{
 		UDistributionVectorConstant* DistributionSourceMovementScale = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionSourceMovementScale"));
 		DistributionSourceMovementScale->Constant = FVector(1.0f, 1.0f, 1.0f);
@@ -1014,7 +1041,7 @@ UParticleModuleRequired::UParticleModuleRequired(const FObjectInitializer& Objec
 
 void UParticleModuleRequired::InitializeDefaults()
 {
-	if (!SpawnRate.Distribution)
+	if (!SpawnRate.IsCreated())
 	{
 		SpawnRate.Distribution = NewObject<UDistributionFloatConstant>(this, TEXT("RequiredDistributionSpawnRate"));
 	}
@@ -1162,7 +1189,7 @@ UParticleModuleMeshRotation::UParticleModuleMeshRotation(const FObjectInitialize
 
 void UParticleModuleMeshRotation::InitializeDefaults()
 {
-	if (!StartRotation.Distribution)
+	if (!StartRotation.IsCreated())
 	{
 		UDistributionVectorUniform* DistributionStartRotation = NewObject<UDistributionVectorUniform>(this, TEXT("DistributionStartRotation"));
 		DistributionStartRotation->Min = FVector(0.0f, 0.0f, 0.0f);
@@ -1238,7 +1265,7 @@ void UParticleModuleMeshRotation_Seeded::Spawn(FParticleEmitterInstance* Owner, 
 	SpawnEx(Owner, Offset, SpawnTime, (Payload != NULL) ? &(Payload->RandomStream) : NULL, ParticleBase);
 }
 
-uint32 UParticleModuleMeshRotation_Seeded::RequiredBytesPerInstance(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleMeshRotation_Seeded::RequiredBytesPerInstance()
 {
 	return RandomSeedInfo.GetInstancePayloadSize();
 }
@@ -1277,7 +1304,7 @@ UParticleModuleMeshRotationRate::UParticleModuleMeshRotationRate(const FObjectIn
 
 void UParticleModuleMeshRotationRate::InitializeDefaults()
 {
-	if (!StartRotationRate.Distribution)
+	if (!StartRotationRate.IsCreated())
 	{
 		UDistributionVectorUniform* DistributionStartRotationRate = NewObject<UDistributionVectorUniform>(this, TEXT("DistributionStartRotationRate"));
 		DistributionStartRotationRate->Min = FVector(0.0f, 0.0f, 0.0f);
@@ -1356,7 +1383,7 @@ void UParticleModuleMeshRotationRate_Seeded::Spawn(FParticleEmitterInstance* Own
 	SpawnEx(Owner, Offset, SpawnTime, (Payload != NULL) ? &(Payload->RandomStream) : NULL, ParticleBase);
 }
 
-uint32 UParticleModuleMeshRotationRate_Seeded::RequiredBytesPerInstance(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleMeshRotationRate_Seeded::RequiredBytesPerInstance()
 {
 	return RandomSeedInfo.GetInstancePayloadSize();
 }
@@ -1387,7 +1414,7 @@ UParticleModuleMeshRotationRateMultiplyLife::UParticleModuleMeshRotationRateMult
 }
 void UParticleModuleMeshRotationRateMultiplyLife::InitializeDefaults()
 {
-	if (!LifeMultiplier.Distribution)
+	if (!LifeMultiplier.IsCreated())
 	{
 		LifeMultiplier.Distribution = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionLifeMultiplier"));
 	}
@@ -1463,7 +1490,7 @@ UParticleModuleMeshRotationRateOverLife::UParticleModuleMeshRotationRateOverLife
 
 void UParticleModuleMeshRotationRateOverLife::InitializeDefaults()
 {
-	if (!RotRate.Distribution)
+	if (!RotRate.IsCreated())
 	{
 		RotRate.Distribution = NewObject<UDistributionVectorConstantCurve>(this, TEXT("DistributionRotRate"));
 	}
@@ -1569,7 +1596,7 @@ UParticleModuleRotation::UParticleModuleRotation(const FObjectInitializer& Objec
 
 void UParticleModuleRotation::InitializeDefaults()
 {
-	if (!StartRotation.Distribution)
+	if (!StartRotation.IsCreated())
 	{
 		UDistributionFloatUniform* DistributionStartRotation = NewObject<UDistributionFloatUniform>(this, TEXT("DistributionStartRotation"));
 		DistributionStartRotation->Min = 0.0f;
@@ -1625,7 +1652,7 @@ void UParticleModuleRotation_Seeded::Spawn(FParticleEmitterInstance* Owner, int3
 	SpawnEx(Owner, Offset, SpawnTime, (Payload != NULL) ? &(Payload->RandomStream) : NULL, ParticleBase);
 }
 
-uint32 UParticleModuleRotation_Seeded::RequiredBytesPerInstance(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleRotation_Seeded::RequiredBytesPerInstance()
 {
 	return RandomSeedInfo.GetInstancePayloadSize();
 }
@@ -1655,7 +1682,7 @@ UParticleModuleRotationRate::UParticleModuleRotationRate(const FObjectInitialize
 
 void UParticleModuleRotationRate::InitializeDefaults()
 {
-	if (!StartRotationRate.Distribution)
+	if (!StartRotationRate.IsCreated())
 	{
 		StartRotationRate.Distribution = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionStartRotationRate"));
 	}
@@ -1734,7 +1761,7 @@ void UParticleModuleRotationRate_Seeded::Spawn(FParticleEmitterInstance* Owner, 
 	SpawnEx(Owner, Offset, SpawnTime, (Payload != NULL) ? &(Payload->RandomStream) : NULL, ParticleBase);
 }
 
-uint32 UParticleModuleRotationRate_Seeded::RequiredBytesPerInstance(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleRotationRate_Seeded::RequiredBytesPerInstance()
 {
 	return RandomSeedInfo.GetInstancePayloadSize();
 }
@@ -1766,7 +1793,7 @@ UParticleModuleRotationOverLifetime::UParticleModuleRotationOverLifetime(const F
 
 void UParticleModuleRotationOverLifetime::InitializeDefaults()
 {
-	if (!RotationOverLife.Distribution)
+	if (!RotationOverLife.IsCreated())
 	{
 		RotationOverLife.Distribution = NewObject<UDistributionFloatConstantCurve>(this, TEXT("DistributionRotOverLife"));
 	}
@@ -1833,7 +1860,7 @@ UParticleModuleSubUV::UParticleModuleSubUV(const FObjectInitializer& ObjectIniti
 
 void UParticleModuleSubUV::InitializeDefaults()
 {
-	if (!SubImageIndex.Distribution)
+	if (!SubImageIndex.IsCreated())
 	{
 		SubImageIndex.Distribution = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionSubImage"));
 	}
@@ -1872,6 +1899,32 @@ bool UParticleModuleSubUV::IsValidForLODLevel(UParticleLODLevel* LODLevel, FStri
 		if(!IsDistributionAllowedOnGPU(SubImageIndex.Distribution))
 		{
 			OutErrorString = GetDistributionNotAllowedOnGPUText(StaticClass()->GetName(), "SubImageIndex" ).ToString();
+			return false;
+		}
+	}
+
+	if (Animation && Animation->SubUVTexture)
+	{
+		bool bFoundTexture = false;
+
+		if (LODLevel->RequiredModule->Material)
+		{
+			TArray<UTexture*> UsedTextures;
+			LODLevel->RequiredModule->Material->GetUsedTextures(UsedTextures, EMaterialQualityLevel::High, true, GMaxRHIFeatureLevel, false);
+
+			for (int32 TextureIndex = 0; TextureIndex < UsedTextures.Num(); TextureIndex++)
+			{
+				if (UsedTextures[TextureIndex] == Animation->SubUVTexture)
+				{
+					bFoundTexture = true;
+					break;
+				}
+			}
+		}		
+
+		if (!bFoundTexture)
+		{
+			OutErrorString = NSLOCTEXT("UnrealEd", "SubUVAnimationMismatch", "SubUV module has an Animation set whose texture doesn't match what the material is using.  Particles may not appear or have visible clipping.").ToString();
 			return false;
 		}
 	}
@@ -1959,8 +2012,12 @@ float UParticleModuleSubUV::DetermineImageIndex(FParticleEmitterInstance* Owner,
 {
 	UParticleLODLevel* LODLevel	= Owner->SpriteTemplate->GetCurrentLODLevel(Owner);
 	check(LODLevel);
-	
-	int32 TotalSubImages	= LODLevel->RequiredModule->SubImages_Horizontal * LODLevel->RequiredModule->SubImages_Vertical;
+
+	USubUVAnimation* RESTRICT SubUVAnimation = Owner->SpriteTemplate->SubUVAnimation;
+
+	const int32 TotalSubImages = SubUVAnimation 
+		? SubUVAnimation->SubImages_Horizontal * SubUVAnimation->SubImages_Vertical
+		: LODLevel->RequiredModule->SubImages_Horizontal * LODLevel->RequiredModule->SubImages_Vertical;
 
 	float ImageIndex = SubUVPayload.ImageIndex;
 
@@ -2042,7 +2099,7 @@ UParticleModuleSubUVMovie::UParticleModuleSubUVMovie(const FObjectInitializer& O
 
 void UParticleModuleSubUVMovie::InitializeDefaults()
 {
-	if (!FrameRate.Distribution)
+	if (!FrameRate.IsCreated())
 	{
 		UDistributionFloatConstant* DistributionFrameRate = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionFrameRate"));
 		DistributionFrameRate->Constant = 30.0f;
@@ -2101,10 +2158,15 @@ void UParticleModuleSubUVMovie::Spawn(FParticleEmitterInstance* Owner, int32 Off
 	bool bSpawn = (TypeDataBase == NULL) ? true : TypeDataBase->SupportsSubUV();
 	if (bSpawn == true)
 	{
-		int32 iTotalSubImages = LODLevel->RequiredModule->SubImages_Horizontal * LODLevel->RequiredModule->SubImages_Vertical;
-		if (iTotalSubImages == 0)
+		USubUVAnimation* RESTRICT SubUVAnimation = Owner->SpriteTemplate->SubUVAnimation;
+
+		int32 TotalSubImages = SubUVAnimation 
+			? SubUVAnimation->SubImages_Horizontal * SubUVAnimation->SubImages_Vertical
+			: LODLevel->RequiredModule->SubImages_Horizontal * LODLevel->RequiredModule->SubImages_Vertical;
+
+		if (TotalSubImages == 0)
 		{
-			iTotalSubImages = 1;
+			TotalSubImages = 1;
 		}
 
 		SPAWN_INIT;
@@ -2120,11 +2182,11 @@ void UParticleModuleSubUVMovie::Spawn(FParticleEmitterInstance* Owner, int32 Off
 			if (StartingFrame > 1)
 			{
 				// Clamp to the max...
-				MoviePayload.Time = FMath::Clamp<float>(StartingFrame, 0, iTotalSubImages-1);
+				MoviePayload.Time = FMath::Clamp<float>(StartingFrame, 0, TotalSubImages-1);
 			}
 			else if (StartingFrame == 0)
 			{
-				MoviePayload.Time = FMath::TruncToFloat(FMath::SRand() * (iTotalSubImages-1));
+				MoviePayload.Time = FMath::TruncToFloat(FMath::SRand() * (TotalSubImages-1));
 			}
 
 			// Update the payload
@@ -2134,7 +2196,7 @@ void UParticleModuleSubUVMovie::Spawn(FParticleEmitterInstance* Owner, int32 Off
 }
 
 
-uint32 UParticleModuleSubUVMovie::RequiredBytes(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleSubUVMovie::RequiredBytes(UParticleModuleTypeDataBase* TypeData)
 {
 	return sizeof(FSubUVMovieParticlePayload);
 }
@@ -2209,7 +2271,7 @@ UParticleModuleRotationRateMultiplyLife::UParticleModuleRotationRateMultiplyLife
 
 void UParticleModuleRotationRateMultiplyLife::InitializeDefaults()
 {
-	if (!LifeMultiplier.Distribution)
+	if (!LifeMultiplier.IsCreated())
 	{
 		LifeMultiplier.Distribution = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionLifeMultiplier"));
 	}
@@ -2325,7 +2387,7 @@ void UParticleModuleAccelerationConstant::Update(FParticleEmitterInstance* Owner
 	UParticleLODLevel* LODLevel	= Owner->SpriteTemplate->GetCurrentLODLevel(Owner);
 	check(LODLevel);
 	FPlatformMisc::Prefetch(Owner->ParticleData, (Owner->ParticleIndices[0] * Owner->ParticleStride));
-	FPlatformMisc::Prefetch(Owner->ParticleData, (Owner->ParticleIndices[0] * Owner->ParticleStride) + CACHE_LINE_SIZE);
+	FPlatformMisc::Prefetch(Owner->ParticleData, (Owner->ParticleIndices[0] * Owner->ParticleStride) + PLATFORM_CACHE_LINE_SIZE);
 	if (bAlwaysInWorldSpace && LODLevel->RequiredModule->bUseLocalSpace)
 	{
 		FTransform Mat = Owner->Component->ComponentToWorld;
@@ -2333,7 +2395,7 @@ void UParticleModuleAccelerationConstant::Update(FParticleEmitterInstance* Owner
 		BEGIN_UPDATE_LOOP;
 		{
 			FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride));
-			FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + CACHE_LINE_SIZE);
+			FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + PLATFORM_CACHE_LINE_SIZE);
 			Particle.Velocity		+= LocalAcceleration * DeltaTime;
 			Particle.BaseVelocity	+= LocalAcceleration * DeltaTime;
 		}
@@ -2349,7 +2411,7 @@ void UParticleModuleAccelerationConstant::Update(FParticleEmitterInstance* Owner
 		BEGIN_UPDATE_LOOP;
 		{
 			FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride));
-			FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + CACHE_LINE_SIZE);
+			FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + PLATFORM_CACHE_LINE_SIZE);
 			Particle.Velocity		+= LocalAcceleration * DeltaTime;
 			Particle.BaseVelocity	+= LocalAcceleration * DeltaTime;
 		}
@@ -2370,11 +2432,11 @@ UParticleModuleAccelerationDrag::UParticleModuleAccelerationDrag(const FObjectIn
 
 void UParticleModuleAccelerationDrag::InitializeDefaults()
 {
-	if (!DragCoefficient)
+	if (!DragCoefficientRaw.IsCreated())
 	{
 		UDistributionFloatConstant* DistributionDragCoefficient = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionDragCoefficient"));
 		DistributionDragCoefficient->Constant = 1.0f;
-		DragCoefficient = DistributionDragCoefficient;
+		DragCoefficientRaw.Distribution = DistributionDragCoefficient;
 	}
 }
 
@@ -2387,9 +2449,22 @@ void UParticleModuleAccelerationDrag::PostInitProperties()
 	}
 }
 
+void UParticleModuleAccelerationDrag::PostLoad()
+{
+	Super::PostLoad();
+#if WITH_EDITOR
+	if(DragCoefficient_DEPRECATED)
+	{
+		DragCoefficientRaw.Distribution = DragCoefficient_DEPRECATED;
+		DragCoefficientRaw.Initialize();
+	}
+	DragCoefficient_DEPRECATED = nullptr;
+#endif
+}
+
 void UParticleModuleAccelerationDrag::CompileModule(FParticleEmitterBuildInfo& EmitterInfo)
 {
-	EmitterInfo.DragCoefficient.Initialize(DragCoefficient);
+	EmitterInfo.DragCoefficient.Initialize(DragCoefficientRaw.Distribution);
 }
 
 #if WITH_EDITOR
@@ -2401,9 +2476,9 @@ void UParticleModuleAccelerationDrag::PostEditChangeProperty(FPropertyChangedEve
 
 bool UParticleModuleAccelerationDrag::IsValidForLODLevel(UParticleLODLevel* LODLevel, FString& OutErrorString)
 {
-	if (DragCoefficient && LODLevel->TypeDataModule && LODLevel->TypeDataModule->IsA(UParticleModuleTypeDataGpu::StaticClass()))
+	if (DragCoefficientRaw.Distribution && LODLevel->TypeDataModule && LODLevel->TypeDataModule->IsA(UParticleModuleTypeDataGpu::StaticClass()))
 	{
-		if(!IsDistributionAllowedOnGPU(DragCoefficient))
+		if(!IsDistributionAllowedOnGPU(DragCoefficientRaw.Distribution))
 		{
 			OutErrorString = GetDistributionNotAllowedOnGPUText(StaticClass()->GetName(), "DragCoefficient" ).ToString();
 			return false;
@@ -2418,7 +2493,7 @@ void UParticleModuleAccelerationDrag::Update(FParticleEmitterInstance* Owner, in
 {
 	BEGIN_UPDATE_LOOP;
 	{
-		FVector Drag  = Particle.Velocity * -DragCoefficient->GetValue(Particle.RelativeTime, Owner->Component);
+		FVector Drag  = Particle.Velocity * -DragCoefficientRaw.GetValue(Particle.RelativeTime, Owner->Component);
 		Particle.Velocity		+= Drag * DeltaTime;
 		Particle.BaseVelocity	+= Drag * DeltaTime;
 	}
@@ -2435,11 +2510,11 @@ UParticleModuleAccelerationDragScaleOverLife::UParticleModuleAccelerationDragSca
 
 void UParticleModuleAccelerationDragScaleOverLife::InitializeDefaults()
 {
-	if (!DragScale)
+	if (!DragScaleRaw.IsCreated())
 	{
 		UDistributionFloatConstant* DistributionDragScale = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionDragScale"));
 		DistributionDragScale->Constant = 1.0f;
-		DragScale = DistributionDragScale;
+		DragScaleRaw.Distribution = DistributionDragScale;
 	}
 }
 
@@ -2452,9 +2527,22 @@ void UParticleModuleAccelerationDragScaleOverLife::PostInitProperties()
 	}
 }
 
+void UParticleModuleAccelerationDragScaleOverLife::PostLoad()
+{
+	Super::PostLoad();
+#if WITH_EDITOR
+	if (DragScale_DEPRECATED)
+	{
+		DragScaleRaw.Distribution = DragScale_DEPRECATED;
+		DragScaleRaw.Initialize();
+	}
+	DragScale_DEPRECATED = nullptr;
+#endif
+}
+
 void UParticleModuleAccelerationDragScaleOverLife::CompileModule(FParticleEmitterBuildInfo& EmitterInfo)
 {
-	EmitterInfo.DragScale.ScaleByDistribution(DragScale);
+	EmitterInfo.DragScale.ScaleByDistribution(DragScaleRaw.Distribution);
 }
 
 #if WITH_EDITOR
@@ -2468,7 +2556,7 @@ bool UParticleModuleAccelerationDragScaleOverLife::IsValidForLODLevel(UParticleL
 {
 	if (LODLevel->TypeDataModule && LODLevel->TypeDataModule->IsA(UParticleModuleTypeDataGpu::StaticClass()))
 	{
-		if(!IsDistributionAllowedOnGPU(DragScale))
+		if(!IsDistributionAllowedOnGPU(DragScaleRaw.Distribution))
 		{
 			OutErrorString = GetDistributionNotAllowedOnGPUText(StaticClass()->GetName(), "DragScale" ).ToString();
 			return false;
@@ -2491,11 +2579,11 @@ UParticleModuleAttractorPointGravity::UParticleModuleAttractorPointGravity(const
 
 void UParticleModuleAttractorPointGravity::InitializeDefaults()
 {
-	if (!Strength)
+	if (!StrengthRaw.IsCreated())
 	{
 		UDistributionFloatConstant* DistributionStrength = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionStrength"));
 		DistributionStrength->Constant = 1.0f;
-		Strength = DistributionStrength;
+		StrengthRaw.Distribution = DistributionStrength;
 	}
 }
 
@@ -2508,11 +2596,24 @@ void UParticleModuleAttractorPointGravity::PostInitProperties()
 	}
 }
 
+void UParticleModuleAttractorPointGravity::PostLoad()
+{
+	Super::PostLoad();
+#if WITH_EDITOR
+	if (Strength_DEPRECATED)
+	{
+		StrengthRaw.Distribution = Strength_DEPRECATED;
+		StrengthRaw.Initialize();
+	}
+	Strength_DEPRECATED = nullptr;
+#endif
+}
+
 void UParticleModuleAttractorPointGravity::CompileModule(FParticleEmitterBuildInfo& EmitterInfo)
 {
 	EmitterInfo.PointAttractorPosition = Position;
 	EmitterInfo.PointAttractorRadius = Radius;
-	EmitterInfo.PointAttractorStrength.Initialize(Strength);
+	EmitterInfo.PointAttractorStrength.Initialize(StrengthRaw.Distribution);
 }
 
 #if WITH_EDITOR
@@ -2548,7 +2649,7 @@ UParticleModuleAcceleration::UParticleModuleAcceleration(const FObjectInitialize
 
 void UParticleModuleAcceleration::InitializeDefaults()
 {
-	if (!Acceleration.Distribution)
+	if (!Acceleration.IsCreated())
 	{
 		Acceleration.Distribution = NewObject<UDistributionVectorUniform>(this, TEXT("DistributionAcceleration"));
 	}
@@ -2615,7 +2716,7 @@ void UParticleModuleAcceleration::Update(FParticleEmitterInstance* Owner, int32 
 	UParticleLODLevel* LODLevel	= Owner->SpriteTemplate->GetCurrentLODLevel(Owner);
 	check(LODLevel);
 	FPlatformMisc::Prefetch(Owner->ParticleData, (Owner->ParticleIndices[0] * Owner->ParticleStride));
-	FPlatformMisc::Prefetch(Owner->ParticleData, (Owner->ParticleIndices[0] * Owner->ParticleStride) + CACHE_LINE_SIZE);
+	FPlatformMisc::Prefetch(Owner->ParticleData, (Owner->ParticleIndices[0] * Owner->ParticleStride) + PLATFORM_CACHE_LINE_SIZE);
 	if (bAlwaysInWorldSpace && LODLevel->RequiredModule->bUseLocalSpace)
 	{
 		FTransform Mat = Owner->Component->ComponentToWorld;
@@ -2624,7 +2725,7 @@ void UParticleModuleAcceleration::Update(FParticleEmitterInstance* Owner, int32 
 			FVector& UsedAcceleration = *((FVector*)(ParticleBase + CurrentOffset));																\
 			FVector TransformedUsedAcceleration = Mat.InverseTransformVector(UsedAcceleration);
 			FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride));
-			FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + CACHE_LINE_SIZE);
+			FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + PLATFORM_CACHE_LINE_SIZE);
 			Particle.Velocity		+= TransformedUsedAcceleration * DeltaTime;
 			Particle.BaseVelocity	+= TransformedUsedAcceleration * DeltaTime;
 		}
@@ -2636,7 +2737,7 @@ void UParticleModuleAcceleration::Update(FParticleEmitterInstance* Owner, int32 
 		{
 			FVector& UsedAcceleration = *((FVector*)(ParticleBase + CurrentOffset));																\
 			FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride));
-			FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + CACHE_LINE_SIZE);
+			FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + PLATFORM_CACHE_LINE_SIZE);
 			Particle.Velocity		+= UsedAcceleration * DeltaTime;
 			Particle.BaseVelocity	+= UsedAcceleration * DeltaTime;
 		}
@@ -2644,7 +2745,7 @@ void UParticleModuleAcceleration::Update(FParticleEmitterInstance* Owner, int32 
 	}
 }
 
-uint32 UParticleModuleAcceleration::RequiredBytes(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleAcceleration::RequiredBytes(UParticleModuleTypeDataBase* TypeData)
 {
 	// FVector UsedAcceleration
 	return sizeof(FVector);
@@ -2679,7 +2780,7 @@ UParticleModuleAccelerationOverLifetime::UParticleModuleAccelerationOverLifetime
 
 void UParticleModuleAccelerationOverLifetime::InitializeDefaults()
 {
-	if (!AccelOverLife.Distribution)
+	if (!AccelOverLife.IsCreated())
 	{
 		AccelOverLife.Distribution = NewObject<UDistributionVectorConstantCurve>(this, TEXT("DistributionAccelOverLife"));
 	}
@@ -2751,22 +2852,22 @@ UParticleModuleLight::UParticleModuleLight(const FObjectInitializer& ObjectIniti
 
 void UParticleModuleLight::InitializeDefaults()
 {
-	if (!ColorScaleOverLife.Distribution)
+	if (!ColorScaleOverLife.IsCreated())
 	{
 		ColorScaleOverLife.Distribution = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionColorScaleOverLife"));
 	}
 
-	if (!BrightnessOverLife.Distribution)
+	if (!BrightnessOverLife.IsCreated())
 	{
 		BrightnessOverLife.Distribution = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionBrightnessOverLife"));
 	}
 
-	if (!RadiusScale.Distribution)
+	if (!RadiusScale.IsCreated())
 	{
 		RadiusScale.Distribution = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionRadiusScale"));
 	}
 
-	if (!LightExponent.Distribution)
+	if (!LightExponent.IsCreated())
 	{
 		LightExponent.Distribution = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionLightExponent"));
 	}
@@ -2944,7 +3045,7 @@ void UParticleModuleLight::Update(FParticleEmitterInstance* Owner, int32 Offset,
 	UParticleLODLevel* LODLevel	= Owner->SpriteTemplate->GetCurrentLODLevel(Owner);
 	check(LODLevel);
 	FPlatformMisc::Prefetch(Owner->ParticleData, (Owner->ParticleIndices[0] * Owner->ParticleStride));
-	FPlatformMisc::Prefetch(Owner->ParticleData, (Owner->ParticleIndices[0] * Owner->ParticleStride) + CACHE_LINE_SIZE);
+	FPlatformMisc::Prefetch(Owner->ParticleData, (Owner->ParticleIndices[0] * Owner->ParticleStride) + PLATFORM_CACHE_LINE_SIZE);
 	const bool bUseLocalSpace = Owner->UseLocalSpace();
 	int32 ScreenAlignment;
 	FVector ComponentScale;
@@ -2984,7 +3085,7 @@ void UParticleModuleLight::Update(FParticleEmitterInstance* Owner, int32 Offset,
 	}
 }
 
-uint32 UParticleModuleLight::RequiredBytes(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleLight::RequiredBytes(UParticleModuleTypeDataBase* TypeData)
 {
 	return sizeof(FLightParticlePayload);
 }
@@ -3073,25 +3174,25 @@ UParticleModuleLight_Seeded::UParticleModuleLight_Seeded(const FObjectInitialize
 
 void UParticleModuleLight_Seeded::Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase)
 {
-	FParticleRandomSeedInstancePayload* Payload = (FParticleRandomSeedInstancePayload*)(Owner->GetModuleInstanceData(this) + Super::RequiredBytesPerInstance(Owner));
+	FParticleRandomSeedInstancePayload* Payload = (FParticleRandomSeedInstancePayload*)(Owner->GetModuleInstanceData(this) + Super::RequiredBytesPerInstance());
 	SpawnEx(Owner, Offset, SpawnTime, (Payload != NULL) ? &(Payload->RandomStream) : NULL, ParticleBase);
 }
 
-uint32 UParticleModuleLight_Seeded::RequiredBytesPerInstance(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleLight_Seeded::RequiredBytesPerInstance()
 {
-	return Super::RequiredBytesPerInstance(Owner) + RandomSeedInfo.GetInstancePayloadSize();
+	return Super::RequiredBytesPerInstance() + RandomSeedInfo.GetInstancePayloadSize();
 }
 
 uint32 UParticleModuleLight_Seeded::PrepPerInstanceBlock(FParticleEmitterInstance* Owner, void* InstData)
 {
-	return PrepRandomSeedInstancePayload(Owner, (FParticleRandomSeedInstancePayload*)((uint8*)InstData + Super::RequiredBytesPerInstance(Owner)), RandomSeedInfo);
+	return PrepRandomSeedInstancePayload(Owner, (FParticleRandomSeedInstancePayload*)((uint8*)InstData + Super::RequiredBytesPerInstance()), RandomSeedInfo);
 }
 
 void UParticleModuleLight_Seeded::EmitterLoopingNotify(FParticleEmitterInstance* Owner)
 {
 	if (RandomSeedInfo.bResetSeedOnEmitterLooping == true)
 	{
-		FParticleRandomSeedInstancePayload* Payload = (FParticleRandomSeedInstancePayload*)(Owner->GetModuleInstanceData(this) + Super::RequiredBytesPerInstance(Owner));
+		FParticleRandomSeedInstancePayload* Payload = (FParticleRandomSeedInstancePayload*)(Owner->GetModuleInstanceData(this) + Super::RequiredBytesPerInstance());
 		PrepRandomSeedInstancePayload(Owner, Payload, RandomSeedInfo);
 	}
 }
@@ -3167,7 +3268,7 @@ void UParticleModuleTypeDataMesh::Serialize(FArchive& Ar)
 
 void UParticleModuleTypeDataMesh::CreateDistribution()
 {
-	if (!RollPitchYawRange.Distribution)
+	if (!RollPitchYawRange.IsCreated())
 	{
 		RollPitchYawRange.Distribution = NewObject<UDistributionVectorUniform>(this, TEXT("DistributionRollPitchYaw"));
 	}
@@ -3223,12 +3324,12 @@ UParticleModuleKillBox::UParticleModuleKillBox(const FObjectInitializer& ObjectI
 
 void UParticleModuleKillBox::InitializeDefaults()
 {
-	if (!LowerLeftCorner.Distribution)
+	if (!LowerLeftCorner.IsCreated())
 	{
 		LowerLeftCorner.Distribution = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionLowerLeftCorner"));
 	}
 
-	if (!UpperRightCorner.Distribution)
+	if (!UpperRightCorner.IsCreated())
 	{
 		UpperRightCorner.Distribution = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionUpperRightCorner"));
 	}
@@ -3373,7 +3474,7 @@ UParticleModuleKillHeight::UParticleModuleKillHeight(const FObjectInitializer& O
 
 void UParticleModuleKillHeight::InitializeDefaults()
 {
-	if (!Height.Distribution)
+	if (!Height.IsCreated())
 	{
 		Height.Distribution = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionHeight"));
 	}
@@ -3496,7 +3597,7 @@ UParticleModuleLifetime::UParticleModuleLifetime(const FObjectInitializer& Objec
 
 void UParticleModuleLifetime::InitializeDefaults()
 {
-	if(!Lifetime.Distribution)
+	if(!Lifetime.IsCreated())
 	{
 		Lifetime.Distribution = NewObject<UDistributionFloatUniform>(this, TEXT("DistributionLifetime"));
 	}
@@ -3597,7 +3698,7 @@ void UParticleModuleLifetime_Seeded::Spawn(FParticleEmitterInstance* Owner, int3
 	SpawnEx(Owner, Offset, SpawnTime, (Payload != NULL) ? &(Payload->RandomStream) : NULL, ParticleBase);
 }
 
-uint32 UParticleModuleLifetime_Seeded::RequiredBytesPerInstance(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleLifetime_Seeded::RequiredBytesPerInstance()
 {
 	return RandomSeedInfo.GetInstancePayloadSize();
 }
@@ -3646,12 +3747,12 @@ UParticleModuleAttractorLine::UParticleModuleAttractorLine(const FObjectInitiali
 
 void UParticleModuleAttractorLine::InitializeDefaults()
 {
-	if(!Strength.Distribution)
+	if(!Strength.IsCreated())
 	{
 		Strength.Distribution = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionStrength"));
 	}
 
-	if(!Range.Distribution)
+	if(!Range.IsCreated())
 	{
 		Range.Distribution = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionRange"));
 	}
@@ -3794,12 +3895,12 @@ UParticleModuleAttractorParticle::UParticleModuleAttractorParticle(const FObject
 
 void UParticleModuleAttractorParticle::InitializeDefaults()
 {
-	if(!Range.Distribution)
+	if(!Range.IsCreated())
 	{
 		Range.Distribution = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionRange"));
 	}
 
-	if(!Strength.Distribution)
+	if(!Strength.IsCreated())
 	{
 		Strength.Distribution = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionStrength"));
 	}
@@ -4007,7 +4108,7 @@ void UParticleModuleAttractorParticle::Update(FParticleEmitterInstance* Owner, i
 }
 
 
-uint32 UParticleModuleAttractorParticle::RequiredBytes(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleAttractorParticle::RequiredBytes(UParticleModuleTypeDataBase* TypeData)
 {
 	return sizeof(FAttractorParticlePayload);
 }
@@ -4037,17 +4138,17 @@ UParticleModuleAttractorPoint::UParticleModuleAttractorPoint(const FObjectInitia
 
 void UParticleModuleAttractorPoint::InitializeDefaults()
 {
-	if(!Position.Distribution)
+	if(!Position.IsCreated())
 	{
 		Position.Distribution = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionPosition"));
 	}
 	
-	if(!Range.Distribution)
+	if(!Range.IsCreated())
 	{
 		Range.Distribution = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionRange"));
 	}
 
-	if(!Strength.Distribution)
+	if(!Strength.IsCreated())
 	{	
 		Strength.Distribution = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionStrength"));
 	}
@@ -4270,6 +4371,7 @@ void UParticleModuleTypeDataGpu::BeginDestroy()
 
 void UParticleModuleTypeDataGpu::Build( FParticleEmitterBuildInfo& EmitterBuildInfo )
 {
+//#if WITH_EDITOR
 	FVector4Distribution Curve;
 	FComposableFloatDistribution ZeroDistribution;
 	FComposableFloatDistribution OneDistribution;
@@ -4564,6 +4666,8 @@ void UParticleModuleTypeDataGpu::Build( FParticleEmitterBuildInfo& EmitterBuildI
 	// Collision flag.
 	EmitterInfo.bEnableCollision = EmitterBuildInfo.bEnableCollision;
 	EmitterInfo.CollisionMode = (EParticleCollisionMode::Type)EmitterBuildInfo.CollisionMode;
+//#endif
+
 
 	// Create or update GPU resources.
 	if ( EmitterInfo.Resources )
@@ -4586,7 +4690,7 @@ FParticleEmitterInstance* UParticleModuleTypeDataGpu::CreateInstance(UParticleEm
 		InComponent->Template != NULL ? *InComponent->Template->GetName() : TEXT("NULL"));
 
 	FParticleEmitterInstance* Instance = NULL;
-	if (World->Scene && RHISupportsGPUParticles(World->Scene->GetFeatureLevel()))
+	if (World->Scene && RHISupportsGPUParticles())
 	{
 		check( InComponent && InComponent->FXSystem );
 		Instance = InComponent->FXSystem->CreateGPUSpriteEmitterInstance( EmitterInfo );

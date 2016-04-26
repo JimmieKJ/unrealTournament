@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UnMaterial.cpp: Shader implementation.
@@ -20,6 +20,7 @@
 #include "Materials/MaterialExpressionStaticSwitchParameter.h"
 #include "Materials/MaterialExpressionTextureSampleParameter.h"
 #include "Materials/MaterialExpressionVectorParameter.h"
+#include "Materials/MaterialExpressionSceneColor.h"
 #include "MaterialUniformExpressions.h"
 #include "Engine/SubsurfaceProfile.h"
 #include "EditorSupportDelegates.h"
@@ -73,6 +74,7 @@ FMaterialResource::FMaterialResource()
 
 int32 FMaterialResource::CompilePropertyAndSetMaterialProperty(EMaterialProperty Property, FMaterialCompiler* Compiler, EShaderFrequency OverrideShaderFrequency, bool bUsePreviousFrameTime) const
 {
+#if WITH_EDITOR
 	// needs to be called in this function!!
 	// sets CurrentShaderFrequency
 	Compiler->SetMaterialProperty(Property, OverrideShaderFrequency, bUsePreviousFrameTime);
@@ -119,6 +121,10 @@ int32 FMaterialResource::CompilePropertyAndSetMaterialProperty(EMaterialProperty
 
 	// output should always be the right type for this property
 	return Compiler->ForceCast(Ret, GetMaterialPropertyType(Property));
+#else // WITH_EDITOR
+	check(0); // This is editor-only function
+	return INDEX_NONE;
+#endif // WITH_EDITOR
 }
 
 void FMaterialResource::GatherCustomOutputExpressions(TArray<UMaterialExpressionCustomOutput*>& OutCustomOutputs) const
@@ -592,6 +598,7 @@ UMaterial::UMaterial(const FObjectInitializer& ObjectInitializer)
 	MaxDisplacement = 0.0f;
 	bOutputVelocityOnBasePass = true;
 	bEnableSeparateTranslucency = true;
+	bEnableMobileSeparateTranslucency = false;
 	bEnableResponsiveAA = false;
 	bTangentSpaceNormal = true;
 	bUseLightmapDirectionality = true;
@@ -693,6 +700,62 @@ void UMaterial::GetUsedTextures(TArray<UTexture*>& OutTextures, EMaterialQuality
 		}
 	}
 }
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+void UMaterial::LogMaterialsAndTextures(FOutputDevice& Ar, int32 Indent) const
+{
+	auto World = GetWorld();
+	const EMaterialQualityLevel::Type QualityLevel = GetCachedScalabilityCVars().MaterialQualityLevel;
+	const ERHIFeatureLevel::Type FeatureLevel = World ? World->FeatureLevel : GMaxRHIFeatureLevel;
+
+	Ar.Logf(TEXT("%sMaterial: %s"), FCString::Tab(Indent), *GetName());
+
+	if (FPlatformProperties::IsServerOnly())
+	{
+		Ar.Logf(TEXT("%sNo Textures: IsServerOnly"), FCString::Tab(Indent + 1));
+	}
+	else
+	{
+		const FMaterialResource* MaterialResource = MaterialResources[QualityLevel][FeatureLevel];
+		if (MaterialResource)
+		{
+			if (MaterialResource->HasValidGameThreadShaderMap())
+			{
+				TArray<UTexture*> Textures;
+				// GetTextureExpressionValues(MaterialResource, Textures);
+				{
+					const TArray<TRefCountPtr<FMaterialUniformExpressionTexture> >* ExpressionsByType[2] = { &MaterialResource->GetUniform2DTextureExpressions(), &MaterialResource->GetUniformCubeTextureExpressions() };
+					for (int32 TypeIndex = 0; TypeIndex < ARRAY_COUNT(ExpressionsByType); TypeIndex++)
+					{
+						for (FMaterialUniformExpressionTexture* Expression : *ExpressionsByType[TypeIndex])
+						{
+							UTexture* Texture = NULL;
+							Expression->GetGameThreadTextureValue(this, *MaterialResource, Texture, false);
+							Textures.AddUnique(Texture);
+						}
+					}
+				}
+
+				for (UTexture* Texture : Textures)
+				{
+					if (Texture)
+					{
+						Ar.Logf(TEXT("%s%s"), FCString::Tab(Indent + 1), *Texture->GetName());
+					}
+				}
+			}
+			else
+			{
+				Ar.Logf(TEXT("%sNo Textures : Invalid GameThread ShaderMap"), FCString::Tab(Indent + 1));
+			}
+		}
+		else
+		{
+			Ar.Logf(TEXT("%sNo Textures : Invalid MaterialResource"), FCString::Tab(Indent + 1));
+		}
+	}
+}
+#endif
 
 void UMaterial::OverrideTexture(const UTexture* InTextureToOverride, UTexture* OverrideTexture, ERHIFeatureLevel::Type InFeatureLevel)
 {
@@ -1432,18 +1495,16 @@ bool UMaterial::GetVectorParameterValue(FName ParameterName, FLinearColor& OutVa
 {
 	for (const UMaterialExpression* Expression : Expressions)
 	{
-		if (Expression->IsA<UMaterialExpressionVectorParameter>())
+		if (const UMaterialExpressionVectorParameter* Parameter = Cast<const UMaterialExpressionVectorParameter>(Expression))
 		{
-			const UMaterialExpressionVectorParameter* Parameter = CastChecked<const UMaterialExpressionVectorParameter>(Expression);
 			if (Parameter->IsNamedParameter(ParameterName, OutValue))
 			{
 				// Warning: in the case of duplicate parameters with different default values, this will find the first in the expression array, not necessarily the one that's used for rendering
 				return true;
 			}
 		}
-		else if (Expression->IsA<UMaterialExpressionMaterialFunctionCall>())
+		else if (const UMaterialExpressionMaterialFunctionCall* FunctionCall = Cast<const UMaterialExpressionMaterialFunctionCall>(Expression))
 		{
-			const UMaterialExpressionMaterialFunctionCall* FunctionCall = CastChecked<const UMaterialExpressionMaterialFunctionCall>(Expression);
 			if (FunctionCall->MaterialFunction)
 			{
 				TArray<UMaterialFunction*> Functions;
@@ -1454,10 +1515,9 @@ bool UMaterial::GetVectorParameterValue(FName ParameterName, FLinearColor& OutVa
 				{
 					for (UMaterialExpression* FunctionExpression : Function->FunctionExpressions)
 					{
-						if (FunctionExpression->IsA<UMaterialExpressionVectorParameter>())
+						if (const UMaterialExpressionVectorParameter* FunctionExpressionParameter = Cast<const UMaterialExpressionVectorParameter>(FunctionExpression))
 						{
-							const UMaterialExpressionVectorParameter* Parameter = CastChecked<const UMaterialExpressionVectorParameter>(FunctionExpression);
-							if (Parameter->IsNamedParameter(ParameterName, OutValue))
+							if (FunctionExpressionParameter->IsNamedParameter(ParameterName, OutValue))
 							{
 								return true;
 							}
@@ -1475,18 +1535,16 @@ bool UMaterial::GetScalarParameterValue(FName ParameterName, float& OutValue) co
 {
 	for (const UMaterialExpression* Expression : Expressions)
 	{
-		if (Expression->IsA<UMaterialExpressionScalarParameter>())
+		if (const UMaterialExpressionScalarParameter* Parameter = Cast<const UMaterialExpressionScalarParameter>(Expression))
 		{
-			const UMaterialExpressionScalarParameter* Parameter = CastChecked<const UMaterialExpressionScalarParameter>(Expression);
 			if (Parameter->IsNamedParameter(ParameterName, OutValue))
 			{
 				// Warning: in the case of duplicate parameters with different default values, this will find the first in the expression array, not necessarily the one that's used for rendering
 				return true;
 			}
 		}
-		else if (Expression->IsA<UMaterialExpressionMaterialFunctionCall>())
+		else if (const UMaterialExpressionMaterialFunctionCall* FunctionCall = Cast<const UMaterialExpressionMaterialFunctionCall>(Expression))
 		{
-			const UMaterialExpressionMaterialFunctionCall* FunctionCall = CastChecked<const UMaterialExpressionMaterialFunctionCall>(Expression);
 			if (FunctionCall->MaterialFunction)
 			{
 				TArray<UMaterialFunction*> Functions;
@@ -1497,10 +1555,9 @@ bool UMaterial::GetScalarParameterValue(FName ParameterName, float& OutValue) co
 				{
 					for (UMaterialExpression* FunctionExpression : Function->FunctionExpressions)
 					{
-						if (FunctionExpression->IsA<UMaterialExpressionScalarParameter>())
+						if (const UMaterialExpressionScalarParameter* FunctionExpressionParameter = Cast<const UMaterialExpressionScalarParameter>(FunctionExpression))
 						{
-							const UMaterialExpressionScalarParameter* Parameter = CastChecked<const UMaterialExpressionScalarParameter>(FunctionExpression);
-							if (Parameter->IsNamedParameter(ParameterName, OutValue))
+							if (FunctionExpressionParameter->IsNamedParameter(ParameterName, OutValue))
 							{
 								return true;
 							}
@@ -1567,18 +1624,16 @@ bool UMaterial::GetTextureParameterValue(FName ParameterName, UTexture*& OutValu
 {
 	for (const UMaterialExpression* Expression : Expressions)
 	{
-		if (Expression->IsA<UMaterialExpressionTextureSampleParameter>())
+		if (const UMaterialExpressionTextureSampleParameter* Parameter = Cast<const UMaterialExpressionTextureSampleParameter>(Expression))
 		{
-			const UMaterialExpressionTextureSampleParameter* Parameter = CastChecked<const UMaterialExpressionTextureSampleParameter>(Expression);
 			if (Parameter->IsNamedParameter(ParameterName, OutValue))
 			{
 				// Warning: in the case of duplicate parameters with different default values, this will find the first in the expression array, not necessarily the one that's used for rendering
 				return true;
 			}
 		}
-		else if (Expression->IsA<UMaterialExpressionMaterialFunctionCall>())
+		else if (const UMaterialExpressionMaterialFunctionCall* FunctionCall = Cast<const UMaterialExpressionMaterialFunctionCall>(Expression))
 		{
-			const UMaterialExpressionMaterialFunctionCall* FunctionCall = CastChecked<const UMaterialExpressionMaterialFunctionCall>(Expression);
 			if (FunctionCall->MaterialFunction)
 			{
 				TArray<UMaterialFunction*> Functions;
@@ -1589,10 +1644,9 @@ bool UMaterial::GetTextureParameterValue(FName ParameterName, UTexture*& OutValu
 				{
 					for (UMaterialExpression* FunctionExpression : Function->FunctionExpressions)
 					{
-						if (FunctionExpression->IsA<UMaterialExpressionTextureSampleParameter>())
+						if (const UMaterialExpressionTextureSampleParameter* FunctionExpressionParameter = Cast<const UMaterialExpressionTextureSampleParameter>(FunctionExpression))
 						{
-							const UMaterialExpressionTextureSampleParameter* Parameter = CastChecked<const UMaterialExpressionTextureSampleParameter>(FunctionExpression);
-							if (Parameter->IsNamedParameter(ParameterName, OutValue))
+							if (FunctionExpressionParameter->IsNamedParameter(ParameterName, OutValue))
 							{
 								return true;
 							}
@@ -1610,18 +1664,16 @@ bool UMaterial::GetFontParameterValue(FName ParameterName, UFont*& OutFontValue,
 {
 	for (const UMaterialExpression* Expression : Expressions)
 	{
-		if (Expression->IsA<UMaterialExpressionFontSampleParameter>())
+		if (const UMaterialExpressionFontSampleParameter* Parameter = Cast<const UMaterialExpressionFontSampleParameter>(Expression))
 		{
-			const UMaterialExpressionFontSampleParameter* Parameter = CastChecked<const UMaterialExpressionFontSampleParameter>(Expression);
 			if (Parameter->IsNamedParameter(ParameterName, OutFontValue, OutFontPage))
 			{
 				// Warning: in the case of duplicate parameters with different default values, this will find the first in the expression array, not necessarily the one that's used for rendering
 				return true;
 			}
 		}
-		else if (Expression->IsA<UMaterialExpressionMaterialFunctionCall>())
+		else if (const UMaterialExpressionMaterialFunctionCall* FunctionCall = Cast<const UMaterialExpressionMaterialFunctionCall>(Expression))
 		{
-			const UMaterialExpressionMaterialFunctionCall* FunctionCall = CastChecked<const UMaterialExpressionMaterialFunctionCall>(Expression);
 			if (FunctionCall->MaterialFunction)
 			{
 				TArray<UMaterialFunction*> Functions;
@@ -1632,10 +1684,9 @@ bool UMaterial::GetFontParameterValue(FName ParameterName, UFont*& OutFontValue,
 				{
 					for (UMaterialExpression* FunctionExpression : Function->FunctionExpressions)
 					{
-						if (FunctionExpression->IsA<UMaterialExpressionFontSampleParameter>())
+						if (const UMaterialExpressionFontSampleParameter* FunctionExpressionParameter = Cast<const UMaterialExpressionFontSampleParameter>(FunctionExpression))
 						{
-							const UMaterialExpressionFontSampleParameter* Parameter = CastChecked<const UMaterialExpressionFontSampleParameter>(FunctionExpression);
-							if (Parameter->IsNamedParameter(ParameterName, OutFontValue, OutFontPage))
+							if (FunctionExpressionParameter->IsNamedParameter(ParameterName, OutFontValue, OutFontPage))
 							{
 								return true;
 							}
@@ -1654,18 +1705,16 @@ bool UMaterial::GetStaticSwitchParameterValue(FName ParameterName, bool& OutValu
 {
 	for (const UMaterialExpression* Expression : Expressions)
 	{
-		if (Expression->IsA<UMaterialExpressionStaticBoolParameter>())
+		if (const UMaterialExpressionStaticBoolParameter* Parameter = Cast<const UMaterialExpressionStaticBoolParameter>(Expression))
 		{
-			const UMaterialExpressionStaticBoolParameter* Parameter = CastChecked<const UMaterialExpressionStaticBoolParameter>(Expression);
 			if (Parameter->IsNamedParameter(ParameterName, OutValue, OutExpressionGuid))
 			{
 				// Warning: in the case of duplicate parameters with different default values, this will find the first in the expression array, not necessarily the one that's used for rendering
 				return true;
 			}
 		}
-		else if (Expression->IsA<UMaterialExpressionMaterialFunctionCall>())
+		else if (const UMaterialExpressionMaterialFunctionCall* FunctionCall = Cast<const UMaterialExpressionMaterialFunctionCall>(Expression))
 		{
-			const UMaterialExpressionMaterialFunctionCall* FunctionCall = CastChecked<const UMaterialExpressionMaterialFunctionCall>(Expression);
 			if (FunctionCall->MaterialFunction)
 			{
 				TArray<UMaterialFunction*> Functions;
@@ -1676,10 +1725,9 @@ bool UMaterial::GetStaticSwitchParameterValue(FName ParameterName, bool& OutValu
 				{
 					for (UMaterialExpression* FunctionExpression : Function->FunctionExpressions)
 					{
-						if (FunctionExpression->IsA<UMaterialExpressionStaticBoolParameter>())
+						if (const UMaterialExpressionStaticBoolParameter* FunctionExpressionParameter = Cast<const UMaterialExpressionStaticBoolParameter>(FunctionExpression))
 						{
-							const UMaterialExpressionStaticBoolParameter* Parameter = CastChecked<const UMaterialExpressionStaticBoolParameter>(FunctionExpression);
-							if (Parameter->IsNamedParameter(ParameterName, OutValue, OutExpressionGuid))
+							if (FunctionExpressionParameter->IsNamedParameter(ParameterName, OutValue, OutExpressionGuid))
 							{
 								return true;
 							}
@@ -1698,18 +1746,16 @@ bool UMaterial::GetStaticComponentMaskParameterValue(FName ParameterName, bool& 
 {
 	for (const UMaterialExpression* Expression : Expressions)
 	{
-		if (Expression->IsA<UMaterialExpressionStaticComponentMaskParameter>())
+		if (const UMaterialExpressionStaticComponentMaskParameter* Parameter = Cast<const UMaterialExpressionStaticComponentMaskParameter>(Expression))
 		{
-			const UMaterialExpressionStaticComponentMaskParameter* Parameter = CastChecked<const UMaterialExpressionStaticComponentMaskParameter>(Expression);
 			if (Parameter->IsNamedParameter(ParameterName, OutR, OutG, OutB, OutA, OutExpressionGuid))
 			{
 				// Warning: in the case of duplicate parameters with different default values, this will find the first in the expression array, not necessarily the one that's used for rendering
 				return true;
 			}
 		}
-		else if (Expression->IsA<UMaterialExpressionMaterialFunctionCall>())
+		else if (const UMaterialExpressionMaterialFunctionCall* FunctionCall = Cast<const UMaterialExpressionMaterialFunctionCall>(Expression))
 		{
-			const UMaterialExpressionMaterialFunctionCall* FunctionCall = CastChecked<const UMaterialExpressionMaterialFunctionCall>(Expression);
 			if (FunctionCall->MaterialFunction)
 			{
 				TArray<UMaterialFunction*> Functions;
@@ -1720,10 +1766,9 @@ bool UMaterial::GetStaticComponentMaskParameterValue(FName ParameterName, bool& 
 				{
 					for (UMaterialExpression* FunctionExpression : Function->FunctionExpressions)
 					{
-						if (FunctionExpression->IsA<UMaterialExpressionStaticComponentMaskParameter>())
+						if (const UMaterialExpressionStaticComponentMaskParameter* FunctionExpressionParameter = Cast<const UMaterialExpressionStaticComponentMaskParameter>(FunctionExpression))
 						{
-							const UMaterialExpressionStaticComponentMaskParameter* Parameter = CastChecked<const UMaterialExpressionStaticComponentMaskParameter>(FunctionExpression);
-							if (Parameter->IsNamedParameter(ParameterName, OutR, OutG, OutB, OutA, OutExpressionGuid))
+							if (FunctionExpressionParameter->IsNamedParameter(ParameterName, OutR, OutG, OutB, OutA, OutExpressionGuid))
 							{
 								return true;
 							}
@@ -2085,6 +2130,11 @@ void UMaterial::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
 
+	if (FPlatformProperties::RequiresCookedData() && Ar.IsLoading())
+	{
+		Expressions.Remove(nullptr);
+	}
+
 	if (Ar.UE4Ver() >= VER_UE4_PURGED_FMATERIAL_COMPILE_OUTPUTS)
 	{
 #if WITH_EDITOR
@@ -2121,6 +2171,7 @@ void UMaterial::Serialize(FArchive& Ar)
 	}
 #endif // #if WITH_EDITOR
 
+#if WITH_EDITORONLY_DATA
 	DoMaterialAttributeReorder(&DiffuseColor_DEPRECATED,Ar.UE4Ver());
 	DoMaterialAttributeReorder(&SpecularColor_DEPRECATED,Ar.UE4Ver());
 	DoMaterialAttributeReorder(&BaseColor,				Ar.UE4Ver());
@@ -2148,6 +2199,7 @@ void UMaterial::Serialize(FArchive& Ar)
 	DoMaterialAttributeReorder(&CustomizedUVs[6],		Ar.UE4Ver());
 	DoMaterialAttributeReorder(&CustomizedUVs[7],		Ar.UE4Ver());
 	DoMaterialAttributeReorder(&PixelDepthOffset,		Ar.UE4Ver());
+#endif // WITH_EDITORONLY_DATA
 	static_assert(MP_MAX == 28, "New material properties must have DoMaterialAttributesReorder called on them to ensure that any future reordering of property pins is correctly applied.");
 
 	if (Ar.UE4Ver() < VER_UE4_MATERIAL_MASKED_BLENDMODE_TIDY)
@@ -2241,7 +2293,7 @@ void UMaterial::GetQualityLevelNodeUsage(TArray<bool, TInlineAllocator<EMaterial
 		{
 			for (int32 InputIndex = 0; InputIndex < EMaterialQualityLevel::Num; InputIndex++)
 			{
-				if (QualitySwitchNode->Inputs[InputIndex].Expression)
+				if (QualitySwitchNode->Inputs[InputIndex].IsConnected())
 				{
 					OutQualityLevelsUsed[InputIndex] = true;
 				}
@@ -2267,7 +2319,7 @@ void UMaterial::GetQualityLevelNodeUsage(TArray<bool, TInlineAllocator<EMaterial
 					{
 						for (int32 InputIndex = 0; InputIndex < EMaterialQualityLevel::Num; InputIndex++)
 						{
-							if (SwitchNode->Inputs[InputIndex].Expression)
+							if (SwitchNode->Inputs[InputIndex].IsConnected())
 							{
 								OutQualityLevelsUsed[InputIndex] = true;
 							}
@@ -2627,7 +2679,9 @@ bool UMaterial::CanEditChange(const UProperty* InProperty) const
 		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bFullyRough) ||
 			PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, TwoSided) ||
 			PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bUseLightmapDirectionality) ||
-			PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, D3D11TessellationMode))
+			PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, D3D11TessellationMode) ||
+			PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bUseHQForwardReflections)
+			)
 		{
 			return MaterialDomain == MD_Surface;
 		}
@@ -2726,7 +2780,7 @@ void UMaterial::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEve
 		bUsesDistortion = false;
 		// check for a distortion value
 		if (Refraction.Expression
-			|| (Refraction.UseConstant && FMath::Abs(Refraction.Constant) >= KINDA_SMALL_NUMBER))
+			|| (Refraction.UseConstant && FMath::Abs(Refraction.Constant - 1.0f) >= KINDA_SMALL_NUMBER))
 		{
 			bUsesDistortion = true;
 		}
@@ -3211,6 +3265,20 @@ void UMaterial::AddReferencedObjects(UObject* InThis, FReferenceCollector& Colle
 	Super::AddReferencedObjects(This, Collector);
 }
 
+bool UMaterial::CanBeClusterRoot() const 
+{
+	return true;
+}
+
+void UMaterial::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
+{
+	// Search for any scene color nodes
+	bool bHasSceneColor = HasAnyExpressionsInMaterialAndFunctionsOfType<UMaterialExpressionSceneColor>();
+	OutTags.Add(FAssetRegistryTag("HasSceneColor", bHasSceneColor ? TEXT("True") : TEXT("False"), FAssetRegistryTag::TT_Alphabetical));
+
+	Super::GetAssetRegistryTags(OutTags);
+}
+
 #if WITH_EDITOR
 void UMaterial::CancelOutstandingCompilation()
 {
@@ -3528,6 +3596,7 @@ void UMaterial::GetAllCustomOutputExpressions(TArray<class UMaterialExpressionCu
 	}
 }
 
+#if WITH_EDITOR
 bool UMaterial::GetAllReferencedExpressions(TArray<UMaterialExpression*>& OutExpressions, class FStaticParameterSet* InStaticParameterSet)
 {
 	OutExpressions.Empty();
@@ -3578,7 +3647,6 @@ bool UMaterial::GetExpressionsInPropertyChain(EMaterialProperty InProperty,
 	return true;
 }
 
-
 bool UMaterial::GetTexturesInPropertyChain(EMaterialProperty InProperty, TArray<UTexture*>& OutTextures,  
 	TArray<FName>* OutTextureParamNames, class FStaticParameterSet* InStaticParameterSet)
 {
@@ -3619,7 +3687,6 @@ bool UMaterial::GetTexturesInPropertyChain(EMaterialProperty InProperty, TArray<
 
 	return false;
 }
-
 
 bool UMaterial::RecursiveGetExpressionChain(UMaterialExpression* InExpression, TArray<FExpressionInput*>& InOutProcessedInputs, 
 	TArray<UMaterialExpression*>& OutExpressions, class FStaticParameterSet* InStaticParameterSet)
@@ -3690,6 +3757,7 @@ bool UMaterial::RecursiveGetExpressionChain(UMaterialExpression* InExpression, T
 
 	return true;
 }
+#endif // WITH_EDITOR
 
 void UMaterial::AppendReferencedTextures(TArray<UTexture*>& InOutTextures) const
 {
@@ -3712,11 +3780,9 @@ void UMaterial::AppendReferencedTextures(TArray<UTexture*>& InOutTextures) const
 				CurrentFunction->AppendReferencedTextures(InOutTextures);
 			}
 		}
-		else
+		// Not all expressions are cooked
+		else if (Expression)
 		{
-			// should never be 0 but there is a bug, see TTP 340934
-			check(Expression);
-
 			UTexture* ReferencedTexture = Expression->GetReferencedTexture();
 
 			if (ReferencedTexture)
@@ -3727,6 +3793,7 @@ void UMaterial::AppendReferencedTextures(TArray<UTexture*>& InOutTextures) const
 	}
 }
 
+#if WITH_EDITOR
 void UMaterial::RecursiveUpdateRealtimePreview( UMaterialExpression* InExpression, TArray<UMaterialExpression*>& InOutExpressionsToProcess )
 {
 	// remove ourselves from the list to process
@@ -3779,6 +3846,7 @@ void UMaterial::RecursiveUpdateRealtimePreview( UMaterialExpression* InExpressio
 		InExpression->bNeedToUpdatePreview = true;
 	}
 }
+#endif // WITH_EDITOR
 
 void UMaterial::GetReferencedFunctionIds(TArray<FGuid>& Ids) const
 {
@@ -3800,6 +3868,7 @@ void UMaterial::GetReferencedParameterCollectionIds(TArray<FGuid>& Ids) const
 	}
 }
 
+#if WITH_EDITOR
 int32 UMaterial::CompilePropertyEx( FMaterialCompiler* Compiler, EMaterialProperty Property )
 {
 	if( bUseMaterialAttributes && MP_DiffuseColor != Property && MP_SpecularColor != Property )
@@ -3848,6 +3917,7 @@ int32 UMaterial::CompilePropertyEx( FMaterialCompiler* Compiler, EMaterialProper
 	check(0);
 	return INDEX_NONE;
 }
+#endif // WITH_EDITOR
 
 void UMaterial::NotifyCompilationFinished(FMaterialResource* CompiledResource)
 {
@@ -3913,12 +3983,12 @@ static FAutoConsoleCommand CmdListSceneColorMaterials(
 	FConsoleCommandDelegate::CreateStatic(ListSceneColorMaterials)
 	);
 
-float UMaterial::GetOpacityMaskClipValue(bool bIsInGameThread) const
+float UMaterial::GetOpacityMaskClipValue() const
 {
 	return OpacityMaskClipValue;
 }
 
-EBlendMode UMaterial::GetBlendMode(bool bIsInGameThread) const
+EBlendMode UMaterial::GetBlendMode() const
 {
 	if (EBlendMode(BlendMode) == BLEND_Masked)
 	{
@@ -3937,7 +4007,7 @@ EBlendMode UMaterial::GetBlendMode(bool bIsInGameThread) const
 	}
 }
 
-EMaterialShadingModel UMaterial::GetShadingModel(bool bIsInGameThread) const
+EMaterialShadingModel UMaterial::GetShadingModel() const
 {
 	switch (MaterialDomain)
 	{
@@ -3958,18 +4028,18 @@ EMaterialShadingModel UMaterial::GetShadingModel(bool bIsInGameThread) const
 	}
 }
 
-bool UMaterial::IsTwoSided(bool bIsInGameThread) const
+bool UMaterial::IsTwoSided() const
 {
 	return TwoSided != 0;
 }
 
-bool UMaterial::IsDitheredLODTransition(bool bIsInGameThread) const
+bool UMaterial::IsDitheredLODTransition() const
 {
 	return DitheredLODTransition != 0;
 }
 
 
-bool UMaterial::IsMasked(bool bIsInGameThread) const
+bool UMaterial::IsMasked() const
 {
 	return GetBlendMode() == BLEND_Masked;
 }
@@ -4132,7 +4202,7 @@ bool UMaterial::IsPropertyActive(EMaterialProperty InProperty) const
 		Active = ShadingModel != MSM_Unlit && (!bIsTranslucentBlendMode || !bIsVolumetricTranslucencyLightingMode);
 		break;
 	case MP_Normal:
-		Active = (ShadingModel != (MSM_Unlit && (!bIsTranslucentBlendMode || !bIsNonDirectionalTranslucencyLightingMode))) || Refraction.IsConnected();
+		Active = (ShadingModel != MSM_Unlit && (!bIsTranslucentBlendMode || !bIsNonDirectionalTranslucencyLightingMode)) || Refraction.IsConnected();
 		break;
 	case MP_SubsurfaceColor:
 		Active = ShadingModel == MSM_Subsurface || ShadingModel == MSM_PreintegratedSkin || ShadingModel == MSM_TwoSidedFoliage || ShadingModel == MSM_Cloth;

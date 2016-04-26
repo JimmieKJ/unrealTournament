@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -32,6 +32,7 @@ namespace EGrammaticalNumber
 }
 
 class UDialogueVoice;
+class UDialogueWave;
 
 USTRUCT(BlueprintType)
 struct ENGINE_API FDialogueContext
@@ -40,36 +41,33 @@ struct ENGINE_API FDialogueContext
 
 	FDialogueContext();
 
-	/* The person speaking the dialogue. */
+	/** The person speaking the dialogue. */
 	UPROPERTY(EditAnywhere, Category=DialogueContext )
 	UDialogueVoice* Speaker;
 
-	/* The people being spoken to. */
+	/** The people being spoken to. */
 	UPROPERTY(EditAnywhere, Category=DialogueContext )
 	TArray<UDialogueVoice*> Targets;
 
-	/* Gets a generated key created from the source and targets. */
-	FString GetLocalizationKey() const;
-
+	/** Gets a generated hash created from the source and targets. */
+	FString GetContextHash() const;
 };
 
 bool operator==(const FDialogueContext& LHS, const FDialogueContext& RHS);
 bool operator!=(const FDialogueContext& LHS, const FDialogueContext& RHS);
 
-class UDialogueWave;
-
 USTRUCT()
-struct FDialogueWaveParameter
+struct ENGINE_API FDialogueWaveParameter
 {
 	GENERATED_USTRUCT_BODY()
 
 	FDialogueWaveParameter();
 
-	/* The dialogue wave to play. */
+	/** The dialogue wave to play. */
 	UPROPERTY(EditAnywhere, Category=DialogueWaveParameter )
 	UDialogueWave* DialogueWave;
 
-	/* The context to use for the dialogue wave. */
+	/** The context to use for the dialogue wave. */
 	UPROPERTY(EditAnywhere, Category=DialogueWaveParameter )
 	FDialogueContext Context;
 };

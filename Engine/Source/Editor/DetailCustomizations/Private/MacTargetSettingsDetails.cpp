@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "DetailCustomizationsPrivatePCH.h"
 #include "MacTargetSettingsDetails.h"
@@ -89,8 +89,12 @@ static FString GetIconFilename(EMacImageScope::Type Scope)
 void FMacTargetSettingsDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder )
 {
 	// Setup the supported/targeted RHI property view
-	TargetShaderFormatsDetails = MakeShareable(new FMacTargetShaderFormatsPropertyDetails(&DetailBuilder));
+	TargetShaderFormatsDetails = MakeShareable(new FMacShaderFormatsPropertyDetails(&DetailBuilder, TEXT("TargetedRHIs"), TEXT("Targeted RHIs")));
 	TargetShaderFormatsDetails->CreateTargetShaderFormatsPropertyView();
+	
+	// Setup the supported/targeted RHI property view
+	CachedShaderFormatsDetails = MakeShareable(new FMacShaderFormatsPropertyDetails(&DetailBuilder, TEXT("CachedShaderFormats"), TEXT("Cached Shader Formats")));
+	CachedShaderFormatsDetails->CreateTargetShaderFormatsPropertyView();
 	
 	// Add the splash image customization
 	const FText EditorSplashDesc(LOCTEXT("EditorSplashLabel", "Editor Splash"));
@@ -223,6 +227,10 @@ FText GetFriendlyNameFromRHINameMac(const FString& InRHIName)
 	{
 		FriendlyRHIName = LOCTEXT("OpenGL3", "OpenGL 3 (SM4)");
 	}
+	else if (InRHIName == TEXT("SF_METAL_MACES3_1"))
+	{
+		FriendlyRHIName = LOCTEXT("MetalES3.1", "Metal (ES3.1, Mobile Preview)");
+	}
 	else if (InRHIName == TEXT("SF_METAL_SM4"))
 	{
 		FriendlyRHIName = LOCTEXT("MetalSM4", "Metal (SM4)");
@@ -235,23 +243,25 @@ FText GetFriendlyNameFromRHINameMac(const FString& InRHIName)
 	return FriendlyRHIName;
 }
 
-FMacTargetShaderFormatsPropertyDetails::FMacTargetShaderFormatsPropertyDetails(IDetailLayoutBuilder* InDetailBuilder)
+FMacShaderFormatsPropertyDetails::FMacShaderFormatsPropertyDetails(IDetailLayoutBuilder* InDetailBuilder, FString InProperty, FString InTitle)
 : DetailBuilder(InDetailBuilder)
+, Property(InProperty)
+, Title(InTitle)
 {
-	TargetShaderFormatsPropertyHandle = DetailBuilder->GetProperty("TargetedRHIs");
-	ensure(TargetShaderFormatsPropertyHandle.IsValid());
+	ShaderFormatsPropertyHandle = DetailBuilder->GetProperty(*Property);
+	ensure(ShaderFormatsPropertyHandle.IsValid());
 }
 
-void FMacTargetShaderFormatsPropertyDetails::CreateTargetShaderFormatsPropertyView()
+void FMacShaderFormatsPropertyDetails::CreateTargetShaderFormatsPropertyView()
 {
-	DetailBuilder->HideProperty(TargetShaderFormatsPropertyHandle);
+	DetailBuilder->HideProperty(ShaderFormatsPropertyHandle);
 	
 	// List of supported RHI's and selected targets
 	ITargetPlatform* TargetPlatform = FModuleManager::GetModuleChecked<ITargetPlatformModule>("MacTargetPlatform").GetTargetPlatform();
 	TArray<FName> ShaderFormats;
 	TargetPlatform->GetAllPossibleShaderFormats(ShaderFormats);
 	
-	IDetailCategoryBuilder& TargetedRHICategoryBuilder = DetailBuilder->EditCategory(TEXT("Targeted RHIs"));
+	IDetailCategoryBuilder& TargetedRHICategoryBuilder = DetailBuilder->EditCategory(*Title);
 	
 	for (const FName& ShaderFormat : ShaderFormats)
 	{
@@ -275,21 +285,21 @@ void FMacTargetShaderFormatsPropertyDetails::CreateTargetShaderFormatsPropertyVi
 		.ValueContent()
 		[
 			SNew(SCheckBox)
-			.OnCheckStateChanged(this, &FMacTargetShaderFormatsPropertyDetails::OnTargetedRHIChanged, ShaderFormat)
-			.IsChecked(this, &FMacTargetShaderFormatsPropertyDetails::IsTargetedRHIChecked, ShaderFormat)
+			.OnCheckStateChanged(this, &FMacShaderFormatsPropertyDetails::OnTargetedRHIChanged, ShaderFormat)
+			.IsChecked(this, &FMacShaderFormatsPropertyDetails::IsTargetedRHIChecked, ShaderFormat)
 		 ];
 	}
 }
 
 
-void FMacTargetShaderFormatsPropertyDetails::OnTargetedRHIChanged(ECheckBoxState InNewValue, FName InRHIName)
+void FMacShaderFormatsPropertyDetails::OnTargetedRHIChanged(ECheckBoxState InNewValue, FName InRHIName)
 {
 	TArray<void*> RawPtrs;
-	TargetShaderFormatsPropertyHandle->AccessRawData(RawPtrs);
+	ShaderFormatsPropertyHandle->AccessRawData(RawPtrs);
 	
 	// Update the CVars with the selection
 	{
-		TargetShaderFormatsPropertyHandle->NotifyPreChange();
+		ShaderFormatsPropertyHandle->NotifyPreChange();
 		for (void* RawPtr : RawPtrs)
 		{
 			TArray<FString>& Array = *(TArray<FString>*)RawPtr;
@@ -302,17 +312,17 @@ void FMacTargetShaderFormatsPropertyDetails::OnTargetedRHIChanged(ECheckBoxState
 				Array.Remove(InRHIName.ToString());
 			}
 		}
-		TargetShaderFormatsPropertyHandle->NotifyPostChange();
+		ShaderFormatsPropertyHandle->NotifyPostChange();
 	}
 }
 
 
-ECheckBoxState FMacTargetShaderFormatsPropertyDetails::IsTargetedRHIChecked(FName InRHIName) const
+ECheckBoxState FMacShaderFormatsPropertyDetails::IsTargetedRHIChecked(FName InRHIName) const
 {
 	ECheckBoxState CheckState = ECheckBoxState::Unchecked;
 	
 	TArray<void*> RawPtrs;
-	TargetShaderFormatsPropertyHandle->AccessRawData(RawPtrs);
+	ShaderFormatsPropertyHandle->AccessRawData(RawPtrs);
 	
 	for(void* RawPtr : RawPtrs)
 	{

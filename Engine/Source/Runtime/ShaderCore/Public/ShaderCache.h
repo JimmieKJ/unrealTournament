@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ShaderCache.h: Shader precompilation mechanism
@@ -16,13 +16,14 @@ struct SHADERCORE_API FShaderCacheCustomVersion
 {
 	static const FGuid Key;
 	static const FGuid GameKey;
-	enum Type {	Initial, PreDraw, CacheHashes, OptimisedHashes, StreamingKeys, AdditionalResources, SeparateBinaries, Latest = SeparateBinaries };
+	enum Type {	Initial, PreDraw, CacheHashes, OptimisedHashes, StreamingKeys, AdditionalResources, SeparateBinaries, IndexedSets, PreDrawEntries, CompressedBinaries, CacheMerging, ShaderPipelines, SimpleVersioning, Latest = SimpleVersioning };
 };
 
 enum EShaderCacheOptions
 {
 	SCO_Default,
-	SCO_NoShaderPreload = 1 << 0 /* Disable preloading of shaders for RHIs where loading all shaders is too slow (i.e. Metal online compiler). */
+	SCO_NoShaderPreload = 1 << 0, /* Disable preloading of shaders for RHIs where loading all shaders is too slow (i.e. Metal online compiler). */
+	SCO_Cooking = 1 << 1 /* Run the ShaderCache in a very limited mode suitable only for cooking binary shader caches. */
 };
 
 /** Texture type enum for shader cache draw keys */
@@ -208,8 +209,6 @@ struct SHADERCORE_API FShaderRenderTargetKey
  */
 class SHADERCORE_API FShaderCache : public FTickableObjectRenderThread
 {
-	friend class FShaderCacheLoadBinaryCodeTask;
-	
 	struct SHADERCORE_API FShaderCacheKey
 	{
 		FShaderCacheKey() : Platform(SP_NumPlatforms), Frequency(SF_NumFrequencies), Hash(0), bActive(false) {}
@@ -419,17 +418,23 @@ class SHADERCORE_API FShaderCache : public FTickableObjectRenderThread
 	};
 	
 public:
-	FShaderCache();
+	FShaderCache(uint32 Options, uint32 InMaxResources);
 	virtual ~FShaderCache();
 	
-	/** Called by the game to set the game specific shader cache version, only caches of this version will be loaded. Must be called before RHI initialisation, as InitShaderCache will load any existing cache. */
+    /** Called by the game to set the game specific shader cache version, only caches of this version will be loaded. Must be called before RHI initialisation, as InitShaderCache will load any existing cache. Defaults to FEngineVersion::Current().GetChangelist() if never called. */
 	static void SetGameVersion(int32 InGameVersion);
 	static int32 GetGameVersion() { return GameVersion; }
 	
 	/** Shader cache initialisation, called only by the RHI. */
-	static void InitShaderCache(EShaderCacheOptions Options, uint32 InMaxResources = FShaderDrawKey::MaxNumResources);
+	static void InitShaderCache(uint32 Options, uint32 InMaxResources = FShaderDrawKey::MaxNumResources);
 	/** Loads any existing cache of shader binaries, called by the RHI after full initialisation. */
 	static void LoadBinaryCache();
+	/** Adds the shader formats to the set to be cached during cook for the given platform. */
+	static void CacheCookedShaderPlatforms(FName PlatformName, TArray<FName> const& CachedShaderFormats);
+	/** Save binary cache immediately to the given output dir for the given platform. */
+	static void SaveBinaryCache(FString OutputDir, FName PlatformName);
+	/** Merge the shader draw state cache files at Left & Right into a new file at Output */
+	static bool MergeShaderCacheFiles(FString Left, FString Right, FString Output);
 	/** Shader cache shutdown, called only by the RHI. */
 	static void ShutdownShaderCache();
 	
@@ -678,6 +683,17 @@ public:
 		return false;
 	}
 	
+	/** Called by the RHI. Returns whether the current CreateBSS is a prebind call for shader  submission to the underlying driver rather than a real UE4 CreateBSS call. */
+	static FORCEINLINE bool IsPrebindCall()
+	{
+		FShaderCache* ShaderCache = GetShaderCache();
+		if ( Cache )
+		{
+			return Cache->bIsPreBind;
+		}
+		return false;
+	}
+	
 	/** Use the accelerated target precompile frame time (in ms) and predraw batch time (in ms) during a loading screen or other scenario where frame time can be much slower than normal. */
 	static void BeginAcceleratedBatching();
 	
@@ -686,15 +702,57 @@ public:
 	
 	/** Flushes all outstanding precompilation/predraw work & then ends accelerated batching as per EndAcceleratedBatching. */
 	static void FlushOutstandingBatches();
+	
+	/** Pauses precompilation & predraw batching. */
+	static void PauseBatching();
+	
+	/** Resumes precompilation & predraw batching. */
+	static void ResumeBatching();
+	
+	/** Returns the number of shaders waiting for precompilation */
+	static uint32 NumShaderPrecompilesRemaining();
+	
+	static void CookShader(EShaderPlatform Platform, EShaderFrequency Frequency, FSHAHash Hash, TArray<uint8> const& Code);
+	
+	static void CookPipeline(class FShaderPipeline* Pipeline);
 
-	/** Archive serialisation of the cache data. */
-	friend FArchive& operator<<( FArchive& Ar, FShaderCache& Info );
+	struct SHADERCORE_API FShaderPipelineKey
+	{
+		FShaderCacheKey VertexShader;
+		FShaderCacheKey PixelShader;
+		FShaderCacheKey GeometryShader;
+		FShaderCacheKey HullShader;
+		FShaderCacheKey DomainShader;
+		mutable uint32 Hash;
+		
+		FShaderPipelineKey() : Hash(0) {}
+		
+		friend bool operator ==(const FShaderPipelineKey& A,const FShaderPipelineKey& B)
+		{
+			return A.VertexShader == B.VertexShader && A.PixelShader == B.PixelShader && A.GeometryShader == B.GeometryShader && A.HullShader == B.HullShader && A.DomainShader == B.DomainShader;
+		}
+		
+		friend uint32 GetTypeHash(const FShaderPipelineKey &Key)
+		{
+			if(!Key.Hash)
+			{
+				Key.Hash ^= GetTypeHash(Key.VertexShader) ^ GetTypeHash(Key.PixelShader) ^ GetTypeHash(Key.GeometryShader) ^ GetTypeHash(Key.HullShader) ^ GetTypeHash(Key.DomainShader);
+			}
+			return Key.Hash;
+		}
+		
+		friend FArchive& operator<<( FArchive& Ar, FShaderPipelineKey& Info )
+		{
+			return Ar << Info.VertexShader << Info.PixelShader << Info.GeometryShader << Info.HullShader << Info.DomainShader << Info.Hash;
+		}
+	};
 	
 	struct SHADERCORE_API FShaderCodeCache
 	{
 		friend FArchive& operator<<( FArchive& Ar, FShaderCodeCache& Info );
 		
 		TMap<FShaderCacheKey, TArray<uint8>> Shaders;
+		TMap<FShaderCacheKey, TSet<FShaderPipelineKey>> Pipelines;
 	};
 	
 public: // From FTickableObjectRenderThread
@@ -755,19 +813,8 @@ private:
 		}
 	};
 	
-	struct FSamplerStateInitializerRHIKeyFuncs : BaseKeyFuncs<FSamplerStateInitializerRHI,FSamplerStateInitializerRHI,false>
+	struct FSamplerStateInitializerRHIKeyFuncs : TDefaultMapKeyFuncs<FSamplerStateInitializerRHI,int32,false>
 	{
-		typedef TCallTraits<FSamplerStateInitializerRHI>::ParamType KeyInitType;
-		typedef TCallTraits<FSamplerStateInitializerRHI>::ParamType ElementInitType;
-		
-		/**
-		 * @return The key used to index the given element.
-		 */
-		static FORCEINLINE KeyInitType GetSetKey(ElementInitType Element)
-		{
-			return Element;
-		}
-		
 		/**
 		 * @return True if the keys match.
 		 */
@@ -779,7 +826,7 @@ private:
 	
 	struct FShaderStreamingCache
 	{
-		TMap<FShaderCacheBoundState, TSet<int32>> ShaderDrawStates;
+		TMap<int32, TSet<int32>> ShaderDrawStates;
 		
 		friend FArchive& operator<<( FArchive& Ar, FShaderStreamingCache& Info )
 		{
@@ -787,24 +834,142 @@ private:
 		}
 	};
 	
+	template <class Type, typename KeyFuncs = TDefaultMapKeyFuncs<Type,int32,false>>
+	class TIndexedSet
+	{
+		TMap<Type, int32, FDefaultSetAllocator, KeyFuncs> Map;
+		TArray<Type> Data;
+		
+	public:
+#if PLATFORM_COMPILER_HAS_DEFAULTED_FUNCTIONS
+		TIndexedSet() = default;
+		TIndexedSet(TIndexedSet&&) = default;
+		TIndexedSet(const TIndexedSet&) = default;
+		TIndexedSet& operator=(TIndexedSet&&) = default;
+		TIndexedSet& operator=(const TIndexedSet&) = default;
+#else
+		FORCEINLINE TIndexedSet() {}
+		FORCEINLINE TIndexedSet(      TIndexedSet&& Other) : Map(MoveTemp(Other.Map)), Data(MoveTemp(Other.Data)) {}
+		FORCEINLINE TIndexedSet(const TIndexedSet&  Other) : Map( Other.Map ), Data( Other.Data ) {}
+		FORCEINLINE TIndexedSet& operator=(      TIndexedSet&& Other) { Map = MoveTemp(Other.Map); Data = MoveTemp(Other.Data); return *this; }
+		FORCEINLINE TIndexedSet& operator=(const TIndexedSet&  Other) { Map = Other.Map; Data = Other.Data; return *this; }
+#endif
+		
+		int32 Add(Type const& Object)
+		{
+			int32* Index = Map.Find(Object);
+			if(Index)
+			{
+				return *Index;
+			}
+			else
+			{
+				int32 NewIndex = Data.Num();
+				Data.Push(Object);
+				Map.Add(Object, NewIndex);
+				return NewIndex;
+			}
+		}
+		
+		int32 Find(Type const& Object)
+		{
+			int32* Index = Map.Find(Object);
+			if(Index)
+			{
+				return *Index;
+			}
+			else
+			{
+				check(false);
+				return -1;
+			}
+		}
+		
+		int32 FindChecked(Type const& Object)
+		{
+			return Map.FindChecked(Object);
+		}
+		
+		Type& operator[](int32 Index)
+		{
+			return Data[Index];
+		}
+		
+		Type const& operator[](int32 Index) const
+		{
+			return Data[Index];
+		}
+		
+		uint32 Num() const
+		{
+			return Data.Num();
+		}
+		
+		friend FORCEINLINE FArchive& operator<<( FArchive& Ar, TIndexedSet& Set )
+		{
+			return Ar << Set.Map << Set.Data;
+		}
+	};
+	
+	struct FShaderPreDrawEntry
+	{
+		int32 BoundStateIndex;
+		int32 DrawKeyIndex;
+		bool bPredrawn;
+		
+		FShaderPreDrawEntry() : BoundStateIndex(-1), DrawKeyIndex(-1), bPredrawn(false) {}
+		
+		friend bool operator ==(const FShaderPreDrawEntry& A,const FShaderPreDrawEntry& B)
+		{
+			return (A.BoundStateIndex == B.BoundStateIndex && A.DrawKeyIndex == B.DrawKeyIndex);
+		}
+		
+		friend uint32 GetTypeHash(const FShaderPreDrawEntry &Key)
+		{
+			return (Key.BoundStateIndex ^ Key.DrawKeyIndex);
+		}
+		
+		friend FArchive& operator<<( FArchive& Ar, FShaderPreDrawEntry& Info )
+		{
+			if(Ar.IsLoading())
+			{
+				Info.bPredrawn = false;
+			}
+			return Ar << Info.BoundStateIndex << Info.DrawKeyIndex;
+		}
+	};
+	
 	struct FShaderPlatformCache
 	{
-		TSet<FShaderCacheKey> Shaders;
-		TSet<FShaderCacheBoundState> BoundShaderStates;
-		TSet<FShaderDrawKey> DrawStates;
-		TSet<FShaderRenderTargetKey> RenderTargets;
-		TSet<FShaderResourceKey> Resources;
-		TSet<FSamplerStateInitializerRHI, FSamplerStateInitializerRHIKeyFuncs> SamplerStates;
-		TMap<FShaderCacheKey, TSet<FShaderCacheBoundState>> ShaderStateMembership;
+		TIndexedSet<FShaderCacheKey> Shaders;
+		TIndexedSet<FShaderCacheBoundState> BoundShaderStates;
+		TIndexedSet<FShaderDrawKey> DrawStates;
+		TIndexedSet<FShaderRenderTargetKey> RenderTargets;
+		TIndexedSet<FShaderResourceKey> Resources;
+		TIndexedSet<FSamplerStateInitializerRHI, FSamplerStateInitializerRHIKeyFuncs> SamplerStates;
+		TIndexedSet<FShaderPreDrawEntry> PreDrawEntries;
+
+		TMap<int32, TSet<int32>> ShaderStateMembership;
 		TMap<uint32, FShaderStreamingCache> StreamingDrawStates;
 		
 		friend FArchive& operator<<( FArchive& Ar, FShaderPlatformCache& Info )
 		{
-			return Ar << Info.Shaders << Info.BoundShaderStates << Info.DrawStates << Info.RenderTargets << Info.Resources << Info.SamplerStates << Info.ShaderStateMembership << Info.StreamingDrawStates;
+			return Ar << Info.Shaders << Info.BoundShaderStates << Info.DrawStates << Info.RenderTargets << Info.Resources << Info.SamplerStates << Info.PreDrawEntries << Info.ShaderStateMembership << Info.StreamingDrawStates;
 		}
 	};
 	
-	typedef TMap<uint32, FShaderPlatformCache> FShaderCaches;
+	struct FShaderCaches
+	{
+		TMap<uint32, FShaderPlatformCache> PlatformCaches;
+	};
+	
+	/** Archive serialisation of the cache data. */
+	friend FArchive& operator<<( FArchive& Ar, FShaderCaches& Info );
+	
+	static void MergePlatformCaches(FShaderPlatformCache& Target, FShaderPlatformCache const& Source);
+	static void MergeShaderCaches(FShaderCaches& Target, FShaderCaches const& Source);
+	static bool LoadShaderCache(FString Path, FShaderCaches* Cache);
+	static bool SaveShaderCache(FString Path, FShaderCaches* Cache);
 	
 	struct FShaderResourceViewBinding
 	{
@@ -972,12 +1137,13 @@ private:
 	FRHIDepthRenderTargetView CurrentDepthStencilTarget;
 	FRHIRenderTargetView CurrentRenderTargets[MaxSimultaneousRenderTargets];
 	FShaderDrawKey CurrentDrawKey;
-	FBoundShaderStateRHIParamRef CurrentShaderState;
-	FShaderCacheBoundState BoundShaderState;
+	FBoundShaderStateRHIRef CurrentShaderState;
+	int32 BoundShaderStateIndex;
 	uint32 Viewport[4];
 	float DepthRange[2];
 	bool bIsPreDraw;
-	EShaderCacheOptions Options;
+	bool bIsPreBind;
+	uint32 Options;
 	uint8 MaxResources;
 	
 	// When the invalid resource count is greater than 0 no draw keys will be stored to prevent corrupting the shader cache.
@@ -987,8 +1153,18 @@ private:
 	// Overrides for shader warmup times to use when loading or to force a flush.
 	int32 OverridePrecompileTime;
 	int32 OverridePredrawBatchTime;
+	bool bBatchingPaused;
 	
 	static FShaderCache* Cache;
+#if WITH_EDITORONLY_DATA
+	struct FShaderCookCache
+	{
+		TMap<FName, TSet<EShaderPlatform>> CachedPlatformShaderFormats;
+		TSet<EShaderPlatform> AllCachedPlatforms;
+		FShaderCodeCache CodeCache;
+	};
+	static FShaderCookCache* CookCache;
+#endif
 	static int32 GameVersion;
 	static int32 bUseShaderCaching;
 	static int32 bUseShaderPredraw;
@@ -999,6 +1175,7 @@ private:
 	static int32 TargetPrecompileFrameTime;
 	static int32 AccelPredrawBatchTime;
 	static int32 AccelTargetPrecompileFrameTime;
+	static float InitialShaderLoadTime;
 	static FAutoConsoleVariableRef CVarUseShaderCaching;
 	static FAutoConsoleVariableRef CVarUseShaderPredraw;
 	static FAutoConsoleVariableRef CVarUseShaderDrawLog;
@@ -1008,4 +1185,5 @@ private:
 	static FAutoConsoleVariableRef CVarTargetPrecompileFrameTime;
 	static FAutoConsoleVariableRef CVarAccelPredrawBatchTime;
 	static FAutoConsoleVariableRef CVarAccelTargetPrecompileFrameTime;
+	static FAutoConsoleVariableRef CVarInitialShaderLoadTime;
 };

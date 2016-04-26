@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "EdGraph/EdGraphNode.h"
@@ -29,8 +29,8 @@ class UAnimStateNodeBase : public UEdGraphNode
 	// Populates the OutTransitions array with a list of transition nodes connected to this state
 	ANIMGRAPH_API virtual void GetTransitionList(TArray<class UAnimStateTransitionNode*>& OutTransitions, bool bWantSortedList = false) { }
 
-	//
 	virtual UEdGraph* GetBoundGraph() const { return NULL; }
+	virtual void ClearBoundGraph() {}
 
 	ANIMGRAPH_API UAnimBlueprint* GetAnimBlueprint() const;
 

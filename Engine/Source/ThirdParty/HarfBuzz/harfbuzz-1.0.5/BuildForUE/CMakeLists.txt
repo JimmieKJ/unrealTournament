@@ -1,4 +1,4 @@
-# Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+# Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 cmake_minimum_required(VERSION 2.8.11)
 
 # CMake script build HarfBuzz for using our pre-built third-party libraries

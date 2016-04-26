@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #if WITH_RECAST
@@ -24,7 +24,6 @@
 #include "RecastHelpers.h"
 #include "NavigationSystemHelpers.h"
 #include "VisualLogger/VisualLogger.h"
-#include "NavMeshRenderingHelpers.h"
 
 #define SEAMLESS_REBUILDING_ENABLED 1
 
@@ -1579,7 +1578,7 @@ void FRecastTileGenerator::Setup(const FRecastNavMeshGenerator& ParentGenerator,
 			
 	// from passed in boxes pick the ones overlapping with tile bounds
 	bFullyEncapsulatedByInclusionBounds = true;
-	const auto& ParentBounds = ParentGenerator.GetInclusionBounds();
+	const TNavStatArray<FBox>& ParentBounds = ParentGenerator.GetInclusionBounds();
 	if (ParentBounds.Num() > 0)
 	{
 		bFullyEncapsulatedByInclusionBounds = false;
@@ -2144,14 +2143,16 @@ void FRecastTileGenerator::AppendGeometry(const TNavStatArray<uint8>& RawCollisi
 	
 	const int32 NumCoords = CollisionCache.Header.NumVerts * 3;
 	const int32 NumIndices = CollisionCache.Header.NumFaces * 3;
-	
-	GeometryElement.GeomCoords.SetNumUninitialized(NumCoords);
-	GeometryElement.GeomIndices.SetNumUninitialized(NumIndices);
+	if (NumIndices > 0)
+	{
+		GeometryElement.GeomCoords.SetNumUninitialized(NumCoords);
+		GeometryElement.GeomIndices.SetNumUninitialized(NumIndices);
 
-	FMemory::Memcpy(GeometryElement.GeomCoords.GetData(), CollisionCache.Verts, sizeof(float) * NumCoords);
-	FMemory::Memcpy(GeometryElement.GeomIndices.GetData(), CollisionCache.Indices, sizeof(int32) * NumIndices);
+		FMemory::Memcpy(GeometryElement.GeomCoords.GetData(), CollisionCache.Verts, sizeof(float) * NumCoords);
+		FMemory::Memcpy(GeometryElement.GeomIndices.GetData(), CollisionCache.Indices, sizeof(int32) * NumIndices);
 
-	RawGeometry.Add(MoveTemp(GeometryElement));
+		RawGeometry.Add(MoveTemp(GeometryElement));
+	}	
 }
 
 bool FRecastTileGenerator::GenerateTile()
@@ -2282,9 +2283,9 @@ bool FRecastTileGenerator::GenerateCompressedLayers(FNavMeshBuildContext& BuildC
 		DECLARE_SCOPE_CYCLE_COUNTER(TEXT("Rasterization: without voxel cache"), Stat_RecastRasterNoCache, STATGROUP_Navigation);
 		RECAST_STAT(STAT_Navigation_RasterizeTriangles)
 		
-		for (const auto& Element : RawGeometry)
+		for (const FRecastRawGeometryElement& Element : RawGeometry)
 		{
-			for (const auto& InstanceTransform : Element.PerInstanceTransform)
+			for (const FTransform& InstanceTransform : Element.PerInstanceTransform)
 			{
 				RasterizeGeometry(BuildContext, TileConfig, Element.GeomCoords, Element.GeomIndices, InstanceTransform, RasterContext);
 			}
@@ -2359,12 +2360,6 @@ bool FRecastTileGenerator::GenerateCompressedLayers(FNavMeshBuildContext& BuildC
 		{
 			rcMarkLowAreas(&BuildContext, HeightThreshold, RECAST_LOW_AREA, *RasterContext.CompactHF);
 		}
-	}
-
-	// remove all low area marking at this point
-	if (TileConfig.bMarkLowHeightAreas)
-	{
-		rcReplaceBoxArea(&BuildContext, TileConfig.bmin, TileConfig.bmax, RECAST_NULL_AREA, RECAST_LOW_AREA, *RasterContext.CompactHF);
 	}
 
 	// Build layers
@@ -2561,6 +2556,12 @@ bool FRecastTileGenerator::GenerateNavigationData(FNavMeshBuildContext& BuildCon
 
 		// Rasterize obstacles.
 		MarkDynamicAreas(*GenerationContext.Layer);
+
+		// remove all low area marking at this point
+		if (TileConfig.bMarkLowHeightAreas)
+		{
+			dtReplaceArea(*GenerationContext.Layer, RECAST_NULL_AREA, RECAST_LOW_AREA);
+		}
 
 		{
 			RECAST_STAT(STAT_Navigation_Async_Recast_BuildRegions)
@@ -2786,11 +2787,11 @@ void FRecastTileGenerator::MarkDynamicAreas(dtTileCacheLayer& Layer)
 		AdditionalCachedData.ActorOwner->SortAreasForGenerator(Modifiers);
 	}
 		
-	for (const auto& Element : Modifiers)
+	for (const FRecastAreaNavModifierElement& Element : Modifiers)
 	{
-		for (const auto& Area : Element.Areas)
+		for (const FAreaNavModifier& Area : Element.Areas)
 		{
-			for (const auto& LocalToWorld : Element.PerInstanceTransform)
+			for (const FTransform& LocalToWorld : Element.PerInstanceTransform)
 			{
 				MarkDynamicArea(Area, LocalToWorld, Layer);
 			}
@@ -2941,14 +2942,14 @@ uint32 FRecastTileGenerator::GetUsedMemCount() const
 	TotalMemory += RawGeometry.GetAllocatedSize();
 	TotalMemory += Modifiers.GetAllocatedSize();
 	
-	for (const auto& Element : RawGeometry)
+	for (const FRecastRawGeometryElement& Element : RawGeometry)
 	{
 		TotalMemory += Element.GeomCoords.GetAllocatedSize();
 		TotalMemory += Element.GeomIndices.GetAllocatedSize();
 		TotalMemory += Element.PerInstanceTransform.GetAllocatedSize();
 	}
 
-	for (const auto& Element : Modifiers)
+	for (const FRecastAreaNavModifierElement& Element : Modifiers)
 	{
 		TotalMemory += Element.Areas.GetAllocatedSize();
 		TotalMemory += Element.PerInstanceTransform.GetAllocatedSize();
@@ -3176,7 +3177,7 @@ void FRecastNavMeshGenerator::UpdateNavigationBounds()
 	// Collect bounding geometry
 	if (NavSys->ShouldGenerateNavigationEverywhere() == false)
 	{
-		for (const auto& NavigationBounds : NavigationBoundsSet)
+		for (const FNavigationBounds& NavigationBounds : NavigationBoundsSet)
 		{
 			if (NavigationBounds.SupportedAgents.Contains(AgentIndex))
 			{
@@ -3691,6 +3692,13 @@ TArray<uint32> FRecastNavMeshGenerator::AddGeneratedTiles(FRecastTileGenerator& 
 					QUICK_SCOPE_CYCLE_COUNTER(STAT_NavMesh_AddTileToDetourMesh);
 					// let navmesh know it's tile generator who owns the data
 					status = DetourMesh->addTile(TileLayers[i].GetData(), TileLayers[i].DataSize, DT_TILE_FREE_DATA, OldTileRef, &ResultTileRef);
+
+					// if tile index was already taken by other layer try adding it on first free entry (salt was already updated by whatever took that spot)
+					if (dtStatusFailed(status) && dtStatusDetail(status, DT_OUT_OF_MEMORY) && OldTileRef)
+					{
+						OldTileRef = 0;
+						status = DetourMesh->addTile(TileLayers[i].GetData(), TileLayers[i].DataSize, DT_TILE_FREE_DATA, OldTileRef, &ResultTileRef);
+					}
 				}
 
 				if (dtStatusFailed(status))
@@ -4239,7 +4247,21 @@ void FRecastNavMeshGenerator::GrabDebugSnapshot(struct FVisualLogEntry* Snapshot
 				if (bExportGeometry && Element.Data->CollisionData.Num())
 				{
 					FRecastGeometryCache CachedGeometry(Element.Data->CollisionData.GetData());
-					AppendGeometry(CoordBuffer, Indices, CachedGeometry.Verts, CachedGeometry.Header.NumVerts, CachedGeometry.Indices, CachedGeometry.Header.NumFaces);
+					
+					const uint32 NumVerts = CachedGeometry.Header.NumVerts;
+					CoordBuffer.Reset(NumVerts);
+					for (uint32 VertIdx = 0; VertIdx < NumVerts * 3; VertIdx += 3)
+					{
+						CoordBuffer.Add(Recast2UnrealPoint(&CachedGeometry.Verts[VertIdx]));
+					}
+
+					const uint32 NumIndices = CachedGeometry.Header.NumFaces * 3;
+					Indices.SetNum(NumIndices, false);
+					for (uint32 IndicesIdx = 0; IndicesIdx < NumIndices; ++IndicesIdx)
+					{
+						Indices[IndicesIdx] = CachedGeometry.Indices[IndicesIdx];
+					}
+
 					Snapshot->AddElement(CoordBuffer, Indices, LogCategory.GetCategoryName(), LogVerbosity, FColorList::LightGrey.WithAlpha(255));
 				}
 				else

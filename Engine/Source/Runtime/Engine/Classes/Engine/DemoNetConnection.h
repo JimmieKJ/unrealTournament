@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -7,7 +7,20 @@
 
 struct FQueuedDemoPacket
 {
-	TArray< uint8 > Data;
+	/** The packet data to send */
+	TArray<uint8> Data;
+
+	/** The size of the packet in bits */
+	int32 SizeBits;
+
+public:
+	FORCEINLINE FQueuedDemoPacket(uint8* InData, int32 InSizeBytes, int32 InSizeBits)
+		: Data()
+		, SizeBits(InSizeBits)
+	{
+		Data.AddUninitialized(InSizeBytes);
+		FMemory::Memcpy(Data.GetData(), InData, InSizeBytes);
+	}
 };
 
 
@@ -27,12 +40,12 @@ public:
 	virtual void InitConnection( class UNetDriver* InDriver, EConnectionState InState, const FURL& InURL, int32 InConnectionSpeed = 0, int32 InMaxPacket=0) override;
 	virtual FString LowLevelGetRemoteAddress( bool bAppendPort = false ) override;
 	virtual FString LowLevelDescribe() override;
-	virtual void LowLevelSend( void* Data, int32 Count ) override;
+	virtual void LowLevelSend(void* Data, int32 CountBytes, int32 CountBits) override;
 	virtual int32 IsNetReady( bool Saturate ) override;
 	virtual void FlushNet( bool bIgnoreSimulation = false ) override;
 	virtual void HandleClientPlayer( APlayerController* PC, class UNetConnection* NetConnection ) override;
 	virtual bool ClientHasInitializedLevelFor( const UObject* TestObject ) const override;
-	virtual FString RemoteAddressToString() override;
+	virtual TSharedPtr<FObjectReplicator> CreateReplicatorForNewActorChannel(UObject* Object);
 
 public:
 

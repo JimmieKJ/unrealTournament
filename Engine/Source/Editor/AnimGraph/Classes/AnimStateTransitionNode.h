@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -115,6 +115,7 @@ class UAnimStateTransitionNode : public UAnimStateNodeBase
 
 	//~ Begin UAnimStateNodeBase Interface
 	virtual UEdGraph* GetBoundGraph() const override { return BoundGraph; }
+	virtual void ClearBoundGraph() override { BoundGraph = nullptr; }
 	virtual UEdGraphPin* GetInputPin() const override { return Pins[0]; }
 	virtual UEdGraphPin* GetOutputPin() const override { return Pins[1]; }
 	//~ End UAnimStateNodeBase Interface

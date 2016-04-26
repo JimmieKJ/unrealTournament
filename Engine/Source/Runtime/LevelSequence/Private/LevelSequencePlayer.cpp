@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LevelSequencePCH.h"
 #include "LevelSequencePlayer.h"
@@ -68,6 +68,8 @@ ULevelSequencePlayer::ULevelSequencePlayer(const FObjectInitializer& ObjectIniti
 	, LevelSequence(nullptr)
 	, bIsPlaying(false)
 	, TimeCursorPosition(0.0f)
+	, StartTime(0.f)
+	, EndTime(0.f)
 	, CurrentNumLoops(0)
 	, bHasCleanedUpSequence(false)
 {
@@ -164,13 +166,7 @@ void ULevelSequencePlayer::SetPlaybackPosition(float NewPlaybackPosition)
 
 float ULevelSequencePlayer::GetLength() const
 {
-	if (!LevelSequence)
-	{
-		return 0;
-	}
-
-	UMovieScene* MovieScene = LevelSequence->GetMovieScene();
-	return MovieScene ? MovieScene->GetPlaybackRange().Size<float>() : 0;
+	return EndTime - StartTime;
 }
 
 float ULevelSequencePlayer::GetPlayRate() const
@@ -185,14 +181,10 @@ void ULevelSequencePlayer::SetPlayRate(float PlayRate)
 
 void ULevelSequencePlayer::SetPlaybackRange( const float NewStartTime, const float NewEndTime )
 {
-	if( LevelSequence != nullptr )
-	{
-		UMovieScene* MovieScene = LevelSequence->GetMovieScene();
-		if( MovieScene != nullptr )
-		{
-			MovieScene->SetPlaybackRange( NewStartTime, NewEndTime );
-		}
-	}
+	StartTime = NewStartTime;
+	EndTime = FMath::Max(NewEndTime, StartTime);
+
+	TimeCursorPosition = FMath::Clamp(TimeCursorPosition, 0.f, GetLength());
 }
 
 void ULevelSequencePlayer::OnCursorPositionChanged()
@@ -230,6 +222,12 @@ void ULevelSequencePlayer::Initialize(ULevelSequence* InLevelSequence, UWorld* I
 	World = InWorld;
 	PlaybackSettings = Settings;
 
+	if (UMovieScene* MovieScene = LevelSequence->GetMovieScene())
+	{
+		TRange<float> PlaybackRange = MovieScene->GetPlaybackRange();
+		SetPlaybackRange(PlaybackRange.GetLowerBoundValue(), PlaybackRange.GetUpperBoundValue());
+	}
+
 	// Ensure everything is set up, ready for playback
 	Stop();
 }
@@ -238,7 +236,7 @@ void ULevelSequencePlayer::Initialize(ULevelSequence* InLevelSequence, UWorld* I
 /* IMovieScenePlayer interface
  *****************************************************************************/
 
-void ULevelSequencePlayer::GetRuntimeObjects(TSharedRef<FMovieSceneSequenceInstance> MovieSceneInstance, const FGuid& ObjectId, TArray<UObject*>& OutObjects) const
+void ULevelSequencePlayer::GetRuntimeObjects(TSharedRef<FMovieSceneSequenceInstance> MovieSceneInstance, const FGuid& ObjectId, TArray<TWeakObjectPtr<UObject>>& OutObjects) const
 {
 	UObject* FoundObject = MovieSceneInstance->FindObject(ObjectId, *this);
 	if (FoundObject)
@@ -248,7 +246,7 @@ void ULevelSequencePlayer::GetRuntimeObjects(TSharedRef<FMovieSceneSequenceInsta
 }
 
 
-void ULevelSequencePlayer::UpdateCameraCut(UObject* CameraObject, UObject* UnlockIfCameraObject) const
+void ULevelSequencePlayer::UpdateCameraCut(UObject* CameraObject, UObject* UnlockIfCameraObject, bool bJumpCut) const
 {
 	// skip missing player controller
 	APlayerController* PC = World->GetGameInstance()->GetFirstLocalPlayerController();
@@ -300,6 +298,10 @@ EMovieScenePlayerStatus::Type ULevelSequencePlayer::GetPlaybackStatus() const
 	return bIsPlaying ? EMovieScenePlayerStatus::Playing : EMovieScenePlayerStatus::Stopped;
 }
 
+void ULevelSequencePlayer::SetPlaybackStatus(EMovieScenePlayerStatus::Type InPlaybackStatus)
+{
+}
+
 void ULevelSequencePlayer::AddOrUpdateMovieSceneInstance(UMovieSceneSection& MovieSceneSection, TSharedRef<FMovieSceneSequenceInstance> InstanceToAdd)
 {
 }
@@ -318,6 +320,15 @@ UObject* ULevelSequencePlayer::GetPlaybackContext() const
 	return World.Get();
 }
 
+UObject* ULevelSequencePlayer::GetEventContext() const
+{
+	if (World.IsValid())
+	{
+		return World->GetLevelScriptActor();
+	}
+	return nullptr;
+}
+
 void ULevelSequencePlayer::Update(const float DeltaSeconds)
 {
 	float LastTimePosition = TimeCursorPosition;
@@ -333,7 +344,9 @@ void ULevelSequencePlayer::Update(const float DeltaSeconds)
 		UpdateMovieSceneInstance(TimeCursorPosition, LastTimePosition);
 
 		bHasCleanedUpSequence = true;
-		SpawnRegister->DestroyAllOwnedObjects(*this);
+		
+		SpawnRegister->ForgetExternallyOwnedSpawnedObjects(*this);
+		SpawnRegister->CleanUp(*this);
 	}
 }
 
@@ -341,8 +354,8 @@ void ULevelSequencePlayer::UpdateMovieSceneInstance(float CurrentPosition, float
 {
 	if(RootMovieSceneInstance.IsValid())
 	{
-		const float SequenceStartOffset = LevelSequence->GetMovieScene()->GetPlaybackRange().GetLowerBoundValue();
-		RootMovieSceneInstance->Update(CurrentPosition + SequenceStartOffset, PreviousPosition + SequenceStartOffset, *this);
+		EMovieSceneUpdateData UpdateData(CurrentPosition + StartTime, PreviousPosition + StartTime);
+		RootMovieSceneInstance->Update(UpdateData, *this);
 #if WITH_EDITOR
 		OnLevelSequencePlayerUpdate.Broadcast(*this, CurrentPosition, PreviousPosition);
 #endif

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimGraphRuntimePrivatePCH.h"
 #include "AnimNodes/AnimNode_SaveCachedPose.h"
@@ -16,14 +16,9 @@ void FAnimNode_SaveCachedPose::Initialize(const FAnimationInitializeContext& Con
 	// StateMachines cause reinitialization on state changes.
 	// we only want to let them through if we're not relevant as to not create a pop.
 	if (!InitializationCounter.IsSynchronizedWith(Context.AnimInstanceProxy->GetInitializationCounter())
-		|| ((EvaluationCounter.Get() != INDEX_NONE) && !EvaluationCounter.WasSynchronizedInTheLastFrame(Context.AnimInstanceProxy->GetEvaluationCounter())))
+		|| ((UpdateCounter.Get() != INDEX_NONE) && !UpdateCounter.WasSynchronizedInTheLastFrame(Context.AnimInstanceProxy->GetUpdateCounter())))
 	{
 		InitializationCounter.SynchronizeWith(Context.AnimInstanceProxy->GetInitializationCounter());
-
-		// Reset update counter here as Initialize can happen as part of a state machine update
-		// when the current state changes. This ensures that any subsequent updates that may 
-		// use this cached pose get properly updated.
-		UpdateCounter.Reset();
 
 		FAnimNode_Base::Initialize(Context);
 
@@ -62,8 +57,8 @@ void FAnimNode_SaveCachedPose::Evaluate(FPoseContext& Output)
 
 		FPoseContext CachingContext(Output);
 		Pose.Evaluate(CachingContext);
-		CachedPose.MoveBonesFrom(CachingContext.Pose);
-		CachedCurve.MoveFrom(CachingContext.Curve);
+		CachedPose.CopyBonesFrom(CachingContext.Pose);
+		CachedCurve.CopyFrom(CachingContext.Curve);
 	}
 
 	// Return the cached result

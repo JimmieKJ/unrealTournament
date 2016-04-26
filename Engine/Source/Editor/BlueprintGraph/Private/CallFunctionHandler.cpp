@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintGraphPrivatePCH.h"
 
@@ -383,6 +383,13 @@ void FKCHandler_CallFunction::CreateFunctionCallStatement(FKismetFunctionContext
 				pSrcEventNode = CompilerContext.CallsIntoUbergraph.Find(Node);
 			}
 
+			const bool bInstrumentFunctionEntry = Context.IsInstrumentationRequired() && (bIsLatent || IsUserFunctionCall(Node));
+			if (bInstrumentFunctionEntry)
+			{
+				FBlueprintCompiledStatement& PushState = Context.AppendStatementForNode(Node);
+				PushState.Type = pSrcEventNode ? KCST_InstrumentedStateReset : KCST_InstrumentedStatePush;
+			}
+
 			// Iterate over all the contexts this functions needs to be called on, and emit a call function statement for each
 			for (auto TargetListIt = ContextTerms.CreateIterator(); TargetListIt; ++TargetListIt)
 			{
@@ -427,6 +434,11 @@ void FKCHandler_CallFunction::CreateFunctionCallStatement(FKismetFunctionContext
 			// Create the exit from this node if there is one
 			if (bIsLatent)
 			{
+				if (bInstrumentFunctionEntry)
+				{
+					FBlueprintCompiledStatement& SuspendState = Context.AppendStatementForNode(Node);
+					SuspendState.Type = KCST_InstrumentedStateSuspend;
+				}
 				// End this thread of execution; the latent function will resume it at some point in the future
 				FBlueprintCompiledStatement& PopStatement = Context.AppendStatementForNode(Node);
 				PopStatement.Type = KCST_EndOfThread;
@@ -436,6 +448,11 @@ void FKCHandler_CallFunction::CreateFunctionCallStatement(FKismetFunctionContext
 				// Generate the output impulse from this node
 				if (!IsCalledFunctionPure(Node))
 				{
+					if (bInstrumentFunctionEntry)
+					{
+						FBlueprintCompiledStatement& PopState = Context.AppendStatementForNode(Node);
+						PopState.Type = KCST_InstrumentedStatePop;
+					}
 					GenerateSimpleThenGoto(Context, *Node);
 				}
 			}
@@ -737,6 +754,26 @@ FString FKCHandler_CallFunction::GetFunctionNameFromNode(UEdGraphNode* Node) con
 		CompilerContext.MessageLog.Error(*NSLOCTEXT("KismetCompiler", "UnableResolveFunctionName_Error", "Unable to resolve function name for @@").ToString(), Node);
 		return TEXT("");
 	}
+}
+
+bool FKCHandler_CallFunction::IsUserFunctionCall(UEdGraphNode* Node) const
+{
+	bool bResult = false;
+	if (UK2Node_CallFunction* CallFunctionNode = Cast<UK2Node_CallFunction>(Node))
+	{
+		TArray<UEdGraph*> Graphs;
+		CompilerContext.Blueprint->GetAllGraphs(Graphs);
+		const FName CalledGraph = CallFunctionNode->FunctionReference.GetMemberName();
+		for (auto Graph : Graphs)
+		{
+			if (CalledGraph == Graph->GetFName())
+			{
+				bResult = true;
+				break;
+			}
+		}
+	}
+	return bResult;
 }
 
 #if _MSC_VER

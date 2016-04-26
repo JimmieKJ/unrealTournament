@@ -126,8 +126,8 @@ void SUTJoinInstanceWindow::BeginJoin()
 {
 	bCancelJoin = false;
 	
-	OnlineSubsystem = IOnlineSubsystem::Get();
-	if (OnlineSubsystem) OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	IOnlineSessionPtr OnlineSessionInterface;
 	if (OnlineSubsystem) OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
 
 	if (OnlineSessionInterface.IsValid())
@@ -147,6 +147,9 @@ void SUTJoinInstanceWindow::OnInitialFindCancel(bool bWasSuccessful)
 
 	// We don't really care if this succeeded since a failure just means there were
 	// no sessions.
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	IOnlineSessionPtr OnlineSessionInterface;
+	if (OnlineSubsystem) OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
 
 	if (OnlineSessionInterface.IsValid())
 	{
@@ -172,7 +175,13 @@ void SUTJoinInstanceWindow::RequestJoinFromHub()
 	if (Beacon.IsValid())
 	{
 		FString BeaconIP;
-		OnlineSessionInterface->GetResolvedConnectString(ServerData->SearchResult, FName(TEXT("BeaconPort")), BeaconIP);
+		IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+		IOnlineSessionPtr OnlineSessionInterface;
+		if (OnlineSubsystem) OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
+		if (OnlineSessionInterface.IsValid())
+		{
+			OnlineSessionInterface->GetResolvedConnectString(ServerData->SearchResult, FName(TEXT("BeaconPort")), BeaconIP);
+		}
 
 		Beacon->OnServerRequestResults = FServerRequestResultsDelegate::CreateSP(this, &SUTJoinInstanceWindow::OnServerBeaconResult);
 		Beacon->OnServerRequestFailure = FServerRequestFailureDelegate::CreateSP(this, &SUTJoinInstanceWindow::OnServerBeaconFailure);
@@ -261,6 +270,9 @@ void SUTJoinInstanceWindow::Cancel()
 
 	Beacon->DestroyBeacon();
 
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	IOnlineSessionPtr OnlineSessionInterface;
+	if (OnlineSubsystem) OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
 	if (OnlineSessionInterface.IsValid())
 	{
 		// Look to see if we are currently in the search phase.  If we are, we have to cancel it first.
@@ -286,6 +298,9 @@ void SUTJoinInstanceWindow::Cancel()
 
 void SUTJoinInstanceWindow::OnSearchCancelled(bool bWasSuccessful)
 {
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	IOnlineSessionPtr OnlineSessionInterface;
+	if (OnlineSubsystem) OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
 	if (OnlineSessionInterface.IsValid())
 	{
 		OnlineSessionInterface->ClearOnCancelFindSessionsCompleteDelegate_Handle(OnCancelFindSessionCompleteHandle);

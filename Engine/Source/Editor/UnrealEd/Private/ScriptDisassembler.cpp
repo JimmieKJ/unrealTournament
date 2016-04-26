@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ScriptDisassembler.cpp: Disassembler for Kismet bytecode.
@@ -144,6 +144,26 @@ CodeSkipSizeType FKismetBytecodeDisassembler::ReadSkipCount(int32& ScriptIndex)
 	static_assert(sizeof(CodeSkipSizeType) == 4, "Update this code as size changed.");
 	return ReadINT(ScriptIndex);
 #endif
+}
+
+FString FKismetBytecodeDisassembler::ReadString(int32& ScriptIndex)
+{
+	const EExprToken Opcode = (EExprToken)Script[ScriptIndex++];
+
+	switch (Opcode)
+	{
+	case EX_StringConst:
+		return ReadString8(ScriptIndex);
+
+	case EX_UnicodeStringConst:
+		return ReadString16(ScriptIndex);
+
+	default:
+		checkf(false, TEXT("FKismetBytecodeDisassembler::ReadString - Unexpected opcode. Expected %d or %d, got %d"), EX_StringConst, EX_UnicodeStringConst, Opcode);
+		break;
+	}
+
+	return FString();
 }
 
 FString FKismetBytecodeDisassembler::ReadString8(int32& ScriptIndex)
@@ -593,7 +613,44 @@ void FKismetBytecodeDisassembler::ProcessCommon(int32& ScriptIndex, EExprToken O
 		}
 	case EX_TextConst:
 		{
-			Ar.Logf(TEXT("%s $%X: literal text"), *Indents, (int32)Opcode);
+			// What kind of text are we dealing with?
+			const EBlueprintTextLiteralType TextLiteralType = (EBlueprintTextLiteralType)Script[ScriptIndex++];
+
+			switch (TextLiteralType)
+			{
+			case EBlueprintTextLiteralType::Empty:
+				{
+					Ar.Logf(TEXT("%s $%X: literal text - empty"), *Indents, (int32)Opcode);
+				}
+				break;
+
+			case EBlueprintTextLiteralType::LocalizedText:
+				{
+					const FString SourceString = ReadString(ScriptIndex);
+					const FString KeyString = ReadString(ScriptIndex);
+					const FString Namespace = ReadString(ScriptIndex);
+					Ar.Logf(TEXT("%s $%X: literal text - localized text { namespace: \"%s\", key: \"%s\", source: \"%s\" }"), *Indents, (int32)Opcode, *Namespace, *KeyString, *SourceString);
+				}
+				break;
+
+			case EBlueprintTextLiteralType::InvariantText:
+				{
+					const FString SourceString = ReadString(ScriptIndex);
+					Ar.Logf(TEXT("%s $%X: literal text - invariant text: \"%s\""), *Indents, (int32)Opcode, *SourceString);
+				}
+				break;
+
+			case EBlueprintTextLiteralType::LiteralString:
+				{
+					const FString SourceString = ReadString(ScriptIndex);
+					Ar.Logf(TEXT("%s $%X: literal text - literal string: \"%s\""), *Indents, (int32)Opcode, *SourceString);
+				}
+				break;
+
+			default:
+				checkf(false, TEXT("Unknown EBlueprintTextLiteralType! Please update FKismetBytecodeDisassembler::ProcessCommon to handle this type of text."));
+				break;
+			}
 			break;
 		}
 	case EX_ObjectConst:
@@ -815,11 +872,23 @@ void FKismetBytecodeDisassembler::ProcessCommon(int32& ScriptIndex, EExprToken O
 			const int32 EventType = ReadINT(ScriptIndex);
 			switch (EventType)
 			{
+				case EScriptInstrumentation::PureNodeEntry:
+					Ar.Logf(TEXT("%s $%X: .. instrumented pure node entry site .."), *Indents, (int32)Opcode);
+					break;
 				case EScriptInstrumentation::NodeEntry:
 					Ar.Logf(TEXT("%s $%X: .. instrumented wire entry site .."), *Indents, (int32)Opcode);
 					break;
 				case EScriptInstrumentation::NodeExit:
 					Ar.Logf(TEXT("%s $%X: .. instrumented wire exit site .."), *Indents, (int32)Opcode);
+					break;
+				case EScriptInstrumentation::PushState:
+					Ar.Logf(TEXT("%s $%X: .. push execution state .."), *Indents, (int32)Opcode);
+					break;
+				case EScriptInstrumentation::RestoreState:
+					Ar.Logf(TEXT("%s $%X: .. restore execution state .."), *Indents, (int32)Opcode);
+					break;
+				case EScriptInstrumentation::PopState:
+					Ar.Logf(TEXT("%s $%X: .. pop execution state .."), *Indents, (int32)Opcode);
 					break;
 			}
 			break;
@@ -852,6 +921,15 @@ void FKismetBytecodeDisassembler::ProcessCommon(int32& ScriptIndex, EExprToken O
 			Ar.Logf(TEXT("%s Default result (label: 0x%X):"), *Indents, ScriptIndex);
 			SerializeExpr(ScriptIndex);
 			Ar.Logf(TEXT("%s (label: 0x%X)"), *Indents, ScriptIndex);
+			DropIndent();
+			break;
+		}
+	case EX_ArrayGetByRef:
+		{
+			Ar.Logf(TEXT("%s $%X: Array Get-by-Ref Index"), *Indents, (int32)Opcode);
+			AddIndent();
+			SerializeExpr(ScriptIndex);
+			SerializeExpr(ScriptIndex);
 			DropIndent();
 			break;
 		}

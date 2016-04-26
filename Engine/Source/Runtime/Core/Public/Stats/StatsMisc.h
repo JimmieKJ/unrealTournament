@@ -1,39 +1,68 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-
-#if STATS
 /**
- * Utility class to capture time passed in seconds, adding delta time to passed
- * in variable. Not useful for reentrant functions
- */
+* Utility class to capture time passed in seconds, adding delta time to passed
+* in variable. Not useful for reentrant functions
+*/
 class FSimpleScopeSecondsCounter
 {
 public:
 	/** Ctor, capturing start time. */
-	FSimpleScopeSecondsCounter(double& InSeconds)
-	:	StartTime(FPlatformTime::Seconds())
-	,	Seconds(InSeconds)
+	FSimpleScopeSecondsCounter(double& InSeconds, bool bInEnabled = true)
+		: StartTime(FPlatformTime::Seconds())
+		, Seconds(InSeconds)
+		, bEnabled(bInEnabled)
+		, RecursionDepth(nullptr)
 	{}
+	/** Ctor, capturing start time. */
+	FSimpleScopeSecondsCounter(double& InSeconds, int32* InRecursionDepth)
+		: StartTime(FPlatformTime::Seconds())
+		, Seconds(InSeconds)
+		, bEnabled(*InRecursionDepth == 0)
+		, RecursionDepth(InRecursionDepth)
+	{
+		(*RecursionDepth)++;
+	}
 	/** Dtor, updating seconds with time delta. */
 	~FSimpleScopeSecondsCounter()
 	{
-		Seconds += FPlatformTime::Seconds() - StartTime;
+		if (bEnabled)
+		{
+			Seconds += FPlatformTime::Seconds() - StartTime;
+		}
+
+		if (RecursionDepth)
+		{
+			(*RecursionDepth)--;
+		}
 	}
 private:
 	/** Start time, captured in ctor. */
 	double StartTime;
 	/** Time variable to update. */
 	double& Seconds;
+	/** Is the timer enabled or disabled */
+	bool bEnabled;
+	/** Recursion depth */
+	int32* RecursionDepth;
 };
 
 /** Macro for updating a seconds counter without creating new scope. */
-#define SCOPE_SECONDS_COUNTER(Seconds) \
+#define SCOPE_SECONDS_COUNTER_BASE(Seconds) \
 	FSimpleScopeSecondsCounter SecondsCount_##Seconds(Seconds);
 
+#define SCOPE_SECONDS_COUNTER_RECURSION_SAFE_BASE(Seconds) \
+	static int32 SecondsCount_##Seconds##_RecursionCounter = 0; \
+	FSimpleScopeSecondsCounter SecondsCount_##Seconds(Seconds, &SecondsCount_##Seconds##_RecursionCounter);
+
+#if STATS
+#define SCOPE_SECONDS_COUNTER(Seconds) SCOPE_SECONDS_COUNTER_BASE(Seconds)
+#define SCOPE_SECONDS_COUNTER_RECURSION_SAFE(Seconds) SCOPE_SECONDS_COUNTER_RECURSION_SAFE_BASE(Seconds)
 #else
 #define SCOPE_SECONDS_COUNTER(Seconds)
+#define SCOPE_SECONDS_COUNTER_RECURSION_SAFE(Seconds)
 #endif 
 
 

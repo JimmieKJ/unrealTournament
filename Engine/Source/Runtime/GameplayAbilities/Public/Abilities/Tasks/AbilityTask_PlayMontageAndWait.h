@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 #include "AbilityTask.h"
 #include "AbilityTask_PlayMontageAndWait.generated.h"
@@ -11,7 +11,10 @@ class UAbilityTask_PlayMontageAndWait : public UAbilityTask
 	GENERATED_UCLASS_BODY()
 
 	UPROPERTY(BlueprintAssignable)
-	FMontageWaitSimpleDelegate	OnComplete;
+	FMontageWaitSimpleDelegate	OnCompleted;
+
+	UPROPERTY(BlueprintAssignable)
+	FMontageWaitSimpleDelegate	OnBlendOut;
 
 	UPROPERTY(BlueprintAssignable)
 	FMontageWaitSimpleDelegate	OnInterrupted;
@@ -25,10 +28,13 @@ class UAbilityTask_PlayMontageAndWait : public UAbilityTask
 	UFUNCTION()
 	void OnMontageInterrupted();
 
+	UFUNCTION()
+	void OnMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+
 	UFUNCTION(BlueprintCallable, Category="Ability|Tasks", meta = (DisplayName="PlayMontageAndWait",
 		HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", BlueprintInternalUseOnly = "TRUE"))
 	static UAbilityTask_PlayMontageAndWait* CreatePlayMontageAndWaitProxy(UObject* WorldContextObject,
-		FName TaskInstanceName, UAnimMontage *MontageToPlay, float Rate = 1.f, FName StartSection = NAME_None);
+		FName TaskInstanceName, UAnimMontage *MontageToPlay, float Rate = 1.f, FName StartSection = NAME_None, bool bStopWhenAbilityEnds = true, float AnimRootMotionTranslationScale = 1.f);
 
 	virtual void Activate() override;
 
@@ -41,10 +47,16 @@ private:
 
 	virtual void OnDestroy(bool AbilityEnded) override;
 
+	/** Checks if the ability is playing a montage and stops that montage, returns true if a montage was stopped, false if not. */
+	bool StopPlayingMontage();
+
 	FOnMontageBlendingOutStarted BlendingOutDelegate;
+	FOnMontageEnded MontageEndedDelegate;
 	FDelegateHandle InterruptedHandle;
 
 	UAnimMontage* MontageToPlay;
 	float Rate;	
 	FName StartSection;
+	float AnimRootMotionTranslationScale;
+	bool bStopWhenAbilityEnds;
 };

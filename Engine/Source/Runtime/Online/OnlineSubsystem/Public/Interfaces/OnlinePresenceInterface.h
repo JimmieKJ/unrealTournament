@@ -23,6 +23,9 @@ const FString DefaultAppIdKey = "AppId";
 const FString DefaultPlatformKey = "Platform";
 
 /** Override Id of the client to set the presence state to */
+const FString OverrideAppIdKey = "OverrideAppId";
+
+/** Override Id of the client to set the presence state to */
 const FString OverrideClientIdKey = "OverrideClientId";
 
 /** Id of the session for the presence update. @todo samz - SessionId on presence data should be FUniqueNetId not uint64 */
@@ -62,6 +65,36 @@ namespace EOnlinePresenceState
 		}
 		return TEXT("");
 	}
+
+	static FText OnlineText =  NSLOCTEXT("OnlinePresence", "Online", "Online");
+	static FText OfflineText =  NSLOCTEXT("OnlinePresence", "Offline", "Offline");
+	static FText AwayText =  NSLOCTEXT("OnlinePresence", "Away", "Away");
+	static FText ExtendedAwayText =  NSLOCTEXT("OnlinePresence", "ExtendedAway", "ExtendedAway");
+	static FText DoNotDisturbText =  NSLOCTEXT("OnlinePresence", "DoNotDisturb", "DoNotDisturb");
+	static FText ChatText =  NSLOCTEXT("OnlinePresence", "Chat", "Chat");
+	/** 
+	 * @return the loc text version of the enum passed in 
+	 */
+	inline const FText ToLocText(EOnlinePresenceState::Type EnumVal)
+	{
+		switch (EnumVal)
+		{
+		case Online:
+			return OnlineText;
+		case Offline:
+			return OfflineText;
+		case Away:
+			return AwayText;
+		case ExtendedAway:
+			return ExtendedAwayText;
+		case DoNotDisturb:
+			return DoNotDisturbText;
+		case Chat:
+			return ChatText;
+		}
+		return FText::GetEmpty();
+	}
+
 }
 
 class FOnlineUserPresenceStatus

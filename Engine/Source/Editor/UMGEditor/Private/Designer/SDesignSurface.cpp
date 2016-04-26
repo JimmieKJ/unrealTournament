@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGEditorPrivatePCH.h"
 
@@ -119,6 +119,7 @@ void SDesignSurface::Construct(const FArguments& InArgs)
 	PostChangedZoom();
 	AllowContinousZoomInterpolation = InArgs._AllowContinousZoomInterpolation;
 	bIsPanning = false;
+	bIsZoomingWithTrackpad = false;
 
 	ViewOffset = FVector2D::ZeroVector;
 
@@ -140,6 +141,9 @@ void SDesignSurface::Construct(const FArguments& InArgs)
 
 	ZoomToFitPadding = FVector2D(100, 100);
 	TotalGestureMagnify = 0.0f;
+
+	TotalMouseDeltaY = 0.0f;
+	ZoomStartOffset = FVector2D::ZeroVector;
 
 	ChildSlot
 	[
@@ -205,6 +209,12 @@ FReply SDesignSurface::OnMouseButtonDown(const FGeometry& MyGeometry, const FPoi
 		bIsPanning = false;
 	}
 
+	if (FSlateApplication::Get().IsUsingTrackpad())
+	{
+		TotalMouseDeltaY = 0.0f;
+		ZoomStartOffset = MyGeometry.AbsoluteToLocal(MouseEvent.GetLastScreenSpacePosition());
+	}
+
 	return FReply::Unhandled();
 }
 
@@ -215,6 +225,7 @@ FReply SDesignSurface::OnMouseButtonUp(const FGeometry& MyGeometry, const FPoint
 	if ( MouseEvent.GetEffectingButton() == EKeys::RightMouseButton )
 	{
 		bIsPanning = false;
+		bIsZoomingWithTrackpad = false;
 	}
 
 	return FReply::Unhandled();
@@ -230,8 +241,34 @@ FReply SDesignSurface::OnMouseMove(const FGeometry& MyGeometry, const FPointerEv
 	{
 		const FVector2D CursorDelta = MouseEvent.GetCursorDelta();
 
-		//const bool bShouldZoom = bIsRightMouseButtonDown && ( bIsLeftMouseButtonDown || ModifierKeysState.IsAltDown() || FSlateApplication::Get().IsUsingTrackpad() );
-		if ( bIsRightMouseButtonDown )
+		const bool bShouldZoom = bIsRightMouseButtonDown && FSlateApplication::Get().IsUsingTrackpad();
+		if ( bShouldZoom )
+		{
+			FReply ReplyState = FReply::Handled();
+
+			TotalMouseDeltaY += CursorDelta.Y;
+
+			const int32 ZoomLevelDelta = FMath::FloorToInt(TotalMouseDeltaY * 0.05f);
+
+			// Get rid of mouse movement that's been 'used up' by zooming
+			if (ZoomLevelDelta != 0)
+			{
+				TotalMouseDeltaY -= (ZoomLevelDelta / 0.05f);
+			}
+
+			// Perform zoom centered on the cached start offset
+			ChangeZoomLevel(ZoomLevelDelta, ZoomStartOffset, MouseEvent.IsControlDown());
+
+			bIsPanning = false;
+
+			if (FSlateApplication::Get().IsUsingTrackpad() && ZoomLevelDelta != 0)
+			{
+				bIsZoomingWithTrackpad = true;
+			}
+
+			return ReplyState;
+		}
+		else if ( bIsRightMouseButtonDown )
 		{
 			FReply ReplyState = FReply::Handled();
 
@@ -274,8 +311,11 @@ FReply SDesignSurface::OnTouchGesture(const FGeometry& MyGeometry, const FPointe
 	}
 	else if ( GestureType == EGestureEvent::Scroll )
 	{
+		const EScrollGestureDirection DirectionSetting = GetDefault<ULevelEditorViewportSettings>()->ScrollGestureDirectionForOrthoViewports;
+		const bool bUseDirectionInvertedFromDevice = DirectionSetting == EScrollGestureDirection::Natural || (DirectionSetting == EScrollGestureDirection::UseSystemSetting && GestureEvent.IsDirectionInvertedFromDevice());
+
 		this->bIsPanning = true;
-		ViewOffset -= GestureDelta / GetZoomAmount();
+		ViewOffset -= (bUseDirectionInvertedFromDevice == GestureEvent.IsDirectionInvertedFromDevice() ? GestureDelta : -GestureDelta) / GetZoomAmount();
 		return FReply::Handled();
 	}
 	return FReply::Unhandled();

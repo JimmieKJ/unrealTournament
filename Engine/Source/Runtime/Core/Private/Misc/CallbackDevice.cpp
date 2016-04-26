@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 // Core includes.
 #include "CorePrivatePCH.h"
@@ -23,12 +23,6 @@ FCoreDelegates::FHotFixDelegate& FCoreDelegates::GetHotfixDelegate(EHotfixDelega
 FCoreDelegates::FObjectArrayForDebugVisualizersDelegate& FCoreDelegates::GetObjectArrayForDebugVisualizersDelegate()
 {
 	static FObjectArrayForDebugVisualizersDelegate StaticDelegate;
-	return StaticDelegate;
-}
-
-FCoreDelegates::FGetSerialNumberBlocksForDebugVisualizersDelegate& FCoreDelegates::GetSerialNumberBlocksForDebugVisualizersDelegate()
-{
-	static FGetSerialNumberBlocksForDebugVisualizersDelegate StaticDelegate;
 	return StaticDelegate;
 }
 
@@ -75,3 +69,13 @@ FCoreDelegates::FApplicationLicenseChange FCoreDelegates::ApplicationLicenseChan
 FCoreDelegates::FPlatformChangedLaptopMode FCoreDelegates::PlatformChangedLaptopMode;
 
 FCoreDelegates::FLoadStringAssetReferenceInCook FCoreDelegates::LoadStringAssetReferenceInCook;
+
+FCoreDelegates::FVRHeadsetRecenter FCoreDelegates::VRHeadsetRecenter;
+
+FCoreDelegates::FOnUserActivityStringChanged FCoreDelegates::UserActivityStringChanged;
+
+FCoreDelegates::FOnGameSessionIDChange FCoreDelegates::GameSessionIDChanged;
+
+FCoreDelegates::FOnAsyncLoadingFlush FCoreDelegates::OnAsyncLoadingFlush;
+FCoreDelegates::FRenderingThreadChanged FCoreDelegates::PostRenderingThreadCreated;
+FCoreDelegates::FRenderingThreadChanged FCoreDelegates::PreRenderingThreadDestroyed;

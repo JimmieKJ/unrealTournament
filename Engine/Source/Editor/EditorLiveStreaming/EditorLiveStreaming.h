@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "IEditorLiveStreaming.h"
@@ -51,7 +51,7 @@ private:
 	uint32 SubmittedVideoFrameCount;
 
 	/** A temporary pair of buffers that we write our video frames to */
-	void* ReadbackBuffers[2];
+	FMappedTextureBuffer ReadbackBuffers[2];
 
 	/** The current buffer index.  We bounce between them to avoid stalls. */
 	int32 ReadbackBufferIndex;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "RHI.h"
 #include "ModuleManager.h"
@@ -8,11 +8,13 @@ FDynamicRHI* PlatformCreateDynamicRHI()
 	FDynamicRHI* DynamicRHI = NULL;
 
 	// command line overrides
-	const bool bForceD3D11 = FParse::Param(FCommandLine::Get(),TEXT("d3d11")) || FParse::Param(FCommandLine::Get(),TEXT("sm5")) || FParse::Param(FCommandLine::Get(),TEXT("dx11"));
-	const bool bForceD3D10 = FParse::Param(FCommandLine::Get(),TEXT("d3d10")) || FParse::Param(FCommandLine::Get(),TEXT("sm4")) || FParse::Param(FCommandLine::Get(),TEXT("dx10"));
+	const bool bForceSM5  = FParse::Param(FCommandLine::Get(),TEXT("sm5"));
+	const bool bForceSM4  = FParse::Param(FCommandLine::Get(), TEXT("sm4"));
+	const bool bForceVulkan = FParse::Param(FCommandLine::Get(), TEXT("vulkan"));
+	const bool bForceD3D10 = FParse::Param(FCommandLine::Get(),TEXT("d3d10")) || FParse::Param(FCommandLine::Get(),TEXT("dx10")) || (bForceSM4 && !bForceVulkan);
+	const bool bForceD3D11 = FParse::Param(FCommandLine::Get(),TEXT("d3d11")) || FParse::Param(FCommandLine::Get(),TEXT("dx11")) || (bForceSM5 && !bForceVulkan);
 	const bool bForceD3D12 = FParse::Param(FCommandLine::Get(), TEXT("d3d12")) || FParse::Param(FCommandLine::Get(), TEXT("dx12"));
 	const bool bForceOpenGL = FWindowsPlatformMisc::VerifyWindowsVersion(6, 0) == false || FParse::Param(FCommandLine::Get(), TEXT("opengl")) || FParse::Param(FCommandLine::Get(), TEXT("opengl3")) || FParse::Param(FCommandLine::Get(), TEXT("opengl4"));
-	const bool bForceVulkan = FParse::Param(FCommandLine::Get(), TEXT("vulkan"));
 
 	if (((bForceD3D12 ? 1 : 0) + (bForceD3D11 ? 1 : 0) + (bForceD3D10 ? 1 : 0) + (bForceOpenGL ? 1 : 0) + (bForceVulkan ? 1 : 0)) > 1)
 	{
@@ -70,7 +72,7 @@ FDynamicRHI* PlatformCreateDynamicRHI()
 #if 0
 		else if (FPlatformProcess::IsApplicationRunning(TEXT("fraps.exe")))
 		{
-			FMessageDialog::Open(EAppMsgType::Ok, NSLOCTEXT("WindowsDynamicRHI", "UseExpressionEncoder", "Fraps has been known to crash D3D11. Please use Microsoft Expression Encoder instead for capturing."));
+			FMessageDialog::Open(EAppMsgType::Ok, NSLOCTEXT("WindowsDynamicRHI", "UseExpressionEncoderDX11", "Fraps has been known to crash D3D11. Please use Microsoft Expression Encoder instead for capturing."));
 		}
 #endif
 	}

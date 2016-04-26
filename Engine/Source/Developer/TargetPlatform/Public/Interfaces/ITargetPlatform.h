@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -295,6 +295,13 @@ public:
 	* @param OutFormats Will contain the shader formats.
 	*/
 	virtual void GetAllTargetedShaderFormats(TArray<FName>& OutFormats) const = 0;
+	
+	/**
+	 * Gets the shader formats that have been selected for caching for this target platform
+	 *
+	 * @param OutFormats Will contain the shader formats.
+	 */
+	virtual void GetAllCachedShaderFormats(TArray<FName>& OutFormats) const = 0;
 
 	/**
 	 * Gets the format to use for a particular texture.

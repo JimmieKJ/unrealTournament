@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SkeletalMesh.h: Unreal skeletal mesh objects.
@@ -90,7 +90,8 @@ struct FMeshFace
 	FVector	TangentX[3];
 	FVector	TangentY[3];
 	FVector	TangentZ[3];
-	
+
+	uint32   SmoothingGroups; // 32-bit flag for smoothing groups.
 };
 template <> struct TIsPODType<FMeshFace> { enum { Value = true }; };
 
@@ -351,7 +352,9 @@ struct FSkelMeshChunk
 	/** max # of bones used to skin the vertices in this chunk */
 	int32 MaxBoneInfluences;
 
+	// INDEX_NONE if not set
 	int16 CorrespondClothAssetIndex;
+	// INDEX_NONE if not set
 	int16 ClothAssetSubmeshIndex;
 
 	FSkelMeshChunk()
@@ -811,6 +814,8 @@ public:
 	*/
 	virtual void InitRHI() override;
 
+	virtual void ReleaseRHI() override;
+
 	/**
 	* @return text description for the resource type
 	*/
@@ -1066,6 +1071,16 @@ public:
 			ConvertToFullPrecisionUVsTyped<NumTexCoordsT, false>();
 		}
 	}
+	
+	// @param guaranteed only to be valid if the vertex buffer is valid
+	FShaderResourceViewRHIParamRef GetSRV() const
+	{
+		return SRVValue;
+	}
+
+protected:
+	// guaranteed only to be valid if the vertex buffer is valid
+	FShaderResourceViewRHIRef SRVValue;
 
 private:
 	/** InfluenceBones/InfluenceWeights byte order has been swapped */
@@ -1487,8 +1502,10 @@ public:
 	/** 
 	* Rendering data.
 	*/
+
+	// Index Buffer (MultiSize: 16bit or 32bit)
 	FMultiSizeIndexContainer	MultiSizeIndexContainer; 
-	uint32						Size;
+	//
 	uint32						NumVertices;
 	/** The number of unique texture coordinate sets in this lod */
 	uint32						NumTexCoords;
@@ -1533,8 +1550,9 @@ public:
 
 	/** Constructor (default) */
 	FStaticLODModel()
-	:	Size(0)
-	,	NumVertices(0)
+		: NumVertices(0)
+		, NumTexCoords(0)
+		, MaxImportVertex(-1)
 	{
 	}
 
@@ -1577,7 +1595,7 @@ public:
 	 * Initialize vertex buffers from skel mesh chunks.
 	 * @param BuildFlags See EVertexFlags.
 	 */
-	ENGINE_API void BuildVertexBuffers(uint32 VertexFlags);
+	ENGINE_API void BuildVertexBuffers(uint32 BuildFlags);
 
 	/** Utility function for returning total number of faces in this LOD. */
 	ENGINE_API int32 GetTotalFaces() const;
@@ -1585,7 +1603,10 @@ public:
 	/** Utility for finding the chunk that a particular vertex is in. */
 	ENGINE_API void GetChunkAndSkinType(int32 InVertIndex, int32& OutChunkIndex, int32& OutVertIndex, bool& bOutSoftVert, bool& bOutHasExtraBoneInfluences) const;
 
-	/** Sort the triangles with the specified sorting method */
+	/**
+	 * Sort the triangles with the specified sorting method
+	 * @param ETriangleSortOption NewTriangleSorting new sorting method
+	 */
 	ENGINE_API void SortTriangles( FVector SortCenter, bool bUseSortCenter, int32 SectionIndex, ETriangleSortOption NewTriangleSorting );
 
 	/**
@@ -1657,6 +1678,39 @@ public:
 		}
 
 		return false;
+	}
+
+	// @return -1 if not found
+	uint32 FindChunkIndex(const FSkelMeshChunk& Chunk) const
+	{
+		uint32 Ret = -1;
+
+		for(int32 ChunkIdx = 0; ChunkIdx < Chunks.Num(); ++ChunkIdx)
+		{
+			if(&Chunks[ChunkIdx] == &Chunk)
+			{
+				Ret = ChunkIdx;
+				break;
+			}
+		}
+
+		return Ret;
+	}
+
+	// @return 0 if not found
+	const FSkelMeshSection* FindSectionForChunk(int16 ChunkIndex) const
+	{
+		for(auto& ref : Sections)
+		{
+			// should we check ranges instead?
+			if(ref.ChunkIndex == ChunkIndex)
+			{
+				return &ref;
+			}
+		}
+		// should never happen
+		ensure(0);
+		return 0;
 	}
 
 	/**
@@ -1752,7 +1806,13 @@ public:
 	virtual bool CanBeOccluded() const override;
 	
 	virtual bool HasDistanceFieldRepresentation() const override;
-	virtual void GetShadowShapes(TArray<FSphere>& SphereShapes, TArray<FCapsuleShape>& CapsuleShapes) const override;
+	virtual void GetShadowShapes(TArray<FCapsuleShape>& CapsuleShapes) const override;
+
+	/** Returns a pre-sorted list of shadow capsules's bone indicies */
+	const TArray<uint16>& GetSortedShadowBoneIndices() const
+	{
+		return ShadowCapsuleBoneIndices;
+	}
 
 	/**
 	 * Returns the world transform to use for drawing.
@@ -1838,6 +1898,13 @@ protected:
 	
 	/** Array of section elements for each LOD */
 	TArray<FLODSectionElements> LODSections;
+
+	/** 
+	 * BoneIndex->capsule pairs used for rendering sphere/capsule shadows 
+	 * Note that these are in refpose component space, NOT bone space.
+	 */
+	TArray<TPair<int32, FCapsuleShape>> ShadowCapsuleData;
+	TArray<uint16> ShadowCapsuleBoneIndices;
 
 	/** Set of materials used by this scene proxy, safe to access from the game thread. */
 	TSet<UMaterialInterface*> MaterialsInUse_GameThread;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "UnrealEd.h"
@@ -42,6 +42,7 @@
 #include "Engine/SCS_Node.h"
 #include "GeneralProjectSettings.h"
 #include "Developer/BlueprintProfiler/Public/BlueprintProfilerModule.h"
+#include "Engine/InheritableComponentHandler.h"
 
 DECLARE_CYCLE_STAT(TEXT("Compile Blueprint"), EKismetCompilerStats_CompileBlueprint, STATGROUP_KismetCompiler);
 DECLARE_CYCLE_STAT(TEXT("Broadcast Precompile"), EKismetCompilerStats_BroadcastPrecompile, STATGROUP_KismetCompiler);
@@ -474,6 +475,9 @@ UBlueprint* FKismetEditorUtilities::CreateBlueprint(UClass* ParentClass, UObject
 	FKismetCompilerOptions CompileOptions;
 	Compiler.CompileBlueprint(NewBP, CompileOptions, Results);
 
+	// Mark the BP as being regenerated, so it will not be confused as needing to be loaded and regenerated when a referenced BP loads.
+	NewBP->bHasBeenRegenerated = true;
+
 	UBlueprintEditorSettings* Settings = GetMutableDefault<UBlueprintEditorSettings>();
 	if(Settings && Settings->bSpawnDefaultBlueprintNodes)
 	{
@@ -725,16 +729,10 @@ void FKismetEditorUtilities::CompileBlueprint(UBlueprint* BlueprintObj, bool bIs
 	FCompilerResultsLog& Results = (pResults != NULL) ? *pResults : LocalResults;
 
 	// Monitoring UE-20486, the OldClass->ClassGeneratedBy is NULL or otherwise not a UBlueprint.
-	if (OldClass)
+	if (OldClass && (OldClass->ClassGeneratedBy != BlueprintObj))
 	{
-		if (OldClass->ClassGeneratedBy == nullptr)
-		{
-			checkf(OldClass->ClassGeneratedBy == BlueprintObj, TEXT("Generated Class '%s' during compilation has a NULL ClassGeneratedBy for Blueprint '%s'"), *OldClass->GetPathName(), *BlueprintObj->GetPathName());
-		}
-		else
-		{
-			checkf(OldClass->ClassGeneratedBy == BlueprintObj, TEXT("Generated Class '%s' has an invalid ClassGeneratedBy '%s' while the expected is Blueprint '%s'"), *OldClass->GetPathName(), *OldClass->ClassGeneratedBy->GetPathName(), *BlueprintObj->GetPathName());
-		}
+		ensureMsgf(OldClass->ClassGeneratedBy == BlueprintObj, TEXT("Generated Class '%s' has an invalid ClassGeneratedBy '%s' while the expected is Blueprint '%s'"), *OldClass->GetPathName(), *GetPathNameSafe(OldClass->ClassGeneratedBy), *BlueprintObj->GetPathName());
+		OldClass->ClassGeneratedBy = BlueprintObj;
 	}
 	auto ReinstanceHelper = FBlueprintCompileReinstancer::Create(OldClass);
 
@@ -1128,6 +1126,12 @@ void FKismetEditorUtilities::ConformBlueprintFlagsAndComponents(UBlueprint* Blue
 		ConformComponentsUtils::ConformRemovedNativeComponents(GenCDO);
 		GenCDO->InstanceSubobjectTemplates();
 	}
+
+	UInheritableComponentHandler* InheritableComponentHandler = BlueprintObj->GetInheritableComponentHandler(false);
+	if (InheritableComponentHandler)
+	{
+		InheritableComponentHandler->ValidateTemplates();
+	}
 }
 
 /** @return		true is it's possible to create a blueprint from the specified class */
@@ -1211,7 +1215,9 @@ void FKismetEditorUtilities::AddComponentsToBlueprint(UBlueprint* Blueprint, con
 			}
 
 			USCS_Node* NewSCSNode = TargetSCS->CreateNode(ActorComponent->GetClass(), ActorComponent->GetFName());
-			UEditorEngine::CopyPropertiesForUnrelatedObjects(ActorComponent, NewSCSNode->ComponentTemplate);
+			UEditorEngine::FCopyPropertiesForUnrelatedObjectsParams Params;
+			Params.bDoDelta = false; // We need a deep copy of parameters here so the CDO values get copied as well
+			UEditorEngine::CopyPropertiesForUnrelatedObjects(ActorComponent, NewSCSNode->ComponentTemplate, Params);
 
 			// Clear the instance component flag
 			NewSCSNode->ComponentTemplate->CreationMethod = EComponentCreationMethod::Native;
@@ -1219,6 +1225,7 @@ void FKismetEditorUtilities::AddComponentsToBlueprint(UBlueprint* Blueprint, con
 			if (AsSceneComponent != nullptr)
 			{
 				NewSceneComponents.Add(AsSceneComponent, NewSCSNode);
+				Cast<USceneComponent>(NewSCSNode->ComponentTemplate)->SetMobility(EComponentMobility::Movable);
 			}
 			return NewSCSNode;
 		}
@@ -1240,6 +1247,11 @@ void FKismetEditorUtilities::AddComponentsToBlueprint(UBlueprint* Blueprint, con
 				check(Actor);
 			}
 
+			if (!ActorComponent->GetClass()->HasMetaData(FBlueprintMetadata::MD_BlueprintSpawnableComponent))
+			{
+				continue;
+			}
+
 			USCS_Node* SCSNode = FAddComponentsToBlueprintImpl::MakeComponentCopy(ActorComponent, SCS, InstanceComponentToNodeMap);
 
 			USceneComponent* SceneComponent = Cast<USceneComponent>(ActorComponent);
@@ -1259,6 +1271,20 @@ void FKismetEditorUtilities::AddComponentsToBlueprint(UBlueprint* Blueprint, con
 					else
 					{
 						SCS->AddNode(SCSNode);
+					}
+				}
+				// If we're not attached to a blueprint component, add ourself to the root node or the SCS root component:
+				else if (SceneComponent->AttachParent == nullptr)
+				{
+					if (OptionalNewRootNode != nullptr)
+					{
+						OptionalNewRootNode->AddChildNode(SCSNode);
+					}
+					else
+					{
+						// Continuation of convention from FCreateConstructionScriptFromSelectedActors::Execute, perhaps more elegant
+						// to provide OptionalNewRootNode in both cases.
+						SCS->GetRootNodes()[0]->AddChildNode(SCSNode);
 					}
 				}
 				// If we're attached to a blueprint component look it up as the variable name is the component name

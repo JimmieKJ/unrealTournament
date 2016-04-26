@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateCorePrivatePCH.h"
 
@@ -412,11 +412,6 @@ TSharedRef<ISlateStyle> FCoreStyle::Create( const FName& InStyleSetName )
 			.SetUndeterminedHoveredImage( IMAGE_BRUSH( "Common/RadioButton_Unselected_16x", Icon16x16, SelectionColor ) )
 			.SetUndeterminedPressedImage( IMAGE_BRUSH( "Common/RadioButton_Unselected_16x", Icon16x16, SelectionColor_Pressed ) );
 		Style->Set( "RadioButton", BasicRadioButtonStyle );
-	}
-
-	// SEditableLabel defaults...
-	{
-		Style->Set("EditableLabel.EditIcon", new IMAGE_BRUSH("Icons/ellipsis_12x", Icon12x12));
 	}
 
 	// SEditableText defaults...

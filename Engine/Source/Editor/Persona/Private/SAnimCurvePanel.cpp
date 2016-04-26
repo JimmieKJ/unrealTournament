@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "PersonaPrivatePCH.h"
@@ -79,7 +79,7 @@ public:
 	{
 		if(BaseSequence.IsValid())
 		{
-			FSmartNameMapping* NameMapping = BaseSequence.Get()->GetSkeleton()->SmartNames.GetContainer(USkeleton::AnimCurveMappingName);
+			const FSmartNameMapping* NameMapping = BaseSequence.Get()->GetSkeleton()->GetSmartNameContainer(USkeleton::AnimCurveMappingName);
 			if(NameMapping)
 			{
 				FName CurveName;
@@ -318,6 +318,7 @@ const FSlateBrush* SCurveEdTrack::GetExpandContent() const
 	}
 
 }
+
 void SCurveEdTrack::NewCurveNameEntered( const FText& NewText, ETextCommit::Type CommitInfo )
 {
 	if(CommitInfo == ETextCommit::OnEnter || CommitInfo == ETextCommit::OnUserMovedFocus)
@@ -326,9 +327,39 @@ void SCurveEdTrack::NewCurveNameEntered( const FText& NewText, ETextCommit::Type
 		{
 			// Check that the name doesn't already exist
 			FName RequestedName = FName(*NewText.ToString());
-			FSmartNameMapping* NameMapping = Skeleton->SmartNames.GetContainer(USkeleton::AnimCurveMappingName);
-			if(!NameMapping->Exists(RequestedName))
+			const FSmartNameMapping* NameMapping = Skeleton->GetSmartNameContainer(USkeleton::AnimCurveMappingName);
+
+			// If requested name exists, make sure it's not currently in use in this sequence.
+			const FSmartNameMapping::UID* RequestedNameUID = NameMapping->FindUID(RequestedName);
+			if (RequestedNameUID != nullptr)
 			{
+				// Already in use in this sequence, skip
+				if (CurveInterface->BaseSequence->RawCurveData.GetCurveData(*RequestedNameUID) != nullptr)
+				{
+					FFormatNamedArguments Args;
+					Args.Add(TEXT("DestinationName"), FText::FromName(RequestedName));
+					const FText DialogMessage = FText::Format(LOCTEXT("CurveEditor_RenameCurve_AlreadyExists", "ERROR: A curve named '{DestinationName}' already exists in this Sequence."), Args);
+					FMessageDialog::Open(EAppMsgType::Ok, DialogMessage);
+					return;
+				}
+
+				// Not in use in this sequence, switch it to the other curve name.
+				FScopedTransaction Transaction(LOCTEXT("CurveEditor_RenameCurve", "Rename Curve"));
+				CurveInterface->BaseSequence->Modify(true);
+
+				CurveInterface->CurveData->CurveUid = *RequestedNameUID;
+				CurveInterface->CurveData->LastObservedName = RequestedName;
+
+				// 2. refresh panel
+				TSharedPtr<SAnimCurvePanel> SharedPanel = PanelPtr.Pin();
+				if (SharedPanel.IsValid())
+				{
+					SharedPanel.Get()->UpdatePanel();
+				}
+			}
+			else
+			{
+				// If it doesn't exist, rename Curve.
 				FScopedTransaction Transaction(LOCTEXT("CurveEditor_RenameCurve", "Rename Curve"));
 				Skeleton->RenameSmartnameAndModify(USkeleton::AnimCurveMappingName, CurveInterface->CurveData->CurveUid, FName(*NewText.ToString()));
 			}
@@ -459,7 +490,7 @@ FText SCurveEdTrack::GetCurveName(USkeleton::AnimCurveUID Uid) const
 class FCurveNameValidator : public FStringSetNameValidator
 {
 public:
-	FCurveNameValidator(FRawCurveTracks& Tracks, FSmartNameMapping* NameMapping, const FString& ExistingName)
+	FCurveNameValidator(FRawCurveTracks& Tracks, const FSmartNameMapping* NameMapping, const FString& ExistingName)
 		: FStringSetNameValidator(ExistingName)
 	{
 		FName CurveName;
@@ -613,7 +644,7 @@ void SAnimCurvePanel::CreateTrack(const FText& ComittedText, ETextCommit::Type C
 			const FScopedTransaction Transaction(LOCTEXT("AnimCurve_AddTrack", "Add New Curve"));
 			USkeleton::AnimCurveUID CurveUid;
 
-			if(Skeleton->AddSmartnameAndModify(USkeleton::AnimCurveMappingName, FName(*ComittedText.ToString()), CurveUid))
+			if(Skeleton->AddSmartNameAndModify(USkeleton::AnimCurveMappingName, FName(*ComittedText.ToString()), CurveUid))
 			{
 				AddVariableCurve(CurveUid);
 			}
@@ -627,7 +658,7 @@ FReply SAnimCurvePanel::DuplicateTrack(USkeleton::AnimCurveUID Uid)
 {
 	const FScopedTransaction Transaction( LOCTEXT("AnimCurve_DuplicateTrack", "Duplicate Curve") );
 	
-	FSmartNameMapping* NameMapping = Sequence->GetSkeleton()->SmartNames.GetContainer(USkeleton::AnimCurveMappingName);
+	const FSmartNameMapping* NameMapping = Sequence->GetSkeleton()->GetSmartNameContainer(USkeleton::AnimCurveMappingName);
 	FName CurveNameToCopy;
 	USkeleton::AnimCurveUID NewUid;
 
@@ -640,7 +671,7 @@ FReply SAnimCurvePanel::DuplicateTrack(USkeleton::AnimCurveUID Uid)
 		// Use the validator to pick a reasonable name for the duplicated curve.
 		FString NewCurveName = CurveNameToCopy.ToString();
 		Validator->FindValidString(NewCurveName);
-		if(NameMapping->AddOrFindName(*NewCurveName, NewUid))
+		if (Sequence->GetSkeleton()->AddSmartNameAndModify(USkeleton::AnimCurveMappingName, *NewCurveName, NewUid))
 		{
 			if(Sequence->RawCurveData.DuplicateCurveData(Uid, NewUid))
 			{
@@ -782,7 +813,7 @@ void SAnimCurvePanel::UpdatePanel()
 	if(Sequence != NULL)
 	{
 		USkeleton* CurrentSkeleton = Sequence->GetSkeleton();
-		FSmartNameMapping* MetadataNameMap = CurrentSkeleton->SmartNames.GetContainer(USkeleton::AnimCurveMappingName);
+		const FSmartNameMapping* MetadataNameMap = CurrentSkeleton->GetSmartNameContainer(USkeleton::AnimCurveMappingName);
 		// Sort the raw curves before setting up display
 		Sequence->RawCurveData.FloatCurves.Sort([MetadataNameMap](const FFloatCurve& A, const FFloatCurve& B)
 		{
@@ -813,7 +844,7 @@ void SAnimCurvePanel::UpdatePanel()
 		Tracks.Empty();
 
 		// Updating new tracks
-		FSmartNameMapping* NameMapping = CurrentSkeleton->SmartNames.GetContainer(USkeleton::AnimCurveMappingName);
+		const FSmartNameMapping* NameMapping = CurrentSkeleton->GetSmartNameContainer(USkeleton::AnimCurveMappingName);
 
 		int32 TotalCurve = Sequence->RawCurveData.FloatCurves.Num();
 		for(int32 CurrentIt = 0 ; CurrentIt < TotalCurve ; ++CurrentIt)
@@ -887,7 +918,7 @@ TSharedRef<SWidget> SAnimCurvePanel::GenerateCurveList()
 			];
 
 		// Mapping to retrieve curve names
-		FSmartNameMapping* NameMapping = Sequence->GetSkeleton()->SmartNames.GetContainer(USkeleton::AnimCurveMappingName);
+		const FSmartNameMapping* NameMapping = Sequence->GetSkeleton()->GetSmartNameContainer(USkeleton::AnimCurveMappingName);
 		check(NameMapping);
 
 		for (auto Iter=Sequence->RawCurveData.FloatCurves.CreateConstIterator(); Iter; ++Iter)
@@ -1029,7 +1060,7 @@ void SAnimCurvePanel::FillMetadataEntryMenu(FMenuBuilder& Builder)
 	USkeleton* CurrentSkeleton = Sequence->GetSkeleton();
 	check(CurrentSkeleton);
 
-	FSmartNameMapping* Mapping = CurrentSkeleton->SmartNames.GetContainer(USkeleton::AnimCurveMappingName);
+	const FSmartNameMapping* Mapping = CurrentSkeleton->GetSmartNameContainer(USkeleton::AnimCurveMappingName);
 	TArray<USkeleton::AnimCurveUID> CurveUids;
 	Mapping->FillUidArray(CurveUids);
 
@@ -1083,7 +1114,7 @@ void SAnimCurvePanel::FillVariableCurveMenu(FMenuBuilder& Builder)
 	USkeleton* CurrentSkeleton = Sequence->GetSkeleton();
 	check(CurrentSkeleton);
 
-	FSmartNameMapping* Mapping = CurrentSkeleton->SmartNames.GetContainer(USkeleton::AnimCurveMappingName);
+	const FSmartNameMapping* Mapping = CurrentSkeleton->GetSmartNameContainer(USkeleton::AnimCurveMappingName);
 	TArray<USkeleton::AnimCurveUID> CurveUids;
 	Mapping->FillUidArray(CurveUids);
 
@@ -1172,7 +1203,7 @@ void SAnimCurvePanel::CreateNewMetadataEntry(const FText& CommittedText, ETextCo
 		{
 			USkeleton::AnimCurveUID CurveUid;
 
-			if(Skeleton->AddSmartnameAndModify(USkeleton::AnimCurveMappingName, FName(*CommittedText.ToString()), CurveUid))
+			if(Skeleton->AddSmartNameAndModify(USkeleton::AnimCurveMappingName, FName(*CommittedText.ToString()), CurveUid))
 			{
 				AddMetadataEntry(CurveUid);
 			}

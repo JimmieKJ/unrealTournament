@@ -9,8 +9,8 @@ AUTFlagReturnTrail::AUTFlagReturnTrail(const FObjectInitializer& ObjectInitializ
 {
 	PrimaryActorTick.bCanEverTick = true;
 
-	InitialLifeSpan = 1.5f;
-	DedicatedServerLifeSpan = 0.25f; 
+	InitialLifeSpan = 10.f;
+	DedicatedServerLifeSpan = 0.1f; 
 	TeamIndex = 255;
 
 	PSC->bAutoActivate = true;
@@ -20,25 +20,19 @@ AUTFlagReturnTrail::AUTFlagReturnTrail(const FObjectInitializer& ObjectInitializ
 	PSC->SetTemplate(TrailEffect.Object);
 }
 
-void AUTFlagReturnTrail::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME(AUTFlagReturnTrail, EndPoint);
-	DOREPLIFETIME(AUTFlagReturnTrail, TeamIndex);
-}
-
 void AUTFlagReturnTrail::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
-	FVector Dir = EndPoint - GetActorLocation();
+	
+	FVector StartLocation = (StartActor && (StartPoint != StartActor->GetActorLocation())) ? StartActor->GetActorLocation() : GetActorLocation();
+	FVector Dir = EndPoint - StartLocation;
 	float Dist = Dir.Size();
 	if (Dist > 1000.f *DeltaTime)
 	{
-		FVector NewLocation = GetActorLocation() + FMath::Min(Dist, 8000.f * DeltaTime) * Dir / Dist;
+		FVector NewLocation = StartLocation + FMath::Min(Dist, 8000.f * DeltaTime) * Dir / Dist;
 		SetActorLocation(NewLocation);
 	}
+	StartPoint = StartActor ? StartActor->GetActorLocation() : StartPoint;
 }
 
 void AUTFlagReturnTrail::Destroyed()
@@ -47,16 +41,11 @@ void AUTFlagReturnTrail::Destroyed()
 	PSC->DeactivateSystem();
 }
 
-void AUTFlagReturnTrail::OnReceivedTeamIndex()
+void AUTFlagReturnTrail::SetTeamIndex(uint8 NewValue)
 {
+	TeamIndex = NewValue;
 	if (PSC)
 	{
 		PSC->SetColorParameter(FName(TEXT("Color")), (TeamIndex == 1) ? FColor::Blue : FColor::Red);
 	}
-}
-
-void AUTFlagReturnTrail::SetTeamIndex(uint8 NewValue)
-{
-	TeamIndex = NewValue;
-	OnReceivedTeamIndex();
 }

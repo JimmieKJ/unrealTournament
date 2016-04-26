@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /**
  * Blend Space Base. Contains base functionality shared across all blend space objects
@@ -274,7 +274,7 @@ public:
 	virtual void ReplaceReferredAnimations(const TMap<UAnimSequence*, UAnimSequence*>& ReplacementMap) override;
 	virtual int32 GetMarkerUpdateCounter() const;
 #endif
-	virtual TArray<FName>* GetUniqueMarkerNames() override { return (bAllSequencesHaveMatchingMarkers && SampleData.Num() > 0) ? SampleData[0].Animation->GetUniqueMarkerNames() : nullptr; }
+	virtual TArray<FName>* GetUniqueMarkerNames() override { return (SampleIndexWithMarkers != INDEX_NONE && SampleData.Num() > 0) ? SampleData[SampleIndexWithMarkers].Animation->GetUniqueMarkerNames() : nullptr; }
 	//~ End UAnimationAsset Interface
 
 	void TickFollowerSamples(TArray<FBlendSampleData> &SampleDataList, const int32 HighestWeightIndex, FAnimAssetTickContext &Context, bool bResetMarkerDataOnFollowers) const
@@ -289,7 +289,11 @@ public:
 				{
 					SampleDataItem.MarkerTickRecord.Reset();
 				}
-				Sample.Animation->TickByMarkerAsFollower(SampleDataItem.MarkerTickRecord, Context.MarkerTickContext, SampleDataItem.Time, SampleDataItem.PreviousTime, Context.GetLeaderDelta(), true);
+
+				if (Sample.Animation->AuthoredSyncMarkers.Num() > 0) // Update followers who can do marker sync, others will be handled later in TickAssetPlayer
+				{
+					Sample.Animation->TickByMarkerAsFollower(SampleDataItem.MarkerTickRecord, Context.MarkerTickContext, SampleDataItem.Time, SampleDataItem.PreviousTime, Context.GetLeaderDelta(), true);
+				}
 			}
 		}
 	}
@@ -432,8 +436,9 @@ protected:
 	 */
 	virtual void GetRawSamplesFromBlendInput(const FVector &BlendInput, TArray<FGridBlendSample, TInlineAllocator<4> > & OutBlendSamples) const {}
 
-	/** Track whether all our sequences have the same marker set for blending (if false use original scale based on length approach) */
-	bool bAllSequencesHaveMatchingMarkers;
+	/** Track index to get marker data from. Samples are tested for the suitability of marker based sync
+	    during load and if we can use marker based sync we cache an index to a representative sample here */
+	int32 SampleIndexWithMarkers;
 
 #if WITH_EDITOR
 private:

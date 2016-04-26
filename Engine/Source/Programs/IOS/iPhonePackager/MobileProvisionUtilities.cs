@@ -1,5 +1,5 @@
 ﻿/**
- * Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+ * Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
  */
 
 using System;
@@ -230,7 +230,7 @@ namespace iPhonePackager
 		/// Extracts the dict values for the Entitlements key and creates a new full .plist file
 		/// from them (with outer plist and dict keys as well as doctype, etc...)
 		/// </summary>
-		public string GetEntitlementsString(string CFBundleIdentifier)
+		public string GetEntitlementsString(string CFBundleIdentifier, out string TeamIdentifier)
 		{
 			Utilities.PListHelper XCentPList = null;
 			Data.ProcessValueForKey("Entitlements", "dict", delegate(XmlNode ValueNode)
@@ -241,8 +241,9 @@ namespace iPhonePackager
 			// Modify the application-identifier to be fully qualified if needed
 			string CurrentApplicationIdentifier;
 			XCentPList.GetString("application-identifier", out CurrentApplicationIdentifier);
+			XCentPList.GetString("com.apple.developer.team-identifier", out TeamIdentifier);
 
-			if (CurrentApplicationIdentifier.Contains("*"))
+//			if (CurrentApplicationIdentifier.Contains("*"))
 			{
 				// Replace the application identifier
 				string NewApplicationIdentifier = String.Format("{0}.{1}", ApplicationIdentifierPrefix, CFBundleIdentifier);

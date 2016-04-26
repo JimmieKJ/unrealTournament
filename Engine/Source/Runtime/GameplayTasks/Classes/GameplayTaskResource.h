@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "GameplayTaskResource.generated.h"
@@ -18,7 +18,7 @@ private:
 	int8 AutoResourceID;
 
 public:
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly, Category = "Task Resource", meta=(InlineEditConditionToggle))
 	uint32 bManuallySetID : 1;
 
 public:

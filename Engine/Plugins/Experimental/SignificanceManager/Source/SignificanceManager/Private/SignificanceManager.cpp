@@ -1,8 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SignificanceManagerPrivate.h"
 #include "SignificanceManager.h"
 #include "DisplayDebugHelpers.h"
+#include "ParallelFor.h"
 
 IMPLEMENT_MODULE( FSignificanceManagerModule, SignificanceManager );
 
@@ -14,7 +15,6 @@ DECLARE_CYCLE_STAT(TEXT("Significance Check"), STAT_SignificanceManager_Signific
 DECLARE_CYCLE_STAT(TEXT("Register Object"), STAT_SignificanceManager_RegisterObject, STATGROUP_SignificanceManager);
 DECLARE_CYCLE_STAT(TEXT("Initial Significance Update"), STAT_SignificanceManager_InitialSignificanceUpdate, STATGROUP_SignificanceManager);
 DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num Managed Objects"), STAT_SignificanceManager_NumObjects, STATGROUP_SignificanceManager);
-
 
 bool CompareBySignificanceAscending(const USignificanceManager::FManagedObjectInfo& A, const USignificanceManager::FManagedObjectInfo& B) 
 { 
@@ -108,7 +108,7 @@ void USignificanceManager::BeginDestroy()
 {
 	Super::BeginDestroy();
 
-	for (const TPair<const UObject*, FManagedObjectInfo*>& ObjectToObjectInfoPair : ManagedObjects)
+	for (const TPair<UObject*, FManagedObjectInfo*>& ObjectToObjectInfoPair : ManagedObjects)
 	{
 		delete ObjectToObjectInfoPair.Value;
 	}
@@ -116,7 +116,12 @@ void USignificanceManager::BeginDestroy()
 	ManagedObjectsByTag.Reset();
 }
 
-void USignificanceManager::RegisterObject(const UObject* Object, const FName Tag, FSignificanceFunction SignificanceFunction)
+UWorld* USignificanceManager::GetWorld()const
+{
+	return CastChecked<UWorld>(GetOuter());
+}
+
+void USignificanceManager::RegisterObject(UObject* Object, const FName Tag, FSignificanceFunction SignificanceFunction, FPostSignificanceFunction InPostSignificanceFunction)
 {
 	INC_DWORD_STAT(STAT_SignificanceManager_NumObjects);
 	SCOPE_CYCLE_COUNTER(STAT_SignificanceManager_RegisterObject);
@@ -124,7 +129,7 @@ void USignificanceManager::RegisterObject(const UObject* Object, const FName Tag
 	check(Object);
 	checkf(!ManagedObjects.Contains(Object), TEXT("'%s' already added to significance manager. Original Tag: '%s' New Tag: '%s'"), *Object->GetName(), *ManagedObjects.FindChecked(Object)->GetTag().ToString(), *Tag.ToString());
 
-	FManagedObjectInfo* ObjectInfo = new FManagedObjectInfo(Object, Tag, SignificanceFunction);
+	FManagedObjectInfo* ObjectInfo = new FManagedObjectInfo(Object, Tag, SignificanceFunction, InPostSignificanceFunction);
 	
 	// Calculate initial significance
 	if (Viewpoints.Num())
@@ -174,7 +179,7 @@ void USignificanceManager::RegisterObject(const UObject* Object, const FName Tag
 	}
 }
 
-void USignificanceManager::UnregisterObject(const UObject* Object)
+void USignificanceManager::UnregisterObject(UObject* Object)
 {
 	DEC_DWORD_STAT(STAT_SignificanceManager_NumObjects);
 	SCOPE_CYCLE_COUNTER(STAT_SignificanceManager_UnregisterObject);
@@ -187,12 +192,32 @@ void USignificanceManager::UnregisterObject(const UObject* Object)
 		{
 			check(ObjectsWithTag[0] == ObjectInfo);
 			ManagedObjectsByTag.Remove(ObjectInfo->GetTag());
+			if (ObjectInfo->PostSignificanceFunction != nullptr)
+			{
+				ObjectInfo->PostSignificanceFunction(ObjectInfo->GetObject(), ObjectInfo->Significance, 1.0f, true);
+			}
 		}
 		else
 		{
 			ObjectsWithTag.RemoveSingle(ObjectInfo);
 		}
 		delete ObjectInfo;
+	}
+}
+
+void USignificanceManager::UnregisterAll(FName Tag)
+{
+	if (TArray<const FManagedObjectInfo*>* ObjectsWithTag = ManagedObjectsByTag.Find(Tag))
+	{
+		for (const FManagedObjectInfo* ManagedObj : *ObjectsWithTag)
+		{
+			ManagedObjects.Remove(ManagedObj->GetObject());
+			if (ManagedObj->PostSignificanceFunction != nullptr)
+			{
+				ManagedObj->PostSignificanceFunction(ManagedObj->GetObject(), ManagedObj->Significance, 1.0f, true);
+			}
+		}
+		ManagedObjectsByTag.Remove(Tag);
 	}
 }
 
@@ -205,6 +230,16 @@ const TArray<const USignificanceManager::FManagedObjectInfo*>& USignificanceMana
 
 	static const TArray<const FManagedObjectInfo*> EmptySet;
 	return EmptySet;
+}
+
+USignificanceManager::FManagedObjectInfo* USignificanceManager::GetManagedObject(UObject* Object) const
+{
+	if (FManagedObjectInfo* const* Info = ManagedObjects.Find(Object))
+	{
+		return (*Info);
+	}
+
+	return nullptr;
 }
 
 void USignificanceManager::GetManagedObjects(TArray<const USignificanceManager::FManagedObjectInfo*>& OutManagedObjects, bool bInSignificanceOrder) const
@@ -248,6 +283,7 @@ bool USignificanceManager::QuerySignificance(const UObject* Object, float& OutSi
 
 void USignificanceManager::FManagedObjectInfo::UpdateSignificance(const TArray<FTransform>& InViewpoints)
 {
+	float OldSignificance = Significance;
 	if (InViewpoints.Num())
 	{
 		Significance = TNumericLimits<float>::Lowest();
@@ -264,6 +300,11 @@ void USignificanceManager::FManagedObjectInfo::UpdateSignificance(const TArray<F
 	{
 		Significance = 0.f;
 	}
+
+	if (PostSignificanceFunction != nullptr)
+	{
+		PostSignificanceFunction(Object, OldSignificance, Significance, false);
+	}
 }
 
 void USignificanceManager::Update(const TArray<FTransform>& InViewpoints)
@@ -274,16 +315,21 @@ void USignificanceManager::Update(const TArray<FTransform>& InViewpoints)
 
 	{
 		SCOPE_CYCLE_COUNTER(STAT_SignificanceManager_SignificanceUpdate);
-		//TODO: Consider parallel for
-		for (TPair<const UObject*, FManagedObjectInfo*>& ObjectToObjectInfoPair : ManagedObjects)
-		{
-			const UObject* Object = ObjectToObjectInfoPair.Key;
-			FManagedObjectInfo* ObjectInfo = ObjectToObjectInfoPair.Value;
 
-			checkSlow(Object->IsValidLowLevel());
+		TArray<FManagedObjectInfo*> ObjArray;
+		ManagedObjects.GenerateValueArray(ObjArray);
+
+		//TODO: Consider parallel for
+		//for (TPair<UObject*, FManagedObjectInfo*>& ObjectToObjectInfoPair : ManagedObjects)
+		ParallelFor(ObjArray.Num(),
+			[&](int32 Index)
+		{
+			FManagedObjectInfo* ObjectInfo = ObjArray[Index];
+
+			checkSlow(ObjectInfo->GetObject()->IsValidLowLevel());
 
 			ObjectInfo->UpdateSignificance(Viewpoints);
-		}
+		});
 	}
 
 	{

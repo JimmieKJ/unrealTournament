@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 #include "Containers/UnrealString.h"
 #include "Internationalization/CulturePointer.h"
@@ -171,9 +171,7 @@ public:
 	static FText AsNumber(uint64 Val,	const FNumberFormattingOptions* const Options = NULL, const FCulturePtr& TargetCulture = NULL);
 	static FText AsNumber(long Val,		const FNumberFormattingOptions* const Options = NULL, const FCulturePtr& TargetCulture = NULL);
 
-	/**
-	 * Generate an FText that represents the passed number as currency in the current culture
-	 */
+
 	static FText AsCurrency(float Val,  const FString& CurrencyCode = FString(), const FNumberFormattingOptions* const Options = NULL, const FCulturePtr& TargetCulture = NULL);
 	static FText AsCurrency(double Val, const FString& CurrencyCode = FString(), const FNumberFormattingOptions* const Options = NULL, const FCulturePtr& TargetCulture = NULL);
 	static FText AsCurrency(int8 Val,   const FString& CurrencyCode = FString(), const FNumberFormattingOptions* const Options = NULL, const FCulturePtr& TargetCulture = NULL);
@@ -185,6 +183,14 @@ public:
 	static FText AsCurrency(uint32 Val, const FString& CurrencyCode = FString(), const FNumberFormattingOptions* const Options = NULL, const FCulturePtr& TargetCulture = NULL);
 	static FText AsCurrency(uint64 Val, const FString& CurrencyCode = FString(), const FNumberFormattingOptions* const Options = NULL, const FCulturePtr& TargetCulture = NULL);
 	static FText AsCurrency(long Val,   const FString& CurrencyCode = FString(), const FNumberFormattingOptions* const Options = NULL, const FCulturePtr& TargetCulture = NULL);
+
+	/**
+	 * Generate an FText that represents the passed number as currency in the current culture.
+	 * BaseVal is specified in the smallest fractional value of the currency and will be converted for formatting according to the selected culture.
+	 * Keep in mind the CurrencyCode is completely independent of the culture it's displayed in (and they do not imply one another).
+	 * For example: FText::AsCurrencyBase(650, TEXT("EUR")); would return an FText of "€6.50" in most English cultures (en_US/en_UK) and "6,50€" in Spanish (es_ES).
+	 */
+	static FText AsCurrencyBase(int64 BaseVal, const FString& CurrencyCode, const FCulturePtr& TargetCulture = NULL);
 
 	/**
 	 * Generate an FText that represents the passed number as a percentage in the current culture
@@ -208,7 +214,7 @@ public:
 	/**
 	 * Generate an FText that represents the passed number as a memory size in the current culture
 	 */
-	static FText AsMemory(SIZE_T NumBytes, const FNumberFormattingOptions* const Options = NULL, const FCulturePtr& TargetCulture = NULL);
+	static FText AsMemory(uint64 NumBytes, const FNumberFormattingOptions* const Options = NULL, const FCulturePtr& TargetCulture = NULL);
 
 	/**
 	 * Attempts to find an existing FText using the representation found in the loc tables for the specified namespace and key
@@ -347,6 +353,13 @@ public:
 
 	bool ShouldGatherForLocalization() const;
 
+#if WITH_EDITOR
+	/**
+	 * Constructs a new FText with the SourceString of the specified text but with the specified namespace and key
+	 */
+	static FText ChangeKey( FString Namespace, FString Key, const FText& Text );
+#endif
+
 private:
 
 	/** Special constructor used to create StaticEmptyText without also allocating a history object */
@@ -360,13 +373,6 @@ private:
 	FText( FString InSourceString, const FString& InNamespace, const FString& InKey, uint32 InFlags=0 );
 
 	friend CORE_API FArchive& operator<<( FArchive& Ar, FText& Value );
-
-#if WITH_EDITOR
-	/**
-	 * Constructs a new FText with the SourceString of the specified text but with the specified namespace and key
-	 */
-	static FText ChangeKey( FString Namespace, FString Key, const FText& Text );
-#endif
 
 	/**
 	 * Generate an FText for a string formatted numerically.
@@ -424,8 +430,6 @@ public:
 	friend class FTextInspector;
 	friend class UStruct;
 	friend class UGatherTextFromAssetsCommandlet;
-	friend class UEdGraphSchema;
-	friend class UEdGraphSchema_K2;
 	friend class FTextHistory_NamedFormat;
 	friend class FTextHistory_ArgumentDataFormat;
 	friend class FTextHistory_OrderedFormat;
@@ -641,6 +645,37 @@ public:
 	static uint32 GetFlags(const FText& Text);
 };
 
+class CORE_API FTextStringHelper
+{
+public:
+	/**
+	 * Attempt to extract an FText instance from the given stream of text.
+	 *
+	 * @param Buffer			The buffer of text to read from.
+	 * @param OutValue			The text value to fill with the read text.
+	 * @param Namespace			An optional namespace to use when parsing texts that use LOCTEXT (default is an empty namespace).
+	 * @param OutNumCharsRead	An optional output parameter to fill with the number of characters we read from the given buffer.
+	 * @param bRequiresQuotes	True if the read text literal must be surrounded by quotes (eg, when loading from a delimited list)
+	 *
+	 * @return True if we read a valid FText instance into OutValue, false otherwise
+	 */
+	static bool ReadFromString(const TCHAR* Buffer, FText& OutValue, const TCHAR* Namespace = nullptr, int32* OutNumCharsRead = nullptr, const bool bRequiresQuotes = false);
+
+	/**
+	 * Write the given FText instance to a stream of text
+	 *
+	 * @param Buffer			The buffer of text to write to.
+	 * @param Value				The text value to write into the buffer.
+	 * @param bRequiresQuotes	True if the written text literal must be surrounded by quotes (eg, when saving as a delimited list)
+	 *
+	 * @return True if we read a valid FText instance into OutValue, false otherwise
+	 */
+	static bool WriteToString(FString& Buffer, const FText& Value, const bool bRequiresQuotes = false);
+
+private:
+	static bool ReadFromString_ComplexText(const TCHAR* Buffer, FText& OutValue, const TCHAR* Namespace, int32* OutNumCharsRead);
+};
+
 class CORE_API FTextBuilder
 {
 public:
@@ -835,6 +870,11 @@ namespace TextBiDi
 	CORE_API ETextDirection ComputeBaseDirection(const FText& InText);
 	CORE_API ETextDirection ComputeBaseDirection(const FString& InString);
 	CORE_API ETextDirection ComputeBaseDirection(const TCHAR* InString, const int32 InStringStartIndex, const int32 InStringLen);
+
+	/**
+	 * Utility function which tests to see whether the given character is a bidirectional control character.
+	 */
+	CORE_API bool IsControlCharacter(const TCHAR InChar);
 } // namespace TextBiDi
 
 Expose_TNameOf(FText)

@@ -1,10 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Reflection;
 using System.Linq;
+using System.Net.Mail;
 using AutomationTool;
 using UnrealBuildTool;
 
@@ -13,13 +14,154 @@ using UnrealBuildTool;
 /// </summary>
 /// <remarks>
 /// Command line parameters used by this command:
-/// -project	Absolute path to a .uproject file
+/// -project					- Absolute path to a .uproject file
+/// -MapsToRebuildLightMaps		- A list of '+' delimited maps we wish to build lightmaps for.
+/// -CommandletTargetName		- The Target used in running the commandlet
+/// -StakeholdersEmailAddresses	- Users to notify of completion
+/// 
 /// </remarks>
 namespace AutomationScripts.Automation
 {
+	[RequireP4]
 	public class RebuildLightMaps : BuildCommand
 	{
+		// The rebuild lighting process
 		#region RebuildLightMaps Command
+
+		public override void ExecuteBuild()
+		{
+			Log("********** REBUILD LIGHT MAPS COMMAND STARTED **********");
+
+			try
+			{
+				var Params = new ProjectParams
+				(
+					Command: this,
+					// Shared
+					RawProjectPath: ProjectPath
+				);
+
+				// Sync and build our targets required for the commandlet to run correctly.
+				// P4.Sync(String.Format("-f {0}/...#head", P4Env.BuildRootP4));
+
+                bool NoBuild = ParseParam("nobuild");
+
+                if (!NoBuild)
+                {
+                    BuildNecessaryTargets();
+                }
+				CreateChangelist(Params);
+				RunRebuildLightmapsCommandlet(Params);
+				SubmitRebuiltMaps();
+			}
+			catch (Exception ProcessEx)
+			{
+				Log("********** REBUILD LIGHT MAPS COMMAND FAILED **********");
+				HandleFailure(ProcessEx.Message);
+				throw ProcessEx;
+			}
+
+			// The processes steps have completed successfully.
+			HandleSuccess();
+
+			Log("********** REBUILD LIGHT MAPS COMMAND COMPLETED **********");
+		}
+
+		#endregion
+
+		// Broken down steps used to run the process.
+		#region RebuildLightMaps Process Steps
+
+		private void BuildNecessaryTargets()
+		{
+			Log("Running Step:- RebuildLightMaps::BuildNecessaryTargets");
+			UE4Build.BuildAgenda Agenda = new UE4Build.BuildAgenda();
+            Agenda.AddTarget("UnrealHeaderTool", UnrealBuildTool.UnrealTargetPlatform.Win64, UnrealBuildTool.UnrealTargetConfiguration.Development);
+			Agenda.AddTarget("ShaderCompileWorker", UnrealBuildTool.UnrealTargetPlatform.Win64, UnrealBuildTool.UnrealTargetConfiguration.Development);
+			Agenda.AddTarget("UnrealLightmass", UnrealBuildTool.UnrealTargetPlatform.Win64, UnrealBuildTool.UnrealTargetConfiguration.Development);
+			Agenda.AddTarget(CommandletTargetName, UnrealBuildTool.UnrealTargetPlatform.Win64, UnrealBuildTool.UnrealTargetConfiguration.Development);
+
+			try
+			{
+				UE4Build Builder = new UE4Build(this);
+				Builder.Build(Agenda, InDeleteBuildProducts: true, InUpdateVersionFiles: true, InForceNoXGE: false, InChangelistNumberOverride: GetLatestCodeChange());
+				UE4Build.CheckBuildProducts(Builder.BuildProductFiles);
+			}
+			catch (AutomationException Ex)
+			{
+				LogError("Rebuild Light Maps has failed.");
+				throw Ex;
+			}
+		}
+
+		private int GetLatestCodeChange()
+		{
+			List<P4Connection.ChangeRecord> ChangeRecords;
+			if(!P4.Changes(out ChangeRecords, String.Format("-m 1 //{0}/....cpp@<{1} //{0}/....h@<{1} //{0}/....cs@<{1} //{0}/....usf@<{1}", P4Env.Client, P4Env.Changelist), WithClient: true))
+			{
+				throw new AutomationException("Couldn't enumerate latest change from branch");
+			}
+			return ChangeRecords.Max(x => x.CL);
+		}
+
+		private void CreateChangelist(ProjectParams Params)
+		{
+			Log("Running Step:- RebuildLightMaps::CheckOutMaps");
+			// Setup a P4 Cl we will use to submit the new lightmaps
+			WorkingCL = P4.CreateChange(P4Env.Client, String.Format("{0} rebuilding lightmaps from changelist {1}\n#rb None\n#tests None", Params.ShortProjectName, P4Env.Changelist));
+			Log("Working in {0}", WorkingCL);
+
+		}
+
+		private void RunRebuildLightmapsCommandlet(ProjectParams Params)
+		{
+			Log("Running Step:- RebuildLightMaps::RunRebuildLightmapsCommandlet");
+
+			// Find the commandlet binary
+			string UE4EditorExe = HostPlatform.Current.GetUE4ExePath(Params.UE4Exe);
+			if (!FileExists(UE4EditorExe))
+			{
+				LogError("Missing " + UE4EditorExe + " executable. Needs to be built first.");
+				throw new AutomationException("Missing " + UE4EditorExe + " executable. Needs to be built first.");
+			}
+
+			// Now let's rebuild lightmaps for the project
+			try
+			{
+				var CommandletParams = IsBuildMachine ? "-unattended -buildmachine -fileopenlog" : "-fileopenlog";
+                CommandletParams += " -AutoCheckOutPackages";
+                if (P4Enabled)
+                {
+                    CommandletParams += String.Format(" -SCCProvider={0} -P4Port={1} -P4User={2} -P4Client={3} -P4Changelist={4} -P4Passwd={5}", "Perforce", P4Env.P4Port, P4Env.User, P4Env.Client, WorkingCL.ToString(), P4.GetAuthenticationToken());
+                }
+				RebuildLightMapsCommandlet(Params.RawProjectPath, Params.UE4Exe, Params.MapsToRebuildLightMaps.ToArray(), CommandletParams);
+			}
+			catch (Exception Ex)
+			{
+				// Something went wrong with the commandlet. Abandon this run, don't check in any updated files, etc.
+				LogError("Rebuild Light Maps has failed. because "+ Ex.ToString());
+				throw new AutomationException(ExitCode.Error_Unknown, Ex, "RebuildLightMaps failed.");
+			}
+		}
+
+		private void SubmitRebuiltMaps()
+		{
+			Log("Running Step:- RebuildLightMaps::SubmitRebuiltMaps");
+
+			// Check everything in!
+			if (WorkingCL != -1)
+			{
+                Log("Running Step:- Submitting CL " + WorkingCL);
+				int SubmittedCL;
+				P4.Submit(WorkingCL, out SubmittedCL, true, true);
+				Log("INFO: Lightmaps successfully submitted in cl "+ SubmittedCL.ToString());
+			}
+		}
+
+		#endregion
+
+		// Helper functions and procedure steps necessary for running the commandlet successfully
+		#region RebuildLightMaps Helper Functions
 
 		/**
 		 * Parse the P4 output for any errors that we really care about.
@@ -46,96 +188,115 @@ namespace AutomationScripts.Automation
 		}
 
 		/**
-		 * Cleanup anything this build may leave behind
+		 * Cleanup anything this build may leave behind and inform the user
 		 */
-		private void HandleFailure()
+		private void HandleFailure(String FailureMessage)
 		{
-			if (WorkingCL != -1)
+			try
 			{
-				P4.RevertAll(WorkingCL);
-				P4.DeleteChange(WorkingCL);
+				if (WorkingCL != -1)
+				{
+					P4.RevertAll(WorkingCL);
+					P4.DeleteChange(WorkingCL);
+				}
+				SendCompletionMessage(false, FailureMessage);
+			}
+			catch (P4Exception P4Ex)
+			{
+				LogError("Failed to clean up P4 changelist: " + P4Ex.Message);
+			}
+			catch (Exception SendMailEx)
+			{
+				LogError("Failed to notify that build succeeded: " + SendMailEx.Message);
 			}
 		}
 
-		public override void ExecuteBuild()
+		/**
+		 * Perform any post completion steps needed. I.e. Notify stakeholders etc.
+		 */
+		private void HandleSuccess()
 		{
-			Log("********** REBUILD LIGHT MAPS COMMAND STARTED **********");
-
-			var Params = new ProjectParams
-			(
-				Command: this,
-				// Shared
-				RawProjectPath: ProjectPath
-			);
-
-			// Setup our P4 changelist so we can submit the new lightmaps after the commandlet has completed.
-			if (P4Enabled)
-			{
-				WorkingCL = P4.CreateChange(P4Env.Client, String.Format("{0} rebuilding lightmaps from changelist {1}", Params.ShortProjectName, P4Env.Changelist));
-				Log("Working in {0}", WorkingCL);
-				try
-				{
-					string AllMapsWildcardCmdline = String.Format("{0}\\...\\*.umap", Params.RawProjectPath.Directory);
-					string Output;
-					P4.P4Output(out Output, String.Format("edit -c {0} {1}", WorkingCL, AllMapsWildcardCmdline));
-
-					// We need to ensure that any error in the output log is observed.
-					// P4 is still successful if it manages to run the operation.
-					if (FoundCheckOutErrorInP4Output(Output) == true)
-					{
-						throw new Exception();
-					}
-				}
-				catch (Exception)
-				{
-					HandleFailure();
-					throw new AutomationException("Failed to check out every one of the project maps.");
-				}
-			}
-			else
-			{
-				throw new AutomationException("This command needs to run with P4.");
-			}
-
-			string UE4EditorExe = HostPlatform.Current.GetUE4ExePath(Params.UE4Exe);
-			if (!FileExists(UE4EditorExe))
-			{
-				throw new AutomationException("Missing " + UE4EditorExe + " executable. Needs to be built first.");
-			}
-
-			// Now let's rebuild lightmaps for the project
 			try
 			{
-				var CommandletParams = IsBuildMachine ? "-buildmachine -fileopenlog" : "-fileopenlog";
-				RebuildLightMapsCommandlet(Params.RawProjectPath, Params.UE4Exe, Params.MapsToRebuildLightMaps.ToArray(), CommandletParams);
+				SendCompletionMessage(true, "Successfully rebuilt lightmaps.");
+			}
+			catch (Exception SendMailEx)
+			{
+				LogError("Failed to notify that build succeeded: " + SendMailEx.Message);
+			}
+		}
+
+		/**
+		 * Notify stakeholders of the commandlet results
+		 */
+		void SendCompletionMessage(bool bWasSuccessful, String MessageBody)
+		{
+			MailMessage Message = new System.Net.Mail.MailMessage();
+			Message.Priority = MailPriority.High;
+			Message.From = new MailAddress("unrealbot@epicgames.com");
+
+            string Branch = "Unknown";
+            if ( P4Enabled )
+            {
+                Branch = P4Env.BuildRootP4;
+            }
+
+			foreach (String NextStakeHolder in StakeholdersEmailAddresses)
+			{
+				Message.To.Add(new MailAddress(NextStakeHolder));
+			}
+
+			Message.CC.Add(new MailAddress("Daniel.Lamb@epicgames.com"));
+			Message.Subject = String.Format("Nightly lightmap rebuild {0} for {1}", bWasSuccessful ? "[SUCCESS]" : "[FAILED]", Branch);
+			Message.Body = MessageBody;
+            /*Attachment Attach = new Attachment();
+            Message.Attachments.Add()*/
+			try
+			{
+				SmtpClient MailClient = new SmtpClient("smtp.epicgames.net");
+				MailClient.Send(Message);
 			}
 			catch (Exception Ex)
 			{
-				// Something went wrong with the commandlet. Abandon this run, don't check in any updated files, etc.
-				HandleFailure();
-
-				Log("Rebuild Light Maps has failed.");
-				throw new AutomationException(ExitCode.Error_Unknown, Ex, "RebuildLightMaps failed.");
+				LogError("Failed to send notify email to {0} ({1})", String.Join(", ", StakeholdersEmailAddresses.ToArray()), Ex.Message);
 			}
-
-			// Check everything in!
-			if (WorkingCL != -1)
-			{
-				int SubmittedCL;
-				P4.Submit(WorkingCL, out SubmittedCL, true, true);
-				Log("New lightmaps have been submitted in changelist {0}", SubmittedCL);
-			}
-
-			Log("********** REBUILD LIGHT MAPS COMMAND COMPLETED **********");
 		}
 
 		#endregion
 
-		// The Chanelist used when doing the work.
+		// Member vars used in multiple steps.
+		#region RebuildLightMaps Property Set-up
+
+		// Users to notify if the process fails or succeeds.
+		List<String> StakeholdersEmailAddresses
+		{
+			get
+			{
+				String UnprocessedEmailList = ParseParamValue("StakeholdersEmailAddresses");
+				if (String.IsNullOrEmpty(UnprocessedEmailList) == false)
+				{
+					return UnprocessedEmailList.Split('+').ToList();
+				}
+				else
+				{
+					return null;
+				}
+			}
+		}
+
+		// The Changelist used when doing the work.
 		private int WorkingCL = -1;
 
-		// Process command-line and find a project file. This is necessary for the commandlet to run successfully
+		// The target name of the commandlet binary we wish to build and run.
+		private String CommandletTargetName
+		{
+			get
+			{
+				return ParseParamValue("CommandletTargetName", "");
+			}
+		}
 
+		// Process command-line and find a project file. This is necessary for the commandlet to run successfully
 		private FileReference ProjectFullPath;
 		public virtual FileReference ProjectPath
 		{
@@ -175,5 +336,7 @@ namespace AutomationScripts.Automation
 				return ProjectFullPath;
 			}
 		}
+
+		#endregion
 	}
 }

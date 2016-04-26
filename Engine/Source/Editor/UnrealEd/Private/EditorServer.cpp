@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "UnrealEd.h"
@@ -30,6 +30,7 @@
 #include "Matinee/InterpData.h"
 #include "Animation/SkeletalMeshActor.h"
 #include "InstancedFoliageActor.h"
+#include "MovieSceneCaptureModule.h"
 
 #include "Editor/UnrealEd/Public/Kismet2/KismetEditorUtilities.h"
 #include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
@@ -68,13 +69,8 @@
 #include "Components/DrawFrustumComponent.h"
 #include "UnrealEngine.h"
 #include "AI/Navigation/NavLinkRenderingComponent.h"
-
 #include "PhysicsPublic.h"
-
-#include "AnimationRecorder.h"
-
-#include "Settings/EditorSettings.h"
-
+#include "Analytics/AnalyticsPrivacySettings.h"
 #include "KismetReinstanceUtilities.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditorServer, Log, All);
@@ -1092,7 +1088,10 @@ void UEditorEngine::HandleTransactorRedo( FUndoSessionContext SessionContext, bo
 
 	BroadcastPostRedo(SessionContext.Context, SessionContext.PrimaryObject, Succeeded);
 	InvalidateAllViewportsAndHitProxies();
-	ShowUndoRedoNotification(FText::Format(NSLOCTEXT("UnrealEd", "RedoMessageFormat", "Redo: {0}"), SessionContext.Title), Succeeded);
+	if (!bSquelchTransactionNotification)
+	{
+		ShowUndoRedoNotification(FText::Format(NSLOCTEXT("UnrealEd", "RedoMessageFormat", "Redo: {0}"), SessionContext.Title), Succeeded);
+	}
 }
 
 void UEditorEngine::HandleTransactorUndo( FUndoSessionContext SessionContext, bool Succeeded )
@@ -1102,12 +1101,15 @@ void UEditorEngine::HandleTransactorUndo( FUndoSessionContext SessionContext, bo
 
 	BroadcastPostUndo(SessionContext.Context, SessionContext.PrimaryObject, Succeeded);
 	InvalidateAllViewportsAndHitProxies();
-	ShowUndoRedoNotification(FText::Format(NSLOCTEXT("UnrealEd", "UndoMessageFormat", "Undo: {0}"), SessionContext.Title), Succeeded);
+	if (!bSquelchTransactionNotification)
+	{
+		ShowUndoRedoNotification(FText::Format(NSLOCTEXT("UnrealEd", "UndoMessageFormat", "Undo: {0}"), SessionContext.Title), Succeeded);
+	}
 }
 
 bool UEditorEngine::AreEditorAnalyticsEnabled() const 
 {
-	return GetDefault<UEditorSettings>()->bEditorAnalyticsEnabled;
+	return GetDefault<UAnalyticsPrivacySettings>()->bSendUsageData;
 }
 
 void UEditorEngine::CreateStartupAnalyticsAttributes( TArray<FAnalyticsEventAttribute>& StartSessionAttributes ) const
@@ -1265,7 +1267,7 @@ void UEditorEngine::PostUndo(bool bSuccess)
 	FBlueprintCompileReinstancer::BatchReplaceInstancesOfClass(OldToNewClassMapToReinstance);
 }
 
-bool UEditorEngine::UndoTransaction()
+bool UEditorEngine::UndoTransaction(bool bCanRedo)
 {
 	// make sure we're in a valid state to perform this
 	if (GIsSavingPackage || IsGarbageCollecting())
@@ -1273,7 +1275,7 @@ bool UEditorEngine::UndoTransaction()
 		return false;
 	}
 
-	return Trans->Undo();
+	return Trans->Undo(bCanRedo);
 }
 
 bool UEditorEngine::RedoTransaction()
@@ -1674,7 +1676,7 @@ void UEditorEngine::RebuildModelFromBrushes(UModel* Model, bool bSelectedBrushes
 	TArray<ABrush*> DynamicBrushes;
 	if (!bTreatMovableBrushesAsStatic)
 	{
-		for (auto It(Level->Actors.CreateConstIterator()); It; ++It)
+	for( auto It(Level->Actors.CreateConstIterator()); It; ++It )
 		{
 			ABrush* DynamicBrush = Cast<ABrush>(*It);
 			if (DynamicBrush && DynamicBrush->Brush && !DynamicBrush->IsStaticBrush() &&
@@ -1715,7 +1717,7 @@ void UEditorEngine::RebuildModelFromBrushes(UModel* Model, bool bSelectedBrushes
 
 void UEditorEngine::RebuildAlteredBSP()
 {
-	if( GUndo && !GIsTransacting )
+	if( !GIsTransacting )
 	{
 		// Early out if BSP auto-updating is disabled
 		if (!GetDefault<ULevelEditorMiscSettings>()->bBSPAutoUpdate)
@@ -1727,15 +1729,15 @@ void UEditorEngine::RebuildAlteredBSP()
 
 		// A list of all the levels that need to be rebuilt
 		TArray< TWeakObjectPtr< ULevel > > LevelsToRebuild;
-			ABrush::NeedsRebuild(&LevelsToRebuild);
+		ABrush::NeedsRebuild(&LevelsToRebuild);
 
 		// Determine which levels need to be rebuilt
 		for (FSelectionIterator It(GetSelectedActorIterator()); It; ++It)
 		{
 			AActor* Actor = static_cast<AActor*>(*It);
-				checkSlow(Actor->IsA(AActor::StaticClass()));
+			checkSlow(Actor->IsA(AActor::StaticClass()));
 
-				ABrush* SelectedBrush = Cast< ABrush >(Actor);
+			ABrush* SelectedBrush = Cast< ABrush >(Actor);
 			if (SelectedBrush && !FActorEditorUtils::IsABuilderBrush(Actor))
 			{
 				ULevel* Level = SelectedBrush->GetLevel();
@@ -1748,16 +1750,16 @@ void UEditorEngine::RebuildAlteredBSP()
 			{
 				// In addition to any selected brushes, any brushes attached to a selected actor should be rebuilt
 				TArray<AActor*> AttachedActors;
-					Actor->GetAttachedActors(AttachedActors);
+				Actor->GetAttachedActors(AttachedActors);
 
 				const bool bExactClass = true;
 				TArray<AActor*> AttachedBrushes;
 				// Get any brush actors attached to the selected actor
-					if (ContainsObjectOfClass(AttachedActors, ABrush::StaticClass(), bExactClass, &AttachedBrushes))
+				if (ContainsObjectOfClass(AttachedActors, ABrush::StaticClass(), bExactClass, &AttachedBrushes))
 				{
-						for (int32 BrushIndex = 0; BrushIndex < AttachedBrushes.Num(); ++BrushIndex)
+					for (int32 BrushIndex = 0; BrushIndex < AttachedBrushes.Num(); ++BrushIndex)
 					{
-							ULevel* Level = CastChecked<ABrush>(AttachedBrushes[BrushIndex])->GetLevel();
+						ULevel* Level = CastChecked<ABrush>(AttachedBrushes[BrushIndex])->GetLevel();
 						if (Level)
 						{
 							LevelsToRebuild.AddUnique(Level);
@@ -1792,7 +1794,7 @@ void UEditorEngine::RebuildAlteredBSP()
 	}
 	else
 	{
- 		ensureMsgf(0, TEXT("Rebuild BSP ignored. Not in a transaction") );
+ 		ensureMsgf(0, TEXT("Rebuild BSP ignored during undo/redo") );
 		ABrush::OnRebuildDone();
 	}
 }
@@ -3058,8 +3060,8 @@ ULevel*  UEditorEngine::CreateTransLevelMoveBuffer( UWorld* InWorld )
 	// Spawn worldsettings.
 	FActorSpawnParameters SpawnInfo;
 	SpawnInfo.OverrideLevel = BufferLevel;
-	InWorld->SpawnActor( GEngine->WorldSettingsClass, NULL, NULL, SpawnInfo );
-	check( Cast<AWorldSettings>( BufferLevel->Actors[0] ) );
+	AWorldSettings* WorldSettings = InWorld->SpawnActor<AWorldSettings>( GEngine->WorldSettingsClass, SpawnInfo );
+	BufferLevel->SetWorldSettings(WorldSettings);
 
 	// Spawn builder brush for the buffer level.
 	ABrush* BufferDefaultBrush = InWorld->SpawnActor<ABrush>( SpawnInfo );
@@ -3406,12 +3408,30 @@ void UEditorEngine::PasteSelectedActorsFromClipboard( UWorld* InWorld, const FTe
 				// List of group actors in the selection
 				TArray<AGroupActor*> GroupActors;
 
-				// Move the actors.
+				struct FAttachData
+				{
+					FAttachData(AActor* InParentActor, FName InSocketName)
+						: ParentActor(InParentActor)
+						, SocketName(InSocketName)
+					{}
+
+					AActor* ParentActor;
+					FName SocketName;
+				};
+
+				TArray<FAttachData, TInlineAllocator<8>> AttachData;
+				AttachData.Reserve(NumActorsToMove);
+
+				// Break any parent attachments and move the actors.
 				AActor* SingleActor = NULL;
 				for ( FSelectionIterator It( GEditor->GetSelectedActorIterator() ) ; It ; ++It )
 				{
 					AActor* Actor = static_cast<AActor*>( *It );
-					checkSlow( Actor->IsA(AActor::StaticClass()) );
+
+					AActor* ParentActor = Actor->GetAttachParentActor();
+					FName SocketName = Actor->GetAttachParentSocketName();
+					Actor->DetachRootComponentFromParent(true);
+					AttachData.Emplace(ParentActor, SocketName);
 
 					// If this actor is in a group, add it to the list
 					if (GEditor->bGroupingActive)
@@ -3425,12 +3445,21 @@ void UEditorEngine::PasteSelectedActorsFromClipboard( UWorld* InWorld, const FTe
 
 					SingleActor = Actor;
 					Actor->SetActorLocation(Actor->GetActorLocation() + Adjust, false);
+				}
+
+				// Restore attachments
+				int Index = 0;
+				for (FSelectionIterator It(GEditor->GetSelectedActorIterator()); It; ++It)
+				{
+					AActor* Actor = static_cast<AActor*>(*It);
+					Actor->AttachRootComponentToActor(AttachData[Index].ParentActor, AttachData[Index].SocketName, EAttachLocation::KeepWorldPosition);
 					Actor->PostEditMove(true);
+					Index++;
 				}
 
 				// Update the pivot location.
 				check(SingleActor);
-				SetPivot(SingleActor->GetActorLocation(), false, true);
+				SetPivot( SingleActor->GetActorLocation(), false, true );
 
 				// If grouping is active, go through the unique group actors and update the group actor location
 				if (GEditor->bGroupingActive)
@@ -3670,7 +3699,7 @@ bool UEditorEngine::Map_Check( UWorld* InWorld, const TCHAR* Str, FOutputDevice&
 			if (Level != NULL)
 			{
 				// Grab the world info of the streaming level, and loop through it's streaming levels
-				AWorldSettings* SubLevelWorldSettings = CastChecked<AWorldSettings>(Level->Actors[0]);
+				AWorldSettings* SubLevelWorldSettings = Level->GetWorldSettings();
 				UWorld *SubLevelWorld = CastChecked<UWorld>(Level->GetOuter());
 				if (SubLevelWorld != NULL && SubLevelWorldSettings != NULL )
 				{
@@ -4829,6 +4858,15 @@ bool UEditorEngine::SnapObjectTo( FActorOrComponent Object, const bool InAlign, 
 		FVector NewLocation = Hit.Location - LocationOffset;
 		NewLocation.Z += KINDA_SMALL_NUMBER;	// Move the new desired location up by an error tolerance
 		
+		if (Object.Actor)
+		{
+			GEditor->BroadcastBeginObjectMovement(*Object.Actor);
+		}
+		else
+		{
+			GEditor->BroadcastBeginObjectMovement(*Object.Component);
+		}
+
 		Object.SetWorldLocation( NewLocation );
 		//InActor->TeleportTo( NewLocation, InActor->GetActorRotation(), false,true );
 		
@@ -4840,6 +4878,16 @@ bool UEditorEngine::SnapObjectTo( FActorOrComponent Object, const bool InAlign, 
 			Object.SetWorldRotation( NewRotation );
 		}
 
+		if (Object.Actor)
+		{
+			GEditor->BroadcastEndObjectMovement(*Object.Actor);
+		}
+		else
+		{
+			GEditor->BroadcastEndObjectMovement(*Object.Component);
+		}
+
+
 		// Switch to the pie world if we have one
 		FScopedConditionalWorldSwitcher WorldSwitcher( GCurrentLevelEditingViewportClient );
 
@@ -4849,6 +4897,15 @@ bool UEditorEngine::SnapObjectTo( FActorOrComponent Object, const bool InAlign, 
 		{
 			RebuildAlteredBSP();
 		}
+
+		TArray<FEdMode*> ActiveModes; 
+		GCurrentLevelEditingViewportClient->GetModeTools()->GetActiveModes(ActiveModes);
+		for( int32 ModeIndex = 0; ModeIndex < ActiveModes.Num(); ++ModeIndex )
+		{
+			// Notify active modes
+			ActiveModes[ModeIndex]->ActorMoveNotify();
+		}
+
 		return true;
 	}
 
@@ -5693,6 +5750,10 @@ bool UEditorEngine::Exec( UWorld* InWorld, const TCHAR* Stream, FOutputDevice& A
 	{
 		HandleRemoveArchtypeFlagCommand( Str, Ar );
 	}
+	else if( FParse::Command(&Str,TEXT("STARTMOVIECAPTURE")) )
+	{
+		bProcessed = HandleStartMovieCaptureCommand( Str, Ar );
+	}
 	else
 	{
 		bProcessed = FBlueprintEditorUtils::KismetDiagnosticExec(Stream, Ar);
@@ -6460,6 +6521,31 @@ bool UEditorEngine::HandleRemoveArchtypeFlagCommand( const TCHAR* Str, FOutputDe
 		}
 	}
 	return true;
+}
+
+bool UEditorEngine::HandleStartMovieCaptureCommand( const TCHAR* Cmd, FOutputDevice& Ar )
+{
+	IMovieSceneCaptureInterface* CaptureInterface = IMovieSceneCaptureModule::Get().GetFirstActiveMovieSceneCapture();
+	if (CaptureInterface)
+	{
+		CaptureInterface->StartCapturing();
+		return true;
+	}
+
+	for (const FWorldContext& Context : GEngine->GetWorldContexts())
+	{
+		if (Context.WorldType == EWorldType::PIE)
+		{
+			FSlatePlayInEditorInfo* SlatePlayInEditorSession = GEditor->SlatePlayInEditorMap.Find(Context.ContextHandle);
+			if (SlatePlayInEditorSession && SlatePlayInEditorSession->SlatePlayInEditorWindowViewport.IsValid())
+			{
+				IMovieSceneCaptureModule::Get().CreateMovieSceneCapture(SlatePlayInEditorSession->SlatePlayInEditorWindowViewport.ToSharedRef());
+				return true;
+			}
+		}
+	}
+
+	return false;
 }
 
 /**

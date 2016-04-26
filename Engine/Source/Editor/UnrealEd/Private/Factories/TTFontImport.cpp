@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	TTFontImport.cpp: True-type Font Importing
@@ -794,7 +794,7 @@ UTexture2D* UTrueTypeFontFactory::CreateTextureFromDC( UFont* Font, HDC dc, int3
 	int32 TotalProgress = BitmapWidth-1;
 
 	FFormatNamedArguments Args;
-	Args.Add( TEXT("TextureNumber"), TextureNum );
+	Args.Add( TEXT("TextureNum"), TextureNum );
 	GWarn->StatusUpdate(0,0, FText::Format( NSLOCTEXT("TrueTypeFontImport", "GeneratingFontPageStatusUpdate", "Generating font page {TextureNum}"), Args ));
 
 	TArray<int32> SourceData;	
@@ -1688,7 +1688,7 @@ UTexture2D* UTrueTypeFontFactory::CreateTextureFromBitmap( UFont* Font, uint8* B
 	// restart progress bar for font bitmap generation since this takes a while
 	int32 TotalProgress = BitmapWidth-1;
 	FFormatNamedArguments Args;
-	Args.Add( TEXT("TextureNumber"), TextureNum );
+	Args.Add( TEXT("TextureNum"), TextureNum );
 	GWarn->StatusUpdate(0,0, FText::Format( NSLOCTEXT("TrueTypeFontImport", "GeneratingFontPageStatusUpdate", "Generating font page {TextureNum}"), Args ));
 
 	uint32* SourceData = (uint32*)BitmapData;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "PluginBrowserPrivatePCH.h"
 #include "PluginStyle.h"
@@ -157,22 +157,25 @@ void SPluginBrowser::Construct( const FArguments& Args )
 	const FProjectDescriptor* CurrentProject = IProjectManager::Get().GetCurrentProject();
 	bool bIsContentOnlyProject = CurrentProject == nullptr || CurrentProject->Modules.Num() == 0 || !FGameProjectGenerationModule::Get().ProjectHasCodeFiles();
 
-	if (!bIsContentOnlyProject)
-	{
-		MainContent->AddSlot()
-		.AutoHeight()
-		.Padding(5)
-		.HAlign(HAlign_Right)
-		[
-			SNew(SButton)
-			.ContentPadding(5)
-			.TextStyle(FEditorStyle::Get(), "LargeText")
-			.ButtonStyle(FEditorStyle::Get(), "FlatButton.Success")
-			.HAlign(HAlign_Center)
-			.Text(LOCTEXT("NewPluginLabel", "New plugin"))
-			.OnClicked(this, &SPluginBrowser::HandleNewPluginButtonClicked)
-		];
-	}
+	const FText NewPluginTooltip = bIsContentOnlyProject ?
+		LOCTEXT("NewPluginDisabled", "To be able to add a new plugin, first convert the project to a code project by adding at least one C++ class.") :
+		LOCTEXT("NewPluginEnabled", "Click here to open the Plugin Creator dialog.");
+
+	MainContent->AddSlot()
+	.AutoHeight()
+	.Padding(5)
+	.HAlign(HAlign_Right)
+	[
+		SNew(SButton)
+		.ContentPadding(5)
+		.IsEnabled(!bIsContentOnlyProject)
+		.ToolTip(SNew(SToolTip).Text(NewPluginTooltip))
+		.TextStyle(FEditorStyle::Get(), "LargeText")
+		.ButtonStyle(FEditorStyle::Get(), "FlatButton.Success")
+		.HAlign(HAlign_Center)
+		.Text(LOCTEXT("NewPluginLabel", "New plugin"))
+		.OnClicked(this, &SPluginBrowser::HandleNewPluginButtonClicked)
+	];
 
 	ChildSlot
 	[

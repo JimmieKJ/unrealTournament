@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MallocBinned.cpp: Binned memory allocator
@@ -591,6 +591,7 @@ struct FMallocBinned::Private
 				if (Allocator.FreedPageBlocks[i].ByteSize == NewSize)
 				{
 					void* Ret = Allocator.FreedPageBlocks[i].Ptr;
+					UE_CLOG(!Ret, LogMemory, Fatal, TEXT("OS memory allocation cache has been corrupted!"));
 					OutActualSize = Allocator.FreedPageBlocks[i].ByteSize;
 					Allocator.CachedTotal -= Allocator.FreedPageBlocks[i].ByteSize;
 					if (i < Allocator.FreedPageBlocksNum - 1)
@@ -607,6 +608,7 @@ struct FMallocBinned::Private
 				if (Allocator.FreedPageBlocks[i].ByteSize >= NewSize && Allocator.FreedPageBlocks[i].ByteSize * 3 <= NewSize * 4)
 				{
 					void* Ret = Allocator.FreedPageBlocks[i].Ptr;
+					UE_CLOG(!Ret, LogMemory, Fatal, TEXT("OS memory allocation cache has been corrupted!"));
 					OutActualSize = Allocator.FreedPageBlocks[i].ByteSize;
 					Allocator.CachedTotal -= Allocator.FreedPageBlocks[i].ByteSize;
 					if (i < Allocator.FreedPageBlocksNum - 1)

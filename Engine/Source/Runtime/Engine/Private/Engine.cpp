@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Engine.cpp: Unreal engine package.
@@ -164,7 +164,8 @@ void ReattachComponents(const TArray<FString>& Args)
 
 FAutoConsoleCommand ReattachComponentsCmd(
 	TEXT("Reattach.Components"),
-	TEXT("Useful for debugging, reattaches all components. Parameter needs to be the class name."),
+	TEXT("Useful for debugging, reattaches all components. Parameter needs to be the class name.\n")
+	TEXT(" Example: Reattach.Components class=SkeletalMeshComponent"),
 	FConsoleCommandWithArgsDelegate::CreateStatic(&ReattachComponents)
 	);
 

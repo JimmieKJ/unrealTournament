@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 #include "AbilityTask.h"
 #include "Abilities/GameplayAbilityTypes.h"
@@ -13,7 +13,7 @@ class UAbilityTask_WaitConfirm : public UAbilityTask
 	FGenericGameplayTaskDelegate	OnConfirm;
 
 	UFUNCTION()
-	void OnConfirmCallback(UGameplayAbility* Ability);
+	void OnConfirmCallback(UGameplayAbility* InAbility);
 
 	virtual void Activate() override;
 

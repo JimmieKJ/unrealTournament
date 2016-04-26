@@ -1,9 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerPrivatePCH.h"
 #include "IKeyArea.h"
 #include "Sequencer.h"
-
+#include "SKeyNavigationButtons.h"
 
 /* FSectionKeyAreaNode interface
  *****************************************************************************/
@@ -23,7 +23,7 @@ bool FSequencerSectionKeyAreaNode::CanRenameNode() const
 }
 
 
-TSharedRef<SWidget> FSequencerSectionKeyAreaNode::GenerateEditWidgetForOutliner()
+TSharedRef<SWidget> FSequencerSectionKeyAreaNode::GetCustomOutlinerContent()
 {
 	// @todo sequencer: support multiple sections/key areas?
 	TArray<TSharedRef<IKeyArea>> AllKeyAreas = GetAllKeyAreas();
@@ -32,11 +32,35 @@ TSharedRef<SWidget> FSequencerSectionKeyAreaNode::GenerateEditWidgetForOutliner(
 	{
 		if (AllKeyAreas[0]->CanCreateKeyEditor())
 		{
-			return AllKeyAreas[0]->CreateKeyEditor(&GetSequencer());
+			return SNew(SBox)
+			.HAlign(HAlign_Right)
+			.VAlign(VAlign_Center)
+			[
+				SNew(SHorizontalBox)
+
+				+ SHorizontalBox::Slot()
+				.HAlign(HAlign_Right)
+				.VAlign(VAlign_Center)
+				[
+					SNew(SBox)
+					.WidthOverride(100)
+					.HAlign(HAlign_Left)
+					[
+						AllKeyAreas[0]->CreateKeyEditor(&GetSequencer())
+					]
+				]
+
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				[
+					SNew(SKeyNavigationButtons, AsShared())
+				]
+			];
 		}
 	}
 
-	return FSequencerDisplayNode::GenerateEditWidgetForOutliner();
+	return FSequencerDisplayNode::GetCustomOutlinerContent();
 }
 
 
@@ -55,7 +79,7 @@ float FSequencerSectionKeyAreaNode::GetNodeHeight() const
 
 FNodePadding FSequencerSectionKeyAreaNode::GetNodePadding() const
 {
-	return FNodePadding(0.f, 1.f);
+	return FNodePadding(0.f);//FNodePadding(0.f, 1.f);
 }
 
 

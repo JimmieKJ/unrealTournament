@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,6 +6,7 @@
 // THIS FILE SHOULD BE USED ONLY BY AUTOMATICALLY GENERATED CODE. 
 
 // Common includes
+#include "Runtime/Core/Public/Core.h"
 #include "UObject/Stack.h"
 #include "Blueprint/BlueprintSupport.h"
 #include "Engine/BlueprintGeneratedClass.h"
@@ -22,6 +23,18 @@
 
 //For DOREPLIFETIME macros
 #include "Net/UnrealNetwork.h"
+
+//For Box2D
+#include "Runtime/Core/Public/Math/Box2D.h"
+
+inline FBox2D CreateFBox2D(FVector2D InMin, FVector2D InMax, bool InIsValid)
+{
+	FBox2D Result;
+	Result.Min = InMin;
+	Result.Max = InMax;
+	Result.bIsValid = InIsValid;
+	return Result;
+}
 
 template<class NativeType>
 inline NativeType* NoNativeCast(UClass* NoNativeClass, UObject* Object)
@@ -41,6 +54,11 @@ inline bool IsValid(const FScriptInterface& Test)
 	return IsValid(Test.GetObject()) && (nullptr != Test.GetInterface());
 }
 
+inline bool IsValid(const FWeakObjectPtr& Test)
+{
+	return Test.IsValid();
+}
+
 template<class TEnum>
 inline uint8 EnumToByte(TEnumAsByte<TEnum> Val)
 {
@@ -51,6 +69,12 @@ template<class T>
 inline const T* GetDefaultValueSafe(UClass* Class)
 {
 	return IsValid(Class) ? GetDefault<T>(Class) : nullptr;
+}
+
+template<typename ValueType>
+inline ValueType* AccessPrivateProperty(void const* ContainerPtr, int32 PropertyOffset, int32 ElementSize, int32 ArrayIndex = 0)
+{
+	return (ValueType*)((uint8*)ContainerPtr + PropertyOffset + (ElementSize * ArrayIndex));
 }
 
 struct FCustomThunkTemplates
@@ -84,7 +108,7 @@ public:
 	}
 
 	template<typename T>
-	static void Array_Shuffle(TArray<T>& TargetArray, const UArrayProperty* ArrayProperty)
+	static void Array_Shuffle(TArray<T>& TargetArray)
 	{
 		int32 LastIndex = TargetArray.Num() - 1;
 		for (int32 i = 0; i < LastIndex; ++i)
@@ -365,23 +389,23 @@ struct FUnconvertedWrapper
 template<typename T>
 struct TArrayCaster
 {
-	TArray<T*> Val;
-	TArray<T*>& ValRef;
+	TArray<T> Val;
+	TArray<T>& ValRef;
 
-	TArrayCaster(TArray<T*>& InArr) 
+	TArrayCaster(const TArray<T>& InArr)
 		: Val()
-		, ValRef(InArr)
+		, ValRef(*(TArray<T>*)(&InArr))
 	{}
 
-	TArrayCaster(TArray<T*>&& InArr) 
+	TArrayCaster(TArray<T>&& InArr) 
 		: Val(MoveTemp(InArr))
 		, ValRef(Val)
 	{}
 
 	template<typename U>
-	TArray<U*>& Get()
+	TArray<U>& Get()
 	{
-		static_assert(sizeof(T*) == sizeof(U*), "Incompatible pointers");
-		return *reinterpret_cast<TArray<U*>*>(&ValRef);
+		static_assert(sizeof(T) == sizeof(U), "Incompatible pointers");
+		return *reinterpret_cast<TArray<U>*>(&ValRef);
 	}
 };

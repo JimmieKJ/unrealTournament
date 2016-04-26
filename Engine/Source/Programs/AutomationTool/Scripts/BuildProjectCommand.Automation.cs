@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -53,7 +53,7 @@ public partial class Project : CommandUtils
 		var CrashReportPlatforms = new HashSet<UnrealTargetPlatform>();
 
 		// Setup editor targets
-		if (Params.HasEditorTargets && !Params.Rocket && (TargetMask & ProjectBuildTargets.Editor) == ProjectBuildTargets.Editor)
+		if (Params.HasEditorTargets && !Automation.IsEngineInstalled() && (TargetMask & ProjectBuildTargets.Editor) == ProjectBuildTargets.Editor)
 		{
 			// @todo Mac: proper platform detection
 			UnrealTargetPlatform EditorPlatform = HostPlatform.Current.HostEditorPlatform;
@@ -82,9 +82,13 @@ public partial class Project : CommandUtils
         string ScriptPluginArgs = "";
         // if we're utilizing an auto-generated code plugin/module (a product of 
         // the cook process), make sure to compile it along with the targets here
-        if (Params.UseNativizedScriptPlugin())
+        if (Params.RunAssetNativization)
         {
-            ScriptPluginArgs = "-PLUGIN \"" + Params.NativizedScriptPlugin + "\"";
+            // Add every plugin:
+            foreach( var CodePlugin in  Params.BlueprintPluginPaths)
+            {
+                ScriptPluginArgs = "-PLUGIN \"" + CodePlugin + "\""; 
+            }
         }
 
 		// Setup cooked targets
@@ -95,7 +99,7 @@ public partial class Project : CommandUtils
 				foreach (var ClientPlatform in Params.ClientTargetPlatforms)
 				{
 					CrashReportPlatforms.Add(ClientPlatform);
-                    Agenda.AddTargets(Params.ClientCookedTargets.ToArray(), ClientPlatform, BuildConfig, Params.CodeBasedUprojectPath, ScriptPluginArgs);
+					Agenda.AddTargets(Params.ClientCookedTargets.ToArray(), ClientPlatform, BuildConfig, Params.CodeBasedUprojectPath, InAddArgs: ScriptPluginArgs + " -remoteini=\"" + Params.RawProjectPath.Directory.FullName + "\"");
 				}
 			}
 		}
@@ -106,11 +110,11 @@ public partial class Project : CommandUtils
 				foreach (var ServerPlatform in Params.ServerTargetPlatforms)
 				{
 					CrashReportPlatforms.Add(ServerPlatform);
-                    Agenda.AddTargets(Params.ServerCookedTargets.ToArray(), ServerPlatform, BuildConfig, Params.CodeBasedUprojectPath, ScriptPluginArgs);
+					Agenda.AddTargets(Params.ServerCookedTargets.ToArray(), ServerPlatform, BuildConfig, Params.CodeBasedUprojectPath, InAddArgs: ScriptPluginArgs + " -remoteini=\"" + Params.RawProjectPath.Directory.FullName + "\"");
 				}
 			}
 		}
-		if (!Params.NoBootstrapExe && !Params.Rocket && (TargetMask & ProjectBuildTargets.Bootstrap) == ProjectBuildTargets.Bootstrap)
+		if (!Params.NoBootstrapExe && !Automation.IsEngineInstalled() && (TargetMask & ProjectBuildTargets.Bootstrap) == ProjectBuildTargets.Bootstrap)
 		{
 			UnrealBuildTool.UnrealTargetPlatform[] BootstrapPackagedGamePlatforms = { UnrealBuildTool.UnrealTargetPlatform.Win32, UnrealBuildTool.UnrealTargetPlatform.Win64 };
 			foreach(UnrealBuildTool.UnrealTargetPlatform BootstrapPackagedGamePlatform in BootstrapPackagedGamePlatforms)
@@ -121,7 +125,7 @@ public partial class Project : CommandUtils
 				}
 			}
 		}
-		if (Params.CrashReporter && !Params.Rocket && (TargetMask & ProjectBuildTargets.CrashReporter) == ProjectBuildTargets.CrashReporter)
+		if (Params.CrashReporter && !Automation.IsEngineInstalled() && (TargetMask & ProjectBuildTargets.CrashReporter) == ProjectBuildTargets.CrashReporter)
 		{
 			foreach (var CrashReportPlatform in CrashReportPlatforms)
 			{
@@ -131,7 +135,7 @@ public partial class Project : CommandUtils
 				}
 			}
 		}
-		if (Params.HasProgramTargets && !Params.Rocket && (TargetMask & ProjectBuildTargets.Programs) == ProjectBuildTargets.Programs)
+		if (Params.HasProgramTargets && (TargetMask & ProjectBuildTargets.Programs) == ProjectBuildTargets.Programs)
 		{
 			foreach (var BuildConfig in Params.ClientConfigsToBuild)
 			{

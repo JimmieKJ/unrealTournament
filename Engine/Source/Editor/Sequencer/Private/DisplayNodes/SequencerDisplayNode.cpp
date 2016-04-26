@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerPrivatePCH.h"
 #include "SequencerSectionLayoutBuilder.h"
@@ -59,7 +59,7 @@ private:
 	void CollectAllKeyTimes(TArray<float>& OutKeyTimes) const;
 
 	/** Adds a key time uniquely to an array of key times */
-	void AddKeyTime(float NewTime, TArray<float>& OutKeyTimes) const;
+	void AddKeyTime(const float& NewTime, TArray<float>& OutKeyTimes) const;
 
 private:
 
@@ -73,28 +73,32 @@ private:
 
 int32 SSequencerObjectTrack::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
 {
-	TArray<float> OutKeyTimes;
-	CollectAllKeyTimes(OutKeyTimes);
-	
-	FTimeToPixel TimeToPixelConverter(AllottedGeometry, ViewRange.Get());
-
-	for (int32 i = 0; i < OutKeyTimes.Num(); ++i)
+	if (RootNode->GetSequencer().GetSettings()->GetShowCombinedKeyframes())
 	{
-		float KeyPosition = TimeToPixelConverter.TimeToPixel(OutKeyTimes[i]);
-		static const FVector2D KeyMarkSize = FVector2D(3.f, 21.f);
+		TArray<float> OutKeyTimes;
+		CollectAllKeyTimes(OutKeyTimes);
+	
+		FTimeToPixel TimeToPixelConverter(AllottedGeometry, ViewRange.Get());
 
-		FSlateDrawElement::MakeBox(
-			OutDrawElements,
-			LayerId+1,
-			AllottedGeometry.ToPaintGeometry(FVector2D(KeyPosition - FMath::CeilToFloat(KeyMarkSize.X/2.f), FMath::CeilToFloat(AllottedGeometry.Size.Y/2.f - KeyMarkSize.Y/2.f)), KeyMarkSize),
-			FEditorStyle::GetBrush("Sequencer.KeyMark"),
-			MyClippingRect,
-			ESlateDrawEffect::None,
-			FLinearColor(1.f, 1.f, 1.f, 1.f)
-		);
+		for (int32 i = 0; i < OutKeyTimes.Num(); ++i)
+		{
+			float KeyPosition = TimeToPixelConverter.TimeToPixel(OutKeyTimes[i]);
+			static const FVector2D KeyMarkSize = FVector2D(3.f, 21.f);
+
+			FSlateDrawElement::MakeBox(
+				OutDrawElements,
+				LayerId+1,
+				AllottedGeometry.ToPaintGeometry(FVector2D(KeyPosition - FMath::CeilToFloat(KeyMarkSize.X/2.f), FMath::CeilToFloat(AllottedGeometry.Size.Y/2.f - KeyMarkSize.Y/2.f)), KeyMarkSize),
+				FEditorStyle::GetBrush("Sequencer.KeyMark"),
+				MyClippingRect,
+				ESlateDrawEffect::None,
+				FLinearColor(1.f, 1.f, 1.f, 1.f)
+			);
+		}
+		return LayerId+1;
 	}
 
-	return LayerId+1;
+	return LayerId;
 }
 
 
@@ -110,7 +114,7 @@ void SSequencerObjectTrack::CollectAllKeyTimes(TArray<float>& OutKeyTimes) const
 	TArray<TSharedRef<FSequencerSectionKeyAreaNode>> OutNodes;
 	RootNode->GetChildKeyAreaNodesRecursively(OutNodes);
 
-	for (int32 i = 0; i < OutNodes.Num(); ++i)
+for (int32 i = 0; i < OutNodes.Num(); ++i)
 	{
 		TArray< TSharedRef<IKeyArea> > KeyAreas = OutNodes[i]->GetAllKeyAreas();
 		for (int32 j = 0; j < KeyAreas.Num(); ++j)
@@ -125,7 +129,7 @@ void SSequencerObjectTrack::CollectAllKeyTimes(TArray<float>& OutKeyTimes) const
 }
 
 
-void SSequencerObjectTrack::AddKeyTime(float NewTime, TArray<float>& OutKeyTimes) const
+void SSequencerObjectTrack::AddKeyTime(const float& NewTime, TArray<float>& OutKeyTimes) const
 {
 	// @todo Sequencer It might be more efficient to add each key and do the pruning at the end
 	for (float& KeyTime : OutKeyTimes)
@@ -141,11 +145,14 @@ void SSequencerObjectTrack::AddKeyTime(float NewTime, TArray<float>& OutKeyTimes
 
 
 FSequencerDisplayNode::FSequencerDisplayNode( FName InNodeName, TSharedPtr<FSequencerDisplayNode> InParentNode, FSequencerNodeTree& InParentTree )
-	: ParentNode( InParentNode )
+	: VirtualTop( 0.f )
+	, VirtualBottom( 0.f )
+	, ParentNode( InParentNode )
 	, ParentTree( InParentTree )
 	, NodeName( InNodeName )
 	, bExpanded( false )
-{ }
+{
+}
 
 
 void FSequencerDisplayNode::Initialize(float InVirtualTop, float InVirtualBottom)
@@ -159,7 +166,7 @@ void FSequencerDisplayNode::Initialize(float InVirtualTop, float InVirtualBottom
 
 void FSequencerDisplayNode::AddObjectBindingNode(TSharedRef<FSequencerObjectBindingNode> ObjectBindingNode)
 {
-	ChildNodes.Add(ObjectBindingNode);
+	AddChildAndSetParent( ObjectBindingNode );
 }
 
 
@@ -242,7 +249,6 @@ bool FSequencerDisplayNode::TraverseVisible_ParentFirst(const TFunctionRef<bool(
 	return true;
 }
 
-
 TSharedRef<FSequencerSectionCategoryNode> FSequencerDisplayNode::AddCategoryNode( FName CategoryName, const FText& DisplayLabel )
 {
 	TSharedPtr<FSequencerSectionCategoryNode> CategoryNode;
@@ -294,7 +300,7 @@ TSharedRef<FSequencerTrackNode> FSequencerDisplayNode::AddSectionAreaNode(UMovie
 	if (!SectionNode.IsValid())
 	{
 		// No existing node found make a new one
-		SectionNode = MakeShareable(new FSequencerTrackNode(AssociatedTrack, AssociatedEditor, SharedThis(this), ParentTree));
+		SectionNode = MakeShareable( new FSequencerTrackNode( AssociatedTrack, AssociatedEditor, false, SharedThis(this), ParentTree ) );
 		ChildNodes.Add( SectionNode.ToSharedRef() );
 	}
 
@@ -328,21 +334,49 @@ void FSequencerDisplayNode::AddKeyAreaNode(FName KeyAreaName, const FText& Displ
 	KeyAreaNode->AddKeyArea(KeyArea);
 }
 
+FLinearColor FSequencerDisplayNode::GetDisplayNameColor() const
+{
+	return FLinearColor( 1.f, 1.f, 1.f, 1.f );
+}
+
+FText FSequencerDisplayNode::GetDisplayNameToolTipText() const
+{
+	return FText();
+}
 
 TSharedRef<SWidget> FSequencerDisplayNode::GenerateContainerWidgetForOutliner(const TSharedRef<SSequencerTreeViewRow>& InRow)
 {
-	auto NewWidget = SNew(SAnimationOutlinerTreeNode, SharedThis(this), InRow);
-	TreeNodeWidgetPtr = NewWidget;
+	auto NewWidget = SNew(SAnimationOutlinerTreeNode, SharedThis(this), InRow)
+	.IconBrush(this, &FSequencerDisplayNode::GetIconBrush)
+	.IconOverlayBrush(this, &FSequencerDisplayNode::GetIconOverlayBrush)
+	.IconToolTipText(this, &FSequencerDisplayNode::GetIconToolTipText)
+	.CustomContent()
+	[
+		GetCustomOutlinerContent()
+	];
 
 	return NewWidget;
 }
 
-
-TSharedRef<SWidget> FSequencerDisplayNode::GenerateEditWidgetForOutliner()
+TSharedRef<SWidget> FSequencerDisplayNode::GetCustomOutlinerContent()
 {
 	return SNew(SSpacer);
 }
 
+const FSlateBrush* FSequencerDisplayNode::GetIconBrush() const
+{
+	return nullptr;
+}
+
+const FSlateBrush* FSequencerDisplayNode::GetIconOverlayBrush() const
+{
+	return nullptr;
+}
+
+FText FSequencerDisplayNode::GetIconToolTipText() const
+{
+	return FText();
+}
 
 TSharedRef<SWidget> FSequencerDisplayNode::GenerateWidgetForSectionArea(const TAttribute< TRange<float> >& ViewRange)
 {
@@ -400,11 +434,11 @@ FString FSequencerDisplayNode::GetPathName() const
 }
 
 
-TSharedPtr<SWidget> FSequencerDisplayNode::OnSummonContextMenu(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+TSharedPtr<SWidget> FSequencerDisplayNode::OnSummonContextMenu()
 {
 	// @todo sequencer replace with UI Commands instead of faking it
 	const bool bShouldCloseWindowAfterMenuSelection = true;
-	FMenuBuilder MenuBuilder(bShouldCloseWindowAfterMenuSelection, nullptr);
+	FMenuBuilder MenuBuilder(bShouldCloseWindowAfterMenuSelection, GetSequencer().GetCommandBindings());
 
 	BuildContextMenu(MenuBuilder);
 
@@ -420,7 +454,7 @@ void FSequencerDisplayNode::BuildContextMenu(FMenuBuilder& MenuBuilder)
 	{
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("ToggleNodeActive", "Active"),
-			LOCTEXT("ToggleNodeActiveTooltip", "Set this node or selected nodes active/inactive"),
+			LOCTEXT("ToggleNodeActiveTooltip", "Set this track or selected tracks active/inactive"),
 			FSlateIcon(),
 			FUIAction(
 				FExecuteAction::CreateSP(&GetSequencer(), &FSequencer::ToggleNodeActive),
@@ -433,7 +467,7 @@ void FSequencerDisplayNode::BuildContextMenu(FMenuBuilder& MenuBuilder)
 
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("ToggleNodeLock", "Locked"),
-			LOCTEXT("ToggleNodeLockTooltip", "Lock or unlock this node or selected nodes"),
+			LOCTEXT("ToggleNodeLockTooltip", "Lock or unlock this node or selected tracks"),
 			FSlateIcon(),
 			FUIAction(
 				FExecuteAction::CreateSP(&GetSequencer(), &FSequencer::ToggleNodeLocked),
@@ -446,18 +480,18 @@ void FSequencerDisplayNode::BuildContextMenu(FMenuBuilder& MenuBuilder)
 
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("DeleteNode", "Delete"),
-			LOCTEXT("DeleteNodeTooltip", "Delete this or selected nodes"),
+			LOCTEXT("DeleteNodeTooltip", "Delete this or selected tracks"),
 			FSlateIcon(),
 			FUIAction(FExecuteAction::CreateSP(&GetSequencer(), &FSequencer::DeleteNode, ThisNode))
 		);
 
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("RenameNode", "Rename"),
-			LOCTEXT("RenameNodeTooltip", "Rename this node"),
+			LOCTEXT("RenameNodeTooltip", "Rename this track"),
 			FSlateIcon(),
 			FUIAction(
-				FExecuteAction::CreateSP(this, &FSequencerDisplayNode::HandleContextMenuRenameNodeExecute, ThisNode),
-				FCanExecuteAction::CreateSP(this, &FSequencerDisplayNode::HandleContextMenuRenameNodeCanExecute, ThisNode)
+				FExecuteAction::CreateSP(this, &FSequencerDisplayNode::HandleContextMenuRenameNodeExecute),
+				FCanExecuteAction::CreateSP(this, &FSequencerDisplayNode::HandleContextMenuRenameNodeCanExecute)
 			)
 		);
 	}
@@ -490,7 +524,7 @@ void FSequencerDisplayNode::SetExpansionState(bool bInExpanded)
 
 bool FSequencerDisplayNode::IsExpanded() const
 {
-	return ParentTree.HasActiveFilter() ? true : bExpanded;
+	return bExpanded;
 }
 
 
@@ -499,6 +533,11 @@ bool FSequencerDisplayNode::IsHidden() const
 	return ParentTree.HasActiveFilter() && !ParentTree.IsNodeFiltered(AsShared());
 }
 
+
+bool FSequencerDisplayNode::IsHovered() const
+{
+	return ParentTree.GetHoveredNode().Get() == this;
+}
 
 TSharedRef<FGroupedKeyArea> FSequencerDisplayNode::GetKeyGrouping(int32 InSectionIndex)
 {
@@ -540,20 +579,15 @@ TSharedRef<FGroupedKeyArea> FSequencerDisplayNode::UpdateKeyGrouping(int32 InSec
 }
 
 
-void FSequencerDisplayNode::HandleContextMenuRenameNodeExecute(TSharedRef<FSequencerDisplayNode> NodeToBeRenamed)
+void FSequencerDisplayNode::HandleContextMenuRenameNodeExecute()
 {
-	TSharedPtr<SAnimationOutlinerTreeNode> TreeNodeWidget = TreeNodeWidgetPtr.Pin();
-
-	if (TreeNodeWidget.IsValid())
-	{
-		TreeNodeWidget->EnterRenameMode();
-	}
+	RenameRequestedEvent.Broadcast();
 }
 
 
-bool FSequencerDisplayNode::HandleContextMenuRenameNodeCanExecute(TSharedRef<FSequencerDisplayNode> NodeToBeRenamed) const
+bool FSequencerDisplayNode::HandleContextMenuRenameNodeCanExecute() const
 {
-	return NodeToBeRenamed->CanRenameNode();
+	return CanRenameNode();
 }
 
 
@@ -567,5 +601,13 @@ void FSequencerDisplayNode::EnableKeyGoupingRegeneration()
 {
 	KeyGroupRegenerationLock.Decrement();
 }
+
+
+void FSequencerDisplayNode::AddChildAndSetParent( TSharedRef<FSequencerDisplayNode> InChild )
+{
+	ChildNodes.Add( InChild );
+	InChild->ParentNode = SharedThis( this );
+}
+
 
 #undef LOCTEXT_NAMESPACE

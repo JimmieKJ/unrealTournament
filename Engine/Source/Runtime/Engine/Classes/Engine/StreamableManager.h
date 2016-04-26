@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "StreamableManager.generated.h"
@@ -19,7 +19,7 @@ struct ENGINE_API FStreamableManager
 
 	/** 
 	 * Synchronously load the referred asset and return the loaded object, or NULL if it can't be found.
-	 * No references are made to the object, and this can be very slow.
+	 * A hard reference is made to the object (use Unload to release it), and this can be very slow.
 	 */
 	UObject* SynchronousLoad(FStringAssetReference const& Target);
 

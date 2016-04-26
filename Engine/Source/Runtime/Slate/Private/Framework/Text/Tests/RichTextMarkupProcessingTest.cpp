@@ -1,8 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlatePrivatePCH.h"
 
-#if WITH_FANCY_TEXT
+#if WITH_FANCY_TEXT & WITH_DEV_AUTOMATION_TESTS
 
 #include "AutomationTest.h"
 
@@ -385,4 +385,4 @@ bool FRTFProcessingTest::RunTest (const FString& Parameters)
 
 PRAGMA_ENABLE_OPTIMIZATION
 
-#endif //WITH_FANCY_TEXT
+#endif //WITH_FANCY_TEXT & WITH_DEV_AUTOMATION_TESTS

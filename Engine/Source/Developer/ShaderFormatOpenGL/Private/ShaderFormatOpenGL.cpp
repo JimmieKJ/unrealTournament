@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 //
 
 #include "ShaderFormatOpenGL.h"
@@ -101,8 +101,7 @@ public:
 		{
 			check(0);
 		}
-		const uint8 HLSLCCVersion = ((HLSLCC_VersionMajor & 0x0f) << 4) | (HLSLCC_VersionMinor & 0x0f);
-		const uint16 Version = ((HLSLCCVersion & 0xff) << 8) | (GLSLVersion & 0xff);
+		const uint16 Version = ((HLSLCC_VersionMinor & 0xff) << 8) | (GLSLVersion & 0xff);
 		return Version;
 	}
 	virtual void GetSupportedFormats(TArray<FName>& OutFormats) const override

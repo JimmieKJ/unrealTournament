@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintEditorPrivatePCH.h"
 #include "BlueprintActionMenuUtils.h"
@@ -338,7 +338,7 @@ static void BlueprintActionMenuUtilsImpl::AddComponentSections(FBlueprintActionF
 	{
 		FText const ComponentName = FText::FromName(ComponentsFilter.Context.SelectedObjects.Last()->GetFName());
 		FuncSectionHeading  = FText::Format(LOCTEXT("SingleComponentFuncCategory", "Call Function on {0}"), ComponentName);
-		EventSectionHeading = FText::Format(LOCTEXT("SingleComponentFuncCategory", "Add Event for {0}"), ComponentName);
+		EventSectionHeading = FText::Format(LOCTEXT("SingleComponentEventCategory", "Add Event for {0}"), ComponentName);
 	}
 
 	FBlueprintActionFilter ComponentFunctionsFilter = ComponentsFilter;
@@ -360,7 +360,7 @@ static void BlueprintActionMenuUtilsImpl::AddLevelActorSections(FBlueprintAction
 	{
 		FText const ActorName = FText::FromName(LevelActorsFilter.Context.SelectedObjects.Last()->GetFName());
 		FuncSectionHeading  = FText::Format(LOCTEXT("SingleActorFuncCategory", "Call Function on {0}"), ActorName);
-		EventSectionHeading = FText::Format(LOCTEXT("SingleActorFuncCategory", "Add Event for {0}"), ActorName);
+		EventSectionHeading = FText::Format(LOCTEXT("SingleActorEventCategory", "Add Event for {0}"), ActorName);
 	}
 
 	FBlueprintActionFilter ActorFunctionsFilter = LevelActorsFilter;

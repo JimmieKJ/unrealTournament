@@ -1,9 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
 
 #include "PreviewScene.h"
+#include "Animation/SkeletalMeshActor.h"
+#include "ThumbnailHelpers.generated.h"
 
 class FSceneViewFamily;
 class USCS_Node;
@@ -131,6 +133,12 @@ private:
 	AStaticMeshActor* PreviewActor;
 };
 
+UCLASS(ClassGroup = ISkeletalMeshes, ComponentWrapperClass, ConversionRoot, meta = (ChildCanTick))
+class AAnimationThumbnailSkeletalMeshActor : public ASkeletalMeshActor
+{
+	GENERATED_UCLASS_BODY()
+};
+
 class UNREALED_API FAnimationSequenceThumbnailScene : public FThumbnailPreviewScene
 {
 public:
@@ -149,7 +157,7 @@ protected:
 
 private:
 	/** The skeletal mesh actor used to display all animation thumbnails */
-	class ASkeletalMeshActor* PreviewActor;
+	AAnimationThumbnailSkeletalMeshActor* PreviewActor;
 
 	/** Animation we are generating the thumbnail for */
 	class UAnimSequenceBase* PreviewAnimation;

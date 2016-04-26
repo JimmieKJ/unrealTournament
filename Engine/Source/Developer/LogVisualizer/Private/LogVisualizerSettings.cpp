@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LogVisualizer.h"
 #include "Misc/CoreMisc.h"
@@ -238,8 +238,15 @@ bool FVisualLoggerFilters::MatchCategoryFilters(FString String, ELogVerbosity::T
 		bFoundFilter = Filter.CategoryName == String;
 		if (bFoundFilter)
 		{
-			const bool bFineWithSearchString = Settings->bSearchInsideLogs == true || (SearchBoxFilter.Len() == 0 || Filter.CategoryName.Find(SearchBoxFilter) != INDEX_NONE);
-			return bFineWithSearchString && Verbosity <= Filter.LogVerbosity && Filter.Enabled;
+			if (Filter.Enabled)
+			{
+				const bool bFineWithSearchString = Settings->bSearchInsideLogs == true || (SearchBoxFilter.Len() == 0 || Filter.CategoryName.Find(SearchBoxFilter) != INDEX_NONE);
+				return bFineWithSearchString && Verbosity <= Filter.LogVerbosity;
+			}
+			else
+			{
+				return false;
+			}
 		}
 	}
 

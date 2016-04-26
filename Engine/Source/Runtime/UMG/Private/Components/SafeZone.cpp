@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 
@@ -15,10 +15,6 @@ USafeZone::USafeZone()
 }
 
 #if WITH_EDITOR
-const FSlateBrush* USafeZone::GetEditorIcon()
-{
-	return FUMGStyle::Get().GetBrush( "Widget.SafeZone" );
-}
 
 const FText USafeZone::GetPaletteCategory()
 {

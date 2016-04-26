@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BasePassCommon.usf: Base pass definitions used by both vertex and pixel shader
@@ -99,8 +99,8 @@ SamplerState TranslucencyLightingVolumeDirectionalOuterSampler;
 void ComputeVolumeUVs(float3 WorldPosition, float3 LightingPositionOffset, out float3 InnerVolumeUVs, out float3 OuterVolumeUVs, out float FinalLerpFactor)
 {
 	// Apply a stable offset to the world position used for lighting, which breaks up artifacts from using a low res volume texture
-	InnerVolumeUVs = (WorldPosition + LightingPositionOffset - View.TranslucencyLightingVolumeMin[0].xyz) * View.TranslucencyLightingVolumeInvSize[0].xyz;
-	OuterVolumeUVs = (WorldPosition + LightingPositionOffset - View.TranslucencyLightingVolumeMin[1].xyz) * View.TranslucencyLightingVolumeInvSize[1].xyz;
+	InnerVolumeUVs = (WorldPosition + LightingPositionOffset - Frame.TranslucencyLightingVolumeMin[0].xyz) * Frame.TranslucencyLightingVolumeInvSize[0].xyz;
+	OuterVolumeUVs = (WorldPosition + LightingPositionOffset - Frame.TranslucencyLightingVolumeMin[1].xyz) * Frame.TranslucencyLightingVolumeInvSize[1].xyz;
 
 	// Controls how fast the lerp between the inner and outer cascades happens
 	// Larger values result in a shorter transition distance

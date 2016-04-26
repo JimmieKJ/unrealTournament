@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
 #include "EnvironmentQuery/Contexts/EnvQueryContext_Querier.h"
@@ -298,8 +298,8 @@ FText UEnvQueryGenerator_OnCircle::GetDescriptionDetails() const
 	Args.Add(TEXT("TraceData"), TraceData.ToText(FEnvTraceData::Detailed));
 
 	FText Desc = PointOnCircleSpacingMethod == EPointOnCircleSpacingMethod::BySpaceBetween 
-		? FText::Format(LOCTEXT("OnCircleDescription", "radius: {Radius}, item span: {ItemSpacing}\n{TraceData}"), Args)
-		: FText::Format(LOCTEXT("OnCircleDescription", "radius: {Radius}, number of items to generate: {NumberOfPoints}\n{TraceData}"), Args);
+		? FText::Format(LOCTEXT("OnCircleDescriptionSpan", "radius: {Radius}, item span: {ItemSpacing}\n{TraceData}"), Args)
+		: FText::Format(LOCTEXT("OnCircleDescriptionNumItems", "radius: {Radius}, number of items to generate: {NumberOfPoints}\n{TraceData}"), Args);
 
 	if (bDefineArc)
 	{

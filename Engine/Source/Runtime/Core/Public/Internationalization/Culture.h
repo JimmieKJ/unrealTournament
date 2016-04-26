@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "Internationalization/Text.h"
@@ -37,7 +37,9 @@ public:
 
 	int GetLCID() const;
 
-	TArray<FString> GetPrioritizedParentCultureNames();
+	TArray<FString> GetPrioritizedParentCultureNames() const;
+
+	static TArray<FString> GetPrioritizedParentCultureNames(const FString& LanguageCode, const FString& ScriptCode, const FString& RegionCode);
 
 	static FString GetCanonicalName(const FString& Name);
 
@@ -60,6 +62,8 @@ public:
 	const FString& GetScript() const;
 
 	const FString& GetVariant() const;
+
+	void HandleCultureChanged();
 
 public:
 #if UE_ENABLE_ICU

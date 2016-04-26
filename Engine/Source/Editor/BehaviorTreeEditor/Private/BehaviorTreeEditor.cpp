@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "BehaviorTreeEditorPrivatePCH.h"
 #include "GraphEditorActions.h"
@@ -54,6 +54,7 @@ FBehaviorTreeEditor::FBehaviorTreeEditor()
 	bShowDecoratorRangeLower = false;
 	bShowDecoratorRangeSelf = false;
 	bSelectedNodeIsInjected = false;
+	bSelectedNodeIsRootLevel = false;
 	SelectedNodesCount = 0;
 
 	bHasMultipleTaskBP = false;
@@ -304,6 +305,7 @@ void FBehaviorTreeEditor::RestoreBehaviorTree()
 	bShowDecoratorRangeLower = false;
 	bShowDecoratorRangeSelf = false;
 	bSelectedNodeIsInjected = false;
+	bSelectedNodeIsRootLevel = false;
 	MyGraph->UpdateAbortHighlight(EmptyMode, EmptyMode);
 }
 
@@ -438,6 +440,11 @@ EVisibility FBehaviorTreeEditor::GetRangeSelfVisibility() const
 EVisibility FBehaviorTreeEditor::GetInjectedNodeVisibility() const
 {
 	return FBehaviorTreeDebugger::IsPIENotSimulating() && bSelectedNodeIsInjected ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+EVisibility FBehaviorTreeEditor::GetRootLevelNodeVisibility() const
+{
+	return FBehaviorTreeDebugger::IsPIENotSimulating() && bSelectedNodeIsRootLevel ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 FGraphAppearanceInfo FBehaviorTreeEditor::GetGraphAppearance() const
@@ -613,6 +620,20 @@ TSharedRef<SWidget> FBehaviorTreeEditor::SpawnProperties()
 					.Text(LOCTEXT("InjectedNode", "Node is injected by subtree and can't be edited"))
 				]
 			]
+			+ SVerticalBox::Slot()
+			.HAlign(HAlign_Fill)
+			.Padding(0.0f, 5.0f)
+			[
+				SNew(SBorder)
+				.BorderBackgroundColor(BehaviorTreeColors::NodeBody::InjectedSubNode)
+				.BorderImage(FEditorStyle::GetBrush("Graph.StateNode.Body"))
+				.Visibility(this, &FBehaviorTreeEditor::GetRootLevelNodeVisibility)
+				.Padding(FMargin(5.0f))
+				[
+					SNew(STextBlock)
+					.Text(LOCTEXT("RootLevelNode", "Root level decorators are not executed\nThey will be injected into a parent tree"))
+				]
+			]
 			+SVerticalBox::Slot()
 			.HAlign(HAlign_Fill)
 			.Padding(0.0f, 5.0f)
@@ -696,6 +717,7 @@ void FBehaviorTreeEditor::OnSelectedNodesChanged(const TSet<class UObject*>& New
 	bShowDecoratorRangeSelf = false;
 	bForceDisablePropertyEdit = SelectionInfo.bInjectedNode;
 	bSelectedNodeIsInjected = SelectionInfo.bInjectedNode;
+	bSelectedNodeIsRootLevel = SelectionInfo.bRootLevelNode;
 
 	if (Selection.Num() == 1)
 	{

@@ -1,22 +1,29 @@
 {
 	"FileVersion" : 3,
-	
-	"FriendlyName" : "XCode Integration",
 	"Version" : 1,
 	"VersionName" : "1.0",
-	"CreatedBy" : "Epic Games, Inc.",
-	"CreatedByURL" : "http://epicgames.com",
-	"EngineVersion" : "4.2.0",
+	"FriendlyName" : "XCode Integration",
 	"Description" : "Allows access to source code in XCode.",
 	"Category" : "Programming",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"DocsURL" : "",
+	"MarketplaceURL" : "",
+	"SupportURL" : "",
 	"EnabledByDefault" : true,
-	
+	"CanContainContent" : false,
+	"IsBetaVersion" : false,
+	"Installed" : false,
 	"Modules" :
 	[
 		{
 			"Name" : "XCodeSourceCodeAccess",
 			"Type" : "Developer",
-			"WhitelistPlatforms" : [ "Mac" ]
+			"LoadingPhase" : "Default",
+			"WhitelistPlatforms" :
+			[
+				"Mac"
+			]
 		}
 	]
 }

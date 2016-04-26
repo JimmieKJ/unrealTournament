@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "PackageDependencyInfoPrivatePCH.h"
 #include "PackageDependencyInfoPrivate.h"
@@ -343,7 +343,7 @@ void FPackageDependencyInfo::PrepContentPackageTimeStamps()
 			if ( FPackageName::IsPackageExtension(*FPaths::GetExtension(ContentFilename, true)) )
 			{
 				FDateTime ContentTimestamp = It.Value();
-				ContentFilename = FPaths::GetBaseFilename(ContentFilename, false);
+				//ContentFilename = FPaths::GetBaseFilename(ContentFilename, false);
 				// Add it to the pkg info mapping
 				FPackageDependencyTrackingInfo* NewInfo = new FPackageDependencyTrackingInfo(ContentFilename, ContentTimestamp);
 				PackageInformation.Add(ContentFilename, NewInfo);

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -16,9 +16,10 @@ public:
 	 *
 	 * @param InAttachment An optional message attachment.
 	 */
-	FUdpDeserializedMessage(const IMessageAttachmentPtr& InAttachment)
-		: Attachment(InAttachment)
-	{ }
+	FUdpDeserializedMessage(const IMessageAttachmentPtr& InAttachment);
+
+	/** Virtual destructor. */
+	virtual ~FUdpDeserializedMessage() override;
 
 public:
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "WmfMediaPrivatePCH.h"
 #include "AllowWindowsPlatformTypes.h"
@@ -13,28 +13,12 @@ FWmfMediaPlayer::FWmfMediaPlayer()
 	, MediaSession(nullptr)
 {
 	Resolver = new(std::nothrow) FWmfMediaResolver;
-	{
-		Resolver->OnResolveComplete().BindLambda([=](TComPtr<IUnknown> SourceObject, FString ResolvedUrl) {
-			AsyncTask(ENamedThreads::GameThread, [=]() {
-				InitializeMediaSession(SourceObject, ResolvedUrl)
-					? OpenedEvent.Broadcast(ResolvedUrl)
-					: OpenFailedEvent.Broadcast(ResolvedUrl);
-			});
-		});
-
-		Resolver->OnResolveFailed().BindLambda([=](FString FailedUrl) {
-			AsyncTask(ENamedThreads::GameThread, [=]() {
-				OpenFailedEvent.Broadcast(FailedUrl);
-			});
-		});
-	}
 }
 
 
 FWmfMediaPlayer::~FWmfMediaPlayer()
 {
 	Close();
-	Resolver->OnResolveComplete().Unbind();
 }
 
 
@@ -64,7 +48,7 @@ FString FWmfMediaPlayer::GetUrl() const
 }
 
 
-bool FWmfMediaPlayer::SupportsRate( float Rate, bool Unthinned ) const
+bool FWmfMediaPlayer::SupportsRate(float Rate, bool Unthinned) const
 {
 	return (MediaSession != NULL)
 		? MediaSession->IsRateSupported(Rate, Unthinned)
@@ -98,6 +82,14 @@ void FWmfMediaPlayer::Close()
 		return;
 	}
 
+	MediaSession->OnError().RemoveAll(this);
+	MediaSession->OnSessionEvent().RemoveAll(this);
+
+	if (IsPlaying())
+	{
+		MediaEvent.Broadcast(EMediaEvent::PlaybackSuspended);
+	}
+
 	MediaSession->SetState(EMediaStates::Closed);
 	MediaSession.Reset();
 
@@ -114,8 +106,8 @@ void FWmfMediaPlayer::Close()
 	Duration = 0;
 	MediaUrl = FString();
 
-	TracksChangedEvent.Broadcast();
-	ClosedEvent.Broadcast();
+	MediaEvent.Broadcast(EMediaEvent::TracksChanged);
+	MediaEvent.Broadcast(EMediaEvent::MediaClosed);
 }
 
 
@@ -202,7 +194,7 @@ bool FWmfMediaPlayer::Open(const FString& Url)
 		return false;
 	}
 
-	return Resolver->ResolveUrl(Url);
+	return Resolver->ResolveUrl(Url, *this);
 }
 
 
@@ -213,7 +205,7 @@ bool FWmfMediaPlayer::Open(const TSharedRef<FArchive, ESPMode::ThreadSafe>& Arch
 		return false;
 	}
 
-	return Resolver->ResolveByteStream(Archive, OriginalUrl);
+	return Resolver->ResolveByteStream(Archive, OriginalUrl, *this);
 }
 
 
@@ -243,17 +235,32 @@ bool FWmfMediaPlayer::SetRate(float Rate)
 		return false;
 	}
 
-	if (FMath::IsNearlyZero(Rate))
-	{
-		if (MediaSession->SupportsScrubbing())
-		{
-			return MediaSession->SetRate(Rate);
-		}
+	return MediaSession->SetRate(Rate);
+}
 
-		return MediaSession->SetState(EMediaStates::Paused);
-	}
 
-	return MediaSession->SetRate(Rate) && MediaSession->SetState(EMediaStates::Playing);
+/* IWmfMediaResolverCallbacks interface
+ *****************************************************************************/
+
+void FWmfMediaPlayer::ProcessResolveComplete(TComPtr<IUnknown> SourceObject, FString ResolvedUrl)
+{
+	// forward event to game thread
+	AsyncTask(ENamedThreads::GameThread, [=]() {
+		MediaEvent.Broadcast(
+			InitializeMediaSession(SourceObject, ResolvedUrl)
+				? EMediaEvent::MediaOpened
+				: EMediaEvent::MediaOpenFailed
+		);
+	});
+}
+
+
+void FWmfMediaPlayer::ProcessResolveFailed(FString FailedUrl)
+{
+	// forward event to game thread
+	AsyncTask(ENamedThreads::GameThread, [=]() {
+		MediaEvent.Broadcast(EMediaEvent::MediaOpenFailed);
+	});
 }
 
 
@@ -454,7 +461,7 @@ bool FWmfMediaPlayer::InitializeMediaSession(IUnknown* SourceObject, const FStri
 	}
 
 	UE_LOG(LogWmfMedia, Verbose, TEXT("Added a total of %i audio tracks, %i caption tracks, %i video tracks"), AudioTracks.Num(), CaptionTracks.Num(), VideoTracks.Num());
-	TracksChangedEvent.Broadcast();
+	MediaEvent.Broadcast(EMediaEvent::TracksChanged);
 
 	UINT64 PresentationDuration = 0;
 	PresentationDescriptor->GetUINT64(MF_PD_DURATION, &PresentationDuration);
@@ -466,6 +473,7 @@ bool FWmfMediaPlayer::InitializeMediaSession(IUnknown* SourceObject, const FStri
 	MediaSession = new FWmfMediaSession(Duration, Topology);
 	{
 		MediaSession->OnError().AddRaw(this, &FWmfMediaPlayer::HandleSessionError);
+		MediaSession->OnSessionEvent().AddRaw(this, &FWmfMediaPlayer::HandleSessionEvent);
 	}
 
 	return (MediaSession->GetState() != EMediaStates::Error);
@@ -477,7 +485,36 @@ bool FWmfMediaPlayer::InitializeMediaSession(IUnknown* SourceObject, const FStri
 
 void FWmfMediaPlayer::HandleSessionError(HRESULT Error)
 {
-	UE_LOG(LogWmfMedia, Error, TEXT("An unrecoverable error occured in the media session: 0x%X"), Error);
+	UE_LOG(LogWmfMedia, Error, TEXT("An error occured in the media session: 0x%X"), Error);
+}
+
+
+void FWmfMediaPlayer::HandleSessionEvent(MediaEventType EventType)
+{
+	EMediaEvent Event = EMediaEvent::Unknown;
+
+	switch (EventType)
+	{
+	case MEEndOfPresentation:
+		Event = EMediaEvent::PlaybackEndReached;
+		break;
+
+	case MESessionStarted:
+		Event = EMediaEvent::PlaybackResumed;
+		break;
+
+	case MESessionStopped:
+		Event = EMediaEvent::PlaybackSuspended;
+		break;
+	}
+
+	if (Event != EMediaEvent::Unknown)
+	{
+		// forward event to game thread
+		AsyncTask(ENamedThreads::GameThread, [=]() {
+			MediaEvent.Broadcast(Event);
+		});
+	}
 }
 
 

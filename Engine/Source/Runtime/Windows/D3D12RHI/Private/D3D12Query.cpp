@@ -39,16 +39,18 @@ FRenderQueryRHIRef FD3D12DynamicRHI::RHICreateRenderQuery(ERenderQueryType Query
 		const D3D12_RESOURCE_DESC HeapDesc = CD3DX12_RESOURCE_DESC::Buffer(8);
 		VERIFYD3D11RESULT(
 			GetRHIDevice()->GetDevice()->CreateCommittedResource(
-			&HeapProperties,
-			D3D12_HEAP_FLAG_NONE,
-			&HeapDesc,
-			D3D12_RESOURCE_STATE_COPY_DEST,
-			nullptr,
-			IID_PPV_ARGS(&pQueryResultBuffer)
-			)
+				&HeapProperties,
+				D3D12_HEAP_FLAG_NONE,
+				&HeapDesc,
+				D3D12_RESOURCE_STATE_COPY_DEST,
+				nullptr,
+				IID_PPV_ARGS(&pQueryResultBuffer)
+				)
 			);
+
 		FD3D12OcclusionQuery* Query = new FD3D12OcclusionQuery(pQueryHeap, pQueryResultBuffer, QueryType);
 		Query->HeapIndex = 0;
+
 		return Query;
 	}
 	// Occlusion query heap and result buffer will be assigned later.

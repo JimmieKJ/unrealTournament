@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -33,8 +33,8 @@ public:
 
 	// UK2Node interface
 	virtual bool IsNodePure() const override { return true; }
-	void NotifyPinConnectionListChanged(UEdGraphPin* Pin) override;
-	void GetContextMenuActions(const FGraphNodeContextMenuBuilder& Context) const override;
+	virtual void NotifyPinConnectionListChanged(UEdGraphPin* Pin) override;
+	virtual void GetContextMenuActions(const FGraphNodeContextMenuBuilder& Context) const override;
 	virtual class FNodeHandlingFunctor* CreateNodeHandler(class FKismetCompilerContext& CompilerContext) const override;
 	virtual bool IsConnectionDisallowed(const UEdGraphPin* MyPin, const UEdGraphPin* OtherPin, FString& OutReason) const override;
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
@@ -61,4 +61,3 @@ protected:
 	/** Returns the function to be used to add a function to the array */
 	BLUEPRINTGRAPH_API UFunction* GetArrayAddFunction() const;
 };
-

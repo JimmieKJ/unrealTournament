@@ -1,13 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "StereoRendering.h"
 #include "Layout/SlateRect.h"
+#include "Kismet/HeadMountedDisplayFunctionLibrary.h"
 #include "HeadMountedDisplayTypes.h"
-
-// depending on your kit and SDK, you may want to use this.
-// new distortion handling still in development.
 
 /**
  * HMD device interface
@@ -70,7 +68,7 @@ public:
 	virtual void	GetFieldOfView(float& InOutHFOVInDegrees, float& InOutVFOVInDegrees) const = 0;
 
 	/**
-	 * Whether or not the HMD supports positional tracking (either via camera or other means)
+	 * Whether or not the HMD supports positional tracking (either via sensor or other means)
 	 */
 	virtual bool	DoesSupportPositionalTracking() const = 0;
 
@@ -80,7 +78,7 @@ public:
 	virtual bool	HasValidTrackingPosition() = 0;
 
 	/**
-	 * If the HMD supports positional tracking via a camera, this returns the frustum properties (all in game-world space) of the tracking camera.
+	 * If the HMD supports positional tracking via a sensor, this returns the frustum properties (all in game-world space) of the sensor.
 	 */
 	virtual void	GetPositionalTrackingCameraProperties(FVector& OutOrigin, FQuat& OutOrientation, float& OutHFOV, float& OutVFOV, float& OutCameraDistance, float& OutNearPlane, float& OutFarPlane) const = 0;
 
@@ -101,6 +99,11 @@ public:
 	virtual void RebaseObjectOrientationAndPosition(FVector& Position, FQuat& Orientation) const = 0;
 
 	/**
+	 * Get the offset, in device space, of the reported device (screen / eye) position to the center of the head, if supported
+	 */
+	virtual FVector GetAudioListenerOffset() const { return FVector(0.f); }
+
+	/**
 	 * Get the ISceneViewExtension for this HMD, or none.
 	 */
 	virtual TSharedPtr<class ISceneViewExtension, ESPMode::ThreadSafe> GetViewExtension() = 0;
@@ -113,10 +116,9 @@ public:
 	virtual void ApplyHmdRotation(class APlayerController* PC, FRotator& ViewRotation) = 0;
 
 	/**
-	 * Apply the orientation of the headset to the Camera's rotation.
-	 * This method is called for cameras with bFollowHmdOrientation set to 'true'.
+	 * Apply the orientation and position of the headset to the Camera.
 	 */
-	virtual void UpdatePlayerCameraRotation(class APlayerCameraManager* Camera, struct FMinimalViewInfo& POV) = 0;
+	virtual bool UpdatePlayerCamera(FQuat& CurrentOrientation, FVector& CurrentPosition) = 0;
 
 	/**
 	 * Gets the scaling factor, applied to the post process warping effect
@@ -330,6 +332,9 @@ public:
 	virtual FVector2D GetTextureOffsetRight() const {return FVector2D::ZeroVector;}
 	virtual FVector2D GetTextureScaleLeft() const {return FVector2D::ZeroVector;}
 	virtual FVector2D GetTextureScaleRight() const {return FVector2D::ZeroVector;}
+	virtual const float* GetRedDistortionParameters() const { return nullptr; }
+	virtual const float* GetGreenDistortionParameters() const { return nullptr; }
+	virtual const float* GetBlueDistortionParameters() const { return nullptr; }
 
 	virtual bool NeedsUpscalePostProcessPass()  { return false; }
 
@@ -342,7 +347,57 @@ public:
 	 */
 	virtual FString GetVersionString() const { return FString(TEXT("GenericHMD")); }
 
+	/**
+	 * Sets tracking origin (either 'eye'-level or 'floor'-level).
+	 */
+	virtual void SetTrackingOrigin(EHMDTrackingOrigin::Type NewOrigin) {};
+
+	/**
+	 * Returns current tracking origin.
+	 */
+	virtual EHMDTrackingOrigin::Type GetTrackingOrigin() { return EHMDTrackingOrigin::Eye; }
+
+	/**
+	 * Returns true, if the App is using VR focus. This means that the app may handle lifecycle events differently from
+	 * the regular desktop apps. In this case, FCoreDelegates::ApplicationWillEnterBackgroundDelegate and FCoreDelegates::ApplicationHasEnteredForegroundDelegate
+	 * reflect the state of VR focus (either the app should be rendered in HMD or not).
+	 */
+	virtual bool DoesAppUseVRFocus() const;
+
+	/**
+	 * Returns true, if the app has VR focus, meaning if it is rendered in the HMD.
+	 */
+	virtual bool DoesAppHaveVRFocus() const;
+
+	/** Setup state for applying the render thread late update */
+	virtual void SetupLateUpdate(const FTransform& ParentToWorld, USceneComponent* Component);
+
+	/** Apply the late update delta to the cached compeonents */
+	virtual void ApplyLateUpdate(FSceneInterface* Scene, const FTransform& OldRelativeTransform, const FTransform& NewRelativeTransform);
+	
 private:
+
+	/*
+	 *	Late update primitive info for accessing valid scene proxy info. From the time the info is gathered
+	 *  to the time it is later accessed the render proxy can be deleted. To ensure we only access a proxy that is
+	 *  still valid we cache the primitive's scene info AND a pointer to it's own cached index. If the primitive
+	 *  is deleted or removed from the scene then attempting to access it via it's index will result in a different
+	 *  scene info than the cached scene info.
+	 */
+	struct LateUpdatePrimitiveInfo
+	{
+		const int32*			IndexAddress;
+		FPrimitiveSceneInfo*	SceneInfo;
+	};
+
+	void GatherLateUpdatePrimitives(USceneComponent* Component, TArray<LateUpdatePrimitiveInfo>& Primitives);
+
 	/** Stores the dimensions of the window before we moved into fullscreen mode, so they can be restored */
 	FSlateRect PreFullScreenRect;
+	
+	/** Primitives that need late update before rendering */
+	TArray<LateUpdatePrimitiveInfo> LateUpdatePrimitives;
+
+	/** Parent world transform used to reconstruct new world transforms for late update scene proxies */
+	FTransform LateUpdateParentToWorld;
 };

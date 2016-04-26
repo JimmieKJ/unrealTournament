@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 Level.cpp: Level-related functions
@@ -281,12 +281,26 @@ void ULevel::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collecto
 {
 	ULevel* This = CastChecked<ULevel>(InThis);
 
+	// List of textures to remove
+	TArray< UTexture2D*, TInlineAllocator<32> > TexturesToRemove;
+
 	// Let GC know that we're referencing some UTexture2D objects
-	for( auto& It : This->TextureToInstancesMap )
+	for (auto& It : This->TextureToInstancesMap)
 	{
 		UTexture2D* Texture2D = It.Key;
-		Collector.AddReferencedObject( Texture2D, This );
+		Collector.AddReferencedObject(Texture2D, This);
+		if (!Texture2D)
+		{
+			// The texture has been probably marked as pending kill and has been removed by GC
+			// We need to remove it after we exit this loop.
+			TexturesToRemove.Add(It.Key);
+		}
 	}
+	for (UTexture2D* Texture : TexturesToRemove)
+	{
+		This->TextureToInstancesMap.Remove(Texture);
+	}
+	TexturesToRemove.Reset();
 
 	// Let GC know that we're referencing some UTexture2D objects
 	for( auto& It : This->DynamicTextureInstances )
@@ -301,11 +315,22 @@ void ULevel::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collecto
 	}
 
 	// Let GC know that we're referencing some UTexture2D objects
-	for( auto& It : This->ForceStreamTextures )
+	for (auto& It : This->ForceStreamTextures)
 	{
 		UTexture2D* Texture2D = It.Key;
-		Collector.AddReferencedObject( Texture2D, This );
+		Collector.AddReferencedObject(Texture2D, This);
+		if (!Texture2D)
+		{
+			// The texture has been probably marked as pending kill and has been removed by GC
+			// We need to remove it after we exit this loop.
+			TexturesToRemove.Add(It.Key);
+		}
 	}
+	for (UTexture2D* Texture : TexturesToRemove)
+	{
+		This->ForceStreamTextures.Remove(Texture);
+	}
+	TexturesToRemove.Reset();
 
 	// Let GC know that we're referencing some AActor objects
 	for (auto& Actor : This->Actors)
@@ -469,20 +494,18 @@ void ULevel::SortActorList()
 		return;
 	}
 
-	int32 StartIndex = 0;
 	TArray<AActor*> NewActors;
 	NewActors.Reserve(Actors.Num());
 
-	// The WorldSettings has fixed actor index.
-	check(Actors[StartIndex] == GetWorldSettings());
-	NewActors.Add(Actors[StartIndex++]);
+	check(WorldSettings);
+
+	// The WorldSettings tries to stay at index 0
+	NewActors.Add(WorldSettings);
 
 	// Static not net relevant actors.
-	for (int32 ActorIndex = StartIndex; ActorIndex < Actors.Num(); ActorIndex++)
+	for (AActor* Actor : Actors)
 	{
-		AActor* Actor = Actors[ActorIndex];
-
-		if (Actor != NULL && !Actor->IsPendingKill() && !IsNetActor(Actor))
+		if (Actor != nullptr && Actor != WorldSettings && !Actor->IsPendingKill() && !IsNetActor(Actor))
 		{
 			NewActors.Add(Actor);
 		}
@@ -490,20 +513,19 @@ void ULevel::SortActorList()
 	iFirstNetRelevantActor = NewActors.Num();
 
 	// Static net relevant actors.
-	for (int32 ActorIndex = StartIndex; ActorIndex < Actors.Num(); ActorIndex++)
+	for (AActor* Actor : Actors)
 	{
-		AActor* Actor = Actors[ActorIndex];		
-		if (Actor != NULL && !Actor->IsPendingKill() && IsNetActor(Actor))
+		if (Actor != nullptr && !Actor->IsPendingKill() && IsNetActor(Actor))
 		{
 			NewActors.Add(Actor);
 		}
 	}
 
 	// Replace with sorted list.
-	Actors.AssignButKeepOwner(NewActors);
+	Actors.AssignButKeepOwner(MoveTemp(NewActors));
 
 	// Add all network actors to the owning world
-	if ( OwningWorld != NULL )
+	if ( OwningWorld != nullptr )
 	{
 		// Don't use sorted optimization outside of gameplay so we can safely shuffle around actors e.g. in the Editor
 		// without there being a chance to break code using dynamic/ net relevant actor iterators.
@@ -585,6 +607,11 @@ void ULevel::PostLoad()
 #if WITH_EDITOR
 	Actors.Remove(nullptr);
 #endif
+
+	if (WorldSettings == nullptr)
+	{
+		WorldSettings = Cast<AWorldSettings>(Actors[0]);
+	}
 
 	// in the Editor, sort Actor list immediately (at runtime we wait for the level to be added to the world so that it can be delayed in the level streaming case)
 	if (GIsEditor)
@@ -738,30 +765,137 @@ void ULevel::UpdateLevelComponents(bool bRerunConstructionScripts)
 	IncrementalUpdateComponents( 0, bRerunConstructionScripts );
 }
 
+namespace FLevelSortUtils
+{
+	void AddToListSafe(AActor* TestActor, TArray<AActor*>& List)
+	{
+		if (TestActor)
+		{
+			const bool bAlreadyAdded = List.Contains(TestActor);
+			if (bAlreadyAdded)
+			{
+				FString ListItemDesc;
+				for (int32 Idx = 0; Idx < List.Num(); Idx++)
+				{
+					if (Idx > 0)
+					{
+						ListItemDesc += TEXT(", ");
+					}
+
+					ListItemDesc += GetNameSafe(List[Idx]);
+				}
+
+				UE_LOG(LogLevel, Warning, TEXT("Found a cycle in actor's parent chain: %s"), *ListItemDesc);
+			}
+			else
+			{
+				List.Add(TestActor);
+			}
+		}
+	}
+
+	// Finds list of parents from an entry in ParentMap, returns them in provided array and removes from map
+	// Logs an error when cycle is found
+	void FindAndRemoveParentChain(TMap<AActor*, AActor*>& ParentMap, TArray<AActor*>& ParentChain)
+	{
+		check(ParentMap.Num());
+		
+		// seed from first entry
+		TMap<AActor*, AActor*>::TIterator It(ParentMap);
+		ParentChain.Add(It.Key());
+		ParentChain.Add(It.Value());
+		It.RemoveCurrent();
+
+		// fill chain's parent nodes
+		bool bLoop = true;
+		while (bLoop)
+		{
+			AActor* MapValue = nullptr;
+			bLoop = ParentMap.RemoveAndCopyValue(ParentChain.Last(), MapValue);
+			AddToListSafe(MapValue, ParentChain);
+		}
+
+		// find chain's child nodes, ignore cycle detection since it would've triggered already from previous loop
+		for (AActor* const* MapKey = ParentMap.FindKey(ParentChain[0]); MapKey; MapKey = ParentMap.FindKey(ParentChain[0]))
+		{
+			AActor* MapValue = nullptr;
+			ParentMap.RemoveAndCopyValue((AActor*)MapKey, MapValue);
+			ParentChain.Insert(MapValue, 0);
+		}
+	}
+
+	struct FDepthSort
+	{
+		TMap<AActor*, int32> DepthMap;
+
+		bool operator()(AActor* A, AActor* B) const
+		{
+			const int32 DepthA = A ? DepthMap.FindRef(A) : MAX_int32;
+			const int32 DepthB = B ? DepthMap.FindRef(B) : MAX_int32;
+			return DepthA < DepthB;
+		}
+	};
+}
+
 /**
 *	Sorts actors such that parent actors will appear before children actors in the list
 *	Stable sort
 */
-static void SortActorsHierarchy(TTransArray<AActor*>& Actors)
+static void SortActorsHierarchy(TTransArray<AActor*>& Actors, UObject* Level)
 {
-	auto CalcAttachDepth = [](AActor* InActor) -> int32 {
-		int32 Depth = MAX_int32;
-		if (InActor)
+	const double StartTime = FPlatformTime::Seconds();
+
+	// Precalculate parent map to avoid processing cycles during sort
+	TMap<AActor*, AActor*> ParentMap;
+	for (int32 Idx = 0; Idx < Actors.Num(); Idx++)
+	{
+		if (Actors[Idx])
 		{
-			Depth = 0;
-			if (InActor->GetRootComponent())
+			AActor* ParentActor = Actors[Idx]->GetAttachParentActor();
+			if (ParentActor)
 			{
-				for (const USceneComponent* Test = InActor->GetRootComponent()->AttachParent; Test != nullptr; Test = Test->AttachParent, Depth++);
+				ParentMap.Add(Actors[Idx], ParentActor);
 			}
 		}
-		return Depth;
-	};
-	
-	// Unfortunately TArray.StableSort assumes no null entries in the array
-	// So it forces me to use internal unrestricted version
-	StableSortInternal(Actors.GetData(), Actors.Num(), [&](AActor* L, AActor* R) {
-			return CalcAttachDepth(L) < CalcAttachDepth(R);
-	});
+	}
+
+	if (ParentMap.Num())
+	{
+		FLevelSortUtils::FDepthSort DepthSorter;
+		TArray<AActor*> ParentChain;
+		while (ParentMap.Num())
+		{
+			ParentChain.Reset();
+			FLevelSortUtils::FindAndRemoveParentChain(ParentMap, ParentChain);
+
+			for (int32 Idx = 0; Idx < ParentChain.Num(); Idx++)
+			{
+				DepthSorter.DepthMap.Add(ParentChain[Idx], ParentChain.Num() - Idx - 1);
+			}
+		}
+
+		// Unfortunately TArray.StableSort assumes no null entries in the array
+		// So it forces me to use internal unrestricted version
+		StableSortInternal(Actors.GetData(), Actors.Num(), DepthSorter);
+	}
+
+	const float ElapsedTime = (float)(FPlatformTime::Seconds() - StartTime);
+	if (ElapsedTime > 1.0f)
+	{
+		UE_LOG(LogLevel, Warning, TEXT("SortActorsHierarchy(%s) took %f seconds"), Level ? *GetNameSafe(Level->GetOutermost()) : TEXT("??"), ElapsedTime);
+	}
+
+	// Since all the null entries got sorted to the end, lop them off right now
+	int32 RemoveAtIndex = Actors.Num();
+	while (RemoveAtIndex > 0 && Actors[RemoveAtIndex - 1] == nullptr)
+	{
+		--RemoveAtIndex;
+	}
+
+	if (RemoveAtIndex < Actors.Num())
+	{
+		Actors.RemoveAt(RemoveAtIndex, Actors.Num() - RemoveAtIndex);
+	}
 }
 
 void ULevel::IncrementalUpdateComponents(int32 NumComponentsToUpdate, bool bRerunConstructionScripts)
@@ -778,7 +912,7 @@ void ULevel::IncrementalUpdateComponents(int32 NumComponentsToUpdate, bool bReru
 	{
 		UpdateModelComponents();
 		// Sort actors to ensure that parent actors will be registered before child actors
-		SortActorsHierarchy(Actors);
+		SortActorsHierarchy(Actors, this);
 	}
 
 	// Find next valid actor to process components registration
@@ -1423,10 +1557,8 @@ void ULevel::BuildStreamingData(UTexture2D* UpdateSpecificTextureOnly/*=NULL*/)
 			const bool bIsClassDefaultObject = Primitive->IsTemplate(RF_ClassDefaultObject);
 			if ( !bIsClassDefaultObject && Primitive->IsRegistered() )
 			{
-				const AActor* const Owner				= Primitive->GetOwner();
-				const bool bIsStatic					= Owner == NULL 
-															|| Primitive->Mobility == EComponentMobility::Static 
-															|| Primitive->Mobility == EComponentMobility::Stationary;
+				const AActor* const Owner = Primitive->GetOwner();
+				const bool bIsStatic = Owner == NULL || Primitive->Mobility == EComponentMobility::Static || Primitive->Mobility == EComponentMobility::Stationary;
 
 				TArray<FStreamingTexturePrimitiveInfo> PrimitiveStreamingTextures;
 
@@ -1437,7 +1569,7 @@ void ULevel::BuildStreamingData(UTexture2D* UpdateSpecificTextureOnly/*=NULL*/)
 				{
 					const FStreamingTexturePrimitiveInfo& PrimitiveStreamingTexture = PrimitiveStreamingTextures[TextureIndex];
 					UTexture2D* Texture2D = Cast<UTexture2D>(PrimitiveStreamingTexture.Texture);
-					bool bCanBeStreamedByDistance = !FMath::IsNearlyZero(PrimitiveStreamingTexture.TexelFactor) && !FMath::IsNearlyZero(PrimitiveStreamingTexture.Bounds.W);
+					bool bCanBeStreamedByDistance = !FMath::IsNearlyZero(PrimitiveStreamingTexture.TexelFactor) && !FMath::IsNearlyZero(PrimitiveStreamingTexture.Bounds.SphereRadius);
 
 					// Only handle 2D textures that match the target texture.
 					const bool bIsTargetTexture = (!UpdateSpecificTextureOnly || UpdateSpecificTextureOnly == Texture2D);
@@ -1463,7 +1595,7 @@ void ULevel::BuildStreamingData(UTexture2D* UpdateSpecificTextureOnly/*=NULL*/)
 							const FStreamingTexturePrimitiveInfo& HandledStreamingTexture = PrimitiveStreamingTextures[HandledTextureIndex];
 							if ( PrimitiveStreamingTexture.Texture == HandledStreamingTexture.Texture &&
 								FMath::IsNearlyEqual(PrimitiveStreamingTexture.TexelFactor, HandledStreamingTexture.TexelFactor) &&
-								PrimitiveStreamingTexture.Bounds.Equals( HandledStreamingTexture.Bounds ) )
+								PrimitiveStreamingTexture.Bounds.GetSphere().Equals( HandledStreamingTexture.Bounds.GetSphere() ) )
 							{
 								// It's a duplicate, don't handle this one.
 								bShouldHandleTexture = false;
@@ -1485,8 +1617,22 @@ void ULevel::BuildStreamingData(UTexture2D* UpdateSpecificTextureOnly/*=NULL*/)
 						{
 							// Texture instance information.
 							FStreamableTextureInstance TextureInstance;
-							TextureInstance.BoundingSphere	= PrimitiveStreamingTexture.Bounds;
-							TextureInstance.TexelFactor		= PrimitiveStreamingTexture.TexelFactor;
+							TextureInstance.Bounds = PrimitiveStreamingTexture.Bounds;
+							TextureInstance.TexelFactor = PrimitiveStreamingTexture.TexelFactor;
+
+							// HLOD support.
+							TextureInstance.MinDistance = Primitive->MinDrawDistance;
+							const UPrimitiveComponent* LODParentPrimitive = Primitive->GetLODParentPrimitive();
+							if (LODParentPrimitive) // Max distance when HLOD becomes visible.
+							{
+								TextureInstance.MaxDistance = LODParentPrimitive->MinDrawDistance;
+								// Taken into account the streaming distance offsets.
+								TextureInstance.MaxDistance += (Primitive->Bounds.Origin - LODParentPrimitive->Bounds.Origin).Size();
+							}
+							else
+							{
+								TextureInstance.MaxDistance = FLT_MAX;
+							}
 
 							// See whether there already is an instance in the level.
 							TArray<FStreamableTextureInstance>* TextureInstances = TextureToInstancesMap.Find( Texture2D );
@@ -1512,9 +1658,9 @@ void ULevel::BuildStreamingData(UTexture2D* UpdateSpecificTextureOnly/*=NULL*/)
 							// Texture instance information.
 							FDynamicTextureInstance TextureInstance;
 							TextureInstance.Texture = Texture2D;
-							TextureInstance.BoundingSphere = PrimitiveStreamingTexture.Bounds;
+							TextureInstance.Bounds = PrimitiveStreamingTexture.Bounds;
 							TextureInstance.TexelFactor	= PrimitiveStreamingTexture.TexelFactor;
-							TextureInstance.OriginalRadius = PrimitiveStreamingTexture.Bounds.W;
+							TextureInstance.OriginalRadius = PrimitiveStreamingTexture.Bounds.SphereRadius;
 
 							// See whether there already is an instance in the level.
 							TArray<FDynamicTextureInstance>* TextureInstances = DynamicTextureInstances.Find( Primitive );
@@ -1620,12 +1766,43 @@ ABrush* ULevel::GetDefaultBrush() const
 }
 
 
-AWorldSettings* ULevel::GetWorldSettings() const
+AWorldSettings* ULevel::GetWorldSettings(bool bChecked) const
 {
-	checkf( Actors.Num() >= 1, *GetPathName() );
-	AWorldSettings* WorldSettings = Cast<AWorldSettings>( Actors[0] );
-	checkf( WorldSettings != NULL, *GetPathName() );
+	if (bChecked)
+	{
+		checkf( WorldSettings != nullptr, *GetPathName() );
+	}
 	return WorldSettings;
+}
+
+void ULevel::SetWorldSettings(AWorldSettings* NewWorldSettings)
+{
+	check(NewWorldSettings); // Doesn't make sense to be clearing a world settings object
+	if (WorldSettings != NewWorldSettings)
+	{
+		// We'll generally endeavor to keep the world settings at its traditional index 0
+		const int32 NewWorldSettingsIndex = Actors.FindLast( NewWorldSettings );
+		if (NewWorldSettingsIndex != 0)
+		{
+			if (Actors[0] == nullptr || Actors[0]->IsA<AWorldSettings>())
+			{
+				Exchange(Actors[0],Actors[NewWorldSettingsIndex]);
+			}
+			else
+			{
+				Actors[NewWorldSettingsIndex] = nullptr;
+				Actors.Insert(NewWorldSettings,0);
+			}
+		}
+
+		if (WorldSettings)
+		{
+			// Makes no sense to have two WorldSettings so destroy existing one
+			WorldSettings->Destroy();
+		}
+
+		WorldSettings = NewWorldSettings;
+	}
 }
 
 ALevelScriptActor* ULevel::GetLevelScriptActor() const
@@ -1851,6 +2028,17 @@ void ULevel::OnLevelScriptBlueprintChanged(ULevelScriptBlueprint* InBlueprint)
 	}
 }	
 
+void ULevel::BeginCacheForCookedPlatformData(const ITargetPlatform *TargetPlatform)
+{
+	Super::BeginCacheForCookedPlatformData(TargetPlatform);
+
+	// Cook all level blueprints.
+	for (auto LevelBlueprint : GetLevelBlueprints())
+	{
+		LevelBlueprint->BeginCacheForCookedPlatformData(TargetPlatform);
+	}
+}
+
 #endif	//WITH_EDITOR
 
 bool ULevel::IsPersistentLevel() const
@@ -1886,7 +2074,7 @@ void ULevel::ApplyWorldOffset(const FVector& InWorldOffset, bool bWorldShift)
 			TArray<FStreamableTextureInstance>& TextureInfo = It.Value();
 			for (int32 i = 0; i < TextureInfo.Num(); i++)
 			{
-				TextureInfo[i].BoundingSphere.Center+= InWorldOffset;
+				TextureInfo[i].Bounds.Origin += InWorldOffset;
 			}
 		}
 

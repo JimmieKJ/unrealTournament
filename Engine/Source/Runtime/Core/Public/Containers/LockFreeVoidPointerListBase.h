@@ -1,6 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "HAL/Platform.h"
+#include "Misc/Build.h"
 
 #define CHECK_NON_CONCURRENT_ASSUMPTIONS (0)
 
@@ -947,7 +950,7 @@ FORCEINLINE void TestCriticalStall()
 }
 #endif
 
-template<class T>
+template<class T, int TPaddingForCacheContention>
 class FLockFreePointerQueueBaseSingleConsumerIntrusive : public FNoncopyable
 {
 public:
@@ -1025,9 +1028,11 @@ public:
 	}
 
 private:
-
+	uint8 PadToAvoidContention1[TPaddingForCacheContention];
 	T* Head;
+	uint8 PadToAvoidContention2[TPaddingForCacheContention];
 	T* Tail;
+	uint8 PadToAvoidContention3[TPaddingForCacheContention];
 
 	T* GetStub() const
 	{
@@ -1042,6 +1047,7 @@ struct FLockFreeLink
 	void *Payload;
 };
 
+template<int TPaddingForCacheContention>
 class FLockFreePointerQueueBaseSingleConsumer : public FNoncopyable
 {
 public:
@@ -1097,10 +1103,14 @@ public:
 
 private:
 
+	uint8 PadToAvoidContention1[TPaddingForCacheContention];
 	FLockFreeLink* Head;
+	uint8 PadToAvoidContention2[TPaddingForCacheContention];
 	FLockFreeLink* Tail;
+	uint8 PadToAvoidContention3[TPaddingForCacheContention];
 };
 
+template<int TPaddingForCacheContention>
 class FCloseableLockFreePointerQueueBaseSingleConsumer : public FNoncopyable
 {
 public:
@@ -1273,11 +1283,14 @@ private:
 		return (FLockFreeLink*)(UPTRINT(In) & ~UPTRINT(1));
 	}
 
+	uint8 PadToAvoidContention1[TPaddingForCacheContention];
 	FLockFreeLink* Head;
+	uint8 PadToAvoidContention2[TPaddingForCacheContention];
 	FLockFreeLink* Tail;
+	uint8 PadToAvoidContention3[TPaddingForCacheContention];
 };
 
-template<class T>
+template<class T, int TPaddingForCacheContention>
 class FCloseableLockFreePointerQueueBaseSingleBaseConsumerIntrusive : public FNoncopyable
 {
 public:
@@ -1483,8 +1496,11 @@ private:
 	}
 
 
+	uint8 PadToAvoidContention1[TPaddingForCacheContention];
 	T* Head;
+	uint8 PadToAvoidContention2[TPaddingForCacheContention];
 	T* Tail;
+	uint8 PadToAvoidContention3[TPaddingForCacheContention];
 
 	T* GetStub() const
 	{
@@ -1529,6 +1545,7 @@ public:
 				break;
 			}
 			uint32 Slot = LocalNumPopped % DequeueCacheSize;
+			FPlatformMisc::MemoryBarrier();
 			void *ReturnPtr = Available[Slot];
 			TCounter Result = (TCounter)FPlatformAtomics::InterlockedCompareExchange((volatile TSignedCounter*)&NumPopped, LocalNumPopped + 1, LocalNumPopped);
 			if (Result == LocalNumPopped)
@@ -1573,6 +1590,7 @@ private:
 	TCounter NumPushed;
 };
 
+template<int TPaddingForCacheContention>
 class FSpinLocked_LIFO
 {
 public:
@@ -1614,7 +1632,9 @@ public:
 	}	
 private:
 	TArray<void **> Queue;
+	uint8 PadToAvoidContention1[TPaddingForCacheContention];
 	int32 Lock;
+	uint8 PadToAvoidContention2[TPaddingForCacheContention];
 };
 
 class FLockFreePointerQueueBaseLinkAllocator : public FNoncopyable
@@ -1654,7 +1674,7 @@ public:
 	}
 
 private:
-	TLockFreeFixedSizeAllocator_TLSCacheBase<sizeof(FLockFreeLink), FSpinLocked_LIFO,
+	TLockFreeFixedSizeAllocator_TLSCacheBase<sizeof(FLockFreeLink), FSpinLocked_LIFO<PLATFORM_CACHE_LINE_SIZE>,
 #if 1 || UE_BUILD_SHIPPING || UE_BUILD_TEST
 		FNoopCounter
 #else
@@ -1664,7 +1684,7 @@ private:
 };
 
 
-template<class T>
+template<class T, int TPaddingForCacheContention>
 class FLockFreePointerListFIFOIntrusive : public FNoncopyable
 {
 public:
@@ -1801,12 +1821,13 @@ public:
 	}	
 
 private:
-	FLockFreePointerQueueBaseSingleConsumerIntrusive<T> IncomingQueue;
+	FLockFreePointerQueueBaseSingleConsumerIntrusive<T, TPaddingForCacheContention> IncomingQueue;
 	FDequeueCache DequeueCache;
 	int32 DequeueLock;
 };
 
 // FIFO of void *'s
+template<int TPaddingForCacheContention>
 class FLockFreePointerListFIFOBase : public FNoncopyable
 {
 public:
@@ -1905,6 +1926,8 @@ public:
 					FLockFreeLink* Repush = IncomingQueue.Pop(); 
 					if (!Repush)
 					{
+						FPlatformMisc::MemoryBarrier();
+						DequeueLock = 0;
 						break;
 					}
 					bResult = false;
@@ -1934,12 +1957,13 @@ public:
 
 private:
 	FLockFreePointerQueueBaseLinkAllocator& LinkAllocator;
-	FLockFreePointerQueueBaseSingleConsumer IncomingQueue;
+	FLockFreePointerQueueBaseSingleConsumer<TPaddingForCacheContention> IncomingQueue;
 	FDequeueCache DequeueCache;
 	int32 DequeueLock;
 };
 
 // closeable FIFO of void *'s
+template<int TPaddingForCacheContention>
 class FCloseableLockFreePointerListFIFOBaseSingleConsumer : public FNoncopyable
 {
 public:
@@ -2052,12 +2076,12 @@ public:
 
 private:
 	FLockFreePointerQueueBaseLinkAllocator& LinkAllocator;
-	FCloseableLockFreePointerQueueBaseSingleConsumer IncomingQueue;
+	FCloseableLockFreePointerQueueBaseSingleConsumer<TPaddingForCacheContention> IncomingQueue;
 };
 
 
-template <class T>
-class TLockFreePointerListFIFO : private FLockFreePointerListFIFOBase 
+template<class T, int TPaddingForCacheContention>
+class TLockFreePointerListFIFO : private FLockFreePointerListFIFOBase<TPaddingForCacheContention>
 {
 public:
 	/**	
@@ -2067,7 +2091,7 @@ public:
 	 */
 	FORCEINLINE void Push(T *NewItem)
 	{
-		FLockFreePointerListFIFOBase::Push(NewItem);
+		FLockFreePointerListFIFOBase<TPaddingForCacheContention>::Push(NewItem);
 	}
 
 	/**	
@@ -2076,7 +2100,7 @@ public:
 	 */
 	FORCEINLINE T* Pop()
 	{
-		return (T*)FLockFreePointerListFIFOBase::Pop();
+		return (T*)FLockFreePointerListFIFOBase<TPaddingForCacheContention>::Pop();
 	}
 
 	/**	
@@ -2104,24 +2128,24 @@ public:
 	 *	CAUTION: This methods safety depends on external assumptions. For example, if another thread could add to the list at any time, the return value is no better than a best guess.
 	 *	As typically used, the list is not being access concurrently when this is called.
 	 */
-	FORCEINLINE bool IsEmpty() const  
+	FORCEINLINE bool IsEmpty()  
 	{
-		return FLockFreePointerListFIFOBase::IsEmpty();
+		return FLockFreePointerListFIFOBase<TPaddingForCacheContention>::IsEmpty();
 	}
 	/**	
 	 *	Check if the list is empty. This is a faster, less rigorous test that can miss a queue full of stuff. Used to optimize thread restarts.
 	 */
 	FORCEINLINE bool IsEmptyFast()  
 	{
-		return FLockFreePointerListFIFOBase::IsEmptyFast();
+		return FLockFreePointerListFIFOBase<TPaddingForCacheContention>::IsEmptyFast();
 	}
 };
 
 #if USE_NEW_LOCK_FREE_LISTS
 
 // a list where you don't care what order they pop in. We choose the fastest implementation we have.
-template <class T>
-class TLockFreePointerListUnordered : public TLockFreePointerListFIFO<T>
+template<class T, int TPaddingForCacheContention>
+class TLockFreePointerListUnordered : public TLockFreePointerListFIFO<T, TPaddingForCacheContention>
 {
 
 };

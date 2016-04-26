@@ -1,5 +1,26 @@
+
+# use build_html.sh to set/build the following variables
+#	OPTIMIZATION=
+#	LIB=
+
+
 CC=emcc
-CFLAGS= -O3 -c -Wall
+CFLAGS= $(OPTIMIZATION) -c -Wall
+LDFLAGS= $(OPTIMIZATION)
+
+MKDIR=mkdir -p
+RM=rm -f
+CP=cp -vf
+
+# ----------------------------------------
+
+INTERMEDIATE=Intermediate
+
+$(INTERMEDIATE):
+	$(MKDIR) $(INTERMEDIATE)
+
+# ----------------------------------------
+
 SOURCES= adler32.c \
 		crc32.c \
 		gzlib.c \
@@ -16,34 +37,37 @@ SOURCES= adler32.c \
 		inflate.c \
 		uncompr.c \
 
-OBJECTS=$(SOURCES:.c=.bc)
+# ----------------------------------------
 
-ZLIB=zlib.bc
+OBJECTS=$(SOURCES:%.c=$(INTERMEDIATE)/%.bc)
 
-zlib: $(ZLIB)
+$(INTERMEDIATE)/%.bc : %.c
+	$(CC) $(CFLAGS) $< -o $@
 
-$(ZLIB): $(OBJECTS) 
+TARGET=$(INTERMEDIATE)/$(LIB)
+
+$(TARGET): $(INTERMEDIATE) $(OBJECTS)
 	$(CC) $(LDFLAGS) $(OBJECTS) -o $@
 
-all: zlib example minigzip test
+all: $(SOURCES) $(TARGET)
 
-.c.bc:
-	$(CC) $(CFLAGS) $< -o $@
+install: all
+	$(CP) $(TARGET) ../Lib/HTML5/.
+
+uninstall:
+	$(RM) ../Lib/HTML5/$(LIB)
+
+clean:
+	$(RM) $(OBJECTS) $(TARGET)
+
+# ----------------------------------------
+
+example: $(INTERMEDIATE)/example.bc $(TARGET)
+	$(CC) $(OPTIMIZATION) -o $(INTERMEDIATE)/example.js $(INTERMEDIATE)/example.bc $(TARGET)
 	
-example: example.bc $(ZLIB)
-	$(CC) -O2 -o example.js example.bc $(ZLIB)
-	
-minigzip: minigzip.bc $(ZLIB)
-	$(CC) -O2 -o minigzip.js minigzip.bc $(ZLIB)
+minigzip: minigzip.bc $(TARGET)
+	$(CC) $(OPTIMIZATION) -o $(INTERMEDIATE)/minigzip.js $(INTERMEDIATE)/minigzip.bc $(TARGET)
 
-install: zlib 
-		xcopy $(ZLIB) "..\Lib\HTML5\" /F /R /Y /I
+test: example minigzip
+	node $(INTERMEDIATE)/example.js
 
-uninstall: 
-		del "..\Lib\HTML5\$(ZLIB)" /F 
-
-clean: 
-	del /s *.bc *.js 
-
-test: example
-	node example.js 

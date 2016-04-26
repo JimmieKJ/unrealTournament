@@ -277,6 +277,12 @@ public:
 
 	bool CanJoin(TWeakObjectPtr<UUTLocalPlayer> PlayerOwner)
 	{
+		if (PlayerOwner.IsValid() && !PlayerOwner->IsPartyLeader())
+		{
+			PlayerOwner->ShowToast(NSLOCTEXT("SUTMatchPanel", "ConnectToNotLeader", "Only the party leader may do this"));
+			return false;
+		}
+
 		//int32 Flags = MatchInfo.IsValid() ? MatchInfo->GetMatchFlags() : ( MatchData.IsValid() ? MatchData->Flags : 0);
 		//return ((Flags & MATCH_FLAG_InProgress) != MATCH_FLAG_InProgress) || ((Flags & MATCH_FLAG_NoJoinInProgress) != MATCH_FLAG_NoJoinInProgress);
 
@@ -314,8 +320,14 @@ public:
 		return true;
 	}
 
-	bool CanSpectate()
+	bool CanSpectate(TWeakObjectPtr<UUTLocalPlayer> PlayerOwner)
 	{
+		if (PlayerOwner.IsValid() && !PlayerOwner->IsPartyLeader())
+		{
+			PlayerOwner->ShowToast(NSLOCTEXT("SUTMatchPanel", "ConnectToNotLeader", "Only the party leader may do this"));
+			return false;
+		}
+
 		int32 Flags = MatchInfo.IsValid() ? MatchInfo->GetMatchFlags() : ( MatchData.IsValid() ? MatchData->Flags : 0);
 		return (Flags & MATCH_FLAG_NoSpectators) != MATCH_FLAG_NoSpectators;
 	}

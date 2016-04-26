@@ -1,9 +1,20 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
-
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-class UNREALED_API SEditorViewport : public SCompoundWidget
+#include "Editor.h"
+
+
+class FEditorViewportClient;
+class FSceneViewport;
+class FUICommandList;
+class SOverlay;
+class SViewport;
+class UWorld;
+
+
+class UNREALED_API SEditorViewport
+	: public SCompoundWidget
 {
 public:
 	SLATE_BEGIN_ARGS(SEditorViewport) {}
@@ -58,7 +69,7 @@ protected:
 	virtual TSharedPtr<SWidget> MakeViewportToolbar() { return TSharedPtr<SWidget>(nullptr); }
 
 	// Implement this to add an arbitrary set of toolbars or other overlays to the inside of the viewport
-	virtual void PopulateViewportOverlays(TSharedRef<class SOverlay> Overlay) { }
+	virtual void PopulateViewportOverlays(TSharedRef<SOverlay> Overlay) { }
 
 	virtual void BindCommands();
 	virtual const FSlateBrush* OnGetViewportBorderBrush() const { return NULL; }
@@ -175,7 +186,7 @@ protected:
 	TSharedPtr<SOverlay> ViewportOverlay;
 
 	/** Viewport that renders the scene provided by the viewport client */
-	TSharedPtr<class FSceneViewport> SceneViewport;
+	TSharedPtr<FSceneViewport> SceneViewport;
 	
 	/** Widget where the scene viewport is drawn in */
 	TSharedPtr<SViewport> ViewportWidget;

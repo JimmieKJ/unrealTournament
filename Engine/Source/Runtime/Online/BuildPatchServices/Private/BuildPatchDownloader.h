@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	FBuildPatchDownloader.h: Declares the BuildPatchChunkDownloader
@@ -94,6 +94,18 @@ private:
 
 private:
 
+	// Config count allowed for retries
+	const int32 MaxRetryCount;
+
+	// Config array for retry times
+	const TArray<float> RetryDelayTimes;
+
+	// Config array for health percentages
+	const TArray<float> HealthPercentages;
+
+	// Config for disconnected delay
+	const float DisconnectedDelay;
+
 	// The directory to save data to
 	const FString SaveDirectory;
 
@@ -115,11 +127,20 @@ private:
 	// A flag marking whether the thread is idle waiting for jobs
 	bool bIsIdle;
 
+	// A flag marking whether the thread is failing all current requests
+	bool bIsDisconnected;
+
 	// A flag that says whether more chunks could still be queued
 	bool bWaitingForJobs;
 
-	// A critical section to protect the flags
+	// The current overall download success rate
+	double ChunkSuccessRate;
+
+	// A critical section to protect the flags and rate
 	FCriticalSection FlagsLock;
+
+	// The time in cycles since we received data
+	volatile int64 CyclesAtLastData;
 
 	// Store a record of each download we made for info
 	TArray< FBuildPatchDownloadRecord > DownloadRecords;
@@ -185,6 +206,12 @@ public:
 	bool IsIdle();
 
 	/**
+	 * Get whether the thread is currently failing all downloads
+	 * @return	true if the thread is not getting success responses
+	 */
+	bool IsDisconnected();
+
+	/**
 	 * Gets the array of download recordings. Should not be polled, only call when the thread has finished to gather data
 	 * @return	An array of download records
 	 */
@@ -239,12 +266,37 @@ public:
 	int32 GetByteDownloadCountReset();
 
 	/**
+	 * @return The currently reported download health
+	 */
+	EBuildPatchDownloadHealth GetDownloadHealth();
+
+	/**
 	 * Add some bytes to the download counter
 	 * @param	NumBytes The number of bytes to add
 	 */
 	void IncrementByteDownloadCount( const int32& NumBytes );
 
 private:
+
+	/**
+	 * @return	The desired number of retries per request, from config or default
+	 */
+	int32 LoadRetryCount() const;
+
+	/**
+	 * @return	The desired retry times, from config or default
+	 */
+	TArray<float> LoadRetryTimes() const;
+
+	/**
+	 * @return	The amount of time with no data received to consider a disconnected state
+	 */
+	float LoadDisconnectDelay() const;
+
+	/**
+	 * @return	The percentages used to determine the health status
+	 */
+	TArray<float> LoadHealthPercentages() const;
 
 	/**
 	 * Sets the bIsRunning flag
@@ -263,6 +315,18 @@ private:
 	 * @param bIdle	Whether the thread is waiting for jobs
 	 */
 	void SetIdle( bool bIdle );
+
+	/**
+	 * Sets the bIsDisconnected flag
+	 * @param bIsDisconnected	Whether the thread is stalling on all requests
+	 */
+	void SetIsDisconnected(bool bIsDisconnected);
+
+	/**
+	 * Sets the current request success rate
+	 * @param SuccessRate	The rate of success from 0.0f to 1.0f
+	 */
+	void SetSuccessRate(double SuccessRate);
 
 	/**
 	 * Gets whether the thread still has work to do
@@ -309,6 +373,13 @@ private:
 	 * @return true if there was a job in the list
 	 */
 	bool GetNextDownload( FGuid& Guid );
+
+	/**
+	 * Get the required retry delay for a chunk retry.
+	 * @param RetryCount	The retry number
+	 * @return	The required retry delay in seconds
+	 */
+	float GetRetryDelay(int32 RetryCount);
 
 	/* Here we have static access for the singleton
 	*****************************************************************************/

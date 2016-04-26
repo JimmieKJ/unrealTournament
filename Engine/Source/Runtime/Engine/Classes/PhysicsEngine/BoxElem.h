@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -96,5 +96,26 @@ struct FKBoxElem : public FKShapeElem
 
 	ENGINE_API void ScaleElem(FVector DeltaSize, float MinSize);
 
+	ENGINE_API FKBoxElem GetFinalScaled(const FVector& Scale3D, const FTransform& RelativeTM) const;
+
 	ENGINE_API static EAggCollisionShape::Type StaticShapeType;
+
+	/**	
+	 * Finds the shortest distance between the element and a world position. Input and output are given in world space
+	 * @param	WorldPosition	The point we are trying to get close to
+	 * @param	BodyToWorldTM	The transform to convert BodySetup into world space
+	 * @return					The distance between WorldPosition and the shape. 0 indicates WorldPosition is inside one of the shapes.
+	 */
+	ENGINE_API float GetShortestDistanceToPoint(const FVector& WorldPosition, const FTransform& BodyToWorldTM) const;
+
+	
+	/**	
+	 * Finds the closest point on the shape given a world position. Input and output are given in world space
+	 * @param	WorldPosition			The point we are trying to get close to
+	 * @param	BodyToWorldTM			The transform to convert BodySetup into world space
+	 * @param	ClosestWorldPosition	The closest point on the shape in world space
+	 * @param	Normal					The normal of the feature associated with ClosestWorldPosition.
+	 * @return							The distance between WorldPosition and the shape. 0 indicates WorldPosition is inside the shape.
+	 */
+	ENGINE_API float GetClosestPointAndNormal(const FVector& WorldPosition, const FTransform& BodyToWorldTM, FVector& ClosestWorldPosition, FVector& Normal) const;
 };

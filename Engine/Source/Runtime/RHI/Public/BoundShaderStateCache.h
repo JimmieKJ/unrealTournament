@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BoundShaderStateCache.h: Bound shader state cache definition.
@@ -159,6 +159,8 @@ extern RHI_API FCachedBoundShaderStateLink* GetCachedBoundShaderState(
 	FDomainShaderRHIParamRef DomainShader = NULL,
 	FGeometryShaderRHIParamRef GeometryShader = NULL
 	);
+
+extern RHI_API void EmptyCachedBoundShaderStates();
 
 class RHI_API FCachedBoundShaderStateLink_Threadsafe : public FCachedBoundShaderStateLink
 {

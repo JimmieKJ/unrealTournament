@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DistanceFieldSurfaceCacheLighting.usf
@@ -123,7 +123,7 @@ void ComputeDistanceFieldNormalPS(
 	out float4 OutColor : SV_Target0)
 {
 	// Sample from the center of the top left full resolution texel
-	float2 ScreenUV = float2((floor(SVPos.xy) * DOWNSAMPLE_FACTOR + View.ViewRectMin.xy + .5f) * View.BufferSizeAndInvSize.zw);
+	float2 ScreenUV = float2((floor(SVPos.xy) * DOWNSAMPLE_FACTOR + Frame.ViewRectMin.xy + .5f) * Frame.BufferSizeAndInvSize.zw);
 	float SceneDepth = CalcSceneDepth(ScreenUV);
 	FGBufferData GBufferData = GetGBufferData(ScreenUV);
 
@@ -138,7 +138,7 @@ void ComputeDistanceFieldNormalCS(
 	uint3 DispatchThreadId : SV_DispatchThreadID,
     uint3 GroupThreadId : SV_GroupThreadID) 
 {
-	float2 ScreenUV = float2((DispatchThreadId.xy * DOWNSAMPLE_FACTOR + View.ViewRectMin.xy + .5f) * View.BufferSizeAndInvSize.zw);
+	float2 ScreenUV = float2((DispatchThreadId.xy * DOWNSAMPLE_FACTOR + Frame.ViewRectMin.xy + .5f) * Frame.BufferSizeAndInvSize.zw);
 	float SceneDepth = CalcSceneDepth(ScreenUV);
 	FGBufferData GBufferData = GetGBufferData(ScreenUV);
 
@@ -210,7 +210,7 @@ void IrradianceCacheSplatVS(
 
 	float OffsetFromCenter = InterpolationBoundingDirection * RecordRadius;
 	// Distance from the camera position that NormalizedViewToCenter will intersect the near plane
-	float NearPlaneDistance = View.NearPlane / dot(View.ViewForward, NormalizedViewToCenter);
+	float NearPlaneDistance = Frame.NearPlane / dot(View.ViewForward, NormalizedViewToCenter);
 
 	// Don't move closer than the near plane to avoid getting clipped
 	// Clamping at the vertex level only works because it's a screen-aligned triangle
@@ -293,7 +293,7 @@ void IrradianceCacheSplatPS(
 
 #else
 
-	float2 ScreenUV = float2(((floor(SVPos.xy)) * CurrentLevelDownsampleFactor + View.ViewRectMin.xy + float2(.5f, .5f)) * View.BufferSizeAndInvSize.zw);
+	float2 ScreenUV = float2(((floor(SVPos.xy)) * CurrentLevelDownsampleFactor + Frame.ViewRectMin.xy + float2(.5f, .5f)) * Frame.BufferSizeAndInvSize.zw);
 	SceneDepth = CalcSceneDepth(ScreenUV); 
 	float2 ScreenPosition = (ScreenUV.xy - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy;
 	float4 HomogeneousWorldPosition = mul(float4(ScreenPosition.xy * SceneDepth, SceneDepth, 1), View.ScreenToWorld);
@@ -500,7 +500,7 @@ void VisualizeMeshDistanceFieldCS(
 {
 	uint ThreadIndex = GroupThreadId.y * THREADGROUP_SIZEX + GroupThreadId.x;
 
-	float2 ScreenUV = float2((DispatchThreadId.xy * DOWNSAMPLE_FACTOR + View.ViewRectMin.xy + .5f) * View.BufferSizeAndInvSize.zw);
+	float2 ScreenUV = float2((DispatchThreadId.xy * DOWNSAMPLE_FACTOR + Frame.ViewRectMin.xy + .5f) * Frame.BufferSizeAndInvSize.zw);
 	float2 ScreenPosition = (ScreenUV.xy - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy;
 
 	float SceneDepth = CalcSceneDepth(ScreenUV);
@@ -608,7 +608,7 @@ SamplerState VisualizeDistanceFieldSampler;
 void VisualizeDistanceFieldUpsamplePS(in float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
 {
 	// Distance field AO was computed at 0,0 regardless of viewrect min
-	float2 DistanceFieldUVs = UVAndScreenPos.xy - View.ViewRectMin.xy * View.BufferSizeAndInvSize.zw;
+	float2 DistanceFieldUVs = UVAndScreenPos.xy - Frame.ViewRectMin.xy * Frame.BufferSizeAndInvSize.zw;
 
 	float3 Value = Texture2DSampleLevel(VisualizeDistanceFieldTexture, VisualizeDistanceFieldSampler, DistanceFieldUVs, 0).xyz;
 

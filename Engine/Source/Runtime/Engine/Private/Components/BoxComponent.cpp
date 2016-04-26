@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "EnginePrivate.h"
@@ -16,6 +16,7 @@ UBoxComponent::UBoxComponent(const FObjectInitializer& ObjectInitializer)
 void UBoxComponent::SetBoxExtent(FVector NewBoxExtent, bool bUpdateOverlaps)
 {
 	BoxExtent = NewBoxExtent;
+	UpdateBounds();
 	MarkRenderStateDirty();
 	UpdateBodySetup();
 
@@ -33,41 +34,65 @@ void UBoxComponent::SetBoxExtent(FVector NewBoxExtent, bool bUpdateOverlaps)
 	}
 }
 
-void UBoxComponent::UpdateBodySetup()
-{
-	if(ShapeBodySetup == NULL || ShapeBodySetup->IsPendingKill())
-	{
-		ShapeBodySetup = NewObject<UBodySetup>(this);
-		ShapeBodySetup->CollisionTraceFlag = CTF_UseSimpleAsComplex;
-		ShapeBodySetup->AggGeom.BoxElems.Add(FKBoxElem());
-		ShapeBodySetup->bNeverNeedsCookedCollisionData = true;
-	}
 
+template <EShapeBodySetupHelper UpdateBodySetupAction>
+bool InvalidateOrUpdateBoxBodySetup(UBodySetup*& ShapeBodySetup, bool bUseArchetypeBodySetup, FVector BoxExtent)
+{
+	check((bUseArchetypeBodySetup && UpdateBodySetupAction == EShapeBodySetupHelper::InvalidateSharingIfStale) || (!bUseArchetypeBodySetup && UpdateBodySetupAction == EShapeBodySetupHelper::UpdateBodySetup));
 	check(ShapeBodySetup->AggGeom.BoxElems.Num() == 1);
 	FKBoxElem* se = ShapeBodySetup->AggGeom.BoxElems.GetData();
 
 	// @todo UE4 do we allow this now?
 	// check for malformed values
-	if( BoxExtent.X < KINDA_SMALL_NUMBER )
+	if (BoxExtent.X < KINDA_SMALL_NUMBER)
 	{
 		BoxExtent.X = 1.0f;
 	}
 
-	if( BoxExtent.Y < KINDA_SMALL_NUMBER )
+	if (BoxExtent.Y < KINDA_SMALL_NUMBER)
 	{
 		BoxExtent.Y = 1.0f;
 	}
 
-	if( BoxExtent.Z < KINDA_SMALL_NUMBER )
+	if (BoxExtent.Z < KINDA_SMALL_NUMBER)
 	{
 		BoxExtent.Z = 1.0f;
 	}
 
-	// now set the PhysX data values
-	se->SetTransform( FTransform::Identity );
-	se->X = BoxExtent.X*2;
-	se->Y = BoxExtent.Y*2;
-	se->Z = BoxExtent.Z*2;
+	float XExtent = BoxExtent.X * 2.f;
+	float YExtent = BoxExtent.Y * 2.f;
+	float ZExtent = BoxExtent.Z * 2.f;
+
+	if (UpdateBodySetupAction == EShapeBodySetupHelper::UpdateBodySetup)
+	{
+		// now set the PhysX data values
+		se->SetTransform(FTransform::Identity);
+		se->X = XExtent;
+		se->Y = YExtent;
+		se->Z = ZExtent;
+	}
+	else if(se->X != XExtent || se->Y != YExtent || se->Z != ZExtent)
+	{
+		ShapeBodySetup = nullptr;
+		bUseArchetypeBodySetup = false;
+	}
+
+	return bUseArchetypeBodySetup;
+}
+
+void UBoxComponent::UpdateBodySetup()
+{
+	if (PrepareSharedBodySetup<UBoxComponent>())
+	{
+		bUseArchetypeBodySetup = InvalidateOrUpdateBoxBodySetup<EShapeBodySetupHelper::InvalidateSharingIfStale>(ShapeBodySetup, bUseArchetypeBodySetup, BoxExtent);
+	}
+
+	CreateShapeBodySetupIfNeeded<FKBoxElem>();
+
+	if (!bUseArchetypeBodySetup)
+	{
+		InvalidateOrUpdateBoxBodySetup<EShapeBodySetupHelper::UpdateBodySetup>(ShapeBodySetup, bUseArchetypeBodySetup, BoxExtent);
+	}
 }
 
 bool UBoxComponent::IsZeroExtent() const

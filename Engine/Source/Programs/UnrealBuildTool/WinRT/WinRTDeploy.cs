@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -47,7 +47,7 @@ namespace UnrealBuildTool
 
 			SearchOption OptionToSearch = bInIncludeSubDirectories ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
 
-			var SourceDirs = new List<string>(Directory.GetDirectories(InSourceDirectory, "*.*", OptionToSearch));
+			List<string> SourceDirs = new List<string>(Directory.GetDirectories(InSourceDirectory, "*.*", OptionToSearch));
 			foreach (string SourceDir in SourceDirs)
 			{
 				string SubDir = SourceDir.Replace(InSourceDirectory, "");
@@ -55,8 +55,8 @@ namespace UnrealBuildTool
 				Directory.CreateDirectory(DestDir);
 			}
 
-			var SourceFiles = new List<string>(Directory.GetFiles(InSourceDirectory, InWildCard, OptionToSearch));
-			var DestFiles = new List<string>(Directory.GetFiles(InDestinationDirectory, InWildCard, OptionToSearch));
+			List<string> SourceFiles = new List<string>(Directory.GetFiles(InSourceDirectory, InWildCard, OptionToSearch));
+			List<string> DestFiles = new List<string>(Directory.GetFiles(InDestinationDirectory, InWildCard, OptionToSearch));
 
 			// Keep a list of the files in the source directory... without the source path
 			List<string> FilesInSource = new List<string>();

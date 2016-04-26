@@ -34,16 +34,13 @@ class UNREALTOURNAMENT_API UUTGameMessage : public UUTLocalMessage
 	FText DidntMakeTheCut;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Message")
-		FText YouAreOnRed;
+		FText YouAreOn;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Message")
-		FText YouAreOnBlue;
+		FText RedTeamName;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Message")
-	FText Coronation;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Message")
-	FText GameChanger;
+		FText BlueTeamName;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Message")
 	FText KickVote;
@@ -55,10 +52,11 @@ class UNREALTOURNAMENT_API UUTGameMessage : public UUTLocalMessage
 		FText PotentialSpeedHack;
 
 	virtual FText GetText(int32 Switch,bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const override;
-	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override;
+	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const override;
 	virtual FLinearColor GetMessageColor_Implementation(int32 MessageIndex) const override;
-	virtual bool UseLargeFont(int32 MessageIndex) const override;
 	virtual float GetScaleInSize_Implementation(int32 MessageIndex) const override;
 	virtual float GetLifeTime(int32 Switch) const override;
+	virtual void GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const override;
+	virtual int32 GetFontSizeIndex(int32 MessageIndex) const override;
 };
 

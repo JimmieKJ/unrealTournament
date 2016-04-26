@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "HierarchicalLODOutlinerPrivatePCH.h"
 #include "HLODTreeWidgetItem.h"
@@ -8,6 +8,8 @@
 #include "LODActorItem.h"
 #include "StaticMeshActorItem.h"
 #include "HLODOutliner.h"
+
+#define LOCTEXT_NAMESPACE "HLODTreeWidgetItem"
 
 namespace HLODOutliner
 {
@@ -67,13 +69,15 @@ namespace HLODOutliner
 
 		return FReply::Unhandled();
 	}
-
+	
 	FReply HandleDrop(TWeakPtr<STableViewBase> Widget, const FDragDropEvent& DragDropEvent, IDropTarget& DropTarget, FDragValidationInfo& ValidationInfo, SHLODWidgetItem* DroppedWidget, bool bApplyDrop)
 	{
 		FDragDropPayload DraggedObjects;
 		// Validate now to make sure we don't doing anything we shouldn't
 		if (!DraggedObjects.ParseDrag(*DragDropEvent.GetOperation()))
 		{
+			// Invalid selection
+			ValidationInfo = FDragValidationInfo(EHierarchicalLODActionType::InvalidAction, FHLODOutlinerDragDropOp::ToolTip_Incompatible, LOCTEXT("InvalidSelection", "Selection contains already clustered Actor(s)"));
 			return FReply::Unhandled();
 		}
 
@@ -135,7 +139,7 @@ BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 					.ColorAndOpacity(this, &SHLODWidgetItem::GetTint)
 				];
 		}		
-		else if (ColumnName == TEXT("TriangleCount") && TreeItem->GetTreeItemType() == ITreeItem::HierarchicalLODActor)
+		else if (ColumnName == TEXT("RawTriangleCount") && TreeItem->GetTreeItemType() == ITreeItem::HierarchicalLODActor)
 		{
 			FLODActorItem* Item = static_cast<FLODActorItem*>(TreeItem);
 
@@ -145,10 +149,54 @@ BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
-					.Text(Item, &FLODActorItem::GetNumTrianglesAsText)
+					.Text(Item, &FLODActorItem::GetRawNumTrianglesAsText)
 					.ColorAndOpacity(this, &SHLODWidgetItem::GetTint)
 				];
 		}
+		else if (ColumnName == TEXT("ReducedTriangleCount") && TreeItem->GetTreeItemType() == ITreeItem::HierarchicalLODActor)
+		{
+			FLODActorItem* Item = static_cast<FLODActorItem*>(TreeItem);
+
+			return SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text(Item, &FLODActorItem::GetReducedNumTrianglesAsText)
+					.ColorAndOpacity(this, &SHLODWidgetItem::GetTint)
+				];
+		}
+		else if (ColumnName == TEXT("ReductionPercentage") && TreeItem->GetTreeItemType() == ITreeItem::HierarchicalLODActor)
+		{
+			FLODActorItem* Item = static_cast<FLODActorItem*>(TreeItem);
+
+			return SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text(Item, &FLODActorItem::GetReductionPercentageAsText)
+					.ColorAndOpacity(this, &SHLODWidgetItem::GetTint)
+				];
+		}
+		else if (ColumnName == TEXT("Level") && TreeItem->GetTreeItemType() == ITreeItem::HierarchicalLODActor)
+		{
+			FLODActorItem* Item = static_cast<FLODActorItem*>(TreeItem);
+
+			return SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text(Item, &FLODActorItem::GetLevelAsText)
+					.ColorAndOpacity(this, &SHLODWidgetItem::GetTint)
+				];
+		}
+
+
 		else
 		{
 			return SNullWidget::NullWidget;
@@ -199,3 +247,5 @@ END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 		return FReply::Unhandled();
 	}	
 };
+
+#undef LOCTEXT_NAMESPACE // "HLODTreeWidgetItem"

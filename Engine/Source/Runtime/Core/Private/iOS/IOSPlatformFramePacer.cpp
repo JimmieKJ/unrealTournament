@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 
@@ -65,25 +65,31 @@ FIOSFramePacer* FIOSPlatformRHIFramePacer::FramePacer = nil;
 bool FIOSPlatformRHIFramePacer::IsEnabled()
 {
     static bool bIsRHIFramePacerEnabled = false;
-    
-    FString FrameRateLockAsEnum;
-    GConfig->GetString( TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("FrameRateLock"), FrameRateLockAsEnum, GEngineIni );
-    
-    uint32 FrameRateLock = 0;
-    if( FParse::Value(*FrameRateLockAsEnum, TEXT("PUFRL_"), FrameRateLock))
-    {
-        if( !bIsRHIFramePacerEnabled && FrameRateLock > 0 )
-        {
-            check( (IOSDisplayConstants::MaxRefreshRate % FrameRateLock) == 0 );
-            FrameInterval = IOSDisplayConstants::MaxRefreshRate / FrameRateLock;
-        
-            bIsRHIFramePacerEnabled = (FrameInterval > 0);
-        }
-    }
-    
+	static bool bInitialized = false;
 
-    
-    return bIsRHIFramePacerEnabled;
+	if (!bInitialized)
+	{
+		FString FrameRateLockAsEnum;
+		GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("FrameRateLock"), FrameRateLockAsEnum, GEngineIni);
+
+		uint32 FrameRateLock = 60;
+		FParse::Value(*FrameRateLockAsEnum, TEXT("PUFRL_"), FrameRateLock);
+		if (FrameRateLock == 0)
+		{
+			FrameRateLock = 60;
+		}
+
+		if (!bIsRHIFramePacerEnabled)
+		{
+			check((IOSDisplayConstants::MaxRefreshRate % FrameRateLock) == 0);
+			FrameInterval = IOSDisplayConstants::MaxRefreshRate / FrameRateLock;
+
+			bIsRHIFramePacerEnabled = (FrameInterval > 0);
+		}
+		bInitialized = true;
+	}
+	
+	return bIsRHIFramePacerEnabled;
 }
 
 void FIOSPlatformRHIFramePacer::InitWithEvent(FEvent* TriggeredEvent)
@@ -96,6 +102,19 @@ void FIOSPlatformRHIFramePacer::InitWithEvent(FEvent* TriggeredEvent)
     ListeningEvents.Add( TriggeredEvent );
 }
 
+void FIOSPlatformRHIFramePacer::Suspend()
+{
+    // send a signal to the events if we are enabled
+    if (IsEnabled())
+    {
+        [FramePacer signal:0];
+    }
+}
+
+void FIOSPlatformRHIFramePacer::Resume()
+{
+    
+}
 
 void FIOSPlatformRHIFramePacer::Destroy()
 {

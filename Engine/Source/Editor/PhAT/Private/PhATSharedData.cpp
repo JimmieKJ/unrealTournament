@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "PhATModule.h"
 #include "PhysicsPublic.h"
@@ -65,9 +65,6 @@ FPhATSharedData::FPhATSharedData()
 	EditorSimOptions->HandleAngularDamping = MouseHandle->AngularDamping;
 	EditorSimOptions->HandleAngularStiffness = MouseHandle->AngularStiffness;
 	EditorSimOptions->InterpolationSpeed = MouseHandle->InterpolationSpeed;
-
-	// when record simulation, we'd like to record local to world change
-	Recorder.bRecordLocalToWorld = true;
 }
 
 FPhATSharedData::~FPhATSharedData()

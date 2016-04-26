@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneTracksPrivatePCH.h"
 #include "MovieSceneVectorTrackInstance.h"
@@ -12,11 +12,14 @@ FMovieSceneVectorTrackInstance::FMovieSceneVectorTrackInstance( UMovieSceneVecto
 }
 
 
-void FMovieSceneVectorTrackInstance::SaveState(const TArray<UObject*>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
+void FMovieSceneVectorTrackInstance::SaveState(const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
 {
 	int32 NumChannelsUsed = VectorTrack->GetNumChannelsUsed();
-	for( UObject* Object : RuntimeObjects )
+	
+	for (auto ObjectPtr : RuntimeObjects)
 	{
+		UObject* Object = ObjectPtr.Get();
+
 		switch( NumChannelsUsed )
 		{
 			case 2:
@@ -51,11 +54,14 @@ void FMovieSceneVectorTrackInstance::SaveState(const TArray<UObject*>& RuntimeOb
 }
 
 
-void FMovieSceneVectorTrackInstance::RestoreState(const TArray<UObject*>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
+void FMovieSceneVectorTrackInstance::RestoreState(const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
 {
 	int32 NumChannelsUsed = VectorTrack->GetNumChannelsUsed();
-	for( UObject* Object : RuntimeObjects )
+
+	for (auto ObjectPtr : RuntimeObjects)
 	{
+		UObject* Object = ObjectPtr.Get();
+
 		if (!IsValid(Object))
 		{
 			continue;
@@ -97,10 +103,10 @@ void FMovieSceneVectorTrackInstance::RestoreState(const TArray<UObject*>& Runtim
 }
 
 
-void FMovieSceneVectorTrackInstance::Update( float Position, float LastPosition, const TArray<UObject*>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance, EMovieSceneUpdatePass UpdatePass ) 
+void FMovieSceneVectorTrackInstance::Update( EMovieSceneUpdateData& UpdateData, const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance ) 
 {
 	FVector4 Vector;
-	if( VectorTrack->Eval( Position, LastPosition, Vector ) )
+	if( VectorTrack->Eval( UpdateData.Position, UpdateData.LastPosition, Vector ) )
 	{
 		int32 NumChannelsUsed = VectorTrack->GetNumChannelsUsed();
 		switch( NumChannelsUsed )
@@ -108,26 +114,26 @@ void FMovieSceneVectorTrackInstance::Update( float Position, float LastPosition,
 			case 2:
 			{
 				FVector2D Value(Vector.X, Vector.Y);
-				for(UObject* Object : RuntimeObjects)
+				for(auto Object : RuntimeObjects)
 				{
-					PropertyBindings->CallFunction<FVector2D>(Object, &Value);
+					PropertyBindings->CallFunction<FVector2D>(Object.Get(), &Value);
 				}
 				break;
 			}
 			case 3:
 			{
 				FVector Value(Vector.X, Vector.Y, Vector.Z);
-				for(UObject* Object : RuntimeObjects)
+				for(auto Object : RuntimeObjects)
 				{
-					PropertyBindings->CallFunction<FVector>(Object, &Value);
+					PropertyBindings->CallFunction<FVector>(Object.Get(), &Value);
 				}
 				break;
 			}
 			case 4:
 			{
-				for(UObject* Object : RuntimeObjects)
+				for(auto Object : RuntimeObjects)
 				{
-					PropertyBindings->CallFunction<FVector4>(Object, &Vector);
+					PropertyBindings->CallFunction<FVector4>(Object.Get(), &Vector);
 				}
 				break;
 			}
@@ -140,7 +146,7 @@ void FMovieSceneVectorTrackInstance::Update( float Position, float LastPosition,
 }
 
 
-void FMovieSceneVectorTrackInstance::RefreshInstance(const TArray<UObject*>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
+void FMovieSceneVectorTrackInstance::RefreshInstance(const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
 {
 	PropertyBindings->UpdateBindings(RuntimeObjects);
 }

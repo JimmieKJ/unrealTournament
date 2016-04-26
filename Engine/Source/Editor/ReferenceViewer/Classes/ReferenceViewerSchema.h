@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "ReferenceViewerSchema.generated.h"
@@ -20,7 +20,11 @@ public:
 	// End of UEdGraphSchema interface
 
 private:
-	/** Constructs the sub-menu for Make Collection With Referenced Asset */
-	void GetMakeCollectionWithReferencedAssetsSubMenu(class FMenuBuilder& MenuBuilder);
+
+	/** Constructs the sub-menu for Make Collection With */
+	void GetMakeCollectionWithSubMenu(FMenuBuilder& MenuBuilder);
+
+	/** Constructs the sub-menu for Make Collection With Referencers/Dependencies */
+	void GetMakeCollectionWithReferencersOrDependenciesSubMenu(class FMenuBuilder& MenuBuilder, bool bReferencers);
 };
 

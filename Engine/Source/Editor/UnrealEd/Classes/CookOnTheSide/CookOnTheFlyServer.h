@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	CookOnTheFlyServer.h : handles polite cook requests via network ;)
@@ -14,29 +14,40 @@ class FChunkManifestGenerator;
 
 enum class ECookInitializationFlags
 {
-	None = 0x0,						// No flags
-	Compressed = 0x1,				// will save compressed packages
-	Iterative = 0x2,				// use iterative cooking (previous cooks will not be cleaned unless detected out of date, experimental)
-	SkipEditorContent = 0x4,		// do not cook any content in the content\editor directory
-	Unversioned = 0x8,				// save the cooked packages without a version number
-	AutoTick = 0x10,				// enable ticking (only works in the editor)
-	AsyncSave = 0x20,				// save packages async
-	IncludeServerMaps = 0x80,		// should we include the server maps when cooking
-	UseSerializationForPackageDependencies = 0x100, // should we use the serialization code path for generating package dependencies (old method will be deprecated)
+	None =										0x000, // No flags
+	Compressed =								0x001, // will save compressed packages
+	Iterative =									0x002, // use iterative cooking (previous cooks will not be cleaned unless detected out of date, experimental)
+	SkipEditorContent =							0x004, // do not cook any content in the content\editor directory
+	Unversioned =								0x008, // save the cooked packages without a version number
+	AutoTick =									0x010, // enable ticking (only works in the editor)
+	AsyncSave =									0x020, // save packages async
+	IncludeServerMaps =							0x080, // should we include the server maps when cooking
+	UseSerializationForPackageDependencies =	0x100, // should we use the serialization code path for generating package dependencies (old method will be deprecated)
+	BuildDDCInBackground =						0x200, // build ddc content in background while the editor is running (only valid for modes which are in editor IsCookingInEditor())
+	GeneratedAssetRegistry =					0x400, // have we generated asset registry yet
+	OutputVerboseCookerWarnings =				0x800, // output additional cooker warnings about content issues
 };
 ENUM_CLASS_FLAGS(ECookInitializationFlags);
 
 enum class ECookByTheBookOptions
 {
-	None = 0x0,					// no flags
-	CookAll = 0x1,				// cook all maps and content in the content directory
-	MapsOnly = 0x2,				// cook only maps
-	NoDevContent = 0x4,			// don't include dev content
-	LeakTest = 0x8,				// test for uobject leaks after each level load
-	ForceDisableCompressed = 0x10, // force compression to be disabled even if the cooker was initialized with it enabled
-	ForceEnableCompressed = 0x20, // force compression to be on even if the cooker was initialized with it disabled
+	None =								0x00000000, // no flags
+	CookAll	=							0x00000001, // cook all maps and content in the content directory
+	MapsOnly =							0x00000002, // cook only maps
+	NoDevContent =						0x00000004, // don't include dev content
+	LeakTest =							0x00000008, // test for uobject leaks after each level load
+	ForceDisableCompressed =			0x00000010, // force compression to be disabled even if the cooker was initialized with it enabled
+	ForceEnableCompressed =				0x00000020, // force compression to be on even if the cooker was initialized with it disabled
+	ForceDisableSaveGlobalShaders =		0x00000040, // force global shaders to not be saved (used if cooking multiple times for the same platform and we know we are up todate)
+	NoGameAlwaysCookPackages =			0x00000080, // don't include the packages specified by the game in the cook (this cook will probably be missing content unless you know what you are doing)
+	NoAlwaysCookMaps =					0x00000100, // don't include always cook maps (this cook will probably be missing content unless you know what you are doing)
+	NoDefaultMaps =						0x00000200, // don't include default cook maps (this cook will probably be missing content unless you know what you are doing)
+	NoSlatePackages =					0x00000400, // don't include slate content (this cook will probably be missing content unless you know what you are doing)
+	NoInputPackages =					0x00000800, // don't include slate content (this cook will probably be missing content unless you know what you are doing)
+	DisableUnsolicitedPackages =		0x00001000, // don't cook any packages which aren't in the files to cook list (this is really dangerious as if you request a file it will not cook all it's dependencies automatically)
 };
 ENUM_CLASS_FLAGS(ECookByTheBookOptions);
+
 
 UENUM()
 namespace ECookMode
@@ -54,8 +65,10 @@ namespace ECookMode
 	};
 }
 
+DECLARE_STATS_GROUP(TEXT("Cooking"), STATGROUP_Cooking, STATCAT_Advanced);
+
 UCLASS()
-class UNREALED_API UCookOnTheFlyServer : public UObject, public FTickableEditorObject
+class UNREALED_API UCookOnTheFlyServer : public UObject, public FTickableEditorObject, public FExec
 {
 	GENERATED_BODY()
 
@@ -662,7 +675,6 @@ public:
 		FProcHandle ProcessHandle;
 		FString ResponseFileName;
 		FString BaseResponseFileName;
-		FString ManifestFilename;
 		void* ReadPipe;
 		int32 ReturnCode;
 		bool bFinished;
@@ -681,7 +693,9 @@ private:
 			bErrorOnEngineContentUse(false),
 			bForceEnableCompressedPackages(false),
 			bForceDisableCompressedPackages(false),
-			bIsChildCooker(false)
+			bIsChildCooker(false),
+			bDisableUnsolicitedPackages(false),
+			ChildCookIdentifier(-1)
 		{ }
 
 		/** Should we test for UObject leaks */
@@ -717,8 +731,9 @@ private:
 		bool bForceEnableCompressedPackages;
 		bool bForceDisableCompressedPackages;
 		bool bIsChildCooker;
+		bool bDisableUnsolicitedPackages;
+		int32 ChildCookIdentifier;
 		FString ChildCookFilename;
-		FString ChildManifestFilename;
 		TSet<FName> ChildUnsolicitedPackages;
 		TArray<FChildCooker> ChildCookers;
 		TArray<FName> TargetPlatformNames;
@@ -742,15 +757,21 @@ private:
 	/** Max memory the cooker should use before forcing a gc */
 	uint64 MaxMemoryAllowance;
 
-	
 	ECookInitializationFlags CookFlags;
 	TAutoPtr<class FSandboxPlatformFile> SandboxFile;
 	bool bIsInitializingSandbox; // stop recursion into callbacks when we are initializing sandbox
 	bool bIsSavingPackage; // used to stop recursive mark package dirty functions
-	TSet<FName> PackagesKeptFromPreviousCook; // used for iterative cooking this is a list of the packages which were kept from the previous cook
 
 	//////////////////////////////////////////////////////////////////////////
+	// cook in editor specific
+	TArray<FWeakObjectPtr> CachedMaterialsToCacheArray;
+	TArray<FWeakObjectPtr> CachedTexturesToCacheArray;
+	int32 LastUpdateTick;
+	int32 MaxPrecacheShaderJobs;
+	void TickPrecacheObjectsForPlatforms(const float TimeSlice, const TArray<const ITargetPlatform*>& TargetPlatform);
 
+	//////////////////////////////////////////////////////////////////////////
+	
 	// data about the current package being processed
 	struct FReentryData
 	{
@@ -791,6 +812,8 @@ private:
 	bool ClearPackageFilenameCacheForPackage( const UPackage* Package ) const;
 	bool ClearPackageFilenameCacheForPackage( const FName& PackageName ) const;
 
+	FString ConvertCookedPathToUncookedPath(const FString& CookedPackageName) const;
+
 	// declared mutable as it's used to cache package filename strings and I don't want to declare all functions using it as non const
 	// used by GetCached * Filename functions
 	mutable TMap<FName, FCachedPackageFilename> PackageFilenameCache; // filename cache (only process the string operations once)
@@ -822,6 +845,12 @@ public:
 	void Tick(float DeltaTime) override;
 	bool IsTickable() const override;
 	ECookMode::Type GetCookMode() const { return CurrentCookMode; }
+
+
+	/**
+	 * FExec interface used in the editor
+	 */
+	virtual bool Exec(class UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override;
 
 	/**
 	 * Initialize the CookServer so that either CookOnTheFly can be called or Cook on the side can be started and ticked
@@ -857,13 +886,13 @@ public:
 		TArray<FString> NeverCookDirectories;
 		TArray<FString> CookCultures; 
 		TArray<FString> IniMapSections;
+		TArray<FString> CookPackages; // list of packages we should cook, used to specify specific packages to cook
 		ECookByTheBookOptions CookOptions;
-		FString CookSingleAssetName;
 		FString DLCName;
 		FString CreateReleaseVersion;
 		FString BasedOnReleaseVersion;
 		FString ChildCookFileName; // if we are the child cooker 
-		FString ChildManifestFilename; // again, only if you are the child cooker
+		int32 ChildCookIdentifier; // again, only if you are the child cooker
 		bool bGenerateStreamingInstallManifests; 
 		bool bGenerateDependenciesForMaps; 
 		bool bErrorOnEngineContentUse; // this is a flag for dlc, will cause the cooker to error if the dlc references engine content
@@ -871,6 +900,7 @@ public:
 		FCookByTheBookStartupOptions() :
 			CookOptions(ECookByTheBookOptions::None),
 			DLCName(FString()),
+			ChildCookIdentifier(-1),
 			bGenerateStreamingInstallManifests(false),
 			bGenerateDependenciesForMaps(false),
 			bErrorOnEngineContentUse(false),
@@ -910,6 +940,14 @@ public:
 	 * @return returns ECookOnTheSideResult
 	 */
 	uint32 TickCookOnTheSide( const float TimeSlice, uint32 &CookedPackagesCount );
+
+	/**
+	 * Editor Tick, special tick which is called only when used from the editor (IsCookingInEditor)
+	 *
+	 * @param Timeslice, duration this function is allowed to run in
+	 * @param RequestedTargetPlatform, keep this target platform up to date this is the platform we are likely to launch on next
+	 */
+	void EditorTick( const float Timeslice, const TArray<const ITargetPlatform*>& RequestedTargetPlatform);
 
 	/**
 	 * Clear all the previously cooked data all cook requests from now on will be considered recook requests
@@ -1049,7 +1087,7 @@ private:
 	 */
 	void CollectFilesToCook(TArray<FName>& FilesInPath, 
 		const TArray<FString>& CookMaps, const TArray<FString>& CookDirectories, const TArray<FString>& CookCultures, 
-		const TArray<FString>& IniMapSections, bool bCookAll, bool bMapsOnly, bool bNoDev);
+		const TArray<FString>& IniMapSections, ECookByTheBookOptions FilesToCookFlags);
 
 	/**
 	 * AddFileToCook add file to cook list 
@@ -1116,7 +1154,7 @@ private:
 	{
 		if (IsCookByTheBookMode())
 		{
-			return CookByTheBookOptions->bIsChildCooker;
+			return !(CookByTheBookOptions->ChildCookFilename.IsEmpty());
 		}
 		return false;
 	}
@@ -1309,13 +1347,6 @@ private:
 	 */
 	bool SaveCurrentIniSettings( const ITargetPlatform* TargetPlatform ) const;
 
-
-	/**
-	 * Save the accumulated cooker stats to the Saved\Stats folder
-	 * saves to different file name pending running multiprocess cooker / not
-	 */
-	void SaveCookerStats() const;
-
 	/**
 	 * IsCookFlagSet
 	 * 
@@ -1384,7 +1415,7 @@ private:
 	void PopulateCookedPackagesFromDisk( const TArray<ITargetPlatform*>& Platforms );
 
 	/** Generates asset registry */
-	void GenerateAssetRegistry(const TArray<ITargetPlatform*>& Platforms);
+	void GenerateAssetRegistry();
 
 	/** Generates long package names for all files to be cooked */
 	void GenerateLongPackageNames(TArray<FName>& FilesInPath);

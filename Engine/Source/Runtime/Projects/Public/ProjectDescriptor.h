@@ -1,9 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "ModuleDescriptor.h"
 #include "PluginDescriptor.h"
+#include "CustomBuildSteps.h"
 
 /**
  * Version numbers for project descriptors.
@@ -40,7 +41,7 @@ struct PROJECTS_API FProjectDescriptor
 	 * open a project with a different version of the editor and need the upgrade/downgrade UI flow. The normal engine 
 	 * version doesn't work for those purposes, because you can have multiple 4.x branches in various states on one machine.
 	 *
-	 * For Rocket users, this field gets set to something stable like "4.7" or "4.8", so you can swap projects and game binaries 
+	 * For Launcher users, this field gets set to something stable like "4.7" or "4.8", so you can swap projects and game binaries 
 	 * between users, and it'll automatically work on any platform or machine regardless of where the engine is installed. You 
 	 * can only have one binary release of each major engine version installed at once.
 	 * 
@@ -80,6 +81,12 @@ struct PROJECTS_API FProjectDescriptor
 
 	/** A hash that is used to determine if the project was forked from a sample */
 	uint32 EpicSampleNameHash;
+
+	/** Custom steps to execute before building targets in this project */
+	FCustomBuildSteps PreBuildSteps;
+
+	/** Custom steps to execute after building targets in this project */
+	FCustomBuildSteps PostBuildSteps;
 
 	/** Constructor. */
 	FProjectDescriptor();

@@ -1,9 +1,14 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "SequencerDisplayNode.h"
 
+/** Enumeration specifying what kind of object binding this is */
+enum class EObjectBindingType
+{
+	Possessable, Spawnable, Unknown
+};
 
 /**
  * A node for displaying an object binding
@@ -12,6 +17,7 @@ class FSequencerObjectBindingNode
 	: public FSequencerDisplayNode
 {
 public:
+
 	/**
 	 * Create and initialize a new instance.
 	 * 
@@ -21,43 +27,54 @@ public:
 	 * @param InParentNode The parent of this node, or nullptr if this is a root node.
 	 * @param InParentTree The tree this node is in.
 	 */
-	FSequencerObjectBindingNode(FName NodeName, const FText& InDisplayName, const FGuid& InObjectBinding, TSharedPtr<FSequencerDisplayNode> InParentNode, FSequencerNodeTree& InParentTree)
-		: FSequencerDisplayNode(NodeName, InParentNode, InParentTree)
-		, ObjectBinding(InObjectBinding)
-		, DefaultDisplayName(InDisplayName)
-	{ }
+	FSequencerObjectBindingNode(FName NodeName, const FText& InDisplayName, const FGuid& InObjectBinding, TSharedPtr<FSequencerDisplayNode> InParentNode, FSequencerNodeTree& InParentTree);
 
 public:
-
 
 	/** @return The object binding on this node */
 	const FGuid& GetObjectBinding() const
 	{
 		return ObjectBinding;
 	}
-	
+
+	/** Access the cached object binding type for this display node */
+	EObjectBindingType GetBindingType() const
+	{
+		return BindingType;
+	}
+
 public:
 
 	// FSequencerDisplayNode interface
 
 	virtual void BuildContextMenu(FMenuBuilder& MenuBuilder) override;
 	virtual bool CanRenameNode() const override;
-	virtual TSharedRef<SWidget> GenerateEditWidgetForOutliner() override;
+	virtual TSharedRef<SWidget> GetCustomOutlinerContent() override;
 	virtual FText GetDisplayName() const override;
+	virtual FLinearColor GetDisplayNameColor() const override;
+	virtual FText GetDisplayNameToolTipText() const override;
+	virtual const FSlateBrush* GetIconBrush() const override;
+	virtual const FSlateBrush* GetIconOverlayBrush() const override;
+	virtual FText GetIconToolTipText() const override;
 	virtual float GetNodeHeight() const override;
 	virtual FNodePadding GetNodePadding() const override;
 	virtual ESequencerNode::Type GetType() const override;
 	virtual void SetDisplayName(const FText& NewDisplayName) override;
+	virtual bool CanDrag() const override;
 
 protected:
 
 	void AddPropertyMenuItems(FMenuBuilder& AddTrackMenuBuilder, TArray<TArray<UProperty*>> KeyableProperties, int32 PropertyNameIndexStart = 0, int32 PropertyNameIndexEnd = -1);
 
+	void AddSpawnOwnershipMenu(FMenuBuilder& MenuBuilder);
+
 	/** Get class for object binding */
-	const UClass* GetClassForObjectBinding();
+	const UClass* GetClassForObjectBinding() const;
 
 private:
 
+	UObject* FindRepresentativeObject();
+	
 	TSharedRef<SWidget> HandleAddTrackComboButtonGetMenuContent();
 	
 	void HandleAddTrackSubMenuNew(FMenuBuilder& AddTrackMenuBuilder, TArray<TArray<UProperty*>> KeyablePropertyPath);
@@ -73,4 +90,7 @@ private:
 
 	/** The default display name of the object which is used if the binding manager doesn't provide one. */
 	FText DefaultDisplayName;
+
+	/** Enumeration specifying what kind of object binding this is */
+	EObjectBindingType BindingType;
 };

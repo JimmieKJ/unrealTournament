@@ -1,0 +1,19 @@
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	RecomputeTangentsCommon.usf: Recompute Skin Tangents
+=============================================================================*/
+
+#include "Common.usf"
+#include "GpuSkinCommon.usf"
+
+// intermediate tangent accumulation buffer, int se we can use atomics and to get deterministic results no matter what order
+// uses as output on MainCS(), used and input and output (to clear) for ResolveCS()
+RWBuffer<int> IntermediateAccumBufferUAV;
+
+// How many units the compute shader should process
+// MainCS(): triangles count, ResolveCS(): vertex count
+uint UnitCount;
+
+// could be larger for better precision but we need to be conservative as we sum up many triangles weighed by the angle (potentially unbound)
+#define TANGENT_RANGE 0x7fff

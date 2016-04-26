@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ContentBrowserPCH.h"
 #include "AssetViewTypes.h"
@@ -598,8 +598,8 @@ bool FAssetContextMenu::AddDocumentationMenuOptions(FMenuBuilder& MenuBuilder)
 							break;
 						case BPTYPE_MacroLibrary:
 							MenuBuilder.AddMenuEntry(
-								LOCTEXT("GoToDocsForInterfaceBlueprint", "View Documentation - Macro"),
-								LOCTEXT("GoToDocsForInterfaceBlueprint_ToolTip", "Click to open documentation on blueprint macros"),
+								LOCTEXT("GoToDocsForMacroLibrary", "View Documentation - Macro"),
+								LOCTEXT("GoToDocsForMacroLibrary_ToolTip", "Click to open documentation on blueprint macros"),
 								FSlateIcon(FEditorStyle::GetStyleSetName(), "HelpIcon.Hovered" ),
 								FUIAction( FExecuteAction::CreateSP( this, &FAssetContextMenu::ExecuteGoToDocsForAsset, UBlueprint::StaticClass(), FString(TEXT("UBlueprint_Macro")) ) )
 								);
@@ -1005,7 +1005,10 @@ bool FAssetContextMenu::CanExecuteImportedAssetActions(const TArray<FString> Res
 void FAssetContextMenu::ExecuteReimport()
 {
 	// Reimport all selected assets
-	for (auto& SelectedAsset : SelectedAssets)
+	//Copy the array to prevent iteration assert if a reimport factory change the selection
+	TArray<FAssetData> CopyOfSelectedAssets = SelectedAssets;
+
+	for (auto& SelectedAsset : CopyOfSelectedAssets)
 	{
 		const auto Asset = SelectedAsset.GetAsset();
 		if (Asset)
@@ -1089,9 +1092,30 @@ void FAssetContextMenu::ExecuteFindInExplorer()
 		{
 			FAssetData AssetData(Asset);
 
+			const FString PackageName = AssetData.PackageName.ToString();
+
+			static const TCHAR* ScriptString = TEXT("/Script/");
+			if (PackageName.StartsWith(ScriptString))
+			{
+				// Handle C++ classes specially, as FPackageName::LongPackageNameToFilename won't return the correct path in this case
+				const FString ModuleName = PackageName.RightChop(FCString::Strlen(ScriptString));
+				FString ModulePath;
+				if (FSourceCodeNavigation::FindModulePath(ModuleName, ModulePath))
+				{
+					const FString* RelativePath = AssetData.TagsAndValues.Find("ModuleRelativePath");
+					if (RelativePath)
+					{
+						const FString FullFilePath = FPaths::ConvertRelativePathToFull(ModulePath / (*RelativePath));
+						FPlatformProcess::ExploreFolder(*FullFilePath);
+					}
+				}
+
+				return;
+			}
+
 			const bool bIsWorldAsset = (AssetData.AssetClass == UWorld::StaticClass()->GetFName());
 			const FString Extension = bIsWorldAsset ? FPackageName::GetMapPackageExtension() : FPackageName::GetAssetPackageExtension();
-			const FString FilePath = FPackageName::LongPackageNameToFilename(AssetData.PackageName.ToString(), Extension);
+			const FString FilePath = FPackageName::LongPackageNameToFilename(PackageName, Extension);
 			const FString FullFilePath = FPaths::ConvertRelativePathToFull(FilePath);
 			FPlatformProcess::ExploreFolder(*FullFilePath);
 		}

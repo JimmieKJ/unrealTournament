@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	FogRendering.cpp: Fog rendering implementation.
@@ -356,7 +356,7 @@ bool ShouldRenderFog(const FSceneViewFamily& Family)
 
 	return EngineShowFlags.Fog
 		&& EngineShowFlags.Materials 
-		&& !EngineShowFlags.ShaderComplexity
+		&& Family.GetDebugViewShaderMode() == DVSM_None
 		&& !EngineShowFlags.StationaryLightOverlap 
 		&& !EngineShowFlags.VertexDensities
 		&& !EngineShowFlags.LightMapDensity;

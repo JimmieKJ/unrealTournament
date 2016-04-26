@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -36,7 +36,7 @@ public class UEOgg : ModuleRules
 
 			RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/ThirdParty/Ogg/Win32/VS" + WindowsPlatform.GetVisualStudioCompilerVersionName() + "/libogg.dll"));
 		}
-		else if (Target.Platform == UnrealTargetPlatform.HTML5 && Target.Architecture == "-win32")
+        else if (Target.Platform == UnrealTargetPlatform.HTML5 && Target.Architecture == "-win32") // simulator
         {
             OggLibPath += "HTML5Win32";
             PublicLibraryPaths.Add(OggLibPath);
@@ -48,14 +48,23 @@ public class UEOgg : ModuleRules
 		}
         else if (Target.Platform == UnrealTargetPlatform.HTML5)
         {
-			if (UEBuildConfiguration.bCompileForSize)
-			{
-				PublicAdditionalLibraries.Add(OggLibPath + "HTML5/libogg_Oz.bc");
-			}
-			else
-			{
-				PublicAdditionalLibraries.Add(OggLibPath + "HTML5/libogg.bc");
-			}
+            string OpimizationSuffix = "";
+            if (UEBuildConfiguration.bCompileForSize)
+            {
+                OpimizationSuffix = "_Oz";
+            }
+            else
+            {
+                if (Target.Configuration == UnrealTargetConfiguration.Development)
+                {
+                    OpimizationSuffix = "_O2";
+                }
+                else if (Target.Configuration == UnrealTargetConfiguration.Shipping)
+                {
+                    OpimizationSuffix = "_O3";
+                }
+            }
+            PublicAdditionalLibraries.Add(OggLibPath + "HTML5/libogg" + OpimizationSuffix + ".bc");
         }
 		else if (Target.Platform == UnrealTargetPlatform.Android)
 		{

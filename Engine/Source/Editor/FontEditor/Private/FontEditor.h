@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -44,6 +44,10 @@ protected:
 	/** Called when the preview text changes */
 	void OnPreviewTextChanged(const FText& Text);
 	
+	/** Called to handle the "Draw Font Metrics" check box */
+	ECheckBoxState GetDrawFontMetricsState() const;
+	void OnDrawFontMetricsStateChanged(ECheckBoxState NewState);
+
 	//~ Begin FEditorUndoClient Interface
 	/** Handles any post undo cleanup of the GUI so that we don't have stale data being displayed. */
 	virtual void PostUndo(bool bSuccess) override;

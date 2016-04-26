@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -27,7 +27,7 @@ public class XAudio2 : ModuleRules
 			}
 		}
 
-		AddThirdPartyPrivateStaticDependencies(Target, 
+		AddEngineThirdPartyPrivateStaticDependencies(Target, 
 			"DX11Audio",
 			"UEOgg",
 			"Vorbis",

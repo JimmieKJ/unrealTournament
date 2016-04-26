@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 #include "TextRange.h"
 #include "IRun.h"
@@ -69,6 +69,8 @@ struct SLATE_API FTextRunInfo : FRunInfo
 class SLATE_API ITextDecorator
 {
 public:
+
+	virtual ~ITextDecorator() {}
 
 	virtual bool Supports( const FTextRunParseResults& RunInfo, const FString& Text ) const = 0;
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -74,8 +74,8 @@ namespace UnrealBuildTool
 					{
 						// Let's make sure the include paths are the same
 						// @todo ubtmake: We have not seen examples of this actually firing off, so we could probably remove the check for matching includes and simply always make this an error case
-						var CachedIncludePathsToSearch = _CachedCPPIncludeInfo.GetIncludesPathsToSearch(this);
-						var NewIncludePathsToSearch = value.GetIncludesPathsToSearch(this);
+						List<string> CachedIncludePathsToSearch = _CachedCPPIncludeInfo.GetIncludesPathsToSearch(this);
+						List<string> NewIncludePathsToSearch = value.GetIncludesPathsToSearch(this);
 
 						bool bIncludesAreDifferent = false;
 						if (CachedIncludePathsToSearch.Count != NewIncludePathsToSearch.Count)
@@ -84,7 +84,7 @@ namespace UnrealBuildTool
 						}
 						else
 						{
-							for (var IncludeIndex = 0; IncludeIndex < CachedIncludePathsToSearch.Count; ++IncludeIndex)
+							for (int IncludeIndex = 0; IncludeIndex < CachedIncludePathsToSearch.Count; ++IncludeIndex)
 							{
 								if (!CachedIncludePathsToSearch[IncludeIndex].Equals(NewIncludePathsToSearch[IncludeIndex], StringComparison.InvariantCultureIgnoreCase))
 								{
@@ -493,7 +493,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		public static void ResetInfos()
 		{
-			foreach (var Item in UniqueSourceFileMap)
+			foreach (KeyValuePair<FileReference, FileItem> Item in UniqueSourceFileMap)
 			{
 				Item.Value.ResetFileInfo();
 			}

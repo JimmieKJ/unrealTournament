@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemEditorPrivatePCH.h"
 
@@ -46,7 +46,7 @@ void FAssetTypeActions_GameplayAbilitiesBlueprint::OpenAssetEditor( const TArray
 		}
 		else
 		{
-			FMessageDialog::Open( EAppMsgType::Ok, LOCTEXT("FailedToLoadBlueprint", "Gameplay Ability Blueprint could not be loaded because it derives from an invalid class.  Check to make sure the parent class for this blueprint hasn't been removed!"));
+			FMessageDialog::Open( EAppMsgType::Ok, LOCTEXT("FailedToLoadAbilityBlueprint", "Gameplay Ability Blueprint could not be loaded because it derives from an invalid class.  Check to make sure the parent class for this blueprint hasn't been removed!"));
 		}
 	}
 }

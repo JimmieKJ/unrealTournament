@@ -8,6 +8,7 @@
 #include "UTLift.h"
 #include "UTFlagReturnTrail.h"
 #include "UTGhostFlag.h"
+#include "UTSecurityCameraComponent.h"
 
 AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -37,7 +38,30 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 	bInitialized = false;
 	WeightSpeedPctModifier = 1.0f;
 	bDisplayHolderTrail = false;
-	MinGradualReturnDist = 1000.f;
+	MinGradualReturnDist = 1400.f;
+	bSendHomeOnScore = true;
+}
+
+void AUTCarriedObject::Destroyed()
+{
+	Super::Destroyed();
+	if (Holder)
+	{
+		Holder->bSpecialTeamPlayer = false;
+		Holder->bSpecialPlayer = false;
+		Holder->ClearCarriedObject(this);
+		Holder = nullptr;
+	}
+	if (MyGhostFlag)
+	{
+		MyGhostFlag->Destroy();
+		MyGhostFlag = nullptr;
+	}
+}
+
+UUTSecurityCameraComponent* AUTCarriedObject::GetDetectingCamera()
+{
+	return DetectingCamera;
 }
 
 void AUTCarriedObject::GetActorEyesViewPoint(FVector& OutLocation, FRotator& OutRotation) const
@@ -107,6 +131,7 @@ void AUTCarriedObject::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & 
 	DOREPLIFETIME(AUTCarriedObject, bCurrentlyPinged);
 	DOREPLIFETIME(AUTCarriedObject, bDisplayHolderTrail);
 	DOREPLIFETIME(AUTCarriedObject, bGradualAutoReturn);
+	DOREPLIFETIME(AUTCarriedObject, AutoReturnTime);
 }
 
 void AUTCarriedObject::AttachTo(USkeletalMeshComponent* AttachToMesh)
@@ -166,7 +191,7 @@ void AUTCarriedObject::ClientUpdateAttachment(bool bNowAttached)
 
 void AUTCarriedObject::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	if (bInitialized && !bIsDropping)
+	if (bInitialized && !bIsDropping && Role == ROLE_Authority)
 	{
 		AUTCharacter* Character = Cast<AUTCharacter>(OtherActor);
 		if (Character != NULL)
@@ -350,11 +375,7 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 		return;
 	}
 
-	if (MyGhostFlag != nullptr)
-	{
-		MyGhostFlag->Destroy();
-		MyGhostFlag = nullptr;
-	}
+	ClearGhostFlag();
 	bool bWasHome = (ObjectState == CarriedObjectState::Home);
 	ChangeState(CarriedObjectState::Held);
 
@@ -439,6 +460,8 @@ void AUTCarriedObject::NoLongerHeld(AController* InstigatedBy)
 	LastHolder = Holder;
 	if (Holder != NULL)
 	{
+		Holder->bSpecialTeamPlayer = false;
+		Holder->bSpecialPlayer = false;
 		Holder->ClearCarriedObject(this);
 	}
 
@@ -466,12 +489,6 @@ void AUTCarriedObject::NoLongerHeld(AController* InstigatedBy)
 				TeamIter->NotifyObjectiveEvent(HomeBase, InstigatedBy, FName(TEXT("FlagStatusChange")));
 			}
 		}
-	}
-
-	AUTPlayerState* LastHoldingPS = LastHoldingPawn ? Cast<AUTPlayerState>(LastHoldingPawn->PlayerState) : nullptr;
-	if (LastHoldingPS)
-	{
-		LastHoldingPS->bSpecialTeamPlayer = false;
 	}
 }
 
@@ -595,8 +612,20 @@ void AUTCarriedObject::Drop(AController* Killer)
 		if (PastPositions.Num() > 0)
 		{
 			PutGhostFlagAt(PastPositions[PastPositions.Num() - 1]);
+			PastPositions.RemoveAt(PastPositions.Num() - 1);
 		}
 	}
+}
+
+bool AUTCarriedObject::SetDetectingCamera(class UUTSecurityCameraComponent* NewDetectingCamera)
+{
+	if (DetectingCamera && NewDetectingCamera && ((GetActorLocation() - DetectingCamera->K2_GetComponentLocation()).SizeSquared() < (GetActorLocation() - NewDetectingCamera->K2_GetComponentLocation()).SizeSquared()))
+	{
+		// change only if new one is closer
+		return false;
+	}
+	DetectingCamera = NewDetectingCamera;
+	return true;
 }
 
 void AUTCarriedObject::Use()
@@ -609,19 +638,33 @@ void AUTCarriedObject::SendHomeWithNotify()
 	SendHome();
 }
 
+void AUTCarriedObject::ClearGhostFlag()
+{
+	if (MyGhostFlag != nullptr)
+	{
+		MyGhostFlag->MyCarriedObject = nullptr;
+		MyGhostFlag->Destroy();
+		MyGhostFlag = nullptr;
+	}
+}
+
 void AUTCarriedObject::PutGhostFlagAt(const FVector NewGhostLocation)
 {
-	if (GhostFlagClass)
+	if (GhostFlagClass && !IsPendingKillPending())
 	{
-		if (MyGhostFlag == nullptr)
+		if ((MyGhostFlag == nullptr) || MyGhostFlag->IsPendingKillPending())
 		{
 			FActorSpawnParameters Params;
 			Params.Owner = this;
 			MyGhostFlag = GetWorld()->SpawnActor<AUTGhostFlag>(GhostFlagClass, NewGhostLocation, GetActorRotation(), Params);
+			if (MyGhostFlag)
+			{
+				MyGhostFlag->SetCarriedObject(this);
+			}
 		}
 		else
 		{
-			MyGhostFlag->SetActorLocation(NewGhostLocation);
+			MyGhostFlag->MoveTo(NewGhostLocation);
 		}
 	}
 }
@@ -635,7 +678,7 @@ void AUTCarriedObject::SendHome()
 	if (ObjectState == CarriedObjectState::Home) return;	// Don't both if we are already home
 
 	NoLongerHeld();
-	if (bGradualAutoReturn && (PastPositions.Num() > 0))
+	if (bGradualAutoReturn && (PastPositions.Num() > 0) && (Role == ROLE_Authority))
 	{
 		if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1]).Size() < MinGradualReturnDist)
 		{
@@ -644,14 +687,6 @@ void AUTCarriedObject::SendHome()
 		if (PastPositions.Num() > 0)
 		{
 			bool bWantsGhostFlag = false;
-			FActorSpawnParameters Params;
-			Params.Owner = this;
-			AUTFlagReturnTrail* Trail = GetWorld()->SpawnActor<AUTFlagReturnTrail>(AUTFlagReturnTrail::StaticClass(), GetActorLocation(), GetActorRotation(), Params);
-			if (Trail)
-			{
-				Trail->EndPoint = PastPositions[PastPositions.Num() - 1];
-				Trail->SetTeamIndex(Team ? Team->TeamIndex : 0);
-			}
 			DetachRootComponentFromParent(true);
 			MovementComponent->Velocity = FVector(0.0f, 0.0f, 0.0f);
 			Collision->SetRelativeRotation(FRotator(0, 0, 0));
@@ -671,19 +706,14 @@ void AUTCarriedObject::SendHome()
 			}
 			OnObjectStateChanged();
 			ForceNetUpdate();
-			if (MyGhostFlag && !bWantsGhostFlag)
+			if (!bWantsGhostFlag)
 			{
-				MyGhostFlag->Destroy();
-				MyGhostFlag = nullptr;
+				ClearGhostFlag();
 			}
 			return;
 		}
 	}
-	if (MyGhostFlag)
-	{
-		MyGhostFlag->Destroy();
-		MyGhostFlag = nullptr;
-	}
+	ClearGhostFlag();
 	ChangeState(CarriedObjectState::Home);
 	HomeBase->ObjectReturnedHome(LastHoldingPawn);
 	MoveToHome();
@@ -693,7 +723,6 @@ FVector AUTCarriedObject::GetHomeLocation() const
 {
 	if (HomeBase == NULL)
 	{
-		UE_LOG(UT, Warning, TEXT("Carried object querying home location with no home"), *GetName());
 		return GetActorLocation();
 	}
 	else
@@ -705,7 +734,6 @@ FRotator AUTCarriedObject::GetHomeRotation() const
 {
 	if (HomeBase == NULL)
 	{
-		UE_LOG(UT, Warning, TEXT("Carried object querying home rotation with no home"), *GetName());
 		return GetActorRotation();
 	}
 	else
@@ -731,13 +759,19 @@ void AUTCarriedObject::MoveToHome()
 
 void AUTCarriedObject::Score_Implementation(FName Reason, AUTCharacter* ScoringPawn, AUTPlayerState* ScoringPS)
 {
-	LastGameMessageTime = GetWorld()->GetTimeSeconds();
-	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
-	if (Game != NULL)
+	if (Role == ROLE_Authority)
 	{
-		Game->ScoreObject(this, ScoringPawn, ScoringPS, Reason);
+		LastGameMessageTime = GetWorld()->GetTimeSeconds();
+		AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (Game != NULL)
+		{
+			Game->ScoreObject(this, ScoringPawn, ScoringPS, Reason);
+		}
+		if (bSendHomeOnScore)
+		{
+			SendHome();
+		}
 	}
-	SendHome();
 }
 
 void AUTCarriedObject::SetTeam(AUTTeamInfo* NewTeam)
@@ -861,4 +895,9 @@ float AUTCarriedObject::GetHeldTime(AUTPlayerState* TestHolder)
 		return CurrentHeldTime + AssistTracking[AssistIndex].TotalHeldTime;
 	}
 	return CurrentHeldTime;
+}
+
+FText AUTCarriedObject::GetHUDStatusMessage(AUTHUD* HUD)
+{
+	return FText::GetEmpty();
 }

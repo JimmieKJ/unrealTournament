@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ClassViewerPrivatePCH.h"
 
@@ -1214,7 +1214,7 @@ public:
 		, _bIsPlaceable(false)
 		, _bIsInClassViewer( true )
 		, _bDynamicClassLoading( true )
-		, _HighlightText(NULL)
+		, _HighlightText()
 		, _TextColor(FLinearColor(1.0f, 1.0f, 1.0f, 1.0f))
 		{}
 
@@ -1227,7 +1227,7 @@ public:
 		/** true if this item should allow dynamic class loading */
 		SLATE_ARGUMENT( bool, bDynamicClassLoading )
 		/** The text this item should highlight, if any. */
-		SLATE_ARGUMENT( const FText*, HighlightText )
+		SLATE_ARGUMENT( FText, HighlightText )
 		/** The color text this item will use. */
 		SLATE_ARGUMENT( FSlateColor, TextColor )
 		/** The node this item is associated with. */
@@ -1315,7 +1315,7 @@ public:
 				[
 					SNew( STextBlock )
 						.Text( FText::FromString(*ClassName.Get()) )
-						.HighlightText(*InArgs._HighlightText)
+						.HighlightText(InArgs._HighlightText)
 						.ColorAndOpacity( this, &SClassItem::GetTextColor)
 						.ToolTip(Local::GetToolTip(AssociatedNode))
 						.IsEnabled(!bIsRestricted)
@@ -1814,6 +1814,9 @@ void FClassHierarchy::LoadUnloadedTagData(TSharedPtr<FClassViewerNode>& InOutCla
 			{
 				if(!CurrentString.StartsWith(TEXT("Graphs=(")))
 				{
+					// The interfaces end with ' because of the path reference, so remove it.
+					InterfaceName.RemoveFromEnd("'");
+
 					UnloadedBlueprintData->AddImplementedInterfaces(InterfaceName);
 				}
 			}
@@ -2271,7 +2274,7 @@ TSharedRef< ITableRow > SClassViewer::OnGenerateRowForClassViewer( TSharedPtr<FC
 	TSharedRef< SClassItem > ReturnRow = SNew(SClassItem, OwnerTable)
 		.ClassName(Item->GetClassName(InitOptions.bShowDisplayNames))
 		.bIsPlaceable(Item->IsClassPlaceable())
-		.HighlightText(&SearchBox->GetText())
+		.HighlightText(SearchBox->GetText())
 		.TextColor(Item->IsClassPlaceable()? FLinearColor(0.2f, 0.4f, 0.6f, AlphaValue) : FLinearColor(1.0f, 1.0f, 1.0f, AlphaValue))
 		.AssociatedNode(Item)
 		.bIsInClassViewer( InitOptions.Mode == EClassViewerMode::ClassBrowsing )

@@ -17,15 +17,6 @@ cd ./Win32
 		bash -c "make"
 	cd ../../
 	
-	REM VS2013 Make
-	if not exist ./VS2013 (
-		echo Error: VS2013 directory does not exist. Did you forget to run configuration?
-		goto:eof)
-	cd ./VS2013/data
-		call "%VS120COMNTOOLS%..\..\VC\vcvarsall.bat" x86
-		bash -c "make"
-	cd ../../
-
 REM Back to root
 cd ../
 
@@ -41,15 +32,6 @@ cd ./Win64
 		goto:eof)
 	cd ./VS2015/data
 		call "%VS140COMNTOOLS%..\..\VC\vcvarsall.bat" amd64
-		bash -c "make"
-	cd ../../
-
-	REM VS2013 Make
-	if not exist ./VS2013 (
-		echo Error: VS2013 directory does not exist. Did you forget to run configuration?
-		goto:eof)
-	cd ./VS2013/data
-		call "%VS120COMNTOOLS%..\..\VC\vcvarsall.bat" amd64
 		bash -c "make"
 	cd ../../
 

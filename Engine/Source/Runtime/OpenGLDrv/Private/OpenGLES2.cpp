@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	OpenGLES2.cpp: OpenGL ES2 implementation.
@@ -54,6 +54,9 @@ bool FOpenGLES2::bSupportsTextureHalfFloat = false;
 
 /** GL_EXT_color_buffer_half_float */
 bool FOpenGLES2::bSupportsColorBufferHalfFloat = false;
+
+/** GL_EXT_color_buffer_float */
+bool FOpenGLES2::bSupportsColorBufferFloat = false;
 
 /** GL_EXT_shader_framebuffer_fetch */
 bool FOpenGLES2::bSupportsShaderFramebufferFetch = false;
@@ -133,6 +136,9 @@ bool FOpenGLES2::bNeedsVertexAttribRemap = false;
 /* This hack fixes an issue with SGX540 compiler which can get upset with some operations that mix highp and mediump */
 bool FOpenGLES2::bRequiresTexture2DPrecisionHack = false;
 
+/* This is to avoid a bug in Adreno drivers that define GL_EXT_shader_framebuffer_fetch even when device does not support this extension  */
+bool FOpenGLES2::bRequiresShaderFramebufferFetchUndef = false;
+
 /* Indicates shader compiler hack checks are being tested */
 bool FOpenGLES2::bIsCheckingShaderCompilerHacks = false;
 
@@ -194,6 +200,7 @@ void FOpenGLES2::ProcessExtensions( const FString& ExtensionsString )
 	bSupportsTextureFloat = ExtensionsString.Contains(TEXT("GL_OES_texture_float"));
 	bSupportsTextureHalfFloat = ExtensionsString.Contains(TEXT("GL_OES_texture_half_float"));
 	bSupportsSGRB = ExtensionsString.Contains(TEXT("GL_EXT_sRGB"));
+	bSupportsColorBufferFloat = ExtensionsString.Contains(TEXT("GL_EXT_color_buffer_float"));
 	bSupportsColorBufferHalfFloat = ExtensionsString.Contains(TEXT("GL_EXT_color_buffer_half_float"));
 	bSupportsShaderFramebufferFetch = ExtensionsString.Contains(TEXT("GL_EXT_shader_framebuffer_fetch")) || ExtensionsString.Contains(TEXT("GL_NV_shader_framebuffer_fetch")) || ExtensionsString.Contains(TEXT("GL_ARM_shader_framebuffer_fetch"));
 	bSupportsShaderDepthStencilFetch = ExtensionsString.Contains(TEXT("GL_ARM_shader_framebuffer_fetch_depth_stencil"));

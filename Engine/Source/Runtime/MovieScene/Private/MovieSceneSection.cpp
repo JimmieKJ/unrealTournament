@@ -1,10 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieScenePrivatePCH.h"
 #include "MovieSceneSection.h"
 
 
-UMovieSceneSection::UMovieSceneSection( const FObjectInitializer& ObjectInitializer )
+UMovieSceneSection::UMovieSceneSection(const FObjectInitializer& ObjectInitializer)
 	: Super( ObjectInitializer )
 	, StartTime(0.0f)
 	, EndTime(0.0f)
@@ -15,28 +15,32 @@ UMovieSceneSection::UMovieSceneSection( const FObjectInitializer& ObjectInitiali
 	, bIsInfinite(false)
 { }
 
-bool
-UMovieSceneSection::TryModify(bool bAlwaysMarkDirty)
+
+bool UMovieSceneSection::TryModify(bool bAlwaysMarkDirty)
 {
 	if (IsLocked())
 	{
 		return false;
 	}
 
-	return Modify(bAlwaysMarkDirty);
+	Modify(bAlwaysMarkDirty);
+
+	return true;
 }
 
 
 const UMovieSceneSection* UMovieSceneSection::OverlapsWithSections(const TArray<UMovieSceneSection*>& Sections, int32 TrackDelta, float TimeDelta) const
 {
+	// Check overlaps with exclusive ranges so that sections can butt up against each other
 	int32 NewTrackIndex = RowIndex + TrackDelta;
-	TRange<float> NewSectionRange = TRange<float>(StartTime + TimeDelta, EndTime + TimeDelta);
+	TRange<float> NewSectionRange = TRange<float>(TRange<float>::BoundsType::Exclusive(StartTime + TimeDelta), TRange<float>::BoundsType::Exclusive(EndTime + TimeDelta));
 
 	for (const auto Section : Sections)
 	{
 		if ((this != Section) && (Section->GetRowIndex() == NewTrackIndex))
 		{
-			if (NewSectionRange.Overlaps(Section->GetRange()))
+			TRange<float> ExclusiveSectionRange = TRange<float>(TRange<float>::BoundsType::Exclusive(Section->GetRange().GetLowerBoundValue()), TRange<float>::BoundsType::Exclusive(Section->GetRange().GetUpperBoundValue()));
+			if (NewSectionRange.Overlaps(ExclusiveSectionRange))
 			{
 				return Section;
 			}
@@ -133,6 +137,7 @@ void UMovieSceneSection::TrimSection(float TrimTime, bool bTrimLeft)
 	}
 }
 
+
 void UMovieSceneSection::AddKeyToCurve(FRichCurve& InCurve, float Time, float Value, EMovieSceneKeyInterpolation Interpolation, const bool bUnwindRotation)
 {
 	if (IsTimeWithinSection(Time))
@@ -140,7 +145,6 @@ void UMovieSceneSection::AddKeyToCurve(FRichCurve& InCurve, float Time, float Va
 		if (TryModify())
 		{
 			FKeyHandle ExistingKeyHandle = InCurve.FindKey(Time);
-				
 			FKeyHandle NewKeyHandle = InCurve.UpdateOrAddKey(Time, Value, bUnwindRotation);
 
 			if (!InCurve.IsKeyHandleValid(ExistingKeyHandle) && InCurve.IsKeyHandleValid(NewKeyHandle))
@@ -151,6 +155,7 @@ void UMovieSceneSection::AddKeyToCurve(FRichCurve& InCurve, float Time, float Va
 	}
 }
 
+
 void UMovieSceneSection::SetCurveDefault(FRichCurve& InCurve, float Value)
 {
 	if (TryModify())
@@ -158,4 +163,3 @@ void UMovieSceneSection::SetCurveDefault(FRichCurve& InCurve, float Value)
 		InCurve.SetDefaultValue(Value);
 	}
 }
-

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ShaderPreprocessor.h"
 #include "ModuleManager.h"
@@ -76,7 +76,7 @@ private:
 			FString FileContents;
 			if (This->ShaderInput.Environment.IncludeFileNameToContentsMap.Contains(Filename))
 			{
-				FileContents = This->ShaderInput.Environment.IncludeFileNameToContentsMap.FindRef(Filename);
+				FileContents = FString(UTF8_TO_TCHAR(This->ShaderInput.Environment.IncludeFileNameToContentsMap.FindRef(Filename).GetData()));
 			}
 			else
 			{

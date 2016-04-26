@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -482,6 +482,11 @@ namespace APIDocTool
 
 		public static void CreateTgzFromFiles(string TarPath, string BaseDir, IEnumerable<string> InputFiles)
 		{
+			// File creation does not implicitly create the directory for the file, so check/do that part first.
+			if (!Directory.Exists(Path.GetDirectoryName(TarPath)))
+			{
+				Directory.CreateDirectory(Path.GetDirectoryName(TarPath));
+			}
 			using (FileStream TarFileStream = new FileStream(TarPath, FileMode.Create))
 			{
 				using (GZipStream ZipStream = new GZipStream(TarFileStream, CompressionMode.Compress))

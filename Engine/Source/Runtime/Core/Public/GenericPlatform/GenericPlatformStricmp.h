@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -43,12 +43,15 @@ private:
 		// Walk the strings, comparing them case insensitively.
 		for (; *String1 || *String2; String1++, String2++)
 		{
-			CompatibleCharType1 Char1 = TChar<CompatibleCharType1>::ToLower(*String1);
-			CompatibleCharType2 Char2 = TChar<CompatibleCharType2>::ToLower(*String2);
-
-			if (Char1 != Char2)
+			if(*String1 != *String2)
 			{
-				return Char1 - Char2;
+				CompatibleCharType1 Char1 = TChar<CompatibleCharType1>::ToLower(*String1);
+				CompatibleCharType2 Char2 = TChar<CompatibleCharType2>::ToLower(*String2);
+
+				if (Char1 != Char2)
+				{
+					return Char1 - Char2;
+				}
 			}
 		}
 		return 0;

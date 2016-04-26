@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "PropertyEditorPrivatePCH.h"
 
@@ -240,8 +240,33 @@ void SPropertyEditorClass::SendToObjects(const FString& NewValue)
 {
 	if(PropertyEditor.IsValid())
 	{
-		const TSharedRef<IPropertyHandle> PropertyHandle = PropertyEditor->GetPropertyHandle();
-		PropertyHandle->SetValueFromFormattedString(NewValue);
+		// Check whether any of the outer objects are engine objects
+		bool bHasEngineOuterObject = false;
+		TArray<UObject*> OuterObjects;
+		PropertyEditor->GetPropertyHandle()->GetOuterObjects(OuterObjects);
+		for (UObject* OuterObject : OuterObjects)
+		{
+			const FAssetData AssetData(OuterObject);
+			if (FPackageName::IsEnginePackageName(AssetData.ObjectPath.ToString()))
+			{
+				bHasEngineOuterObject = true;
+				break;
+			}
+		}
+
+		if (bHasEngineOuterObject && !FPackageName::IsEnginePackageName(NewValue))
+		{
+			// If it's an engine outer object, check whether the value is an Engine class, and if not deem the value invalid.
+			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+				LOCTEXT("ClassAssignmentToEngineFailed", "Cannot assign a Project class {0} to an Engine property."),
+				FText::FromString(NewValue)));
+		}
+		else
+		{
+			// Otherwise assign the property
+			const TSharedRef<IPropertyHandle> PropertyHandle = PropertyEditor->GetPropertyHandle();
+			PropertyHandle->SetValueFromFormattedString(NewValue);
+		}
 	}
 	else
 	{

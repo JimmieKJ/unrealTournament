@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -66,16 +66,6 @@ namespace AutomationTool
 					return false;
 				}
 			}
-			else if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2012)
-			{
-				WindowsSDKDir = FindWindowsSDKInstallationFolder( "v8.0" );
-
-				if (string.IsNullOrEmpty(BaseVSToolPath))
-				{
-					Log.TraceError("Visual Studio 2012 must be installed in order to build this target.");
-					return false;
-				}
-			}
 			else
 			{
 				throw new BuildException("Unexpected WindowsPlatform.Compiler version");
@@ -83,71 +73,9 @@ namespace AutomationTool
 			return true;
 		}
 
-		public override void SetFrameworkVars()
-		{
-			var FrameworkDir = CommandUtils.GetEnvVar(EnvVarNames.NETFrameworkDir);
-			var FrameworkVersion = CommandUtils.GetEnvVar(EnvVarNames.NETFrameworkVersion);
-
-			if (String.IsNullOrEmpty(FrameworkDir) || String.IsNullOrEmpty(FrameworkVersion))
-			{
-				Log.TraceInformation("Setting .Net Framework environment variables.");
-
-				// Determine 32 vs 64 bit. Worth noting that WOW64 will report x86.
-				bool Supports64bitExecutables = Environment.GetEnvironmentVariable("PROCESSOR_ARCHITECTURE") == "AMD64";
-				Log.TraceInformation("Supports64bitExecutables=" + Supports64bitExecutables.ToString());
-				Log.TraceInformation("WindowsPlatform.Compiler" + WindowsPlatform.Compiler.ToString());
-
-				string WindowsSDKDir, BaseVSToolPath;
-				if (FindBaseVSToolPaths(out WindowsSDKDir, out BaseVSToolPath) == false)
-				{
-					throw new AutomationException("Unable to find VS paths.");
-				}
-
-				Log.TraceInformation("WindowsSDKDir=" + WindowsSDKDir);
-				Log.TraceInformation("BaseVSToolPath=" + BaseVSToolPath);
-
-				string VCVarsBatchFile = "";
-
-				// 64 bit tool chain.
-				if (Supports64bitExecutables)
-				{
-					VCVarsBatchFile = CommandUtils.CombinePaths(BaseVSToolPath, "../../VC/bin/x86_amd64/vcvarsx86_amd64.bat");
-				}
-				// The 32 bit vars batch file in the binary folder simply points to the one in the common tools folder.
-				else
-				{
-					VCVarsBatchFile = CommandUtils.CombinePaths(BaseVSToolPath, "vsvars32.bat");
-				}
-
-				if (File.Exists(VCVarsBatchFile))
-				{
-					Log.TraceVerbose("Setting VS environment variables via {0}.", VCVarsBatchFile);
-					var BatchVars = CommandUtils.GetEnvironmentVariablesFromBatchFile(VCVarsBatchFile);
-					// Note these env var names are hardcoded here because they're more
-					// related to the values stored inside the batch files rather than the mapping equivalents.
-					BatchVars.TryGetValue("FrameworkDir", out FrameworkDir);
-					BatchVars.TryGetValue("FrameworkVersion", out FrameworkVersion);
-					CommandUtils.SetEnvVar(EnvVarNames.NETFrameworkDir, FrameworkDir);
-					CommandUtils.SetEnvVar(EnvVarNames.NETFrameworkVersion, FrameworkVersion);
-				}
-				else
-				{
-					throw new AutomationException("{0} does not exist.", VCVarsBatchFile);
-				}
-				Log.TraceVerbose("{0}={1}", EnvVarNames.NETFrameworkDir, FrameworkDir);
-				Log.TraceVerbose("{0}={1}", EnvVarNames.NETFrameworkVersion, FrameworkVersion);
-			}
-		}
-
 		public override string GetMsBuildExe()
 		{
-			var DotNETToolsFolder = CommandUtils.CombinePaths(CommandUtils.GetEnvVar(EnvVarNames.NETFrameworkDir), CommandUtils.GetEnvVar(EnvVarNames.NETFrameworkVersion));
-			var MsBuildExe = CommandUtils.CombinePaths(DotNETToolsFolder, "MSBuild.exe");
-			if (!CommandUtils.FileExists_NoExceptions(MsBuildExe))
-			{				
-				throw new NotSupportedException("MsBuild.exe does not exist.");
-			}
-			return MsBuildExe;
+			return VCEnvironment.GetMSBuildToolPath();
 		}
 
 		public override string GetMsDevExe()

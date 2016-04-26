@@ -1,9 +1,12 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
-#include "K2Node.h"
+
 #include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
+#include "InputCoreTypes.h"
+#include "K2Node.h"
+
 #include "K2Node_InputKey.generated.h"
 
 UCLASS(MinimalAPI)

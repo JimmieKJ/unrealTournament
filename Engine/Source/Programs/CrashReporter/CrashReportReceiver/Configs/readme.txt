@@ -1,0 +1,1 @@
+This config file contains overrides for the internal crash report receiver. It should be copied into the same folder as receiver exe on the machine that receives internal reports.

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneTracksPrivatePCH.h"
 #include "MovieSceneByteTrack.h"
@@ -13,10 +13,12 @@ FMovieSceneByteTrackInstance::FMovieSceneByteTrackInstance( UMovieSceneByteTrack
 }
 
 
-void FMovieSceneByteTrackInstance::SaveState(const TArray<UObject*>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
+void FMovieSceneByteTrackInstance::SaveState(const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
 {
-	for( UObject* Object : RuntimeObjects )
+	for (auto ObjectPtr : RuntimeObjects)
 	{
+		UObject* Object = ObjectPtr.Get();
+
 		if (InitByteMap.Find(Object) == nullptr)
 		{
 			uint8 ByteValue = PropertyBindings->GetCurrentValue<uint8>(Object);
@@ -26,10 +28,12 @@ void FMovieSceneByteTrackInstance::SaveState(const TArray<UObject*>& RuntimeObje
 }
 
 
-void FMovieSceneByteTrackInstance::RestoreState(const TArray<UObject*>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
+void FMovieSceneByteTrackInstance::RestoreState(const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
 {
-	for( UObject* Object : RuntimeObjects )
+	for (auto ObjectPtr : RuntimeObjects)
 	{
+		UObject* Object = ObjectPtr.Get();
+
 		if (!IsValid(Object))
 		{
 			continue;
@@ -46,20 +50,21 @@ void FMovieSceneByteTrackInstance::RestoreState(const TArray<UObject*>& RuntimeO
 }
 
 
-void FMovieSceneByteTrackInstance::Update( float Position, float LastPosition, const TArray<UObject*>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance, EMovieSceneUpdatePass UpdatePass ) 
+void FMovieSceneByteTrackInstance::Update(EMovieSceneUpdateData& UpdateData, const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance) 
 {
 	uint8 ByteValue = 0;
-	if( ByteTrack->Eval( Position, LastPosition, ByteValue ) )
+	if( ByteTrack->Eval( UpdateData.Position, UpdateData.LastPosition, ByteValue ) )
 	{
-		for( UObject* Object : RuntimeObjects )
+		for (auto ObjectPtr : RuntimeObjects )
 		{
-			PropertyBindings->CallFunction<uint8>( Object, &ByteValue );
+			UObject* Object = ObjectPtr.Get();
+			PropertyBindings->CallFunction<uint8>(Object, &ByteValue);
 		}
 	}
 }
 
 
-void FMovieSceneByteTrackInstance::RefreshInstance( const TArray<UObject*>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance )
+void FMovieSceneByteTrackInstance::RefreshInstance( const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance )
 {
 	PropertyBindings->UpdateBindings( RuntimeObjects );
 }

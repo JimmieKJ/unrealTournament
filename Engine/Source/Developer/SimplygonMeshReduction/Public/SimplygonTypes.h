@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -406,7 +406,7 @@ struct FSimplygonMaterialLODSettings
 		, TextureHeight(GetResolutionEnum(Settings.TextureSize.Y))
 		, SamplingQuality(ESimplygonTextureSamplingQuality::High)
 		, GutterSpace( Settings.GutterSpace )
-		, TextureStrech(ESimplygonTextureStrech::None)
+		, TextureStrech(ESimplygonTextureStrech::Medium)
 		, bReuseExistingCharts(false)
 	{
 		ChannelsToCast.Add(FSimplygonChannelCastingSettings(ESimplygonMaterialChannel::SG_MATERIAL_CHANNEL_BASECOLOR, ESimplygonCasterType::Color, ESimplygonColorChannels::RGB));

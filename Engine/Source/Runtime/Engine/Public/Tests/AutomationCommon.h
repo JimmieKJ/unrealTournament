@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,13 +6,15 @@
 #include "AutomationTest.h"
 #include "Delegate.h"
 
+#if (WITH_DEV_AUTOMATION_TESTS || WITH_PERF_AUTOMATION_TESTS)
+
 ///////////////////////////////////////////////////////////////////////
 // Common Latent commands which are used across test type. I.e. Engine, Network, etc...
 
 ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogEditorAutomationTests, Log, All);
 ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogEngineAutomationTests, Log, All);
 
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnEditorAutomationMapLoad, const FString&);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnEditorAutomationMapLoad, const FString&, FString*);
 
 /** Common automation functions */
 namespace AutomationCommon
@@ -171,3 +173,5 @@ DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FMatineePerformanceCaptureCommand
 * Latent command to run an exec command that also requires a UWorld.
 */
 DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FExecWorldStringLatentCommand, FString, ExecCommand);
+
+#endif // (WITH_DEV_AUTOMATION_TESTS || WITH_PERF_AUTOMATION_TESTS)

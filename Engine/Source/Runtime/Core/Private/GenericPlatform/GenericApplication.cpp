@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "GenericApplication.h"
@@ -17,6 +17,8 @@ const FGamepadKeyNames::Type FGamepadKeyNames::RightTriggerAnalog("Gamepad_Right
 const FGamepadKeyNames::Type FGamepadKeyNames::LeftThumb("Gamepad_LeftThumbstick");
 const FGamepadKeyNames::Type FGamepadKeyNames::RightThumb("Gamepad_RightThumbstick");
 const FGamepadKeyNames::Type FGamepadKeyNames::SpecialLeft("Gamepad_Special_Left");
+const FGamepadKeyNames::Type FGamepadKeyNames::SpecialLeft_X("Gamepad_Special_Left_X");
+const FGamepadKeyNames::Type FGamepadKeyNames::SpecialLeft_Y("Gamepad_Special_Left_Y");
 const FGamepadKeyNames::Type FGamepadKeyNames::SpecialRight("Gamepad_Special_Right");
 const FGamepadKeyNames::Type FGamepadKeyNames::FaceButtonBottom("Gamepad_FaceButton_Bottom");
 const FGamepadKeyNames::Type FGamepadKeyNames::FaceButtonRight("Gamepad_FaceButton_Right");
@@ -98,6 +100,48 @@ const FGamepadKeyNames::Type FGamepadKeyNames::MotionController_Right_Thumbstick
 const FGamepadKeyNames::Type FGamepadKeyNames::MotionController_Right_TriggerAxis("MotionController_Right_TriggerAxis");
 const FGamepadKeyNames::Type FGamepadKeyNames::MotionController_Right_Grip1Axis( "MotionController_Right_Grip1Axis" );
 const FGamepadKeyNames::Type FGamepadKeyNames::MotionController_Right_Grip2Axis( "MotionController_Right_Grip2Axis" );
+
+float GDebugSafeZoneRatio = 1.0f;
+float GDebugActionZoneRatio = 1.0f;
+
+FAutoConsoleVariableRef GDebugSafeZoneRatioCVar(
+	TEXT("r.DebugSafeZone.TitleRatio"),
+	GDebugSafeZoneRatio,
+	TEXT("The safe zone ratio that will be returned by FDisplayMetrics::GetDisplayMetrics on platforms that don't have a defined safe zone (0..1)\n")
+	TEXT(" default: 1.0"));
+
+FAutoConsoleVariableRef GDebugActionZoneRatioCVar(
+	TEXT("r.DebugActionZone.ActionRatio"),
+	GDebugActionZoneRatio,
+	TEXT("The action zone ratio that will be returned by FDisplayMetrics::GetDisplayMetrics on platforms that don't have a defined safe zone (0..1)\n")
+	TEXT(" default: 1.0"));
+
+float FDisplayMetrics::GetDebugTitleSafeZoneRatio()
+{
+	return GDebugSafeZoneRatio;
+}
+
+float FDisplayMetrics::GetDebugActionSafeZoneRatio()
+{
+	return GDebugActionZoneRatio;
+}
+
+void FDisplayMetrics::ApplyDefaultSafeZones()
+{
+	const float SafeZoneRatio = GetDebugTitleSafeZoneRatio();
+	if (SafeZoneRatio < 1.0f)
+	{
+		const float HalfUnsafeRatio = (1.0f - SafeZoneRatio) * 0.5f;
+		TitleSafePaddingSize = FVector2D(PrimaryDisplayWidth * HalfUnsafeRatio, PrimaryDisplayHeight * HalfUnsafeRatio);
+	}
+
+	const float ActionSafeZoneRatio = GetDebugActionSafeZoneRatio();
+	if (ActionSafeZoneRatio < 1.0f)
+	{
+		const float HalfUnsafeRatio = (1.0f - ActionSafeZoneRatio) * 0.5f;
+		ActionSafePaddingSize = FVector2D(PrimaryDisplayWidth * HalfUnsafeRatio, PrimaryDisplayHeight * HalfUnsafeRatio);
+	}
+}
 
 void FDisplayMetrics::PrintToLog() const
 {

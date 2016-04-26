@@ -1,9 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "GameFramework/Info.h"
 #include "Sound/AudioVolume.h"
 #include "WorldSettings.generated.h"
+
+class UNetConnection;
 
 UENUM()
 enum EVisibilityAggressiveness
@@ -173,6 +175,9 @@ struct ENGINE_API FNetViewer
 {
 	GENERATED_USTRUCT_BODY()
 
+	UPROPERTY()
+	UNetConnection* Connection;
+
 	/** The "controlling net object" associated with this view (typically player controller) */
 	UPROPERTY()
 	class AActor* InViewer;
@@ -190,7 +195,8 @@ struct ENGINE_API FNetViewer
 	FVector ViewDir;
 
 	FNetViewer()
-		: InViewer(NULL)
+		: Connection(NULL)
+		, InViewer(NULL)
 		, ViewTarget(NULL)
 		, ViewLocation(ForceInit)
 		, ViewDir(ForceInit)

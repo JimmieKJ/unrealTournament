@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "MacWindow.h"
@@ -38,12 +38,12 @@ void FMacWindow::Initialize( FMacApplication* const Application, const TSharedRe
 
 	const int32 X = FMath::TruncToInt( Definition->XDesiredPositionOnScreen );
 
-	NSScreen* TargetScreen = Application->FindScreenByPoint( X, Definition->YDesiredPositionOnScreen );
+	TSharedRef<FMacScreen> TargetScreen = Application->FindScreenByPoint( X, Definition->YDesiredPositionOnScreen );
 
 	int32 Y = FMath::TruncToInt( Definition->YDesiredPositionOnScreen );
 
 	// Make sure it's not under the menu bar on whatever display being targeted
-	const int32 MaxVisibleY = FPlatformMisc::ConvertCocoaYPositionToSlate([TargetScreen visibleFrame].origin.y + [TargetScreen visibleFrame].size.height);
+	const int32 MaxVisibleY = FMacApplication::ConvertCocoaYPositionToSlate(TargetScreen->VisibleFrame.origin.y + TargetScreen->VisibleFrame.size.height);
 	Y = (Y - MaxVisibleY) >= 0 ? Y : MaxVisibleY;
 
 	const int32 SizeX = FMath::Max(FMath::TruncToInt( Definition->WidthDesiredOnScreen ), 1);
@@ -52,7 +52,7 @@ void FMacWindow::Initialize( FMacApplication* const Application, const TSharedRe
 	PositionX = X;
 	PositionY = Y;
 
-	const int32 InvertedY = FPlatformMisc::ConvertSlateYPositionToCocoa(Y) - SizeY + 1;
+	const int32 InvertedY = FMacApplication::ConvertSlateYPositionToCocoa(Y) - SizeY + 1;
 	const NSRect ViewRect = NSMakeRect(X, InvertedY, SizeX, SizeY);
 
 	uint32 WindowStyle = 0;
@@ -100,24 +100,40 @@ void FMacWindow::Initialize( FMacApplication* const Application, const TSharedRe
 			[WindowHandle setAcceptsMouseMovedEvents: YES];
 			[WindowHandle setDelegate: WindowHandle];
 
-			// @todo: We really need a window type in tab manager to know what window level to use and whether or not a window should hide on deactivate
+			int32 WindowLevel = NSNormalWindowLevel;
+
 			if (Definition->IsModalWindow)
 			{
-				[WindowHandle setLevel: NSModalPanelWindowLevel];
-			}
-			else if (Definition->IsRegularWindow)
-			{
-				[WindowHandle setLevel: NSNormalWindowLevel];
-			}
-			else if (!Definition->SupportsMaximize && !Definition->SupportsMinimize)
-			{
-				[WindowHandle setLevel: NSFloatingWindowLevel];
+				WindowLevel = NSFloatingWindowLevel;
 			}
 			else
 			{
-				[WindowHandle setLevel: NSModalPanelWindowLevel];
+				switch (Definition->Type)
+				{
+					case EWindowType::Normal:
+						WindowLevel = NSNormalWindowLevel;
+						break;
+
+					case EWindowType::Menu:
+						WindowLevel = NSStatusWindowLevel;
+						break;
+
+					case EWindowType::ToolTip:
+						WindowLevel = NSPopUpMenuWindowLevel;
+						break;
+
+					case EWindowType::Notification:
+						WindowLevel = NSModalPanelWindowLevel;
+						break;
+
+					case EWindowType::CursorDecorator:
+						WindowLevel = NSMainMenuWindowLevel;
+						break;
+				}
 			}
-			
+
+			[WindowHandle setLevel:WindowLevel];
+
 			if( !Definition->HasOSWindowBorder )
 			{
 				[WindowHandle setBackgroundColor: [NSColor clearColor]];
@@ -206,7 +222,7 @@ void FMacWindow::ReshapeWindow( int32 X, int32 Y, int32 Width, int32 Height )
 		
 		if(GetWindowMode() == EWindowMode::Windowed || GetWindowMode() == EWindowMode::WindowedFullscreen)
 		{
-			const int32 InvertedY = FPlatformMisc::ConvertSlateYPositionToCocoa(Y) - Height + 1;
+			const int32 InvertedY = FMacApplication::ConvertSlateYPositionToCocoa(Y) - Height + 1;
 			NSRect Rect = NSMakeRect(X, InvertedY, FMath::Max(Width, 1), FMath::Max(Height, 1));
 			if (Definition->HasOSWindowBorder)
 			{
@@ -246,7 +262,7 @@ void FMacWindow::ReshapeWindow( int32 X, int32 Y, int32 Width, int32 Height )
 						NSSize ViewSize = [WindowHandle openGLFrame].size;
 						float WidthScale = ViewSize.width / WindowSize.width;
 						float HeightScale = ViewSize.height / WindowSize.height;
-						MacCursor->SetMouseScaling(FVector2D(WidthScale, HeightScale));
+						MacCursor->SetMouseScaling(FVector2D(WidthScale, HeightScale), WindowHandle);
 					}
 				}, UE4ResizeEventMode, true);
 				MacApplication->DeferEvent([NSNotification notificationWithName:NSWindowDidResizeNotification object:WindowHandle]);
@@ -271,7 +287,7 @@ void FMacWindow::MoveWindowTo( int32 X, int32 Y )
 {
 	MainThreadCall(^{
 		SCOPED_AUTORELEASE_POOL;
-		const int32 InvertedY = FPlatformMisc::ConvertSlateYPositionToCocoa(Y) - [WindowHandle openGLFrame].size.height + 1;
+		const int32 InvertedY = FMacApplication::ConvertSlateYPositionToCocoa(Y) - [WindowHandle openGLFrame].size.height + 1;
 		[WindowHandle setFrameOrigin: NSMakePoint(X, InvertedY)];
 	}, UE4ResizeEventMode, true);
 }
@@ -452,7 +468,7 @@ bool FMacWindow::GetRestoredDimensions(int32& X, int32& Y, int32& Width, int32& 
 		NSRect Frame = [WindowHandle frame];
 		
 		X = Frame.origin.x;
-		Y = FPlatformMisc::ConvertSlateYPositionToCocoa(Frame.origin.y) - Frame.size.height + 1;
+		Y = FMacApplication::ConvertSlateYPositionToCocoa(Frame.origin.y) - Frame.size.height + 1;
 		
 		Width = Frame.size.width;
 		Height = Frame.size.height;
@@ -514,7 +530,7 @@ bool FMacWindow::IsPointInWindow( int32 X, int32 Y ) const
 		}
 	#endif
 		
-		if([WindowHandle isOnActiveSpace])
+		if(WindowHandle->bIsOnActiveSpace)
 		{
 			FMacCursor* MacCursor = (FMacCursor*)MacApplication->Cursor.Get();
 			NSPoint CursorPoint = NSMakePoint(X, WindowFrame.size.height - (Y + 1));

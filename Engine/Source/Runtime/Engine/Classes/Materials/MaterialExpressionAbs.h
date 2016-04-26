@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /**
  * Absolute value material expression for user-defined materials
@@ -20,8 +20,10 @@ class UMaterialExpressionAbs : public UMaterialExpression
 
 
 	//~ Begin UMaterialExpression Interface
+#if WITH_EDITOR
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
+#endif
 	//~ End UMaterialExpression Interface
 
 };

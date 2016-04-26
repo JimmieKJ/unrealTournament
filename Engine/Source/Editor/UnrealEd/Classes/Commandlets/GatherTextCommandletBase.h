@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once 
 
@@ -119,10 +119,25 @@ public:
 	TMultiMap<FString, FLocItem> EntriesBySourceLocation;
 };
 
-typedef TMultiMap< FString, TSharedRef< FLocConflict > > TLocConflictContainer;
-
 struct FConflictReportInfo
 {
+	struct FLocConflictContainerKeyFuncs : BaseKeyFuncs<TSharedRef<FLocConflict>, FString, true>
+	{
+		static FORCEINLINE const FString& GetSetKey(const TPair<FString, TSharedRef<FLocConflict>>& Element)
+		{
+			return Element.Key;
+		}
+		static FORCEINLINE bool Matches(const FString& A, const FString& B)
+		{
+			return A.Equals(B, ESearchCase::CaseSensitive);
+		}
+		static FORCEINLINE uint32 GetKeyHash(const FString& Key)
+		{
+			return FCrc::StrCrc32<TCHAR>(*Key);
+		}
+	};
+	typedef TMultiMap<FString, TSharedRef<FLocConflict>, FDefaultSetAllocator, FLocConflictContainerKeyFuncs> TLocConflictContainer;
+
 	/**
 	 * Return the singleton instance of the report info.
 	 * @return The singleton instance.
@@ -221,7 +236,6 @@ private:
 };
 
 
-
 class FGatherTextSCC
 {
 public:
@@ -237,6 +251,31 @@ public:
 
 private:
 	TArray<FString> CheckedOutFiles;
+};
+
+
+struct FLocalizedAssetSCCUtil
+{
+	static bool SaveAssetWithSCC(const TSharedPtr<FGatherTextSCC>& InSourceControlInfo, UObject* InAsset);
+	static bool SaveAssetWithSCC(const TSharedPtr<FGatherTextSCC>& InSourceControlInfo, UObject* InAsset, const FString& InFilename);
+
+	static bool SavePackageWithSCC(const TSharedPtr<FGatherTextSCC>& InSourceControlInfo, UPackage* InPackage);
+	static bool SavePackageWithSCC(const TSharedPtr<FGatherTextSCC>& InSourceControlInfo, UPackage* InPackage, const FString& InFilename);
+
+	static bool DeleteAssetWithSCC(const TSharedPtr<FGatherTextSCC>& InSourceControlInfo, UObject* InAsset);
+
+	static bool DeletePackageWithSCC(const TSharedPtr<FGatherTextSCC>& InSourceControlInfo, UPackage* InPackage);
+
+	typedef TFunctionRef<bool(const FString&)> FSaveFileCallback;
+	static bool SaveFileWithSCC(const TSharedPtr<FGatherTextSCC>& InSourceControlInfo, const FString& InFilename, const FSaveFileCallback& InSaveFileCallback);
+};
+
+
+class IAssetRegistry;
+struct FLocalizedAssetUtil
+{
+	static bool GetAssetsByPathAndClass(IAssetRegistry& InAssetRegistry, const FName InPackagePath, const FName InClassName, const bool bIncludeLocalizedAssets, TArray<FAssetData>& OutAssets);
+	static bool GetAssetsByPathAndClass(IAssetRegistry& InAssetRegistry, const TArray<FName>& InPackagePaths, const FName InClassName, const bool bIncludeLocalizedAssets, TArray<FAssetData>& OutAssets);
 };
 
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved. 
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved. 
 
 #include "CableComponentPluginPrivatePCH.h"
 #include "DynamicMeshBuilder.h"
@@ -48,7 +48,7 @@ public:
 		if(IsInRenderingThread())
 		{
 			// Initialize the vertex factory's stream components.
-			DataType NewData;
+			FDataType NewData;
 			NewData.PositionComponent = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(VertexBuffer,FDynamicMeshVertex,Position,VET_Float3);
 			NewData.TextureCoordinates.Add(
 				FVertexStreamComponent(VertexBuffer,STRUCT_OFFSET(FDynamicMeshVertex,TextureCoordinate),sizeof(FDynamicMeshVertex),VET_Float2)
@@ -65,7 +65,7 @@ public:
 				const FCableVertexBuffer*,VertexBuffer,VertexBuffer,
 			{
 				// Initialize the vertex factory's stream components.
-				DataType NewData;
+				FDataType NewData;
 				NewData.PositionComponent = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(VertexBuffer,FDynamicMeshVertex,Position,VET_Float3);
 				NewData.TextureCoordinates.Add(
 					FVertexStreamComponent(VertexBuffer,STRUCT_OFFSET(FDynamicMeshVertex,TextureCoordinate),sizeof(FDynamicMeshVertex),VET_Float2)
@@ -101,6 +101,7 @@ public:
 		, CableWidth(Component->CableWidth)
 		, NumSides(Component->NumSides)
 		, TileMaterial(Component->TileMaterial)
+		, CableUpDir(Component->CableUpDir)
 	{
 		VertexBuffer.NumVerts = GetRequiredVertexCount();
 		IndexBuffer.NumIndices = GetRequiredIndexCount();
@@ -170,8 +171,7 @@ public:
 			const FVector ForwardDir = (InPoints[NextIndex] - InPoints[PrevIndex]).GetSafeNormal();
 
 			// Find a side vector at this point
-			const FVector WorldUp(0,0,1);
-			const FVector RightDir = (WorldUp ^ ForwardDir).GetSafeNormal();
+			const FVector RightDir = (CableUpDir ^ ForwardDir).GetSafeNormal();
 
 			// Find an up vector
 			const FVector UpDir = (ForwardDir ^ RightDir).GetSafeNormal();
@@ -331,6 +331,8 @@ private:
 	int32 NumSides;
 
 	float TileMaterial;
+
+	FVector CableUpDir;
 };
 
 
@@ -352,6 +354,8 @@ UCableComponent::UCableComponent( const FObjectInitializer& ObjectInitializer )
 	SubstepTime = 0.02f;
 	SolverIterations = 1;
 	TileMaterial = 1.f;
+
+	CableUpDir = FVector(0,0,1);
 
 	SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 }

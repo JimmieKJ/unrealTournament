@@ -1,7 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "IKeyframeSection.h"
 #include "MovieSceneBoolSection.generated.h"
 
 /**
@@ -49,6 +50,6 @@ private:
 	/** Ordered curve data */
 	// @todo Sequencer This could be optimized by packing the bools separately
 	// but that may not be worth the effort
-	UPROPERTY(EditAnywhere, Category="Curve")
+	UPROPERTY()
 	FIntegralCurve BoolCurve;
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessSelectionOutline.usf: Post processing outline effect.
@@ -53,22 +53,22 @@ FPixelInfo GetPixelInfo(int2 PixelPos, int SampleID, int OffsetX, int OffsetY, f
 	PixelPos += int2(OffsetX, OffsetY);
 
 	// slightly more flicking artifacts on the silhouette
-//	float2 ReconstructionOffset = int2(OffsetX, OffsetY) + 0.5f - View.TemporalAAParams.zw;
+//	float2 ReconstructionOffset = int2(OffsetX, OffsetY) + 0.5f - Frame.TemporalAAParams.zw;
 	// more stable on the silhouette
-	float2 ReconstructionOffset = 0.5f - View.TemporalAAParams.zw;
+	float2 ReconstructionOffset = 0.5f - Frame.TemporalAAParams.zw;
 
 #if MSAA_SAMPLE_COUNT > 1
 	float DeviceZ = PostprocessInput1MS.Load(PixelPos, SampleID).r;
-	int Stencil = EditorPrimitivesStencil.Load(PixelPos, SampleID).g;
+	int Stencil = EditorPrimitivesStencil.Load(int3(PixelPos, 0), SampleID) STENCIL_COMPONENT_SWIZZLE;
 
-#if !COMPILER_GLSL && !PS4_PROFILE && !COMPILER_METAL
+#if !COMPILER_GLSL && !PS4_PROFILE && !COMPILER_METAL && !COMPILER_HLSLCC
 	// not yet supported on OpenGL, slightly better quality
 	ReconstructionOffset += PostprocessInput1MS.GetSamplePosition(SampleID);
 #endif
 
 #else
 	float DeviceZ = PostprocessInput1MS.Load(int3(PixelPos, 0)).r;
-	int Stencil = EditorPrimitivesStencil.Load(int3(PixelPos, 0)).g;
+	int Stencil = EditorPrimitivesStencil.Load(int3(PixelPos, 0), SampleID) STENCIL_COMPONENT_SWIZZLE;
 #endif
 
 	float SceneDeviceZ = ReconstructDeviceZ(DeviceZPlane, ReconstructionOffset);
@@ -84,7 +84,7 @@ FPixelInfo GetPixelInfo(int2 PixelPos, int SampleID, int OffsetX, int OffsetY, f
 	// outline even between multiple selected objects (best usability)
 	Ret.ObjectId = Stencil;
 
-#if (COMPILER_GLSL == 1 && !GL4_PROFILE) || COMPILER_METAL
+#if (COMPILER_GLSL == 1 && FEATURE_LEVEL < FEATURE_LEVEL_SM4) || (COMPILER_METAL && FEATURE_LEVEL < FEATURE_LEVEL_SM4)
 	// Stencil read in opengl is not supported on older versions
 	Ret.ObjectId = Ret.bObjectMask ? 2 : 0;
 #endif
@@ -154,7 +154,7 @@ float4 PerSample(int2 PixelPos, int SampleID, float3 DeviceZPlane, float2 Device
 	bool bInnerBorder = BorderMinMax.y == 4;
 	
 	// moving diagonal lines
-//	float PatternMask = saturate(sin((PixelPos.x + PixelPos.y) * 0.8f + 8.0f * View.RealTime * EditorRenderParams.g));
+//	float PatternMask = saturate(sin((PixelPos.x + PixelPos.y) * 0.8f + 8.0f * Frame.RealTime * EditorRenderParams.g));
 	float PatternMask = ((PixelPos.x/2 + PixelPos.y/2) % 2) * 0.6f;
 	// non moving high frequency pattern
 //	float PatternMask = ((PixelPos.x + PixelPos.y) % 2) * 0.7f;
@@ -220,10 +220,10 @@ void MainPS(noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPosition :
 	float3 DeviceZPlane;
 	DeviceZPlane.z = Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, UV, 0).r;
 
-	float Left = Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, UV + float2(-1, 0) * View.BufferSizeAndInvSize.zw, 0).r;
-	float Right= Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, UV + float2(1, 0) * View.BufferSizeAndInvSize.zw, 0).r;
-	float Top  = Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, UV + float2(0, -1) * View.BufferSizeAndInvSize.zw, 0).r;
-	float Bottom = Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, UV + float2(0, 1) * View.BufferSizeAndInvSize.zw, 0).r;
+	float Left = Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, UV + float2(-1, 0) * Frame.BufferSizeAndInvSize.zw, 0).r;
+	float Right= Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, UV + float2(1, 0) * Frame.BufferSizeAndInvSize.zw, 0).r;
+	float Top  = Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, UV + float2(0, -1) * Frame.BufferSizeAndInvSize.zw, 0).r;
+	float Bottom = Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, UV + float2(0, 1) * Frame.BufferSizeAndInvSize.zw, 0).r;
 
 	float2 DeviceZMinMax;
 	DeviceZMinMax.x = min(DeviceZPlane.z, min(min(Left, Right), min(Top, Bottom)));
@@ -237,6 +237,9 @@ void MainPS(noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPosition :
 //	DeviceZPlane.y = ddy(DeviceZPlane.z);
 
 	float4 Sum = 0;
+#if COMPILER_GLSL && FEATURE_LEVEL >= FEATURE_LEVEL_SM4
+	UNROLL
+#endif
 	for(int SampleID = 0; SampleID < MSAA_SAMPLE_COUNT; ++SampleID)
 	{
 		Sum += PerSample(PixelPos, SampleID, DeviceZPlane, DeviceZMinMax);

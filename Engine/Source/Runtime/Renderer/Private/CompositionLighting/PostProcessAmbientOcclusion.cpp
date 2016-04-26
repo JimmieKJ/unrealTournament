@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessAmbientOcclusion.cpp: Post processing ambient occlusion implementation.
@@ -20,9 +20,14 @@ static TAutoConsoleVariable<int32> CVarAmbientOcclusionCompute(
 	TEXT("r.AmbientOcclusion.Compute"),
 	0,
 	TEXT("If SSAO should use ComputeShader (not available on all platforms) or PixelShader.\n")
+	TEXT("The [Async] Compute Shader version is WIP, not optimized, requires hardware support (not mobile/DX10/OpenGL3),\n")
+	TEXT("does not use normals which allows it to run right after EarlyZPass (better performance when used with AyncCompute)\n")
+	TEXT("AyncCompute is currently only functional on PS4.\n")
 	TEXT(" 0: PixelShader (default)\n")
-	TEXT(" 1: ComputeShader (not yet optimized, required hardware support, not for mobile/DX10/OpenGL3)"),
-	ECVF_RenderThreadSafe);
+	TEXT(" 1: (WIP) Use ComputeShader if possible, otherwise fall back to '0'\n")
+	TEXT(" 2: (WIP) Use AsyncCompute if efficient, otherwise fall back to '1'\n")
+	TEXT(" 3: (WIP) Use AsyncCompute if possible, otherwise fall back to '1'"),
+	ECVF_Scalability | ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<float> CVarAmbientOcclusionMaxQuality(
 	TEXT("r.AmbientOcclusionMaxQuality"),
@@ -42,6 +47,107 @@ static TAutoConsoleVariable<float> CVarAmbientOcclusionStepMipLevelFactor(
 	TEXT(" 1: Go into higher mipmap level (quality loss)"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
+static TAutoConsoleVariable<int32> CVarAmbientOcclusionLevels(
+	TEXT("r.AmbientOcclusionLevels"),
+	-1,
+	TEXT("Defines how many mip levels are using during the ambient occlusion calculation. This is useful when tweaking the algorithm.\n")
+	TEXT("<0: decide based on the quality setting in the postprocess settings/volume and r.AmbientOcclusionMaxQuality (default)\n")
+	TEXT(" 0: none (disable AmbientOcclusion)\n")
+	TEXT(" 1: one\n")
+	TEXT(" 2: two (costs extra performance, soft addition)\n")
+	TEXT(" 3: three (larger radius cost less but can flicker)"),
+	ECVF_Scalability | ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<int32> CVarAmbientOcclusionAsyncComputeBudget(
+	TEXT("r.AmbientOcclusion.AsyncComputeBudget"),
+	1,
+	TEXT("Defines which level of EAsyncComputeBudget to use for balancing AsyncCompute work against Gfx work.\n")
+	TEXT("Only matters if the compute version of SSAO is active (requires CS support, enabled by cvar, single pass, no normals)\n")
+	TEXT("This is a low level developer tweak to get best performance on hardware that supports AsyncCompute.\n")
+	TEXT(" 0: least AsyncCompute\n")
+	TEXT(" 1: .. (default)\n")
+	TEXT(" 2: .. \n")
+	TEXT(" 3: .. \n")
+	TEXT(" 4: most AsyncCompute"),
+	ECVF_RenderThreadSafe);
+
+float FSSAOHelper::GetAmbientOcclusionQualityRT(const FSceneView& View)
+{
+	float CVarValue = CVarAmbientOcclusionMaxQuality.GetValueOnRenderThread();
+
+	if (CVarValue < 0)
+	{
+		return FMath::Clamp(-CVarValue, 0.0f, 100.0f);
+	}
+	else
+	{
+		return FMath::Min(CVarValue, View.FinalPostProcessSettings.AmbientOcclusionQuality);
+	}
+}
+
+int32 FSSAOHelper::GetAmbientOcclusionShaderLevel(const FSceneView& View)
+{
+	float QualityPercent = GetAmbientOcclusionQualityRT(View);
+
+	return	(QualityPercent > 75.0f) +
+		(QualityPercent > 55.0f) +
+		(QualityPercent > 25.0f) +
+		(QualityPercent > 5.0f);
+}
+
+bool FSSAOHelper::IsAmbientOcclusionCompute(const FSceneView& View)
+{
+	return View.GetFeatureLevel() >= ERHIFeatureLevel::SM5 && (CVarAmbientOcclusionCompute.GetValueOnRenderThread() >= 1);
+}
+
+int32 FSSAOHelper::GetNumAmbientOcclusionLevels()
+{
+	return CVarAmbientOcclusionLevels.GetValueOnRenderThread();
+}
+
+float FSSAOHelper::GetAmbientOcclusionStepMipLevelFactor()
+{
+	return CVarAmbientOcclusionStepMipLevelFactor.GetValueOnRenderThread();
+}
+
+EAsyncComputeBudget FSSAOHelper::GetAmbientOcclusionAsyncComputeBudget()
+{
+	int32 RawBudget = CVarAmbientOcclusionAsyncComputeBudget.GetValueOnRenderThread();
+
+	return (EAsyncComputeBudget)FMath::Clamp(RawBudget, (int32)EAsyncComputeBudget::ELeast_0, (int32)EAsyncComputeBudget::EAll_4);
+}
+
+bool FSSAOHelper::IsBasePassAmbientOcclusionRequired(const FViewInfo& View)
+{
+	// the BaseAO pass is only worth with some AO
+	return (View.FinalPostProcessSettings.AmbientOcclusionStaticFraction >= 1 / 100.0f) && !IsSimpleDynamicLightingEnabled();
+}
+
+bool FSSAOHelper::IsAmbientOcclusionAsyncCompute(const FViewInfo& View, uint32 AOPassCount)
+{
+	// if AsyncCompute is feasible
+	if(IsAmbientOcclusionCompute(View) && (AOPassCount > 0))
+	{
+		int32 ComputeCVar = CVarAmbientOcclusionCompute.GetValueOnRenderThread();
+
+		if(ComputeCVar >= 2)
+		{
+			// we might want AsyncCompute
+
+			if(ComputeCVar == 3)
+			{
+				// enforced, no matter if efficient hardware support
+				return true;
+			}
+
+			// depends on efficient hardware support
+			return GSupportsEfficientAsyncCompute;
+		}
+	}
+
+	return false;
+}
+
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FCameraMotionParameters,TEXT("CameraMotion"));
 
 
@@ -55,8 +161,9 @@ public:
 		ScreenSpaceAOParams.Bind(ParameterMap, TEXT("ScreenSpaceAOParams"));
 	}
 
-	template<typename ShaderRHIParamRef>
-	void Set(FRHICommandList& RHICmdList, const FSceneView& View, const ShaderRHIParamRef ShaderRHI, FIntPoint InputTextureSize) const
+	//@param TRHICmdList could be async compute or compute dispatch, so template on commandlist type.
+	template<typename ShaderRHIParamRef, typename TRHICmdList>
+	void Set(TRHICmdList& RHICmdList, const FSceneView& View, const ShaderRHIParamRef ShaderRHI, FIntPoint InputTextureSize) const
 	{
 		const FFinalPostProcessSettings& Settings = View.FinalPostProcessSettings;
 
@@ -88,7 +195,7 @@ public:
 		// Grab this and pass into shader so we can negate the fov influence of projection on the screen pos.
 		float InvTanHalfFov = View.ViewMatrices.ProjMatrix.M[0][0];
 
-		FVector4 Value[5];
+		FVector4 Value[6];
 
 		float StaticFraction = FMath::Clamp(Settings.AmbientOcclusionStaticFraction, 0.0f, 1.0f);
 
@@ -102,7 +209,7 @@ public:
 		{
 			TemporalOffset = (View.State->GetCurrentTemporalAASampleIndex() % 8) * FVector2D(2.48f, 7.52f) / 64.0f;
 		}
-		const float HzbStepMipLevelFactorValue = FMath::Clamp(CVarAmbientOcclusionStepMipLevelFactor.GetValueOnRenderThread(), 0.0f, 100.0f);
+		const float HzbStepMipLevelFactorValue = FMath::Clamp(FSSAOHelper::GetAmbientOcclusionStepMipLevelFactor(), 0.0f, 100.0f);
 
 		// /1000 to be able to define the value in that distance
 		Value[0] = FVector4(Settings.AmbientOcclusionPower, Settings.AmbientOcclusionBias / 1000.0f, 1.0f / Settings.AmbientOcclusionDistance_DEPRECATED, Settings.AmbientOcclusionIntensity);
@@ -110,8 +217,9 @@ public:
 		Value[2] = FVector4(ScaleToFullRes, Settings.AmbientOcclusionMipThreshold / ScaleToFullRes, ScaleRadiusInWorldSpace, Settings.AmbientOcclusionMipBlend);
 		Value[3] = FVector4(TemporalOffset.X, TemporalOffset.Y, StaticFraction, InvTanHalfFov);
 		Value[4] = FVector4(InvFadeRadius, -(Settings.AmbientOcclusionFadeDistance - FadeRadius) * InvFadeRadius, HzbStepMipLevelFactorValue, 0);
+		Value[5] = FVector4(View.ViewRect.Width(), View.ViewRect.Height(), 0, 0);
 
-		SetShaderValueArray(RHICmdList, ShaderRHI, ScreenSpaceAOParams, Value, 5);
+		SetShaderValueArray(RHICmdList, ShaderRHI, ScreenSpaceAOParams, Value, 6);
 	}
 
 	friend FArchive& operator<<(FArchive& Ar, FScreenSpaceAOParameters& This);
@@ -168,7 +276,7 @@ public:
 		uint32 ScaleToFullRes = FSceneRenderTargets::Get(Context.RHICmdList).GetBufferSizeXY().X / Context.Pass->GetOutput(ePId_Output0)->RenderTargetDesc.Extent.X;
 
 		// /1000 to be able to define the value in that distance
-		FVector4 AmbientOcclusionSetupParamsValue = FVector4(ScaleToFullRes, Settings.AmbientOcclusionMipThreshold / ScaleToFullRes, 0, 0);
+		FVector4 AmbientOcclusionSetupParamsValue = FVector4(ScaleToFullRes, Settings.AmbientOcclusionMipThreshold / ScaleToFullRes, Context.View.ViewRect.Width(), Context.View.ViewRect.Height());
 		SetShaderValue(Context.RHICmdList, ShaderRHI, AmbientOcclusionSetupParams, AmbientOcclusionSetupParamsValue);
 	}
 
@@ -389,13 +497,11 @@ public:
 		OutTexture.Bind(Initializer.ParameterMap, TEXT("OutTexture"));
 	}
 
-	void SetParameters(const FRenderingCompositePassContext& Context, FIntPoint InputTextureSize, FUnorderedAccessViewRHIParamRef OutUAV)
+	FVector4 GetHZBValue(const FViewInfo& View)
 	{
-		const FFinalPostProcessSettings& Settings = Context.View.FinalPostProcessSettings;
-
 		const FVector2D HZBScaleFactor(
-			float(Context.View.ViewRect.Width()) / float(2 * Context.View.HZBMipmap0Size.X),
-			float(Context.View.ViewRect.Height()) / float(2 * Context.View.HZBMipmap0Size.Y));
+			float(View.ViewRect.Width()) / float(2 * View.HZBMipmap0Size.X),
+			float(View.ViewRect.Height()) / float(2 * View.HZBMipmap0Size.Y));
 
 		// from -1..1 to UV 0..1*HZBScaleFactor
 		// .xy:mul, zw:add
@@ -404,46 +510,51 @@ public:
 			-0.5f * HZBScaleFactor.Y,
 			0.5f * HZBScaleFactor.X,
 			0.5f * HZBScaleFactor.Y);
-		
-		const FSceneRenderTargetItem& SSAORandomization = GSystemTextures.SSAORandomization->GetRenderTargetItem();
 
-		if(bComputeShader)
-		{
-			const FComputeShaderRHIParamRef ShaderRHI = GetComputeShader();
-
-			FGlobalShader::SetParameters(Context.RHICmdList, ShaderRHI, Context.View);
-			
-			Context.RHICmdList.SetUAVParameter(ShaderRHI, OutTexture.GetBaseIndex(), OutUAV);
-
-			// SF_Point is better than bilinear to avoid halos around objects
-			PostprocessParameter.SetCS(ShaderRHI, Context, TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI());
-			DeferredParameters.Set(Context.RHICmdList, ShaderRHI, Context.View);
-
-			SetTextureParameter(Context.RHICmdList, ShaderRHI, RandomNormalTexture, RandomNormalTextureSampler, TStaticSamplerState<SF_Point, AM_Wrap, AM_Wrap, AM_Wrap>::GetRHI(), SSAORandomization.ShaderResourceTexture);
-
-			ScreenSpaceAOParams.Set(Context.RHICmdList, Context.View, ShaderRHI, InputTextureSize);
-
-			SetShaderValue(Context.RHICmdList, ShaderRHI, HZBRemapping, HZBRemappingValue);
-		}
-		else
-		{
-			const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
-
-			FGlobalShader::SetParameters(Context.RHICmdList, ShaderRHI, Context.View);
-
-			// SF_Point is better than bilinear to avoid halos around objects
-			PostprocessParameter.SetPS(ShaderRHI, Context, TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI());
-			DeferredParameters.Set(Context.RHICmdList, ShaderRHI, Context.View);
-
-			SetTextureParameter(Context.RHICmdList, ShaderRHI, RandomNormalTexture, RandomNormalTextureSampler, TStaticSamplerState<SF_Point, AM_Wrap, AM_Wrap, AM_Wrap>::GetRHI(), SSAORandomization.ShaderResourceTexture);
-
-			ScreenSpaceAOParams.Set(Context.RHICmdList, Context.View, ShaderRHI, InputTextureSize);
-		
-			SetShaderValue(Context.RHICmdList, ShaderRHI, HZBRemapping, HZBRemappingValue);
-		}
+		return HZBRemappingValue;
 	}
 	
-	void UnsetParameters(FRHICommandList& RHICmdList)
+	template <typename TRHICmdList>
+	void SetParametersCompute(TRHICmdList& RHICmdList, const FRenderingCompositePassContext& Context, FIntPoint InputTextureSize, FUnorderedAccessViewRHIParamRef OutUAV)
+	{
+		const FViewInfo& View = Context.View;
+		const FVector4 HZBRemappingValue = GetHZBValue(View);				
+		const FSceneRenderTargetItem& SSAORandomization = GSystemTextures.SSAORandomization->GetRenderTargetItem();
+
+		const FComputeShaderRHIParamRef ShaderRHI = GetComputeShader();
+		FGlobalShader::SetParameters(RHICmdList, ShaderRHI, View);			
+		RHICmdList.SetUAVParameter(ShaderRHI, OutTexture.GetBaseIndex(), OutUAV);
+
+		// SF_Point is better than bilinear to avoid halos around objects
+		PostprocessParameter.SetCS(ShaderRHI, Context, RHICmdList, TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI());
+		DeferredParameters.Set(RHICmdList, ShaderRHI, View);
+
+		SetTextureParameter(RHICmdList, ShaderRHI, RandomNormalTexture, RandomNormalTextureSampler, TStaticSamplerState<SF_Point, AM_Wrap, AM_Wrap, AM_Wrap>::GetRHI(), SSAORandomization.ShaderResourceTexture);
+		ScreenSpaceAOParams.Set(RHICmdList, View, ShaderRHI, InputTextureSize);
+		SetShaderValue(RHICmdList, ShaderRHI, HZBRemapping, HZBRemappingValue);			
+	}
+
+	
+	void SetParametersGfx(FRHICommandList& RHICmdList, const FRenderingCompositePassContext& Context, FIntPoint InputTextureSize, FUnorderedAccessViewRHIParamRef OutUAV)
+	{
+		const FViewInfo& View = Context.View;
+		const FVector4 HZBRemappingValue = GetHZBValue(View);
+		const FSceneRenderTargetItem& SSAORandomization = GSystemTextures.SSAORandomization->GetRenderTargetItem();
+
+		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
+		FGlobalShader::SetParameters(RHICmdList, ShaderRHI, View);
+
+		// SF_Point is better than bilinear to avoid halos around objects
+		PostprocessParameter.SetPS(ShaderRHI, Context, TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI());
+		DeferredParameters.Set(RHICmdList, ShaderRHI, View);
+
+		SetTextureParameter(RHICmdList, ShaderRHI, RandomNormalTexture, RandomNormalTextureSampler, TStaticSamplerState<SF_Point, AM_Wrap, AM_Wrap, AM_Wrap>::GetRHI(), SSAORandomization.ShaderResourceTexture);
+		ScreenSpaceAOParams.Set(RHICmdList, View, ShaderRHI, InputTextureSize);
+		SetShaderValue(RHICmdList, ShaderRHI, HZBRemapping, HZBRemappingValue);
+	}
+
+	template <typename TRHICmdList>
+	void UnsetParameters(TRHICmdList& RHICmdList)
 	{
 		const FComputeShaderRHIParamRef ShaderRHI = GetComputeShader();
 		RHICmdList.SetUAVParameter(ShaderRHI, OutTexture.GetBaseIndex(), NULL);
@@ -503,49 +614,159 @@ FShader* FRCPassPostProcessAmbientOcclusion::SetShaderTemplPS(const FRenderingCo
 	const FPooledRenderTargetDesc* InputDesc0 = GetInputDesc(ePId_Input0);
 
 	VertexShader->SetParameters(Context);
-	PixelShader->SetParameters(Context, InputDesc0->Extent, 0);
+	PixelShader->SetParametersGfx(Context.RHICmdList, Context, InputDesc0->Extent, 0);
 
 	return *VertexShader;
 }
 
-template <uint32 bTAOSetupAsInput, uint32 bDoUpsample, uint32 ShaderQuality>
-void FRCPassPostProcessAmbientOcclusion::DispatchCS(const FRenderingCompositePassContext& Context, FUnorderedAccessViewRHIParamRef OutUAV)
+template <uint32 bTAOSetupAsInput, uint32 bDoUpsample, uint32 ShaderQuality, typename TRHICmdList>
+void FRCPassPostProcessAmbientOcclusion::DispatchCS(TRHICmdList& RHICmdList, const FRenderingCompositePassContext& Context, const FIntPoint& TexSize, FUnorderedAccessViewRHIParamRef OutUAV)
 {
 	TShaderMapRef<FPostProcessAmbientOcclusionPSandCS<bTAOSetupAsInput, bDoUpsample, ShaderQuality, true> > ComputeShader(Context.GetShaderMap());
 
-	Context.RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
+	RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
 
-	const FPooledRenderTargetDesc* InputDesc0 = GetInputDesc(ePId_Input0);
+	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(Context.RHICmdList);
 
-	ComputeShader->SetParameters(Context, InputDesc0->Extent, OutUAV);
+	ComputeShader->SetParametersCompute(RHICmdList, Context, TexSize, OutUAV);
 
-	uint32 GroupSizeX = FMath::DivideAndRoundUp(Context.View.ViewRect.Size().X, GAmbientOcclusionTileSizeX);
-	uint32 GroupSizeY = FMath::DivideAndRoundUp(Context.View.ViewRect.Size().Y, GAmbientOcclusionTileSizeY);
-	DispatchComputeShader(Context.RHICmdList, *ComputeShader, GroupSizeX, GroupSizeY, 1);
+	uint32 ScaleToFullRes = SceneContext.GetBufferSizeXY().X / TexSize.X;
 
-	ComputeShader->UnsetParameters(Context.RHICmdList);
+	FIntRect ViewRect = FIntRect::DivideAndRoundUp(Context.View.ViewRect, ScaleToFullRes);
+
+	uint32 GroupSizeX = FMath::DivideAndRoundUp(ViewRect.Size().X, GAmbientOcclusionTileSizeX);
+	uint32 GroupSizeY = FMath::DivideAndRoundUp(ViewRect.Size().Y, GAmbientOcclusionTileSizeY);
+	DispatchComputeShader(RHICmdList, *ComputeShader, GroupSizeX, GroupSizeY, 1);
+
+	ComputeShader->UnsetParameters(RHICmdList);
 }
 
-float GetAmbientOcclusionQualityRT(const FSceneView& View)
-{
-	float CVarValue = CVarAmbientOcclusionMaxQuality.GetValueOnRenderThread();
 
-	if(CVarValue < 0)
-	{
-		return FMath::Clamp(-CVarValue, 0.0f, 100.0f);
-	}
-	else
-	{
-		return FMath::Min(CVarValue, View.FinalPostProcessSettings.AmbientOcclusionQuality);
-	}
-}
 
 // --------------------------------------------------------
 
-FRCPassPostProcessAmbientOcclusion::FRCPassPostProcessAmbientOcclusion(const FSceneView& View, bool bInAOSetupAsInput)
-	: bAOSetupAsInput(bInAOSetupAsInput)
-	, bComputeShader(View.GetFeatureLevel() >= ERHIFeatureLevel::SM5 && CVarAmbientOcclusionCompute.GetValueOnRenderThread() != 0)
+FRCPassPostProcessAmbientOcclusion::FRCPassPostProcessAmbientOcclusion(const FSceneView& View, ESSAOType InAOType, bool bInAOSetupAsInput)
+	: AOType(InAOType)
+	, bAOSetupAsInput(bInAOSetupAsInput)	
 {
+}
+
+void FRCPassPostProcessAmbientOcclusion::ProcessCS(FRenderingCompositePassContext& Context, const FSceneRenderTargetItem* DestRenderTarget,
+	const FIntRect& ViewRect, const FIntPoint& TexSize, int32 ShaderQuality, bool bDoUpsample)
+{
+#define SET_SHADER_CASE(RHICmdList, ShaderQualityCase) \
+	case ShaderQualityCase: \
+	if (bAOSetupAsInput) \
+	{ \
+		if (bDoUpsample) DispatchCS<1, 1, ShaderQualityCase>(RHICmdList, Context, TexSize, DestRenderTarget->UAV); \
+		else DispatchCS<1, 0, ShaderQualityCase>(RHICmdList, Context, TexSize, DestRenderTarget->UAV); \
+	} \
+	else \
+	{ \
+		if (bDoUpsample) DispatchCS<0, 1, ShaderQualityCase>(RHICmdList, Context, TexSize, DestRenderTarget->UAV); \
+		else DispatchCS<0, 0, ShaderQualityCase>(RHICmdList, Context, TexSize, DestRenderTarget->UAV); \
+	} \
+	break
+
+	//for async compute we need to set up a fence to make sure the resource is ready before we start.
+	if (AOType == ESSAOType::EAsyncCS)
+	{
+		//Grab the async compute commandlist.
+		FRHIAsyncComputeCommandListImmediate& RHICmdListComputeImmediate = FRHICommandListExecutor::GetImmediateAsyncComputeCommandList();
+
+		static FName AsyncStartFenceName(TEXT("AsyncStartFence"));
+		FComputeFenceRHIRef AsyncStartFence = Context.RHICmdList.CreateComputeFence(AsyncStartFenceName);
+
+		//Fence to let us know when the Gfx pipe is done with the RT we want to write to.
+		Context.RHICmdList.TransitionResource(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EGfxToCompute, DestRenderTarget->UAV, AsyncStartFence);
+
+		SCOPED_COMPUTE_EVENT(RHICmdListComputeImmediate, AsyncSSAO);
+		//Async compute must wait for Gfx to be done with our dest target before we can dispatch anything.
+		RHICmdListComputeImmediate.WaitComputeFence(AsyncStartFence);
+
+		switch (ShaderQuality)
+		{
+			SET_SHADER_CASE(RHICmdListComputeImmediate, 0);
+			SET_SHADER_CASE(RHICmdListComputeImmediate, 1);
+			SET_SHADER_CASE(RHICmdListComputeImmediate, 2);
+			SET_SHADER_CASE(RHICmdListComputeImmediate, 3);
+			SET_SHADER_CASE(RHICmdListComputeImmediate, 4);
+		default:
+			break;
+		};
+	}
+	else
+	{
+		//no fence necessary for inline compute.
+		Context.RHICmdList.TransitionResource(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EGfxToCompute, DestRenderTarget->UAV, nullptr);
+		switch (ShaderQuality)
+		{
+			SET_SHADER_CASE(Context.RHICmdList, 0);
+			SET_SHADER_CASE(Context.RHICmdList, 1);
+			SET_SHADER_CASE(Context.RHICmdList, 2);
+			SET_SHADER_CASE(Context.RHICmdList, 3);
+			SET_SHADER_CASE(Context.RHICmdList, 4);
+		default:
+			break;
+		};
+		Context.RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, DestRenderTarget->TargetableTexture);
+	}
+#undef SET_SHADER_CASE	
+}
+
+void FRCPassPostProcessAmbientOcclusion::ProcessPS(FRenderingCompositePassContext& Context, const FSceneRenderTargetItem* DestRenderTarget,
+	const FIntRect& ViewRect, const FIntPoint& TexSize, int32 ShaderQuality, bool bDoUpsample)
+{
+	// Set the view family's render target/viewport.
+	SetRenderTarget(Context.RHICmdList, DestRenderTarget->TargetableTexture, FTextureRHIRef());
+	Context.SetViewportAndCallRHI(ViewRect);
+
+	// set the state
+	Context.RHICmdList.SetBlendState(TStaticBlendState<>::GetRHI());
+	Context.RHICmdList.SetRasterizerState(TStaticRasterizerState<>::GetRHI());
+	Context.RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
+
+	FShader* VertexShader = 0;
+
+#define SET_SHADER_CASE(ShaderQualityCase) \
+		case ShaderQualityCase: \
+	if (bAOSetupAsInput) \
+	{ \
+		if (bDoUpsample) VertexShader = SetShaderTemplPS<1, 1, ShaderQualityCase>(Context); \
+		else VertexShader = SetShaderTemplPS<1, 0, ShaderQualityCase>(Context); \
+	} \
+	else \
+	{ \
+		if (bDoUpsample) VertexShader = SetShaderTemplPS<0, 1, ShaderQualityCase>(Context); \
+		else VertexShader = SetShaderTemplPS<0, 0, ShaderQualityCase>(Context); \
+	} \
+	break
+
+	switch (ShaderQuality)
+	{
+		SET_SHADER_CASE(0);
+		SET_SHADER_CASE(1);
+		SET_SHADER_CASE(2);
+		SET_SHADER_CASE(3);
+		SET_SHADER_CASE(4);
+	default:
+		break;
+	};
+#undef SET_SHADER_CASE
+
+	// Draw a quad mapping scene color to the view's render target
+	DrawRectangle(
+		Context.RHICmdList,
+		0, 0,
+		ViewRect.Width(), ViewRect.Height(),
+		ViewRect.Min.X, ViewRect.Min.Y,
+		ViewRect.Width(), ViewRect.Height(),
+		ViewRect.Size(),
+		TexSize,
+		VertexShader,
+		EDRF_UseTriangleOptimization);
+
+	Context.RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, DestRenderTarget->TargetableTexture);
 }
 
 void FRCPassPostProcessAmbientOcclusion::Process(FRenderingCompositePassContext& Context)
@@ -567,117 +788,30 @@ void FRCPassPostProcessAmbientOcclusion::Process(FRenderingCompositePassContext&
 		DestRenderTarget = &SceneContext.ScreenSpaceAO->GetRenderTargetItem();
 	}
 
-	ensure(InputDesc0);
-
-	FIntPoint TexSize = InputDesc0->Extent;
+	// Compute doesn't have Input0, it runs in full resolution
+	FIntPoint TexSize = InputDesc0 ? InputDesc0->Extent : SceneContext.GetBufferSizeXY();
 
 	// usually 1, 2, 4 or 8
 	uint32 ScaleToFullRes = SceneContext.GetBufferSizeXY().X / TexSize.X;
 
 	FIntRect ViewRect = FIntRect::DivideAndRoundUp(View.ViewRect, ScaleToFullRes);
 
-	float QualityPercent = GetAmbientOcclusionQualityRT(Context.View);
-	
 	// 0..4, 0:low 4:high
-	const int32 ShaderQuality = 
-		(QualityPercent > 75.0f) +
-		(QualityPercent > 55.0f) +
-		(QualityPercent > 25.0f) +
-		(QualityPercent > 5.0f);
+	const int32 ShaderQuality = FSSAOHelper::GetAmbientOcclusionShaderLevel(Context.View);
 
 	bool bDoUpsample = (InputDesc2 != 0);
 	
 	SCOPED_DRAW_EVENTF(Context.RHICmdList, AmbientOcclusion, TEXT("AmbientOcclusion%s %dx%d SetupAsInput=%d Upsample=%d ShaderQuality=%d"), 
-		bComputeShader ? TEXT("CS") : TEXT("PS"), ViewRect.Width(), ViewRect.Height(), bAOSetupAsInput, bDoUpsample, ShaderQuality);
+		(AOType == ESSAOType::EPS) ? TEXT("PS") : TEXT("CS"), ViewRect.Width(), ViewRect.Height(), bAOSetupAsInput, bDoUpsample, ShaderQuality);
 
-	if(bComputeShader)
-	{		
-		SetRenderTarget(Context.RHICmdList, FTextureRHIRef(), FTextureRHIRef());
-		Context.SetViewportAndCallRHI(ViewRect);
-
-		Context.RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, DestRenderTarget->TargetableTexture);
-
-#define SET_SHADER_CASE(ShaderQualityCase) \
-		case ShaderQualityCase: \
-		if(bAOSetupAsInput) \
-		{ \
-			if(bDoUpsample) DispatchCS<1, 1, ShaderQualityCase>(Context, DestRenderTarget->UAV); \
-			else DispatchCS<1, 0, ShaderQualityCase>(Context, DestRenderTarget->UAV); \
-		} \
-		else \
-		{ \
-			if(bDoUpsample) DispatchCS<0, 1, ShaderQualityCase>(Context, DestRenderTarget->UAV); \
-			else DispatchCS<0, 0, ShaderQualityCase>(Context, DestRenderTarget->UAV); \
-		} \
-		break
-
-		switch(ShaderQuality)
-		{
-			SET_SHADER_CASE(0);
-			SET_SHADER_CASE(1);
-			SET_SHADER_CASE(2);
-			SET_SHADER_CASE(3);
-			SET_SHADER_CASE(4);
-			default:
-				break;
-		};
-#undef SET_SHADER_CASE
-
-		Context.RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, DestRenderTarget->TargetableTexture);
+	if (AOType == ESSAOType::EPS)
+	{
+		ProcessPS(Context, DestRenderTarget, ViewRect, TexSize, ShaderQuality, bDoUpsample);
 	}
 	else
 	{
-		// Set the view family's render target/viewport.
-		SetRenderTarget(Context.RHICmdList, DestRenderTarget->TargetableTexture, FTextureRHIRef());
-		Context.SetViewportAndCallRHI(ViewRect);
-
-		// set the state
-		Context.RHICmdList.SetBlendState(TStaticBlendState<>::GetRHI());
-		Context.RHICmdList.SetRasterizerState(TStaticRasterizerState<>::GetRHI());
-		Context.RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
-
-		FShader* VertexShader = 0;
-
-#define SET_SHADER_CASE(ShaderQualityCase) \
-		case ShaderQualityCase: \
-		if(bAOSetupAsInput) \
-		{ \
-				if(bDoUpsample) VertexShader = SetShaderTemplPS<1, 1, ShaderQualityCase>(Context); \
-				else VertexShader = SetShaderTemplPS<1, 0, ShaderQualityCase>(Context); \
-		} \
-		else \
-		{ \
-				if(bDoUpsample) VertexShader = SetShaderTemplPS<0, 1, ShaderQualityCase>(Context); \
-				else VertexShader = SetShaderTemplPS<0, 0, ShaderQualityCase>(Context); \
-		} \
-		break
-
-		switch(ShaderQuality)
-		{
-			SET_SHADER_CASE(0);
-			SET_SHADER_CASE(1);
-			SET_SHADER_CASE(2);
-			SET_SHADER_CASE(3);
-			SET_SHADER_CASE(4);
-			default:
-				break;
-		};
-#undef SET_SHADER_CASE
-
-		// Draw a quad mapping scene color to the view's render target
-		DrawRectangle( 
-			Context.RHICmdList,
-			0, 0,
-			ViewRect.Width(), ViewRect.Height(),
-			ViewRect.Min.X, ViewRect.Min.Y,
-			ViewRect.Width(), ViewRect.Height(),
-			ViewRect.Size(),
-			TexSize,
-			VertexShader,
-			EDRF_UseTriangleOptimization);
-		
-		Context.RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, DestRenderTarget->TargetableTexture);
-	}
+		ProcessCS(Context, DestRenderTarget, ViewRect, TexSize, ShaderQuality, bDoUpsample);
+	}	
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessAmbientOcclusion::ComputeOutputDesc(EPassOutputId InPassOutputId) const
@@ -698,7 +832,7 @@ FPooledRenderTargetDesc FRCPassPostProcessAmbientOcclusion::ComputeOutputDesc(EP
 	// R:AmbientOcclusion, GBA:used for normal
 	Ret.Format = PF_B8G8R8A8;
 	Ret.TargetableFlags &= ~TexCreate_DepthStencilTargetable;
-	if(bComputeShader)
+	if((AOType == ESSAOType::ECS) || (AOType == ESSAOType::EAsyncCS))
 	{
 		Ret.TargetableFlags |= TexCreate_UAV;
 		// UAV allowed format

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 /*=============================================================================================
@@ -37,3 +37,5 @@ struct CORE_API FAndroidPlatformProcess : public FGenericPlatformProcess
 };
 
 typedef FAndroidPlatformProcess FPlatformProcess;
+
+typedef FSystemWideCriticalSectionNotImplemented FSystemWideCriticalSection;

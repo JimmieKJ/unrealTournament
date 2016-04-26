@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "FbxTextureImportData.generated.h"
@@ -11,7 +11,7 @@ class UNREALED_API UFbxTextureImportData : public UFbxAssetImportData
 {
 	GENERATED_UCLASS_BODY()
 
-	/** If either importing of textures (or materials) is enabled, this option will cause normal map values to be inverted */
+	/** If importing textures is enabled, this option will cause normal map Y (Green) values to be inverted */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category=ImportSettings, meta=(OBJRestrict="true"))
 	uint32 bInvertNormalMaps:1;
 

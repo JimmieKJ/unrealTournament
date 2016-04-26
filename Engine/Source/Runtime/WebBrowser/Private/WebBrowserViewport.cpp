@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "WebBrowserPrivatePCH.h"
 #include "WebBrowserViewport.h"
@@ -23,7 +23,7 @@ void FWebBrowserViewport::Tick( const FGeometry& AllottedGeometry, double InCurr
 		// Calculate max corner of the viewport using same method as Slate
 		FVector2D MaxPos = AllottedGeometry.AbsolutePosition + AllottedGeometry.GetLocalSize();
 		// Get size by subtracting as int to avoid incorrect rounding when size and position are .5
-		WebBrowserWindow->SetViewportSize(MaxPos.IntPoint() - AllottedGeometry.AbsolutePosition.IntPoint());
+		WebBrowserWindow->SetViewportSize(MaxPos.IntPoint() - AllottedGeometry.AbsolutePosition.IntPoint(), AllottedGeometry.AbsolutePosition.IntPoint());
 	}
 }
 

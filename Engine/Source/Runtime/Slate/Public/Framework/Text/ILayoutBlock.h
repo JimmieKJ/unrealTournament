@@ -1,9 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 class SLATE_API ILayoutBlock
 {
 public:
+
+	virtual ~ILayoutBlock() {}
 
 	virtual TSharedRef< class IRun > GetRun() const = 0;
 	virtual FTextRange GetTextRange() const = 0;

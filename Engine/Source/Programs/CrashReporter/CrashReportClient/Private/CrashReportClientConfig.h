@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -48,9 +48,14 @@ struct FCrashReportClientConfig
 	/** Initialization constructor. */
 	FCrashReportClientConfig();
 
-	const FString& GetReceiverAddress() const
+	FString GetReceiverAddress() const
 	{
 		return CrashReportReceiverIP;
+	}
+
+	FString GetDataRouterURL() const
+	{
+		return DataRouterUrl;
 	}
 
 	const FString& GetDiagnosticsFilename() const
@@ -73,6 +78,11 @@ struct FCrashReportClientConfig
 		return bHideLogFilesOption;
 	}
 
+	const bool& IsAllowedToCloseWithoutSending() const
+	{
+		return bIsAllowedToCloseWithoutSending;
+	}
+
 	void SetAllowToBeContacted( bool bNewValue );
 	void SetSendLogFile( bool bNewValue );
 
@@ -90,6 +100,9 @@ protected:
 
 	/** IP address of crash report receiver. */
 	FString CrashReportReceiverIP;
+
+	/** URL of Data Router service */
+	FString DataRouterUrl;
 
 	/** Filename to use when saving diagnostics report, if generated locally. */
 	FString DiagnosticsFilename;
@@ -112,4 +125,7 @@ protected:
 
 	/** Whether the user is shown the option to enable/disable sending the log file. */
 	bool bHideLogFilesOption;
+
+	/** Whether the user is allowed to close the crash reporter without sending a report */
+	bool bIsAllowedToCloseWithoutSending;
 };

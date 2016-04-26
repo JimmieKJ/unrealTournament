@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
  
 /** 
@@ -26,6 +26,7 @@ public:
 	//~ Begin USoundNode Interface. 
 	virtual bool NotifyWaveInstanceFinished( struct FWaveInstance* WaveInstance ) override;
 	virtual float GetDuration( void ) override;
+	virtual int32 GetNumSounds(const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound) const;
 	virtual void ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances ) override;
 	virtual int32 GetMaxChildNodes() const override 
 	{ 

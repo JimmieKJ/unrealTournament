@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*==============================================================================
 	ParticleModules_VectorField.cpp: Vector field module implementations.
@@ -45,11 +45,11 @@ UParticleModuleVectorFieldScale::UParticleModuleVectorFieldScale(const FObjectIn
 
 void UParticleModuleVectorFieldScale::InitializeDefaults()
 {
-	if (!VectorFieldScale)
+	if (!VectorFieldScaleRaw.IsCreated())
 	{
 		UDistributionFloatConstant* DistributionVectorFieldScale = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionVectorFieldScale"));
 		DistributionVectorFieldScale->Constant = 1.0f;
-		VectorFieldScale = DistributionVectorFieldScale;
+		VectorFieldScaleRaw.Distribution = DistributionVectorFieldScale;
 	}
 }
 void UParticleModuleVectorFieldScale::PostInitProperties()
@@ -59,6 +59,19 @@ void UParticleModuleVectorFieldScale::PostInitProperties()
 	{
 		InitializeDefaults();
 	}
+}
+
+void UParticleModuleVectorFieldScale::PostLoad()
+{
+	Super::PostLoad();
+#if WITH_EDITOR
+	if (VectorFieldScale_DEPRECATED)
+	{
+		VectorFieldScaleRaw.Distribution = VectorFieldScale_DEPRECATED;
+		VectorFieldScaleRaw.Initialize();
+	}
+	VectorFieldScale_DEPRECATED = nullptr;
+#endif
 }
 
 #if WITH_EDITOR
@@ -71,7 +84,7 @@ void UParticleModuleVectorFieldScale::PostEditChangeProperty(FPropertyChangedEve
 
 void UParticleModuleVectorFieldScale::CompileModule(FParticleEmitterBuildInfo& EmitterInfo)
 {
-	EmitterInfo.VectorFieldScale.ScaleByDistribution(VectorFieldScale);
+	EmitterInfo.VectorFieldScale.ScaleByDistribution(VectorFieldScaleRaw.Distribution);
 }
 
 #if WITH_EDITOR
@@ -80,7 +93,7 @@ bool UParticleModuleVectorFieldScale::IsValidForLODLevel(UParticleLODLevel* LODL
 {
 	if (LODLevel->TypeDataModule && LODLevel->TypeDataModule->IsA(UParticleModuleTypeDataGpu::StaticClass()))
 	{
-		if(!IsDistributionAllowedOnGPU(VectorFieldScale))
+		if(!IsDistributionAllowedOnGPU(VectorFieldScaleRaw.Distribution))
 		{
 			OutErrorString = GetDistributionNotAllowedOnGPUText(StaticClass()->GetName(), "VectorFieldScale" ).ToString();
 			return false;
@@ -101,11 +114,11 @@ UParticleModuleVectorFieldScaleOverLife::UParticleModuleVectorFieldScaleOverLife
 
 void UParticleModuleVectorFieldScaleOverLife::InitializeDefaults()
 {
-	if (!VectorFieldScaleOverLife)
+	if (!VectorFieldScaleOverLifeRaw.IsCreated())
 	{
 		UDistributionFloatConstant* DistributionVectorFieldScaleOverLife = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionVectorFieldScaleOverLife"));
 		DistributionVectorFieldScaleOverLife->Constant = 1.0f;
-		VectorFieldScaleOverLife = DistributionVectorFieldScaleOverLife;
+		VectorFieldScaleOverLifeRaw.Distribution = DistributionVectorFieldScaleOverLife;
 	}
 }
 
@@ -118,6 +131,19 @@ void UParticleModuleVectorFieldScaleOverLife::PostInitProperties()
 	}
 }
 
+void UParticleModuleVectorFieldScaleOverLife::PostLoad()
+{
+	Super::PostLoad();
+#if WITH_EDITOR
+	if (VectorFieldScaleOverLife_DEPRECATED)
+	{
+		VectorFieldScaleOverLifeRaw.Distribution = VectorFieldScaleOverLife_DEPRECATED;
+		VectorFieldScaleOverLifeRaw.Initialize();
+	}
+	VectorFieldScaleOverLife_DEPRECATED = nullptr;
+#endif
+}
+
 #if WITH_EDITOR
 void UParticleModuleVectorFieldScaleOverLife::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
@@ -128,7 +154,7 @@ void UParticleModuleVectorFieldScaleOverLife::PostEditChangeProperty(FPropertyCh
 
 void UParticleModuleVectorFieldScaleOverLife::CompileModule(FParticleEmitterBuildInfo& EmitterInfo)
 {
-	EmitterInfo.VectorFieldScaleOverLife.ScaleByDistribution(VectorFieldScaleOverLife);
+	EmitterInfo.VectorFieldScaleOverLife.ScaleByDistribution(VectorFieldScaleOverLifeRaw.Distribution);
 }
 
 #if WITH_EDITOR
@@ -137,7 +163,7 @@ bool UParticleModuleVectorFieldScaleOverLife::IsValidForLODLevel(UParticleLODLev
 {
 	if (LODLevel->TypeDataModule && LODLevel->TypeDataModule->IsA(UParticleModuleTypeDataGpu::StaticClass()))
 	{
-		if(!IsDistributionAllowedOnGPU(VectorFieldScaleOverLife))
+		if(!IsDistributionAllowedOnGPU(VectorFieldScaleOverLifeRaw.Distribution))
 		{
 			OutErrorString = GetDistributionNotAllowedOnGPUText(StaticClass()->GetName(), "VectorFieldScaleOverLife" ).ToString();
 			return false;

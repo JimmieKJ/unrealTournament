@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -42,9 +42,6 @@ namespace EDataGraphMultiModes
 /** The delegate to be invoked when the frame offset has been changed. */
 DECLARE_DELEGATE_OneParam( FGraphOffsetChangedDelegate, int /*InFrameOffset*/ );
 
-/** The delegate to be invoked when the user clicked on the data graph. */
-DECLARE_DELEGATE_OneParam( FDataGraphClickedDelegate, FEventGraphDataHandlerRef /*EventGraphDataHandler*/ );
-
 /** The delegate to be invoked when the data graph summary widget wants to know index of the frame currently being hovered by the mouse. */
 DECLARE_DELEGATE_RetVal( int32, FGetHoveredFrameIndexDelegate );
 
@@ -55,47 +52,6 @@ DECLARE_DELEGATE_OneParam( FViewModeChangedDelegate, EDataGraphViewModes::Type )
 
 /** The delegate to be invoked when the selected frames have been changed, for index based view mode. */
 DECLARE_DELEGATE_TwoParams( FSelectionChangedForTimeDelegate, float /*FrameStartTimeMS*/, float /*FrameEndTimeMS*/ );
-
-
-/*-----------------------------------------------------------------------------
-	Basic structures
------------------------------------------------------------------------------*/
-
-// @TODO: GraphDataSource will be replaced later with more abstract class which will allow to use profiler data source or other source to draw the graph.
-
-/** Describes properties of the graph that will be displayed in the SDataGraph widget. */
-class FGraphDescription
-{
-public:
-	FGraphDescription()
-	{}
-
-	FGraphDescription
-	( 
-		const FCombinedGraphDataSourceRef& InGraphDataSource, 
-		const FLinearColor InColorAverage,
-		const FLinearColor InColorExtremes,
-		const FLinearColor InColorBackground
-	)
-		: CombinedGraphDataSource( InGraphDataSource )
-		, ColorAverage( InColorAverage )
-		, ColorExtremes( InColorExtremes )
-		, ColorBackground( InColorBackground )
-	{}
-
-	/** Data source for this graph. */
-	FCombinedGraphDataSourcePtr CombinedGraphDataSource;
-
-	/** A color to visualize average value for the combined data graph. */
-	FLinearColor ColorAverage;
-
-	/** A color to visualize extremes values for the combined data graph, min and max. */
-	FLinearColor ColorExtremes;
-
-	/** A color to visualize background area for the combined data graph. */
-	FLinearColor ColorBackground;
-};
-
 
 
 /*-----------------------------------------------------------------------------
@@ -282,14 +238,7 @@ protected:
 	FSelectionChangedForIndexEvent SelectionChangedForIndexEvent;
 
 public:
-	void AddInnerGraph
-	( 
-		const uint32 InStatID, 	
-		const FLinearColor InColorAverage,
-		const FLinearColor InColorExtremes,
-		const FLinearColor InColorBackground, 
-		const FCombinedGraphDataSourceRef& CombinedGraphDataSource  
-	);
+	void AddInnerGraph( const FTrackedStatPtr& TrackedStat );
 	void RemoveInnerGraph( const uint32 StatID );
 
 	/**
@@ -349,8 +298,6 @@ protected:
 
 	void UpdateState();
 
-	const FEventGraphDataHandlerRef PrepareEventGraphDataHandler( const FVector2D& ScreenSpacePosition );
-
 	/** Handles FExecuteAction for ViewMode_SetIndexBased. */
 	void ViewMode_SetIndexBased_Execute();
 	/** Handles FCanExecuteAction for ViewMode_SetIndexBased. */
@@ -366,28 +313,7 @@ protected:
 	/** Handles FIsActionChecked for DataGraph_ViewMode_SetTimeBased. */
 	bool ViewMode_SetTimeBased_IsChecked() const;
 
-
-	/** Handles FExecuteAction for DataGraph_MultiMode_SetCombined. */
-	void MultiMode_SetCombined_Execute();
-	/** Handles FCanExecuteAction for DataGraph_MultiMode_SetCombined. */
-	bool MultiMode_SetCombined_CanExecute() const;
-	/** Handles FIsActionChecked for DataGraph_MultiMode_SetCombined. */
-	bool MultiMode_SetCombined_IsChecked() const;
-
-	
-	/** Handles UI Action's delegates for DataGraph_MultiMode_SetOneLinePerDataSource. */
-	void MultiMode_SetOneLinePerDataSource_Execute();
-	/** Handles FCanExecuteAction for DataGraph_MultiMode_SetOneLinePerDataSource. */
-	bool MultiMode_SetOneLinePerDataSource_CanExecute() const;
-	/** Handles FIsActionChecked for DataGraph_MultiMode_SetOneLinePerDataSource. */
-	bool MultiMode_SetOneLinePerDataSource_IsChecked() const;
-
-
-	const FGraphDescription* GetFirstGraph() const
-	{
-		const FGraphDescription* Result = StatIDToGraphDescriptionMapping.Num() > 0 ? &StatIDToGraphDescriptionMapping.CreateConstIterator().Value() : NULL;
-		return Result;
-	}
+	const FTrackedStatPtr GetFirstGraph() const;
 
 	/*-----------------------------------------------------------------------------
 		Misc
@@ -396,7 +322,7 @@ protected:
 	/** Horizontal box widget where graph descriptions are displayed. */
 	TSharedPtr<SVerticalBox> GraphDescriptionsVBox;
 
-	TMap< uint32, FGraphDescription > StatIDToGraphDescriptionMapping;
+	TMap< uint32, FTrackedStatPtr > StatIDToGraphDescriptionMapping;
 	TMap< uint32, TSharedRef<SWidget> > StatIDToWidgetMapping;
 
 	/** The current mouse position. */

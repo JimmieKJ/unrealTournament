@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneToolsPrivatePCH.h"
 #include "IntegralKeyArea.h"
@@ -47,15 +47,21 @@ void FIntegralCurveKeyAreaBase::DeleteKey(FKeyHandle KeyHandle)
 }
 
 
-FLinearColor FIntegralCurveKeyAreaBase::GetColor()
+TOptional<FLinearColor> FIntegralCurveKeyAreaBase::GetColor()
 {
-	return FLinearColor(0.1f, 0.1f, 0.1f, 0.7f);
+	return TOptional<FLinearColor>();
 }
 
 
 ERichCurveExtrapolation FIntegralCurveKeyAreaBase::GetExtrapolationMode(bool bPreInfinity) const
 {
 	return RCCE_None;
+}
+
+
+TSharedPtr<FStructOnScope> FIntegralCurveKeyAreaBase::GetKeyStruct(FKeyHandle KeyHandle)
+{
+	return MakeShareable(new FStructOnScope(FIntegralKey::StaticStruct(), (uint8*)&Curve.GetKey(KeyHandle)));
 }
 
 

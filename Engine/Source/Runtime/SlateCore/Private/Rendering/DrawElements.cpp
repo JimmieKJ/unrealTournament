@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateCorePrivatePCH.h"
 #include "ReflectionMetadata.h"
@@ -39,6 +39,16 @@ void FSlateDrawElement::Init(uint32 InLayer, const FPaintGeometry& PaintGeometry
 	DrawEffects = InDrawEffects;
 	extern SLATECORE_API TOptional<FShortRect> GSlateScissorRect;
 	ScissorRect = GSlateScissorRect;
+
+	DataPayload.BatchFlags = ESlateBatchDrawFlag::None;
+	if ( InDrawEffects & ESlateDrawEffect::NoGamma )
+	{
+		DataPayload.BatchFlags |= ESlateBatchDrawFlag::NoGamma;
+	}
+	if ( InDrawEffects & ESlateDrawEffect::AlphaCompositing )
+	{
+		DataPayload.BatchFlags |= ESlateBatchDrawFlag::AlphaCompositing;
+	}
 }
 
 void FSlateDrawElement::MakeDebugQuad( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FSlateRect& InClippingRect)
@@ -203,15 +213,6 @@ void FSlateDrawElement::MakeLines(FSlateWindowElementList& ElementList, uint32 I
 void FSlateDrawElement::MakeViewport( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, TSharedPtr<const ISlateViewport> Viewport, const FSlateRect& InClippingRect, bool bGammaCorrect, bool bAllowBlending, ESlateDrawEffect::Type InDrawEffects, const FLinearColor& InTint )
 {
 	SCOPE_CYCLE_COUNTER( STAT_SlateDrawElementMakeTime )
-
-	// If we don't allow blending, the shader needs to know it needs to treat the incoming
-	// source data as already pre-multiplied, so it doesn't attempt to multiply through using
-	// the alpha.
-	if ( !bAllowBlending )
-	{
-		InDrawEffects |= ESlateDrawEffect::PreMultipliedAlpha;
-	}
-
 	PaintGeometry.CommitTransformsIfUsingLegacyConstructor();
 	FSlateDrawElement& DrawElt = ElementList.AddUninitialized();
 	DrawElt.Init(InLayer, PaintGeometry, InClippingRect, InDrawEffects);
@@ -374,9 +375,6 @@ void FSlateBatchData::FillVertexAndIndexBuffer(uint8* VertexBuffer, uint8* Index
 				FMemory::Memcpy(VertexBuffer + VertexOffset, Vertices.GetData(), RequiredVertexSize);
 				FMemory::Memcpy(IndexBuffer + IndexOffset, Indices.GetData(), RequiredIndexSize);
 
-				VertexArrayFreeList.Add(Batch.VertexArrayIndex);
-				IndexArrayFreeList.Add(Batch.IndexArrayIndex);
-
 				IndexOffset += ( Indices.Num()*sizeof(SlateIndex) );
 				VertexOffset += ( Vertices.Num()*sizeof(FSlateVertex) );
 
@@ -394,6 +392,9 @@ void FSlateBatchData::FillVertexAndIndexBuffer(uint8* VertexBuffer, uint8* Index
 					Indices.Reserve(MAX_INDEX_ARRAY_RECYCLE);
 				}
 			}
+
+			VertexArrayFreeList.Add(Batch.VertexArrayIndex);
+			IndexArrayFreeList.Add(Batch.IndexArrayIndex);
 		}
 	}
 }
@@ -663,9 +664,9 @@ void FSlateWindowElementList::EndLogicalLayer()
 	DrawStack.Pop();
 }
 
-FSlateRenderDataHandle::FSlateRenderDataHandle(const ILayoutCache* InCacher, FSlateRenderer* InRenderer)
+FSlateRenderDataHandle::FSlateRenderDataHandle(const ILayoutCache* InCacher, ISlateRenderDataManager* InManager)
 	: Cacher(InCacher)
-	, Renderer(InRenderer)
+	, Manager(InManager)
 	, RenderBatches(nullptr)
 	, UsageCount(0)
 {
@@ -673,15 +674,15 @@ FSlateRenderDataHandle::FSlateRenderDataHandle(const ILayoutCache* InCacher, FSl
 
 FSlateRenderDataHandle::~FSlateRenderDataHandle()
 {
-	if ( Renderer )
+	if ( Manager )
 	{
-		Renderer->ReleaseCachedRenderData(this);
+		Manager->BeginReleasingRenderData(this);
 	}
 }
 
 void FSlateRenderDataHandle::Disconnect()
 {
-	Renderer = nullptr;
+	Manager = nullptr;
 	RenderBatches = nullptr;
 }
 

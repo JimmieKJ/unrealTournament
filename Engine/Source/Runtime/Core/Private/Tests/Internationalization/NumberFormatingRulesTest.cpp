@@ -1,8 +1,9 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "AutomationTest.h"
 
+#if WITH_DEV_AUTOMATION_TESTS
 
 // Disable optimization for NumberFormatingRulesTest as it compiles very slowly in development builds
 PRAGMA_DISABLE_OPTIMIZATION
@@ -205,6 +206,7 @@ bool FNumberFormattingRulesTest::RunTest (const FString& Parameters)
 			Test(this, TEXT("Round a Double to a number formatted correct for en-US using ToPositiveInfinity"),	FText::AsNumber( 1.0, &(NumberFormattingOptions)),	FText::FromString(TEXT( "1")));
 		}
 
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		Test(this, TEXT("Convert a Double to a currency formatted correct for en-US"),			FText::AsCurrency(DoubleValue),			FText::FromString(TEXT("$12,345,678.90")));
 		Test(this, TEXT("Convert a Float to a currency formatted correct for en-US"),			FText::AsCurrency(FloatValue),			FText::FromString(TEXT("$1,234.57")));
 		Test(this, TEXT("Convert a Negative Double to a currency formatted correct for en-US"),	FText::AsCurrency(DoubleNegativeValue), FText::FromString(TEXT("-$12,345,678.90")));
@@ -221,6 +223,7 @@ bool FNumberFormattingRulesTest::RunTest (const FString& Parameters)
 		Test(this, TEXT("Convert a Negative int16 to a currency formatted correct for en-US"),	FText::AsCurrency(Int16NegativeValue),	FText::FromString(TEXT("-$12,345.00")));
 		Test(this, TEXT("Convert a Negative int32 to a currency formatted correct for en-US"),	FText::AsCurrency(Int32NegativeValue),	FText::FromString(TEXT("-$12,345.00")));
 		Test(this, TEXT("Convert a Negative int64 to a currency formatted correct for en-US"),	FText::AsCurrency(Int64NegativeValue),	FText::FromString(TEXT("-$12,345.00")));
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 		Test(this, TEXT("Convert a Double to a percent formatted correct for en-US"),			FText::AsPercent(DoubleValue),			FText::FromString(TEXT("1,234,567,890%")));
 		Test(this, TEXT("Convert a Float to a percent formatted correct for en-US"),			FText::AsPercent(FloatValue),			FText::FromString(TEXT("123,457%")));
@@ -271,6 +274,7 @@ bool FNumberFormattingRulesTest::RunTest (const FString& Parameters)
 			Test(this, TEXT("Convert a Negative int64 to a number formatted correct for hi-IN but as invariant"),		FText::AsNumber(Int64NegativeValue, NULL, InvariantCulture),	FText::FromString(TEXT("-12345")));
 		}
 
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		Test(this, TEXT("Convert a Double to a currency formatted correct for hi-IN"),				FText::AsCurrency(DoubleValue),			FText::FromString(TEXT("\x20B9") TEXT("1,23,45,678.90")));
 		Test(this, TEXT("Convert a Float to a currency formatted correct for hi-IN"),				FText::AsCurrency(FloatValue),			FText::FromString(TEXT("\x20B9") TEXT("1,234.57")));
 		Test(this, TEXT("Convert a Negative Double to a currency formatted correct for hi-IN"),		FText::AsCurrency(DoubleNegativeValue),	FText::FromString(TEXT("-") TEXT("\x20B9") TEXT("1,23,45,678.90")));
@@ -287,6 +291,7 @@ bool FNumberFormattingRulesTest::RunTest (const FString& Parameters)
 		Test(this, TEXT("Convert a Negative int16 to a currency formatted correct for hi-IN"),		FText::AsCurrency(Int16NegativeValue),	FText::FromString(TEXT("-") TEXT("\x20B9") TEXT("12,345.00")));
 		Test(this, TEXT("Convert a Negative int32 to a currency formatted correct for hi-IN"),		FText::AsCurrency(Int32NegativeValue),	FText::FromString(TEXT("-") TEXT("\x20B9") TEXT("12,345.00")));
 		Test(this, TEXT("Convert a Negative int64 to a currency formatted correct for hi-IN"),		FText::AsCurrency(Int64NegativeValue),	FText::FromString(TEXT("-") TEXT("\x20B9") TEXT("12,345.00")));
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 		Test(this, TEXT("Convert a Double to a percent formatted correct for hi-IN"),				FText::AsPercent(DoubleValue),			FText::FromString(TEXT("1,23,45,67,890%")));
 		Test(this, TEXT("Convert a Float to a percent formatted correct for hi-IN"),				FText::AsPercent(FloatValue),			FText::FromString(TEXT("1,23,457%")));
@@ -302,7 +307,7 @@ bool FNumberFormattingRulesTest::RunTest (const FString& Parameters)
 
 	FText Number = FText::AsNumber(Int64NegativeValue);
 	FText Percent = FText::AsPercent(DoubleValue);
-	FText Currency = FText::AsCurrency(DoubleValue);
+	FText Currency = FText::AsCurrencyBase(Int64Value, TEXT("USD"));
 
 	if ( GIsEditor && ( Number.IsTransient() || Percent.IsTransient() || Currency.IsTransient() ) )
 	{
@@ -327,3 +332,5 @@ bool FNumberFormattingRulesTest::RunTest (const FString& Parameters)
 
 
 PRAGMA_ENABLE_OPTIMIZATION
+
+#endif //WITH_DEV_AUTOMATION_TESTS

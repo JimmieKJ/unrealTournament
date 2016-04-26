@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -30,6 +30,7 @@ class SHAREDSETTINGSWIDGETS_API SExternalImageReference : public SCompoundWidget
 		: _FileDescription(NSLOCTEXT("SExternalImageReference", "FileDescription", "External Image"))
 		, _MaxDisplaySize(400.0f, 400.0f)
 		, _RequiredSize(-1, -1)
+		, _DeleteTargetWhenDefaultChosen(false)
 		{}
 
 		/** The description of the file, used in error messages/notifications */
@@ -52,6 +53,10 @@ class SHAREDSETTINGSWIDGETS_API SExternalImageReference : public SCompoundWidget
 
 		/** A property handle to use if required */
 		SLATE_ARGUMENT(TSharedPtr<class IPropertyHandle>, PropertyHandle)
+
+		/** If true, the target image will be deleted if the default is chosen */
+		SLATE_ARGUMENT(bool, DeleteTargetWhenDefaultChosen)
+
 	SLATE_END_ARGS()
 
 public:
@@ -81,4 +86,7 @@ protected:
 
 	/** A property handle to use if required */
 	TSharedPtr<class IPropertyHandle> PropertyHandle;
+
+	/** If true, the target image will be deleted if the default is chosen */
+	bool bDeleteTargetWhenDefaultChosen;
 };

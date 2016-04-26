@@ -1,9 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "EdGraph/EdGraphPin.h"
 #include "EdGraph/EdGraphNode.h"
+#include "Engine/EngineTypes.h"
 #include "BlueprintCore.h"
 #include "Blueprint.generated.h"
 
@@ -333,7 +334,7 @@ class ENGINE_API UBlueprint : public UBlueprintCore
 	UPROPERTY(EditAnywhere, Category=BlueprintOptions)
 	FString BlueprintCategory;
 
-	/** Additional HideCategories. The are added to HideCategories from parent. */
+	/** Additional HideCategories. These are added to HideCategories from parent. */
 	UPROPERTY(EditAnywhere, Category=BlueprintOptions)
 	TArray<FString> HideCategories;
 
@@ -498,6 +499,10 @@ public:
 	// User Defined Structures, the blueprint depends on
 	TSet<TWeakObjectPtr<UStruct>> CachedUDSDependencies;
 
+	// If this BP is just a duplicate created for a specific compilation, the reference to original GeneratedClass is needed
+	UPROPERTY(transient, duplicatetransient)
+	UClass* OriginalClass;
+
 	bool IsUpToDate() const
 	{
 		return BS_UpToDate == Status || BS_UpToDateWithWarnings == Status;
@@ -587,6 +592,9 @@ public:
 	virtual void PostLoadSubobjects( FObjectInstancingGraph* OuterInstanceGraph ) override;
 	virtual bool Modify(bool bAlwaysMarkDirty = true) override;
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
+	virtual void BeginCacheForCookedPlatformData(const ITargetPlatform *TargetPlatform) override;
+	virtual bool IsCachedCookedPlatformDataLoaded(const ITargetPlatform* TargetPlatform) override;
+	virtual void ClearAllCachedCookedPlatformData() override;
 	//~ End UObject Interface
 
 	/** Consigns the GeneratedClass and the SkeletonGeneratedClass to oblivion, and nulls their references */
@@ -611,6 +619,9 @@ public:
 #endif	//#if WITH_EDITOR
 
 	//~ Begin UObject Interface
+#if WITH_EDITORONLY_DATA
+	virtual void PreSave() override;
+#endif // WITH_EDITORONLY_DATA
 	virtual void Serialize(FArchive& Ar) override;
 	virtual FString GetDesc(void) override;
 	virtual void TagSubobjects(EObjectFlags NewFlags) override;
@@ -715,6 +726,9 @@ private:
 public:
 	/** If this blueprint is currently being compiled, the CurrentMessageLog will be the log currently being used to send logs to. */
 	class FCompilerResultsLog* CurrentMessageLog;
+
+	/** Message log for storing upgrade notes that were generated within the Blueprint, will be displayed to the compiler results each compiler and will remain until saving */
+	TSharedPtr<class FCompilerResultsLog> UpgradeNotesLog;
 
 	/** 
 	 * Sends a message to the CurrentMessageLog, if there is one available.  Otherwise, defaults to logging to the normal channels.

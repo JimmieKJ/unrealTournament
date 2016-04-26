@@ -33,6 +33,7 @@
 #include "UTWaterVolume.h"
 #include "UTLift.h"
 #include "UTWeaponSkin.h"
+#include "UTPickupMessage.h"
 
 static FName NAME_HatSocket(TEXT("HatSocket"));
 
@@ -1217,7 +1218,7 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 AppliedDamage,
 
 		// we do the sound here instead of via PlayTakeHitEffects() so it uses RPCs instead of variable replication which is higher priority
 		// (at small bandwidth cost)
-		if (GetWorld()->TimeSeconds - LastPainSoundTime >= MinPainSoundInterval)
+		if ((!GS || !GS->OnSameTeam(this, InstigatedBy)) && (GetWorld()->TimeSeconds - LastPainSoundTime >= MinPainSoundInterval))
 		{
 			const UDamageType* const DamageTypeCDO = DamageEvent.DamageTypeClass ? DamageEvent.DamageTypeClass->GetDefaultObject<UDamageType>() : GetDefault<UDamageType>();
 			const UUTDamageType* const UTDamageTypeCDO = Cast<UUTDamageType>(DamageTypeCDO); // warning: may be NULL
@@ -2643,6 +2644,10 @@ void AUTCharacter::SetPendingWeapon(AUTWeapon* NewPendingWeapon)
 {
 	PendingWeapon = NewPendingWeapon;
 	bIsSwitchingWeapon = (PendingWeapon != NULL);
+	if (bIsSwitchingWeapon && IsLocallyControlled() && Cast<APlayerController>(GetController()))
+	{
+		((APlayerController*)(GetController()))->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, NULL, NULL, PendingWeapon->GetClass());
+	}
 }
 
 void AUTCharacter::LocalSwitchWeapon(AUTWeapon* NewWeapon)
@@ -2941,6 +2946,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, bSpawnProtectionEligible, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, DrivenVehicle, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bHasHighScore, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, bShouldWearLeaderHat, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WalkMovementReductionPct, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WalkMovementReductionTime, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bInvisible, COND_None);
@@ -3002,6 +3008,23 @@ void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> Default
 	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerState);
 	if (UTPlayerState)
 	{
+		if (UTPlayerState->PrimarySpawnInventory || UTPlayerState->SecondarySpawnInventory)
+		{
+			// Use the Spawn Inventory
+			if (UTPlayerState->PrimarySpawnInventory)
+			{
+				AddInventory(GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->PrimarySpawnInventory->ItemClass, FVector(0.0f), FRotator(0, 0, 0)), true);
+			}
+
+			// Use the Spawn Inventory
+			if (UTPlayerState->SecondarySpawnInventory)
+			{
+				AddInventory(GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->SecondarySpawnInventory->ItemClass, FVector(0.0f), FRotator(0, 0, 0)), true);
+			}
+
+			return;
+		}
+
 		if ( UTPlayerState->Loadout.Num() > 0 )
 		{
 			for (int32 i=0; i < UTPlayerState->Loadout.Num(); i++)
@@ -4546,7 +4569,9 @@ void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
 			// FIXME: NULL check is hack for editor reimport bug breaking number of materials
 			if (GetMesh()->GetMaterial(i) != NULL)
 			{
-				BodyMIs.Add(GetMesh()->CreateAndSetMaterialInstanceDynamic(i));
+				UMaterialInstanceDynamic* MI = GetMesh()->CreateAndSetMaterialInstanceDynamic(i);
+				MI->SetScalarParameterValue(TEXT("TeamSelect"), FFAColor);
+				BodyMIs.Add(MI);
 			}
 		}
 		GetMesh()->PhysicsAssetOverride = Data->Mesh->PhysicsAssetOverride;
@@ -4619,7 +4644,7 @@ void AUTCharacter::NotifyTeamChanged()
 			LeaderHat->Destroy();
 			LeaderHat = nullptr;
 		}
-		HasHighScoreChanged();
+		LeaderHatStatusChanged();
 	}
 }
 
@@ -4727,7 +4752,8 @@ void AUTCharacter::DropCarriedObject()
 void AUTCharacter::ServerDropCarriedObject_Implementation()
 {
 	AUTCarriedObject* Obj = GetCarriedObject();
-	if (Obj != NULL)
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (Obj && GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission())
 	{
 		Obj->Drop(NULL);
 	}
@@ -5024,9 +5050,9 @@ void AUTCharacter::SetHatClass(TSubclassOf<AUTHat> HatClass)
 			Hat->SetActorHiddenInGame(bInvisible);
 
 			// If replication of has high score happened before hat replication, locally update it here
-			if (bHasHighScore)
+			if (bShouldWearLeaderHat)
 			{
-				HasHighScoreChanged();
+				LeaderHatStatusChanged();
 			}
 
 			// Flatten the hair so it won't show through hats
@@ -5199,7 +5225,7 @@ void AUTCharacter::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay, float Emo
 					bIncompatibleWeaponForFP = true;
 				}
 
-				if (TauntToPlay->GetDefaultObject<AUTTaunt>()->FirstPersonTauntMontage == nullptr || bIncompatibleWeaponForFP)
+				if (TauntToPlay->GetDefaultObject<AUTTaunt>()->FirstPersonTauntMontage == nullptr || bIncompatibleWeaponForFP || !TauntToPlay->GetDefaultObject<AUTTaunt>()->bAllowMovementWithFirstPersonTaunt)
 				{
 					// This flag is set for 3rd person taunts
 					UTCharacterMovement->bIsTaunting = true;
@@ -5410,6 +5436,24 @@ void AUTCharacter::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTr
 	DOREPLIFETIME_ACTIVE_OVERRIDE(ACharacter, RemoteViewPitch, false);
 
 	LastTakeHitReplicatedTime = GetWorld()->TimeSeconds;
+
+	if (ChangedPropertyTracker.IsReplay())
+	{
+		// If this is a replay, we save out certain values we need to runtime to do smooth interpolation
+		// We'll be able to look ahead in the replay to have these ahead of time for smoother playback
+		FCharacterReplaySample ReplaySample;
+
+		ReplaySample.Location = GetActorLocation();
+		ReplaySample.Rotation = GetActorRotation();
+		ReplaySample.Velocity = GetVelocity();
+		ReplaySample.Acceleration = GetCharacterMovement()->GetCurrentAcceleration();
+		ReplaySample.RemoteViewPitch = RemoteViewPitch;
+
+		FBitWriter Writer(0, true);
+		Writer << ReplaySample;
+
+		ChangedPropertyTracker.SetExternalData(Writer.GetData(), Writer.GetNumBits());
+	}
 }
 
 bool AUTCharacter::GatherUTMovement()
@@ -5663,8 +5707,16 @@ void AUTCharacter::OnRep_HasHighScore()
 }
 
 void AUTCharacter::HasHighScoreChanged_Implementation()
+{}
+
+void AUTCharacter::OnRep_ShouldWearLeaderHat()
 {
-	if (bHasHighScore)
+	LeaderHatStatusChanged_Implementation();
+}
+
+void AUTCharacter::LeaderHatStatusChanged_Implementation()
+{
+	if (bShouldWearLeaderHat)
 	{
 		if (LeaderHat == nullptr)
 		{

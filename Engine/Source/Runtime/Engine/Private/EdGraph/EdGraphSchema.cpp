@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "EdGraph/EdGraph.h"
@@ -465,23 +465,7 @@ void UEdGraphSchema::TrySetDefaultObject(UEdGraphPin& Pin, UObject* NewDefaultOb
 
 void UEdGraphSchema::TrySetDefaultText(UEdGraphPin& InPin, const FText& InNewDefaultText) const
 {
-	if(InNewDefaultText.IsEmpty())
-	{
-		InPin.DefaultTextValue = InNewDefaultText;
-	}
-	else
-	{
-#if WITH_EDITOR
-		if(InNewDefaultText.IsCultureInvariant())
-		{
-			InPin.DefaultTextValue = InNewDefaultText;
-		}
-		else
-		{
-			InPin.DefaultTextValue = FText::ChangeKey(TEXT(""), InPin.GetOwningNode()->NodeGuid.ToString() + TEXT("_") + InPin.PinName, InNewDefaultText);
-		}
-#endif
-	}
+	InPin.DefaultTextValue = InNewDefaultText;
 
 #if WITH_EDITOR
 	UEdGraphNode* Node = InPin.GetOwningNode();

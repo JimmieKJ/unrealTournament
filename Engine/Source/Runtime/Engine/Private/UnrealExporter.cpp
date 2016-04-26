@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UExporter.cpp: Exporter class implementation.
@@ -724,8 +724,15 @@ void ExportProperties
 				// we won't use this if DiffArr is NULL, but we have to set it up to something
 				FScriptArrayHelper DiffArrayHelper(ArrayProperty, DiffArr);
 
-				bool bAnyElementDiffered = false;
-				for( int32 DynamicArrayIndex=0;DynamicArrayIndex<ArrayHelper.Num();DynamicArrayIndex++ )
+				// If the current size of the array is 0 and the default one is not, add in an empty item so on import it will be empty
+				if( ArrayHelper.Num() == 0 && DiffArrayHelper.Num() != 0 )
+				{
+					Out.Logf(TEXT("%s%s=\r\n"), FCString::Spc(Indent), *Property->GetName());
+				}
+
+				// If the array sizes are different, we will need to export each index so on import we maintain the size
+				bool bAnyElementDiffered = ArrayHelper.Num() != DiffArrayHelper.Num();
+				for( int32 DynamicArrayIndex = 0; DynamicArrayIndex < ArrayHelper.Num(); DynamicArrayIndex++ )
 				{
 					FString	Value;
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 // CrossCompilerTool.cpp: Driver for testing compilation of an individual shader
 
@@ -6,6 +6,9 @@
 #include "hlslcc.h"
 #include "MetalBackend.h"
 #include "GlslBackend.h"
+#if !PLATFORM_MAC
+#include "VulkanBackend.h"
+#endif
 #include "HlslAST.h"
 #include "HlslLexer.h"
 #include "HlslParser.h"
@@ -68,6 +71,11 @@ namespace CCT
 		FGlslCodeBackend GlslBackend(Flags, RunInfo.Target);
 		FMetalLanguageSpec MetalLanguage;
 		FMetalCodeBackend MetalBackend(Flags, CompileTarget);
+#if !PLATFORM_MAC
+		FVulkanBindingTable VulkanBindingTable(RunInfo.Frequency);
+		FVulkanLanguageSpec VulkanLanguage(false);
+		FVulkanCodeBackend VulkanBackend(Flags, VulkanBindingTable, CompileTarget);
+#endif
 
 		switch (RunInfo.BackEnd)
 		{
@@ -82,6 +90,14 @@ namespace CCT
 			Backend = &GlslBackend;
 			Flags |= HLSLCC_DX11ClipSpace;
 			break;
+
+#if !PLATFORM_MAC
+		case CCT::FRunInfo::BE_Vulkan:
+			Language = &VulkanLanguage;
+			Backend = &VulkanBackend;
+			Flags |= HLSLCC_DX11ClipSpace;
+			break;
+#endif
 
 		default:
 			return 1;

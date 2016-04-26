@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -92,6 +92,9 @@ private:
 
 	/** Gets the instance of a given plugin */
 	TSharedPtr<FPlugin> FindPluginInstance(const FString& Name);
+
+	/** Returns true if the plugin is supported by the current target (program/game) */
+	bool IsPluginSupportedByCurrentTarget(TSharedRef<FPlugin> Plugin) const;
 
 private:
 	/** All of the plugins that we know about */

@@ -1,13 +1,14 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "Containers/CircularQueue.h"
 #include "Misc/AutomationTest.h"
 
+#if WITH_DEV_AUTOMATION_TESTS
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCircularQueueTest, "System.Core.Misc.CircularQueue", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
 
-bool FCircularQueueTest::RunTest( const FString& Parameters )
+bool FCircularQueueTest::RunTest(const FString& Parameters)
 {
 	const uint32 QueueSize = 8;
 
@@ -15,6 +16,7 @@ bool FCircularQueueTest::RunTest( const FString& Parameters )
 	{
 		TCircularQueue<int32> Queue(QueueSize);
 
+		TestEqual(TEXT("Newly created queues must have zero elements"), Queue.Count(), 0u);
 		TestTrue(TEXT("Newly created queues must be empty"), Queue.IsEmpty());
 		TestFalse(TEXT("Newly created queues must not be full"), Queue.IsFull());
 	}
@@ -25,6 +27,7 @@ bool FCircularQueueTest::RunTest( const FString& Parameters )
 		int32 Value = 0;
 	
 		TestTrue(TEXT("Adding to an empty queue must succeed"), Queue.Enqueue(666));
+		TestEqual(TEXT("After adding to an empty queue it must have one element"), Queue.Count(), 1u);
 		TestFalse(TEXT("Partially filled queues must not be empty"), Queue.IsEmpty());
 		TestFalse(TEXT("Partially filled queues must not be full"), Queue.IsFull());
 		TestTrue(TEXT("Peeking at a partially filled queue must succeed"), Queue.Peek(Value));
@@ -59,3 +62,5 @@ bool FCircularQueueTest::RunTest( const FString& Parameters )
 
 	return true;
 }
+
+#endif //WITH_DEV_AUTOMATION_TESTS

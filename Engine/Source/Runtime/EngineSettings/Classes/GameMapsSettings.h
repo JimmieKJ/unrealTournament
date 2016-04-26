@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -41,7 +41,7 @@ class ENGINESETTINGS_API UGameMapsSettings
 	 *
 	 * @return the default map specified in the settings
 	 */
-	static const FString& GetGameDefaultMap( );
+	static const FString GetGameDefaultMap( );
 
 	/**
 	 * Get the global default game type specified in the configuration
@@ -65,19 +65,22 @@ class ENGINESETTINGS_API UGameMapsSettings
 	 */
 	static void SetGlobalDefaultGameMode( const FString& NewGameMode );
 
+	virtual void PostInitProperties() override;
+	virtual void PostReloadConfig( class UProperty* PropertyThatWasLoaded ) override;
+
 public:
 
 	/** If set, this map will be loaded when the Editor starts up. */
-	UPROPERTY(config, EditAnywhere, Category=DefaultMaps)
-	FString EditorStartupMap;
+	UPROPERTY(config, EditAnywhere, Category=DefaultMaps, meta=(AllowedClasses="World"))
+	FStringAssetReference EditorStartupMap;
 
 	/** The default options that will be appended to a map being loaded. */
 	UPROPERTY(config, EditAnywhere, Category=DefaultMaps, AdvancedDisplay)
 	FString LocalMapOptions;
 
 	/** The map loaded when transition from one map to another. */
-	UPROPERTY(config, EditAnywhere, Category=DefaultMaps, AdvancedDisplay)
-	FString TransitionMap;
+	UPROPERTY(config, EditAnywhere, Category=DefaultMaps, AdvancedDisplay, meta=(AllowedClasses="World"))
+	FStringAssetReference TransitionMap;
 
 	/** Whether the screen should be split or not when multiple local players are present */
 	UPROPERTY(config, EditAnywhere, Category=LocalMultiplayer)
@@ -98,12 +101,12 @@ public:
 private:
 
 	/** The map that will be loaded by default when no other map is loaded. */
-	UPROPERTY(config, EditAnywhere, Category=DefaultMaps)
-	FString GameDefaultMap;
+	UPROPERTY(config, EditAnywhere, Category=DefaultMaps, meta=(AllowedClasses="World"))
+	FStringAssetReference GameDefaultMap;
 
 	/** The map that will be loaded by default when no other map is loaded (DEDICATED SERVER). */
-	UPROPERTY(config, EditAnywhere, Category=DefaultMaps, AdvancedDisplay)
-	FString ServerDefaultMap;
+	UPROPERTY(config, EditAnywhere, Category=DefaultMaps, AdvancedDisplay, meta=(AllowedClasses="World"))
+	FStringAssetReference ServerDefaultMap;
 
 	/** GameMode to use if not specified in any other way. (e.g. per-map DefaultGameMode or on the URL). */
 	UPROPERTY(config, noclear, EditAnywhere, Category=DefaultModes, meta=(MetaClass="GameMode", DisplayName="Default GameMode"))

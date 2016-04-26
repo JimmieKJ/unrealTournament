@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "FontEditorModule.h"
 #include "MouseDeltaTracker.h"
@@ -36,6 +36,8 @@ public:
 	const FColor& GetBackgroundColor() const;
 	void SetForegroundColor(const FColor& InForgroundColor);
 	const FColor& GetForegroundColor() const;
+	void SetDrawFontMetrics(const bool InDrawFontMetrics);
+	bool GetDrawFontMetrics() const;
 	
 	/** Returns the ratio of the size of the font texture to the size of the viewport */
 	float GetViewportVerticalScrollBarRatio() const;
@@ -65,6 +67,9 @@ private:
 	FColor BackgroundColor;
 	FColor ForegroundColor;
 
+	/** Should we draw the font metrics in the preview? */
+	bool bDrawFontMetrics;
+
 	/** The size of the gap between pages */
 	const int32 PageGap;
 };
@@ -77,6 +82,7 @@ FFontEditorViewportClient::FFontEditorViewportClient(TWeakPtr<SFontEditorViewpor
 	PreviewText = LOCTEXT("DefaultPreviewText", "The quick brown fox jumps over the lazy dog");
 	BackgroundColor = FColor::Black;
 	ForegroundColor = FColor::White;
+	bDrawFontMetrics = false;
 }
 
 void FFontEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
@@ -176,15 +182,14 @@ void FFontEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 		static const FVector2D StartPos(4.0f, 4.0f);
 
 		// And draw the text with the foreground color
-		if (Font->FontCacheType == EFontCacheType::Runtime && Font->CompositeFont.DefaultTypeface.Fonts.Num() > 0)
+		if (Font->FontCacheType == EFontCacheType::Runtime)
 		{
 			static const float FontScale = 1.0f;
 
 			TSharedRef<FSlateFontCache> FontCache = FSlateApplication::Get().GetRenderer()->GetFontCache();
-			TSharedRef<FSlateFontMeasure> FontMeasure = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
 
 			FVector2D CurPos = StartPos;
-			float WidestName = 0.0f;
+			int32 WidestName = 0;
 
 			// Draw and measure each name so we can work out where to start drawing the preview text column
 			for (const FTypefaceEntry& TypefaceEntry : Font->CompositeFont.DefaultTypeface.Fonts)
@@ -192,17 +197,16 @@ void FFontEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 				const FSlateFontInfo FontInfo(Font, Font->LegacyFontSize, TypefaceEntry.Name);
 
 				FCharacterList& CharacterList = FontCache->GetCharacterList(FontInfo, FontScale);
-				const int32 MaxCharHeight = CharacterList.GetMaxHeight();
 
-				const FText EntryNameText = FText::FromName(TypefaceEntry.Name);
+				FShapedGlyphSequenceRef EntryNameShapedText = FontCache->ShapeBidirectionalText(TypefaceEntry.Name.ToString(), FontInfo, FontScale, TextBiDi::ETextDirection::LeftToRight, ETextShapingMethod::Auto);
+				
+				FCanvasShapedTextItem ShapedTextItem(CurPos, EntryNameShapedText, FLinearColor(ForegroundColor));
+				Canvas->DrawItem(ShapedTextItem);
 
-				FCanvasTextItem TextItem(CurPos, EntryNameText, FontInfo, FLinearColor(ForegroundColor));
-				Canvas->DrawItem(TextItem);
+				const FVector2D MeasuredText = ShapedTextItem.DrawnSize;
+				WidestName = FMath::Max(WidestName, EntryNameShapedText->GetMeasuredWidth());
 
-				const FVector2D MeasuredText = FontMeasure->Measure(EntryNameText, FontInfo, FontScale);
-				WidestName = FMath::Max(WidestName, MeasuredText.X);
-
-				CurPos.Y += MaxCharHeight;
+				CurPos.Y += CharacterList.GetMaxHeight() + 8.0f;
 			}
 
 			CurPos = FVector2D(WidestName + 12.0f, StartPos.Y);
@@ -212,13 +216,130 @@ void FFontEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 			{
 				const FSlateFontInfo FontInfo(Font, Font->LegacyFontSize, TypefaceEntry.Name);
 
-				FCharacterList& CharacterList = FontCache->GetCharacterList(FontInfo, FontScale);
-				const int32 MaxCharHeight = CharacterList.GetMaxHeight();
+				FShapedGlyphSequenceRef ShapedPreviewText = FontCache->ShapeBidirectionalText(PreviewText.ToString(), FontInfo, FontScale, TextBiDi::ETextDirection::LeftToRight, ETextShapingMethod::Auto);
 
-				FCanvasTextItem TextItem(CurPos, PreviewText, FontInfo, FLinearColor(ForegroundColor));
-				Canvas->DrawItem(TextItem);
+				FCanvasShapedTextItem ShapedTextItem(CurPos, ShapedPreviewText, FLinearColor(ForegroundColor));
+				Canvas->DrawItem(ShapedTextItem);
 
-				CurPos.Y += MaxCharHeight;
+				if (bDrawFontMetrics)
+				{
+					// Draw the bounding box for the separate glyphs
+					{
+						float LineX = 0.0f;
+						for (const auto& GlyphToRender : ShapedPreviewText->GetGlyphsToRender())
+						{
+							if (GlyphToRender.bIsVisible)
+							{
+								const FShapedGlyphFontAtlasData GlyphAtlasData = FontCache->GetShapedGlyphFontAtlasData(GlyphToRender);
+
+								const float X = CurPos.X + LineX + GlyphAtlasData.HorizontalOffset + GlyphToRender.XOffset;
+								const float Y = CurPos.Y - GlyphAtlasData.VerticalOffset + GlyphToRender.YOffset + ShapedPreviewText->GetTextBaseline() + ShapedPreviewText->GetMaxTextHeight();
+
+								FCanvasBoxItem BoundingBoxItem(FVector2D(X, Y), FVector2D(GlyphAtlasData.USize, GlyphAtlasData.VSize));
+								BoundingBoxItem.SetColor(FColor::Orange);
+								Canvas->DrawItem(BoundingBoxItem);
+							}
+
+							LineX += GlyphToRender.XAdvance;
+						}
+					}
+
+					// Draw the bounding box for the logical glyphs
+					{
+						float LineX = 0.0f;
+						const auto& GlyphsToRender = ShapedPreviewText->GetGlyphsToRender();
+						for (int32 CurrentGlyphIndex = 0; CurrentGlyphIndex < GlyphsToRender.Num(); ++CurrentGlyphIndex)
+						{
+							// A single character may produce multiple glyphs which must be treated as a single logic unit
+							int16 GlyphClusterAdvance = 0;
+							FBox2D GlyphClusterBounds(ForceInitToZero);
+							for (;;)
+							{
+								const auto& GlyphToRender = GlyphsToRender[CurrentGlyphIndex];
+								const bool bIsWithinGlyphCluster = GlyphsToRender.IsValidIndex(CurrentGlyphIndex + 1) && GlyphToRender.ClusterIndex == GlyphsToRender[CurrentGlyphIndex + 1].ClusterIndex;
+
+								if (GlyphToRender.bIsVisible)
+								{
+									const FShapedGlyphFontAtlasData GlyphAtlasData = FontCache->GetShapedGlyphFontAtlasData(GlyphToRender);
+
+									const float X = CurPos.X + LineX + GlyphAtlasData.HorizontalOffset + GlyphToRender.XOffset;
+									const float Y = CurPos.Y - GlyphAtlasData.VerticalOffset + GlyphToRender.YOffset + ShapedPreviewText->GetTextBaseline() + ShapedPreviewText->GetMaxTextHeight();
+
+									GlyphClusterBounds += FBox2D(FVector2D(X, Y), FVector2D(GlyphAtlasData.USize, GlyphAtlasData.VSize));
+								}
+
+								GlyphClusterAdvance += GlyphToRender.XAdvance;
+
+								if (!bIsWithinGlyphCluster)
+								{
+									break;
+								}
+
+								++CurrentGlyphIndex;
+							}
+
+							FCanvasBoxItem BoundingBoxItem(GlyphClusterBounds.Min, GlyphClusterBounds.Max);
+							BoundingBoxItem.SetColor(FLinearColor::Yellow);
+							Canvas->DrawItem(BoundingBoxItem);
+
+							LineX += GlyphClusterAdvance;
+						}
+					}
+
+					// Draw the baseline
+					{
+						const float Y = CurPos.Y + ShapedPreviewText->GetTextBaseline() + ShapedPreviewText->GetMaxTextHeight();
+
+						FCanvasLineItem BaseLineItem(FVector2D(CurPos.X, Y), FVector2D(CurPos.X + ShapedPreviewText->GetMeasuredWidth(), Y));
+						BaseLineItem.SetColor(FLinearColor::Red);
+						Canvas->DrawItem(BaseLineItem);
+					}
+
+					// Draw the bounding box for the line height
+					{
+						FCanvasBoxItem LineHeightBoxItem(CurPos, FVector2D(ShapedPreviewText->GetMeasuredWidth(), ShapedPreviewText->GetMaxTextHeight()));
+						LineHeightBoxItem.SetColor(FLinearColor::Green);
+						Canvas->DrawItem(LineHeightBoxItem);
+					}
+				}
+
+				CurPos.Y += ShapedPreviewText->GetMaxTextHeight() + 8.0f;
+			}
+
+			// Draw the key
+			if (bDrawFontMetrics)
+			{
+				const FSlateFontInfo FontInfo = FEditorStyle::GetFontStyle("NormalFont");
+				const float KeyBoxSize = 14.0f;
+
+				struct FKeyDataType
+				{
+					FLinearColor KeyColor;
+					FText KeyText;
+				};
+
+				static const FKeyDataType KeyDataArray[] = {
+					{ FLinearColor::Red,	LOCTEXT("BaselineKeyLabel", "Baseline") },
+					{ FLinearColor::Green,	LOCTEXT("LineBoundsKeyLabel", "Line Bounds") },
+					{ FLinearColor::Yellow,	LOCTEXT("LogicalGlyphBoundsKeyLabel", "Logical Glyph Bounds") },
+					{ FColor::Orange,		LOCTEXT("IsolatedGlyphBoundsKeyLabel", "Isolated Glyph Bounds") },
+				};
+
+				for (const FKeyDataType& KeyData : KeyDataArray)
+				{
+					FCanvasBoxItem KeyBox(CurPos + (KeyBoxSize * 0.25f), FVector2D(KeyBoxSize * 0.5f, KeyBoxSize * 0.5f));
+					KeyBox.SetColor(KeyData.KeyColor);
+					KeyBox.LineThickness = KeyBoxSize * 0.5f;
+					Canvas->DrawItem(KeyBox);
+
+					CurPos.X += KeyBoxSize + 4.0f;
+
+					FShapedGlyphSequenceRef KeyLabelShapedText = FontCache->ShapeBidirectionalText(*KeyData.KeyText.ToString(), FontInfo, FontScale, TextBiDi::ETextDirection::LeftToRight, ETextShapingMethod::Auto);
+					FCanvasShapedTextItem ShapedTextItem(CurPos, KeyLabelShapedText, FLinearColor(ForegroundColor));
+					Canvas->DrawItem(ShapedTextItem);
+
+					CurPos.X += KeyLabelShapedText->GetMeasuredWidth() + 8.0f;
+				}
 			}
 		}
 		else
@@ -353,6 +474,16 @@ void FFontEditorViewportClient::SetForegroundColor(const FColor& InForegroundCol
 const FColor& FFontEditorViewportClient::GetForegroundColor() const
 {
 	return ForegroundColor;
+}
+
+void FFontEditorViewportClient::SetDrawFontMetrics(const bool InDrawFontMetrics)
+{
+	bDrawFontMetrics = InDrawFontMetrics;
+}
+
+bool FFontEditorViewportClient::GetDrawFontMetrics() const
+{
+	return bDrawFontMetrics;
 }
 
 float FFontEditorViewportClient::GetViewportVerticalScrollBarRatio() const
@@ -638,6 +769,26 @@ const FColor& SFontEditorViewport::GetPreviewForegroundColor() const
 	}
 
 	return FColor::White;
+}
+
+void SFontEditorViewport::SetPreviewFontMetrics(const bool InDrawFontMetrics)
+{
+	if (ViewportClient.IsValid())
+	{
+		ViewportClient->SetDrawFontMetrics(InDrawFontMetrics);
+
+		RefreshViewport();
+	}
+}
+
+bool SFontEditorViewport::GetPreviewFontMetrics() const
+{
+	if (ViewportClient.IsValid())
+	{
+		return ViewportClient->GetDrawFontMetrics();
+	}
+
+	return false;
 }
 
 TWeakPtr<IFontEditor> SFontEditorViewport::GetFontEditor() const

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DistanceFieldShadowing.cpp
@@ -37,7 +37,7 @@ FAutoConsoleVariableRef CVarShadowScatterTileCulling(
 	TEXT("r.DFShadowScatterTileCulling"),
 	GShadowScatterTileCulling,
 	TEXT("Whether to use the rasterizer to scatter objects onto the tile grid for culling."),
-	ECVF_Cheat | ECVF_RenderThreadSafe
+	ECVF_RenderThreadSafe
 	);
 
 float GShadowWorldTileSize = 200.0f;

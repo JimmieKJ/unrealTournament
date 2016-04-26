@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintEditorPrivatePCH.h"
 #include "ScopedTransaction.h"
@@ -112,10 +112,7 @@ FBlueprintEditorApplicationMode::FBlueprintEditorApplicationMode(TSharedPtr<clas
 	}
 	BlueprintEditorTabFactories.RegisterFactory(MakeShareable(new FCompilerResultsSummoner(InBlueprintEditor)));
 	BlueprintEditorTabFactories.RegisterFactory(MakeShareable(new FFindResultsSummoner(InBlueprintEditor)));
-	if (GetDefault<UEditorExperimentalSettings>()->bBlueprintPerformanceAnalysisTools)
-	{
-		BlueprintEditorTabFactories.RegisterFactory(MakeShareable(new FBlueprintProfilerSummoner(InBlueprintEditor)));
-	}
+	BlueprintEditorTabFactories.RegisterFactory(MakeShareable(new FBlueprintProfilerSummoner(InBlueprintEditor)));
 	
 	if( bRegisterViewport )
 	{
@@ -136,10 +133,7 @@ FBlueprintEditorApplicationMode::FBlueprintEditorApplicationMode(TSharedPtr<clas
 	InBlueprintEditor->GetToolbarBuilder()->AddScriptingToolbar(ToolbarExtender);
 	InBlueprintEditor->GetToolbarBuilder()->AddBlueprintGlobalOptionsToolbar(ToolbarExtender);
 	InBlueprintEditor->GetToolbarBuilder()->AddDebuggingToolbar(ToolbarExtender);
-	if (GetDefault<UEditorExperimentalSettings>()->bBlueprintPerformanceAnalysisTools)
-	{
-		InBlueprintEditor->GetToolbarBuilder()->AddProfilerToolbar(ToolbarExtender);
-	}
+	InBlueprintEditor->GetToolbarBuilder()->AddProfilerToolbar(ToolbarExtender);
 }
 
 void FBlueprintEditorApplicationMode::RegisterTabFactories(TSharedPtr<FTabManager> InTabManager)
@@ -581,10 +575,7 @@ FBlueprintEditorUnifiedMode::FBlueprintEditorUnifiedMode(TSharedPtr<class FBluep
 	}
 	BlueprintEditorTabFactories.RegisterFactory(MakeShareable(new FCompilerResultsSummoner(InBlueprintEditor)));
 	BlueprintEditorTabFactories.RegisterFactory(MakeShareable(new FFindResultsSummoner(InBlueprintEditor)));
-	if (GetDefault<UEditorExperimentalSettings>()->bBlueprintPerformanceAnalysisTools)
-	{
-		BlueprintEditorTabFactories.RegisterFactory(MakeShareable(new FBlueprintProfilerSummoner(InBlueprintEditor)));
-	}
+	BlueprintEditorTabFactories.RegisterFactory(MakeShareable(new FBlueprintProfilerSummoner(InBlueprintEditor)));
 	
 	if( bRegisterViewport )
 	{

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	GPUProfiler.h: Hierarchical GPU Profiler.
@@ -15,6 +15,9 @@ public:
 		NumDraws(0),
 		NumPrimitives(0),
 		NumVertices(0),
+		NumTotalDraws(0),
+		NumTotalPrimitives(0),
+		NumTotalVertices(0),
 		TimingResult(0),
 		NumEvents(0)
 	{
@@ -29,6 +32,15 @@ public:
 	/** Exclusive number of vertices rendered in this event. */
 	uint32 NumVertices;
 
+	/** Inclusive number of draw calls rendered in this event and children. */
+	uint32 NumTotalDraws;
+
+	/** Inclusive number of primitives rendered in this event and children. */
+	uint32 NumTotalPrimitives;
+
+	/** Inclusive number of vertices rendered in this event and children. */
+	uint32 NumTotalVertices;
+
 	/** GPU time spent inside the perf event's begin and end, in ms. */
 	float TimingResult;
 
@@ -40,6 +52,9 @@ public:
 		NumDraws += rhs.NumDraws;
 		NumPrimitives += rhs.NumPrimitives;
 		NumVertices += rhs.NumVertices;
+		NumTotalDraws += rhs.NumDraws;
+		NumTotalPrimitives += rhs.NumPrimitives;
+		NumTotalVertices += rhs.NumVertices;
 		TimingResult += rhs.TimingResult;
 		NumEvents += rhs.NumEvents;
 
@@ -214,7 +229,7 @@ struct RHI_API FGPUProfiler
 		return new FGPUProfilerEventNode(InName, InParent);
 	}
 
-	virtual void PushEvent(const TCHAR* Name);
+	virtual void PushEvent(const TCHAR* Name, FColor Color);
 	virtual void PopEvent();
 
 	void BeginFrame();

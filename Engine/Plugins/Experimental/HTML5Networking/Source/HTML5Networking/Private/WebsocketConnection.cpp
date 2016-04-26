@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "HTML5NetworkingPCH.h"
 
@@ -64,10 +64,12 @@ void UWebSocketConnection::InitRemoteConnection(UNetDriver* InDriver, class FSoc
 	SetExpectedClientLoginMsgType(NMT_Hello);
 }
 
-void UWebSocketConnection::LowLevelSend(void* Data, int32 Count)
+void UWebSocketConnection::LowLevelSend(void* Data, int32 CountBytes, int32 CountBits)
 {
+	// @todo: PacketHandler's
+
 	int32 BytesSent = 0;
-	WebSocket->Send((uint8*)Data, Count);
+	WebSocket->Send((uint8*)Data, CountBytes);
 }
 
 FString UWebSocketConnection::LowLevelGetRemoteAddress(bool bAppendPort)

@@ -1,4 +1,4 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "NiagaraNodeInput.generated.h"
@@ -28,7 +28,7 @@ public:
 	UNiagaraDataObject* DataObjectDefault;
 
 	/** Allows code to explicitly disable exposing of certain inputs e.g. system constants such as Delta Time. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category=Constant, meta=(InlineEditConditionToggle))
 	uint32 bCanBeExposed:1;
 
 	/** When true, and this input is a constant, the input is exposed to the effect editor. */

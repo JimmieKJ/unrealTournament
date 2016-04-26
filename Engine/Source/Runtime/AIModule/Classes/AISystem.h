@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "Misc/CoreMisc.h"
@@ -64,6 +64,10 @@ public:
 	UPROPERTY(globalconfig, EditDefaultsOnly, Category = "EQS")
 	bool bAllowControllersAsEQSQuerier;
 
+	/** if set, GameplayDebuggerPlugin will be loaded on module's startup */
+	UPROPERTY(globalconfig, EditDefaultsOnly, Category = "AISystem")
+	bool bEnableDebuggerPlugin;
+
 protected:
 	/** Behavior tree manager used by game */
 	UPROPERTY(Transient)
@@ -102,7 +106,7 @@ public:
 	virtual void CleanupWorld(bool bSessionEnded = true, bool bCleanupResources = true, UWorld* NewWorld = NULL) override;
 	virtual void StartPlay() override;
 	// UAISystemBase end
-	
+
 	/** Behavior tree manager getter */
 	FORCEINLINE UBehaviorTreeManager* GetBehaviorTreeManager() { return BehaviorTreeManager; }
 	/** Behavior tree manager const getter */
@@ -221,6 +225,9 @@ public:
 	*/
 	FBlackboardDataToComponentsIterator CreateBlackboardDataToComponentsIterator(class UBlackboardData& BlackboardAsset);
 
+	virtual void ConditionalLoadDebuggerPlugin();
+
 protected:
 	virtual void OnActorSpawned(AActor* SpawnedActor);
+	void LoadDebuggerPlugin();
 };

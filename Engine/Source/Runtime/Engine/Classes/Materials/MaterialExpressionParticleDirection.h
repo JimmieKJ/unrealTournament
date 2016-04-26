@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*==============================================================================
 	MaterialExpressionParticleDirection: Exposes the direction of a particle to
@@ -16,8 +16,10 @@ class UMaterialExpressionParticleDirection : public UMaterialExpression
 
 
 	//~ Begin UMaterialExpression Interface
+#if WITH_EDITOR
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
+#endif
 	//~ End UMaterialExpression Interface
 };
 

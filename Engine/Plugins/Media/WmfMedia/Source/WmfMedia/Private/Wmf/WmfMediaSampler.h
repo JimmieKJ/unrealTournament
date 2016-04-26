@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -33,7 +33,7 @@ public:
 	 * @return true on success, false otherwise.
 	 * @see UnregisterSink
 	 */
-	bool RegisterSink( const IMediaSinkRef& Sink )
+	bool RegisterSink(const IMediaSinkRef& Sink)
 	{
 		return Commands.Enqueue(FSimpleDelegate::CreateRaw(this, &FWmfMediaSampler::HandleRegisterSink, IMediaSinkWeakPtr(Sink)));
 	}
@@ -45,7 +45,7 @@ public:
 	 * @return true on success, false otherwise.
 	 * @see RegisterSink
 	 */
-	bool UnregisterSink( const IMediaSinkRef& Sink )
+	bool UnregisterSink(const IMediaSinkRef& Sink)
 	{
 		return Commands.Enqueue(FSimpleDelegate::CreateRaw(this, &FWmfMediaSampler::HandleUnregisterSink, IMediaSinkWeakPtr(Sink)));
 	}
@@ -59,32 +59,32 @@ public:
 		return FPlatformAtomics::InterlockedIncrement(&RefCount);
 	}
 
-	STDMETHODIMP OnClockPause( MFTIME SystemTime)
+	STDMETHODIMP OnClockPause(MFTIME SystemTime)
 	{
 		return S_OK;
 	}
 
-	STDMETHODIMP OnClockRestart( MFTIME SystemTime)
+	STDMETHODIMP OnClockRestart(MFTIME SystemTime)
 	{
 		return S_OK;
 	}
 
-	STDMETHODIMP OnClockSetRate( MFTIME SystemTime, float flRate)
+	STDMETHODIMP OnClockSetRate(MFTIME SystemTime, float flRate)
 	{
 		return S_OK;
 	}
 
-	STDMETHODIMP OnClockStart( MFTIME SystemTime, LONGLONG llClockStartOffset)
+	STDMETHODIMP OnClockStart(MFTIME SystemTime, LONGLONG llClockStartOffset)
 	{
 		return S_OK;
 	}
 
-	STDMETHODIMP OnClockStop( MFTIME SystemTime)
+	STDMETHODIMP OnClockStop(MFTIME SystemTime)
 	{
 		return S_OK;
 	}
 
-	STDMETHODIMP OnProcessSample( REFGUID MajorMediaType, DWORD SampleFlags, LONGLONG SampleTime, LONGLONG SampleDuration, const BYTE* SampleBuffer, DWORD SampleSize)
+	STDMETHODIMP OnProcessSample(REFGUID MajorMediaType, DWORD SampleFlags, LONGLONG SampleTime, LONGLONG SampleDuration, const BYTE* SampleBuffer, DWORD SampleSize)
 	{
 		// process pending commands
 		CommandDelegate Command;
@@ -108,7 +108,7 @@ public:
 		return S_OK;
 	}
 
-	STDMETHODIMP OnSetPresentationClock( IMFPresentationClock* Clock)
+	STDMETHODIMP OnSetPresentationClock(IMFPresentationClock* Clock)
 	{
 		return S_OK;
 	}
@@ -123,7 +123,7 @@ public:
 #pragma warning(push)
 #pragma warning(disable:4838)
 #endif // _MSC_VER == 1900
-	STDMETHODIMP QueryInterface( REFIID RefID, void** Object )
+	STDMETHODIMP QueryInterface(REFIID RefID, void** Object)
 	{
 		static const QITAB QITab[] =
 		{
@@ -151,12 +151,12 @@ public:
 
 private:
 
-	void HandleRegisterSink( IMediaSinkWeakPtr Sink )
+	void HandleRegisterSink(IMediaSinkWeakPtr Sink)
 	{
 		Sinks.AddUnique(Sink);
 	}
 
-	void HandleUnregisterSink( IMediaSinkWeakPtr Sink )
+	void HandleUnregisterSink(IMediaSinkWeakPtr Sink)
 	{
 		Sinks.RemoveSingle(Sink);
 	}

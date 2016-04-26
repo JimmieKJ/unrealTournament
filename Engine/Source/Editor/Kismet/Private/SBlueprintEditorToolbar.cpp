@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "BlueprintEditorPrivatePCH.h"
@@ -175,15 +175,6 @@ void FKismet2Menu::FillDebugMenu( FMenuBuilder& MenuBuilder )
 	MenuBuilder.EndSection();
 }
 
-void FKismet2Menu::FillProfilerMenu( FMenuBuilder& MenuBuilder )
-{
-	MenuBuilder.BeginSection("Profiler", LOCTEXT("ProfilerMenu_Heading", "Profiler") );
-	{
-		MenuBuilder.AddMenuEntry( FFullBlueprintEditorCommands::Get().ToggleProfiler );
-	}
-	MenuBuilder.EndSection();
-}
-
 void FKismet2Menu::SetupBlueprintEditorMenu( TSharedPtr< FExtender > Extender, FBlueprintEditor& BlueprintEditor)
 {
 	// Extend the File menu with asset actions
@@ -219,16 +210,6 @@ void FKismet2Menu::SetupBlueprintEditorMenu( TSharedPtr< FExtender > Extender, F
 					LOCTEXT("DebugMenu_ToolTip", "Open the debug menu"),
 					FNewMenuDelegate::CreateStatic( &FKismet2Menu::FillDebugMenu ),
 					"Debug");
-
-				if (GetDefault<UEditorExperimentalSettings>()->bBlueprintPerformanceAnalysisTools)
-				{
-					// Profiler
-					MenuBarBuilder.AddPullDownMenu( 
-						LOCTEXT("ProfilerMenu", "Profiler"),
-						LOCTEXT("ProfilerMenu_ToolTip", "Toggle the Profiler Menu"),
-						FNewMenuDelegate::CreateStatic( &FKismet2Menu::FillProfilerMenu ),
-						"Profiler");
-				}
 			}
 		};
 

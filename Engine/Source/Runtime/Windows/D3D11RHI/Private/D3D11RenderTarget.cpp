@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	D3D11RenderTarget.cpp: D3D render target implementation.
@@ -79,6 +79,10 @@ void FD3D11DynamicRHI::ResolveTextureUsingShader(
 		&&	DestRect.X2 == ResolveTargetDesc.Width
 		&&	DestRect.Y2 == ResolveTargetDesc.Height;
 	
+	//we may change rendertargets and depth state behind the RHI's back here.
+	//save off this original state to restore it.
+	FExclusiveDepthStencil OriginalDSVAccessType = CurrentDSVAccessType;
+
 	if(ResolveTargetDesc.BindFlags & D3D11_BIND_DEPTH_STENCIL)
 	{
 		// Clear the destination texture.
@@ -89,6 +93,8 @@ void FD3D11DynamicRHI::ResolveTextureUsingShader(
 			Direct3DDeviceContext->ClearDepthStencilView(DestTextureDSV,D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,0,0);
 		}
 
+		//hack this to  pass validation in SetDepthStencil state since we are directly changing targets with a call to OMSetRenderTargets later.
+		CurrentDSVAccessType = FExclusiveDepthStencil::DepthWrite_StencilWrite;
 		RHICmdList.SetDepthStencilState(TStaticDepthStencilState<true,CF_Always>::GetRHI(),0);
 		RHICmdList.Flush(); // always call flush when using a command list in RHI implementations before doing anything else. This is super hazardous.
 
@@ -182,6 +188,9 @@ void FD3D11DynamicRHI::ResolveTextureUsingShader(
 
 	// Reset saved viewport
 	RHISetMultipleViewports(1,(FViewportBounds*)&SavedViewport);
+
+	//reset DSVAccess.
+	CurrentDSVAccessType = OriginalDSVAccessType;
 }
 
 /**
@@ -438,10 +447,12 @@ static uint32 ComputeBytesPerPixel(DXGI_FORMAT Format)
 		case DXGI_FORMAT_R16_TYPELESS:
 			BytesPerPixel = 2;
 			break;
-		case DXGI_FORMAT_B8G8R8A8_TYPELESS:
-		case DXGI_FORMAT_B8G8R8A8_UNORM:
 		case DXGI_FORMAT_R8G8B8A8_TYPELESS:
 		case DXGI_FORMAT_R8G8B8A8_UNORM:
+		case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
+		case DXGI_FORMAT_B8G8R8A8_TYPELESS:
+		case DXGI_FORMAT_B8G8R8A8_UNORM:
+		case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
 		case DXGI_FORMAT_R24G8_TYPELESS:
 		case DXGI_FORMAT_R10G10B10A2_UNORM:
 		case DXGI_FORMAT_R11G11B10_FLOAT:
@@ -634,7 +645,7 @@ static void ConvertRAWSurfaceDataToFColor(DXGI_FORMAT Format, uint32 Width, uint
 			}
 		}
 	}
-	else if(Format == DXGI_FORMAT_R8G8B8A8_TYPELESS || Format == DXGI_FORMAT_R8G8B8A8_UNORM)
+	else if(Format == DXGI_FORMAT_R8G8B8A8_TYPELESS || Format == DXGI_FORMAT_R8G8B8A8_UNORM || Format == DXGI_FORMAT_R8G8B8A8_UNORM_SRGB)
 	{
 		// Read the data out of the buffer, converting it from ABGR to ARGB.
 		for(uint32 Y = 0; Y < Height; Y++)

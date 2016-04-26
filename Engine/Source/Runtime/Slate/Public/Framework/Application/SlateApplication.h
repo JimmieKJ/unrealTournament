@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -394,8 +394,11 @@ public:
 	void ExternalModalStop();
 
 	/** Delegate for retainer widgets to know when they should update */
-	DECLARE_EVENT_OneParam(FSlateApplication, FOnUpdateRetainerWidgets, float);
-	FOnUpdateRetainerWidgets& OnUpdateRetainerWidgets()  { return UpdateRetainerWidgetsEvent; }
+	DECLARE_EVENT_OneParam(FSlateApplication, FSlateTickEvent, float);
+	FSlateTickEvent& OnPreTick()  { return PreTickEvent; }
+
+	/** Delegate for after slate application ticks. */
+	FSlateTickEvent& OnPostTick()  { return PostTickEvent; }
 
 	/** 
 	 * Removes references to FViewportRHI's.  
@@ -444,6 +447,11 @@ public:
 
 	DEPRECATED(4.6, "FSlateApplication::SetJoystickCaptorToGameViewport() is deprecated, use FSlateApplication::SetAllUserFocusToGameViewport() instead.")
 	void SetJoystickCaptorToGameViewport();
+
+	/**
+	 * Activates the Game Viewport if it is properly childed under a window
+	 */
+	void ActivateGameViewport();
 
 	/**
 	 * Sets specified user focus to the SWidget passed in.
@@ -586,6 +594,11 @@ public:
 	 * @return True if there is a mouse device attached
 	 */
 	bool IsMouseAttached() const { return PlatformApplication.IsValid() ? PlatformApplication->IsMouseAttached() : false; }
+
+	/**
+	 * @return True if there is a gamepad attached
+	 */
+	bool IsGamepadAttached() const { return PlatformApplication.IsValid() ? PlatformApplication->IsGamepadAttached() : false; }
 
 	/**
 	 * Sets the widget reflector.
@@ -778,6 +791,16 @@ protected:
 	virtual TOptional<EFocusCause> HasAnyUserFocus(const TSharedPtr<const SWidget> Widget) const override;
 	virtual bool IsWidgetDirectlyHovered(const TSharedPtr<const SWidget> Widget) const override;
 	virtual bool ShowUserFocus(const TSharedPtr<const SWidget> Widget) const override;
+
+	/**
+	 * Pumps and ticks the platform.
+	 */
+	void TickPlatform(float DeltaTime);
+
+	/**
+	 * Ticks and paints the actual Slate portion of the application.
+	 */
+	void TickApplication(float DeltaTime);
 
 	/** 
 	 * Ticks a slate window and all of its children
@@ -1045,6 +1068,11 @@ public:
 
 	//~ Begin FSlateApplicationBase Interface
 
+	virtual bool IsActive() const override
+	{
+		return bAppIsActive;
+	}
+
 	virtual TSharedRef<SWindow> AddWindow( TSharedRef<SWindow> InSlateWindow, const bool bShowImmediately = true ) override;
 
 	virtual void ArrangeWindowToFrontVirtual( TArray<TSharedRef<SWindow>>& Windows, const TSharedRef<SWindow>& WindowToBringToFront ) override
@@ -1110,6 +1138,10 @@ public:
 	virtual bool SetKeyboardFocus( const FWidgetPath& InFocusPath, const EFocusCause InCause ) override;
 	virtual bool SetUserFocus(const uint32 InUserIndex, const FWidgetPath& InFocusPath, const EFocusCause InCause) override;
 	virtual void SetAllUserFocus(const FWidgetPath& InFocusPath, const EFocusCause InCause) override;
+	virtual void SetAllUserFocusAllowingDescendantFocus(const FWidgetPath& InFocusPath, const EFocusCause InCause) override;
+
+	DECLARE_EVENT_OneParam(FSlateApplication, FApplicationActivationStateChangedEvent, const bool /*IsActive*/)
+	virtual FApplicationActivationStateChangedEvent& OnApplicationActivationStateChanged() { return ApplicationActivationStateChangedEvent; }
 
 public:
 
@@ -1120,16 +1152,20 @@ public:
 	virtual bool OnKeyDown( const int32 KeyCode, const uint32 CharacterCode, const bool IsRepeat ) override;
 	virtual bool OnKeyUp( const int32 KeyCode, const uint32 CharacterCode, const bool IsRepeat ) override;
 	virtual bool OnMouseDown( const TSharedPtr< FGenericWindow >& PlatformWindow, const EMouseButtons::Type Button ) override;
+	virtual bool OnMouseDown( const TSharedPtr< FGenericWindow >& PlatformWindow, const EMouseButtons::Type Button, const FVector2D CursorPos ) override;
 	virtual bool OnMouseUp( const EMouseButtons::Type Button ) override;
+	virtual bool OnMouseUp( const EMouseButtons::Type Button, const FVector2D CursorPos ) override;
 	virtual bool OnMouseDoubleClick( const TSharedPtr< FGenericWindow >& PlatformWindow, const EMouseButtons::Type Button ) override;
+	virtual bool OnMouseDoubleClick( const TSharedPtr< FGenericWindow >& PlatformWindow, const EMouseButtons::Type Button, const FVector2D CursorPos ) override;
 	virtual bool OnMouseWheel( const float Delta ) override;
+	virtual bool OnMouseWheel( const float Delta, const FVector2D CursorPos ) override;
 	virtual bool OnMouseMove() override;
 	virtual bool OnRawMouseMove( const int32 X, const int32 Y ) override;
 	virtual bool OnCursorSet() override;
 	virtual bool OnControllerAnalog( FGamepadKeyNames::Type KeyName, int32 ControllerId, float AnalogValue ) override;
 	virtual bool OnControllerButtonPressed( FGamepadKeyNames::Type KeyName, int32 ControllerId, bool IsRepeat ) override;
 	virtual bool OnControllerButtonReleased( FGamepadKeyNames::Type KeyName, int32 ControllerId, bool IsRepeat ) override;
-	virtual bool OnTouchGesture( EGestureEvent::Type GestureType, const FVector2D& Delta, float WheelDelta ) override;
+	virtual bool OnTouchGesture( EGestureEvent::Type GestureType, const FVector2D& Delta, float WheelDelta, bool bIsDirectionInvertedFromDevice ) override;
 	virtual bool OnTouchStarted( const TSharedPtr< FGenericWindow >& PlatformWindow, const FVector2D& Location, int32 TouchIndex, int32 ControllerId ) override;
 	virtual bool OnTouchMoved( const FVector2D& Location, int32 TouchIndex, int32 ControllerId ) override;
 	virtual bool OnTouchEnded( const FVector2D& Location, int32 TouchIndex, int32 ControllerId ) override;
@@ -1156,7 +1192,7 @@ public:
 	virtual EDropEffect::Type OnDragDrop( const TSharedPtr< FGenericWindow >& Window ) override;
 	virtual bool OnWindowAction( const TSharedRef< FGenericWindow >& PlatformWindow, const EWindowAction::Type InActionType ) override;
 
-private:
+public:
 
 	/**
 	 * Directly routes a pointer down event to the widgets in the specified widget path
@@ -1173,8 +1209,10 @@ private:
 	 *
 	 * @param WidgetsUnderPointer	The path of widgets the event is routed to.
 	 * @param PointerEvent		The event data that is is routed to the widget path
+	 *
+	 * @return True if handled, false otherwise
 	 */
-	void RoutePointerUpEvent(FWidgetPath& WidgetsUnderPointer, FPointerEvent& PointerEvent);
+	bool RoutePointerUpEvent(FWidgetPath& WidgetsUnderPointer, FPointerEvent& PointerEvent);
 
 	/**
 	 * Directly routes a pointer move event to the widgets in the specified widget path
@@ -1184,6 +1222,15 @@ private:
 	 * @param bIsSynthetic		Whether or not the move event is synthetic.  Synthetic pointer moves used simulate an event without the pointer actually moving 
 	 */
 	bool RoutePointerMoveEvent( const FWidgetPath& WidgetsUnderPointer, FPointerEvent& PointerEvent, bool bIsSynthetic );
+
+	/**
+	 * Directly routes a pointer mouse wheel or gesture event to the widgets in the specified widget path.
+	 * 
+	 * @param WidgetsUnderPointer	The path of widgets the event is routed to.
+	 * @param InWheelEvent			The event data that is is routed to the widget path
+	 * @param InGestureEvent		The event data that is is routed to the widget path
+	 */
+	FReply RouteMouseWheelOrGestureEvent(const FWidgetPath& WidgetsUnderPointer, const FPointerEvent& InWheelEvent, const FPointerEvent* InGestureEvent = nullptr);
 
 private:
 
@@ -1630,6 +1677,7 @@ private:
 	/** The icon to use on application windows */
 	const FSlateBrush *AppIcon;
 
+	FApplicationActivationStateChangedEvent ApplicationActivationStateChangedEvent;
 	//
 	// Hittest 2.0
 	//
@@ -1661,7 +1709,12 @@ private:
 	/** Configured fkeys to control navigation */
 	FNavigationConfig NavigationConfig;
 
-	/** Delegate for retainer widgets to know when they should update */
-	FOnUpdateRetainerWidgets UpdateRetainerWidgetsEvent;
+	/** Delegate for pre slate tick */
+	FSlateTickEvent PreTickEvent;
 
+	/** Delegate for post slate Tick */
+	FSlateTickEvent PostTickEvent;
+
+	/** Critical section to avoid multiple threads calling Slate Tick when we're synchronizing between the Slate Loading Thread and the Game Thread. */
+	FCriticalSection SlateTickCriticalSection;
 };

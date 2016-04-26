@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -8,6 +8,7 @@ class ISequencerSection;
 class SAnimationOutlinerTreeNode;
 class SSequencerTreeViewRow;
 class FGroupedKeyArea;
+class FSequencerDisplayNodeDragDropOp;
 
 
 /**
@@ -17,7 +18,7 @@ struct FNodePadding
 {
 	FNodePadding(float InUniform) : Top(InUniform), Bottom(InUniform) { }
 	FNodePadding(float InTop, float InBottom) : Top(InTop), Bottom(InBottom) { }
-	
+
 	/** @return The sum total of the separate padding values */
 	float Combined() const
 	{
@@ -31,7 +32,6 @@ struct FNodePadding
 	float Bottom;
 };
 
-
 namespace ESequencerNode
 {
 	enum Type
@@ -44,6 +44,10 @@ namespace ESequencerNode
 		KeyArea,
 		/* Displays a category */
 		Category,
+		/* Benign spacer node */
+		Spacer,
+		/* Folder node */
+		Folder
 	};
 }
 
@@ -136,6 +140,16 @@ public:
 	virtual FText GetDisplayName() const = 0;
 
 	/**
+	* @return the color used to draw the display name.
+	*/
+	virtual FLinearColor GetDisplayNameColor() const;
+
+	/**
+	 * @return the text to display for the tool tip for the display name. 
+	 */
+	virtual FText GetDisplayNameToolTipText() const;
+
+	/**
 	 * Set the node's display name.
 	 *
 	 * @param NewDisplayName the display name to set.
@@ -150,11 +164,11 @@ public:
 	virtual TSharedRef<SWidget> GenerateContainerWidgetForOutliner(const TSharedRef<SSequencerTreeViewRow>& InRow);
 
 	/**
-	* Generates a widget editing a row in the animation outliner portion of the track area
-	*
-	* @return Generated outliner edit widget
-	*/
-	virtual TSharedRef<SWidget> GenerateEditWidgetForOutliner();
+	 * Customizes an outliner widget that is to represent this node
+	 * 
+	 * @return Content to display on the outliner node
+	 */
+	virtual TSharedRef<SWidget> GetCustomOutlinerContent();
 
 	/**
 	 * Generates a widget for display in the section area portion of the track area
@@ -163,6 +177,27 @@ public:
 	 * @return Generated outliner widget
 	 */
 	virtual TSharedRef<SWidget> GenerateWidgetForSectionArea( const TAttribute<TRange<float>>& ViewRange );
+
+	/**
+	 * Gets an icon that represents this sequencer display node
+	 * 
+	 * @return This node's representative icon
+	 */
+	virtual const FSlateBrush* GetIconBrush() const;
+
+	/**
+	 * Get a brush to overlay on top of the icon for this node
+	 * 
+	 * @return An overlay brush, or nullptr
+	 */
+	virtual const FSlateBrush* GetIconOverlayBrush() const;
+
+	/**
+	 * Get the tooltip text to display for this node's icon
+	 * 
+	 * @return Text to display on the icon
+	 */
+	virtual FText GetIconToolTipText() const;
 
 	/**
 	 * Get the display node that is ultimately responsible for constructing a section area widget for this node.
@@ -176,7 +211,7 @@ public:
 	FString GetPathName() const;
 
 	/** Summon context menu */
-	TSharedPtr<SWidget> OnSummonContextMenu(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
+	TSharedPtr<SWidget> OnSummonContextMenu();
 
 	/** What sort of context menu this node summons */
 	virtual void BuildContextMenu(FMenuBuilder& MenuBuilder);
@@ -256,11 +291,20 @@ public:
 	}
 
 	/**
-	 * @return The parent of this node                                                              
+	 * @return The parent of this node
 	 */
 	TSharedPtr<FSequencerDisplayNode> GetParent() const
 	{
 		return ParentNode.Pin();
+	}
+
+	/**
+	 * @return The outermost parent of this node
+	 */
+	TSharedRef<FSequencerDisplayNode> GetOutermostParent()
+	{
+		TSharedPtr<FSequencerDisplayNode> Parent = ParentNode.Pin();
+		return Parent.IsValid() ? Parent->GetOutermostParent() : AsShared();
 	}
 	
 	/** Gets the sequencer that owns this node */
@@ -293,6 +337,12 @@ public:
 	 */
 	bool IsHidden() const;
 
+	/**
+	 * Check whether the node's tree view or track area widgets are hovered by the user's mouse.
+	 *
+	 * @return true if hovered, false otherwise. */
+	bool IsHovered() const;
+
 	/** Initialize this node with expansion states and virtual offsets */
 	void Initialize(float InVirtualTop, float InVirtualBottom);
 
@@ -314,6 +364,27 @@ public:
 	/** Get the key grouping for the specified section index */
 	TSharedRef<FGroupedKeyArea> GetKeyGrouping(int32 InSectionIndex);
 
+	/** Get the number of key groupings */
+	int32 GetNumKeyGroupings() { return KeyGroupings.Num(); }
+
+	DECLARE_EVENT(FSequencerDisplayNode, FRequestRenameEvent);
+	FRequestRenameEvent& OnRenameRequested() { return RenameRequestedEvent; }
+
+	/** 
+	 * Returns whether or not this node can be dragged. 
+	 */
+	virtual bool CanDrag() const { return false; }
+
+	/**
+	 * Determines if there is a valid drop zone based on the current drag drop operation and the zone the items were dragged onto.
+	 */
+	virtual TOptional<EItemDropZone> CanDrop( FSequencerDisplayNodeDragDropOp& DragDropOp, EItemDropZone ItemDropZone ) const { return TOptional<EItemDropZone>(); }
+
+	/**
+	 * Handles a drop of items onto this display node.
+	 */
+	virtual void Drop( const TArray<TSharedRef<FSequencerDisplayNode>>& DraggedNodes, EItemDropZone DropZone ) { }
+
 public:
 
 	/** Temporarily disable dynamic regeneration of key groupings. This prevents overlapping key groups from being amalgamated during drags. Key times will continue to update correctly. */
@@ -322,13 +393,18 @@ public:
 	/** Re-enable dynamic regeneration of key groupings */
 	static void EnableKeyGoupingRegeneration();
 
+protected:
+
+	/** Adds a child to this node, and sets it's parent to this node. */
+	void AddChildAndSetParent( TSharedRef<FSequencerDisplayNode> InChild );
+
 private:
 
 	/** Callback for executing a "Rename Node" context menu action. */
-	void HandleContextMenuRenameNodeExecute(TSharedRef<FSequencerDisplayNode> NodeToBeRenamed);
+	void HandleContextMenuRenameNodeExecute();
 
 	/** Callback for determining whether a "Rename Node" context menu action can execute. */
-	bool HandleContextMenuRenameNodeCanExecute(TSharedRef<FSequencerDisplayNode> NodeToBeRenamed) const;
+	bool HandleContextMenuRenameNodeCanExecute() const;
 
 protected:
 
@@ -358,6 +434,6 @@ protected:
 	/** Transient grouped keys for this node */
 	TArray<TSharedPtr<FGroupedKeyArea>> KeyGroupings;
 
-	/** The outliner tree node widget that belongs to this display node. */
-	TWeakPtr<SAnimationOutlinerTreeNode> TreeNodeWidgetPtr;
+	/** Event that is triggered when rename is requested */
+	FRequestRenameEvent RenameRequestedEvent;
 };

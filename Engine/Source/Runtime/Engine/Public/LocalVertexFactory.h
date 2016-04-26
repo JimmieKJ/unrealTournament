@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -22,7 +22,7 @@ public:
 	{
 	}
 
-	struct DataType : public FVertexFactory::DataType
+	struct FDataType
 	{
 		/** The stream to read the vertex position from. */
 		FVertexStreamComponent PositionComponent;
@@ -40,6 +40,9 @@ public:
 		FVertexStreamComponent ColorComponent;
 	};
 
+	DEPRECATED(4.11, "DataType has been renamed to FDataType.")
+	typedef FDataType DataType;
+
 	/**
 	 * Should we cache the material's shadertype on this platform with this vertex factory? 
 	 */
@@ -53,7 +56,7 @@ public:
 	/**
 	 * An implementation of the interface used by TSynchronizedResource to update the resource with new data from the game thread.
 	 */
-	void SetData(const DataType& InData);
+	void SetData(const FDataType& InData);
 
 	/**
 	* Copy the data from another vertex factory
@@ -76,8 +79,10 @@ public:
 	}
 
 protected:
-	DataType Data;
+	FDataType Data;
 	int32 ColorStreamIndex;
+
+	const FDataType& GetData() const { return Data; }
 };
 
 /**
@@ -99,6 +104,4 @@ public:
 	bool bAnySpeedTreeParamIsBound;
 	// SpeedTree LOD parameter
 	FShaderParameter LODParameter;
-	// SpeedTree wind parameter
-	FShaderResourceParameter WindParameter;
 };

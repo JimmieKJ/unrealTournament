@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "XCodeSourceCodeAccessPrivatePCH.h"
 #include "XCodeSourceCodeAccessor.h"
@@ -12,7 +12,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogXcodeAccessor, Log, All);
 static const char* OpenXCodeAtFileAndLineAppleScript =
 	"on OpenXcodeAtFileAndLine(filepath, linenumber)\n"
 	"	set theOffset to offset of \"/\" in filepath\n"
-	"	tell application \"Xcode\"\n"
+	"	tell application \"{XCODE_PATH}\"\n"
 	"		activate\n"
 	"		if theOffset is 1 then\n"
 	"			open filepath\n"
@@ -23,12 +23,12 @@ static const char* OpenXCodeAtFileAndLineAppleScript =
 	"				if theOffset is not 1 then\n"
 	"					set bActivated to false\n"
 	"					repeat until window \"Open Quickly\" exists\n"
-	"						tell application \"Xcode\"\n"
-	"							if application \"Xcode\" is not frontmost then\n"
+	"						tell application \"{XCODE_PATH}\"\n"
+	"							if application \"{XCODE_PATH}\" is not frontmost then\n"
 	"								activate\n"
 	"							end if\n"
 	"						end tell\n"
-	"						if application \"Xcode\" is frontmost and bActivated is false then\n"
+	"						if application \"{XCODE_PATH}\" is frontmost and bActivated is false then\n"
 	"							keystroke \"o\" using {command down, shift down}\n"
 	"							set bActivated to true\n"
 	"						end if\n"
@@ -40,12 +40,12 @@ static const char* OpenXCodeAtFileAndLineAppleScript =
 	"				\n"
 	"				set bActivated to false\n"
 	"				repeat until window \"Open Quickly\" exists\n"
-	"					tell application \"Xcode\"\n"
-	"						if application \"Xcode\" is not frontmost then\n"
+	"					tell application \"{XCODE_PATH}\"\n"
+	"						if application \"{XCODE_PATH}\" is not frontmost then\n"
 	"							activate\n"
 	"						end if\n"
 	"					end tell\n"
-	"					if application \"Xcode\" is frontmost and bActivated is false then\n"
+	"					if application \"{XCODE_PATH}\" is frontmost and bActivated is false then\n"
 	"						keystroke \"l\" using command down\n"
 	"						set bActivated to true\n"
 	"					end if\n"
@@ -63,7 +63,7 @@ static const char* OpenXCodeAtFileAndLineAppleScript =
 
 static const char* SaveAllXcodeDocuments =
 	"	on SaveAllXcodeDocuments()\n"
-	"		tell application \"Xcode\"\n"
+	"		tell application \"{XCODE_PATH}\"\n"
 	"			save documents\n"
 	"		end tell\n"
 	"	end SaveAllXcodeDocuments\n"
@@ -71,7 +71,7 @@ static const char* SaveAllXcodeDocuments =
 
 bool FXCodeSourceCodeAccessor::CanAccessSourceCode() const
 {
-	return IFileManager::Get().DirectoryExists(TEXT("/Applications/Xcode.app"));
+	return IFileManager::Get().DirectoryExists(*FPlatformMisc::GetXcodePath());
 }
 
 FName FXCodeSourceCodeAccessor::GetFName() const
@@ -126,12 +126,16 @@ bool FXCodeSourceCodeAccessor::OpenFileAtLine(const FString& FullPath, int32 Lin
 		const FString ProjPath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead( *SolutionPath );
 		if ( FPaths::FileExists( ProjPath ) )
 		{
+			FString XcodePath = FPlatformMisc::GetXcodePath();
+			XcodePath.RemoveFromEnd(TEXT("/Contents/Developer"));
+			
 			NSString* ProjectPath = [ProjPath.GetNSString() stringByDeletingLastPathComponent];
-			[[NSWorkspace sharedWorkspace] openFile:ProjectPath withApplication:@"Xcode" andDeactivate:YES];
+			[[NSWorkspace sharedWorkspace] openFile:ProjectPath withApplication:XcodePath.GetNSString() andDeactivate:YES];
 			
 			NSAppleScript* AppleScript = nil;
 			
 			NSString* AppleScriptString = [NSString stringWithCString:OpenXCodeAtFileAndLineAppleScript encoding:NSUTF8StringEncoding];
+			AppleScriptString = [AppleScriptString stringByReplacingOccurrencesOfString:@"{XCODE_PATH}" withString:XcodePath.GetNSString()];
 			AppleScript = [[NSAppleScript alloc] initWithSource:AppleScriptString];
 			
 			int PID = [[NSProcessInfo processInfo] processIdentifier];
@@ -222,10 +226,14 @@ bool FXCodeSourceCodeAccessor::AddSourceFiles(const TArray<FString>& AbsoluteSou
 bool FXCodeSourceCodeAccessor::SaveAllOpenDocuments() const
 {
 	bool ExecutionSucceeded = false;
+
+	FString XcodePath = FPlatformMisc::GetXcodePath();
+	XcodePath.RemoveFromEnd(TEXT("/Contents/Developer"));
 	
 	NSAppleScript* AppleScript = nil;
 	
 	NSString* AppleScriptString = [NSString stringWithCString:SaveAllXcodeDocuments encoding:NSUTF8StringEncoding];
+	AppleScriptString = [AppleScriptString stringByReplacingOccurrencesOfString:@"{XCODE_PATH}" withString:XcodePath.GetNSString()];
 	AppleScript = [[NSAppleScript alloc] initWithSource:AppleScriptString];
 	
 	int PID = [[NSProcessInfo processInfo] processIdentifier];

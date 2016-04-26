@@ -1654,6 +1654,8 @@ bool ApexScene::fetchResults(bool block, physx::PxU32* errorState)
 		mModuleScenes[i]->lockRenderResources();
 	}
 
+	bool bSuccess = false;
+
 	if (mPhysXScene != NULL)
 	{
 		PX_PROFILER_PERF_SCOPE("PhysXScene::fetchResults");
@@ -1704,7 +1706,7 @@ bool ApexScene::fetchResults(bool block, physx::PxU32* errorState)
 		mUserFluidNotify.playBatchedNotifications();
 #else
 		SCOPED_PHYSX_LOCK_WRITE(*this);
-		mPhysXScene->fetchResults(true);
+		bSuccess = mPhysXScene->fetchResults(true);
 		// SJB TODO3.0
 		mPxStepWasValid	= true;
 		// Check if PhysX actually ran any substeps. (nbSubSteps is the amount of substeps ran during the last simulation)
@@ -1780,7 +1782,7 @@ bool ApexScene::fetchResults(bool block, physx::PxU32* errorState)
 	mCudaProfileManager.nextFrame();
 #endif
 
-	return true;
+	return bSuccess;
 }
 
 

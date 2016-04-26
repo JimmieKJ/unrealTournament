@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "DetailCustomizationsPrivatePCH.h"
 #include "StaticMeshComponentDetails.h"
@@ -16,6 +16,5 @@ void FStaticMeshComponentDetails::CustomizeDetails( IDetailLayoutBuilder& Detail
 	// Create a category so this is displayed early in the properties
 	DetailBuilder.EditCategory( "StaticMesh", FText::GetEmpty(), ECategoryPriority::Important);
 }
-
 
 #undef LOCTEXT_NAMESPACE

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -979,7 +979,7 @@ namespace AutomationTool
 				}
 				else
 				{
-					// This is the standard Rocket versioning scheme, e.g. "4.5.0-12345678+++depot+UE4"
+					// This is the standard Launcher versioning scheme, e.g. "4.5.0-12345678+++depot+UE4"
 					var dotSplit = versionString.Split(new[] { '.' }, 3);
 					var dashSplit = dotSplit[2].Split(new[] { '-' }, 2);
 					var plusSplit = dashSplit[1].Split(new[] { '+' }, 2);
@@ -1013,7 +1013,9 @@ namespace AutomationTool
 		public VersionFileUpdater(string Filename)
 		{
 			MyFile = new FileInfo(Filename);
-			Lines = new List<string>(InternalUtils.SafeReadAllLines(Filename));
+			OriginalLines = new List<string>(InternalUtils.SafeReadAllLines(Filename));
+			Lines = new List<string>(OriginalLines);
+
             if (CommandUtils.IsNullOrEmpty(Lines))
             {
                 throw new AutomationException("Version file {0} was empty or not found!", Filename);
@@ -1091,10 +1093,27 @@ namespace AutomationTool
 		/// </summary>
 		public void Commit()
 		{
-			MyFile.IsReadOnly = false;
-			if (!InternalUtils.SafeWriteAllLines(MyFile.FullName, Lines.ToArray()))
+			bool bDifferent = Lines.Count != OriginalLines.Count;
+
+			if (!bDifferent)
 			{
-				throw new AutomationException("Unable to update version info in {0}", MyFile.FullName);
+				for (int i = 0; i < Lines.Count; ++i)
+				{
+					if (Lines[i] != OriginalLines[i])
+					{
+						bDifferent = true;
+						break;
+					}
+				}
+			}
+
+			if (bDifferent)
+			{
+				MyFile.IsReadOnly = false;
+				if (!InternalUtils.SafeWriteAllLines(MyFile.FullName, Lines.ToArray()))
+				{
+					throw new AutomationException("Unable to update version info in {0}", MyFile.FullName);
+				}
 			}
 		}
 
@@ -1123,6 +1142,10 @@ namespace AutomationTool
 		/// Doc
 		/// </summary>
 		protected List<string> Lines;
+		/// <summary>
+		/// Doc
+		/// </summary>
+		protected List<string> OriginalLines;
 	}
 
 	#endregion

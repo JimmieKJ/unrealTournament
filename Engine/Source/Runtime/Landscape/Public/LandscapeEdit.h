@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 LandscapeEdit.h: Classes for the editor to access to Landscape data
@@ -12,6 +12,7 @@ LandscapeEdit.h: Classes for the editor to access to Landscape data
 #if WITH_EDITOR
 
 #include "LandscapeProxy.h" // for ELandscapeLayerPaintingRestriction
+#include "FixedSizeArrayView.h"
 
 struct FLandscapeTextureDataInfo
 {
@@ -113,9 +114,9 @@ struct LANDSCAPE_API FLandscapeEditDataInterface
 	void GetWeightDataFast(ULandscapeLayerInfoObject* LayerInfo, const int32 X1, const int32 Y1, const int32 X2, const int32 Y2, TMap<FIntPoint, uint8>& SparseData);
 	void GetWeightDataFast(ULandscapeLayerInfoObject* LayerInfo, const int32 X1, const int32 Y1, const int32 X2, const int32 Y2, TMap<FIntPoint, TArray<uint8>>& SparseData);
 	// Updates weightmap for LayerInfo, optionally adjusting all other weightmaps.
-	void SetAlphaData(ULandscapeLayerInfoObject* LayerInfo, const int32 X1, const int32 Y1, const int32 X2, const int32 Y2, const uint8* Data, int32 Stride, ELandscapeLayerPaintingRestriction::Type PaintingRestriction = ELandscapeLayerPaintingRestriction::None, bool bWeightAdjust = true, bool bTotalWeightAdjust = false);
+	void SetAlphaData(ULandscapeLayerInfoObject* LayerInfo, const int32 X1, const int32 Y1, const int32 X2, const int32 Y2, const uint8* Data, int32 Stride, ELandscapeLayerPaintingRestriction PaintingRestriction = ELandscapeLayerPaintingRestriction::None, bool bWeightAdjust = true, bool bTotalWeightAdjust = false);
 	// Updates weightmaps for all layers. Data points to packed data for all layers in the landscape info
-	void SetAlphaData(const TSet<ULandscapeLayerInfoObject*>& DirtyLayerInfos, const int32 X1, const int32 Y1, const int32 X2, const int32 Y2, const uint8* Data, int32 Stride, ELandscapeLayerPaintingRestriction::Type PaintingRestriction = ELandscapeLayerPaintingRestriction::None);
+	void SetAlphaData(const TSet<ULandscapeLayerInfoObject*>& DirtyLayerInfos, const int32 X1, const int32 Y1, const int32 X2, const int32 Y2, const uint8* Data, int32 Stride, ELandscapeLayerPaintingRestriction PaintingRestriction = ELandscapeLayerPaintingRestriction::None);
 	// Delete a layer and re-normalize other layers
 	void DeleteLayer(ULandscapeLayerInfoObject* LayerInfo);
 	// Replace/merge a layer
@@ -188,10 +189,21 @@ private:
 
 	// Only for Missing Data interpolation... only internal usage
 	template<typename TData, typename TStoreData, typename FType>
-	FORCEINLINE void CalcMissingValues(const int32& X1, const int32& X2, const int32& Y1, const int32& Y2, 
-		const int32& ComponentIndexX1, const int32& ComponentIndexX2, const int32& ComponentIndexY1, const int32& ComponentIndexY2, 
-		const int32& ComponentSizeX, const int32& ComponentSizeY, TData* CornerValues, 
+	FORCEINLINE void CalcMissingValues(const int32& X1, const int32& X2, const int32& Y1, const int32& Y2,
+		const int32& ComponentIndexX1, const int32& ComponentIndexX2, const int32& ComponentIndexY1, const int32& ComponentIndexY2,
+		const int32& ComponentSizeX, const int32& ComponentSizeY, TData* CornerValues,
 		TArray<bool>& NoBorderY1, TArray<bool>& NoBorderY2, TArray<bool>& ComponentDataExist, TStoreData& StoreData);
+
+	// test if layer is whitelisted for a given texel
+	inline bool IsWhitelisted(const ULandscapeLayerInfoObject* LayerInfo,
+	                          int32 ComponentIndexX, int32 SubIndexX, int32 SubX,
+	                          int32 ComponentIndexY, int32 SubIndexY, int32 SubY);
+
+	// counts the total influence of each weight-blended layer on this component
+	inline TMap<const ULandscapeLayerInfoObject*, uint32> CountWeightBlendedLayerInfluence(int32 ComponentIndexX, int32 ComponentIndexY, TOptional<TFixedSizeArrayView<const uint8* const>> LayerDataPtrs);
+
+	// chooses a replacement layer to use when erasing from 100% influence on a texel
+	const ULandscapeLayerInfoObject* ChooseReplacementLayer(const ULandscapeLayerInfoObject* LayerInfo, int32 ComponentIndexX, int32 SubIndexX, int32 SubX, int32 ComponentIndexY, int32 SubIndexY, int32 SubY, TMap<FIntPoint, TMap<const ULandscapeLayerInfoObject*, uint32>>& LayerInfluenceCache, TFixedSizeArrayView<const uint8* const> LayerDataPtrs);
 };
 
 template<typename T>

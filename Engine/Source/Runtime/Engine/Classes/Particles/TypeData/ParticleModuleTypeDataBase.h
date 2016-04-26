@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -31,6 +31,8 @@ class UParticleModuleTypeDataBase : public UParticleModule
 	// @todo document
 	virtual FParticleEmitterInstance* CreateInstance(UParticleEmitter* InEmitterParent, UParticleSystemComponent* InComponent);
 
+	/** Cache any desired module pointers inside this type data */
+	virtual void CacheModuleInfo(UParticleEmitter* Emitter) {}
 
 	// @todo document
 	virtual bool		SupportsSpecificScreenAlignmentFlags() const	{	return false;			}
@@ -38,6 +40,10 @@ class UParticleModuleTypeDataBase : public UParticleModule
 	virtual bool		SupportsSubUV() const	{ return false; }
 	// @todo document
 	virtual bool		IsAMeshEmitter() const	{ return false; }
+
+	/** Determine if motion blur is enabled for the owning emitter. */
+	virtual bool		IsMotionBlurEnabled() const  { return false; }
+
 };
 
 

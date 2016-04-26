@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 
@@ -89,11 +89,11 @@ bool UPanelWidget::RemoveChildAt(int32 Index)
 
 	OnSlotRemoved(Slot);
 
-	Slot->Parent = nullptr;
-	Slot->Content = nullptr;
-
 	const bool bReleaseChildren = true;
 	Slot->ReleaseSlateResources(bReleaseChildren);
+
+	Slot->Parent = nullptr;
+	Slot->Content = nullptr;
 
 	return true;
 }

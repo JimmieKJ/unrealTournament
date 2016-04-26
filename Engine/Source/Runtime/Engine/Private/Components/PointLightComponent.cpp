@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PointLightComponent.cpp: PointLightComponent implementation.
@@ -238,16 +238,6 @@ void UPointLightComponent::Serialize(FArchive& Ar)
 	{
 		bUseInverseSquaredFalloff = InverseSquaredFalloff_DEPRECATED;
 		AttenuationRadius = Radius_DEPRECATED;
-	}
-}
-
-void UPointLightComponent::PostLoad()
-{
-	Super::PostLoad();
-
-	if (GetLinkerUE4Version() < VER_UE4_POINT_LIGHT_SOURCE_RADIUS)
-	{
-		SourceRadius = SourceRadius_DEPRECATED;	
 	}
 }
 

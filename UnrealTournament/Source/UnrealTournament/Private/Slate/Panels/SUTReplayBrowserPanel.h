@@ -61,9 +61,6 @@ private:
 
 protected:
 
-	IOnlineSubsystem* OnlineSubsystem;
-	IOnlineIdentityPtr OnlineIdentityInterface;
-
 	TSharedPtr<INetworkReplayStreamer> ReplayStreamer;
 	TArray< TSharedPtr<FReplayData> > ReplayList;
 	TSharedPtr< SListView< TSharedPtr<FReplayData> > > ReplayListView;

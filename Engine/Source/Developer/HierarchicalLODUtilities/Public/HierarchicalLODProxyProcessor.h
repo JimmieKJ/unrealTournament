@@ -1,10 +1,12 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "Ticker.h"
 #include "MeshUtilities.h"
 #include "GameFramework/WorldSettings.h"
+
+class ALODActor;
 
 class HIERARCHICALLODUTILITIES_API FHierarchicalLODProxyProcessor : public FTickerObjectBase
 {
@@ -46,7 +48,7 @@ protected:
 	struct FProcessData
 	{
 		/** LODActor instance for which a proxy is generated */
-		class ALODActor* LODActor;
+		ALODActor* LODActor;
 		/** Array with resulting asset objects from proxy generation (StaticMesh/Materials/Textures) */
 		TArray<class UObject*> AssetObjects;
 		/** HLOD settings structure used for creating the proxy */

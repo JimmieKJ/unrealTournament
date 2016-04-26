@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -262,7 +262,7 @@ private:
 	{
 		if (SimpleProfile.IsValid())
 		{
-			return FText::FromString(EBuildConfigurations::ToString(SimpleProfile->GetBuildConfiguration()));
+			return EBuildConfigurations::ToText(SimpleProfile->GetBuildConfiguration());
 		}
 
 		return FText::GetEmpty();

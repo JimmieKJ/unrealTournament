@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "EdGraph/EdGraph.h"
@@ -29,6 +29,7 @@ class USoundClassGraph : public UEdGraph
 	 * @param	NodePosY		Y coordinate classes were dropped at
 	 */
 	void AddDroppedSoundClasses(const TArray<class USoundClass*>& SoundClasses, int32 NodePosX, int32 NodePosY);
+
 	/**
 	 * Display a new SoundClass that has just been created using the editor
 	 *

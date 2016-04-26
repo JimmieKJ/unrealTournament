@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "PortalRpcPrivatePCH.h"
 #include "PortalRpcLocator.h"
@@ -62,13 +62,16 @@ private:
 		}
 
 		// @todo sarge: implement actual product GUID
-		MessageEndpoint->Publish(new FPortalRpcLocateServer(FGuid(), FEngineVersion::Current().ToString()), EMessageScope::Network);
+		MessageEndpoint->Publish(new FPortalRpcLocateServer(FGuid(), EngineVersion, MacAddress, UserId), EMessageScope::Network);
 
 		return true;
 	}
 
 	FPortalRpcLocatorImpl()
-		: LastServerResponse(FDateTime::MinValue())
+		: EngineVersion(FEngineVersion::Current().ToString())
+		, MacAddress(FPlatformMisc::GetMacAddressString())
+		, UserId(FPlatformProcess::UserName(false))
+		, LastServerResponse(FDateTime::MinValue())
 	{
 		MessageEndpoint = FMessageEndpoint::Builder("FPortalRpcLocator")
 			.Handling<FPortalRpcServer>(this, &FPortalRpcLocatorImpl::HandleMessage);
@@ -77,6 +80,10 @@ private:
 	}
 
 private:
+
+	const FString EngineVersion;
+	const FString MacAddress;
+	const FString UserId;
 
 	/** Time at which the RPC server last responded. */
 	FDateTime LastServerResponse;

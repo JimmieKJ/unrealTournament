@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -32,16 +32,30 @@ private:
 	TSharedRef<SWidget> ServiceProviderComboBox_OnGenerateWidget(TSharedPtr<FLocalizationServiceProviderWrapper> LSPWrapper) const;
 	void ServiceProviderComboBox_OnSelectionChanged(TSharedPtr<FLocalizationServiceProviderWrapper> LSPWrapper, ESelectInfo::Type SelectInfo);
 
-	bool CanGatherAllTargets() const;
-	void GatherAllTargets();
-	bool CanImportAllTargets() const;
-	void ImportAllTargets();
-	bool CanExportAllTargets() const;
-	void ExportAllTargets();
+	bool CanGatherTextAllTargets() const;
+	void GatherTextAllTargets();
+
+	bool CanImportTextAllTargets() const;
+	void ImportTextAllTargets();
+
+	bool CanExportTextAllTargets() const;
+	void ExportTextAllTargets();
+
+	bool CanImportDialogueScriptAllTargets() const;
+	void ImportDialogueScriptAllTargets();
+
+	bool CanExportDialogueScriptAllTargets() const;
+	void ExportDialogueScriptAllTargets();
+
+	bool CanImportDialogueAllTargets() const;
+	void ImportDialogueAllTargets();
+
 	bool CanCountWordsForAllTargets() const;
 	void CountWordsForAllTargets();
-	bool CanCompileAllTargets() const;
-	void CompileAllTargets();
+
+	bool CanCompileTextAllTargets() const;
+	void CompileTextAllTargets();
+
 	void UpdateTargetFromReports(ULocalizationTarget* const LocalizationTarget);
 
 	TSharedRef<ITableRow> OnGenerateRow(TSharedPtr<IPropertyHandle> TargetObjectPropertyHandle, const TSharedRef<STableViewBase>& Table);

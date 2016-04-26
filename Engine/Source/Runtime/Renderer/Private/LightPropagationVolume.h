@@ -236,3 +236,10 @@ public:
 
 // use for render thread only
 bool UseLightPropagationVolumeRT(ERHIFeatureLevel::Type InFeatureLevel);
+
+
+static inline bool IsLPVSupported(EShaderPlatform Platform)
+{
+	//@todo-rco: This is requires until we add support for byte/append consume buffers on hlslcc
+	return !IsOpenGLPlatform(Platform) && !IsMetalPlatform(Platform) && !IsVulkanPlatform(Platform);
+}

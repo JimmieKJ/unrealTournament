@@ -28,6 +28,15 @@
 -keep class com.epicgames.ue4.WebViewControl {
    public *;
 }
+-keep class com.epicgames.ue4.BatteryReceiver {
+  public *;
+}
+-keep class com.epicgames.ue4.HeadsetReceiver {
+  public *;
+}
+-keep class com.epicgames.ue4.VolumeReceiver {
+  public *;
+}
 
 # Needed...
 -keep class com.epicgames.ue4.GameActivity$InputDeviceInfo {

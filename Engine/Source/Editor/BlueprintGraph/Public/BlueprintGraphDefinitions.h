@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EdGraphSchema_K2.h"
 #include "EdGraphSchema_K2_Actions.h"
@@ -23,6 +23,7 @@
 #include "K2Node_DoOnceMultiInput.h"
 #include "K2Node_ComponentBoundEvent.h"
 #include "K2Node_Composite.h"
+#include "K2Node_Copy.h"
 #include "K2Node_CreateDelegate.h"
 #include "K2Node_CustomEvent.h"
 #include "K2Node_DelegateSet.h"
@@ -34,6 +35,7 @@
 #include "K2Node_FunctionEntry.h"
 #include "K2Node_FunctionResult.h"
 #include "K2Node_GetDataTableRow.h"
+#include "K2Node_GetArrayItem.h"
 #include "K2Node_IfThenElse.h"
 #include "K2Node_InputAction.h"
 #include "K2Node_InputAxisEvent.h"

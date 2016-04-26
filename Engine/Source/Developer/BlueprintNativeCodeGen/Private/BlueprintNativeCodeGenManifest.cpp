@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintNativeCodeGenPCH.h"
 
@@ -8,7 +8,6 @@
 #include "IBlueprintCompilerCppBackendModule.h" // for ConstructBaseFilename()
 #include "Engine/Blueprint.h"					// for GeneratedClass
 #include "JsonObjectConverter.h"
-#include "NativeCodeGenCommandlineParams.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
@@ -28,7 +27,6 @@ namespace BlueprintNativeCodeGenManifestImpl
 	static const FString HeaderSubDir         = TEXT("Public");
 	static const FString CppSubDir            = TEXT("Private");
 	static const FString ModuleBuildFileExt   = TEXT(".Build.cs");
-	static const FString FallbackPluginName   = TEXT("NativizedScript");
 	static const FString PreviewFilePostfix   = TEXT("-Preview");
 	static const FString PluginFileExt        = TEXT(".uplugin");
 	static const FString SourceSubDir         = TEXT("Source");
@@ -220,7 +218,7 @@ static bool BlueprintNativeCodeGenManifestImpl::GatherModuleDependencies(const U
 	const FLinkerLoad* PkgLinker = FLinkerLoad::FindExistingLinkerForPackage(AssetPackage);
 	const bool bFoundLinker = (PkgLinker != nullptr);
 
-	if (ensure(bFoundLinker))
+	if (ensureMsgf(bFoundLinker, TEXT("Failed to identify the asset package that '%s' belongs to."), *AssetObj->GetName()))
 	{
 		for (const FObjectImport& PkgImport : PkgLinker->ImportMap)
 		{
@@ -298,13 +296,6 @@ FConvertedAssetRecord::FConvertedAssetRecord(const FAssetData& AssetInfo, const 
 }
 
 //------------------------------------------------------------------------------
-bool FConvertedAssetRecord::IsValid()
-{
-	// every conversion will have a header file (interfaces don't have implementation files)
-	return ToAssetRef().IsValid() && (AssetType != nullptr) && !GeneratedHeaderPath.IsEmpty();
-}
-
-//------------------------------------------------------------------------------
 FStringAssetReference FConvertedAssetRecord::ToAssetRef() const
 {
 	return FStringAssetReference(TargetObjPath);
@@ -315,15 +306,9 @@ FStringAssetReference FConvertedAssetRecord::ToAssetRef() const
  ******************************************************************************/
  
 //------------------------------------------------------------------------------
-FUnconvertedDependencyRecord::FUnconvertedDependencyRecord(const FAssetData& AssetInfo, const FBlueprintNativeCodeGenPaths& TargetPaths)
-	: GeneratedWrapperPath(BlueprintNativeCodeGenManifestImpl::GenerateUnconvertedWrapperPath(TargetPaths, AssetInfo))
+FUnconvertedDependencyRecord::FUnconvertedDependencyRecord(const FString& InGeneratedWrapperPath)
+	: GeneratedWrapperPath(InGeneratedWrapperPath)
 {
-}
-
-//------------------------------------------------------------------------------
-bool FUnconvertedDependencyRecord::IsValid()
-{
-	return !GeneratedWrapperPath.IsEmpty();
 }
 
 /*******************************************************************************
@@ -410,105 +395,35 @@ FString FBlueprintNativeCodeGenPaths::RuntimePCHFilename() const
 
 //------------------------------------------------------------------------------
 FBlueprintNativeCodeGenManifest::FBlueprintNativeCodeGenManifest()
-	: OutputDir(FPaths::ConvertRelativePathToFull( FPaths::Combine(*FPaths::Combine(*FPaths::GameIntermediateDir(), TEXT("Plugins")), *BlueprintNativeCodeGenManifestImpl::FallbackPluginName) ))
 {
-	PluginName = FPaths::GetBaseFilename(OutputDir);
-	ManifestFilePath = FPaths::Combine(*GetTargetDir(), *FBlueprintNativeCodeGenPaths::GetDefaultManifestPath());
 }
 
 //------------------------------------------------------------------------------
-FBlueprintNativeCodeGenManifest::FBlueprintNativeCodeGenManifest(const FNativeCodeGenCommandlineParams& CommandlineParams)
+FBlueprintNativeCodeGenManifest::FBlueprintNativeCodeGenManifest(const FString& InPluginName, const FString& InOutputDir)
 {
 	using namespace BlueprintNativeCodeGenManifestImpl;
-	bool const bLoadExistingManifest = !CommandlineParams.bWipeRequested || CommandlineParams.OutputDir.IsEmpty();
 	
-	PluginName = CommandlineParams.PluginName;
-	OutputDir  = CommandlineParams.OutputDir;
+	PluginName = InPluginName;
+	OutputDir = InOutputDir;
 	if (FPaths::IsRelative(OutputDir))
 	{
 		FPaths::MakePathRelativeTo(OutputDir, *FPaths::GameDir());
 	}
 
-	if (!CommandlineParams.ManifestFilePath.IsEmpty())
+	if (!ensure(!OutputDir.IsEmpty()))
 	{
-		ManifestFilePath = CommandlineParams.ManifestFilePath;
+		OutputDir = FPaths::Combine(*FPaths::GameIntermediateDir(), *PluginName);
 	}
-	else
-	{
-		if (!ensure(!PluginName.IsEmpty()))
-		{
-			PluginName = FallbackPluginName;
-		}
-		if (!ensure(!OutputDir.IsEmpty()))
-		{
-			OutputDir = FPaths::Combine(*FPaths::GameIntermediateDir(), *PluginName);
-		}
 
-		FString ManifestFilename = FBlueprintNativeCodeGenPaths::GetDefaultManifestPath();
-		if (CommandlineParams.bPreviewRequested)
-		{
-			ManifestFilename.InsertAt(ManifestFilename.Find(ManifestFileExt, ESearchCase::CaseSensitive, ESearchDir::FromEnd), PreviewFilePostfix);
-		}
-		ManifestFilePath = FPaths::Combine(*GetTargetDir(), *ManifestFilename);
-	}
-	
-	// incorporate an existing manifest (in case we're only re-converting a 
-	// handful of assets and adding them into an existing module)
-	if (bLoadExistingManifest && LoadManifest(ManifestFilePath, this))
-	{
-		// if they specified a separate plugin path, lets make sure we use that
-		// over what was found in the existing manifest
-		if (!CommandlineParams.OutputDir.IsEmpty())
-		{
-			if (CommandlineParams.bWipeRequested)
-			{
-				OutputDir = CommandlineParams.OutputDir;
-			}
-			else
-			{
-				const FString ExpectedPath = GetComparibleDirPath(CommandlineParams.OutputDir);
-
-				FString TargetPath = GetTargetDir();
-				TargetPath = GetComparibleDirPath(TargetPath);
-
-				if ( !FPaths::IsSamePath(ExpectedPath, TargetPath) )
-				{
-					UE_LOG(LogNativeCodeGenManifest, Error, 
-						TEXT("The existing manifest's plugin path does not match what was specified via the commandline."));
-				}
-			}
-		}
-
-		const bool bNewPluginNameRequested = !CommandlineParams.PluginName.IsEmpty() && (CommandlineParams.PluginName != PluginName);
-		if (bNewPluginNameRequested && !CommandlineParams.bPreviewRequested)
-		{
-			// delete the old plugin file (if one exists)
-			IFileManager::Get().Delete(*GetTargetPaths().PluginFilePath());
-		}
-
-		// if we were only interested in obtaining the plugin path
-		if (CommandlineParams.bWipeRequested)
-		{
-			PluginName = CommandlineParams.PluginName;
-			Clear();
-		}
-		else
-		{
-			if (bNewPluginNameRequested)
-			{
-				UE_LOG(LogNativeCodeGenManifest, Warning, TEXT("The specified plugin name (%s) doesn't match the existing one (%s). Overridding with the new name."),
-					*CommandlineParams.PluginName, *PluginName);
-				PluginName = CommandlineParams.PluginName;
-			}
-		}
-	}
+	FString ManifestFilename = FBlueprintNativeCodeGenPaths::GetDefaultManifestPath();
+	ManifestFilePath = FPaths::Combine(*GetTargetDir(), *ManifestFilename);
 }
 
 //------------------------------------------------------------------------------
 FBlueprintNativeCodeGenManifest::FBlueprintNativeCodeGenManifest(const FString& ManifestFilePathIn)
 	: ManifestFilePath(ManifestFilePathIn)
 {
-	BlueprintNativeCodeGenManifestImpl::LoadManifest(ManifestFilePathIn, this);
+	ensureAlwaysMsgf(BlueprintNativeCodeGenManifestImpl::LoadManifest(ManifestFilePathIn, this), TEXT("Missing Manifest for Blueprint code generation: %s"), *ManifestFilePath );
 }
 
 //------------------------------------------------------------------------------
@@ -520,69 +435,38 @@ FBlueprintNativeCodeGenPaths FBlueprintNativeCodeGenManifest::GetTargetPaths() c
 //------------------------------------------------------------------------------
 FConvertedAssetRecord& FBlueprintNativeCodeGenManifest::CreateConversionRecord(const FAssetId Key, const FAssetData& AssetInfo)
 {
-	const FBlueprintNativeCodeGenPaths TargetPaths = GetTargetPaths();
+	// It is an error to consider a record converted and unconverted. This is probably not negotiable. In order to leave the door
+	// open for parallelism we need to be able to trivially and consistently determine whether an asset will be converted without
+	// discovering things as we go.
+	check(UnconvertedDependencies.Find(Key) == nullptr);
+	// Similarly we should not convert things over and over and over:
+	if (FConvertedAssetRecord* Existing = ConvertedAssets.Find(Key))
+	{
+		return *Existing;
+	}
 
+	const FBlueprintNativeCodeGenPaths TargetPaths = GetTargetPaths();
 	UClass* AssetType = AssetInfo.GetClass();
 	// load the asset (if it isn't already)
 	const UObject* AssetObj = AssetInfo.GetAsset();
-
-	FConvertedAssetRecord* ConversionRecordPtr = ConvertedAssets.Find(Key);
-	if (ConversionRecordPtr == nullptr)
-	{
-		UnconvertedDependencies.Remove(Key);
-		ConversionRecordPtr = &ConvertedAssets.Add(Key, FConvertedAssetRecord(AssetInfo, TargetPaths));
-	}
-	else if (!ensure(AssetType == ConversionRecordPtr->AssetType))
-	{
-		UE_LOG(LogNativeCodeGenManifest, Warning, TEXT("Existing manifest entry for '%s' has a different type, overriding with: '%s'"),
-			*AssetInfo.ObjectPath.ToString(), *AssetType->GetName());
-
-		ConversionRecordPtr->AssetType = AssetType;
-		ConversionRecordPtr->TargetObjPath = BlueprintNativeCodeGenManifestImpl::GetTargetObjectPath(AssetInfo);
-	}
-	
-	FConvertedAssetRecord& ConversionRecord = *ConversionRecordPtr;
-	if (!ConversionRecord.IsValid())
-	{
-		if (ConversionRecord.GeneratedHeaderPath.IsEmpty())
-		{
-			ConversionRecord.GeneratedCppPath    = BlueprintNativeCodeGenManifestImpl::GenerateSourceFileSavePath(TargetPaths, AssetInfo, FBlueprintNativeCodeGenPaths::CppFile);
-			ConversionRecord.GeneratedHeaderPath = BlueprintNativeCodeGenManifestImpl::GenerateSourceFileSavePath(TargetPaths, AssetInfo, FBlueprintNativeCodeGenPaths::HFile);
-		}
-		ensure(ConversionRecord.IsValid());
-	}
-
-	return ConversionRecord;
+	FConvertedAssetRecord* ConversionRecord = &ConvertedAssets.Add(Key, FConvertedAssetRecord(AssetInfo, TargetPaths));
+	return *ConversionRecord;
 }
 
 //------------------------------------------------------------------------------
-FUnconvertedDependencyRecord& FBlueprintNativeCodeGenManifest::CreateUnconvertedDependencyRecord(const FAssetId UnconvertedAssetKey, const FAssetData& AssetInfo, const FAssetId ReferencingAsset)
+FUnconvertedDependencyRecord& FBlueprintNativeCodeGenManifest::CreateUnconvertedDependencyRecord(const FAssetId UnconvertedAssetKey, const FAssetData& AssetInfo)
 {
-	FUnconvertedDependencyRecord* RecordPtr = UnconvertedDependencies.Find(UnconvertedAssetKey);
-	if (RecordPtr == nullptr)
-	{
-		const FBlueprintNativeCodeGenPaths TargetPaths = GetTargetPaths();
-		RecordPtr = &UnconvertedDependencies.Add(UnconvertedAssetKey, FUnconvertedDependencyRecord(AssetInfo, TargetPaths));
-	}
-	check(RecordPtr != nullptr);
+	// It is an error to create a record multiple times because it is not obvious what the client wants to happen.
+	check(ConvertedAssets.Find(UnconvertedAssetKey) == nullptr);
 
-	FUnconvertedDependencyRecord& DependencyRecord = *RecordPtr;
-	if (!DependencyRecord.IsValid())
+	if (FUnconvertedDependencyRecord* Existing = UnconvertedDependencies.Find(UnconvertedAssetKey))
 	{
-		const FBlueprintNativeCodeGenPaths TargetPaths = GetTargetPaths();
-		DependencyRecord.GeneratedWrapperPath = BlueprintNativeCodeGenManifestImpl::GenerateUnconvertedWrapperPath(TargetPaths, AssetInfo);
-
-		ensure(DependencyRecord.IsValid());
+		return *Existing;
 	}
 
-	DependencyRecord.ReferencedBy.AddUnique(ReferencingAsset);
-	return DependencyRecord;
-}
-
-//------------------------------------------------------------------------------
-const FConvertedAssetRecord* FBlueprintNativeCodeGenManifest::FindConversionRecord(const FAssetId AssetId) const
-{
-	return ConvertedAssets.Find(AssetId);
+	const FBlueprintNativeCodeGenPaths TargetPaths = GetTargetPaths();
+	FUnconvertedDependencyRecord* RecordPtr = &UnconvertedDependencies.Add(UnconvertedAssetKey, FUnconvertedDependencyRecord(BlueprintNativeCodeGenManifestImpl::GenerateUnconvertedWrapperPath(TargetPaths, AssetInfo)));
+	return *RecordPtr;
 }
 
 //------------------------------------------------------------------------------
@@ -592,14 +476,19 @@ void FBlueprintNativeCodeGenManifest::GatherModuleDependencies(UPackage* Package
 }
 
 //------------------------------------------------------------------------------
-bool FBlueprintNativeCodeGenManifest::Save() const
+bool FBlueprintNativeCodeGenManifest::Save(int32 Id) const
 {
-	return SaveAs(*ManifestFilePath);
-}
-
-//------------------------------------------------------------------------------
-bool FBlueprintNativeCodeGenManifest::SaveAs(const TCHAR* Filename) const
-{
+	FString FullFilename;
+	if (Id != -1)
+	{
+		FullFilename = *(ManifestFilePath + FString::FromInt(Id));
+	}
+	else
+	{
+		FullFilename = *ManifestFilePath;
+	}
+	
+	const TCHAR* Filename = *FullFilename;
 	TSharedRef<FJsonObject> JsonObject = MakeShareable(new FJsonObject());
 
 	if (FJsonObjectConverter::UStructToJsonObject(FBlueprintNativeCodeGenManifest::StaticStruct(), this, JsonObject,
@@ -617,9 +506,8 @@ bool FBlueprintNativeCodeGenManifest::SaveAs(const TCHAR* Filename) const
 	return false;
 }
 
-void FBlueprintNativeCodeGenManifest::Merge(const TCHAR* Filename)
+void FBlueprintNativeCodeGenManifest::Merge(const FBlueprintNativeCodeGenManifest& OtherManifest)
 {
-	FBlueprintNativeCodeGenManifest OtherManifest = FBlueprintNativeCodeGenManifest(FString(Filename));
 	for (auto& Entry : OtherManifest.ModuleDependencies)
 	{
 		ModuleDependencies.AddUnique(Entry);
@@ -630,9 +518,9 @@ void FBlueprintNativeCodeGenManifest::Merge(const TCHAR* Filename)
 		ConvertedAssets.Add(Entry.Key, Entry.Value);
 	}
 
-	for (auto& Entry : UnconvertedDependencies)
+	for (auto& Entry : OtherManifest.UnconvertedDependencies)
 	{
-		OtherManifest.UnconvertedDependencies.Add(Entry.Key, Entry.Value);
+		UnconvertedDependencies.Add(Entry.Key, Entry.Value);
 	}
 }
 

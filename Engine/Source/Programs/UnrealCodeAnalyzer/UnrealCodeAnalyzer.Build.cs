@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -8,7 +8,7 @@ public class UnrealCodeAnalyzer : ModuleRules
 	{
 		bEnableExceptions = false;
 
-		AddThirdPartyPrivateStaticDependencies(Target, "llvm");
+		AddEngineThirdPartyPrivateStaticDependencies(Target, "llvm");
 
 		PublicDependencyModuleNames.AddRange(new string[] {
 			"Core",
@@ -29,5 +29,7 @@ public class UnrealCodeAnalyzer : ModuleRules
 		});
 
 		SharedPCHHeaderFile = "Programs/UnrealCodeAnalyzer/Public/UnrealCodeAnalyzerPCH.h";
+
+		PrecompileForTargets = PrecompileTargetsType.Any;
 	}
 }

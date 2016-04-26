@@ -1,8 +1,9 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "AutomationTest.h"
 
+#if WITH_DEV_AUTOMATION_TESTS
 
 // disable optimization for DateTimeFormattingRulesTest as it compiles very slowly in development builds
 PRAGMA_DISABLE_OPTIMIZATION
@@ -112,3 +113,5 @@ bool FDateTimeFormattingRulesTest::RunTest (const FString& Parameters)
 
 
 PRAGMA_ENABLE_OPTIMIZATION
+
+#endif //WITH_DEV_AUTOMATION_TESTS

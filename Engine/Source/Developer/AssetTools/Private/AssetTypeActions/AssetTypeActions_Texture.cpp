@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AssetToolsPrivatePCH.h"
 #include "AssetToolsModule.h"
@@ -6,6 +6,8 @@
 #include "Editor/UnrealEd/Public/PackageHelperFunctions.h"
 #include "TextureEditor.h"
 #include "ContentBrowserModule.h"
+#include "Factories/SubUVAnimationFactory.h"
+#include "Particles/SubUVAnimation.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
@@ -19,6 +21,16 @@ void FAssetTypeActions_Texture::GetActions( const TArray<UObject*>& InObjects, F
 		FSlateIcon(FEditorStyle::GetStyleSetName(), "ClassIcon.Material"),
 		FUIAction(
 			FExecuteAction::CreateSP( this, &FAssetTypeActions_Texture::ExecuteCreateMaterial, Textures ),
+			FCanExecuteAction()
+			)
+		);
+
+	MenuBuilder.AddMenuEntry(
+		LOCTEXT("Texture_CreateSubUV", "Create SubUV Animation"),
+		LOCTEXT("Texture_CreateSubUVAnimationTooltip", "Creates a new SubUV Animation using this texture."),
+		FSlateIcon(FEditorStyle::GetStyleSetName(), "ClassIcon.Material"),
+		FUIAction(
+			FExecuteAction::CreateSP( this, &FAssetTypeActions_Texture::ExecuteCreateSubUVAnimation, Textures ),
 			FCanExecuteAction()
 			)
 		);
@@ -106,6 +118,64 @@ void FAssetTypeActions_Texture::ExecuteCreateMaterial(TArray<TWeakObjectPtr<UTex
 
 				FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
 				UObject* NewAsset = AssetToolsModule.Get().CreateAsset(Name, FPackageName::GetLongPackagePath(PackageName), UMaterial::StaticClass(), Factory);
+
+				if ( NewAsset )
+				{
+					ObjectsToSync.Add(NewAsset);
+				}
+			}
+		}
+
+		if ( ObjectsToSync.Num() > 0 )
+		{
+			FAssetTools::Get().SyncBrowserToAssets(ObjectsToSync);
+		}
+	}
+}
+
+void FAssetTypeActions_Texture::ExecuteCreateSubUVAnimation(TArray<TWeakObjectPtr<UTexture>> Objects)
+{
+	const FString DefaultSuffix = TEXT("_SubUV");
+
+	if ( Objects.Num() == 1 )
+	{
+		UTexture2D* Object = Cast<UTexture2D>(Objects[0].Get());
+
+		if ( Object )
+		{
+			// Determine an appropriate name
+			FString Name;
+			FString PackagePath;
+			CreateUniqueAssetName(Object->GetOutermost()->GetName(), DefaultSuffix, PackagePath, Name);
+
+			// Create the factory used to generate the asset
+			USubUVAnimationFactory* Factory = NewObject<USubUVAnimationFactory>();
+			Factory->InitialTexture = Object;
+
+			FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+			ContentBrowserModule.Get().CreateNewAsset(Name, FPackageName::GetLongPackagePath(PackagePath), USubUVAnimation::StaticClass(), Factory);
+		}
+	}
+	else
+	{
+		TArray<UObject*> ObjectsToSync;
+
+		for (auto ObjIt = Objects.CreateConstIterator(); ObjIt; ++ObjIt)
+		{
+			UTexture2D* Object = Cast<UTexture2D>((*ObjIt).Get());
+
+			if ( Object )
+			{
+				FString Name;
+				FString PackageName;
+				CreateUniqueAssetName(Object->GetOutermost()->GetName(), DefaultSuffix, PackageName, Name);
+
+				// Create the factory used to generate the asset
+				USubUVAnimationFactory* Factory = NewObject<USubUVAnimationFactory>();
+				Factory->InitialTexture = Object;
+
+				FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
+				UObject* NewAsset = AssetToolsModule.Get().CreateAsset(Name, FPackageName::GetLongPackagePath(PackageName), USubUVAnimation::StaticClass(), Factory);
 
 				if ( NewAsset )
 				{

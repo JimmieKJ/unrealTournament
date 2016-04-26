@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneCapturePCH.h"
 #include "MovieSceneCapture.h"
@@ -26,6 +26,26 @@ void FActiveMovieSceneCaptures::Remove(UMovieSceneCapture* Capture)
 	ActiveCaptures.Remove(Capture);
 }
 
+void FActiveMovieSceneCaptures::Tick(float DeltaSeconds)
+{
+	TArray<UMovieSceneCapture*> Captures = ActiveCaptures;
+	for (UMovieSceneCapture* Capture : Captures)
+	{
+		if (Capture->ShouldFinalize())
+		{
+			Capture->Finalize();
+		}
+		else
+		{
+			Capture->Tick(DeltaSeconds);
+			if (IMovieSceneCaptureProtocol* Protocol = Capture->GetCaptureProtocol())
+			{
+				Protocol->Tick();
+			}
+		}
+	}
+}
+
 void FActiveMovieSceneCaptures::Shutdown()
 {
 	TArray<UMovieSceneCapture*> ActiveCapturesCopy;
@@ -33,7 +53,7 @@ void FActiveMovieSceneCaptures::Shutdown()
 
 	for (auto* Obj : ActiveCapturesCopy)
 	{
-		Obj->Close();
+		Obj->Finalize();
 	}
 
 	Singleton.Reset();

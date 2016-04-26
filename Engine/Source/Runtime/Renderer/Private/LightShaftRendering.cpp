@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	FogRendering.cpp: Fog rendering implementation.
@@ -16,13 +16,15 @@
 const float PointLightFadeDistanceIncrease = 200;
 const float PointLightRadiusFadeFactor = 5;
 
+// 0 is off, any other value is on, later we can expose more quality settings e.g. sample count
 int32 GLightShafts = 1;
-static FAutoConsoleVariableRef CVarLightShafts(
-	TEXT("r.LightShafts"),
+static FAutoConsoleVariableRef CVarLightShaftQuality(
+	TEXT("r.LightShaftQuality"),
 	GLightShafts,
-	TEXT("Whether light shafts are allowed to be rendered, defaults to 1."),
-	ECVF_RenderThreadSafe
-	);
+	TEXT("Defines the light shaft quality (mobile and non mobile).\n")
+	TEXT("  0: off\n")
+	TEXT("  1: on (default)"),
+	ECVF_Scalability | ECVF_RenderThreadSafe);
 
 int32 GLightShaftDownsampleFactor = 2;
 static FAutoConsoleVariableRef CVarCacheLightShaftDownsampleFactor(
@@ -692,7 +694,7 @@ bool DoesViewFamilyAllowLightShafts(const FSceneViewFamily& ViewFamily)
 	return GLightShafts
 		&& ViewFamily.EngineShowFlags.LightShafts
 		&& ViewFamily.EngineShowFlags.Lighting
-		&& !(ViewFamily.EngineShowFlags.ShaderComplexity)
+		&& ViewFamily.GetDebugViewShaderMode() == DVSM_None
 		&& !(ViewFamily.EngineShowFlags.VisualizeAdaptiveDOF)
 		&& !(ViewFamily.EngineShowFlags.VisualizeDOF)
 		&& !(ViewFamily.EngineShowFlags.VisualizeBuffer)

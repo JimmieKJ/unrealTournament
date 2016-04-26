@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LocalizationPrivatePCH.h"
 #include "LocalizationTargetTypes.h"
@@ -467,7 +467,7 @@ bool ULocalizationTarget::RenameTargetAndFiles(const FString& NewName)
 	};
 
 	// Delete configuration files.
-	const TArray<FString>& ScriptPaths = LocalizationConfigurationScript::GetScriptPaths(this);
+	const TArray<FString>& ScriptPaths = LocalizationConfigurationScript::GetConfigPaths(this);
 	for (const FString& ScriptPath : ScriptPaths)
 	{
 		if (!TryDelete(ScriptPath))
@@ -476,30 +476,12 @@ bool ULocalizationTarget::RenameTargetAndFiles(const FString& NewName)
 		}
 	}
 
-	const auto& GetNamedPaths = [this](TArray<FString>& NamedPaths)
-	{
-		NamedPaths.Add(LocalizationConfigurationScript::GetManifestPath(this));
-		NamedPaths.Add(LocalizationConfigurationScript::GetWordCountCSVPath(this));
-		NamedPaths.Add(LocalizationConfigurationScript::GetConflictReportPath(this));
-
-		for (const FCultureStatistics& Culture : Settings.SupportedCulturesStatistics)
-		{
-			NamedPaths.Add(LocalizationConfigurationScript::GetArchivePath(this, Culture.CultureName));
-			NamedPaths.Add(LocalizationConfigurationScript::GetDefaultPOPath(this, Culture.CultureName));
-			NamedPaths.Add(LocalizationConfigurationScript::GetLocResPath(this, Culture.CultureName));
-		}
-
-		NamedPaths.Add(LocalizationConfigurationScript::GetDataDirectory(this));
-	};
-
-	TArray<FString> OldPaths;
-	GetNamedPaths(OldPaths);
+	const TArray<FString> OldPaths = LocalizationConfigurationScript::GetOutputFilePaths(this);
 
 	// Rename
 	Settings.Name = NewName;
 
-	TArray<FString> NewPaths;
-	GetNamedPaths(NewPaths);
+	const TArray<FString> NewPaths = LocalizationConfigurationScript::GetOutputFilePaths(this);
 
 	// Rename data files.
 	check(OldPaths.Num() == NewPaths.Num());
@@ -550,10 +532,7 @@ bool ULocalizationTarget::RenameTargetAndFiles(const FString& NewName)
 	}
 
 	// Generate new configuration files.
-	LocalizationConfigurationScript::GenerateGatherScript(this).Write(LocalizationConfigurationScript::GetGatherScriptPath(this));
-	LocalizationConfigurationScript::GenerateImportScript(this).Write(LocalizationConfigurationScript::GetImportScriptPath(this));
-	LocalizationConfigurationScript::GenerateExportScript(this).Write(LocalizationConfigurationScript::GetExportScriptPath(this));
-	LocalizationConfigurationScript::GenerateWordCountReportScript(this).Write(LocalizationConfigurationScript::GetWordCountReportScriptPath(this));
+	LocalizationConfigurationScript::GenerateAllConfigFiles(this);
 
 	//if (CanUseSourceControl)
 	//{
@@ -615,7 +594,7 @@ bool ULocalizationTarget::DeleteFiles(const FString* const Culture) const
 	// Delete configuration files if deleting the target.
 	if (!Culture)
 	{
-		const TArray<FString>& ScriptPaths = LocalizationConfigurationScript::GetScriptPaths(this);
+		const TArray<FString>& ScriptPaths = LocalizationConfigurationScript::GetConfigPaths(this);
 
 		// Remove script files from source control.
 		{

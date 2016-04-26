@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Engine/Breakpoint.h"
@@ -7,11 +7,13 @@
 #include "LatentActions.h"
 
 #if WITH_EDITOR
+#include "UObject/DevObjectVersion.h"
 #include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
 #include "Editor/UnrealEd/Public/Kismet2/KismetEditorUtilities.h"
 #include "Editor/UnrealEd/Public/Kismet2/CompilerResultsLog.h"
 #include "Editor/UnrealEd/Public/Kismet2/StructureEditorUtils.h"
 #include "Editor/Kismet/Public/FindInBlueprintManager.h"
+#include "Editor/UnrealEd/Public/CookerSettings.h"
 #include "Editor/UnrealEd/Public/Editor.h"
 #include "Crc.h"
 #include "MessageLog.h"
@@ -180,9 +182,32 @@ void FBPVariableDescription::RemoveMetaData(const FName& Key)
 //////////////////////////////////////////////////////////////////////////
 // UBlueprintCore
 
+#if WITH_EDITORONLY_DATA
+namespace
+{
+	void GatherBlueprintForLocalization(const UObject* const Object, FPropertyLocalizationDataGatherer& PropertyLocalizationDataGatherer, const EPropertyLocalizationGathererTextFlags GatherTextFlags)
+	{
+		const UBlueprintCore* const Blueprint = CastChecked<UBlueprintCore>(Object);
+
+		// Blueprint assets never exist at runtime, so treat all of their properties as editor-only, but allow their script (which is available at runtime) to be gathered by a game
+		PropertyLocalizationDataGatherer.GatherLocalizationDataFromObject(Blueprint, GatherTextFlags | EPropertyLocalizationGathererTextFlags::ForceEditorOnlyProperties);
+	}
+}
+#endif
+
 UBlueprintCore::UBlueprintCore(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
+	static struct FAutomaticRegistrationOfLocalizationGatherer
+	{
+		FAutomaticRegistrationOfLocalizationGatherer()
+		{
+			FPropertyLocalizationDataGatherer::GetTypeSpecificLocalizationDataGatheringCallbacks().Add(UBlueprintCore::StaticClass(), &GatherBlueprintForLocalization);
+		}
+	} AutomaticRegistrationOfLocalizationGatherer;
+#endif
+
 	bLegacyGeneratedClassIsAuthoritative = false;
 	bLegacyNeedToPurgeSkelRefs = true;
 }
@@ -190,6 +215,10 @@ UBlueprintCore::UBlueprintCore(const FObjectInitializer& ObjectInitializer)
 void UBlueprintCore::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
+
+#if WITH_EDITOR
+	Ar.UsingCustomVersion(FBlueprintsObjectVersion::GUID);
+#endif
 
 	Ar << bLegacyGeneratedClassIsAuthoritative;	
 
@@ -280,6 +309,19 @@ UBlueprint::UBlueprint(const FObjectInitializer& ObjectInitializer)
 {
 }
 
+#if WITH_EDITORONLY_DATA
+void UBlueprint::PreSave()
+{
+	Super::PreSave();
+
+	// Clear all upgrade notes, the user has saved and should not see them anymore
+	UpgradeNotesLog.Reset();
+
+	// Cache the BP for use
+	FFindInBlueprintSearchManager::Get().AddOrUpdateBlueprintSearchMetadata(this);
+}
+#endif // WITH_EDITORONLY_DATA
+
 void UBlueprint::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
@@ -352,11 +394,6 @@ void UBlueprint::Serialize(FArchive& Ar)
 		}
 	}
 
-	if(Ar.IsSaving() && !Ar.IsTransacting())
-	{
-		// Cache the BP for use
-		FFindInBlueprintSearchManager::Get().AddOrUpdateBlueprintSearchMetadata(this);
-	}
 #endif // WITH_EDITORONLY_DATA
 }
 
@@ -396,7 +433,9 @@ bool UBlueprint::RenameGeneratedClasses( const TCHAR* InName, UObject* NewOuter,
 
 bool UBlueprint::Rename( const TCHAR* InName, UObject* NewOuter, ERenameFlags Flags )
 {
-	// Move generated class to the new package, to create redirector
+	const FName OldName = GetFName();
+
+	// Move generated class/CDO to the new package, to create redirectors
 	if ( !RenameGeneratedClasses(InName, NewOuter, Flags) )
 	{
 		return false;
@@ -404,10 +443,20 @@ bool UBlueprint::Rename( const TCHAR* InName, UObject* NewOuter, ERenameFlags Fl
 
 	bool bSuccess = Super::Rename( InName, NewOuter, Flags );
 
-	// Finally, do a compile 
-	if(bSuccess && !(Flags & REN_Test) && !(Flags & REN_DoNotDirty))
+	// Finally, do a compile, but only if the new name differs from before
+	if(bSuccess && !(Flags & REN_Test) && !(Flags & REN_DoNotDirty) && InName != OldName)
 	{
+		// Gather all blueprints that currently depend on this one.
+		TArray<UBlueprint*> Dependents;
+		FBlueprintEditorUtils::GetDependentBlueprints(this, Dependents);
+
 		FKismetEditorUtilities::CompileBlueprint(this, false);
+
+		// Recompile dependent blueprints after compiling this one. Otherwise, we can end up with a GLEO during the internal package save, which will include referencers as well.
+		for (UBlueprint* DependentBlueprint : Dependents)
+		{
+			FKismetEditorUtilities::CompileBlueprint(DependentBlueprint, false);
+		}
 	}
 
 	return bSuccess;
@@ -565,6 +614,18 @@ void UBlueprint::PostLoad()
 			Schema->BackwardCompatibilityNodeConversion(Graph, true);
 		}
 	}
+
+#if WITH_EDITOR
+	if (UpgradeNotesLog.IsValid() && GetLinker())
+	{
+		const FCustomVersion* CustomVersion = GetLinker()->GetCustomVersions().GetVersion(FBlueprintsObjectVersion::GUID);
+		if (CustomVersion == nullptr || CustomVersion->Version < FBlueprintsObjectVersion::ArrayGetByRefUpgrade)
+		{
+			UpgradeNotesLog->Note(TEXT("Auto-Upgrade Note: Updated all array \"Get\" nodes in Blueprint Class \'@@\' to return a reference. Nodes have been injected to ensure they continue to work as they always have."), this);
+			UpgradeNotesLog->Note(TEXT("Auto-Upgrade Note: To remove these upgrade notes, resave @@. Be sure to verify nothing has broken in the upgrade process."), this);
+		}
+	}
+#endif
 
 	FStructureEditorUtils::RemoveInvalidStructureMemberVariableFromBlueprint(this);
 
@@ -947,6 +1008,105 @@ bool UBlueprint::ValidateGeneratedClass(const UClass* InClass)
 	}
 
 	return true;
+}
+
+void UBlueprint::BeginCacheForCookedPlatformData(const ITargetPlatform *TargetPlatform)
+{
+	Super::BeginCacheForCookedPlatformData(TargetPlatform);
+
+	// Only cook component data if the setting is enabled and this is an Actor-based Blueprint class.
+	if (GeneratedClass && GeneratedClass->IsChildOf<AActor>() && GetDefault<UCookerSettings>()->bCookBlueprintComponentTemplateData)
+	{
+		int32 NumCookedComponents = 0;
+		const double StartTime = FPlatformTime::Seconds();
+
+		UBlueprintGeneratedClass* BPGClass = Cast<UBlueprintGeneratedClass>(*GeneratedClass);
+		if (BPGClass)
+		{
+			// Cook all overridden SCS component node templates inherited from the parent class hierarchy.
+			if (UInheritableComponentHandler* TargetInheritableComponentHandler = BPGClass->GetInheritableComponentHandler())
+			{
+				for (auto RecordIt = TargetInheritableComponentHandler->CreateRecordIterator(); RecordIt; ++RecordIt)
+				{
+					if (!RecordIt->CookedComponentInstancingData.bIsValid)
+					{
+						// Note: This will currently block until finished.
+						// @TODO - Make this an async task so we can potentially cook instancing data for multiple components in parallel.
+						FBlueprintEditorUtils::BuildComponentInstancingData(RecordIt->ComponentTemplate, RecordIt->CookedComponentInstancingData);
+						++NumCookedComponents;
+					}
+				}
+			}
+
+			// Cook all SCS component templates that are owned by this class.
+			if (BPGClass->SimpleConstructionScript)
+			{
+				for (auto Node : BPGClass->SimpleConstructionScript->GetAllNodes())
+				{
+					if (!Node->CookedComponentInstancingData.bIsValid)
+					{
+						// Note: This will currently block until finished.
+						// @TODO - Make this an async task so we can potentially cook instancing data for multiple components in parallel.
+						FBlueprintEditorUtils::BuildComponentInstancingData(Node->ComponentTemplate, Node->CookedComponentInstancingData);
+						++NumCookedComponents;
+					}
+				}
+			}
+
+			// Cook all UCS/AddComponent node templates that are owned by this class.
+			for (UActorComponent* ComponentTemplate : BPGClass->ComponentTemplates)
+			{
+				FBlueprintCookedComponentInstancingData& CookedComponentInstancingData = BPGClass->CookedComponentInstancingData.FindOrAdd(ComponentTemplate->GetFName());
+				if (!CookedComponentInstancingData.bIsValid)
+				{
+					// Note: This will currently block until finished.
+					// @TODO - Make this an async task so we can potentially cook instancing data for multiple components in parallel.
+					FBlueprintEditorUtils::BuildComponentInstancingData(ComponentTemplate, CookedComponentInstancingData);
+					++NumCookedComponents;
+				}
+			}
+		}
+
+		if (NumCookedComponents > 0)
+		{
+			UE_LOG(LogBlueprint, Log, TEXT("%s: Cooked %d component(s) in %.02g ms"), *GetName(), NumCookedComponents, (FPlatformTime::Seconds() - StartTime) * 1000.0);
+		}
+	}
+}
+
+bool UBlueprint::IsCachedCookedPlatformDataLoaded(const ITargetPlatform* TargetPlatform)
+{
+	// @TODO - Check async tasks for completion. For now just return TRUE since all tasks will currently block until finished.
+	return true;
+}
+
+void UBlueprint::ClearAllCachedCookedPlatformData()
+{
+	Super::ClearAllCachedCookedPlatformData();
+
+	if (UBlueprintGeneratedClass* BPGClass = Cast<UBlueprintGeneratedClass>(*GeneratedClass))
+	{
+		// Clear cooked data for overridden SCS component node templates inherited from the parent class hierarchy.
+		if (UInheritableComponentHandler* TargetInheritableComponentHandler = BPGClass->GetInheritableComponentHandler())
+		{
+			for (auto RecordIt = TargetInheritableComponentHandler->CreateRecordIterator(); RecordIt; ++RecordIt)
+			{
+				RecordIt->CookedComponentInstancingData = FBlueprintCookedComponentInstancingData();
+			}
+		}
+
+		// Clear cooked data for SCS component node templates.
+		if (BPGClass->SimpleConstructionScript)
+		{
+			for (auto Node : BPGClass->SimpleConstructionScript->GetAllNodes())
+			{
+				Node->CookedComponentInstancingData = FBlueprintCookedComponentInstancingData();
+			}
+		}
+
+		// Clear cooked data for UCS/AddComponent node templates.
+		BPGClass->CookedComponentInstancingData.Empty();
+	}
 }
 
 #endif // WITH_EDITOR

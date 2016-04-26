@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -41,18 +41,18 @@ public:
 	STDMETHODIMP BeginRead(BYTE* pb, ULONG cb, IMFAsyncCallback* pCallback, IUnknown* punkState);
 	STDMETHODIMP BeginWrite(const BYTE* pb, ULONG cb, IMFAsyncCallback* pCallback, IUnknown* punkState);
 	STDMETHODIMP Close();
-	STDMETHODIMP EndRead( IMFAsyncResult* pResult, ULONG* pcbRead);
-	STDMETHODIMP EndWrite( IMFAsyncResult* pResult, ULONG* pcbWritten);
+	STDMETHODIMP EndRead(IMFAsyncResult* pResult, ULONG* pcbRead);
+	STDMETHODIMP EndWrite(IMFAsyncResult* pResult, ULONG* pcbWritten);
 	STDMETHODIMP Flush();
 	STDMETHODIMP GetCapabilities(DWORD* pdwCapabilities);
 	STDMETHODIMP GetCurrentPosition(QWORD* pqwPosition);
 	STDMETHODIMP GetLength(QWORD* pqwLength);
-	STDMETHODIMP IsEndOfStream( BOOL* pfEndOfStream);
+	STDMETHODIMP IsEndOfStream(BOOL* pfEndOfStream);
 	STDMETHODIMP Read(BYTE* pb, ULONG cb, ULONG* pcbRead);
 	STDMETHODIMP Seek(MFBYTESTREAM_SEEK_ORIGIN SeekOrigin, LONGLONG qwSeekOffset, DWORD dwSeekFlags, QWORD* pqwCurrentPosition);
 	STDMETHODIMP SetLength(QWORD qwLength);
 	STDMETHODIMP SetCurrentPosition(QWORD qwPosition);
-	STDMETHODIMP Write(const BYTE* pb, ULONG cb, ULONG* pcbWritten );
+	STDMETHODIMP Write(const BYTE* pb, ULONG cb, ULONG* pcbWritten);
 
 private:
 

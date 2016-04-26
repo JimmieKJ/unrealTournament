@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" Name="UnrealGameSync" Language="1033" Version="!(bind.FileVersion.ApplicationExe)" Manufacturer="Epic Games, Inc." UpgradeCode="770e2608-c9b0-4a4e-9802-45f9ca696ec6">
+    <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of UnrealGameSync is already installed." />
+    <Media Id="1" Cabinet="Cab1.cab" EmbedCab="yes" />
+    
+    <Icon Id="Installed.ico" SourceFile="Icon.ico"/>
+
+    <Property Id="ARPPRODUCTICON" Value="Installed.ico" />
+    
+    <Feature Id="ProductFeature" Title="UnrealGameSync" Level="1">
+      <ComponentRef Id="ProductComponent" />
+      <ComponentRef Id="ShortcutComponent" />
+    </Feature>
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="UnrealGameSync" />
+      </Directory>
+      <Directory Id="ProgramMenuFolder"/>
+      <Directory Id="WindowsFolder" Name="WINDOWS"/>
+    </Directory>
+
+    <Binary Id="InstallerCustomAction.CA.dll" SourceFile="..\InstallerCustomAction\bin\$(var.Configuration)\InstallerCustomAction.CA.dll" />
+    <CustomAction Id="RemoveClickOnceInstalls" Return="check" Execute="immediate" BinaryKey="InstallerCustomAction.CA.dll" DllEntry="RemoveClickOnceInstalls"/>
+
+    <Property Id="QtExecCmdLine" Value='"[WindowsFolder]\System32\taskkill.exe" /F /IM UnrealGameSync.exe'/>
+    <CustomAction Id="KillRunningInstances" BinaryKey="WixCA" DllEntry="CAQuietExec" Execute="immediate" Return="ignore"/>
+
+    <Property Id="WixShellExecTarget" Value="[#ApplicationExe]" />
+    <CustomAction Id="LaunchApplication" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes" />
+
+    <InstallExecuteSequence>
+      <Custom Action="RemoveClickOnceInstalls" Before="LaunchConditions"  />
+      <Custom Action='KillRunningInstances' Before='InstallValidate'/>
+      <Custom Action='LaunchApplication' After='InstallFinalize'>NOT Installed AND NOT REMOVE</Custom>
+    </InstallExecuteSequence>
+
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="ProductComponent" Guid="{C30B4BFC-9089-46F7-9149-42DB8F9F2B90}">
+        <File Id="ApplicationExe" Source="$(var.UnrealGameSyncLauncher.TargetPath)" KeyPath="yes"/>
+        <File Source="$(var.UnrealGameSyncLauncher.TargetPath).config" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="ProgramMenuFolder">
+      <Component Id="ShortcutComponent" Guid="{BE12432C-5E4B-4E44-973E-84C680FCFFB7}">
+        <Shortcut Id="ApplicationStartMenuShortcut" Name="UnrealGameSync" Description="Utility to help syncing and compiling UnrealEngine games" Target="[#ApplicationExe]" WorkingDirectory="INSTALLFOLDER"/>
+        <RegistryValue Root="HKCU" Key="Software\Epic Games\UnrealGameSync" Name="installed" Type="integer" Value="1" KeyPath="yes"/>
+      </Component>
+    </DirectoryRef>
+  </Product>
+</Wix>

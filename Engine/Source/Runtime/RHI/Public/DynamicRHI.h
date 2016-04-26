@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DynamicRHI.h: Dynamically bound Render Hardware Interface definitions.
@@ -29,6 +29,8 @@ public:
 	virtual void RHIDispatchComputeShader(uint32 ThreadGroupCountX, uint32 ThreadGroupCountY, uint32 ThreadGroupCountZ) = 0;
 
 	virtual void RHIDispatchIndirectComputeShader(FVertexBufferRHIParamRef ArgumentBuffer, uint32 ArgumentOffset) = 0;
+
+	virtual void RHISetAsyncComputeBudget(EAsyncComputeBudget Budget) = 0;
 
 	/**
 	* Explicitly transition a UAV from readable -> writable by the GPU or vice versa.
@@ -77,7 +79,7 @@ public:
 
 	virtual void RHISetShaderParameter(FComputeShaderRHIParamRef ComputeShader, uint32 BufferIndex, uint32 BaseIndex, uint32 NumBytes, const void* NewValue) = 0;
 
-	virtual void RHIPushEvent(const TCHAR* Name) = 0;
+	virtual void RHIPushEvent(const TCHAR* Name, FColor Color) = 0;
 
 	virtual void RHIPopEvent() = 0;
 
@@ -117,6 +119,10 @@ public:
 	virtual void RHIDispatchComputeShader(uint32 ThreadGroupCountX, uint32 ThreadGroupCountY, uint32 ThreadGroupCountZ) = 0;
 
 	virtual void RHIDispatchIndirectComputeShader(FVertexBufferRHIParamRef ArgumentBuffer, uint32 ArgumentOffset) = 0;
+	
+	virtual void RHISetAsyncComputeBudget(EAsyncComputeBudget Budget) override
+	{
+	}
 
 	virtual void RHIAutomaticCacheFlushAfterComputeShader(bool bEnable) = 0;
 
@@ -442,7 +448,7 @@ public:
 	 */
 	virtual void RHIEnableDepthBoundsTest(bool bEnable, float MinDepth, float MaxDepth) = 0;
 
-	virtual void RHIPushEvent(const TCHAR* Name) = 0;
+	virtual void RHIPushEvent(const TCHAR* Name, FColor Color) = 0;
 
 	virtual void RHIPopEvent() = 0;
 
@@ -456,7 +462,6 @@ public:
 
 	/** Wait for AsyncCompute command stream to finish (no effect if not supported) */
 	virtual void RHIGraphicsWaitOnAsyncComputeJob(uint32 FenceIndex) = 0;
-
 };
 
 /** The interface which is implemented by the dynamically bound RHI. */
@@ -512,6 +517,9 @@ public:
 	/** Creates a geometry shader with stream output ability, defined by ElementList. */
 	// FlushType: Wait RHI Thread
 	virtual FGeometryShaderRHIRef RHICreateGeometryShaderWithStreamOutput(const TArray<uint8>& Code, const FStreamOutElementList& ElementList, uint32 NumStrides, const uint32* Strides, int32 RasterizedStream) = 0;
+
+	// Some RHIs can have pending messages/logs for error tracking, or debug modes
+	virtual void FlushPendingLogs() {}
 
 	// FlushType: Wait RHI Thread
 	virtual FComputeShaderRHIRef RHICreateComputeShader(const TArray<uint8>& Code) = 0;
@@ -609,6 +617,10 @@ public:
 	// FlushType: Wait RHI Thread
 	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView(FVertexBufferRHIParamRef VertexBuffer, uint32 Stride, uint8 Format) = 0;
 
+	/** Creates a shader resource view of the given index buffer. */
+	// FlushType: Wait RHI Thread
+	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView(FIndexBufferRHIParamRef Buffer) = 0;
+
 	/**
 	 * Computes the total size of a 2D texture with the specified parameters.
 	 *
@@ -696,7 +708,7 @@ public:
 	 * @param NumInitialMips - how many mips are provided in InitialMipData
 	 * @returns a reference to a 2D texture resource
 	 */
-	// FlushType: Wait RHI Thread
+	// FlushType: Thread safe
 	virtual FTexture2DRHIRef RHIAsyncCreateTexture2D(uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 Flags, void** InitialMipData, uint32 NumInitialMips) = 0;
 
 	/**
@@ -942,6 +954,7 @@ public:
 
 	// FlushType: Thread safe
 	virtual void RHIBindDebugLabelName(FTextureRHIParamRef Texture, const TCHAR* Name) = 0;
+	virtual void RHIBindDebugLabelName(FUnorderedAccessViewRHIParamRef UnorderedAccessViewRHI, const TCHAR* Name) {}
 
 	/**
 	 * Reads the contents of a texture to an output buffer (non MSAA and MSAA) and returns it as a FColor array.
@@ -1098,6 +1111,7 @@ public:
 
 	virtual FVertexBufferRHIRef CreateVertexBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo);
 	virtual FShaderResourceViewRHIRef CreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FVertexBufferRHIParamRef VertexBuffer, uint32 Stride, uint8 Format);
+	virtual FShaderResourceViewRHIRef CreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FIndexBufferRHIParamRef Buffer);
 	virtual void* LockVertexBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, FVertexBufferRHIParamRef VertexBuffer, uint32 Offset, uint32 SizeRHI, EResourceLockMode LockMode);
 	virtual void UnlockVertexBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, FVertexBufferRHIParamRef VertexBuffer);
 	virtual FTexture2DRHIRef AsyncReallocateTexture2D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef Texture2D, int32 NewMipCount, int32 NewSizeX, int32 NewSizeY, FThreadSafeCounter* RequestStatus);
@@ -1123,6 +1137,7 @@ public:
 	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DArrayRHIParamRef Texture2DArrayRHI, uint8 MipLevel);
 	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FTextureCubeRHIParamRef TextureCubeRHI, uint8 MipLevel);
 	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FVertexBufferRHIParamRef VertexBuffer, uint32 Stride, uint8 Format);
+	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FIndexBufferRHIParamRef Buffer);
 	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FStructuredBufferRHIParamRef StructuredBuffer);
 	virtual FTextureCubeRHIRef RHICreateTextureCube_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 Size, uint8 Format, uint32 NumMips, uint32 Flags, FRHIResourceCreateInfo& CreateInfo);
 	virtual FTextureCubeRHIRef RHICreateTextureCubeArray_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 Size, uint32 ArraySize, uint8 Format, uint32 NumMips, uint32 Flags, FRHIResourceCreateInfo& CreateInfo);
@@ -1195,6 +1210,11 @@ FORCEINLINE uint32 RHIComputeMemorySize(FTextureRHIParamRef TextureRHI)
 FORCEINLINE void RHIBindDebugLabelName(FTextureRHIParamRef Texture, const TCHAR* Name)
 {
 	 GDynamicRHI->RHIBindDebugLabelName(Texture, Name);
+}
+
+FORCEINLINE void RHIBindDebugLabelName(FUnorderedAccessViewRHIParamRef UnorderedAccessViewRHI, const TCHAR* Name)
+{
+	GDynamicRHI->RHIBindDebugLabelName(UnorderedAccessViewRHI, Name);
 }
 
 FORCEINLINE bool RHIGetRenderQueryResult(FRenderQueryRHIParamRef RenderQuery, uint64& OutResult, bool bWait)

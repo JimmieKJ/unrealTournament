@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneToolsPrivatePCH.h"
 #include "MovieSceneVisibilityTrack.h"
@@ -18,7 +18,7 @@ TSharedRef<FPropertySection> FVisibilityPropertyTrackEditor::MakePropertySection
 }
 
 
-void FVisibilityPropertyTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<bool>& GeneratedKeys )
+void FVisibilityPropertyTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<bool>& NewGeneratedKeys, TArray<bool>& DefaultGeneratedKeys )
 {
-	GeneratedKeys.Add(!PropertyChangedParams.GetPropertyValue<bool>());
+	NewGeneratedKeys.Add(!PropertyChangedParams.GetPropertyValue<bool>());
 }

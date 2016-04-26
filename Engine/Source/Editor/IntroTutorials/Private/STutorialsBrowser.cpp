@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "IntroTutorialsPrivatePCH.h"
 #include "STutorialsBrowser.h"
@@ -124,7 +124,7 @@ public:
 						.HAlign(HAlign_Right)
 						[
 							SNew(SImage)
-							.ToolTipText(LOCTEXT("CompletedCheckToolTip", "This category has been completed"))
+							.ToolTipText(LOCTEXT("CompletedCategoryCheckToolTip", "This category has been completed"))
 							.Visibility(this, &FTutorialListEntry_Category::GetCompletedVisibility)
 							.Image(FEditorStyle::Get().GetBrush("Tutorials.Browser.Completed"))
 						]
@@ -352,7 +352,7 @@ public:
 							.HAlign(HAlign_Right)
 							[
 								SNew(SImage)
-								.ToolTipText(LOCTEXT("CompletedCheckToolTip", "This tutorial has been completed"))
+								.ToolTipText(LOCTEXT("CompletedTutorialCheckToolTip", "This tutorial has been completed"))
 								.Visibility(this, &FTutorialListEntry_Tutorial::GetCompletedVisibility)
 								.Image(FEditorStyle::Get().GetBrush("Tutorials.Browser.Completed"))
 							]

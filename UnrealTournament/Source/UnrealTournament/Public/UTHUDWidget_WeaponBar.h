@@ -78,13 +78,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Texture WeaponIcon;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	FHUDRenderObject_Text WeaponNameText;
-
-	// How long to show the name of a weapon when switching to it.
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
-	float WeaponNameDisplayTime;
-
 	// How wide (unscaled) should the final cell be.  This should be the width of all the parts together.  However,
 	// the CellBackground and CellBorders will be stretched to fill any portion of this not filled.
 

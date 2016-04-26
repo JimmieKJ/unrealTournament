@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "PaperSpriteSheetImporterPrivatePCH.h"
 #include "Json.h"
@@ -78,6 +78,9 @@ UObject* UPaperSpriteSheetImportFactory::FactoryCreateText(UClass* InClass, UObj
 	}
 	
 	FEditorDelegates::OnAssetPostImport.Broadcast(this, Result);
+
+	// Reset the importer to ensure that no leftover data can contaminate future imports.
+	Importer = FPaperJsonSpriteSheetImporter();
 
 	return Result;
 }

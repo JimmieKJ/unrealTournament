@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -156,10 +156,7 @@ struct FAnimNotifyEvent : public FAnimLinkableElement
 	ENGINE_API void SetDuration(float NewDuration);
 
 	/** Returns true is this AnimNotify is a BranchingPoint */
-	ENGINE_API bool IsBranchingPoint() const
-	{
-		return (MontageTickType == EMontageNotifyTickType::BranchingPoint) && GetLinkedMontage();
-	}
+	ENGINE_API bool IsBranchingPoint() const;
 
 	/** Returns true if this is blueprint derived notifies **/
 	bool IsBlueprintNotify() const
@@ -330,4 +327,25 @@ struct FMarkerSyncData
 	FMarkerSyncAnimPosition GetMarkerSyncPositionfromMarkerIndicies(int32 PrevMarker, int32 NextMarker, float CurrentTime, float SequenceLength) const;
 	void CollectUniqueNames();
 	void CollectMarkersInRange(float PrevPosition, float NewPosition, TArray<FPassedMarker>& OutMarkersPassedThisTick, float TotalDeltaMove);
+};
+
+// Shortcut for the allocator used by animation nodes.
+class FAnimStackAllocator: public TMemStackAllocator<>{};
+
+/** 
+ * Structure for all Animation Weight helper functions.
+ */
+struct FAnimWeight
+{
+	/** Helper function to determine if a weight is relevant. */
+	static FORCEINLINE bool IsRelevant(float InWeight)
+	{
+		return (InWeight > ZERO_ANIMWEIGHT_THRESH);
+	}
+
+	/** Helper function to determine if a normalized weight is considered full weight. */
+	static FORCEINLINE bool IsFullWeight(float InWeight)
+	{
+		return (InWeight >= (1.f - ZERO_ANIMWEIGHT_THRESH));
+	}
 };

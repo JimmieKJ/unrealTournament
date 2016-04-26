@@ -11,10 +11,7 @@ UUTHUDWidgetMessage::UUTHUDWidgetMessage(const class FObjectInitializer& ObjectI
 	bShadowedText = true;
 	LargeShadowDirection = FVector2D(1.5f, 3.f);
 	SmallShadowDirection = FVector2D(1.f, 2.f);
-	ShadowDirection = LargeShadowDirection;
 	ScaleInDirection = 0.f;
-	MessageFontIndex = 2;
-	SmallMessageFontIndex = 1;
 	NumVisibleLines = 3;
 }
 
@@ -25,6 +22,7 @@ void UUTHUDWidgetMessage::InitializeWidget(AUTHUD* Hud)
 	{
 		MessageQueue[i].MessageClass = NULL;
 		MessageQueue[i].Text = FText::GetEmpty();
+		MessageQueue[i].EmphasisText = FText::GetEmpty();
 		MessageQueue[i].OptionalObject = NULL;
 		MessageQueue[i].DisplayFont = NULL;
 		MessageQueue[i].bHasBeenRendered = false;
@@ -34,15 +32,16 @@ void UUTHUDWidgetMessage::InitializeWidget(AUTHUD* Hud)
 		MessageQueue[i].MessageCount = 0;
 		MessageQueue[i].MessageIndex = 0;
 	}
+}
 
-	MessageFont = Hud->GetFontFromSizeIndex(MessageFontIndex);
-	SmallMessageFont = Hud->GetFontFromSizeIndex(SmallMessageFontIndex);
-	MegaFont = Hud->GetFontFromSizeIndex(3);
+bool UUTHUDWidgetMessage::ShouldDraw_Implementation(bool bShowScores)
+{
+	return !bShowScores;
 }
 
 float UUTHUDWidgetMessage::GetDrawScaleOverride()
 {
-	return (UTHUDOwner) ? UTHUDOwner->HUDMessageScaleOverride() : 1.f;
+	return (UTHUDOwner) ? UTHUDOwner->GetHUDMessageScaleOverride() : 1.f;
 }
 
 void UUTHUDWidgetMessage::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
@@ -85,10 +84,6 @@ void UUTHUDWidgetMessage::AgeMessages_Implementation(float DeltaTime)
 				ClearMessage(MessageQueue[QueueIndex]);
 				QueueIndex--;
 				continue;
-			}
-			else
-			{
-				Canvas->TextSize(MessageQueue[QueueIndex].DisplayFont, MessageQueue[QueueIndex].Text.ToString(), MessageQueue[QueueIndex].TextWidth, MessageQueue[QueueIndex].TextHeight);
 			}
 		}
 		else if (MessageQueue[QueueIndex].MessageClass == NULL)
@@ -138,7 +133,7 @@ void UUTHUDWidgetMessage::DrawMessages(float DeltaTime)
 	}
 }
 
-void UUTHUDWidgetMessage::DrawMessage(int32 QueueIndex, float X, float Y)
+FVector2D UUTHUDWidgetMessage::DrawMessage(int32 QueueIndex, float X, float Y)
 {
 	MessageQueue[QueueIndex].bHasBeenRendered = true;
 	float CurrentTextScale = GetTextScale(QueueIndex);
@@ -155,13 +150,13 @@ void UUTHUDWidgetMessage::DrawMessage(int32 QueueIndex, float X, float Y)
 	{
 		Alpha = MessageQueue[QueueIndex].LifeLeft / FadeTime;
 	}
+
 	FText MessageText = MessageQueue[QueueIndex].Text;
 	if (MessageQueue[QueueIndex].MessageCount > 1)
 	{
 		MessageText = FText::FromString(MessageText.ToString() + " (" + TTypeToString<int32>::ToString(MessageQueue[QueueIndex].MessageCount) + ")");
 	}
-	ShadowDirection = (MessageQueue[QueueIndex].DisplayFont == MessageFont) ? LargeShadowDirection : SmallShadowDirection;
-	DrawText(MessageText, X, Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentTextScale, Alpha, MessageQueue[QueueIndex].DrawColor, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Center, ETextVertPos::Top);
+	return DrawText(MessageText, X, Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, MessageQueue[QueueIndex].ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentTextScale, Alpha, MessageQueue[QueueIndex].DrawColor, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f), ETextHorzPos::Center, ETextVertPos::Top);
 }
 
 void UUTHUDWidgetMessage::FadeMessage(FText FadeMessageText)
@@ -202,7 +197,7 @@ void UUTHUDWidgetMessage::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage>
 		{
 			if (MessageQueue[QueueIndex].MessageClass == MessageClass)
 			{
-				if (DefaultMessageObject->ShouldCountInstances(MessageIndex) && MessageQueue[QueueIndex].Text.EqualTo(LocalMessageText))
+				if (DefaultMessageObject->ShouldCountInstances(MessageIndex, OptionalObject) && MessageQueue[QueueIndex].Text.EqualTo(LocalMessageText))
 				{
 					MessageCount = (MessageQueue[QueueIndex].MessageCount == 0) ? 2 : MessageQueue[QueueIndex].MessageCount + 1;
 				}
@@ -250,6 +245,7 @@ void UUTHUDWidgetMessage::AddMessage(int32 QueueIndex, TSubclassOf<class UUTLoca
 	MessageQueue[QueueIndex].MessageClass = MessageClass;
 	MessageQueue[QueueIndex].MessageIndex = MessageIndex;
 	MessageQueue[QueueIndex].Text = LocalMessageText;
+	GetDefault<UUTLocalMessage>(MessageClass)->GetEmphasisText(MessageQueue[QueueIndex].PrefixText, MessageQueue[QueueIndex].EmphasisText, MessageQueue[QueueIndex].PostfixText, MessageQueue[QueueIndex].EmphasisColor, MessageIndex, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 	MessageQueue[QueueIndex].LifeSpan = GetDefault<UUTLocalMessage>(MessageClass)->GetLifeTime(MessageIndex);
 	MessageQueue[QueueIndex].LifeLeft = MessageQueue[QueueIndex].LifeSpan;
 	MessageQueue[QueueIndex].ScaleInTime = GetDefault<UUTLocalMessage>(MessageClass)->GetScaleInTime(MessageIndex);
@@ -270,14 +266,9 @@ void UUTHUDWidgetMessage::AddMessage(int32 QueueIndex, TSubclassOf<class UUTLoca
 void UUTHUDWidgetMessage::LayoutMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
 {
 	MessageQueue[QueueIndex].DrawColor = GetDefault<UUTLocalMessage>(MessageClass)->GetMessageColor(MessageIndex);
-	if (GetDefault<UUTLocalMessage>(MessageClass)->UseMegaFont(MessageIndex))
-	{
-		MessageQueue[QueueIndex].DisplayFont = MegaFont;
-	}
-	else
-	{
-		MessageQueue[QueueIndex].DisplayFont = GetDefault<UUTLocalMessage>(MessageClass)->UseLargeFont(MessageIndex) ? MessageFont : SmallMessageFont;
-	}
+	int32 FontIndex = GetDefault<UUTLocalMessage>(MessageClass)->GetFontSizeIndex(MessageIndex);
+	MessageQueue[QueueIndex].DisplayFont = (UTHUDOwner != nullptr) ? UTHUDOwner->GetFontFromSizeIndex(FontIndex) : nullptr;
+	MessageQueue[QueueIndex].ShadowDirection = (FontIndex == 1) ? LargeShadowDirection : SmallShadowDirection;
 	MessageQueue[QueueIndex].OptionalObject = OptionalObject;
 }
 

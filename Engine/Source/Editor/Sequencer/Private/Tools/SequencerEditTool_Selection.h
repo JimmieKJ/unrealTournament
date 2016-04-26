@@ -1,8 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "SequencerEditTool_Default.h"
+#include "SequencerEditTool.h"
 #include "UniquePtr.h"
 #include "DelayedDrag.h"
 
@@ -11,18 +11,19 @@ struct FMarqueeSelectData;
 
 
 class FSequencerEditTool_Selection
-	: public FSequencerEditTool_Default
+	: public FSequencerEditTool
 {
 public:
 
+	/** Static identifier for this edit tool */
+	static const FName Identifier;
+
 	/** Create and initialize a new instance. */
-	FSequencerEditTool_Selection(TSharedPtr<FSequencer> InSequencer, TSharedPtr<SSequencer> InSequencerWidget);
+	FSequencerEditTool_Selection(FSequencer& InSequencer);
 
 public:
 
-	// ISequencerEditTool interface
-
-	virtual ISequencer& GetSequencer() const override;
+	// ISequencerEditTool interface	
 	virtual int32 OnPaint(const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId) const override;
 	virtual FReply OnMouseButtonDown(SWidget& OwnerWidget, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseButtonUp(SWidget& OwnerWidget, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
@@ -31,6 +32,8 @@ public:
 	virtual void OnMouseCaptureLost() override;
 	virtual FCursorReply OnCursorQuery(const FGeometry& MyGeometry, const FPointerEvent& CursorEvent) const override;
 	virtual FName GetIdentifier() const override;
+	virtual bool CanDeactivate() const override;
+	virtual const ISequencerHotspot* GetDragHotspot() const override;
 	
 private:
 
@@ -38,9 +41,6 @@ private:
 	void UpdateCursor(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
 
 private:
-
-	/** The sequencer itself */
-	TWeakPtr<FSequencer> Sequencer;
 
 	/** Sequencer widget */
 	TWeakPtr<SSequencer> SequencerWidget;

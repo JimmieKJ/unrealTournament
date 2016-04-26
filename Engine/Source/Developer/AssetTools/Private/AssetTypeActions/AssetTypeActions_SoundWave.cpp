@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AssetToolsPrivatePCH.h"
 #include "AssetToolsModule.h"
@@ -6,6 +6,10 @@
 #include "ContentBrowserModule.h"
 #include "Sound/SoundWave.h"
 #include "Sound/SoundCue.h"
+#include "Sound/DialogueWave.h"
+#include "ContentBrowserDelegates.h"
+#include "PropertyCustomizationHelpers.h"
+#include "Factories/DialogueWaveFactory.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
@@ -29,6 +33,11 @@ void FAssetTypeActions_SoundWave::GetActions( const TArray<UObject*>& InObjects,
 		FCanExecuteAction()
 			)
 		);
+
+	MenuBuilder.AddSubMenu(
+		LOCTEXT("SoundWave_CreateDialogue", "Create Dialogue"),
+		LOCTEXT("SoundWave_CreateDialogueTooltip", "Creates a dialogue wave using this sound wave."),
+		FNewMenuDelegate::CreateSP(this, &FAssetTypeActions_SoundWave::FillVoiceMenu, SoundNodes));
 }
 
 void FAssetTypeActions_SoundWave::GetResolvedSourceFilePaths(const TArray<UObject*>& TypeAssets, TArray<FString>& OutSourceFilePaths) const
@@ -100,6 +109,86 @@ void FAssetTypeActions_SoundWave::ExecuteCreateSoundCue(TArray<TWeakObjectPtr<US
 			FAssetTools::Get().SyncBrowserToAssets(ObjectsToSync);
 		}
 	}
+}
+
+void FAssetTypeActions_SoundWave::ExecuteCreateDialogueWave(const class FAssetData& AssetData, TArray<TWeakObjectPtr<USoundWave>> Objects)
+{
+	const FString DefaultSuffix = TEXT("_Dialogue");
+
+	UDialogueVoice* DialogueVoice = Cast<UDialogueVoice>(AssetData.GetAsset());
+
+	if (Objects.Num() == 1)
+	{
+		auto Object = Objects[0].Get();
+
+		if (Object)
+		{
+			// Determine an appropriate name
+			FString Name;
+			FString PackagePath;
+			CreateUniqueAssetName(Object->GetOutermost()->GetName(), DefaultSuffix, PackagePath, Name);
+
+			// Create the factory used to generate the asset
+			UDialogueWaveFactory* Factory = NewObject<UDialogueWaveFactory>();
+			Factory->InitialSoundWave = Object;
+			Factory->InitialSpeakerVoice = DialogueVoice;
+			Factory->HasSetInitialTargetVoice = true;
+
+			FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+			ContentBrowserModule.Get().CreateNewAsset(Name, FPackageName::GetLongPackagePath(PackagePath), UDialogueWave::StaticClass(), Factory);
+		}
+	}
+	else
+	{
+		TArray<UObject*> ObjectsToSync;
+
+		for (auto ObjIt = Objects.CreateConstIterator(); ObjIt; ++ObjIt)
+		{
+			auto Object = (*ObjIt).Get();
+			if (Object)
+			{
+				FString Name;
+				FString PackageName;
+				CreateUniqueAssetName(Object->GetOutermost()->GetName(), DefaultSuffix, PackageName, Name);
+
+				// Create the factory used to generate the asset
+				UDialogueWaveFactory* Factory = NewObject<UDialogueWaveFactory>();
+				Factory->InitialSoundWave = Object;
+				Factory->InitialSpeakerVoice = DialogueVoice;
+				Factory->HasSetInitialTargetVoice = true;
+
+				FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
+				UObject* NewAsset = AssetToolsModule.Get().CreateAsset(Name, FPackageName::GetLongPackagePath(PackageName), UDialogueWave::StaticClass(), Factory);
+
+				if (NewAsset)
+				{
+					ObjectsToSync.Add(NewAsset);
+				}
+			}
+		}
+
+		if (ObjectsToSync.Num() > 0)
+		{
+			FAssetTools::Get().SyncBrowserToAssets(ObjectsToSync);
+		}
+	}
+}
+
+void FAssetTypeActions_SoundWave::FillVoiceMenu(FMenuBuilder& MenuBuilder, TArray<TWeakObjectPtr<USoundWave>> Objects)
+{
+	TArray<const UClass*> AllowedClasses;
+	AllowedClasses.Add(UDialogueVoice::StaticClass());
+
+	TSharedRef<SWidget> VoicePicker = PropertyCustomizationHelpers::MakeAssetPickerWithMenu(
+		FAssetData(),
+		false,
+		AllowedClasses,
+		PropertyCustomizationHelpers::GetNewAssetFactoriesForClasses(AllowedClasses),
+		FOnShouldFilterAsset(),
+		FOnAssetSelected::CreateSP(this, &FAssetTypeActions_SoundWave::ExecuteCreateDialogueWave, Objects),
+		FSimpleDelegate());
+
+	MenuBuilder.AddWidget(VoicePicker, FText::GetEmpty(), false);
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -25,12 +25,6 @@ void SUTStatsViewerPanel::ConstructPanel(FVector2D ViewportSize)
 {
 	Tag = FName(TEXT("StatsViewer"));
 
-	OnlineSubsystem = IOnlineSubsystem::Get();
-	if (OnlineSubsystem)
-	{
-		OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
-	}
-
 	if (!PlayerOnlineStatusChangedDelegate.IsValid())
 	{
 		PlayerOnlineStatusChangedDelegate = PlayerOwner->RegisterPlayerOnlineStatusChangedDelegate(FPlayerOnlineStatusChanged::FDelegate::CreateSP(this, &SUTStatsViewerPanel::OwnerLoginStatusChanged));
@@ -147,6 +141,14 @@ void SUTStatsViewerPanel::SetupFriendsList()
 
 	FriendList.Add(MakeShareable(new FString(TEXT("My Stats"))));
 
+	IOnlineSubsystem* OnlineSubsystem;
+	IOnlineIdentityPtr OnlineIdentityInterface;
+	OnlineSubsystem = IOnlineSubsystem::Get();
+	if (OnlineSubsystem)
+	{
+		OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
+	}
+
 	if (OnlineIdentityInterface.IsValid())
 	{
 		TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(PlayerOwner->GetControllerId());
@@ -258,7 +260,15 @@ void SUTStatsViewerPanel::DownloadStats()
 	}
 
 	TSharedPtr<const FUniqueNetId> LocalPlayerUserId;
-	
+
+	IOnlineSubsystem* OnlineSubsystem;
+	IOnlineIdentityPtr OnlineIdentityInterface;
+	OnlineSubsystem = IOnlineSubsystem::Get();
+	if (OnlineSubsystem)
+	{
+		OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
+	}
+
 	if (OnlineIdentityInterface.IsValid())
 	{
 		LocalPlayerUserId = OnlineIdentityInterface->GetUniquePlayerId(PlayerOwner->GetControllerId());
@@ -374,6 +384,14 @@ void SUTStatsViewerPanel::ReadCloudStats()
 	StatsReadRequest->SetURL(FinalStatsURL);
 	StatsReadRequest->OnProcessRequestComplete().BindSP(this, &SUTStatsViewerPanel::ReadCloudStatsComplete);
 	StatsReadRequest->SetVerb(TEXT("GET"));
+
+	IOnlineSubsystem* OnlineSubsystem;
+	IOnlineIdentityPtr OnlineIdentityInterface;
+	OnlineSubsystem = IOnlineSubsystem::Get();
+	if (OnlineSubsystem)
+	{
+		OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
+	}
 
 	if (OnlineIdentityInterface.IsValid())
 	{

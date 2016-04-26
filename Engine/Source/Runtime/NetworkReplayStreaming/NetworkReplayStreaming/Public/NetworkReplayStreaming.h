@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -187,6 +187,7 @@ public:
 	virtual void KeepReplay( const FString& ReplayName, const bool bKeep ) = 0;
 	/** Returns true if the playing stream is currently in progress */
 	virtual bool IsLive() const = 0;
+	virtual FString	GetReplayID() const = 0;
 
 	/**
 	 * Attempts to delete the stream with the specified name. May execute asynchronously.

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintNativeCodeGenPCH.h"
 #include "NativeCodeGenerationTool.h"
@@ -86,7 +86,7 @@ struct FGeneratedCodeData
 				if (!bUnconvertedHeader)
 				{
 					bUnconvertedHeader = true;
-					TypeDependencies += LOCTEXT("NoConvertedAssets", "\nUnconverted Dependencies, that require a warpper struct:\n").ToString();
+					TypeDependencies += LOCTEXT("NoConvertedDependencies", "\nUnconverted Dependencies, that require a warpper struct:\n").ToString();
 				}
 				TypeDependencies += FString::Printf(TEXT("%s \t%s\n"), *BPGC->GetClass()->GetName(), *BPGC->GetPathName());
 			}

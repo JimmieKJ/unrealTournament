@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 
@@ -385,6 +385,8 @@ void FWindowsPlatformSurvey::TickSurveyHardware( FHardwareSurveyResults& OutResu
 	OutResults.CPUCount = SystemInfo.dwNumberOfProcessors;
 
 	ISynthBenchmark::Get().Run(OutResults.SynthBenchmark, true, 5.f);
+
+	ISynthBenchmark::Get().GetRHIDisplay(OutResults.RHIAdpater);
 
 	// Get CPU speed
 	if (OutResults.CPUCount > 0)

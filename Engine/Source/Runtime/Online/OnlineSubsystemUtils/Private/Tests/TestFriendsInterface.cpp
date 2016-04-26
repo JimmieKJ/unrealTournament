@@ -1,9 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "ModuleManager.h"
 #include "TestFriendsInterface.h"
 #include "OnlinePresenceInterface.h"
+
+#if WITH_DEV_AUTOMATION_TESTS
 
 void FTestFriendsInterface::Test(UWorld* InWorld, const TArray<FString>& Invites)
 {
@@ -256,3 +258,4 @@ void FTestFriendsInterface::OnDeleteFriendsListComplete(int32 LocalPlayer, bool 
 	StartNextTest();
 }
 
+#endif //WITH_DEV_AUTOMATION_TESTS

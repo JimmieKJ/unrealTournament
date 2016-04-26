@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "TranslationEditorPrivatePCH.h"
 
@@ -1277,7 +1277,7 @@ void FTranslationEditor::ExportToPortableObjectFormat_Execute()
 		// Write translation data first to ensure all changes are exported
 		if (DataManager->WriteTranslationData() && ParentWindow.IsValid() && SaveFilenames.Num() > 0)
 		{
-			LocalizationCommandletTasks::ExportCulture(ParentWindow.ToSharedRef(), AssociatedLocalizationTarget.Get(), CultureToEdit, TOptional<FString>(SaveFilenames.Top()));
+			LocalizationCommandletTasks::ExportTextForCulture(ParentWindow.ToSharedRef(), AssociatedLocalizationTarget.Get(), CultureToEdit, TOptional<FString>(SaveFilenames.Top()));
 		}
 		else
 		{
@@ -1347,7 +1347,7 @@ void FTranslationEditor::ImportFromPoFile(FString FileToImport)
 
 	if (DataManager->WriteTranslationData(true) && ParentWindow.IsValid())
 	{
-		if (LocalizationCommandletTasks::ImportCulture(ParentWindow.ToSharedRef(), AssociatedLocalizationTarget.Get(), CultureToEdit, TOptional<FString>(FileToImport)))
+		if (LocalizationCommandletTasks::ImportTextForCulture(ParentWindow.ToSharedRef(), AssociatedLocalizationTarget.Get(), CultureToEdit, TOptional<FString>(FileToImport)))
 		{
 			DataManager->LoadFromArchive(DataManager->GetAllTranslationsArray(), true, true);
 

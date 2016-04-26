@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimGraphRuntimePrivatePCH.h"
 #include "BoneControllers/AnimNode_SpringBone.h"
@@ -30,8 +30,6 @@ FAnimNode_SpringBone::FAnimNode_SpringBone()
 void FAnimNode_SpringBone::Initialize(const FAnimationInitializeContext& Context)
 {
 	FAnimNode_SkeletalControlBase::Initialize(Context);
-
-	Context.AnimInstanceProxy->AddGameThreadPreUpdateEvent(FGameThreadPreUpdateEvent::CreateRaw(this, &FAnimNode_SpringBone::HandleGameThreadPreUpdateEvent));
 
 	RemainingTime = 0.0f;
 }
@@ -99,9 +97,9 @@ void FAnimNode_SpringBone::EvaluateBoneTransforms(USkeletalMeshComponent* SkelCo
 	FVector const TargetPos = BoneTransformInWorldSpace.GetLocation();
 
 	AActor* SkelOwner = (SkelComp != NULL) ? SkelComp->GetOwner() : NULL;
-	if ((SkelComp != NULL) && (SkelComp->AttachParent != NULL) && (SkelOwner == NULL))
+	if ((SkelComp != NULL) && (SkelComp->GetAttachParent() != NULL) && (SkelOwner == NULL))
 	{
-		SkelOwner = SkelComp->AttachParent->GetOwner();
+		SkelOwner = SkelComp->GetAttachParent()->GetOwner();
 	}
 
 	// Init values first time
@@ -219,7 +217,7 @@ void FAnimNode_SpringBone::InitializeBoneReferences(const FBoneContainer& Requir
 	SpringBone.Initialize(RequiredBones);
 }
 
-void FAnimNode_SpringBone::HandleGameThreadPreUpdateEvent(const UAnimInstance* InAnimInstance)
+void FAnimNode_SpringBone::PreUpdate(const UAnimInstance* InAnimInstance)
 {
 	const USkeletalMeshComponent* SkelComp = InAnimInstance->GetSkelMeshComponent();
 	const UWorld* World = SkelComp->GetWorld();

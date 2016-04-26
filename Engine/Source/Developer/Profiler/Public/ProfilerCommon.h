@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ProfilerCommon.h: Declares the profiler common classes, structures, typedef etc.
@@ -16,10 +16,6 @@ typedef TSharedPtr<class FGraphDataSource> FGraphDataSourcePtr;
 
 /** Type definition for shared references to const instances of FGraphDataSource. */
 typedef TSharedRef<const class FGraphDataSource> FGraphDataSourceRefConst;
-
-/** Type definition for weak references to instances of FGraphDataSource. */
-typedef TWeakPtr<class FGraphDataSource> FGraphDataSourceWeak;
-
 
 /** Type definition for shared pointers to instances of FCombinedGraphDataSource. */
 typedef TSharedPtr<class FCombinedGraphDataSource> FCombinedGraphDataSourcePtr;
@@ -39,17 +35,14 @@ typedef TSharedPtr<class FProfilerSession> FProfilerSessionPtr;
 /** Type definition for shared references to instances of FProfilerSession. */
 typedef TSharedRef<class FProfilerSession> FProfilerSessionRef;
 
-/** Type definition for shared references to const instances of FProfilerSession. */
-typedef TSharedRef<const class FProfilerSession> FProfilerSessionRefConst;
-
-/** Type definition for weak references to instances of FProfilerSession. */
-typedef TWeakPtr<class FProfilerSession> FProfilerSessionWeak;
-
 /** Type definition for shared pointers to instances of FProfilerStatMetaData. */
 typedef TSharedPtr<class FProfilerStatMetaData> FProfilerStatMetaDataPtr;
 
 /** Type definition for shared references to instances of FProfilerStatMetaData. */
 typedef TSharedRef<class FProfilerStatMetaData> FProfilerStatMetaDataRef;
+
+/** Type definition for shared pointers to instances of FTrackedStat. */
+typedef TSharedPtr<class FTrackedStat> FTrackedStatPtr;
 
 class FProfilerStat;
 class FProfilerGroup;

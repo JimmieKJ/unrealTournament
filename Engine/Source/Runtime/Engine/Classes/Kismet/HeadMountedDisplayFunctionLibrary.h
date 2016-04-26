@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "HeadMountedDisplayFunctionLibrary.generated.h"
@@ -11,6 +11,19 @@ namespace EOrientPositionSelector
 		Orientation UMETA(DisplayName = "Orientation"),
 		Position UMETA(DisplayName = "Position"),
 		OrientationAndPosition UMETA(DisplayName = "Orientation and Position")
+	};
+}
+
+/**
+* For HMDs that support it, this specifies whether the origin of the tracking universe will be at the floor, or at the user's eye height
+*/
+UENUM()
+namespace EHMDTrackingOrigin
+{
+	enum Type
+	{
+		Floor UMETA(DisplayName = "Floor Level"),
+		Eye UMETA(DisplayName = "Eye Level"),
 	};
 }
 
@@ -52,14 +65,14 @@ class ENGINE_API UHeadMountedDisplayFunctionLibrary : public UBlueprintFunctionL
 	static bool HasValidTrackingPosition();
 
 	/**
-	 * If the HMD has a positional tracking camera, this will return the game-world location of the camera, as well as the parameters for the bounding region of tracking.
-	 * This allows an in-game representation of the legal positional tracking range.  All values will be zeroed if the camera is not available or the HMD does not support it.
+	 * If the HMD has a positional sensor, this will return the game-world location of it, as well as the parameters for the bounding region of tracking.
+	 * This allows an in-game representation of the legal positional tracking range.  All values will be zeroed if the sensor is not available or the HMD does not support it.
 	 *
-	 * @param CameraOrigin		(out) Origin, in world-space, of the tracking camera
-	 * @param CameraRotation	(out) Rotation, in world-space, of the tracking camera
-	 * @param HFOV				(out) Field-of-view, horizontal, in degrees, of the valid tracking zone of the camera
-	 * @param VFOV				(out) Field-of-view, vertical, in degrees, of the valid tracking zone of the camera
-	 * @param CameraDistance	(out) Nominal distance to camera, in world-space
+	 * @param CameraOrigin		(out) Origin, in world-space, of the sensor
+	 * @param CameraRotation	(out) Rotation, in world-space, of the sensor
+	 * @param HFOV				(out) Field-of-view, horizontal, in degrees, of the valid tracking zone of the sensor
+	 * @param VFOV				(out) Field-of-view, vertical, in degrees, of the valid tracking zone of the sensor
+	 * @param CameraDistance	(out) Nominal distance to sensor, in world-space
 	 * @param NearPlane			(out) Near plane distance of the tracking volume, in world-space
 	 * @param FarPlane			(out) Far plane distance of the tracking volume, in world-space
 	 */
@@ -131,4 +144,25 @@ class ENGINE_API UHeadMountedDisplayFunctionLibrary : public UBlueprintFunctionL
 	*/
 	UFUNCTION(BlueprintPure, Category = "Input|HeadMountedDisplay", meta = (WorldContext = "WorldContext"))
 	static float GetWorldToMetersScale(UObject* WorldContext);
+
+	/**
+	 * Sets current tracking origin type (eye level or floor level).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Input|HeadMountedDisplay")
+	static void SetTrackingOrigin(TEnumAsByte<EHMDTrackingOrigin::Type> Origin);
+
+	/**
+	 * Returns current tracking origin type (eye level or floor level).
+	 */
+	UFUNCTION(BlueprintPure, Category = "Input|HeadMountedDisplay")
+	static TEnumAsByte<EHMDTrackingOrigin::Type> GetTrackingOrigin();
+
+	/**
+	 * Returns current state of VR focus.
+	 *
+	 * @param bUseFocus		(out) if set to true, then this App does use VR focus.
+	 * @param bHasFocus		(out) if set to true, then this App currently has VR focus.
+	 */
+	UFUNCTION(BlueprintPure, Category="Input|HeadMountedDisplay", meta=(DisplayName="Get VR Focus State"))
+	static void GetVRFocusState(bool& bUseFocus, bool& bHasFocus);
 };

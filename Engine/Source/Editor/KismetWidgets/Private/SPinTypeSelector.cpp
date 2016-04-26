@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "KismetWidgetsPrivatePCH.h"
 #include "UnrealEd.h"
 #include "ClassIconFinder.h"
@@ -422,7 +422,7 @@ TSharedRef< SWidget > SPinTypeSelector::GetAllowedObjectTypes(FPinTypeTreeItem I
 	if (PossibleObjectReferenceTypes & static_cast<uint8>(EObjectReferenceType::ClassAssetID))
 	{
 		PinType.PinCategory = UEdGraphSchema_K2::PC_AssetClass;
-		TSharedRef<SWidget> Widget = CreateObjectReferenceWidget(InItem, PinType, IconBrush, FText::Format(LOCTEXT("ClassTooltip", "Path to a class object of type \'{Typename}\' which may be in an unloaded state. Can be utilized to asynchronously load the class."), Args));
+		TSharedRef<SWidget> Widget = CreateObjectReferenceWidget(InItem, PinType, IconBrush, FText::Format(LOCTEXT("ClassAssetTooltip", "Path to a class object of type \'{Typename}\' which may be in an unloaded state. Can be utilized to asynchronously load the class."), Args));
 		FObjectReferenceListItem ObjectReferenceType = MakeShareable(new FObjectReferenceType(InItem, Widget, PinType.PinCategory));
 		AllowedObjectReferenceTypes.Add(ObjectReferenceType);
 	}
@@ -456,7 +456,7 @@ TSharedRef< SWidget > SPinTypeSelector::GetAllowedObjectTypes(FPinTypeTreeItem I
 
 void SPinTypeSelector::OnSelectPinType(FPinTypeTreeItem InItem, FString InPinCategory)
 {
-	const FScopedTransaction Transaction( LOCTEXT("ChangeParam", "Change Paramater Type") );
+	const FScopedTransaction Transaction( LOCTEXT("ChangeParam", "Change Parameter Type") );
 
 	FEdGraphPinType NewTargetPinType = TargetPinType.Get();
 	//Call delegate in order to notify pin type change is about to happen

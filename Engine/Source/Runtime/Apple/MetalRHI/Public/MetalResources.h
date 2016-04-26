@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MetalResources.h: Metal resource RHI definitions.
@@ -9,6 +9,9 @@
 #include "BoundShaderStateCache.h"
 #include "MetalShaderResources.h"
 #include "ShaderCache.h"
+
+/** Parallel execution is available on Mac but not iOS for the moment - it needs to be tested because it isn't cost-free */
+#define METAL_SUPPORTS_PARALLEL_RHI_EXECUTE PLATFORM_MAC
 
 class FMetalContext;
 
@@ -70,10 +73,6 @@ public:
 
 	/** External bindings for this shader. */
 	FMetalShaderBindings Bindings;
-	TArray< TRefCountPtr<FRHIUniformBuffer> > BoundUniformBuffers;
-
-	/** Bitfield for which uniform buffers are dirty */
-	uint64 DirtyUniformBuffers;
 
 	// List of memory copies from RHIUniformBuffer to packed uniforms
 	TArray<CrossCompiler::FUniformBufferCopyInfo> UniformBuffersCopyInfo;
@@ -116,8 +115,12 @@ typedef uint64 FMetalRenderPipelineHash;
 class FMetalBoundShaderState : public FRHIBoundShaderState
 {
 public:
-
+	
+#if METAL_SUPPORTS_PARALLEL_RHI_EXECUTE
+	FCachedBoundShaderStateLink_Threadsafe CacheLink;
+#else
 	FCachedBoundShaderStateLink CacheLink;
+#endif
 
 	/** Cached vertex structure */
 	TRefCountPtr<FMetalVertexDeclaration> VertexDeclaration;
@@ -163,9 +166,9 @@ public:
 	 */
 	FMetalSurface(ERHIResourceType ResourceType, EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint32 NumSamples, bool bArray, uint32 ArraySize, uint32 NumMips, uint32 Flags, FResourceBulkDataInterface* BulkData);
 
-	FMetalSurface(FMetalSurface const& Source, NSRange MipRange);
+	FMetalSurface(FMetalSurface& Source, NSRange MipRange);
 	
-	FMetalSurface(FMetalSurface const& Source, NSRange MipRange, EPixelFormat Format);
+	FMetalSurface(FMetalSurface& Source, NSRange MipRange, EPixelFormat Format);
 	
 	/**
 	 * Destructor
@@ -196,6 +199,12 @@ public:
 
 	/** Returns the number of faces for the texture */
 	uint32 GetNumFaces();
+	
+	/** Gets the drawable texture if this is a back-buffer surface. */
+	id<MTLTexture> GetDrawableTexture();
+	
+	/** Updates an SRV surface's internal data if required. */
+	void UpdateSRV();
 
 	ERHIResourceType Type;
 	EPixelFormat PixelFormat;
@@ -213,6 +222,9 @@ public:
 
 	// how much memory is allocated for this texture
 	uint64 TotalTextureSize;
+	
+	// For back-buffers, the owning viewport.
+	class FMetalViewport* Viewport;
 
 private:
 	// The movie playback IOSurface wrapper to avoid page-off
@@ -253,6 +265,11 @@ public:
 	{
 		FShaderCache::RemoveTexture(this);
 	}
+	
+	virtual void* GetTextureBaseRHI() override final
+	{
+		return &Surface;
+	}
 };
 
 class FMetalTexture2DArray : public FRHITexture2DArray
@@ -286,6 +303,11 @@ public:
 	virtual ~FMetalTexture2DArray()
 	{
 		FShaderCache::RemoveTexture(this);
+	}
+	
+	virtual void* GetTextureBaseRHI() override final
+	{
+		return &Surface;
 	}
 };
 
@@ -321,6 +343,11 @@ public:
 	{
 		FShaderCache::RemoveTexture(this);
 	}
+	
+	virtual void* GetTextureBaseRHI() override final
+	{
+		return &Surface;
+	}
 };
 
 class FMetalTextureCube : public FRHITextureCube
@@ -355,6 +382,11 @@ public:
 	{
 		FShaderCache::RemoveTexture(this);
 	}
+	
+	virtual void* GetTextureBaseRHI() override final
+	{
+		return &Surface;
+	}
 };
 
 struct FMetalQueryBuffer : public FRHIResource
@@ -366,7 +398,7 @@ struct FMetalQueryBuffer : public FRHIResource
     bool Wait(uint64 Millis);
     void const* GetResult(uint32 Offset);
 	
-	FMetalContext* Context;
+	TWeakPtr<struct FMetalQueryBufferPool, ESPMode::ThreadSafe> Pool;
     id<MTLBuffer> Buffer;
 	uint32 WriteOffset;
 	bool bCompleted;
@@ -492,16 +524,6 @@ public:
 	~FMetalUniformBuffer();
 	
 
-	/** Cache resources if needed. */
-	inline void CacheResources(uint32 InFrameCounter)
-	{
-		if (InFrameCounter == INDEX_NONE || LastCachedFrame != InFrameCounter)
-		{
-			CacheResourcesInternal();
-			LastCachedFrame = InFrameCounter;
-		}
-	}
-
 	bool IsConstantBuffer() const
 	{
 		return Buffer.length > 0;
@@ -516,18 +538,11 @@ public:
 
 	uint32 Size; // @todo zebra: HACK! This should be removed and the code that uses it should be changed to use GetSize() instead once we fix the problem with FRHIUniformBufferLayout being released too early
 
+	/** The intended usage of the uniform buffer. */
+	EUniformBufferUsage Usage;
+	
 	/** Resource table containing RHI references. */
 	TArray<TRefCountPtr<FRHIResource> > ResourceTable;
-
-	/** Raw resource table, cached once per frame. */
-	TArray<void*> RawResourceTable;
-
-	/** The frame in which RawResourceTable was last cached. */
-	uint32 LastCachedFrame;
-
-private:
-	/** Actually cache resources. */
-	void CacheResourcesInternal();
 
 };
 

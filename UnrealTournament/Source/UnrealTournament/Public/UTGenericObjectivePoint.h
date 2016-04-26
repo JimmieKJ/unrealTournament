@@ -1,13 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "UTPathBuilderInterface.h"
+
 #include "UTGenericObjectivePoint.generated.h"
 
 /** a utility class to make it easier for maps (particularly DM maps) to support multiple gametypes
  * place these to indicate good places to locate game objectives, for example control points in Domination or scoring points in Greed
  */
 UCLASS(Blueprintable)
-class UNREALTOURNAMENT_API AUTGenericObjectivePoint : public AActor
+class UNREALTOURNAMENT_API AUTGenericObjectivePoint : public AActor, public IUTPathBuilderInterface
 {
 	GENERATED_BODY()
 public:

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "LevelEditor.h"
@@ -61,7 +61,6 @@
 #include "Engine/StaticMesh.h"
 #include "Engine/Light.h"
 #include "Animation/SkeletalMeshActor.h"
-#include "Editor/UnrealEd/Public/Animation/AnimationRecorder.h"
 #include "Editor/KismetWidgets/Public/CreateBlueprintFromActorDialog.h"
 #include "EditorProjectSettings.h"
 #include "HierarchicalLODUtilities.h"
@@ -362,7 +361,7 @@ void FLevelEditorActionCallbacks::Save()
 
 void FLevelEditorActionCallbacks::SaveAs()
 {
-	FEditorFileUtils::SaveAs( GetWorld()->PersistentLevel );
+	FEditorFileUtils::SaveLevelAs( GetWorld()->PersistentLevel );
 }
 
 void FLevelEditorActionCallbacks::SaveAllLevels()
@@ -653,6 +652,14 @@ void FLevelEditorActionCallbacks::BuildLODsOnly_Execute()
 {
 	// Build HLOD
 	FEditorBuildUtils::EditorBuild(GetWorld(), FBuildOptions::BuildHierarchicalLOD);
+}
+
+ENGINE_API void BuildTextureStreamingData(UWorld*);
+
+void FLevelEditorActionCallbacks::BuildTextureStreamingOnly_Execute()
+{
+	// Build TexCoord Scale Shaders
+	BuildTextureStreamingData(GetWorld());
 }
 
 bool FLevelEditorActionCallbacks::IsLightingQualityChecked( ELightingBuildQuality TestQuality )
@@ -1080,6 +1087,9 @@ void FLevelEditorActionCallbacks::EditAsset_Clicked( const EToolkitMode::Type To
 
 		if (bShouldOpenEditors)
 		{
+			// Clear focus so the level viewport can receive its focus lost call (and clear pending keyup events which wouldn't arrive)
+			FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::WindowActivate);
+
 			auto LevelEditorSharedPtr = LevelEditor.Pin();
 
 			if (LevelEditorSharedPtr.IsValid())
@@ -1770,6 +1780,8 @@ bool FLevelEditorActionCallbacks::ScaleGridSnap_IsChecked()
 
 bool FLevelEditorActionCallbacks::SaveAnimationFromSkeletalMeshComponent(AActor * EditorActor, AActor * SimActor, TArray<class USkeletalMeshComponent*> & OutEditorComponents)
 {
+	FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>( TEXT("LevelEditor") );
+
 	// currently blueprint actors don't work because their property can't get copied over. 
 	if (Cast<UBlueprintGeneratedClass>(EditorActor->GetClass()) != nullptr)
 	{
@@ -1803,28 +1815,23 @@ bool FLevelEditorActionCallbacks::SaveAnimationFromSkeletalMeshComponent(AActor 
 					if (Comp->SkeletalMesh && Comp->SkeletalMesh->Skeleton && Comp->IsSimulatingPhysics())
 					{
 						// now record to animation
-						FAnimationRecorder Recorder;
-						if(Recorder.TriggerRecordAnimation(Comp))
+						class UAnimSequence* Sequence = LevelEditorModule.OnCaptureSingleFrameAnimSequence().IsBound() ? LevelEditorModule.OnCaptureSingleFrameAnimSequence().Execute(Comp) : nullptr;
+						if(Sequence)
 						{
-							class UAnimSequence * Sequence = Recorder.GetAnimationObject();
-							if(Sequence)
-							{
-								Recorder.StopRecord(false);
-								Comp->SetAnimationMode(EAnimationMode::AnimationSingleNode);
-								Comp->AnimationData.AnimToPlay = Sequence;
-								Comp->SetAnimation(Sequence);
-								Comp->SetSimulatePhysics(false);
+							Comp->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+							Comp->AnimationData.AnimToPlay = Sequence;
+							Comp->SetAnimation(Sequence);
+							Comp->SetSimulatePhysics(false);
 
-								// add the matching component to EditorCompoennts
-								class USkeletalMeshComponent * MatchingComponent = Cast<USkeletalMeshComponent>(EditorUtilities::FindMatchingComponentInstance(Comp, EditorActor));
-								if (MatchingComponent)
-								{
-									OutEditorComponents.Add(MatchingComponent);
-								}
-								else
-								{
-									UE_LOG( LevelEditorActions, Warning, TEXT("Matching component could not be found %s(%s)"), *GetNameSafe(Comp), *GetNameSafe(EditorActor) );
-								}
+							// add the matching component to EditorCompoennts
+							class USkeletalMeshComponent * MatchingComponent = Cast<USkeletalMeshComponent>(EditorUtilities::FindMatchingComponentInstance(Comp, EditorActor));
+							if (MatchingComponent)
+							{
+								OutEditorComponents.Add(MatchingComponent);
+							}
+							else
+							{
+								UE_LOG(LevelEditorActions, Warning, TEXT("Matching component could not be found %s(%s)"), *GetNameSafe(Comp), *GetNameSafe(EditorActor));
 							}
 						}
 					}
@@ -1954,6 +1961,16 @@ void FLevelEditorActionCallbacks::OnMoveSelectedToCurrentLevel()
 	GEditor->MoveSelectedActorsToLevel( GetWorld()->GetCurrentLevel() );
 }
 
+void FLevelEditorActionCallbacks::OnFindActorLevelInContentBrowser()
+{
+	GEditor->SyncActorLevelsToContentBrowser();
+}
+
+bool FLevelEditorActionCallbacks::CanExecuteFindActorLevelInContentBrowser()
+{
+	return GEditor->CanSyncActorLevelsToContentBrowser();
+}
+
 void FLevelEditorActionCallbacks::OnFindLevelsInLevelBrowser()
 {
 	const bool bDeselectOthers = true;
@@ -2007,7 +2024,8 @@ void FLevelEditorActionCallbacks::OpenMarketplace()
 	{
 		TArray<FAnalyticsEventAttribute> EventAttributes;
 
-		if (DesktopPlatform->OpenLauncher(false, TEXT("ue/marketplace"), FString()))
+		FOpenLauncherOptions OpenOptions(TEXT("ue/marketplace"));
+		if ( DesktopPlatform->OpenLauncher(OpenOptions) )
 		{
 			EventAttributes.Add(FAnalyticsEventAttribute(TEXT("OpenSucceeded"), TEXT("TRUE")));
 		}
@@ -2017,7 +2035,8 @@ void FLevelEditorActionCallbacks::OpenMarketplace()
 
 			if (EAppReturnType::Yes == FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("InstallMarketplacePrompt", "The Marketplace requires the Epic Games Launcher, which does not seem to be installed on your computer. Would you like to install it now?")))
 			{
-				if (!DesktopPlatform->OpenLauncher(true, TEXT("ue/marketplace"), FString()))
+				FOpenLauncherOptions InstallOptions(true, TEXT("ue/marketplace"));
+				if (!DesktopPlatform->OpenLauncher(InstallOptions))
 				{
 					EventAttributes.Add(FAnalyticsEventAttribute(TEXT("InstallSucceeded"), TEXT("FALSE")));
 					FMessageDialog::Open(EAppMsgType::Ok, FText::FromString(TEXT("Sorry, there was a problem installing the Launcher.\nPlease try to install it manually!")));
@@ -2117,7 +2136,13 @@ void FLevelEditorActionCallbacks::HarvestSelectedActorsIntoBlueprintClass()
 
 bool FLevelEditorActionCallbacks::CanSubclassSelectedActorIntoBlueprintClass()
 {
-	return GEditor->GetSelectedActorCount() == 1;
+	bool bCanSubclass = GEditor->GetSelectedActorCount() == 1;
+	if (bCanSubclass)
+	{
+		AActor* Actor = Cast<AActor>(*GEditor->GetSelectedActorIterator());
+		bCanSubclass = FKismetEditorUtilities::CanCreateBlueprintOfClass(Actor->GetClass());
+	}
+	return bCanSubclass;
 }
 
 void FLevelEditorActionCallbacks::SubclassSelectedActorIntoBlueprintClass()
@@ -2142,8 +2167,10 @@ void FLevelEditorActionCallbacks::CheckOutProjectSettingsConfig( )
 void FLevelEditorActionCallbacks::OnShowOnlySelectedActors()
 {
 	const FScopedTransaction Transaction( NSLOCTEXT( "LevelEditorCommands", "ShowOnlySelectedActors", "Show Only Selected Actors" ) );
-	GUnrealEd->edactUnhideSelected( GetWorld() );
+	// First hide unselected as this will also hide group actor members
 	GUnrealEd->edactHideUnselected( GetWorld() );
+	// Then unhide selected to ensure that everything that's selected will be unhidden
+	GUnrealEd->edactUnhideSelected(GetWorld());
 }
 
 void FLevelEditorActionCallbacks::OnToggleTransformWidgetVisibility()
@@ -2851,6 +2878,7 @@ void FLevelEditorCommands::RegisterCommands()
 	UI_COMMAND( BuildGeometryOnly_OnlyCurrentLevel, "Build Geometry (Current Level)", "Builds geometry, only for the current level", EUserInterfaceActionType::Button, FInputChord() );
 	UI_COMMAND( BuildPathsOnly, "Build Paths", "Only builds paths (all levels.)", EUserInterfaceActionType::Button, FInputChord() );
 	UI_COMMAND( BuildLODsOnly, "Build LODs", "Only builds LODs (all levels.)", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( BuildTextureStreamingOnly, "Build Texture Streaming", "Build texture streaming data", EUserInterfaceActionType::Button, FInputChord() );
 	
 	UI_COMMAND( LightingQuality_Production, "Production", "Sets precomputed lighting quality to highest possible quality (slowest computation time.)", EUserInterfaceActionType::RadioButton, FInputChord() );
 	UI_COMMAND( LightingQuality_High, "High", "Sets precomputed lighting quality to high quality", EUserInterfaceActionType::RadioButton, FInputChord() );
@@ -3006,22 +3034,23 @@ void FLevelEditorCommands::RegisterCommands()
 	UI_COMMAND( ApplyMaterialToSurface, "Apply Material to Surface Selection", "Applies the selected material to the selected surfaces", EUserInterfaceActionType::Button, FInputChord() );
 
 	UI_COMMAND( CreateBoundingBoxVolume, "Create Bounding Box Blocking Volume From Mesh", "Create a bounding box blocking volume from the static mesh", EUserInterfaceActionType::Button, FInputChord() );
-	UI_COMMAND( CreateHeavyConvexVolume, "Heavy Convex Blocking Volume From Mesh", "Creates a heavy convex blocing volume from the static mesh", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( CreateHeavyConvexVolume, "Heavy Convex Blocking Volume From Mesh", "Creates a heavy convex blocking volume from the static mesh", EUserInterfaceActionType::Button, FInputChord() );
 	UI_COMMAND( CreateNormalConvexVolume, "Normal Convex Blocking Volume From Mesh", "Creates a normal convex blocking volume from the static mesh", EUserInterfaceActionType::Button, FInputChord() ); 
 	UI_COMMAND( CreateLightConvexVolume, "Light Convex Blocking Volume From Mesh", "Creates a light convex blocking volume from the static mesh", EUserInterfaceActionType::Button, FInputChord() );
 	UI_COMMAND( CreateRoughConvexVolume, "Rought Convex Blocking Volume From Mesh", "Creates a rough convex blocking volume from the static mesh", EUserInterfaceActionType::Button, FInputChord() );
 
 	UI_COMMAND( KeepSimulationChanges, "Keep Simulation Changes", "Saves the changes made to this actor in Simulate mode to the actor's default state.", EUserInterfaceActionType::Button, FInputChord( EKeys::K ) );
 
-	UI_COMMAND( MakeActorLevelCurrent, "Make Selected Actor's Level Current", "Makes the selected actors level the current level", EUserInterfaceActionType::Button, FInputChord( EKeys::M ) );
+	UI_COMMAND( MakeActorLevelCurrent, "Make Selected Actor's Level Current", "Makes the selected actor's level the current level", EUserInterfaceActionType::Button, FInputChord( EKeys::M ) );
 #if PLATFORM_MAC
 	UI_COMMAND( MoveSelectedToCurrentLevel, "Move Selection to Current Level", "Moves the selected actors to the current level", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Command, EKeys::M ) );
 #else
 	UI_COMMAND( MoveSelectedToCurrentLevel, "Move Selection to Current Level", "Moves the selected actors to the current level", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Control, EKeys::M ) );
 #endif
-	UI_COMMAND( FindLevelsInLevelBrowser, "Find Levels in Level Browser", "Finds the selected actors level in the level browser", EUserInterfaceActionType::Button, FInputChord() );
-	UI_COMMAND( AddLevelsToSelection, "Add Levels to Selection", "Adds the selected actors levels  to the current level browser selection", EUserInterfaceActionType::Button, FInputChord() );
-	UI_COMMAND( RemoveLevelsFromSelection, "Remove Levels from Selection", "Removes the selected actors levels from the current level browser selection", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( FindActorLevelInContentBrowser, "Find Actor Level in Content Browser", "Finds the selected actors' level in the content browser", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( FindLevelsInLevelBrowser, "Find Levels in Level Browser", "Finds the selected actors' levels in the level browser", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( AddLevelsToSelection, "Add Levels to Selection", "Adds the selected actors' levels to the current level browser selection", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( RemoveLevelsFromSelection, "Remove Levels from Selection", "Removes the selected actors' levels from the current level browser selection", EUserInterfaceActionType::Button, FInputChord() );
 
 	UI_COMMAND( FindActorInLevelScript, "Find in Level Blueprint", "Finds any references to the selected actor in its level's blueprint", EUserInterfaceActionType::Button, FInputChord() );
 

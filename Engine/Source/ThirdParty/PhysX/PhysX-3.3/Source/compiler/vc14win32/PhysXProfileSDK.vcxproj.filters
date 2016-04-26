@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+	<ItemGroup>
+		<Filter Include="Source"><!--  -->
+		</Filter>
+	</ItemGroup>
+	<ItemGroup>
+		<ClCompile Include="..\..\PhysXProfileSDK\PxProfileEventImpl.cpp">
+			<Filter>Source</Filter>
+		</ClCompile>
+		<ClInclude Include="..\..\PhysXProfileSDK\PxProfileContextProviderImpl.h">
+			<Filter>Source</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\PhysXProfileSDK\PxProfileDataBuffer.h">
+			<Filter>Source</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\PhysXProfileSDK\PxProfileDataParsing.h">
+			<Filter>Source</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\PhysXProfileSDK\PxProfileEventBuffer.h">
+			<Filter>Source</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\PhysXProfileSDK\PxProfileEventParser.h">
+			<Filter>Source</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\PhysXProfileSDK\PxProfileEventSerialization.h">
+			<Filter>Source</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\PhysXProfileSDK\PxProfileFoundationWrapper.h">
+			<Filter>Source</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\PhysXProfileSDK\PxProfileMemoryBuffer.h">
+			<Filter>Source</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\PhysXProfileSDK\PxProfileMemoryEventBuffer.h">
+			<Filter>Source</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\PhysXProfileSDK\PxProfileMemoryEventParser.h">
+			<Filter>Source</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\PhysXProfileSDK\PxProfileMemoryEventRecorder.h">
+			<Filter>Source</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\PhysXProfileSDK\PxProfileMemoryEventReflexiveWriter.h">
+			<Filter>Source</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\PhysXProfileSDK\PxProfileMemoryEvents.h">
+			<Filter>Source</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\PhysXProfileSDK\PxProfileMemoryEventSummarizer.h">
+			<Filter>Source</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\PhysXProfileSDK\PxProfileScopedMutexLock.h">
+			<Filter>Source</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\PhysXProfileSDK\PxProfileZoneImpl.h">
+			<Filter>Source</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\PhysXProfileSDK\PxProfileZoneManagerImpl.h">
+			<Filter>Source</Filter>
+		</ClInclude>
+	</ItemGroup>
+	<ItemGroup>
+		<Filter Include="Include"><!--  -->
+		</Filter>
+	</ItemGroup>
+	<ItemGroup>
+		<ClInclude Include="..\..\..\Include\physxprofilesdk\PxProfileBase.h">
+			<Filter>Include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\physxprofilesdk\PxProfileCompileTimeEventFilter.h">
+			<Filter>Include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\physxprofilesdk\PxProfileContextProvider.h">
+			<Filter>Include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\physxprofilesdk\PxProfileEventBufferClient.h">
+			<Filter>Include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\physxprofilesdk\PxProfileEventBufferClientManager.h">
+			<Filter>Include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\physxprofilesdk\PxProfileEventFilter.h">
+			<Filter>Include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\physxprofilesdk\PxProfileEventHandler.h">
+			<Filter>Include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\physxprofilesdk\PxProfileEventId.h">
+			<Filter>Include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\physxprofilesdk\PxProfileEventMutex.h">
+			<Filter>Include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\physxprofilesdk\PxProfileEventNames.h">
+			<Filter>Include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\physxprofilesdk\PxProfileEvents.h">
+			<Filter>Include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\physxprofilesdk\PxProfileEventSender.h">
+			<Filter>Include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\physxprofilesdk\PxProfileEventSystem.h">
+			<Filter>Include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\physxprofilesdk\PxProfileMemoryEventTypes.h">
+			<Filter>Include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\physxprofilesdk\PxProfileScopedEvent.h">
+			<Filter>Include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\physxprofilesdk\PxProfileZone.h">
+			<Filter>Include</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\Include\physxprofilesdk\PxProfileZoneManager.h">
+			<Filter>Include</Filter>
+		</ClInclude>
+	</ItemGroup>
+</Project>

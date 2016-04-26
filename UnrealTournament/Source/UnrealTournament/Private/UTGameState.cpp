@@ -256,13 +256,17 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 
 	bWeightedCharacter = false;
 
+	BoostRechargeMaxCharges = 1;
+	BoostRechargeRateAlive = 1.0f;
+	BoostRechargeRateDead = 2.0f;
+	BoostRechargeTime = 0.0f; // off by default
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(AUTGameState, RemainingMinute);
+	DOREPLIFETIME(AUTGameState, ReplicatedRemainingTime);
 	DOREPLIFETIME(AUTGameState, WinnerPlayerState);
 	DOREPLIFETIME(AUTGameState, WinningTeam);
 	DOREPLIFETIME(AUTGameState, bStopGameClock);
@@ -281,7 +285,6 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME_CONDITION(AUTGameState, bAllowTeamSwitches, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, bWeaponStay, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, GoalScore, COND_InitialOnly);
-	DOREPLIFETIME_CONDITION(AUTGameState, RemainingTime, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, OverlayEffects, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, OverlayEffects1P, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, SpawnProtectionTime, COND_InitialOnly);
@@ -303,6 +306,11 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 
 	DOREPLIFETIME(AUTGameState, SpawnPacks);
 	DOREPLIFETIME_CONDITION(AUTGameState, bWeightedCharacter, COND_InitialOnly);
+
+	DOREPLIFETIME_CONDITION(AUTGameState, BoostRechargeTime, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTGameState, BoostRechargeMaxCharges, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTGameState, BoostRechargeRateAlive, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTGameState, BoostRechargeRateDead, COND_InitialOnly);
 }
 
 void AUTGameState::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker)
@@ -359,7 +367,11 @@ void AUTGameState::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// HACK: temporary hack around config property replication bug; force to be different from defaults
+	// HACK: temporary hack around config property replication bug; force to be different from defaults and clamp their sizes so they won't break networking
+
+	if (ServerMOTD.Len() > 512) ServerMOTD = ServerMOTD.Left(512);
+	if (ServerName.Len() > 512) ServerName = ServerName.Left(512);
+
 	ServerName += TEXT(" ");
 	ServerMOTD += TEXT(" ");
 
@@ -421,11 +433,15 @@ float AUTGameState::GetClockTime()
 	return ((TimeLimit > 0.f) || !HasMatchStarted()) ? RemainingTime : ElapsedTime;
 }
 
-void AUTGameState::OnRep_RemainingTime()
+float AUTGameState::GetIntermissionTime()
 {
-	// if we received RemainingTime, it takes precedence
-	// note that this relies on all variables being received prior to any notifies being called
-	RemainingMinute = 0;
+	return RemainingTime;
+}
+
+void AUTGameState::SetRemainingTime(int32 NewRemainingTime)
+{
+	RemainingTime = NewRemainingTime;
+	ReplicatedRemainingTime = RemainingTime;
 }
 
 void AUTGameState::DefaultTimer()
@@ -450,10 +466,10 @@ void AUTGameState::DefaultTimer()
 
 	if (GetWorld()->GetNetMode() == NM_Client)
 	{
-		if (RemainingMinute > 0)
+		if (ReplicatedRemainingTime > 0)
 		{
-			RemainingTime = RemainingMinute;
-			RemainingMinute = 0;
+			RemainingTime = ReplicatedRemainingTime;
+			ReplicatedRemainingTime = 0;
 		}
 
 		// might have been deferred while waiting for teams to replicate
@@ -470,10 +486,10 @@ void AUTGameState::DefaultTimer()
 			RemainingTime--;
 			if (GetWorld()->GetNetMode() != NM_Client)
 			{
-				int32 RepTimeInterval = (RemainingTime > 60) ? 60 : 12;
+				int32 RepTimeInterval = 10;
 				if (RemainingTime % RepTimeInterval == 0)
 				{
-					RemainingMinute = RemainingTime;
+					ReplicatedRemainingTime = RemainingTime;
 				}
 				AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
 				if (Game && (RemainingTime < 0.8f * TimeLimit))
@@ -621,7 +637,7 @@ void AUTGameState::SetTimeLimit(int32 NewTimeLimit)
 {
 	TimeLimit = NewTimeLimit;
 	RemainingTime = TimeLimit;
-	RemainingMinute = TimeLimit;
+	ReplicatedRemainingTime = TimeLimit;
 
 	ForceNetUpdate();
 }
@@ -977,7 +993,7 @@ void AUTGameState::AddLoadoutItem(const FLoadoutInfo& Item)
 		NewLoadoutInfo->CurrentCost = Item.InitialCost;
 		NewLoadoutInfo->bDefaultInclude = Item.bDefaultInclude;
 		NewLoadoutInfo->bPurchaseOnly = Item.bPurchaseOnly;
-
+		NewLoadoutInfo->LoadItemImage();
 		AvailableLoadout.Add(NewLoadoutInfo);
 	}
 }
@@ -1172,11 +1188,18 @@ AUTReplicatedMapInfo* AUTGameState::CreateMapInfo(const FAssetData& MapAsset)
 	AUTReplicatedMapInfo* MapInfo = GetWorld()->SpawnActor<AUTReplicatedMapInfo>(Params);
 	if (MapInfo)
 	{
+
+		FText LocDesc = FText::GetEmpty();
+		if (Description != nullptr)
+		{
+			FTextStringHelper::ReadFromString(**Description, LocDesc);
+		}
+
 		MapInfo->MapPackageName = MapAsset.PackageName.ToString();
 		MapInfo->MapAssetName = MapAsset.AssetName.ToString();
 		MapInfo->Title = (Title != NULL && !Title->IsEmpty()) ? *Title : *MapAsset.AssetName.ToString();
 		MapInfo->Author = (Author != NULL) ? *Author : FString();
-		MapInfo->Description = (Description != NULL) ? *Description : FString();
+		MapInfo->Description = (!LocDesc.IsEmpty()) ? LocDesc.ToString() : FString();
 		MapInfo->MapScreenshotReference = (Screenshot != NULL) ? *Screenshot : FString();
 		MapInfo->OptimalPlayerCount = OptimalPlayerCount;
 		MapInfo->OptimalTeamPlayerCount = OptimalTeamPlayerCount;

@@ -1,10 +1,14 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 
 /**
  * Implements a message transport technology using an UDP network connection.
+ *
+ * On platforms that support multiple processes, the transport is using two sockets,
+ * one for per-process unicast sending/receiving, and one for multicast receiving.
+ * Console and mobile platforms use a single multicast socket for all sending and receiving.
  */
 class FUdpMessageTransport
 	: public IMessageTransport
@@ -73,9 +77,6 @@ private:
 
 private:
 
-	/** Holds the local endpoint to receive messages on. */
-	FIPv4Endpoint LocalEndpoint;
-
 	/** Holds the message processor. */
 	FUdpMessageProcessor* MessageProcessor;
 
@@ -97,11 +98,16 @@ private:
 	/** Holds a pointer to the socket sub-system. */
 	ISocketSubsystem* SocketSubsystem;
 
+	/** Holds the local endpoint to receive messages on. */
+	FIPv4Endpoint UnicastEndpoint;
+
+#if PLATFORM_DESKTOP
 	/** Holds the unicast socket receiver. */
 	FUdpSocketReceiver* UnicastReceiver;
 
 	/** Holds the unicast socket. */
 	FSocket* UnicastSocket;
+#endif
 
 private:
 

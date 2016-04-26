@@ -23,6 +23,8 @@
 #include "UTDeathMessage.h"
 #include "UTPickupMessage.h"
 #include "UTMultiKillMessage.h"
+#include "UTVictimMessage.h"
+#include "UTCTFMajorMessage.h"
 #include "UTGameMode.h"
 #include "UTWeap_Translocator.h"
 #include "UTWeap_Enforcer.h"
@@ -79,11 +81,15 @@ void UUTCheatManager::Ann(int32 Switch)
 	Flag->SendGameMessage(1, NULL, NULL);*/
 
 	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTSpreeMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
-//	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTCountDownMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
-//	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTDeathMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
-//	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
-//	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTMultiKillMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
+	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTCountDownMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
+	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTDeathMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
+	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
+	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTMultiKillMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
+	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTVictimMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
+	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
+	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTCTFRewardMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
 }
+
 void UUTCheatManager::Spread(float Scaling)
 {
 	AUTCharacter* MyPawn = Cast<AUTCharacter>(GetOuterAPlayerController()->GetPawn());
@@ -519,6 +525,18 @@ void UUTCheatManager::McpGetVersion()
 	else
 	{
 		UE_LOG(UT, Display, TEXT("No MCP version available."));
+	}
+#endif
+}
+
+void UUTCheatManager::CheatShowRankedReconnectDialog()
+{
+#if !UE_BUILD_SHIPPING
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(GetOuterAPlayerController()->Player);
+	if (LP)
+	{
+		LP->LastRankedMatchTimeString = FDateTime::Now().ToString();
+		LP->ShowRankedReconnectDialog(LP->LastRankedMatchUniqueId);
 	}
 #endif
 }

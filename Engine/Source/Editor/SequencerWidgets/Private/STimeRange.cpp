@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerWidgetsPrivatePCH.h"
 #include "STimeRange.h"
@@ -8,179 +8,299 @@
 
 #define LOCTEXT_NAMESPACE "STimeRange"
 
-void STimeRange::Construct( const STimeRange::FArguments& InArgs, TSharedRef<ITimeSliderController> InTimeSliderController )
+void STimeRange::Construct( const STimeRange::FArguments& InArgs, TSharedRef<ITimeSliderController> InTimeSliderController, TSharedRef<INumericTypeInterface<float>> NumericTypeInterface )
 {
 	TimeSliderController = InTimeSliderController;
 	ShowFrameNumbers = InArgs._ShowFrameNumbers;
-	TimeSnapInterval = InArgs._TimeSnapInterval;
 
-	auto NumericTypeInterface = SharedThis(this);
+	TSharedRef<SWidget> WorkingRangeStart = SNullWidget::NullWidget, WorkingRangeEnd = SNullWidget::NullWidget;
+	if (InArgs._ShowWorkingRange)
+	{
+		WorkingRangeStart = SNew(SSpinBox<float>)
+		.Value(this, &STimeRange::WorkingStartTime)
+		.ToolTipText(LOCTEXT("WorkingRangeStart", "Working Range Start"))
+		.OnValueCommitted( this, &STimeRange::OnWorkingStartTimeCommitted )
+		.OnValueChanged( this, &STimeRange::OnWorkingStartTimeChanged )
+		.MinValue(TOptional<float>())
+		.MaxValue(this, &STimeRange::MaxWorkingStartTime)
+		.Style(&FEditorStyle::Get().GetWidgetStyle<FSpinBoxStyle>("Sequencer.HyperlinkSpinBox"))
+		.TypeInterface(NumericTypeInterface)
+		.ClearKeyboardFocusOnCommit(true);
+
+		WorkingRangeEnd = SNew(SSpinBox<float>)
+		.Value(this, &STimeRange::WorkingEndTime)
+		.ToolTipText(LOCTEXT("WorkingRangeEnd", "Working Range End"))
+		.OnValueCommitted( this, &STimeRange::OnWorkingEndTimeCommitted )
+		.OnValueChanged( this, &STimeRange::OnWorkingEndTimeChanged )
+		.MinValue(this, &STimeRange::MinWorkingEndTime)
+		.MaxValue(TOptional<float>())
+		.Style(&FEditorStyle::Get().GetWidgetStyle<FSpinBoxStyle>("Sequencer.HyperlinkSpinBox"))
+		.TypeInterface(NumericTypeInterface)
+		.ClearKeyboardFocusOnCommit(true);
+	}
+
+	TSharedRef<SWidget> ViewRangeStart = SNullWidget::NullWidget, ViewRangeEnd = SNullWidget::NullWidget;
+	if (InArgs._ShowViewRange)
+	{
+		ViewRangeStart = SNew(SSpinBox<float>)
+		.Value(this, &STimeRange::ViewStartTime)
+		.ToolTipText(ViewStartTimeTooltip())
+		.OnValueCommitted( this, &STimeRange::OnViewStartTimeCommitted )
+		.OnValueChanged( this, &STimeRange::OnViewStartTimeChanged )
+		.MinValue(TOptional<float>())
+		.MaxValue(this, &STimeRange::MaxViewStartTime)
+		.Style(&FEditorStyle::Get().GetWidgetStyle<FSpinBoxStyle>("Sequencer.HyperlinkSpinBox"))
+		.TypeInterface(NumericTypeInterface)
+		.ClearKeyboardFocusOnCommit(true);
+
+		ViewRangeEnd = SNew(SSpinBox<float>)
+		.Value(this, &STimeRange::ViewEndTime)
+		.ToolTipText(ViewEndTimeTooltip())
+		.OnValueCommitted( this, &STimeRange::OnViewEndTimeCommitted )
+		.OnValueChanged( this, &STimeRange::OnViewEndTimeChanged )
+		.MinValue(this, &STimeRange::MinViewEndTime)
+		.MaxValue(TOptional<float>())
+		.Style(&FEditorStyle::Get().GetWidgetStyle<FSpinBoxStyle>("Sequencer.HyperlinkSpinBox"))
+		.TypeInterface(NumericTypeInterface)
+		.ClearKeyboardFocusOnCommit(true);
+	}
+
+	TSharedRef<SWidget> PlaybackRangeStart = SNullWidget::NullWidget, PlaybackRangeEnd = SNullWidget::NullWidget;
+	{
+		PlaybackRangeStart = SNew(SSpinBox<float>)
+		.Value(this, &STimeRange::PlayStartTime)
+		.ToolTipText(PlayStartTimeTooltip())
+		.OnValueCommitted( this, &STimeRange::OnPlayStartTimeCommitted )
+		.OnValueChanged( this, &STimeRange::OnPlayStartTimeChanged )
+		.MinValue(this, &STimeRange::MinPlayStartTime)
+		.MaxValue(this, &STimeRange::MaxPlayStartTime)
+		.Style(&FEditorStyle::Get().GetWidgetStyle<FSpinBoxStyle>("Sequencer.HyperlinkSpinBox"))
+		.TypeInterface(NumericTypeInterface)
+		.ClearKeyboardFocusOnCommit(true);
+
+		PlaybackRangeEnd = SNew(SSpinBox<float>)
+		.Value(this, &STimeRange::PlayEndTime)
+		.ToolTipText(PlayEndTimeTooltip())
+		.OnValueCommitted( this, &STimeRange::OnPlayEndTimeCommitted )
+		.OnValueChanged( this, &STimeRange::OnPlayEndTimeChanged )
+		.MinValue(this, &STimeRange::MinPlayEndTime)
+		.MaxValue(this, &STimeRange::MaxPlayEndTime)
+		.Style(&FEditorStyle::Get().GetWidgetStyle<FSpinBoxStyle>("Sequencer.HyperlinkSpinBox"))
+		.TypeInterface(NumericTypeInterface)
+		.ClearKeyboardFocusOnCommit(true);
+	}
 
 	this->ChildSlot
 	.HAlign(HAlign_Fill)
 	[
 		SNew(SHorizontalBox)
+
 		+SHorizontalBox::Slot()
+		.VAlign(VAlign_Center)
 		.AutoWidth()
-		.Padding(2.0f, 2.0f)
+		.Padding(2.f)
+		[
+			SNew(SBox)
+			.Visibility(InArgs._ShowWorkingRange ? EVisibility::Visible : EVisibility::Collapsed)
+			.WidthOverride(36)
+			.HAlign(HAlign_Center)
+			[
+				WorkingRangeStart
+			]
+		]
+
+		+SHorizontalBox::Slot()
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		.Padding(2.f)
 		[
 			SNew(SBox)
 			.WidthOverride(36)
 			.HAlign(HAlign_Center)
+			.Visibility(InArgs._ShowPlaybackRange ? EVisibility::Visible : EVisibility::Collapsed)
 			[
-				SNew(SSpinBox<float>)
-				.Value(this, &STimeRange::StartTime)
-				.ToolTipText(this, &STimeRange::StartTimeTooltip )
-				.OnValueCommitted( this, &STimeRange::OnStartTimeCommitted )
-				.OnValueChanged( this, &STimeRange::OnStartTimeChanged )
-				.MinValue(TOptional<float>())
-				.MaxValue(this, &STimeRange::MaxOutTime)
-				.Style(&FEditorStyle::Get().GetWidgetStyle<FSpinBoxStyle>("Sequencer.HyperlinkSpinBox"))
-				.TypeInterface(NumericTypeInterface)
-				.ClearKeyboardFocusOnCommit(true)
+				SNew(SBorder)
+				.Padding(0)
+				.BorderImage(nullptr)
+				.ForegroundColor(FLinearColor::Green)
+				[
+					PlaybackRangeStart
+				]
 			]
 		]
+
 		+SHorizontalBox::Slot()
+		.VAlign(VAlign_Center)
 		.AutoWidth()
-		.Padding(2.0f, 2.0f)
+		.Padding(2.f)
 		[
 			SNew(SBox)
+			.Visibility(InArgs._ShowViewRange ? EVisibility::Visible : EVisibility::Collapsed)
 			.WidthOverride(36)
 			.HAlign(HAlign_Center)
 			[
-				SNew(SSpinBox<float>)
-				.Value(this, &STimeRange::InTime)
-				.ToolTipText(this, &STimeRange::InTimeTooltip)
-				.OnValueCommitted( this, &STimeRange::OnInTimeCommitted )
-				.OnValueChanged( this, &STimeRange::OnInTimeChanged )
-				.MinValue(TOptional<float>())
-				.MaxValue(this, &STimeRange::MaxOutTime)
-				.Style(&FEditorStyle::Get().GetWidgetStyle<FSpinBoxStyle>("Sequencer.HyperlinkSpinBox"))
-				.TypeInterface(NumericTypeInterface)
-				.ClearKeyboardFocusOnCommit(true)
+				ViewRangeStart
 			]
 		]
+
 		+SHorizontalBox::Slot()
-		.HAlign(HAlign_Fill)
-		.VAlign(VAlign_Fill)
+
 		.Padding(2.0f, 4.0f)
 		[
-			SAssignNew(TimeRangeSlider, STimeRangeSlider, InTimeSliderController, SharedThis(this))
+			InArgs._CenterContent.Widget
 		]
+		
 		+SHorizontalBox::Slot()
+		.VAlign(VAlign_Center)
 		.AutoWidth()
-		.Padding(2.0f, 2.0f)
+		.Padding(2.f)
 		[
 			SNew(SBox)
+			.Visibility(InArgs._ShowViewRange ? EVisibility::Visible : EVisibility::Collapsed)
 			.WidthOverride(36)
 			.HAlign(HAlign_Center)
 			[
-				SNew(SSpinBox<float>)
-				.Value(this, &STimeRange::OutTime)
-				.ToolTipText(this, &STimeRange::OutTimeTooltip)
-				.OnValueCommitted( this, &STimeRange::OnOutTimeCommitted )
-				.OnValueChanged( this, &STimeRange::OnOutTimeChanged )
-				.MinValue(this, &STimeRange::MinInTime)
-				.MaxValue(TOptional<float>())
-				.Style(&FEditorStyle::Get().GetWidgetStyle<FSpinBoxStyle>("Sequencer.HyperlinkSpinBox"))
-				.TypeInterface(NumericTypeInterface)
-				.ClearKeyboardFocusOnCommit(true)
+				ViewRangeEnd
 			]
 		]
+
 		+SHorizontalBox::Slot()
+		.VAlign(VAlign_Center)
 		.AutoWidth()
-		.Padding(2.0f, 2.0f)
+		.Padding(2.f)
 		[
 			SNew(SBox)
 			.WidthOverride(36)
 			.HAlign(HAlign_Center)
+			.Visibility(InArgs._ShowPlaybackRange ? EVisibility::Visible : EVisibility::Collapsed)
 			[
-				SNew(SSpinBox<float>)
-				.Value(this, &STimeRange::EndTime)
-				.ToolTipText(this, &STimeRange::EndTimeTooltip)
-				.OnValueCommitted( this, &STimeRange::OnEndTimeCommitted )
-				.OnValueChanged( this, &STimeRange::OnEndTimeChanged )
-				.MinValue(this, &STimeRange::MinInTime)
-				.MaxValue(TOptional<float>())
-				.Style(&FEditorStyle::Get().GetWidgetStyle<FSpinBoxStyle>("Sequencer.HyperlinkSpinBox"))
-				.TypeInterface(NumericTypeInterface)
-				.ClearKeyboardFocusOnCommit(true)
+				SNew(SBorder)
+				.Padding(0)
+				.BorderImage(nullptr)
+				.ForegroundColor(FLinearColor::Red)
+				[
+					PlaybackRangeEnd
+				]
+			]
+		]
+
+		+SHorizontalBox::Slot()
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		.Padding(2.f)
+		[
+			SNew(SBox)
+			.WidthOverride(36)
+			.HAlign(HAlign_Center)
+			.Visibility(InArgs._ShowWorkingRange ? EVisibility::Visible : EVisibility::Collapsed)
+			[
+				WorkingRangeEnd
 			]
 		]
 	];
 }
 
-float STimeRange::StartTime() const
+float STimeRange::WorkingStartTime() const
 {
 	return TimeSliderController.IsValid() ? TimeSliderController.Get()->GetClampRange().GetLowerBoundValue() : 0.f;
 }
 
-float STimeRange::EndTime() const
+float STimeRange::WorkingEndTime() const
 {
 	return TimeSliderController.IsValid() ? TimeSliderController.Get()->GetClampRange().GetUpperBoundValue() : 0.f;
 }
 
-float STimeRange::InTime() const
+float STimeRange::ViewStartTime() const
 {
 	return TimeSliderController.IsValid() ? TimeSliderController.Get()->GetViewRange().GetLowerBoundValue() : 0.f;
 }
 
-float STimeRange::OutTime() const
+float STimeRange::ViewEndTime() const
 {
 	return TimeSliderController.IsValid() ? TimeSliderController.Get()->GetViewRange().GetUpperBoundValue() : 0.f;
 }
 
-TOptional<float> STimeRange::MinInTime() const
+float STimeRange::PlayStartTime() const
 {
-	return StartTime();
+	return TimeSliderController.IsValid() ? TimeSliderController.Get()->GetPlayRange().GetLowerBoundValue() : 0.f;
 }
 
-TOptional<float> STimeRange::MaxInTime() const
+float STimeRange::PlayEndTime() const
 {
-	return OutTime();
+	return TimeSliderController.IsValid() ? TimeSliderController.Get()->GetPlayRange().GetUpperBoundValue() : 0.f;
 }
 
-TOptional<float> STimeRange::MinOutTime() const
+TOptional<float> STimeRange::MaxViewStartTime() const
 {
-	return InTime();
+	return ViewEndTime();
 }
 
-TOptional<float> STimeRange::MaxOutTime() const
+TOptional<float> STimeRange::MinViewEndTime() const
 {
-	return EndTime();
+	return ViewStartTime();
 }
 
-TOptional<float> STimeRange::MaxStartTime() const
+TOptional<float> STimeRange::MinPlayStartTime() const
 {
-	return OutTime();
+	return WorkingStartTime();
 }
 
-TOptional<float> STimeRange::MinEndTime() const
+TOptional<float> STimeRange::MaxPlayStartTime() const
 {
-	return InTime();
+	return PlayEndTime();
 }
 
-void STimeRange::OnStartTimeCommitted(float NewValue, ETextCommit::Type InTextCommit)
+TOptional<float> STimeRange::MinPlayEndTime() const
 {
-	OnStartTimeChanged(NewValue);
+	return PlayStartTime();
 }
 
-void STimeRange::OnEndTimeCommitted(float NewValue, ETextCommit::Type InTextCommit)
+TOptional<float> STimeRange::MaxPlayEndTime() const
 {
-	OnEndTimeChanged(NewValue);
+	return WorkingEndTime();
 }
 
-void STimeRange::OnInTimeCommitted(float NewValue, ETextCommit::Type InTextCommit)
+TOptional<float> STimeRange::MaxWorkingStartTime() const
 {
-	OnInTimeChanged(NewValue);
+	return ViewEndTime();
 }
 
-void STimeRange::OnOutTimeCommitted(float NewValue, ETextCommit::Type InTextCommit)
+TOptional<float> STimeRange::MinWorkingEndTime() const
 {
-	OnOutTimeChanged(NewValue);
+	return ViewStartTime();
 }
 
-void STimeRange::OnStartTimeChanged(float NewValue)
+void STimeRange::OnWorkingStartTimeCommitted(float NewValue, ETextCommit::Type InTextCommit)
+{
+	OnWorkingStartTimeChanged(NewValue);
+}
+
+void STimeRange::OnWorkingEndTimeCommitted(float NewValue, ETextCommit::Type InTextCommit)
+{
+	OnWorkingEndTimeChanged(NewValue);
+}
+
+void STimeRange::OnViewStartTimeCommitted(float NewValue, ETextCommit::Type InTextCommit)
+{
+	OnViewStartTimeChanged(NewValue);
+}
+
+void STimeRange::OnViewEndTimeCommitted(float NewValue, ETextCommit::Type InTextCommit)
+{
+	OnViewEndTimeChanged(NewValue);
+}
+
+void STimeRange::OnPlayStartTimeCommitted(float NewValue, ETextCommit::Type InTextCommit)
+{
+	OnPlayStartTimeChanged(NewValue);
+}
+
+void STimeRange::OnPlayEndTimeCommitted(float NewValue, ETextCommit::Type InTextCommit)
+{
+	OnPlayEndTimeChanged(NewValue);
+}
+
+void STimeRange::OnWorkingStartTimeChanged(float NewValue)
 {
 	if (auto* Controller = TimeSliderController.Get())
 	{
@@ -193,7 +313,7 @@ void STimeRange::OnStartTimeChanged(float NewValue)
 	}
 }
 
-void STimeRange::OnEndTimeChanged(float NewValue)
+void STimeRange::OnWorkingEndTimeChanged(float NewValue)
 {
 	if (auto* Controller = TimeSliderController.Get())
 	{
@@ -206,7 +326,7 @@ void STimeRange::OnEndTimeChanged(float NewValue)
 	}
 }
 
-void STimeRange::OnInTimeChanged(float NewValue)
+void STimeRange::OnViewStartTimeChanged(float NewValue)
 {
 	if (auto* Controller = TimeSliderController.Get())
 	{
@@ -219,7 +339,7 @@ void STimeRange::OnInTimeChanged(float NewValue)
 	}
 }
 
-void STimeRange::OnOutTimeChanged(float NewValue)
+void STimeRange::OnViewEndTimeChanged(float NewValue)
 {
 	if (auto* Controller = TimeSliderController.Get())
 	{
@@ -232,92 +352,82 @@ void STimeRange::OnOutTimeChanged(float NewValue)
 	}
 }
 
-FText STimeRange::StartTimeTooltip() const
+void STimeRange::OnPlayStartTimeChanged(float NewValue)
+{
+	if (auto* Controller = TimeSliderController.Get())
+	{
+		if (NewValue < TimeSliderController.Get()->GetClampRange().GetLowerBoundValue())
+		{
+			Controller->SetClampRange(NewValue, Controller->GetClampRange().GetUpperBoundValue());
+		}
+
+		Controller->SetPlayRange(NewValue, Controller->GetPlayRange().GetUpperBoundValue());
+	}
+}
+
+void STimeRange::OnPlayEndTimeChanged(float NewValue)
+{
+	if (auto* Controller = TimeSliderController.Get())
+	{
+		if (NewValue > Controller->GetClampRange().GetUpperBoundValue())
+		{
+			Controller->SetClampRange(Controller->GetClampRange().GetLowerBoundValue(), NewValue);
+		}
+
+		Controller->SetPlayRange(Controller->GetPlayRange().GetLowerBoundValue(), NewValue);
+	}
+}
+
+FText STimeRange::PlayStartTimeTooltip() const
 {
 	bool bShowFrameNumbers = ShowFrameNumbers.IsBound() ? ShowFrameNumbers.Get() : false;
 	if (bShowFrameNumbers)
 	{
-		return LOCTEXT("StartFrameTooltip", "Start frame");
+		return LOCTEXT("PlayStartFrameTooltip", "In Frame");
 	}
 	else
 	{
-		return LOCTEXT("StartTimeTooltip", "Start time");
+		return LOCTEXT("PlayStartTimeTooltip", "In Time");
 	}
 }
 
-FText STimeRange::InTimeTooltip() const
+FText STimeRange::PlayEndTimeTooltip() const
 {
 	bool bShowFrameNumbers = ShowFrameNumbers.IsBound() ? ShowFrameNumbers.Get() : false;
 	if (bShowFrameNumbers)
 	{
-		return LOCTEXT("InFrameTooltip", "In frame");
+		return LOCTEXT("PlayEndFrameTooltip", "Out Frame");
 	}
 	else
 	{
-		return LOCTEXT("InTimeTooltip", "In time");
+		return LOCTEXT("PlayEndTimeTooltip", "Out Time");
 	}
 }
 
-FText STimeRange::OutTimeTooltip() const
+FText STimeRange::ViewStartTimeTooltip() const
 {
 	bool bShowFrameNumbers = ShowFrameNumbers.IsBound() ? ShowFrameNumbers.Get() : false;
 	if (bShowFrameNumbers)
 	{
-		return LOCTEXT("OutFrameTooltip", "Out frame");
+		return LOCTEXT("ViewStartFrameTooltip", "View Range Start Frame");
 	}
 	else
 	{
-		return LOCTEXT("OutTimeTooltip", "Out time");
+		return LOCTEXT("ViewStartTimeTooltip", "View Range Start Time");
 	}
 }
 
-FText STimeRange::EndTimeTooltip() const
+FText STimeRange::ViewEndTimeTooltip() const
 {
 	bool bShowFrameNumbers = ShowFrameNumbers.IsBound() ? ShowFrameNumbers.Get() : false;
 	if (bShowFrameNumbers)
 	{
-		return LOCTEXT("EndFrameTooltip", "End frame");
+		return LOCTEXT("ViewEndFrameTooltip", "View Range End Frame");
 	}
 	else
 	{
-		return LOCTEXT("EndTimeTooltip", "End time");
+		return LOCTEXT("ViewEndTimeTooltip", "View Range End Time");
 	}
 }
-
-float STimeRange::GetTimeSnapInterval() const
-{
-	if (TimeSnapInterval.IsBound())
-	{
-		return TimeSnapInterval.Get();
-	}
-	return 1.f;
-}
-
-FString STimeRange::ToString(const float& Value) const
-{
-	bool bShowFrameNumbers = ShowFrameNumbers.IsBound() ? ShowFrameNumbers.Get() : false;
-
-	if (bShowFrameNumbers && TimeSliderController.IsValid())
-	{
-		int32 Frame = TimeSliderController.Get()->TimeToFrame(Value);
-		return FString::Printf(TEXT("%d"), Frame);
-	}
-
-	return FString::Printf(TEXT("%.2f"), Value);
-}
-
-TOptional<float> STimeRange::FromString(const FString& InString)
-{
-	bool bShowFrameNumbers = ShowFrameNumbers.IsBound() ? ShowFrameNumbers.Get() : false;
-	if (bShowFrameNumbers && TimeSliderController.IsValid())
-	{
-		int32 NewEndFrame = FCString::Atoi(*InString);
-		return float(TimeSliderController.Get()->FrameToTime(NewEndFrame));
-	}
-
-	return FCString::Atof(*InString);
-}
-
-
 
 #undef LOCTEXT_NAMESPACE

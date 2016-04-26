@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -53,7 +53,7 @@ public:
 	FComponentReference AttachEndTo;
 
 	/** End location of cable, relative to AttachEndTo if specified, otherwise relative to cable component. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cable")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Cable", meta=(MakeEditWidget=true))
 	FVector EndLocation;
 
 	/** Attaches the end of the cable to a specific Component within an Actor **/
@@ -96,6 +96,10 @@ public:
 	/** How many times to repeat the material along the length of the cable */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Cable Rendering", meta=(UIMin = "0.1", UIMax = "8"))
 	float TileMaterial;
+
+	/** Axis (in component space) that is used when building cable mesh geometry. Should be orthogonal to cable direction.  */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = "Cable")
+	FVector CableUpDir;
 
 private:
 

@@ -284,7 +284,7 @@ void AUTWeapon::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 
 void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 {
-	if (bMustBeHolstered && UTOwner && HasAnyAmmo())
+	if (bMustBeHolstered && UTOwner && (HasAnyAmmo() || bCanRegenerateAmmo))
 	{
 		AttachToHolster();
 	}
@@ -341,7 +341,7 @@ void AUTWeapon::DropFrom(const FVector& StartLocation, const FVector& TossVeloci
 			DetachFromHolster();
 		}
 
-		if (!HasAnyAmmo())
+		if (!HasAnyAmmo() && !bCanRegenerateAmmo)
 		{
 			Destroy();
 		}
@@ -747,7 +747,7 @@ void AUTWeapon::DetachFromOwner_Implementation()
 	// unregister components so they go away
 	UnregisterAllComponents();
 
-	if (bMustBeHolstered && HasAnyAmmo() && UTOwner && !UTOwner->IsDead() && !IsPendingKillPending())
+	if (bMustBeHolstered && (HasAnyAmmo() || bCanRegenerateAmmo) && UTOwner != NULL && !UTOwner->IsDead() && !IsPendingKillPending())
 	{
 		AttachToHolster();
 	}
@@ -853,7 +853,7 @@ void AUTWeapon::PlayLowAmmoSound()
 	UUTGameplayStatics::UTPlaySound(GetWorld(), LowAmmoSound, UTOwner, SRT_None);
 }
 
-void AUTWeapon::StopFiringEffects()
+void AUTWeapon::StopFiringEffects_Implementation()
 {
 	for (UParticleSystemComponent* MF : MuzzleFlash)
 	{
@@ -890,7 +890,7 @@ bool AUTWeapon::CancelImpactEffect(const FHitResult& ImpactHit)
 	return (!ImpactHit.Actor.IsValid() && !ImpactHit.Component.IsValid()) || Cast<AUTCharacter>(ImpactHit.Actor.Get()) || Cast<AUTProjectile>(ImpactHit.Actor.Get());
 }
 
-void AUTWeapon::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation)
+void AUTWeapon::PlayImpactEffects_Implementation(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation)
 {
 	if (GetNetMode() != NM_DedicatedServer)
 	{
@@ -1010,8 +1010,11 @@ void AUTWeapon::OnRep_Ammo()
 		AUTPlayerController* PC = Cast<AUTPlayerController>(UTOwner->Controller);
 		if (PC != NULL)
 		{
-			//UE_LOG(UT, Warning, TEXT("********** %s ran out of ammo for %s"), *GetName(), *PC->GetHumanReadableName());
-			PC->SwitchToBestWeapon();
+			if (!bCanRegenerateAmmo)
+			{
+				//UE_LOG(UT, Warning, TEXT("********** %s ran out of ammo for %s"), *GetName(), *PC->GetHumanReadableName());
+				PC->SwitchToBestWeapon();
+			}
 		}
 		else
 		{
@@ -2347,6 +2350,19 @@ void AUTWeapon::FiringEffectsUpdated_Implementation(uint8 InFireMode, FVector In
 	FRotator SpawnRotation;
 	GetImpactSpawnPosition(InFlashLocation, SpawnLocation, SpawnRotation);
 	PlayImpactEffects(InFlashLocation, InFireMode, SpawnLocation, SpawnRotation);
+}
+
+UMaterialInstanceDynamic* AUTWeapon::GetZoomMaterial(uint8 FireModeNum) const
+{
+	UUTWeaponStateZooming* ZoomFireMode = FiringState.IsValidIndex(FireModeNum) ? Cast<UUTWeaponStateZooming>(FiringState[FireModeNum]) : NULL;
+	if (ZoomFireMode != NULL && ZoomFireMode->OverlayMI != NULL)
+	{
+		return ZoomFireMode->OverlayMI;
+	}
+	else
+	{
+		return NULL;
+	}
 }
 
 void AUTWeapon::TickZoom(float DeltaTime)

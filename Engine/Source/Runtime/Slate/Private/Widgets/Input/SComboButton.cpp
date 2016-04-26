@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlatePrivatePCH.h"
 
@@ -24,6 +24,7 @@ void SComboButton::Construct( const FArguments& InArgs )
 		.Method(InArgs._Method)
 		.OnMenuOpenChanged(InArgs._OnMenuOpenChanged)
 		.OnGetMenuContent(InArgs._OnGetMenuContent)
+		.IsCollapsedByParent(InArgs._CollapseMenuOnParentFocus)
 		[
 			SNew( SButton )
 			.ButtonStyle( OurButtonStyle )
@@ -107,6 +108,18 @@ FReply SComboButton::OnButtonClicked()
 	}
 
 	return ButtonClickedReply;
+}
+
+FReply SComboButton::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
+{
+	FReply Reply = FReply::Unhandled();
+	if (InKeyEvent.GetKey() == EKeys::Gamepad_FaceButton_Bottom)
+	{
+		// Handle menu open with controller.
+		Reply = OnButtonClicked();
+	}
+
+	return Reply;
 }
 
 void SComboButton::SetMenuContent(TSharedRef<SWidget> InContent)

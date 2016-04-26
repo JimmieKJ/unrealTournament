@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "BlueprintGraphPrivatePCH.h"
@@ -58,6 +58,7 @@ public:
 			if (Context.IsDebuggingOrInstrumentationRequired() && (OutputPins.Num() > 1))
 			{
 				const FString NodeComment = Node->NodeComment.IsEmpty() ? Node->GetName() : Node->NodeComment;
+				const bool bInstrumentedVersion = Context.bInstrumentScriptCode;
 
 				// Assuming sequence X goes to A, B, C, we want to emit:
 				//   X: push X1
@@ -71,6 +72,14 @@ public:
 				// A push statement we need to patch up on the next pass (e.g., push X1 before we know where X1 is)
 				FBlueprintCompiledStatement* LastPushStatement = NULL;
 
+				if (bInstrumentedVersion)
+				{
+					// Emit a sequence instruction
+					FBlueprintCompiledStatement& SequenceStart = Context.AppendStatementForNode(Node);
+					SequenceStart.Type = KCST_InstrumentedStatePush;
+					SequenceStart.Comment = NodeComment;
+				}
+
 				for (int32 i = 0; i < OutputPins.Num(); ++i)
 				{
 					// Emit the debug site and patch up the previous jump if we're on subsequent steps
@@ -79,7 +88,7 @@ public:
 					{
 						// Emit a debug site
 						FBlueprintCompiledStatement& DebugSiteAndJumpTarget = Context.AppendStatementForNode(Node);
-						DebugSiteAndJumpTarget.Type = Context.GetBreakpointType();
+						DebugSiteAndJumpTarget.Type = bInstrumentedVersion ? KCST_InstrumentedStateRestore : Context.GetBreakpointType();
 						DebugSiteAndJumpTarget.Comment = NodeComment;
 						DebugSiteAndJumpTarget.bIsJumpTarget = true;
 
@@ -88,8 +97,8 @@ public:
 						LastPushStatement->TargetLabel = &DebugSiteAndJumpTarget;
 					}
 
-					// Emit a push to get to the next step in the sequence, unless we're the last one
-					const bool bNotLastIndex = (i + 1) < OutputPins.Num();
+					// Emit a push to get to the next step in the sequence, unless we're the last one or this is an instrumented build
+					const bool bNotLastIndex = ((i + 1) < OutputPins.Num()) || bInstrumentedVersion;
 					if (bNotLastIndex)
 					{
 						FBlueprintCompiledStatement& PushExecutionState = Context.AppendStatementForNode(Node);
@@ -101,6 +110,17 @@ public:
 					FBlueprintCompiledStatement& GotoSequenceLinkedState = Context.AppendStatementForNode(Node);
 					GotoSequenceLinkedState.Type = KCST_UnconditionalGoto;
 					Context.GotoFixupRequestMap.Add(&GotoSequenceLinkedState, OutputPins[i]);
+				}
+				if (bInstrumentedVersion)
+				{
+					// For instrumented builds jump back to node and pop the execution state then exit the thread.
+					FBlueprintCompiledStatement& SequenceEnd = Context.AppendStatementForNode(Node);
+					SequenceEnd.Type = KCST_InstrumentedStatePop;
+					SequenceEnd.Comment = NodeComment;
+					SequenceEnd.bIsJumpTarget = true;
+					LastPushStatement->TargetLabel = &SequenceEnd;
+					FBlueprintCompiledStatement& NextExecutionState = Context.AppendStatementForNode(Node);
+					NextExecutionState.Type = KCST_EndOfThread;
 				}
 			}
 			else

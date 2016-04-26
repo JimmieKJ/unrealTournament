@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidRuntimeSettingsPrivatePCH.h"
 
@@ -19,6 +19,12 @@ UAndroidRuntimeSettings::UAndroidRuntimeSettings(const FObjectInitializer& Objec
 	, bMultiTargetFormat_PVRTC(true)
 	, bMultiTargetFormat_ATC(true)
 	, bMultiTargetFormat_ASTC(true)
+	, TextureFormatPriority_ETC1(0.1f)
+	, TextureFormatPriority_ETC2(0.2f)
+	, TextureFormatPriority_DXT(0.6f)
+	, TextureFormatPriority_PVRTC(0.8f)
+	, TextureFormatPriority_ATC(0.5f)
+	, TextureFormatPriority_ASTC(0.9f)
 {
 }
 
@@ -51,6 +57,18 @@ void UAndroidRuntimeSettings::PostEditChangeProperty(struct FPropertyChangedEven
 			bMultiTargetFormat_ETC1 = true;
 			UpdateSinglePropertyInConfigFile(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UAndroidRuntimeSettings, bMultiTargetFormat_ETC1)), GetDefaultConfigFilename());
 		}
+
+		// Notify the Android_MultiTargetPlatform module if it's loaded
+		IAndroid_MultiTargetPlatformModule* Module = FModuleManager::GetModulePtr<IAndroid_MultiTargetPlatformModule>("Android_MultiTargetPlatform");
+		if (Module)
+		{
+			Module->NotifySelectedFormatsChanged();
+		}
+	}
+
+	if (PropertyChangedEvent.Property != nullptr && PropertyChangedEvent.Property->GetName().StartsWith(TEXT("TextureFormatPriority")))
+	{
+		UpdateSinglePropertyInConfigFile(PropertyChangedEvent.Property, GetDefaultConfigFilename());
 
 		// Notify the Android_MultiTargetPlatform module if it's loaded
 		IAndroid_MultiTargetPlatformModule* Module = FModuleManager::GetModulePtr<IAndroid_MultiTargetPlatformModule>("Android_MultiTargetPlatform");

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "EdGraph/EdGraphNode.h"
@@ -266,38 +266,43 @@ public:
 
 public:
 	FPinConnectionResponse()
-	: Message(FText::GetEmpty())
-	, Response(CONNECT_RESPONSE_MAKE)
+		: Message(FText::GetEmpty())
+		, Response(CONNECT_RESPONSE_MAKE)
+		, bIsFatal(false)
 	{
 	}
 
 	FPinConnectionResponse(const ECanCreateConnectionResponse InResponse, const FString& InMessage)
 		: Message(FText::FromString(InMessage))
 		, Response(InResponse)
+		, bIsFatal(false)
 	{
 	}
 
 	FPinConnectionResponse(const ECanCreateConnectionResponse InResponse, const ANSICHAR* InMessage)
 		: Message(FText::FromString(InMessage))
 		, Response(InResponse)
+		, bIsFatal(false)
 	{
 	}
 
 	FPinConnectionResponse(const ECanCreateConnectionResponse InResponse, const WIDECHAR* InMessage)
 		: Message(FText::FromString(InMessage))
 		, Response(InResponse)
+		, bIsFatal(false)
 	{
 	}
 
 	FPinConnectionResponse(const ECanCreateConnectionResponse InResponse, const FText& InMessage)
 		: Message(InMessage)
 		, Response(InResponse)
+		, bIsFatal(false)
 	{
 	}
 
 	friend bool operator==(const FPinConnectionResponse& A, const FPinConnectionResponse& B)
 	{
-		return (A.Message.ToString() == B.Message.ToString()) && (A.Response == B.Response);
+		return (A.Message.ToString() == B.Message.ToString()) && (A.Response == B.Response) && (A.bIsFatal == B.bIsFatal);
 	}	
 
 	/** If a connection can be made without breaking existing connections */
@@ -305,6 +310,20 @@ public:
 	{
 		return (Response == CONNECT_RESPONSE_MAKE);
 	}
+
+	bool IsFatal() const
+	{
+		return (Response == CONNECT_RESPONSE_DISALLOW) && bIsFatal;
+	}
+
+	void SetFatal()
+	{
+		Response = CONNECT_RESPONSE_DISALLOW;
+		bIsFatal = true;
+	}
+
+private:
+	bool bIsFatal:1;
 };
 
 

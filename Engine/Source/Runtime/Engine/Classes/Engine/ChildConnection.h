@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -36,7 +36,7 @@ public:
 		return Parent->LowLevelDescribe();
 	}
 
-	virtual void LowLevelSend( void* Data, int32 Count ) override
+	virtual void LowLevelSend(void* Data, int32 CountBytes, int32 CountBits) override
 	{
 	}
 

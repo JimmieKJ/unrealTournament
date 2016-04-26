@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MetalRHIPrivate.h"
 #include "MetalRenderPipelineDesc.h"
@@ -7,6 +7,8 @@
 static_assert(Offset_End <= sizeof(FMetalRenderPipelineHash) * 8, "Too many bits used for the Hash");
 
 NSMutableDictionary* FMetalRenderPipelineDesc::MetalPipelineCache = [NSMutableDictionary new];
+FCriticalSection FMetalRenderPipelineDesc::MetalPipelineMutex;
+
 uint32 FMetalRenderPipelineDesc::BlendBitOffsets[] = { Offset_BlendState0, Offset_BlendState1, Offset_BlendState2, Offset_BlendState3, Offset_BlendState4, Offset_BlendState5, };
 uint32 FMetalRenderPipelineDesc::RTBitOffsets[] = { Offset_RenderTargetFormat0, Offset_RenderTargetFormat1, Offset_RenderTargetFormat2, Offset_RenderTargetFormat3, Offset_RenderTargetFormat4, Offset_RenderTargetFormat5, };
 
@@ -32,6 +34,18 @@ id<MTLRenderPipelineState> FMetalRenderPipelineDesc::CreatePipelineStateForBound
 		PipelineDescriptor.depthAttachmentPixelFormat = (MTLPixelFormat)GPixelFormats[PF_DepthStencil].PlatformFormat;
 		PipelineDescriptor.stencilAttachmentPixelFormat = (MTLPixelFormat)GPixelFormats[PF_DepthStencil].PlatformFormat;
 	}
+    
+    // Disable blending and writing on unbound targets or Metal will assert/crash/abort depending on build.
+    // At least with this API all the state must match all of the time for it to work.
+    for (int Index = 0; Index < MaxMetalRenderTargets; Index++)
+    {
+        MTLRenderPipelineColorAttachmentDescriptor* Desc = [PipelineDescriptor.colorAttachments objectAtIndexedSubscript:Index];
+        if(Desc.pixelFormat == MTLPixelFormatInvalid)
+        {
+            Desc.blendingEnabled = NO;
+            Desc.writeMask = 0;
+        }
+    }
 	
 	// set the bound shader state settings
 	PipelineDescriptor.vertexDescriptor = BSS->VertexDeclaration->Layout;
@@ -42,6 +56,12 @@ id<MTLRenderPipelineState> FMetalRenderPipelineDesc::CreatePipelineStateForBound
 	check(SampleCount > 0);
 
 	NSError* Error = nil;
+	
+	if(GUseRHIThread)
+	{
+		MetalPipelineMutex.Lock();
+	}
+	
 	id<MTLRenderPipelineState> PipelineState = (id<MTLRenderPipelineState>)[MetalPipelineCache objectForKey:PipelineDescriptor];
 	if(PipelineState == nil)
 	{
@@ -52,6 +72,11 @@ id<MTLRenderPipelineState> FMetalRenderPipelineDesc::CreatePipelineStateForBound
 		{
 			[MetalPipelineCache setObject:PipelineState forKey:PipelineDescriptor];
 		}
+	}
+	
+	if(GUseRHIThread)
+	{
+		MetalPipelineMutex.Unlock();
 	}
 	
 	PipelineDescriptor.depthAttachmentPixelFormat = DepthFormat;

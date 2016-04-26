@@ -1,18 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "Engine/EngineTypes.h"
 #include "MovieSceneCaptureSettings.generated.h"
 
-UENUM()
-enum class EMovieCaptureType : uint8
-{
-	AVI		UMETA(DisplayName="AVI Movie"),
-	BMP		UMETA(DisplayName="BMP Image Sequence"),
-	PNG		UMETA(DisplayName="PNG Image Sequence"),
-	JPEG	UMETA(DisplayName="JPEG Image Sequence")
-};
 
 /** Structure representing a capture resolution */
 USTRUCT()
@@ -56,6 +48,7 @@ struct MOVIESCENECAPTURE_API FMovieSceneCaptureSettings
 	 * {height}		- The height of the captured frames
 	 * {world}		- The name of the current world
 	 * {quality}	- The image compression quality setting
+	 * {material}   - The material/render pass
 	 */
 	UPROPERTY(config, EditAnywhere, Category=General, DisplayName="Filename Format")
 	FString OutputFormat;
@@ -75,22 +68,6 @@ struct MOVIESCENECAPTURE_API FMovieSceneCaptureSettings
 	/** The resolution at which to capture */
 	UPROPERTY(config, EditAnywhere, Category=CaptureSettings, meta=(ShowOnlyInnerProperties))
 	FCaptureResolution Resolution;
-
-	/** The type of capture to perform */
-	UPROPERTY(config, EditAnywhere, Category=CaptureSettings)
-	EMovieCaptureType CaptureType;
-
-	/** Whether compression is enabled on the resulting file(s) */
-	UPROPERTY(config, EditAnywhere, Category=CaptureSettings, AdvancedDisplay )
-	bool bUseCompression;
-
-	/** For output formats that support compression, this specifies the quality level of the compressed image.  0.0 results in the most compression, while 1.0 gives you the highest image quality. */
-	UPROPERTY(config, EditAnywhere, Category=CaptureSettings, AdvancedDisplay, meta=(ClampMin=0, ClampMax=1), meta=(EditCondition="bUseCompression"))
-	float CompressionQuality;
-
-	/** (Experimental) - An optional codec to use for video encoding */
-	UPROPERTY(config, EditAnywhere, Category=CaptureSettings, AdvancedDisplay)
-	FString Codec;
 	
 	/** Whether to texture streaming should be enabled while capturing.  Turning off texture streaming may cause much more memory to be used, but also reduces the chance of blurry textures in your captured video. */
 	UPROPERTY(config, EditAnywhere, Category=CaptureSettings, AdvancedDisplay)

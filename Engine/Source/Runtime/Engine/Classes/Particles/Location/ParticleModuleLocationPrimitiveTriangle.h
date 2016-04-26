@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 //~=============================================================================
 // ParticleModuleLocationPrimitiveTriangle
@@ -9,8 +9,8 @@
 #include "Particles/Location/ParticleModuleLocationBase.h"
 #include "ParticleModuleLocationPrimitiveTriangle.generated.h"
 
-UCLASS(editinlinenew, hidecategories=Object, MinimalAPI, meta=(DisplayName = "Triangle"))
-class UParticleModuleLocationPrimitiveTriangle : public UParticleModuleLocationBase
+UCLASS(editinlinenew, hidecategories=Object, meta=(DisplayName = "Triangle"))
+class ENGINE_API UParticleModuleLocationPrimitiveTriangle : public UParticleModuleLocationBase
 {
 	GENERATED_UCLASS_BODY()
 

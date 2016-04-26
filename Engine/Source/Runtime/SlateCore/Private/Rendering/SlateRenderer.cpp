@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateCorePrivatePCH.h"
 
@@ -71,14 +71,14 @@ void FSlateFontServices::FlushFontCache()
 
 void FSlateFontServices::FlushGameThreadFontCache()
 {
-	GameThreadFontCache->FlushCache();
+	GameThreadFontCache->RequestFlushCache();
 	GameThreadFontMeasure->FlushCache();
 }
 
 
 void FSlateFontServices::FlushRenderThreadFontCache()
 {
-	RenderThreadFontCache->FlushCache();
+	RenderThreadFontCache->RequestFlushCache();
 	RenderThreadFontMeasure->FlushCache();
 }
 
@@ -136,7 +136,7 @@ ISlateAtlasProvider* FSlateRenderer::GetFontAtlasProvider()
 
 TSharedRef<FSlateRenderDataHandle, ESPMode::ThreadSafe> FSlateRenderer::CacheElementRenderData(const ILayoutCache* Cacher, FSlateWindowElementList& ElementList)
 {
-	return MakeShareable(new FSlateRenderDataHandle(Cacher, this));
+	return MakeShareable(new FSlateRenderDataHandle(Cacher, nullptr));
 }
 
 void FSlateRenderer::ReleaseCachingResourcesFor(const ILayoutCache* Cacher)

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneToolsPrivatePCH.h"
 #include "MovieScene.h"
@@ -21,11 +21,13 @@
 #include "Runtime/Engine/Public/Slate/SlateTextures.h"
 #include "ObjectTools.h"
 #include "Runtime/Engine/Public/Slate/SceneViewport.h"
-#include "Runtime/MovieSceneTracks/Public/Sections/MovieSceneShotSection.h"
 #include "Runtime/Engine/Public/AudioDecompress.h"
 #include "Sound/SoundBase.h"
 #include "Sound/SoundWave.h"
 #include "Sound/SoundCue.h"
+#include "ContentBrowserModule.h"
+#include "SequencerUtilities.h"
+#include "AssetRegistryModule.h"
 
 
 #define LOCTEXT_NAMESPACE "FAudioTrackEditor"
@@ -59,11 +61,11 @@ USoundWave* DeriveSoundWave(UMovieSceneAudioSection* AudioSection)
 		// @todo Sequencer - Right now for sound cues, we just use the first sound wave in the cue
 		// In the future, it would be better to properly generate the sound cue's data after forcing determinism
 		const TArray<USoundNode*>& AllNodes = SoundCue->AllNodes;
-		for (int32 i = 0; i < AllNodes.Num() && SoundWave == nullptr; ++i)
+		for (int32 Index = 0; Index < AllNodes.Num() && SoundWave == nullptr; ++Index)
 		{
-			if (AllNodes[i]->IsA<USoundNodeWavePlayer>())
+			if (AllNodes[Index]->IsA<USoundNodeWavePlayer>())
 			{
-				SoundWave = Cast<USoundNodeWavePlayer>(AllNodes[i])->GetSoundWave();
+				SoundWave = Cast<USoundNodeWavePlayer>(AllNodes[Index])->GetSoundWave();
 			}
 		}
 	}
@@ -80,6 +82,37 @@ float DeriveUnloopedDuration(UMovieSceneAudioSection* AudioSection)
 	return Duration == INDEFINITELY_LOOPING_DURATION ? SoundWave->Duration : Duration;
 }
 
+/** The maximum number of channels we support */
+static const int32 MaxSupportedChannels = 2;
+/** The number of pixels between which to place control points for cubic interpolation */
+static const int32 SmoothingAmount = 6;
+/** The size of the sroked border of the audio wave */
+static const int32 StrokeBorderSize = 2;
+
+/** A specific sample from the audio, specifying peak and average amplitude over the sample's range */
+struct FAudioSample
+{
+	FAudioSample() : RMS(0.f), NumSamples(0) {}
+
+	float RMS;
+	int32 NumSamples;
+	TMap<int32, int32> Histogram;
+};
+
+/** A segment in a cubic spline */
+struct FSplineSegment
+{
+	FSplineSegment() : A(0.f), B(0.f), C(0.f), D(0.f) {}
+
+	/** Cubic polynomial coefficients for the equation f(x) = A + Bx + Cx^2 + Dx^3*/
+	float A, B, C, D;
+	/** The width of this segment */
+	float SampleSize;
+	/** The x-position of this segment */
+	float Position;
+};
+
+
 
 /**
  * The audio thumnail, which holds a texture which it can pass back to a viewport to render
@@ -89,7 +122,7 @@ class FAudioThumbnail
 	, public TSharedFromThis<FAudioThumbnail>
 {
 public:
-	FAudioThumbnail(UMovieSceneSection& InSection, TRange<float> DrawRange, int InTextureSize);
+	FAudioThumbnail(UMovieSceneSection& InSection, TRange<float> DrawRange, int InTextureSize, const FLinearColor& BaseColor, float DisplayScale);
 	~FAudioThumbnail();
 
 	/* ISlateViewport interface */
@@ -102,10 +135,13 @@ public:
 	
 private:
 	/** Generates the waveform preview and dumps it out to the OutBuffer */
-	void GenerateWaveformPreview(TArray<uint8>& OutBuffer, TRange<float> DrawRange);
+	void GenerateWaveformPreview(TArray<uint8>& OutBuffer, TRange<float> DrawRange, float DisplayScale);
 
-	/** Given a buffer of data, a PCM lookup, draws a line of the PCM waveform at the specified X of the data buffer */
-	void DrawWaveformLine(TArray<uint8>& OutData, int32 NumChannels, int16* LookupData, int32 LookupStartIndex, int32 LookupEndIndex, int32 LookupSize, int32 X, int32 XAxisHeight, int32 MaxAmplitude);
+	/** Sample the audio data at the given lookup position. Appends the sample result to the Samples array */
+	void SampleAudio(int32 NumChannels, const int16* LookupData, int32 LookupStartIndex, int32 LookupEndIndex, int32 LookupSize, int32 MaxAmplitude, bool bShowIntensity);
+
+	/** Generate a natural cubic spline from the sample buffer */
+	void GenerateSpline(int32 NumChannels, int32 SamplePositionOffset);
 
 private:
 	/** The section we are visualizing */
@@ -116,23 +152,52 @@ private:
 
 	/** Size of the texture */
 	int32 TextureSize;
+
+	/** Accumulation of audio samples for each channel */
+	TArray<FAudioSample> Samples[MaxSupportedChannels];
+
+	/** Spline segments generated from the above Samples array */
+	TArray<FSplineSegment> SplineSegments[MaxSupportedChannels];
+
+	/** Waveform colors */
+	FLinearColor BoundaryColorHSV;
+	FLinearColor FillColor_A, FillColor_B;
 };
 
+float Modulate(float Value, float Delta, float Range)
+{
+	Value = FMath::Fmod(Value + Delta, Range);
+	if (Value < 0.0f)
+	{
+		Value += Range;
+	}
+	return Value;
+}
 
-FAudioThumbnail::FAudioThumbnail(UMovieSceneSection& InSection, TRange<float> DrawRange, int32 InTextureSize)
+FAudioThumbnail::FAudioThumbnail(UMovieSceneSection& InSection, TRange<float> DrawRange, int32 InTextureSize, const FLinearColor& BaseColor, float DisplayScale)
 	: Section(InSection)
 	, Texture(NULL)
 	, TextureSize(InTextureSize)
 {
 	UMovieSceneAudioSection* AudioSection = Cast<UMovieSceneAudioSection>(&Section);
 	
+	const FLinearColor BaseHSV = BaseColor.LinearRGBToHSV();
+
+	const float BaseValue = FMath::Min(BaseHSV.B, .5f) * BaseHSV.A;
+	const float BaseSaturation = FMath::Max((BaseHSV.G - .45f), 0.f) * BaseHSV.A;
+
+	FillColor_A = FLinearColor(Modulate(BaseHSV.R, -2.5f, 360), BaseSaturation + .35f, BaseValue);
+	FillColor_B = FLinearColor(Modulate(BaseHSV.R,  2.5f, 360), BaseSaturation + .4f, BaseValue + .15f);
+
+	BoundaryColorHSV = FLinearColor(BaseHSV.R, BaseSaturation, BaseValue + .35f);
+
 	if (ShouldRender())
 	{
 		uint32 Size = GetSize().X * GetSize().Y * GPixelFormats[PF_B8G8R8A8].BlockBytes;
 		TArray<uint8> RawData;
 		RawData.AddZeroed(Size);
 
-		GenerateWaveformPreview(RawData, DrawRange);
+		GenerateWaveformPreview(RawData, DrawRange, DisplayScale);
 
 		FSlateTextureDataPtr BulkData(new FSlateTextureData(GetSize().X, GetSize().Y, GPixelFormats[PF_B8G8R8A8].BlockBytes, RawData));
 
@@ -163,8 +228,53 @@ FIntPoint FAudioThumbnail::GetSize() const {return FIntPoint(TextureSize, Animat
 FSlateShaderResource* FAudioThumbnail::GetViewportRenderTargetTexture() const {return Texture;}
 bool FAudioThumbnail::RequiresVsync() const {return false;}
 
+/** Lookup a pixel in the given data buffer based on the specified X and Y */
+uint8* LookupPixel(TArray<uint8>& Data, int32 X, int32 YPos, int32 Width, int32 Height, int32 Channel, int32 NumChannels)
+{
+	int32 Y = Height - YPos - 1;
+	if (NumChannels == 2)
+	{
+		Y = Channel == 0 ? Height/2 - YPos : Height/2 + YPos;
+	}
 
-void FAudioThumbnail::GenerateWaveformPreview(TArray<uint8>& OutData, TRange<float> DrawRange)
+	int32 Index = (Y * Width + X) * GPixelFormats[PF_B8G8R8A8].BlockBytes;
+	return &Data[Index];
+}
+
+/** Lerp between 2 HSV space colors */
+FLinearColor LerpHSV(const FLinearColor& A, const FLinearColor& B, float Alpha)
+{
+	float SrcHue = A.R;
+	float DestHue = B.R;
+
+	// Take the shortest path to the new hue
+	if (FMath::Abs(SrcHue - DestHue) > 180.0f)
+	{
+		if (DestHue > SrcHue)
+		{
+			SrcHue += 360.0f;
+		}
+		else
+		{
+			DestHue += 360.0f;
+		}
+	}
+
+	float NewHue = FMath::Fmod(FMath::Lerp(SrcHue, DestHue, Alpha), 360.0f);
+	if (NewHue < 0.0f)
+	{
+		NewHue += 360.0f;
+	}
+
+	return FLinearColor(
+		NewHue,
+		FMath::Lerp(A.G, B.G, Alpha),
+		FMath::Lerp(A.B, B.B, Alpha),
+		FMath::Lerp(A.A, B.A, Alpha)
+		);
+}
+
+void FAudioThumbnail::GenerateWaveformPreview(TArray<uint8>& OutData, TRange<float> DrawRange, float DisplayScale)
 {
 	UMovieSceneAudioSection* AudioSection = Cast<UMovieSceneAudioSection>(&Section);
 
@@ -172,9 +282,6 @@ void FAudioThumbnail::GenerateWaveformPreview(TArray<uint8>& OutData, TRange<flo
 	check(SoundWave);
 	
 	check(SoundWave->NumChannels == 1 || SoundWave->NumChannels == 2);
-
-	// @todo Sequencer - This may be fixed when we switch to double precision, but the waveform flickers a bit on resize
-	// If double precision don't solve the issue, this system may have to be re-engineered
 
 	// decompress PCM data if necessary
 	if (SoundWave->RawPCMData == NULL)
@@ -184,15 +291,30 @@ void FAudioThumbnail::GenerateWaveformPreview(TArray<uint8>& OutData, TRange<flo
 		FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
 		if (AudioDevice)
 		{
-			SoundWave->InitAudioResource(AudioDevice->GetRuntimeFormat(SoundWave));
-			FAsyncAudioDecompress TempDecompress(SoundWave);
-			TempDecompress.StartSynchronousTask();
+			EDecompressionType DecompressionType =  SoundWave->DecompressionType;
+			SoundWave->DecompressionType = DTYPE_Native;
+
+			if ( SoundWave->InitAudioResource( AudioDevice->GetRuntimeFormat( SoundWave ) ) && (SoundWave->DecompressionType != DTYPE_RealTime || SoundWave->CachedRealtimeFirstBuffer == nullptr ) )
+			{
+				FAsyncAudioDecompress TempDecompress(SoundWave);
+				TempDecompress.StartSynchronousTask();
+			}
+
+			SoundWave->DecompressionType = DecompressionType;
 		}
 	}
 
-	int16* LookupData = (int16*)SoundWave->RawPCMData;
-	int32 LookupDataSize = SoundWave->RawPCMDataSize;
-	int32 LookupSize = LookupDataSize * sizeof(uint8) / sizeof(int16);
+	const int32 NumChannels = SoundWave->NumChannels;
+	const int16* LookupData = (int16*)SoundWave->RawPCMData;
+	const int32 LookupDataSize = SoundWave->RawPCMDataSize;
+	const int32 LookupSize = LookupDataSize * sizeof(uint8) / sizeof(int16);
+
+	if (!LookupData)
+	{
+		return;
+	}
+
+	const bool bShowIntensity = AudioSection->ShouldShowIntensity();
 
 	// @todo Sequencer This fixes looping drawing by pretending we are only dealing with a SoundWave
 	TRange<float> AudioTrueRange = TRange<float>(
@@ -202,7 +324,22 @@ void FAudioThumbnail::GenerateWaveformPreview(TArray<uint8>& OutData, TRange<flo
 
 	float DrawRangeSize = DrawRange.Size<float>();
 
-	for (int32 X = 0; X < GetSize().X; ++X)
+	const int32 MaxAmplitude = NumChannels == 1 ? GetSize().Y : GetSize().Y / 2;
+
+	int32 DrawOffsetPx = FMath::Max(FMath::RoundToInt((DrawRange.GetLowerBoundValue() - AudioSection->GetRange().GetLowerBoundValue()) / DisplayScale), 0);
+
+
+	// In order to prevent flickering waveforms when moving the display position/range around, we have to lock our sample position and spline segments to the view range
+	float RangeLookupFraction = (SmoothingAmount*DisplayScale) / TrueRangeSize;
+	int32 LookupRange = FMath::Clamp(FMath::TruncToInt(RangeLookupFraction * LookupSize), 1, LookupSize);
+
+	int32 SampleLockOffset = DrawOffsetPx % SmoothingAmount;
+
+	int32 FirstSample = -2.f*SmoothingAmount - SampleLockOffset;
+	int32 LastSample = GetSize().X + 2*SmoothingAmount;
+
+	// Sample the audio one pixel to the left and right
+	for (int32 X = FirstSample; X < LastSample; ++X)
 	{
 		float LookupTime = ((float)(X - 0.5f) / (float)GetSize().X) * DrawRangeSize + DrawRange.GetLowerBoundValue();
 		float LookupFraction = (LookupTime - AudioTrueRange.GetLowerBoundValue()) / TrueRangeSize;
@@ -210,126 +347,271 @@ void FAudioThumbnail::GenerateWaveformPreview(TArray<uint8>& OutData, TRange<flo
 		
 		float NextLookupTime = ((float)(X + 0.5f) / (float)GetSize().X) * DrawRangeSize + DrawRange.GetLowerBoundValue();
 		float NextLookupFraction = (NextLookupTime - AudioTrueRange.GetLowerBoundValue()) / TrueRangeSize;
-		int32 NextLookupIndex = FMath::TruncToInt(NextLookupFraction * LookupSize);
+		int32 NextLookupIndex = FMath::TruncToInt(NextLookupFraction  * LookupSize);
 
-		DrawWaveformLine(OutData, SoundWave->NumChannels, LookupData, LookupIndex, NextLookupIndex, LookupSize, X, GetSize().Y / 2, GetSize().Y / 2);
+		if (LookupRange)
+		{
+			LookupIndex -= FMath::Clamp(LookupIndex, 0, LookupSize) % LookupRange;
+			NextLookupIndex = LookupIndex + LookupRange;
+		}
+		
+		SampleAudio(SoundWave->NumChannels, LookupData, LookupIndex, NextLookupIndex, LookupSize, MaxAmplitude, bShowIntensity);
+	}
+
+	// Generate a spline
+	GenerateSpline(SoundWave->NumChannels, FirstSample);
+
+	// Now draw the spline
+	const int32 Height = GetSize().Y;
+	const int32 Width = GetSize().X;
+
+	FLinearColor BoundaryColor = BoundaryColorHSV.HSVToLinearRGB();
+
+	for (int32 ChannelIndex = 0; ChannelIndex < SoundWave->NumChannels; ++ChannelIndex)
+	{
+		int32 SplineIndex = 0;
+
+		for (int32 X = 0; X < Width; ++X)
+		{
+			bool bOutOfRange = SplineIndex >= SplineSegments[ChannelIndex].Num();
+			while (!bOutOfRange && X >= SplineSegments[ChannelIndex][SplineIndex].Position+SplineSegments[ChannelIndex][SplineIndex].SampleSize)
+			{
+				++SplineIndex;
+				bOutOfRange = SplineIndex >= SplineSegments[ChannelIndex].Num();
+			}
+			
+			if (bOutOfRange)
+			{
+				break;
+			}
+
+			// Evaluate the spline
+			const float DistBetweenPts = (X-SplineSegments[ChannelIndex][SplineIndex].Position)/SplineSegments[ChannelIndex][SplineIndex].SampleSize;
+			const float Amplitude = 
+				SplineSegments[ChannelIndex][SplineIndex].A +
+				SplineSegments[ChannelIndex][SplineIndex].B * DistBetweenPts +
+				SplineSegments[ChannelIndex][SplineIndex].C * FMath::Pow(DistBetweenPts, 2) +
+				SplineSegments[ChannelIndex][SplineIndex].D * FMath::Pow(DistBetweenPts, 3);
+
+			// @todo: draw border according to gradient of curve to prevent aliasing on steep gradients? This would be non-trivial...
+			const float BoundaryStart = Amplitude - StrokeBorderSize * 0.5f;
+			const float BoundaryEnd = Amplitude + StrokeBorderSize * 0.5f;
+
+			const FAudioSample& Sample = Samples[ChannelIndex][X - FirstSample];
+
+			float IntensitySummation = bShowIntensity ? Sample.NumSamples : 0.f;
+			for (int32 PixelIndex = 0; PixelIndex < MaxAmplitude; ++PixelIndex)
+			{
+				uint8* Pixel = LookupPixel(OutData, X, PixelIndex, Width, Height, ChannelIndex, NumChannels);
+
+				if (bShowIntensity)
+				{
+					IntensitySummation -= Sample.Histogram.FindRef(PixelIndex);
+				}
+
+				const float PixelCenter = PixelIndex + 0.5f;
+
+				const float Dither = FMath::FRand() * .025f - .0125f;
+				const float GradLerp = FMath::Clamp(float(PixelIndex) / MaxAmplitude + Dither, 0.f, 1.f);
+				FLinearColor SolidFilledColor = LerpHSV(FillColor_A, FillColor_B, GradLerp);
+
+				float BorderBlend = 1.f;
+				if (PixelIndex <= FMath::TruncToInt(BoundaryStart))
+				{
+					BorderBlend = 1.f - FMath::Clamp(BoundaryStart - PixelIndex, 0.f, 1.f);
+				}
+				
+				FLinearColor Color = LerpHSV(SolidFilledColor, BoundaryColorHSV, BorderBlend).HSVToLinearRGB();
+
+				// Calculate alpha based on how far from the boundary we are
+				float Alpha = FMath::Max(FMath::Clamp(BoundaryEnd - PixelCenter, 0.f, 1.f), IntensitySummation / Sample.NumSamples);
+				if (Alpha <= 0.f)
+				{
+					break;
+				}
+
+				// Slate viewports must have pre-multiplied alpha
+				*Pixel++ = Color.B*Alpha*255;
+				*Pixel++ = Color.G*Alpha*255;
+				*Pixel++ = Color.R*Alpha*255;
+				*Pixel++ = Alpha*255;
+			}
+		}
 	}
 }
 
-
-void FAudioThumbnail::DrawWaveformLine(TArray<uint8>& OutData, int32 NumChannels, int16* LookupData, int32 LookupStartIndex, int32 LookupEndIndex, int32 LookupSize, int32 X, int32 XAxisHeight, int32 MaxAmplitude)
+void FAudioThumbnail::GenerateSpline(int32 NumChannels, int32 SamplePositionOffset)
 {
-	int32 ModifiedLookupStartIndex = NumChannels == 2 ? (LookupStartIndex % 2 == 0 ? LookupStartIndex : LookupStartIndex - 1) : LookupStartIndex;
+	// Generate a cubic polynomial spline interpolating the samples
+	for (int32 ChannelIndex = 0; ChannelIndex < NumChannels; ++ChannelIndex)
+	{
+		TArray<FSplineSegment>& Segments = SplineSegments[ChannelIndex];
 
-	int32 ClampedStartIndex = FMath::Max(0, ModifiedLookupStartIndex);
-	int32 ClampedEndIndex = FMath::Max(FMath::Min(LookupSize-1, LookupEndIndex), ClampedStartIndex + 1);
+		const int32 NumSamples = Samples[ChannelIndex].Num();
+
+		struct FControlPoint
+		{
+			float Value;
+			float Position;
+			int32 SampleSize;
+		};
+		TArray<FControlPoint> ControlPoints;
+
+		for (int SampleIndex = 0; SampleIndex < NumSamples; SampleIndex += SmoothingAmount)
+		{
+			float RMS = 0.f;
+			int32 NumAvgs = FMath::Min(SmoothingAmount, NumSamples - SampleIndex);
+			
+			for (int32 SubIndex = 0; SubIndex < NumAvgs; ++SubIndex)
+			{
+				RMS += FMath::Pow(Samples[ChannelIndex][SampleIndex + SubIndex].RMS, 2);
+			}
+
+			const int32 SegmentSize2 = NumAvgs / 2;
+			const int32 SegmentSize1 = NumAvgs - SegmentSize2;
+
+			RMS = FMath::Sqrt(RMS / NumAvgs);
+
+			FControlPoint& StartPoint = ControlPoints[ControlPoints.AddZeroed()];
+			StartPoint.Value = Samples[ChannelIndex][SampleIndex].RMS;
+			StartPoint.SampleSize = SegmentSize1;
+			StartPoint.Position = SampleIndex + SamplePositionOffset;
+
+			if (SegmentSize2 > 0)
+			{
+				FControlPoint& MidPoint = ControlPoints[ControlPoints.AddZeroed()];
+				MidPoint.Value = RMS;
+				MidPoint.SampleSize = SegmentSize2;
+				MidPoint.Position = SampleIndex + SamplePositionOffset + SegmentSize1;
+			}
+		}
+
+		if (ControlPoints.Num() <= 1)
+		{
+			continue;
+		}
+
+		const int32 LastIndex = ControlPoints.Num() - 1;
+
+		// Perform gaussian elimination on the following tridiagonal matrix that defines the piecewise cubic polynomial
+		// spline for n control points, given f(x), f'(x) and f''(x) continuity. Imposed boundary conditions are f''(0) = f''(n) = 0.
+		//	(D[i] = f[i]'(x))
+		//	1	2						D[i]	= 3(y[1] - y[0])
+		//	1	4	1					D[i+1]	= 3(y[2] - y[1])
+		//		1	4	1				|		|
+		//		\	\	\	\	\		|		|
+		//					1	4	1	|		= 3(y[n-1] - y[n-2])
+		//						1	2	D[n]	= 3(y[n] - y[n-1])
+		struct FMinimalMatrixComponent
+		{
+			float DiagComponent;
+			float KnownConstant;
+		};
+
+		TArray<FMinimalMatrixComponent> GaussianCoefficients;
+		GaussianCoefficients.AddZeroed(ControlPoints.Num());
+
+		// Setup the top left of the matrix
+		GaussianCoefficients[0].KnownConstant = 3.f * (ControlPoints[1].Value - ControlPoints[0].Value);
+		GaussianCoefficients[0].DiagComponent = 2.f;
+
+		// Calculate the diagonal component of each row, based on the eliminated value of the last
+		for (int32 Index = 1; Index < GaussianCoefficients.Num() - 1; ++Index)
+		{
+			GaussianCoefficients[Index].KnownConstant = (3.f * (ControlPoints[Index+1].Value - ControlPoints[Index-1].Value)) - (GaussianCoefficients[Index-1].KnownConstant / GaussianCoefficients[Index-1].DiagComponent);
+			GaussianCoefficients[Index].DiagComponent = 4.f - (1.f / GaussianCoefficients[Index-1].DiagComponent);
+		}
+		
+		// Setup the bottom right of the matrix
+		GaussianCoefficients[LastIndex].KnownConstant = (3.f * (ControlPoints[LastIndex].Value - ControlPoints[LastIndex-1].Value)) - (GaussianCoefficients[LastIndex-1].KnownConstant / GaussianCoefficients[LastIndex-1].DiagComponent);
+		GaussianCoefficients[LastIndex].DiagComponent = 2.f - (1.f / GaussianCoefficients[LastIndex-1].DiagComponent);
+
+		// Now we have an upper triangular matrix, we can use reverse substitution to calculate D[n] -> D[0]
+
+		TArray<float> FirstOrderDerivatives;
+		FirstOrderDerivatives.AddZeroed(GaussianCoefficients.Num());
+
+		FirstOrderDerivatives[LastIndex] = GaussianCoefficients[LastIndex].KnownConstant / GaussianCoefficients[LastIndex].DiagComponent;
+
+		for (int32 Index = GaussianCoefficients.Num() - 2; Index >= 0; --Index)
+		{
+			FirstOrderDerivatives[Index] = (GaussianCoefficients[Index].KnownConstant - FirstOrderDerivatives[Index+1]) / GaussianCoefficients[Index].DiagComponent;
+		}
+
+		// Now we know the first-order derivatives of each control point, calculating the interpolating polynomial is trivial
+		// f(x) = a + bx + cx^2 + dx^3
+		//	a = y
+		//	b = D[i]
+		//	c = 3(y[i+1] - y[i]) - 2D[i] - D[i+1]
+		//	d = 2(y[i] - y[i+1]) + 2D[i] + D[i+1]
+		for (int32 Index = 0; Index < FirstOrderDerivatives.Num() - 2; ++Index)
+		{
+			Segments.Emplace();
+			Segments.Last().A = ControlPoints[Index].Value;
+			Segments.Last().B = FirstOrderDerivatives[Index];
+			Segments.Last().C = 3.f*(ControlPoints[Index+1].Value - ControlPoints[Index].Value) - 2*FirstOrderDerivatives[Index] - FirstOrderDerivatives[Index+1];
+			Segments.Last().D = 2.f*(ControlPoints[Index].Value - ControlPoints[Index+1].Value) + FirstOrderDerivatives[Index] + FirstOrderDerivatives[Index+1];
+
+			Segments.Last().Position = ControlPoints[Index].Position;
+			Segments.Last().SampleSize = ControlPoints[Index].SampleSize;
+		}
+	}
+}
+
+void FAudioThumbnail::SampleAudio(int32 NumChannels, const int16* LookupData, int32 LookupStartIndex, int32 LookupEndIndex, int32 LookupSize, int32 MaxAmplitude, bool bShowIntensity)
+{
+	LookupStartIndex = NumChannels == 2 ? (LookupStartIndex % 2 == 0 ? LookupStartIndex : LookupStartIndex - 1) : LookupStartIndex;
+	LookupEndIndex = FMath::Max(LookupEndIndex, LookupStartIndex + 1);
 	
 	int32 StepSize = NumChannels;
 
 	// optimization - don't take more than a maximum number of samples per pixel
-	int32 Range = ClampedEndIndex - ClampedStartIndex;
+	int32 Range = LookupEndIndex - LookupStartIndex;
 	int32 SampleCount = Range / StepSize;
 	int32 MaxSampleCount = AnimatableAudioEditorConstants::MaxSamplesPerPixel;
 	int32 ModifiedStepSize = (SampleCount > MaxSampleCount ? SampleCount / MaxSampleCount : 1) * StepSize;
 
-	// Two techniques for rendering smooth waveforms: Summed Density Histograms and Root Mean Square
-#if 1 // Summed Density Histogram
-	struct FChannelData
+	for (int32 ChannelIndex = 0; ChannelIndex < NumChannels; ++ChannelIndex)
 	{
-		FChannelData(int32 InMaxAmplitude)
-			: HistogramSum(0)
+		FAudioSample& NewSample = Samples[ChannelIndex][Samples[ChannelIndex].Emplace()];
+
+		for (int32 Index = LookupStartIndex; Index < LookupEndIndex; Index += ModifiedStepSize)
 		{
-			Histogram.AddZeroed(InMaxAmplitude);
-		}
-
-		TArray<int32> Histogram;
-		int32 HistogramSum;
-	};
-	TArray<FChannelData> ChannelData;
-	for (int32 i = 0; i < NumChannels; ++i)
-	{
-		ChannelData.Add(FChannelData(MaxAmplitude));
-	}
-
-	// build up the histogram(s)
-	for (int32 i = ClampedStartIndex; i < ClampedEndIndex; i += ModifiedStepSize)
-	{
-		for (int32 ChannelIndex = 0; ChannelIndex < NumChannels; ++ChannelIndex)
-		{
-			int32 DataPoint = LookupData[i + ChannelIndex];
-			int32 HistogramData = FMath::Clamp(FMath::TruncToInt(FMath::Abs(DataPoint) / 32768.f * MaxAmplitude), 0, MaxAmplitude - 1);
-
-			++ChannelData[ChannelIndex].Histogram[HistogramData];
-			++ChannelData[ChannelIndex].HistogramSum;
-		}
-	}
-
-	// output the data to the texture
-	const int32 MaxSupportedChannels = 2;
-	for (int32 ChannelIndex = 0; ChannelIndex < MaxSupportedChannels; ++ChannelIndex)
-	{
-		FChannelData& ChannelDataUsed = ChannelData[ChannelIndex % NumChannels];
-		int32 IntensitySummation = 0;
-		for (int32 PixelIndex = MaxAmplitude - 1; PixelIndex >= 0; --PixelIndex)
-		{
-			IntensitySummation += ChannelDataUsed.Histogram[PixelIndex];
-			if (IntensitySummation > 0)
+			if (Index < 0 || Index >= LookupSize)
 			{
-				int32 AlphaIntensity = FMath::Clamp(IntensitySummation * 255 / ChannelDataUsed.HistogramSum, 0, 255);
-
-				int32 Y = ChannelIndex == 0 ? XAxisHeight - PixelIndex : XAxisHeight + PixelIndex;
-				int32 Index = (Y * GetSize().X + X) * GPixelFormats[PF_B8G8R8A8].BlockBytes;
-				OutData[Index+0] = 255;
-				OutData[Index+1] = 255;
-				OutData[Index+2] = 255;
-				OutData[Index+3] = AlphaIntensity;
+				NewSample.RMS += 0.f;
+				if (bShowIntensity)
+				{
+					++NewSample.Histogram.FindOrAdd(0);
+				}
+				++NewSample.NumSamples;
+				continue;
 			}
+
+			int32 DataPoint = LookupData[Index + ChannelIndex];
+			int32 Sample = FMath::Clamp(FMath::TruncToInt(FMath::Abs(DataPoint) / 32768.f * MaxAmplitude), 0, MaxAmplitude - 1);
+
+			NewSample.RMS += FMath::Pow(Sample, 2);
+			if (bShowIntensity)
+			{
+				++NewSample.Histogram.FindOrAdd(Sample);
+			}
+			++NewSample.NumSamples;
+		}
+
+		if (NewSample.NumSamples)
+		{
+			NewSample.RMS = (FMath::Sqrt(NewSample.RMS / NewSample.NumSamples));
 		}
 	}
-#else // Root Mean Square
-	int32 Samples = 0;
-	float SummedData = 0;
-	int32 DataAmplitude = 0;
-	for (int32 i = ClampedStartIndex; i < ClampedEndIndex; i += StepSize)
-	{
-		int32 DataPoint = LookupData[i];
-		SummedData += DataPoint * DataPoint;
-		++Samples;
-		DataAmplitude = FMath::Max(DataAmplitude, FMath::Abs(DataPoint));
-	}
-	float RootMeanSquare = FMath::Sqrt(SummedData / (float)Samples);
-	
-	int32 RMSHeight = FMath::Clamp(FMath::TruncToInt(RootMeanSquare / 32768.f * MaxAmplitude), 1, MaxAmplitude);
-	int32 MaxHeight = FMath::Clamp(FMath::TruncToInt(DataAmplitude / 32768.f * MaxAmplitude), 1, MaxAmplitude);
-	float HeightRange = FMath::Max(1, MaxHeight - RMSHeight);
-	
-	for (int32 i = 0; i < MaxHeight; ++i)
-	{
-		float Intensity = (MaxHeight - i) / HeightRange;
-		int32 IntegralIntensity = FMath::Clamp(FMath::TruncToInt(Intensity * 255), 0, 255);
-
-		int32 Y = XAxisHeight - i;
-		int32 Index = (Y * GetSize().X + X) * GPixelFormats[PF_B8G8R8A8].BlockBytes;
-		OutData[Index+0] = 255;
-		OutData[Index+1] = 255;
-		OutData[Index+2] = 255;
-		OutData[Index+3] = IntegralIntensity;
-
-		Y = XAxisHeight + i;
-		Index = (Y * GetSize().X + X) * GPixelFormats[PF_B8G8R8A8].BlockBytes;
-		OutData[Index+0] = 255;
-		OutData[Index+1] = 255;
-		OutData[Index+2] = 255;
-		OutData[Index+3] = IntegralIntensity;
-	}
-#endif
 }
 
 
-FAudioSection::FAudioSection( UMovieSceneSection& InSection, bool bOnAMasterTrack )
+FAudioSection::FAudioSection( UMovieSceneSection& InSection, bool bOnAMasterTrack, TWeakPtr<ISequencer> InSequencer )
 	: Section( InSection )
 	, StoredDrawRange(TRange<float>::Empty())
 	, bIsOnAMasterTrack(bOnAMasterTrack)
+	, Sequencer(InSequencer)
 {
 }
 
@@ -342,11 +624,6 @@ FAudioSection::~FAudioSection()
 UMovieSceneSection* FAudioSection::GetSectionObject()
 { 
 	return &Section;
-}
-
-bool FAudioSection::ShouldDrawKeyAreaBackground() const
-{
-	return false;
 }
 
 FText FAudioSection::GetDisplayName() const
@@ -367,91 +644,94 @@ float FAudioSection::GetSectionHeight() const
 }
 
 
-int32 FAudioSection::OnPaintSection( const FGeometry& AllottedGeometry, const FSlateRect& SectionClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, bool bParentEnabled ) const
+int32 FAudioSection::OnPaintSection( FSequencerSectionPainter& Painter ) const
 {
-	const ESlateDrawEffect::Type DrawEffects = bParentEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect;
-
-	// Add a box for the section
-	FSlateDrawElement::MakeBox(
-		OutDrawElements,
-		LayerId,
-		AllottedGeometry.ToPaintGeometry(),
-		FEditorStyle::GetBrush("Sequencer.GenericSection.Background"),
-		SectionClippingRect,
-		DrawEffects,
-		FLinearColor(0.4f, 0.8f, 0.4f, 1.f)
-	);
+	int32 LayerId = Painter.PaintSectionBackground();
 
 	if (WaveformThumbnail.IsValid() && WaveformThumbnail->ShouldRender())
 	{
 		// @todo Sequencer draw multiple times if looping possibly - requires some thought about SoundCues
 		FSlateDrawElement::MakeViewport(
-			OutDrawElements,
-			LayerId+1,
-			AllottedGeometry.ToPaintGeometry(FVector2D(StoredXOffset, 0), FVector2D(StoredXSize, AllottedGeometry.Size.Y)),
+			Painter.DrawElements,
+			++LayerId,
+			Painter.SectionGeometry.ToPaintGeometry(FVector2D(StoredXOffset, 0), FVector2D(StoredXSize, Painter.SectionGeometry.Size.Y)),
 			WaveformThumbnail,
-			SectionClippingRect,
+			Painter.SectionClippingRect,
 			false,
-			false,
-			DrawEffects,
-			FLinearColor(1.f, 1.f, 1.f, 0.9f)
+			true,
+			Painter.bParentEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect,
+			FLinearColor::White
 		);
 	}
 
-	return LayerId+1;
+	return LayerId;
 }
 
 
 void FAudioSection::Tick( const FGeometry& AllottedGeometry, const FGeometry& ParentGeometry, const double InCurrentTime, const float InDeltaTime )
 {
 	UMovieSceneAudioSection* AudioSection = Cast<UMovieSceneAudioSection>(&Section);
+	UMovieSceneTrack* Track = Section.GetTypedOuter<UMovieSceneTrack>();
 
 	USoundWave* SoundWave = DeriveSoundWave(AudioSection);
-	if (SoundWave->NumChannels == 1 || SoundWave->NumChannels == 2)
+	if (Track && (SoundWave->NumChannels == 1 || SoundWave->NumChannels == 2))
 	{
+		const FSlateRect ParentRect = TransformRect(
+			Concatenate(
+				ParentGeometry.GetAccumulatedLayoutTransform(),
+				AllottedGeometry.GetAccumulatedLayoutTransform().Inverse()
+			),
+			FSlateRect(FVector2D(0, 0), ParentGeometry.GetLocalSize())
+		);
+
+		const float LeftMostVisiblePixel = FMath::Max(ParentRect.Left, 0.f);
+		const float RightMostVisiblePixel = FMath::Min(ParentRect.Right, AllottedGeometry.GetLocalSize().X);
+
 		FTimeToPixel TimeToPixelConverter( AllottedGeometry, TRange<float>( AudioSection->GetStartTime(), AudioSection->GetEndTime() ) );
 
-		TRange<float> VisibleRange = TRange<float>(
-			TimeToPixelConverter.PixelToTime(-AllottedGeometry.Position.X),
-			TimeToPixelConverter.PixelToTime(-AllottedGeometry.Position.X + ParentGeometry.Size.X));
-		TRange<float> SectionRange = AudioSection->GetRange();
-		TRange<float> AudioRange = TRange<float>(
-			AudioSection->GetAudioStartTime(),
-			AudioSection->GetAudioStartTime() + DeriveUnloopedDuration(AudioSection) * AudioSection->GetAudioDilationFactor());
+		TRange<float> DrawRange = TRange<float>(
+			TimeToPixelConverter.PixelToTime(LeftMostVisiblePixel),
+			TimeToPixelConverter.PixelToTime(RightMostVisiblePixel)
+			);
 
-		TRange<float> DrawRange = TRange<float>::Intersection(TRange<float>::Intersection(SectionRange, AudioRange), VisibleRange);
-	
-		TRange<int32> PixelRange = TRange<int32>(
-			TimeToPixelConverter.TimeToPixel(DrawRange.GetLowerBoundValue()),
-			TimeToPixelConverter.TimeToPixel(DrawRange.GetUpperBoundValue()));
-		
 		// generate texture x offset and x size
-		int32 XOffset = PixelRange.GetLowerBoundValue() - TimeToPixelConverter.TimeToPixel(SectionRange.GetLowerBoundValue());
-		int32 XSize = PixelRange.Size<int32>();
+		int32 XOffset = LeftMostVisiblePixel;//PixelRange.GetLowerBoundValue() - TimeToPixelConverter.TimeToPixel(SectionRange.GetLowerBoundValue());
+		int32 XSize = RightMostVisiblePixel - LeftMostVisiblePixel;//PixelRange.Size<int32>();
 
 		if (!FMath::IsNearlyEqual(DrawRange.GetLowerBoundValue(), StoredDrawRange.GetLowerBoundValue()) ||
 			!FMath::IsNearlyEqual(DrawRange.GetUpperBoundValue(), StoredDrawRange.GetUpperBoundValue()) ||
-			XOffset != StoredXOffset || XSize != StoredXSize)
+			XOffset != StoredXOffset || XSize != StoredXSize || Track->GetColorTint() != StoredColor)
 		{
-			RegenerateWaveforms(DrawRange, XOffset, XSize);
+
+			float DisplayScale = XSize / DrawRange.Size<float>();
+
+			// Use the view range if possible, as it's much more stable than using the texture size and draw range
+			TSharedPtr<ISequencer> SequencerPin = Sequencer.Pin();
+			if (SequencerPin.IsValid())
+			{
+				DisplayScale = SequencerPin->GetViewRange().Size<float>() / ParentGeometry.GetLocalSize().X;
+			}
+
+			RegenerateWaveforms(DrawRange, XOffset, XSize, Track->GetColorTint(), DisplayScale);
 		}
 	}
 }
 
 
-void FAudioSection::RegenerateWaveforms(TRange<float> DrawRange, int32 XOffset, int32 XSize)
+void FAudioSection::RegenerateWaveforms(TRange<float> DrawRange, int32 XOffset, int32 XSize, const FColor& ColorTint, float DisplayScale)
 {
 	StoredDrawRange = DrawRange;
 	StoredXOffset = XOffset;
 	StoredXSize = XSize;
-	
+	StoredColor = ColorTint;
+
 	if (DrawRange.IsDegenerate() || DrawRange.IsEmpty() || Cast<UMovieSceneAudioSection>(&Section)->GetSound() == NULL)
 	{
 		WaveformThumbnail.Reset();
 	}
 	else
 	{
-		WaveformThumbnail = MakeShareable(new FAudioThumbnail(Section, DrawRange, XSize));
+		WaveformThumbnail = MakeShareable(new FAudioThumbnail(Section, DrawRange, XSize, ColorTint, DisplayScale));
 	}
 }
 
@@ -490,15 +770,32 @@ bool FAudioTrackEditor::SupportsType( TSubclassOf<UMovieSceneTrack> Type ) const
 	return Type == UMovieSceneAudioTrack::StaticClass();
 }
 
+const FSlateBrush* FAudioTrackEditor::GetIconBrush() const
+{
+	return FEditorStyle::GetBrush("Sequencer.Tracks.Audio");
+}
 
 TSharedRef<ISequencerSection> FAudioTrackEditor::MakeSectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track )
 {
 	check( SupportsType( SectionObject.GetOuter()->GetClass() ) );
 	
 	bool bIsAMasterTrack = Cast<UMovieScene>(Track.GetOuter())->IsAMasterTrack(Track);
-	return MakeShareable( new FAudioSection(SectionObject, bIsAMasterTrack) );
+	return MakeShareable( new FAudioSection(SectionObject, bIsAMasterTrack, GetSequencer()) );
 }
 
+TSharedPtr<SWidget> FAudioTrackEditor::BuildOutlinerEditWidget(const FGuid& ObjectBinding, UMovieSceneTrack* Track, const FBuildEditWidgetParams& Params)
+{
+	// Create a container edit box
+	return SNew(SHorizontalBox)
+
+	// Add the audio combo box
+	+ SHorizontalBox::Slot()
+	.AutoWidth()
+	.VAlign(VAlign_Center)
+	[
+		FSequencerUtilities::MakeAddButton(LOCTEXT("AudioText", "Audio"), FOnGetContent::CreateSP(this, &FAudioTrackEditor::BuildAudioSubMenu, Track), Params.NodeIsHovered)
+	];
+}
 
 bool FAudioTrackEditor::HandleAssetAdded(UObject* Asset, const FGuid& TargetObjectGuid)
 {
@@ -508,7 +805,7 @@ bool FAudioTrackEditor::HandleAssetAdded(UObject* Asset, const FGuid& TargetObje
 		
 		if (TargetObjectGuid.IsValid())
 		{
-			TArray<UObject*> OutObjects;
+			TArray<TWeakObjectPtr<UObject>> OutObjects;
 			GetSequencer()->GetRuntimeObjects(GetSequencer()->GetFocusedMovieSceneSequenceInstance(), TargetObjectGuid, OutObjects);
 
 			AnimatablePropertyChanged( FOnKeyProperty::CreateRaw(this, &FAudioTrackEditor::AddNewAttachedSound, Sound, OutObjects));
@@ -536,7 +833,7 @@ bool FAudioTrackEditor::AddNewMasterSound( float KeyTime, USoundBase* Sound )
 }
 
 
-bool FAudioTrackEditor::AddNewAttachedSound( float KeyTime, USoundBase* Sound, TArray<UObject*> ObjectsToAttachTo )
+bool FAudioTrackEditor::AddNewAttachedSound( float KeyTime, USoundBase* Sound, TArray<TWeakObjectPtr<UObject>> ObjectsToAttachTo )
 {
 	bool bHandleCreated = false;
 	bool bTrackCreated = false;
@@ -544,7 +841,7 @@ bool FAudioTrackEditor::AddNewAttachedSound( float KeyTime, USoundBase* Sound, T
 
 	for( int32 ObjectIndex = 0; ObjectIndex < ObjectsToAttachTo.Num(); ++ObjectIndex )
 	{
-		UObject* Object = ObjectsToAttachTo[ObjectIndex];
+		UObject* Object = ObjectsToAttachTo[ObjectIndex].Get();
 
 		FFindOrCreateHandleResult HandleResult = FindOrCreateHandleToObject( Object );
 		FGuid ObjectHandle = HandleResult.Handle;
@@ -593,5 +890,63 @@ void FAudioTrackEditor::HandleAddAudioTrackMenuEntryExecute()
 	GetSequencer()->NotifyMovieSceneDataChanged();
 }
 
+TSharedRef<SWidget> FAudioTrackEditor::BuildAudioSubMenu(UMovieSceneTrack* Track)
+{
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+	TArray<FName> ClassNames;
+	ClassNames.Add(USoundBase::StaticClass()->GetFName());
+	TSet<FName> DerivedClassNames;
+	AssetRegistryModule.Get().GetDerivedClassNames(ClassNames, TSet<FName>(), DerivedClassNames);
 
+	FMenuBuilder MenuBuilder(true, nullptr);
+
+	FAssetPickerConfig AssetPickerConfig;
+	{
+		AssetPickerConfig.OnAssetSelected = FOnAssetSelected::CreateRaw( this, &FAudioTrackEditor::OnAudioAssetSelected, Track);
+		AssetPickerConfig.bAllowNullSelection = false;
+		AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
+		for (auto ClassName : DerivedClassNames)
+		{
+			AssetPickerConfig.Filter.ClassNames.Add(ClassName);
+		}
+	}
+
+	FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
+
+	TSharedPtr<SBox> MenuEntry = SNew(SBox)
+		.WidthOverride(300.0f)
+		.HeightOverride(300.f)
+		[
+			ContentBrowserModule.Get().CreateAssetPicker(AssetPickerConfig)
+		];
+
+	MenuBuilder.AddWidget(MenuEntry.ToSharedRef(), FText::GetEmpty(), true);
+
+	return MenuBuilder.MakeWidget();
+}
+
+
+void FAudioTrackEditor::OnAudioAssetSelected(const FAssetData& AssetData, UMovieSceneTrack* Track)
+{
+	FSlateApplication::Get().DismissAllMenus();
+
+	UObject* SelectedObject = AssetData.GetAsset();
+
+	if (SelectedObject)
+	{
+		USoundBase* NewSound = CastChecked<USoundBase>(AssetData.GetAsset());
+		if (NewSound != nullptr)
+		{
+			const FScopedTransaction Transaction(NSLOCTEXT("Sequencer", "AddAudio_Transaction", "Add Audio"));
+
+			auto AudioTrack = Cast<UMovieSceneAudioTrack>(Track);
+			AudioTrack->Modify();
+
+			float KeyTime = GetSequencer()->GetGlobalTime();
+			AudioTrack->AddNewSound( NewSound, KeyTime );
+
+			GetSequencer()->NotifyMovieSceneDataChanged();
+		}
+	}
+}
 #undef LOCTEXT_NAMESPACE

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -47,7 +47,7 @@ public abstract class BaseLinuxPlatform : Platform
         // Stage all the build products
         foreach (StageTarget Target in SC.StageTargets)
         {
-            SC.StageBuildProductsFromReceipt(Target.Receipt, Target.RequireFilesExist);
+            SC.StageBuildProductsFromReceipt(Target.Receipt, Target.RequireFilesExist, Params.bTreatNonShippingBinariesAsDebugFiles);
         }
         
 		// assume that we always have to deploy Steam (FIXME: should be automatic - UEPLAT-807)
@@ -65,8 +65,8 @@ public abstract class BaseLinuxPlatform : Platform
 			SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Config"), "PerfCounters.json", false, null, CommandUtils.CombinePaths(SC.RelativeProjectRootForStage, "Saved/Config"), true);
 		}
 
-		// stage libLND (omit it for dedservers and Rocket - proper resolution is to use build receipts, see UEPLAT-807)
-		if (!SC.DedicatedServer && !GlobalCommandLine.Rocket)
+		// stage libLND (omit it for dedservers and Installed Engine - proper resolution is to use build receipts, see UEPLAT-807)
+		if (!SC.DedicatedServer && (!Automation.IsEngineInstalled() || Directory.Exists(CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/LinuxNativeDialogs/", SC.PlatformDir, BuildArchitecture))))
 		{
 			SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/LinuxNativeDialogs/", SC.PlatformDir, BuildArchitecture), "libLND*.so");
 		}

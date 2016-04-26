@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -296,7 +296,7 @@ protected:
 
 	const int32 FindMiniViewSampleIndex( const int32 FrameIndex ) const
 	{
-		// @TODO yrx 2014-04-07 Naive implementation, consider using binary search.
+		// #Profiler: 2014-04-07 Naive implementation, consider using binary search.
 		for( int32 SampleIndex = 0; SampleIndex < MiniViewSamples.Num(); ++SampleIndex )
 		{
 			const FMiniViewSample& MiniViewSample = MiniViewSamples[SampleIndex];

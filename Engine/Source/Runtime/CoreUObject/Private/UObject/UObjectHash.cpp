@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UObjectHash.cpp: Unreal object name hashes
@@ -671,12 +671,12 @@ void ForEachObjectWithOuter(const class UObjectBase* Outer, TFunctionRef<void(UO
 			if (!Object->HasAnyFlags(ExclusionFlags) && !Object->HasAnyInternalFlags(ExclusionInternalFlags))
 			{
 				Operation(Object);
-				if (bIncludeNestedObjects)
+			}
+			if (bIncludeNestedObjects)
+			{
+				if (TSet<UObjectBase*> const* ObjectInners = ThreadHash.ObjectOuterMap.Find(Object))
 				{
-					if (TSet<UObjectBase*> const* ObjectInners = ThreadHash.ObjectOuterMap.Find(Object))
-					{
-						AllInners.Add(ObjectInners);
-					}
+					AllInners.Add(ObjectInners);
 				}
 			}
 		}
@@ -910,9 +910,9 @@ void UnhashObject(UObjectBase* Object)
 }
 
 /**
- * Prevents any other threads from finding/adding UObjects while GC is running
+ * Prevents any other threads from finding/adding UObjects (e.g. while GC is running)
 */
-void LockUObjectHashTablesForGC()
+void LockUObjectHashTables()
 {
 #if THREADSAFE_UOBJECTS
 	FUObjectHashTables::Get().Lock();
@@ -922,9 +922,9 @@ void LockUObjectHashTablesForGC()
 }
 
 /**
- * Releases UObject hash tables lock after GC has finished running
+ * Releases UObject hash tables lock (e.g. after GC has finished running)
  */
-void UnlockUObjectHashTablesForGC()
+void UnlockUObjectHashTables()
 {
 #if THREADSAFE_UOBJECTS
 	FUObjectHashTables::Get().Unlock();

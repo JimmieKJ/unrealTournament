@@ -1,8 +1,7 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerWidgetsPrivatePCH.h"
 #include "STimeRangeSlider.h"
-#include "STimeRange.h"
 #include "SlateStyle.h"
 #include "EditorStyle.h"
 
@@ -13,11 +12,11 @@ namespace TimeRangeSliderConstants
 	const int32 HandleSize = 14;
 }
 
-void STimeRangeSlider::Construct( const FArguments& InArgs, TSharedRef<ITimeSliderController> InTimeSliderController, TSharedPtr<STimeRange> InTimeRange)
+void STimeRangeSlider::Construct( const FArguments& InArgs, TSharedRef<ITimeSliderController> InTimeSliderController)
 {
 	TimeSliderController = InTimeSliderController;
-	TimeRange = InTimeRange;
 	LastViewRange = TimeSliderController.Get()->GetViewRange();
+	TimeSnapInterval = InArgs._TimeSnapInterval;
 
 	ResetState();
 	ResetHoveredState();
@@ -154,14 +153,7 @@ FReply STimeRangeSlider::OnMouseMove( const FGeometry& MyGeometry, const FPointe
 	{
 		float DragDelta = ComputeDragDelta(MouseEvent, MyGeometry.Size.X);
 
-		float SnapInterval = KINDA_SMALL_NUMBER;
-		{
-			auto TimeRangePin = TimeRange.Pin();
-			if (TimeRangePin.IsValid())
-			{
-				SnapInterval = TimeRangePin->GetTimeSnapInterval();
-			}
-		}
+		const float SnapInterval = TimeSnapInterval.Get(1.f);
 
 		ITimeSliderController* TimeSliderControllerPtr = TimeSliderController.Get();
 		if (!TimeSliderControllerPtr)

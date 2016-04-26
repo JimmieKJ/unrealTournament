@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 using System;
@@ -30,6 +30,8 @@ namespace NetworkProfiler
 		EndContentBlock,			// Content block footers
 		WritePropertyHandle,		// Property handles
 		ConnectionChange,			// Connection changed
+		NameReference,				// Reference to name
+		ConnectionReference,		// Reference to connection
 		MaxAndInvalid,				// Invalid token, also used as the max token index
 	}
 
@@ -123,6 +125,12 @@ namespace NetworkProfiler
 					break;
 				case ETokenTypes.WritePropertyHandle:
 					SerializedToken = new TokenWritePropertyHandle( BinaryStream );
+					break;
+				case ETokenTypes.NameReference:
+					SerializedToken = new TokenNameReference( BinaryStream );
+					break;
+				case ETokenTypes.ConnectionReference:
+					SerializedToken = new TokenConnectionReference( BinaryStream );
 					break;
 				case ETokenTypes.ConnectionChange:
 					SerializedToken = new TokenConnectionChanged( BinaryStream );
@@ -690,6 +698,37 @@ namespace NetworkProfiler
 		public TokenConnectionChanged( BinaryReader BinaryStream )
 		{
 			AddressIndex = TokenHelper.LoadPackedInt( BinaryStream );
+		}
+	}
+
+	/**
+	 * Token for connection reference event
+	 */
+	class TokenNameReference : TokenBase
+	{
+		/** Address of connection */
+		public string Name = null;
+
+		/** Constructor, serializing members from passed in stream. */
+		public TokenNameReference( BinaryReader BinaryStream )
+		{
+			UInt32 Length = BinaryStream.ReadUInt32();
+			Name = new string(BinaryStream.ReadChars((int)Length));
+		}
+	}
+
+	/**
+	 * Token for connection reference event
+	 */
+	class TokenConnectionReference : TokenBase
+	{
+		/** Address of connection */
+		public UInt64 Address;
+
+		/** Constructor, serializing members from passed in stream. */
+		public TokenConnectionReference( BinaryReader BinaryStream )
+		{
+			Address = BinaryStream.ReadUInt64();
 		}
 	}
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	RenderResource.h: Render resource definitions.
@@ -154,6 +154,14 @@ public:
 	template<typename T1>
 	explicit TGlobalResource(T1 Param1)
 		: ResourceType(Param1)
+	{
+		InitGlobalResource();
+	}
+
+	/** Initialization constructor: 1 parameter. */
+	template<typename T1, typename T2>
+	explicit TGlobalResource(T1 Param1, T2 Param2)
+		: ResourceType(Param1, Param2)
 	{
 		InitGlobalResource();
 	}
@@ -439,11 +447,20 @@ public:
 		FRHIResourceCreateInfo CreateInfo;
 		
 		void* LockedData = nullptr;
-		VertexBufferRHI = RHICreateAndLockVertexBuffer(sizeof(uint32), BUF_Static | BUF_ZeroStride, CreateInfo, LockedData);
+		VertexBufferRHI = RHICreateAndLockVertexBuffer(sizeof(uint32), BUF_Static | BUF_ZeroStride | BUF_ShaderResource, CreateInfo, LockedData);
 		uint32* Vertices = (uint32*)LockedData;
 		Vertices[0] = FColor(255, 255, 255, 255).DWColor();
 		RHIUnlockVertexBuffer(VertexBufferRHI);
+		VertexBufferSRV = RHICreateShaderResourceView(VertexBufferRHI, sizeof(FColor), PF_R8G8B8A8);
 	}
+
+	virtual void ReleaseRHI() override
+	{
+		VertexBufferSRV.SafeRelease();
+		FVertexBuffer::ReleaseRHI();
+	}
+
+	FShaderResourceViewRHIRef VertexBufferSRV;
 };
 
 /** The global null color vertex buffer, which is set with a stride of 0 on meshes without a color component. */
@@ -609,7 +626,7 @@ private:
  * This is used to keep bound shader states that have been used recently from being freed, as they're likely to be used again soon.
  */
 
-template<uint32 Size>
+template<uint32 Size, bool TThreadSafe = true>
 class TBoundShaderStateHistory : public FRenderResource
 {
 public:
@@ -620,15 +637,15 @@ public:
 	{}
 
 	/** Adds a bound shader state to the history. */
-	void Add(FBoundShaderStateRHIParamRef BoundShaderState)
+	FORCEINLINE void Add(FBoundShaderStateRHIParamRef BoundShaderState)
 	{
-		if (GRHISupportsParallelRHIExecute)
+		if (TThreadSafe && GRHISupportsParallelRHIExecute)
 		{
 			BoundShaderStateHistoryLock.Lock();
 		}
 		BoundShaderStates[NextBoundShaderStateIndex] = BoundShaderState;
 		NextBoundShaderStateIndex = (NextBoundShaderStateIndex + 1) % Size;
-		if (GRHISupportsParallelRHIExecute)
+		if (TThreadSafe && GRHISupportsParallelRHIExecute)
 		{
 			BoundShaderStateHistoryLock.Unlock();
 		}
@@ -645,7 +662,7 @@ public:
 	// FRenderResource interface.
 	virtual void ReleaseRHI()
 	{
-		if (GRHISupportsParallelRHIExecute)
+		if (TThreadSafe && GRHISupportsParallelRHIExecute)
 		{
 			BoundShaderStateHistoryLock.Lock();
 		}
@@ -653,7 +670,7 @@ public:
 		{
 			BoundShaderStates[Index].SafeRelease();
 		}
-		if (GRHISupportsParallelRHIExecute)
+		if (TThreadSafe && GRHISupportsParallelRHIExecute)
 		{
 			BoundShaderStateHistoryLock.Unlock();
 		}

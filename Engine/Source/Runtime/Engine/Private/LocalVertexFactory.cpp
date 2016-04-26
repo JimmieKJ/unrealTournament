@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LocalVertexFactory.cpp: Local vertex factory implementation
@@ -12,19 +12,12 @@
 void FLocalVertexFactoryShaderParameters::Bind(const FShaderParameterMap& ParameterMap)
 {
 	LODParameter.Bind(ParameterMap, TEXT("SpeedTreeLODInfo"));
-	WindParameter.Bind(ParameterMap, TEXT("SpeedTreeData"));
-
-	bAnySpeedTreeParamIsBound = WindParameter.IsBound() || LODParameter.IsBound();
+	bAnySpeedTreeParamIsBound = LODParameter.IsBound() || ParameterMap.ContainsParameterAllocation(TEXT("SpeedTreeData"));
 }
 
 void FLocalVertexFactoryShaderParameters::Serialize(FArchive& Ar)
 {
-	Ar << LODParameter;
-	Ar << WindParameter;
-	if (Ar.IsLoading())
-	{
-		bAnySpeedTreeParamIsBound = WindParameter.IsBound() || LODParameter.IsBound();
-	}
+	Ar << LODParameter << bAnySpeedTreeParamIsBound;
 }
 
 void FLocalVertexFactoryShaderParameters::SetMesh(FRHICommandList& RHICmdList, FShader* Shader, const FVertexFactory* VertexFactory, const FSceneView& View, const FMeshBatchElement& BatchElement, uint32 DataFlags) const
@@ -60,7 +53,7 @@ bool FLocalVertexFactory::ShouldCache(EShaderPlatform Platform, const class FMat
 	return true; 
 }
 
-void FLocalVertexFactory::SetData(const DataType& InData)
+void FLocalVertexFactory::SetData(const FDataType& InData)
 {
 	check(IsInRenderingThread());
 
@@ -81,7 +74,7 @@ void FLocalVertexFactory::Copy(const FLocalVertexFactory& Other)
 	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 		FLocalVertexFactoryCopyData,
 		FLocalVertexFactory*,VertexFactory,this,
-		const DataType*,DataCopy,&Other.Data,
+		const FDataType*,DataCopy,&Other.Data,
 	{
 		VertexFactory->Data = *DataCopy;
 	});
@@ -159,7 +152,7 @@ void FLocalVertexFactory::InitRHI()
 
 	check(Streams.Num() > 0);
 
-	InitDeclaration(Elements,Data);
+	InitDeclaration(Elements);
 
 	check(IsValidRef(GetDeclaration()));
 }

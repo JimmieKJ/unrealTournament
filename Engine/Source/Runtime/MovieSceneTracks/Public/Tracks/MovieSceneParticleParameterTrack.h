@@ -1,8 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "MovieSceneTrack.h"
+#include "MovieSceneNameableTrack.h"
 #include "MovieSceneParameterSection.h"
 #include "MovieSceneParticleParameterTrack.generated.h"
 
@@ -12,7 +12,7 @@
  */
 UCLASS( MinimalAPI )
 class UMovieSceneParticleParameterTrack
-	: public UMovieSceneTrack
+	: public UMovieSceneNameableTrack
 {
 	GENERATED_UCLASS_BODY()
 
@@ -31,7 +31,7 @@ public:
 	virtual const TArray<UMovieSceneSection*>& GetAllSections() const override;
 
 #if WITH_EDITORONLY_DATA
-	virtual FText GetDisplayName() const override;
+	virtual FText GetDefaultDisplayName() const override;
 #endif
 
 

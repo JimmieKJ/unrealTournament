@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "UnrealEd.h"
@@ -33,8 +33,11 @@
 #include "Engine/LevelStreaming.h"
 #include "GameMapsSettings.h"
 #include "AutoSaveUtils.h"
+#include "AssetRegistryModule.h"
+
 
 DEFINE_LOG_CATEGORY_STATIC(LogFileHelpers, Log, All);
+
 
 //definition of flag used to do special work when we're attempting to load the "startup map"
 bool FEditorFileUtils::bIsLoadingDefaultStartupMap = false;
@@ -598,9 +601,10 @@ bool RenameStreamingLevel( FString& LevelToRename, const FString& OldBaseLevelNa
 	return false;
 }
 
-static bool OpenLevelSaveAsDialog(const FString& InDefaultPath, const FString& InNewNameSuggestion, FString& OutPackageName)
+static bool OpenSaveAsDialog(UClass* SavedClass, const FString& InDefaultPath, const FString& InNewNameSuggestion, FString& OutPackageName)
 {
 	FString DefaultPath = InDefaultPath;
+
 	if (DefaultPath.IsEmpty())
 	{
 		DefaultPath = TEXT("/Game/Maps");
@@ -610,14 +614,19 @@ static bool OpenLevelSaveAsDialog(const FString& InDefaultPath, const FString& I
 	check(!NewNameSuggestion.IsEmpty());
 
 	FSaveAssetDialogConfig SaveAssetDialogConfig;
-	SaveAssetDialogConfig.DialogTitleOverride = LOCTEXT("SaveLevelDialogTitle", "Save Level As");
-	SaveAssetDialogConfig.DefaultPath = DefaultPath;
-	SaveAssetDialogConfig.DefaultAssetName = NewNameSuggestion;
-	SaveAssetDialogConfig.AssetClassNames.Add(UWorld::StaticClass()->GetFName());
-	SaveAssetDialogConfig.ExistingAssetPolicy = ESaveAssetDialogExistingAssetPolicy::AllowButWarn;
+	{
+		SaveAssetDialogConfig.DefaultPath = DefaultPath;
+		SaveAssetDialogConfig.DefaultAssetName = NewNameSuggestion;
+		SaveAssetDialogConfig.AssetClassNames.Add(SavedClass->GetFName());
+		SaveAssetDialogConfig.ExistingAssetPolicy = ESaveAssetDialogExistingAssetPolicy::AllowButWarn;
+		SaveAssetDialogConfig.DialogTitleOverride = (SavedClass == UWorld::StaticClass())
+			? LOCTEXT("SaveLevelDialogTitle", "Save Level As")
+			: LOCTEXT("SaveAssetDialogTitle", "Save Asset As");
+	}
 
 	FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
 	FString SaveObjectPath = ContentBrowserModule.Get().CreateModalSaveAssetDialog(SaveAssetDialogConfig);
+	
 	if ( !SaveObjectPath.IsEmpty() )
 	{
 		OutPackageName = FPackageName::ObjectPathToPackageName(SaveObjectPath);
@@ -673,7 +682,8 @@ static bool SaveAsImplementation( UWorld* InWorld, const FString& DefaultFilenam
 			FPackageName::TryConvertFilenameToLongPackageName(DefaultDirectory / Filename, DefaultPackagePath);
 
 			FString PackageName;
-			bSaveFileLocationSelected = OpenLevelSaveAsDialog(
+			bSaveFileLocationSelected = OpenSaveAsDialog(
+				UWorld::StaticClass(),
 				FPackageName::GetLongPackagePath(DefaultPackagePath),
 				FPaths::GetBaseFilename(Filename),
 				PackageName);
@@ -889,13 +899,79 @@ static bool IsWorldDirty()
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+void FEditorFileUtils::SaveAssetsAs(const TArray<UObject*>& Assets, TArray<UObject*>& OutSavedAssets)
+{
+	for (UObject* Asset : Assets)
+	{
+		const FString OldPackageName = Asset->GetOutermost()->GetName();
+		const FString OldPackagePath = FPackageName::GetLongPackagePath(OldPackageName);
+		const FString OldAssetName = FPackageName::GetLongPackageAssetName(OldPackageName);
+
+		FString NewPackageName;
+
+		// get destination for asset
+		bool FilenameValid = false;
+
+		while (!FilenameValid)
+		{
+			if (!OpenSaveAsDialog(Asset->GetClass(), OldPackagePath, OldAssetName, NewPackageName))
+			{
+				break;
+			}
+
+			FText OutError;
+			FilenameValid = FEditorFileUtils::IsFilenameValidForSaving(NewPackageName, OutError);
+		}
+
+		// process asset
+		if (NewPackageName.IsEmpty())
+		{
+			OutSavedAssets.Add(Asset); // user cancelled
+		}
+		else if (NewPackageName != OldPackageName)
+		{
+			// duplicate asset at destination
+			const FString NewAssetName = FPackageName::GetLongPackageAssetName(NewPackageName);
+			UPackage* DuplicatedPackage = CreatePackage(nullptr, *NewPackageName);
+			UObject* DuplicatedAsset = StaticDuplicateObject(Asset, DuplicatedPackage, *NewAssetName);
+
+			if (DuplicatedAsset != nullptr)
+			{
+				DuplicatedAsset->MarkPackageDirty();
+				FAssetRegistryModule::AssetCreated(DuplicatedAsset);
+				OutSavedAssets.Add(DuplicatedAsset);
+			}
+			else
+			{
+				OutSavedAssets.Add(Asset); // error duplicating
+			}
+		}
+		else
+		{
+			// save existing asset
+			OutSavedAssets.Add(Asset);
+		}
+	}
+
+	// save packages
+	TArray<UPackage*> PackagesToSave;
+
+	for (UObject* Asset : OutSavedAssets)
+	{
+		PackagesToSave.Add(Asset->GetOutermost());
+	}
+
+	FEditorFileUtils::PromptForCheckoutAndSave(PackagesToSave, true, false);
+}
+
+
 /**
  * Does a saveAs for the specified level.
  *
  * @param	InLevel		The level to be SaveAs'd.
  * @return				true if the world was saved.
  */
-bool FEditorFileUtils::SaveAs(ULevel* InLevel)
+bool FEditorFileUtils::SaveLevelAs(ULevel* InLevel)
 {
 	FString DefaultFilename;
 
@@ -943,11 +1019,11 @@ void FEditorFileUtils::Import(const FString& InFilename, bool bImportScene)
 	const FScopedBusyCursor BusyCursor;
 
 	FFormatNamedArguments Args;
-	if (bImportScene)
+	//Import scene support only fbx for now
+	//Check the extension because the import map don't support fbx file import
+	if (bImportScene || FPaths::GetExtension(InFilename).Compare(TEXT("fbx"), ESearchCase::IgnoreCase) == 0)
 	{
 		//Ask a root content path to the user
-		//The default path should be the current content browser path
-		//FString DefaultAsset = FPackageName::GetLongPackagePath(Owner->GetOutermost()->GetName()) + TEXT("/") + Owner->GetName() + TEXT("_ExternalCurve");
 		TSharedRef<SDlgPickPath> PickContentPathDlg =
 			SNew(SDlgPickPath)
 			.Title(LOCTEXT("FbxChooseImportRootContentPath", "Choose Location for importing the fbx scene content"));
@@ -1150,6 +1226,11 @@ bool FEditorFileUtils::AddCheckoutPackageItems(bool bCheckDirty, TArray<UPackage
 					//This package could also be marked for delete, which we will treat as SCC_ReadOnly until it is time to check it out. At that time, we will revert it.
 					CheckoutPackagesDialogModule.AddPackageItem(CurPackage, CurPackage->GetName(), ECheckBoxState::Checked, false, TEXT("SavePackages.SCC_DlgReadOnly"), Tooltip.ToString());
 					bPackagesAdded = true;
+				}
+				else if (OutPackagesNotNeedingCheckout)
+				{
+					// The current package doesn't need to be checked out in order to save as it's already writable.
+					OutPackagesNotNeedingCheckout->Add(CurPackage);
 				}
 			}
 		}
@@ -1459,7 +1540,7 @@ ECommandResult::Type FEditorFileUtils::CheckoutPackages(const TArray<UPackage*>&
 	}
 
 	// If any packages failed the check out process, report them to the user so they know
-	if ( CheckOutResult == ECommandResult::Failed )
+	if ( !PkgsWhichFailedCheckout.IsEmpty() )
 	{
 		FFormatNamedArguments Arguments;
 		Arguments.Add(TEXT("Packages"), FText::FromString( PkgsWhichFailedCheckout ));
@@ -2181,6 +2262,15 @@ void FEditorFileUtils::ResetLevelFilenames()
 
 bool FEditorFileUtils::AutosaveMap(const FString& AbsoluteAutosaveDir, const int32 AutosaveIndex, const bool bForceIfNotInList, const TSet< TWeakObjectPtr<UPackage> >& DirtyPackagesForAutoSave)
 {
+	auto Result = AutosaveMapEx(AbsoluteAutosaveDir, AutosaveIndex, bForceIfNotInList, DirtyPackagesForAutoSave);
+
+	check(Result != EAutosaveContentPackagesResult::Failure);
+
+	return Result == EAutosaveContentPackagesResult::Success;
+}
+
+EAutosaveContentPackagesResult::Type FEditorFileUtils::AutosaveMapEx(const FString& AbsoluteAutosaveDir, const int32 AutosaveIndex, const bool bForceIfNotInList, const TSet< TWeakObjectPtr<UPackage> >& DirtyPackagesForAutoSave)
+{
 	const FScopedBusyCursor BusyCursor;
 	bool bResult  = false;
 	double TotalSaveTime = 0.0f;
@@ -2221,9 +2311,8 @@ bool FEditorFileUtils::AutosaveMap(const FString& AbsoluteAutosaveDir, const int
 
 				if( bLevelWasSaved == false && FUnrealEdMisc::Get().GetAutosaveState() != FUnrealEdMisc::EAutosaveState::Cancelled )
 				{
-					bResult = false;
 					UE_LOG(LogFileHelpers, Log, TEXT("Editor autosave (incl. sublevels) failed for file '%s' which belongs to world '%s'. Aborting autosave."), *FinalFilename, *EditorContext.World()->GetOutermost()->GetName() );
-					break;
+					return EAutosaveContentPackagesResult::Failure;
 				}
 
 				bResult |= bLevelWasSaved;
@@ -2243,7 +2332,7 @@ bool FEditorFileUtils::AutosaveMap(const FString& AbsoluteAutosaveDir, const int
 	{
 		UE_LOG(LogFileHelpers, Log, TEXT("Editor autosave (incl. sublevels) for all levels took %.3f"), TotalSaveTime );
 	}
-	return bResult;
+	return bResult ? EAutosaveContentPackagesResult::Success : EAutosaveContentPackagesResult::NothingToDo;
 }
 
 bool FEditorFileUtils::AutosaveContentPackages(const FString& AbsoluteAutosaveDir, const int32 AutosaveIndex, const bool bForceIfNotInList, const TSet< TWeakObjectPtr<UPackage> >& DirtyPackagesForAutoSave)
@@ -2441,7 +2530,8 @@ static int32 InternalSavePackage( UPackage* PackageToSave, bool& bOutPackageLoca
 				}
 
 				FString SaveAsPackageName;
-				bSaveFile = OpenLevelSaveAsDialog(
+				bSaveFile = OpenSaveAsDialog(
+					UWorld::StaticClass(),
 					FPackageName::GetLongPackagePath(DefaultPackagePath),
 					FPaths::GetBaseFilename(FinalPackageFilename),
 					SaveAsPackageName);
@@ -3256,8 +3346,9 @@ void FEditorFileUtils::LoadDefaultMapAtStartup()
 		GConfig->GetString(TEXT("EditorStartup"), TEXT("LastLevel"), EditorStartupMap, GEditorPerProjectIni);
 	}
 	// Default project map.
-	if (EditorStartupMap.IsEmpty()) {
-		EditorStartupMap = GetDefault<UGameMapsSettings>()->EditorStartupMap;
+	if (EditorStartupMap.IsEmpty()) 
+	{
+		EditorStartupMap = GetDefault<UGameMapsSettings>()->EditorStartupMap.GetLongPackageName();
 	}
 	
 	const bool bIncludeReadOnlyRoots = true;
@@ -3336,14 +3427,26 @@ void FEditorFileUtils::FindAllSubmittablePackageFiles(TMap<FString, FSourceContr
 	}
 }
 
-void FEditorFileUtils::FindAllConfigFiles(TArray<FString>& OutConfigFiles)
+static void FindAllConfigFilesRecursive(TArray<FString>& OutConfigFiles, const FString& ParentDirectory)
 {
 	TArray<FString> IniFilenames;
-	IFileManager::Get().FindFiles(IniFilenames, *(FPaths::GameConfigDir() / TEXT("*.ini")), true, false);
+	IFileManager::Get().FindFiles(IniFilenames, *(FPaths::GameConfigDir() / ParentDirectory / TEXT("*.ini")), true, false);
 	for (const FString& IniFilename : IniFilenames)
 	{
-		OutConfigFiles.Add(FPaths::ConvertRelativePathToFull(FPaths::GameConfigDir() / IniFilename));
+		OutConfigFiles.Add(FPaths::ConvertRelativePathToFull(FPaths::GameConfigDir() / ParentDirectory / IniFilename));
 	}
+
+	TArray<FString> Subdirectories;
+	IFileManager::Get().FindFiles(Subdirectories, *(FPaths::GameConfigDir() / ParentDirectory / TEXT("*")), false, true);
+	for (const FString& Subdirectory : Subdirectories)
+	{
+		FindAllConfigFilesRecursive(OutConfigFiles, ParentDirectory / Subdirectory);
+	}
+}
+
+void FEditorFileUtils::FindAllConfigFiles(TArray<FString>& OutConfigFiles)
+{
+	FindAllConfigFilesRecursive(OutConfigFiles, FString());
 }
 
 void FEditorFileUtils::FindAllSubmittableConfigFiles(TMap<FString, TSharedPtr<class ISourceControlState, ESPMode::ThreadSafe> >& OutConfigFiles)

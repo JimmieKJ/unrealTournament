@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DepthOnlyPixelShader.hlsl: Depth-only pixel shader.
@@ -19,16 +19,23 @@ void Main(
 	out float4 OutColor : SV_Target0
 	)
 {
+#if INSTANCED_STEREO
+	ResolvedView = ResolveView(GetEyeIndex(FactoryInterpolants.PackedEyeIndex));
+#else
+	ResolvedView = ResolveView();
+#endif
+
 #if !MATERIALBLENDING_SOLID || OUTPUT_PIXEL_DEPTH_OFFSET
 
 	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(FactoryInterpolants, SvPosition);
-	CalcMaterialParameters(MaterialParameters, SvPosition, bIsFrontFace);
+	FPixelMaterialInputs PixelMaterialInputs;
+	CalcMaterialParameters(MaterialParameters, PixelMaterialInputs, SvPosition, bIsFrontFace);
 
 	#if OUTPUT_PIXEL_DEPTH_OFFSET
-		ApplyPixelDepthOffsetToMaterialParameters(MaterialParameters, OutDepth);
+	ApplyPixelDepthOffsetToMaterialParameters(MaterialParameters, PixelMaterialInputs, OutDepth);
 	#endif
 
-	GetMaterialCoverageAndClipping(MaterialParameters);
+	GetMaterialCoverageAndClipping(MaterialParameters, PixelMaterialInputs);
 #endif
 
 	OutColor = 0;

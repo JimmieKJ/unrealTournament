@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LODActorBase.cpp: Static mesh actor base class implementation.
@@ -6,48 +6,89 @@
 
 #include "EnginePrivate.h"
 #include "Engine/LODActor.h"
+#include "Engine/HLODMeshCullingVolume.h"
 #include "MapErrors.h"
 #include "MessageLog.h"
 #include "UObjectToken.h"
 
 #include "StaticMeshResources.h"
 
+#if WITH_EDITOR
+#include "Editor.h"
+#endif
+
 #define LOCTEXT_NAMESPACE "LODActor"
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-static void ToggleHLODEnabled(UWorld* InWorld)
+static void HLODConsoleCommand(const TArray<FString>& Args, UWorld* World)
 {
-	static bool bHLODEnabled = true;
-
-	FlushRenderingCommands();
-
-	auto Levels = InWorld->GetLevels();
-
-	for (auto Level : Levels)
+	if (Args.Num() == 1)
 	{
-		for (AActor* Actor : Level->Actors)
+		const int32 State = FCString::Atoi(*Args[0]);
+
+		if (State == 0 || State == 1)
 		{
-			ALODActor* LODActor = Cast<ALODActor>(Actor);
-			if (LODActor)
+			const bool bHLODEnabled = (State == 1) ?  true : false;
+			FlushRenderingCommands();
+			const TArray<ULevel*>& Levels = World->GetLevels();
+			for (ULevel* Level : Levels)
 			{
-				LODActor->SetActorHiddenInGame(bHLODEnabled);
-	#if WITH_EDITOR
-				LODActor->SetIsTemporarilyHiddenInEditor(bHLODEnabled);
-	#endif // WITH_EDITOR
-				LODActor->MarkComponentsRenderStateDirty();
+				for (AActor* Actor : Level->Actors)
+				{
+					ALODActor* LODActor = Cast<ALODActor>(Actor);
+					if (LODActor)
+					{
+						LODActor->SetActorHiddenInGame(!bHLODEnabled);
+#if WITH_EDITOR
+						LODActor->SetIsTemporarilyHiddenInEditor(!bHLODEnabled);
+#endif // WITH_EDITOR
+						LODActor->MarkComponentsRenderStateDirty();
+					}
+				}
 			}
 		}
 	}
+	else if (Args.Num() == 2)
+	{
+#if WITH_EDITOR
+		if (Args[0] == "force")
+		{
+			const int32 ForcedLevel = FCString::Atoi(*Args[1]);
 
-	bHLODEnabled = !bHLODEnabled;
+			if (ForcedLevel >= -1 && ForcedLevel < World->GetWorldSettings()->HierarchicalLODSetup.Num())
+			{
+				const TArray<ULevel*>& Levels = World->GetLevels();
+				for (ULevel* Level : Levels)
+				{
+					for (AActor* Actor : Level->Actors)
+					{
+						ALODActor* LODActor = Cast<ALODActor>(Actor);
+
+						if (LODActor)
+						{
+							if (LODActor->LODLevel == ForcedLevel + 1)
+							{
+								LODActor->SetForcedView(true);
+							}
+							else
+							{
+								LODActor->SetHiddenFromEditorView(true, ForcedLevel + 1);
+							}
+						}
+					}
+				}
+			}
+		}
+#endif // WITH_EDITOR
+	}
 }
 
-static FAutoConsoleCommandWithWorld GToggleHLODEnabledCmd(
-	TEXT("ToggleHLODEnabled"),
-	TEXT("Toggles whether or not the HLOD system is enabled."),
-	FConsoleCommandWithWorldDelegate::CreateStatic(ToggleHLODEnabled),
-	ECVF_Cheat
+static FAutoConsoleCommandWithWorldAndArgs GHLODCmd(
+	TEXT("r.HLOD"),
+	TEXT("Single argument: 0 or 1 to Disable/Enable HLOD System\nMultiple arguments: force X where X is the HLOD level that should be forced into view"),
+	FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(HLODConsoleCommand)
 	);
+
 #endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
 ALODActor::ALODActor(const FObjectInitializer& ObjectInitializer)
@@ -148,39 +189,65 @@ void ALODActor::PostRegisterAllComponents()
 	// Clean up sub actor if assets were delete manually
 	CleanSubActorArray();
 
+	// Clean up sub objects if assets were delete manually
+	CleanSubObjectsArray();
+
 	UpdateSubActorLODParents();	
 #endif
 }
 
 #if WITH_EDITOR
 
+void ALODActor::PreEditChange(UProperty* PropertyThatWillChange)
+{
+	Super::PreEditChange(PropertyThatWillChange);
+
+	if (PropertyThatWillChange)
+	{
+		const FName PropertyName = PropertyThatWillChange->GetFName();
+
+		// If the Sub Objects array is changed, in case of asset deletion make sure me flag as dirty since the cluster will be invalid
+		if (PropertyName == TEXT("SubObjects"))
+		{
+			SetIsDirty(true);
+		}
+	}
+
+	// Flush all pending rendering commands.
+	FlushRenderingCommands();
+}
+
 void ALODActor::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	UProperty* PropertyThatChanged = PropertyChangedEvent.Property;
 	FName PropertyName = PropertyThatChanged != NULL ? PropertyThatChanged->GetFName() : NAME_None;
 	
-	if (PropertyName == GET_MEMBER_NAME_CHECKED(ALODActor, LODDrawDistance))
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(ALODActor, bOverrideTransitionScreenSize) || PropertyName == GET_MEMBER_NAME_CHECKED(ALODActor, TransitionScreenSize))
 	{
-		for (auto& Actor: SubActors)
-		{
-			if (Actor)
-			{
-				TArray<UPrimitiveComponent*> InnerComponents;
-				Actor->GetComponents<UPrimitiveComponent>(InnerComponents);
+		float CalculateSreenSize = 0.0f;
 
-				for(auto& Component: InnerComponents)
-				{
-					UPrimitiveComponent* ParentComp = Component->GetLODParentPrimitive();
-					if (ParentComp)
-					{
-						ParentComp->MinDrawDistance = LODDrawDistance;
-						ParentComp->MarkRenderStateDirty();
-					}
-				}
-			}
+		if (bOverrideTransitionScreenSize)
+		{
+			CalculateSreenSize = TransitionScreenSize;
 		}
+		else
+		{
+			UWorld* World = GetWorld();
+			check(World != nullptr);
+			AWorldSettings* WorldSettings = World->GetWorldSettings();
+			checkf(WorldSettings->HierarchicalLODSetup.IsValidIndex(LODLevel - 1), TEXT("Out of range HLOD level (%i) found in LODActor (%s)"), LODLevel - 1, *GetName());
+			CalculateSreenSize = WorldSettings->HierarchicalLODSetup[LODLevel - 1].TransitionScreenSize;
+		}
+
+		RecalculateDrawingDistance(CalculateSreenSize);
+	}
+	else if (PropertyName == GET_MEMBER_NAME_CHECKED(ALODActor, bOverrideScreenSize) || PropertyName == GET_MEMBER_NAME_CHECKED(ALODActor, ScreenSize)
+		|| PropertyName == GET_MEMBER_NAME_CHECKED(ALODActor, bOverrideMaterialMergeSettings) || PropertyName == GET_MEMBER_NAME_CHECKED(ALODActor, MaterialSettings))
+	{
+		// If we change override settings dirty the actor
 		SetIsDirty(true);
 	}
+
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 
@@ -307,7 +374,7 @@ void ALODActor::AddSubActor(AActor* InActor)
 
 const bool ALODActor::RemoveSubActor(AActor* InActor)
 {
-	if (SubActors.Contains(InActor))
+	if ((InActor != nullptr) && SubActors.Contains(InActor))
 	{
 		SubActors.Remove(InActor);
 		InActor->SetLODParent(nullptr, 0);
@@ -362,15 +429,22 @@ void ALODActor::SetIsDirty(const bool bNewState)
 			ALODActor* LODParentActor = Cast<ALODActor>(ParentComponent->GetOwner());
 			if (LODParentActor)
 			{
+				LODParentActor->Modify();
 				LODParentActor->SetIsDirty(true);
 			}
 		}
 
+		// Set static mesh to null (this so we can revert without destroying the previously build static mesh)
+		StaticMeshComponent->StaticMesh = nullptr;
+		// Mark render state dirty to update viewport
+		StaticMeshComponent->MarkRenderStateDirty();
+#if WITH_EDITOR
 		// Broadcast actor marked dirty event
-		if (GEngine)
+		if (GEditor)
 		{
-			GEngine->BroadcastHLODActorMarkedDirty(this);
-		}		
+			GEditor->BroadcastHLODActorMarkedDirty(this);
+		}
+#endif // WITH_EDITOR
 	}	
 	else
 	{
@@ -384,30 +458,7 @@ void ALODActor::SetIsDirty(const bool bNewState)
 
 const bool ALODActor::HasValidSubActors()
 {
-	if (SubActors.Num() > 1)
-	{
-		// More than one sub actor
-		return true;
-	}
-	else if (SubActors.Num() == 0)
-	{
-		// No sub actors
-		return false;
-	}	
-	else
-	{
-		if (SubActors[0]->IsA<ALODActor>())
-		{
-			// LODActor as only sub actor (which doesn't make sense for the system)
-			return false;
-		}
-		else
-		{
-			// StaticMeshActor as only sub actor
-			return true;
-		}
-	}
-	
+	return (SubActors.Num() != 0);	
 }
 
 void ALODActor::ToggleForceView()
@@ -481,16 +532,60 @@ void ALODActor::UpdateSubActorLODParents()
 
 void ALODActor::CleanSubActorArray()
 {
+	bool bIsDirty = false;
 	for (int32 SubActorIndex = 0; SubActorIndex < SubActors.Num(); ++SubActorIndex)
 	{
 		auto& Actor = SubActors[SubActorIndex];
 		if (Actor == nullptr)
 		{
-			SubActors.RemoveAt(SubActorIndex);
+			SubActors.RemoveAtSwap(SubActorIndex);
 			SubActorIndex--;
+			bIsDirty = true;
 		}
 	}
+
+	if (bIsDirty)
+	{
+		SetIsDirty(true);
+	}
 }
+
+void ALODActor::CleanSubObjectsArray()
+{
+	bool bIsDirty = false;
+	for (int32 SubObjectIndex = 0; SubObjectIndex < SubObjects.Num(); ++SubObjectIndex)
+	{
+		UObject* Object = SubObjects[SubObjectIndex];
+		if (Object == nullptr)
+		{
+			SubObjects.RemoveAtSwap(SubObjectIndex);
+			SubObjectIndex--;
+			bIsDirty = true;
+		}
+	}
+
+	if (bIsDirty)
+	{
+		SetIsDirty(true);		
+	}
+}
+
+void ALODActor::RecalculateDrawingDistance(const float InTransitionScreenSize)
+{
+	// At the moment this assumes a fixed field of view of 90 degrees (horizontal and vertical axi)
+	static const float FOVRad = 90.0f * (float)PI / 360.0f;
+	static const FMatrix ProjectionMatrix = FPerspectiveMatrix(FOVRad, 1920, 1080, 0.01f);
+	FBoxSphereBounds Bounds = GetStaticMeshComponent()->CalcBounds(FTransform());
+
+	// Get projection multiple accounting for view scaling.
+	const float ScreenMultiple = FMath::Max(1920.0f / 2.0f * ProjectionMatrix.M[0][0],
+		1080.0f / 2.0f * ProjectionMatrix.M[1][1]);
+	// (ScreenMultiple * SphereRadius) / Sqrt(Screensize * 1920 * 1080.0f * PI) = Distance
+	LODDrawDistance = (ScreenMultiple * Bounds.SphereRadius) / FMath::Sqrt((InTransitionScreenSize * 1920.0f * 1080.0f) / PI);
+
+	UpdateSubActorLODParents();
+}
+
 
 #endif // WITH_EDITOR
 
@@ -526,5 +621,9 @@ FBox ALODActor::GetComponentsBoundingBox(bool bNonColliding) const
 
 	return BoundBox;	
 }
+
+//////////////////////////////////////////////////////////////////////////
+// AHLODMeshCullingVolume
+
 
 #undef LOCTEXT_NAMESPACE

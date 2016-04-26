@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -136,7 +136,10 @@ public:
 	 *
 	 *	@return		Array of reference chains
 	 **/
-	const TArray<FReferenceChain> GetReferenceChains() const { return Referencers; }
+	const TArray<FReferenceChain>& GetReferenceChains() const { return Referencers; }
+
+	/** Dumps results to log */
+	void PrintResults();
 
 private:
 	/** Object we want to find all the referencers to */
@@ -159,4 +162,11 @@ private:
 	void InsertReferenceChain(FReferenceChain& Referencer);
 	/** Generates internal reference graph representation */
 	void BuildRefGraph();
+	/** Recursively creates reference chains from the internal reference graph relationship */
+	void CreateReferenceChain(struct FRefGraphItem* Node, FReferenceChain& ThisChain, TArray<FReferenceChain>& ChainArray, UObject* ObjectToFind, int32 Levels);
+	/** Returns true if the search should log anything */
+	bool ShouldOutputToLog() const
+	{
+		return !!(SearchMode & ESearchMode::PrintResults);
+	}
 };

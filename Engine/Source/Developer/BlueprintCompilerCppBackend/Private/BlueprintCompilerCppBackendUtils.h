@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma  once
 
 #include "BlueprintCompilerCppBackendGatherDependencies.h"
@@ -73,6 +73,13 @@ public:
 		, DefaultTarget(&Body)
 		, Dependencies(InDependencies)
 	{}
+
+	// PROPERTIES FOR INACCESSIBLE MEMBER VARIABLES
+	TMap<const UProperty*, FString> PropertiesForInaccessibleStructs;
+	void ResetPropertiesForInaccessibleStructs()
+	{
+		PropertiesForInaccessibleStructs.Empty();
+	}
 
 	// CONSTRUCTOR FUNCTIONS
 
@@ -157,7 +164,7 @@ public:
 	FString FindGloballyMappedObject(const UObject* Object, const UClass* ExpectedClass = nullptr, bool bLoadIfNotFound = false, bool bTryUsedAssetsList = true);
 
 	// Functions needed for Unconverted classes
-	FString ExportCppDeclaration(const UProperty* Property, EExportedDeclaration::Type DeclarationType, uint32 AdditionalExportCPPFlags, bool bSkipParameterName = false) const;
+	FString ExportCppDeclaration(const UProperty* Property, EExportedDeclaration::Type DeclarationType, uint32 AdditionalExportCPPFlags, bool bSkipParameterName = false, const FString& NamePostfix = FString(), const FString& TypePrefix = FString()) const;
 	FString ExportTextItem(const UProperty* Property, const void* PropertyValue) const;
 
 	// AS FCodeText
@@ -185,9 +192,16 @@ struct FEmitHelper
 	// bUInterface - use interface with "U" prefix, by default there is "I" prefix
 	static FString GetCppName(const UField* Field, bool bUInterface = false);
 
+	// returns an unique number for a structure in structures hierarchy
+	static int32 GetInheritenceLevel(const UStruct* Struct);
+
+	static bool PropertyForConstCast(const UProperty* Property);
+
 	static void ArrayToString(const TArray<FString>& Array, FString& OutString, const TCHAR* Separator);
 
 	static bool HasAllFlags(uint64 Flags, uint64 FlagsToCheck);
+
+	static bool IsMetaDataValid(const FName Name, const FString& Value);
 
 	static FString HandleRepNotifyFunc(const UProperty* Property);
 
@@ -219,6 +233,8 @@ struct FEmitHelper
 
 	static FString DefaultValue(FEmitterLocalContext& EmitterContext, const FEdGraphPinType& Type);
 
+	static FString PinTypeToNativeType(const FEdGraphPinType& InType);
+
 	static UFunction* GetOriginalFunction(UFunction* Function);
 
 	static bool ShouldHandleAsNativeEvent(UFunction* Function);
@@ -240,7 +256,11 @@ struct FEmitHelper
 	static FString GenerateGetPropertyByName(FEmitterLocalContext& EmitterContext, const UProperty* Property);
 
 	static FString AccessInaccessibleProperty(FEmitterLocalContext& EmitterContext, const UProperty* Property
-		, const FString& ContextStr, const FString& ContextAdressOp, const FString& StaticArrayIdx = FString(TEXT(", 0")));
+		, const FString& ContextStr, const FString& ContextAdressOp, int32 StaticArrayIdx, bool bGetter);
+
+	// This code works properly as long, as all fields in structures are UProperties!
+	static FString AccessInaccessiblePropertyUsingOffset(FEmitterLocalContext& EmitterContext, const UProperty* Property
+		, const FString& ContextStr, const FString& ContextAdressOp, int32 StaticArrayIdx = 0);
 
 };
 
@@ -251,6 +271,8 @@ struct FEmitDefaultValueHelper
 	static void GenerateGetDefaultValue(const UUserDefinedStruct* Struct, FEmitterLocalContext& EmitterContext);
 
 	static void GenerateConstructor(FEmitterLocalContext& Context);
+
+	static void GenerateCustomDynamicClassInitialization(FEmitterLocalContext& Context);
 
 	enum class EPropertyAccessOperator
 	{
@@ -269,6 +291,9 @@ struct FEmitDefaultValueHelper
 	// Creates the subobject (of class) returns it's native local name, 
 	// returns empty string if cannot handle
 	static FString HandleClassSubobject(FEmitterLocalContext& Context, UObject* Object, FEmitterLocalContext::EClassSubobjectList ListOfSubobjectsTyp, bool bCreate, bool bInitilize);
+
+	// returns true, and fill OutResult, when the structure is handled in a custom way.
+	static bool SpecialStructureConstructor(const UScriptStruct* Struct, const uint8* ValuePtr, FString* OutResult);
 
 private:
 	// Returns native term, 
@@ -295,7 +320,7 @@ struct FBackendHelperUMG
 
 struct FBackendHelperAnim
 {
-	static FString AddHeaders(UClass* GeneratedClass);
+	static void AddHeaders(FEmitterLocalContext& EmitterContext);
 
 	static void CreateAnimClassData(FEmitterLocalContext& Context);
 };

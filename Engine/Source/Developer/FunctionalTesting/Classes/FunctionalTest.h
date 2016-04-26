@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "GameFramework/Actor.h"
@@ -131,6 +131,10 @@ class FUNCTIONALTESTING_API UAutomationPerformaceHelper : public UObject
 	bool bRecordingBaselineBasicStats;
 	bool bRecordingCPUCapture;
 	bool bRecordingStatsFile;
+
+	/** If true we check the GPU times vs GPU budget each tick and trigger a GPU trace if we fall below budget.*/
+	bool bGPUTraceIfBelowBudget;
+
 public:
 
 	UAutomationPerformaceHelper();
@@ -188,9 +192,9 @@ public:
 	/** Communicates with external profiler to end a CPU capture. */
 	UFUNCTION(BlueprintCallable, Category = Perf)
 	void StopCPUProfiling();
-	/** Communicates with an external GPU profiler to trigger a GPU trace. */
+	/** Will trigger a GPU trace next time the current test falls below GPU budget. */
 	UFUNCTION(BlueprintCallable, Category = Perf)
-	void TriggerGPUTrace();
+	void TriggerGPUTraceIfRecordFallsBelowBudget();
 	/** Begins recording stats to a file. */
 	UFUNCTION(BlueprintCallable, Category = Perf)
 	void BeginStatsFile(const FString& RecordName);

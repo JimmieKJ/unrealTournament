@@ -69,6 +69,34 @@ void UUTProfileSettings::VersionFixup()
 		ResetHUD();
 	}
 
+	if (SettingsRevisionNum < ACTIVATEPOWERUP_FIXUP_PROFILESETTINGS_VERSION)
+	{
+		FInputActionKeyMapping ActivatePowerup;
+		ActivatePowerup.ActionName = FName(TEXT("StartActivatePowerup"));
+		ActivatePowerup.Key = EKeys::Q;
+		ActionMappings.AddUnique(ActivatePowerup);
+	}
+
+	if (SettingsRevisionNum < BUY_MENU_AND_DROP_FLAG_BUTTON_FIXUP_PROFILE_SETTINGS_VERSION)
+	{
+		FInputActionKeyMapping BuyMenu;
+		BuyMenu.ActionName = FName(TEXT("ShowBuyMenu"));
+		BuyMenu.Key = EKeys::B;
+		ActionMappings.AddUnique(BuyMenu);
+
+		FInputActionKeyMapping DropCarriedObject;
+		DropCarriedObject.ActionName = FName(TEXT("DropCarriedObject"));
+		DropCarriedObject.Key = EKeys::G;
+		ActionMappings.AddUnique(DropCarriedObject);
+	}
+
+	if (SettingsRevisionNum < SLIDE_FIXUP_PROFILE_SETTINGS_VERSION)
+	{
+		FInputActionKeyMapping Slide;
+		Slide.ActionName = FName(TEXT("Slide"));
+		Slide.Key = EKeys::LeftShift;
+		ActionMappings.AddUnique(Slide);
+	}
 	// The format has changed during Dev versions.  So in case some people have written out unlocks, clear them here.
 	if (SettingsRevisionNum <= CHALLENGE_FIXUP_VERSION)
 	{
@@ -101,7 +129,7 @@ void UUTProfileSettings::ResetHUD()
 	bDrawCenteredKillMsg = true;
 	bDrawHUDKillIconMsg = true;
 	bPlayKillSoundMsg = true;
-	bDrawCTFMinimapHUDSetting = true;
+	bDrawCTFMinimapHUDSetting = false;
 	HUDMinimapScale = 1.0f;
 }
 
@@ -157,7 +185,7 @@ void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 		bSingleTapWallDodge = PC->bSingleTapWallDodge;
 		bSingleTapAfterJump = PC->bSingleTapAfterJump;
 		bAutoWeaponSwitch = PC->bAutoWeaponSwitch;
-		bAllowSlideFromRun = PC->bAllowSlideFromRun;
+		bAllowSlideFromRun = PC->bCrouchTriggersSlide;
 		bHearsTaunts = PC->bHearsTaunts;
 		WeaponBob = PC->WeaponBobGlobalScaling;
 		ViewBob = PC->EyeOffsetGlobalScaling;
@@ -215,8 +243,6 @@ void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 		}
 
 		bEnableMouseSmoothing = DefaultInputSettingsObject->bEnableMouseSmoothing;
-		bEnableFOVScaling = DefaultInputSettingsObject->bEnableFOVScaling;
-		FOVScale = DefaultInputSettingsObject->FOVScale;
 		DoubleClickTime = DefaultInputSettingsObject->DoubleClickTime;
 
 		if (DefaultInputSettingsObject->ConsoleKeys.Num() > 0)
@@ -272,7 +298,7 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 		PC->bSingleTapWallDodge = bSingleTapWallDodge;
 		PC->bSingleTapAfterJump = bSingleTapAfterJump;
 		PC->bAutoWeaponSwitch = bAutoWeaponSwitch;
-		PC->bAllowSlideFromRun = bAllowSlideFromRun;
+		PC->bCrouchTriggersSlide = bAllowSlideFromRun;
 		PC->bHearsTaunts = bHearsTaunts;
 		PC->WeaponBobGlobalScaling = WeaponBob;
 		PC->EyeOffsetGlobalScaling = ViewBob;
@@ -345,8 +371,6 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 		}
 
 		DefaultInputSettingsObject->bEnableMouseSmoothing = bEnableMouseSmoothing;
-		DefaultInputSettingsObject->bEnableFOVScaling = bEnableFOVScaling;
-		DefaultInputSettingsObject->FOVScale = FOVScale;
 		DefaultInputSettingsObject->DoubleClickTime = DoubleClickTime;
 		DefaultInputSettingsObject->ConsoleKeys.Empty();
 		DefaultInputSettingsObject->ConsoleKeys.Add(ConsoleKey);

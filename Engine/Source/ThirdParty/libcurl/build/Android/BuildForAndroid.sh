@@ -121,6 +121,9 @@ case $_ANDROID_ARCH in
 	arch-arm)	  
       ANDROID_TOOLS="arm-linux-androideabi-gcc arm-linux-androideabi-ranlib arm-linux-androideabi-ld"
 	  ;;
+	arch-arm64)
+      ANDROID_TOOLS="aarch64-linux-android-gcc aarch64-linux-android-ranlib aarch64-linux-android-ls"
+	  ;;
 	arch-x86)	  
       ANDROID_TOOLS="i686-linux-android-gcc i686-linux-android-ranlib i686-linux-android-ld"
 	  ;;
@@ -203,6 +206,16 @@ export CROSS_COMPILE="arm-linux-androideabi-"
 export HOST=arm-linux-androideabi
 export SSL_CONFIG=android-armv7
 
+if [ "$_ANDROID_ARCH" == "arch-arm64" ]; then
+  export MACHINE=aarch64
+  export RELEASE=2.6.37
+  export SYSTEM=android
+  export ARCH=aarch64
+  export CROSS_COMPILE="aarch64-linux-android-"
+  export HOST=aarch64-linux-android
+  export SSL_CONFIG=android-armv8
+fi
+
 if [ "$_ANDROID_ARCH" == "arch-x86" ]; then
 	export MACHINE=i686
 	export RELEASE=2.6.37
@@ -266,6 +279,10 @@ tar xvf $CURL_VER.tar.bz2 >& /dev/null
 cd $SSL_DIR/
 sed -i '/"android"/a \"android-x86_64\",\"gcc:-mandroid -I\\\$(ANDROID_DEV)\/include -B\\\$(ANDROID_DEV)\/lib -O2 -fomit-frame-pointer -fno-exceptions -fdata-sections -ffunction-sections -fno-short-enums -march=atom -fsigned-char -fPIC -Wall -MD -MF /dev/null -x c::-D_REENTRANT::-ldl:SIXTY_FOUR_BIT_LONG RC4_CHUNK DES_INT DES_UNROLL:\${no_asm}:dlfcn:linux-shared:-fPIC:-nostdlib -Wl,-shared,-Bsymbolic -Wl,--no-undefined -march=atom:.so.\\\$(SHLIB_MAJOR).\\\$(SHLIB_MINOR)\",' Configure
 
+# Add aarch64_asm and android-armv8 config
+sed -i '/"android-armv7"/a \  aarch64*-*-android) OUT="android-armv8" ;;\' config
+sed -i '/"android-armv7"/a \"android-armv8\",\"gcc:-march=armv8-a -mandroid -I\\\$(ANDROID_DEV)/include -B\\\$(ANDROID_DEV)/lib -O3 -fomit-frame-pointer -Wall::-D_REENTRANT::-ldl:BN_LLONG RC4_CHAR RC4_CHUNK DES_INT DES_UNROLL BF_PTR:${aarch64_asm}:dlfcn:linux-shared:-fPIC::.so.\\\$(SHLIB_MAJOR).\\\$(SHLIB_MINOR)\",' Configure
+
 # Config and build SSL
 echo "Configuring SSL for $SSL_CONFIG"
 ./Configure shared threads -no-ssl2 -no-zlib --openssldir=. $SSL_CONFIG >& /dev/null
@@ -281,6 +298,12 @@ case $_ANDROID_ARCH in
 	  export CFLAGS="-fno-exceptions -fdata-sections -ffunction-sections -fno-short-enums -march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16 -fsigned-char -x c"
 	  export CPPFLAGS="-I$ANDROID_DEV/include -DPIC -I$GNUSTL/include -I$GNUSTL/libs/armeabi-v7a/include"
 	  export LDFLAGS="-L$SSL_DIR -L$ANDROID_DEV/lib -L$GNUSTL/libs/armeabi-v7a -nostdlib -Wl,-shared,-Bsymbolic -Wl,--no-undefined -march=armv7-a -Wl,--fix-cortex-a8"
+	  ;;
+	arch-arm64)
+	  DEST_ARCH=ARM64
+	  export CFLAGS="-fno-exceptions -fdata-sections -ffunction-sections -fno-short-enums -march=armv8-a -fsigned-char -x c"
+	  export CPPFLAGS="-I$ANDROID_DEV/include -DPIC -I$GNUSTL/include -I$GNUSTL/libs/arme64-v8a/include"
+	  export LDFLAGS="-L$SSL_DIR -L$ANDROID_DEV/lib -L$GNUSTL/libs/arm64-v8a -nostdlib -Wl,-shared,-Bsymbolic -Wl,--no-undefined -march=armv8-a"
 	  ;;
 	arch-x86)
 	  DEST_ARCH=x86
@@ -304,15 +327,17 @@ export LIBS="-lc -lgnustl_shared -lgcc"
 # Config and build Curl
 cd $CURL_DIR/
 echo "Configuring Curl for $HOST"
-./configure --prefix=$CURL_DIR --build=x86_64-unknown-cygwin --host=$HOST --target=$HOST --with-ssl=$OPENSSL_DIR --enable-static --disable-shared >& /dev/null
+export LIBS="-lssl -lcrypto"
+export LDFLAGS="-L$SSL_DIR"
+./configure --prefix=$CURL_DIR --build=x86_64-unknown-cygwin --host=$HOST --target=$HOST --with-ssl=$OPENSSL_DIR --enable-static --enable-threaded-resolver --enable-ipv6 --disable-shared >& /dev/null
 echo "Building libcurl"
 make >& /dev/null
 
 # Deploy
 mkdir -p $BASE_DIR/../../lib/Android/$DEST_ARCH
 mkdir -p $BASE_DIR/../../include/Android/$DEST_ARCH/curl
-cp -vf $SSL_DIR/libssl.a $BASE_DIR/../../lib/Android/$DEST_ARCH
-cp -vf $SSL_DIR/libcrypto.a $BASE_DIR/../../lib/Android/$DEST_ARCH
+#cp -vf $SSL_DIR/libssl.a $BASE_DIR/../../lib/Android/$DEST_ARCH
+#cp -vf $SSL_DIR/libcrypto.a $BASE_DIR/../../lib/Android/$DEST_ARCH
 cp -vf $CURL_DIR/include/curl/*.h $BASE_DIR/../../include/Android/$DEST_ARCH/curl
 cp -vf $CURL_DIR/lib/.libs/libcurl.a $BASE_DIR/../../lib/Android/$DEST_ARCH
 

@@ -4,6 +4,8 @@
 #include "UTArmor.h"
 #include "UTJumpBoots.h"
 #include "UTWeapon.h"
+#include "UTTimedPowerup.h"
+#include "UTCTFRoundGameState.h"
 
 const float BOUNCE_SCALE = 1.6f;			
 const float BOUNCE_TIME = 1.2f;		// SHould be (BOUNCE_SCALE - 1.0) * # of seconds
@@ -24,6 +26,12 @@ void UUTHUDWidget_QuickStats::InitializeWidget(AUTHUD* Hud)
 
 	DrawAngle = 0.0f;
 	CurrentLayoutIndex = 0;
+
+	HealthInfo.TextColor = FLinearColor(0.4f, 0.95f, 0.48f, 1.0f);
+	HealthInfo.IconColor = HealthInfo.TextColor;
+
+	FlagInfo.bNoText = false;
+
 }
 
 bool UUTHUDWidget_QuickStats::ShouldDraw_Implementation(bool bShowScores)
@@ -33,20 +41,7 @@ bool UUTHUDWidget_QuickStats::ShouldDraw_Implementation(bool bShowScores)
 		return false;
 	}
 	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
-	return (!bShowScores && UTC && !UTC->IsDead() && !UTHUDOwner->bQuickStatsHidden());
-}
-
-FVector2D UUTHUDWidget_QuickStats::CalcDrawLocation(float DistanceInPixels, float Angle)
-{
-	float Sin = 0.f;
-	float Cos = 0.f;
-
-	FMath::SinCos(&Sin,&Cos, FMath::DegreesToRadians(Angle));
-	FVector2D NewPoint;
-
-	NewPoint.X = DistanceInPixels * Sin;
-	NewPoint.Y = -1.0f * DistanceInPixels * Cos;
-	return NewPoint;
+	return (!bShowScores && UTC && !UTC->IsDead() && !UTHUDOwner->GetQuickStatsHidden());
 }
 
 FVector2D UUTHUDWidget_QuickStats::CalcRotOffset(FVector2D InitialPosition, float Angle)
@@ -66,16 +61,16 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 {
 	// Look to see if we should draw the ammo...
 
-	DrawAngle = InUTHUDOwner->QuickStatsAngle();
+	DrawAngle = InUTHUDOwner->GetQuickStatsAngle();
 
-	float DrawDistance = InUTHUDOwner->QuickStatsDistance();
-	FName DisplayTag = InUTHUDOwner->QuickStatsType();
-	DrawScale = InUTHUDOwner->QuickStatScaleOverride();
+	float DrawDistance = InUTHUDOwner->GetQuickStatsDistance();
+	FName DisplayTag = InUTHUDOwner->GetQuickStatsType();
+	DrawScale = InUTHUDOwner->GetQuickStatScaleOverride();
 
-	HorizontalBackground.RenderOpacity = InUTHUDOwner->QuickStatsBackgroundAlpha();
-	VerticalBackground.RenderOpacity = InUTHUDOwner->QuickStatsBackgroundAlpha();
+	HorizontalBackground.RenderOpacity = InUTHUDOwner->GetQuickStatsBackgroundAlpha();
+	VerticalBackground.RenderOpacity = InUTHUDOwner->GetQuickStatsBackgroundAlpha();
 
-	ForegroundOpacity = InUTHUDOwner->QuickStatsForegroundAlpha();
+	ForegroundOpacity = InUTHUDOwner->GetQuickStatsForegroundAlpha();
 
 	if (DisplayTag != NAME_None && DisplayTag != CurrentLayoutTag)
 	{
@@ -90,19 +85,19 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		}
 	}
 
-	Position = CalcDrawLocation( 1920.0f * DrawDistance, DrawAngle);
+	Position = CalcRotatedDrawLocation( 1920.0f * DrawDistance, DrawAngle);
 	Super::PreDraw(DeltaTime, InUTHUDOwner, InCanvas, InCanvasCenter);
 
 	AUTCharacter* CharOwner = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
-	if (CharOwner)
+	AUTPlayerState* UTPlayerState = CharOwner != nullptr ? Cast<AUTPlayerState>(CharOwner->PlayerState) : nullptr;
+	if (CharOwner && UTPlayerState)
 	{
-		if (UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->WeaponBobGlobalScaling > 0 && (InUTHUDOwner->bQuickStatsBob()))
+		if (UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->WeaponBobGlobalScaling > 0 && (InUTHUDOwner->GetQuickStatsBob()))
 		{
 			RenderPosition.X += 4.0f * CharOwner->CurrentWeaponBob.Y;
 			RenderPosition.Y -= 4.0f * CharOwner->CurrentWeaponBob.Z;
 		}
 	
-		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(CharOwner->PlayerState);
 		AUTWeapon* Weap = CharOwner->GetWeapon();
 
 		WeaponColor = Weap ? Weap->IconColor : FLinearColor::White;
@@ -111,21 +106,10 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		// ----------------- Ammo
 		AmmoInfo.Value = Weap ? Weap->Ammo : 0;
 		AmmoInfo.bInfinite = Weap && !Weap->NeedsAmmoDisplay();
-		
-		if (AmmoInfo.Value > AmmoInfo.LastValue && Weap == LastWeapon)
-		{
-			AmmoInfo.Scale = BOUNCE_SCALE;						
-		}
-		else if (AmmoInfo.Scale > 1.0f)
-		{
-			AmmoInfo.Scale = FMath::Clamp<float>(AmmoInfo.Scale - BOUNCE_TIME * DeltaTime, 1.0f, BOUNCE_SCALE);
-		}
-		else
-		{
-			AmmoInfo.Scale = 1.0f;
-		}
+		AmmoInfo.IconColor = WeaponColor;
 
-		AmmoInfo.LastValue = AmmoInfo.Value;
+		UpdateStatScale(DeltaTime, AmmoInfo, Weap == LastWeapon);
+		
 		LastWeapon = Weap;
 		if (Weap && !AmmoInfo.bInfinite && Weap->AmmoWarningAmount > 0)
 		{
@@ -140,27 +124,22 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		// ----------------- Health
 		HealthInfo.Value = CharOwner->Health;
 		HealthInfo.bInfinite = false;
-		
-		if (HealthInfo.Value > HealthInfo.LastValue)
-		{
-			HealthInfo.Scale = BOUNCE_SCALE;						
-		}
-		else if (HealthInfo.Scale > 1.0f)
-		{
-			HealthInfo.Scale = FMath::Clamp<float>(HealthInfo.Scale - BOUNCE_TIME * DeltaTime, 1.0f, BOUNCE_SCALE);
-		}
-		else
-		{
-			HealthInfo.Scale = 1.0f;
-		}
-		HealthInfo.LastValue = HealthInfo.Value;
+
+		UpdateStatScale(DeltaTime, HealthInfo);
+
 		float HealthPerc = float(HealthInfo.Value) / 100.0f;
 		GetHighlightStrength(HealthInfo, HealthPerc, 0.5f);
 
-		// ----------------- Health
+		// ----------------- Armor / Inventory
 
 		bool bHasShieldBelt = false;
+		bool bHasBoots = false;
+		
 		ArmorInfo.Value = 0;
+		BootsInfo.Value = 0;
+
+		AUTTimedPowerup* CurrentPowerup = nullptr;
+
 		for (TInventoryIterator<> It(CharOwner); It; ++It)
 		{
 			AUTArmor* Armor = Cast<AUTArmor>(*It);
@@ -169,40 +148,231 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 				bHasShieldBelt |= (Armor->ArmorType == ArmorTypeName::ShieldBelt);
 				ArmorInfo.Value += Armor->ArmorAmount;
 			}
+
+			AUTJumpBoots* Boots = Cast<AUTJumpBoots>(*It);
+			if (Boots != nullptr)
+			{
+				bHasBoots = true;
+				BootsInfo.Value = Boots->NumJumps;
+			}
+
+			if (CurrentPowerup == nullptr)
+			{
+				CurrentPowerup = Cast<AUTTimedPowerup>(*It);
+
+				//Ignore powerups given by a boost class as those are handled separately
+				if (CurrentPowerup && CurrentPowerup->bBoostPowerupSuppliedItem)
+				{
+					CurrentPowerup = nullptr;
+				}
+			}
 		}
 
 		ArmorInfo.bInfinite = false;
 		ArmorInfo.bAltIcon = bHasShieldBelt;
 		
-		if (ArmorInfo.Value > ArmorInfo.LastValue)
+		UpdateStatScale(DeltaTime, ArmorInfo);
+
+		float ArmorPerc = ArmorInfo.Value > 0 ? float(ArmorInfo.Value) / 100.0f : 1.0f;
+		ArmorInfo.HighlightStrength = 0.0f;
+		ArmorInfo.IconColor = bHasShieldBelt ? FLinearColor::Yellow : FLinearColor::White;
+
+		if (bHasBoots)
 		{
-			ArmorInfo.Scale = BOUNCE_SCALE;						
-		}
-		else if (ArmorInfo.Scale > 1.0f)
-		{
-			ArmorInfo.Scale = FMath::Clamp<float>(ArmorInfo.Scale - BOUNCE_TIME * DeltaTime, 1.0f, BOUNCE_SCALE);
+			UpdateStatScale(DeltaTime, BootsInfo);
+			BootsInfo.HighlightStrength = 0.0;
 		}
 		else
 		{
-			ArmorInfo.Scale = 1.0f;
+			BootsInfo.Value = 0;
 		}
 
-		ArmorInfo.LastValue = ArmorInfo.Value;
-		float ArmorPerc = ArmorInfo.Value > 0 ? float(ArmorInfo.Value) / 100.0f : 1.0f;
-		ArmorInfo.HighlightStrength = 0.0f;
+		if (CurrentPowerup != nullptr)
+		{
+			PowerupInfo.bAltIcon = false;
+			PowerupInfo.bUseLabel = false;
+			PowerupInfo.Label = FText::GetEmpty();
+			PowerupInfo.Value = int32(CurrentPowerup->TimeRemaining);
+
+			PowerupIcon.Atlas = CurrentPowerup->HUDIcon.Texture;
+			PowerupIcon.UVs.U = CurrentPowerup->HUDIcon.U;
+			PowerupIcon.UVs.V = CurrentPowerup->HUDIcon.V;
+			PowerupIcon.UVs.UL = CurrentPowerup->HUDIcon.UL;
+			PowerupIcon.UVs.VL = CurrentPowerup->HUDIcon.VL;
+
+			PowerupIcon.Position.Y = -22;
+			PowerupIcon.RenderOffset = FVector2D(0.5f, 0.5f);
+			PowerupIcon.Size = FVector2D(PowerupIcon.UVs.UL * 1.07f, 35);
+
+			if (PowerupInfo.Value <= 5)
+			{
+				PowerupInfo.HighlightStrength = float(PowerupInfo.Value) / 5.0f;
+			}
+		}
+
+		if (UTPlayerState->BoostClass)
+		{
+			BoostProvidedPowerupInfo.bUseLabel = true;
+			BoostProvidedPowerupInfo.Label = FText::GetEmpty();
+			BoostProvidedPowerupInfo.Value = 0;
+			BoostProvidedPowerupInfo.HighlightStrength = 0.f;
+
+			AUTInventory* InventoryItem = UTPlayerState->BoostClass->GetDefaultObject<AUTInventory>();
+			BoostIcon.UVs.U = InventoryItem->HUDIcon.U;
+			BoostIcon.UVs.V = InventoryItem->HUDIcon.V;
+			BoostIcon.UVs.UL = InventoryItem->HUDIcon.UL;
+			BoostIcon.UVs.VL = InventoryItem->HUDIcon.VL;
+			BoostIcon.Atlas = InventoryItem->HUDIcon.Texture;
+			BoostIcon.Size = FVector2D(InventoryItem->HUDIcon.UL * 1.07f, 35);
+			
+			AUTInventory* ActiveBoost = nullptr;
+			for (TInventoryIterator<> It(CharOwner); It; ++It)
+			{
+				AUTInventory* InventoryItemIt = Cast<AUTInventory>(*It);
+				if (InventoryItemIt && InventoryItemIt->bBoostPowerupSuppliedItem)
+				{
+					ActiveBoost = InventoryItemIt;
+				}
+			}
+
+			if (ActiveBoost)
+			{
+				BoostProvidedPowerupInfo.HighlightStrength = 1.f;
+				BoostProvidedPowerupInfo.bUseLabel = false;
+
+				AUTTimedPowerup* TimedPowerup = Cast<AUTTimedPowerup>(ActiveBoost);
+				if (TimedPowerup)
+				{
+					BoostProvidedPowerupInfo.Value = static_cast<int>(TimedPowerup->TimeRemaining);
+				}
+
+				AUTWeapon* WeaponPowerup = Cast<AUTWeapon>(ActiveBoost);
+				if (WeaponPowerup)
+				{
+					BoostProvidedPowerupInfo.Value = WeaponPowerup->Ammo;
+				}
+			}
+			else
+			{
+				//Show info for actively having access to a powerup
+				if (UTPlayerState->GetRemainingBoosts() >= 1)
+				{
+					BoostProvidedPowerupInfo.Value = UTPlayerState->GetRemainingBoosts();
+					BoostProvidedPowerupInfo.HighlightStrength = 0.5f;
+
+					UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+					if (InputSettings)
+					{
+						for (int32 inputIndex = 0; inputIndex < InputSettings->ActionMappings.Num(); ++inputIndex)
+						{
+							FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
+							if (Action.ActionName == "StartActivatePowerup")
+							{
+								BoostProvidedPowerupInfo.Label = Action.Key.GetDisplayName();
+								break;
+							}
+						}
+					}
+				}
+				else
+				{
+					//Show countdown to power up
+					AUTCTFRoundGameState* RoundGameState = GetWorld()->GetGameState<AUTCTFRoundGameState>();
+					if (RoundGameState != NULL && RoundGameState->IsTeamAbleToEarnPowerup(UTPlayerState->GetTeamNum()))
+					{
+						BoostProvidedPowerupInfo.Label = FText::FromString(FString::Printf(TEXT("Kill: %i"), RoundGameState->GetKillsNeededForPowerup(UTPlayerState->GetTeamNum())));
+						BoostProvidedPowerupInfo.Value = RoundGameState->GetKillsNeededForPowerup(UTPlayerState->GetTeamNum());
+					}
+					else if (UTGameState != NULL && UTGameState->BoostRechargeMaxCharges > 0 && UTGameState->BoostRechargeTime > 0.0f)
+					{
+						BoostProvidedPowerupInfo.Label = FText::FromString(FString::Printf(TEXT("CD: %i"), FMath::CeilToInt(UTPlayerState->BoostRechargeTimeRemaining)));
+						BoostProvidedPowerupInfo.Value = FMath::CeilToInt(UTPlayerState->BoostRechargeTimeRemaining);
+					}
+				}
+			}
+		}
+
+
+		if (UTPlayerState->CarriedObject != nullptr)
+		{
+			FlagInfo.Value = 1;
+			FlagInfo.IconColor = UTPlayerState->CarriedObject->GetTeamNum() == 0 ? FLinearColor::Red : FLinearColor::Blue;
+			FlagInfo.bUseLabel = true;
+			FlagInfo.Label = FText::GetEmpty();
+			FlagInfo.HighlightStrength = 1.f;
+
+			if (FlagInfo.Label.IsEmpty())
+			{
+				UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+				if (InputSettings)
+				{
+					for (int32 inputIndex = 0; inputIndex < InputSettings->ActionMappings.Num(); ++inputIndex)
+					{
+						FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
+						if (Action.ActionName == "DropCarriedObject")
+						{
+							FlagInfo.Label = Action.Key.GetDisplayName();
+							break;
+						}
+					}
+				}
+			}
+		}
+		else
+		{
+			FlagInfo.Value = 0;
+		}
 
 	}
+}
+
+void UUTHUDWidget_QuickStats::UpdateStatScale(float DeltaTime, FStatInfo& Stat, bool bLookForChange)
+{
+	if (Stat.Value > Stat.LastValue && bLookForChange)
+	{
+		Stat.Scale = BOUNCE_SCALE;
+	}
+	else if (Stat.Scale > 1.0f)
+	{
+		Stat.Scale = FMath::Clamp<float>(Stat.Scale - BOUNCE_TIME * DeltaTime, 1.0f, BOUNCE_SCALE);
+	}
+	else
+	{
+		Stat.Scale = 1.0f;
+	}
+
+	Stat.LastValue = Stat.Value;
 }
 
 void UUTHUDWidget_QuickStats::Draw_Implementation(float DeltaTime)
 {
 	bool bFollowRotation = Layouts[CurrentLayoutIndex].bFollowRotation;
-	DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].HealthOffset,DrawAngle) : Layouts[CurrentLayoutIndex].HealthOffset, HealthInfo, FLinearColor(0.4f, 0.95f, 0.48f, 1.0f), FLinearColor(0.4f, 0.95f, 0.48f, 1.0f), HealthIcon);
-	DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].ArmorOffset,DrawAngle) : Layouts[CurrentLayoutIndex].ArmorOffset, ArmorInfo, FLinearColor::White, ArmorInfo.bAltIcon ? FLinearColor::Yellow : FLinearColor::White, ArmorInfo.bAltIcon ? ArmorIconWithShieldBelt : ArmorIcon);
-	DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].AmmoOffset,DrawAngle) : Layouts[CurrentLayoutIndex].AmmoOffset, AmmoInfo, FLinearColor::White, WeaponColor, AmmoIcon);
+	DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].HealthOffset,DrawAngle) :	Layouts[CurrentLayoutIndex].HealthOffset, HealthInfo, HealthIcon);
+	DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].ArmorOffset,DrawAngle) :	Layouts[CurrentLayoutIndex].ArmorOffset, ArmorInfo, ArmorInfo.bAltIcon ? ArmorIconWithShieldBelt : ArmorIcon);
+	DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].AmmoOffset,DrawAngle) :	Layouts[CurrentLayoutIndex].AmmoOffset, AmmoInfo, AmmoIcon);
+
+	if (FlagInfo.Value > 0)
+	{
+		DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].FlagOffset, DrawAngle) :		Layouts[CurrentLayoutIndex].FlagOffset, FlagInfo, FlagIcon);
+	}
+
+	if (BootsInfo.Value > 0)
+	{
+		DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].BootsOffset, DrawAngle) :		Layouts[CurrentLayoutIndex].BootsOffset, BootsInfo, BootsIcon);
+	}
+
+	if (PowerupInfo.Value > 0)
+	{
+		DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].PowerupOffset, DrawAngle) :	Layouts[CurrentLayoutIndex].AmmoOffset, PowerupInfo, PowerupIcon);
+	}
+
+	if (BoostProvidedPowerupInfo.Value > 0)
+	{
+		DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].BoostProvidedPowerupOffset, DrawAngle) : Layouts[CurrentLayoutIndex].BoostProvidedPowerupOffset, BoostProvidedPowerupInfo, BoostIcon );
+	}
 }
 
-void UUTHUDWidget_QuickStats::DrawStat(FVector2D StatOffset, FStatInfo& Info, FLinearColor TextColor, FLinearColor IconColor, FHUDRenderObject_Texture Icon)
+void UUTHUDWidget_QuickStats::DrawStat(FVector2D StatOffset, FStatInfo& Info, FHUDRenderObject_Texture Icon)
 {
 	if (bHorizBorders)
 	{
@@ -230,21 +400,29 @@ void UUTHUDWidget_QuickStats::DrawStat(FVector2D StatOffset, FStatInfo& Info, FL
 	}
 
 	Icon.RenderScale = Info.Scale;
-	Icon.RenderColor = IconColor;
+	Icon.RenderColor = Info.IconColor;
 	Icon.RenderOpacity = ForegroundOpacity;
 	RenderObj_Texture(Icon, StatOffset);
 
-	if (Info.bInfinite)
+	if (Info.bUseLabelBackgroundImage)
 	{
-		RenderObj_Texture(InfiniteIcon, StatOffset);
+
 	}
-	else
+
+	if (!Info.bNoText)
 	{
-		TextTemplate.TextScale = Info.Scale;
-		TextTemplate.Text = FText::AsNumber(Info.Value);
-		TextTemplate.RenderColor = TextColor;
-		TextTemplate.RenderOpacity = ForegroundOpacity;
-		RenderObj_Text(TextTemplate, StatOffset);
+		if (Info.bInfinite)
+		{
+			RenderObj_Texture(InfiniteIcon, StatOffset);
+		}
+		else
+		{
+			TextTemplate.TextScale = Info.Scale;
+			TextTemplate.Text = Info.bUseLabel ? Info.Label : FText::AsNumber(Info.Value);
+			TextTemplate.RenderColor = Info.TextColor;
+			TextTemplate.RenderOpacity = ForegroundOpacity;
+			RenderObj_Text(TextTemplate, StatOffset);
+		}
 	}
 }
 

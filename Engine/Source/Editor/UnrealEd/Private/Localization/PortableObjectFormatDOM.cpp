@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "Culture.h"
@@ -196,15 +196,15 @@ bool FindDelimitedString(const FString& InStr, const FString& LeftDelim, const F
 FPortableObjectCulture::FPortableObjectCulture( const FString& LangCode, const FString& PluralForms )
 	: LanguageCode( LangCode )
 	, LanguagePluralForms( PluralForms )
-	, Culture( FCulture::Create( LangCode ) )
+	, Culture( FInternationalization::Get().GetCulture( LangCode ) )
 {
-
+	
 }
 
 FPortableObjectCulture::FPortableObjectCulture( const FPortableObjectCulture& Other )
 	: LanguageCode( Other.LanguageCode )
 	, LanguagePluralForms( Other.LanguagePluralForms )
-	, Culture( FCulture::Create( Other.LanguageCode ) )
+	, Culture( FInternationalization::Get().GetCulture( Other.LanguageCode ) )
 {
 
 }
@@ -212,7 +212,7 @@ FPortableObjectCulture::FPortableObjectCulture( const FPortableObjectCulture& Ot
 void FPortableObjectCulture::SetLanguageCode( const FString& LangCode )
 {
 	LanguageCode = LangCode;
-	Culture = FCulture::Create( LangCode );
+	Culture = FInternationalization::Get().GetCulture( LangCode );
 }
 
 
@@ -719,7 +719,7 @@ void FPortableObjectFormatDOM::CreateNewHeader()
 	//Hard code some header entries for now in the following format
 	/*
 	# Engine English translation
-	# Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+	# Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 	#
 	msgid ""
 	msgstr ""
@@ -748,7 +748,7 @@ void FPortableObjectFormatDOM::CreateNewHeader()
 	Header.SetEntryValue( TEXT("Plural-Forms"), Language.GetPluralForms() );
 
 	Header.Comments.Add( FString::Printf(TEXT("%s %s translation."), *GetProjectName(), *Language.EnglishName() ) );
-	Header.Comments.Add( TEXT("Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.") );
+	Header.Comments.Add( TEXT("Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.") );
 	Header.Comments.Add( FString(TEXT("")) );
 
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CascadeModule.h"
 #include "Cascade.h"
@@ -96,6 +96,18 @@ TSharedRef<SWidget> SCascadePreviewViewportToolBar::GenerateViewMenu() const
 			}
 			Menu.EndSection();
 		}
+
+		static void BuildSignificanceMenu(FMenuBuilder& Menu)
+		{
+			Menu.BeginSection("CascadeSignificance", NSLOCTEXT("Cascade", "SignificanceHeader", "Required Significance"));
+			{
+				Menu.AddMenuEntry(FCascadeCommands::Get().Significance_Critical);
+				Menu.AddMenuEntry(FCascadeCommands::Get().Significance_High);
+				Menu.AddMenuEntry(FCascadeCommands::Get().Significance_Medium);
+				Menu.AddMenuEntry(FCascadeCommands::Get().Significance_Low);
+			}
+			Menu.EndSection();
+		}
 	};
 
 	ViewMenuBuilder.AddSubMenu(NSLOCTEXT("Cascade", "ViewOptionsSubMenu", "View Overlays"), 
@@ -109,6 +121,10 @@ TSharedRef<SWidget> SCascadePreviewViewportToolBar::GenerateViewMenu() const
 	ViewMenuBuilder.AddSubMenu(NSLOCTEXT("Cascade", "DetailModesSubMenu", "Detail Modes"), 
 								FText::GetEmpty(), 
 								FNewMenuDelegate::CreateStatic(&Local::BuildDetailModesMenu));
+
+	ViewMenuBuilder.AddSubMenu(NSLOCTEXT("Cascade", "SignificanceSubMenu", "Significance"),
+								FText::GetEmpty(),
+								FNewMenuDelegate::CreateStatic(&Local::BuildSignificanceMenu));
 
 	ViewMenuBuilder.BeginSection("CascadeMiscPreview");
 	{

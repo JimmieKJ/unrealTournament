@@ -91,5 +91,8 @@ class UNREALTOURNAMENT_API UUTCheatManager : public UCheatManager
 #endif
 
 	UFUNCTION(exec)
+	void CheatShowRankedReconnectDialog();
+
+	UFUNCTION(exec)
 	void TestPaths(bool bHighJumps, bool bWallDodges, bool bLifts, bool bLiftJumps);
 };

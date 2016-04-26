@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 #include "AbilitySystemComponent.h"
@@ -119,7 +119,7 @@ void UGameplayTagReponseTable::AddOrUpdate(UAbilitySystemComponent* ASC, const T
 		}
 		else
 		{
-			Handle = ASC->ApplyGameplayEffectToSelf(Cast<UGameplayEffect>(ResponseGameplayEffect->ClassDefaultObject), TotalCount, ASC->GetEffectContext());
+			Handle = ASC->ApplyGameplayEffectToSelf(Cast<UGameplayEffect>(ResponseGameplayEffect->ClassDefaultObject), TotalCount, ASC->MakeEffectContext());
 		}
 	}
 }

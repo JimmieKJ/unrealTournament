@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessBokehDOFRecombine.cpp: Post processing lens blur implementation.
@@ -13,10 +13,16 @@
 #include "PostProcessBokehDOF.h"
 #include "SceneUtils.h"
 
+static TAutoConsoleVariable<int32> CVarSeparateTranslucencyUpsampleMode(
+	TEXT("r.SeparateTranslucencyUpsampleMode"),
+	1,
+	TEXT("Upsample method to use on separate translucency.  These are only used when r.SeparateTranslucencyScreenPercentage is less than 100.\n")
+	TEXT("0: bilinear 1: Nearest-Depth Neighbor (only when r.SeparateTranslucencyScreenPercentage is 50)"),
+	ECVF_Scalability | ECVF_Default);
 
 /**
  * Encapsulates a shader to combined Depth of field and separate translucency layers.
- * @param Method 1:DOF, 2:SeparateTranslucency, 3:DOF+SeparateTranslucency
+ * @param Method 1:DOF, 2:SeparateTranslucency, 3:DOF+SeparateTranslucency, 4:SeparateTranslucency with Nearest-Depth Neighbor, 5:DOF+SeparateTranslucency with Nearest-Depth Neighbor
  */
 template <uint32 Method>
 class FPostProcessBokehDOFRecombinePS : public FGlobalShader
@@ -28,10 +34,28 @@ class FPostProcessBokehDOFRecombinePS : public FGlobalShader
 		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4);
 	}
 
+	static int32 GetCombineFeatureMethod()
+	{
+		if (Method <= 3)
+		{
+			return Method;
+		}
+		else
+		{
+			return Method - 2;
+		}
+	}
+
+	static bool UseNearestDepthNeighborUpsample()
+	{
+		return Method > 3;
+	}
+
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		FGlobalShader::ModifyCompilationEnvironment(Platform, OutEnvironment);
-		OutEnvironment.SetDefine(TEXT("RECOMBINE_METHOD"), Method);
+		OutEnvironment.SetDefine(TEXT("RECOMBINE_METHOD"), GetCombineFeatureMethod());
+		OutEnvironment.SetDefine(TEXT("NEAREST_DEPTH_NEIGHBOR_UPSAMPLE"), (UseNearestDepthNeighborUpsample() ? 1 : 0));
 	}
 
 	/** Default constructor. */
@@ -42,6 +66,7 @@ public:
 	FDeferredPixelShaderParameters DeferredParameters;
 	FShaderParameter DepthOfFieldParams;
 	FShaderParameter SeparateTranslucencyResMultParam;
+	FShaderResourceParameter LowResDepthTexture;
 
 	/** Initialization constructor. */
 	FPostProcessBokehDOFRecombinePS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
@@ -51,28 +76,31 @@ public:
 		DeferredParameters.Bind(Initializer.ParameterMap);
 		DepthOfFieldParams.Bind(Initializer.ParameterMap,TEXT("DepthOfFieldParams"));
 		SeparateTranslucencyResMultParam.Bind(Initializer.ParameterMap, TEXT("SeparateTranslucencyResMult"));
+		LowResDepthTexture.Bind(Initializer.ParameterMap, TEXT("LowResDepthTexture"));
 	}
 
 	// FShader interface.
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << PostprocessParameter << DepthOfFieldParams << DeferredParameters << SeparateTranslucencyResMultParam;
+		Ar << PostprocessParameter << DepthOfFieldParams << DeferredParameters << SeparateTranslucencyResMultParam << LowResDepthTexture;
 		return bShaderHasOutdatedParameters;
 	}
 
 	void SetParameters(const FRenderingCompositePassContext& Context)
 	{
-		static IConsoleVariable* STSP_CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.SeparateTranslucencyScreenPercentage"));
-
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 
 		FGlobalShader::SetParameters(Context.RHICmdList, ShaderRHI, Context.View);
 		DeferredParameters.Set(Context.RHICmdList, ShaderRHI, Context.View);
 		PostprocessParameter.SetPS(ShaderRHI, Context, TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI());
 
-		float Scale = STSP_CVar->GetInt() / 100.0f;
-		SetShaderValue(Context.RHICmdList, ShaderRHI, SeparateTranslucencyResMultParam, FVector4(Scale, Scale, Scale, Scale));
+		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(Context.RHICmdList);
+		FIntPoint OutScaledSize;
+		float OutScale;
+		SceneContext.GetSeparateTranslucencyDimensions(OutScaledSize, OutScale);
+
+		SetShaderValue(Context.RHICmdList, ShaderRHI, SeparateTranslucencyResMultParam, FVector4(OutScale, OutScale, OutScale, OutScale));
 
 		{
 			FVector4 DepthOfFieldParamValues[2];
@@ -80,6 +108,20 @@ public:
 			FRCPassPostProcessBokehDOF::ComputeDepthOfFieldParams(Context, DepthOfFieldParamValues);
 
 			SetShaderValueArray(Context.RHICmdList, ShaderRHI, DepthOfFieldParams, DepthOfFieldParamValues, 2);
+		}
+
+		if (UseNearestDepthNeighborUpsample())
+		{
+			check(SceneContext.IsSeparateTranslucencyDepthValid());
+			FTextureRHIParamRef LowResDepth = SceneContext.GetSeparateTranslucencyDepthSurface();
+			SetTextureParameter(Context.RHICmdList, ShaderRHI, LowResDepthTexture, LowResDepth);
+
+			const auto& BuiltinSamplersUBParameter = GetUniformBufferParameter<FBuiltinSamplersParameters>();
+			SetUniformBufferParameter(Context.RHICmdList, ShaderRHI, BuiltinSamplersUBParameter, GBuiltinSamplersUniformBuffer.GetUniformBufferRHI());
+		}
+		else
+		{
+			checkSlow(!LowResDepthTexture.IsBound());
 		}
 	}
 
@@ -98,7 +140,7 @@ public:
 #define VARIATION1(A) typedef FPostProcessBokehDOFRecombinePS<A> FPostProcessBokehDOFRecombinePS##A; \
 	IMPLEMENT_SHADER_TYPE2(FPostProcessBokehDOFRecombinePS##A, SF_Pixel);
 
-VARIATION1(1)			VARIATION1(2)			VARIATION1(3)
+VARIATION1(1)			VARIATION1(2)			VARIATION1(3)			VARIATION1(4)			VARIATION1(5)
 #undef VARIATION1
 
 
@@ -139,6 +181,20 @@ void FRCPassPostProcessBokehDOFRecombine::Process(FRenderingCompositePassContext
 		check(GetInput(ePId_Input2)->GetPass());
 	}
 
+	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(Context.RHICmdList);
+	FIntPoint OutScaledSize;
+	float OutScale;
+	SceneContext.GetSeparateTranslucencyDimensions(OutScaledSize, OutScale);
+
+	const bool bUseNearestDepthNeighborUpsample = 
+		CVarSeparateTranslucencyUpsampleMode.GetValueOnRenderThread() != 0
+		&& FMath::Abs(OutScale - .5f) < .001f;
+
+	if (Method != 1 && bUseNearestDepthNeighborUpsample)
+	{
+		Method += 2;
+	}
+
 	const FSceneView& View = Context.View;
 
 	SCOPED_DRAW_EVENTF(Context.RHICmdList, BokehDOFRecombine, TEXT("BokehDOFRecombine#%d %dx%d"), Method, View.ViewRect.Width(), View.ViewRect.Height());
@@ -174,6 +230,8 @@ void FRCPassPostProcessBokehDOFRecombine::Process(FRenderingCompositePassContext
 		case 1: SetShader<1>(Context); break;
 		case 2: SetShader<2>(Context); break;
 		case 3: SetShader<3>(Context); break;
+		case 4: SetShader<4>(Context); break;
+		case 5: SetShader<5>(Context); break;
 		default:
 			check(0);
 	}

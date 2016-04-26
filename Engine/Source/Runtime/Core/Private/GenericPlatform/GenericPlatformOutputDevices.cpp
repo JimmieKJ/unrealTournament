@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "HAL/FeedbackContextAnsi.h"
@@ -12,7 +12,8 @@ void FGenericPlatformOutputDevices::SetupOutputDevices()
 
 	GLog->AddOutputDevice(FPlatformOutputDevices::GetLog());
 
-	if (!FParse::Param(FCommandLine::Get(), TEXT("NOCONSOLE")))
+	bool bHasConsole = !FParse::Param(FCommandLine::Get(), TEXT("NOCONSOLE"));
+	if (bHasConsole)
 	{
 		GLog->AddOutputDevice(GLogConsole);
 	}
@@ -21,7 +22,11 @@ void FGenericPlatformOutputDevices::SetupOutputDevices()
 	// A shipping build with logging explicitly enabled will fail the IsDebuggerPresent() check, but we still need to add the debug output device for logging purposes
 	if (!FPlatformProperties::SupportsWindowedMode() || FPlatformMisc::IsDebuggerPresent() || (UE_BUILD_SHIPPING && !NO_LOGGING) || GIsBuildMachine)
 	{
-		GLog->AddOutputDevice(new FOutputDeviceDebug());
+		// Only need to do this if it's actually going to go to a different place than GLogConsole
+		if(!bHasConsole || FPlatformMisc::HasSeparateChannelForDebugOutput())
+		{
+			GLog->AddOutputDevice(new FOutputDeviceDebug());
+		}
 	}
 
 	GLog->AddOutputDevice(FPlatformOutputDevices::GetEventLog());

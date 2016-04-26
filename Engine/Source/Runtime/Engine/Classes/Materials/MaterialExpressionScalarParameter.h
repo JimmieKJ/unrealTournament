@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -27,8 +27,10 @@ class UMaterialExpressionScalarParameter : public UMaterialExpressionParameter
 	float SliderMax;
 
 	//~ Begin UMaterialExpression Interface
+#if WITH_EDITOR
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
+#endif
 	//~ End UMaterialExpression Interface
 
 	/** Return whether this is the named parameter, and fill in its value */

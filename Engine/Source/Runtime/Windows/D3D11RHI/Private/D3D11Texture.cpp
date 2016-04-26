@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	D3D11VertexBuffer.cpp: D3D texture RHI implementation.
@@ -236,6 +236,7 @@ void FD3D11DynamicRHI::RHIGetTextureMemoryStats(FTextureMemoryStats& OutStats)
 	OutStats.TotalGraphicsMemory = FD3D11GlobalStats::GTotalGraphicsMemory ? FD3D11GlobalStats::GTotalGraphicsMemory : -1;
 
 	OutStats.AllocatedMemorySize = int64(GCurrentTextureMemorySize) * 1024;
+	OutStats.LargestContiguousAllocation = OutStats.AllocatedMemorySize;
 	OutStats.TexturePoolSize = GTexturePoolSize;
 	OutStats.PendingMemoryAdjustment = 0;
 }

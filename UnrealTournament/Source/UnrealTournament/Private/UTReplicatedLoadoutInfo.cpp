@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTReplicatedLoadoutInfo.h"
 #include "Net/UnrealNetwork.h"
+#include "Slate/SUWindowsStyle.h"
 
 AUTReplicatedLoadoutInfo::AUTReplicatedLoadoutInfo(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -26,3 +27,34 @@ void AUTReplicatedLoadoutInfo::GetLifetimeReplicatedProps(TArray< FLifetimePrope
 
 	DOREPLIFETIME(AUTReplicatedLoadoutInfo, CurrentCost);
 }
+
+void AUTReplicatedLoadoutInfo::Destroyed()
+{
+#if !UE_SERVER
+	SlateImage.Reset();
+#endif
+}
+
+
+void AUTReplicatedLoadoutInfo::LoadItemImage()
+{
+#if !UE_SERVER
+	if (!SlateImage.IsValid() && ItemClass != nullptr)
+	{
+		AUTInventory* DefaultInventory = ItemClass->GetDefaultObject<AUTInventory>();
+		if (DefaultInventory != nullptr && DefaultInventory->MenuGraphic)
+		{
+			SlateImage = MakeShareable(new FSlateDynamicImageBrush(DefaultInventory->MenuGraphic, FVector2D(256.0, 128.0), NAME_None));
+		}
+	}
+#endif
+}
+
+
+#if !UE_SERVER
+const FSlateBrush* AUTReplicatedLoadoutInfo::GetItemImage() const
+{
+	return SlateImage.IsValid() ? SlateImage.Get() : SUWindowsStyle::Get().GetBrush("UWindows.Lobby.MatchBadge");
+}
+#endif
+

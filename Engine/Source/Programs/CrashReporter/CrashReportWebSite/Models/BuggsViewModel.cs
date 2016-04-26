@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -10,7 +10,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 	/// <summary>
 	/// The view model for the Bugg index page.
 	/// </summary>
-	/// // @TODO yrx 2014-08-14 Add base class
+	/// @TODO 2014-08-14 Add base class
 	public class BuggsViewModel
 	{
 		/// <summary>Tooltip for "Crash Groups" tab</summary>

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "EdGraph/EdGraph.h"
@@ -170,7 +170,7 @@ void UEdGraphNode::SnapToGrid(float GridSnapSize)
 class UEdGraph* UEdGraphNode::GetGraph() const
 {
 	UEdGraph* Graph = Cast<UEdGraph>(GetOuter());
-	if (Graph == NULL)
+	if (Graph == NULL && !IsPendingKill())
 	{
 		ensureMsgf(false, TEXT("EdGraphNode::GetGraph : '%s' does not have a UEdGraph as an Outer."), *GetPathName());
 	}
@@ -270,6 +270,19 @@ void UEdGraphNode::Serialize(FArchive& Ar)
 			EnabledState = ENodeEnabledState::Disabled;
 		}
 	}
+}
+
+void UEdGraphNode::PreSave()
+{
+	Super::PreSave();
+
+#if WITH_EDITORONLY_DATA
+	if (!NodeUpgradeMessage.IsEmpty())
+	{
+		// When saving, we clear any upgrade messages
+		NodeUpgradeMessage = FText::GetEmpty();
+	}
+#endif // WITH_EDITORONLY_DATA
 }
 
 void UEdGraphNode::PostLoad()
@@ -417,6 +430,19 @@ FText UEdGraphNode::GetKeywords() const
 	return GetClass()->GetMetaDataText(TEXT("Keywords"), TEXT("UObjectKeywords"), GetClass()->GetFullGroupName(false));
 }
 
+void UEdGraphNode::AddNodeUpgradeNote(FText InUpgradeNote)
+{
+#if WITH_EDITORONLY_DATA
+	if (NodeUpgradeMessage.IsEmpty())
+	{
+		NodeUpgradeMessage = InUpgradeNote;
+	}
+	else
+	{
+		NodeUpgradeMessage = FText::Format(FText::FromString(TEXT("{0}\n{1}")), NodeUpgradeMessage, InUpgradeNote);
+	}
+#endif
+}
 #endif	//#if WITH_EDITOR
 
 bool UEdGraphNode::IsInDevelopmentMode() const

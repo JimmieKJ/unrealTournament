@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "GeometryCacheModulePrivatePCH.h"
 #include "GeometryCacheSceneProxy.h"
@@ -238,7 +238,7 @@ void FGeomCacheVertexFactory::Init_RenderThread(const FGeomCacheVertexBuffer* Ve
 	check(IsInRenderingThread());
 
 	// Initialize the vertex factory's stream components.
-	DataType NewData;
+	FDataType NewData;
 	NewData.PositionComponent = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(VertexBuffer, FDynamicMeshVertex, Position, VET_Float3);
 	NewData.TextureCoordinates.Add(
 		FVertexStreamComponent(VertexBuffer, STRUCT_OFFSET(FDynamicMeshVertex, TextureCoordinate), sizeof(FDynamicMeshVertex), VET_Float2)

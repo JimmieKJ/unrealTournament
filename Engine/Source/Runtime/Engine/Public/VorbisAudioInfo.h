@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VorbisAudioInfo.h: Unreal audio vorbis decompression interface object.
@@ -86,5 +86,8 @@ public:
 	const uint8*		SrcBufferData;
 	uint32			SrcBufferDataSize;
 	uint32			BufferOffset;
+
+	/** Critical section used to prevent multiple threads accessing same ogg-vorbis file handles at the same time */
+	FCriticalSection VorbisCriticalSection;
 };
 #endif

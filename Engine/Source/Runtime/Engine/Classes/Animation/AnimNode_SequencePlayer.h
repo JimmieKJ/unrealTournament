@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "Animation/AnimNodeBase.h"
@@ -37,6 +37,11 @@ public:
 		, StartPosition(0.f)
 	{
 	}
+
+	// FAnimNode_AssetPlayerBase interface
+	virtual float GetCurrentAssetTime();
+	virtual float GetCurrentAssetLength();
+	// End of FAnimNode_AssetPlayerBase interface
 
 	// FAnimNode_Base interface
 	virtual void Initialize(const FAnimationInitializeContext& Context) override;

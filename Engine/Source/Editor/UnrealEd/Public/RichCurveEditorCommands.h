@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -33,6 +33,9 @@ public:
 
 	TSharedPtr<FUICommandInfo> FlattenTangents;
 	TSharedPtr<FUICommandInfo> StraightenTangents;
+
+	TSharedPtr<FUICommandInfo> BakeCurve;
+	TSharedPtr<FUICommandInfo> ReduceCurve;
 
 	TSharedPtr<FUICommandInfo> SetPreInfinityExtrapCycle;
 	TSharedPtr<FUICommandInfo> SetPreInfinityExtrapCycleWithOffset;

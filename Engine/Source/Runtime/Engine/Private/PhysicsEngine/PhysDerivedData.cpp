@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "EnginePrivate.h"
 #include "PhysDerivedData.h"
 #include "TargetPlatform.h"
@@ -7,10 +7,11 @@
 
 #include "IPhysXFormatModule.h"
 
-FDerivedDataPhysXCooker::FDerivedDataPhysXCooker( FName InFormat, UBodySetup* InBodySetup )
+FDerivedDataPhysXCooker::FDerivedDataPhysXCooker(FName InFormat, int32 InRuntimeCookFlags, UBodySetup* InBodySetup)
 	: BodySetup( InBodySetup )
 	, CollisionDataProvider( NULL )
 	, Format( InFormat )
+	, RuntimeCookFlags(InRuntimeCookFlags)
 	, Cooker( NULL )
 {
 	check( BodySetup != NULL );
@@ -124,7 +125,7 @@ int32 FDerivedDataPhysXCooker::BuildConvex( TArray<uint8>& OutData, bool InMirro
 		// Cook and store Result at ResultInfoOffset
 		UE_LOG(LogPhysics, Log, TEXT("Cook Convex: %s %d (FlipX:%d)"), *BodySetup->GetOuter()->GetPathName(), ElementIndex, InMirrored);		
 		const bool bDeformableMesh = CollisionDataProvider->IsA(USplineMeshComponent::StaticClass());
-		const bool Result = Cooker->CookConvex(Format, *MeshVertices, OutData, bDeformableMesh);
+		const bool Result = Cooker->CookConvex(Format, RuntimeCookFlags, *MeshVertices, OutData, bDeformableMesh);
 		if( !Result )
 		{
 			UE_LOG(LogPhysics, Warning, TEXT("Failed to cook convex: %s %d (FlipX:%d). The remaining elements will not get cooked."), *BodySetup->GetOuter()->GetPathName(), ElementIndex, InMirrored);
@@ -176,7 +177,7 @@ int32 FDerivedDataPhysXCooker::BuildTriMesh( TArray<uint8>& OutData, bool InUseA
 			ensure(SkeletalMesh->bEnablePerPolyCollision);
 			bDeformableMesh = true;
 		}
-		bResult = Cooker->CookTriMesh( Format, *MeshVertices, TriangleMeshDesc.Indices, TriangleMeshDesc.MaterialIndices, TriangleMeshDesc.bFlipNormals, OutData, bDeformableMesh );
+		bResult = Cooker->CookTriMesh( Format, RuntimeCookFlags, *MeshVertices, TriangleMeshDesc.Indices, TriangleMeshDesc.MaterialIndices, TriangleMeshDesc.bFlipNormals, OutData, bDeformableMesh );
 		if( !bResult )
 		{
 			UE_LOG(LogPhysics, Warning, TEXT("Failed to cook TriMesh: %s."), *CollisionDataProvider->GetPathName());

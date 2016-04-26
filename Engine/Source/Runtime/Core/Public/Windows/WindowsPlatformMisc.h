@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -39,10 +39,7 @@ struct CORE_API FWindowsPlatformMisc
 	static void SubmitErrorReport( const TCHAR* InErrorHist, EErrorReportMode::Type InMode );
 
 #if !UE_BUILD_SHIPPING
-	FORCEINLINE static bool IsDebuggerPresent()
-	{
-		return !!::IsDebuggerPresent(); 
-	}
+	static bool IsDebuggerPresent();
 	FORCEINLINE static void DebugBreak()
 	{
 		if (IsDebuggerPresent())
@@ -105,6 +102,7 @@ struct CORE_API FWindowsPlatformMisc
 	static void RaiseException( uint32 ExceptionCode );
 	static bool SetStoredValue(const FString& InStoreId, const FString& InSectionName, const FString& InKeyName, const FString& InValue);
 	static bool GetStoredValue(const FString& InStoreId, const FString& InSectionName, const FString& InKeyName, FString& OutValue);
+	static bool DeleteStoredValue(const FString& InStoreId, const FString& InSectionName, const FString& InKeyName);
 
 	static bool CoInitialize();
 	static void CoUninitialize();
@@ -195,6 +193,7 @@ struct CORE_API FWindowsPlatformMisc
 	static FString GetCPUVendor();
 	static FString GetCPUBrand();
 	static FString GetPrimaryGPUBrand();
+	static struct FGPUDriverInfo GetGPUDriverInfo(const FString& DeviceDescription);
 	static void GetOSVersions( FString& out_OSVersionLabel, FString& out_OSSubVersionLabel );
 	static bool GetDiskTotalAndFreeSpace( const FString& InPath, uint64& TotalNumberOfBytes, uint64& NumberOfFreeBytes );
 

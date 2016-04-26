@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -243,6 +243,8 @@ private:
 	ECheckBoxState DoesSectionCastShadow(int32 SectionIndex) const;
 	void OnSectionCastShadowChanged(ECheckBoxState NewState, int32 SectionIndex);
 	ECheckBoxState DoesSectionCollide(int32 SectionIndex) const;
+	bool SectionCollisionEnabled() const;
+	FText GetCollisionEnabledToolTip() const;
 	void OnSectionCollisionChanged(ECheckBoxState NewState, int32 SectionIndex);
 	ECheckBoxState IsSectionHighlighted(int32 SectionIndex) const;
 	void OnSectionHighlightedChanged(ECheckBoxState NewState, int32 SectionIndex);

@@ -9,17 +9,20 @@ class UNREALTOURNAMENT_API AUTFlagReturnTrail : public AUTReplicatedEmitter
 {
 	GENERATED_UCLASS_BODY()
 
-	UPROPERTY(Replicated)
+	UPROPERTY()
 	FVector EndPoint;
 
-	UPROPERTY(ReplicatedUsing=OnReceivedTeamIndex)
+	UPROPERTY()
+		FVector StartPoint;
+
+	UPROPERTY()
 		uint8 TeamIndex;
+
+	UPROPERTY()
+		AActor* StartActor;
 
 	virtual void Tick(float DeltaTime) override;
 	virtual void Destroyed() override;
-
-	UFUNCTION()
-	virtual	void OnReceivedTeamIndex();
 
 	virtual	void SetTeamIndex(uint8 NewValue);
 };

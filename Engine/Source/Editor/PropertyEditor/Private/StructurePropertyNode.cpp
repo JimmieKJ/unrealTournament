@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "PropertyEditorPrivatePCH.h"
@@ -21,10 +21,12 @@ void FStructurePropertyNode::InitChildNodes()
 
 		if (StructMember)
 		{
+			static const FName Name_InlineEditConditionToggle("InlineEditConditionToggle");
+			const bool bOnlyShowAsInlineEditCondition = StructMember->HasMetaData(Name_InlineEditConditionToggle);
 			const bool bShowIfEditableProperty = StructMember->HasAnyPropertyFlags(CPF_Edit);
 			const bool bShowIfDisableEditOnInstance = !StructMember->HasAnyPropertyFlags(CPF_DisableEditOnInstance) || bShouldShowDisableEditOnInstance;
 
-			if (bShouldShowHiddenProperties || (bShowIfEditableProperty && bShowIfDisableEditOnInstance))
+			if (bShouldShowHiddenProperties || (bShowIfEditableProperty && !bOnlyShowAsInlineEditCondition && bShowIfDisableEditOnInstance))
 			{
 				TSharedPtr<FItemPropertyNode> NewItemNode(new FItemPropertyNode);//;//CreatePropertyItem(StructMember,INDEX_NONE,this);
 

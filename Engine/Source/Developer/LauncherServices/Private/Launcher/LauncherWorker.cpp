@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LauncherServicesPrivatePCH.h"
 #include "PlatformInfo.h"
@@ -194,6 +194,12 @@ static void AddDeviceToLaunchCommand(const FString& DeviceId, ITargetDeviceProxy
 			RoleCommands += *(TEXT(" ") + Roles[RoleIndex]->GetUATCommandLine());
 		}
 	}
+
+	if (FParse::Param(FCommandLine::Get(), TEXT("nomcp")))
+	{
+		// if our editor has nomcp then pass it through the launched game
+		RoleCommands += TEXT(" -nomcp");
+	}
 }
 
 FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile, const TArray<FString>& InPlatforms, TArray<FCommandDesc>& OutCommands, FString& CommandStart )
@@ -245,11 +251,11 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 		{
 			Platforms += TEXT("+Linux");
 		}
-		else if (PlatformInfo->TargetPlatformName == FName("WindowsNoEditor") || PlatformInfo->TargetPlatformName == FName("Windows"))
+		else if (PlatformInfo->TargetPlatformName == FName("WindowsNoEditor") || PlatformInfo->TargetPlatformName == FName("Windows") || PlatformInfo->TargetPlatformName == FName("WindowsClient"))
 		{
 			Platforms += TEXT("+Win64");
 		}
-		else if (PlatformInfo->TargetPlatformName == FName("MacNoEditor"))
+		else if (PlatformInfo->TargetPlatformName == FName("MacNoEditor") || PlatformInfo->TargetPlatformName == FName("MacClient"))
 		{
 			Platforms += TEXT("+Mac");
 		}
@@ -454,7 +460,7 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 			UATCommand += MapList;
 
 			FCommandDesc Desc;
-			FText Command = LOCTEXT("LauncherCookDesc", "Starting cook on the fly server");
+			FText Command = LOCTEXT("LauncherCookOnTheFlyDesc", "Starting cook on the fly server");
 			Desc.Name = "Cook Server Task";
 			Desc.Desc = Command.ToString();
 			Desc.EndText = TEXT("********** COOK COMMAND COMPLETED **********");
@@ -669,7 +675,7 @@ void FLauncherWorker::CreateAndExecuteTasks( const ILauncherProfileRef& InProfil
 			{
 				while ( !ChainState.Profile->OnIsCookFinished().Execute() )
 				{
-					if (GetStatus() == ELauncherTaskStatus::Canceling)
+					if (IsCancelling())
 					{
 						ChainState.Profile->OnCookCanceled().Execute();
 						return false;
@@ -712,7 +718,7 @@ void FLauncherWorker::CreateAndExecuteTasks( const ILauncherProfileRef& InProfil
 			{
 				while (FPlatformProcess::IsProcRunning(ProcessHandle) && !EndTextFound)
 				{
-					if (GetStatus() == ELauncherTaskStatus::Canceling)
+					if (IsCancelling())
 					{
 						FPlatformProcess::TerminateProc(ProcessHandle, true);
 						return false;

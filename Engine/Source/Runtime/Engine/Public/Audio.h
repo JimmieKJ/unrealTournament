@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Audio.h: Unreal base audio.
@@ -39,6 +39,11 @@ ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogAudioDebug, Display, All);
 #define MIN_PITCH						0.4f
 #define MAX_PITCH						2.0f
 
+#define MIN_SOUND_PRIORITY				0.0f
+#define MAX_SOUND_PRIORITY				100.0f
+
+#define DEFAULT_SUBTITLE_PRIORITY		10000.0f
+
 /**
  * Some filters don't work properly with extreme values, so these are the limits 
  */
@@ -50,6 +55,8 @@ ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogAudioDebug, Display, All);
 
 #define MIN_FILTER_BANDWIDTH			0.1f
 #define MAX_FILTER_BANDWIDTH			2.0f
+
+#define DEFAULT_SUBTITLE_PRIORITY		10000.0f
 
 /**
  * Audio stats
@@ -293,6 +300,9 @@ struct ENGINE_API FWaveInstance
 	void AddReferencedObjects( FReferenceCollector& Collector );
 
 	/** Returns the actual volume the wave instance will play at */
+	bool ShouldStopDueToMaxConcurrency() const;
+
+	/** Returns the actual volume the wave instance will play at */
 	float GetActualVolume() const;
 
 	/** Returns the weighted priority of the wave instance. */
@@ -344,6 +354,11 @@ public:
 	FString GetChannelsDesc();
 
 	/**
+	 * Reads the compressed info of the given sound wave. Not implemented on all platforms.
+	 */
+	virtual bool ReadCompressedInfo(USoundWave* SoundWave) { return true; }
+
+	/**
 	 * Gets the chunk index that was last read from (for Streaming Manager requests)
 	 */
 	virtual int32 GetCurrentChunkIndex() const {return -1;}
@@ -352,6 +367,9 @@ public:
 	 * Gets the offset into the chunk that was last read to (for Streaming Manager priority)
 	 */
 	virtual int32 GetCurrentChunkOffset() const {return -1;}
+
+	/** Returns whether or not a real-time decoding buffer is ready for playback */
+	virtual bool IsRealTimeSourceReady() { return true; }
 
 	/** Unique ID that ties this buffer to a USoundWave */
 	int32	ResourceID;
@@ -394,7 +412,9 @@ public:
 		, Buffer(NULL)
 		, Playing(false)
 		, Paused(false)
+		, bInitialized(true) // Note: this is defaulted to true since not all platforms need to deal with async initialization.
 		, bReverbApplied(false)
+		, bIsPreviewSound(false)
 		, StereoBleed(0.0f)
 		, LFEBleed(0.5f)
 		, LPFFrequency(MAX_FILTER_FREQUENCY)
@@ -410,8 +430,10 @@ public:
 	}
 
 	// Initialization & update.
-	virtual bool Init( FWaveInstance* WaveInstance ) = 0;
-	virtual void Update( void ) = 0;
+	virtual bool PrepareForInitialization(FWaveInstance* InWaveInstance) { return true; }
+	virtual bool IsPreparedToInit() { return true; }
+	virtual bool Init(FWaveInstance* InWaveInstance) = 0;
+	virtual void Update(void) = 0;
 
 	// Playback.
 	virtual void Play( void ) = 0;
@@ -420,6 +442,9 @@ public:
 
 	// Query.
 	virtual	bool IsFinished( void ) = 0;
+
+	/** Returns whether or not the sound source has initialized */
+	bool IsInitialized(void) const { return bInitialized; };
 
 	/**
 	 * Returns a string describing the source (subclass can override, but it should call the base and append)
@@ -535,12 +560,15 @@ protected:
 	class FSoundBuffer*		Buffer;
 
 	/** Cached status information whether we are playing or not. */
-	uint32				Playing:1;
+	FThreadSafeBool		Playing;
 	/** Cached status information whether we are paused or not. */
 	uint32				Paused:1;
+	/** Whether or not the sound source is ready to be initialized */
+	uint32				bInitialized:1;
 	/** Cached sound mode value used to detect when to switch outputs. */
 	uint32				bReverbApplied:1;
-
+	/** Whether or not the sound is a preview sound */
+	uint32				bIsPreviewSound:1;
 	/** The amount of stereo sounds to bleed to the rear speakers */
 	float				StereoBleed;
 	/** The amount of a sound to bleed to the LFE speaker */
@@ -622,13 +650,22 @@ public:
 class ENGINE_API FDynamicParameter
 {
 public:
-	FDynamicParameter(float Value);
+	explicit FDynamicParameter(float Value);
 
 	void Set(float Value, float InDuration);
 	void Update(float DeltaTime);
+	
+	bool IsDone() const 
+	{
+		return CurrTimeSec >= DurationSec;
+	}
 	float GetValue() const
 	{
 		return CurrValue;
+	}
+	float GetTargetValue() const
+	{
+		return TargetValue;
 	}
 
 private:
@@ -638,6 +675,7 @@ private:
 	float CurrTimeSec;
 	float DurationSec;
 	float LastTime;
+	float TargetValue;
 };
 
 /**

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
  	CoreAudioBuffer.cpp: Unreal CoreAudio buffer interface object.
@@ -51,7 +51,10 @@ FCoreAudioSoundBuffer::~FCoreAudioSoundBuffer( void )
 		delete DecompressionState;
 	}
 
-	FMemory::Free( PCMData );
+	if( PCMData )
+	{
+		FMemory::Free( PCMData );
+	}
 }
 
 /**
@@ -75,6 +78,10 @@ int32 FCoreAudioSoundBuffer::GetSize( void )
 			
 		case SoundFormat_PCMRT:
 			TotalSize = (DecompressionState ? DecompressionState->GetSourceBufferSize() : 0) + ( MONO_PCM_BUFFER_SIZE * 2 * NumChannels );
+			break;
+
+		case SoundFormat_Streaming:
+			TotalSize = ( MONO_PCM_BUFFER_SIZE * 2 * NumChannels );
 			break;
 	}
 	
@@ -118,7 +125,15 @@ void FCoreAudioSoundBuffer::InitAudioStreamBasicDescription( UInt32 FormatID, US
  */
 bool FCoreAudioSoundBuffer::ReadCompressedData( uint8* Destination, bool bLooping )
 {
-	return( DecompressionState->ReadCompressedData( Destination, bLooping, MONO_PCM_BUFFER_SIZE * NumChannels ) );
+	const uint32 kPCMBufferSize = MONO_PCM_BUFFER_SIZE * NumChannels;
+	if (SoundFormat == SoundFormat_Streaming)
+	{
+		return DecompressionState->StreamCompressedData(Destination, bLooping, kPCMBufferSize);
+	}
+	else
+	{
+		return DecompressionState->ReadCompressedData(Destination, bLooping, kPCMBufferSize);
+	}
 }
 
 void FCoreAudioSoundBuffer::Seek( const float SeekTime )
@@ -283,6 +298,41 @@ FCoreAudioSoundBuffer* FCoreAudioSoundBuffer::CreateNativeBuffer( FCoreAudioDevi
 	return( Buffer );
 }
 
+FCoreAudioSoundBuffer* FCoreAudioSoundBuffer::CreateStreamingBuffer(FCoreAudioDevice* CoreAudio2Device, USoundWave* Wave)
+{
+	// Always create a new buffer for streaming sounds
+	FCoreAudioSoundBuffer* Buffer = new FCoreAudioSoundBuffer(CoreAudio2Device, SoundFormat_Streaming);
+
+	// Prime the first two buffers and prepare the decompression
+	FSoundQualityInfo QualityInfo = { 0 };
+
+	Buffer->DecompressionState = CoreAudio2Device->CreateCompressedAudioInfo(Wave);
+
+	if (Buffer->DecompressionState->StreamCompressedInfo(Wave, &QualityInfo))
+	{
+		// Refresh the wave data
+		Wave->SampleRate = QualityInfo.SampleRate;
+		Wave->NumChannels = QualityInfo.NumChannels;
+		Wave->RawPCMDataSize = QualityInfo.SampleDataSize;
+		Wave->Duration = QualityInfo.Duration;
+
+		// Clear out any dangling pointers
+		Buffer->PCMData = NULL;
+		Buffer->PCMDataSize = 0;
+
+		Buffer->InitAudioStreamBasicDescription(kAudioFormatLinearPCM, Wave, false);
+	}
+	else
+	{
+		Wave->DecompressionType = DTYPE_Invalid;
+		Wave->NumChannels = 0;
+
+		Wave->RemoveAudioResource();
+	}
+
+	return Buffer;
+}
+
 /**
  * Static function used to create a buffer.
  *
@@ -357,6 +407,11 @@ FCoreAudioSoundBuffer* FCoreAudioSoundBuffer::Init( FAudioDevice* AudioDevice, U
 			}
 			break;
 			
+		case DTYPE_Streaming:
+			// Always create a new buffer for streaming sounds
+			Buffer = CreateStreamingBuffer( CoreAudioDevice, Wave );
+			break;
+
 		case DTYPE_Invalid:
 		default:
 			// Invalid will be set if the wave cannot be played

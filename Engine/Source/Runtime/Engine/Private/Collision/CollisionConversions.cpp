@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 
@@ -345,7 +345,6 @@ static FVector FindGeomOpposingNormal(PxGeometryType::Enum QueryGeomType, const 
 	return InNormal;
 }
 
-
 /** Set info in the HitResult (Actor, Component, PhysMaterial, BoneName, Item) based on the supplied shape and face index */
 static void SetHitResultFromShapeAndFaceIndex(const PxShape* PShape,  const PxRigidActor* PActor, const uint32 FaceIndex, FHitResult& OutResult, bool bReturnPhysMat)
 {
@@ -411,7 +410,7 @@ static void SetHitResultFromShapeAndFaceIndex(const PxShape* PShape,  const PxRi
 	{
 		OutResult.Item = BodyInst->InstanceBodyIndex;
 
-		const UBodySetup* BodySetup = BodyInst->BodySetup.Get();
+		const UBodySetup* BodySetup = BodyInst->BodySetup.Get();	//this data should be immutable at runtime so ok to check from worker thread.
 		if (BodySetup)
 		{
 			OutResult.BoneName = BodySetup->BoneName;
@@ -430,6 +429,17 @@ static void SetHitResultFromShapeAndFaceIndex(const PxShape* PShape,  const PxRi
 EConvertQueryResult ConvertQueryImpactHit(const UWorld* World, const PxLocationHit& PHit, FHitResult& OutResult, float CheckLength, const PxFilterData& QueryFilter, const FVector& StartLoc, const FVector& EndLoc, const PxGeometry* const Geom, const PxTransform& QueryTM, bool bReturnFaceIndex, bool bReturnPhysMat)
 {
 	SCOPE_CYCLE_COUNTER(STAT_ConvertQueryImpactHit);
+
+#if WITH_EDITOR
+	if(bReturnFaceIndex && World->IsGameWorld())
+	{
+		if(!ensure(UPhysicsSettings::Get()->bSuppressFaceRemapTable == false))
+		{
+			UE_LOG(LogPhysics, Error, TEXT("A scene query is relying on face indices, but bSuppressFaceRemapTable is true."));
+			bReturnFaceIndex = false;
+		}
+	}
+#endif
 
 	checkSlow(PHit.flags & PxHitFlag::eDISTANCE);
 	const bool bInitialOverlap = PHit.hadInitialOverlap();
@@ -496,7 +506,7 @@ EConvertQueryResult ConvertQueryImpactHit(const UWorld* World, const PxLocationH
 
 	const PxGeometryType::Enum SweptGeometryType = Geom ? Geom->getType() : PxGeometryType::eINVALID;
 	OutResult.ImpactNormal = FindGeomOpposingNormal(SweptGeometryType, PHit, TraceStartToEnd, Normal);
-	
+
 	// Fill in Actor, Component, material, etc.
 	SetHitResultFromShapeAndFaceIndex(PHit.shape, PHit.actor, PHit.faceIndex, OutResult, bReturnPhysMat);
 
@@ -512,15 +522,17 @@ EConvertQueryResult ConvertQueryImpactHit(const UWorld* World, const PxLocationH
 			}
 		}
 	}
-	else
-	if(bReturnFaceIndex && PHit.shape->getGeometryType() == PxGeometryType::eTRIANGLEMESH)
+	else if (bReturnFaceIndex && PHit.shape->getGeometryType() == PxGeometryType::eTRIANGLEMESH)
 	{
 		PxTriangleMeshGeometry PTriMeshGeom;
 		if(	PHit.shape->getTriangleMeshGeometry(PTriMeshGeom) && 
 			PTriMeshGeom.triangleMesh != NULL &&
 			PHit.faceIndex < PTriMeshGeom.triangleMesh->getNbTriangles() )
 		{
-			OutResult.FaceIndex	= PTriMeshGeom.triangleMesh->getTrianglesRemap()[PHit.faceIndex];
+			if (const PxU32* TriangleRemap = PTriMeshGeom.triangleMesh->getTrianglesRemap())
+			{
+				OutResult.FaceIndex	= TriangleRemap[PHit.faceIndex];
+			}
 		}
 	}
 
@@ -557,7 +569,7 @@ EConvertQueryResult ConvertRaycastResults(bool& OutHasValidBlockingHit, const UW
 	return ConvertResult;
 }
 
-EConvertQueryResult AddSweepResults(bool& OutHasValidBlockingHit, const UWorld* World, int32 NumHits, const PxSweepHit* Hits, float CheckLength, const PxFilterData& QueryFilter, TArray<FHitResult>& OutHits, const FVector& StartLoc, const FVector& EndLoc, const PxGeometry& Geom, const PxTransform& QueryTM, float MaxDistance, bool bReturnPhysMat)
+EConvertQueryResult AddSweepResults(bool& OutHasValidBlockingHit, const UWorld* World, int32 NumHits, const PxSweepHit* Hits, float CheckLength, const PxFilterData& QueryFilter, TArray<FHitResult>& OutHits, const FVector& StartLoc, const FVector& EndLoc, const PxGeometry& Geom, const PxTransform& QueryTM, float MaxDistance, bool bReturnFaceIndex, bool bReturnPhysMat)
 {
 	OutHits.Reserve(OutHits.Num() + NumHits);
 	EConvertQueryResult ConvertResult = EConvertQueryResult::Valid;
@@ -570,7 +582,7 @@ EConvertQueryResult AddSweepResults(bool& OutHasValidBlockingHit, const UWorld* 
 		if(PHit.distance <= MaxDistance)
 		{
 			FHitResult& NewResult = OutHits[OutHits.AddDefaulted()];
-			if (ConvertQueryImpactHit(World, PHit, NewResult, CheckLength, QueryFilter, StartLoc, EndLoc, &Geom, QueryTM, false, bReturnPhysMat) == EConvertQueryResult::Valid)
+			if (ConvertQueryImpactHit(World, PHit, NewResult, CheckLength, QueryFilter, StartLoc, EndLoc, &Geom, QueryTM, bReturnFaceIndex, bReturnPhysMat) == EConvertQueryResult::Valid)
 			{
 				bHadBlockingHit |= NewResult.bBlockingHit;
 			}
@@ -969,6 +981,7 @@ static bool ConvertOverlappedShapeToImpactHit(const UWorld* World, const PxLocat
 	}
 
 	OutResult.Normal = OutResult.ImpactNormal;
+	
 	SetHitResultFromShapeAndFaceIndex(PShape, PActor, FaceIdx, OutResult, bReturnPhysMat);
 
 	return bBlockingHit;

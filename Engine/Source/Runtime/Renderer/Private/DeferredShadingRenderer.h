@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DeferredShadingRenderer.h: Scene rendering definitions.
@@ -24,6 +24,7 @@ public:
 
 	/** Defines which objects we want to render in the EarlyZPass. */
 	EDepthDrawingMode EarlyZPassMode;
+	bool bDitheredLODTransitionsUseStencil;
 
 	/** 
 	 * Layout used to track translucent self shadow residency from the per-light shadow passes, 
@@ -60,8 +61,9 @@ public:
 
 	/**
 	 * Renders the scene's prepass for a particular view in parallel
+	 * @return true if the depth was cleared
 	 */
-	void RenderPrePassViewParallel(const FViewInfo& View, FRHICommandListImmediate& ParentCmdList);
+	bool RenderPrePassViewParallel(const FViewInfo& View, FRHICommandListImmediate& ParentCmdList, TFunctionRef<void()> AfterTasksAreStarted, bool bDoPrePre);
 
 	/** Renders the basepass for the static data of a given View. */
 	bool RenderBasePassStaticData(FRHICommandList& RHICmdList, FViewInfo& View);
@@ -90,6 +92,9 @@ public:
 
 	/** Renders the basepass for a given View. */
 	bool RenderBasePassView(FRHICommandListImmediate& RHICmdList, FViewInfo& View);
+
+	/** Renders editor primitives for a given View. */
+	void RenderEditorPrimitives(FRHICommandList& RHICmdList, const FViewInfo& View, bool& bOutDirty);
 	
 	/** 
 	* Renders the scene's base pass 
@@ -122,6 +127,7 @@ private:
 
 	// fences to make sure the rhi thread has digested the occlusion query renders before we attempt to read them back async
 	static FGraphEventRef OcclusionSubmittedFence[FOcclusionQueryHelpers::MaxBufferedOcclusionFrames];
+	static FGraphEventRef TranslucencyTimestampQuerySubmittedFence[FOcclusionQueryHelpers::MaxBufferedOcclusionFrames + 1];
 
 	/** Creates a per object projected shadow for the given interaction. */
 	void CreatePerObjectProjectedShadow(
@@ -153,15 +159,26 @@ private:
 	bool CheckForLightFunction(const FLightSceneInfo* LightSceneInfo) const;
 
 	/** Determines which primitives are visible for each view. */
-	void InitViews(FRHICommandListImmediate& RHICmdList);
+	bool InitViews(FRHICommandListImmediate& RHICmdList, struct FILCUpdatePrimTaskData& ILCTaskData, FGraphEventArray& SortEvents);
+
+	void InitViewsPossiblyAfterPrepass(FRHICommandListImmediate& RHICmdList, struct FILCUpdatePrimTaskData& ILCTaskData, FGraphEventArray& SortEvents);
+
+	/** Updates auto-downsampling of separate translucency and sets FSceneRenderTargets::SeparateTranslucencyBufferSize */
+	void UpdateSeparateTranslucencyBufferSize(FRHICommandListImmediate& RHICmdList);
 
 	void CreateIndirectCapsuleShadows();
 
 	/**
+	* Setup the prepass. This is split out so that in parallel we can do the fx prerender after we start the parallel tasks
+	* @return true if the depth was cleared
+	*/
+	bool PreRenderPrePass(FRHICommandListImmediate& RHICmdList);
+
+	/**
 	 * Renders the scene's prepass and occlusion queries.
-	 * @return true if anything was rendered
+	 * @return true if the depth was cleared
 	 */
-	bool RenderPrePass(FRHICommandListImmediate& RHICmdList, bool bDepthWasCleared);
+	bool RenderPrePass(FRHICommandListImmediate& RHICmdList, TFunctionRef<void()> AfterTasksAreStarted);
 
 	/**
 	 * Renders the active HMD's hidden area mask as a depth prepass, if available.
@@ -170,7 +187,7 @@ private:
 	bool RenderPrePassHMD(FRHICommandListImmediate& RHICmdList);
 
 	/** Issues occlusion queries. */
-	void BeginOcclusionTests(FRHICommandListImmediate& RHICmdList, bool bRenderQueries, bool bRenderHZB);
+	void BeginOcclusionTests(FRHICommandListImmediate& RHICmdList, bool bRenderQueries);
 
 	/** Renders the scene's fogging. */
 	bool RenderFog(FRHICommandListImmediate& RHICmdList, const FLightShaftsOutput& LightShaftsOutput);
@@ -184,6 +201,12 @@ private:
 	/** Render dynamic sky lighting from Movable sky lights. */
 	void RenderDynamicSkyLighting(FRHICommandListImmediate& RHICmdList, const TRefCountPtr<IPooledRenderTarget>& VelocityTexture, TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO);
 
+	/** Computes DFAO, modulates it to scene color (which is assumed to contain diffuse indirect lighting), and stores the output bent normal for use occluding specular. */
+	void RenderDFAOAsIndirectShadowing(
+		FRHICommandListImmediate& RHICmdList,
+		const TRefCountPtr<IPooledRenderTarget>& VelocityTexture,
+		TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO);
+
 	/** Render Ambient Occlusion using mesh distance fields and the surface cache, which supports dynamic rigid meshes. */
 	bool RenderDistanceFieldLighting(
 		FRHICommandListImmediate& RHICmdList, 
@@ -191,6 +214,7 @@ private:
 		const TRefCountPtr<IPooledRenderTarget>& VelocityTexture,
 		TRefCountPtr<IPooledRenderTarget>& OutDynamicBentNormalAO, 
 		TRefCountPtr<IPooledRenderTarget>& OutDynamicIrradiance,
+		bool bModulateToSceneColor,
 		bool bVisualizeAmbientOcclusion,
 		bool bVisualizeGlobalIllumination);
 
@@ -225,6 +249,12 @@ private:
 	/** Render stationary light overlap as complexity to scene color. */
 	void RenderStationaryLightOverlap(FRHICommandListImmediate& RHICmdList);
 	
+	/** Issues a timestamp query for the beginning of the separate translucency pass. */
+	void BeginTimingSeparateTranslucencyPass(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
+
+	/** Issues a timestamp query for the end of the separate translucency pass. */
+	void EndTimingSeparateTranslucencyPass(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
+
 	/** 
 	 * Renders the scene's translucency, parallel version
 	 */
@@ -266,7 +296,7 @@ private:
 	void UpdateDownsampledDepthSurface(FRHICommandList& RHICmdList);
 
 	/** Downsample the scene depth with a specified scale factor to a specified render target*/
-	void DownsampleDepthSurface(FRHICommandList& RHICmdList, const FTexture2DRHIRef& RenderTarget, const FViewInfo &View, float ScaleFactor, float MinMaxFilterBlend = 0.0f);
+	void DownsampleDepthSurface(FRHICommandList& RHICmdList, const FTexture2DRHIRef& RenderTarget, const FViewInfo& View, float ScaleFactor, bool bUseMaxDepth);
 
 	void CopyStencilToLightingChannelTexture(FRHICommandList& RHICmdList);
 
@@ -285,8 +315,14 @@ private:
 		FRHICommandListImmediate& RHICmdList, 
 		const TArray<FProjectedShadowInfo*, SceneRenderingAllocator>& CapsuleShadows) const;
 
+	/** Sets up ViewState buffers for rendering capsule shadows. */
+	void SetupIndirectCapsuleShadows(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, bool bPrepareLightData, int32& NumCapsuleShapes) const;
+
 	/** Renders indirect shadows from capsules modulated onto scene color. */
 	void RenderIndirectCapsuleShadows(FRHICommandListImmediate& RHICmdList) const;
+
+	/** Renders capsule shadows for movable skylights, using the cone of visibility (bent normal) from DFAO. */
+	void RenderCapsuleShadowsForMovableSkylight(FRHICommandListImmediate& RHICmdList, TRefCountPtr<IPooledRenderTarget>& BentNormalOutput) const;
 
 	/**
 	  * Used by RenderLights to render projected shadows to the attenuation buffer.

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	 GestureRecognizer - handles detecting when gestures happen
@@ -28,32 +28,61 @@ void FGestureRecognizer::DetectGestures(const FVector (&Touches)[EKeys::NUM_TOUC
 		{
 			if (PreviousTouchCount < Index + 1 && TouchCount >= Index + 1)
 			{
-				AnchorPoints[Index] = FVector2D(Touches[Index].X, Touches[Index].Y);
+				AnchorPoints[Index] = FVector2D(Touches[Index]);
 			}
 		}
 
-		// handle different types of swipes
+		// handle different types of two finger gestures
 		if (TouchCount >= 2)
 		{
 			float* CurrentAlpha = CurrentGestureValues.Find(EKeys::Gesture_Pinch);
-			if (CurrentAlpha == NULL)
+			if (CurrentAlpha == nullptr)
 			{
-				// remember the starting spots
-				AnchorDistance = (AnchorPoints[1] - AnchorPoints[0]).Size();
+				// remember the starting distance
+				SetAnchorDistanceSquared(AnchorPoints[0], AnchorPoints[1]);
 
 				// alpha of 1 is initial pinch anchor distance
 				CurrentGestureValues.Add(EKeys::Gesture_Pinch, 1.0f);
-
 				HandleGesture(PlayerInput, EKeys::Gesture_Pinch, true, false);
 			}
 			else
 			{
 				// calculate current alpha
-				float NewDistance = (FVector2D(Touches[1].X, Touches[1].Y) - FVector2D(Touches[0].X, Touches[0].Y)).Size();
-				*CurrentAlpha = NewDistance / AnchorDistance;
+				float NewDistanceSq = (FVector2D(Touches[0]) - FVector2D(Touches[1])).SizeSquared();
+				*CurrentAlpha = NewDistanceSq / AnchorDistanceSq;
 
-				HandleGesture(PlayerInput, EKeys::Gesture_Pinch, false, false);
+				// Gestures are only processed for IE_Pressed events, so treat this like another "start"
+				HandleGesture(PlayerInput, EKeys::Gesture_Pinch, true, false);
 			}
+
+			// calculate the angle of the vector between the touch points
+			float NewAngle = FMath::Atan2(Touches[0].Y - Touches[1].Y, Touches[0].X - Touches[1].X);
+			NewAngle = FRotator::ClampAxis(FMath::RadiansToDegrees(NewAngle));
+
+			float* CurrentAngle = CurrentGestureValues.Find(EKeys::Gesture_Rotate);
+			if (CurrentAngle == nullptr)
+			{
+				// save the starting angle
+				StartAngle = NewAngle;
+
+				// use 0 as the initial angle value; subsequent angles will be relative
+				CurrentGestureValues.Add(EKeys::Gesture_Rotate, 0.0f);
+				HandleGesture(PlayerInput, EKeys::Gesture_Rotate, true, false);
+			}
+			else
+			{
+				*CurrentAngle = NewAngle - StartAngle;
+
+				// Gestures are only processed for IE_Pressed events, so treat this like another "start"
+				HandleGesture(PlayerInput, EKeys::Gesture_Rotate, true, false);
+			}
+		}
+
+		// Handle pinch and rotate release.
+		if (PreviousTouchCount >= 2 && TouchCount < 2)
+		{
+			HandleGesture(PlayerInput, EKeys::Gesture_Pinch, false, true);
+			HandleGesture(PlayerInput, EKeys::Gesture_Rotate, false, true);
 		}
 
 		if (PreviousTouchCount == 0 && TouchCount == 1)
@@ -73,8 +102,8 @@ void FGestureRecognizer::DetectGestures(const FVector (&Touches)[EKeys::NUM_TOUC
 			if (FlickTime < 0.25f && (FlickCurrent - AnchorPoints[0]).SizeSquared() > 10000.f)
 			{
 				// this is the angle from +X in screen space, meaning right is 0, up is 90, left is 180, down is 270
-				float Angle = FMath::Atan2(-(FlickCurrent.Y - AnchorPoints[0].Y), FlickCurrent.X - AnchorPoints[0].X) * 180.f / PI;
-				Angle = FRotator::ClampAxis(Angle);
+				float Angle = FMath::Atan2(-(FlickCurrent.Y - AnchorPoints[0].Y), FlickCurrent.X - AnchorPoints[0].X);
+				Angle = FRotator::ClampAxis(FMath::RadiansToDegrees(Angle));
 
 				// flicks are one-shot, so we start and end in the same frame
 				CurrentGestureValues.Add(EKeys::Gesture_Flick, Angle);
@@ -85,6 +114,11 @@ void FGestureRecognizer::DetectGestures(const FVector (&Touches)[EKeys::NUM_TOUC
 
 	// remember for next frame
 	PreviousTouchCount = TouchCount;
+}
+
+void FGestureRecognizer::SetAnchorDistanceSquared(const FVector2D FirstPoint, const FVector2D SecontPoint)
+{
+	AnchorDistanceSq = (FirstPoint - SecontPoint).SizeSquared();
 }
 
 void FGestureRecognizer::HandleGesture(UPlayerInput* PlayerInput, FKey Gesture, bool bStarted, bool bEnded)

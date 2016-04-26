@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	IpConnection.cpp: Unreal IP network connection.
@@ -98,7 +98,7 @@ void UIpConnection::InitRemoteConnection(UNetDriver* InDriver, class FSocket* In
 	SetExpectedClientLoginMsgType( NMT_Hello );
 }
 
-void UIpConnection::LowLevelSend( void* Data, int32 Count )
+void UIpConnection::LowLevelSend(void* Data, int32 CountBytes, int32 CountBits)
 {
 	const uint8* DataToSend = reinterpret_cast<uint8*>(Data);
 
@@ -132,26 +132,28 @@ void UIpConnection::LowLevelSend( void* Data, int32 Count )
 	}
 	 
 	// Process any packet modifiers
-	if(Handler.IsValid())
+	if (Handler.IsValid() && !Handler->GetRawSend())
 	{
-		const ProcessedPacket ProcessedData = Handler->Outgoing(reinterpret_cast<uint8*>(Data), Count);
+		const ProcessedPacket ProcessedData = Handler->Outgoing(reinterpret_cast<uint8*>(Data), CountBits);
+
 		DataToSend = ProcessedData.Data;
-		Count = ProcessedData.Count;
+		CountBytes = FMath::DivideAndRoundUp(ProcessedData.CountBits, 8);
+		CountBits = ProcessedData.CountBits;
 	}
 
 	// Send to remote.
 	int32 BytesSent = 0;
 	CLOCK_CYCLES(Driver->SendCycles);
 
-	if ( Count > MaxPacket )
+	if ( CountBytes > MaxPacket )
 	{
-		UE_LOG( LogNet, Warning, TEXT( "UIpConnection::LowLevelSend: Count > MaxPacketSize! Count: %i, MaxPacket: %i %s" ), Count, MaxPacket, *Describe() );
+		UE_LOG( LogNet, Warning, TEXT( "UIpConnection::LowLevelSend: CountBytes > MaxPacketSize! Count: %i, MaxPacket: %i %s" ), CountBytes, MaxPacket, *Describe() );
 	}
 
-	Socket->SendTo(DataToSend, Count, BytesSent, *RemoteAddr);
+	Socket->SendTo(DataToSend, CountBytes, BytesSent, *RemoteAddr);
 	UNCLOCK_CYCLES(Driver->SendCycles);
 	NETWORK_PROFILER(GNetworkProfiler.FlushOutgoingBunches(this));
-	NETWORK_PROFILER(GNetworkProfiler.TrackSocketSendTo(Socket->GetDescription(),Data,BytesSent,NumPacketIdBits,NumBunchBits,NumAckBits,NumPaddingBits,this));
+	NETWORK_PROFILER(GNetworkProfiler.TrackSocketSendTo(Socket->GetDescription(),DataToSend,BytesSent,NumPacketIdBits,NumBunchBits,NumAckBits,NumPaddingBits,this));
 }
 
 FString UIpConnection::LowLevelGetRemoteAddress(bool bAppendPort)
@@ -194,5 +196,5 @@ int32 UIpConnection::GetAddrPort(void)
 
 FString UIpConnection::RemoteAddressToString()
 {
-	return RemoteAddr.IsValid() ? RemoteAddr->ToString(true) : TEXT("Unconnected");
+	return RemoteAddr->ToString(true);
 }

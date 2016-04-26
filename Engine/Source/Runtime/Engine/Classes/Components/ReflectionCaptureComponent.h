@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "ReflectionCaptureComponent.generated.h"
@@ -129,6 +129,10 @@ class UReflectionCaptureComponent : public USceneComponent
 	virtual void BeginDestroy() override;
 	virtual bool IsReadyForFinishDestroy() override;
 	virtual void FinishDestroy() override;
+	virtual bool NeedsLoadForServer() const override
+	{
+		return false;
+	}
 	//~ End UObject Interface
 
 private:

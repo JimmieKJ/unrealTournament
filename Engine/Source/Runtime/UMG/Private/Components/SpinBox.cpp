@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 
@@ -24,7 +24,7 @@ USpinBox::USpinBox(const FObjectInitializer& ObjectInitializer)
 	MaxValue = Defaults._MaxValue.Get().Get(0.0f);
 	MinSliderValue = Defaults._MinSliderValue.Get().Get(0.0f);
 	MaxSliderValue = Defaults._MaxSliderValue.Get().Get(0.0f);
-	Delta = Defaults._Delta;
+	Delta = Defaults._Delta.Get();
 	SliderExponent = Defaults._SliderExponent.Get();
 	MinDesiredWidth = Defaults._MinDesiredWidth.Get();
 	ClearKeyboardFocusOnCommit = Defaults._ClearKeyboardFocusOnCommit.Get();
@@ -303,11 +303,6 @@ void USpinBox::PostLoad()
 
 
 #if WITH_EDITOR
-
-const FSlateBrush* USpinBox::GetEditorIcon()
-{
-	return FUMGStyle::Get().GetBrush("Widget.SpinBox");
-}
 
 const FText USpinBox::GetPaletteCategory()
 {

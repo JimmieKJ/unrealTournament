@@ -70,7 +70,7 @@ public:
 	virtual void OnBeaconReservationChange();
 
 	/** Delegate fired when the beacon indicates all reservations are taken */
-	//virtual void OnBeaconReservationsFull();
+	virtual void OnBeaconReservationsFull();
 
 	/** Delegate fired when the beacon indicates a duplicate reservation request */
 	virtual void OnDuplicateReservation(const FPartyReservation& DuplicateReservation);
@@ -84,6 +84,8 @@ public:
 	virtual void RegisterServer() override;
 	virtual void CleanUpOnlineSubsystem() override;
 	virtual void StartServer() override;
+	virtual void UnregisterPlayer(FName InSessionName, const FUniqueNetIdRepl& UniqueId) override;
+	virtual void UnregisterPlayer(const APlayerController* ExitingPlayer) override;
 
 	virtual void ShutdownDedicatedServer();
 	virtual void Restart();
@@ -113,12 +115,16 @@ public:
 
 	virtual void InitHostBeacon(FOnlineSessionSettings* SessionSettings);
 
+	uint8 GetTeamForPlayer(const FUniqueNetIdRepl& PlayerId) const;
+
+	void LockPlayersToSession(bool bNewLockState);
+
 	/**
 	 * Cleanup host beacon
 	 *
 	 * @param bPreserveReservations should beacon reservation state be preserved (typically during map travel)
 	 */
-	virtual void DestroyHostBeacon(bool bPreserveReservations = false);
+	virtual void DestroyHostBeacon(bool bPreserveReservations = false) override;
 
 
 	const int32 GetPlaylistId() const;
@@ -133,6 +139,10 @@ public:
 	UPROPERTY(Transient)
 	TSubclassOf<AOnlineBeaconHostObject> QosBeaconHostClass;
 
+	/** Is the current session locked, preventing unregistration on logout */
+	UPROPERTY(Transient)
+	bool bSessionRegistrationLocked;
+
 	/** General beacon listener for registering beacons with */
 	AOnlineBeaconHost* BeaconHostListener;
 	/** Beacon controlling access to this game */
@@ -144,4 +154,5 @@ public:
 	/** Current host settings */
 	TSharedPtr<FOnlineSessionSettings> HostSettings;
 
+	virtual void CheckForPossibleRestart() override;
 };

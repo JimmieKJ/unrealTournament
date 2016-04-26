@@ -6,13 +6,9 @@
 
 #include "D3D12RHIPrivate.h"
 
-FVertexBufferRHIRef FD3D12DynamicRHI::RHICreateVertexBuffer(uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo)
+D3D12_RESOURCE_DESC CreateVertexBufferResourceDesc(uint32 Size, uint32 InUsage)
 {
-	// Explicitly check that the size is nonzero before allowing CreateVertexBuffer to opaquely fail.
-	check(Size > 0);
-
 	// Describe the vertex buffer.
-	const bool bIsDynamic = (InUsage & BUF_AnyDynamic) ? true : false;
 	D3D12_RESOURCE_DESC Desc = CD3DX12_RESOURCE_DESC::Buffer(Size);
 
 	if (InUsage & BUF_UnorderedAccess)
@@ -40,44 +36,7 @@ FVertexBufferRHIRef FD3D12DynamicRHI::RHICreateVertexBuffer(uint32 Size, uint32 
 		}
 	}
 
-	// If a resource array was provided for the resource, create the resource pre-populated
-	D3D12_SUBRESOURCE_DATA InitData ={0};
-	D3D12_SUBRESOURCE_DATA* pInitData = nullptr;
-	if (CreateInfo.ResourceArray)
-	{
-		check(Size == CreateInfo.ResourceArray->GetResourceDataSize());
-		InitData.pData = CreateInfo.ResourceArray->GetResourceData();
-		InitData.RowPitch = Size;
-		InitData.SlicePitch = 0;
-		pInitData = &InitData;
-	}
-
-	TRefCountPtr<FD3D12ResourceLocation> ResourceLocation = new FD3D12ResourceLocation(GetRHIDevice());
-	if (bIsDynamic)
-	{
-		void* pData = GetRHIDevice()->GetDefaultUploadHeapAllocator().AllocUploadResource(Size, DEFAULT_CONTEXT_UPLOAD_POOL_ALIGNMENT, ResourceLocation);
-
-		if (pInitData)
-		{
-			// Handle initial data
-			FMemory::Memcpy(pData, InitData.pData, Size);
-		}
-		check(ResourceLocation->GetEffectiveBufferSize() == Size);
-	}
-	else
-	{
-		// Create an empty resource location
-		VERIFYD3D11RESULT(GetRHIDevice()->GetDefaultBufferAllocator().AllocDefaultResource(Desc, pInitData, ResourceLocation.GetInitReference()));
-		check(ResourceLocation->GetEffectiveBufferSize() == Size);
-	}
-
-	if (CreateInfo.ResourceArray)
-	{
-		// Discard the resource array's contents.
-		CreateInfo.ResourceArray->Discard();
-	}
-
-	return new FD3D12VertexBuffer(GetRHIDevice(), ResourceLocation, Size, InUsage);
+	return Desc;
 }
 
 FD3D12VertexBuffer::~FD3D12VertexBuffer()
@@ -90,18 +49,19 @@ FD3D12VertexBuffer::~FD3D12VertexBuffer()
 	// Dynamic resources have a permanente entry in the OutstandingLocks that needs to be cleaned up. 
 	if (GetUsage() & BUF_AnyDynamic)
 	{
-		FD3D12LockedKey LockedKey(ResourceLocation.GetReference());
-		FD3D12DynamicRHI::GetD3DRHI()->OutstandingLocks.Remove(LockedKey);
+		FD3D12LockedKey LockedKey(this);
+		FD3D12DynamicRHI::GetD3DRHI()->RemoveFromOutstandingLocks(LockedKey);
 	}
 }
 
-void* FD3D12VertexBuffer::DynamicLock()
+void FD3D12VertexBuffer::Rename(FD3D12ResourceLocation* NewResource)
 {
-	void* pData = nullptr;
-	check((GetUsage() & BUF_AnyDynamic) ? true : false);
+	FD3D12CommandContext& DefaultContext = GetParentDevice()->GetDefaultCommandContext();
 
-	FD3D12DynamicHeapAllocator &Allocator = GetParentDevice()->GetDefaultUploadHeapAllocator();
-	pData = Allocator.AllocUploadResource(ResourceLocation->GetEffectiveBufferSize(), DEFAULT_CONTEXT_UPLOAD_POOL_ALIGNMENT, ResourceLocation);
+	// If this resource is bound to the device, unbind it
+	DefaultContext.ConditionalClearShaderResource(ResourceLocation);
+
+	ResourceLocation = NewResource;
 
 	if (DynamicSRV != nullptr)
 	{
@@ -110,168 +70,58 @@ void* FD3D12VertexBuffer::DynamicLock()
 		Desc.ptr = 0;
 		DynamicSRV->Rename(ResourceLocation, Desc, 0);
 	}
+}
 
-	check(pData);
+FVertexBufferRHIRef FD3D12DynamicRHI::RHICreateVertexBuffer(uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo)
+{
+	const D3D12_RESOURCE_DESC Desc = CreateVertexBufferResourceDesc(Size, InUsage);
+	const uint32 Alignment = 4;
 
-	return pData;
+	FD3D12ResourceLocation* ResourceLocation = CreateBuffer(nullptr, Desc, Size, InUsage, CreateInfo, Alignment);
+	FD3D12VertexBuffer* NewBuffer = new FD3D12VertexBuffer(GetRHIDevice(), ResourceLocation, Size, InUsage);
+	UpdateBufferStats(NewBuffer->ResourceLocation, true, D3D12_BUFFER_TYPE_VERTEX);
+	NewBuffer->BufferAlignment = Alignment;
+	return NewBuffer;
 }
 
 void* FD3D12DynamicRHI::RHILockVertexBuffer(FVertexBufferRHIParamRef VertexBufferRHI, uint32 Offset, uint32 Size, EResourceLockMode LockMode)
 {
-	// TEMP: Disable check due to engine bug where it passes Size = 0 when doing parallel rendering.
-	//check(Size > 0);
-
-	FD3D12VertexBuffer*  VertexBuffer = FD3D12DynamicRHI::ResourceCast(VertexBufferRHI);
-
-	FD3D12CommandContext& DefaultContext = GetRHIDevice()->GetDefaultCommandContext();
-	FD3D12CommandListHandle& hCommandList = DefaultContext.CommandListHandle;
-
-	// If this resource is bound to the device, unbind it
-	DefaultContext.ConditionalClearShaderResource(VertexBuffer->ResourceLocation);
-
-	// Determine whether the vertex buffer is dynamic or not.
-	const bool bIsDynamic = (VertexBuffer->GetUsage() & BUF_AnyDynamic) ? true : false;
-
-	FD3D12LockedKey LockedKey(VertexBuffer->ResourceLocation.GetReference());
-	FD3D12LockedData LockedData;
-
-	if (bIsDynamic)
-	{
-		check(LockMode == RLM_WriteOnly);
-
-		void* pData = VertexBuffer->DynamicLock();
-
-		// Add the lock to the lock map.
-		LockedData.SetData(pData);
-		LockedData.Pitch = Size;
-		OutstandingLocks.Add(LockedKey, LockedData);
-
-		return (void*)((uint8*)pData + Offset);
-	}
-	else
-	{
-		FD3D12Resource* pResource = VertexBuffer->ResourceLocation->GetResource();
-		uint32 ResourceSize = VertexBuffer->ResourceLocation->GetEffectiveBufferSize();
-
-		if (LockMode == RLM_ReadOnly)
-		{
-			// If the static buffer is being locked for reading, create a staging buffer.
-			TRefCountPtr<FD3D12Resource> StagingVertexBuffer;
-			VERIFYD3D11RESULT(GetRHIDevice()->GetResourceHelper().CreateBuffer(D3D12_HEAP_TYPE_READBACK, Offset + Size, StagingVertexBuffer.GetInitReference()));
-			LockedData.StagingResource = StagingVertexBuffer;
-
-			// Copy the contents of the vertex buffer to the staging buffer.
-			{
-				FScopeResourceBarrier ScopeResourceBarrierSource(hCommandList, pResource, pResource->GetDefaultResourceState(), D3D12_RESOURCE_STATE_COPY_SOURCE, 0);
-				// Don't need to transition upload heaps
-
-				DefaultContext.numCopies++;
-				hCommandList->CopyBufferRegion(
-					StagingVertexBuffer->GetResource(),
-					0,
-					pResource->GetResource(),
-					Offset, Size);
-			}
-
-			GetRHIDevice()->GetDefaultCommandContext().FlushCommands(true);
-
-			// Map the staging buffer's memory for reading.
-			void* pData;
-			VERIFYD3D11RESULT(StagingVertexBuffer->GetResource()->Map(0, nullptr, &pData));
-			LockedData.SetData(pData);
-			LockedData.Pitch = Offset + Size;
-		}
-		else
-		{
-			// If the static buffer is being locked for writing, allocate memory for the contents to be written to.
-
-			// Use an upload heap to copy data to a default resource.
-
-			// Use an upload heap for dynamic resources and map its memory for writing.
-			TRefCountPtr<FD3D12ResourceLocation> pUploadBufferLocation = new FD3D12ResourceLocation(GetRHIDevice());
-			void* pData = GetRHIDevice()->GetDefaultFastAllocator().Allocate(Offset + Size, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, pUploadBufferLocation);
-
-			if (nullptr == pData)
-			{
-				return nullptr;
-			}
-
-
-			// Add the lock to the lock map.
-			FD3D12LockedData LockedData;
-			LockedData.SetData(pData);
-			LockedData.Pitch = Offset + Size;
-
-			// Keep track of the underlying resource for the upload heap so it can be referenced during Unmap.
-			LockedData.UploadHeapLocation = pUploadBufferLocation;
-			OutstandingLocks.Add(LockedKey, LockedData);
-
-			return (void*)((uint8*)pData + Offset);
-		}
-	}
-
-	// Add the lock to the lock map.
-	OutstandingLocks.Add(LockedKey, LockedData);
-
-	// Return the offset pointer
-	return (void*)((uint8*)LockedData.GetData() + Offset);
+	return LockBuffer(nullptr, FD3D12DynamicRHI::ResourceCast(VertexBufferRHI), Offset, Size, LockMode);
 }
 
 void FD3D12DynamicRHI::RHIUnlockVertexBuffer(FVertexBufferRHIParamRef VertexBufferRHI)
 {
-	FD3D12VertexBuffer*  VertexBuffer = FD3D12DynamicRHI::ResourceCast(VertexBufferRHI);
+	UnlockBuffer(nullptr, FD3D12DynamicRHI::ResourceCast(VertexBufferRHI));
+}
 
-	// Determine whether the vertex buffer is dynamic or not.
-	const bool bIsDynamic = (VertexBuffer->GetUsage() & BUF_AnyDynamic) ? true : false;
+FVertexBufferRHIRef FD3D12DynamicRHI::CreateVertexBuffer_RenderThread(FRHICommandListImmediate& RHICmdList, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo)
+{
+	const D3D12_RESOURCE_DESC Desc = CreateVertexBufferResourceDesc(Size, InUsage);
+	const uint32 Alignment = 4;
 
-	// Find the outstanding lock for this VB.
-	FD3D12LockedKey LockedKey(VertexBuffer->ResourceLocation);
-	FD3D12LockedData* LockedData = OutstandingLocks.Find(LockedKey);
-	check(LockedData);
+	FD3D12ResourceLocation* ResourceLocation = CreateBuffer(&RHICmdList, Desc, Size, InUsage, CreateInfo, Alignment);
+	FD3D12VertexBuffer* NewBuffer = new FD3D12VertexBuffer(GetRHIDevice(), ResourceLocation, Size, InUsage);
+	UpdateBufferStats(NewBuffer->ResourceLocation, true, D3D12_BUFFER_TYPE_VERTEX);
+	NewBuffer->BufferAlignment = Alignment;
+	return NewBuffer;
+}
 
-	if (bIsDynamic)
-	{
-		// If the VB is dynamic, its upload heap memory can always stay mapped. Don't do anything.
-	}
-	else
-	{
-		// If the static VB lock involved a staging resource, it was locked for reading.
-		if (LockedData->StagingResource)
-		{
-			// Unmap the staging buffer's memory.
-			ID3D12Resource* StagingBuffer = LockedData->StagingResource.GetReference()->GetResource();
-			StagingBuffer->Unmap(0, nullptr);
-		}
-		else
-		{
-			FD3D12Resource* pResource = VertexBuffer->ResourceLocation->GetResource();
+void* FD3D12DynamicRHI::LockVertexBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, FVertexBufferRHIParamRef VertexBufferRHI, uint32 Offset, uint32 SizeRHI, EResourceLockMode LockMode)
+{
+	// Pull down the above RHI implementation so that we can flush only when absolutely necessary
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_FDynamicRHI_LockVertexBuffer_RenderThread);
+	check(IsInRenderingThread());
 
-			// Copy the contents of the temporary memory buffer allocated for writing into the IB.
-			FD3D12ResourceLocation* pUploadHeapLocation = LockedData->UploadHeapLocation.GetReference();
-			FD3D12Resource* UploadHeap = pUploadHeapLocation->GetResource();
+	return LockBuffer(&RHICmdList, FD3D12DynamicRHI::ResourceCast(VertexBufferRHI), Offset, SizeRHI, LockMode);
+}
 
-			FD3D12CommandContext& defaultContext = GetRHIDevice()->GetDefaultCommandContext();
-			FD3D12CommandListHandle& hCommandList = defaultContext.CommandListHandle;
+void FD3D12DynamicRHI::UnlockVertexBuffer_RenderThread(FRHICommandListImmediate& RHICmdList, FVertexBufferRHIParamRef VertexBufferRHI)
+{
+	// Pull down the above RHI implementation so that we can flush only when absolutely necessary
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_FDynamicRHI_UnlockVertexBuffer_RenderThread);
+	check(IsInRenderingThread());
 
-			{
-				FScopeResourceBarrier ScopeResourceBarrierDest(hCommandList, pResource, pResource->GetDefaultResourceState(), D3D12_RESOURCE_STATE_COPY_DEST, 0);
-				// Don't need to transition upload heaps
-
-				defaultContext.numCopies++;
-				hCommandList->CopyBufferRegion(
-					pResource->GetResource(),
-					VertexBuffer->ResourceLocation->GetOffset(),
-					UploadHeap->GetResource(),
-					pUploadHeapLocation->GetOffset(), LockedData->Pitch);
-			}
-
-			DEBUG_RHI_EXECUTE_COMMAND_LIST(this);
-		}
-	}
-
-	// Remove the FD3D12LockedData from the lock map.
-	// If the lock involved a staging resource, this releases it.
-	OutstandingLocks.Remove(LockedKey);
+	UnlockBuffer(&RHICmdList, FD3D12DynamicRHI::ResourceCast(VertexBufferRHI));
 }
 
 void FD3D12DynamicRHI::RHICopyVertexBuffer(FVertexBufferRHIParamRef SourceBufferRHI, FVertexBufferRHIParamRef DestBufferRHI)

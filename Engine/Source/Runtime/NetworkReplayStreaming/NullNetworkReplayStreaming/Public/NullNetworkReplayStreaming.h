@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -73,6 +73,7 @@ public:
 	virtual void RequestEventData(const FString& EventID, const FOnRequestEventDataComplete& RequestEventDataComplete) override;
 	virtual void SearchEvents(const FString& EventGroup, const FOnEnumerateStreamsComplete& Delegate) override;
 	virtual void KeepReplay( const FString& ReplayName, const bool bKeep ) override {}
+	virtual FString	GetReplayID() const override { return TEXT( "" ); }
 
 	/** FTickableObjectBase implementation */
 	virtual void Tick(float DeltaSeconds) override;

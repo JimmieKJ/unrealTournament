@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -23,14 +23,14 @@ public class HTTP : ModuleRules
         if (Target.Platform == UnrealTargetPlatform.Win32 ||
             Target.Platform == UnrealTargetPlatform.Win64)
         {
-            AddThirdPartyPrivateStaticDependencies(Target, "WinInet");
-            AddThirdPartyPrivateStaticDependencies(Target, "libcurl");
+            AddEngineThirdPartyPrivateStaticDependencies(Target, "WinInet");
+            AddEngineThirdPartyPrivateStaticDependencies(Target, "libcurl");
         }
 
         if (Target.Platform == UnrealTargetPlatform.Linux ||
             Target.Platform == UnrealTargetPlatform.Android)
         {
-            AddThirdPartyPrivateStaticDependencies(Target, "libcurl");
+            AddEngineThirdPartyPrivateStaticDependencies(Target, "libcurl");
         }
         if (Target.Platform == UnrealTargetPlatform.HTML5)
         {
@@ -43,5 +43,9 @@ public class HTTP : ModuleRules
                 PrivateDependencyModuleNames.Add("HTML5JS");
             }
         }
+		if (Target.Platform == UnrealTargetPlatform.IOS || Target.Platform == UnrealTargetPlatform.TVOS || Target.Platform == UnrealTargetPlatform.Mac)
+		{
+			PublicFrameworks.Add("Security");
+		}
     }
 }

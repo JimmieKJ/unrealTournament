@@ -1,8 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-/**
- * GameplayDebuggingComponent is used to replicate debug data from server to client(s).
- */
+//////////////////////////////////////////////////////////////////////////
+// THIS CLASS IS NOW DEPRECATED AND WILL BE REMOVED IN NEXT VERSION
+// Please check GameplayDebugger.h for details.
 
 #pragma once
 #include "Components/PrimitiveComponent.h"
@@ -10,7 +10,6 @@
 #include "EnvironmentQuery/EQSQueryResultSourceInterface.h"
 #include "EnvironmentQuery/EnvQueryDebugHelpers.h"
 #include "Debug/DebugDrawService.h"
-#include "Debug/GameplayDebuggerBaseObject.h"
 #include "GameplayDebuggingComponent.generated.h"
 
 #define WITH_EQS 1
@@ -34,6 +33,60 @@ namespace EDebugComponentMessage
 }
 
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnDebuggingTargetChanged, class AActor* /*Owner of debugging component*/, bool /*is being debugged now*/);
+
+DECLARE_LOG_CATEGORY_EXTERN(LogGameplayDebugger, Log, All);
+
+UENUM()
+enum class EGameplayDebuggerShapeElement : uint8
+{
+	Invalid,
+	String,
+	SinglePoint,
+	Segment,
+	Box,
+	Cone,
+	Cylinder,
+	Capsule,
+	Polygon,
+};
+
+USTRUCT()
+struct FGameplayDebuggerShapeElement
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** points defining shape */
+	UPROPERTY()
+	TArray<FVector> Points;
+
+	UPROPERTY()
+	float ThicknesOrRadius;
+
+	/** description of shape */
+	UPROPERTY()
+	FString Description;
+
+	/** color of shape */
+	UPROPERTY()
+	FColor Color;
+
+	/** type of shape */
+	UPROPERTY()
+	EGameplayDebuggerShapeElement Type;
+
+	FGameplayDebuggerShapeElement() : Type(EGameplayDebuggerShapeElement::Invalid) {}
+
+	EGameplayDebuggerShapeElement GetType() const { return Type; }
+	FColor GetFColor() const { return Color; }
+
+	static FGameplayDebuggerShapeElement MakePoint(const FVector& Location, const float Radius, const FColor& Color, const FString& Description);
+	static FGameplayDebuggerShapeElement MakeSegment(const FVector& StartLocation, const FVector& EndLocation, const float Thickness, const FColor& Color, const FString& Description);
+	static FGameplayDebuggerShapeElement MakeBox(const FVector& Center, const FVector& Extent, const FColor& Color, const FString& Description);
+	static FGameplayDebuggerShapeElement MakeCone(const FVector& Location, const FVector& Direction, const float Length, const FColor& Color, const FString& Description);
+	static FGameplayDebuggerShapeElement MakeCylinder(const FVector& Center, const float Radius, const float HalfHeight, const FColor& Color, const FString& Description);
+	static FGameplayDebuggerShapeElement MakeCapsule(const FVector& Center, const float Radius, const float HalfHeight, const FColor& Color, const FString& Description);
+	static FGameplayDebuggerShapeElement MakePolygon(const TArray<FVector>& Verts, const FColor& Color, const FString& Description);
+};
 
 UCLASS(config=Engine)
 class GAMEPLAYDEBUGGER_API UGameplayDebuggingComponent : public UPrimitiveComponent, public IEQSQueryResultSourceInterface
@@ -210,6 +263,10 @@ class GAMEPLAYDEBUGGER_API UGameplayDebuggingComponent : public UPrimitiveCompon
 	virtual void EnableDebugDraw(bool bEnable, bool InFocusedComponent = false);
 
 	bool ShouldReplicateData(EAIDebugDrawDataView::Type InView) const { return ReplicateViewDataCounters[InView] > 0 /*true*/; }
+	
+#if !ENABLE_OLD_GAMEPLAY_DEBUGGER
+	DEPRECATED_FORGAME(4.12, "GameplayDebuggingComponent class is now deprecated, please check GameplayDebugger.h for details.")
+#endif // !ENABLE_OLD_GAMEPLAY_DEBUGGER
 	virtual void CollectDataToReplicate(bool bCollectExtendedData);
 
 	//=============================================================================

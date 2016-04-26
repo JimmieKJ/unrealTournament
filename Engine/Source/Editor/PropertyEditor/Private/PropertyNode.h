@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -44,8 +44,6 @@ namespace EPropertyNodeFlags
 	const Type	IsReadOnly						= 1 << 20; /** true if this node is overridden to appear as read-only */
 
 	const Type	SkipChildValidation				= 1 << 21; /** true if this node should skip child validation */
-
-	const Type	PersistentInstance				= 1 << 22; /** true if this node supports creating 'editinlinenew' sub-objects */
 
 	const Type 	NoFlags							= 0;
 

@@ -1,4 +1,4 @@
-<%-- // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved. --%>
+<%-- // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved. --%>
 
 <%@ Control Language="C#" Inherits="System.Web.Mvc.ViewUserControl<CSV_ViewModel>" %>
 <%@ Import Namespace="Tools.CrashReporter.CrashReportWebSite.Models" %>

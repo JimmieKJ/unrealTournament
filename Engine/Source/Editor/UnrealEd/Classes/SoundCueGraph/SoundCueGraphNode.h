@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -28,6 +28,7 @@ class USoundCueGraphNode : public USoundCueGraphNode_Base
 	UNREALED_API int32 EstimateNodeWidth() const;
 	/** Checks whether an input can be added to this node */
 	UNREALED_API bool CanAddInputPin() const;
+
 
 	// USoundCueGraphNode_Base interface
 	virtual void CreateInputPins() override;

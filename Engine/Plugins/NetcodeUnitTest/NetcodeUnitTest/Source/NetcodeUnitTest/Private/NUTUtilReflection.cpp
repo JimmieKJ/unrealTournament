@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "NetcodeUnitTestPCH.h"
 
@@ -78,8 +78,8 @@ FVMReflection::FVMReflection(const FVMReflection& ToCopy)
 	, bVerifiedFieldType(ToCopy.bVerifiedFieldType)
 	, bSetArrayElement(ToCopy.bSetArrayElement)
 	, bNextActionMustBeCast(ToCopy.bNextActionMustBeCast)
-	, NextActionError(ToCopy.NextActionError)
 	, bIsError(ToCopy.bIsError)
+	, NextActionError(ToCopy.NextActionError)
 	, bOutError(NULL)
 	, History()
 	, OutHistoryPtr(NULL)
@@ -365,7 +365,7 @@ FVMReflection& FVMReflection::operator [](const ANSICHAR* InFieldType)
 			#define FIELD_TYPE_CHECK_FIRST(TypeString, TypeProperty) \
 				if (ExpectedFieldType == TypeString) \
 				{ \
-					if (ActualFieldType->IsA(TypeProperty##::StaticClass())) \
+					if (ActualFieldType->IsA(TypeProperty::StaticClass())) \
 					{ \
 						bTypeValid = true; \
 					} \

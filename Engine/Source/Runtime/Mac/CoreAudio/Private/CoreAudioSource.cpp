@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
  	CoreAudioSource.cpp: Unreal CoreAudio source interface object.
@@ -210,7 +210,17 @@ void FCoreAudioSoundSource::SubmitPCMRTBuffers( void )
 	}
 
 	// Start the async population of the next buffer
-	ReadMorePCMData(2, (bSkipFirstBuffer ? EDataReadMode::AsynchronousSkipFirstFrame : EDataReadMode::Asynchronous));
+	EDataReadMode DataReadMode = EDataReadMode::Asynchronous;
+	if (Buffer->SoundFormat == ESoundFormat::SoundFormat_Streaming)
+	{
+		DataReadMode =  EDataReadMode::Synchronous;
+	}
+	else if (bSkipFirstBuffer)
+	{
+		DataReadMode =  EDataReadMode::AsynchronousSkipFirstFrame;
+	}
+	
+	ReadMorePCMData(2, DataReadMode);
 }
 
 /**
@@ -271,6 +281,7 @@ bool FCoreAudioSoundSource::Init( FWaveInstance* InWaveInstance )
 					break;
 				
 				case SoundFormat_PCMRT:
+				case SoundFormat_Streaming:
 					SubmitPCMRTBuffers();
 					break;
 			}
@@ -321,7 +332,6 @@ void FCoreAudioSoundSource::Update( void )
 		}
 		
 		// apply global multiplier (ie to disable sound when not the foreground app)
-		Volume *= FApp::GetVolumeMultiplier();
 		Volume = FMath::Clamp<float>( Volume, 0.0f, MAX_VOLUME );
 		
 		// Convert to dB
@@ -359,7 +369,6 @@ void FCoreAudioSoundSource::Update( void )
 	else
 	{
 		// apply global multiplier (ie to disable sound when not the foreground app)
-		Volume *= FApp::GetVolumeMultiplier();
 		Volume = FMath::Clamp<float>( Volume, 0.0f, MAX_VOLUME );
 		
 		if( AudioDevice->GetMixDebugState() == DEBUGSTATE_IsolateReverb )
@@ -509,7 +518,7 @@ void FCoreAudioSoundSource::HandleRealTimeSource(bool bBlockForData)
 	if (bGetMoreData)
 	{
 		// Get the next bit of streaming data
-		const bool bLooped = ReadMorePCMData(BufferIndex, EDataReadMode::Asynchronous);
+		const bool bLooped = ReadMorePCMData(BufferIndex, (Buffer->SoundFormat == ESoundFormat::SoundFormat_Streaming ? EDataReadMode::Synchronous : EDataReadMode::Asynchronous));
 
 		if (RealtimeAsyncTask == nullptr)
 		{
@@ -860,10 +869,7 @@ bool FCoreAudioSoundSource::AttachToAUGraph()
 
 	if( ErrorStatus == noErr )
 	{
-		AUGraph Graph = AudioDevice->GetAudioUnitGraph();
-		check(Graph);
-		SAFE_CA_CALL(AUGraphUpdate( Graph, NULL ));
-
+		AudioDevice->bNeedsUpdate = true;
 		AudioDevice->AudioChannels[AudioChannel] = this;
 	}
 	return ErrorStatus == noErr;
@@ -948,9 +954,9 @@ bool FCoreAudioSoundSource::DetachFromAUGraph()
 		SAFE_CA_CALL( AUGraphRemoveNode( AudioDevice->GetAudioUnitGraph(), SourceNode ) );
 	}
 
-	SAFE_CA_CALL( AUGraphUpdate( AudioDevice->GetAudioUnitGraph(), NULL ) );
-
-	AudioConverterDispose( CoreAudioConverter );
+	AudioDevice->CovertersToDispose.Add(CoreAudioConverter);
+	AudioDevice->bNeedsUpdate = true;
+	
 	CoreAudioConverter = NULL;
 
 	LowPassNode = 0;

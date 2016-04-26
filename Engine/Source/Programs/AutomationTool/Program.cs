@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 // This software is provided "as-is," without any express or implied warranty. 
 // In no event shall the author, nor Epic Games, Inc. be held liable for any damages arising from the use of this software.
 // This software will not be supported.
@@ -29,7 +29,7 @@ namespace AutomationTool
 				AssemblyUtils.InstallAssemblyResolver(Path.GetDirectoryName(Assembly.GetEntryAssembly().GetOriginalLocation()));
 				HostPlatform.Initialize();
 
-				Log.TraceInformation("{2}: Running on {0} as a {1}-bit process.", HostPlatform.Current.GetType().Name, Environment.Is64BitProcess ? 64 : 32, DateTime.UtcNow.ToString("o"));
+				Log.TraceVerbose("{2}: Running on {0} as a {1}-bit process.", HostPlatform.Current.GetType().Name, Environment.Is64BitProcess ? 64 : 32, DateTime.UtcNow.ToString("o"));
 
 				XmlConfigLoader.Init();
 

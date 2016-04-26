@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	D3D11Util.h: D3D RHI utility definitions.
@@ -29,12 +29,23 @@
 
 /**
  * Checks that the given result isn't a failure.  If it is, the application exits with an appropriate error message.
- * @param	Result - The result code to check
+ * @param	Result - The result code to check.
  * @param	Code - The code which yielded the result.
  * @param	Filename - The filename of the source file containing Code.
  * @param	Line - The line number of Code within Filename.
  */
 extern D3D11RHI_API void VerifyD3D11Result(HRESULT Result,const ANSICHAR* Code,const ANSICHAR* Filename,uint32 Line, ID3D11Device* Device);
+
+/**
+ * Checks that the given result isn't a failure.  If it is, the application exits with an appropriate error message.
+ * @param	Shader - The shader we are trying to create.
+ * @param	Result - The result code to check.
+ * @param	Code - The code which yielded the result.
+ * @param	Filename - The filename of the source file containing Code.
+ * @param	Line - The line number of Code within Filename.
+ * @param	Device - The D3D device used to create the shadr.
+ */
+extern D3D11RHI_API void VerifyD3D11ShaderResult(class FRHIShader* Shader, HRESULT Result, const ANSICHAR* Code, const ANSICHAR* Filename, uint32 Line, ID3D11Device* Device);
 
 /**
 * Checks that the given result isn't a failure.  If it is, the application exits with an appropriate error message.
@@ -51,6 +62,7 @@ extern D3D11RHI_API void VerifyD3D11CreateTextureResult(HRESULT D3DResult,const 
  */
 #define VERIFYD3D11RESULT_EX(x, Device)	{HRESULT hr = x; if (FAILED(hr)) { VerifyD3D11Result(hr,#x,__FILE__,__LINE__, Device); }}
 #define VERIFYD3D11RESULT(x)			{HRESULT hr = x; if (FAILED(hr)) { VerifyD3D11Result(hr,#x,__FILE__,__LINE__, 0); }}
+#define VERIFYD3D11SHADERRESULT(Result, Shader, Device) {HRESULT hr = (Result); if (FAILED(hr)) { VerifyD3D11ShaderResult(Shader, hr, #Result,__FILE__,__LINE__, Device); }}
 #define VERIFYD3D11CREATETEXTURERESULT(x,SizeX,SizeY,SizeZ,Format,NumMips,Flags) {HRESULT hr = x; if (FAILED(hr)) { VerifyD3D11CreateTextureResult(hr,#x,__FILE__,__LINE__,SizeX,SizeY,SizeZ,Format,NumMips,Flags); }}
 
 /**
@@ -230,11 +242,11 @@ public:
 
 private:
 	/** The maximum number of sub-buffers supported. */
-	enum { MAX_BUFFERS = 4 };
+	enum { MAX_BUFFER_SIZES = 4 };
 	/** The size of each sub-buffer. */
-	TArray<uint32,TFixedAllocator<MAX_BUFFERS> > BufferSizes;
+	TArray<uint32,TFixedAllocator<MAX_BUFFER_SIZES> > BufferSizes;
 	/** The sub-buffers. */
-	TArray<TRefCountPtr<ID3D11Buffer>,TFixedAllocator<MAX_BUFFERS> > Buffers;
+	TArray<TRefCountPtr<ID3D11Buffer>,TFixedAllocator<MAX_BUFFER_SIZES> > Buffers;
 	/** The D3D11 RHI to that owns this dynamic buffer. */
 	class FD3D11DynamicRHI* D3DRHI;
 	/** Bind flags to use when creating sub-buffers. */

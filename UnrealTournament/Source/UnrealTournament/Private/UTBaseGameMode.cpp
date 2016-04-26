@@ -36,7 +36,7 @@ void AUTBaseGameMode::PostInitProperties()
 	Super::PostInitProperties();
 
 #if WITH_PROFILE
-	if (!IsTemplate())
+	if (!IsTemplate() && !IsRunningCommandlet())
 	{
 		McpProfileManager = NewObject<UUtMcpProfileManager>(this);
 		GetMcpProfileManager()->Init(NULL, NULL, TEXT("Server"), FUtMcpRequestComplete());
@@ -88,6 +88,14 @@ void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, 
 	{
 		SpectatePassword = UGameplayStatics::ParseOption(Options, TEXT("SpectatePassword"));
 	}
+
+	if (UGameplayStatics::HasOption(Options, TEXT("RconPassword")))
+	{
+		FString NewRconPassword = UGameplayStatics::ParseOption(Options, TEXT("RconPassword"));
+		UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+		if (UTEngine && !NewRconPassword.IsEmpty()) UTEngine->RconPassword = NewRconPassword;
+	}
+
 
 	bRequirePassword = !ServerPassword.IsEmpty() || !SpectatePassword.IsEmpty();
 	bTrainingGround = EvalBoolOptions(UGameplayStatics::ParseOption(Options, TEXT("TG")), bTrainingGround);

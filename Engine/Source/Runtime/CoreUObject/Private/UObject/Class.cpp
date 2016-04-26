@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UnClass.cpp: Object class implementation.
@@ -16,7 +16,6 @@
 // does a lot of mutation of the class tree, and the validation checks impact iteration time.
 #define DO_CLASS_TREE_VALIDATION 0
 
-DECLARE_LOG_CATEGORY_EXTERN(LogScriptSerialization, Log, All);
 DEFINE_LOG_CATEGORY(LogScriptSerialization);
 DEFINE_LOG_CATEGORY(LogClass);
 
@@ -145,6 +144,11 @@ void UField::Serialize( FArchive& Ar )
 {
 	Super::Serialize( Ar );
 	Ar << Next;
+	if (Ar.IsLoading())
+	{
+		// Make sure that after loading new assets we will check for new classes and generate their token stream.
+		SetTokenStreamMaybeDirty(true);
+	}
 }
 
 void UField::AddCppProperty( UProperty* Property )
@@ -697,7 +701,8 @@ void UStruct::Link(FArchive& Ar, bool bRelinkExistingProperties)
 			RefLinkPtr = &(*RefLinkPtr)->NextRef;
 		}
 
-		bool bOwnedByNativeClass = Property->GetOwnerClass() && Property->GetOwnerClass()->HasAnyClassFlags(CLASS_Native | CLASS_Intrinsic);
+		const UClass* OwnerClass = Property->GetOwnerClass();
+		bool bOwnedByNativeClass = OwnerClass && OwnerClass->HasAnyClassFlags(CLASS_Native | CLASS_Intrinsic);
 
 		if (!Property->HasAnyPropertyFlags(CPF_IsPlainOldData | CPF_NoDestructor) &&
 			!bOwnedByNativeClass) // these would be covered by the native destructor
@@ -707,8 +712,8 @@ void UStruct::Link(FArchive& Ar, bool bRelinkExistingProperties)
 			DestructorLinkPtr = &(*DestructorLinkPtr)->DestructorLinkNext;
 		}
 
-		// Link references to properties that require their values to be copied from CDO.
-		if ((Property->HasAnyPropertyFlags(CPF_Config) && Property->GetOwnerClass() && !Property->GetOwnerClass()->HasAnyClassFlags(CLASS_PerObjectConfig)))
+		// Link references to properties that require their values to be initialized and/or copied from CDO post-construction. Note that this includes all non-native-class-owned properties.
+		if (OwnerClass && (!bOwnedByNativeClass || (Property->HasAnyPropertyFlags(CPF_Config) && !OwnerClass->HasAnyClassFlags(CLASS_PerObjectConfig))))
 		{
 			*PostConstructLinkPtr = Property;
 			PostConstructLinkPtr = &(*PostConstructLinkPtr)->PostConstructLinkNext;
@@ -718,9 +723,10 @@ void UStruct::Link(FArchive& Ar, bool bRelinkExistingProperties)
 		PropertyLinkPtr = &(*PropertyLinkPtr)->PropertyLinkNext;
 	}
 
-	*PropertyLinkPtr = NULL;
-	*DestructorLinkPtr = NULL;
-	*RefLinkPtr = NULL;
+	*PropertyLinkPtr = nullptr;
+	*DestructorLinkPtr = nullptr;
+	*RefLinkPtr = nullptr;
+	*PostConstructLinkPtr = nullptr;
 }
 
 void UStruct::InitializeStruct(void* InDest, int32 ArrayDim/* = 1*/) const
@@ -788,6 +794,24 @@ void UStruct::SerializeBin( FArchive& Ar, void* Data ) const
 			RefLinkProperty->SerializeBinProperty( Ar, Data );
 		}
 	}
+	else if( Ar.ArUseCustomPropertyList )
+	{
+		const FCustomPropertyListNode* CustomPropertyList = Ar.ArCustomPropertyList;
+		for (auto PropertyNode = CustomPropertyList; PropertyNode; PropertyNode = PropertyNode->PropertyListNext)
+		{
+			UProperty* Property = PropertyNode->Property;
+			if( Property )
+			{
+				// Temporarily set to the sub property list, in case we're serializing a UStruct property.
+				Ar.ArCustomPropertyList = PropertyNode->SubPropertyList;
+
+				Property->SerializeBinProperty(Ar, Data, PropertyNode->ArrayIndex);
+
+				// Restore the original property list.
+				Ar.ArCustomPropertyList = CustomPropertyList;
+			}
+		}
+	}
 	else
 	{
 		for (UProperty* Property = PropertyLink; Property != NULL; Property = Property->PropertyLinkNext)
@@ -846,6 +870,8 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 
 	UClass* DefaultsClass = dynamic_cast<UClass*>(DefaultsStruct);
 	UScriptStruct* DefaultsScriptStruct = dynamic_cast<UScriptStruct*>(DefaultsStruct);
+	// Determine if this struct supports optional property guid's (UBlueprintGeneratedClasses Only)
+	const bool bArePropertyGuidsAvailable = (Ar.UE4Ver() >= VER_UE4_PROPERTY_GUID_IN_PROPERTY_TAG) && !FPlatformProperties::RequiresCookedData() && ArePropertyGuidsAvailable();
 
 	if( Ar.IsLoading() )
 	{
@@ -897,6 +923,16 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 				RemainingArrayDim	= Property ? Property->ArrayDim : 0;
 			}
 			
+			// Optionally resolve properties using Guid Property tags in non cooked builds that support it.
+			if (bArePropertyGuidsAvailable && Tag.HasPropertyGuid)
+			{
+				// Use property guids from blueprint generated classes to redirect serialised data.
+				FName Result = FindPropertyNameFromGuid(Tag.PropertyGuid);
+				if (Result != NAME_None && Tag.Name != Result)
+				{
+					Tag.Name = Result;
+				}
+			}
 			// If this property is not the one we expect (e.g. skipped as it matches the default value), do the brute force search.
 			if( Property == NULL || Property->GetFName() != Tag.Name )
 			{
@@ -1353,7 +1389,10 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 				Tag.SerializeTaggedProperty(Ar, Property, DestAddress, DefaultsFromParent);
 
 				AdvanceProperty = true;
-				continue;
+				if (!Ar.IsCriticalError())
+				{
+					continue;
+				}
 			}
 
 			AdvanceProperty = false;
@@ -1379,15 +1418,20 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 		// Save tagged properties.
 
 		// Iterate over properties in the order they were linked and serialize them.
-		for( UProperty* Property = PropertyLink; Property; Property = Property->PropertyLinkNext )
+		const FCustomPropertyListNode* CustomPropertyNode = Ar.ArUseCustomPropertyList ? Ar.ArCustomPropertyList : nullptr;
+		for (UProperty* Property = Ar.ArUseCustomPropertyList ? (CustomPropertyNode ? CustomPropertyNode->Property : nullptr) : PropertyLink;
+			Property;
+			Property = Ar.ArUseCustomPropertyList ? FCustomPropertyListNode::GetNextPropertyAndAdvance(CustomPropertyNode) : Property->PropertyLinkNext)
 		{
 			if( Property->ShouldSerializeValue(Ar) )
 			{
-				for( int32 Idx=0; Idx<Property->ArrayDim; Idx++ )
+				const int32 LoopMin = CustomPropertyNode ? CustomPropertyNode->ArrayIndex : 0;
+				const int32 LoopMax = CustomPropertyNode ? LoopMin + 1 : Property->ArrayDim;
+				for( int32 Idx = LoopMin; Idx < LoopMax; Idx++ )
 				{
 					uint8* DataPtr      = Property->ContainerPtrToValuePtr           <uint8>(Data, Idx);
 					uint8* DefaultValue = Property->ContainerPtrToValuePtrForDefaults<uint8>(DefaultsStruct, Defaults, Idx);
-					if( !Ar.DoDelta() || Ar.IsTransacting() || (!Defaults && !dynamic_cast<const UClass*>(this)) || !Property->Identical( DataPtr, DefaultValue, Ar.GetPortFlags()) )
+					if( CustomPropertyNode || !Ar.DoDelta() || Ar.IsTransacting() || (!Defaults && !dynamic_cast<const UClass*>(this)) || !Property->Identical( DataPtr, DefaultValue, Ar.GetPortFlags()) )
 					{
 						if (bUseAtomicSerialization)
 						{
@@ -1399,12 +1443,32 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 						FArchive::FScopeAddDebugData S(Ar, Property->GetFName());
 #endif
 						FPropertyTag Tag( Ar, Property, Idx, DataPtr, DefaultValue );
+						// If available use the property guid from BlueprintGeneratedClasses, provided we aren't cooking data.
+						if (bArePropertyGuidsAvailable && !Ar.IsCooking())
+						{
+							const FGuid PropertyGuid = FindPropertyGuidFromName(Tag.Name);
+							Tag.SetPropertyGuid(PropertyGuid);
+						}
 						Ar << Tag;
 
 						// need to know how much data this call to SerializeTaggedProperty consumes, so mark where we are
 						int32 DataOffset = Ar.Tell();
 
+						// if using it, save the current custom property list and switch to its sub property list (in case of UStruct serialization)
+						const FCustomPropertyListNode* SavedCustomPropertyList = nullptr;
+						if(Ar.ArUseCustomPropertyList && CustomPropertyNode)
+						{
+							SavedCustomPropertyList = Ar.ArCustomPropertyList;
+							Ar.ArCustomPropertyList = CustomPropertyNode->SubPropertyList;
+						}
+
 						Tag.SerializeTaggedProperty( Ar, Property, DataPtr, DefaultValue );
+
+						// restore the original custom property list after serializing
+						if (SavedCustomPropertyList)
+						{
+							Ar.ArCustomPropertyList = SavedCustomPropertyList;
+						}
 
 						// set the tag's size
 						Tag.Size = Ar.Tell() - DataOffset;
@@ -1496,8 +1560,8 @@ void UStruct::Serialize( FArchive& Ar )
 
 				// force writing to a buffer
 				TArray<uint8> TempScript;
-					FMemoryWriter MemWriter(TempScript, Ar.IsPersistent());
-					LinkerSave->Saver = &MemWriter;
+				FMemoryWriter MemWriter(TempScript, Ar.IsPersistent());
+				LinkerSave->Saver = &MemWriter;
 
 				// now, use the linker to save the byte code, but writing to memory
 				while (iCode < ScriptBytecodeSize)
@@ -1505,11 +1569,11 @@ void UStruct::Serialize( FArchive& Ar )
 					SerializeExpr(iCode, Ar);
 				}
 
-					// restore the saver
-					LinkerSave->Saver = SavedSaver;
+				// restore the saver
+				LinkerSave->Saver = SavedSaver;
 
-					// now write out the memory bytes
-					Ar.Serialize(TempScript.GetData(), TempScript.Num());
+				// now write out the memory bytes
+				Ar.Serialize(TempScript.GetData(), TempScript.Num());
 
 				// and update the SHA (does nothing if not currently calculating SHA)
 				LinkerSave->UpdateScriptSHAKey(TempScript);
@@ -1681,17 +1745,11 @@ bool UStruct::GetStringMetaDataHierarchical(const FName& Key, FString* OutValue)
 EExprToken UStruct::SerializeExpr( int32& iCode, FArchive& Ar )
 {
 #define SERIALIZEEXPR_INC
+#define SERIALIZEEXPR_AUTO_UNDEF_XFER_MACROS
 #include "ScriptSerialization.h"
 	return Expr;
 #undef SERIALIZEEXPR_INC
-
-#undef XFER
-#undef XFERPTR
-#undef XFERNAME
-#undef XFER_FUNC_POINTER
-#undef XFER_FUNC_NAME
-#undef XFER_PROP_POINTER
-#undef FIXUP_EXPR_OBJECT_POINTER
+#undef SERIALIZEEXPR_AUTO_UNDEF_XFER_MACROS
 }
 
 void UStruct::InstanceSubobjectTemplates( void* Data, void const* DefaultData, UStruct* DefaultStruct, UObject* Owner, FObjectInstancingGraph* InstanceGraph )
@@ -2270,7 +2328,7 @@ void UScriptStruct::SerializeItem(FArchive& Ar, void* Value, void const* Default
 		if (bUseBinarySerialization)
 		{
 			// Struct is already preloaded above.
-			if (!Ar.IsPersistent() && Ar.GetPortFlags() != 0 && !ShouldSerializeAtomically(Ar))
+			if (!Ar.IsPersistent() && Ar.GetPortFlags() != 0 && !ShouldSerializeAtomically(Ar) && !Ar.ArUseCustomPropertyList)
 			{
 				SerializeBinEx(Ar, Value, Defaults, this);
 			}
@@ -2447,6 +2505,13 @@ void UScriptStruct::InitializeStruct(void* InDest, int32 ArrayDim) const
 		}
 	}
 }
+
+#if WITH_EDITOR
+void UScriptStruct::InitializeDefaultValue(uint8* InStructData) const
+{
+	InitializeStruct(InStructData);
+}
+#endif // WITH_EDITOR
 
 void UScriptStruct::ClearScriptStruct(void* Dest, int32 ArrayDim) const
 {
@@ -2761,7 +2826,9 @@ UObject* UClass::CreateDefaultObject()
 			// NULL (so we don't invalidate one that has already been setup)
 			if (ClassDefaultObject == NULL)
 			{
-				ClassDefaultObject = StaticAllocateObject(this, GetOuter(), NAME_None, EObjectFlags(RF_Public|RF_ClassDefaultObject));
+				// RF_ArchetypeObject flag is often redundant to RF_ClassDefaultObject, but we need to tag
+				// the CDO as RF_ArchetypeObject in order to propagate that flag to any default sub objects.
+				ClassDefaultObject = StaticAllocateObject(this, GetOuter(), NAME_None, EObjectFlags(RF_Public|RF_ClassDefaultObject|RF_ArchetypeObject));
 				check(ClassDefaultObject);
 				// Blueprint CDOs have their properties always initialized.
 				const bool bShouldInitilizeProperties = !HasAnyClassFlags(CLASS_Native | CLASS_Intrinsic);
@@ -3437,7 +3504,21 @@ void UClass::Serialize( FArchive& Ar )
 	Ar << FuncMap;
 
 	// Class flags first.
-	Ar << ClassFlags;
+	if (Ar.IsSaving())
+	{
+		auto SavedClassFlags = ClassFlags;
+		SavedClassFlags &= ~(CLASS_ShouldNeverBeLoaded | CLASS_TokenStreamAssembled);
+		Ar << SavedClassFlags;
+	}
+	else if (Ar.IsLoading())
+	{
+		Ar << ClassFlags;
+		ClassFlags &= ~(CLASS_ShouldNeverBeLoaded | CLASS_TokenStreamAssembled);
+	}
+	else 
+	{
+		Ar << ClassFlags;
+	}
 	if (Ar.UE4Ver() < VER_UE4_CLASS_NOTPLACEABLE_ADDED)
 	{
 		// We need to invert the CLASS_NotPlaceable flag here because it used to mean CLASS_Placeable
@@ -3495,7 +3576,7 @@ void UClass::Serialize( FArchive& Ar )
 	{
 		checkf(!HasAnyClassFlags(CLASS_Native), TEXT("Class %s loaded with CLASS_Native....we should not be loading any native classes."), *GetFullName());
 		checkf(!HasAnyClassFlags(CLASS_Intrinsic), TEXT("Class %s loaded with CLASS_Intrinsic....we should not be loading any intrinsic classes."), *GetFullName());
-		ClassFlags &= ~ CLASS_ShouldNeverBeLoaded;
+		ClassFlags &= ~(CLASS_ShouldNeverBeLoaded | CLASS_TokenStreamAssembled);
 		if (!(Ar.GetPortFlags() & PPF_Duplicate))
 		{
 			Link(Ar, true);
@@ -3634,6 +3715,7 @@ void UClass::Serialize( FArchive& Ar )
 			UE_LOG(LogClass, Error, TEXT("CDO for class %s did not load!"), *GetPathName() );
 			ensure(ClassDefaultObject != NULL);
 			ClassDefaultObject = GetDefaultObject();
+			Ar.ForceBlueprintFinalization();
 		}
 	}
 }
@@ -3715,6 +3797,10 @@ void UClass::PurgeClass(bool bRecompilingOnLoad)
 	ClassUnique = 0;
 	ClassReps.Empty();
 	NetFields.Empty();
+	for (TObjectIterator<UPackage> PackageIt; PackageIt; ++PackageIt)
+	{
+		PackageIt->ClassUniqueNameIndexMap.Remove(GetFName());
+	}
 
 #if WITH_EDITOR
 	if (!bRecompilingOnLoad)
@@ -4372,7 +4458,7 @@ void GetPrivateStaticClassBody(
 	}
 	else
 	{
-		ReturnClass = (UClass*)GUObjectAllocator.AllocateUObject(sizeof(UDynamicClass), ALIGNOF(UDynamicClass), true);
+		ReturnClass = (UClass*)GUObjectAllocator.AllocateUObject(sizeof(UDynamicClass), ALIGNOF(UDynamicClass), GIsInitialLoad);
 		ReturnClass = ::new (ReturnClass)
 			UDynamicClass
 			(
@@ -4743,10 +4829,51 @@ UScriptStruct* TBaseStructure<FGuid>::Get()
 	return ScriptStruct;
 }
 
+UScriptStruct* TBaseStructure<FBox2D>::Get()
+{
+	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Box2D"));
+	return ScriptStruct;
+}
 
 UScriptStruct* TBaseStructure<FFallbackStruct>::Get()
 {
 	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("FallbackStruct"));
+	return ScriptStruct;
+}
+
+UScriptStruct* TBaseStructure<FFloatRangeBound>::Get()
+{
+	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("FloatRangeBound"));
+	return ScriptStruct;
+}
+
+UScriptStruct* TBaseStructure<FFloatRange>::Get()
+{
+	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("FloatRange"));
+	return ScriptStruct;
+}
+
+UScriptStruct* TBaseStructure<FInt32RangeBound>::Get()
+{
+	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Int32RangeBound"));
+	return ScriptStruct;
+}
+
+UScriptStruct* TBaseStructure<FInt32Range>::Get()
+{
+	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Int32Range"));
+	return ScriptStruct;
+}
+
+UScriptStruct* TBaseStructure<FFloatInterval>::Get()
+{
+	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("FloatInterval"));
+	return ScriptStruct;
+}
+
+UScriptStruct* TBaseStructure<FInt32Interval>::Get()
+{
+	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Int32Interval"));
 	return ScriptStruct;
 }
 
@@ -4843,6 +4970,12 @@ void UDynamicClass::AddReferencedObjects(UObject* InThis, FReferenceCollector& C
 	Collector.AddReferencedObject(This->AnimClassImplementation, This);
 
 	Super::AddReferencedObjects(This, Collector);
+}
+
+void UDynamicClass::PostLoad()
+{
+	Super::PostLoad();
+	GetDefaultObject(true);
 }
 
 void UDynamicClass::PurgeClass(bool bRecompilingOnLoad)

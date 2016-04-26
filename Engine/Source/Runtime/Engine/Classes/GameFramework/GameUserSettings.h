@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -25,6 +25,8 @@ namespace EWindowMode
 }
 
 #endif
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnGameUserSettingsUINeedsUpdate);
 
 /**
  * Stores user settings for a game (for example graphics and sound settings), with the ability to save and load to and from a file.
@@ -53,6 +55,10 @@ public:
 	/** Returns the last confirmed user setting for game screen resolution, in pixels. */
 	UFUNCTION(BlueprintPure, Category=Settings)
 	FIntPoint GetLastConfirmedScreenResolution() const;
+
+	/** Returns user's desktop resolution, in pixels. */
+	UFUNCTION(BlueprintPure, Category = Settings)
+	FIntPoint GetDesktopResolution() const;
 
 	/** Sets the user setting for game screen resolution, in pixels. */
 	UFUNCTION(BlueprintCallable, Category=Settings)
@@ -128,12 +134,22 @@ public:
 	int32 GetOverallScalabilityLevel() const;
 
 	// Returns the current resolution scale and the range
-	UFUNCTION(BlueprintCallable, Category=Settings)
+	DEPRECATED(4.12, "Please call GetResolutionScaleInformationEx")
+	UFUNCTION(BlueprintCallable, Category = Settings, meta = (DeprecatedFunction, DisplayName = "GetResolutionScaleInformation_Deprecated"))
 	void GetResolutionScaleInformation(float& CurrentScaleNormalized, int32& CurrentScaleValue, int32& MinScaleValue, int32& MaxScaleValue) const;
 
+	// Returns the current resolution scale and the range
+	UFUNCTION(BlueprintCallable, Category=Settings, meta=(DisplayName="GetResolutionScaleInformation"))
+	void GetResolutionScaleInformationEx(float& CurrentScaleNormalized, float& CurrentScaleValue, float& MinScaleValue, float& MaxScaleValue) const;
+
 	// Sets the current resolution scale
-	UFUNCTION(BlueprintCallable, Category=Settings)
+	DEPRECATED(4.12, "Please call SetResolutionScaleValueEx")
+	UFUNCTION(BlueprintCallable, Category=Settings, meta=(DeprecatedFunction, DisplayName="SetResolutionScaleValue_Deprecated"))
 	void SetResolutionScaleValue(int32 NewScaleValue);
+
+	// Sets the current resolution scale
+	UFUNCTION(BlueprintCallable, Category=Settings, meta=(DisplayName="SetResolutionScaleValue"))
+	void SetResolutionScaleValueEx(float NewScaleValue);
 
 	// Sets the current resolution scale as a normalized 0..1 value between MinScaleValue and MaxScaleValue
 	UFUNCTION(BlueprintCallable, Category=Settings)
@@ -214,6 +230,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category=Settings)
 	virtual void SetToDefaults();
 
+	/** Gets the desired resolution quality based on DesiredScreenHeight and the current screen resolution */
+	UFUNCTION(BlueprintCallable, Category=Settings)
+	virtual float GetDefaultResolutionScale();
+
 	/** Loads the resolution settings before is object is available */
 	static void PreloadResolutionSettings();
 
@@ -292,6 +312,10 @@ protected:
 	UPROPERTY(config)
 	int32 LastConfirmedFullscreenMode;
 
+	/** Fullscreen mode to use when toggling between windowed and fullscreen. Same values as r.FullScreenMode. */
+	UPROPERTY(config)
+	int32 PreferredFullscreenMode;
+
 	/** All settings will be wiped and set to default if the serialized version differs from UE_GAMEUSERSETTINGS_VERSION. */
 	UPROPERTY(config)
 	uint32 Version;
@@ -303,6 +327,25 @@ protected:
 	UPROPERTY(config)
 	float FrameRateLimit;
 
+	/** Min resolution scale we allow in current display mode */
+	float MinResolutionScale;
+
+	/** Desired screen width used to calculate the resolution scale when user changes display mode */
+	UPROPERTY(config)
+	int32 DesiredScreenWidth;
+
+	/** Desired screen height used to calculate the resolution scale when user changes display mode */
+	UPROPERTY(config)
+	int32 DesiredScreenHeight;
+
+	/** Result of the last benchmark; calculated resolution to use. */
+	UPROPERTY(config)
+	float LastRecommendedScreenWidth;
+
+	/** Result of the last benchmark; calculated resolution to use. */
+	UPROPERTY(config)
+	float LastRecommendedScreenHeight;
+
 	/**
 	 * Check if the current version of the game user settings is valid. Sub-classes can override this to provide game-specific versioning as necessary.
 	 * @return True if the current version is valid, false if it is not
@@ -311,4 +354,16 @@ protected:
 
 	/** Update the version of the game user settings to the current version */
 	virtual void UpdateVersion();
+
+	/** Picks the best resolution quality for a given screen size */
+	float FindResolutionQualityForScreenSize(int32 Width, int32 Height);
+
+private:
+
+	UPROPERTY(BlueprintAssignable, meta = (AllowPrivateAccess = "true"))
+	FOnGameUserSettingsUINeedsUpdate OnGameUserSettingsUINeedsUpdate;
+
+	void UpdateResolutionQuality();
+
+	void SetPreferredFullscreenMode(int32 Mode);
 };

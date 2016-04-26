@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "StandaloneRendererPrivate.h"
 
@@ -96,9 +96,6 @@ void FSlateOpenGLRenderer::DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer )
 {
 	const TSharedRef<FSlateFontCache> FontCache = SlateFontServices->GetFontCache();
 
-	// Update the font cache with new text before elements are batched
-	FontCache->UpdateCache();
-
 	// Draw each window.  For performance.  All elements are batched before anything is rendered
 	TArray< TSharedPtr<FSlateWindowElementList> >& WindowElementLists = InWindowDrawBuffer.GetWindowElementLists();
 
@@ -127,6 +124,9 @@ void FSlateOpenGLRenderer::DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer )
 			// Batch elements.  Note that we must set the current viewport before doing this so we have a valid rendering context when calling OpenGL functions
 			ElementBatcher->AddElements( ElementList );
 
+			// Update the font cache with new text before elements are batched
+			FontCache->UpdateCache();
+
 			//@ todo Slate: implement for opengl
 			bool bRequiresStencilTest = false;
 
@@ -152,6 +152,7 @@ void FSlateOpenGLRenderer::DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer )
 		}
 	}
 
+	// flush the cache if needed
 	FontCache->ConditionalFlushCache();
 
 	// Safely release the references now that we are finished rendering with the dynamic brushes

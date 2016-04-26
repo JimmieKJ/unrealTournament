@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 #include "GameplayAbilityTargetTypes.h"
@@ -48,7 +48,7 @@ TArray<FActiveGameplayEffectHandle> FGameplayAbilityTargetData::ApplyGameplayEff
 	return AppliedHandles;
 }
 
-void FGameplayAbilityTargetData::AddTargetDataToContext(FGameplayEffectContextHandle& Context, bool bIncludeActorArray)
+void FGameplayAbilityTargetData::AddTargetDataToContext(FGameplayEffectContextHandle& Context, bool bIncludeActorArray) const
 {
 	if (bIncludeActorArray && (GetActors().Num() > 0))
 	{
@@ -66,10 +66,8 @@ void FGameplayAbilityTargetData::AddTargetDataToContext(FGameplayEffectContextHa
 	}
 }
 
-void FGameplayAbilityTargetData::AddTargetDataToGameplayCueParameters(FGameplayCueParameters& Parameters)
+void FGameplayAbilityTargetData::AddTargetDataToGameplayCueParameters(FGameplayCueParameters& Parameters) const
 {
-	
-	
 }
 
 FString FGameplayAbilityTargetData::ToString() const
@@ -77,7 +75,7 @@ FString FGameplayAbilityTargetData::ToString() const
 	return TEXT("BASE CLASS");
 }
 
-FGameplayAbilityTargetDataHandle FGameplayAbilityTargetingLocationInfo::MakeTargetDataHandleFromHitResult(TWeakObjectPtr<UGameplayAbility> Ability, FHitResult HitResult) const
+FGameplayAbilityTargetDataHandle FGameplayAbilityTargetingLocationInfo::MakeTargetDataHandleFromHitResult(TWeakObjectPtr<UGameplayAbility> Ability, const FHitResult& HitResult) const
 {
 	TArray<FHitResult> HitResults;
 	HitResults.Add(HitResult);
@@ -99,7 +97,7 @@ FGameplayAbilityTargetDataHandle FGameplayAbilityTargetingLocationInfo::MakeTarg
 	return ReturnDataHandle;
 }
 
-FGameplayAbilityTargetDataHandle FGameplayAbilityTargetingLocationInfo::MakeTargetDataHandleFromActors(TArray<TWeakObjectPtr<AActor> > TargetActors, bool OneActorPerHandle) const
+FGameplayAbilityTargetDataHandle FGameplayAbilityTargetingLocationInfo::MakeTargetDataHandleFromActors(const TArray<TWeakObjectPtr<AActor> >& TargetActors, bool OneActorPerHandle) const
 {
 	/** Note: This is cleaned up by the FGameplayAbilityTargetDataHandle (via an internal TSharedPtr) */
 	FGameplayAbilityTargetData_ActorArray* ReturnData = new FGameplayAbilityTargetData_ActorArray();
@@ -109,18 +107,18 @@ FGameplayAbilityTargetDataHandle FGameplayAbilityTargetingLocationInfo::MakeTarg
 	{
 		if (TargetActors.Num() > 0)
 		{
-			if (TargetActors[0].IsValid())
+			if (AActor* TargetActor = TargetActors[0].Get())
 			{
-				ReturnData->TargetActorArray.Add(TargetActors[0].Get());
+				ReturnData->TargetActorArray.Add(TargetActor);
 			}
 
 			for (int32 i = 1; i < TargetActors.Num(); ++i)
 			{
-				if (TargetActors[i].IsValid())
+				if (AActor* TargetActor = TargetActors[i].Get())
 				{
 					FGameplayAbilityTargetData_ActorArray* CurrentData = new FGameplayAbilityTargetData_ActorArray();
 					CurrentData->SourceLocation = *this;
-					CurrentData->TargetActorArray.Add(TargetActors[i].Get());
+					CurrentData->TargetActorArray.Add(TargetActor);
 					ReturnDataHandle.Add(CurrentData);
 				}
 			}
@@ -135,10 +133,11 @@ FGameplayAbilityTargetDataHandle FGameplayAbilityTargetingLocationInfo::MakeTarg
 
 bool FGameplayAbilityTargetDataHandle::NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
 {
-	int32 DataNum;
+	uint8 DataNum;
 	if (Ar.IsSaving())
 	{
-		DataNum = Data.Num();
+		UE_CLOG(Data.Num() > MAX_uint8, LogAbilitySystem, Warning, TEXT("Too many TargetData sources (%d!) to net serialize. Clamping to %d"), Data.Num(), MAX_uint8);
+		DataNum = FMath::Min<int32>( Data.Num(), MAX_uint8 );
 	}
 	Ar << DataNum;
 	if (Ar.IsLoading())
@@ -146,7 +145,7 @@ bool FGameplayAbilityTargetDataHandle::NetSerialize(FArchive& Ar, class UPackage
 		Data.SetNumZeroed(DataNum);
 	}
 
-	for (int32 i = 0; i < DataNum; ++i)
+	for (int32 i = 0; i < DataNum && !Ar.IsError(); ++i)
 	{
 		UScriptStruct* ScriptStruct = Data[i].IsValid() ? Data[i]->GetScriptStruct() : NULL;
 		Ar << ScriptStruct;
@@ -237,7 +236,7 @@ bool FGameplayAbilityTargetData_LocationInfo::NetSerialize(FArchive& Ar, class U
 bool FGameplayAbilityTargetData_ActorArray::NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
 {
 	SourceLocation.NetSerialize(Ar, Map, bOutSuccess);
-	Ar << TargetActorArray;
+	SafeNetSerializeTArray_Default<32>(Ar, TargetActorArray);
 
 	bOutSuccess = true;
 	return true;

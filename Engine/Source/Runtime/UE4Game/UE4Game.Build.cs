@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -19,12 +19,15 @@ public class UE4Game : ModuleRules
 				DynamicallyLoadedModuleNames.Add("OnlineSubsystemSteam");
 			}
 		}
-		if (Target.Platform == UnrealTargetPlatform.IOS)
+		if (Target.Platform == UnrealTargetPlatform.IOS || Target.Platform == UnrealTargetPlatform.TVOS)
 		{
 			PrivateDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "OnlineSubsystem", "OnlineSubsystemUtils" });
-			DynamicallyLoadedModuleNames.Add("OnlineSubsystemFacebook");
 			DynamicallyLoadedModuleNames.Add("OnlineSubsystemIOS");
-			DynamicallyLoadedModuleNames.Add("IOSAdvertising");
+			if (Target.Platform == UnrealTargetPlatform.IOS)
+			{
+				DynamicallyLoadedModuleNames.Add("OnlineSubsystemFacebook");
+				DynamicallyLoadedModuleNames.Add("IOSAdvertising");
+			}
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Android)
 		{

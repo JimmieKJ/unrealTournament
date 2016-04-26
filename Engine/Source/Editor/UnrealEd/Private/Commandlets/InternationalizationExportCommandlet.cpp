@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "Culture.h"
@@ -321,7 +321,7 @@ bool UInternationalizationExportCommandlet::DoExport( const FString& SourcePath,
 
 	TArray< TSharedPtr<FInternationalizationArchive> > NativeArchives;
 	{
-		const FString NativeCulturePath = DestinationPath / *(NativeCultureName);
+		const FString NativeCulturePath = SourcePath / *(NativeCultureName);
 		TArray<FString> NativeArchiveFileNames;
 		IFileManager::Get().FindFiles(NativeArchiveFileNames, *(NativeCulturePath / TEXT("*.archive")), true, false);
 
@@ -413,7 +413,7 @@ bool UInternationalizationExportCommandlet::DoExport( const FString& SourcePath,
 										{
 											const FString KeyName = InfoMetaDataPair.Key;
 											const TSharedPtr<FLocMetadataValue> Value = InfoMetaDataPair.Value;
-											InfoMetaDataStrings.Add(GetConditionedInfoMetaDataForExtractedComment(KeyName, Value->AsString()));
+											InfoMetaDataStrings.Add(GetConditionedInfoMetaDataForExtractedComment(KeyName, Value->ToString()));
 										}
 									}
 									if (InfoMetaDataStrings.Num())
@@ -469,7 +469,7 @@ bool UInternationalizationExportCommandlet::DoExport( const FString& SourcePath,
 												{
 													const FString KeyName = InfoMetaDataPair.Key;
 													const TSharedPtr<FLocMetadataValue> Value = InfoMetaDataPair.Value;
-													InfoMetaDataStrings.Add(FString::Printf(TEXT("InfoMetaData:\t\"%s\" : \"%s\""), *KeyName, *Value->AsString()));
+													InfoMetaDataStrings.Add(FString::Printf(TEXT("InfoMetaData:\t\"%s\" : \"%s\""), *KeyName, *Value->ToString()));
 												}
 											}
 											if (InfoMetaDataStrings.Num())
@@ -527,13 +527,17 @@ bool UInternationalizationExportCommandlet::DoExport( const FString& SourcePath,
 
 					NewPortableObject.SortEntries();
 
-					if( SourceControlInfo.IsValid() )
+					const bool DidFileExist = FPaths::FileExists(OutputFileName);
+					if (DidFileExist)
 					{
-						FText SCCErrorText;
-						if (!SourceControlInfo->CheckOutFile(OutputFileName, SCCErrorText))
+						if( SourceControlInfo.IsValid() )
 						{
-							UE_LOG(LogInternationalizationExportCommandlet, Error, TEXT("Check out of file %s failed: %s"), *OutputFileName, *SCCErrorText.ToString());
-							return false;
+							FText SCCErrorText;
+							if (!SourceControlInfo->CheckOutFile(OutputFileName, SCCErrorText))
+							{
+								UE_LOG(LogInternationalizationExportCommandlet, Error, TEXT("Check out of file %s failed: %s"), *OutputFileName, *SCCErrorText.ToString());
+								return false;
+							}
 						}
 					}
 
@@ -543,6 +547,20 @@ bool UInternationalizationExportCommandlet::DoExport( const FString& SourcePath,
 					{
 						UE_LOG( LogInternationalizationExportCommandlet, Error, TEXT("Could not write file %s"), *OutputFileName );
 						return false;
+					}
+
+					if (!DidFileExist)
+					{
+						// Checkout on a new file will cause it to be added
+						if( SourceControlInfo.IsValid() )
+						{
+							FText SCCErrorText;
+							if (!SourceControlInfo->CheckOutFile(OutputFileName, SCCErrorText))
+							{
+								UE_LOG(LogInternationalizationExportCommandlet, Error, TEXT("Check out of file %s failed: %s"), *OutputFileName, *SCCErrorText.ToString());
+								return false;
+							}
+						}
 					}
 				}
 			}
@@ -605,7 +623,7 @@ bool UInternationalizationExportCommandlet::DoImport(const FString& SourcePath, 
 
 		if (PortableObject.GetProjectName() != ManifestName.Replace(TEXT(".manifest"), TEXT("")))
 		{
-			UE_LOG(LogInternationalizationExportCommandlet, Warning, TEXT("The project name (%s) in the file (%s) did not match the target manifest project (%s)."), *POFilePath, *PortableObject.GetProjectName(), *ManifestName.Replace(TEXT(".manifest"), TEXT("")));
+			UE_LOG(LogInternationalizationExportCommandlet, Log, TEXT("The project name (%s) in the file (%s) did not match the target manifest project (%s)."), *POFilePath, *PortableObject.GetProjectName(), *ManifestName.Replace(TEXT(".manifest"), TEXT("")));
 		}
 
 		const FString ManifestFileName = DestinationPath / ManifestName;
@@ -788,7 +806,7 @@ int32 UInternationalizationExportCommandlet::Main( const FString& Params )
 
 	GetBoolFromConfig( *SectionName, TEXT("bImportLoc"), bDoImport, ConfigPath );
 	GetBoolFromConfig( *SectionName, TEXT("bExportLoc"), bDoExport, ConfigPath );
-	GetBoolFromConfig(*SectionName, TEXT("ShouldPersistComments"), ShouldPersistComments, ConfigPath);
+	GetBoolFromConfig(*SectionName, TEXT("ShouldPersistCommentsOnExport"), ShouldPersistComments, ConfigPath);
 
 	// Reject the ShouldPersistComments flag and warn if not exporting - we're not writing to anything, so we can't persist.
 	if (ShouldPersistComments && !bDoExport)

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UnOutputDevices.cpp: Collection of FOutputDevice subclasses
@@ -8,13 +8,6 @@
 #include "Misc/App.h"
 #include "Templates/UniquePtr.h"
 #include <stdio.h>
-
-// #if _MSC_VER
-// #pragma warning (push)
-// #pragma warning (disable : 4548) // needed as xlocale does not compile cleanly
-// #include <iostream>
-// #pragma warning (pop)
-// #endif
 
 /** Used by tools which include only core to disable log file creation. */
 #ifndef ALLOW_LOG_FILE

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SceneOutlinerPrivatePCH.h"
 #include "SSceneOutliner.h"
@@ -75,7 +75,7 @@ FDragValidationInfo FFolderDropTarget::ValidateDrop(FDragDropPayload& DraggedObj
 		for (auto WeakActor : DraggedObjects.Actors.GetValue())
 		{
 			AActor* Actor = WeakActor.Get();
-			if (Actor->ParentComponentActor.Get())
+			if (Actor->IsChildActor())
 			{
 				return FDragValidationInfo(FActorDragDropGraphEdOp::ToolTip_IncompatibleGeneric, FText::Format(LOCTEXT("Error_AttachChildActor", "Cannot move {0} as it is a child actor."), FText::FromString(Actor->GetActorLabel())));
 			}
@@ -152,9 +152,9 @@ void FFolderDropTarget::OnDrop(FDragDropPayload& DraggedObjects, UWorld& World, 
 			auto* RootComp = Parent->GetRootComponent();
 
 			// We don't detach if it's a child of another that's been dragged
-			if (RootComp && RootComp->AttachParent && !ChildActors.Contains(Parent))
+			if (RootComp && RootComp->GetAttachParent() && !ChildActors.Contains(Parent))
 			{
-				if (AActor* OldParentActor = RootComp->AttachParent->GetOwner())
+				if (AActor* OldParentActor = RootComp->GetAttachParent()->GetOwner())
 				{
 					OldParentActor->Modify();
 				}

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -73,10 +73,6 @@ class ENGINE_API ULightComponent : public ULightComponentBase
 	/** Transient shadowmap channel used to preview the results of stationary light shadowmap packing. */
 	int32 PreviewShadowMapChannel;
 	
-	/** Radius of light source shape. Moved to point light */
-	UPROPERTY()
-	float SourceRadius_DEPRECATED;
-
 	/** Min roughness effective for this light. Used for softening specular highlights. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Light, AdvancedDisplay, meta=(UIMin = "0.08", UIMax = "1.0"))
 	float MinRoughness;

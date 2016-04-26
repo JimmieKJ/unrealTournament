@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "Matinee/MatineeActor.h"
@@ -120,8 +120,7 @@
 
 #include "PhysicsPublic.h"
 #include "Engine/CoreSettings.h"
-
-#include "AnimationRecorder.h"
+#include "ShaderCompiler.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditor, Log, All);
 
@@ -214,7 +213,7 @@ UEditorEngine* GEditor = nullptr;
 UEditorEngine::UEditorEngine(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	if (!IsRunningCommandlet())
+	if (!IsRunningCommandlet() && !IsRunningDedicatedServer())
 	{
 		// Structure to hold one-time initialization
 		struct FConstructorStatics
@@ -444,14 +443,15 @@ void UEditorEngine::InitEditor(IEngineLoop* InEngineLoop)
 		!FApp::IsBenchmarking() &&
 		!GIsDemoMode &&
 		!IsRunningCommandlet() &&
-		!FPlatformProcess::IsApplicationRunning(TEXT("UnrealEngineLauncher")) &&
-		!FPlatformProcess::IsApplicationRunning(TEXT("Unreal Engine Launcher")) &&
-		!FPlatformProcess::IsApplicationRunning(TEXT("Epic Launcher")) ) )
+		!FPlatformProcess::IsApplicationRunning(TEXT("EpicGamesLauncher")) &&
+		!FPlatformProcess::IsApplicationRunning(TEXT("EpicGamesLauncher-Mac-Shipping"))
+		))
 	{
 		IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
 		if ( DesktopPlatform != NULL )
 		{
-			DesktopPlatform->OpenLauncher(false, FString(), FString());
+			FOpenLauncherOptions SilentOpen;
+			DesktopPlatform->OpenLauncher(SilentOpen);
 		}
 	}
 
@@ -990,6 +990,8 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 		// This assumes that UObject::StaticTick only calls ProcessAsyncLoading.	
 		StaticTick(DeltaSeconds, !!GAsyncLoadingUseFullTimeLimit, GAsyncLoadingTimeLimit / 1000.f);
 	}
+
+	FEngineAnalytics::Tick(DeltaSeconds);
 
 	// Look for realtime flags.
 	bool IsRealtime = false;
@@ -1585,8 +1587,8 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 
 	FUnrealEdMisc::Get().TickPerformanceAnalytics();
 
-	FAnimationRecorderManager::Get().Tick(DeltaSeconds);
-	
+	BroadcastPostEditorTick(DeltaSeconds);
+
 	// If the fadeout animation has completed for the undo/redo notification item, allow it to be deleted
 	if(UndoRedoNotificationItem.IsValid() && UndoRedoNotificationItem->GetCompletionState() == SNotificationItem::CS_None)
 	{
@@ -1940,7 +1942,7 @@ void UEditorEngine::PlayPreviewSound( USoundBase* Sound,  USoundNode* SoundNode 
 		AudioComponent->bAllowSpatialization = false;
 		AudioComponent->bReverb = false;
 		AudioComponent->bCenterChannelOnly = false;
-
+		AudioComponent->bIsPreviewSound = true;
 		AudioComponent->Play();	
 	}
 }
@@ -2545,17 +2547,17 @@ void UEditorEngine::LoadMapListFromIni(const FString& InSectionName, TArray<FStr
 	}
 }
 
-void UEditorEngine::SyncBrowserToObjects( TArray<UObject*>& InObjectsToSync )
+void UEditorEngine::SyncBrowserToObjects( TArray<UObject*>& InObjectsToSync, bool bFocusContentBrowser )
 {
 	FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
-	ContentBrowserModule.Get().SyncBrowserToAssets( InObjectsToSync );
+	ContentBrowserModule.Get().SyncBrowserToAssets( InObjectsToSync, false, bFocusContentBrowser );
 
 }
 
-void UEditorEngine::SyncBrowserToObjects( TArray<class FAssetData>& InAssetsToSync )
+void UEditorEngine::SyncBrowserToObjects( TArray<class FAssetData>& InAssetsToSync, bool bFocusContentBrowser )
 {
 	FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
-	ContentBrowserModule.Get().SyncBrowserToAssets( InAssetsToSync );
+	ContentBrowserModule.Get().SyncBrowserToAssets( InAssetsToSync, false, bFocusContentBrowser );
 }
 
 
@@ -2616,6 +2618,39 @@ void UEditorEngine::SyncToContentBrowser()
 	SyncBrowserToObjects(Objects);
 }
 
+void UEditorEngine::GetLevelsToSyncToContentBrowser(TArray<UObject*>& Objects)
+{
+	for (FSelectionIterator It(GetSelectedActorIterator()); It; ++It)
+	{
+		AActor* Actor = CastChecked<AActor>(*It);
+		ULevel* ActorLevel = Actor->GetLevel();
+		if (ActorLevel)
+		{
+			// Get the outer World as this is the actual asset we need to find
+			UObject* ActorWorld = ActorLevel->GetOuter();
+			if (ActorWorld)
+			{
+				Objects.AddUnique(ActorWorld);
+			}
+		}
+	}
+}
+
+void UEditorEngine::SyncActorLevelsToContentBrowser()
+{
+	TArray<UObject*> Objects;
+	GetLevelsToSyncToContentBrowser(Objects);
+
+	SyncBrowserToObjects(Objects);
+}
+
+bool UEditorEngine::CanSyncActorLevelsToContentBrowser()
+{
+	TArray<UObject*> Objects;
+	GetLevelsToSyncToContentBrowser(Objects);
+
+	return Objects.Num() > 0;
+}
 
 void UEditorEngine::GetReferencedAssetsForEditorSelection(TArray<UObject*>& Objects, const bool bIgnoreOtherAssetsIfBPReferenced)
 {
@@ -3442,10 +3477,38 @@ void UEditorEngine::OpenMatinee(AMatineeActor* MatineeActor, bool bWarnUser)
 
 void UEditorEngine::UpdateReflectionCaptures()
 {
-	// Update sky light first because it's considered direct lighting, sky diffuse will be visible in reflection capture indirect specular
 	UWorld* World = GWorld;
-	World->UpdateAllSkyCaptures();
-	World->UpdateAllReflectionCaptures();
+	const ERHIFeatureLevel::Type ActiveFeatureLevel = World->FeatureLevel;
+	if (ActiveFeatureLevel < ERHIFeatureLevel::SM4 && GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM4)
+	{
+		FScopedSlowTask SlowTask(4, LOCTEXT("UpdatingReflectionCaptures", "Updating reflection captures"));
+		SlowTask.MakeDialog();
+		// change to GMaxRHIFeatureLevel feature level to generate capture images.
+		SlowTask.EnterProgressFrame();			
+		World->ChangeFeatureLevel(GMaxRHIFeatureLevel, false);
+
+		// Wait for shaders to compile so the capture result isn't capture black
+		if (GShaderCompilingManager != NULL)
+		{
+			GShaderCompilingManager->FinishAllCompilation();
+		}
+
+		// Update captures
+		SlowTask.EnterProgressFrame();
+		World->UpdateAllSkyCaptures();
+		SlowTask.EnterProgressFrame();
+		World->UpdateAllReflectionCaptures();
+
+		// restore to the preview feature level.
+		SlowTask.EnterProgressFrame();
+		World->ChangeFeatureLevel(ActiveFeatureLevel, false);
+	}
+	else
+	{
+		// Update sky light first because it's considered direct lighting, sky diffuse will be visible in reflection capture indirect specular
+		World->UpdateAllSkyCaptures();
+		World->UpdateAllReflectionCaptures();
+	}
 }
 
 void UEditorEngine::EditorAddModalWindow( TSharedRef<SWindow> InModalWindow ) const
@@ -3492,7 +3555,7 @@ void UEditorEngine::ParentActors( AActor* ParentActor, AActor* ChildActor, const
 	if (CanParentActors(ParentActor, ChildActor))
 	{
 		USceneComponent* ChildRoot = ChildActor->GetRootComponent();
-		USceneComponent* ParentRoot = ParentActor->GetRootComponent();
+		USceneComponent* ParentRoot = ParentActor->GetDefaultAttachComponent();
 
 		check(ChildRoot);	// CanParentActors() call should ensure this
 		check(ParentRoot);	// CanParentActors() call should ensure this
@@ -3503,9 +3566,9 @@ void UEditorEngine::ParentActors( AActor* ParentActor, AActor* ChildActor, const
 		ParentActor->Modify();
 
 		// If child is already attached to something, modify the old parent and detach
-		if(ChildRoot->AttachParent != NULL)
+		if(ChildRoot->GetAttachParent() != nullptr)
 		{
-			AActor* OldParentActor = ChildRoot->AttachParent->GetOwner();
+			AActor* OldParentActor = ChildRoot->GetAttachParent()->GetOwner();
 			OldParentActor->Modify();
 			ChildRoot->DetachFromParent(true);
 
@@ -3515,7 +3578,7 @@ void UEditorEngine::ParentActors( AActor* ParentActor, AActor* ChildActor, const
 		// If the parent is already attached to this child, modify its parent and detach so we can allow the attachment
 		if(ParentRoot->IsAttachedTo(ChildRoot))
 		{
-			ParentRoot->AttachParent->GetOwner()->Modify();
+			ParentRoot->GetAttachParent()->GetOwner()->Modify();
 			ParentRoot->DetachFromParent(true);
 		}
 
@@ -3539,9 +3602,9 @@ bool UEditorEngine::DetachSelectedActors()
 		checkSlow( Actor );
 
 		USceneComponent* RootComp = Actor->GetRootComponent();
-		if( RootComp != NULL && RootComp->AttachParent != NULL)
+		if( RootComp != nullptr && RootComp->GetAttachParent() != nullptr)
 		{
-			AActor* OldParentActor = RootComp->AttachParent->GetOwner();
+			AActor* OldParentActor = RootComp->GetAttachParent()->GetOwner();
 			OldParentActor->Modify();
 			RootComp->DetachFromParent(true);
 			bDetachOccurred = true;
@@ -3572,7 +3635,7 @@ bool UEditorEngine::CanParentActors( const AActor* ParentActor, const AActor* Ch
 	}
 
 	USceneComponent* ChildRoot = ChildActor->GetRootComponent();
-	USceneComponent* ParentRoot = ParentActor->GetRootComponent();
+	USceneComponent* ParentRoot = ParentActor->GetDefaultAttachComponent();
 	if(ChildRoot == NULL || ParentRoot == NULL)
 	{
 		if (ReasonText)
@@ -4125,27 +4188,27 @@ void UEditorEngine::SetActorLabelUnique(AActor* Actor, const FString& NewActorLa
 	FActorLabelUtilities::SetActorLabelUnique(Actor, NewActorLabel, InExistingActorLabels);
 }
 
-FString UEditorEngine::GetFriendlyName( const UProperty* Property, UStruct* OwnerClass/* = NULL*/ )
+FString UEditorEngine::GetFriendlyName( const UProperty* Property, UStruct* OwnerStruct/* = NULL*/ )
 {
 	// first, try to pull the friendly name from the loc file
 	check( Property );
-	UClass* RealOwnerClass = Property->GetOwnerClass();
-	if ( OwnerClass == NULL)
+	UStruct* RealOwnerStruct = Property->GetOwnerStruct();
+	if ( OwnerStruct == NULL)
 	{
-		OwnerClass = RealOwnerClass;
+		OwnerStruct = RealOwnerStruct;
 	}
-	checkSlow(OwnerClass);
+	checkSlow(OwnerStruct);
 
 	FText FoundText;
 	bool DidFindText = false;
-	UStruct* CurrentClass = OwnerClass;
+	UStruct* CurrentStruct = OwnerStruct;
 	do 
 	{
-		FString PropertyPathName = Property->GetPathName(CurrentClass);
+		FString PropertyPathName = Property->GetPathName(CurrentStruct);
 
-		DidFindText = FText::FindText(*CurrentClass->GetName(), *(PropertyPathName + TEXT(".FriendlyName")), /*OUT*/FoundText );
-		CurrentClass = CurrentClass->GetSuperStruct();
-	} while( CurrentClass != NULL && CurrentClass->IsChildOf(RealOwnerClass) && !DidFindText );
+		DidFindText = FText::FindText(*CurrentStruct->GetName(), *(PropertyPathName + TEXT(".FriendlyName")), /*OUT*/FoundText );
+		CurrentStruct = CurrentStruct->GetSuperStruct();
+	} while( CurrentStruct != NULL && CurrentStruct->IsChildOf(RealOwnerStruct) && !DidFindText );
 
 	if ( !DidFindText )
 	{
@@ -4527,7 +4590,7 @@ void UEditorEngine::ReplaceActors(UActorFactory* Factory, const FAssetData& Asse
 		const FTransform OldTransform = OldActor->ActorToWorld();
 
 		// create the actor
-		NewActor = Factory->CreateActor( Asset, Level, OldTransform, RF_Transactional, OldActorName );
+		NewActor = Factory->CreateActor( Asset, Level, OldTransform );
 		// For blueprints, try to copy over properties
 		if (Factory->IsA(UActorFactoryBlueprint::StaticClass()))
 		{
@@ -4542,8 +4605,10 @@ void UEditorEngine::ReplaceActors(UActorFactory* Factory, const FAssetData& Asse
 			}
 		}
 
-		if ( NewActor != NULL )
+		if (NewActor)
 		{
+			NewActor->Rename(*OldActorName.ToString());
+
 			// The new actor might not have a root component
 			USceneComponent* const NewActorRootComponent = NewActor->GetRootComponent();
 			if(NewActorRootComponent)
@@ -5438,7 +5503,10 @@ void UEditorEngine::NotifyToolsOfObjectReplacement(const TMap<UObject*, UObject*
 		PropertyEditorModule.ReplaceViewedObjects( OldToNewInstanceMap );
 	}
 
-	// Check to see if any selected components were reinstanced
+	// Allow any other observers to act upon the object replacement
+	BroadcastObjectsReplaced(OldToNewInstanceMap);
+
+	// Check to see if any selected components were reinstanced, as a final step.
 	USelection* ComponentSelection = GetSelectedComponents();
 	if (ComponentSelection)
 	{
@@ -5462,8 +5530,6 @@ void UEditorEngine::NotifyToolsOfObjectReplacement(const TMap<UObject*, UObject*
 		}
 		ComponentSelection->EndBatchSelectOperation();
 	}
-	
-	BroadcastObjectsReplaced(OldToNewInstanceMap);
 }
 
 void UEditorEngine::DisableRealtimeViewports()
@@ -5540,7 +5606,7 @@ bool UEditorEngine::ShouldThrottleCPUUsage() const
 		return false;
 	}
 
-    return bShouldThrottle && !IsRunningCommandlet();
+	return bShouldThrottle && !IsRunningCommandlet();
 }
 
 bool UEditorEngine::AreAllWindowsHidden() const
@@ -6039,8 +6105,8 @@ void UEditorEngine::UpdateAutoLoadProject()
 {
 	// If the recent project file exists and is non-empty, update the contents with the currently loaded .uproject
 	// If the recent project file exists and is empty, recent project files should not be auto-loaded
-	// If the recent project file does not exist, auto-populate it with the currently loaded project in Rocket and auto-populate empty in non-rocket
-	//		In Rocket we default to auto-loading, in non-Rocket we default to opting out of auto loading
+	// If the recent project file does not exist, auto-populate it with the currently loaded project in installed builds and auto-populate empty in non-installed
+	//		In installed builds we default to auto-loading, in non-installed we default to opting out of auto loading
 	const FString& AutoLoadProjectFileName = IProjectManager::Get().GetAutoLoadProjectFileName();
 	FString RecentProjectFileContents;
 	bool bShouldLoadRecentProjects = false;
@@ -6083,7 +6149,7 @@ void UEditorEngine::UpdateAutoLoadProject()
 			{
 				FSuppressableWarningDialog::FSetupInfo Info( LOCTEXT("UpdateMacOSX_Body","Please update to the latest version of Mac OS X for best performance."), LOCTEXT("UpdateMacOSX_Title","Update Mac OS X"), TEXT("UpdateMacOSX"), GEditorSettingsIni );
 				Info.ConfirmText = LOCTEXT( "OK", "OK");
-				Info.bDefaultToSupressInTheFuture = true;
+				Info.bDefaultToSuppressInTheFuture = true;
 				FSuppressableWarningDialog OSUpdateWarning( Info );
 				OSUpdateWarning.ShowModal();
 			}
@@ -6130,7 +6196,7 @@ void UEditorEngine::UpdateAutoLoadProject()
 			{
 				FSuppressableWarningDialog::FSetupInfo Info( LOCTEXT("UnsupportedGPUWarning_Body","The current graphics card does not meet the minimum specification, for best performance an NVIDIA GeForce 470 GTX or AMD Radeon 6870 HD series card or higher is recommended. Rendering performance and compatibility are not guaranteed with this graphics card."), LOCTEXT("UnsupportedGPUWarning_Title","Unsupported Graphics Card"), TEXT("UnsupportedGPUWarning"), GEditorSettingsIni );
 				Info.ConfirmText = LOCTEXT( "OK", "OK");
-				Info.bDefaultToSupressInTheFuture = true;
+				Info.bDefaultToSuppressInTheFuture = true;
 				FSuppressableWarningDialog OSUpdateWarning( Info );
 				OSUpdateWarning.ShowModal();
 			}
@@ -6177,7 +6243,7 @@ void UEditorEngine::UpdateAutoLoadProject()
 			{
 				FSuppressableWarningDialog::FSetupInfo Info( LOCTEXT("SlowGPUWarning_Body","The current graphics card is slower than the recommanded specification of an NVIDIA GeForce 470 GTX or AMD Radeon 6870 HD series card or higher, performance may be low."), LOCTEXT("SlowGPUWarning_Title","Slow Graphics Card"), TEXT("SlowGPUWarning"), GEditorSettingsIni );
 				Info.ConfirmText = LOCTEXT( "OK", "OK");
-				Info.bDefaultToSupressInTheFuture = true;
+				Info.bDefaultToSuppressInTheFuture = true;
 				FSuppressableWarningDialog OSUpdateWarning( Info );
 				OSUpdateWarning.ShowModal();
 			}
@@ -6194,7 +6260,7 @@ void UEditorEngine::UpdateAutoLoadProject()
 			{
 				FSuppressableWarningDialog::FSetupInfo Info( LOCTEXT("LowRAMWarning_Body","For best performance install at least 8GB of RAM."), LOCTEXT("LowRAMWarning_Title","Low RAM"), TEXT("LowRAMWarning"), GEditorSettingsIni );
 				Info.ConfirmText = LOCTEXT( "OK", "OK");
-				Info.bDefaultToSupressInTheFuture = true;
+				Info.bDefaultToSuppressInTheFuture = true;
 				FSuppressableWarningDialog OSUpdateWarning( Info );
 				OSUpdateWarning.ShowModal();
 			}
@@ -6211,7 +6277,7 @@ void UEditorEngine::UpdateAutoLoadProject()
 			{
 				FSuppressableWarningDialog::FSetupInfo Info( LOCTEXT("SlowCPUWarning_Body","For best performance a Quad-core Intel or AMD processor, 2.5 GHz or faster is recommended."), LOCTEXT("SlowCPUWarning_Title","CPU Performance Warning"), TEXT("SlowCPUWarning"), GEditorSettingsIni );
 				Info.ConfirmText = LOCTEXT( "OK", "OK");
-				Info.bDefaultToSupressInTheFuture = true;
+				Info.bDefaultToSuppressInTheFuture = true;
 				FSuppressableWarningDialog OSUpdateWarning( Info );
 				OSUpdateWarning.ShowModal();
 			}
@@ -6501,7 +6567,7 @@ void UEditorEngine::HandleTravelFailure(UWorld* InWorld, ETravelFailure::Type Fa
 	}
 }
 
-void UEditorEngine::AutomationLoadMap(const FString& MapName)
+void UEditorEngine::AutomationLoadMap(const FString& MapName, FString* OutError)
 {
 #if !UE_BUILD_SHIPPING
 	struct FFailedGameStartHandler
@@ -6569,7 +6635,10 @@ void UEditorEngine::AutomationLoadMap(const FString& MapName)
 	{
 		FFailedGameStartHandler FailHandler;
 		GEditor->PlayInEditor(GWorld, /*bInSimulateInEditor=*/false);
-		//bCanProceed = FailHandler.CanProceed();
+		if (!FailHandler.CanProceed())
+		{
+			*OutError = TEXT("Error encountered.");
+		}
 	}
 
 	//should really be wait until the map is properly loaded....in PIE or gameplay....
@@ -6578,6 +6647,7 @@ void UEditorEngine::AutomationLoadMap(const FString& MapName)
 		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(10.f));
 	}
 #endif
+	return;
 }
 
 #undef LOCTEXT_NAMESPACE 

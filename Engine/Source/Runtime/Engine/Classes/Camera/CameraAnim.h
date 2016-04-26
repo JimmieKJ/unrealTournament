@@ -1,13 +1,15 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CameraAnim.generated.h"
 
+ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogCameraAnim, Log, All);
+
 /**
  * A predefined animation to be played on a camera
  */
-UCLASS(notplaceable, MinimalAPI)
+UCLASS(BlueprintType, notplaceable, MinimalAPI)
 class UCameraAnim : public UObject
 {
 	GENERATED_UCLASS_BODY()

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BuildPatchManifest.cpp: Implements the manifest classes.
@@ -1231,11 +1231,33 @@ int64 FBuildPatchAppManifest::GetDownloadSize() const
 
 int64 FBuildPatchAppManifest::GetDownloadSize(const TSet<FString>& Tags) const
 {
-	TSet<FString> TaggedFiles;
-	GetTaggedFileList(Tags, TaggedFiles);
-	TArray<FGuid> RequiredChunks;
-	GetChunksRequiredForFiles(TaggedFiles.Array(), RequiredChunks, true);
-	return GetDataSize(RequiredChunks);
+	// For each tag we iterate the files and for each new chunk we find we add the download size for it.
+	TSet<FGuid> RequiredChunks;
+	int64 TotalSize = 0;
+	for (const FString& Tag : Tags)
+	{
+		const TArray<FFileManifestData*>* Files = TaggedFilesLookup.Find(Tag);
+		if (Files != nullptr)
+		{
+			for (const FFileManifestData* File : *Files)
+			{
+				for (const FChunkPartData& ChunkPart : File->FileChunkParts)
+				{
+					bool bAlreadyInSet;
+					RequiredChunks.Add(ChunkPart.Guid, &bAlreadyInSet);
+					if (!bAlreadyInSet)
+					{
+						const FChunkInfoData * const * ChunkInfo = ChunkInfoLookup.Find(ChunkPart.Guid);
+						if (ChunkInfo != nullptr)
+						{
+							TotalSize += (*ChunkInfo)->FileSize;
+						}
+					}
+				}
+			}
+		}
+	}
+	return TotalSize;
 }
 
 int64 FBuildPatchAppManifest::GetBuildSize() const
@@ -1245,9 +1267,26 @@ int64 FBuildPatchAppManifest::GetBuildSize() const
 
 int64 FBuildPatchAppManifest::GetBuildSize(const TSet<FString>& Tags) const
 {
-	TSet<FString> TaggedFiles;
-	GetTaggedFileList(Tags, TaggedFiles);
-	return GetFileSize(TaggedFiles.Array());
+	// For each tag we iterate the files and for each new file we find we add the size for it.
+	TSet<const FFileManifestData*> RequiredFiles;
+	int64 TotalSize = 0;
+	for (const FString& Tag : Tags)
+	{
+		const TArray<FFileManifestData*>* Files = TaggedFilesLookup.Find(Tag);
+		if (Files != nullptr)
+		{
+			for (const FFileManifestData* File : *Files)
+			{
+				bool bAlreadyInSet;
+				RequiredFiles.Add(File, &bAlreadyInSet);
+				if (!bAlreadyInSet)
+				{
+					TotalSize += File->GetFileSize();
+				}
+			}
+		}
+	}
+	return TotalSize;
 }
 
 TArray<FString> FBuildPatchAppManifest::GetBuildFileList() const

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -30,6 +30,8 @@ class ALandscape;
 class ALandscapeProxy;
 class ULandscapeComponent;
 class USplineComponent;
+struct FLandscapeInfoLayerSettings;
+struct FAsyncGrassBuilder;
 
 /** Structure storing channel usage for weightmap textures */
 USTRUCT()
@@ -172,7 +174,7 @@ struct FLandscapeImportLayerInfo
 	{
 	}
 
-	LANDSCAPE_API FLandscapeImportLayerInfo(const struct FLandscapeInfoLayerSettings& InLayerSettings);
+	LANDSCAPE_API FLandscapeImportLayerInfo(const FLandscapeInfoLayerSettings& InLayerSettings);
 #endif
 };
 
@@ -180,20 +182,20 @@ struct FLandscapeImportLayerInfo
 // results in Engine being dependent on LandscapeEditor, as the actual landscape editing
 // code (e.g. LandscapeEdit.h) is in /Engine/ for some reason...
 UENUM()
-namespace ELandscapeLayerPaintingRestriction
+enum class ELandscapeLayerPaintingRestriction : uint8
 {
-	enum Type
-	{
-		/** No restriction, can paint anywhere (default). */
-		None         UMETA(DisplayName="None"),
+	/** No restriction, can paint anywhere (default). */
+	None         UMETA(DisplayName="None"),
 
-		/** Uses the MaxPaintedLayersPerComponent setting from the LandscapeProxy. */
-		UseMaxLayers UMETA(DisplayName="Limit Layer Count"),
+	/** Uses the MaxPaintedLayersPerComponent setting from the LandscapeProxy. */
+	UseMaxLayers UMETA(DisplayName="Limit Layer Count"),
 
-		/** Restricts painting to only components that already have this layer. */
-		ExistingOnly UMETA(DisplayName="Existing Layers Only"),
-	};
-}
+	/** Restricts painting to only components that already have this layer. */
+	ExistingOnly UMETA(DisplayName="Existing Layers Only"),
+
+	/** Restricts painting to only components that have this layer in their whitelist. */
+	UseComponentWhitelist UMETA(DisplayName="Component Whitelist"),
+};
 
 UENUM()
 namespace ELandscapeLODFalloff
@@ -299,11 +301,11 @@ struct FCachedLandscapeFoliage
 class FAsyncGrassTask : public FNonAbandonableTask
 {
 public:
-	struct FAsyncGrassBuilder* Builder;
+	FAsyncGrassBuilder* Builder;
 	FCachedLandscapeFoliage::FGrassCompKey Key;
 	TWeakObjectPtr<UHierarchicalInstancedStaticMeshComponent> Foliage;
 
-	FAsyncGrassTask(struct FAsyncGrassBuilder* InBuilder, const FCachedLandscapeFoliage::FGrassCompKey& InKey, UHierarchicalInstancedStaticMeshComponent* InFoliage)
+	FAsyncGrassTask(FAsyncGrassBuilder* InBuilder, const FCachedLandscapeFoliage::FGrassCompKey& InKey, UHierarchicalInstancedStaticMeshComponent* InFoliage)
 		: Builder(InBuilder)
 		, Key(InKey)
 		, Foliage(InFoliage)
@@ -320,7 +322,7 @@ public:
 };
 
 UCLASS(NotPlaceable, NotBlueprintable, hidecategories=(Display, Attachment, Physics, Debug, Lighting, LOD), showcategories=(Lighting, Rendering, "Utilities|Transformation"), MinimalAPI)
-class ALandscapeProxy : public AActor, public FTickableGameObject
+class ALandscapeProxy : public AActor
 {
 	GENERATED_UCLASS_BODY()
 
@@ -351,7 +353,7 @@ public:
 
 #if WITH_EDITORONLY_DATA
 	/** LOD level to use when exporting the landscape to obj or FBX */
-	UPROPERTY(EditAnywhere, Category=LOD)
+	UPROPERTY(EditAnywhere, Category=LOD, AdvancedDisplay)
 	int32 ExportLOD;
 #endif
 
@@ -398,6 +400,11 @@ public:
 	/** A transient data structure for tracking the grass tasks*/
 	TArray<FAsyncTask<FAsyncGrassTask>* > AsyncFoliageTasks;
 
+	// Only used outside of the editor (e.g. in cooked builds)
+	// Disables landscape grass processing entirely if no landscape components have landscape grass configured
+	UPROPERTY()
+	bool bHasLandscapeGrass;
+
 	/**
 	 *	The resolution to cache lighting at, in texels/quad in one axis
 	 *  Total resolution would be changed by StaticLightingResolution*StaticLightingResolution
@@ -419,6 +426,12 @@ public:
 	/** Whether this primitive should cast shadows in the far shadow cascades. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Lighting, meta=(DisplayName = "Far Shadow"))
 	uint32 bCastFarShadow:1;
+	
+	/** Whether to use the landscape material's vertical world position offset when calculating static lighting.
+		Note: Only z (vertical) offset is supported. XY offsets are ignored.
+		Does not work correctly with an XY offset map (mesh collision) */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Lighting)
+	uint32 bUseMaterialPositionOffsetInStaticLighting:1;
 
 	UPROPERTY()
 	uint32 bIsProxy:1;
@@ -430,19 +443,30 @@ public:
 
 	/** The Lightmass settings for this object. */
 	UPROPERTY(EditAnywhere, Category=Lightmass)
-	struct FLightmassPrimitiveSettings LightmassSettings;
+	FLightmassPrimitiveSettings LightmassSettings;
 
 	// Landscape LOD to use for collision tests. Higher numbers use less memory and process faster, but are much less accurate
-	UPROPERTY(EditAnywhere, Category=Landscape)
+	UPROPERTY(EditAnywhere, Category=Collision)
 	int32 CollisionMipLevel;
 
+	// If set higher than the "Collision Mip Level", this specifies the Landscape LOD to use for "simple collision" tests, otherwise the "Collision Mip Level" is used for both simple and complex collision.
+	// Does not work with an XY offset map (mesh collision)
+	UPROPERTY(EditAnywhere, Category=Collision)
+	int32 SimpleCollisionMipLevel;
+
 	/** Thickness of the collision surface, in unreal units */
-	UPROPERTY(EditAnywhere, Category=Landscape)
+	UPROPERTY(EditAnywhere, Category=Collision)
 	float CollisionThickness;
 
 	/** Collision profile settings for this landscape */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Collision, meta=(ShowOnlyInnerProperties))
 	FBodyInstance BodyInstance;
+
+	/** Whether to bake the landscape material's vertical world position offset into the collision heightfield.
+		Note: Only z (vertical) offset is supported. XY offsets are ignored.
+		Does not work with an XY offset map (mesh collision) */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Collision)
+	uint32 bBakeMaterialPositionOffsetIntoCollision:1;
 
 #if WITH_EDITORONLY_DATA
 	UPROPERTY()
@@ -452,7 +476,7 @@ public:
 	FString ReimportHeightmapFilePath;
 
 	UPROPERTY()
-	TArray<struct FLandscapeEditorLayerSettings> EditorLayerSettings;
+	TArray<FLandscapeEditorLayerSettings> EditorLayerSettings;
 #endif
 
 	/** Data set at creation time */
@@ -473,12 +497,16 @@ public:
 	ENavDataGatheringMode NavigationGeometryGatheringMode;
 
 	UPROPERTY(EditAnywhere, Category=LOD)
-	TEnumAsByte<enum ELandscapeLODFalloff::Type> LODFalloff;
+	TEnumAsByte<ELandscapeLODFalloff::Type> LODFalloff;
 
 #if WITH_EDITORONLY_DATA
 	UPROPERTY(EditAnywhere, Category=Landscape)
 	int32 MaxPaintedLayersPerComponent; // 0 = disabled
 #endif
+
+	/** Flag whether or not this Landscape's surface can be used for culling hidden triangles **/
+	UPROPERTY(EditAnywhere, Category = HLOD)
+	bool bUseLandscapeForCullingInvisibleHLODVertices;
 
 public:
 
@@ -490,7 +518,7 @@ public:
 	TMap<FString, UMaterialInstanceConstant*> MaterialInstanceConstantMap;
 
 	/** Map of weightmap usage */
-	TMap<UTexture2D*, struct FLandscapeWeightmapUsage> WeightmapUsageMap;
+	TMap<UTexture2D*, FLandscapeWeightmapUsage> WeightmapUsageMap;
 
 	// Blueprint functions
 
@@ -567,26 +595,12 @@ public:
 	int32 UpdateBakedTexturesCountdown;
 #endif
 
-	//~ Begin FTickableGameObject Interface.
-	virtual void Tick(float DeltaTime) override;
-	virtual bool IsTickable() const override 
-	{ 
-		return !HasAnyFlags(RF_ClassDefaultObject); 
-	}
-	virtual bool IsTickableWhenPaused() const override
-	{
-		return !HasAnyFlags(RF_ClassDefaultObject); 
-	}
-	virtual bool IsTickableInEditor() const override
-	{
-		return !HasAnyFlags(RF_ClassDefaultObject); 
-	}
-	virtual TStatId GetStatId() const override
-	{
-		return GetStatID();
-	}
+	//~ Begin AActor Interface.
+	virtual void TickActor(float DeltaTime, ELevelTick TickType, FActorTickFunction& ThisTickFunction) override;
+	//~ End AActor Interface
 
 	//~ Begin UObject Interface.
+	virtual void PreSave() override;
 	virtual void Serialize(FArchive& Ar) override;
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 	virtual void PostLoad() override;
@@ -658,7 +672,7 @@ public:
 	 * @param OutRawMesh - Resulting raw mesh
 	 * @return true if successful
 	 */
-	LANDSCAPE_API bool ExportToRawMesh(int32 InExportLOD, struct FRawMesh& OutRawMesh) const;
+	LANDSCAPE_API bool ExportToRawMesh(int32 InExportLOD, FRawMesh& OutRawMesh) const;
 
 
 	/** @return Current size of bounding rectangle in quads space */
@@ -683,6 +697,4 @@ public:
 	LANDSCAPE_API void RemoveOverlappingComponent(ULandscapeComponent* Component);
 #endif
 };
-
-
 

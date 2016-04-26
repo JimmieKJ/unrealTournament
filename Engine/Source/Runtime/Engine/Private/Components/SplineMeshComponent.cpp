@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Components/SplineMeshComponent.h"
@@ -6,6 +6,7 @@
 #include "ShaderParameterUtils.h"
 #include "NavigationSystemHelpers.h"
 #include "AI/Navigation/NavCollision.h"
+#include "Engine/StaticMeshSocket.h"
 
 
 //////////////////////////////////////////////////////////////////////////
@@ -38,10 +39,16 @@ void FSplineMeshVertexFactoryShaderParameters::Bind(const FShaderParameterMap& P
 
 void FSplineMeshVertexFactoryShaderParameters::SetMesh(FRHICommandList& RHICmdList, FShader* Shader, const FVertexFactory* VertexFactory, const FSceneView& View, const FMeshBatchElement& BatchElement, uint32 DataFlags) const
 {
+	if (BatchElement.bUserDataIsColorVertexBuffer)
+	{
+		FColorVertexBuffer* OverrideColorVertexBuffer = (FColorVertexBuffer*)BatchElement.UserData;
+		check(OverrideColorVertexBuffer);
+		static_cast<const FLocalVertexFactory*>(VertexFactory)->SetColorOverrideStream(RHICmdList, OverrideColorVertexBuffer);
+	}
 	if (Shader->GetVertexShader())
 	{
-		FSplineMeshVertexFactory* SplineVertexFactory = (FSplineMeshVertexFactory*)VertexFactory;
-		FSplineMeshSceneProxy* SplineProxy = SplineVertexFactory->SplineSceneProxy;
+		checkSlow(BatchElement.bIsSplineProxy);
+		FSplineMeshSceneProxy* SplineProxy = BatchElement.SplineMeshSceneProxy;
 		FSplineMeshParams& SplineParams = SplineProxy->SplineParams;
 
 		SetShaderValue(RHICmdList, Shader->GetVertexShader(), SplineStartPosParam, SplineParams.StartPos);
@@ -88,17 +95,31 @@ FVertexFactoryShaderParameters* FSplineMeshVertexFactory::ConstructShaderParamet
 //////////////////////////////////////////////////////////////////////////
 // SplineMeshSceneProxy
 
-void FSplineMeshSceneProxy::InitResources( USplineMeshComponent* InComponent, int32 InLODIndex, FColorVertexBuffer* InOverrideColorVertexBuffer )
+void FSplineMeshSceneProxy::InitVertexFactory(USplineMeshComponent* InComponent, int32 InLODIndex, FColorVertexBuffer* InOverrideColorVertexBuffer)
 {
 	// Initialize the static mesh's vertex factory.
-	ENQUEUE_UNIQUE_RENDER_COMMAND_FOURPARAMETER(
+	ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
 		InitSplineMeshVertexFactory,
-		FSplineMeshVertexFactory*, VertexFactory, LODResources[InLODIndex].VertexFactory,
 		FStaticMeshLODResources*, RenderData, &InComponent->StaticMesh->RenderData->LODResources[InLODIndex],
 		UStaticMesh*, Parent, InComponent->StaticMesh,
-		FColorVertexBuffer*, OverridenColorVertexBuffer, InOverrideColorVertexBuffer,
+		bool, bOverrideColorVertexBuffer, !!InOverrideColorVertexBuffer,
 		{
-		FLocalVertexFactory::DataType Data;
+
+		if ((RenderData->SplineVertexFactory && !bOverrideColorVertexBuffer) || (RenderData->SplineVertexFactoryOverrideColorVertexBuffer && bOverrideColorVertexBuffer))
+		{
+			// we already have it
+			return;
+		}
+		FSplineMeshVertexFactory* VertexFactory = new FSplineMeshVertexFactory;
+		if (bOverrideColorVertexBuffer)
+		{
+			RenderData->SplineVertexFactoryOverrideColorVertexBuffer = VertexFactory;
+		}
+		else
+		{
+			RenderData->SplineVertexFactory = VertexFactory;
+		}
+		FLocalVertexFactory::FDataType Data;
 
 		Data.PositionComponent = FVertexStreamComponent(
 			&RenderData->PositionVertexBuffer,
@@ -118,14 +139,21 @@ void FSplineMeshSceneProxy::InitResources( USplineMeshComponent* InComponent, in
 			RenderData->VertexBuffer.GetStride(),
 			VET_PackedNormal
 			);
-		
-		FColorVertexBuffer* LODColorVertexBuffer = &RenderData->ColorVertexBuffer;
-		// Override the buffer if it has been changed
-		if ( OverridenColorVertexBuffer != NULL )
+		if (bOverrideColorVertexBuffer)
 		{
-			LODColorVertexBuffer = OverridenColorVertexBuffer;
+			Data.ColorComponent = FVertexStreamComponent(
+				&GNullColorVertexBuffer,
+				0,	// Struct offset to color
+				sizeof(FColor), //asserted elsewhere
+				VET_Color,
+				false, // not instanced
+				true // set in SetMesh
+				);
 		}
-		if ( LODColorVertexBuffer->GetNumVertices() > 0 )
+		else
+		{
+			FColorVertexBuffer* LODColorVertexBuffer = &RenderData->ColorVertexBuffer;
+			if (LODColorVertexBuffer->GetNumVertices() > 0)
 		{
 			Data.ColorComponent = FVertexStreamComponent(
 				LODColorVertexBuffer,
@@ -133,6 +161,7 @@ void FSplineMeshSceneProxy::InitResources( USplineMeshComponent* InComponent, in
 				LODColorVertexBuffer->GetStride(),
 				VET_Color
 				);
+		}
 		}
 
 		Data.TextureCoordinates.Empty();
@@ -210,14 +239,6 @@ void FSplineMeshSceneProxy::InitResources( USplineMeshComponent* InComponent, in
 	});
 }
 
-
-void FSplineMeshSceneProxy::ReleaseResources()
-{
-	for (FSplineMeshSceneProxy::FLODResources& LODResource : LODResources)
-	{
-		LODResource.VertexFactory->ReleaseResource();
-	}
-}
 
 //////////////////////////////////////////////////////////////////////////
 // SplineMeshComponent
@@ -696,6 +717,42 @@ FBoxSphereBounds USplineMeshComponent::CalcBounds(const FTransform& LocalToWorld
 	return FBoxSphereBounds(BoundingBox.TransformBy(LocalToWorld));
 }
 
+FTransform USplineMeshComponent::GetSocketTransform(FName InSocketName, ERelativeTransformSpace TransformSpace) const
+{
+	if (InSocketName != NAME_None)
+	{
+		UStaticMeshSocket const* const Socket = GetSocketByName(InSocketName);
+		if (Socket)
+		{
+			FTransform SocketTransform;
+			SocketTransform = FTransform(Socket->RelativeRotation, Socket->RelativeLocation * GetAxisMask(ForwardAxis), Socket->RelativeScale);
+			SocketTransform = SocketTransform * CalcSliceTransform(GetAxisValue(Socket->RelativeLocation, ForwardAxis));
+
+			switch (TransformSpace)
+			{
+			case RTS_World:
+			{
+				return SocketTransform * GetComponentToWorld();
+			}
+			case RTS_Actor:
+			{
+				if (const AActor* Actor = GetOwner())
+				{
+					return (SocketTransform * GetComponentToWorld()).GetRelativeTransform(GetOwner()->GetTransform());
+				}
+				break;
+			}
+			case RTS_Component:
+			{
+				return SocketTransform;
+			}
+			}
+		}
+	}
+
+	return Super::GetSocketTransform(InSocketName, TransformSpace);
+}
+
 
 FTransform USplineMeshComponent::CalcSliceTransform(const float DistanceAlong) const
 {
@@ -982,7 +1039,7 @@ void USplineMeshComponent::RecreateCollision()
 			{
 				FKConvexElem& ConvexElem = *new(BodySetup->AggGeom.ConvexElems) FKConvexElem();
 
-				const FVector Radii = FVector(BoxElem.X / 2, BoxElem.Y / 2, BoxElem.Z / 2);
+				const FVector Radii = FVector(BoxElem.X / 2, BoxElem.Y / 2, BoxElem.Z / 2).ComponentMax(FVector(1.0f));
 				const FTransform ElementTM = BoxElem.GetTransform();
 				ConvexElem.VertexData.Empty(8);
 				ConvexElem.VertexData.Add(ElementTM.TransformPosition(Radii * FVector(-1,-1,-1)));
@@ -1101,4 +1158,40 @@ private:
 FStaticMeshStaticLightingMesh* USplineMeshComponent::AllocateStaticLightingMesh(int32 LODIndex, const TArray<ULightComponent*>& InRelevantLights)
 {
 	return new FSplineStaticLightingMesh(this, LODIndex, InRelevantLights);
+}
+
+
+bool USplineMeshComponent::GetStreamingTextureFactors(float& OutWorldTexelFactor, float& OutWorldLightmapFactor, FBoxSphereBounds& OutBounds, int32 LODIndex, int32 ElementIndex) const
+{
+	if (UStaticMeshComponent::GetStreamingTextureFactors(OutWorldTexelFactor, OutWorldLightmapFactor, OutBounds, LODIndex, ElementIndex))
+	{
+		// We need to come up with a compensation factor for spline deformed meshes
+
+		float SplineDeformFactor = 1.f;
+
+		// We do this by looking at the ratio between current bounds (including deformation) and undeformed (straight from staticmesh)
+		const float MinExtent = 1.0f;
+		FBoxSphereBounds UndeformedBounds = StaticMesh->GetBounds().TransformBy(ComponentToWorld);
+		if (UndeformedBounds.BoxExtent.X >= MinExtent)
+		{
+			SplineDeformFactor = FMath::Max(SplineDeformFactor, Bounds.BoxExtent.X / UndeformedBounds.BoxExtent.X);
+		}
+		if (UndeformedBounds.BoxExtent.Y >= MinExtent)
+		{
+			SplineDeformFactor = FMath::Max(SplineDeformFactor, Bounds.BoxExtent.Y / UndeformedBounds.BoxExtent.Y);
+		}
+		if (UndeformedBounds.BoxExtent.Z >= MinExtent)
+		{
+			SplineDeformFactor = FMath::Max(SplineDeformFactor, Bounds.BoxExtent.Z / UndeformedBounds.BoxExtent.Z);
+		}
+
+		OutWorldTexelFactor *= SplineDeformFactor;
+		OutWorldLightmapFactor *= SplineDeformFactor;
+
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }

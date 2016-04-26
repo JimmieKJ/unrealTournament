@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 #include "AbilityTask.h"
 #include "Abilities/GameplayAbilityTypes.h"
@@ -21,7 +21,7 @@ class UAbilityTask_WaitGameplayTagAdded : public UAbilityTask_WaitGameplayTag
 	 *  If the tag is already present when this task is started, it will immediately broadcast the Added event. It will keep listening as long as OnlyTriggerOnce = false.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Ability|Tasks", meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", BlueprintInternalUseOnly = "TRUE"))
-	static UAbilityTask_WaitGameplayTagAdded* WaitGameplayTagAdd(UObject* WorldContextObject, FGameplayTag Tag, AActor* OptionalExternalTarget=nullptr, bool OnlyTriggerOnce=false);
+	static UAbilityTask_WaitGameplayTagAdded* WaitGameplayTagAdd(UObject* WorldContextObject, FGameplayTag Tag, AActor* InOptionalExternalTarget=nullptr, bool OnlyTriggerOnce=false);
 
 	virtual void Activate() override;
 
@@ -41,7 +41,7 @@ class UAbilityTask_WaitGameplayTagRemoved : public UAbilityTask_WaitGameplayTag
 	 *  If the tag is not present when this task is started, it will immediately broadcast the Removed event. It will keep listening as long as OnlyTriggerOnce = false.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Ability|Tasks", meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", BlueprintInternalUseOnly = "TRUE"))
-	static UAbilityTask_WaitGameplayTagRemoved* WaitGameplayTagRemove(UObject* WorldContextObject, FGameplayTag Tag, AActor* OptionalExternalTarget=nullptr, bool OnlyTriggerOnce=false);
+	static UAbilityTask_WaitGameplayTagRemoved* WaitGameplayTagRemove(UObject* WorldContextObject, FGameplayTag Tag, AActor* InOptionalExternalTarget=nullptr, bool OnlyTriggerOnce=false);
 
 	virtual void Activate() override;
 

@@ -1,10 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlatePrivatePCH.h"
 
 #if WITH_FANCY_TEXT
 
 #include "SlateWidgetRun.h"
+#include "RunUtils.h"
 
 TSharedRef< FSlateWidgetRun > FSlateWidgetRun::Create(const TSharedRef<class FTextLayout>& TextLayout, const FRunInfo& InRunInfo, const TSharedRef< const FString >& InText, const FWidgetRunInfo& InWidgetInfo)
 {
@@ -118,7 +119,10 @@ int32 FSlateWidgetRun::GetTextIndexAt( const TSharedRef< ILayoutBlock >& Block, 
 	if (OutHitPoint)
 	{
 		const FTextRange BlockRange = Block->GetTextRange();
-		*OutHitPoint = (Index == BlockRange.EndIndex) ? ETextHitPoint::RightGutter : ETextHitPoint::WithinText;
+		const FLayoutBlockTextContext BlockTextContext = Block->GetTextContext();
+
+		// The block for a widget will always detect a LTR reading direction, so use the base direction (of the line) for the image hit-point detection
+		*OutHitPoint = RunUtils::CalculateTextHitPoint(Index, BlockRange, BlockTextContext.BaseDirection);
 	}
 
 	return Index;

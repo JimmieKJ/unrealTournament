@@ -4,6 +4,7 @@
 #include "UTHUD_CTF.h"
 #include "UTCTFGameMode.h"
 #include "UTCTFGameMessage.h"
+#include "UTCTFMajorMessage.h"
 #include "UTCTFRewardMessage.h"
 #include "UTFirstBloodMessage.h"
 #include "UTCountDownMessage.h"
@@ -136,7 +137,7 @@ void AUTCTFGameMode::CheckGameTime()
 	if ( CTFGameState->IsMatchInProgress() && (TimeLimit != 0) )
 	{
 		// If the match is in progress and we are not playing advantage, then enter the halftime/end of game logic depending on the half
-		if (CTFGameState->RemainingTime <= 0)
+		if (CTFGameState->GetRemainingTime() <= 0)
 		{
 			if (!CTFGameState->IsMatchInOvertime() && CTFGameState->bSecondHalf && bAllowOvertime)
 			{
@@ -269,7 +270,7 @@ void AUTCTFGameMode::HandleMatchIntermission()
 		CTFGameState->SetTimeLimit(10);
 	}
 
-	BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 11, NULL, NULL, NULL);
+	BroadcastLocalized(this, UUTCTFMajorMessage::StaticClass(), 11, NULL, NULL, NULL);
 }
 
 void AUTCTFGameMode::DefaultTimer()
@@ -346,7 +347,7 @@ void AUTCTFGameMode::HandleEnteringOvertime()
 
 void AUTCTFGameMode::HandleMatchInOvertime()
 {
-	BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 12, NULL, NULL, NULL);
+	BroadcastLocalized(this, UUTCTFMajorMessage::StaticClass(), 12, NULL, NULL, NULL);
 	CTFGameState->bPlayingAdvantage = false;
 }
 
@@ -455,11 +456,11 @@ void AUTCTFGameMode::SetRemainingTime(int32 RemainingSeconds)
 	if (RemainingSeconds > TimeLimit)
 	{
 		// still in first half;
-		UTGameState->RemainingTime = RemainingSeconds - TimeLimit;
+		UTGameState->SetRemainingTime(RemainingSeconds - TimeLimit);
 	}
 	else
 	{
-		UTGameState->RemainingTime = 1;
+		UTGameState->SetRemainingTime(1);
 		TimeLimit = RemainingSeconds;
 		IntermissionDuration = 5;
 	}

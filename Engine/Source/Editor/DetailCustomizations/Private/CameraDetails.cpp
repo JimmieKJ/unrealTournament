@@ -1,8 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "DetailCustomizationsPrivatePCH.h"
 #include "CameraDetails.h"
+#include "EditorCategoryUtils.h"
 #include "SNumericEntryBox.h"
+#include "EditorCategoryUtils.h"
+
 
 #define LOCTEXT_NAMESPACE "CameraDetails"
 
@@ -11,76 +14,99 @@ const float FCameraDetails::MaxAspectRatio = 100.0f;
 const float FCameraDetails::LowestCommonAspectRatio = 1.0f;
 const float FCameraDetails::HighestCommonAspectRatio = 2.5f;
 
+
 TSharedRef<IDetailCustomization> FCameraDetails::MakeInstance()
 {
 	return MakeShareable( new FCameraDetails );
 }
+
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void FCameraDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
 {
 	FSlateFontInfo FontStyle = FEditorStyle::GetFontStyle(TEXT("PropertyWindow.NormalFont"));
 
-
 	LastParsedAspectRatioValue = -1.0f;
 
 	TSharedPtr<IPropertyHandle> bConstrainAspectRatioProperty = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UCameraComponent, bConstrainAspectRatio));
 	TSharedPtr<IPropertyHandle> ProjectionModeProperty = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UCameraComponent, ProjectionMode));
 	AspectRatioProperty = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UCameraComponent, AspectRatio));
-	check(AspectRatioProperty.IsValid() && AspectRatioProperty->IsValidHandle());
+	check(AspectRatioProperty.IsValid());
 
-	FSimpleDelegate OnAspectRatioChangedDelegate = FSimpleDelegate::CreateSP( this, &FCameraDetails::OnAspectRatioChanged );
-	AspectRatioProperty->SetOnPropertyValueChanged( OnAspectRatioChangedDelegate );
+	if (AspectRatioProperty.IsValid() && AspectRatioProperty->IsValidHandle())
+	{
+		FSimpleDelegate OnAspectRatioChangedDelegate = FSimpleDelegate::CreateSP(this, &FCameraDetails::OnAspectRatioChanged);
+		AspectRatioProperty->SetOnPropertyValueChanged(OnAspectRatioChangedDelegate);
+	}
 
-	IDetailCategoryBuilder& CameraCategory = DetailLayout.EditCategory( "CameraSettings", FText::GetEmpty(), ECategoryPriority::Important );
+	// see if CameraSettings category should be hidden
+	bool bCameraSettingsHidden = false;
+	{
+		TArray< TWeakObjectPtr<UObject> > Objects;
+		DetailLayout.GetObjectsBeingCustomized(Objects);
+
+		for (TWeakObjectPtr<UObject> ObjWP : Objects)
+		{
+			UObject* const Obj = ObjWP.Get();
+			if (Obj && (FEditorCategoryUtils::IsCategoryHiddenFromClass(Obj->GetClass(), TEXT("CameraSettings"))))
+			{
+				bCameraSettingsHidden = true;
+				break;
+			}
+		}
+	}
+
+	if (bCameraSettingsHidden == false)
+	{
+		IDetailCategoryBuilder& CameraCategory = DetailLayout.EditCategory( "CameraSettings", FText::GetEmpty(), ECategoryPriority::Important );
 	
-	// Organize the properties
-	CameraCategory.AddProperty(ProjectionModeProperty);
+		// Organize the properties
+		CameraCategory.AddProperty(ProjectionModeProperty);
 
-	// Perspective-specific properties
-	IDetailPropertyRow& FieldOfViewRow = CameraCategory.AddProperty(DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UCameraComponent, FieldOfView)));
-	FieldOfViewRow.Visibility( TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP( this, &FCameraDetails::ProjectionModeMatches, ProjectionModeProperty, ECameraProjectionMode::Perspective ) ) );
+		// Perspective-specific properties
+		IDetailPropertyRow& FieldOfViewRow = CameraCategory.AddProperty(DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UCameraComponent, FieldOfView)));
+		FieldOfViewRow.Visibility( TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP( this, &FCameraDetails::ProjectionModeMatches, ProjectionModeProperty, ECameraProjectionMode::Perspective ) ) );
 
-	// Orthographic-specific properties
-	TAttribute<EVisibility> OrthographicVisibility = TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FCameraDetails::ProjectionModeMatches, ProjectionModeProperty, ECameraProjectionMode::Orthographic));
+		// Orthographic-specific properties
+		TAttribute<EVisibility> OrthographicVisibility = TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FCameraDetails::ProjectionModeMatches, ProjectionModeProperty, ECameraProjectionMode::Orthographic));
 
-	IDetailPropertyRow& OrthoWidthRow = CameraCategory.AddProperty(DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UCameraComponent, OrthoWidth)));
-	OrthoWidthRow.Visibility(OrthographicVisibility);
+		IDetailPropertyRow& OrthoWidthRow = CameraCategory.AddProperty(DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UCameraComponent, OrthoWidth)));
+		OrthoWidthRow.Visibility(OrthographicVisibility);
 
-	IDetailPropertyRow& OrthoNearClipPlaneRow = CameraCategory.AddProperty(DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UCameraComponent, OrthoNearClipPlane)));
-	OrthoNearClipPlaneRow.Visibility(OrthographicVisibility);
+		IDetailPropertyRow& OrthoNearClipPlaneRow = CameraCategory.AddProperty(DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UCameraComponent, OrthoNearClipPlane)));
+		OrthoNearClipPlaneRow.Visibility(OrthographicVisibility);
 
-	IDetailPropertyRow& OrthoFarClipPlaneRow = CameraCategory.AddProperty(DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UCameraComponent, OrthoFarClipPlane)));
-	OrthoFarClipPlaneRow.Visibility(OrthographicVisibility);
+		IDetailPropertyRow& OrthoFarClipPlaneRow = CameraCategory.AddProperty(DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UCameraComponent, OrthoFarClipPlane)));
+		OrthoFarClipPlaneRow.Visibility(OrthographicVisibility);
 
-	// Aspect ratio
-	CameraCategory.AddProperty( bConstrainAspectRatioProperty );
-	IDetailPropertyRow& AspectRatioRow = CameraCategory.AddProperty(AspectRatioProperty);
+		// Aspect ratio
+		CameraCategory.AddProperty( bConstrainAspectRatioProperty );
+		IDetailPropertyRow& AspectRatioRow = CameraCategory.AddProperty(AspectRatioProperty);
 
-	// Provide the special aspect ratio row
-	AspectRatioRow.CustomWidget()
-		.NameContent()
-		[
-			AspectRatioProperty->CreatePropertyNameWidget()
-		]
-		.ValueContent()
-		[
-			SNew(SHorizontalBox)
-			+SHorizontalBox::Slot()
-			.Padding(0.0f, 2.0f, 5.0f, 2.0f)
+		// Provide the special aspect ratio row
+		AspectRatioRow.CustomWidget()
+			.NameContent()
 			[
-				SNew(SNumericEntryBox<float>)
-				.AllowSpin(true)
-				.Value(this, &FCameraDetails::GetAspectRatio)
-				.Font(FontStyle)
-				.MinValue(MinAspectRatio)
-				.MaxValue(MaxAspectRatio)
-				.MinSliderValue(LowestCommonAspectRatio)
-				.MaxSliderValue(HighestCommonAspectRatio)
-				.OnValueChanged(this, &FCameraDetails::OnAspectRatioSpinnerChanged)
-				.ToolTipText(LOCTEXT("AspectFloatTooltip", "Aspect Ratio (Width/Height)"))
+				AspectRatioProperty->CreatePropertyNameWidget()
 			]
-			+SHorizontalBox::Slot()
+			.ValueContent()
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.Padding(0.0f, 2.0f, 5.0f, 2.0f)
+				[
+					SNew(SNumericEntryBox<float>)
+					.AllowSpin(true)
+					.Value(this, &FCameraDetails::GetAspectRatio)
+					.Font(FontStyle)
+					.MinValue(MinAspectRatio)
+					.MaxValue(MaxAspectRatio)
+					.MinSliderValue(LowestCommonAspectRatio)
+					.MaxSliderValue(HighestCommonAspectRatio)
+					.OnValueChanged(this, &FCameraDetails::OnAspectRatioSpinnerChanged)
+					.ToolTipText(LOCTEXT("AspectFloatTooltip", "Aspect Ratio (Width/Height)"))
+				]
+				+SHorizontalBox::Slot()
 				[
 					SNew(SComboButton)
 					.OnGetMenuContent( this, &FCameraDetails::OnGetComboContent )
@@ -97,10 +123,11 @@ void FCameraDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
 						.OnTextCommitted(this, &FCameraDetails::OnCommitAspectRatioText)
 					]
 				]
-		];
-
-	CameraCategory.AddProperty(DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UCameraComponent, bUsePawnControlRotation)));
-	CameraCategory.AddProperty(DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UCameraComponent, PostProcessBlendWeight)));
+			];
+		
+		CameraCategory.AddProperty(DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UCameraComponent, bUsePawnControlRotation)));
+		CameraCategory.AddProperty(DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UCameraComponent, PostProcessBlendWeight)));
+	}
 
 	UpdateAspectTextFromProperty();
 }
@@ -133,13 +160,16 @@ void FCameraDetails::OnAspectRatioSpinnerChanged(float InValue)
 void FCameraDetails::UpdateAspectTextFromProperty()
 {
 	// Called whenever the actual aspect ratio property changes - clears the text box if the value no longer matches the current text
-	TOptional<float> Value = GetAspectRatio();
-	if (!Value.IsSet() || Value.GetValue() < LastParsedAspectRatioValue - DELTA || Value.GetValue() > LastParsedAspectRatioValue + DELTA)
+	if (AspectTextBox.IsValid())
 	{
-		LastParsedAspectRatioValue = -1.0f;
-		if (!AspectTextBox->GetText().IsEmpty())
+		TOptional<float> Value = GetAspectRatio();
+		if (!Value.IsSet() || Value.GetValue() < LastParsedAspectRatioValue - DELTA || Value.GetValue() > LastParsedAspectRatioValue + DELTA)
 		{
-			AspectTextBox->SetText(FText::GetEmpty());
+			LastParsedAspectRatioValue = -1.0f;
+			if (!AspectTextBox->GetText().IsEmpty())
+			{
+				AspectTextBox->SetText(FText::GetEmpty());
+			}
 		}
 	}
 }

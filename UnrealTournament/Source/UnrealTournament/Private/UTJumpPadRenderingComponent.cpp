@@ -97,6 +97,24 @@ UUTJumpPadRenderingComponent::UUTJumpPadRenderingComponent(const class FObjectIn
 	AlwaysLoadOnServer = false;
 	bHiddenInGame = true;
 	bGenerateOverlapEvents = false;
+
+	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bStartWithTickEnabled = true;
+	PrimaryComponentTick.bTickEvenWhenPaused = true;
+	bTickInEditor = true;
+}
+
+void UUTJumpPadRenderingComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	AUTJumpPad *JumpPad = Cast<AUTJumpPad>(GetOwner());
+
+	if (JumpPad != NULL)
+	{
+		GameThreadJumpVelocity = JumpPad->CalculateJumpVelocity(JumpPad);
+		GameThreadGravityZ = JumpPad->GetWorld()->GetGravityZ();
+	}
 }
 
 FBoxSphereBounds UUTJumpPadRenderingComponent::CalcBounds(const FTransform & LocalToWorld) const
@@ -114,15 +132,15 @@ FBoxSphereBounds UUTJumpPadRenderingComponent::CalcBounds(const FTransform & Loc
 	{
 		FVector JumpPadLocation = JumpPad->GetActorLocation();
 		FVector JumpPadTarget = JumpPad->JumpTarget;
-		FVector JumpVelocity = JumpPad->CalculateJumpVelocity(JumpPad);
+		FVector JumpVelocity = GameThreadJumpVelocity;
 		float JumpTime = JumpPad->JumpTime;
-		float GravityZ = -JumpPad->GetWorld()->GetGravityZ();
+		float GravityZ = -GameThreadGravityZ;
 
 		Bounds += JumpPadLocation;
 		Bounds += JumpPad->ActorToWorld().TransformPosition(JumpPadTarget);
 		
 		//Guard divide by zero potential with gravity
-		if (JumpPad->GetWorld()->GetGravityZ() != 0.0f)
+		if (GameThreadGravityZ != 0.0f)
 		{
 			//If the apex of the jump is within the Pad and destination add to the bounds
 			float ApexTime = JumpVelocity.Z / GravityZ;

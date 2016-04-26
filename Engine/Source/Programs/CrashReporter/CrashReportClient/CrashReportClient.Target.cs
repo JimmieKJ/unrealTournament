@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.Collections.Generic;
@@ -27,7 +27,10 @@ public class CrashReportClientTarget : TargetRules
 	{
 		if( base.GetSupportedConfigurations( ref OutConfigurations, bIncludeTestAndShippingConfigs ) )
 		{
-			OutConfigurations.Add( UnrealTargetConfiguration.Shipping );
+			if( bIncludeTestAndShippingConfigs )
+			{ 
+				OutConfigurations.Add( UnrealTargetConfiguration.Shipping );
+			}
 			OutConfigurations.Add( UnrealTargetConfiguration.Debug );
 			return true;
 		}
@@ -88,7 +91,10 @@ public class CrashReportClientTarget : TargetRules
 		// the linker.
 		OutLinkEnvironmentConfiguration.bHasExports = false;
 
-		OutCPPEnvironmentConfiguration.Definitions.Add( "USE_CHECKS_IN_SHIPPING=1" );
+		UEBuildConfiguration.bUseChecksInShipping = true;
+
+		// Epic Games Launcher needs to run on OS X 10.9, so CrashReportClient needs this as well
+		OutCPPEnvironmentConfiguration.bEnableOSX109Support = true;
 	}
     public override bool GUBP_AlwaysBuildWithTools(UnrealTargetPlatform InHostPlatform, out bool bInternalToolOnly, out bool SeparateNode, out bool CrossCompile)
 	{

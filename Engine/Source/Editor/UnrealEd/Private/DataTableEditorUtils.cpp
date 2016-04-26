@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "DataTableEditorUtils.h"
@@ -224,6 +224,7 @@ void FDataTableEditorUtils::CacheDataTableForEditing(const UDataTable* DataTable
 		FDataTableEditorRowListViewDataPtr CachedRowData = MakeShareable(new FDataTableEditorRowListViewData());
 		CachedRowData->RowId = RowIt->Key;
 		CachedRowData->DisplayName = FText::FromName(RowIt->Key);
+		CachedRowData->DesiredRowHeight = FontMeasure->GetMaxCharacterHeight(CellTextStyle.Font);
 
 		CachedRowData->CellData.Reserve(StructProps.Num());
 		{
@@ -236,7 +237,11 @@ void FDataTableEditorUtils::CacheDataTableForEditing(const UDataTable* DataTable
 				const FText CellText = DataTableUtils::GetPropertyValueAsText(Prop, RowData);
 				CachedRowData->CellData.Add(CellText);
 
-				const float CellWidth = FontMeasure->Measure(CellText, CellTextStyle.Font).X + CellPadding;
+				const FVector2D CellTextSize = FontMeasure->Measure(CellText, CellTextStyle.Font);
+
+				CachedRowData->DesiredRowHeight = FMath::Max(CachedRowData->DesiredRowHeight, CellTextSize.Y);
+
+				const float CellWidth = CellTextSize.X + CellPadding;
 				CachedColumnData->DesiredColumnWidth = FMath::Max(CachedColumnData->DesiredColumnWidth, CellWidth);
 			}
 		}

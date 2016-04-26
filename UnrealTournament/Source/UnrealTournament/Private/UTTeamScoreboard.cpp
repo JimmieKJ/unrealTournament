@@ -11,37 +11,42 @@ UUTTeamScoreboard::UUTTeamScoreboard(const class FObjectInitializer& ObjectIniti
 	TeamScoringHeader = NSLOCTEXT("UTTeamScoreboard", "TeamScoringBreakDownHeader", "Team Stats");
 	RedTeamText = NSLOCTEXT("UTTeamScoreboard", "RedTeam", "RED");
 	BlueTeamText = NSLOCTEXT("UTTeamScoreboard", "BlueTeam", "BLUE");
+	CenterBuffer = 520.f;
+	MinimapCenter = FVector2D(0.5f, 0.5f);
 }
 
 void UUTTeamScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
 {
 	if (UTGameState == NULL || UTGameState->Teams.Num() < 2 || UTGameState->Teams[0] == NULL || UTGameState->Teams[1] == NULL) return;
 
-	// Draw the front end End
-	float Width = (Size.X * 0.5) - CenterBuffer;
+	float Width = 0.5f * (Size.X - 0.8f*CenterBuffer) * RenderScale;
 
-	float FrontSize = 35;
-	float EndSize = 16;
+	float FrontSize = 35.f * RenderScale;
+	float EndSize = 16.f * RenderScale;
 	float MiddleSize = Width - FrontSize - EndSize;
-	float XOffset = 0;
+	float BackgroundY = YOffset + 22.f * RenderScale;
+	float TeamTextY = YOffset + 40.f * RenderScale;
+	float TeamScoreY = YOffset + 36.f * RenderScale;
+	float BackgroundHeight = 65.f * RenderScale;
+	float NamePosition = ScaledEdgeSize + FrontSize + 0.25f*MiddleSize;
 
 	// Draw the Background
-	DrawTexture(TextureAtlas, XOffset, YOffset + 22, 35, 65, 0, 188, 36, 65, 1.0, FLinearColor::Red);
-	DrawTexture(TextureAtlas, XOffset + FrontSize, YOffset + 22, MiddleSize, 65, 39,188,64,65, 1.0, FLinearColor::Red);
-	DrawTexture(TextureAtlas, XOffset + FrontSize + MiddleSize, YOffset + 22, EndSize, 65, 39,188,64,65, 1.0, FLinearColor::Red);
+	DrawTexture(TextureAtlas, ScaledEdgeSize, BackgroundY, FrontSize, BackgroundHeight, 0, 188, 36, 65, 1.0, FLinearColor::Red);
+	DrawTexture(TextureAtlas, ScaledEdgeSize + FrontSize, BackgroundY, MiddleSize, BackgroundHeight, 39,188,64,65, 1.0, FLinearColor::Red);
+	DrawTexture(TextureAtlas, ScaledEdgeSize + FrontSize + MiddleSize, BackgroundY, EndSize, BackgroundHeight, 39,188,64,65, 1.0, FLinearColor::Red);
 
-	DrawText(RedTeamText, 36, YOffset + 40.f, UTHUDOwner->HugeFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
-	DrawText(FText::AsNumber(UTGameState->Teams[0]->Score), Width * 0.9, YOffset + 48.f, UTHUDOwner->ScoreFont, false, FVector2D(0, 0), FLinearColor::Black, true, FLinearColor::Black, 0.75, 1.0, FLinearColor::White, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Right, ETextVertPos::Center);
+	DrawText(RedTeamText, NamePosition, TeamTextY, UTHUDOwner->HugeFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+	DrawText(FText::AsNumber(UTGameState->Teams[0]->Score), ScaledEdgeSize + FrontSize + MiddleSize - EndSize, TeamScoreY, UTHUDOwner->HugeFont, false, FVector2D(0, 0), FLinearColor::Black, true, FLinearColor::Black, 1.5f*RenderScale, 1.f, FLinearColor::White, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Right, ETextVertPos::Center);
 
-	XOffset = Size.X - Width;
+	float LeftEdge = Canvas->ClipX - ScaledEdgeSize - FrontSize - MiddleSize - EndSize;
 
-	DrawTexture(TextureAtlas, XOffset + EndSize + MiddleSize, YOffset + 22, 35, 65, 196, 188, 36, 65 , 1.0, FLinearColor::Blue);
-	DrawTexture(TextureAtlas, XOffset + EndSize, YOffset + 22, MiddleSize, 65, 130,188,64,65, 1.0, FLinearColor::Blue);
-	DrawTexture(TextureAtlas, XOffset, YOffset + 22, EndSize, 65, 117, 188, 16, 65, 1.0, FLinearColor::Blue);
+	DrawTexture(TextureAtlas, LeftEdge + EndSize + MiddleSize, BackgroundY, FrontSize, BackgroundHeight, 196, 188, 36, 65 , 1.f, FLinearColor::Blue);
+	DrawTexture(TextureAtlas, LeftEdge + EndSize, BackgroundY, MiddleSize, BackgroundHeight, 130,188,64,65, 1.f, FLinearColor::Blue);
+	DrawTexture(TextureAtlas, LeftEdge, BackgroundY, EndSize, BackgroundHeight, 117, 188, 16, 65, 1.f, FLinearColor::Blue);
 
-	DrawText(BlueTeamText, 1237, YOffset + 40.f, UTHUDOwner->HugeFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
-	DrawText(FText::AsNumber(UTGameState->Teams[1]->Score), Size.X - Width + (Width * 0.1), YOffset + 48.f, UTHUDOwner->ScoreFont, false, FVector2D(0, 0), FLinearColor::Black, true, FLinearColor::Black, 0.75, 1.0, FLinearColor::White, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Left, ETextVertPos::Center);
-	YOffset += 119;
+	DrawText(BlueTeamText, Canvas->ClipX - NamePosition, TeamTextY, UTHUDOwner->HugeFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
+	DrawText(FText::AsNumber(UTGameState->Teams[1]->Score), LeftEdge + 2.f*EndSize, TeamScoreY, UTHUDOwner->HugeFont, false, FVector2D(0.f, 0.f), FLinearColor::Black, true, FLinearColor::Black, 1.5f*RenderScale, 1.f, FLinearColor::White, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Left, ETextVertPos::Center);
+	YOffset += 119.f * RenderScale;
 }
 
 void UUTTeamScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
@@ -52,7 +57,7 @@ void UUTTeamScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 	}
 
 	int32 NumSpectators = 0;
-	int32 XOffset = 0;
+	int32 XOffset = ScaledEdgeSize;
 
 	for (int8 Team = 0; Team < 2; Team++)
 	{
@@ -69,7 +74,7 @@ void UUTTeamScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 					{
 						DrawPlayer(Place, PlayerState, RenderDelta, XOffset, DrawOffset);
 						Place++;
-						DrawOffset += CellHeight;
+						DrawOffset += CellHeight*RenderScale;
 					}
 				} 
 				else if (Team == 0 && (Cast<AUTDemoRecSpectator>(UTPlayerOwner) == nullptr && !PlayerState->bIsDemoRecording))
@@ -78,7 +83,7 @@ void UUTTeamScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 				}
 			}
 		}
-		XOffset = Size.X - ((Size.X * 0.5) - CenterBuffer);
+		XOffset = Canvas->ClipX - ScaledCellWidth - ScaledEdgeSize;
 	}
 
 	if (UTGameState->PlayerArray.Num() <= 28 && NumSpectators > 0)
@@ -86,7 +91,7 @@ void UUTTeamScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 		FText SpectatorCount = (NumSpectators == 1)
 			? OneSpectatorWatchingText
 			: FText::Format(SpectatorsWatchingText, FText::AsNumber(NumSpectators));
-		DrawText(SpectatorCount, Size.X * 0.5, 765, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor(0.75f, 0.75f, 0.75f, 1.0f), ETextHorzPos::Center, ETextVertPos::Bottom);
+		DrawText(SpectatorCount, Size.X * 0.5f, 765.f*RenderScale, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor(0.75f, 0.75f, 0.75f, 1.0f), ETextHorzPos::Center, ETextVertPos::Bottom);
 	}
 }
 
@@ -299,10 +304,7 @@ void UUTTeamScoreboard::SwitchToScoringPlaysPage()
 
 void UUTTeamScoreboard::OpenScoringPlaysPage()
 {
-	if (UTHUDOwner && UTHUDOwner->ScoreboardPage == 0)
-	{
 		SetPage(1);
-	}
 }
 
 void UUTTeamScoreboard::DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)

@@ -151,6 +151,10 @@ public:
 	virtual void GatherRequiredRedirects(TArray<FPackageRedirectReference>& Redirects);
 	virtual bool FindRedirect(const FString& PackageName, FPackageRedirectReference& Redirect);
 	virtual void GameWelcomePlayer(UNetConnection* Connection, FString& RedirectURL) override;
+
+	UPROPERTY()
+	int32 CurrentPlaylistId;
+
 private:
 	FString GetCloudID() const;
 

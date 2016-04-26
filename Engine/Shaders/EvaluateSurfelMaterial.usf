@@ -1,4 +1,4 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	EvaluateSurfelMaterial.usf
@@ -46,22 +46,24 @@ void EvaluateSurfelMaterialCS(
 	uint3 DispatchThreadId : SV_DispatchThreadID,
     uint3 GroupThreadId : SV_GroupThreadID) 
 {
+	ResolvedView = ResolveView();
+
 	uint SurfelIndex = DispatchThreadId.x;
 
 	if (SurfelIndex < NumSurfelsToGenerate)
 	{
 		float4 PositionAndRadius = InterpolatedVertexData[(SurfelStartIndex + SurfelIndex) * INTERPOLATED_VERTEX_DATA_STRIDE + 0];
-
 		FMaterialPixelParameters MaterialParameters;
+		FPixelMaterialInputs PixelMaterialInputs;
 		AssembleMaterialParameters(MaterialParameters, SurfelIndex);
 
-		float4 PixelPosition = float4(PositionAndRadius.xyz + View.PreViewTranslation.xyz, 0);
-		CalcMaterialParameters(MaterialParameters, float4(0, 0, 0, 0), true);
+		float4 PixelPosition = float4(PositionAndRadius.xyz + ResolvedView.PreViewTranslation.xyz, 0);
+		CalcMaterialParameters(MaterialParameters, PixelMaterialInputs, float4(0, 0, 0, 0), true);
 
-		float3 BaseColor = GetMaterialBaseColor(MaterialParameters);	
-		float Metallic = GetMaterialMetallic(MaterialParameters);
+		float3 BaseColor = GetMaterialBaseColor(PixelMaterialInputs);	
+		float Metallic = GetMaterialMetallic(PixelMaterialInputs);
 		float3 DiffuseColor = BaseColor - BaseColor * Metallic;
-		float3 EmissiveColor = GetMaterialEmissive(MaterialParameters);	
+		float3 EmissiveColor = GetMaterialEmissive(PixelMaterialInputs);	
 
 		float3 InstanceLocalPosition = mul(float4(PositionAndRadius.xyz, 1), Instance0InverseTransform).xyz;
 		//@todo - use a proper normal transform

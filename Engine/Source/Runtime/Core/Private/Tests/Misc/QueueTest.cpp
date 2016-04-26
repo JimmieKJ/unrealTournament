@@ -1,8 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "AutomationTest.h"
 
+#if WITH_DEV_AUTOMATION_TESTS
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FQueueTest, "System.Core.Misc.Queue", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
 
@@ -38,5 +39,18 @@ bool FQueueTest::RunTest( const FString& Parameters )
 
 	TestTrue(TEXT("After removing all items, the queue must be empty"), q2_1.IsEmpty());
 
+	// emptying
+	TQueue<int32> q3_1;
+	{
+		q3_1.Enqueue(1);
+		q3_1.Enqueue(2);
+		q3_1.Enqueue(3);
+		q3_1.Empty();
+	}
+
+	TestTrue(TEXT("An emptied queue must be empty"), q3_1.IsEmpty());
+
 	return true;
 }
+
+#endif //WITH_DEV_AUTOMATION_TESTS

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Implements a volume texture atlas for caching indirect lighting on a per-object basis
@@ -371,6 +371,14 @@ FIndirectLightingCacheAllocation* FIndirectLightingCache::FindPrimitiveAllocatio
 	return PrimitiveAllocations.FindRef(PrimitiveId);
 }
 
+FAutoConsoleTaskPriority CPrio_FUpdateCachePrimitivesTask(
+	TEXT("TaskGraph.TaskPriorities.UpdateCachePrimitivesTask"),
+	TEXT("Task and thread priority for FUpdateCachePrimitivesTask."),
+	ENamedThreads::HighThreadPriority, // if we have high priority task threads, then use them...
+	ENamedThreads::NormalTaskPriority, // .. at normal task priority
+	ENamedThreads::HighTaskPriority // if we don't have hi pri threads, then use normal priority threads at high task priority instead
+	);
+
 class FUpdateCachePrimitivesTask
 {
 	FIndirectLightingCache* ILC;
@@ -399,7 +407,7 @@ public:
 
 	ENamedThreads::Type GetDesiredThread()
 	{
-		return ENamedThreads::AnyThread;
+		return CPrio_FUpdateCachePrimitivesTask.Get();
 	}
 
 	static ESubsequentsMode::Type GetSubsequentsMode() { return ESubsequentsMode::TrackSubsequents; }
@@ -418,7 +426,7 @@ void FIndirectLightingCache::StartUpdateCachePrimitivesTask(FScene* Scene, FScen
 void FIndirectLightingCache::FinalizeCacheUpdates(FScene* Scene, FSceneRenderer& Renderer, FILCUpdatePrimTaskData& TaskData)
 {
 	SCOPE_CYCLE_COUNTER(STAT_UpdateIndirectLightingCacheFinalize);	
-	FTaskGraphInterface::Get().WaitUntilTaskCompletes(TaskData.TaskRef, ENamedThreads::AnyThread);
+	FTaskGraphInterface::Get().WaitUntilTaskCompletes(TaskData.TaskRef, ENamedThreads::RenderThread_Local);
 	FinalizeUpdateInternal_RenderThread(Scene, Renderer, TaskData.OutBlocksToUpdate, TaskData.OutTransitionsOverTimeToUpdate);
 }
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "BehaviorTreeEditorPrivatePCH.h"
 #include "BehaviorTreeEditorModule.h"
 #include "BehaviorTree/Tasks/BTTask_RunBehavior.h"
@@ -1066,6 +1066,7 @@ void UBehaviorTreeGraph::RebuildExecutionOrder()
 
 void UBehaviorTreeGraph::RebuildChildOrder(UEdGraphNode* ParentNode)
 {
+	bool bUpdateExecutionOrder = false;
 	if (ParentNode)
 	{
 		for (int32 PinIdx = 0; PinIdx < ParentNode->Pins.Num(); PinIdx++)
@@ -1073,9 +1074,17 @@ void UBehaviorTreeGraph::RebuildChildOrder(UEdGraphNode* ParentNode)
 			UEdGraphPin* Pin = ParentNode->Pins[PinIdx];
 			if (Pin->Direction == EGPD_Output)
 			{
+				TArray<UEdGraphPin*> PrevOrder(Pin->LinkedTo);
 				Pin->LinkedTo.Sort(FCompareNodeXLocation());
+
+				bUpdateExecutionOrder = bUpdateExecutionOrder || (PrevOrder != Pin->LinkedTo);
 			}
 		}
+	}
+
+	if (bUpdateExecutionOrder)
+	{
+		UpdateAsset(KeepRebuildCounter);
 	}
 }
 

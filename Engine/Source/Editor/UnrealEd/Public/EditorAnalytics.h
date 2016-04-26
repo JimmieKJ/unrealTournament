@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -110,4 +110,7 @@ public:
 
 	/* Determine whether the error code should cause the reporter to display the message in a dialog. */
 	UNREALED_API static bool ShouldElevateMessageThroughDialog(const int32 ErrorCode);
+
+private:
+	static TSharedPtr<class FEngineSessionManager> SessionManager;
 };

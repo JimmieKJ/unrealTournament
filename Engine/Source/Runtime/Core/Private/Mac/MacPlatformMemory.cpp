@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MacPlatformMemory.cpp: Mac platform memory functions
@@ -7,7 +7,8 @@
 #include "CorePrivatePCH.h"
 #include "MallocTBB.h"
 #include "MallocAnsi.h"
-#include "MallocBinned2.h"
+#include "MallocBinned.h"
+#include "MallocStomp.h"
 
 #include <sys/param.h>
 #include <sys/mount.h>
@@ -47,10 +48,12 @@ FMalloc* FMacPlatformMemory::BaseAllocator()
 	{
 #if FORCE_ANSI_ALLOCATOR || IS_PROGRAM
 		return new FMallocAnsi();
+#elif USE_MALLOC_STOMP
+		return new FMallocStomp();
 #elif (WITH_EDITORONLY_DATA || IS_PROGRAM) && TBB_ALLOCATOR_ALLOWED
 		return new FMallocTBB();
 #else
-		return new FMallocBinned2((uint32)(GetConstants().PageSize&MAX_uint32), 0x100000000);
+		return new FMallocBinned((uint32)(GetConstants().PageSize&MAX_uint32), 0x100000000);
 #endif
 	}
 }
@@ -124,6 +127,28 @@ const FPlatformMemoryConstants& FMacPlatformMemory::GetConstants()
 	}
 
 	return MemoryConstants;	
+}
+
+bool FMacPlatformMemory::PageProtect(void* const Ptr, const SIZE_T Size, const bool bCanRead, const bool bCanWrite)
+{
+	int32 ProtectMode;
+	if (bCanRead && bCanWrite)
+	{
+		ProtectMode = PROT_READ | PROT_WRITE;
+	}
+	else if (bCanRead)
+	{
+		ProtectMode = PROT_READ;
+	}
+	else if (bCanWrite)
+	{
+		ProtectMode = PROT_WRITE;
+	}
+	else
+	{
+		ProtectMode = PROT_NONE;
+	}
+	return mprotect(Ptr, Size, static_cast<int32>(ProtectMode)) == 0;
 }
 
 void* FMacPlatformMemory::BinnedAllocFromOS( SIZE_T Size )

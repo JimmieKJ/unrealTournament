@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 #include "InvalidationBox.h"
@@ -85,11 +85,6 @@ void UInvalidationBox::SetCanCache(bool CanCache)
 }
 
 #if WITH_EDITOR
-
-const FSlateBrush* UInvalidationBox::GetEditorIcon()
-{
-	return FUMGStyle::Get().GetBrush("Widget.MenuAnchor");
-}
 
 const FText UInvalidationBox::GetPaletteCategory()
 {

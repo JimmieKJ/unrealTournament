@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "GameFramework/Info.h"
@@ -90,6 +90,7 @@ class ENGINE_API APlayerState : public AInfo
 	float ExactPing;
 
 	/** Used to match up InactivePlayerState with rejoining playercontroller. */
+	UPROPERTY()
 	FString SavedNetworkAddress;
 
 	/** The id used by the network to uniquely identify a player.

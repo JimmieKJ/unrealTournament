@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealAudioPrivate.h"
 #include "UnrealAudioModule.h"
@@ -7,7 +7,7 @@
 #include "UnrealAudioTestGenerators.h"
 #include "UnrealAudioSoundFile.h"
 
-#if ENABLE_UNREAL_AUDIO
+#if ENABLE_UNREAL_AUDIO & WITH_DEV_AUTOMATION_TESTS
 
 namespace UAudio
 {
@@ -247,4 +247,4 @@ namespace UAudio
 
 }
 
-#endif // #if ENABLE_UNREAL_AUDIO
+#endif // #if ENABLE_UNREAL_AUDIO & WITH_DEV_AUTOMATION_TESTS

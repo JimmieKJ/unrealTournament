@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MediaPlayerEditorPrivatePCH.h"
 #include "IMediaPlayer.h"
@@ -22,6 +22,7 @@ SMediaPlayerEditorViewer::~SMediaPlayerEditorViewer()
 	if (MediaPlayer != nullptr)
 	{
 		MediaPlayer->OnMediaChanged().RemoveAll(this);
+		MediaPlayer->OnTracksChanged().RemoveAll(this);
 	}
 }
 
@@ -281,8 +282,8 @@ void SMediaPlayerEditorViewer::Construct(const FArguments& InArgs, UMediaPlayer*
 			]
 	];
 
-	MediaPlayer->OnMediaChanged().AddRaw(this, &SMediaPlayerEditorViewer::HandleMediaPlayerMediaChanged);
-	MediaPlayer->OnTracksChanged().AddRaw(this, &SMediaPlayerEditorViewer::HandleMediaPlayerTracksChanged);
+	MediaPlayer->OnMediaChanged().AddSP(this, &SMediaPlayerEditorViewer::HandleMediaPlayerMediaChanged);
+	MediaPlayer->OnTracksChanged().AddSP(this, &SMediaPlayerEditorViewer::HandleMediaPlayerTracksChanged);
 
 	RegisterActiveTimer(0.0f, FWidgetActiveTimerDelegate::CreateSP(this, &SMediaPlayerEditorViewer::HandleActiveTimer));
 	ReloadTracks();
@@ -331,7 +332,7 @@ void SMediaPlayerEditorViewer::ReloadTracks()
 	}
 
 	// refresh combo box selections
-	if (!AudioTrackComboBox->GetSelectedItem().IsValid() || !AudioTracks.Contains(AudioTrackComboBox->GetSelectedItem()))
+	if (!AudioTracks.Contains(AudioTrackComboBox->GetSelectedItem()))
 	{
 		if (AudioTracks.Num() > 0)
 		{
@@ -343,7 +344,7 @@ void SMediaPlayerEditorViewer::ReloadTracks()
 		}		
 	}
 
-	if (!CaptionTrackComboBox->GetSelectedItem().IsValid() || !CaptionTracks.Contains(CaptionTrackComboBox->GetSelectedItem()))
+	if (!CaptionTracks.Contains(CaptionTrackComboBox->GetSelectedItem()))
 	{
 		if (CaptionTracks.Num() > 0)
 		{
@@ -356,7 +357,7 @@ void SMediaPlayerEditorViewer::ReloadTracks()
 		}		
 	}
 
-	if (!VideoTrackComboBox->GetSelectedItem().IsValid() || !VideoTracks.Contains(VideoTrackComboBox->GetSelectedItem()))
+	if (!VideoTracks.Contains(VideoTrackComboBox->GetSelectedItem()))
 	{
 		if (VideoTracks.Num() > 0)
 		{
@@ -498,14 +499,14 @@ FText SMediaPlayerEditorViewer::HandleOverlayStateText() const
 		return LOCTEXT("StateOverlayNoMedia", "No Media");
 	}
 
+	if (!MediaPlayer->IsReady())
+	{
+		return LOCTEXT("StateOverlayStopped", "Not Ready");
+	}
+
 	if (MediaPlayer->IsPaused())
 	{
 		return LOCTEXT("StateOverlayPaused", "Paused");
-	}
-
-	if (MediaPlayer->IsStopped())
-	{
-		return LOCTEXT("StateOverlayStopped", "Stopped");
 	}
 
 	float Rate = MediaPlayer->GetRate();
@@ -613,7 +614,7 @@ FText SMediaPlayerEditorViewer::HandleRemainingTimeTextBlockText() const
 
 	if (Remaining <= FTimespan::Zero())
 	{
-		return FText::GetEmpty();
+		return FText::FromString(TEXT("--:--:--"));
 	}
 
 	return FText::AsTimespan(Remaining);

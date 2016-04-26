@@ -1,9 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "BlueprintGraphPrivatePCH.h"
 #include "KismetCompiler.h"
 #include "K2Node_CallFunction.h"
+#include "BlueprintsObjectVersion.h"
 
 #define LOCTEXT_NAMESPACE "K2Node_FunctionEntry"
 
@@ -119,6 +120,8 @@ void UK2Node_FunctionEntry::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
 
+	Ar.UsingCustomVersion(FBlueprintsObjectVersion::GUID);
+
 	if (Ar.IsLoading())
 	{
 		if (Ar.UE4Ver() < VER_UE4_BLUEPRINT_ENFORCE_CONST_IN_FUNCTION_OVERRIDES)
@@ -127,8 +130,7 @@ void UK2Node_FunctionEntry::Serialize(FArchive& Ar)
 			bEnforceConstCorrectness = false;
 		}
 
-		// @TODO: Dev-BP=>Main; gate this with a version check once it makes its way into main
-		//if (Ar.UE4Ver() < VER_UE4_CLEAN_BLUEPRINT_FUNC_FLAGS))
+		if (Ar.CustomVer(FBlueprintsObjectVersion::GUID) < FBlueprintsObjectVersion::CleanBlueprintFunctionFlags)
 		{
 			// Flags we explicitly use ExtraFlags for (at the time this fix was made):
 			//     FUNC_Public, FUNC_Protected, FUNC_Private, 

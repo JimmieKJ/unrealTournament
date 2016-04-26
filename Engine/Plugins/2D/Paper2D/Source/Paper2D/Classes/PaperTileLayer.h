@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -134,11 +134,11 @@ private:
 	uint32 bLayerCollides:1;
 
 	// Should this layer use a custom thickness for generated collision instead of the thickness setting in the tile map?
-	UPROPERTY(BlueprintReadOnly, Category=Sprite, meta=(AllowPrivateAccess="true"))
+	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category=Sprite, meta=(AllowPrivateAccess="true", InlineEditConditionToggle))
 	uint32 bOverrideCollisionThickness:1;
 
 	// Should this layer use a custom offset for generated collision instead of the layer drawing offset?
-	UPROPERTY(BlueprintReadOnly, Category=Sprite, meta=(AllowPrivateAccess="true"))
+	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category=Sprite, meta=(AllowPrivateAccess="true", InlineEditConditionToggle))
 	uint32 bOverrideCollisionOffset:1;
 
 	// The override thickness of the collision for this layer (when bOverrideCollisionThickness is set)

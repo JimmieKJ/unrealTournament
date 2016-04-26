@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -59,6 +59,9 @@ public:
 
 	UPROPERTY(config, EditAnywhere, Category = "Cursors", meta = (MetaClass = "UserWidget", ToolTip = "Widget to use when the Crosshairs Cursor is requested."))
 	FStringClassReference CrosshairsCursor;
+
+	UPROPERTY(config, EditAnywhere, Category = "Cursors", meta = (MetaClass = "UserWidget", ToolTip = "Widget to use when the Hand Cursor is requested."))
+	FStringClassReference HandCursor;
 
 	UPROPERTY(config, EditAnywhere, Category = "Cursors", meta = (MetaClass = "UserWidget", ToolTip = "Widget to use when the GrabHand Cursor is requested."))
 	FStringClassReference GrabHandCursor;

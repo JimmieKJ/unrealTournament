@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "HttpPrivatePCH.h"
 #include "WindowsPlatformHttp.h"
@@ -66,7 +66,7 @@ IHttpRequest* FWindowsPlatformHttp::ConstructRequest()
 #if WITH_LIBCURL
 	if (bUseCurl)
 	{
-		return new FCurlHttpRequest(FCurlHttpManager::GMultiHandle);
+		return new FCurlHttpRequest(FCurlHttpManager::GMultiHandle, FCurlHttpManager::GShareHandle);
 	}
 	else
 #endif

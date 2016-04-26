@@ -125,7 +125,7 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 					{
 						if (FCoreDelegates::OnMountPak.IsBound())
 						{
-							FCoreDelegates::OnMountPak.Execute(Path, 0);
+							FCoreDelegates::OnMountPak.Execute(Path, 0, nullptr);
 							UTEngine->MountedDownloadedContentChecksums.Add(BaseFilename, Checksum);
 							bAlreadyDownloaded = true;
 						}
@@ -202,7 +202,7 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 
 						if (FCoreDelegates::OnMountPak.IsBound())
 						{
-							FCoreDelegates::OnMountPak.Execute(Path, 0);
+							FCoreDelegates::OnMountPak.Execute(Path, 0, nullptr);
 							UTEngine->MountedDownloadedContentChecksums.Add(It.Key(), It.Value());
 							bNeedsToDownload = false;
 							bMountedPreviousDownload = true;
@@ -502,7 +502,7 @@ void UUTGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 					for (USceneComponent* Attachment : UTC->GetWeapon()->GetMesh()->AttachChildren)
 					{
 						// any additional weapon meshes are assumed to be projected in the shader if desired
-						if (!WeaponMeshes.Contains(Attachment) && !SavedTransforms.ContainsByPredicate([Attachment](const FSavedTransform& TestItem) { return TestItem.Component == Attachment; }))
+						if (!Attachment->IsPendingKill() && !WeaponMeshes.Contains(Attachment) && !SavedTransforms.ContainsByPredicate([Attachment](const FSavedTransform& TestItem) { return TestItem.Component == Attachment; }))
 						{
 							FVector AdjustedLoc = PaniniProjectLocation(SceneView, Attachment->GetComponentLocation(), UTC->GetWeapon()->GetMesh()->GetMaterial(0));
 
@@ -882,7 +882,7 @@ bool UUTGameViewportClient::CheckIfRedirectExists(const FPackageRedirectReferenc
 				// Mount the pak
 				if (FCoreDelegates::OnMountPak.IsBound())
 				{
-					FCoreDelegates::OnMountPak.Execute(Path, 0);
+					FCoreDelegates::OnMountPak.Execute(Path, 0, nullptr);
 					UTEngine->MountedDownloadedContentChecksums.Add(Redirect.PackageName, Redirect.PackageChecksum);
 				}
 
@@ -999,7 +999,7 @@ void UUTGameViewportClient::HttpRequestComplete(FHttpRequestPtr HttpRequest, FHt
 
 				if (FCoreDelegates::OnMountPak.IsBound())
 				{
-					FCoreDelegates::OnMountPak.Execute(FullFilePath, 0);
+					FCoreDelegates::OnMountPak.Execute(FullFilePath, 0, nullptr);
 					UTEngine->MountedDownloadedContentChecksums.Add(BaseFilename, MD5);
 					UTEngine->AddAssetRegistry(BaseFilename);
 				}

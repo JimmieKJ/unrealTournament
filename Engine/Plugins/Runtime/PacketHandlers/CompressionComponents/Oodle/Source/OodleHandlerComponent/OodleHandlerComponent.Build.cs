@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.IO;
@@ -29,13 +29,19 @@ public class OodleHandlerComponent : ModuleRules
         {
 			OodleNotForLicenseesLibDir = System.IO.Path.Combine( UEBuildConfiguration.UEThirdPartySourceDirectory, "..", "..",
 				"Plugins", "Runtime", "PacketHandlers", "CompressionComponents", "Oodle", "Source", "ThirdParty", "NotForLicensees",
-				"Oodle", "210beta", "win", "lib" );
+				"Oodle", "212", "win", "lib" );
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Linux)
 		{
 			OodleNotForLicenseesLibDir = System.IO.Path.Combine( UEBuildConfiguration.UEThirdPartySourceDirectory, "..", "..",
 				"Plugins", "Runtime", "PacketHandlers", "CompressionComponents", "Oodle", "Source", "ThirdParty", "NotForLicensees",
-				"Oodle", "210beta", "linux", "lib" );
+				"Oodle", "212", "linux", "lib" );
+		}
+		else if ( Target.Platform == UnrealTargetPlatform.PS4 )
+		{
+			OodleNotForLicenseesLibDir = System.IO.Path.Combine( UEBuildConfiguration.UEThirdPartySourceDirectory, "..", "..",
+				"Plugins", "Runtime", "PacketHandlers", "CompressionComponents", "Oodle", "Source", "ThirdParty", "NotForLicensees",
+				"Oodle", "212", "ps4", "lib" );
 		}
 
 		if (OodleNotForLicenseesLibDir.Length > 0)
@@ -51,7 +57,7 @@ public class OodleHandlerComponent : ModuleRules
 
 		if ( bHaveOodleSDK )
 		{
-	        AddThirdPartyPrivateStaticDependencies(Target, "Oodle");
+	        AddEngineThirdPartyPrivateStaticDependencies(Target, "Oodle");
 	        PublicIncludePathModuleNames.Add("Oodle");
 			Definitions.Add( "HAS_OODLE_SDK=1" );
 		}

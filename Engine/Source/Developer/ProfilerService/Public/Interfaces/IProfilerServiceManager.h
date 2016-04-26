@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -107,12 +107,13 @@ FORCEINLINE FArchive& operator<<(FArchive& Ar, FProfilerCycleGraph& Data)
  */
 struct FProfilerDataFrame
 {
-	uint32 Frame;
-	double FrameStart;
 	TMap<uint32, TArray<FProfilerCycleCounter> > CycleCounters;
 	TMap<uint32, FProfilerCycleGraph> CycleGraphs;
 	TArray<FProfilerFloatAccumulator> FloatAccumulators;
 	TArray<FProfilerCountAccumulator> CountAccumulators;
+
+	double FrameStart;
+	uint32 Frame;
 	bool MetaDataUpdated;
 };
 

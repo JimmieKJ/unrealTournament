@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -306,7 +306,7 @@ public:
 		// Shared references must never be nullptr, so either pass a valid object or consider using TSharedPtr instead.
 		check( InRawPtrProxy.Object != nullptr );
 
-		*this = TSharedRef< ObjectType, Mode >( InRawPtrProxy.Object );
+		*this = TSharedRef< ObjectType, Mode >( InRawPtrProxy );
 		return *this;
 	}
 
@@ -680,7 +680,7 @@ public:
 	template< class OtherType >
 	FORCEINLINE TSharedPtr& operator=( SharedPointerInternals::FRawPtrProxy< OtherType > const& InRawPtrProxy )
 	{
-		*this = TSharedPtr< ObjectType, Mode >( InRawPtrProxy.Object );
+		*this = TSharedPtr< ObjectType, Mode >( InRawPtrProxy );
 		return *this;
 	}
 

@@ -1,8 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "AutomationTest.h"
 #include "Runtime/Engine/Classes/Engine/IntSerialization.h"
+
+#if WITH_DEV_AUTOMATION_TESTS
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FIntSerializationTest, "System.Engine.Int Serialization", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
 
@@ -46,3 +48,5 @@ bool FIntSerializationTest::RunTest (const FString& Parameters)
 
 	return true;
 }
+
+#endif //WITH_DEV_AUTOMATION_TESTS

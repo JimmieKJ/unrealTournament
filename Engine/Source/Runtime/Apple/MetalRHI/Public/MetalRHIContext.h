@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -14,11 +14,14 @@ class FMetalContext;
 class FMetalRHICommandContext : public IRHICommandContext
 {
 public:
-	FMetalRHICommandContext(struct FMetalGPUProfiler* InProfiler);
+	FMetalRHICommandContext(struct FMetalGPUProfiler* InProfiler, FMetalContext* WrapContext);
 	virtual ~FMetalRHICommandContext();
 
 	/** Get the internal context */
 	FORCEINLINE FMetalContext& GetInternalContext() const { return *Context; }
+	
+	/** Get the profiler pointer */
+	FORCEINLINE struct FMetalGPUProfiler* GetProfiler() const { return Profiler; }
 	
 	template<typename TRHIType>
 	static FORCEINLINE typename TMetalResourceTraits<TRHIType>::TConcreteType* ResourceCast(TRHIType* Resource)
@@ -71,16 +74,16 @@ public:
 	virtual void RHISubmitCommandsHint() final override;
 	
 	// This method is queued with an RHIThread, otherwise it will flush after it is queued; without an RHI thread there is no benefit to queuing this frame advance commands
-	virtual void RHIBeginDrawingViewport(FViewportRHIParamRef Viewport, FTextureRHIParamRef RenderTargetRHI) final override;
+	virtual void RHIBeginDrawingViewport(FViewportRHIParamRef Viewport, FTextureRHIParamRef RenderTargetRHI) override;
 	
 	// This method is queued with an RHIThread, otherwise it will flush after it is queued; without an RHI thread there is no benefit to queuing this frame advance commands
-	virtual void RHIEndDrawingViewport(FViewportRHIParamRef Viewport, bool bPresent, bool bLockToVsync) final override;
+	virtual void RHIEndDrawingViewport(FViewportRHIParamRef Viewport, bool bPresent, bool bLockToVsync) override;
 	
 	// This method is queued with an RHIThread, otherwise it will flush after it is queued; without an RHI thread there is no benefit to queuing this frame advance commands
-	virtual void RHIBeginFrame() final override;
+	virtual void RHIBeginFrame() override;
 	
 	// This method is queued with an RHIThread, otherwise it will flush after it is queued; without an RHI thread there is no benefit to queuing this frame advance commands
-	virtual void RHIEndFrame() final override;
+	virtual void RHIEndFrame() override;
 	
 	/**
 		* Signals the beginning of scene rendering. The RHI makes certain caching assumptions between
@@ -88,13 +91,13 @@ public:
 		* references.
 		*/
 	// This method is queued with an RHIThread, otherwise it will flush after it is queued; without an RHI thread there is no benefit to queuing this frame advance commands
-	virtual void RHIBeginScene() final override;
+	virtual void RHIBeginScene() override;
 	
 	/**
 		* Signals the end of scene rendering. See RHIBeginScene.
 		*/
 	// This method is queued with an RHIThread, otherwise it will flush after it is queued; without an RHI thread there is no benefit to queuing this frame advance commands
-	virtual void RHIEndScene() final override;
+	virtual void RHIEndScene() override;
 	
 	virtual void RHISetStreamSource(uint32 StreamIndex, FVertexBufferRHIParamRef VertexBuffer, uint32 Stride, uint32 Offset) final override;
 	
@@ -301,7 +304,7 @@ public:
 	 */
 	virtual void RHIEnableDepthBoundsTest(bool bEnable, float MinDepth, float MaxDepth) final override;
 	
-	virtual void RHIPushEvent(const TCHAR* Name) final override;
+	virtual void RHIPushEvent(const TCHAR* Name, FColor Color) final override;
 	
 	virtual void RHIPopEvent() final override;
 	
@@ -315,6 +318,10 @@ public:
 	
 	/** Wait for AsyncCompute command stream to finish (no effect if not supported) */
 	virtual void RHIGraphicsWaitOnAsyncComputeJob(uint32 FenceIndex) final override;
+	
+protected:
+	// Helper for ClearMRT so that it can properly perform volumetric clears
+	void RHIDrawInstancedPrimitiveUP( FRHICommandList& RHICmdList, uint32 PrimitiveType, uint32 NumPrimitives, const void* VertexData, uint32 VertexDataStride, uint32 InstanceCount );
 	
 protected:
 	static TGlobalResource<TBoundShaderStateHistory<10000>> BoundShaderStateHistory;

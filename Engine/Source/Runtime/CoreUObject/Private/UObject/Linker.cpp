@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Linker.cpp: Unreal object linker.
@@ -15,6 +15,7 @@ DEFINE_LOG_CATEGORY(LogLinker);
 
 #define LOCTEXT_NAMESPACE "Linker"
 
+#define ENABLE_PAIRED_PACKAGE_LOCALIZATION_LOOKUP 1
 
 /*-----------------------------------------------------------------------------
 	Helper functions.
@@ -85,7 +86,7 @@ FName FLinker::GetExportClassName( int32 i )
 	if (ExportMap.IsValidIndex(i))
 	{
 		FObjectExport& Export = ExportMap[i];
-		if (!Export.ClassIndex.IsNull())
+		if( !Export.ClassIndex.IsNull() )
 		{
 			return ImpExp(Export.ClassIndex).ObjectName;
 		}
@@ -468,6 +469,24 @@ static bool DoesPackageExistForGetPackageLinker(const FString& LongPackageName, 
 	}
 }
 
+/** Customized version of FPackageName::DoesPackageExist that takes dynamic native class packages into account */
+static void DoesPackageAndLocalizationExistForGetPackageLinker(const FString& LongPackageName, const FGuid* Guid, FString& OutNativeFilename, FString& OutLocalizedFilename)
+{
+	if (
+#if WITH_EDITORONLY_DATA
+		GLinkerAllowDynamicClasses &&
+#endif
+		GetConvertedDynamicPackageNameToTypeName().Contains(*LongPackageName))
+	{
+		OutNativeFilename = FPackageName::LongPackageNameToFilename(LongPackageName);
+		OutLocalizedFilename.Empty();
+	}
+	else
+	{
+		FPackageName::DoesPackageExistWithLocalization(LongPackageName, Guid, &OutNativeFilename, &OutLocalizedFilename);
+	}
+}
+
 //
 // Find or create the linker for a package.
 //
@@ -502,10 +521,17 @@ FLinkerLoad* GetPackageLinker
 			return nullptr;
 		}
 	
+		// Verify that the file exists.
 		FString NativeFilename;
 		FString LocalizedFilename;
+#if ENABLE_PAIRED_PACKAGE_LOCALIZATION_LOOKUP
+		DoesPackageAndLocalizationExistForGetPackageLinker(InOuter->GetName(), CompatibleGuid, NativeFilename, LocalizedFilename);
+		const bool DoesNativePackageExist = NativeFilename.Len() > 0;
+		const bool DoesLocalizedPackageExist = LocalizedFilename.Len() > 0;
+#else
 		const bool DoesNativePackageExist = DoesPackageExistForGetPackageLinker(InOuter->GetName(), CompatibleGuid, NativeFilename, false);
 		const bool DoesLocalizedPackageExist = DoesPackageExistForGetPackageLinker(InOuter->GetName(), CompatibleGuid, LocalizedFilename, true);
+#endif
 
 		// If we are the editor, we must have a native package. If we are the game, we must have a localized package or a native package.
 		if ( (GIsEditor && !DoesNativePackageExist) || (!GIsEditor && !DoesLocalizedPackageExist && !DoesNativePackageExist) )
@@ -549,8 +575,8 @@ FLinkerLoad* GetPackageLinker
 					Arguments.Add(TEXT("AssetName"), FText::FromString(InOuter->GetName()));
 					Arguments.Add(TEXT("PackageName"), FText::FromString(ThreadContext.SerializedPackageLinker ? *(ThreadContext.SerializedPackageLinker->Filename) : TEXT("NULL")));
 					LogGetPackageLinkerError(Result, ThreadContext.SerializedPackageLinker ? *ThreadContext.SerializedPackageLinker->Filename : nullptr,
-						FText::Format(LOCTEXT("PackageNotFound", "Can't find localized file for asset '{AssetName}' while loading {PackageName}."), Arguments),
-						LOCTEXT("PackageNotFoundShort", "Can't find localized file for asset."),
+						FText::Format(LOCTEXT("NoLocalizedFileForAsset", "Can't find localized file for asset '{AssetName}' while loading {PackageName}."), Arguments),
+						LOCTEXT("NoLocalizedFileForAssetShort", "Can't find localized file for asset."),
 						InOuter,
 						LoadFlags);
 				}
@@ -583,8 +609,14 @@ FLinkerLoad* GetPackageLinker
 		// Verify that the file exists.
 		FString NativeFilename;
 		FString LocalizedFilename;
+#if ENABLE_PAIRED_PACKAGE_LOCALIZATION_LOOKUP
+		DoesPackageAndLocalizationExistForGetPackageLinker(PackageName, CompatibleGuid, NativeFilename, LocalizedFilename);
+		const bool DoesNativePackageExist = NativeFilename.Len() > 0;
+		const bool DoesLocalizedPackageExist = LocalizedFilename.Len() > 0;
+#else
 		const bool DoesNativePackageExist = DoesPackageExistForGetPackageLinker(PackageName, CompatibleGuid, NativeFilename, false);
 		const bool DoesLocalizedPackageExist = DoesPackageExistForGetPackageLinker(PackageName, CompatibleGuid, LocalizedFilename, true);
+#endif
 
 		if( (GIsEditor && !DoesNativePackageExist) || (!GIsEditor && !DoesLocalizedPackageExist && !DoesNativePackageExist) )
 		{

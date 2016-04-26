@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -131,6 +131,7 @@ public:
 struct FPoseContext : public FAnimationBaseContext
 {
 public:
+	/* These Pose/Curve is stack allocator. You should not use it outside of stack. */
 	FCompactPose	Pose;
 	FBlendedCurve	Curve;
 
@@ -387,7 +388,7 @@ public:
 #if ENABLE_ANIMNODE_POSE_DEBUG
 private:
 	// forwarded pose data from the wired node which current node's skeletal control is not applied yet
-	FCompactPose CurrentPose;
+	FCompactHeapPose CurrentPose;
 #endif //#if ENABLE_ANIMNODE_POSE_DEBUG
 };
 
@@ -538,6 +539,15 @@ struct ENGINE_API FAnimNode_Base
 	}
 
 	virtual bool CanUpdateInWorkerThread() const { return true; }
+
+	/**
+	 * Override this to indicate that PreUpdate() should be called on the game thread (usually to 
+	 * gather non-thread safe data) before Update() is called.
+	 */
+	virtual bool HasPreUpdate() const { return false; }
+
+	/** Override this to perform game-thread work prior to non-game thread Update() being called */
+	virtual void PreUpdate(const UAnimInstance* InAnimInstance) {}
 	// End of interface to implement
 
 	virtual ~FAnimNode_Base() {}

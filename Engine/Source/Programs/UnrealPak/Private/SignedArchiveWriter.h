@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 /**
@@ -20,6 +20,8 @@ class FSignedArchiveWriter : public FArchive
 	FEncryptionKey PublicKey;
 	/** Encryption key */
 	FEncryptionKey PrivateKey;
+	/** Signatures */
+	TArray<FEncryptedSignature<GPakFileChunkHashSize>> ChunkSignatures;
 
 	/** 
 	 * Encrypts a signature 

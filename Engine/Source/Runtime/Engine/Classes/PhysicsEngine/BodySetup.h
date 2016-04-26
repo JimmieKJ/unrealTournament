@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -118,6 +118,15 @@ class UBodySetup : public UObject
 	/** Cooked physics data for each format */
 	FFormatContainer CookedFormatData;
 
+private:
+#if WITH_EDITOR
+	/** Cooked physics data with runtime only optimizations. This allows us to remove editor only data (like face index remap) assuming the project doesn't use it at runtime. At runtime we load this into CookedFormatData */
+	FFormatContainer CookedFormatDataRuntimeOnlyOptimization;
+#endif
+
+	int32 GetRuntimeOnlyCookOptimizationFlags() const;
+public:
+
 	/** Cooked physics data override. This is needed in cases where some other body setup has the cooked data and you don't want to own it or copy it. See per poly skeletal mesh */
 	FFormatContainer* CookedFormatDataOverride;
 
@@ -207,13 +216,41 @@ public:
 	 */
 	ENGINE_API void UpdateTriMeshVertices(const TArray<FVector> & NewPositions);
 
+	/**	
+	 * Finds the shortest distance between the body setup and a world position. Input and output are given in world space
+	 * @param	WorldPosition	The point we are trying to get close to
+	 * @param	BodyToWorldTM	The transform to convert BodySetup into world space
+	 * @return					The distance between WorldPosition and the body setup. 0 indicates WorldPosition is inside one of the shapes.
+	 *
+	 * NOTE: This function ignores convex and trimesh data
+	 */
+	ENGINE_API float GetShortestDistanceToPoint(const FVector& WorldPosition, const FTransform& BodyToWorldTM) const;
+
+	/** 
+	 * Finds the closest point in the body setup. Input and outputs are given in world space.
+	 * @param	WorldPosition			The point we are trying to get close to
+	 * @param	BodyToWorldTM			The transform to convert BodySetup into world space
+	 * @param	ClosestWorldPosition	The closest point on the body setup to WorldPosition
+	 * @param	FeatureNormal			The normal of the feature associated with ClosestWorldPosition
+	 * @return							The distance between WorldPosition and the body setup. 0 indicates WorldPosition is inside one of the shapes.
+	 *
+	 * NOTE: This function ignores convex and trimesh data
+	 */
+	ENGINE_API float GetClosestPointAndNormal(const FVector& WorldPosition, const FTransform& BodyToWorldTM, FVector& ClosestWorldPosition, FVector& FeatureNormal) const;
+
 	/**
 	 * Given a format name returns its cooked data.
 	 *
 	 * @param Format Physics format name.
+	 * @param bRuntimeOnlyOptimizedVersion whether we want the data that has runtime only optimizations. At runtime this flag is ignored and we use the runtime only optimized data regardless.
 	 * @return Cooked data or NULL of the data was not found.
 	 */
-	FByteBulkData* GetCookedData(FName Format);
+	FByteBulkData* GetCookedData(FName Format, bool bRuntimeOnlyOptimizedVersion = false);
+
+#if WITH_EDITOR
+	ENGINE_API virtual void BeginCacheForCookedPlatformData(  const ITargetPlatform* TargetPlatform ) override;
+	ENGINE_API virtual void ClearCachedCookedPlatformData(  const ITargetPlatform* TargetPlatform ) override;
+#endif
 
 #if WITH_PHYSX
 	/** 

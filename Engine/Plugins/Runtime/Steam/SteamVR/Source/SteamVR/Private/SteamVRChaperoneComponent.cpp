@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 //
 #include "SteamVRPrivatePCH.h"
 #include "SteamVRHMD.h"
@@ -14,7 +14,7 @@ USteamVRChaperoneComponent::USteamVRChaperoneComponent(const FObjectInitializer&
 	bTickInEditor = true;
 	bAutoActivate = true;
 
-	bWasInsideSoftBounds = true;
+	bWasInsideBounds = true;
 }
 
 void USteamVRChaperoneComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
@@ -25,45 +25,32 @@ void USteamVRChaperoneComponent::TickComponent(float DeltaTime, enum ELevelTick 
  	FSteamVRHMD* SteamVRHMD = (FSteamVRHMD*)(GEngine->HMDDevice.Get());
  	if (SteamVRHMD && SteamVRHMD->IsStereoEnabled())
  	{
- 		bool bInSoftBounds = SteamVRHMD->IsInsideSoftBounds();
+ 		bool bInBounds = SteamVRHMD->IsInsideBounds();
  
-		if (bInSoftBounds != bWasInsideSoftBounds)
+		if (bInBounds != bWasInsideBounds)
 		{
-			if (bInSoftBounds)
+			if (bInBounds)
 			{
-				OnReturnToSoftBounds.Broadcast();
+				OnReturnToBounds.Broadcast();
 			}
 			else
 			{
-				OnLeaveSoftBounds.Broadcast();
+				OnLeaveBounds.Broadcast();
 			}
 		}
 
-		bWasInsideSoftBounds = bInSoftBounds;
+		bWasInsideBounds = bInBounds;
  	}
 }
 
-TArray<FVector> USteamVRChaperoneComponent::GetSoftBounds() const
+TArray<FVector> USteamVRChaperoneComponent::GetBounds() const
 {
 	TArray<FVector> RetValue;
 
 	FSteamVRHMD* SteamVRHMD = (FSteamVRHMD*)(GEngine->HMDDevice.Get());
 	if (SteamVRHMD && SteamVRHMD->IsStereoEnabled())
 	{
-		RetValue = SteamVRHMD->GetSoftBounds();
-	}
-
-	return RetValue;
-}
-
-TArray<FVector> USteamVRChaperoneComponent::GetHardBounds() const
-{
-	TArray<FVector> RetValue;
-
-	FSteamVRHMD* SteamVRHMD = (FSteamVRHMD*)(GEngine->HMDDevice.Get());
-	if (SteamVRHMD && SteamVRHMD->IsStereoEnabled())
-	{
-		RetValue = SteamVRHMD->GetHardBounds();
+		RetValue = SteamVRHMD->GetBounds();
 	}
 
 	return RetValue;

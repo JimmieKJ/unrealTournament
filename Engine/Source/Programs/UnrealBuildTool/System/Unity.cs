@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -129,7 +129,7 @@ namespace UnrealBuildTool
 			{
 				EndCurrentUnityFile();
 
-				var Result = UnityFiles;
+				List<FileCollection> Result = UnityFiles;
 
 				// Null everything to ensure that failure will occur if you accidentally reuse this object.
 				CurrentCollection = null;
@@ -157,9 +157,9 @@ namespace UnrealBuildTool
 			string BaseName
 			)
 		{
-			var NewCPPFiles = new List<FileItem>();
+			List<FileItem> NewCPPFiles = new List<FileItem>();
 
-			var BuildPlatform = UEBuildPlatform.GetBuildPlatformForCPPTargetPlatform(CompileEnvironment.Config.Target.Platform);
+			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatformForCPPTargetPlatform(CompileEnvironment.Config.Target.Platform);
 
 			// Figure out size of all input files combined. We use this to determine whether to use larger unity threshold or not.
 			long TotalBytesInCPPFiles = CPPFiles.Sum(F => F.Info.Length);
@@ -183,7 +183,7 @@ namespace UnrealBuildTool
 				// Sort the incoming file paths alphabetically, so there will be consistency in unity blobs across multiple machines.
 				// Note that we're relying on this not only sorting files within each directory, but also the directories
 				// themselves, so the whole list of file paths is the same across computers.
-				var SortedCPPFiles = CPPFiles.GetRange(0, CPPFiles.Count);
+				List<FileItem> SortedCPPFiles = CPPFiles.GetRange(0, CPPFiles.Count);
 				{
 					// Case-insensitive file path compare, because you never know what is going on with local file systems
 					Comparison<FileItem> FileItemComparer = (FileA, FileB) => { return FileA.AbsolutePath.ToLowerInvariant().CompareTo(FileB.AbsolutePath.ToLowerInvariant()); };
@@ -197,7 +197,7 @@ namespace UnrealBuildTool
 				{
 					int CandidateWorkingSetSourceFileCount = 0;
 					int WorkingSetSourceFileCount = 0;
-					foreach (var CPPFile in SortedCPPFiles)
+					foreach (FileItem CPPFile in SortedCPPFiles)
 					{
 						// Don't include writable source files into unity blobs
 						if (!CPPFile.Reference.IsUnderDirectory(Target.EngineIntermediateDirectory) &&
@@ -225,9 +225,9 @@ namespace UnrealBuildTool
 					}
 				}
 
-				var CPPUnityFileBuilder = new UnityFileBuilder(bForceIntoSingleUnityFile ? -1 : BuildConfiguration.NumIncludedBytesPerUnityCPP);
-				var AdaptiveUnityBuildInfoString = new StringBuilder();
-				foreach (var CPPFile in SortedCPPFiles)
+				UnityFileBuilder CPPUnityFileBuilder = new UnityFileBuilder(bForceIntoSingleUnityFile ? -1 : BuildConfiguration.NumIncludedBytesPerUnityCPP);
+				StringBuilder AdaptiveUnityBuildInfoString = new StringBuilder();
+				foreach (FileItem CPPFile in SortedCPPFiles)
 				{
 					if (!bForceIntoSingleUnityFile && CPPFile.AbsolutePath.IndexOf(".GeneratedWrapper.", StringComparison.InvariantCultureIgnoreCase) != -1)
 					{
@@ -246,7 +246,7 @@ namespace UnrealBuildTool
 						// longer compile times the first time you build after your working file set changes.
 						CPPUnityFileBuilder.AddVirtualFile(CPPFile);
 
-						var CPPFileName = Path.GetFileName(CPPFile.AbsolutePath);
+						string CPPFileName = Path.GetFileName(CPPFile.AbsolutePath);
 						if (AdaptiveUnityBuildInfoString.Length == 0)
 						{
 							AdaptiveUnityBuildInfoString.Append(String.Format("[Adaptive unity build] Excluded from {0} unity file: {1}", BaseName, CPPFileName));
@@ -292,7 +292,7 @@ namespace UnrealBuildTool
 			// Create a set of CPP files that combine smaller CPP files into larger compilation units, along with the corresponding 
 			// actions to compile them.
 			int CurrentUnityFileCount = 0;
-			foreach (var UnityFile in AllUnityFiles)
+			foreach (FileCollection UnityFile in AllUnityFiles)
 			{
 				++CurrentUnityFileCount;
 
@@ -319,7 +319,7 @@ namespace UnrealBuildTool
 				}
 
 				// Add source files to the unity file
-				foreach (var CPPFile in UnityFile.Files)
+				foreach (FileItem CPPFile in UnityFile.Files)
 				{
 					OutputUnityCPPWriter.WriteLine("#include \"{0}\"", ToolChain.ConvertPath(CPPFile.AbsolutePath));
 					if (OutputUnityCPPWriterExtra != null)

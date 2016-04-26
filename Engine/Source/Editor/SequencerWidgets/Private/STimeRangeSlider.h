@@ -1,17 +1,17 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-
-class STimeRange;
 
 class STimeRangeSlider : public SCompoundWidget
 {
 public:
 	SLATE_BEGIN_ARGS(STimeRangeSlider){}
+		/* The time snap interval for the timeline */
+		SLATE_ARGUMENT( TAttribute<float>, TimeSnapInterval )
 		SLATE_DEFAULT_SLOT(FArguments, Content)
 	SLATE_END_ARGS()
 
-	void Construct( const FArguments& InArgs, TSharedRef<ITimeSliderController> InTimeSliderController, TSharedPtr<STimeRange> InTimeRange );
+	void Construct( const FArguments& InArgs, TSharedRef<ITimeSliderController> InTimeSliderController );
 
 	// SWidget interface
 	virtual int32 OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override;
@@ -51,6 +51,7 @@ private:
 	/* The in/out view range viewed before expansion */
 	TRange<float> LastViewRange;
 
+	TAttribute<float> TimeSnapInterval;
+
 	TSharedPtr<ITimeSliderController> TimeSliderController;
-	TWeakPtr<STimeRange> TimeRange;
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 #include "PhysicsEngine/ConstraintInstance.h"
 #include "PhysicsConstraintComponent.generated.h"
@@ -275,5 +275,8 @@ protected:
 
 	/** Routes the FConstraint callback to the dynamic delegate */
 	void OnConstraintBrokenHandler(FConstraintInstance* BrokenConstraint);
+
+	/** Returns the scale of the constraint as it will be passed into the ConstraintInstance*/
+	float GetConstraintScale() const;
 };
 

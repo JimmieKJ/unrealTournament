@@ -9,6 +9,10 @@
 #include "UTGameInstance.h"
 #include "../SUTStyle.h"
 
+#if WITH_SOCIAL
+#include "Social.h"
+#endif
+
 #if !UE_SERVER
 
 void SUTPartyWidget::Construct(const FArguments& InArgs, const FLocalPlayerContext& InCtx)
@@ -57,17 +61,22 @@ void SUTPartyWidget::SetupPartyMemberBox()
 	PartyMemberBox->ClearChildren();
 
 	UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(Ctx.GetWorld(), UPartyContext::StaticClass()));
-	
-	TArray<FText> PartyMembers;
-	PartyContext->GetLocalPartyMemberNames(PartyMembers);
 
-	if (PartyMembers.Num() <= 1)
+	const int32 PartySize = PartyContext->GetPartySize();
+	if (PartySize < 1)
 	{
 		return;
 	}
-
+	
+	TArray<FText> PartyMembers;
+	PartyContext->GetLocalPartyMemberNames(PartyMembers);
+	
 	TArray<FUniqueNetIdRepl> PartyMemberIds;
 	PartyContext->GetLocalPartyMemberIDs(PartyMemberIds);
+
+	EPartyType PartyType = EPartyType::Public;
+	bool bLeaderInvitesOnly = false;
+	bool bLeaderFriendsOnly = false;
 
 	TSharedPtr<const FUniqueNetId> PartyLeaderId = nullptr;
 	IOnlinePartyPtr PartyInt = Online::GetPartyInterface();
@@ -81,6 +90,10 @@ void SUTPartyWidget::SetupPartyMemberBox()
 			if (PersistentParty)
 			{
 				PartyLeaderId = PersistentParty->GetPartyLeader();
+
+				PartyType = PersistentParty->GetPartyType();
+				bLeaderInvitesOnly = PersistentParty->IsLeaderInvitesOnly();
+				bLeaderFriendsOnly = PersistentParty->IsLeaderFriendsOnly();
 			}
 		}
 	}
@@ -96,17 +109,15 @@ void SUTPartyWidget::SetupPartyMemberBox()
 	{
 		TSharedPtr<SUTComboButton> DropDownButton = NULL;
 		
+		bool bIsPartyLeader = false;
 		FSlateColor PartyMemberColor = FLinearColor::White;
 		if (PartyMemberIds[i] == PartyLeaderId)
 		{
-			PartyMemberColor = FLinearColor::Blue;
-		}
-		if (LocalPlayerId == PartyMemberIds[i])
-		{
-			PartyMemberColor = FLinearColor::Green;
+			bIsPartyLeader = true;
 		}
 
 		PartyMemberBox->AddSlot()
+		.Padding(FMargin(2.0f, 0.0f))
 		[
 			SAssignNew(DropDownButton, SUTComboButton)
 			.HasDownArrow(false)
@@ -115,35 +126,137 @@ void SUTPartyWidget::SetupPartyMemberBox()
 			.ToolTipText(PartyMembers[i])
 			.ButtonContent()
 			[
-				SNew(SBox)
-				.WidthOverride(96)
-				.HeightOverride(96)
+				SNew(SOverlay)
+				+ SOverlay::Slot()
 				[
-					SNew(SImage)
-					.Image(SUTStyle::Get().GetBrush("UT.Icon.PlayerCard"))
-					.ColorAndOpacity(PartyMemberColor)
+					SNew(SBox)
+					.WidthOverride(96)
+					.HeightOverride(96)
+					[
+						SNew(SImage)
+						.Image(SUTStyle::Get().GetBrush(bIsPartyLeader ? "UT.Icon.PartyLeader" : "UT.Icon.PartyMember"))
+						.ColorAndOpacity(PartyMemberColor)
+					]
 				]
 			]
 		];
 
-		if (LocalPlayerId == PartyLeaderId && PartyMemberIds[i] != PartyLeaderId)
+		if (LocalPlayerId == PartyLeaderId)
 		{
 			DropDownButton->AddSubMenuItem(PartyMembers[i], FOnClicked::CreateSP(this, &SUTPartyWidget::PlayerNameClicked, i));
+			
+			if (PartyType == EPartyType::Public)
+			{
+				DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "PublicParty", "[Public Party]"), FOnClicked());
+			}
+			else if (PartyType == EPartyType::FriendsOnly)
+			{
+				DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "FriendsOnlyParty", "[Friends Only Party]"), FOnClicked());
+			}
+			else if (PartyType == EPartyType::Private)
+			{
+				DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "PrivateParty", "[Private Party]"), FOnClicked());
+			}			
 			DropDownButton->AddSpacer();
-			DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "PromoteToLeader", "Promote To Leader"), FOnClicked::CreateSP(this, &SUTPartyWidget::PromoteToLeader, i));
-			DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "KickFromParty", "Kick From Party"), FOnClicked::CreateSP(this, &SUTPartyWidget::KickFromParty, i), true);
+
+			if (PartyMemberIds[i] == PartyLeaderId)
+			{
+				if (PartyType != EPartyType::Public)
+				{
+					DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "MakePartyPublic", "Make Party Public"), FOnClicked::CreateSP(this, &SUTPartyWidget::ChangePartyType, EPartyType::Public));
+				}
+				if (PartyType != EPartyType::FriendsOnly)
+				{
+					DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "MakePartyFriendsOnly", "Make Party Friends Only"), FOnClicked::CreateSP(this, &SUTPartyWidget::ChangePartyType, EPartyType::FriendsOnly));
+				}
+				if (PartyType != EPartyType::Private)
+				{
+					DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "MakePartyPrivate", "Make Party Private"), FOnClicked::CreateSP(this, &SUTPartyWidget::ChangePartyType, EPartyType::Private));
+				}
+			}
+			else
+			{
+				DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "PromoteToLeader", "Promote To Leader"), FOnClicked::CreateSP(this, &SUTPartyWidget::PromoteToLeader, i));
+				DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "KickFromParty", "Kick From Party"), FOnClicked::CreateSP(this, &SUTPartyWidget::KickFromParty, i));
+			}
 		}
 		else
 		{
-			DropDownButton->AddSubMenuItem(PartyMembers[i], FOnClicked::CreateSP(this, &SUTPartyWidget::PlayerNameClicked, i), true);
+			DropDownButton->AddSubMenuItem(PartyMembers[i], FOnClicked::CreateSP(this, &SUTPartyWidget::PlayerNameClicked, i));
 		}
 
-		if (LocalPlayerId == PartyMemberIds[i])
+		if (LocalPlayerId == PartyMemberIds[i] && PartyMemberIds[i] != PartyLeaderId)
 		{
 			DropDownButton->AddSpacer();
-			DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "LeaveParty", "Leave Party"), FOnClicked::CreateSP(this, &SUTPartyWidget::LeaveParty), true);
+			DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "LeaveParty", "Leave Party"), FOnClicked::CreateSP(this, &SUTPartyWidget::LeaveParty));
 		}
+
+		DropDownButton->RebuildMenuContent();
 	}
+	
+	TArray<FUTFriend> OnlineFriendsList;
+	UTLP->GetFriendsList(OnlineFriendsList);
+
+	for (int i = PartyMembers.Num(); i < 5; i++)
+	{
+		TSharedPtr<SUTComboButton> DropDownButton = NULL;
+
+		PartyMemberBox->AddSlot()
+		.Padding(FMargin(2.0f, 0.0f))
+		[
+			SAssignNew(DropDownButton, SUTComboButton)
+			.HasDownArrow(false)
+			.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
+			.ContentPadding(FMargin(0.0f, 0.0f))
+			.ToolTipText(NSLOCTEXT("SUTPartyWidget", "EmptySlotTip", "Empty Slot"))
+			.ButtonContent()
+			[
+				SNew(SOverlay)
+				+ SOverlay::Slot()
+				[
+					SNew(SBox)
+					.WidthOverride(96)
+					.HeightOverride(96)
+					[
+						SNew(SImage)
+						.Image(SUTStyle::Get().GetBrush("UT.Icon.PartyMember.Empty"))
+						.ColorAndOpacity(FLinearColor::Gray)
+					]
+				]
+			]
+		];
+
+		DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "EmptySlot", "Empty Slot"), FOnClicked());
+
+		int FriendIterator = 0;
+		int InviteTextAdded = 0;
+		while (InviteTextAdded < 5 && FriendIterator < OnlineFriendsList.Num())
+		{
+			if (OnlineFriendsList[FriendIterator].bIsOnline && OnlineFriendsList[FriendIterator].bIsPlayingThisGame)
+			{
+				if (InviteTextAdded == 0)
+				{
+					DropDownButton->AddSpacer();
+				}
+				FText FriendText = FText::Format(NSLOCTEXT("SUTPartyWidget", "InviteFriend", "Invite {0}"), FText::FromString(OnlineFriendsList[FriendIterator].DisplayName));
+				DropDownButton->AddSubMenuItem(FriendText, FOnClicked::CreateSP(this, &SUTPartyWidget::InviteToParty, OnlineFriendsList[FriendIterator].UserId));
+				InviteTextAdded++;
+			}
+
+			FriendIterator++;
+		}
+		DropDownButton->RebuildMenuContent();
+	}
+}
+
+FReply SUTPartyWidget::InviteToParty(FString UserId)
+{
+#if WITH_SOCIAL
+	TSharedPtr<IGameAndPartyService> GameAndPartyService = ISocialModule::Get().GetFriendsAndChatManager()->GetGameAndPartyService();
+	GameAndPartyService->SendPartyInvite(FUniqueNetIdString(UserId));
+#endif
+
+	return FReply::Handled();
 }
 
 FReply SUTPartyWidget::PlayerNameClicked(int32 PartyMemberIdx)
@@ -192,6 +305,28 @@ FReply SUTPartyWidget::PromoteToLeader(int32 PartyMemberIdx)
 			PartyContext->PromotePartyMemberToLeader(PartyMemberIds[PartyMemberIdx]);
 		}
 	}
+
+	return FReply::Handled();
+}
+
+FReply SUTPartyWidget::ChangePartyType(EPartyType InNewPartyType)
+{
+	IOnlinePartyPtr PartyInt = Online::GetPartyInterface();
+	if (PartyInt.IsValid())
+	{
+		UUTGameInstance* GameInstance = CastChecked<UUTGameInstance>(Ctx.GetPlayerController()->GetGameInstance());
+		UUTParty* Party = GameInstance->GetParties();
+		if (Party)
+		{
+			UPartyGameState* PersistentParty = Party->GetPersistentParty();
+			if (PersistentParty)
+			{
+				PersistentParty->SetPartyType(InNewPartyType, PersistentParty->IsLeaderFriendsOnly(), PersistentParty->IsLeaderInvitesOnly());
+			}
+		}
+	}
+
+	SetupPartyMemberBox();
 
 	return FReply::Handled();
 }

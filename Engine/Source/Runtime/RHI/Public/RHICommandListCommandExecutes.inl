@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	RHICommandListCommandExecutes.inl: RHI Command List execute functions.
@@ -335,6 +335,15 @@ template struct FRHICommandTransitionUAVs<ECmdList::EGfx>;
 template struct FRHICommandTransitionUAVs<ECmdList::ECompute>;
 
 template<ECmdList CmdListType>
+void FRHICommandSetAsyncComputeBudget<CmdListType>::Execute(FRHICommandListBase& CmdList)
+{
+	RHISTAT(SetAsyncComputeBudget);
+	INTERNAL_DECORATOR_CONTEXT(SetAsyncComputeBudget)(Budget);
+}
+template struct FRHICommandSetAsyncComputeBudget<ECmdList::EGfx>;
+template struct FRHICommandSetAsyncComputeBudget<ECmdList::ECompute>;
+
+template<ECmdList CmdListType>
 void FRHICommandWaitComputeFence<CmdListType>::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(WaitComputeFence);
@@ -508,7 +517,7 @@ template<ECmdList CmdListType>
 void FRHICommandPushEvent<CmdListType>::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(PushEvent);
-	INTERNAL_DECORATOR_CONTEXT(PushEvent)(Name);
+	INTERNAL_DECORATOR_CONTEXT(PushEvent)(Name, Color);
 }
 template struct FRHICommandPushEvent<ECmdList::EGfx>;
 template struct FRHICommandPushEvent<ECmdList::ECompute>;

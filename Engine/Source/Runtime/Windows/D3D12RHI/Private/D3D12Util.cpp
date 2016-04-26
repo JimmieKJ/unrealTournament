@@ -27,6 +27,25 @@ D3D12Util.h: D3D RHI utility implementation.
 #endif//D3DERR_WASSTILLDRAWING
 #endif
 
+extern bool D3D12RHI_ShouldCreateWithD3DDebug();
+
+void SetName(ID3D12Object* const Object, const TCHAR* const Name)
+{
+	if (Object)
+	{
+		VERIFYD3D11RESULT(Object->SetName(Name));
+	}
+}
+
+void SetName(FD3D12Resource* const Resource, const TCHAR* const Name)
+{
+	// Special case for FD3D12Resources because we also store the name as a member in FD3D12Resource
+	if (Resource)
+	{
+		Resource->SetName(Name);
+	}
+}
+
 static FString GetD3D11DeviceHungErrorString(HRESULT ErrorCode)
 {
 	FString ErrorCodeText;
@@ -593,6 +612,80 @@ bool FD3D12SyncPoint::IsComplete() const
 void FD3D12SyncPoint::WaitForCompletion() const
 {
 	Fence->WaitForFence(Value);
+}
+
+// Forward declarations are required for the template functions
+template bool AssertResourceState(ID3D12CommandList* pCommandList, FD3D12View<D3D12_RENDER_TARGET_VIEW_DESC>* pView, const D3D12_RESOURCE_STATES& State);
+template bool AssertResourceState(ID3D12CommandList* pCommandList, FD3D12View<D3D12_UNORDERED_ACCESS_VIEW_DESC>* pView, const D3D12_RESOURCE_STATES& State);
+template bool AssertResourceState(ID3D12CommandList* pCommandList, FD3D12View<D3D12_SHADER_RESOURCE_VIEW_DESC>* pView, const D3D12_RESOURCE_STATES& State);
+
+template <class TView>
+bool AssertResourceState(ID3D12CommandList* pCommandList, FD3D12View<TView>* pView, const D3D12_RESOURCE_STATES& State)
+{
+	// Check the view
+	if (!pView)
+	{
+		// No need to check null views
+		return true;
+	}
+
+	return AssertResourceState(pCommandList, pView->GetResource(), State, pView->GetViewSubresourceSubset());
+}
+
+bool AssertResourceState(ID3D12CommandList* pCommandList, FD3D12Resource* pResource, const D3D12_RESOURCE_STATES& State, uint32 Subresource)
+{
+	// Check the resource
+	if (!pResource)
+	{
+		// No need to check null resources
+		// Some dynamic SRVs haven't been mapped and updated yet so they actually don't have any backing resources.
+		return true;
+	}
+
+	CViewSubresourceSubset SubresourceSubset(Subresource, pResource->GetMipLevels(), pResource->GetArraySize(), pResource->GetPlaneCount());
+	return AssertResourceState(pCommandList, pResource, State, SubresourceSubset);
+}
+
+bool AssertResourceState(ID3D12CommandList* pCommandList, FD3D12Resource* pResource, const D3D12_RESOURCE_STATES& State, const CViewSubresourceSubset& SubresourceSubset)
+{
+	// Check the resource
+	if (!pResource)
+	{
+		// No need to check null resources
+		// Some dynamic SRVs haven't been mapped and updated yet so they actually don't have any backing resources.
+		return true;
+	}
+
+	// Can only verify resource states if the debug layer is used
+	static const bool bWithD3DDebug = D3D12RHI_ShouldCreateWithD3DDebug();
+	if (!bWithD3DDebug)
+	{
+		UE_LOG(LogD3D12RHI, Fatal, TEXT("*** AssertResourceState requires the debug layer ***"));
+		return false;
+	}
+
+	// Get the debug command queue
+	TRefCountPtr<ID3D12DebugCommandList> pDebugCommandList;
+	VERIFYD3D11RESULT(pCommandList->QueryInterface(pDebugCommandList.GetInitReference()));
+
+	// Get the underlying resource
+	ID3D12Resource* pD3D12Resource = pResource->GetResource();
+	check(pD3D12Resource);
+
+	// For each subresource in the view...
+	for (CViewSubresourceSubset::CViewSubresourceIterator it = SubresourceSubset.begin(); it != SubresourceSubset.end(); ++it)
+	{
+		for (uint32 SubresourceIndex = it.StartSubresource(); SubresourceIndex < it.EndSubresource(); SubresourceIndex++)
+		{
+			const bool bGoodState = !!pDebugCommandList->AssertResourceState(pD3D12Resource, SubresourceIndex, State);
+			if (!bGoodState)
+			{
+				return false;
+			}
+		}
+	}
+
+	return true;
 }
 
 //

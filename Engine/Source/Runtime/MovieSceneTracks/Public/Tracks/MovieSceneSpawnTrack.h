@@ -1,20 +1,21 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "MovieSceneNameableTrack.h"
+#include "MovieSceneTrack.h"
 #include "MovieSceneSpawnTrack.generated.h"
 
 
+class IMovieSceneTrackInstance;
 class UMovieSceneSection;
 
 
 /**
  * Handles when a spawnable should be spawned and destroyed
  */
-UCLASS( MinimalAPI )
+UCLASS(MinimalAPI)
 class UMovieSceneSpawnTrack
-	: public UMovieSceneNameableTrack
+	: public UMovieSceneTrack
 {
 public:
 
@@ -44,7 +45,7 @@ public:
 
 	virtual UMovieSceneSection* CreateNewSection() override;
 	virtual TSharedPtr<IMovieSceneTrackInstance> CreateInstance() override;
-	virtual bool HasSection(const UMovieSceneSection& Section ) const override;
+	virtual bool HasSection(const UMovieSceneSection& Section) const override;
 	virtual void AddSection(UMovieSceneSection& Section) override;
 	virtual void RemoveSection(UMovieSceneSection& Section) override;
 	virtual bool IsEmpty() const override;

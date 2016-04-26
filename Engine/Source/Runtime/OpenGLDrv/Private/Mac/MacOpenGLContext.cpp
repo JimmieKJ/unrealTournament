@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OpenGLDrvPrivate.h"
 
@@ -17,7 +17,7 @@
 #define MAC_OPENGL_SETTINGS TEXT("/Script/MacGraphicsSwitching.MacGraphicsSwitchingSettings")
 #define MAC_OPENGL_INI GEditorSettingsIni
 #else
-#define MAC_OPENGL_SETTINGS TEXT("OpenGL")
+#define MAC_OPENGL_SETTINGS TEXT("/Script/MacTargetPlatform.MacTargetSettings")
 #define MAC_OPENGL_INI GEngineIni
 #endif
 
@@ -34,14 +34,8 @@ static bool GMacUseAutomaticGraphicsSwitching = false;
 /** The current global output renderer ID. */
 static GLint GMacCurrentRendererID = 0;
 
-/** The selected explicit renderer ID. */
-static int32 GMacExplicitRendererID = 0;
-static FAutoConsoleVariableRef CVarMacExplicitRendererID(
-	TEXT("r.Mac.ExplicitRendererID"),
-	GMacExplicitRendererID,
-	TEXT("Explicitly sets all contexts to the provided renderer ID when using automatic graphics switching. (Default: 0, off)"),
-	ECVF_RenderThreadSafe
-	);
+/** The explicit GL renderer ID to use. */
+static GLint GMacExplicitRendererID = 0;
 
 /*------------------------------------------------------------------------------
  OpenGL internal static variables.
@@ -87,33 +81,51 @@ static NSOpenGLContext* CreateContext( NSOpenGLContext* SharedContext )
 		static bool bExplicitRendererSetup = false;
 		if(!bExplicitRendererSetup)
 		{
-			int32 ExplicitRendererId = 0;
-			if(GConfig->GetInt(MAC_OPENGL_SETTINGS, TEXT("RendererID"), ExplicitRendererId, MAC_OPENGL_INI) && ExplicitRendererId)
+			int32 ExplicitRendererId = FPlatformMisc::GetExplicitRendererIndex();
+			if(ExplicitRendererId >= 0)
 			{
 				// Be sure to test that the renderer actually exists, otherwise device creation will fail and that'd be bad
 				bool bRendererFound = false;
 				GLint NumberOfRenderers = 0;
 				CGLRendererInfoObj RendererInfo;
+				
 				// If the display mask is overridden then respect that and disallow renderers not bound to that display
 				int32 OpenGLDisplayMask = DisplayMask ? DisplayMask : 0xffffffff;
 				CGLQueryRendererInfo(OpenGLDisplayMask, &RendererInfo, &NumberOfRenderers);
-				if(RendererInfo)
+				GLint DeviceRendererID = 0;
+				
+				// The available GPUs.
+				TArray<FMacPlatformMisc::FGPUDescriptor> const& GPUs = FPlatformMisc::GetGPUDescriptors();
+				
+				if(RendererInfo && (GPUs.Num() > ExplicitRendererId))
 				{
+					FMacPlatformMisc::FGPUDescriptor const& GPU = GPUs[ExplicitRendererId];
+					
 					for(uint32 i = 0; i < NumberOfRenderers; i++)
 					{
-						GLint DeviceRendererID = 0;
-						CGLDescribeRenderer(RendererInfo, i, kCGLRPRendererID, &DeviceRendererID);
-						if(ExplicitRendererId == DeviceRendererID)
+						GLint TheRendererID = 0;
+						GLint bOnline = 0;
+						GLint VRAM = 0;
+						
+						if(CGLDescribeRenderer(RendererInfo, i, kCGLRPRendererID, &TheRendererID) == kCGLNoError
+						   && CGLDescribeRenderer(RendererInfo, i, kCGLRPOnline, &bOnline) == kCGLNoError
+						   && CGLDescribeRenderer(RendererInfo, i, kCGLRPVideoMemoryMegabytes, &VRAM) == kCGLNoError && GPU.GPUMemoryMB == VRAM)
 						{
-							bRendererFound = true;
-							break;
+							if(((TheRendererID & 0x000ff000) == 0x00021000 && GPU.GPUVendorId == 0x1002 && !GPU.GPUHeadless == bOnline) // AMD
+							|| ((TheRendererID & 0x000ff000) == 0x00024000 && GPU.GPUVendorId == 0x8086) // Intel
+							|| ((TheRendererID & 0x000ff000) == 0x00022000 && GPU.GPUVendorId == 0x10DE)) // NV
+							{
+								DeviceRendererID = TheRendererID;
+								bRendererFound = true;
+								break;
+							}
 						}
 					}
 					
 					CGLDestroyRendererInfo(RendererInfo);
 				}
 				
-				GMacExplicitRendererID = bRendererFound ? ExplicitRendererId : 0;
+				GMacExplicitRendererID = bRendererFound ? DeviceRendererID : 0;
 				GMacCurrentRendererID = GMacExplicitRendererID;
 			}
 			bExplicitRendererSetup = true;

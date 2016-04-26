@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlatePrivatePCH.h"
 
@@ -51,6 +51,7 @@ void SEditableTextBox::Construct( const FArguments& InArgs )
 					.SelectAllTextWhenFocused( InArgs._SelectAllTextWhenFocused )
 					.RevertTextOnEscape( InArgs._RevertTextOnEscape )
 					.ClearKeyboardFocusOnCommit( InArgs._ClearKeyboardFocusOnCommit )
+					.AllowContextMenu( InArgs._AllowContextMenu )
 					.OnContextMenuOpening( InArgs._OnContextMenuOpening )
 					.OnTextChanged( InArgs._OnTextChanged )
 					.OnTextCommitted( InArgs._OnTextCommitted )
@@ -58,6 +59,8 @@ void SEditableTextBox::Construct( const FArguments& InArgs )
 					.SelectAllTextOnCommit( InArgs._SelectAllTextOnCommit )
 					.OnKeyDownHandler( InArgs._OnKeyDownHandler )
 					.VirtualKeyboardType( InArgs._VirtualKeyboardType )
+					.TextShapingMethod( InArgs._TextShapingMethod )
+					.TextFlowDirection( InArgs._TextFlowDirection )
 				]
 			]
 		]
@@ -86,6 +89,8 @@ void SEditableTextBox::SetStyle(const FEditableTextBoxStyle* InStyle)
 		FArguments Defaults;
 		Style = Defaults._Style;
 	}
+
+	check(Style);
 
 	if (!PaddingOverride.IsSet() && PaddingBox.IsValid())
 	{
@@ -151,15 +156,51 @@ void SEditableTextBox::SetError( const FString& InError )
 	ErrorReporting->SetError( InError );
 }
 
+
 void SEditableTextBox::SetOnKeyDownHandler(FOnKeyDown InOnKeyDownHandler)
 {
 	EditableText->SetOnKeyDownHandler(InOnKeyDownHandler);
 }
 
-/** @return Border image for the text box based on the hovered and focused state */
+
+void SEditableTextBox::SetTextShapingMethod(const TOptional<ETextShapingMethod>& InTextShapingMethod)
+{
+	EditableText->SetTextShapingMethod(InTextShapingMethod);
+}
+
+
+void SEditableTextBox::SetTextFlowDirection(const TOptional<ETextFlowDirection>& InTextFlowDirection)
+{
+	EditableText->SetTextFlowDirection(InTextFlowDirection);
+}
+
+
+bool SEditableTextBox::AnyTextSelected() const
+{
+	return EditableText->AnyTextSelected();
+}
+
+
+void SEditableTextBox::SelectAllText()
+{
+	EditableText->SelectAllText();
+}
+
+
+void SEditableTextBox::ClearSelection()
+{
+	EditableText->ClearSelection();
+}
+
+
+FText SEditableTextBox::GetSelectedText() const
+{
+	return EditableText->GetSelectedText();
+}
+
 const FSlateBrush* SEditableTextBox::GetBorderImage() const
 {
-	if ( EditableText->GetIsReadOnly() )
+	if ( EditableText->IsTextReadOnly() )
 	{
 		return BorderImageReadOnly;
 	}
@@ -208,14 +249,13 @@ FReply SEditableTextBox::OnFocusReceived( const FGeometry& MyGeometry, const FFo
 }
 
 
-FReply SEditableTextBox::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent )
+FReply SEditableTextBox::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
 {
 	FKey Key = InKeyEvent.GetKey();
 
-	if( Key == EKeys::Escape && EditableText->HasKeyboardFocus() )
+	if (Key == EKeys::Escape && EditableText->HasKeyboardFocus())
 	{
-		// Clear selection
-		EditableText->ClearSelection();
+		// Clear focus
 		return FReply::Handled().SetUserFocus(SharedThis(this), EFocusCause::Cleared);
 	}
 
@@ -305,4 +345,9 @@ void SEditableTextBox::SetClearKeyboardFocusOnCommit(const TAttribute<bool>& InC
 void SEditableTextBox::SetSelectAllTextOnCommit(const TAttribute<bool>& InSelectAllTextOnCommit)
 {
 	EditableText->SetSelectAllTextOnCommit(InSelectAllTextOnCommit);
+}
+
+void SEditableTextBox::SetAllowContextMenu(TAttribute<bool> InAllowContextMenu)
+{
+	EditableText->SetAllowContextMenu(InAllowContextMenu);
 }

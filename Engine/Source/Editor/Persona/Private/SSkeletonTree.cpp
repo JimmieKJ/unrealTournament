@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "PersonaPrivatePCH.h"
@@ -1790,6 +1790,8 @@ void SSkeletonTree::RemoveFromLOD(int32 LODIndex, bool bIncludeSelected, bool bI
 
 		// remove from current LOD
 		MeshUtilities.RemoveBonesFromMesh(PreviewComponent->SkeletalMesh, LODIndex, &BonesToRemove);
+		// update UI to reflect the change
+		OnLODSwitched();
 	}
 }
 

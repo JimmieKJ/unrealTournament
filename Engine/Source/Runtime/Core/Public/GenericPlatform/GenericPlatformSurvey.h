@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -185,6 +185,20 @@ struct FHardwareDisplay
 };
 
 
+struct FGPUAdpater	
+{
+	static const uint32 MaxStringLength = 260;
+
+	TCHAR AdapterName[MaxStringLength];
+	//
+	TCHAR AdapterInternalDriverVersion[MaxStringLength];
+	// extra data when RHI starts up, AMD has the Catalyst Driver version which is more useful for the user, otherwise it's the same as GRHIAdapterInternalDriverVersion
+	TCHAR AdapterUserDriverVersion[MaxStringLength];
+	// extra data when RHI starts up
+	TCHAR AdapterDriverDate[MaxStringLength];
+};
+
+
 struct FHardwareSurveyResults
 {
 	static const int32 MaxDisplayCount = 8; 
@@ -217,6 +231,8 @@ struct FHardwareSurveyResults
 
 	uint32 DisplayCount;
 	FHardwareDisplay Displays[MaxDisplayCount];
+	// RHI chosen adapter, only if RHI started on Windows DX11
+	FGPUAdpater RHIAdpater;
 
 	uint32 ErrorCount;
 	TCHAR LastSurveyError[MaxStringLength];

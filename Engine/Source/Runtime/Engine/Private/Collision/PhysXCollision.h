@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=======================================================================================
 	PhysXCollision.h: Collision related data structures/types specific to PhysX
@@ -76,7 +76,10 @@ PxGeometry * GetGeometryFromShape(GeometryFromShapeStorage & LocalStorage, const
 // FILTER
 
 /** TArray typedef of components to ignore. */
-typedef TArray<uint32, TInlineAllocator<NumInlinedActorComponents>> FilterIgnoreComponentsArrayType;
+typedef FCollisionQueryParams::IgnoreComponentsArrayType FilterIgnoreComponentsArrayType;
+
+/** TArray typedef of actors to ignore. */
+typedef FCollisionQueryParams::IgnoreActorsArrayType FilterIgnoreActorsArrayType;
 
 
 /** Unreal PhysX scene query filter callback object */
@@ -84,8 +87,11 @@ class FPxQueryFilterCallback : public PxSceneQueryFilterCallback
 {
 public:
 
-	/** List of ActorIds for this query to ignore */
+	/** List of ComponentIds for this query to ignore */
 	FilterIgnoreComponentsArrayType IgnoreComponents;
+
+	/** List of ActorIds for this query to ignore */
+	FilterIgnoreActorsArrayType IgnoreActors;
 	
 	/** Result of PreFilter callback. */
 	PxSceneQueryHitType::Enum PrefilterReturnValue;
@@ -109,6 +115,7 @@ public:
 		PrefilterReturnValue = PxSceneQueryHitType::eNONE;
 		
 		IgnoreComponents = InQueryParams.GetIgnoredComponents();
+		IgnoreActors = InQueryParams.GetIgnoredActors();
 		bIgnoreTouches = false;
 		bIgnoreBlocks = InQueryParams.bIgnoreBlocks;
 	}

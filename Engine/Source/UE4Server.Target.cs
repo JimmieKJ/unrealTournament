@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.Collections.Generic;
@@ -41,25 +41,6 @@ public class UE4ServerTarget : TargetRules
 	{
 		// It is valid for only server platforms
 		return UnrealBuildTool.UnrealBuildTool.GetAllServerPlatforms(ref OutPlatforms, false);
-	}
-
-
-	public override void GetModulesToPrecompile(TargetInfo Target, List<string> ModuleNames)
-	{
-		// Add all the precompiled modules for this target
-		ModuleNames.Add("Launch");
-		ModuleNames.Add("GameplayAbilities");
-		ModuleNames.Add("XmlParser");
-		ModuleNames.Add("RuntimeAssetCache");
-		ModuleNames.Add("UnrealCodeAnalyzerTests");
-
-		ModuleNames.Add("OnlineSubsystemNull");
-		ModuleNames.Add("OnlineSubsystemAmazon");
-		if (UEBuildConfiguration.bCompileSteamOSS == true)
-		{
-			ModuleNames.Add("OnlineSubsystemSteam");
-		}
-		ModuleNames.Add("OnlineSubsystemNull");
 	}
 	
     public override List<UnrealTargetPlatform> GUBP_GetPlatforms_MonolithicOnly(UnrealTargetPlatform HostPlatform)

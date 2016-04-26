@@ -247,22 +247,18 @@ void SUTControlSettingsDialog::CreateBinds()
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Move Forward", "Move Forward")))
 		->AddAxisMapping("MoveForward", 1.0f)
 		->AddActionMapping("TapForward")
-		->AddActionMapping("TapForwardRelease")
 		->AddDefaults(EKeys::W, EKeys::Up)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Move Backward", "Move Backward")))
 		->AddAxisMapping("MoveBackward", 1.0f)
 		->AddActionMapping("TapBack")
-		->AddActionMapping("TapBackRelease")
 		->AddDefaults(EKeys::S, EKeys::Down)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Move Left", "Move Left")))
 		->AddAxisMapping("MoveLeft", 1.0f)
 		->AddActionMapping("TapLeft")
-		->AddActionMapping("TapLeftRelease")
 		->AddDefaults(EKeys::A)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Move Right", "Move Right")))
 		->AddAxisMapping("MoveRight", 1.0f)
 		->AddActionMapping("TapRight")
-		->AddActionMapping("TapRightRelease")
 		->AddDefaults(EKeys::D)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Turn Left", "Turn Left")))
 		->AddAxisMapping("TurnRate", -1.0f)
@@ -278,6 +274,9 @@ void SUTControlSettingsDialog::CreateBinds()
 		->AddAxisMapping("MoveUp", -1.0f)
 		->AddActionMapping("Crouch")
 		->AddDefaults(EKeys::LeftControl, EKeys::C)));
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Slide", "Slide")))
+		->AddActionMapping("Slide")
+		->AddDefaults(EKeys::LeftShift)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "One Tap Dodge", "One Tap Dodge")))
 		->AddActionMapping("SingleTapDodge")
 		->AddDefaults(EKeys::V)));
@@ -309,6 +308,9 @@ void SUTControlSettingsDialog::CreateBinds()
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Translocator", "Select Translocator")))
 		->AddCustomBinding("SelectTranslocator")
 		->AddDefaults(FKey())));
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Activate Powerup", "Activate Powerup")))
+		->AddActionMapping("StartActivatePowerup")
+		->AddDefaults(EKeys::Q)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select WeaponGroup1", "Select Group 1")))
 		->AddCustomBinding("SwitchWeapon 1")
 		->AddDefaults(EKeys::One)));
@@ -352,6 +354,9 @@ void SUTControlSettingsDialog::CreateBinds()
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Feign Death", "Feign Death")))
 		->AddCustomBinding("FeignDeath")
 		->AddDefaults(EKeys::H)));
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Drop Carried Object", "Drop Carried Object")))
+		->AddActionMapping("DropCarriedObject")
+		->AddDefaults(EKeys::G)));
 	//Hud
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Hud", "Hud")))->MakeHeader()));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Show Scores", "Show Scores")))
@@ -369,7 +374,6 @@ void SUTControlSettingsDialog::CreateBinds()
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Team Talk", "Team Talk")))
 		->AddActionMapping("TeamTalk")
 		->AddDefaults(EKeys::Y)));
-
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Buy Menu", "Buy Menu")))
 		->AddActionMapping("ShowBuyMenu")
 		->AddDefaults(EKeys::B)));
@@ -1015,7 +1019,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMovementTab()
 				[
 					SNew(STextBlock)
 					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-					.Text(NSLOCTEXT("SUTControlSettingsDialog", "Slide From Run", "Enable slide from run"))
+					.Text(NSLOCTEXT("SUTControlSettingsDialog", "Slide From Crouch", "Crouch button will trigger slide if moving."))
 				]
 			]
 			+ SHorizontalBox::Slot()
@@ -1024,7 +1028,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMovementTab()
 					SAssignNew(SlideFromRun, SCheckBox)
 					.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
 					.ForegroundColor(FLinearColor::White)
-					.IsChecked(PC->bAllowSlideFromRun ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
+					.IsChecked(PC->bCrouchTriggersSlide ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
 				]
 		];
 }
@@ -1058,6 +1062,7 @@ FReply SUTControlSettingsDialog::OKClick()
 	if (UTPC != nullptr)
 	{
 		UTPC->UpdateWeaponGroupKeys();
+		UTPC->UpdateInventoryKeys();
 	}
 
 	//Update the playing players custom binds
@@ -1134,7 +1139,7 @@ FReply SUTControlSettingsDialog::OKClick()
 		It->bSingleTapAfterJump = SingleTapAfterJump->IsChecked();
 		It->MaxDodgeClickTime = MaxDodgeClickTimeValue;
 		It->MaxDodgeTapTime = MaxDodgeTapTimeValue;
-		It->bAllowSlideFromRun = SlideFromRun->IsChecked();
+		It->bCrouchTriggersSlide = SlideFromRun->IsChecked();
 	}
 	AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>()->SaveConfig();
 	UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->SaveConfig();

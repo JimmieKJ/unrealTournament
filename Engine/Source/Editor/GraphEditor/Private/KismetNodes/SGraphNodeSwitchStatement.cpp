@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "GraphEditorCommon.h"
 #include "SGraphNodeK2Base.h"
@@ -53,7 +53,6 @@ void SGraphNodeSwitchStatement::CreatePinWidgets()
 		{
 			TSharedPtr<SGraphPin> NewPin = FNodeFactory::CreatePinWidget(CurrentPin);
 			check(NewPin.IsValid());
-			NewPin->SetIsEditable(IsEditable);
 
 			this->AddPin(NewPin.ToSharedRef());
 		}
@@ -75,7 +74,6 @@ void SGraphNodeSwitchStatement::CreatePinWidgets()
 
 		// Create the pin itself
 		TSharedPtr<SGraphPin> NewPin = SNew(SGraphPinSwitchNodeDefaultCaseExec, DefaultPin);
-		NewPin->SetIsEditable(IsEditable);
 
 		this->AddPin(NewPin.ToSharedRef());
 	}

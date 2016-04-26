@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AssetToolsPrivatePCH.h"
 
@@ -53,10 +53,12 @@ void FAssetTypeActions_StaticMesh::GetActions( const TArray<UObject*>& InObjects
 		);
 
 	MenuBuilder.AddSubMenu(
-		NSLOCTEXT("AssetTypeActions_StaticMesh", "StaticMesh_ImportLOD", "Import LOD"),
-		NSLOCTEXT("AssetTypeActions_StaticMesh", "StaticMesh_ImportLODtooltip", "Imports meshes into the LODs"),
-		FNewMenuDelegate::CreateSP( this, &FAssetTypeActions_StaticMesh::GetImportLODMenu, Meshes )
-	);
+		NSLOCTEXT("AssetTypeActions_StaticMesh", "StaticMesh_LODMenu", "Level Of Detail"),
+		NSLOCTEXT("AssetTypeActions_StaticMesh", "StaticMesh_LODTooltip", "LOD Options and Tools"),
+		FNewMenuDelegate::CreateSP(this, &FAssetTypeActions_StaticMesh::GetLODMenu, Meshes),
+		false,
+		FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions")
+		);
 }
 
 void FAssetTypeActions_StaticMesh::OpenAssetEditor( const TArray<UObject*>& InObjects, TSharedPtr<IToolkitHost> EditWithinLevelEditor )
@@ -116,6 +118,130 @@ void FAssetTypeActions_StaticMesh::GetImportLODMenu(class FMenuBuilder& MenuBuil
 		MenuBuilder.AddMenuEntry( Description, ToolTip, FSlateIcon(),
 			FUIAction(FExecuteAction::CreateStatic( &FbxMeshUtils::ImportMeshLODDialog, Cast<UObject>(StaticMesh), LOD) )) ;
 	}
+}
+
+void FAssetTypeActions_StaticMesh::GetLODMenu(class FMenuBuilder& MenuBuilder, TArray<TWeakObjectPtr<UStaticMesh>> Meshes)
+{
+
+	MenuBuilder.AddSubMenu(
+		NSLOCTEXT("AssetTypeActions_StaticMesh", "StaticMesh_ImportLOD", "Import LOD"),
+		NSLOCTEXT("AssetTypeActions_StaticMesh", "StaticMesh_ImportLODtooltip", "Imports meshes into the LODs"),
+		FNewMenuDelegate::CreateSP(this, &FAssetTypeActions_StaticMesh::GetImportLODMenu, Meshes)
+		);
+
+	MenuBuilder.AddMenuSeparator();
+
+	MenuBuilder.AddMenuEntry(
+		NSLOCTEXT("AssetTypeActions_StaticMesh", "StaticMesh_CopyLOD", "Copy LOD"),
+		NSLOCTEXT("AssetTypeActions_StaticMesh", "StaticMesh_CopyLODTooltip", "Copies the LOD settings from the selected mesh."),
+		FSlateIcon(),
+		FUIAction(
+		FExecuteAction::CreateSP(this, &FAssetTypeActions_StaticMesh::ExecuteCopyLODSettings, Meshes),
+		FCanExecuteAction::CreateSP(this, &FAssetTypeActions_StaticMesh::CanCopyLODSettings, Meshes)
+		)
+		);
+
+	FText PasteLabel = FText(LOCTEXT("StaticMesh_PasteLODWithName", "Paste LOD"));
+	if (LODCopyMesh.IsValid())
+	{
+		PasteLabel = FText::Format(LOCTEXT("StaticMesh_PasteLODWithName", "Paste LOD from {0}"), FText::FromString(LODCopyMesh->GetName()));
+	}
+	
+	MenuBuilder.AddMenuEntry(
+		PasteLabel,
+		NSLOCTEXT("AssetTypeActions_StaticMesh", "StaticMesh_PasteLODToltip", "Pastes LOD settings to the selected mesh(es)."),
+		FSlateIcon(),
+		FUIAction(
+		FExecuteAction::CreateSP(this, &FAssetTypeActions_StaticMesh::ExecutePasteLODSettings, Meshes),
+		FCanExecuteAction::CreateSP(this, &FAssetTypeActions_StaticMesh::CanPasteLODSettings, Meshes)
+		)
+		);
+
+
+}
+
+void FAssetTypeActions_StaticMesh::ExecuteCopyLODSettings(TArray<TWeakObjectPtr<UStaticMesh>> Objects)
+{
+	LODCopyMesh = Objects[0];
+}
+
+
+bool FAssetTypeActions_StaticMesh::CanCopyLODSettings(TArray<TWeakObjectPtr<UStaticMesh>> Objects) const
+{
+	return Objects.Num() == 1;
+}
+
+void FAssetTypeActions_StaticMesh::ExecutePasteLODSettings(TArray<TWeakObjectPtr<UStaticMesh>> Objects)
+{
+	if (!LODCopyMesh.IsValid())
+	{
+		return;
+	}
+
+	// Retrieve LOD settings from source mesh
+	struct FLODSettings
+	{
+		FMeshReductionSettings		ReductionSettings;
+		float						ScreenSize;
+	};
+
+	TArray<FLODSettings> LODSettings;
+	LODSettings.AddZeroed(LODCopyMesh->SourceModels.Num());
+	for (int32 i = 0; i < LODCopyMesh->SourceModels.Num(); i++)
+	{
+		LODSettings[i].ReductionSettings = LODCopyMesh->SourceModels[i].ReductionSettings;
+		LODSettings[i].ScreenSize = LODCopyMesh->SourceModels[i].ScreenSize;
+	}
+
+	const bool bAutoComputeLODScreenSize = LODCopyMesh->bAutoComputeLODScreenSize;
+	const float StreamingDistanceMultiplier = LODCopyMesh->StreamingDistanceMultiplier;
+
+	// Copy LOD settings over to selected objects in content browser (meshes)
+	for (TWeakObjectPtr<UStaticMesh> MeshPtr : Objects)
+	{
+		if (MeshPtr.IsValid())
+		{
+			UStaticMesh* Mesh = MeshPtr.Get();
+
+			const int32 LODCount = LODSettings.Num();
+			if (Mesh->SourceModels.Num() > LODCount)
+			{
+				const int32 NumToRemove = Mesh->SourceModels.Num() - LODCount;
+				Mesh->SourceModels.RemoveAt(LODCount, NumToRemove);
+			}
+
+			while (Mesh->SourceModels.Num() < LODCount)
+			{
+				new(Mesh->SourceModels) FStaticMeshSourceModel();
+			}
+
+			for (int32 i = 0; i < LODCount; i++)
+			{
+				Mesh->SourceModels[i].ReductionSettings = LODSettings[i].ReductionSettings;
+				Mesh->SourceModels[i].ScreenSize = LODSettings[i].ScreenSize;
+			}
+
+			for (int32 i = LODCount; i < LODSettings.Num(); ++i)
+			{
+				FStaticMeshSourceModel& SrcModel = Mesh->SourceModels[i];
+
+				SrcModel.ReductionSettings = LODSettings[i].ReductionSettings;
+				SrcModel.ScreenSize = LODSettings[i].ScreenSize;
+			}
+
+			Mesh->bAutoComputeLODScreenSize = bAutoComputeLODScreenSize;
+			Mesh->StreamingDistanceMultiplier = StreamingDistanceMultiplier;
+
+			Mesh->PostEditChange();
+			Mesh->MarkPackageDirty();
+		}
+	}
+
+}
+
+bool FAssetTypeActions_StaticMesh::CanPasteLODSettings(TArray<TWeakObjectPtr<UStaticMesh>> Objects) const
+{
+	return LODCopyMesh.IsValid();
 }
 
 void FAssetTypeActions_StaticMesh::ExecuteCreateDestructibleMesh(TArray<TWeakObjectPtr<UStaticMesh>> Objects)

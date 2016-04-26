@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MaterialShaderQualitySettingsPrivatePCH.h"
 #include "MaterialShaderQualitySettings.h"
@@ -127,6 +127,7 @@ UShaderPlatformQualitySettings::UShaderPlatformQualitySettings(const FObjectInit
 	: Super(ObjectInitializer)
 {
 	// high quality overrides are always enabled by default
+	check(IsInGameThread());
 	GetQualityOverrides(EMaterialQualityLevel::High).bEnableOverride = true;
 }
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -19,18 +19,26 @@ struct FConvexVolume;
 struct FNavigableGeometryExport;
 
 /** Information about a streaming texture that a primitive uses for rendering. */
+USTRUCT()
 struct FStreamingTexturePrimitiveInfo
 {
-	UTexture* Texture;
-	FSphere Bounds;
-	float TexelFactor;
+	GENERATED_USTRUCT_BODY()
 
 	FStreamingTexturePrimitiveInfo()
 		: Texture(nullptr)
-		, Bounds(0)
+		, Bounds(ForceInit)
 		, TexelFactor(1.0f)
 	{
 	}
+
+	UPROPERTY()
+	UTexture* Texture;
+
+	UPROPERTY()
+	FBoxSphereBounds Bounds;
+
+	UPROPERTY()
+	float TexelFactor;
 };
 
 /** Determines whether a Character can attempt to step up onto a component when they walk in to it. */
@@ -103,8 +111,8 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FComponentSleepSignature, FName, Bon
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FComponentBeginCursorOverSignature, UPrimitiveComponent*, TouchedComponent );
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FComponentEndCursorOverSignature, UPrimitiveComponent*, TouchedComponent );
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FComponentOnClickedSignature, UPrimitiveComponent*, TouchedComponent );
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FComponentOnReleasedSignature, UPrimitiveComponent*, TouchedComponent );
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams( FComponentOnClickedSignature, UPrimitiveComponent*, TouchedComponent , FKey, ButtonPressed);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams( FComponentOnReleasedSignature, UPrimitiveComponent*, TouchedComponent, FKey, ButtonReleased);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams( FComponentOnInputTouchBeginSignature, ETouchIndex::Type, FingerIndex, UPrimitiveComponent*, TouchedComponent );
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams( FComponentOnInputTouchEndSignature, ETouchIndex::Type, FingerIndex, UPrimitiveComponent*, TouchedComponent );
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams( FComponentBeginTouchOverSignature, ETouchIndex::Type, FingerIndex, UPrimitiveComponent*, TouchedComponent );
@@ -282,6 +290,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Lighting, AdvancedDisplay, meta=(EditCondition="CastShadow", DisplayName = "Static Shadow"))
 	uint32 bCastStaticShadow:1;
 
+	/** Whether the object should be rendered into the planar refelction pass. */
+	UPROPERTY(EditAnywhere, Category=Lighting)
+	uint32 bVisibleInPlanarReflection:1;
+
 	/** 
 	 * Whether the object should cast a volumetric translucent shadow.
 	 * Volumetric translucent shadows are useful for primitives with smoothly changing opacity like particles representing a volume, 
@@ -348,6 +360,10 @@ public:
 	/** Quality of indirect lighting for Movable primitives.  This has a large effect on Indirect Lighting Cache update time. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Lighting)
 	TEnumAsByte<EIndirectLightingCacheQuality> IndirectLightingCacheQuality;
+
+	/** Should this primitive receive dynamic-only CSM shadows */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Lighting, meta=(Display="Receive CSM Shadows From Dynamic Objects"))
+	uint32 bReceiveCSMFromDynamicObjects : 1;
 
 	/** 
 	 * Whether the whole component should be shadowed as one from stationary lights, which makes shadow receiving much cheaper.
@@ -434,6 +450,9 @@ public:
 	/** Physics scene information for this component, holds a single rigid body with multiple shapes. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Collision, meta=(ShowOnlyInnerProperties))
 	FBodyInstance BodyInstance;
+
+	/** Used to detach physics objects before simulation begins. This is needed because at runtime we can't have simulated objects inside the attachment hierarchy */
+	virtual void BeginPlay() override;
 
 protected:
 
@@ -567,12 +586,12 @@ public:
 	
 	/** 
 	 * Finish tracking an overlap interaction that is no longer occurring between this component and the component specified. 
-	 * @param OtherComp - The component of the other actor to stop overlapping
-	 * @param bDoNotifies - True to dispatch appropriate begin/end overlap notifications when these events occur.
-	 * @param bNoNotifySelf	- True to skip end overlap notifications to this component's.  Does not affect notifications to OtherComp's actor.
+	 * @param OtherComp The component of the other actor to stop overlapping
+	 * @param bDoNotifies True to dispatch appropriate begin/end overlap notifications when these events occur.
+	 * @param bSkipNotifySelf True to skip end overlap notifications to this component's.  Does not affect notifications to OtherComp's actor.
 	 * @see [Overlap Events](https://docs.unrealengine.com/latest/INT/Engine/Physics/Collision/index.html#overlapandgenerateoverlapevents)
 	 */
-	void EndComponentOverlap(const FOverlapInfo& OtherOverlap, bool bDoNotifies=true, bool bNoNotifySelf=false);
+	void EndComponentOverlap(const FOverlapInfo& OtherOverlap, bool bDoNotifies=true, bool bSkipNotifySelf=false);
 
 	/**
 	 * Check whether this component is overlapping another component.
@@ -1078,7 +1097,7 @@ private:
 
 public:
 	void SetLODParentPrimitive(UPrimitiveComponent* InLODParentPrimitive);
-	UPrimitiveComponent* GetLODParentPrimitive();
+	UPrimitiveComponent* GetLODParentPrimitive() const;
 
 #if WITH_EDITOR
 	virtual const int32 GetNumUncachedStaticLightingInteractions() const override; // recursive function
@@ -1092,6 +1111,7 @@ public:
 	virtual bool ShouldCreatePhysicsState() const override;
 	virtual bool HasValidPhysicsState() const override;
 	virtual class FActorComponentInstanceData* GetComponentInstanceData() const override;
+	virtual void OnComponentDestroyed(bool bDestroyingHierarchy) override;
 	//~ End UActorComponent Interface
 
 	/** @return true if the owner is selected and this component is selectable */
@@ -1103,7 +1123,7 @@ public:
 	/**  @return True if a primitive's parameters as well as its position is static during gameplay, and can thus use static lighting. */
 	bool HasStaticLighting() const;
 
-	virtual bool HasValidSettingsForStaticLighting() const 
+	virtual bool HasValidSettingsForStaticLighting(bool bOverlookInvalidComponents) const 
 	{
 		return HasStaticLighting();
 	}
@@ -1465,15 +1485,28 @@ protected:
 public:
 	virtual bool IsWorldGeometry() const override;
 
-
+	/** Returns the form of collision for this component */
+	UFUNCTION(BlueprintCallable, Category="Collision")
 	virtual ECollisionEnabled::Type GetCollisionEnabled() const override;
 
+	/** Utility to see if there is any form of collision (query or physics) enabled on this component. */
+	UFUNCTION(BlueprintCallable, meta=(DisplayName="Is Collision Enabled"), Category="Collision")
+	bool K2_IsCollisionEnabled() const;
+
+	/** Utility to see if there is any query collision enabled on this component. */
+	UFUNCTION(BlueprintCallable, meta=(DisplayName="Is Query Collision Enabled"), Category="Collision")
+	bool K2_IsQueryCollisionEnabled() const;
+
+	/** Utility to see if there is any physics collision enabled on this component. */
+	UFUNCTION(BlueprintCallable, meta=(DisplayName="Is Physics Collision Enabled"), Category="Collision")
+	bool K2_IsPhysicsCollisionEnabled() const;
+
 	/** Gets the response type given a specific channel */
-	UFUNCTION(BlueprintCallable, Category="Physics")
+	UFUNCTION(BlueprintCallable, Category="Collision")
 	virtual ECollisionResponse GetCollisionResponseToChannel(ECollisionChannel Channel) const override;
 
 	/** Gets the collision object type */
-	UFUNCTION(BlueprintCallable, Category="Physics")
+	UFUNCTION(BlueprintCallable, Category="Collision")
 	virtual ECollisionChannel GetCollisionObjectType() const override;
 
 	virtual const FCollisionResponseContainer& GetCollisionResponseToChannels() const override;
@@ -1667,10 +1700,16 @@ public:
 	 */
 	void SetCollisionResponseToChannels(const FCollisionResponseContainer& NewReponses);
 	
-private:
+protected:
+
 	/** Called when the BodyInstance ResponseToChannels, CollisionEnabled or bNotifyRigidBodyCollision changes, in case subclasses want to use that information. */
 	virtual void OnComponentCollisionSettingsChanged();
 
+	/** Ends all current component overlaps. Generally used when destroying this component or when it can no longer generate overlaps. */
+	void ClearComponentOverlaps(bool bDoNotifies, bool bSkipNotifySelf);
+
+private:
+	
 	/**
 	 *	Applies a RigidBodyState struct to this Actor.
 	 *	When we get an update for the physics, we try to do it smoothly if it is less than ..DeltaThreshold.
@@ -1849,8 +1888,8 @@ public:
 
 	static void DispatchMouseOverEvents(UPrimitiveComponent* CurrentComponent, UPrimitiveComponent* NewComponent);
 	static void DispatchTouchOverEvents(ETouchIndex::Type FingerIndex, UPrimitiveComponent* CurrentComponent, UPrimitiveComponent* NewComponent);
-	void DispatchOnClicked();
-	void DispatchOnReleased();
+	void DispatchOnClicked(FKey ButtonClicked = EKeys::LeftMouseButton);
+	void DispatchOnReleased(FKey ButtonReleased = EKeys::LeftMouseButton);
 	void DispatchOnInputTouchBegin(const ETouchIndex::Type Key);
 	void DispatchOnInputTouchEnd(const ETouchIndex::Type Key);
 };
@@ -1863,13 +1902,17 @@ class ENGINE_API FPrimitiveComponentInstanceData : public FSceneComponentInstanc
 {
 public:
 	FPrimitiveComponentInstanceData(const UPrimitiveComponent* SourceComponent);
-			
 	virtual ~FPrimitiveComponentInstanceData()
 	{}
 
 	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override;
+	virtual void FindAndReplaceInstances(const TMap<UObject*, UObject*>& OldToNewInstanceMap) override;
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 
 	bool ContainsData() const;
+
+private:
+	UPrimitiveComponent* LODParent;
 };
 
 
@@ -1899,4 +1942,19 @@ FORCEINLINE_DEBUGGABLE bool UPrimitiveComponent::ComponentOverlapComponent(class
 FORCEINLINE_DEBUGGABLE const TArray<FOverlapInfo>& UPrimitiveComponent::GetOverlapInfos() const
 {
 	return OverlappingComponents;
+}
+
+FORCEINLINE_DEBUGGABLE bool UPrimitiveComponent::K2_IsCollisionEnabled() const
+{
+	return IsCollisionEnabled();
+}
+
+FORCEINLINE_DEBUGGABLE bool UPrimitiveComponent::K2_IsQueryCollisionEnabled() const
+{
+	return IsQueryCollisionEnabled();
+}
+
+FORCEINLINE_DEBUGGABLE bool UPrimitiveComponent::K2_IsPhysicsCollisionEnabled() const
+{
+	return IsPhysicsCollisionEnabled();
 }

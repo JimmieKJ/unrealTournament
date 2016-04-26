@@ -1,4 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+//////////////////////////////////////////////////////////////////////////
+// THIS CLASS IS NOW DEPRECATED AND WILL BE REMOVED IN NEXT VERSION
+// Please check GameplayDebugger.h for details.
 
 #pragma once
 
@@ -24,6 +28,8 @@ namespace EAIDebugDrawDataView
 		MAX UMETA(Hidden)
 	};
 }
+
+ENUM_RANGE_BY_FIRST_AND_LAST(EAIDebugDrawDataView::Type, EAIDebugDrawDataView::OverHead, EAIDebugDrawDataView::NavMesh)
 
 struct GAMEPLAYDEBUGGER_API FGameplayDebuggerSettings
 {

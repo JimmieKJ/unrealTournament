@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -8,10 +8,14 @@
 class SFloatCurveKeyEditor : public SCompoundWidget
 {
 public:
+	/** Notification for numeric value change */
+	DECLARE_DELEGATE_OneParam( FOnValueChanged, float );
+
 	SLATE_BEGIN_ARGS(SFloatCurveKeyEditor) {}
 		SLATE_ARGUMENT(ISequencer*, Sequencer)
 		SLATE_ARGUMENT(UMovieSceneSection*, OwningSection)
 		SLATE_ARGUMENT(FRichCurve*, Curve)
+		SLATE_EVENT(FOnValueChanged, OnValueChanged)
 		SLATE_ATTRIBUTE(TOptional<float>, IntermediateValue)
 	SLATE_END_ARGS();
 
@@ -30,5 +34,6 @@ private:
 	ISequencer* Sequencer;
 	UMovieSceneSection* OwningSection;
 	FRichCurve* Curve;
+	FOnValueChanged OnValueChangedEvent;
 	TAttribute<TOptional<float>> IntermediateValue;
 };

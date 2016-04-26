@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Diagnostics;
@@ -42,7 +42,10 @@ namespace Tools.DotNETCommon.SimpleWebRequest
 					byte[] Buffer = Encoding.UTF8.GetBytes( Payload );
 					Request.ContentType = "text/xml";
 					Request.ContentLength = Buffer.Length;
-					Request.GetRequestStream().Write( Buffer, 0, Buffer.Length );
+					using (Stream RequestStream = Request.GetRequestStream())
+					{
+						RequestStream.Write(Buffer, 0, Buffer.Length);
+					}
 				}
 				else
 				{
@@ -71,17 +74,21 @@ namespace Tools.DotNETCommon.SimpleWebRequest
 
 			try
 			{
-				HttpWebResponse WebResponse = ( HttpWebResponse )Request.GetResponse();
-				// Simple size check to prevent exploits
-				if( WebResponse.StatusCode == HttpStatusCode.OK && WebResponse.ContentLength < 4096 )
+				using (HttpWebResponse WebResponse = (HttpWebResponse)Request.GetResponse())
 				{
-					// Process the response
-					Stream ResponseStream = WebResponse.GetResponseStream();
-					byte[] RawResponse = new byte[WebResponse.ContentLength];
-					ResponseStream.Read( RawResponse, 0, ( int )WebResponse.ContentLength );
-					ResponseStream.Close();
+					// Simple size check to prevent exploits
+					if (WebResponse.StatusCode == HttpStatusCode.OK && WebResponse.ContentLength < 4096)
+					{
+						// Process the response
+						using (Stream ResponseStream = WebResponse.GetResponseStream())
+						{
+							byte[] RawResponse = new byte[WebResponse.ContentLength];
+							ResponseStream.Read(RawResponse, 0, (int)WebResponse.ContentLength);
+							ResponseStream.Close();
 
-					ResponseString = Encoding.UTF8.GetString( RawResponse );
+							ResponseString = Encoding.UTF8.GetString(RawResponse);
+						}
+					}
 				}
 			}
 			catch( Exception Ex )

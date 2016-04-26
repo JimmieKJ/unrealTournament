@@ -1,20 +1,44 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
 #include "SceneComponent.h"
+#include "ComponentInstanceDataCache.h"
 #include "ChildActorComponent.generated.h"
 
-class FChildActorComponentInstanceData;
+class ENGINE_API FChildActorComponentInstanceData : public FSceneComponentInstanceData
+{
+public:
+	FChildActorComponentInstanceData(const class UChildActorComponent* Component);
+
+	virtual ~FChildActorComponentInstanceData();
+
+	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override;
+
+	// The name of the spawned child actor so it (attempts to) remain constant across construction script reruns
+	FName ChildActorName;
+
+	// The component instance data cache for the ChildActor spawned by this component
+	FComponentInstanceDataCache* ComponentInstanceData;
+
+	struct FAttachedActorInfo
+	{
+		TWeakObjectPtr<AActor> Actor;
+		FName SocketName;
+		FTransform RelativeTransform;
+	};
+
+	TArray<FAttachedActorInfo> AttachedActors;
+};
 
 /** A component that spawns an Actor when registered, and destroys it when unregistered.*/
-UCLASS(ClassGroup=Utility, hidecategories=(Object,LOD,Physics,Lighting,TextureStreaming,Activation,"Components|Activation",Collision), meta=(BlueprintSpawnableComponent), MinimalAPI)
-class UChildActorComponent : public USceneComponent
+UCLASS(ClassGroup=Utility, hidecategories=(Object,LOD,Physics,Lighting,TextureStreaming,Activation,"Components|Activation",Collision), meta=(BlueprintSpawnableComponent))
+class ENGINE_API UChildActorComponent : public USceneComponent
 {
 	GENERATED_UCLASS_BODY()
 
 	UFUNCTION(BlueprintCallable, Category=ChildActorComponent)
-	ENGINE_API void SetChildActorClass(TSubclassOf<AActor> InClass);
+	void SetChildActorClass(TSubclassOf<AActor> InClass);
 
 	TSubclassOf<AActor> GetChildActorClass() const { return ChildActorClass; }
 
@@ -40,21 +64,24 @@ public:
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostEditUndo() override;
+	virtual void PostLoad() override;
 #endif
+	virtual void BeginDestroy() override;
 	//~ End Object Interface.
 
 	//~ Begin ActorComponent Interface.
 	virtual void OnComponentCreated() override;
-	virtual void OnComponentDestroyed() override;
+	virtual void OnComponentDestroyed(bool bDestroyingHierarchy) override;
 	virtual void OnRegister() override;
+	virtual void OnUnregister() override;
 	virtual FActorComponentInstanceData* GetComponentInstanceData() const override;
 	//~ End ActorComponent Interface.
 
 	/** Apply the component instance data to the child actor component */
-	void ApplyComponentInstanceData(class FChildActorComponentInstanceData* ComponentInstanceData);
+	void ApplyComponentInstanceData(class FChildActorComponentInstanceData* ComponentInstanceData, const ECacheApplyPhase CacheApplyPhase);
 
 	/** Create the child actor */
-	ENGINE_API void CreateChildActor();
+	void CreateChildActor();
 
 	/** Kill any currently present child actor */
 	void DestroyChildActor(const bool bRequiresRename = true);

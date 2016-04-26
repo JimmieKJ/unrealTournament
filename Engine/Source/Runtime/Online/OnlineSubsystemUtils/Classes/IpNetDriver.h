@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 //
 // Ip endpoint based implementation of the net driver
@@ -37,6 +37,7 @@ class ONLINESUBSYSTEMUTILS_API UIpNetDriver : public UNetDriver
 	virtual bool InitListen( FNetworkNotify* InNotify, FURL& LocalURL, bool bReuseAddressAndPort, FString& Error ) override;
 	virtual void ProcessRemoteFunction(class AActor* Actor, class UFunction* Function, void* Parameters, struct FOutParmRec* OutParms, struct FFrame* Stack, class UObject* SubObject = NULL) override;
 	virtual void TickDispatch( float DeltaTime ) override;
+	virtual void LowLevelSend(FString Address, void* Data, int32 CountBits) override;
 	virtual FString LowLevelGetNetworkNumber() override;
 	virtual void LowLevelDestroy() override;
 	virtual class ISocketSubsystem* GetSocketSubsystem() override;
@@ -70,4 +71,9 @@ class ONLINESUBSYSTEMUTILS_API UIpNetDriver : public UNetDriver
 
 	/** @return TCPIP connection to server */
 	class UIpConnection* GetServerConnection();
+
+	// Callback for platform handling when networking is taking a long time in a single frame (by default over 1 second).
+	// It may get called multiple times in a single frame if additional processing after a previous alert exceeds the threshold again
+	DECLARE_MULTICAST_DELEGATE(FOnNetworkProcessingCausingSlowFrame);
+	static FOnNetworkProcessingCausingSlowFrame OnNetworkProcessingCausingSlowFrame;
 };

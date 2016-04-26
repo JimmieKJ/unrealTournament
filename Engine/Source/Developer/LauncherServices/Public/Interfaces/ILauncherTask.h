@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -15,9 +15,6 @@ namespace ELauncherTaskStatus
 
 		/** The task has been canceled. */
 		Canceled,
-
-		/** The task is being canceled. */
-		Canceling,
 
 		/** The task completed successfully. */
 		Completed,
@@ -83,6 +80,14 @@ public:
 	 * @return Task status.
 	 */
 	virtual ELauncherTaskStatus::Type GetStatus( ) const = 0;
+
+	/**
+	 * Gets if the task is trying to cancel
+	 *
+	 * @return if task is trying to cancel
+	 */
+	virtual bool IsCancelling() const = 0;
+
 
 	/**
 	 * Checks whether the task has finished execution.

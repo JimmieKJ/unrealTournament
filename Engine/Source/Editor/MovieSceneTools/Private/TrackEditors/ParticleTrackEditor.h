@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -46,7 +46,7 @@ public:
 private:
 
 	/** Delegate for AnimatablePropertyChanged in AddKey. */
-	virtual bool AddKeyInternal( float KeyTime, const TArray<UObject*> Objects);
+	virtual bool AddKeyInternal( float KeyTime, const TArray<TWeakObjectPtr<UObject>> Objects);
 };
 
 
@@ -70,8 +70,9 @@ public:
 	virtual FText GetSectionTitle() const override { return FText::GetEmpty(); }
 	virtual float GetSectionHeight() const override;
 	virtual void GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder ) const override;
-	virtual int32 OnPaintSection( const FGeometry& AllottedGeometry, const FSlateRect& SectionClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, bool bParentEnabled ) const override;
+	virtual int32 OnPaintSection( FSequencerSectionPainter& InPainter ) const override;
 	virtual const FSlateBrush* GetKeyBrush( FKeyHandle KeyHandle ) const override;
+	virtual FVector2D GetKeyBrushOrigin( FKeyHandle KeyHandle ) const override;
 	virtual bool SectionIsResizable() const override { return false; }
 
 private:
@@ -80,7 +81,7 @@ private:
 	UMovieSceneSection& Section;
 
 	/** The sequencer that owns this section */
-	TSharedRef<ISequencer> OwningSequencer;
+	TWeakPtr<ISequencer> OwningSequencerPtr;
 
 	/** The UEnum for the EParticleKey enum */
 	const UEnum* ParticleKeyEnum;

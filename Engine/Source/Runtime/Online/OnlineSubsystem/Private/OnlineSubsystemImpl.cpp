@@ -1,9 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemPrivatePCH.h"
 #include "OnlineSubsystemImpl.h"
 #include "NamedInterfaces.h"
 #include "OnlineIdentityInterface.h"
+#include "OnlineSessionInterface.h"
+#include "OnlineFriendsInterface.h"
 
 const FName FOnlineSubsystemImpl::DefaultInstanceName(TEXT("DefaultInstance"));
 
@@ -138,3 +140,87 @@ bool FOnlineSubsystemImpl::IsLocalPlayer(const FUniqueNetId& UniqueId) const
 	return false;
 }
 
+IMessageSanitizerPtr FOnlineSubsystemImpl::GetMessageSanitizer(int32 LocalUserNum, FString& OutAuthTypeToExclude) const
+{
+	IMessageSanitizerPtr MessageSanitizer;
+	IOnlineSubsystem* PlatformSubsystem = IOnlineSubsystem::GetByPlatform();
+	if (PlatformSubsystem && PlatformSubsystem != static_cast<const IOnlineSubsystem*>(this))
+	{
+		MessageSanitizer = PlatformSubsystem->GetMessageSanitizer(LocalUserNum, OutAuthTypeToExclude);
+	}
+	return MessageSanitizer;
+}
+
+bool FOnlineSubsystemImpl::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
+{
+	bool bWasHandled = false;
+
+	if (FParse::Command(&Cmd, TEXT("FRIEND")))
+	{
+		bWasHandled = HandleFriendExecCommands(InWorld, Cmd, Ar);
+	}
+	else if (FParse::Command(&Cmd, TEXT("SESSION")))
+	{
+		bWasHandled = HandleSessionExecCommands(InWorld, Cmd, Ar);
+	}
+
+	return bWasHandled;
+}
+
+bool FOnlineSubsystemImpl::HandleFriendExecCommands(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
+{
+	bool bWasHandled = false;
+
+	if (FParse::Command(&Cmd, TEXT("BLOCK")))
+	{
+		FString LocalNumStr = FParse::Token(Cmd, false);
+		int32 LocalNum = FCString::Atoi(*LocalNumStr);
+
+		FString UserId = FParse::Token(Cmd, false);
+		if (UserId.IsEmpty() || LocalNum < 0 || LocalNum > MAX_LOCAL_PLAYERS)
+		{
+			UE_LOG_ONLINE(Warning, TEXT("usage: FRIEND BLOCK <localnum> <userid>"));
+		}
+		else
+		{
+			IOnlineIdentityPtr IdentityInt = GetIdentityInterface();
+			if (IdentityInt.IsValid())
+			{
+				TSharedPtr<const FUniqueNetId> BlockUserId = IdentityInt->CreateUniquePlayerId(UserId);
+				IOnlineFriendsPtr FriendsInt = GetFriendsInterface();
+				if (FriendsInt.IsValid())
+				{
+					FriendsInt->BlockPlayer(0, *BlockUserId);
+				}
+			}
+		}
+	}
+	else if (FParse::Command(&Cmd, TEXT("DUMPBLOCKED")))
+	{
+		IOnlineFriendsPtr FriendsInt = GetFriendsInterface();
+		if (FriendsInt.IsValid())
+		{
+			FriendsInt->DumpBlockedPlayers();
+		}
+		bWasHandled = true;
+	}
+
+	return bWasHandled;
+}
+
+bool FOnlineSubsystemImpl::HandleSessionExecCommands(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
+{
+	bool bWasHandled = false;
+
+	if (FParse::Command(&Cmd, TEXT("DUMPSESSIONS")))
+	{
+		IOnlineSessionPtr SessionsInt = GetSessionInterface();
+		if (SessionsInt.IsValid())
+		{
+			SessionsInt->DumpSessionState();
+		}
+		bWasHandled = true;
+	}
+
+	return bWasHandled;
+}

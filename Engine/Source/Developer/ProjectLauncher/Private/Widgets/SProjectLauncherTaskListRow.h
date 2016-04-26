@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -127,16 +127,16 @@ private:
 			switch (TaskStatus)
 			{
 			case ELauncherTaskStatus::Busy:
-
-				return LOCTEXT("StatusInProgressText", "Busy");
-
+				{
+					if (TaskPtr->IsCancelling())
+					{
+						return LOCTEXT("StatusCancelingText", "Canceling");
+					}
+					return LOCTEXT("StatusInProgressText", "Busy");
+				}
 			case ELauncherTaskStatus::Canceled:
 
 				return LOCTEXT("StatusCanceledText", "Canceled");
-
-			case ELauncherTaskStatus::Canceling:
-
-				return LOCTEXT("StatusCancelingText", "Canceling");
 
 			case ELauncherTaskStatus::Completed:
 
@@ -163,7 +163,7 @@ private:
 		if (TaskPtr.IsValid())
 		{
 			if ((TaskPtr->GetStatus() == ELauncherTaskStatus::Busy) ||
-				(TaskPtr->GetStatus() == ELauncherTaskStatus::Canceling))
+				(TaskPtr->IsCancelling()))
 			{
 				return EVisibility::Visible;
 			}

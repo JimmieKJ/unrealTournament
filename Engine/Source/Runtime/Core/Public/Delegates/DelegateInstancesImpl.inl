@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*================================================================================
 	DelegateInstancesImpl.inl: Inline implementation of delegate bindings.
@@ -105,26 +105,45 @@ public:
 
 	// IDelegateInstance interface
 
+#if USE_DELEGATE_TRYGETBOUNDFUNCTIONNAME
+
+	virtual FName TryGetBoundFunctionName() const override
+	{
+		return NAME_None;
+	}
+
+#endif
+
+	// Deprecated
 	virtual FName GetFunctionName( ) const override
 	{
 		return NAME_None;
 	}
 
+	// Deprecated
 	virtual const void* GetRawMethodPtr( ) const override
 	{
 		return GetRawMethodPtrInternal();
 	}
 
+	// Deprecated
 	virtual const void* GetRawUserObject( ) const override
 	{
 		return GetRawUserObjectInternal();
 	}
 
+	// Deprecated
 	virtual EDelegateInstanceType::Type GetType( ) const override
 	{
 		return SPMode == ESPMode::ThreadSafe ? EDelegateInstanceType::ThreadSafeSharedPointerMethod : EDelegateInstanceType::SharedPointerMethod;
 	}
 
+	virtual UObject* GetUObject( ) const override
+	{
+		return nullptr;
+	}
+
+	// Deprecated
 	virtual bool HasSameObject( const void* InUserObject ) const override
 	{
 		return UserObject.HasSameObject(InUserObject);
@@ -184,6 +203,7 @@ public:
 	}
 #endif
 
+	// Deprecated
 	virtual bool IsSameFunction( const DELEGATE_INSTANCE_INTERFACE_CLASS<FUNC_TEMPLATE_ARGS>& InOtherDelegate ) const override
 	{
 		// NOTE: Payload data is not currently considered when comparing delegate instances.
@@ -248,13 +268,6 @@ protected:
 
 private:
 
-	// Declare ourselves as a friend so we can access other template permutations in IsSameFunction().
-	template<class UserClassNoShadow, FUNC_PAYLOAD_TEMPLATE_DECL_NO_SHADOW, ESPMode SPModeNoShadow> friend class SP_METHOD_DELEGATE_INSTANCE_CLASS;
-
-	// Declare other pointer-based delegates as a friend so IsSameFunction() can compare members.
-	template<class UserClassNoShadow, FUNC_PAYLOAD_TEMPLATE_DECL_NO_SHADOW> friend class UOBJECT_METHOD_DELEGATE_INSTANCE_CLASS;
-	template<class UserClassNoShadow, FUNC_PAYLOAD_TEMPLATE_DECL_NO_SHADOW> friend class RAW_METHOD_DELEGATE_INSTANCE_CLASS;
-
 	// Weak reference to an instance of the user's class which contains a method we would like to call.
 	TWeakPtr<UserClass, SPMode> UserObject;
 
@@ -303,26 +316,45 @@ public:
 
 	// IDelegateInstance interface
 
+#if USE_DELEGATE_TRYGETBOUNDFUNCTIONNAME
+
+	virtual FName TryGetBoundFunctionName() const override
+	{
+		return NAME_None;
+	}
+
+#endif
+
+	// Deprecated
 	virtual FName GetFunctionName( ) const override
 	{
 		return NAME_None;
 	}
 
+	// Deprecated
 	virtual const void* GetRawMethodPtr( ) const override
 	{
 		return GetRawMethodPtrInternal();
 	}
 
+	// Deprecated
 	virtual const void* GetRawUserObject( ) const override
 	{
 		return GetRawUserObjectInternal();
 	}
 
+	// Deprecated
 	virtual EDelegateInstanceType::Type GetType( ) const override
 	{
 		return EDelegateInstanceType::RawMethod;
 	}
 
+	virtual UObject* GetUObject( ) const override
+	{
+		return nullptr;
+	}
+
+	// Deprecated
 	virtual bool HasSameObject( const void* InUserObject ) const override
 	{
 		return UserObject == InUserObject;
@@ -375,6 +407,7 @@ public:
 	}
 #endif
 
+	// Deprecated
 	virtual bool IsSameFunction( const DELEGATE_INSTANCE_INTERFACE_CLASS<FUNC_TEMPLATE_ARGS>& InOtherDelegate ) const override
 	{
 		// NOTE: Payload data is not currently considered when comparing delegate instances.
@@ -423,10 +456,6 @@ protected:
 	}
 
 private:
-
-	// Declare other pointer-based delegates as a friend so IsSameFunction() can compare members
-	template<class UserClassNoShadow, FUNC_PAYLOAD_TEMPLATE_DECL_NO_SHADOW, ESPMode SPModeNoShadow> friend class SP_METHOD_DELEGATE_INSTANCE_CLASS;
-	template<class UserClassNoShadow, FUNC_PAYLOAD_TEMPLATE_DECL_NO_SHADOW> friend class UOBJECT_METHOD_DELEGATE_INSTANCE_CLASS;
 
 	// Pointer to the user's class which contains a method we would like to call.
 	UserClass* UserObject;
@@ -477,26 +506,45 @@ public:
 
 	// IDelegateInstance interface
 
+#if USE_DELEGATE_TRYGETBOUNDFUNCTIONNAME
+
+	virtual FName TryGetBoundFunctionName() const override
+	{
+		return NAME_None;
+	}
+
+#endif
+
+	// Deprecated
 	virtual FName GetFunctionName( ) const override
 	{
 		return NAME_None;
 	}
 
+	// Deprecated
 	virtual const void* GetRawMethodPtr( ) const override
 	{
 		return GetRawMethodPtrInternal();
 	}
 
+	// Deprecated
 	virtual const void* GetRawUserObject( ) const override
 	{
 		return GetRawUserObjectInternal();
 	}
 
+	// Deprecated
 	virtual EDelegateInstanceType::Type GetType( ) const override
 	{
 		return EDelegateInstanceType::UObjectMethod;
 	}
 
+	virtual UObject* GetUObject( ) const override
+	{
+		return (UObject*)UserObject.Get();
+	}
+
+	// Deprecated
 	virtual bool HasSameObject( const void* InUserObject ) const override
 	{
 		return (UserObject.Get() == InUserObject);
@@ -559,6 +607,7 @@ public:
 	}
 #endif
 
+	// Deprecated
 	virtual bool IsSameFunction( const DELEGATE_INSTANCE_INTERFACE_CLASS<FUNC_TEMPLATE_ARGS>& InOtherDelegate ) const override
 	{
 		// NOTE: Payload data is not currently considered when comparing delegate instances.
@@ -605,10 +654,6 @@ protected:
 	}
 
 private:
-
-	// Declare other pointer-based delegates as a friend so IsSameFunction() can compare members
-	template<class UserClassNoShadow, FUNC_PAYLOAD_TEMPLATE_DECL_NO_SHADOW,ESPMode SPModeNoShadow> friend class SP_METHOD_DELEGATE_INSTANCE_CLASS;
-	template<class UserClassNoShadow, FUNC_PAYLOAD_TEMPLATE_DECL_NO_SHADOW> friend class RAW_METHOD_DELEGATE_INSTANCE_CLASS;
 
 	// Pointer to the user's class which contains a method we would like to call.
 	TWeakObjectPtr<UserClass> UserObject;
@@ -659,26 +704,45 @@ public:
 
 	// IDelegateInstance interface
 
+#if USE_DELEGATE_TRYGETBOUNDFUNCTIONNAME
+
+	virtual FName TryGetBoundFunctionName() const override
+	{
+		return NAME_None;
+	}
+
+#endif
+
+	// Deprecated
 	virtual FName GetFunctionName( ) const override
 	{
 		return NAME_None;
 	}
 
+	// Deprecated
 	virtual const void* GetRawMethodPtr( ) const override
 	{
 		return *(const void**)&StaticFuncPtr;
 	}
 
+	// Deprecated
 	virtual const void* GetRawUserObject( ) const override
 	{
 		return nullptr;
 	}
 
+	// Deprecated
 	virtual EDelegateInstanceType::Type GetType( ) const override
 	{
 		return EDelegateInstanceType::Raw;
 	}
 
+	virtual UObject* GetUObject( ) const override
+	{
+		return nullptr;
+	}
+
+	// Deprecated
 	virtual bool HasSameObject( const void* UserObject ) const override
 	{
 		// Raw Delegates aren't bound to an object so they can never match
@@ -722,6 +786,7 @@ public:
 	}
 #endif
 
+	// Deprecated
 	virtual bool IsSameFunction( const DELEGATE_INSTANCE_INTERFACE_CLASS<FUNC_TEMPLATE_ARGS>& InOtherDelegate ) const override
 	{
 		// NOTE: Payload data is not currently considered when comparing delegate instances.
@@ -796,11 +861,22 @@ public:
 public:
 	// IDelegateInstance interface
 
+#if USE_DELEGATE_TRYGETBOUNDFUNCTIONNAME
+
+	virtual FName TryGetBoundFunctionName() const override
+	{
+		return NAME_None;
+	}
+
+#endif
+
+	// Deprecated
 	virtual FName GetFunctionName() const override
 	{
 		return NAME_None;
 	}
 
+	// Deprecated
 	virtual const void* GetRawMethodPtr() const override
 	{
 		// casting operator() to void* is not legal C++ if it's a member function
@@ -809,6 +885,7 @@ public:
 		return nullptr;
 	}
 
+	// Deprecated
 	virtual const void* GetRawUserObject() const override
 	{
 		// returning &Functor wouldn't be particularly useful to the comparison code
@@ -817,11 +894,18 @@ public:
 		return nullptr;
 	}
 
+	// Deprecated
 	virtual EDelegateInstanceType::Type GetType() const override
 	{
 		return EDelegateInstanceType::Functor;
 	}
 
+	virtual UObject* GetUObject() const override
+	{
+		return nullptr;
+	}
+
+	// Deprecated
 	virtual bool HasSameObject(const void* UserObject) const override
 	{
 		// Functor Delegates aren't bound to a user object so they can never match
@@ -862,6 +946,7 @@ public:
 	}
 #endif
 
+	// Deprecated
 	virtual bool IsSameFunction(const DELEGATE_INSTANCE_INTERFACE_CLASS<FUNC_TEMPLATE_ARGS>& InOtherDelegate) const override
 	{
 		// There's no nice way to implement this (we don't have the type info necessary to compare against OtherDelegate's Functor)
@@ -943,26 +1028,45 @@ public:
 
 	// IDelegateInstance interface
 
+#if USE_DELEGATE_TRYGETBOUNDFUNCTIONNAME
+
+	virtual FName TryGetBoundFunctionName() const override
+	{
+		return FunctionName;
+	}
+
+#endif
+
+	// Deprecated
 	virtual FName GetFunctionName( ) const override
 	{
 		return FunctionName;
 	}
 
+	// Deprecated
 	virtual const void* GetRawMethodPtr( ) const override
 	{
 		return nullptr;
 	}
 
+	// Deprecated
 	virtual const void* GetRawUserObject( ) const override
 	{
 		return UserObjectPtr.Get();
 	}
 
+	// Deprecated
 	virtual EDelegateInstanceType::Type GetType() const override
 	{
 		return EDelegateInstanceType::UFunction;
 	}
 
+	virtual UObject* GetUObject( ) const override
+	{
+		return (UObject*)UserObjectPtr.Get();
+	}
+
+	// Deprecated
 	virtual bool HasSameObject( const void* InUserObject ) const override
 	{
 		return (UserObjectPtr.Get() == InUserObject);
@@ -1018,6 +1122,7 @@ public:
 	}
 #endif
 
+	// Deprecated
 	virtual bool IsSameFunction( const DELEGATE_INSTANCE_INTERFACE_CLASS<FUNC_TEMPLATE_ARGS>& Other ) const override
 	{
 		// NOTE: Payload data is not currently considered when comparing delegate instances.

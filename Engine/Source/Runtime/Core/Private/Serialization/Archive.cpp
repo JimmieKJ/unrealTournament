@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UnArchive.cpp: Core archive classes.
@@ -91,6 +91,8 @@ void FArchive::Reset()
 	ArMaxSerializeSize					= 0;
 	ArIsFilterEditorOnly				= false;
 	ArIsSaveGame						= false;
+	ArCustomPropertyList				= nullptr;
+	ArUseCustomPropertyList				= false;
 	CookingTargetPlatform = nullptr;
 	SerializedProperty = nullptr;
 #if WITH_EDITORONLY_DATA
@@ -125,6 +127,7 @@ void FArchive::CopyTrivialFArchiveStatusMembers(const FArchive& ArchiveToCopy)
 	ArIgnoreArchetypeRef                 = ArchiveToCopy.ArIgnoreArchetypeRef;
 	ArNoDelta                            = ArchiveToCopy.ArNoDelta;
 	ArIgnoreOuterRef                     = ArchiveToCopy.ArIgnoreOuterRef;
+	ArIgnoreClassGeneratedByRef			 = ArchiveToCopy.ArIgnoreClassGeneratedByRef;
 	ArIgnoreClassRef                     = ArchiveToCopy.ArIgnoreClassRef;
 	ArAllowLazyLoading                   = ArchiveToCopy.ArAllowLazyLoading;
 	ArIsObjectReferenceCollector         = ArchiveToCopy.ArIsObjectReferenceCollector;
@@ -135,6 +138,8 @@ void FArchive::CopyTrivialFArchiveStatusMembers(const FArchive& ArchiveToCopy)
 	ArMaxSerializeSize                   = ArchiveToCopy.ArMaxSerializeSize;
 	ArIsFilterEditorOnly                 = ArchiveToCopy.ArIsFilterEditorOnly;
 	ArIsSaveGame                         = ArchiveToCopy.ArIsSaveGame;
+	ArCustomPropertyList				 = ArchiveToCopy.ArCustomPropertyList;
+	ArUseCustomPropertyList				 = ArchiveToCopy.ArUseCustomPropertyList;
 	CookingTargetPlatform                = ArchiveToCopy.CookingTargetPlatform;
 	SerializedProperty = ArchiveToCopy.SerializedProperty;
 #if WITH_EDITORONLY_DATA
@@ -797,7 +802,6 @@ VARARG_BODY( void, FArchive::Logf, const TCHAR*, VARARG_NONE )
 	// Free temporary buffers.
 	FMemory::SystemFree( Buffer );
 }
-
 
 /*----------------------------------------------------------------------------
 	Transparent compression/ decompression archives.

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UniformBuffers/PrecomputedLightingBuffer.usf"
 
@@ -117,6 +117,7 @@ float GetAOMaterialMask(float2 LightmapUV)
 
 #endif
 
+// Used by deferred renderer only
 half4 GetPrecomputedShadowMasks(FVertexFactoryInterpolantsVSToPS Interpolants)
 {
 	#if STATICLIGHTING_TEXTUREMASK && STATICLIGHTING_SIGNEDDISTANCEFIELD
@@ -144,6 +145,7 @@ half4 GetPrecomputedShadowMasks(FVertexFactoryInterpolantsVSToPS Interpolants)
 	#endif
 }
 
+// Used by forward renderer only
 half GetPrimaryPrecomputedShadowMask(FVertexFactoryInterpolantsVSToPS Interpolants)
 {
 	#if STATICLIGHTING_TEXTUREMASK && STATICLIGHTING_SIGNEDDISTANCEFIELD
@@ -153,7 +155,7 @@ half GetPrimaryPrecomputedShadowMask(FVertexFactoryInterpolantsVSToPS Interpolan
 		float DistanceFieldBias = -.5f * PrecomputedLightingBuffer.InvUniformPenumbraSizes.x + .5f;
 		// Compute shadow factors by scaling and biasing the distance
 		half ShadowFactor = saturate( DistanceField * PrecomputedLightingBuffer.InvUniformPenumbraSizes.x + DistanceFieldBias );
-		return ShadowFactor * ShadowFactor;
+		return PrecomputedLightingBuffer.StaticShadowMapMasks.r * ShadowFactor * ShadowFactor;
 
 	#elif MOVABLE_DIRECTIONAL_LIGHT
 		// Do this before checking for lightmaps as we might have a lightmap + directional light

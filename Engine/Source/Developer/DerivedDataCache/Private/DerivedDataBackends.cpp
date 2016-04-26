@@ -1,10 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "Core.h"
 #include "SecureHash.h"
 #include "DerivedDataBackendInterface.h"
 #include "DerivedDataCacheInterface.h"
-#include "DDCStatsHelper.h"
 #include "MemoryDerivedDataBackend.h"
 #include "DerivedDataBackendAsyncPutWrapper.h"
 #include "PakFileDerivedDataBackend.h"
@@ -14,6 +13,7 @@
 #include "DerivedDataBackendVerifyWrapper.h"
 #include "DerivedDataUtilsInterface.h"
 #include "Misc/EngineBuildSettings.h"
+#include "DerivedDataCacheUsageStats.h"
 
 DEFINE_LOG_CATEGORY(LogDerivedDataCache);
 
@@ -443,6 +443,7 @@ public:
 		else if ( InnerNodes.Num() == 1 )
 		{
 			Hierarchy = InnerNodes[ 0 ];
+			InnerNodes.Empty();
 		}
 		else
 		{
@@ -500,6 +501,10 @@ public:
 		if( !Path.Len() )
 		{
 			UE_LOG( LogDerivedDataCache, Log, TEXT("%s data cache path not found in *engine.ini, will not use an %s cache."), NodeName, NodeName );
+		}
+		else if( Path == TEXT("None") )
+		{
+			UE_LOG( LogDerivedDataCache, Log, TEXT("Disabling %s data cache - path set to 'None'."), NodeName );
 		}
 		else
 		{
@@ -785,6 +790,14 @@ public:
 			}
 		}
 		return false;
+	}
+
+	virtual void GatherUsageStats(TMap<FString, FDerivedDataCacheUsageStats>& UsageStats) override
+	{
+		if (RootCache)
+		{
+			RootCache->GatherUsageStats(UsageStats, TEXT(" 0"));
+		}
 	}
 
 private:

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -106,7 +106,7 @@ private:
 	void HandleTransportMessageReceived(const IMessageContextRef& Envelope, const FGuid& NodeId);
 
 	/** Callback for lost remote nodes. */
-	void HandleTransportNodeLost(const FGuid& LostNodeId);
+	void HandleTransportNodeLost(const FGuid& NodeId);
 
 private:
 

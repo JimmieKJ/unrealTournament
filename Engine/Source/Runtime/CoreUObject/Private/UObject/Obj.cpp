@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UnObj.cpp: Unreal object manager.
@@ -293,8 +293,7 @@ void UObject::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent
 
 void UObject::PreEditChange( FEditPropertyChain& PropertyAboutToChange )
 {
-	const bool bIsEditingArchetypeProperty = HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject) && 
-		(PropertyAboutToChange.GetActiveMemberNode() == PropertyAboutToChange.GetHead()) && !FApp::IsGame();
+	const bool bIsEditingArchetypeProperty = HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject) && !FApp::IsGame();
 
 	if (bIsEditingArchetypeProperty)
 	{
@@ -322,6 +321,21 @@ void UObject::PreEditChange( FEditPropertyChain& PropertyAboutToChange )
 void UObject::PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent)
 {
 	FPropertyChangedEvent PropertyEvent(PropertyChangedEvent.PropertyChain.GetActiveNode()->GetValue(), PropertyChangedEvent.ChangeType);
+
+	// Set up array index per object map so that GetArrayIndex returns a valid result
+	TArray<TMap<FString, int32>> ArrayIndexForProperty;
+	if (PropertyChangedEvent.Property)
+	{
+		const FString PropertyName = PropertyChangedEvent.Property->GetName();
+		const int32 ArrayIndex = PropertyChangedEvent.GetArrayIndex(PropertyName);
+		if (ArrayIndex != INDEX_NONE)
+		{
+			PropertyEvent.ObjectIteratorIndex = 0;
+			ArrayIndexForProperty.AddDefaulted();
+			ArrayIndexForProperty.Last().Add(PropertyName, ArrayIndex);
+			PropertyEvent.SetArrayIndexPerObject(ArrayIndexForProperty);
+		}
+	}
 
 	if( PropertyChangedEvent.PropertyChain.GetActiveMemberNode() )
 	{
@@ -994,7 +1008,7 @@ void UObject::SerializeScriptProperties( FArchive& Ar ) const
 #endif
 		ObjClass->SerializeTaggedProperties(Ar, (uint8*)this, HasAnyFlags(RF_ClassDefaultObject) ? ObjClass->GetSuperClass() : ObjClass, (uint8*)DiffObject, bBreakSerializationRecursion ? this : NULL);
 	}
-	else if ( Ar.GetPortFlags() != 0 )
+	else if ( Ar.GetPortFlags() != 0 && !Ar.ArUseCustomPropertyList )
 	{
 		UObject* DiffObject = GetArchetype();
 		ObjClass->SerializeBinEx( Ar, const_cast<UObject *>(this), DiffObject, DiffObject ? DiffObject->GetClass() : NULL );
@@ -1616,18 +1630,19 @@ void UObject::LoadConfig( UClass* ConfigClass/*=NULL*/, const TCHAR* InFilename/
 					Key = FString::Printf(TEXT("%s[%i]"), *Property->GetName(), i);
 				}
 
-				FString Value;
-				bool bFoundValue = GConfig->GetString( *ClassSection, *Key, Value, *PropFileName );
-				if (bFoundValue)
-				{
-					if (Property->ImportText(*Value, Property->ContainerPtrToValuePtr<uint8>(this, i), PortFlags, this) == NULL)
+					FString Value;
+				const bool bFoundValue = GConfig->GetString( *ClassSection, *Key, Value, *PropFileName );
+					if (bFoundValue)
 					{
-						// this should be an error as the properties from the .ini / .int file are not correctly being read in and probably are affecting things in subtle ways
-						UE_LOG(LogObj, Error, TEXT("LoadConfig (%s): import failed for %s in: %s"), *GetPathName(), *Property->GetName(), *Value);
+						if (Property->ImportText(*Value, Property->ContainerPtrToValuePtr<uint8>(this, i), PortFlags, this) == NULL)
+						{
+							// this should be an error as the properties from the .ini / .int file are not correctly being read in and probably are affecting things in subtle ways
+							UE_LOG(LogObj, Error, TEXT("LoadConfig (%s): import failed for %s in: %s"), *GetPathName(), *Property->GetName(), *Value);
+						}
 					}
-				}
+
 #if !UE_BUILD_SHIPPING
-				else if (!FPlatformProperties::RequiresCookedData())
+				if (!bFoundValue && !FPlatformProperties::RequiresCookedData())
 				{
 					CheckMissingSection(ClassSection, PropFileName);
 				}
@@ -1656,12 +1671,11 @@ void UObject::LoadConfig( UClass* ConfigClass/*=NULL*/, const TCHAR* InFilename/
 				if ( List.Num() > 0 )
 				{
 					ArrayHelper.EmptyAndAddValues(List.Num());
-
-					for( int32 i=List.Num()-1,c=0; i>=0; i--,c++ )
-					{
-						Array->Inner->ImportText( *List[i], ArrayHelper.GetRawPtr(c), PortFlags, this );
+						for( int32 i=List.Num()-1,c=0; i>=0; i--,c++ )
+						{
+							Array->Inner->ImportText( *List[i], ArrayHelper.GetRawPtr(c), PortFlags, this );
+						}
 					}
-				}
 				else
 				{
 					int32 Index = 0;
@@ -1813,13 +1827,13 @@ void UObject::SaveConfig( uint64 Flags, const TCHAR* InFilename, FConfigCacheIni
 					FString CompleteKey = FString::Printf(TEXT("%s%s"), bIsADefaultIniWrite ? TEXT("+") : TEXT(""), *Key);
 
 					FScriptArrayHelper_InContainer ArrayHelper(Array, this);
-					for( int32 i=0; i<ArrayHelper.Num(); i++ )
-					{
-						FString	Buffer;
-						Array->Inner->ExportTextItem( Buffer, ArrayHelper.GetRawPtr(i), ArrayHelper.GetRawPtr(i), this, PortFlags );
-						Sec->Add(*CompleteKey, *Buffer);
+						for( int32 i=0; i<ArrayHelper.Num(); i++ )
+						{
+							FString	Buffer;
+							Array->Inner->ExportTextItem( Buffer, ArrayHelper.GetRawPtr(i), ArrayHelper.GetRawPtr(i), this, PortFlags );
+							Sec->Add(*CompleteKey, *Buffer);
+						}
 					}
-				}
 				else if( Property->Identical_InContainer(this, SuperClassDefaultObject) )
 				{
 					// If we are not writing it to config above, we should make sure that this property isn't stagnant in the cache.
@@ -1844,10 +1858,10 @@ void UObject::SaveConfig( uint64 Flags, const TCHAR* InFilename, FConfigCacheIni
 							Key = TempKey;
 						}
 
-						FString	Value;
-						Property->ExportText_InContainer( Index, Value, this, this, this, PortFlags );
-						Config->SetString( *Section, *Key, *Value, *PropFileName );
-					}
+							FString	Value;
+							Property->ExportText_InContainer( Index, Value, this, this, this, PortFlags );
+							Config->SetString( *Section, *Key, *Value, *PropFileName );
+						}
 					else if( Property->Identical_InContainer(this, SuperClassDefaultObject, Index) )
 					{
 						// If we are not writing it to config above, we should make sure that this property isn't stagnant in the cache.
@@ -2540,7 +2554,7 @@ TArray<const TCHAR*> ParsePropertyFlags(uint64 Flags)
 	return Results;
 }
 
-// @TODO yrx 2014-09-15 Move to ObjectCommads.cpp or ObjectExec.cpp
+// #UObject: 2014-09-15 Move to ObjectCommads.cpp or ObjectExec.cpp
 bool StaticExec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 {
 	const TCHAR *Str = Cmd;
@@ -3766,50 +3780,6 @@ void StaticExit()
 
 	UE_LOG(LogExit, Log, TEXT("Object subsystem successfully closed.") );
 }
-
-void MarkObjectsToDisregardForGC()
-{
-	// Iterate over all class objects and force the default objects to be created. Additionally also
-	// assembles the token reference stream at this point. This is required for class objects that are
-	// not taken into account for garbage collection but have instances that are.
-	
-	// Workaround for Visual Studio 2013 analyzer bug. Using a temporary directly in the range-for
-	// errors if the analyzer is enabled.
-	TObjectRange<UClass> Range;
-	for( auto* Class : Range )
-	{
-		// Force the default object to be created.
-		Class->GetDefaultObject(); // Force the default object to be constructed if it isn't already
-		// Assemble reference token stream for garbage collection/ RTGC.
-		Class->AssembleReferenceTokenStream();
-	}
-
-	// Iterate over all objects and mark them to be part of root set.
-	int32 NumAlwaysLoadedObjects = 0;
-	int32 NumRootObjects = 0;
-	for( FObjectIterator It; It; ++It )
-	{
-		UObject* Object = *It;
-		if (Object->IsSafeForRootSet())
-		{
-			NumRootObjects++;
-			Object->AddToRoot();
-		}
-		else if (Object->IsRooted())
-		{
-			Object->RemoveFromRoot();
-		}
-		NumAlwaysLoadedObjects++;
-	}
-
-	UE_LOG(LogObj, Log, TEXT("%i objects as part of root set at end of initial load."), NumAlwaysLoadedObjects);
-	if (GUObjectArray.DisregardForGCEnabled())
-	{
-		UE_LOG(LogObj, Log, TEXT("%i objects are not in the root set, but can never be destroyed because they are in the DisregardForGC set."), NumAlwaysLoadedObjects - NumRootObjects);
-	}
-	GUObjectAllocator.BootMessage();
-}					
-
 
 
 /*-----------------------------------------------------------------------------

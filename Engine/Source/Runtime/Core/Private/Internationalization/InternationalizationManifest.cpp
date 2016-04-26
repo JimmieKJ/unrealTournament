@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "Internationalization/InternationalizationManifest.h"
@@ -226,7 +226,7 @@ bool FInternationalizationManifest::AddSource( const FString& Namespace, const F
 	return true;	
 }
 
-TSharedPtr< FManifestEntry > FInternationalizationManifest::FindEntryBySource( const FString& Namespace, const FLocItem& Source )
+TSharedPtr< FManifestEntry > FInternationalizationManifest::FindEntryBySource( const FString& Namespace, const FLocItem& Source ) const
 {	
 	TArray< TSharedRef< FManifestEntry > > MatchingEntries;
 	EntriesBySourceText.MultiFind( Source.Text, /*OUT*/MatchingEntries );
@@ -242,7 +242,7 @@ TSharedPtr< FManifestEntry > FInternationalizationManifest::FindEntryBySource( c
 	return NULL;
 }
 
-TSharedPtr< FManifestEntry > FInternationalizationManifest::FindEntryByContext( const FString& Namespace, const FContext& Context )
+TSharedPtr< FManifestEntry > FInternationalizationManifest::FindEntryByContext( const FString& Namespace, const FContext& Context ) const
 {
 	TArray< TSharedRef< FManifestEntry > > MatchingEntries;
 	EntriesByContextId.MultiFind( Context.Key, MatchingEntries );
@@ -263,6 +263,22 @@ TSharedPtr< FManifestEntry > FInternationalizationManifest::FindEntryByContext( 
 	return NULL;
 }
 
+TSharedPtr< FManifestEntry > FInternationalizationManifest::FindEntryByKey(const FString& Namespace, const FString& Key, const FString* SourceText) const
+{
+	TArray<TSharedRef<FManifestEntry>> MatchingEntries;
+	EntriesByContextId.MultiFind(Key, MatchingEntries);
+
+	for (const TSharedRef<FManifestEntry>& MatchingEntry : MatchingEntries)
+	{
+		if (MatchingEntry->Namespace.Equals(Namespace, ESearchCase::CaseSensitive) && (!SourceText || MatchingEntry->Source.Text.Equals(*SourceText, ESearchCase::CaseSensitive)))
+		{
+			return MatchingEntry;
+		}
+	}
+
+	return nullptr;
+}
+
 void FInternationalizationManifest::UpdateEntry(const TSharedRef<FManifestEntry>& OldEntry, TSharedRef<FManifestEntry>& NewEntry)
 {
 	for (const FContext& Context : OldEntry->Contexts)
@@ -278,24 +294,55 @@ void FInternationalizationManifest::UpdateEntry(const TSharedRef<FManifestEntry>
 	EntriesBySourceText.Add(NewEntry->Source.Text, NewEntry);
 }
 
-FContext* FManifestEntry::FindContext( const FString& ContextKey, const TSharedPtr<FLocMetadataObject>& KeyMetadata /*= NULL */ )
+FContext* FManifestEntry::FindContext(const FString& ContextKey, const TSharedPtr<FLocMetadataObject>& KeyMetadata)
 {
-	for( auto ContextIter = Contexts.CreateIterator(); ContextIter; ++ContextIter )
-	{
-		FContext& Context = *ContextIter;
+	return const_cast<FContext*>(FindContextImpl(ContextKey, KeyMetadata));
+}
 
-		if( Context.Key.Equals( ContextKey, ESearchCase::CaseSensitive ) )
+const FContext* FManifestEntry::FindContext(const FString& ContextKey, const TSharedPtr<FLocMetadataObject>& KeyMetadata) const
+{
+	return FindContextImpl(ContextKey, KeyMetadata);
+}
+
+FContext* FManifestEntry::FindContextByKey(const FString& ContextKey)
+{
+	return const_cast<FContext*>(FindContextByKeyImpl(ContextKey));
+}
+
+const FContext* FManifestEntry::FindContextByKey(const FString& ContextKey) const
+{
+	return FindContextByKeyImpl(ContextKey);
+}
+
+const FContext* FManifestEntry::FindContextImpl(const FString& ContextKey, const TSharedPtr<FLocMetadataObject>& KeyMetadata) const
+{
+	for (const FContext& Context : Contexts)
+	{
+		if (Context.Key.Equals(ContextKey, ESearchCase::CaseSensitive))
 		{
-			if( Context.KeyMetadataObj.IsValid() != KeyMetadata.IsValid() )
+			if (Context.KeyMetadataObj.IsValid() != KeyMetadata.IsValid())
 			{
 				continue;
 			}
-			else if( (!Context.KeyMetadataObj.IsValid() && !KeyMetadata.IsValid()) ||
-				(*(Context.KeyMetadataObj) == *(KeyMetadata)) )
+			else if ((!Context.KeyMetadataObj.IsValid() && !KeyMetadata.IsValid()) || (*Context.KeyMetadataObj == *KeyMetadata))
 			{
 				return &Context;
 			}
 		}
 	}
-	return NULL;
+
+	return nullptr;
+}
+
+const FContext* FManifestEntry::FindContextByKeyImpl(const FString& ContextKey) const
+{
+	for (const FContext& Context : Contexts)
+	{
+		if (Context.Key.Equals(ContextKey, ESearchCase::CaseSensitive))
+		{
+			return &Context;
+		}
+	}
+
+	return nullptr;
 }

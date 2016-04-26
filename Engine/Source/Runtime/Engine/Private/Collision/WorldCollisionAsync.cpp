@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	WorldCollisionAsync.cpp: UWorld async collision implementation
@@ -99,30 +99,72 @@ namespace
 			{
 				if ((TraceData.CollisionParams.CollisionShape.ShapeType == ECollisionShape::Line) || TraceData.CollisionParams.CollisionShape.IsNearlyZero())
 				{
-					if (TraceData.bIsMultiTrace)
+					// MULTI
+					if (TraceData.TraceType == EAsyncTraceType::Multi)
 					{
 						RaycastMulti(TraceData.PhysWorld.Get(), TraceData.OutHits, TraceData.Start, TraceData.End, TraceData.TraceChannel,
 							TraceData.CollisionParams.CollisionQueryParam, TraceData.CollisionParams.ResponseParam, TraceData.CollisionParams.ObjectQueryParam);
 					}
+					// SINGLE
+					else if(TraceData.TraceType == EAsyncTraceType::Single)
+					{
+						FHitResult Result;
+
+						bool bHit = RaycastSingle(TraceData.PhysWorld.Get(), Result, TraceData.Start, TraceData.End, TraceData.TraceChannel,
+							TraceData.CollisionParams.CollisionQueryParam, TraceData.CollisionParams.ResponseParam, TraceData.CollisionParams.ObjectQueryParam);
+
+						if(bHit)
+						{
+							TraceData.OutHits.Add(Result);
+						}
+					}
+					// TEST
 					else
 					{
-						TraceData.OutHits.AddZeroed(1);
-						RaycastSingle(TraceData.PhysWorld.Get(), TraceData.OutHits[0], TraceData.Start, TraceData.End, TraceData.TraceChannel,
+						bool bHit = RaycastTest(TraceData.PhysWorld.Get(), TraceData.Start, TraceData.End, TraceData.TraceChannel,
 							TraceData.CollisionParams.CollisionQueryParam, TraceData.CollisionParams.ResponseParam, TraceData.CollisionParams.ObjectQueryParam);
+
+						if(bHit)
+						{
+							FHitResult Result;
+							Result.bBlockingHit = true;
+							TraceData.OutHits.Add(Result);
+						}
 					}
 				}
 				else
 				{
-					if (TraceData.bIsMultiTrace)
+					// MULTI
+					if (TraceData.TraceType == EAsyncTraceType::Multi)
 					{
 						GeomSweepMulti(TraceData.PhysWorld.Get(), TraceData.CollisionParams.CollisionShape, FQuat::Identity, TraceData.OutHits, TraceData.Start, TraceData.End, TraceData.TraceChannel,
 							TraceData.CollisionParams.CollisionQueryParam, TraceData.CollisionParams.ResponseParam, TraceData.CollisionParams.ObjectQueryParam);
 					}
+					// SINGLE
+					else if (TraceData.TraceType == EAsyncTraceType::Single)
+					{
+						FHitResult Result;
+
+						bool bHit = GeomSweepSingle(TraceData.PhysWorld.Get(), TraceData.CollisionParams.CollisionShape, FQuat::Identity, Result, TraceData.Start, TraceData.End, TraceData.TraceChannel,
+							TraceData.CollisionParams.CollisionQueryParam, TraceData.CollisionParams.ResponseParam, TraceData.CollisionParams.ObjectQueryParam);
+
+						if(bHit)
+						{
+							TraceData.OutHits.Add(Result);
+						}
+					}
+					// TEST
 					else
 					{
-						TraceData.OutHits.AddZeroed(1);
-						GeomSweepSingle(TraceData.PhysWorld.Get(), TraceData.CollisionParams.CollisionShape, FQuat::Identity, TraceData.OutHits[0], TraceData.Start, TraceData.End, TraceData.TraceChannel,
+						bool bHit = GeomSweepTest(TraceData.PhysWorld.Get(), TraceData.CollisionParams.CollisionShape, FQuat::Identity, TraceData.Start, TraceData.End, TraceData.TraceChannel,
 							TraceData.CollisionParams.CollisionQueryParam, TraceData.CollisionParams.ResponseParam, TraceData.CollisionParams.ObjectQueryParam);
+
+						if(bHit)
+						{
+							FHitResult Result;
+							Result.bBlockingHit = true;
+							TraceData.OutHits.Add(Result);
+						}						
 					}
 				}
 			}
@@ -161,6 +203,15 @@ namespace
 
 	#if RUN_ASYNC_TRACE
 
+	FAutoConsoleTaskPriority CPrio_FAsyncTraceTask(
+		TEXT("TaskGraph.TaskPriorities.AsyncTraceTask"),
+		TEXT("Task and thread priority for async traces."),
+		ENamedThreads::BackgroundThreadPriority, // if we have background priority task threads, then use them...
+		ENamedThreads::HighTaskPriority, // .. at normal task priority
+		ENamedThreads::NormalTaskPriority // if we don't have background threads, then use normal priority threads at normal task priority instead
+		);
+
+
 	/** Helper class define the task of Async Trace running**/
 	class FAsyncTraceTask
 	{
@@ -193,16 +244,16 @@ namespace
 			DataCount   = InDataCount;
 		}
 
-		FORCEINLINE TStatId GetStatId() const
+		static FORCEINLINE TStatId GetStatId()
 		{
 			RETURN_QUICK_DECLARE_CYCLE_STAT(FAsyncTraceTask, STATGROUP_TaskGraphTasks);
 		}
 		/** return the thread for this task **/
-		static ENamedThreads::Type GetDesiredThread()
+		static FORCEINLINE ENamedThreads::Type GetDesiredThread()
 		{
-			return ENamedThreads::AnyThread;
+			return CPrio_FAsyncTraceTask.Get();
 		}
-		static ESubsequentsMode::Type GetSubsequentsMode() 
+		static FORCEINLINE ESubsequentsMode::Type GetSubsequentsMode()
 		{ 
 			return ESubsequentsMode::TrackSubsequents; 
 		}
@@ -295,24 +346,24 @@ FWorldAsyncTraceState::FWorldAsyncTraceState()
 	DataBuffer[CurrentFrame].bAsyncAllowed = true;
 }
 
-FTraceHandle UWorld::AsyncLineTraceByChannel(const FVector& Start,const FVector& End, ECollisionChannel TraceChannel, const FCollisionQueryParams& Params /* = FCollisionQueryParams::DefaultQueryParam */, const FCollisionResponseParams& ResponseParam /* = FCollisionResponseParams::DefaultResponseParam */, FTraceDelegate * InDelegate/* =NULL */, uint32 UserData /* = 0 */, bool bMultiTrace/* =false */ )
+FTraceHandle UWorld::AsyncLineTraceByChannel(EAsyncTraceType InTraceType, const FVector& Start, const FVector& End, ECollisionChannel TraceChannel, const FCollisionQueryParams& Params /* = FCollisionQueryParams::DefaultQueryParam */, const FCollisionResponseParams& ResponseParam /* = FCollisionResponseParams::DefaultResponseParam */, FTraceDelegate * InDelegate/* =NULL */, uint32 UserData /* = 0 */)
 {
-	return StartNewTrace(AsyncTraceState, FTraceDatum(this, FCollisionShape::LineShape, Params, ResponseParam, FCollisionObjectQueryParams::DefaultObjectQueryParam, TraceChannel, UserData, bMultiTrace, Start, End, InDelegate, AsyncTraceState.CurrentFrame));
+	return StartNewTrace(AsyncTraceState, FTraceDatum(this, FCollisionShape::LineShape, Params, ResponseParam, FCollisionObjectQueryParams::DefaultObjectQueryParam, TraceChannel, UserData, InTraceType, Start, End, InDelegate, AsyncTraceState.CurrentFrame));
 }
 
-FTraceHandle UWorld::AsyncLineTraceByObjectType(const FVector& Start,const FVector& End, const FCollisionObjectQueryParams& ObjectQueryParams, const FCollisionQueryParams& Params /* = FCollisionQueryParams::DefaultQueryParam */, FTraceDelegate * InDelegate/* =NULL */, uint32 UserData /* = 0 */, bool bMultiTrace/* =false */ )
+FTraceHandle UWorld::AsyncLineTraceByObjectType(EAsyncTraceType InTraceType, const FVector& Start,const FVector& End, const FCollisionObjectQueryParams& ObjectQueryParams, const FCollisionQueryParams& Params /* = FCollisionQueryParams::DefaultQueryParam */, FTraceDelegate * InDelegate/* =NULL */, uint32 UserData /* = 0 */)
 {
-	return StartNewTrace(AsyncTraceState, FTraceDatum(this, FCollisionShape::LineShape, Params, FCollisionResponseParams::DefaultResponseParam, ObjectQueryParams, DefaultCollisionChannel, UserData, bMultiTrace, Start, End, InDelegate, AsyncTraceState.CurrentFrame));
+	return StartNewTrace(AsyncTraceState, FTraceDatum(this, FCollisionShape::LineShape, Params, FCollisionResponseParams::DefaultResponseParam, ObjectQueryParams, DefaultCollisionChannel, UserData, InTraceType, Start, End, InDelegate, AsyncTraceState.CurrentFrame));
 }
 
-FTraceHandle UWorld::AsyncSweepByChannel(const FVector& Start, const FVector& End, ECollisionChannel TraceChannel, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params /* = FCollisionQueryParams::DefaultQueryParam */, const FCollisionResponseParams& ResponseParam /* = FCollisionResponseParams::DefaultResponseParam */, FTraceDelegate * InDelegate /* = NULL */, uint32 UserData /* = 0 */, bool bMultiTrace /* = false */)
+FTraceHandle UWorld::AsyncSweepByChannel(EAsyncTraceType InTraceType, const FVector& Start, const FVector& End, ECollisionChannel TraceChannel, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params /* = FCollisionQueryParams::DefaultQueryParam */, const FCollisionResponseParams& ResponseParam /* = FCollisionResponseParams::DefaultResponseParam */, FTraceDelegate * InDelegate /* = NULL */, uint32 UserData /* = 0 */)
 {
-	return StartNewTrace(AsyncTraceState, FTraceDatum(this, CollisionShape, Params, ResponseParam, FCollisionObjectQueryParams::DefaultObjectQueryParam, TraceChannel, UserData, bMultiTrace, Start, End, InDelegate, AsyncTraceState.CurrentFrame));
+	return StartNewTrace(AsyncTraceState, FTraceDatum(this, CollisionShape, Params, ResponseParam, FCollisionObjectQueryParams::DefaultObjectQueryParam, TraceChannel, UserData, InTraceType, Start, End, InDelegate, AsyncTraceState.CurrentFrame));
 }
 
-FTraceHandle UWorld::AsyncSweepByObjectType(const FVector& Start, const FVector& End, const FCollisionObjectQueryParams& ObjectQueryParams, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params /* = FCollisionQueryParams::DefaultQueryParam */, FTraceDelegate * InDelegate /* = NULL */, uint32 UserData /* = 0 */, bool bMultiTrace /* = false */)
+FTraceHandle UWorld::AsyncSweepByObjectType(EAsyncTraceType InTraceType, const FVector& Start, const FVector& End, const FCollisionObjectQueryParams& ObjectQueryParams, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params /* = FCollisionQueryParams::DefaultQueryParam */, FTraceDelegate * InDelegate /* = NULL */, uint32 UserData /* = 0 */)
 {
-	return StartNewTrace(AsyncTraceState, FTraceDatum(this, CollisionShape, Params, FCollisionResponseParams::DefaultResponseParam, ObjectQueryParams, DefaultCollisionChannel, UserData, bMultiTrace, Start, End, InDelegate, AsyncTraceState.CurrentFrame));
+	return StartNewTrace(AsyncTraceState, FTraceDatum(this, CollisionShape, Params, FCollisionResponseParams::DefaultResponseParam, ObjectQueryParams, DefaultCollisionChannel, UserData, InTraceType, Start, End, InDelegate, AsyncTraceState.CurrentFrame));
 }
 
 // overlap functions

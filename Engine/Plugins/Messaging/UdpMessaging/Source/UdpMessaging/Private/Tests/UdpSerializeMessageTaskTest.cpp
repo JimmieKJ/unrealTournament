@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UdpMessagingPrivatePCH.h"
 #include "AutomationTest.h"
@@ -52,10 +52,9 @@ bool FUdpSerializeMessageTaskTest::RunTest(const FString& Parameters)
 
 	CompletedMessages = 0;
 	FailedMessages = 0;
-	ReferenceMessage = MakeShareable(new FUdpSerializedMessage());
+	ReferenceMessage = MakeShareable(new FUdpSerializedMessage);
 
-	FUdpMockMessage* Message = new FUdpMockMessage();
-	IMessageContextRef Context = MakeShareable(new FUdpMockMessageContext(Message));
+	IMessageContextRef Context = MakeShareable(new FUdpMockMessageContext(new FUdpMockMessage));
 
 	// synchronous reference serialization
 	FUdpSerializeMessageTask ReferenceTask(Context, ReferenceMessage.ToSharedRef());
@@ -66,7 +65,7 @@ bool FUdpSerializeMessageTaskTest::RunTest(const FString& Parameters)
 	// stress test
 	for (int32 TestIndex = 0; TestIndex < NumMessages; ++TestIndex)
 	{
-		FUdpSerializedMessageRef SerializedMessage = MakeShareable(new FUdpSerializedMessage());
+		FUdpSerializedMessageRef SerializedMessage = MakeShareable(new FUdpSerializedMessage);
 		{
 			SerializedMessage->OnStateChanged().BindStatic(&HandleSerializedMessageStateChanged, SerializedMessage);
 		}
@@ -83,10 +82,6 @@ bool FUdpSerializeMessageTaskTest::RunTest(const FString& Parameters)
 
 	TestEqual(TEXT("The number of completed messages must equal the total number of messages"), CompletedMessages, NumMessages);
 	TestEqual(TEXT("There must be no failed messages"), FailedMessages, (int32)0);
-
-	// clean up
-	FMemory::Free(Message);
-	ReferenceMessage.Reset();
 
 	return ((CompletedMessages == NumMessages) && (FailedMessages == 0));
 }

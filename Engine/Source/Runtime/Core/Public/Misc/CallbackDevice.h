@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -49,19 +49,16 @@ public:
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnActorLabelChanged, AActor*);
 
 	// delegate type for prompting the pak system to mount a new pak
-	DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnMountPak, const FString&, uint32);
+	DECLARE_DELEGATE_RetVal_ThreeParams(bool, FOnMountPak, const FString&, uint32, IPlatformFile::FDirectoryVisitor*);
 
 	// delegate type for prompting the pak system to mount a new pak
 	DECLARE_DELEGATE_RetVal_OneParam(bool, FOnUnmountPak, const FString&);
-
-	// Callback for PER_MODULE_BOILERPLATE macro's GSerialNumberBlocksForDebugVisualizers
-	DECLARE_DELEGATE_RetVal(int32***, FGetSerialNumberBlocksForDebugVisualizersDelegate);
 
 	/** delegate type for opening a modal message box ( Params: EAppMsgType::Type MessageType, const FText& Text, const FText& Title ) */
 	DECLARE_DELEGATE_RetVal_ThreeParams(EAppReturnType::Type, FOnModalMessageBox, EAppMsgType::Type, const FText&, const FText&);
 
 	// Callback for PER_MODULE_BOILERPLATE macro's GObjectArrayForDebugVisualizers
-	DECLARE_DELEGATE_RetVal(class UObjectBase***, FObjectArrayForDebugVisualizersDelegate);
+	DECLARE_DELEGATE_RetVal(class FFixedUObjectArray*, FObjectArrayForDebugVisualizersDelegate);
 
 	// Called in PER_MODULE_BOILERPLATE macro.
 	static FObjectArrayForDebugVisualizersDelegate& GetObjectArrayForDebugVisualizersDelegate();
@@ -85,6 +82,10 @@ public:
 	// first param is true for a connection, false for a disconnection.
 	// second param is UserID, third is UserIndex / ControllerId.
 	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnUserControllerConnectionChange, bool, int32, int32);
+
+	// Callback for platform handling when flushing async loads.
+	DECLARE_MULTICAST_DELEGATE(FOnAsyncLoadingFlush);
+	static FOnAsyncLoadingFlush OnAsyncLoadingFlush;
 
 	// get a hotfix delegate
 	static FHotFixDelegate& GetHotfixDelegate(EHotfixDelegates::Type HotFix);
@@ -131,9 +132,6 @@ public:
 
 	// Called when before the application is exiting.
 	static FSimpleMulticastDelegate OnPreExit;
-
-	// Called in PER_MODULE_BOILERPLATE macro.
-	static FGetSerialNumberBlocksForDebugVisualizersDelegate& GetSerialNumberBlocksForDebugVisualizersDelegate();
 
 	/** Color picker color has changed, please refresh as needed*/
 	static FSimpleMulticastDelegate ColorPickerChanged;
@@ -219,6 +217,26 @@ public:
 
 	DECLARE_DELEGATE_RetVal_OneParam(bool, FLoadStringAssetReferenceInCook, FString&);
 	static FLoadStringAssetReferenceInCook LoadStringAssetReferenceInCook;
+
+	/** Sent when the platform requests a low-level VR recentering */
+	DECLARE_MULTICAST_DELEGATE(FVRHeadsetRecenter);
+	static FVRHeadsetRecenter VRHeadsetRecenter;
+
+	/** Sent when application code changes the user activity hint string for analytics, crash reports, etc */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnUserActivityStringChanged, const FString&);
+	static FOnUserActivityStringChanged UserActivityStringChanged;
+
+	/** Sent when application code changes the currently active game session. The exact semantics of this will vary between games but it is useful for analytics, crash reports, etc  */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnGameSessionIDChange, const FString&);
+	static FOnGameSessionIDChange GameSessionIDChanged;
+	
+	/** Callback for notifications regarding changes of the rendering thread. */
+	DECLARE_MULTICAST_DELEGATE(FRenderingThreadChanged)
+
+	/** Sent just after the rendering thread has been created. */
+	static FRenderingThreadChanged PostRenderingThreadCreated;
+	/* Sent just before the rendering thread is destroyed. */
+	static FRenderingThreadChanged PreRenderingThreadDestroyed;
 
 private:
 

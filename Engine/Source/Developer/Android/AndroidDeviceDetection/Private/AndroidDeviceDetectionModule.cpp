@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AndroidDeviceDetectionModule.cpp: Implements the FAndroidDeviceDetectionModule class.
@@ -325,16 +325,17 @@ public:
 			if (FileReader)
 			{
 				const int64 FileSize = FileReader->TotalSize();
-				ANSICHAR* AnsiContents = (ANSICHAR*)FMemory::Malloc(FileSize);
+				ANSICHAR* AnsiContents = (ANSICHAR*)FMemory::Malloc(FileSize + 1);
 				FileReader->Serialize(AnsiContents, FileSize);
 				FileReader->Close();
 				delete FileReader;
 
+				AnsiContents[FileSize] = 0;
 				TArray<FString> Lines;
 				FString(ANSI_TO_TCHAR(AnsiContents)).ParseIntoArrayLines(Lines);
 				FMemory::Free(AnsiContents);
 
-				for (int32 Index = 0; Index < Lines.Num(); Index++)
+				for (int32 Index = Lines.Num()-1; Index >=0; Index--)
 				{
 					if (AndroidDirectory[0] == 0 && Lines[Index].StartsWith(TEXT("export ANDROID_HOME=")))
 					{

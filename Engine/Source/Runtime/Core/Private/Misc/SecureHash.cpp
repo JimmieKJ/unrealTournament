@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "SecureHash.h"
@@ -473,47 +473,56 @@ namespace LexicalConversion
 
 	void FromString(FMD5Hash& Hash, const TCHAR* Buffer)
 	{
-		uint8 Bytes[16];
-		for (int32 Index = 0; Index < 16; ++Index)
+		auto HexCharacterToDecimalValue = [](const TCHAR InHexChar, uint8& OutDecValue) -> bool
 		{
-			if (Buffer[Index] == '\0')
-			{
-				return;
-			}
-
 			TCHAR Base = 0;
-			if (Buffer[Index] >= '0' && Buffer[Index] <= '9')
+			if (InHexChar >= '0' && InHexChar <= '9')
 			{
-				Base = '0';
+				OutDecValue = InHexChar - '0';
 			}
-			else if (Buffer[Index] >= 'A' && Buffer[Index] <= 'F')
+			else if (InHexChar >= 'A' && InHexChar <= 'F')
 			{
-				Base = 'A';
+				OutDecValue = (InHexChar - 'A') + 10;
 			}
-			else if (Buffer[Index] >= 'a' && Buffer[Index] <= 'f')
+			else if (InHexChar >= 'a' && InHexChar <= 'f')
 			{
-				Base = 'a';
+				OutDecValue = (InHexChar - 'a') + 10;
 			}
 			else
 			{
-				// Invalid hex char
+				return false;
+			}
+
+			return true;
+		};
+
+		uint8 Bytes[16];
+		for (int32 ByteIndex = 0, BufferIndex = 0; ByteIndex < 16; ++ByteIndex)
+		{
+			const TCHAR FirstChar = Buffer[BufferIndex++];
+			if (FirstChar == '\0')
+			{
 				return;
 			}
 
-			if (Index % 2)
+			const TCHAR SecondChar = Buffer[BufferIndex++];
+			if (SecondChar == '\0')
 			{
-				Bytes[Index] = (Buffer[Index] - Base) << 4;
+				return;
 			}
-			else
+
+			uint8 FirstCharVal, SecondCharVal;
+			if (!HexCharacterToDecimalValue(FirstChar, FirstCharVal) || !HexCharacterToDecimalValue(SecondChar, SecondCharVal))
 			{
-				Bytes[Index] = (Bytes[Index] & ((Buffer[Index] - Base) | 0xF0));
-			}	
+				return;
+			}
+
+			Bytes[ByteIndex] = (FirstCharVal << 4) + SecondCharVal;
 		}
 
 		FMemory::Memcpy(Hash.Bytes, Bytes, 16);
 		Hash.bIsValid = true;
 	}
-
 }
 
 FMD5Hash FMD5Hash::HashFile(const TCHAR* InFilename, TArray<uint8>* Buffer)
@@ -729,6 +738,64 @@ void FSHA1::HashBuffer(const void* Data, uint32 DataSize, uint8* OutHash)
 	Sha.Update((const uint8*)Data, DataSize);
 	Sha.Final();
 	Sha.GetHash(OutHash);
+}
+
+void FSHA1::HMACBuffer(const void* Key, uint32 KeySize, const void* Data, uint32 DataSize, uint8* OutHash)
+{
+	const uint8 BlockSize = 64;
+	const uint8 HashSize = 20;
+	uint8 FinalKey[BlockSize];
+
+	// Fit 'Key' into a BlockSize-aligned 'FinalKey' value
+	if (KeySize > BlockSize)
+	{
+		HashBuffer(Key, KeySize, FinalKey);
+
+		FMemory::Memzero(FinalKey + HashSize, BlockSize - HashSize);
+	}
+	else if (KeySize < BlockSize)
+	{
+		FMemory::Memcpy(FinalKey, Key, KeySize);
+		FMemory::Memzero(FinalKey + KeySize, BlockSize - KeySize);
+	}
+	else
+	{
+		FMemory::Memcpy(FinalKey, Key, KeySize);
+	}
+
+
+	uint8 OKeyPad[BlockSize];
+	uint8 IKeyPad[BlockSize];
+
+	for (int32 i=0; i<BlockSize; i++)
+	{
+		OKeyPad[i] = 0x5C ^ FinalKey[i];
+		IKeyPad[i] = 0x36 ^ FinalKey[i];
+	}
+
+
+	// Start concatenating/hashing the pads/data etc: Hash(OKeyPad + Hash(IKeyPad + Data))
+	uint8* IKeyPad_Data = new uint8[ARRAY_COUNT(IKeyPad) + DataSize];
+
+	FMemory::Memcpy(IKeyPad_Data, IKeyPad, ARRAY_COUNT(IKeyPad));
+	FMemory::Memcpy(IKeyPad_Data + ARRAY_COUNT(IKeyPad), Data, DataSize);
+
+
+	uint8 IKeyPad_Data_Hash[HashSize];
+
+	HashBuffer(IKeyPad_Data, ARRAY_COUNT(IKeyPad) + DataSize, IKeyPad_Data_Hash);
+
+	delete[] IKeyPad_Data;
+
+
+	uint8 OKeyPad_IHash[ARRAY_COUNT(OKeyPad) + HashSize];
+
+	FMemory::Memcpy(OKeyPad_IHash, OKeyPad, ARRAY_COUNT(OKeyPad));
+	FMemory::Memcpy(OKeyPad_IHash + ARRAY_COUNT(OKeyPad), IKeyPad_Data_Hash, HashSize);
+
+
+	// Output the final hash
+	HashBuffer(OKeyPad_IHash, ARRAY_COUNT(OKeyPad_IHash), OutHash);
 }
 
 

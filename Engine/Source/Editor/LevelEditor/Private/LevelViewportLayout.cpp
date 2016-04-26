@@ -1,11 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "LevelEditor.h"
 #include "LevelViewportTabContent.h"
 #include "LevelViewportLayout.h"
-#include "SLevelViewport.h"
 #include "SDockTab.h"
+#include "SLevelViewport.h"
 
 namespace ViewportLayoutDefs
 {
@@ -20,11 +20,7 @@ namespace ViewportLayoutDefs
 
 	/** Default immersive state for new layouts - will only be applied when no config data is restoring state */
 	static const bool bDefaultShouldBeImmersive = false;
-
-	/** Default maximized viewport for new layouts - will only be applied when no config data is restoring state */
-	static const int32 DefaultMaximizedViewportID = 1;
 }
-
 
 // SViewportsOverlay ////////////////////////////////////////////////
 
@@ -133,7 +129,6 @@ TSharedPtr<FLevelViewportTabContent> SViewportsOverlay::GetLevelViewportTab() co
 	return LevelViewportTab;
 }
 
-
 // FLevelViewportLayout /////////////////////////////
 
 FLevelViewportLayout::FLevelViewportLayout()
@@ -154,14 +149,9 @@ FLevelViewportLayout::FLevelViewportLayout()
 
 FLevelViewportLayout::~FLevelViewportLayout()
 {
-	//catchall if one of our viewports is running by PIE or SIE, end it.
-	for (int32 i=0; i<Viewports.Num(); i++)
+	for (auto& Pair : Viewports)
 	{
-		if (Viewports[i]->IsPlayInEditorViewportActive() || Viewports[i]->GetLevelViewportClient().IsSimulateInEditorViewport() )
-		{
-			GUnrealEd->EndPlayMap();
-			break;
-		}
+		Pair.Value->OnLayoutDestroyed();
 	}
 
 	// Make sure that we're not locking the immersive window after we go away
@@ -176,7 +166,7 @@ FLevelViewportLayout::~FLevelViewportLayout()
 }
 
 
-TSharedRef<SWidget> FLevelViewportLayout::BuildViewportLayout( TSharedPtr<SDockTab> InParentDockTab, TSharedPtr<FLevelViewportTabContent> InParentTab, const FString& LayoutString, TWeakPtr<SLevelEditor> InParentLevelEditor )
+TSharedRef<SWidget> FLevelViewportLayout::BuildViewportLayout( TSharedPtr<SDockTab> InParentDockTab, TSharedPtr<FLevelViewportTabContent> InParentTab, const FString& LayoutString, TWeakPtr<ILevelEditor> InParentLevelEditor )
 {
 	// We don't support reconfiguring an existing layout object, as this makes handling of transitions
 	// particularly difficult.  Instead just destroy the old layout and create a new layout object.
@@ -184,7 +174,8 @@ TSharedRef<SWidget> FLevelViewportLayout::BuildViewportLayout( TSharedPtr<SDockT
 	ParentTab = InParentDockTab;
 	ParentTabContent = InParentTab;
 	ParentLevelEditor = InParentLevelEditor;
-
+	MaximizedViewport = NAME_None;
+	
 	// We use an overlay so that we can draw a maximized viewport on top of the other viewports
 	TSharedPtr<SBorder> ViewportsBorder;
 	TSharedRef<SViewportsOverlay> ViewportsOverlay =
@@ -227,11 +218,11 @@ void  FLevelViewportLayout::EndThrottleForAnimatedResize()
 	}
 }
 
-void FLevelViewportLayout::InitCommonLayoutFromString( const FString& SpecificLayoutString )
+void FLevelViewportLayout::InitCommonLayoutFromString( const FString& SpecificLayoutString, FName DefaultMaximizedViewport )
 {
 	bool bShouldBeMaximized = bIsMaximizeSupported && ViewportLayoutDefs::bDefaultShouldBeMaximized;
 	bool bShouldBeImmersive = ViewportLayoutDefs::bDefaultShouldBeImmersive;
-	int32 MaximizedViewportID = ViewportLayoutDefs::DefaultMaximizedViewportID;
+	
 	if (!SpecificLayoutString.IsEmpty())
 	{
 		const FString& IniSection = FLayoutSaveRestore::GetAdditionalLayoutConfigIni();
@@ -239,17 +230,20 @@ void FLevelViewportLayout::InitCommonLayoutFromString( const FString& SpecificLa
 		// NOTE: We don't support starting back up in immersive mode, even if the user shut down with a window that way.  See the
 		// comment below in SaveCommonLayoutString() for more info.
 		GConfig->GetBool(*IniSection, *(SpecificLayoutString + TEXT(".bIsMaximized")), bShouldBeMaximized, GEditorPerProjectIni);
-		GConfig->GetInt(*IniSection, *(SpecificLayoutString + TEXT(".MaximizedViewportID")), MaximizedViewportID, GEditorPerProjectIni);
+		FString MaximizedViewportString;
+		if (GConfig->GetString(*IniSection, *(SpecificLayoutString + TEXT(".MaximizedViewport")), MaximizedViewportString, GEditorPerProjectIni))
+		{
+			DefaultMaximizedViewport = *MaximizedViewportString;
+		}
 	}
 	// Replacement layouts (those selected by the user via a command) don't start maximized so the layout can be seen clearly.
-	if (!bIsReplacement && bIsMaximizeSupported && MaximizedViewportID >= 0 && MaximizedViewportID < Viewports.Num() && (bShouldBeMaximized || bShouldBeImmersive))
+	if (!bIsReplacement && bIsMaximizeSupported && Viewports.Contains(DefaultMaximizedViewport) && (bShouldBeMaximized || bShouldBeImmersive))
 	{
-		TSharedRef<SLevelViewport> LevelViewport = Viewports[MaximizedViewportID].ToSharedRef();
 		// we are not toggling maximize or immersive state but setting it directly
 		const bool bToggle=false;
 		// Do not allow animation at startup as it hitches
 		const bool bAllowAnimation=false;
-		MaximizeViewport( LevelViewport, bShouldBeMaximized, bShouldBeImmersive, bAllowAnimation );
+		MaximizeViewport(DefaultMaximizedViewport, bShouldBeMaximized, bShouldBeImmersive, bAllowAnimation);
 	}
 }
 
@@ -258,15 +252,13 @@ void FLevelViewportLayout::SaveCommonLayoutString( const FString& SpecificLayout
 	const FString& IniSection = FLayoutSaveRestore::GetAdditionalLayoutConfigIni();
 
 	// Save all our data using the additional layout config
-	int32 MaximizedViewportID = INDEX_NONE;
-	for (int32 i = 0; i < Viewports.Num(); ++i)
+	for (auto& Pair : Viewports)
 	{
-		Viewports[i]->SaveConfig(SpecificLayoutString + FString::Printf(TEXT(".Viewport%i"), i));
-		if (Viewports[i] == MaximizedViewport)
-		{
-			check(MaximizedViewportID == INDEX_NONE);
-			MaximizedViewportID = i;
-		}
+		FString ConfigName = SpecificLayoutString + Pair.Key.ToString();
+
+		Pair.Value->SaveConfig(ConfigName);
+
+		GConfig->SetString( *IniSection, *( ConfigName + TEXT(".TypeWithinLayout") ), *Pair.Value->GetType().ToString(), GEditorPerProjectIni );
 	}
 
 	// We don't bother saving that we were in immersive mode, because we never want to start back up directly in immersive mode
@@ -280,10 +272,10 @@ void FLevelViewportLayout::SaveCommonLayoutString( const FString& SpecificLayout
 	{
 		GConfig->SetBool(*IniSection, *(SpecificLayoutString + TEXT(".bIsMaximized")), bIsMaximizeSupported && bIsMaximized, GEditorPerProjectIni);
 	}
-	GConfig->SetInt( *IniSection, *( SpecificLayoutString + TEXT( ".MaximizedViewportID" ) ), MaximizedViewportID, GEditorPerProjectIni );
+	GConfig->SetString( *IniSection, *( SpecificLayoutString + TEXT( ".MaximizedViewport" ) ), *MaximizedViewport.ToString(), GEditorPerProjectIni );
 }
 
-void FLevelViewportLayout::RequestMaximizeViewport( TSharedRef<class SLevelViewport> ViewportToMaximize, const bool bWantMaximize, const bool bWantImmersive, const bool bAllowAnimation )
+void FLevelViewportLayout::RequestMaximizeViewport( FName ViewportToMaximize, const bool bWantMaximize, const bool bWantImmersive, const bool bAllowAnimation )
 {
 	if( bAllowAnimation )
 	{
@@ -303,12 +295,14 @@ void FLevelViewportLayout::RequestMaximizeViewport( TSharedRef<class SLevelViewp
 	}
 }
 
-void FLevelViewportLayout::MaximizeViewport( TSharedRef<SLevelViewport> ViewportToMaximize, const bool bWantMaximize, const bool bWantImmersive, const bool bAllowAnimation )
+void FLevelViewportLayout::MaximizeViewport( FName ViewportToMaximize, const bool bWantMaximize, const bool bWantImmersive, const bool bAllowAnimation )
 {
+	TSharedPtr<IViewportLayoutEntity> Entity = Viewports.FindRef(ViewportToMaximize);
+
 	// Should never get into a situation where the viewport is being maximized and there is already a maximized viewport. 
 	// I.E Maximized viewport is NULL which means this is a new maximize or MaximizeViewport is equal to the passed in one which means this is a restore of the current maximized viewport
-	check( Viewports.Contains( ViewportToMaximize ) );
-	check( !MaximizedViewport.IsValid() || MaximizedViewport == ViewportToMaximize );
+	check( Entity.IsValid() );
+	check( MaximizedViewport.IsNone() || MaximizedViewport == ViewportToMaximize );
 
 	// If we're already in immersive mode, toggling maximize just needs to update some state (no visual change)
 	if( bIsImmersive )
@@ -340,7 +334,7 @@ void FLevelViewportLayout::MaximizeViewport( TSharedRef<SLevelViewport> Viewport
 		else
 		{
 			// Viewport is still within the splitter, so use it for metrics directly
-			OwnerWindow = FSlateApplication::Get().FindWidgetWindow( ViewportToMaximize, ViewportWidgetPath );
+			OwnerWindow = FSlateApplication::Get().FindWidgetWindow( Entity->AsWidget(), ViewportWidgetPath );
 		}
 		bIsQueryingLayoutMetrics = false;
 
@@ -422,19 +416,23 @@ void FLevelViewportLayout::MaximizeViewport( TSharedRef<SLevelViewport> Viewport
 				// Store the maximized viewport
 				MaximizedViewport = ViewportToMaximize;
 
-				// Replace our viewport with a dummy widget in it's place during the maximize transition.  We can't
-				// have a single viewport widget in two places at once!
-				ReplaceWidget( MaximizedViewport.ToSharedRef(), ViewportReplacementWidget.ToSharedRef() );
+				TSharedPtr<IViewportLayoutEntity> MaximizedEntity = Viewports.FindRef(MaximizedViewport);
+				if (MaximizedEntity.IsValid())
+				{
+					// Replace our viewport with a dummy widget in it's place during the maximize transition.  We can't
+					// have a single viewport widget in two places at once!
+					ReplaceWidget( MaximizedEntity->AsWidget(), ViewportReplacementWidget.ToSharedRef() );
 
-				TSharedRef< SCanvas > Canvas = SNew( SCanvas );
-				Canvas->AddSlot()
-					.Position( TAttribute< FVector2D >( this, &FLevelViewportLayout::GetMaximizedViewportPositionOnCanvas ) )
-					.Size( TAttribute< FVector2D >( this, &FLevelViewportLayout::GetMaximizedViewportSizeOnCanvas ) )
-					[
-						MaximizedViewport.ToSharedRef()
-					];
+					TSharedRef< SCanvas > Canvas = SNew( SCanvas );
+					Canvas->AddSlot()
+						.Position( TAttribute< FVector2D >( this, &FLevelViewportLayout::GetMaximizedViewportPositionOnCanvas ) )
+						.Size( TAttribute< FVector2D >( this, &FLevelViewportLayout::GetMaximizedViewportSizeOnCanvas ) )
+						[
+							MaximizedEntity->AsWidget()
+						];
 
-				ViewportsOverlayWidget = Canvas;
+					ViewportsOverlayWidget = Canvas;
+				}
 			}
 
 
@@ -532,7 +530,7 @@ FVector2D FLevelViewportLayout::GetMaximizedViewportSizeOnCanvas() const
 	// NOTE: Should ALWAYS be valid, however because MaximizedViewport is changed in Tick, it's possible
 	//       for widgets we're adding/removing to already have been reported by ArrangeChildren, thus
 	//       we need to be able to handle cases where widgets that are not bound can still have delegates fire
-	if( MaximizedViewport.IsValid() || bWasImmersive )
+	if( !MaximizedViewport.IsNone() || bWasImmersive )
 	{
 		FVector2D TargetSize = FVector2D::ZeroVector;
 		if( bIsImmersive || ( bIsTransitioning && bWasImmersive ) )
@@ -578,26 +576,26 @@ bool FLevelViewportLayout::IsVisible()  const
  * @param InViewport	The viewport within this layout that should be checked
  * @return true if the viewport is visible.  
  */
-bool FLevelViewportLayout::IsLevelViewportVisible( const SLevelViewport& InViewport ) const
+bool FLevelViewportLayout::IsLevelViewportVisible( FName InViewport ) const
 {
 	// The passed in viewport is visible if the current layout is visible and their is no maximized viewport or the viewport that is maximized was passed in.
-	return IsVisible() && ( !MaximizedViewport.IsValid() || MaximizedViewport.Get() == &InViewport );
+	return IsVisible() && ( MaximizedViewport.IsNone() || MaximizedViewport == InViewport );
 }
 
-bool FLevelViewportLayout::IsViewportMaximized( const SLevelViewport& InViewport ) const
+bool FLevelViewportLayout::IsViewportMaximized( FName InViewport ) const
 {
-	return bIsMaximized && MaximizedViewport.Get() == &InViewport;
+	return bIsMaximized && MaximizedViewport == InViewport;
 }
 
-bool FLevelViewportLayout::IsViewportImmersive( const SLevelViewport& InViewport ) const
+bool FLevelViewportLayout::IsViewportImmersive( FName InViewport ) const
 {
-	return bIsImmersive && MaximizedViewport.Get() == &InViewport;
+	return bIsImmersive && MaximizedViewport == InViewport;
 }
 
 EVisibility FLevelViewportLayout::OnGetNonMaximizedVisibility() const
 {
 	// The non-maximized viewports are not visible if there is a maximized viewport on top of them
-	return ( !bIsQueryingLayoutMetrics && MaximizedViewport.IsValid() && !bIsTransitioning && DeferredMaximizeCommands.Num() == 0 ) ? EVisibility::Collapsed : EVisibility::Visible;
+	return ( !bIsQueryingLayoutMetrics && !MaximizedViewport.IsNone() && !bIsTransitioning && DeferredMaximizeCommands.Num() == 0 ) ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
 
@@ -605,6 +603,9 @@ void FLevelViewportLayout::FinishMaximizeTransition()
 {
 	if( bIsTransitioning )
 	{
+		TSharedPtr<IViewportLayoutEntity> MaximizedViewportEntity = Viewports.FindRef(MaximizedViewport);
+		check(MaximizedViewportEntity.IsValid());
+
 		// The transition animation is complete, allow the engine to tick normally
 		EndThrottleForAnimatedResize();
 
@@ -620,12 +621,12 @@ void FLevelViewportLayout::FinishMaximizeTransition()
 			}
 
 			// Finished transition from restored/maximized to immersive, if this is a PIE window we need to re-register it to capture the mouse.
-			MaximizedViewport->RegisterGameViewportIfPIE();
+			MaximizedViewportEntity->RegisterGameViewportIfPIE();
 		}
 		else if( bIsMaximized && !bWasImmersive )
 		{
 			// Finished transition from restored to immersive, if this is a PIE window we need to re-register it to capture the mouse.
-			MaximizedViewport->RegisterGameViewportIfPIE();
+			MaximizedViewportEntity->RegisterGameViewportIfPIE();
 		}
 		else if( bWasImmersive )	// Finished transition from immersive to restored/maximized
 		{
@@ -666,16 +667,15 @@ void FLevelViewportLayout::FinishMaximizeTransition()
 		}
 
 		// Stop transitioning
-		TSharedRef< SLevelViewport > ViewportToFocus = MaximizedViewport.ToSharedRef();
 		if( !bIsImmersive && !bIsMaximized )
 		{
 			// We're finished with this temporary overlay widget now
 			ViewportsOverlayWidget.Reset();
 
 			// Restore the viewport widget into the viewport layout splitter
-			ReplaceWidget( ViewportReplacementWidget.ToSharedRef(), MaximizedViewport.ToSharedRef() );
+			ReplaceWidget( ViewportReplacementWidget.ToSharedRef(), MaximizedViewportEntity->AsWidget() );
 
-			MaximizedViewport.Reset();
+			MaximizedViewport = NAME_None;
 		}
 		bIsTransitioning = false;
 
@@ -687,12 +687,12 @@ void FLevelViewportLayout::FinishMaximizeTransition()
 			FSlateApplication::Get().ClearKeyboardFocus( EFocusCause::SetDirectly );
 
 			// Set keyboard focus directly
-			ViewportToFocus->SetKeyboardFocusToThisViewport();
+			MaximizedViewportEntity->SetKeyboardFocus();
 		}
 
 		// If this is a PIE window we need to re-register since the maximized window will have registered itself
 		// as the game viewport.
-		ViewportToFocus->RegisterGameViewportIfPIE();
+		MaximizedViewportEntity->RegisterGameViewportIfPIE();
 	}
 }
 
@@ -716,7 +716,7 @@ void FLevelViewportLayout::Tick( float DeltaTime )
 			FMaximizeViewportCommand& Command = DeferredMaximizeCommands[i];
 
 			// Only bother with deferred maximize if we don't already have a maximized or immersive viewport unless we are toggling
-			if( !MaximizedViewport.IsValid() || Command.bToggle )
+			if( MaximizedViewport.IsNone() || Command.bToggle )
 			{
 				MaximizeViewport(Command.Viewport, Command.bMaximize, Command.bImmersive, Command.bAllowAnimation );
 			}

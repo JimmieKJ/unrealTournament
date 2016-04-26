@@ -1,30 +1,17 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 /*-----------------------------------------------------------------------------
 	Type definitions
 -----------------------------------------------------------------------------*/
-#define CHUNKED_PROFILER_DATA 1
 
 /** Type definition for an array of profiler samples.*/
-#if CHUNKED_PROFILER_DATA
 typedef TChunkedArray< class FProfilerSample, 1024 * 64 > FProfilerSampleArray;
-#else
-typedef TArray< class FProfilerSample > FProfilerSampleArray;
-#endif
-
-/** Type definition for an array of pointers to a profiler sample.*/
-typedef TArray< class FProfilerSample* > FProfilerSampleArrayPtr;
 
 /** Type definition for an array of indices.*/
 typedef TArray< uint32 > FIndicesArray;
 
-/** Type definition for shared pointers to instances of FProfilerSample. */
-typedef TSharedPtr<class FProfilerSample> FProfilerSamplePtr;
-
-/** Type definition for shared references to instances of FProfilerSample. */
-typedef TSharedRef<class FProfilerSample> FProfilerSampleRef;
 
 /*-----------------------------------------------------------------------------
 	Enumerators
@@ -35,22 +22,28 @@ typedef TSharedRef<class FProfilerSample> FProfilerSampleRef;
 /** Enumerates profiler sample types. */
 struct EProfilerSampleTypes
 {
-	enum Type
+	enum Type : uint32
 	{
 		/** Hierarchical - Displayed as a time, used by hierarchical stats, as "%.3f ms". */
-		HierarchicalTime,
+		HierarchicalTime = 0,
 
 		/** Numerical - Displayed as a integer number, as "%i". */
-		NumberInt,
+		NumberInt = 1,
 
 		/** Numerical - Displayed as a floating number, as "%.2f". */
-		NumberFloat,
+		NumberFloat = 2,
 
 		/** Memory - Displayed as a human readable data counter, as "%.2f kb". */
-		Memory,
+		Memory = 3,
 
 		/** Invalid enum type, may be used as a number of enumerations. */
-		InvalidOrMax,
+		InvalidOrMax = 4,
+
+		/** For extracting the type from the combined type. */
+		Shift = 0,
+		NumBits = 3,
+		Num = (1 << NumBits) - 1,
+		Mask = Num,
 	};
 
 	/**
@@ -68,25 +61,6 @@ struct EProfilerSampleTypes
 	static FString ToDescription( EProfilerSampleTypes::Type ProfilerSampleType );
 };
 
-/** Enumerates types where profiler samples can be stored. */
-namespace EStorageType
-{
-	enum Type
-	{
-		/** Stored in a local memory. */
-		LocalMemory,
-
-		/** Stored in a file. */
-		BackedUpByFile,
-
-		/** Stored in a global cache. */
-		GlobalCache,
-		
-		/** Invalid enum type, may be used as a number of enumerations. */
-		InvalidOrMax,
-	};
-}
-
 /*-----------------------------------------------------------------------------
 	Declarations
 -----------------------------------------------------------------------------*/
@@ -98,37 +72,43 @@ class FProfilerSample
 {	
 	friend class IDataProvider;
 
+	enum class EStatID : uint32
+	{
+		/** For extracting the StatID from the combined type. */
+		Shift = 13,
+		NumBits = 19,
+		Num = (1 << NumBits) - 1, // 2 ^ 19 -1 = 524287 unique stats
+		Mask = Num,
+	};
+
+	enum class EGroupID : uint32
+	{
+		/** For extracting the StatID from the combined type. */
+		Shift = 3,
+		NumBits = 10,
+		Num = (1 << NumBits) - 1, // 2^10 -1 = 1023 different groups
+		Mask = Num,
+	};
+
 protected:
 	/** Child samples of this profiler sample, as indices to profiler samples. */
 	FIndicesArray _ChildrenIndices;
 
-	/** The parent of this profiler sample, as an index to a profiler sample. */
-	uint32 _ParentIndex;	
+	/** 
+	  * Contains stat data, similar to the FStatMessage.StatData
+	  * Can be interpreted as uint64 counter or uint32 duration and uint32 callcount.
+	  */
+	int64 StatData;
 
 	/** The ID of the thread that this profiler sample was captured on. */
 	const uint32 _ThreadID;
 
-	/** The ID of the stat group this profiler sample belongs to, eg. Engine */
-	const uint32 _GroupID;
-
-	/** The ID of the stat of the profiler sample, eg. Frametime */
-	const uint32 _StatID;
-
-	/** Start time of this profiler sample, in milliseconds. */
-	const double _StartMS;
-
-	/** Duration of this profiler sample, in milliseconds. */
-	const double _DurationMS;
-
-	/**
-	 *	Counter value of this profiler sample. 
-	 *	The numerical value for NumberFloat, NumberInt or Memory. 
-	 *	The number of times this counter was called for HierarchicalTime. 
-	 */
-	const double _Counter;
-
-	/** Type of this profiler sample. */
-	TEnumAsByte<EProfilerSampleTypes::Type> _Type;	
+	/** 
+	  * The ID of the stat of the profiler sample, eg. Frametime				19bits
+	  * The ID of the stat group this profiler sample belongs to, eg. Engine	10bits
+	  * Type of this profiler sample											03bits
+	  */
+	uint32 CombinedMeta;
 
 public:
 	static SIZE_T SizeOf()
@@ -142,62 +122,55 @@ public:
 		return _ThreadID; 
 	}
 
-	/** Type of this profiler sample. */
-	const EProfilerSampleTypes::Type Type() const 
-	{ 
-		return _Type; 
-	};
-
 	/** The ID of the stat group this profiler sample belongs to, eg. Engine */
-	const uint32 GroupID() const 
+	FORCEINLINE_DEBUGGABLE const uint32 GroupID() const
 	{ 
-		return _GroupID; 
+		return (CombinedMeta >> (uint32)EGroupID::Shift) & (uint32)EGroupID::Mask;
 	}
 
 	/** The ID of the stat of the profiler sample, eg. Frametime */
-	const uint32 StatID() const 
+	FORCEINLINE_DEBUGGABLE const uint32 StatID() const
 	{ 
-		return _StatID; 
+		return (CombinedMeta >> (uint32)EStatID::Shift) & (uint32)EStatID::Mask;
 	}
 
-	/** Start time of the profiler sample, in milliseconds. */
-	const double StartMS() const 
-	{ 
-		return _StartMS; 
+	/** Type of this profiler sample. */
+	FORCEINLINE_DEBUGGABLE const EProfilerSampleTypes::Type Type() const
+	{
+		return (EProfilerSampleTypes::Type)((CombinedMeta >> (uint32)EProfilerSampleTypes::Shift) & (uint32)EProfilerSampleTypes::Mask);
+	};
+
+	/** Sets new stat id and sample type. */
+	FORCEINLINE_DEBUGGABLE void SetMeta( const uint32 StatID, const uint32 GroupID, const EProfilerSampleTypes::Type SampleType )
+	{
+		checkSlow( StatID <= (uint32)EStatID::Num );
+		checkSlow( GroupID <= (uint32)EGroupID::Num );
+		checkSlow( SampleType <= (uint32)EProfilerSampleTypes::Num );
+
+		CombinedMeta = 0;
+		CombinedMeta |= (StatID & (uint32)EStatID::Mask) << (uint32)EStatID::Shift;
+		CombinedMeta |= (GroupID & (uint32)EGroupID::Mask) << (uint32)EGroupID::Shift;
+		CombinedMeta |= (SampleType & (uint32)EProfilerSampleTypes::Mask) << (uint32)EProfilerSampleTypes::Shift;
 	}
 
-	/** Duration of the profiler sample, in milliseconds. */
-	const double DurationMS() const 
-	{ 
-		return _DurationMS; 
+	/** Duration of the profiler sample, in cycles. */
+	const uint32 GetDurationCycles() const
+	{
+		return FromPackedCallCountDuration_Duration( StatData );
 	}
 
-	/**
-	 *	Counter value of this profiler sample. 
-	 *	The numerical value for NumberFloat, NumberInt or Memory. 
-	 *	The number of times this counter was called for Time. 
-	 */
-	const double CounterAsFloat() const 
-	{ 
-		return _Counter; 
+	/** Call count of the profiler sample, only for hierarchical. */
+	const uint32 GetCallCount() const
+	{
+		return FromPackedCallCountDuration_CallCount( StatData );
 	}
 
-	/**
-	 *	Counter value of this profiler sample. 
-	 *	The numerical value for NumberFloat, NumberInt or Memory. 
-	 *	The number of times this counter was called for HierarchicalTime. 
-	 */
-	const int64 CounterAsInt() const 
-	{ 
-		return (int64)_Counter;
+	/** Value of the profiler sample, as double. */
+	const double GetDoubleValue() const
+	{
+		const double Value = *(double*)&StatData;
+		return Value;
 	}
-
-	/** A parent of this profiler sample, as an index to a profiler sample. */
-	const uint32 ParentIndex() const 
-	{ 
-		return _ParentIndex; 
-	}
-	 
 	/** Child samples of this profiler sample, as indices to profiler samples. */
 	const FIndicesArray& ChildrenIndices() const 
 	{ 
@@ -226,22 +199,16 @@ public:
 	 * @param InThreadID		- The ID of the thread that this profiler sample was captured on
 	 * @param InGroupID			- The ID of the stat group that this profiler sample belongs to
 	 * @param InStatID			- The ID of the stat of this profiler sample
-	 * @param InStartMs			- The start time of this profiler sample, in milliseconds
 	 * @param InDurationMs		- The duration of this profiler sample, in milliseconds
 	 * @param InCallsPerFrame	- The number of times this counter was called in the frame it was captured in
-	 * @param InParentIndex		- The parent of this profiler sample, as an index to a profiler sample
 	 *
 	 */
-	FProfilerSample( uint32 InThreadID, uint32 InGroupID, uint32 InStatID, double InStartMs, double InDurationMs, uint32 InCallsPerFrame, uint32 InParentIndex = InvalidIndex )
-		: _ParentIndex( InParentIndex )
-		, _ThreadID( InThreadID )
-		, _GroupID( InGroupID )
-		, _StatID( InStatID )
-		, _StartMS( InStartMs )
-		, _DurationMS( InDurationMs )
-		, _Counter( (double)InCallsPerFrame )
-		, _Type( EProfilerSampleTypes::HierarchicalTime )
-	{}
+	FORCEINLINE_DEBUGGABLE FProfilerSample( const uint32 InThreadID, const uint32 InGroupID, const uint32 InStatID, const uint32 InDurationCycles, const uint32 InCallsPerFrame )
+		: _ThreadID( InThreadID )
+	{
+		SetMeta( InStatID, InGroupID, EProfilerSampleTypes::HierarchicalTime );
+		StatData = ToPackedCallCountDuration( InCallsPerFrame, InDurationCycles );
+	}
 
 	/**
 	 * Initialization constructor for non-hierarchical samples.
@@ -252,75 +219,40 @@ public:
 	 * @param InProfilerSampleType	- The profiler sample type of this profiler sample
 	 *
 	 */
-	FProfilerSample( uint32 InGroupID, uint32 InStatID, double InCounter, const EProfilerSampleTypes::Type InProfilerSampleType )
-		: _ParentIndex( InvalidIndex )
-		, _ThreadID( 0 )
-		, _GroupID( InGroupID )
-		, _StatID( InStatID )
-		, _StartMS( 0.0f )
-		, _DurationMS( 0.0f )
-		, _Counter( InCounter )
-		, _Type( InProfilerSampleType )
-	{}
+	FORCEINLINE_DEBUGGABLE FProfilerSample( const uint32 InGroupID, const uint32 InStatID, const double InCounter, const EProfilerSampleTypes::Type InProfilerSampleType )
+		: _ThreadID( 0 )
+	{
+		SetMeta( InStatID, InGroupID, InProfilerSampleType );
+		*(double*)&StatData = InCounter;
+	}
 
 	/** Copy constructor. */
-	explicit FProfilerSample( const FProfilerSample& Other )
+	FORCEINLINE_DEBUGGABLE explicit FProfilerSample( const FProfilerSample& Other )
 		: _ChildrenIndices( Other._ChildrenIndices )
-		, _ParentIndex( Other._ParentIndex )
+		, StatData(Other.StatData)
 		, _ThreadID( Other._ThreadID )
-		, _GroupID( Other._GroupID )
-		, _StatID( Other._StatID )
-		, _StartMS( Other._StartMS )
-		, _DurationMS( Other._DurationMS )
-		, _Counter( Other._Counter )
-		, _Type( Other._Type )
-	{}
+		, CombinedMeta( Other.CombinedMeta )		
+	{
+	}
 
 	/** Default constructor, creates an invalid profiler sample. */
-	FProfilerSample()
-		: _ParentIndex( InvalidIndex )
-		, _ThreadID( 0 )
-		, _GroupID( InvalidIndex )
-		, _StatID( InvalidIndex )
-		, _StartMS( 0.0f )
-		, _DurationMS( 0.0f )
-		, _Counter( 0.0f )
-		, _Type( EProfilerSampleTypes::InvalidOrMax )
-	{}
+	FORCEINLINE_DEBUGGABLE FProfilerSample()
+		: StatData(0)
+		, _ThreadID( 0 )		
+	{
+		SetMeta( 0, 0, EProfilerSampleTypes::InvalidOrMax );
+	}
 
 	/** Updates the duration of this sample, should be only used to update the root stat. */
-	void SetDurationMS( double InDurationMs )
+	void SetDurationCycles( const uint32 InDurationCycles )
 	{
-		double& MutableDurationRef = const_cast<double&>(_DurationMS);
-		MutableDurationRef = InDurationMs;
-	}
-
-	void SetStartAndEndMS( double InStartMS, double InEndMS )
-	{
-		double& MutableStartRef = const_cast<double&>(_StartMS);
-		MutableStartRef = InStartMS;
-
-		double& MutableDurationRef = const_cast<double&>(_DurationMS);
-		MutableDurationRef = InEndMS - InStartMS;
-	}
-
-	/** @return end time of this profiler sample, in milliseconds. */
-	const double GetEndMS() const
-	{
-		return _StartMS + _DurationMS;
-	}
-
-	/** @return frame rate of this profiler sample. */
-	const float GetFramerate() const
-	{
-		const double Framerate = 1000.0 / _DurationMS;
-		return (float)Framerate;
+		StatData = ToPackedCallCountDuration( GetCallCount(), InDurationCycles );
 	}
 
 	/** @return true if this profiler sample is valid. */
 	const bool IsValid() const
 	{
-		return _Type != EProfilerSampleTypes::InvalidOrMax;
+		return Type() != EProfilerSampleTypes::InvalidOrMax;
 	}
 
 	/** @return true if IndexToCheck is valid. */

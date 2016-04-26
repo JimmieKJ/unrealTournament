@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "EnvironmentQueryEditorPrivatePCH.h"
@@ -373,7 +373,6 @@ void SGraphNode_EnvironmentQuery::CreatePinWidgets()
 	{
 		TSharedPtr<SGraphPin> NewPin = SNew(SEnvironmentQueryPin, CurPin);
 
-		NewPin->SetIsEditable(IsEditable);
 		AddPin(NewPin.ToSharedRef());
 	}
 
@@ -382,7 +381,6 @@ void SGraphNode_EnvironmentQuery::CreatePinWidgets()
 	{
 		TSharedPtr<SGraphPin> NewPin = SNew(SEnvironmentQueryPin, CurPin);
 
-		NewPin->SetIsEditable(IsEditable);
 		AddPin(NewPin.ToSharedRef());
 	}
 }

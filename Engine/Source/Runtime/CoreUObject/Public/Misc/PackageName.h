@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PackageName.h: Unreal package name utility functions.
@@ -100,6 +100,13 @@ public:
 	 */
 	static bool IsValidLongPackageName(const FString& InLongPackageName, bool bIncludeReadOnlyRoots = false, FText* OutReason = NULL);
 	/**
+	 * Returns whether the specified long package name is an engine package.
+	 *
+	 * @param InLongPackageName Long Package Name
+	 * @return true if it is an Engine package.
+	 */
+	static bool IsEnginePackageName(const FString& InLongPackageName);
+	/**
 	 * Checks if the given string is a long package name or not.
 	 *
 	 * @param PossiblyLongName Package name.
@@ -194,6 +201,15 @@ public:
 	 * @return true if the specified package name points to an existing package, false otherwise.
 	 **/
 	static bool DoesPackageExist(const FString& LongPackageName, const FGuid* Guid = NULL, FString* OutFilename = NULL, const bool ShouldGetLocalizedPackage = false);
+
+	/**
+	* Checks if the package and any localized version exist on disk.
+	*
+	* @param LongPackageName Package name.
+	* @param OutFilenameNative Package package filename on disk. Set to empty string if the package is not found.
+	* @param OutFilenameLocalized Localized package filename on disk. Set to empty string if the package is not found
+	**/
+	static bool DoesPackageExistWithLocalization(const FString& LongPackageName, const FGuid* Guid = NULL, FString* OutNativeFilename = NULL, FString* OutLocalizedFilename = NULL);
 
 	/**
 	 * Attempts to find a package given its short name on disk (very slow).
@@ -351,6 +367,12 @@ public:
 	static bool IsScriptPackage(const FString& InPackageName);
 
 	/**
+	 * Checks the root of the package's path to see if it is a localized package
+	 * @return true if the root of the path matches any localized root path
+	 */
+	static bool IsLocalizedPackage(const FString& InPackageName);
+
+	/**
 	 * Checks if a package name contains characters that are invalid for package names.
 	 */
 	static bool DoesPackageNameContainInvalidCharacters(const FString& InLongPackageName, FText* OutReason = NULL);
@@ -363,6 +385,11 @@ public:
 	* @return true if the package could be found on disk.
 	*/
 	static bool FindPackageFileWithoutExtension(const FString& InPackageFilename, FString& OutFilename);
+
+	/**
+	* TODO
+	*/
+	static void FindPackageFileAndLocalizationWithoutExtension(const FString& InNativePackageFilename, const FString& InLocalizedPackageFilename, FString& OutNativeFilename, FString& OutLocalizedFilename);
 
 private:
 

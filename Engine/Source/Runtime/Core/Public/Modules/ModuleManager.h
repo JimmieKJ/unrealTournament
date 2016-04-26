@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -258,7 +258,7 @@ public:
 			return nullptr;
 		}
 
-		return (TModuleInterface*)(ModuleManager.GetModule(ModuleName).Get());
+		return static_cast<TModuleInterface*>(ModuleManager.GetModule(ModuleName).Get());
 	}
 
 	/**
@@ -722,7 +722,7 @@ class FDefaultGameModuleImpl
 
 /**
  * Macro for declaring the GIsDebugGame variable for monolithic development builds. NB: This define, and the UE_BUILD_DEVELOPMENT_WITH_DEBUGGAME defines like it, should NEVER be 
- * directly used or defined for engine code, because it prevents sharing the same build products with the development build (important for Rocket build sizes). In modular builds, 
+ * directly used or defined for engine code, because it prevents sharing the same build products with the development build (important for Launcher build sizes). In modular builds, 
  * DebugGame modules will be loaded by specifying the -debug parameter on the command-line.
  */
 #if IS_MONOLITHIC && UE_BUILD_DEVELOPMENT

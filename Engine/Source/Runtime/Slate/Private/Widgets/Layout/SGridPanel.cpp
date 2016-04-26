@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlatePrivatePCH.h"
 #include "LayoutUtils.h"
@@ -58,6 +58,8 @@ int32 SGridPanel::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeom
 	// wants to an overlay for all of its contents.
 	int32 MaxLayerId = LayerId;
 
+	const FPaintArgs NewArgs = Args.WithNewParent(this);
+
 	// We need to iterate over slots, because slots know the GridLayers. This isn't available in the arranged children.
 	// Some slots do not show up (they are hidden/collapsed). We need a 2nd index to skip over them.
 	//
@@ -71,28 +73,32 @@ int32 SGridPanel::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeom
 		{
 			const FSlot& CurSlot = Slots[ChildIndex];
 
-			FSlateRect ChildClipRect = MyClippingRect.IntersectionWith( CurWidget.Geometry.GetClippingRect() );
+			bool bWereOverlapping;
+			FSlateRect ChildClipRect = MyClippingRect.IntersectionWith(CurWidget.Geometry.GetClippingRect(), bWereOverlapping);
 
-			if ( LastGridLayer != CurSlot.LayerParam )
+			if ( bWereOverlapping )
 			{
-				// We starting a new grid layer group?
-				LastGridLayer = CurSlot.LayerParam;
-				// Ensure that everything here is drawn on top of 
-				// previously drawn grid content.
-				LayerId = MaxLayerId+1;
-			}
+				if ( LastGridLayer != CurSlot.LayerParam )
+				{
+					// We starting a new grid layer group?
+					LastGridLayer = CurSlot.LayerParam;
+					// Ensure that everything here is drawn on top of 
+					// previously drawn grid content.
+					LayerId = MaxLayerId + 1;
+				}
 
-			const int32 CurWidgetsMaxLayerId = CurWidget.Widget->Paint(
-				Args.WithNewParent(this),
-				CurWidget.Geometry,
-				ChildClipRect,
-				OutDrawElements,
-				LayerId,
-				InWidgetStyle,
-				ShouldBeEnabled( bParentEnabled )
-			);
-			
-			MaxLayerId = FMath::Max( MaxLayerId, CurWidgetsMaxLayerId );
+				const int32 CurWidgetsMaxLayerId = CurWidget.Widget->Paint(
+					NewArgs,
+					CurWidget.Geometry,
+					ChildClipRect,
+					OutDrawElements,
+					LayerId,
+					InWidgetStyle,
+					ShouldBeEnabled(bParentEnabled)
+					);
+
+				MaxLayerId = FMath::Max(MaxLayerId, CurWidgetsMaxLayerId);
+			}
 		}
 	}
 

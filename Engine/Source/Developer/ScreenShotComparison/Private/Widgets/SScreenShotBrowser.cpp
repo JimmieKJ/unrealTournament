@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SScreenShotBrowser.cpp: Implements the SScreenShotBrowser class.
@@ -12,12 +12,6 @@
 void SScreenShotBrowser::Construct( const FArguments& InArgs,  IScreenShotManagerRef InScreenShotManager  )
 {
 	ScreenShotManager = InScreenShotManager;
-
-	// Create the delegate for view change callbacks
-	ScreenShotDelegate = FOnScreenFilterChanged::CreateSP( this, &SScreenShotBrowser::HandleScreenShotDataChanged );
-
-	// Register for callbacks
-	ScreenShotManager->RegisterScreenShotUpdate( ScreenShotDelegate );
 
 	ChildSlot
 	[
@@ -34,6 +28,12 @@ void SScreenShotBrowser::Construct( const FArguments& InArgs,  IScreenShotManage
 			SAssignNew( TreeBoxHolder, SHorizontalBox )
 		]
 	];
+
+	// Create the delegate for view change callbacks
+	ScreenShotDelegate = FOnScreenFilterChanged::CreateSP(this, &SScreenShotBrowser::HandleScreenShotDataChanged);
+
+	// Register for callbacks
+	ScreenShotManager->RegisterScreenShotUpdate(ScreenShotDelegate);
 
 	ReGenerateTree();
 }

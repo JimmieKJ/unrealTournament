@@ -1,4 +1,4 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -76,5 +76,29 @@ public:
 	 * Returns true, if head phones are plugged in
 	 */
 	virtual bool AreHeadPhonesPluggedIn() const = 0;
+
+	/**
+	 * Set loading icon texture. When the texture is set it is necessary to call SetLoadingIconMode method, 
+	 * or force loading icon rendering by calling RenderLoadingIcon_RenderThread.
+	 * To reset to default icon, call this method will 'nullptr' as parameter.
+	 */
+	virtual void SetLoadingIconTexture(FTextureRHIRef InTexture) = 0;
+
+	/**
+	 * Sets/resets 'loading icon mode'. If the 'SetLoadingIconTexture' was called with non-nullptr parameter
+	 * then the custom texture will be used; otherwise the default icon is used.
+	 */
+	virtual void SetLoadingIconMode(bool bActiveLoadingIcon) = 0;
+
+	/**
+	 * Enforces loading icon rendering. This method will render it even if loading icon mode wasn't set.
+	 * Must be called on render thread only.
+	 */
+	virtual void RenderLoadingIcon_RenderThread() = 0;
+
+	/**
+	 * Returns 'true' if the 'loading icon mode' is on.
+	 */
+	virtual bool IsInLoadingIconMode() const = 0;
 };
 

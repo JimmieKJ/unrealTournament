@@ -94,7 +94,7 @@ void AUTGameSessionNonRanked::InitHostBeacon(FOnlineSessionSettings* SessionSett
 	}
 }
 
-void AUTGameSessionNonRanked::DestroyHostBeacon()
+void AUTGameSessionNonRanked::DestroyHostBeacon(bool bPreserveReservations)
 {
 	if (BeaconHost)
 	{

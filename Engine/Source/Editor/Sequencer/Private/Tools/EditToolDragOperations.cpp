@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerPrivatePCH.h"
 #include "EditToolDragOperations.h"
@@ -9,7 +9,6 @@
 #include "CommonMovieSceneTools.h"
 #include "MovieScene.h"
 #include "MovieSceneTrack.h"
-#include "MovieSceneShotTrack.h"
 #include "VirtualTrackArea.h"
 
 struct FDefaultKeySnappingCandidates : ISequencerSnapCandidate
@@ -137,6 +136,7 @@ void FEditToolDragOperation::EndTransaction()
 {
 	Transaction.Reset();
 	Sequencer.UpdateRuntimeInstances();
+	Sequencer.UpdatePlaybackRange();
 }
 
 FResizeSection::FResizeSection( FSequencer& InSequencer, TArray<FSectionHandle> InSections, bool bInDraggingByEnd )
@@ -160,9 +160,27 @@ void FResizeSection::OnBeginDrag(const FPointerEvent& MouseEvent, FVector2D Loca
 	DraggedKeyHandles.Empty();
 	SectionInitTimes.Empty();
 
+	bool bIsDilating = MouseEvent.IsControlDown();
+
 	for (auto& Handle : Sections)
 	{
 		UMovieSceneSection* Section = Handle.GetSectionObject();
+
+		for (auto SequencerSection : Handle.TrackNode->GetSections())
+		{
+			if (SequencerSection->GetSectionObject() == Section)
+			{
+				if (bIsDilating)
+				{
+					SequencerSection->BeginDilateSection();
+				}
+				else
+				{
+					SequencerSection->BeginResizeSection();
+				}
+				break;
+			}
+		}
 
 		Section->GetKeyHandles(DraggedKeyHandles);
 		SectionInitTimes.Add(Section, bDraggingByEnd ? Section->GetEndTime() : Section->GetStartTime());
@@ -217,48 +235,58 @@ void FResizeSection::OnDrag(const FPointerEvent& MouseEvent, FVector2D LocalMous
 	for (auto& Handle : Sections)
 	{
 		UMovieSceneSection* Section = Handle.GetSectionObject();
-		float NewTime = SectionInitTimes[Section] + DeltaTime;
 
-		if( bDraggingByEnd )
+		// Find the corresponding sequencer section to this movie scene section
+		for (auto SequencerSection : Handle.TrackNode->GetSections())
 		{
-			// Dragging the end of a section
-			// Ensure we aren't shrinking past the start time
-			NewTime = FMath::Max( NewTime, Section->GetStartTime() );
+			if (SequencerSection->GetSectionObject() == Section)
+			{
+				float NewTime = SectionInitTimes[Section] + DeltaTime;
 
-			if (bIsDilating)
-			{
-				float NewSize = NewTime - Section->GetStartTime();
-				float DilationFactor = NewSize / Section->GetTimeSize();
-				Section->DilateSection(DilationFactor, Section->GetStartTime(), DraggedKeyHandles);
-			}
-			else
-			{
-				Section->SetEndTime( NewTime );
-			}
-		}
-		else
-		{
-			// Dragging the start of a section
-			// Ensure we arent expanding past the end time
-			NewTime = FMath::Min( NewTime, Section->GetEndTime() );
+				if( bDraggingByEnd )
+				{
+					// Dragging the end of a section
+					// Ensure we aren't shrinking past the start time
+					NewTime = FMath::Max( NewTime, Section->GetStartTime() );
 
-			if (bIsDilating)
-			{
-				float NewSize = Section->GetEndTime() - NewTime;
-				float DilationFactor = NewSize / Section->GetTimeSize();
-				Section->DilateSection(DilationFactor, Section->GetEndTime(), DraggedKeyHandles);
-			}
-			else
-			{
-				Section->SetStartTime( NewTime );
-			}
-		}
+					if (bIsDilating)
+					{
+						float NewSize = NewTime - Section->GetStartTime();
+						float DilationFactor = NewSize / Section->GetTimeSize();
+						SequencerSection->DilateSection(DilationFactor, Section->GetStartTime(), DraggedKeyHandles);
+					}
+					else
+					{
+						SequencerSection->ResizeSection( SSRM_TrailingEdge, NewTime );
+					}
+				}
+				else
+				{
+					// Dragging the start of a section
+					// Ensure we arent expanding past the end time
+					NewTime = FMath::Min( NewTime, Section->GetEndTime() );
 
-		UMovieSceneTrack* OuterTrack = Section->GetTypedOuter<UMovieSceneTrack>();
-		if (OuterTrack)
-		{
-			OuterTrack->Modify();
-			OuterTrack->OnSectionMoved(*Section);
+					if (bIsDilating)
+					{
+						float NewSize = Section->GetEndTime() - NewTime;
+						float DilationFactor = NewSize / Section->GetTimeSize();
+						SequencerSection->DilateSection(DilationFactor, Section->GetEndTime(), DraggedKeyHandles);
+					}
+					else
+					{
+						SequencerSection->ResizeSection( SSRM_LeadingEdge, NewTime );
+					}
+				}
+
+				UMovieSceneTrack* OuterTrack = Section->GetTypedOuter<UMovieSceneTrack>();
+				if (OuterTrack)
+				{
+					OuterTrack->Modify();
+					OuterTrack->OnSectionMoved(*Section);
+				}
+
+				break;
+			}
 		}
 	}
 
@@ -267,12 +295,24 @@ void FResizeSection::OnDrag(const FPointerEvent& MouseEvent, FVector2D LocalMous
 
 FMoveSection::FMoveSection( FSequencer& InSequencer, TArray<FSectionHandle> InSections )
 	: FEditToolDragOperation( InSequencer )
-	, Sections( MoveTemp(InSections) )
 {
+	// Only allow sections that are not infinite to be movable.
+	for (auto InSection : InSections)
+	{
+		if (!InSection.GetSectionObject()->IsInfinite())
+		{
+			Sections.Add(InSection);
+		}
+	}
 }
 
 void FMoveSection::OnBeginDrag(const FPointerEvent& MouseEvent, FVector2D LocalMousePos, const FVirtualTrackArea& VirtualTrackArea)
 {
+	if (!Sections.Num())
+	{
+		return;
+	}
+
 	BeginTransaction( Sections, NSLOCTEXT("Sequencer", "MoveSectionTransaction", "Move Section") );
 
 	// Construct a snap field of unselected sections
@@ -295,6 +335,11 @@ void FMoveSection::OnBeginDrag(const FPointerEvent& MouseEvent, FVector2D LocalM
 
 void FMoveSection::OnEndDrag(const FPointerEvent& MouseEvent, FVector2D LocalMousePos, const FVirtualTrackArea& VirtualTrackArea)
 {
+	if (!Sections.Num())
+	{
+		return;
+	}
+
 	DraggedKeyHandles.Empty();
 
 	for (auto& Handle : Sections)
@@ -316,6 +361,11 @@ void FMoveSection::OnEndDrag(const FPointerEvent& MouseEvent, FVector2D LocalMou
 
 void FMoveSection::OnDrag(const FPointerEvent& MouseEvent, FVector2D LocalMousePos, const FVirtualTrackArea& VirtualTrackArea)
 {
+	if (!Sections.Num())
+	{
+		return;
+	}
+
 	LocalMousePos.Y = FMath::Clamp(LocalMousePos.Y, 0.f, VirtualTrackArea.GetPhysicalSize().Y);
 
 	// Convert the current mouse position to a time

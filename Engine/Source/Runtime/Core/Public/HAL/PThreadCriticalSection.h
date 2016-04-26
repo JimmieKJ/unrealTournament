@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -55,4 +55,8 @@ public:
 	{
 		pthread_mutex_unlock(&Mutex);
 	}
+
+private:
+	FPThreadsCriticalSection(const FPThreadsCriticalSection&);
+	FPThreadsCriticalSection& operator=(const FPThreadsCriticalSection&);
 };

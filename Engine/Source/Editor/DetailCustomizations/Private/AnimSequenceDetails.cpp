@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "DetailCustomizationsPrivatePCH.h"
 #include "AnimSequenceDetails.h"
@@ -366,15 +366,14 @@ SAnimationRefPoseViewport::~SAnimationRefPoseViewport()
 	// clean up components
 	if (PreviewComponent)
 	{
-		for (int32 I=PreviewComponent->AttachChildren.Num()-1; I >= 0; --I) // Iterate backwards because Cleancomponent will remove from AttachChildren
+		for (int32 I=PreviewComponent->GetAttachChildren().Num()-1; I >= 0; --I) // Iterate backwards because CleanupComponent will remove from AttachChildren
 		{
 			// PreviewComponet will be cleaned up by PreviewScene, 
 			// but if anything is attached, it won't be cleaned up, 
 			// so we'll need to clean them up manually
-			CleanupComponent(PreviewComponent->AttachChildren[I]);
+			CleanupComponent(PreviewComponent->GetAttachChildren()[I]);
 		}
-
-		PreviewComponent->AttachChildren.Empty();
+		check(PreviewComponent->GetAttachChildren().Num() == 0);
 	}
 
 	// Close viewport
@@ -388,12 +387,12 @@ void SAnimationRefPoseViewport::CleanupComponent(USceneComponent* Component)
 {
 	if (Component)
 	{
-		for (int32 I=0; I<Component->AttachChildren.Num(); ++I)
+		for (int32 I = Component->GetAttachChildren().Num() - 1; I >= 0; --I) // Iterate backwards because CleanupComponent will remove from AttachChildren
 		{
-			CleanupComponent(Component->AttachChildren[I]);
+			CleanupComponent(Component->GetAttachChildren()[I]);
 		}
+		check(Component->GetAttachChildren().Num() == 0);
 
-		Component->AttachChildren.Empty();
 		Component->DestroyComponent();
 	}
 }

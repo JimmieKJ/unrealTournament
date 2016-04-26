@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "GeometryModePrivatePCH.h"
 #include "Engine/BrushShape.h"
@@ -657,6 +657,33 @@ UGeomModifier_Extrude::UGeomModifier_Extrude(const FObjectInitializer& ObjectIni
 	Length = 16;
 	Segments = 1;
 }
+
+bool UGeomModifier_Extrude::InputDelta(FEditorViewportClient* InViewportClient, FViewport* InViewport, FVector& InDrag, FRotator& InRot, FVector& InScale)
+{
+	FEdModeGeometry* Mode = (FEdModeGeometry*)GLevelEditorModeTools().GetActiveMode(FBuiltinEditorModes::EM_Geometry);
+
+	const bool bGetRawValue = true;
+	const bool bIsLocalCoords = GLevelEditorModeTools().GetCoordSystem(bGetRawValue) == COORD_Local;
+
+	if (!bIsLocalCoords)
+	{
+		// Before the modal dialog has popped up, force tracking to stop and reset the focus
+		InViewportClient->LostFocus(InViewport);
+		InViewportClient->ReceivedFocus(InViewport);
+		CheckCoordinatesMode();
+	}
+
+	if (!bIsLocalCoords || Mode->GetCurrentWidgetAxis() != EAxisList::X)
+	{
+		InDrag = FVector::ZeroVector;
+		InRot = FRotator::ZeroRotator;
+		InScale = FVector::ZeroVector;
+		return false;
+	}
+
+	return Super::InputDelta(InViewportClient, InViewport, InDrag, InRot, InScale);
+}
+
 
 bool UGeomModifier_Extrude::Supports()
 {
@@ -2603,7 +2630,7 @@ UGeomModifier_Split::UGeomModifier_Split(const FObjectInitializer& ObjectInitial
 	: Super(ObjectInitializer)
 {
 	Description = NSLOCTEXT("UnrealEd", "Split", "Split");
-	Tooltip = NSLOCTEXT("UnrealEd.GeomModifier_Pen", "Tooltip", "Split a brush in half, the exact operation depending on which geometry elements are selected.");
+	Tooltip = NSLOCTEXT("UnrealEd.GeomModifier_Pen", "Split_Tooltip", "Split a brush in half, the exact operation depending on which geometry elements are selected.");
 	bPushButton = true;
 }
 

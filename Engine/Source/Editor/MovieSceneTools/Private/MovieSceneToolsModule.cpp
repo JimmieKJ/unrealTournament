@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneToolsPrivatePCH.h"
 #include "ModuleManager.h"
@@ -16,9 +16,11 @@
 #include "FloatPropertyTrackEditor.h"
 #include "VectorPropertyTrackEditor.h"
 #include "VisibilityPropertyTrackEditor.h"
+#include "ActorReferencePropertyTrackEditor.h"
 
 #include "TransformTrackEditor.h"
-#include "ShotTrackEditor.h"
+#include "CameraCutTrackEditor.h"
+#include "CinematicShotTrackEditor.h"
 #include "SlomoTrackEditor.h"
 #include "SubTrackEditor.h"
 #include "AudioTrackEditor.h"
@@ -31,12 +33,17 @@
 #include "MaterialTrackEditor.h"
 #include "FadeTrackEditor.h"
 #include "SpawnTrackEditor.h"
+#include "LevelVisibilityTrackEditor.h"
+#include "CameraAnimTrackEditor.h"
+#include "CameraShakeTrackEditor.h"
 
 #include "MovieSceneClipboard.h"
 #include "SequencerClipboardReconciler.h"
 #include "ClipboardTypes.h"
 #include "Curves/CurveBase.h"
+#include "ISettingsModule.h"
 
+#define LOCTEXT_NAMESPACE "FMovieSceneToolsModule"
 
 /**
  * Implements the MovieSceneTools module.
@@ -50,6 +57,15 @@ public:
 
 	virtual void StartupModule() override
 	{
+		if (ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings"))
+		{
+			SettingsModule->RegisterSettings("Project", "Editor", "Level Sequences",
+				LOCTEXT("RuntimeSettingsName", "Level Sequences"),
+				LOCTEXT("RuntimeSettingsDescription", "Configure project settings relating to Level Sequences"),
+				GetMutableDefault<UMovieSceneToolsProjectSettings>()
+			);
+		}
+
 		ISequencerModule& SequencerModule = FModuleManager::Get().LoadModuleChecked<ISequencerModule>( "Sequencer" );
 
 		// register property track editors
@@ -59,6 +75,7 @@ public:
 		FloatPropertyTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor_Handle( FOnCreateTrackEditor::CreateStatic( &FFloatPropertyTrackEditor::CreateTrackEditor ) );
 		VectorPropertyTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor_Handle( FOnCreateTrackEditor::CreateStatic( &FVectorPropertyTrackEditor::CreateTrackEditor ) );
 		VisibilityPropertyTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor_Handle( FOnCreateTrackEditor::CreateStatic( &FVisibilityPropertyTrackEditor::CreateTrackEditor ) );
+		ActorReferencePropertyTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor_Handle(FOnCreateTrackEditor::CreateStatic( &FActorReferencePropertyTrackEditor::CreateTrackEditor ) );
 
 		// register specialty track editors
 		AnimationTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor_Handle( FOnCreateTrackEditor::CreateStatic( &FSkeletalAnimationTrackEditor::CreateTrackEditor ) );
@@ -68,19 +85,28 @@ public:
 		ParticleTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor_Handle( FOnCreateTrackEditor::CreateStatic( &FParticleTrackEditor::CreateTrackEditor ) );
 		ParticleParameterTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor_Handle( FOnCreateTrackEditor::CreateStatic( &FParticleParameterTrackEditor::CreateTrackEditor ) );
 		PathTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor_Handle( FOnCreateTrackEditor::CreateStatic( &F3DPathTrackEditor::CreateTrackEditor ) );
-		ShotTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor_Handle( FOnCreateTrackEditor::CreateStatic( &FShotTrackEditor::CreateTrackEditor ) );
+		CameraCutTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor_Handle( FOnCreateTrackEditor::CreateStatic( &FCameraCutTrackEditor::CreateTrackEditor ) );
+		CinematicShotTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor_Handle( FOnCreateTrackEditor::CreateStatic( &FCinematicShotTrackEditor::CreateTrackEditor ) );
 		SlomoTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor_Handle( FOnCreateTrackEditor::CreateStatic( &FSlomoTrackEditor::CreateTrackEditor ) );
 		SubTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor_Handle( FOnCreateTrackEditor::CreateStatic( &FSubTrackEditor::CreateTrackEditor ) );
 		TransformTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor_Handle( FOnCreateTrackEditor::CreateStatic( &F3DTransformTrackEditor::CreateTrackEditor ) );
 		ComponentMaterialTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor_Handle( FOnCreateTrackEditor::CreateStatic( &FComponentMaterialTrackEditor::CreateTrackEditor ) );
 		FadeTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor_Handle( FOnCreateTrackEditor::CreateStatic( &FFadeTrackEditor::CreateTrackEditor ) );
 		SpawnTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor_Handle( FOnCreateTrackEditor::CreateStatic( &FSpawnTrackEditor::CreateTrackEditor ) );
+		LevelVisibilityTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor_Handle( FOnCreateTrackEditor::CreateStatic( &FLevelVisibilityTrackEditor::CreateTrackEditor ) );
+		CameraAnimTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor_Handle(FOnCreateTrackEditor::CreateStatic(&FCameraAnimTrackEditor::CreateTrackEditor));
+		CameraShakeTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor_Handle(FOnCreateTrackEditor::CreateStatic(&FCameraShakeTrackEditor::CreateTrackEditor));
 
 		RegisterClipboardConversions();
 	}
 
 	virtual void ShutdownModule() override
 	{
+		if (ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings"))
+		{
+			SettingsModule->UnregisterSettings("Project", "Editor", "Level Sequences");
+		}
+
 		if (!FModuleManager::Get().IsModuleLoaded("Sequencer"))
 		{
 			return;
@@ -95,6 +121,7 @@ public:
 		SequencerModule.UnRegisterTrackEditor_Handle( FloatPropertyTrackCreateEditorHandle );
 		SequencerModule.UnRegisterTrackEditor_Handle( VectorPropertyTrackCreateEditorHandle );
 		SequencerModule.UnRegisterTrackEditor_Handle( VisibilityPropertyTrackCreateEditorHandle );
+		SequencerModule.UnRegisterTrackEditor_Handle( ActorReferencePropertyTrackCreateEditorHandle );
 
 		// unregister specialty track editors
 		SequencerModule.UnRegisterTrackEditor_Handle( AnimationTrackCreateEditorHandle );
@@ -104,13 +131,16 @@ public:
 		SequencerModule.UnRegisterTrackEditor_Handle( ParticleTrackCreateEditorHandle );
 		SequencerModule.UnRegisterTrackEditor_Handle( ParticleParameterTrackCreateEditorHandle );
 		SequencerModule.UnRegisterTrackEditor_Handle( PathTrackCreateEditorHandle );
-		SequencerModule.UnRegisterTrackEditor_Handle( ShotTrackCreateEditorHandle );
+		SequencerModule.UnRegisterTrackEditor_Handle( CameraCutTrackCreateEditorHandle );
+		SequencerModule.UnRegisterTrackEditor_Handle( CinematicShotTrackCreateEditorHandle );
 		SequencerModule.UnRegisterTrackEditor_Handle( SlomoTrackCreateEditorHandle );
 		SequencerModule.UnRegisterTrackEditor_Handle( SubTrackCreateEditorHandle );
 		SequencerModule.UnRegisterTrackEditor_Handle( TransformTrackCreateEditorHandle );
 		SequencerModule.UnRegisterTrackEditor_Handle( ComponentMaterialTrackCreateEditorHandle );
 		SequencerModule.UnRegisterTrackEditor_Handle( FadeTrackCreateEditorHandle );
 		SequencerModule.UnRegisterTrackEditor_Handle( SpawnTrackCreateEditorHandle );
+		SequencerModule.UnRegisterTrackEditor_Handle( CameraAnimTrackCreateEditorHandle );
+		SequencerModule.UnRegisterTrackEditor_Handle( CameraShakeTrackCreateEditorHandle );
 	}
 
 	void RegisterClipboardConversions()
@@ -156,6 +186,7 @@ private:
 	FDelegateHandle FloatPropertyTrackCreateEditorHandle;
 	FDelegateHandle VectorPropertyTrackCreateEditorHandle;
 	FDelegateHandle VisibilityPropertyTrackCreateEditorHandle;
+	FDelegateHandle ActorReferencePropertyTrackCreateEditorHandle;
 
 	FDelegateHandle AnimationTrackCreateEditorHandle;
 	FDelegateHandle AttachTrackCreateEditorHandle;
@@ -164,14 +195,21 @@ private:
 	FDelegateHandle ParticleTrackCreateEditorHandle;
 	FDelegateHandle ParticleParameterTrackCreateEditorHandle;
 	FDelegateHandle PathTrackCreateEditorHandle;
-	FDelegateHandle ShotTrackCreateEditorHandle;
+	FDelegateHandle CameraCutTrackCreateEditorHandle;
+	FDelegateHandle CinematicShotTrackCreateEditorHandle;
 	FDelegateHandle SlomoTrackCreateEditorHandle;
 	FDelegateHandle SubTrackCreateEditorHandle;
 	FDelegateHandle TransformTrackCreateEditorHandle;
 	FDelegateHandle ComponentMaterialTrackCreateEditorHandle;
 	FDelegateHandle FadeTrackCreateEditorHandle;
 	FDelegateHandle SpawnTrackCreateEditorHandle;
+	FDelegateHandle LevelVisibilityTrackCreateEditorHandle;
+	FDelegateHandle CameraAnimTrackCreateEditorHandle;
+	FDelegateHandle CameraShakeTrackCreateEditorHandle;
 };
 
 
 IMPLEMENT_MODULE( FMovieSceneToolsModule, MovieSceneTools );
+
+#undef LOCTEXT_NAMESPACE
+

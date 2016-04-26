@@ -201,6 +201,15 @@ void AUTWeap_LinkGun::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		// use an extra muzzle flash slot at the end for the pulse effect
 		if (MuzzleFlash.IsValidIndex(FiringState.Num()) && MuzzleFlash[FiringState.Num()] != NULL)
 		{
+			if (PulseTarget != NULL)
+			{
+				MuzzleFlash[FiringState.Num()]->SetTemplate(PulseSuccessEffect);
+				MuzzleFlash[FiringState.Num()]->SetActorParameter(FName(TEXT("Player")), PulseTarget);
+			}
+			else
+			{
+				MuzzleFlash[FiringState.Num()]->SetTemplate(PulseFailEffect);
+			}
 			MuzzleFlash[FiringState.Num()]->ActivateSystem();
 		}
 		LastBeamPulseTime = GetWorld()->TimeSeconds;
@@ -460,10 +469,10 @@ void AUTWeap_LinkGun::ClearLinks()
 	ClearLinksTo();
 }
 
-void AUTWeap_LinkGun::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation)
+void AUTWeap_LinkGun::PlayImpactEffects_Implementation(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation)
 {
 	FVector ModifiedTargetLoc = TargetLoc;
-	Super::PlayImpactEffects(ModifiedTargetLoc, FireMode, SpawnLocation, SpawnRotation);
+	Super::PlayImpactEffects_Implementation(ModifiedTargetLoc, FireMode, SpawnLocation, SpawnRotation);
 
 	// color beam if linked
 	if (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL)
@@ -577,7 +586,28 @@ void AUTWeap_LinkGun::FiringExtraUpdated_Implementation(uint8 NewFlashExtra, uin
 		// use an extra muzzle flash slot at the end for the pulse effect
 		if (MuzzleFlash.IsValidIndex(FiringState.Num()) && MuzzleFlash[FiringState.Num()] != NULL)
 		{
-			MuzzleFlash[FiringState.Num()]->ActivateSystem();
+			AActor* GuessTarget = PulseTarget;
+			if (GuessTarget == NULL && UTOwner != NULL && Role < ROLE_Authority)
+			{
+				TArray<FOverlapResult> Hits;
+				GetWorld()->OverlapMultiByChannel(Hits, UTOwner->FlashLocation, FQuat::Identity, COLLISION_TRACE_WEAPON, FCollisionShape::MakeSphere(10.0f), FCollisionQueryParams(NAME_None, true, UTOwner));
+				for (const FOverlapResult& Hit : Hits)
+				{
+					if (Cast<APawn>(Hit.Actor.Get()) != NULL)
+					{
+						GuessTarget = Hit.Actor.Get();
+					}
+				}
+			}
+			if (GuessTarget != NULL)
+			{
+				MuzzleFlash[FiringState.Num()]->SetTemplate(PulseSuccessEffect);
+				MuzzleFlash[FiringState.Num()]->SetActorParameter(FName(TEXT("Player")), GuessTarget);
+			}
+			else
+			{
+				MuzzleFlash[FiringState.Num()]->SetTemplate(PulseFailEffect);
+			}
 		}
 		PlayWeaponAnim(PulseAnim, PulseAnimHands);
 	}

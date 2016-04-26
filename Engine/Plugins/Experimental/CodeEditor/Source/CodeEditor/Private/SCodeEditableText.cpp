@@ -1,4 +1,4 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CodeEditorPrivatePCH.h"
 #include "SCodeEditableText.h"
@@ -27,7 +27,7 @@ FReply SCodeEditableText::OnKeyChar(const FGeometry& MyGeometry, const FCharacte
 	const TCHAR Character = InCharacterEvent.GetCharacter();
 	if(Character == TEXT('\t'))
 	{
-		if (!GetIsReadOnly())
+		if (!IsTextReadOnly())
 		{
 			FString String;
 			String.AppendChar(Character);

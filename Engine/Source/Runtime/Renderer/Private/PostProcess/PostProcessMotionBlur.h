@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessMotionBlur.h: Post process MotionBlur implementation.
@@ -59,9 +59,9 @@ public:
 };
 
 
-// ePId_Input0: Half res SceneColor with depth in alpha
-// ePId_Input1: optional quarter res blurred screen space velocity
-// ePId_Input2: optional half res screen space masked velocity
+// ePId_Input0: Full Res Scene Color
+// ePId_Input1: Full Res Scene Depth
+// ePId_Input2: Full Res velocity input
 // derives from TRenderingCompositePassBase<InputCount, OutputCount> 
 class FRCPassPostProcessVisualizeMotionBlur : public TRenderingCompositePassBase<3, 1>
 {

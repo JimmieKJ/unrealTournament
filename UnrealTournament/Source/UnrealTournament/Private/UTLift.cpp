@@ -3,7 +3,7 @@
 #include "UTLift.h"
 #include "UTCharacterMovement.h"
 #include "UTGib.h"
-#include "UTDroppedPickup.h"
+#include "UTDroppedPickupImportant.h"
 #include "NavigationOctree.h"
 #include "UTLiftExit.h"
 #include "UTDmgType_Crushed.h"
@@ -140,6 +140,13 @@ void AUTLift::NotifyHit(class UPrimitiveComponent* MyComp, class AActor* Other, 
 				bMoveWasBlocked = true;
 				return;
 			}
+			AUTDroppedPickupImportant* ImportantPickup = Cast<AUTDroppedPickupImportant>(Pickup);
+			if (ImportantPickup != NULL)
+			{
+				ImportantPickup->MoveToSafeLocation(EncroachComponent->Bounds.GetBox().ExpandBy(100.0f));
+				bMoveWasBlocked = true;
+				return;
+			}
 			if (Cast<AUTGib>(Other) != NULL || Pickup != NULL || Cast<AUTCosmetic>(Other) != NULL)
 			{
 				if (bMoveWasBlocked)
@@ -169,7 +176,11 @@ void AUTLift::NotifyHit(class UPrimitiveComponent* MyComp, class AActor* Other, 
 					DroppedFlag->MovementComponent->StopSimulating(Hit);
 					DroppedFlag->AttachRootComponentTo(EncroachComponent, NAME_None, EAttachLocation::KeepWorldPosition);
 				}
-				bMoveWasBlocked = true;
+				if (!bMoveWasBlocked)
+				{
+					bMoveWasBlocked = true;
+					return;
+				}
 			}
 
 			OnEncroachActor(Other);

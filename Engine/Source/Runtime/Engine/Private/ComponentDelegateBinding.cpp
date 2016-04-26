@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "BlueprintUtilities.h"
@@ -48,6 +48,22 @@ void UComponentDelegateBinding::BindDynamicDelegates(UObject* InInstance) const
 			FScriptDelegate Delegate;
 			Delegate.BindUFunction(InInstance, Binding.FunctionNameToBind);
 			TargetDelegate->AddUnique(Delegate);
+		}
+	}
+}
+
+void UComponentDelegateBinding::UnbindDynamicDelegates(UObject* InInstance) const
+{
+	for (int32 BindIdx = 0; BindIdx<ComponentDelegateBindings.Num(); BindIdx++)
+	{
+		const FBlueprintComponentDelegateBinding& Binding = ComponentDelegateBindings[BindIdx];
+
+		// Get the delegate property on the component we want to unbind from
+		FMulticastScriptDelegate* TargetDelegate = FindComponentTargetDelegate(InInstance, Binding);
+		if (TargetDelegate != nullptr)
+		{
+			// Unbind function on the instance from this delegate
+			TargetDelegate->Remove(InInstance, Binding.FunctionNameToBind);
 		}
 	}
 }

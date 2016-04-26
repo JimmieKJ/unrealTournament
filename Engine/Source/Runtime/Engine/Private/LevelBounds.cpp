@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Engine/LevelBounds.h"
@@ -39,6 +39,7 @@ void ALevelBounds::PostLoad()
 
 FBox ALevelBounds::GetComponentsBoundingBox(bool bNonColliding) const
 {
+	checkf(RootComponent != nullptr, TEXT("LevelBounds actor with null root component: %s"), *GetPathNameSafe(this));
 	FVector BoundsCenter = RootComponent->GetComponentLocation();
 	FVector BoundsExtent = RootComponent->ComponentToWorld.GetScale3D() * 0.5f;
 	return FBox(BoundsCenter - BoundsExtent, 

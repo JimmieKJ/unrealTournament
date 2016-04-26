@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -20,6 +20,7 @@ public:
 	virtual void MakeTransactional() override;
 	virtual void OnCurveChanged( const TArray<FRichCurveEditInfo>& ChangedCurveEditInfos ) override;
 	virtual bool IsValidCurve( FRichCurveEditInfo CurveInfo ) override;
+	virtual FLinearColor GetCurveColor( FRichCurveEditInfo CurveInfo) const override;
 
 private:
 	/** The FSequencerNodeTree used to build the curve owner. */

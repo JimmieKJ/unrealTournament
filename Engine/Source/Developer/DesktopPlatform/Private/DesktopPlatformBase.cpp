@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "DesktopPlatformPrivatePCH.h"
 #include "DesktopPlatformBase.h"
@@ -586,12 +586,6 @@ bool FDesktopPlatformBase::CompileGameProject(const FString& RootDir, const FStr
 		}
 	}
 
-	// Append the Rocket flag
-	if(!IsSourceDistribution(RootDir) || FRocketSupport::IsRocket())
-	{
-		Arguments += TEXT(" -rocket");
-	}
-
 	// Append any other options
 	Arguments += " -editorrecompile -progress -noubtmakefiles -NoHotReloadFromIDE";
 
@@ -622,12 +616,14 @@ bool FDesktopPlatformBase::GenerateProjectFiles(const FString& RootDir, const FS
 			Arguments += TEXT(" -game");
 
 			// Determine whether or not to include engine source
-			if(IsSourceDistribution(RootDir) && !FRocketSupport::IsRocket())
+			if(IsSourceDistribution(RootDir))
 			{
 				Arguments += TEXT(" -engine");
 			}
 			else
 			{
+				// If this is used within UnrealVersionSelector then we still need to pass
+				// -rocket to deal with old versions that don't use Rocket.txt file
 				Arguments += TEXT(" -rocket");
 			}
 		}
@@ -673,11 +669,6 @@ bool FDesktopPlatformBase::InvalidateMakefiles(const FString& RootDir, const FSt
 	// -invalidatemakefilesonly tells UBT to invalidate its UBT makefiles without building
 	Arguments += TEXT(" -invalidatemakefilesonly");
 
-	if (FRocketSupport::IsRocket())
-	{
-		Arguments += TEXT(" -rocket");
-	}
-
 	// Compile UnrealBuildTool if it doesn't exist. This can happen if we're just copying source from somewhere.
 	bool bRes = true;
 	Warn->BeginSlowTask(LOCTEXT("InvalidateMakefiles", "Invalidating makefiles..."), true, true);
@@ -697,7 +688,7 @@ bool FDesktopPlatformBase::InvalidateMakefiles(const FString& RootDir, const FSt
 
 bool FDesktopPlatformBase::IsUnrealBuildToolAvailable()
 {
-	// If using Rocket and the Rocket unreal build tool executable exists, then UBT is available. Otherwise check it can be built.
+	// If using installed build and the unreal build tool executable exists, then UBT is available. Otherwise check it can be built.
 	if (FApp::IsEngineInstalled())
 	{
 		return FPaths::FileExists(GetUnrealBuildToolExecutableFilename(FPaths::RootDir()));
@@ -746,26 +737,14 @@ FProcHandle FDesktopPlatformBase::InvokeUnrealBuildToolAsync(const FString& InCm
 {
 	FString CmdLineParams = InCmdLineParams;
 
-	if (FRocketSupport::IsRocket())
-	{
-		CmdLineParams += TEXT(" -rocket");
-	}
-
-#if PLATFORM_WINDOWS
-	if (_MSC_VER >= 1900)
-	{
-		CmdLineParams += TEXT(" -2015");
-	}
-#endif // PLATFORM_WINDOWS
-
 	// UnrealBuildTool is currently always located in the Binaries/DotNET folder
 	FString ExecutableFileName = GetUnrealBuildToolExecutableFilename(FPaths::RootDir());
 
-	// Rocket never builds UBT, UnrealBuildTool should already exist
+	// Installed builds never build UBT, UnrealBuildTool should already exist
 	bool bSkipBuild = FApp::IsEngineInstalled() || bSkipBuildUBT;
 	if (!bSkipBuild)
 	{
-		// When not using rocket, we should attempt to build UBT to make sure it is up to date
+		// When not using an installed build, we should attempt to build UBT to make sure it is up to date
 		// Only do this if we have not already successfully done it once during this session.
 		static bool bSuccessfullyBuiltUBTOnce = false;
 		if (!bSuccessfullyBuiltUBTOnce)
@@ -820,7 +799,7 @@ bool FDesktopPlatformBase::GetSolutionPath(FString& OutSolutionPath)
 {
 	// Get the platform-specific suffix for solution files
 #if PLATFORM_MAC
-	const TCHAR* Suffix = TEXT(".xcodeproj/project.pbxproj");
+	const TCHAR* Suffix = TEXT(".xcworkspace/contents.xcworkspacedata");
 #elif PLATFORM_LINUX
 	const TCHAR* Suffix = TEXT(".workspace");	// FIXME: Should depend on PreferredAccessor setting
 #else
@@ -1170,10 +1149,12 @@ bool FDesktopPlatformBase::BuildUnrealBuildTool(const FString& RootDir, FOutputD
 		FString VCVarsBat;
 
 #if PLATFORM_WINDOWS
-	#if _MSC_VER >= 1800
+	#if _MSC_VER >= 1900
+		FPlatformMisc::GetVSComnTools(14, VCVarsBat);
+	#elif _MSC_VER >= 1800
 		FPlatformMisc::GetVSComnTools(12, VCVarsBat);
 	#else
-		FPlatformMisc::GetVSComnTools(11, VCVarsBat);
+		#error "Unsupported Visual Studio version."
 	#endif
 #endif // PLATFORM_WINDOWS
 

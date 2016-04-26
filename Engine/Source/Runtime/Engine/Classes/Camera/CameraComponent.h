@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "Camera/CameraTypes.h"
@@ -15,7 +15,7 @@ class ENGINE_API UCameraComponent : public USceneComponent
 	GENERATED_UCLASS_BODY()
 
 	/** The horizontal field of view (in degrees) in perspective mode (ignored in Orthographic mode) */
-	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category=CameraSettings, meta=(UIMin = "5.0", UIMax = "170", ClampMin = "0.001", ClampMax = "360.0"))
+	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category=CameraSettings, meta=(UIMin = "5.0", UIMax = "170", ClampMin = "0.001", ClampMax = "360.0", Units = deg))
 	float FieldOfView;
 	UFUNCTION(BlueprintCallable, Category=Camera)
 	void SetFieldOfView(float InFieldOfView) { FieldOfView = InFieldOfView; }
@@ -56,6 +56,10 @@ class ENGINE_API UCameraComponent : public USceneComponent
 	UFUNCTION(BlueprintCallable, Category=Camera)
 	void SetUseFieldOfViewForLOD(bool bInUseFieldOfViewForLOD) { bUseFieldOfViewForLOD = bInUseFieldOfViewForLOD; }
 
+	/** True if the camera's orientation and position should be locked to the HMD */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=CameraSettings)
+	uint32 bLockToHmd:1;
+
 	/**
 	 * If this camera component is placed on a pawn, should it use the view/control rotation of the pawn where possible?
 	 * @see APawn::GetViewRotation()
@@ -63,6 +67,11 @@ class ENGINE_API UCameraComponent : public USceneComponent
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=CameraSettings)
 	uint32 bUsePawnControlRotation:1;
 
+protected:
+	/** True to enable the additive view offset, for adjusting the view without moving the component. */
+	uint32 bUseAdditiveOffset : 1;
+
+public:
 	// The type of camera
 	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category=CameraSettings)
 	TEnumAsByte<ECameraProjectionMode::Type> ProjectionMode;
@@ -70,20 +79,20 @@ class ENGINE_API UCameraComponent : public USceneComponent
 	void SetProjectionMode(ECameraProjectionMode::Type InProjectionMode) { ProjectionMode = InProjectionMode; }
 
 	/** Indicates if PostProcessSettings should be used when using this Camera to view through. */
-	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category=CameraSettings, meta=(UIMin = "0.0", UIMax = "1.0"))
+	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category=PostProcess, meta=(UIMin = "0.0", UIMax = "1.0"))
 	float PostProcessBlendWeight;
 	UFUNCTION(BlueprintCallable, Category=Camera)
 	void SetPostProcessBlendWeight(float InPostProcessBlendWeight) { PostProcessBlendWeight = InPostProcessBlendWeight; }
 
 	/** Post process settings to use for this camera. Don't forget to check the properties you want to override */
-	UPROPERTY(Interp, BlueprintReadWrite, Category=CameraSettings)
+	UPROPERTY(Interp, BlueprintReadWrite, Category = PostProcess)
 	struct FPostProcessSettings PostProcessSettings;
 
 	// UActorComponent interface
 	virtual void OnRegister() override;
 	virtual void PostLoad() override;
 #if WITH_EDITOR
-	virtual void OnComponentDestroyed() override;
+	virtual void OnComponentDestroyed(bool bDestroyingHierarchy) override;
 	virtual void CheckForErrors() override;
 #endif
 	// End of UActorComponent interface
@@ -117,17 +126,46 @@ protected:
 	
 	// The camera mesh to show visually where the camera is placed
 	class UStaticMeshComponent* ProxyMeshComponent;
+public:
+	virtual void SetCameraMesh(UStaticMesh* Mesh);
+protected:
+	virtual void ResetProxyMeshTransform();
+#endif
+
+	/** An optional extra transform to adjust the final view without moving the component, in the camera's local space */
+	FTransform AdditiveOffset;
+
+	/** An optional extra FOV offset to adjust the final view without modifying the component */
+	float AdditiveFOVOffset;
 
 public:
 
-	virtual void SetCameraMesh(UStaticMesh* Mesh);
+	/** Applies the given additive offset, preserving any existing offset */
+	void AddAdditiveOffset(FTransform const& Transform, float FOV)
+	{
+		bUseAdditiveOffset = true;
+		AdditiveOffset = AdditiveOffset * Transform;
+		AdditiveFOVOffset += FOV;
+	}
 
-#endif
+	/** Removes any additive offset. */
+	void ClearAdditiveOffset()
+	{
+		bUseAdditiveOffset = false;
+		AdditiveOffset = FTransform::Identity;
+		AdditiveFOVOffset = 0.f;
+	}
+
+	/** 
+	 * Can be called from external code to notify that this camera was cut to, so it can update 
+	 * things like interpolation if necessary.
+	 */
+	virtual void NotifyCameraCut();
+
 public:
 #if WITH_EDITORONLY_DATA
 	// Refreshes the visual components to match the component state
 	virtual void RefreshVisualRepresentation();
-
 
 	void OverrideFrustumColor(FColor OverrideColor);
 	void RestoreFrustumColor();

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SharedSettingsWidgetsPrivatePCH.h"
 #include "EditorStyle.h"
@@ -198,7 +198,7 @@ FText SSettingsEditorCheckoutNotice::HandleLockedStatusText() const
 	
 	return FText::Format(ISourceControlModule::Get().IsEnabled() ?
 		LOCTEXT("DefaultSettingsNotice_WithSourceControl", "These settings are saved in {0}, which is currently NOT checked out.") :
-		LOCTEXT("DefaultSettingsNotice_Source", "These settings are saved in {0}, which is currently NOT writable."), ConfigFilename);
+		LOCTEXT("DefaultSettingsNotice_NotWritable", "These settings are saved in {0}, which is currently NOT writable."), ConfigFilename);
 }
 
 FText SSettingsEditorCheckoutNotice::HandleUnlockedStatusText() const

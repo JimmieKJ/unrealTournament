@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Scene.cpp: Scene manager implementation.
@@ -67,6 +67,7 @@ FSceneViewState::FSceneViewState()
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	bIsFreezing = false;
 	bIsFrozen = false;
+	bIsFrozenViewMatricesCached = false;
 #endif
 	// Register this object as a resource, so it will receive device reset notifications.
 	if ( IsInGameThread() )
@@ -108,6 +109,17 @@ FSceneViewState::FSceneViewState()
 	ShadowOcclusionQueryMaps.AddZeroed(FOcclusionQueryHelpers::MaxBufferedOcclusionFrames);	
 
 	bValidEyeAdaptation = false;
+
+	LastAutoDownsampleChangeTime = 0;
+	SmoothedHalfResTranslucencyGPUDuration = 0;
+	SmoothedFullResTranslucencyGPUDuration = 0;
+	bShouldAutoDownsampleTranslucency = false;
+
+	PendingTranslucencyStartTimestamps.Empty(FOcclusionQueryHelpers::MaxBufferedOcclusionFrames + 1);
+	PendingTranslucencyStartTimestamps.AddZeroed(FOcclusionQueryHelpers::MaxBufferedOcclusionFrames + 1);
+
+	PendingTranslucencyEndTimestamps.Empty(FOcclusionQueryHelpers::MaxBufferedOcclusionFrames + 1);
+	PendingTranslucencyEndTimestamps.AddZeroed(FOcclusionQueryHelpers::MaxBufferedOcclusionFrames + 1);
 }
 
 void DestroyRenderResource(FRenderResource* RenderResource)
@@ -245,7 +257,7 @@ void FDistanceFieldSceneData::VerifyIntegrity()
 		check(PrimitiveAndInstance.Primitive->DistanceFieldInstanceIndices.IsValidIndex(PrimitiveAndInstance.InstanceIndex));
 
 		const int32 InstanceIndex = PrimitiveAndInstance.Primitive->DistanceFieldInstanceIndices[PrimitiveAndInstance.InstanceIndex];
-		check(InstanceIndex == PrimitiveInstanceIndex);
+		check(InstanceIndex == PrimitiveInstanceIndex || InstanceIndex == -1);
 	}
 }
 
@@ -742,9 +754,18 @@ void FScene::UpdatePrimitiveAttachment(UPrimitiveComponent* Primitive)
 				UpdatePrimitiveLightingAttachmentRoot(CurrentPrimitive);
 			}
 
-			ProcessStack.Append(Current->AttachChildren);
+			ProcessStack.Append(Current->GetAttachChildren());
 		}
 	}
+}
+
+FPrimitiveSceneInfo* FScene::GetPrimitiveSceneInfo(int32 PrimitiveIndex)
+{
+	if(Primitives.IsValidIndex(PrimitiveIndex))
+	{
+		return Primitives[PrimitiveIndex];
+	}
+	return NULL;
 }
 
 void FScene::RemovePrimitiveSceneInfo_RenderThread(FPrimitiveSceneInfo* PrimitiveSceneInfo)
@@ -767,6 +788,9 @@ void FScene::RemovePrimitiveSceneInfo_RenderThread(FPrimitiveSceneInfo* Primitiv
 	{
 		FPrimitiveSceneInfo* OtherPrimitive = Primitives[PrimitiveIndex];
 		OtherPrimitive->PackedIndex = PrimitiveIndex;
+
+		// Invalidate the scene info's PackedIndex now that it is used by another primitive
+		PrimitiveSceneInfo->PackedIndex = MAX_int32;
 	}
 	
 	CheckPrimitiveArrays();
@@ -850,8 +874,16 @@ void FScene::AddLightSceneInfo_RenderThread(FLightSceneInfo* LightSceneInfo)
 	{
 		SimpleDirectionalLight = LightSceneInfo;
 
-		// if we are forward rendered and this light is a dynamic shadowcast then we need to update the static draw lists to pick a new lightingpolicy
-		bScenesPrimitivesNeedStaticMeshElementUpdate = bScenesPrimitivesNeedStaticMeshElementUpdate || (!ShouldUseDeferredRenderer() && !SimpleDirectionalLight->Proxy->HasStaticShadowing());		
+		// if we are forward rendered and this light is a dynamic shadowcast then we need to update the static draw lists to pick a new lightingpolicy:
+		bool bForwardRendererRequiresLightPolicyChange = !ShouldUseDeferredRenderer() &&
+			(
+			// this light is a dynamic shadowcast 
+			!SimpleDirectionalLight->Proxy->HasStaticShadowing() || 
+			// this light casts both static and dynamic shadows.
+			SimpleDirectionalLight->Proxy->UseCSMForDynamicObjects()
+			);
+
+		bScenesPrimitivesNeedStaticMeshElementUpdate = bScenesPrimitivesNeedStaticMeshElementUpdate || (bForwardRendererRequiresLightPolicyChange);
 	}
 
 	if (LightSceneInfo->Proxy->IsUsedAsAtmosphereSunLight() &&
@@ -1177,6 +1209,68 @@ const FReflectionCaptureProxy* FScene::FindClosestReflectionCapture(FVector Posi
 	return ClosestCaptureIndex != INDEX_NONE ? ReflectionSceneData.RegisteredReflectionCaptures[ClosestCaptureIndex] : NULL;
 }
 
+void FScene::FindClosestReflectionCaptures(FVector Position, const FReflectionCaptureProxy* (&SortedByDistanceOUT)[FPrimitiveSceneInfo::MaxCachedReflectionCaptureProxies]) const
+{
+	checkSlow(IsInParallelRenderingThread());
+	static const int32 ArraySize = FPrimitiveSceneInfo::MaxCachedReflectionCaptureProxies;
+
+	struct FReflectionCaptureDistIndex
+	{
+		int32 CaptureIndex;
+		float CaptureDistance;
+		const FReflectionCaptureProxy* CaptureProxy;
+	};
+
+	// Find the nearest n captures to this primitive. 
+	const int32 NumRegisteredReflectionCaptures = ReflectionSceneData.RegisteredReflectionCapturePositions.Num();
+	const int32 PopulateCaptureCount = FMath::Min(ArraySize, NumRegisteredReflectionCaptures);
+
+	TArray<FReflectionCaptureDistIndex, TFixedAllocator<ArraySize>> ClosestCaptureIndices;
+	ClosestCaptureIndices.AddUninitialized(PopulateCaptureCount);
+
+	for (int32 CaptureIndex = 0; CaptureIndex < PopulateCaptureCount; CaptureIndex++)
+	{
+		ClosestCaptureIndices[CaptureIndex].CaptureIndex = CaptureIndex;
+		ClosestCaptureIndices[CaptureIndex].CaptureDistance = (ReflectionSceneData.RegisteredReflectionCapturePositions[CaptureIndex] - Position).SizeSquared();
+	}
+	
+	for (int32 CaptureIndex = PopulateCaptureCount; CaptureIndex < NumRegisteredReflectionCaptures; CaptureIndex++)
+	{
+		const float DistanceSquared = (ReflectionSceneData.RegisteredReflectionCapturePositions[CaptureIndex] - Position).SizeSquared();
+		for (int32 i = 0; i < ArraySize; i++)
+		{
+			if (DistanceSquared<ClosestCaptureIndices[i].CaptureDistance)
+			{
+				ClosestCaptureIndices[i].CaptureDistance = DistanceSquared;
+				ClosestCaptureIndices[i].CaptureIndex = CaptureIndex;
+				break;
+			}
+		}
+	}
+
+	for (int32 CaptureIndex = 0; CaptureIndex < PopulateCaptureCount; CaptureIndex++)
+	{
+		FReflectionCaptureProxy* CaptureProxy = ReflectionSceneData.RegisteredReflectionCaptures[ClosestCaptureIndices[CaptureIndex].CaptureIndex];		
+		ClosestCaptureIndices[CaptureIndex].CaptureProxy = CaptureProxy;
+	}
+	// Sort by influence radius.
+	ClosestCaptureIndices.Sort([](const FReflectionCaptureDistIndex& A, const FReflectionCaptureDistIndex& B)
+		{
+			if (A.CaptureProxy->InfluenceRadius != B.CaptureProxy->InfluenceRadius)
+			{
+				return (A.CaptureProxy->InfluenceRadius < B.CaptureProxy->InfluenceRadius);
+			}
+			return A.CaptureProxy->Guid < B.CaptureProxy->Guid;
+		});
+
+	FMemory::Memzero(SortedByDistanceOUT);
+
+	for (int32 CaptureIndex = 0; CaptureIndex < PopulateCaptureCount; CaptureIndex++)
+	{
+		SortedByDistanceOUT[CaptureIndex] = ClosestCaptureIndices[CaptureIndex].CaptureProxy;
+	}
+}
+
 void FScene::GetCaptureParameters(const FReflectionCaptureProxy* ReflectionProxy, FTextureRHIParamRef& ReflectionCubemapArray, int32& ArrayIndex) const
 {
 	ERHIFeatureLevel::Type LocalFeatureLevel = GetFeatureLevel();
@@ -1309,6 +1403,14 @@ void FScene::UpdateLightColorAndBrightness(ULightComponent* Light)
 			{
 				if( LightSceneInfo && LightSceneInfo->bVisible )
 				{
+					// Forward renderer:
+					// a light with no color/intensity can cause the light to be ignored when rendering.
+					// thus, lights that change state in this way must update the draw lists.
+					Scene->bScenesPrimitivesNeedStaticMeshElementUpdate =
+						Scene->bScenesPrimitivesNeedStaticMeshElementUpdate ||
+						( !Scene->ShouldUseDeferredRenderer() 
+						&& Parameters.NewColor.IsAlmostBlack() != LightSceneInfo->Proxy->GetColor().IsAlmostBlack() );
+
 					LightSceneInfo->Proxy->SetColor(Parameters.NewColor);
 					LightSceneInfo->Proxy->IndirectLightingScale = Parameters.NewIndirectLightingScale;
 
@@ -2277,6 +2379,7 @@ public:
 	virtual void AddPrimitive(UPrimitiveComponent* Primitive) override {}
 	virtual void RemovePrimitive(UPrimitiveComponent* Primitive) override {}
 	virtual void ReleasePrimitive(UPrimitiveComponent* Primitive) override {}
+	virtual FPrimitiveSceneInfo* GetPrimitiveSceneInfo(int32 PrimiteIndex) override { return NULL; }
 
 	/** Updates the transform of a primitive which has already been added to the scene. */
 	virtual void UpdatePrimitiveTransform(UPrimitiveComponent* Primitive) override {}
@@ -2378,7 +2481,7 @@ FSceneInterface* FRendererModule::AllocateScene(UWorld* World, bool bInRequiresH
 	// Create a full fledged scene if we have something to render.
 	if (GIsClient && FApp::CanEverRender() && !GUsingNullRHI)
 	{
-		FScene* NewScene = new FScene(World, bInRequiresHitProxies, GIsEditor && !World->IsGameWorld(), bCreateFXSystem, InFeatureLevel);
+		FScene* NewScene = new FScene(World, bInRequiresHitProxies, GIsEditor && (!World || !World->IsGameWorld()), bCreateFXSystem, InFeatureLevel);
 		AllocatedScenes.Add(NewScene);
 		return NewScene;
 	}

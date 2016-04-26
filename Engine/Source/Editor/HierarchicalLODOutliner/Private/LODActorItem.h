@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "ITreeItem.h"
@@ -24,15 +24,6 @@ namespace HLODOutliner
 
 		/** Called to drop the specified objects on this item. Only called if ValidateDrop() allows. */
 		virtual void OnDrop(FDragDropPayload& DraggedObjects, const FDragValidationInfo& ValidationInfo, TSharedRef<SWidget> DroppedOnWidget) override;
-	private:
-		/** Move a static mesh actor to a different LODActor (cluster) */
-		void MoveToCluster(AActor* InActor, ALODActor* OldParentActor, ALODActor* NewParentActor);
-
-		/** Add a static mesh actor to a LODActor (cluster) */
-		void AddToCluster(AActor* InActor, ALODActor* NewParentActor);
-
-		/** Merges ToMergeActor in the represented Cluster/LODActor */
-		void MergeCluster(ALODActor* ToMergeActor);
 	};
 
 	struct FLODActorItem : ITreeItem
@@ -40,7 +31,7 @@ namespace HLODOutliner
 		mutable TWeakObjectPtr<ALODActor> LODActor;
 		mutable FTreeItemID ID;
 
-		FLODActorItem(ALODActor* InLODActor);
+		FLODActorItem(const ALODActor* InLODActor);
 
 		//~ Begin ITreeItem Interface.
 		virtual bool CanInteract() const override;
@@ -51,7 +42,18 @@ namespace HLODOutliner
 		//~ End ITreeItem Interface.
 
 		/** Returns the number of triangles for the represented LODActor in FText form */
-		FText GetNumTrianglesAsText() const;
+		FText GetRawNumTrianglesAsText() const;
+
+		/** Returns the reduced number of triangles for the represented LODActor in FText form */
+		FText GetReducedNumTrianglesAsText() const;
+
+		/** Returns the reduction percentage for the represented LODActor in FText form */
+		FText GetReductionPercentageAsText() const;
+
+		/** Returns the level the meshes are in Ftext form */
+		FText GetLevelAsText() const;
+
+		
 
 		/** Populate the specified drag/drop payload with any relevant information for this type */
 		virtual void PopulateDragDropPayload(FDragDropPayload& Payload) const override;

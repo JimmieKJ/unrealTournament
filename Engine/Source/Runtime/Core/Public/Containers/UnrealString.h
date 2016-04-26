@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 // This needed to be UnrealString.h to avoid conflicting with
 // the Windows platform SDK string.h
@@ -1812,7 +1812,7 @@ namespace LexicalConversion
 	inline void FromString(float& OutValue,		const TCHAR* Buffer)	{	OutValue = FCString::Atof(Buffer);		}
 	inline void FromString(double& OutValue, 	const TCHAR* Buffer)	{	OutValue = FCString::Atod(Buffer);		}
 	inline void FromString(bool& OutValue, 		const TCHAR* Buffer)	{	OutValue = FCString::ToBool(Buffer);	}
-	inline void FromString(FString& OutValue,	const TCHAR* Buffer)	{	OutValue = FString(Buffer);				}
+	inline void FromString(FString& OutValue, 	const TCHAR* Buffer)	{	OutValue = Buffer;						}
 
 	/** Convert numeric types to a string */
 	template<typename T>

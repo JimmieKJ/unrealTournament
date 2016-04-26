@@ -1,7 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
+#include "ParticleHelper.h"
+
 #include "ParticleSystem.generated.h"
 
 /**
@@ -103,6 +105,12 @@ UCLASS(hidecategories=Object, MinimalAPI, BlueprintType)
 class UParticleSystem : public UObject
 {
 	GENERATED_UCLASS_BODY()
+
+	UParticleSystem()
+	:OcclusionBoundsMethod(EPSOBM_ParticleBounds)
+	{
+
+	}
 
 	UPROPERTY(EditAnywhere, Category=ParticleSystem, AssetRegistrySearchable)
 	TEnumAsByte<enum EParticleSystemUpdateMode> SystemUpdateMode;
@@ -296,6 +304,18 @@ public:
 	UPROPERTY(EditAnywhere, Category = Performance, meta = (ToolTip = "Minimum duration between ticks; 33=tick at max. 30FPS, 16=60FPS, 8=120FPS"))
 	uint32 MinTimeBetweenTicks;
 
+	/** The reaction this system takes when all emitters are insignificant. */
+	UPROPERTY(EditAnywhere, Category = Performance)
+	EParticleSystemInsignificanceReaction InsignificantReaction;
+
+	/** Time delay between all emitters becoming insignificant and the systems insignificant reaction. */
+	UPROPERTY(EditAnywhere, Category = Performance)
+	float InsignificanceDelay;
+
+	/** The maximum level of significance for emitters in this system. Any emitters with a higher significance will be capped at this significance level. */
+	UPROPERTY(EditAnywhere, Category = Performance)
+	EParticleSignificanceLevel MaxSignificanceLevel;
+
 	/** Local space position that UVs generated with the ParticleMacroUV material node will be centered on. */
 	UPROPERTY(EditAnywhere, Category=MacroUV)
 	FVector MacroUVPosition;
@@ -335,6 +355,8 @@ public:
 	virtual void PostLoad() override;
 	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
+	bool UsesCPUCollision() const;
+	virtual bool CanBeClusterRoot() const override;
 	//~ End UObject Interface.
 
 
@@ -432,13 +454,23 @@ public:
 	/**
 	 *	Set the distance for the given LOD index
 	 *
-	 *	@param	LODLevelIndex	The LOD level to set the distance ofr
+	 *	@param	LODLevelIndex	The LOD level to set the distance of
 	 *	@param	InDistance		The distance to set
 	 *
 	 *	@return	true			If successful
 	 *			false			Invalid LODLevelIndex
 	 */
 	virtual bool SetLODDistance(int32 LODLevelIndex, float InDistance);
+
+	/**
+	*	Checks if any of the emitters have motion blur at a specific lod level.
+	*
+	*	@param	LODLevelIndex	The LOD level to check motion blur availability
+	*
+	*	@return	true			If any emitter has motion blur
+	*			false			None of the emitters have motion blur
+	*/
+	bool DoesAnyEmitterHaveMotionBlur(int32 LODLevelIndex) const;
 
 	/**
 	 * Builds all emitters in the particle system.
@@ -469,10 +501,27 @@ public:
 
 	/** Returns true if the particle system is looping (contains one or more looping emitters) */
 	bool IsLooping() const { return bAnyEmitterLoopsForever; }
+	bool IsImmortal() const { return bIsImmortal; }
+	bool WillBecomeZombie() const { return bWillBecomeZombie; }
 
+	EParticleSignificanceLevel GetHighestSignificance()const { return HighestSignificance; }
+	EParticleSignificanceLevel GetLowestSignificance()const { return LowestSignificance; }
+	bool ShouldManageSignificance()const { return bShouldManageSignificance; }
 private:
-	/** Does any emitter loop forever (computed during load and when emitters are built) */
-	bool bAnyEmitterLoopsForever;
+
+	/** The highest significance of any emitter. Clamped by MaxSignificanceLevel.*/
+	EParticleSignificanceLevel HighestSignificance;
+	/** The lowest significance of any emitter. Clamped by MaxSignificanceLevel.*/
+	EParticleSignificanceLevel LowestSignificance;
+	
+	uint32 bShouldManageSignificance : 1;
+
+	/** Does any emitter loop forever? */
+	uint32 bAnyEmitterLoopsForever : 1;
+	/** Does any emiter never die due to infinie looping AND indefinite duration? */
+	uint32 bIsImmortal : 1;
+	/** Does any emitter ever become a zombie (is immortal AND stops spawning at some point, i.e. is burst only)? */
+	uint32 bWillBecomeZombie : 1;
 };
 
 

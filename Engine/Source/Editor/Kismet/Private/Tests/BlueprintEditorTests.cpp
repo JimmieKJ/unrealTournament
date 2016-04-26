@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintEditorPrivatePCH.h"
 #include "BlueprintEditor.h"
@@ -21,6 +21,8 @@
 #include "AutomationTest.h"
 #include "AutomationEditorCommon.h"
 #include "AutomationEditorPromotionCommon.h"
+
+#if WITH_DEV_AUTOMATION_TESTS
 
 #define LOCTEXT_NAMESPACE "BlueprintEditorPromotionTests"
 
@@ -1427,3 +1429,5 @@ bool FBlueprintEditorPromotionTest::RunTest(const FString& Parameters)
 
 
 #undef LOCTEXT_NAMESPACE
+
+#endif //WITH_DEV_AUTOMATION_TESTS

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "GameFramework/MovementComponent.h"
@@ -52,27 +52,36 @@ void URadialForceComponent::TickComponent(float DeltaTime, enum ELevelTick TickT
 
 		GetWorld()->OverlapMultiByObjectType(Overlaps, Origin, FQuat::Identity, CollisionObjectQueryParams, FCollisionShape::MakeSphere(Radius), Params);
 
-		// Iterate over each and apply force
-		for ( int32 OverlapIdx=0; OverlapIdx<Overlaps.Num(); OverlapIdx++ )
-		{
-			UPrimitiveComponent* PokeComp = Overlaps[OverlapIdx].Component.Get();
-			if(PokeComp)
-			{
-				PokeComp->AddRadialForce( Origin, Radius, ForceStrength, Falloff );
+		// A component can have multiple physics presences (e.g. destructible mesh components).
+		// The component should handle the radial force for all of the physics objects it contains
+		// so here we grab all of the unique components to avoid applying impulses more than once.
+		TArray<UPrimitiveComponent*, TInlineAllocator<1>> AffectedComponents;
+		AffectedComponents.Reserve(Overlaps.Num());
 
-				// see if this is a target for a movement component
-				AActor* PokeOwner = PokeComp->GetOwner();
-				if(PokeOwner)
+		for(FOverlapResult& OverlapResult : Overlaps)
+		{
+			if(UPrimitiveComponent* PrimitiveComponent = OverlapResult.Component.Get())
+			{
+				AffectedComponents.AddUnique(PrimitiveComponent);
+			}
+		}
+
+		for(UPrimitiveComponent* PrimitiveComponent : AffectedComponents)
+		{
+			PrimitiveComponent->AddRadialForce(Origin, Radius, ForceStrength, Falloff);
+
+			// see if this is a target for a movement component
+			AActor* ComponentOwner = PrimitiveComponent->GetOwner();
+			if(ComponentOwner)
+			{
+				TInlineComponentArray<UMovementComponent*> MovementComponents;
+				ComponentOwner->GetComponents<UMovementComponent>(MovementComponents);
+				for(const auto& MovementComponent : MovementComponents)
 				{
-					TInlineComponentArray<UMovementComponent*> MovementComponents;
-					PokeOwner->GetComponents<UMovementComponent>(MovementComponents);
-					for(const auto& MovementComponent : MovementComponents)
+					if(MovementComponent->UpdatedComponent == PrimitiveComponent)
 					{
-						if(MovementComponent->UpdatedComponent == PokeComp)
-						{
-							MovementComponent->AddRadialForce( Origin, Radius, ForceStrength, Falloff );
-							break;
-						}
+						MovementComponent->AddRadialForce(Origin, Radius, ForceStrength, Falloff);
+						break;
 					}
 				}
 			}
@@ -106,35 +115,42 @@ void URadialForceComponent::FireImpulse()
 
 	GetWorld()->OverlapMultiByObjectType(Overlaps, Origin, FQuat::Identity, CollisionObjectQueryParams, FCollisionShape::MakeSphere(Radius), Params);
 
-	// Iterate over each and apply an impulse
-	for ( int32 OverlapIdx=0; OverlapIdx<Overlaps.Num(); OverlapIdx++ )
+	// A component can have multiple physics presences (e.g. destructible mesh components).
+	// The component should handle the radial force for all of the physics objects it contains
+	// so here we grab all of the unique components to avoid applying impulses more than once.
+	TArray<UPrimitiveComponent*, TInlineAllocator<1>> AffectedComponents;
+	AffectedComponents.Reserve(Overlaps.Num());
+
+	for(FOverlapResult& OverlapResult : Overlaps)
 	{
-		UPrimitiveComponent* PokeComp = Overlaps[OverlapIdx].Component.Get();
-		if(PokeComp)
+		if(UPrimitiveComponent* PrimitiveComponent = OverlapResult.Component.Get())
 		{
-			// If DestructibleDamage is non-zero, see if this is a destructible, and do damage if so.
-			if(DestructibleDamage > SMALL_NUMBER)
+			AffectedComponents.AddUnique(PrimitiveComponent);
+		}
+	}
+
+	for(UPrimitiveComponent* PrimitiveComponent : AffectedComponents)
+	{
+		if(DestructibleDamage > SMALL_NUMBER)
+		{
+			if(UDestructibleComponent* DestructibleComponent = Cast<UDestructibleComponent>(PrimitiveComponent))
 			{
-				UDestructibleComponent* DestructibleComp = Cast<UDestructibleComponent>(PokeComp);
-				if(DestructibleComp != NULL)
-				{
-					DestructibleComp->ApplyRadiusDamage(DestructibleDamage, Origin, Radius, ImpulseStrength, (Falloff == RIF_Constant));
-				}
+				DestructibleComponent->ApplyRadiusDamage(DestructibleDamage, Origin, Radius, ImpulseStrength, Falloff == RIF_Constant);
 			}
+		}
 
-			// Do impulse after
-			PokeComp->AddRadialImpulse( Origin, Radius, ImpulseStrength, Falloff, bImpulseVelChange );
+		// Apply impulse
+		PrimitiveComponent->AddRadialImpulse(Origin, Radius, ImpulseStrength, Falloff, bImpulseVelChange);
 
-			// see if this is a target for a movement component
-			TInlineComponentArray<UMovementComponent*> MovementComponents;
-			PokeComp->GetOwner()->GetComponents<UMovementComponent>(MovementComponents);
-			for(const auto& MovementComponent : MovementComponents)
+		// See if this is a target for a movement component, if so apply the impulse to it
+		TInlineComponentArray<UMovementComponent*> MovementComponents;
+		PrimitiveComponent->GetOwner()->GetComponents<UMovementComponent>(MovementComponents);
+		for(const auto& MovementComponent : MovementComponents)
+		{
+			if(MovementComponent->UpdatedComponent == PrimitiveComponent)
 			{
-				if(MovementComponent->UpdatedComponent == PokeComp)
-				{
-					MovementComponent->AddRadialImpulse( Origin, Radius, ImpulseStrength, Falloff, bImpulseVelChange );
-					break;
-				}
+				MovementComponent->AddRadialImpulse(Origin, Radius, ImpulseStrength, Falloff, bImpulseVelChange);
+				break;
 			}
 		}
 	}

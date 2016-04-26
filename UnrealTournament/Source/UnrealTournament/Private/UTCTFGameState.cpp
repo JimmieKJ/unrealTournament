@@ -11,9 +11,10 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 {
 	bSecondHalf = false;
 	bIsAtIntermission = false;
-	HalftimeScoreDelay = 2.f;
+	HalftimeScoreDelay = 3.5f;
 	GoalScoreText = NSLOCTEXT("UTScoreboard", "CTFGoalScoreFormat", "First to {0} Caps");
-	bAsymmetricVictoryConditions = false;
+	bOneFlagGameMode = false;
+	bRedToCap = false;
 
 	GameScoreStats.Add(NAME_RegularKillPoints);
 	GameScoreStats.Add(NAME_FCKills);
@@ -84,6 +85,7 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 	RedAdvantageStatus = NSLOCTEXT("UTCTFGameState", "RedAdvantage", "Red Advantage");
 	BlueAdvantageStatus = NSLOCTEXT("UTCTFGameState", "BlueAdvantage", "Blue Advantage");
 	RoundInProgressStatus = NSLOCTEXT("UTCharacter", "CTFRoundDisplay", "Round {RoundNum}");
+	FullRoundInProgressStatus = NSLOCTEXT("UTCharacter", "CTFRoundDisplay", "Round {RoundNum} / {NumRounds}");
 	IntermissionStatus = NSLOCTEXT("UTCTFGameState", "Intermission", "Intermission");
 	HalftimeStatus = NSLOCTEXT("UTCTFGameState", "HalfTime", "HalfTime");
 	OvertimeStatus = NSLOCTEXT("UTCTFGameState", "Overtime", "Overtime!");
@@ -105,7 +107,11 @@ void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & O
 	DOREPLIFETIME(AUTCTFGameState, CTFRound); 
 	DOREPLIFETIME(AUTCTFGameState, RedLivesRemaining);
 	DOREPLIFETIME(AUTCTFGameState, BlueLivesRemaining);
-	DOREPLIFETIME(AUTCTFGameState, bAsymmetricVictoryConditions);
+	DOREPLIFETIME(AUTCTFGameState, bOneFlagGameMode);
+	DOREPLIFETIME(AUTCTFGameState, bRedToCap);
+	DOREPLIFETIME(AUTCTFGameState, bAttackerLivesLimited);
+	DOREPLIFETIME(AUTCTFGameState, bDefenderLivesLimited);
+	DOREPLIFETIME(AUTCTFGameState, NumRounds);
 }
 
 bool AUTCTFGameState::AllowMinimapFor(AUTPlayerState* PS)
@@ -147,7 +153,7 @@ float AUTCTFGameState::GetClockTime()
 	{
 		return ElapsedTime - OvertimeStartTime;
 	}
-	return ((TimeLimit > 0.f) || !HasMatchStarted()) ? RemainingTime : ElapsedTime;
+	return ((TimeLimit > 0.f) || !HasMatchStarted()) ? GetRemainingTime() : ElapsedTime;
 }
 
 void AUTCTFGameState::OnRep_MatchState()
@@ -158,7 +164,7 @@ void AUTCTFGameState::OnRep_MatchState()
 	if (IsMatchInOvertime())
 	{
 		OvertimeStartTime = ElapsedTime;
-		RemainingTime = 0;
+		SetRemainingTime(0);
 	}
 }
 
@@ -309,7 +315,8 @@ FText AUTCTFGameState::GetGameStatusText()
 	{
 		FFormatNamedArguments Args;
 		Args.Add("RoundNum", FText::AsNumber(CTFRound));
-		return FText::Format(RoundInProgressStatus, Args);
+		Args.Add("NumRounds", FText::AsNumber(NumRounds));
+		return (NumRounds > 0) ? FText::Format(FullRoundInProgressStatus, Args) : FText::Format(RoundInProgressStatus, Args);
 	}
 	else if (IsMatchIntermission())
 	{
@@ -541,6 +548,43 @@ void AUTCTFGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 		if (PS->MatchHighlights[3] != NAME_None)
 		{
 			return;
+		}
+	}
+}
+
+void AUTCTFGameState::GetImportantFlag(int32 TeamNum, TArray<AUTCTFFlag*>& ImportantFlags)
+{
+	if (bOneFlagGameMode)
+	{
+		uint8 DesiredTeamNum = bRedToCap ? 0 : 1;
+		if ( FlagBases.IsValidIndex(DesiredTeamNum))
+		{
+			AUTCTFFlag* Flag = Cast<AUTCTFFlag>(FlagBases[DesiredTeamNum]->GetCarriedObject());
+			if (Flag) ImportantFlags.Add(Flag);
+		}
+	}
+}
+
+void AUTCTFGameState::GetImportantFlagBase(int32 TeamNum, TArray<AUTCTFFlagBase*>& ImportantBases)
+{
+	if (bOneFlagGameMode)
+	{
+		if (FlagBases.Num() == 2 && FlagBases[0] && FlagBases[1])
+		{
+			uint8 OffensiveTeamNum = bRedToCap ? 0 : 1;
+			AUTCTFFlag* OffensiveFlag = Cast<AUTCTFFlag>(FlagBases[OffensiveTeamNum]->GetCarriedObject());
+			if (OffensiveFlag)
+			{
+				if (OffensiveFlag->ObjectState == CarriedObjectState::Home)
+				{
+					ImportantBases.Add(FlagBases[0]);
+					ImportantBases.Add(FlagBases[1]);
+				}
+				else
+				{
+					ImportantBases.Add(GetFlagBase(1-OffensiveTeamNum));
+				}
+			}			
 		}
 	}
 }

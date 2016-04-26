@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "ContentBrowserPCH.h"
@@ -663,26 +663,30 @@ void SContentBrowser::BindCommands()
 	Commands = TSharedPtr< FUICommandList >(new FUICommandList);
 
 	Commands->MapAction(FGenericCommands::Get().Rename, FUIAction(
-		FExecuteAction::CreateSP(this, &SContentBrowser::OnRename),
-		FCanExecuteAction::CreateSP(this, &SContentBrowser::CanRename)
-		));
+		FExecuteAction::CreateSP(this, &SContentBrowser::HandleRenameCommand),
+		FCanExecuteAction::CreateSP(this, &SContentBrowser::HandleRenameCommandCanExecute)
+	));
 
 	Commands->MapAction(FGenericCommands::Get().Delete, FUIAction(
-		FExecuteAction::CreateSP(this, &SContentBrowser::OnDelete),
-		FCanExecuteAction::CreateSP(this, &SContentBrowser::CanDelete)
-		));
+		FExecuteAction::CreateSP(this, &SContentBrowser::HandleDeleteCommandExecute),
+		FCanExecuteAction::CreateSP(this, &SContentBrowser::HandleDeleteCommandCanExecute)
+	));
 
 	Commands->MapAction(FContentBrowserCommands::Get().OpenAssetsOrFolders, FUIAction(
-		FExecuteAction::CreateSP(this, &SContentBrowser::OnOpenAssetsOrFolders)
-		));
+		FExecuteAction::CreateSP(this, &SContentBrowser::HandleOpenAssetsOrFoldersCommandExecute)
+	));
 
 	Commands->MapAction(FContentBrowserCommands::Get().PreviewAssets, FUIAction(
-		FExecuteAction::CreateSP(this, &SContentBrowser::OnPreviewAssets)
-		));
+		FExecuteAction::CreateSP(this, &SContentBrowser::HandlePreviewAssetsCommandEecute)
+	));
 
-	Commands->MapAction( FContentBrowserCommands::Get().DirectoryUp, FUIAction(
-		FExecuteAction::CreateSP( this, &SContentBrowser::OnDirectoryUp )
-		));
+	Commands->MapAction(FContentBrowserCommands::Get().CreateNewFolder, FUIAction(
+		FExecuteAction::CreateSP(this, &SContentBrowser::HandleCreateNewFolderCommandExecute)
+	));
+
+	Commands->MapAction(FContentBrowserCommands::Get().DirectoryUp, FUIAction(
+		FExecuteAction::CreateSP(this, &SContentBrowser::HandleDirectoryUpCommandExecute)
+	));
 }
 
 EVisibility SContentBrowser::GetCollectionViewVisibility() const
@@ -1864,7 +1868,7 @@ FReply SContentBrowser::ForwardClicked()
 	return FReply::Handled();
 }
 
-bool SContentBrowser::CanRename() const
+bool SContentBrowser::HandleRenameCommandCanExecute() const
 {
 	const TArray<TSharedPtr<FAssetViewItem>>& SelectedItems = AssetViewPtr->GetSelectedItems();
 	if (SelectedItems.Num() > 0)
@@ -1882,7 +1886,7 @@ bool SContentBrowser::CanRename() const
 	return false;
 }
 
-void SContentBrowser::OnRename()
+void SContentBrowser::HandleRenameCommand()
 {
 	const TArray<TSharedPtr<FAssetViewItem>>& SelectedItems = AssetViewPtr->GetSelectedItems();
 	if (SelectedItems.Num() > 0)
@@ -1899,7 +1903,7 @@ void SContentBrowser::OnRename()
 	}
 }
 
-bool SContentBrowser::CanDelete() const
+bool SContentBrowser::HandleDeleteCommandCanExecute() const
 {
 	const TArray<TSharedPtr<FAssetViewItem>>& SelectedItems = AssetViewPtr->GetSelectedItems();
 	if (SelectedItems.Num() > 0)
@@ -1917,7 +1921,7 @@ bool SContentBrowser::CanDelete() const
 	return false;
 }
 
-void SContentBrowser::OnDelete()
+void SContentBrowser::HandleDeleteCommandExecute()
 {
 	const TArray<TSharedPtr<FAssetViewItem>>& SelectedItems = AssetViewPtr->GetSelectedItems();
 	if (SelectedItems.Num() > 0)
@@ -1934,23 +1938,34 @@ void SContentBrowser::OnDelete()
 	}
 }
 
-void SContentBrowser::OnOpenAssetsOrFolders()
+void SContentBrowser::HandleOpenAssetsOrFoldersCommandExecute()
 {
 	AssetViewPtr->OnOpenAssetsOrFolders();
 }
 
-void SContentBrowser::OnPreviewAssets()
+void SContentBrowser::HandlePreviewAssetsCommandEecute()
 {
 	AssetViewPtr->OnPreviewAssets();
 }
 
-FReply SContentBrowser::OnDirectoryUpClicked()
+void SContentBrowser::HandleCreateNewFolderCommandExecute()
 {
-	OnDirectoryUp();
-	return FReply::Handled();
+	TArray<FString> SelectedPaths = PathViewPtr->GetSelectedPaths();
+
+	// only create folders when a single path is selected
+	const bool bCanCreateNewFolder = (SelectedPaths.Num() == 1) && ContentBrowserUtils::IsValidPathToCreateNewFolder(SelectedPaths[0]);
+
+	if (bCanCreateNewFolder)
+	{
+		CreateNewFolder(
+			SelectedPaths.Num() > 0
+			? SelectedPaths[0]
+			: FString(),
+			FOnCreateNewFolder::CreateSP(AssetViewPtr.Get(), &SAssetView::OnCreateNewFolder));
+	}
 }
 
-void SContentBrowser::OnDirectoryUp()
+void SContentBrowser::HandleDirectoryUpCommandExecute()
 {
 	TArray<FString> SelectedPaths = PathViewPtr->GetSelectedPaths();
 	if(SelectedPaths.Num() == 1 && !ContentBrowserUtils::IsRootDir(SelectedPaths[0]))

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateCorePrivatePCH.h"
 #include "ElementBatcher.h"
@@ -394,7 +394,8 @@ void FSlateElementBatcher::AddBoxElement( const FSlateDrawElement& DrawElement )
 		const bool bMirrorVertical = (MirroringRule == ESlateBrushMirrorType::Both || MirroringRule == ESlateBrushMirrorType::Vertical);
 
 		// Pass the tiling information as a flag so we can pick the correct texture addressing mode
-		ESlateBatchDrawFlag::Type DrawFlags = ( ( bTileHorizontal ? ESlateBatchDrawFlag::TileU : 0 ) | ( bTileVertical ? ESlateBatchDrawFlag::TileV : 0 ) );
+		ESlateBatchDrawFlag::Type DrawFlags = InPayload.BatchFlags;
+		DrawFlags |= ( ( bTileHorizontal ? ESlateBatchDrawFlag::TileU : 0 ) | ( bTileVertical ? ESlateBatchDrawFlag::TileV : 0 ) );
 
 		FSlateElementBatch& ElementBatch = FindBatchForElement( Layer, FShaderParams(), Resource, ESlateDrawPrimitive::TriangleList, ESlateShader::Default, InDrawEffects, DrawFlags, DrawElement.GetScissorRect() );
 		TArray<FSlateVertex>& BatchVertices = BatchData->GetBatchVertexList(ElementBatch);
@@ -709,7 +710,7 @@ void FSlateElementBatcher::AddTextElement(const FSlateDrawElement& DrawElement)
 		}
 		else
 		{
-			const FCharacterEntry& Entry = CharacterList.GetCharacter(InPayload.FontInfo, CurrentChar);
+			const FCharacterEntry& Entry = CharacterList.GetCharacter(CurrentChar, InPayload.FontInfo.FontFallback);
 
 			if( FontAtlasTexture == nullptr || Entry.TextureIndex != FontTextureIndex )
 			{
@@ -888,84 +889,88 @@ void FSlateElementBatcher::AddShapedTextElement( const FSlateDrawElement& DrawEl
 	for (int32 GlyphIndex = 0; GlyphIndex < NumGlyphs; ++GlyphIndex)
 	{
 		const FShapedGlyphEntry& GlyphToRender = GlyphsToRender[GlyphIndex];
-		const FShapedGlyphFontAtlasData GlyphAtlasData = FontCache.GetShapedGlyphFontAtlasData(GlyphToRender);
 
-		if (FontAtlasTexture == nullptr || GlyphAtlasData.TextureIndex != FontTextureIndex)
+		if (GlyphToRender.bIsVisible)
 		{
-			// Font has a new texture for this glyph. Refresh the batch we use and the index we are currently using
-			FontTextureIndex = GlyphAtlasData.TextureIndex;
+			const FShapedGlyphFontAtlasData GlyphAtlasData = FontCache.GetShapedGlyphFontAtlasData(GlyphToRender);
 
-			FontAtlasTexture = FontCache.GetSlateTextureResource(FontTextureIndex);
-			FontShaderResource = ResourceManager.GetFontShaderResource(FontTextureIndex, FontAtlasTexture, FontMaterial);
-
-			ElementBatch = &FindBatchForElement(Layer, FShaderParams(), FontShaderResource, ESlateDrawPrimitive::TriangleList, ESlateShader::Font, InDrawEffects, ESlateBatchDrawFlag::None, DrawElement.GetScissorRect());
-
-			BatchVertices = &BatchData->GetBatchVertexList(*ElementBatch);
-			BatchIndices = &BatchData->GetBatchIndexList(*ElementBatch);
-
-			VertexOffset = BatchVertices->Num();
-			IndexOffset = BatchIndices->Num();
-				
-			InvTextureSizeX = 1.0f/FontAtlasTexture->GetWidth();
-			InvTextureSizeY = 1.0f/FontAtlasTexture->GetHeight();
-		}
-
-		const float X = LineX + GlyphAtlasData.HorizontalOffset + GlyphToRender.XOffset;
-		// Note PosX,PosY is the upper left corner of the bounding box representing the string.  This computes the Y position of the baseline where text will sit
-
-		const float Y = LineY - GlyphAtlasData.VerticalOffset + GlyphToRender.YOffset + MaxHeight + TextBaseline;
-		const float U = GlyphAtlasData.StartU * InvTextureSizeX;
-		const float V = GlyphAtlasData.StartV * InvTextureSizeY;
-		const float SizeX = GlyphAtlasData.USize;
-		const float SizeY = GlyphAtlasData.VSize;
-		const float SizeU = GlyphAtlasData.USize * InvTextureSizeX;
-		const float SizeV = GlyphAtlasData.VSize * InvTextureSizeY;
-
-		const FSlateRect CharRect(X, Y, X + SizeX, Y + SizeY);
-		if (FSlateRect::DoRectanglesIntersect(LocalClipRect, CharRect))
-		{
-			TArray<FSlateVertex>& BatchVerticesRef = *BatchVertices;
-			TArray<SlateIndex>& BatchIndicesRef = *BatchIndices;
-
-			const FVector2D UpperLeft = CharRect.GetTopLeft();
-			const FVector2D UpperRight = CharRect.GetTopRight();
-			const FVector2D LowerLeft = CharRect.GetBottomLeft();
-			const FVector2D LowerRight = CharRect.GetBottomRight();
-
-			// Add four vertices for this quad
-			BatchVerticesRef.AddUninitialized(4);
-			// Add six indices for this quad
-			BatchIndicesRef.AddUninitialized(6);
-
-			// The start index of these vertices in the index buffer
-			uint32 IndexStart = VertexOffset;
-
-			float Ut = 0.0f, Vt = 0.0f, UtMax = 0.0f, VtMax = 0.0f;
-			if (bIsFontMaterial)
+			if (FontAtlasTexture == nullptr || GlyphAtlasData.TextureIndex != FontTextureIndex)
 			{
-				float DistAlpha = (float)GlyphIndex/NumGlyphs;
-				float DistAlphaNext = (float)(GlyphIndex+1)/NumGlyphs;
+				// Font has a new texture for this glyph. Refresh the batch we use and the index we are currently using
+				FontTextureIndex = GlyphAtlasData.TextureIndex;
 
-				// This creates a set of UV's that goes from 0-1, from left to right of the string in U and 0-1 baseline to baseline top to bottom in V
-				Ut = FMath::Lerp(0.0f, 1.0f, DistAlpha);
-				Vt = FMath::Lerp(0.0f, 1.0f, UpperLeft.Y/MaxHeight);
+				FontAtlasTexture = FontCache.GetSlateTextureResource(FontTextureIndex);
+				FontShaderResource = ResourceManager.GetFontShaderResource(FontTextureIndex, FontAtlasTexture, FontMaterial);
 
-				UtMax = FMath::Lerp(0.0f, 1.0f, DistAlphaNext);
-				VtMax = FMath::Lerp(0.0f, 1.0f, LowerLeft.Y/MaxHeight);
+				ElementBatch = &FindBatchForElement(Layer, FShaderParams(), FontShaderResource, ESlateDrawPrimitive::TriangleList, ESlateShader::Font, InDrawEffects, ESlateBatchDrawFlag::None, DrawElement.GetScissorRect());
+
+				BatchVertices = &BatchData->GetBatchVertexList(*ElementBatch);
+				BatchIndices = &BatchData->GetBatchIndexList(*ElementBatch);
+
+				VertexOffset = BatchVertices->Num();
+				IndexOffset = BatchIndices->Num();
+				
+				InvTextureSizeX = 1.0f/FontAtlasTexture->GetWidth();
+				InvTextureSizeY = 1.0f/FontAtlasTexture->GetHeight();
 			}
 
-			// Add four vertices to the list of verts to be added to the vertex buffer
-			BatchVerticesRef[VertexOffset++] = FSlateVertex(RenderTransform, UpperLeft,								FVector4(U,V,				Ut,Vt),			FVector2D(0.0f,0.0f), Tint, RenderClipRect);
-			BatchVerticesRef[VertexOffset++] = FSlateVertex(RenderTransform, FVector2D(LowerRight.X,UpperLeft.Y),	FVector4(U+SizeU, V,		UtMax,Vt),		FVector2D(1.0f,0.0f), Tint, RenderClipRect);
-			BatchVerticesRef[VertexOffset++] = FSlateVertex(RenderTransform, FVector2D(UpperLeft.X,LowerRight.Y),	FVector4(U, V+SizeV,		Ut,VtMax),		FVector2D(0.0f,1.0f), Tint, RenderClipRect);
-			BatchVerticesRef[VertexOffset++] = FSlateVertex(RenderTransform, LowerRight,							FVector4(U+SizeU, V+SizeV,	UtMax,VtMax),	FVector2D(1.0f,1.0f), Tint, RenderClipRect);
+			const float X = LineX + GlyphAtlasData.HorizontalOffset + GlyphToRender.XOffset;
+			// Note PosX,PosY is the upper left corner of the bounding box representing the string.  This computes the Y position of the baseline where text will sit
 
-			BatchIndicesRef[IndexOffset++] = IndexStart + 0;
-			BatchIndicesRef[IndexOffset++] = IndexStart + 1;
-			BatchIndicesRef[IndexOffset++] = IndexStart + 2;
-			BatchIndicesRef[IndexOffset++] = IndexStart + 1;
-			BatchIndicesRef[IndexOffset++] = IndexStart + 3;
-			BatchIndicesRef[IndexOffset++] = IndexStart + 2;
+			const float Y = LineY - GlyphAtlasData.VerticalOffset + GlyphToRender.YOffset + MaxHeight + TextBaseline;
+			const float U = GlyphAtlasData.StartU * InvTextureSizeX;
+			const float V = GlyphAtlasData.StartV * InvTextureSizeY;
+			const float SizeX = GlyphAtlasData.USize;
+			const float SizeY = GlyphAtlasData.VSize;
+			const float SizeU = GlyphAtlasData.USize * InvTextureSizeX;
+			const float SizeV = GlyphAtlasData.VSize * InvTextureSizeY;
+
+			const FSlateRect CharRect(X, Y, X + SizeX, Y + SizeY);
+			if (FSlateRect::DoRectanglesIntersect(LocalClipRect, CharRect))
+			{
+				TArray<FSlateVertex>& BatchVerticesRef = *BatchVertices;
+				TArray<SlateIndex>& BatchIndicesRef = *BatchIndices;
+
+				const FVector2D UpperLeft = CharRect.GetTopLeft();
+				const FVector2D UpperRight = CharRect.GetTopRight();
+				const FVector2D LowerLeft = CharRect.GetBottomLeft();
+				const FVector2D LowerRight = CharRect.GetBottomRight();
+
+				// Add four vertices for this quad
+				BatchVerticesRef.AddUninitialized(4);
+				// Add six indices for this quad
+				BatchIndicesRef.AddUninitialized(6);
+
+				// The start index of these vertices in the index buffer
+				uint32 IndexStart = VertexOffset;
+
+				float Ut = 0.0f, Vt = 0.0f, UtMax = 0.0f, VtMax = 0.0f;
+				if (bIsFontMaterial)
+				{
+					float DistAlpha = (float)GlyphIndex/NumGlyphs;
+					float DistAlphaNext = (float)(GlyphIndex+1)/NumGlyphs;
+
+					// This creates a set of UV's that goes from 0-1, from left to right of the string in U and 0-1 baseline to baseline top to bottom in V
+					Ut = FMath::Lerp(0.0f, 1.0f, DistAlpha);
+					Vt = FMath::Lerp(0.0f, 1.0f, UpperLeft.Y/MaxHeight);
+
+					UtMax = FMath::Lerp(0.0f, 1.0f, DistAlphaNext);
+					VtMax = FMath::Lerp(0.0f, 1.0f, LowerLeft.Y/MaxHeight);
+				}
+
+				// Add four vertices to the list of verts to be added to the vertex buffer
+				BatchVerticesRef[VertexOffset++] = FSlateVertex(RenderTransform, UpperLeft,								FVector4(U,V,				Ut,Vt),			FVector2D(0.0f,0.0f), Tint, RenderClipRect);
+				BatchVerticesRef[VertexOffset++] = FSlateVertex(RenderTransform, FVector2D(LowerRight.X,UpperLeft.Y),	FVector4(U+SizeU, V,		UtMax,Vt),		FVector2D(1.0f,0.0f), Tint, RenderClipRect);
+				BatchVerticesRef[VertexOffset++] = FSlateVertex(RenderTransform, FVector2D(UpperLeft.X,LowerRight.Y),	FVector4(U, V+SizeV,		Ut,VtMax),		FVector2D(0.0f,1.0f), Tint, RenderClipRect);
+				BatchVerticesRef[VertexOffset++] = FSlateVertex(RenderTransform, LowerRight,							FVector4(U+SizeU, V+SizeV,	UtMax,VtMax),	FVector2D(1.0f,1.0f), Tint, RenderClipRect);
+
+				BatchIndicesRef[IndexOffset++] = IndexStart + 0;
+				BatchIndicesRef[IndexOffset++] = IndexStart + 1;
+				BatchIndicesRef[IndexOffset++] = IndexStart + 2;
+				BatchIndicesRef[IndexOffset++] = IndexStart + 1;
+				BatchIndicesRef[IndexOffset++] = IndexStart + 3;
+				BatchIndicesRef[IndexOffset++] = IndexStart + 2;
+			}
 		}
 
 		LineX += GlyphToRender.XAdvance;
@@ -992,7 +997,17 @@ void FSlateElementBatcher::AddGradientElement( const FSlateDrawElement& DrawElem
 	// There must be at least one gradient stop
 	check( InPayload.GradientStops.Num() > 0 );
 
-	FSlateElementBatch& ElementBatch = FindBatchForElement( Layer, FShaderParams(), nullptr, ESlateDrawPrimitive::TriangleList, ESlateShader::Default, InDrawEffects, InPayload.bGammaCorrect == false ? ESlateBatchDrawFlag::NoGamma : ESlateBatchDrawFlag::None, DrawElement.GetScissorRect() );
+	FSlateElementBatch& ElementBatch = 
+		FindBatchForElement( 
+			Layer,
+			FShaderParams(),
+			nullptr,
+			ESlateDrawPrimitive::TriangleList,
+			ESlateShader::Default,
+			InDrawEffects,
+			InPayload.BatchFlags,
+			DrawElement.GetScissorRect() );
+
 	TArray<FSlateVertex>& BatchVertices = BatchData->GetBatchVertexList(ElementBatch);
 	TArray<SlateIndex>& BatchIndices = BatchData->GetBatchIndexList(ElementBatch);
 
@@ -1427,18 +1442,7 @@ void FSlateElementBatcher::AddViewportElement( const FSlateDrawElement& DrawElem
 
 	const FColor FinalColor = PackVertexColor(InPayload.Tint);
 
-	ESlateBatchDrawFlag::Type DrawFlags = ESlateBatchDrawFlag::None;
-	
-	if( !InPayload.bAllowBlending )
-	{
-		DrawFlags |= ESlateBatchDrawFlag::NoBlending;
-	}
-
-	if( !InPayload.bGammaCorrect )
-	{
-		// Don't apply gamma correction
-		DrawFlags |= ESlateBatchDrawFlag::NoGamma;
-	}
+	ESlateBatchDrawFlag::Type DrawFlags = InPayload.BatchFlags;
 
 	FSlateShaderResource* ViewportResource = InPayload.ViewportRenderTargetTexture;
 	ESlateShader::Type ShaderType = ESlateShader::Default;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "AutomationTest.h"
@@ -6,6 +6,8 @@
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "Runtime/Analytics/Analytics/Public/AnalyticsEventAttribute.h"
 #include "UnrealEngine.h"
+
+#if WITH_DEV_AUTOMATION_TESTS
 
 /**
 * Artificial Record Event for analytics - Simulates the engine startup simulation.  
@@ -138,3 +140,5 @@ bool FAnalyticsEventAttributeUnitTest::RunTest(const FString& Parameters)
 	ExecutionInfo.LogItems.Add(TEXT("SKIPPED 'FAnalyticsEventAttributeUnitTest' test.  EngineAnalytics are not currently available."));
 	return true;
 }
+
+#endif //WITH_DEV_AUTOMATION_TESTS

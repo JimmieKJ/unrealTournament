@@ -1,0 +1,22 @@
+{
+	"FileVersion" : 3,
+
+	"FriendlyName" : "Oculus Input",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.2.0",
+	"Description" : "Support for the Oculus input controllers (Oculus Touch, SID, etc)",
+	"Category" : "Virtual Reality",
+	"EnabledByDefault" : true,
+
+	"Modules" :
+	[
+		{
+			"Name" : "OculusInput",
+			"Type" : "Runtime",
+			"WhitelistPlatforms" : [ "Win64", "Win32" ]
+		}
+	]
+}

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintCompilerCppBackendModulePrivatePCH.h"
 #include "IBlueprintCompilerCppBackendModule.h"
@@ -18,11 +18,15 @@ public:
 	virtual FPCHFilenameQuery& OnPCHFilenameQuery() override;
 	virtual FIsTargetedForConversionQuery& OnIsTargetedForConversionQuery() override;
 	virtual TMap<TWeakObjectPtr<UClass>, TWeakObjectPtr<UClass> >& GetOriginalClassMap() override;
+	virtual FMarkUnconvertedBlueprintAsNecessary& OnIncludingUnconvertedBP() override;
+	virtual FIsFunctionUsedInADelegate& GetIsFunctionUsedInADelegateCallback() override;
 	//~ End IBlueprintCompilerCppBackendModule interface
 
 private: 
 	FPCHFilenameQuery PCHFilenameQuery;
 	FIsTargetedForConversionQuery IsTargetedForConversionQuery;
+	FMarkUnconvertedBlueprintAsNecessary MarkUnconvertedBlueprintAsNecessary;
+	FIsFunctionUsedInADelegate IsFunctionUsedInADelegate;
 	TMap<TWeakObjectPtr<UClass>, TWeakObjectPtr<UClass> > OriginalClassMap;
 };
 
@@ -47,9 +51,19 @@ IBlueprintCompilerCppBackendModule::FIsTargetedForConversionQuery& FBlueprintCom
 	return IsTargetedForConversionQuery;
 }
 
+IBlueprintCompilerCppBackendModule::FMarkUnconvertedBlueprintAsNecessary& FBlueprintCompilerCppBackendModule::OnIncludingUnconvertedBP()
+{
+	return MarkUnconvertedBlueprintAsNecessary;
+}
+
 TMap<TWeakObjectPtr<UClass>, TWeakObjectPtr<UClass> >& FBlueprintCompilerCppBackendModule::GetOriginalClassMap()
 {
 	return OriginalClassMap;
+}
+
+IBlueprintCompilerCppBackendModule::FIsFunctionUsedInADelegate& FBlueprintCompilerCppBackendModule::GetIsFunctionUsedInADelegateCallback()
+{
+	return IsFunctionUsedInADelegate;
 }
 
 IMPLEMENT_MODULE(FBlueprintCompilerCppBackendModule, BlueprintCompilerCppBackend)

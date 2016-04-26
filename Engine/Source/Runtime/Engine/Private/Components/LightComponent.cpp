@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LightComponent.cpp: LightComponent implementation.
@@ -232,6 +232,8 @@ FLightSceneProxy::FLightSceneProxy(const ULightComponent* InLightComponent)
 	, bAffectDynamicIndirectLighting(InLightComponent->bAffectDynamicIndirectLighting)
 	, bHasReflectiveShadowMap(InLightComponent->bAffectDynamicIndirectLighting && InLightComponent->GetLightType() == LightType_Directional)
 	, bUseRayTracedDistanceFieldShadows(InLightComponent->bUseRayTracedDistanceFieldShadows)
+	, bCastModulatedShadows(false)
+	, bStationaryLightUsesCSMForMovableShadows(false)
 	, RayStartOffsetDepthScale(InLightComponent->RayStartOffsetDepthScale)
 	, LightType(InLightComponent->GetLightType())	
 	, LightingChannelMask(GetLightingChannelMaskForStruct(InLightComponent->LightingChannels))
@@ -240,7 +242,6 @@ FLightSceneProxy::FLightSceneProxy(const ULightComponent* InLightComponent)
 	, StatId(InLightComponent->GetStatID(true))
 	, FarShadowDistance(0)
 	, FarShadowCascadeCount(0)
-	, bCastModulatedShadows(false)
 {
 	// Brightness in Lumens
 	float LightBrightness = InLightComponent->ComputeLightBrightness();
@@ -282,6 +283,12 @@ bool FLightSceneProxy::ShouldCreatePerObjectShadowsForDynamicObjects() const
 {
 	// Only create per-object shadows for Stationary lights, which use static shadowing from the world and therefore need a way to integrate dynamic objects
 	return HasStaticShadowing() && !HasStaticLighting();
+}
+
+/** Whether this light should create CSM for dynamic objects only (forward renderer) */
+bool FLightSceneProxy::UseCSMForDynamicObjects() const
+{
+	return false;
 }
 
 void FLightSceneProxy::SetTransform(const FMatrix& InLightToWorld,const FVector4& InPosition)
@@ -590,6 +597,7 @@ void ULightComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(UDirectionalLightComponent, LightShaftOverrideDirection) &&
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(UDirectionalLightComponent, bCastModulatedShadows) &&
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(UDirectionalLightComponent, ModulatedShadowColor) &&
+		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(UDirectionalLightComponent, bStationaryLightUsesCSMForMovableShadows) &&
 		// Properties that should only unbuild lighting for a Static light (can be changed dynamically on a Stationary light)
 		(PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, Intensity) || Mobility == EComponentMobility::Static) &&
 		(PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, LightColor) || Mobility == EComponentMobility::Static) &&

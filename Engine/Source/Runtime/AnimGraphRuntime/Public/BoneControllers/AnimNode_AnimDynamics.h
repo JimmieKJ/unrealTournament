@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -260,6 +260,8 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_AnimDynamics : public FAnimNode_SkeletalCo
 	virtual void UpdateInternal(const FAnimationUpdateContext& Context) override;
 	virtual void EvaluateBoneTransforms(USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases, TArray<FBoneTransform>& OutBoneTransforms) override;
 	virtual void GatherDebugData(FNodeDebugData& DebugData) override;
+	virtual bool HasPreUpdate() const override { return true; }
+	virtual void PreUpdate(const UAnimInstance* InAnimInstance) override;
 	// End of FAnimNode_SkeletalControlBase interface
 
 	void RequestInitialise() { bRequiresInit = true; }
@@ -288,9 +290,6 @@ protected:
 	virtual void InitializeBoneReferences(const FBoneContainer& RequiredBones) override;
 	virtual bool IsValidToEvaluate(const USkeleton* Skeleton, const FBoneContainer& RequiredBones);
 	// End of FAnimNode_SkeletalControlBase protected interface
-
-private:
-	void HandleGameThreadPreUpdateEvent(const UAnimInstance* InAnimInstance);
 
 private:
 

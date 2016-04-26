@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.Collections.Generic;
@@ -48,6 +48,9 @@ public class UE4EditorServicesTarget : TargetRules
 		// Currently this app is not linking against the engine, so we'll compile out references from Core to the rest of the engine
 		UEBuildConfiguration.bCompileAgainstEngine = false;
 		UEBuildConfiguration.bCompileAgainstCoreUObject = false;
+
+		// We still need to support old versions of the engine that are compatible with OS X 10.9
+		OutCPPEnvironmentConfiguration.bEnableOSX109Support = true;
 	}
     public override bool GUBP_AlwaysBuildWithTools(UnrealTargetPlatform InHostPlatform, out bool bInternalToolOnly, out bool SeparateNode, out bool CrossCompile)
 	{

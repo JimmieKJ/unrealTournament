@@ -1,32 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
-
-/*
-* Copyright 2010 Autodesk, Inc.  All Rights Reserved.
-*
-* Permission to use, copy, modify, and distribute this software in object
-* code form for any purpose and without fee is hereby granted, provided
-* that the above copyright notice appears in all copies and that both
-* that copyright notice and the limited warranty and restricted rights
-* notice below appear in all supporting documentation.
-*
-* AUTODESK PROVIDES THIS PROGRAM "AS IS" AND WITH ALL FAULTS.
-* AUTODESK SPECIFICALLY DISCLAIMS ANY AND ALL WARRANTIES, WHETHER EXPRESS
-* OR IMPLIED, INCLUDING WITHOUT LIMITATION THE IMPLIED WARRANTY
-* OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR USE OR NON-INFRINGEMENT
-* OF THIRD PARTY RIGHTS.  AUTODESK DOES NOT WARRANT THAT THE OPERATION
-* OF THE PROGRAM WILL BE UNINTERRUPTED OR ERROR FREE.
-*
-* In no event shall Autodesk, Inc. be liable for any direct, indirect,
-* incidental, special, exemplary, or consequential damages (including,
-* but not limited to, procurement of substitute goods or services;
-* loss of use, data, or profits; or business interruption) however caused
-* and on any theory of liability, whether in contract, strict liability,
-* or tort (including negligence or otherwise) arising in any way out
-* of such code.
-*
-* This software is provided to the U.S. Government with the same rights
-* and restrictions as described herein.
-*/
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Main implementation of FFbxExporter : export FBX data from Unreal
@@ -39,6 +11,8 @@
 #include "Materials/MaterialExpressionConstant2Vector.h"
 #include "Materials/MaterialExpressionConstant3Vector.h"
 #include "Materials/MaterialExpressionConstant4Vector.h"
+#include "Materials/MaterialExpressionTextureBase.h"
+#include "Materials/MaterialExpressionTextureSample.h"
 
 #include "Matinee/InterpData.h"
 #include "Matinee/InterpTrackMove.h"
@@ -185,9 +159,34 @@ void FFbxExporter::WriteToFile(const TCHAR* Filename)
 	IOS_REF.SetBoolProp(EXP_FBX_ANIMATION,       true);
 	IOS_REF.SetBoolProp(EXP_FBX_GLOBAL_SETTINGS, true);
 
+	//Get the compatibility from the editor settings
+	const char* CompatibilitySetting = FBX_2013_00_COMPATIBLE;
+	const EFbxExportCompatibility FbxExportCompatibility = GetDefault<UEditorPerProjectUserSettings>()->FbxExportCompatibility;
+	switch (FbxExportCompatibility)
+	{
+		case EFbxExportCompatibility::FBX_2010:
+			CompatibilitySetting = FBX_2010_00_COMPATIBLE;
+			break;
+		case EFbxExportCompatibility::FBX_2011:
+			CompatibilitySetting = FBX_2011_00_COMPATIBLE;
+			break;
+		case EFbxExportCompatibility::FBX_2012:
+			CompatibilitySetting = FBX_2012_00_COMPATIBLE;
+			break;
+		case EFbxExportCompatibility::FBX_2013:
+			CompatibilitySetting = FBX_2013_00_COMPATIBLE;
+			break;
+		case EFbxExportCompatibility::FBX_2014:
+			CompatibilitySetting = FBX_2014_00_COMPATIBLE;
+			break;
+		case EFbxExportCompatibility::FBX_2016:
+			CompatibilitySetting = FBX_2016_00_COMPATIBLE;
+			break;
+	}
+	
 	// We export using FBX 2013 format because many users are still on that version and FBX 2014 files has compatibility issues with
 	// normals when importing to an earlier version of the plugin
-	if (!Exporter->SetFileExportVersion(FBX_2013_00_COMPATIBLE, FbxSceneRenamer::eNone))
+	if (!Exporter->SetFileExportVersion(CompatibilitySetting, FbxSceneRenamer::eNone))
 	{
 		UE_LOG(LogFbx, Warning, TEXT("Call to KFbxExporter::SetFileExportVersion(FBX_2013_00_COMPATIBLE) to export 2013 fbx file format failed.\n"));
 	}
@@ -254,7 +253,7 @@ static void SortActorsHierarchy(TArray<AActor*>& Actors)
 			Depth = 0;
 			if (InActor->GetRootComponent())
 			{
-				for (const USceneComponent* Test = InActor->GetRootComponent()->AttachParent; Test != nullptr; Test = Test->AttachParent, Depth++);
+				for (const USceneComponent* Test = InActor->GetRootComponent()->GetAttachParent(); Test != nullptr; Test = Test->GetAttachParent(), Depth++);
 			}
 		}
 		return Depth;
@@ -351,13 +350,63 @@ void FFbxExporter::ExportLevelMesh( ULevel* InLevel, AMatineeActor* InMatineeAct
 		}
 		else if(Actor->IsA(ACameraActor::StaticClass()))
 		{
-			ExportCamera(CastChecked<ACameraActor>(Actor), InMatineeActor, true); // Just export the placement of the particle emitter.
+			ExportCamera(CastChecked<ACameraActor>(Actor), InMatineeActor, false); // Just export the placement of the particle emitter.
 		}
 		else if( Actor != NULL )
 		{
 			// Export blueprint actors and all their components
 			ExportActor( Actor, InMatineeActor, true );
 		}
+	}
+}
+
+void FFbxExporter::FillFbxLightAttribute(FbxLight* Light, FbxNode* FbxParentNode, ULightComponent* BaseLight)
+{
+	Light->Intensity.Set(BaseLight->Intensity);
+	Light->Color.Set(Converter.ConvertToFbxColor(BaseLight->LightColor));
+
+	// Add one user property for recording the Brightness animation
+	CreateAnimatableUserProperty(FbxParentNode, BaseLight->Intensity, "UE_Intensity", "UE_Matinee_Light_Intensity");
+
+	// Look for the higher-level light types and determine the lighting method
+	if (BaseLight->IsA(UPointLightComponent::StaticClass()))
+	{
+		UPointLightComponent* PointLight = (UPointLightComponent*)BaseLight;
+		if (BaseLight->IsA(USpotLightComponent::StaticClass()))
+		{
+			USpotLightComponent* SpotLight = (USpotLightComponent*)BaseLight;
+			Light->LightType.Set(FbxLight::eSpot);
+
+			// Export the spot light parameters.
+			if (!FMath::IsNearlyZero(SpotLight->InnerConeAngle*2.0f))
+			{
+				Light->InnerAngle.Set(SpotLight->InnerConeAngle*2.0f);
+			}
+			else // Maya requires a non-zero inner cone angle
+			{
+				Light->InnerAngle.Set(0.01f);
+			}
+			Light->OuterAngle.Set(SpotLight->OuterConeAngle*2.0f);
+		}
+		else
+		{
+			Light->LightType.Set(FbxLight::ePoint);
+		}
+
+		// Export the point light parameters.
+		Light->EnableFarAttenuation.Set(true);
+		Light->FarAttenuationEnd.Set(PointLight->AttenuationRadius);
+		// Add one user property for recording the FalloffExponent animation
+		CreateAnimatableUserProperty(FbxParentNode, PointLight->AttenuationRadius, "UE_Radius", "UE_Matinee_Light_Radius");
+
+		// Add one user property for recording the FalloffExponent animation
+		CreateAnimatableUserProperty(FbxParentNode, PointLight->LightFalloffExponent, "UE_FalloffExponent", "UE_Matinee_Light_FalloffExponent");
+	}
+	else if (BaseLight->IsA(UDirectionalLightComponent::StaticClass()))
+	{
+		// The directional light has no interesting properties.
+		Light->LightType.Set(FbxLight::eDirectional);
+		Light->Intensity.Set(BaseLight->Intensity*100.0f);
 	}
 }
 
@@ -379,59 +428,33 @@ void FFbxExporter::ExportLight( ALight* Actor, AMatineeActor* InMatineeActor )
 
 	// Export the basic light information
 	FbxLight* Light = FbxLight::Create(Scene, TCHAR_TO_UTF8(*FbxNodeName));
-	Light->Intensity.Set(BaseLight->Intensity);
-	Light->Color.Set(Converter.ConvertToFbxColor(BaseLight->LightColor));
-	
-	// Add one user property for recording the Brightness animation
-	CreateAnimatableUserProperty(FbxLightNode, BaseLight->Intensity, "UE_Intensity", "UE_Matinee_Light_Intensity");
-	
-	// Look for the higher-level light types and determine the lighting method
-	if (BaseLight->IsA(UPointLightComponent::StaticClass()))
-	{
-		UPointLightComponent* PointLight = (UPointLightComponent*) BaseLight;
-		if (BaseLight->IsA(USpotLightComponent::StaticClass()))
-		{
-			USpotLightComponent* SpotLight = (USpotLightComponent*) BaseLight;
-			Light->LightType.Set(FbxLight::eSpot);
-
-			// Export the spot light parameters.
-			if (!FMath::IsNearlyZero(SpotLight->InnerConeAngle))
-			{
-				Light->InnerAngle.Set(SpotLight->InnerConeAngle);
-			}
-			else // Maya requires a non-zero inner cone angle
-			{
-				Light->InnerAngle.Set(0.01f);
-			}
-			Light->OuterAngle.Set(SpotLight->OuterConeAngle);
-		}
-		else
-		{
-			Light->LightType.Set(FbxLight::ePoint);
-		}
-		
-		// Export the point light parameters.
-		Light->EnableFarAttenuation.Set(true);
-		Light->FarAttenuationEnd.Set(PointLight->AttenuationRadius);
-		// Add one user property for recording the FalloffExponent animation
-		CreateAnimatableUserProperty(FbxLightNode, PointLight->AttenuationRadius, "UE_Radius", "UE_Matinee_Light_Radius");
-		
-		// Add one user property for recording the FalloffExponent animation
-		CreateAnimatableUserProperty(FbxLightNode, PointLight->LightFalloffExponent, "UE_FalloffExponent", "UE_Matinee_Light_FalloffExponent");
-	}
-	else if (BaseLight->IsA(UDirectionalLightComponent::StaticClass()))
-	{
-		// The directional light has no interesting properties.
-		Light->LightType.Set(FbxLight::eDirectional);
-	}
-	
+	FillFbxLightAttribute(Light, FbxLightNode, BaseLight);	
 	FbxActor->SetNodeAttribute(Light);
+}
+
+void FFbxExporter::FillFbxCameraAttribute(FbxNode* ParentNode, FbxCamera* Camera, UCameraComponent *CameraComponent)
+{
+	// Export the view area information
+	Camera->ProjectionType.Set(CameraComponent->ProjectionMode == ECameraProjectionMode::Type::Perspective ? FbxCamera::ePerspective : FbxCamera::eOrthogonal);
+	Camera->SetAspect(FbxCamera::eFixedRatio, CameraComponent->AspectRatio, 1.0f);
+	Camera->FilmAspectRatio.Set(CameraComponent->AspectRatio);
+	Camera->SetApertureWidth(CameraComponent->AspectRatio * 0.612f); // 0.612f is a magic number from Maya that represents the ApertureHeight
+	Camera->SetApertureMode(FbxCamera::eFocalLength);
+	Camera->FocalLength.Set(Camera->ComputeFocalLength(CameraComponent->FieldOfView));
+
+	// Add one user property for recording the AspectRatio animation
+	CreateAnimatableUserProperty(ParentNode, CameraComponent->AspectRatio, "UE_AspectRatio", "UE_Matinee_Camera_AspectRatio");
+
+	// Push the near/far clip planes away, as the engine uses larger values than the default.
+	Camera->SetNearPlane(10.0f);
+	Camera->SetFarPlane(100000.0f);
 }
 
 void FFbxExporter::ExportCamera( ACameraActor* Actor, AMatineeActor* InMatineeActor, bool bExportComponents )
 {
 	if (Scene == NULL || Actor == NULL) return;
 
+	UCameraComponent *CameraComponent = Actor->GetCameraComponent();
 	// Export the basic actor information.
 	FbxNode* FbxActor = ExportActor( Actor, InMatineeActor, bExportComponents ); // this is the pivot node
 	// The real fbx camera node
@@ -441,21 +464,7 @@ void FFbxExporter::ExportCamera( ACameraActor* Actor, AMatineeActor* InMatineeAc
 
 	// Create a properly-named FBX camera structure and instantiate it in the FBX scene graph
 	FbxCamera* Camera = FbxCamera::Create(Scene, TCHAR_TO_UTF8(*FbxNodeName));
-
-	// Export the view area information
-	Camera->ProjectionType.Set(FbxCamera::ePerspective);
-	Camera->SetAspect(FbxCamera::eFixedRatio, Actor->GetCameraComponent()->AspectRatio, 1.0f);
-	Camera->FilmAspectRatio.Set(Actor->GetCameraComponent()->AspectRatio);
-	Camera->SetApertureWidth(Actor->GetCameraComponent()->AspectRatio * 0.612f); // 0.612f is a magic number from Maya that represents the ApertureHeight
-	Camera->SetApertureMode(FbxCamera::eFocalLength);
-	Camera->FocalLength.Set(Camera->ComputeFocalLength(Actor->GetCameraComponent()->FieldOfView));
-	
-	// Add one user property for recording the AspectRatio animation
-	CreateAnimatableUserProperty(FbxCameraNode, Actor->GetCameraComponent()->AspectRatio, "UE_AspectRatio", "UE_Matinee_Camera_AspectRatio");
-
-	// Push the near/far clip planes away, as the engine uses larger values than the default.
-	Camera->SetNearPlane(10.0f);
-	Camera->SetFarPlane(100000.0f);
+	FillFbxCameraAttribute(FbxCameraNode, Camera, CameraComponent);
 
 	FbxActor->SetNodeAttribute(Camera);
 
@@ -914,59 +923,105 @@ void FFbxExporter::ExportLandscape(ALandscapeProxy* Actor, bool bSelectedOnly)
 	ExportLandscapeToFbx(Actor, *FbxNodeName, FbxActor, bSelectedOnly);
 }
 
-FbxDouble3 SetMaterialComponent(FColorMaterialInput& MatInput)
+FbxDouble3 SetMaterialComponent(FColorMaterialInput& MatInput, bool ToLinear)
 {
-	FColor FinalColor;
+	FColor RGBColor;
+	FLinearColor LinearColor;
+	bool LinearSet = false;
 	
 	if (MatInput.Expression)
 	{
 		if (Cast<UMaterialExpressionConstant>(MatInput.Expression))
 		{
-			UMaterialExpressionConstant* Expr = Cast<UMaterialExpressionConstant>(MatInput.Expression);
-			FinalColor = FColor(Expr->R);
+			UMaterialExpressionConstant* Expr = Cast<UMaterialExpressionConstant>(MatInput.Expression);			
+			RGBColor = FColor(Expr->R);
 		}
 		else if (Cast<UMaterialExpressionVectorParameter>(MatInput.Expression))
 		{
 			UMaterialExpressionVectorParameter* Expr = Cast<UMaterialExpressionVectorParameter>(MatInput.Expression);
-			FinalColor = Expr->DefaultValue.ToFColor(true);
+			LinearColor = Expr->DefaultValue;
+			LinearSet = true;
+			//Linear to sRGB color space conversion
+			RGBColor = Expr->DefaultValue.ToFColor(true);
 		}
 		else if (Cast<UMaterialExpressionConstant3Vector>(MatInput.Expression))
 		{
 			UMaterialExpressionConstant3Vector* Expr = Cast<UMaterialExpressionConstant3Vector>(MatInput.Expression);
-			FinalColor.R = Expr->Constant.R;
-			FinalColor.G = Expr->Constant.G;
-			FinalColor.B = Expr->Constant.B;
+			RGBColor.R = Expr->Constant.R;
+			RGBColor.G = Expr->Constant.G;
+			RGBColor.B = Expr->Constant.B;
 		}
 		else if (Cast<UMaterialExpressionConstant4Vector>(MatInput.Expression))
 		{
 			UMaterialExpressionConstant4Vector* Expr = Cast<UMaterialExpressionConstant4Vector>(MatInput.Expression);
-			FinalColor.R = Expr->Constant.R;
-			FinalColor.G = Expr->Constant.G;
-			FinalColor.B = Expr->Constant.B;
-			//FinalColor.A = Expr->A;
+			RGBColor.R = Expr->Constant.R;
+			RGBColor.G = Expr->Constant.G;
+			RGBColor.B = Expr->Constant.B;
+			//RGBColor.A = Expr->A;
 		}
 		else if (Cast<UMaterialExpressionConstant2Vector>(MatInput.Expression))
 		{
 			UMaterialExpressionConstant2Vector* Expr = Cast<UMaterialExpressionConstant2Vector>(MatInput.Expression);
-			FinalColor.R = Expr->R;
-			FinalColor.G = Expr->G;
-			FinalColor.B = 0;
+			RGBColor.R = Expr->R;
+			RGBColor.G = Expr->G;
+			RGBColor.B = 0;
 		}
 		else
 		{
-			FinalColor.R = MatInput.Constant.R / 128.0;
-			FinalColor.G = MatInput.Constant.G / 128.0;
-			FinalColor.B = MatInput.Constant.B / 128.0;
+			RGBColor.R = MatInput.Constant.R;
+			RGBColor.G = MatInput.Constant.G;
+			RGBColor.B = MatInput.Constant.B;
 		}
 	}
 	else
 	{
-		FinalColor.R = MatInput.Constant.R / 128.0;
-		FinalColor.G = MatInput.Constant.G / 128.0;
-		FinalColor.B = MatInput.Constant.B / 128.0;
+		RGBColor.R = MatInput.Constant.R;
+		RGBColor.G = MatInput.Constant.G;
+		RGBColor.B = MatInput.Constant.B;
 	}
 	
-	return FbxDouble3(FinalColor.R, FinalColor.G, FinalColor.B);
+	if (ToLinear)
+	{
+		if (!LinearSet)
+		{
+			//sRGB to linear color space conversion
+			LinearColor = FLinearColor(RGBColor);
+		}
+		return FbxDouble3(LinearColor.R, LinearColor.G, LinearColor.B);
+	}
+	return FbxDouble3(RGBColor.R, RGBColor.G, RGBColor.B);
+}
+
+bool FFbxExporter::FillFbxTextureProperty(const char *PropertyName, const FExpressionInput& MaterialInput, FbxSurfaceMaterial* FbxMaterial)
+{
+	if (Scene == NULL)
+	{
+		return false;
+	}
+
+	FbxProperty FbxColorProperty = FbxMaterial->FindProperty(PropertyName);
+	if (FbxColorProperty.IsValid())
+	{
+		if (MaterialInput.IsConnected() && MaterialInput.Expression)
+		{
+			if (MaterialInput.Expression->IsA(UMaterialExpressionTextureSample::StaticClass()))
+			{
+				UMaterialExpressionTextureSample *TextureSample = Cast<UMaterialExpressionTextureSample>(MaterialInput.Expression);
+				if (TextureSample && TextureSample->Texture && TextureSample->Texture->AssetImportData)
+				{
+					FString TextureSourceFullPath = TextureSample->Texture->AssetImportData->GetFirstFilename();
+					//Create a fbx property
+					FbxFileTexture* lTexture = FbxFileTexture::Create(Scene, "EnvSamplerTex");
+					lTexture->SetFileName(TCHAR_TO_UTF8(*TextureSourceFullPath));
+					lTexture->SetTextureUse(FbxTexture::eStandard);
+					lTexture->SetMappingType(FbxTexture::eUV);
+					lTexture->ConnectDstProperty(FbxColorProperty);
+					return true;
+				}
+			}
+		}
+	}
+	return false;
 }
 
 /**
@@ -989,7 +1044,7 @@ FbxSurfaceMaterial* FFbxExporter::ExportMaterial(UMaterial* Material)
 	if (Material->GetShadingModel() == MSM_DefaultLit)
 	{
 		FbxMaterial = FbxSurfacePhong::Create(Scene, TCHAR_TO_UTF8(*Material->GetName()));
-		//((FbxSurfacePhong*)FbxMaterial)->Specular.Set(SetMaterialComponent(Material->Specular));
+		//((FbxSurfacePhong*)FbxMaterial)->Specular.Set(Material->Specular));
 		//((FbxSurfacePhong*)FbxMaterial)->Shininess.Set(Material->SpecularPower.Constant);
 	}
 	else // if (Material->ShadingModel == MSM_Unlit)
@@ -997,13 +1052,39 @@ FbxSurfaceMaterial* FFbxExporter::ExportMaterial(UMaterial* Material)
 		FbxMaterial = FbxSurfaceLambert::Create(Scene, TCHAR_TO_UTF8(*Material->GetName()));
 	}
 	
-	((FbxSurfaceLambert*)FbxMaterial)->Emissive.Set(SetMaterialComponent(Material->EmissiveColor));
-	((FbxSurfaceLambert*)FbxMaterial)->Diffuse.Set(SetMaterialComponent(Material->BaseColor));
+	
 	((FbxSurfaceLambert*)FbxMaterial)->TransparencyFactor.Set(Material->Opacity.Constant);
 
 	// Fill in the profile_COMMON effect with the material information.
-	// TODO: Look for textures/constants in the Material expressions...
+	//Fill the texture or constant
+	if (!FillFbxTextureProperty(FbxSurfaceMaterial::sDiffuse, Material->BaseColor, FbxMaterial))
+	{
+		((FbxSurfaceLambert*)FbxMaterial)->Diffuse.Set(SetMaterialComponent(Material->BaseColor, true));
+	}
+	if (!FillFbxTextureProperty(FbxSurfaceMaterial::sEmissive, Material->EmissiveColor, FbxMaterial))
+	{
+		((FbxSurfaceLambert*)FbxMaterial)->Emissive.Set(SetMaterialComponent(Material->EmissiveColor, true));
+	}
 	
+	//Always set the ambient to zero since we dont have ambient in unreal we want to avoid default value in DCCs
+	((FbxSurfaceLambert*)FbxMaterial)->Ambient.Set(FbxDouble3(0.0, 0.0, 0.0));
+
+	//Set the Normal map only if there is a texture sampler
+	FillFbxTextureProperty(FbxSurfaceMaterial::sNormalMap, Material->Normal, FbxMaterial);
+
+	if (Material->BlendMode == BLEND_Translucent)
+	{
+		if (!FillFbxTextureProperty(FbxSurfaceMaterial::sTransparentColor, Material->Opacity, FbxMaterial))
+		{
+			FbxDouble3 OpacityValue((FbxDouble)(Material->Opacity.Constant), (FbxDouble)(Material->Opacity.Constant), (FbxDouble)(Material->Opacity.Constant));
+			((FbxSurfaceLambert*)FbxMaterial)->TransparentColor.Set(OpacityValue);
+		}
+		if (!FillFbxTextureProperty(FbxSurfaceMaterial::sTransparencyFactor, Material->OpacityMask, FbxMaterial))
+		{
+			((FbxSurfaceLambert*)FbxMaterial)->TransparencyFactor.Set(Material->OpacityMask.Constant);
+		}
+	}
+
 	FbxMaterials.Add(Material, FbxMaterial);
 	
 	return FbxMaterial;
@@ -1111,13 +1192,29 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, AMatineeActor* InMatineeActor,
 		// this doesn't work with skeletalmeshcomponent
 		FbxNode* ParentNode = FindActor(ParentActor);
 		FVector ActorLocation, ActorRotation, ActorScale;
-		
+
+		// For cameras and lights: always add a Y-pivot rotation to get the correct coordinate system.
+		FTransform RotationDirectionConvert = FTransform::Identity;
+		if (Actor->IsA(ACameraActor::StaticClass()) || Actor->IsA(ALight::StaticClass()))
+		{
+			if (Actor->IsA(ACameraActor::StaticClass()))
+			{
+				FRotator Rotator(0.0f, 0.0f, 90.0f);
+				RotationDirectionConvert = FTransform(Rotator);
+			}
+			else if (Actor->IsA(ALight::StaticClass()))
+			{
+				FRotator Rotator(0.0f, -90.0f, 0.0f);
+				RotationDirectionConvert = FTransform(Rotator);
+			}
+		}
+
 		//If the parent is the root or is not export use the root node as the parent
 		if (bKeepHierarchy && ParentNode)
 		{
 			// Set the default position of the actor on the transforms
 			// The transformation is different from FBX's Z-up: invert the Y-axis for translations and the Y/Z angle values in rotations.
-			const FTransform RelativeTransform = Actor->GetTransform().GetRelativeTransform(ParentActor->GetTransform());
+			const FTransform RelativeTransform = RotationDirectionConvert * Actor->GetTransform().GetRelativeTransform(ParentActor->GetTransform());
 			ActorLocation = RelativeTransform.GetTranslation();
 			ActorRotation = RelativeTransform.GetRotation().Euler();
 			ActorScale = RelativeTransform.GetScale3D();
@@ -1152,32 +1249,6 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, AMatineeActor* InMatineeActor,
 		ActorNode->LclRotation.Set(Converter.ConvertToFbxRot(ActorRotation));
 		ActorNode->LclScaling.Set(Converter.ConvertToFbxScale(ActorScale));
 	
-		// For cameras and lights: always add a Y-pivot rotation to get the correct coordinate system.
-		if (Actor->IsA(ACameraActor::StaticClass()) || Actor->IsA(ALight::StaticClass()))
-		{
-			FString FbxPivotNodeName = GetActorNodeName(Actor, NULL);
-
-			if (FbxPivotNodeName == FbxNodeName)
-			{
-				FbxPivotNodeName += TEXT("_pivot");
-			}
-
-			FbxNode* PivotNode = FbxNode::Create(Scene, TCHAR_TO_UTF8(*FbxPivotNodeName));
-			PivotNode->LclRotation.Set(FbxVector4(90, 0, -90));
-
-			if (Actor->IsA(ACameraActor::StaticClass()))
-			{
-				PivotNode->SetPostRotation(FbxNode::eSourcePivot, FbxVector4(0, -90, 0));
-			}
-			else if (Actor->IsA(ALight::StaticClass()))
-			{
-				PivotNode->SetPostRotation(FbxNode::eSourcePivot, FbxVector4(-90, 0, 0));
-			}
-			ActorNode->AddChild(PivotNode);
-
-			ActorNode = PivotNode;
-		}
-
 		if( bExportComponents )
 		{
 			TInlineComponentArray<UActorComponent*> ActorComponents;
@@ -1187,12 +1258,19 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, AMatineeActor* InMatineeActor,
 			for( int32 ComponentIndex = 0; ComponentIndex < ActorComponents.Num(); ++ComponentIndex )
 			{
 				UActorComponent* Component = ActorComponents[ComponentIndex];
+				USceneComponent* SceneComp = CastChecked<USceneComponent>(Component);
+
+				if (SceneComp && SceneComp->bHiddenInGame)
+				{
+					//Skip hidden component like camera mesh or other editor helper
+					continue;
+				}
 
 				UStaticMeshComponent* StaticMeshComp = Cast<UStaticMeshComponent>( Component );
 				USkeletalMeshComponent* SkelMeshComp = Cast<USkeletalMeshComponent>( Component );
 				UChildActorComponent* ChildActorComp = Cast<UChildActorComponent>( Component );
 
-				if( StaticMeshComp && StaticMeshComp->StaticMesh )
+				if( StaticMeshComp && StaticMeshComp->StaticMesh)
 				{
 					ComponentsToExport.Add( StaticMeshComp );
 				}
@@ -1200,12 +1278,19 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, AMatineeActor* InMatineeActor,
 				{
 					ComponentsToExport.Add( SkelMeshComp );
 				}
+				else if (Component->IsA(UCameraComponent::StaticClass()))
+				{
+					ComponentsToExport.Add(Component);
+				}
+				else if (Component->IsA(ULightComponent::StaticClass()))
+				{
+					ComponentsToExport.Add(Component);
+				}
 				else if (ChildActorComp && ChildActorComp->ChildActor)
 				{
 					ComponentsToExport.Add(ChildActorComp);
 				}
 			}
-
 
 			for( int32 CompIndex = 0; CompIndex < ComponentsToExport.Num(); ++CompIndex )
 			{
@@ -1219,19 +1304,34 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, AMatineeActor* InMatineeActor,
 					// This actor has multiple components
 					// create a child node under the actor for each component
 					FbxNode* CompNode = FbxNode::Create(Scene, TCHAR_TO_UTF8(*Component->GetName()));
-
+					
 					if( SceneComp != Actor->GetRootComponent() )
 					{
 						// Transform is relative to the root component
-						const FTransform RelativeTransform = SceneComp->GetComponentToWorld().GetRelativeTransform(Actor->GetTransform());
+						
+						RotationDirectionConvert = FTransform::Identity;
+						// For cameras and lights: always add a Y-pivot rotation to get the correct coordinate system.
+						if (Component->IsA(UCameraComponent::StaticClass()) || Component->IsA(ULightComponent::StaticClass()))
+						{
+							if (Component->IsA(UCameraComponent::StaticClass()))
+							{
+								FRotator Rotator(0.0f, 0.0f, 90.0f);
+								RotationDirectionConvert = FTransform(Rotator);
+							}
+							else if (Component->IsA(ULightComponent::StaticClass()))
+							{
+								FRotator Rotator(0.0f, -90.0f, 0.0f);
+								RotationDirectionConvert = FTransform(Rotator);
+							}
+						}
+						const FTransform RelativeTransform = RotationDirectionConvert * SceneComp->GetComponentToWorld().GetRelativeTransform(Actor->GetTransform());
 						CompNode->LclTranslation.Set(Converter.ConvertToFbxPos(RelativeTransform.GetTranslation()));
 						CompNode->LclRotation.Set(Converter.ConvertToFbxRot(RelativeTransform.GetRotation().Euler()));
 						CompNode->LclScaling.Set(Converter.ConvertToFbxScale(RelativeTransform.GetScale3D()));
 					}
 
-					ActorNode->AddChild(CompNode);
-
 					ExportNode = CompNode;
+					ActorNode->AddChild(CompNode);
 				}
 
 				UStaticMeshComponent* StaticMeshComp = Cast<UStaticMeshComponent>( Component );
@@ -1257,6 +1357,18 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, AMatineeActor* InMatineeActor,
 				else if (SkelMeshComp && SkelMeshComp->SkeletalMesh)
 				{
 					ExportSkeletalMeshComponent(SkelMeshComp, *SkelMeshComp->GetName(), ExportNode);
+				}
+				else if (Component->IsA(UCameraComponent::StaticClass()))
+				{
+					FbxCamera* Camera = FbxCamera::Create(Scene, TCHAR_TO_UTF8(*Component->GetName()));
+					FillFbxCameraAttribute(ActorNode, Camera, Cast<UCameraComponent>(Component));
+					ExportNode->SetNodeAttribute(Camera);
+				}
+				else if (Component->IsA(ULightComponent::StaticClass()))
+				{
+					FbxLight* Light = FbxLight::Create(Scene, TCHAR_TO_UTF8(*Component->GetName()));
+					FillFbxLightAttribute(Light, ActorNode, Cast<ULightComponent>(Component));
+					ExportNode->SetNodeAttribute(Light);
 				}
 				else if (ChildActorComp && ChildActorComp->ChildActor)
 				{
@@ -2005,7 +2117,8 @@ FbxNode* FFbxExporter::ExportStaticMeshToFbx(const UStaticMesh* StaticMesh, int3
 			}
 			check(UVsLayer);
 
-			const char* UVChannelName = ""; // actually UTF8 as required by Fbx, but can't use UE4's UTF8CHAR type because that's a uint8 aka *unsigned* char
+			FString UVChannelNameBuilder = TEXT("UVmap_") + FString::FromInt(TexCoordSourceIndex);
+			const char* UVChannelName = TCHAR_TO_UTF8(*UVChannelNameBuilder); // actually UTF8 as required by Fbx, but can't use UE4's UTF8CHAR type because that's a uint8 aka *unsigned* char
 			if ((LightmapUVChannel >= 0) || ((LightmapUVChannel == -1) && (TexCoordSourceIndex == StaticMesh->LightMapCoordinateIndex)))
 			{
 				UVChannelName = "LightMapUV";
@@ -2320,8 +2433,8 @@ void FFbxExporter::ExportSplineMeshToFbx(const USplineMeshComponent* SplineMeshC
 			Mesh->CreateLayer();
 			UVsLayer = Mesh->GetLayer(TexCoordSourceIndex);
 		}
-
-		const char* UVChannelName = ""; // actually UTF8 as required by Fbx, but can't use UE4's UTF8CHAR type because that's a uint8 aka *unsigned* char
+		FString UVChannelNameBuilder = TEXT("UVmap_") + FString::FromInt(TexCoordSourceIndex);
+		const char* UVChannelName = TCHAR_TO_UTF8(*UVChannelNameBuilder); // actually UTF8 as required by Fbx, but can't use UE4's UTF8CHAR type because that's a uint8 aka *unsigned* char
 		if (TexCoordSourceIndex == StaticMesh->LightMapCoordinateIndex)
 		{
 			UVChannelName = "LightMapUV";

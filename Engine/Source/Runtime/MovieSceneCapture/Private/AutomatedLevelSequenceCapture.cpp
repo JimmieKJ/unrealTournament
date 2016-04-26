@@ -1,10 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneCapturePCH.h"
 
 #include "LevelSequencePlayer.h"
 #include "AutomatedLevelSequenceCapture.h"
 #include "ErrorCodes.h"
+#include "SceneViewport.h"
 #include "ActiveMovieSceneCaptures.h"
 
 UAutomatedLevelSequenceCapture::UAutomatedLevelSequenceCapture(const FObjectInitializer& Init)
@@ -35,13 +36,7 @@ void UAutomatedLevelSequenceCapture::SetLevelSequenceAsset(FString AssetPath)
 	LevelSequenceAsset = MoveTemp(AssetPath);
 }
 
-void UAutomatedLevelSequenceCapture::SetLevelSequenceActor(ALevelSequenceActor* InActor)
-{
-	LevelSequenceActor = InActor;
-	LevelSequenceActorId = LevelSequenceActor.GetUniqueID().GetGuid();
-}
-
-void UAutomatedLevelSequenceCapture::Initialize(TWeakPtr<FSceneViewport> InViewport)
+void UAutomatedLevelSequenceCapture::Initialize(TSharedPtr<FSceneViewport> InViewport, int32 PIEInstance)
 {
 	// Apply command-line overrides from parent class first. This needs to be called before setting up the capture strategy with the desired frame rate.
 	Super::Initialize(InViewport);
@@ -52,7 +47,6 @@ void UAutomatedLevelSequenceCapture::Initialize(TWeakPtr<FSceneViewport> InViewp
 		if( FParse::Value( FCommandLine::Get(), TEXT( "-LevelSequence=" ), LevelSequenceAssetPath ) )
 		{
 			LevelSequenceAsset.SetPath( LevelSequenceAssetPath );
-			LevelSequenceActorId = FGuid();
 		}
 
 		int32 StartFrameOverride;
@@ -82,9 +76,6 @@ void UAutomatedLevelSequenceCapture::Initialize(TWeakPtr<FSceneViewport> InViewp
 		}
 	}
 
-	// Ensure the LevelSequence is up to date with the LevelSequenceActorId (Level sequence is only there for a nice UI)
-	LevelSequenceActor = FUniqueObjectGuid(LevelSequenceActorId);
-
 	ALevelSequenceActor* Actor = LevelSequenceActor.Get();
 
 	// If we don't have a valid actor, attempt to find a level sequence actor in the world that references this asset
@@ -95,7 +86,7 @@ void UAutomatedLevelSequenceCapture::Initialize(TWeakPtr<FSceneViewport> InViewp
 			ULevelSequence* Asset = Cast<ULevelSequence>( LevelSequenceAsset.TryLoad() );
 			if( Asset != nullptr )
 			{
-				for( auto It = TActorIterator<ALevelSequenceActor>( InViewport.Pin()->GetClient()->GetWorld() ); It; ++It )
+				for( auto It = TActorIterator<ALevelSequenceActor>( InViewport->GetClient()->GetWorld() ); It; ++It )
 				{
 					if( It->LevelSequence == LevelSequenceAsset )
 					{
@@ -110,6 +101,25 @@ void UAutomatedLevelSequenceCapture::Initialize(TWeakPtr<FSceneViewport> InViewp
 		}
 	}
 
+	if (!Actor)
+	{
+		ULevelSequence* Asset = Cast<ULevelSequence>(LevelSequenceAsset.TryLoad());
+		if (Asset)
+		{
+			// Spawn a new actor
+			Actor = GWorld->SpawnActor<ALevelSequenceActor>();
+			Actor->SetSequence(Asset);
+			// Ensure it doesn't loop (-1 is indefinite)
+			Actor->PlaybackSettings.LoopCount = 0;
+		
+			LevelSequenceActor = Actor;
+		}
+		else
+		{
+			//FPlatformMisc::RequestExit(FMovieSceneCaptureExitCodes::AssetNotFound);
+		}
+	}
+
 	if (Actor)
 	{
 		// Make sure we're not playing yet (in case AutoPlay was called from BeginPlay)
@@ -118,18 +128,13 @@ void UAutomatedLevelSequenceCapture::Initialize(TWeakPtr<FSceneViewport> InViewp
 			Actor->SequencePlayer->Stop();
 		}
 		Actor->bAutoPlay = false;
-
-		// Bind to the event so we know when to capture a frame
-		if( Actor->SequencePlayer != nullptr )
-		{
-			OnPlayerUpdatedBinding = Actor->SequencePlayer->OnSequenceUpdated().AddUObject( this, &UAutomatedLevelSequenceCapture::SequenceUpdated );
-		}
 	}
 
-	CaptureState = ELevelSequenceCaptureState::DelayBeforeWarmUp;
+	CaptureState = ELevelSequenceCaptureState::Setup;
 	RemainingDelaySeconds = FMath::Max( 0.0f, DelayBeforeWarmUp );
 	CaptureStrategy = MakeShareable(new FFixedTimeStepCaptureStrategy(Settings.FrameRate));
 }
+
 
 
 void UAutomatedLevelSequenceCapture::SetupFrameRange()
@@ -166,10 +171,14 @@ void UAutomatedLevelSequenceCapture::SetupFrameRange()
 				if( bUseCustomEndFrame )
 				{
 					PlaybackEndFrame = FMath::Max( PlaybackStartFrame, Settings.bUseRelativeFrameNumbers ? ( SequenceEndFrame + EndFrame ) : EndFrame );
-				}
 
-				// We always add 1 to the number of frames we want to capture, because we want to capture both the start and end frames (which if the play range is 0, would still yield a single frame)
-				this->FrameCount = ( PlaybackEndFrame - PlaybackStartFrame ) + 1;
+					// We always add 1 to the number of frames we want to capture, because we want to capture both the start and end frames (which if the play range is 0, would still yield a single frame)
+					this->FrameCount = ( PlaybackEndFrame - PlaybackStartFrame ) + 1;
+				}
+				else
+				{
+					FrameCount = 0;
+				}
 
 				RemainingWarmUpFrames = FMath::Max( WarmUpFrameCount, 0 );
 				if( RemainingWarmUpFrames > 0 )
@@ -190,123 +199,83 @@ void UAutomatedLevelSequenceCapture::SetupFrameRange()
 
 void UAutomatedLevelSequenceCapture::Tick(float DeltaSeconds)
 {
-	const bool bAnyFramesToCapture = OutstandingFrameCount > 0;
-	Super::Tick(DeltaSeconds);
-
 	ALevelSequenceActor* Actor = LevelSequenceActor.Get();
 
-	if (!Actor)
+	if (!Actor || !Actor->SequencePlayer)
 	{
-		ULevelSequence* Asset = Cast<ULevelSequence>(LevelSequenceAsset.TryLoad());
-		if (Asset)
+		return;
+	}
+
+	// Setup the automated capture
+	if (CaptureState == ELevelSequenceCaptureState::Setup)
+	{
+		SetupFrameRange();
+		
+		// Bind to the event so we know when to capture a frame
+		OnPlayerUpdatedBinding = Actor->SequencePlayer->OnSequenceUpdated().AddUObject( this, &UAutomatedLevelSequenceCapture::SequenceUpdated );
+
+		CaptureState = ELevelSequenceCaptureState::DelayBeforeWarmUp;
+	}
+
+	bool bShouldPlaySequence = false;
+
+	// Then we'll just wait a little bit.  We'll delay the specified number of seconds before capturing to allow any
+	// textures to stream in or post processing effects to settle.
+	if( CaptureState == ELevelSequenceCaptureState::DelayBeforeWarmUp )
+	{
+		RemainingDelaySeconds -= DeltaSeconds;
+		if( RemainingDelaySeconds <= 0.0f )
 		{
-			// Spawn a new actor
-			Actor = GWorld->SpawnActor<ALevelSequenceActor>();
-			Actor->SetSequence(Asset);
-			// Ensure it doesn't loop (-1 is indefinite)
-			Actor->PlaybackSettings.LoopCount = 0;
-			
-			LevelSequenceActor = Actor;
+			RemainingDelaySeconds = 0.0f;
+
+			// Start warming up.  Even if we're not capturing yet, this will make sure we're rendering at a
+			// fixed frame rate.
+			StartWarmup();
+
+			// Wait a frame to go by after we've set the fixed time step, so that the animation starts
+			// playback at a consistent time
+			CaptureState = ELevelSequenceCaptureState::ReadyToWarmUp;
+		}
+	}
+	else if( CaptureState == ELevelSequenceCaptureState::ReadyToWarmUp )
+	{
+		Actor->SequencePlayer->Play();
+		CaptureState = ELevelSequenceCaptureState::WarmingUp;
+	}
+
+
+	if( CaptureState == ELevelSequenceCaptureState::WarmingUp )
+	{
+		// Count down our warm up frames
+		if( RemainingWarmUpFrames == 0 )
+		{
+			CaptureState = ELevelSequenceCaptureState::FinishedWarmUp;
+
+			// It's time to start capturing!
+			StartCapture();
+			CaptureThisFrame(LastSequenceUpdateDelta);
 		}
 		else
 		{
-			FPlatformMisc::RequestExit(FMovieSceneCaptureExitCodes::AssetNotFound);
+			// Not ready to capture just yet
+			--RemainingWarmUpFrames;
 		}
 	}
 
-	if (Actor && Actor->SequencePlayer)
+	if( bCapturing && !Actor->SequencePlayer->IsPlaying() )
 	{
-		// First off we'll stage the sequence.  This just means we'll play the first frame of the animation
-		// and then pause it immediately
-		if( CaptureState == ELevelSequenceCaptureState::Staging )
-		{
-			Actor->SequencePlayer->Play();
-			Actor->SequencePlayer->Pause();
-
-			CaptureState = ELevelSequenceCaptureState::DelayBeforeWarmUp;
-		}
-
-		// Then we'll just wait a little bit.  We'll delay the specified number of seconds before capturing to allow any
-		// textures to stream in or post processing effects to settle.
-		if( CaptureState == ELevelSequenceCaptureState::DelayBeforeWarmUp )
-		{
-			RemainingDelaySeconds -= DeltaSeconds;
-			if( RemainingDelaySeconds <= 0.0f )
-			{
-				RemainingDelaySeconds = 0.0f;
-
-				// Start warming up.  Even if we're not capturing yet, this will make sure we're rendering at a
-				// fixed frame rate.
-				StartWarmup();
-
-				// Wait a frame to go by after we've set the fixed time step, so that the animation starts
-				// playback at a consistent time
-				CaptureState = ELevelSequenceCaptureState::ReadyToWarmUp;
-			}
-		}
-		else if( CaptureState == ELevelSequenceCaptureState::ReadyToWarmUp )
-		{
-			Actor->SequencePlayer->Play();
-			CaptureState = ELevelSequenceCaptureState::WarmingUp;
-		}
-
-
-		if( CaptureState == ELevelSequenceCaptureState::WarmingUp )
-		{
-			// Count down our warm up frames
-			if( RemainingWarmUpFrames == 0 )
-			{
-				CaptureState = ELevelSequenceCaptureState::FinishedWarmUp;
-
-				// It's time to start capturing!
-				StartCapture();
-			}
-			else
-			{
-				// Not ready to capture just yet
-				--RemainingWarmUpFrames;
-			}
-		}
-
-
-		if( bAnyFramesToCapture && OutstandingFrameCount == 0 )
-		{
-			// If we hit this, then we've rendered out the last frame and can stop!
-			StopCapture();
-		}
+		Actor->SequencePlayer->OnSequenceUpdated().Remove( OnPlayerUpdatedBinding );
+		FinalizeWhenReady();
 	}
-}
-
-void UAutomatedLevelSequenceCapture::OnCaptureStopped()
-{
-	ALevelSequenceActor* Actor = LevelSequenceActor.Get();
-	if( Actor != nullptr )
-	{
-		if( Actor->SequencePlayer != nullptr )
-		{
-			Actor->SequencePlayer->OnSequenceUpdated().Remove( OnPlayerUpdatedBinding );
-		}
-	}
-
-	Close();
-	FPlatformMisc::RequestExit(0);
 }
 
 void UAutomatedLevelSequenceCapture::SequenceUpdated(const ULevelSequencePlayer& Player, float CurrentTime, float PreviousTime)
 {
-	if( bCapturing )
+	LastSequenceUpdateDelta = CurrentTime - PreviousTime;
+	if (bCapturing)
 	{
-		// Save the previous rendered frame
-		CaptureFrame( LastFrameDelta );
-
-		// Get ready to capture the next rendered frame
-		PrepareForScreenshot();
+		CaptureThisFrame(LastSequenceUpdateDelta);
 	}
-}
-
-void UAutomatedLevelSequenceCapture::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
-{
-	LevelSequenceActorId = LevelSequenceActor.GetUniqueID().GetGuid();
 }
 
 #endif

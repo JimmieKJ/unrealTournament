@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "BlueprintGraphPrivatePCH.h"
@@ -87,6 +87,12 @@ void UK2Node_AddComponent::AllocatePinsForExposedVariables()
 
 	UEdGraphPin* TransformPin = GetRelativeTransformPin();
 	TransformPin->SafeSetHidden(bHideTransformPins);
+}
+
+FName UK2Node_AddComponent::GetAddComponentFunctionName()
+{
+    static const FName AddComponentFunctionName(GET_FUNCTION_NAME_CHECKED(AActor, AddComponent));
+    return AddComponentFunctionName;
 }
 
 const UClass* UK2Node_AddComponent::GetSpawnedType() const
@@ -207,6 +213,9 @@ void UK2Node_AddComponent::DestroyNode()
 	UActorComponent* Template = GetTemplateFromNode();
 	if (Template != NULL)
 	{
+		// Save current template state - this is needed in order to ensure that we restore to the correct Outer in the case of a compile prior to the undo/redo action.
+		Template->Modify();
+
 		// Get the blueprint so we can remove it from it
 		UBlueprint* BlueprintObj = GetBlueprint();
 
@@ -413,6 +422,8 @@ void UK2Node_AddComponent::ExpandNode(class FKismetCompilerContext& CompilerCont
 		NewNode->AllocateDefaultPinsWithoutExposedVariables();
 
 		// function parameters
+		const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
+		CompilerContext.MovePinLinksToIntermediate(*FindPin(K2Schema->PN_Self), *NewNode->FindPin(K2Schema->PN_Self));
 		CompilerContext.MovePinLinksToIntermediate(*GetTemplateNamePinChecked(), *NewNode->GetTemplateNamePinChecked());
 		CompilerContext.MovePinLinksToIntermediate(*GetRelativeTransformPin(), *NewNode->GetRelativeTransformPin());
 		CompilerContext.MovePinLinksToIntermediate(*GetManualAttachmentPin(), *NewNode->GetManualAttachmentPin());

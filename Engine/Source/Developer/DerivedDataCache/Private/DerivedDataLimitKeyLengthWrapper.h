@@ -1,6 +1,7 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+#include "DerivedDataCacheUsageStats.h"
 
 /** 
  * A backend wrapper that limits the key size and uses hashing...in this case it wraps the payload and the payload contains the full key to verify the integrity of the hash
@@ -35,9 +36,15 @@ public:
 	 */
 	virtual bool CachedDataProbablyExists(const TCHAR* CacheKey) override
 	{
+		COOK_STAT(auto Timer = UsageStats.TimeProbablyExists());
 		FString NewKey;
 		ShortenKey(CacheKey, NewKey);
-		return InnerBackend->CachedDataProbablyExists(*NewKey);
+		bool Result = InnerBackend->CachedDataProbablyExists(*NewKey);
+		if (Result)
+		{
+			COOK_STAT(Timer.AddHit(0));
+		}
+		return Result;
 	}
 	/**
 	 * Synchronous retrieve of a cache item
@@ -46,14 +53,17 @@ public:
 	 * @param	OutData		Buffer to receive the results, if any were found
 	 * @return				true if any data was found, and in this case OutData is non-empty
 	 */
-	virtual bool GetCachedData(const TCHAR* CacheKey, TArray<uint8>& OutData, FCacheStatRecord* Stats) override
+	virtual bool GetCachedData(const TCHAR* CacheKey, TArray<uint8>& OutData) override
 	{
+		COOK_STAT(auto Timer = UsageStats.TimeGet());
+		int64 InnerGetCycles = 0;
+
 		FString NewKey;
 		bool bOk;
 		if (!ShortenKey(CacheKey, NewKey))
 		{
 			// no shortening needed
-			bOk = InnerBackend->GetCachedData(CacheKey, OutData, Stats);
+			bOk = InnerBackend->GetCachedData(CacheKey, OutData);
 			// look for old bug
 			if (FString(CacheKey).StartsWith(TEXT("TEXTURE2D_0002")))
 			{
@@ -71,7 +81,7 @@ public:
 		}
 		else
 		{
-			bOk = InnerBackend->GetCachedData(*NewKey, OutData, Stats);
+			bOk = InnerBackend->GetCachedData(*NewKey, OutData);
 			if (bOk)
 			{
 				int32 KeyLen = FCString::Strlen(CacheKey) + 1;
@@ -105,6 +115,10 @@ public:
 		{
 			OutData.Empty();
 		}
+		else
+		{
+			COOK_STAT(Timer.AddHit(OutData.Num()));
+		}
 		return bOk;
 	}
 	/**
@@ -114,17 +128,18 @@ public:
 	 * @param	InData		Buffer containing the data to cache, can be destroyed after the call returns, immediately
 	 * @param	bPutEvenIfExists	If true, then do not attempt skip the put even if CachedDataProbablyExists returns true
 	 */
-	virtual void PutCachedData(const TCHAR* CacheKey, TArray<uint8>& InData, bool bPutEvenIfExists, FCacheStatRecord* Stats) override
+	virtual void PutCachedData(const TCHAR* CacheKey, TArray<uint8>& InData, bool bPutEvenIfExists) override
 	{
+		COOK_STAT(auto Timer = UsageStats.TimePut());
 		if (!InnerBackend->IsWritable())
 		{
 			return; // no point in continuing down the chain
 		}
+		COOK_STAT(Timer.AddHit(InData.Num()));
 		FString NewKey;
 		if (!ShortenKey(CacheKey, NewKey))
 		{
-			// no shortening needed
-			InnerBackend->PutCachedData(CacheKey, InData, bPutEvenIfExists, Stats);
+			InnerBackend->PutCachedData(CacheKey, InData, bPutEvenIfExists);
 			return;
 		}
 		TArray<uint8> Data(InData);
@@ -133,7 +148,7 @@ public:
 		Data.AddUninitialized(KeyLen);
 		FCStringAnsi::Strcpy((char*)&Data[Data.Num() - KeyLen], KeyLen, TCHAR_TO_ANSI(CacheKey));
 		check(Data.Last()==0);
-		InnerBackend->PutCachedData(*NewKey, Data, bPutEvenIfExists, Stats);
+		InnerBackend->PutCachedData(*NewKey, Data, bPutEvenIfExists);
 	}
 
 	virtual void RemoveCachedData(const TCHAR* CacheKey, bool bTransient) override
@@ -146,7 +161,21 @@ public:
 		ShortenKey(CacheKey, NewKey);
 		return InnerBackend->RemoveCachedData(*NewKey, bTransient);
 	}
+
+	virtual void GatherUsageStats(TMap<FString, FDerivedDataCacheUsageStats>& UsageStatsMap, FString&& GraphPath) override
+	{
+		COOK_STAT(
+		{
+			UsageStatsMap.Add(GraphPath + TEXT(": LimitKeyLength"), UsageStats);
+			if (InnerBackend)
+			{
+				InnerBackend->GatherUsageStats(UsageStatsMap, GraphPath + TEXT(". 0"));
+			}
+		});
+	}
+
 private:
+	FDerivedDataCacheUsageStats UsageStats;
 
 	/** Shorten the cache key and return true if shortening was required **/
 	bool ShortenKey(const TCHAR* CacheKey, FString& Result)

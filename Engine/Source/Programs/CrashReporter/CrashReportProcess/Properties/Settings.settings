@@ -1,0 +1,45 @@
+﻿<?xml version='1.0' encoding='utf-8'?>
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="Tools.CrashReporter.CrashReportProcess.Properties" GeneratedClassName="Settings">
+  <Profiles />
+  <Settings>
+    <Setting Name="ProcessedReports" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">E:\Sites\CrashReporterFiles</Value>
+    </Setting>
+    <Setting Name="DaysToSunsetReport" Type="System.Int32" Scope="Application">
+      <Value Profile="(Default)">14</Value>
+    </Setting>
+    <Setting Name="CrashReportWebSite" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">CrashReporterUE4</Value>
+    </Setting>
+    <Setting Name="ProcessedVideos" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">F:\CrashReporterVideos</Value>
+    </Setting>
+    <Setting Name="DepotRoot" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">F:\depot</Value>
+    </Setting>
+    <Setting Name="InternalLandingZone" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">F:\InternalCrashReports\CrashReportRepository</Value>
+    </Setting>
+    <Setting Name="ExternalLandingZone" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">\\na-web-cluster.dmz.epicgames.net\crash_reporter\Rep</Value>
+    </Setting>
+    <Setting Name="InvalidReportsDirectory" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">F:\InvalidCrashReports</Value>
+    </Setting>
+    <Setting Name="DepotIndex" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">crash-01</Value>
+    </Setting>
+    <Setting Name="SyncBinariesFromDepot" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">Stream\UE4\Main\Engine\Binaries\Win64\MinidumpDiagnostics*</Value>
+    </Setting>
+    <Setting Name="SyncConfigFromDepot" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">Stream\UE4\Main\Engine\Config\...</Value>
+    </Setting>
+    <Setting Name="SyncThirdPartyFromDepot" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">Stream\UE4\Main\Engine\Binaries\ThirdParty\OpenSSL\...</Value>
+    </Setting>
+    <Setting Name="MDDBinariesFolderInDepot" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">Stream\UE4\Main\Engine\Binaries\Win64</Value>
+    </Setting>
+  </Settings>
+</SettingsFile>

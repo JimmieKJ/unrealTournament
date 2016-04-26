@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -111,4 +111,35 @@ public:
 //protected:
 	FShaderResourceParameter SrcTexture;
 	FShaderResourceParameter DestTexture;
+};
+
+template<uint32 ElementsPerThread>
+class TCopyDataCS : public FGlobalShader
+{
+	DECLARE_SHADER_TYPE(TCopyDataCS, Global);
+public:
+	TCopyDataCS() {}
+	TCopyDataCS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
+		: FGlobalShader(Initializer)
+	{
+		SrcBuffer.Bind(Initializer.ParameterMap, TEXT("SrcCopyBuffer"), SPF_Mandatory);
+		DestBuffer.Bind(Initializer.ParameterMap, TEXT("DestBuffer"), SPF_Mandatory);		
+	}
+
+	// FShader interface.
+	virtual bool Serialize(FArchive& Ar) override
+	{
+		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
+		Ar << SrcBuffer << DestBuffer;
+		return bShaderHasOutdatedParameters;
+	}
+
+	static bool ShouldCache(EShaderPlatform Platform)
+	{
+		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5);
+	}
+
+	//protected:
+	FShaderResourceParameter SrcBuffer;
+	FShaderResourceParameter DestBuffer;	
 };

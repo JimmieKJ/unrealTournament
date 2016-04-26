@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ProfilerPrivatePCH.h"
 #include "SEventGraphTooltip.h"
@@ -96,9 +96,9 @@ TSharedPtr<SToolTip> SEventGraphTooltip::GetTableCellTooltip( const FEventGraphS
 					.Padding( 2.0f )
 					[
 						SNew(SGridPanel)
-
-						// First row 
+					
 						//-----------------------------------------------------------------------------
+						// First row 
 						// Thread: [_ThreadName]
 						+SGridPanel::Slot(0,0)
 						.Padding( 2.0f )
@@ -108,279 +108,291 @@ TSharedPtr<SToolTip> SEventGraphTooltip::GetTableCellTooltip( const FEventGraphS
 							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.TooltipBold") )
 						]
 						+SGridPanel::Slot(1,0)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text( FText::FromName(EventSample->_ThreadName ))
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
-							]
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text( FText::FromName(EventSample->_ThreadName ))
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
+						]
 
 						// Event: [_StatName]
 						+SGridPanel::Slot(2,0)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("TT_Event", "Event:"))
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.TooltipBold") )
-							]
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("TT_Event", "Event:"))
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.TooltipBold") )
+						]
 						+SGridPanel::Slot(3,0)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text( FText::FromString(EventSample->GetShortEventName()) )
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
-							]
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text( FText::FromString(EventSample->GetShortEventName()) )
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
+						]
 
 						// Group: [_GroupName]
 						+SGridPanel::Slot(4,0)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("TT_Group", "Group:"))
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.TooltipBold") )
-							]
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("TT_Group", "Group:"))
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.TooltipBold") )
+						]
 						+SGridPanel::Slot(5,0)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text( FText::FromName(EventSample->_GroupName) )
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
-							]
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text( FText::FromName(EventSample->_GroupName) )
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
+						]
 
 						//-----------------------------------------------------------------------------
 						// Second row
 						// Inclusive time: 
 						+SGridPanel::Slot(0,1)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("TT_InclusiveTime", "Inclusive time:"))
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.TooltipBold") )
-							]
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("TT_InclusiveTime", "Inclusive time:"))
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.TooltipBold") )
+						]
 						// [InclusiveTimeMS] ms
 						+SGridPanel::Slot(1,1)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::InclusiveTimeMS)) )
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
-							]
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::InclusiveTimeMS)) )
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
+						]
 						// ([_InclusiveTimePct] % of the caller)
 						+SGridPanel::Slot(2,1)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text( InclusiveTimePctCaller )
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
-							]
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text( InclusiveTimePctCaller )
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
+						]
 						// Average inclusive time per call of all instances for this event, in milliseconds
 						+SGridPanel::Slot(3,1)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("TT_AvgIncTimePerCall", "Avg inc time per call:"))
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.TooltipBold") )
-							]
-						// [_AvgInclusiveTimePerCallMS] ms
-						+SGridPanel::Slot(4,1)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::AvgInclusiveTimePerCallMS)) )
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
-							]
-
-						// Third row
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("TT_AvgIncTimePerCall", "Avg inc time per call:"))
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.TooltipBold") )
+						]
+						
 						//-----------------------------------------------------------------------------
+						// Third row
 						// 		_ThreadDurationMS, (_ThreadPct); /** Percent of inclusive time spent by this event in the particular thread. */
 						// 		_FrameDurationMS, (_FramePct); /** Percent of inclusive time spent by this event in the particular frame. */
 						+SGridPanel::Slot(0,2)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("TT_PctOfThread", "% of thread:"))
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.TooltipBold") )
-							]
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("TT_PctOfThread", "% of thread:"))
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.TooltipBold") )
+						]
 						// [ThreadPct] %
 						+SGridPanel::Slot(1,2)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::ThreadPct)) )
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
-							]
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::ThreadPct)) )
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
+						]
 
 						+SGridPanel::Slot(3,2)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("TT_PctOfFrame", "% of frame:"))
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.TooltipBold") )
-							]
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("TT_PctOfFrame", "% of frame:"))
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.TooltipBold") )
+						]
 						// [FramePct] %
 						+SGridPanel::Slot(4,2)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::FramePct)) )
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
-							]
-
-						//-----------------------------------------------------------------------------
-						// Third row
-						// _MinInclusiveTimeMS, _MaxInclusiveTimeMS, _AvgInclusiveTimeMS;
-						// Min inclusive time: 
-						+SGridPanel::Slot(0,3)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("TT_MinMaxAvgIncTime", "Min/Max/Avg inclusive time:"))
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.TooltipBold") )
-							]
-						// [_MinInclusiveTimeMS] ms
-						+SGridPanel::Slot(1,3)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::MinInclusiveTimeMS)) )
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
-							]
-						// [_MaxInclusiveTimeMS] ms
-						+SGridPanel::Slot(2,3)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::MaxInclusiveTimeMS)) )
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
-							]
-						// [_AvgInclusiveTimeMS] ms
-						+SGridPanel::Slot(3,3)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::AvgInclusiveTimeMS)) )
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
-							]
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::FramePct)) )
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
+						]
 
 						//-----------------------------------------------------------------------------
 						// Fourth row
-						// _ExclusiveTimeMS, _ExclusiveTimePct;
-						// Inclusive time: 
-						+SGridPanel::Slot(0,4)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("TT_ExclusiveTime", "Exclusive time:"))
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.TooltipBold") )
-							]
-						// [_ExclusiveTimeMS] ms
-						+SGridPanel::Slot(1,4)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::ExclusiveTimeMS)) )
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
-							]
-						// ([_ExclusiveTimePct] % of this call's inc time)
-						+SGridPanel::Slot(2,4)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text( ExclusiveTimePctCaller )
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
-							]
+						// _MinInclusiveTimeMS, _MaxInclusiveTimeMS, _AvgInclusiveTimeMS;
+						// Min inclusive time: 
+						+SGridPanel::Slot(0,3)
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("TT_MinMaxAvgIncTime", "Min/Max/Avg inclusive time:"))
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.TooltipBold") )
+						]
+						// [_MinInclusiveTimeMS] ms
+						+SGridPanel::Slot(1,3)
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::MinInclusiveTimeMS)) )
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
+						]
+						// [_MaxInclusiveTimeMS] ms
+						+SGridPanel::Slot(2,3)
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::MaxInclusiveTimeMS)) )
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
+						]
+						// [_AvgInclusiveTimeMS] ms
+						+SGridPanel::Slot(3,3)
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::AvgInclusiveTimeMS)) )
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
+						]
 
 						//-----------------------------------------------------------------------------
 						// Fifth row
+						// _ExclusiveTimeMS, _ExclusiveTimePct;
+						// Inclusive time: 
+						+SGridPanel::Slot(0,4)
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("TT_ExclusiveTime", "Exclusive time:"))
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.TooltipBold") )
+						]
+						// [_ExclusiveTimeMS] ms
+						+SGridPanel::Slot(1,4)
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::ExclusiveTimeMS)) )
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
+						]
+						// ([_ExclusiveTimePct] % of this call's inc time)
+						+SGridPanel::Slot(2,4)
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text( ExclusiveTimePctCaller )
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
+						]
+
+						//-----------------------------------------------------------------------------
+						// Sixth row
 						// _NumCallsPerFrame, _AvgNumCallsPerFrame;
 						// Inclusive time: 
 						+SGridPanel::Slot(0,5)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("TT_NulCallsPerFrame", "Num calls per frame:"))
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.TooltipBold") )
-							]
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("TT_NulCallsPerFrame", "Num calls per frame:"))
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.TooltipBold") )
+						]
 						// [_NumCallsPerFrame]
 						+SGridPanel::Slot(1,5)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::NumCallsPerFrame)) )
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
-							]
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::NumCallsPerFrame)) )
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
+						]
 
-						// Inclusive time: 
-						+SGridPanel::Slot(2,5)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("TT_AvgNumCallsPerFrame", "Avg num calls per frame:"))
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.TooltipBold") )
-							]
-						// [_AvgNumCallsPerFrame]
-						+SGridPanel::Slot(3,5)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::AvgNumCallsPerFrame)) )
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
-							]
 
 						//-----------------------------------------------------------------------------
-						// Sixth and seventh row
+						// Seventh row
+						// _MinNumCallsPerFrame, _MaxNumCallsPerFrame, _AvgNumCallsPerFrame;
+						// Min inclusive time: 
+						+SGridPanel::Slot( 0, 6 )
+						.Padding( 2.0f )
+						[
+							SNew( STextBlock )
+							.Text( LOCTEXT( "TT_MinMaxAvgNumCallsPerFrame", "Min/Max/Avg calls per frame:" ) )
+							.TextStyle( FEditorStyle::Get(), TEXT( "Profiler.TooltipBold" ) )
+						]
+						// [_MinNumCallsPerFrame]
+						+ SGridPanel::Slot( 1, 6 )
+						.Padding( 2.0f )
+						[
+							SNew( STextBlock )
+							.Text( FText::FromString( EventSample->GetFormattedValue( EEventPropertyIndex::MinNumCallsPerFrame ) ) )
+							.TextStyle( FEditorStyle::Get(), TEXT( "Profiler.Tooltip" ) )
+						]
+						// [_MaxNumCallsPerFrame]
+						+ SGridPanel::Slot( 2, 6 )
+						.Padding( 2.0f )
+						[
+							SNew( STextBlock )
+							.Text( FText::FromString( EventSample->GetFormattedValue( EEventPropertyIndex::MaxNumCallsPerFrame ) ) )
+							.TextStyle( FEditorStyle::Get(), TEXT( "Profiler.Tooltip" ) )
+						]
+						// [_AvgNumCallsPerFrame]
+						+ SGridPanel::Slot( 3, 6 )
+						.Padding( 2.0f )
+						[
+							SNew( STextBlock )
+							.Text( FText::FromString( EventSample->GetFormattedValue( EEventPropertyIndex::AvgNumCallsPerFrame ) ) )
+							.TextStyle( FEditorStyle::Get(), TEXT( "Profiler.Tooltip" ) )
+						]
+						
+						//-----------------------------------------------------------------------------
+						// Eighth row
 						// _ThreadDurationMS, _FrameDurationMS, _ThreadToFramePct
 						// Thread duration: 
-						+SGridPanel::Slot(0,6)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("TT_ThreadDuration", "Thread duration:"))
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.TooltipBold") )
-							]
+						+SGridPanel::Slot(0,7)
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("TT_ThreadDuration", "Thread duration:"))
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.TooltipBold") )
+						]
 						// [_ThreadDurationMS]
-						+SGridPanel::Slot(1,6)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::ThreadDurationMS)) )
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
-							]
+						+SGridPanel::Slot(1,7)
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::ThreadDurationMS)) )
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
+						]
 
 						// Frame duration: 
-						+SGridPanel::Slot(2,6)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("TT_FrameDuration", "Frame duration:"))
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.TooltipBold") )
-							]
+						+SGridPanel::Slot(2,7)
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("TT_FrameDuration", "Frame duration:"))
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.TooltipBold") )
+						]
 						// [_FrameDurationMS]
-						+SGridPanel::Slot(3,6)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::FrameDurationMS)) )
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
-							]
+						+SGridPanel::Slot(3,7)
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::FrameDurationMS)) )
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
+						]
 
 						/** Percent of time spent in the thread in relation to the entire frame. */
 						// Thread -> Frame: 
-						+SGridPanel::Slot(4,6)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("ThreadToFrame", "Thread to Frame:"))
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.TooltipBold") )
-							]
+						+SGridPanel::Slot(4,7)
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("ThreadToFrame", "Thread to Frame:"))
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.TooltipBold") )
+						]
 						// [_FrameDurationMS]
-						+SGridPanel::Slot(5,6)
-							.Padding( 2.0f )
-							[
-								SNew(STextBlock)
-								.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::ThreadToFramePct)) )
-								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
-							]
+						+SGridPanel::Slot(5,7)
+						.Padding( 2.0f )
+						[
+							SNew(STextBlock)
+							.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::ThreadToFramePct)) )
+							.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
+						]
 					]
 
 				+SVerticalBox::Slot()

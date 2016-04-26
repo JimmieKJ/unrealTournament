@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -12,6 +12,10 @@ class FSequencerEditTool
 	: public ISequencerEditTool
 {
 public:
+
+	FSequencerEditTool(FSequencer& InSequencer)
+		: Sequencer(InSequencer)
+	{ }
 
 	/** Virtual destructor. */
 	~FSequencerEditTool() { }
@@ -60,30 +64,18 @@ public:
 		return LayerId;
 	}
 
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override
-	{
-		// do nothing
-	}
-
 	virtual FCursorReply OnCursorQuery(const FGeometry& MyGeometry, const FPointerEvent& CursorEvent) const override
 	{
 		return FCursorReply::Unhandled();
 	}
 
-	/** Get the current active hotspot */
-	virtual TSharedPtr<ISequencerHotspot> GetHotspot() const override
+	virtual ISequencer& GetSequencer() const override
 	{
-		return Hotspot;
-	}
-
-	/** Set the hotspot to something else */
-	virtual void SetHotspot(TSharedPtr<ISequencerHotspot> NewHotspot) override
-	{
-		Hotspot = MoveTemp(NewHotspot);
+		return Sequencer;
 	}
 
 protected:
 
-	/** The current hotspot that can be set from anywhere to initiate drags */
-	TSharedPtr<ISequencerHotspot> Hotspot;
+	/** This edit tool's sequencer */
+	FSequencer& Sequencer;
 };

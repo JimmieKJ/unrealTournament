@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SoundCueGraphSchema.cpp
@@ -15,6 +15,8 @@
 #include "GraphEditor.h"
 #include "Sound/SoundCue.h"
 #include "Engine/Selection.h"
+#include "Sound/SoundNodeDialoguePlayer.h"
+#include "Sound/DialogueWave.h"
 
 #define LOCTEXT_NAMESPACE "SoundCueSchema"
 
@@ -117,9 +119,14 @@ UEdGraphNode* FSoundCueGraphSchemaAction_NewFromSelected::PerformAction(class UE
 	}
 
 	TArray<USoundWave*> SelectedWaves;
+	TArray<UDialogueWave*> SelectedDialogues;
 	TArray<USoundNode*> CreatedPlayers;
+
 	GEditor->GetSelectedObjects()->GetSelectedObjects<USoundWave>(SelectedWaves);
+	GEditor->GetSelectedObjects()->GetSelectedObjects<UDialogueWave>(SelectedDialogues);
+
 	FSoundCueEditorUtilities::CreateWaveContainers(SelectedWaves, SoundCue, CreatedPlayers, WaveStartLocation);
+	FSoundCueEditorUtilities::CreateDialogueContainers(SelectedDialogues, SoundCue, CreatedPlayers, WaveStartLocation);
 
 	if (SoundNodeClass)
 	{
@@ -377,6 +384,8 @@ void USoundCueGraphSchema::BreakPinLinks(UEdGraphPin& TargetPin, bool bSendsNode
 
 void USoundCueGraphSchema::DroppedAssetsOnGraph(const TArray<FAssetData>& Assets, const FVector2D& GraphPosition, UEdGraph* Graph) const
 {
+	//////////////////////////////////////////////////////////////////////////
+	// Handle dropped USoundWaves
 	TArray<USoundWave*> Waves;
 	for (int32 AssetIdx = 0; AssetIdx < Assets.Num(); ++AssetIdx)
 	{
@@ -399,6 +408,139 @@ void USoundCueGraphSchema::DroppedAssetsOnGraph(const TArray<FAssetData>& Assets
 		TArray<USoundNode*> CreatedPlayers;
 		FSoundCueEditorUtilities::CreateWaveContainers(Waves, SoundCue, CreatedPlayers, GraphPosition);
 	}
+
+	//////////////////////////////////////////////////////////////////////////
+	// Handle dropped UDialogueWaves
+	TArray<UDialogueWave*> Dialogues;
+	for (int32 AssetIdx = 0; AssetIdx < Assets.Num(); ++AssetIdx)
+	{
+		UDialogueWave* DialogueWave = Cast<UDialogueWave>(Assets[AssetIdx].GetAsset());
+		if (DialogueWave)
+		{
+			Dialogues.Add(DialogueWave);
+		}
+	}
+
+	if (Dialogues.Num() > 0)
+	{
+		const FScopedTransaction Transaction(LOCTEXT("SoundCueEditorDropDialogue", "Sound Cue Editor: Drag and Drop Dialogue Wave"));
+
+		USoundCueGraph* SoundCueGraph = CastChecked<USoundCueGraph>(Graph);
+		USoundCue* SoundCue = SoundCueGraph->GetSoundCue();
+
+		SoundCueGraph->Modify();
+
+		TArray<USoundNode*> CreatedPlayers;
+		FSoundCueEditorUtilities::CreateDialogueContainers(Dialogues, SoundCue, CreatedPlayers, GraphPosition);
+	}
+}
+
+void USoundCueGraphSchema::DroppedAssetsOnNode(const TArray<FAssetData>& Assets, const FVector2D& GraphPosition, UEdGraphNode* Node) const
+{
+	USoundCueGraphNode* SoundCueGraphNode = CastChecked<USoundCueGraphNode>(Node);
+	USoundCueGraph* SoundCueGraph = CastChecked<USoundCueGraph>(Node->GetGraph());
+	USoundCue* SoundCue = SoundCueGraph->GetSoundCue();
+
+	TArray<USoundWave*> Waves;
+	TArray<UDialogueWave*> Dialogues;
+	for (int32 AssetIdx = 0; AssetIdx < Assets.Num(); ++AssetIdx)
+	{
+		USoundWave* SoundWav = Cast<USoundWave>(Assets[AssetIdx].GetAsset());
+		if (SoundWav)
+		{
+			Waves.Add(SoundWav);
+		}
+		else
+		{
+			UDialogueWave* Dialogue = Cast<UDialogueWave>(Assets[AssetIdx].GetAsset());
+			if (Dialogue)
+			{
+				Dialogues.Add(Dialogue);
+			}
+		}
+	}
+
+	USoundNodeWavePlayer* SoundNodeWavePlayer = Cast<USoundNodeWavePlayer>(SoundCueGraphNode->SoundNode);
+	if (SoundNodeWavePlayer != nullptr)
+	{
+		if (Waves.Num() > 0)
+		{
+			if (Waves.Num() >= 1)
+			{
+				SoundCueGraph->Modify();
+				SoundNodeWavePlayer->SetSoundWave(Waves[0]);
+			}
+
+			for (int32 Index = 1; Index < Waves.Num(); Index++)
+			{
+				TArray<USoundNode*> CreatedPlayers;
+				FSoundCueEditorUtilities::CreateWaveContainers(Waves, SoundCue, CreatedPlayers, GraphPosition);
+			}
+		}
+		else if (Dialogues.Num() > 0)
+		{
+			TArray<USoundNode*> CreatedPlayers;
+			FSoundCueEditorUtilities::CreateDialogueContainers(Dialogues, SoundCue, CreatedPlayers, GraphPosition);
+
+			if (CreatedPlayers.Num() > 0)
+			{
+				USoundNode* OldNode = SoundCueGraphNode->SoundNode;
+				SoundCueGraphNode->SetSoundNode(CreatedPlayers[0]);
+
+				// Make sure SoundCue is updated to match graph
+				SoundCue->CompileSoundNodesFromGraphNodes();
+
+				// Remove this node from the SoundCue's list of all SoundNodes
+				SoundCue->AllNodes.Remove(OldNode);
+				SoundCue->MarkPackageDirty();
+			}
+		}
+	}
+
+	USoundNodeDialoguePlayer* SoundNodeDialoguePlayer = Cast<USoundNodeDialoguePlayer>(SoundCueGraphNode->SoundNode);
+	if (SoundNodeDialoguePlayer != nullptr)
+	{
+		if (Dialogues.Num() > 0)
+		{
+			if (Dialogues.Num() >= 1)
+			{
+				SoundCueGraph->Modify();
+				SoundNodeDialoguePlayer->SetDialogueWave(Dialogues[0]);
+
+				if (Dialogues[0]->ContextMappings.Num() == 1)
+				{
+					SoundNodeDialoguePlayer->DialogueWaveParameter.Context.Speaker = Dialogues[0]->ContextMappings[0].Context.Speaker;
+					SoundNodeDialoguePlayer->DialogueWaveParameter.Context.Targets = Dialogues[0]->ContextMappings[0].Context.Targets;
+				}
+			}
+
+			for (int32 Index = 1; Index < Waves.Num(); Index++)
+			{
+				TArray<USoundNode*> CreatedPlayers;
+				FSoundCueEditorUtilities::CreateDialogueContainers(Dialogues, SoundCue, CreatedPlayers, GraphPosition);
+			}
+		}
+		else if (Waves.Num() > 0)
+		{
+			TArray<USoundNode*> CreatedPlayers;
+			FSoundCueEditorUtilities::CreateWaveContainers(Waves, SoundCue, CreatedPlayers, GraphPosition);
+
+			if (CreatedPlayers.Num() > 0)
+			{
+				USoundNode* OldNode = SoundCueGraphNode->SoundNode;
+				SoundCueGraphNode->SetSoundNode(CreatedPlayers[0]);
+
+				// Make sure SoundCue is updated to match graph
+				SoundCue->CompileSoundNodesFromGraphNodes();
+
+				// Remove this node from the SoundCue's list of all SoundNodes
+				SoundCue->AllNodes.Remove(OldNode);
+				SoundCue->MarkPackageDirty();
+			}
+		}
+	}
+
+	SoundCueGraph->NotifyGraphChanged();
 }
 
 void USoundCueGraphSchema::GetAllSoundNodeActions(FGraphActionMenuBuilder& ActionMenuBuilder, bool bShowSelectedActions) const
@@ -406,6 +548,8 @@ void USoundCueGraphSchema::GetAllSoundNodeActions(FGraphActionMenuBuilder& Actio
 	InitSoundNodeClasses();
 
 	FText SelectedItemText;
+	bool IsSoundWaveSelected = false;
+	bool IsDialogueWaveSelected = false;
 
 	if (bShowSelectedActions)
 	{
@@ -415,10 +559,25 @@ void USoundCueGraphSchema::GetAllSoundNodeActions(FGraphActionMenuBuilder& Actio
 		if (ActionMenuBuilder.FromPin == NULL)
 		{
 			TArray<USoundWave*> SelectedWavs;
+			TArray<UDialogueWave*> SelectedDialogues;
 			GEditor->GetSelectedObjects()->GetSelectedObjects<USoundWave>(SelectedWavs);
-			if (SelectedWavs.Num())
+			GEditor->GetSelectedObjects()->GetSelectedObjects<UDialogueWave>(SelectedDialogues);
+
+			int32 TotalWavs = SelectedWavs.Num() + SelectedDialogues.Num() ;
+
+			if (TotalWavs > 1)
 			{
-				SelectedItemText = FText::FromString(FString::Printf(TEXT("%s"), (SelectedWavs.Num() > 1) ? *(LOCTEXT("MultipleWAVsSelected", "Multiple WAVs").ToString()) : *SelectedWavs[0]->GetName()));
+				SelectedItemText = LOCTEXT("MultipleWAVsSelected", "Multiple WAVs");
+			}
+			else if (SelectedWavs.Num() == 1)
+			{
+				SelectedItemText = FText::FromString(SelectedWavs[0]->GetName());
+				IsSoundWaveSelected = true;
+			}
+			else if (SelectedDialogues.Num() == 1)
+			{
+				SelectedItemText = FText::FromString(SelectedDialogues[0]->GetName());
+				IsDialogueWaveSelected = true;
 			}
 		}
 		else
@@ -427,6 +586,16 @@ void USoundCueGraphSchema::GetAllSoundNodeActions(FGraphActionMenuBuilder& Actio
 			if (SelectedWave && ActionMenuBuilder.FromPin->Direction == EGPD_Input)
 			{
 				SelectedItemText = FText::FromString(SelectedWave->GetName());
+				IsSoundWaveSelected = true;
+			}
+			else
+			{
+				UDialogueWave* SelectedDialogue = GEditor->GetSelectedObjects()->GetTop<UDialogueWave>();
+				if (SelectedDialogue && ActionMenuBuilder.FromPin->Direction == EGPD_Input)
+				{
+					SelectedItemText = FText::FromString(SelectedDialogue->GetName());
+					IsDialogueWaveSelected = true;
+				}
 			}
 		}
 
@@ -451,7 +620,10 @@ void USoundCueGraphSchema::GetAllSoundNodeActions(FGraphActionMenuBuilder& Actio
 				NewNodeAction->SoundNodeClass = SoundNodeClass;
 			}
 
-			if (bShowSelectedActions && (SoundNode->GetMaxChildNodes() == USoundNode::MAX_ALLOWED_CHILD_NODES || SoundNodeClass == USoundNodeWavePlayer::StaticClass()))
+			if (bShowSelectedActions && 
+				(SoundNode->GetMaxChildNodes() == USoundNode::MAX_ALLOWED_CHILD_NODES || 
+				   ((SoundNodeClass == USoundNodeWavePlayer::StaticClass() && IsSoundWaveSelected) || 
+				    (SoundNodeClass == USoundNodeDialoguePlayer::StaticClass() && IsDialogueWaveSelected))))
 			{
 				FFormatNamedArguments Arguments;
 				Arguments.Add(TEXT("Name"), Name);
@@ -462,7 +634,7 @@ void USoundCueGraphSchema::GetAllSoundNodeActions(FGraphActionMenuBuilder& Actio
 					MenuDesc,
 					ToolTip.ToString(), 0));
 				ActionMenuBuilder.AddAction(NewNodeAction);
-				NewNodeAction->SoundNodeClass = (SoundNodeClass == USoundNodeWavePlayer::StaticClass() ? NULL : SoundNodeClass);
+				NewNodeAction->SoundNodeClass = (SoundNodeClass == USoundNodeWavePlayer::StaticClass() || SoundNodeClass == USoundNodeDialoguePlayer::StaticClass() ? NULL : SoundNodeClass);
 			}
 		}
 	}

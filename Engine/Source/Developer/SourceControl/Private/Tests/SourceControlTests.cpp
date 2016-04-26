@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SourceControlPrivatePCH.h"
 #include "AutomationTest.h"
@@ -12,6 +12,8 @@
 #if WITH_EDITOR
 
 #include "Tests/SourceControlAutomationCommon.h"
+
+#if WITH_DEV_AUTOMATION_TESTS
 
 static void GetProviders(TArray<FString>& OutBeautifiedNames, TArray<FString>& OutTestCommands)
 {
@@ -944,5 +946,7 @@ bool FGetRevisionTest::RunTest(const FString& Parameters)
 
 	return true;
 }
+
+#endif //WITH_DEV_AUTOMATION_TESTS
 
 #endif	// #if WITH_EDITOR

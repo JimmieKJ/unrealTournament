@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "Engine/Brush.h"
@@ -45,7 +45,7 @@ public:
 	//~ End Brush Interface
 
 	/** @returns true if a sphere/point (with optional radius CheckRadius) overlaps this volume */
-	bool EncompassesPoint(FVector Point, float SphereRadius=0.f, float* OutDistanceToPoint = 0);
+	bool EncompassesPoint(FVector Point, float SphereRadius=0.f, float* OutDistanceToPoint = 0) const;
 
 	//Begin UObject Interface
 #if WITH_EDITOR

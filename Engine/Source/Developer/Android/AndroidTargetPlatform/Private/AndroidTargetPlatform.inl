@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AndroidTargetPlatform.inl: Implements the FAndroidTargetPlatform class.
@@ -24,6 +24,20 @@ static bool SupportsAEP()
 	bool bBuildForES31 = false;
 	GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bBuildForES31"), bBuildForES31, GEngineIni);
 	return bBuildForES31;
+}
+
+static bool SupportsVulkan()
+{
+	// default to not supporting Vulkan
+	bool bSupportsVulkan = false;
+	GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bSupportsVulkan"), bSupportsVulkan, GEngineIni);
+
+	// make sure the SDK env var is set and the directory exists so that compiling for shaders will work
+	TCHAR SDKPath[MAX_PATH] = { 0 };
+	FPlatformMisc::GetEnvironmentVariable(TEXT("VK_SDK_PATH"), SDKPath, MAX_PATH);
+	bool bVulkanSDKExists = SDKPath[0] && IFileManager::Get().DirectoryExists(SDKPath);
+
+	return bSupportsVulkan && bVulkanSDKExists;
 }
 
 template<class TPlatformProperties>
@@ -119,7 +133,7 @@ inline bool FAndroidTargetPlatform<TPlatformProperties>::SupportsFeature( ETarge
 			return true;
 			
 		case ETargetPlatformFeatures::LowQualityLightmaps:
-			return SupportsES2();
+			return SupportsES2() || SupportsVulkan();
 			
 		case ETargetPlatformFeatures::HighQualityLightmaps:
 		case ETargetPlatformFeatures::VertexShaderTextureSampling:
@@ -141,18 +155,18 @@ inline void FAndroidTargetPlatform<TPlatformProperties>::GetAllPossibleShaderFor
 {
 	static FName NAME_OPENGL_ES2(TEXT("GLSL_ES2"));
 	static FName NAME_GLSL_310_ES_EXT(TEXT("GLSL_310_ES_EXT"));
+	static FName NAME_SF_VKES31_ANDROID(TEXT("SF_VKES31_ANDROID"));
 
-	// get project rendering support, default to ES2 and no ES31
-	bool bBuildForES2 = true;
-	bool bBuildForES31 = false;
-	GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bBuildForES2"), bBuildForES2, GEngineIni);
-	GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bBuildForES31"), bBuildForES31, GEngineIni);
+	if (SupportsVulkan())
+	{
+		OutFormats.AddUnique(NAME_SF_VKES31_ANDROID);
+	}
 
-	if (bBuildForES2)
+	if (SupportsES2())
 	{
 		OutFormats.AddUnique(NAME_OPENGL_ES2);
 	}
-	if (bBuildForES31)
+	if (SupportsAEP())
 	{
 		OutFormats.AddUnique(NAME_GLSL_310_ES_EXT);
 	}
@@ -189,13 +203,13 @@ inline void FAndroidTargetPlatform<TPlatformProperties>::GetTextureFormats( cons
 		|| (InTexture->Source.GetSizeY() < 4)
 		|| (InTexture->Source.GetSizeX() % 4 != 0)
 		|| (InTexture->Source.GetSizeY() % 4 != 0);
-	
+
 	bool bIsNonPOT = false;
 #if WITH_EDITORONLY_DATA
 	// is this texture not a power of 2?
 	bIsNonPOT = !InTexture->Source.IsPowerOfTwo();
 #endif
-	
+
 	// Determine the pixel format of the compressed texture.
 	if (bNoCompression && InTexture->HasHDRSource())
 	{

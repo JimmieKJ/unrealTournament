@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -18,8 +18,11 @@
 #include "CommonMovieSceneTools.h"
 #include "MovieSceneToolHelpers.h"
 #include "MovieSceneCommonHelpers.h"
+#include "MovieSceneToolsProjectSettings.h"
 
+#include "ThumbnailSection.h"
+#include "CameraCutSection.h"
+#include "CinematicShotSection.h"
 
-#include "ShotSequencerSection.h"
-#include "ShotTrackThumbnail.h"
-#include "ShotTrackThumbnailPool.h"
+#include "TrackEditorThumbnail.h"
+#include "TrackEditorThumbnailPool.h"

@@ -62,7 +62,8 @@ void USceneCapturer::InitCaptureComponent( USceneCaptureComponent2D* CaptureComp
     CaptureComponent->bCaptureEveryFrame = false;
     CaptureComponent->CaptureSource = ESceneCaptureSource::SCS_FinalColorLDR;
 
-    CaptureComponent->TextureTarget = NewObject<UTextureRenderTarget2D>(this);
+	const FName TargetName = MakeUniqueObjectName(this, UTextureRenderTarget2D::StaticClass(), TEXT("SceneCaptureTextureTarget"));
+    CaptureComponent->TextureTarget = NewObject<UTextureRenderTarget2D>(this, TargetName);
     //TODO: ikrimae: Not sure why the render target needs to be float to avoid banding. Seems like captures to this RT and then applies PP
     //               on top of it which causes degredation.
     CaptureComponent->TextureTarget->InitCustomFormat(CaptureWidth, CaptureHeight, PF_A16B16G16R16, false);
@@ -718,7 +719,7 @@ void USceneCapturer::CaptureComponent( int32 CurrentHorizontalStep, int32 Curren
     }
 }
 
-//TODO: ikrimae: This is a cluster fuck. Come back and actually work out the timings. Trickery b/c SceneCaptureCubes Tick at the end of the frame so we're effectively queuing up the next
+//TODO: ikrimae: Come back and actually work out the timings. Trickery b/c SceneCaptureCubes Tick at the end of the frame so we're effectively queuing up the next
 //               step (pause, unpause, setposition) for the next frame. FlushRenderingCommands() added haphazardly to test but didn't want to remove them so close to delivery. 
 //               Think through when we actually need to flush and document.
 void USceneCapturer::Tick( float DeltaTime )

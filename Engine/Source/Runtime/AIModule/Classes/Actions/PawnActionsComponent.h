@@ -1,9 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "Components/ActorComponent.h"
 #include "GameFramework/Pawn.h"
+#include "AITypes.h"
 #include "PawnActionsComponent.generated.h"
 
 class UPawnAction;

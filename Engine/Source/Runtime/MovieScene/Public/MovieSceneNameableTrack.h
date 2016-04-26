@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -25,11 +25,19 @@ public:
 	 */
 	MOVIESCENE_API void SetDisplayName(const FText& NewDisplayName);
 
+	/**
+	 * Can rename this track.
+	 *
+	 * @return Whether this track can be renamed.
+	 */
+	MOVIESCENE_API virtual bool CanRename() const { return true; }
+
 public:
 
 	// UMovieSceneTrack interface
 
 	MOVIESCENE_API virtual FText GetDisplayName() const override;
+	MOVIESCENE_API virtual FText GetDefaultDisplayName() const;
 
 private:
 

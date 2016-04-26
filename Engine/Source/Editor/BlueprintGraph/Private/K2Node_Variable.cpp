@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "BlueprintGraphPrivatePCH.h"
@@ -845,6 +845,33 @@ void UK2Node_Variable::PostPasteNode()
 		}
 		// If no variable was found, ResolveMember should automatically find a member variable with the same name in the current Blueprint and hook up to it as expected
 	}
+}
+
+bool UK2Node_Variable::IsDeprecated() const
+{
+	if (Super::IsDeprecated() || VariableReference.IsDeprecated())
+	{
+		return true;
+	}
+
+	UProperty* VariableProperty = VariableReference.ResolveMember<UProperty>(GetBlueprintClassFromNode());
+	if (VariableProperty 
+		&& (VariableProperty->HasAllPropertyFlags(CPF_Deprecated) || VariableProperty->HasMetaData(FBlueprintMetadata::MD_DeprecationMessage)))
+	{
+		return true;
+	}
+	return false;
+}
+
+FString UK2Node_Variable::GetDeprecationMessage() const
+{
+	UProperty* VariableProperty = VariableReference.ResolveMember<UProperty>(GetBlueprintClassFromNode());
+	if (VariableProperty && VariableProperty->HasMetaData(FBlueprintMetadata::MD_DeprecationMessage))
+	{
+		return FString::Printf(TEXT("%s %s"), *LOCTEXT("PropertyDeprecated_Warning", "@@ is deprecated;").ToString(), *VariableProperty->GetMetaData(FBlueprintMetadata::MD_DeprecationMessage));
+	}
+
+	return Super::GetDeprecationMessage();
 }
 
 #undef LOCTEXT_NAMESPACE

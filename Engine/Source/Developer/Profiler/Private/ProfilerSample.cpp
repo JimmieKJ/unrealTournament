@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ProfilerPrivatePCH.h"
 #define LOCTEXT_NAMESPACE "ProfilerSample"
@@ -24,7 +24,7 @@ FString EProfilerSampleTypes::ToDescription( Type ProfilerSampleType )
 {
 	switch( ProfilerSampleType )
 	{
-		case HierarchicalTime: return LOCTEXT("StatType_Desc_Hierarchical","Hierarchical - Displayed as a time").ToString();
+		case HierarchicalTime: return LOCTEXT("StatType_Desc_Hierarchical","Hierarchical - Displayed as a time and call count").ToString();
 		case NumberInt: return LOCTEXT("StatType_Desc_NumberInt","Numerical - Displayed as a integer number").ToString();
 		case NumberFloat: return LOCTEXT("StatType_Desc_NumberFloat","Numerical - Displayed as a floating number").ToString();
 		case Memory: return LOCTEXT("StatType_Desc_Memory","Memory - Displayed as a human readable data counter").ToString();

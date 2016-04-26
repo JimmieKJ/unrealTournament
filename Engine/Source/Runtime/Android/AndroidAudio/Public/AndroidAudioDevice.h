@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma  once 
 
@@ -97,6 +97,14 @@ public:
 	 * @return					Whether the sound looped or not
 	 */
 	bool ReadCompressedData( uint8* Destination, bool bLooping );
+
+	/**
+	 * Sets the point in time within the buffer to the specified time
+	 * If the time specified is beyond the end of the sound, it will be set to the end
+	 *
+	 * @param SeekTime		Time in seconds from the beginning of sound to seek to
+	 */
+	void Seek(const float SeekTime);
 
 	/**
 	 * Returns the size of this buffer in bytes.
@@ -224,7 +232,7 @@ protected:
 	/** Which sound buffer should be written to next - used for double buffering. */
 	bool						bStreamedSound;
 	/** A pair of sound buffers for real-time decoding */
-	SLESAudioBuffer			AudioBuffers[2];
+	SLESAudioBuffer				AudioBuffers[2];
 	/** Set when we wish to let the buffers play themselves out */
 	bool						bBuffersToFlush;
 

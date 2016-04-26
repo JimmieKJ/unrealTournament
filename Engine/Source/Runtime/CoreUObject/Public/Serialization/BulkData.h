@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #ifndef _UNBULKDATA_H
 #define _UNBULKDATA_H
@@ -28,6 +28,8 @@ enum EBulkDataFlags
 	BULKDATA_SerializeCompressed				= (BULKDATA_SerializeCompressedZLIB),
 	/** Forces the payload to be always streamed, regardless of its size */
 	BULKDATA_ForceStreamPayload = 1 << 7,
+	/** If set, payload is stored in a .upack file alongside the uasset				*/
+	BULKDATA_PayloadInSeperateFile				= 1 << 8,
 
 };
 

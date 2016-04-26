@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -74,7 +74,6 @@ namespace UnrealBuildTool
 
 		public override void ResetBuildConfiguration(UnrealTargetConfiguration Configuration)
 		{
-			UEBuildConfiguration.bCompileICU = true;
 		}
 
 		/// <summary>
@@ -518,10 +517,15 @@ namespace UnrealBuildTool
 
 	class UWPPlatformFactory : UEBuildPlatformFactory
 	{
+		protected override UnrealTargetPlatform TargetPlatform
+		{
+			get { return UnrealTargetPlatform.UWP; }
+		}
+
 		/// <summary>
 		/// Register the platform with the UEBuildPlatform class
 		/// </summary>
-		public override void RegisterBuildPlatforms()
+		protected override void RegisterBuildPlatforms()
 		{
 			UWPPlatformSDK SDK = new UWPPlatformSDK();
 			SDK.ManageAndValidateSDK();

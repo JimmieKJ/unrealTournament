@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*==============================================================================
 	VectorField.cpp: Implementation of vector fields.
@@ -192,7 +192,7 @@ public:
 	 */
 	virtual void InitRHI() override
 	{
-		if (VolumeData && GetFeatureLevel() >= ERHIFeatureLevel::ES3_1)
+		if (VolumeData && GSupportsTexture3D)
 		{
 			const uint32 DataSize = SizeX * SizeY * SizeZ * sizeof(FFloat16Color);
 			FVectorFieldStaticResourceBulkDataInterface BulkDataInterface(VolumeData, DataSize);
@@ -780,7 +780,7 @@ public:
 	 */
 	virtual void InitRHI() override
 	{
-		if (GetFeatureLevel() >= ERHIFeatureLevel::ES3_1)
+		if (GSupportsTexture3D)
 		{
 			check(SizeX > 0);
 			check(SizeY > 0);

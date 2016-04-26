@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UObjectBaseUtility.cpp: Unreal UObject functions that only depend on UObjectBase
@@ -7,7 +7,7 @@
 #include "CoreUObjectPrivate.h"
 #include "Interface.h"
 #include "ModuleManager.h"
-
+#include "FastReferenceCollector.h"
 
 /***********************/
 /******** Names ********/
@@ -417,4 +417,3 @@ bool UObjectBaseUtility::IsDefaultSubobject() const
 	const bool bIsInstanced = GetOuter() && (GetOuter()->HasAnyFlags(RF_ClassDefaultObject) || ((UObject*)this)->GetArchetype() != GetClass()->GetDefaultObject());
 	return bIsInstanced;
 }
-

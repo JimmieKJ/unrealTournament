@@ -8,8 +8,8 @@
 UUTGameMessage::UUTGameMessage(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	MessageArea = FName(TEXT("GameMessages"));
-
+	MessageArea = FName(TEXT("Announcements"));
+	MessageSlot = FName(TEXT("GameMessages"));
 	GameBeginsMessage = NSLOCTEXT("UTGameMessage","GameBeginsMessage","START!");
 	OvertimeMessage = NSLOCTEXT("UTGameMessage","OvertimeMessage","OVERTIME");
 	CantBeSpectator = NSLOCTEXT("UTGameMessage", "CantBeSpectator", "You can not become a spectator!");
@@ -18,10 +18,9 @@ UUTGameMessage::UUTGameMessage(const class FObjectInitializer& ObjectInitializer
 	NoNameChange = NSLOCTEXT("UTGameMessage","NoNameChange","You can not change your name.");
 	BecameSpectator = NSLOCTEXT("UTGameMessage","BecameSpectator","You are now a spectator.");
 	DidntMakeTheCut= NSLOCTEXT("UTGameMessage","DidntMakeTheCut","You didn't make the cut");
-	YouAreOnBlue = NSLOCTEXT("UTGameMessage", "YouAreOnBlue", "You are on BLUE.");
-	YouAreOnRed = NSLOCTEXT("UTGameMessage", "YouAreOnRed", "You are on RED.");
-	Coronation = NSLOCTEXT("UTGameMessage", "Coronation","Coronation {Player1Name} is your new king!");
-	GameChanger = NSLOCTEXT("UTGameMessage", "GameChanger", "Game Changer!");
+	YouAreOn = NSLOCTEXT("UTGameMessage", "YouAreOn", "You are on ");
+	RedTeamName = NSLOCTEXT("UTGameMessage", "RedTeamName", "RED");
+	BlueTeamName = NSLOCTEXT("UTGameMessage", "BlueTeamName", "BLUE");
 	KickVote = NSLOCTEXT("UTGameMessage", "KickVote", "{Player1Name} voted to kick {Player2Name}");
 	NotEnoughMoney = NSLOCTEXT("UTGameMessage", "NotEnoughMoney", "{Player1Name}, you lack the funds to buy it.");
 	PotentialSpeedHack = NSLOCTEXT("UTGameMessage", "Speedhack", "Server or network hitching.");
@@ -29,9 +28,9 @@ UUTGameMessage::UUTGameMessage(const class FObjectInitializer& ObjectInitializer
 	bIsStatusAnnouncement = true;
 }
 
-bool UUTGameMessage::UseLargeFont(int32 MessageIndex) const
+int32 UUTGameMessage::GetFontSizeIndex(int32 MessageIndex) const
 {
-	return (MessageIndex == 0) || (MessageIndex == 1) || (MessageIndex == 7) || (MessageIndex == 9) || (MessageIndex == 10);
+	return ((MessageIndex == 0) || (MessageIndex == 1) || (MessageIndex == 7) || (MessageIndex == 9) || (MessageIndex == 10)) ? 2 : 1;
 }
 
 float UUTGameMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
@@ -40,20 +39,12 @@ float UUTGameMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
 	{
 		return 1.f;
 	}
-	return UseLargeFont(MessageIndex) ? 3.f : 4.f;
+	return (GetFontSizeIndex(MessageIndex) > 1) ? 3.f : 4.f;
 }
 
 FLinearColor UUTGameMessage::GetMessageColor_Implementation(int32 MessageIndex) const
 {
-	if (MessageIndex == 9)
-	{
-		return FLinearColor::Red;
-	}
-	else if (MessageIndex == 10)
-	{
-		return FLinearColor::Blue;
-	}
-	return FLinearColor::Yellow;
+	return ((MessageIndex == 9) || (MessageIndex == 10)) ? FLinearColor::White : FLinearColor::Yellow;
 }
 
 float UUTGameMessage::GetLifeTime(int32 MessageIndex) const
@@ -63,6 +54,19 @@ float UUTGameMessage::GetLifeTime(int32 MessageIndex) const
 		return 8.f;
 	}
 	return GetDefault<UUTLocalMessage>(GetClass())->Lifetime;
+}
+
+void UUTGameMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
+{
+	if ((Switch == 9) || (Switch == 10))
+	{
+		PrefixText = YouAreOn;
+		PostfixText = FText::GetEmpty();
+		EmphasisText = (Switch== 9) ? RedTeamName : BlueTeamName;
+		EmphasisColor = (Switch == 9) ? FLinearColor::Red : FLinearColor::Blue;
+		return;
+	}
+	Super::GetEmphasisText(PrefixText, EmphasisText, PostfixText, EmphasisColor, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 }
 
 FText UUTGameMessage::GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false,class APlayerState* RelatedPlayerState_1 = NULL,class APlayerState* RelatedPlayerState_2 = NULL,class UObject* OptionalObject = NULL) const
@@ -94,16 +98,10 @@ FText UUTGameMessage::GetText(int32 Switch = 0, bool bTargetsPlayerState1 = fals
 			return GetDefault<UUTGameMessage>(GetClass())->DidntMakeTheCut;
 			break;
 		case 9:
-			return GetDefault<UUTGameMessage>(GetClass())->YouAreOnRed;
+			return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 			break;
 		case 10:
-			return GetDefault<UUTGameMessage>(GetClass())->YouAreOnBlue;
-			break;
-		case 11:
-			return GetDefault<UUTGameMessage>(GetClass())->Coronation;
-			break;
-		case 12:
-			return GetDefault<UUTGameMessage>(GetClass())->GameChanger;
+			return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 			break;
 		case 13:
 			return GetDefault<UUTGameMessage>(GetClass())->KickVote;
@@ -116,7 +114,7 @@ FText UUTGameMessage::GetText(int32 Switch = 0, bool bTargetsPlayerState1 = fals
 	}
 }
 
-FName UUTGameMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const
+FName UUTGameMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const
 {
 	switch (Switch)
 	{

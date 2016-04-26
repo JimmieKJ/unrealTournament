@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ShaderCompilerCommon.h"
 #include "glsl_parser_extras.h"
@@ -266,10 +266,17 @@ struct SLVNVisitor : public ir_hierarchical_visitor
 		}
 		else
 		{
-			auto& NumberVector = Found->second;
-			auto VarNumber = NumberVector[NumberVector.Num() - 1];
-			printf("\t\tRED %d\n", VarNumber.Number);
-			ExpressionNumberStack.push(VarNumber);
+			TNumberVector& NumberVector = Found->second;
+			for (int32 Index = NumberVector.Num() - 1; Index >= 0; --Index)
+			{
+				const SNumber& VarNumber = NumberVector[Index];
+				printf("\t\tRED %d\n", VarNumber.Number);
+				ExpressionNumberStack.push(VarNumber);
+				if (!VarNumber.bPartialWrite)
+				{
+					break;
+				}
+			}
 		}
 
 		return visit_continue;
@@ -479,16 +486,30 @@ struct SLVNVisitor : public ir_hierarchical_visitor
 		printf("\tTex @ %d\n", IR->id);
 
 		TNumberVector Operands;
-#define PROCESS_ENTRY(x) if (x) { auto n = ExpressionNumberStack.size(); x->accept(this); Operands.Add(ExpressionNumberStack.top()); ExpressionNumberStack.pop(); check(n == ExpressionNumberStack.size()); }
-		PROCESS_ENTRY(IR->sampler);
-		PROCESS_ENTRY(IR->coordinate);
-		PROCESS_ENTRY(IR->projector);
-		PROCESS_ENTRY(IR->shadow_comparitor);
-		PROCESS_ENTRY(IR->offset);
-		PROCESS_ENTRY(IR->lod_info.grad.dPdy);
-		PROCESS_ENTRY(IR->lod_info.grad.dPdx);
-		PROCESS_ENTRY(IR->SamplerState);
-#undef PROCESS_ENTRY
+		auto ProcessEntry = [&](ir_rvalue* x)
+			{
+				if (x)
+				{
+					auto n = ExpressionNumberStack.size();
+					x->accept(this);
+					check(n < ExpressionNumberStack.size());
+					while (n < ExpressionNumberStack.size())
+					{
+						Operands.Add(ExpressionNumberStack.top());
+						ExpressionNumberStack.pop();
+					}
+					check(n == ExpressionNumberStack.size());
+				}
+			};
+		ProcessEntry(IR->sampler);
+		ProcessEntry(IR->coordinate);
+		ProcessEntry(IR->projector);
+		ProcessEntry(IR->shadow_comparitor);
+		ProcessEntry(IR->offset);
+		ProcessEntry(IR->lod_info.grad.dPdy);
+		ProcessEntry(IR->lod_info.grad.dPdx);
+		ProcessEntry(IR->SamplerState);
+
 		int NumOperands = Operands.Num();
 		for (auto it = Textures.begin(); it != Textures.end(); ++it)
 		{

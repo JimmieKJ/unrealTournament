@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -9,9 +9,6 @@
 #include "AnimInstanceProxy.generated.h"
 
 struct FAnimNode_Base;
-
-/** Delegate fired for nodes to gather any data they need on the game thread before */
-DECLARE_DELEGATE_OneParam(FGameThreadPreUpdateEvent, const UAnimInstance* /*InAnimInstance*/);
 
 /** Proxy object passed around during animation tree update in lieu of a UAnimInstance */
 USTRUCT(meta = (DisplayName = "Native Variables"))
@@ -168,6 +165,12 @@ public:
 		return RequiredBones;
 	}
 
+	/** Access to LODLevel */
+	int32 GetLODLevel() const
+	{
+		return LODLevel;
+	}
+
 	/** Get the current skeleton we are using */
 	USkeleton* GetSkeleton() 
 	{ 
@@ -212,14 +215,6 @@ public:
 	/** Register a named slot */
 	void RegisterSlotNodeWithAnimInstance(FName SlotNodeName);
 
-	/** 
-	 * Add a pre-update event. Events can be added more than once. Subsequent adds will be ignored.
-	 * Events are called from PreUpdate() on the game thread.
-	 * This is intended to be used by FAnimNode_Base-derived classes that need to perform some Update() work on the game thread.
-	 * @param	InEvent		The event to register
-	 */
-	void AddGameThreadPreUpdateEvent(const FGameThreadPreUpdateEvent& InEvent);
-
 	/** Check whether we have a valid root node */
 	bool HasRootNode() const
 	{ 
@@ -261,6 +256,9 @@ public:
 	 */
 	int32 GetInstanceAssetPlayerIndex(FName MachineName, FName StateName, FName InstanceName = NAME_None);
 
+	float GetRecordedStateWeight(const int32& InMachineClassIndex, const int32& InStateIndex);
+	void RecordStateWeight(const int32& InMachineClassIndex, const int32& InStateIndex, const float& InStateWeight);
+
 	/** Only restricted classes can access the protected interface */
 	friend class UAnimInstance;
 	friend class UAnimSingleNodeInstance;
@@ -274,7 +272,7 @@ protected:
 	virtual void Uninitialize(UAnimInstance* InAnimInstance);
 
 	/** Called before update so we can copy any data we need */
-	virtual void PreUpdate(const UAnimInstance* InAnimInstance, float DeltaSeconds);
+	virtual void PreUpdate(UAnimInstance* InAnimInstance, float DeltaSeconds);
 
 	/** Update override point */
 	virtual void Update(float DeltaSeconds) {}
@@ -346,11 +344,8 @@ protected:
 	 */
 	void RecalcRequiredBones(USkeletalMeshComponent* Component, UObject* Asset);
 
-	/** Update morph target curves for external map (from USkeletalMeshComponent) */
-	void UpdateMorphTargetCurves(const TMap<FName, float>& InMorphTargetCurves);
-
 	/** Update the material parameters of the supplied component from this instance */
-	void UpdateComponentsMaterialParameters(UPrimitiveComponent* Component);
+	void UpdateCurvesToComponents(USkeletalMeshComponent* Component=nullptr);
 
 	/** Get Currently active montage evaluation state.
 		Note that there might be multiple Active at the same time. This will only return the first active one it finds. **/
@@ -443,13 +438,13 @@ protected:
 	bool HasNativeTransitionBinding(const FName& MachineName, const FName& PrevStateName, const FName& NextStateName, FName& OutBindingName);
 
 	// Sets up a native state entry delegate from state with StateName, in the state machine with name MachineName.
-	void AddNativeStateEntryBinding(const FName& MachineName, const FName& StateName, const FOnGraphStateChanged& NativeEnteredDelegate);
+	void AddNativeStateEntryBinding(const FName& MachineName, const FName& StateName, const FOnGraphStateChanged& NativeEnteredDelegate, const FName& BindingName = NAME_None);
 	
 	// Check for whether a native entry delegate is bound to the specified state
 	bool HasNativeStateEntryBinding(const FName& MachineName, const FName& StateName, FName& OutBindingName);
 
 	// Sets up a native state exit delegate from state with StateName, in the state machine with name MachineName.
-	void AddNativeStateExitBinding(const FName& MachineName, const FName& StateName, const FOnGraphStateChanged& NativeExitedDelegate);
+	void AddNativeStateExitBinding(const FName& MachineName, const FName& StateName, const FOnGraphStateChanged& NativeExitedDelegate, const FName& BindingName = NAME_None);
 
 	// Check for whether a native exit delegate is bound to the specified state
 	bool HasNativeStateExitBinding(const FName& MachineName, const FName& StateName, FName& OutBindingName);
@@ -465,6 +460,7 @@ protected:
 
 	/** Initialize the root node - split into a separate function for backwards compatibility (initialization order) reasons */
 	void InitializeRootNode();
+
 
 private:
 	/** Object ptr to our UAnimInstance */
@@ -509,6 +505,12 @@ private:
 	/** The set of tick groups for this anim instance */
 	TArray<FAnimGroupInstance> SyncGroupArrays[2];
 
+	/** Buffers containing read/write buffers for all current state weights */
+	TArray<float> StateWeightArrays[2];
+
+	/** Map that transforms state class indices to base offsets into the weight array */
+	TMap<int32, int32> StateMachineClassIndexToWeightOffset;
+
 	// Current sync group buffer index
 	int32 SyncGroupWriteIndex;
 
@@ -537,6 +539,9 @@ private:
 	/** Temporary array of bone indices required this frame. Should be subset of Skeleton and Mesh's RequiredBones */
 	FBoneContainer RequiredBones;
 
+	/** LODLevel used by RequiredBones */
+	int32 LODLevel;
+
 	/** When RequiredBones mapping has changed, AnimNodes need to update their bones caches. */
 	bool bBoneCachesInvalidated;
 
@@ -553,7 +558,7 @@ private:
 	TArray<struct FActiveVertexAnim> VertexAnims;
 
 	/** Delegate fired on the game thread before update occurs */
-	TArray<FGameThreadPreUpdateEvent> GameThreadPreUpdateEvents;
+	TArray<FAnimNode_Base*> GameThreadPreUpdateNodes;
 
 	/** Native transition rules */
 	TArray<FNativeTransitionBinding> NativeTransitionBindings;

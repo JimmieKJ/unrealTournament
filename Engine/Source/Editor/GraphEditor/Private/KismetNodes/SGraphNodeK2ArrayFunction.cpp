@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "GraphEditorCommon.h"
 #include "SGraphNodeK2Base.h"
@@ -12,7 +12,7 @@
 //////////////////////////////////////////////////////////////////////////
 // SGraphNodeSwitchStatement
 
-void SGraphNodeK2ArrayFunction::Construct(const FArguments& InArgs, UK2Node_CallArrayFunction* InNode)
+void SGraphNodeK2ArrayFunction::Construct(const FArguments& InArgs, UK2Node* InNode)
 {
 	this->GraphNode = InNode;
 
@@ -28,9 +28,17 @@ FOptionalSize SGraphNodeK2ArrayFunction::GetBackgroundImageSize() const
 
 FSlateColor SGraphNodeK2ArrayFunction::GetTypeIconColor() const
 {
-	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
-	UK2Node_CallArrayFunction* CallNode = CastChecked<UK2Node_CallArrayFunction>(GraphNode);
-	FLinearColor Color = K2Schema->GetPinTypeColor(CallNode->GetTargetArrayPin()->PinType);
+ 	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
+	FLinearColor Color; 
+	if (UK2Node_CallArrayFunction* CallNode = Cast<UK2Node_CallArrayFunction>(GraphNode))
+	{
+		Color = K2Schema->GetPinTypeColor(CallNode->GetTargetArrayPin()->PinType);
+	}
+	else if (UK2Node_GetArrayItem* GetArrayItemByRefNode = Cast<UK2Node_GetArrayItem>(GraphNode))
+	{
+		Color = K2Schema->GetPinTypeColor(GetArrayItemByRefNode->GetTargetArrayPin()->PinType);
+	}
+
 	Color.A = 0.25f;
 	return Color;
 }

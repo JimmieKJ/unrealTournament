@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "UtilityShadersPrivatePCH.h"
@@ -39,8 +39,16 @@ void FOneColorPS::SetColors(FRHICommandList& RHICmdList, const FLinearColor* Col
 	
 }
 
-IMPLEMENT_SHADER_TYPE(template<> UTILITYSHADERS_API, TOneColorVS<true>,TEXT("OneColorShader"),TEXT("MainVertexShader"),SF_Vertex);
-IMPLEMENT_SHADER_TYPE(template<> UTILITYSHADERS_API, TOneColorVS<false>,TEXT("OneColorShader"),TEXT("MainVertexShader"),SF_Vertex);
+// #define avoids a lot of code duplication
+#define IMPLEMENT_ONECOLORVS(A,B) typedef TOneColorVS<A,B> TOneColorVS##A##B; \
+IMPLEMENT_SHADER_TYPE2(TOneColorVS##A##B, SF_Vertex);
+
+IMPLEMENT_ONECOLORVS(false,false)
+IMPLEMENT_ONECOLORVS(false,true)
+IMPLEMENT_ONECOLORVS(true,true)
+IMPLEMENT_ONECOLORVS(true,false)
+#undef IMPLEMENT_ONECOLORVS
+
 IMPLEMENT_SHADER_TYPE(,FOneColorPS,TEXT("OneColorShader"),TEXT("MainPixelShader"),SF_Pixel);
 // Compiling a version for every number of MRT's
 // On AMD PC hardware, outputting to a color index in the shader without a matching render target set has a significant performance hit

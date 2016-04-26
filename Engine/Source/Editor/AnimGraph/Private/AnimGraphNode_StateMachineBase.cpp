@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimGraphPrivatePCH.h"
 
@@ -111,8 +111,13 @@ void UAnimGraphNode_StateMachineBase::PostPlacedNewNode()
 	Schema->CreateDefaultNodesForGraph(*EditorStateMachineGraph);
 
 	// Add the new graph as a child of our parent graph
-	GetGraph()->Modify();
-	GetGraph()->SubGraphs.Add(EditorStateMachineGraph);
+	UEdGraph* ParentGraph = GetGraph();
+	
+	if(ParentGraph->SubGraphs.Find(EditorStateMachineGraph) == INDEX_NONE)
+	{
+		ParentGraph->Modify();
+		ParentGraph->SubGraphs.Add(EditorStateMachineGraph);
+	}
 }
 
 UObject* UAnimGraphNode_StateMachineBase::GetJumpTargetForDoubleClick() const
@@ -142,7 +147,11 @@ void UAnimGraphNode_StateMachineBase::PostPasteNode()
 
 	// Add the new graph as a child of our parent graph
 	UEdGraph* ParentGraph = CastChecked<UEdGraph>(GetGraph());
-	ParentGraph->SubGraphs.Add(EditorStateMachineGraph);
+
+	if(ParentGraph->SubGraphs.Find(EditorStateMachineGraph) == INDEX_NONE)
+	{
+		ParentGraph->SubGraphs.Add(EditorStateMachineGraph);
+	}
 
 	// Find an interesting name
 	TSharedPtr<INameValidatorInterface> NameValidator = FNameValidatorFactory::MakeValidator(this);

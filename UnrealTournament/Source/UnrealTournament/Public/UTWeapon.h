@@ -133,6 +133,12 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	TArray<int32> AmmoCost;
 
+	/** whether this weapon has a condition by which it recharges ammo automatically
+	 * note that setting this doesn't enable any such property; it's just informing the internal weapon code that a subclass has implemented it to e.g. don't switch when out of ammo
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	bool bCanRegenerateAmmo;
+
 	/** projectile class for fire mode (if applicable) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	TArray< TSubclassOf<AUTProjectile> > ProjClass;
@@ -477,7 +483,9 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	{}
 
 	/** firing entry point */
+	UFUNCTION(BlueprintCallable, Category = Weapon)
 	virtual void StartFire(uint8 FireModeNum);
+	UFUNCTION(BlueprintCallable, Category = Weapon)
 	virtual void StopFire(uint8 FireModeNum);
 
 	/** Tell server fire button was pressed.  bClientFired is true if client actually fired weapon. */
@@ -590,8 +598,8 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** play firing effects not associated with the shot's results (e.g. muzzle flash but generally NOT emitter to target) */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void PlayFiringEffects();
-	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	virtual void StopFiringEffects();
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Weapon")
+	void StopFiringEffects();
 
 	/** blueprint hook to modify spawned instance of FireEffect (e.g. tracer or beam) */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon")
@@ -608,10 +616,11 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	 * called only if FlashLocation has been set (instant hit weapon)
 	 * Call GetImpactSpawnPosition() to set SpawnLocation and SpawnRotation
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	virtual void PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation);
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Weapon")
+	void PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation);
 
 	/** shared code between UTWeapon and UTWeaponAttachment to refine replicated FlashLocation into impact effect transform via trace */
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	static FHitResult GetImpactEffectHit(APawn* Shooter, const FVector& StartLoc, const FVector& TargetLoc);
 
 	/** return start point for weapons fire */
@@ -674,6 +683,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 		GotoState(ActiveState);
 	}
 
+	UFUNCTION(BlueprintCallable, Category = Weapon)
 	virtual void GotoFireMode(uint8 NewFireMode);
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
@@ -682,6 +692,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	virtual bool StackPickup_Implementation(AUTInventory* ContainedInv) override;
 
 	/** update any timers and such due to a weapon timing change; for example, a powerup that changes firing speed */
+	UFUNCTION(BlueprintCallable, Category = Weapon)
 	virtual void UpdateTiming();
 
 	virtual void Tick(float DeltaTime) override;
@@ -1006,6 +1017,9 @@ public:
 	/**Called when the weapon has zoomed all the way out. Default is EZoomState::EZS_NotZoomed*/
 	UFUNCTION(BlueprintNativeEvent)
 	void OnZoomedOut();
+
+	UFUNCTION(BlueprintPure, BlueprintCallable, Category = Zoom)
+	UMaterialInstanceDynamic* GetZoomMaterial(uint8 FireModeNum) const;
 
 	virtual void TickZoom(float DeltaTime);
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #ifndef __SPackagesDialog_h__
@@ -266,6 +266,7 @@ private:
 	FString IconName; 						// Name of an icon to show next to the checkbox
 	FString IconToolTip;					// ToolTip to display for the icon
 	FSimpleDelegate RefreshButtonCallback;	// ToolTip to display for the icon
+	mutable TWeakObjectPtr<UObject> Object;			// Cached object associated with this entry.
 };
 
 /**

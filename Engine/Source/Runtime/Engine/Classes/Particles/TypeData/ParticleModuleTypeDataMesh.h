@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -89,6 +89,8 @@ class UParticleModuleTypeDataMesh : public UParticleModuleTypeDataBase
 	UPROPERTY(EditAnywhere, Category=Mesh)
 	uint32 bOverrideMaterial:1;
 
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	uint32 bEnableMotionBlur : 1;
 
 	/** deprecated properties for initial orientation */
 	UPROPERTY()
@@ -204,6 +206,7 @@ class UParticleModuleTypeDataMesh : public UParticleModuleTypeDataBase
 	virtual bool	SupportsSpecificScreenAlignmentFlags() const override {	return true;	}	
 	virtual bool	SupportsSubUV() const override { return true; }
 	virtual bool	IsAMeshEmitter() const override { return true; }
+	virtual bool    IsMotionBlurEnabled() const override { return bEnableMotionBlur; }
 	//~ End UParticleModuleTypeDataBase Interface
 };
 

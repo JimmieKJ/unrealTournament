@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "FunctionalTestingPrivatePCH.h"
 #include "ObjectEditorUtils.h"
@@ -401,21 +401,24 @@ FString FPerfStatsRecord::GetOverBudgetString() const
 {
 	double Min, Max, Avg;
 	GetRenderThreadTimes(Min, Max, Avg);
+	float RTMax = Max;
 	float RTBudgetFrac = Max / RenderThreadBudget;
 	GetGameThreadTimes(Min, Max, Avg);
+	float GTMax = Max;
 	float GTBudgetFrac = Max / GameThreadBudget;
 	GetGPUTimes(Min, Max, Avg);
+	float GPUMax = Max;
 	float GPUBudgetFrac = Max / GPUBudget;
 
 	return FString::Printf(TEXT("%s,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f"),
 		*Name,
-		Record.RenderThreadTimeTracker.GetMaxValue(),
+		RTMax,
 		RenderThreadBudget,
 		RTBudgetFrac,
-		Record.GameThreadTimeTracker.GetMaxValue(),
+		GTMax,
 		GameThreadBudget,
 		GTBudgetFrac,
-		Record.GPUTimeTracker.GetMaxValue(),
+		GPUMax,
 		GPUBudget,
 		GPUBudgetFrac
 		);
@@ -495,6 +498,7 @@ UAutomationPerformaceHelper::UAutomationPerformaceHelper()
 , bRecordingBaselineBasicStats(false)
 , bRecordingCPUCapture(false)
 , bRecordingStatsFile(false)
+, bGPUTraceIfBelowBudget(false)
 {
 }
 
@@ -502,6 +506,7 @@ void UAutomationPerformaceHelper::BeginRecordingBaseline(FString RecordName)
 {
 	bRecordingBasicStats = true;
 	bRecordingBaselineBasicStats = true;
+	bGPUTraceIfBelowBudget = false;
 	Records.Add(FPerfStatsRecord(RecordName));
 	GEngine->SetEngineStat(GetOuter()->GetWorld(), GetOuter()->GetWorld()->GetGameViewport(), TEXT("Unit"), true);
 }
@@ -518,6 +523,7 @@ void UAutomationPerformaceHelper::BeginRecording(FString RecordName, float InGPU
 	GEngine->SetEngineStat(GetOuter()->GetWorld(), GetOuter()->GetWorld()->GetGameViewport(), TEXT("Unit"), true);
 	bRecordingBasicStats = true;
 	bRecordingBaselineBasicStats = false;
+	bGPUTraceIfBelowBudget = false;
 
 	FPerfStatsRecord* CurrRecord = GetCurrentRecord();
 	if (!CurrRecord || CurrRecord->Name != RecordName)
@@ -544,6 +550,21 @@ void UAutomationPerformaceHelper::Tick(float DeltaSeconds)
 	if (bRecordingBasicStats)
 	{
 		Sample(DeltaSeconds);
+	}
+
+	if (bGPUTraceIfBelowBudget)
+	{
+		if (!IsCurrentRecordWithinGPUBudget())
+		{
+			FString PathName = FPaths::ProfilingDir();			
+			GGPUTraceFileName = PathName / CreateProfileFilename(GetCurrentRecord()->Name, TEXT(".rtt"), true);
+			UE_LOG(LogFunctionalTest, Log, TEXT("Functional Test has fallen below GPU budget. Performing GPU trace."));
+
+			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Performed GPU Thred Trace!"));
+
+			//Only perform one trace per test. 
+			bGPUTraceIfBelowBudget = false;
+		}
 	}
 
 	//Other stats need ticking?
@@ -573,7 +594,7 @@ void UAutomationPerformaceHelper::WriteLogFile(const FString& CaptureDir, const 
 		Extension = TEXT("perf.csv");
 	}
 
-	const FString Filename = OutputFileBase + Extension;
+	const FString Filename = CreateProfileFilename(CaptureExtension, true);
 	const FString FilenameFull = PathName + Filename;
 	
 	const FString OverBudgetTableHeader = TEXT("TestName, MaxRT, RT Budget, RT Frac, MaxGT, GT Budget, GT Frac, MaxGPU, GPU Budget, GPU Frac\n");
@@ -638,6 +659,8 @@ void UAutomationPerformaceHelper::OnAllTestsComplete()
 	{
 		EndStatsFile();
 	}
+	
+	bGPUTraceIfBelowBudget = false;
 
 	if (Records.Num() > 0)
 	{
@@ -703,9 +726,9 @@ void UAutomationPerformaceHelper::StopCPUProfiling()
 	ExternalProfiler.StopProfiler();
 }
 
-void UAutomationPerformaceHelper::TriggerGPUTrace()
+void UAutomationPerformaceHelper::TriggerGPUTraceIfRecordFallsBelowBudget()
 {
-	// Need to look at Razor GPU to work out what can be done here.
+	bGPUTraceIfBelowBudget = true;
 }
 
 void UAutomationPerformaceHelper::BeginStatsFile(const FString& RecordName)

@@ -1,3 +1,5 @@
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
 #pragma once
 
 #include "Engine.h"
@@ -29,13 +31,22 @@ enum SimplygonRESTState
 };
 
 //Probabaly should use a multi-cast delegate
-
+struct FTaskData
+{
+	FString ZipFilePath;
+	FString SplFilePath;
+	FString OutputZipFilePath;
+	FString JobDirectory;
+	FCriticalSection* StateLock;
+	FGuid ProcessorJobID;
+	bool bDitheredTransition;
+};
 
 class FSimplygonSwarmTask
 {
 public:
 	DECLARE_DELEGATE_OneParam(FSimplygonSwarmTaskDelegate, const FSimplygonSwarmTask&);
-	FSimplygonSwarmTask(FString InZipFile, FString InSPLFile, FString InOutputZipFile, FString InJobDirectory, FCriticalSection* InStateLock, FGuid InJobID, FProxyCompleteDelegate InDelegate);
+	FSimplygonSwarmTask(const FTaskData& InTaskData);
 	~FSimplygonSwarmTask();
 	SimplygonRESTState GetState() const;
 	void SetState(SimplygonRESTState InState);
@@ -45,16 +56,9 @@ public:
 	FString JobId;
 	FString InputAssetId;
 	FString OutputAssetId;
-	FString OutputFilename;
-	FString ZipFilePath;
-	FString SplFilePath;
-	FString JobDirectory;
 
-	FProxyCompleteDelegate TestDelegate;
-
-	FGuid TestJobID;
+	FTaskData TaskData;
 private:
-	FCriticalSection* StateLock;
 	SimplygonRESTState State;
 	bool IsCompleted;
 	FSimplygonSwarmTaskDelegate OnAssetDownloadedDelegate;
@@ -101,5 +105,4 @@ private:
 	FRunnableThread* Thread;
 	FString HostName;
 	FString APIKey;
-
 };

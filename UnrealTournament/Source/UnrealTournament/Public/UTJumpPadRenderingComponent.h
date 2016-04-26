@@ -19,4 +19,12 @@ class UNREALTOURNAMENT_API UUTJumpPadRenderingComponent : public UPrimitiveCompo
 	// Begin USceneComponent Interface
 	virtual FBoxSphereBounds CalcBounds(const FTransform &LocalToWorld) const override;
 	// End USceneComponent Interface
+
+	void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
+
+	UPROPERTY()
+	FVector GameThreadJumpVelocity;
+
+	UPROPERTY()
+	float GameThreadGravityZ;
 };

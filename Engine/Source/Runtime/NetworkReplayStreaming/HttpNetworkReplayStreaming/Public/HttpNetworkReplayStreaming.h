@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "NetworkReplayStreaming.h"
@@ -9,7 +9,7 @@
 /**
  * Archive used to buffer stream over http
  */
-class FHttpStreamFArchive : public FArchive
+class HTTPNETWORKREPLAYSTREAMING_API FHttpStreamFArchive : public FArchive
 {
 public:
 	FHttpStreamFArchive() : Pos( 0 ), bAtEndOfReplay( false ) {}
@@ -103,7 +103,11 @@ class FHttpNetworkReplayStreamer;
 class FQueuedHttpRequest
 {
 public:
-	FQueuedHttpRequest( const EQueuedHttpRequestType::Type InType, TSharedPtr< class IHttpRequest > InRequest ) : Type( InType ), Request( InRequest )
+	FQueuedHttpRequest( const EQueuedHttpRequestType::Type InType, TSharedPtr< class IHttpRequest > InRequest ) : Type( InType ), Request( InRequest ), RetryProgress( 0 ), MaxRetries( 0 ), RetryDelay( 0.0f ), NextRetryTime( 0.0 )
+	{
+	}
+
+	FQueuedHttpRequest( const EQueuedHttpRequestType::Type InType, TSharedPtr< class IHttpRequest > InRequest, const int32 InMaxRetries, const float InRetryDelay ) : Type( InType ), Request( InRequest ), RetryProgress( 0 ), MaxRetries( InMaxRetries ), RetryDelay( InRetryDelay ), NextRetryTime( 0.0 )
 	{
 	}
 
@@ -113,6 +117,11 @@ public:
 
 	EQueuedHttpRequestType::Type		Type;
 	TSharedPtr< class IHttpRequest >	Request;
+
+	int32								RetryProgress;
+	int32								MaxRetries;
+	float								RetryDelay;
+	double								NextRetryTime;
 
 	virtual bool PreProcess( FHttpNetworkReplayStreamer* Streamer, const FString& ServerURL, const FString& SessionName )
 	{
@@ -139,6 +148,22 @@ public:
 	uint32		TimeInMS;
 	FString		Group;
 	FString		Meta;
+};
+
+/**
+* FQueuedHttpRequestAddUser
+* Custom event so that we can defer the need to knowing SessionName until we actually send it (which we should have it by then, since requests are executed in order)
+*/
+class FQueuedHttpRequestAddUser : public FQueuedHttpRequest
+{
+public:
+	FQueuedHttpRequestAddUser( const FString& InUser, TSharedRef< class IHttpRequest > InHttpRequest );
+
+	virtual ~FQueuedHttpRequestAddUser()
+	{
+	}
+
+	virtual bool PreProcess( FHttpNetworkReplayStreamer* Streamer, const FString& ServerURL, const FString& SessionName ) override;
 };
 
 /**
@@ -192,6 +217,7 @@ public:
 	virtual void		SearchEvents(const FString& EventGroup, const FOnEnumerateStreamsComplete& Delegate) override;
 	virtual void		KeepReplay( const FString& ReplayName, const bool bKeep ) override;
 	virtual ENetworkReplayError::Type GetLastError() const override;
+	virtual FString		GetReplayID() const override { return SessionName; }
 
 	/** FHttpNetworkReplayStreamer */
 	void UploadHeader();
@@ -209,12 +235,16 @@ public:
 	void FlushCheckpointInternal( uint32 TimeInMS );
 	virtual void AddEvent( const uint32 TimeInMS, const FString& Group, const FString& Meta, const TArray<uint8>& Data ) override;
 	virtual void AddOrUpdateEvent( const FString& Name, const uint32 TimeInMS, const FString& Group, const FString& Meta, const TArray<uint8>& Data ) override;
-	void AddRequestToQueue( const EQueuedHttpRequestType::Type Type, TSharedPtr< class IHttpRequest >	Request );
+	void AddRequestToQueue( const EQueuedHttpRequestType::Type Type, TSharedPtr< class IHttpRequest > Request, const int32 InMaxRetries = 0, const float InRetryDelay = 0.0f );
 	void AddCustomRequestToQueue( TSharedPtr< FQueuedHttpRequest > Request );
+	bool RetryRequest( TSharedPtr< FQueuedHttpRequest > Request, FHttpResponsePtr HttpResponse );
 	void EnumerateCheckpoints();
 	void ConditionallyEnumerateCheckpoints();
 
 	virtual void ProcessRequestInternal( TSharedPtr< class IHttpRequest > Request );
+	virtual bool SupportsCompression() const { return false; }
+	virtual bool CompressBuffer( const TArray< uint8 >& InBuffer, FHttpStreamFArchive& OutCompressed ) const { return false; }
+	virtual bool DecompressBuffer(FHttpStreamFArchive& InCompressed, TArray< uint8 >& OutBuffer) const { return false; }
 
 	/** EStreamerState - Overall state of the streamer */
 	enum class EStreamerState
@@ -283,6 +313,8 @@ public:
 
 	TArray< TSharedPtr< FQueuedHttpRequest > >	QueuedHttpRequests;
 	TSharedPtr< FQueuedHttpRequest >			InFlightHttpRequest;
+
+	TSet< FString >					EventGroupSet;
 };
 
 class HTTPNETWORKREPLAYSTREAMING_API FHttpNetworkReplayStreamingFactory : public INetworkReplayStreamingFactory, public FTickableGameObject

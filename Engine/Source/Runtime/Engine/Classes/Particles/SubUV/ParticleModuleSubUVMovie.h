@@ -1,11 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
 #include "Particles/SubUV/ParticleModuleSubUV.h"
 #include "ParticleModuleSubUVMovie.generated.h"
 
-UCLASS(editinlinenew, hidecategories=Object, hidecategories=SubUV, meta=(DisplayName = "SubUV Movie"))
+UCLASS(editinlinenew, hidecategories=Object, meta=(DisplayName = "SubUV Movie"))
 class UParticleModuleSubUVMovie : public UParticleModuleSubUV
 {
 	GENERATED_UCLASS_BODY()
@@ -45,7 +45,7 @@ class UParticleModuleSubUVMovie : public UParticleModuleSubUV
 
 	//~ Begin UParticleModule Interface
 	virtual void Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase) override;
-	virtual uint32 RequiredBytes(FParticleEmitterInstance* Owner = NULL) override;
+	virtual uint32 RequiredBytes(UParticleModuleTypeDataBase* TypeData) override;
 	virtual void SetToSensibleDefaults(UParticleEmitter* Owner) override;
 	virtual void GetCurveObjects(TArray<FParticleCurvePair>& OutCurves) override;
 	//~ End UParticleModule Interface

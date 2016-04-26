@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -158,12 +158,12 @@ public:
 
 #if !USE_NEW_LOCK_FREE_LISTS
 // where you don't care what order they pop in. We choose the fastest implementation we have.
-template <class T>
+template<class T, int TPaddingForCacheContention>
 class TLockFreePointerListUnordered : public TLockFreePointerListLIFOBase<T>
 {
 
 };
-template <class T>
+template<class T, int TPaddingForCacheContention>
 class TClosableLockFreePointerListUnorderedSingleConsumer : public TClosableLockFreePointerListLIFO<T>
 {
 
@@ -171,7 +171,7 @@ class TClosableLockFreePointerListUnorderedSingleConsumer : public TClosableLock
 
 #else
 
-template <class T>
+template<class T, int TPaddingForCacheContention>
 class TClosableLockFreePointerListFIFOSingleConsumer
 {
 public:
@@ -222,10 +222,10 @@ public:
 		return Inner.Reset();
 	}
 private:
-	FCloseableLockFreePointerListFIFOBaseSingleConsumer Inner;
+	FCloseableLockFreePointerListFIFOBaseSingleConsumer<TPaddingForCacheContention> Inner;
 };
 
-template <class T>
+template<class T, int TPaddingForCacheContention>
 class TReopenableLockFreePointerListFIFOSingleConsumer
 {
 public:
@@ -259,11 +259,11 @@ public:
 		return Inner.CloseIfEmpty();
 	}
 private:
-	FCloseableLockFreePointerListFIFOBaseSingleConsumer Inner;
+	FCloseableLockFreePointerListFIFOBaseSingleConsumer<TPaddingForCacheContention> Inner;
 };
 
-template <class T>
-class TClosableLockFreePointerListUnorderedSingleConsumer : public TClosableLockFreePointerListFIFOSingleConsumer<T>
+template<class T, int TPaddingForCacheContention>
+class TClosableLockFreePointerListUnorderedSingleConsumer : public TClosableLockFreePointerListFIFOSingleConsumer<T, TPaddingForCacheContention>
 {
 
 };

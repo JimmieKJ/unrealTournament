@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -24,7 +24,7 @@ public:
 	 * @param InOwner The Movie texture object to create a resource for (must not be nullptr).
 	 * @param InVideoBuffer The video sample buffer to use.
 	 */
-	FMediaTextureResource(const class UMediaTexture* InOwner, const TSharedRef<FMediaSampleBuffer, ESPMode::ThreadSafe>& InVideoBuffer);
+	FMediaTextureResource(const UMediaTexture* InOwner, const TSharedRef<FMediaSampleBuffer, ESPMode::ThreadSafe>& InVideoBuffer);
 
 public:
 
@@ -43,7 +43,7 @@ public:
 
 	// FDeferredUpdateResource overrides
 
-	virtual void UpdateDeferredResource( FRHICommandListImmediate& RHICmdList, bool bClearRenderTarget=true ) override;
+	virtual void UpdateDeferredResource(FRHICommandListImmediate& RHICmdList, bool bClearRenderTarget = true) override;
 
 private:
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -8,6 +8,7 @@
 
 class UMovieSceneSection;
 class UMovieSceneSequence;
+class UMovieSceneSubSection;
 
 
 /**
@@ -21,13 +22,18 @@ class UMovieSceneSubTrack
 
 public:
 
+	UMovieSceneSubTrack( const FObjectInitializer& ObjectInitializer );
+
 	/**
-	 * Adds a movie scene section
+	 * Adds a movie scene section to the end of all the existing sections. If there are no sections, the new movie scene section is added at the requested time.
 	 *
 	 * @param Sequence The sequence to add
-	 * @param Time The time to add the section at
+	 * @param StartTime The time to add the section at
+	 * @param Duration The duration of the section
+	 * @param bInsertSequence Whether or not to insert the sequence and push existing sequences out
+	 * @return The newly created sub section
 	 */
-	MOVIESCENETRACKS_API void AddSequence(class UMovieSceneSequence& Sequence, float Time);
+	MOVIESCENETRACKS_API virtual UMovieSceneSubSection* AddSequence(UMovieSceneSequence* Sequence, float StartTime, float Duration, const bool& bInsertSequence = false);
 
 	/**
 	 * Check whether this track contains the given sequence.
@@ -37,6 +43,11 @@ public:
 	 * @return true if the sequence is in this track, false otherwise.
 	 */
 	MOVIESCENETRACKS_API bool ContainsSequence(const UMovieSceneSequence& Sequence, bool Recursively = false) const;
+
+	/**
+	 * Add a new sequence to record
+	 */
+	MOVIESCENETRACKS_API virtual UMovieSceneSubSection* AddSequenceToRecord();
 
 public:
 
@@ -53,7 +64,11 @@ public:
 	virtual void RemoveSection(UMovieSceneSection& Section) override;
 	virtual bool SupportsMultipleRows() const override;
 
-private:
+#if WITH_EDITORONLY_DATA
+	virtual FText GetDefaultDisplayName() const override;
+#endif
+	
+protected:
 
 	/** All movie scene sections. */
 	UPROPERTY()

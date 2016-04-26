@@ -35,6 +35,8 @@ class SUTMatchSummaryPanel;
 class SUTChatEditBox;
 class SUTQuickChatWindow;
 
+enum class EMatchmakingCompleteResult : uint8;
+
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FPlayerOnlineStatusChanged, class UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
 
 DECLARE_DELEGATE_TwoParams(FUTProfilesLoaded, bool, const FText&);
@@ -90,8 +92,8 @@ public:
 	FUTFriend()
 	{}
 
-	FUTFriend(FString inUserId, FString inDisplayName, bool inActualFriend)
-		: UserId(inUserId), DisplayName(inDisplayName), bActualFriend(inActualFriend)
+	FUTFriend(FString inUserId, FString inDisplayName, bool inActualFriend, bool inIsOnline, bool inIsPlayingThisGame)
+		: UserId(inUserId), DisplayName(inDisplayName), bActualFriend(inActualFriend), bIsOnline(inIsOnline), bIsPlayingThisGame(inIsPlayingThisGame)
 	{}
 
 
@@ -103,6 +105,12 @@ public:
 
 	UPROPERTY()
 	bool bActualFriend;
+	
+	UPROPERTY()
+	bool bIsOnline;
+	
+	UPROPERTY()
+	bool bIsPlayingThisGame;
 };
 
 /** profile notification data from the backend */
@@ -235,6 +243,7 @@ protected:
 
 	TSharedPtr<class SUTAdminDialog> AdminDialog;
 
+	virtual TSharedPtr<class SUTDialogBase> ShowLeagueMatchResultDialog(int32 Tier, int32 Division, FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback = FDialogResultDelegate(), FVector2D DialogSize = FVector2D(0.0, 0.0f));
 #endif
 
 	bool bWantsToConnectAsSpectator;
@@ -343,16 +352,16 @@ protected:
 
 	// Holds the local copy of the player nickname.
 	UPROPERTY(config)
-		FString PlayerNickname;
+	FString PlayerNickname;
 
 	// What is the Epic ID associated with this player.
 	UPROPERTY(config)
-		FString LastEpicIDLogin;
+	FString LastEpicIDLogin;
 
 	// The RememberMe Token for this player. 
 	UPROPERTY(config)
-		FString LastEpicRememberMeToken;
-
+	FString LastEpicRememberMeToken;
+	
 	// Called to insure the OSS is cleaned up properly
 	virtual void CleanUpOnlineSubSystyem();
 
@@ -381,6 +390,22 @@ protected:
 public:
 	// Call this function to Attempt to load the Online Profile Settings for this user.
 	virtual void GetAuth(FString ErrorMessage = TEXT(""));
+
+	UPROPERTY(config)
+	FString LastRankedMatchUniqueId;
+
+	UPROPERTY(config)
+	FString LastRankedMatchSessionId;
+
+	UPROPERTY(config)
+	FString LastRankedMatchTimeString;
+
+	UFUNCTION()
+	void ShowRankedReconnectDialog(const FString& UniqueID);
+
+#if !UE_SERVER
+	virtual void RankedReconnectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+#endif
 
 private:
 
@@ -736,6 +761,13 @@ public:
 	void HideMatchmakingDialog();
 	bool IsPartyLeader();
 
+#if !UE_SERVER
+	TSharedPtr<SUTDialogBase> LeagueMatchResultsDialog;
+
+	TSharedPtr<SUTDialogBase> GameAbandonedDialog;
+	void ShowGameAbandonedDialog();
+#endif
+
 	virtual void VerifyGameSession(const FString& ServerSessionId);
 
 	/** Closes any slate UI elements that are open. **/
@@ -888,6 +920,10 @@ public:
 
 	/** Matchmaking related items */
 	void StartMatchmaking(int32 PlaylistId);
+
+	FDelegateHandle MatchmakingReconnectResultHandle;
+	void AttemptMatchmakingReconnect(const FString& OldSessionId);
+	void AttemptMatchmakingReconnectResult(EMatchmakingCompleteResult Result);
 
 	void InvalidateLastSession();
 	void Reconnect(bool bAsSpectator);

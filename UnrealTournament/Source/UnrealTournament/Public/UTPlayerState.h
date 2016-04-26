@@ -124,10 +124,6 @@ public:
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = NotifyTeamChanged, Category = PlayerState)
 	class AUTTeamInfo* Team;
 
-	/** Whether this player is waiting to enter match */
-	UPROPERTY(BlueprintReadOnly, replicated, Category = PlayerState)
-	uint32 bWaitingPlayer:1;
-
 	/** Whether this player has confirmed ready to play */
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	uint32 bReadyToPlay:1;
@@ -206,7 +202,7 @@ public:
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = PlayerState)
 	int32 Spree;
 
-	/** Kills by this player.  Not replicated but calculated client-side */
+	/** Kills by this player.  */
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	int32 Kills;
 
@@ -218,8 +214,8 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 		int32 RoundDamageDone;
 
-	/** Enemy kills by this player this round.  Not replicated. */
-	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
+	/** Enemy kills by this player this round. */
+	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 		int32 RoundKills;
 
 	/** If limited lives, remaining lives for this player. */
@@ -236,8 +232,11 @@ public:
 	uint32 bOutOfLives:1;
 
 	/** Max of this and game respawn time is min respawntime */
-	UPROPERTY(replicated)
+	UPROPERTY(ReplicatedUsing = OnRespawnWaitReceived)
 		float RespawnWaitTime;
+
+	UFUNCTION()
+		void OnRespawnWaitReceived();
 
 	/** How many times associated player has died */
 	UPROPERTY(BlueprintReadOnly, replicated, ReplicatedUsing = OnDeathsReceived, Category = PlayerState)
@@ -260,9 +259,6 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState, replicated)
 	bool bIsRconAdmin;
-
-	UPROPERTY(BlueprintReadOnly, replicated, Category = PlayerState)
-	bool bHasHighScore;
 
 	UPROPERTY(BlueprintReadOnly, replicated, Category = PlayerState)
 	bool bIsDemoRecording;
@@ -426,9 +422,6 @@ public:
 	virtual void ClearCarriedObject(AUTCarriedObject* OldCarriedObject);
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
-	virtual void SetWaitingPlayer(bool B);
-
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
 	virtual void IncrementKills(TSubclassOf<UDamageType> DamageType, bool bEnemyKill, AUTPlayerState* VictimPS=NULL);
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
@@ -546,9 +539,28 @@ public:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = PlayerState)
 	FName Avatar;
 
+protected:
 	/*  Used to determine whether boost can be triggered. */
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = PlayerState)
+	uint8 RemainingBoosts;
+public:
+	inline uint8 GetRemainingBoosts() const
+	{
+		return RemainingBoosts;
+	}
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
+	void SetRemainingBoosts(uint8 NewRemainingBoosts);
+
+	/** if gametype supports a boost recharge/cooldown timer, the time that needs to pass for RemainingBoosts to be incremented */
+	UPROPERTY(Replicated, BlueprintReadWrite, Category = PlayerState)
+	float BoostRechargeTimeRemaining;
+
+	/** Inventory item that is created on boost. */
+	UPROPERTY(Replicated, BlueprintReadWrite, Category = PlayerState)
+		TSubclassOf<class AUTInventory> BoostClass;
+
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
-		uint8 RemainingBoosts;
+		bool bIsPowerupSelectWindowOpen;
 
 private:
 	UPROPERTY()
@@ -787,7 +799,9 @@ public:
 	TSharedRef<SWidget> BuildRank(AUTBaseGameMode* DefaultGame, bool bRankedSession, FText RankName);
 	TSharedRef<SWidget> BuildLeague(AUTBaseGameMode* DefaultGame, FText LeagueName);
 	TSharedRef<SWidget> BuildLeagueDataRow(FText Label, FText Data);
+	TSharedRef<SWidget> BuildLeagueDivision(int32 Tier, int32 Division);
 	FText LeagueTierToText(int32 Tier);
+	FString LeagueTierToBrushName(int32 Tier);
 	void EpicIDClicked();
 #endif
 
@@ -804,6 +818,8 @@ public:
 
 	UFUNCTION()
 	virtual void OnRepSpecialTeamPlayer();
+
+	virtual void UpdateSpecialTacComFor(AUTCharacter* Character, AUTPlayerController* UTPC);
 
 	// Allows gametypes to force a given hat on someone
 	UPROPERTY(replicatedUsing = OnRepOverrideHat)
@@ -834,10 +850,6 @@ public:
 	virtual float GetAvailableCurrency();
 
 	virtual void AdjustCurrency(float Adjustment);
-
-	// If true, then spawns for this player costs lives.
-	UPROPERTY()
-	bool bSpawnCostLives;
 
 protected:
 	TArray<FTempBanInfo> BanVotes;
@@ -909,6 +921,39 @@ public:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerSetLoadoutPack(const FName& NewLoadoutPackTag);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerSetBoostItem(TSubclassOf<class AUTInventory> PowerupClass);
+
+	// DO NOT USE: This is WIP temp code and may go away.
+	UPROPERTY(Replicated)
+	AActor* CriticalObject;
+
+	// DO NOT USE: This is WIP temp code and may go away.
+	UPROPERTY(Replicated)
+	AUTReplicatedLoadoutInfo* PrimarySpawnInventory;
+
+	// DO NOT USE: This is WIP temp code and may go away.
+	UPROPERTY(Replicated)
+	AUTReplicatedLoadoutInfo* SecondarySpawnInventory;
+
+	// Holds a list of loadout items that are allowed by this player
+	UPROPERTY(Replicated)
+	TArray<FName> AllowedLoadoutItemTags;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerUnlockItem(FName ItemTag, bool bSecondary);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerSelectLoadout(FName ItemTag, bool bSecondary);
+
+	UPROPERTY(Replicated, replicatedUsing = OnUnlockList)
+	TArray<FName> UnlockList;
+
+
+protected:
+	UFUNCTION()
+	virtual void OnUnlockList();
 
 };
 

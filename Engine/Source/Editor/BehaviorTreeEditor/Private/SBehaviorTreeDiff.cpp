@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "BehaviorTreeEditorPrivatePCH.h"
 #include "SBehaviorTreeDiff.h"
@@ -508,7 +508,7 @@ FText SBehaviorTreeDiff::FBehaviorTreeDiffPanel::GetTitle() const
 			FString AssetName = BehaviorTree->GetName();
 			if(ISourceControlModule::Get().GetProvider().UsesChangelists())
 			{
-				FText LocalizedFormat = LOCTEXT("NamedRevisionDiffFmt", "{0} - Revision {1}, CL {2}, {3}");
+				FText LocalizedFormat = LOCTEXT("NamedRevisionDiffFmtUsesChangelists", "{0} - Revision {1}, CL {2}, {3}");
 				Title = FText::Format(LocalizedFormat, FText::FromString(AssetName), RevisionText, ChangelistText, DateText);
 			}
 			else
@@ -521,7 +521,7 @@ FText SBehaviorTreeDiff::FBehaviorTreeDiffPanel::GetTitle() const
 		{
 			if(ISourceControlModule::Get().GetProvider().UsesChangelists())
 			{
-				FText LocalizedFormat = LOCTEXT("PreviousRevisionDifFmt", "Revision {0}, CL {1}, {2}");
+				FText LocalizedFormat = LOCTEXT("PreviousRevisionDifFmtUsesChangelists", "Revision {0}, CL {1}, {2}");
 				Title = FText::Format(LocalizedFormat, RevisionText, ChangelistText, DateText);
 			}
 			else

@@ -12,7 +12,7 @@ class UNREALTOURNAMENT_API AUTProj_ShockBall : public AUTProjectile
 	GENERATED_UCLASS_BODY()
 
 	virtual void InitFakeProjectile(AUTPlayerController* OwningPlayer) override;
-	virtual void NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser) override;
+	virtual void NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser, int32 Damage) override;
 
 	/** combo parameters */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ShockCombo)

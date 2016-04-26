@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -24,8 +24,8 @@ struct CORE_API FStatConstants
 	static const char* ThreadGroupName;
 	static const FName NAME_ThreadGroup;
 
-	/** Stat short name for seconds per cycle. */
-	static const FName NAME_SecondsPerCycle;
+	/** Stat raw name for seconds per cycle. */
+	static const FName RAW_SecondsPerCycle;
 
 	/** Special case category, when we want to Stat to appear at the root of the menu (leaving the category blank omits it from the menu entirely) */
 	static const FName NAME_NoCategory;
@@ -287,6 +287,12 @@ struct CORE_API FRawStatStackNode
 	/** Print this tree to the log **/
 	void DebugPrint(TCHAR const* Filter = nullptr, int32 MaxDepth = MAX_int32, int32 Depth = 0) const;
 
+	/** Print this tree to the log **/
+	void DebugPrintLeafFilter(TCHAR const* Filter) const;
+
+	/** Print this tree to the log **/
+	void DebugPrintLeafFilterInner(TCHAR const* Filter, int32 Depth, TArray<FString>& Stack) const;
+
 	/** Condense this tree into a flat list using EStatOperation::ChildrenStart, EStatOperation::ChildrenEnd, EStatOperation::Leaf **/
 	void Encode(TArray<FStatMessage>& OutStats) const;
 
@@ -464,19 +470,17 @@ struct IItemFiler
 };
 
 
-
-// #YRX_STATS 2014-12-03 Separate stats thread state vs raw stats thread state?
-// #YRX_STATS 2014-03-21 Move metadata functionality into a separate class
+// #Stats: 2014-03-21 Move metadata functionality into a separate class
 // 
 /**
  * Tracks stat state and history
  * GetLocalState() is a singleton to the state for stats being collected in this executable.
- *  Other instances can be used to load stats for visualization.
  */
 class CORE_API FStatsThreadState
 {
 	friend class FStatsThread;
 	friend struct FStatPacketArray;
+	friend struct FStatsReadFile;
 
 	/** Delegate that FStatsThreadState calls on the stats thread whenever we have a new frame. */
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnNewFrameHistory, int64);
@@ -491,7 +495,7 @@ class CORE_API FStatsThreadState
 	void ScanForAdvance(FStatPacketArray& NewData);
 
 public:
-	/** Internal method to add meta data packets to the data structures. **/
+	/** Internal method to update the internal metadata. **/
 	void ProcessMetaDataOnly(TArray<FStatMessage>& Data);
 
 	/** Toggles tracking the most memory expensive stats. */
@@ -526,6 +530,7 @@ private:
 	/** Generates a list of most memory expensive stats and dump to the log. */
 	void FindAndDumpMemoryExtensiveStats( FStatPacketArray &Frame );
 
+protected:
 	/** Called in response to SetLongName messages to update ShortNameToLongName and NotClearedEveryFrame **/
 	void FindOrAddMetaData(FStatMessage const& Item);
 
@@ -574,7 +579,7 @@ private:
 public:
 
 	/** Constructor used by GetLocalState(), also used by the profiler to hold a previewing stats thread state. We don't keep many frames by default **/
-	FStatsThreadState(int32 InHistoryFrames = STAT_FRAME_SLOP + 2);
+	FStatsThreadState(int32 InHistoryFrames = STAT_FRAME_SLOP + 10);
 
 	/** Delegate we fire every time we have a new complete frame of data. **/
 	mutable FOnNewFrameHistory NewFrameDelegate;
@@ -640,51 +645,28 @@ public:
 	}
 
 	/** Gets the old-skool flat grouped inclusive stats. These ignore recursion, merge threads, etc and so generally the condensed callstack is less confusing. **/
+	void GetInclusiveAggregateStackStats( const TArray<FStatMessage>& CondensedMessages, TArray<FStatMessage>& OutStats, IItemFiler* Filter = nullptr, bool bAddNonStackStats = true, TMap<FName, TArray<FStatMessage>>* OptionalOutThreadBreakdownMap = nullptr ) const;
+
+	/** Gets the old-skool flat grouped inclusive stats. These ignore recursion, merge threads, etc and so generally the condensed callstack is less confusing. **/
 	void GetInclusiveAggregateStackStats(int64 TargetFrame, TArray<FStatMessage>& OutStats, IItemFiler* Filter = nullptr, bool bAddNonStackStats = true, TMap<FName, TArray<FStatMessage>>* OptionalOutThreadBreakdownMap = nullptr) const;
+
+	/** Gets the old-skool flat grouped exclusive stats. These merge threads, etc and so generally the condensed callstack is less confusing. **/
+	void GetExclusiveAggregateStackStats( const TArray<FStatMessage>& CondensedMessages, TArray<FStatMessage>& OutStats, IItemFiler* Filter = nullptr, bool bAddNonStackStats = true ) const;
 
 	/** Gets the old-skool flat grouped exclusive stats. These merge threads, etc and so generally the condensed callstack is less confusing. **/
 	void GetExclusiveAggregateStackStats(int64 TargetFrame, TArray<FStatMessage>& OutStats, IItemFiler* Filter = nullptr, bool bAddNonStackStats = true) const;
 
 	/** Used to turn the condensed version of stack stats back into a tree for easier handling. **/
-	void UncondenseStackStats(int64 TargetFrame, FRawStatStackNode& Out, IItemFiler* Filter = nullptr, TArray<FStatMessage>* OutNonStackStats = nullptr) const;
+	void UncondenseStackStats( const TArray<FStatMessage>& CondensedMessages, FRawStatStackNode& Root, IItemFiler* Filter = nullptr, TArray<FStatMessage>* OutNonStackStats = nullptr ) const;
+
+	/** Used to turn the condensed version of stack stats back into a tree for easier handling. **/
+	void UncondenseStackStats(int64 TargetFrame, FRawStatStackNode& Root, IItemFiler* Filter = nullptr, TArray<FStatMessage>* OutNonStackStats = nullptr) const;
 
 	/** Adds missing stats to the group so it doesn't jitter. **/
 	void AddMissingStats(TArray<FStatMessage>& Dest, TSet<FName> const& EnabledItems) const;
 
 	/** Singleton to get the stats being collected by this executable. Can be only accessed from the stats thread. **/
 	static FStatsThreadState& GetLocalState();
-
-	/*-----------------------------------------------------------------------------
-		Stats file related functionality
-
-		#YRX_Stats: 2015-07-07 Maybe move to FStatsLoadedState
-	-----------------------------------------------------------------------------*/
-public:
-	/** Constructor to load stats from a file **/
-	FStatsThreadState( FString const& Filename );
-
-	/** Adds a frame worth of messages */
-	void AddMessages( TArray<FStatMessage>& InMessages );
-
-	/** Marks this stats state as loaded. */
-	void MarkAsLoaded()
-	{
-		bWasLoaded = true;
-	}
-
-protected:
-	/** Internal method to scan the messages to accumulate any non-frame stats. **/
-	void ProcessMetaDataForLoad( TArray<FStatMessage>& Data );
-
-	/** Largest frame seen. Loaded stats only. **/
-	int64 MaxFrameSeen;
-
-	/** First frame seen. Loaded stats only. **/
-	int64 MinFrameSeen;
-
-	/** Valid frame computation is different if we just loaded these stats **/
-	bool bWasLoaded;
-
 };
 
 //@todo split header

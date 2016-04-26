@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "GraphEditorCommon.h"
 #include "SGraphPinObject.h"
@@ -87,7 +87,7 @@ TSharedRef<SWidget>	SGraphPinObject::GetDefaultValueWidget()
 				.ButtonColorAndOpacity( this, &SGraphPinObject::OnGetWidgetBackground )
 				.OnClicked( GetOnUseButtonDelegate() )
 				.ContentPadding(1.f)
-				.ToolTipText(NSLOCTEXT("GraphEditor", "ObjectGraphPin_Use", "Use asset browser selection"))
+				.ToolTipText(NSLOCTEXT("GraphEditor", "ObjectGraphPin_Use_Tooltip", "Use asset browser selection"))
 				[
 					SNew(SImage)
 					.ColorAndOpacity( this, &SGraphPinObject::OnGetWidgetForeground )
@@ -105,7 +105,7 @@ TSharedRef<SWidget>	SGraphPinObject::GetDefaultValueWidget()
 				.ButtonColorAndOpacity( this, &SGraphPinObject::OnGetWidgetBackground )
 				.OnClicked( GetOnBrowseButtonDelegate() )
 				.ContentPadding(0)
-				.ToolTipText(NSLOCTEXT("GraphEditor", "ObjectGraphPin_Browse", "Browse"))
+				.ToolTipText(NSLOCTEXT("GraphEditor", "ObjectGraphPin_Browse_Tooltip", "Browse"))
 				[
 					SNew(SImage)
 					.ColorAndOpacity( this, &SGraphPinObject::OnGetWidgetForeground )

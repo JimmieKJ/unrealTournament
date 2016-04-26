@@ -40,11 +40,6 @@ public class UnrealTournamentTarget : TargetRules
     
     public override bool ShouldCompileMonolithic(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
     {
-        if (UnrealBuildTool.UnrealBuildTool.RunningRocket())
-        {
-            return base.ShouldCompileMonolithic(InPlatform, InConfiguration);
-        }
-
         return false;
     }
 

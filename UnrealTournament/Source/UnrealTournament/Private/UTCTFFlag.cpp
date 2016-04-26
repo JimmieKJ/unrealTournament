@@ -40,7 +40,7 @@ AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 	ClothBlendHome = 0.f;
 	ClothBlendHeld = 0.5f;
 	bEnemyCanPickup = true;
-	PingedDuration = 2.5f;
+	PingedDuration = 3.f;
 	bShouldPingFlag = false;
 }
 
@@ -107,7 +107,7 @@ void AUTCTFFlag::OnObjectStateChanged()
 		if (ObjectState == CarriedObjectState::Dropped)
 		{
 			GetWorldTimerManager().SetTimer(SendHomeWithNotifyHandle, this, &AUTCTFFlag::SendHomeWithNotify, AutoReturnTime, false);
-			FlagReturnTime = FMath::Clamp(int32(AutoReturnTime + 0.5f), 0, 255);
+			FlagReturnTime = FMath::Clamp(int32(AutoReturnTime + 1.f), 0, 255);
 		}
 		else
 		{
@@ -127,6 +127,21 @@ void AUTCTFFlag::SendHomeWithNotify()
 {
 	if (bGradualAutoReturn)
 	{
+		if (Role == ROLE_Authority)
+		{
+			// if team member nearby, wait a bit longer
+			AUTCTFGameState* GameState = GetWorld()->GetGameState<AUTCTFGameState>();
+			for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+			{
+				AUTCharacter* TeamChar = Cast<AUTCharacter>(*It);
+				if (TeamChar && !TeamChar->IsDead() && ((GetActorLocation() - TeamChar->GetActorLocation()).SizeSquared() < 500000.f) && GameState && GameState->OnSameTeam(TeamChar, this))
+				{
+					GetWorldTimerManager().SetTimer(SendHomeWithNotifyHandle, this, &AUTCTFFlag::SendHomeWithNotify, 0.2f, false);
+					return;
+				}
+			}
+		}
+
 		AUTCTFFlagBase* FlagBase = Cast<AUTCTFFlagBase>(HomeBase);
 		if (FlagBase)
 		{
@@ -166,7 +181,7 @@ void AUTCTFFlag::Drop(AController* Killer)
 				if (GM)
 				{
 					bDelayDroppedMessage = true;
-					GM->BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 0, Killer->PlayerState, Holder, NULL);
+					GM->BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 6, Killer->PlayerState, Holder, NULL);
 					GM->AddDeniedEventToReplay(Killer->PlayerState, Holder, Holder->Team);
 				}
 			}
@@ -200,7 +215,7 @@ void AUTCTFFlag::Drop(AController* Killer)
 		{
 			PastPositions.RemoveAt(PastPositions.Num() - 1);
 		}
-		if (PastPositions.Num() > 0)
+		if (PastPositions.Num() > 0)// fimxesteve why?
 		{
 			PutGhostFlagAt(PastPositions[PastPositions.Num() - 1]);
 		}
@@ -272,6 +287,10 @@ void AUTCTFFlag::Tick(float DeltaTime)
 	if (Role == ROLE_Authority)
 	{
 		bCurrentlyPinged = bShouldPingFlag && (GetWorld()->GetTimeSeconds() - LastPingedTime < PingedDuration);
+		if (Holder)
+		{
+			Holder->bSpecialPlayer = bCurrentlyPinged;
+		}
 		if ((ObjectState == CarriedObjectState::Held) && (GetWorld()->GetTimeSeconds() - LastPositionUpdateTime > 1.f) && HoldingPawn && HoldingPawn->GetCharacterMovement() && HoldingPawn->GetCharacterMovement()->IsWalking() && (!HoldingPawn->GetMovementBase() || !MovementBaseUtility::UseRelativeLocation(HoldingPawn->GetMovementBase())))
 		{
 			FVector PreviousPos = (PastPositions.Num() > 0) ? PastPositions[PastPositions.Num() - 1] : (HomeBase ? HomeBase->GetActorLocation() : FVector(0.f));
@@ -283,7 +302,7 @@ void AUTCTFFlag::Tick(float DeltaTime)
 		}
 		if ((ObjectState == CarriedObjectState::Dropped) && GetWorldTimerManager().IsTimerActive(SendHomeWithNotifyHandle))
 		{
-			FlagReturnTime = FMath::Clamp(int32(GetWorldTimerManager().GetTimerRemaining(SendHomeWithNotifyHandle) + 0.5f), 0, 255);
+			FlagReturnTime = FMath::Clamp(int32(GetWorldTimerManager().GetTimerRemaining(SendHomeWithNotifyHandle) + 1.f), 0, 255);
 		}
 	}
 }

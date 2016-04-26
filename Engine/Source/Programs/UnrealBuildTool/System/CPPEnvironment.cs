@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -26,6 +26,7 @@ namespace UnrealBuildTool
 		IOS,
 		HTML5,
 		Linux,
+		TVOS,
 	}
 
 	/// <summary>
@@ -318,6 +319,11 @@ namespace UnrealBuildTool
 		public bool bUseStaticCRT = false;
 
 		/// <summary>
+		/// Whether we should compile with support for OS X 10.9 Mavericks. Used for some tools that we need to be compatible with this version of OS X.
+		/// </summary>
+		public bool bEnableOSX109Support = false;
+
+		/// <summary>
 		/// Whether the CLR (Common Language Runtime) support should be enabled for C++ targets (C++/CLI).
 		/// </summary>
 		public CPPCLRMode CLRMode = CPPCLRMode.CLRDisabled;
@@ -389,6 +395,7 @@ namespace UnrealBuildTool
 			bIsBuildingLibrary = InCopyEnvironment.bIsBuildingLibrary;
 			bIsBuildingDLL = InCopyEnvironment.bIsBuildingDLL;
 			bUseStaticCRT = InCopyEnvironment.bUseStaticCRT;
+			bEnableOSX109Support = InCopyEnvironment.bEnableOSX109Support;
 			CLRMode = InCopyEnvironment.CLRMode;
 			CPPIncludeInfo.IncludePaths.UnionWith(InCopyEnvironment.CPPIncludeInfo.IncludePaths);
 			CPPIncludeInfo.SystemIncludePaths.UnionWith(InCopyEnvironment.CPPIncludeInfo.SystemIncludePaths);

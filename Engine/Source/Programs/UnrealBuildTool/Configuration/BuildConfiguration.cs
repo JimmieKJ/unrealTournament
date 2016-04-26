@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.IO;
@@ -59,18 +59,11 @@ namespace UnrealBuildTool
 		public static bool bUseFastMonoCalls;
 
 		/// <summary>
-		/// New Xbox driver supports a "fast semantics" context type. This switches it on for the immediate context
+		/// New Xbox driver supports a "fast semantics" context type. This switches it on for the immediate and deferred contexts
 		/// EXPERIMENTAL - WILL CAUSE RENDERING ISSUES AND/OR CRASHES AT PRESENT!
 		/// </summary>
 		[XmlConfig]
-		public static bool bUseFastSemanticsImmediateContext;
-
-		/// <summary>
-		/// New Xbox driver supports a "fast semantics" context type. This switches it on for the deferred contexts
-		/// EXPERIMENTAL - WILL CAUSE RENDERING ISSUES AND/OR CRASHES AT PRESENT!
-		/// </summary>
-		[XmlConfig]
-		public static bool bUseFastSemanticsDeferredContexts;
+		public static bool bUseFastSemanticsRenderContexts;
 
 		/// Async Compute context support. Requires Mono and Fastcalls
 		/// </summary>
@@ -193,6 +186,12 @@ namespace UnrealBuildTool
 		/// </summary>
 		[XmlConfig]
 		public static bool bAllowXGE;
+
+		/// <summary>
+		/// Whether to use the no_watchdog_thread option to prevent VS2015 toolchain stalls.
+		/// </summary>
+		[XmlConfig]
+		public static bool bXGENoWatchdogThread;
 
 		/// <summary>
 		/// Whether we should just export the XGE XML and pretend it succeeded
@@ -449,7 +448,7 @@ namespace UnrealBuildTool
 		public static bool bUseUBTMakefiles;
 
         /// <summary>
-        /// Enables support for fast UHT parsing by caching results of previous UHT runs. If a module or UnrealHeaderTool.manifest
+        /// Enables support for fast UHT parsing by caching results of previous UHT runs. If a module or *.uhtmanifest
         /// gets changed, all modules up to first changed one get loaded from makefile and the rest is parsed regularly.
         /// </summary>
         [XmlConfig]
@@ -522,6 +521,29 @@ namespace UnrealBuildTool
 		public static string UCAModuleToAnalyze;
 
 		/// <summary>
+		/// If specified, we will only build this particular source file, ignore all other outputs.  Useful for testing non-Unity builds.
+		/// </summary>
+		public static string SingleFileToCompile;
+
+		/// <summary>
+		/// Whether to automatically add the -FastPDB option to the build commands in generated project files
+		/// </summary>
+		[XmlConfig]
+		public static bool bAddFastPDBToProjects;
+
+		/// <summary>
+		/// Whether to use the :FASTLINK option when building with /DEBUG to create local PDBs
+		/// </summary>
+		[XmlConfig]
+		public static bool bUseFastPDBLinking;
+
+		/// <summary>
+		/// Whether to request the linker create a map file as part of the build
+		/// </summary>
+		[XmlConfig]
+		public static bool bCreateMapFile;
+
+		/// <summary>
 		/// Sets the configuration back to defaults.
 		/// </summary>
 		public static void LoadDefaults()
@@ -529,6 +551,7 @@ namespace UnrealBuildTool
 			bAllowLTCG = false;
 			bAllowRemotelyCompiledPCHs = false;
 			bAllowXGE = true;
+			bXGENoWatchdogThread = false;
 			bAllowSNDBS = true;
 
 			// Don't bother to check external (stable) headers for modification.  It slows down UBT's dependency checking.
@@ -622,10 +645,9 @@ namespace UnrealBuildTool
 			bUseFastMonoCalls = true;
 			bUseAsyncComputeContext = bUseFastMonoCalls;
 
-			// Switches for fast semantics D3D contexts
-			// EXPERIMENTAL - WILL CAUSE RENDERING ISSUES AND/OR CRASHES AT PRESENT!
-			bUseFastSemanticsImmediateContext = false;
-			bUseFastSemanticsDeferredContexts = false;
+			// Switch for fast semantics D3D contexts
+			// Try disabling this if you see rendering issues or crashes in the Xbox One RHI
+			bUseFastSemanticsRenderContexts = false;
 
 			// By default we use the Release C++ Runtime (CRT), even when compiling Debug builds.  This is because the Debug C++
 			// Runtime isn't very useful when debugging Unreal Engine projects, and linking against the Debug CRT libraries forces
@@ -645,9 +667,9 @@ namespace UnrealBuildTool
 			// set up some paths
 			BaseIntermediateFolder = "Intermediate/Build/";
 
-			// By default check and stop the build on EULA violation
-			bCheckLicenseViolations = false;
-			bBreakBuildOnLicenseViolation = true;
+			// By default check for EULA violation and warn
+			bCheckLicenseViolations = true;
+			bBreakBuildOnLicenseViolation = false;
 
 			// Enables support for fast include dependency scanning, as well as gathering data for 'UBT Makefiles', then quickly
 			// assembling builds in subsequent runs using data in those cached makefiles
@@ -676,7 +698,17 @@ namespace UnrealBuildTool
 			// If header is included in 0% or more cpp files in module it should be included in PCH.
 			UCAUsageThreshold = 100.0f;
 
+			// Compile everything by default
+			SingleFileToCompile = null;
+
 			bUCACheckUObjectThreadSafety = false;
+
+			// Use Fast PDB linking by default in projects but not all builds
+			bAddFastPDBToProjects = false;
+			bUseFastPDBLinking = false;
+
+			// Don't create a map file by default
+			bCreateMapFile = false;
 
 			// The default for normal Mac users should be to use DistCode which installs as an Xcode plugin and provides dynamic host management
 			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac)
@@ -727,7 +759,7 @@ namespace UnrealBuildTool
 		/// <param name="bCreateDebugInfo">True if debug info should be created</param>
 		public static void ValidateConfiguration(CPPTargetConfiguration Configuration, CPPTargetPlatform Platform, bool bCreateDebugInfo, UEBuildPlatformContext PlatformContext)
 		{
-			var BuildPlatform = UEBuildPlatform.GetBuildPlatformForCPPTargetPlatform(Platform);
+			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatformForCPPTargetPlatform(Platform);
 
 			// E&C support.
 			if (bSupportEditAndContinue)
@@ -779,6 +811,13 @@ namespace UnrealBuildTool
 			if (!BuildPlatform.CanUseSNDBS())
 			{
 				bAllowSNDBS = false;
+			}
+
+			// If we're compiling just a single file, we need to prevent unity builds from running
+			if(SingleFileToCompile != null)
+			{
+				bUseUnityBuild = false;
+				bForceUnityBuild = false;
 			}
 		}
 

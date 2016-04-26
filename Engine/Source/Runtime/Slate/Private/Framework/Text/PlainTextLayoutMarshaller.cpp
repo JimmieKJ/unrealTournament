@@ -1,10 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlatePrivatePCH.h"
 #include "PlainTextLayoutMarshaller.h"
 #include "SlateTextLayout.h"
-
-#if WITH_FANCY_TEXT
+#include "SlatePasswordRun.h"
 
 TSharedRef< FPlainTextLayoutMarshaller > FPlainTextLayoutMarshaller::Create()
 {
@@ -15,6 +14,11 @@ FPlainTextLayoutMarshaller::~FPlainTextLayoutMarshaller()
 {
 }
 
+void FPlainTextLayoutMarshaller::SetIsPassword(const TAttribute<bool>& InIsPassword)
+{
+	bIsPassword = InIsPassword;
+}
+
 void FPlainTextLayoutMarshaller::SetText(const FString& SourceString, FTextLayout& TargetTextLayout)
 {
 	const FTextBlockStyle& DefaultTextStyle = static_cast<FSlateTextLayout&>(TargetTextLayout).GetDefaultTextStyle();
@@ -22,15 +26,28 @@ void FPlainTextLayoutMarshaller::SetText(const FString& SourceString, FTextLayou
 	TArray<FTextRange> LineRanges;
 	FTextRange::CalculateLineRangesFromString(SourceString, LineRanges);
 
-	for(const FTextRange& LineRange : LineRanges)
+	TArray<FTextLayout::FNewLineData> LinesToAdd;
+	LinesToAdd.Reserve(LineRanges.Num());
+
+	const bool bUsePasswordRun = bIsPassword.Get(false);
+	for (const FTextRange& LineRange : LineRanges)
 	{
 		TSharedRef<FString> LineText = MakeShareable(new FString(SourceString.Mid(LineRange.BeginIndex, LineRange.Len())));
 
 		TArray<TSharedRef<IRun>> Runs;
-		Runs.Add(FSlateTextRun::Create(FRunInfo(), LineText, DefaultTextStyle));
+		if (bUsePasswordRun)
+		{
+			Runs.Add(FSlatePasswordRun::Create(FRunInfo(), LineText, DefaultTextStyle));
+		}
+		else
+		{
+			Runs.Add(FSlateTextRun::Create(FRunInfo(), LineText, DefaultTextStyle));
+		}
 
-		TargetTextLayout.AddLine(LineText, Runs);
+		LinesToAdd.Emplace(MoveTemp(LineText), MoveTemp(Runs));
 	}
+
+	TargetTextLayout.AddLines(LinesToAdd);
 }
 
 void FPlainTextLayoutMarshaller::GetText(FString& TargetString, const FTextLayout& SourceTextLayout)
@@ -40,6 +57,5 @@ void FPlainTextLayoutMarshaller::GetText(FString& TargetString, const FTextLayou
 
 FPlainTextLayoutMarshaller::FPlainTextLayoutMarshaller()
 {
+	bIsPassword = false;
 }
-
-#endif //WITH_FANCY_TEXT

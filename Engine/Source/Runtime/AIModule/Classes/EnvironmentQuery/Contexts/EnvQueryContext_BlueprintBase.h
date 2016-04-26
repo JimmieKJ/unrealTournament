@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -31,14 +31,14 @@ class UEnvQueryContext_BlueprintBase : public UEnvQueryContext
 	virtual void ProvideContext(FEnvQueryInstance& QueryInstance, FEnvQueryContextData& ContextData) const override;
 
 	UFUNCTION(BlueprintImplementableEvent)
-	void ProvideSingleActor(AActor* QuerierActor, AActor*& ResultingActor) const;
+	void ProvideSingleActor(UObject* QuerierObject, AActor* QuerierActor, AActor*& ResultingActor) const;
 
 	UFUNCTION(BlueprintImplementableEvent)
-	void ProvideSingleLocation(AActor* QuerierActor, FVector& ResultingLocation) const;
+	void ProvideSingleLocation(UObject* QuerierObject, AActor* QuerierActor, FVector& ResultingLocation) const;
 
 	UFUNCTION(BlueprintImplementableEvent)
-	void ProvideActorsSet(AActor* QuerierActor, TArray<AActor*>& ResultingActorsSet) const;
+	void ProvideActorsSet(UObject* QuerierObject, AActor* QuerierActor, TArray<AActor*>& ResultingActorsSet) const;
 
 	UFUNCTION(BlueprintImplementableEvent)
-	void ProvideLocationsSet(AActor* QuerierActor, TArray<FVector>& ResultingLocationSet) const;
+	void ProvideLocationsSet(UObject* QuerierObject, AActor* QuerierActor, TArray<FVector>& ResultingLocationSet) const;
 };

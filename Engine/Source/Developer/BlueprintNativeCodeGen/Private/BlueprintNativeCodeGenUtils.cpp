@@ -1,9 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintNativeCodeGenPCH.h"
 #include "BlueprintNativeCodeGenManifest.h"
 #include "BlueprintNativeCodeGenUtils.h"
-#include "NativeCodeGenCommandlineParams.h"
 #include "Kismet2/KismetReinstanceUtilities.h"	 // for FBlueprintCompileReinstancer
 #include "Kismet2/CompilerResultsLog.h" 
 #include "KismetCompilerModule.h"
@@ -132,6 +131,7 @@ static bool BlueprintNativeCodeGenUtilsImpl::GenerateModuleSourceFiles(const FBl
 
 	TArray<FString> PchIncludes;
 	PchIncludes.Add(EngineHeaderFile);
+	PchIncludes.Add(TEXT("GeneratedCodeHelpers.h"));
 
 	bool bSuccess = GameProjectUtils::GeneratePluginModuleHeaderFile(TargetPaths.RuntimeModuleFile(FBlueprintNativeCodeGenPaths::HFile), PchIncludes, FailureReason);
 
@@ -230,12 +230,13 @@ static UClass* BlueprintNativeCodeGenUtilsImpl::ResolveReplacementType(const FCo
  ******************************************************************************/
 
 //------------------------------------------------------------------------------
-bool FBlueprintNativeCodeGenUtils::FinalizePlugin(const FBlueprintNativeCodeGenManifest& Manifest, const FNativeCodeGenCommandlineParams& CommandParams)
+bool FBlueprintNativeCodeGenUtils::FinalizePlugin(const FBlueprintNativeCodeGenManifest& Manifest)
 {
 	bool bSuccess = true;
+	FBlueprintNativeCodeGenPaths TargetPaths = Manifest.GetTargetPaths();
 	bSuccess = bSuccess && BlueprintNativeCodeGenUtilsImpl::GenerateModuleBuildFile(Manifest);
-	bSuccess = bSuccess && BlueprintNativeCodeGenUtilsImpl::GenerateModuleSourceFiles(Manifest.GetTargetPaths());
-	bSuccess = bSuccess && BlueprintNativeCodeGenUtilsImpl::GeneratePluginDescFile(CommandParams.PluginName, Manifest.GetTargetPaths());
+	bSuccess = bSuccess && BlueprintNativeCodeGenUtilsImpl::GenerateModuleSourceFiles(TargetPaths);
+	bSuccess = bSuccess && BlueprintNativeCodeGenUtilsImpl::GeneratePluginDescFile(TargetPaths.RuntimeModuleName(), TargetPaths);
 	return bSuccess;
 }
 
@@ -268,7 +269,7 @@ void FBlueprintNativeCodeGenUtils::GenerateCppCode(UObject* Obj, TSharedPtr<FStr
 
 		FDisableGatheringDataOnScope DisableFib;
 
-		const FString TempPackageName = FString::Printf(TEXT("/Temp/__TEMP_BP__/%s"), *InBlueprintObj->GetName());
+		const FString TempPackageName = FString::Printf(TEXT("/Temp/__TEMP_BP__%s"), *InBlueprintObj->GetOutermost()->GetPathName());
 		UPackage* TempPackage = CreatePackage(nullptr, *TempPackageName);
 		check(TempPackage);
 		ON_SCOPE_EXIT
@@ -279,8 +280,9 @@ void FBlueprintNativeCodeGenUtils::GenerateCppCode(UObject* Obj, TSharedPtr<FStr
 
 		UBlueprint* DuplicateBP = nullptr;
 		{
-			FBlueprintDuplicationScopeFlags BPDuplicationFlags(
-				FBlueprintDuplicationScopeFlags::NoExtraCompilation | FBlueprintDuplicationScopeFlags::TheSameTimelineGuid);
+			FBlueprintDuplicationScopeFlags BPDuplicationFlags(FBlueprintDuplicationScopeFlags::NoExtraCompilation 
+				| FBlueprintDuplicationScopeFlags::TheSameTimelineGuid 
+				| FBlueprintDuplicationScopeFlags::ValidatePinsUsingSourceClass);
 			DuplicateBP = DuplicateObject<UBlueprint>(InBlueprintObj, TempPackage, *InBlueprintObj->GetName());
 		}
 		ensure((nullptr != DuplicateBP->GeneratedClass) && (InBlueprintObj->GeneratedClass != DuplicateBP->GeneratedClass));

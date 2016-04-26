@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 // Only designed to be included directly by Delegate.h
 #if !defined( __Delegate_h__ ) || !defined( FUNC_INCLUDING_INLINE_IMPL )
@@ -184,35 +184,45 @@ public:
 	/**
 	 * Static: Creates a raw C++ pointer global function delegate
 	 */
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateStatic( typename FStaticDelegate::FFuncPtr InFunc )
+	)
 	{
 		DELEGATE_CLASS Result;
 		FStaticDelegate::Create( Result, InFunc );
 		return Result;
 	}
 	template< PAYLOAD_TEMPLATE_DECL_OneVar >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateStatic( typename TStaticDelegate_OneVar< PAYLOAD_TEMPLATE_LIST_OneVar >::FFuncPtr InFunc, PAYLOAD_TEMPLATE_ARGS_OneVar )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TStaticDelegate_OneVar< PAYLOAD_TEMPLATE_LIST_OneVar >::Create( Result, InFunc, PAYLOAD_TEMPLATE_PASSIN_OneVar );
 		return Result;
 	}
 	template< PAYLOAD_TEMPLATE_DECL_TwoVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateStatic( typename TStaticDelegate_TwoVars< PAYLOAD_TEMPLATE_LIST_TwoVars >::FFuncPtr InFunc, PAYLOAD_TEMPLATE_ARGS_TwoVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TStaticDelegate_TwoVars< PAYLOAD_TEMPLATE_LIST_TwoVars >::Create( Result, InFunc, PAYLOAD_TEMPLATE_PASSIN_TwoVars );
 		return Result;
 	}
 	template< PAYLOAD_TEMPLATE_DECL_ThreeVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateStatic( typename TStaticDelegate_ThreeVars< PAYLOAD_TEMPLATE_LIST_ThreeVars >::FFuncPtr InFunc, PAYLOAD_TEMPLATE_ARGS_ThreeVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TStaticDelegate_ThreeVars< PAYLOAD_TEMPLATE_LIST_ThreeVars >::Create( Result, InFunc, PAYLOAD_TEMPLATE_PASSIN_ThreeVars );
 		return Result;
 	}
 	template< PAYLOAD_TEMPLATE_DECL_FourVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateStatic( typename TStaticDelegate_FourVars< PAYLOAD_TEMPLATE_LIST_FourVars >::FFuncPtr InFunc, PAYLOAD_TEMPLATE_ARGS_FourVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TStaticDelegate_FourVars< PAYLOAD_TEMPLATE_LIST_FourVars >::Create( Result, InFunc, PAYLOAD_TEMPLATE_PASSIN_FourVars );
@@ -224,35 +234,45 @@ public:
 	 * technically this works for any functor types, but lambdas are the primary use case
 	 */
 	template<typename FunctorType>
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateLambda(FunctorType&& InFunctor)
+	)
 	{
 		DELEGATE_CLASS Result;
 		TFunctorDelegate<typename TRemoveReference<FunctorType>::Type>::Create(Result, Forward<FunctorType>(InFunctor));
 		return Result;
 	}
 	template<typename FunctorType, PAYLOAD_TEMPLATE_DECL_OneVar>
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateLambda(FunctorType&& InFunctor, PAYLOAD_TEMPLATE_ARGS_OneVar)
+	)
 	{
 		DELEGATE_CLASS Result;
 		TFunctorDelegate_OneVar<typename TRemoveReference<FunctorType>::Type, PAYLOAD_TEMPLATE_LIST_OneVar>::Create(Result, Forward<FunctorType>(InFunctor), PAYLOAD_TEMPLATE_PASSIN_OneVar);
 		return Result;
 	}
 	template<typename FunctorType, PAYLOAD_TEMPLATE_DECL_TwoVars>
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateLambda(FunctorType&& InFunctor, PAYLOAD_TEMPLATE_ARGS_TwoVars)
+	)
 	{
 		DELEGATE_CLASS Result;
 		TFunctorDelegate_TwoVars<typename TRemoveReference<FunctorType>::Type, PAYLOAD_TEMPLATE_LIST_TwoVars>::Create(Result, Forward<FunctorType>(InFunctor), PAYLOAD_TEMPLATE_PASSIN_TwoVars);
 		return Result;
 	}
 	template<typename FunctorType, PAYLOAD_TEMPLATE_DECL_ThreeVars>
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateLambda(FunctorType&& InFunctor, PAYLOAD_TEMPLATE_ARGS_ThreeVars)
+	)
 	{
 		DELEGATE_CLASS Result;
 		TFunctorDelegate_ThreeVars<typename TRemoveReference<FunctorType>::Type, PAYLOAD_TEMPLATE_LIST_ThreeVars>::Create(Result, Forward<FunctorType>(InFunctor), PAYLOAD_TEMPLATE_PASSIN_ThreeVars);
 		return Result;
 	}
 	template<typename FunctorType, PAYLOAD_TEMPLATE_DECL_FourVars>
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateLambda(FunctorType&& InFunctor, PAYLOAD_TEMPLATE_ARGS_FourVars)
+	)
 	{
 		DELEGATE_CLASS Result;
 		TFunctorDelegate_FourVars<typename TRemoveReference<FunctorType>::Type, PAYLOAD_TEMPLATE_LIST_FourVars>::Create(Result, Forward<FunctorType>(InFunctor), PAYLOAD_TEMPLATE_PASSIN_FourVars);
@@ -266,70 +286,90 @@ public:
 	 * deleted out from underneath your delegate. Be careful when calling Execute()!
 	 */
 	template< class UserClass >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateRaw( UserClass* InUserObject, typename TRawMethodDelegate< UserClass >::FMethodPtr InFunc )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TRawMethodDelegate< UserClass >::Create( Result, InUserObject, InFunc );
 		return Result;
 	}
 	template< class UserClass >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateRaw( UserClass* InUserObject, typename TRawMethodDelegate_Const< UserClass >::FMethodPtr InFunc )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TRawMethodDelegate_Const< UserClass >::Create( Result, InUserObject, InFunc );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_OneVar >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateRaw( UserClass* InUserObject, typename TRawMethodDelegate_OneVar< UserClass, PAYLOAD_TEMPLATE_LIST_OneVar >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_OneVar )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TRawMethodDelegate_OneVar< UserClass, PAYLOAD_TEMPLATE_LIST_OneVar >::Create( Result, InUserObject, InFunc, PAYLOAD_TEMPLATE_PASSIN_OneVar );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_OneVar >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateRaw( UserClass* InUserObject, typename TRawMethodDelegate_OneVar_Const< UserClass, PAYLOAD_TEMPLATE_LIST_OneVar >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_OneVar )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TRawMethodDelegate_OneVar_Const< UserClass, PAYLOAD_TEMPLATE_LIST_OneVar >::Create( Result, InUserObject, InFunc, PAYLOAD_TEMPLATE_PASSIN_OneVar );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_TwoVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateRaw( UserClass* InUserObject, typename TRawMethodDelegate_TwoVars< UserClass, PAYLOAD_TEMPLATE_LIST_TwoVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_TwoVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TRawMethodDelegate_TwoVars< UserClass, PAYLOAD_TEMPLATE_LIST_TwoVars >::Create( Result, InUserObject, InFunc, PAYLOAD_TEMPLATE_PASSIN_TwoVars );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_TwoVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateRaw( UserClass* InUserObject, typename TRawMethodDelegate_TwoVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_TwoVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_TwoVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TRawMethodDelegate_TwoVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_TwoVars >::Create( Result, InUserObject, InFunc, PAYLOAD_TEMPLATE_PASSIN_TwoVars );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_ThreeVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateRaw( UserClass* InUserObject, typename TRawMethodDelegate_ThreeVars< UserClass, PAYLOAD_TEMPLATE_LIST_ThreeVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_ThreeVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TRawMethodDelegate_ThreeVars< UserClass, PAYLOAD_TEMPLATE_LIST_ThreeVars >::Create( Result, InUserObject, InFunc, PAYLOAD_TEMPLATE_PASSIN_ThreeVars );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_ThreeVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateRaw( UserClass* InUserObject, typename TRawMethodDelegate_ThreeVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_ThreeVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_ThreeVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TRawMethodDelegate_ThreeVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_ThreeVars >::Create( Result, InUserObject, InFunc, PAYLOAD_TEMPLATE_PASSIN_ThreeVars );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_FourVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateRaw( UserClass* InUserObject, typename TRawMethodDelegate_FourVars< UserClass, PAYLOAD_TEMPLATE_LIST_FourVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_FourVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TRawMethodDelegate_FourVars< UserClass, PAYLOAD_TEMPLATE_LIST_FourVars >::Create( Result, InUserObject, InFunc, PAYLOAD_TEMPLATE_PASSIN_FourVars );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_FourVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateRaw( UserClass* InUserObject, typename TRawMethodDelegate_FourVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_FourVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_FourVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TRawMethodDelegate_FourVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_FourVars >::Create( Result, InUserObject, InFunc, PAYLOAD_TEMPLATE_PASSIN_FourVars );
@@ -343,70 +383,90 @@ public:
 	 * You can use ExecuteIfBound() to call them.
 	 */
 	template< class UserClass >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateSP( const TSharedRef< UserClass, ESPMode::Fast >& InUserObjectRef, typename TSPMethodDelegate< UserClass >::FMethodPtr InFunc )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TSPMethodDelegate< UserClass >::Create( Result, InUserObjectRef, InFunc );
 		return Result;
 	}
 	template< class UserClass >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateSP( const TSharedRef< UserClass, ESPMode::Fast >& InUserObjectRef, typename TSPMethodDelegate_Const< UserClass >::FMethodPtr InFunc )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TSPMethodDelegate_Const< UserClass >::Create( Result, InUserObjectRef, InFunc );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_OneVar >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateSP( const TSharedRef< UserClass, ESPMode::Fast >& InUserObjectRef, typename TSPMethodDelegate_OneVar< UserClass, PAYLOAD_TEMPLATE_LIST_OneVar >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_OneVar )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TSPMethodDelegate_OneVar< UserClass, PAYLOAD_TEMPLATE_LIST_OneVar >::Create( Result, InUserObjectRef, InFunc, PAYLOAD_TEMPLATE_PASSIN_OneVar );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_OneVar >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateSP( const TSharedRef< UserClass, ESPMode::Fast >& InUserObjectRef, typename TSPMethodDelegate_OneVar_Const< UserClass, PAYLOAD_TEMPLATE_LIST_OneVar >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_OneVar )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TSPMethodDelegate_OneVar_Const< UserClass, PAYLOAD_TEMPLATE_LIST_OneVar >::Create( Result, InUserObjectRef, InFunc, PAYLOAD_TEMPLATE_PASSIN_OneVar );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_TwoVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateSP( const TSharedRef< UserClass, ESPMode::Fast >& InUserObjectRef, typename TSPMethodDelegate_TwoVars< UserClass, PAYLOAD_TEMPLATE_LIST_TwoVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_TwoVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TSPMethodDelegate_TwoVars< UserClass, PAYLOAD_TEMPLATE_LIST_TwoVars >::Create( Result, InUserObjectRef, InFunc, PAYLOAD_TEMPLATE_PASSIN_TwoVars );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_TwoVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateSP( const TSharedRef< UserClass, ESPMode::Fast >& InUserObjectRef, typename TSPMethodDelegate_TwoVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_TwoVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_TwoVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TSPMethodDelegate_TwoVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_TwoVars >::Create( Result, InUserObjectRef, InFunc, PAYLOAD_TEMPLATE_PASSIN_TwoVars );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_ThreeVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateSP( const TSharedRef< UserClass, ESPMode::Fast >& InUserObjectRef, typename TSPMethodDelegate_ThreeVars< UserClass, PAYLOAD_TEMPLATE_LIST_ThreeVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_ThreeVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TSPMethodDelegate_ThreeVars< UserClass, PAYLOAD_TEMPLATE_LIST_ThreeVars >::Create( Result, InUserObjectRef, InFunc, PAYLOAD_TEMPLATE_PASSIN_ThreeVars );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_ThreeVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateSP( const TSharedRef< UserClass, ESPMode::Fast >& InUserObjectRef, typename TSPMethodDelegate_ThreeVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_ThreeVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_ThreeVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TSPMethodDelegate_ThreeVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_ThreeVars >::Create( Result, InUserObjectRef, InFunc, PAYLOAD_TEMPLATE_PASSIN_ThreeVars );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_FourVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateSP( const TSharedRef< UserClass, ESPMode::Fast >& InUserObjectRef, typename TSPMethodDelegate_FourVars< UserClass, PAYLOAD_TEMPLATE_LIST_FourVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_FourVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TSPMethodDelegate_FourVars< UserClass, PAYLOAD_TEMPLATE_LIST_FourVars >::Create( Result, InUserObjectRef, InFunc, PAYLOAD_TEMPLATE_PASSIN_FourVars );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_FourVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateSP( const TSharedRef< UserClass, ESPMode::Fast >& InUserObjectRef, typename TSPMethodDelegate_FourVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_FourVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_FourVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TSPMethodDelegate_FourVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_FourVars >::Create( Result, InUserObjectRef, InFunc, PAYLOAD_TEMPLATE_PASSIN_FourVars );
@@ -420,52 +480,72 @@ public:
 	 * You can use ExecuteIfBound() to call them.
 	 */
 	template< class UserClass >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateSP( UserClass* InUserObject, typename TSPMethodDelegate< UserClass >::FMethodPtr InFunc )
+	)
 	{
 		return CreateSP( StaticCastSharedRef< UserClass >( InUserObject->AsShared() ), InFunc );
 	}
 	template< class UserClass >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateSP( UserClass* InUserObject, typename TSPMethodDelegate_Const< UserClass >::FMethodPtr InFunc )
+	)
 	{
 		return CreateSP( StaticCastSharedRef< UserClass >( InUserObject->AsShared() ), InFunc );
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_OneVar >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateSP( UserClass* InUserObject, typename TSPMethodDelegate_OneVar< UserClass, PAYLOAD_TEMPLATE_LIST_OneVar >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_OneVar )
+	)
 	{
 		return CreateSP( StaticCastSharedRef< UserClass >( InUserObject->AsShared() ), InFunc, PAYLOAD_TEMPLATE_PASSIN_OneVar );
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_OneVar >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateSP( UserClass* InUserObject, typename TSPMethodDelegate_OneVar_Const< UserClass, PAYLOAD_TEMPLATE_LIST_OneVar >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_OneVar )
+	)
 	{
 		return CreateSP( StaticCastSharedRef< UserClass >( InUserObject->AsShared() ), InFunc, PAYLOAD_TEMPLATE_PASSIN_OneVar );
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_TwoVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateSP( UserClass* InUserObject, typename TSPMethodDelegate_TwoVars< UserClass, PAYLOAD_TEMPLATE_LIST_TwoVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_TwoVars )
+	)
 	{
 		return CreateSP( StaticCastSharedRef< UserClass >( InUserObject->AsShared() ), InFunc, PAYLOAD_TEMPLATE_PASSIN_TwoVars );
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_TwoVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateSP( UserClass* InUserObject, typename TSPMethodDelegate_TwoVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_TwoVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_TwoVars )
+	)
 	{
 		return CreateSP( StaticCastSharedRef< UserClass >( InUserObject->AsShared() ), InFunc, PAYLOAD_TEMPLATE_PASSIN_TwoVars );
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_ThreeVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateSP( UserClass* InUserObject, typename TSPMethodDelegate_ThreeVars< UserClass, PAYLOAD_TEMPLATE_LIST_ThreeVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_ThreeVars )
+	)
 	{
 		return CreateSP( StaticCastSharedRef< UserClass >( InUserObject->AsShared() ), InFunc, PAYLOAD_TEMPLATE_PASSIN_ThreeVars );
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_ThreeVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateSP( UserClass* InUserObject, typename TSPMethodDelegate_ThreeVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_ThreeVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_ThreeVars )
+	)
 	{
 		return CreateSP( StaticCastSharedRef< UserClass >( InUserObject->AsShared() ), InFunc, PAYLOAD_TEMPLATE_PASSIN_ThreeVars );
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_FourVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateSP( UserClass* InUserObject, typename TSPMethodDelegate_FourVars< UserClass, PAYLOAD_TEMPLATE_LIST_FourVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_FourVars )
+	)
 	{
 		return CreateSP( StaticCastSharedRef< UserClass >( InUserObject->AsShared() ), InFunc, PAYLOAD_TEMPLATE_PASSIN_FourVars );
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_FourVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateSP( UserClass* InUserObject, typename TSPMethodDelegate_FourVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_FourVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_FourVars )
+	)
 	{
 		return CreateSP( StaticCastSharedRef< UserClass >( InUserObject->AsShared() ), InFunc, PAYLOAD_TEMPLATE_PASSIN_FourVars );
 	}
@@ -477,70 +557,90 @@ public:
 	 * You can use ExecuteIfBound() to call them.
 	 */
 	template< class UserClass >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateThreadSafeSP( const TSharedRef< UserClass, ESPMode::ThreadSafe >& InUserObjectRef, typename TThreadSafeSPMethodDelegate< UserClass >::FMethodPtr InFunc )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TThreadSafeSPMethodDelegate< UserClass >::Create( Result, InUserObjectRef, InFunc );
 		return Result;
 	}
 	template< class UserClass >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateThreadSafeSP( const TSharedRef< UserClass, ESPMode::ThreadSafe >& InUserObjectRef, typename TThreadSafeSPMethodDelegate_Const< UserClass >::FMethodPtr InFunc )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TThreadSafeSPMethodDelegate_Const< UserClass >::Create( Result, InUserObjectRef, InFunc );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_OneVar >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateThreadSafeSP( const TSharedRef< UserClass, ESPMode::ThreadSafe >& InUserObjectRef, typename TThreadSafeSPMethodDelegate_OneVar< UserClass, PAYLOAD_TEMPLATE_LIST_OneVar >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_OneVar )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TThreadSafeSPMethodDelegate_OneVar< UserClass, PAYLOAD_TEMPLATE_LIST_OneVar >::Create( Result, InUserObjectRef, InFunc, PAYLOAD_TEMPLATE_PASSIN_OneVar );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_OneVar >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateThreadSafeSP( const TSharedRef< UserClass, ESPMode::ThreadSafe >& InUserObjectRef, typename TThreadSafeSPMethodDelegate_OneVar_Const< UserClass, PAYLOAD_TEMPLATE_LIST_OneVar >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_OneVar )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TThreadSafeSPMethodDelegate_OneVar_Const< UserClass, PAYLOAD_TEMPLATE_LIST_OneVar >::Create( Result, InUserObjectRef, InFunc, PAYLOAD_TEMPLATE_PASSIN_OneVar );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_TwoVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateThreadSafeSP( const TSharedRef< UserClass, ESPMode::ThreadSafe >& InUserObjectRef, typename TThreadSafeSPMethodDelegate_TwoVars< UserClass, PAYLOAD_TEMPLATE_LIST_TwoVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_TwoVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TThreadSafeSPMethodDelegate_TwoVars< UserClass, PAYLOAD_TEMPLATE_LIST_TwoVars >::Create( Result, InUserObjectRef, InFunc, PAYLOAD_TEMPLATE_PASSIN_TwoVars );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_TwoVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateThreadSafeSP( const TSharedRef< UserClass, ESPMode::ThreadSafe >& InUserObjectRef, typename TThreadSafeSPMethodDelegate_TwoVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_TwoVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_TwoVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TThreadSafeSPMethodDelegate_TwoVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_TwoVars >::Create( Result, InUserObjectRef, InFunc, PAYLOAD_TEMPLATE_PASSIN_TwoVars );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_ThreeVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateThreadSafeSP( const TSharedRef< UserClass, ESPMode::ThreadSafe >& InUserObjectRef, typename TThreadSafeSPMethodDelegate_ThreeVars< UserClass, PAYLOAD_TEMPLATE_LIST_ThreeVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_ThreeVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TThreadSafeSPMethodDelegate_ThreeVars< UserClass, PAYLOAD_TEMPLATE_LIST_ThreeVars >::Create( Result, InUserObjectRef, InFunc, PAYLOAD_TEMPLATE_PASSIN_ThreeVars );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_ThreeVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateThreadSafeSP( const TSharedRef< UserClass, ESPMode::ThreadSafe >& InUserObjectRef, typename TThreadSafeSPMethodDelegate_ThreeVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_ThreeVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_ThreeVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TThreadSafeSPMethodDelegate_ThreeVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_ThreeVars >::Create( Result, InUserObjectRef, InFunc, PAYLOAD_TEMPLATE_PASSIN_ThreeVars );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_FourVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateThreadSafeSP( const TSharedRef< UserClass, ESPMode::ThreadSafe >& InUserObjectRef, typename TThreadSafeSPMethodDelegate_FourVars< UserClass, PAYLOAD_TEMPLATE_LIST_FourVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_FourVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TThreadSafeSPMethodDelegate_FourVars< UserClass, PAYLOAD_TEMPLATE_LIST_FourVars >::Create( Result, InUserObjectRef, InFunc, PAYLOAD_TEMPLATE_PASSIN_FourVars );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_FourVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateThreadSafeSP( const TSharedRef< UserClass, ESPMode::ThreadSafe >& InUserObjectRef, typename TThreadSafeSPMethodDelegate_FourVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_FourVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_FourVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TThreadSafeSPMethodDelegate_FourVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_FourVars >::Create( Result, InUserObjectRef, InFunc, PAYLOAD_TEMPLATE_PASSIN_FourVars );
@@ -554,52 +654,72 @@ public:
 	 * You can use ExecuteIfBound() to call them.
 	 */
 	template< class UserClass >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateThreadSafeSP( UserClass* InUserObject, typename TThreadSafeSPMethodDelegate< UserClass >::FMethodPtr InFunc )
+	)
 	{
 		return CreateThreadSafeSP( StaticCastSharedRef< UserClass >( InUserObject->AsShared() ), InFunc );
 	}
 	template< class UserClass >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateThreadSafeSP( UserClass* InUserObject, typename TThreadSafeSPMethodDelegate_Const< UserClass >::FMethodPtr InFunc )
+	)
 	{
 		return CreateThreadSafeSP( StaticCastSharedRef< UserClass >( InUserObject->AsShared() ), InFunc );
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_OneVar >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateThreadSafeSP( UserClass* InUserObject, typename TThreadSafeSPMethodDelegate_OneVar< UserClass, PAYLOAD_TEMPLATE_LIST_OneVar >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_OneVar )
+	)
 	{
 		return CreateThreadSafeSP( StaticCastSharedRef< UserClass >( InUserObject->AsShared() ), InFunc, PAYLOAD_TEMPLATE_PASSIN_OneVar );
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_OneVar >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateThreadSafeSP( UserClass* InUserObject, typename TThreadSafeSPMethodDelegate_OneVar_Const< UserClass, PAYLOAD_TEMPLATE_LIST_OneVar >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_OneVar )
+	)
 	{
 		return CreateThreadSafeSP( StaticCastSharedRef< UserClass >( InUserObject->AsShared() ), InFunc, PAYLOAD_TEMPLATE_PASSIN_OneVar );
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_TwoVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateThreadSafeSP( UserClass* InUserObject, typename TThreadSafeSPMethodDelegate_TwoVars< UserClass, PAYLOAD_TEMPLATE_LIST_TwoVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_TwoVars )
+	)
 	{
 		return CreateThreadSafeSP( StaticCastSharedRef< UserClass >( InUserObject->AsShared() ), InFunc, PAYLOAD_TEMPLATE_PASSIN_TwoVars );
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_TwoVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateThreadSafeSP( UserClass* InUserObject, typename TThreadSafeSPMethodDelegate_TwoVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_TwoVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_TwoVars )
+	)
 	{
 		return CreateThreadSafeSP( StaticCastSharedRef< UserClass >( InUserObject->AsShared() ), InFunc, PAYLOAD_TEMPLATE_PASSIN_TwoVars );
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_ThreeVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateThreadSafeSP( UserClass* InUserObject, typename TThreadSafeSPMethodDelegate_ThreeVars< UserClass, PAYLOAD_TEMPLATE_LIST_ThreeVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_ThreeVars )
+	)
 	{
 		return CreateThreadSafeSP( StaticCastSharedRef< UserClass >( InUserObject->AsShared() ), InFunc, PAYLOAD_TEMPLATE_PASSIN_ThreeVars );
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_ThreeVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateThreadSafeSP( UserClass* InUserObject, typename TThreadSafeSPMethodDelegate_ThreeVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_ThreeVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_ThreeVars )
+	)
 	{
 		return CreateThreadSafeSP( StaticCastSharedRef< UserClass >( InUserObject->AsShared() ), InFunc, PAYLOAD_TEMPLATE_PASSIN_ThreeVars );
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_FourVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateThreadSafeSP( UserClass* InUserObject, typename TThreadSafeSPMethodDelegate_FourVars< UserClass, PAYLOAD_TEMPLATE_LIST_FourVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_FourVars )
+	)
 	{
 		return CreateThreadSafeSP( StaticCastSharedRef< UserClass >( InUserObject->AsShared() ), InFunc, PAYLOAD_TEMPLATE_PASSIN_FourVars );
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_FourVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateThreadSafeSP( UserClass* InUserObject, typename TThreadSafeSPMethodDelegate_FourVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_FourVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_FourVars )
+	)
 	{
 		return CreateThreadSafeSP( StaticCastSharedRef< UserClass >( InUserObject->AsShared() ), InFunc, PAYLOAD_TEMPLATE_PASSIN_FourVars );
 	}
@@ -611,35 +731,45 @@ public:
 	 * You can use ExecuteIfBound() to call them.
 	 */
 	template< class UObjectTemplate >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateUFunction( UObjectTemplate* InUserObject, const FName& InFunctionName )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TUFunctionDelegateBinding< UObjectTemplate >::Create( Result, InUserObject, InFunctionName );
 		return Result;
 	}
 	template< class UObjectTemplate, PAYLOAD_TEMPLATE_DECL_OneVar >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateUFunction( UObjectTemplate* InUserObject, const FName& InFunctionName, PAYLOAD_TEMPLATE_ARGS_OneVar )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TUFunctionDelegateBinding_OneVar< UObjectTemplate, PAYLOAD_TEMPLATE_LIST_OneVar >::Create( Result, InUserObject, InFunctionName, PAYLOAD_TEMPLATE_PASSIN_OneVar );
 		return Result;
 	}
 	template< class UObjectTemplate, PAYLOAD_TEMPLATE_DECL_TwoVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateUFunction( UObjectTemplate* InUserObject, const FName& InFunctionName, PAYLOAD_TEMPLATE_ARGS_TwoVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TUFunctionDelegateBinding_TwoVars< UObjectTemplate, PAYLOAD_TEMPLATE_LIST_TwoVars >::Create( Result, InUserObject, InFunctionName, PAYLOAD_TEMPLATE_PASSIN_TwoVars );
 		return Result;
 	}
 	template< class UObjectTemplate, PAYLOAD_TEMPLATE_DECL_ThreeVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateUFunction( UObjectTemplate* InUserObject, const FName& InFunctionName, PAYLOAD_TEMPLATE_ARGS_ThreeVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TUFunctionDelegateBinding_ThreeVars< UObjectTemplate, PAYLOAD_TEMPLATE_LIST_ThreeVars >::Create( Result, InUserObject, InFunctionName, PAYLOAD_TEMPLATE_PASSIN_ThreeVars );
 		return Result;
 	}
 	template< class UObjectTemplate, PAYLOAD_TEMPLATE_DECL_FourVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateUFunction( UObjectTemplate* InUserObject, const FName& InFunctionName, PAYLOAD_TEMPLATE_ARGS_FourVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TUFunctionDelegateBinding_FourVars< UObjectTemplate, PAYLOAD_TEMPLATE_LIST_FourVars >::Create( Result, InUserObject, InFunctionName, PAYLOAD_TEMPLATE_PASSIN_FourVars );
@@ -653,70 +783,90 @@ public:
 	 * You can use ExecuteIfBound() to call them.
 	 */
 	template< class UserClass >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateUObject( UserClass* InUserObject, typename TUObjectMethodDelegate< UserClass >::FMethodPtr InFunc )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TUObjectMethodDelegate< UserClass >::Create( Result, InUserObject, InFunc );
 		return Result;
 	}
 	template< class UserClass >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateUObject( UserClass* InUserObject, typename TUObjectMethodDelegate_Const< UserClass >::FMethodPtr InFunc )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TUObjectMethodDelegate_Const< UserClass >::Create( Result, InUserObject, InFunc );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_OneVar >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateUObject( UserClass* InUserObject, typename TUObjectMethodDelegate_OneVar< UserClass, PAYLOAD_TEMPLATE_LIST_OneVar >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_OneVar )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TUObjectMethodDelegate_OneVar< UserClass, PAYLOAD_TEMPLATE_LIST_OneVar >::Create( Result, InUserObject, InFunc, PAYLOAD_TEMPLATE_PASSIN_OneVar );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_OneVar >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateUObject( UserClass* InUserObject, typename TUObjectMethodDelegate_OneVar_Const< UserClass, PAYLOAD_TEMPLATE_LIST_OneVar >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_OneVar )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TUObjectMethodDelegate_OneVar_Const< UserClass, PAYLOAD_TEMPLATE_LIST_OneVar >::Create( Result, InUserObject, InFunc, PAYLOAD_TEMPLATE_PASSIN_OneVar );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_TwoVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateUObject( UserClass* InUserObject, typename TUObjectMethodDelegate_TwoVars< UserClass, PAYLOAD_TEMPLATE_LIST_TwoVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_TwoVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TUObjectMethodDelegate_TwoVars< UserClass, PAYLOAD_TEMPLATE_LIST_TwoVars >::Create( Result, InUserObject, InFunc, PAYLOAD_TEMPLATE_PASSIN_TwoVars );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_TwoVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateUObject( UserClass* InUserObject, typename TUObjectMethodDelegate_TwoVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_TwoVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_TwoVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TUObjectMethodDelegate_TwoVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_TwoVars >::Create( Result, InUserObject, InFunc, PAYLOAD_TEMPLATE_PASSIN_TwoVars );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_ThreeVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateUObject( UserClass* InUserObject, typename TUObjectMethodDelegate_ThreeVars< UserClass, PAYLOAD_TEMPLATE_LIST_ThreeVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_ThreeVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TUObjectMethodDelegate_ThreeVars< UserClass, PAYLOAD_TEMPLATE_LIST_ThreeVars >::Create( Result, InUserObject, InFunc, PAYLOAD_TEMPLATE_PASSIN_ThreeVars );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_ThreeVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateUObject( UserClass* InUserObject, typename TUObjectMethodDelegate_ThreeVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_ThreeVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_ThreeVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TUObjectMethodDelegate_ThreeVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_ThreeVars >::Create( Result, InUserObject, InFunc, PAYLOAD_TEMPLATE_PASSIN_ThreeVars );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_FourVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateUObject( UserClass* InUserObject, typename TUObjectMethodDelegate_FourVars< UserClass, PAYLOAD_TEMPLATE_LIST_FourVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_FourVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TUObjectMethodDelegate_FourVars< UserClass, PAYLOAD_TEMPLATE_LIST_FourVars >::Create( Result, InUserObject, InFunc, PAYLOAD_TEMPLATE_PASSIN_FourVars );
 		return Result;
 	}
 	template< class UserClass, PAYLOAD_TEMPLATE_DECL_FourVars >
+	FUNCTION_CHECK_RETURN(
 	inline static DELEGATE_CLASS CreateUObject( UserClass* InUserObject, typename TUObjectMethodDelegate_FourVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_FourVars >::FMethodPtr InFunc, PAYLOAD_TEMPLATE_ARGS_FourVars )
+	)
 	{
 		DELEGATE_CLASS Result;
 		TUObjectMethodDelegate_FourVars_Const< UserClass, PAYLOAD_TEMPLATE_LIST_FourVars >::Create( Result, InUserObject, InFunc, PAYLOAD_TEMPLATE_PASSIN_FourVars );
@@ -767,7 +917,7 @@ public:
 		if (&Other != this)
 		{
 			// this down-cast is OK! allows for managing invocation list in the base class without requiring virtual functions
-			TDelegateInstanceInterface* OtherInstance = Other.GetDelegateInstance();
+			TDelegateInstanceInterface* OtherInstance = Other.GetDelegateInstanceProtected();
 
 			if (OtherInstance != nullptr)
 			{
@@ -792,7 +942,7 @@ public:
 		if (&Other != this)
 		{
 			// this down-cast is OK! allows for managing invocation list in the base class without requiring virtual functions
-			TDelegateInstanceInterface* OtherInstance = Other.GetDelegateInstance();
+			TDelegateInstanceInterface* OtherInstance = Other.GetDelegateInstanceProtected();
 
 			if (OtherInstance != nullptr)
 			{
@@ -1247,9 +1397,9 @@ public:
 	 *
 	 * @see ExecuteIfBound
 	 */
-	inline RetValType Execute( FUNC_PARAM_LIST ) const
+	FORCEINLINE RetValType Execute( FUNC_PARAM_LIST ) const
 	{
-		TDelegateInstanceInterface* DelegateInstance = GetDelegateInstance();
+		TDelegateInstanceInterface* DelegateInstance = GetDelegateInstanceProtected();
 
 		// If this assert goes off, Execute() was called before a function was bound to the delegate.
 		// Consider using ExecuteIfSafe() instead.
@@ -1269,7 +1419,7 @@ public:
 	{
 		if( IsBound() )
 		{
-			return GetDelegateInstance()->ExecuteIfSafe( FUNC_PARAM_PASSTHRU );
+			return GetDelegateInstanceProtected()->ExecuteIfSafe( FUNC_PARAM_PASSTHRU );
 		}
 
 		return false;
@@ -1279,9 +1429,9 @@ public:
 	/**
 	 * Returns a pointer to the correctly-typed delegate instance.
 	 */
-	TDelegateInstanceInterface* GetDelegateInstance() const
+	FORCEINLINE TDelegateInstanceInterface* GetDelegateInstanceProtected() const
 	{
-		return (TDelegateInstanceInterface*)FDelegateBase::GetDelegateInstance();
+		return (TDelegateInstanceInterface*)FDelegateBase::GetDelegateInstanceProtected();
 	}
 
 private:
@@ -1305,8 +1455,10 @@ private:
  */
 template< FUNC_TEMPLATE_DECL_TYPENAME >
 class BASE_MULTICAST_DELEGATE_CLASS
-	: public FMulticastDelegateBase<>
+	: public FMulticastDelegateBase<FWeakObjectPtr>
 {
+	typedef FMulticastDelegateBase<FWeakObjectPtr> Super;
+
 public:
 
 	/** DEPRECATED: Type definition for unicast delegate classes whose delegate instances are compatible with this delegate. */
@@ -1327,7 +1479,7 @@ public:
 	FDelegateHandle Add( FDelegate&& InNewDelegate )
 	{
 		FDelegateHandle Result;
-		if (InNewDelegate.GetDelegateInstance())
+		if (Super::GetDelegateInstanceProtectedHelper(InNewDelegate))
 		{
 			Result = AddDelegateInstance(MoveTemp(InNewDelegate));
 		}
@@ -1345,7 +1497,7 @@ public:
 	FDelegateHandle Add( const FDelegate& InNewDelegate )
 	{
 		FDelegateHandle Result;
-		if (InNewDelegate.GetDelegateInstance())
+		if (Super::GetDelegateInstanceProtectedHelper(InNewDelegate))
 		{
 			Result = AddDelegateInstance(FDelegate(InNewDelegate));
 		}
@@ -1848,12 +2000,10 @@ protected:
 			for (const FDelegateBase& OtherDelegateRef : Other.GetInvocationList())
 			{
 				// this down-cast is OK! allows for managing invocation list in the base class without requiring virtual functions
-				TDelegateInstanceInterface* OtherInstance = ((const FDelegate&)OtherDelegateRef).GetDelegateInstance();
-
-				if (OtherInstance != nullptr)
+				if (IDelegateInstance* OtherInstance = Super::GetDelegateInstanceProtectedHelper(OtherDelegateRef))
 				{
 					FDelegate Temp;
-					OtherInstance->CreateCopy(Temp);
+					((TDelegateInstanceInterface*)OtherInstance)->CreateCopy(Temp);
 					AddInternal(MoveTemp(Temp));
 				}
 			}
@@ -1873,20 +2023,6 @@ protected:
 	 */
 	FDelegateHandle AddDelegateInstance( FDelegate&& InNewDelegate )
 	{
-#if !UE_BUILD_SHIPPING && !UE_BUILD_TEST
-		// verify that the same function isn't already bound
-		for (const FDelegateBase& DelegateRef : GetInvocationList())
-		{
-			// this down-cast is OK! allows for managing invocation list in the base class without requiring virtual functions
-			TDelegateInstanceInterface* DelegateInstance = ((const FDelegate&)DelegateRef).GetDelegateInstance();
-
-			if (DelegateInstance != nullptr)
-			{
-				check(!DelegateInstance->IsSameFunction(*InNewDelegate.GetDelegateInstance()));
-			}
-		}
-#endif
-
 		return AddInternal(MoveTemp(InNewDelegate));
 	}
 
@@ -1910,8 +2046,8 @@ public:
 				// this down-cast is OK! allows for managing invocation list in the base class without requiring virtual functions
 				const FDelegate& DelegateBase = (const FDelegate&)LocalInvocationList[InvocationListIndex];
 
-				TDelegateInstanceInterface* DelegateInstanceInterface = DelegateBase.GetDelegateInstance();
-				if (DelegateInstanceInterface == nullptr || !DelegateInstanceInterface->ExecuteIfSafe(FUNC_PARAM_PASSTHRU))
+				IDelegateInstance* DelegateInstanceInterface = Super::GetDelegateInstanceProtectedHelper(DelegateBase);
+				if (DelegateInstanceInterface == nullptr || !((TDelegateInstanceInterface*)DelegateInstanceInterface)->ExecuteIfSafe(FUNC_PARAM_PASSTHRU))
 				{
 					NeedsCompaction = true;
 				}
@@ -1949,7 +2085,7 @@ protected:
 
 			// NOTE: We must do a deep compare here, not just compare delegate pointers, because multiple
 			//       delegate pointers can refer to the exact same object and method
-			IDelegateInstance* DelegateInstanceInterface = DelegateBase.GetDelegateInstance();
+			IDelegateInstance* DelegateInstanceInterface = Super::GetDelegateInstanceProtectedHelper(DelegateBase);
 			if ((DelegateInstanceInterface != nullptr) && DelegateInstanceInterface->GetHandle() == Handle)
 			{
 				DelegateBase.Unbind();

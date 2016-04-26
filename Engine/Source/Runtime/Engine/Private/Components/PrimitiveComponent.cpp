@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PrimitiveComponent.cpp: Primitive component implementation.
@@ -27,6 +27,7 @@
 #include "CollisionDebugDrawingPublic.h"
 #include "GameFramework/CheatManager.h"
 #include "GameFramework/DamageType.h"
+#include "Components/ChildActorComponent.h"
 
 #define LOCTEXT_NAMESPACE "PrimitiveComponent"
 
@@ -40,6 +41,8 @@ namespace PrimitiveComponentStatics
 	static const FName MoveComponentName(TEXT("MoveComponent"));
 	static const FName UpdateOverlapsName(TEXT("UpdateOverlaps"));
 }
+
+typedef TArray<FOverlapInfo, TInlineAllocator<3>> TInlineOverlapInfoArray;
 
 DEFINE_LOG_CATEGORY_STATIC(LogPrimitiveComponent, Log, All);
 
@@ -286,7 +289,7 @@ void UPrimitiveComponent::GetUsedTextures(TArray<UTexture*>& OutTextures, EMater
 void FPrimitiveComponentPostPhysicsTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 {
 	PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	FActorComponentTickFunction::ExecuteTickHelper(Target, DeltaTime, TickType, [this](float DilatedTime){ Target->PostPhysicsTick(*this); });
+	FActorComponentTickFunction::ExecuteTickHelper(Target, /*bTickInEditor=*/ false, DeltaTime, TickType, [this](float DilatedTime){ Target->PostPhysicsTick(*this); });
 	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
@@ -419,6 +422,7 @@ void UPrimitiveComponent::OnUnregister()
 
 FPrimitiveComponentInstanceData::FPrimitiveComponentInstanceData(const UPrimitiveComponent* SourceComponent)
 	: FSceneComponentInstanceData(SourceComponent)
+	, LODParent(SourceComponent->GetLODParentPrimitive())
 {
 }
 
@@ -426,11 +430,14 @@ void FPrimitiveComponentInstanceData::ApplyToComponent(UActorComponent* Componen
 {
 	FSceneComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
 
+	UPrimitiveComponent* NewComponent = CastChecked<UPrimitiveComponent>(Component);
+
 #if WITH_EDITOR
 	// This is needed to restore transient collision profile data.
-	CastChecked<UPrimitiveComponent>(Component)->UpdateCollisionProfile();
+	NewComponent->UpdateCollisionProfile();
 #endif // #if WITH_EDITOR
-
+	NewComponent->SetLODParentPrimitive(LODParent);
+	
 	if (ContainsSavedProperties() && Component->IsRegistered())
 	{
 		Component->MarkRenderStateDirty();
@@ -439,7 +446,32 @@ void FPrimitiveComponentInstanceData::ApplyToComponent(UActorComponent* Componen
 
 bool FPrimitiveComponentInstanceData::ContainsData() const
 {
-	return (ContainsSavedProperties() || AttachedInstanceComponents.Num() > 0);
+	return (ContainsSavedProperties() || AttachedInstanceComponents.Num() > 0 || LODParent);
+}
+
+void FPrimitiveComponentInstanceData::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	FSceneComponentInstanceData::AddReferencedObjects(Collector);
+
+	// if LOD Parent
+	if (LODParent)
+	{
+		Collector.AddReferencedObject(LODParent);
+	}
+}
+
+void FPrimitiveComponentInstanceData::FindAndReplaceInstances(const TMap<UObject*, UObject*>& OldToNewInstanceMap)
+{
+	FSceneComponentInstanceData::FindAndReplaceInstances(OldToNewInstanceMap);
+
+	// if LOD Parent 
+	if (LODParent)
+	{
+		if (UObject* const* NewLODParent = OldToNewInstanceMap.Find(LODParent))
+		{
+			LODParent = CastChecked<UPrimitiveComponent>(*NewLODParent, ECastCheckedType::NullAllowed);
+		}
+	}
 }
 
 FActorComponentInstanceData* UPrimitiveComponent::GetComponentInstanceData() const
@@ -754,7 +786,7 @@ void UPrimitiveComponent::CheckForErrors()
 			->AddToken(FMapErrorToken::Create(FMapErrors::ShadowCasterUsingBoundsScale));
 	}
 
-	if (HasStaticLighting() && !HasValidSettingsForStaticLighting() && (!Owner || !Owner->IsA(AWorldSettings::StaticClass())))	// Ignore worldsettings
+	if (HasStaticLighting() && !HasValidSettingsForStaticLighting(true) && (!Owner || !Owner->IsA(AWorldSettings::StaticClass())))	// Ignore worldsettings
 	{
 		FMessageLog("MapCheck").Error()
 			->AddToken(FUObjectToken::Create(Owner))
@@ -877,6 +909,22 @@ void UPrimitiveComponent::BeginDestroy()
 	}
 }
 
+void UPrimitiveComponent::OnComponentDestroyed(bool bDestroyingHierarchy)
+{
+	// Prevent future overlap events. Any later calls to UpdateOverlaps will only allow this to end overlaps.
+	bGenerateOverlapEvents = false;
+
+	// End all current overlaps
+	if (OverlappingComponents.Num() > 0)
+	{
+		const bool bDoNotifies = true;
+		const bool bSkipNotifySelf = false;
+		ClearComponentOverlaps(bDoNotifies, bSkipNotifySelf);
+	}
+
+	Super::OnComponentDestroyed(bDestroyingHierarchy);
+}
+
 bool UPrimitiveComponent::IsReadyForFinishDestroy()
 {
 	// Don't allow the primitive component to the purged until its pending scene detachments have completed.
@@ -986,14 +1034,21 @@ bool UPrimitiveComponent::IsComponentIndividuallySelected() const
 
 bool UPrimitiveComponent::ShouldRenderSelected() const
 {
-	const AActor* Owner = GetOwner();
-	return(	bSelectable && 
-			Owner != NULL && 
-#if WITH_EDITOR
-			(Owner->IsSelected() || (Owner->ParentComponentActor != NULL && Owner->ParentComponentActor->IsSelected())) );
-#else
-			Owner->IsSelected() );
-#endif
+	if (bSelectable)
+	{
+		if (const AActor* Owner = GetOwner())
+		{
+			if (Owner->IsSelected())
+			{
+				return true;
+			}
+			else if (UChildActorComponent* ParentComponent = Owner->GetParentComponent())
+			{
+				return ParentComponent->GetOwner()->IsSelected();
+			}
+		}
+	}
+	return false;
 }
 
 void UPrimitiveComponent::SetCastShadow(bool NewCastShadow)
@@ -2070,7 +2125,7 @@ void UPrimitiveComponent::BeginComponentOverlap(const FOverlapInfo& OtherOverlap
 }
 
 
-void UPrimitiveComponent::EndComponentOverlap(const FOverlapInfo& OtherOverlap, bool bDoNotifies, bool bNoNotifySelf)
+void UPrimitiveComponent::EndComponentOverlap(const FOverlapInfo& OtherOverlap, bool bDoNotifies, bool bSkipNotifySelf)
 {
 	UPrimitiveComponent* OtherComp = OtherOverlap.OverlapInfo.Component.Get();
 	if (OtherComp == nullptr)
@@ -2097,7 +2152,7 @@ void UPrimitiveComponent::EndComponentOverlap(const FOverlapInfo& OtherOverlap, 
 			AActor* const MyActor = GetOwner();
 			if (OtherActor)
 			{
-				if (!bNoNotifySelf && IsPrimCompValidAndAlive(this))
+				if (!bSkipNotifySelf && IsPrimCompValidAndAlive(this))
 				{
 					OnComponentEndOverlap.Broadcast(OtherActor, OtherComp, OtherOverlap.GetBodyIndex());
 				}
@@ -2294,6 +2349,20 @@ bool UPrimitiveComponent::AreAllCollideableDescendantsRelative(bool bAllowCached
 	return true;
 }
 
+void UPrimitiveComponent::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (BodyInstance.bSimulatePhysics && !BodyInstance.WeldParent)
+	{
+		//Since the object is physically simulated it can't be attached
+		const bool bSavedDisableDetachmentUpdateOverlaps = bDisableDetachmentUpdateOverlaps;
+		bDisableDetachmentUpdateOverlaps = true;
+		DetachFromParent(/*MaintainWorldPosition =*/ true);
+		bDisableDetachmentUpdateOverlaps = bSavedDisableDetachmentUpdateOverlaps;
+	}
+}
+
 void UPrimitiveComponent::IgnoreActorWhenMoving(AActor* Actor, bool bShouldIgnore)
 {
 	// Clean up stale references
@@ -2380,7 +2449,6 @@ void UPrimitiveComponent::UpdateOverlaps(const TArray<FOverlapInfo>* NewPendingO
 
 			// now generate full list of new touches, so we can compare to existing list and
 			// determine what changed
-			typedef TArray<FOverlapInfo, TInlineAllocator<3>> TInlineOverlapInfoArray;
 			TInlineOverlapInfoArray NewOverlappingComponents;
 
 			// If pending kill, we should not generate any new overlaps
@@ -2482,16 +2550,11 @@ void UPrimitiveComponent::UpdateOverlaps(const TArray<FOverlapInfo>* NewPendingO
 	else
 	{
 		// bGenerateOverlapEvents is false or collision is disabled
-
+		// End all overlaps that exist, in case bGenerateOverlapEvents was true last tick (i.e. was just turned off)
 		if (OverlappingComponents.Num() > 0)
 		{
-			// End all overlaps that exist, in case bGenerateOverlapEvents was true last tick (i.e. was just turned off)
-			// Make a copy since EndComponentOverlap will remove items from OverlappingComponents.
-			auto OverlapsCopy = OverlappingComponents;
-			for (const FOverlapInfo& OtherOverlap : OverlapsCopy)
-			{
-				EndComponentOverlap(OtherOverlap, bDoNotifies, false);
-			}
+			const bool bSkipNotifySelf = false;
+			ClearComponentOverlaps(bDoNotifies, bSkipNotifySelf);
 		}
 	}
 
@@ -2513,6 +2576,19 @@ void UPrimitiveComponent::UpdateOverlaps(const TArray<FOverlapInfo>* NewPendingO
 	}
 }
 
+void UPrimitiveComponent::ClearComponentOverlaps(bool bDoNotifies, bool bSkipNotifySelf)
+{
+	if (OverlappingComponents.Num() > 0)
+	{
+		// Make a copy since EndComponentOverlap will remove items from OverlappingComponents.
+		const TInlineOverlapInfoArray OverlapsCopy(OverlappingComponents);
+		for (const FOverlapInfo& OtherOverlap : OverlapsCopy)
+		{
+			EndComponentOverlap(OtherOverlap, bDoNotifies, bSkipNotifySelf);
+		}
+	}
+}
+
 bool UPrimitiveComponent::ComponentOverlapMultiImpl(TArray<struct FOverlapResult>& OutOverlaps, const UWorld* World, const FVector& Pos, const FQuat& Quat, ECollisionChannel TestChannel, const struct FComponentQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams) const
 {
 	FComponentQueryParams ParamsWithSelf = Params;
@@ -2523,38 +2599,40 @@ bool UPrimitiveComponent::ComponentOverlapMultiImpl(TArray<struct FOverlapResult
 
 void UPrimitiveComponent::UpdatePhysicsVolume( bool bTriggerNotifiers )
 {
-	if (bShouldUpdatePhysicsVolume && !IsPendingKill() && GetWorld())
+	if (bShouldUpdatePhysicsVolume && !IsPendingKill())
 	{
 		SCOPE_CYCLE_COUNTER(STAT_UpdatePhysicsVolume);
-
-		if (bGenerateOverlapEvents && IsQueryCollisionEnabled())
+		if (UWorld* MyWorld = GetWorld())
 		{
-			APhysicsVolume* BestVolume = GetWorld()->GetDefaultPhysicsVolume();
-			int32 BestPriority = BestVolume->Priority;
-
-			for (auto CompIt = OverlappingComponents.CreateIterator(); CompIt; ++CompIt)
+			if (bGenerateOverlapEvents && IsQueryCollisionEnabled())
 			{
-				const FOverlapInfo& Overlap = *CompIt;
-				UPrimitiveComponent* OtherComponent = Overlap.OverlapInfo.Component.Get();
-				if (OtherComponent)
+				APhysicsVolume* BestVolume = MyWorld->GetDefaultPhysicsVolume();
+				int32 BestPriority = BestVolume->Priority;
+
+				for (auto CompIt = OverlappingComponents.CreateIterator(); CompIt; ++CompIt)
 				{
-					APhysicsVolume* V = Cast<APhysicsVolume>(OtherComponent->GetOwner());
-					if (V && V->Priority > BestPriority)
+					const FOverlapInfo& Overlap = *CompIt;
+					UPrimitiveComponent* OtherComponent = Overlap.OverlapInfo.Component.Get();
+					if (OtherComponent && OtherComponent->bGenerateOverlapEvents)
 					{
-						if (V->IsOverlapInVolume(*this))
+						APhysicsVolume* V = Cast<APhysicsVolume>(OtherComponent->GetOwner());
+						if (V && V->Priority > BestPriority)
 						{
-							BestPriority = V->Priority;
-							BestVolume = V;
+							if (V->IsOverlapInVolume(*this))
+							{
+								BestPriority = V->Priority;
+								BestVolume = V;
+							}
 						}
 					}
 				}
-			}
 
-			SetPhysicsVolume(BestVolume, bTriggerNotifiers);
-		}
-		else
-		{
-			Super::UpdatePhysicsVolume(bTriggerNotifiers);
+				SetPhysicsVolume(BestVolume, bTriggerNotifiers);
+			}
+			else
+			{
+				Super::UpdatePhysicsVolume(bTriggerNotifiers);
+			}
 		}
 	}
 }
@@ -2702,37 +2780,37 @@ void UPrimitiveComponent::DispatchTouchOverEvents(ETouchIndex::Type FingerIndex,
 	}
 }
 
-void UPrimitiveComponent::DispatchOnClicked()
+void UPrimitiveComponent::DispatchOnClicked(FKey ButtonPressed)
 {
 	if (IsActorValidToNotify(GetOwner()))
 	{
-		GetOwner()->NotifyActorOnClicked();
+		GetOwner()->NotifyActorOnClicked(ButtonPressed);
 		if (IsActorValidToNotify(GetOwner()))
 		{
-			GetOwner()->OnClicked.Broadcast();
+			GetOwner()->OnClicked.Broadcast(ButtonPressed);
 		}
 	}
 
 	if (!IsPendingKill())
 	{
-		OnClicked.Broadcast(this);
+		OnClicked.Broadcast(this, ButtonPressed);
 	}
 }
 
-void UPrimitiveComponent::DispatchOnReleased()
+void UPrimitiveComponent::DispatchOnReleased(FKey ButtonReleased)
 {
 	if (IsActorValidToNotify(GetOwner()))
 	{
-		GetOwner()->NotifyActorOnReleased();
+		GetOwner()->NotifyActorOnReleased(ButtonReleased);
 		if (IsActorValidToNotify(GetOwner()))
 		{
-			GetOwner()->OnReleased.Broadcast();
+			GetOwner()->OnReleased.Broadcast(ButtonReleased);
 		}
 	}
 
 	if (!IsPendingKill())
 	{
-		OnReleased.Broadcast(this);
+		OnReleased.Broadcast(this, ButtonReleased);
 	}
 }
 
@@ -2819,7 +2897,7 @@ void UPrimitiveComponent::SetLODParentPrimitive(UPrimitiveComponent * InLODParen
 	MarkRenderStateDirty();
 }
 
-UPrimitiveComponent* UPrimitiveComponent::GetLODParentPrimitive()
+UPrimitiveComponent* UPrimitiveComponent::GetLODParentPrimitive() const
 {
 	return LODParentPrimitive;
 }

@@ -57,8 +57,8 @@ UUTMatchmaking::UUTMatchmaking(const FObjectInitializer& ObjectInitializer) :
 
 	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
-		FQosInterface* QosInterface = FQosInterface::Get();
-		QosEvaluator = ensure(QosInterface) ? QosInterface->CreateQosEvaluator() : nullptr;
+		TSharedRef<FQosInterface> QosInterface = FQosInterface::Get();
+		//QosEvaluator = ensure(QosInterface) ? QosInterface->CreateQosEvaluator() : nullptr;
 	}
 }
 
@@ -239,7 +239,16 @@ void UUTMatchmaking::OnClientPartyStateChanged(EUTPartyState NewPartyState)
 
 	if (NewPartyState == EUTPartyState::TravelToServer)
 	{
-		TravelToServer();
+		if (!Matchmaking || Matchmaking->GetMatchmakingState().State == EMatchmakingState::Type::JoinSuccess)
+		{
+			UE_LOG(LogOnlineGame, Display, TEXT("Follower matchmaking complete, travelling to server"));
+			TravelToServer();
+		}
+		else
+		{
+			UE_LOG(LogOnlineGame, Display, TEXT("Follower matchmaking not ready to travel to server, queuing travel request"));
+			bQueuedTravelToServer = true;
+		}
 	}
 }
 
@@ -263,12 +272,13 @@ void UUTMatchmaking::CancelMatchmaking()
 	if (Matchmaking)
 	{
 		ensure(ReservationBeaconClient == nullptr);
+		/*
 		if (QosEvaluator && QosEvaluator->IsActive())
 		{
 			UE_LOG(LogOnlineGame, Verbose, TEXT("Cancelling during qos evaluation"));
 			QosEvaluator->Cancel();
 		}
-		else
+		else*/
 		{
 			UE_LOG(LogOnlineGame, Verbose, TEXT("Cancelling during matchmaking"));
 			Matchmaking->CancelMatchmaking();
@@ -295,6 +305,8 @@ void UUTMatchmaking::CancelMatchmaking()
 	}
 
 	ClearCachedMatchmakingData();
+
+	bQueuedTravelToServer = false;
 }
 
 void UUTMatchmaking::DisconnectFromLobby()
@@ -527,7 +539,7 @@ void UUTMatchmaking::LookupTeamElo(EQosCompletionResult Result, const FString& D
 {
 	UE_LOG(LogOnline, Log, TEXT("LookupTeamElo %d"), (int32)Result);
 
-	QosEvaluator->SetAnalyticsProvider(nullptr);
+	//QosEvaluator->SetAnalyticsProvider(nullptr);
 	
 	UUTMcpUtils* McpUtils = nullptr;
 	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
@@ -544,9 +556,7 @@ void UUTMatchmaking::LookupTeamElo(EQosCompletionResult Result, const FString& D
 		}
 	}
 
-	if (McpUtils && Matchmaking &&
-		(Result == EQosCompletionResult::Cached || Result == EQosCompletionResult::Success)
-		)
+	if (McpUtils && Matchmaking && Result == EQosCompletionResult::Success)
 	{
 		InParams.DatacenterId = DatacenterId;
 
@@ -651,6 +661,14 @@ void UUTMatchmaking::OnSingleSessionMatchmakingComplete(EMatchmakingCompleteResu
 			UTPC->GetWorldTimerManager().SetTimer(ConnectToReservationBeaconTimerHandle, TimerDelegate, CONNECT_TO_RESERVATION_BEACON_DELAY, false);
 		}
 
+		// Follower was fetching server info when the leader told the client to join
+		if (bQueuedTravelToServer)
+		{
+			UE_LOG(LogOnlineGame, Display, TEXT("Follower matchmaking complete, travelling to server"));
+			TravelToServer();
+			bQueuedTravelToServer = false;
+		}
+
 		OnMatchmakingCompleteInternal(Result, SearchResult);
 	}
 	else if (Result == EMatchmakingCompleteResult::Cancelled)
@@ -696,7 +714,6 @@ void UUTMatchmaking::ConnectToReservationBeacon(FOnlineSessionSearchResult Searc
 		}
 		else
 		{
-			// Lobby connection here, but probably unnecessary for UT
 		}
 	}
 	else

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LobbyPrivatePCH.h"
 #include "LobbyBeaconClient.h"
@@ -109,6 +109,7 @@ void ALobbyBeaconClient::DisconnectFromLobby()
 {
 	if (bLoggedIn)
 	{
+		UE_LOG(LogBeacon, Log, TEXT("DisconnectFromLobby %s Id: %s"), *GetName(), PlayerState ? *PlayerState->UniqueId->ToString() : TEXT("Unknown"));
 		ServerDisconnectFromLobby();
 		bLoggedIn = false;
 	}
@@ -122,6 +123,7 @@ void ALobbyBeaconClient::JoiningServer()
 {
 	if (bLoggedIn)
 	{
+		UE_LOG(LogBeacon, Log, TEXT("JoiningServer %s Id: %s"), *GetName(), PlayerState ? *PlayerState->UniqueId->ToString() : TEXT("Unknown"));
 		ServerNotifyJoiningServer();
 	}
 	else
@@ -226,7 +228,7 @@ bool ALobbyBeaconClient::ServerDisconnectFromLobby_Validate()
 
 void ALobbyBeaconClient::ServerDisconnectFromLobby_Implementation()
 {
-	UE_LOG(LogBeacon, Log, TEXT("ServerDisconnectFromLobby"));
+	UE_LOG(LogBeacon, Log, TEXT("ServerDisconnectFromLobby %s Id: %s"), *GetName(), PlayerState ? *PlayerState->UniqueId->ToString() : TEXT("Unknown"));
 
 	ALobbyBeaconHost* BeaconHost = Cast<ALobbyBeaconHost>(GetBeaconOwner());
 	if (BeaconHost)
@@ -242,7 +244,7 @@ bool ALobbyBeaconClient::ServerNotifyJoiningServer_Validate()
 
 void ALobbyBeaconClient::ServerNotifyJoiningServer_Implementation()
 {
-	UE_LOG(LogBeacon, Log, TEXT("ServerNotifyJoiningGame"));
+	UE_LOG(LogBeacon, Log, TEXT("ServerNotifyJoiningGame %s Id: %s"), *GetName(), PlayerState ? *PlayerState->UniqueId->ToString() : TEXT("Unknown"));
 	ALobbyBeaconHost* BeaconHost = Cast<ALobbyBeaconHost>(GetBeaconOwner());
 	if (BeaconHost)
 	{
@@ -250,9 +252,18 @@ void ALobbyBeaconClient::ServerNotifyJoiningServer_Implementation()
 	}
 }
 
+void ALobbyBeaconClient::AckJoiningServer()
+{
+	if (GetNetMode() < NM_Client)
+	{
+		UE_LOG(LogBeacon, Log, TEXT("AckJoiningServer %s Id: %s"), *GetName(), PlayerState ? *PlayerState->UniqueId->ToString() : TEXT("Unknown"));
+		ClientAckJoiningServer();
+	}
+}
+
 void ALobbyBeaconClient::ClientAckJoiningServer_Implementation()
 {
-	UE_LOG(LogBeacon, Log, TEXT("ClientAckJoiningServer"));
+	UE_LOG(LogBeacon, Log, TEXT("ClientAckJoiningServer %s Id: %s LoggedIn: %d"), *GetName(), PlayerState ? *PlayerState->UniqueId->ToString() : TEXT("Unknown"), bLoggedIn);
 	OnJoiningGameAck().ExecuteIfBound();
 }
 

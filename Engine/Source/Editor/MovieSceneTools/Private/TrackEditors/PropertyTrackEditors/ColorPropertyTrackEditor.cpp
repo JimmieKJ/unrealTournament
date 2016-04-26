@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneToolsPrivatePCH.h"
 #include "MovieSceneColorTrack.h"
@@ -24,7 +24,7 @@ TSharedRef<FPropertySection> FColorPropertyTrackEditor::MakePropertySectionInter
 }
 
 
-void FColorPropertyTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<FColorKey>& GeneratedKeys )
+void FColorPropertyTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<FColorKey>& NewGeneratedKeys, TArray<FColorKey>& DefaultGeneratedKeys )
 {
 	const UStructProperty* StructProp = Cast<const UStructProperty>( PropertyChangedParams.PropertyPath.Last() );
 	FName StructName = StructProp->Struct->GetFName();
@@ -52,20 +52,15 @@ void FColorPropertyTrackEditor::GenerateKeysFromPropertyChanged( const FProperty
 
 	FName ChannelName = PropertyChangedParams.StructPropertyNameToKey;
 
-	if ( ChannelName == NAME_None || ChannelName == RedName )
-	{
-		GeneratedKeys.Add( FColorKey( EKeyColorChannel::Red, ColorValue.R, bIsSlateColor ) );
-	}
-	if ( ChannelName == NAME_None || ChannelName == GreenName )
-	{
-		GeneratedKeys.Add( FColorKey( EKeyColorChannel::Green, ColorValue.G, bIsSlateColor ) );
-	}
-	if ( ChannelName == NAME_None || ChannelName == BlueName )
-	{
-		GeneratedKeys.Add( FColorKey( EKeyColorChannel::Blue, ColorValue.B, bIsSlateColor ) );
-	}
-	if ( ChannelName == NAME_None || ChannelName == AlphaName )
-	{
-		GeneratedKeys.Add( FColorKey( EKeyColorChannel::Alpha, ColorValue.A, bIsSlateColor ) );
-	}
+	TArray<FColorKey>& RedKeys = ChannelName == NAME_None || ChannelName == RedName ? NewGeneratedKeys : DefaultGeneratedKeys;
+	RedKeys.Add( FColorKey( EKeyColorChannel::Red, ColorValue.R, bIsSlateColor ) );
+
+	TArray<FColorKey>& GreenKeys = ChannelName == NAME_None || ChannelName == GreenName ? NewGeneratedKeys : DefaultGeneratedKeys;
+	GreenKeys.Add( FColorKey( EKeyColorChannel::Green, ColorValue.G, bIsSlateColor ) );
+
+	TArray<FColorKey>& BlueKeys =  ChannelName == NAME_None || ChannelName == BlueName ? NewGeneratedKeys : DefaultGeneratedKeys;
+	BlueKeys.Add( FColorKey( EKeyColorChannel::Blue, ColorValue.B, bIsSlateColor ) );
+
+	TArray<FColorKey>& AlphaKeys = ChannelName == NAME_None || ChannelName == AlphaName ? NewGeneratedKeys : DefaultGeneratedKeys;
+	AlphaKeys.Add( FColorKey( EKeyColorChannel::Alpha, ColorValue.A, bIsSlateColor ) );
 }

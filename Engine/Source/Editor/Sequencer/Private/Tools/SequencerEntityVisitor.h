@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -25,8 +25,8 @@ struct ISequencerEntityVisitor
 {
 	ISequencerEntityVisitor(uint32 InEntityMask = ESequencerEntity::Everything) : EntityMask(InEntityMask) {}
 
-	virtual void VisitKey(FKeyHandle KeyHandle, float KeyTime, const TSharedPtr<IKeyArea>& KeyArea, UMovieSceneSection* Section) const { }
-	virtual void VisitSection(UMovieSceneSection* Section) const { }
+	virtual void VisitKey(FKeyHandle KeyHandle, float KeyTime, const TSharedPtr<IKeyArea>& KeyArea, UMovieSceneSection* Section, TSharedRef<FSequencerDisplayNode>) const { }
+	virtual void VisitSection(UMovieSceneSection* Section, TSharedRef<FSequencerDisplayNode>) const { }
 	
 	/** Check if the specified type of entity is applicable to this visitor */
 	bool CheckEntityMask(ESequencerEntity::Type Type) const { return (EntityMask & Type) != 0; }
@@ -44,13 +44,13 @@ struct FSequencerEntityRange
 	FSequencerEntityRange(FVector2D TopLeft, FVector2D BottomRight);
 
 	/** Check whether the specified section intersects this range */
-	bool IntersectSection(const UMovieSceneSection* InSection) const;
+	bool IntersectSection(const UMovieSceneSection* InSection, const TSharedRef<FSequencerTrackNode>& InTrackNode, int32 MaxRowIndex) const;
 
 	/** Check whether the specified node intersects this range */
-	bool IntersectNode(const FSequencerDisplayNode& InNode) const;
+	bool IntersectNode(TSharedRef<FSequencerDisplayNode> InNode) const;
 
 	/** Check whether the specified node's key area intersects this range */
-	bool IntersectKeyArea(const FSequencerDisplayNode& InNode, float VirtualKeyHeight) const;
+	bool IntersectKeyArea(TSharedRef<FSequencerDisplayNode> InNode, float VirtualKeyHeight) const;
 
 	/** Start/end times */
 	float StartTime, EndTime;
@@ -71,13 +71,17 @@ struct FSequencerEntityWalker
 private:
 
 	/** Handle visitation of a particular node */
-	void HandleNode(const ISequencerEntityVisitor& Visitor, FSequencerDisplayNode& InNode);
-	/** Handle visitation of a particular node, along with a set of sections */
-	void HandleNode(const ISequencerEntityVisitor& Visitor, FSequencerDisplayNode& InNode, TArray<TSharedRef<ISequencerSection>> InSections);
+	void HandleNode(const ISequencerEntityVisitor& Visitor, const TSharedRef<FSequencerDisplayNode>& InNode);
+	/** Handle visitation of a track node, along with a set of sections */
+	void HandleTrackNode(const ISequencerEntityVisitor& Visitor, const TSharedRef<FSequencerTrackNode>& InNode);
+	/** Handle visitation of an arbitrary child node, with a filtered set of sections */
+	void HandleChildNode(const ISequencerEntityVisitor& Visitor, const TSharedRef<FSequencerDisplayNode>& InNode, const TArray<TSharedRef<ISequencerSection>>& InSections);
+	/** Handle a single node that is known to be within the range */
+	void HandleSingleNode(const ISequencerEntityVisitor& Visitor, const TSharedRef<FSequencerDisplayNode>& InNode, const TArray<TSharedRef<ISequencerSection>>& InSections);
 	/** Handle visitation of a key area node */
-	void HandleKeyAreaNode(const ISequencerEntityVisitor& Visitor, FSequencerSectionKeyAreaNode& InKeyAreaNode, FSequencerDisplayNode& InOwnerNode, const TArray<TSharedRef<ISequencerSection>>& InSections);
+	void HandleKeyAreaNode(const ISequencerEntityVisitor& Visitor, const TSharedRef<FSequencerSectionKeyAreaNode>& InKeyAreaNode, const TSharedRef<FSequencerDisplayNode>& InOwnerNode, const TArray<TSharedRef<ISequencerSection>>& InSections);
 	/** Handle visitation of a key area */
-	void HandleKeyArea(const ISequencerEntityVisitor& Visitor, const TSharedPtr<IKeyArea>& KeyArea, UMovieSceneSection* Section);
+	void HandleKeyArea(const ISequencerEntityVisitor& Visitor, const TSharedPtr<IKeyArea>& KeyArea, UMovieSceneSection* Section, const TSharedRef<FSequencerDisplayNode>& InNode);
 
 	/** The bounds of the range */
 	FSequencerEntityRange Range;

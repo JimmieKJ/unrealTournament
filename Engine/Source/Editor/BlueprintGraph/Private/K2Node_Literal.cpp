@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "BlueprintGraphPrivatePCH.h"
@@ -196,7 +196,7 @@ void UK2Node_Literal::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRe
 		}
 		else if (Bindings.Num() > 1)
 		{
-			UiSpecOut->MenuName = FText::Format(NSLOCTEXT("K2Node", "FallbackLiteralTitle", "Create References to {0} selected Actors"), 
+			UiSpecOut->MenuName = FText::Format(NSLOCTEXT("K2Node", "LiteralTitleMultipleActors", "Create References to {0} selected Actors"), 
 				FText::AsNumber(Bindings.Num()) );
 
 			auto BindingIt = Bindings.CreateConstIterator();

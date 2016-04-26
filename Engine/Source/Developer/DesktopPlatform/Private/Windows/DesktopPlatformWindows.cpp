@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "DesktopPlatformPrivatePCH.h"
 #include "FeedbackContextMarkup.h"
@@ -153,7 +153,7 @@ bool FDesktopPlatformWindows::CanOpenLauncher(bool Install)
 	return UriProtocolKey.Exists() || (Install && GetLauncherInstallerPath(Path));
 }
 
-bool FDesktopPlatformWindows::OpenLauncher(bool Install, FString LauncherRelativeUrl, FString CommandLineParams)
+bool FDesktopPlatformWindows::OpenLauncher(const FOpenLauncherOptions& Options)
 {
 	FRegistryRootedKey UriProtocolKey(HKEY_CLASSES_ROOT, TEXT("com.epicgames.launcher"));
 	FString InstallerPath;
@@ -161,27 +161,14 @@ bool FDesktopPlatformWindows::OpenLauncher(bool Install, FString LauncherRelativ
 	// Try to launch it directly
 	if (UriProtocolKey.Exists())
 	{
-		FString LauncherUriRequest;
-		if (LauncherRelativeUrl.IsEmpty())
-		{
-			LauncherUriRequest = TEXT("com.epicgames.launcher:");
-		}
-		else
-		{
-			LauncherUriRequest = FString::Printf(TEXT("com.epicgames.launcher://%s"), *LauncherRelativeUrl);
-		}
-
-		if (FParse::Param(FCommandLine::Get(), TEXT("Dev")))
-		{
-			CommandLineParams += TEXT(" -noselfupdate");
-		}
+		FString LauncherUriRequest = Options.GetLauncherUriRequest();
 
 		FString Error;
-		FPlatformProcess::LaunchURL(*LauncherUriRequest, *CommandLineParams, &Error);
+		FPlatformProcess::LaunchURL(*LauncherUriRequest, nullptr, &Error);
 		return true;
 	}
 	// Otherwise see if we can install it
-	else if(Install && GetLauncherInstallerPath(InstallerPath))
+	else if(Options.bInstall && GetLauncherInstallerPath(InstallerPath))
 	{
 		FPlatformProcess::LaunchFileInDefaultExternalApplication(*InstallerPath);
 		return true;
@@ -525,19 +512,12 @@ bool FDesktopPlatformWindows::RunUnrealBuildTool(const FText& Description, const
 		return false;
 	}
 
-	// Pass through VS015 support
-	FString FinalArguments = Arguments;
-	if(_MSC_VER >= 1900)
-	{
-		FinalArguments.Append(TEXT(" -2015"));
-	}
-
 	// Write the output
-	Warn->Logf(TEXT("Running %s %s"), *UnrealBuildToolPath, *FinalArguments);
+	Warn->Logf(TEXT("Running %s %s"), *UnrealBuildToolPath, *Arguments);
 
 	// Spawn UBT
 	int32 ExitCode = 0;
-	return FFeedbackContextMarkup::PipeProcessOutput(Description, UnrealBuildToolPath, FinalArguments, Warn, &ExitCode) && ExitCode == 0;
+	return FFeedbackContextMarkup::PipeProcessOutput(Description, UnrealBuildToolPath, Arguments, Warn, &ExitCode) && ExitCode == 0;
 }
 
 bool FDesktopPlatformWindows::IsUnrealBuildToolRunning()

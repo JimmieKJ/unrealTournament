@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -59,14 +59,24 @@ private:
 	UPROPERTY()
 	float MaxValue;
 
+	UPROPERTY()
+	FVector MinValueVec;
+
+	UPROPERTY()
+	FVector MaxValueVec;
+
 public:
 	UPROPERTY(EditAnywhere, export, noclear, Category=RawDistributionVector)
 	class UDistributionVector* Distribution;
 
+	/** Whether the distribution data has been cooked or the object itself is available */
+	bool IsCreated();
 
 	FRawDistributionVector()
 		: MinValue(0)
 		, MaxValue(0)
+		, MinValueVec(FVector::ZeroVector)
+		, MaxValueVec(FVector::ZeroVector)
 		, Distribution(NULL)
 	{
 	}
@@ -95,16 +105,24 @@ public:
 	void GetOutRange(float& MinOut, float& MaxOut);
 
 	/**
+	* Get the min and max values
+	*/
+	void GetRange(FVector& MinOut, FVector& MaxOut);
+
+	/**
 	* Is this distribution a uniform type? (ie, does it have two values per entry?)
 	*/
 	inline bool IsUniform() { return LookupTable.SubEntryStride != 0; }
 
 	void InitLookupTable();
 
-	FORCEINLINE bool HasLookupTable()
+	FORCEINLINE bool HasLookupTable(bool bInitializeIfNeeded = true)
 	{
 #if WITH_EDITOR
-		InitLookupTable();
+		if(bInitializeIfNeeded)
+		{
+			InitLookupTable();
+		}
 #endif
 		return GDistributionType != 0 && !LookupTable.IsEmpty();
 	}
@@ -116,6 +134,7 @@ public:
 		//return !Distribution || HasLookupTable();
 	}
 };
+
 
 UCLASS(abstract, customconstructor)
 class ENGINE_API UDistributionVector : public UDistribution
@@ -129,6 +148,10 @@ class ENGINE_API UDistributionVector : public UDistribution
 	/** Set internally when the distribution is updated so that that FRawDistribution can know to update itself*/
 	UPROPERTY()
 	uint32 bIsDirty:1;
+protected:
+	UPROPERTY()
+	uint32 bBakedDataSuccesfully:1;	//It's possible that even though we want to bake we are not able to because of content or code.
+public:
 
 	/** Script-accessible way to query a FVector distribution */
 	virtual FVector GetVectorValue(float F = 0);
@@ -175,6 +198,11 @@ class ENGINE_API UDistributionVector : public UDistribution
 		return bCanBeBaked; 
 	}
 
+	bool HasBakedSuccesfully() const
+	{
+		return bBakedDataSuccesfully;
+	}
+
 	/**
 	 * Returns the number of values in the distribution. 3 for vector.
 	 */
@@ -189,6 +217,7 @@ class ENGINE_API UDistributionVector : public UDistribution
 #endif // WITH_EDITOR
 	virtual bool NeedsLoadForClient() const override;
 	virtual bool NeedsLoadForServer() const override;
+	virtual void Serialize(FArchive& Ar) override;
 	/** End UObject interface */
 
 };

@@ -1,6 +1,6 @@
 /*=============================================================================
 Interface to Qualcomm Texture Conversion and Compression Library
-                        
+
                 Copyright (c) 2013 Qualcomm Technologies, Inc.
                            All Rights Reserved.
 =============================================================================*/
@@ -8,33 +8,32 @@ Interface to Qualcomm Texture Conversion and Compression Library
 #ifndef _TEXTURECONVERTER_H_
 #define _TEXTURECONVERTER_H_
 
+#if defined(_WIN32) || defined(_WIN64)
+#define DllImport __declspec ( dllexport )
+#else
+#define DllImport
+#endif
+
 #include <string.h>
 #include <stdlib.h>
-#include <map>
-
-using std::map;
+#include <stdio.h>
 
 #ifdef __cplusplus
-extern "C" 
+extern "C"
 {
 #endif
 
-
-unsigned short UByteToUInt16(unsigned char nByte);
-short UByteToInt16(unsigned char nByte);
-
+DllImport unsigned short UByteToUInt16(unsigned char nByte);
+DllImport short UByteToInt16(unsigned char nByte);
 
 //=============================================================================
 // CONSTS/ENUMS
 //=============================================================================
-
 //
 // TQonvertImage.nFormat: Image format 
 //
-
 // Paletted formats are no longer supported and are included for legacy purposes only
-
-enum 
+DllImport enum 
 {
 	// General formats
     Q_FORMAT_RGBA_8UI = 1,
@@ -53,12 +52,10 @@ enum
     Q_FORMAT_PALETTE_4_RGBA_5551,
     Q_FORMAT_PALETTE_4_RGBA_4444,
     Q_FORMAT_PALETTE_1_RGBA_8888,
-
     Q_FORMAT_PALETTE_8_RGB_888,
     Q_FORMAT_PALETTE_8_RGB_565,
     Q_FORMAT_PALETTE_4_RGB_888,
     Q_FORMAT_PALETTE_4_RGB_565,
-
 
     Q_FORMAT_R2_GBA10UI,
     Q_FORMAT_RGB10_A2UI,
@@ -113,7 +110,6 @@ enum
     Q_FORMAT_DEPTH_24_STENCIL_8,
     Q_FORMAT_DEPTH_32,
     
-    
     Q_FORMAT_BGR_565,             
     Q_FORMAT_BGRA_8888,
     Q_FORMAT_BGRA_5551,           
@@ -160,13 +156,10 @@ enum
     Q_FORMAT_ASTC_16,
 };
 
-
-extern map<unsigned int, unsigned int> expectedIntermediateFormat;     // Key: texture-format Value: expected interediate-format
-
 //
 // TFormatFlags.nEncodeFlag: Image encoding flags 
 //
-enum TEncodeFlag
+DllImport enum TEncodeFlag
 {
     Q_FLAG_ENCODE_NONE = 0,
     Q_FLAG_ENCODE_DEFAULT = 0,
@@ -176,7 +169,7 @@ enum TEncodeFlag
 //
 // TFormatFlags.nScaleFilter: Scaling option to use when creating scaled output (for example for mipmap generation)
 //
-enum TScaleFilterFlag
+DllImport enum TScaleFilterFlag
 {
     Q_FLAG_SCALEFILTER_DEFAULT = 0,
     Q_FLAG_SCALEFILTER_NEAREST,
@@ -189,7 +182,7 @@ enum TScaleFilterFlag
 //
 // TFormatFlags.nNormalMap: Describes the algorithm to use for creating normal maps (for bumpmapping)
 //
-enum TNormalMapFlag
+DllImport enum TNormalMapFlag
 {
     Q_FLAG_NORMALMAP_NONE = 0,
     Q_FLAG_NORMALMAP_ROBERTSCROSS,
@@ -200,7 +193,7 @@ enum TNormalMapFlag
 //
 // TFormatFlags.nDebugFlag: Debug options
 //
-enum TDebugFlags
+DllImport enum TDebugFlags
 {
     Q_FLAG_DEBUG_DEFAULT         = 0,
     Q_FLAG_DEBUG_DISABLE_VERBOSE = 0x00000001,  // Disable verbose error output to stderr
@@ -210,7 +203,7 @@ enum TDebugFlags
 //
 // Qonvert function Success and Error return values
 //
-enum TReturnCode
+DllImport enum TReturnCode
 {
     Q_SUCCESS = 0,
     Q_ERROR_UNSUPPORTED_DIMENSIONS,
@@ -231,7 +224,7 @@ enum TReturnCode
 //
 // Additional format flags, leaving any value to 0 means the library will use a proper default value
 //
-typedef struct _TFormatFlags
+DllImport typedef struct _TFormatFlags
 {
     unsigned int nStride;           // Specify if the image stride is different then the default (bpp*width)
     unsigned int nMaskRed;          // Specify which of the bits in a color are red, can be used for swizzled color modes like (BGR instead of RGB)
@@ -251,45 +244,20 @@ typedef struct _TFormatFlags
 //
 // Basic image format description
 //
-typedef struct _TQonvertImage
+DllImport typedef struct _TQonvertImage
 {
-    _TQonvertImage():nDataSize(0), pData(0)
-    {
+//    DllImport _TQonvertImage & operator=(const _TQonvertImage &rhs);
     
-    }
-
-    _TQonvertImage & operator=(const _TQonvertImage &rhs)
-    {
-        this->nWidth = rhs.nWidth;
-        this->nHeight = rhs.nHeight;
-        this->nFormat = rhs.nFormat;
-        this->pFormatFlags = rhs.pFormatFlags;
-        this->nDataSize = rhs.nDataSize;
-
-        if(0!=this->pData)
-        {
-            free(pData);
-            pData = 0;
-        }
-
-        // NOTE: This assumes memory has been allocated to memcpy() to..
-        memcpy(this->pData,rhs.pData,this->nDataSize);
-
-        return (*this);
-    }
-
-    ~_TQonvertImage()
-    {
-
-    }
-
     unsigned int    nWidth;          // Image width
     unsigned int    nHeight;         // Image height
     unsigned int    nFormat;         // Image format, see Q_FORMAT_xxx enums above.
     TFormatFlags*   pFormatFlags;    // Points to additional image format flags, can be NULL (will assume default values).
     unsigned int    nDataSize;       // Size of the pData buffer
     unsigned char*  pData;           // Image data
+    void *compressionOptions;
 } TQonvertImage;
+
+DllImport _TQonvertImage * NewTQonvertImage(_TQonvertImage *);
 
 //=============================================================================
 // FUNCTION PROTOTYPES
@@ -310,11 +278,94 @@ typedef struct _TQonvertImage
 //   0     == SUCCESS
 //   other == ERROR CODE
 //-----------------------------------------------------------------------------
-extern unsigned int Qonvert( 
+DllImport extern unsigned int Qonvert( 
     const TQonvertImage*    pSrcImg,  // source image
     TQonvertImage*          pDstImg,  // destination image
     void *                  options = NULL
 );
+
+DllImport enum CompressionOptionsType
+{
+    CompType_None = 0,
+    CompType_ASTC,
+    CompType_ASTC_16,
+    CompType_Count
+};
+
+DllImport enum ASTCCompressionOptionsSpeed{
+    ASTC_EXHAUSTIVE = 0,
+    ASTC_THOROUGH,
+    ASTC_MEDIUM,
+    ASTC_FAST,
+    ASTC_VERY_FAST  
+};
+
+DllImport enum ASTCCompressionOptionsMode{
+    ASTC_HDR = 0,
+    ASTC_SRGB,
+    ASTC_LINEAR
+};
+
+DllImport enum ASTCCompressionOptionsDefaultOrCustom{
+    DEFAULT = 0,
+    CUSTOM
+};
+
+DllImport enum ASTCCompressionOptionsUseBitRate{
+    USE_BITRATE = 0,
+    USE_BLOCK_DIMENSIONS
+};
+
+DllImport enum ASTCCompressionOptionsCommand{
+    COMPRESS = 0,
+    DECOMPRESS
+};
+
+DllImport enum ASTC_BIT_FIDELITY{
+	ASTC_8_BIT = 1,
+	ASTC_16_BIT,
+	ASTC_32_BIT,
+};
+
+DllImport typedef struct _ASTCOptions
+{
+    //These variables are ASTC specific. 
+    int     CompressionSpeed;
+    int     CompressionMode;
+    int     UseBitRate;
+    float   BitRate;
+    int     xDimension;
+    int     yDimension;
+
+    int     UseBuiltInOptimizations;
+    int     ApplyPSNROptimization;
+    int     ApplyPerceptualOptimization;
+    int     ApplyMaskOptimization;
+    int     ApplyAlphaOptimization;
+    int     ApplyHDROptimization;
+    int     ApplyHDRWithAlphaChannelOptimization;
+    int     ApplyHDRForLogErrorOptimization;
+    int     ApplyHDRWithAlphaChannelForLogErrorOptimization;
+
+    int                     BitFidelity;
+    int                     ASTCCompressionMode;
+    unsigned char*          astc_pData;
+    const TQonvertImage*	astc_pSrc;
+	TQonvertImage *			astc_pDest;
+} ASTCOptions;
+
+DllImport typedef struct _StandardOptions
+{
+    int     ImageType;          //Is this a CompressedImage or a DifferenceImage (cacheing only)
+    int     CompressionType;    //For help with typecasting the pointer below.
+    void *  CompressionOptions; //The pointer to the compression Options.
+}StandardOptions;
+
+DllImport _ASTCOptions *NewASTCOptions();
+DllImport _ASTCOptions *NewASTCOptionsCopy(_ASTCOptions *);
+DllImport bool ASTCOptionsEqual(_ASTCOptions *me, _ASTCOptions *other);
+DllImport _StandardOptions *NewStandardOptions(int,int,void *);
+DllImport _StandardOptions *NewStandardOptionsCopy(_StandardOptions *options);
 
 #ifdef __cplusplus
 };

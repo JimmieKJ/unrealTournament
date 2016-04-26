@@ -1,9 +1,15 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "ObjectBase.h"
+#include "VisualLogger/VisualLoggerTypes.h"
 #include "VisualLogger/VisualLogger.h"
 #include "VisualLogger/VisualLoggerDebugSnapshotInterface.h"
+
+namespace
+{
+	const FName NAME_UnnamedCategory = TEXT("UnnamedCategry");
+}
 
 UVisualLoggerDebugSnapshotInterface::UVisualLoggerDebugSnapshotInterface(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -14,6 +20,22 @@ UVisualLoggerDebugSnapshotInterface::UVisualLoggerDebugSnapshotInterface(const F
 
 #define DEPRECATED_VISUAL_LOGGER_MAGIC_NUMBER 0xFAFAAFAF
 #define VISUAL_LOGGER_MAGIC_NUMBER 0xAFAFFAFA
+
+FVisualLogShapeElement::FVisualLogShapeElement(EVisualLoggerShapeElement InType)
+	: Category(NAME_UnnamedCategory)
+	, Verbosity(ELogVerbosity::All)
+	, TransformationMatrix(FMatrix::Identity)
+	, Type(InType)
+	, Color(0xff)
+	, Thicknes(0)
+{
+
+}
+
+FVisualLogStatusCategory::FVisualLogStatusCategory()
+	: Category(NAME_UnnamedCategory.ToString())
+{
+}
 
 bool FVisualLogStatusCategory::GetDesc(int32 Index, FString& Key, FString& Value) const
 {
@@ -44,7 +66,7 @@ FVisualLogEntry::FVisualLogEntry(const FVisualLogEntry& Entry)
 	DataBlocks = Entry.DataBlocks;
 }
 
-FVisualLogEntry::FVisualLogEntry(const class AActor* InActor, TArray<TWeakObjectPtr<UObject> >* Children)
+FVisualLogEntry::FVisualLogEntry(const AActor* InActor, TArray<TWeakObjectPtr<UObject> >* Children)
 {
 	if (InActor && InActor->IsPendingKill() == false)
 	{
@@ -439,8 +461,8 @@ FString FVisualLoggerHelpers::GenerateTemporaryFilename(const FString& FileExt)
 
 FString FVisualLoggerHelpers::GenerateFilename(const FString& TempFileName, const FString& Prefix, float StartRecordingTime, float EndTimeStamp)
 {
-	const FString TempFullFilename = FString::Printf(TEXT("%slogs/%s"), *FPaths::GameSavedDir(), *TempFileName);
-	const FString FullFilename = FString::Printf(TEXT("%slogs/%s_%s"), *FPaths::GameSavedDir(), *Prefix, *TempFileName);
+	const FString TempFullFilename = FString::Printf(TEXT("%s%s"), *FPaths::GameLogDir(), *TempFileName);
+	const FString FullFilename = FString::Printf(TEXT("%s%s_%s"), *FPaths::GameLogDir(), *Prefix, *TempFileName);
 	const FString TimeFrameString = FString::Printf(TEXT("%d-%d_"), FMath::TruncToInt(StartRecordingTime), FMath::TruncToInt(EndTimeStamp));
 	return FullFilename.Replace(TEXT("VTEMP_"), *TimeFrameString, ESearchCase::CaseSensitive);
 }

@@ -218,10 +218,8 @@ TSharedRef<SWidget> SUTMainMenu::AddPlayNow()
 	DropDownButton->AddSpacer();
 	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_QuickMatch_FindGame", "Find a Match..."), FOnClicked::CreateSP(this, &SUTMenuBase::OnShowServerBrowserPanel),true);
 
-#if 0
 	DropDownButton->AddSpacer();
 	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_Ranked_Showdown", "Ranked 3v3 Showdown Queue"), FOnClicked::CreateSP(this, &SUTMenuBase::OnRankedMatchmaking, 0), true);
-#endif
 
 	return DropDownButton.ToSharedRef();
 }
@@ -257,6 +255,12 @@ FReply SUTMainMenu::OnShowCustomGamePanel()
 
 void SUTMainMenu::ShowGamePanel()
 {
+	if (!PlayerOwner->IsPartyLeader())
+	{
+		PlayerOwner->ShowToast(NSLOCTEXT("SUTMenuBase", "ShowGamePanelNotLeader", "Only the party leader may do this"));
+		return;
+	}
+
 	if ( !ChallengePanel.IsValid() )
 	{
 		SAssignNew(ChallengePanel, SUTChallengePanel, PlayerOwner);
@@ -267,6 +271,12 @@ void SUTMainMenu::ShowGamePanel()
 
 void SUTMainMenu::ShowCustomGamePanel()
 {
+	if (!PlayerOwner->IsPartyLeader())
+	{
+		PlayerOwner->ShowToast(NSLOCTEXT("SUTMenuBase", "ShowCustomGamePanelNotLeader", "Only the party leader may do this"));
+		return;
+	}
+
 	if (TickCountDown <= 0)
 	{
 		PlayerOwner->ShowContentLoadingMessage();
@@ -394,6 +404,12 @@ FReply SUTMainMenu::OnPlayQuickMatch(FString QuickMatchType)
 
 void SUTMainMenu::QuickPlay(const FString& QuickMatchType)
 {
+	if (!PlayerOwner->IsPartyLeader())
+	{
+		PlayerOwner->ShowToast(NSLOCTEXT("SUTMenuBase", "QuickPlayNotLeader", "Only the party leader may start Quick Play"));
+		return;
+	}
+
 	if (!PlayerOwner->IsLoggedIn())
 	{
 		PlayerOwner->GetAuth();
@@ -412,6 +428,12 @@ FReply SUTMainMenu::OnBootCampClick()
 
 void SUTMainMenu::OpenTutorialMenu()
 {
+	if (!PlayerOwner->IsPartyLeader())
+	{
+		PlayerOwner->ShowToast(NSLOCTEXT("SUTMenuBase", "TutorialNotLeader", "You may not enter tutorials while in a party"));
+		return;
+	}
+
 	if (!TutorialPanel.IsValid())
 	{
 		SAssignNew(TutorialPanel,SUTUMGPanel,PlayerOwner).UMGClass(TEXT("/Game/RestrictedAssets/Tutorials/Blueprints/TutMainMenuWidget.TutMainMenuWidget_C"));

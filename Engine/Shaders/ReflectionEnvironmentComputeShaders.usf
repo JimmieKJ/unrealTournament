@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ReflectionEnvironmentComputeShaders - functionality to apply local cubemaps.
@@ -9,6 +9,7 @@
 #include "BRDF.usf"
 #include "ReflectionEnvironmentShared.usf"
 #include "SkyLightingShared.usf"
+#include "ShadingModels.usf"
 
 #if TILED_DEFERRED_CULL_SHADER
 
@@ -20,9 +21,9 @@ SamplerState ReflectionEnvironmentColorSampler;
   
 // Workaround performance issue with shared memory bank collisions in GLSL
 #if GL4_PROFILE
-#define ATOMIC_REDUCTION 0
+#define ATOMIC_REDUCTION	0
 #else
-#define ATOMIC_REDUCTION 0
+#define ATOMIC_REDUCTION	0
 #endif
 
 #define AABB_INTERSECT		1
@@ -375,6 +376,12 @@ float CountOverlap( float3 WorldPosition )
 	LOOP
 	for (uint TileCaptureIndex = 0; TileCaptureIndex < NumCapturesAffectingTile; TileCaptureIndex++) 
 	{
+		BRANCH
+		if( Opacity < 0.001 )
+		{
+			break;
+		}
+
 		#if SORT_CAPTURES
 			uint CaptureIndex = SortedTileReflectionCaptureIndices[TileCaptureIndex];
 		#else
@@ -396,12 +403,6 @@ float CountOverlap( float3 WorldPosition )
 
 			Overlap += 1;
 			Opacity *= 1 - DistanceAlpha;
-
-			BRANCH
-			if( Opacity < 0.001 )
-			{
-				break;
-			}
 		}
 	}
 
@@ -410,6 +411,18 @@ float CountOverlap( float3 WorldPosition )
 
 void GatherRadiance(inout float4 Color, float3 WorldPosition, float3 RayDirection, float Roughness, float2 ScreenPosition, float IndirectIrradiance, uint ShadingModelID)
 {
+	// Indirect occlusion from DFAO, which should be applied to reflection captures and skylight specular, but not SSR
+	float IndirectSpecularOcclusion = 1.0f;
+
+#if SUPPORT_DFAO_INDIRECT_OCCLUSION
+	float2 ScreenUV = ScreenPosition * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz;
+	float IndirectDiffuseOcclusion;
+	GetDistanceFieldAOSpecularOcclusion(ScreenUV, RayDirection, Roughness, ShadingModelID == SHADINGMODELID_TWOSIDED_FOLIAGE, IndirectSpecularOcclusion, IndirectDiffuseOcclusion);
+	// Apply DFAO to IndirectIrradiance before mixing with indirect specular
+	IndirectIrradiance *= IndirectDiffuseOcclusion;
+	
+#endif
+
 	float Mip = ComputeReflectionCaptureMipFromRoughness( Roughness );
 
 	uint NumCapturesAffectingTile = TileNumReflectionCaptures;
@@ -491,7 +504,7 @@ void GatherRadiance(inout float4 Color, float3 WorldPosition, float3 RayDirectio
 				else
 #	endif //HAS_BOX_CAPTURES
 				{
-					float ProjectionSphereRadius = CapturePositionAndRadius.w;// * 1.2f;
+					float ProjectionSphereRadius = CapturePositionAndRadius.w;
 					float SphereRadiusSquared = ProjectionSphereRadius * ProjectionSphereRadius;
 
 					float3 LocalPosition = WorldPosition - CapturePositionAndRadius.xyz;
@@ -541,14 +554,13 @@ void GatherRadiance(inout float4 Color, float3 WorldPosition, float3 RayDirectio
 				Sample *= DistanceAlpha;
 
 				// Under operator (back to front)
-				Color.rgb += Sample.rgb * Color.a;
+				Color.rgb += Sample.rgb * Color.a * IndirectSpecularOcclusion;
 				Color.a *= 1 - Sample.a;
 			}
 		}
 	}
 
-#define APPLY_SKY_LIGHT 1
-#if APPLY_SKY_LIGHT 
+#if HAS_SKYLIGHT
 	BRANCH
 	if( SkyLightParameters.y > 0 && Color.a >= 0.001 )
 	{
@@ -562,11 +574,7 @@ void GatherRadiance(inout float4 Color, float3 WorldPosition, float3 RayDirectio
 			SkyLighting *= IndirectIrradiance;
 		}
 
-		float2 ScreenUV = ScreenPosition * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz;
-		float Visibility = GetDistanceFieldAOSpecularOcclusion(ScreenUV, RayDirection, Roughness, ShadingModelID == SHADINGMODELID_TWOSIDED_FOLIAGE);
-
-		// TODO use Mip
-		Color.rgb += (Color.a * Visibility) * SkyLighting;
+		Color.rgb += Color.a * SkyLighting * IndirectSpecularOcclusion;
 	}
 #endif
 }
@@ -577,7 +585,7 @@ Texture2D InSceneColor;
 
 /** Output HDR target. */
 RWTexture2D<float4> RWOutSceneColor;
-  
+
 [numthreads(THREADGROUP_SIZEX, THREADGROUP_SIZEY, 1)]
 void ReflectionEnvironmentTiledDeferredMain(
 	uint3 GroupId : SV_GroupID,
@@ -611,7 +619,7 @@ void ReflectionEnvironmentTiledDeferredMain(
 	float3 ReflectionVector = reflect(CameraToPixel, GBuffer.WorldNormal);
 	float IndirectIrradiance = GBuffer.IndirectIrradiance;
 	
-#if USE_LIGHTMAPS
+#if HAS_SKYLIGHT && USE_LIGHTMAPS
 	BRANCH
 	// Add in diffuse contribution from dynamic skylights so reflection captures will have something to mix with
 	if (SkyLightParameters.y > 0 && SkyLightParameters.z > 0)
@@ -628,6 +636,15 @@ void ReflectionEnvironmentTiledDeferredMain(
 	BRANCH
 	if( GBuffer.ShadingModelID != SHADINGMODELID_UNLIT && GBuffer.ShadingModelID != SHADINGMODELID_HAIR )
 	{
+		if( GBuffer.ShadingModelID == SHADINGMODELID_CLEAR_COAT )
+		{
+			const float ClearCoat			= GBuffer.CustomData.x;
+			const float ClearCoatRoughness	= GBuffer.CustomData.y;
+
+			GBuffer.Roughness = lerp( GBuffer.Roughness, ClearCoatRoughness, ClearCoat );
+			GBuffer.SpecularColor = lerp( GBuffer.SpecularColor, 0.04, ClearCoat );
+		}
+
 		float3 N = GBuffer.WorldNormal;
 		float3 V = -CameraToPixel;
 		float3 R = 2 * dot( V, N ) * N - V;
@@ -638,20 +655,11 @@ void ReflectionEnvironmentTiledDeferredMain(
 		float a = Square( GBuffer.Roughness );
 		R = lerp( N, R, (1 - a) * ( sqrt(1 - a) + a ) );
 
-
 	#if 1//APPLY_SSR
 		float4 SSR = ScreenSpaceReflections.Load( int3(PixelPos, 0) );
 		Color.rgb = SSR.rgb;
 		Color.a = 1 - SSR.a;
 	#endif
-
-#if USE_CLEARCOAT
-		if( GBuffer.ShadingModelID == SHADINGMODELID_CLEAR_COAT )
-		{
-			const float ClearCoat = GBuffer.CustomData.x;
-			Color = lerp( Color, float4(0,0,0,1), ClearCoat );
-		}
-#endif
 	
 		float AO = ScreenSpaceData.AmbientOcclusion;
 		float SpecularOcclusion = saturate( pow( NoV + AO, a ) - 1 + AO );
@@ -660,83 +668,26 @@ void ReflectionEnvironmentTiledDeferredMain(
 
 		GatherRadiance(Color, WorldPosition, R, GBuffer.Roughness, ScreenPosition, IndirectIrradiance, GBuffer.ShadingModelID);
 
-#if USE_CLEARCOAT
-		BRANCH
-		if( GBuffer.ShadingModelID == SHADINGMODELID_CLEAR_COAT )
-		{
-			const float ClearCoat			= GBuffer.CustomData.x;
-			const float ClearCoatRoughness	= GBuffer.CustomData.y;
-
-			// TODO EnvBRDF should have a mask param
-			float2 AB = PreIntegratedGF.SampleLevel( PreIntegratedGFSampler, float2( NoV, GBuffer.Roughness ), 0 ).rg;
-			Color.rgb *= GBuffer.SpecularColor * AB.x + AB.y * saturate( 50 * GBuffer.SpecularColor.g ) * (1 - ClearCoat);
-		
-			// F_Schlick
-			float F0 = 0.04;
-			float Fc = Pow5( 1 - NoV );
-			float F = Fc + (1 - Fc) * F0;
-			F *= ClearCoat;
-			
-			float LayerAttenuation = (1 - F);
-		
-			Color.rgb *= LayerAttenuation;
-			Color.a = F;
-		
-			#if 1//APPLY_SSR
-				Color.rgb += SSR.rgb * F;
-				Color.a *= 1 - SSR.a;
-			#endif
-			Color.a *= SpecularOcclusion;
-
-			R = 2 * dot( V, N ) * N - V;
-			GatherRadiance(Color, WorldPosition, R, ClearCoatRoughness, ScreenPosition, IndirectIrradiance, GBuffer.ShadingModelID);			
-		}
-		else
-#endif
-
-// Support for USE_CLOTH to be added later
-//#if USE_CLOTH
-
-// Experimental - Disable in preparation for commit
-#if 0
-		BRANCH
-		if( GBuffer.ShadingModelID == SHADINGMODELID_CLOTH )
-		{
-			const float SpecularOffset	= GBuffer.CustomData.a;
-			//const float Custom1			= GBuffer.CustomData.y;
-
-			Color.a *= SpecularOcclusion;
-
-			// Reflection direction
-			R = 2 * dot( V, N ) * N - V;
-
-			// Need to look at how these two values are computed
-			float  RoughnessNarrow =  lerp( 0.3, 0.7, GBuffer.Roughness );
-			float  RoughnessWide = 1.f;
-
-			// Narrow sample
-			float4 ColorNarrow = float4(0, 0, 0, 1);
-			GatherRadiance(ColorNarrow, WorldPosition, R, RoughnessNarrow, ScreenPosition, IndirectIrradiance, GBuffer.ShadingModelID);			
-
-			// Wide sample
-			float4 ColorWide = float4(0, 0, 0, 1);
-			GatherRadiance(ColorWide, WorldPosition, R, RoughnessWide, ScreenPosition, IndirectIrradiance, GBuffer.ShadingModelID);			
-
-			// Any value other than 1 breaks energy conservation. Will have to deal with this later.
-			//float EnvironmentScale = Custom1;
-			float EnvironmentScale = 1.f;
-			Color.rgb = max(float4(0.f, 0.f, 0.f, 0.f), (2*ColorWide - ColorNarrow)) * EnvironmentScale;
-			}
-		else
-#endif
-// Experimental - Disable in preparation for commit
-
-//#endif // USE_CLOTH
-
-		{
-			Color.rgb *= EnvBRDF( GBuffer.SpecularColor, GBuffer.Roughness, NoV );
-		}
+		Color.rgb *= EnvBRDF( GBuffer.SpecularColor, GBuffer.Roughness, NoV );
 	}
+
+#if 0
+	{
+		float3 N = GBuffer.WorldNormal;
+		float3 V = -CameraToPixel;
+		float3 L = Frame.DirectionalLightDirection;
+		float NoL = saturate( dot( N, L ) );
+
+		Color.rgb += Frame.DirectionalLightColor.rgb * SurfaceShading( GBuffer, GBuffer.Roughness, 1, L, V, N, 1, uint2(0,0) );
+
+		float3 SurfaceLighting = SurfaceShading( GBuffer, GBuffer.Roughness, 1, L, V, N, 1, uint2(0,0) ) * NoL;
+		float3 SubsurfaceLighting = SubsurfaceShading( GBuffer, L, V, N, 1, uint2(0,0) );
+		//float3 SurfaceLighting = StandardShading( GBuffer, GBuffer.Roughness, 1, L, V, N, 1 ) * NoL;
+		//float3 SubsurfaceLighting = 0;
+
+		Color.rgb += Frame.DirectionalLightColor.rgb * ( SurfaceLighting + SubsurfaceLighting );
+	}
+#endif
 
 	// Only write to the buffer for threads inside the view
 	BRANCH

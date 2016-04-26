@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "LogVisualizer.h"
 #include "Engine.h"
 #include "SlateBasics.h"
@@ -6,7 +6,7 @@
 #include "Editor/UnrealEd/Classes/Editor/EditorEngine.h"
 #include "VisualLoggerCanvasRenderer.h"
 #include "Debug/ReporterGraph.h"
-#include "TimeSliderController.h"
+
 
 namespace LogVisualizer
 {

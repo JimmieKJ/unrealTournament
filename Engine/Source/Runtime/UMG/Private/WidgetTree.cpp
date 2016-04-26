@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 
@@ -94,4 +94,19 @@ void UWidgetTree::GetAllWidgets(TArray<UWidget*>& Widgets) const
 void UWidgetTree::GetChildWidgets(UWidget* Parent, TArray<UWidget*>& Widgets)
 {
 	ForWidgetAndChildren(Parent, [&] (UWidget* Widget) { Widgets.Add(Widget); });
+}
+
+void UWidgetTree::PreSave()
+{
+	AllWidgets.Empty();
+
+	GetAllWidgets(AllWidgets);
+
+	Super::PreSave();
+}
+
+void UWidgetTree::PostLoad()
+{
+	Super::PostLoad();
+	AllWidgets.Empty();
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -130,7 +130,7 @@
 * Whether we support hot-reload. Currently requires a non-monolithic build and non-shipping configuration.
 */
 #ifndef WITH_HOT_RELOAD
-	#define WITH_HOT_RELOAD (!IS_MONOLITHIC && !UE_BUILD_SHIPPING && !UE_GAME)
+	#define WITH_HOT_RELOAD (!IS_MONOLITHIC && !UE_BUILD_SHIPPING && !UE_BUILD_TEST && !UE_GAME)
 #endif
 
 /**
@@ -247,3 +247,8 @@
 
 #define USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING 1
 #define USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS (USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING && 0)
+
+// 0 (default), set this to 1 to get draw events with "TOGGLEDRAWEVENTS" "SHOWMATERIALDRAWEVENTS" and the "ProfileGPU" command working in test
+#define ALLOW_PROFILEGPU_IN_TEST 0
+// draw events with "TOGGLEDRAWEVENTS" "SHOWMATERIALDRAWEVENTS" (for ProfileGPU, Pix, Razor, RenderDoc, ...) and the "ProfileGPU" command are normally compiled out for TEST and SHIPPING
+#define WITH_PROFILEGPU (!(UE_BUILD_SHIPPING || UE_BUILD_TEST) || (UE_BUILD_TEST && ALLOW_PROFILEGPU_IN_TEST))

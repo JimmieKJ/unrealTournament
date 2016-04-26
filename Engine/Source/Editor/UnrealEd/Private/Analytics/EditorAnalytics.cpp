@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "TargetPlatform.h"
@@ -8,8 +8,10 @@
 
 #include "EditorAnalytics.h"
 #include "GeneralProjectSettings.h"
+#include "GameProjectGenerationModule.h"
 
 #define LOCTEXT_NAMESPACE "EditorAnalytics"
+
 
 void FEditorAnalytics::ReportBuildRequirementsFailure(FString EventName, FString PlatformName, bool bHasCode, int32 Requirements)
 {

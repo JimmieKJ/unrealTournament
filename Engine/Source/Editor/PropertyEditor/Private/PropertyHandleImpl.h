@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -316,6 +316,8 @@ protected:
 	 * @return true if the value was retrieved successfully
 	 */
 	FPropertyAccess::Result GetPropertyValueText( FText& OutText, FPropertyNode* InPropertyNode, const bool bAllowAlternateDisplayValue ) const;
+
+	bool IsAnyOuterObjectFromEngine() const;
 
 protected:
 	/** Property node used to access UProperty and address of object to change */

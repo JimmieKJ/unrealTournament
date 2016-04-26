@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -64,30 +64,54 @@ namespace UnrealBuildTool
 		/// </summary>
 		public string StagePath;
 
+		/// <summary>
+		/// Whether we should ignore this file if missing. Typically useful for optional support files, such as PDBs.
+		/// </summary>
+		public bool bIgnoreIfMissing;
+
 		private RuntimeDependency()
 		{
 		}
 
-		public RuntimeDependency(string InPath)
+		public RuntimeDependency(string InPath, bool bInIgnoreIfMissing = false)
 		{
 			Path = InPath;
+			bIgnoreIfMissing = bInIgnoreIfMissing;
 		}
 
-		public RuntimeDependency(string InPath, string InStagePath)
+		public RuntimeDependency(string InPath, string InStagePath, bool bInIgnoreIfMissing = false)
 		{
 			Path = InPath;
 			StagePath = InStagePath;
+			bIgnoreIfMissing = bInIgnoreIfMissing;
 		}
 
 		public RuntimeDependency(RuntimeDependency InOther)
 		{
 			Path = InOther.Path;
 			StagePath = InOther.StagePath;
+			bIgnoreIfMissing = InOther.bIgnoreIfMissing;
 		}
 
 		public override string ToString()
 		{
 			return (StagePath == null) ? Path : String.Format("{0} -> {1}", Path, StagePath);
+		}
+	}
+
+	[Serializable]
+	public class ReceiptProperty
+	{
+		[XmlAttribute]
+		public string Name;
+
+		[XmlAttribute]
+		public string Value;
+
+		public ReceiptProperty(string InName, string InValue)
+		{
+			Name = InName;
+			Value = InValue;
 		}
 	}
 
@@ -133,6 +157,11 @@ namespace UnrealBuildTool
 		public List<RuntimeDependency> RuntimeDependencies = new List<RuntimeDependency>();
 
 		/// <summary>
+		/// Additional build properties passed through from the module rules
+		/// </summary>
+		public List<ReceiptProperty> AdditionalProperties = new List<ReceiptProperty>();
+
+		/// <summary>
 		/// Default constructor
 		/// </summary>
 		public TargetReceipt()
@@ -168,6 +197,7 @@ namespace UnrealBuildTool
 			{
 				RuntimeDependencies.Add(new RuntimeDependency(OtherRuntimeDependency));
 			}
+			AdditionalProperties.AddRange(Other.AdditionalProperties);
 		}
 
 		/// <summary>
@@ -188,10 +218,11 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="Path">Source path for the dependency</param>
 		/// <param name="StagePath">Location for the dependency in the staged build</param>
+		/// <param name="bIgnoreIfMissing">Whether to ignore this dependency if the source file is not present</param>
 		/// <returns>The RuntimeDependency object that was created</returns>
-		public RuntimeDependency AddRuntimeDependency(string Path, string StagePath)
+		public RuntimeDependency AddRuntimeDependency(string Path, string StagePath, bool bIgnoreIfMissing = false)
 		{
-			RuntimeDependency NewRuntimeDependency = new RuntimeDependency(Path, StagePath);
+			RuntimeDependency NewRuntimeDependency = new RuntimeDependency(Path, StagePath, bIgnoreIfMissing);
 			RuntimeDependencies.Add(NewRuntimeDependency);
 			return NewRuntimeDependency;
 		}
@@ -302,13 +333,21 @@ namespace UnrealBuildTool
 		/// <returns>Path to the receipt for this target</returns>
 		public static string GetDefaultPath(string BaseDir, string TargetName, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string BuildArchitecture)
 		{
-			if (String.IsNullOrEmpty(BuildArchitecture) && Configuration == UnrealTargetConfiguration.Development)
+			// Get the architecture suffix. Platforms have the option of overriding whether to include this string in filenames.
+			string ArchitectureSuffix = "";
+			if(UEBuildPlatform.GetBuildPlatform(Platform).RequiresArchitectureSuffix())
+			{
+				ArchitectureSuffix = BuildArchitecture;
+			}
+		
+			// Build the output filename
+			if (String.IsNullOrEmpty(ArchitectureSuffix) && Configuration == UnrealTargetConfiguration.Development)
 			{
 				return Path.Combine(BaseDir, "Binaries", Platform.ToString(), String.Format("{0}.target", TargetName));
 			}
 			else
 			{
-				return Path.Combine(BaseDir, "Binaries", Platform.ToString(), String.Format("{0}-{1}-{2}{3}.target", TargetName, Platform.ToString(), Configuration.ToString(), BuildArchitecture));
+				return Path.Combine(BaseDir, "Binaries", Platform.ToString(), String.Format("{0}-{1}-{2}{3}.target", TargetName, Platform.ToString(), Configuration.ToString(), ArchitectureSuffix));
 			}
 		}
 
@@ -374,7 +413,30 @@ namespace UnrealBuildTool
 						{
 							StagePath = null;
 						}
-						Receipt.AddRuntimeDependency(Path, StagePath);
+						bool bIgnoreIfMissing;
+						if(!RuntimeDependencyObject.TryGetBoolField("IgnoreIfMissing", out bIgnoreIfMissing))
+						{
+							bIgnoreIfMissing = false;
+						}
+						Receipt.AddRuntimeDependency(Path, StagePath, bIgnoreIfMissing);
+					}
+				}
+			}
+
+			// Read the additional properties
+			JsonObject[] AdditionalPropertyObjects;
+			if(RawObject.TryGetObjectArrayField("AdditionalProperties", out AdditionalPropertyObjects))
+			{
+				foreach(JsonObject AdditionalPropertyObject in AdditionalPropertyObjects)
+				{
+					string Name;
+					if(AdditionalPropertyObject.TryGetStringField("Name", out Name))
+					{
+						string Value;
+						if(AdditionalPropertyObject.TryGetStringField("Value", out Value))
+						{
+							Receipt.AdditionalProperties.Add(new ReceiptProperty(Name, Value));
+						}
 					}
 				}
 			}
@@ -447,9 +509,26 @@ namespace UnrealBuildTool
 					{
 						Writer.WriteValue("StagePath", RuntimeDependency.StagePath);
 					}
+					if (RuntimeDependency.bIgnoreIfMissing)
+					{
+						Writer.WriteValue("IgnoreIfMissing", RuntimeDependency.bIgnoreIfMissing);
+					}
 					Writer.WriteObjectEnd();
 				}
 				Writer.WriteArrayEnd();
+
+				if(AdditionalProperties.Count > 0)
+				{
+					Writer.WriteArrayStart("AdditionalProperties");
+					foreach (ReceiptProperty AdditionalProperty in AdditionalProperties)
+					{
+						Writer.WriteObjectStart();
+						Writer.WriteValue("Name", AdditionalProperty.Name);
+						Writer.WriteValue("Value", AdditionalProperty.Value);
+						Writer.WriteObjectEnd();
+					}
+					Writer.WriteArrayEnd();
+				}
 
 				Writer.WriteObjectEnd();
 			}

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -10,7 +10,7 @@ struct FGrassVariety
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY(EditAnywhere, Category=Grass)
-	class UStaticMesh* GrassMesh;
+	UStaticMesh* GrassMesh;
 
 	/* Instances per 10 square meters. */
 	UPROPERTY(EditAnywhere, Category=Grass)
@@ -35,7 +35,7 @@ struct FGrassVariety
 	int32 EndCullDistance;
 
 	/** 
-	 * Specifies the smallest LOD that will be used for this component.  
+	 * Specifies the smallest LOD that will be used for this component.
 	 * If -1 (default), the MinLOD of the static mesh asset will be used instead.
 	 */
 	UPROPERTY(EditAnywhere, Category = Grass)
@@ -47,17 +47,22 @@ struct FGrassVariety
 	UPROPERTY(EditAnywhere, Category = Grass)
 	bool AlignToSurface;
 
+	/* whether to use the landscape's lightmap when rendering the grass. */
+	UPROPERTY(EditAnywhere, Category = Grass)
+	bool bUseLandscapeLightmap;
+
 	FGrassVariety()
+		: GrassMesh(nullptr)
+		, GrassDensity(400)
+		, bUseGrid(true)
+		, PlacementJitter(1.0f)
+		, StartCullDistance(10000.0f)
+		, EndCullDistance(10000.0f)
+		, MinLOD(-1)
+		, RandomRotation(true)
+		, AlignToSurface(true)
+		, bUseLandscapeLightmap(false)
 	{
-		GrassMesh = nullptr;
-		GrassDensity = 400;
-		StartCullDistance = 10000.0f;
-		EndCullDistance = 10000.0f;
-		PlacementJitter = 1.0f;
-		MinLOD = -1;
-		RandomRotation = true;
-		AlignToSurface = true;
-		bUseGrid = true;
 	}
 };
 
@@ -70,7 +75,7 @@ class ULandscapeGrassType : public UObject
 	TArray<FGrassVariety> GrassVarieties;
 
 	UPROPERTY()
-	class UStaticMesh* GrassMesh_DEPRECATED;
+	UStaticMesh* GrassMesh_DEPRECATED;
 	UPROPERTY()
 	float GrassDensity_DEPRECATED;
 	UPROPERTY()

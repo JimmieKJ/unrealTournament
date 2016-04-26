@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateRHIRendererPrivatePCH.h"
 #include "ElementBatcher.h"
@@ -22,10 +22,13 @@ DECLARE_CYCLE_STAT(TEXT("Slate RT: Draw Batches"), STAT_SlateRTDrawBatches, STAT
 
 void FSlateCrashReportResource::InitDynamicRHI()
 {
+	int32 Width = VirtualScreen.Width();
+	int32 Height = VirtualScreen.Height();
+
 	FRHIResourceCreateInfo CreateInfo;
 	CrashReportBuffer = RHICreateTexture2D(
-		VirtualScreen.Width(),
-		VirtualScreen.Height(),
+		Width,
+		Height,
 		PF_R8G8B8A8,
 		1,
 		1,
@@ -36,8 +39,8 @@ void FSlateCrashReportResource::InitDynamicRHI()
 	for (int32 i = 0; i < 2; ++i)
 	{
 		ReadbackBuffer[i] = RHICreateTexture2D(
-			VirtualScreen.Width(),
-			VirtualScreen.Height(),
+			Width,
+			Height,
 			PF_R8G8B8A8,
 			1,
 			1,
@@ -531,34 +534,6 @@ void FSlateRHIRenderer::DrawWindows()
 	}
 }
 
-struct FSlateEndDrawingWindowsCommand : public FRHICommand<FSlateEndDrawingWindowsCommand>
-{
-	FSlateRHIRenderingPolicy& Policy;
-	FSlateDrawBuffer* DrawBuffer;
-	
-	FSlateEndDrawingWindowsCommand(FSlateRHIRenderingPolicy& InPolicy, FSlateDrawBuffer* InDrawBuffer)
-		: Policy( InPolicy )
-		, DrawBuffer(InDrawBuffer)
-	{}
-
-	void Execute(FRHICommandListBase& CmdList)
-	{
-		for( auto& ElementList : DrawBuffer->GetWindowElementLists() )
-		{
-			ElementList->PostDraw_ParallelThread();
-		}
-
-		DrawBuffer->Unlock();
-		Policy.EndDrawingWindows();
-	}
-};
-
-static void EndDrawingWindows( FRHICommandListImmediate& RHICmdList, FSlateDrawBuffer* DrawBuffer, FSlateRHIRenderingPolicy& Policy )
-{
-	new (RHICmdList.AllocCommand<FSlateEndDrawingWindowsCommand>()) FSlateEndDrawingWindowsCommand(Policy, DrawBuffer);
-}
-
-
 void FSlateRHIRenderer::PrepareToTakeScreenshot(const FIntRect& Rect, TArray<FColor>* OutColorData)
 {
 	check(OutColorData);
@@ -584,8 +559,11 @@ void FSlateRHIRenderer::DrawWindows_Private( FSlateDrawBuffer& WindowDrawBuffer 
 		Policy.BeginDrawingWindows();
 	});
 
-	// Update texture atlases if needed
-	ResourceManager->UpdateTextureAtlases();
+	// Update texture atlases if needed and safe
+	if (DoesThreadOwnSlateRendering())
+	{
+		ResourceManager->UpdateTextureAtlases();
+	}
 
 	const TSharedRef<FSlateFontCache> FontCache = SlateFontServices->GetFontCache();
 
@@ -703,7 +681,7 @@ void FSlateRHIRenderer::DrawWindows_Private( FSlateDrawBuffer& WindowDrawBuffer 
 		FSlateDrawBuffer*, DrawBuffer, &WindowDrawBuffer,
 		FSlateRHIRenderingPolicy&, Policy, *RenderingPolicy,
 	{
-		EndDrawingWindows( RHICmdList, DrawBuffer, Policy );
+		FSlateEndDrawingWindowsCommand::EndDrawingWindows(RHICmdList, DrawBuffer, Policy);
 	});
 
 	// flush the cache if needed
@@ -831,7 +809,7 @@ void FSlateRHIRenderer::CopyWindowsToVirtualScreenBuffer(const TArray<FString>& 
 		RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false,CF_Always>::GetRHI());
 
 		// @todo livestream: Ideally this "desktop background color" should be configurable in the editor's preferences
-		RHICmdList.Clear(true, FLinearColor(0.02f, 0.02f, 0.2f), false, 0.f, false, 0x00, FIntRect());
+		RHICmdList.Clear(true, FLinearColor(0.8f, 0.00f, 0.0f), false, 0.f, false, 0x00, FIntRect());
 	});
 
 	// draw windows to buffer
@@ -841,6 +819,8 @@ void FSlateRHIRenderer::CopyWindowsToVirtualScreenBuffer(const TArray<FString>& 
 	static const FName RendererModuleName( "Renderer" );
 	IRendererModule& RendererModule = FModuleManager::GetModuleChecked<IRendererModule>( RendererModuleName );
 
+	//if ( false )
+	{
 	for (int32 i = 0; i < OutWindows.Num(); ++i)
 	{
 		TSharedPtr<SWindow> WindowPtr = OutWindows[i];
@@ -909,6 +889,7 @@ void FSlateRHIRenderer::CopyWindowsToVirtualScreenBuffer(const TArray<FString>& 
 					EDRF_Default);
 			});
 		}
+	}
 	}
 
 	// draw mouse cursor and keypresses
@@ -1005,26 +986,29 @@ void FSlateRHIRenderer::CopyWindowsToVirtualScreenBuffer(const TArray<FString>& 
 }
 
 
-void FSlateRHIRenderer::MapVirtualScreenBuffer(void** OutImageData)
+void FSlateRHIRenderer::MapVirtualScreenBuffer(FMappedTextureBuffer* OutTextureData)
 {
+	const FIntRect VirtualScreen = CrashTrackerResource->GetVirtualScreen();
+
 	struct FReadbackFromStagingBufferContext
 	{
 		FSlateCrashReportResource* CrashReportResource;
-		void** OutData;
+		FMappedTextureBuffer* TextureData;
+		FIntRect ExpectedBufferSize;
 	};
 	FReadbackFromStagingBufferContext ReadbackFromStagingBufferContext =
 	{
 		CrashTrackerResource,
-		OutImageData
+		OutTextureData,
+		VirtualScreen,
 	};
 	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
 		ReadbackFromStagingBuffer,
 		FReadbackFromStagingBufferContext,Context,ReadbackFromStagingBufferContext,
 	{
 		SCOPE_CYCLE_COUNTER(STAT_MapStagingBuffer);
-		int32 UnusedWidth = 0;
-		int32 UnusedHeight = 0;
-		RHICmdList.MapStagingSurface(Context.CrashReportResource->GetReadbackBuffer(), *Context.OutData, UnusedWidth, UnusedHeight);
+		RHICmdList.MapStagingSurface(Context.CrashReportResource->GetReadbackBuffer(), Context.TextureData->Data, Context.TextureData->Width, Context.TextureData->Height);
+
 		Context.CrashReportResource->SwapTargetReadbackBuffer();
 	});
 }
@@ -1237,6 +1221,8 @@ void FSlateRHIRenderer::InvalidateAllViewports()
 
 void FSlateRHIRenderer::ReleaseAccessedResources(bool bImmediatelyFlush)
 {
+	FScopeLock ScopeLock(GetResourceCriticalSection());
+
 	// Clear accessed UTexture and Material objects from the previous frame
 	ResourceManager->BeginReleasingAccessedResources(bImmediatelyFlush);
 
@@ -1252,7 +1238,7 @@ void FSlateRHIRenderer::RequestResize( const TSharedPtr<SWindow>& Window, uint32
 
 	FViewportInfo* ViewInfo = WindowToViewportInfo.FindRef( Window.Get() );
 
-	if( ViewInfo )
+	if (ViewInfo)
 	{
 		ViewInfo->DesiredWidth = NewWidth;
 		ViewInfo->DesiredHeight = NewHeight;
@@ -1270,7 +1256,7 @@ void FSlateRHIRenderer::SetWindowRenderTarget(const SWindow& Window, IViewportRe
 
 TSharedRef<FSlateRenderDataHandle, ESPMode::ThreadSafe> FSlateRHIRenderer::CacheElementRenderData(const ILayoutCache* Cacher, FSlateWindowElementList& ElementList)
 {
-	TSharedRef<FSlateRenderDataHandle, ESPMode::ThreadSafe> RenderDataHandle = MakeShareable(new FSlateRenderDataHandle(Cacher, this));
+	TSharedRef<FSlateRenderDataHandle, ESPMode::ThreadSafe> RenderDataHandle = MakeShareable(new FSlateRenderDataHandle(Cacher, ResourceManager.Get()));
 
 	checkSlow(ElementList.GetChildDrawLayers().Num() == 0);
 
@@ -1323,26 +1309,35 @@ void FSlateRHIRenderer::ReleaseCachingResourcesFor(const ILayoutCache* Cacher)
 		ReleaseCachingResourcesFor,
 		FReleaseCachingResourcesForContext, Context, MarshalContext,
 		{
-			Context.RenderPolicy->ReleaseCachingResourcesFor(Context.Cacher);
+			Context.RenderPolicy->ReleaseCachingResourcesFor(RHICmdList, Context.Cacher);
 		});
 }
 
-void FSlateRHIRenderer::ReleaseCachedRenderData(FSlateRenderDataHandle* InRenderHandle)
+FSlateEndDrawingWindowsCommand::FSlateEndDrawingWindowsCommand(FSlateRHIRenderingPolicy& InPolicy, FSlateDrawBuffer* InDrawBuffer)
+	: Policy(InPolicy)
+	, DrawBuffer(InDrawBuffer)
+{}
+
+void FSlateEndDrawingWindowsCommand::Execute(FRHICommandListBase& CmdList)
 {
-	struct FReleaseCachedRenderDataContext
+	for ( auto& ElementList : DrawBuffer->GetWindowElementLists() )
 	{
-		FSlateRHIRenderingPolicy* RenderPolicy;
-		FSlateRenderDataHandle* RenderDataHandle;
-	};
-	FReleaseCachedRenderDataContext ReleaseCachedRenderDataContext =
+		ElementList->PostDraw_ParallelThread();
+	}
+
+	DrawBuffer->Unlock();
+	Policy.EndDrawingWindows();
+}
+
+void FSlateEndDrawingWindowsCommand::EndDrawingWindows(FRHICommandListImmediate& RHICmdList, FSlateDrawBuffer* DrawBuffer, FSlateRHIRenderingPolicy& Policy)
+{
+	if (!RHICmdList.Bypass())
 	{
-		RenderingPolicy.Get(),
-		InRenderHandle,
-	};
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		ReleaseCachedRenderData,
-		FReleaseCachedRenderDataContext, Context, ReleaseCachedRenderDataContext,
+		new (RHICmdList.AllocCommand<FSlateEndDrawingWindowsCommand>()) FSlateEndDrawingWindowsCommand(Policy, DrawBuffer);
+	}
+	else
 	{
-		Context.RenderPolicy->ReleaseCachedRenderData(Context.RenderDataHandle);
-	});
+		FSlateEndDrawingWindowsCommand Cmd(Policy, DrawBuffer);
+		Cmd.Execute(RHICmdList);
+	}
 }

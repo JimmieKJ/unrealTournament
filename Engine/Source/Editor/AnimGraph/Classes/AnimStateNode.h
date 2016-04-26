@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "AnimStateNodeBase.h"
@@ -35,6 +35,10 @@ public:
 	UPROPERTY(EditAnywhere, Category=Events)
 	FAnimNotifyEvent StateFullyBlended;
 
+	// Whether or not this state will ALWAYS reset it's state on reentry, regardless of remaining weight
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Events)
+	bool bAlwaysResetOnEntry;
+
 	//~ Begin UObject Interface
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 	//~ End UObject Interface
@@ -62,4 +66,5 @@ public:
 
 public:
 	virtual UEdGraph* GetBoundGraph() const override { return BoundGraph; }
+	virtual void ClearBoundGraph() override { BoundGraph = nullptr; }
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "GraphEditorCommon.h"
 #include "SGraphNodeAnimState.h"
@@ -37,7 +37,6 @@ void SStateMachineOutputPin::Construct(const FArguments& InArgs, UEdGraphPin* In
 	typedef SStateMachineOutputPin ThisClass;
 
 	bShowLabel = true;
-	IsEditable = true;
 
 	GraphPinObj = InPin;
 	check(GraphPinObj != NULL);
@@ -265,8 +264,6 @@ void SGraphNodeAnimState::CreatePinWidgets()
 	if (!CurPin->bHidden)
 	{
 		TSharedPtr<SGraphPin> NewPin = SNew(SStateMachineOutputPin, CurPin);
-
-		NewPin->SetIsEditable(IsEditable);
 
 		this->AddPin(NewPin.ToSharedRef());
 	}

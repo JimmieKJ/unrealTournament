@@ -1,10 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LevelSequenceEditorPCH.h"
 #include "LevelSequence.h"
-#include "LevelSequenceProjectSettings.h"
 #include "LevelSequenceFactoryNew.h"
 #include "MovieScene.h"
+#include "MovieSceneToolsProjectSettings.h"
 
 #define LOCTEXT_NAMESPACE "MovieSceneFactory"
 
@@ -30,7 +30,7 @@ UObject* ULevelSequenceFactoryNew::FactoryCreateNew(UClass* Class, UObject* InPa
 	NewLevelSequence->Initialize();
 	
 	// Set up some sensible defaults
-	const ULevelSequenceProjectSettings* ProjectSettings = GetDefault<ULevelSequenceProjectSettings>();
+	const UMovieSceneToolsProjectSettings* ProjectSettings = GetDefault<UMovieSceneToolsProjectSettings>();
 	NewLevelSequence->GetMovieScene()->SetPlaybackRange(ProjectSettings->DefaultStartTime, ProjectSettings->DefaultStartTime + ProjectSettings->DefaultDuration);
 
 	return NewLevelSequence;

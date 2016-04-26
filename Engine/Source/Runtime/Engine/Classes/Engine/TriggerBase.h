@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "GameFramework/Actor.h"
@@ -26,9 +26,9 @@ private_subobject:
 
 public:
 	/** Returns CollisionComponent subobject **/
-	ENGINE_API UShapeComponent* GetCollisionComponent() const;
+	ENGINE_API UShapeComponent* GetCollisionComponent() const { return CollisionComponent; }
 	/** Returns SpriteComponent subobject **/
-	ENGINE_API UBillboardComponent* GetSpriteComponent() const;
+	ENGINE_API UBillboardComponent* GetSpriteComponent() const { return SpriteComponent; }
 };
 
 

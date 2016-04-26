@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "GraphEditorCommon.h"
@@ -26,7 +26,7 @@ TSharedRef<SWidget>	SGraphPinColor::GetDefaultValueWidget()
 			[
 				SNew( SColorBlock )
 				.Color( this, &SGraphPinColor::GetColor )
-				.IgnoreAlpha(true)
+				.ShowBackgroundForAlpha(true)
 				.OnMouseButtonDown( this, &SGraphPinColor::OnColorBoxClicked )
 			]
 		];

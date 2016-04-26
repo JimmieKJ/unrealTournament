@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessVisualizeHDR.usf: PostProcessing shader to visualize HDR histogram
@@ -13,6 +13,9 @@
 
 // .xy:GatherExtent.xy, .zw:TexelPerThreadGroupXY
 uint4 HistogramParams;
+
+// the prior frame's eye adaptation settings
+Texture2D EyeAdaptationTexture;
 
 // only needed for nice visualization
 float ComputeHistogramMax(Texture2D HistogramTexture)
@@ -37,7 +40,7 @@ uint ComputeAdvice(float3 HDRColor)
 		return 1;
 	}
 
-	// for some reasons HLSL compiler seems to supress  the return 1 when we comment in this code
+	// for some reasons HLSL compiler seems to suppress  the return 1 when we comment in this code
 //	if(Lum > EyeAdaptationParams[0].w)
 //	{
 //		return 2;
@@ -126,6 +129,11 @@ void MainPS(noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPosition :
 	float LuminanceVal = max(SceneColor.r, max(SceneColor.g, SceneColor.b));
 	OutColor = float4(Colorize(ComputeHistogramPositionFromLuminance(LuminanceVal)), 1.0f);
 
+	// Compute and apply weight value at this location 
+	float WeightSlope = EyeAdaptationParams[2].w;
+	float2 NdPos = ViewportSize.zw * (PixelPos.xy - ViewportRect.xy);
+	float weight = AdaptationWeight(NdPos.x, WeightSlope) * AdaptationWeight(NdPos.y, WeightSlope);
+	OutColor *= max(weight, 0.05f);  
 
 	// crosshair
 	{
@@ -193,7 +201,7 @@ void MainPS(noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPosition :
 		OutColor = bChecker ? float4(0.2f,0,0,0) : float4(0,0.15f,0,0);
 		
 		// SceneColor overlay
-		OutColor += 0.1f * Texture2DSampleLevel(PostprocessInput0, PostprocessInput0Sampler, IDAreaLocalUV * View.ViewSizeAndInvSize.xy * View.BufferSizeAndInvSize.zw, 0);
+		OutColor += 0.1f * Texture2DSampleLevel(PostprocessInput0, PostprocessInput0Sampler, IDAreaLocalUV * Frame.ViewSizeAndInvSize.xy * Frame.BufferSizeAndInvSize.zw, 0);
 
 		// could be the same as (HistogramY < Value) but a bit more antialiased
 //		float HistogramMask = HistogramY < Value;
@@ -269,11 +277,14 @@ void MainPS(noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPosition :
 		OutColor.xyz = lerp(OutColor.xyz, Colorize(InsetUV.x), 0.5f);
 	}
 
+	// retrieve the exposure scale and target exposure scale from the eye-adaptation buffer.
+	float EyeAdaptationResult = EyeAdaptationTexture.Load(int3(0, 0, 0)).r;
+	float EyeAdaptationTarget = EyeAdaptationTexture.Load(int3(0, 0, 0)).g;
 	{
 		// HDR luminance >0
 		float LuminanceVal = ComputeLuminanceFromHistogramPosition(InsetUV.x);
 		// HDR > 0
-		float3 AdpatedLuminance = LuminanceVal * HistogramTexture.Load(int3(0, 1, 0)).xxx;
+		float3 AdpatedLuminance = EyeAdaptationResult * float3(LuminanceVal, LuminanceVal, LuminanceVal);
 		// 0..1
 		float3 TonemappedLuminance = FilmPostProcess(AdpatedLuminance);
 		float3 DistMask = saturate(1.0 - 100.0 * abs(TonemappedLuminance - (1.0 - InsetUV.y)));
@@ -281,7 +292,7 @@ void MainPS(noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPosition :
 	}
 
 	{
-		float ValuePx = ComputeHistogramPositionFromLuminance(ComputeEyeAdaptationExposure(HistogramTexture)) * HistogramSize.x;
+		float ValuePx = ComputeHistogramPositionFromLuminance(1.0f / EyeAdaptationTarget)  * HistogramSize.x ;
 		if(abs(InsetPx.x - ValuePx) < 3)
 		{
 			// blue line to show the clamped percentil
@@ -291,11 +302,11 @@ void MainPS(noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPosition :
 
 	// eye adaptation
 	{
-		float EyeApatationValue = ComputeHistogramPositionFromLuminance(1.0f / HistogramTexture.Load(int3(0, 1, 0)).x);
+		float EyeAdaptationValue = ComputeHistogramPositionFromLuminance(1.0f / EyeAdaptationResult);
 
-		float ValuePx = EyeApatationValue * HistogramSize.x;
+		float ValuePx = EyeAdaptationValue * HistogramSize.x;
 
-		PrintFloat(PixelPos, OutColor.xyz, float3(1, 1, 1), HistogramLeftTop + int2(ValuePx + - 3 * 8 - 3, 1), EyeApatationValue);
+		PrintFloat(PixelPos, OutColor.xyz, float3(1, 1, 1), HistogramLeftTop + int2(ValuePx + - 3 * 8 - 3, 1), EyeAdaptationValue);
 
 		if(abs(InsetPx.x - ValuePx) < 2 && PixelPos.y > HistogramLeftTop.y + 9)
 		{

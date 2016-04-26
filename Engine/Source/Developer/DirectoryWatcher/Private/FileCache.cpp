@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "DirectoryWatcherPrivatePCH.h"
 #include "FileCache.h"
@@ -564,9 +564,6 @@ TOptional<FString> FFileCache::GetTransactionPath(const FString& InAbsolutePath)
 
 void FFileCache::DiffDirtyFiles(TMap<FImmutableString, FFileData>& InDirtyFiles, TArray<FUpdateCacheTransaction>& OutTransactions, const FDirectoryState* InFileSystemState) const
 {
-	TArray<uint8> ScratchBuffer;
-	ScratchBuffer.SetNumUninitialized(1024*1024);
-
 	TMap<FImmutableString, FFileData> AddedFiles, ModifiedFiles;
 	TSet<FImmutableString> RemovedFiles, InvalidDirtyFiles;
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	GPUSkinVertexFactory.h: GPU skinning vertex factory definitions.
@@ -22,8 +22,7 @@
 
 =============================================================================*/
 
-#ifndef __GPUSKINVERTEXFACTORY_H__
-#define __GPUSKINVERTEXFACTORY_H__
+#pragma once
 
 #include "GPUSkinPublicDefs.h"
 #include "ResourcePool.h"
@@ -104,8 +103,6 @@ BEGIN_UNIFORM_BUFFER_STRUCT(FBoneMatricesUniformShaderParameters,)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FSkinMatrix3x4, BoneMatrices, [MAX_GPU_BONE_MATRICES_UNIFORMBUFFER])
 END_UNIFORM_BUFFER_STRUCT(FBoneMatricesUniformShaderParameters)
 
-typedef FSkinMatrix3x4 FBoneSkinning;
-
 #define SET_BONE_DATA(B, X) B.SetMatrixTranspose(X)
 
 /** Shared data & implementation for the different types of pool */
@@ -140,7 +137,7 @@ private:
 };
 
 /** Struct to pool the vertex buffer & SRV together */
-struct FBoneBuffer
+struct FVertexBufferAndSRV
 {
 	void SafeRelease()
     {
@@ -152,17 +149,15 @@ struct FBoneBuffer
     FShaderResourceViewRHIRef VertexBufferSRV;
 };
 
-/** Helper function to test whether the buffer is valid.
- * @param BoneBuffer Buffer to test
+/**
+ * Helper function to test whether the buffer is valid.
+ * @param Buffer Buffer to test
  * @returns True if the buffer is valid otherwise false
  */
-inline bool IsValidRef(const FBoneBuffer& BoneBuffer)
+inline bool IsValidRef(const FVertexBufferAndSRV& Buffer)
 {
-    return IsValidRef(BoneBuffer.VertexBufferRHI) && IsValidRef(BoneBuffer.VertexBufferSRV);
+    return IsValidRef(Buffer.VertexBufferRHI) && IsValidRef(Buffer.VertexBufferSRV);
 }
-
-/** The type for bone buffers */
-typedef FBoneBuffer FBoneBufferTypeRef;
 
 /** The policy for pooling bone vertex buffers */
 class FBoneBufferPoolPolicy : public FSharedPoolPolicyData
@@ -177,19 +172,18 @@ public:
 	};
 	/** Creates the resource 
 	 * @param Args The buffer size in bytes.
-	 * @returns A suitably sized buffer or NULL on failure.
 	 */
-	FBoneBufferTypeRef CreateResource(FSharedPoolPolicyData::CreationArguments Args);
+	FVertexBufferAndSRV CreateResource(FSharedPoolPolicyData::CreationArguments Args);
 	
 	/** Gets the arguments used to create resource
 	 * @param Resource The buffer to get data for.
 	 * @returns The arguments used to create the buffer.
 	 */
-	FSharedPoolPolicyData::CreationArguments GetCreationArguments(FBoneBufferTypeRef Resource);
+	FSharedPoolPolicyData::CreationArguments GetCreationArguments(const FVertexBufferAndSRV& Resource);
 };
 
 /** A pool for vertex buffers with consistent usage, bucketed for efficiency. */
-class FBoneBufferPool : public TRenderResourcePool<FBoneBufferTypeRef, FBoneBufferPoolPolicy, FSharedPoolPolicyData::CreationArguments>
+class FBoneBufferPool : public TRenderResourcePool<FVertexBufferAndSRV, FBoneBufferPoolPolicy, FSharedPoolPolicyData::CreationArguments>
 {
 public:
 	/** Destructor */
@@ -205,13 +199,12 @@ class FClothBufferPoolPolicy : public FBoneBufferPoolPolicy
 public:
 	/** Creates the resource 
 	 * @param Args The buffer size in bytes.
-	 * @returns A suitably sized buffer or NULL on failure.
 	 */
-	FBoneBufferTypeRef CreateResource(FSharedPoolPolicyData::CreationArguments Args);
+	FVertexBufferAndSRV CreateResource(FSharedPoolPolicyData::CreationArguments Args);
 };
 
 /** A pool for vertex buffers with consistent usage, bucketed for efficiency. */
-class FClothBufferPool : public TRenderResourcePool<FBoneBufferTypeRef, FClothBufferPoolPolicy, FSharedPoolPolicyData::CreationArguments>
+class FClothBufferPool : public TRenderResourcePool<FVertexBufferAndSRV, FClothBufferPoolPolicy, FSharedPoolPolicyData::CreationArguments>
 {
 public:
 	/** Destructor */
@@ -270,7 +263,7 @@ public:
 	}
 	
 	/** Bone buffer reference. */
-	FBoneBufferTypeRef BoneBuffer;
+	FVertexBufferAndSRV BoneBuffer;
 	
 private: // -------------------------------------------------------
 	/** Buffer size in texels */
@@ -284,11 +277,12 @@ private: // -------------------------------------------------------
 class FGPUBaseSkinVertexFactory : public FVertexFactory
 {
 public:
-	struct ShaderDataType
+	struct FShaderDataType
 	{
-		ShaderDataType()
+		FShaderDataType()
 			: CurrentBuffer(0)
 			, PreviousFrameNumber(0)
+			, CurrentFrameNumber(0)
 		{
 			// BoneDataOffset and BoneTextureSize are not set as they are only valid if IsValidRef(BoneTexture)
 			if(!MaxBonesVar)
@@ -310,6 +304,8 @@ public:
 
 		void ReleaseBoneData()
 		{
+			ensure(IsInRenderingThread());
+
 			UniformBuffer.SafeRelease();
 
 			for(uint32 i = 0; i < 2; ++i)
@@ -330,9 +326,9 @@ public:
 		
 		// @param bPrevious true:previous, false:current
 		// @param FrameNumber usually from View.Family->FrameNumber
-		const FBoneBufferTypeRef& GetBoneBufferForReading(bool bPrevious, uint32 FrameNumber) const
+		const FVertexBufferAndSRV& GetBoneBufferForReading(bool bPrevious, uint32 FrameNumber) const
 		{
-			const FBoneBufferTypeRef* RetPtr = &GetBoneBufferInternal(bPrevious, FrameNumber);
+			const FVertexBufferAndSRV* RetPtr = &GetBoneBufferInternal(bPrevious, FrameNumber);
 
 			if(!RetPtr->VertexBufferRHI.IsValid())
 			{
@@ -352,21 +348,22 @@ public:
 		// @param bPrevious true:previous, false:current
 		// @param FrameNumber usually from View.Family->FrameNumber
 		// @return IsValid() can fail, then you have to create the buffers first (or if the size changes)
-		FBoneBufferTypeRef& GetBoneBufferForWriting(bool bPrevious, uint32 FrameNumber)
+		FVertexBufferAndSRV& GetBoneBufferForWriting(bool bPrevious, uint32 FrameNumber)
 		{
-			const ShaderDataType* This = (const ShaderDataType*)this;
+			const FShaderDataType* This = (const FShaderDataType*)this;
 
 			// non const version maps to const version
-			return (FBoneBufferTypeRef&)This->GetBoneBufferInternal(bPrevious, FrameNumber);
+			return (FVertexBufferAndSRV&)This->GetBoneBufferInternal(bPrevious, FrameNumber);
 		}
 
 	private:
-
-		FBoneBufferTypeRef BoneBuffer[2];
+		// double buffered bone positions+orientations to support normal rendering and velocity (new-old position) rendering
+		FVertexBufferAndSRV BoneBuffer[2];
 		// 0 / 1 to index into BoneBuffer
 		uint32 CurrentBuffer;
 		// from GFrameNumber, to detect pause and old data when an object was not rendered for some time
 		uint32 PreviousFrameNumber;
+		uint32 CurrentFrameNumber;
 		// if FeatureLevel < ERHIFeatureLevel::ES3_1
 		FUniformBufferRHIRef UniformBuffer;
 		
@@ -379,39 +376,34 @@ public:
 		// @param bPrevious true:previous, false:current
 		// @param FrameNumber usually from View.Family->FrameNumber
 		// @return might not pass the IsValid() 
-		const FBoneBufferTypeRef& GetBoneBufferInternal(bool bPrevious, uint32 FrameNumber) const
+		const FVertexBufferAndSRV& GetBoneBufferInternal(bool bPrevious, uint32 FrameNumber) const
 		{
 			check(IsInParallelRenderingThread());
 
 			// this test prevents the skeletal meshes to keep velocity when we pause (e.g. simulate pause)
-			if(FrameNumber != PreviousFrameNumber + 1)
-			{
+			if ((CurrentFrameNumber - PreviousFrameNumber) > 1)
+			{				
 				bPrevious = false;
-			}
+			}			
 
 			uint32 BufferIndex = CurrentBuffer ^ (uint32)bPrevious;
 
-			const FBoneBufferTypeRef& Ret = BoneBuffer[BufferIndex];
+			const FVertexBufferAndSRV& Ret = BoneBuffer[BufferIndex];
 			return Ret;
 		}
 	};
 
-	/**
-	 * Constructor presizing bone matrices array to used amount.
-	 *
-	 * @param	InBoneMatrices	Reference to shared bone matrices array.
-	 */
 	FGPUBaseSkinVertexFactory(ERHIFeatureLevel::Type InFeatureLevel)
 	:	FVertexFactory(InFeatureLevel)
 	{}
 
 	/** accessor */
-	FORCEINLINE ShaderDataType& GetShaderData()
+	FORCEINLINE FShaderDataType& GetShaderData()
 	{
 		return ShaderData;
 	}
 
-	FORCEINLINE const ShaderDataType& GetShaderData() const
+	FORCEINLINE const FShaderDataType& GetShaderData() const
 	{
 		return ShaderData;
 	}
@@ -420,14 +412,14 @@ public:
 
 	static bool SupportsTessellationShaders() { return true; }
 
-	const FVertexBuffer* GetSkinVertexBuffer() const
+	const FSkeletalMeshVertexBuffer* GetSkinVertexBuffer() const
 	{
-		return Streams[0].VertexBuffer;
+		return (FSkeletalMeshVertexBuffer*)(Streams[0].VertexBuffer);
 	}
 
 protected:
 	/** dynamic data need for setting the shader */ 
-	ShaderDataType ShaderData;
+	FShaderDataType ShaderData;
 	/** Pool of buffers for bone matrices. */
 	static TGlobalResource<FBoneBufferPool> BoneBufferPool;
 };
@@ -445,7 +437,7 @@ public:
 		HasExtraBoneInfluences = bExtraBoneInfluencesT,
 	};
 
-	struct DataType
+	struct FDataType
 	{
 		/** The stream to read the vertex position from. */
 		FVertexStreamComponent PositionComponent;
@@ -494,7 +486,7 @@ public:
 	* update the resource with new data from the game thread.
 	* @param	InData - new stream component data
 	*/
-	void SetData(const DataType& InData)
+	void SetData(const FDataType& InData)
 	{
 		Data = InData;
 		FGPUBaseSkinVertexFactory::UpdateRHI();
@@ -507,43 +499,63 @@ public:
 
 	static FVertexFactoryShaderParameters* ConstructShaderParameters(EShaderFrequency ShaderFrequency);
 
+	void CopyDataTypeForPassthroughFactory(class FGPUSkinPassthroughVertexFactory* PassthroughVertexFactory);
+
 protected:
 	/**
 	* Add the decl elements for the streams
 	* @param InData - type with stream components
 	* @param OutElements - vertex decl list to modify
 	*/
-	void AddVertexElements(DataType& InData, FVertexDeclarationElementList& OutElements);
+	void AddVertexElements(FDataType& InData, FVertexDeclarationElementList& OutElements);
+
+	inline const FDataType& GetData() const { return Data; }
 
 private:
 	/** stream component data bound to this vertex factory */
-	DataType Data;  
+	FDataType Data;  
 };
 
 /** 
  * Vertex factory with vertex stream components for GPU-skinned streams, enabled for passthrough mode when vertices have been pre-skinned 
  */
-class FGPUSkinPassthroughVertexFactory : public TGPUSkinVertexFactory<false>
+class FGPUSkinPassthroughVertexFactory : public FLocalVertexFactory
 {
 	DECLARE_VERTEX_FACTORY_TYPE(FGPUSkinPassthroughVertexFactory);
 
-	typedef TGPUSkinVertexFactory<false> Super;
+	typedef FLocalVertexFactory Super;
 
 public:
-	/**
-	 * Constructor presizing bone matrices array to used amount.
-	 *
-	 * @param	InBoneMatrices	Reference to shared bone matrices array.
-	 */
-	FGPUSkinPassthroughVertexFactory(ERHIFeatureLevel::Type InFeatureLevel)
-		: TGPUSkinVertexFactory<false>(InFeatureLevel)
+	FGPUSkinPassthroughVertexFactory()
+		: StreamIndex(-1)
 	{}
 
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const class FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
 	static bool ShouldCache(EShaderPlatform Platform, const class FMaterial* Material, const FShaderType* ShaderType);
 
+	inline void UpdateVertexDeclaration(FGPUBaseSkinVertexFactory* SourceVertexFactory, struct FRWBuffer* RWBuffer)
+	{
+		if (StreamIndex == -1)
+		{
+			InternalUpdateVertexDeclaration(SourceVertexFactory, RWBuffer);
+		}
+	}
+
+	inline int32 GetStreamIndex(int32 RWBufferIndex) const
+	{
+		check(StreamIndex != -1);
+		return (uint32)StreamIndex;
+	}
+
 	// FRenderResource interface.
 	static FVertexFactoryShaderParameters* ConstructShaderParameters(EShaderFrequency ShaderFrequency);
+
+protected:
+	// Vertex buffer required for creating the Vertex Declaration
+	FVertexBuffer VBAlias;
+	int32 StreamIndex;
+
+	void InternalUpdateVertexDeclaration(FGPUBaseSkinVertexFactory* SourceVertexFactory, struct FRWBuffer* RWBuffer);
 };
 
 /** Vertex factory with vertex stream components for GPU-skinned and morph target streams */
@@ -555,7 +567,7 @@ class TGPUSkinMorphVertexFactory : public TGPUSkinVertexFactory<bExtraBoneInflue
 	typedef TGPUSkinVertexFactory<bExtraBoneInfluencesT> Super;
 public:
 
-	struct DataType : TGPUSkinVertexFactory<bExtraBoneInfluencesT>::DataType
+	struct FDataType : TGPUSkinVertexFactory<bExtraBoneInfluencesT>::FDataType
 	{
 		/** stream which has the position deltas to add to the vertex position */
 		FVertexStreamComponent DeltaPositionComponent;
@@ -580,7 +592,7 @@ public:
 	* update the resource with new data from the game thread.
 	* @param	InData - new stream component data
 	*/
-	void SetData(const DataType& InData)
+	void SetData(const FDataType& InData)
 	{
 		MorphData = InData;
 		FGPUBaseSkinVertexFactory::UpdateRHI();
@@ -602,17 +614,13 @@ protected:
 	* @param InData - type with stream components
 	* @param OutElements - vertex decl list to modify
 	*/
-	void AddVertexElements(DataType& InData, FVertexDeclarationElementList& OutElements);
+	void AddVertexElements(FDataType& InData, FVertexDeclarationElementList& OutElements);
 
 private:
 	/** stream component data bound to this vertex factory */
-	DataType MorphData; 
+	FDataType MorphData;
 
 };
-
-// to reuse BoneBuffer structure for clothing simulation data
-typedef FBoneBufferTypeRef FClothSimulDataBufferTypeRef;
-typedef FClothBufferPool FClothSimulDataBufferPool;
 
 /** Vertex factory with vertex stream components for GPU-skinned and morph target streams */
 class FGPUBaseSkinAPEXClothVertexFactory
@@ -620,44 +628,150 @@ class FGPUBaseSkinAPEXClothVertexFactory
 public:
 	struct ClothShaderType
 	{
-		/**
-		 * weight to blend between simulated positions and key-framed poses
-		 * if ClothBlendWeight is 1.0, it shows only simulated positions and if it is 0.0, it shows only key-framed animation
-		 */
-		float ClothBlendWeight;
+		ClothShaderType()
+			: ClothBlendWeight(1.0f)
+		{
+			Reset();
+		}
 
 		void UpdateClothUniformBuffer(const TArray<FVector4>& InSimulPositions, const TArray<FVector4>& InSimulNormals);
 
-		bool UpdateClothSimulData(FRHICommandListImmediate& RHICmdList, const TArray<FVector4>& InSimulPositions, const TArray<FVector4>& InSimulNormals, ERHIFeatureLevel::Type FeatureLevel);
+		bool UpdateClothSimulData(FRHICommandListImmediate& RHICmdList, const TArray<FVector4>& InSimulPositions, const TArray<FVector4>& InSimulNormals, uint32 FrameNumber, ERHIFeatureLevel::Type FeatureLevel);
 
 		void ReleaseClothSimulData()
 		{
 			APEXClothUniformBuffer.SafeRelease();
 
-			if(IsValidRef(ClothSimulPositionNormalBuffer))
+			for(uint32 i = 0; i < 2; ++i)
 			{
-				ClothSimulDataBufferPool.ReleasePooledResource(ClothSimulPositionNormalBuffer);
+				if (IsValidRef(ClothSimulPositionNormalBuffer[i]))
+				{
+					ClothSimulDataBufferPool.ReleasePooledResource(ClothSimulPositionNormalBuffer[i]);
+					ClothSimulPositionNormalBuffer[i].SafeRelease();
+				}
 			}
-			ClothSimulPositionNormalBuffer.SafeRelease();
-
+			Reset();
 		}
 
 		TUniformBufferRef<FAPEXClothUniformShaderParameters> GetClothUniformBuffer() const
 		{
 			return APEXClothUniformBuffer;
 		}
-
-		FClothSimulDataBufferTypeRef GetClothSimulPositionNormalBuffer() const
+		
+		// @param FrameNumber usually from View.Family->FrameNumber
+		// @return IsValid() can fail, then you have to create the buffers first (or if the size changes)
+		FVertexBufferAndSRV& GetClothBufferForWriting(uint32 FrameNumber)
 		{
-			return ClothSimulPositionNormalBuffer;
+			uint32 Index = GetOldestIndex(FrameNumber);
+
+			// we don't write -1 as that is used to invalidate the entry
+			if(FrameNumber == -1)
+			{
+				// this could cause a 1 frame glitch on wraparound
+				FrameNumber = 0;
+			}
+
+			BufferFrameNumber[Index] = FrameNumber;
+
+			return ClothSimulPositionNormalBuffer[Index];
 		}
 
-	private:
-		TUniformBufferRef<FAPEXClothUniformShaderParameters> APEXClothUniformBuffer;
-		FClothSimulDataBufferTypeRef ClothSimulPositionNormalBuffer;
+		// @param bPrevious true:previous, false:current
+		// @param FrameNumber usually from View.Family->FrameNumber
+		const FVertexBufferAndSRV& GetClothBufferForReading(bool bPrevious, uint32 FrameNumber) const
+		{
+			int32 Index = GetMostRecentIndex(FrameNumber);
 
+			if(bPrevious && DoWeHavePreviousData())
+			{
+				Index = 1 - Index;
+			}
+
+			// we always return a valid buffer
+			check(ClothSimulPositionNormalBuffer[Index].VertexBufferRHI.IsValid());
+			return ClothSimulPositionNormalBuffer[Index];
+		}
+		
+		/**
+		 * weight to blend between simulated positions and key-framed poses
+		 * if ClothBlendWeight is 1.0, it shows only simulated positions and if it is 0.0, it shows only key-framed animation
+		 */
+		float ClothBlendWeight;
+
+	private:
+		// fallback for ClothSimulPositionNormalBuffer if the shadermodel doesn't allow it
+		TUniformBufferRef<FAPEXClothUniformShaderParameters> APEXClothUniformBuffer;
+		// 
+		FVertexBufferAndSRV ClothSimulPositionNormalBuffer[2];
+		// from GFrameNumber, to detect pause and old data when an object was not rendered for some time
+		uint32 BufferFrameNumber[2];
+
+		// @return 0 / 1, index into ClothSimulPositionNormalBuffer[]
+		uint32 GetMostRecentIndex(uint32 FrameNumber) const
+		{
+			if(BufferFrameNumber[0] == -1)
+			{
+				ensure(BufferFrameNumber[1] != -1);
+
+				return 1;
+			}
+			else if(BufferFrameNumber[1] == -1)
+			{
+				ensure(BufferFrameNumber[0] != -1);
+				return 0;
+			}
+
+			// should handle warp around correctly, did some basic testing
+			uint32 Age0 = FrameNumber - BufferFrameNumber[0];
+			uint32 Age1 = FrameNumber - BufferFrameNumber[1];
+
+			return (Age0 > Age1) ? 1 : 0;
+		}
+
+		// @return 0/1, index into ClothSimulPositionNormalBuffer[]
+		uint32 GetOldestIndex(uint32 FrameNumber) const
+		{
+			if(BufferFrameNumber[0] == -1)
+			{
+				return 0;
+			}
+			else if(BufferFrameNumber[1] == -1)
+			{
+				return 1;
+			}
+
+			// should handle warp around correctly (todo: test)
+			uint32 Age0 = FrameNumber - BufferFrameNumber[0];
+			uint32 Age1 = FrameNumber - BufferFrameNumber[1];
+
+			return (Age0 > Age1) ? 0 : 1;
+		}
+
+		bool DoWeHavePreviousData() const
+		{
+			if(BufferFrameNumber[0] == -1 || BufferFrameNumber[1] == -1)
+			{
+				return false;
+			}
+			
+			int32 Diff = BufferFrameNumber[0] - BufferFrameNumber[1];
+
+			uint32 DiffAbs = FMath::Abs(Diff);
+
+			// threshold is >1 because there could be in between frames e.g. HitProxyRendering
+			// We should switch to TickNumber to solve this
+			return DiffAbs <= 2;
+		}
+
+		void Reset()
+		{
+			// both are not valid
+			BufferFrameNumber[0] = -1;
+			BufferFrameNumber[1] = -1;
+		}
 	};
 
+	virtual ~FGPUBaseSkinAPEXClothVertexFactory() {}
 
 	/** accessor */
 	FORCEINLINE ClothShaderType& GetClothShaderData()
@@ -677,7 +791,7 @@ protected:
 	ClothShaderType ClothShaderData;
 
 	/** Pool of buffers for clothing simulation data */
-	static TGlobalResource<FClothSimulDataBufferPool> ClothSimulDataBufferPool;
+	static TGlobalResource<FClothBufferPool> ClothSimulDataBufferPool;
 };
 
 /** Vertex factory with vertex stream components for GPU-skinned and morph target streams */
@@ -690,7 +804,7 @@ class TGPUSkinAPEXClothVertexFactory : public FGPUBaseSkinAPEXClothVertexFactory
 
 public:
 
-	struct DataType : TGPUSkinVertexFactory<bExtraBoneInfluencesT>::DataType
+	struct FDataType : TGPUSkinVertexFactory<bExtraBoneInfluencesT>::FDataType
 	{
 		/** stream which has the physical mesh position + height offset */
 		FVertexStreamComponent CoordPositionComponent;
@@ -719,7 +833,7 @@ public:
 	* update the resource with new data from the game thread.
 	* @param	InData - new stream component data
 	*/
-	void SetData(const DataType& InData)
+	void SetData(const FDataType& InData)
 	{
 		MeshMappingData = InData;
 		FGPUBaseSkinVertexFactory::UpdateRHI();
@@ -752,11 +866,10 @@ protected:
 	* @param InData - type with stream components
 	* @param OutElements - vertex decl list to modify
 	*/
-	void AddVertexElements(DataType& InData, FVertexDeclarationElementList& OutElements);
+	void AddVertexElements(FDataType& InData, FVertexDeclarationElementList& OutElements);
 
 private:
 	/** stream component data bound to this vertex factory */
-	DataType MeshMappingData; 
+	FDataType MeshMappingData; 
 };
 
-#endif // __GPUSKINVERTEXFACTORY_H__

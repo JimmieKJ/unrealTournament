@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -947,6 +947,10 @@ public:
 	UPROPERTY(globalconfig)
 	TArray<FLinearColor> QuadComplexityColors;
 
+	/** The colors used to render light complexity. */
+	UPROPERTY(globalconfig)
+	TArray<FLinearColor> LightComplexityColors;
+
 	/** The colors used to render stationary light overlap. */
 	UPROPERTY(globalconfig)
 	TArray<FLinearColor> StationaryLightOverlapColors;
@@ -958,6 +962,10 @@ public:
 	/** The colors used to render LOD coloration. */
 	UPROPERTY(globalconfig)
 	TArray<FLinearColor> HLODColorationColors;
+
+	/** The colors used for TexelFactorAccuracy, WantedMipsAccuracy and TexCoordScaleAccuracy. */
+	UPROPERTY(globalconfig)
+	TArray<FLinearColor> StreamingAccuracyColors;
 
 	/**
 	* Complexity limits for the various complexity view mode combinations.
@@ -1097,9 +1105,9 @@ public:
 	UPROPERTY(EditAnywhere, config, Category=Settings)
 	float NearClipPlane;
 
-	/** Can a runtime game/application report anonymous hardware survey statistics (such as display resolution and GPU model) back to Epic? */
-	UPROPERTY(EditAnywhere, config, Category=Settings, AdvancedDisplay)
-	uint32 bHardwareSurveyEnabled:1;
+	/** DEPRECATED - Can a runtime game/application report anonymous hardware survey statistics (such as display resolution and GPU model) back to Epic? */
+	UPROPERTY()
+	uint32 bHardwareSurveyEnabled_DEPRECATED:1;
 
 	/** Flag for completely disabling subtitles for localized sounds. */
 	UPROPERTY(EditAnywhere, config, Category=Subtitles)
@@ -1422,6 +1430,12 @@ public:
 	DECLARE_EVENT_FourParams(UEngine, FOnNetworkFailure, UWorld*, UNetDriver*, ENetworkFailure::Type, const FString&);
 	FOnNetworkFailure NetworkFailureEvent;
 
+	/** 
+	 * Network lag detected. For the server this means all clients are timing out. On the client it means you are timing out.
+	 */
+	DECLARE_EVENT_ThreeParams(UEngine, FOnNetworkLagStateChanged, UWorld*, UNetDriver*, ENetworkLagState::Type);
+	FOnNetworkLagStateChanged NetworkLagStateChangedEvent;
+
 	// for IsInitialized()
 	bool bIsInitialized;
 
@@ -1556,6 +1570,13 @@ public:
 	/** Called by internal engine systems after an actor has been moved to notify other subsystems */
 	void BroadcastOnActorMoved( AActor* Actor ) { OnActorMovedEvent.Broadcast( Actor ); }
 
+	/** Editor-only event triggered when any component transform is changed */
+	DECLARE_EVENT_TwoParams(UEngine, FOnComponentTransformChangedEvent, USceneComponent*, ETeleportType);
+	FOnComponentTransformChangedEvent& OnComponentTransformChanged() { return OnComponentTransformChangedEvent; }
+
+	/** Called by SceneComponent PropagateTransformUpdate to nofify of any component transform change */
+	void BroadcastOnComponentTransformChanged(USceneComponent* InComponent, ETeleportType InTeleport) { OnComponentTransformChangedEvent.Broadcast(InComponent, InTeleport); }
+
 	/** Editor-only event triggered when actors are being requested to be renamed */
 	DECLARE_EVENT_OneParam( UEngine, FLevelActorRequestRenameEvent, const AActor* );
 	FLevelActorRequestRenameEvent& OnLevelActorRequestRename() { return LevelActorRequestRenameEvent; }
@@ -1570,47 +1591,14 @@ public:
 	/** Called by internal engine systems after a level actor has been requested to be renamed */
 	void BroadcastLevelComponentRequestRename(const UActorComponent* InComponent) { LevelComponentRequestRenameEvent.Broadcast(InComponent); }
 
-	/** Editor-only event triggered when a HLOD Actor is moved between clusters */
-	DECLARE_EVENT_TwoParams(UEngine, FHLODActorMovedEvent, const AActor*, const AActor*);
-	FHLODActorMovedEvent& OnHLODActorMoved() { return HLODActorMovedEvent; }
+	
 
-	/** Called by internal engine systems after a HLOD Actor is moved between clusters */
-	void BroadcastHLODActorMoved(const AActor* InActor, const AActor* ParentActor ) { HLODActorMovedEvent.Broadcast(InActor, ParentActor); }
+	/** Delegate broadcast after UEditorEngine::Tick has been called (or UGameEngine::Tick in standalone) */
+	DECLARE_EVENT_OneParam(UEditorEngine, FPostEditorTick, float /* DeltaTime */);
+	FPostEditorTick& OnPostEditorTick() { return PostEditorTickEvent; }
 
-	/** Editor-only event triggered when a HLOD Actor's mesh is build */
-	DECLARE_EVENT_OneParam(UEngine, FHLODMeshBuildEvent, const class ALODActor*);
-	FHLODMeshBuildEvent& OnHLODMeshBuild() { return HLODMeshBuildEvent; }
-
-	/** Called by internal engine systems after a HLOD Actor's mesh is build */
-	void BroadcastHLODMeshBuild(const class ALODActor* InActor) { HLODMeshBuildEvent.Broadcast(InActor); }
-
-	/** Editor-only event triggered when a HLOD Actor is added to a cluster */
-	DECLARE_EVENT_TwoParams(UEngine, FHLODActorAddedEvent, const AActor*, const AActor*);
-	FHLODActorAddedEvent& OnHLODActorAdded() { return HLODActorAddedEvent; }
-
-	/** Called by internal engine systems after a HLOD Actor is added to a cluster */
-	void BroadcastHLODActorAdded(const AActor* InActor, const AActor* ParentActor) { HLODActorAddedEvent.Broadcast(InActor, ParentActor); }
-
-	/** Editor-only event triggered when a HLOD Actor is marked dirty */
-	DECLARE_EVENT_OneParam(UEngine, FHLODActorMarkedDirtyEvent, class ALODActor*);
-	FHLODActorMarkedDirtyEvent& OnHLODActorMarkedDirty() { return HLODActorMarkedDirtyEvent; }
-
-	/** Called by internal engine systems after a HLOD Actor is marked dirty */
-	void BroadcastHLODActorMarkedDirty(class ALODActor* InActor) { HLODActorMarkedDirtyEvent.Broadcast(InActor); }
-
-	/** Editor-only event triggered when a HLOD Actor is marked dirty */
-	DECLARE_EVENT(UEngine, FHLODTransitionScreenSizeChangedEvent);
-	FHLODTransitionScreenSizeChangedEvent& OnHLODTransitionScreenSizeChanged() { return HLODTransitionScreenSizeChangedEvent; }
-
-	/** Called by internal engine systems after a HLOD Actor is marked dirty */
-	void BroadcastHLODTransitionScreenSizeChanged() { HLODTransitionScreenSizeChangedEvent.Broadcast(); }
-
-	/** Editor-only event triggered when a HLOD level is added or removed */
-	DECLARE_EVENT(UEngine, FHLODLevelsArrayChangedEvent);
-	FHLODLevelsArrayChangedEvent& OnHLODLevelsArrayChanged() { return HLODLevelsArrayChangedEvent; }
-
-	/** Called by internal engine systems after a HLOD Actor is marked dirty */
-	void BroadcastHLODLevelsArrayChanged() { HLODLevelsArrayChangedEvent.Broadcast(); }
+	/** Called after UEditorEngine::Tick has been called (or UGameEngine::Tick in standalone) */
+	void BroadcastPostEditorTick(float DeltaSeconds) { PostEditorTickEvent.Broadcast(DeltaSeconds); }
 
 #endif // #if WITH_EDITOR
 
@@ -1628,6 +1616,14 @@ public:
 	void BroadcastNetworkFailure(UWorld * World, UNetDriver *NetDriver, ENetworkFailure::Type FailureType, const FString& ErrorString = TEXT(""))
 	{
 		NetworkFailureEvent.Broadcast(World, NetDriver, FailureType, ErrorString);
+	}
+
+	/** Event triggered after network lag is being experienced or lag has ended */
+	FOnNetworkLagStateChanged& OnNetworkLagStateChanged() { return NetworkLagStateChangedEvent; }
+	/** Called by internal engine systems after network lag has been detected */
+	void BroadcastNetworkLagStateChanged(UWorld * World, UNetDriver *NetDriver, ENetworkLagState::Type LagType)
+	{
+		NetworkLagStateChangedEvent.Broadcast(World, NetDriver, LagType);
 	}
 
 	//~ Begin UObject Interface.
@@ -1656,7 +1652,6 @@ public:
 	bool HandleFlushLogCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleGameVerCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleStatCommand( UWorld* World, FCommonViewportClient* ViewportClient, const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandleStartMovieCaptureCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleStopMovieCaptureCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleCrackURLCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleDeferCommand( const TCHAR* Cmd, FOutputDevice& Ar );
@@ -1665,21 +1660,26 @@ public:
 	bool HandleDumpTicksCommand( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleGammaCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 
-	bool HandleRecordAnimationCommand(UWorld* InWorld, const TCHAR* InStr, FOutputDevice& Ar);
-	bool HandleStopRecordAnimationCommand(UWorld* InWorld, const TCHAR* InStr, FOutputDevice& Ar);
+	bool HandleShowLogCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 
 	// Only compile in when STATS is set
 #if STATS
 	bool HandleDumpParticleMemCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 #endif
 
-	// Compile in Debug or Development
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-#if WITH_HOT_RELOAD
-	bool HandleHotReloadCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-#endif
-	bool HandleDumpConsoleCommandsCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );
+#if WITH_PROFILEGPU
+	bool HandleProfileGPUCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleShowMaterialDrawEventsCommand( const TCHAR* Cmd, FOutputDevice& Ar );
+#endif
+
+	// Compile in Debug or Development
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) && WITH_HOT_RELOAD
+	bool HandleHotReloadCommand( const TCHAR* Cmd, FOutputDevice& Ar );
+#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST) && WITH_HOT_RELOAD
+
+	// Compile in Debug, Development, and Test
+#if !UE_BUILD_SHIPPING
+	bool HandleDumpConsoleCommandsCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );
 	bool HandleDumpAvailableResolutionsCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleAnimSeqStatsCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleCountDisabledParticleItemsCommand( const TCHAR* Cmd, FOutputDevice& Ar );
@@ -1689,21 +1689,18 @@ public:
 	bool HandleFlushIOManagerCommand( const TCHAR* Cmd, FOutputDevice& Ar );						// Smedis
 	bool HandleToggleRenderingThreadCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleToggleRHIThreadCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandleToggleAsyncComputeCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleToggleAsyncComputeCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleRecompileShadersCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleRecompileGlobalShadersCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleDumpShaderStatsCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleDumpMaterialStatsCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandleProfileGPUCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleProfileCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleProfileGPUHitchesCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleShaderComplexityCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleFreezeRenderingCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );
 	bool HandleShowSelectedLightmapCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 #endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-
-	bool HandleShowLogCommand(const TCHAR* Cmd, FOutputDevice& Ar);
-
+	
 	// Compile in Debug, Development, and Test
 #if !UE_BUILD_SHIPPING
 	bool HandleStartFPSChartCommand( const TCHAR* Cmd, FOutputDevice& Ar );
@@ -1757,10 +1754,10 @@ public:
 	virtual float GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothing = true) const;
 
 	/** Get max fps. */
-	virtual int32 GetMaxFPS() const;
+	virtual float GetMaxFPS() const;
 
 	/** Set max fps. Overrides console variable. */
-	virtual void SetMaxFPS(const int32 MaxFPS);
+	virtual void SetMaxFPS(const float MaxFPS);
 
 	/** Updates the running average delta time */
 	virtual void UpdateRunningAverageDeltaTime(float DeltaTime, bool bAllowFrameRateSmoothing = true);
@@ -1774,15 +1771,23 @@ public:
 	 */
 	virtual void OnLostFocusPause( bool EnablePause );
 
-	/** Functions to start and finish the hardware survey. */
+	/** Function to start the hardware survey. */
+	void StartHardwareSurvey();
+		
+	/** [Deprecated] Functions to start and finish the hardware survey. */
+	DEPRECATED(4.11, "InitHardwareSurvey() is deprecated and is not used by engine code. Use StartHardwareSurvey() instead.")
 	void InitHardwareSurvey();
+	DEPRECATED(4.11, "TickHardwareSurvey() is deprecated and is not used by engine code. Use StartHardwareSurvey() which will tick automatically.")
 	void TickHardwareSurvey();
 
+	DEPRECATED(4.11, "HardwareSurveyBucketResolution() is deprecated and is not used by engine code.")
 	static FString HardwareSurveyBucketResolution(uint32 DisplayWidth, uint32 DisplayHeight);
+	DEPRECATED(4.11, "HardwareSurveyBucketVRAM() is deprecated and is not used by engine code.")
 	static FString HardwareSurveyBucketVRAM(uint32 VidMemoryMB);
+	DEPRECATED(4.11, "HardwareSurveyBucketRAM() is deprecated and is not used by engine code.")
 	static FString HardwareSurveyBucketRAM(uint32 MemoryMB);
+	DEPRECATED(4.11, "HardwareSurveyGetResolutionClass() is deprecated and is not used by engine code.")
 	static FString HardwareSurveyGetResolutionClass(uint32 LargestDisplayHeight);
-
 	/** 
 	 * Returns the average game/render/gpu/total time since this function was last called
 	 */
@@ -1810,6 +1815,7 @@ protected:
 	 *
 	 * @return	true if the engine should run the hardware survey now
 	 */
+	DEPRECATED(4.11, "IsHardwareSurveyRequired() is deprecated and is not used by engine code.")
 	virtual bool IsHardwareSurveyRequired();
 
 	/** 
@@ -1819,6 +1825,7 @@ protected:
 	 *
 	 * @param SurveyResults		The raw survey results generated by the platform hardware survey code
 	 */
+	DEPRECATED(4.11, "OnHardwareSurveyComplete() is deprecated and is not used by engine code.")
 	virtual void OnHardwareSurveyComplete(const struct FHardwareSurveyResults& SurveyResults);
 	
 public:
@@ -1993,8 +2000,9 @@ public:
 	 * Starts the FPS chart data capture.
 	 *
 	 * @param	Label		Label for this run
+	 * @param	bRecordPerFrameTimes	Should we record per-frame times (potentially unbounded memory growth; used when triggered via the console but not when triggered by game code)
 	 */
-	virtual void StartFPSChart( const FString& Label );
+	virtual void StartFPSChart( const FString& Label, bool bRecordPerFrameTimes );
 
 	/**
 	 * Stops the FPS chart data capture.
@@ -2019,12 +2027,10 @@ public:
 	/** Delegate called when FPS charting detects a hitch (it is not triggered if a capture isn't in progress). */
 	FEngineHitchDetectedDelegate OnHitchDetectedDelegate;
 
-private:
+	/** After running Start/StopFPSChart, this returns the number of frames that were bound by the game thread, render thread, or GPU. */
+	virtual void GetFPSChartBoundByFrameCounts(uint32& OutGameThread, uint32& OutRenderThread, uint32& OutGPU) const;
 
-	/**
-	* Calculates the range of FPS values for the given bucket index
-	*/
-	void CalcQuantisedFPSRange(int32 BucketIndex, int32& StartFPS, int32& EndFPS);
+private:
 
 	/**
 	 * Dumps the FPS chart information to HTML.
@@ -2075,6 +2081,14 @@ protected:
 	 {
 		// Intentionally empty.
 	 }
+
+	 /**
+	 * Requests that the engine intentionally performs an invalid operation. Used for testing error handling
+	 * and external crash reporters
+	 *
+	 * @param Cmd			Error to perform. See implementation for options
+	 */
+	 bool PerformError(const TCHAR* Cmd, FOutputDevice& Out = *GLog);
 
 public:
 	/** @return the GIsEditor flag setting */
@@ -2338,32 +2352,17 @@ private:
 	/** Broadcasts after an actor has been moved, rotated or scaled */
 	FOnActorMovedEvent		OnActorMovedEvent;
 
-	/** Broadcasts after an HLOD actor has been moved between clusters */	
-	FHLODActorMovedEvent HLODActorMovedEvent;
-
-	/** Broadcasts after an HLOD actor's mesh is build*/
-	FHLODMeshBuildEvent HLODMeshBuildEvent;
+	/** Broadcasts after a component has been moved, rotated or scaled */
+	FOnComponentTransformChangedEvent OnComponentTransformChangedEvent;
 	
-	/** Broadcasts after an HLOD actor has added to a cluster */
-	FHLODActorAddedEvent HLODActorAddedEvent;
-
-	/** Broadcasts after an HLOD actor has been marked dirty */
-	FHLODActorMarkedDirtyEvent HLODActorMarkedDirtyEvent;
-
-	/** Broadcasts after a Draw distance value (World settings) is changed */
-	FHLODTransitionScreenSizeChangedEvent HLODTransitionScreenSizeChangedEvent;
-
-	/** Broadcasts after the HLOD levels array is changed */
-	FHLODLevelsArrayChangedEvent HLODLevelsArrayChangedEvent;
+	/** Delegate broadcast after UEditorEngine::Tick has been called (or UGameEngine::Tick in standalone) */
+	FPostEditorTick PostEditorTickEvent;
 
 #endif // #if WITH_EDITOR
 
 	/** Thread preventing screen saver from kicking. Suspend most of the time. */
 	FRunnableThread*		ScreenSaverInhibitor;
 	FScreenSaverInhibitor*  ScreenSaverInhibitorRunnable;
-
-	/** If true, the engine tick function will poll FPlatformSurvey for results */
-	bool					bPendingHardwareSurveyResults;
 
 
 public:
@@ -2402,6 +2401,16 @@ public:
 	 * @param	ErrorString	additional string detailing the error
 	 */
 	virtual void HandleTravelFailure(UWorld* InWorld, ETravelFailure::Type FailureType, const FString& ErrorString);
+
+	
+	/**
+	 * Notification of network lag state change messages.
+	 *
+	 * @param	World associated with the lag
+	 * @param	NetDriver associated with the lag
+	 * @param	LagType	Whether we started lagging or we are no longer lagging
+	 */
+	virtual void HandleNetworkLagStateChanged(UWorld* World, UNetDriver* NetDriver, ENetworkLagState::Type LagType);
 
 	/**
 	 * Shutdown any relevant net drivers
@@ -2621,6 +2630,12 @@ public:
 
 	/** @return true if editor analytics are enabled */
 	virtual bool AreEditorAnalyticsEnabled() const { return false; }
+	/** @return true if in-game analytics are enabled */
+	bool AreGameAnalyticsEnabled() const;
+	/** @return true if in-game analytics are sent with an anonymous GUID rather than real account and machine ids */
+	bool AreGameAnalyticsAnonymous() const;
+	/** @return true if in-game MTBF analytics are enabled */
+	bool AreGameMTBFEventsEnabled() const;
 	virtual void CreateStartupAnalyticsAttributes( TArray<struct FAnalyticsEventAttribute>& StartSessionAttributes ) const {}
 	
 	/** @return true if the engine is autosaving a package */
@@ -2718,7 +2733,7 @@ public:
 
 	void AddNewPendingStreamingLevel(UWorld *InWorld, FName PackageName, bool bNewShouldBeLoaded, bool bNewShouldBeVisible, int32 LODIndex);
 
-	bool ShouldCommitPendingMapChange(UWorld *InWorld);
+	bool ShouldCommitPendingMapChange(const UWorld *InWorld) const;
 	void SetShouldCommitPendingMapChange(UWorld *InWorld, bool NewShouldCommitPendingMapChange);
 
 	FSeamlessTravelHandler&	SeamlessTravelHandlerForWorld(UWorld *World);
@@ -2902,9 +2917,9 @@ private:
 	 * @param ViewLocation The world space view location.
 	 * @param ViewRotation The world space view rotation.
 	 */
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if !UE_BUILD_SHIPPING
 	int32 RenderStatVersion(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);
-#endif
+#endif // !UE_BUILD_SHIPPING
 	int32 RenderStatFPS(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);
 	int32 RenderStatHitches(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);
 	int32 RenderStatSummary(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);
@@ -2913,12 +2928,12 @@ private:
 	int32 RenderStatLevels(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);
 	int32 RenderStatLevelMap(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);
 	int32 RenderStatUnit(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if !UE_BUILD_SHIPPING
 	int32 RenderStatReverb(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);
 	int32 RenderStatSoundMixes(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);
 	int32 RenderStatSoundWaves(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);
 	int32 RenderStatSoundCues(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);
-#endif
+#endif // !UE_BUILD_SHIPPING
 	int32 RenderStatSounds(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);
 	int32 RenderStatAI(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);
 #if STATS

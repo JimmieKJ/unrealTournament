@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	OpenGLUniformBuffer.cpp: OpenGL Uniform buffer RHI implementation.
@@ -341,7 +341,6 @@ FOpenGLUniformBuffer::FOpenGLUniformBuffer(const FRHIUniformBufferLayout& InLayo
 	, Offset(InOffset)
 	, PersistentlyMappedBuffer(InPersistentlyMappedBuffer)
 	, UniqueID(++GUniqueUniformBufferID)
-	, LastCachedFrame(INDEX_NONE)
 	, EmulatedBufferData(InEmulatedBuffer)
 	, AllocatedSize(InAllocatedSize)
 	, bStreamDraw(bInStreamDraw)
@@ -382,65 +381,6 @@ FOpenGLUniformBuffer::~FOpenGLUniformBuffer()
 		{
 			FOpenGL::DeleteBuffers(1, &Resource);
 			DecrementBufferMemory(GL_UNIFORM_BUFFER, /*bIsStructuredBuffer=*/ false, AllocatedSize);
-		}
-	}
-}
-
-void FOpenGLUniformBuffer::CacheResourcesInternal()
-{
-	const FRHIUniformBufferLayout& Layout = GetLayout();
-	int32 NumResources = Layout.Resources.Num();
-	const uint8* RESTRICT ResourceTypes = Layout.Resources.GetData();
-	const TRefCountPtr<FRHIResource>* RESTRICT Resources = ResourceTable.GetData();
-	void** RESTRICT RawResources = RawResourceTable.GetData();
-	float CurrentTime = FApp::GetCurrentTime();
-
-	// todo: Immutable resources, i.e. not textures, can be safely cached across frames.
-	// Texture streaming makes textures complicated :)
-	for (int32 i = 0; i < NumResources; ++i)
-	{
-		switch (ResourceTypes[i])
-		{
-		case UBMT_SRV:
-			RawResources[i] = (FOpenGLShaderResourceView*)Resources[i].GetReference();
-			break;
-
-		case UBMT_TEXTURE:
-			{
-				FRHITexture* TextureRHI = (FRHITexture*)Resources[i].GetReference();
-				TextureRHI->SetLastRenderTime(CurrentTime);
-				// todo: this does multiple virtual function calls to find the right type to cast to
-				// this is due to multiple inheritance nastiness, NEEDS CLEANUP
-				FOpenGLTextureBase* TextureGL = GetOpenGLTextureFromRHITexture(TextureRHI);
-				// todo: for now we just store the GL texture wrapper. we could also store the GLuint alongside it, saves an indirection later on for non-ES2 platforms
-				// todo: could also store an FTextureStage?
-				RawResources[i] = TextureGL;
-			}
-			break;
-
-		case UBMT_UAV:
-			RawResources[i] = 0;
-			check(0);
-			break;
-
-		case UBMT_SAMPLER:
-			{
-				FOpenGLSamplerState* SamplerState = (FOpenGLSamplerState*)Resources[i].GetReference();
-				if (FOpenGL::SupportsSamplerObjects())
-				{
-					PTRINT SamplerAsInt = (PTRINT)SamplerState->Resource;
-					RawResources[i] = (void*)SamplerAsInt;
-				}
-				else
-				{
-					RawResources[i] = SamplerState;
-				}
-			}
-			break;
-
-		default:
-			check(0);
-			break;
 		}
 	}
 }
@@ -555,8 +495,6 @@ FUniformBufferRHIRef FOpenGLDynamicRHI::RHICreateUniformBuffer(const void* Conte
 			check(InResources[i]);
 			NewUniformBuffer->ResourceTable[i] = InResources[i];
 		}
-		NewUniformBuffer->RawResourceTable.Empty(NumResources);
-		NewUniformBuffer->RawResourceTable.AddZeroed(NumResources);
 	}
 
 	return NewUniformBuffer;

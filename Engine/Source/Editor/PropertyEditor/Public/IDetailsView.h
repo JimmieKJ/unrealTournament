@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -127,14 +127,14 @@ public:
 	 * @param Class	The class the custom detail layout is for
 	 * @param DetailLayoutDelegate	The delegate to call when querying for custom detail layouts for the classes properties
 	 */
-	virtual void RegisterInstancedCustomPropertyLayout( UClass* Class, FOnGetDetailCustomizationInstance DetailLayoutDelegate ) = 0;
+	virtual void RegisterInstancedCustomPropertyLayout( UStruct* Class, FOnGetDetailCustomizationInstance DetailLayoutDelegate ) = 0;
 
 	/**
 	 * Unregisters a custom detail layout delegate for a specific class in this instance of the details view only
 	 *
 	 * @param Class	The class with the custom detail layout delegate to remove
 	 */
-	virtual void UnregisterInstancedCustomPropertyLayout( UClass* Class ) = 0;
+	virtual void UnregisterInstancedCustomPropertyLayout( UStruct* Class ) = 0;
 
 	/**
 	 * Sets the objects this details view is viewing

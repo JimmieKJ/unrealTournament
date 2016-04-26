@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "MallocAnsi.h"
@@ -11,6 +11,7 @@
 #include "ExceptionHandling.h"
 #include "Containers/Map.h"
 #include "GenericPlatformCrashContext.h"
+#include "GenericPlatformDriver.h"
 
 #include "UProjectInfo.h"
 
@@ -247,6 +248,11 @@ FString FGenericPlatformMisc::GetPrimaryGPUBrand()
 	return FString( TEXT( "GenericGPUBrand" ) );
 }
 
+FGPUDriverInfo FGenericPlatformMisc::GetGPUDriverInfo(const FString& DeviceDescription)
+{
+	return FGPUDriverInfo();
+}
+
 void FGenericPlatformMisc::GetOSVersions( FString& out_OSVersionLabel, FString& out_OSSubVersionLabel )
 {
 	// Not implemented cross-platform. Each platform may or may not choose to implement this.
@@ -334,6 +340,30 @@ bool FGenericPlatformMisc::GetStoredValue(const FString& InStoreId, const FStrin
 	return false;
 }
 
+bool FGenericPlatformMisc::DeleteStoredValue(const FString& InStoreId, const FString& InSectionName, const FString& InKeyName)
+{	
+	check(!InStoreId.IsEmpty());
+	check(!InSectionName.IsEmpty());
+	check(!InKeyName.IsEmpty());
+
+	// This assumes that FPlatformProcess::ApplicationSettingsDir() returns a user-specific directory; it doesn't on Windows, but Windows overrides this behavior to use the registry
+	const FString ConfigPath = FString(FPlatformProcess::ApplicationSettingsDir()) / InStoreId / FString(TEXT("KeyValueStore.ini"));
+
+	FConfigFile ConfigFile;
+	ConfigFile.Read(ConfigPath);
+
+	FConfigSection* const Section = ConfigFile.Find(InSectionName);
+	if (Section)
+	{
+		int32 RemovedNum = Section->Remove(*InKeyName);
+
+		ConfigFile.Dirty = true;
+		return ConfigFile.Write(ConfigPath) && RemovedNum == 1;
+	}
+
+	return false;
+}
+
 void FGenericPlatformMisc::LowLevelOutputDebugString( const TCHAR *Message )
 {
 	FPlatformMisc::LocalPrint( Message );
@@ -360,6 +390,11 @@ void FGenericPlatformMisc::LocalPrint( const TCHAR* Str )
 #endif
 }
 
+bool FGenericPlatformMisc::HasSeparateChannelForDebugOutput()
+{
+	return true;
+}
+
 void FGenericPlatformMisc::RequestMinimize()
 {
 }
@@ -379,6 +414,14 @@ void FGenericPlatformMisc::RequestExit( bool Force )
 		// Tell the platform specific code we want to exit cleanly from the main loop.
 		GIsRequestingExit = 1;
 	}
+}
+
+void FGenericPlatformMisc::RequestExitWithStatus(bool Force, uint8 ReturnCode)
+{
+	// Generic implementation will ignore the return code - this may be important, so warn.
+	UE_LOG(LogGenericPlatformMisc, Warning, TEXT("FPlatformMisc::RequestExitWithStatus(%i, %d) - return code will be ignored by the generic implementation."), Force, ReturnCode);
+
+	return FPlatformMisc::RequestExit(Force);
 }
 
 const TCHAR* FGenericPlatformMisc::GetSystemErrorMessage(TCHAR* OutBuffer, int32 BufferCount, int32 Error)
@@ -824,6 +867,11 @@ uint32 FGenericPlatformMisc::GetStandardPrintableKeyMap(uint32* KeyCodes, FStrin
 const TCHAR* FGenericPlatformMisc::GetUBTPlatform()
 {
 	return TEXT( PREPROCESSOR_TO_STRING(UBT_COMPILED_PLATFORM) );
+}
+
+const TCHAR* FGenericPlatformMisc::GetUBTTarget()
+{
+    return TEXT(PREPROCESSOR_TO_STRING(UBT_COMPILED_TARGET));
 }
 
 const TCHAR* FGenericPlatformMisc::GetDefaultDeviceProfileName()

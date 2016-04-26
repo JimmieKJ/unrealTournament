@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -13,8 +13,10 @@ public class FreeType2 : ModuleRules
 		string FreeType2Path;
 		string FreeType2LibPath;
 
-		if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64 ||
-		  (Target.Platform == UnrealTargetPlatform.HTML5 && Target.Architecture == "-win32"))
+		if (Target.Platform == UnrealTargetPlatform.Win32 ||
+            Target.Platform == UnrealTargetPlatform.Win64 ||
+            Target.Platform == UnrealTargetPlatform.Linux ||
+		    Target.Platform == UnrealTargetPlatform.HTML5)
 		{
 			FreeType2Path = UEBuildConfiguration.UEThirdPartySourceDirectory + "FreeType2/FreeType2-2.6/";
 		}
@@ -27,8 +29,10 @@ public class FreeType2 : ModuleRules
 
 		PublicSystemIncludePaths.Add(FreeType2Path + "include");
 
-        if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64 ||
-			(Target.Platform == UnrealTargetPlatform.HTML5 && Target.Architecture == "-win32"))
+        if (Target.Platform == UnrealTargetPlatform.Win32 ||
+            Target.Platform == UnrealTargetPlatform.Win64 ||
+           (Target.Platform == UnrealTargetPlatform.HTML5 && Target.Architecture == "-win32") // simulator
+        )
 		{
 	
             FreeType2LibPath += (Target.Platform == UnrealTargetPlatform.Win64) ? "Win64/" : "Win32/";
@@ -58,6 +62,21 @@ public class FreeType2 : ModuleRules
 
 			PublicAdditionalLibraries.Add("freetype2412");
         }
+		else if (Target.Platform == UnrealTargetPlatform.TVOS)
+		{
+			if (Target.Architecture == "-simulator")
+			{
+				PublicLibraryPaths.Add(FreeType2LibPath + "TVOS/Simulator");
+				PublicAdditionalShadowFiles.Add(UEBuildConfiguration.UEThirdPartySourceDirectory + "FreeType2/FreeType2-2.4.12/Lib/TVOS/Simulator/libfreetype2412.a");
+			}
+			else
+			{
+				PublicLibraryPaths.Add(FreeType2LibPath + "TVOS/Device");
+				PublicAdditionalShadowFiles.Add(UEBuildConfiguration.UEThirdPartySourceDirectory + "FreeType2/FreeType2-2.4.12/Lib/TVOS/Device/libfreetype2412.a");
+			}
+
+			PublicAdditionalLibraries.Add("freetype2412");
+		}
 		else if (Target.Platform == UnrealTargetPlatform.Android)
 		{
 			// filtered out in the toolchain
@@ -77,19 +96,37 @@ public class FreeType2 : ModuleRules
                 throw new BuildException(Err);
             }
 
+            PublicSystemIncludePaths.Add(FreeType2Path + "Include");
+
             if (Target.IsMonolithic)
             {
-                PublicAdditionalLibraries.Add(FreeType2LibPath + "Linux/" + Target.Architecture + "/libfreetype2412.a");
+                PublicAdditionalLibraries.Add(FreeType2LibPath + "Linux/" + Target.Architecture + "/libfreetype.a");
             }
             else
             {
-                PublicAdditionalLibraries.Add(FreeType2LibPath + "Linux/" + Target.Architecture + "/libfreetype2412_fPIC.a");
+                PublicAdditionalLibraries.Add(FreeType2LibPath + "Linux/" + Target.Architecture + "/libfreetype_fPIC.a");
             }
-        }
+       }
        else if (Target.Platform == UnrealTargetPlatform.HTML5)
         {
             PublicLibraryPaths.Add(FreeType2Path + "Lib/HTML5");
-            PublicAdditionalLibraries.Add(FreeType2Path + "Lib/HTML5/libfreetype2412.bc");
+            string OpimizationSuffix = "";
+            if (UEBuildConfiguration.bCompileForSize)
+            {
+                OpimizationSuffix = "_Oz";
+            }
+            else
+            {
+                if (Target.Configuration == UnrealTargetConfiguration.Development)
+                {
+                    OpimizationSuffix = "_O2";
+                }
+                else if (Target.Configuration == UnrealTargetConfiguration.Shipping)
+                {
+                    OpimizationSuffix = "_O3";
+                }
+            }
+            PublicAdditionalLibraries.Add(FreeType2Path + "Lib/HTML5/libfreetype260" + OpimizationSuffix + ".bc");
         } 
 	}
 }

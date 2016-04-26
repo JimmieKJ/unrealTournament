@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -178,8 +178,8 @@ class AnalyzeThirdPartyLibs : BuildCommand
 		Platforms.Add(new PlatformLibraryInfo("Linux", "Linux"));
 		Platforms.Add(new PlatformLibraryInfo("WinRT", "WinRT"));
 
-		Platforms.Add(new PlatformLibraryInfo("VS2012", "VS2012", "vs11"));
 		Platforms.Add(new PlatformLibraryInfo("VS2013", "VS2013", "vs12"));
+		Platforms.Add(new PlatformLibraryInfo("VS2015", "VS2015", "vs14"));
 
 		List<long> LastSizes = new List<long>();
 		foreach (var Platform in Platforms)
@@ -225,57 +225,6 @@ class AnalyzeThirdPartyLibs : BuildCommand
 			Info.FindLargeFiles(LargeFileExtensions, 1024 * 1024);
 		}
 
-		// Hackery, look for VS mixes (re-traverses everything)
-		Log("----");
-		long TotalShadow12 = 0;
-
-		Log("Listing VS2012 directories that are shadowed by a VS2013 dir");
-		foreach (string Lib in LibsToEvaluate)
-		{
-			string[] Dirs = Directory.GetDirectories(Lib, "*.*", SearchOption.AllDirectories);
-
-			List<string> Dupes = new List<string>();
-
-			foreach (string Dir in Dirs)
-			{
-				string VS2012 = "VS2012";
-				string VS2013 = "VS2013";
-
-				int Index = Dir.IndexOf(VS2013);
-				if (Dir.EndsWith(VS2013))
-				{
-					string Prefix = Dir.Substring(0, Index);
-
-					foreach (string OtherDir in Dirs)
-					{
-						if (OtherDir == (Prefix + VS2012))
-						{
-							Dupes.Add(OtherDir);
-						}
-					}
-				}
-			}
-
-			foreach (string Dupe in Dupes)
-			{
-				long Size = 0;
-				DirectoryInfo DI = new DirectoryInfo(Dupe);
-				foreach (FileInfo FI in DI.EnumerateFiles("*.*", SearchOption.AllDirectories))
-				{
-					Size += FI.Length;
-				}
-
-				if (Size > 128 * 1024)
-				{
-					TotalShadow12 += Size;
-
-					string GoodPath = (LibDir + "/" + Dupe).Replace("\\", "/");
-					Log("{0}", GoodPath);
-				}
-			}
-		}
-		Log("OVERALL {0} of VS2012 files are shadowed by a VS2013 dir", ToMegabytes(TotalShadow12));
-
 		Log("----");
 		foreach (var Platform in Platforms)
 		{
@@ -285,56 +234,6 @@ class AnalyzeThirdPartyLibs : BuildCommand
 
 		// undo the LibDir push
 		CommandUtils.PopDir();
-
-
-		Log("Listing VS2012 bin directories that are shadowed by a VS2013 dir");
-		//string[] BinaryDirs
-		//foreach (string Lib in BinaryDirs)
-		{
-			string BinDir = "Engine/Binaries";
-
-			string[] Dirs = Directory.GetDirectories(BinDir, "*.*", SearchOption.AllDirectories);
-
-			List<string> Dupes = new List<string>();
-
-			foreach (string Dir in Dirs)
-			{
-				string VS2012 = "VS2012";
-				string VS2013 = "VS2013";
-
-				int Index = Dir.IndexOf(VS2013);
-				if (Dir.EndsWith(VS2013))
-				{
-					string Prefix = Dir.Substring(0, Index);
-
-					foreach (string OtherDir in Dirs)
-					{
-						if (OtherDir == (Prefix + VS2012))
-						{
-							Dupes.Add(OtherDir);
-						}
-					}
-				}
-			}
-
-			foreach (string Dupe in Dupes)
-			{
-				long Size = 0;
-				DirectoryInfo DI = new DirectoryInfo(Dupe);
-				foreach (FileInfo FI in DI.EnumerateFiles("*.*", SearchOption.AllDirectories))
-				{
-					Size += FI.Length;
-				}
-
-//				if (Size > 128 * 1024)
-				{
-					TotalShadow12 += Size;
-
-					string GoodPath = Dupe.Replace("\\", "/");
-					Log("{0}", GoodPath);
-				}
-			}
-		}
 
 		PrintRunTime();
 	}

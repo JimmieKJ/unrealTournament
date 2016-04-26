@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "OpenGLDrvPrivate.h"
@@ -36,6 +36,13 @@ FShaderResourceViewRHIRef FOpenGLDynamicRHI::RHICreateShaderResourceView(FVertex
 	FShaderCache::LogSRV(Result, VertexBufferRHI, Stride, Format);
 
 	return Result;
+}
+
+FShaderResourceViewRHIRef FOpenGLDynamicRHI::RHICreateShaderResourceView(FIndexBufferRHIParamRef BufferRHI)
+{
+	UE_LOG(LogRHI, Fatal, TEXT("OpenGL RHI doesn't support RHICreateShaderResourceView with FIndexBufferRHIParamRef yet!"));
+	
+	return FShaderResourceViewRHIRef();
 }
 
 FOpenGLShaderResourceView::~FOpenGLShaderResourceView()

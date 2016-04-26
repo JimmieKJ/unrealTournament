@@ -16,11 +16,7 @@ UUTDeathMessage::UUTDeathMessage(const class FObjectInitializer& ObjectInitializ
 	MessageArea = FName(TEXT("ConsoleMessage"));
 	bIsSpecial = false;
 	Lifetime = 3.5f;
-}
-
-bool UUTDeathMessage::UseLargeFont(int32 MessageIndex) const
-{
-	return false;
+	FontSizeIndex = 0;
 }
 
 FLinearColor UUTDeathMessage::GetMessageColor_Implementation(int32 MessageIndex) const
@@ -49,7 +45,7 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 			ClientData.OptionalObject);
 
 		//Draw the big white kill text if the player wants
-		if (UTHUD->bDrawCenteredKillMsg())
+		if (UTHUD->GetDrawCenteredKillMsg())
 		{
 			if (LocalPlayerState && LocalPlayerState->bOnlySpectator)
 			{
@@ -120,7 +116,7 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 	}
 
 	// Also receive the console message side of this if the user wants.
-	if (UTHUD && UTHUD->bDrawChatKillMsg())
+	if (UTHUD && UTHUD->GetDrawChatKillMsg())
 	{
 		Super::ClientReceive(ClientData);
 	}

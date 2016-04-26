@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 //
 #include "SteamVRPrivatePCH.h"
 #include "Classes/SteamVRFunctionLibrary.h"
@@ -55,28 +55,6 @@ bool USteamVRFunctionLibrary::GetHandPositionAndOrientation(int32 ControllerInde
 		FQuat DeviceOrientation = FQuat::Identity;
 		RetVal = SteamVRHMD->GetControllerHandPositionAndOrientation(ControllerIndex, Hand, OutPosition, DeviceOrientation);
 		OutOrientation = DeviceOrientation.Rotator();
-	}
-
-	return RetVal;
-}
-
-void USteamVRFunctionLibrary::SetTrackingSpace(TEnumAsByte<ESteamVRTrackingSpace> NewSpace)
-{
-	FSteamVRHMD* SteamVRHMD = GetSteamVRHMD();
-	if (SteamVRHMD)
-	{
-		SteamVRHMD->SetTrackingSpace(NewSpace);
-	}
-}
-
-TEnumAsByte<ESteamVRTrackingSpace> USteamVRFunctionLibrary::GetTrackingSpace()
-{
-	ESteamVRTrackingSpace RetVal = ESteamVRTrackingSpace::Standing;
-
-	FSteamVRHMD* SteamVRHMD = GetSteamVRHMD();
-	if (SteamVRHMD)
-	{
-		RetVal = SteamVRHMD->GetTrackingSpace();
 	}
 
 	return RetVal;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "EnginePrivate.h"
@@ -22,6 +22,10 @@ USoundMix::USoundMix(const FObjectInitializer& ObjectInitializer)
 	Duration = -1.0f;
 	FadeInTime = 0.2f;
 	FadeOutTime = 0.2f;
+
+#if WITH_EDITORONLY_DATA
+	bChanged = false;
+#endif
 }
 
 void USoundMix::BeginDestroy()
@@ -46,17 +50,6 @@ FString USoundMix::GetDesc( void )
 #if WITH_EDITOR
 void USoundMix::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
-	// Sanity check the EQ values
-	EQSettings.LFFrequency = FMath::Clamp<float>( EQSettings.LFFrequency, MIN_FILTER_FREQUENCY, MAX_FILTER_FREQUENCY );
-	EQSettings.LFGain = FMath::Clamp<float>( EQSettings.LFGain, MIN_FILTER_GAIN, MAX_FILTER_GAIN );
-
-	EQSettings.MFCutoffFrequency = FMath::Clamp<float>( EQSettings.MFCutoffFrequency, MIN_FILTER_FREQUENCY, MAX_FILTER_FREQUENCY );
-	EQSettings.MFBandwidth = FMath::Clamp<float>( EQSettings.MFBandwidth, MIN_FILTER_BANDWIDTH, MAX_FILTER_BANDWIDTH );
-	EQSettings.MFGain = FMath::Clamp<float>( EQSettings.MFGain, MIN_FILTER_GAIN, MAX_FILTER_GAIN );
-
-	EQSettings.HFFrequency = FMath::Clamp<float>( EQSettings.HFFrequency, MIN_FILTER_FREQUENCY, MAX_FILTER_FREQUENCY );
-	EQSettings.HFGain = FMath::Clamp<float>( EQSettings.HFGain, MIN_FILTER_GAIN, MAX_FILTER_GAIN );
-
 	if (PropertyChangedEvent.ChangeType != EPropertyChangeType::Interactive && PropertyChangedEvent.MemberProperty)
 	{
 		if (PropertyChangedEvent.MemberProperty->GetFName() == GET_MEMBER_NAME_CHECKED(USoundMix,SoundClassEffects))
@@ -77,6 +70,10 @@ void USoundMix::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEve
 			}
 		}
 	}
+
+#if WITH_EDITORONLY_DATA
+	bChanged = true;
+#endif
 }
 
 bool USoundMix::CausesPassiveDependencyLoop(TArray<USoundClass*>& ProblemClasses) const

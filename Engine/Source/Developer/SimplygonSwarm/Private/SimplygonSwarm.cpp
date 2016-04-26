@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SimplygonSwarmPrivatePCH.h"
 #include <algorithm>
@@ -43,7 +43,7 @@
  #endif
 
 
- static const TCHAR* SPL_TEMPLATE_REMESHING = TEXT("{\"Header\":{\"SPLVersion\":\"7.0\",\"ClientName\":\"UE4\",\"ClientVersion\":\"UE4.9\",\"SimplygonVersion\":\"7.0\"},\"ProcessGraph\":{\"Type\":\"ContainerNode\",\"Name\":\"Node\",\"Children\":[{\"Processor\":{\"RemeshingSettings\":{\"CuttingPlaneSelectionSetName\":0,\"EmptySpaceOverride\":0.0,\"MaxTriangleSize\":32,\"OnScreenSize\":%d,\"ProcessSelectionSetName\":\"\",\"SurfaceTransferMode\":1,\"TransferColors\":false,\"TransferNormals\":false,\"UseCuttingPlanes\":%s,\"UseEmptySpaceOverride\":false,\"Enabled\":true%s},\"MappingImageSettings\":{\"AutomaticTextureSizeMultiplier\":1.0,\"ChartAggregatorMode\":0,\"ChartAggregatorOriginalTexCoordLevel\":0,\"ChartAggregatorUseAreaWeighting\":true,\"ChartAggregatorKeepOriginalChartProportions\":true,\"ChartAggregatorKeepOriginalChartProportionsFromChannel\":\"\",\"ChartAggregatorKeepOriginalChartSizes\":false,\"ChartAggregatorSeparateOverlappingCharts\":true,\"ForcePower2Texture\":true,\"GenerateMappingImage\":true,\"GenerateTangents\":true,\"GenerateTexCoords\":true,\"GutterSpace\":4,\"Height\":%d,\"MaximumLayers\":3,\"MultisamplingLevel\":3,\"ParameterizerMaxStretch\":6.0,\"ParameterizerUseVertexWeights\":false,\"ParameterizerUseVisibilityWeights\":false,\"TexCoordGeneratorType\":0,\"TexCoordLevel\":255,\"UseAutomaticTextureSize\":false,\"UseFullRetexturing\":false,\"Width\":%d,\"Enabled\":true},%s\"Type\":\"RemeshingProcessor\"},\"MaterialCaster\":[%s],\"DefaultTBNType\":2,\"AllowGPUAcceleration\":false,\"Type\":\"ProcessNode\",\"Name\":\"Node\",\"Children\":[{\"Format\":\"ssf\",\"Type\":\"WriteNode\",\"Name\":\"outputlod_0\",\"Children\":[]}]}]}}");
+ static const TCHAR* SPL_TEMPLATE_REMESHING = TEXT("{\"Header\":{\"SPLVersion\":\"7.0\",\"ClientName\":\"UE4\",\"ClientVersion\":\"UE4.9\",\"SimplygonVersion\":\"7.0\"},\"ProcessGraph\":{\"Type\":\"ContainerNode\",\"Name\":\"Node\",\"Children\":[{\"Processor\":{\"RemeshingSettings\":{\"CuttingPlaneSelectionSetName\":0,\"EmptySpaceOverride\":0.0,\"MaxTriangleSize\":32,\"OnScreenSize\":%d,\"ProcessSelectionSetName\":\"\",\"SurfaceTransferMode\":1,\"TransferColors\":false,\"TransferNormals\":false,\"UseCuttingPlanes\":false,\"UseEmptySpaceOverride\":false,\"Enabled\":true%s},\"MappingImageSettings\":{\"AutomaticTextureSizeMultiplier\":1.0,\"ChartAggregatorMode\":0,\"ChartAggregatorOriginalTexCoordLevel\":0,\"ChartAggregatorUseAreaWeighting\":true,\"ChartAggregatorKeepOriginalChartProportions\":true,\"ChartAggregatorKeepOriginalChartProportionsFromChannel\":\"\",\"ChartAggregatorKeepOriginalChartSizes\":false,\"ChartAggregatorSeparateOverlappingCharts\":true,\"ForcePower2Texture\":true,\"GenerateMappingImage\":true,\"GenerateTangents\":true,\"GenerateTexCoords\":true,\"GutterSpace\":4,\"Height\":%d,\"MaximumLayers\":3,\"MultisamplingLevel\":3,\"ParameterizerMaxStretch\":6.0,\"ParameterizerUseVertexWeights\":false,\"ParameterizerUseVisibilityWeights\":false,\"TexCoordGeneratorType\":0,\"TexCoordLevel\":255,\"UseAutomaticTextureSize\":false,\"UseFullRetexturing\":false,\"Width\":%d,\"Enabled\":true},\"Type\":\"RemeshingProcessor\"},\"MaterialCaster\":[%s],\"DefaultTBNType\":2,\"AllowGPUAcceleration\":false,\"Type\":\"ProcessNode\",\"Name\":\"Node\",\"Children\":[{\"Format\":\"ssf\",\"Type\":\"WriteNode\",\"Name\":\"outputlod_0\",\"Children\":[]}]}]}}");
 
 
  static const TCHAR* SPL_TEMPLATE_COLORCASTER = TEXT("{\"BakeOpacityInAlpha\":false,\"ColorType\":\"%s\",\"Dilation\":8,\"FillMode\":2,\"IsSRGB\":true,\"OutputChannelBitDepth\":8,\"OutputChannels\":4,\"Type\":\"ColorCaster\",\"Name\":\"%s\",\"Channel\":\"%s\",\"DitherType\":0}");
@@ -201,7 +201,16 @@
 		 {
 			 //NOTE : Currently SgRESTInterface is not cleaned up and Task ref counted . The FSimplygonSwarmTask & FSimplygonRESTClient pari can be stored in a TArray or TMap to make aync calls
 			 // The pair can be cleanup after the import process
-			 SwarmTask = MakeShareable(new FSimplygonSwarmTask(ZipFileName, SPLFileOutputFullPath, OutputZipFileName, JobDirectory, &InStateLock, InJobGUID, CompleteDelegate));
+			 FTaskData TaskData;
+			 TaskData.ZipFilePath = ZipFileName;
+			 TaskData.SplFilePath = SPLFileOutputFullPath;
+			 TaskData.OutputZipFilePath = OutputZipFileName;
+			 TaskData.JobDirectory = JobDirectory;			 
+			 TaskData.StateLock = &InStateLock;
+			 TaskData.ProcessorJobID = InJobGUID;
+			 TaskData.bDitheredTransition = (InputMaterials.Num() > 0) ? InputMaterials[0].bDitheredLODTransition : false;
+
+			 SwarmTask = MakeShareable(new FSimplygonSwarmTask(TaskData));
 			 SwarmTask->OnAssetDownloaded().BindRaw(this, &FSimplygonSwarm::ImportFile);
 			 SwarmTask->OnAssetUploaded().BindRaw(this, &FSimplygonSwarm::Cleanup);
 			 SgRESTInterface = new FSimplygonRESTClient(SwarmTask);
@@ -260,7 +269,17 @@
 		 {
 			 //NOTE : Currently SgRESTInterface is not cleaned up and Task ref counted . The FSimplygonSwarmTask & FSimplygonRESTClient pari can be stored in a TArray or TMap to make aync calls
 			 // The pair can be cleanup after the import process
-			 SwarmTask = MakeShareable(new FSimplygonSwarmTask(ZipFileName, SPLFileOutputFullPath, OutputZipFileName, JobDirectory, &InStateLock, FGuid::NewGuid(), CompleteDelegate));
+
+			 FTaskData TaskData;
+			 TaskData.ZipFilePath = ZipFileName;
+			 TaskData.SplFilePath = SPLFileOutputFullPath;
+			 TaskData.OutputZipFilePath = OutputZipFileName;
+			 TaskData.JobDirectory = JobDirectory;
+			 TaskData.StateLock = &InStateLock;
+			 TaskData.ProcessorJobID = FGuid::NewGuid();
+			 TaskData.bDitheredTransition = (InputMaterials.Num() > 0) ? InputMaterials[0].bDitheredLODTransition : false;
+
+			 SwarmTask = MakeShareable(new FSimplygonSwarmTask(TaskData));
 			 SwarmTask->OnAssetDownloaded().BindRaw(this, &FSimplygonSwarm::ImportFile);
 			 SwarmTask->OnAssetUploaded().BindRaw(this, &FSimplygonSwarm::Cleanup);
 			 SgRESTInterface = new FSimplygonRESTClient(SwarmTask);
@@ -305,12 +324,12 @@
 		 FRawMesh OutProxyMesh;
 		 FFlattenMaterial OutMaterial;
 
-		 FString OutputFolderPath = FString::Printf(TEXT("%s/Output"), *InSwarmTask.JobDirectory);
+		 FString OutputFolderPath = FString::Printf(TEXT("%s/Output"), *InSwarmTask.TaskData.JobDirectory);
 		 
 		 FString ParentDirForOutputSsf = FString::Printf(TEXT("%s/Node/Node/outputlod_0"), *OutputFolderPath);
 
 		 //for import the file back in uncomment
-		 if (UnzipDownloadedContent(InSwarmTask.OutputFilename, OutputFolderPath))
+		 if (UnzipDownloadedContent(InSwarmTask.TaskData.OutputZipFilePath, OutputFolderPath))
 		 {
 			 //FString InOuputSsfPath = FString::Printf(TEXT("%s/Node/Node/outputlod_0/output.ssf"), *OutputFolderPath);
 			 FString InOuputSsfPath = FString::Printf(TEXT("%s/output.ssf"), *ParentDirForOutputSsf);
@@ -324,14 +343,16 @@
 				 return;
 		 }
 
-			 ReadSsfFile(SsfFullPath, OutSsfScene);
+		 ReadSsfFile(SsfFullPath, OutSsfScene);
 
-			 ConvertFromSsfScene(OutSsfScene, OutProxyMesh, OutMaterial, ParentDirForOutputSsf);
+		 ConvertFromSsfScene(OutSsfScene, OutProxyMesh, OutMaterial, ParentDirForOutputSsf);
+
+		 OutMaterial.bDitheredLODTransition = InSwarmTask.TaskData.bDitheredTransition;
 
 		 if (!OutProxyMesh.IsValid())
 			 UE_LOG(LogSimplygonSwarm, Log, TEXT("RawMesh is invalid."));
 
-		 CompleteDelegate.ExecuteIfBound(OutProxyMesh, OutMaterial, InSwarmTask.TestJobID);
+		 CompleteDelegate.ExecuteIfBound(OutProxyMesh, OutMaterial, InSwarmTask.TaskData.ProcessorJobID);
 
 
 		 //do cleanup work
@@ -410,53 +431,11 @@
 
 		 if (InProxySettings.bRecalculateNormals)
 			 AdditionalSettings = FString::Printf(TEXT("%s,%s"), *AdditionalSettings, *RecalNormals);
-
-		 //Note : The Simplygon API now supports multiple clipping planes. SPL has recently added support for this.
-		 // 
-		 FString CuttingPlaneSetting;
-
-		 if (InProxySettings.bUseClippingPlane)
-		 {
-			 // Note : An arbitary plane can be define using a point (position) and a normal (direction)
-			 // Since UE  currently only has axis aligned plane. We need to convert values for SPL
-
-			 FVector OutPoint, OutNormal;
-
-			 GetAxisAlignedVectorsForCuttingPlanes(InProxySettings, OutPoint, OutNormal);
-
-			 FString CuttingPlane = FString::Printf(CUTTING_PLANE, OutPoint.X, OutPoint.Y, OutPoint.Z, OutNormal.X, OutNormal.Y, OutNormal.Z);
-			 CuttingPlaneSetting = FString::Printf(CUTTING_PLANE_SETTINGS, *CuttingPlane);
-		 }
-		 
-		 OutSplText = FString::Printf(SPL_TEMPLATE_REMESHING, InProxySettings.ScreenSize, InProxySettings.bUseClippingPlane ? TEXT("true") :TEXT("false"), *AdditionalSettings, ImageSizes.X, ImageSizes.Y, *CuttingPlaneSetting, *CasterSPLTempalte);
-
+		 		 
+		 OutSplText = FString::Printf(SPL_TEMPLATE_REMESHING, InProxySettings.ScreenSize, *AdditionalSettings, ImageSizes.X, ImageSizes.Y, *CasterSPLTempalte);
 	 }
 	 
-
-	 void GetAxisAlignedVectorsForCuttingPlanes(const struct FMeshProxySettings& InProxySettings, 
-		 FVector& OutPoint, 
-		 FVector& OutNormal)
-	 {
-		 
-		 // 0 -> X , 1 -> Y, 2 -> Z
-		 if (InProxySettings.AxisIndex == 0)
-		 {
-			 OutNormal.X = InProxySettings.bPlaneNegativeHalfspace ? -1 : 1 ;
-			 OutPoint.X = InProxySettings.ClippingLevel;
-			 
-		 }
-		 else if (InProxySettings.AxisIndex == 1)
-		 {
-			 OutNormal.Y = InProxySettings.bPlaneNegativeHalfspace ? -1 : 1;
-			 OutPoint.Y = InProxySettings.ClippingLevel;
-		 }
-		 else
-		 {
-			 OutNormal.Z = InProxySettings.bPlaneNegativeHalfspace ? -1 : 1;
-			 OutPoint.Z = InProxySettings.ClippingLevel;
-			 //default to z up 
-		 }
-	 }
+	
 	 /*
 	 Write the SPL string to file
 	 */
@@ -1521,7 +1500,6 @@
 			SgMaterial->Name.Set(FSimplygonSSFHelper::TCHARToSSFString(*MaterialName));
 
 			MaterialMapping.Add(MaterialIndex, MaterialGuidString);
-
 
 			// Does current material have BaseColor?
 			if (FlattenMaterial.DiffuseSamples.Num())

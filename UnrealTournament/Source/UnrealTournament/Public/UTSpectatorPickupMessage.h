@@ -14,8 +14,6 @@ class UNREALTOURNAMENT_API UUTSpectatorPickupMessage : public UUTLocalMessage
 	GENERATED_UCLASS_BODY()
 	
 	virtual FText ResolveMessage_Implementation(int32 Switch, bool bTargetsPlayerState1, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const override;
-	virtual bool UseLargeFont(int32 MessageIndex) const override;
-	
 
 private:
 

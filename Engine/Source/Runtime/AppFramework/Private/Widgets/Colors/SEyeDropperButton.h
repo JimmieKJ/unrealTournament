@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -46,13 +46,14 @@ public:
 private:
 
 	FReply OnClicked();
-	EActiveTimerReturnType ActiveTick(double InCurrentTime, float InDeltaTime);
 
 	EVisibility GetEscapeTextVisibility() const;
 
 	FSlateColor GetDropperImageColor() const;
 
 	bool IsMouseOver(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) const;
+
+	void OnPreTick(float DeltaTime);
 
 private:
 

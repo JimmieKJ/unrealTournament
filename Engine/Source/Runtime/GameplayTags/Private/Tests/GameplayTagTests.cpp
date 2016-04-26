@@ -1,6 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "GameplayTagsModulePrivatePCH.h"
+
+#if WITH_DEV_AUTOMATION_TESTS
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FGameplayTagTest, "System.GameplayTags.GameplayTag", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
@@ -47,3 +49,5 @@ bool FGameplayTagTest::RunTest(const FString& Parameters)
 	return true;
 #endif //WITH_EDITOR
 }
+
+#endif //WITH_DEV_AUTOMATION_TESTS

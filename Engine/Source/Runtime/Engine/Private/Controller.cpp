@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Controller.cpp: 
@@ -42,6 +42,7 @@ AController::AController(const FObjectInitializer& ObjectInitializer)
 
 	bCanBeDamaged = false;
 	bAttachToPawn = false;
+	bIsPlayerController = false;
 
 	if (RootComponent)
 	{
@@ -56,13 +57,14 @@ void AController::K2_DestroyActor()
 	// do nothing, disallow destroying controller from Blueprints
 }
 
-bool AController::IsLocalPlayerController() const
-{
-	return false;
-}
-
 bool AController::IsLocalController() const
 {
+	if (FGenericPlatformProperties::IsServerOnly())
+	{
+		// Never local on dedicated server. IsServerOnly() is checked at compile time and optimized out if false.
+		return false;
+	}
+
 	const ENetMode NetMode = GetNetMode();
 
 	if (NetMode == NM_Standalone)
@@ -577,7 +579,8 @@ APawn* AController::K2_GetPawn() const
 
 const FNavAgentProperties& AController::GetNavAgentPropertiesRef() const
 {
-	return Pawn && Pawn->GetMovementComponent() ? Pawn->GetMovementComponent()->GetNavAgentPropertiesRef() : FNavAgentProperties::DefaultProperties;
+	UPawnMovementComponent* MovementComponent = (Pawn ? Pawn->GetMovementComponent() : nullptr);
+	return MovementComponent ? MovementComponent->GetNavAgentPropertiesRef() : FNavAgentProperties::DefaultProperties;
 }
 
 FVector AController::GetNavAgentLocation() const

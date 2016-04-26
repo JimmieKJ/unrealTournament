@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SceneView.cpp: SceneView implementation.
@@ -30,8 +30,12 @@ DECLARE_CYCLE_STAT(TEXT("OverridePostProcessSettings"), STAT_OverridePostProcess
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FPrimitiveUniformShaderParameters,TEXT("Primitive"));
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FViewUniformShaderParameters,TEXT("View"));
+IMPLEMENT_UNIFORM_BUFFER_STRUCT(FInstancedViewUniformShaderParameters, TEXT("InstancedView"));
+IMPLEMENT_UNIFORM_BUFFER_STRUCT(FFrameUniformShaderParameters, TEXT("Frame"));
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FForwardLightData,TEXT("ForwardLightData"));
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FBuiltinSamplersParameters, TEXT("BuiltinSamplers"));
+
+static_assert(sizeof(FViewUniformShaderParameters) == sizeof(FInstancedViewUniformShaderParameters), "Instanced view and view must match.");
 
 FBuiltinSamplersUniformBuffer::FBuiltinSamplersUniformBuffer()
 {
@@ -45,26 +49,45 @@ FBuiltinSamplersUniformBuffer::FBuiltinSamplersUniformBuffer()
 	SetContents(UB);
 }
 
+static TRefCountPtr<FRHISamplerState> BuiltinBilinear;
+static TRefCountPtr<FRHISamplerState> BuiltinBilinearClamped;
+static TRefCountPtr<FRHISamplerState> BuiltinPoint;
+static TRefCountPtr<FRHISamplerState> BuiltinPointClamped;
+static TRefCountPtr<FRHISamplerState> BuiltinTrilinear;
+static TRefCountPtr<FRHISamplerState> BuiltinTrilinearClamped;
+
 void FBuiltinSamplersUniformBuffer::InitDynamicRHI()
 {
-	static TRefCountPtr<FRHISamplerState> Bilinear =			RHICreateSamplerState(FSamplerStateInitializerRHI(SF_Bilinear, AM_Wrap, AM_Wrap, AM_Wrap));
-	static TRefCountPtr<FRHISamplerState> BilinearClamped =		RHICreateSamplerState(FSamplerStateInitializerRHI(SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp));
-	static TRefCountPtr<FRHISamplerState> Point =				RHICreateSamplerState(FSamplerStateInitializerRHI(SF_Point, AM_Wrap, AM_Wrap, AM_Wrap));
-	static TRefCountPtr<FRHISamplerState> PointClamped =		RHICreateSamplerState(FSamplerStateInitializerRHI(SF_Point, AM_Clamp, AM_Clamp, AM_Clamp));
-	static TRefCountPtr<FRHISamplerState> Trilinear =			RHICreateSamplerState(FSamplerStateInitializerRHI(SF_Trilinear, AM_Wrap, AM_Wrap, AM_Wrap));
-	static TRefCountPtr<FRHISamplerState> TrilinearClamped =	RHICreateSamplerState(FSamplerStateInitializerRHI(SF_Trilinear, AM_Clamp, AM_Clamp, AM_Clamp));
+	BuiltinBilinear =			RHICreateSamplerState(FSamplerStateInitializerRHI(SF_Bilinear, AM_Wrap, AM_Wrap, AM_Wrap));
+	BuiltinBilinearClamped =	RHICreateSamplerState(FSamplerStateInitializerRHI(SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp));
+	BuiltinPoint =				RHICreateSamplerState(FSamplerStateInitializerRHI(SF_Point, AM_Wrap, AM_Wrap, AM_Wrap));
+	BuiltinPointClamped =		RHICreateSamplerState(FSamplerStateInitializerRHI(SF_Point, AM_Clamp, AM_Clamp, AM_Clamp));
+	BuiltinTrilinear =			RHICreateSamplerState(FSamplerStateInitializerRHI(SF_Trilinear, AM_Wrap, AM_Wrap, AM_Wrap));
+	BuiltinTrilinearClamped =	RHICreateSamplerState(FSamplerStateInitializerRHI(SF_Trilinear, AM_Clamp, AM_Clamp, AM_Clamp));
 
 	FBuiltinSamplersParameters UB;
 
-	UB.Bilinear =			Bilinear;
-	UB.BilinearClamped =	BilinearClamped;
-	UB.Point =				Point;
-	UB.PointClamped =		PointClamped;
-	UB.Trilinear =			Trilinear;
-	UB.TrilinearClamped =	TrilinearClamped;
+	UB.Bilinear =			BuiltinBilinear;
+	UB.BilinearClamped =	BuiltinBilinearClamped;
+	UB.Point =				BuiltinPoint;
+	UB.PointClamped =		BuiltinPointClamped;
+	UB.Trilinear =			BuiltinTrilinear;
+	UB.TrilinearClamped =	BuiltinTrilinearClamped;
 	SetContents(UB);
 
 	TUniformBuffer<FBuiltinSamplersParameters>::InitDynamicRHI();
+}
+
+void FBuiltinSamplersUniformBuffer::ReleaseDynamicRHI()
+{
+	TUniformBuffer<FBuiltinSamplersParameters>::ReleaseDynamicRHI();
+
+	BuiltinBilinear =			nullptr;
+	BuiltinBilinearClamped =	nullptr;
+	BuiltinPoint =				nullptr;
+	BuiltinPointClamped =		nullptr;
+	BuiltinTrilinear =			nullptr;
+	BuiltinTrilinearClamped =	nullptr;
 }
 
 TGlobalResource<FBuiltinSamplersUniformBuffer> GBuiltinSamplersUniformBuffer;
@@ -150,6 +173,13 @@ static TAutoConsoleVariable<int32> CVarDefaultAutoExposure(
 	TEXT(" 0: off, sets AutoExposureMinBrightness and AutoExposureMaxBrightness to 1\n")
 	TEXT(" 1: on (default)"));
 
+static TAutoConsoleVariable<int32> CVarDefaultAutoExposureMethod(
+	TEXT("r.DefaultFeature.AutoExposure.Method"),
+	0,
+	TEXT("Engine default (project setting) for AutoExposure Method (postprocess volume/camera/game setting still can override)\n")
+	TEXT(" 0: Histogram based (requires compute shader, default)\n")
+	TEXT(" 1: Basic AutoExposure"));
+
 static TAutoConsoleVariable<int32> CVarDefaultMotionBlur(
 	TEXT("r.DefaultFeature.MotionBlur"),
 	1,
@@ -181,18 +211,26 @@ static TAutoConsoleVariable<float> CVarMotionBlurScale(
 	TEXT("1: don't do any scaling (default)"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
+static TAutoConsoleVariable<float> CVarMotionBlurAmount(
+	TEXT("r.MotionBlur.Amount"),
+	-1.0f,
+	TEXT("Allows to override the postprocess setting (scale of motion blur)\n")
+	TEXT("-1: override (default)"),
+	ECVF_Scalability | ECVF_RenderThreadSafe);
+
 static TAutoConsoleVariable<float> CVarMotionBlurMax(
 	TEXT("r.MotionBlur.Max"),
 	-1.0f,
-	TEXT("Allows to clamp the postprocess setting (max distortion caused by motion blur, in percent of the screen width)\n")
-	TEXT("-1: don't clamp (default)"),
+	TEXT("Allows to override the postprocess setting (max length of motion blur, in percent of the screen width)\n")
+	TEXT("-1: override (default)"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<float> CVarSceneColorFringeMax(
 	TEXT("r.SceneColorFringe.Max"),
 	-1.0f,
 	TEXT("Allows to clamp the postprocess setting (in percent, Scene chromatic aberration / color fringe to simulate an artifact that happens in real-world lens, mostly visible in the image corners)\n")
-	TEXT("-1: don't clamp (default)"),
+	TEXT("-1: don't clamp (default)\n")
+	TEXT("-2: to test extreme fringe"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<int32> CVarTonemapperQuality(
@@ -343,8 +381,11 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 	, bIsViewInfo(false)
 	, bIsSceneCapture(false)
 	, bIsReflectionCapture(false)
+	, bIsPlanarReflectionCapture(false)
+	, ReflectionPlane(0.0f)
 	, bIsLocked(false)
 	, bStaticSceneOnly(false)
+	, bIsInstancedStereoEnabled(false)
 #if WITH_EDITOR
 	, OverrideLODViewOrigin(InitOptions.OverrideLODViewOrigin)
 	, bAllowTranslucentPrimitivesInHitProxy( true )
@@ -515,8 +556,8 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 
 	// OpenGL Gamma space output in GLSL flips Y when rendering directly to the back buffer (so not needed on PC, as we never render directly into the back buffer)
 	auto ShaderPlatform = GShaderPlatformForFeatureLevel[FeatureLevel];
-	bool bUsingForwardRenderer = (Family && Family->Scene) ? !Family->Scene->ShouldUseDeferredRenderer() : false;
-	bool bPlatformRequiresReverseCulling = (IsOpenGLPlatform(ShaderPlatform) && bUsingForwardRenderer && !IsPCPlatform(ShaderPlatform));
+	bool bUsingForwardRenderer = FSceneInterface::ShouldUseDeferredRenderer(FeatureLevel) == false;
+	bool bPlatformRequiresReverseCulling = (IsOpenGLPlatform(ShaderPlatform) && bUsingForwardRenderer && !IsPCPlatform(ShaderPlatform) && !IsVulkanMobilePlatform(ShaderPlatform));
 	static auto* MobileHDRCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileHDR"));
 	check(MobileHDRCvar);
 	bReverseCulling = (bPlatformRequiresReverseCulling && MobileHDRCvar->GetValueOnAnyThread() == 0) ? !bReverseCulling : bReverseCulling;
@@ -530,7 +571,7 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 
 	TranslucentSortAxis = GetDefault<URendererSettings>()->TranslucentSortAxis;
 
-	// As the world is only accessable from the game thread, bIsGameView should be explicitly
+	// As the world is only accessible from the game thread, bIsGameView should be explicitly
 	// set on any other thread.
 	if(IsInGameThread())
 	{
@@ -545,6 +586,10 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 
 	SelectionOutlineColor = GEngine->GetSelectionOutlineColor();
 #endif
+
+	// Query instanced stereo state
+	static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.InstancedStereo"));
+	bIsInstancedStereoEnabled = (ShaderPlatform == EShaderPlatform::SP_PCD3D_SM5 || ShaderPlatform == EShaderPlatform::SP_PS4) ? (CVar ? (CVar->GetValueOnAnyThread() != false) : false) : false;
 }
 
 static TAutoConsoleVariable<int32> CVarCompensateForFOV(
@@ -983,6 +1028,7 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 		LERP_PP(IndirectLightingIntensity);
 		LERP_PP(DepthOfFieldFocalDistance);
 		LERP_PP(DepthOfFieldFstop);
+		LERP_PP(DepthOfFieldSensorWidth);
 		LERP_PP(DepthOfFieldDepthBlurRadius);
 		LERP_PP(DepthOfFieldDepthBlurAmount);
 		LERP_PP(DepthOfFieldFocalRegion);
@@ -1056,6 +1102,16 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 		if (Src.bOverride_DepthOfFieldMethod)
 		{
 			Dest.DepthOfFieldMethod = Src.DepthOfFieldMethod;
+		}
+
+		if (Src.bOverride_MobileHQGaussian)
+		{
+			Dest.bMobileHQGaussian = Src.bMobileHQGaussian;
+		}	
+
+		if (Src.bOverride_AutoExposureMethod)
+		{
+			Dest.AutoExposureMethod = Src.AutoExposureMethod;
 		}
 
 		if (Src.bOverride_AmbientOcclusionRadiusInWS)
@@ -1200,6 +1256,15 @@ void FSceneView::StartFinalPostprocessSettings(FVector InViewLocation)
 			FinalPostProcessSettings.AutoExposureMinBrightness = 1;
 			FinalPostProcessSettings.AutoExposureMaxBrightness = 1;
 		}
+		else 
+		{
+			int32 Value = CVarDefaultAutoExposureMethod.GetValueOnGameThread();
+			if (Value >= 0 && Value < AEM_MAX)
+			{
+				FinalPostProcessSettings.AutoExposureMethod = (EAutoExposureMethod)Value;
+			}
+		}
+
 		if (!CVarDefaultMotionBlur.GetValueOnGameThread())
 		{
 			FinalPostProcessSettings.MotionBlurAmount = 0;
@@ -1248,6 +1313,20 @@ void FSceneView::EndFinalPostprocessSettings(const FSceneViewInitOptions& ViewIn
 {
 	const auto SceneViewFeatureLevel = GetFeatureLevel();
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.EyeAdaptation.MethodOveride"));
+	if (CVar->GetValueOnGameThread() == -2)
+	{
+		// seemed to be good setting for Paragon, we might want to remove or adjust this later on
+		FinalPostProcessSettings.AutoExposureMethod = AEM_Basic;
+		FinalPostProcessSettings.AutoExposureBias = -0.6f;
+		FinalPostProcessSettings.AutoExposureMaxBrightness = 2.f;
+		FinalPostProcessSettings.AutoExposureMinBrightness = 0.05;
+		FinalPostProcessSettings.AutoExposureSpeedDown = 1.f;
+		FinalPostProcessSettings.AutoExposureSpeedUp = 3.f;
+	}
+#endif
+
 	// will be deprecated soon, use the new asset LightPropagationVolumeBlendable instead
 	{
 		FLightPropagationVolumeSettings& Dest = FinalPostProcessSettings.BlendableManager.GetSingleFinalData<FLightPropagationVolumeSettings>();
@@ -1269,11 +1348,13 @@ void FSceneView::EndFinalPostprocessSettings(const FSceneViewInitOptions& ViewIn
 	}
 
 	{
-		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileMSAA"));
-		if(CVar ? CVar->GetValueOnGameThread() > 1 : false)
+		static const auto CVarMobileMSAA = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileMSAA"));
+		if (FeatureLevel <= ERHIFeatureLevel::ES3_1 && CVarMobileMSAA ? CVarMobileMSAA->GetValueOnGameThread() > 1 : false)
 		{
+			//@todo Ronin check what we support under MSAA
+
 			// Turn off various features which won't work with mobile MSAA.
-			FinalPostProcessSettings.DepthOfFieldScale = 0.0f;
+			//FinalPostProcessSettings.DepthOfFieldScale = 0.0f;
 			FinalPostProcessSettings.AntiAliasingMethod = AAM_None;
 		}
 	}
@@ -1307,7 +1388,7 @@ void FSceneView::EndFinalPostprocessSettings(const FSceneViewInitOptions& ViewIn
 	// scale down tone mapper shader permutation
 	{
 		int32 Quality = CVarTonemapperQuality.GetValueOnGameThread();
-		
+
 		if(Quality < 1)
 		{
 			FinalPostProcessSettings.FilmContrast = 0;
@@ -1368,7 +1449,7 @@ void FSceneView::EndFinalPostprocessSettings(const FSceneViewInitOptions& ViewIn
 
 	if(!Family->EngineShowFlags.AmbientCubemap)
 	{
-		FinalPostProcessSettings.ContributingCubemaps.Empty();
+		FinalPostProcessSettings.ContributingCubemaps.Reset();
 	}
 
 	if(!Family->EngineShowFlags.LensFlares)
@@ -1466,11 +1547,20 @@ void FSceneView::EndFinalPostprocessSettings(const FSceneViewInitOptions& ViewIn
 	}
 
 	{
+		float Value = CVarMotionBlurAmount.GetValueOnGameThread();
+
+		if(Value >= 0.0f)
+		{
+			FinalPostProcessSettings.MotionBlurAmount = Value;
+		}
+	}
+
+	{
 		float Value = CVarMotionBlurMax.GetValueOnGameThread();
 
 		if(Value >= 0.0f)
 		{
-			FinalPostProcessSettings.MotionBlurMax = FMath::Min(FinalPostProcessSettings.MotionBlurMax, Value);
+			FinalPostProcessSettings.MotionBlurMax = Value;
 		}
 	}
 
@@ -1480,6 +1570,10 @@ void FSceneView::EndFinalPostprocessSettings(const FSceneViewInitOptions& ViewIn
 		if (Value >= 0.0f)
 		{
 			FinalPostProcessSettings.SceneFringeIntensity = FMath::Min(FinalPostProcessSettings.SceneFringeIntensity, Value);
+		}
+		else if (Value == -2.0f)
+		{
+			FinalPostProcessSettings.SceneFringeIntensity = 5.0f;
 		}
 
 		if(!Family->EngineShowFlags.SceneColorFringe || !Family->EngineShowFlags.CameraImperfections)
@@ -1591,23 +1685,6 @@ void FSceneView::EndFinalPostprocessSettings(const FSceneViewInitOptions& ViewIn
 		}
 
 		check(Family->RenderTarget);
-
-		if (bFullscreen)
-		{
-			// CVar mode 2 is fullscreen with upscale
-			if(GSystemResolution.WindowMode == EWindowMode::WindowedFullscreen)
-			{
-//				FIntPoint WindowSize = Viewport->GetSizeXY();
-				FIntPoint WindowSize = Family->RenderTarget->GetSizeXY();
-
-				// allow only upscaling
-				float FractionX = FMath::Clamp((float)GSystemResolution.ResX / WindowSize.X, 0.1f, 4.0f);
-				float FractionY = FMath::Clamp((float)GSystemResolution.ResY / WindowSize.Y, 0.1f, 4.0f);
-
-				// maintain a pixel aspect ratio of 1:1 for easier internal computations
-				Fraction *= FMath::Max(FractionX, FractionY);
-			}
-		}
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		if(CVarScreenPercentageEditor.GetValueOnAnyThread() == 0)
@@ -1729,6 +1806,8 @@ FSceneViewFamily::FSceneViewFamily( const ConstructionValues& CVS )
 		CurrentWorldTime = 0;
 		CurrentRealTime = 0; 
 	}
+
+	DebugViewShaderMode = ChooseDebugViewShaderMode();
 #endif
 
 #if !WITH_EDITOR
@@ -1830,24 +1909,65 @@ ERHIFeatureLevel::Type FSceneViewFamily::GetFeatureLevel() const
 }
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-ENGINE_API EQuadOverdrawMode FSceneViewFamily::GetQuadOverdrawMode() const
+EDebugViewShaderMode FSceneViewFamily::ChooseDebugViewShaderMode() const
 {
-	if (EngineShowFlags.ShaderComplexity)
+	const bool bDebugViewShaderExists = AllowDebugViewModeShader(GetFeatureLevelShaderPlatform(GetFeatureLevel()));
+
+	if (bDebugViewShaderExists)
 	{
-		if (EngineShowFlags.QuadComplexity)
+		if (EngineShowFlags.ShaderComplexity)
 		{
-			// This can be used to visualize the QOM_ShaderComplexityBleeding mode.
-			// return EngineShowFlags.QuadOverhead ? QOM_ShaderComplexityBleeding : QOM_QuadComplexity;
-			return QOM_QuadComplexity;
+			if (EngineShowFlags.QuadOverdraw)
+			{
+				return DVSM_QuadComplexity;
+			}
+			else if (EngineShowFlags.ShaderComplexityWithQuadOverdraw)
+			{
+				return DVSM_ShaderComplexityContainedQuadOverhead;
+			}
+			else
+			{
+				return DVSM_ShaderComplexity;
+			}
 		}
-		else if (EngineShowFlags.QuadOverhead)
+		else if (EngineShowFlags.WantedMipsAccuracy)
 		{
-			return QOM_ShaderComplexityContained;
+			return DVSM_WantedMipsAccuracy;
+		}
+		else if (EngineShowFlags.TexelFactorAccuracy)
+		{
+			return DVSM_TexelFactorAccuracy;
+		}
+		else if (EngineShowFlags.TexCoordScaleAccuracy)
+		{
+			return DVSM_TexCoordScaleAnalysis;
 		}
 	}
-	return QOM_None;
+	else if (EngineShowFlags.ShaderComplexity && !EngineShowFlags.QuadOverdraw)
+	{
+		return DVSM_ShaderComplexity;
+	}
+	return DVSM_None;
 };
 #endif
+
+const FSceneView& FSceneViewFamily::GetStereoEyeView(const EStereoscopicPass Eye) const
+{
+	const int32 EyeIndex = static_cast<int32>(Eye);
+	check(Views.Num() > 0 && Views.Num() >= EyeIndex);
+
+	// Mono or left eye
+	if (EyeIndex <= 1)
+	{
+		return *Views[0];
+	}
+
+	// Right eye
+	else
+	{
+		return *Views[1];
+	}
+}
 
 FSceneViewFamilyContext::~FSceneViewFamilyContext()
 {

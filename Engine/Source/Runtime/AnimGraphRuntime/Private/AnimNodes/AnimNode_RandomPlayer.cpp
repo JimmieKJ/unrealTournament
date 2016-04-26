@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimGraphRuntimePrivatePCH.h"
 #include "AnimNode_RandomPlayer.h"
@@ -75,6 +75,12 @@ void FAnimNode_RandomPlayer::Initialize(const FAnimationInitializeContext& Conte
 void FAnimNode_RandomPlayer::Update(const FAnimationUpdateContext& Context)
 {
 	EvaluateGraphExposedInputs.Execute(Context);
+
+	if(Entries.Num() == 0)
+	{
+		// We don't have any entries, play data will be invalid - early out
+		return;
+	}
 
 	FRandomAnimPlayData* CurrentData = &PlayData[GetDataIndex(ERandomDataIndexType::Current)];
 	FRandomAnimPlayData* NextData = &PlayData[GetDataIndex(ERandomDataIndexType::Next)];
@@ -178,8 +184,8 @@ void FAnimNode_RandomPlayer::Evaluate(FPoseContext& Output)
 					Poses[0].SetBoneContainer(&AnimProxy->GetRequiredBones());
 					Poses[1].SetBoneContainer(&AnimProxy->GetRequiredBones());
 
-					Curves[0].InitFrom(AnimProxy->GetSkeleton());
-					Curves[1].InitFrom(AnimProxy->GetSkeleton());
+					Curves[0].InitFrom(AnimProxy->GetSkelMeshComponent()->GetCachedAnimCurveMappingNameUids());
+					Curves[1].InitFrom(AnimProxy->GetSkelMeshComponent()->GetCachedAnimCurveMappingNameUids());
 
 					Weights[0] = CurrentData.BlendWeight;
 					Weights[1] = NextData.BlendWeight;

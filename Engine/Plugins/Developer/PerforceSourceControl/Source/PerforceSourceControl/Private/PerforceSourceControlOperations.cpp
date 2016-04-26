@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "PerforceSourceControlPrivatePCH.h"
 #include "PerforceSourceControlOperations.h"
@@ -245,6 +245,16 @@ bool FPerforceCheckOutWorker::Execute(FPerforceSourceControlCommand& InCommand)
 	{
 		FPerforceConnection& Connection = ScopedConnection.GetConnection();
 		TArray<FString> Parameters;
+
+		FPerforceSourceControlModule& PerforceSourceControl = FModuleManager::LoadModuleChecked<FPerforceSourceControlModule>("PerforceSourceControl");
+		FPerforceSourceControlSettings& Settings = PerforceSourceControl.AccessSettings();
+		if (Settings.GetChangelistNumber().IsEmpty() == false)
+		{
+			Parameters.Add(TEXT("-c"));
+			Parameters.Add(Settings.GetChangelistNumber());
+			// Parameters.Add(FString::Printf(TEXT("-c %s"), *Settings.GetChangelistNumber()));
+		}
+
 		Parameters.Append(InCommand.Files);
 		FP4RecordSet Records;
 		InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("edit"), Parameters, Records, InCommand.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
@@ -387,7 +397,7 @@ bool FPerforceMarkForAddWorker::Execute(FPerforceSourceControlCommand& InCommand
 		if(!IFileManager::Get().FileExists(*FileToAdd))
 		{
 			bHasMissingFiles = true;
-			InCommand.ErrorMessages.Add(FText::Format(LOCTEXT("Error_FailedToMarkFileForAdd_FileMissing", "Failed mark the file '%s' for add. The file doesn't exist on disk."), FText::FromString(FileToAdd)));
+			InCommand.ErrorMessages.Add(FText::Format(LOCTEXT("Error_FailedToMarkFileForAdd_FileMissing", "Failed mark the file '{0}' for add. The file doesn't exist on disk."), FText::FromString(FileToAdd)));
 		}
 	}
 	if(bHasMissingFiles)

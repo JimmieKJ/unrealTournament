@@ -1,7 +1,8 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "TextWidgetTypes.h"
 #include "EditableTextBox.generated.h"
 
 /**
@@ -99,9 +100,17 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Behavior, AdvancedDisplay)
 	bool SelectAllTextOnCommit;
 
+	/** Whether the context menu can be opened */
+	UPROPERTY(EditAnywhere, Category=Behavior, AdvancedDisplay)
+	bool AllowContextMenu;
+
 	/** If we're on a platform that requires a virtual keyboard, what kind of keyboard should this widget use? */
-	UPROPERTY(EditAnywhere, Category = Behavior, AdvancedDisplay)
-	TEnumAsByte< EVirtualKeyboardType::Type > KeyboardType;
+	UPROPERTY(EditAnywhere, Category=Behavior, AdvancedDisplay)
+	TEnumAsByte<EVirtualKeyboardType::Type> KeyboardType;
+
+	/** Controls how the text within this widget should be shaped. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Localization, AdvancedDisplay, meta=(ShowOnlyInnerProperties))
+	FShapedTextOptions ShapedTextOptions;
 
 public:
 
@@ -145,7 +154,6 @@ public:
 	//~ End UObject Interface
 
 #if WITH_EDITOR
-	virtual const FSlateBrush* GetEditorIcon() override;
 	virtual const FText GetPaletteCategory() override;
 #endif
 

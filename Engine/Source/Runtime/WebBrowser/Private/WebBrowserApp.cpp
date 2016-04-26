@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "WebBrowserPrivatePCH.h"
 #include "WebBrowserApp.h"
@@ -10,6 +10,15 @@ FWebBrowserApp::FWebBrowserApp()
 
 void FWebBrowserApp::OnBeforeChildProcessLaunch(CefRefPtr<CefCommandLine> CommandLine)
 {
+}
+
+void FWebBrowserApp::OnBeforeCommandLineProcessing(const CefString& ProcessType, CefRefPtr< CefCommandLine > CommandLine)
+{
+#if !PLATFORM_WINDOWS
+	CommandLine->AppendSwitch("disable-gpu");
+	CommandLine->AppendSwitch("disable-gpu-compositing");
+	CommandLine->AppendSwitch("enable-begin-frame-scheduling");
+#endif
 }
 
 void FWebBrowserApp::OnRenderProcessThreadCreated(CefRefPtr<CefListValue> ExtraInfo)

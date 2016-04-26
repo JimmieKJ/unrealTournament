@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneTracksPrivatePCH.h"
 #include "MovieSceneParameterSection.h"
@@ -209,5 +209,101 @@ void UMovieSceneParameterSection::UpdateParameterIndicesFromRemoval( int32 Remov
 		{
 			ColorParameterAndCurves.Index--;
 		}
+	}
+}
+
+void UMovieSceneParameterSection::GatherCurves(TArray<const FRichCurve*>& OutCurves) const
+{
+	for ( const FScalarParameterNameAndCurve& ScalarParameterNameAndCurve : ScalarParameterNamesAndCurves )
+	{
+		OutCurves.Add(&ScalarParameterNameAndCurve.ParameterCurve);
+	}
+
+	for ( const FVectorParameterNameAndCurves& VectorParameterNameAndCurves : VectorParameterNamesAndCurves )
+	{
+		OutCurves.Add(&VectorParameterNameAndCurves.XCurve);
+		OutCurves.Add(&VectorParameterNameAndCurves.YCurve);
+		OutCurves.Add(&VectorParameterNameAndCurves.ZCurve);
+	}
+
+	for ( const FColorParameterNameAndCurves& ColorParameterNameAndCurve : ColorParameterNamesAndCurves )
+	{
+		OutCurves.Add(&ColorParameterNameAndCurve.RedCurve);
+		OutCurves.Add(&ColorParameterNameAndCurve.BlueCurve);
+		OutCurves.Add(&ColorParameterNameAndCurve.GreenCurve);
+		OutCurves.Add(&ColorParameterNameAndCurve.AlphaCurve);
+	}
+}
+
+void UMovieSceneParameterSection::GatherCurves(TArray<FRichCurve*>& OutCurves)
+{
+	for ( FScalarParameterNameAndCurve& ScalarParameterNameAndCurve : ScalarParameterNamesAndCurves )
+	{
+		OutCurves.Add(&ScalarParameterNameAndCurve.ParameterCurve);
+	}
+
+	for ( FVectorParameterNameAndCurves& VectorParameterNameAndCurves : VectorParameterNamesAndCurves )
+	{
+		OutCurves.Add(&VectorParameterNameAndCurves.XCurve);
+		OutCurves.Add(&VectorParameterNameAndCurves.YCurve);
+		OutCurves.Add(&VectorParameterNameAndCurves.ZCurve);
+	}
+
+	for ( FColorParameterNameAndCurves& ColorParameterNameAndCurve : ColorParameterNamesAndCurves )
+	{
+		OutCurves.Add(&ColorParameterNameAndCurve.RedCurve);
+		OutCurves.Add(&ColorParameterNameAndCurve.BlueCurve);
+		OutCurves.Add(&ColorParameterNameAndCurve.GreenCurve);
+		OutCurves.Add(&ColorParameterNameAndCurve.AlphaCurve);
+	}
+}
+
+
+
+/* UMovieSceneSection overrides
+ *****************************************************************************/
+
+void UMovieSceneParameterSection::DilateSection(float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles)
+{
+	Super::DilateSection(DilationFactor, Origin, KeyHandles);
+
+	TArray<FRichCurve*> AllCurves;
+	GatherCurves(AllCurves);
+
+	for (auto Curve : AllCurves)
+	{
+		Curve->ScaleCurve(Origin, DilationFactor, KeyHandles);
+	}
+}
+
+void UMovieSceneParameterSection::GetKeyHandles(TSet<FKeyHandle>& KeyHandles) const
+{
+	TArray<const FRichCurve*> AllCurves;
+	GatherCurves(AllCurves);
+
+	for (auto Curve : AllCurves)
+	{
+		for (auto It(Curve->GetKeyHandleIterator()); It; ++It)
+		{
+			float Time = Curve->GetKeyTime(It.Key());
+			if (IsTimeWithinSection(Time))
+			{
+				KeyHandles.Add(It.Key());
+			}
+		}
+	}
+}
+
+
+void UMovieSceneParameterSection::MoveSection(float DeltaPosition, TSet<FKeyHandle>& KeyHandles)
+{
+	Super::MoveSection(DeltaPosition, KeyHandles);
+
+	TArray<FRichCurve*> AllCurves;
+	GatherCurves(AllCurves);
+
+	for (auto Curve : AllCurves)
+	{
+		Curve->ShiftCurve(DeltaPosition, KeyHandles);
 	}
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
 #include "BehaviorTree/BTFunctionLibrary.h"
@@ -33,7 +33,7 @@ namespace
 	FORCEINLINE UBlackboardComponent* GetBlackboard(UBTNode& BTNode)
 	{
 		check(BTNode.GetOuter());
-		check(BTNode.GetClass()->HasAnyClassFlags(CLASS_CompiledFromBlueprint) && "This function call is valid only for BP-implemented BT nodes");
+		check(BTNode.GetClass()->HasAnyClassFlags(CLASS_CompiledFromBlueprint) || Cast<UDynamicClass>(BTNode.GetClass()) && "This function call is valid only for BP-implemented BT nodes");
 		check(Cast<UBehaviorTreeComponent>(BTNode.GetOuter()));
 
 		return ((UBehaviorTreeComponent*)BTNode.GetOuter())->GetBlackboardComponent();

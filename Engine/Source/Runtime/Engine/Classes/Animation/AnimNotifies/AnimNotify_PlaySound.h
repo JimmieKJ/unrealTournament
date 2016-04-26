@@ -1,12 +1,12 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
 #include "AnimNotify.h"
 #include "AnimNotify_PlaySound.generated.h"
 
-UCLASS(const, hidecategories=Object, collapsecategories, meta=(DisplayName="Play Sound"), MinimalAPI)
-class UAnimNotify_PlaySound : public UAnimNotify
+UCLASS(const, hidecategories=Object, collapsecategories, meta=(DisplayName="Play Sound"))
+class ENGINE_API UAnimNotify_PlaySound : public UAnimNotify
 {
 	GENERATED_BODY()
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 // Structs used for passing parameters to scene query functions
 
@@ -39,7 +39,10 @@ struct ENGINE_API FCollisionQueryParams
 	bool bIgnoreBlocks;
 
 	/** TArray typedef of components to ignore. */
-	typedef TArray<uint32, TInlineAllocator<NumInlinedActorComponents>> IgnoreComponentsArrayType;
+	typedef TArray<uint32, TInlineAllocator<8>> IgnoreComponentsArrayType;
+
+	/** TArray typedef of actors to ignore. */
+	typedef TArray<uint32, TInlineAllocator<4>> IgnoreActorsArrayType;
 
 	/** Extra filtering done on the query. See declaration for filtering logic */
 	FMaskFilter IgnoreMask;
@@ -52,12 +55,21 @@ private:
 	/** Set of components to ignore during the trace */
 	mutable IgnoreComponentsArrayType IgnoreComponents;
 
+	/** Set of actors to ignore during the trace */
+	IgnoreActorsArrayType IgnoreActors;
+
 	void Internal_AddIgnoredComponent(const UPrimitiveComponent* InIgnoreComponent);
 
 public:
 
 	/** Returns set of unique components to ignore during the trace. Elements are guaranteed to be unique (they are made so internally if they are not already). */
 	const IgnoreComponentsArrayType& GetIgnoredComponents() const;
+
+	/** Returns set of actors to ignore during the trace. Note that elements are NOT guaranteed to be unique. This is less important for actors since it's less likely that duplicates are added.*/
+	const IgnoreActorsArrayType& GetIgnoredActors() const
+	{
+		return IgnoreActors;
+	}
 
 	/** Clears the set of components to ignore during the trace. */
 	void ClearIgnoredComponents()
@@ -81,8 +93,7 @@ public:
 	 *  can cause this constructor to be invoked instead the the other which was likely the programmers intention. 
 	 *  This constructor will eventually be deprecated to avoid this potentially ambiguous case.
 	 */ 
-	//  temporarily un-deprecate to reduce spam warning for everyone until we find and update all the projects/places that had intentionally or inadvertently been calling the old constructor
-	//	DEPRECATED(4.11, "FCollisionQueryParams, to avoid ambiguity, please use other constructor and explicitly provide an FName parameter (not just a string literal) as the first parameter")
+	DEPRECATED(4.11, "FCollisionQueryParams, to avoid ambiguity, please use other constructor and explicitly provide an FName parameter (not just a string literal) as the first parameter")
 	FCollisionQueryParams(bool bInTraceComplex)
 	{
 		bTraceComplex = bInTraceComplex;

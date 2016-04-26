@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlatePrivatePCH.h"
 #include "SVirtualJoystick.h"
@@ -381,8 +381,8 @@ void SVirtualJoystick::Tick( const FGeometry& AllottedGeometry, const double InC
 			// Assume that joystick size is all equal
 			float JoystickInputSize = Control.ThumbPosition.Size() * 2.f / Control.CorrectedVisualSize.X;
 			FVector2D NormalizedOffset = Control.ThumbPosition.GetSafeNormal() * Control.CorrectedInputScale * JoystickInputSize;
-			const FGamepadKeyNames::Type XAxis = ControlIndex == 0 ? FGamepadKeyNames::LeftAnalogX : FGamepadKeyNames::RightAnalogX;
-			const FGamepadKeyNames::Type YAxis = ControlIndex == 0 ? FGamepadKeyNames::LeftAnalogY : FGamepadKeyNames::RightAnalogY;
+			const FGamepadKeyNames::Type XAxis = (Control.MainInputKey.IsValid() ? Control.MainInputKey.GetFName() : (ControlIndex == 0 ? FGamepadKeyNames::LeftAnalogX : FGamepadKeyNames::RightAnalogX));
+			const FGamepadKeyNames::Type YAxis = (Control.AltInputKey.IsValid() ? Control.AltInputKey.GetFName() : (ControlIndex == 0 ? FGamepadKeyNames::LeftAnalogY : FGamepadKeyNames::RightAnalogY));
 
 	//		UE_LOG(LogTemp, Log, TEXT("Joysticking %f,%f"), NormalizedOffset.X, -NormalizedOffset.Y);
 			FSlateApplication::Get().SetAllUserFocusToGameViewport();

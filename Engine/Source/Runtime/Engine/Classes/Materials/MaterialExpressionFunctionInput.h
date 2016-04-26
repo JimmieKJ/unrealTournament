@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -82,17 +82,14 @@ class UMaterialExpressionFunctionInput : public UMaterialExpression
 	//~ Begin UMaterialExpression Interface
 #if WITH_EDITOR
 	virtual void GetExpressionToolTip(TArray<FString>& OutToolTip) override;
-#endif
-
 	virtual int32 CompilePreview(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
-
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
+
 	virtual bool IsResultMaterialAttributes(int32 OutputIndex) override;
-#if WITH_EDITOR
 	virtual uint32 GetInputType(int32 InputIndex) override;
 	virtual uint32 GetOutputType(int32 OutputIndex) override;
-#endif
+#endif // WITH_EDITOR
 	//~ End UMaterialExpression Interface
 
 	/** Generate the Id for this input. */
@@ -104,8 +101,10 @@ class UMaterialExpressionFunctionInput : public UMaterialExpression
 
 private:
 
+#if WITH_EDITOR
 	/** Helper function which compiles this expression for previewing. */
 	int32 CompilePreviewValue(FMaterialCompiler* Compiler, int32 MultiplexIndex=INDEX_NONE);
+#endif // WITH_EDITOR
 };
 
 

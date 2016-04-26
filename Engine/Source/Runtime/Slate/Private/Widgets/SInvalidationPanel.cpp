@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlatePrivatePCH.h"
 #include "LayoutUtils.h"
@@ -46,6 +46,11 @@ void SInvalidationPanel::SetEnableWidgetCaching(bool bEnable)
 	EnableWidgetCaching.AsVariable()->Set(bEnable);
 }
 
+TAutoConsoleVariable<int32> AlwaysInvalidate(
+	TEXT("Slate.AlwaysInvalidate"),
+	false,
+	TEXT("Forces invalidation panels to cache, but to always invalidate."));
+
 #endif
 
 void SInvalidationPanel::Construct( const FArguments& InArgs )
@@ -80,14 +85,19 @@ SInvalidationPanel::~SInvalidationPanel()
 	}
 }
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 bool SInvalidationPanel::GetCanCache() const
 {
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	return bCanCache && EnableWidgetCaching.GetValueOnGameThread() == 1;
-#else
-	return bCanCache;
-#endif
 }
+#endif
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+bool SInvalidationPanel::IsCachingNeeded() const
+{
+	return bNeedsCaching || AlwaysInvalidate.GetValueOnGameThread() == 1;
+}
+#endif
 
 void SInvalidationPanel::SetCanCache(bool InCanCache)
 {
@@ -104,9 +114,9 @@ void SInvalidationPanel::Tick( const FGeometry& AllottedGeometry, const double I
 	{
 		//SCOPE_CYCLE_COUNTER(STAT_InvalidationTime);
 
-		const bool bWasCachingNeeded = bNeedsCaching;
+		const bool bWasCachingNeeded = IsCachingNeeded();
 
-		if ( bNeedsCaching == false )
+		if ( bWasCachingNeeded == false )
 		{
 			if ( bCacheRelativeTransforms )
 			{
@@ -137,7 +147,7 @@ void SInvalidationPanel::Tick( const FGeometry& AllottedGeometry, const double I
 
 		// TODO We may be double pre-passing here, if the invalidation happened at the end of last frame,
 		// we'll have already done one pre-pass before getting here.
-		if ( bNeedsCaching )
+		if ( bWasCachingNeeded )
 		{
 			SlatePrepass(AllottedGeometry.Scale);
 			CachePrepass(this);
@@ -149,7 +159,7 @@ void SInvalidationPanel::Tick( const FGeometry& AllottedGeometry, const double I
 
 FChildren* SInvalidationPanel::GetChildren()
 {
-	if ( GetCanCache() == false || bNeedsCaching )
+	if ( GetCanCache() == false || IsCachingNeeded() )
 	{
 		return SCompoundWidget::GetChildren();
 	}
@@ -215,9 +225,9 @@ int32 SInvalidationPanel::OnPaint( const FPaintArgs& Args, const FGeometry& Allo
 
 		//FPlatformMisc::BeginNamedEvent(FColor::Magenta, "Slate::InvalidationPanel::Paint");
 
-		const bool bWasCachingNeeded = bNeedsCaching;
+		const bool bWasCachingNeeded = IsCachingNeeded();
 
-		if ( bNeedsCaching )
+		if ( bWasCachingNeeded )
 		{
 			//FPlatformMisc::BeginNamedEvent(FColor::Red, "Slate::Invalidation");
 

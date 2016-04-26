@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	WorldComposition.cpp: UWorldComposition implementation
@@ -868,10 +868,12 @@ void UWorldComposition::OnLevelPostLoad(ULevel* InLevel)
 	if (LevelPackage && InLevel->OwningWorld)
 	{
 		FWorldTileInfo Info;
-		if (InLevel->OwningWorld->WorldComposition)
+		UWorld* World = InLevel->OwningWorld;
+				
+		if (World->WorldComposition)
 		{
 			// Assign WorldLevelInfo previously loaded by world composition
-			FWorldCompositionTile* Tile = InLevel->OwningWorld->WorldComposition->FindTileByName(LevelPackage->GetFName());
+			FWorldCompositionTile* Tile = World->WorldComposition->FindTileByName(LevelPackage->GetFName());
 			if (Tile)
 			{
 				Info = Tile->Info;
@@ -879,9 +881,11 @@ void UWorldComposition::OnLevelPostLoad(ULevel* InLevel)
 		}
 		else
 		{
-			// Preserve FWorldTileInfo during standalone level loading
+#if WITH_EDITOR
+			// Preserve FWorldTileInfo in case sub-level was loaded in the editor outside of world composition
 			FString PackageFilename = FPackageName::LongPackageNameToFilename(LevelPackage->GetName(), FPackageName::GetMapPackageExtension());
 			FWorldTileInfo::Read(PackageFilename, Info);
+#endif //WITH_EDITOR
 		}
 		
 		const bool bIsDefault = (Info == FWorldTileInfo());

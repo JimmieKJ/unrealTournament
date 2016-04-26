@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -10,11 +10,11 @@ class UAISense_Blueprint;
 UCLASS(Blueprintable, Abstract)
 class AIMODULE_API UAISenseConfig_Blueprint : public UAISenseConfig
 {
-	GENERATED_BODY()
+	GENERATED_UCLASS_BODY()
 
 public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sense", NoClear, config)
 	TSubclassOf<UAISense_Blueprint> Implementation;
 
-	virtual TSubclassOf<UAISense> GetSenseImplementation() const override { return Implementation; }
+	virtual TSubclassOf<UAISense> GetSenseImplementation() const override;
 };

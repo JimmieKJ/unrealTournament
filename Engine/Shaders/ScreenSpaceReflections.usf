@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ScreenSpaceReflections.usf: To generate screen space reflections as a postprocess
@@ -42,7 +42,6 @@ float GetRoughness(const in FGBufferData GBuffer)
 {
 	float Roughness = GBuffer.Roughness;
 
-#if 1//USE_CLEARCOAT
 	BRANCH
 	if( GBuffer.ShadingModelID == SHADINGMODELID_CLEAR_COAT )
 	{
@@ -51,7 +50,6 @@ float GetRoughness(const in FGBufferData GBuffer)
 
 		Roughness = lerp( Roughness, ClearCoatRoughness, ClearCoat );
 	}
-#endif
 
 	return Roughness;
 }
@@ -129,19 +127,19 @@ void ScreenSpaceReflectionsPS(in noperspective float4 UVAndScreenPos : TEXCOORD0
 
 	uint FrameRandom;
 	{
-		bool bTemporalAAIsOn = View.TemporalAAParams.g > 1;
+		bool bTemporalAAIsOn = Frame.TemporalAAParams.g > 1;
 
 		if(bTemporalAAIsOn)
 		{
 			// usually this number is in the 0..7 range but it depends on the TemporalAA quality
-			FrameRandom = (uint)(View.TemporalAAParams.r * 1551);
+			FrameRandom = (uint)(Frame.TemporalAAParams.r * 1551);
 		}
 		else
 		{
 			// todo: using the FrameNumber can be wrong in editor
 			// 4 aligns with the temporal smoothing, larger number will do more flickering (power of two for best performance)
 			const uint RandomizeOverNFrames = 8;
-			FrameRandom = (View.FrameNumber % RandomizeOverNFrames) * 1551;
+			FrameRandom = (Frame.FrameNumber % RandomizeOverNFrames) * 1551;
 		}
 	}
 
@@ -158,7 +156,7 @@ void ScreenSpaceReflectionsPS(in noperspective float4 UVAndScreenPos : TEXCOORD0
 		const float3 R = 2 * dot( V, H ) * H - V;
 
 		const float ReflectPDF = HNAndPDF.w / (4 * saturate(dot(V, H)));
-		const float TotalSamples = View.TemporalAAParams.g;
+		const float TotalSamples = Frame.TemporalAAParams.g;
 		const float SolidAngleSample = 1.0 / ( TotalSamples * ReflectPDF );
 		const float ConeAngleWorld = acos( 1 - SolidAngleSample / (2*PI) );
 

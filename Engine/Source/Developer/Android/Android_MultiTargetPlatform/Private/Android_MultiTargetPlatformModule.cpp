@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Android_MultiTargetPlatformModule.cpp: Implements the Android_Multi target platform variant
@@ -24,28 +24,36 @@ class FAndroid_MultiTargetPlatform
 
 	void LoadFormats()
 	{
-		const TCHAR* FormatNames[] =
-		{
-			TEXT("ASTC"),
-			TEXT("ATC"),
-			TEXT("PVRTC"),
-			TEXT("DXT"),
-			TEXT("ETC2"),
-			TEXT("ETC1"),
-		};
+		TArray<FString> FormatNames;
+		FormatNames.Add(TEXT("ASTC"));
+		FormatNames.Add(TEXT("ATC"));
+		FormatNames.Add(TEXT("PVRTC"));
+		FormatNames.Add(TEXT("DXT"));
+		FormatNames.Add(TEXT("ETC2"));
+		FormatNames.Add(TEXT("ETC1"));
+
+		// sort formats by priority so higher priority formats are packaged (and thus used by the device) first
+		FormatNames.Sort([](const FString& A, const FString& B)
+			{
+				float PriorityA = 0.f;
+				float PriorityB = 0.f;
+				GConfig->GetFloat(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), *(FString(TEXT("TextureFormatPriority_")) + A), PriorityA, GEngineIni);
+				GConfig->GetFloat(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), *(FString(TEXT("TextureFormatPriority_")) + B), PriorityB, GEngineIni);
+				return PriorityA > PriorityB;
+			});
 
 		FormatTargetPlatforms.Empty();
 		FormatTargetString = TEXT("");
 
 		// Load the TargetPlatform module for each format
-		for (int32 PlatformFormatIdx = 0; PlatformFormatIdx < ARRAY_COUNT(FormatNames); PlatformFormatIdx++)
+		for (int32 PlatformFormatIdx = 0; PlatformFormatIdx < FormatNames.Num(); PlatformFormatIdx++)
 		{
 			bool bEnabled = false;
-			FString SettingsName = FString(TEXT("bMultiTargetFormat_")) + FormatNames[PlatformFormatIdx];
+			FString SettingsName = FString(TEXT("bMultiTargetFormat_")) + *FormatNames[PlatformFormatIdx];
 			GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), *SettingsName, bEnabled, GEngineIni);
 			if (bEnabled)
 			{
-				FString PlatformName = FString(TEXT("Android_")) + FormatNames[PlatformFormatIdx] + TEXT("TargetPlatform");
+				FString PlatformName = FString(TEXT("Android_")) + *FormatNames[PlatformFormatIdx] + TEXT("TargetPlatform");
 				ITargetPlatformModule* Module = FModuleManager::LoadModulePtr<ITargetPlatformModule>(*PlatformName);
 				if (Module)
 				{
@@ -56,7 +64,7 @@ class FAndroid_MultiTargetPlatform
 						{
 							FormatTargetString += TEXT(",");
 						}
-						FormatTargetString += FormatNames[PlatformFormatIdx];
+						FormatTargetString += *FormatNames[PlatformFormatIdx];
 						FormatTargetPlatforms.Add(TargetPlatform);
 					}
 				}

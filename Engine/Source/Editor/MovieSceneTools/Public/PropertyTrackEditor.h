@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -110,19 +110,6 @@ public:
 		return Type == TrackType::StaticClass();
 	}
 
-	virtual void AddKey( const FGuid& ObjectGuid, UObject* AdditionalAsset = NULL ) override
-	{
-		ISequencerObjectChangeListener& ObjectChangeListener = FMovieSceneTrackEditor::GetSequencer()->GetObjectChangeListener();
-		TSharedPtr<ISequencer> Sequencer = FMovieSceneTrackEditor::GetSequencer();
-
-		TArray<UObject*> OutObjects;
-		Sequencer->GetRuntimeObjects(Sequencer->GetFocusedMovieSceneSequenceInstance(), ObjectGuid, OutObjects);
-		for ( int32 i = 0; i < OutObjects.Num(); ++i )
-		{
-			ObjectChangeListener.TriggerAllPropertiesChanged( OutObjects[i] );
-		}
-	}
-
 	virtual TSharedRef<ISequencerSection> MakeSectionInterface( class UMovieSceneSection& SectionObject, UMovieSceneTrack& Track ) override
 	{
 		TSharedRef<FPropertySection> PropertySection = MakePropertySectionInterface( SectionObject, Track );
@@ -137,12 +124,13 @@ protected:
 	virtual TSharedRef<FPropertySection> MakePropertySectionInterface( class UMovieSceneSection& SectionObject, UMovieSceneTrack& Track ) = 0;
 
 	/**
-	* Generates a new key who's value is the result of the supplied property change.
+	* Generates keys based on the new value from the property property change parameters.
 	*
 	* @param PropertyChangedParams Parameters associated with the property change.
-	* @return The new key.
+	* @param NewGeneratedKeys New keys which should be added due to the property change.
+	* @param DefaultGeneratedKeys Default value keys which should not be added, but may be needed for setting up defaults on new multi-channel tracks.
 	*/
-	virtual void GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<KeyDataType>& GeneratedKeys ) = 0;
+	virtual void GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<KeyDataType>& NewGeneratedKeys, TArray<KeyDataType>& DefaultGeneratedKeys ) = 0;
 
 	/** When true, this track editor will only be used on properties which have specified it as a custom track class. This is necessary to prevent duplicate
 		property change handling in cases where a custom track editor handles the same type of data as one of the standard track editors. */
@@ -156,6 +144,9 @@ protected:
 	virtual void InitializeNewTrack( TrackType* NewTrack, FPropertyChangedParams PropertyChangedParams )
 	{
 		NewTrack->SetPropertyNameAndPath( PropertyChangedParams.PropertyPath.Last()->GetFName(), PropertyChangedParams.GetPropertyPathString() );
+#if WITH_EDITORONLY_DATA
+		NewTrack->SetDisplayName(PropertyChangedParams.PropertyPath.Last()->GetDisplayNameText());
+#endif
 	}
 
 private:
@@ -197,8 +188,9 @@ private:
 	/** Adds a key based on a property change. */
 	bool OnKeyProperty( float KeyTime, FPropertyChangedParams PropertyChangedParams )
 	{
-		TArray<KeyDataType> KeysForPropertyChange;
-		GenerateKeysFromPropertyChanged( PropertyChangedParams, KeysForPropertyChange );
+		TArray<KeyDataType> NewKeysForPropertyChange;
+		TArray<KeyDataType> DefaultKeysForPropertyChange;
+		GenerateKeysFromPropertyChanged( PropertyChangedParams, NewKeysForPropertyChange, DefaultKeysForPropertyChange );
 
 		TSubclassOf<UMovieSceneTrack> CustomizedClass = GetCustomizedTrackClass( PropertyChangedParams.PropertyPath.Last() );
 		TSubclassOf<UMovieSceneTrack> TrackClass;
@@ -212,14 +204,23 @@ private:
 			TrackClass = TrackType::StaticClass();
 		}
 
+		if ( FMovieSceneTrackEditor::GetSequencer()->GetAutoKeyMode() == EAutoKeyMode::KeyAll )
+		{
+			// TODO: Setting these here is a bit sketchy but necessary right now without a larger refactor.
+			PropertyChangedParams.KeyParams.bCreateHandleIfMissing = true;
+			PropertyChangedParams.KeyParams.bCreateTrackIfMissing = true;
+			PropertyChangedParams.KeyParams.bCreateKeyIfEmpty = true;
+		}
+
 		// If the track class has been customized for this property then it's possible this track editor doesn't support it, 
 		// also check for track editors which should only be used for customization.
-		if ( SupportsType( TrackClass ) && ( ForCustomizedUseOnly() == false || CustomizedClass != nullptr) )
+		if ( SupportsType( TrackClass ) && ( ForCustomizedUseOnly() == false || *CustomizedClass != nullptr) )
 		{
 			return FKeyframeTrackEditor<TrackType, SectionType, KeyDataType>::AddKeysToObjects(
 				PropertyChangedParams.ObjectsThatChanged,
 				KeyTime,
-				KeysForPropertyChange,
+				NewKeysForPropertyChange,
+				DefaultKeysForPropertyChange,
 				PropertyChangedParams.KeyParams,
 				TrackClass,
 				PropertyChangedParams.PropertyPath.Last()->GetFName(),

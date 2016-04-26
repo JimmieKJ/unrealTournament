@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "SteamVRChaperoneComponent.generated.h"
@@ -14,26 +14,20 @@ class USteamVRChaperoneComponent : public UActorComponent
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FSteamVRChaperoneEvent);
 
 	UPROPERTY(BlueprintAssignable, Category = "SteamVR")
-	FSteamVRChaperoneEvent OnLeaveSoftBounds;
+	FSteamVRChaperoneEvent OnLeaveBounds;
 
 	UPROPERTY(BlueprintAssignable, Category = "SteamVR")
-	FSteamVRChaperoneEvent OnReturnToSoftBounds;
+	FSteamVRChaperoneEvent OnReturnToBounds;
 
 	void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 
 	/**
-	 * Returns the soft bounds from the Chaperone, in Unreal-scale HMD-space coordinates, centered around the HMD's calibration origin (0,0,0).  Note that the Z component is always zero
-	 */
-	UFUNCTION(BlueprintPure, Category = "SteamVR")
-	TArray<FVector> GetSoftBounds() const;
-
-	/**
-	* Returns the hard bounds from the Chaperone, in Unreal-scale HMD-space coordinates, centered around the HMD's calibration origin (0,0,0).  Each set of four bounds will form a quad to define a set of hard bounds
+	* Returns the bounds from the Chaperone, in Unreal-scale HMD-space coordinates, centered around the HMD's calibration origin (0,0,0).  Each set of four bounds will form a quad to define a set of bounds
 	*/
 	UFUNCTION(BlueprintPure, Category = "SteamVR")
-	TArray<FVector> GetHardBounds() const;
+	TArray<FVector> GetBounds() const;
 
 private:
-	/** Whether or not we were inside the soft bounds last time, so we can detect changes */
-	bool bWasInsideSoftBounds;
+	/** Whether or not we were inside the bounds last time, so we can detect changes */
+	bool bWasInsideBounds;
 };

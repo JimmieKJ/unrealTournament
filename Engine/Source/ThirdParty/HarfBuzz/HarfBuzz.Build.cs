@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 using UnrealBuildTool;
 using System;
 using System.IO;
@@ -8,6 +8,13 @@ public class HarfBuzz : ModuleRules
 	public HarfBuzz(TargetInfo Target)
 	{
 		Type = ModuleType.External;
+		
+		// Can't be used without our dependencies
+		if (!UEBuildConfiguration.bCompileFreeType || !UEBuildConfiguration.bCompileICU)
+		{
+			Definitions.Add("WITH_HARFBUZZ=0");
+			return;
+		}
 
 		string HarfBuzzVersion = "harfbuzz-1.0.5";
 		string HarfBuzzRootPath = UEBuildConfiguration.UEThirdPartySourceDirectory + "HarfBuzz/" + HarfBuzzVersion + "/";
@@ -39,6 +46,12 @@ public class HarfBuzz : ModuleRules
 
 			PublicLibraryPaths.Add(HarfBuzzLibPath);
 			PublicAdditionalLibraries.Add("harfbuzz.lib");
+		}
+		else if (Target.Platform == UnrealTargetPlatform.Mac)
+		{
+			Definitions.Add("WITH_HARFBUZZ=1");
+
+			PublicAdditionalLibraries.Add(HarfBuzzLibPath + "libharfbuzz.a");
 		}
 		else if (Target.Platform == UnrealTargetPlatform.PS4)
 		{

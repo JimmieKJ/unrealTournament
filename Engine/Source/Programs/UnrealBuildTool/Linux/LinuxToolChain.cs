@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -20,7 +20,7 @@ namespace UnrealBuildTool
 			if (!CrossCompiling())
 			{
 				// use native linux toolchain
-				string[] ClangNames = { "clang++", "clang++-3.5", "clang++-3.3" };
+				string[] ClangNames = { "clang++", "clang++-3.7", "clang++-3.6", "clang++-3.5" };
 				foreach (var ClangName in ClangNames)
 				{
 					ClangPath = Which(ClangName);
@@ -74,6 +74,14 @@ namespace UnrealBuildTool
 			else if (CompilerVersionMajor == 3 && CompilerVersionMinor == 4)
 			{
 				throw new BuildException("clang 3.4.x is known to miscompile the engine - refusing to register the Linux toolchain.");
+			}
+			// prevent unknown clangs since the build is likely to fail on too old or too new compilers
+			else if ((CompilerVersionMajor * 10 + CompilerVersionMinor) > 38 || (CompilerVersionMajor * 10 + CompilerVersionMinor) < 35)
+			{
+				throw new BuildException(
+					string.Format("This version of the Unreal Engine can only be compiled with clang 3.7, 3.6 and 3.5. clang {0} may not build it - please use a different version.",
+						CompilerVersionString)
+					);
 			}
 		}
 
@@ -525,54 +533,47 @@ namespace UnrealBuildTool
 
 		public static void CompileOutputReceivedDataEventHandler(Object Sender, DataReceivedEventArgs e)
 		{
+			Debug.Assert(CrossCompiling());
+
 			string Output = e.Data;
 			if (String.IsNullOrEmpty(Output))
 			{
 				return;
 			}
 
-			if (CrossCompiling())
+			// format the string so the output errors are clickable in Visual Studio
+
+			// Need to match following for clickable links
+			string RegexFilePath = @"^[A-Z]\:([\\\/][A-Za-z0-9_\-\.]*)+\.(cpp|c|mm|m|hpp|h)";
+			string RegexLineNumber = @"\:\d+\:\d+\:";
+			string RegexDescription = @"(\serror:\s|\swarning:\s|\snote:\s).*";
+
+			// Get Matches
+			string MatchFilePath = Regex.Match(Output, RegexFilePath).Value.Replace("Engine\\Source\\..\\..\\", "");
+			string MatchLineNumber = Regex.Match(Output, RegexLineNumber).Value;
+			string MatchDescription = Regex.Match(Output, RegexDescription).Value;
+
+			// If any of the above matches failed, do nothing
+			if (MatchFilePath.Length == 0 ||
+				MatchLineNumber.Length == 0 ||
+				MatchDescription.Length == 0)
 			{
-				// format the string so the output errors are clickable in Visual Studio
-
-				// Need to match following for clickable links
-				string RegexFilePath = @"^[A-Z]\:([\\\/][A-Za-z0-9_\-\.]*)+\.(cpp|c|mm|m|hpp|h)";
-				string RegexLineNumber = @"\:\d+\:\d+\:";
-				string RegexDescription = @"(\serror:\s|\swarning:\s|\snote:\s).*";
-
-				// Get Matches
-				string MatchFilePath = Regex.Match(Output, RegexFilePath).Value.Replace("Engine\\Source\\..\\..\\", "");
-				string MatchLineNumber = Regex.Match(Output, RegexLineNumber).Value;
-				string MatchDescription = Regex.Match(Output, RegexDescription).Value;
-
-				// If any of the above matches failed, do nothing
-				if (MatchFilePath.Length == 0 ||
-					MatchLineNumber.Length == 0 ||
-					MatchDescription.Length == 0)
-				{
-					Console.WriteLine(Output);
-					return;
-				}
-
-				// Convert Path
-				string RegexStrippedPath = @"\\Engine\\.*"; //@"(Engine\/|[A-Za-z0-9_\-\.]*\/).*";
-				string ConvertedFilePath = Regex.Match(MatchFilePath, RegexStrippedPath).Value;
-				ConvertedFilePath = Path.GetFullPath("..\\.." + ConvertedFilePath);
-
-				// Extract Line + Column Number
-				string ConvertedLineNumber = Regex.Match(MatchLineNumber, @"\d+").Value;
-				string ConvertedColumnNumber = Regex.Match(MatchLineNumber, @"(?<=:\d+:)\d+").Value;
-
-				// Write output
-				string ConvertedExpression = "  " + ConvertedFilePath + "(" + ConvertedLineNumber + "," + ConvertedColumnNumber + "):" + MatchDescription;
-				Console.WriteLine(ConvertedExpression); // To create clickable vs link
+				Console.WriteLine(Output);
+				return;
 			}
-			else
-			{
-				// native platform tools expect this in stderror
 
-				Console.Error.WriteLine(Output);
-			}
+			// Convert Path
+			string RegexStrippedPath = @"\\Engine\\.*"; //@"(Engine\/|[A-Za-z0-9_\-\.]*\/).*";
+			string ConvertedFilePath = Regex.Match(MatchFilePath, RegexStrippedPath).Value;
+			ConvertedFilePath = Path.GetFullPath("..\\.." + ConvertedFilePath);
+
+			// Extract Line + Column Number
+			string ConvertedLineNumber = Regex.Match(MatchLineNumber, @"\d+").Value;
+			string ConvertedColumnNumber = Regex.Match(MatchLineNumber, @"(?<=:\d+:)\d+").Value;
+
+			// Write output
+			string ConvertedExpression = "  " + ConvertedFilePath + "(" + ConvertedLineNumber + "," + ConvertedColumnNumber + "):" + MatchDescription;
+			Console.WriteLine(ConvertedExpression); // To create clickable vs link
 		}
 
 		// cache the location of NDK tools
@@ -743,7 +744,11 @@ namespace UnrealBuildTool
 					CompileEnvironment.Config.PrecompiledHeaderAction != PrecompiledHeaderAction.Create ||
 					BuildConfiguration.bAllowRemotelyCompiledPCHs;
 
-				CompileAction.OutputEventHandler = new DataReceivedEventHandler(CompileOutputReceivedDataEventHandler);
+				// piping output through the handler during native builds is unnecessary and reportedly causes problems with tools like octobuild.
+				if (CrossCompiling())
+				{
+					CompileAction.OutputEventHandler = new DataReceivedEventHandler(CompileOutputReceivedDataEventHandler);
+				}
 			}
 
 			return Result;
@@ -1031,9 +1036,53 @@ namespace UnrealBuildTool
 				Writer.WriteLine("UE4 {");
 				Writer.WriteLine("  global: *;");
 				Writer.WriteLine("  local: _Znwm;");
+				Writer.WriteLine("         _ZnwmRKSt9nothrow_t;");
 				Writer.WriteLine("         _Znam;");
+				Writer.WriteLine("         _ZnamRKSt9nothrow_t;");
 				Writer.WriteLine("         _ZdaPv;");
+				Writer.WriteLine("         _ZdaPvRKSt9nothrow_t;");
 				Writer.WriteLine("         _ZdlPv;");
+				Writer.WriteLine("         _ZdlPvRKSt9nothrow_t;");
+				
+				// Hide OpenSSL symbols as they can collide with Steam runtime.
+				// @todo: hide all Steam runtime symbols
+				Writer.WriteLine("         DH_OpenSSL;");
+				Writer.WriteLine("         DSA_OpenSSL;");
+				Writer.WriteLine("         DSO_METHOD_openssl;");
+				Writer.WriteLine("         ECDH_OpenSSL;");
+				Writer.WriteLine("         ECDSA_OpenSSL;");
+				Writer.WriteLine("         OPENSSL_add_all_algorithms_noconf;");
+				Writer.WriteLine("         OpenSSL_add_all_ciphers;");
+				Writer.WriteLine("         OpenSSL_add_all_digests;");
+				Writer.WriteLine("         OPENSSL_asc2uni;");
+				Writer.WriteLine("         OPENSSL_atomic_add;");
+				Writer.WriteLine("         OPENSSL_cleanse;");
+				Writer.WriteLine("         OPENSSL_DIR_end;");
+				Writer.WriteLine("         OPENSSL_DIR_read;");
+				Writer.WriteLine("         openssl_dsa_meth;");
+				Writer.WriteLine("         openssl_ecdh_meth;");
+				Writer.WriteLine("         openssl_ecdsa_meth;");
+				Writer.WriteLine("         OPENSSL_gmtime;");
+				Writer.WriteLine("         OPENSSL_gmtime_adj;");
+				Writer.WriteLine("         OPENSSL_gmtime_diff;");
+				Writer.WriteLine("         OPENSSL_ia32_cpuid;");
+				Writer.WriteLine("         OPENSSL_ia32_rdrand;");
+				Writer.WriteLine("         OPENSSL_ia32_rdseed;");
+				Writer.WriteLine("         OPENSSL_ia32cap_loc;");
+				Writer.WriteLine("         OPENSSL_ia32cap_P;");
+				Writer.WriteLine("         OPENSSL_init;");
+				Writer.WriteLine("         OPENSSL_isservice;");
+				Writer.WriteLine("         OPENSSL_issetugid;");
+				Writer.WriteLine("         OPENSSL_load_builtin_modules;");
+				Writer.WriteLine("         OPENSSL_NONPIC_relocated;");
+				Writer.WriteLine("         OPENSSL_rdtsc;");
+				Writer.WriteLine("         OPENSSL_showfatal;");
+				Writer.WriteLine("         OPENSSL_stderr;");
+				Writer.WriteLine("         OPENSSL_uni2asc;");
+				Writer.WriteLine("         OPENSSL_wipe_cpu;");
+				Writer.WriteLine("         OpenSSLDie;");
+				Writer.WriteLine("         ui_openssl;");
+				Writer.WriteLine("         UI_OpenSSL;");
 				Writer.WriteLine("};");
 			};
 

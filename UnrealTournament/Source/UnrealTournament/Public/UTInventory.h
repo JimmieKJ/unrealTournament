@@ -203,6 +203,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
 	bool bShowPowerupTimer;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = HUD)
+	bool bBoostPowerupSuppliedItem;
+
 	/** How important is this inventory item when rendering a group of them */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
 	float HUDRenderPriority;
@@ -234,6 +237,10 @@ public:
 	// Holds a reference to the 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI")
 	UTexture2D* MenuGraphic;
+
+	//This will be the graphic used in the powerup selector
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI")
+	FCanvasIcon PowerupGraphic;
 
 	// This is the long description that will be displayed in the menu.  
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI")

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -370,6 +370,9 @@ enum class ENetworkSmoothingMode : uint8
 
 	/** Exponential. Faster as you are further from target. */
 	Exponential		UMETA(DisplayName="Exponential"),
+
+	/** Special linear interpolation designed specifically for replays. */
+	Replay			UMETA( DisplayName="Replay" ),
 };
 
 /** This filter allows us to refine queries (channel, object) with an additional level of ignore by tagging entire classes of objects (e.g. "Red team", "Blue team")
@@ -898,7 +901,7 @@ enum ETimelineSigType
 
 
 /** Enum used to describe what type of collision is enabled on a body. */
-UENUM()
+UENUM(BlueprintType)
 namespace ECollisionEnabled 
 { 
 	enum Type 
@@ -1613,7 +1616,7 @@ struct FPrimitiveMaterialRef
 /**
  * Structure containing information about one hit of a trace, such as point of impact and surface normal at that point.
  */
-USTRUCT(BlueprintType, meta=(HasNativeBreak="Engine.GameplayStatics.BreakHitResult"))
+USTRUCT(BlueprintType, meta = (HasNativeBreak = "Engine.GameplayStatics.BreakHitResult", HasNativeMake = "Engine.GameplayStatics.MakeHitResult"))
 struct ENGINE_API FHitResult
 {
 	GENERATED_USTRUCT_BODY()
@@ -2197,42 +2200,42 @@ struct FMeshReductionSettings
 {
 	GENERATED_USTRUCT_BODY()
 
-		/** Percentage of triangles to keep. 1.0 = no reduction, 0.0 = no triangles. */
+	/** Percentage of triangles to keep. 1.0 = no reduction, 0.0 = no triangles. */
 		UPROPERTY(EditAnywhere, Category = ReductionSettings)
-		float PercentTriangles;
+	float PercentTriangles;
 
 	/** The maximum distance in object space by which the reduced mesh may deviate from the original mesh. */
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
-		float MaxDeviation;
+	float MaxDeviation;
 
 	/** Threshold in object space at which vertices are welded together. */
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
-		float WeldingThreshold;
+	float WeldingThreshold;
 
 	/** Angle at which a hard edge is introduced between faces. */
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
-		float HardAngleThreshold;
+	float HardAngleThreshold;
 
 	/** Higher values minimize change to border edges. */
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
-		TEnumAsByte<EMeshFeatureImportance::Type> SilhouetteImportance;
+	TEnumAsByte<EMeshFeatureImportance::Type> SilhouetteImportance;
 
 	/** Higher values reduce texture stretching. */
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
-		TEnumAsByte<EMeshFeatureImportance::Type> TextureImportance;
+	TEnumAsByte<EMeshFeatureImportance::Type> TextureImportance;
 
 	/** Higher values try to preserve normals better. */
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
-		TEnumAsByte<EMeshFeatureImportance::Type> ShadingImportance;
+	TEnumAsByte<EMeshFeatureImportance::Type> ShadingImportance;
 
 	/*UPROPERTY(EditAnywhere, Category = ReductionSettings)
 	bool bActive;*/
 
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
-		bool bRecalculateNormals;
+	bool bRecalculateNormals;
 
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
-		int32 BaseLODModel;
+	int32 BaseLODModel;
 
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
 		bool bGenerateUniqueLightmapUVs;
@@ -2450,7 +2453,7 @@ struct FMaterialSimplificationSettings
 	FIntPoint BaseColorMapSize;
 
 	// Whether to generate normal map
-	UPROPERTY()
+	UPROPERTY(Category=Material, EditAnywhere, meta=(InlineEditConditionToggle))
 	bool bNormalMap;
 	
 	// Size of generated specular map
@@ -2462,7 +2465,7 @@ struct FMaterialSimplificationSettings
 	float MetallicConstant;
 
 	// Whether to generate metallic map
-	UPROPERTY()
+	UPROPERTY(Category=Material, EditAnywhere, meta=(InlineEditConditionToggle))
 	bool bMetallicMap;
 
 	// Size of generated metallic map
@@ -2474,7 +2477,7 @@ struct FMaterialSimplificationSettings
 	float RoughnessConstant;
 
 	// Whether to generate roughness map
-	UPROPERTY()
+	UPROPERTY(Category=Material, EditAnywhere, meta=(InlineEditConditionToggle))
 	bool bRoughnessMap;
 
 	// Size of generated roughness map
@@ -2486,7 +2489,7 @@ struct FMaterialSimplificationSettings
 	float SpecularConstant;
 
 	// Whether to generate specular map
-	UPROPERTY()
+	UPROPERTY(Category=Material, EditAnywhere, meta=(InlineEditConditionToggle))
 	bool bSpecularMap;
 
 	// Size of generated specular map
@@ -2693,6 +2696,11 @@ struct FMeshProxySettings
 	UPROPERTY()
 	FMaterialSimplificationSettings Material_DEPRECATED;
 
+
+	/** Determines whether or not the correct LOD models should be calculated given the source meshes and transition size */
+	UPROPERTY(EditAnywhere, Category = ProxySettings)
+	bool bCalculateLODSourceModels;
+
 	/** Distance at which meshes should be merged together */
 	UPROPERTY(EditAnywhere, Category = ProxySettings)
 	float MergeDistance;
@@ -2709,22 +2717,6 @@ struct FMeshProxySettings
 	UPROPERTY(EditAnywhere, Category=ProxySettings)
 	bool bRecalculateNormals;
 		
-	/** Set to true to cap the mesh with a ground plane */
-	UPROPERTY(EditAnywhere, Category=ProxySettings)
-	bool bUseClippingPlane;
-
-	/* Ground plane level */
-	UPROPERTY(EditAnywhere, Category=ProxySettings)
-	float ClippingLevel;
-
-	/** Set the axis index for the ground plane (0:X-Axis, 1:Y-Axis, 2:Z-Axis) */
-	UPROPERTY(EditAnywhere, Category=ProxySettings)
-	int32 AxisIndex;
-
-	/** Set to true to use negative halfspace for model, and reject the positive halfspace */
-	UPROPERTY(EditAnywhere, Category=ProxySettings)
-	bool bPlaneNegativeHalfspace;
-
 	UPROPERTY()
 	bool bBakeVertexData_DEPRECATED;
 
@@ -2741,10 +2733,6 @@ struct FMeshProxySettings
 		, HardAngleThreshold(80.0f)
 		, LightMapResolution(256)
 		, bRecalculateNormals(true)
-		, bUseClippingPlane(false)
-		, ClippingLevel(0.0)
-		, AxisIndex(0)
-		, bPlaneNegativeHalfspace(false)
 	{ }
 
 	/** Equality operator. */
@@ -3108,6 +3096,7 @@ struct FTimerHandle
 	}
 
 private:
+	UPROPERTY(transient)
 	int32 Handle;
 };
 
@@ -3459,6 +3448,8 @@ struct FReplicationFlags
 			uint32 bNetSimulated:1;
 			/** True if this is actor's ReplicatedMovement.bRepPhysics flag is true. */
 			uint32 bRepPhysics:1;
+			/** True if this actor is replicating on a replay connection. */
+			uint32 bReplay:1;
 		};
 
 		uint32	Value;
@@ -4011,7 +4002,6 @@ enum class ESpawnActorCollisionHandlingMethod : uint8
 	/** Actor will fail to spawn. */
 	DontSpawnIfColliding					UMETA(DisplayName = "Do Not Spawn"),
 };
-
 /** Intermediate material merging data */
 struct FMaterialMergeData
 {
@@ -4049,4 +4039,25 @@ struct FMaterialMergeData
 		, TexCoords(InTexCoords)
 		, EmissiveScale(0.0f)
 	{}
+};
+
+/**
+ * The description of a user activity
+ */
+USTRUCT(BlueprintType)
+struct FUserActivity
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** Describes the user's activity */
+	UPROPERTY(BlueprintReadWrite, Category = "Activity")
+	FString ActionName;
+
+	/** Default constructor. */
+	FUserActivity() { }
+
+	/** Creates and initializes a new instance. */
+	FUserActivity(const FString& InActionName)
+		: ActionName(InActionName)
+	{ }
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AppFrameworkPrivatePCH.h"
 #include "STestSuite.h"
@@ -2057,6 +2057,8 @@ public:
 	BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 	void Construct(const FArguments& InArgs)
 	{
+		bIsPassword = true;
+
 		InlineEditableText = LOCTEXT( "TestingInlineEditableTextBlock", "Testing inline editable text block!" );
 
 		Animation = FCurveSequence(0, 5);
@@ -2156,6 +2158,33 @@ public:
 					.HintText(LOCTEXT("DisabledContextMenuHint", "No context menu..."))
 					.OnContextMenuOpening(this, &STextEditTest::OnDisabledContextMenuOpening)
 				]
+				+ SVerticalBox::Slot().AutoHeight() .HAlign(HAlign_Center) .VAlign(VAlign_Center) .Padding( 5 )
+				[
+					SNew(SHorizontalBox)
+
+					+SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(SEditableTextBox)
+						.IsPassword(this, &STextEditTest::IsPassword)
+						.RevertTextOnEscape(true)
+						.MinDesiredWidth(400)
+						.HintText(LOCTEXT("EditablePasswordHintText", "This text box can be a password"))
+					]
+
+					+SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(FMargin(4, 0))
+					[
+						SNew(SCheckBox)
+						.IsChecked(this, &STextEditTest::GetPasswordCheckState)
+						.OnCheckStateChanged(this, &STextEditTest::OnPasswordCheckStateChanged)
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("PasswordCheckBoxText", "Password?"))
+						]
+					]
+				]
 			]
 		];
 	}
@@ -2199,6 +2228,21 @@ public:
 	TSharedPtr<SWidget> OnDisabledContextMenuOpening()
 	{
 		return TSharedPtr<SWidget>();
+	}
+
+	bool IsPassword() const
+	{
+		return bIsPassword;
+	}
+
+	ECheckBoxState GetPasswordCheckState() const
+	{
+		return bIsPassword ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+	}
+
+	void OnPasswordCheckStateChanged(ECheckBoxState NewState)
+	{
+		bIsPassword = NewState == ECheckBoxState::Checked;
 	}
 
 	void ClearSearchBox()
@@ -2279,6 +2323,7 @@ protected:
 	TSharedPtr<SInlineEditableTextBlock> InlineEditableTextBlock;
 	FText InlineEditableText;
 
+	bool bIsPassword;
  };
 
  #if WITH_FANCY_TEXT
@@ -3969,7 +4014,7 @@ class SInvalidationTest : public SCompoundWidget
 					.AutoHeight()
 					[
 						SNew(STextBlock)
-						.Text(LOCTEXT("StaticText", "Support Input"))
+						.Text(LOCTEXT("StaticTextSupportInput", "Support Input"))
 					]
 
 					+ SVerticalBox::Slot()
@@ -4192,7 +4237,7 @@ public:
 					.Padding(FMargin(15.0f, 0.0f, 0.0f, 0.0f))
 					[
 						SNew(STextBlock)
-						.Text(LOCTEXT("TestingBigTextBigMargin", "Big notififcation text!"))
+						.Text(LOCTEXT("TestingBigNotificationText", "Big notififcation text!"))
 						.Font(FSlateFontInfo(FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Bold.ttf"), 30))
 					]
 					+ SHorizontalBox::Slot()

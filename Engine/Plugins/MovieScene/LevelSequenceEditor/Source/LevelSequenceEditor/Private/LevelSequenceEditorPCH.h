@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -20,5 +20,9 @@
  *****************************************************************************/
 
 #include "LevelSequenceActions.h"
+#include "LevelSequenceEditorCommands.h"
+#include "LevelSequenceEditorSettings.h"
+#include "LevelSequenceEditorSpawnRegister.h"
 #include "LevelSequenceEditorToolkit.h"
+#include "LevelSequenceEditorStyle.h"
 #include "LevelSequencePlaybackSettingsCustomization.h"

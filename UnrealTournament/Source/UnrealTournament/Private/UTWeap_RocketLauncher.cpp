@@ -58,8 +58,6 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 	DeathStatsName = NAME_RocketDeaths;
 	HitsStatsName = NAME_RocketHits;
 	ShotsStatsName = NAME_RocketShots;
-
-	WeightSpeedPctModifier = 0.7f;
 }
 
 void AUTWeap_RocketLauncher::Destroyed()
@@ -616,7 +614,7 @@ void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* We
 	float Scale = WeaponHudWidget->GetRenderScale() * GetCrosshairScale(WeaponHudWidget->UTHUDOwner);
 	if ((CurrentFireMode == 1) && (NumLoadedRockets > 0))
 	{
-		float DotSize = 20.f * Scale;
+		float DotSize = 16.f * Scale;
 		WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0.f, 0.5f * WeaponHudWidget->GetRenderScale() * UnderReticlePadding, DotSize, DotSize, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
 		if (NumLoadedRockets > 1)
 		{

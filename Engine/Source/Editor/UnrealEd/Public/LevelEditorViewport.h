@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -420,6 +420,43 @@ public:
 		return ActorLockedToCamera;
 	}
 	
+	/**
+	 * Find the camera component to use for a locked actor
+	 * note this should return the same component as SLevelViewport::GetCameraInformationFromActor uses 
+	 */
+	UCameraComponent* GetCameraComponentForLockedActor(AActor const* Actor) const
+	{
+		if (Actor)
+		{
+			// see if actor has a camera component
+			TArray<UCameraComponent*> CamComps;
+			Actor->GetComponents<UCameraComponent>(CamComps);
+			for (UCameraComponent* Comp : CamComps)
+			{
+				if (Comp->bIsActive)
+				{
+					return Comp;
+				}
+			}
+
+			// now see if any actors are attached to us, directly or indirectly, that have an active camera component we might want to use
+			// we will just return the first one.
+			// #note: assumption here that attachment cannot be circular
+			TArray<AActor*> AttachedActors;
+			Actor->GetAttachedActors(AttachedActors);
+			for (AActor* AttachedActor : AttachedActors)
+			{
+				UCameraComponent* const Comp = GetCameraComponentForLockedActor(AttachedActor);
+				if (Comp)
+				{
+					return Comp;
+				}
+			}
+		}
+
+		return nullptr;
+	}
+
 	/** 
 	 * Find the camera component that is driving this viewport, in the following order of preference:
 	 *		1. Matinee locked actor
@@ -436,23 +473,7 @@ public:
 			LockedActor = ActorLockedToCamera.Get();
 		}
 
-		UCameraComponent* CameraComponent = nullptr;
-		if (LockedActor)
-		{
-			TArray<UCameraComponent*> CamComps;
-			LockedActor->GetComponents<UCameraComponent>(CamComps);
-
-			for (UCameraComponent* Comp : CamComps)
-			{
-				if (Comp->bIsActive)
-				{
-					CameraComponent = Comp;
-					break;
-				}
-			}
-		}
-
-		return CameraComponent;
+		return GetCameraComponentForLockedActor(LockedActor);
 	}
 
 	/** 

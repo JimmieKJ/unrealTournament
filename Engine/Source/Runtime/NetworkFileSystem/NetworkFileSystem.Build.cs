@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 namespace UnrealBuildTool.Rules
 {
@@ -42,9 +42,11 @@ namespace UnrealBuildTool.Rules
 
             if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Mac)
             {
-                AddThirdPartyPrivateStaticDependencies(Target,"WebSockets");
+                AddEngineThirdPartyPrivateStaticDependencies(Target,"libWebSockets");
                 Definitions.Add("ENABLE_HTTP_FOR_NFS=1");
             }
-        }
+
+			PrecompileForTargets = PrecompileTargetsType.None;
+		}
 	}
 }

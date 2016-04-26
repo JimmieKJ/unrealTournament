@@ -1,7 +1,87 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+
+DECLARE_LOG_CATEGORY_EXTERN( LogProfilerService, Log, All );
+
+/**
+* Thread used to read, prepare and send files through the message bus.
+* Supports resending bad file chunks and basic synchronization between service and client.
+*/
+class FFileTransferRunnable : public FRunnable
+{
+	typedef TKeyValuePair<FArchive*, FMessageAddress> FReaderAndAddress;
+
+public:
+
+	/** Default constructor. */
+	FFileTransferRunnable( FMessageEndpointPtr& InMessageEndpoint );
+
+	/** Destructor. */
+	~FFileTransferRunnable();
+
+	// Begin FRunnable interface.
+	virtual bool Init();
+
+	virtual uint32 Run();
+
+	virtual void Stop()
+	{
+		StopTaskCounter.Increment();
+	}
+
+	virtual void Exit();
+	// End FRunnable interface
+
+	void EnqueueFileToSend( const FString& StatFilename, const FMessageAddress& RecipientAddress, const FGuid& ServiceInstanceId );
+
+	/** Enqueues a file chunk. */
+	void EnqueueFileChunkToSend( FProfilerServiceFileChunk* FileChunk, bool bTriggerWorkEvent = false );
+
+	/** Prepare the chunks to be sent through the message bus. */
+	void PrepareFileForSending( FProfilerServiceFileChunk*& FileChunk );
+
+	/** Removes file from the list of the active transfers, must be confirmed by the profiler client. */
+	void FinalizeFileSending( const FString& Filename );
+
+	/** Aborts file sending to the specified client, probably client disconnected or exited. */
+	void AbortFileSending( const FMessageAddress& Recipient );
+
+	/** Checks if there has been any stop requests. */
+	FORCEINLINE bool ShouldStop() const
+	{
+		return StopTaskCounter.GetValue() > 0;
+	}
+
+protected:
+	/** Deletes the file reader. */
+	void DeleteFileReader( FReaderAndAddress& ReaderAndAddress );
+
+	/** Reads the data from the archive and generates hash. */
+	void ReadAndSetHash( FProfilerServiceFileChunk* FileChunk, const FProfilerFileChunkHeader& FileChunkHeader, FArchive* Reader );
+
+	/** Thread that is running this task. */
+	FRunnableThread* Runnable;
+
+	/** Event used to signaling that work is available. */
+	FEvent* WorkEvent;
+
+	/** Holds the messaging endpoint. */
+	FMessageEndpointPtr& MessageEndpoint;
+
+	/** > 0 if we have been asked to abort work in progress at the next opportunity. */
+	FThreadSafeCounter StopTaskCounter;
+
+	/** Added on the main thread, processed on the async thread. */
+	TQueue<FProfilerServiceFileChunk*, EQueueMode::Mpsc> SendQueue;
+
+	/** Critical section used to synchronize. */
+	FCriticalSection SyncActiveTransfers;
+
+	/** Active transfers, stored as a filename -> reader and destination address. Assumes that filename is unique and never will be the same. */
+	TMap<FString, FReaderAndAddress> ActiveTransfers;
+};
 
 #if STATS
 
@@ -125,7 +205,7 @@ private:
 #endif // STATS
 
 	/** Thread used to read, prepare and send file chunks through the message bus. */
-	class FFileTransferRunnable* FileTransferRunnable;
+	FFileTransferRunnable* FileTransferRunnable;
 
 	/** Filename of last capture file. */
 	FString LastStatsFilename;

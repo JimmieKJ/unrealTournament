@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,6 +6,7 @@
 #include "TextureResource.h"
 #include "MaterialShared.h"
 #include "RenderResource.h"
+#include "Interfaces/Interface_AssetUserData.h"
 #include "Texture.generated.h"
 
 // This needs to be mirrored in EditorFactories.cpp.
@@ -339,7 +340,7 @@ struct FTexturePlatformData
 };
 
 UCLASS(abstract, MinimalAPI, BlueprintType)
-class UTexture : public UObject
+class UTexture : public UObject, public IInterface_AssetUserData
 {
 	GENERATED_UCLASS_BODY()
 
@@ -509,6 +510,11 @@ public:
 	UPROPERTY(transient)
 	uint32 bUseCinematicMipLevels:1;
 
+protected:
+	/** Array of user data stored with the asset */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Instanced, Category = Texture)
+	TArray<UAssetUserData*> AssetUserData;
+
 private:
 	/** Cached combined group and texture LOD bias to use.	*/
 	UPROPERTY(transient)
@@ -611,11 +617,21 @@ public:
 	 */
 	ENGINE_API void SerializeCookedPlatformData(class FArchive& Ar);
 
+	//~ Begin IInterface_AssetUserData Interface
+	ENGINE_API virtual void AddAssetUserData(UAssetUserData* InUserData) override;
+	ENGINE_API virtual void RemoveUserDataOfClass(TSubclassOf<UAssetUserData> InUserDataClass) override;
+	ENGINE_API virtual UAssetUserData* GetAssetUserDataOfClass(TSubclassOf<UAssetUserData> InUserDataClass) override;
+	ENGINE_API virtual const TArray<UAssetUserData*>* GetAssetUserDataArray() const override;
+	//~ End IInterface_AssetUserData Interface
+
 #if WITH_EDITOR
 	/**
 	 * Caches platform data for the texture.
+	 * 
+	 * @param bAsyncCache spawn a thread to cache the platform data 
+	 * @param bAllowAsyncBuild allow the building of the texture to happen on another thread !!!load BulkData and cache the Source mip data on the main thread before checking DDC!!!
 	 */
-	void CachePlatformData(bool bAsyncCache = false);
+	void CachePlatformData(bool bAsyncCache = false, bool bAllowAsyncBuild = false);
 
 	/**
 	 * Begins caching platform data in the background for the platform requested

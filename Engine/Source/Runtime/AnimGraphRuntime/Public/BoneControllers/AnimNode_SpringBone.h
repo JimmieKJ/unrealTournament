@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -92,6 +92,8 @@ public:
 	virtual void CacheBones(const FAnimationCacheBonesContext& Context) override;
 	virtual void UpdateInternal(const FAnimationUpdateContext& Context) override;
 	virtual void GatherDebugData(FNodeDebugData& DebugData) override;
+	virtual bool HasPreUpdate() const override { return true; }
+	virtual void PreUpdate(const UAnimInstance* InAnimInstance) override;
 	// End of FAnimNode_Base interface
 
 	// FAnimNode_SkeletalControlBase interface
@@ -103,6 +105,4 @@ private:
 	// FAnimNode_SkeletalControlBase interface
 	virtual void InitializeBoneReferences(const FBoneContainer& RequiredBones) override;
 	// End of FAnimNode_SkeletalControlBase interface
-
-	void HandleGameThreadPreUpdateEvent(const UAnimInstance* InAnimInstance);
 };

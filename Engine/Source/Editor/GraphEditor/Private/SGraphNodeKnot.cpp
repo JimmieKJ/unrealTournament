@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "GraphEditorCommon.h"
@@ -231,7 +231,7 @@ FReply SGraphPinKnot::OnPinMouseDown(const FGeometry& SenderGeometry, const FPoi
 {
 	if (MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
 	{
-		if (!GraphPinObj->bNotConnectable && IsEditable.Get())
+		if (!GraphPinObj->bNotConnectable && IsEditingEnabled())
 		{
 			if (MouseEvent.IsAltDown())
 			{

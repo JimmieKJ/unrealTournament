@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -17,6 +17,8 @@ namespace EHttpRequestStatus
 		Processing,
 		/** Finished but failed */
 		Failed,
+		/** Failed because it was unable to connect (safe to retry) */
+		Failed_ConnectionError,
 		/** Finished and was successful */
 		Succeeded
 	};
@@ -37,6 +39,10 @@ namespace EHttpRequestStatus
 			case Failed:
 			{
 				return TEXT("Failed");
+			}
+			case Failed_ConnectionError:
+			{
+				return TEXT("ConnectionError");
 			}
 			case Succeeded:
 			{
@@ -119,6 +125,8 @@ public:
 
 	/**
 	 * Sets optional header info.
+	 * SetHeader for a given HeaderName will overwrite any previous values
+	 * Use AppendToHeader to append more values for the same header
 	 * Content-Length is the only header set for you.
 	 * Required headers depends on the request itself.
 	 * Eg. "multipart/form-data" needed for a form post
@@ -127,6 +135,19 @@ public:
 	 * @param HeaderValue - Value of the header
 	 */
 	virtual void SetHeader(const FString& HeaderName, const FString& HeaderValue) = 0;
+
+	/**
+	* Appends to the value already set in the header. 
+	* If there is already content in that header, a comma delimiter is used.
+	* If the header is as of yet unset, the result is the same as calling SetHeader
+	* Content-Length is the only header set for you.
+	* Also see: SetHeader()
+	*
+	* @param HeaderName - Name of the header (ie, Content-Type)
+	* @param AdditionalHeaderValue - Value to add to the existing contents of the specified header.
+	*	comma is inserted between old value and new value, per HTTP specifications
+	*/
+	virtual void AppendToHeader(const FString& HeaderName, const FString& AdditionalHeaderValue) = 0;
 
 	/**
 	 * Called to begin processing the request.

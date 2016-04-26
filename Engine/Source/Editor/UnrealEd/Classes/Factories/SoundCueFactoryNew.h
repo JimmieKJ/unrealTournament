@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 //~=============================================================================
 // SoundCueFactoryNew
@@ -20,6 +20,10 @@ class USoundCueFactoryNew : public UFactory
 	/** An initial sound wave to place in the newly created cue */
 	UPROPERTY()
 	class USoundWave* InitialSoundWave;
+
+	/** An initial dialogue wave to place in the newly created cue */
+	UPROPERTY()
+	class UDialogueWave* InitialDialogueWave;
 };
 
 

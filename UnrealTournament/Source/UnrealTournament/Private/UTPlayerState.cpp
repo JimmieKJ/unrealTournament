@@ -42,7 +42,6 @@ static inline ELoadFlags GetCosmeticLoadFlags()
 AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	bWaitingPlayer = false;
 	bReadyToPlay = false;
 	bPendingTeamSwitch = false;
 	bCaster = false;
@@ -73,8 +72,8 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	bAnnounceWeaponReward = false;
 	ReadyMode = 0;
 	CurrentLoadoutPackTag = NAME_None;
-	bSpawnCostLives = false;
 	RespawnWaitTime = 0.f;
+	bIsPowerupSelectWindowOpen = false;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -82,23 +81,25 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AUTPlayerState, CarriedObject);
-	DOREPLIFETIME(AUTPlayerState, bWaitingPlayer);
 	DOREPLIFETIME(AUTPlayerState, bReadyToPlay);
 	DOREPLIFETIME(AUTPlayerState, bPendingTeamSwitch);
 	DOREPLIFETIME(AUTPlayerState, RespawnWaitTime);
 	DOREPLIFETIME(AUTPlayerState, bOutOfLives);
 	DOREPLIFETIME(AUTPlayerState, RemainingLives);
 	DOREPLIFETIME(AUTPlayerState, Kills);
+	DOREPLIFETIME(AUTPlayerState, RoundKills);
 	DOREPLIFETIME(AUTPlayerState, Deaths);
 	DOREPLIFETIME(AUTPlayerState, Team);
 	DOREPLIFETIME(AUTPlayerState, FlagCaptures);
 	DOREPLIFETIME(AUTPlayerState, FlagReturns);
 	DOREPLIFETIME(AUTPlayerState, Assists);
 	DOREPLIFETIME(AUTPlayerState, LastKillerPlayerState);
-	DOREPLIFETIME(AUTPlayerState, bHasHighScore);
 	DOREPLIFETIME(AUTPlayerState, ChatDestination);
 	DOREPLIFETIME(AUTPlayerState, CountryFlag);
 	DOREPLIFETIME(AUTPlayerState, Avatar);
+	DOREPLIFETIME(AUTPlayerState, RemainingBoosts);
+	DOREPLIFETIME(AUTPlayerState, BoostClass);
+	DOREPLIFETIME(AUTPlayerState, BoostRechargeTimeRemaining);
 	DOREPLIFETIME(AUTPlayerState, ShowdownRank);
 	DOREPLIFETIME(AUTPlayerState, RankedShowdownRank);
 	DOREPLIFETIME(AUTPlayerState, DuelRank);
@@ -154,6 +155,13 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, ReadyMode);
 
 	DOREPLIFETIME(AUTPlayerState, CurrentLoadoutPackTag);
+
+	DOREPLIFETIME_CONDITION(AUTPlayerState, PrimarySpawnInventory, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTPlayerState, SecondarySpawnInventory, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTPlayerState, AllowedLoadoutItemTags, COND_OwnerOnly);
+
+	DOREPLIFETIME_CONDITION(AUTPlayerState, CriticalObject, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTPlayerState, UnlockList, COND_OwnerOnly);
 }
 
 void AUTPlayerState::Destroyed()
@@ -343,13 +351,6 @@ void AUTPlayerState::NotifyTeamChanged_Implementation()
 	}
 }
 
-void AUTPlayerState::SetWaitingPlayer(bool B)
-{
-	bIsSpectator = B;
-	bWaitingPlayer = B;
-	ForceNetUpdate();
-}
-
 void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bEnemyKill, AUTPlayerState* VictimPS)
 {
 	if (bEnemyKill)
@@ -467,6 +468,7 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 
 		LastKillTime = GetWorld()->TimeSeconds;
 		Kills++;
+		RoundKills++;
 
 		if (bAnnounceWeaponSpree)
 		{
@@ -557,7 +559,7 @@ void AUTPlayerState::AdjustScore(int32 ScoreAdjustment)
 	ForceNetUpdate();
 }
 
-void AUTPlayerState::OnDeathsReceived()
+void AUTPlayerState::OnRespawnWaitReceived()
 {
 	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
 	if (UTGameState != NULL)
@@ -565,6 +567,11 @@ void AUTPlayerState::OnDeathsReceived()
 		RespawnTime = UTGameState->GetRespawnWaitTimeFor(this);
 		ForceRespawnTime = RespawnTime + UTGameState->ForceRespawnTime;
 	}
+}
+
+void AUTPlayerState::OnDeathsReceived()
+{
+	OnRespawnWaitReceived();
 }
 
 void AUTPlayerState::SetOutOfLives(bool bNewValue)
@@ -594,6 +601,26 @@ void AUTPlayerState::OnOutOfLives()
 	}
 }
 
+void AUTPlayerState::SetRemainingBoosts(uint8 NewRemainingBoosts)
+{
+	if (Role == ROLE_Authority)
+	{
+		RemainingBoosts = NewRemainingBoosts;
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS != NULL && RemainingBoosts < GS->BoostRechargeMaxCharges)
+		{
+			if (BoostRechargeTimeRemaining <= 0.0f)
+			{
+				BoostRechargeTimeRemaining = GS->BoostRechargeTime;
+			}
+		}
+		else
+		{
+			BoostRechargeTimeRemaining = 0.0f;
+		}
+	}
+}
+
 void AUTPlayerState::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -607,6 +634,30 @@ void AUTPlayerState::Tick(float DeltaTime)
 	if (ForceRespawnTime > 0.0f)
 	{
 		ForceRespawnTime -= DeltaTime;
+	}
+
+	if (BoostRechargeTimeRemaining > 0.0f)
+	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS != NULL && GS->IsMatchInProgress())
+		{
+			bool bIsDead = false;
+			if (Cast<AController>(GetOwner()) != NULL)
+			{
+				bIsDead = ((AController*)GetOwner())->GetPawn() == NULL;
+			}
+			else
+			{
+				bIsDead = GetUTCharacter() == NULL;
+			}
+
+			BoostRechargeTimeRemaining -= DeltaTime * (bIsDead ? GS->BoostRechargeRateDead : GS->BoostRechargeRateAlive);
+			if (BoostRechargeTimeRemaining <= 0.0f)
+			{
+				BoostRechargeTimeRemaining += GS->BoostRechargeTime;
+				SetRemainingBoosts(RemainingBoosts + 1); // note: will set BoostRechargeTimeRemaining to zero if we're no longer allowed to recharge
+			}
+		}
 	}
 }
 
@@ -669,6 +720,14 @@ void AUTPlayerState::UpdateWeaponSkinPrefFromProfile(TSubclassOf<AUTWeapon> Weap
 
 void AUTPlayerState::ServerReceiveWeaponSkin_Implementation(const FString& NewWeaponSkin)
 {
+#if WITH_EDITOR
+	// Intentionally break this in network games until hitches can get fixed
+	if (NM_Standalone != GetNetMode())
+	{
+		return;
+	}
+#endif
+
 	if (!bOnlySpectator)
 	{
 		UUTWeaponSkin* WeaponSkin = LoadObject<UUTWeaponSkin>(NULL, *NewWeaponSkin, NULL, GetCosmeticLoadFlags(), NULL);
@@ -798,6 +857,11 @@ void AUTPlayerState::ServerReceiveHatClass_Implementation(const FString& NewHatC
 			HatClass = nullptr;
 		}
 
+		if (NewHatClass.IsEmpty())
+		{
+			HatClass = nullptr;
+		}
+
 		if (HatClass != nullptr)
 		{
 			ValidateEntitlements();
@@ -821,6 +885,11 @@ void AUTPlayerState::ServerReceiveLeaderHatClass_Implementation(const FString& N
 			LeaderHatClass = LoadClass<AUTHatLeader>(NULL, *NewLeaderHatClass, NULL, GetCosmeticLoadFlags(), NULL);
 		}
 
+		if (NewLeaderHatClass.IsEmpty())
+		{
+			LeaderHatClass = nullptr;
+		}
+
 		if (LeaderHatClass != nullptr)
 		{
 			ValidateEntitlements();
@@ -840,6 +909,11 @@ void AUTPlayerState::ServerReceiveEyewearClass_Implementation(const FString& New
 		if (!NewEyewearClass.IsEmpty())
 		{
 			EyewearClass = LoadClass<AUTEyewear>(NULL, *NewEyewearClass, NULL, GetCosmeticLoadFlags(), NULL);
+		}
+
+		if (NewEyewearClass.IsEmpty())
+		{
+			EyewearClass = nullptr;
 		}
 
 		OnRepEyewear();
@@ -950,6 +1024,7 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->PartySize = PartySize;
 		PS->StatsID = StatsID;
 		PS->Kills = Kills;
+		PS->RoundKills = RoundKills;
 		PS->DamageDone = DamageDone;
 		PS->Deaths = Deaths;
 		PS->Assists = Assists;
@@ -964,6 +1039,8 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->TauntClass = TauntClass;
 		PS->Taunt2Class = Taunt2Class;
 		PS->bSkipELO = bSkipELO;
+		PS->RemainingBoosts = RemainingBoosts;
+		PS->BoostRechargeTimeRemaining = BoostRechargeTimeRemaining;
 		if (PS->StatManager)
 		{
 			PS->StatManager->InitializeManager(PS);
@@ -1789,6 +1866,24 @@ FText AUTPlayerState::LeagueTierToText(int32 Tier)
 	return NSLOCTEXT("Generic", "BronzeLeague", "Bronze");
 }
 
+FString AUTPlayerState::LeagueTierToBrushName(int32 Tier)
+{
+	switch (Tier)
+	{
+	case 5:
+	case 4:
+		return L"UT.RankedMaster";
+	case 3:
+		return L"UT.RankedPlatinum";
+	case 2:
+		return L"UT.RankedGold";
+	case 1:
+		return L"UT.RankedSilver";
+	}
+
+	return L"UT.RankedBronze";
+}
+
 TSharedRef<SWidget> AUTPlayerState::BuildLeague(AUTBaseGameMode* DefaultGame, FText LeagueName)
 {
 	APlayerController* PC = Cast<APlayerController>(GetOwner());
@@ -1930,13 +2025,11 @@ TSharedRef<SWidget> AUTPlayerState::BuildLeagueInfo()
 		}
 		else
 		{
-			FText PlacementText = FText::Format(NSLOCTEXT("Generic", "3v3ShowdownPlacement", "{0} {1}"), LeagueTierToText(LP->GetShowdownLeagueTier()), FText::AsNumber(LP->GetShowdownLeagueDivision() + 1));
-
 			VBox->AddSlot()
 			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 			.AutoHeight()
 			[
-				BuildLeagueDataRow(NSLOCTEXT("Generic", "3v3ShowdownPlacementLabel", "Division :"), PlacementText)
+				BuildLeagueDivision(LP->GetShowdownLeagueTier(), LP->GetShowdownLeagueDivision())
 			];
 			
 			VBox->AddSlot()
@@ -1979,6 +2072,71 @@ TSharedRef<SWidget> AUTPlayerState::BuildLeagueInfo()
 		}
 	}
 	return VBox;
+}
+
+TSharedRef<SWidget> AUTPlayerState::BuildLeagueDivision(int32 Tier, int32 Division)
+{
+	TSharedRef<SHorizontalBox> HBox = SNew(SHorizontalBox);
+	
+	HBox->AddSlot()
+	.HAlign(HAlign_Left)
+	.VAlign(VAlign_Center)
+	.AutoWidth()
+	[
+		SNew(SBox)
+		.WidthOverride(300)
+		[
+			SNew(STextBlock)
+			.Text(NSLOCTEXT("Generic", "3v3ShowdownPlacementLabel", "Division :"))
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+			.ColorAndOpacity(FLinearColor::Gray)
+		]
+	];
+	
+	FText PlacementText = FText::Format(NSLOCTEXT("Generic", "3v3ShowdownPlacement", "{0} {1}"), LeagueTierToText(Tier), FText::AsNumber(Division + 1));
+
+	HBox->AddSlot()
+	.HAlign(HAlign_Left)
+	.VAlign(VAlign_Center)
+	.AutoWidth()
+	[
+		SNew(SVerticalBox)
+		+ SVerticalBox::Slot()
+		.HAlign(HAlign_Center)
+		.AutoHeight()
+		[
+			SNew(SOverlay)
+			+ SOverlay::Slot()
+			[
+				SNew(SImage)
+				.Image(SUTStyle::Get().GetBrush(*LeagueTierToBrushName(Tier)))
+			]
+			+ SOverlay::Slot()
+			[
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
+				.MaxHeight(128)
+				[
+					SNew(STextBlock)
+					.Text(FText::AsNumber(Division + 1))
+					.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Large.Bold")
+					.ColorAndOpacity(FLinearColor::White)
+				]
+			]
+		]
+		+SVerticalBox::Slot()
+		.HAlign(HAlign_Center)
+		[
+			SNew(STextBlock)
+			.Text(PlacementText)
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+			.ColorAndOpacity(FLinearColor::Gray)
+		]
+	];
+
+	return HBox;
 }
 
 TSharedRef<SWidget> AUTPlayerState::BuildLeagueDataRow(FText Label, FText Data)
@@ -2395,7 +2553,6 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 		BuildStatsInfo()
 	]);
 
-#if 0
 	// Would be great if this worked on remote players
 	if (LP)
 	{
@@ -2408,7 +2565,6 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 			BuildLeagueInfo()
 		]);
 	}
-#endif
 }
 
 FText AUTPlayerState::GetTrainingLevelText()
@@ -2638,12 +2794,13 @@ int32 AUTPlayerState::CountBanVotes()
 
 void AUTPlayerState::OnRepSpecialPlayer()
 {
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetWorld()->GetFirstPlayerController());
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
 		AUTCharacter* Character = Cast<AUTCharacter>(*It);
 		if (Character != NULL && Character->PlayerState == this && !Character->bTearOff)
 		{
-			Character->UpdateTacComMesh(bSpecialPlayer);
+			UpdateSpecialTacComFor(Character, UTPC);
 		}
 	}
 }
@@ -2656,11 +2813,15 @@ void AUTPlayerState::OnRepSpecialTeamPlayer()
 		AUTCharacter* Character = Cast<AUTCharacter>(*It);
 		if (Character != NULL && Character->PlayerState == this && !Character->bTearOff)
 		{
-			Character->UpdateTacComMesh(bSpecialTeamPlayer && UTPC->GetTeamNum() == GetTeamNum());
+			UpdateSpecialTacComFor(Character, UTPC);
 		}
 	}
 }
 
+void AUTPlayerState::UpdateSpecialTacComFor(AUTCharacter* Character, AUTPlayerController* UTPC)
+{
+	Character->UpdateTacComMesh(bSpecialPlayer || (bSpecialTeamPlayer && UTPC && UTPC->GetTeamNum() == GetTeamNum()));
+}
 
 float AUTPlayerState::GetStatsValue(FName StatsName) const
 {
@@ -2982,4 +3143,85 @@ void AUTPlayerState::ServerSetLoadoutPack_Implementation(const FName& NewLoadout
 			}
 		}
 	}
+}
+
+
+bool AUTPlayerState::ServerUnlockItem_Validate(FName ItemTag, bool bSecondary) { return true; }
+void AUTPlayerState::ServerUnlockItem_Implementation(FName ItemTag, bool bSecondary)
+{
+	if (UnlockList.Find(ItemTag) == INDEX_NONE)
+	{
+		AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+		if (UTGameState)
+		{
+			AUTReplicatedLoadoutInfo* UnlockLoadout = UTGameState->FindLoadoutItem(ItemTag);
+			if (UnlockLoadout)
+			{
+				AdjustCurrency(UnlockLoadout->CurrentCost * -1);
+				UnlockList.Add(ItemTag);
+				ServerSelectLoadout(ItemTag, bSecondary);
+				if (GetWorld()->GetNetMode() != NM_DedicatedServer)
+				{
+					OnUnlockList();
+				}
+			}
+		}
+	}
+
+	for (int32 i=0; i < UnlockList.Num() ; i++)
+	{
+		UE_LOG(UT,Log,TEXT("Unlock: %s"), *UnlockList[i].ToString());
+	}
+}
+
+bool AUTPlayerState::ServerSelectLoadout_Validate(FName ItemTag, bool bSecondary) { return true; }
+void AUTPlayerState::ServerSelectLoadout_Implementation(FName ItemTag, bool bSecondary)
+{
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState)
+	{
+		AUTReplicatedLoadoutInfo* RepLoadout = UTGameState->FindLoadoutItem(ItemTag);
+		if (RepLoadout)
+		{
+			if (bSecondary)
+			{
+				SecondarySpawnInventory = RepLoadout;
+			}
+			else
+			{
+				PrimarySpawnInventory = RepLoadout;
+			}
+		}
+	}
+
+}
+
+void AUTPlayerState::OnUnlockList()
+{
+	// Need a better way but until I'm sure this is what we want this will do.
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState)
+	{
+		for (int32 j=0; j < UTGameState->AvailableLoadout.Num();j++)
+		{
+			UTGameState->AvailableLoadout[j]->bUnlocked = false;
+		}
+
+		for (int32 i=0; i < UnlockList.Num(); i++)
+		{
+			for (int32 k = 0; k < UTGameState->AvailableLoadout.Num(); k++)
+			{
+				if (UTGameState->AvailableLoadout[k]->ItemTag == UnlockList[i])
+				{
+					UTGameState->AvailableLoadout[k]->bUnlocked = true;
+				}
+			}
+		}
+	}
+}
+
+bool AUTPlayerState::ServerSetBoostItem_Validate(TSubclassOf<class AUTInventory> PowerupClass) { return true; }
+void AUTPlayerState::ServerSetBoostItem_Implementation(TSubclassOf<class AUTInventory> PowerupClass)
+{
+	BoostClass = PowerupClass;
 }

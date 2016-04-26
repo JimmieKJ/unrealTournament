@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "Paper2DPrivatePCH.h"
 #include "GroupedSpriteSceneProxy.h"
@@ -121,5 +121,5 @@ void FGroupedSpriteSceneProxy::SetOneBodySetup_RenderThread(int32 InstanceIndex,
 void FGroupedSpriteSceneProxy::SetAllBodySetups_RenderThread(TArray<TWeakObjectPtr<UBodySetup>> Setups)
 {
 	check(Setups.Num() == NumInstances);
-	BodySetups = Setups;
+	BodySetups = MoveTemp(Setups);
 }

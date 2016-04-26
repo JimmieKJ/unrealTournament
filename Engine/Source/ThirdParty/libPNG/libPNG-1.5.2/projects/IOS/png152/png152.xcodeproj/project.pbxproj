@@ -7,6 +7,23 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0390A99B1BAB048300D36102 /* pngerror.c in Sources */ = {isa = PBXBuildFile; fileRef = 7C7F335515B9F76A00A899EC /* pngerror.c */; };
+		0390A99C1BAB048300D36102 /* pngget.c in Sources */ = {isa = PBXBuildFile; fileRef = 7C7F335615B9F76A00A899EC /* pngget.c */; };
+		0390A99D1BAB048300D36102 /* pngmem.c in Sources */ = {isa = PBXBuildFile; fileRef = 7C7F335715B9F76A00A899EC /* pngmem.c */; };
+		0390A99E1BAB048300D36102 /* pngpread.c in Sources */ = {isa = PBXBuildFile; fileRef = 7C7F335815B9F76A00A899EC /* pngpread.c */; };
+		0390A99F1BAB048300D36102 /* pngread.c in Sources */ = {isa = PBXBuildFile; fileRef = 7C7F335915B9F76A00A899EC /* pngread.c */; };
+		0390A9A01BAB048300D36102 /* pngrio.c in Sources */ = {isa = PBXBuildFile; fileRef = 7C7F335A15B9F76A00A899EC /* pngrio.c */; };
+		0390A9A11BAB048300D36102 /* pngrtran.c in Sources */ = {isa = PBXBuildFile; fileRef = 7C7F335B15B9F76A00A899EC /* pngrtran.c */; };
+		0390A9A21BAB048300D36102 /* pngrutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 7C7F335C15B9F76A00A899EC /* pngrutil.c */; };
+		0390A9A31BAB048300D36102 /* pngset.c in Sources */ = {isa = PBXBuildFile; fileRef = 7C7F335D15B9F76A00A899EC /* pngset.c */; };
+		0390A9A41BAB048300D36102 /* pngtest.c in Sources */ = {isa = PBXBuildFile; fileRef = 7C7F335E15B9F76A00A899EC /* pngtest.c */; };
+		0390A9A51BAB048300D36102 /* pngtrans.c in Sources */ = {isa = PBXBuildFile; fileRef = 7C7F335F15B9F76A00A899EC /* pngtrans.c */; };
+		0390A9A61BAB048300D36102 /* pngvalid.c in Sources */ = {isa = PBXBuildFile; fileRef = 7C7F336015B9F76A00A899EC /* pngvalid.c */; };
+		0390A9A71BAB048300D36102 /* pngwio.c in Sources */ = {isa = PBXBuildFile; fileRef = 7C7F336115B9F76A00A899EC /* pngwio.c */; };
+		0390A9A81BAB048300D36102 /* pngwrite.c in Sources */ = {isa = PBXBuildFile; fileRef = 7C7F336215B9F76A00A899EC /* pngwrite.c */; };
+		0390A9A91BAB048300D36102 /* pngwtran.c in Sources */ = {isa = PBXBuildFile; fileRef = 7C7F336315B9F76A00A899EC /* pngwtran.c */; };
+		0390A9AA1BAB048300D36102 /* pngwutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 7C7F336415B9F76A00A899EC /* pngwutil.c */; };
+		0390A9AB1BAB048300D36102 /* png.c in Sources */ = {isa = PBXBuildFile; fileRef = 7C7F335315B9F75400A899EC /* png.c */; };
 		7C7F334715B9F74300A899EC /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7C7F334615B9F74300A899EC /* Foundation.framework */; };
 		7C7F335415B9F75400A899EC /* png.c in Sources */ = {isa = PBXBuildFile; fileRef = 7C7F335315B9F75400A899EC /* png.c */; };
 		7C7F336515B9F76A00A899EC /* pngerror.c in Sources */ = {isa = PBXBuildFile; fileRef = 7C7F335515B9F76A00A899EC /* pngerror.c */; };
@@ -27,7 +44,20 @@
 		7C7F337415B9F76A00A899EC /* pngwutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 7C7F336415B9F76A00A899EC /* pngwutil.c */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		0390A9901BAB032400D36102 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "include/$(PRODUCT_NAME)";
+			dstSubfolderSpec = 16;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		0390A9921BAB032400D36102 /* libpng152_tv.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libpng152_tv.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		7C7F334315B9F74300A899EC /* libpng152.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libpng152.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		7C7F334615B9F74300A899EC /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		7C7F335315B9F75400A899EC /* png.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = png.c; path = ../../../../png.c; sourceTree = "<group>"; };
@@ -50,6 +80,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		0390A98F1BAB032400D36102 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		7C7F334015B9F74300A899EC /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -61,10 +98,18 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		0390A9931BAB032400D36102 /* png152_tv */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = png152_tv;
+			sourceTree = "<group>";
+		};
 		7C7F333815B9F74300A899EC = {
 			isa = PBXGroup;
 			children = (
 				7C7F334815B9F74300A899EC /* png152 */,
+				0390A9931BAB032400D36102 /* png152_tv */,
 				7C7F334515B9F74300A899EC /* Frameworks */,
 				7C7F334415B9F74300A899EC /* Products */,
 			);
@@ -74,6 +119,7 @@
 			isa = PBXGroup;
 			children = (
 				7C7F334315B9F74300A899EC /* libpng152.a */,
+				0390A9921BAB032400D36102 /* libpng152_tv.a */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -123,6 +169,23 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		0390A9911BAB032400D36102 /* png152_tv */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0390A99A1BAB032400D36102 /* Build configuration list for PBXNativeTarget "png152_tv" */;
+			buildPhases = (
+				0390A98E1BAB032400D36102 /* Sources */,
+				0390A98F1BAB032400D36102 /* Frameworks */,
+				0390A9901BAB032400D36102 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = png152_tv;
+			productName = png152_tv;
+			productReference = 0390A9921BAB032400D36102 /* libpng152_tv.a */;
+			productType = "com.apple.product-type.library.static";
+		};
 		7C7F334215B9F74300A899EC /* png152 */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 7C7F335015B9F74300A899EC /* Build configuration list for PBXNativeTarget "png152" */;
@@ -147,6 +210,11 @@
 			isa = PBXProject;
 			attributes = {
 				LastUpgradeCheck = 0430;
+				TargetAttributes = {
+					0390A9911BAB032400D36102 = {
+						CreatedOnToolsVersion = 7.1;
+					};
+				};
 			};
 			buildConfigurationList = 7C7F333D15B9F74300A899EC /* Build configuration list for PBXProject "png152" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -161,11 +229,36 @@
 			projectRoot = "";
 			targets = (
 				7C7F334215B9F74300A899EC /* png152 */,
+				0390A9911BAB032400D36102 /* png152_tv */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXSourcesBuildPhase section */
+		0390A98E1BAB032400D36102 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0390A9A61BAB048300D36102 /* pngvalid.c in Sources */,
+				0390A9A51BAB048300D36102 /* pngtrans.c in Sources */,
+				0390A9A21BAB048300D36102 /* pngrutil.c in Sources */,
+				0390A9A81BAB048300D36102 /* pngwrite.c in Sources */,
+				0390A99E1BAB048300D36102 /* pngpread.c in Sources */,
+				0390A9AA1BAB048300D36102 /* pngwutil.c in Sources */,
+				0390A9A31BAB048300D36102 /* pngset.c in Sources */,
+				0390A9A71BAB048300D36102 /* pngwio.c in Sources */,
+				0390A99F1BAB048300D36102 /* pngread.c in Sources */,
+				0390A9AB1BAB048300D36102 /* png.c in Sources */,
+				0390A9A01BAB048300D36102 /* pngrio.c in Sources */,
+				0390A9A41BAB048300D36102 /* pngtest.c in Sources */,
+				0390A9A11BAB048300D36102 /* pngrtran.c in Sources */,
+				0390A99D1BAB048300D36102 /* pngmem.c in Sources */,
+				0390A99C1BAB048300D36102 /* pngget.c in Sources */,
+				0390A9A91BAB048300D36102 /* pngwtran.c in Sources */,
+				0390A99B1BAB048300D36102 /* pngerror.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		7C7F333F15B9F74300A899EC /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -193,6 +286,75 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
+		0390A9981BAB032400D36102 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = NO;
+				OTHER_LDFLAGS = "-ObjC";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = appletvos;
+				SKIP_INSTALL = YES;
+				TVOS_DEPLOYMENT_TARGET = 9.0;
+			};
+			name = Debug;
+		};
+		0390A9991BAB032400D36102 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				ONLY_ACTIVE_ARCH = NO;
+				OTHER_LDFLAGS = "-ObjC";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = appletvos;
+				SKIP_INSTALL = YES;
+				TVOS_DEPLOYMENT_TARGET = 9.0;
+			};
+			name = Release;
+		};
 		7C7F334E15B9F74300A899EC /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -262,6 +424,14 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		0390A99A1BAB032400D36102 /* Build configuration list for PBXNativeTarget "png152_tv" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0390A9981BAB032400D36102 /* Debug */,
+				0390A9991BAB032400D36102 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+		};
 		7C7F333D15B9F74300A899EC /* Build configuration list for PBXProject "png152" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

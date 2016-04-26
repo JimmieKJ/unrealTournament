@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -200,9 +200,9 @@ struct FSlotEvaluationPose
 	UPROPERTY()
 	float Weight;
 
-	/** Pose */
+	/*** ATTENTION *****/
+	/* These Pose/Curve is stack allocator. You should not use it outside of stack. */
 	FCompactPose Pose;
-	/** Curve */
 	FBlendedCurve Curve;
 
 	FSlotEvaluationPose()
@@ -298,10 +298,18 @@ struct FNativeStateBinding
 	/** Delegate to use when checking transition */
 	FOnGraphStateChanged NativeStateDelegate;
 
-	FNativeStateBinding(const FName& InMachineName, const FName& InStateName, const FOnGraphStateChanged& InNativeStateDelegate)
+#if WITH_EDITORONLY_DATA
+	/** Name of this binding */
+	FName BindingName;
+#endif
+
+	FNativeStateBinding(const FName& InMachineName, const FName& InStateName, const FOnGraphStateChanged& InNativeStateDelegate, const FName& InBindingName = NAME_None)
 		: MachineName(InMachineName)
 		, StateName(InStateName)
 		, NativeStateDelegate(InNativeStateDelegate)
+#if WITH_EDITORONLY_DATA
+		, BindingName(InBindingName)
+#endif
 	{
 	}
 };
@@ -593,9 +601,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Animation")
 	void Montage_Stop(float InBlendOutTime, UAnimMontage * Montage = NULL);
 
-	/** Pauses the animation montage. If reference is NULL, it will stop ALL active montages. */
+	/** Pauses the animation montage. If reference is NULL, it will pause ALL active montages. */
 	UFUNCTION(BlueprintCallable, Category = "Animation")
 	void Montage_Pause(UAnimMontage * Montage = NULL);
+
+	/** Resumes a paused animation montage. If reference is NULL, it will resume ALL active montages. */
+	UFUNCTION(BlueprintCallable, Category = "Animation")
+	void Montage_Resume(UAnimMontage* Montage);
 
 	/** Makes a montage jump to a named section. If Montage reference is NULL, it will do that to all active montages. */
 	UFUNCTION(BlueprintCallable, Category="Animation")
@@ -693,6 +705,9 @@ public:
 	/** Get Active FAnimMontageInstance for given Montage asset. Will return NULL if Montage is not currently Active. */
 	FAnimMontageInstance * GetActiveInstanceForMontage(UAnimMontage const & Montage) const;
 
+	/** Get the FAnimMontageInstance currently running that matches this ID.  Will return NULL if no instance is found. */
+	FAnimMontageInstance * GetMontageInstanceForID(int32 MontageInstanceID);
+
 	/** AnimMontage instances that are running currently
 	* - only one is primarily active per group, and the other ones are blending out
 	*/
@@ -703,6 +718,7 @@ public:
 	TArray<FMontageEvaluationState> MontageEvaluationData;
 
 	virtual void OnMontageInstanceStopped(FAnimMontageInstance & StoppedMontageInstance);
+	void ClearMontageInstanceReferences(FAnimMontageInstance& InMontageInstance);
 
 protected:
 	/** Map between Active Montages and their FAnimMontageInstance */
@@ -1003,7 +1019,7 @@ public:
 	bool ParallelCanEvaluate(const USkeletalMesh* InSkeletalMesh) const;
 
 	/** Perform evaluation. Can be called from worker threads. */
-	void ParallelEvaluateAnimation(bool bForceRefPose, const USkeletalMesh* InSkeletalMesh, TArray<FTransform>& OutLocalAtoms, TArray<FActiveVertexAnim>& OutVertexAnims, FBlendedCurve& OutCurve);
+	void ParallelEvaluateAnimation(bool bForceRefPose, const USkeletalMesh* InSkeletalMesh, TArray<FTransform>& OutLocalAtoms, FBlendedHeapCurve& OutCurve);
 
 	void PostEvaluateAnimation();
 	void UninitializeAnimation();
@@ -1090,7 +1106,10 @@ private:
 
 public: 
 	/** Update all internal curves from Blended Curve */
-	void UpdateCurves(const FBlendedCurve& InCurves);
+	void UpdateCurves(const FBlendedHeapCurve& InCurves);
+
+	/** Refresh currently existing curves */
+	void RefreshCurves(USkeletalMeshComponent* Component);
 
 	/** Check whether we have active morph target curves */
 	bool HasMorphTargetCurves() const;
@@ -1169,11 +1188,8 @@ public:
 	/** Add curve float data using a curve Uid, the name of the curve will be resolved from the skeleton **/
 	void AddCurveValue(const USkeleton::AnimCurveUID Uid, float Value, int32 CurveTypeFlags);
 
-	/** Pass-thru function to proxy - only call on the game thread */
-	void UpdateMorphTargetCurves(const TMap<FName, float>& InMorphTargetCurves);
-
-	/** Pass-thru function to proxy - only call on the game thread */
-	void UpdateComponentsMaterialParameters(UPrimitiveComponent* Component);
+	/** Given a machine and state index, record a state weight for this frame */
+	void RecordStateWeight(const int32& InMachineClassIndex, const int32& InStateIndex, const float& InStateWeight);
 
 protected:
 	/** 
@@ -1195,12 +1211,35 @@ public:
 	/** Get current accumulated root motion, removing it from the AnimInstance in the process */
 	FRootMotionMovementParams ConsumeExtractedRootMotion(float Alpha);
 
-	/** Wrapper around UpdateActiveVertexAnims that can use vertex anims internal to the proxy */
-	TArray<FActiveVertexAnim> UpdateActiveVertexAnims(const USkeletalMesh* SkeletalMesh);
+	/**  
+	 * Queue blended root motion. This is used to blend in root motion transforms according to 
+	 * the correctly-updated slot weight (after the animation graph has been updated).
+	 */
+	void QueueRootMotionBlend(const FTransform& RootTransform, const FName& SlotName, float Weight);
 
 private:
 	/** Active Root Motion Montage Instance, if any. */
 	struct FAnimMontageInstance * RootMotionMontageInstance;
+
+	/** Temporarily queued root motion blend */
+	struct FQueuedRootMotionBlend
+	{
+		FQueuedRootMotionBlend(const FTransform& InTransform, const FName& InSlotName, float InWeight)
+			: Transform(InTransform)
+			, SlotName(InSlotName)
+			, Weight(InWeight)
+		{}
+
+		FTransform Transform;
+		FName SlotName;
+		float Weight;
+	};
+
+	/** 
+	 * Blend queue for blended root motion. This is used to blend in root motion transforms according to 
+	 * the correctly-updated slot weight (after the animation graph has been updated).
+	 */
+	TArray<FQueuedRootMotionBlend> RootMotionBlendQueue;
 
 private:
 	// update montage
@@ -1304,7 +1343,7 @@ protected:
 
 	// TODO: Remove after deprecation (4.11)
 	friend struct FAnimationBaseContext;
-
+	
 protected:
 	/** Proxy object, nothing should access this from an externally-callable API as it is used as a scratch area on worker threads */
 	mutable FAnimInstanceProxy* AnimInstanceProxy;

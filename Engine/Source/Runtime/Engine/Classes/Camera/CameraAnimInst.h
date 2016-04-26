@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /**
  *	A CameraAnimInst is an active instance of a CameraAnim.
@@ -29,29 +29,28 @@ public:
 	/** Current time for the animation */
 	float CurTime;
 
+	/** True if the animation has finished, false otherwise. */
+	uint32 bFinished : 1;
+
 protected:
+
+	/** If true, this anim inst will automatically stop itself when it finishes, otherwise, it will wait for an explicit Stop() call. */
+	uint32 bStopAutomatically : 1;
+
 	/** True if the animation should loop, false otherwise. */
 	uint32 bLooping:1;
 
-public:
-	/** True if the animation has finished, false otherwise. */
-	uint32 bFinished:1;
+	/** True if currently blending in. */
+	uint32 bBlendingIn : 1;
 
-	/** True if it's ok for the system to auto-release this instance upon completion. */
-	uint32 bAutoReleaseWhenFinished:1;
+	/** True if currently blending out. */
+	uint32 bBlendingOut : 1;
 
-protected:
 	/** Time to interpolate in from zero, for smooth starts. */
 	float BlendInTime;
 
 	/** Time to interpolate out to zero, for smooth finishes. */
 	float BlendOutTime;
-
-	/** True if currently blending in. */
-	uint32 bBlendingIn:1;
-
-	/** True if currently blending out. */
-	uint32 bBlendingOut:1;
 
 	/** Current time for the blend-in.  I.e. how long we have been blending. */
 	float CurBlendInTime;
@@ -76,7 +75,6 @@ public:
 protected:
 	/** How much longer to play the anim, if a specific duration is desired.  Has no effect if 0.  */
 	float RemainingTime;
-
 
 public:
 	/** cached movement track from the currently playing anim so we don't have to go find it every frame */
@@ -122,6 +120,12 @@ public:
 	/** advances the animation by the specified time - updates any modified interp properties, moves the group actor, etc */
 	void AdvanceAnim(float DeltaTime, bool bJump);
 	
+	/** Jumps he camera anim to the given (unscaled) time. */
+	void SetCurrentTime(float NewTime);
+
+	/** Returns the current playback time. */
+	float GetCurrentTime() const { return CurTime; };
+
 	/** Stops this instance playing whatever animation it is playing. */
 	UFUNCTION(BlueprintCallable, Category = CameraAnimInst)
 	void Stop(bool bImmediate = false);
@@ -140,6 +144,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = CameraAnimInst)
 	void SetScale(float NewDuration);
 
+	/** Sets the camera actor that will be modified when this anim is played. (Usually a temporary actor whose data is subsequently harvested). */
+	void SetCameraActor(class AActor* Actor);
+
+	/** Takes the given view and applies the camera anim transform and fov changes to it. Does not affect PostProcess. */
+	void ApplyToView(FMinimalViewInfo& InOutPOV) const;
+
+	/** Sets whether this anim instance should automatically stop when finished. */
+	void SetStopAutomatically(bool bNewStopAutoMatically) { bStopAutomatically = bNewStopAutoMatically; };
 
 protected:
 	/** Returns InterpGroupInst subobject **/

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -45,6 +45,9 @@ public:
 
 	static float CalculateDrawDistanceFromScreenSize(const float SphereRadius, const float ScreenSize, const FMatrix& ProjectionMatrix);
 
+	/** Creates or retrieves the HLOD package that is created for the given level */
+	static UPackage* CreateOrRetrieveLevelHLODPackage(ULevel* InLevel);
+
 	/**
 	* Builds a static mesh object for the given LODACtor
 	*
@@ -65,23 +68,68 @@ public:
 	/** Returns the ALODActor parent for the given InActor, nullptr if none available */
 	static ALODActor* GetParentLODActor(const AActor* InActor);
 
-	/** Deletes the given actor's data and instance in the world */
-	static void DeleteLODActor(ALODActor* InActor);
+	/** Deletes the given cluster's data and instance in the world */
+	static void DestroyCluster(ALODActor* InActor);
 
-	/** Deletes the given actor's assets */
-	static void DeleteLODActorAssets(ALODActor* InActor);
+	/** Deletes the given cluster's assets */
+	static void DestroyClusterData(ALODActor* InActor);
 
 	/** Creates a new cluster actor in the given InWorld with InLODLevel as HLODLevel */
 	static ALODActor* CreateNewClusterActor(UWorld* InWorld, const int32 InLODLevel, AWorldSettings* WorldSettings);
+
+	/** Creates a new cluster in InWorld with InActors as sub actors*/
+	static ALODActor* CreateNewClusterFromActors(UWorld* InWorld, AWorldSettings* WorldSettings, const TArray<AActor*>& InActors, const int32 InLODLevel = 0);
+
+	/** Removes the given actor from it's parent cluster */
+	static const bool RemoveActorFromCluster(AActor* InActor);
+
+	/** Adds an actor to the given cluster*/
+	static const bool AddActorToCluster(AActor* InActor, ALODActor* InParentActor);
+
+	/** Merges two clusters together */
+	static const bool MergeClusters(ALODActor* TargetCluster, ALODActor* SourceCluster);
+
+	/** Checks if all actors have the same outer world */
+	static const bool AreActorsInSamePersistingLevel(const TArray<AActor*>& InActors);
+
+	/** Checks if all clusters are in the same HLOD level */
+	static const bool AreClustersInSameHLODLevel(const TArray<ALODActor*>& InLODActors);
+
+	/** Checks if all actors are in the same HLOD level */
+	static const bool AreActorsInSameHLODLevel(const TArray<AActor*>& InActors);
+
+	/** Checks if all actors are part of a cluster */
+	static const bool AreActorsClustered(const TArray<AActor*>& InActors);
+
+	/** Checks if an actor is clustered*/
+	static const bool IsActorClustered(const AActor* InActor);
+
+	/** Excludes an actor from the cluster generation process */
+	static void ExcludeActorFromClusterGeneration(AActor* InActor);
+
+	/**
+	* Destroys an LODActor instance
+	*
+	* @param InActor - ALODActor to destroy
+	*/
+	static void DestroyLODActor(ALODActor* InActor);
+
+	/**
+	* Extracts all the Static Mesh Actors from the given LODActor's SubActors array
+	*
+	* @param LODActor - LODActors to check the SubActors array for
+	* @param InOutActors - Array to fill with Static Mesh Actors
+	*/
+	static void ExtractStaticMeshActorsFromLODActor(ALODActor* LODActor, TArray<AActor*> &InOutActors);
 
 	/** Deletes all the ALODActors with the given HLODLevelIndex inside off InWorld */
 	static void DeleteLODActorsInHLODLevel(UWorld* InWorld, const int32 HLODLevelIndex);
 
 	/** Computes which LOD level of a Mesh corresponds to the given Distance (calculates closest screensize with distance) */
-	static int32 ComputeStaticMeshLODLevel(const TArray<FStaticMeshSourceModel>& SourceModels, const float ScreenAreaSize);
+	static int32 ComputeStaticMeshLODLevel(const TArray<FStaticMeshSourceModel>& SourceModels, const FStaticMeshRenderData* RenderData, const float ScreenAreaSize);
 
 	/** Computes the LODLevel for a StaticMeshComponent taking into account the ScreenArea */
-	static int32 GetLODLevelForScreenAreaSize(UStaticMeshComponent* StaticMeshComponent, const float ScreenAreaSize);
+	static int32 GetLODLevelForScreenAreaSize(const UStaticMeshComponent* StaticMeshComponent, const float ScreenAreaSize);
 	
 	/**
 	* Creates a HierarchicalLODVolume using the bounds of a given LODActor

@@ -1,8 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "SequencerEditTool_Default.h"
+#include "SequencerEditTool.h"
 #include "DelayedDrag.h"
 
 
@@ -10,12 +10,15 @@ class ISequencerEditToolDragOperation;
 
 
 class FSequencerEditTool_Movement
-	: public FSequencerEditTool_Default
+	: public FSequencerEditTool
 {
 public:
 
+	/** Static identifier for this edit tool */
+	static const FName Identifier;
+
 	/** Create and initialize a new instance. */
-	FSequencerEditTool_Movement(TSharedPtr<FSequencer> InSequencer, TSharedPtr<SSequencer> InSequencerWidget);
+	FSequencerEditTool_Movement(FSequencer& InSequencer);
 
 public:
 
@@ -25,16 +28,21 @@ public:
 	virtual FReply OnMouseButtonUp(SWidget& OwnerWidget, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseMove(SWidget& OwnerWidget, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual void OnMouseCaptureLost() override;
+	virtual int32 OnPaint(const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId) const override;
 	virtual FCursorReply OnCursorQuery(const FGeometry& MyGeometry, const FPointerEvent& CursorEvent) const override;
 	virtual FName GetIdentifier() const override;
-	virtual ISequencer& GetSequencer() const override;
+	virtual bool CanDeactivate() const override;
+	virtual const ISequencerHotspot* GetDragHotspot() const override;
+
+protected:
+
+	FString TimeToString(float Time, bool IsDelta) const;
 
 private:
 
 	TSharedPtr<ISequencerEditToolDragOperation> CreateDrag(const FPointerEvent& MouseEvent);
 
-	/** The sequencer itself */
-	TWeakPtr<FSequencer> Sequencer;
+	bool GetHotspotTime(float& HotspotTime) const;
 
 	/** Sequencer widget */
 	TWeakPtr<SSequencer> SequencerWidget;
@@ -54,4 +62,10 @@ private:
 
 	/** Current drag operation if any */
 	TSharedPtr<ISequencerEditToolDragOperation> DragOperation;
+
+	/** Current local position the mouse is dragged to. */
+	FVector2D DragPosition;
+
+	/** The hotspot's time before dragging started. */
+	float OriginalHotspotTime;
 };

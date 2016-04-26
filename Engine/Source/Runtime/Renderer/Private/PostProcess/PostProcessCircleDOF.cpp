@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessDOF.cpp: Post process Depth of Field implementation.
@@ -31,8 +31,10 @@ float ComputeFocalLengthFromFov(const FSceneView& View)
 	//   f = focal length
 	// 
 	// f = 0.5 * d * (1/tan(fov/2))
-	float HalfFOV = FMath::Atan(1.0f / View.ViewMatrices.ProjMatrix.M[0][0]);
-	float FocalLength = 0.5f * 24.576f * (1.0f/FMath::Tan(HalfFOV));
+
+	float const d = View.FinalPostProcessSettings.DepthOfFieldSensorWidth;
+	float const HalfFOV = FMath::Atan(1.0f / View.ViewMatrices.ProjMatrix.M[0][0]);
+	float const FocalLength = 0.5f * d * (1.0f/FMath::Tan(HalfFOV));
 
 	return FocalLength;
 }
@@ -63,10 +65,10 @@ FVector4 CircleDofHalfCoc(const FSceneView& View)
 		//   n = fstop (where n is the "n" in "f/n")
 		float Radius = FMath::Square(FocalLengthInMM) / (View.FinalPostProcessSettings.DepthOfFieldFstop * (FocalDistanceInMM - FocalLengthInMM));
 
-		// Scale so that APS-C 24.576 mm = full frame.
 		// Convert mm to pixels.
-		float Width = (float)View.ViewRect.Width();
-		Radius = Radius * Width * (1.0f/24.576f);
+		float const Width = (float)View.ViewRect.Width();
+		float const SensorWidth = View.FinalPostProcessSettings.DepthOfFieldSensorWidth;
+		Radius = Radius * Width * (1.0f / SensorWidth);
 
 		// Convert diameter to radius at half resolution (algorithm radius is at half resolution).
 		Radius *= 0.25f;
@@ -584,7 +586,9 @@ public:
 	IMPLEMENT_SHADER_TYPE2(FPostProcessCircleDOFPS##A##B, SF_Pixel);
 
 	VARIATION1(0,0)			VARIATION1(1,0)
-	VARIATION1(0,1)			VARIATION1(1,1)
+	VARIATION1(0,1)	        VARIATION1(1,1)
+	VARIATION1(0,2)         VARIATION1(1,2)
+
 
 #undef VARIATION1
 
@@ -663,20 +667,30 @@ void FRCPassPostProcessCircleDOF::Process(FRenderingCompositePassContext& Contex
 	check(CVar);
 	int32 DOFQualityCVarValue = CVar->GetValueOnRenderThread();
 	
-	// 0:normal / 1:slow but very high quality
-	uint32 Quality = DOFQualityCVarValue >= 3;
+	
 
 	FShader* VertexShader = 0;
 
 	if (bNearBlurEnabled)
 	{
-		if(Quality) VertexShader = SetShaderTempl<1, 1>(Context);
-		  else		VertexShader = SetShaderTempl<1, 0>(Context);
+		switch (DOFQualityCVarValue)
+		{
+			case 0:  VertexShader = SetShaderTempl<1, 0>(Context); break;
+			case 3:  VertexShader = SetShaderTempl<1, 1>(Context); break;
+			case 4:  VertexShader = SetShaderTempl<1, 2>(Context); break;
+			default: VertexShader = SetShaderTempl<1, 0>(Context);
+		}
 	}
 	else
 	{
-		if(Quality)	VertexShader = SetShaderTempl<0, 1>(Context);
-		  else		VertexShader = SetShaderTempl<0, 0>(Context);
+		switch (DOFQualityCVarValue)
+		{
+			case 0:  VertexShader = SetShaderTempl<0, 0>(Context);
+			case 3:  VertexShader = SetShaderTempl<0, 1>(Context); break;
+			case 4:  VertexShader = SetShaderTempl<0, 2>(Context); break;	
+			default: VertexShader = SetShaderTempl<0, 0>(Context);
+		}
+
 	}
 
 	DrawPostProcessPass(

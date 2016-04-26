@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 ImageUtils.cpp: Image utility functions.
@@ -249,7 +249,7 @@ void FImageUtils::CompressImageArray( int32 ImageWidth, int32 ImageHeight, TArra
 	// Copy scaled image into destination thumb
 	int32 MemorySize = ImageWidth*ImageHeight*sizeof(FColor);
 	ThumbnailByteArray.AddUninitialized(MemorySize);
-	FMemory::Memcpy(&(ThumbnailByteArray[0]), &(SrcData[0]), MemorySize);
+	FMemory::Memcpy(ThumbnailByteArray.GetData(), SrcData.GetData(), MemorySize);
 
 	// Compress data - convert into a .png
 	TempThumbnail.CompressImageData();

@@ -7,7 +7,8 @@
 UUTCTFGameMessage::UUTCTFGameMessage(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	MessageArea = FName(TEXT("GameMessages"));
+	MessageArea = FName(TEXT("Announcements"));
+	MessageSlot = FName(TEXT("GameMessages"));
 	ReturnMessage = NSLOCTEXT("CTFGameMessage","ReturnMessage","{Player1Name} returned the {OptionalTeam} Flag!");
 	ReturnedMessage = NSLOCTEXT("CTFGameMessage","ReturnedMessage","The {OptionalTeam} Flag was returned!");
 	CaptureMessage = NSLOCTEXT("CTFGameMessage","CaptureMessage","{Player1Name} scores for {OptionalTeam}!");
@@ -19,9 +20,8 @@ UUTCTFGameMessage::UUTCTFGameMessage(const FObjectInitializer& ObjectInitializer
 	HalftimeMessage = NSLOCTEXT("CTFGameMessage", "Halftime", "");
 	OvertimeMessage = NSLOCTEXT("CTFGameMessage", "Overtime", "OVERTIME!");
 	NoReturnMessage = NSLOCTEXT("CTFGameMessage", "NoPickupFlag", "You can't pick up this flag.");
-	RedFlagDelayMessage = NSLOCTEXT("CTFGameMessage", "RedFlagDelay", "Red Flag can be picked up in");
-	BlueFlagDelayMessage = NSLOCTEXT("CTFGameMessage", "BlueFlagDelay", "Blue Flag can be picked up in");
-	BothFlagDelayMessage = NSLOCTEXT("CTFGameMessage", "BothFlagDelay", "Flags can be picked up in");
+	LastLifeMessage = NSLOCTEXT("CTFGameMessage", "LastLife", "This is your last life");
+
 	bIsStatusAnnouncement = true;
 	bIsPartiallyUnique = true;
 }
@@ -48,21 +48,22 @@ FText UUTCTFGameMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlaye
 		case 11: return HalftimeMessage; break;
 		case 12: return OvertimeMessage; break;
 		case 13: return NoReturnMessage; break;
-		case 17: return RedFlagDelayMessage; break;
-		case 18: return BlueFlagDelayMessage; break;
-		case 19: return BothFlagDelayMessage; break;
+		case 20: return LastLifeMessage; break;
 	}
 	return FText::GetEmpty();
 }
 
-bool UUTCTFGameMessage::UseLargeFont(int32 MessageIndex) const
+int32 UUTCTFGameMessage::GetFontSizeIndex(int32 MessageIndex) const
 {
-	return (MessageIndex == 2) || (MessageIndex == 2) || (MessageIndex > 5);
-}
-
-bool UUTCTFGameMessage::UseMegaFont(int32 MessageIndex) const
-{
-	return (MessageIndex == 11) || (MessageIndex == 12);
+	if ((MessageIndex == 11) || (MessageIndex == 12))
+	{
+		return 3;
+	}
+	if ((MessageIndex == 2) || (MessageIndex == 2) || (MessageIndex > 5))
+	{
+		return 2;
+	}
+	return 1;
 }
 
 float UUTCTFGameMessage::GetAnnouncementPriority(int32 Switch) const
@@ -132,9 +133,10 @@ void UUTCTFGameMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Annou
 	}
 	Announcer->PrecacheAnnouncement(GetTeamAnnouncement(11, 0));
 	Announcer->PrecacheAnnouncement(GetTeamAnnouncement(12, 0));
+	Announcer->PrecacheAnnouncement(TEXT("YouHaveTheFlag_02"));
 }
 
-FName UUTCTFGameMessage::GetTeamAnnouncement(int32 Switch, uint8 TeamNum) const
+FName UUTCTFGameMessage::GetTeamAnnouncement(int32 Switch, uint8 TeamNum, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const
 {
 	switch (Switch)
 	{
@@ -142,7 +144,12 @@ FName UUTCTFGameMessage::GetTeamAnnouncement(int32 Switch, uint8 TeamNum) const
 		case 1: return TeamNum == 0 ? TEXT("RedFlagReturned") : TEXT("BlueFlagReturned"); break;
 		case 2: return TeamNum == 0 ? TEXT("RedTeamScores") : TEXT("BlueTeamScores"); break;
 		case 3: return TeamNum == 0 ? TEXT("RedFlagDropped") : TEXT("BlueFlagDropped"); break;
-		case 4: return TeamNum == 0 ? TEXT("RedFlagTaken") : TEXT("BlueFlagTaken"); break;
+		case 4:
+			if (RelatedPlayerState_1 && Cast<AUTPlayerController>(RelatedPlayerState_1->GetOwner()))
+			{
+				return TEXT("YouHaveTheFlag_02"); break;
+			}
+			return TeamNum == 0 ? TEXT("RedFlagTaken") : TEXT("BlueFlagTaken"); break;
 		case 6: return TeamNum == 0 ? TEXT("RedTeamAdvantage") : TEXT("BlueTeamAdvantage"); break;
 		case 7: return TeamNum == 0 ? TEXT("LosingAdvantage") : TEXT("LosingAdvantage"); break;
 		case 8: return TeamNum == 0 ? TEXT("RedIncreasesLead") : TEXT("BlueIncreasesLead"); break;
@@ -156,10 +163,10 @@ FName UUTCTFGameMessage::GetTeamAnnouncement(int32 Switch, uint8 TeamNum) const
 	return NAME_None;
 }
 
-FName UUTCTFGameMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const
+FName UUTCTFGameMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const
 {
 	const AUTTeamInfo* TeamInfo = Cast<AUTTeamInfo>(OptionalObject);
 	uint8 TeamNum = (TeamInfo != NULL) ? TeamInfo->GetTeamNum() : 0;
-	return GetTeamAnnouncement(Switch, TeamNum);
+	return GetTeamAnnouncement(Switch, TeamNum, OptionalObject, RelatedPlayerState_1, RelatedPlayerState_2);
 }
 

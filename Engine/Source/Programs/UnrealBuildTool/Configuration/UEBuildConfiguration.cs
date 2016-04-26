@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.IO;
@@ -123,6 +123,9 @@ namespace UnrealBuildTool
 		[XmlConfig]
 		public static bool bMergeExternalFileList;
 
+		/** Whether to generate a list of referenced TPS files */
+		public static bool bListThirdPartySoftware;
+
 		/// <summary>
 		/// Whether to generate a manifest file that contains the files to add to Perforce
 		/// </summary>
@@ -244,6 +247,18 @@ namespace UnrealBuildTool
 		[XmlConfig]
 		public static bool bUseLoggingInShipping;
 
+        /// <summary>
+        /// Whether to check that the process was launched through an external launcher
+        /// </summary>
+        [XmlConfig]
+        public static bool bUseLauncherChecks;
+
+		/// <summary>
+		/// Whether to turn on checks (asserts) for test/shipping builds
+		/// </summary>
+		[XmlConfig]
+		public static bool bUseChecksInShipping;
+
 		/// <summary>
 		/// True if we need PhysX vehicle support
 		/// </summary>
@@ -295,6 +310,18 @@ namespace UnrealBuildTool
 		[XmlConfig]
 		public static bool bEditorDependsOnShaderCompileWorker;
 
+        /// <summary>
+        /// Whether to compile development automation tests.
+        /// </summary>
+        [XmlConfig]
+        public static bool bForceCompileDevelopmentAutomationTests;
+
+        /// <summary>
+        /// Whether to compile performance automation tests.
+        /// </summary>
+        [XmlConfig]
+        public static bool bForceCompilePerformanceAutomationTests;
+
 		/// <summary>
 		/// Sets the configuration back to defaults.
 		/// </summary>
@@ -326,6 +353,8 @@ namespace UnrealBuildTool
 			bCompileWithStatsWithoutEngine = false;
 			bCompileWithPluginSupport = false;
 			bUseLoggingInShipping = false;
+			bUseChecksInShipping = false;
+            bUseLauncherChecks = false;
 			bCompileSteamOSS = true;
 			bCompileMcpOSS = true;
 			bCompilePhysXVehicle = true;
@@ -337,6 +366,8 @@ namespace UnrealBuildTool
 			bCompileCEF3 = true;
 			PreferredSubPlatform = "";
 			bEditorDependsOnShaderCompileWorker = true;
+            bForceCompileDevelopmentAutomationTests = false;
+            bForceCompilePerformanceAutomationTests = false;
 		}
 
 		/// <summary>
@@ -356,8 +387,7 @@ namespace UnrealBuildTool
 			bCompileSimplygon = bCompileSimplygon
 				&& Directory.Exists(UEBuildConfiguration.UEThirdPartySourceDirectory + "NotForLicensees") == true
 				&& Directory.Exists(UEBuildConfiguration.UEThirdPartySourceDirectory + "NotForLicensees/Simplygon") == true
-				&& Directory.Exists("Developer/SimplygonMeshReduction") == true
-				&& !(ProjectFileGenerator.bGenerateProjectFiles && ProjectFileGenerator.bGeneratingRocketProjectFiles);
+				&& Directory.Exists("Developer/SimplygonMeshReduction") == true;
 		}
 
 		/// <summary>

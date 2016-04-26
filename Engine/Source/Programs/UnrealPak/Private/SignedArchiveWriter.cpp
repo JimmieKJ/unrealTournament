@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealPak.h"
 #include "IPlatformFilePak.h"
@@ -37,23 +37,22 @@ void FSignedArchiveWriter::Encrypt(int256* EncryptedData, const uint8* Data, con
 void FSignedArchiveWriter::SerializeBufferAndSign()
 {
 	// Hash the buffer
-	uint8 Hash[20];
-	FSHA1::HashBuffer(&Buffer[0], Buffer.Num(), Hash);
+	uint8 Hash[GPakFileChunkHashSize];
+	
+	// Compute a hash for this buffer data
+	ComputePakChunkHash(&Buffer[0], Buffer.Num(), Hash);
 
 	// Encrypt the signature
-	FSignature Signature;
-	Encrypt(Signature.Data, Hash, 20, PrivateKey);
+	FEncryptedSignature<GPakFileChunkHashSize> Signature;
+	Encrypt(Signature.Data, Hash, sizeof(Hash), PrivateKey);
 
 	// Flush the buffer
 	PakWriter.Serialize(&Buffer[0], Buffer.Num());
 	BufferArchive.Seek(0);
 	Buffer.Empty(FPakInfo::MaxChunkDataSize);
 
-	// Write the signature
-	int64 Position = PakWriter.Tell();
-	Signature.Serialize(PakWriter);
-	check((PakWriter.Tell() - Position) == FSignature::Size());
-	SizeOnDisk += FSignature::Size();
+	// Collect the signature so we can write it out at the end
+	ChunkSignatures.Add(Signature);
 }
 
 bool FSignedArchiveWriter::Close()
@@ -62,6 +61,16 @@ bool FSignedArchiveWriter::Close()
 	{
 		SerializeBufferAndSign();
 	}
+
+	// Write out all the chunk signatures
+	for (FEncryptedSignature<GPakFileChunkHashSize>& Signature : ChunkSignatures)
+	{
+		Signature.Serialize(PakWriter);
+	}
+
+	int64 NumSignatures = ChunkSignatures.Num();
+	PakWriter << NumSignatures;
+
 	return FArchive::Close();
 }
 

@@ -37,16 +37,20 @@ void SUTEditableTextBox::ForceFocus(const FCharacterEvent& InCharacterEvent)
 	if (!HasKeyboardFocus() && EditableText.IsValid())
 	{
 		FSlateApplication::Get().SetKeyboardFocus(EditableText,EFocusCause::SetDirectly);
-		EditableText->TypeChar(InCharacterEvent.GetCharacter());
+
+		// JoeW FIXME
+		//EditableText->TypeChar(InCharacterEvent.GetCharacter());
 	}
 }
 
 void SUTEditableTextBox::JumpToEnd()
 {
+	// JoeW FIXME
+	/*
 	if (EditableText.IsValid())
 	{
 		EditableText->JumpTo(ETextLocation::EndOfDocument,ECursorAction::MoveCursor);
-	}
+	}*/
 }
 
 #endif

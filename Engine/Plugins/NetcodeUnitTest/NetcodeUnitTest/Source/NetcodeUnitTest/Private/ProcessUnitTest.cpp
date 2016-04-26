@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "NetcodeUnitTestPCH.h"
 
@@ -19,8 +19,8 @@
 UProcessUnitTest::UProcessUnitTest(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, ActiveProcesses()
-	, OnSuspendStateChange()
 	, LastBlockingProcessCheck(0)
+	, OnSuspendStateChange()
 {
 }
 
@@ -523,7 +523,7 @@ bool UProcessUnitTest::IsBlockingProcessPresent(bool bLogIfFound/*=false*/)
 		{
 			if (It.Value() == SearchParentId)
 			{
-				ChildProcs.Add(It.Key());
+				ChildProcs.AddUnique(It.Key());
 			}
 		}
 	}

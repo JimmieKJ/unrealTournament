@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Engine/UserDefinedEnum.h"
@@ -68,7 +68,11 @@ void UUserDefinedEnum::PostLoad()
 {
 	Super::PostLoad();
 	FEnumEditorUtils::UpdateAfterPathChanged(this);
-	FEnumEditorUtils::EnsureAllDisplayNamesExist(this);
+
+	if (GIsEditor && !IsRunningCommandlet())
+	{
+		FEnumEditorUtils::EnsureAllDisplayNamesExist(this);
+	}
 }
 
 void UUserDefinedEnum::PostEditUndo()

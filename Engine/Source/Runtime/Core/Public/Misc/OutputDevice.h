@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -160,14 +160,14 @@ template<class T> const T*	CheckVA(const T* p)		{ return p; }
 #define VARARG_BODY( FuncRet, FuncName, FmtType, ExtraDecl )		\
 	FuncRet FuncName##__VA( ExtraDecl  FmtType Fmt, ... )
 
-#else  // !_MSC_VER
+#else  // !PLATFORM_WINDOWS
 
 #define VARARG_DECL( FuncRet, StaticFuncRet, Return, FuncName, Pure, FmtType, ExtraDecl, ExtraCall )	\
 	FuncRet FuncName( ExtraDecl FmtType Fmt, ... ) Pure
 #define VARARG_BODY( FuncRet, FuncName, FmtType, ExtraDecl )		\
 	FuncRet FuncName( ExtraDecl FmtType Fmt, ... )
 
-#endif // _MSC_VER
+#endif // PLATFORM_WINDOWS
 
 /** 
  * Enum that defines the verbosity levels of the logging system.

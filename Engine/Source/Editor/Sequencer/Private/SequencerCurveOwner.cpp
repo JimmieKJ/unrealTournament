@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerPrivatePCH.h"
 #include "SequencerCurveOwner.h"
@@ -156,7 +156,7 @@ void FSequencerCurveOwner::MakeTransactional()
 
 void FSequencerCurveOwner::OnCurveChanged( const TArray<FRichCurveEditInfo>& ChangedCurveEditInfos )
 {
-	// Whenever a curve changes make sure to resize it's section so that the curve fits.
+	// Whenever a curve changes make sure to resize its section so that the curve fits.
 	for ( auto& ChangedCurveEditInfo : ChangedCurveEditInfos )
 	{
 		UMovieSceneSection** OwningSection = EditInfoToSectionMap.Find(ChangedCurveEditInfo);
@@ -175,9 +175,30 @@ void FSequencerCurveOwner::OnCurveChanged( const TArray<FRichCurveEditInfo>& Cha
 			}
 		}
 	}
+
+	SequencerNodeTree->GetSequencer().UpdateRuntimeInstances();
 }
 
 bool FSequencerCurveOwner::IsValidCurve( FRichCurveEditInfo CurveInfo )
 {
 	return EditInfoToSectionMap.Contains(CurveInfo);
+}
+
+FLinearColor FSequencerCurveOwner::GetCurveColor( FRichCurveEditInfo CurveInfo ) const
+{
+	FString CurveName = CurveInfo.CurveName.ToString();
+	if (CurveName.EndsWith(TEXT("- X")) || CurveName.EndsWith(TEXT("- Red")))
+	{
+		return FLinearColor(1.0f, 0.0f, 0.0f);
+	}
+	else if (CurveName.EndsWith(TEXT("- Y")) || CurveName.EndsWith(TEXT("- Green")))
+	{
+		return FLinearColor(0.0f, 1.0f, 0.0f);
+	}
+	else if (CurveName.EndsWith(TEXT("- Z")) || CurveName.EndsWith(TEXT("- Blue")))
+	{
+		return FLinearColor(0.05f, 0.05f, 1.0f);
+	}
+
+	return FCurveOwnerInterface::GetCurveColor(CurveInfo);
 }

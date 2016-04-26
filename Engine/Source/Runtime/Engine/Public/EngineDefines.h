@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 // 
 // Public defines form the Engine
 
@@ -31,10 +31,6 @@
 
 #ifndef WITH_PHYSICS_COOKING
 	#define WITH_PHYSICS_COOKING (WITH_EDITOR || WITH_APEX)		//APEX currently relies on cooking even at runtime
-#endif
-
-#ifndef WITH_SUBSTEPPING
-#define WITH_SUBSTEPPING 1
 #endif
 
 #if WITH_APEX

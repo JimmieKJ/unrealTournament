@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AnimationGraphSchema.cpp
@@ -87,14 +87,14 @@ void UAnimationGraphSchema::HandleGraphBeingDeleted(UEdGraph& GraphBeingRemoved)
 	if (UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForGraph(&GraphBeingRemoved))
 	{
 		// Look for state nodes that reference this graph
-		TArray<UAnimStateNode*> StateNodes;
-		FBlueprintEditorUtils::GetAllNodesOfClass<UAnimStateNode>(Blueprint, /*out*/ StateNodes);
+		TArray<UAnimStateNodeBase*> StateNodes;
+		FBlueprintEditorUtils::GetAllNodesOfClassEx<UAnimStateNode>(Blueprint, StateNodes);
 
-		TSet<UAnimStateNode*> NodesToDelete;
+		TSet<UAnimStateNodeBase*> NodesToDelete;
 		for (int32 i = 0; i < StateNodes.Num(); ++i)
 		{
-			UAnimStateNode* StateNode = StateNodes[i];
-			if (StateNode->BoundGraph == &GraphBeingRemoved)
+			UAnimStateNodeBase* StateNode = StateNodes[i];
+			if (StateNode->GetBoundGraph() == &GraphBeingRemoved)
 			{
 				NodesToDelete.Add(StateNode);
 			}
@@ -102,15 +102,14 @@ void UAnimationGraphSchema::HandleGraphBeingDeleted(UEdGraph& GraphBeingRemoved)
 
 		// Delete the node that owns us
 		ensure(NodesToDelete.Num() <= 1);
-		for (TSet<UAnimStateNode*>::TIterator It(NodesToDelete); It; ++It)
+		for (TSet<UAnimStateNodeBase*>::TIterator It(NodesToDelete); It; ++It)
 		{
-			UAnimStateNode* NodeToDelete = *It;
+			UAnimStateNodeBase* NodeToDelete = *It;
+
+			FBlueprintEditorUtils::RemoveNode(Blueprint, NodeToDelete, true);
 
 			// Prevent re-entrancy here
-			NodeToDelete->BoundGraph = NULL;
-
-			NodeToDelete->Modify();
-			NodeToDelete->DestroyNode();
+			NodeToDelete->ClearBoundGraph();
 		}
 	}
 }

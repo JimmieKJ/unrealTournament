@@ -8,15 +8,20 @@ UCLASS()
 class UNREALTOURNAMENT_API AUTWeapAttachment_LinkGun : public AUTWeaponAttachment
 {
 	GENERATED_BODY()
-
+public:
 	AUTWeapAttachment_LinkGun(const FObjectInitializer& OI)
 	: Super(OI)
 	{
 		PrimaryActorTick.bCanEverTick = true;
 		PrimaryActorTick.bStartWithTickEnabled = true;
 	}
-
+protected:
 	float LastBeamPulseTime;
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
+	UParticleSystem* PulseSuccessEffect;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
+	UParticleSystem* PulseFailEffect;
 
 	virtual void PlayFiringEffects() override;
 	virtual void FiringExtraUpdated() override;

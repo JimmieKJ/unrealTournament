@@ -21,8 +21,8 @@ class UNREALTOURNAMENT_API UUTTimerMessage : public UUTLocalMessage
 	UUTTimerMessage(const FObjectInitializer& ObjectInitializer)
 		: Super(ObjectInitializer)
 	{
-		MessageArea = FName(TEXT("GameMessages"));
-		StyleTag = FName(TEXT("Countdown"));
+		MessageArea = FName(TEXT("Announcements"));
+		MessageSlot = FName(TEXT("CountdownMessages"));
 		bIsUnique = true;
 		Lifetime = 2.0f;
 		bIsStatusAnnouncement = true;
@@ -61,7 +61,7 @@ class UNREALTOURNAMENT_API UUTTimerMessage : public UUTLocalMessage
 		CountDownAnnouncements.Add(TEXT("FiveMinuteWarning"));
 	}
 
-	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override
+	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const override
 	{
 		return (Switch >= 0 && Switch < CountDownAnnouncements.Num() ? CountDownAnnouncements[Switch] : NAME_None);
 	}

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #ifdef WINDOWS_PLATFORM_TYPES_GUARD
 	#undef WINDOWS_PLATFORM_TYPES_GUARD

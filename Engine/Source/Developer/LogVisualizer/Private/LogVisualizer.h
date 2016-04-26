@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 /* Dependencies
@@ -111,5 +111,10 @@ public:
 #include "SVisualLoggerFilters.h"
 #include "SVisualLoggerView.h"
 #include "SVisualLoggerLogsList.h"
+#include "SVisualLoggerSectionOverlay.h"
 #include "SVisualLoggerStatusView.h"
-#include "STimeline.h"
+#include "SVisualLoggerTimeline.h"
+#include "SVisualLoggerTimelineBar.h"
+#include "SVisualLoggerTimelinesContainer.h"
+#include "SVisualLoggerTimeSlider.h"
+#include "VisualLoggerTimeSliderController.h"

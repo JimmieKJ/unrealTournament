@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "KismetCompilerPrivatePCH.h"
 #include "KismetEditorUtilities.h"
@@ -371,6 +371,12 @@ void FAnimBlueprintCompiler::ProcessAnimationNode(UAnimGraphNode_Base* VisualAni
 					EvaluationHandlers.FindOrAdd(EvaluationHandlerName).RegisterPin(SourcePin, SourcePinProperty, SourceArrayIndex);
 					bConsumed = true;
 				}
+
+				UEdGraphPin* TrueSourcePin = MessageLog.FindSourceObjectTypeChecked<UEdGraphPin>(SourcePin);
+				if (TrueSourcePin)
+				{
+					NewAnimBlueprintClass->GetDebugData().RegisterClassPropertyAssociation(TrueSourcePin, SourcePinProperty);
+				}
 			}
 		}
 
@@ -551,8 +557,9 @@ void FAnimBlueprintCompiler::ProcessAllAnimationNodes()
 	TArray<UK2Node_TransitionRuleGetter*> Getters;
 	ConsolidatedEventGraph->GetNodesOfClass<UK2Node_TransitionRuleGetter>(/*out*/ Getters);
 
-	TArray<UK2Node_AnimGetter*> AnimGetters;
-	ConsolidatedEventGraph->GetNodesOfClass<UK2Node_AnimGetter>(AnimGetters);
+	// Get anim getters from the root anim graph (processing the nodes below will collect them in nested graphs)
+	TArray<UK2Node_AnimGetter*> RootGraphAnimGetters;
+	ConsolidatedEventGraph->GetNodesOfClass<UK2Node_AnimGetter>(RootGraphAnimGetters);
 
 	// Find the root node
 	UAnimGraphNode_Root* PrePhysicsRoot = NULL;
@@ -599,9 +606,16 @@ void FAnimBlueprintCompiler::ProcessAllAnimationNodes()
 			ProcessTransitionGetter(*GetterIt, NULL); // transition nodes should not appear at top-level
 		}
 
-		for(auto AnimGetterIt = AnimGetters.CreateIterator(); AnimGetterIt; ++AnimGetterIt)
+		// Wire root getters
+		for(UK2Node_AnimGetter* RootGraphGetter : RootGraphAnimGetters)
 		{
-			AutoWireAnimGetter(*AnimGetterIt, NULL);
+			AutoWireAnimGetter(RootGraphGetter, nullptr);
+		}
+
+		// Wire nested getters
+		for(UK2Node_AnimGetter* Getter : FoundGetterNodes)
+		{
+			AutoWireAnimGetter(Getter, nullptr);
 		}
 
 		NewAnimBlueprintClass->RootAnimNodeIndex = GetAllocationIndexOfNode(PrePhysicsRoot);
@@ -671,9 +685,9 @@ int32 FAnimBlueprintCompiler::ExpandGraphAndProcessNodes(UEdGraph* SourceGraph, 
 	}
 
 	// Wire anim getter nodes
-	for(auto AnimGetterIt = AnimGetterNodes.CreateIterator(); AnimGetterIt; ++AnimGetterIt)
+	for(UK2Node_AnimGetter* GetterNode : AnimGetterNodes)
 	{
-		AutoWireAnimGetter(*AnimGetterIt, TransitionNode);
+		FoundGetterNodes.Add(GetterNode);
 	}
 
 	// Returns the index of the processed cloned version of SourceRootNode
@@ -884,6 +898,7 @@ void FAnimBlueprintCompiler::ProcessStateMachine(UAnimGraphNode_StateMachineBase
 				BakedState.EndNotify = FindOrAddNotify(StateNode->StateLeft);
 				BakedState.FullyBlendedNotify = FindOrAddNotify(StateNode->StateFullyBlended);
 				BakedState.bIsAConduit = false;
+				BakedState.bAlwaysResetOnEntry = StateNode->bAlwaysResetOnEntry;
 
 				// Process the inner graph of this state
 				if (UAnimGraphNode_StateResult* AnimGraphResultNode = CastChecked<UAnimationStateGraph>(StateNode->BoundGraph)->GetResultNode())
@@ -1852,7 +1867,11 @@ void FAnimBlueprintCompiler::FEvaluationHandlerRecord::PatchFunctionNameAndCopyR
 				if (AnimNodeSinglePropertyHandler.ArrayPins.Num() > 0)
 				{
 					UArrayProperty* SimpleCopyPropertyDest = CastChecked<UArrayProperty>(NodeVariableProperty->Struct->FindPropertyByName(PropertyIt.Key()));
-					check(SimpleCopyPropertySource->GetSize() == SimpleCopyPropertyDest->Inner->GetSize());
+					if(SimpleCopyPropertySource->GetSize() != SimpleCopyPropertyDest->Inner->GetSize())
+					{
+						bOnlyUsesCopyRecords = false;
+						break;
+					}
 
 					for (TMap<int32, UEdGraphPin*>::TConstIterator ArrayIt(AnimNodeSinglePropertyHandler.ArrayPins); ArrayIt; ++ArrayIt)
 					{
@@ -1870,18 +1889,23 @@ void FAnimBlueprintCompiler::FEvaluationHandlerRecord::PatchFunctionNameAndCopyR
 				else
 				{
 					UProperty* SimpleCopyPropertyDest = NodeVariableProperty->Struct->FindPropertyByName(PropertyIt.Key());
-					check(SimpleCopyPropertyDest);
+					if(SimpleCopyPropertyDest == nullptr)
+					{
+						bOnlyUsesCopyRecords = false;
+						break;
+					}
+
 					if(AnimNodeSinglePropertyHandler.SubStructPropertyName != NAME_None)
 					{
 						UStructProperty* SourceStructProperty = CastChecked<UStructProperty>(SimpleCopyPropertySource);
 						UProperty* SourceSubProperty = SourceStructProperty->Struct->FindPropertyByName(AnimNodeSinglePropertyHandler.SubStructPropertyName);
-						
-						if (!SourceSubProperty)
+						if(SourceSubProperty == nullptr || SourceSubProperty->GetSize() != SimpleCopyPropertyDest->GetSize())
 						{
+							bOnlyUsesCopyRecords = false;
+							break;
 							continue;
 						}
 
-						check(SourceSubProperty->GetSize() == SimpleCopyPropertyDest->GetSize());
 
 						// Local sub-struct variable get
 						FExposedValueCopyRecord CopyRecord;
@@ -1896,7 +1920,11 @@ void FAnimBlueprintCompiler::FEvaluationHandlerRecord::PatchFunctionNameAndCopyR
 					}
 					else
 					{
-						check(SimpleCopyPropertySource->GetSize() == SimpleCopyPropertyDest->GetSize());
+						if(SimpleCopyPropertySource->GetSize() != SimpleCopyPropertyDest->GetSize())
+						{
+							bOnlyUsesCopyRecords = false;
+							break;
+						}
 
 						// Local variable get
 						FExposedValueCopyRecord CopyRecord;
@@ -1947,6 +1975,11 @@ static UEdGraphPin* FindFirstInputPin(UEdGraphNode* InNode)
 
 static UEdGraphNode* FollowKnots(UEdGraphPin* FromPin, UEdGraphPin*& DestPin)
 {
+	if (FromPin->LinkedTo.Num() == 0)
+	{
+		return nullptr;
+	}
+
 	UEdGraphPin* LinkedPin = FromPin->LinkedTo[0];
 	DestPin = LinkedPin;
 	if(LinkedPin)
@@ -2075,9 +2108,30 @@ bool FAnimBlueprintCompiler::FEvaluationHandlerRecord::CheckForLogicalNot(FAnimN
 	return false;
 }
 
+/** The functions that we can safely native-break */
+static const FName NativeBreakFunctionNameWhitelist[] =
+{
+	FName(TEXT("BreakVector")),
+	FName(TEXT("BreakVector2D")),
+	FName(TEXT("BreakRotator")),
+};
+
+/** Check whether a native break function can be safely used in the fast-path copy system (ie. source and dest data will be the same) */
+static bool IsWhitelistedNativeBreak(const FName& InFunctionName)
+{
+	for(const FName& FunctionName : NativeBreakFunctionNameWhitelist)
+	{
+		if(InFunctionName == FunctionName)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
 bool FAnimBlueprintCompiler::FEvaluationHandlerRecord::CheckForStructMemberAccess(FAnimNodeSinglePropertyHandler& Handler, UEdGraphPin* SourcePin)
 {
-	static const FName BreakTransformName(TEXT("BreakTransform"));
 	if(SourcePin)
 	{
 		UEdGraphPin* DestPin = nullptr;
@@ -2097,9 +2151,7 @@ bool FAnimBlueprintCompiler::FEvaluationHandlerRecord::CheckForStructMemberAcces
 		else if(UK2Node_CallFunction* NativeBreakNode = Cast<UK2Node_CallFunction>(FollowKnots(SourcePin, DestPin)))
 		{
 			UFunction* Function = NativeBreakNode->FunctionReference.ResolveMember<UFunction>(UKismetMathLibrary::StaticClass());
-			if( Function && Function->HasMetaData(TEXT("NativeBreakFunc")) &&
-				Function->GetFName() != BreakTransformName) // Skip Break Transform as it is not compatible (it is not a pure "break" function as it performs type 
-															// conversion on the "Rotation" component. This means we cannot do a fast path copy as src/dest copy types do not match)
+			if(Function && Function->HasMetaData(TEXT("NativeBreakFunc")) && IsWhitelistedNativeBreak(Function->GetFName()))
 			{
 				if(UEdGraphPin* InputPin = FindFirstInputPin(NativeBreakNode))
 				{

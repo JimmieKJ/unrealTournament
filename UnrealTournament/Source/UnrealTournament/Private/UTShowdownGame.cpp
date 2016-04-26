@@ -16,6 +16,7 @@
 #include "UTMutator.h"
 #include "StatNames.h"
 #include "UTSpectatorCamera.h"
+#include "UTPickupAmmo.h"
 
 AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 : Super(OI)
@@ -23,7 +24,7 @@ AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 	ExtraHealth = 100;
 	bForceRespawn = false;
 	DisplayName = NSLOCTEXT("UTGameMode", "Showdown", "Duel Showdown");
-	TimeLimit = 2.0f; // per round
+	TimeLimit = 2; // per round
 	GoalScore = 5;
 	SpawnSelectionTime = 9;
 	PowerupDuration = 20.0f;
@@ -96,7 +97,10 @@ void AUTShowdownGame::StartNewRound()
 		if (Pickup != NULL && Pickup != BreakerPickup)
 		{
 			Pickup->bDelayedSpawn = false;
-			Pickup->RespawnTime = 0.0f;
+			if (!Pickup->IsA<AUTPickupAmmo>())
+			{
+				Pickup->RespawnTime = 0.0f;
+			}
 		}
 		if (Cast<AUTCharacter>(*It) != NULL)
 		{
@@ -208,7 +212,7 @@ void AUTShowdownGame::SetPlayerDefaults(APawn* PlayerPawn)
 
 void AUTShowdownGame::ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
-	if (GetMatchState() != MatchState::MatchIntermission && (TimeLimit <= 0 || UTGameState->RemainingTime > 0))
+	if (GetMatchState() != MatchState::MatchIntermission && (TimeLimit <= 0 || UTGameState->GetRemainingTime() > 0))
 	{
 		if (Other != NULL)
 		{
@@ -292,6 +296,7 @@ AInfo* AUTShowdownGame::GetTiebreakWinner(FName* WinReason) const
 	AUTPlayerState* RoundWinner = NULL;
 	int32 BestTotalHealth = 0;
 	bool bTied = false;
+	bool bStartingHealth = false;
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
 		AUTCharacter* UTC = Cast<AUTCharacter>(It->Get());
@@ -309,6 +314,7 @@ AInfo* AUTShowdownGame::GetTiebreakWinner(FName* WinReason) const
 				else if (UTC->Health == BestTotalHealth)
 				{
 					bTied = true;
+					bStartingHealth = UTC->Health == UTC->GetClass()->GetDefaultObject<AUTCharacter>()->HealthMax + ExtraHealth;
 				}
 			}
 		}
@@ -316,29 +322,33 @@ AInfo* AUTShowdownGame::GetTiebreakWinner(FName* WinReason) const
 
 	if (WinReason != NULL)
 	{
-		*WinReason = FName(TEXT("Health"));
+		*WinReason = (bTied && bStartingHealth) ? FName(TEXT("NoAction")) : FName(TEXT("Health"));
 	}
 	return (bTied ? NULL : RoundWinner);
 }
 
 void AUTShowdownGame::ScoreExpiredRoundTime()
 {
-	AUTPlayerState* RoundWinner = Cast<AUTPlayerState>(GetTiebreakWinner());
+	FName WinReason;
+	AUTPlayerState* RoundWinner = Cast<AUTPlayerState>(GetTiebreakWinner(&WinReason));
 	if (RoundWinner == NULL)
 	{
-		// both players score a point
-		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+		if (WinReason != FName(TEXT("NoAction")))
 		{
-			AUTCharacter* UTC = Cast<AUTCharacter>(It->Get());
-			if (UTC != NULL && !UTC->IsDead())
+			// both players score a point
+			for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 			{
-				AUTPlayerState* PS = Cast<AUTPlayerState>(UTC->PlayerState);
-				if (PS != NULL)
+				AUTCharacter* UTC = Cast<AUTCharacter>(It->Get());
+				if (UTC != NULL && !UTC->IsDead())
 				{
-					PS->Score += 1.0f;
-					if (PS->Team != NULL)
+					AUTPlayerState* PS = Cast<AUTPlayerState>(UTC->PlayerState);
+					if (PS != NULL)
 					{
-						PS->Team->Score += 1.0f;
+						PS->Score += 1.0f;
+						if (PS->Team != NULL)
+						{
+							PS->Team->Score += 1.0f;
+						}
 					}
 				}
 			}
@@ -361,7 +371,7 @@ void AUTShowdownGame::ScoreExpiredRoundTime()
 void AUTShowdownGame::CheckGameTime()
 {
 	static FName NAME_StartIntermission(TEXT("StartIntermission"));
-	if (IsMatchInProgress() && !HasMatchEnded() && TimeLimit > 0 && UTGameState->RemainingTime <= 0 && !IsTimerActiveUFunc(this, NAME_StartIntermission))
+	if (IsMatchInProgress() && !HasMatchEnded() && TimeLimit > 0 && UTGameState->GetRemainingTime() <= 0 && !IsTimerActiveUFunc(this, NAME_StartIntermission))
 	{
 		ScoreExpiredRoundTime();
 		SetTimerUFunc(this, NAME_StartIntermission, 2.0f, false);
@@ -515,8 +525,7 @@ void AUTShowdownGame::HandleMatchIntermission()
 	GS->bFinalIntermissionDelay = false;
 	RemainingPicks.Empty();
 	GS->SpawnSelector = NULL;
-	GS->RemainingMinute = 0;
-	GS->RemainingTime = 0;
+	GS->SetRemainingTime(0);
 	// reset timer for consistency
 	GetWorldTimerManager().SetTimer(TimerHandle_DefaultTimer, this, &AUTGameMode::DefaultTimer, GetWorldSettings()->GetEffectiveTimeDilation() / GetWorldSettings()->DemoPlayTimeDilation, true);
 

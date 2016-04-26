@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -106,13 +106,13 @@ public:
 // 				}
 				if (FCoreDelegates::OnMountPak.IsBound())
 				{
-					auto bSuccess = FCoreDelegates::OnMountPak.Execute(PakFiles[PakIndex], PakReadOrder);
+					auto bSuccess = FCoreDelegates::OnMountPak.Execute(PakFiles[PakIndex], PakReadOrder, nullptr);
 #if !UE_BUILD_SHIPPING
 					if (!bSuccess)
 					{
 						// This can fail because of the sandbox system - which the pak system doesn't understand.
 						auto SandboxedPath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*PakFiles[PakIndex]);
-						bSuccess = FCoreDelegates::OnMountPak.Execute(SandboxedPath, PakReadOrder);
+						bSuccess = FCoreDelegates::OnMountPak.Execute(SandboxedPath, PakReadOrder, nullptr);
 					}
 #endif
 					MountedPaks.Add(PakFiles[PakIndex]);

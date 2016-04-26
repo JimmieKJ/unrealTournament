@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 namespace UnrealBuildTool.Rules
 {
@@ -9,7 +9,6 @@ namespace UnrealBuildTool.Rules
             DynamicallyLoadedModuleNames.AddRange(
                 new string[] {
                     "Messaging",
-					"Settings",
 				}
             );
 
@@ -33,7 +32,6 @@ namespace UnrealBuildTool.Rules
 			PrivateIncludePathModuleNames.AddRange(
 				new string[] {
 					"Messaging",
-					"Settings",
 				}
 			);
 
@@ -46,6 +44,21 @@ namespace UnrealBuildTool.Rules
 					"UdpMessaging/Private/Tunnel",
 				}
 			);
+
+			if (Target.Type == TargetRules.TargetType.Editor)
+			{
+				DynamicallyLoadedModuleNames.AddRange(
+					new string[] {
+					"Settings",
+				}
+				);
+
+				PrivateIncludePathModuleNames.AddRange(
+					new string[] {
+					"Settings",
+				}
+				);
+			}
 		}
 	}
 }

@@ -1,8 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "OnlineSubsystemTypes.h"
 #include "OnlineDelegateMacros.h"
+#include "OnlineMessageInterface.h"
 
 /**
  * Delegate called when the external UI is opened or closed
@@ -26,6 +27,20 @@ DECLARE_DELEGATE_TwoParams(FOnLoginUIClosedDelegate, TSharedPtr<const FUniqueNet
  * @param FinalUrl the url that was used as the final redirect before closing
  */
 DECLARE_DELEGATE_OneParam(FOnShowWebUrlClosedDelegate, const FString& /*FinalUrl*/);
+
+/**
+ * Delegate executed when the store UI has been closed
+ *
+ * @param bPurchased true if a purchase occured via the store ui
+ */
+DECLARE_DELEGATE_OneParam(FOnShowStoreUIClosedDelegate, bool /*bPurchased*/);
+
+/**
+ * Delegate executed when the send message UI has been closed
+ *
+ * @param bMessageSent if the user chose to send the message
+ */
+DECLARE_DELEGATE_OneParam(FOnShowSendMessageUIClosedDelegate, bool /*bMessageSent*/);
 
 /** 
  * Delegate executed when the user profile UI has been closed. 
@@ -79,6 +94,49 @@ struct FShowWebUrlParams
 		, SizeX(0)
 		, SizeY(0)
 	{}
+};
+
+struct FShowStoreParams
+{
+	/** Category filter for products to browse */
+	FString Category;
+
+	/**
+	 * Constructor
+	 */
+	FShowStoreParams(const FString& InCategory = FString())
+		: Category(InCategory)
+	{}
+};
+
+struct FShowSendMessageParams
+{
+	FText DisplayTitle;
+	/** Map of language to text so the recipient's platform OS can display the localized string */
+	TMap<FString, FString> DisplayTitle_Loc;
+	FText DisplayMessage;
+	FText DisplayDetails;
+	/** Map of language to text so the recipient's platform OS can display the localized string */
+	TMap<FString, FString> DisplayDetails_Loc;
+	TArray<uint8> DisplayThumbnail;
+	FOnlineMessagePayload DataPayload;
+	int32 MaxRecipients;
+
+	/**
+	 * Constructor
+	 */
+	FShowSendMessageParams()
+		: MaxRecipients(1)
+	{}
+};
+
+/**
+ * Union of all the platform informational message types we handle (some may be handled by more than one platform)
+ */
+enum class EPlatformMessageType
+{
+	EmptyStore,
+	ChatRestricted
 };
 
 /** 
@@ -146,6 +204,7 @@ public:
 	 * Displays a web page in the external UI
 	 *
 	 * @param WebURL fully formed web address (http://www.google.com)
+	 * @param ShowParams configuration for the UI display
 	 *
 	 * @return true if it was able to show the UI, false if it failed
 	 */
@@ -169,13 +228,51 @@ public:
 	virtual bool ShowProfileUI(const FUniqueNetId& Requestor, const FUniqueNetId& Requestee, const FOnProfileUIClosedDelegate& Delegate = FOnProfileUIClosedDelegate()) = 0;
 
 	/**
-	* Displays a system dialog to purchase user account upgrades.  e.g. PlaystationPlus, XboxLive GOLD, etc.
-	*
-	* @param UniqueID of the user to show the dialog for
-	*
-	* @return true if it was able to show the UI, false if it failed
-	*/
+	 * Displays a system dialog to purchase user account upgrades.  e.g. PlaystationPlus, XboxLive GOLD, etc.
+	 *
+	 * @param UniqueID of the user to show the dialog for
+	 *
+	 * @return true if it was able to show the UI, false if it failed
+	 */
 	virtual bool ShowAccountUpgradeUI(const FUniqueNetId& UniqueId) = 0;
+
+	/**
+	 * Display the platform UI for browsing available products for purchase
+	 *
+	 * @param LocalUserNum the controller number of the associated user
+	 * @param ShowParams configuration for the UI display
+	 *
+	 * @return true if it was able to show the UI, false if it failed
+	 */
+	virtual bool ShowStoreUI(int32 LocalUserNum, const FShowStoreParams& ShowParams, const FOnShowStoreUIClosedDelegate& Delegate = FOnShowStoreUIClosedDelegate()) = 0;
+
+	/**
+	 * Display the platform UI for sending a mailbox message to another user
+	 *
+	 * @param LocalUserNum the controller number of the associated user
+	 * @param ShowParams configuration for the UI display
+	 *
+	 * @return true if it was able to show the UI, false if it failed
+	 */
+	virtual bool ShowSendMessageUI(int32 LocalUserNum, const FShowSendMessageParams& ShowParams, const FOnShowSendMessageUIClosedDelegate& Delegate = FOnShowSendMessageUIClosedDelegate()) = 0;
+
+	/**
+	 * Displays an informational system dialog.
+	 *
+	 * @param UserId Who to show this dialog for.
+	 * @param MessageId Platform-specific identifier for the message box to display.
+	 */
+	virtual bool ShowPlatformMessageBox(const FUniqueNetId& UserId, EPlatformMessageType MessageType) { return false; }
+
+	/**
+	 * Tell the system that you've entered into a screen considered in-game store.
+	 */
+	virtual void ReportEnterInGameStoreUI() {}
+
+	/**
+	 * Tell the system that you've entered into a screen considered in-game store.
+	 */
+	virtual void ReportExitInGameStoreUI() {}
 
 	/**
 	 * Delegate called when the external UI is opened or closed

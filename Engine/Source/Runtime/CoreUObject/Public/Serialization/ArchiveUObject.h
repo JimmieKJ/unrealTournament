@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -1026,6 +1026,16 @@ public:
 		uint32 InPortFlags);
 };
 
+/** Base class for object replacement archives */ 
+class COREUOBJECT_API FArchiveReplaceObjectRefBase : public FArchiveUObject
+{
+protected:
+	/**
+	* Serializes a single object
+	*/
+	void SerializeObject(UObject* ObjectToSerialzie);
+};
+
 /*----------------------------------------------------------------------------
 	FArchiveReplaceObjectRef.
 ----------------------------------------------------------------------------*/
@@ -1038,7 +1048,7 @@ public:
  * NOTE: The template type must be a child of UObject or this class will not compile.
  */
 template< class T >
-class FArchiveReplaceObjectRef : public FArchiveUObject
+class FArchiveReplaceObjectRef : public FArchiveReplaceObjectRefBase
 {
 public:
 	/**
@@ -1089,29 +1099,7 @@ public:
 		{
 			// start the initial serialization
 			SerializedObjects.Add(SearchObject);
-
-			// serialization for class default objects must be deterministic (since class 
-			// default objects may be serialized during script compilation while the script
-			// and C++ versions of a class are not in sync), so use SerializeTaggedProperties()
-			// rather than the native Serialize() function
-			if ( SearchObject->HasAnyFlags(RF_ClassDefaultObject) )
-			{
-				UClass* ObjectClass = SearchObject->GetClass();
-				StartSerializingDefaults();
-				if ( !WantBinaryPropertySerialization() && (IsLoading() || IsSaving()) )
-				{
-					ObjectClass->SerializeTaggedProperties(*this, (uint8*)SearchObject, ObjectClass, NULL);
-				}
-				else
-				{
-					ObjectClass->SerializeBin(*this, SearchObject);
-				}
-				StopSerializingDefaults();
-			}
-			else
-			{
-				SearchObject->Serialize(*this);
-			}
+			SerializeObject(SearchObject);
 		}
 	}
 
@@ -1164,29 +1152,7 @@ public:
 				if (!bAlreadyAdded)
 				{
 					// otherwise recurse down into the object if it is contained within the initial search object
-	
-					// serialization for class default objects must be deterministic (since class 
-					// default objects may be serialized during script compilation while the script
-					// and C++ versions of a class are not in sync), so use SerializeTaggedProperties()
-					// rather than the native Serialize() function
-					if ( Obj->HasAnyFlags(RF_ClassDefaultObject) )
-					{
-						UClass* ObjectClass = Obj->GetClass();
-						StartSerializingDefaults();
-						if ( !WantBinaryPropertySerialization() && (IsLoading() || IsSaving()) )
-						{
-							ObjectClass->SerializeTaggedProperties(*this, (uint8*)Obj, ObjectClass, NULL);
-						}
-						else
-						{
-							ObjectClass->SerializeBin(*this, Obj);
-						}
-						StopSerializingDefaults();
-					}
-					else
-					{
-						Obj->Serialize(*this);
-					}
+					SerializeObject(Obj);
 				}
 			}
 			else if ( bNullPrivateReferences && !Obj->HasAnyFlags(RF_Public) )
@@ -1567,6 +1533,11 @@ private:
 	int64							PrecacheEndPos[2];
 	/** Buffer containing precached data.											*/
 	uint8*							PrecacheBuffer[2];
+	/** Precahce buffer size */
+	SIZE_T PrecacheBufferSize[2];
+	/** True if the precache buffer is protected */
+	bool PrecacheBufferProtected[2];
+
 	/** Status of pending read, a value of 0 means no outstanding reads.			*/
 	FThreadSafeCounter				PrecacheReadStatus[2];
 	

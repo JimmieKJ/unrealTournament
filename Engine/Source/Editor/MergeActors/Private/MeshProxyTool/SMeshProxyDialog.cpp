@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MergeActorsPrivatePCH.h"
 #include "SMeshProxyDialog.h"
@@ -253,117 +253,6 @@ void SMeshProxyDialog::CreateLayout()
 				[
 					SNew(SCheckBox)
 					.Type(ESlateCheckBoxType::CheckBox)
-					.IsChecked(this, &SMeshProxyDialog::GetUseClippingPlane)
-					.OnCheckStateChanged(this, &SMeshProxyDialog::SetUseClippingPlane)
-					.Content()
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("ClippingPlaneLabel", "Use Clipping Plane"))
-						.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
-						.ToolTipText(GetPropertyToolTipText(GET_MEMBER_NAME_CHECKED(FMeshProxySettings, bUseClippingPlane)))
-					]
-				]
-
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
-				[
-					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot()
-					.VAlign(VAlign_Center)
-					.FillWidth(0.5f)
-					[
-						SNew(SHorizontalBox)
-						+SHorizontalBox::Slot()
-						.AutoWidth()
-						[
-							SNew(SBox)
-							.MinDesiredWidth(30)
-							[
-								SNullWidget::NullWidget
-							]
-						]
-						+SHorizontalBox::Slot()
-						.AutoWidth()
-						.HAlign(HAlign_Left)
-						[
-							SNew(STextBlock)
-							.IsEnabled(this, &SMeshProxyDialog::UseClippingPlaneEnabled)
-							.Text(LOCTEXT("ClippingAxisLabel", "Clipping Axis"))
-							.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
-							.ToolTipText(GetPropertyToolTipText(GET_MEMBER_NAME_CHECKED(FMeshProxySettings, AxisIndex)))
-						]
-					]
-					+SHorizontalBox::Slot()
-					.FillWidth(0.5f)
-					.HAlign(HAlign_Left)
-					.VAlign(VAlign_Center)
-					.Padding(8.0, 0.0, 8.0, 0.0)
-					[
-						SNew(STextComboBox)
-						.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
-						.OptionsSource(&CuttingPlaneOptions)
-						.InitiallySelectedItem(CuttingPlaneOptions[0])
-						.OnSelectionChanged(this, &SMeshProxyDialog::SetClippingAxis)
-						.IsEnabled(this, &SMeshProxyDialog::UseClippingPlaneEnabled)
-					]
-				]
-
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
-				[
-					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot()
-					.FillWidth(0.5f)
-					.VAlign(VAlign_Center)
-					.Padding(0.0, 0.0, 3.0, 0.0)
-					[
-						SNew(SHorizontalBox)
-						+SHorizontalBox::Slot()
-						.AutoWidth()
-						[
-							SNew(SBox)
-							.MinDesiredWidth(30)
-							[
-								SNullWidget::NullWidget
-							]
-						]
-						+SHorizontalBox::Slot()
-						.HAlign(HAlign_Left)
-						.AutoWidth()
-						[
-							SNew(STextBlock)
-							.Text(LOCTEXT("PlaneLevelLabel", "Plane level"))
-							.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
-							.IsEnabled(this, &SMeshProxyDialog::UseClippingPlaneEnabled)
-							.ToolTipText(GetPropertyToolTipText(GET_MEMBER_NAME_CHECKED(FMeshProxySettings, ClippingLevel)))
-						]
-					]
-					+SHorizontalBox::Slot()
-					.FillWidth(0.5f)
-					.HAlign(HAlign_Left)
-					[
-						SNew(SBox)
-						.HAlign(HAlign_Fill)
-						.MinDesiredWidth(100.0f)
-						.MaxDesiredWidth(100.0f)
-						[
-							SNew(SNumericEntryBox<float>)
-							.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
-							.Value(this, &SMeshProxyDialog::GetClippingLevel)
-							.OnValueChanged(this, &SMeshProxyDialog::ClippingLevelChanged)
-							.IsEnabled(this, &SMeshProxyDialog::UseClippingPlaneEnabled)
-						]
-					]
-				]
-
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
-				[
-					SNew(SCheckBox)
-					.Type(ESlateCheckBoxType::CheckBox)
 					.IsChecked(this, &SMeshProxyDialog::GetExportNormalMap)
 					.OnCheckStateChanged(this, &SMeshProxyDialog::SetExportNormalMap)
 					.Content()
@@ -502,55 +391,6 @@ TOptional<int32> SMeshProxyDialog::GetMergeDistance() const
 void SMeshProxyDialog::MergeDistanceChanged(int32 NewValue)
 {
 	Tool->ProxySettings.MergeDistance = NewValue;
-}
-
-//Clipping Plane
-ECheckBoxState SMeshProxyDialog::GetUseClippingPlane() const
-{
-	return Tool->ProxySettings.bUseClippingPlane ? ECheckBoxState::Checked: ECheckBoxState::Unchecked;
-}
-
-void SMeshProxyDialog::SetUseClippingPlane(ECheckBoxState NewValue)
-{
-	Tool->ProxySettings.bUseClippingPlane = (NewValue == ECheckBoxState::Checked);
-}
-
-bool SMeshProxyDialog::UseClippingPlaneEnabled() const
-{
-	if(Tool->ProxySettings.bUseClippingPlane)
-	{
-		return true;
-	}
-	return false;
-}
-
-void SMeshProxyDialog::SetClippingAxis(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo )
-{
-	//This is a ugly hack, but it solves the problem for now
-	int32 AxisIndex = CuttingPlaneOptions.Find(NewSelection);
-	//FMessageDialog::Debugf(*FString::Printf(TEXT("%d"), AxisIndex ));
-	if(AxisIndex < 3)
-	{
-		Tool->ProxySettings.bPlaneNegativeHalfspace = false;
-		Tool->ProxySettings.AxisIndex = AxisIndex;
-		return;
-	}
-	else
-	{
-		Tool->ProxySettings.bPlaneNegativeHalfspace = true;
-		Tool->ProxySettings.AxisIndex = AxisIndex - 3;
-		return;
-	}
-}
-
-TOptional<float> SMeshProxyDialog::GetClippingLevel() const
-{
-	return Tool->ProxySettings.ClippingLevel;
-}
-
-void SMeshProxyDialog::ClippingLevelChanged(float NewValue)
-{
-	Tool->ProxySettings.ClippingLevel = NewValue;
 }
 
 //Texture Resolution

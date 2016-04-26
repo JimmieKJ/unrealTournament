@@ -34,7 +34,7 @@ void UUTAnnouncer::PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, i
 {
 	if (MessageClass != NULL)
 	{
-		FName SoundName = MessageClass.GetDefaultObject()->GetAnnouncementName(Switch, OptionalObject);
+		FName SoundName = MessageClass.GetDefaultObject()->GetAnnouncementName(Switch, OptionalObject, PlayerState1, PlayerState2);
 		if (SoundName != NAME_None)
 		{
 			FAnnouncementInfo NewAnnouncement(MessageClass, Switch, PlayerState1, PlayerState2, OptionalObject);
@@ -130,7 +130,7 @@ void UUTAnnouncer::PlayNextAnnouncement()
 		FAnnouncementInfo Next = QueuedAnnouncements[0];
 		QueuedAnnouncements.RemoveAt(0);
 
-		FName SoundName = Next.MessageClass.GetDefaultObject()->GetAnnouncementName(Next.Switch, Next.OptionalObject);
+		FName SoundName = Next.MessageClass.GetDefaultObject()->GetAnnouncementName(Next.Switch, Next.OptionalObject, Next.RelatedPlayerState_1, Next.RelatedPlayerState_2);
 		USoundBase* Audio = NULL;
 		if (SoundName == NAME_Custom)
 		{

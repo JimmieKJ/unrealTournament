@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -18,6 +18,8 @@ public:
 	};
 
 public:
+	virtual ~ITextInputMethodContext() {}
+
 	/**
 	 * Returns whether or not this text is read-only.
 	 *
@@ -141,6 +143,8 @@ public:
 	};
 
 public:
+	virtual ~ITextInputMethodChangeNotifier() {}
+
 	virtual void NotifyLayoutChanged(const ELayoutChangeType ChangeType) = 0;
 	virtual void NotifySelectionChanged() = 0;
 	virtual void NotifyTextChanged(const uint32 BeginIndex, const uint32 OldLength, const uint32 NewLength) = 0;
@@ -153,6 +157,8 @@ public:
 class ITextInputMethodSystem
 {
 public:
+	virtual ~ITextInputMethodSystem() {}
+
 	/**
 	 * Called when a window is first created to allow the text input system to apply any default settings
 	 */

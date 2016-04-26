@@ -1,9 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "HAL/Platform.h"
-
 
 // General identifiers for potential force feedback channels. These will be mapped according to the
 // platform specific implementation.
@@ -34,6 +33,24 @@ struct FForceFeedbackValues
 	{ }
 };
 
+struct FHapticFeedbackValues
+{
+	float Frequency;
+	float Amplitude;
+
+	FHapticFeedbackValues()
+		: Frequency(0.f)
+		, Amplitude(0.f)
+	{
+	}
+
+	FHapticFeedbackValues(const float InFrequency, const float InAmplitude)
+	{
+		// can't use FMath::Clamp here due to header files dependencies
+		Frequency = (InFrequency < 0.f) ? 0.f : ((InFrequency > 1.f) ? 1.f : InFrequency);
+		Amplitude = (InAmplitude < 0.f) ? 0.f : ((InAmplitude > 1.f) ? 1.f : InAmplitude);
+	}
+};
 
 /**
  * Interface for the input interface.
@@ -68,8 +85,18 @@ public:
 	void SetChannelValues(int32 ControllerId, const FForceFeedbackValues &Values) { SetForceFeedbackChannelValues(ControllerId, Values); }
 	virtual void SetForceFeedbackChannelValues(int32 ControllerId, const FForceFeedbackValues &Values) = 0;
 
+	/**
+	* Sets the frequency and amplitude of haptic feedback channels for a given controller id.
+	* Some devices / platforms may support just haptics, or just force feedback.
+	*
+	* @param ControllerId	ID of the controller to issue haptic feedback for
+	* @param HandId			Which hand id (e.g. left or right) to issue the feedback for.  These usually correspond to EControllerHands
+	* @param Values			Frequency and amplitude to haptics at
+	*/
+	virtual void SetHapticFeedbackValues(int32 ControllerId, int32 Hand, const FHapticFeedbackValues& Values) {}
+
 	/*
 	 * Sets the controller for the given controller.  Ignored if controller does not support a color.
 	 */
-	virtual void SetLightColor(int32 ControllerId, FColor Color) = 0;
+	virtual void SetLightColor(int32 ControllerId, struct FColor Color) = 0;
 };

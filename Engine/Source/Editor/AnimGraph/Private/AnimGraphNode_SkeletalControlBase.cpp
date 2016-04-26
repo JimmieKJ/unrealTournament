@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimGraphPrivatePCH.h"
 #include "AnimGraphNode_SkeletalControlBase.h"
@@ -140,7 +140,7 @@ void UAnimGraphNode_SkeletalControlBase::ConvertToComponentSpaceTransform(const 
 }
 
 
-FVector UAnimGraphNode_SkeletalControlBase::ConvertCSVectorToBoneSpace(const USkeletalMeshComponent* SkelComp, FVector& InCSVector, FCSPose<FCompactPose>& MeshBases, const FName& BoneName, const EBoneControlSpace Space)
+FVector UAnimGraphNode_SkeletalControlBase::ConvertCSVectorToBoneSpace(const USkeletalMeshComponent* SkelComp, FVector& InCSVector, FCSPose<FCompactHeapPose>& MeshBases, const FName& BoneName, const EBoneControlSpace Space)
 {
 	FVector OutVector = InCSVector;
 
@@ -180,7 +180,7 @@ FVector UAnimGraphNode_SkeletalControlBase::ConvertCSVectorToBoneSpace(const USk
 	return OutVector;
 }
 
-FQuat UAnimGraphNode_SkeletalControlBase::ConvertCSRotationToBoneSpace(const USkeletalMeshComponent* SkelComp, FRotator& InCSRotator, FCSPose<FCompactPose>& MeshBases, const FName& BoneName, const EBoneControlSpace Space)
+FQuat UAnimGraphNode_SkeletalControlBase::ConvertCSRotationToBoneSpace(const USkeletalMeshComponent* SkelComp, FRotator& InCSRotator, FCSPose<FCompactHeapPose>& MeshBases, const FName& BoneName, const EBoneControlSpace Space)
 {
 	FQuat OutQuat = FQuat::Identity;
 
@@ -235,7 +235,7 @@ FQuat UAnimGraphNode_SkeletalControlBase::ConvertCSRotationToBoneSpace(const USk
 	return OutQuat;
 }
 
-FVector UAnimGraphNode_SkeletalControlBase::ConvertWidgetLocation(const USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases, const FName& BoneName, const FVector& Location, const EBoneControlSpace Space)
+FVector UAnimGraphNode_SkeletalControlBase::ConvertWidgetLocation(const USkeletalMeshComponent* SkelComp, FCSPose<FCompactHeapPose>& MeshBases, const FName& BoneName, const FVector& Location, const EBoneControlSpace Space)
 {
 	FVector WidgetLoc = FVector::ZeroVector;
 

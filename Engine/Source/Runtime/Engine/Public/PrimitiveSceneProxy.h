@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PrimitiveSceneProxy.h: Primitive scene proxy definition.
@@ -169,7 +169,7 @@ public:
 	virtual void GetMeshDescription(int32 LODIndex, TArray<FMeshBatch>& OutMeshElements) const {}
 
 	/** Gathers shadow shapes from this proxy. */
-	virtual void GetShadowShapes(TArray<FSphere>& SphereShapes, TArray<FCapsuleShape>& CapsuleShapes) const {}
+	virtual void GetShadowShapes(TArray<FCapsuleShape>& CapsuleShapes) const {}
 
 	/** 
 	 * Gathers the primitive's dynamic mesh elements.  This will only be called if GetViewRelevance declares dynamic relevance.
@@ -201,7 +201,7 @@ public:
 	 * @param Results - visibility results, allocated from the scene allocator, so valid until the end of the frame
 	 * @param NumResults - number of visibility bools
 	 */
-	virtual void AcceptOcclusionResults(const FSceneView* View, const bool* Results, int32 NumResults) {}
+	virtual void AcceptOcclusionResults(const FSceneView* View, TArray<bool>* Results, int32 ResultsStart, int32 NumResults) {}
 
 	/**
 	 * Determines the relevance of this primitive's elements to the given view.
@@ -393,6 +393,7 @@ public:
 	inline bool HasStaticLighting() const { return bStaticLighting; }
 	inline bool NeedsUnbuiltPreviewLighting() const { return bNeedsUnbuiltPreviewLighting; }
 	inline bool CastsStaticShadow() const { return bCastStaticShadow; }
+	inline bool IsVisibleInPlanarReflection() const { return bVisibleInPlanarReflection; }
 	inline bool CastsDynamicShadow() const { return bCastDynamicShadow; }
 	inline bool AffectsDynamicIndirectLighting() const { return bAffectDynamicIndirectLighting; }
 	inline bool AffectsDistanceFieldLighting() const { return bAffectDistanceFieldLighting; }
@@ -431,6 +432,7 @@ public:
 	inline bool NeedsLevelAddedToWorldNotification() const { return bNeedsLevelAddedToWorldNotification; }
 	inline bool IsComponentLevelVisible() const { return bIsComponentLevelVisible; }
 	inline bool IsStaticPathAvailable() const { return !bDisableStaticPath; }
+	inline bool ShouldRenderCSMForDynamicObjects() const { return bReceiveCSMFromDynamicObjects; }
 
 #if WITH_EDITOR
 	inline int32 GetNumUncachedStaticLightingInteractions() { return NumUncachedStaticLightingInteractions; }
@@ -515,6 +517,11 @@ public:
 	 */
 	typedef TArray<class FLightCacheInterface*, TInlineAllocator<8> > FLCIArray;
 	ENGINE_API virtual void GetLCIs(FLCIArray& LCIs) {}
+
+	/**
+	 * Get the texture streaming texel factor and bound for this primitive.
+	 */
+	virtual bool GetStreamingTextureInfo(struct FStreamingTexturePrimitiveInfo& OutInfo, int32 LODIndex, int32 ElementIndex) const { return false; }
 
 protected:
 
@@ -601,6 +608,9 @@ protected:
 
 	/** True if the primitive casts static shadows. */
 	uint32 bCastStaticShadow : 1;
+
+	/** True if the primitive is rendered into the planar reflection pass. */
+	uint32 bVisibleInPlanarReflection : 1;
 
 	/** 
 	 * Whether the object should cast a volumetric translucent shadow.
@@ -697,6 +707,9 @@ private:
 	/** Whether this primitive should be composited onto the scene after post processing (editor only) */
 	uint32 bUseEditorCompositing : 1;
 
+	/** Should this primitive receive dynamic-only CSM shadows */
+	uint32 bReceiveCSMFromDynamicObjects : 1;
+		
 	/** This primitive has bRenderCustomDepth enabled */
 	uint32 bRenderCustomDepth : 1;
 

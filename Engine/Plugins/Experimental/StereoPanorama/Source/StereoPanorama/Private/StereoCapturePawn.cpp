@@ -5,6 +5,12 @@
 
 void AStereoCapturePawn::UpdateStereoAtlas(UObject* WorldContextObject, struct FLatentActionInfo LatentInfo)
 {
+	TSharedPtr<FStereoPanoramaManager> StereoPanoramaManager = FStereoPanoramaModule::Get();
+	if (!StereoPanoramaManager->ValidateRendererState())
+	{
+		return;
+	}
+
     FIntPoint atlasDimensions(FStereoPanoramaManager::StepCaptureWidth->GetInt(), FStereoPanoramaManager::StepCaptureWidth->GetInt() / 2);
     if (!LeftEyeAtlas || 
         !LeftEyeAtlas->IsValidLowLevel() ||
@@ -30,7 +36,7 @@ void AStereoCapturePawn::UpdateStereoAtlas(UObject* WorldContextObject, struct F
     FStereoCaptureDoneDelegate CopyAtlasToTexDelegate;
     //TODO: ikrimae: When updating to 4.6, use stateful lambda instead of creating a separate member function
     CopyAtlasToTexDelegate.BindUObject(this, &AStereoCapturePawn::CopyAtlasDataToTextures);
-    FStereoPanoramaModule::Get()->PanoramicScreenshot(0, 0, CopyAtlasToTexDelegate);
+    StereoPanoramaManager->PanoramicScreenshot(0, 0, CopyAtlasToTexDelegate);
 
     //TODO: ikrimae: Not cool b/c we're passing memory ownership to the LatentActionManager but at the same time we need a reference to this action to update when it's done
     //               Got to dig deeper into UE4 to see proper way
@@ -45,6 +51,7 @@ void AStereoCapturePawn::UpdateStereoAtlas(UObject* WorldContextObject, struct F
         }
     }
 }
+
 
 void AStereoCapturePawn::CopyAtlasDataToTextures(const TArray<FColor>& InLeftEyeAtlasData, const TArray<FColor>& InRightEyeAtlasData)
 {
@@ -82,5 +89,3 @@ void AStereoCapturePawn::CopyAtlasDataToTextures(const TArray<FColor>& InLeftEye
         StereoCaptureDoneAction->IsStereoCaptureDone = true;
     }
 }
-
-

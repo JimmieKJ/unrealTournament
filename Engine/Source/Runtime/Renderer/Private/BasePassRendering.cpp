@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BasePassRendering.cpp: Base pass rendering implementation.
@@ -10,7 +10,7 @@
 // Changing this causes a full shader recompile
 static TAutoConsoleVariable<int32> CVarSelectiveBasePassOutputs(
 	TEXT("r.SelectiveBasePassOutputs"),
-	0,
+	1,
 	TEXT("Enables shaders to only export to relevant rendertargets.\n") \
 	TEXT(" 0: Export in all rendertargets.\n") \
 	TEXT(" 1: Export only into relevant rendertarget.\n"),
@@ -114,14 +114,43 @@ void FSkyLightReflectionParameters::GetSkyParametersFromScene(
 	}
 }
 
+void FReflectionParameters::Set(FRHICommandList& RHICmdList, FShader* Shader, const FViewInfo* View)
+{
+	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+	auto PixelShader = Shader->GetPixelShader();
+
+	SkyLightReflectionParameters.SetParameters(RHICmdList, Shader->GetPixelShader(), (const FScene*)(View->Family->Scene), true);
+}
+
+void FReflectionParameters::SetMesh(FRHICommandList& RHICmdList, FShader* Shader, const FPrimitiveSceneProxy* Proxy, ERHIFeatureLevel::Type FeatureLevel)
+{
+	// Note: GBlackCubeArrayTexture has an alpha of 0, which is needed to represent invalid data so the sky cubemap can still be applied
+	FTextureRHIParamRef CubeArrayTexture = FeatureLevel >= ERHIFeatureLevel::SM5 ? GBlackCubeArrayTexture->TextureRHI : GBlackTextureCube->TextureRHI;
+	int32 ArrayIndex = 0;
+	const FPrimitiveSceneInfo* PrimitiveSceneInfo = Proxy ? Proxy->GetPrimitiveSceneInfo() : NULL;
+
+	if (PrimitiveSceneInfo && PrimitiveSceneInfo->CachedReflectionCaptureProxy)
+	{
+		PrimitiveSceneInfo->Scene->GetCaptureParameters(PrimitiveSceneInfo->CachedReflectionCaptureProxy, CubeArrayTexture, ArrayIndex);
+	}
+
+	SetTextureParameter(
+		RHICmdList, 
+		Shader->GetPixelShader(), 
+		ReflectionCubemap, 
+		ReflectionCubemapSampler, 
+		TStaticSamplerState<SF_Trilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(), 
+		CubeArrayTexture);
+
+	SetShaderValue(RHICmdList, Shader->GetPixelShader(), CubemapArrayIndex, ArrayIndex);
+}
+
 void FTranslucentLightingParameters::Set(FRHICommandList& RHICmdList, FShader* Shader, const FViewInfo* View)
 {
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 	auto PixelShader = Shader->GetPixelShader();
 
 	TranslucentLightingVolumeParameters.Set(RHICmdList, PixelShader);
-
-	SkyLightReflectionParameters.SetParameters(RHICmdList, Shader->GetPixelShader(), (const FScene*)(View->Family->Scene), true);
 
 	if (View->HZB)
 	{
@@ -181,29 +210,6 @@ void FTranslucentLightingParameters::Set(FRHICommandList& RHICmdList, FShader* S
 			TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(),
 			GBlackTexture->TextureRHI);
 	}
-}
-
-void FTranslucentLightingParameters::SetMesh(FRHICommandList& RHICmdList, FShader* Shader, const FPrimitiveSceneProxy* Proxy, ERHIFeatureLevel::Type FeatureLevel)
-{
-	// Note: GBlackCubeArrayTexture has an alpha of 0, which is needed to represent invalid data so the sky cubemap can still be applied
-	FTextureRHIParamRef CubeArrayTexture = FeatureLevel >= ERHIFeatureLevel::SM5 ? GBlackCubeArrayTexture->TextureRHI : GBlackTextureCube->TextureRHI;
-	int32 ArrayIndex = 0;
-	const FPrimitiveSceneInfo* PrimitiveSceneInfo = Proxy ? Proxy->GetPrimitiveSceneInfo() : NULL;
-
-	if (PrimitiveSceneInfo && PrimitiveSceneInfo->CachedReflectionCaptureProxy)
-	{
-		PrimitiveSceneInfo->Scene->GetCaptureParameters(PrimitiveSceneInfo->CachedReflectionCaptureProxy, CubeArrayTexture, ArrayIndex);
-	}
-
-	SetTextureParameter(
-		RHICmdList, 
-		Shader->GetPixelShader(), 
-		ReflectionCubemap, 
-		ReflectionCubemapSampler, 
-		TStaticSamplerState<SF_Trilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(), 
-		CubeArrayTexture);
-
-	SetShaderValue(RHICmdList, Shader->GetPixelShader(), CubemapArrayIndex, ArrayIndex);
 }
 
 /** The action used to draw a base pass static mesh element. */
@@ -272,7 +278,7 @@ public:
 				Parameters.TextureMode,
 				Parameters.ShadingModel != MSM_Unlit && Scene->SkyLight && Scene->SkyLight->bWantsStaticShadowing && !Scene->SkyLight->bHasStaticLighting,
 				IsTranslucentBlendMode(Parameters.BlendMode) && Scene->HasAtmosphericFog(),
-				/* bOverrideWithShaderComplexity = */ false,
+				/* DebugViewShaderMode = */ DVSM_None,
 				/* bInAllowGlobalFog = */ false,
 				/* bInEnableEditorPrimitiveDepthTest = */ false,
 				/* bInEnableReceiveDecalOutput = */ true
@@ -317,7 +323,7 @@ public:
 
 	const FViewInfo& View;
 	bool bBackFace;
-	float DitheredLODTransitionValue;
+	float DitheredLODTransitionAlpha;
 	bool bPreFog;
 	FHitProxyId HitProxyId;
 
@@ -330,7 +336,7 @@ public:
 		)
 		: View(InView)
 		, bBackFace(bInBackFace)
-		, DitheredLODTransitionValue(InDitheredLODTransitionValue)
+		, DitheredLODTransitionAlpha(InDitheredLODTransitionValue)
 		, HitProxyId(InHitProxyId)
 	{}
 
@@ -385,32 +391,40 @@ public:
 			Parameters.TextureMode,
 			Scene && Scene->SkyLight && !Scene->SkyLight->bHasStaticLighting && Scene->SkyLight->bWantsStaticShadowing && bIsLitMaterial,
 			IsTranslucentBlendMode(Parameters.BlendMode) && (Scene && Scene->HasAtmosphericFog()) && View.Family->EngineShowFlags.AtmosphericFog,
-			View.Family->EngineShowFlags.ShaderComplexity,
+			View.Family->GetDebugViewShaderMode(),
 			false,
 			Parameters.bEditorCompositeDepthTest,
-			/* bInEnableReceiveDecalOutput = */ Scene != nullptr,
-			View.Family->GetQuadOverdrawMode()
+			/* bInEnableReceiveDecalOutput = */ Scene != nullptr
 			);
 		RHICmdList.BuildAndSetLocalBoundShaderState(DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
-		DrawingPolicy.SetSharedState(RHICmdList, &View, typename TBasePassDrawingPolicy<LightMapPolicyType>::ContextDataType());
+		DrawingPolicy.SetSharedState(RHICmdList, &View, typename TBasePassDrawingPolicy<LightMapPolicyType>::ContextDataType(Parameters.bIsInstancedStereo, false));
+		const FMeshDrawingRenderState DrawRenderState(DitheredLODTransitionAlpha);
 
 		for( int32 BatchElementIndex = 0, Num = Parameters.Mesh.Elements.Num(); BatchElementIndex < Num; BatchElementIndex++ )
 		{
-			TDrawEvent<FRHICommandList> MeshEvent;
-			BeginMeshDrawEvent(RHICmdList, Parameters.PrimitiveSceneProxy, Parameters.Mesh, MeshEvent);
+			// We draw instanced static meshes twice when rendering with instanced stereo. Once for each eye.
+			const bool bIsInstancedMesh = Parameters.Mesh.Elements[BatchElementIndex].bIsInstancedMesh;
+			const uint32 InstancedStereoDrawCount = (Parameters.bIsInstancedStereo && bIsInstancedMesh) ? 2 : 1;
+			for (uint32 DrawCountIter = 0; DrawCountIter < InstancedStereoDrawCount; ++DrawCountIter)
+			{
+				DrawingPolicy.SetInstancedEyeIndex(RHICmdList, DrawCountIter);
 
-			DrawingPolicy.SetMeshRenderState(
-				RHICmdList, 
-				View,
-				Parameters.PrimitiveSceneProxy,
-				Parameters.Mesh,
-				BatchElementIndex,
-				bBackFace,
-				DitheredLODTransitionValue,
-				typename TBasePassDrawingPolicy<LightMapPolicyType>::ElementDataType(LightMapElementData),
-				typename TBasePassDrawingPolicy<LightMapPolicyType>::ContextDataType()
-				);
-			DrawingPolicy.DrawMesh(RHICmdList, Parameters.Mesh, BatchElementIndex);
+				TDrawEvent<FRHICommandList> MeshEvent;
+				BeginMeshDrawEvent(RHICmdList, Parameters.PrimitiveSceneProxy, Parameters.Mesh, MeshEvent);
+
+				DrawingPolicy.SetMeshRenderState(
+					RHICmdList,
+					View,
+					Parameters.PrimitiveSceneProxy,
+					Parameters.Mesh,
+					BatchElementIndex,
+					bBackFace,
+					DrawRenderState,
+					typename TBasePassDrawingPolicy<LightMapPolicyType>::ElementDataType(LightMapElementData),
+					typename TBasePassDrawingPolicy<LightMapPolicyType>::ContextDataType()
+					);
+				DrawingPolicy.DrawMesh(RHICmdList, Parameters.Mesh, BatchElementIndex, Parameters.bIsInstancedStereo);
+			}
 		}
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -430,7 +444,8 @@ bool FBasePassOpaqueDrawingPolicyFactory::DrawDynamicMesh(
 	bool bBackFace,
 	bool bPreFog,
 	const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-	FHitProxyId HitProxyId
+	FHitProxyId HitProxyId, 
+	const bool bIsInstancedStereo
 	)
 {
 	// Determine the mesh's material and blend mode.
@@ -449,7 +464,8 @@ bool FBasePassOpaqueDrawingPolicyFactory::DrawDynamicMesh(
 				!bPreFog,
 				DrawingContext.bEditorCompositeDepthTest,
 				DrawingContext.TextureMode,
-				View.GetFeatureLevel()
+				View.GetFeatureLevel(), 
+				bIsInstancedStereo
 				),
 			FDrawBasePassDynamicMeshAction(
 				View,

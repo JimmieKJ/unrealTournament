@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "UTCTFGameState.h"
 #include "UTHUDWidget_CTFFlagStatus.generated.h"
 
 UCLASS()
@@ -29,10 +30,13 @@ class UNREALTOURNAMENT_API UUTHUDWidget_CTFFlagStatus : public UUTHUDWidget
 	float AnimationAlpha;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	TArray<FHUDRenderObject_Texture> CircleSlate;
+	FHUDRenderObject_Texture CircleTemplate;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	TArray<FHUDRenderObject_Texture> CircleBorder;
+	FHUDRenderObject_Texture CircleBorderTemplate;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Text FlagHolderNameTemplate;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Texture FlagIconTemplate;
@@ -47,48 +51,73 @@ class UNREALTOURNAMENT_API UUTHUDWidget_CTFFlagStatus : public UUTHUDWidget
 		FHUDRenderObject_Texture FlagGoneIconTemplate;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+		FHUDRenderObject_Texture CameraIconTemplate;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Text FlagStatusText;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	TArray<FHUDRenderObject_Text> FlagHolderNames;
-
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Message")
-		float InWorldAlpha;
+	float InWorldAlpha;
 
 	/** Transient value used to pulse color of status indicators. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WorldOverlay")
-		float StatusScale;
+	UPROPERTY(BlueprintReadWrite, Category = "WorldOverlay")
+	float StatusScale;
+
+	UPROPERTY(BlueprintReadWrite, Category = "WorldOverlay")
+	float EnemyFlagStartDrawTime;
+
+	UPROPERTY(BlueprintReadWrite, Category = "WorldOverlay")
+	bool bEnemyFlagWasDrawn;
 
 	/** Transient value used to pulse color of status indicators. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-		bool bStatusDir;
+	bool bStatusDir;
+
+	/** Transient value used to keep offscreen indicators from flipping sides too much. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	bool bRedWasLeft;
+
+	/** Transient value used to keep offscreen indicators from flipping sides too much. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	bool bBlueWasLeft;
 
 	/** Distance to start scaling in world indicators. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-		float ScalingStartDist;
+	float ScalingStartDist;
 
 	/** Distance to stop scaling in world indicators. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-		float ScalingEndDist;
+	float ScalingEndDist;
 
 	/** Largest scaling for in world indicators. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-		float MaxIconScale;
+	float MaxIconScale;
 
 	/** Smallest scaling for in world indicators. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-		float MinIconScale;
+	float MinIconScale;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	TArray<FVector2D> TeamPositions;
 
 	virtual void Draw_Implementation(float DeltaTime);
 	virtual void InitializeWidget(AUTHUD* Hud);
-
 	virtual bool ShouldDraw_Implementation(bool bShowScores)
 	{
 		return !bShowScores;
 	}
 
-	virtual FVector GetAdjustedScreenPosition(const FVector& WorldPosition, const FVector& ViewPoint, const FVector& ViewDir, float Dist, float Edge, bool& bDrawEdgeArrow);
+	bool bSuppressMessage;
 
+protected:
+	virtual void DrawStatusMessage(float DeltaTime);
+	virtual void DrawIndicators(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation);
+	virtual void DrawFlagStatus(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation, uint8 TeamNum, FVector2D IndicatorPosition, AUTCTFFlagBase* FlagBase, AUTCTFFlag* Flag, AUTPlayerState* FlagHolder);
+	virtual void DrawFlagWorld(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation, uint8 TeamNum, AUTCTFFlagBase* FlagBase, AUTCTFFlag* Flag, AUTPlayerState* FlagHolder);
+	virtual void DrawFlagBaseWorld(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation, uint8 TeamNum, AUTCTFFlagBase* FlagBase, AUTCTFFlag* Flag, AUTPlayerState* FlagHolder);
+	virtual FText GetFlagReturnTime(AUTCTFFlag* Flag);
+	virtual FVector GetAdjustedScreenPosition(const FVector& WorldPosition, const FVector& ViewPoint, const FVector& ViewDir, float Dist, float Edge, float EdgeYPos, bool& bDrawEdgeArrow, int32 Team);
 	virtual void DrawEdgeArrow(FVector ScreenPosition, float CurrentWorldAlpha, float WorldRenderScale, int32 Team);
-
+	virtual FText GetBaseMessage(AUTCTFFlagBase* Base, AUTCTFFlag* Flag);
+	virtual bool ShouldDrawFlag(AUTCTFFlag* Flag, bool bIsEnemyFlag);
 };

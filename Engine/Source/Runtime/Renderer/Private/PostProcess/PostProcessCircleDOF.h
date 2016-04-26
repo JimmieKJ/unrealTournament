@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessDOF.h: Post process Depth of Field implementation.
@@ -95,7 +95,7 @@ private:
 };
 
 // to verify this can be used: http://www.radical.org/aov
-// @return in mm, assuming this sensor: APS-C 24.576 mm
+// @return in mm, assuming the sensor in the DepthOfField settings
 float ComputeFocalLengthFromFov(const FSceneView& View);
 
 FVector4 CircleDofHalfCoc(const FSceneView& View);

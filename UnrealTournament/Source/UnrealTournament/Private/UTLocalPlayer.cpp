@@ -71,6 +71,7 @@
 #include "IBlueprintContextModule.h"
 #include "SUTChatEditBox.h"
 #include "SUTMatchmakingRegionDialog.h"
+#include "SUTLeagueMatchResultsDialog.h"
 #include "UserWidget.h"
 #include "WidgetBlueprintLibrary.h"
 #include "BlueprintContextLibrary.h"
@@ -387,7 +388,10 @@ void UUTLocalPlayer::WindowClosed(TSharedPtr<SUTWindowBase> WindowThatWasClosed)
 {
 	if (WindowStack.Find(WindowThatWasClosed) != INDEX_NONE)
 	{
-		GEngine->GameViewport->RemoveViewportWidgetContent(WindowThatWasClosed.ToSharedRef());
+		if (GEngine->GameViewport != NULL) // might already be gone if in PIE
+		{
+			GEngine->GameViewport->RemoveViewportWidgetContent(WindowThatWasClosed.ToSharedRef());
+		}
 		WindowStack.Remove(WindowThatWasClosed);
 	}
 }
@@ -628,6 +632,13 @@ void UUTLocalPlayer::CloseDialog(TSharedRef<SUTDialogBase> Dialog)
 		FSlateApplication::Get().SetKeyboardFocus(DesktopSlateWidget, EKeyboardFocusCause::Keyboard);
 	}
 }
+
+#if !UE_SERVER
+void UUTLocalPlayer::ShowGameAbandonedDialog()
+{
+	GameAbandonedDialog = ShowMessage(NSLOCTEXT("UUTLocalPlayer", "RankedGameAbandonedTitle", "Game Abandoned"), NSLOCTEXT("AUTBasePlayerController", "RankedGameAbandoned", "There were not enough players to start that match so it was abandoned."), UTDIALOG_BUTTON_OK);
+}
+#endif
 
 TSharedPtr<class SUTServerBrowserPanel> UUTLocalPlayer::GetServerBrowser()
 {
@@ -895,7 +906,8 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 		
 #if WITH_SOCIAL
 		// Init the Friends And Chat system
-		ISocialModule::Get().GetFriendsAndChatManager()->Login(OnlineSubsystem, true);
+		FFriendsAndChatLoginOptions LoginOptions(0, true);
+		ISocialModule::Get().GetFriendsAndChatManager()->Login(OnlineSubsystem, LoginOptions);
 		ISocialModule::Get().GetFriendsAndChatManager()->SetAnalyticsProvider(FUTAnalytics::GetProviderPtr());
 
 		if (!ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnJoinGame().IsBoundToObject(this))
@@ -1089,6 +1101,8 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 			PC->ClientGenericInitialization();
 		}
 
+		ShowRankedReconnectDialog(UniqueID.ToString());
+
 		// If we have a pending session, then join it.
 		JoinPendingSession();
 
@@ -1098,6 +1112,44 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 
 	PlayerOnlineStatusChanged.Broadcast(this, LoginStatus, UniqueID);
 }
+
+void UUTLocalPlayer::ShowRankedReconnectDialog(const FString& UniqueID)
+{
+#if !UE_SERVER
+	if (UniqueID == LastRankedMatchUniqueId && !LastRankedMatchSessionId.IsEmpty())
+	{
+		FDateTime LastRankedMatchTime;
+		FDateTime::Parse(LastRankedMatchTimeString, LastRankedMatchTime);
+		if ((FDateTime::Now() - LastRankedMatchTime).GetHours() < 1)
+		{
+			// Ask player if they want to try to rejoin last ranked game
+			ShowMessage(NSLOCTEXT("UTLocalPlayer", "RankedReconnectTitle", "Reconnect To Ranked Match?"),
+				NSLOCTEXT("UTLocalPlayer", "RankedReconnect", "Would you like to reconnect to the last ranked match?"),
+				UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO,
+				FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::RankedReconnectResult));
+		}
+	}
+#endif
+}
+
+#if !UE_SERVER
+void UUTLocalPlayer::RankedReconnectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_YES)
+	{
+		UMatchmakingContext* MatchmakingContext = Cast<UMatchmakingContext>(UBlueprintContextLibrary::GetContext(GetWorld(), UMatchmakingContext::StaticClass()));
+		if (MatchmakingContext)
+		{
+			MatchmakingContext->AttemptReconnect(LastRankedMatchSessionId);
+		}
+	}
+
+	LastRankedMatchUniqueId.Empty();
+	LastRankedMatchSessionId.Empty();
+	LastRankedMatchTimeString.Empty();
+	SaveConfig();
+}
+#endif
 
 void UUTLocalPlayer::ReadCloudFileListing()
 {
@@ -1952,15 +2004,17 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 					if (Response.Tier < 4)
 					{
 						FText PlacementText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownPlacement", "You've been placed in {0} {1}."), FText::FromString(TierString), FText::AsNumber(Response.Division + 1));
-						ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownPlacementTitle", "You've Been Placed!"),
+						LeagueMatchResultsDialog = ShowLeagueMatchResultDialog(Response.Tier, Response.Division,
+							NSLOCTEXT("UTLocalPlayer", "ShowdownPlacementTitle", "You've Been Placed!"),
 							PlacementText,
-							UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
+							UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.5, 0.4));
 					}
 					else
 					{
-						ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownPlacementTitle", "You've Been Placed!"),
+						LeagueMatchResultsDialog = ShowLeagueMatchResultDialog(Response.Tier, Response.Division,
+							NSLOCTEXT("UTLocalPlayer", "ShowdownPlacementTitle", "You've Been Placed!"),
 							NSLOCTEXT("UTLocalPlayer", "ShowdownPlacementMasterTier", "You've been placed in Master Tier!"),
-							UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
+							UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.5, 0.4));
 					}
 				}
 				else if (Response.PlacementMatchesAttempted < 10)
@@ -1976,7 +2030,7 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 					{
 						PlacementText = NSLOCTEXT("UTLocalPlayer", "ShowdownPlacementSingular", "Only one match until you are placed!");
 					}
-					ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownMorePlacementsTitle", "You're Almost There!"),
+					LeagueMatchResultsDialog = ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownMorePlacementsTitle", "You're Almost There!"),
 						PlacementText,
 						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
 				}
@@ -1993,24 +2047,27 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 					}
 
 					// Report that we're in a promo series
-					ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesTitle", "Promotion Series!"),
+					LeagueMatchResultsDialog = ShowLeagueMatchResultDialog(Response.Tier, Response.Division,
+						NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesTitle", "Promotion Series!"),
 						PromoSeriesText,
-						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
+						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.5, 0.4));
 				}
 				else if (bShowdownLeaguePromotionSeries && !Response.IsInPromotionSeries)
 				{
 					// Report if we got promoted or failed the series
 					if (Response.Division == ShowdownLeagueDivision && Response.Tier == ShowdownLeagueTier)
 					{
-						ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesFailedTitle", "Better Luck Next Time!"),
+						LeagueMatchResultsDialog = ShowLeagueMatchResultDialog(Response.Tier, Response.Division,
+							NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesFailedTitle", "Better Luck Next Time!"),
 							NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesFailed", "You didn't get promoted! Don't be discouraged, you'll do better next time!"),
-							UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
+							UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.5, 0.4));
 					}
 					else
 					{
-						ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesSuccessTitle", "Great Job!"),
+						LeagueMatchResultsDialog = ShowLeagueMatchResultDialog(Response.Tier, Response.Division,
+							NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesSuccessTitle", "Great Job!"),
 							NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesSuccess", "All your hard work has paid off! We've promoted you! Keep up the great work!"),
-							UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
+							UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.5, 0.4));
 					}
 				}
 				else if (Response.IsInPromotionSeries)
@@ -2036,35 +2093,38 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 						PromoSeriesText = NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesProgressSingular", "You only need 1 more win for a promotion!");
 					}
 
-					ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesProgressTitle", "Promotion Series Progress"),
+					LeagueMatchResultsDialog = ShowLeagueMatchResultDialog(Response.Tier, Response.Division,
+						NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesProgressTitle", "Promotion Series Progress"),
 						PromoSeriesText,
-						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
+						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.5, 0.4));
 				}
 				else if (Response.Tier < ShowdownLeagueTier || (ShowdownLeagueTier == Response.Tier && Response.Division < ShowdownLeagueDivision))
 				{
 					// Report a demotion
-					ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownDemotionTitle", "Demoted"),
+					LeagueMatchResultsDialog = ShowLeagueMatchResultDialog(Response.Tier, Response.Division,
+						NSLOCTEXT("UTLocalPlayer", "ShowdownDemotionTitle", "Demoted"),
 						NSLOCTEXT("UTLocalPlayer", "ShowdownDemotion", "We're sorry about the demotion, hopefully players in this lower bracket are more your speed!"),
-						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
+						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.5, 0.4));
 				}
 				else if (Response.Points > ShowdownLeaguePoints)
 				{
-					FText WinText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownWin", "Great Win! You now have {0} league points!"), FText::AsNumber(Response.Points));
+					FText WinText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownWin", "Great Win! You earned {0} league points! You now have {1} league points!"), FText::AsNumber(Response.Points - ShowdownLeaguePoints), FText::AsNumber(Response.Points));
 
 					// Report a regular win
-					ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownWinTitle", "You Won!"),
+					LeagueMatchResultsDialog = ShowLeagueMatchResultDialog(Response.Tier, Response.Division,
+						NSLOCTEXT("UTLocalPlayer", "ShowdownWinTitle", "You Won!"),
 						WinText,
-						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
+						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.5, 0.4));
 				}
 				else
 				{
 					// Report a regular loss
-					FText WinText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownLoss", "That was a rough loss, at least you still have {0} league points!"), FText::AsNumber(Response.Points));
+					FText LossText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownLoss", "That was a rough loss, you lost {0} league points. At least you still have {1} league points!"), FText::AsNumber(ShowdownLeaguePoints - Response.Points), FText::AsNumber(Response.Points));
 
-					// Report a regular win
-					ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdowLossTitle", "Tough Luck!"),
-						WinText,
-						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
+					LeagueMatchResultsDialog = ShowLeagueMatchResultDialog(Response.Tier, Response.Division,
+						NSLOCTEXT("UTLocalPlayer", "ShowdowLossTitle", "Tough Luck!"),
+						LossText,
+						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.5, 0.4));
 				}
 #endif
 				ShowdownLeaguePlacementMatches = Response.PlacementMatchesAttempted;
@@ -2078,6 +2138,40 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 		});
 	}
 }
+
+#if !UE_SERVER
+TSharedPtr<class SUTDialogBase> UUTLocalPlayer::ShowLeagueMatchResultDialog(int32 Tier, int32 Division, FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback, FVector2D DialogSize)
+{
+	TSharedPtr<class SUTDialogBase> NewDialog;
+	if (DialogSize.IsNearlyZero())
+	{
+		SAssignNew(NewDialog, SUTLeagueMatchResultsDialog)
+			.PlayerOwner(this)
+			.Tier(Tier)
+			.Division(Division)
+			.DialogTitle(MessageTitle)
+			.MessageText(MessageText)
+			.ButtonMask(Buttons)
+			.OnDialogResult(Callback);
+	}
+	else
+	{
+		SAssignNew(NewDialog, SUTLeagueMatchResultsDialog)
+			.PlayerOwner(this)
+			.Tier(Tier)
+			.Division(Division)
+			.bDialogSizeIsRelative(true)
+			.DialogSize(DialogSize)
+			.DialogTitle(MessageTitle)
+			.MessageText(MessageText)
+			.ButtonMask(Buttons)
+			.OnDialogResult(Callback);
+	}
+
+	OpenDialog(NewDialog.ToSharedRef());
+	return NewDialog;
+}
+#endif
 
 void UUTLocalPlayer::ReadMMRFromBackend()
 {
@@ -2905,10 +2999,15 @@ void UUTLocalPlayer::HandleFriendsNotificationAvail(bool bAvailable)
 void UUTLocalPlayer::HandleFriendsActionNotification(TSharedRef<FFriendsAndChatMessage> FriendsAndChatMessage)
 {
 #if WITH_SOCIAL
-	if (FriendsAndChatMessage->GetMessageType() == EMessageType::GameInvite ||
-		FriendsAndChatMessage->GetMessageType() == EMessageType::FriendAccepted ||
+	if (FriendsAndChatMessage->GetMessageType() == EMessageType::FriendAccepted ||
 		FriendsAndChatMessage->GetMessageType() == EMessageType::FriendInvite ||
 		(FriendsAndChatMessage->GetMessageType() == EMessageType::ChatMessage && !bShowingFriendsMenu))
+	{
+		ShowToast(FText::FromString(FriendsAndChatMessage->GetMessage()));
+	}
+
+	// SUTPartyInviteWidget will show the invite if we're in menu game
+	if (FriendsAndChatMessage->GetMessageType() == EMessageType::GameInvite && !IsMenuGame())
 	{
 		ShowToast(FText::FromString(FriendsAndChatMessage->GetMessage()));
 	}
@@ -3165,7 +3264,7 @@ int32 UUTLocalPlayer::GetFriendsList(TArray< FUTFriend >& OutFriendsList)
 				TSharedPtr<FOnlineUser> User = OnlineUserInterface->GetUserInfo(0, *Friend->GetUserId());
 				if (User.IsValid())
 				{
-					OutFriendsList.Add(FUTFriend(Friend->GetUserId()->ToString(), User->GetDisplayName(), true));
+					OutFriendsList.Add(FUTFriend(Friend->GetUserId()->ToString(), User->GetDisplayName(), true, Friend->GetPresence().bIsOnline, Friend->GetPresence().bIsPlayingThisGame));
 				}
 			}
 
@@ -3195,7 +3294,7 @@ int32 UUTLocalPlayer::GetRecentPlayersList(TArray< FUTFriend >& OutRecentPlayers
 				TSharedPtr<FOnlineUser> User = OnlineUserInterface->GetUserInfo(0, *RecentPlayer->GetUserId());
 				if (User.IsValid())
 				{
-					OutRecentPlayersList.Add(FUTFriend(RecentPlayer->GetUserId()->ToString(), User->GetDisplayName(), true));
+					OutRecentPlayersList.Add(FUTFriend(RecentPlayer->GetUserId()->ToString(), User->GetDisplayName(), true, false, false));
 				}
 			}
 		}
@@ -3297,7 +3396,7 @@ bool UUTLocalPlayer::ContentExists(const FPackageRedirectReference& Redirect)
 				// Mount the pak
 				if (FCoreDelegates::OnMountPak.IsBound())
 				{
-					FCoreDelegates::OnMountPak.Execute(Path, 0);
+					FCoreDelegates::OnMountPak.Execute(Path, 0, nullptr);
 					UTEngine->MountedDownloadedContentChecksums.Add(Redirect.PackageName, Redirect.PackageChecksum);
 				}
 
@@ -3992,6 +4091,11 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 	CloseSpectatorWindow();
 	CloseQuickChat();
 	HideHUDSettings();
+
+	while (WindowStack.Num() > 0)
+	{
+		CloseWindow(WindowStack[0]);
+	}
 
 	if (ToastList.Num() > 0)
 	{
@@ -4761,11 +4865,17 @@ void UUTLocalPlayer::StartMatchmaking(int32 PlaylistId)
 		MatchmakingParams.PlaylistId = PlaylistId;
 		if (GetProfileSettings() && !GetProfileSettings()->MatchmakingRegion.IsEmpty())
 		{
-			MatchmakingParams.DatacenterId =  GetProfileSettings()->MatchmakingRegion;
+			MatchmakingParams.DatacenterId = GetProfileSettings()->MatchmakingRegion;
 		}
 		else
 		{
-			MatchmakingParams.DatacenterId = TEXT("USA");
+			MatchmakingParams.DatacenterId = TEXT("NA");
+		}
+
+		// Fix up USA to NA
+		if (MatchmakingParams.DatacenterId == TEXT("USA"))
+		{
+			MatchmakingParams.DatacenterId = TEXT("NA");
 		}
 
 		UUTParty* Party = UTGameInstance->GetParties();
@@ -4793,6 +4903,52 @@ void UUTLocalPlayer::StartMatchmaking(int32 PlaylistId)
 	}
 }
 
+void UUTLocalPlayer::AttemptMatchmakingReconnect(const FString& OldSessionId)
+{
+	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
+	UUTMatchmaking* Matchmaking = UTGameInstance->GetMatchmaking();
+	if (ensure(Matchmaking))
+	{
+		FMatchmakingParams MatchmakingParams;
+		MatchmakingParams.ControllerId = GetControllerId();
+		MatchmakingParams.StartWith = EMatchmakingStartLocation::FindSingle;
+		MatchmakingParams.SessionId = OldSessionId;
+		MatchmakingParams.Flags = EMatchmakingFlags::NoReservation;
+
+		MatchmakingReconnectResultHandle = Matchmaking->OnMatchmakingComplete().AddUObject(this, &ThisClass::AttemptMatchmakingReconnectResult);
+		bool bSuccessfullyStarted = Matchmaking->FindSessionAsClient(MatchmakingParams);
+	}
+}
+
+void UUTLocalPlayer::AttemptMatchmakingReconnectResult(EMatchmakingCompleteResult Result)
+{
+	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
+	UUTMatchmaking* Matchmaking = UTGameInstance->GetMatchmaking();
+	if (ensure(Matchmaking))
+	{
+		Matchmaking->OnMatchmakingComplete().Remove(MatchmakingReconnectResultHandle);
+	}
+
+	HideMatchmakingDialog();
+
+	if (Result == EMatchmakingCompleteResult::Success)
+	{
+		if (ensure(Matchmaking))
+		{
+			Matchmaking->TravelToServer();
+		}
+	}
+	else if (Result != EMatchmakingCompleteResult::Cancelled)
+	{
+#if !UE_SERVER
+		// Show error message about reconnect failing
+		ShowMessage(NSLOCTEXT("UUTLocalPlayer", "FailedToReconnectTitle", "Failed To Reconnect"),
+			NSLOCTEXT("UUTLocalPlayer", "FailedToReconnect", "Failed To reconnect matchmaking game. It is most likely already complete."),
+			UTDIALOG_BUTTON_OK);
+#endif
+	}
+}
+
 bool UUTLocalPlayer::IsPartyLeader()
 {
 	UUTGameInstance* GameInstance = CastChecked<UUTGameInstance>(GetGameInstance());
@@ -4808,10 +4964,12 @@ bool UUTLocalPlayer::IsPartyLeader()
 			{
 				return true;
 			}
+
+			return false;
 		}
 	}
 
-	return false;
+	return true;
 }
 
 void UUTLocalPlayer::ShowRegionSelectDialog(int32 InPlaylistId)
@@ -4849,21 +5007,26 @@ void UUTLocalPlayer::ShowMatchmakingDialog()
 	{
 		return;
 	}
-	
-	// Only the party leader can cancel
-	uint16 ButtonMask = 0;
-	if (IsPartyLeader())
+
+	if (GameAbandonedDialog.IsValid())
 	{
-		ButtonMask = UTDIALOG_BUTTON_CANCEL;
+		CloseDialog(GameAbandonedDialog.ToSharedRef());
+		GameAbandonedDialog.Reset();
 	}
 
+	if (LeagueMatchResultsDialog.IsValid())
+	{
+		CloseDialog(LeagueMatchResultsDialog.ToSharedRef());
+		LeagueMatchResultsDialog.Reset();
+	}
+	
 	OpenDialog(
 		SAssignNew(MatchmakingDialog, SUTMatchmakingDialog)
 		.PlayerOwner(this)
 		.DialogSize(FVector2D(0.6f, 0.4f))
 		.DialogPosition(FVector2D(0.5f, 0.5f))
 		.DialogTitle(NSLOCTEXT("UUTLocalPlayer", "MatchmakingSearch", "Searching For Match"))
-		.ButtonMask(ButtonMask)
+		.ButtonMask(UTDIALOG_BUTTON_CANCEL)
 		.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::MatchmakingResult))
 		);
 #endif
@@ -4895,7 +5058,15 @@ void UUTLocalPlayer::MatchmakingResult(TSharedPtr<SCompoundWidget> Widget, uint1
 		UUTParty* Party = UTGameInstance->GetParties();
 		if (Party)
 		{
-			Party->RestorePersistentPartyState();
+			// Non party leader leaving should leave the party
+			if (!IsPartyLeader())
+			{
+				Party->LeaveAndRestorePersistentParty();
+			}
+			else
+			{
+				Party->RestorePersistentPartyState();
+			}
 		}
 	}
 

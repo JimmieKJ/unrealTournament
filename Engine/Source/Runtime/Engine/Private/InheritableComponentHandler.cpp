@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Engine/SCS_Node.h"
@@ -17,10 +17,18 @@ void UInheritableComponentHandler::PostLoad()
 	for (int32 Index = Records.Num() - 1; Index >= 0; --Index)
 	{
 		FComponentOverrideRecord& Record = Records[Index];
-		if (Record.ComponentTemplate && !CastChecked<UActorComponent>(Record.ComponentTemplate->GetArchetype())->IsEditableWhenInherited())
+		if (Record.ComponentTemplate)
 		{
-			Record.ComponentTemplate->MarkPendingKill(); // hack needed to be able to identify if NewObject returns this back to us in the future
-			Records.RemoveAtSwap(Index);
+			if (!CastChecked<UActorComponent>(Record.ComponentTemplate->GetArchetype())->IsEditableWhenInherited())
+			{
+				Record.ComponentTemplate->MarkPendingKill(); // hack needed to be able to identify if NewObject returns this back to us in the future
+				Records.RemoveAtSwap(Index);
+			}
+			else if(Record.CookedComponentInstancingData.bIsValid)
+			{
+				// Generate "fast path" instancing data.
+				Record.CookedComponentInstancingData.LoadCachedPropertyDataForSerialization(Record.ComponentTemplate);
+			}
 		}
 	}
 }
@@ -179,6 +187,12 @@ bool UInheritableComponentHandler::IsRecordValid(const FComponentOverrideRecord&
 		return false;
 	}
 
+	UBlueprintGeneratedClass* ComponentOwner = Record.ComponentKey.GetComponentOwner();
+	if (!ComponentOwner || !OwnerClass->IsChildOf(ComponentOwner))
+	{
+		return false;
+	}
+
 	auto OriginalTemplate = Record.ComponentKey.GetOriginalTemplate();
 	if (!OriginalTemplate)
 	{
@@ -331,6 +345,12 @@ UActorComponent* UInheritableComponentHandler::GetOverridenComponentTemplate(FCo
 {
 	auto Record = FindRecord(Key);
 	return Record ? Record->ComponentTemplate : nullptr;
+}
+
+const FBlueprintCookedComponentInstancingData* UInheritableComponentHandler::GetOverridenComponentTemplateData(FComponentKey Key) const
+{
+	auto Record = FindRecord(Key);
+	return Record ? &Record->CookedComponentInstancingData : nullptr;
 }
 
 const FComponentOverrideRecord* UInheritableComponentHandler::FindRecord(const FComponentKey Key) const

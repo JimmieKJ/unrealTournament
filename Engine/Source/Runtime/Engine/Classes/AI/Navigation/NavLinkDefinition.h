@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -40,13 +40,6 @@ struct ENGINE_API FNavigationLinkBase
 
 	UPROPERTY(EditAnywhere, Category=Default, meta=(ClampMin = "1.0", EditCondition="bUseSnapHeight"))
 	float SnapHeight;
-
-	UPROPERTY()
-	uint32 bUseSnapHeight : 1;
-
-	/** If set, link will try to snap to cheapest area in given radius */
-	UPROPERTY(EditAnywhere, Category=Default)
-	uint32 bSnapToCheapestArea : 1;
 
 	/** Area type of this link (empty = default) */
 	UPROPERTY(EditAnywhere, Category=Default)
@@ -107,9 +100,55 @@ struct ENGINE_API FNavigationLinkBase
 	FString Description;
 #endif // WITH_EDITORONLY_DATA
 
+	UPROPERTY(EditAnywhere, Category=Default, meta=(InlineEditConditionToggle))
+	uint32 bUseSnapHeight : 1;
+
+	/** If set, link will try to snap to cheapest area in given radius */
+	UPROPERTY(EditAnywhere, Category = Default)
+	uint32 bSnapToCheapestArea : 1;
+	
+	/** custom flag, check DescribeCustomFlags for details */
+	UPROPERTY()
+	uint32 bCustomFlag0 : 1;
+
+	/** custom flag, check DescribeCustomFlags for details */
+	UPROPERTY()
+	uint32 bCustomFlag1 : 1;
+
+	/** custom flag, check DescribeCustomFlags for details */
+	UPROPERTY()
+	uint32 bCustomFlag2 : 1;
+
+	/** custom flag, check DescribeCustomFlags for details */
+	UPROPERTY()
+	uint32 bCustomFlag3 : 1;
+
+	/** custom flag, check DescribeCustomFlags for details */
+	UPROPERTY()
+	uint32 bCustomFlag4 : 1;
+
+	/** custom flag, check DescribeCustomFlags for details */
+	UPROPERTY()
+	uint32 bCustomFlag5 : 1;
+
+	/** custom flag, check DescribeCustomFlags for details */
+	UPROPERTY()
+	uint32 bCustomFlag6 : 1;
+
+	/** custom flag, check DescribeCustomFlags for details */
+	UPROPERTY()
+	uint32 bCustomFlag7 : 1;
+
 	FNavigationLinkBase();
 
 	void PostSerialize(const FArchive& Ar);
+
+#if WITH_EDITOR
+	/** set up bCustomFlagX properties and expose them for edit
+	  * @param NavLinkPropertiesOwnerClass - optional object holding FNavigationLinkBase structs, defaults to UNavLinkDefinition
+	  */
+	static void DescribeCustomFlags(const TArray<FString>& EditableFlagNames, UClass* NavLinkPropertiesOwnerClass = nullptr);
+#endif // WITH_EDITOR
 };
 
 template<>

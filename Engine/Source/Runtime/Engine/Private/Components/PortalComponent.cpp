@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	
@@ -31,7 +31,7 @@ ALightmassPortal::ALightmassPortal(const FObjectInitializer& ObjectInitializer)
 		{
 			ConstructorHelpers::FObjectFinderOptional<UTexture2D> DecalTexture;
 			FConstructorStatics()
-				: DecalTexture(TEXT("/Engine/EditorResources/S_PortalActorIcon"))
+				: DecalTexture(TEXT("/Engine/EditorResources/S_PortalActorIcon2"))
 			{
 			}
 		};

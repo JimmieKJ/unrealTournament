@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "BlueprintEditorPrivatePCH.h"
@@ -334,20 +334,24 @@ FText FWatchLineItem::GetDescription() const
 		UObject* ParentObject = ParentObjectRef.Get();
 		if ((ParentBlueprint != ParentObject) && (ParentBlueprint != NULL))
 		{
-			if (UProperty* Property = FKismetDebugUtilities::FindClassPropertyForPin(ParentBlueprint, PinToWatch))
-			{
-				// Runtime debugging something
-				const uint8* SelectedDataInPIE = (uint8*)ParentObject;
+			FString WatchString;
+			const FKismetDebugUtilities::EWatchTextResult WatchStatus = FKismetDebugUtilities::GetWatchText(WatchString, ParentBlueprint, ParentObject, PinToWatch);
 
-				FString Description;
-				Property->ExportText_InContainer(/*ArrayElement=*/0, /*inout*/ Description, SelectedDataInPIE, SelectedDataInPIE, /*Parent=*/ NULL, PPF_PropertyWindow|PPF_BlueprintDebugView);
-
-				return FText::FromString(Description);
-			}
-			else
+			switch (WatchStatus)
 			{
-				return LOCTEXT("NothingToWatch", "Nothing to watch.");
-			}
+			case FKismetDebugUtilities::EWTR_Valid:
+				return FText::FromString(WatchString);
+
+			case FKismetDebugUtilities::EWTR_NotInScope:
+				return LOCTEXT("NotInScope", "Not in scope");
+
+			case FKismetDebugUtilities::EWTR_NoProperty:
+				return LOCTEXT("UnknownProperty", "No debug data");
+
+			default:
+			case FKismetDebugUtilities::EWTR_NoDebugObject:
+				return LOCTEXT("NoDebugObject", "No debug object");
+			}			
 		}
 	}
 
@@ -1016,17 +1020,22 @@ TSharedPtr<SWidget> SKismetDebuggingView::OnMakeContextMenu()
 
 FText SKismetDebuggingView::GetTopText() const
 {
-	if (GEditor->PlayWorld != NULL)
+	const bool bIsDebugging = GEditor->PlayWorld != nullptr;
+	UBlueprint* BlueprintObj = BlueprintToWatchPtr.Get();
+	UObject* DebuggedObject = BlueprintObj->GetObjectBeingDebugged();
+
+	TSet<UObject*> NewRootSet;
+	if (bIsDebugging && (BlueprintObj != nullptr) && (DebuggedObject != nullptr))
 	{
-		return LOCTEXT("ShowDebugForActors", "Showing debug info for selected actors");
+		return FText::Format(LOCTEXT("ShowDebugForObject", "Showing debug info for {0}"), FText::FromName(DebuggedObject->GetFName()));
 	}
-	else if (BlueprintToWatchPtr.Get() != NULL)
+	else if (!bIsDebugging && (BlueprintObj != nullptr))
 	{
 		return LOCTEXT("ShowDebugForBlueprint", "Showing debug info for this blueprint");
 	}
 	else
 	{
-		return LOCTEXT("Idle", "Idle");
+		return LOCTEXT("ShowDebugForActors", "Showing debug info for selected actors");
 	}
 }
 
@@ -1098,11 +1107,17 @@ void SKismetDebuggingView::Tick( const FGeometry& AllottedGeometry, const double
 	}
 
 	// Gather what we'd like to be the new root set
-	const bool bIsDebugging = GEditor->PlayWorld != NULL;
+	const bool bIsDebugging = GEditor->PlayWorld != nullptr;
 	UBlueprint* BlueprintObj = BlueprintToWatchPtr.Get();
+	UObject* DebuggedObject = BlueprintObj->GetObjectBeingDebugged();
 
 	TSet<UObject*> NewRootSet;
-	if (!bIsDebugging && (BlueprintObj != NULL))
+	if (bIsDebugging && (BlueprintObj != nullptr) && (DebuggedObject != nullptr))
+	{
+		// If we have a currently debugged object & we were launched from a specific Kismet window, display the debugged object
+		NewRootSet.Add(DebuggedObject);
+	}
+	else if (!bIsDebugging && (BlueprintObj != nullptr))
 	{
 		// If not debugging and summoned from a specific Kismet window, just display the currently open blueprint
 		NewRootSet.Add(BlueprintObj);

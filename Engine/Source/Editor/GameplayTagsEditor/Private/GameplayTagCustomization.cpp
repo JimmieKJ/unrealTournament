@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "GameplayTagsEditorModulePrivatePCH.h"
 #include "GameplayTagCustomization.h"
@@ -161,9 +161,6 @@ void FGameplayTagCustomization::BuildEditableContainerList()
 		TArray<void*> RawStructData;
 		StructPropertyHandle->AccessRawData(RawStructData);
 
-		TArray<UObject*> OuterObjects;
-		StructPropertyHandle->GetOuterObjects(OuterObjects);
-
 		FGameplayTag* Tag = (FGameplayTag*)(RawStructData[0]);
 		if (Tag->IsValid())
 		{
@@ -171,8 +168,7 @@ void FGameplayTagCustomization::BuildEditableContainerList()
 			TagContainer->AddTag(*Tag);
 		}
 
-		UObject* TagContainerOwner = OuterObjects.Num() ? OuterObjects[0] : nullptr;
-		EditableContainers.Add(SGameplayTagWidget::FEditableGameplayTagContainerDatum(TagContainerOwner, TagContainer.Get()));
+		EditableContainers.Add(SGameplayTagWidget::FEditableGameplayTagContainerDatum(nullptr, TagContainer.Get()));
 	}
 }
 

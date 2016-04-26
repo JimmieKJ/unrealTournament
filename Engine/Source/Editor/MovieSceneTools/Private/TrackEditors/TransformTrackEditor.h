@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -37,7 +37,6 @@ public:
 
 	// ISequencerTrackEditor interface
 
-	virtual void AddKey( const FGuid& ObjectGuid, UObject* AdditionalAsset = NULL ) override;
 	virtual void BindCommands(TSharedRef<FUICommandList> SequencerCommandBindings) override;
 	virtual void BuildObjectBindingEditButtons(TSharedPtr<SHorizontalBox> EditBox, const FGuid& ObjectBinding, const UClass* ObjectClass) override;
 	virtual void BuildObjectBindingTrackMenu(FMenuBuilder& MenuBuilder, const FGuid& ObjectBinding, const UClass* ObjectClass) override;
@@ -45,9 +44,6 @@ public:
 	virtual void OnRelease() override;
 	virtual bool SupportsType( TSubclassOf<UMovieSceneTrack> Type ) const override;
 	virtual void BuildTrackContextMenu( FMenuBuilder& MenuBuilder, UMovieSceneTrack* Track ) override;
-
-	// FKeyframeTrackEditor interface
-	virtual bool ShouldAddKey(UMovieScene3DTransformTrack* InTrack, FTransformKey InKey, FKeyParams InKeyParams) const override;
 
 private:
 
@@ -85,7 +81,7 @@ private:
 
 	/** Generates transform keys based on the last transform, the current transform, and other options. 
 		One transform key is generated for each individual key to be added to the section. */
-	void GetChangedTransformKeys(const FTransformData& LastTransform, const FTransformData& CurrentTransform, EKey3DTransformChannel::Type ChannelsToKey, bool bUnwindRotation, TArray<FTransformKey>& OutKeys );
+	void GetTransformKeys( const FTransformData& LastTransform, const FTransformData& CurrentTransform, EKey3DTransformChannel::Type ChannelsToKey, bool bUnwindRotation, TArray<FTransformKey>& OutNewKeys, TArray<FTransformKey>& OutDefaultKeys );
 
 	/**
 	* Adds transform tracks and keys to the selected objects in the level.
@@ -121,23 +117,26 @@ private:
 	* @param bUnwindRotation Whether or not rotation key values should be unwound.
 	* @param KeyParams Parameters which control how the keys are added.
 	*/
-	void AddTransformKeys( AActor* ActorToKey, const FTransformData& LastTransform, const FTransformData& CurrentTransform, EKey3DTransformChannel::Type ChannelsToKey, bool bUnwindRotation, FKeyParams KeyParams );
+	void AddTransformKeys( UObject* ObjectToKey, const FTransformData& LastTransform, const FTransformData& CurrentTransform, EKey3DTransformChannel::Type ChannelsToKey, bool bUnwindRotation, FKeyParams KeyParams );
 
 	/**
 	* Delegate target of AnimatablePropertyChanged which actually adds the keys.
 
 	* @param Time The time to add keys.
-	* @param ActorToKey The actor to add keys to.
+	* @param ObjectToKey The object to add keys to.
 	* @param Keys The keys to add.
 	* @param KeyParams Parameters which control how the keys are added.
 	*/
-	bool OnAddTransformKeys( float Time, AActor* ActorToKey, TArray<FTransformKey>* Keys, FTransformData CurrentTransform, FKeyParams KeyParams );
+	bool OnAddTransformKeys( float Time, UObject* ObjectToKey, TArray<FTransformKey>* NewKeys, TArray<FTransformKey>* DefaultKeys, FTransformData CurrentTransform, FKeyParams KeyParams );
 
 private:
 
 	DECLARE_MULTICAST_DELEGATE_TwoParams( FOnSetIntermediateValueFromTransformChange, UMovieSceneTrack*, FTransformData )
 
 	void SetIntermediateValueFromTransformChange( UMovieSceneTrack* Track, FTransformData TransformData );
+
+	/** Import an animation sequence's root transforms into a transform section */
+	static void ImportAnimSequenceTransforms(const FAssetData& Asset, TSharedRef<class ISequencer> Sequencer, UMovieScene3DTransformTrack* TransformTrack);
 
 private:
 

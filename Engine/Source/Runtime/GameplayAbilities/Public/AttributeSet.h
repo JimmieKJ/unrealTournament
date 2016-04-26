@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -153,7 +153,7 @@ struct GAMEPLAYABILITIES_API FGlobalCurveDataOverride
 /**
  *	Generic numerical value in the form Coeffecient * Curve[Level] 
  */
-USTRUCT()
+USTRUCT(BlueprintType)
 struct GAMEPLAYABILITIES_API FScalableFloat
 {
 	GENERATED_USTRUCT_BODY()
@@ -183,7 +183,7 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category=ScalableFloat)
 	FCurveTableRowHandle	Curve;
 
-	float GetValueAtLevel(float Level) const;
+	float GetValueAtLevel(float Level, const FString* ContextString = nullptr) const;
 
 	bool IsStatic() const
 	{
@@ -194,9 +194,9 @@ public:
 
 	void SetScalingValue(float InCoeffecient, FName InRowName, UCurveTable * InTable);
 
-	void LockValueAtLevel(float Level, FGlobalCurveDataOverride *GlobalOverrides)
+	void LockValueAtLevel(float Level, FGlobalCurveDataOverride *GlobalOverrides, const FString* ContextString = nullptr)
 	{
-		SetValue(GetValueAtLevel(Level));
+		SetValue(GetValueAtLevel(Level, ContextString));
 	}
 
 	float GetValueChecked() const
@@ -217,7 +217,8 @@ public:
 	bool IsValid() const
 	{
 		// Error checking: checks if we have a curve table specified but no valid curve entry
-		GetValueAtLevel(1.f);
+		static const FString ContextString = TEXT("FScalableFloat::IsValid");
+		GetValueAtLevel(1.f, &ContextString);
 		bool bInvalid = (Curve.CurveTable != nullptr || Curve.RowName != NAME_None ) && (FinalCurve == nullptr);
 		return !bInvalid;
 	}
@@ -229,7 +230,7 @@ public:
 	//copy operator to prevent duplicate handles
 	void operator=(const FScalableFloat& Src);
 
-	/* Used to upgrade a float property into an FScalableFloat */
+	/* Used to upgrade a float or int8/int16/int32 property into an FScalableFloat */
 	bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchive& Ar);
 
 private:

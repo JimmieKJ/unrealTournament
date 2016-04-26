@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AtmosphereCommon.usf: Functions and variables shared by both rendering and precomputation
@@ -72,12 +72,24 @@ const static int InscatterNuNum = 8;
 #endif
 
 /** Textures for rendering */
-Texture2D AtmosphereTransmittanceTexture;
-SamplerState AtmosphereTransmittanceTextureSampler;
-Texture2D AtmosphereIrradianceTexture;
-SamplerState AtmosphereIrradianceTextureSampler;
-Texture3D AtmosphereInscatterTexture;
-SamplerState AtmosphereInscatterTextureSampler;
+#if IS_MATERIAL_SHADER
+    // for materials, these are in the frame UB
+	#define AtmosphereTransmittanceTexture			Frame.AtmosphereTransmittanceTexture_UB
+	#define AtmosphereTransmittanceTextureSampler	Frame.AtmosphereTransmittanceTextureSampler_UB
+	#define AtmosphereIrradianceTexture				Frame.AtmosphereIrradianceTexture_UB
+	#define AtmosphereIrradianceTextureSampler		Frame.AtmosphereIrradianceTextureSampler_UB
+	#define AtmosphereInscatterTexture				Frame.AtmosphereInscatterTexture_UB
+	#define AtmosphereInscatterTextureSampler		Frame.AtmosphereInscatterTextureSampler_UB
+#else
+	// these are only used for the precomputation shader; which doesn't have a frame UB
+	Texture2D AtmosphereTransmittanceTexture;
+	SamplerState AtmosphereTransmittanceTextureSampler;
+	Texture2D AtmosphereIrradianceTexture;
+	SamplerState AtmosphereIrradianceTextureSampler;
+	Texture3D AtmosphereInscatterTexture;
+	SamplerState AtmosphereInscatterTextureSampler;
+	#define ATMOSPHERIC_TEXTURE_PREFIX
+#endif
 
 struct FAtmosphereVSOutput
 {
@@ -137,14 +149,14 @@ float4 Texture4DSample(Texture3D Texture, SamplerState TextureSampler, float Rad
     float RMu = Radius * Mu;
     float Delta = RMu * RMu - Radius * Radius + RadiusGround * RadiusGround;
     float4 TexOffset = RMu < 0.0 && Delta > 0.0 ? float4(1.0, 0.0, 0.0, 0.5 - 0.5 / float(InscatterMuNum)) : float4(-1.0, H * H, H, 0.5 + 0.5 / float(InscatterMuNum));
-	float MuR = 0.5 / float(View.AtmosphericFogInscatterAltitudeSampleNum) + Rho / H * (1.0 - 1.0 / float(View.AtmosphericFogInscatterAltitudeSampleNum));
+	float MuR = 0.5 / float(Frame.AtmosphericFogInscatterAltitudeSampleNum) + Rho / H * (1.0 - 1.0 / float(Frame.AtmosphericFogInscatterAltitudeSampleNum));
     float MuMu = TexOffset.w + (RMu * TexOffset.x + sqrt(Delta + TexOffset.y)) / (Rho + TexOffset.z) * (0.5 - 1.0 / float(InscatterMuNum));
     // paper formula
     //float MuMuS = 0.5 / float(InscatterMuSNum) + max((1.0 - exp(-3.0 * MuS - 0.6)) / (1.0 - exp(-3.6)), 0.0) * (1.0 - 1.0 / float(InscatterMuSNum));
     // better formula
     float MuMuS = 0.5 / float(InscatterMuSNum) + (atan(max(MuS, -0.1975) * tan(1.26 * 1.1)) / 1.1 + (1.0 - 0.26)) * 0.5 * (1.0 - 1.0 / float(InscatterMuSNum));
 #else
-	float MuR = 0.5 / float(View.AtmosphericFogInscatterAltitudeSampleNum) + Rho / H * (1.0 - 1.0 / float(View.AtmosphericFogInscatterAltitudeSampleNum));
+	float MuR = 0.5 / float(Frame.AtmosphericFogInscatterAltitudeSampleNum) + Rho / H * (1.0 - 1.0 / float(Frame.AtmosphericFogInscatterAltitudeSampleNum));
     float MuMu = 0.5 / float(InscatterMuNum) + (Mu + 1.0) * 0.5f * (1.0 - 1.0 / float(InscatterMuNum));
     float MuMuS = 0.5 / float(InscatterMuSNum) + max(MuS + 0.2, 0.0) / 1.2 * (1.0 - 1.0 / float(InscatterMuSNum));
 #endif
@@ -283,13 +295,13 @@ float3 TransmittanceWithDistance(float Radius, float Mu, float3 V, float3 X0)
 float OpticalDepthWithDistance(float H, float Radius, float Mu, float D) 
 {
 	float ParticleDensity = 6.2831; // REK 04, Table 2
-    float A = sqrt((0.5/H)*Radius);
+    float A = sqrt(abs((0.5/H)*Radius));
     float2 A01 = A * float2(Mu, Mu + D / Radius);
     float2 A01Sign = sign(A01);
     float2 A01Squared = A01*A01;
     float X = A01Sign.y > A01Sign.x ? exp(A01Squared.x) : 0.0;
-    float2 Y = A01Sign / (2.3193*abs(A01) + sqrt(1.52*A01Squared + 4.0)) * float2(1.0, exp(-D/H*(D/(2.0*Radius)+Mu)));
-    return sqrt((ParticleDensity*H)*Radius) * exp((RadiusGround-Radius)/H) * (X + dot(Y, float2(1.0, -1.0)));
+    float2 Y = A01Sign / (2.3193*abs(A01) + sqrt(abs(1.52*A01Squared + 4.0))) * float2(1.0, exp(-D/H*(D/(2.0*Radius)+Mu)));
+    return sqrt(abs((ParticleDensity*H)*Radius)) * exp((RadiusGround-Radius)/H) * (X + dot(Y, float2(1.0, -1.0)));
 }
 
 float3 Irradiance(Texture2D Texture, SamplerState TextureSampler, float r, float muS) 
@@ -323,7 +335,7 @@ float3 GetMie(float4 RayMie)
  */
 float3 AnalyticTransmittance(float R, float Mu, float D) 
 {
-    return exp(- BetaRayleighScattering * OpticalDepthWithDistance(View.AtmosphericFogHeightScaleRayleigh, R, Mu, D) - BetaMieExtinction * OpticalDepthWithDistance(HeightScaleMie, R, Mu, D));
+    return exp(- BetaRayleighScattering * OpticalDepthWithDistance(Frame.AtmosphericFogHeightScaleRayleigh, R, Mu, D) - BetaMieExtinction * OpticalDepthWithDistance(HeightScaleMie, R, Mu, D));
 }
 
 static const float HeightOffset = 0.01f;
@@ -525,15 +537,15 @@ float3 GetSunColor(float3 X, float T, float3 V, float3 S, float Radius, float Mu
     }
 	else 
 	{
-		float SunIntensity = step(cos(PI * View.AtmosphericFogSunDiscScale / 180.0), dot(V, S)); // Lsun
+		float SunIntensity = step(cos(PI * Frame.AtmosphericFogSunDiscScale / 180.0), dot(V, S)); // Lsun
         return TransmittanceValue * SunIntensity; // Eq (9)
     }
 }
 
 float4 GetAtmosphericFog(float3 ViewPosition, float3 ViewVector, float SceneDepth, float3 SceneColor)
 {
-	float Scale = 0.00001f * View.AtmosphericFogDistanceScale;
-	ViewPosition.z = (ViewPosition.z - View.AtmosphericFogGroundOffset) * View.AtmosphericFogAltitudeScale;
+	float Scale = 0.00001f * Frame.AtmosphericFogDistanceScale;
+	ViewPosition.z = (ViewPosition.z - Frame.AtmosphericFogGroundOffset) * Frame.AtmosphericFogAltitudeScale;
 	ViewPosition *= Scale;
 	ViewPosition.z += RadiusGround + HeightOffset;
 
@@ -543,58 +555,58 @@ float4 GetAtmosphericFog(float3 ViewPosition, float3 ViewVector, float SceneDept
 
 	float Mu = dot(ViewPosition, V) / Radius;
 
-	float T = -Radius * Mu - sqrt(Radius * Radius * (Mu * Mu - 1.0) + RadiusGround * RadiusGround);
+	float T = -Radius * Mu - sqrt(abs(Radius * Radius * (Mu * Mu - 1.0) + RadiusGround * RadiusGround));
 
-	float DepthThreshold = 100.f * View.AtmosphericFogDistanceScale; // 100km limit
+	float DepthThreshold = 100.f * Frame.AtmosphericFogDistanceScale; // 100km limit
 	SceneDepth *= Scale;
 
-	float FogDepth = max(0.f, SceneDepth - View.AtmosphericFogStartDistance);
+	float FogDepth = max(0.f, SceneDepth - Frame.AtmosphericFogStartDistance);
 	float ShadowFactor = 1.f; // shadow approximation
-	float DistanceRatio = min(FogDepth * 0.1f / View.AtmosphericFogStartDistance, 1.f);
+	float DistanceRatio = min(FogDepth * 0.1f / Frame.AtmosphericFogStartDistance, 1.f);
 	bool bIsSceneGeometry = (SceneDepth < DepthThreshold); // Assume as scene geometry
 	if (bIsSceneGeometry)
 	{
-		ShadowFactor = DistanceRatio * View.AtmosphericFogPower;
-		T = max(SceneDepth + View.AtmosphericFogDistanceOffset, 1.f);
+		ShadowFactor = DistanceRatio * Frame.AtmosphericFogPower;
+		T = max(SceneDepth + Frame.AtmosphericFogDistanceOffset, 1.f);
 	}
 
 	float3 Attenuation;
 
-	float3 InscatterColor = GetInscatterColor(FogDepth, ViewPosition, T, V, View.AtmosphericFogSunDirection, Radius, Mu, Attenuation, bIsSceneGeometry); //S[L]-T(ViewPosition,xs)S[l]|xs
+	float3 InscatterColor = GetInscatterColor(FogDepth, ViewPosition, T, V, Frame.AtmosphericFogSunDirection, Radius, Mu, Attenuation, bIsSceneGeometry); //S[L]-T(ViewPosition,xs)S[l]|xs
 #if BASEPASS_ATMOSPHERIC_FOG // Transluceny rendering just follows normal render flag
 	float3 GroundColor = 0.f;
 	BRANCH
-	if ((View.AtmosphericFogRenderMask & RENDERFLAG_DISABLE_GROUND_SCATTERING) == 0)
+	if ((Frame.AtmosphericFogRenderMask & RENDERFLAG_DISABLE_GROUND_SCATTERING) == 0)
 	{
-		GroundColor = GetGroundColor(float4(SceneColor.xyz, 1.f), ViewPosition, T, V, View.AtmosphericFogSunDirection, Radius, Attenuation, bIsSceneGeometry); //R[L0]+R[L*]
+		GroundColor = GetGroundColor(float4(SceneColor.xyz, 1.f), ViewPosition, T, V, Frame.AtmosphericFogSunDirection, Radius, Attenuation, bIsSceneGeometry); //R[L0]+R[L*]
 	}
 #else
 	#if MATERIAL_ATMOSPHERIC_FOG || ATMOSPHERIC_NO_GROUND_SCATTERING // Material doesn't need this ground scattering for now 
 		float3 GroundColor = 0.f;
 	#else
-		float3 GroundColor = GetGroundColor(float4(SceneColor.xyz, 1.f), ViewPosition, T, V, View.AtmosphericFogSunDirection, Radius, Attenuation, bIsSceneGeometry); //R[L0]+R[L*]
+		float3 GroundColor = GetGroundColor(float4(SceneColor.xyz, 1.f), ViewPosition, T, V, Frame.AtmosphericFogSunDirection, Radius, Attenuation, bIsSceneGeometry); //R[L0]+R[L*]
 	#endif
 #endif
 
 #if BASEPASS_ATMOSPHERIC_FOG // Transluceny rendering just follows normal render flag
 	float3 Sun = 0.f;
 	BRANCH
-	if ((View.AtmosphericFogRenderMask & RENDERFLAG_DISABLE_SUN_DISK) == 0)
+	if ((Frame.AtmosphericFogRenderMask & RENDERFLAG_DISABLE_SUN_DISK) == 0)
 	{
-		Sun = GetSunColor(ViewPosition, T, V, View.AtmosphericFogSunDirection, Radius, Mu); //L0
+		Sun = GetSunColor(ViewPosition, T, V, Frame.AtmosphericFogSunDirection, Radius, Mu); //L0
 	}
 #else
 	#if MATERIAL_ATMOSPHERIC_FOG || ATMOSPHERIC_NO_SUN_DISK // Material doesn't need to render the sun disk
 		float3 Sun = 0.f;
 	#else
-		float3 Sun = GetSunColor(ViewPosition, T, V, View.AtmosphericFogSunDirection, Radius, Mu); //L0
+		float3 Sun = GetSunColor(ViewPosition, T, V, Frame.AtmosphericFogSunDirection, Radius, Mu); //L0
 	#endif
 #endif
 
 	// Decay color
 	float3 OriginalColor = Sun + GroundColor + InscatterColor;
-	OriginalColor = View.AtmosphericFogSunPower * ShadowFactor * View.AtmosphericFogSunColor.rgb * OriginalColor;
-	float4 OutColor = float4(OriginalColor, lerp(saturate(Attenuation.r * View.AtmosphericFogDensityScale - View.AtmosphericFogDensityOffset), 1.f, (1.f - DistanceRatio)) );
+	OriginalColor = Frame.AtmosphericFogSunPower * ShadowFactor * Frame.AtmosphericFogSunColor.rgb * OriginalColor;
+	float4 OutColor = float4(OriginalColor, lerp(saturate(Attenuation.r * Frame.AtmosphericFogDensityScale - Frame.AtmosphericFogDensityOffset), 1.f, (1.f - DistanceRatio)) );
 	return OutColor;
 }
 

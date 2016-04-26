@@ -9,11 +9,13 @@
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "UTGameMessage.h"
 #include "UTCTFGameMessage.h"
+#include "UTCTFMajorMessage.h"
 #include "UTCTFRewardMessage.h"
 #include "SUWindowsStyle.h"
 #include "SlateGameResources.h"
 #include "SNumericEntryBox.h"
 #include "StatNames.h"
+#include "UTGameSessionRanked.h"
 
 UUTTeamInterface::UUTTeamInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -114,9 +116,22 @@ APlayerController* AUTTeamGameMode::Login(class UPlayer* NewPlayer, ENetRole Rem
 
 	if (PC != NULL && !PC->PlayerState->bOnlySpectator)
 	{
-		// FIXMESTEVE Does team get overwritten in postlogin if inactive player?
-		uint8 DesiredTeam = (GetNetMode() == NM_Standalone) ? 1 : uint8(FMath::Clamp<int32>(UGameplayStatics::GetIntOption(Options, TEXT("Team"), 255), 0, 255));
-		ChangeTeam(PC, DesiredTeam, false);
+		if (!bRankedSession)
+		{
+			// FIXMESTEVE Does team get overwritten in postlogin if inactive player?
+			uint8 DesiredTeam = (GetNetMode() == NM_Standalone) ? 1 : uint8(FMath::Clamp<int32>(UGameplayStatics::GetIntOption(Options, TEXT("Team"), 255), 0, 255));
+			ChangeTeam(PC, DesiredTeam, false);
+		}
+		else
+		{
+			uint8 DesiredTeam = 0;
+			AUTGameSessionRanked* UTGameSession = Cast<AUTGameSessionRanked>(GameSession);
+			if (UTGameSession)
+			{
+				DesiredTeam = UTGameSession->GetTeamForPlayer(UniqueId);
+			}
+			ChangeTeam(PC, DesiredTeam, false);
+		}
 	}
 
 	return PC;
@@ -683,17 +698,17 @@ void AUTTeamGameMode::BroadcastScoreUpdate(APlayerState* ScoringPlayer, AUTTeamI
 
 	if ((OldScore > BestScore) && (OldScore <= BestScore + 2) && (ScoringTeam->Score > BestScore + 2))
 	{
-		BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 8, ScoringPlayer, NULL, ScoringTeam);
+		BroadcastLocalized(this, UUTCTFMajorMessage::StaticClass(), 8, ScoringPlayer, NULL, ScoringTeam);
 	}
 	else if (ScoringTeam->Score >= ((MercyScore > 0) ? (BestScore + MercyScore - 1) : (BestScore + 4)))
 	{
-		BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), bHasBroadcastDominating ? 2 : 9, ScoringPlayer, NULL, ScoringTeam);
+		BroadcastLocalized(this, UUTCTFMajorMessage::StaticClass(), bHasBroadcastDominating ? 2 : 9, ScoringPlayer, NULL, ScoringTeam);
 		bHasBroadcastDominating = true;
 	}
 	else
 	{
 		bHasBroadcastDominating = false; // since other team scored, need new reminder if mercy rule might be hit again
-		BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 2, ScoringPlayer, NULL, ScoringTeam);
+		BroadcastLocalized(this, UUTCTFMajorMessage::StaticClass(), 2, ScoringPlayer, NULL, ScoringTeam);
 	}
 }
 
@@ -842,11 +857,16 @@ void AUTTeamGameMode::FindAndMarkHighScorer()
 				AUTPlayerState *PS = Cast<AUTPlayerState>(Teams[i]->GetTeamMembers()[PlayerIdx]->PlayerState);
 				if (PS != nullptr)
 				{
-					PS->bHasHighScore = (BestScore == PS->Score);
 					AUTCharacter *UTChar = Cast<AUTCharacter>(Teams[i]->GetTeamMembers()[PlayerIdx]->GetPawn());
 					if (UTChar)
 					{
+						bool bOldHighScorer = UTChar->bHasHighScore;
 						UTChar->bHasHighScore = (BestScore == PS->Score);
+						if (bOldHighScorer != UTChar->bHasHighScore)
+						{
+							UTChar->HasHighScoreChanged();
+							AdjustLeaderHatFor(UTChar);
+						}
 					}
 				}
 			}
@@ -861,7 +881,6 @@ void AUTTeamGameMode::UpdateLobbyScore(FMatchUpdate& MatchUpdate)
 		MatchUpdate.TeamScores.Add(UTGameState->Teams[i]->Score);
 	}
 }
-
 
 void AUTTeamGameMode::GetGood()
 {

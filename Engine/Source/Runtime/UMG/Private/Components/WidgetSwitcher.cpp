@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 #include "SWidgetSwitcher.h"
@@ -127,11 +127,6 @@ void UWidgetSwitcher::SynchronizeProperties()
 }
 
 #if WITH_EDITOR
-
-const FSlateBrush* UWidgetSwitcher::GetEditorIcon()
-{
-	return FUMGStyle::Get().GetBrush("Widget.WidgetSwitcher");
-}
 
 const FText UWidgetSwitcher::GetPaletteCategory()
 {

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "LandscapeInfo.generated.h"
@@ -150,7 +150,7 @@ public:
 	// all below.
 	LANDSCAPE_API FLandscapeDataInterface* GetDataInterface();
 
-	LANDSCAPE_API void GetComponentsInRegion(int32 X1, int32 Y1, int32 X2, int32 Y2, TSet<ULandscapeComponent*>& OutComponents);
+	LANDSCAPE_API void GetComponentsInRegion(int32 X1, int32 Y1, int32 X2, int32 Y2, TSet<ULandscapeComponent*>& OutComponents) const;
 	LANDSCAPE_API bool GetLandscapeExtent(int32& MinX, int32& MinY, int32& MaxX, int32& MaxY) const;
 	LANDSCAPE_API void Export(const TArray<ULandscapeLayerInfoObject*>& LayerInfos, const TArray<FString>& Filenames);
 	LANDSCAPE_API void ExportHeightmap(const FString& Filename);
@@ -221,7 +221,7 @@ public:
 	
 	/** Deassociates passed landscape component with this info object*/
 	LANDSCAPE_API void UnregisterActorComponent(ULandscapeComponent* Component);
-		
+
 	/** Resets all actors, proxies, components registrations */
 	LANDSCAPE_API void Reset();
 
@@ -241,6 +241,9 @@ public:
 	/** Fix up component layers, weightmaps for all registered proxies
 	 */
 	LANDSCAPE_API void FixupProxiesWeightmaps();
+
+	// Update per-component layer whitelists to include the currently painted layers
+	LANDSCAPE_API void UpdateComponentLayerWhitelist();
 
 	LANDSCAPE_API void RecreateCollisionComponents();
 

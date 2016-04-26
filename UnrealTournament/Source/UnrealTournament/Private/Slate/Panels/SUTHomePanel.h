@@ -5,6 +5,7 @@
 #include "../Base/SUTPanelBase.h"
 #include "../SUWindowsStyle.h"
 #include "SUTPartyWidget.h"
+#include "SUTPartyInviteWidget.h"
 
 #if !UE_SERVER
 
@@ -47,6 +48,7 @@ protected:
 
 	TSharedPtr<SVerticalBox> AnnouncementBox;
 	TSharedPtr<SUTPartyWidget> PartyBox;
+	TSharedPtr<SUTPartyInviteWidget> PartyInviteBox;
 
 	virtual void BuildAnnouncement();
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,6 +6,7 @@
 #include "IKeyframeSection.h"
 #include "ISequencerObjectChangeListener.h"
 #include "MovieSceneCommonHelpers.h"
+#include "MovieSceneSection.h"
 
 class IPropertyHandle;
 class FPropertyChangedParams;
@@ -39,12 +40,6 @@ public:
 		return Type == TrackType::StaticClass();
 	}
 
-	// Only add a key if the track already has keys, or if creating keys has been forced.  Otherwise just update the track default.
-	virtual bool ShouldAddKey(TrackType* InTrack, KeyDataType InNewKey, FKeyParams InKeyParams) const
-	{
-		return HasKeys( InTrack, InNewKey ) || InKeyParams.bCreateKeyIfEmpty;
-	}
-
 protected:
 
 	/*
@@ -53,6 +48,8 @@ protected:
 	 * @param ObjectsToKey An array of objects to add keyframes to.
 	 * @param KeyTime The time to add keys.
 	 * @param NewKeys The new keys to add.
+	 * @param DefaultKeys Extra keys with default values which shouldn't be added directly, but are needed to set correct
+	 *        default values when adding single channel keys for multi-channel tracks like vectors.
 	 * @param KeyParams The parameters to control keyframing behavior.
 	 * @param TrackClass The class of track which should be created if specified in the parameters.
 	 * @param PropertyName The name of the property to add keys for.
@@ -60,15 +57,17 @@ protected:
 	 *        track is created, but before any sections or keys have been added.
 	 * @param OnSetIntermediateValue A delegate which is called when the key params specify that keying should only happen when
 	 * 		  auto-keying is on, but auto-keying is off.  This allows handling the changed but not keyed intermediate value.
+	 * @return Whether or not a handle guid or track was created. Note this does not return true if keys were added or modified.
 	 */
 	bool AddKeysToObjects(
-		TArray<UObject*> ObjectsToKey, float KeyTime, const TArray<KeyDataType> NewKeys, FKeyParams KeyParams,
-		TSubclassOf<UMovieSceneTrack> TrackClass, FName PropertyName,
+		TArray<UObject*> ObjectsToKey, float KeyTime,
+		const TArray<KeyDataType>& NewKeys, const TArray<KeyDataType>& DefaultKeys,
+		FKeyParams KeyParams, TSubclassOf<UMovieSceneTrack> TrackClass, FName PropertyName,
 		TFunction<void(TrackType*)> OnIntializeNewTrack,
 		TFunction<void(TrackType*)> OnSetIntermediateValue)
 	{
 		bool bHandleCreated = false;
-		bool bTrackCreatedOrModified = false;
+		bool bTrackCreated = false;
 
 		for ( UObject* Object : ObjectsToKey )
 		{
@@ -78,23 +77,41 @@ protected:
 
 			if ( ObjectHandle.IsValid() )
 			{
-				bTrackCreatedOrModified |= AddKeysToHandle( ObjectHandle, KeyTime, NewKeys, KeyParams, TrackClass, PropertyName, OnIntializeNewTrack, OnSetIntermediateValue );
+				bTrackCreated |= AddKeysToHandle( ObjectHandle, KeyTime, NewKeys, DefaultKeys, KeyParams, TrackClass, PropertyName, OnIntializeNewTrack, OnSetIntermediateValue );
 			}
 		}
-		return bHandleCreated || bTrackCreatedOrModified;
+		return bHandleCreated || bTrackCreated;
 	}
 
 
 private:
 
+	/*
+	 * Adds keys to the specified guid.  This may also add tracks and sections depending on the options specified. 
+	 *
+	 * @param ObjectsToKey An array of objects to add keyframes to.
+	 * @param KeyTime The time to add keys.
+	 * @param NewKeys The new keys to add.
+	 * @param DefaultKeys Extra keys with default values which shouldn't be added directly, but are needed to set correct
+	 *        default values when adding single channel keys for multi-channel tracks like vectors.
+	 * @param KeyParams The parameters to control keyframing behavior.
+	 * @param TrackClass The class of track which should be created if specified in the parameters.
+	 * @param PropertyName The name of the property to add keys for.
+	 * @param OnInitializeNewTrack A delegate which allows for custom initialization for new tracks.  This is called after the 
+	 *        track is created, but before any sections or keys have been added.
+	 * @param OnSetIntermediateValue A delegate which is called when the key params specify that keying should only happen when
+	 * 		  auto-keying is on, but auto-keying is off.  This allows handling the changed but not keyed intermediate value.
+	 * @return Whether or not a track was created. Note this does not return true if keys were added or modified.
+	*/
 	bool AddKeysToHandle(
-		FGuid ObjectHandle, float KeyTime, const TArray<KeyDataType> NewKeys, FKeyParams KeyParams,
-		TSubclassOf<UMovieSceneTrack> TrackClass, FName PropertyName,
+		FGuid ObjectHandle, float KeyTime,
+		const TArray<KeyDataType>& NewKeys, const TArray<KeyDataType>& DefaultKeys,
+		FKeyParams KeyParams, TSubclassOf<UMovieSceneTrack> TrackClass, FName PropertyName,
 		TFunction<void(TrackType*)> OnIntializeNewTrack,
 		TFunction<void(TrackType*)> OnSetIntermediateValue)
 	{
 		bool bTrackCreated = false;
-		bool bTrackModified = false;
+		bool bSectionCreated = false;
 
 		// Try to find an existing Track, and if one doesn't exist check the key params and create one if requested.
 		FFindOrCreateTrackResult TrackResult = FindOrCreateTrackForObject( ObjectHandle, TrackClass, PropertyName, KeyParams.bCreateTrackIfMissing );
@@ -111,19 +128,22 @@ private:
 
 		if ( Track )
 		{
-			bTrackModified |= AddKeysToTrack( Track, KeyTime, NewKeys, KeyParams, OnSetIntermediateValue );
+			bSectionCreated = AddKeysToTrack( Track, KeyTime, NewKeys, DefaultKeys, KeyParams, bTrackCreated, OnSetIntermediateValue );
 		}
 
-		return bTrackCreated || bTrackModified;
+		return bTrackCreated || bSectionCreated;
 	}
 
+	/* Returns whether a section was added */
 	bool AddKeysToTrack(
-		TrackType* Track, float KeyTime, const TArray<KeyDataType> NewKeys, FKeyParams KeyParams,
+		TrackType* Track, float KeyTime,
+		const TArray<KeyDataType>& NewKeys, const TArray<KeyDataType>& DefaultKeys,
+		FKeyParams KeyParams, bool bNewTrack,
 		TFunction<void(TrackType*)> OnSetIntermediateValue)
 	{
-		bool bTrackModified = false;
+		bool bSectionCreated = false;
 
-		bool bSettingIntermediateValue = KeyParams.bCreateKeyOnlyWhenAutoKeying && GetSequencer()->GetAutoKeyEnabled() == false;
+		bool bSettingIntermediateValue = KeyParams.bCreateKeyOnlyWhenAutoKeying && GetSequencer()->GetAutoKeyMode() == EAutoKeyMode::KeyNone;
 		if ( bSettingIntermediateValue )
 		{
 			checkf(OnSetIntermediateValue, TEXT("A valid OnSetIntermediateValue delegate must be provided for consistent keyframing behavior."));
@@ -132,24 +152,33 @@ private:
 		else
 		{
 			EMovieSceneKeyInterpolation InterpolationMode = GetSequencer()->GetKeyInterpolation();
+			bool bInfiniteKeyAreas = GetSequencer()->GetInfiniteKeyAreas();
+
 			for ( const KeyDataType& NewKey : NewKeys )
 			{
 				// Only modify the track if the new key will create new data, or if creating keys has been forced.
 				if ( NewKeyIsNewData( Track, KeyTime, NewKey ) || KeyParams.bCreateKeyIfUnchanged )
 				{
-					if ( ShouldAddKey(Track, NewKey, KeyParams) )
+					if ( HasKeys( Track, NewKey ) || KeyParams.bCreateKeyIfEmpty )
 					{
-						AddKey( Track, KeyTime, NewKey, InterpolationMode );
+						bSectionCreated |= AddKey( Track, KeyTime, NewKey, InterpolationMode, bInfiniteKeyAreas );
 					}
 					else
 					{
-						SetDefault( Track, KeyTime, NewKey );
+						bSectionCreated |= SetDefault( Track, KeyTime, NewKey, bInfiniteKeyAreas );
 					}
-					bTrackModified = true;
+				}
+			}
+			// If a new track was added, set defaults for all of the default keys.
+			if( bNewTrack )
+			{
+				for ( const KeyDataType& DefaultKey : DefaultKeys )
+				{
+					bSectionCreated |= SetDefault( Track, KeyTime, DefaultKey, bInfiniteKeyAreas  );
 				}
 			}
 		}
-		return bTrackModified;
+		return bSectionCreated;
 	}
 
 	bool NewKeyIsNewData( TrackType* Track, float Time, const KeyDataType& KeyData ) const
@@ -173,15 +202,26 @@ private:
 
 	using FMovieSceneTrackEditor::AddKey;
 
-	void AddKey( TrackType* Track, float Time, const KeyDataType& KeyData, EMovieSceneKeyInterpolation KeyInterpolation )
+	/* Return whether a section was added */
+	bool AddKey( TrackType* Track, float Time, const KeyDataType& KeyData, EMovieSceneKeyInterpolation KeyInterpolation, bool bInfiniteKeyAreas )
 	{
+		bool bSectionAdded = false;
 		Track->Modify();
-		IKeyframeSection<KeyDataType>* KeyframeSection = CastChecked<SectionType>( Track->FindOrAddSection( Time ) );
+		UMovieSceneSection* NewSection = Track->FindOrAddSection( Time, bSectionAdded );
+		IKeyframeSection<KeyDataType>* KeyframeSection = CastChecked<SectionType>( NewSection );
 		KeyframeSection->AddKey( Time, KeyData, KeyInterpolation );
+
+		if (bSectionAdded)
+		{
+			NewSection->SetIsInfinite(bInfiniteKeyAreas);
+		}
+		return bSectionAdded;
 	}
 
-	void SetDefault( TrackType* Track, float Time, const KeyDataType& KeyData )
+	/* Return whether a section was added */
+	bool SetDefault( TrackType* Track, float Time, const KeyDataType& KeyData, bool bInfiniteKeyAreas )
 	{
+		bool bSectionAdded = false;
 		Track->Modify();
 		const TArray<UMovieSceneSection*>& Sections = Track->GetAllSections();
 		if ( Sections.Num() > 0)
@@ -194,9 +234,16 @@ private:
 		}
 		else
 		{
-			IKeyframeSection<KeyDataType>* KeyframeSection = CastChecked<SectionType>( Track->FindOrAddSection( Time ) );
+			UMovieSceneSection* NewSection = Track->FindOrAddSection( Time, bSectionAdded );
+			IKeyframeSection<KeyDataType>* KeyframeSection = CastChecked<SectionType>( NewSection );
 			KeyframeSection->SetDefault( KeyData );
+
+			if (bSectionAdded)
+			{
+				NewSection->SetIsInfinite(bInfiniteKeyAreas);
+			}
 		}
+		return bSectionAdded;
 	}
 };
 

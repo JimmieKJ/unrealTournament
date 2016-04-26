@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "PartyBeaconHost.h"
@@ -13,6 +13,8 @@ APartyBeaconHost::APartyBeaconHost(const FObjectInitializer& ObjectInitializer) 
 	BeaconTypeName = ClientBeaconActorClass->GetName();
 
 	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bAllowTickOnDedicatedServer = true;
+	PrimaryActorTick.bStartWithTickEnabled = true;
 
 #if !UE_BUILD_SHIPPING
 	bNoTimeouts = bNoTimeouts || FParse::Param(FCommandLine::Get(), TEXT("NoTimeouts")) ? true : false;
@@ -379,7 +381,7 @@ bool APartyBeaconHost::PlayerHasReservation(const FUniqueNetId& PlayerId) const
 
 bool APartyBeaconHost::GetPlayerValidation(const FUniqueNetId& PlayerId, FString& OutValidation) const
 {
-	OutValidation = FString();
+	OutValidation.Empty();
 
 	bool bHasValidation = false;
 	if (State)
@@ -394,6 +396,23 @@ bool APartyBeaconHost::GetPlayerValidation(const FUniqueNetId& PlayerId, FString
 	}
 
 	return bHasValidation;
+}
+
+bool APartyBeaconHost::GetPartyLeader(const FUniqueNetIdRepl& InPartyMemberId, FUniqueNetIdRepl& OutPartyLeaderId) const
+{
+	bool bHasLeader = false;
+	if (State)
+	{
+		bHasLeader = State->GetPartyLeader(InPartyMemberId, OutPartyLeaderId);
+	}
+	else
+	{
+		UE_LOG(LogBeacon, Warning,
+			TEXT("Beacon (%s) hasn't been initialized yet, no leader can be found."),
+			*GetBeaconType());
+	}
+
+	return bHasLeader;
 }
 
 EPartyReservationResult::Type APartyBeaconHost::AddPartyReservation(const FPartyReservation& ReservationRequest)
@@ -478,15 +497,15 @@ EPartyReservationResult::Type APartyBeaconHost::AddPartyReservation(const FParty
 		else
 		{
 			if (State->DoesReservationFit(ReservationRequest))
-			{
-				bool bContinue = true;
-				if (ValidatePlayers.IsBound())
 				{
-					bContinue = ValidatePlayers.Execute(ReservationRequest.PartyMembers);
-				}
+					bool bContinue = true;
+					if (ValidatePlayers.IsBound())
+					{
+						bContinue = ValidatePlayers.Execute(ReservationRequest.PartyMembers);
+					}
 
-				if (bContinue)
-				{
+					if (bContinue)
+					{
 					if (State->AreTeamsAvailable(ReservationRequest))
 					{
 						if (State->AddReservation(ReservationRequest))
@@ -788,7 +807,7 @@ void APartyBeaconHost::ProcessCancelReservationRequest(APartyBeaconClient* Clien
 			DumpReservations();
 		}
 
-		Client->ClientReservationResponse(Result);
+		Client->ClientCancelReservationResponse(Result);
 	}
 }
 

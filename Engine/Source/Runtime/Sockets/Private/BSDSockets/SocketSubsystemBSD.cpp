@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SocketsPrivatePCH.h"
 
@@ -191,6 +191,7 @@ ESocketErrors FSocketSubsystemBSD::TranslateErrorCode(int32 Code)
 	case EDQUOT: return SE_EDQUOT;
 	case ESTALE: return SE_ESTALE;
 	case EREMOTE: return SE_EREMOTE;
+	case ENODEV: return SE_NODEV;
 #if !PLATFORM_HAS_NO_EPROCLIM
 	case EPROCLIM: return SE_EPROCLIM;
 #endif

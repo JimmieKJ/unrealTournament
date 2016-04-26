@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "DetailCustomizationsPrivatePCH.h"
 #include "VehicleTransmissionDataCustomization.h"
@@ -149,7 +149,7 @@ void FVehicleTransmissionDataCustomization::BuildColumnsHeaderHelper(TSharedRef<
 				.AutoWidth()
 				.VAlign(VAlign_Center)
 				[
-					PropertyCustomizationHelpers::MakeAddButton(FSimpleDelegate::CreateSP(this, &FVehicleTransmissionDataCustomization::AddGear, StructPropertyHandle), LOCTEXT("RemoveGearToolTip", "Adds a new gear"))
+					PropertyCustomizationHelpers::MakeAddButton(FSimpleDelegate::CreateSP(this, &FVehicleTransmissionDataCustomization::AddGear, StructPropertyHandle), LOCTEXT("AddGearToolTip", "Adds a new gear"))
 				]
 			+ SHorizontalBox::Slot()
 				.AutoWidth()

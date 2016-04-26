@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 /*=============================================================================================
@@ -33,6 +33,34 @@ struct CORE_API FAndroidMisc : public FGenericPlatformMisc
 	static EAppReturnType::Type MessageBoxExt( EAppMsgType::Type MsgType, const TCHAR* Text, const TCHAR* Caption );
 	static bool ControlScreensaver(EScreenSaverAction Action);
 	static bool AllowRenderThread();
+	static bool HasPlatformFeature(const TCHAR* FeatureName);
+
+
+	struct FCPUStatTime{
+		uint64_t			TotalTime;
+		uint64_t			UserTime;
+		uint64_t			NiceTime;
+		uint64_t			SystemTime;
+		uint64_t			SoftIRQTime;
+		uint64_t			IRQTime;
+		uint64_t			IdleTime;
+		uint64_t			IOWaitTime;
+	};
+
+	struct FCPUState
+	{
+		int32						CoreCount;
+		int32						ActivatedCoreCount;
+		ANSICHAR					Name[5];
+		FAndroidMisc::FCPUStatTime	CurrentUsage[8]; //Core count 8 is maximum for now
+		FAndroidMisc::FCPUStatTime	PreviousUsage[8];
+		int32						Status[8];
+		double						Utilization[8];
+		double						AverageUtilization;
+		
+	};
+
+	static FCPUState& GetCPUState();
 	static int32 NumberOfCores();
 	static void LoadPreInitModules();
 	static void BeforeRenderThreadStarts();
@@ -49,9 +77,31 @@ struct CORE_API FAndroidMisc : public FGenericPlatformMisc
 	static void ResetGamepadAssignments();
 	static void ResetGamepadAssignmentToController(int32 ControllerId);
 	static bool IsControllerAssignedToGamepad(int32 ControllerId);
+	// Returns current volume, 0-100 (%)
+	static int GetVolumeState(double* OutTimeOfChangeInSec = nullptr);
+
+	enum EBatteryState
+	{
+		BATTERY_STATE_CHARGING,
+		BATTERY_STATE_DISCHARGING,
+		BATTERY_STATE_FULL,
+		BATTERY_STATE_NOT_CHARGING,
+		BATTERY_STATE_UNKNOWN
+	};
+	struct FBatteryState
+	{
+		FAndroidMisc::EBatteryState	State;
+		int							Level;          // in range [0,100]
+		float						Temperature;    // in degrees of Celsius
+	};
+
+	static FBatteryState GetBatteryState();
+	static bool AreHeadPhonesPluggedIn();
 
 	/** @return Memory representing a true type or open type font provided by the platform as a default font for unreal to consume; empty array if the default font failed to load. */
 	static TArray<uint8> GetSystemFontBytes();
+
+	static IPlatformChunkInstall* GetPlatformChunkInstall();
 
 	// ANDROID ONLY:
 	static void SetVersionInfo( FString AndroidVersion, FString DeviceMake, FString DeviceModel, FString OSLanguage );
@@ -65,6 +115,7 @@ struct CORE_API FAndroidMisc : public FGenericPlatformMisc
 	static bool SupportsFloatingPointRenderTargets();
 	static bool SupportsShaderFramebufferFetch();
 	static int GetAndroidBuildVersion();
+	static bool ShouldUseVulkan();
 
 #if !UE_BUILD_SHIPPING
 	static bool IsDebuggerPresent();

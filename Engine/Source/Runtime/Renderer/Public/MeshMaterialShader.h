@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MeshMaterialShader.h: Shader base classes
@@ -8,6 +8,7 @@
 
 #include "MaterialShader.h"
 #include "MeshMaterialShaderType.h"
+#include "DrawingPolicy.h"
 
 /** Base class of all shaders that need material and vertex factory parameters. */
 class RENDERER_API FMeshMaterialShader : public FMaterialShader
@@ -29,9 +30,9 @@ public:
 		const FMaterialRenderProxy* MaterialRenderProxy,
 		const FMaterial& Material,
 		const FSceneView& View,
-		ESceneRenderTargetsMode::Type TextureMode )
+		ESceneRenderTargetsMode::Type TextureMode)
 	{
-		FMaterialShader::SetParameters(RHICmdList, ShaderRHI,MaterialRenderProxy,Material,View,false,TextureMode);
+		FMaterialShader::SetParameters(RHICmdList, ShaderRHI, MaterialRenderProxy, Material, View, false, TextureMode);
 	}
 
 	void SetVFParametersOnly(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FMeshBatchElement& BatchElement)
@@ -47,7 +48,7 @@ public:
 		const FSceneView& View,
 		const FPrimitiveSceneProxy* Proxy,
 		const FMeshBatchElement& BatchElement,
-		float DitheredLODTransitionValue,
+		const FMeshDrawingRenderState& DrawRenderState,
 		uint32 DataFlags = 0
 	);
 

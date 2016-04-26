@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "ITreeItem.h"
@@ -33,7 +33,7 @@ namespace HLODOutliner
 		/** TreeItem's ID */
 		mutable FTreeItemID ID;
 
-		FStaticMeshActorItem(AActor* InStaticMeshActor);
+		FStaticMeshActorItem(const AActor* InStaticMeshActor);
 
 		//~ Begin ITreeItem Interface.
 		virtual bool CanInteract() const override;

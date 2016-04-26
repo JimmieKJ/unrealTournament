@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "DetailCustomizationsPrivatePCH.h"
 #include "DeviceProfiles/DeviceProfile.h"
@@ -511,7 +511,7 @@ void FDeviceProfileParentPropertyDetails::CreateParentPropertyView()
 			{
 				if(ParentCVarsGroup == nullptr)
 				{
-					ParentCVarsGroup = &ParentDetailCategory.AddGroup(TEXT("ParentProfileOptions"), LOCTEXT("ParentProfileOptionsGroupTitle", "Parent Console Variables"));
+					ParentCVarsGroup = &ParentDetailCategory.AddGroup(TEXT("ParentProfileOptions"), LOCTEXT("ParentConsoleOptionsGroupTitle", "Parent Console Variables"));
 
 					ParentCVarsGroup->HeaderRow()
 					[

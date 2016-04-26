@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MoviePlayer.h"
 
@@ -123,6 +123,9 @@ void FSlateLoadingSynchronizationMechanism::SlateThreadRunMainLoop()
 
 		if (FSlateApplication::IsInitialized() && !IsSlateDrawPassEnqueued())
 		{
+			TSharedPtr<FSlateRenderer> SlateRenderer = FSlateApplication::Get().GetRenderer();
+			FScopeLock ScopeLock(SlateRenderer->GetResourceCriticalSection());
+
 			// We can't pump messages because this is not the main thread
 			// and that does not work at least in Windows
 			// (HWNDs can only be pumped on the thread they're created on)

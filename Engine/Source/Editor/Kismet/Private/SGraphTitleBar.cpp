@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "BlueprintEditorPrivatePCH.h"
@@ -34,7 +34,7 @@ FText SGraphTitleBar::GetTitleForOneCrumb(const UEdGraph* Graph)
 	Schema->GetGraphDisplayInformation(*Graph, /*out*/ DisplayInfo);
 
 	FFormatNamedArguments Args;
-	Args.Add(TEXT("BreadcrumbDisplayName"), DisplayInfo.PlainName);
+	Args.Add(TEXT("BreadcrumbDisplayName"), DisplayInfo.DisplayName);
 	Args.Add(TEXT("BreadcrumbNotes"), FText::FromString(DisplayInfo.GetNotesAsString()));
 	return FText::Format(LOCTEXT("BreadcrumbTitle", "{BreadcrumbDisplayName} {BreadcrumbNotes}"), Args);
 }

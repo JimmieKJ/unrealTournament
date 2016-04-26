@@ -8,7 +8,6 @@
 #include "UTOnlineGameSettings.h"
 #include "UTMatchmakingPolicy.h"
 #include "OnlineSubsystemUtils.h"
-#include "Qos.h"
 #include "UTPartyBeaconState.h"
 
 #if WITH_PROFILE

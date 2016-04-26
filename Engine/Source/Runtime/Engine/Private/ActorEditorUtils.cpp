@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "ActorEditorUtils.h"
@@ -41,7 +41,7 @@ namespace FActorEditorUtils
 	{
 		TInlineComponentArray<UActorComponent*> InstanceComponents;
 		InActor->GetComponents(InstanceComponents);
-		for (auto Component : InstanceComponents)
+		for (UActorComponent* Component : InstanceComponents)
 		{
 #if WITH_EDITOR
 			if (Component->CreationMethod == EComponentCreationMethod::Native)
@@ -76,7 +76,7 @@ namespace FActorEditorUtils
 
 		if( InActor->GetRootComponent() )
 		{
-			for(auto* ChildComponent : InActor->GetRootComponent()->AttachChildren)
+			for(USceneComponent* ChildComponent : InActor->GetRootComponent()->GetAttachChildren())
 			{
 				AActor* ChildActor = ChildComponent ? ChildComponent->GetOwner() : nullptr;
 				if(ChildActor && ChildActor != InActor && !TraverseActorTree_ParentFirst(ChildActor, InPredicate))
@@ -96,7 +96,7 @@ namespace FActorEditorUtils
 			return true;
 		}
 
-		for (auto* ChildComponent : InActor->GetRootComponent()->AttachChildren)
+		for (USceneComponent* ChildComponent : InActor->GetRootComponent()->GetAttachChildren())
 		{
 			AActor* ChildActor = ChildComponent ? ChildComponent->GetOwner() : nullptr;
 			if (ChildActor && ChildActor != InActor && !TraverseActorTree_ChildFirst(ChildActor, InPredicate))

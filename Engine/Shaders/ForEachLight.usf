@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ForEachLight.usf: Common code for dynamic forward lighting
@@ -37,13 +37,13 @@ float3 LightingForOneLight(FMaterialPixelParameters Parameters, uint LightIndex,
 	// The only type of shadowing supported for lights using tiled is static shadowing, so the light should only compute shadowing if it has static shadowing
 	LightData.bShadowed = dot(LightData.ShadowMapChannelMask, float4(1, 1, 1, 1));
 	
-	float2 ScreenUV = Parameters.SvPosition.xy * View.BufferSizeAndInvSize.zw;
+	float2 ScreenUV = Parameters.SvPosition.xy * Frame.BufferSizeAndInvSize.zw;
 
 	return GetDynamicLighting(Parameters.AbsoluteWorldPosition, CameraVector, ScreenUV, ScreenSpaceData, ScreenSpaceData.GBuffer.ShadingModelID, LightData, float4(1, 1, 1, 1), uint2(0,0)).rgb;
 }
 
 // @param WorldNormal is not assumed to be normalized
-float3 AccumulateForwardLights(FMaterialPixelParameters Parameters, float3 DiffuseColor, float Roughness, float3 SpecularColor)
+float3 AccumulateForwardLights(FMaterialPixelParameters Parameters, FPixelMaterialInputs PixelMaterialInputs, float3 DiffuseColor, float Roughness, float3 SpecularColor)
 {
 	float3 Ret = 0;
 
@@ -51,7 +51,7 @@ float3 AccumulateForwardLights(FMaterialPixelParameters Parameters, float3 Diffu
 #if !COMPILER_GLSL && !COMPILER_GLSL_ES2
 
 	// Which tile we are?
-	int2 Tile = int2((Parameters.SvPosition.xy - View.ViewRectMin.xy) * ForwardLightData.InvTileSize);
+	int2 Tile = int2((Parameters.SvPosition.xy - Frame.ViewRectMin.xy) * ForwardLightData.InvTileSize);
 
 	// Get bitmask from CPU for this tile
 	uint culling = LightGrid[Tile.x + Tile.y * ForwardLightData.TileCountX];
@@ -66,7 +66,7 @@ float3 AccumulateForwardLights(FMaterialPixelParameters Parameters, float3 Diffu
 	ScreenSpaceData.GBuffer.PrecomputedShadowFactors = 1;
 //	ScreenSpaceData.GBuffer.ShadingModelID = SHADINGMODELID_DEFAULT_LIT;
 	ScreenSpaceData.GBuffer.ShadingModelID = SHADINGMODELID_TWOSIDED_FOLIAGE;
-	ScreenSpaceData.GBuffer.CustomData = float4(DiffuseColor, GetMaterialOpacity(Parameters));
+	ScreenSpaceData.GBuffer.CustomData = float4(DiffuseColor, GetMaterialOpacity(PixelMaterialInputs));
 	ScreenSpaceData.AmbientOcclusion = 1;
 
 	// todo: support more than 32 lights

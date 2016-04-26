@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -70,6 +70,9 @@ public:
 	 */
 	static UObject* CheckPropertyNameOnScope(UStruct* Scope, const FName& PropertyName);
 
+	// Find groups of nodes, that can be executed separately.
+	static TArray<TSet<UEdGraphNode*>> FindUnsortedSeparateExecutionGroups(const TArray<UEdGraphNode*>& Nodes);
+
 private:
 	/** Counter to ensure unique names in the transient package, to avoid GC collection issues with classes and their CDOs */
 	static uint32 ConsignToOblivionCounter;
@@ -123,7 +126,7 @@ protected:
 	bool ValidateAndRegisterNetIfLiteral(FKismetFunctionContext& Context, UEdGraphPin* Net);
 
 	// Helper to register literal term
-	FBPTerminal* RegisterLiteral(FKismetFunctionContext& Context, UEdGraphPin* Net);
+	virtual FBPTerminal* RegisterLiteral(FKismetFunctionContext& Context, UEdGraphPin* Net);
 public:
 	FNodeHandlingFunctor(FKismetCompilerContext& InCompilerContext)
 		: CompilerContext(InCompilerContext)

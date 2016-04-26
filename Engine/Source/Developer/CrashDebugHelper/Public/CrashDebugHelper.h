@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -120,7 +120,7 @@ public:
 	}
 };
 
-// #YRX_Crash: 2015-07-24 Merge with FCrashDescription
+// #TODO 2015-07-24 Refactor
 /** A platform independent representation of a crash */
 class CRASHDEBUGHELPER_API FCrashInfo
 {
@@ -166,6 +166,9 @@ public:
 
 	/** Shared pointer to the PDB Cache entry, if valid contains all information about synced PDBs. */
 	TSharedPtr<FPDBCacheEntry> PDBCacheEntry;
+
+	FString PlatformName;
+	FString PlatformVariantName;
 
 	FCrashInfo()
 		: BuiltFromCL( INVALID_CHANGELIST )
@@ -222,8 +225,6 @@ struct FCrashDebugInfo
 class CRASHDEBUGHELPER_API ICrashDebugHelper
 {
 public:
-	static const TCHAR* P4_DEPOT_PREFIX;
-
 	/** Replaces %DEPOT_INDEX% with the command line DepotIndex in the specified path. */
 	static void SetDepotIndex( FString& PathToChange );
 
@@ -235,16 +236,6 @@ protected:
 	 *	This may change in future.
 	 */
 	FString SourceControlBuildLabelPattern;
-	
-	/**
-	 * Patterns to search in the network driver for the executables/the symbols.
-	 * Valid from 4.2 UE builds. (CL-2068994)
-	 * This may change in future.
-	 */
-	TArray<FString> Branches;
-	TArray<FString> ExecutablePathPatterns;
-	TArray<FString> SymbolPathPatterns;
-
 	
 	/** Indicates that the crash handler is ready to do work */
 	bool bInitialized;

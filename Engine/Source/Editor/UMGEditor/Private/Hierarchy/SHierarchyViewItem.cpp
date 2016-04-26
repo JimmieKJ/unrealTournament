@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGEditorPrivatePCH.h"
 #include "SHierarchyViewItem.h"
@@ -257,6 +257,13 @@ TOptional<EItemDropZone> ProcessHierarchyDragDrop(const FDragDropEvent& DragDrop
 			{
 				HierarchyDragDropOp->CurrentIconBrush = FEditorStyle::GetBrush(TEXT("Graph.ConnectorFeedback.Error"));
 				HierarchyDragDropOp->CurrentHoverText = LOCTEXT("NoAdditionalChildren", "Widget can't accept additional children.");
+				return TOptional<EItemDropZone>();
+			}
+
+			if (!NewParent->CanHaveMultipleChildren() && HierarchyDragDropOp->DraggedWidgets.Num() > 1)
+			{
+				HierarchyDragDropOp->CurrentIconBrush = FEditorStyle::GetBrush(TEXT("Graph.ConnectorFeedback.Error"));
+				HierarchyDragDropOp->CurrentHoverText = LOCTEXT("CantHaveMultipleChildren", "Widget can't have multiple children.");
 				return TOptional<EItemDropZone>();
 			}
 
@@ -878,9 +885,13 @@ FText FHierarchyWidget::GetLabelToolTipText() const
 	return FText::GetEmpty();
 }
 
+const FSlateBrush* GetEditorIcon_Deprecated(UWidget* Widget);
+
 const FSlateBrush* FHierarchyWidget::GetImage() const
 {
-	return Item.GetTemplate()->GetEditorIcon();
+	// @todo UMG: remove after 4.12
+	return GetEditorIcon_Deprecated(Item.GetTemplate());
+	// return FClassIconFinder::FindIconForClass(Item.GetTemplate()->GetClass());
 }
 
 FSlateFontInfo FHierarchyWidget::GetFont() const

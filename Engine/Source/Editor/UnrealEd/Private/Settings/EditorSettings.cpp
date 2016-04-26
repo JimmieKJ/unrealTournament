@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "EditorSettings.h"
@@ -8,7 +8,7 @@ UEditorSettings::UEditorSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	bCopyStarterContentPreference = false;
-	bEditorAnalyticsEnabled = true;
+	bEditorAnalyticsEnabled_DEPRECATED = true;
 	AutoScalabilityWorkScaleAmount = 1;
 }
 
@@ -46,13 +46,13 @@ void UEditorSettings::LoadScalabilityBenchmark()
 
 	if (IsScalabilityBenchmarkValid())
 	{
-		GConfig->GetInt(Section, TEXT("ResolutionQuality"),		Temporary.ResolutionQuality,	GEditorSettingsIni);
-		GConfig->GetInt(Section, TEXT("ViewDistanceQuality"),		Temporary.ViewDistanceQuality,	GEditorSettingsIni);
-		GConfig->GetInt(Section, TEXT("AntiAliasingQuality"),		Temporary.AntiAliasingQuality,	GEditorSettingsIni);
-		GConfig->GetInt(Section, TEXT("ShadowQuality"),			Temporary.ShadowQuality,		GEditorSettingsIni);
-		GConfig->GetInt(Section, TEXT("PostProcessQuality"),		Temporary.PostProcessQuality,	GEditorSettingsIni);
-		GConfig->GetInt(Section, TEXT("TextureQuality"),			Temporary.TextureQuality,		GEditorSettingsIni);
-		GConfig->GetInt(Section, TEXT("EffectsQuality"),			Temporary.EffectsQuality,		GEditorSettingsIni);
+		GConfig->GetFloat(Section, TEXT("ResolutionQuality"), Temporary.ResolutionQuality, GEditorSettingsIni);
+		GConfig->GetInt(Section, TEXT("ViewDistanceQuality"), Temporary.ViewDistanceQuality, GEditorSettingsIni);
+		GConfig->GetInt(Section, TEXT("AntiAliasingQuality"), Temporary.AntiAliasingQuality, GEditorSettingsIni);
+		GConfig->GetInt(Section, TEXT("ShadowQuality"), Temporary.ShadowQuality, GEditorSettingsIni);
+		GConfig->GetInt(Section, TEXT("PostProcessQuality"), Temporary.PostProcessQuality, GEditorSettingsIni);
+		GConfig->GetInt(Section, TEXT("TextureQuality"), Temporary.TextureQuality, GEditorSettingsIni);
+		GConfig->GetInt(Section, TEXT("EffectsQuality"), Temporary.EffectsQuality, GEditorSettingsIni);
 		EngineBenchmarkResult = Temporary;
 	}
 }
@@ -68,7 +68,7 @@ void UEditorSettings::AutoApplyScalabilityBenchmark()
 	Scalability::FQualityLevels Temporary = Scalability::BenchmarkQualityLevels(AutoScalabilityWorkScaleAmount);
 
 	GConfig->SetBool(Section, TEXT("Valid"), true, GEditorSettingsIni);
-	GConfig->SetInt(Section, TEXT("ResolutionQuality"), Temporary.ResolutionQuality, GEditorSettingsIni);
+	GConfig->SetFloat(Section, TEXT("ResolutionQuality"), Temporary.ResolutionQuality, GEditorSettingsIni);
 	GConfig->SetInt(Section, TEXT("ViewDistanceQuality"), Temporary.ViewDistanceQuality, GEditorSettingsIni);
 	GConfig->SetInt(Section, TEXT("AntiAliasingQuality"), Temporary.AntiAliasingQuality, GEditorSettingsIni);
 	GConfig->SetInt(Section, TEXT("ShadowQuality"), Temporary.ShadowQuality, GEditorSettingsIni);

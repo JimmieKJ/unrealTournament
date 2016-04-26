@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================================
 	IOSPlatformMisc.h: iOS platform misc functions
@@ -7,6 +7,31 @@
 #pragma once
 #include "GenericPlatform/GenericPlatformMisc.h"
 #include "IOS/IOSSystemIncludes.h"
+
+#ifdef __OBJC__
+
+class FScopeAutoreleasePool
+{
+public:
+
+	FScopeAutoreleasePool()
+	{
+		Pool = [[NSAutoreleasePool alloc] init];
+	}
+
+	~FScopeAutoreleasePool()
+	{
+		[Pool release];
+	}
+
+private:
+
+	NSAutoreleasePool*	Pool;
+};
+
+#define SCOPED_AUTORELEASE_POOL const FScopeAutoreleasePool PREPROCESSOR_JOIN(Pool,__LINE__);
+
+#endif // __OBJC__
 
 /**
 * iOS implementation of the misc OS functions
@@ -86,6 +111,7 @@ struct CORE_API FIOSPlatformMisc : public FGenericPlatformMisc
 	static void ClipboardCopy(const TCHAR* Str);
 	static void ClipboardPaste(class FString& Dest);
 	static EAppReturnType::Type MessageBoxExt( EAppMsgType::Type MsgType, const TCHAR* Text, const TCHAR* Caption );
+	static bool ControlScreensaver(EScreenSaverAction Action);
 	static int32 NumberOfCores();
 	static void LoadPreInitModules();
 	static void SetMemoryWarningHandler(void (* Handler)(const FGenericMemoryWarningContext& Context));
@@ -93,10 +119,16 @@ struct CORE_API FIOSPlatformMisc : public FGenericPlatformMisc
 	static FString GetDefaultLocale();
 	static bool SetStoredValue(const FString& InStoreId, const FString& InSectionName, const FString& InKeyName, const FString& InValue);
 	static bool GetStoredValue(const FString& InStoreId, const FString& InSectionName, const FString& InKeyName, FString& OutValue);
+	static bool DeleteStoredValue(const FString& InStoreId, const FString& InSectionName, const FString& InKeyName);
 	static TArray<uint8> GetSystemFontBytes();
 	static TArray<FString> GetPreferredLanguages();
 	static FString GetLocalCurrencyCode();
 	static FString GetLocalCurrencySymbol();
+	static void GetValidTargetPlatforms(class TArray<class FString>& TargetPlatformNames);
+
+	static void ResetGamepadAssignments();
+	static void ResetGamepadAssignmentToController(int32 ControllerId);
+	static bool IsControllerAssignedToGamepad(int32 ControllerId);
 
 	static void RegisterForRemoteNotifications();
 
@@ -131,6 +163,8 @@ struct CORE_API FIOSPlatformMisc : public FGenericPlatformMisc
 		IOS_IPhone6Plus,
 		IOS_IPhone6S,
 		IOS_IPhone6SPlus,
+		IOS_IPadPro,
+		IOS_AppleTV,
 		IOS_Unknown,
 	};
 
@@ -158,6 +192,8 @@ struct CORE_API FIOSPlatformMisc : public FGenericPlatformMisc
 			L"IPhone6Plus",
 			L"IPhone6S",
 			L"IPhone6SPlus",
+			L"IPadPro",
+			L"AppleTV",
 			L"Unknown",
 		};
 		static_assert((sizeof(IOSDeviceNames) / sizeof(IOSDeviceNames[0])) == ((int32)IOS_Unknown + 1), "Mismatched IOSDeviceNames and EIOSDevice.");
@@ -165,6 +201,9 @@ struct CORE_API FIOSPlatformMisc : public FGenericPlatformMisc
 		// look up into the string array by the enum
 		return IOSDeviceNames[(int32)GetIOSDeviceType()];
 	}
+	
+private:
+	static class FIOSApplication* CachedApplication;
 };
 
 typedef FIOSPlatformMisc FPlatformMisc;

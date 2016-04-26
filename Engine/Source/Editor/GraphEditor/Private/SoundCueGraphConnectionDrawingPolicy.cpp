@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "GraphEditorCommon.h"
 #include "SoundCueGraphConnectionDrawingPolicy.h"
@@ -51,7 +51,7 @@ void FSoundCueGraphConnectionDrawingPolicy::BuildAudioFlowRoadmap()
 			const int32 FirstActiveIndex = AudioDevice->GetSortedActiveWaveInstances(WaveInstances, ESortedActiveWaveGetType::QueryOnly);
 
 			// Run through the active instances and cull out anything that isn't related to this graph
-			if (FirstActiveIndex > 0)
+			if (FirstActiveIndex > 0 && WaveInstances.IsValidIndex(FirstActiveIndex))
 			{
 				WaveInstances.RemoveAt(0, FirstActiveIndex + 1);
 			}

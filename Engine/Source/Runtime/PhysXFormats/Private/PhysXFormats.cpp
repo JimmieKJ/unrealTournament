@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "Core.h"
 #include "ModuleInterface.h"
@@ -84,7 +84,7 @@ public:
 		OutFormats.Add(NAME_PhysXPS4);
 	}
 
-	virtual bool CookConvex(FName Format, const TArray<FVector>& SrcBuffer, TArray<uint8>& OutBuffer, bool bDeformableMesh = false) const override
+	virtual bool CookConvex(FName Format, int32 RuntimeCookFlags, const TArray<FVector>& SrcBuffer, TArray<uint8>& OutBuffer, bool bDeformableMesh = false) const override
 	{
 #if WITH_PHYSX
 		PxPlatform::Enum PhysXFormat = PxPlatform::ePC;
@@ -105,31 +105,49 @@ public:
 		}
 
 		// Set up cooking
-		const PxCookingParams& Params = PhysXCooking->getParams();
+		const PxCookingParams Params = PhysXCooking->getParams();
 		PxCookingParams NewParams = Params;
 		NewParams.targetPlatform = PhysXFormat;
+
+		if(RuntimeCookFlags & ERuntimePhysxCookOptimizationFlags::SuppressFaceRemapTable)
+		{
+			NewParams.suppressTriangleMeshRemapTable = true;
+		}
+
 		if (bDeformableMesh)
 		{
 			// Meshes which can be deformed need different cooking parameters to inhibit vertex welding and add an extra skin around the collision mesh for safety.
 			// We need to set the meshWeldTolerance to zero, even when disabling 'clean mesh' as PhysX will attempt to perform mesh cleaning anyway according to this meshWeldTolerance
 			// if the convex hull is not well formed.
-			NewParams.meshPreprocessParams = PxMeshPreprocessingFlags(PxMeshPreprocessingFlag::eDISABLE_CLEAN_MESH | PxMeshPreprocessingFlag::eREMOVE_UNREFERENCED_VERTICES | PxMeshPreprocessingFlag::eREMOVE_DUPLICATED_TRIANGLES);
+			// Set the skin thickness as a proportion of the overall size of the mesh as PhysX's internal tolerances also use the overall size to calculate the epsilon used.
+			const FBox Bounds(SrcBuffer);
+			const float MaxExtent = (Bounds.Max - Bounds.Min).Size();
+			NewParams.skinWidth = MaxExtent / 512.0f;
+			NewParams.meshPreprocessParams = PxMeshPreprocessingFlags(PxMeshPreprocessingFlag::eDISABLE_CLEAN_MESH);
 			NewParams.areaTestEpsilon = 0.0f;
 			NewParams.meshWeldTolerance = 0.0f;
+			PhysXCooking->setParams(NewParams);
 		}
-		PhysXCooking->setParams(NewParams);
 
 		// Cook the convex mesh to a temp buffer
 		TArray<uint8> CookedMeshBuffer;
 		FPhysXOutputStream Buffer(&CookedMeshBuffer);
 		bool Result = PhysXCooking->cookConvexMesh(PConvexMeshDesc, Buffer);
 		
+		if(!Result && !(PConvexMeshDesc.flags & PxConvexFlag::eINFLATE_CONVEX))
+		{
+			//We failed to cook without inflating convex. Let's try again with inflation
+			//This is not ideal since it makes the collision less accurate. It's needed if given verts are extremely close.
+			UE_LOG(LogPhysics, Warning, TEXT("Cooking failed, possibly due to verts too close together. Trying again with inflation."));
+			PConvexMeshDesc.flags |= PxConvexFlag::eINFLATE_CONVEX;
+			Result = PhysXCooking->cookConvexMesh(PConvexMeshDesc, Buffer);
+			
+		}
+
 		// Return default cooking params to normal
 		if (bDeformableMesh)
 		{
-			NewParams.meshPreprocessParams = Params.meshPreprocessParams;
-			NewParams.areaTestEpsilon = Params.areaTestEpsilon;
-			NewParams.meshWeldTolerance = Params.meshWeldTolerance;
+			PhysXCooking->setParams(Params);
 		}
 
 		if( Result && CookedMeshBuffer.Num() > 0 )
@@ -142,7 +160,7 @@ public:
 		return false;
 	}
 
-	virtual bool CookTriMesh(FName Format, const TArray<FVector>& SrcVertices, const TArray<FTriIndices>& SrcIndices, const TArray<uint16>& SrcMaterialIndices, const bool FlipNormals, TArray<uint8>& OutBuffer, bool bDeformableMesh = false) const override
+	virtual bool CookTriMesh(FName Format, int32 RuntimeCookFlags, const TArray<FVector>& SrcVertices, const TArray<FTriIndices>& SrcIndices, const TArray<uint16>& SrcMaterialIndices, const bool FlipNormals, TArray<uint8>& OutBuffer, bool bDeformableMesh = false) const override
 	{
 #if WITH_PHYSX
 		PxPlatform::Enum PhysXFormat = PxPlatform::ePC;
@@ -165,6 +183,11 @@ public:
 		PxCookingParams NewParams = Params;
 		NewParams.targetPlatform = PhysXFormat;
 		PxMeshPreprocessingFlags OldCookingFlags = NewParams.meshPreprocessParams;
+
+		if (RuntimeCookFlags & ERuntimePhysxCookOptimizationFlags::SuppressFaceRemapTable)
+		{
+			NewParams.suppressTriangleMeshRemapTable = true;
+		}
 
 		if (bDeformableMesh)
 		{

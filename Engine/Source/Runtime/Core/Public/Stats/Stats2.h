@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -91,8 +91,7 @@ MS_ALIGN(8)
 struct TStatIdData
 {
 	FORCEINLINE TStatIdData()
-		: Name(NameToMinimalName(NAME_None))
-		, AnsiString(0)
+		: AnsiString(0)
 		, WideString(0)
 	{
 	}
@@ -1164,7 +1163,7 @@ private:
 	};
 
 	/** Lock free pool of FThreadStats instances. */
-	TLockFreePointerListUnordered<FThreadStats> Pool;
+	TLockFreePointerListUnordered<FThreadStats, 0> Pool;
 
 public:
 	/** Default constructor. */
@@ -1557,8 +1556,30 @@ public:
 	}
 };
 
+class FSimpleScopeSecondsStat
+{
+public:
+
+	FSimpleScopeSecondsStat(TStatId InStatId)
+		: StartTime(FPlatformTime::Seconds())
+		, StatId(InStatId)
+	{
+
+	}
+
+	virtual ~FSimpleScopeSecondsStat()
+	{
+		double TotalTime = FPlatformTime::Seconds() - StartTime;
+		FThreadStats::AddMessage(StatId.GetName(), EStatOperation::Add, TotalTime);
+	}
+
+private:
+
+	double StartTime;
+	TStatId StatId;
+};
+
 /** Manages startup messages, usually to update the metadata. */
-// @TODO yrx 2014-11-18 Eventually add startup messages for memory profiling?
 class FStartupMessages
 {
 	friend class FStatsThread;
@@ -1839,8 +1860,8 @@ struct FStat_##StatName\
 #define DECLARE_STATS_GROUP_MAYBE_COMPILED_OUT(GroupDesc, GroupId, GroupCat, CompileIn) \
 	DECLARE_STAT_GROUP(GroupDesc, GroupId, GroupCat, false, CompileIn);
 
-#ifdef UE_BUILD_DEBUG
-	#define SCOPE_CYCLE_COUNTER_GUARD {const char* ReadTheText = "SCOPE_CYCLE_COUNTER can't be used in the global scope.";}
+#if UE_BUILD_DEBUG
+	#define SCOPE_CYCLE_COUNTER_GUARD { const char* ReadTheText = "SCOPE_CYCLE_COUNTER can't be used in the global scope."; (void)ReadTheText; }
 #else
 	#define SCOPE_CYCLE_COUNTER_GUARD
 #endif // UE_BUILD_DEBUG
@@ -1863,7 +1884,9 @@ struct FStat_##StatName\
 	SCOPE_CYCLE_COUNTER_GUARD \
 	FScopeCycleCounter CycleCount_##Stat(bCondition ? GET_STATID(Stat) : TStatId());
 
-
+#define SCOPE_SECONDS_ACCUMULATOR(Stat) \
+	SCOPE_CYCLE_COUNTER_GUARD \
+	FSimpleScopeSecondsStat SecondsAccum_##Stat(GET_STATID(Stat));
 
 #define SET_CYCLE_COUNTER(Stat,Cycles) \
 {\
@@ -2019,6 +2042,7 @@ DECLARE_STATS_GROUP(TEXT("Engine"),STATGROUP_Engine, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("FPS Chart"),STATGROUP_FPSChart, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("GPU Particles"),STATGROUP_GPUParticles, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("Game"),STATGROUP_Game, STATCAT_Advanced);
+DECLARE_STATS_GROUP(TEXT("GPU Defrag"), STATGROUP_GPUDEFRAG, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("Gnm"),STATGROUP_PS4RHI, STATCAT_Advanced);
 DECLARE_STATS_GROUP_VERBOSE(TEXT("GnmVerbose"), STATGROUP_PS4RHIVERBOSE, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("Init Views"),STATGROUP_InitViews, STATCAT_Advanced);
@@ -2071,5 +2095,6 @@ DECLARE_STATS_GROUP(TEXT("User"),STATGROUP_User, STATCAT_Advanced);
 
 DECLARE_CYCLE_STAT_EXTERN(TEXT("FrameTime"),STAT_FrameTime,STATGROUP_Engine, CORE_API);
 DECLARE_FNAME_STAT_EXTERN(TEXT("NamedMarker"),STAT_NamedMarker,STATGROUP_StatSystem, CORE_API);
+DECLARE_FLOAT_COUNTER_STAT_EXTERN(TEXT("Seconds Per Cycle"),STAT_SecondsPerCycle,STATGROUP_Engine, CORE_API);
 
 #endif

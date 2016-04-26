@@ -26,10 +26,16 @@ AUTTeamShowdownGame::AUTTeamShowdownGame(const FObjectInitializer& OI)
 	DisplayName = NSLOCTEXT("UTGameMode", "TeamShowdown", "Showdown");
 	bAnnounceTeam = true;
 	QuickPlayersToStart = 6;
+	ActivatedPowerupPlaceholderObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_ActivatedPowerup_UDamage.BP_ActivatedPowerup_UDamage_C"));
 }
 
 void AUTTeamShowdownGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
+	if (!ActivatedPowerupPlaceholderObject.IsNull())
+	{
+		ActivatedPowerupPlaceholderClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *ActivatedPowerupPlaceholderObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
+	}
+
 	int32 SavedBotFillCount = BotFillCount;
 
 	Super::InitGame(MapName, Options, ErrorMessage);
@@ -52,6 +58,17 @@ void AUTTeamShowdownGame::InitGame(const FString& MapName, const FString& Option
 		BotFillCount = UGameplayStatics::GetIntOption(Options, TEXT("BotFill"), SavedBotFillCount);
 	}
 	GameSession->MaxPlayers = UGameplayStatics::GetIntOption(Options, TEXT("MaxPlayers"), 8);
+	if (GameSession->MaxPlayers <= 0)
+	{
+		GameSession->MaxPlayers = 6;
+	}
+}
+
+void AUTTeamShowdownGame::InitGameState()
+{
+	Super::InitGameState();
+
+	UTGameState->BoostRechargeTime = 240.0f;
 }
 
 bool AUTTeamShowdownGame::CheckRelevance_Implementation(AActor* Other)
@@ -82,9 +99,35 @@ bool AUTTeamShowdownGame::CheckRelevance_Implementation(AActor* Other)
 	return Super::CheckRelevance_Implementation(Other);
 }
 
+void AUTTeamShowdownGame::GenericPlayerInitialization(AController* C)
+{
+	Super::GenericPlayerInitialization(C);
+
+	AUTPlayerState* PS = Cast<AUTPlayerState>(C->PlayerState);
+	if (PS != NULL)
+	{
+		// default boost type
+		PS->BoostClass = LoadClass<AUTInventory>(NULL, TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Arsenal.BP_Arsenal_C"));
+		PS->SetRemainingBoosts(1);
+	}
+}
+
 void AUTTeamShowdownGame::RestartPlayer(AController* aPlayer)
 {
 	Super::RestartPlayer(aPlayer);
+
+	// default weapons have infinite ammo
+	AUTCharacter* UTC = Cast<AUTCharacter>(aPlayer->GetPawn());
+	if (UTC != NULL)
+	{
+		for (TInventoryIterator<AUTWeapon> It(UTC); It; ++It)
+		{
+			for (int32 i = 0; i < It->AmmoCost.Num(); i++)
+			{
+				It->AmmoCost[i] = 0;
+			}
+		}
+	}
 
 	// go to spectating if dead and can't respawn
 	if (!bAllowPlayerRespawns && IsMatchInProgress() && aPlayer->GetPawn() == NULL)
@@ -167,7 +210,7 @@ void AUTTeamShowdownGame::DiscardInventory(APawn* Other, AController* Killer)
 
 void AUTTeamShowdownGame::ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
-	if (GetMatchState() != MatchState::MatchIntermission && (TimeLimit <= 0 || UTGameState->RemainingTime > 0))
+	if (GetMatchState() != MatchState::MatchIntermission && (TimeLimit <= 0 || UTGameState->GetRemainingTime() > 0))
 	{
 		if (Killer != Other && Killer != NULL && UTGameState->OnSameTeam(Killer, Other))
 		{

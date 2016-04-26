@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "EnvQueryTypes.h"
@@ -14,6 +14,7 @@ class UEnvQueryOption;
 struct FEnvQueryInstance;
 struct FEnvNamedValue;
 class UEnvQueryTest;
+class UEnvQueryInstanceBlueprintWrapper;
 
 /** wrapper for easy query execution */
 USTRUCT()
@@ -94,7 +95,7 @@ struct AIMODULE_API FEQSDebugger
 		TSharedPtr<FEnvQueryInstance> Instance;
 	};
 
-	void StoreQuery(UWorld* InWorld, TSharedPtr<FEnvQueryInstance>& Query);
+	void StoreQuery(UWorld* InWorld, const TSharedPtr<FEnvQueryInstance>& Query);
 	TArray<FEnvQueryInfo>&  GetAllQueriesForOwner(const UObject* Owner);
 
 protected:
@@ -107,7 +108,7 @@ FORCEINLINE bool operator== (const FEQSDebugger::FEnvQueryInfo & Left, const FEQ
 }
 #endif // USE_EQS_DEBUGGER
 
-UCLASS()
+UCLASS(config = Game, defaultconfig)
 class AIMODULE_API UEnvQueryManager : public UObject, public FTickableGameObject
 {
 	GENERATED_UCLASS_BODY()
@@ -127,7 +128,7 @@ class AIMODULE_API UEnvQueryManager : public UObject, public FTickableGameObject
 
 	/** execute query */
 	int32 RunQuery(const FEnvQueryRequest& Request, EEnvQueryRunMode::Type RunMode, FQueryFinishedSignature const& FinishDelegate);
-	int32 RunQuery(TSharedPtr<FEnvQueryInstance> QueryInstance, FQueryFinishedSignature const& FinishDelegate);
+	int32 RunQuery(const TSharedPtr<FEnvQueryInstance>& QueryInstance, FQueryFinishedSignature const& FinishDelegate);
 
 	/** Removed all active queries asked by Querier. No "on finished" notifications are being sent, call this function when
 	 *	you no longer care about Querier's queries, like when he's "dead" */
@@ -138,8 +139,11 @@ class AIMODULE_API UEnvQueryManager : public UObject, public FTickableGameObject
 
 	void RemoveAllQueriesByQuerier(const UObject& Querier, bool bExecuteFinishDelegate);
 
-	/** alternative way to run queries. Do not use for anything other then testing! (worse performance) */
+	/** alternative way to run queries. Do not use for anything other than testing
+	*  or when you know exactly what you're doing! Bypasses all EQS perf controlling
+	*  and time slicing mechanics. */
 	TSharedPtr<FEnvQueryResult> RunInstantQuery(const FEnvQueryRequest& Request, EEnvQueryRunMode::Type RunMode);
+	void RunInstantQuery(const TSharedPtr<FEnvQueryInstance>& QueryInstance);
 
 	/** Creates a query instance configured for execution */
 	TSharedPtr<FEnvQueryInstance> PrepareQueryInstance(const FEnvQueryRequest& Request, EEnvQueryRunMode::Type RunMode);
@@ -164,10 +168,10 @@ class AIMODULE_API UEnvQueryManager : public UObject, public FTickableGameObject
 	virtual void FinishDestroy() override;
 
 	/** add information for data providers about query instance run independently */
-	void RegisterExternalQuery(TSharedPtr<FEnvQueryInstance> QueryInstance);
+	void RegisterExternalQuery(const TSharedPtr<FEnvQueryInstance>& QueryInstance);
 
 	/** clear information about query instance run independently */
-	void UnregisterExternalQuery(TSharedPtr<FEnvQueryInstance> QueryInstance);
+	void UnregisterExternalQuery(const TSharedPtr<FEnvQueryInstance>& QueryInstance);
 
 	/** list of all known item types */
 	static TArray<TSubclassOf<UEnvQueryItemType> > RegisteredItemTypes;
@@ -178,9 +182,17 @@ class AIMODULE_API UEnvQueryManager : public UObject, public FTickableGameObject
 	UFUNCTION(BlueprintCallable, Category = "AI|EQS", meta = (WorldContext = "WorldContext", AdvancedDisplay = "WrapperClass"))
 	static UEnvQueryInstanceBlueprintWrapper* RunEQSQuery(UObject* WorldContext, UEnvQuery* QueryTemplate, UObject* Querier, TEnumAsByte<EEnvQueryRunMode::Type> RunMode, TSubclassOf<UEnvQueryInstanceBlueprintWrapper> WrapperClass);
 
+	void RegisterActiveWrapper(UEnvQueryInstanceBlueprintWrapper& Wrapper);
+	void UnregisterActiveWrapper(UEnvQueryInstanceBlueprintWrapper& Wrapper);
+
 	static void SetAllowTimeSlicing(bool bAllowTimeSlicing);
 
+protected:
+	friend UEnvQueryInstanceBlueprintWrapper;
+	TSharedPtr<FEnvQueryInstance> FindQueryInstance(const int32 QueryID);
+
 #if USE_EQS_DEBUGGER
+public:
 	static void NotifyAssetUpdate(UEnvQuery* Query);
 
 	FEQSDebugger& GetDebugger() { return EQSDebugger; }
@@ -194,6 +206,9 @@ protected:
 	/** currently running queries */
 	TArray<TSharedPtr<FEnvQueryInstance> > RunningQueries;
 
+	/** count of queries aborted since last update, to be removed. */
+	int32 NumRunningQueriesAbortedSinceLastUpdate;
+
 	/** queries run independently from manager, mapped here for data providers */
 	TMap<int32, TWeakPtr<FEnvQueryInstance>> ExternalQueries;
 
@@ -205,6 +220,9 @@ protected:
 	UPROPERTY(transient)
 	TArray<UEnvQueryContext*> LocalContexts;
 
+	UPROPERTY()
+	TArray<UEnvQueryInstanceBlueprintWrapper*> GCShieldedWrappers;
+
 	/** local contexts mapped by class names */
 	TMap<FName, UEnvQueryContext*> LocalContextMap;
 
@@ -214,6 +232,24 @@ protected:
 	/** create new instance, using cached data is possible */
 	TSharedPtr<FEnvQueryInstance> CreateQueryInstance(const UEnvQuery* Template, EEnvQueryRunMode::Type RunMode);
 
+	/** how long are we allowed to test per update, in seconds. */
+	UPROPERTY(config)
+	double MaxAllowedTestingTime;
+
+	/** whether we update EQS queries based on:
+	    running a test on one query and move to the next (breadth) - default behavior,
+	    or test an entire query before moving to the next one (depth). */
+	UPROPERTY(config)
+	bool bTestQueriesUsingBreadth;
+
+	/** if greater than zero, we will warn once when the number of queries is greater than or equal to this number, and log the queries out */
+	UPROPERTY(config)
+	int32 QueryCountWarningThreshold;
+
+	/** how often (in seconds) we will warn about the number of queries (allows us to catch multiple occurrences in a session) */
+	UPROPERTY(config)
+	double QueryCountWarningInterval;
+
 private:
 
 	/** create and bind delegates in instance */
@@ -221,5 +257,10 @@ private:
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	static bool bAllowEQSTimeSlicing;
+
+	mutable double LastQueryCountWarningThresholdTime;
+
+	void CheckQueryCount() const;
+	void LogQueryCountWarning() const;
 #endif
 };

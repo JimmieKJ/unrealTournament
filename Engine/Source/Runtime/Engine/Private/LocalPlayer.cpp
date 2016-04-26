@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 
@@ -27,7 +27,7 @@
 
 DEFINE_LOG_CATEGORY(LogPlayerManagement);
 
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if !UE_BUILD_SHIPPING
 
 static TAutoConsoleVariable<int32> CVarViewportTest(
 	TEXT("r.ViewportTest"),
@@ -37,7 +37,7 @@ static TAutoConsoleVariable<int32> CVarViewportTest(
 	TEXT("1..7: Various Configuations"),
 	ECVF_RenderThreadSafe);
 
-#endif
+#endif // !UE_BUILD_SHIPPING
 
 DECLARE_CYCLE_STAT(TEXT("CalcSceneView"), STAT_CalcSceneView, STATGROUP_Engine);
 
@@ -184,11 +184,6 @@ void ULocalPlayer::PostInitProperties()
 			StereoViewState.Allocate();
 		}
 	}
-
-	if (!HasAnyFlags(RF_ClassDefaultObject))
-	{	
-		FCoreDelegates::OnControllerConnectionChange.AddUObject(this, &ULocalPlayer::HandleControllerConnectionChange);
-	}
 }
 
 void ULocalPlayer::PlayerAdded(UGameViewportClient* InViewportClient, int32 InControllerID)
@@ -309,12 +304,6 @@ void ULocalPlayer::SendSplitJoin()
 			bSentSplitJoin = true;
 		}
 	}
-}
-
-void ULocalPlayer::BeginDestroy()
-{
-	FCoreDelegates::OnControllerConnectionChange.RemoveAll(this);
-	Super::BeginDestroy();
 }
 
 void ULocalPlayer::FinishDestroy()
@@ -651,42 +640,29 @@ void ULocalPlayer::GetViewPoint(FMinimalViewInfo& OutViewInfo, EStereoscopicPass
     }
 }
 
-FSceneView* ULocalPlayer::CalcSceneView( class FSceneViewFamily* ViewFamily, 
-	FVector& OutViewLocation, 
-	FRotator& OutViewRotation, 
-	FViewport* Viewport, 
+bool ULocalPlayer::CalcSceneViewInitOptions(
+	struct FSceneViewInitOptions& ViewInitOptions,
+	FViewport* Viewport,
 	class FViewElementDrawer* ViewDrawer,
 	EStereoscopicPass StereoPass)
 {
-	SCOPE_CYCLE_COUNTER(STAT_CalcSceneView);
-
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_CalcSceneViewInitOptions);
 	if ((PlayerController == NULL) || (Size.X <= 0.f) || (Size.Y <= 0.f) || (Viewport == NULL))
 	{
-		return NULL;
+		return false;
 	}
-
-	FSceneViewInitOptions ViewInitOptions;
-
 	// get the projection data
 	if (GetProjectionData(Viewport, StereoPass, /*inout*/ ViewInitOptions) == false)
 	{
 		// Return NULL if this we didn't get back the info we needed
-		return NULL;
+		return false;
 	}
-	
+
 	// return if we have an invalid view rect
 	if (!ViewInitOptions.IsValidViewRectangle())
 	{
-		return NULL;
+		return false;
 	}
-
-	// Get the viewpoint...technically doing this twice
-	// but it makes GetProjectionData better
-	FMinimalViewInfo ViewInfo;
-	GetViewPoint(ViewInfo, StereoPass);
-	
-	OutViewLocation = ViewInfo.Location;
-	OutViewRotation = ViewInfo.Rotation;
 
 	if (PlayerController->PlayerCameraManager != NULL)
 	{
@@ -694,7 +670,7 @@ FSceneView* ULocalPlayer::CalcSceneView( class FSceneViewFamily* ViewFamily,
 		if (PlayerController->PlayerCameraManager->bEnableFading)
 		{
 			ViewInitOptions.OverlayColor = PlayerController->PlayerCameraManager->FadeColor;
-			ViewInitOptions.OverlayColor.A = FMath::Clamp(PlayerController->PlayerCameraManager->FadeAmount,0.0f,1.0f);
+			ViewInitOptions.OverlayColor.A = FMath::Clamp(PlayerController->PlayerCameraManager->FadeAmount, 0.0f, 1.0f);
 		}
 
 		// Do color scaling if desired.
@@ -710,11 +686,8 @@ FSceneView* ULocalPlayer::CalcSceneView( class FSceneViewFamily* ViewFamily,
 		// Was there a camera cut this frame?
 		ViewInitOptions.bInCameraCut = PlayerController->PlayerCameraManager->bGameCameraCutThisFrame;
 	}
-	
-	check(PlayerController && PlayerController->GetWorld());
 
-	// Fill out the rest of the view init options
-	ViewInitOptions.ViewFamily = ViewFamily;
+	check(PlayerController && PlayerController->GetWorld());
 	ViewInitOptions.SceneViewStateInterface = ((StereoPass != eSSP_RIGHT_EYE) ? ViewState.GetReference() : StereoViewState.GetReference());
 	ViewInitOptions.ViewActor = PlayerController->GetViewTarget();
 	ViewInitOptions.ViewElementDrawer = ViewDrawer;
@@ -724,8 +697,42 @@ FSceneView* ULocalPlayer::CalcSceneView( class FSceneViewFamily* ViewFamily,
 	ViewInitOptions.WorldToMetersScale = PlayerController->GetWorldSettings()->WorldToMeters;
 	ViewInitOptions.CursorPos = Viewport->HasMouseCapture() ? FIntPoint(-1, -1) : FIntPoint(Viewport->GetMouseX(), Viewport->GetMouseY());
 	ViewInitOptions.bOriginOffsetThisFrame = PlayerController->GetWorld()->bOriginOffsetThisFrame;
+
+	return true;
+}
+
+
+FSceneView* ULocalPlayer::CalcSceneView( class FSceneViewFamily* ViewFamily, 
+	FVector& OutViewLocation, 
+	FRotator& OutViewRotation, 
+	FViewport* Viewport, 
+	class FViewElementDrawer* ViewDrawer,
+	EStereoscopicPass StereoPass)
+{
+	SCOPE_CYCLE_COUNTER(STAT_CalcSceneView);
+
+	FSceneViewInitOptions ViewInitOptions;
+
+	if (!CalcSceneViewInitOptions(ViewInitOptions, Viewport, ViewDrawer, StereoPass))
+	{
+		return nullptr;
+	}
+
+	// Get the viewpoint...technically doing this twice
+	// but it makes GetProjectionData better
+	FMinimalViewInfo ViewInfo;
+	GetViewPoint(ViewInfo, StereoPass);
+	OutViewLocation = ViewInfo.Location;
+	OutViewRotation = ViewInfo.Rotation;
 	ViewInitOptions.bUseFieldOfViewForLOD = ViewInfo.bUseFieldOfViewForLOD;
-	PlayerController->BuildHiddenComponentList(OutViewLocation, /*out*/ ViewInitOptions.HiddenPrimitives);
+
+	// Fill out the rest of the view init options
+	ViewInitOptions.ViewFamily = ViewFamily;
+
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_BuildHiddenComponentList);
+		PlayerController->BuildHiddenComponentList(OutViewLocation, /*out*/ ViewInitOptions.HiddenPrimitives);
+	}
 
 	FSceneView* const View = new FSceneView(ViewInitOptions);
 	
@@ -944,6 +951,9 @@ bool ULocalPlayer::GetProjectionData(FViewport* Viewport, EStereoscopicPass Ster
     FVector StereoViewLocation = ViewInfo.Location;
     if (bNeedStereo || (GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsHeadTrackingAllowed()))
     {
+		AActor* ViewTarget = PlayerController->GetViewTarget();
+		const bool bHasActiveCamera = ViewTarget && ViewTarget->HasActiveCameraComponent();
+		GEngine->StereoRenderingDevice->UseImplicitHmdPosition(bHasActiveCamera);
         GEngine->StereoRenderingDevice->CalculateStereoViewOffset(StereoPass, ViewInfo.Rotation, GetWorld()->GetWorldSettings()->WorldToMeters, StereoViewLocation);
     }
 
@@ -1163,7 +1173,7 @@ bool ULocalPlayer::HandleExecCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 
 bool ULocalPlayer::HandleToggleDrawEventsCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 {
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if WITH_PROFILEGPU
 	if( GEmitDrawEvents )
 	{
 		GEmitDrawEvents = false;
@@ -1351,7 +1361,7 @@ bool ULocalPlayer::Exec(UWorld* InWorld, const TCHAR* Cmd,FOutputDevice& Ar)
 	{
 		return HandleExecCommand( Cmd, Ar );
 	}
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if WITH_PROFILEGPU
 	else if( FParse::Command(&Cmd,TEXT("TOGGLEDRAWEVENTS")) )
 	{
 		return HandleToggleDrawEventsCommand( Cmd, Ar );
@@ -1405,22 +1415,6 @@ void ULocalPlayer::ExecMacro( const TCHAR* Filename, FOutputDevice& Ar )
 	else
 	{
 		UE_SUPPRESS(LogExec, Warning, Ar.Logf(*FString::Printf( TEXT("Can't find file '%s'"), Filename) ));
-	}
-}
-
-void ULocalPlayer::HandleControllerConnectionChange(bool bConnected, int32 InUserId, int32 InControllerId)
-{
-	// if this is an event for this LocalPlayer
-	if (InControllerId == ControllerId)
-	{
-		// if we lost the connection we need to flush all the keys on the PlayerInput to avoid the PC spinning in place, or firing forever, etc.
-		if (!bConnected)
-		{		
-			if (PlayerController && PlayerController->PlayerInput)
-			{
-				PlayerController->PlayerInput->FlushPressedKeys();	
-			}
-		}
 	}
 }
 

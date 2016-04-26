@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UObjectArchetype.cpp: Unreal object archetype relationship management
@@ -17,9 +17,13 @@ UObject* UObject::GetArchetypeFromRequiredInfo(UClass* Class, UObject* Outer, FN
 	}
 	else
 	{
-		if (Outer 
+		if (Outer
 			&& Outer->GetClass() != UPackage::StaticClass()) // packages cannot have subobjects
 		{
+			// Get a lock on the UObject hash tables for the duration of the GetArchetype operation
+			void LockUObjectHashTables();
+			LockUObjectHashTables();
+
 			UObject* ArchetypeToSearch = Outer->GetArchetype();
 			UObject* MyArchetype = static_cast<UObject*>(FindObjectWithOuter(ArchetypeToSearch, Class, Name));
 			if (MyArchetype)
@@ -43,6 +47,9 @@ UObject* UObject::GetArchetypeFromRequiredInfo(UClass* Class, UObject* Outer, FN
 			{
 				Result = ArchetypeToSearch->GetClass()->FindArchetype(Class, Name);
 			}
+
+			void UnlockUObjectHashTables();
+			UnlockUObjectHashTables();
 		}
 
 		if (!Result)
@@ -51,6 +58,7 @@ UObject* UObject::GetArchetypeFromRequiredInfo(UClass* Class, UObject* Outer, FN
 			Result = Class->GetDefaultObject();
 		}
 	}
+
 	return Result;
 }
 

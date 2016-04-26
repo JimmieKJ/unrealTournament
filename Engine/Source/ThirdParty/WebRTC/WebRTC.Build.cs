@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -11,8 +11,7 @@ public class WebRTC : ModuleRules
 
 		Type = ModuleType.External;
 
-		if ((Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32) &&
-			(WindowsPlatform.GetVisualStudioCompilerVersionName() == "2013" || WindowsPlatform.GetVisualStudioCompilerVersionName() == "2015")) // @todo samz - VS2012 libs
+		if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32)
 		{
 			WebRtcSdkPlatform = "win";
 		}

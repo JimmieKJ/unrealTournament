@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -30,18 +30,19 @@ public:
 	 *
 	 * @param InSocket The UDP socket to receive data from.
 	 * @param InWaitTime The amount of time to wait for the socket to be readable.
-	 * @param ThreadDescription The thread description text (for debugging).
+	 * @param InThreadName The receiver thread name (for debugging).
 	 */
-	FUdpSocketReceiver(FSocket* InSocket, const FTimespan& InWaitTime, const TCHAR* ThreadDescription)
+	FUdpSocketReceiver(FSocket* InSocket, const FTimespan& InWaitTime, const TCHAR* InThreadName)
 		: Socket(InSocket)
 		, Stopping(false)
+		, Thread(nullptr)
+		, ThreadName(InThreadName)
 		, WaitTime(InWaitTime)
 	{
 		check(Socket != nullptr);
 		check(Socket->GetSocketType() == SOCKTYPE_Datagram);
 
 		SocketSubsystem = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM);
-		Thread = FRunnableThread::Create(this, ThreadDescription, 128 * 1024, TPri_AboveNormal, FPlatformAffinity::GetPoolThreadMask());
 	}
 
 	/** Virtual destructor. */
@@ -56,13 +57,23 @@ public:
 
 public:
 
+	/** Start the receiver thread. */
+	void Start()
+	{
+		Thread = FRunnableThread::Create(this, *ThreadName, 128 * 1024, TPri_AboveNormal, FPlatformAffinity::GetPoolThreadMask());
+	}
+
 	/**
 	 * Returns a delegate that is executed when data has been received.
+	 *
+	 * This delegate must be bound before the receiver thread is started with
+	 * the Start() method. It cannot be unbound while the thread is running.
 	 *
 	 * @return The delegate.
 	 */
 	FOnSocketDataReceived& OnDataReceived()
 	{
+		check(Thread == nullptr);
 		return DataReceivedDelegate;
 	}
 
@@ -126,6 +137,9 @@ private:
 
 	/** Holds the thread object. */
 	FRunnableThread* Thread;
+
+	/** The receiver thread's name. */
+	FString ThreadName;
 
 	/** Holds the amount of time to wait for inbound packets. */
 	FTimespan WaitTime;

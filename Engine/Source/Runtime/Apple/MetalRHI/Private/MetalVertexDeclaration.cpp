@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MetalVertexDeclaration.cpp: Metal vertex declaration RHI implementation.
@@ -73,6 +73,11 @@ FMetalVertexDeclaration::~FMetalVertexDeclaration()
 }
 
 static TMap<uint32, FVertexDeclarationRHIRef> GVertexDeclarationCache;
+
+FVertexDeclarationRHIRef FMetalDynamicRHI::CreateVertexDeclaration_RenderThread(class FRHICommandListImmediate& RHICmdList, const FVertexDeclarationElementList& Elements)
+{
+	return GDynamicRHI->RHICreateVertexDeclaration(Elements);
+}
 
 FVertexDeclarationRHIRef FMetalDynamicRHI::RHICreateVertexDeclaration(const FVertexDeclarationElementList& Elements)
 {

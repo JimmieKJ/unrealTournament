@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Core utility archive classes.  Must be separate from ArchiveBase.h since 
@@ -198,7 +198,7 @@ public:
 		ArIsPersistent	= bIsPersistent;
 	}
 
-	// with this method it's possible to attach data behind some serialized data 
+	/** With this method it's possible to attach data behind some serialized data. */
 	void SetLimitSize(int64 NewLimitSize)
 	{
 		LimitSize = NewLimitSize;

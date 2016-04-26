@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "MaterialEditorModule.h"
@@ -611,12 +611,14 @@ public:
 	float GetZoomLevel() const;
 
 	void SetPreviewSize( const FVector2D PreviewSize );
+	void SetPreviewMaterial(UMaterialInterface* InPreviewMaterial);
 private:
 	mutable FVector2D CachedSize;
 	float ZoomLevel;
 
 	FMaterialPreviewPanelSlot ChildSlot;
 	TSharedPtr<FSlateMaterialBrush> PreviewBrush;
+	TSharedPtr<SImage> ImageWidget;
 };
 
 
@@ -626,7 +628,7 @@ void SMaterialEditorUIPreviewZoomer::Construct( const FArguments& InArgs, UMater
 
 	ChildSlot
 	[
-		SNew( SImage )
+		SAssignNew( ImageWidget, SImage )
 		.Image( PreviewBrush.Get() )
 	];
 
@@ -698,6 +700,11 @@ void SMaterialEditorUIPreviewZoomer::SetPreviewSize( const FVector2D PreviewSize
 	PreviewBrush->ImageSize = PreviewSize;
 }
 
+void SMaterialEditorUIPreviewZoomer::SetPreviewMaterial(UMaterialInterface* InPreviewMaterial)
+{
+	PreviewBrush = MakeShareable(new FSlateMaterialBrush(*InPreviewMaterial, PreviewBrush->ImageSize));
+	ImageWidget->SetImage(PreviewBrush.Get());
+}
 
 void SMaterialEditorUIPreviewViewport::Construct( const FArguments& InArgs, UMaterialInterface* PreviewMaterial )
 {
@@ -784,6 +791,11 @@ void SMaterialEditorUIPreviewViewport::Construct( const FArguments& InArgs, UMat
 
 	PreviewSize = FIntPoint(250,250);
 	PreviewZoomer->SetPreviewSize( FVector2D(PreviewSize) );
+}
+
+void SMaterialEditorUIPreviewViewport::SetPreviewMaterial(UMaterialInterface* InMaterialInterface)
+{
+	PreviewZoomer->SetPreviewMaterial(InMaterialInterface);
 }
 
 void SMaterialEditorUIPreviewViewport::OnPreviewXChanged( int32 NewValue )

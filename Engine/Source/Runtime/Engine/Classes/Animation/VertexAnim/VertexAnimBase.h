@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -10,9 +10,7 @@ struct FVertexAnimDelta
 {
 	/** change in position */
 	FVector			PositionDelta;
-	/** old format of change in tangent basis normal */
-	FPackedNormal	TangentZDelta_DEPRECATED;
-	/** new format of change in tangent basis normal */
+	/** Tangent basis normal */
 	FVector			TangentZDelta;
 
 	/** index of source vertex to apply deltas to */
@@ -23,8 +21,19 @@ struct FVertexAnimDelta
 	{
 		if ( Ar.UE4Ver() < VER_UE4_MORPHTARGET_CPU_TANGENTZDELTA_FORMATCHANGE )
 		{
-			Ar << V.PositionDelta << V.TangentZDelta_DEPRECATED << V.SourceIdx;
-			V.TangentZDelta = FVector(V.TangentZDelta_DEPRECATED);
+			/** old format of change in tangent basis normal */
+			FPackedNormal	TangentZDelta_DEPRECATED;
+			if (Ar.IsSaving())
+			{
+				TangentZDelta_DEPRECATED = FPackedNormal(V.TangentZDelta);
+			}
+
+			Ar << V.PositionDelta << TangentZDelta_DEPRECATED << V.SourceIdx;
+
+			if (Ar.IsLoading())
+			{
+				V.TangentZDelta = FVector(TangentZDelta_DEPRECATED);
+			}
 		}
 		else
 		{

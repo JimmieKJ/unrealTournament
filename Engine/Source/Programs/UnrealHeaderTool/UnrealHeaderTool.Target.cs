@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.Collections.Generic;
@@ -8,7 +8,6 @@ public class UnrealHeaderToolTarget : TargetRules
 	public UnrealHeaderToolTarget(TargetInfo Target)
 	{
 		Type = TargetType.Program;
-		AdditionalPlugins.Add("ScriptGeneratorPlugin");
 	}
 
 	//
@@ -50,8 +49,9 @@ public class UnrealHeaderToolTarget : TargetRules
 		// automatically by Unreal Build Tool, but if bUseMallocProfiler is defined, UHT can operate incorrectly.
 		BuildConfiguration.bUseMallocProfiler = false;
 
-		// No editor needed
-		UEBuildConfiguration.bBuildEditor = false;
+        // No editor needed
+        UEBuildConfiguration.bCompileICU = false;
+        UEBuildConfiguration.bBuildEditor = false;
 		// Editor-only data, however, is needed
 		UEBuildConfiguration.bBuildWithEditorOnlyData = true;
 

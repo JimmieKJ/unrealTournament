@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "PhysicsEngine/PhysicsSettings.h"
@@ -43,7 +43,7 @@ class ENGINE_API UPhysicalMaterial : public UObject
 	//
 	
 	/** Friction value of surface, controls how easily things can slide on this surface */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=PhysicalMaterial)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=PhysicalMaterial, meta=(ClampMin=0))
 	float Friction;
 
 	/** Friction combine mode, controls how friction is computed for multiple materials. */
@@ -54,8 +54,8 @@ class ENGINE_API UPhysicalMaterial : public UObject
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PhysicalMaterial)
 	bool bOverrideFrictionCombineMode;
 
-	/** Restitution or 'bounciness of this surface. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = PhysicalMaterial)
+	/** Restitution or 'bounciness' of this surface, between 0 (no bounce) and 1 (outgoing velocity is same as incoming). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = PhysicalMaterial,  meta=(ClampMin=0, ClampMax=1))
 	float Restitution;
 
 	/** Restitution combine mode, controls how restitution is computed for multiple materials. */
@@ -71,7 +71,7 @@ class ENGINE_API UPhysicalMaterial : public UObject
 	//
 	
 	/** Used with the shape of the object to calculate its mass properties. The higher the number, the heavier the object. g per cubic cm. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = PhysicalMaterial)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = PhysicalMaterial, meta=(ClampMin=0))
 	float Density;
 
 	/** 
@@ -79,7 +79,7 @@ class ENGINE_API UPhysicalMaterial : public UObject
 	 *	In actuality, larger objects do not tend to be solid, and become more like 'shells' (e.g. a car is not a solid piece of metal).
 	 *	Values are clamped to 1 or less.
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Advanced)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Advanced, meta=(ClampMin=0.1, ClampMax=1))
 	float RaiseMassToPower;
 
 	/** How much to scale the damage threshold by on any destructible we are applied to */

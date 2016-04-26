@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -18,6 +18,6 @@ public class ShaderFormatD3D : ModuleRules
 			}
 			);
 
-		AddThirdPartyPrivateStaticDependencies(Target, "DX11");
+		AddEngineThirdPartyPrivateStaticDependencies(Target, "DX11");
 	}
 }

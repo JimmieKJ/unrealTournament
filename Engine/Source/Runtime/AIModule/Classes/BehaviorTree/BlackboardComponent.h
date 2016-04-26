@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /** 
  *  Blackboard - holds AI's world knowledge, easily accessible for behavior trees
@@ -65,10 +65,6 @@ public:
 
 	/** @return true if blackboard have valid data asset */
 	bool HasValidAsset() const;
-
-	/** register observer for blackboard key */
-	DEPRECATED(4.8, "FOnBlackboardChange delegate has been deprecated. Please use FOnBlackboardChangeNotification instead.")
-	FDelegateHandle RegisterObserver(FBlackboard::FKey KeyID, UObject* NotifyOwner, FOnBlackboardChange ObserverDelegate);
 
 	/** register observer for blackboard key */
 	FDelegateHandle RegisterObserver(FBlackboard::FKey KeyID, UObject* NotifyOwner, FOnBlackboardChangeNotification ObserverDelegate);
@@ -180,6 +176,9 @@ public:
 	void ClearValue(FBlackboard::FKey KeyID);
 
 	template<class TDataClass>
+	bool IsKeyOfType(FBlackboard::FKey KeyID) const;
+
+	template<class TDataClass>
 	bool SetValue(const FName& KeyName, typename TDataClass::FDataType Value);
 
 	template<class TDataClass>
@@ -213,56 +212,7 @@ public:
 	/** prepare blackboard snapshot for logs */
 	virtual void DescribeSelfToVisLog(struct FVisualLogEntry* Snapshot) const;
 #endif
-
-	//////////////////////////////////////////////////////////////////////////
-	// Deprecated functions
-	DEPRECATED(4.7, "This function is deprecated. Please use ClearValue() instead.")
-	void ClearValueAsRotator(FBlackboard::FKey KeyID);
-	DEPRECATED(4.7, "This function is deprecated. Please use ClearValue() instead.")
-	void ClearValueAsVector(FBlackboard::FKey KeyID);
-	DEPRECATED(4.7, "This function is deprecated. Please use SetValue<UBlackboardKeyType_Object>() instead.")
-	void SetValueAsObject(FBlackboard::FKey KeyID, UObject* ObjectValue);
-	DEPRECATED(4.7, "This function is deprecated. Please use SetValue<UBlackboardKeyType_Class>() instead.")
-	void SetValueAsClass(FBlackboard::FKey KeyID, UClass* ClassValue);
-	DEPRECATED(4.7, "This function is deprecated. Please use SetValue<UBlackboardKeyType_Enum>() instead.")
-	void SetValueAsEnum(FBlackboard::FKey KeyID, uint8 EnumValue);
-	DEPRECATED(4.7, "This function is deprecated. Please use SetValue<UBlackboardKeyType_Int>() instead.")
-	void SetValueAsInt(FBlackboard::FKey KeyID, int32 IntValue);
-	DEPRECATED(4.7, "This function is deprecated. Please use SetValue<UBlackboardKeyType_Float>() instead.")
-	void SetValueAsFloat(FBlackboard::FKey KeyID, float FloatValue);
-	DEPRECATED(4.7, "This function is deprecated. Please use SetValue<UBlackboardKeyType_Bool>() instead.")
-	void SetValueAsBool(FBlackboard::FKey KeyID, bool BoolValue);
-	DEPRECATED(4.7, "This function is deprecated. Please use SetValue<UBlackboardKeyType_String>() instead.")
-	void SetValueAsString(FBlackboard::FKey KeyID, FString StringValue);
-	DEPRECATED(4.7, "This function is deprecated. Please use SetValue<UBlackboardKeyType_Name>() instead.")
-	void SetValueAsName(FBlackboard::FKey KeyID, FName NameValue);
-	DEPRECATED(4.7, "This function is deprecated. Please use SetValue<UBlackboardKeyType_Vector>() instead.")
-	void SetValueAsVector(FBlackboard::FKey KeyID, FVector VectorValue);
-	DEPRECATED(4.7, "This function is deprecated. Please use GetValue<UBlackboardKeyType_Object>() instead.")
-	UObject* GetValueAsObject(FBlackboard::FKey KeyID) const;
-	DEPRECATED(4.7, "This function is deprecated. Please use GetValue<UBlackboardKeyType_Class>() instead.")
-	UClass* GetValueAsClass(FBlackboard::FKey KeyID) const;
-	DEPRECATED(4.7, "This function is deprecated. Please use GetValue<UBlackboardKeyType_Enum>() instead.")
-	uint8 GetValueAsEnum(FBlackboard::FKey KeyID) const;
-	DEPRECATED(4.7, "This function is deprecated. Please use GetValue<UBlackboardKeyType_Int>() instead.")
-	int32 GetValueAsInt(FBlackboard::FKey KeyID) const;
-	DEPRECATED(4.7, "This function is deprecated. Please use GetValue<UBlackboardKeyType_Float>() instead.")
-	float GetValueAsFloat(FBlackboard::FKey KeyID) const;
-	DEPRECATED(4.7, "This function is deprecated. Please use GetValue<UBlackboardKeyType_Bool>() instead.")
-	bool GetValueAsBool(FBlackboard::FKey KeyID) const;
-	DEPRECATED(4.7, "This function is deprecated. Please use GetValue<UBlackboardKeyType_String>() instead.")
-	FString GetValueAsString(FBlackboard::FKey KeyID) const;
-	DEPRECATED(4.7, "This function is deprecated. Please use GetValue<UBlackboardKeyType_Name>() instead.")
-	FName GetValueAsName(FBlackboard::FKey KeyID) const;
-	DEPRECATED(4.7, "This function is deprecated. Please use GetValue<UBlackboardKeyType_Vector>() instead.")
-	FVector GetValueAsVector(FBlackboard::FKey KeyID) const;
-	DEPRECATED(4.7, "This function is deprecated. Please use GetValue<UBlackboardKeyType_Rotator>() instead.")
-	FRotator GetValueAsRotator(FBlackboard::FKey KeyID) const;
-	UFUNCTION(BlueprintCallable, Category = "AI|Components|Blackboard", Meta = (DeprecatedFunction, DeprecationMessage = "Please use ClearValue instead"))
-	void ClearValueAsVector(const FName& KeyName);
-	UFUNCTION(BlueprintCallable, Category = "AI|Components|Blackboard", Meta = (DeprecatedFunction, DeprecationMessage = "Please use ClearValue instead"))
-	void ClearValueAsRotator(const FName& KeyName);
-
+	
 protected:
 
 	/** cached behavior tree component */
@@ -282,11 +232,6 @@ protected:
 	/** instanced keys with custom data allocations */
 	UPROPERTY(transient)
 	TArray<UBlackboardKeyType*> KeyInstances;
-
-private:
-	/** observers registered for blackboard keys
-	 *	@note this is a legacy variable, left hanging only to support deprecated code until it does away */
-	TMultiMap<uint8, FOnBlackboardChange> Observers_DEPRECATED;
 
 protected:
 	/** observers registered for blackboard keys */
@@ -327,6 +272,13 @@ protected:
 FORCEINLINE bool UBlackboardComponent::HasValidAsset() const
 {
 	return BlackboardAsset && BlackboardAsset->IsValid();
+}
+
+template<class TDataClass>
+bool UBlackboardComponent::IsKeyOfType(FBlackboard::FKey KeyID) const
+{
+	const FBlackboardEntry* EntryInfo = BlackboardAsset ? BlackboardAsset->GetKey(KeyID) : nullptr;
+	return (EntryInfo != nullptr) && (EntryInfo->KeyType != nullptr) && (EntryInfo->KeyType->GetClass() == TDataClass::StaticClass());
 }
 
 template<class TDataClass>

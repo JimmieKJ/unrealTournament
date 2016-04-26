@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*================================================================================
 	SplashScreen.cpp: Splash screen for game/editor startup
@@ -512,46 +512,50 @@ static int RenderString (GLuint tex_idx)
  *
  * @return Splash surface
  */
-static SDL_Surface* LinuxSplash_LoadImage(const TCHAR* ImagePath, IImageWrapperPtr & OutImageWrapper)
+static SDL_Surface* LinuxSplash_LoadImage(const TCHAR* InImagePath, IImageWrapperPtr & OutImageWrapper)
 {
 	TArray<uint8> RawFileData;
+	FString ImagePath(InImagePath);
 
-	// Load the image buffer first
-	if (!FFileHelper::LoadFileToArray(RawFileData, ImagePath))
+	// Load the image buffer first (unless it's BMP)
+	if (!ImagePath.EndsWith(TEXT("bmp"), ESearchCase::IgnoreCase) && FFileHelper::LoadFileToArray(RawFileData, *ImagePath))
 	{
-		// If for some reason the image cannot be loaded, use the default BMP function
-		return SDL_LoadBMP(TCHAR_TO_UTF8(ImagePath));
-	}
+		auto& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>(FName("ImageWrapper"));
+		auto Format = ImageWrapperModule.DetectImageFormat(RawFileData.GetData(), RawFileData.Num());
+		OutImageWrapper = ImageWrapperModule.CreateImageWrapper(Format);
 
-	auto& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>(FName("ImageWrapper"));
-	auto Format = ImageWrapperModule.DetectImageFormat(RawFileData.GetData(), RawFileData.Num());
-	OutImageWrapper = ImageWrapperModule.CreateImageWrapper(Format);
-
-	if (OutImageWrapper.IsValid() && OutImageWrapper->SetCompressed(RawFileData.GetData(), RawFileData.Num()))
-	{
-		const TArray<uint8>* RawData = nullptr;
-
-		if (OutImageWrapper->GetRaw(ERGBFormat::BGRA, 8, RawData))
+		if (OutImageWrapper.IsValid() && OutImageWrapper->SetCompressed(RawFileData.GetData(), RawFileData.Num()))
 		{
-			uint32 Bmask = 0x000000ff;
-			uint32 Gmask = 0x0000ff00;
-			uint32 Rmask = 0x00ff0000;
-			uint32 Amask = 0xff000000;
+			const TArray<uint8>* RawData = nullptr;
 
-			return SDL_CreateRGBSurfaceFrom((void*)RawData->GetData(),
-				OutImageWrapper->GetWidth(), OutImageWrapper->GetHeight(),
-				32, OutImageWrapper->GetWidth() * 4,
-				Rmask, Gmask, Bmask, Amask);
+			if (OutImageWrapper->GetRaw(ERGBFormat::BGRA, 8, RawData))
+			{
+				uint32 Bmask = 0x000000ff;
+				uint32 Gmask = 0x0000ff00;
+				uint32 Rmask = 0x00ff0000;
+				uint32 Amask = 0xff000000;
+
+				return SDL_CreateRGBSurfaceFrom((void*)RawData->GetData(),
+					OutImageWrapper->GetWidth(), OutImageWrapper->GetHeight(),
+					32, OutImageWrapper->GetWidth() * 4,
+					Rmask, Gmask, Bmask, Amask);
+			}
 		}
 	}
 
-	// If for some reason the image cannot be load, use the default BMP function
-	return SDL_LoadBMP(TCHAR_TO_UTF8(ImagePath));
+	// If for some reason the image cannot be loaded, use the default BMP function
+	return SDL_LoadBMP(TCHAR_TO_UTF8(*ImagePath));
 }
+
+void LinuxSplash_TearDownSplashResources();
 
 /** Helper function to init resources used by the splash thread */
 bool LinuxSplash_InitSplashResources()
 {
+	checkf(GSplashScreenImage == nullptr, TEXT("LinuxSplash_InitSplashResources() has been called multiple times."));
+	checkf(GSplashWindow == nullptr, TEXT("LinuxSplash_InitSplashResources() has been called multiple times."));
+	checkf(GSplashIconImage == nullptr, TEXT("LinuxSplash_InitSplashResources() has been called multiple times."));
+
 	if (!FPlatformMisc::PlatformInitMultimedia()) //	will not initialize more than once
 	{
 		UE_LOG(LogInit, Warning, TEXT("LinuxSplash_InitSplashResources() : PlatformInitMultimedia() failed, there will be no splash."));
@@ -578,12 +582,13 @@ bool LinuxSplash_InitSplashResources()
 	if (GSplashWindow == nullptr)
 	{
 		UE_LOG(LogHAL, Error, TEXT("LinuxSplash_InitSplashResources() : Splash screen window could not be created! SDL_Error: %s"), UTF8_TO_TCHAR(SDL_GetError()));
-		return -1;
+		LinuxSplash_TearDownSplashResources();
+		return false;
 	}
 
 	SDL_SetWindowTitle( GSplashWindow, TCHAR_TO_UTF8(*GSplashScreenAppName.ToString()) );
 
-	GSplashIconImage = LinuxSplash_LoadImage(*(FString(FPlatformProcess::BaseDir()) / GIconPath), GIconImageWrapper);
+	GSplashIconImage = LinuxSplash_LoadImage(*GIconPath, GIconImageWrapper);
 
 	if (GSplashIconImage != nullptr)
 	{
@@ -592,6 +597,7 @@ bool LinuxSplash_InitSplashResources()
 	else
 	{
 		UE_LOG(LogHAL, Warning, TEXT("LinuxSplash_InitSplashResources() : Splash icon could not be created! SDL_Error: %s"), UTF8_TO_TCHAR(SDL_GetError()));
+		LinuxSplash_TearDownSplashResources();
 		return false;
 	}
 
@@ -601,16 +607,25 @@ bool LinuxSplash_InitSplashResources()
 /** Helper function to tear down resources used by the splash thread */
 void LinuxSplash_TearDownSplashResources()
 {
-	SDL_DestroyWindow(GSplashWindow);
-	GSplashWindow = nullptr;
-
-	SDL_FreeSurface(GSplashIconImage);
-	GSplashIconImage = nullptr;
+	if (GSplashIconImage)
+	{
+		SDL_FreeSurface(GSplashIconImage);
+		GSplashIconImage = nullptr;
+	}
 	GIconImageWrapper.Reset();
 
-	SDL_FreeSurface(GSplashScreenImage);
-	GSplashScreenImage = nullptr;
-	GSplashImageWrapper.Reset();
+	if (GSplashWindow)
+	{
+		SDL_DestroyWindow(GSplashWindow);
+		GSplashWindow = nullptr;
+	}
+
+	if (GSplashScreenImage)
+	{
+		SDL_FreeSurface(GSplashScreenImage);
+		GSplashScreenImage = nullptr;
+		GSplashImageWrapper.Reset();
+	}
 
 	// do not deinit SDL here
 }
@@ -890,18 +905,75 @@ void FLinuxPlatformSplash::Show( )
 	// decide on which splash screen to show
 	const FText GameName = FText::FromString(FApp::GetGameName());
 
-	const TCHAR* SplashImage = GIsEditor ? ( GameName.IsEmpty() ? TEXT("EdSplashDefault") : TEXT("EdSplash") ) : ( GameName.IsEmpty() ? TEXT("SplashDefault") : TEXT("Splash") );
-	const TCHAR* IconImage = GIsEditor ? ( GameName.IsEmpty() ? TEXT("EdIconDefault") : TEXT("EdIcon") ) : ( GameName.IsEmpty() ? TEXT("IconDefault") : TEXT("Icon.bmp") );
+	bool IsCustom = false;
 
-	// make sure a splash was found
-	bool IsCustom;
-	
-	if (GetSplashPath(SplashImage, IconImage, GSplashPath, GIconPath, IsCustom) == false)
+	// first look for the splash, do not init anything if not found
 	{
-		UE_LOG(LogHAL, Warning, TEXT("Splash screen image not found."));
+		const TCHAR* EditorSplashes[] =
+		{
+			TEXT("EdSplash"),
+			TEXT("EdSplashDefault"),
+			nullptr
+		};
+
+		const TCHAR* GameSplashes[] =
+		{
+			TEXT("Splash"),
+			TEXT("SplashDefault"),
+			nullptr
+		};
+
+		const TCHAR** SplashesToTry = GIsEditor? EditorSplashes : GameSplashes;
+		bool bSplashFound = false;
+		for (const TCHAR* SplashImage = *SplashesToTry; SplashImage != nullptr && !bSplashFound; SplashImage = *(++SplashesToTry))
+		{
+			if (GetSplashPath(SplashImage, GSplashPath, IsCustom))
+			{
+				bSplashFound = true;
+			}
+		}
+
+		if (!bSplashFound)
+		{
+			UE_LOG(LogHAL, Warning, TEXT("Splash screen image not found."));
+			return;	// early out
+		}
 	}
 
-	
+	// look for the icon separately, also avoid initialization if not found
+	{
+		const TCHAR* EditorIcons[] =
+		{
+			TEXT("EdIcon"),
+			TEXT("EdIconDefault"),
+			nullptr
+		};
+
+		const TCHAR* GameIcons[] =
+		{
+			TEXT("Icon"),
+			TEXT("IconDefault"),
+			nullptr
+		};
+
+		const TCHAR** IconsToTry = GIsEditor? EditorIcons : GameIcons;
+		bool bIconFound = false;
+		for (const TCHAR* IconImage = *IconsToTry; IconImage != nullptr && !bIconFound; IconImage = *(++IconsToTry))
+		{
+			bool bDummy;
+			if (GetSplashPath(IconImage, GIconPath, bDummy))
+			{
+				bIconFound = true;
+			}
+		}
+
+		if (!bIconFound)
+		{
+			UE_LOG(LogHAL, Warning, TEXT("Game icon not found."));
+			return;	// early out
+		}
+	}
+
 	// Don't set the game name if the splash screen is custom.
 	if ( !IsCustom )
 	{
@@ -942,7 +1014,7 @@ void FLinuxPlatformSplash::Show( )
 
 		// Display copyright information in editor splash screen
 		{
-			const FText CopyrightInfo = NSLOCTEXT( "UnrealEd", "SplashScreen_CopyrightInfo", "Copyright \x00a9 1998-2015   Epic Games, Inc.   All rights reserved." );
+			const FText CopyrightInfo = NSLOCTEXT( "UnrealEd", "SplashScreen_CopyrightInfo", "Copyright \x00a9 1998-2016   Epic Games, Inc.   All rights reserved." );
 			StartSetSplashText( SplashTextType::CopyrightInfo, CopyrightInfo );
 		}
 	}
@@ -985,10 +1057,10 @@ void FLinuxPlatformSplash::Hide()
 			// busy loop!
 			FPlatformProcess::Sleep(0.01f);
 		}
-
-		// tear down resources that thread used
-		LinuxSplash_TearDownSplashResources();
 	}
+
+	// tear down resources that thread used (safe to call even if they were not initialized
+	LinuxSplash_TearDownSplashResources();
 
 	GSplashThread = nullptr;
 #endif

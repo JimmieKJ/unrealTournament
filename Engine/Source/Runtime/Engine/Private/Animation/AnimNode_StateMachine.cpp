@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Animation/AnimNode_StateMachine.h"
@@ -260,11 +260,8 @@ void FAnimNode_StateMachine::Initialize(const FAnimationInitializeContext& Conte
 			StatesUpdated.Reset();
 			ActiveTransitionArray.Reset();
 
-			if (StateCacheBoneCounters.Num() != Machine->States.Num())
-			{
-				StateCacheBoneCounters.Reset(Machine->States.Num());
-				StateCacheBoneCounters.AddDefaulted(Machine->States.Num());
-			}
+			StateCacheBoneCounters.Reset(Machine->States.Num());
+			StateCacheBoneCounters.AddDefaulted(Machine->States.Num());
 		
 			// Move to the default state
 			SetState(Context, Machine->InitialState);
@@ -334,8 +331,19 @@ const FAnimationTransitionBetweenStates& FAnimNode_StateMachine::GetTransitionIn
 	return PRIVATE_MachineDescription->Transitions[TransIndex];
 }
 
+// Temporarily turned off while we track down and fix https://jira.ol.epicgames.net/browse/OR-17066
+TAutoConsoleVariable<int32> CVarAnimStateMachineRelevancyReset(TEXT("a.AnimNode.StateMachine.EnableRelevancyReset"), 1, TEXT("Reset State Machine when it becomes relevant"));
+
 void FAnimNode_StateMachine::Update(const FAnimationUpdateContext& Context)
 {
+	// If we just became relevant and haven't been initialized yet, then reinitialize state machine.
+	if (!bFirstUpdate && (UpdateCounter.Get() != INDEX_NONE) && !UpdateCounter.WasSynchronizedInTheLastFrame(Context.AnimInstanceProxy->GetUpdateCounter()) && (CVarAnimStateMachineRelevancyReset.GetValueOnAnyThread() == 1))
+	{
+		FAnimationInitializeContext InitializationContext(Context.AnimInstanceProxy);
+		Initialize(InitializationContext);
+	}
+	UpdateCounter.SynchronizeWith(Context.AnimInstanceProxy->GetUpdateCounter());
+
 	const FBakedAnimationStateMachine* Machine = GetMachineDescription();
 	if (Machine != nullptr)
 	{
@@ -346,7 +354,10 @@ void FAnimNode_StateMachine::Update(const FAnimationUpdateContext& Context)
 		else if(!Machine->States.IsValidIndex(CurrentState))
 		{
 			// Attempting to catch a crash where the state machine has been freed.
-			UE_LOG(LogAnimation, Warning, TEXT("FAnimNode_StateMachine::Update - Invalid current state, please report. Attempting to use state %d in state machine %d"), CurrentState, StateMachineIndexInClass);
+			// Reported as a symptom of a crash in UE-24732 for 4.10. This log message should not appear given changes to
+			// re-instancing in 4.11 (see CL 2823202). If it does appear we need to spot integrate CL 2823202 (and supporting 
+			// anim re-init changes, probably 2799786 & 2801372).
+			UE_LOG(LogAnimation, Warning, TEXT("FAnimNode_StateMachine::Update - Invalid current state, please report. Attempting to use state %d of %d in state machine %d (ptr 0x%x)"), CurrentState, Machine->States.Num(), StateMachineIndexInClass, Machine);
 			UE_LOG(LogAnimation, Warning, TEXT("\t\tWhen updating AnimInstance: %s"), *Context.AnimInstanceProxy->GetAnimInstanceObject()->GetName())
 
 			return;
@@ -397,7 +408,7 @@ void FAnimNode_StateMachine::Update(const FAnimationUpdateContext& Context)
 			const int32 NextState = PotentialTransition.TargetState;
 
 			// Fire off Notifies for state transition
-			if (!bFirstUpdate)
+			if (!bFirstUpdate || !bSkipFirstUpdateTransition)
 			{
 				Context.AnimInstanceProxy->AddAnimNotifyFromGeneratedClass(GetStateInfo(PreviousState).EndNotify);
 				Context.AnimInstanceProxy->AddAnimNotifyFromGeneratedClass(GetStateInfo(NextState).StartNotify);
@@ -440,11 +451,14 @@ void FAnimNode_StateMachine::Update(const FAnimationUpdateContext& Context)
 
 	if (bFirstUpdate)
 	{
-		//Handle enter notify for "first" (after initial transitions) state
-		Context.AnimInstanceProxy->AddAnimNotifyFromGeneratedClass(GetStateInfo().StartNotify);
-		// in the first update, we don't like to transition from entry state
-		// so we throw out any transition data at the first update
-		ActiveTransitionArray.Reset();
+		if (bSkipFirstUpdateTransition)
+		{
+			//Handle enter notify for "first" (after initial transitions) state
+			Context.AnimInstanceProxy->AddAnimNotifyFromGeneratedClass(GetStateInfo().StartNotify);
+			// in the first update, we don't like to transition from entry state
+			// so we throw out any transition data at the first update
+			ActiveTransitionArray.Reset();
+		}
 		bFirstUpdate = false;
 	}
 
@@ -494,6 +508,7 @@ void FAnimNode_StateMachine::Update(const FAnimationUpdateContext& Context)
 	if (ActiveTransitionArray.Num() == 0 && !IsAConduitState(CurrentState) && !StatesUpdated.Contains(CurrentState))
 	{
 		StatePoseLinks[CurrentState].Update(Context);
+		Context.AnimInstanceProxy->RecordStateWeight(StateMachineIndexInClass, CurrentState, GetStateWeight(CurrentState));
 	}
 
 	ElapsedTime += Context.GetDeltaTime();
@@ -862,6 +877,14 @@ void FAnimNode_StateMachine::SetState(const FAnimationBaseContext& Context, int3
 			OnGraphStatesExited[CurrentState].ExecuteIfBound(*this, CurrentState, NewStateIndex);
 		}
 
+		bool bForceReset = false;
+
+		if(PRIVATE_MachineDescription->States.IsValidIndex(NewStateIndex))
+		{
+			const FBakedAnimationState& BakedCurrentState = PRIVATE_MachineDescription->States[NewStateIndex];
+			bForceReset = BakedCurrentState.bAlwaysResetOnEntry;
+		}
+
 		// Determine if the new state is active or not
 		const bool bAlreadyActive = GetStateWeight(NewStateIndex) > 0.0f;
 
@@ -877,7 +900,7 @@ void FAnimNode_StateMachine::SetState(const FAnimationBaseContext& Context, int3
 			}
 		}
 
-		if (!bAlreadyActive && !IsAConduitState(NewStateIndex))
+		if ((!bAlreadyActive || bForceReset) && !IsAConduitState(NewStateIndex))
 		{
 			// Initialize the new state since it's not part of an active transition (and thus not still initialized)
 			FAnimationInitializeContext InitContext(Context.AnimInstanceProxy);
@@ -956,6 +979,8 @@ void FAnimNode_StateMachine::UpdateState(int32 StateIndex, const FAnimationUpdat
 	{
 		StatesUpdated.Add(StateIndex);
 		StatePoseLinks[StateIndex].Update(Context);
+
+		Context.AnimInstanceProxy->RecordStateWeight(StateMachineIndexInClass, StateIndex, GetStateWeight(StateIndex));
 	}
 }
 

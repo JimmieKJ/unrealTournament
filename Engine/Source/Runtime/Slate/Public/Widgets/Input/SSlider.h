@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -18,7 +18,9 @@ public:
 		, _SliderBarColor(FLinearColor::White)
 		, _SliderHandleColor(FLinearColor::White)
 		, _Style(&FCoreStyle::Get().GetWidgetStyle<FSliderStyle>("Slider"))
+		, _StepSize(0.01f)
 		, _Value(1.f)
+		, _IsFocusable(true)
 		, _OnMouseCaptureBegin()
 		, _OnMouseCaptureEnd()
 		, _OnValueChanged()
@@ -42,14 +44,26 @@ public:
 		/** The style used to draw the slider. */
 		SLATE_STYLE_ARGUMENT( FSliderStyle, Style )
 
+		/** The input mode while using the controller. */
+		SLATE_ATTRIBUTE(float, StepSize)
+
 		/** A value that drives where the slider handle appears. Value is normalized between 0 and 1. */
 		SLATE_ATTRIBUTE( float, Value )
+
+		/** Sometimes a slider should only be mouse-clickable and never keyboard focusable. */
+		SLATE_ARGUMENT(bool, IsFocusable)
 
 		/** Invoked when the mouse is pressed and a capture begins. */
 		SLATE_EVENT(FSimpleDelegate, OnMouseCaptureBegin)
 
 		/** Invoked when the mouse is released and a capture ends. */
 		SLATE_EVENT(FSimpleDelegate, OnMouseCaptureEnd)
+
+		/** Invoked when the Controller is pressed and capture begins. */
+		SLATE_EVENT(FSimpleDelegate, OnControllerCaptureBegin)
+
+		/** Invoked when the controller capture is released.  */
+		SLATE_EVENT(FSimpleDelegate, OnControllerCaptureEnd)
 
 		/** Called when the value is changed by the slider. */
 		SLATE_EVENT( FOnFloatValueChanged, OnValueChanged )
@@ -74,7 +88,7 @@ public:
 	
 	/** See the Locked attribute */
 	void SetLocked(const TAttribute<bool>& InLocked);
-	
+
 	/** See the Orientation attribute */
 	void SetOrientation(EOrientation InOrientation);
 	
@@ -83,6 +97,9 @@ public:
 	
 	/** See the SliderHandleColor attribute */
 	void SetSliderHandleColor(FSlateColor InSliderHandleColor);
+
+	/** See the StepSize attribute */
+	void SetStepSize(const TAttribute<float>& InStepSize);
 
 public:
 
@@ -93,6 +110,15 @@ public:
 	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual FReply OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
+	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
+	virtual FReply OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
+	virtual void OnFocusLost(const FFocusEvent& InFocusEvent) override;
+
+	virtual bool SupportsKeyboardFocus() const override;
+	virtual bool IsInteractable() const override;
+
+	/** @return Is the handle locked or not? Defaults to false */
+	bool IsLocked() const;
 
 protected:
 
@@ -135,13 +161,32 @@ private:
 	// Holds the slider's current value.
 	TAttribute<float> ValueAttribute;
 
+	/** Holds the amount to adjust the value by when using a controller or keyboard */
+	TAttribute<float> StepSize;
+
+	// Holds a flag indicating whether a controller/keyboard is manipulating the slider's value. 
+	// When true, navigation away from the widget is prevented until a new value has been accepted or canceled. 
+	bool bControllerInputCaptured;
+
+	/** When true, this slider will be keyboard focusable. Defaults to false. */
+	bool bIsFocusable;
+
 private:
+
+	// Resets controller input state. Fires delegates.
+	void ResetControllerState();
 
 	// Holds a delegate that is executed when the mouse is pressed and a capture begins.
 	FSimpleDelegate OnMouseCaptureBegin;
 
 	// Holds a delegate that is executed when the mouse is let up and a capture ends.
 	FSimpleDelegate OnMouseCaptureEnd;
+
+	// Holds a delegate that is executed when capture begins for controller or keyboard.
+	FSimpleDelegate OnControllerCaptureBegin;
+
+	// Holds a delegate that is executed when capture ends for controller or keyboard.
+	FSimpleDelegate OnControllerCaptureEnd;
 
 	// Holds a delegate that is executed when the slider's value changed.
 	FOnFloatValueChanged OnValueChanged;

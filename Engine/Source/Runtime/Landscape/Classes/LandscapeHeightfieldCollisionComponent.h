@@ -1,9 +1,14 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
 
+// Forward declarations
+class ULandscapeComponent;
 class ULandscapeLayerInfoObject;
+class ULandscapeInfo;
+class ALandscape;
+class ALandscapeProxy;
 class AInstancedFoliageActor;
 
 #include "AI/Navigation/NavigationTypes.h"
@@ -41,6 +46,10 @@ class ULandscapeHeightfieldCollisionComponent : public UPrimitiveComponent
 	UPROPERTY()
 	float CollisionScale;
 
+	/** Size of component's "simple collision" in collision quads */
+	UPROPERTY()
+	int32 SimpleCollisionSizeQuads;
+
 	/** The flags for each collision quad. See ECollisionQuadFlags. */
 	UPROPERTY()
 	TArray<uint8> CollisionQuadFlags;
@@ -55,7 +64,7 @@ class ULandscapeHeightfieldCollisionComponent : public UPrimitiveComponent
 
 	/** Reference to render component */
 	UPROPERTY()
-	TLazyObjectPtr<class ULandscapeComponent> RenderComponent;
+	TLazyObjectPtr<ULandscapeComponent> RenderComponent;
 
 	struct FPhysXHeightfieldRef : public FRefCountedObject
 	{
@@ -63,31 +72,38 @@ class ULandscapeHeightfieldCollisionComponent : public UPrimitiveComponent
 
 #if WITH_PHYSX
 		/** List of PxMaterials used on this landscape */
-		TArray<physx::PxMaterial*>	UsedPhysicalMaterialArray;
-		class physx::PxHeightField*			RBHeightfield;
+		TArray<physx::PxMaterial*> UsedPhysicalMaterialArray;
+		physx::PxHeightField* RBHeightfield;
+		physx::PxHeightField* RBHeightfieldSimple;
 #if WITH_EDITOR
-		class physx::PxHeightField*			RBHeightfieldEd; // Used only by landscape editor, does not have holes in it
+		physx::PxHeightField* RBHeightfieldEd; // Used only by landscape editor, does not have holes in it
 #endif	//WITH_EDITOR
 #endif	//WITH_PHYSX
 
 		/** tors **/
-		FPhysXHeightfieldRef() 
+		FPhysXHeightfieldRef()
 #if WITH_PHYSX
-			:	RBHeightfield(NULL)
+			: RBHeightfield(nullptr)
+			, RBHeightfieldSimple(nullptr)
 #if WITH_EDITOR
-			,	RBHeightfieldEd(NULL)
+			, RBHeightfieldEd(nullptr)
 #endif	//WITH_EDITOR
 #endif	//WITH_PHYSX
-		{}
+		{
+		}
+
 		FPhysXHeightfieldRef(FGuid& InGuid)
-			:	Guid(InGuid)
+			: Guid(InGuid)
 #if WITH_PHYSX
-			,	RBHeightfield(NULL)
+			, RBHeightfield(nullptr)
+			, RBHeightfieldSimple(nullptr)
 #if WITH_EDITOR
-			,	RBHeightfieldEd(NULL)
+			, RBHeightfieldEd(nullptr)
 #endif	//WITH_EDITOR
 #endif	//WITH_PHYSX
-		{}
+		{
+		}
+
 		virtual ~FPhysXHeightfieldRef();
 	};
 	
@@ -127,14 +143,14 @@ class ULandscapeHeightfieldCollisionComponent : public UPrimitiveComponent
 	TArray<UPhysicalMaterial*>					CookedPhysicalMaterials;
 	
 	/** Physics engine version of heightfield data. */
-	TRefCountPtr<struct FPhysXHeightfieldRef>	HeightfieldRef;
+	TRefCountPtr<FPhysXHeightfieldRef>	HeightfieldRef;
 	
 	/** Cached PxHeightFieldSamples values for navmesh generation. Note that it's being used only if navigation octree is set up for lazy geometry exporting */
 	int32 HeightfieldRowsCount;
 	int32 HeightfieldColumnsCount;
 	mutable FNavHeightfieldSamples CachedHeightFieldSamples;
 
-	enum ECollisionQuadFlags
+	enum ECollisionQuadFlags : uint8
 	{
 		QF_PhysicalMaterialMask = 63,	// Mask value for the physical material index, stored in the lower 6 bits.
 		QF_EdgeTurned = 64,				// This quad's diagonal has been turned.
@@ -184,7 +200,7 @@ class ULandscapeHeightfieldCollisionComponent : public UPrimitiveComponent
 	//~ End UObject Interface.
 
 	// @todo document
-	class ULandscapeInfo* GetLandscapeInfo(bool bSpawnNewActor = true) const;
+	ULandscapeInfo* GetLandscapeInfo(bool bSpawnNewActor = true) const;
 
 	/**  We speculatively async load collision object from DDC to remove hitch when streaming */
 	void SpeculativelyLoadAsyncDDCCollsionData();
@@ -202,8 +218,8 @@ class ULandscapeHeightfieldCollisionComponent : public UPrimitiveComponent
 	virtual void CreateCollisionObject();
 
 	/** Return the landscape actor associated with this component. */
-	class ALandscape* GetLandscapeActor() const;
-	LANDSCAPE_API class ALandscapeProxy* GetLandscapeProxy() const;
+	ALandscape* GetLandscapeActor() const;
+	LANDSCAPE_API ALandscapeProxy* GetLandscapeProxy() const;
 
 	/** @return Component section base as FIntPoint */
 	LANDSCAPE_API FIntPoint GetSectionBase() const; 

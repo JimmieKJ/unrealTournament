@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Stack.h: Kismet VM execution stack definition.
@@ -165,9 +165,14 @@ public:
 	VariableSizeType ReadVariableSize(UProperty** ExpressionField);
 
 	/**
- 	 * This will return the StackTrace of the current callstack from script land
+ 	 * This will return the StackTrace of the current callstack from the last native entry point
 	 **/
 	COREUOBJECT_API FString GetStackTrace() const;
+
+	/**
+	* This will return the StackTrace of the all script frames currently active
+	**/
+	COREUOBJECT_API static FString GetScriptCallstack();
 };
 
 

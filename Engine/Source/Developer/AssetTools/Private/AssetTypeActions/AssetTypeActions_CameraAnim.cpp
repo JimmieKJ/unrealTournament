@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AssetToolsPrivatePCH.h"
 #include "Toolkits/IToolkitHost.h"
@@ -11,8 +11,6 @@
 #include "Camera/CameraAnim.h"
 #include "Camera/CameraActor.h"
 #include "GameFramework/Pawn.h"
-
-DEFINE_LOG_CATEGORY_STATIC(LogCameraAnim, Log, All);
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 

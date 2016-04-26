@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -106,9 +106,9 @@ namespace UnrealBuildTool
 		/// </summary>
 		public override void ValidateUEBuildConfiguration()
 		{
-			if (ProjectFileGenerator.bGenerateProjectFiles && !ProjectFileGenerator.bGeneratingRocketProjectFiles)
+			if (ProjectFileGenerator.bGenerateProjectFiles)
 			{
-				// When generating non-Rocket project files we need intellisense generator to include info from all modules,
+				// When generating project files we need intellisense generator to include info from all modules,
 				// including editor-only third party libs
 				UEBuildConfiguration.bCompileLeanAndMeanUE = false;
 			}
@@ -233,8 +233,8 @@ namespace UnrealBuildTool
 
 		public override bool CanUseXGE()
 		{
-			// [RCL] 2015-08-04 FIXME: modular (cross-)builds (e.g. editor, UT server) fail with XGE as FixDeps step apparently depends on artifacts (object files) which aren't listed among its prerequisites.
-			return false;
+			// [RCL] 2015-08-04 FIXME: we have seen XGE builds fail on Windows
+			return BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux;
 		}
 
 		/// <summary>
@@ -334,7 +334,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		static private Dictionary<string, string> ExpectedSDKVersions = new Dictionary<string, string>()
 		{
-			{ "x86_64-unknown-linux-gnu", "v6_clang-3.6.0_ld-2.24_glibc-2.12.2" },
+			{ "x86_64-unknown-linux-gnu", "v7_clang-3.7.0_ld-2.24_glibc-2.12.2" },
 			{ "arm-unknown-linux-gnueabihf", "arm-unknown-linux-gnueabihf_v5_clang-3.5.0-ld-2.23.1-glibc-2.13" },
 		};
 
@@ -416,10 +416,15 @@ namespace UnrealBuildTool
 
 	class LinuxPlatformFactory : UEBuildPlatformFactory
 	{
+		protected override UnrealTargetPlatform TargetPlatform
+		{
+			get { return UnrealTargetPlatform.Linux; }
+		}
+
 		/// <summary>
 		/// Register the platform with the UEBuildPlatform class
 		/// </summary>
-		public override void RegisterBuildPlatforms()
+		protected override void RegisterBuildPlatforms()
 		{
 			LinuxPlatformSDK SDK = new LinuxPlatformSDK();
 			SDK.ManageAndValidateSDK();

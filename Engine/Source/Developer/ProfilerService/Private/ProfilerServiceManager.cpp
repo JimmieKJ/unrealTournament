@@ -1,307 +1,47 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ProfilerServicePrivatePCH.h"
 
 #include "StatsData.h"
 #include "StatsFile.h"
-#include "SecureHash.h"
 
 
-DEFINE_LOG_CATEGORY_STATIC( LogProfilerService, Log, All );
+DEFINE_LOG_CATEGORY( LogProfilerService );
 
-/** 
- * Thread used to read, prepare and send files through the message bus.
- * Supports resending bad file chunks and basic synchronization between service and client.
- */
-class FFileTransferRunnable : public FRunnable
+/*-----------------------------------------------------------------------------
+	FProfilerServiceStatsStream
+-----------------------------------------------------------------------------*/
+
+#if STATS
+
+/** Helper class for writing the condensed messages with related metadata. */
+class FProfilerServiceStatsStream : protected FStatsWriteStream
 {
-	typedef TKeyValuePair<FArchive*,FMessageAddress> FReaderAndAddress;
-
-public:	
-
-	/** Default constructor. */
-	FFileTransferRunnable( FMessageEndpointPtr& InMessageEndpoint )
-		: Runnable( nullptr )
-		, WorkEvent( FPlatformProcess::GetSynchEventFromPool( true ) )
-		, MessageEndpoint( InMessageEndpoint )
-		, StopTaskCounter( 0 )
+public:
+	void WriteFrameMessagesWithMetadata( int64 TargetFrame, bool bNeedFullMetadata )
 	{
-		Runnable = FRunnableThread::Create(this, TEXT("FFileTransferRunnable"), 128 * 1024, TPri_BelowNormal);
-	}
+		FMemoryWriter Ar( OutData, false, true );
 
-	/** Destructor. */
-	~FFileTransferRunnable()
-	{
-		if( Runnable != nullptr )
+		if (bNeedFullMetadata)
 		{
-			Stop();
-			Runnable->WaitForCompletion();
-			delete Runnable;
-			Runnable = nullptr;
+			WriteMetadata( Ar );
 		}
 
-		// Delete all active file readers.
-		for( auto It = ActiveTransfers.CreateIterator(); It; ++It )
-		{
-			FReaderAndAddress& ReaderAndAddress = It.Value();
-			DeleteFileReader( ReaderAndAddress );
-
-			UE_LOG( LogProfilerService, Log, TEXT( "File service-client sending aborted (srv): %s" ), *It.Key() );
-		}
-
-		FPlatformProcess::ReturnSynchEventToPool( WorkEvent );
-		WorkEvent = nullptr;
+		WriteCondensedMessages( Ar, TargetFrame );
 	}
 
-	// Begin FRunnable interface.
-	virtual bool Init()
+	/** Non-const for MoveTemp. */
+	TArray<uint8>& GetOutData()
 	{
-		return true;
+		return OutData;
 	}
-
-	virtual uint32 Run()
-	{
-		while( !ShouldStop() )
-		{
-			if( WorkEvent->Wait( 250 ) )
-			{
-				FProfilerServiceFileChunk* FileChunk;
-				while( !ShouldStop() && SendQueue.Dequeue( FileChunk ) )
-				{
-					FMemoryReader MemoryReader(FileChunk->Header);
-					FProfilerFileChunkHeader FileChunkHeader;
-					MemoryReader << FileChunkHeader;
-					FileChunkHeader.Validate();
-
-					if( FileChunkHeader.ChunkType == EProfilerFileChunkType::SendChunk )
-					{
-						// Find the corresponding file archive reader and recipient.
-						FArchive* ReaderArchive = nullptr;
-						FMessageAddress Recipient;
-						{
-							FScopeLock Lock(&SyncActiveTransfers);
-							const FReaderAndAddress* ReaderAndAddress = ActiveTransfers.Find( FileChunk->Filename );
-							if( ReaderAndAddress )
-							{
-								ReaderArchive = ReaderAndAddress->Key;
-								Recipient = ReaderAndAddress->Value;
-							}
-						}
-
-						// If there is no reader and recipient is invalid, it means that the file transfer is no longer valid, because client disconnected or exited.
-						if( ReaderArchive && Recipient.IsValid() )
-						{
-							ReadAndSetHash( FileChunk, FileChunkHeader, ReaderArchive );
-
-							if( MessageEndpoint.IsValid() )
-							{
-								MessageEndpoint->Send( FileChunk, Recipient );
-							}
-						}		
-					}
-					else if( FileChunkHeader.ChunkType == EProfilerFileChunkType::PrepareFile )
-					{
-						PrepareFileForSending( FileChunk );
-					}
-				}
-
-				WorkEvent->Reset();
-			}
-		}
-
-		return 0;
-	}
-
-	virtual void Stop()
-	{
-		StopTaskCounter.Increment();
-	}
-
-	virtual void Exit()
-	{}
-	// End FRunnable interface
-
-	void EnqueueFileToSend( const FString& StatFilename, const FMessageAddress& RecipientAddress, const FGuid& ServiceInstanceId )
-	{
-		UE_LOG( LogProfilerService, Log, TEXT( "Opening stats file for service-client sending: %s" ), *StatFilename );
-
-		const int64 FileSize = IFileManager::Get().FileSize(*StatFilename);
-		if( FileSize < 4 )
-		{
-			UE_LOG( LogProfilerService, Error, TEXT( "Could not open: %s" ), *StatFilename );
-			return;
-		}
-
-		FArchive* FileReader = IFileManager::Get().CreateFileReader(*StatFilename);
-		if( !FileReader )
-		{
-			UE_LOG( LogProfilerService, Error, TEXT( "Could not open: %s" ), *StatFilename );
-			return;
-		}
-
-		{
-			FScopeLock Lock(&SyncActiveTransfers);
-			check( !ActiveTransfers.Contains( StatFilename ) );
-			ActiveTransfers.Add( StatFilename, FReaderAndAddress(FileReader,RecipientAddress) );
-		}
-
-		// This is not a real file chunk, but helper to prepare file for sending on the runnable.
-		EnqueueFileChunkToSend( new FProfilerServiceFileChunk( ServiceInstanceId,StatFilename,FProfilerFileChunkHeader(0,0,FileReader->TotalSize(),EProfilerFileChunkType::PrepareFile).AsArray() ), true );
-	}
-
-	/** Enqueues a file chunk. */
-	void EnqueueFileChunkToSend( FProfilerServiceFileChunk* FileChunk, bool bTriggerWorkEvent = false )
-	{
-		SendQueue.Enqueue( FileChunk );
-
-		if( bTriggerWorkEvent )
-		{
-			// Trigger the runnable.
-			WorkEvent->Trigger();
-		}
-	}
-
-	/** Prepare the chunks to be sent through the message bus. */
-	void PrepareFileForSending( FProfilerServiceFileChunk*& FileChunk )
-	{
-		// Find the corresponding file archive and recipient.
-		FArchive* Reader = nullptr;
-		FMessageAddress Recipient;
-		{
-			FScopeLock Lock(&SyncActiveTransfers);
-			const FReaderAndAddress& ReaderAndAddress = ActiveTransfers.FindChecked( FileChunk->Filename );
-			Reader = ReaderAndAddress.Key;
-			Recipient = ReaderAndAddress.Value;
-		}
-
-		int64 ChunkOffset = 0;
-		int64 RemainingSizeToSend = Reader->TotalSize();
-
-		while( RemainingSizeToSend > 0 )
-		{
-			const int64 SizeToCopy = FMath::Min( FProfilerFileChunkHeader::DefChunkSize, RemainingSizeToSend );
-
-			EnqueueFileChunkToSend( new FProfilerServiceFileChunk( FileChunk->InstanceId,FileChunk->Filename,FProfilerFileChunkHeader(ChunkOffset,SizeToCopy,Reader->TotalSize(),EProfilerFileChunkType::SendChunk).AsArray() ) );
-
-			ChunkOffset += SizeToCopy;
-			RemainingSizeToSend -= SizeToCopy;
-		}
-
-		// Trigger the runnable.
-		WorkEvent->Trigger();
-
-		// Delete this file chunk.
-		delete FileChunk;
-		FileChunk = nullptr;	
-	}
-
-	/** Removes file from the list of the active transfers, must be confirmed by the profiler client. */
-	void FinalizeFileSending( const FString& Filename )
-	{
-		FScopeLock Lock(&SyncActiveTransfers);
-
-		check( ActiveTransfers.Contains( Filename ) );
-		FReaderAndAddress ReaderAndAddress = ActiveTransfers.FindAndRemoveChecked( Filename );
-		DeleteFileReader( ReaderAndAddress );
-
-		UE_LOG( LogProfilerService, Log, TEXT( "File service-client sent successfully : %s" ), *Filename );
-	}
-
-	/** Aborts file sending to the specified client, probably client disconnected or exited. */
-	void AbortFileSending( const FMessageAddress& Recipient )
-	{
-		FScopeLock Lock(&SyncActiveTransfers);
-
-		for( auto It = ActiveTransfers.CreateIterator(); It; ++It )
-		{
-			FReaderAndAddress& ReaderAndAddress = It.Value();
-			if( ReaderAndAddress.Value == Recipient )
-			{
-				UE_LOG( LogProfilerService, Log, TEXT( "File service-client sending aborted (cl): %s" ), *It.Key() );
-				FReaderAndAddress ActiveReaderAndAddress = ActiveTransfers.FindAndRemoveChecked( It.Key() );
-				DeleteFileReader( ActiveReaderAndAddress );
-			}
-		}
-	}
-
-	/** Checks if there has been any stop requests. */
-	FORCEINLINE bool ShouldStop() const
-	{
-		return StopTaskCounter.GetValue() > 0;
-	}
-
-protected:
-	/** Deletes the file reader. */
-	void DeleteFileReader( FReaderAndAddress& ReaderAndAddress )
-	{
-		delete ReaderAndAddress.Key;
-		ReaderAndAddress.Key = nullptr;
-	}
-
-	/** Reads the data from the archive and generates hash. */
-	void ReadAndSetHash( FProfilerServiceFileChunk* FileChunk, const FProfilerFileChunkHeader& FileChunkHeader, FArchive* Reader )
-	{
-		TArray<uint8> FileChunkData;
-
-		FileChunkData.AddUninitialized( FileChunkHeader.ChunkSize );
-
-		Reader->Seek( FileChunkHeader.ChunkOffset );
-		Reader->Serialize( FileChunkData.GetData(), FileChunkHeader.ChunkSize );
-
-		const int32 HashSize = 20;
-		uint8 LocalHash[HashSize]={0};
-
-		// Hash file chunk data. 
-		FSHA1 Sha;
-		Sha.Update( FileChunkData.GetData(), FileChunkHeader.ChunkSize );
-		// Hash file chunk header.
-		Sha.Update( FileChunk->Header.GetData(), FileChunk->Header.Num() );
-		Sha.Final();
-		Sha.GetHash( LocalHash );
-
-		FileChunk->ChunkHash.AddUninitialized( HashSize );
-		FMemory::Memcpy( FileChunk->ChunkHash.GetData(), LocalHash, HashSize );
-
-		// Limit transfer per second, otherwise we will probably hang the message bus.
-		static int64 TotalReadBytes = 0;
-#if	_DEBUG
-		static const int64 NumBytesPerTick = 128*1024;
-#else
-		static const int64 NumBytesPerTick = 256*1024;
-#endif // _DEBUG
-
-		// Convert to hex.
-		FileChunk->HexData = FString::FromHexBlob( FileChunkData.GetData(), FileChunkData.Num() );
-
-		TotalReadBytes += FileChunkHeader.ChunkSize;
-		if( TotalReadBytes > NumBytesPerTick )
-		{
-			FPlatformProcess::Sleep( 0.1f );
-			TotalReadBytes = 0;
-		}
-	}
-
-	/** Thread that is running this task. */
-	FRunnableThread* Runnable;
-
-	/** Event used to signaling that work is available. */
-	FEvent* WorkEvent;
-
-	/** Holds the messaging endpoint. */
-	FMessageEndpointPtr& MessageEndpoint;
-
-	/** > 0 if we have been asked to abort work in progress at the next opportunity. */
-	FThreadSafeCounter StopTaskCounter;
-
-	/** Added on the main thread, processed on the async thread. */
-	TQueue<FProfilerServiceFileChunk*,EQueueMode::Mpsc> SendQueue;
-
-	/** Critical section used to synchronize. */
-	FCriticalSection SyncActiveTransfers;
-
-	/** Active transfers, stored as a filename -> reader and destination address. Assumes that filename is unique and never will be the same. */
-	TMap<FString,FReaderAndAddress> ActiveTransfers;
 };
+
+#endif
+
+/*-----------------------------------------------------------------------------
+	FProfilerServiceManager
+-----------------------------------------------------------------------------*/
 
 void FProfilerServiceManager::HandleServiceFileChunkMessage( const FProfilerServiceFileChunk& Message, const IMessageContextRef& Context )
 {
@@ -581,14 +321,13 @@ void FProfilerServiceManager::HandleServiceSubscribeMessage( const FProfilerServ
 		FClientData Data;
 		Data.Active = true;
 		Data.Preview = false;
-		//Data.StatsWriteFile.WriteHeader();
 
 		// Add to the client list.
 		ClientData.Add( SenderAddress, Data );
 
-		// Send authorized and stat descriptions.
-		const TArray<uint8> OutData;// = ClientData.Find( SenderAddress )->StatsWriteFile.GetOutData();
-		MessageEndpoint->Send( new FProfilerServiceAuthorize( SessionId, InstanceId, OutData ), SenderAddress );
+		// Send authorize.
+		MessageEndpoint->Send( new FProfilerServiceAuthorize( SessionId, InstanceId ), SenderAddress );
+		// Eventually send the metadata if needed.
 
 		// Initiate the ping callback
 		if (ClientData.Num() == 1)
@@ -645,11 +384,11 @@ void FProfilerServiceManager::HandleNewFrame(int64 Frame)
 	}
 
 	// Write frame.
-	FStatsWriteFile StatsWriteFile;
-	StatsWriteFile.WriteFrame( Frame, bNeedFullMetadata );
+	FProfilerServiceStatsStream StatsStream;
+	StatsStream.WriteFrameMessagesWithMetadata( Frame, bNeedFullMetadata );
 
 	// Task graph
-	TArray<uint8>* DataToTask = new TArray<uint8>( MoveTemp( StatsWriteFile.GetOutData() ) );
+	TArray<uint8>* DataToTask = new TArray<uint8>( MoveTemp( StatsStream.GetOutData() ) );
 
 	// Compression and encoding is done on the task graph
 	FSimpleDelegateGraphTask::CreateAndDispatchWhenReady

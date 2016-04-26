@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VertexFactory.cpp: Vertex factory implementation
@@ -291,13 +291,8 @@ FVertexElement FVertexFactory::AccessPositionStreamComponent(const FVertexStream
 	return FVertexElement(PositionStream.AddUnique(VertexStream),Component.Offset,Component.Type,AttributeIndex,VertexStream.Stride,Component.bUseInstanceIndex);
 }
 
-void FVertexFactory::InitDeclaration(
-	FVertexDeclarationElementList& Elements, 
-	const DataType& InData)
+void FVertexFactory::InitDeclaration(FVertexDeclarationElementList& Elements)
 {
-	// Make a copy of the vertex factory data.
-	Data = InData;
-
 	// Create the vertex declaration for rendering the factory normally.
 	Declaration = RHICreateVertexDeclaration(Elements);
 }

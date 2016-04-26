@@ -1,18 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 /** The struct representing an item in the asset tree */
 struct FTreeItem : public TSharedFromThis<FTreeItem>
 {
-	struct FCompareFTreeItemByName
-	{
-		FORCEINLINE bool operator()( TSharedPtr<FTreeItem> A, TSharedPtr<FTreeItem> B ) const
-		{
-			return A->DisplayName.ToString() < B->DisplayName.ToString();
-		}
-	};
-
 	/** The display name of the tree item (typically the same as FolderName, but may be localized for known folder types) */
 	FText DisplayName;
 	/** The leaf-name of the tree item folder */
@@ -41,6 +33,7 @@ struct FTreeItem : public TSharedFromThis<FTreeItem>
 		, FolderPath(MoveTemp(InFolderPath))
 		, bNamingFolder(InNamingFolder)
 		, Parent(MoveTemp(InParent))
+		, bChildrenRequireSort(false)
 	{}
 
 	/** Returns true if this item is a child of the specified item */
@@ -61,42 +54,60 @@ struct FTreeItem : public TSharedFromThis<FTreeItem>
 	}
 
 	/** Returns the child item by name or NULL if the child does not exist */
-	TSharedPtr<FTreeItem> GetChild (const FString& InChildFolderName)
+	TSharedPtr<FTreeItem> GetChild(const FString& InChildFolderName) const
 	{
-		for ( int32 ChildIdx = 0; ChildIdx < Children.Num(); ++ChildIdx )
+		for (const auto& Child : Children)
 		{
-			if ( Children[ChildIdx]->FolderName == InChildFolderName )
+			if (Child->FolderName == InChildFolderName)
 			{
-				return Children[ChildIdx];
+				return Child;
 			}
 		}
 
-		return TSharedPtr<FTreeItem>();
+		return nullptr;
 	}
 
 	/** Finds the child who's path matches the one specified */
-	TSharedPtr<FTreeItem> FindItemRecursive (const FString& InFullPath)
+	TSharedPtr<FTreeItem> FindItemRecursive(const FString& InFullPath)
 	{
-		if ( InFullPath == FolderPath )
+		if (InFullPath == FolderPath)
 		{
 			return SharedThis(this);
 		}
 
-		for ( int32 ChildIdx = 0; ChildIdx < Children.Num(); ++ChildIdx )
+		for (const auto& Child : Children)
 		{
-			const TSharedPtr<FTreeItem>& Item = Children[ChildIdx]->FindItemRecursive(InFullPath);
-			if ( Item.IsValid() )
+			const TSharedPtr<FTreeItem>& Item = Child->FindItemRecursive(InFullPath);
+			if (Item.IsValid())
 			{
 				return Item;
 			}
 		}
 
-		return TSharedPtr<FTreeItem>(NULL);
+		return nullptr;
 	}
 
-	/** Sort the children by name */
-	void SortChildren ()
+	/** Request that the children be sorted the next time someone calls SortChildrenIfNeeded */
+	void RequestSortChildren()
 	{
-		Children.Sort( FCompareFTreeItemByName() );
+		bChildrenRequireSort = true;
 	}
+
+	/** Sort the children by name (but only if they need to be) */
+	void SortChildrenIfNeeded()
+	{
+		if (bChildrenRequireSort)
+		{
+			Children.Sort([](TSharedPtr<FTreeItem> A, TSharedPtr<FTreeItem> B) -> bool
+			{
+				return A->DisplayName.ToString() < B->DisplayName.ToString();
+			});
+
+			bChildrenRequireSort = false;
+		}
+	}
+
+private:
+	/** If true, the children of this item need sorting */
+	bool bChildrenRequireSort;
 };

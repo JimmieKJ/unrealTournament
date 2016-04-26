@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 
@@ -64,11 +64,6 @@ TSharedRef<SWidget> UNativeWidgetHost::GetDefaultContent()
 }
 
 #if WITH_EDITOR
-
-const FSlateBrush* UNativeWidgetHost::GetEditorIcon()
-{
-	return FUMGStyle::Get().GetBrush("Widget.NativeWidgetHost");
-}
 
 const FText UNativeWidgetHost::GetPaletteCategory()
 {

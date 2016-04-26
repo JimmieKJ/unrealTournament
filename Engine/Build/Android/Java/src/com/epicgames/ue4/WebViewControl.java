@@ -1,13 +1,18 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 package com.epicgames.ue4;
 
 import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.util.DisplayMetrics;
+import android.view.Window;
+import android.view.WindowManager;
+import android.view.View;
+import android.view.MotionEvent;
 import android.view.Gravity;
 import android.view.ViewGroup.LayoutParams;
 import android.view.ViewGroup.MarginLayoutParams;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.PopupWindow;
 
@@ -24,6 +29,7 @@ class WebViewControl
 			public void run()
 			{
 				webView = new WebView(GameActivity._activity);
+				webView.setWebViewClient(new WebViewClient());
 				webView.getSettings().setJavaScriptEnabled(true);
 				webView.loadUrl("about:blank");
 			}
@@ -55,8 +61,8 @@ class WebViewControl
 					webPopup.setWidth(width);
 					webPopup.setHeight(height);
 					webPopup.setClippingEnabled(false);
-					webPopup.setOutsideTouchable(false); // non-modal
 					webPopup.setBackgroundDrawable((Drawable)null); // no border
+					webPopup.setFocusable(true); // required for keyboard
 
 					webLayout = new LinearLayout(GameActivity._activity);
 					webLayout.setOrientation(LinearLayout.VERTICAL);
@@ -69,6 +75,12 @@ class WebViewControl
 					webPopup.setContentView(webLayout);
 					webPopup.showAtLocation(GameActivity._activity.activityLayout, Gravity.NO_GRAVITY, x, y);
 					webPopup.update();
+
+					// allow touch outside the popup. setOutsideTouchable(false) does nothing when the popup is focusable.
+					WindowManager.LayoutParams p = (WindowManager.LayoutParams)webLayout.getLayoutParams();
+					p.flags |= WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL;
+					WindowManager windowManager = GameActivity._activity.getWindowManager();
+					windowManager.updateViewLayout(webLayout, p);
 				}
 				else
 				{
@@ -78,6 +90,22 @@ class WebViewControl
 		});
 	}
 
+	public void Close()
+	{
+		GameActivity._activity.runOnUiThread(new Runnable()
+		{
+			@Override
+			public void run()
+			{
+				if (webPopup != null)
+				{
+					webPopup.dismiss();
+					webPopup = null;
+				}
+			}
+		});
+	}
+	
 	// Web Views
 	private PopupWindow webPopup;
 	private LinearLayout webLayout;

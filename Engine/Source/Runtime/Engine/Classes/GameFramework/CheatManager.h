@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 //=============================================================================
 // CheatManager
@@ -265,9 +265,15 @@ class ENGINE_API UCheatManager : public UObject
 	UFUNCTION(exec)
 	virtual void DumpOnlineSessionState();
 
+	/** Dump known party information */
 	UFUNCTION(exec)
 	virtual void DumpPartyState();
 
+	/** Dump known chat information */
+	UFUNCTION(exec)
+	virtual void DumpChatState();
+
+	/** Dump current state of voice chat */
 	UFUNCTION(exec)
 	virtual void DumpVoiceMutingState();
 

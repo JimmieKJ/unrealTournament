@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "Animation/AnimationAsset.h"
@@ -44,7 +44,12 @@ enum class ERootMotionSourceSettingsFlags : uint8
 	// Source will switch character to Falling mode with any "Z up" velocity added.
 	// Use this for jump-like root motion. If not enabled, uses default jump impulse
 	// detection (which keeps you stuck on ground in Walking fairly strongly)
-	UseSensitiveLiftoffCheck	= 0x01
+	UseSensitiveLiftoffCheck	= 0x01,
+	// If Duration of Source would end partway through the last tick it is active,
+	// do not reduce SimulationTime. Disabling this is useful for sources that
+	// are more about providing velocity (like jumps), vs. sources that need
+	// the precision of partial ticks for say ending up at an exact location (MoveTo)
+	DisablePartialEndTick		= 0x02
 };
 
 enum class ERootMotionSourceID : uint16 { Invalid = 0 };
@@ -344,6 +349,9 @@ struct ENGINE_API FRootMotionSource_ConstantForce : public FRootMotionSource
 	UPROPERTY()
 	FVector Force;
 
+	UPROPERTY()
+	UCurveFloat* StrengthOverTime;
+
 	virtual FRootMotionSource* Clone() const override;
 
 	virtual bool Matches(const FRootMotionSource* Other) const override;
@@ -364,6 +372,8 @@ struct ENGINE_API FRootMotionSource_ConstantForce : public FRootMotionSource
 	virtual UScriptStruct* GetScriptStruct() const override;
 
 	virtual FString ToSimpleString() const override;
+
+	virtual void AddReferencedObjects(class FReferenceCollector& Collector) override;
 };
 
 template<>
@@ -611,7 +621,7 @@ struct ENGINE_API FRootMotionSourceGroup
 	 *  the velocity that we added heading into the wall last tick would make you go backwards. With
 	 *  this method we override that resulting Velocity due to obstructions */
 	UPROPERTY()
-	FVector LastPreAdditiveVelocity;
+	FVector_NetQuantize10 LastPreAdditiveVelocity;
 
 	/** True when we had additive velocity applied last tick, checked to know if we should restore
 	 *  LastPreAdditiveVelocity before a Velocity computation */

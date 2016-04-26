@@ -43,6 +43,7 @@ AUTProj_Redeemer::AUTProj_Redeemer(const class FObjectInitializer& ObjectInitial
 
 	InitialLifeSpan = 20.0f;
 	bAlwaysShootable = true;
+	ProjHealth = 35;
 }
 
 void AUTProj_Redeemer::RedeemerDenied(AController* InstigatedBy)
@@ -71,18 +72,22 @@ float AUTProj_Redeemer::TakeDamage(float Damage, const FDamageEvent& DamageEvent
 	bool bUsingClientSideHits = UTPC && (UTPC->GetPredictionTime() > 0.f);
 	if ((Role == ROLE_Authority) && !bUsingClientSideHits)
 	{
-		Detonate(EventInstigator);
-		RedeemerDenied(EventInstigator);
+		ProjHealth -= Damage;
+		if (ProjHealth <= 0)
+		{
+			Detonate(EventInstigator);
+			RedeemerDenied(EventInstigator);
+		}
 	}
 	else if ((Role != ROLE_Authority) && bUsingClientSideHits)
 	{
-		UTPC->ServerNotifyProjectileHit(this, GetActorLocation(), DamageCauser, GetWorld()->GetTimeSeconds());
+		UTPC->ServerNotifyProjectileHit(this, GetActorLocation(), DamageCauser, GetWorld()->GetTimeSeconds(), Damage);
 	}
 
 	return Damage;
 }
 
-void AUTProj_Redeemer::NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser)
+void AUTProj_Redeemer::NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser, int32 Damage)
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	if (GS && GS->OnSameTeam(InstigatorController, InstigatedBy))
@@ -91,13 +96,18 @@ void AUTProj_Redeemer::NotifyClientSideHit(AUTPlayerController* InstigatedBy, FV
 		return;
 	}
 
-	Detonate(InstigatedBy);
-	RedeemerDenied(InstigatedBy);
+	ProjHealth -= Damage;
+	if (ProjHealth <= 0)
+	{
+		Detonate(InstigatedBy);
+		RedeemerDenied(InstigatedBy);
+	}
 }
 
 void AUTProj_Redeemer::Detonate(class AController* InstigatedBy)
 {
-	bDetonated = true;
+	Explode(GetActorLocation(), FVector(0.f, 0.f, 1.f), CapsuleComp);
+/*	bDetonated = true;
 	if (!bExploded)
 	{
 		bExploded = true;
@@ -135,12 +145,14 @@ void AUTProj_Redeemer::Detonate(class AController* InstigatedBy)
 		}
 		ShutDown();
 	}
+*/
 }
 
 void AUTProj_Redeemer::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp)
 {
 	if (!bExploded)
 	{
+		bExploded = true;
 		if (bDetonated)
 		{
 			Detonate(NULL);
@@ -161,7 +173,6 @@ void AUTProj_Redeemer::Explode_Implementation(const FVector& HitLocation, const 
 		CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		ProjectileMovement->SetActive(false);
 
-		bExploded = true;
 		TArray<USceneComponent*> Components;
 		GetComponents<USceneComponent>(Components);
 		for (int32 i = 0; i < Components.Num(); i++)

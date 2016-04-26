@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*==============================================================================
 	ParticleModuleVectorFieldScaleOverLife: Per-particle vector field scale over life.
@@ -14,8 +14,12 @@ class UParticleModuleVectorFieldScaleOverLife : public UParticleModuleVectorFiel
 	GENERATED_UCLASS_BODY()
 
 	/** Per-particle vector field scale. Evaluated using particle relative time. */
+	UPROPERTY()
+	class UDistributionFloat* VectorFieldScaleOverLife_DEPRECATED;
+
+	/** Per-particle vector field scale. Evaluated using particle relative time. */
 	UPROPERTY(EditAnywhere, Category=VectorField)
-	class UDistributionFloat* VectorFieldScaleOverLife;
+	FRawDistributionFloat VectorFieldScaleOverLifeRaw;
 
 	/** Initializes the default values for this property */
 	void InitializeDefaults();
@@ -25,6 +29,7 @@ class UParticleModuleVectorFieldScaleOverLife : public UParticleModuleVectorFiel
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 	virtual void PostInitProperties() override;
+	virtual void PostLoad() override;
 	//~ End UObject Interface
 
 	//~ Begin UParticleModule Interface

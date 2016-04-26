@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -33,7 +33,7 @@ class GAMEPLAYABILITIES_API UGameplayCueNotify_Static : public UObject
 
 	virtual void Serialize(FArchive& Ar) override;
 
-	virtual void HandleGameplayCue(AActor* MyTarget, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters);
+	virtual void HandleGameplayCue(AActor* MyTarget, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters);
 
 	UWorld* GetWorld() const override;
 
@@ -43,19 +43,19 @@ class GAMEPLAYABILITIES_API UGameplayCueNotify_Static : public UObject
 
 	/** Generic Event Graph event that will get called for every event type */
 	UFUNCTION(BlueprintImplementableEvent, Category = "GameplayCueNotify", DisplayName = "HandleGameplayCue")
-	void K2_HandleGameplayCue(AActor* MyTarget, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters) const;
+	void K2_HandleGameplayCue(AActor* MyTarget, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters) const;
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintPure, Category = "GameplayCueNotify")
-	bool OnExecute(AActor* MyTarget, FGameplayCueParameters Parameters) const;
+	bool OnExecute(AActor* MyTarget, const FGameplayCueParameters& Parameters) const;
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintPure, Category = "GameplayCueNotify")
-	bool OnActive(AActor* MyTarget, FGameplayCueParameters Parameters) const;
+	bool OnActive(AActor* MyTarget, const FGameplayCueParameters& Parameters) const;
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintPure, Category = "GameplayCueNotify")
-	bool WhileActive(AActor* MyTarget, FGameplayCueParameters Parameters) const;
+	bool WhileActive(AActor* MyTarget, const FGameplayCueParameters& Parameters) const;
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintPure, Category = "GameplayCueNotify")
-	bool OnRemove(AActor* MyTarget, FGameplayCueParameters Parameters) const;
+	bool OnRemove(AActor* MyTarget, const FGameplayCueParameters& Parameters) const;
 
 	UPROPERTY(EditDefaultsOnly, Category = GameplayCue, meta=(Categories="GameplayCue"))
 	FGameplayTag	GameplayCueTag;

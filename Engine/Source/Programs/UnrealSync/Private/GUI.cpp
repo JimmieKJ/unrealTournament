@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealSync.h"
 #include "SyncingThread.h"
@@ -107,7 +107,7 @@ private:
 				Layout->ClearLines();
 			}
 
-			Layout->AddLine(LineText, Runs);
+			Layout->AddLine(FSlateTextLayout::FNewLineData(MoveTemp(LineText), MoveTemp(Runs)));
 		}
 
 		/**

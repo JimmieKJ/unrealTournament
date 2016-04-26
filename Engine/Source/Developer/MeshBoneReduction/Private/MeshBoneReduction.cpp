@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine.h"
 #include "MeshBoneReduction.h"
@@ -296,6 +296,7 @@ public:
 
 		SkeletalMesh->PostEditChange();
 		SkeletalMesh->InitResources();
+		SkeletalMesh->MarkPackageDirty();
 
 		delete SrcModel;
 

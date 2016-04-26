@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -24,16 +24,16 @@ public class OpenGLDrv : ModuleRules
 		DynamicallyLoadedModuleNames.Add("ImageWrapper");
 
         if (Target.Platform != UnrealTargetPlatform.HTML5)
-		    AddThirdPartyPrivateStaticDependencies(Target, "OpenGL");
+		    AddEngineThirdPartyPrivateStaticDependencies(Target, "OpenGL");
 
 		if (Target.Platform == UnrealTargetPlatform.HTML5 && Target.Architecture == "-win32")
 		{
-		    AddThirdPartyPrivateStaticDependencies(Target, "ANGLE"); 
+		    AddEngineThirdPartyPrivateStaticDependencies(Target, "ANGLE"); 
 		}
 
 		if (Target.Platform == UnrealTargetPlatform.Linux || Target.Platform == UnrealTargetPlatform.HTML5)
 		{
-			AddThirdPartyPrivateStaticDependencies(Target, "SDL2");
+			AddEngineThirdPartyPrivateStaticDependencies(Target, "SDL2");
 		}
 
 		if (Target.Configuration != UnrealTargetConfiguration.Shipping)

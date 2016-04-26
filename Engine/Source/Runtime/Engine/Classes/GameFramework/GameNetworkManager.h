@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "TimerManager.h"
@@ -90,29 +90,93 @@ class ENGINE_API AGameNetworkManager : public AInfo
 	// Player replication
 	
 	/** Average size of replicated move packet (ServerMove() packet size) from player */
-	UPROPERTY()
+	UPROPERTY(GlobalConfig)
 	float MoveRepSize;
 
 	/** MAXPOSITIONERRORSQUARED is the square of the max position error that is accepted (not corrected) in net play */
-	UPROPERTY(globalconfig)
+	UPROPERTY(GlobalConfig)
 	float MAXPOSITIONERRORSQUARED;
 
 	/** MAXNEARZEROVELOCITYSQUARED is the square of the max velocity that is considered zero (not corrected) in net play */
-	UPROPERTY()
+	UPROPERTY(GlobalConfig)
 	float MAXNEARZEROVELOCITYSQUARED;
 
 	/** CLIENTADJUSTUPDATECOST is the bandwidth cost in bytes of sending a client adjustment update. 180 is greater than the actual cost, but represents a tweaked value reserving enough bandwidth for
 	other updates sent to the client.  Increase this value to reduce client adjustment update frequency, or if the amount of data sent in the clientadjustment() call increases */
-	UPROPERTY()
+	UPROPERTY(GlobalConfig)
 	float CLIENTADJUSTUPDATECOST;
 
 	/** MAXCLIENTUPDATEINTERVAL is the maximum time between movement updates from the client before the server forces an update. */
-	UPROPERTY()
+	UPROPERTY(GlobalConfig)
 	float MAXCLIENTUPDATEINTERVAL;
 
+	/** MaxMoveDeltaTime is the default maximum time delta of CharacterMovement ServerMoves. Should be less than or equal to MAXCLIENTUPDATEINTERVAL, otherwise server will interfere by forceing position updates */
+	UPROPERTY(GlobalConfig)
+	float MaxMoveDeltaTime;
+
 	/** If client update is within MAXPOSITIONERRORSQUARED then he is authorative on his final position */
-	UPROPERTY(globalconfig)
+	UPROPERTY(GlobalConfig)
 	bool ClientAuthorativePosition;
+
+	/** Minimum delay between the server sending error corrections to a client, in seconds. */
+	UPROPERTY(GlobalConfig)
+	float ClientErrorUpdateRateLimit;
+
+	//======================================================================================================================
+	// Movement Time Discrepancy settings for Characters (speed hack detection and prevention)
+
+	/** Whether movement time discrepancy detection is enabled. */
+	UPROPERTY(GlobalConfig)
+	bool bMovementTimeDiscrepancyDetection;
+
+	/** Whether movement time discrepancy resolution is enabled (when detected, make client movement "pay back" excessive time discrepancies) */
+	UPROPERTY(GlobalConfig)
+	bool bMovementTimeDiscrepancyResolution;
+
+	/** Maximum time client can be ahead before triggering movement time discrepancy detection/resolution (if enabled). */
+	UPROPERTY(GlobalConfig)
+	float MovementTimeDiscrepancyMaxTimeMargin;
+
+	/** Maximum time client can be behind. */
+	UPROPERTY(GlobalConfig)
+	float MovementTimeDiscrepancyMinTimeMargin;
+
+	/** 
+	 * During time discrepancy resolution, we "pay back" the time discrepancy at this rate for future moves until total error is zero.
+	 * 1.0 = 100% resolution rate, meaning the next X ServerMoves from the client are fully paying back the time, 
+	 * 0.5 = 50% resolution rate, meaning future ServerMoves will spend 50% of tick continuing to move the character and 50% paying back.
+	 * Lowering from 100% could be used to produce less severe/noticeable corrections, although typically we would want to correct
+	 * the client as quickly as possible.
+	 */
+	UPROPERTY(GlobalConfig)
+	float MovementTimeDiscrepancyResolutionRate;
+
+	/** 
+	 * Accepted drift in clocks between client and server as a percent per second allowed. 
+	 *
+	 * 0.0 is "no forgiveness" and all logic would run on raw values, no tampering on the server side.
+	 * 0.02 would be a 2% per second difference "forgiven" - if the time discrepancy in a given second was less than 2%,
+	 * the error handling/detection code effectively ignores it.
+	 * 
+	 * Increasing this value above 0% lessens the chance of false positives on time discrepancy (burst packet loss, performance
+	 * hitches), but also means anyone tampering with their client time below that percent will not be detected and no resolution
+	 * action will be taken, and anyone above that threshold will still gain the advantage of this % of time boost (if running at 
+	 * 10% speed-up and this value is 0.05 or 5% allowance, they would only be resolved down to a 5% speed boost).
+	 *
+	 * Time discrepancy detection code DOES keep track of LifetimeRawTimeDiscrepancy, which is unaffected by this drift allowance,
+	 * so cheating below DriftAllowance percent could be tracked and acted on outside of an individual game. For example, if DriftAllowance
+	 * was 0.05 (meaning we're not going to actively prevent any cheating below 5% boosts to ensure less false positives for normal players),
+	 * we could still post-process analytics of the game showing that Player X regularly runs at 4% speed boost and take action.
+	 */
+	UPROPERTY(GlobalConfig)
+	float MovementTimeDiscrepancyDriftAllowance;
+
+	/** 
+	 * Whether client moves should be force corrected during time discrepancy resolution, useful for projects that have lenient 
+	 * move error tolerance/ClientAuthorativePosition enabled.
+	 */
+	UPROPERTY(GlobalConfig)
+	bool bMovementTimeDiscrepancyForceCorrectionsDuringResolution;
 
 	/**  Update network speeds for listen servers based on number of connected players.  */
 	virtual void UpdateNetSpeeds(bool bIsLanMatch);

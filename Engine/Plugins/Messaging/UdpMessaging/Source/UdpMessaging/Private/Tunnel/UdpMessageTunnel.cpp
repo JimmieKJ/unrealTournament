@@ -1,4 +1,6 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+#if PLATFORM_DESKTOP
 
 #include "UdpMessagingPrivatePCH.h"
 
@@ -17,9 +19,17 @@ FUdpMessageTunnel::FUdpMessageTunnel(const FIPv4Endpoint& InUnicastEndpoint, con
 	MulticastSocket = FUdpSocketBuilder(TEXT("UdpMessageMulticastSocket"))
 		.AsNonBlocking()
 		.AsReusable()
-		.BoundToAddress(InUnicastEndpoint.GetAddress())
-		.BoundToPort(InMulticastEndpoint.GetPort())
-		.JoinedToGroup(InMulticastEndpoint.GetAddress())
+#if PLATFORM_WINDOWS
+		// For 0.0.0.0, Windows will pick the default interface instead of all
+		// interfaces. Here we allow to specify which interface to bind to. 
+		// On all other platforms we bind to the wildcard IP address in order
+		// to be able to also receive packets that were sent directly to the
+		// interface IP instead of the multicast address.
+		.BoundToAddress(InUnicastEndpoint.Address)
+#endif
+		.BoundToPort(MulticastEndpoint.Port)
+		.BoundToPort(InMulticastEndpoint.Port)
+		.JoinedToGroup(InMulticastEndpoint.Address)
 		.WithMulticastLoopback()
 		.WithMulticastTtl(1);
 
@@ -355,3 +365,6 @@ bool FUdpMessageTunnel::HandleListenerConnectionAccepted(FSocket* ClientSocket, 
 
 	return true;
 }
+
+
+#endif

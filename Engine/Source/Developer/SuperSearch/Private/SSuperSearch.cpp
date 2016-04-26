@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SuperSearchPrivatePCH.h"
 #include "SSearchBox.h"
@@ -78,7 +78,6 @@ void SSuperSearchBox::Construct( const FArguments& InArgs )
 			]
 
 			+ SHorizontalBox::Slot()
-			.AutoWidth()
 			[
 				SAssignNew(InputText, SSearchBox)
 				.Style(InStyle)

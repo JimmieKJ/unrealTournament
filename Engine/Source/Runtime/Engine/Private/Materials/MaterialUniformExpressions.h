@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 /*=============================================================================
 	UniformExpressions.h: Uniform expression definitions.
 =============================================================================*/
@@ -147,7 +147,7 @@ public:
 	}
 
 	// faster than GetNumberValue(), good for run-time use
-	void GetGameThreadNumberValue(const UMaterialInterface* SourceMaterialToCopyFrom, FLinearColor& OutValue) const;
+	bool GetGameThreadNumberValue(const UMaterialInterface* SourceMaterialToCopyFrom, FLinearColor& OutValue) const;
 
 	virtual bool IsConstant() const
 	{
@@ -225,7 +225,7 @@ public:
 	}
 	
 	// faster than GetNumberValue(), good for run-time use
-	void GetGameThreadNumberValue(const UMaterialInterface* SourceMaterialToCopyFrom, float& OutValue) const;
+	bool GetGameThreadNumberValue(const UMaterialInterface* SourceMaterialToCopyFrom, float& OutValue) const;
 
 	virtual bool IsConstant() const
 	{
@@ -1282,10 +1282,10 @@ public:
 		A->GetNumberValue(Context, ValueA);
 		B->GetNumberValue(Context, ValueB);
 
-		OutValue.R = fmod(ValueA.R, ValueB.R);
-		OutValue.G = fmod(ValueA.G, ValueB.G);
-		OutValue.B = fmod(ValueA.B, ValueB.B);
-		OutValue.A = fmod(ValueA.A, ValueB.A);
+		OutValue.R = FMath::Fmod(ValueA.R, ValueB.R);
+		OutValue.G = FMath::Fmod(ValueA.G, ValueB.G);
+		OutValue.B = FMath::Fmod(ValueA.B, ValueB.B);
+		OutValue.A = FMath::Fmod(ValueA.A, ValueB.A);
 	}
 	virtual bool IsConstant() const
 	{

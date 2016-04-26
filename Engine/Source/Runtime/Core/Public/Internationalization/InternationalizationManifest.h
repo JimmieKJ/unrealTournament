@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 
@@ -59,19 +59,26 @@ public:
 class FManifestEntry
 {
 public:
-	FManifestEntry( const FString& InNamespace, const FLocItem& InSource )
-		: Namespace( InNamespace )
-		, Source( InSource )
-	, Contexts()
+	FManifestEntry(const FString& InNamespace, const FLocItem& InSource)
+		: Namespace(InNamespace)
+		, Source(InSource)
+		, Contexts()
 	{
-
 	}
 
-	CORE_API FContext* FindContext( const FString& ContextKey, const TSharedPtr<FLocMetadataObject>& KeyMetadata = NULL );
+	CORE_API FContext* FindContext(const FString& ContextKey, const TSharedPtr<FLocMetadataObject>& KeyMetadata = nullptr);
+	CORE_API const FContext* FindContext(const FString& ContextKey, const TSharedPtr<FLocMetadataObject>& KeyMetadata = nullptr) const;
+
+	CORE_API FContext* FindContextByKey(const FString& ContextKey);
+	CORE_API const FContext* FindContextByKey(const FString& ContextKey) const;
 
 	const FString Namespace;
 	const FLocItem Source;
-	TArray< FContext > Contexts;
+	TArray<FContext> Contexts;
+
+private:
+	const FContext* FindContextImpl(const FString& ContextKey, const TSharedPtr<FLocMetadataObject>& KeyMetadata) const;
+	const FContext* FindContextByKeyImpl(const FString& ContextKey) const;
 };
 
 
@@ -136,9 +143,11 @@ public:
 	 */
 	bool AddSource( const FString& Namespace, const FLocItem& Source, const FContext& Context );
 
-	TSharedPtr< FManifestEntry > FindEntryBySource( const FString& Namespace, const FLocItem& Source );
+	TSharedPtr< FManifestEntry > FindEntryBySource( const FString& Namespace, const FLocItem& Source ) const;
 
-	TSharedPtr< FManifestEntry > FindEntryByContext( const FString& Namespace, const FContext& Context );
+	TSharedPtr< FManifestEntry > FindEntryByContext( const FString& Namespace, const FContext& Context ) const;
+
+	TSharedPtr< FManifestEntry > FindEntryByKey( const FString& Namespace, const FString& Key, const FString* SourceText = nullptr ) const;
 
 	TManifestEntryByContextIdContainer::TConstIterator GetEntriesByContextIdIterator() const
 	{

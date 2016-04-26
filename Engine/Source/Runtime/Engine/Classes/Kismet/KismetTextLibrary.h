@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "KismetTextLibrary.generated.h"
@@ -123,15 +123,24 @@ class ENGINE_API UKismetTextLibrary : public UBlueprintFunctionLibrary
 	/* Converts a passed in float to a text based on formatting options */
 	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToText (float)", AdvancedDisplay = "1", BlueprintAutocast), Category="Utilities|Text")
 	static FText Conv_FloatToText(float Value, TEnumAsByte<ERoundingMode> RoundingMode, bool bUseGrouping = true, int32 MinimumIntegralDigits = 1, int32 MaximumIntegralDigits = 324, int32 MinimumFractionalDigits = 0, int32 MaximumFractionalDigits = 3);
+	
+	/**
+	 * Generate an FText that represents the passed number as currency in the current culture.
+	 * BaseVal is specified in the smallest fractional value of the currency and will be converted for formatting according to the selected culture.
+	 * Keep in mind the CurrencyCode is completely independent of the culture it's displayed in (and they do not imply one another).
+	 * For example: FText::AsCurrencyBase(650, TEXT("EUR")); would return an FText of "€6.50" in most English cultures (en_US/en_UK) and "6,50€" in Spanish (es_ES).
+	 */
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "AsCurrency"), Category = "Utilities|Text")
+	static FText AsCurrencyBase(int32 BaseValue, const FString& CurrencyCode);
 
 	// Default values are duplicated from FNumberFormattingOptions and should be replicated in all functions and in the struct when changed!
 	/* Converts a passed in integer to a text formatted as a currency */
-	UFUNCTION(BlueprintPure, meta=(DisplayName = "AsCurrency (int)", AdvancedDisplay = "1"), Category="Utilities|Text")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "AsCurrency (int) - DEPRECATED (use AsCurrency)"), Category="Utilities|Text")
 	static FText AsCurrency_Integer(int32 Value, TEnumAsByte<ERoundingMode> RoundingMode, bool bUseGrouping = true, int32 MinimumIntegralDigits = 1, int32 MaximumIntegralDigits = 324, int32 MinimumFractionalDigits = 0, int32 MaximumFractionalDigits = 3, const FString& CurrencyCode = TEXT(""));
 
 	// Default values are duplicated from FNumberFormattingOptions and should be replicated in all functions and in the struct when changed!
 	/* Converts a passed in float to a text formatted as a currency */
-	UFUNCTION(BlueprintPure, meta=(DisplayName = "AsCurrency (float)", AdvancedDisplay = "1"), Category="Utilities|Text")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "AsCurrency (float) - DEPRECATED (use AsCurrency)"), Category="Utilities|Text")
 	static FText AsCurrency_Float(float Value, TEnumAsByte<ERoundingMode> RoundingMode, bool bUseGrouping = true, int32 MinimumIntegralDigits = 1, int32 MaximumIntegralDigits = 324, int32 MinimumFractionalDigits = 0, int32 MaximumFractionalDigits = 3, const FString& CurrencyCode = TEXT(""));
 
 	// Default values are duplicated from FNumberFormattingOptions and should be replicated in all functions and in the struct when changed!

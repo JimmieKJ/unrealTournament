@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -40,6 +40,15 @@ enum class EDrivenBoneModificationMode : uint8
 
 	// Add the driven value to the reference pose value
 	AddToRefPose
+};
+
+// Type of destination value to drive
+UENUM()
+enum class EDrivenDestinationMode : uint8
+{	
+	Bone,
+	MorphTarget,
+	MaterialParameter
 };
 
 /**
@@ -85,6 +94,14 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_BoneDrivenController : public FAnimNode_Sk
 	// Maximum value to apply to the destination (remapped from the input range)
 	UPROPERTY(EditAnywhere, Category = Mapping, meta = (EditCondition = bUseRange, DisplayName="Mapped Range Max"))
 	float RemappedMax;
+
+	// Type of destination to drive, currently either bone or morph target
+	UPROPERTY(EditAnywhere, Category = "Destination (driven)")
+	EDrivenDestinationMode DestinationMode;
+
+	/** Name of Morph Target to drive using the source attribute */
+	UPROPERTY(EditAnywhere, Category = "Destination (driven)")
+	FName ParameterName;
 
 	// Bone to drive using controller input
 	UPROPERTY(EditAnywhere, Category="Destination (driven)")
@@ -143,7 +160,8 @@ public:
 	// End of FAnimNode_Base interface
 
 	// FAnimNode_SkeletalControlBase interface
-	virtual void EvaluateBoneTransforms(USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases, TArray<FBoneTransform>& OutBoneTransforms) override;
+	virtual void EvaluateBoneTransforms(USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases, TArray<FBoneTransform>& OutBoneTransforms) override;	
+	virtual void EvaluateComponentSpaceInternal(FComponentSpacePoseContext& Context);
 	virtual bool IsValidToEvaluate(const USkeleton* Skeleton, const FBoneContainer& RequiredBones) override;
 	// End of FAnimNode_SkeletalControlBase interface
 
@@ -153,5 +171,8 @@ protected:
 	
 	// FAnimNode_SkeletalControlBase protected interface
 	virtual void InitializeBoneReferences(const FBoneContainer& RequiredBones) override;
+
+	/** Extracts the value used to drive the target bone or parameter */
+	const float ExtractSourceValue(const FTransform& InCurrentBoneTransform, const FTransform& InRefPoseBoneTransform);
 	// End of FAnimNode_SkeletalControlBase protected interface
 };

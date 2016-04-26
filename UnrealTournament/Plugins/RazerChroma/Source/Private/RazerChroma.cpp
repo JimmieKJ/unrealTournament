@@ -58,6 +58,33 @@ FRazerChroma::FRazerChroma()
 	bPlayingUDamage = false;
 	bPlayingBerserk = false;
 	bPlayingShieldBelt = false;
+
+	AtoZToRZKEY[0] = RZKEY_A;
+	AtoZToRZKEY[1] = RZKEY_B;
+	AtoZToRZKEY[2] = RZKEY_C;
+	AtoZToRZKEY[3] = RZKEY_D;
+	AtoZToRZKEY[4] = RZKEY_E;
+	AtoZToRZKEY[5] = RZKEY_F;
+	AtoZToRZKEY[6] = RZKEY_G;
+	AtoZToRZKEY[7] = RZKEY_H;
+	AtoZToRZKEY[8] = RZKEY_I;
+	AtoZToRZKEY[9] = RZKEY_J;
+	AtoZToRZKEY[10] = RZKEY_K;
+	AtoZToRZKEY[11] = RZKEY_L;
+	AtoZToRZKEY[12] = RZKEY_M;
+	AtoZToRZKEY[13] = RZKEY_N;
+	AtoZToRZKEY[14] = RZKEY_O;
+	AtoZToRZKEY[15] = RZKEY_P;
+	AtoZToRZKEY[16] = RZKEY_Q;
+	AtoZToRZKEY[17] = RZKEY_R;
+	AtoZToRZKEY[18] = RZKEY_S;
+	AtoZToRZKEY[19] = RZKEY_T;
+	AtoZToRZKEY[20] = RZKEY_U;
+	AtoZToRZKEY[21] = RZKEY_V;
+	AtoZToRZKEY[22] = RZKEY_W;
+	AtoZToRZKEY[23] = RZKEY_X;
+	AtoZToRZKEY[24] = RZKEY_Y;
+	AtoZToRZKEY[25] = RZKEY_Z;
 }
 
 IMPLEMENT_MODULE(FRazerChroma, RazerChroma)
@@ -570,18 +597,25 @@ void FRazerChroma::Tick(float DeltaTime)
 			int32 KeysToFill = FMath::Clamp((int)(HealthPct * 12), 0, 12);
 			
 			uint32 HealthColor = GREEN;
-			if (HealthPct <= 0.5f)
+			if (HealthPct <= 0.33f)
 			{
 				HealthColor = RED;
 			}
-			else if (HealthPct <= 0.75f)
+			else if (HealthPct <= 0.66f)
 			{
 				HealthColor = YELLOW;
 			}
 
-			for (int32 i = 0; i < KeysToFill; i++)
+			for (int32 i = 0; i < 12; i++)
 			{
-				Effect.Color[HIBYTE(RZKEY_F1 + i)][LOBYTE(RZKEY_F1 + i)] = HealthColor;
+				if (i < KeysToFill)
+				{
+					Effect.Color[HIBYTE(RZKEY_F1 + i)][LOBYTE(RZKEY_F1 + i)] = HealthColor;
+				}
+				else
+				{
+					Effect.Color[HIBYTE(RZKEY_F1 + i)][LOBYTE(RZKEY_F1 + i)] = BLACK;
+				}
 			}
 
 			// Find WASD and other variants like ESDF or IJKL
@@ -595,8 +629,12 @@ void FRazerChroma::Tick(float DeltaTime)
 					if (KeyName.GetCharArray()[0] >= 'A' && KeyName.GetCharArray()[0] <= 'Z')
 					{
 						int32 Offset = KeyName.GetCharArray()[0] - 'A';
-						Effect.Color[HIBYTE(RZKEY_A + Offset)][LOBYTE(RZKEY_A + Offset)] = GREEN;
+						Effect.Color[HIBYTE(AtoZToRZKEY[Offset])][LOBYTE(AtoZToRZKEY[Offset])] = GREEN;
 					}
+				}
+				if (KeyName == TEXT("Up"))
+				{
+					Effect.Color[HIBYTE(RZKEY_UP)][LOBYTE(RZKEY_UP)] = GREEN;
 				}
 			}
 			UTPC->ResolveKeybindToFKey(TEXT("MoveBackward"), Keys, false, true);
@@ -608,8 +646,12 @@ void FRazerChroma::Tick(float DeltaTime)
 					if (KeyName.GetCharArray()[0] >= 'A' && KeyName.GetCharArray()[0] <= 'Z')
 					{
 						int32 Offset = KeyName.GetCharArray()[0] - 'A';
-						Effect.Color[HIBYTE(RZKEY_A + Offset)][LOBYTE(RZKEY_A + Offset)] = GREEN;
+						Effect.Color[HIBYTE(AtoZToRZKEY[Offset])][LOBYTE(AtoZToRZKEY[Offset])] = GREEN;
 					}
+				}
+				if (KeyName == TEXT("Down"))
+				{
+					Effect.Color[HIBYTE(RZKEY_DOWN)][LOBYTE(RZKEY_DOWN)] = GREEN;
 				}
 			}
 			UTPC->ResolveKeybindToFKey(TEXT("MoveLeft"), Keys, false, true);
@@ -621,8 +663,12 @@ void FRazerChroma::Tick(float DeltaTime)
 					if (KeyName.GetCharArray()[0] >= 'A' && KeyName.GetCharArray()[0] <= 'Z')
 					{
 						int32 Offset = KeyName.GetCharArray()[0] - 'A';
-						Effect.Color[HIBYTE(RZKEY_A + Offset)][LOBYTE(RZKEY_A + Offset)] = GREEN;
+						Effect.Color[HIBYTE(AtoZToRZKEY[Offset])][LOBYTE(AtoZToRZKEY[Offset])] = GREEN;
 					}
+				}
+				if (KeyName == TEXT("Left"))
+				{
+					Effect.Color[HIBYTE(RZKEY_LEFT)][LOBYTE(RZKEY_LEFT)] = GREEN;
 				}
 			}
 			UTPC->ResolveKeybindToFKey(TEXT("MoveRight"), Keys, false, true);
@@ -634,8 +680,25 @@ void FRazerChroma::Tick(float DeltaTime)
 					if (KeyName.GetCharArray()[0] >= 'A' && KeyName.GetCharArray()[0] <= 'Z')
 					{
 						int32 Offset = KeyName.GetCharArray()[0] - 'A';
-						Effect.Color[HIBYTE(RZKEY_A + Offset)][LOBYTE(RZKEY_A + Offset)] = GREEN;
+						Effect.Color[HIBYTE(AtoZToRZKEY[Offset])][LOBYTE(AtoZToRZKEY[Offset])] = GREEN;
 					}
+				}
+				if (KeyName == TEXT("Right"))
+				{
+					Effect.Color[HIBYTE(RZKEY_RIGHT)][LOBYTE(RZKEY_RIGHT)] = GREEN;
+				}
+			}
+			UTPC->ResolveKeybindToFKey(TEXT("TurnRate"), Keys, false, true);
+			for (int i = 0; i < Keys.Num(); i++)
+			{
+				FString KeyName = Keys[i].ToString();
+				if (KeyName == TEXT("Left"))
+				{
+					Effect.Color[HIBYTE(RZKEY_LEFT)][LOBYTE(RZKEY_LEFT)] = GREEN;
+				}
+				if (KeyName == TEXT("Right"))
+				{
+					Effect.Color[HIBYTE(RZKEY_RIGHT)][LOBYTE(RZKEY_RIGHT)] = GREEN;
 				}
 			}
 
@@ -669,32 +732,32 @@ void FRazerChroma::Tick(float DeltaTime)
 					uint32 WeaponColor;
 					switch (i)
 					{
-					case 1:
+					case 0:
 					default:
 						WeaponColor = GREY;
 						break;
-					case 2:
+					case 1:
 						WeaponColor = WHITE;
 						break;
-					case 3:
+					case 2:
 						WeaponColor = GREEN;
 						break;
-					case 4:
+					case 3:
 						WeaponColor = PURPLE;
 						break;
-					case 5:
+					case 4:
 						WeaponColor = CYAN;
 						break;
-					case 6:
+					case 5:
 						WeaponColor = BLUE;
 						break;
-					case 7:
+					case 6:
 						WeaponColor = YELLOW;
 						break;
-					case 8:
+					case 7:
 						WeaponColor = RED;
 						break;
-					case 9:
+					case 8:
 						WeaponColor = WHITE;
 						break;
 					}
@@ -831,25 +894,25 @@ void FRazerChroma::UpdateIdleColors(float DeltaTime)
 
 		ChromaSDK::Keyboard::BREATHING_EFFECT_TYPE KeyboardEffect = {};
 		KeyboardEffect.Type = ChromaSDK::Keyboard::BREATHING_EFFECT_TYPE::Type::TWO_COLORS;
-		KeyboardEffect.Color1 = RED;
-		KeyboardEffect.Color2 = BLUE;
+		KeyboardEffect.Color1 = GREEN;
+		KeyboardEffect.Color2 = BLACK;
 		Result = CreateKeyboardEffect(ChromaSDK::Keyboard::CHROMA_BREATHING, &KeyboardEffect, NULL);
 
 		ChromaSDK::Headset::BREATHING_EFFECT_TYPE HeadsetEffect = {};
-		HeadsetEffect.Color = ORANGE;
+		HeadsetEffect.Color = GREEN;
 		Result = CreateHeadsetEffect(ChromaSDK::Headset::CHROMA_BREATHING, &HeadsetEffect, NULL);
 
 		ChromaSDK::Mouse::BREATHING_EFFECT_TYPE MouseEffect = {};
 		MouseEffect.Type = ChromaSDK::Mouse::BREATHING_EFFECT_TYPE::Type::TWO_COLORS;
-		MouseEffect.Color1 = RED;
-		MouseEffect.Color2 = BLUE;
+		MouseEffect.Color1 = GREEN;
+		MouseEffect.Color2 = BLACK;
 		MouseEffect.LEDId = RZLED_ALL;
 		Result = CreateMouseEffect(ChromaSDK::Mouse::CHROMA_BREATHING, &MouseEffect, NULL);
 
 		ChromaSDK::Mousepad::BREATHING_EFFECT_TYPE MousepadEffect = {};
 		MousepadEffect.Type = ChromaSDK::Mousepad::BREATHING_EFFECT_TYPE::Type::TWO_COLORS;
-		MousepadEffect.Color1 = RED;
-		MousepadEffect.Color2 = BLUE;
+		MousepadEffect.Color1 = GREEN;
+		MousepadEffect.Color2 = BLACK;
 		Result = CreateMousepadEffect(ChromaSDK::Mousepad::CHROMA_BREATHING, &MousepadEffect, NULL);
 
 		bPlayingIdleColors = true;

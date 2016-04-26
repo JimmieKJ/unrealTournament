@@ -1,16 +1,20 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 //
 // Base class of a network driver attached to an active or pending level.
 #pragma once
 
 #include "EngineTypes.h"
+#include "Runtime/PacketHandlers/PacketHandler/Public/PacketHandler.h"
+#include "StatelessConnectHandlerComponent.h"
 
 #include "NetDriver.generated.h"
 
 class FRepChangedPropertyTracker;
 class FRepLayout;
 class FObjectReplicator;
+class FNetworkObjectList;
+struct FNetworkObjectInfo;
 
 //
 // Whether to support net lag and packet loss testing.
@@ -77,18 +81,18 @@ struct ENGINE_API FPacketSimulationSettings
 //
 struct FActorPriority
 {
-	int32					Priority;	// Update priority, higher = more important.
+	int32						Priority;	// Update priority, higher = more important.
 	
-	class AActor*			Actor;		// Actor.	
-	class UActorChannel*	Channel;	// Actor channel.
+	FNetworkObjectInfo*			ActorInfo;	// Actor info.
+	class UActorChannel*		Channel;	// Actor channel.
 
 	struct FActorDestructionInfo *	DestructionInfo;	// Destroy an actor
 
 	FActorPriority() : 
-		Priority(0), Actor(NULL), Channel(NULL), DestructionInfo(NULL)
+		Priority(0), ActorInfo(NULL), Channel(NULL), DestructionInfo(NULL)
 	{}
 
-	FActorPriority(class UNetConnection* InConnection, class UActorChannel* InChannel, class AActor* InActor, const TArray<struct FNetViewer>& Viewers, bool bLowBandwidth);
+	FActorPriority(class UNetConnection* InConnection, class UActorChannel* InChannel, FNetworkObjectInfo* InActorInfo, const TArray<struct FNetViewer>& Viewers, bool bLowBandwidth);
 	FActorPriority(class UNetConnection* InConnection, struct FActorDestructionInfo * DestructInfo, const TArray<struct FNetViewer>& Viewers );
 };
 
@@ -180,6 +184,14 @@ public:
 	UPROPERTY()
 	TArray<class UNetConnection*> ClientConnections;
 
+
+	/** Serverside PacketHandler for managing connectionless packets */
+	TUniquePtr<PacketHandler> ConnectionlessHandler;
+
+	/** Reference to the PacketHandler component, for managing stateless connection handshakes */
+	TWeakPtr<StatelessConnectHandlerComponent> StatelessConnectComponent;
+
+
 	/** World this net driver is associated with */
 	UPROPERTY()
 	class UWorld* World;
@@ -268,6 +280,9 @@ public:
 
 	/** Collect net stats even if not FThreadStats::IsCollectingData(). */
 	bool bCollectNetStats;
+
+	/** Time of last netdriver cleanup pass */
+	double						LastCleanupTime;
 
 	/** Used to determine if checking for standby cheats should occur */
 	bool						bIsStandbyCheckingEnabled;
@@ -417,6 +432,18 @@ public:
 	 */
 	ENGINE_API virtual bool InitListen(class FNetworkNotify* InNotify, FURL& ListenURL, bool bReuseAddressAndPort, FString& Error) PURE_VIRTUAL( UNetDriver::InitListen, return true;);
 
+	/**
+	 * Initialize a PacketHandler for serverside net drivers, for handling connectionless packets
+	 * NOTE: Only triggered by net driver subclasses that support it - from within InitListen.
+	 */
+	ENGINE_API virtual void InitConnectionlessHandler();
+
+	/**
+	 * Flushes all packets queued by the connectionless PacketHandler
+	 * NOTE: This should be called shortly after all calls to PacketHandler::IncomingConnectionless, to minimize packet buffer buildup.
+	 */
+	ENGINE_API virtual void FlushHandler();
+
 
 	/** Initializes the net connection class to use for new connections */
 	ENGINE_API virtual bool InitConnectionClass(void);
@@ -470,6 +497,18 @@ public:
 	/** PostTick actions */
 	ENGINE_API virtual void PostTickFlush();
 
+
+	/**
+	 * Sends a 'connectionless' (not associated with a UNetConection) packet, to the specified address.
+	 * NOTE: Address is an abstract format defined by subclasses. Anything calling this, must use an address supplied by the net driver.
+	 *
+	 * @param Address		The address the packet should be sent to (format is abstract, determined by net driver subclasses)
+	 * @param Data			The packet data
+	 * @param CountBits		The size of the packet data, in bits
+	 */
+	ENGINE_API virtual void LowLevelSend(FString Address, void* Data, int32 CountBits)
+		PURE_VIRTUAL(UNetDriver::LowLevelSend,);
+
 	/**
 	 * Process any local talker packets that need to be sent to clients
 	 */
@@ -479,6 +518,11 @@ public:
 	 * Process any local talker packets that need to be sent to the server
 	 */
 	ENGINE_API virtual void ProcessLocalClientPackets();
+
+	/**
+	 * Update the LagState based on a heuristic to determine if we are network lagging
+	 */
+	ENGINE_API virtual void UpdateNetworkLagState();
 
 	/**
 	 * Determines which other connections should receive the voice packet and
@@ -579,6 +623,37 @@ public:
 	/** Returns the actor that corresponds to InGUID, if one can be found. */
 	virtual AActor* GetActorForGUID(FNetworkGUID InGUID) const { return nullptr; }
 
+	/** Returns true if RepNotifies should be checked and generated when receiving properties for the given object. */
+	virtual bool ShouldReceiveRepNotifiesForObject(UObject* Object) const { return true; }
+
+	/** Returns the object that manages the list of replicated UObjects. */
+	ENGINE_API FNetworkObjectList& GetNetworkObjectList() { return *NetworkObjects; }
+
+	/** Returns the object that manages the list of replicated UObjects. */
+	ENGINE_API const FNetworkObjectList& GetNetworkObjectList() const { return *NetworkObjects; }
+
+	/** Get the network object matching the given Actor, or null if not found. */
+	ENGINE_API const FNetworkObjectInfo* GetNetworkActor(const AActor* InActor) const;
+
+	/** Get the network object matching the given Actor, or null if not found. */
+	ENGINE_API FNetworkObjectInfo* GetNetworkActor(const AActor* InActor);
+
+	/**
+	 * Returns whether adaptive net frequency is enabled. If enabled, update frequency is allowed to ramp down to MinNetUpdateFrequency for an actor when no replicated properties have changed.
+	 * This is currently controlled by the CVar "net.UseAdaptiveNetUpdateFrequency".
+	 */
+	ENGINE_API static bool IsAdaptiveNetUpdateFrequencyEnabled();
+
+	/** Returns true if adaptive net update frequency is enabled and the given actor is having its update rate lowered from its standard rate. */
+	ENGINE_API bool IsNetworkActorUpdateFrequencyThrottled(const AActor* InActor) const;
+
+	/** Returns true if adaptive net update frequency is enabled and the given actor is having its update rate lowered from its standard rate. */
+	ENGINE_API bool IsNetworkActorUpdateFrequencyThrottled(const FNetworkObjectInfo& InNetworkActor) const;
+
+	/** Stop adaptive replication for the given actor if it's currently throttled. It maybe be allowed to throttle again later. */
+	ENGINE_API void CancelAdaptiveReplication(FNetworkObjectInfo& InNetworkActor);
+
+
 protected:
 
 	/** Adds (fully initialized, ready to go) client connection to the ClientConnections list + any other game related setup */
@@ -590,4 +665,21 @@ protected:
 	ENGINE_API void UnregisterTickEvents(class UWorld* InWorld);
 	/** Returns true if this actor is considered to be in a loaded level */
 	ENGINE_API virtual bool IsLevelInitializedForActor( const AActor* InActor, const UNetConnection* InConnection ) const;
+
+#if WITH_SERVER_CODE
+	/**
+	* Helper functions for ServerReplicateActors
+	*/
+	int32 ServerReplicateActors_PrepConnections( const float DeltaSeconds );
+	void ServerReplicateActors_BuildConsiderList( TArray<FNetworkObjectInfo*>& OutConsiderList, const float ServerTickTime );
+	int32 ServerReplicateActors_PrioritizeActors( UNetConnection* Connection, const TArray<FNetViewer>& ConnectionViewers, const TArray<FNetworkObjectInfo*> ConsiderList, const bool bCPUSaturated, FActorPriority*& OutPriorityList, FActorPriority**& OutPriorityActors );
+	int32 ServerReplicateActors_ProcessPrioritizedActors( UNetConnection* Connection, const TArray<FNetViewer>& ConnectionViewers, FActorPriority** PriorityActors, const int32 FinalSortedCount, int32& OutUpdated );
+#endif
+
+private:
+	/** Stores the list of objects to replicate into the replay stream. This should be a TUniquePtr, but it appears the generated.cpp file needs the full definition of the pointed-to type. */
+	TSharedPtr<FNetworkObjectList> NetworkObjects;
+
+	/** Set to "Lagging" on the server when all client connections are near timing out. We are lagging on the client when the server connection is near timed out. */
+	ENetworkLagState::Type LagState;
 };

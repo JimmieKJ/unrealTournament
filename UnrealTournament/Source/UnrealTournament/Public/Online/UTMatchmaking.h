@@ -6,12 +6,13 @@
 #include "UTPartyBeaconClient.h"
 #include "PartyGameState.h"
 #include "UTMatchmakingPolicy.h"
+#include "QosEvaluator.h"
 #include "UTMatchmaking.generated.h"
 
-class UQosEvaluator;
 class AUTPlayerController;
 enum class EUTPartyState : uint8;
 enum class EQosCompletionResult : uint8;
+class FQosEvaluator;
 
 /** Time before actually reconnecting to the reservation beacon */
 #define CONNECT_TO_RESERVATION_BEACON_DELAY 3.0f
@@ -144,8 +145,7 @@ private:
 	 * QoS evaluation
 	 */
 
-	UPROPERTY()
-	UQosEvaluator* QosEvaluator;
+	//FQosEvaluator* QosEvaluator;
 
 	FOnPartyStateChange PartyStateChange;
 
@@ -298,6 +298,8 @@ private:
 	/** Internal notification that the matchmaking has completed, routes externally */
 	void OnMatchmakingCompleteInternal(EMatchmakingCompleteResult Result, const FOnlineSessionSearchResult& SearchResult);
 
+	friend class UUTLocalPlayer;
+
 	void TravelToServer();
 
 	/** Reservation beacon class */
@@ -381,4 +383,7 @@ private:
 
 	/** Timer handle for waiting for join acknowledgment */
 	FTimerHandle JoiningAckTimerHandle;
+
+	UPROPERTY()
+	bool bQueuedTravelToServer;
 };

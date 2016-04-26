@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "Tickable.h"
@@ -50,7 +50,7 @@ private_subobject:
 	UPROPERTY(EditAnywhere, Category = Navigation, meta=(EditCondition="bActAsNavigationInvoker"))
 	UNavigationInvokerComponent* InvokerComponent;
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category = Navigation, meta=(InlineEditConditionToggle))
 	uint32 bActAsNavigationInvoker : 1;
 
 public:

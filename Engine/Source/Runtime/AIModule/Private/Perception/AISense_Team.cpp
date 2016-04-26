@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
 #include "Perception/AISense_Team.h"
@@ -20,8 +20,6 @@ FAITeamStimulusEvent::FAITeamStimulusEvent(AActor* InBroadcaster, AActor* InEnem
 UAISense_Team::UAISense_Team(const FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer)
 {
-	DebugName = TEXT("Team");
-	DebugDrawColor = FColor::Blue;
 }
 
 float UAISense_Team::Update()

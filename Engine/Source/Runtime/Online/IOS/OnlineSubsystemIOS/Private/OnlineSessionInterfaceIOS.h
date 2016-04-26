@@ -1,10 +1,12 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include <GameKit/GKLocalPlayer.h>
 
 #include "OnlineSessionInterface.h"
 #include "OnlineSubsystemIOSTypes.h"
+
+#if !PLATFORM_TVOS
 
 #if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_7_0
 #include <GameKit/GKSession.h>
@@ -23,7 +25,7 @@
 @end
 #endif
 
-#ifdef __IPHONE_7_0
+#if defined(__IPHONE_7_0)
 #include <MultipeerConnectivity/MultipeerConnectivity.h>
 
 @interface FGameCenterSessionDelegateMC : UIViewController<MCSessionDelegate>
@@ -48,7 +50,7 @@
 #if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_7_0
 @property (nonatomic, strong) FGameCenterSessionDelegateGK *SessionGK;
 #endif
-#ifdef __IPHONE_7_0
+#if defined(__IPHONE_7_0)
 @property (nonatomic, strong) FGameCenterSessionDelegateMC *SessionMC;
 #endif
 
@@ -58,6 +60,8 @@
 -(void)joinSession;
 
 @end
+
+#endif
 
 
 /**
@@ -83,7 +87,9 @@ PACKAGE_SCOPE:
 	/** Current session settings */
 	TArray<FNamedOnlineSession> Sessions;
 
+#if !PLATFORM_TVOS
 	TMap< FName, FGameCenterSessionDelegate* > GKSessions;
+#endif
 
 	/** Current search object */
 	TSharedPtr<FOnlineSessionSearch> CurrentSessionSearch;
@@ -188,3 +194,4 @@ public:
 };
 
 typedef TSharedPtr<FOnlineSessionIOS, ESPMode::ThreadSafe> FOnlineSessionIOSPtr;
+

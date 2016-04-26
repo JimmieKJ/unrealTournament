@@ -103,10 +103,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	class UFont* HugeFont;
 
-	// The score font to use
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
-	class UFont* ScoreFont;
-
 	// The font that only contains numbers
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	class UFont* NumberFont;
@@ -183,6 +179,15 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	float LastConfirmedHitTime;
 
+	/** Damage given in that hit */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
+	int32 LastConfirmedHitDamage;
+
+	/** if it was a kill,  this will be true */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
+	bool LastConfirmedHitWasAKill;
+
+
 	// Active Damage Indicators.  NOTE: if FadeTime == 0 then it's not in use
 	UPROPERTY()
 	TArray<struct FDamageHudIndicator> DamageIndicators;
@@ -232,6 +237,9 @@ public:
 	uint32 bShowScores:1;
 
 	UPROPERTY(BlueprintReadOnly, Category = "HUD")
+		uint32 bShowScoresWhileDead : 1;
+
+	UPROPERTY(BlueprintReadOnly, Category = "HUD")
 		uint32 bDrawMinimap : 1;
 
 	/** icon for player on the minimap (rotated BG that indicates direction) */
@@ -242,11 +250,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, NoClear)
 		UTexture2D* SelectedPlayerTexture;
 
+	/** background for help text over map */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, NoClear)
+		FCanvasIcon SpawnHelpTextBG;
+
 	UPROPERTY(BlueprintReadWrite, Category ="HUD")
 	uint32 bForceScores:1;
-
-	/** Creates the scoreboard */
-	virtual void CreateScoreboard(TSubclassOf<class UUTScoreboard> NewScoreboardClass);
 
 	virtual void PawnDamaged(uint8 ShotDirYaw, int32 DamageAmount, bool bFriendlyFire);
 	virtual void DrawDamageIndicators();
@@ -262,6 +271,11 @@ public:
 	virtual FLinearColor GetBaseHUDColor();
 
 	virtual void ShowDebugInfo(float& YL, float& YPos) override;
+
+	UPROPERTY()
+		bool bShowUTHUD;
+
+	virtual void ShowHUD() override;
 
 	/** get player state for which to display scoring info. */
 	virtual AUTPlayerState* GetScorerPlayerState();
@@ -283,29 +297,29 @@ protected:
 public:
 	// This is the base HUD opacity level used by HUD Widgets RenderObjects
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float HUDWidgetOpacity();
+	float GetHUDWidgetOpacity();
 
 	// HUD widgets that have borders will use this opacity value when rendering.
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float HUDWidgetBorderOpacity();
+	float GetHUDWidgetBorderOpacity();
 
 	// HUD widgets that have background slates will use this opacity value when rendering.
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float HUDWidgetSlateOpacity();
+	float GetHUDWidgetSlateOpacity();
 
 	// This is a special opacity value used by just the Weapon bar.  When the weapon bar isn't in use, this opacity value will be multipled in
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float HUDWidgetWeaponbarInactiveOpacity();
+	float GetHUDWidgetWeaponbarInactiveOpacity();
 
 	// The weapon bar can get a secondary scale override using this value
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float HUDWidgetWeaponBarScaleOverride();
+	float GetHUDWidgetWeaponBarScaleOverride();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float HUDWidgetWeaponBarInactiveIconOpacity();
+	float GetHUDWidgetWeaponBarInactiveIconOpacity();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float HUDWidgetWeaponBarEmptyOpacity();
+	float GetHUDWidgetWeaponBarEmptyOpacity();
 
 	/** Set true to force weapon bar to immediately update. */
 	UPROPERTY()
@@ -313,58 +327,58 @@ public:
 
 	// Allows the user to override the scaling factor for their hud.
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float HUDWidgetScaleOverride();
+	float GetHUDWidgetScaleOverride();
 
 	// Allows the user to override the scaling factor for their hud.
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float HUDMessageScaleOverride();
+	float GetHUDMessageScaleOverride();
 
 	// Allows the user to override the scaling factor for their hud.
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	bool bUseWeaponColors();
+	bool GetUseWeaponColors();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	bool bDrawChatKillMsg();
+	bool GetDrawChatKillMsg();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	bool bDrawCenteredKillMsg();
+	bool GetDrawCenteredKillMsg();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	bool bDrawHUDKillIconMsg();
+	bool GetDrawHUDKillIconMsg();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	bool bPlayKillSoundMsg();
+	bool GetPlayKillSoundMsg();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	bool bDrawCTFMinimapHUDSetting();
+	bool GetDrawCTFMinimapHUDSetting();
 
 	UFUNCTION(BlueprintCallable, Category = HUD)
-	float HUDMinimapScale();
+	float GetHUDMinimapScale();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float QuickStatsAngle();
+	float GetQuickStatsAngle();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float QuickStatsDistance();
+	float GetQuickStatsDistance();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float QuickStatScaleOverride();
+	float GetQuickStatScaleOverride();
 	
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	FName QuickStatsType();
+	FName GetQuickStatsType();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float QuickStatsBackgroundAlpha();
+	float GetQuickStatsBackgroundAlpha();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float QuickStatsForegroundAlpha();
+	float GetQuickStatsForegroundAlpha();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float bQuickStatsHidden();
+	float GetQuickStatsHidden();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float bQuickStatsBob();
+	float GetQuickStatsBob();
 
 	
 
@@ -386,6 +400,8 @@ public:
 	UPROPERTY()
 	int32 ScoreboardPage;
 
+	virtual bool ShouldDrawMinimap();
+
 protected:
 
 	// We cache the team color so we only have to look it up once at the start of the render pass
@@ -395,7 +411,6 @@ protected:
 	UPROPERTY()
 	class UUTScoreboard* MyUTScoreboard;
 
-	virtual bool ShouldDrawMinimap();
 
 public:
 	// Takes a raw widget string and tries to build a widget from it.  It supports embedded JSON objects that define the widget as follows:
@@ -502,7 +517,15 @@ public:
 	/** render target for the minimap */
 	UPROPERTY()
 	UCanvasRenderTarget2D* MinimapTexture;
-	
+
+	/** Minimap Actor whose icon the mouse pointer is hovering over last time we checked */
+	UPROPERTY(BlueprintReadOnly)
+		AActor* LastHoveredActor;
+
+	/** most recent time LastHoveredActor changed - NOTE: This is in RealTimeSeconds! */
+	UPROPERTY(BlueprintReadOnly)
+		float LastHoveredActorChangeTime;
+
 	/** transformation matrix from world locations to minimap locations */
 	FMatrix MinimapTransform;
 

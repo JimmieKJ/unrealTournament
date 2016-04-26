@@ -7,7 +7,8 @@
 
 AUTPartyBeaconHost::AUTPartyBeaconHost(const FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer),
-	UTState(NULL)
+	UTState(NULL),
+	bReservationsLocked(false)
 {
 	ClientBeaconActorClass = AUTPartyBeaconClient::StaticClass();
 	BeaconTypeName = ClientBeaconActorClass->GetName();
@@ -170,8 +171,25 @@ EPartyReservationResult::Type AUTPartyBeaconHost::AddEmptyServerReservationReque
 	return Result;
 }
 
+void AUTPartyBeaconHost::LockReservations(bool bNewLockState)
+{
+	UE_LOG(LogBeacon, Verbose, TEXT("Setting reservation lock state to %s"), bNewLockState ? TEXT("true") : TEXT("false"));
+	// warn on new reservations?
+	bReservationsLocked = bNewLockState;
+
+	// Turn off timeouts when locked to avoid log spam about timing players out that will never be removed
+	bNoTimeouts = bNewLockState;
+}
+
 void AUTPartyBeaconHost::HandlePlayerLogout(const FUniqueNetIdRepl& PlayerId)
 {
+	UE_LOG(LogBeacon, Verbose, TEXT("HandlePlayerLogout %s while %s"), *PlayerId.ToString(), bReservationsLocked ? TEXT("locked") : TEXT("unlocked"));
+
+	if (bReservationsLocked)
+	{
+		return;
+	}
+
 	if (UTState)
 	{
 		const TSharedPtr<const FUniqueNetId>& SessionOwner = UTState->GetGameSessionOwner();
@@ -196,9 +214,9 @@ void AUTPartyBeaconHost::HandlePlayerLogout(const FUniqueNetIdRepl& PlayerId)
 			}
 		}
 	}
-
+	
 	// Lastly remove the player and notify the game
-	APartyBeaconHost::HandlePlayerLogout(PlayerId);
+	Super::HandlePlayerLogout(PlayerId);
 }
 
 void AUTPartyBeaconHost::ProcessReservationRequest(APartyBeaconClient* Client, const FString& SessionId, const FPartyReservation& ReservationRequest)

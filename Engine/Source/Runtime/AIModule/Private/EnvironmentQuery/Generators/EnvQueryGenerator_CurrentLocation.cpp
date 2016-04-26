@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
 #include "EnvironmentQuery/Items/EnvQueryItemType_Point.h"
@@ -21,7 +21,8 @@ void UEnvQueryGenerator_CurrentLocation::GenerateItems(FEnvQueryInstance& QueryI
 
 	for (const FVector& Location : ContextLocations)
 	{
-		QueryInstance.AddItemData<UEnvQueryItemType_Point>(Location);
+		FNavLocation NavLoc(Location);
+		QueryInstance.AddItemData<UEnvQueryItemType_Point>(NavLoc);
 	}
 }
 

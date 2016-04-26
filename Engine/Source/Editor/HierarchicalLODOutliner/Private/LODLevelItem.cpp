@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "HierarchicalLODOutlinerPrivatePCH.h"
 #include "HLODOutliner.h"
@@ -25,7 +25,7 @@ bool HLODOutliner::FLODLevelItem::CanInteract() const
 
 void HLODOutliner::FLODLevelItem::GenerateContextMenu(FMenuBuilder& MenuBuilder, SHLODOutliner& Outliner)
 {
-
+	// No context menu available for LODLevel item
 }
 
 FString HLODOutliner::FLODLevelItem::GetDisplayString() const
@@ -63,26 +63,30 @@ HLODOutliner::FDragValidationInfo HLODOutliner::FLODLevelDropTarget::ValidateDro
 	if (DraggedObjects.StaticMeshActors.IsSet() && DraggedObjects.StaticMeshActors->Num() > 0)
 	{
 		const int32 NumStaticMeshActors = DraggedObjects.StaticMeshActors->Num();	
-		bool bSameLevelInstance = true;
+		
 		ULevel* Level = nullptr;
+
+		TArray<AActor*> DraggedActors;
+
 		for (auto Actor : DraggedObjects.StaticMeshActors.GetValue())
 		{
-			if (Level == nullptr)
-			{
-				Level = Actor->GetLevel();
-			}
-			else if (Level != Actor->GetLevel())
-			{
-				bSameLevelInstance = false;
-			}
+			DraggedActors.Add(Actor.Get());
 		}
 
+		bool bSameLevelInstance = FHierarchicalLODUtilities::AreActorsInSamePersistingLevel(DraggedActors);
+		bool bAlreadyClustered = FHierarchicalLODUtilities::AreActorsClustered(DraggedActors);
+		
 		if (!bSameLevelInstance)
 		{
-			return FDragValidationInfo(FHLODOutlinerDragDropOp::ToolTip_Incompatible, LOCTEXT("NotInSameLevelAsset", "Static Mesh Actors not in the same level asset (streaming level)"));
+			return FDragValidationInfo(EHierarchicalLODActionType::InvalidAction, FHLODOutlinerDragDropOp::ToolTip_Incompatible, LOCTEXT("StaticMeshActorsNotInSameLevelAsset", "Static Mesh Actors not in the same level asset (streaming level)"));
 		}
 
-		return FDragValidationInfo(FHLODOutlinerDragDropOp::ToolTip_CompatibleNewCluster, LOCTEXT("CreateNewCluster", "Create new Cluster"));
+		if (bAlreadyClustered && DraggedObjects.bSceneOutliner )
+		{
+			return FDragValidationInfo(EHierarchicalLODActionType::InvalidAction, FHLODOutlinerDragDropOp::ToolTip_Incompatible, LOCTEXT("AlreadyClusters", "One or more Static Mesh Actors is already in a cluster"));
+		}
+
+		return FDragValidationInfo(EHierarchicalLODActionType::CreateCluster, FHLODOutlinerDragDropOp::ToolTip_Compatible, LOCTEXT("CreateNewCluster", "Create new Cluster"));
 	}
 	else if (DraggedObjects.LODActors.IsSet() && DraggedObjects.LODActors->Num() > 0)
 	{
@@ -90,71 +94,46 @@ HLODOutliner::FDragValidationInfo HLODOutliner::FLODLevelDropTarget::ValidateDro
 
 		if (NumLODActors > 1)
 		{
-			// Check if all the dragged LOD actors fall within the same LOD level
-			auto LODActors = DraggedObjects.LODActors.GetValue();
-			int32 LevelIndex = -1;
-			bool bSameLODLevel = true;
-			bool bSameLevelInstance = true;
-			bool bValidOperation = true;
-			ULevel* Level = nullptr;
+			// Gather LOD actors for checks
+			auto LODActors = DraggedObjects.LODActors.GetValue();			
+			TArray<ALODActor*> DraggedLODActors;
+			TArray<AActor*> DraggedActors;
 			for (auto Actor : LODActors)
 			{
-				ALODActor* LODActor = Cast<ALODActor>(Actor.Get());
-				if (LevelIndex == -1)
-				{
-					LevelIndex = LODActor->LODLevel;
-				}
-				else if (LevelIndex != LODActor->LODLevel)
-				{
-					bSameLODLevel = false;
-				}
-
-				if (FHierarchicalLODUtilities::GetParentLODActor(LODActor))
-				{
-					bValidOperation = false;
-				}
-
-				if (Level == nullptr)
-				{
-					Level = LODActor->GetLevel();
-				}
-				else if (Level != LODActor->GetLevel())
-				{
-					bSameLevelInstance = false;
-				}
+				DraggedLODActors.Add(Cast<ALODActor>(Actor.Get()));
+				DraggedActors.Add(Actor.Get());
 			}
 
-			if (!bValidOperation)
-			{
-				return FDragValidationInfo(FHLODOutlinerDragDropOp::ToolTip_Incompatible, LOCTEXT("OneOrMultipleAlreadyInHLODLevel", "One or multiple LODActors are already part of a cluster in this HLOD level"));
-			}
+			bool bSameLevelInstance = FHierarchicalLODUtilities::AreActorsInSamePersistingLevel(DraggedActors);
+			bool bSameLODLevel = FHierarchicalLODUtilities::AreClustersInSameHLODLevel(DraggedLODActors);
+			const uint32 LevelIndex = (DraggedLODActors.Num() > 0 ) ? DraggedLODActors[0]->LODLevel : 0;
+			bool bIsClustered = FHierarchicalLODUtilities::AreActorsClustered(DraggedActors);
 
 			if (!bSameLODLevel)
 			{
-				return FDragValidationInfo(FHLODOutlinerDragDropOp::ToolTip_Incompatible, LOCTEXT("NotInSameLODLevel", "LODActors are not all in the same HLOD level"));
+				return FDragValidationInfo(EHierarchicalLODActionType::InvalidAction, FHLODOutlinerDragDropOp::ToolTip_Incompatible, LOCTEXT("NotInSameLODLevel", "LODActors are not all in the same HLOD level"));
 			}
 
 			if (!bSameLevelInstance)
 			{
-				return FDragValidationInfo(FHLODOutlinerDragDropOp::ToolTip_Incompatible, LOCTEXT("NotInSameLevelAsset", "LODActors not in the same level asset (streaming level)"));
+				return FDragValidationInfo(EHierarchicalLODActionType::InvalidAction, FHLODOutlinerDragDropOp::ToolTip_Incompatible, LOCTEXT("LODActorsNotInSameLevelAsset", "LODActors not in the same level asset (streaming level)"));
 			}
-
+						
 			if (bSameLevelInstance && bSameLODLevel && LevelIndex < (int32)(LODLevelIndex + 1))
 			{
-				return FDragValidationInfo(FHLODOutlinerDragDropOp::ToolTip_MultipleSelection_CompatibleNewCluster, LOCTEXT("CreateNewCluster", "Create new Cluster"));
-			}
-			
+				return FDragValidationInfo(EHierarchicalLODActionType::CreateCluster, FHLODOutlinerDragDropOp::ToolTip_MultipleSelection_Compatible, LOCTEXT("CreateNewCluster", "Create new Cluster"));
+			}			
 		}
 	}
 
-	return FDragValidationInfo(FHLODOutlinerDragDropOp::ToolTip_Incompatible, LOCTEXT("NotImplemented", "Not implemented"));
-}
+	return FDragValidationInfo(EHierarchicalLODActionType::InvalidAction, FHLODOutlinerDragDropOp::ToolTip_Incompatible, LOCTEXT("NotImplemented", "Not implemented"));
+}				
 
 void HLODOutliner::FLODLevelDropTarget::OnDrop(FDragDropPayload& DraggedObjects, const FDragValidationInfo& ValidationInfo, TSharedRef<SWidget> DroppedOnWidget)
 {
-	if (ValidationInfo.TooltipType == FHLODOutlinerDragDropOp::ToolTip_CompatibleNewCluster || ValidationInfo.TooltipType == FHLODOutlinerDragDropOp::ToolTip_MultipleSelection_CompatibleNewCluster)
+	if (ValidationInfo.ActionType == EHierarchicalLODActionType::CreateCluster)
 	{
-		CreateNewCluster(DraggedObjects);		
+		CreateNewCluster(DraggedObjects);
 	}	
 }
 
@@ -171,52 +150,20 @@ void HLODOutliner::FLODLevelDropTarget::CreateNewCluster(FDragDropPayload &Dragg
 		OuterWorld = Cast<UWorld>(DraggedObjects.LODActors.GetValue()[0]->GetLevel()->GetOuter());
 	}
 
-	// Retrieve world settings from the InWorld instance, this is the instance the HLODOutliner is running on
-	auto WorldSettings = DraggedObjects.OutlinerWorld->GetWorldSettings();
-
-	const FScopedTransaction Transaction(LOCTEXT("UndoAction_CreateNewCluster", "Create new Cluster"));
-	OuterWorld->Modify();
-
-	if (WorldSettings->bEnableHierarchicalLODSystem)
+	// Gather sub actors from the drag and drop operation
+	TArray<AActor*> SubActors;
+	for (TWeakObjectPtr<AActor> StaticMeshActor : DraggedObjects.StaticMeshActors.GetValue())
 	{
-		ALODActor* NewCluster = FHierarchicalLODUtilities::CreateNewClusterActor(OuterWorld, LODLevelIndex, WorldSettings);
-
-		if (NewCluster)
-		{
-			for (TWeakObjectPtr<AActor> StaticMeshActor : DraggedObjects.StaticMeshActors.GetValue())
-			{
-				AActor* InActor = StaticMeshActor.Get();
-				ALODActor* CurrentParentActor = FHierarchicalLODUtilities::GetParentLODActor(InActor);
-				if (CurrentParentActor)
-				{
-					CurrentParentActor->RemoveSubActor(InActor);
-
-					if (!CurrentParentActor->HasValidSubActors())
-					{
-						FHierarchicalLODUtilities::DeleteLODActor(CurrentParentActor);
-					}
-				}
-
-				NewCluster->AddSubActor(InActor);
-			}
-
-			for (TWeakObjectPtr<AActor> LODActor : DraggedObjects.LODActors.GetValue())
-			{
-				AActor* InActor = LODActor.Get();
-				ALODActor* CurrentParentActor = FHierarchicalLODUtilities::GetParentLODActor(InActor);
-				if (CurrentParentActor)
-				{
-					CurrentParentActor->RemoveSubActor(InActor);
-					if (!CurrentParentActor->HasValidSubActors())
-					{
-						FHierarchicalLODUtilities::DeleteLODActor(CurrentParentActor);
-					}
-				}
-
-				NewCluster->AddSubActor(InActor);
-			}
-		}
+		SubActors.Add(StaticMeshActor.Get());
 	}
+
+	for (TWeakObjectPtr<AActor> LODActor : DraggedObjects.LODActors.GetValue())
+	{
+		SubActors.Add(LODActor.Get());
+	}
+
+	// Create the new cluster
+	FHierarchicalLODUtilities::CreateNewClusterFromActors(OuterWorld, DraggedObjects.OutlinerWorld->GetWorldSettings(), SubActors, LODLevelIndex);	
 }
 
 #undef LOCTEXT_NAMESPACE

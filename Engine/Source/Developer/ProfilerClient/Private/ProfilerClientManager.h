@@ -1,30 +1,18 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-// #YRX_Profiler: 2015-05-13 Remove it later.
-#define PROFILER_THREADED_LOAD 1
-
+class FNewStatsReader;
+class FProfilerClientManager;
 
 /** Helper struct containing all of the data and operations associated with a service connection */
 struct FServiceConnection
 {
-	FServiceConnection()
-		: DataLoadingProgress( 0.0f )
-		, ReadMessages(0)
-	{
-		MetaData.CriticalSection = &CriticalSection;
-	}
+	FServiceConnection();
 
-	~FServiceConnection()
-	{
-		MetaData.CriticalSection = NULL;
-	}
+	~FServiceConnection();
 
-	FServiceConnection(const FServiceConnection& InConnnection)
-	{
-		MetaData.CriticalSection = &CriticalSection;
-	}
+	FServiceConnection(const FServiceConnection& InConnnection);
 
 	/** Instance Id */
 	FGuid InstanceId;
@@ -33,7 +21,7 @@ struct FServiceConnection
 	FMessageAddress ProfilerServiceAddress;
 
 	/** Descriptions for the stats */
-	FStatMetaData MetaData;
+	FStatMetaData StatMetaData;
 
 	/** Current frame worth of data */
 	FProfilerDataFrame CurrentData;
@@ -43,37 +31,28 @@ struct FServiceConnection
 
 #if STATS
 	/** Current stats data */
-	FStatsThreadState CurrentThreadState;
+	FStatsLoadedState CurrentThreadState;
 #endif
 
 	/** Provides an FName to GroupId mapping */
 	TMap<FName, int32> GroupNameArray;
 
 	/** Provides the long stat name to StatId mapping. */
-	TMap<FName,int32> LongNameToStatID;
+	TMap<FName, int32> LongNameToStatID;
 
 #if STATS
 	/** Stream reader */
 	FStatsReadStream Stream;
 
 	/** Pending stat messages */
-	TArray<FStatMessage> Messages;
+	TArray<FStatMessage> PendingStatMessagesMessages;
 #endif
 
 	/** Pending Data frames on a load */
 	TArray<FProfilerDataFrame> DataFrames;
 
-	/** Current data loading progress. */
-	float DataLoadingProgress;
-
-	/** Current number of read messages. */
-	uint64 ReadMessages;
-
 	/** Messages received and pending process, they are stored in a map as we can receive them out of order */
-	TMap<int64, TArray<uint8> > PendingMessages;
-
-	/** Critical Section needed to synchronize */
-	FCriticalSection CriticalSection;
+	TMap<int64, TArray<uint8>* > ReceivedData;
 
 #if STATS
 	// generates the old style cycle graph
@@ -91,26 +70,17 @@ struct FServiceConnection
 	// adds a new style stat FName to the list of threads and generates an old style id and description
 	int32 FindOrAddThread(const FStatNameAndInfo& Thread);
 
-	// updates the meta date for the given instance
-	void UpdateMetaData();
-
-	
-	/**
-	 * Reads stat message from the archive and converts them to be usable by the profiler..
-	 *
-	 * @return true if read a special marker that indicates end of file
-	 */
-	bool ReadAndConvertStatMessages( FArchive& Reader, bool bUseInAsync );
-
-	/** Generates a new frame for the profiler. */
-	void GenerateNewFrame( FStatMessage Message, FArchive &Reader, bool bUseInAsync );
-
-	/** Adds all collected stat messages to the current stats thread state. */
-	void AddCollectedStatMessages( FStatMessage Message );
-
 	/** Generates profiler data frame based on the collected stat messages. */
 	void GenerateProfilerDataFrame();
 #endif
+
+	/*-----------------------------------------------------------------------------
+		Transition into new system
+	-----------------------------------------------------------------------------*/
+
+	void LoadCapture( const FString& DataFilepath, FProfilerClientManager* ProfilerClientManager );
+
+	FNewStatsReader* StatsReader;
 };
 
 /**
@@ -119,25 +89,7 @@ struct FServiceConnection
 class FProfilerClientManager
 	: public IProfilerClient
 {
-	class FAsyncReadWorker : public FNonAbandonableTask
-	{
-	public:
-		FServiceConnection* LoadConnection;
-		FArchive* FileReader;
-
-		/** Constructor */
-		FAsyncReadWorker(FServiceConnection* InConnection, FArchive* InReader)
-			: LoadConnection(InConnection)
-			, FileReader(InReader)
-		{}
-
-		void DoWork();
-
-		FORCEINLINE TStatId GetStatId() const
-		{
-			RETURN_QUICK_DECLARE_CYCLE_STAT(FAsyncReadWorker, STATGROUP_ThreadPoolAsyncTasks);
-		}
-	};
+	friend class FNewStatsReader;
 
 public:
 
@@ -157,7 +109,6 @@ public:
 
 	virtual void Subscribe( const FGuid& Session ) override;
 	virtual void Track( const FGuid& Instance ) override;
-	virtual void Track( const TArray<TSharedPtr<ISessionInstanceInfo>>& Instances ) override;
 	virtual void Untrack( const FGuid& Instance ) override;
 	virtual void Unsubscribe() override;
 	virtual void SetCaptureState( const bool bRequestedCaptureState, const FGuid& InstanceId = FGuid() ) override;
@@ -167,7 +118,7 @@ public:
 
 	virtual const FStatMetaData& GetStatMetaData( const FGuid& InstanceId ) const override
 	{
-		return Connections.Find(InstanceId)->MetaData;
+		return Connections.Find(InstanceId)->StatMetaData;
 	}
 
 	virtual FProfilerClientDataDelegate& OnProfilerData() override
@@ -206,13 +157,6 @@ public:
 		return ProfilerLoadCompletedDelegate;
 	}
 
-	virtual FProfilerLoadedMetaDataDelegate& OnLoadedMetaData() override
-	{
-		return ProfilerLoadedMetaDataDelegate;
-	}
-
-	static const int32 MaxFramesPerTick = 30;
-
 private:
 
 	// Handles message bus shutdowns.
@@ -242,9 +186,6 @@ private:
 	/** If hash is ok, writes the data to the archive and returns true, otherwise only returns false. */
 	bool CheckHashAndWrite( const FProfilerServiceFileChunk& FileChunk, const FProfilerFileChunkHeader& FileChunkHeader, FArchive* Writer );
 
-	/** Broadcast that meta data has been updated. */
-	void BroadcastMetadataUpdate();
-
 	/** Broadcast that loading has completed and cleans internal structures. */
 	void FinalizeLoading();
 
@@ -252,7 +193,13 @@ private:
 	void DecompressDataAndSendToGame( FProfilerServiceData2* ToProcess );
 
 	/** Sends decompressed data to the game thread. */
-	void SendToGame( TArray<uint8>* DataToGame, int64 Frame, const FGuid InstanceId );
+	void SendDataToGame( TArray<uint8>* DataToGame, int64 Frame, const FGuid InstanceId );
+
+	/** A new profiler data frame from the async loading thread. */
+	void SendProfilerDataFrameToGame( FProfilerDataFrame* NewData, FStatMetaData* MetaDataPtr );
+
+	/** Removes active transfers and core tickers. */
+	void Shutdown();
 
 private:
 
@@ -264,6 +211,7 @@ private:
 	TArray<FGuid> PendingInstances;
 
 	/** Service connections */
+	// #Profiler: 2015-11-19 should be only one active connection.
 	TMap<FGuid, FServiceConnection> Connections;
 
 	struct FReceivedFileInfo
@@ -325,9 +273,6 @@ private:
 	/** Delegate for notifying clients of a load completion */
 	FProfilerLoadCompletedDelegate ProfilerLoadCompletedDelegate;
 
-	/** Delegate for notifying clients of initial meta data load */
-	FProfilerLoadedMetaDataDelegate ProfilerLoadedMetaDataDelegate;
-
 	/** Holds a delegate to be invoked when the widget ticks. */
 	FTickerDelegate TickDelegate;
 
@@ -349,18 +294,6 @@ private:
 	/** Handle to the registered OnShutdown for Message Bus. */
 	FDelegateHandle OnShutdownMessageBusDelegateHandle;
 
-#if PROFILER_THREADED_LOAD
-	/** Loads a file asynchronously */
-	bool AsyncLoad();
-
-	/** Load Task */
-	FAsyncTask<FAsyncReadWorker>* LoadTask;
-#else
-	/** Loads a file synchronously */
-	bool SyncLoad();
-	/** File reader */
-	FArchive* FileReader;
-#endif
 
 	/** Holds the last time a ping was made to instances */
 	FDateTime LastPingTime;

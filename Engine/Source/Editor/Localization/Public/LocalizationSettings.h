@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -36,4 +36,29 @@ public:
 
 	static ULocalizationTargetSet* GetEngineTargetSet();
 	static ULocalizationTargetSet* GetGameTargetSet();
+};
+
+/** Struct containing util functions for getting/setting the SCC settings for the localization dashboard */
+struct LOCALIZATION_API FLocalizationSourceControlSettings
+{
+public:
+	/** Checks to see whether source control is available based upon the current editor SCC settings. */
+	static bool IsSourceControlAvailable();
+
+	/** Check to see whether we should use SCC when running the localization commandlets. This should be used to optionally pass "-EnableSCC" to the commandlet. */
+	static bool IsSourceControlEnabled();
+
+	/** Check to see whether we should automatically submit changed files after running the commandlet. This should be used to optionally pass "-DisableSCCSubmit" to the commandlet. */
+	static bool IsSourceControlAutoSubmitEnabled();
+
+	/** Set whether we should use SCC when running the localization commandlets. */
+	static void SetSourceControlEnabled(const bool bIsEnabled);
+
+	/** Set whether we should automatically submit changed files after running the commandlet. */
+	static void SetSourceControlAutoSubmitEnabled(const bool bIsEnabled);
+
+private:
+	static const FString LocalizationSourceControlSettingsCategoryName;
+	static const FString SourceControlEnabledSettingName;
+	static const FString SourceControlAutoSubmitEnabledSettingName;
 };

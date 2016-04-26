@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AnimMontage.cpp: Montage classes that contains slots
@@ -20,7 +20,6 @@ DEFINE_LOG_CATEGORY(LogAnimMontage);
 UAnimMontage::UAnimMontage(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	bAnimBranchingPointNeedsSort = true;
 	BlendIn.SetBlendTime(0.25f);
 	BlendOut.SetBlendTime(0.25f);
 	BlendOutTriggerTime = -1.f;
@@ -352,7 +351,7 @@ void UAnimMontage::PostLoad()
 
 		if(CurrentCalculatedLength != SequenceLength)
 		{
-			UE_LOG(LogAnimMontage, Warning, TEXT("UAnimMontage::PostLoad: The actual sequence length for montage %s does not match the length stored in the asset, please resave the montage asset."), *GetName());
+			UE_LOG(LogAnimMontage, Display, TEXT("UAnimMontage::PostLoad: The actual sequence length for %s does not match the length stored in the asset, please resave the asset."), *GetFullName());
 			SequenceLength = CurrentCalculatedLength;
 		}
 	}
@@ -558,7 +557,7 @@ void UAnimMontage::RefreshBranchingPointMarkers()
 	{
 		FAnimNotifyEvent& NotifyEvent = Notifies[NotifyIndex];
 
-		if (NotifyEvent.MontageTickType == EMontageNotifyTickType::BranchingPoint)
+		if (NotifyEvent.IsBranchingPoint())
 		{
 			AddBranchingPointMarker(FBranchingPointMarker(NotifyIndex, NotifyEvent.GetTriggerTime(), EAnimNotifyEventType::Begin), TriggerTimes);
 
@@ -586,7 +585,14 @@ void UAnimMontage::RefreshBranchingPointMarkers()
 
 		BranchingPointMarkers.Sort(FCompareNotifyTickMarkersTime());
 	}
-	bAnimBranchingPointNeedsSort = false;
+}
+
+void UAnimMontage::RefreshCacheData()
+{
+	Super::RefreshCacheData();
+
+	// This gets called whenever notifies are modified in the editor, so refresh our branch list
+	RefreshBranchingPointMarkers();
 }
 
 void UAnimMontage::AddBranchingPointMarker(FBranchingPointMarker TickMarker, TMap<float, FAnimNotifyEvent*>& TriggerTimes)
@@ -611,9 +617,8 @@ void UAnimMontage::AddBranchingPointMarker(FBranchingPointMarker TickMarker, TMa
 const FBranchingPointMarker* UAnimMontage::FindFirstBranchingPointMarker(float StartTrackPos, float EndTrackPos)
 {
 	// Auto refresh this in editor to catch changes being made to AnimNotifies.
-	// PostEditChangeProperty does not get triggered for some reason when editing notifies.
-	// we need to come up with something better.
-	if (bAnimBranchingPointNeedsSort || (GIsEditor && (!GetWorld() || !GetWorld()->IsPlayInEditor())))
+	// RefreshCacheData should handle this but I'm not 100% sure it will cover all existing cases
+	if (GIsEditor && (!GetWorld() || !GetWorld()->IsPlayInEditor()))
 	{
 		RefreshBranchingPointMarkers();
 	}
@@ -661,7 +666,7 @@ void UAnimMontage::FilterOutNotifyBranchingPoints(TArray<const FAnimNotifyEvent*
 {
 	for (int32 Index = InAnimNotifies.Num()-1; Index >= 0; Index--)
 	{
-		if (InAnimNotifies[Index]->MontageTickType == EMontageNotifyTickType::BranchingPoint)
+		if (InAnimNotifies[Index]->IsBranchingPoint())
 		{
 			InAnimNotifies.RemoveAt(Index, 1);
 		}
@@ -672,14 +677,7 @@ void UAnimMontage::FilterOutNotifyBranchingPoints(TArray<const FAnimNotifyEvent*
 void UAnimMontage::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
-
-	// fixme laurent - this doesn't get triggered at all when editing notifies :(
-	const FName PropertyName = PropertyChangedEvent.Property ? PropertyChangedEvent.Property->GetFName() : NAME_None;
-	if( PropertyName == FName(TEXT("Notifies")))
-	{
-		bAnimBranchingPointNeedsSort = true;
-	}
-
+	// It is unclear if CollectMarkers should be here or in RefreshCacheData
 	if (SyncGroup != NAME_None)
 	{
 		CollectMarkers();
@@ -1012,6 +1010,11 @@ ENGINE_API void UAnimMontage::UpdateLinkableElements(int32 SlotIdx, int32 Segmen
 
 #endif
 
+FString MakePositionMessage(const FMarkerSyncAnimPosition& Position)
+{
+	return FString::Printf(TEXT("Names(PrevName: %s | NextName: %s) PosBetweenMarkers: %.2f"), *Position.PreviousMarkerName.ToString(), *Position.NextMarkerName.ToString(), Position.PositionBetweenMarkers);
+}
+
 void UAnimMontage::TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimNotifyQueue& NotifyQueue, FAnimAssetTickContext& Context) const
 {
 	// nothing has to happen here
@@ -1051,6 +1054,16 @@ void UAnimMontage::TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimNotify
 				MarkerTickContext.SetMarkerSyncEndPosition(GetMarkerSyncPositionfromMarkerIndicies(MarkerTickRecord->PreviousMarker.MarkerIndex, MarkerTickRecord->NextMarker.MarkerIndex, CurrentTime));
 
 				MarkerTickContext.MarkersPassedThisTick = *Instance.Montage.MarkersPassedThisTick;
+
+#if DO_CHECK
+				if(MarkerTickContext.MarkersPassedThisTick.Num() == 0)
+				{
+					const FMarkerSyncAnimPosition& StartPosition = MarkerTickContext.GetMarkerSyncStartPosition();
+					const FMarkerSyncAnimPosition& EndPosition = MarkerTickContext.GetMarkerSyncEndPosition();
+					checkf(StartPosition.NextMarkerName == EndPosition.NextMarkerName, TEXT("StartPosition %s\nEndPosition %s\nPrevTime to CurrentTimeAsset: %.3f - %.3f Delta: %.3f\nAsset = %s"), *MakePositionMessage(StartPosition), *MakePositionMessage(EndPosition), PreviousTime, CurrentTime, MoveDelta, *Instance.SourceAsset->GetFullName());
+					checkf(StartPosition.PreviousMarkerName == EndPosition.PreviousMarkerName, TEXT("StartPosition %s\nEndPosition %s\nPrevTime - CurrentTimeAsset: %.3f - %.3f Delta: %.3f\nAsset = %s"), *MakePositionMessage(StartPosition), *MakePositionMessage(EndPosition), PreviousTime, CurrentTime, MoveDelta, *Instance.SourceAsset->GetFullName());
+				}
+#endif
 
 				UE_LOG(LogAnimMarkerSync, Log, TEXT("Montage Leading SyncGroup: %s(%s) Start [%s], End [%s]"),
 					*GetNameSafe(this), *SyncGroup.ToString(), *MarkerTickContext.GetMarkerSyncStartPosition().ToString(), *MarkerTickContext.GetMarkerSyncEndPosition().ToString());
@@ -1203,6 +1216,10 @@ void FAnimMontageInstance::Pause()
 
 void FAnimMontageInstance::Initialize(class UAnimMontage * InMontage)
 {
+	// Generate unique ID for this instance
+	static int32 IncrementInstanceID = 0;
+	InstanceID = IncrementInstanceID++;
+
 	if (InMontage)
 	{
 		Montage = InMontage;
@@ -1262,8 +1279,7 @@ void FAnimMontageInstance::Terminate()
 	}
 
 	UAnimMontage* OldMontage = Montage;
-	Montage = NULL;
-
+	
 	UAnimInstance* Inst = AnimInstance.Get();
 	if (Inst)
 	{
@@ -1271,21 +1287,23 @@ void FAnimMontageInstance::Terminate()
 		for (int32 Index = ActiveStateBranchingPoints.Num() - 1; Index >= 0; Index--)
 		{
 			FAnimNotifyEvent& NotifyEvent = ActiveStateBranchingPoints[Index];
-			NotifyEvent.NotifyStateClass->NotifyEnd(Inst->GetSkelMeshComponent(), Cast<UAnimSequenceBase>(NotifyEvent.NotifyStateClass->GetOuter()));
+			FBranchingPointNotifyPayload BranchingPointNotifyPayload(AnimInstance->GetSkelMeshComponent(), Montage, &NotifyEvent, InstanceID);
+			NotifyEvent.NotifyStateClass->BranchingPointNotifyEnd(BranchingPointNotifyPayload);
 		}
 		ActiveStateBranchingPoints.Empty();
 
 		// terminating, trigger end
 		Inst->QueueMontageEndedEvent(FQueuedMontageEndedEvent(OldMontage, bInterrupted, OnMontageEnded));
-	}
 
-	// Clear any active synchronization
-	MontageSync_StopFollowing();
-	MontageSync_StopLeading();
+		// Clear references to this MontageInstance. Needs to happen before Montage is cleared to nullptr, as TMaps can use that as a key.
+		Inst->ClearMontageInstanceReferences(*this);
+	}
 
 	// clear Blend curve
 	Blend.SetCustomCurve(NULL);
 	Blend.SetBlendOption(EAlphaBlendOption::Linear);
+
+	Montage = nullptr;
 
 	UE_LOG(LogAnimMontage, Verbose, TEXT("Terminating: AnimMontage: %s"), *GetNameSafe(OldMontage));
 }
@@ -1644,8 +1662,8 @@ void FAnimMontageInstance::Advance(float DeltaTime, struct FRootMotionMovementPa
 			DeltaMoved = 0.f;
 			PreviousPosition = Position;
 
-			bool bCanUseMarkerSync = CanUseMarkerSync();
-			if (bCanUseMarkerSync)
+			bDidUseMarkerSyncThisTick = CanUseMarkerSync();
+			if (bDidUseMarkerSyncThisTick)
 			{
 				MarkersPassedThisTick.Reset();
 			}
@@ -1694,7 +1712,7 @@ void FAnimMontageInstance::Advance(float DeltaTime, struct FRootMotionMovementPa
 					float PrevPosition = Position;
 					Position = FMath::Clamp<float>(Position + ActualDeltaPos, CurrentSection.GetTime(), CurrentSectionEndPos);
 
-					if (bCanUseMarkerSync)
+					if (bDidUseMarkerSyncThisTick)
 					{
 						Montage->MarkerData.CollectMarkersInRange(PrevPosition, Position, MarkersPassedThisTick, ActualDeltaMove);
 					}
@@ -1713,9 +1731,8 @@ void FAnimMontageInstance::Advance(float DeltaTime, struct FRootMotionMovementPa
 							FTransform RootMotion = Montage->ExtractRootMotionFromTrackRange(PrevPosition, Position);
 							if (bBlendRootMotion)
 							{
-								const float RootMotionSlotWeight = AnimInstance.Get()->GetSlotRootMotionWeight(Montage->SlotAnimTracks[0].SlotName);
-								const float RootMotionInstanceWeight = Weight * RootMotionSlotWeight;
-								OutRootMotionParams->AccumulateWithBlend(RootMotion, RootMotionInstanceWeight);
+								// Defer blending in our root motion until after we get our slot weight updated
+								AnimInstance.Get()->QueueRootMotionBlend(RootMotion, Montage->SlotAnimTracks[0].SlotName, Weight);
 							}
 							else
 							{
@@ -1812,7 +1829,8 @@ void FAnimMontageInstance::Advance(float DeltaTime, struct FRootMotionMovementPa
 		for (int32 Index = 0; Index < ActiveStateBranchingPoints.Num(); Index++)
 		{
 			FAnimNotifyEvent& NotifyEvent = ActiveStateBranchingPoints[Index];
-			NotifyEvent.NotifyStateClass->NotifyTick(AnimInstance->GetSkelMeshComponent(), Montage, DeltaTime);
+			FBranchingPointNotifyPayload BranchingPointNotifyPayload(AnimInstance->GetSkelMeshComponent(), Montage, &NotifyEvent, InstanceID);
+			NotifyEvent.NotifyStateClass->BranchingPointNotifyTick(BranchingPointNotifyPayload, DeltaTime);
 		}
 	}
 }
@@ -1880,7 +1898,8 @@ void FAnimMontageInstance::UpdateActiveStateBranchingPoints(float CurrentTrackPo
 
 			if (!bNotifyIsActive)
 			{
-				NotifyEvent.NotifyStateClass->NotifyEnd(AnimInstance->GetSkelMeshComponent(), Cast<UAnimSequenceBase>(NotifyEvent.NotifyStateClass->GetOuter()));
+				FBranchingPointNotifyPayload BranchingPointNotifyPayload(AnimInstance->GetSkelMeshComponent(), Montage, &NotifyEvent, InstanceID);
+				NotifyEvent.NotifyStateClass->BranchingPointNotifyEnd(BranchingPointNotifyPayload);
 				ActiveStateBranchingPoints.RemoveAt(Index, 1);
 			}
 		}
@@ -1897,7 +1916,8 @@ void FAnimMontageInstance::UpdateActiveStateBranchingPoints(float CurrentTrackPo
 			bool bNotifyIsActive = (CurrentTrackPosition > NotifyStartTime) && (CurrentTrackPosition <= NotifyEndTime);
 			if (bNotifyIsActive && !ActiveStateBranchingPoints.Contains(NotifyEvent))
 			{
-				NotifyEvent.NotifyStateClass->NotifyBegin(AnimInstance->GetSkelMeshComponent(), Cast<UAnimSequenceBase>(NotifyEvent.NotifyStateClass->GetOuter()), NotifyEvent.GetDuration());
+				FBranchingPointNotifyPayload BranchingPointNotifyPayload(AnimInstance->GetSkelMeshComponent(), Montage, &NotifyEvent, InstanceID);
+				NotifyEvent.NotifyStateClass->BranchingPointNotifyBegin(BranchingPointNotifyPayload);
 				ActiveStateBranchingPoints.Add(NotifyEvent);
 			}
 		}
@@ -1932,16 +1952,25 @@ void FAnimMontageInstance::BranchingPointEventHandler(const FBranchingPointMarke
 			{
 				if (BranchingPointMarker->NotifyEventType == EAnimNotifyEventType::Begin)
 				{
-					NotifyEvent->NotifyStateClass->NotifyBegin(AnimInstance->GetSkelMeshComponent(), Cast<UAnimSequenceBase>(NotifyEvent->NotifyStateClass->GetOuter()), NotifyEvent->GetDuration());
+					FBranchingPointNotifyPayload BranchingPointNotifyPayload(AnimInstance->GetSkelMeshComponent(), Montage, NotifyEvent, InstanceID);
+					NotifyEvent->NotifyStateClass->BranchingPointNotifyBegin(BranchingPointNotifyPayload);
 					ActiveStateBranchingPoints.Add(*NotifyEvent);
 				}
 				else
 				{
-					NotifyEvent->NotifyStateClass->NotifyEnd(AnimInstance->GetSkelMeshComponent(), Cast<UAnimSequenceBase>(NotifyEvent->NotifyStateClass->GetOuter()));
+					FBranchingPointNotifyPayload BranchingPointNotifyPayload(AnimInstance->GetSkelMeshComponent(), Montage, NotifyEvent, InstanceID);
+					NotifyEvent->NotifyStateClass->BranchingPointNotifyEnd(BranchingPointNotifyPayload);
 					ActiveStateBranchingPoints.RemoveSingleSwap(*NotifyEvent);
 				}
 			}
-			// Regular 'non state' anim notifies
+			// Non state notify with a native notify class
+			else if	(NotifyEvent->Notify != nullptr)
+			{
+				// Implemented notify: just call Notify. UAnimNotify will forward this to the event which will do the work.
+				FBranchingPointNotifyPayload BranchingPointNotifyPayload(AnimInstance->GetSkelMeshComponent(), Montage, NotifyEvent, InstanceID);
+				NotifyEvent->Notify->BranchingPointNotify(BranchingPointNotifyPayload);
+			}
+			// Try to match a notify function by name.
 			else
 			{
 				AnimInstance.Get()->TriggerSingleAnimNotify(NotifyEvent);
@@ -2029,10 +2058,21 @@ void FAnimMontageInstance::PreviewMatineeSetAnimPositionInner(FName SlotName, US
 			SingleNodeInst->SetAnimationAsset(InAnimSequence, bLooping);
 		}
 
+
 		SingleNodeInst->SetLooping(bLooping);
-		SingleNodeInst->SetPosition(InPosition, bFireNotifies);
+
+		// Anim notifies are fired from the previous evaluation time to the current time. When the delta time is 0, explicitly set the previous time to the current time so that anim notifies prior are not fired.
+		if (DeltaTime == 0.f)
+		{
+			const float PreviousTime = InPosition;
+			SingleNodeInst->SetPositionWithPreviousTime(InPosition, PreviousTime, bFireNotifies);
+		}
+		else
+		{
+			SingleNodeInst->SetPosition(InPosition, bFireNotifies);
+		}
 	}
-	else
+	else if (AnimInst)
 	{
 		bool bShouldChange = AnimInst->IsPlayingSlotAnimation(InAnimSequence, SlotName) == false;
 		if(bShouldChange)
@@ -2077,7 +2117,6 @@ void FAnimMontageInstance::PreviewMatineeSetAnimPositionInner(FName SlotName, US
 	}
 
 	// Update space bases so new animation position has an effect.
-	SkeletalMeshComponent->UpdateMaterialParameters();
 	SkeletalMeshComponent->RefreshBoneTransforms();
 	SkeletalMeshComponent->RefreshSlaveComponents();
 	SkeletalMeshComponent->UpdateComponentToWorld();

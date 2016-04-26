@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -9,7 +9,7 @@
 /**
  * Vertex shader for rendering a single, constant color.
  */
-template<bool bUsingNDCPositions=true>
+template<bool bUsingNDCPositions=true, bool bUsingVertexLayers=false>
 class TOneColorVS : public FGlobalShader
 {
 	DECLARE_EXPORTED_SHADER_TYPE(TOneColorVS, Global, UTILITYSHADERS_API);
@@ -27,11 +27,22 @@ public:
 	{
 		FGlobalShader::ModifyCompilationEnvironment(Platform, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("USING_NDC_POSITIONS"), (uint32)(bUsingNDCPositions ? 1 : 0));
+		OutEnvironment.SetDefine(TEXT("USING_LAYERS"), (uint32)(bUsingVertexLayers ? 1 : 0));
 	}
 
 	static bool ShouldCache(EShaderPlatform Platform)
 	{
 		return true;
+	}
+	
+	static const TCHAR* GetSourceFilename()
+	{
+		return TEXT("OneColorShader");
+	}
+	
+	static const TCHAR* GetFunctionName()
+	{
+		return TEXT("MainVertexShader");
 	}
 };
 

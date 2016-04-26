@@ -33,6 +33,11 @@ class UNREALTOURNAMENT_API AUTCTFBaseGame : public AUTTeamGameMode
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CTF)
 		int32 FlagCapScore;
 
+	virtual int32 GetFlagCapScore();
+
+	UPROPERTY(transient)
+		bool bPlacingPlayersAtIntermission;
+
 	virtual int32 IntermissionTeamToView(AUTPlayerController* PC);
 
 	TAssetSubclassOf<AUTWeapon> TranslocatorObject;
@@ -44,10 +49,12 @@ class UNREALTOURNAMENT_API AUTCTFBaseGame : public AUTTeamGameMode
 
 	virtual void EndGame(AUTPlayerState* Winner, FName Reason);
 	virtual void SetEndGameFocus(AUTPlayerState* Winner);
-	virtual void PlacePlayersAroundFlagBase(int32 TeamNum);
+	virtual void PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNum);
 
 	UFUNCTION(exec)
 		void CheatScore();
+
+	virtual int32 PickCheatWinTeam();
 
 	/** Admin control for restarting competitive matches with appropriate status. */
 	UFUNCTION(exec)

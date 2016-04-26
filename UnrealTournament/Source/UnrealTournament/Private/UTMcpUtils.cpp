@@ -88,15 +88,14 @@ TSharedRef<FOnlineHttpRequest> UUTMcpUtils::CreateRequest(const FString& Verb, c
 #endif
 
 #if WITH_PROFILE
-void UUTMcpUtils::SendRequest(const TSharedRef<FOnlineHttpRequest>& RequestIn, const TFunction<bool(const FHttpResponsePtr& HttpResponse)>& OnComplete)
+void UUTMcpUtils::SendRequest(const TSharedRef<IHttpRequest>& HttpRequest, const TFunction<bool(const FHttpResponsePtr& HttpResponse)>& OnComplete)
 {
 	check(McpSubsystem);
-	TSharedRef<FOnlineHttpRequest> Request = RequestIn;
 
 	// bind the callback delegate
-	Request->OnProcessRequestComplete().BindUObject(this, &ThisClass::HttpRequestComplete, OnComplete);
-	UE_LOG(LogOnlineGame, Verbose, TEXT("MCP-Utils: Dispatching request to %s"), *Request->GetURL());
-
+	HttpRequest->OnProcessRequestComplete().BindUObject(this, &ThisClass::HttpRequestComplete, OnComplete);
+	UE_LOG(LogOnlineGame, Verbose, TEXT("MCP-Utils: Dispatching request to %s"), *HttpRequest->GetURL());
+	
 	// dispatch with User or Client auth
 	FString ErrorStr;
 	bool bStarted = false;
@@ -106,7 +105,7 @@ void UUTMcpUtils::SendRequest(const TSharedRef<FOnlineHttpRequest>& RequestIn, c
 		const FServicePermissionsMcp* ServicePerms = McpGameService->GetMcpConfiguration().GetServicePermissionsByName(FServicePermissionsMcp::DefaultServer);
 		if (ServicePerms != NULL)
 		{
-			bStarted = McpSubsystem->ProcessRequestAsClient(*McpGameService, ServicePerms->Id, Request, ErrorStr);
+			bStarted = McpSubsystem->ProcessRequestAsClient(*McpGameService, ServicePerms->Id, HttpRequest, ErrorStr);
 		}
 		else
 		{
@@ -115,25 +114,22 @@ void UUTMcpUtils::SendRequest(const TSharedRef<FOnlineHttpRequest>& RequestIn, c
 	}
 	else
 	{
-		bStarted = McpSubsystem->ProcessRequest(*McpGameService, *GameAccountId, Request, ErrorStr);
+		bStarted = McpSubsystem->ProcessRequest(*McpGameService, *GameAccountId, HttpRequest, ErrorStr);
 	}
 
 	if (!bStarted)
 	{
 		UE_LOG(LogOnlineGame, Warning, TEXT("Failed to start profile request. Error: %s"), *ErrorStr);
-		FOnlineSubsystemMcp* Capture = McpSubsystem; // this is safe since it's this subsystem that's calling tick in the first place
-		McpSubsystem->ExecuteNextTick([Capture, Request]() {
-			TSharedRef<FOnlineHttpRequest> RequestStupid = Request; // needed because CancelRequest is not const-correct
-			Capture->CancelRequest(RequestStupid);
+		McpSubsystem->ExecuteNextTick([HttpRequest]() {
+			HttpRequest->CancelRequest();
 		});
 	}
 }
 #endif
 
 #if WITH_PROFILE
-void UUTMcpUtils::HttpRequestComplete(TSharedRef<FHttpRetrySystem::FRequest>& HttpRequest, bool bSucceeded, TFunction<bool(const FHttpResponsePtr& HttpResponse)> OnComplete)
+void UUTMcpUtils::HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded, TFunction<bool(const FHttpResponsePtr& HttpResponse)> OnComplete)
 {
-	FHttpResponsePtr HttpResponse = HttpRequest->GetResponse();
 	if (HttpResponse.IsValid() && bSucceeded)
 	{
 		// fire the completion handler in all cases

@@ -1,5 +1,5 @@
 /**
- * Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+ * Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
  */
 using System;
 using System.IO;
@@ -12,7 +12,9 @@ namespace MemoryProfiler2
 {	
 	public static class FStreamParser
 	{
-        private static BinaryReader SwitchStreams(int PartIndex, string BaseFilename, bool bIsBigEndian, out FileStream ParserStream)
+		const int AllocationsPerSlice = 5000 * 100;
+
+		private static BinaryReader SwitchStreams(int PartIndex, string BaseFilename, bool bIsBigEndian, out FileStream ParserStream)
         {
             // Determine the effective filename for this part
             string CurrentFilename = BaseFilename;
@@ -39,11 +41,32 @@ namespace MemoryProfiler2
 
 		//-----------------------------------------------------------------------------
 		//@DEBUG
+#if DEBUG_TIMINGS
 		static FGlobalTimer MallocTimer = new FGlobalTimer( "Malloc" );
 		static FGlobalTimer FreeTimer = new FGlobalTimer( "Free" );
 		static FGlobalTimer ReallocTimer = new FGlobalTimer( "Realloc" );
 		static FGlobalTimer OtherTimer = new FGlobalTimer( "Other" );
+#endif
 		static long IncompleteLifeCycles = 0;
+
+		static void WriteTimings()
+		{
+#if DEBUG_TIMINGS
+			string Info = "Timings\n" +
+									MallocTimer.ToString() + "\n" +
+									FreeTimer.ToString() + "\n" +
+									ReallocTimer.ToString() + "\n" +
+									OtherTimer.ToString() + "\n" +
+									"IncompleteLifeCycles " + IncompleteLifeCycles;
+
+			Debug.WriteLine(Info);
+#else
+			string Info = "IncompleteLifeCycles " + IncompleteLifeCycles;
+
+			Debug.WriteLine(Info);
+#endif
+		}
+
 		//-----------------------------------------------------------------------------
 
 		/// <summary> Parses the passed in token stream and returns list of snapshots. </summary>
@@ -275,8 +298,13 @@ namespace MemoryProfiler2
             StartOfMetadata = Math.Min(StartOfMetadata, Header.CallStackTableOffset);
             StartOfMetadata = Math.Min(StartOfMetadata, Header.ModulesOffset);
 
-            long ProgressInterval = ((Int64)StartOfMetadata - TokenStreamOffset) / 100;
-			double ProgressScaleFactor = 100.0f / ( (Int64)StartOfMetadata - TokenStreamOffset );
+			long ProgressInterval = ((Int64)StartOfMetadata - TokenStreamOffset) / 1000;
+			if (ProgressInterval < 1)
+			{
+				ProgressInterval = 1;
+			}
+
+			double ProgressScaleFactor = 100.0f / ((Int64)StartOfMetadata - TokenStreamOffset);
             long NextProgressUpdate = TokenStreamOffset;
 
 			// Parse tokens till we reach the end of the stream.
@@ -305,7 +333,7 @@ namespace MemoryProfiler2
 						NextProgressUpdate += ProgressInterval;
 					}
 
-					if( CustomSnapshots.Count > 0 && Snapshot.AllocationCount >= CustomSnapshots[ 0 ] * 5000 )
+					if ( CustomSnapshots.Count > 0 && (Snapshot.AllocationCount >= CustomSnapshots[0] * AllocationsPerSlice) ) 
 					{
 						// Create an unnamed snapshot.
 						FStreamSnapshot MarkerSnapshot = Snapshot.DeepCopy( PointerToPointerInfoMap );
@@ -335,9 +363,11 @@ namespace MemoryProfiler2
 						// Malloc
 						case EProfilingPayloadType.TYPE_Malloc:
 						{
+#if DEBUG_TIMINGS
 							MallocTimer.Start();
+#endif
 
-							if( Token.Pointer != 0 )
+							if ( Token.Pointer != 0 )
 							{
 								Token.CallStackIndex = GetVirtualCallStackIndex( Token, Observer );
 
@@ -355,16 +385,19 @@ namespace MemoryProfiler2
 								CurrentCallstack.ProcessMalloc( Token, ref NewLifecycle );
 							}
 
+#if DEBUG_TIMINGS
 							MallocTimer.Stop();
+#endif
 						}
 						break;
 
 						// Free
 						case EProfilingPayloadType.TYPE_Free:
 						{
+#if DEBUG_TIMINGS
 							FreeTimer.Start();
-
-							if( bDetectingUseGlobalReallocZeroPtr )
+#endif
+							if ( bDetectingUseGlobalReallocZeroPtr )
 							{
 								if( ReallocZeroCount > 0 && Token.Pointer == ReallocZeroPtr )
 								{
@@ -385,14 +418,18 @@ namespace MemoryProfiler2
 								}
 							}
 
+#if DEBUG_TIMINGS
 							FreeTimer.Stop();
+#endif
 						}
 						break;
 
 						// Realloc
 						case EProfilingPayloadType.TYPE_Realloc:
 						{
+#if DEBUG_TIMINGS
 							ReallocTimer.Start();
+#endif
 
 							Token.CallStackIndex = GetVirtualCallStackIndex( Token, Observer );
 
@@ -440,7 +477,9 @@ namespace MemoryProfiler2
 								if( bUseGlobalReallocZeroPtr )
 								{
 									// break out of case to avoid 'double malloc' warnings
+#if DEBUG_TIMINGS
 									ReallocTimer.Stop();
+#endif
 									break;
 								}
 							}
@@ -468,7 +507,9 @@ namespace MemoryProfiler2
 
 								}
 
+#if DEBUG_TIMINGS
 								ReallocTimer.Stop();
+#endif
 							}
 						}
 						break;
@@ -476,7 +517,9 @@ namespace MemoryProfiler2
 						// Status/ payload.
 						case EProfilingPayloadType.TYPE_Other:
 						{
+#if DEBUG_TIMINGS
 							OtherTimer.Start();
+#endif
 
 							switch( Token.SubType )
 							{
@@ -643,7 +686,9 @@ namespace MemoryProfiler2
 									throw new InvalidDataException();
 								}
 							}
+#if DEBUG_TIMINGS
 							OtherTimer.Stop();
+#endif
 							break;
 						}
 
@@ -666,14 +711,7 @@ namespace MemoryProfiler2
 			}
 			//-----------------------------------------------------------------------------
 			//@DEBUG
-			string Info = "Timings\n" +
-						MallocTimer.ToString() + "\n" +
-						FreeTimer.ToString() + "\n" +
-						ReallocTimer.ToString() + "\n" +
-						OtherTimer.ToString() + "\n" +
-						"IncompleteLifeCycles " + IncompleteLifeCycles;
-
-			Debug.WriteLine( Info );
+			WriteTimings();
 			//-----------------------------------------------------------------------------
 
             if (MainMProfWindow != null && bFoundMultiPoolCallStacks)
@@ -836,7 +874,7 @@ namespace MemoryProfiler2
 			// Maintain timeline view
 			Snapshot.AllocationSize += PointerInfo.Size;
 			Snapshot.AllocationCount++;
-			if( Snapshot.AllocationCount % 5000 == 0 )
+			if (Snapshot.AllocationCount % AllocationsPerSlice == 0)
 			{
 				FMemorySlice Slice = new FMemorySlice( Snapshot );
 				Snapshot.OverallMemorySlice.Add( Slice );
@@ -856,7 +894,7 @@ namespace MemoryProfiler2
 			// Maintain timeline view
             Snapshot.AllocationSize -= FreedAllocInfo.Size;
 			Snapshot.AllocationCount++;
-			if( Snapshot.AllocationCount % 5000 == 0 )
+			if (Snapshot.AllocationCount % AllocationsPerSlice == 0)
 			{
 				FMemorySlice Slice = new FMemorySlice( Snapshot );
 				Snapshot.OverallMemorySlice.Add( Slice );

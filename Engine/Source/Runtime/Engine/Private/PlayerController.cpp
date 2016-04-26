@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Engine/Console.h"
@@ -12,6 +12,7 @@
 #include "OnlineSubsystemUtils.h"
 #include "GameFramework/OnlineSession.h"
 #include "IHeadMountedDisplay.h"
+#include "IMotionController.h"
 #include "IInputInterface.h"
 #include "SlateBasics.h"
 #include "GameFramework/TouchInterface.h"
@@ -30,6 +31,7 @@
 #include "GameFramework/PlayerStart.h"
 #include "GameFramework/CheatManager.h"
 #include "GameFramework/InputSettings.h"
+#include "GameFramework/HapticFeedbackEffect.h"
 #include "GameFramework/PlayerState.h"
 #include "GameFramework/GameState.h"
 #include "GameFramework/GameMode.h"
@@ -84,7 +86,10 @@ APlayerController::APlayerController(const FObjectInitializer& ObjectInitializer
 	bAutoManageActiveCameraTarget = true;
 	bHidePawnInCinematicMode = false;
 
+	bIsPlayerController = true;
 	bIsLocalPlayerController = false;
+
+	ClickEventKeys.Add(EKeys::LeftMouseButton);
 
 	if (RootComponent)
 	{
@@ -142,27 +147,42 @@ bool APlayerController::DestroyNetworkActorHandled()
 
 bool APlayerController::IsLocalController() const
 {
-	ENetMode NetMode = GetNetMode();
-	if (NetMode == NM_DedicatedServer)
+	// Never local on dedicated server, always local on clients. IsServerOnly() and IsClientOnly() are checked at compile time and optimized out appropriately.
+	if (FGenericPlatformProperties::IsServerOnly())
 	{
 		check(!bIsLocalPlayerController);
 		return false;
 	}
-
-	if (NetMode == NM_Client)
+	else if (FGenericPlatformProperties::IsClientOnly())
 	{
-		// Clients only receive their own PC. We are not ROLE_AutonomousProxy until after PostInitializeComponents so we can't check that.
+		bIsLocalPlayerController = true;
+		return true;
+	}
+	
+	// Fast path if we have this bool set.
+	if (bIsLocalPlayerController)
+	{
+		return true;
+	}
+
+	ENetMode NetMode = GetNetMode();
+	if (NetMode == NM_DedicatedServer)
+	{
+		// This is still checked for the PIE case, which would not be caught in the IsServerOnly() check above.
+		check(!bIsLocalPlayerController);
+		return false;
+	}
+
+	if (NetMode == NM_Client || NetMode == NM_Standalone)
+	{
+		// Clients or Standalone only receive their own PC. We are not ROLE_AutonomousProxy until after PostInitializeComponents so we can't check that.
+		bIsLocalPlayerController = true;
 		return true;
 	}
 
 	return bIsLocalPlayerController;
 }
 
-bool APlayerController::IsLocalPlayerController() const
-{
-	// We automatically pass the "IsPlayer" part because we are a PlayerController...
-	return IsLocalController();
-}
 
 void APlayerController::FailedToSpawnPawn()
 {
@@ -910,7 +930,8 @@ void APlayerController::UpdateRotation( float DeltaTime )
 		PlayerCameraManager->ProcessViewRotation(DeltaTime, ViewRotation, DeltaRot);
 	}
 
-	if (!PlayerCameraManager || !PlayerCameraManager->bFollowHmdOrientation)
+	AActor* ViewTarget = GetViewTarget();
+	if (!PlayerCameraManager || !ViewTarget || !ViewTarget->HasActiveCameraComponent() || ViewTarget->HasActivePawnControlCameraComponent())
 	{
 		if (IsLocalPlayerController() && GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsHeadTrackingAllowed())
 		{
@@ -1438,6 +1459,11 @@ void APlayerController::FOV(float F)
 
 void APlayerController::PreClientTravel( const FString& PendingURL, ETravelType TravelType, bool bIsSeamlessTravel )
 {
+	UGameInstance* GameInstance = GetGameInstance();
+	if (GameInstance)
+	{
+		GameInstance->NotifyPreClientTravel(PendingURL, TravelType, bIsSeamlessTravel);
+	}
 }
 
 void APlayerController::Camera( FName NewMode )
@@ -1932,10 +1958,11 @@ bool APlayerController::GetHitResultAtScreenPosition(const FVector2D ScreenPosit
 	return false;
 }
 
+static const FName NAME_ClickableTrace("ClickableTrace");
 
 bool APlayerController::GetHitResultAtScreenPosition(const FVector2D ScreenPosition, const ECollisionChannel TraceChannel, bool bTraceComplex, FHitResult& HitResult) const
 {
-	FCollisionQueryParams CollisionQueryParams( "ClickableTrace", bTraceComplex );
+	FCollisionQueryParams CollisionQueryParams( NAME_ClickableTrace, bTraceComplex );
 	return GetHitResultAtScreenPosition( ScreenPosition, TraceChannel, CollisionQueryParams, HitResult );
 }
 
@@ -2041,9 +2068,7 @@ bool APlayerController::InputKey(FKey Key, EInputEvent EventType, float AmountDe
 	if (PlayerInput)
 	{
 		bResult = PlayerInput->InputKey(Key, EventType, AmountDepressed, bGamepad);
-
-		// TODO: Allow click key(s?) to be defined
-		if (bEnableClickEvents && Key == EKeys::LeftMouseButton)
+		if (bEnableClickEvents && (ClickEventKeys.Contains(Key) || ClickEventKeys.Contains(EKeys::AnyKey)))
 		{
 			FVector2D MousePosition;
 			UGameViewportClient* ViewportClient = CastChecked<ULocalPlayer>(Player)->ViewportClient;
@@ -2077,11 +2102,11 @@ bool APlayerController::InputKey(FKey Key, EInputEvent EventType, float AmountDe
 					{
 					case IE_Pressed:
 					case IE_DoubleClick:
-						ClickedPrimitive->DispatchOnClicked();
+						ClickedPrimitive->DispatchOnClicked(Key);
 						break;
 
 					case IE_Released:
-						ClickedPrimitive->DispatchOnReleased();
+						ClickedPrimitive->DispatchOnReleased(Key);
 						break;
 
 					case IE_Axis:
@@ -2902,12 +2927,12 @@ void APlayerController::LevelStreamingStatusChanged(ULevelStreaming* LevelObject
 void APlayerController::ClientPrepareMapChange_Implementation(FName LevelName, bool bFirst, bool bLast)
 {
 	// Only call on the first local player controller to handle it being called on multiple PCs for splitscreen.
-	if (GetWorld()->GetGameInstance() == nullptr)
+	if (GetGameInstance() == nullptr)
 	{
 		return;
 	}
 
-	APlayerController* PlayerController = GetWorld()->GetGameInstance()->GetFirstLocalPlayerController();
+	APlayerController* PlayerController = GetGameInstance()->GetFirstLocalPlayerController();
 	if( PlayerController != this )
 	{
 		return;
@@ -3516,7 +3541,79 @@ void APlayerController::PlayDynamicForceFeedback(float Intensity, float Duration
 	}
 }
 
-void APlayerController::ProcessForceFeedback(const float DeltaTime, const bool bGamePaused)
+void APlayerController::PlayHapticEffect(UHapticFeedbackEffect* HapticEffect, TEnumAsByte<EControllerHand> Hand, float Scale)
+{
+	if (HapticEffect)
+	{
+		switch (Hand)
+		{
+		case EControllerHand::Left:
+			ActiveHapticEffect_Left.Reset();
+			ActiveHapticEffect_Left = MakeShareable(new FActiveHapticFeedbackEffect(HapticEffect, Scale));
+			break;
+		case EControllerHand::Right:
+			ActiveHapticEffect_Right.Reset();
+			ActiveHapticEffect_Right = MakeShareable(new FActiveHapticFeedbackEffect(HapticEffect, Scale));
+			break;
+		default:
+			UE_LOG(LogPlayerController, Warning, TEXT("Invalid hand specified (%d) for haptic feedback effect %s"), (int32)Hand.GetValue(), *HapticEffect->GetName());
+			break;
+		}
+	}
+}
+
+void APlayerController::StopHapticEffect(TEnumAsByte<EControllerHand> Hand)
+{
+	SetHapticsByValue(0.f, 0.f, Hand);
+}
+
+void APlayerController::SetHapticsByValue(const float Frequency, const float Amplitude, TEnumAsByte<EControllerHand> Hand)
+{
+	if (Hand == EControllerHand::Left)
+	{
+		ActiveHapticEffect_Left.Reset();
+	}
+	else if (Hand == EControllerHand::Right)
+	{
+		ActiveHapticEffect_Right.Reset();
+	}
+	else
+	{
+		UE_LOG(LogPlayerController, Warning, TEXT("Invalid hand specified (%d) for setting haptic feedback values (F: %f A: %f)"), (int32)Hand.GetValue(), Frequency, Amplitude);
+		return;
+	}
+
+	if (Player == nullptr)
+	{
+		return;
+	}
+
+	IInputInterface* InputInterface = FSlateApplication::Get().GetInputInterface();
+	if (InputInterface)
+	{
+		const int32 ControllerId = CastChecked<ULocalPlayer>(Player)->GetControllerId();
+
+		FHapticFeedbackValues Values(Frequency, Amplitude);
+		InputInterface->SetHapticFeedbackValues(ControllerId, (int32)Hand.GetValue(), Values);
+	}
+}
+
+void APlayerController::SetControllerLightColor(FColor Color)
+{
+	if (Player == nullptr)
+	{
+		return;
+	}
+
+	IInputInterface* InputInterface = FSlateApplication::Get().GetInputInterface();
+	if (InputInterface)
+	{
+		const int32 ControllerId = CastChecked<ULocalPlayer>(Player)->GetControllerId();
+		InputInterface->SetLightColor(ControllerId, Color);
+	}
+}
+
+void APlayerController::ProcessForceFeedbackAndHaptics(const float DeltaTime, const bool bGamePaused)
 {
 	if (Player == NULL)
 	{
@@ -3525,8 +3622,13 @@ void APlayerController::ProcessForceFeedback(const float DeltaTime, const bool b
 
 	ForceFeedbackValues.LeftLarge = ForceFeedbackValues.LeftSmall = ForceFeedbackValues.RightLarge = ForceFeedbackValues.RightSmall = 0.f;
 
+	FHapticFeedbackValues LeftHaptics, RightHaptics;
+	bool bLeftHapticsNeedUpdate = false;
+	bool bRightHapticsNeedUpdate = false;
+
 	if (!bGamePaused)
 	{
+		// --- Force Feedback --------------------------
 		for (int32 Index = ActiveForceFeedbackEffects.Num() - 1; Index >= 0; --Index)
 		{
 			if (!ActiveForceFeedbackEffects[Index].Update(DeltaTime, ForceFeedbackValues))
@@ -3534,18 +3636,55 @@ void APlayerController::ProcessForceFeedback(const float DeltaTime, const bool b
 				ActiveForceFeedbackEffects.RemoveAtSwap(Index);
 			}
 		}
+
 		for (const auto& DynamicEntry : DynamicForceFeedbacks)
 		{
 			DynamicEntry.Value.Update(ForceFeedbackValues);
+		}
+
+		// --- Haptic Feedback -------------------------
+		if (ActiveHapticEffect_Left.IsValid())
+		{
+			const bool bPlaying = ActiveHapticEffect_Left->Update(DeltaTime, LeftHaptics);
+			if (!bPlaying)
+			{
+				ActiveHapticEffect_Left.Reset();
+			}
+
+			bLeftHapticsNeedUpdate = true;
+		}
+
+		if (ActiveHapticEffect_Right.IsValid())
+		{
+			const bool bPlaying = ActiveHapticEffect_Right->Update(DeltaTime, RightHaptics);
+			if (!bPlaying)
+			{
+				ActiveHapticEffect_Right.Reset();
+			}
+
+			bRightHapticsNeedUpdate = true;
 		}
 	}
 
 	if (FSlateApplication::IsInitialized())
 	{
+		const int32 ControllerId = CastChecked<ULocalPlayer>(Player)->GetControllerId();
+
 		IInputInterface* InputInterface = FSlateApplication::Get().GetInputInterface();
 		if (InputInterface)
 		{
-			InputInterface->SetForceFeedbackChannelValues(CastChecked<ULocalPlayer>(Player)->GetControllerId(), (bForceFeedbackEnabled ? ForceFeedbackValues : FForceFeedbackValues()));
+			InputInterface->SetForceFeedbackChannelValues(ControllerId, (bForceFeedbackEnabled ? ForceFeedbackValues : FForceFeedbackValues()));
+			
+			// Haptic Updates
+			if (bLeftHapticsNeedUpdate)
+			{
+				InputInterface->SetHapticFeedbackValues(ControllerId, (int32)EControllerHand::Left, LeftHaptics);
+			}
+
+			if (bRightHapticsNeedUpdate)
+			{
+				InputInterface->SetHapticFeedbackValues(ControllerId, (int32)EControllerHand::Right, RightHaptics);
+			}
 		}
 	}
 }
@@ -3558,11 +3697,11 @@ void APlayerController::ClientPlayCameraShake_Implementation( TSubclassOf<class 
 	}
 }
 
-void APlayerController::ClientStopCameraShake_Implementation( TSubclassOf<class UCameraShake> Shake )
+void APlayerController::ClientStopCameraShake_Implementation( TSubclassOf<class UCameraShake> Shake, bool bImmediately )
 {
 	if (PlayerCameraManager != NULL)
 	{
-		PlayerCameraManager->StopAllInstancesOfCameraShake(Shake);
+		PlayerCameraManager->StopAllInstancesOfCameraShake(Shake, bImmediately);
 	}
 }
 
@@ -3758,7 +3897,7 @@ void APlayerController::TickPlayerInput(const float DeltaSeconds, const bool bGa
 	}
 
 	ProcessPlayerInput(DeltaSeconds, bGamePaused);
-	ProcessForceFeedback(DeltaSeconds, bGamePaused);
+	ProcessForceFeedbackAndHaptics(DeltaSeconds, bGamePaused);
 }
 
 void APlayerController::TickActor( float DeltaSeconds, ELevelTick TickType, FActorTickFunction& ThisTickFunction )
@@ -3798,13 +3937,15 @@ void APlayerController::TickActor( float DeltaSeconds, ELevelTick TickType, FAct
 			{
 				FNetworkPredictionData_Server* ServerData = NetworkPredictionInterface->GetPredictionData_Server();
 				const float TimeSinceUpdate = ServerData ? GetWorld()->GetTimeSeconds() - ServerData->ServerTimeStamp : 0.f;
-				if (TimeSinceUpdate > FMath::Max<float>(DeltaSeconds+0.06f,AGameNetworkManager::StaticClass()->GetDefaultObject<AGameNetworkManager>()->MAXCLIENTUPDATEINTERVAL))
+				const float PawnTimeSinceUpdate = TimeSinceUpdate * GetPawn()->CustomTimeDilation;
+				if (PawnTimeSinceUpdate > FMath::Max<float>(DeltaSeconds+0.06f,AGameNetworkManager::StaticClass()->GetDefaultObject<AGameNetworkManager>()->MAXCLIENTUPDATEINTERVAL * GetPawn()->GetActorTimeDilation()))
 				{
+					//UE_LOG(LogPlayerController, Warning, TEXT("ForcedMovementTick. PawnTimeSinceUpdate: %f, DeltaSeconds: %f, DeltaSeconds+: %f"), PawnTimeSinceUpdate, DeltaSeconds, DeltaSeconds+0.06f);
 					const USkeletalMeshComponent* PawnMesh = GetPawn()->FindComponentByClass<USkeletalMeshComponent>();
 					if (!PawnMesh || !PawnMesh->IsSimulatingPhysics())
 					{
-						NetworkPredictionInterface->ForcePositionUpdate(TimeSinceUpdate);
-						ServerData->ServerTimeStamp = GetWorld()->TimeSeconds;
+						NetworkPredictionInterface->ForcePositionUpdate(PawnTimeSinceUpdate);
+						ServerData->ServerTimeStamp = GetWorld()->GetTimeSeconds();
 					}					
 				}
 			}
@@ -4140,10 +4281,13 @@ void APlayerController::BeginInactiveState()
 	}
 	SetPawn(NULL);
 
-	AGameState const* const GameState = GetWorld()->GameState;
+	GetWorldTimerManager().SetTimer(TimerHandle_UnFreeze, this, &APlayerController::UnFreeze, GetMinRespawnDelay());
+}
 
-	float const MinRespawnDelay = ((GameState != NULL) && (GameState->GameModeClass != NULL)) ? GetDefault<AGameMode>(GameState->GameModeClass)->MinRespawnDelay : 1.0f;
-	GetWorldTimerManager().SetTimer(TimerHandle_UnFreeze, this, &APlayerController::UnFreeze, MinRespawnDelay);
+float APlayerController::GetMinRespawnDelay()
+{
+	AGameState const* const GameState = GetWorld()->GameState;
+	return ((GameState != NULL) && (GameState->GameModeClass != NULL)) ? GetDefault<AGameMode>(GameState->GameModeClass)->MinRespawnDelay : 1.0f;
 }
 
 void APlayerController::EndInactiveState()
@@ -4450,7 +4594,7 @@ void FInputModeGameOnly::ApplyInputMode(FReply& SlateOperations, class UGameView
 		SlateOperations.SetUserFocus(ViewportWidgetRef);
 		SlateOperations.LockMouseToWidget(ViewportWidgetRef);
 		GameViewportClient.SetIgnoreInput(false);
-		GameViewportClient.SetCaptureMouseOnClick(EMouseCaptureMode::CapturePermanently);
+		GameViewportClient.SetCaptureMouseOnClick(bConsumeCaptureMouseDown ? EMouseCaptureMode::CapturePermanently : EMouseCaptureMode::CapturePermanently_IncludingInitialMouseDown);
 	}
 }
 
@@ -4492,9 +4636,9 @@ void APlayerController::BuildHiddenComponentList(const FVector& ViewLocation, TS
 				{
 					HiddenComponents.Add(PrimitiveComponent->ComponentId);
 
-					for (int32 AttachChildrenIndex = 0; AttachChildrenIndex < PrimitiveComponent->AttachChildren.Num(); AttachChildrenIndex++)
+					for (USceneComponent* AttachedChild : PrimitiveComponent->GetAttachChildren())
 					{						
-						UPrimitiveComponent* AttachChildPC = Cast<UPrimitiveComponent>(PrimitiveComponent->AttachChildren[AttachChildrenIndex]);
+						UPrimitiveComponent* AttachChildPC = Cast<UPrimitiveComponent>(AttachedChild);
 						if (AttachChildPC && AttachChildPC->IsRegistered())
 						{
 							HiddenComponents.Add(AttachChildPC->ComponentId);

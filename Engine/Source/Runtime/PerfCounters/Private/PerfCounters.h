@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -101,6 +101,12 @@ private:
 
 	/** Unique name of this instance */
 	FString UniqueInstanceId;
+
+	/** Interval (in seconds) to update internal counters, added by the module itself, a config value */
+	float InternalCountersUpdateInterval;
+
+	/** Last time internal counters were updated */
+	float LastTimeInternalCountersUpdated;
 
 	/** Map of all known performance counters */
 	TMap<FString, FJsonVariant>  PerfCounterMap;

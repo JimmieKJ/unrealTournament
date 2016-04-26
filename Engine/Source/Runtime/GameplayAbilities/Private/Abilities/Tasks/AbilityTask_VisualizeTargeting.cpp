@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 #include "GameplayAbilityTargetActor.h"
@@ -32,7 +32,7 @@ UAbilityTask_VisualizeTargeting* UAbilityTask_VisualizeTargeting::VisualizeTarge
 void UAbilityTask_VisualizeTargeting::Activate()
 {
 	// Need to handle case where target actor was passed into task
-	if (Ability.IsValid() && (TargetClass == NULL))
+	if (Ability && (TargetClass == NULL))
 	{
 		if (TargetActor.IsValid())
 		{
@@ -65,7 +65,7 @@ bool UAbilityTask_VisualizeTargeting::BeginSpawningActor(UObject* WorldContextOb
 {
 	SpawnedActor = nullptr;
 
-	if (Ability.IsValid())
+	if (Ability)
 	{
 		if (ShouldSpawnTargetActor())
 		{
@@ -115,7 +115,7 @@ void UAbilityTask_VisualizeTargeting::SetDuration(const float Duration)
 bool UAbilityTask_VisualizeTargeting::ShouldSpawnTargetActor() const
 {
 	check(TargetClass);
-	check(Ability.IsValid());
+	check(Ability);
 
 	// Spawn the actor if this is a locally controlled ability (always) or if this is a replicating targeting mode.
 	// (E.g., server will spawn this target actor to replicate to all non owning clients)
@@ -131,7 +131,7 @@ bool UAbilityTask_VisualizeTargeting::ShouldSpawnTargetActor() const
 void UAbilityTask_VisualizeTargeting::InitializeTargetActor(AGameplayAbilityTargetActor* SpawnedActor) const
 {
 	check(SpawnedActor);
-	check(Ability.IsValid());
+	check(Ability);
 
 	SpawnedActor->MasterPC = Ability->GetCurrentActorInfo()->PlayerController.Get();
 }
@@ -139,11 +139,11 @@ void UAbilityTask_VisualizeTargeting::InitializeTargetActor(AGameplayAbilityTarg
 void UAbilityTask_VisualizeTargeting::FinalizeTargetActor(AGameplayAbilityTargetActor* SpawnedActor) const
 {
 	check(SpawnedActor);
-	check(Ability.IsValid());
+	check(Ability);
 
 	AbilitySystemComponent->SpawnedTargetActors.Push(SpawnedActor);
 
-	SpawnedActor->StartTargeting(Ability.Get());
+	SpawnedActor->StartTargeting(Ability);
 }
 
 void UAbilityTask_VisualizeTargeting::OnDestroy(bool AbilityEnded)

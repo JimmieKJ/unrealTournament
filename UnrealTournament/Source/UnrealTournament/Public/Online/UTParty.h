@@ -20,7 +20,7 @@ class UNREALTOURNAMENT_API UUTParty : public UParty
 public:
 	// Begin UParty interface
 	virtual void UpdatePersistentPartyLeader(const FUniqueNetIdRepl& NewPartyLeader) override;
-	virtual void GetDefaultPersistentPartySettings(EPartyType& PartyType, bool& bLeaderInvitesOnly, bool& bLeaderFriendsOnly) override;
+	virtual void GetDefaultPersistentPartySettings(EPartyType& PartyType, bool& bLeaderFriendsOnly, bool& bLeaderInvitesOnly, bool& bAllowInvites) override;
 	virtual void HandlePendingJoin() override;
 	// End UParty interface
 

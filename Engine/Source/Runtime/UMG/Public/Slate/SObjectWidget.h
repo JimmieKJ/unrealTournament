@@ -1,11 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "UserWidget.h"
 
 /**
- * The SObjectWidet allows UMG to insert an SWidget into the hierarchy that manages the lifetime of the
+ * The SObjectWidget allows UMG to insert an SWidget into the hierarchy that manages the lifetime of the
  * UMG UWidget that created it.  Once the SObjectWidget is destroyed it frees the reference it holds to
  * The UWidget allowing it to be garbage collected.  It also forwards the slate events to the UUserWidget
  * so that it can forward them to listeners.

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 //=============================================================================
 // CascadeOptions
@@ -77,6 +77,12 @@ class UNREALED_API UCascadeOptions : public UObject
 
 	UPROPERTY(EditAnywhere, config, Category=Options)
 	FColor ModuleColor_Light_Selected;
+
+	UPROPERTY(EditAnywhere, config, Category = Options)
+	FColor ModuleColor_SubUV_Unselected;
+
+	UPROPERTY(EditAnywhere, config, Category = Options)
+	FColor ModuleColor_SubUV_Selected;
 
 	UPROPERTY(EditAnywhere, config, Category=Options)
 	FColor ModuleColor_Required_Unselected;

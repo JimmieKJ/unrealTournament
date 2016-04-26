@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System;
@@ -76,6 +76,11 @@ public class PhysX : ModuleRules
 
 		// Determine which kind of libraries to link against
 		PhysXLibraryMode LibraryMode = GetPhysXLibraryMode(Target.Configuration);
+		// Quick Mac hack
+		if (Target.Platform == UnrealTargetPlatform.Mac && (LibraryMode == PhysXLibraryMode.Checked || LibraryMode == PhysXLibraryMode.Shipping))
+		{
+			LibraryMode = PhysXLibraryMode.Profile;
+		}
 		string LibrarySuffix = GetPhysXLibrarySuffix(LibraryMode);
 
 		Definitions.Add("WITH_PHYSX=1");
@@ -176,7 +181,7 @@ public class PhysX : ModuleRules
 			{
 				string FileName = PhysXBinariesDir + String.Format(DLL, LibrarySuffix);
 				RuntimeDependencies.Add(new RuntimeDependency(FileName));
-				RuntimeDependencies.Add(new RuntimeDependency(Path.ChangeExtension(FileName, ".pdb")));
+				RuntimeDependencies.Add(new RuntimeDependency(Path.ChangeExtension(FileName, ".pdb"), true));
 			}
 			RuntimeDependencies.Add(new RuntimeDependency(PhysXBinariesDir + "nvToolsExt64_1.dll"));
 		}
@@ -226,7 +231,7 @@ public class PhysX : ModuleRules
 			{
 				string FileName = PhysXBinariesDir + String.Format(DLL, LibrarySuffix);
 				RuntimeDependencies.Add(new RuntimeDependency(FileName));
-				RuntimeDependencies.Add(new RuntimeDependency(Path.ChangeExtension(FileName, ".pdb")));
+				RuntimeDependencies.Add(new RuntimeDependency(Path.ChangeExtension(FileName, ".pdb"), true));
 			}
 			RuntimeDependencies.Add(new RuntimeDependency(PhysXBinariesDir + "nvToolsExt32_1.dll"));
 		}
@@ -332,11 +337,11 @@ public class PhysX : ModuleRules
 				PublicAdditionalLibraries.Add(String.Format(Lib, LibrarySuffix));
 			}
 		}
-		else if (Target.Platform == UnrealTargetPlatform.IOS)
+		else if (Target.Platform == UnrealTargetPlatform.IOS || Target.Platform == UnrealTargetPlatform.TVOS)
 		{
 			PublicSystemIncludePaths.Add(PhysXDir + "include/foundation/unix");
 
-			PhysXLibDir = Path.Combine(PhysXLibDir, "IOS/");
+			PhysXLibDir = Path.Combine(PhysXLibDir, Target.Platform.ToString());
 			PublicLibraryPaths.Add(PhysXLibDir);
 
 			string[] PhysXLibs = new string[] 

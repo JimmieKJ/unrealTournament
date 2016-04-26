@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -46,8 +46,10 @@ class UMaterialExpressionFunctionOutput : public UMaterialExpression
 	//~ End UObject Interface.
 
 	//~ Begin UMaterialExpression Interface
+#if WITH_EDITOR
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
+#endif // WITH_EDITOR
 	virtual FString GetInputName(int32 InputIndex) const override
 	{
 		return TEXT("");
@@ -55,8 +57,8 @@ class UMaterialExpressionFunctionOutput : public UMaterialExpression
 #if WITH_EDITOR
 	virtual void GetExpressionToolTip(TArray<FString>& OutToolTip) override;
 	virtual uint32 GetInputType(int32 InputIndex) override;
-#endif
 	virtual bool IsResultMaterialAttributes(int32 OutputIndex) override;
+#endif // WITH_EDITOR
 	//~ End UMaterialExpression Interface
 
 

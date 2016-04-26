@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BuildPatchServicesModule.h: Declares the FBuildPatchServicesModule class.
@@ -75,8 +75,8 @@ public:
 	virtual IBuildManifestPtr LoadManifestFromFile(const FString& Filename) override;
 	virtual IBuildManifestPtr MakeManifestFromData(const TArray<uint8>& ManifestData) override;
 	virtual bool SaveManifestToFile(const FString& Filename, IBuildManifestRef Manifest, bool bUseBinary = true) override;
-	virtual IBuildInstallerPtr StartBuildInstall(IBuildManifestPtr CurrentManifest, IBuildManifestPtr InstallManifest, const FString& InstallDirectory, FBuildPatchBoolManifestDelegate OnCompleteDelegate, TSet<FString> InstallTags = TSet<FString>()) override;
-	virtual IBuildInstallerPtr StartBuildInstallStageOnly(IBuildManifestPtr CurrentManifest, IBuildManifestPtr InstallManifest, const FString& InstallDirectory, FBuildPatchBoolManifestDelegate OnCompleteDelegate, TSet<FString> InstallTags = TSet<FString>()) override;
+	virtual IBuildInstallerPtr StartBuildInstall(IBuildManifestPtr CurrentManifest, IBuildManifestPtr InstallManifest, const FString& InstallDirectory, FBuildPatchBoolManifestDelegate OnCompleteDelegate, bool bIsRepair = false, TSet<FString> InstallTags = TSet<FString>()) override;
+	virtual IBuildInstallerPtr StartBuildInstallStageOnly(IBuildManifestPtr CurrentManifest, IBuildManifestPtr InstallManifest, const FString& InstallDirectory, FBuildPatchBoolManifestDelegate OnCompleteDelegate, bool bIsRepair = false, TSet<FString> InstallTags = TSet<FString>()) override;
 	virtual void SetStagingDirectory(const FString& StagingDir) override;
 	virtual void SetCloudDirectory(const FString& CloudDir) override;
 	virtual void SetBackupDirectory(const FString& BackupDir) override;
@@ -124,6 +124,11 @@ private:
 	 */
 	void PreExit();
 
+	/**
+	 * Called during init to perform any fix up required to new configuration.
+	 */
+	void FixupLegacyConfig();
+
 private:
 	// Holds the cloud directory where chunks should belong
 	static FString CloudDirectory;
@@ -133,6 +138,12 @@ private:
 
 	// Holds the backup directory where we can move files that will be clobbered by repair or patch
 	static FString BackupDirectory;
+
+	// Holds the filename for local machine config. This is instead of shipped or user config, to track machine installation config.
+	FString LocalMachineConfigFile;
+
+	// A flag specifying whether prerequisites install should be skipped
+	bool bForceSkipPrereqs;
 
 	// Save the ptr to the build installer thread that we create
 	TArray< FBuildPatchInstallerPtr > BuildPatchInstallers;

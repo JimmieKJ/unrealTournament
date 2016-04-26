@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "Tests/AutomationTestSettings.h"
@@ -916,8 +916,10 @@ namespace ImportExportAssetHelper
 
 				TArray<FColor> OutImageData;
 				FIntVector OutImageSize;
-				FSlateApplication::Get().TakeScreenshot(WindowRef, OutImageData, OutImageSize);
-				FAutomationTestFramework::GetInstance().OnScreenshotCaptured().ExecuteIfBound(OutImageSize.X, OutImageSize.Y, OutImageData, ScreenshotName);
+				if (FSlateApplication::Get().TakeScreenshot(WindowRef, OutImageData, OutImageSize))
+				{
+					FAutomationTestFramework::GetInstance().OnScreenshotCaptured().ExecuteIfBound(OutImageSize.X, OutImageSize.Y, OutImageData, ScreenshotName);
+				}
 
 				//Close the editor
 				FAssetEditorManager::Get().CloseAllAssetEditors();

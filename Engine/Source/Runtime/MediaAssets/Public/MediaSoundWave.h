@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -38,7 +38,7 @@ public:
 	 * @param InMediaPlayer The asset to set.
 	 */
 	UFUNCTION(BlueprintCallable, Category="Media|MediaSound")
-	void SetMediaPlayer( UMediaPlayer* InMediaPlayer );
+	void SetMediaPlayer(UMediaPlayer* InMediaPlayer);
 
 public:
 
@@ -55,17 +55,17 @@ public:
 
 	virtual int32 GeneratePCMData(uint8* PCMData, const int32 SamplesNeeded) override;
 	virtual FByteBulkData* GetCompressedData(FName Format) override;
-	virtual int32 GetResourceSizeForFormat( FName Format ) override;
-	virtual void InitAudioResource( FByteBulkData& CompressedData ) override;
-	virtual bool InitAudioResource( FName Format ) override;
+	virtual int32 GetResourceSizeForFormat(FName Format) override;
+	virtual void InitAudioResource(FByteBulkData& CompressedData) override;
+	virtual bool InitAudioResource(FName Format) override;
 
 public:
 
 	// UObject overrides
 
-	virtual void GetAssetRegistryTags( TArray<FAssetRegistryTag>& OutTags ) const override;
-	virtual SIZE_T GetResourceSize( EResourceSizeMode::Type Mode ) override;
-	virtual void Serialize( FArchive& Ar ) override;
+	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
+	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
+	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;
 	virtual void BeginDestroy() override;
 

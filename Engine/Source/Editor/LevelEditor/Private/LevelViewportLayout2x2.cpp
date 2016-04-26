@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LevelEditor.h"
 #include "LevelViewportLayout2x2.h"
@@ -16,12 +16,10 @@ TSharedRef<SWidget> FLevelViewportLayout2x2::MakeViewportLayout(const FString& L
 {
 	FString SpecificLayoutString = GetTypeSpecificLayoutString(LayoutString);
 
-	TSharedPtr< SLevelViewport > ViewportWidgetTL;
-	TSharedPtr< SLevelViewport > ViewportWidgetTR;
-	TSharedPtr< SLevelViewport > ViewportWidgetBL;
-	TSharedPtr< SLevelViewport > ViewportWidgetBR;
-
 	FString TopLeftKey, BottomLeftKey, TopRightKey, BottomRightKey;
+
+	FString TopLeftType = TEXT("Default"), BottomLeftType = TEXT("Default"), TopRightType = TEXT("Default"), BottomRightType = TEXT("Default");
+
 	TArray<FVector2D> SplitterPercentages;
 	
 	if (!SpecificLayoutString.IsEmpty())
@@ -33,6 +31,11 @@ TSharedRef<SWidget> FLevelViewportLayout2x2::MakeViewportLayout(const FString& L
 		BottomLeftKey = SpecificLayoutString + TEXT(".Viewport1");
 		TopRightKey = SpecificLayoutString + TEXT(".Viewport2");
 		BottomRightKey = SpecificLayoutString + TEXT(".Viewport3");
+
+		GConfig->GetString(*IniSection, *(TopLeftKey + TEXT(".TypeWithinLayout")), TopLeftType, GEditorPerProjectIni);
+		GConfig->GetString(*IniSection, *(TopRightKey + TEXT(".TypeWithinLayout")), TopRightType, GEditorPerProjectIni);
+		GConfig->GetString(*IniSection, *(BottomLeftKey + TEXT(".TypeWithinLayout")), BottomLeftType, GEditorPerProjectIni);
+		GConfig->GetString(*IniSection, *(BottomRightKey + TEXT(".TypeWithinLayout")), BottomRightType, GEditorPerProjectIni);
 
 		for (int32 i = 0; i < 4; ++i)
 		{
@@ -46,62 +49,72 @@ TSharedRef<SWidget> FLevelViewportLayout2x2::MakeViewportLayout(const FString& L
 		}
 	}
 
+	FLevelEditorModule& LevelEditor = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
+
+	// Set up the viewports
+	FViewportConstructionArgs Args;
+	Args.ParentLayout = AsShared();
+	Args.ParentLevelEditor = ParentLevelEditor;
+	Args.IsEnabled = FSlateApplication::Get().GetNormalExecutionAttribute();
+
+	// Left viewport
+	Args.bRealtime = false;
+	Args.ConfigKey = TopLeftKey;
+	Args.ViewportType = LVT_OrthoYZ;
+	TSharedPtr< IViewportLayoutEntity > ViewportTL = LevelEditor.FactoryViewport(*TopLeftType, Args);
+
+	// Persp viewport
+	Args.bRealtime = true;
+	Args.ConfigKey = BottomLeftKey;
+	Args.ViewportType = LVT_Perspective;
+	TSharedPtr< IViewportLayoutEntity > ViewportBL = LevelEditor.FactoryViewport(*BottomLeftType, Args);
+
+	// Front viewport
+	Args.bRealtime = false;
+	Args.ConfigKey = TopRightKey;
+	Args.ViewportType = LVT_OrthoXZ;
+	TSharedPtr< IViewportLayoutEntity > ViewportTR = LevelEditor.FactoryViewport(*TopRightType, Args);
+
+	// Top Viewport
+	Args.bRealtime = false;
+	Args.ConfigKey = BottomRightKey;
+	Args.ViewportType = LVT_OrthoXY;
+	TSharedPtr< IViewportLayoutEntity > ViewportBR = LevelEditor.FactoryViewport(*BottomRightType, Args);
+
+	Viewports.Add( *TopLeftKey, ViewportTL );
+	Viewports.Add( *BottomLeftKey, ViewportBL );
+	Viewports.Add( *TopRightKey, ViewportTR );
+	Viewports.Add( *BottomRightKey, ViewportBR );
+
+	// Set up the splitter
 	SplitterWidget = 
 	SNew( SSplitter2x2 )
 	.TopLeft()
 	[
-		SAssignNew( ViewportWidgetTL, SLevelViewport )
-		.ViewportType( LVT_OrthoYZ )		// Left
-		.ParentLayout( AsShared() )
-		.ParentLevelEditor( ParentLevelEditor )
-		.ConfigKey( TopLeftKey )
-		.IsEnabled(FSlateApplication::Get().GetNormalExecutionAttribute())
+		ViewportTL->AsWidget()
 	]
 	.BottomLeft()
 	[
-		SAssignNew( ViewportWidgetBL, SLevelViewport )
-		.ViewportType( LVT_Perspective ) // Persp
-		.Realtime( true )
-		.ParentLayout( AsShared() )
-		.ParentLevelEditor( ParentLevelEditor )
-		.ConfigKey( BottomLeftKey )
-		.IsEnabled(FSlateApplication::Get().GetNormalExecutionAttribute())
+		ViewportBL->AsWidget()
 	]
 	.TopRight()
 	[
-		SAssignNew( ViewportWidgetTR, SLevelViewport )
-		.ViewportType( LVT_OrthoXZ )		// Front
-		.ParentLayout( AsShared() )
-		.ParentLevelEditor( ParentLevelEditor )
-		.ConfigKey( TopRightKey )
-		.IsEnabled(FSlateApplication::Get().GetNormalExecutionAttribute())
+		ViewportTR->AsWidget()
 	]
 	.BottomRight()
 	[
-		SAssignNew( ViewportWidgetBR, SLevelViewport )
-		.ViewportType( LVT_OrthoXY )		// Top
-		.ParentLayout( AsShared() )
-		.ParentLevelEditor( ParentLevelEditor )
-		.ConfigKey( BottomRightKey )
-		.IsEnabled(FSlateApplication::Get().GetNormalExecutionAttribute())
+		ViewportBR->AsWidget()
 	];
-
-	Viewports.Add( ViewportWidgetTL );
-	Viewports.Add( ViewportWidgetBL );
-	Viewports.Add( ViewportWidgetTR );
-	Viewports.Add( ViewportWidgetBR );
-
 	
 	// Make newly-created perspective viewports active by default
-	GCurrentLevelEditingViewportClient = &ViewportWidgetBL->GetLevelViewportClient();
+	GCurrentLevelEditingViewportClient = &ViewportBL->GetLevelViewportClient();
 
-	
 	if (SplitterPercentages.Num() > 0)
 	{
 		SplitterWidget->SetSplitterPercentages(SplitterPercentages);
 	}
 
-	InitCommonLayoutFromString(SpecificLayoutString);
+	InitCommonLayoutFromString(SpecificLayoutString, *BottomLeftKey);
 
 	return SplitterWidget.ToSharedRef();
 }

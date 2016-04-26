@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessUpscale.cpp: Post processing Upscale implementation.
@@ -20,7 +20,45 @@ static TAutoConsoleVariable<float> CVarUpscaleSoftness(
 	TEXT(" 0..1 (0.3 is good for ScreenPercentage 90"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
+static TAutoConsoleVariable<float> CVarUpscalePaniniD(
+	TEXT("r.Upscale.Panini.D"),
+	0,
+	TEXT("Allow and configure to apply a panini distortion to the rendered image. Values between 0 and 1 allow to fade the effect (lerp).\n")
+	TEXT("Implementation from research paper \"Pannini: A New Projection for Rendering Wide Angle Perspective Images\"\n")
+	TEXT(" 0: off (default)\n")
+	TEXT(">0: enabled (requires an extra post processing pass if upsampling wasn't used - see r.ScreenPercentage)\n")
+	TEXT(" 1: Panini cylindrical stereographic projection"),
+	ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<float> CVarUpscalePaniniS(
+	TEXT("r.Upscale.Panini.S"),
+	0,
+	TEXT("Panini projection's hard vertical compression factor.\n")
+	TEXT(" 0: no vertical compression factor (default)\n")
+	TEXT(" 1: Hard vertical compression"),
+	ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<float> CVarUpscalePaniniScreenFit(
+	TEXT("r.Upscale.Panini.ScreenFit"),
+	1.0f,
+	TEXT("Panini projection screen fit effect factor (lerp).\n")
+	TEXT(" 0: fit vertically\n")
+	TEXT(" 1: fit horizontally (default)"),
+	ECVF_RenderThreadSafe);
+
 const FRCPassPostProcessUpscale::PaniniParams FRCPassPostProcessUpscale::PaniniParams::Default;
+
+FRCPassPostProcessUpscale::PaniniParams::PaniniParams(const FViewInfo& View)
+{
+	*this = PaniniParams();
+
+	if (View.IsPerspectiveProjection() && !GEngine->StereoRenderingDevice.IsValid())
+	{
+		D = FMath::Max(CVarUpscalePaniniD.GetValueOnRenderThread(), 0.0f);
+		S = CVarUpscalePaniniS.GetValueOnRenderThread();
+		ScreenFit = FMath::Max(CVarUpscalePaniniScreenFit.GetValueOnRenderThread(), 0.0f);
+	}
+}
 
 static FVector2D PaniniProjection(FVector2D OM, float d, float s)
 {
@@ -102,8 +140,8 @@ class FPostProcessUpscalePS : public FGlobalShader
 
 	static bool ShouldCache(EShaderPlatform Platform)
 	{
-		// Always allow simple bilinear upscale. (Provides upscaling for ES2 emulation)
-		if (Method == 1)
+		// Always allow point and bilinear upscale. (Provides upscaling for ES2 emulation)
+		if (Method == 0 || Method == 1)
 		{
 			return true;
 		}

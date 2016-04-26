@@ -1,6 +1,7 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+#include "DerivedDataCacheUsageStats.h"
 
 /** 
  * A simple thread safe, memory based backend. This is used for Async puts and the boot cache.
@@ -35,6 +36,7 @@ public:
 	 */
 	virtual bool CachedDataProbablyExists(const TCHAR* CacheKey) override
 	{
+		COOK_STAT(auto Timer = UsageStats.TimeProbablyExists());
 		FScopeLock ScopeLock(&SynchronizationObject);
 		if (bDisabled)
 		{
@@ -47,7 +49,12 @@ public:
 			return true;
 		}
 
-		return CacheItems.Contains(FString(CacheKey));
+		bool Result = CacheItems.Contains(FString(CacheKey));
+		if (Result)
+		{
+			COOK_STAT(Timer.AddHit(0));
+		}
+		return Result;
 	}
 	/**
 	 * Synchronous retrieve of a cache item
@@ -56,8 +63,9 @@ public:
 	 * @param	OutData		Buffer to receive the results, if any were found
 	 * @return				true if any data was found, and in this case OutData is non-empty
 	 */
-	virtual bool GetCachedData(const TCHAR* CacheKey, TArray<uint8>& OutData, FCacheStatRecord* Stats) override
+	virtual bool GetCachedData(const TCHAR* CacheKey, TArray<uint8>& OutData) override
 	{
+		COOK_STAT(auto Timer = UsageStats.TimeGet());
 		FScopeLock ScopeLock(&SynchronizationObject);
 		if (!bDisabled)
 		{
@@ -67,6 +75,7 @@ public:
 				OutData = Item->Data;
 				Item->Age = 0;
 				check(OutData.Num());
+				COOK_STAT(Timer.AddHit(OutData.Num()));
 				return true;
 			}
 		}
@@ -80,8 +89,9 @@ public:
 	 * @param	InData		Buffer containing the data to cache, can be destroyed after the call returns, immediately
 	 * @param	bPutEvenIfExists	If true, then do not attempt skip the put even if CachedDataProbablyExists returns true
 	 */
-	virtual void PutCachedData(const TCHAR* CacheKey, TArray<uint8>& InData, bool bPutEvenIfExists, FCacheStatRecord* Stats) override
+	virtual void PutCachedData(const TCHAR* CacheKey, TArray<uint8>& InData, bool bPutEvenIfExists) override
 	{
+		COOK_STAT(auto Timer = UsageStats.TimePut());
 		FScopeLock ScopeLock(&SynchronizationObject);
 		
 		if (bDisabled || bMaxSizeExceeded)
@@ -110,6 +120,7 @@ public:
 			}
 			else
 			{
+				COOK_STAT(Timer.AddHit(InData.Num()));
 				CacheItems.Add(Key, Val);
 				CalcCacheValueSize(Key, *Val);
 
@@ -290,6 +301,7 @@ public:
 		}
 		
 		CurrentCacheSize = FileSize;
+		CacheFilename = Filename;
 		UE_LOG(LogDerivedDataCache, Log, TEXT("Loaded boot cache %4.2fs %lldMB %s."), float(FPlatformTime::Seconds() - StartTime), DataSize / (1024 * 1024), Filename);
 		return true;
 	}
@@ -309,7 +321,15 @@ public:
 		CurrentCacheSize = SerializationSpecificDataSize;
 	}
 
+	virtual void GatherUsageStats(TMap<FString, FDerivedDataCacheUsageStats>& UsageStatsMap, FString&& GraphPath) override
+	{
+		COOK_STAT(UsageStatsMap.Add(FString::Printf(TEXT("%s: %s.%s"), *GraphPath, TEXT("MemoryBackend"), *CacheFilename), UsageStats));
+	}
+
 private:
+	/** Name of the cache file loaded (if any). */
+	FString CacheFilename;
+	FDerivedDataCacheUsageStats UsageStats;
 
 	struct FCacheValue
 	{

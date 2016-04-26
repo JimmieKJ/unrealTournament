@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -11,9 +11,9 @@ class FNetworkingModule
 {
 public:
 
-	virtual void StartupModule( ) override;
+	// IModuleInterface interface
 
-	virtual void ShutdownModule( ) override;
-
-	virtual bool SupportsDynamicReloading( ) override;
+	virtual void StartupModule() override;
+	virtual void ShutdownModule() override;
+	virtual bool SupportsDynamicReloading() override;
 };

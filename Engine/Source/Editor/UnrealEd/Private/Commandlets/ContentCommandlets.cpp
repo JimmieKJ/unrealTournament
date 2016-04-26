@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UCContentCommandlets.cpp: Various commmandlets.
@@ -124,7 +124,7 @@ int32 UResavePackagesCommandlet::InitializeResaveParameters( const TArray<FStrin
 					FString PackageFile;
 					if (FPackageName::SearchForPackageOnDisk(Line, NULL, &PackageFile, false))
 					{
-						PackageNames.Add(*PackageFile);
+						PackageNames.AddUnique(*PackageFile);
 					}
 					else
 					{
@@ -745,12 +745,58 @@ bool UResavePackagesCommandlet::PerformPreloadOperations( FLinkerLoad* PackageLi
 
 	return bResult;
 }
+
+
+bool UResavePackagesCommandlet::CheckoutFile(const FString& Filename)
+{
+	if (!bAutoCheckOut)
+	{
+		return true;
+	}
+
+	bool bIsReadOnly = IFileManager::Get().IsReadOnly(*Filename);
+	if (!bIsReadOnly)
+	{
+		return true;
+	}
+
+	//FString FullPath = FPaths::ConvertRelativePathToFull(StreamingLevelPackageFilename);
+	ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+	FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(*Filename, EStateCacheUsage::ForceUpdate);
+	if (SourceControlState.IsValid())
+	{
+		if (SourceControlState->IsCheckedOutOther())
+		{
+			UE_LOG(LogContentCommandlet, Error, TEXT("[REPORT] %s level is already checked out by someone else, can not submit!"), *Filename);
+		}
+		else if (!SourceControlState->IsCurrent())
+		{
+			UE_LOG(LogContentCommandlet, Error, TEXT("[REPORT] %s is not synced to head, can not submit"), *Filename);
+		}
+		else
+		{
+			if (SourceControlProvider.Execute(ISourceControlOperation::Create<FCheckOut>(), *Filename) == ECommandResult::Succeeded)
+			{
+				UE_LOG(LogContentCommandlet, Display, TEXT("[REPORT] %s Checked out successfully"), *Filename);
+				return true;
+			}
+			else
+			{
+				UE_LOG(LogContentCommandlet, Error, TEXT("[REPORT] %s could not be checked out!"), *Filename);
+			}
+		}
+	}
+	return false;
+}
+
 void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World, bool& bSavePackage)
 {
 	check(World);
 
 	if (bShouldBuildLighting)
 	{
+		bool bShouldProceedWithLightmapRebuild = true;
+
 		static bool bHasLoadedStartupPackages = false;
 		if (bHasLoadedStartupPackages == false)
 		{
@@ -780,32 +826,119 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 		WorldContext.SetCurrentWorld(World);
 		GWorld = World;
 
-		if (World->StreamingLevels.Num())
+		TArray<FString> SublevelFilenames;
+
+		// if we can't check out the main map or it's not up to date then we can't do the lighting rebuild at all!
+		FString WorldPackageName;
+		if (FPackageName::DoesPackageExist(World->GetOutermost()->GetName(), NULL, &WorldPackageName))
+		{
+			if (CheckoutFile(WorldPackageName))
+			{
+				SublevelFilenames.Add(WorldPackageName);
+			}
+			else
+			{
+				bShouldProceedWithLightmapRebuild = false;
+			}
+		}
+		else
+		{
+			bShouldProceedWithLightmapRebuild = false;
+		}
+		
+
+
+		if (bShouldProceedWithLightmapRebuild)
 		{
 			World->LoadSecondaryLevels(true, NULL);
 
 			for (ULevelStreaming* NextStreamingLevel : World->StreamingLevels)
 			{
+				FString StreamingLevelPackageFilename;
+				const FString StreamingLevelWorldAssetPackageName = NextStreamingLevel->GetWorldAssetPackageName();
+				if (FPackageName::DoesPackageExist(StreamingLevelWorldAssetPackageName, NULL, &StreamingLevelPackageFilename))
+				{
+					// check to see if we need to check this package out
+					if (CheckoutFile(StreamingLevelPackageFilename))
+					{
+						SublevelFilenames.Add(StreamingLevelPackageFilename);
+					}
+					else
+					{
+						bShouldProceedWithLightmapRebuild = false;
+						break;
+					}
+				}
+
 				NextStreamingLevel->bShouldBeVisible = true;
 				NextStreamingLevel->bShouldBeLoaded = true;
 			}
-
-			World->FlushLevelStreaming(EFlushLevelStreamingType::Full);
 		}
-		// We need any deferred commands added when loading to be executed before we start building lighting.
-		GEngine->TickDeferredCommands();
-
-		GRedirectCollector.ResolveStringAssetReference();
 
 
-		FLightingBuildOptions LightingOptions;
-		// Always build on production
-		LightingOptions.QualityLevel = Quality_Production;
-
-		GEditor->BuildLighting(LightingOptions);
-		while (GEditor->IsLightingBuildCurrentlyRunning())
+		// If nothing came up that stops us from continuing, then start building lightmass
+		if (bShouldProceedWithLightmapRebuild)
 		{
-			GEditor->UpdateBuildLighting();
+			World->FlushLevelStreaming(EFlushLevelStreamingType::Full);
+
+			// We need any deferred commands added when loading to be executed before we start building lighting.
+			GEngine->TickDeferredCommands();
+
+			GRedirectCollector.ResolveStringAssetReference();
+
+			FLightingBuildOptions LightingOptions;
+			// Always build on production
+			LightingOptions.QualityLevel = Quality_Production;
+
+			GEditor->BuildLighting(LightingOptions);
+			while (GEditor->IsLightingBuildCurrentlyRunning())
+			{
+				GEditor->UpdateBuildLighting();
+			}
+
+			for (ULevelStreaming* NextStreamingLevel : World->StreamingLevels)
+			{
+				FString StreamingLevelPackageFilename;
+				const FString StreamingLevelWorldAssetPackageName = NextStreamingLevel->GetWorldAssetPackageName();
+				if (FPackageName::DoesPackageExist(StreamingLevelWorldAssetPackageName, NULL, &StreamingLevelPackageFilename))
+				{
+					UPackage* SubLevelPackage = NextStreamingLevel->GetLoadedLevel()->GetOutermost();
+					if (!SavePackageHelper(SubLevelPackage, StreamingLevelPackageFilename))
+					{
+						UE_LOG(LogContentCommandlet, Error, TEXT("[REPORT] Failed to save sub level: "), *StreamingLevelPackageFilename);
+					}
+					/*if (GEditor->SavePackage(SubLevelPackage, NULL, , *StreamingLevelPackageFilename, GWarn))
+					{
+							
+					}*/
+				}
+			}
+		}
+		else
+		{
+			UE_LOG(LogContentCommandlet, Error, TEXT("[REPORT] Failed to complete steps necessary to start a lightmass build of "), *World->GetName());
+		}
+
+		if ((bShouldProceedWithLightmapRebuild == false)||(bSavePackage == false))
+		{
+			// don't save our parent package
+			bSavePackage = false;
+			
+			//FString FullPath = FPaths::ConvertRelativePathToFull(StreamingLevelPackageFilename);
+			ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+			
+			// revert all our packages
+			for (const auto& SublevelFilename : SublevelFilenames)
+			{
+				SourceControlProvider.Execute(ISourceControlOperation::Create<FRevert>(), *SublevelFilename);
+			}
+		}
+		else
+		{
+			for(const auto& SublevelFilename : SublevelFilenames)
+			{
+				FilesToSubmit.Add(SublevelFilename);
+			}
 		}
 
 		World->RemoveFromRoot();

@@ -1,8 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "IpConnection.h"
+
+#include "NUTUtilNet.h"
+
 #include "UnitTestNetConnection.generated.h"
 
 
@@ -10,7 +13,7 @@
  * A net connection for enabling unit testing through barebones/minimal client connections
  */
 UCLASS(transient)
-class UUnitTestNetConnection : public UIpConnection
+class NETCODEUNITTEST_API UUnitTestNetConnection : public UIpConnection
 {
 	GENERATED_UCLASS_BODY()
 
@@ -25,8 +28,12 @@ class UUnitTestNetConnection : public UIpConnection
 								int32 InMaxPacket=0) override;
 #endif
 
+	virtual void InitHandler() override;
 
-	virtual void LowLevelSend(void* Data, int32 Count) override;
+
+	virtual void LowLevelSend(void* Data, int32 CountBytes, int32 CountBits) override;
+
+	virtual void ValidateSendBuffer() override;
 
 	virtual void ReceivedRawPacket(void* Data, int32 Count) override;
 
@@ -36,10 +43,11 @@ class UUnitTestNetConnection : public UIpConnection
 	/**
 	 * Delegate for hooking 'LowLevelSend'
 	 *
-	 * @param Data		The data being sent
-	 * @param Count		The number of bytes being sent
+	 * @param Data			The data being sent
+	 * @param Count			The number of bytes being sent
+	 * @param bBlockSend	Whether or not to block the send (defaults to false)
 	 */
-	DECLARE_DELEGATE_TwoParams(FLowLevelSendDel, void* /*Data*/, int32 /*Count*/);
+	DECLARE_DELEGATE_ThreeParams(FLowLevelSendDel, void* /*Data*/, int32 /*Count*/, bool& /*bBlockSend*/);
 
 	/**
 	 * Delegate for hooking 'ReceivedRawPacket'
@@ -59,6 +67,7 @@ class UUnitTestNetConnection : public UIpConnection
 	DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnReplicatedActorSpawn, UClass* /*ActorClass*/, bool /*bActorChannel*/);
 
 
+public:
 	/** Delegate for hooking LowLevelSend */
 	FLowLevelSendDel		LowLevelSendDel;
 
@@ -67,6 +76,17 @@ class UUnitTestNetConnection : public UIpConnection
 
 	/** Delegate for notifying on replicated actor creation */
 	FOnReplicatedActorSpawn	ReplicatedActorSpawnDel;
+
+	/** Socket hook - for hooking socket-level events */
+	FSocketHook				SocketHook;
+
+	/** Whether or not to override error detection within ValidateSendBuffer */
+	bool					bDisableValidateSend;
+
+
+public:
+	/** Whether or not newly-created instances of this class, should force-enable packet handlers */
+	static bool				bForceEnableHandler;
 };
 
 

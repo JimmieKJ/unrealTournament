@@ -11,6 +11,8 @@
 #include "UTRconAdminInfo.h"
 #include "UTLocalPlayer.h"
 #include "UTProfileSettings.h"
+#include "UTGameInstance.h"
+#include "UTParty.h"
 
 AUTBasePlayerController::AUTBasePlayerController(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -303,8 +305,35 @@ uint8 AUTBasePlayerController::GetTeamNum() const
 	return (UTPlayerState != NULL && UTPlayerState->Team != NULL) ? UTPlayerState->Team->TeamIndex : 255;
 }
 
+void AUTBasePlayerController::ClientRankedGameAbandoned_Implementation()
+{
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP)
+	{
+		LP->LastRankedMatchSessionId.Empty();
+		LP->LastRankedMatchUniqueId.Empty();
+		LP->LastRankedMatchTimeString.Empty();
+		LP->SaveConfig();
+
+#if !UE_SERVER
+		LP->ShowGameAbandonedDialog();
+#endif
+	}
+
+	ConsoleCommand("Disconnect");
+}
+
 void AUTBasePlayerController::ClientReturnToLobby_Implementation()
 {
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP)
+	{
+		LP->LastRankedMatchSessionId.Empty();
+		LP->LastRankedMatchUniqueId.Empty();
+		LP->LastRankedMatchTimeString.Empty();
+		LP->SaveConfig();
+	}
+
 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
 	if (GameState && GameState->HubGuid.IsValid())
 	{
@@ -490,6 +519,19 @@ void AUTBasePlayerController::ClientReturnedToMenus()
 	{
 		LP->LeaveSession();	
 		LP->UpdatePresence(TEXT("In Menus"), false, false, false, false);
+
+		if (LP->IsPartyLeader())
+		{
+			UUTGameInstance* GameInstance = Cast<UUTGameInstance>(LP->GetGameInstance());
+			if (GameInstance)
+			{
+				UUTParty* Party = GameInstance->GetParties();
+				if (Party && Party->GetPersistentParty())
+				{
+					Party->RestorePersistentPartyState();
+				}
+			}
+		}
 	}
 }
 

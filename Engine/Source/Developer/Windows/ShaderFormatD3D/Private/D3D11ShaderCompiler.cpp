@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ShaderFormatD3D.h"
 #include "ShaderPreprocessor.h"
@@ -14,9 +14,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogD3D11ShaderCompiler, Log, All);
 
 // Disable macro redefinition warning for compatibility with Windows SDK 8+
 #pragma warning(push)
-#if _MSC_VER >= 1700
 #pragma warning(disable : 4005)	// macro redefinition
-#endif
 
 #include "AllowWindowsPlatformTypes.h"
 	#include <D3D11.h>
@@ -48,7 +46,7 @@ static FAutoConsoleVariableRef CVarD3DCheckForDoubles(
 	ECVF_Default
 	);
 
-static int32 GD3DDumpAMDCodeXLFile = 1;
+static int32 GD3DDumpAMDCodeXLFile = 0;
 static FAutoConsoleVariableRef CVarD3DDumpAMDCodeXLFile(
 	TEXT("r.D3DDumpAMDCodeXLFile"),
 	GD3DDumpAMDCodeXLFile,
@@ -353,7 +351,7 @@ static int32 GBreakpoint = 0;
 // Generate the dumped usf file; call the D3D compiler, gather reflection information and generate the output data
 static bool CompileAndProcessD3DShader(FString& PreprocessedShaderSource, const FString& CompilerPath,
 	uint32 CompileFlags, const FShaderCompilerInput& Input, FString& EntryPointName,
-	const TCHAR* ShaderProfile, TArray<FString>& FilteredErrors, FShaderCompilerOutput& Output)
+	const TCHAR* ShaderProfile, bool bProcessingSecondTime, TArray<FString>& FilteredErrors, FShaderCompilerOutput& Output)
 {
 	auto AnsiSourceFile = StringCast<ANSICHAR>(*PreprocessedShaderSource);
 
@@ -491,14 +489,66 @@ static bool CompileAndProcessD3DShader(FString& PreprocessedShaderSource, const 
 			}
 			else if (Input.Target.Frequency == SF_Pixel)
 			{
+				if (GD3DAllowRemoveUnused != 0 && Input.bCompilingForShaderPipeline)
+				{
+					// Handy place for a breakpoint for debugging...
+					++GBreakpoint;
+				}
+
+				bool bFoundUnused = false;
 				for (uint32 Index = 0; Index < ShaderDesc.InputParameters; ++Index)
 				{
 					D3D11_SIGNATURE_PARAMETER_DESC ParamDesc;
 					Reflector->GetInputParameterDesc(Index, &ParamDesc);
-					if (ParamDesc.SystemValueType == D3D_NAME_UNDEFINED && ParamDesc.ReadWriteMask != 0)
+					if (ParamDesc.SystemValueType == D3D_NAME_UNDEFINED)
 					{
-						FString UsedInput = FString::Printf(TEXT("%s%d"), ANSI_TO_TCHAR(ParamDesc.SemanticName), ParamDesc.SemanticIndex);
-						ShaderInputs.Add(UsedInput);
+						if (ParamDesc.ReadWriteMask != 0)
+						{
+							FString SemanticName = ANSI_TO_TCHAR(ParamDesc.SemanticName);
+
+							ShaderInputs.AddUnique(SemanticName);
+
+							// Add the number (for the case of TEXCOORD)
+							FString SemanticIndexName = FString::Printf(TEXT("%s%d"), *SemanticName, ParamDesc.SemanticIndex);
+							ShaderInputs.AddUnique(SemanticIndexName);
+
+							// Add _centroid
+							ShaderInputs.AddUnique(SemanticName + TEXT("_centroid"));
+							ShaderInputs.AddUnique(SemanticIndexName + TEXT("_centroid"));
+						}
+						else
+						{
+							bFoundUnused = true;
+						}
+					}
+					else
+					{
+						//if (ParamDesc.ReadWriteMask != 0)
+						{
+							// Keep system values
+							ShaderInputs.AddUnique(FString(ANSI_TO_TCHAR(ParamDesc.SemanticName)));
+						}
+					}
+				}
+
+				if (GD3DAllowRemoveUnused && Input.bCompilingForShaderPipeline && bFoundUnused && !bProcessingSecondTime)
+				{
+					// Rewrite the source removing the unused inputs so the bindings will match
+					TArray<FString> Errors;
+					if (RemoveUnusedInputs(PreprocessedShaderSource, ShaderInputs, EntryPointName, Errors))
+					{
+						return CompileAndProcessD3DShader(PreprocessedShaderSource, CompilerPath, CompileFlags, Input, EntryPointName, ShaderProfile, true, FilteredErrors, Output);
+					}
+					else
+					{
+						UE_LOG(LogD3D11ShaderCompiler, Warning, TEXT("Failed to Remove unused inputs [%s]!"), *Input.DumpDebugInfoPath);
+						for (int32 Index = 0; Index < Errors.Num(); ++Index)
+						{
+							FShaderCompilerError NewError;
+							NewError.StrippedErrorMessage = Errors[Index];
+							Output.Errors.Add(NewError);
+						}
+						Output.bFailedRemovingUnused = true;
 					}
 				}
 			}
@@ -701,21 +751,19 @@ static bool CompileAndProcessD3DShader(FString& PreprocessedShaderSource, const 
 				FMemoryWriter UniformBufferNameWriter(UniformBufferNameBytes);
 				UniformBufferNameWriter << UniformBufferNames;
 
-				// At runtime textures are just SRVs, so combine them for the purposes of building token streams.
-				GenericSRT.ShaderResourceViewMap.Append(GenericSRT.TextureMap);
-
 				// Copy over the bits indicating which resource tables are active.
 				SRT.ResourceTableBits = GenericSRT.ResourceTableBits;
 
 				SRT.ResourceTableLayoutHashes = GenericSRT.ResourceTableLayoutHashes;
 
 				// Now build our token streams.
+				BuildResourceTableTokenStream(GenericSRT.TextureMap, GenericSRT.MaxBoundResourceTable, SRT.TextureMap);
 				BuildResourceTableTokenStream(GenericSRT.ShaderResourceViewMap, GenericSRT.MaxBoundResourceTable, SRT.ShaderResourceViewMap);
 				BuildResourceTableTokenStream(GenericSRT.SamplerMap, GenericSRT.MaxBoundResourceTable, SRT.SamplerMap);
 				BuildResourceTableTokenStream(GenericSRT.UnorderedAccessViewMap, GenericSRT.MaxBoundResourceTable, SRT.UnorderedAccessViewMap);
 			}
 
-			if (GD3DAllowRemoveUnused != 0 && Input.Target.Frequency == SF_Pixel && Input.bCompilingForShaderPipeline)
+			if (GD3DAllowRemoveUnused != 0 && Input.Target.Frequency == SF_Pixel && Input.bCompilingForShaderPipeline && bProcessingSecondTime)
 			{
 				Output.bSupportsQueryingUsedAttributes = true;
 				if (GD3DAllowRemoveUnused == 1)
@@ -754,7 +802,7 @@ static bool CompileAndProcessD3DShader(FString& PreprocessedShaderSource, const 
 
 		if (Input.Target.Platform == SP_PCD3D_ES2)
 		{
-			if (Output.NumTextureSamplers > 8)
+			if (Output.NumTextureSamplers > 16)
 			{
 				FilteredErrors.Add(FString::Printf(TEXT("Shader uses more than 8 texture samplers which is not supported by ES2!  Used: %u"), Output.NumTextureSamplers));
 				Result = E_FAIL;
@@ -799,56 +847,31 @@ void CompileD3D11Shader(const FShaderCompilerInput& Input,FShaderCompilerOutput&
 	// Set additional defines.
 	AdditionalDefines.SetDefine(TEXT("COMPILER_HLSL"), 1);
 
-	// Preprocess the shader.
-	if (PreprocessShader(PreprocessedShaderSource, Output, Input, AdditionalDefines) != true)
+	if (Input.bSkipPreprocessedCache)
 	{
-		// The preprocessing stage will add any relevant errors.
-		return;
+		FFileHelper::LoadFileToString(PreprocessedShaderSource, *Input.SourceFilename);
+	}
+	else
+	{
+		// Preprocess the shader.
+		if (PreprocessShader(PreprocessedShaderSource, Output, Input, AdditionalDefines) != true)
+		{
+			// The preprocessing stage will add any relevant errors.
+			return;
+		}
 	}
 
 	FString EntryPointName = Input.EntryPointName;
 
 	Output.bFailedRemovingUnused = false;
-	if (GD3DAllowRemoveUnused && Input.Target.Frequency == SF_Vertex && Input.bCompilingForShaderPipeline)
+	if (GD3DAllowRemoveUnused == 1 && Input.Target.Frequency == SF_Vertex && Input.bCompilingForShaderPipeline)
 	{
-		static TArray<FString> VertexSystemOutputs;
-		if (VertexSystemOutputs.Num() == 0)
-		{
-			VertexSystemOutputs.Add(TEXT("SV_POSITION"));
-			VertexSystemOutputs.Add(TEXT("SV_Position"));
-			VertexSystemOutputs.Add(TEXT("SV_ClipDistance"));
-			VertexSystemOutputs.Add(TEXT("SV_ClipDistance0"));
-			VertexSystemOutputs.Add(TEXT("SV_ClipDistance1"));
-			VertexSystemOutputs.Add(TEXT("SV_ClipDistance2"));
-			VertexSystemOutputs.Add(TEXT("SV_ClipDistance3"));
-			VertexSystemOutputs.Add(TEXT("SV_ClipDistance4"));
-			VertexSystemOutputs.Add(TEXT("SV_ClipDistance5"));
-			VertexSystemOutputs.Add(TEXT("SV_CullDistance0"));
-			VertexSystemOutputs.Add(TEXT("SV_CullDistance1"));
-			VertexSystemOutputs.Add(TEXT("SV_CullDistance2"));
-			VertexSystemOutputs.Add(TEXT("SV_CullDistance3"));
-			VertexSystemOutputs.Add(TEXT("SV_CullDistance4"));
-			VertexSystemOutputs.Add(TEXT("SV_CullDistance5"));
-			VertexSystemOutputs.Add(TEXT("SV_Coverage"));
-			VertexSystemOutputs.Add(TEXT("SV_Depth"));
-			VertexSystemOutputs.Add(TEXT("SV_DomainLocation"));
-			VertexSystemOutputs.Add(TEXT("SV_IsFrontFace"));
-			VertexSystemOutputs.Add(TEXT("SV_OutputControlPointID"));
-			VertexSystemOutputs.Add(TEXT("SV_RenderTargetArrayIndex"));
-			VertexSystemOutputs.Add(TEXT("SV_SampleIndex"));
-			VertexSystemOutputs.Add(TEXT("SV_ViewportArrayIndex"));
-			VertexSystemOutputs.Add(TEXT("SV_TessFactor"));
-			VertexSystemOutputs.Add(TEXT("SV_InstanceID"));
-			VertexSystemOutputs.Add(TEXT("SV_PrimitiveID"));
-			VertexSystemOutputs.Add(TEXT("SV_VertexID"));
-		}
+		// Always add SV_Position
+		TArray<FString> UsedOutputs = Input.UsedOutputs;
+		UsedOutputs.AddUnique(TEXT("SV_POSITION"));
 
 		TArray<FString> Errors;
-		if (RemoveUnusedOutputs(PreprocessedShaderSource, VertexSystemOutputs, Input.UsedOutputs, Input.EntryPointName, Errors))
-		{
-			EntryPointName += FString(TEXT("__OPTIMIZED"));
-		}
-		else
+		if (!RemoveUnusedOutputs(PreprocessedShaderSource, UsedOutputs, EntryPointName, Errors))
 		{
 			UE_LOG(LogD3D11ShaderCompiler, Warning, TEXT("Failed to Remove unused outputs [%s]!"), *Input.DumpDebugInfoPath);
 			for (int32 Index = 0; Index < Errors.Num(); ++Index)
@@ -909,7 +932,7 @@ void CompileD3D11Shader(const FShaderCompilerInput& Input,FShaderCompilerOutput&
 	}
 
 	TArray<FString> FilteredErrors;
-	if (!CompileAndProcessD3DShader(PreprocessedShaderSource, CompilerPath, CompileFlags, Input, EntryPointName, ShaderProfile, FilteredErrors, Output))
+	if (!CompileAndProcessD3DShader(PreprocessedShaderSource, CompilerPath, CompileFlags, Input, EntryPointName, ShaderProfile, false, FilteredErrors, Output))
 	{
 		if (!FilteredErrors.Num())
 		{

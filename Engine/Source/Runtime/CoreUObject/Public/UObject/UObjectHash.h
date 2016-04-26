@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UObjectHash.h: Unreal object name hashes
@@ -7,7 +7,7 @@
 #ifndef __UOBJECTHASH_H__
 #define __UOBJECTHASH_H__
 
-DECLARE_STATS_GROUP(TEXT("UObject Hash"), STATGROUP_UObjectHash, STATCAT_Advanced);
+DECLARE_STATS_GROUP_VERBOSE(TEXT("UObject Hash"), STATGROUP_UObjectHash, STATCAT_Advanced);
 
 #if UE_GC_TRACK_OBJ_AVAILABLE
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("NumObjects"), STAT_Hash_NumObjects, STATGROUP_UObjectHash, COREUOBJECT_API);

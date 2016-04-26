@@ -18,6 +18,7 @@ namespace MatchState
 	extern UNREALTOURNAMENT_API const FName MapVoteHappening;				// The game is in mapvote stage
 	extern UNREALTOURNAMENT_API const FName MatchIntermission;				// The game is in a round intermission
 	extern UNREALTOURNAMENT_API const FName MatchExitingIntermission;		// Exiting Halftime
+	extern UNREALTOURNAMENT_API const FName MatchRankedAbandon;				// Exiting Halftime
 }
 
 USTRUCT()
@@ -108,6 +109,10 @@ struct FSelectedBot
 	{}
 };
 
+#if !UE_SERVER
+class SUTHUDWindow;
+#endif
+
 UCLASS(Config = Game, Abstract)
 class UNREALTOURNAMENT_API AUTGameMode : public AUTBaseGameMode
 {
@@ -127,7 +132,7 @@ public:
 	float EndScoreboardDelay;			
 
 	/* How long to display the main scoreboard */
-	UPROPERTY(GlobalConfig, EditDefaultsOnly, Category = PostMatchTime)
+	UPROPERTY(EditDefaultsOnly, Category = PostMatchTime)
 		float MainScoreboardDisplayTime;
 
 	/* How long to display the scoring summary */
@@ -191,7 +196,7 @@ public:
 	int32 GoalScore;    
 
 	/** How long should the match be.  Can be overridden with TIMELIMIT=x on the url */
-	UPROPERTY(config, BlueprintReadWrite, Category = "Game")
+	UPROPERTY(BlueprintReadWrite, Category = "Game")
 	int32 TimeLimit;    
 
 	/** multiplier to all XP awarded */
@@ -214,19 +219,19 @@ public:
 	bool bFirstBloodOccurred;
 
 	/** Minimum number of players that must have joined match before it will start. */
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly, BLueprintReadWrite, Category="MatchStart")
 	int32 MinPlayersToStart;
 
 	/** Minimum number of players that must have joined quickmatch before it will start. */
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly, BLueprintReadWrite, Category = "MatchStart")
 		int32 QuickPlayersToStart;
 
 	/** After this wait, add bots to min players level */
-	UPROPERTY()
-	int32 MaxWaitForPlayers;
+	UPROPERTY(EditDefaultsOnly, BLueprintReadWrite, Category = "MatchStart")
+		int32 MaxWaitForPlayers;
 
 	/** Wait at least this long in quick match to fill to QuickPlayersToStart */
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly, BLueprintReadWrite, Category = "MatchStart")
 		int32 MaxWaitForQuickMatch;
 
 	/** World time when match was first ready to start. */
@@ -448,6 +453,7 @@ public:
 	bool CheckScore(AUTPlayerState* Scorer);
 
 	virtual void FindAndMarkHighScorer();
+	virtual void AdjustLeaderHatFor(AUTCharacter* UTChar);
 	virtual void SetEndGameFocus(AUTPlayerState* Winner);
 
 	UFUNCTION(BlueprintCallable, Category = UTGame)
@@ -475,8 +481,6 @@ public:
 
 	virtual void GiveDefaultInventory(APawn* PlayerPawn);
 
-	virtual void ToggleSpecialFor(AUTCharacter* C);
-
 	virtual void ChangeName(AController* Other, const FString& S, bool bNameChange);
 
 	/** Return true if playerstart P should be avoided for this game mode. */
@@ -487,6 +491,7 @@ public:
 	virtual class AActor* FindPlayerStart_Implementation(AController* Player, const FString& IncomingName = TEXT("")) override;
 	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
 	virtual float RatePlayerStart(APlayerStart* P, AController* Player);
+	virtual float AdjustNearbyPlayerStartScore(const AController* Player, const AController* OtherController, const ACharacter* OtherCharacter, const FVector& StartLoc, const APlayerStart* P);
 
 	virtual bool ReadyToStartMatch_Implementation() override;
 
@@ -517,6 +522,8 @@ public:
 	virtual void DefaultTimer() override;
 	virtual void CheckGameTime();
 
+	virtual void SendEveryoneBackToLobbyGameAbandoned();
+
 	/**  Used to check when time has run out if there is a winner.  If there is a tie, return NULL to enter overtime. **/	
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	AUTPlayerState* IsThereAWinner(bool& bTied);
@@ -538,6 +545,8 @@ public:
 
 	/** The standard IsHandlingReplays() codepath is not flexible enough for UT, this is the compromise */
 	virtual bool UTIsHandlingReplays();
+
+	virtual void ToggleSpecialFor(AUTCharacter* C);
 
 protected:
 
@@ -674,6 +683,9 @@ public:
 	*/
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	bool OverridePickupQuery(APawn* Other, TSubclassOf<AUTInventory> ItemClass, AActor* Pickup, bool& bAllowPickup);
+
+	virtual TSubclassOf<class AUTInventory> GetActivatedPowerupPlaceholderClass() { return nullptr; };
+
 protected:
 
 
@@ -738,6 +750,8 @@ protected:
 	UPROPERTY(transient)
 	AUTServerBeaconLobbyClient* LobbyBeacon;
 
+	FTimerHandle ServerRestartTimerHandle;
+
 	float LastLobbyUpdateTime;
 	virtual void ForceLobbyUpdate();
 
@@ -755,6 +769,19 @@ protected:
 	
 	// When players leave/join or during the end of game state
 	virtual void UpdatePlayersPresence();
+	
+	/**
+	 * Lock down the session and prevent current/future players from unregistering with this session until the match is complete
+	 */
+	void LockSession();
+
+	/**
+	 * Unlock the session and remove currently inactive players from it
+	 */
+	void UnlockSession();
+
+	UPROPERTY()
+	int32 ExpectedPlayerCount;
 
 public:
 	virtual void SendEveryoneBackToLobby();
@@ -859,5 +886,9 @@ public:
 	// Return INDEX_NONE if thbe pack is invalid, otherwise returns the index of the pack
 	virtual int32 LoadoutPackIsValid(const FName& PackTag);
 
+#if !UE_SERVER
+	// The hud will create a spawn window that is displayed when the player has died.  
+	virtual TSharedPtr<SUTHUDWindow> CreateSpawnWindow(TWeakObjectPtr<UUTLocalPlayer> PlayerOwner);
+#endif
 };
 

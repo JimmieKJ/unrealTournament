@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "PropertyEditorPrivatePCH.h"
 #include "SDetailSingleItemRow.h"
@@ -6,7 +6,6 @@
 #include "PropertyEditorHelpers.h"
 #include "IDetailKeyframeHandler.h"
 #include "IDetailPropertyExtensionHandler.h"
-#include "DetailPropertyRow.h"
 
 namespace DetailWidgetConstants
 {
@@ -80,21 +79,6 @@ void SDetailSingleItemRow::Construct( const FArguments& InArgs, FDetailLayoutCus
 	if( InCustomization->IsValidCustomization() )
 	{
 		FDetailWidgetRow Row = InCustomization->GetWidgetRow();
-		TSharedPtr<FPropertyEditor> PropertyEditor;
-		auto bRequiresEditConfigHierarchy = false;
-		auto PropertyNode = InCustomization->GetPropertyNode();
-		if (PropertyNode.IsValid() && PropertyNode->GetProperty())
-		{
-			auto Prop = PropertyNode->GetProperty();
-			if (Prop->HasAnyPropertyFlags(CPF_GlobalConfig | CPF_Config))
-			{
-				if (Prop->HasMetaData(TEXT("ConfigHierarchyEditable")))
-				{
-					PropertyEditor = InCustomization->PropertyRow->GetPropertyEditor();
-					bRequiresEditConfigHierarchy = true;
-				}
-			}
-		}
 
 		TSharedPtr<SWidget> NameWidget;
 		TSharedPtr<SWidget> ValueWidget;
@@ -183,17 +167,6 @@ void SDetailSingleItemRow::Construct( const FArguments& InArgs, FDetailLayoutCus
 						]
 					]
 				];
-				if (bRequiresEditConfigHierarchy && PropertyEditor.IsValid())
-				{
-					HBox->AddSlot()
-					.AutoWidth()
-					.Padding(0)
-					//.HAlign(HAlign_Right)
-					.VAlign(VAlign_Center)
-					[
-						PropertyCustomizationHelpers::MakeEditConfigHierarchyButton(FSimpleDelegate::CreateSP(PropertyEditor.ToSharedRef(), &FPropertyEditor::EditConfigHierarchy))
-					];
-				}
 				Widget = Splitter;
 		}
 		else

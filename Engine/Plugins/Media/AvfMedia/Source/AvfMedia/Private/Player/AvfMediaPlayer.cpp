@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AvfMediaPrivatePCH.h"
 
@@ -132,8 +132,7 @@ void FAvfMediaPlayer::Close()
 	CaptionTracks.Reset();
 	VideoTracks.Reset();
 
-	TracksChangedEvent.Broadcast();
-    
+	MediaEvent.Broadcast(EMediaEvent::TracksChanged);  
     Duration = CurrentTime = FTimespan::Zero();
     
 #if PLATFORM_MAC
@@ -143,7 +142,7 @@ void FAvfMediaPlayer::Close()
     [FIOSAsyncTask CreateTaskWithBlock : ^ bool(void){
 #endif
         // Displatch on the gamethread that we have closed the video.
-        ClosedEvent.Broadcast();
+        MediaEvent.Broadcast(EMediaEvent::MediaClosed);
          
 #if PLATFORM_IOS
         return true;
@@ -265,9 +264,6 @@ bool FAvfMediaPlayer::IsReady() const
 
 bool FAvfMediaPlayer::Open( const FString& Url )
 {
-    // Cache off the url for use on other threads.
-    FString CachedUrl = Url;
-    
     Close();
     
     bool bSuccessfullyOpenedMovie = false;
@@ -304,40 +300,43 @@ bool FAvfMediaPlayer::Open( const FString& Url )
                     if( [[PlayerItem asset] statusOfValueForKey:@"tracks" error:&Error] == AVKeyValueStatusLoaded )
                     {
                         NSArray* AssetVideoTracks = [[PlayerItem asset] tracksWithMediaType:AVMediaTypeVideo];
-                        if( AssetVideoTracks.count > 0 )
+                        if( AssetVideoTracks != nullptr && AssetVideoTracks.count > 0 )
                         {
                             AVAssetTrack* VideoTrack = [AssetVideoTracks objectAtIndex: 0];
-							FAvfMediaVideoTrack* NewTrack = new FAvfMediaVideoTrack(VideoTrack);
-							if (NewTrack->IsReady())
+							if (VideoTrack != nullptr)
 							{
-								VideoTracks.Add( MakeShareable( NewTrack ) );
+								FAvfMediaVideoTrack* NewTrack = new FAvfMediaVideoTrack(VideoTrack);
+								if (NewTrack != nullptr && NewTrack->IsReady())
+								{
+									VideoTracks.Add( MakeShareable( NewTrack ) );
 #if PLATFORM_MAC
-								GameThreadCall(^{
+									GameThreadCall(^{
 #elif PLATFORM_IOS
 									// Report back to the game thread whether this succeeded.
 									[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void){
 #endif
-										// Displatch on the gamethread that we have opened the video.
-										TracksChangedEvent.Broadcast();
-										OpenedEvent.Broadcast( CachedUrl );
+										 // Displatch on the gamethread that we have opened the video.
+										MediaEvent.Broadcast(EMediaEvent::TracksChanged);
+										MediaEvent.Broadcast(EMediaEvent::MediaOpened);
 #if PLATFORM_IOS
 										return true;
 									}];
 #elif PLATFORM_MAC
-								});
+									});
 #endif
-							}
-							else
-							{
-								delete NewTrack;
+								}
+								else if(!NewTrack->IsReady())
+								{
+									delete NewTrack;
+								}
 							}
                         }
                     }
-                    else
+                    else if(Error != nullptr)
                     {
                         NSDictionary *userInfo = [Error userInfo];
                         NSString *errstr = [[userInfo objectForKey : NSUnderlyingErrorKey] localizedDescription];
-                        UE_LOG(LogAvfMedia, Display, TEXT("Failed to load video tracks. [%s]"), *FString(errstr));
+                        UE_LOG(LogAvfMedia, Warning, TEXT("Failed to load video tracks. [%s]"), *FString(errstr));
                     }
                 }];
             
@@ -407,9 +406,19 @@ bool FAvfMediaPlayer::SetRate( float Rate )
 {
     CurrentRate = Rate;
     [MediaPlayer setRate: CurrentRate];
+
+	MediaEvent.Broadcast(
+		FMath::IsNearlyZero(Rate)
+			? EMediaEvent::PlaybackSuspended
+			: EMediaEvent::PlaybackResumed
+	);
+
     return true;
 }
 
+
+/* FAvfMediaPlayer implementation
+ *****************************************************************************/
 
 bool FAvfMediaPlayer::ReachedEnd() const
 {
@@ -432,39 +441,42 @@ bool FAvfMediaPlayer::ShouldTick() const
 }
 
 
-/* FTickerBase interface
+/* FTickerObjectBase interface
  *****************************************************************************/
 
 bool FAvfMediaPlayer::Tick( float DeltaTime )
 {
-	if (ShouldTick())
+	if (!ShouldTick() || !IsPlaying())
 	{
-		if (IsPlaying())
+		return true;
+	}
+
+	for (IMediaVideoTrackRef& VideoTrack : VideoTracks)
+	{
+		FAvfMediaVideoTrack& AVFTrack = (FAvfMediaVideoTrack&)VideoTrack.Get();
+
+		if (!AVFTrack.ReadFrameAtTime([[MediaPlayer currentItem] currentTime]))
 		{
-			for (IMediaVideoTrackRef& VideoTrack : VideoTracks)
+			if (ReachedEnd())
 			{
-				FAvfMediaVideoTrack& AVFTrack = (FAvfMediaVideoTrack&)VideoTrack.Get();
-				if (!AVFTrack.ReadFrameAtTime([[MediaPlayer currentItem] currentTime]))
+				MediaEvent.Broadcast(EMediaEvent::PlaybackEndReached);
+
+				if (bLoop)
 				{
-					if(bLoop && ReachedEnd())
-					{
-						Seek(FTimespan(0));
-						SetRate(CurrentRate);
-					}
-					else
-					{
-						if(!ReachedEnd())
-						{
-							UE_LOG(LogAvfMedia, Display, TEXT("Failed to read video track for "), *MediaUrl);
-						}
-						return false;
-					}
-				}
-				else
-				{
-					CurrentTime = FTimespan::FromSeconds( CMTimeGetSeconds([[MediaPlayer currentItem] currentTime]) );
+					Seek(FTimespan(0));
+					SetRate(CurrentRate);
 				}
 			}
+			else
+			{
+				UE_LOG(LogAvfMedia, Display, TEXT("Failed to read video track for "), *MediaUrl);
+				
+				return false;
+			}
+		}
+		else
+		{
+			CurrentTime = FTimespan::FromSeconds( CMTimeGetSeconds([[MediaPlayer currentItem] currentTime]) );
 		}
 	}
 	

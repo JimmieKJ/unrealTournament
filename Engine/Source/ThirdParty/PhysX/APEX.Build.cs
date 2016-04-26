@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System;
@@ -75,6 +75,13 @@ public class APEX : ModuleRules
 
 		// Determine which kind of libraries to link against
 		APEXLibraryMode LibraryMode = GetAPEXLibraryMode(Target.Configuration);
+
+		// Quick Mac hack
+		if (Target.Platform == UnrealTargetPlatform.Mac && (LibraryMode == APEXLibraryMode.Checked || LibraryMode == APEXLibraryMode.Shipping))
+		{
+			LibraryMode = APEXLibraryMode.Profile;
+		}
+
 		string LibrarySuffix = GetAPEXLibrarySuffix(LibraryMode);
 
 		Definitions.Add("WITH_APEX=1");
@@ -130,7 +137,7 @@ public class APEX : ModuleRules
 			{
 				string FileName = ApexBinariesDir + String.Format(RuntimeDependency, LibrarySuffix);
 				RuntimeDependencies.Add(new RuntimeDependency(FileName));
-				RuntimeDependencies.Add(new RuntimeDependency(FileName + ".pdb"));
+				RuntimeDependencies.Add(new RuntimeDependency(FileName + ".pdb", true));
 			}
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Win32)
@@ -154,7 +161,7 @@ public class APEX : ModuleRules
 			{
 				string FileName = ApexBinariesDir + String.Format(RuntimeDependency, LibrarySuffix);
 				RuntimeDependencies.Add(new RuntimeDependency(FileName));
-				RuntimeDependencies.Add(new RuntimeDependency(FileName + ".pdb"));
+				RuntimeDependencies.Add(new RuntimeDependency(FileName + ".pdb", true));
 			}
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Mac)

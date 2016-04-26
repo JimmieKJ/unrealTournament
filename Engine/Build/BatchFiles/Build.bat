@@ -13,7 +13,7 @@ REM %3 is the configuration name
 IF EXIST ..\..\Engine\Binaries\DotNET\UnrealBuildTool.exe (
          ..\..\Engine\Binaries\DotNET\UnrealBuildTool.exe %* -DEPLOY
 		 popd
-		 EXIT /B !RET!
+		 EXIT /B !ERRORLEVEL!
 ) ELSE (
 	ECHO UnrealBuildTool.exe not found in ..\..\Engine\Binaries\DotNET\UnrealBuildTool.exe 
 	popd

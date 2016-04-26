@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
 #include "GameplayTasksComponent.h"
@@ -33,15 +33,6 @@ EBTNodeResult::Type UBTTaskNode::WrappedAbortTask(UBehaviorTreeComponent& OwnerC
 	UBTNode* NodeOb = const_cast<UBTNode*>(bCreateNodeInstance ? GetNodeInstance(OwnerComp, NodeMemory) : this);
 	UBTTaskNode* TaskNodeOb = static_cast<UBTTaskNode*>(NodeOb);
 	EBTNodeResult::Type Result = TaskNodeOb ? TaskNodeOb->AbortTask(OwnerComp, NodeMemory) : EBTNodeResult::Aborted;
-
-	if (TaskNodeOb && TaskNodeOb->bOwnsGameplayTasks && OwnerComp.GetAIOwner())
-	{
-		UGameplayTasksComponent* GTComp = OwnerComp.GetAIOwner()->GetGameplayTasksComponent();
-		if (GTComp)
-		{
-			GTComp->EndAllResourceConsumingTasksOwnedBy(*TaskNodeOb);
-		}
-	}
 
 	return Result;
 }
@@ -174,7 +165,8 @@ void UBTTaskNode::OnTaskDeactivated(UGameplayTask& Task)
 	{
 		// this is a super-default behavior. Specific task will surely like to 
 		// handle this themselves, finishing with specific result
-		FinishLatentTask(*BTComp, EBTNodeResult::Succeeded);
+		const EBTTaskStatus::Type Status = BTComp->GetTaskStatus(this);
+		FinishLatentTask(*BTComp, Status == EBTTaskStatus::Aborting ? EBTNodeResult::Aborted : EBTNodeResult::Succeeded);
 	}
 }
 

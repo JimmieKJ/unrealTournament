@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AnalyticsETPrivatePCH.h"
 #include "HttpServiceTracker.h"
@@ -67,6 +67,8 @@ FHttpServiceTracker::FHttpServiceTracker(const FHttpServiceTrackerConfig& Config
 	AnalyticsConfig.APIKeyET = Config.APIKey;
 	AnalyticsConfig.APIServerET = Config.APIServer;
 	AnalyticsConfig.AppVersionET = Config.ApiVersion;
+	AnalyticsConfig.AppEnvironment = TEXT("unknown");
+	AnalyticsConfig.UploadType = TEXT("qosmetrics");
 	AnalyticsProvider = FAnalyticsET::Get().CreateAnalyticsProvider(AnalyticsConfig);
 	// we'll just use the MachineID for the User. It actually won't matter much for this service.
 	AnalyticsProvider->SetUserID(FPlatformMisc::GetMachineId().ToString(EGuidFormats::Digits).ToLower());

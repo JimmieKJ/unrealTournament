@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -96,18 +96,18 @@ namespace UnrealBuildTool
 		/// <param name="GraphEdges">List of all graph edges.  Index order is important and must match with the individual edge Id members!</param>
 		public static void WriteGraphFile(string Filename, string Description, List<GraphNode> GraphNodes, List<GraphEdge> GraphEdges)
 		{
-			var Settings = new XmlWriterSettings();
+			XmlWriterSettings Settings = new XmlWriterSettings();
 			Settings.Indent = true;
 			Settings.IndentChars = "    ";
 
 			// Figure out all of the custom attribute types we're dealing with
-			var AllAttributes = new Dictionary<string, GraphAttribute>(StringComparer.InvariantCultureIgnoreCase);
+			Dictionary<string, GraphAttribute> AllAttributes = new Dictionary<string, GraphAttribute>(StringComparer.InvariantCultureIgnoreCase);
 			int NextAttributeID = 0;
-			foreach (var GraphNode in GraphNodes)
+			foreach (GraphNode GraphNode in GraphNodes)
 			{
-				foreach (var AttributeName in GraphNode.Attributes.Keys)
+				foreach (string AttributeName in GraphNode.Attributes.Keys)
 				{
-					var AttributeValue = GraphNode.Attributes[AttributeName];
+					object AttributeValue = GraphNode.Attributes[AttributeName];
 
 					string AttributeTypeName;
 					if (AttributeValue.GetType() == typeof(int))
@@ -158,13 +158,13 @@ namespace UnrealBuildTool
 			}
 
 
-			using (var Writer = XmlWriter.Create(Filename, Settings))
+			using (XmlWriter Writer = XmlWriter.Create(Filename, Settings))
 			{
 				// NOTE: The GEXF XML format is defined here:  http://gexf.net/1.2draft/gexf-12draft-primer.pdf
 
-				var GEXFNamespace = "http://www.gexf.net/1.2-draft";
-				var SchemaNamespace = "http://www.w3.org/2001/XMLSchema-instance";
-				var VizNamespace = "http://www.gexf.net/1.2draft/viz";
+				string GEXFNamespace = "http://www.gexf.net/1.2-draft";
+				string SchemaNamespace = "http://www.w3.org/2001/XMLSchema-instance";
+				string VizNamespace = "http://www.gexf.net/1.2draft/viz";
 
 				Writer.WriteStartElement("gexf", GEXFNamespace);
 				Writer.WriteAttributeString("xmlns", "xsi", null, SchemaNamespace);
@@ -192,7 +192,7 @@ namespace UnrealBuildTool
 								// @todo: Add support for edge attributes, not just node attributes
 								Writer.WriteAttributeString("class", "node");	// Node attributes, not edges!
 
-								foreach (var Attribute in AllAttributes.Values)
+								foreach (GraphAttribute Attribute in AllAttributes.Values)
 								{
 									Writer.WriteStartElement("attribute");
 									{
@@ -211,7 +211,7 @@ namespace UnrealBuildTool
 
 						Writer.WriteStartElement("nodes");
 						{
-							foreach (var GraphNode in GraphNodes)
+							foreach (GraphNode GraphNode in GraphNodes)
 							{
 								Writer.WriteStartElement("node");
 								{
@@ -244,12 +244,12 @@ namespace UnrealBuildTool
 									{
 										Writer.WriteStartElement("attvalues");
 										{
-											foreach (var AttributeHashEntry in GraphNode.Attributes)
+											foreach (KeyValuePair<string, object> AttributeHashEntry in GraphNode.Attributes)
 											{
-												var AttributeName = AttributeHashEntry.Key;
-												var AttributeValue = AttributeHashEntry.Value;
+												string AttributeName = AttributeHashEntry.Key;
+												object AttributeValue = AttributeHashEntry.Value;
 
-												var Attribute = AllAttributes[AttributeName];
+												GraphAttribute Attribute = AllAttributes[AttributeName];
 
 												Writer.WriteStartElement("attvalue");
 												{
@@ -270,7 +270,7 @@ namespace UnrealBuildTool
 
 						Writer.WriteStartElement("edges");
 						{
-							foreach (var GraphEdge in GraphEdges)
+							foreach (GraphEdge GraphEdge in GraphEdges)
 							{
 								Writer.WriteStartElement("edge");
 								{

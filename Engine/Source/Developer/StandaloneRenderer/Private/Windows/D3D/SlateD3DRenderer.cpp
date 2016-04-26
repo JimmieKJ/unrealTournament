@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "StandaloneRendererPrivate.h"
@@ -124,7 +124,7 @@ void FSlateD3DRenderer::CreateDevice()
 
 		if (Hr == DXGI_ERROR_UNSUPPORTED)
 		{
-			FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, *NSLOCTEXT("", "", "There is a problem with your graphics card. Please ensure your card meets the minimum system requirements and that you have the latest drivers installed.").ToString(), *NSLOCTEXT("", "UnsupportedVideoCardErrorTitle", "Unsupported Video Card").ToString());
+			FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, *NSLOCTEXT("SlateD3DRenderer", "ProblemWithGraphicsCard", "There is a problem with your graphics card. Please ensure your card meets the minimum system requirements and that you have the latest drivers installed.").ToString(), *NSLOCTEXT("SlateD3DRenderer", "UnsupportedVideoCardErrorTitle", "Unsupported Video Card").ToString());
 		}
 		
 		checkf(SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr);
@@ -352,9 +352,6 @@ void FSlateD3DRenderer::DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer )
 {
 	const TSharedRef<FSlateFontCache> FontCache = SlateFontServices->GetFontCache();
 
-	// Update the font cache with new text before elements are batched
-	FontCache->UpdateCache();
-
 	// Iterate through each element list and set up an RHI window for it if needed
 	TArray< TSharedPtr<FSlateWindowElementList> >& WindowElementLists = InWindowDrawBuffer.GetWindowElementLists();
 	for( int32 ListIndex = 0; ListIndex < WindowElementLists.Num(); ++ListIndex )
@@ -368,6 +365,9 @@ void FSlateD3DRenderer::DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer )
 
 			// Add all elements for this window to the element batcher
 			ElementBatcher->AddElements( ElementList );
+
+			// Update the font cache with new text before elements are batched
+			FontCache->UpdateCache();
 
 			FVector2D WindowSize = WindowToDraw->GetSizeInScreen();
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "Core.h"
 #include "CoreUObject.h"
@@ -18,7 +18,7 @@
 static_assert(WITH_OGGVORBIS, "No point in compiling the OGG compressor if we don't have Vorbis.");
 
 // Vorbis encoded sound is about 15% better quality than XMA - adjust the quality setting to get consistent cross platform sound quality
-#define VORBIS_QUALITY_MODIFIER		-15
+#define VORBIS_QUALITY_MODIFIER		0.85
 
 #define SAMPLES_TO_READ		1024
 #define SAMPLE_SIZE			( ( uint32 )sizeof( short ) )
@@ -76,7 +76,7 @@ public:
 			FMemoryWriter CompressedData( CompressedDataStore );
 			uint32 BufferOffset = 0;
 
-			float CompressionQuality = ( float )( QualityInfo.Quality + VORBIS_QUALITY_MODIFIER ) / 100.0f;
+			float CompressionQuality = ( float )( QualityInfo.Quality * VORBIS_QUALITY_MODIFIER ) / 100.0f;
 			CompressionQuality = FMath::Clamp( CompressionQuality, -0.1f, 1.0f );
 
 			vorbis_info_init( &vi );
@@ -246,7 +246,7 @@ public:
 			}
 
 			// Extract the relevant info for compression
-			float CompressionQuality = ( float )( QualityInfo.Quality + VORBIS_QUALITY_MODIFIER ) / 100.0f;
+			float CompressionQuality = ( float )( QualityInfo.Quality * VORBIS_QUALITY_MODIFIER ) / 100.0f;
 			CompressionQuality = FMath::Clamp( CompressionQuality, 0.0f, 1.0f );
 
 			vorbis_info_init( &vi );

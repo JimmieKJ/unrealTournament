@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -509,6 +509,9 @@ public:
 	/** Gets a copy of the keys, so indices and handles can't be meddled with */
 	TArray<FRichCurveKey> GetCopyOfKeys() const;
 
+	/** Gets a const reference of the keys, so indices and handles can't be meddled with */
+	const TArray<FRichCurveKey>& GetConstRefOfKeys() const;
+
 	/** Const iterator for the keys, so the indices and handles stay valid */
 	TArray<FRichCurveKey>::TConstIterator GetKeyIterator() const;
 	
@@ -519,6 +522,9 @@ public:
 	/** Quick accessors for the first and last keys */
 	FRichCurveKey GetFirstKey() const;
 	FRichCurveKey GetLastKey() const;
+
+	/** Get the first key that matches any of the given key handles. */
+	FRichCurveKey* GetFirstMatchingKey(const TArray<FKeyHandle>& KeyHandles);
 
 	/** Get the next or previous key given the key handle */
 	FKeyHandle GetNextKey(FKeyHandle KeyHandle) const;
@@ -606,6 +612,14 @@ public:
 	/** Determine if two RichCurves are the same */
 	bool operator == (const FRichCurve& Curve) const;
 
+	/** Bake curve given the sample rate */
+	void BakeCurve(float SampleRate);
+	void BakeCurve(float SampleRate, float FirstKeyTime, float LastKeyTime);
+
+	/** Remove redundant keys, comparing against Tolerance */
+	void RemoveRedundantKeys(float Tolerance);
+	void RemoveRedundantKeys(float Tolerance, float FirstKeyTime, float LastKeyTime);
+
 public:
 
 	// FIndexedCurve interface
@@ -689,7 +703,7 @@ typedef FRichCurveEditInfoTemplate<const FRichCurve*>	FRichCurveEditInfoConst;
 /**
  * Interface you implement if you want the CurveEditor to be able to edit curves on you.
  */
-class FCurveOwnerInterface
+class ENGINE_API FCurveOwnerInterface
 {
 public:
 
@@ -730,6 +744,9 @@ public:
 
 	/** Validates that a previously retrieved curve is still valid for editing. */
 	virtual bool IsValidCurve(FRichCurveEditInfo CurveInfo) = 0;
+
+	/** @return Color for this curve */
+	virtual FLinearColor GetCurveColor(FRichCurveEditInfo CurveInfo) const;
 };
 
 
@@ -826,11 +843,11 @@ public:
 	{ }
 	
 	/** The keyed time */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category=Key)
 	float Time;
 
 	/** The keyed integral value */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category=Key)
 	int32 Value;
 };
 

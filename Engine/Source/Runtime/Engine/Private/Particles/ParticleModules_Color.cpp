@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ParticleModules_Color.cpp: 
@@ -45,12 +45,12 @@ UParticleModuleColor::UParticleModuleColor(const FObjectInitializer& ObjectIniti
 
 void UParticleModuleColor::InitializeDefaults() 
 {
-	if (!StartColor.Distribution)
+	if (!StartColor.IsCreated())
 	{
 		StartColor.Distribution = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionStartColor"));
 	}
 
-	if (!StartAlpha.Distribution)
+	if (!StartAlpha.IsCreated())
 	{
 		UDistributionFloatConstant* DistributionStartAlpha = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionStartAlpha"));
 		DistributionStartAlpha->Constant = 1.0f;
@@ -189,7 +189,7 @@ void UParticleModuleColor_Seeded::Spawn(FParticleEmitterInstance* Owner, int32 O
 	SpawnEx(Owner, Offset, SpawnTime, (Payload != NULL) ? &(Payload->RandomStream) : NULL, ParticleBase);
 }
 
-uint32 UParticleModuleColor_Seeded::RequiredBytesPerInstance(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleColor_Seeded::RequiredBytesPerInstance()
 {
 	return RandomSeedInfo.GetInstancePayloadSize();
 }
@@ -222,12 +222,12 @@ UParticleModuleColorOverLife::UParticleModuleColorOverLife(const FObjectInitiali
 
 void UParticleModuleColorOverLife::InitializeDefaults()
 {
-	if (!ColorOverLife.Distribution)
+	if (!ColorOverLife.IsCreated())
 	{
 		ColorOverLife.Distribution = NewObject<UDistributionVectorConstantCurve>(this, TEXT("DistributionColorOverLife"));
 	}
 
-	if (!AlphaOverLife.Distribution)
+	if (!AlphaOverLife.IsCreated())
 	{
 		UDistributionFloatConstant* DistributionAlphaOverLife = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionAlphaOverLife"));
 		DistributionAlphaOverLife->Constant = 1.0f;
@@ -381,14 +381,14 @@ void UParticleModuleColorOverLife::Update(FParticleEmitterInstance* Owner, int32
 	const FRawDistribution* FastColorOverLife = ColorOverLife.GetFastRawDistribution();
 	const FRawDistribution* FastAlphaOverLife = AlphaOverLife.GetFastRawDistribution();
 	FPlatformMisc::Prefetch(Owner->ParticleData, (Owner->ParticleIndices[0] * Owner->ParticleStride));
-	FPlatformMisc::Prefetch(Owner->ParticleData, (Owner->ParticleIndices[0] * Owner->ParticleStride) + CACHE_LINE_SIZE);
+	FPlatformMisc::Prefetch(Owner->ParticleData, (Owner->ParticleIndices[0] * Owner->ParticleStride) + PLATFORM_CACHE_LINE_SIZE);
 	if( FastColorOverLife && FastAlphaOverLife )
 	{
 		// fast path
 		BEGIN_UPDATE_LOOP;
 		{
 			FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride));
-			FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + CACHE_LINE_SIZE);
+			FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + PLATFORM_CACHE_LINE_SIZE);
 			FastColorOverLife->GetValue3None(Particle.RelativeTime, &Particle.Color.R);
 			FastAlphaOverLife->GetValue1None(Particle.RelativeTime, &Particle.Color.A);
 		}
@@ -403,7 +403,7 @@ void UParticleModuleColorOverLife::Update(FParticleEmitterInstance* Owner, int32
 			ColorVec = ColorOverLife.GetValue(Particle.RelativeTime, Owner->Component);
 			fAlpha = AlphaOverLife.GetValue(Particle.RelativeTime, Owner->Component);
 			FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride));
-			FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + CACHE_LINE_SIZE);
+			FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + PLATFORM_CACHE_LINE_SIZE);
 			Particle.Color.R = ColorVec.X;
 			Particle.Color.G = ColorVec.Y;
 			Particle.Color.B = ColorVec.Z;
@@ -472,12 +472,12 @@ UParticleModuleColorScaleOverLife::UParticleModuleColorScaleOverLife(const FObje
 
 void UParticleModuleColorScaleOverLife::InitializeDefaults()
 {
-	if (!ColorScaleOverLife.Distribution)
+	if (!ColorScaleOverLife.IsCreated())
 	{
 		ColorScaleOverLife.Distribution = NewObject<UDistributionVectorConstantCurve>(this, TEXT("DistributionColorScaleOverLife"));
 	}
 
-	if (!AlphaScaleOverLife.Distribution)
+	if (!AlphaScaleOverLife.IsCreated())
 	{
 		UDistributionFloatConstant* DistributionAlphaScaleOverLife = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionAlphaScaleOverLife"));
 		DistributionAlphaScaleOverLife->Constant = 1.0f;

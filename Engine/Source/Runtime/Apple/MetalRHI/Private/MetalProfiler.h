@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -7,7 +7,7 @@
 #include "GPUProfiler.h"
 
 #if METAL_STATISTICS
-#include "Runtime/Mac/NoRedist/MetalStatistics/Public/MetalStatistics.h"
+#include "MetalStatistics.h"
 #endif
 
 // Stats
@@ -20,8 +20,22 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("VertexDeclaration time"),STAT_MetalVertexDeclara
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Uniform buffer pool cleanup time"), STAT_MetalUniformBufferCleanupTime, STATGROUP_MetalRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Buffer Page-Off time"), STAT_MetalBufferPageOffTime, STATGROUP_MetalRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Texture Page-Off time"), STAT_MetalTexturePageOffTime, STATGROUP_MetalRHI, );
-DECLARE_MEMORY_STAT_EXTERN(TEXT("Uniform buffer pool memory"), STAT_MetalFreeUniformBufferMemory, STATGROUP_MetalRHI, );
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Uniform buffer pool memory"), STAT_MetalTotalUniformBufferMemory, STATGROUP_MetalRHI, );
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Free Uniform pool memory"), STAT_MetalFreeUniformBufferMemory, STATGROUP_MetalRHI, );
 DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Uniform buffer pool num free"), STAT_MetalNumFreeUniformBuffers, STATGROUP_MetalRHI, );
+#if PLATFORM_MAC
+DECLARE_FLOAT_COUNTER_STAT_EXTERN(TEXT("Device Utilization %"),STAT_MetalDeviceUtilisation,STATGROUP_MetalRHI, );
+DECLARE_FLOAT_COUNTER_STAT_EXTERN(TEXT("Device Utilization % at cur p-state"),STAT_MetalDeviceUtilisationAtPState,STATGROUP_MetalRHI, );
+DECLARE_FLOAT_COUNTER_STAT_EXTERN(TEXT("Device Unit 0 Utilization %"),STAT_MetalDevice0Utilisation,STATGROUP_MetalRHI, );
+DECLARE_FLOAT_COUNTER_STAT_EXTERN(TEXT("Device Unit 1 Utilization %"),STAT_MetalDevice1Utilisation,STATGROUP_MetalRHI, );
+DECLARE_FLOAT_COUNTER_STAT_EXTERN(TEXT("Device Unit 2 Utilization %"),STAT_MetalDevice2Utilisation,STATGROUP_MetalRHI, );
+DECLARE_FLOAT_COUNTER_STAT_EXTERN(TEXT("Device Unit 3 Utilization %"),STAT_MetalDevice3Utilisation,STATGROUP_MetalRHI, );
+DECLARE_MEMORY_STAT_EXTERN(TEXT("VRAM Used Bytes"),STAT_MetalVRAMUsedBytes,STATGROUP_MetalRHI, );
+DECLARE_MEMORY_STAT_EXTERN(TEXT("VRAM Free Bytes"),STAT_MetalVRAMFreeBytes,STATGROUP_MetalRHI, );
+DECLARE_MEMORY_STAT_EXTERN(TEXT("VRAM Largest Free Bytes"),STAT_MetalVRAMLargestFreeBytes,STATGROUP_MetalRHI, );
+DECLARE_MEMORY_STAT_EXTERN(TEXT("In Use Vid Mem Bytes"),STAT_MetalInUseVidMemBytes,STATGROUP_MetalRHI, );
+DECLARE_MEMORY_STAT_EXTERN(TEXT("In Use Sys Mem Bytes"),STAT_MetalInUseSysMemBytes,STATGROUP_MetalRHI, );
+#endif
 
 #if METAL_STATISTICS
 #define RHI_PROFILE_DRAW_CALL_STATS(StartPoint, EndPoint, NumPrims, NumVerts) FMetalDrawProfiler GPUWork(Profiler, (uint32)StartPoint, (uint32)EndPoint, NumPrims, NumVerts)
@@ -177,15 +191,11 @@ struct FMetalGPUProfiler : public FGPUProfiler
 	
 	virtual ~FMetalGPUProfiler() {}
 	
-	virtual FGPUProfilerEventNode* CreateEventNode(const TCHAR* InName, FGPUProfilerEventNode* InParent) override
-	{
-		FMetalEventNode* EventNode = new FMetalEventNode(Context, InName, InParent, false, false);
-		return EventNode;
-	}
+	virtual FGPUProfilerEventNode* CreateEventNode(const TCHAR* InName, FGPUProfilerEventNode* InParent) override;
 	
 	void Cleanup();
 	
-	virtual void PushEvent(const TCHAR* Name) override;
+	virtual void PushEvent(const TCHAR* Name, FColor Color) override;
 	virtual void PopEvent() override;
 	
 	void BeginFrame();

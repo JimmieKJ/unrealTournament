@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "DynamicMeshBuilder.h"
@@ -1256,10 +1256,10 @@ FLinearColor GetViewSelectionColor(const FLinearColor& BaseColor, const FSceneVi
 		FinalColor = GEngine->GetSubduedSelectionOutlineColor();
 	}
 	else if( bSelected )
-#endif
 	{
 		FinalColor = GEngine->GetSelectedMaterialColor();
 	}
+#endif
 
 	return ApplySelectionIntensity(FinalColor, bSelected, bHovered, bUseOverlayIntensity );
 }
@@ -1287,7 +1287,8 @@ bool IsRichView(const FSceneViewFamily& ViewFamily)
 		ViewFamily.EngineShowFlags.LightInfluences ||
 		ViewFamily.EngineShowFlags.Wireframe ||
 		ViewFamily.EngineShowFlags.LevelColoration ||
-		ViewFamily.EngineShowFlags.LODColoration)
+		ViewFamily.EngineShowFlags.LODColoration ||
+		ViewFamily.EngineShowFlags.HLODColoration)
 	{
 		return true;
 	}
@@ -1367,6 +1368,24 @@ void ApplyViewModeOverrides(
 
 			Mesh.MaterialRenderProxy = LODColorationMaterialInstance;
 			Collector.RegisterOneFrameMaterialProxy(LODColorationMaterialInstance);
+		}
+	}
+	else if (EngineShowFlags.HLODColoration)
+	{
+		if (!Mesh.IsTranslucent(FeatureLevel) && GEngine->HLODColorationColors.Num() > 0)
+		{
+			int32 hlodColorationIndex = FMath::Clamp((int32)Mesh.VisualizeHLODIndex, 0, GEngine->HLODColorationColors.Num() - 1);
+
+			bool bLit = Mesh.MaterialRenderProxy->GetMaterial(FeatureLevel)->GetShadingModel() != MSM_Unlit;
+			const UMaterial* HLODColorationMaterial = (bLit && EngineShowFlags.Lighting) ? GEngine->LevelColorationLitMaterial : GEngine->LevelColorationUnlitMaterial;
+
+			auto HLODColorationMaterialInstance = new FColoredMaterialRenderProxy(
+				HLODColorationMaterial->GetRenderProxy(Mesh.MaterialRenderProxy->IsSelected(), Mesh.MaterialRenderProxy->IsHovered()),
+				GetSelectionColor(GEngine->HLODColorationColors[hlodColorationIndex], bSelected, Mesh.MaterialRenderProxy->IsHovered())
+				);
+
+			Mesh.MaterialRenderProxy = HLODColorationMaterialInstance;
+			Collector.RegisterOneFrameMaterialProxy(HLODColorationMaterialInstance);
 		}
 	}
 	else if (!EngineShowFlags.Materials)

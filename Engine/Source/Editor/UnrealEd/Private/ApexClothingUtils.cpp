@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 
@@ -917,7 +917,7 @@ bool AssociateClothingAssetWithSkeletalMesh(USkeletalMesh* SkelMesh, int32 LODIn
 		FMultiSizeIndexContainerData AdjacencyIndexData;
 		IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities");
 
-		UE_LOG(LogApexClothingUtils, Warning, TEXT("Building adjacency information for a clothing section in skeletal mesh '%s'."), *SkelMesh->GetPathName());
+		UE_LOG(LogApexClothingUtils, Warning, TEXT("Building adjacency information for a clothing section in skeletal mesh '%s'. Please resave the asset."), *SkelMesh->GetPathName());
 
 		LODModel.GetVertices(Vertices);
 		AdjacencyIndexData.DataTypeSize = LODModel.MultiSizeIndexContainer.GetDataTypeSize();
@@ -928,6 +928,34 @@ bool AssociateClothingAssetWithSkeletalMesh(USkeletalMesh* SkelMesh, int32 LODIn
 
 	// set asset submesh info to new chunk 
 	ClothChunk.SetClothSubmeshIndex(AssetIndex, AssetSubmeshIndex);
+
+	// It's possible that the required/active bones for the new cloth chunk differ from
+	// the original chunk - here we inspect the bone map and activate any new bones.
+	bool bRequiredBonesChanged = false;
+	for(FBoneIndexType BoneIdx : ClothChunk.BoneMap)
+	{
+		if(!LODModel.RequiredBones.Contains(BoneIdx))
+		{
+			bRequiredBonesChanged = true;
+
+			FName MissingBoneName = NAME_None;
+			if(SkelMesh->RefSkeleton.IsValidIndex(BoneIdx))
+			{
+				MissingBoneName = SkelMesh->RefSkeleton.GetBoneName(BoneIdx);
+
+				UE_LOG(LogApexClothingUtils, Log, TEXT("Found a bone used by cloth (%s) that is not in the required bone list for this LOD. Adding to required bones."), *MissingBoneName.ToString());
+
+				LODModel.RequiredBones.Add(BoneIdx);
+				LODModel.ActiveBoneIndices.AddUnique(BoneIdx);
+			}
+		}
+	}
+
+	if(bRequiredBonesChanged)
+	{
+		LODModel.RequiredBones.Sort();
+		LODModel.ActiveBoneIndices.Sort();
+	}
 
 	// New Chunk is already added so needs to update VertexFactories before Render codes are called
 	ReregisterSkelMeshComponents(SkelMesh);

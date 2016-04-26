@@ -20,6 +20,7 @@
 #include "UTDroppedPickup.h"
 #include "UTGameEngine.h"
 #include "UnrealNetwork.h"
+#include "Engine/NetConnection.h"
 #include "UTProfileSettings.h"
 #include "UTProgressionStorage.h"
 #include "UTViewPlaceholder.h"
@@ -35,6 +36,7 @@
 #include "UTProfileItem.h"
 #include "UTMutator.h"
 #include "UTVictimMessage.h"
+#include "SUTSpawnWindow.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -53,7 +55,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	LastTapRightTime = -10.f;
 	LastTapForwardTime = -10.f;
 	LastTapBackTime = -10.f;
-	bAllowSlideFromRun = true;
+	bCrouchTriggersSlide = true;
 	bSingleTapWallDodge = true;
 	bSingleTapAfterJump = true;
 	bAutoCam = true;
@@ -85,6 +87,9 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	bRequestingSlideOut = true;
 	
 	DilationIndex = 2;
+
+	TimeToHoldPowerUpButtonToActivate = 0.75f;
+	ScoreboardDelayOnDeath = 2.f;
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> PressedSelect(TEXT("SoundCue'/Game/RestrictedAssets/UI/UT99UI_LittleSelect_Cue.UT99UI_LittleSelect_Cue'"));
 	SelectSound = PressedSelect.Object;
@@ -259,17 +264,17 @@ void AUTPlayerController::ServerNP_Implementation()
 	}
 }
 
-bool AUTPlayerController::ServerNotifyProjectileHit_Validate(AUTProjectile* HitProj, FVector_NetQuantize HitLocation, AActor* DamageCauser, float TimeStamp)
+bool AUTPlayerController::ServerNotifyProjectileHit_Validate(AUTProjectile* HitProj, FVector_NetQuantize HitLocation, AActor* DamageCauser, float TimeStamp, int32 Damage)
 {
 	return true;
 }
 
-void AUTPlayerController::ServerNotifyProjectileHit_Implementation(AUTProjectile* HitProj, FVector_NetQuantize HitLocation, AActor* DamageCauser, float TimeStamp)
+void AUTPlayerController::ServerNotifyProjectileHit_Implementation(AUTProjectile* HitProj, FVector_NetQuantize HitLocation, AActor* DamageCauser, float TimeStamp, int32 Damage)
 {
 	// @TODO FIXMESTEVE - need to verify shot from player's location at timestamp to HitLocation is valid, and that projectile should have been there at that time
 	if (HitProj)
 	{
-		HitProj->NotifyClientSideHit(this, HitLocation, DamageCauser);
+		HitProj->NotifyClientSideHit(this, HitLocation, DamageCauser, Damage);
 	}
 }
 
@@ -314,6 +319,8 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("Crouch", IE_Pressed, this, &AUTPlayerController::Crouch);
 	InputComponent->BindAction("Crouch", IE_Released, this, &AUTPlayerController::UnCrouch);
 	InputComponent->BindAction("ToggleCrouch", IE_Pressed, this, &AUTPlayerController::ToggleCrouch);
+	InputComponent->BindAction("Slide", IE_Pressed, this, &AUTPlayerController::Slide);
+	InputComponent->BindAction("Slide", IE_Released, this, &AUTPlayerController::StopSlide);
 
 	InputComponent->BindAction("TapLeft", IE_Pressed, this, &AUTPlayerController::OnTapLeft);
 	InputComponent->BindAction("TapRight", IE_Pressed, this, &AUTPlayerController::OnTapRight);
@@ -323,10 +330,12 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("HoldDodge", IE_Pressed, this, &AUTPlayerController::HoldDodge);
 	InputComponent->BindAction("HoldDodge", IE_Released, this, &AUTPlayerController::ReleaseDodge);
 
-	InputComponent->BindAction("TapLeftRelease", IE_Released, this, &AUTPlayerController::OnTapLeftRelease);
-	InputComponent->BindAction("TapRightRelease", IE_Released, this, &AUTPlayerController::OnTapRightRelease);
-	InputComponent->BindAction("TapForwardRelease", IE_Released, this, &AUTPlayerController::OnTapForwardRelease);
-	InputComponent->BindAction("TapBackRelease", IE_Released, this, &AUTPlayerController::OnTapBackRelease);
+	InputComponent->BindAction("TapLeft", IE_Released, this, &AUTPlayerController::OnTapLeftRelease);
+	InputComponent->BindAction("TapRight", IE_Released, this, &AUTPlayerController::OnTapRightRelease);
+	InputComponent->BindAction("TapForward", IE_Released, this, &AUTPlayerController::OnTapForwardRelease);
+	InputComponent->BindAction("TapBack", IE_Released, this, &AUTPlayerController::OnTapBackRelease);
+
+	InputComponent->BindAction("StartActivatePowerup", IE_Pressed, this, &AUTPlayerController::OnActivatePowerupPress);
 
 	// We have 2 versions of the rotation bindings to handle different kinds of devices differently
 	// "turn" handles devices that provide an absolute delta, such as a mouse.
@@ -359,7 +368,10 @@ void AUTPlayerController::SetupInputComponent()
 
 	InputComponent->BindAction("ShowBuyMenu", IE_Pressed, this, &AUTPlayerController::ShowBuyMenu);
 
+	InputComponent->BindAction("DropCarriedObject", IE_Pressed, this, &AUTPlayerController::DropCarriedObject);
+
 	UpdateWeaponGroupKeys();
+	UpdateInventoryKeys();
 }
 
 void AUTPlayerController::ProcessPlayerInput(const float DeltaTime, const bool bGamePaused)
@@ -596,14 +608,12 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 		return true;
 	}
 
-
 #if !UE_SERVER
 	else if (UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives) && (Key == EKeys::LeftMouseButton || Key == EKeys::RightMouseButton) && EventType == IE_Released && bSpectatorMouseChangesView)
 	{
 		SetSpectatorMouseChangesView(false);
 	}
 #endif
-
 
 	// hack for scoreboard until we have a real interactive system
 	if (MyUTHUD != NULL && MyUTHUD->bShowScores && MyUTHUD->GetScoreboard() != NULL && EventType == IE_Pressed)
@@ -689,28 +699,81 @@ void AUTPlayerController::NextWeapon()
 	SwitchWeaponInSequence(false);
 }
 
-bool AUTPlayerController::ServerToggleSpecial_Validate()
+void AUTPlayerController::OnActivatePowerupPress()
+{
+	ServerActivatePowerUpPress();
+}
+
+bool AUTPlayerController::ServerActivatePowerUpPress_Validate()
 {
 	return true;
 }
 
-void AUTPlayerController::ServerToggleSpecial_Implementation()
+void AUTPlayerController::ServerActivatePowerUpPress_Implementation()
 {
-	AUTGameMode* UTGM = GetWorld()->GetAuthGameMode<AUTGameMode>();
-	if (UTGM && UTCharacter)
+	if (UTCharacter != NULL && UTPlayerState != NULL && UTPlayerState->GetRemainingBoosts() > 0)
 	{
-		UTGM->ToggleSpecialFor(UTCharacter);
+		AUTGameMode* UTGM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		TSubclassOf<AUTInventory> ActivatedPowerupPlaceholderClass = UTGM ? UTGM->GetActivatedPowerupPlaceholderClass() : nullptr;
+		if (GetWorldTimerManager().IsTimerActive(TriggerBoostTimerHandle))
+		{
+			GetWorldTimerManager().ClearTimer(TriggerBoostTimerHandle);
+			// kill effect
+			if (ActivatedPowerupPlaceholderClass)
+			{
+				AUTInventory* FoundEffect = UTCharacter->FindInventoryType<AUTInventory>(ActivatedPowerupPlaceholderClass, true);
+				if (FoundEffect)
+				{
+					FoundEffect->Destroy();
+				}
+			}
+		}
+		else
+		{
+			GetWorldTimerManager().SetTimer(TriggerBoostTimerHandle, this, &AUTPlayerController::TriggerBoost, TimeToHoldPowerUpButtonToActivate, false);
+			// spawn effect
+			if (ActivatedPowerupPlaceholderClass)
+			{
+				UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(ActivatedPowerupPlaceholderClass, FVector(0.0f), FRotator(0.0f, 0.0f, 0.0f)), true);
+			}
+		}
+	}
+}
+
+void AUTPlayerController::TriggerBoost()
+{
+	if (UTCharacter && UTPlayerState && (UTPlayerState->GetRemainingBoosts() > 0))
+	{
+		UTPlayerState->SetRemainingBoosts(UTPlayerState->GetRemainingBoosts() - 1);
+
+		if (UTPlayerState->BoostClass)
+		{
+			AUTInventory* TriggeredBoost = GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->BoostClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f));
+			TriggeredBoost->bAlwaysDropOnDeath = false;
+			TriggeredBoost->DroppedPickupClass = nullptr;
+			TriggeredBoost->bBoostPowerupSuppliedItem = true;
+			UTCharacter->AddInventory(TriggeredBoost, true);
+
+			//if we gave you a weapon lets immediately switch on triggering the boost
+			AUTWeapon* BoostAsWeapon = Cast<AUTWeapon>(TriggeredBoost);
+			if (BoostAsWeapon)
+			{
+				UTCharacter->SwitchWeapon(BoostAsWeapon);
+			}
+		}
+		else
+		{
+			AUTGameMode* UTGM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+			if (UTGM)
+			{
+				UTGM->ToggleSpecialFor(UTCharacter);
+			}
+		}
 	}
 }
 
 void AUTPlayerController::ToggleTranslocator()
 {
-	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
-	if (UTCharacter && UTGameState && UTGameState->bOverrideToggle)
-	{
-		ServerToggleSpecial();
-		return;
-	}
 	if (UTCharacter != NULL && UTCharacter->GetWeapon() != NULL && IsLocalPlayerController())
 	{
 		int32 CurrentGroup = UTCharacter->GetWeapon()->Group;
@@ -1496,7 +1559,7 @@ void AUTPlayerController::Crouch()
 {
 	if (!IsMoveInputIgnored())
 	{
-		bIsHoldingFloorSlide = true;
+		bIsHoldingFloorSlide = bCrouchTriggersSlide;
 		if (UTCharacter)
 		{
 			UTCharacter->Crouch(false);
@@ -1506,10 +1569,37 @@ void AUTPlayerController::Crouch()
 
 void AUTPlayerController::UnCrouch()
 {
-	bIsHoldingFloorSlide = false;
+	if (bCrouchTriggersSlide)
+	{
+		bIsHoldingFloorSlide = false;
+	}
 	if (UTCharacter)
 	{
 		UTCharacter->UnCrouch(false);
+	}
+}
+
+void AUTPlayerController::Slide()
+{
+	if (!IsMoveInputIgnored())
+	{
+		bIsHoldingFloorSlide = true;
+		UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
+		if (MyCharMovement)
+		{
+			MyCharMovement->HandleSlideRequest();
+		}
+	}
+}
+
+void AUTPlayerController::StopSlide()
+{
+	bIsHoldingFloorSlide = false;
+	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
+	if (MyCharMovement)
+	{
+		MyCharMovement->bWantsToCrouch = false;
+		MyCharMovement->UpdateFloorSlide(false);
 	}
 }
 
@@ -1562,17 +1652,17 @@ void AUTPlayerController::TouchStarted(const ETouchIndex::Type FingerIndex, cons
 
 void AUTPlayerController::HearSound(USoundBase* InSoundCue, AActor* SoundPlayer, const FVector& SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume)
 {
-	bool bIsOccluded = false;
-	if (SoundPlayer == this || (GetViewTarget() != NULL && (bAmplifyVolume || InSoundCue->IsAudible(SoundLocation, GetViewTarget()->GetActorLocation(), (SoundPlayer != NULL) ? SoundPlayer : this, bIsOccluded, true))))
+	bool bIsOccluded = false; 
+	if (SoundPlayer == this || (GetViewTarget() != NULL && (bAmplifyVolume || InSoundCue->GetMaxAudibleDistance() >= (SoundLocation - GetViewTarget()->GetActorLocation()).Size())))
 	{
 		// we don't want to replicate the location if it's the same as Actor location (so the sound gets played attached to the Actor), but we must if the source Actor isn't relevant
 		UNetConnection* Conn = Cast<UNetConnection>(Player);
 		FVector RepLoc = (SoundPlayer != NULL && SoundPlayer->GetActorLocation() == SoundLocation && (Conn == NULL || Conn->ActorChannels.Contains(SoundPlayer))) ? FVector::ZeroVector : SoundLocation;
-		ClientHearSound(InSoundCue, SoundPlayer, RepLoc, bStopWhenOwnerDestroyed, bIsOccluded, bAmplifyVolume);
+		ClientHearSound(InSoundCue, SoundPlayer, RepLoc, bStopWhenOwnerDestroyed, bAmplifyVolume);
 	}
 }
 
-void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, AActor* SoundPlayer, FVector_NetQuantize SoundLocation, bool bStopWhenOwnerDestroyed, bool bIsOccluded, bool bAmplifyVolume)
+void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, AActor* SoundPlayer, FVector_NetQuantize SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume)
 {
 	if (TheSound != NULL && (SoundPlayer != NULL || !SoundLocation.IsZero()))
 	{
@@ -1602,7 +1692,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 		else
 		{
 			USoundAttenuation* AttenuationOverride = NULL;
-			float VolumeMultiplier = bIsOccluded ? 0.5f : 1.0f;
+			float VolumeMultiplier = 1.0f;
 			if (bAmplifyVolume)
 			{
 				// the UGameplayStatics functions copy the FAttenuationSettings by value so no need to create more than one, just reuse
@@ -1631,6 +1721,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 					AttenuationOverride->Attenuation.FalloffDistance *= 1.7f;
 				}
 			}
+
 			if (!SoundLocation.IsZero() && (SoundPlayer == NULL || SoundLocation != SoundPlayer->GetActorLocation()))
 			{
 				UGameplayStatics::PlaySoundAtLocation(GetWorld(), TheSound, SoundLocation, VolumeMultiplier, 1.0f, 0.0f, AttenuationOverride);
@@ -2016,6 +2107,9 @@ UUTLocalPlayer* AUTPlayerController::GetUTLocalPlayer()
 
 void AUTPlayerController::ServerRestartPlayer_Implementation()
 {
+
+	bUseAltSpawnPoint = false;
+
 	if (UTPlayerState != nullptr)
 	{
 		UTPlayerState->bChosePrimaryRespawnChoice = true;
@@ -2115,6 +2209,8 @@ bool AUTPlayerController::ServerSwitchTeam_Validate()
 
 void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 {
+	bUseAltSpawnPoint = true;
+
 	if (UTPlayerState != nullptr)
 	{
 		UTPlayerState->bChosePrimaryRespawnChoice = false;
@@ -2653,16 +2749,6 @@ void AUTPlayerController::TestResult(uint16 ButtonID)
 void AUTPlayerController::Possess(APawn* PawnToPossess)
 {
 	Super::Possess(PawnToPossess);
-
-	if (UTPlayerState->bHasHighScore)
-	{
-		AUTCharacter *UTChar = Cast<AUTCharacter>(GetPawn());
-		if (UTChar != nullptr)
-		{
-			UTChar->bHasHighScore = true;
-			UTChar->HasHighScoreChanged();
-		}
-	}
 
 	AUTCharacter *UTChar = Cast<AUTCharacter>(GetPawn());
 	if (UTChar != nullptr)
@@ -3439,6 +3525,21 @@ void AUTPlayerController::BeginInactiveState()
 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
 	float const MinRespawnDelay = GameState ? GameState->GetRespawnWaitTimeFor(UTPlayerState) : 1.0f;
 	GetWorldTimerManager().SetTimer(TimerHandle_UnFreeze, this, &APlayerController::UnFreeze, MinRespawnDelay);
+
+	if (GameState && MyUTHUD && GameState->IsMatchInProgress() && !GameState->IsMatchIntermission())
+	{
+		GetWorldTimerManager().SetTimer(TImerHandle_ShowScoreboardOnDeath, this, &AUTPlayerController::ShowScoreboardOnDeath, ScoreboardDelayOnDeath);
+	}
+}
+
+void AUTPlayerController::ShowScoreboardOnDeath()
+{
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (!GetPawn() && GameState && MyUTHUD && GameState->IsMatchInProgress() && !GameState->IsMatchIntermission() && !IsInState(NAME_Spectating))
+	{
+		MyUTHUD->bShowScoresWhileDead = true;
+		MyUTHUD->ScoreboardPage = 0;
+	}
 }
 
 void AUTPlayerController::ServerViewPlaceholderAtLocation_Implementation(FVector Location)
@@ -3704,12 +3805,10 @@ void AUTPlayerController::ClientPumpkinPickedUp_Implementation(float GainedAmoun
 
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
-	AUTCharacter* Char = Cast<AUTCharacter>(GetPawn());
-	if (Char)
-	{
-		float NewPct = FCString::Atof(*TestCommand);
-		Char->MaxSpeedPctModifier = Char->MaxSpeedPctModifier != 1.0f ? 1.0f : NewPct;
-	}
+	int32 Value = FCString::Atoi(*TestCommand);
+	MyUTHUD->LastConfirmedHitTime = GetWorld()->GetTimeSeconds();
+	MyUTHUD->LastConfirmedHitDamage = Value;
+	MyUTHUD->LastConfirmedHitWasAKill = false;
 }
 
 void AUTPlayerController::ClientRequireContentItemListComplete_Implementation()
@@ -3827,6 +3926,18 @@ void AUTPlayerController::UpdateWeaponGroupKeys()
 	}
 }
 
+void AUTPlayerController::UpdateInventoryKeys()
+{
+	//Let the UT Inventory Items know that any HUD text needs to be updated
+	if (GetUTCharacter())
+	{
+		for (TInventoryIterator<AUTInventory> It(GetUTCharacter()); It; ++It)
+		{
+			It->UpdateHUDText();
+		}
+	}
+}
+
 bool AUTPlayerController::ServerRegisterBanVote_Validate(AUTPlayerState* BadGuy) { return true; }
 void AUTPlayerController::ServerRegisterBanVote_Implementation(AUTPlayerState* BadGuy)
 {
@@ -3890,6 +4001,19 @@ void AUTPlayerController::ShowBuyMenu()
 	if (GS && GS->AvailableLoadout.Num() > 0)
 	{
 		ClientOpenLoadout_Implementation(true);
+	}
+	// in RCTF we want to tie the BuyMenu button to the power select menu
+	else if (UTPlayerState)
+	{
+		UTPlayerState->bIsPowerupSelectWindowOpen = !UTPlayerState->bIsPowerupSelectWindowOpen;
+	}
+}
+
+void AUTPlayerController::DropCarriedObject()
+{
+	if (UTCharacter)
+	{
+		UTCharacter->DropCarriedObject();
 	}
 }
 

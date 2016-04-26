@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -376,6 +376,15 @@ private:
 
 	/** @return true when we are showing folders */
 	bool IsShowingFolders() const;
+
+	/** Toggle whether folders should be shown or not */
+	void ToggleShowL10NFolder();
+
+	/** Whether or not it's possible to show folders */
+	bool IsToggleShowL10NFolderAllowed() const;
+
+	/** @return true when we are showing folders */
+	bool IsShowingL10NFolder() const;
 
 	/** Toggle whether to show real-time thumbnails */
 	void ToggleRealTimeThumbnails();

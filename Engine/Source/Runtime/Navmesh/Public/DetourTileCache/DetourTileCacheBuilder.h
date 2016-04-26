@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 // Modified version of Recast/Detour's source file
 
 //
@@ -230,6 +230,9 @@ NAVMESH_API dtStatus dtReplaceBoxArea(dtTileCacheLayer& layer, const float* orig
 NAVMESH_API dtStatus dtReplaceConvexArea(dtTileCacheLayer& layer, const float* orig, const float cs, const float ch,
 	const float* verts, const int nverts, const float hmin, const float hmax, const unsigned char areaId,
 	const unsigned char filterAreaId);
+
+NAVMESH_API dtStatus dtReplaceArea(dtTileCacheLayer& layer, const unsigned char areaId, const unsigned char filterAreaId);
+
 //@UE4 END
 
 

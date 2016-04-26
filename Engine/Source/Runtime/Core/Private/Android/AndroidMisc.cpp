@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "AndroidInputInterface.h"
@@ -8,10 +8,14 @@
 #include "ModuleManager.h"
 #include <android/keycodes.h>
 #include <string.h>
+#include <dlfcn.h>
 
 #include "AndroidPlatformCrashContext.h"
 #include "PlatformMallocCrash.h"
 #include "AndroidJavaMessageBox.h"
+#include "GenericPlatformChunkInstall.h"
+
+#include <android_native_app_glue.h>
 
 DECLARE_LOG_CATEGORY_EXTERN(LogEngine, Log, All);
 
@@ -38,7 +42,15 @@ extern void AndroidThunkCpp_ForceQuit();
 
 void FAndroidMisc::RequestExit( bool Force )
 {
-	AndroidThunkCpp_ForceQuit();
+	UE_LOG(LogWindows, Log, TEXT("FAndroidMisc::RequestExit(%i)"), Force);
+	if (Force)
+	{
+		AndroidThunkCpp_ForceQuit();
+	}
+	else
+	{
+		GIsRequestingExit = 1;
+	}
 }
 
 extern void AndroidThunkCpp_Minimize();
@@ -105,12 +117,97 @@ void FAndroidMisc::PlatformPreInit()
 	FAndroidAppEntry::PlatformInit();
 }
 
+static volatile bool HeadPhonesArePluggedIn = false;
+
+static FAndroidMisc::FBatteryState CurrentBatteryState;
+
+static FCriticalSection ReceiversLock;
+static struct  
+{
+	int		Volume;
+	double	TimeOfChange;
+} CurrentVolume;
+
+extern "C"
+{
+
+	JNIEXPORT void Java_com_epicgames_ue4_HeadsetReceiver_stateChanged(JNIEnv * jni, jclass clazz, jint state)
+	{
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("nativeHeadsetEvent(%i)"), state);
+		HeadPhonesArePluggedIn = (state == 1);
+	}
+
+	JNIEXPORT void Java_com_epicgames_ue4_VolumeReceiver_volumeChanged(JNIEnv * jni, jclass clazz, jint volume)
+	{
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("nativeVolumeEvent(%i)"), volume);
+		ReceiversLock.Lock();
+		CurrentVolume.Volume = volume;
+		CurrentVolume.TimeOfChange = FApp::GetCurrentTime();
+		ReceiversLock.Unlock();
+	}
+
+	JNIEXPORT void Java_com_epicgames_ue4_BatteryReceiver_dispatchEvent(JNIEnv * jni, jclass clazz, jint status, jint level, jint temperature)
+	{
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("nativeBatteryEvent(stat = %i, lvl = %i, t = %3.2f)"), status, level, float(temperature)/10.f);
+
+		ReceiversLock.Lock();
+		FAndroidMisc::FBatteryState state;
+		state.State = (FAndroidMisc::EBatteryState)status;
+		state.Level = level;
+		state.Temperature = float(temperature)/10.f;
+		CurrentBatteryState = state;
+		ReceiversLock.Unlock();
+	}
+}
+
 void FAndroidMisc::PlatformInit()
 {
 	// Increase the maximum number of simultaneously open files
 	// Display Timer resolution.
 	// Get swap file info
 	// Display memory info
+
+	// Register natives to receive Volume, Battery, Headphones events
+	JNIEnv* JEnv = FAndroidApplication::GetJavaEnv();
+	if (nullptr != JEnv)
+	{
+		struct
+		{
+			const char*		ClazzName;
+			JNINativeMethod	Jnim;
+			jclass			Clazz;
+		} gMethods[] =
+		{
+			{ "com/epicgames/ue4/VolumeReceiver",  { "volumeChanged", "(I)V",  (void *)Java_com_epicgames_ue4_VolumeReceiver_volumeChanged } },
+			{ "com/epicgames/ue4/BatteryReceiver", { "dispatchEvent", "(III)V",(void *)Java_com_epicgames_ue4_BatteryReceiver_dispatchEvent } },
+			{ "com/epicgames/ue4/HeadsetReceiver", { "stateChanged",  "(I)V",  (void *)Java_com_epicgames_ue4_HeadsetReceiver_stateChanged } },
+		};
+		const int count = sizeof(gMethods) / sizeof(gMethods[0]);
+
+		for (int i = 0; i < count; i++)
+		{
+			gMethods[i].Clazz = FAndroidApplication::FindJavaClass(gMethods[i].ClazzName);
+			if (gMethods[i].Clazz == nullptr)
+			{
+				UE_LOG(LogEngine, Warning, TEXT("Can't find class for %s"), gMethods[i].ClazzName);
+				continue;
+			}
+			if (JNI_OK != JEnv->RegisterNatives(gMethods[i].Clazz, &gMethods[i].Jnim, 1))
+			{
+				UE_LOG(LogEngine, Warning, TEXT("RegisterNatives failed for %s on %s"), gMethods[i].ClazzName, gMethods[i].Jnim.name);
+			}
+			extern struct android_app* GNativeAndroidApp;
+			jmethodID methodId = JEnv->GetStaticMethodID(gMethods[i].Clazz, "startReceiver", "(Landroid/app/Activity;)V");
+			if (methodId != 0)
+			{
+				JEnv->CallStaticVoidMethod(gMethods[i].Clazz, methodId, GNativeAndroidApp->activity->clazz);
+			}
+			else
+			{
+				UE_LOG(LogEngine, Warning, TEXT("Can't find method startReceiver of class %s"), gMethods[i].ClazzName);
+			}
+		}
+	}
 }
 
 extern void AndroidThunkCpp_DismissSplashScreen();
@@ -265,14 +362,36 @@ bool FAndroidMisc::ControlScreensaver(EScreenSaverAction Action)
 	return true;
 }
 
+bool FAndroidMisc::HasPlatformFeature(const TCHAR* FeatureName)
+{
+	if (FCString::Stricmp(FeatureName, TEXT("Vulkan")) == 0)
+	{
+		return FAndroidMisc::ShouldUseVulkan();
+	}
+
+	return FGenericPlatformMisc::HasPlatformFeature(FeatureName);
+}
+
 bool FAndroidMisc::AllowRenderThread()
 {
+	if (FAndroidMisc::ShouldUseVulkan())
+	{
+		// @todo vulkan: stop forcing no RT!
+		return false;
+	}
+
 	// there is a crash with the nvidia tegra dual core processors namely the optimus 2x and xoom 
 	// when running multithreaded it can't handle multiple threads using opengl (bug)
 	// tested with lg optimus 2x and motorola xoom 
 	// come back and revisit this later 
 	// https://code.google.com/p/android/issues/detail?id=32636
 	if (FAndroidMisc::GetGPUFamily() == FString(TEXT("NVIDIA Tegra")) && FPlatformMisc::NumberOfCores() <= 2 && FAndroidMisc::GetGLVersion().StartsWith(TEXT("OpenGL ES 2.")))
+	{
+		return false;
+	}
+
+	// Vivante GC1000 with 2.x driver has issues with render thread
+	if (FAndroidMisc::GetGPUFamily().StartsWith(TEXT("Vivante GC1000")) && FAndroidMisc::GetGLVersion().StartsWith(TEXT("OpenGL ES 2.")))
 	{
 		return false;
 	}
@@ -297,6 +416,75 @@ int32 FAndroidMisc::NumberOfCores()
 	int32 NumberOfCores = android_getCpuCount();
 	return NumberOfCores;
 }
+
+static FAndroidMisc::FCPUState CurrentCPUState;
+
+FAndroidMisc::FCPUState& FAndroidMisc::GetCPUState(){
+	uint64_t UserTime, NiceTime, SystemTime, SoftIRQTime, IRQTime, IdleTime, IOWaitTime;
+	int32		Index = 0;
+	ANSICHAR	Buffer[500];
+
+	CurrentCPUState.CoreCount = FAndroidMisc::NumberOfCores();
+	FILE* FileHandle = fopen("/proc/stat", "r");
+	if (FileHandle){
+		CurrentCPUState.ActivatedCoreCount = 0;
+		for (size_t n = 0; n < CurrentCPUState.CoreCount; n++) {
+			CurrentCPUState.Status[n] = 0;
+			CurrentCPUState.PreviousUsage[n] = CurrentCPUState.CurrentUsage[n];
+		}
+		
+		while (fgets(Buffer, 100, FileHandle)) {
+			sscanf(Buffer, "%4s %8llu %8llu %8llu %8llu %8llu %8llu %8llu", CurrentCPUState.Name,
+				&UserTime, &NiceTime, &SystemTime, &IdleTime, &IOWaitTime, &IRQTime,
+				&SoftIRQTime);
+
+			if (0 == strncmp(CurrentCPUState.Name, "cpu", 3)) {
+				Index = CurrentCPUState.Name[3] - '0';
+				if (Index >= 0 && Index < CurrentCPUState.CoreCount) {
+					CurrentCPUState.CurrentUsage[Index].IdleTime = IdleTime;
+					CurrentCPUState.CurrentUsage[Index].NiceTime = NiceTime;
+					CurrentCPUState.CurrentUsage[Index].SystemTime = SystemTime;
+					CurrentCPUState.CurrentUsage[Index].SoftIRQTime = SoftIRQTime;
+					CurrentCPUState.CurrentUsage[Index].IRQTime = IRQTime;
+					CurrentCPUState.CurrentUsage[Index].IOWaitTime = IOWaitTime;
+					CurrentCPUState.CurrentUsage[Index].UserTime = UserTime;
+					CurrentCPUState.CurrentUsage[Index].TotalTime = UserTime + NiceTime + SystemTime + SoftIRQTime + IRQTime + IdleTime + IOWaitTime;
+					CurrentCPUState.Status[Index] = 1;
+					CurrentCPUState.ActivatedCoreCount++;
+				}
+				if (Index == CurrentCPUState.CoreCount-1)
+					break;
+			}
+		}
+		fclose(FileHandle);
+
+		double WallTime;
+		double CPULoad[CurrentCPUState.CoreCount];
+		CurrentCPUState.AverageUtilization = 0.0; 
+		for (size_t n = 0; n < CurrentCPUState.CoreCount; n++) {
+			if (CurrentCPUState.CurrentUsage[n].TotalTime <= CurrentCPUState.PreviousUsage[n].TotalTime) {
+				CPULoad[n] = 0;
+				continue;
+			}
+
+			WallTime = CurrentCPUState.CurrentUsage[n].TotalTime - CurrentCPUState.PreviousUsage[n].TotalTime;
+			IdleTime = CurrentCPUState.CurrentUsage[n].IdleTime - CurrentCPUState.PreviousUsage[n].IdleTime;
+
+			if (!WallTime || WallTime <= IdleTime) {
+				CPULoad[n] = 0;
+				continue;
+			}
+			CPULoad[n] = (WallTime - (double)IdleTime) * 100.0 / WallTime;
+			CurrentCPUState.Utilization[n] = CPULoad[n];
+			CurrentCPUState.AverageUtilization += CPULoad[n];
+		}
+		CurrentCPUState.AverageUtilization /= (double)CurrentCPUState.CoreCount;
+	}else{
+		FMemory::Memzero(CurrentCPUState);		
+	}
+	return CurrentCPUState;
+}
+
 
 extern FString GFilePathBase;
 extern FString GFontPathBase;
@@ -427,7 +615,7 @@ void PlatformCrashHandler(int32 Signal, siginfo* Info, void* Context)
 
 	// Restore system handlers so Android could catch this signal after we are done with crashreport
 	RestorePreviousSignalHandlers();
-	
+
 	FAndroidCrashContext CrashContext;
 	CrashContext.InitFromSignal(Signal, Info, Context);
 
@@ -471,6 +659,27 @@ TArray<uint8> FAndroidMisc::GetSystemFontBytes()
 	static FString FullFontPath = GFontPathBase + FString(TEXT("DroidSans.ttf"));
 	FFileHelper::LoadFileToArray(FontBytes, *FullFontPath);
 	return FontBytes;
+}
+
+class IPlatformChunkInstall* FAndroidMisc::GetPlatformChunkInstall()
+{
+	static IPlatformChunkInstall* ChunkInstall = nullptr;
+	IPlatformChunkInstallModule* PlatformChunkInstallModule = FModuleManager::LoadModulePtr<IPlatformChunkInstallModule>("HTTPChunkInstaller");
+	if (!ChunkInstall)
+	{
+		if (PlatformChunkInstallModule != NULL)
+		{
+			// Attempt to grab the platform installer
+			ChunkInstall = PlatformChunkInstallModule->GetPlatformChunkInstall();
+		}
+		else
+		{
+			// Placeholder instance
+			ChunkInstall = new FGenericPlatformChunkInstall();
+		}
+	}
+
+	return ChunkInstall;
 }
 
 void FAndroidMisc::SetVersionInfo( FString InAndroidVersion, FString InDeviceMake, FString InDeviceModel, FString InOSLanguage )
@@ -816,6 +1025,66 @@ int32 FAndroidMisc::GetAndroidBuildVersion()
 	return AndroidBuildVersion;
 }
 
+extern bool AndroidThunkCpp_GetMetaDataBoolean(const FString& Key);
+
+bool FAndroidMisc::ShouldUseVulkan()
+{
+#if PLATFORM_ANDROID_VULKAN
+	// just do this check once
+	static int32 ShouldUseVulkanFlag = -1;
+	if (ShouldUseVulkanFlag == -1)
+	{
+		// assume no
+		ShouldUseVulkanFlag = 0;
+
+		// make sure the project setting has enabled Vulkan support (per-project user settings in the editor) from AndroidManifest.xml
+		bool bSupportsVulkan = AndroidThunkCpp_GetMetaDataBoolean(TEXT("com.epicgames.ue4.GameActivity.bSupportsVulkan"));
+		if (bSupportsVulkan)
+		{
+			FPlatformMisc::LowLevelOutputDebugString(TEXT("Compiled with Vulkan support"));
+
+			// does commandline override (using GL or ES2 for legacy commandlines)
+			bool bForceOpenGL = FParse::Param(FCommandLine::Get(), TEXT("GL")) || FParse::Param(FCommandLine::Get(), TEXT("OpenGL")) || FParse::Param(FCommandLine::Get(), TEXT("ES2"));
+			if (!bForceOpenGL)
+			{
+				// check for libvulkan_sec.so or libvulkan.so for detection
+				void* Lib = dlopen("libvulkan_sec.so", 0);
+				if (Lib != NULL)
+				{
+					ShouldUseVulkanFlag = 1;
+					FPlatformMisc::LowLevelOutputDebugString(TEXT("Vulkan library detected, using Vulkan"));
+				}
+				else
+				{
+					Lib = dlopen("libvulkan.so", 0);
+					if (Lib != NULL)
+					{
+						ShouldUseVulkanFlag = 1;
+						FPlatformMisc::LowLevelOutputDebugString(TEXT("Vulkan library detected, using Vulkan"));
+					}
+					else
+					{
+						FPlatformMisc::LowLevelOutputDebugString(TEXT("Vulkan library NOT detected, falling back to OpenGL ES"));
+					}
+				}
+			}
+			else
+			{
+				FPlatformMisc::LowLevelOutputDebugString(TEXT("Forced OpenGL ES"));
+			}
+		}
+		else
+		{
+			FPlatformMisc::LowLevelOutputDebugString(TEXT("Compiled with OpenGL ES support"));
+		}
+	}
+
+	return ShouldUseVulkanFlag ==1;
+#else
+	return false;
+#endif
+}
+
 #if !UE_BUILD_SHIPPING
 bool FAndroidMisc::IsDebuggerPresent()
 {
@@ -839,3 +1108,31 @@ bool FAndroidMisc::IsDebuggerPresent()
 	return Result;
 }
 #endif
+
+int FAndroidMisc::GetVolumeState(double* OutTimeOfChangeInSec)
+{
+	int v;
+	ReceiversLock.Lock();
+	v = CurrentVolume.Volume;
+	if (OutTimeOfChangeInSec)
+	{
+		*OutTimeOfChangeInSec = CurrentVolume.TimeOfChange;
+	}
+	ReceiversLock.Unlock();
+	return v;
+}
+
+FAndroidMisc::FBatteryState FAndroidMisc::GetBatteryState()
+{
+	FBatteryState CurState;
+	ReceiversLock.Lock();
+	CurState = CurrentBatteryState;
+	ReceiversLock.Unlock();
+	return CurState;
+}
+
+bool FAndroidMisc::AreHeadPhonesPluggedIn()
+{
+	return HeadPhonesArePluggedIn;
+}
+

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -22,6 +22,10 @@
 #define SETTING_REGION FName(TEXT("REGION"))
 /** Setting describing the unique id of a datacenter (value is FString) */
 #define SETTING_DCID FName(TEXT("DCID"))
+/** Number of players needed to fill out this session (value is int32) */
+#define SETTING_NEEDS FName(TEXT("NEEDS"))
+/** Second key for "needs" because can't set same value with two criteria (value is int32) */
+#define SETTING_NEEDSSORT FName(TEXT("NEEDSSORT"))
 
 /** 8 user defined integer params to be used when filtering searches for sessions */
 #define SETTING_CUSTOMSEARCHINT1 FName(TEXT("CUSTOMSEARCHINT1"))
@@ -311,7 +315,7 @@ public:
 USTRUCT()
 struct FJoinabilitySettings
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/** Name of session these settings affect */
 	UPROPERTY()
@@ -524,6 +528,8 @@ public:
 #define SEARCH_PRESENCE FName(TEXT("PRESENCESEARCH"))
 /** Search for a match with min player availability (value is int) */
 #define SEARCH_MINSLOTSAVAILABLE FName(TEXT("MINSLOTSAVAILABLE"))
+/** Exclude all matches where any unique ids in a given array are present (value is string of the form "uniqueid1;uniqueid2;uniqueid3") */
+#define SEARCH_EXCLUDE_UNIQUEIDS FName(TEXT("EXCLUDEUNIQUEIDS"))
 /** User ID to search for session of */
 #define SEARCH_USER FName(TEXT("SEARCHUSER"))
 /** Keywords to match in session search */
@@ -564,7 +570,11 @@ public:
 
 	/** Constructor */
 	FOnlineSessionSearch() :
-		SearchState(EOnlineAsyncTaskState::NotStarted)
+		SearchState(EOnlineAsyncTaskState::NotStarted),
+		MaxSearchResults(1),
+		bIsLanQuery(false),
+		PingBucketSize(0),
+		TimeoutInSeconds(0.0f)
 	{
 		QuerySettings.Set(SETTING_MAPNAME, FString(TEXT("")), EOnlineComparisonOp::Equals);
 		QuerySettings.Set(SEARCH_DEDICATED_ONLY, false, EOnlineComparisonOp::Equals);

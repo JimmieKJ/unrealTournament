@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 
@@ -706,6 +706,36 @@ void FLayers::RemoveViewFromActorViewVisibility( FLevelEditorViewportClient* Vie
 	}
 }
 
+static void UpdateBrushLayerVisibility(ABrush* Brush, bool bIsHidden)
+{
+	ULevel* Level = Brush->GetLevel();
+	if (!Level)
+	{
+		return;
+	}
+
+	UModel* Model = Level->Model;
+	if (!Model)
+	{
+		return;
+	}
+
+	bool bAnySurfaceWasFound = false;
+	for (FBspSurf& Surf : Model->Surfs)
+	{
+		if (Surf.Actor == Brush)
+		{
+			Surf.bHiddenEdLayer = bIsHidden;
+			bAnySurfaceWasFound = true;
+		}
+	}
+
+	if (bAnySurfaceWasFound)
+	{
+		Level->UpdateModelComponents();
+		Model->InvalidSurfaces = true;
+	}
+}
 
 bool FLayers::UpdateActorVisibility( const TWeakObjectPtr< AActor >& Actor, bool& bOutSelectionChanged, bool& bOutActorModified, bool bNotifySelectionChange, bool bRedrawViewports )
 {
@@ -752,6 +782,12 @@ bool FLayers::UpdateActorVisibility( const TWeakObjectPtr< AActor >& Actor, bool
 				Actor->bHiddenEdLayer = false;
 				Actor->MarkComponentsRenderStateDirty();
 				bOutActorModified = true;
+
+				if (ABrush* Brush = Cast<ABrush>(Actor.Get()))
+				{
+					const bool bIsHidden = false;
+					UpdateBrushLayerVisibility(Brush, bIsHidden);
+				}
 			}
 
 			// Stop, because we found at least one visible layer the actor belongs to
@@ -769,6 +805,12 @@ bool FLayers::UpdateActorVisibility( const TWeakObjectPtr< AActor >& Actor, bool
 			Actor->bHiddenEdLayer = true;
 			Actor->MarkComponentsRenderStateDirty();
 			bOutActorModified = true;
+
+			if (ABrush* Brush = Cast<ABrush>(Actor.Get()))
+			{
+				const bool bIsHidden = true;
+				UpdateBrushLayerVisibility(Brush, bIsHidden);
+			}
 		}
 
 		//if the actor was selected, mark it as unselected

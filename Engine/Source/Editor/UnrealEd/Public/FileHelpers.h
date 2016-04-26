@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -124,12 +124,20 @@ public:
 	static UNREALED_API bool SaveLevel(ULevel* Level, const FString& DefaultFilename = TEXT( "" ) );
 
 	/**
+	 * Does a SaveAs for the specified assets.
+	 *
+	 * @param Assets The collection of assets to save.
+	 * @param SavedAssets The collection of corresponding saved assets (contains original asset if not resaved).
+	 */
+	UNREALED_API static void SaveAssetsAs(const TArray<UObject*>& Assets, TArray<UObject*>& OutSavedAssets);
+
+	/**
 	 * Does a saveAs for the specified level.
 	 *
 	 * @param	Level		The Level to be SaveAs'd.
 	 * @return				true if the world was saved.
 	 */
-	UNREALED_API static bool SaveAs(ULevel* Level);
+	UNREALED_API static bool SaveLevelAs(ULevel* Level);
 
 	/**
 	 * Saves all levels to the specified directory.
@@ -140,6 +148,16 @@ public:
 	 * @param	DirtyPackagesForAutoSave	A set of packages that are considered by the auto-save system to be dirty, you should check this to see if a package needs saving
 	 */
 	static bool AutosaveMap(const FString& AbsoluteAutosaveDir, const int32 AutosaveIndex, const bool bForceIfNotInList, const TSet< TWeakObjectPtr<UPackage> >& DirtyPackagesForAutoSave);
+
+	/**
+	 * Saves all levels to the specified directory.
+	 *
+	 * @param	AbsoluteAutosaveDir			Autosave directory.
+	 * @param	AutosaveIndex				Integer prepended to autosave filenames..
+	 * @param	bForceIfNotInList			Should the save be forced if the package is dirty, but not in DirtyPackagesForAutoSave?
+	 * @param	DirtyPackagesForAutoSave	A set of packages that are considered by the auto-save system to be dirty, you should check this to see if a package needs saving
+	 */
+	static EAutosaveContentPackagesResult::Type AutosaveMapEx(const FString& AbsoluteAutosaveDir, const int32 AutosaveIndex, const bool bForceIfNotInList, const TSet< TWeakObjectPtr<UPackage> >& DirtyPackagesForAutoSave);
 
 	/**
 	 * Saves all asset packages to the specified directory.

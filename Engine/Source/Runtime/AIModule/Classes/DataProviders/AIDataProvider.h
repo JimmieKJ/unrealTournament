@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -54,6 +54,12 @@ public:
 	void BindData(const UObject* Owner, int32 RequestId) const;
 
 	FORCEINLINE bool IsDynamic() const { return DataBinding != nullptr; }
+
+	FAIDataProviderValue() :
+		CachedProperty(nullptr),
+		DataBinding(nullptr)
+	{
+	}
 };
 
 USTRUCT()

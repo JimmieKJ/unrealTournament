@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -65,10 +65,11 @@ public: // UStruct -> JSON
 	 * @param SkipFlags Skip properties that match any of these flags
 	 * @param Indent How many tabs to add to the json serializer
 	 * @param ExportCb Optional callback for types we don't understand. This is called right before falling back to the generic ToString()
+	 * @param bPrettyPrint Option to use pretty print (e.g., adds line endings) or condensed print
 	 *
 	 * @return False if any properties failed to write
 	 */
-	static bool UStructToJsonObjectString(const UStruct* StructDefinition, const void* Struct, FString& OutJsonString, int64 CheckFlags, int64 SkipFlags, int32 Indent = 0, const CustomExportCallback* ExportCb = nullptr);
+	static bool UStructToJsonObjectString(const UStruct* StructDefinition, const void* Struct, FString& OutJsonString, int64 CheckFlags, int64 SkipFlags, int32 Indent = 0, const CustomExportCallback* ExportCb = nullptr, bool bPrettyPrint = true);
 
 	/**
 	 * Wrapper to UStructToJsonObjectString that allows a print policy to be specified.

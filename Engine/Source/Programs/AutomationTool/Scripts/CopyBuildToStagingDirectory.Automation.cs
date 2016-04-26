@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using AutomationTool;
 using System;
@@ -124,6 +124,7 @@ public partial class Project : CommandUtils
         {
             CmdLine += " -generatepatch=" + CommandUtils.MakePathSafeToUseWithCommandLine(PatchSourceContentPath);
         }
+		CmdLine += " -multiprocess"; // Prevents warnings about being unable to write to config files
 		CmdLine += PlatformOptions;
 		RunAndLog(CmdEnv, UnrealPakExe, CmdLine, Options: ERunOptions.Default | ERunOptions.UTF8Output);
 		Log("UnrealPak Done *******");
@@ -257,23 +258,30 @@ public partial class Project : CommandUtils
             string DLCName = Params.DLCName;
 
             // Making a plugin, grab the binaries too
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Plugins", DLCName), "*.uplugin", true, null, null, true);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Plugins", DLCName), "*.uplugin", false, null, null, true);
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Plugins", DLCName, "Binaries"), "libUE4-*.so", true, null, null, true);
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Plugins", DLCName, "Binaries"), "UE4-*.dll", true, null, null, true);
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Plugins", DLCName, "Binaries"), "libUE4Server-*.so", true, null, null, true);
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Plugins", DLCName, "Binaries"), "UE4Server-*.dll", true, null, null, true);
 
             // Put all of the cooked dir into the staged dir
-            // Dedicated server cook doesn't save shaders so no Engine dir is created
-            if ((!SC.DedicatedServer) && (!Params.DLCIncludeEngineContent))
+            string PlatformCookDir = CombinePaths(SC.ProjectRoot, "Plugins", DLCName, "Saved", "Cooked", SC.CookPlatform);
+            string[] ExcludeWildCards = {"AssetRegistry.bin"};
+
+            // Stage any loose files in the root folder
+            SC.StageFiles(StagedFileType.UFS, PlatformCookDir, "*", false, ExcludeWildCards, "", true, !Params.UsePak(SC.StageTargetPlatform));
+
+            // Stage each sub directory separately so that we can skip Engine if need be
+            string[] SubDirs = CommandUtils.FindDirectories(true, "*", false, new string[] { PlatformCookDir });
+            foreach (string SubDir in SubDirs)
             {
-                if (Directory.Exists(CombinePaths(SC.ProjectRoot, "Plugins", DLCName, "Saved", "Cooked", SC.CookPlatform, "Engine")))
+                // Dedicated server cook doesn't save shaders so no Engine dir is created
+                if ((!SC.DedicatedServer) && (!Params.DLCIncludeEngineContent) && CommandUtils.GetLastDirectoryName(SubDir).Equals("Engine", StringComparison.InvariantCultureIgnoreCase))
                 {
-                    SC.StageFiles(StagedFileType.UFS, CombinePaths(SC.ProjectRoot, "Plugins", DLCName, "Saved", "Cooked", SC.CookPlatform), "*", true, new[] { CommandUtils.CombinePaths("Engine", "*") }, "", true, !Params.UsePak(SC.StageTargetPlatform));
+                    continue;
                 }
+                SC.StageFiles(StagedFileType.UFS, SubDir, "*", true, ExcludeWildCards, "", true, !Params.UsePak(SC.StageTargetPlatform));
             }
-            
-            SC.StageFiles(StagedFileType.UFS, CombinePaths(SC.ProjectRoot, "Plugins", DLCName, "Saved", "Cooked", SC.CookPlatform), "*", true, new[] { "AssetRegistry.bin" }, "", true, !Params.UsePak(SC.StageTargetPlatform));
 
             return;
         }
@@ -308,7 +316,7 @@ public partial class Project : CommandUtils
 		}
 		SC.StageFiles(StagedFileType.NonUFS, GetIntermediateCommandlineDir(SC), CommandLineFile, false, null, "", true, false);
 
-        ConfigCacheIni PlatformGameConfig = ConfigCacheIni.CreateConfigCacheIni(SC.StageTargetPlatform.PlatformType, "Game", new DirectoryReference(CommandUtils.GetDirectoryName(Params.RawProjectPath.FullName)));
+        ConfigCacheIni PlatformGameConfig = ConfigCacheIni.CreateConfigCacheIni(SC.StageTargetPlatform.IniPlatformType, "Game", new DirectoryReference(CommandUtils.GetDirectoryName(Params.RawProjectPath.FullName)));
         var ProjectContentRoot = CombinePaths(SC.ProjectRoot, "Content");
         var StageContentRoot = CombinePaths(SC.RelativeProjectRootForStage, "Content");
         
@@ -396,7 +404,7 @@ public partial class Project : CommandUtils
 			foreach (PluginInfo Plugin in AvailablePlugins)
 			{
 				LogLog("Considering Plugin for Stage: " + Plugin.File.FullName);
-				if (UProjectInfo.IsPluginEnabledForProject(Plugin, Project, SC.StageTargetPlatform.PlatformType))
+				if (UProjectInfo.IsPluginEnabledForProject(Plugin, Project, SC.StageTargetPlatform.PlatformType, TargetRules.TargetType.Game))
 				{
 					LogLog("EnabledPlugin: " + Plugin.File.FullName);
 					SC.StageFiles(StagedFileType.UFS, Plugin.Directory.FullName, "*.uplugin", false, null, null, true, !Params.UsePak(SC.StageTargetPlatform), null, true, false);
@@ -460,19 +468,20 @@ public partial class Project : CommandUtils
                 if (PlatformGameConfig.GetArray("/Script/UnrealEd.ProjectPackagingSettings", "DirectoriesToAlwaysStageAsNonUFS", out ExtraNonUFSDirs))
                 {
                     // Each string has the format '(Path="TheDirToStage")'
+					// NonUFS files are never in pak files and should always be remapped
                     foreach (var PathStr in ExtraNonUFSDirs)
                     {
-                        var PathParts = PathStr.Split('"');
-                        if (PathParts.Length == 3)
-                        {
-                            var RelativePath = PathParts[1];
-                            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(ProjectContentRoot, RelativePath));
-                        }
-                        else if (PathParts.Length == 1)
-                        {
-                            var RelativePath = PathParts[0];
-                            SC.StageFiles(StagedFileType.UFS, CombinePaths(ProjectContentRoot, RelativePath), "*", true, null, CombinePaths(StageContentRoot, RelativePath), true, !Params.UsePak(SC.StageTargetPlatform));
-                        }
+						var PathParts = PathStr.Split('"');
+						if (PathParts.Length == 3)
+						{
+							var RelativePath = PathParts[1];
+							SC.StageFiles(StagedFileType.NonUFS, CombinePaths(ProjectContentRoot, RelativePath), "*", true, null, CombinePaths(StageContentRoot, RelativePath), true, true);
+						}
+						else if (PathParts.Length == 1)
+						{
+							var RelativePath = PathParts[0];
+							SC.StageFiles(StagedFileType.NonUFS, CombinePaths(ProjectContentRoot, RelativePath), "*", true, null, CombinePaths(StageContentRoot, RelativePath), true, true);
+						}
                     }
                 }
             }
@@ -490,6 +499,9 @@ public partial class Project : CommandUtils
                 SC.StageFiles(StagedFileTypeForMovies, CombinePaths(SC.ProjectRoot, "Content/Movies"), "*", true, new string[] { "*.uasset", "*.umap" }, CombinePaths(SC.RelativeProjectRootForStage, "Content/Movies"), true, !Params.UsePak(SC.StageTargetPlatform));
             }
 
+			// if we have oodle stuff 
+			SC.StageFiles( StagedFileType.UFS, CombinePaths( SC.ProjectRoot, "Content/Oodle" ), "*", true, new string[] { "*.uasset", "*.umap" }, CombinePaths( SC.RelativeProjectRootForStage, "Content/Oodle" ), true, !Params.UsePak( SC.StageTargetPlatform ) );
+			
             // eliminate the sand box
             SC.StageFiles(StagedFileType.UFS, CombinePaths(SC.ProjectRoot, "Saved", "Cooked", SC.CookPlatform), "*", true, new string[] { "*.json" }, "", true, !Params.UsePak(SC.StageTargetPlatform));
 
@@ -602,14 +614,14 @@ public partial class Project : CommandUtils
 		}
 	}
 
-    public static void CopyManifestFilesToStageDir(string PlatformName, Dictionary<string, string> Mapping, string StageDir, string ManifestName, List<string> CRCFiles)
+	public static void CopyManifestFilesToStageDir(Dictionary<string, string> Mapping, string StageDir, string ManifestName, List<string> CRCFiles, string PlatformName)
 	{
 		Log("Copying {0} to staging directory: {1}", ManifestName, StageDir);
 		string ManifestPath = "";
 		string ManifestFile = "";
 		if (!String.IsNullOrEmpty(ManifestName))
 		{
-            ManifestFile = PlatformName + "_Manifest_" + ManifestName + ".txt";
+			ManifestFile = "Manifest_" + ManifestName + "_" + PlatformName + ".txt";
 			ManifestPath = CombinePaths(StageDir, ManifestFile);
 			DeleteFile(ManifestPath);
 		}
@@ -633,14 +645,14 @@ public partial class Project : CommandUtils
 		}
 	}
 
-	public static void CopyManifestFilesToStageDir(string PlatformName, Dictionary<string, List<string>> Mapping, string StageDir, string ManifestName, List<string> CRCFiles)
+	public static void CopyManifestFilesToStageDir(Dictionary<string, List<string>> Mapping, string StageDir, string ManifestName, List<string> CRCFiles, string PlatformName)
 	{
 		Log("Copying {0} to staging directory: {1}", ManifestName, StageDir);
 		string ManifestPath = "";
 		string ManifestFile = "";
 		if (!String.IsNullOrEmpty(ManifestName))
 		{
-			ManifestFile = PlatformName + "_Manifest_" + ManifestName + ".txt";
+			ManifestFile = "Manifest_" + ManifestName + "_" + PlatformName + ".txt";
 			ManifestPath = CombinePaths(StageDir, ManifestFile);
 			DeleteFile(ManifestPath);
 		}
@@ -712,17 +724,17 @@ public partial class Project : CommandUtils
 
 	public static void CopyUsingStagingManifest(ProjectParams Params, DeploymentContext SC)
 	{
-        CopyManifestFilesToStageDir(SC.StageTargetPlatform.PlatformType.ToString(), SC.NonUFSStagingFiles, SC.StageDirectory, "NonUFSFiles", SC.StageTargetPlatform.GetFilesForCRCCheck());
+		CopyManifestFilesToStageDir(SC.NonUFSStagingFiles, SC.StageDirectory, "NonUFSFiles", SC.StageTargetPlatform.GetFilesForCRCCheck(), SC.StageTargetPlatform.PlatformType.ToString());
 
 		if (!Params.NoDebugInfo)
 		{
-            CopyManifestFilesToStageDir(SC.StageTargetPlatform.PlatformType.ToString(), SC.NonUFSStagingFilesDebug, SC.StageDirectory, "DebugFiles", SC.StageTargetPlatform.GetFilesForCRCCheck());
+			CopyManifestFilesToStageDir(SC.NonUFSStagingFilesDebug, SC.StageDirectory, "DebugFiles", SC.StageTargetPlatform.GetFilesForCRCCheck(), SC.StageTargetPlatform.PlatformType.ToString());
 		}
 
 		bool bStageUnrealFileSystemFiles = !Params.CookOnTheFly && !Params.UsePak(SC.StageTargetPlatform) && !Params.FileServer;
 		if (bStageUnrealFileSystemFiles)
 		{
-            CopyManifestFilesToStageDir(SC.StageTargetPlatform.PlatformType.ToString(), SC.UFSStagingFiles, SC.StageDirectory, "UFSFiles", SC.StageTargetPlatform.GetFilesForCRCCheck());
+			CopyManifestFilesToStageDir(SC.UFSStagingFiles, SC.StageDirectory, "UFSFiles", SC.StageTargetPlatform.GetFilesForCRCCheck(), SC.StageTargetPlatform.PlatformType.ToString());
 		}
 	}
 
@@ -825,19 +837,6 @@ public partial class Project : CommandUtils
 	}
 
 
-    private static string GetReleasePakFilePath(DeploymentContext SC, ProjectParams Params, string PakName)
-    {
-		if (Params.IsGeneratingPatch)
-		{
-			return CombinePaths(Params.GetBasedOnReleaseVersionPath(SC), PakName);
-		}
-		else
-		{
-			return CombinePaths(Params.GetCreateReleaseVersionPath(SC), PakName);
-		}        
-    }
-
-
 	/// <summary>
 	/// Creates a pak file using response file.
 	/// </summary>
@@ -847,8 +846,15 @@ public partial class Project : CommandUtils
 	/// <param name="PakName"></param>
 	private static void CreatePak(ProjectParams Params, DeploymentContext SC, Dictionary<string, string> UnrealPakResponseFile, string PakName)
 	{
+        bool bShouldGeneratePatch = Params.IsGeneratingPatch && SC.StageTargetPlatform.GetPlatformPatchesWithDiffPak(Params, SC);
+
+        if (bShouldGeneratePatch && !Params.HasBasedOnReleaseVersion)
+        {
+            Log("Generating patch required a based on release version flag");
+        }
+
         string PostFix = "";
-		if (Params.IsGeneratingPatch && SC.StageTargetPlatform.GetPlatformPatchesWithDiffPak())
+		if (bShouldGeneratePatch)
         {
             PostFix += "_P";
         }
@@ -905,30 +911,19 @@ public partial class Project : CommandUtils
 		}
 
         string PatchSourceContentPath = null;
-		if (Params.HasBasedOnReleaseVersion && Params.IsGeneratingPatch && SC.StageTargetPlatform.GetPlatformPatchesWithDiffPak())
+		if (bShouldGeneratePatch)
         {
             // don't include the post fix in this filename because we are looking for the source pak path
             string PakFilename = PakName + "-" + SC.FinalCookPlatform + ".pak";
-            PatchSourceContentPath = GetReleasePakFilePath(SC, Params, PakFilename);
-            
-
-            /*PatchSourceContentPath = Params.BasedOnReleaseVersion;
-            if (PatchSourceContentPath.EndsWith(PakName) == false)
-            {
-                string Temp = Path.GetDirectoryName(PatchSourceContentPath) + PakName;
-                if ( File.Exists(Temp))
-                {
-                    PatchSourceContentPath = Temp;
-                }
-            }*/
+            PatchSourceContentPath = SC.StageTargetPlatform.GetReleasePakFilePath(SC, Params, PakFilename);
         }
 
 		if (!bCopiedExistingPak)
 		{
 			if (File.Exists(OutputLocation))
 			{
-				string UnrealPakResponseFileName = CombinePaths(CmdEnv.LogFolder, "PakList_" + PakName + ".txt");
-				if (File.GetLastWriteTimeUtc(OutputLocation) > File.GetLastWriteTimeUtc(UnrealPakResponseFileName))
+				string UnrealPakResponseFileName = CombinePaths(CmdEnv.LogFolder, "PakList_" + Path.GetFileNameWithoutExtension(OutputLocation) + ".txt");
+				if (File.Exists(UnrealPakResponseFileName) && File.GetLastWriteTimeUtc(OutputLocation) > File.GetLastWriteTimeUtc(UnrealPakResponseFileName))
 				{
 					bCopiedExistingPak = true;
 				}
@@ -946,7 +941,7 @@ public partial class Project : CommandUtils
         {
             // copy the created pak to the release version directory we might need this later if we want to generate patches
             //string ReleaseVersionPath = CombinePaths( SC.ProjectRoot, "Releases", Params.CreateReleaseVersion, SC.StageTargetPlatform.GetCookPlatform(Params.DedicatedServer, false, Params.CookFlavor), Path.GetFileName(OutputLocation) );
-            string ReleaseVersionPath = GetReleasePakFilePath(SC, Params, Path.GetFileName(OutputLocation));
+            string ReleaseVersionPath = SC.StageTargetPlatform.GetReleasePakFilePath(SC, Params, Path.GetFileName(OutputLocation));
 
 			InternalUtils.SafeCreateDirectory(Path.GetDirectoryName(ReleaseVersionPath));
 			InternalUtils.SafeCopyFile(OutputLocation, ReleaseVersionPath);
@@ -1083,7 +1078,7 @@ public partial class Project : CommandUtils
 			}
 			if (!bAddedToChunk)
 			{
-				Log("No chunk assigned found for {0}. Using default chunk.", StagingFile.Key);
+				//Log("No chunk assigned found for {0}. Using default chunk.", StagingFile.Key);
 				PakResponseFiles[DefaultChunkIndex].Add(StagingFile.Key, StagingFile.Value);
 			}
 		}
@@ -1105,11 +1100,13 @@ public partial class Project : CommandUtils
 			}
 		}
 
-		for (int ChunkIndex = 0; ChunkIndex < PakResponseFiles.Length; ++ChunkIndex)
+		IEnumerable<Tuple<Dictionary<string,string>, string>> PakPairs = PakResponseFiles.Zip(ChunkList, (a, b) => Tuple.Create(a, b));
+
+		System.Threading.Tasks.Parallel.ForEach(PakPairs, (PakPair) =>
 		{
-			var ChunkName = Path.GetFileNameWithoutExtension(ChunkList[ChunkIndex]);
-			CreatePak(Params, SC, PakResponseFiles[ChunkIndex], ChunkName);
-		}
+			var ChunkName = Path.GetFileNameWithoutExtension(PakPair.Item2);
+			CreatePak(Params, SC, PakPair.Item1, ChunkName);
+		});
 
 		String ChunkLayerFilename = CombinePaths(GetTmpPackagingPath(Params, SC), GetChunkPakLayerListName());
 		String OutputChunkLayerFilename = Path.Combine(SC.ProjectRoot, "Build", SC.FinalCookPlatform, "ChunkLayerInfo", GetChunkPakLayerListName());
@@ -1193,15 +1190,15 @@ public partial class Project : CommandUtils
 		Log("Cleaning Stage Directory: {0}", SC.StageDirectory);
 		if (SC.Stage && !Params.NoCleanStage && !Params.SkipStage && !Params.IterativeDeploy)
 		{
-			try
-			{
-				DeleteDirectory(SC.StageDirectory);
-			}
-			catch (Exception Ex)
-			{
-				// Delete cooked data (if any) as it may be incomplete / corrupted.
-				throw new AutomationException(ExitCode.Error_FailedToDeleteStagingDirectory, Ex, "Stage Failed. Failed to delete staging directory " + SC.StageDirectory);
-			}
+            try
+            {
+                DeleteDirectory(SC.StageDirectory);
+            }
+            catch (Exception Ex)
+            {
+                // Delete cooked data (if any) as it may be incomplete / corrupted.
+                throw new AutomationException(ExitCode.Error_FailedToDeleteStagingDirectory, Ex, "Stage Failed. Failed to delete staging directory " + SC.StageDirectory);
+            }
 		}
 		else
 		{
@@ -1580,8 +1577,8 @@ public partial class Project : CommandUtils
 		// add the manifest
 		if (!DeltaManifest.Contains("NonUFS"))
 		{
-			DeltaFiles.Add(DeploymentContext.NonUFSDeployedManifestFileName);
-			DeltaFiles.Add(DeploymentContext.UFSDeployedManifestFileName);
+			DeltaFiles.Add(SC.NonUFSDeployedManifestFileName);
+			DeltaFiles.Add(SC.UFSDeployedManifestFileName);
 		}
 
 		// TODO: determine files which need to be removed
@@ -1712,12 +1709,12 @@ public partial class Project : CommandUtils
 				ExecutablesToStage,
 				InDedicatedServer,
 				Params.Cook || Params.CookOnTheFly,
-				Params.CrashReporter && !(StagePlatform == UnrealTargetPlatform.Linux && Params.Rocket), // can't include the crash reporter from binary Linux builds
+				Params.CrashReporter,
 				Params.Stage,
 				Params.CookOnTheFly,
 				Params.Archive,
 				Params.IsProgramTarget,
-				Params.HasDedicatedServerAndClient,
+				Params.Client,
 				bInUseWebsocketNetDriver: CreateWebSocketsServer
 				);
 			LogDeploymentContext(SC);
@@ -1775,8 +1772,8 @@ public partial class Project : CommandUtils
 						}
 
 						// get the staged file data
-						Dictionary<string, string> StagedUFSFiles = ReadStagedManifest(Params, SC, DeploymentContext.UFSDeployedManifestFileName);
-						Dictionary<string, string> StagedNonUFSFiles = ReadStagedManifest(Params, SC, DeploymentContext.NonUFSDeployedManifestFileName);
+						Dictionary<string, string> StagedUFSFiles = ReadStagedManifest(Params, SC, SC.UFSDeployedManifestFileName);
+						Dictionary<string, string> StagedNonUFSFiles = ReadStagedManifest(Params, SC, SC.NonUFSDeployedManifestFileName);
 
 						WriteObsoleteManifest(Params, SC, DeployedUFSFiles, StagedUFSFiles, DeploymentContext.UFSDeployObsoleteFileName);
 						WriteObsoleteManifest(Params, SC, DeployedNonUFSFiles, StagedNonUFSFiles, DeploymentContext.NonUFSDeployObsoleteFileName);
@@ -1803,6 +1800,11 @@ public partial class Project : CommandUtils
 				foreach (var SC in DeployContextList)
 				{
 					CreateStagingManifest(Params, SC);
+					CleanStagingDirectory(Params, SC);
+				}
+
+				foreach (var SC in DeployContextList)
+				{
 					ApplyStagingManifest(Params, SC);
 				}
 			}

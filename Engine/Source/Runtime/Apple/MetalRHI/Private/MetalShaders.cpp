@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MetalShaders.cpp: Metal shader RHI implementation.
@@ -51,7 +51,6 @@ static FMetalCompiledShaderCache& GetMetalCompiledShaderCache()
 /** Initialization constructor. */
 template<typename BaseResourceType, int32 ShaderType>
 TMetalBaseShader<BaseResourceType, ShaderType>::TMetalBaseShader(const TArray<uint8>& InShaderCode)
-	: DirtyUniformBuffers(0)
 {
 	FShaderCodeReader ShaderCode(InShaderCode);
 
@@ -122,13 +121,13 @@ TMetalBaseShader<BaseResourceType, ShaderType>::TMetalBaseShader(const TArray<ui
 			NSError* Error;
 			NSString* ShaderSource = [NSString stringWithUTF8String:SourceCode];
 
-			if(Header.ShaderName.Num())
+			if(Header.ShaderName.Len())
 			{
-				ShaderSource = [NSString stringWithFormat:@"// %@\n%@", FString(Header.ShaderName.GetData()).GetNSString(), ShaderSource];
+				ShaderSource = [NSString stringWithFormat:@"// %@\n%@", Header.ShaderName.GetNSString(), ShaderSource];
 			}
 			
 			MTLCompileOptions *CompileOptions = [[MTLCompileOptions alloc] init];
-			CompileOptions.fastMathEnabled = YES;
+			CompileOptions.fastMathEnabled = (BOOL)Header.bFastMath;
 #if PLATFORM_MAC
 			CompileOptions.languageVersion = MTLLanguageVersion1_1;
 #endif
@@ -169,7 +168,6 @@ TMetalBaseShader<BaseResourceType, ShaderType>::TMetalBaseShader(const TArray<ui
 
 //		Resource = Resource;
 		Bindings = Header.Bindings;
-		BoundUniformBuffers.AddZeroed(Header.Bindings.NumUniformBuffers);
 		UniformBuffersCopyInfo = Header.UniformBuffersCopyInfo;
 
 		//@todo: Find better way...
@@ -310,10 +308,18 @@ FMetalBoundShaderState::FMetalBoundShaderState(
 #endif
 	
 	AddRef();
+	
+#if METAL_SUPPORTS_PARALLEL_RHI_EXECUTE
+	CacheLink.AddToCache();
+#endif
 }
 
 FMetalBoundShaderState::~FMetalBoundShaderState()
 {
+#if METAL_SUPPORTS_PARALLEL_RHI_EXECUTE
+	CacheLink.RemoveFromCache();
+#endif
+	
 	// free all of the pipeline state objects we have made
 	for (auto It = PipelineStates.CreateIterator(); It; ++It)
 	{
@@ -363,6 +369,23 @@ FBoundShaderStateRHIRef FMetalDynamicRHI::RHICreateBoundShaderState(
 	FGeometryShaderRHIParamRef GeometryShaderRHI
 	)
 {
+#if METAL_SUPPORTS_PARALLEL_RHI_EXECUTE
+	// Check for an existing bound shader state which matches the parameters
+	FBoundShaderStateRHIRef CachedBoundShaderStateLink = GetCachedBoundShaderState_Threadsafe(
+		VertexDeclarationRHI,
+		VertexShaderRHI,
+		PixelShaderRHI,
+		HullShaderRHI,
+		DomainShaderRHI,
+		GeometryShaderRHI
+		);
+
+	if(CachedBoundShaderStateLink.GetReference())
+	{
+		// If we've already created a bound shader state with these parameters, reuse it.
+		return CachedBoundShaderStateLink;
+	}
+#else
 	// Check for an existing bound shader state which matches the parameters
 	FCachedBoundShaderStateLink* CachedBoundShaderStateLink = GetCachedBoundShaderState(
 		VertexDeclarationRHI,
@@ -378,6 +401,7 @@ FBoundShaderStateRHIRef FMetalDynamicRHI::RHICreateBoundShaderState(
 		// If we've already created a bound shader state with these parameters, reuse it.
 		return CachedBoundShaderStateLink->BoundShaderState;
 	}
+#endif
 	else
 	{
 		SCOPE_CYCLE_COUNTER(STAT_MetalBoundShaderStateTime);
@@ -499,8 +523,8 @@ void FMetalShaderParameterCache::CommitPackedGlobals(FMetalContext* Context, int
 			}
 */
 			// allocate memory in the ring buffer
-			id<MTLBuffer> RingBuffer = Context->GetRingBuffer();
 			uint32 Offset = Context->AllocateFromRingBuffer(TotalSize);
+			id<MTLBuffer> RingBuffer = Context->GetRingBuffer();
 /*
 			// copy into the middle of the ring buffer
 			if (UniformBufferIndex == CrossCompiler::PACKED_TYPEINDEX_MEDIUMP)
@@ -564,11 +588,11 @@ void FMetalShaderParameterCache::CommitPackedUniformBuffers(TRefCountPtr<FMetalB
 
 	auto& Bindings = Stage == CrossCompiler::SHADER_STAGE_VERTEX ? BoundShaderState->VertexShader->Bindings :
 	(Stage == CrossCompiler::SHADER_STAGE_COMPUTE ? ComputeShader->Bindings : BoundShaderState->PixelShader->Bindings);
-	check(Bindings.NumUniformBuffers == RHIUniformBuffers.Num());
+	check(Bindings.NumUniformBuffers <= RHIUniformBuffers.Num());
 	if (!Bindings.bHasRegularUniformBuffers)
 	{
 		int32 LastInfoIndex = 0;
-		for (int32 BufferIndex = 0; BufferIndex < RHIUniformBuffers.Num(); ++BufferIndex)
+		for (int32 BufferIndex = 0; BufferIndex < Bindings.NumUniformBuffers; ++BufferIndex)
 		{
 			const FRHIUniformBuffer* RHIUniformBuffer = RHIUniformBuffers[BufferIndex];
 			check(RHIUniformBuffer);

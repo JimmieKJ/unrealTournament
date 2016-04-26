@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -148,6 +148,7 @@ private:
 
 	private:		
 	};
+
 public:
 	FSlateRHIRenderer( TSharedRef<FSlateFontServices> InSlateFontServices, TSharedRef<FSlateRHIResourceManager> InResourceManager );
 	~FSlateRHIRenderer();
@@ -187,7 +188,6 @@ public:
 	virtual void ReleaseAccessedResources(bool bImmediatelyFlush) override;
 	virtual TSharedRef<FSlateRenderDataHandle, ESPMode::ThreadSafe> CacheElementRenderData(const ILayoutCache* Cacher, FSlateWindowElementList& ElementList) override;
 	virtual void ReleaseCachingResourcesFor(const ILayoutCache* Cacher) override;
-	virtual void ReleaseCachedRenderData(FSlateRenderDataHandle* RenderHandle) override;
 
 	/** Draws windows from a FSlateDrawBuffer on the render thread */
 	void DrawWindow_RenderThread(FRHICommandListImmediate& RHICmdList, const FSlateRHIRenderer::FViewportInfo& ViewportInfo, FSlateWindowElementList& WindowElementList, bool bLockToVsync, bool bClear);
@@ -211,7 +211,7 @@ public:
 	virtual void CopyWindowsToVirtualScreenBuffer(const TArray<FString>& KeypressBuffer) override;
 	
 	/** Allows and disallows access to the crash tracker buffer data on the CPU */
-	virtual void MapVirtualScreenBuffer(void** OutImageData) override;
+	virtual void MapVirtualScreenBuffer(FMappedTextureBuffer* OutTextureData) override;
 	virtual void UnmapVirtualScreenBuffer() override;
 
 	/**
@@ -289,4 +289,16 @@ private:
 	bool bTakingAScreenShot;
 	FIntRect ScreenshotRect;
 	TArray<FColor>* OutScreenshotData;
+};
+
+struct FSlateEndDrawingWindowsCommand : public FRHICommand < FSlateEndDrawingWindowsCommand >
+{
+	FSlateRHIRenderingPolicy& Policy;
+	FSlateDrawBuffer* DrawBuffer;
+
+	FSlateEndDrawingWindowsCommand(FSlateRHIRenderingPolicy& InPolicy, FSlateDrawBuffer* InDrawBuffer);
+
+	void Execute(FRHICommandListBase& CmdList);
+
+	static void EndDrawingWindows(FRHICommandListImmediate& RHICmdList, FSlateDrawBuffer* DrawBuffer, FSlateRHIRenderingPolicy& Policy);
 };

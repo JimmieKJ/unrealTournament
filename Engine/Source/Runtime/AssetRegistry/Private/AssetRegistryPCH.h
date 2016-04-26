@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #ifndef _ASSET_REGISTRY_PRIVATE_
 #define _ASSET_REGISTRY_PRIVATE_

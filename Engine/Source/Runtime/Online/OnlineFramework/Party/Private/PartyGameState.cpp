@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "PartyPrivatePCH.h"
 #include "PartyGameState.h"
@@ -310,8 +310,6 @@ bool UPartyGameState::ResetForFrontend()
 
 	if (!bSuccess)
 	{
-		OssParty = nullptr;
-
 		ResetPartyState();
 		ResetLocalPlayerState();
 		UnregisterFrontendDelegates();
@@ -481,7 +479,7 @@ void UPartyGameState::HandlePartyDataReceived(const TSharedRef<FOnlinePartyData>
 	if (ensure(PartyInt.IsValid()))
 	{
 		check(PartyStateRefDef && PartyStateRef);
-		if (FVariantDataConverter::VariantMapToUStruct(InPartyData->KeyValAttrs, PartyStateRefDef, PartyStateRefScratch, 0, CPF_Transient | CPF_RepSkip))
+		if (FVariantDataConverter::VariantMapToUStruct(InPartyData->GetKeyValAttrs(), PartyStateRefDef, PartyStateRefScratch, 0, CPF_Transient | CPF_RepSkip))
 		{
 			ComparePartyData(*PartyStateRef, *PartyStateRefScratch);
 
@@ -529,12 +527,12 @@ void UPartyGameState::HandlePartyMemberDataReceived(const FUniqueNetId& InMember
 
 			check(CurrentPartyMember->MemberStateRefDef && CurrentPartyMember->MemberStateRefScratch);
 
-			// Copy out the old data
-			ensure(CurrentPartyMember->MemberStateRefDef->GetCppStructOps()->Copy(CurrentPartyMember->MemberStateRefScratch, CurrentPartyMember->MemberStateRef, 1));
-			if (FVariantDataConverter::VariantMapToUStruct(InPartyMemberData->KeyValAttrs, CurrentPartyMember->MemberStateRefDef, CurrentPartyMember->MemberStateRef, 0, CPF_Transient | CPF_RepSkip))
+			if (FVariantDataConverter::VariantMapToUStruct(InPartyMemberData->GetKeyValAttrs(), CurrentPartyMember->MemberStateRefDef, CurrentPartyMember->MemberStateRef, 0, CPF_Transient | CPF_RepSkip))
 			{
 				// Broadcast property changes
 				CurrentPartyMember->ComparePartyMemberData(*CurrentPartyMember->MemberStateRefScratch);
+				// Copy out the old data
+				ensure(CurrentPartyMember->MemberStateRefDef->GetCppStructOps()->Copy(CurrentPartyMember->MemberStateRefScratch, CurrentPartyMember->MemberStateRef, 1));
 				OnPartyMemberDataChanged().Broadcast(CurrentPartyMember->UniqueId, CurrentPartyMember);
 			}
 			else
@@ -572,7 +570,15 @@ void UPartyGameState::HandleLockoutPromotionStateChange(bool bNewLockoutState)
 
 EApprovalAction UPartyGameState::ProcessJoinRequest(const FUniqueNetId& RecipientId, const FUniqueNetId& SenderId, EJoinPartyDenialReason& DenialReason)
 {
-	return EApprovalAction::Approve;
+	if (IsInJoinableGameState())
+	{
+		return EApprovalAction::Approve;
+	}
+	else
+	{
+		DenialReason = EJoinPartyDenialReason::GameFull;
+		return EApprovalAction::Deny;
+	}
 }
 
 void UPartyGameState::HandlePartyJoinRequestReceived(const FUniqueNetId& RecipientId, const FUniqueNetId& SenderId)
@@ -596,15 +602,8 @@ void UPartyGameState::HandlePartyJoinRequestReceived(const FUniqueNetId& Recipie
 		int32 MaxPartyMembers = CurrentConfig.MaxMembers;
 		if (NumPartyMembers < MaxPartyMembers)
 		{
-			if (IsInJoinableGameState())
-			{
-				ApprovalAction = ProcessJoinRequest(RecipientId, SenderId, DenialReason);
-			}
-			else
-			{
-				// Game is full
-				DenialReason = EJoinPartyDenialReason::GameFull;
-			}
+			// Give the game a chance to accept or deny this player
+			ApprovalAction = ProcessJoinRequest(RecipientId, SenderId, DenialReason);
 		}
 		else
 		{
@@ -708,7 +707,14 @@ void UPartyGameState::SetPartyType(EPartyType InPartyType, bool bLeaderFriendsOn
 			}
 
 			CurrentConfig.PresencePermissions = PresencePermissions;
-			CurrentConfig.InvitePermissions = bLeaderInvitesOnly ? PartySystemPermissions::EInvitePermissions::Leader : PartySystemPermissions::EInvitePermissions::Anyone;
+			if (PartyStateRef->bInvitesDisabled)
+			{
+				CurrentConfig.InvitePermissions = PartySystemPermissions::EInvitePermissions::Noone;
+			}
+			else
+			{
+				CurrentConfig.InvitePermissions = bLeaderInvitesOnly ? PartySystemPermissions::EInvitePermissions::Leader : PartySystemPermissions::EInvitePermissions::Anyone;
+			}
 
 			UpdatePartyConfig(bIsPrivate);
 
@@ -745,6 +751,40 @@ void UPartyGameState::SetPartyType(EPartyType InPartyType, bool bLeaderFriendsOn
 	else
 	{
 		UE_LOG(LogParty, Warning, TEXT("Non party leader trying to set party permissions!"));
+	}
+}
+
+void UPartyGameState::SetInvitesDisabled(bool bInvitesDisabled)
+{
+	if (IsLocalPartyLeader())
+	{
+		check(PartyStateRef);
+		if (PartyStateRef->bInvitesDisabled != bInvitesDisabled)
+		{
+			if (bInvitesDisabled)
+			{
+				CurrentConfig.InvitePermissions = PartySystemPermissions::EInvitePermissions::Noone;
+			}
+			else
+			{
+				CurrentConfig.InvitePermissions = PartyStateRef->bLeaderInvitesOnly ? PartySystemPermissions::EInvitePermissions::Leader : PartySystemPermissions::EInvitePermissions::Anyone;
+			}
+
+			UpdatePartyConfig();
+
+			// Replicate the party settings to other party members
+			PartyStateRef->bInvitesDisabled = bInvitesDisabled;
+			UpdatePartyData(OwningUserId);
+
+			// Refresh accepting members, taking everything into account
+			UpdateAcceptingMembers();
+
+			OnInvitesDisabledChanged().Broadcast(bInvitesDisabled);
+		}
+	}
+	else
+	{
+		UE_LOG(LogParty, Verbose, TEXT("Non party leader trying to set invites disabled!"));
 	}
 }
 
@@ -1000,6 +1040,12 @@ void UPartyGameState::GetAllPartyMembers(TArray<UPartyMemberState*>& PartyMember
 	PartyMembersState.GenerateValueArray(PartyMembers);
 }
 
+FChatRoomId UPartyGameState::GetChatRoomID() const
+{
+	ensure(OssParty.IsValid());
+	return OssParty->RoomId;
+}
+
 void UPartyGameState::OnPartyMemberPromoted(const FUniqueNetId& LocalUserId, const FOnlinePartyId& InPartyId, const FUniqueNetId& InMemberId, const EPromoteMemberCompletionResult Result)
 {
 	FString PartyIdDebugString = InPartyId.ToDebugString();
@@ -1021,6 +1067,9 @@ void UPartyGameState::PromoteMember(const FUniqueNetIdRepl& NewPartyLeader)
 				IOnlinePartyPtr PartyInt = Online::GetPartyInterface(World);
 				if (ensure(PartyInt.IsValid()))
 				{
+					// Do any internal updates
+					PrePromoteMember();
+
 					FOnPromotePartyMemberComplete CompletionDelegate;
 					CompletionDelegate.BindUObject(this, &ThisClass::OnPartyMemberPromoted);
 					PartyInt->PromoteMember(*OwningUserId, *OssParty->PartyId, *NewPartyLeader, CompletionDelegate);
@@ -1040,6 +1089,10 @@ void UPartyGameState::PromoteMember(const FUniqueNetIdRepl& NewPartyLeader)
 	{
 		UE_LOG(LogParty, Warning, TEXT("Non party leader trying to promote party leader!"));
 	}
+}
+
+void UPartyGameState::PrePromoteMember()
+{
 }
 
 void UPartyGameState::OnPartyMemberKicked(const FUniqueNetId& LocalUserId, const FOnlinePartyId& InPartyId, const FUniqueNetId& InMemberId, const EKickMemberCompletionResult Result)
@@ -1085,49 +1138,40 @@ void UPartyGameState::KickMember(const FUniqueNetIdRepl& PartyMemberToKick)
 	}
 }
 
-void UPartyGameState::InitLocalPlayerPartyData()
+UPartyMemberState* UPartyGameState::InitPartyMemberStateFromLocalPlayer(const ULocalPlayer* LocalPlayer)
 {
-	UWorld* World = GetWorld();
-	check(World);
-	AGameState* GameState = World->GetGameState();
-	check(GameState);
-
-	for (const APlayerState* PlayerState : GameState->PlayerArray)
+	UPartyMemberState* LocalPartyMemberState = nullptr;
+	TSharedPtr<const FUniqueNetId> UniqueNetId = LocalPlayer->GetPreferredUniqueNetId();
+	if (UniqueNetId.IsValid())
 	{
-		if (PlayerState && PlayerState->UniqueId.IsValid() && PlayerState->GetOuter() != nullptr)
+		UPartyMemberState** LocalPartyMemberStatePtr = PartyMembersState.Find(UniqueNetId);
+		LocalPartyMemberState = LocalPartyMemberStatePtr ? *LocalPartyMemberStatePtr : nullptr;
+		if (!LocalPartyMemberState)
 		{
-			UPartyMemberState** LocalPartyMemberStatePtr = PartyMembersState.Find(PlayerState->UniqueId);
-			UPartyMemberState* LocalPartyMemberState = LocalPartyMemberStatePtr ? *LocalPartyMemberStatePtr : nullptr;
-			if (!LocalPartyMemberState)
+			LocalPartyMemberState = CreateNewPartyMember(*UniqueNetId);
+			if (LocalPartyMemberState)
 			{
-				LocalPartyMemberState = CreateNewPartyMember(*PlayerState->UniqueId);
-				if (LocalPartyMemberState)
-				{
-					PartyMembersState.Add(PlayerState->UniqueId, LocalPartyMemberState);
-				}
+				PartyMembersState.Add(UniqueNetId, LocalPartyMemberState);
 			}
 		}
 	}
+	return LocalPartyMemberState;
 }
 
 void UPartyGameState::SendLocalPlayerPartyData()
 {
-	InitLocalPlayerPartyData();
-
 	UWorld* World = GetWorld();
 	check(World);
-	AGameState* GameState = World->GetGameState();
-	check(GameState);
 
-	for (const APlayerState* PlayerState : GameState->PlayerArray)
+	for (FLocalPlayerIterator It(GEngine, World); It; ++It)
 	{
-		if (PlayerState && PlayerState->UniqueId.IsValid() && PlayerState->GetOuter() != nullptr)
+		ULocalPlayer* LP = Cast<ULocalPlayer>(*It);
+		if (LP)
 		{
-			// Send local player data
-			UPartyMemberState** MemberStatePtr = PartyMembersState.Find(PlayerState->UniqueId);
-			if (MemberStatePtr != nullptr && *MemberStatePtr != nullptr)
+			const UPartyMemberState* MemberStatePtr = InitPartyMemberStateFromLocalPlayer(LP);
+			if (MemberStatePtr != nullptr)
 			{
-				UpdatePartyMemberState(OwningUserId, *MemberStatePtr);
+				UpdatePartyMemberState(OwningUserId, MemberStatePtr);
 			}
 		}
 	}
@@ -1149,7 +1193,8 @@ void UPartyGameState::UpdatePartyData(const FUniqueNetIdRepl& InLocalUserId)
 			if (ensure(PartyInt.IsValid()))
 			{
 				FOnlinePartyData PartyData;
-				if (FVariantDataConverter::UStructToVariantMap(PartyStateRefDef, PartyStateRef, PartyData.KeyValAttrs, 0, CPF_Transient | CPF_RepSkip))
+				ensure(PartyStateRefDef != nullptr && PartyStateRef != nullptr);
+				if (FVariantDataConverter::UStructToVariantMap(PartyStateRefDef, PartyStateRef, PartyData.GetKeyValAttrs(), 0, CPF_Transient | CPF_RepSkip))
 				{
 					PartyInt->UpdatePartyData(*OwningUserId, *PartyId, PartyData);
 				}
@@ -1190,13 +1235,14 @@ void UPartyGameState::UpdatePartyMemberState(const FUniqueNetIdRepl& InLocalUser
 				if (ensure(PartyInt.IsValid()))
 				{
 					FOnlinePartyData PartyMemberData;
-					if (FVariantDataConverter::UStructToVariantMap(InPartyMemberState->MemberStateRefDef, InPartyMemberState->MemberStateRef, PartyMemberData.KeyValAttrs, 0, CPF_Transient | CPF_RepSkip))
+					ensure(InPartyMemberState->MemberStateRefDef != nullptr && InPartyMemberState->MemberStateRef != nullptr);
+					if (FVariantDataConverter::UStructToVariantMap(InPartyMemberState->MemberStateRefDef, InPartyMemberState->MemberStateRef, PartyMemberData.GetKeyValAttrs(), 0, CPF_Transient | CPF_RepSkip))
 					{
 						PartyInt->UpdatePartyMemberData(*InLocalUserId, *PartyId, PartyMemberData);
 					}
 					else
 					{
-						UE_LOG(LogParty, Warning, TEXT("UpdatePartyData: Failed to update party member data!"));
+						UE_LOG(LogParty, Warning, TEXT("UpdatePartyMemberState: Failed to update party member data!"));
 					}
 				}
 				else

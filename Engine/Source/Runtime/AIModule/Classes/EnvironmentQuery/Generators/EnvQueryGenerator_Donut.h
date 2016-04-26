@@ -1,4 +1,4 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "EnvironmentQuery/Generators/EnvQueryGenerator_ProjectedPoints.h"
@@ -35,11 +35,16 @@ class AIMODULE_API UEnvQueryGenerator_Donut : public UEnvQueryGenerator_Projecte
 	UPROPERTY(EditDefaultsOnly, Category = Generator)
 	FAIDataProviderFloatValue ArcAngle;
 
+	/** If true, the rings of the wheel will be rotated in a spiral pattern.  If false, they will all be at a zero
+	  * rotation, looking more like the spokes on a wheel.  */
+	UPROPERTY(EditDefaultsOnly, Category = Generator)
+	bool bUseSpiralPattern;
+
 	/** context */
 	UPROPERTY(EditAnywhere, Category = Generator)
 	TSubclassOf<class UEnvQueryContext> Center;
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category = Generator, meta=(InlineEditConditionToggle))
 	uint32 bDefineArc : 1;
 
 	virtual void GenerateItems(FEnvQueryInstance& QueryInstance) const override;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -582,6 +582,28 @@ enum EUnrealEngineObjectUE4Version
 	VER_UE4_USE_LOW_PASS_FILTER_FREQ,
 	// UAnimBlueprintGeneratedClass can be replaced by a dynamic class. Use TSubclassOf<UAnimInstance> instead.
 	VER_UE4_NO_ANIM_BP_CLASS_IN_GAMEPLAY_CODE,
+	// The SCS keeps a list of all nodes in its hierarchy rather than recursively building it each time it is requested
+	VER_UE4_SCS_STORES_ALLNODES_ARRAY,
+	// Moved StartRange and EndRange in UFbxAnimSequenceImportData to use FInt32Interval
+	VER_UE4_FBX_IMPORT_DATA_RANGE_ENCAPSULATION,
+	// Adding a new root scene component to camera component
+	VER_UE4_CAMERA_COMPONENT_ATTACH_TO_ROOT,
+	// Updating custom material expression nodes for instanced stereo implementation
+	VER_UE4_INSTANCED_STEREO_UNIFORM_UPDATE,
+	// Texture streaming min and max distance to handle HLOD
+	VER_UE4_STREAMABLE_TEXTURE_MIN_MAX_DISTANCE,	
+	// Fixing up invalid struct-to-struct pin connections by injecting available conversion nodes
+	VER_UE4_INJECT_BLUEPRINT_STRUCT_PIN_CONVERSION_NODES,
+	// Saving tag data for Array Property's inner property
+	VER_UE4_INNER_ARRAY_TAG_INFO,
+	// Fixed duplicating slot node names in skeleton due to skeleton preload on compile
+	VER_UE4_FIX_SLOT_NAME_DUPLICATION,
+	// Texture streaming using AABBs instead of Spheres
+	VER_UE4_STREAMABLE_TEXTURE_AABB,
+	// FPropertyTag stores GUID of property
+	VER_UE4_PROPERTY_GUID_IN_PROPERTY_TAG,
+	// Name table hashes are calculated and saved out rather than at load time
+	VER_UE4_NAME_HASHES_SERIALIZED,
 	// -----<new versions can be added before this line>-------------------------------------------------
 	// - this needs to be the last line (see note below)
 	VER_UE4_AUTOMATIC_VERSION_PLUS_ONE,

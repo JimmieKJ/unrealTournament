@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "DesktopPlatformPrivatePCH.h"
 #include "LinuxApplication.h"
@@ -179,7 +179,7 @@ bool FDesktopPlatformLinux::CanOpenLauncher(bool Install)
 	return false;
 }
 
-bool FDesktopPlatformLinux::OpenLauncher(bool Install, FString LauncherRelativeUrl, FString CommandLineParams)
+bool FDesktopPlatformLinux::OpenLauncher(const FOpenLauncherOptions& Options)
 {
 	// TODO: support launcher for realz
 	return true;

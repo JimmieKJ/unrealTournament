@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -56,6 +56,16 @@ public:
 		return Position >= AudioRange.GetLowerBoundValue() && Position <= AudioRange.GetUpperBoundValue();
 	}
 
+#if WITH_EDITORONLY_DATA
+	/**
+	 * @return Whether to show actual intensity on the waveform thumbnail or not
+	 */
+	bool ShouldShowIntensity() const
+	{
+		return bShowIntensity;
+	}
+#endif
+
 public:
 
 	// MovieSceneSection interface
@@ -78,4 +88,10 @@ private:
 	/** The amount which this audio is time dilated by */
 	UPROPERTY(EditAnywhere, Category="Audio")
 	float AudioDilationFactor;
+
+#if WITH_EDITORONLY_DATA
+	/** Whether to show the actual intensity of the wave on the thumbnail, as well as the smoothed RMS */
+	UPROPERTY(EditAnywhere, Category="Audio")
+	bool bShowIntensity;
+#endif
 };

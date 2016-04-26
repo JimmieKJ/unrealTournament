@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	IOSOpenGL.h: Public OpenGL ES 2.0 definitions for iOS-specific functionality
@@ -29,6 +29,7 @@ struct FIOSOpenGL : public FOpenGLES2
 	static FORCEINLINE bool SupportsFences()					{ return true; }	// GL_APPLE_sync
 	static FORCEINLINE bool SupportsTextureMaxLevel()			{ return true; }	// GL_APPLE_texture_max_level
 	static FORCEINLINE bool HasHardwareHiddenSurfaceRemoval()	{ return true; }	// All iOS devices have PowerVR GPUs with hardware HSR
+	static FORCEINLINE bool SupportsInstancing()				{ return true; }	// All iOS devices have EXT_draw_instanced + EXT_instanced_arrays
 
 	static FORCEINLINE void DeleteSync(UGLsync Sync)
 	{
@@ -101,6 +102,21 @@ struct FIOSOpenGL : public FOpenGLES2
 		glUnmapBufferOES(Type);
 	}
 
+	static FORCEINLINE void DrawArraysInstanced(GLenum Mode, GLint First, GLsizei Count, GLsizei InstanceCount)
+	{
+		glDrawArraysInstancedEXT(Mode, First, Count, InstanceCount);
+	}
+
+	static FORCEINLINE void DrawElementsInstanced(GLenum Mode, GLsizei Count, GLenum Type, const GLvoid* Indices, GLsizei InstanceCount)
+	{
+		glDrawElementsInstancedEXT(Mode, Count, Type, Indices, InstanceCount);
+	}
+
+	static FORCEINLINE void VertexAttribDivisor(GLuint Index, GLuint Divisor)
+	{
+		glVertexAttribDivisorEXT(Index, Divisor);
+	}
+	
 	static FORCEINLINE EShaderPlatform GetShaderPlatform()
 	{
 		return SP_OPENGL_ES2_IOS;

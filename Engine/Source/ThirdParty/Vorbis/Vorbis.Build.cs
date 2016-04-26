@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 using UnrealBuildTool;
 
 public class Vorbis : ModuleRules
@@ -32,7 +32,7 @@ public class Vorbis : ModuleRules
 
 			RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/ThirdParty/Vorbis/Win32/VS" + WindowsPlatform.GetVisualStudioCompilerVersionName() + "/libvorbis.dll"));
 		}
-		else if (Target.Platform == UnrealTargetPlatform.HTML5 && Target.Architecture == "-win32")
+        else if (Target.Platform == UnrealTargetPlatform.HTML5 && Target.Architecture == "-win32") // simulator
         {
             string VorbisLibPath = VorbisPath + "Lib/HTML5Win32/";
             PublicLibraryPaths.Add(VorbisLibPath);
@@ -48,14 +48,26 @@ public class Vorbis : ModuleRules
 		}
         else if (Target.Platform == UnrealTargetPlatform.HTML5)
         {
-			if (UEBuildConfiguration.bCompileForSize)
-			{
-				PublicAdditionalLibraries.Add(VorbisPath + "Lib/HTML5/libvorbis_Oz.bc");
-			}
-			else
-			{
-				PublicAdditionalLibraries.Add(VorbisPath + "Lib/HTML5/libvorbis.bc");
-			}
+            string VorbisLibPath = VorbisPath + "lib/HTML5/";
+            PublicLibraryPaths.Add(VorbisLibPath);
+
+            string OpimizationSuffix = "";
+            if (UEBuildConfiguration.bCompileForSize)
+            {
+                OpimizationSuffix = "_Oz";
+            }
+            else
+            {
+                if (Target.Configuration == UnrealTargetConfiguration.Development)
+                {
+                    OpimizationSuffix = "_O2";
+                }
+                else if (Target.Configuration == UnrealTargetConfiguration.Shipping)
+                {
+                    OpimizationSuffix = "_O3";
+                }
+            }
+            PublicAdditionalLibraries.Add(VorbisLibPath + "libvorbis" + OpimizationSuffix + ".bc");
         }
 		else if (Target.Platform == UnrealTargetPlatform.Android)
 		{

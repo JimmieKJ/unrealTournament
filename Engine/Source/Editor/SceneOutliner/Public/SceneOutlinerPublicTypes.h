@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -162,9 +162,13 @@ namespace SceneOutliner
 		/** The world that we are representing */
 		UWorld* RepresentingWorld;
 
+		/** The world the user has chosen to display */
+		TWeakObjectPtr<UWorld> UserChosenWorld;
+
 		FSharedOutlinerData()
 			: bRepresentingPlayWorld(false)
 			, RepresentingWorld(nullptr)
+			, UserChosenWorld(nullptr)
 		{}
 	};
 

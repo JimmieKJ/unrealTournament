@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "GameProjectGenerationPrivatePCH.h"
@@ -581,7 +581,7 @@ bool GameProjectUtils::OpenCodeIDE(const FString& ProjectFile, FText& OutFailRea
 #if PLATFORM_WINDOWS
 	CodeSolutionFile = SolutionFilenameWithoutExtension + TEXT(".sln");
 #elif PLATFORM_MAC
-	CodeSolutionFile = SolutionFilenameWithoutExtension + TEXT(".xcodeproj");
+	CodeSolutionFile = SolutionFilenameWithoutExtension + TEXT(".xcworkspace");
 #elif PLATFORM_LINUX
 	// FIXME: Should depend on PreferredAccessor setting
 	CodeSolutionFile = SolutionFilenameWithoutExtension + TEXT(".workspace");
@@ -3060,7 +3060,7 @@ bool GameProjectUtils::ProjectRequiresBuild(const FName InPlatformInfoName)
 
 	bool bRequiresBuild = false;
 
-	if (!FRocketSupport::IsRocket())
+	if (!FApp::IsEngineInstalled())
 	{
 		// check to see if the default build settings have changed
 		bRequiresBuild |= !HasDefaultBuildSettings(InPlatformInfoName);
@@ -3184,7 +3184,7 @@ GameProjectUtils::EAddCodeToProjectResult GameProjectUtils::AddCodeToProject_Int
 {
 	if ( !ParentClassInfo.IsSet() )
 	{
-		OutFailReason = LOCTEXT("NoParentClass", "You must specify a parent class");
+		OutFailReason = LOCTEXT("MissingParentClass", "You must specify a parent class");
 		return EAddCodeToProjectResult::InvalidInput;
 	}
 

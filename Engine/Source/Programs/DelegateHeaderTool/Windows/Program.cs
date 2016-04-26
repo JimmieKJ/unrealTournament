@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 using System;
@@ -500,7 +500,7 @@ namespace DelegateHeaderTool
 			// NOTE: The source file path is hard-coded relative to the directory that we expect this project to live in
 			using( var Output = new StreamWriter( "..\\..\\..\\..\\..\\..\\..\\Engine\\Source\\Runtime\\Core\\Public\\Delegates\\DelegateCombinations.h" ) )
 			{
-				Output.WriteLine( "// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved." );
+				Output.WriteLine( "// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved." );
 				Output.WriteLine( "" );
 				Output.WriteLine( "// NOTE: This source file was automatically generated using DelegateHeaderTool" );
 				Output.WriteLine( "" );

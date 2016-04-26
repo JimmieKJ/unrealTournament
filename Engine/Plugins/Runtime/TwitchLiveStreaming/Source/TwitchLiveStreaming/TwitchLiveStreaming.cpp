@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "TwitchLiveStreamingModule.h"
 #include "TwitchLiveStreaming.h"
@@ -6,7 +6,9 @@
 #include "ModuleManager.h"
 #include "Runtime/Core/Public/Features/IModularFeatures.h"
 #include "Runtime/Core/Public/Stats/Stats2.h"
+#if WITH_EDITOR
 #include "ISettingsModule.h"
+#endif
 
 
 DEFINE_LOG_CATEGORY_STATIC( LogTwitch, Log, All );
@@ -106,6 +108,7 @@ void FTwitchLiveStreaming::StartupModule()
 	// @todo twitch: Editor: Ideally we want a "zoom in" feature to use during editor live streams
 
 	// Register our custom project settings
+#if WITH_EDITOR
 	ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
 	if( SettingsModule != nullptr )
 	{
@@ -115,6 +118,7 @@ void FTwitchLiveStreaming::StartupModule()
 			LOCTEXT( "TwitchSettingsDescription", "Twitch game broadcasting settings" ),
 			GetMutableDefault< UTwitchProjectSettings >() );
 	}
+#endif
 
 	// Register as a modular feature
 	IModularFeatures::Get().RegisterModularFeature( TEXT( "LiveStreaming" ), this );
@@ -126,12 +130,14 @@ void FTwitchLiveStreaming::ShutdownModule()
 	// Unregister our feature
 	IModularFeatures::Get().UnregisterModularFeature( TEXT( "LiveStreaming" ), this );
 
+#if WITH_EDITOR
 	// Unregister custom project settings
 	ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
 	if( SettingsModule != nullptr )
 	{
 		SettingsModule->UnregisterSettings( "Project", "Plugins", "Twitch" );
 	}
+#endif
 
 	if( TwitchState != ETwitchState::NotLoaded )
 	{

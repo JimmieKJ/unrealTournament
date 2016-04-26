@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "XmppPrivatePCH.h"
 #include "XmppJingle.h"
@@ -195,27 +195,27 @@ FXmppMultiUserChatJingle::FXmppMultiUserChatJingle(class FXmppConnectionJingle& 
 
 FXmppMultiUserChatJingle::~FXmppMultiUserChatJingle()
 {
-	FXmppRoomInfoRefreshResponseJingle* RefreshResp = NULL;
+	FXmppRoomInfoRefreshResponseJingle* RefreshResp = nullptr;
 	while (ReceivedRoomInfoRefreshResponseQueue.Dequeue(RefreshResp))
 	{
 		delete RefreshResp;
 	}
-	FXmppConfigQueryResponseJingle* ConfigQueryResp = NULL;
+	FXmppConfigQueryResponseJingle* ConfigQueryResp = nullptr;
 	while (ReceivedConfigQueryResponseQueue.Dequeue(ConfigQueryResp))
 	{
 		delete ConfigQueryResp;
 	}
-	FXmppConfigResponseJingle* ConfigResp = NULL;
+	FXmppConfigResponseJingle* ConfigResp = nullptr;
 	while (ReceivedConfigResponseQueue.Dequeue(ConfigResp))
 	{
 		delete ConfigResp;
 	}
-	FXmppChatRoomOpResult* RoomOpRes = NULL;
+	FXmppChatRoomOpResult* RoomOpRes = nullptr;
 	while (ResultOpQueue.Dequeue(RoomOpRes))
 	{
 		delete RoomOpRes;
 	}
-	FXmppChatRoomOp* PendingRoomOp = NULL;
+	FXmppChatRoomOp* PendingRoomOp = nullptr;
 	while (PendingOpQueue.Dequeue(PendingRoomOp))
 	{
 		delete PendingRoomOp;
@@ -228,9 +228,12 @@ FXmppMultiUserChatJingle::~FXmppMultiUserChatJingle()
 class FXmppChatRoomCreateOpResult : public FXmppChatRoomOpResult
 {
 public:
-	FXmppChatRoomCreateOpResult(const FXmppRoomId& InRoomId, bool InbWasSuccessful, const FString& InErrorStr)
+	FXmppChatRoomCreateOpResult(const FXmppRoomId& InRoomId, bool bInIsOwner, bool InbWasSuccessful, const FString& InErrorStr)
 		: FXmppChatRoomOpResult(InRoomId, InbWasSuccessful, InErrorStr)
+		, bIsOwner(bInIsOwner)
 	{}
+
+	bool bIsOwner;
 
 	virtual void Process(class FXmppMultiUserChatJingle& Muc) override
 	{
@@ -246,7 +249,7 @@ public:
 		{
 			FScopeLock Lock(&Muc.ChatroomsLock);
 			FXmppRoomJingle* XmppRoom = Muc.Chatrooms.Find(RoomId);
-			if (XmppRoom != NULL)
+			if (XmppRoom != nullptr)
 			{
 				XmppRoom->Status = bWasSuccessful ? FXmppRoomJingle::Joined : FXmppRoomJingle::NotJoined;
 			}
@@ -259,13 +262,13 @@ public:
 			// @todo EN should exit room here if we can't configure it!
 		}
 
-		if (bWasSuccessful)
+		if (bIsOwner && bWasSuccessful)
 		{
 			Muc.InternalConfigureRoom(RoomId, FXmppRoomConfig(*RoomCreateConfig), EConfigureRoomType::UseCreateCallback);
 		}
 		else
 		{
-			// Failed, don't bother trying to configure, call delegate now
+			// Either failed or not owner, creation is done
 			Muc.OnRoomCreated().Broadcast(Muc.Connection.AsShared(), bWasSuccessful, RoomId, ErrorStr);
 		}
 
@@ -309,7 +312,7 @@ public:
 	virtual FXmppChatRoomOpResult* ProcessError(const FString& ErrorStr)
 	{
 		UE_LOG(LogXmpp, Verbose, TEXT("ChatRoomCreateOp returning error CreateOpResult for room %s"), *RoomId);
-		return new FXmppChatRoomCreateOpResult(RoomId, false, ErrorStr);
+		return new FXmppChatRoomCreateOpResult(RoomId, false, false, ErrorStr);
 	}
 
 	FString Nickname;
@@ -366,7 +369,7 @@ bool FXmppMultiUserChatJingle::CreateRoom(const FXmppRoomId& RoomId, const FStri
 	{
 		UE_LOG(LogXmpp, Warning, TEXT("MUC: CreateRoom failed. %s"), *ErrorStr);
 		// trigger delegates on error
-		OnRoomCreated().Broadcast(Connection.AsShared(), false, FXmppRoomId(), ErrorStr);
+		OnRoomCreated().Broadcast(Connection.AsShared(), false, RoomId, ErrorStr);
 	}
 
 	return bResult;
@@ -407,7 +410,7 @@ public:
 
 		FScopeLock Lock(&Muc.ChatroomsLock);
 		FXmppRoomJingle* XmppRoom = Muc.Chatrooms.Find(RoomId);
-		if (XmppRoom != NULL)
+		if (XmppRoom != nullptr)
 		{
 			XmppRoom->Status = bWasSuccessful ? FXmppRoomJingle::Joined : FXmppRoomJingle::NotJoined;
 		}
@@ -528,7 +531,7 @@ public:
 
 		FScopeLock Lock(&Muc.ChatroomsLock);
 		FXmppRoomJingle* XmppRoom = Muc.Chatrooms.Find(RoomId);
-		if (XmppRoom != NULL)
+		if (XmppRoom != nullptr)
 		{
 			XmppRoom->Status = bWasSuccessful ? FXmppRoomJingle::Joined : FXmppRoomJingle::NotJoined;
 		}
@@ -679,12 +682,12 @@ public:
 		FXmppMucRoomQueryConfigTask* RoomQueryConfigTask = new FXmppMucRoomQueryConfigTask(XmppPump->client(), XmppRoom->chatroom_jid(), RoomId);
 		RoomQueryConfigTask->SignalConfigQueryReceived.connect(&Muc, &FXmppMultiUserChatJingle::OnSignalConfigQueryResponseReceived);
 		RoomQueryConfigTask->Start();
-		return NULL;
+		return nullptr;
 	}
 	
 	virtual FXmppChatRoomOpResult* ProcessError(const FString& ErrorStr) 
 	{
-		return NULL;
+		return nullptr;
 	}
 
 	FXmppMultiUserChatJingle& Muc;
@@ -786,7 +789,7 @@ public:
 		RoomConfigTask->SignalConfigReceived.connect(&Muc, &FXmppMultiUserChatJingle::OnSignalConfigResponseReceived);
 		RoomConfigTask->Start();
 
-		return NULL;
+		return nullptr;
 	}
 
 	virtual FXmppChatRoomOpResult* ProcessError(const FString& ErrorStr) 
@@ -812,7 +815,7 @@ bool FXmppMultiUserChatJingle::InternalConfigureRoom(const FXmppRoomId& RoomId, 
 
 	FScopeLock Lock(&ChatroomsLock);
 	FXmppRoomJingle* XmppRoom = Chatrooms.Find(RoomId);
-	if (XmppRoom == NULL)
+	if (XmppRoom == nullptr)
 	{
 		ErrorStr = FString::Printf(TEXT("couldnt find room %s"), *RoomId);
 	}
@@ -920,7 +923,7 @@ bool FXmppMultiUserChatJingle::RefreshRoomInfo(const FXmppRoomId& RoomId)
 
 	FScopeLock Lock(&ChatroomsLock);
 	FXmppRoomJingle* XmppRoom = Chatrooms.Find(RoomId);
-	if (XmppRoom == NULL)
+	if (XmppRoom == nullptr)
 	{
 		ErrorStr = FString::Printf(TEXT("couldnt find room %s"), *RoomId);
 	}
@@ -986,7 +989,7 @@ public:
 		{
 			return ProcessError(FString::Printf(TEXT("failed RequestExitChatroom room=%s"), *RoomId));
 		}
-		return NULL;
+		return nullptr;
 	}
 
 	virtual FXmppChatRoomOpResult* ProcessError(const FString& ErrorStr)
@@ -1003,7 +1006,7 @@ bool FXmppMultiUserChatJingle::ExitRoom(const FXmppRoomId& RoomId)
 
 	FScopeLock Lock(&ChatroomsLock);
 	FXmppRoomJingle* XmppRoom = Chatrooms.Find(RoomId);
-	if (XmppRoom == NULL)
+	if (XmppRoom == nullptr)
 	{
 		ErrorStr = FString::Printf(TEXT("couldnt find room %s"), *RoomId);
 	}
@@ -1052,13 +1055,13 @@ public:
 		{
 			return ProcessError(FString::Printf(TEXT("failed SendMessage to room=%s"), *RoomId));
 		}
-		return NULL;
+		return nullptr;
 	}
 
 	virtual FXmppChatRoomOpResult* ProcessError(const FString& ErrorStr)
 	{
 		//@todo sz1 - queue result
-		return NULL;
+		return nullptr;
 	}
 
 	FString MsgBody;
@@ -1071,7 +1074,7 @@ bool FXmppMultiUserChatJingle::SendChat(const FXmppRoomId& RoomId, const class F
 
 	FScopeLock Lock(&ChatroomsLock);
 	FXmppRoomJingle* XmppRoom = Chatrooms.Find(RoomId);
-	if (XmppRoom == NULL)
+	if (XmppRoom == nullptr)
 	{
 		ErrorStr = FString::Printf(TEXT("couldnt find room %s"), *RoomId);
 	}
@@ -1129,7 +1132,7 @@ bool FXmppMultiUserChatJingle::GetRoomInfo(const FXmppRoomId& RoomId, FXmppRoomI
 	return bResult;
 }
 
-bool FXmppMultiUserChatJingle::GetMembers(const FXmppRoomId& RoomId, TArray< TSharedRef<FXmppChatMember> >& OutMembers)
+bool FXmppMultiUserChatJingle::GetMembers(const FXmppRoomId& RoomId, TArray<FXmppChatMemberRef>& OutMembers)
 {
 	bool bResult = false;
 
@@ -1147,9 +1150,9 @@ bool FXmppMultiUserChatJingle::GetMembers(const FXmppRoomId& RoomId, TArray< TSh
 	return bResult;
 }
 
-TSharedPtr<FXmppChatMember> FXmppMultiUserChatJingle::GetMember(const FXmppRoomId& RoomId, const FXmppUserJid& MemberJid)
+FXmppChatMemberPtr FXmppMultiUserChatJingle::GetMember(const FXmppRoomId& RoomId, const FXmppUserJid& MemberJid)
 {
-	TSharedPtr<FXmppChatMember> Result;
+	FXmppChatMemberPtr Result;
 
 	FScopeLock Lock(&ChatroomsLock);
 	for (auto Entry : Chatrooms)
@@ -1204,9 +1207,9 @@ bool FXmppMultiUserChatJingle::Tick(float DeltaTime)
 {
 	while (!ResultOpQueue.IsEmpty())
 	{
-		FXmppChatRoomOpResult* ResultOp = NULL;
+		FXmppChatRoomOpResult* ResultOp = nullptr;
 		if (ResultOpQueue.Dequeue(ResultOp) &&
-			ResultOp != NULL)
+			ResultOp != nullptr)
 		{
 			NumOpRequests++;
 			ProcessResultOp(ResultOp, *this);
@@ -1216,7 +1219,7 @@ bool FXmppMultiUserChatJingle::Tick(float DeltaTime)
 
 	while (!ReceivedConfigQueryResponseQueue.IsEmpty())
 	{
-		FXmppConfigQueryResponseJingle* ConfigQueryTaskResponse = NULL;
+		FXmppConfigQueryResponseJingle* ConfigQueryTaskResponse = nullptr;
 		if (ReceivedConfigQueryResponseQueue.Dequeue(ConfigQueryTaskResponse))
 		{
 			NumMucResponses++;
@@ -1228,7 +1231,7 @@ bool FXmppMultiUserChatJingle::Tick(float DeltaTime)
 
 	while (!ReceivedConfigResponseQueue.IsEmpty())
 	{
-		FXmppConfigResponseJingle* ConfigTaskResponse = NULL;
+		FXmppConfigResponseJingle* ConfigTaskResponse = nullptr;
 		if (ReceivedConfigResponseQueue.Dequeue(ConfigTaskResponse))
 		{
 			NumMucResponses++;
@@ -1247,7 +1250,7 @@ bool FXmppMultiUserChatJingle::Tick(float DeltaTime)
 	
 	while (!ReceivedRoomInfoRefreshResponseQueue.IsEmpty())
 	{
-		FXmppRoomInfoRefreshResponseJingle* RefreshTaskResponse = NULL;
+		FXmppRoomInfoRefreshResponseJingle* RefreshTaskResponse = nullptr;
 		if (ReceivedRoomInfoRefreshResponseQueue.Dequeue(RefreshTaskResponse))
 		{
 			NumMucResponses++;
@@ -1270,12 +1273,12 @@ void FXmppMultiUserChatJingle::HandlePumpQuitting(buzz::XmppPump* XmppPump)
 	// remove any pending tasks
 	while (!PendingOpQueue.IsEmpty())
 	{
-		FXmppChatRoomOp* PendingOp = NULL;
+		FXmppChatRoomOp* PendingOp = nullptr;
 		if (PendingOpQueue.Dequeue(PendingOp) &&
-			PendingOp != NULL)
+			PendingOp != nullptr)
 		{
 			FXmppChatRoomOpResult* OpResult = PendingOp->ProcessError(TEXT("failed to process - shutting down"));
-			if (OpResult != NULL)
+			if (OpResult != nullptr)
 			{
 				ResultOpQueue.Enqueue(OpResult);
 			}
@@ -1302,9 +1305,9 @@ void FXmppMultiUserChatJingle::HandlePumpTick(buzz::XmppPump* XmppPump)
 		// process any pending ops on the xmpp thread
 		while (!PendingOpQueue.IsEmpty())
 		{
-			FXmppChatRoomOp* PendingOp = NULL;
+			FXmppChatRoomOp* PendingOp = nullptr;
 			if (PendingOpQueue.Dequeue(PendingOp) &&
-				PendingOp != NULL)
+				PendingOp != nullptr)
 			{
 				ProcessPendingOp(PendingOp, XmppPump);
 				delete PendingOp;
@@ -1316,12 +1319,12 @@ void FXmppMultiUserChatJingle::HandlePumpTick(buzz::XmppPump* XmppPump)
 		// not logged in so process all pending operations as error
 		while (!PendingOpQueue.IsEmpty())
 		{
-			FXmppChatRoomOp* PendingOp = NULL;
+			FXmppChatRoomOp* PendingOp = nullptr;
 			if (PendingOpQueue.Dequeue(PendingOp) &&
-				PendingOp != NULL)
+				PendingOp != nullptr)
 			{
 				FXmppChatRoomOpResult* OpResult = PendingOp->ProcessError(TEXT("failed to process - not connected"));
-				if (OpResult != NULL)
+				if (OpResult != nullptr)
 				{
 					ResultOpQueue.Enqueue(OpResult);
 				}
@@ -1384,9 +1387,9 @@ void FXmppMultiUserChatJingle::ProcessPendingOp(FXmppChatRoomOp* PendingOp, buzz
 
 	FString ErrorStr;
 
-	buzz::XmppChatroomModule* XmppRoom = NULL;
+	buzz::XmppChatroomModule* XmppRoom = nullptr;
 	buzz::XmppChatroomModule** Existing = XmppRoomModules.Find(PendingOp->RoomId);
-	if (Existing != NULL)
+	if (Existing != nullptr)
 	{
 		XmppRoom = *Existing;
 	}
@@ -1419,12 +1422,12 @@ void FXmppMultiUserChatJingle::ProcessPendingOp(FXmppChatRoomOp* PendingOp, buzz
 
 			XmppRoomModules.Remove(PendingOp->RoomId);
 			delete XmppRoom;
-			XmppRoom = NULL;
+			XmppRoom = nullptr;
 		}
 	}
 	// result from processing
-	FXmppChatRoomOpResult* OpResult = NULL;
-	if (XmppRoom != NULL)
+	FXmppChatRoomOpResult* OpResult = nullptr;
+	if (XmppRoom != nullptr)
 	{
 		OpResult = PendingOp->Process(XmppRoom, XmppPump);
 	}
@@ -1432,7 +1435,7 @@ void FXmppMultiUserChatJingle::ProcessPendingOp(FXmppChatRoomOp* PendingOp, buzz
 	{
 		OpResult = PendingOp->ProcessError(ErrorStr);
 	}
-	if (OpResult != NULL)
+	if (OpResult != nullptr)
 	{
 		// queue for processing result on game thread
 		ResultOpQueue.Enqueue(OpResult);
@@ -1442,7 +1445,7 @@ void FXmppMultiUserChatJingle::ProcessPendingOp(FXmppChatRoomOp* PendingOp, buzz
 void FXmppMultiUserChatJingle::ProcessResultOp(FXmppChatRoomOpResult* ResultOp, class FXmppMultiUserChatJingle& Muc)
 {
 	check(IsInGameThread());
-	check(ResultOp != NULL);
+	check(ResultOp != nullptr);
 
 	ResultOp->Process(Muc);
 }
@@ -1451,7 +1454,7 @@ static void ConvertToChatMember(FXmppChatMember& OutChatMember, const buzz::Xmpp
 {
 	FXmppJingle::ConvertToJid(OutChatMember.MemberJid, InChatMemberJingle.member_jid());
 	OutChatMember.Nickname = UTF8_TO_TCHAR(InChatMemberJingle.name().c_str());
-	if (InChatMemberJingle.presence() != NULL)
+	if (InChatMemberJingle.presence() != nullptr)
 	{
 		//@todo sz1
 		//FXmppPresenceJingle::ConvertToPresence(OutChatMember.UserPresence, *InChatMemberJingle.presence(), OutChatMember.MemberJid);
@@ -1535,17 +1538,19 @@ void FXmppMultiUserChatJingle::MemberEntered(
 		UTF8_TO_TCHAR(RoomModule->chatroom_jid().Str().c_str()),
 		UTF8_TO_TCHAR(XmppMember->member_jid().Str().c_str()));
 
+	UE_LOG(LogXmpp, VeryVerbose, TEXT("MUC: MemberEntered presence [%s]"), XmppMember->presence() != nullptr ? UTF8_TO_TCHAR(XmppMember->presence()->status().c_str()) : TEXT("null"));
+
 	FXmppRoomId RoomId(UTF8_TO_TCHAR(RoomModule->chatroom_jid().node().c_str()));
 
 	FScopeLock Lock(&ChatroomsLock);
 	FXmppRoomJingle* XmppRoom = Chatrooms.Find(RoomId);
-	if (XmppRoom != NULL)
+	if (XmppRoom != nullptr)
 	{
 		if (XmppRoom->Status == FXmppRoomJingle::Joined)
 		{
 			FXmppUserJid MemberJid;
 			FXmppJingle::ConvertToJid(MemberJid, XmppMember->member_jid());
-			TSharedPtr<FXmppChatMember> UpdatedMember;
+			FXmppChatMemberPtr UpdatedMember;
 
 			for (auto Member : XmppRoom->Members)
 			{
@@ -1584,7 +1589,7 @@ public:
 
 		FScopeLock Lock(&Muc.ChatroomsLock);
 		FXmppRoomJingle* XmppRoom = Muc.Chatrooms.Find(RoomId);
-		if (XmppRoom != NULL)
+		if (XmppRoom != nullptr)
 		{
 			for (int32 Idx = 0; Idx < XmppRoom->Members.Num(); Idx++)
 			{
@@ -1619,9 +1624,26 @@ public:
 	TSharedRef<FXmppChatMessage> ChatMessage;
 };
 
+void FXmppMultiUserChatJingle::InternalHandleJoinedRoom(const FXmppChatMemberPtr& SelfMember, FXmppRoomJingle* XmppRoom)
+{
+	for (auto Member : XmppRoom->Members)
+	{
+		if (SelfMember != Member)
+		{
+			ResultOpQueue.Enqueue(new FXmppChatRoomMemberEnteredOpResult(Member->MemberJid, XmppRoom->RoomInfo.Id));
+		}
+	}
+	for (auto Message : XmppRoom->LastMessages)
+	{
+		ResultOpQueue.Enqueue(new FXmppChatRoomMessageReceivedOpResult(XmppRoom->RoomInfo.Id, Message));
+	}
+}
+
 void FXmppMultiUserChatJingle::ChatroomEnteredStatus(
 	buzz::XmppChatroomModule* RoomModule, const buzz::XmppPresence* Presence, buzz::XmppChatroomEnteredStatus EnterStatus)
 {
+	bool bWasSuccessful = false;
+
 	UE_LOG(LogXmpp, Log, TEXT("MUC: ChatroomEnteredStatus room=%s [%s]"), 
 		UTF8_TO_TCHAR(RoomModule->chatroom_jid().Str().c_str()),
 		RoomEnterStatusToStr(EnterStatus));
@@ -1629,16 +1651,19 @@ void FXmppMultiUserChatJingle::ChatroomEnteredStatus(
 	FXmppRoomId RoomId(UTF8_TO_TCHAR(RoomModule->chatroom_jid().node().c_str()));
 
 	FScopeLock Lock(&ChatroomsLock);
-	FXmppRoomJingle* XmppRoom = Chatrooms.Find(RoomId);
-	if (XmppRoom != NULL)
+	FXmppRoomJingle* XmppRoom = Chatrooms.Find(RoomId);	
+	if (XmppRoom != nullptr)
 	{
 		FString ErrorStr;
 		FXmppRoomJingle::ERoomStatus LastStatus = XmppRoom->Status;
-		TSharedPtr<FXmppChatMember> MyChatMember;
+		FXmppChatMemberPtr MyChatMember;
 		if (EnterStatus == buzz::XMPP_CHATROOM_ENTERED_SUCCESS)
 		{
-			// update status for successful join
-			XmppRoom->Status = FXmppRoomJingle::Joined;
+			// update status for successful join, defer create status update until ownership determined via HandleMucPresence
+			if (LastStatus != FXmppRoomJingle::CreatePending)
+			{
+				XmppRoom->Status = FXmppRoomJingle::Joined;
+			}
 			XmppRoom->Members.Empty();
 
 			// Add user that requested the join to the room member list
@@ -1648,23 +1673,22 @@ void FXmppMultiUserChatJingle::ChatroomEnteredStatus(
 			XmppRoom->Members.Add(MyChatMember.ToSharedRef());
 
 			// Update room members
-			buzz::XmppChatroomMemberEnumerator* Enumerator = NULL;
+			buzz::XmppChatroomMemberEnumerator* Enumerator = nullptr;
 			if (RoomModule->CreateMemberEnumerator(&Enumerator) == buzz::XMPP_RETURN_OK &&
-				Enumerator != NULL)
+				Enumerator != nullptr)
 			{
 				while (Enumerator->Next())
 				{
 					buzz::XmppChatroomMember* XmppMember = Enumerator->current();
-					if (XmppMember != NULL)
+					if (XmppMember != nullptr)
 					{
-						TSharedRef<FXmppChatMember> NewChatMember(MakeShareable(new FXmppChatMember()));
+						FXmppChatMemberRef NewChatMember(MakeShareable(new FXmppChatMember()));
 						XmppRoom->Members.Add(NewChatMember);
 						ConvertToChatMember(*NewChatMember, *XmppMember);
 					}
 				}
 			}
-
-			// @todo EN Set my own affiliation to this room
+			bWasSuccessful = true;
 		}
 		else
 		{
@@ -1672,45 +1696,44 @@ void FXmppMultiUserChatJingle::ChatroomEnteredStatus(
 			// failed to join 
 			XmppRoom->Status = FXmppRoomJingle::NotJoined;
 		}
-
-		bool bWasSuccessful = XmppRoom->Status == FXmppRoomJingle::Joined;
-
+		 
         // Create/JoinPublic/JoinPrivate all should have set one of the pending states
 		check(LastStatus != FXmppRoomJingle::NotJoined);
 
-		if (LastStatus == FXmppRoomJingle::CreatePending)
+		const bool bJoinPending = LastStatus == FXmppRoomJingle::JoinPublicPending || LastStatus == FXmppRoomJingle::JoinPrivatePending;
+		const bool bCreatePending = LastStatus == FXmppRoomJingle::CreatePending;
+		if (bJoinPending)
 		{
-			UE_LOG(LogXmpp, Log, TEXT("ChatroomEnteredStatus - queueing room create op result for %s"), *RoomId);
-			// This is the only callback for RequestEnterRoom in FXmppChatRoom<X>Op::Process() to see if room was created vs. joined
-			ResultOpQueue.Enqueue(new FXmppChatRoomCreateOpResult(RoomId, bWasSuccessful, ErrorStr));
-		}
-		else if (LastStatus == FXmppRoomJingle::JoinPublicPending)
-		{
-			UE_LOG(LogXmpp, Log, TEXT("ChatroomEnteredStatus - queueing ChatRoomJoinPublicOpResult for %s"), *RoomId);
-			ResultOpQueue.Enqueue(new FXmppChatRoomJoinPublicOpResult(RoomId, bWasSuccessful, ErrorStr));
-		}
-		else if (LastStatus == FXmppRoomJingle::JoinPrivatePending)
-		{
-			UE_LOG(LogXmpp, Log, TEXT("ChatroomEnteredStatus - queueing ChatRoomJoinPrivateOpResult result for %s"), *RoomId);
-			ResultOpQueue.Enqueue(new FXmppChatRoomJoinPrivateOpResult(RoomId, bWasSuccessful, ErrorStr));
-		}
-
-		// if you just entered add the member entered ops for users that already entered 
-		if (bWasSuccessful)
-		{
-			for (auto Member : XmppRoom->Members)
+			if (LastStatus == FXmppRoomJingle::JoinPublicPending)
 			{
-				if (MyChatMember != Member)
-				{
-					ResultOpQueue.Enqueue(new FXmppChatRoomMemberEnteredOpResult(Member->MemberJid, RoomId));
-				}
+				UE_LOG(LogXmpp, Log, TEXT("ChatroomEnteredStatus - queueing ChatRoomJoinPublicOpResult for %s"), *RoomId);
+				ResultOpQueue.Enqueue(new FXmppChatRoomJoinPublicOpResult(RoomId, bWasSuccessful, ErrorStr));
 			}
-
-			for (auto Message : XmppRoom->LastMessages)
+			else if (LastStatus == FXmppRoomJingle::JoinPrivatePending)
 			{
-				ResultOpQueue.Enqueue(new FXmppChatRoomMessageReceivedOpResult(RoomId, Message));
+				UE_LOG(LogXmpp, Log, TEXT("ChatroomEnteredStatus - queueing ChatRoomJoinPrivateOpResult result for %s"), *RoomId);
+				ResultOpQueue.Enqueue(new FXmppChatRoomJoinPrivateOpResult(RoomId, bWasSuccessful, ErrorStr));
+			}
+			// if you just entered add the member entered ops for users that already entered 
+			if (bWasSuccessful)
+			{
+				InternalHandleJoinedRoom(MyChatMember, XmppRoom);
 			}
 		}
+		else if (bCreatePending)
+		{
+			if (!bWasSuccessful)
+			{
+				UE_LOG(LogXmpp, Log, TEXT("ChatroomEnteredStatus - queueing room create op result for %s"), *RoomId);
+				// This is the only callback for RequestEnterRoom in FXmppChatRoom<X>Op::Process() to see if room was created vs. joined
+				ResultOpQueue.Enqueue(new FXmppChatRoomCreateOpResult(RoomId, false, false, ErrorStr));
+			}
+			else
+			{
+				// room config handled after ownership is detected
+			}
+		}
+
 	}
 }
 
@@ -1745,7 +1768,7 @@ void FXmppMultiUserChatJingle::ChatroomExitedStatus(
 
 	FScopeLock Lock(&ChatroomsLock);
 	FXmppRoomJingle* XmppRoom = Chatrooms.Find(RoomId);
-	if (XmppRoom != NULL)
+	if (XmppRoom != nullptr)
 	{
 		FString ErrorStr = FString::Printf(TEXT("EnterStatus=%s"), RoomExitStatusToStr(ExitStatus));
 		ResultOpQueue.Enqueue(new FXmppChatRoomExitOpResult(RoomId, true, ErrorStr));
@@ -1787,13 +1810,13 @@ void FXmppMultiUserChatJingle::MemberChanged(
 
 	FScopeLock Lock(&ChatroomsLock);
 	FXmppRoomJingle* XmppRoom = Chatrooms.Find(RoomId);
-	if (XmppRoom != NULL)
+	if (XmppRoom != nullptr)
 	{
 		if (XmppRoom->Status == FXmppRoomJingle::Joined)
 		{
 			FXmppUserJid MemberJid;
 			FXmppJingle::ConvertToJid(MemberJid, XmppMember->member_jid());
-			TSharedPtr<FXmppChatMember> UpdatedMember;
+			FXmppChatMemberPtr UpdatedMember;
 			for (auto Member : XmppRoom->Members)
 			{
 				if (Member->MemberJid == MemberJid)
@@ -1823,18 +1846,21 @@ void FXmppMultiUserChatJingle::MessageReceived(
 
 	FScopeLock Lock(&ChatroomsLock);
 	FXmppRoomJingle* XmppRoom = Chatrooms.Find(RoomId);
-	if (XmppRoom != NULL)
+	if (XmppRoom != nullptr)
 	{
 		const buzz::XmlElement* XmlBody = ChatXml.FirstNamed(buzz::QN_BODY);
-		if (XmlBody != NULL)
+		if (XmlBody != nullptr)
 		{
 			TSharedRef<FXmppChatMessage> ChatMessage(new FXmppChatMessage());
 			FXmppJingle::ConvertToJid(ChatMessage->FromJid, buzz::Jid(ChatXml.Attr(buzz::QN_FROM)));
 			FXmppJingle::ConvertToJid(ChatMessage->ToJid, buzz::Jid(ChatXml.Attr(buzz::QN_TO)));
 			ChatMessage->Body = UTF8_TO_TCHAR(XmlBody->BodyText().c_str());
+
+			UE_LOG(LogXmpp, VeryVerbose, TEXT("MUC: MessageReceived"));
+
 			static const buzz::StaticQName QN_DELAY = { "urn:xmpp:delay", "delay" };
 			const buzz::XmlElement* Delay = ChatXml.FirstNamed(QN_DELAY);
-			if (Delay != NULL)
+			if (Delay != nullptr)
 			{
 				FDateTime::ParseIso8601(UTF8_TO_TCHAR(Delay->Attr(buzz::kQnStamp).c_str()), ChatMessage->Timestamp);
 			}
@@ -1850,6 +1876,23 @@ void FXmppMultiUserChatJingle::MessageReceived(
 				ResultOpQueue.Enqueue(new FXmppChatRoomMessageReceivedOpResult(RoomId, ChatMessage));
 			}
 		}
+	}
+}
+
+void FXmppMultiUserChatJingle::HandleMucPresence(const FXmppMucPresence& MemberPresence)
+{
+	UE_LOG(LogXmpp, VeryVerbose, TEXT("MUC: HandleMucPresence: jid=%s role=%s"), *MemberPresence.UserJid.GetFullPath(), *MemberPresence.Role);
+
+	FScopeLock Lock(&ChatroomsLock);
+	FXmppRoomJingle* XmppRoom = Chatrooms.Find(MemberPresence.GetRoomId());
+	if (XmppRoom != nullptr &&
+		XmppRoom->Status == FXmppRoomJingle::CreatePending &&
+		MemberPresence.GetNickName().Contains(Connection.GetUserJid().Id))
+	{
+		const bool bIsOwner = MemberPresence.Affiliation == FString(TEXT("owner"));
+		UE_LOG(LogXmpp, Log, TEXT("ChatroomEnteredStatus - queueing room create op result for %s"), *MemberPresence.GetRoomId());
+		// This is the only callback for RequestEnterRoom in FXmppChatRoom<X>Op::Process() to see if room was created vs. joined
+		ResultOpQueue.Enqueue(new FXmppChatRoomCreateOpResult(MemberPresence.GetRoomId(), bIsOwner, true, FString()));
 	}
 }
 

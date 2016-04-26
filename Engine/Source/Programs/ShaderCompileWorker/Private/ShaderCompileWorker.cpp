@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 // ShaderCompileWorker.cpp : Defines the entry point for the console application.
@@ -14,7 +14,7 @@
 #define DEBUG_USING_CONSOLE	0
 
 // this is for the protocol, not the data, bump if FShaderCompilerInput or ProcessInputFromArchive changes (also search for the second one with the same name, todo: put into one header file)
-const int32 ShaderCompileWorkerInputVersion = 5;
+const int32 ShaderCompileWorkerInputVersion = 6;
 // this is for the protocol, not the data, bump if FShaderCompilerOutput or WriteToOutputArchive changes (also search for the second one with the same name, todo: put into one header file)
 const int32 ShaderCompileWorkerOutputVersion = 3;
 // this is for the protocol, not the data, bump if FShaderCompilerOutput or WriteToOutputArchive changes (also search for the second one with the same name, todo: put into one header file)
@@ -100,18 +100,13 @@ static void ProcessCompilationJob(const FShaderCompilerInput& Input,FShaderCompi
 class FWorkLoop
 {
 public:
-	enum ECommunicationMode
-	{
-		ThroughFile,
-	};
-	FWorkLoop(const TCHAR* ParentProcessIdText,const TCHAR* InWorkingDirectory,const TCHAR* InInputFilename,const TCHAR* InOutputFilename, ECommunicationMode InCommunicationMode, TMap<FString, uint16>& InFormatVersionMap)
+	FWorkLoop(const TCHAR* ParentProcessIdText,const TCHAR* InWorkingDirectory,const TCHAR* InInputFilename,const TCHAR* InOutputFilename, TMap<FString, uint16>& InFormatVersionMap)
 	:	ParentProcessId(FCString::Atoi(ParentProcessIdText))
 	,	WorkingDirectory(InWorkingDirectory)
 	,	InputFilename(InInputFilename)
 	,	OutputFilename(InOutputFilename)
-	,	CommunicationMode(InCommunicationMode)
-	,	InputFilePath(InCommunicationMode == ThroughFile ? (FString(InWorkingDirectory) + InInputFilename) : InInputFilename)
-	,	OutputFilePath(InCommunicationMode == ThroughFile ? (FString(InWorkingDirectory) + InOutputFilename) : InOutputFilename)
+	,	InputFilePath(FString(InWorkingDirectory) + InInputFilename)
+	,	OutputFilePath(FString(InWorkingDirectory) + InOutputFilename)
 	,	FormatVersionMap(InFormatVersionMap)
 	{
 	}
@@ -134,9 +129,10 @@ public:
 				}
 
 				UE_LOG(LogShaders, Log, TEXT("Processing shader"));
-				LastCompileTime = FPlatformTime::Seconds();
 
 				ProcessInputFromArchive(InputFilePtr, SingleJobResults, PipelineJobResults);
+
+				LastCompileTime = FPlatformTime::Seconds();
 
 				// Close the input file.
 				delete InputFilePtr;
@@ -183,8 +179,6 @@ private:
 	const FString InputFilename;
 	const FString OutputFilename;
 
-	const ECommunicationMode CommunicationMode;
-
 	const FString InputFilePath;
 	const FString OutputFilePath;
 	TMap<FString, uint16> FormatVersionMap;
@@ -198,10 +192,7 @@ private:
 		while(!InputFile && !GIsRequestingExit)
 		{
 			// Try to open the input file that we are going to process
-			if (CommunicationMode == ThroughFile)
-			{
-				InputFile = IFileManager::Get().CreateFileReader(*InputFilePath,FILEREAD_Silent);
-			}
+			InputFile = IFileManager::Get().CreateFileReader(*InputFilePath,FILEREAD_Silent);
 
 			if(!InputFile && !bFirstOpenTry)
 			{
@@ -367,51 +358,48 @@ private:
 	FArchive* CreateOutputArchive()
 	{
 		FArchive* OutputFilePtr = nullptr;
-		if (CommunicationMode == ThroughFile)
+		const double StartTime = FPlatformTime::Seconds();
+		bool bResult = false;
+
+		// It seems XGE does not support deleting files.
+		// Don't delete the input file if we are running under Incredibuild.
+		// Instead, we signal completion by creating a zero byte "Success" file after the output file has been fully written.
+		if (!GShaderCompileUseXGE)
 		{
-			const double StartTime = FPlatformTime::Seconds();
-			bool bResult = false;
-
-			// It seems XGE does not support deleting files.
-			// Don't delete the input file if we are running under Incredibuild.
-			// Instead, we signal completion by creating a zero byte "Success" file after the output file has been fully written.
-			if (!GShaderCompileUseXGE)
-			{
-				do 
-				{
-					// Remove the input file so that it won't get processed more than once
-					bResult = IFileManager::Get().Delete(*InputFilePath);
-				} 
-				while (!bResult && (FPlatformTime::Seconds() - StartTime < 2));
-
-				if (!bResult)
-				{
-					UE_LOG(LogShaders, Fatal,TEXT("Couldn't delete input file %s, is it readonly?"), *InputFilePath);
-				}
-			}
-
-			// To make sure that the process waiting for results won't read unfinished output file,
-			// we use a temp file name during compilation.
-			do
-			{
-				FGuid Guid;
-				FPlatformMisc::CreateGuid(Guid);
-				TempFilePath = WorkingDirectory + Guid.ToString();
-			} while (IFileManager::Get().FileSize(*TempFilePath) != INDEX_NONE);
-
-			const double StartTime2 = FPlatformTime::Seconds();
-
 			do 
 			{
-				// Create the output file.
-				OutputFilePtr = IFileManager::Get().CreateFileWriter(*TempFilePath,FILEWRITE_EvenIfReadOnly);
+				// Remove the input file so that it won't get processed more than once
+				bResult = IFileManager::Get().Delete(*InputFilePath);
 			} 
-			while (!OutputFilePtr && (FPlatformTime::Seconds() - StartTime2 < 2));
-			
-			if (!OutputFilePtr)
+			while (!bResult && (FPlatformTime::Seconds() - StartTime < 2));
+
+			if (!bResult)
 			{
-				UE_LOG(LogShaders, Fatal,TEXT("Couldn't save output file %s"), *TempFilePath);
+				UE_LOG(LogShaders, Fatal,TEXT("Couldn't delete input file %s, is it readonly?"), *InputFilePath);
 			}
+		}
+
+		// To make sure that the process waiting for results won't read unfinished output file,
+		// we use a temp file name during compilation.
+		do
+		{
+			FGuid Guid;
+			FPlatformMisc::CreateGuid(Guid);
+			TempFilePath = WorkingDirectory + Guid.ToString();
+		} while (IFileManager::Get().FileSize(*TempFilePath) != INDEX_NONE);
+
+		const double StartTime2 = FPlatformTime::Seconds();
+
+		do 
+		{
+			// Create the output file.
+			OutputFilePtr = IFileManager::Get().CreateFileWriter(*TempFilePath,FILEWRITE_EvenIfReadOnly);
+		} 
+		while (!OutputFilePtr && (FPlatformTime::Seconds() - StartTime2 < 2));
+			
+		if (!OutputFilePtr)
+		{
+			UE_LOG(LogShaders, Fatal,TEXT("Couldn't save output file %s"), *TempFilePath);
 		}
 
 		return OutputFilePtr;
@@ -541,6 +529,152 @@ private:
 	}
 };
 
+static FName NAME_PCD3D_SM5(TEXT("PCD3D_SM5"));
+static FName NAME_PCD3D_SM4(TEXT("PCD3D_SM4"));
+static FName NAME_PCD3D_ES3_1(TEXT("PCD3D_ES31"));
+static FName NAME_PCD3D_ES2(TEXT("PCD3D_ES2"));
+static FName NAME_GLSL_150(TEXT("GLSL_150"));
+static FName NAME_GLSL_150_MAC(TEXT("GLSL_150_MAC"));
+static FName NAME_SF_PS4(TEXT("SF_PS4"));
+static FName NAME_SF_XBOXONE(TEXT("SF_XBOXONE"));
+static FName NAME_GLSL_430(TEXT("GLSL_430"));
+static FName NAME_GLSL_150_ES2(TEXT("GLSL_150_ES2"));
+static FName NAME_GLSL_150_ES2_NOUB(TEXT("GLSL_150_ES2_NOUB"));
+static FName NAME_GLSL_150_ES31(TEXT("GLSL_150_ES31"));
+static FName NAME_GLSL_ES2(TEXT("GLSL_ES2"));
+static FName NAME_GLSL_ES2_WEBGL(TEXT("GLSL_ES2_WEBGL"));
+static FName NAME_GLSL_ES2_IOS(TEXT("GLSL_ES2_IOS"));
+static FName NAME_SF_METAL(TEXT("SF_METAL"));
+static FName NAME_SF_METAL_MRT(TEXT("SF_METAL_MRT"));
+static FName NAME_GLSL_310_ES_EXT(TEXT("GLSL_310_ES_EXT"));
+static FName NAME_SF_METAL_SM5(TEXT("SF_METAL_SM5"));
+static FName NAME_VULKAN_ES3_1_ANDROID(TEXT("SF_VKES31_ANDROID"));
+static FName NAME_VULKAN_ES3_1(TEXT("SF_VKES31"));
+static FName NAME_VULKAN_ES3_1_UB(TEXT("SF_VKES31_UB"));
+static FName NAME_VULKAN_SM4(TEXT("SF_VULKAN_SM4"));
+static FName NAME_VULKAN_SM5(TEXT("SF_VULKAN_SM5"));
+static FName NAME_SF_METAL_SM4(TEXT("SF_METAL_SM4"));
+static FName NAME_SF_METAL_MACES3_1(TEXT("SF_METAL_MACES3_1"));
+
+static EShaderPlatform FormatNameToEnum(FName ShaderFormat)
+{
+	if (ShaderFormat == NAME_PCD3D_SM5)			return SP_PCD3D_SM5;
+	if (ShaderFormat == NAME_PCD3D_SM4)			return SP_PCD3D_SM4;
+	if (ShaderFormat == NAME_PCD3D_ES3_1)		return SP_PCD3D_ES3_1;
+	if (ShaderFormat == NAME_PCD3D_ES2)			return SP_PCD3D_ES2;
+	if (ShaderFormat == NAME_GLSL_150)			return SP_OPENGL_SM4;
+	if (ShaderFormat == NAME_GLSL_150_MAC)		return SP_OPENGL_SM4_MAC;
+	if (ShaderFormat == NAME_SF_PS4)				return SP_PS4;
+	if (ShaderFormat == NAME_SF_XBOXONE)			return SP_XBOXONE;
+	if (ShaderFormat == NAME_GLSL_430)			return SP_OPENGL_SM5;
+	if (ShaderFormat == NAME_GLSL_150_ES2)			return SP_OPENGL_PCES2;
+	if (ShaderFormat == NAME_GLSL_150_ES2_NOUB)		return SP_OPENGL_PCES2;
+	if (ShaderFormat == NAME_GLSL_150_ES31)		return SP_OPENGL_PCES3_1;
+	if (ShaderFormat == NAME_GLSL_ES2)			return SP_OPENGL_ES2_ANDROID;
+	if (ShaderFormat == NAME_GLSL_ES2_WEBGL)	return SP_OPENGL_ES2_WEBGL;
+	if (ShaderFormat == NAME_GLSL_ES2_IOS)		return SP_OPENGL_ES2_IOS;
+	if (ShaderFormat == NAME_SF_METAL)			return SP_METAL;
+	if (ShaderFormat == NAME_SF_METAL_MRT)		return SP_METAL_MRT;
+	if (ShaderFormat == NAME_GLSL_310_ES_EXT)	return SP_OPENGL_ES31_EXT;
+	if (ShaderFormat == NAME_SF_METAL_SM5)		return SP_METAL_SM5;
+	if (ShaderFormat == NAME_VULKAN_SM4)			return SP_VULKAN_SM4;
+	if (ShaderFormat == NAME_VULKAN_SM5)			return SP_VULKAN_SM5;
+	if (ShaderFormat == NAME_VULKAN_ES3_1_ANDROID)	return SP_VULKAN_ES3_1_ANDROID;
+	if (ShaderFormat == NAME_VULKAN_ES3_1)			return SP_VULKAN_ES3_1_ANDROID;
+	if (ShaderFormat == NAME_VULKAN_ES3_1_UB)		return SP_VULKAN_ES3_1_ANDROID;
+	if (ShaderFormat == NAME_SF_METAL_SM4)		return SP_METAL_SM4;
+	if (ShaderFormat == NAME_SF_METAL_MACES3_1)	return SP_METAL_MACES3_1;
+	return SP_NumPlatforms;
+}
+
+static void CompileDirect(const TArray<const class IShaderFormat*>& ShaderFormats)
+{
+	// Find all the info required for compiling a single shader
+	TArray<FString> Tokens, Switches;
+	FCommandLine::Parse(FCommandLine::Get(), Tokens, Switches);
+
+	FString InputFile;
+	if (Tokens.Num() < 1)
+	{
+		return;
+	}
+
+	for (int32 Index = 0; Index < Tokens.Num(); ++Index)
+	{
+		if (!Switches.Contains(Tokens[Index]))
+		{
+			InputFile = Tokens[Index];
+			break;
+		}
+	}
+
+	FName FormatName;
+	FString Entry = TEXT("Main");
+	EShaderFrequency Frequency = SF_Pixel;
+	for (const FString& Switch : Switches)
+	{
+		if (Switch.StartsWith(TEXT("format=")))
+		{
+			FormatName = FName(*Switch.RightChop(7));
+		}
+		else if (Switch.StartsWith(TEXT("entry=")))
+		{
+			Entry = Switch.RightChop(6);
+		}
+		else if (!FCString::Strcmp(*Switch, TEXT("ps")))
+		{
+			Frequency = SF_Pixel;
+		}
+		else if (!FCString::Strcmp(*Switch, TEXT("vs")))
+		{
+			Frequency = SF_Vertex;
+		}
+		else if (!FCString::Strcmp(*Switch, TEXT("hs")))
+		{
+			Frequency = SF_Hull;
+		}
+		else if (!FCString::Strcmp(*Switch, TEXT("ds")))
+		{
+			Frequency = SF_Domain;
+		}
+		else if (!FCString::Strcmp(*Switch, TEXT("gs")))
+		{
+			Frequency = SF_Geometry;
+		}
+		else if (!FCString::Strcmp(*Switch, TEXT("cs")))
+		{
+			Frequency = SF_Compute;
+		}
+	}
+
+	FString Dir = FPlatformProcess::UserTempDir();
+
+	FShaderCompilerInput Input;
+	Input.EntryPointName = Entry;
+	Input.ShaderFormat = FormatName;
+	Input.SourceFilename = InputFile;
+	Input.Target.Platform =  FormatNameToEnum(FormatName);
+	Input.Target.Frequency = Frequency;
+	Input.bSkipPreprocessedCache = true;
+
+	FShaderCompilerOutput Output;
+
+	for (const IShaderFormat* Format : ShaderFormats)
+	{
+		TArray<FName> SupportedFormats;
+		Format->GetSupportedFormats(SupportedFormats);
+		for (FName SupportedName : SupportedFormats)
+		{
+			if (SupportedName == FormatName)
+			{
+				Format->CompileShader(FormatName, Input, Output, Dir);
+				return;
+			}
+		}
+	}
+}
+
+
 /** 
  * Main entrypoint, guarded by a try ... except.
  * This expects 4 parameters:
@@ -549,16 +683,11 @@ private:
  *		The parent process Id
  *		The thread Id corresponding to this worker
  */
-int32 GuardedMain(int32 argc, TCHAR* argv[])
+static int32 GuardedMain(int32 argc, TCHAR* argv[], bool bDirectMode)
 {
 	GEngineLoop.PreInit(argc, argv, TEXT("-NOPACKAGECACHE -Multiprocess"));
 #if DEBUG_USING_CONSOLE
 	GLogConsole->Show( true );
-#endif
-
-#if PLATFORM_WINDOWS
-	//@todo - would be nice to change application name or description to have the ThreadId in it for debugging purposes
-	SetConsoleTitle(argv[3]);
 #endif
 
 	// We just enumerate the shader formats here for debugging.
@@ -580,15 +709,25 @@ int32 GuardedMain(int32 argc, TCHAR* argv[])
 
 	LastCompileTime = FPlatformTime::Seconds();
 
-	FWorkLoop::ECommunicationMode Mode = FWorkLoop::ThroughFile;
-	FWorkLoop WorkLoop(argv[2], argv[1], argv[4], argv[5], Mode, FormatVersionMap);
+	if (bDirectMode)
+	{
+		CompileDirect(ShaderFormats);
+	}
+	else
+	{
+#if PLATFORM_WINDOWS
+		//@todo - would be nice to change application name or description to have the ThreadId in it for debugging purposes
+		SetConsoleTitle(argv[3]);
+#endif
 
-	WorkLoop.Loop();
+		FWorkLoop WorkLoop(argv[2], argv[1], argv[4], argv[5], FormatVersionMap);
+		WorkLoop.Loop();
+	}
 
 	return 0;
 }
 
-int32 GuardedMainWrapper(int32 ArgC, TCHAR* ArgV[], const TCHAR* CrashOutputFile)
+static int32 GuardedMainWrapper(int32 ArgC, TCHAR* ArgV[], const TCHAR* CrashOutputFile, bool bDirectMode)
 {
 	// We need to know whether we are using XGE now, in case an exception
 	// is thrown before we parse the command line inside GuardedMain.
@@ -599,7 +738,7 @@ int32 GuardedMainWrapper(int32 ArgC, TCHAR* ArgV[], const TCHAR* CrashOutputFile
 	if (FPlatformMisc::IsDebuggerPresent())
 #endif
 	{
-		ReturnCode = GuardedMain(ArgC, ArgV);
+		ReturnCode = GuardedMain(ArgC, ArgV, bDirectMode);
 	}
 #if PLATFORM_WINDOWS
 	else
@@ -609,7 +748,7 @@ int32 GuardedMainWrapper(int32 ArgC, TCHAR* ArgV[], const TCHAR* CrashOutputFile
 		__try
 		{
 			GIsGuarded = 1;
-			ReturnCode = GuardedMain(ArgC, ArgV);
+			ReturnCode = GuardedMain(ArgC, ArgV, bDirectMode);
 			GIsGuarded = 0;
 		}
 		__except( ReportCrash( GetExceptionInformation() ) )
@@ -693,20 +832,33 @@ INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
 		return 0;
 	}
 #endif
-	if(ArgC < 6)
+	TCHAR OutputFilePath[PLATFORM_MAX_FILEPATH_LENGTH] = TEXT("");
+	bool bDirectMode = false;
+	for (int32 Index = 1; Index < ArgC; ++Index)
 	{
-		printf("ShaderCompileWorker is called by UE4, it requires specific command like arguments.\n");
-		return -1;
+		if (FCString::Strcmp(ArgV[Index], TEXT("-directcompile")) == 0)
+		{
+			bDirectMode = true;
+			break;
+		}
 	}
 
-	// Game exe can pass any number of parameters through with appGetSubprocessCommandline
-	// so just make sure we have at least the minimum number of parameters.
-	check(ArgC >= 6);
+	if (!bDirectMode)
+	{
+		if (ArgC < 6)
+		{
+			printf("ShaderCompileWorker is called by UE4, it requires specific command like arguments.\n");
+			return -1;
+		}
 
-	TCHAR OutputFilePath[PLATFORM_MAX_FILEPATH_LENGTH];
-	FCString::Strncpy(OutputFilePath, ArgV[1], PLATFORM_MAX_FILEPATH_LENGTH);
-	FCString::Strncat(OutputFilePath, ArgV[5], PLATFORM_MAX_FILEPATH_LENGTH);
+		// Game exe can pass any number of parameters through with appGetSubprocessCommandline
+		// so just make sure we have at least the minimum number of parameters.
+		check(ArgC >= 6);
 
-	const int32 ReturnCode = GuardedMainWrapper(ArgC,ArgV,OutputFilePath);
+		FCString::Strncpy(OutputFilePath, ArgV[1], PLATFORM_MAX_FILEPATH_LENGTH);
+		FCString::Strncat(OutputFilePath, ArgV[5], PLATFORM_MAX_FILEPATH_LENGTH);
+	}
+
+	const int32 ReturnCode = GuardedMainWrapper(ArgC, ArgV, OutputFilePath, bDirectMode);
 	return ReturnCode;
 }

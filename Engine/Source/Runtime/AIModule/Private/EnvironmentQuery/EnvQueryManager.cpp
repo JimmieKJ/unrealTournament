@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
 #include "EnvironmentQuery/EnvQuery.h"
@@ -32,6 +32,7 @@ DEFINE_STAT(STAT_AI_EQS_TestTime);
 DEFINE_STAT(STAT_AI_EQS_NumInstances);
 DEFINE_STAT(STAT_AI_EQS_NumItems);
 DEFINE_STAT(STAT_AI_EQS_InstanceMemory);
+DEFINE_STAT(STAT_AI_EQS_AvgInstanceResponseTime);
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	bool UEnvQueryManager::bAllowEQSTimeSlicing = true;
@@ -91,6 +92,15 @@ TArray<TSubclassOf<UEnvQueryItemType> > UEnvQueryManager::RegisteredItemTypes;
 UEnvQueryManager::UEnvQueryManager(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	NextQueryID = 0;
+	MaxAllowedTestingTime = 0.01;
+	bTestQueriesUsingBreadth = true;
+	NumRunningQueriesAbortedSinceLastUpdate = 0;
+
+	QueryCountWarningThreshold = 0;
+	QueryCountWarningInterval = 30.0;
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	LastQueryCountWarningThresholdTime = -FLT_MAX;
+#endif
 }
 
 UWorld* UEnvQueryManager::GetWorld() const
@@ -166,7 +176,7 @@ int32 UEnvQueryManager::RunQuery(const FEnvQueryRequest& Request, EEnvQueryRunMo
 	return RunQuery(QueryInstance, FinishDelegate);
 }
 
-int32 UEnvQueryManager::RunQuery(TSharedPtr<FEnvQueryInstance> QueryInstance, FQueryFinishedSignature const& FinishDelegate)
+int32 UEnvQueryManager::RunQuery(const TSharedPtr<FEnvQueryInstance>& QueryInstance, FQueryFinishedSignature const& FinishDelegate)
 {
 	if (QueryInstance.IsValid() == false)
 	{
@@ -174,6 +184,7 @@ int32 UEnvQueryManager::RunQuery(TSharedPtr<FEnvQueryInstance> QueryInstance, FQ
 	}
 
 	QueryInstance->FinishDelegate = FinishDelegate;
+	QueryInstance->SetQueryStartTime();
 	RunningQueries.Add(QueryInstance);
 
 	return QueryInstance->QueryID;
@@ -187,6 +198,19 @@ TSharedPtr<FEnvQueryResult> UEnvQueryManager::RunInstantQuery(const FEnvQueryReq
 		return NULL;
 	}
 
+	RunInstantQuery(QueryInstance);
+
+	return QueryInstance;
+}
+
+void UEnvQueryManager::RunInstantQuery(const TSharedPtr<FEnvQueryInstance>& QueryInstance)
+{
+	if (! ensure(QueryInstance.IsValid()))
+	{
+		return;
+	}
+
+	QueryInstance->SetQueryStartTime();
 	RegisterExternalQuery(QueryInstance);
 	while (QueryInstance->IsFinished() == false)
 	{
@@ -200,8 +224,6 @@ TSharedPtr<FEnvQueryResult> UEnvQueryManager::RunInstantQuery(const FEnvQueryReq
 #if USE_EQS_DEBUGGER
 	EQSDebugger.StoreQuery(GetWorld(), QueryInstance);
 #endif // USE_EQS_DEBUGGER
-
-	return QueryInstance;
 }
 
 void UEnvQueryManager::RemoveAllQueriesByQuerier(const UObject& Querier, bool bExecuteFinishDelegate)
@@ -211,12 +233,18 @@ void UEnvQueryManager::RemoveAllQueriesByQuerier(const UObject& Querier, bool bE
 		const TSharedPtr<FEnvQueryInstance>& QueryInstance = RunningQueries[QueryIndex];
 		if (QueryInstance.IsValid() == false || QueryInstance->Owner.IsValid() == false || QueryInstance->Owner.Get() == &Querier)
 		{
-			if (bExecuteFinishDelegate && QueryInstance->IsFinished() == false)
+			if (QueryInstance->IsFinished() == false)
 			{
 				QueryInstance->MarkAsAborted();
-				QueryInstance->FinishDelegate.ExecuteIfBound(QueryInstance);
+
+				if (bExecuteFinishDelegate)
+				{
+					QueryInstance->FinishDelegate.ExecuteIfBound(QueryInstance);
+				}
+
+				// We will remove the aborted query from the RunningQueries array on the next EQS update
+				++NumRunningQueriesAbortedSinceLastUpdate;
 			}
-			RunningQueries.RemoveAt(QueryIndex, 1, /*bAllowShrinking=*/false);
 		}
 	}
 }
@@ -255,7 +283,9 @@ bool UEnvQueryManager::AbortQuery(int32 RequestID)
 			QueryInstance->MarkAsAborted();
 			QueryInstance->FinishDelegate.ExecuteIfBound(QueryInstance);
 			
-			RunningQueries.RemoveAt(QueryIndex);
+			// We will remove the aborted query from the RunningQueries array on the next EQS update
+			++NumRunningQueriesAbortedSinceLastUpdate;
+
 			return true;
 		}
 	}
@@ -265,30 +295,37 @@ bool UEnvQueryManager::AbortQuery(int32 RequestID)
 
 void UEnvQueryManager::Tick(float DeltaTime)
 {
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	CheckQueryCount();
+#endif
+
 	SCOPE_CYCLE_COUNTER(STAT_AI_EQS_Tick);
 	SET_DWORD_STAT(STAT_AI_EQS_NumInstances, RunningQueries.Num());
-	// @TODO: threads?
+			
+	double TimeLeft = MaxAllowedTestingTime;
 
+	int32 QueriesFinishedDuringUpdate = 0;
 	const double ExecutionTimeWarningSeconds = 0.25;
-	const double MaxAllowedSeconds = 0.010;
-	double TimeLeft = MaxAllowedSeconds;
-	int32 FinishedQueriesCount = 0;
 		
-	TArray<TSharedPtr<FEnvQueryInstance> > RunningQueriesCopy = RunningQueries;
-
 	{
 		SCOPE_CYCLE_COUNTER(STAT_AI_EQS_TickWork);
-		while (TimeLeft > 0.0 && RunningQueriesCopy.Num() > 0)
+		
+		const int32 NumRunningQueries = RunningQueries.Num();
+		int32 Index = 0;
+		while ((TimeLeft > 0.0) && (Index < NumRunningQueries) && (QueriesFinishedDuringUpdate < NumRunningQueries))
 		{
-			bool LoggedExecutionTimeWarning = false;
+			const double StartTime = FPlatformTime::Seconds();
+			double QuerierHandlingDuration = 0.0;
 
-			for (int32 Index = 0; Index < RunningQueriesCopy.Num() && TimeLeft > 0.0; Index++)
+			const TSharedPtr<FEnvQueryInstance>& QueryInstance = RunningQueries[Index];
+
+			if (QueryInstance->IsFinished())
 			{
-				const double StartTime = FPlatformTime::Seconds();
-				double QuerierHandlingDuration = 0.;
-
-				TSharedPtr<FEnvQueryInstance>& QueryInstance = RunningQueriesCopy[Index];
-
+				// If this query is already finished, skip it.
+				++Index;
+			}
+			else
+			{
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 				if (!bAllowEQSTimeSlicing)
 				{
@@ -328,10 +365,14 @@ void UEnvQueryManager::Tick(float DeltaTime)
 						QuerierHandlingDuration = FPlatformTime::Seconds() - QuerierHandlingStartTime;
 					}
 
-					RunningQueriesCopy.RemoveAt(Index, 1, /*bAllowShrinking=*/false);
-					Index--;
-					++FinishedQueriesCount;
-					LoggedExecutionTimeWarning = false;
+					++QueriesFinishedDuringUpdate;
+					++Index;
+				}
+				// If we're testing queries using breadth, move on to the next query.
+				// If we're testing queries using depth, we only move on to the next query when we finish the current one.
+				else if (bTestQueriesUsingBreadth)
+				{
+					++Index;
 				}
 
 				if (!QueryInstance->HasLoggedTimeLimitWarning() && (QueryInstance->GetTotalExecutionTime() > ExecutionTimeWarningSeconds))
@@ -339,32 +380,113 @@ void UEnvQueryManager::Tick(float DeltaTime)
 					UE_LOG(LogEQS, Warning, TEXT("Query %s over execution time warning. %s"), *QueryInstance->QueryName, *QueryInstance->GetExecutionTimeDescription());
 					QueryInstance->SetHasLoggedTimeLimitWarning();
 				}
+			}
+
+			// Start over at the beginning if we are testing using breadth and we've reached the end of the list
+			if (bTestQueriesUsingBreadth && (Index == NumRunningQueries))
+			{
+				Index = 0;
+			}
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-				if (bAllowEQSTimeSlicing) // if Time slicing is enabled...
+			if (bAllowEQSTimeSlicing) // if Time slicing is enabled...
 #endif
-				{	// Don't include the querier handling as part of the total time spent by EQS for time-slicing purposes.
-					TimeLeft -= ((FPlatformTime::Seconds() - StartTime) - QuerierHandlingDuration);
-				}
+			{	// Don't include the querier handling as part of the total time spent by EQS for time-slicing purposes.
+				TimeLeft -= ((FPlatformTime::Seconds() - StartTime) - QuerierHandlingDuration);
 			}
 		}
 	}
 
 	{
-		SCOPE_CYCLE_COUNTER(STAT_AI_EQS_TickQueryRemovals);
-		for (int32 Index = RunningQueries.Num() - 1; Index >= 0 && FinishedQueriesCount > 0; --Index)
+		const int32 NumQueriesFinished = QueriesFinishedDuringUpdate + NumRunningQueriesAbortedSinceLastUpdate;
+		double FinishedQueriesTotalTime(0.0);
+
+		if (NumQueriesFinished > 0)
 		{
-			TSharedPtr<FEnvQueryInstance>& QueryInstance = RunningQueries[Index];
+			SCOPE_CYCLE_COUNTER(STAT_AI_EQS_TickQueryRemovals);
 
-			if (QueryInstance->IsFinished())
+			// When using breadth testing we don't know when a particular query will finish,
+			// or if we have queries that were aborted since the last update we don't know which ones were aborted,
+			// so we have to go through all the queries.
+			// When doing depth without any queries aborted since the last update we know how many to remove.
+			// Or if we have finished all the queries.  In that case we don't need to check if the queries are finished)
+			if ((NumQueriesFinished != RunningQueries.Num()) && (bTestQueriesUsingBreadth || (NumRunningQueriesAbortedSinceLastUpdate > 0)))
 			{
-				RunningQueries.RemoveAt(Index, 1, /*bAllowShrinking=*/false);
+				for (int32 Index = RunningQueries.Num() - 1, FinishedQueriesCounter = NumQueriesFinished; Index >= 0 && FinishedQueriesCounter > 0; --Index)
+				{
+					TSharedPtr<FEnvQueryInstance>& QueryInstance = RunningQueries[Index];
 
-				--FinishedQueriesCount;
+					if (QueryInstance->IsFinished())
+					{
+						FinishedQueriesTotalTime += FPlatformTime::Seconds() - QueryInstance->GetQueryStartTime();
+
+						RunningQueries.RemoveAt(Index, 1, /*bAllowShrinking=*/false);
+
+						--FinishedQueriesCounter;
+					}
+				}
 			}
+			else // queries tested using depth without any aborted queries since our last update, or we're removing all queries
+			{
+				for (int32 Index = 0; Index < NumQueriesFinished; ++Index)
+				{
+					TSharedPtr<FEnvQueryInstance>& QueryInstance = RunningQueries[Index];
+					ensure(QueryInstance->IsFinished());
+
+					FinishedQueriesTotalTime += FPlatformTime::Seconds() - QueryInstance->GetQueryStartTime();
+				}
+
+				RunningQueries.RemoveAt(0, NumQueriesFinished, /*bAllowShrinking=*/false);
+			}
+		}
+
+		// Reset the running queries aborted since last update counter
+		NumRunningQueriesAbortedSinceLastUpdate = 0;
+
+		double InstanceAverageResponseTime = 0.f;
+		if (NumQueriesFinished > 0)
+		{
+			// Convert to ms from seconds
+			InstanceAverageResponseTime = FinishedQueriesTotalTime / (double)NumQueriesFinished * 1000.0;
+		}
+
+		SET_FLOAT_STAT(STAT_AI_EQS_AvgInstanceResponseTime, InstanceAverageResponseTime);
+	}
+}
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+void UEnvQueryManager::CheckQueryCount() const
+{
+	if ((QueryCountWarningThreshold > 0) && (RunningQueries.Num() >= QueryCountWarningThreshold))
+	{
+		const double CurrentTime = FPlatformTime::Seconds();
+
+		if ((LastQueryCountWarningThresholdTime < 0.0) || ((LastQueryCountWarningThresholdTime + QueryCountWarningInterval) < CurrentTime))
+		{
+			LogQueryCountWarning();
+
+			LastQueryCountWarningThresholdTime = CurrentTime;
 		}
 	}
 }
+
+void UEnvQueryManager::LogQueryCountWarning() const
+{
+	UE_LOG(LogEQS, Warning, TEXT("The number of EQS queries has reached (%d) the warning threshold (%d).  Logging queries."), RunningQueries.Num(), QueryCountWarningThreshold);
+
+	for (const TSharedPtr<FEnvQueryInstance>& RunningQuery : RunningQueries)
+	{
+		if (RunningQuery.IsValid())
+		{
+			UE_LOG(LogEQS, Warning, TEXT("Query: %s - Owner: %s"), *RunningQuery->QueryName, RunningQuery->Owner.IsValid() ? *RunningQuery->Owner->GetName() : TEXT("Invalid"));
+		}
+		else
+		{
+			UE_LOG(LogEQS, Warning, TEXT("Invalid query found in list!"));
+		}
+	}
+}
+#endif
 
 void UEnvQueryManager::OnWorldCleanup()
 {
@@ -384,9 +506,11 @@ void UEnvQueryManager::OnWorldCleanup()
 			}
 		}
 	}
+
+	GCShieldedWrappers.Reset();
 }
 
-void UEnvQueryManager::RegisterExternalQuery(TSharedPtr<FEnvQueryInstance> QueryInstance)
+void UEnvQueryManager::RegisterExternalQuery(const TSharedPtr<FEnvQueryInstance>& QueryInstance)
 {
 	if (QueryInstance.IsValid())
 	{
@@ -394,7 +518,7 @@ void UEnvQueryManager::RegisterExternalQuery(TSharedPtr<FEnvQueryInstance> Query
 	}
 }
 
-void UEnvQueryManager::UnregisterExternalQuery(TSharedPtr<FEnvQueryInstance> QueryInstance)
+void UEnvQueryManager::UnregisterExternalQuery(const TSharedPtr<FEnvQueryInstance>& QueryInstance)
 {
 	if (QueryInstance.IsValid())
 	{
@@ -502,8 +626,8 @@ TSharedPtr<FEnvQueryInstance> UEnvQueryManager::CreateQueryInstance(const UEnvQu
 	FEnvQueryInstance* InstanceTemplate = NULL;
 	for (int32 InstanceIndex = 0; InstanceIndex < InstanceCache.Num(); InstanceIndex++)
 	{
-		if (InstanceCache[InstanceIndex].Template->GetFName() == Template->GetFName() &&
-			InstanceCache[InstanceIndex].Instance.Mode == RunMode)
+		if (InstanceCache[InstanceIndex].Template->GetQueryName() == Template->GetQueryName()
+			&& InstanceCache[InstanceIndex].Instance.Mode == RunMode)
 		{
 			InstanceTemplate = &InstanceCache[InstanceIndex].Instance;
 			break;
@@ -516,13 +640,13 @@ TSharedPtr<FEnvQueryInstance> UEnvQueryManager::CreateQueryInstance(const UEnvQu
 		SCOPE_CYCLE_COUNTER(STAT_AI_EQS_LoadTime);
 		
 		// duplicate template in manager's world for BP based nodes
-		UEnvQuery* LocalTemplate = (UEnvQuery*)StaticDuplicateObject(Template, this, Template->GetFName());
+		UEnvQuery* LocalTemplate = (UEnvQuery*)StaticDuplicateObject(Template, this, TEXT("None"));
 
 		{
 			// memory stat tracking: temporary variable will exist only inside this section
 			FEnvQueryInstanceCache NewCacheEntry;
 			NewCacheEntry.Template = LocalTemplate;
-			NewCacheEntry.Instance.QueryName = LocalTemplate->GetName();
+			NewCacheEntry.Instance.QueryName = LocalTemplate->GetQueryName().ToString();
 			NewCacheEntry.Instance.Mode = RunMode;
 
 			const int32 Idx = InstanceCache.Add(NewCacheEntry);
@@ -571,16 +695,6 @@ TSharedPtr<FEnvQueryInstance> UEnvQueryManager::CreateQueryInstance(const UEnvQu
 				{
 					HighestCost = TestOb->Cost;
 				}
-			}
-
-			if (SortedTests.Num() == 0)
-			{
-				UE_LOG(LogEQS, Warning, TEXT("Query [%s] doesn't have any tests in option %d [%s]"),
-					*GetNameSafe(LocalTemplate), OptionIndex, *MyOption->Generator->OptionName);
-
-				LocalTemplate->Options.RemoveAt(OptionIndex, 1, false);
-				--OptionIndex; // See note at top of for loop.  We cannot iterate backwards here.
-				continue;
 			}
 
 			LocalOption->Tests.Reset(SortedTests.Num());
@@ -693,7 +807,7 @@ float UEnvQueryManager::FindNamedParam(int32 QueryId, FName ParamName) const
 }
 
 //----------------------------------------------------------------------//
-// BP functions
+// BP functions and related functionality 
 //----------------------------------------------------------------------//
 UEnvQueryInstanceBlueprintWrapper* UEnvQueryManager::RunEQSQuery(UObject* WorldContext, UEnvQuery* QueryTemplate, UObject* Querier, TEnumAsByte<EEnvQueryRunMode::Type> RunMode, TSubclassOf<UEnvQueryInstanceBlueprintWrapper> WrapperClass)
 { 
@@ -726,19 +840,44 @@ UEnvQueryInstanceBlueprintWrapper* UEnvQueryManager::RunEQSQuery(UObject* WorldC
 
 		if (bValidQuerier)
 		{
-			QueryInstanceWrapper = NewObject<UEnvQueryInstanceBlueprintWrapper>((UClass*)(WrapperClass) ? (UClass*)WrapperClass : UEnvQueryInstanceBlueprintWrapper::StaticClass());
+			QueryInstanceWrapper = NewObject<UEnvQueryInstanceBlueprintWrapper>(EQSManager, (UClass*)(WrapperClass) ? (UClass*)WrapperClass : UEnvQueryInstanceBlueprintWrapper::StaticClass());
 			check(QueryInstanceWrapper);
 
 			FEnvQueryRequest QueryRequest(QueryTemplate, Querier);
 			// @todo named params still missing support
 			//QueryRequest.SetNamedParams(QueryParams);
-
-			QueryInstanceWrapper->SetRunMode(RunMode);
-			QueryInstanceWrapper->SetQueryID(QueryRequest.Execute(RunMode, QueryInstanceWrapper, &UEnvQueryInstanceBlueprintWrapper::OnQueryFinished));
+			QueryInstanceWrapper->RunQuery(RunMode, QueryRequest);
 		}
 	}
 	
 	return QueryInstanceWrapper;
+}
+
+void UEnvQueryManager::RegisterActiveWrapper(UEnvQueryInstanceBlueprintWrapper& Wrapper)
+{
+	GCShieldedWrappers.AddUnique(&Wrapper);
+}
+
+void UEnvQueryManager::UnregisterActiveWrapper(UEnvQueryInstanceBlueprintWrapper& Wrapper)
+{
+	GCShieldedWrappers.RemoveSingleSwap(&Wrapper, /*bAllowShrinking=*/false);
+}
+
+TSharedPtr<FEnvQueryInstance> UEnvQueryManager::FindQueryInstance(const int32 QueryID)
+{
+	if (QueryID != INDEX_NONE)
+	{
+		// going from the back since it's most probably there
+		for (int32 QueryIndex = RunningQueries.Num() - 1; QueryIndex >= 0; --QueryIndex)
+		{
+			if (RunningQueries[QueryIndex]->QueryID == QueryID)
+			{
+				return RunningQueries[QueryIndex];
+			}
+		}
+	}
+
+	return nullptr;
 }
 
 //----------------------------------------------------------------------//
@@ -761,7 +900,7 @@ void UEnvQueryManager::SetAllowTimeSlicing(bool bAllowTimeSlicing)
 //----------------------------------------------------------------------//
 #if USE_EQS_DEBUGGER
 
-void FEQSDebugger::StoreQuery(UWorld* InWorld, TSharedPtr<FEnvQueryInstance>& Query)
+void FEQSDebugger::StoreQuery(UWorld* InWorld, const TSharedPtr<FEnvQueryInstance>& Query)
 {
 	StoredQueries.Remove(NULL);
 	if (!Query.IsValid())

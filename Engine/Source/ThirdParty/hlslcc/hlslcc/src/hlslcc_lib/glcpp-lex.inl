@@ -578,7 +578,7 @@ goto find_rule; \
 #define YY_RESTORE_YY_MORE_OFFSET
 #line 1 "../../../Source/ThirdParty/hlslcc/hlslcc/src/hlslcc_lib/glcpp-lex.l"
 #line 2 "../../../Source/ThirdParty/hlslcc/hlslcc/src/hlslcc_lib/glcpp-lex.l"
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 // This code is modified from that in the Mesa3D Graphics library available at
 // http://mesa3d.org/

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 using System;
@@ -50,6 +50,7 @@ namespace UnrealBuildTool
 				{
 					// Rules.DynamicallyLoadedModuleNames.Add("ShaderFormatD3D");
 					Rules.DynamicallyLoadedModuleNames.Add("ShaderFormatOpenGL");
+					Rules.DynamicallyLoadedModuleNames.Add("MetalShaderFormat");
 				}
 			}
 		}
@@ -57,7 +58,6 @@ namespace UnrealBuildTool
 		public override void ResetBuildConfiguration(UnrealTargetConfiguration Configuration)
 		{
 			UEBuildConfiguration.bCompileSimplygon = false;
-			UEBuildConfiguration.bCompileICU = true;
 		}
 
 		public override void ValidateBuildConfiguration(CPPTargetConfiguration Configuration, CPPTargetPlatform Platform, bool bCreateDebugInfo)
@@ -80,9 +80,9 @@ namespace UnrealBuildTool
 
 		public override void ValidateUEBuildConfiguration()
 		{
-			if (ProjectFileGenerator.bGenerateProjectFiles && !ProjectFileGenerator.bGeneratingRocketProjectFiles)
+			if (ProjectFileGenerator.bGenerateProjectFiles)
 			{
-				// When generating non-Rocket project files we need intellisense generator to include info from all modules, including editor-only third party libs
+				// When generating project files we need intellisense generator to include info from all modules, including editor-only third party libs
 				UEBuildConfiguration.bCompileLeanAndMeanUE = false;
 			}
 		}
@@ -276,10 +276,15 @@ namespace UnrealBuildTool
 
 	class MacPlatformFactory : UEBuildPlatformFactory
 	{
+		protected override UnrealTargetPlatform TargetPlatform
+		{
+			get { return UnrealTargetPlatform.Mac; }
+		}
+
 		/// <summary>
 		/// Register the platform with the UEBuildPlatform class
 		/// </summary>
-		public override void RegisterBuildPlatforms()
+		protected override void RegisterBuildPlatforms()
 		{
 			MacPlatformSDK SDK = new MacPlatformSDK();
 			SDK.ManageAndValidateSDK();

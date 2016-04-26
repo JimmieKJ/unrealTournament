@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	CircleDOFCommon.usf: Circle depth of field common
@@ -10,11 +10,11 @@
 float DepthToCoc(float SceneDepth) 
 {
 	// {radius, depth blur amp, depth blur radius, ViewPortScale}
-	float4 CircleDofParams = View.CircleDOFParams;
+	float4 CircleDofParams = Frame.CircleDOFParams;
 
 	// We intentionally don't do the DepthOfFieldFocalRegion as it breaks realism.
 
-	float Focus = View.DepthOfFieldFocalDistance;
+	float Focus = Frame.DepthOfFieldFocalDistance;
 	float Radius = CircleDofParams.x;
 	float CocRadius = ((SceneDepth - Focus) / SceneDepth) * Radius;
 	float DepthBlurRadius = (1.0 - exp2(-SceneDepth * CircleDofParams.y)) * CircleDofParams.z;
@@ -24,5 +24,5 @@ float DepthToCoc(float SceneDepth)
 		// near CoC is using negative values
 		ReturnCoc = -ReturnCoc;
 	}
-	return CocRadius;
+	return ReturnCoc;
 }

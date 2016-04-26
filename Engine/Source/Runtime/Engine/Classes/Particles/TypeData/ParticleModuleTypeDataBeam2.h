@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -178,6 +178,14 @@ class UParticleModuleTypeDataBeam2 : public UParticleModuleTypeDataBase
 	UPROPERTY(EditAnywhere, Category=Rendering)
 	uint32 RenderTessellation:1;
 
+	//////////////////////////////////////////////////////////////////////////
+	TArray<UParticleModuleBeamSource*>		LOD_BeamModule_Source;
+	TArray<UParticleModuleBeamTarget*>		LOD_BeamModule_Target;
+	TArray<UParticleModuleBeamNoise*>		LOD_BeamModule_Noise;
+	TArray<UParticleModuleBeamModifier*>	LOD_BeamModule_SourceModifier;
+	TArray<UParticleModuleBeamModifier*>	LOD_BeamModule_TargetModifier;
+	//////////////////////////////////////////////////////////////////////////
+
 	/** Initializes the default values for this property */
 	void InitializeDefaults();
 
@@ -192,7 +200,7 @@ class UParticleModuleTypeDataBeam2 : public UParticleModuleTypeDataBase
 	//~ Begin UParticleModule Interface
 	virtual void	Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase) override;
 	virtual void	Update(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime) override;
-	virtual uint32	RequiredBytes(FParticleEmitterInstance* Owner = NULL) override;
+	virtual uint32	RequiredBytes(UParticleModuleTypeDataBase* TypeData) override;
 	virtual	bool	AddModuleCurvesToEditor(UInterpCurveEdSetup* EdSetup, TArray<const FCurveEdEntry*>& OutCurveEntries) override;
 	virtual bool CanTickInAnyThread() override
 	{
@@ -203,6 +211,7 @@ class UParticleModuleTypeDataBeam2 : public UParticleModuleTypeDataBase
 
 	//~ Begin UParticleModuleTypeDataBase Interface
 	virtual FParticleEmitterInstance* CreateInstance(UParticleEmitter* InEmitterParent, UParticleSystemComponent* InComponent) override;
+	virtual void CacheModuleInfo(UParticleEmitter* Emitter) override;
 	//~ End UParticleModuleTypeDataBase Interface
 
 

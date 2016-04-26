@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -60,5 +60,5 @@ protected:
 	TArray< TSharedPtr<FSlateWindowElementList> > WindowElementListsPool;
 
 	// 1 if this buffer is locked, 0 otherwise.
-	int32 Locked;
+	volatile int32 Locked;
 };

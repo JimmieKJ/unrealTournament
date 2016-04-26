@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Animation/AnimNodeBase.h"
@@ -60,7 +60,7 @@ void FPoseContext::Initialize(FAnimInstanceProxy* InAnimInstanceProxy)
 {
 	checkSlow(AnimInstanceProxy && AnimInstanceProxy->GetRequiredBones().IsValid());
 	Pose.SetBoneContainer(&AnimInstanceProxy->GetRequiredBones());
-	Curve.InitFrom(AnimInstanceProxy->GetSkeleton());
+	Curve.InitFrom(AnimInstanceProxy->GetSkelMeshComponent()->GetCachedAnimCurveMappingNameUids());
 }
 
 /////////////////////////////////////////////////////
@@ -70,7 +70,7 @@ void FComponentSpacePoseContext::ResetToRefPose()
 {
 	checkSlow(AnimInstanceProxy && AnimInstanceProxy->GetRequiredBones().IsValid());
 	Pose.InitPose(&AnimInstanceProxy->GetRequiredBones());
-	Curve.InitFrom(AnimInstanceProxy->GetSkeleton());
+	Curve.InitFrom(AnimInstanceProxy->GetSkelMeshComponent()->GetCachedAnimCurveMappingNameUids());
 }
 
 /////////////////////////////////////////////////////
@@ -83,7 +83,7 @@ void FAnimNode_Base::Initialize(const FAnimationInitializeContext& Context)
 
 bool FAnimNode_Base::IsLODEnabled(FAnimInstanceProxy* AnimInstanceProxy, int32 InLODThreshold)
 {
-	return (InLODThreshold == INDEX_NONE || AnimInstanceProxy->GetSkelMeshComponent()->PredictedLODLevel <= InLODThreshold);
+	return ((InLODThreshold == INDEX_NONE) || (AnimInstanceProxy->GetLODLevel() <= InLODThreshold));
 }
 
 /////////////////////////////////////////////////////
@@ -119,6 +119,9 @@ void FPoseLinkBase::Initialize(const FAnimationInitializeContext& Context)
 
 #if ENABLE_ANIMGRAPH_TRAVERSAL_DEBUG
 	InitializationCounter.SynchronizeWith(Context.AnimInstanceProxy->GetInitializationCounter());
+
+	// Initialization will require update to be called before an evaluate.
+	UpdateCounter.Reset();
 #endif
 
 	// Do standard initialization
@@ -177,7 +180,6 @@ void FPoseLinkBase::Update(const FAnimationUpdateContext& Context)
 
 #if ENABLE_ANIMGRAPH_TRAVERSAL_DEBUG
 	checkf(InitializationCounter.IsSynchronizedWith(Context.AnimInstanceProxy->GetInitializationCounter()), TEXT("Calling Update without initialization!"));
-	checkf(!UpdateCounter.IsSynchronizedWith(Context.AnimInstanceProxy->GetUpdateCounter()), TEXT("Already called Update for this node!"));
 	UpdateCounter.SynchronizeWith(Context.AnimInstanceProxy->GetUpdateCounter());
 #endif
 
@@ -216,9 +218,8 @@ void FPoseLink::Evaluate(FPoseContext& Output)
 
 #if ENABLE_ANIMGRAPH_TRAVERSAL_DEBUG
 	checkf(InitializationCounter.IsSynchronizedWith(Output.AnimInstanceProxy->GetInitializationCounter()), TEXT("Calling Evaluate without initialization!"));
-	checkf(CachedBonesCounter.IsSynchronizedWith(Output.AnimInstanceProxy->GetCachedBonesCounter()), TEXT("Calling Evaluate without CachedBones!"));
 	checkf(UpdateCounter.IsSynchronizedWith(Output.AnimInstanceProxy->GetUpdateCounter()), TEXT("Calling Evaluate without Update for this node!"));
-	checkf(!EvaluationCounter.IsSynchronizedWith(Output.AnimInstanceProxy->GetEvaluationCounter()), TEXT("Already called Evaluate for this node!"));
+	checkf(CachedBonesCounter.IsSynchronizedWith(Output.AnimInstanceProxy->GetCachedBonesCounter()), TEXT("Calling Evaluate without CachedBones!"));
 	EvaluationCounter.SynchronizeWith(Output.AnimInstanceProxy->GetEvaluationCounter());
 #endif
 
@@ -229,7 +230,7 @@ void FPoseLink::Evaluate(FPoseContext& Output)
 #endif
 		LinkedNode->Evaluate(Output);
 #if ENABLE_ANIMNODE_POSE_DEBUG
-		CurrentPose = Output.Pose;
+		CurrentPose.CopyBonesFrom(Output.Pose);
 #endif
 	}
 	else
@@ -239,8 +240,33 @@ void FPoseLink::Evaluate(FPoseContext& Output)
 	}
 
 	// Detect non valid output
-	checkSlow( !Output.ContainsNaN() );
-	checkSlow( Output.IsNormalized() );
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	if (Output.ContainsNaN())
+	{
+		// Show bone transform with some useful debug info
+		for (const FTransform& Bone : Output.Pose.GetBones())
+		{
+			if (Bone.ContainsNaN())
+			{
+				ensureMsgf(!Bone.ContainsNaN(), TEXT("Bone transform contains NaN from AnimInstance:[%s] Node:[%s] Value:[%s]")
+					, *Output.AnimInstanceProxy->GetAnimInstanceName(), LinkedNode ? *LinkedNode->StaticStruct()->GetName() : TEXT("NULL"), *Bone.ToString());
+			}
+		}
+	}
+
+	if (!Output.IsNormalized())
+	{
+		// Show bone transform with some useful debug info
+		for (const FTransform& Bone : Output.Pose.GetBones())
+		{
+			if (!Bone.IsRotationNormalized())
+			{
+				ensureMsgf(Bone.IsRotationNormalized(), TEXT("Bone Rotation not normalized from AnimInstance:[%s] Node:[%s] Rotation:[%s]")
+					, *Output.AnimInstanceProxy->GetAnimInstanceName(), LinkedNode ? *LinkedNode->StaticStruct()->GetName() : TEXT("NULL"), *Bone.GetRotation().ToString());
+			}
+		}
+	}
+#endif
 }
 
 /////////////////////////////////////////////////////
@@ -258,7 +284,6 @@ void FComponentSpacePoseLink::EvaluateComponentSpace(FComponentSpacePoseContext&
 	checkf(InitializationCounter.IsSynchronizedWith(Output.AnimInstanceProxy->GetInitializationCounter()), TEXT("Calling EvaluateComponentSpace without initialization!"));
 	checkf(CachedBonesCounter.IsSynchronizedWith(Output.AnimInstanceProxy->GetCachedBonesCounter()), TEXT("Calling EvaluateComponentSpace without CachedBones!"));
 	checkf(UpdateCounter.IsSynchronizedWith(Output.AnimInstanceProxy->GetUpdateCounter()), TEXT("Calling EvaluateComponentSpace without Update for this node!"));
-	checkf(!EvaluationCounter.IsSynchronizedWith(Output.AnimInstanceProxy->GetEvaluationCounter()), TEXT("Already called EvaluateComponentSpace for this node!"));
 	EvaluationCounter.SynchronizeWith(Output.AnimInstanceProxy->GetEvaluationCounter());
 #endif
 
@@ -273,8 +298,33 @@ void FComponentSpacePoseLink::EvaluateComponentSpace(FComponentSpacePoseContext&
 	}
 
 	// Detect non valid output
-	checkSlow( !Output.ContainsNaN() );
-	checkSlow( Output.IsNormalized() );
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	if (Output.ContainsNaN())
+	{
+		// Show bone transform with some useful debug info
+		for (const FTransform& Bone : Output.Pose.GetPose().GetBones())
+		{
+			if (Bone.ContainsNaN())
+			{
+				ensureMsgf(!Bone.ContainsNaN(), TEXT("Bone transform contains NaN from AnimInstance:[%s] Node:[%s] Value:[%s]")
+					, *Output.AnimInstanceProxy->GetAnimInstanceName(), LinkedNode ? *LinkedNode->StaticStruct()->GetName() : TEXT("NULL"), *Bone.ToString());
+			}
+		}
+	}
+
+	if (!Output.IsNormalized())
+	{
+		// Show bone transform with some useful debug info
+		for (const FTransform& Bone : Output.Pose.GetPose().GetBones())
+		{
+			if (!Bone.IsRotationNormalized())
+			{
+				ensureMsgf(Bone.IsRotationNormalized(), TEXT("Bone Rotation not normalized from AnimInstance:[%s] Node:[%s] Value:[%s]")
+					, *Output.AnimInstanceProxy->GetAnimInstanceName(), LinkedNode ? *LinkedNode->StaticStruct()->GetName() : TEXT("NULL"), *Bone.ToString());
+			}
+		}
+	}
+#endif
 }
 
 /////////////////////////////////////////////////////
@@ -346,6 +396,8 @@ void FExposedValueHandler::Initialize(FAnimNode_Base* AnimNode, UObject* AnimIns
 
 	if (BoundFunction != NAME_None)
 	{
+		// we cant call FindFunction on anything but the game thread as it accesses a shared map in the object's class
+		check(IsInGameThread());
 		Function = AnimInstanceObject->FindFunction(BoundFunction);
 		check(Function);
 	}

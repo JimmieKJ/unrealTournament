@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AudioDecompress.h: Unreal audio vorbis decompression interface object.
@@ -150,7 +150,13 @@ typedef FAsyncTask<FAsyncAudioDecompressWorker> FAsyncAudioDecompress;
 
 enum class ERealtimeAudioTaskType : uint8
 {
+	/** Parses the wave compressed asset header file info */
+	CompressedInfo,
+
+	/** Decompresses a chunk */
 	Decompress,
+
+	/** Processes a procedural buffer to generate more audio */
 	Procedural
 };
 
@@ -169,6 +175,21 @@ protected:
 	uint32 bLooped:1;
 
 public:
+	FAsyncRealtimeAudioTaskWorker(T* InAudioBuffer, USoundWave* InWaveData)
+		: AudioBuffer(InAudioBuffer)
+		, WaveData(InWaveData)
+		, AudioData(nullptr)
+		, MaxSamples(0)
+		, BytesWritten(0)
+		, TaskType(ERealtimeAudioTaskType::CompressedInfo)
+		, bSkipFirstBuffer(false)
+		, bLoopingMode(false)
+		, bLooped(false)
+	{
+		check(AudioBuffer && AudioBuffer->DecompressionState);
+		check(WaveData);
+	}
+
 	FAsyncRealtimeAudioTaskWorker(T* InAudioBuffer, uint8* InAudioData, bool bInLoopingMode, bool bInSkipFirstBuffer)
 		: AudioBuffer(InAudioBuffer)
 		, AudioData(InAudioData)
@@ -177,6 +198,8 @@ public:
 		, bLoopingMode(bInLoopingMode)
 		, bLooped(false)
 	{
+		check(AudioBuffer && AudioBuffer->DecompressionState);
+		check(AudioData);
 	}
 
 	FAsyncRealtimeAudioTaskWorker(USoundWave* InWaveData, uint8* InAudioData, int32 InMaxSamples)
@@ -186,18 +209,29 @@ public:
 		, BytesWritten(0)
 		, TaskType(ERealtimeAudioTaskType::Procedural)
 	{
+		check(WaveData);
+		check(AudioData);
 	}
 
 	void DoWork()
 	{
 		switch(TaskType)
 		{
+		case ERealtimeAudioTaskType::CompressedInfo:
+			AudioBuffer->ReadCompressedInfo(WaveData);
+			break;
+
 		case ERealtimeAudioTaskType::Decompress:
 			if (bSkipFirstBuffer)
 			{
+#if PLATFORM_ANDROID
+				// Only skip one buffer on Android
+				AudioBuffer->ReadCompressedData( ( uint8* )AudioData, bLoopingMode );
+#else
 				// If we're using cached data we need to skip the first two reads from the data
 				AudioBuffer->ReadCompressedData( ( uint8* )AudioData, bLoopingMode );
 				AudioBuffer->ReadCompressedData( ( uint8* )AudioData, bLoopingMode );
+#endif
 			}
 			bLooped = AudioBuffer->ReadCompressedData( ( uint8* )AudioData, bLoopingMode );
 			break;

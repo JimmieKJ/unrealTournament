@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -161,6 +161,8 @@ public:
 	TSharedPtr< FUICommandInfo > ViewportConfig_FourPanesTop;
 	TSharedPtr< FUICommandInfo > ViewportConfig_FourPanesBottom;
 	TSharedPtr< FUICommandInfo > ViewportConfig_FourPanes2x2;
+
+	TSharedPtr< FUICommandInfo > ToggleViewportToolbar;
 
 	TSharedPtr< FUICommandInfo > EnablePreviewMesh;
 	TSharedPtr< FUICommandInfo > CyclePreviewMesh;

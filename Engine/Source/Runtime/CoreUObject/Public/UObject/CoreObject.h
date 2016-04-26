@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -163,6 +163,8 @@ public:
 	
 	// World browser information
 	TScopedPointer< FWorldTileInfo > WorldTileInfo;
+
+	TMap<FName, int32> ClassUniqueNameIndexMap;
 
 #if WITH_EDITOR
 	/** Editor only: PIE instance ID this package belongs to, INDEX_NONE otherwise */
@@ -399,13 +401,6 @@ public:
 	FORCEINLINE uint32 GetPackageFlags() const
 	{
 		return PackageFlagsPrivate;
-	}
-
-	typedef TFunction<void (const UObject* const, TArray<FGatherableTextData>&)> FLocalizationDataGatheringCallback;
-	static TMap<UField*, FLocalizationDataGatheringCallback>& GetTypeSpecificLocalizationDataGatheringCallbacks()
-	{
-		static TMap<UField*, FLocalizationDataGatheringCallback> TypeSpecificLocalizationDataGatheringCallbacks;
-		return TypeSpecificLocalizationDataGatheringCallbacks;
 	}
 
 	/** Returns true if this package has a thumbnail map */

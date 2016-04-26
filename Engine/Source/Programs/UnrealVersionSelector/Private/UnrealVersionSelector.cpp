@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealVersionSelector.h"
 #include "RequiredProgramMainCPPInclude.h"
@@ -170,13 +170,6 @@ bool GenerateProjectFiles(const FString& ProjectFileName)
 	if (!GetValidatedEngineRootDir(ProjectFileName, RootDir))
 	{
 		return false;
-	}
-
-	// Build the argument list
-	FString Arguments = TEXT("-game");
-	if (FDesktopPlatformModule::Get()->IsSourceDistribution(RootDir))
-	{
-		Arguments += TEXT(" -engine");
 	}
 
 	// Start capturing the log output

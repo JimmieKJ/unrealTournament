@@ -1,9 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 #include "MovieSceneMarginTrackInstance.h"
 #include "MovieSceneMarginTrack.h"
 #include "MovieSceneCommonHelpers.h"
+
 
 FMovieSceneMarginTrackInstance::FMovieSceneMarginTrackInstance( UMovieSceneMarginTrack& InMarginTrack )
 {
@@ -12,19 +13,23 @@ FMovieSceneMarginTrackInstance::FMovieSceneMarginTrackInstance( UMovieSceneMargi
 	PropertyBindings = MakeShareable( new FTrackInstancePropertyBindings( MarginTrack->GetPropertyName(), MarginTrack->GetPropertyPath() ) );
 }
 
-void FMovieSceneMarginTrackInstance::Update( float Position, float LastPosition, const TArray<UObject*>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance, EMovieSceneUpdatePass UpdatePass ) 
+
+void FMovieSceneMarginTrackInstance::Update(EMovieSceneUpdateData& UpdateData, const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance) 
 {
-	for( UObject* Object : RuntimeObjects )
+	for (auto ObjectPtr : RuntimeObjects)
 	{
-		FMargin MarginValue = PropertyBindings->GetCurrentValue<FMargin>( Object );
-		if(MarginTrack->Eval(Position, LastPosition, MarginValue))
+		UObject* Object = ObjectPtr.Get();
+		FMargin MarginValue = PropertyBindings->GetCurrentValue<FMargin>(Object);
+
+		if (MarginTrack->Eval(UpdateData.Position, UpdateData.LastPosition, MarginValue))
 		{
 			PropertyBindings->CallFunction<FMargin>(Object, &MarginValue);
 		}
 	}
 }
 
-void FMovieSceneMarginTrackInstance::RefreshInstance( const TArray<UObject*>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance )
+
+void FMovieSceneMarginTrackInstance::RefreshInstance( const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance )
 {
 	PropertyBindings->UpdateBindings( RuntimeObjects );
 }

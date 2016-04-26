@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 // Precompiled header include. Can't add anything above this line.
 
 #include "MapPakDownloaderModulePrivatePCH.h"
@@ -165,7 +165,7 @@ void FMapPakDownloader::CachePak()
 
 											UE_LOG(LogMapPakDownloader, Warning, TEXT("%s download complete!"), *PakRequest->GetFileName());
 											UE_LOG(LogMapPakDownloader, Warning, TEXT("Mounting..."), *Name);
-											FCoreDelegates::OnMountPak.Execute(Name, 0);
+											FCoreDelegates::OnMountPak.Execute(Name, 0, nullptr);
 											UE_LOG(LogMapPakDownloader, Warning, TEXT("%s Mounted!"), *Name);
 
 											// Get hold of the world.

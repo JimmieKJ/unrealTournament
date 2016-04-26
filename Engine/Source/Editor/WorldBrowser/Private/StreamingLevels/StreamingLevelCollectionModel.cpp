@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "WorldBrowserPrivatePCH.h"
 
 #include "Editor/PropertyEditor/Public/IDetailsView.h"
@@ -279,6 +279,8 @@ void FStreamingLevelCollectionModel::BuildHierarchyMenu(FMenuBuilder& InMenuBuil
 				LOCTEXT("LevelsChangeStreamingMethod_Tooltip", "Changes the streaming method for the selected levels"),
 				FNewMenuDelegate::CreateRaw(this, &FStreamingLevelCollectionModel::FillSetStreamingMethodSubMenu ));
 		}
+
+		InMenuBuilder.AddMenuEntry(Commands.World_FindInContentBrowser);
 	}
 	InMenuBuilder.EndSection();
 	

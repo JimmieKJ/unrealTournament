@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "XmppPrivatePCH.h"
 #include "XmppTests.h"
@@ -303,6 +303,8 @@ bool FXmppModule::HandleXmppCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 							RoomConfig.bIsPrivate = true;
 						}
 						RoomConfig.Password = Password;
+						Connection->MultiUserChat()->OnRoomCreated().AddRaw(this, &FXmppModule::OnXmppRoomCreated);
+						Connection->MultiUserChat()->OnRoomConfigured().AddRaw(this, &FXmppModule::OnXmppRoomConfigured);
 						Connection->MultiUserChat()->CreateRoom(RoomId, UserName, RoomConfig);
 					}
 				}
@@ -739,4 +741,18 @@ void FXmppModule::RemoveConnection(const TSharedRef<IXmppConnection>& Connection
 void FXmppModule::CleanupConnection(const TSharedRef<class IXmppConnection>& Connection)
 {
 
+}
+
+void FXmppModule::OnXmppRoomCreated(const TSharedRef<IXmppConnection>& Connection, bool bSuccess, const FXmppRoomId& RoomId, const FString& Error)
+{
+	Connection->MultiUserChat()->OnRoomCreated().RemoveAll(this);	
+
+	UE_LOG(LogXmpp, Log, TEXT("FXmppModule::OnXmppRoomCreated - entered - user(%s) room(%s)"), *Connection->GetUserJid().Id, *RoomId);
+}
+
+void FXmppModule::OnXmppRoomConfigured(const TSharedRef<IXmppConnection>& Connection, bool bSuccess, const FXmppRoomId& RoomId, const FString& Error)
+{
+	Connection->MultiUserChat()->OnRoomConfigured().RemoveAll(this);
+
+	UE_LOG(LogXmpp, Log, TEXT("FXmppModule::OnXmppRoomConfigured - entered - user(%s) room(%s)"), *Connection->GetUserJid().Id, *RoomId);
 }

@@ -1,4 +1,6 @@
-﻿using System;
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -17,8 +19,8 @@ namespace UnrealBuildTool
 	[Serializable]
 	class VersionManifest
 	{
-		public readonly int Changelist;
-		public readonly string BuildId;
+		public int Changelist;
+		public string BuildId;
 		public Dictionary<string, string> ModuleNameToFileName = new Dictionary<string, string>();
 
 		/// <summary>

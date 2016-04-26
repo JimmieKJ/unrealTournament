@@ -553,7 +553,7 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGeneralTab()
 		CurrentResIndex = ResList.Add(MakeShareable(new FString(FString::Printf(TEXT("%ix%i"), int32(ViewportSize.X), int32(ViewportSize.Y)))));
 	}
 	
-	MatchmakingRegionList.Add(MakeShareable(new FString(TEXT("USA"))));
+	MatchmakingRegionList.Add(MakeShareable(new FString(TEXT("NA"))));
 	MatchmakingRegionList.Add(MakeShareable(new FString(TEXT("EU"))));
 
 	DisplayModeList.Add(MakeShareable(new FString(NSLOCTEXT("SUTSystemSettingsDialog", "DisplayModeFullscreen", "Fullscreen").ToString())));

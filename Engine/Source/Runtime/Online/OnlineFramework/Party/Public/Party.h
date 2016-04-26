@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -245,6 +245,9 @@ public:
 	 */
 	void AddPendingPartyJoin(const FUniqueNetId& LocalUserId, const FPartyDetails& PartyDetails, const UPartyDelegates::FOnJoinUPartyComplete& JoinCompleteDelegate);
 
+	/** Clears the join data associated with a pending party join. */
+	void ClearPendingPartyJoin();
+
 	/**
 	 * Is any local player in the given party
 	 *
@@ -287,8 +290,10 @@ public:
 	UPartyGameState* GetPersistentParty() const;
 
 	/** Notify the party system that travel is occurring */
-	void NotifyPreClientTravel();
+	void NotifyPreClientTravel(const FString& PendingURL, ETravelType TravelType, bool bIsSeamlessTravel);
 
+	/** @return true if the player has accepted an invite, but it hasn't been processed yet */
+	bool HasPendingPartyJoin();
 	/**
 	 * Party invites
 	 */
@@ -349,8 +354,9 @@ protected:
 	 * @param PartyType party visibility setting
 	 * @param bLeaderFriendsOnly can only the leader send invites
 	 * @param bLeaderInvitesOnly can only the leader have friends join via presence
+	 * @param bAllowInvites are invites currently allowed
 	 */
-	virtual void GetDefaultPersistentPartySettings(EPartyType& PartyType, bool& bLeaderFriendsOnly, bool& bLeaderInvitesOnly);
+	virtual void GetDefaultPersistentPartySettings(EPartyType& PartyType, bool& bLeaderFriendsOnly, bool& bLeaderInvitesOnly, bool& bAllowInvites);
 
 	/**
 	 * Get the default configuration used for persistent party creation
@@ -362,6 +368,7 @@ protected:
 	/**
 	 * Party state management
 	 */
+	virtual void PartyMemberExitedInternal(const FUniqueNetId& InLocalUserId, const FOnlinePartyId& InPartyId, const FUniqueNetId& InMemberId, const EMemberExitedReason InReason);
 
 private:
 
@@ -461,8 +468,15 @@ private:
 	void PartyMemberDataReceivedInternal(const FUniqueNetId& InLocalUserId, const FOnlinePartyId& InPartyId, const FUniqueNetId& InMemberId, const TSharedRef<FOnlinePartyData>& InPartyMemberData);
 	void PartyJoinRequestReceivedInternal(const FUniqueNetId& InLocalUserId, const FOnlinePartyId& InPartyId, const FUniqueNetId& SenderId);
 	void PartyMemberChangedInternal(const FUniqueNetId& InLocalUserId, const FOnlinePartyId& InPartyId, const FUniqueNetId& InMemberId, const EMemberChangedReason InReason);
-	void PartyMemberExitedInternal(const FUniqueNetId& InLocalUserId, const FOnlinePartyId& InPartyId, const FUniqueNetId& InMemberId, const EMemberExitedReason InReason);
 	void PartyPromotionLockoutStateChangedInternal(const FUniqueNetId& LocalUserId, const FOnlinePartyId& InPartyId, const bool bLockoutState);
+
+	void PartyExitedInternal(const FUniqueNetId& LocalUserId, const FOnlinePartyId& InPartyId);
+	void OnPersistentPartyExitedInternalCompleted(const FUniqueNetId& LocalUserId, const ECreatePartyCompletionResult Result);
+
+	/**
+	 *
+	 */
+	void OnCreatePesistentPartyCompletedCommon(const FUniqueNetId& LocalUserId);
 
 	/**
 	 * Identity interface status change delegates
@@ -487,6 +501,7 @@ private:
 	FDelegateHandle PartyJoinRequestReceivedDelegateHandle;
 	FDelegateHandle PartyMemberChangedDelegateHandle;
 	FDelegateHandle PartyMemberExitedDelegateHandle;
+	FDelegateHandle PartyExitedDelegateHandle;
 
 	FDelegateHandle LogoutStatusChangedDelegateHandle[MAX_LOCAL_PLAYERS];
 	FDelegateHandle LogoutCompleteDelegateHandle[MAX_LOCAL_PLAYERS];

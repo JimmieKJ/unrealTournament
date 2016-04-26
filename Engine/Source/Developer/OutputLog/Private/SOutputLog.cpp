@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OutputLogPrivatePCH.h"
 #include "SOutputLog.h"
@@ -551,11 +551,7 @@ FOutputLogTextLayoutMarshaller::~FOutputLogTextLayoutMarshaller()
 void FOutputLogTextLayoutMarshaller::SetText(const FString& SourceString, FTextLayout& TargetTextLayout)
 {
 	TextLayout = &TargetTextLayout;
-
-	for(const auto& Message : Messages)
-	{
-		AppendMessageToTextLayout(Message);
-	}
+	AppendMessagesToTextLayout(Messages);
 }
 
 void FOutputLogTextLayoutMarshaller::GetText(FString& TargetString, const FTextLayout& SourceTextLayout)
@@ -581,10 +577,7 @@ bool FOutputLogTextLayoutMarshaller::AppendMessage(const TCHAR* InText, const EL
 			}
 
 			// If we've already been given a text layout, then append these new messages rather than force a refresh of the entire document
-			for(const auto& Message : NewMessages)
-			{
-				AppendMessageToTextLayout(Message);
-			}
+			AppendMessagesToTextLayout(NewMessages);
 		}
 		else
 		{
@@ -597,16 +590,36 @@ bool FOutputLogTextLayoutMarshaller::AppendMessage(const TCHAR* InText, const EL
 	return false;
 }
 
-void FOutputLogTextLayoutMarshaller::AppendMessageToTextLayout(const TSharedPtr<FLogMessage>& Message)
+void FOutputLogTextLayoutMarshaller::AppendMessageToTextLayout(const TSharedPtr<FLogMessage>& InMessage)
 {
-	const FTextBlockStyle& MessageTextStyle = FEditorStyle::Get().GetWidgetStyle<FTextBlockStyle>(Message->Style);
+	const FTextBlockStyle& MessageTextStyle = FEditorStyle::Get().GetWidgetStyle<FTextBlockStyle>(InMessage->Style);
 
-	TSharedRef<FString> LineText = Message->Message;
+	TSharedRef<FString> LineText = InMessage->Message;
 
 	TArray<TSharedRef<IRun>> Runs;
 	Runs.Add(FSlateTextRun::Create(FRunInfo(), LineText, MessageTextStyle));
 
-	TextLayout->AddLine(LineText, Runs);
+	TextLayout->AddLine(FSlateTextLayout::FNewLineData(MoveTemp(LineText), MoveTemp(Runs)));
+}
+
+void FOutputLogTextLayoutMarshaller::AppendMessagesToTextLayout(const TArray<TSharedPtr<FLogMessage>>& InMessages)
+{
+	TArray<FTextLayout::FNewLineData> LinesToAdd;
+	LinesToAdd.Reserve(InMessages.Num());
+
+	for (const auto& CurrentMessage : InMessages)
+	{
+		const FTextBlockStyle& MessageTextStyle = FEditorStyle::Get().GetWidgetStyle<FTextBlockStyle>(CurrentMessage->Style);
+
+		TSharedRef<FString> LineText = CurrentMessage->Message;
+
+		TArray<TSharedRef<IRun>> Runs;
+		Runs.Add(FSlateTextRun::Create(FRunInfo(), LineText, MessageTextStyle));
+
+		LinesToAdd.Emplace(MoveTemp(LineText), MoveTemp(Runs));
+	}
+
+	TextLayout->AddLines(LinesToAdd);
 }
 
 void FOutputLogTextLayoutMarshaller::ClearMessages()
@@ -729,9 +742,31 @@ bool SOutputLog::CreateLogMessages( const TCHAR* V, ELogVerbosity::Type Verbosit
 				FString Line = CurrentLogDump.Mid(LineRange.BeginIndex, LineRange.Len());
 				Line = Line.ConvertTabsToSpaces(4);
 
-				OutMessages.Add(MakeShareable(new FLogMessage(MakeShareable(new FString((bIsFirstLineInMessage) ? FOutputDevice::FormatLogLine(Verbosity, Category, *Line, LogTimestampMode) : Line)), Style)));
+				// Hard-wrap lines to avoid them being too long
+				static const int32 HardWrapLen = 360;
+				for (int32 CurrentStartIndex = 0; CurrentStartIndex < Line.Len();)
+				{
+					int32 HardWrapLineLen = 0;
+					if (bIsFirstLineInMessage)
+					{
+						FString MessagePrefix = FOutputDevice::FormatLogLine(Verbosity, Category, nullptr, LogTimestampMode);
+						
+						HardWrapLineLen = FMath::Min(HardWrapLen - MessagePrefix.Len(), Line.Len() - CurrentStartIndex);
+						FString HardWrapLine = Line.Mid(CurrentStartIndex, HardWrapLineLen);
 
-				bIsFirstLineInMessage = false;
+						OutMessages.Add(MakeShareable(new FLogMessage(MakeShareable(new FString(MessagePrefix + HardWrapLine)), Style)));
+					}
+					else
+					{
+						HardWrapLineLen = FMath::Min(HardWrapLen, Line.Len() - CurrentStartIndex);
+						FString HardWrapLine = Line.Mid(CurrentStartIndex, HardWrapLineLen);
+
+						OutMessages.Add(MakeShareable(new FLogMessage(MakeShareable(new FString(MoveTemp(HardWrapLine))), Style)));
+					}
+
+					bIsFirstLineInMessage = false;
+					CurrentStartIndex += HardWrapLineLen;
+				}
 			}
 		}
 

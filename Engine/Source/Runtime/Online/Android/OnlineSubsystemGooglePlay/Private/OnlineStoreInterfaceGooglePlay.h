@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -62,15 +62,14 @@ public:
 	virtual bool QueryForAvailablePurchases(const TArray<FString>& ProductIDs, FOnlineProductInformationReadRef& InReadObject) override;
 	virtual bool BeginPurchase(const FInAppPurchaseProductRequest& ProductRequest, FOnlineInAppPurchaseTransactionRef& InReadObject) override;
 	virtual bool IsAllowedToMakePurchases() override;
-	virtual bool RestorePurchases(FOnlineInAppPurchaseRestoreReadRef& InReadObject) override
-	{
-		// Not Yet Implemented
-		return false;
-	}
+	virtual bool RestorePurchases(FOnlineInAppPurchaseRestoreReadRef& InReadObject) override;
 	// End IOnlineStore 
 
 	void ProcessQueryAvailablePurchasesResults(bool bInSuccessful, const TArray<FInAppPurchaseProductInfo>& AvailablePurchases);
 	void ProcessPurchaseResult(bool bInSuccessful, const FString& InProductId, const FString& InReceiptData);
+
+	/** Cached in-app purchase restore transaction object, used to provide details to the developer about what products should be restored */
+	FOnlineInAppPurchaseRestoreReadPtr CachedPurchaseRestoreObject;
 
 private:
 

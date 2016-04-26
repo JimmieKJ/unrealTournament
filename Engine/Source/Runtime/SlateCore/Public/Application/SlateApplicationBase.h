@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -60,6 +60,13 @@ class SLATECORE_API FSlateApplicationBase
 public:
 
 	FSlateApplicationBase();
+
+	/**
+	 * Whether the application is active.
+	 *
+	 * @return application active or not
+	 */
+	virtual bool IsActive() const = 0;
 
 	/**
 	 * Gets the renderer being used to draw this application.
@@ -346,6 +353,14 @@ public:
 	 * @param InCause The reason that focus is changing.
 	 */
 	virtual void SetAllUserFocus(const FWidgetPath& InFocusPath, const EFocusCause InCause) = 0;
+
+	/**
+	 * Sets the focus for all users to the specified widget unless that user is focused on a descendant.  The widget must be allowed to receive focus.
+	 *
+	 * @param InWidget WidgetPath to the Widget to being focused.
+	 * @param InCause The reason that focus is changing.
+	 */
+	virtual void SetAllUserFocusAllowingDescendantFocus(const FWidgetPath& InFocusPath, const EFocusCause InCause) = 0;
 
 	/**
 	 * Gets a delegate that is invoked when a global invalidate of all widgets should occur

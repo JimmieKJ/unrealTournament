@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 #include "AbilitySystemInterface.h"
@@ -69,7 +69,21 @@ void FGameplayEffectContext::AddInstigator(class AActor *InInstigator, class AAc
 	}
 }
 
-void FGameplayEffectContext::AddActors(TArray<TWeakObjectPtr<AActor>> InActors, bool bReset)
+void FGameplayEffectContext::SetAbility(const UGameplayAbility* InGameplayAbility)
+{
+	if (InGameplayAbility)
+	{
+		Ability = InGameplayAbility->GetClass();
+		AbilityLevel = InGameplayAbility->GetAbilityLevel();
+	}
+}
+
+const UGameplayAbility* FGameplayEffectContext::GetAbility() const
+{
+	return Ability.GetDefaultObject();
+}
+
+void FGameplayEffectContext::AddActors(const TArray<TWeakObjectPtr<AActor>>& InActors, bool bReset)
 {
 	if (bReset && Actors.Num())
 	{
@@ -79,7 +93,7 @@ void FGameplayEffectContext::AddActors(TArray<TWeakObjectPtr<AActor>> InActors, 
 	Actors.Append(InActors);
 }
 
-void FGameplayEffectContext::AddHitResult(const FHitResult InHitResult, bool bReset)
+void FGameplayEffectContext::AddHitResult(const FHitResult& InHitResult, bool bReset)
 {
 	if (bReset && HitResult.IsValid())
 	{
@@ -108,25 +122,29 @@ bool FGameplayEffectContext::NetSerialize(FArchive& Ar, class UPackageMap* Map, 
 		{
 			RepBits |= 1 << 1;
 		}
-		if (SourceObject.IsValid() )
+		if (*Ability)
 		{
 			RepBits |= 1 << 2;
 		}
-		if (Actors.Num() > 0)
+		if (SourceObject.IsValid())
 		{
 			RepBits |= 1 << 3;
 		}
-		if (HitResult.IsValid())
+		if (Actors.Num() > 0)
 		{
 			RepBits |= 1 << 4;
 		}
-		if (bHasWorldOrigin)
+		if (HitResult.IsValid())
 		{
 			RepBits |= 1 << 5;
 		}
+		if (bHasWorldOrigin)
+		{
+			RepBits |= 1 << 6;
+		}
 	}
 
-	Ar.SerializeBits(&RepBits, 6);
+	Ar.SerializeBits(&RepBits, 7);
 
 	if (RepBits & (1 << 0))
 	{
@@ -138,13 +156,17 @@ bool FGameplayEffectContext::NetSerialize(FArchive& Ar, class UPackageMap* Map, 
 	}
 	if (RepBits & (1 << 2))
 	{
-		Ar << SourceObject;
+		Ar << Ability;
 	}
 	if (RepBits & (1 << 3))
 	{
-		Ar << Actors;;
+		Ar << SourceObject;
 	}
 	if (RepBits & (1 << 4))
+	{
+		SafeNetSerializeTArray_Default<32>(Ar, Actors);
+	}
+	if (RepBits & (1 << 5))
 	{
 		if (Ar.IsLoading())
 		{
@@ -155,7 +177,7 @@ bool FGameplayEffectContext::NetSerialize(FArchive& Ar, class UPackageMap* Map, 
 		}
 		HitResult->NetSerialize(Ar, Map, bOutSuccess);
 	}
-	if (RepBits & (1 << 5))
+	if (RepBits & (1 << 6))
 	{
 		Ar << WorldOrigin;
 		bHasWorldOrigin = true;
@@ -286,41 +308,6 @@ FString EGameplayCueEventToString(int32 Type)
 	return e->GetEnumName(Type);
 }
 
-bool FGameplayTagCountContainer::HasMatchingGameplayTag(FGameplayTag TagToCheck) const
-{
-	return ExplicitTags.HasTag(TagToCheck, EGameplayTagMatchType::IncludeParentTags, EGameplayTagMatchType::Explicit);
-}
-
-bool FGameplayTagCountContainer::HasAllMatchingGameplayTags(const FGameplayTagContainer& TagContainer, bool bCountEmptyAsMatch) const
-{
-	return ExplicitTags.MatchesAll(TagContainer, bCountEmptyAsMatch);
-}
-
-
-bool FGameplayTagCountContainer::HasAnyMatchingGameplayTags(const FGameplayTagContainer& TagContainer, bool bCountEmptyAsMatch) const
-{
-	return ExplicitTags.MatchesAny(TagContainer, bCountEmptyAsMatch);
-}
-
-void FGameplayTagCountContainer::UpdateTagCount(const FGameplayTag& Tag, int32 CountDelta)
-{
-	if (CountDelta != 0)
-	{
-		UpdateTagMap_Internal(Tag, CountDelta);
-	}
-}
-
-void FGameplayTagCountContainer::UpdateTagCount(const FGameplayTagContainer& Container, int32 CountDelta)
-{	
-	if (CountDelta != 0)
-	{
-		for (auto TagIt = Container.CreateConstIterator(); TagIt; ++TagIt)
-		{
-			UpdateTagMap_Internal(*TagIt, CountDelta);
-		}
-	}
-}
-
 void FGameplayTagCountContainer::Notify_StackCountChange(const FGameplayTag& Tag)
 {	
 	// The purpose of this function is to let anyone listening on the EGameplayTagEventType::AnyCountChange event know that the 
@@ -351,17 +338,16 @@ FOnGameplayEffectTagCountChanged& FGameplayTagCountContainer::RegisterGameplayTa
 	return Info.OnAnyChange;
 }
 
-FOnGameplayEffectTagCountChanged& FGameplayTagCountContainer::RegisterGenericGameplayEvent()
+void FGameplayTagCountContainer::Reset()
 {
-	return OnAnyTagChangeDelegate;
+	GameplayTagEventMap.Reset();
+	GameplayTagCountMap.Reset();
+	ExplicitTagCountMap.Reset();
+	ExplicitTags.Reset();
+	OnAnyTagChangeDelegate.Clear();
 }
 
-const FGameplayTagContainer& FGameplayTagCountContainer::GetExplicitGameplayTags() const
-{
-	return ExplicitTags;
-}
-
-void FGameplayTagCountContainer::UpdateTagMap_Internal(const FGameplayTag& Tag, int32 CountDelta)
+bool FGameplayTagCountContainer::UpdateTagMap_Internal(const FGameplayTag& Tag, int32 CountDelta)
 {
 	const bool bTagAlreadyExplicitlyExists = ExplicitTags.HasTag(Tag, EGameplayTagMatchType::Explicit, EGameplayTagMatchType::Explicit);
 
@@ -382,7 +368,7 @@ void FGameplayTagCountContainer::UpdateTagMap_Internal(const FGameplayTag& Tag, 
 			{
 				ABILITY_LOG(Warning, TEXT("Attempted to remove tag: %s from tag count container, but it is not explicitly in the container!"), *Tag.ToString());
 			}
-			return;
+			return false;
 		}
 	}
 
@@ -400,35 +386,44 @@ void FGameplayTagCountContainer::UpdateTagMap_Internal(const FGameplayTag& Tag, 
 
 	// Check if change delegates are required to fire for the tag or any of its parents based on the count change
 	FGameplayTagContainer TagAndParentsContainer = IGameplayTagsModule::Get().GetGameplayTagsManager().RequestGameplayTagParents(Tag);
+	bool CreatedSignificantChange = false;
 	for (auto CompleteTagIt = TagAndParentsContainer.CreateConstIterator(); CompleteTagIt; ++CompleteTagIt)
 	{
 		const FGameplayTag& CurTag = *CompleteTagIt;
 
 		// Get the current count of the specified tag. NOTE: Stored as a reference, so subsequent changes propogate to the map.
-		int32& TagCount = GameplayTagCountMap.FindOrAdd(CurTag);
+		int32& TagCountRef = GameplayTagCountMap.FindOrAdd(CurTag);
 
-		const int32 OldCount = TagCount;
+		const int32 OldCount = TagCountRef;
 
 		// Apply the delta to the count in the map
-		TagCount = FMath::Max(TagCount + CountDelta, 0);
+		int32 NewTagCount = FMath::Max(OldCount + CountDelta, 0);
+		TagCountRef = NewTagCount;
 
 		// If a significant change (new addition or total removal) occurred, trigger related delegates
-		bool SignificantChange = (OldCount == 0 || TagCount == 0);
+		bool SignificantChange = (OldCount == 0 || NewTagCount == 0);
+		CreatedSignificantChange |= SignificantChange;
 		if (SignificantChange)
 		{
-			OnAnyTagChangeDelegate.Broadcast(CurTag, TagCount);
+			OnAnyTagChangeDelegate.Broadcast(CurTag, NewTagCount);
 		}
 
 		FDelegateInfo* DelegateInfo = GameplayTagEventMap.Find(CurTag);
 		if (DelegateInfo)
 		{
-			DelegateInfo->OnAnyChange.Broadcast(CurTag, TagCount);
+			// Prior to calling OnAnyChange delegate, copy our OnNewOrRemove delegate, since things listening to OnAnyChange could add or remove 
+			// to this map causing our pointer to become invalid.
+			FOnGameplayEffectTagCountChanged OnNewOrRemoveLocalCopy = DelegateInfo->OnNewOrRemove;
+
+			DelegateInfo->OnAnyChange.Broadcast(CurTag, NewTagCount);
 			if (SignificantChange)
 			{
-				DelegateInfo->OnNewOrRemove.Broadcast(CurTag, TagCount);
+				OnNewOrRemoveLocalCopy.Broadcast(CurTag, NewTagCount);
 			}
 		}
 	}
+
+	return CreatedSignificantChange;
 }
 
 bool FGameplayTagRequirements::RequirementsMet(const FGameplayTagContainer& Container) const
@@ -538,9 +533,10 @@ FGameplayEffectSpecHandle::FGameplayEffectSpecHandle(FGameplayEffectSpec* DataPt
 FGameplayCueParameters::FGameplayCueParameters(const FGameplayEffectSpecForRPC& Spec)
 : NormalizedMagnitude(0.0f)
 , RawMagnitude(0.0f)
-, MatchedTagName(NAME_None)
 , Location(ForceInitToZero)
 , Normal(ForceInitToZero)
+, GameplayEffectLevel(1)
+, AbilityLevel(1)
 {
 	UAbilitySystemGlobals::Get().InitGameplayCueParameters(*this, Spec);
 }
@@ -548,30 +544,33 @@ FGameplayCueParameters::FGameplayCueParameters(const FGameplayEffectSpecForRPC& 
 FGameplayCueParameters::FGameplayCueParameters(const struct FGameplayEffectContextHandle& InEffectContext)
 : NormalizedMagnitude(0.0f)
 , RawMagnitude(0.0f)
-, MatchedTagName(NAME_None)
 , Location(ForceInitToZero)
 , Normal(ForceInitToZero)
+, GameplayEffectLevel(1)
+, AbilityLevel(1)
 {
 	UAbilitySystemGlobals::Get().InitGameplayCueParameters(*this, InEffectContext);
 }
 
 bool FGameplayCueParameters::NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
 {
+	static const uint8 NUM_LEVEL_BITS = 4;
+	static const uint8 MAX_LEVEL = (1 << NUM_LEVEL_BITS) - 1;
+
 	enum RepFlag
 	{
 		REP_NormalizedMagnitude = 0,
 		REP_RawMagnitude,
 		REP_EffectContext,
-		REP_MatchedTagName,
-		REP_OriginalTag,
-		REP_AggregatedSourceTags,
-		REP_AggregatedTargetTags,
 		REP_Location,
 		REP_Normal,
 		REP_Instigator,
 		REP_EffectCauser,
 		REP_SourceObject,
-		
+		REP_PhysMaterial,
+		REP_GELevel,
+		REP_AbilityLevel,
+
 		REP_MAX
 	};
 
@@ -589,22 +588,6 @@ bool FGameplayCueParameters::NetSerialize(FArchive& Ar, class UPackageMap* Map, 
 		if (EffectContext.IsValid())
 		{
 			RepBits |= (1 << REP_EffectContext);
-		}
-		if (MatchedTagName != NAME_None)
-		{
-			RepBits |= (1 << REP_MatchedTagName);
-		}
-		if (OriginalTag.IsValid())
-		{
-			RepBits |= (1 << REP_OriginalTag);
-		}
-		if (AggregatedSourceTags.Num() > 0)
-		{
-			RepBits |= (1 << REP_AggregatedSourceTags);
-		}
-		if (AggregatedTargetTags.Num() > 0)
-		{
-			RepBits |= (1 << REP_AggregatedTargetTags);
 		}
 		if (Location.IsNearlyZero() == false)
 		{
@@ -626,9 +609,25 @@ bool FGameplayCueParameters::NetSerialize(FArchive& Ar, class UPackageMap* Map, 
 		{
 			RepBits |= (1 << REP_SourceObject);
 		}
+		if (PhysicalMaterial.IsValid())
+		{
+			RepBits |= (1 << REP_PhysMaterial);
+		}
+		if (GameplayEffectLevel != 1)
+		{
+			RepBits |= (1 << REP_GELevel);
+		}
+		if (AbilityLevel != 1)
+		{
+			RepBits |= (1 << REP_AbilityLevel);
+		}
 	}
 
 	Ar.SerializeBits(&RepBits, REP_MAX);
+
+	// Tag containers serialize empty containers with 1 bit, so no need to serialize this in the RepBits field.
+	AggregatedSourceTags.NetSerialize(Ar, Map, bOutSuccess);
+	AggregatedTargetTags.NetSerialize(Ar, Map, bOutSuccess);
 
 	if (RepBits & (1 << REP_NormalizedMagnitude))
 	{
@@ -641,22 +640,6 @@ bool FGameplayCueParameters::NetSerialize(FArchive& Ar, class UPackageMap* Map, 
 	if (RepBits & (1 << REP_EffectContext))
 	{
 		EffectContext.NetSerialize(Ar, Map, bOutSuccess);
-	}
-	if (RepBits & (1 << REP_MatchedTagName))
-	{
-		Ar << MatchedTagName;
-	}
-	if (RepBits & (1 << REP_OriginalTag))
-	{
-		Ar << OriginalTag;
-	}
-	if (RepBits & (1 << REP_AggregatedSourceTags))
-	{
-		AggregatedSourceTags.NetSerialize(Ar, Map, bOutSuccess);
-	}
-	if (RepBits & (1 << REP_AggregatedTargetTags))
-	{
-		AggregatedTargetTags.NetSerialize(Ar, Map, bOutSuccess);
 	}
 	if (RepBits & (1 << REP_Location))
 	{
@@ -677,6 +660,30 @@ bool FGameplayCueParameters::NetSerialize(FArchive& Ar, class UPackageMap* Map, 
 	if (RepBits & (1 << REP_SourceObject))
 	{
 		Ar << SourceObject;
+	}
+	if (RepBits & (1 << REP_SourceObject))
+	{
+		Ar << PhysicalMaterial;
+	}
+	if (RepBits & (1 << REP_GELevel))
+	{
+		ensureMsgf(GameplayEffectLevel <= MAX_LEVEL, TEXT("FGameplayCueParameters::NetSerialize trying to serialize GC parameters with a GameplayEffectLevel of %d"), GameplayEffectLevel);
+		if (Ar.IsLoading())
+		{
+			GameplayEffectLevel = 0;
+		}
+
+		Ar.SerializeBits(&GameplayEffectLevel, NUM_LEVEL_BITS);
+	}
+	if (RepBits & (1 << REP_AbilityLevel))
+	{
+		ensureMsgf(AbilityLevel <= MAX_LEVEL, TEXT("FGameplayCueParameters::NetSerialize trying to serialize GC parameters with an AbilityLevel of %d"), AbilityLevel);
+		if (Ar.IsLoading())
+		{
+			AbilityLevel = 0;
+		}
+
+		Ar.SerializeBits(&AbilityLevel, NUM_LEVEL_BITS);
 	}
 
 	bOutSuccess = true;
@@ -752,4 +759,63 @@ const UObject* FGameplayCueParameters::GetSourceObject() const
 
 	// Fallback to effect context if the explicit data on gameplaycue parameters is not there.
 	return EffectContext.GetSourceObject();
+}
+
+bool FMinimapReplicationTagCountMap::NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
+{
+	const int32 CountBits = 4;
+	const int32 MaxCount = ((1 << CountBits)-1);
+
+	if (Ar.IsSaving())
+	{
+		int32 Count = TagMap.Num();
+		if (Count > MaxCount)
+		{
+			ABILITY_LOG(Error, TEXT("FMinimapReplicationTagCountMap has too many tags (%d)"), TagMap.Num());
+			Count = MaxCount;
+		}
+
+		Ar.SerializeBits(&Count, CountBits);
+		for(auto& It : TagMap)
+		{
+			FGameplayTag& Tag = It.Key;
+			Tag.NetSerialize(Ar, Map, bOutSuccess);
+			if (--Count <= 0)
+			{
+				break;
+			}
+		}
+	}
+	else
+	{
+		int32 Count = TagMap.Num();
+		Ar.SerializeBits(&Count, CountBits);
+
+		// Reset our local map
+		for(auto& It : TagMap)
+		{
+			It.Value = 0;
+		}
+
+		// See what we have
+		while(Count-- > 0)
+		{
+			FGameplayTag Tag;
+			Tag.NetSerialize(Ar, Map, bOutSuccess);
+			TagMap.FindOrAdd(Tag) = 1;
+		}
+
+		if (Owner)
+		{
+			// Update our tags with owner tags
+			for(auto& It : TagMap)
+			{
+				Owner->SetTagMapCount(It.Key, It.Value);
+			}
+		}
+	}
+
+
+	bOutSuccess = true;
+	return true;
 }

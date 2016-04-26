@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "Common.usf"
@@ -25,7 +25,10 @@ VertexToPixelInterpolants Main(
 
 	float4 WorldPosition = float4(InPosition.xy,0,1);
 
+#if (!(ES2_PROFILE || ES3_1_PROFILE)) || USE_MATERIALS
 	InColor.rgb = sRGBToLinear(InColor.rgb);
+#endif
+
 	float4 FinalVertexColor = InColor FCOLOR_COMPONENT_SWIZZLE;
 
 	VOut.MaterialTexCoords = InMaterialTextureCoordinates;

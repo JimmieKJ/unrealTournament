@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -123,8 +123,8 @@ struct ENGINE_API FAnimSequenceTrackContainer
 
 	void Initialize(TArray<FName> InTrackNames)
 	{
-		TrackNames = InTrackNames;
-		int32 NumNode = TrackNames.Num();
+		TrackNames = MoveTemp(InTrackNames);
+		const int32 NumNode = TrackNames.Num();
 		AnimationTracks.Empty(NumNode);
 		AnimationTracks.AddZeroed(NumNode);
 	}
@@ -656,6 +656,15 @@ public:
 	 */
 	void ExtractBoneTransform(const TArray<struct FRawAnimSequenceTrack> & InRawAnimationData, FTransform& OutAtom, int32 TrackIndex, float Time) const;
 
+	/**
+	* Extract Bone Transform of the Time given, from InRawAnimationData
+	*
+	* @param	InRawAnimationTrack	RawAnimationTrack it extracts bone transform from
+	* @param	OutAtom				[out] Output bone transform.
+	* @param	Time				Time on track to interpolate to.
+	*/
+	void ExtractBoneTransform(const struct FRawAnimSequenceTrack& InRawAnimationTrack, FTransform& OutAtom, float Time) const;
+
 	// End Transform related functions 
 
 	// Begin Memory related functions
@@ -749,6 +758,12 @@ public:
 	 */
 	void BakeTrackCurvesToRawAnimation();
 
+	/**
+	 * Sometimes baked data gets invalidated. For example, if you retarget this from another animation
+	 * It won't matter anymore, so in any case, when the data is not valid anymore
+	 * We clear Source Raw Animation Data as well as Transform Curve
+	 */
+	void ClearBakedTransformData();
 	/**
 	 * Add Key to Transform Curves
 	 */
@@ -878,7 +893,24 @@ private:
 	/** Take a set of marker positions and validates them against a requested start position, updating them as desired */
 	void ValidateCurrentPosition(const FMarkerSyncAnimPosition& Position, bool bPlayingForwards, bool bLooping, float&CurrentTime, FMarkerPair& PreviousMarker, FMarkerPair& NextMarker) const;
 
+#if WITH_EDITOR
+	// Is this animation valid for baking into additive
+	bool CanBakeAdditive() const;
+
+	// Bakes out the additve version of this animation into the raw data (will also recompress)
+	void BakeOutAdditiveIntoRawData();
+#endif
+
+	// Do we calc additive dynamically (true in editor, false if animation had additive baked in during cook)
+	UPROPERTY()
+	bool bCalcAdditiveDynamically;
+
 	friend class UAnimationAsset;
+	friend struct FScopedAnimSequenceCompressedDataCache;
+
+#if WITH_EDITORONLY_DATA
+	bool bCompressedOnCook;
+#endif
 };
 
 

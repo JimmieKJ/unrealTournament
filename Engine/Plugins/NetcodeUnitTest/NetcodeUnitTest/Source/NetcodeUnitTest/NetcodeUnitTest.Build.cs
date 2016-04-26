@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 namespace UnrealBuildTool.Rules
 {
@@ -15,12 +15,21 @@ namespace UnrealBuildTool.Rules
 					"Core",
 					"CoreUObject",
 					"Engine",
-					"EngineSettings",
-					"OnlineSubsystem",
 					"OnlineSubsystemUtils",
+					"Sockets"
+				}
+			);
+
+			PrivateDependencyModuleNames.AddRange
+			(
+				new string[]
+				{
+					"EngineSettings",
 					"InputCore",
-					"SlateCore",
-					"Slate"
+					"OnlineSubsystem",
+					"PacketHandler",
+					"Slate",
+					"SlateCore"
 				}
 			);
 

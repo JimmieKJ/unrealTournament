@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UdpMessagingPrivatePCH.h"
 
@@ -12,13 +12,13 @@ const int32 FUdpMessageProcessor::DeadHelloIntervals = 5;
 /* FUdpMessageProcessor structors
  *****************************************************************************/
 
-FUdpMessageProcessor::FUdpMessageProcessor(FSocket* InSocket, const FGuid& InNodeId, const FIPv4Endpoint& InMulticastEndpoint)
+FUdpMessageProcessor::FUdpMessageProcessor(FSocket& InSocket, const FGuid& InNodeId, const FIPv4Endpoint& InMulticastEndpoint)
 	: Beacon(nullptr)
 	, LastSentMessage(-1)
 	, LocalNodeId(InNodeId)
 	, MulticastEndpoint(InMulticastEndpoint)
-	, Sender(nullptr)
-	, Socket(InSocket)
+	, Socket(&InSocket)
+	, SocketSender(nullptr)
 	, Stopping(false)
 {
 	WorkEvent = FPlatformProcess::GetSynchEventFromPool();
@@ -45,9 +45,22 @@ FUdpMessageProcessor::FUdpMessageProcessor(FSocket* InSocket, const FGuid& InNod
 
 FUdpMessageProcessor::~FUdpMessageProcessor()
 {
+	// shut down worker thread
 	Thread->Kill(true);
-		
 	delete Thread;
+
+	// remove all transport nodes
+	if (NodeLostDelegate.IsBound())
+	{
+		for (auto& KnownNodePair : KnownNodes)
+		{
+			NodeLostDelegate.Execute(KnownNodePair.Key);
+		}
+	}
+
+	KnownNodes.Empty();
+
+	// clean up 
 	FPlatformProcess::ReturnSynchEventToPool(WorkEvent);
 	WorkEvent = nullptr;
 }
@@ -88,7 +101,7 @@ bool FUdpMessageProcessor::EnqueueOutboundMessage(const FUdpSerializedMessageRef
 bool FUdpMessageProcessor::Init()
 {
 	Beacon = new FUdpMessageBeacon(Socket, LocalNodeId, MulticastEndpoint);
-	Sender = new FUdpSocketSender(Socket, TEXT("FUdpMessageProcessor.Sender"));
+	SocketSender = new FUdpSocketSender(Socket, TEXT("FUdpMessageProcessor.Sender"));
 
 	return true;
 }
@@ -104,7 +117,6 @@ uint32 FUdpMessageProcessor::Run()
 
 			ConsumeInboundSegments();
 			ConsumeOutboundMessages();
-
 			UpdateKnownNodes();
 			UpdateStaticNodes();
 		}
@@ -113,8 +125,8 @@ uint32 FUdpMessageProcessor::Run()
 	delete Beacon;
 	Beacon = nullptr;
 
-	delete Sender;
-	Sender = nullptr;
+	delete SocketSender;
+	SocketSender = nullptr;
 
 	return 0;
 }
@@ -151,9 +163,8 @@ void FUdpMessageProcessor::AcknowledgeReceipt(int32 MessageId, const FNodeInfo& 
 		Writer << AcknowledgeChunk;
 	}
 
-	int32 Sent;
-
-	Socket->SendTo(Writer.GetData(), Writer.Num(), Sent, *NodeInfo.Endpoint.ToInternetAddr());
+	int32 OutSent;
+	Socket->SendTo(Writer.GetData(), Writer.Num(), OutSent, *NodeInfo.Endpoint.ToInternetAddr());
 }
 
 
@@ -288,8 +299,8 @@ bool FUdpMessageProcessor::FilterSegment(const FUdpMessageSegment::FHeader& Head
 void FUdpMessageProcessor::ProcessAbortSegment(FInboundSegment& Segment, FNodeInfo& NodeInfo)
 {
 	FUdpMessageSegment::FAbortChunk AbortChunk;
-
 	*Segment.Data << AbortChunk;
+
 	NodeInfo.Segmenters.Remove(AbortChunk.MessageId);
 }
 
@@ -297,8 +308,8 @@ void FUdpMessageProcessor::ProcessAbortSegment(FInboundSegment& Segment, FNodeIn
 void FUdpMessageProcessor::ProcessAcknowledgeSegment(FInboundSegment& Segment, FNodeInfo& NodeInfo)
 {
 	FUdpMessageSegment::FAcknowledgeChunk AcknowledgeChunk;
-
 	*Segment.Data << AcknowledgeChunk;
+
 	NodeInfo.Segmenters.Remove(AcknowledgeChunk.MessageId);
 }
 
@@ -306,7 +317,6 @@ void FUdpMessageProcessor::ProcessAcknowledgeSegment(FInboundSegment& Segment, F
 void FUdpMessageProcessor::ProcessByeSegment(FInboundSegment& Segment, FNodeInfo& NodeInfo)
 {
 	FGuid RemoteNodeId;
-
 	*Segment.Data << RemoteNodeId;
 
 	if (RemoteNodeId.IsValid() && (RemoteNodeId == NodeInfo.NodeId))
@@ -319,7 +329,6 @@ void FUdpMessageProcessor::ProcessByeSegment(FInboundSegment& Segment, FNodeInfo
 void FUdpMessageProcessor::ProcessDataSegment(FInboundSegment& Segment, FNodeInfo& NodeInfo)
 {
 	FUdpMessageSegment::FDataChunk DataChunk;
-
 	*Segment.Data << DataChunk;
 
 	// Discard late segments for sequenced messages
@@ -373,7 +382,6 @@ void FUdpMessageProcessor::ProcessDataSegment(FInboundSegment& Segment, FNodeInf
 void FUdpMessageProcessor::ProcessHelloSegment(FInboundSegment& Segment, FNodeInfo& NodeInfo)
 {
 	FGuid RemoteNodeId;
-
 	*Segment.Data << RemoteNodeId;
 
 	if (RemoteNodeId.IsValid())
@@ -386,7 +394,6 @@ void FUdpMessageProcessor::ProcessHelloSegment(FInboundSegment& Segment, FNodeIn
 void FUdpMessageProcessor::ProcessRetransmitSegment(FInboundSegment& Segment, FNodeInfo& NodeInfo)
 {
 	FUdpMessageSegment::FRetransmitChunk RetransmitChunk;
-
 	*Segment.Data << RetransmitChunk;
 
 	TSharedPtr<FUdpMessageSegmenter> Segmenter = NodeInfo.Segmenters.FindRef(RetransmitChunk.MessageId);
@@ -401,7 +408,6 @@ void FUdpMessageProcessor::ProcessRetransmitSegment(FInboundSegment& Segment, FN
 void FUdpMessageProcessor::ProcessTimeoutSegment(FInboundSegment& Segment, FNodeInfo& NodeInfo)
 {
 	FUdpMessageSegment::FTimeoutChunk TimeoutChunk;
-
 	*Segment.Data << TimeoutChunk;
 
 	TSharedPtr<FUdpMessageSegmenter> Segmenter = NodeInfo.Segmenters.FindRef(TimeoutChunk.MessageId);
@@ -422,7 +428,6 @@ void FUdpMessageProcessor::ProcessUnknownSegment(FInboundSegment& Segment, FNode
 void FUdpMessageProcessor::RemoveKnownNode(const FGuid& NodeId)
 {
 	NodeLostDelegate.ExecuteIfBound(NodeId);
-
 	KnownNodes.Remove(NodeId);
 }
 
@@ -431,7 +436,6 @@ void FUdpMessageProcessor::UpdateKnownNodes()
 {
 	// remove dead remote endpoints
 	FTimespan DeadHelloTimespan = DeadHelloIntervals * Beacon->GetBeaconInterval();
-
 	TArray<FGuid> NodesToRemove;
 
 	for (auto& KnownNodePair : KnownNodes)
@@ -451,8 +455,7 @@ void FUdpMessageProcessor::UpdateKnownNodes()
 
 	for (const auto& Node : NodesToRemove)
 	{
-		// @todo udpmessaging: gmp: put this back in after testing
-		//RemoveKnownNode(Node);
+		RemoveKnownNode(Node);
 	}
 
 	Beacon->SetEndpointCount(KnownNodes.Num() + 1);
@@ -484,22 +487,21 @@ void FUdpMessageProcessor::UpdateSegmenters(FNodeInfo& NodeInfo)
 				DataChunk.MessageId = It.Key();
 				DataChunk.MessageSize = Segmenter->GetMessageSize();
 				DataChunk.SegmentOffset = 1024 * DataChunk.SegmentNumber;
-				DataChunk.Sequence = 0;
+				DataChunk.Sequence = 0; // @todo gmp: implement message sequencing
 				DataChunk.TotalSegments = Segmenter->GetSegmentCount();
 
-				FArrayWriter Writer;
-
-				Writer << Header;
-				Writer << DataChunk;
-
-				if (Sender->Send(MakeShareable(new TArray<uint8>(Writer)), NodeInfo.Endpoint))
+				TSharedRef<FArrayWriter, ESPMode::ThreadSafe> Writer = MakeShareable(new FArrayWriter);
 				{
-					Segmenter->MarkAsSent(DataChunk.SegmentNumber);
+					*Writer << Header;
+					*Writer << DataChunk;
 				}
-				else
+
+				if (!SocketSender->Send(Writer, NodeInfo.Endpoint))
 				{
 					return;
-				}
+ 				}
+
+				Segmenter->MarkAsSent(DataChunk.SegmentNumber);
 			}
 
 			It.RemoveCurrent();

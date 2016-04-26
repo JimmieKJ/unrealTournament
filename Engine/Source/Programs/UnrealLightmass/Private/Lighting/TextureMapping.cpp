@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "stdafx.h"
 #include "Raster.h"
@@ -3569,11 +3569,11 @@ void FStaticLightingSystem::ColorInvalidLightmapUVs(
 		FGuid ObjectGuid = TextureMapping->Mesh->GetObjectGuid();
 		if (bHasWrappingUVs)
 		{
-			GSwarm->SendAlertMessage(NSwarm::ALERT_LEVEL_ERROR, ObjectGuid, TypeId, TEXT("LightmassError_ObjectWrappedUVs"));
+			GSwarm->SendAlertMessage(NSwarm::ALERT_LEVEL_WARNING, ObjectGuid, TypeId, TEXT("LightmassError_ObjectWrappedUVs"));
 		}
 		if (bHasOverlappedUVs && NormalizedOverlap > OverlapThreshold)
 		{
-			GSwarm->SendAlertMessage(NSwarm::ALERT_LEVEL_ERROR, ObjectGuid, TypeId, TEXT("LightmassError_ObjectOverlappedUVs"));
+			GSwarm->SendAlertMessage(NSwarm::ALERT_LEVEL_WARNING, ObjectGuid, TypeId, TEXT("LightmassError_ObjectOverlappedUVs"));
 			FString Info = FString::Printf(TEXT("Lightmap UV are overlapping by %0.1f%%. Please adjust content - Enable Error Coloring to visualize."), NormalizedOverlap * 100.0f);
 			GSwarm->SendAlertMessage(NSwarm::ALERT_LEVEL_INFO, ObjectGuid, TypeId, Info.GetCharArray().GetData());
 		}

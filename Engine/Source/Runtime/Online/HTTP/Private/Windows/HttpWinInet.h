@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -86,6 +86,7 @@ public:
 	virtual void SetContent(const TArray<uint8>& ContentPayload) override;
 	virtual void SetContentAsString(const FString& ContentString) override;
 	virtual void SetHeader(const FString& HeaderName, const FString& HeaderValue) override;
+	virtual void AppendToHeader(const FString& HeaderName, const FString& AdditionalHeaderValue) override;
 	virtual bool ProcessRequest() override;
 	virtual FHttpRequestCompleteDelegate& OnProcessRequestComplete() override;
 	virtual FHttpRequestProgressDelegate& OnRequestProgress() override;
@@ -274,6 +275,8 @@ private:
 	int32 volatile bIsReady;
 	/** True if the response was successfully received/processed */
 	int32 volatile bResponseSucceeded;
+	/** Whether or not the request was actually sent */
+	int32 volatile bRequestSent;
 	/** Threadsafe counter for exchanging bytes read so far with main thread tick */
 	FThreadSafeCounter ProgressBytesRead;
 	/** Max buffer size for individual http reads */

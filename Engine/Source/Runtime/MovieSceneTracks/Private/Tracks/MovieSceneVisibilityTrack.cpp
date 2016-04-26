@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneTracksPrivatePCH.h"
 #include "MovieSceneVisibilityTrack.h"
@@ -7,8 +7,11 @@
 #include "MovieSceneVisibilityTrackInstance.h"
 
 
-UMovieSceneVisibilityTrack::UMovieSceneVisibilityTrack( const FObjectInitializer& ObjectInitializer )
-	: Super( ObjectInitializer )
+#define LOCTEXT_NAMESPACE "MovieSceneVisibilityTrack"
+
+
+UMovieSceneVisibilityTrack::UMovieSceneVisibilityTrack(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 { }
 
 
@@ -20,5 +23,16 @@ UMovieSceneSection* UMovieSceneVisibilityTrack::CreateNewSection()
 
 TSharedPtr<IMovieSceneTrackInstance> UMovieSceneVisibilityTrack::CreateInstance()
 {
-	return MakeShareable( new FMovieSceneVisibilityTrackInstance( *this ) );
+	return MakeShareable(new FMovieSceneVisibilityTrackInstance(*this));
 }
+
+
+#if WITH_EDITORONLY_DATA
+FText UMovieSceneVisibilityTrack::GetDefaultDisplayName() const
+{
+	return LOCTEXT("DisplayName", "Visibility");
+}
+#endif
+
+
+#undef LOCTEXT_NAMESPACE

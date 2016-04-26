@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemSteamPrivatePCH.h"
 #include "OnlineSessionInterfaceSteam.h"
@@ -1015,6 +1015,11 @@ void FOnlineAsyncTaskSteamFindServerBase::Tick()
 			UE_LOG_ONLINE(Verbose, TEXT(" \"%s\" \"%s\" "), UTF8_TO_TCHAR(Filters[FilterIdx].m_szKey), UTF8_TO_TCHAR(Filters[FilterIdx].m_szValue));
 		}
 #endif
+
+		if (SearchSettings->MaxSearchResults <= 0)
+		{
+			UE_LOG_ONLINE(Warning, TEXT("FOnlineAsyncTaskSteamFindServerBase::Tick - SearchSettings->MaxSearchResults should be greater than 0, but it is currently %d. No search results will be found."), SearchSettings->MaxSearchResults);
+		}
 
 		ServerListRequestHandle = SteamMatchmakingServersPtr->RequestInternetServerList(Subsystem->GetSteamAppId(), &Filters, NumFilters, this);
 		if (ServerListRequestHandle == NULL)

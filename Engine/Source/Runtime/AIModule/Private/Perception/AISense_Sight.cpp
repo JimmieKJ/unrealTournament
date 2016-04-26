@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
 #include "Perception/AISightTargetInterface.h"
@@ -97,8 +97,6 @@ UAISense_Sight::UAISense_Sight(const FObjectInitializer& ObjectInitializer)
 		OnListenerRemovedDelegate.BindUObject(this, &UAISense_Sight::OnListenerRemovedImpl);
 	}
 
-	DebugDrawColor = FColor::Green;
-	DebugName = TEXT("Sight");
 	NotifyType = EAISenseNotifyType::OnPerceptionChange;
 	
 	bAutoRegisterAllPawnsAsSources = true;
@@ -605,16 +603,3 @@ void UAISense_Sight::OnListenerForgetsAll(const FPerceptionListener& Listener)
 		}
 	}
 }
-
-#if !UE_BUILD_SHIPPING
-//----------------------------------------------------------------------//
-// DEBUG
-//----------------------------------------------------------------------//
-FString UAISense_Sight::GetDebugLegend() const
-{
-	static const FColor SightColor = GetDebugSightRangeColor(); 
-	static const FColor LoseSightColor = GetDebugLoseSightColor();
-
-	return FString::Printf(TEXT("{%s} Sight, {%s} Lose Sight,"), *SightColor.ToString(), *LoseSightColor.ToString());
-}
-#endif // !UE_BUILD_SHIPPING

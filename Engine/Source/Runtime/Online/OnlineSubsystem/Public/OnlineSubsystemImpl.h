@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -14,6 +14,14 @@ class ONLINESUBSYSTEM_API FOnlineSubsystemImpl
 	: public IOnlineSubsystem
 	, public FTickerObjectBase
 {
+private:
+
+	/**
+	 * Exec function handling for Exec() call
+	 */
+	bool HandleFriendExecCommands(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleSessionExecCommands(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar);
+
 protected:
 
 	/** Hidden on purpose */
@@ -55,6 +63,8 @@ public:
 	virtual bool IsLocalPlayer(const FUniqueNetId& UniqueId) const override;
 	virtual void SetUsingMultiplayerFeatures(const FUniqueNetId& UniqueId, bool bUsingMP) override {};
 	virtual EOnlineEnvironment::Type GetOnlineEnvironment() const override { return EOnlineEnvironment::Unknown; }
+	virtual IMessageSanitizerPtr GetMessageSanitizer(int32 LocalUserNum, FString& OutAuthTypeToExclude) const override;
+	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override;
 
 	// FTickerObjectBase
 

@@ -48,11 +48,11 @@
 	<key>LSBackgroundOnly</key>
 	<true/>
 	<key>LSMinimumSystemVersion</key>
-	<string>${MACOSX_DEPLOYMENT_TARGET}</string>
+	<string>10.9</string>
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright 2014-2015 Epic Games, Inc. All rights reserved.</string>
+	<string>Copyright 2014-2016 Epic Games, Inc. All rights reserved.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>NSServices</key>

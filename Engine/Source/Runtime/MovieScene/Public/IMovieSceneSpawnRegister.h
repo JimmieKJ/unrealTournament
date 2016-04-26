@@ -1,11 +1,30 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "MovieSceneSequenceInstance.h"
+#include "MovieSceneSpawnable.h"
+#include "ValueOrError.h"
+
+ enum class ESpawnOwnership : uint8;
 
 class IMovieScenePlayer;
 class FMovieSceneSequenceInstance;
+class UMovieScene;
+struct FMovieSceneSpawnable;
+
+/** Struct used for defining a new spawnable type */
+struct FNewSpawnable
+{
+	FNewSpawnable() : Blueprint(nullptr) {}
+	FNewSpawnable(UBlueprint* InBlueprint, FString InName) : Blueprint(InBlueprint), Name(MoveTemp(InName)) {}
+
+	/** The blueprint that defines the spawnable */
+	UBlueprint* Blueprint;
+
+	/** The desired name of the new spawnable */
+	FString Name;
+};
 
 /**
  * Class responsible for managing spawnables in a movie scene
@@ -35,21 +54,12 @@ public:
 	virtual void DestroySpawnedObject(const FGuid& Object, FMovieSceneSequenceInstance& Instance, IMovieScenePlayer& Player) = 0;
 
 	/**
-	 * Destroy all objects spawned, and owned, by the specified sequence instance
-	 * @note this only destorys objects that the specified sequence instance has direct ownership of (ownership == InnerSequence)
+	 * Destroy spawned objects using a custom predicate
 	 *
-	 * @param Instance 		Sequence instance that is destroying the objects
 	 * @param Player 		Movie scene player that is ultimately responsible for destroying the objects
+	 * @param Predicate		Predicate used for testing whether an object should be destroyed. Returns true for destruction, false to skip.
 	 */
-	virtual void DestroyObjectsOwnedByInstance(FMovieSceneSequenceInstance& Instance, IMovieScenePlayer& Player) = 0;
-
-	/**
-	 * Destroy all objects that have ever been spawned by the specified sequence instance (regardless of ownership)
-	 *
-	 * @param Instance 		Sequence instance that is destroying the objects
-	 * @param Player 		Movie scene player that is ultimately responsible for destroying the objects
-	 */
-	virtual void DestroyObjectsSpawnedByInstance(FMovieSceneSequenceInstance& Instance, IMovieScenePlayer& Player) = 0;
+	virtual void DestroyObjectsByPredicate(IMovieScenePlayer& Player, const TFunctionRef<bool(const FGuid&, ESpawnOwnership, FMovieSceneSequenceInstance&)>& Predicate) = 0;
 
 	/**
 	 * Purge any memory of any objects that are considered externally owned
@@ -57,20 +67,6 @@ public:
 	 * @param Player 		Movie scene player that is ultimately responsible for destroying the objects
 	 */
 	virtual void ForgetExternallyOwnedSpawnedObjects(IMovieScenePlayer& Player) = 0;
-
-	/**
-	 * Destroy all objects that this spawn register has responsibility for (Ownership != External)
-	 *
-	 * @param Player 		Movie scene player that is ultimately responsible for destroying the objects
-	 */
-	virtual void DestroyAllOwnedObjects(IMovieScenePlayer& Player) = 0;
-
-	/**
-	 * Destroy all objects that we have ever spawned
-	 *
-	 * @param Player 		Movie scene player that is ultimately responsible for destroying the objects
-	 */
-	virtual void DestroyAllObjects(IMovieScenePlayer& Player) = 0;
 
 	/**
 	 * Called before a sequence instance is about to update
@@ -87,20 +83,86 @@ public:
 	 * @param Player 		The player that is playing the movie scene
 	 */
 	virtual void PostUpdateSequenceInstance(FMovieSceneSequenceInstance& Instance, IMovieScenePlayer& Player) { }
-};
 
+#if WITH_EDITOR
+	/**
+	 * Create a new spawnable type from the given source object
+	 *
+	 * @param SourceObject		The source object to create the spawnable from
+	 * @param OwnerMovieScene	The owner movie scene that this spawnable type should reside in
+	 * @return the new spawnable type, or error
+	 */
+	virtual TValueOrError<FNewSpawnable, FText> CreateNewSpawnableType(UObject& SourceObject, UMovieScene& OwnerMovieScene) { return MakeError(NSLOCTEXT("SpawnRegister", "NotSupported", "Not supported")); }
+
+	/**
+	 * Called to test whether an expired object can be destroyed or not
+	 *
+	 * @param Object 			ID of the object to destroy
+	 * @param Ownership 		The ownership of the object
+	 * @param SequenceInstance	The sequence instance that spawned this object
+	 * @return true if it can be destroyed, false otherwise
+	 */
+	virtual bool CanDestroyExpiredObject(const FGuid& ObjectId, ESpawnOwnership Ownership, FMovieSceneSequenceInstance& SequenceInstance) { return true; }
+
+#endif
+
+public:
+
+	/**
+	 * Called to indiscriminately clean up any spawned objects
+	 */
+	void CleanUp(IMovieScenePlayer& Player)
+	{
+		DestroyObjectsByPredicate(Player, [&](const FGuid&, ESpawnOwnership, FMovieSceneSequenceInstance&){
+			return true;
+		});
+	}
+
+	/**
+	 * Called to clean up any non-externally owned spawnables that were spawned from the specified instance
+	 */
+	void CleanUpSequence(FMovieSceneSequenceInstance& Instance, IMovieScenePlayer& Player)
+	{
+		DestroyObjectsByPredicate(Player, [&](const FGuid&, ESpawnOwnership, FMovieSceneSequenceInstance& SequenceInstance){
+			return &Instance == &SequenceInstance;
+		});
+	}
+
+	/**
+	 * Called when the current time has moved beyond the specified sequence's play range
+	 */
+	void OnSequenceExpired(FMovieSceneSequenceInstance& Instance, IMovieScenePlayer& Player)
+	{
+		DestroyObjectsByPredicate(Player, [&](const FGuid& ObjectId, ESpawnOwnership Ownership, FMovieSceneSequenceInstance& SequenceInstance){
+			return	(Ownership == ESpawnOwnership::InnerSequence)
+				&&	(&Instance == &SequenceInstance)
+#if WITH_EDITOR
+				&&	CanDestroyExpiredObject(ObjectId, Ownership, SequenceInstance)
+#endif
+				;
+		});
+	}
+
+#if WITH_EDITOR
+	/**
+	 * Called when the current time has moved beyond the master sequence's play range
+	 */
+	void OnMasterSequenceExpired(IMovieScenePlayer& Player)
+	{
+		DestroyObjectsByPredicate(Player, [&](const FGuid& ObjectId, ESpawnOwnership Ownership, FMovieSceneSequenceInstance& SequenceInstance){
+			return Ownership != ESpawnOwnership::External && CanDestroyExpiredObject(ObjectId, Ownership, SequenceInstance);
+		});
+	}
+#endif
+};
 
 class FNullMovieSceneSpawnRegister : public IMovieSceneSpawnRegister
 {
 public:
-	// These 2 functions ensure because they should never be called for sequences that don't support spawnables
 	virtual UObject* SpawnObject(const FGuid& Object, FMovieSceneSequenceInstance&, IMovieScenePlayer&) override { check(false); return nullptr; }
-	virtual void DestroySpawnedObject(const FGuid& Object, FMovieSceneSequenceInstance&, IMovieScenePlayer&) override { check(false); }
-	virtual void DestroyObjectsOwnedByInstance(FMovieSceneSequenceInstance&, IMovieScenePlayer&) override { }
-	virtual void DestroyObjectsSpawnedByInstance(FMovieSceneSequenceInstance&, IMovieScenePlayer&) override { }
-	virtual void DestroyAllOwnedObjects(IMovieScenePlayer&) override { }
+	virtual void DestroySpawnedObject(const FGuid& Object, FMovieSceneSequenceInstance&, IMovieScenePlayer&) override { }
+	virtual void DestroyObjectsByPredicate(IMovieScenePlayer& Player, const TFunctionRef<bool(const FGuid&, ESpawnOwnership, FMovieSceneSequenceInstance&)>& Predicate) { }
 	virtual void ForgetExternallyOwnedSpawnedObjects(IMovieScenePlayer& Player) override { }
-	virtual void DestroyAllObjects(IMovieScenePlayer&) override { }
 };
 
 /**

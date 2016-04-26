@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintEditorPrivatePCH.h"
 
@@ -516,10 +516,10 @@ FText DiffViewUtils::PropertyDiffMessage(FSingleObjectDiffEntry Difference, FTex
 	switch (Difference.DiffType)
 	{
 	case EPropertyDiffType::PropertyAddedToA:
-		Message = FText::Format(NSLOCTEXT("DiffViewUtils", "PropertyValueChange", "{0} removed from {1}"), FText::FromString(PropertyName), ObjectName);
+		Message = FText::Format(NSLOCTEXT("DiffViewUtils", "PropertyValueChange_Removed", "{0} removed from {1}"), FText::FromString(PropertyName), ObjectName);
 		break;
 	case EPropertyDiffType::PropertyAddedToB:
-		Message = FText::Format(NSLOCTEXT("DiffViewUtils", "PropertyValueChange", "{0} added to {1}"), FText::FromString(PropertyName), ObjectName);
+		Message = FText::Format(NSLOCTEXT("DiffViewUtils", "PropertyValueChange_Added", "{0} added to {1}"), FText::FromString(PropertyName), ObjectName);
 		break;
 	case EPropertyDiffType::PropertyValueChanged:
 		Message = FText::Format(NSLOCTEXT("DiffViewUtils", "PropertyValueChange", "{0} changed value in {1}"), FText::FromString(PropertyName), ObjectName);
@@ -538,13 +538,13 @@ FText DiffViewUtils::SCSDiffMessage(const FSCSDiffEntry& Difference, FText Objec
 		Text = FText::Format(NSLOCTEXT("DiffViewUtils", "NodeAdded", "Added Node {0} to {1}"), NodeName, ObjectName);
 		break;
 	case ETreeDiffType::NODE_REMOVED:
-		Text = FText::Format(NSLOCTEXT("DiffViewUtils", "NodeAdded", "Removed Node {0} from {1}"), NodeName, ObjectName);
+		Text = FText::Format(NSLOCTEXT("DiffViewUtils", "NodeRemoved", "Removed Node {0} from {1}"), NodeName, ObjectName);
 		break;
 	case ETreeDiffType::NODE_PROPERTY_CHANGED:
-		Text = FText::Format(NSLOCTEXT("DiffViewUtils", "NodeAdded", "{0} on {1}"), DiffViewUtils::PropertyDiffMessage(Difference.PropertyDiff, NodeName), ObjectName);
+		Text = FText::Format(NSLOCTEXT("DiffViewUtils", "NodeChanged", "{0} on {1}"), DiffViewUtils::PropertyDiffMessage(Difference.PropertyDiff, NodeName), ObjectName);
 		break;
 	case ETreeDiffType::NODE_MOVED:
-		Text = FText::Format(NSLOCTEXT("DiffViewUtils", "NodeAdded", "Moved Node {0} in {1}"), NodeName, ObjectName);
+		Text = FText::Format(NSLOCTEXT("DiffViewUtils", "NodeMoved", "Moved Node {0} in {1}"), NodeName, ObjectName);
 		break;
 	}
 	return Text;

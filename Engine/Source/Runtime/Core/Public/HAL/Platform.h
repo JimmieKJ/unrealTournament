@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -34,6 +34,9 @@
 #endif
 #if !defined(PLATFORM_ANDROID_X64)
 	#define PLATFORM_ANDROID_X64 0
+#endif
+#if !defined(PLATFORM_ANDROID_VULKAN)
+	#define PLATFORM_ANDROID_VULKAN 0
 #endif
 #if !defined(PLATFORM_ANDROIDGL4)
 	#define PLATFORM_ANDROIDGL4 0
@@ -147,7 +150,7 @@
 	#define PLATFORM_ENABLE_VECTORINTRINSICS	0
 #endif
 #ifndef PLATFORM_HAS_CPUID
-	#if defined(_M_IX86) || defined(__i386__)
+	#if defined(_M_IX86) || defined(__i386__) || defined(_M_X64) || defined(__x86_64__) || defined (__amd64__) 
 		#define PLATFORM_HAS_CPUID				1
 	#else
 		#define PLATFORM_HAS_CPUID				0
@@ -246,6 +249,10 @@
 	#define PLATFORM_USES_ES2					0
 #endif
 
+#ifndef PLATFORM_BUILTIN_VERTEX_HALF_FLOAT
+	#define PLATFORM_BUILTIN_VERTEX_HALF_FLOAT	1
+#endif
+
 #ifndef PLATFORM_SUPPORTS_TBB
 	#define PLATFORM_SUPPORTS_TBB 0
 #endif
@@ -266,6 +273,10 @@
 	#define PLATFORM_USES_FIXED_RHI_CLASS		0
 #endif
 
+#ifndef PLATFORM_USES_FIXED_GMalloc_CLASS
+	#define PLATFORM_USES_FIXED_GMalloc_CLASS		0
+#endif
+
 #ifndef PLATFORM_SUPPORTS_MULTIPLE_NATIVE_WINDOWS
 	#define PLATFORM_SUPPORTS_MULTIPLE_NATIVE_WINDOWS	1
 #endif
@@ -278,6 +289,10 @@
 	#define PLATFORM_SUPPORTS_STACK_SYMBOLS 0
 #endif
 
+#ifndef PLATFORM_HAS_64BIT_ATOMICS
+	#define PLATFORM_HAS_64BIT_ATOMICS 1
+#endif
+
 #ifndef PLATFORM_HAS_128BIT_ATOMICS
 	#define PLATFORM_HAS_128BIT_ATOMICS 0
 #endif
@@ -288,10 +303,6 @@
 
 #ifndef PLATFORM_RHITHREAD_DEFAULT_BYPASS
 	#define PLATFORM_RHITHREAD_DEFAULT_BYPASS					1
-#endif
-
-#ifndef PLATFORM_CAN_TOGGLE_RHITHREAD_IN_SHIPPING
-	#define PLATFORM_CAN_TOGGLE_RHITHREAD_IN_SHIPPING			0
 #endif
 
 // deprecated, do not use
@@ -313,25 +324,28 @@
 #define PLATFORM_VTABLE_AT_END_OF_CLASS 0 
 
 #ifndef VARARGS
-	#define VARARGS					/* Functions with variable arguments */
+	#define VARARGS									/* Functions with variable arguments */
 #endif
 #ifndef CDECL
-	#define CDECL	    			/* Standard C function */
+	#define CDECL	    							/* Standard C function */
 #endif
 #ifndef STDCALL
-	#define STDCALL					/* Standard calling convention */
+	#define STDCALL									/* Standard calling convention */
 #endif
 #ifndef FORCEINLINE
-	#define FORCEINLINE 			/* Force code to be inline */
+	#define FORCEINLINE 							/* Force code to be inline */
 #endif
 #ifndef FORCENOINLINE
-	#define FORCENOINLINE 			/* Force code to NOT be inline */
+	#define FORCENOINLINE 							/* Force code to NOT be inline */
 #endif
 #ifndef RESTRICT
-	#define RESTRICT __restrict		/* no alias hint */
+	#define RESTRICT __restrict						/* no alias hint */
+#endif
+#ifndef FUNCTION_CHECK_RETURN
+	#define FUNCTION_CHECK_RETURN(...) __VA_ARGS__	/* Wrap a function signature in this to warn that callers should not ignore the return value */
 #endif
 
-#ifndef ASSUME						/* Hints compiler that expression is true; generally restricted to comparisons against constants */
+#ifndef ASSUME										/* Hints compiler that expression is true; generally restricted to comparisons against constants */
 	#define ASSUME(...) 
 #endif
 
@@ -433,8 +447,8 @@
 #endif
 
 // Prefetch
-#ifndef CACHE_LINE_SIZE
-	#define CACHE_LINE_SIZE	128
+#ifndef PLATFORM_CACHE_LINE_SIZE
+	#define PLATFORM_CACHE_LINE_SIZE	128
 #endif
 
 // These have to be forced inline on some OSes so the dynamic loader will not 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AndroidFile.cpp: Android platform implementations of File functions
@@ -175,7 +175,7 @@ public:
 		int64 start, int64 length)
 		: File(base.File)
 		, Start(base.Start + start), Length(length)
-		, CurrentOffset(0)
+		, CurrentOffset(base.Start + start)
 	{
 		CheckValid();
 		LogInfo();
@@ -491,8 +491,8 @@ public:
 	}
 };
 
-FManifestReader NonUFSManifest(TEXT("Manifest_NonUFSFiles.txt"));
-FManifestReader UFSManifest(TEXT("Manifest_UFSFiles.txt"));
+FManifestReader NonUFSManifest(TEXT("Manifest_NonUFSFiles_Android.txt"));
+FManifestReader UFSManifest(TEXT("Manifest_UFSFiles_Android.txt"));
 
 /*
 	Access to files in multiple ZIP archives.
@@ -1799,6 +1799,7 @@ private:
 		{
 			if ((AllowLocal && AndroidPath.StartsWith(TEXT("/"))) ||
 				AndroidPath.StartsWith(GFontPathBase) ||
+				AndroidPath.StartsWith(TEXT("/system/etc/")) ||
 				AndroidPath.StartsWith(GExternalFilePath.Left(AndroidPath.Len())))
 			{
 				// Absolute paths are only local.

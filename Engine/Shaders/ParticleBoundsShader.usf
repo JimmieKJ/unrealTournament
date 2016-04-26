@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*==============================================================================
 	ParticleBoundsShader.usf: Shader to compute the bounds of GPU particles.
@@ -24,7 +24,13 @@
 #define MIN_FLT (-3.402823466e+38f)
 
 /** Input buffer containing particle indices. */
-Buffer<float2> InParticleIndices;
+#if COMPILER_METAL
+#undef half2
+#define vec2 half2
+#else
+#define vec2 float2
+#endif
+Buffer<vec2> InParticleIndices;
 /** Texture containing particle positions. */
 Texture2D PositionTexture;
 
@@ -80,7 +86,7 @@ void ComputeParticleBounds(
 		if ( InputIndex < ParticleBounds.ParticleCount )
 		{
 			// Read in the particle index and its position.
-			const float2 ParticleIndex = InParticleIndices[InputIndex];
+			const float2 ParticleIndex = float2(InParticleIndices[InputIndex]);
 			int3 ParticleTexel = int3(ParticleIndex.xy * int2(TEXTURE_SIZE_X, TEXTURE_SIZE_Y), 0);
 			const float4 ParticlePosition = PositionTexture.Load(ParticleTexel);
 			if ( ParticlePosition.w <= 1.0f )

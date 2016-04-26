@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ShadowSetup.cpp: Dynamic shadow setup implementation.
@@ -140,7 +140,7 @@ static TAutoConsoleVariable<int32> CVarUseConservativeShadowBounds(
 	TEXT("Whether to use safe and conservative shadow frustum creation that wastes some shadowmap space"),
 	ECVF_RenderThreadSafe);
 
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if !UE_BUILD_SHIPPING
 // read and written on the render thread
 bool GDumpShadowSetup = false;
 void DumpShadowDumpSetup()
@@ -157,7 +157,7 @@ FAutoConsoleCommand CmdDumpShadowDumpSetup(
 	TEXT("Dump shadow setup (for developer only, only for non shiping build)"),
 	FConsoleCommandDelegate::CreateStatic(DumpShadowDumpSetup)
 	);
-#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#endif // !UE_BUILD_SHIPPING
 
 /**
  * Helper function to determine fade alpha value for shadows based on resolution. In the below ASCII art (1) is
@@ -177,11 +177,9 @@ FAutoConsoleCommand CmdDumpShadowDumpSetup(
  *
  * @return	fade value between 0 and 1
  */
-float CalculateShadowFadeAlpha(float MaxUnclampedResolution, int32 ShadowFadeResolution, int32 MinShadowResolution)
+float CalculateShadowFadeAlpha(const float MaxUnclampedResolution, const uint32 ShadowFadeResolution, const uint32 MinShadowResolution)
 {
-	check(MaxUnclampedResolution >= 0);
-	check(ShadowFadeResolution >= 0);
-	check(MinShadowResolution >= 0);
+	// NB: MaxUnclampedResolution < 0 will return FadeAlpha = 0.0f. 
 
 	float FadeAlpha = 0.0f;
 	// Shadow size is above fading resolution.
@@ -192,11 +190,23 @@ float CalculateShadowFadeAlpha(float MaxUnclampedResolution, int32 ShadowFadeRes
 	// Shadow size is below fading resolution but above min resolution.
 	else if (MaxUnclampedResolution > MinShadowResolution)
 	{
-		const float InverseRange = 1.0f / (ShadowFadeResolution - MinShadowResolution);
-		const float FirstFadeValue = FMath::Pow(InverseRange, CVarShadowFadeExponent.GetValueOnRenderThread());
-		const float SizeRatio = (float)(MaxUnclampedResolution - MinShadowResolution) * InverseRange;
-		// Rescale the fade alpha to reduce the change between no fading and the first value, which reduces popping with small ShadowFadeExponent's
-		FadeAlpha = (FMath::Pow(SizeRatio, CVarShadowFadeExponent.GetValueOnRenderThread()) - FirstFadeValue) / (1.0f - FirstFadeValue);
+		const float Exponent = CVarShadowFadeExponent.GetValueOnRenderThread();
+		
+		// Use the limit case ShadowFadeResolution = MinShadowResolution
+		// to gracefully handle this case.
+		if (MinShadowResolution >= ShadowFadeResolution)
+		{
+			const float SizeRatio = (float)(MaxUnclampedResolution - MinShadowResolution);
+			FadeAlpha = 1.0f - FMath::Pow(SizeRatio, Exponent);
+		} 
+		else
+		{
+			const float InverseRange = 1.0f / (ShadowFadeResolution - MinShadowResolution);
+			const float FirstFadeValue = FMath::Pow(InverseRange, Exponent);
+			const float SizeRatio = (float)(MaxUnclampedResolution - MinShadowResolution) * InverseRange;
+			// Rescale the fade alpha to reduce the change between no fading and the first value, which reduces popping with small ShadowFadeExponent's
+			FadeAlpha = (FMath::Pow(SizeRatio, Exponent) - FirstFadeValue) / (1.0f - FirstFadeValue);
+		}
 	}
 	return FadeAlpha;
 }
@@ -442,7 +452,8 @@ bool FProjectedShadowInfo::SetupPerObjectProjection(
 		}
 		else
 		{
-			ProjectedBoundsPoints.Add(FVector(FLT_MAX, FLT_MAX, FLT_MAX));
+			//ProjectedBoundsPoints.Add(FVector(FLT_MAX, FLT_MAX, FLT_MAX));
+			return false;
 		}
 	}
 
@@ -491,22 +502,29 @@ bool FProjectedShadowInfo::SetupPerObjectProjection(
 
 		MinPreSubjectZ = Initializer.MinLightW;
 
-		ResolutionY = FMath::Min<uint32>(FMath::TruncToInt(InResolutionX / AspectRatio), MaxShadowResolutionY);
+		ResolutionY = FMath::Clamp<uint32>(FMath::TruncToInt(InResolutionX / AspectRatio), 1, MaxShadowResolutionY);
 
-		// Store the view matrix
-		// Reorder the vectors to match the main view, since ShadowViewMatrix will be used to override the main view's view matrix during shadow depth rendering
-		ShadowViewMatrix = Initializer.WorldToLight * 
-			FMatrix(
-				FPlane(0,	0,	1,	0),
-				FPlane(1,	0,	0,	0),
-				FPlane(0,	1,	0,	0),
-				FPlane(0,	0,	0,	1));
+		if (ResolutionX == 0 || ResolutionY == 0)
+		{
+			bRet = false;
+		}
+		else
+		{
+			// Store the view matrix
+			// Reorder the vectors to match the main view, since ShadowViewMatrix will be used to override the main view's view matrix during shadow depth rendering
+			ShadowViewMatrix = Initializer.WorldToLight *
+				FMatrix(
+				FPlane(0, 0, 1, 0),
+				FPlane(1, 0, 0, 0),
+				FPlane(0, 1, 0, 0),
+				FPlane(0, 0, 0, 1));
 
-		GetViewFrustumBounds(CasterFrustum,SubjectAndReceiverMatrix,true);
+			GetViewFrustumBounds(CasterFrustum, SubjectAndReceiverMatrix, true);
 
-		InvReceiverMatrix = ReceiverMatrix.InverseFast();
-		GetViewFrustumBounds(ReceiverFrustum,ReceiverMatrix,true);
-		UpdateShaderDepthBias();
+			InvReceiverMatrix = ReceiverMatrix.InverseFast();
+			GetViewFrustumBounds(ReceiverFrustum, ReceiverMatrix, true);
+			UpdateShaderDepthBias();
+		}
 	}
 
 	return bRet;
@@ -739,7 +757,18 @@ void FProjectedShadowInfo::AddSubjectPrimitive(FPrimitiveSceneInfo* PrimitiveSce
 			*(PrimitiveSceneInfo->ComponentLastRenderTime) = CurrentWorldTime;
 			if (PrimitiveSceneInfo->NeedsLazyUpdateForRendering())
 			{
-				PrimitiveSceneInfo->ConditionalLazyUpdateForRendering(FRHICommandListExecutor::GetImmediateCommandList());
+				if (GDrawListsLocked && PrimitiveSceneInfo->NeedsUpdateStaticMeshes())
+				{
+					QUICK_SCOPE_CYCLE_COUNTER(STAT_FProjectedShadowInfo_AddSubjectPrimitive_FlushPrepass);
+					FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::WaitForOutstandingTasksOnly);
+					FParallelCommandListSet::WaitForTasks();
+					TGuardValue<bool> LockDrawLists(GDrawListsLocked, false);
+					PrimitiveSceneInfo->ConditionalLazyUpdateForRendering(FRHICommandListExecutor::GetImmediateCommandList());
+				}
+				else
+				{
+					PrimitiveSceneInfo->ConditionalLazyUpdateForRendering(FRHICommandListExecutor::GetImmediateCommandList());
+				}
 			}
 		}
 
@@ -969,8 +998,14 @@ void FProjectedShadowInfo::GatherDynamicMeshElements(FSceneRenderer& Renderer, F
 		// Shadow must be visible in at least one view
 		if (bVisibleInAnyView)
 		{		
-			check(FoundView && IsInRenderingThread() 
-				&& !FRHICommandListImmediate::AnyRenderThreadTasksOutstanding()); // this would be bad because they probably rely on the view we are hacking
+			check(FoundView && IsInRenderingThread());
+			bool bMakeViewSnapshot = FRHICommandListImmediate::AnyRenderThreadTasksOutstanding(); // if there are task in flight, we need to clone
+
+			if (bMakeViewSnapshot)
+			{
+				FoundView = FoundView->CreateSnapshot();
+			}
+
 
 		    // Backup properties of the view that we will override
 		    FMatrix OriginalViewMatrix = FoundView->ViewMatrices.ViewMatrix;
@@ -1012,9 +1047,12 @@ void FProjectedShadowInfo::GatherDynamicMeshElements(FSceneRenderer& Renderer, F
 		    FoundView->ViewMatrices.GetDynamicMeshElementsShadowCullFrustum = (Disable & 4) ? &NoCull : &CasterFrustum;
 		    GatherDynamicMeshElementsArray(FoundView, Renderer, SubjectTranslucentPrimitives, DynamicSubjectTranslucentMeshElements, ReusedViewsArray);
     
-		    FoundView->ViewMatrices.GetDynamicMeshElementsShadowCullFrustum = nullptr;
-    
-		    FoundView->ViewMatrices.ViewMatrix = OriginalViewMatrix;
+			if (!bMakeViewSnapshot)
+			{
+				FoundView->ViewMatrices.GetDynamicMeshElementsShadowCullFrustum = nullptr;
+
+				FoundView->ViewMatrices.ViewMatrix = OriginalViewMatrix;
+			}
 
 			Renderer.MeshCollector.ProcessTasks();
 	    }
@@ -1368,24 +1406,41 @@ void FSceneRenderer::CreatePerObjectProjectedShadow(
 	// Compute the composite bounds of this group of shadow primitives.
 	FBoxSphereBounds OriginalBounds = ShadowGroupPrimitives[0]->Proxy->GetBounds();
 
+	if (!ensureMsgf(OriginalBounds.ContainsNaN() == false, TEXT("OriginalBound contains NaN : %s"), *OriginalBounds.ToString()))
+	{
+		// fix up OriginalBounds. This is going to cause flickers
+		OriginalBounds = FBoxSphereBounds(FVector::ZeroVector, FVector(1.f), 1.f);
+	}
+
 	for (int32 ChildIndex = 1; ChildIndex < ShadowGroupPrimitives.Num(); ChildIndex++)
 	{
 		const FPrimitiveSceneInfo* ShadowChild = ShadowGroupPrimitives[ChildIndex];
 		if (ShadowChild->Proxy->CastsDynamicShadow())
 		{
-			OriginalBounds = OriginalBounds + ShadowChild->Proxy->GetBounds();
+			FBoxSphereBounds ChildBound = ShadowChild->Proxy->GetBounds();
+			OriginalBounds = OriginalBounds + ChildBound;
+
+			if (!ensureMsgf(OriginalBounds.ContainsNaN() == false, TEXT("Child %s contains NaN : %s"), *ShadowChild->Proxy->GetOwnerName().ToString(), *ChildBound.ToString()))
+			{
+				// fix up OriginalBounds. This is going to cause flickers
+				OriginalBounds = FBoxSphereBounds(FVector::ZeroVector, FVector(1.f), 1.f);
+			}
 		}
 	}
+
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 	
 	// Shadowing constants.
-	const uint32 MinShadowResolution = CVarMinShadowResolution.GetValueOnRenderThread();
+	
 	const uint32 MaxShadowResolutionSetting = GetCachedScalabilityCVars().MaxShadowResolution;
 	const FIntPoint ShadowBufferResolution = SceneContext.GetShadowDepthTextureResolution();
 	const uint32 MaxShadowResolution = FMath::Min<int32>(MaxShadowResolutionSetting, ShadowBufferResolution.X) - SHADOW_BORDER * 2;
 	const uint32 MaxShadowResolutionY = FMath::Min<int32>(MaxShadowResolutionSetting, ShadowBufferResolution.Y) - SHADOW_BORDER * 2;
-	const int32 ShadowFadeResolution = CVarShadowFadeResolution.GetValueOnRenderThread();
-
+	const uint32 MinShadowResolution     = FMath::Max<int32>(0, CVarMinShadowResolution.GetValueOnRenderThread());
+	const uint32 ShadowFadeResolution    = FMath::Max<int32>(0, CVarShadowFadeResolution.GetValueOnRenderThread());
+	const uint32 MinPreShadowResolution  = FMath::Max<int32>(0, CVarMinPreShadowResolution.GetValueOnRenderThread());
+	const uint32 PreShadowFadeResolution = FMath::Max<int32>(0, CVarPreShadowFadeResolution.GetValueOnRenderThread());
+	
 	// Compute the maximum resolution required for the shadow by any view. Also keep track of the unclamped resolution for fading.
 	uint32 MaxDesiredResolution = 0;
 	float MaxUnclampedResolution = 0;
@@ -1400,19 +1455,20 @@ void FSceneRenderer::CreatePerObjectProjectedShadow(
 		const FViewInfo& View = Views[ViewIndex];
 
 		// Determine the size of the subject's bounding sphere in this view.
-		const FVector4 ScreenPosition = View.WorldToScreen(OriginalBounds.Origin);
+		const FVector ShadowViewOrigin = View.ViewMatrices.ViewOrigin;
+		float ShadowViewDistFromBounds = (OriginalBounds.Origin - ShadowViewOrigin).Size();
 		const float ScreenRadius = View.ShadowViewMatrices.ScreenScale *
 			OriginalBounds.SphereRadius /
-			FMath::Max(ScreenPosition.W,1.0f);
+			FMath::Max(ShadowViewDistFromBounds, 1.0f);
 		// Early catch for invalid CalculateShadowFadeAlpha()
-		checkf(ScreenRadius >= 0.0f, TEXT("View.ShadowViewMatrices.ScreenScale %f, OriginalBounds.SphereRadius %f, ScreenPosition.W %f"), View.ShadowViewMatrices.ScreenScale, OriginalBounds.SphereRadius, ScreenPosition.W);
+		ensureMsgf(ScreenRadius >= 0.0f, TEXT("View.ShadowViewMatrices.ScreenScale %f, OriginalBounds.SphereRadius %f, ShadowViewDistFromBounds %f"), View.ShadowViewMatrices.ScreenScale, OriginalBounds.SphereRadius, ShadowViewDistFromBounds);
 
 		const float ScreenPercent = FMath::Max(
 			1.0f / 2.0f * View.ShadowViewMatrices.ProjectionScale.X,
 			1.0f / 2.0f * View.ShadowViewMatrices.ProjectionScale.Y
 			) *
 			OriginalBounds.SphereRadius /
-			FMath::Max(ScreenPosition.W,1.0f);
+			FMath::Max(ShadowViewDistFromBounds, 1.0f);
 
 		MaxScreenPercent = FMath::Max(MaxScreenPercent, ScreenPercent);
 
@@ -1433,7 +1489,8 @@ void FSceneRenderer::CreatePerObjectProjectedShadow(
 		MaxResolutionFadeAlpha = FMath::Max(MaxResolutionFadeAlpha, ViewSpecificAlpha);
 		ResolutionFadeAlphas.Add(ViewSpecificAlpha);
 
-		const float ViewSpecificPreShadowAlpha = CalculateShadowFadeAlpha( UnclampedResolution * CVarPreShadowResolutionFactor.GetValueOnRenderThread(), CVarPreShadowFadeResolution.GetValueOnRenderThread(), CVarMinPreShadowResolution.GetValueOnRenderThread() );
+	
+		const float ViewSpecificPreShadowAlpha = CalculateShadowFadeAlpha(UnclampedResolution * CVarPreShadowResolutionFactor.GetValueOnRenderThread(), PreShadowFadeResolution, MinPreShadowResolution);
 		MaxResolutionPreShadowFadeAlpha = FMath::Max(MaxResolutionPreShadowFadeAlpha, ViewSpecificPreShadowAlpha);
 		ResolutionPreShadowFadeAlphas.Add(ViewSpecificPreShadowAlpha);
 	}
@@ -1588,13 +1645,15 @@ void FSceneRenderer::CreatePerObjectProjectedShadow(
 				// Try to reuse a preshadow from the cache
 				TRefCountPtr<FProjectedShadowInfo> ProjectedPreShadowInfo = GetCachedPreshadow(Interaction, ShadowInitializer, OriginalBounds, PreshadowSizeX);
 
+				bool bOk = true;
+
 				if(!ProjectedPreShadowInfo)
 				{
 					// Create a new projected shadow for this interaction's preshadow
 					// Not using the scene rendering mem stack because this shadow info may need to persist for multiple frames if it gets cached
 					ProjectedPreShadowInfo = new FProjectedShadowInfo;
 
-					ProjectedPreShadowInfo->SetupPerObjectProjection(
+					bOk = ProjectedPreShadowInfo->SetupPerObjectProjection(
 						LightSceneInfo,
 						PrimitiveSceneInfo,
 						ShadowInitializer,
@@ -1605,23 +1664,28 @@ void FSceneRenderer::CreatePerObjectProjectedShadow(
 						false				// not translucent shadow
 						);
 				}
-				// Update fade alpha on the cached preshadow
-				ProjectedPreShadowInfo->FadeAlphas = ResolutionPreShadowFadeAlphas;
 
-				VisibleLightInfo.AllProjectedShadows.Add(ProjectedPreShadowInfo);
-				VisibleLightInfo.ProjectedPreShadows.Add(ProjectedPreShadowInfo);
-
-				// Only add to OutPreShadows if the preshadow doesn't already have depths cached, 
-				// Since OutPreShadows is used to generate information only used when rendering the shadow depths.
-				if (!ProjectedPreShadowInfo->bDepthsCached)
+				if (bOk)
 				{
-					OutPreShadows.Add(ProjectedPreShadowInfo);
-				}
 
-				for (int32 ChildIndex = 0; ChildIndex < ShadowGroupPrimitives.Num(); ChildIndex++)
-				{
-					FPrimitiveSceneInfo* ShadowChild = ShadowGroupPrimitives[ChildIndex];
-					ProjectedPreShadowInfo->AddReceiverPrimitive(ShadowChild);
+					// Update fade alpha on the cached preshadow
+					ProjectedPreShadowInfo->FadeAlphas = ResolutionPreShadowFadeAlphas;
+
+					VisibleLightInfo.AllProjectedShadows.Add(ProjectedPreShadowInfo);
+					VisibleLightInfo.ProjectedPreShadows.Add(ProjectedPreShadowInfo);
+
+					// Only add to OutPreShadows if the preshadow doesn't already have depths cached, 
+					// Since OutPreShadows is used to generate information only used when rendering the shadow depths.
+					if (!ProjectedPreShadowInfo->bDepthsCached && ProjectedPreShadowInfo->CasterFrustum.PermutedPlanes.Num())
+					{
+						OutPreShadows.Add(ProjectedPreShadowInfo);
+					}
+
+					for (int32 ChildIndex = 0; ChildIndex < ShadowGroupPrimitives.Num(); ChildIndex++)
+					{
+						FPrimitiveSceneInfo* ShadowChild = ShadowGroupPrimitives[ChildIndex];
+						ProjectedPreShadowInfo->AddReceiverPrimitive(ShadowChild);
+					}
 				}
 			}
 		}
@@ -1647,12 +1711,12 @@ void FDeferredShadingSceneRenderer::CreateWholeSceneProjectedShadow(FLightSceneI
 
 		// Shadow resolution constants.
 		const uint32 EffectiveDoubleShadowBorder = ProjectedShadowInitializers[0].CascadeSettings.bOnePassPointLightShadow ? 0 : SHADOW_BORDER * 2;
-		const int32 MinShadowResolution = CVarMinShadowResolution.GetValueOnRenderThread();
+		const uint32 MinShadowResolution = FMath::Max<int32>(0, CVarMinShadowResolution.GetValueOnRenderThread());
 		const int32 MaxShadowResolutionSetting = GetCachedScalabilityCVars().MaxShadowResolution;
 		const FIntPoint ShadowBufferResolution = SceneContext_ConstantsOnly.GetShadowDepthTextureResolution();
 		const uint32 MaxShadowResolution = FMath::Min(MaxShadowResolutionSetting, ShadowBufferResolution.X) - EffectiveDoubleShadowBorder;
 		const uint32 MaxShadowResolutionY = FMath::Min(MaxShadowResolutionSetting, ShadowBufferResolution.Y) - EffectiveDoubleShadowBorder;
-		const int32 ShadowFadeResolution = CVarShadowFadeResolution.GetValueOnRenderThread();
+		const uint32 ShadowFadeResolution = FMath::Max<int32>(0, CVarShadowFadeResolution.GetValueOnRenderThread());
 
 		// Compute the maximum resolution required for the shadow by any view. Also keep track of the unclamped resolution for fading.
 		float MaxDesiredResolution = 0;
@@ -1941,7 +2005,7 @@ void FSceneRenderer::InitProjectedShadowVisibility(FRHICommandListImmediate& RHI
 		}
 	}
 
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if !UE_BUILD_SHIPPING
 	if(GDumpShadowSetup)
 	{
 		GDumpShadowSetup = false;
@@ -1991,7 +2055,7 @@ void FSceneRenderer::InitProjectedShadowVisibility(FRHICommandListImmediate& RHI
 			}
 		}
 	}
-#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#endif // !UE_BUILD_SHIPPING
 }
 
 void FSceneRenderer::GatherShadowDynamicMeshElements()
@@ -2070,7 +2134,7 @@ inline void FSceneRenderer::GatherShadowsForPrimitiveInner(
 
 				// Include all primitives for movable lights, but only statically shadowed primitives from a light with static shadowing,
 				// Since lights with static shadowing still create per-object shadows for primitives without static shadowing.
-				if( (!LightProxy->HasStaticLighting() || !ProjectedShadowInfo->GetLightSceneInfo().IsPrecomputedLightingValid())
+				if( (!LightProxy->HasStaticLighting() || (!ProjectedShadowInfo->GetLightSceneInfo().IsPrecomputedLightingValid() || LightProxy->UseCSMForDynamicObjects()))
 					// Check if this primitive is in the shadow's cylinder
 					&& PrimitiveDistanceFromCylinderAxisSq < CombinedRadiusSq
 					// Check if the primitive is closer than the cylinder cap toward the light
@@ -2106,7 +2170,9 @@ inline void FSceneRenderer::GatherShadowsForPrimitiveInner(
 							// Exclude primitives that will create a per-object shadow from a stationary light
 							&& !ShouldCreateObjectShadowForStationaryLight(&ProjectedShadowInfo->GetLightSceneInfo(), PrimitiveSceneInfo->Proxy, true)
 							// Only render shadows from objects that use static lighting during a reflection capture, since the reflection capture doesn't update at runtime
-							&& (!bStaticSceneOnly || PrimitiveProxy->HasStaticLighting()) 
+							&& (!bStaticSceneOnly || PrimitiveProxy->HasStaticLighting())
+							// Render dynamic lit objects if CSMForDynamicObjects is enabled.
+							&& (!LightProxy->UseCSMForDynamicObjects() || !PrimitiveProxy->HasStaticLighting())
 							&& !bScreenSpaceSizeCulled )
 						{
 							// Add this primitive to the shadow.
@@ -2164,6 +2230,7 @@ void FSceneRenderer::GatherShadowPrimitives(
 							{
 								FProjectedShadowInfo* ProjectedShadowInfo = PreShadows[ShadowIndex];
 
+								check(ProjectedShadowInfo->CasterFrustum.PermutedPlanes.Num());
 								// Check if this primitive is in the shadow's frustum.
 								if(ProjectedShadowInfo->CasterFrustum.IntersectBox(
 									ChildContext.Bounds.Center + ProjectedShadowInfo->PreShadowTranslation,
@@ -2182,6 +2249,7 @@ void FSceneRenderer::GatherShadowPrimitives(
 							{
 								FProjectedShadowInfo* ProjectedShadowInfo = ViewDependentWholeSceneShadows[ShadowIndex];
 
+								//check(ProjectedShadowInfo->CasterFrustum.PermutedPlanes.Num());
 								// Check if this primitive is in the shadow's frustum.
 								if(ProjectedShadowInfo->CasterFrustum.IntersectBox(
 									ChildContext.Bounds.Center + ProjectedShadowInfo->PreShadowTranslation,
@@ -2398,7 +2466,7 @@ void FForwardShadingSceneRenderer::InitDynamicShadows(FRHICommandListImmediate& 
 			{
 				if (LightSceneInfo->ShouldRenderViewIndependentWholeSceneShadows() && Scene->SimpleDirectionalLight == LightSceneInfo
 					// Only consider movable shadowcasting lights
-					&& !LightSceneInfo->Proxy->HasStaticShadowing()
+					&& (!LightSceneInfo->Proxy->HasStaticShadowing() || LightSceneInfo->Proxy->UseCSMForDynamicObjects())
 					)
 				{
 					AddViewDependentWholeSceneShadowsForView(ViewDependentWholeSceneShadows, ViewDependentWholeSceneShadowsThatNeedCulling, VisibleLightInfo, *LightSceneInfo);
@@ -2474,7 +2542,7 @@ void FForwardShadingSceneRenderer::InitDynamicShadows(FRHICommandListImmediate& 
 	GatherShadowDynamicMeshElements();
 	
 	bCSMShadowsInUse = bCSMAllocated;
-	bModulatedShadowsInUse = bPerObjectShadowsInUse;
+	bModulatedShadowsInUse = bPerObjectShadowsInUse && !bCSMShadowsInUse;
 }
 
 void FDeferredShadingSceneRenderer::InitDynamicShadows(FRHICommandListImmediate& RHICmdList)

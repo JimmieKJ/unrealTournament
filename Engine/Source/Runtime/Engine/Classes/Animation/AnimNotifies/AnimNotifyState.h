@@ -1,7 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
+#include "Animation/AnimNotifies/AnimNotify.h"
 #include "AnimNotifyState.generated.h"
 
 class USkeletalMeshComponent;
@@ -44,6 +45,10 @@ class ENGINE_API UAnimNotifyState : public UObject
 	virtual void NotifyTick(USkeletalMeshComponent * MeshComp, UAnimSequenceBase * Animation, float FrameDeltaTime);
 	virtual void NotifyEnd(USkeletalMeshComponent * MeshComp, UAnimSequenceBase * Animation);
 
+	virtual void BranchingPointNotifyBegin(FBranchingPointNotifyPayload& BranchingPointPayload);
+	virtual void BranchingPointNotifyTick(FBranchingPointNotifyPayload& BranchingPointPayload, float FrameDeltaTime);
+	virtual void BranchingPointNotifyEnd(FBranchingPointNotifyPayload& BranchingPointPayload);
+
 	// @todo document 
 	virtual FString GetEditorComment() 
 	{ 
@@ -63,6 +68,9 @@ class ENGINE_API UAnimNotifyState : public UObject
 	/** UObject Interface */
 	virtual void PostLoad();
 	/** End UObject Interface */
+
+	/** This notify is always a branching point when used on Montages. */
+	bool bIsNativeBranchingPoint;
 };
 
 

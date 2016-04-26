@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -41,7 +41,7 @@ public:
 	
 	ERoomStatus Status;
 	FXmppRoomInfo RoomInfo;
-	TArray<TSharedRef<FXmppChatMember> > Members;
+	TArray<FXmppChatMemberRef> Members;
 	TArray<TSharedRef<FXmppChatMessage> > LastMessages;
 };
 
@@ -121,9 +121,10 @@ public:
 	virtual bool SendChat(const FXmppRoomId& RoomId, const class FString& MsgBody) override;
 	virtual void GetJoinedRooms(TArray<FXmppRoomId>& OutRooms) override;
 	virtual bool GetRoomInfo(const FXmppRoomId& RoomId, FXmppRoomInfo& OutRoomInfo) override;
-	virtual bool GetMembers(const FXmppRoomId& RoomId, TArray< TSharedRef<FXmppChatMember> >& OutMembers) override;
-	virtual TSharedPtr<FXmppChatMember> GetMember(const FXmppRoomId& RoomId, const FXmppUserJid& MemberJid) override;
+	virtual bool GetMembers(const FXmppRoomId& RoomId, TArray<FXmppChatMemberRef>& OutMembers) override;
+	virtual FXmppChatMemberPtr GetMember(const FXmppRoomId& RoomId, const FXmppUserJid& MemberJid) override;
 	virtual bool GetLastMessages(const FXmppRoomId& RoomId, int32 NumMessages, TArray< TSharedRef<FXmppChatMessage> >& OutMessages) override;
+	virtual void HandleMucPresence(const FXmppMucPresence& MemberPresence) override;
 	
 	virtual FOnXmppRoomCreateComplete& OnRoomCreated() override { return OnXmppRoomCreateCompleteDelegate; }
 	virtual FOnXmppRoomConfigureComplete& OnRoomConfigured() override { return OnXmppRoomConfiguredDelegate; }
@@ -182,6 +183,7 @@ private:
 
 	// Configure room w/ flags for internal use to determine which callbacks to trigger
 	bool InternalConfigureRoom(const FXmppRoomId& RoomId, const FXmppRoomConfig& RoomConfig, EConfigureRoomType RoomConfigurationType);
+	void InternalHandleJoinedRoom(const FXmppChatMemberPtr& SelfMember, FXmppRoomJingle* XmppRoom);
 
 	TMap<FXmppRoomId, FXmppRoomJingle> Chatrooms;
 	// PendingRoomCreateConfigs used by friend OpResult classes

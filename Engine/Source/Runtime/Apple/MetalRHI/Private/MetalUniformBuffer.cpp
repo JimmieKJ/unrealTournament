@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MetalConstantBuffer.cpp: Metal Constant buffer implementation.
@@ -26,11 +26,6 @@ static const uint32 RequestedUniformBufferSizeBuckets[NUM_POOL_BUCKETS] =
 
 // Maps desired size buckets to alignment actually 
 static TArray<uint32> UniformBufferSizeBuckets;
-
-static uint32 GetUBPoolSize()
-{
-	return 512 * 1024;
-}
 
 // Convert bucket sizes to be compatible with present device
 static void RemapBuckets()
@@ -93,12 +88,19 @@ TArray<FPooledUniformBuffer> UniformBufferPool[NUM_POOL_BUCKETS];
 // Uniform buffers that have been freed more recently than NumSafeFrames ago.
 TArray<FPooledUniformBuffer> SafeUniformBufferPools[NUM_SAFE_FRAMES][NUM_POOL_BUCKETS];
 
+static FCriticalSection GMutex;
+
 // Does per-frame global updating for the uniform buffer pool.
 void InitFrame_UniformBufferPoolCleanup()
 {
-	check(IsInRenderingThread());
+	check(IsInRenderingThread() || IsInRHIThread());
 
 	SCOPE_CYCLE_COUNTER(STAT_MetalUniformBufferCleanupTime);
+	
+	if(GUseRHIThread)
+	{
+		GMutex.Lock();
+	}
 
 	// Index of the bucket that is now old enough to be reused
 	const int32 SafeFrameIndex = GFrameNumberRenderThread % NUM_SAFE_FRAMES;
@@ -109,24 +111,26 @@ void InitFrame_UniformBufferPoolCleanup()
 		UniformBufferPool[BucketIndex].Append(SafeUniformBufferPools[SafeFrameIndex][BucketIndex]);
 		SafeUniformBufferPools[SafeFrameIndex][BucketIndex].Reset();
 	}
+	
+	if(GUseRHIThread)
+	{
+		GMutex.Unlock();
+	}
 }
-
-struct TUBPoolBuffer
-{
-	id<MTLBuffer> Buffer;
-	uint32 ConsumedSpace;
-	uint32 AllocatedSpace;
-};
-
-TArray<TUBPoolBuffer> UBPool;
 
 void AddNewlyFreedBufferToUniformBufferPool(id<MTLBuffer> Buffer, uint32 Offset, uint32 Size)
 {
 	check(Buffer);
+
+	if(GUseRHIThread)
+	{
+		GMutex.Lock();
+	}
+	
 	FPooledUniformBuffer NewEntry;
 	NewEntry.Buffer = Buffer;
 	NewEntry.FrameFreed = GFrameNumberRenderThread;
-	NewEntry.CreatedSize = Size;
+	NewEntry.CreatedSize = Buffer.length;
 	NewEntry.Offset = Offset;
 
 	// Add to this frame's array of free uniform buffers
@@ -136,56 +140,40 @@ void AddNewlyFreedBufferToUniformBufferPool(id<MTLBuffer> Buffer, uint32 Offset,
 	SafeUniformBufferPools[SafeFrameIndex][BucketIndex].Add(NewEntry);
 	INC_DWORD_STAT(STAT_MetalNumFreeUniformBuffers);
 	INC_MEMORY_STAT_BY(STAT_MetalFreeUniformBufferMemory, Buffer.length);
+	
+	if(GUseRHIThread)
+	{
+		GMutex.Unlock();
+	}
 }
 
 
 id<MTLBuffer> SuballocateUB(uint32 Size, uint32& OutOffset)
 {
-	check(Size <= GetUBPoolSize());
-
-	// Find space in previously allocated pool buffers
-	for ( int32 Buffer = 0; Buffer < UBPool.Num(); Buffer++)
-	{
-		TUBPoolBuffer &Pool = UBPool[Buffer];
-		if ( Size < (Pool.AllocatedSpace - Pool.ConsumedSpace))
-		{
-			OutOffset = Pool.ConsumedSpace;
-			Pool.ConsumedSpace += Size;
-			return Pool.Buffer;
-		}
-	}
-
 	// No space was found to use, create a new Pool buffer
-	uint32 TotalSize = GetUBPoolSize();
-	//NSLog(@"New Metal Buffer Size %d", TotalSize);
-	id<MTLBuffer> Buffer = [GetMetalDeviceContext().GetDevice() newBufferWithLength:TotalSize options:BUFFER_CACHE_MODE];
+	id<MTLBuffer> Buffer = [GetMetalDeviceContext().GetDevice() newBufferWithLength:Size options:BUFFER_CACHE_MODE];
 	TRACK_OBJECT(Buffer);
+	INC_MEMORY_STAT_BY(STAT_MetalTotalUniformBufferMemory, Size);
 
 	OutOffset = 0;
-
-	TUBPoolBuffer Pool;
-	Pool.Buffer = Buffer;
-	Pool.ConsumedSpace = Size;
-	Pool.AllocatedSpace = GetUBPoolSize();
-	UBPool.Push(Pool);
 
 	return Buffer;
 }
 
 
-FMetalUniformBuffer::FMetalUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage)
+FMetalUniformBuffer::FMetalUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage InUsage)
 	: FRHIUniformBuffer(Layout)
 	, Buffer(nil)
 	, Offset(0)
 	, Size(Layout.ConstantBufferSize)
-	, LastCachedFrame(INDEX_NONE)
+	, Usage(InUsage)
 {
 	if (Layout.ConstantBufferSize > 0)
 	{
 		if(Layout.ConstantBufferSize <= 65536)
 		{
 			// for single use buffers, allocate from the ring buffer to avoid thrashing memory
-			if (Usage == UniformBuffer_SingleDraw)
+			if (Usage == UniformBuffer_SingleDraw && !GUseRHIThread) // @todo Make this properly RHIThread safe.
 			{
 				// use a bit of the ring buffer
 				Offset = GetMetalDeviceContext().AllocateFromRingBuffer(Layout.ConstantBufferSize);
@@ -194,6 +182,11 @@ FMetalUniformBuffer::FMetalUniformBuffer(const void* Contents, const FRHIUniform
 			else
 			{
 				// Find the appropriate bucket based on size
+				if(GUseRHIThread)
+				{
+					GMutex.Lock();
+				}
+
 				const uint32 BucketIndex = GetPoolBucketIndex(Layout.ConstantBufferSize);
 				TArray<FPooledUniformBuffer>& PoolBucket = UniformBufferPool[BucketIndex];
 				if (PoolBucket.Num() > 0)
@@ -212,6 +205,11 @@ FMetalUniformBuffer::FMetalUniformBuffer(const void* Contents, const FRHIUniform
 					// Nothing usable was found in the free pool, create a new uniform buffer (full size, not NumBytes)
 					uint32 BufferSize = UniformBufferSizeBuckets[BucketIndex];
 					Buffer = SuballocateUB(BufferSize, Offset);
+				}
+				
+				if(GUseRHIThread)
+				{
+					GMutex.Unlock();
 				}
 			}
 		}
@@ -236,81 +234,21 @@ FMetalUniformBuffer::FMetalUniformBuffer(const void* Contents, const FRHIUniform
 			check(InResources[i]);
 			ResourceTable[i] = InResources[i];
 		}
-		RawResourceTable.Empty(NumResources);
-		RawResourceTable.AddZeroed(NumResources);
 	}
 }
 
 FMetalUniformBuffer::~FMetalUniformBuffer()
 {
 	// don't need to free the ring buffer!
-	if (GIsRHIInitialized && Buffer != nil && Buffer != GetMetalDeviceContext().GetRingBuffer())
+	if (GIsRHIInitialized && Buffer != nil && !(Usage == UniformBuffer_SingleDraw && !GUseRHIThread))
 	{
 		check(Size <= 65536);
 		AddNewlyFreedBufferToUniformBufferPool(Buffer, Offset, Size);
 	}
 }
 
-void FMetalUniformBuffer::CacheResourcesInternal()
-{
-	const FRHIUniformBufferLayout& Layout = GetLayout();
-	int32 NumResources = Layout.Resources.Num();
-	const uint8* RESTRICT ResourceTypes = Layout.Resources.GetData();
-	const TRefCountPtr<FRHIResource>* RESTRICT Resources = ResourceTable.GetData();
-	void** RESTRICT RawResources = RawResourceTable.GetData();
-	float CurrentTime = FApp::GetCurrentTime();
-
-	// todo: Immutable resources, i.e. not textures, can be safely cached across frames.
-	// Texture streaming makes textures complicated :)
-	for (int32 i = 0; i < NumResources; ++i)
-	{
-		switch (ResourceTypes[i])
-		{
-			case UBMT_SRV:
-				{
-					NOT_SUPPORTED("FMetalUniformBuffer::CacheResourcesInternal UBMT_SRV");
-					
-					FMetalShaderResourceView* SRV = (FMetalShaderResourceView*)Resources[i].GetReference();
-					if (IsValidRef(SRV->SourceTexture))
-					{
-						FMetalSurface* Surface = SRV->TextureView;
-						RawResources[i] = Surface;
-					}
-					else
-					{
-						RawResources[i] = &SRV->SourceVertexBuffer->Buffer;
-					}
-				}
-				break;
-
-			case UBMT_TEXTURE:
-				{
-					FRHITexture* TextureRHI = (FRHITexture*)Resources[i].GetReference();
-					TextureRHI->SetLastRenderTime(CurrentTime);
-					RawResources[i] = TextureRHI;
-				}
-				break;
-
-			case UBMT_UAV:
-				NOT_SUPPORTED("FMetalUniformBuffer::CacheResourcesInternal UBMT_UAV");
-				RawResources[i] = 0;
-				break;
-
-			case UBMT_SAMPLER:
-				RawResources[i] = (FMetalSamplerState*)Resources[i].GetReference();
-				break;
-
-			default:
-				check(0);
-				break;
-		}
-	}
-}
-
-
-
 FUniformBufferRHIRef FMetalDynamicRHI::RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage)
 {
-	check(IsInRenderingThread());
+	check(IsInRenderingThread() || IsInRHIThread());
 	return new FMetalUniformBuffer(Contents, Layout, Usage);
 }

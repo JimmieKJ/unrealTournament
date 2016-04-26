@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 #include "Slate/SlateBrushAsset.h"
@@ -108,11 +108,6 @@ void UThrobber::PostLoad()
 }
 
 #if WITH_EDITOR
-
-const FSlateBrush* UThrobber::GetEditorIcon()
-{
-	return FUMGStyle::Get().GetBrush("Widget.Throbber");
-}
 
 const FText UThrobber::GetPaletteCategory()
 {

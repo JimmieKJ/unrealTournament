@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "EnginePrivate.h"
@@ -83,18 +83,23 @@ FVorbisAudioInfo::FVorbisAudioInfo( void )
 	,	SrcBufferDataSize(0)
 	,	BufferOffset(0)
 { 
+	// Make sure we have properly allocated a VFWrapper
+	check(VFWrapper != NULL);
 }
 
 FVorbisAudioInfo::~FVorbisAudioInfo( void ) 
 { 
-	check( VFWrapper != NULL );
+	FScopeLock ScopeLock(&VorbisCriticalSection);
+	check(VFWrapper != nullptr);
 	delete VFWrapper;
+	VFWrapper = nullptr;
 }
 
 /** Emulate read from memory functionality */
 size_t FVorbisAudioInfo::Read( void *Ptr, uint32 Size )
 {
-	size_t BytesToRead = FMath::Min( Size, SrcBufferDataSize - BufferOffset );
+	check(Ptr);
+	size_t BytesToRead = FMath::Min(Size, SrcBufferDataSize - BufferOffset);
 	FMemory::Memcpy( Ptr, SrcBufferData + BufferOffset, BytesToRead );
 	BufferOffset += BytesToRead;
 	return( BytesToRead );
@@ -102,7 +107,9 @@ size_t FVorbisAudioInfo::Read( void *Ptr, uint32 Size )
 
 static size_t OggRead( void *ptr, size_t size, size_t nmemb, void *datasource )
 {
-	FVorbisAudioInfo* OggInfo = ( FVorbisAudioInfo* )datasource;
+	check(ptr);
+	check(datasource);
+	FVorbisAudioInfo* OggInfo = (FVorbisAudioInfo*)datasource;
 	return( OggInfo->Read( ptr, size * nmemb ) );
 }
 
@@ -120,6 +127,10 @@ int FVorbisAudioInfo::Seek( uint32 offset, int whence )
 
 	case SEEK_END:
 		BufferOffset = SrcBufferDataSize - offset;
+		break;
+
+	default:
+		checkf(false, TEXT("Uknown seek type"));
 		break;
 	}
 
@@ -163,8 +174,14 @@ bool FVorbisAudioInfo::ReadCompressedInfo( const uint8* InSrcBufferData, uint32 
 {
 	SCOPE_CYCLE_COUNTER( STAT_VorbisPrepareDecompressionTime );
 
-	check( VFWrapper != NULL );
-	ov_callbacks		Callbacks;
+	FScopeLock ScopeLock(&VorbisCriticalSection);
+
+	if (!VFWrapper)
+	{
+		return false;
+	}
+
+	ov_callbacks Callbacks;
 
 	SrcBufferData = InSrcBufferData;
 	SrcBufferDataSize = InSrcBufferDataSize;
@@ -176,9 +193,11 @@ bool FVorbisAudioInfo::ReadCompressedInfo( const uint8* InSrcBufferData, uint32 
 	Callbacks.tell_func = OggTell;
 
 	// Set up the read from memory variables
-	if (ov_open_callbacks(this, &VFWrapper->vf, NULL, 0, Callbacks) < 0)
+	int Result = ov_open_callbacks(this, &VFWrapper->vf, NULL, 0, Callbacks);
+	if (Result < 0)
 	{
-		return( false );
+		UE_LOG(LogAudio, Error, TEXT("FVorbisAudioInfo::ReadCompressedInfo, ov_open_callbacks error code: %d"), Result);
+		return false;
 	}
 
 	if( QualityInfo )
@@ -215,6 +234,8 @@ void FVorbisAudioInfo::ExpandFile( uint8* DstBuffer, FSoundQualityInfo* QualityI
 	check( VFWrapper != NULL );
 	check( DstBuffer );
 	check( QualityInfo );
+
+	FScopeLock ScopeLock(&VorbisCriticalSection);
 
 	// A zero buffer size means decompress the entire ogg vorbis stream to PCM.
 	TotalBytesRead = 0;
@@ -254,6 +275,8 @@ bool FVorbisAudioInfo::ReadCompressedData( uint8* InDestination, bool bLooping, 
 	uint32		TotalBytesRead;
 
 	SCOPE_CYCLE_COUNTER( STAT_VorbisDecompressTime );
+
+	FScopeLock ScopeLock(&VorbisCriticalSection);
 
 	bLooped = false;
 
@@ -304,13 +327,17 @@ bool FVorbisAudioInfo::ReadCompressedData( uint8* InDestination, bool bLooping, 
 
 void FVorbisAudioInfo::SeekToTime( const float SeekTime )
 {
-	const float TargetTime = FMath::Min(SeekTime, ( float )ov_time_total( &VFWrapper->vf, -1 ));
+	FScopeLock ScopeLock(&VorbisCriticalSection);
+
+	const float TargetTime = FMath::Min(SeekTime, (float)ov_time_total(&VFWrapper->vf, -1));
 	ov_time_seek( &VFWrapper->vf, TargetTime );
 }
 
 void FVorbisAudioInfo::EnableHalfRate( bool HalfRate )
 {
-	ov_halfrate( &VFWrapper->vf, int32(HalfRate));
+	FScopeLock ScopeLock(&VorbisCriticalSection);
+
+	ov_halfrate(&VFWrapper->vf, int32(HalfRate));
 }
 
 void LoadVorbisLibraries()
@@ -322,12 +349,15 @@ void LoadVorbisLibraries()
 #if PLATFORM_WINDOWS  && WITH_OGGVORBIS
 		//@todo if ogg is every ported to another platform, then use the platform abstraction to load these DLLs
 		// Load the Ogg dlls
+#  if _MSC_VER >= 1900
+		FString VSVersion = TEXT("VS2015/");
+#  elif _MSC_VER >= 1800
 		FString VSVersion = TEXT("VS2013/");
+#  else
+#    error "Unsupported Visual Studio version."
+#  endif
 		FString PlatformString = TEXT("Win32");
 		FString DLLNameStub = TEXT(".dll");
-#if _MSC_VER == 1900
-		VSVersion = TEXT("VS2015/");
-#endif
 #if PLATFORM_64BITS
 		PlatformString = TEXT("Win64");
 		DLLNameStub = TEXT("_64.dll");

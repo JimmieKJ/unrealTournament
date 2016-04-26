@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Components/BrushComponent.h"
@@ -63,7 +63,7 @@ bool APostProcessVolume::CanEditChange(const UProperty* InProperty) const
 
 		// Settings, can be shared for multiple objects types (volume, component, camera, player)
 		{
-			if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldScale) ||
+			if (/*PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldScale) || */ //@todo Ronin: Used by mobile dof.
 				PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldMaxBokehSize) ||
 				PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldColorThreshold) ||
 				PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldSizeThreshold) ||
@@ -72,7 +72,8 @@ bool APostProcessVolume::CanEditChange(const UProperty* InProperty) const
 				return Settings.DepthOfFieldMethod == EDepthOfFieldMethod::DOFM_BokehDOF;
 			}
 
-			if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldNearBlurSize) ||
+			if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldScale) || //@todo Ronin: Used by mobile dof.
+				PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldNearBlurSize) ||
 				PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldFarBlurSize) ||
 				PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldSkyFocusDistance) ||
 				PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldVignetteSize))
@@ -92,6 +93,26 @@ bool APostProcessVolume::CanEditChange(const UProperty* InProperty) const
 				PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldFstop))
 			{
 				return Settings.DepthOfFieldMethod == EDepthOfFieldMethod::DOFM_CircleDOF;
+			}
+
+			// Parameters supported by both log-average and histogram Auto Exposure
+			if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, AutoExposureMinBrightness) ||
+				PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, AutoExposureMaxBrightness) ||
+				PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, AutoExposureSpeedUp)       ||
+				PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, AutoExposureSpeedDown)     ||
+				PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, AutoExposureBias)          ||
+				PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, HistogramLogMin)           || 
+				PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, HistogramLogMax))
+			{
+				return  ( Settings.AutoExposureMethod == EAutoExposureMethod::AEM_Histogram || 
+					      Settings.AutoExposureMethod == EAutoExposureMethod::AEM_Basic );
+			}
+
+			// Parameters supported by only the histogram AutoExposure
+			if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, AutoExposureLowPercent)  ||
+				PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, AutoExposureHighPercent) )
+			{
+				return Settings.AutoExposureMethod == EAutoExposureMethod::AEM_Histogram;
 			}
 		}
 

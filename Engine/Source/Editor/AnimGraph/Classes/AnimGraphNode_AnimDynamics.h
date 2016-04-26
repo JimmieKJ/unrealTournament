@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -88,4 +88,7 @@ protected:
 	// UAnimGraphNode_SkeletalControlBase protected interface
 	virtual const FAnimNode_SkeletalControlBase* GetNode() const override { return &Node; }
 	// End of UAnimGraphNode_SkeletalControlBase protected interface
+
+private:
+	FNodeTitleTextTable CachedNodeTitles;
 };

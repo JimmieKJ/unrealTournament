@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemEditorPrivatePCH.h"
 #include "GameplayCueTagDetails.h"
@@ -6,6 +6,7 @@
 #include "KismetEditorUtilities.h"
 #include "AttributeSet.h"
 #include "GameplayAbilitiesModule.h"
+#include "AbilitySystemGlobals.h"
 #include "SGameplayAttributeGraphPin.h"
 #include "SSearchBox.h"
 #include "STextComboBox.h"
@@ -36,7 +37,7 @@ void FGameplayCueTagDetails::CustomizeHeader( TSharedRef<IPropertyHandle> Struct
 	GameplayTagProperty = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FGameplayCueTag,GameplayCueTag));
 
 	FSimpleDelegate OnTagChanged = FSimpleDelegate::CreateSP(this, &FGameplayCueTagDetails::OnPropertyValueChanged);
-	StructPropertyHandle->SetOnPropertyValueChanged(OnTagChanged);
+	GameplayTagProperty->SetOnPropertyValueChanged(OnTagChanged);
 
 	UGameplayCueManager* CueManager = UAbilitySystemGlobals::Get().GetGameplayCueManager();
 	if (CueManager)

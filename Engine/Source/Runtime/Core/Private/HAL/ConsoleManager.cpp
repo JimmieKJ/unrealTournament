@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 ConsoleManager.cpp: console command handling
@@ -576,7 +576,7 @@ public:
 		delete this; 
 	} 
 
-	virtual bool Execute( const TArray< FString > Args, UWorld* InWorld, FOutputDevice& OutputDevice ) override
+	virtual bool Execute( const TArray< FString >& Args, UWorld* InWorld, FOutputDevice& OutputDevice ) override
 	{
 		// NOTE: Args are ignored for FConsoleCommand.  Use FConsoleCommandWithArgs if you need parameters.
 		return Delegate.ExecuteIfBound();
@@ -607,7 +607,7 @@ public:
 		delete this; 
 	} 
 
-	virtual bool Execute( const TArray< FString > Args, UWorld* InWorld, FOutputDevice& OutputDevice ) override
+	virtual bool Execute( const TArray< FString >& Args, UWorld* InWorld, FOutputDevice& OutputDevice ) override
 	{
 		return Delegate.ExecuteIfBound( Args );
 	}
@@ -636,7 +636,7 @@ public:
 		delete this; 
 	} 
 
-	virtual bool Execute( const TArray< FString > Args, UWorld* InWorld, FOutputDevice& OutputDevice ) override
+	virtual bool Execute( const TArray< FString >& Args, UWorld* InWorld, FOutputDevice& OutputDevice ) override
 	{
 		return Delegate.ExecuteIfBound( InWorld );
 	}
@@ -665,7 +665,7 @@ public:
 		delete this; 
 	} 
 
-	virtual bool Execute( const TArray< FString > Args, UWorld* InWorld, FOutputDevice& OutputDevice ) override
+	virtual bool Execute( const TArray< FString >& Args, UWorld* InWorld, FOutputDevice& OutputDevice ) override
 	{
 		return Delegate.ExecuteIfBound( Args, InWorld );
 	}
@@ -694,7 +694,7 @@ public:
 		delete this; 
 	} 
 
-	virtual bool Execute( const TArray< FString > Args, UWorld* InWorld, FOutputDevice& OutputDevice ) override
+	virtual bool Execute( const TArray< FString >& Args, UWorld* InWorld, FOutputDevice& OutputDevice ) override
 	{
 		return Delegate.ExecuteIfBound( OutputDevice );
 	}
@@ -722,7 +722,7 @@ public:
 		delete this; 
 	} 
 
-	virtual bool Execute( const TArray< FString > Args, UWorld* InCmdWorld, FOutputDevice& OutputDevice ) override
+	virtual bool Execute( const TArray< FString >& Args, UWorld* InCmdWorld, FOutputDevice& OutputDevice ) override
 	{
 		return false;
 	}
@@ -753,6 +753,11 @@ IConsoleVariable* FConsoleManager::RegisterConsoleVariableRef(const TCHAR* Name,
 IConsoleVariable* FConsoleManager::RegisterConsoleVariableRef(const TCHAR* Name, float& RefValue, const TCHAR* Help, uint32 Flags)
 {
 	return AddConsoleObject(Name, new FConsoleVariableRef<float>(RefValue, Help, (EConsoleVariableFlags)Flags))->AsVariable();
+}
+
+IConsoleVariable* FConsoleManager::RegisterConsoleVariableRef(const TCHAR* Name, bool& RefValue, const TCHAR* Help, uint32 Flags)
+{
+	return AddConsoleObject(Name, new FConsoleVariableRef<bool>(RefValue, Help, (EConsoleVariableFlags)Flags))->AsVariable();
 }
 
 IConsoleCommand* FConsoleManager::RegisterConsoleCommand(const TCHAR* Name, const TCHAR* Help, const FConsoleCommandDelegate& Command, uint32 Flags)
@@ -806,6 +811,33 @@ IConsoleVariable* FConsoleManager::FindConsoleVariable(const TCHAR* Name) const
 IConsoleObject* FConsoleManager::FindConsoleObject(const TCHAR* Name) const
 {
 	IConsoleObject* CVar = FindConsoleObjectUnfiltered(Name);
+
+#if TRACK_CONSOLE_FIND_COUNT
+	{
+		const bool bEarlyAppPhase = GFrameCounter < 1000;
+		if(CVar)
+		{
+			++CVar->FindCallCount;
+
+			// we test for equal to avoid log spam
+			if(bEarlyAppPhase && CVar->FindCallCount == 500)
+			{
+				UE_LOG(LogConsoleManager, Warning, TEXT("Performance warning: Console object named '%s' shows many (%d) FindConsoleObject() calls (consider caching e.g. using static)"), Name, CVar->FindCallCount);
+			}
+		}
+		else
+		{
+			static uint32 NullFindCallCount = 0;
+		
+			++NullFindCallCount;
+
+			if(bEarlyAppPhase && NullFindCallCount == 500)
+			{
+				UE_LOG(LogConsoleManager, Warning, TEXT( "Performance warning: Many (%d) failed FindConsoleObject() e.g. '%s' (consider caching, is the name referencing an existing object)"), NullFindCallCount, Name);
+			}
+		}
+	}
+#endif
 
 	if(CVar && CVar->TestFlags(ECVF_CreatedFromIni))
 	{
@@ -1497,10 +1529,14 @@ void CreateConsoleVariables()
 	IConsoleManager::Get().RegisterConsoleCommand(TEXT("Vis"),	TEXT("short version of visualizetexture"), ECVF_Cheat);
 	IConsoleManager::Get().RegisterConsoleCommand(TEXT("VisRT"),	TEXT("GUI for visualizetexture"), ECVF_Cheat);
 	IConsoleManager::Get().RegisterConsoleCommand(TEXT("HighResShot"),	TEXT("High resolution screenshots [Magnification = 2..]"), ECVF_Cheat);
-	IConsoleManager::Get().RegisterConsoleCommand(TEXT("DumpConsoleCommands"),	TEXT("Dumps all console vaiables and commands and all exec that can be discovered to the log/console"), ECVF_Default);
 	IConsoleManager::Get().RegisterConsoleCommand(TEXT("DumpUnbuiltLightInteractions"),	TEXT("Logs all lights and primitives that have an unbuilt interaction."), ECVF_Cheat);
 
 #endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+
+
+#if	!UE_BUILD_SHIPPING
+	IConsoleManager::Get().RegisterConsoleCommand( TEXT( "DumpConsoleCommands" ), TEXT( "Dumps all console vaiables and commands and all exec that can be discovered to the log/console" ), ECVF_Default );
+#endif // !UE_BUILD_SHIPPING
 
 	// testing code
 	{
@@ -1523,7 +1559,9 @@ void CreateConsoleVariables()
 // i.      Input e.g. mouse/keyboard
 // p.      Physics
 // t.      Timer
-// g.      Game
+// log.	   Logging system
+// con.	   Console (in game  or editor) 
+// g.      Game specific
 // Compat.
 // FX.     Particle effects
 // sg.     scalability group (used by scalability system, ini load/save or using SCALABILITY console command)
@@ -1735,7 +1773,8 @@ static TAutoConsoleVariable<int32> CVarDepthOfFieldQuality(
 	TEXT(" 0: Off\n")
 	TEXT(" 1: Low\n")
 	TEXT(" 2: high quality (default, adaptive, can be 4x slower)\n")
-	TEXT(" 3: Special mode only affecting CircleDOF for very high quality but slow rendering"),
+	TEXT(" 3: very high quality, intended for non realtime cutscenes, CircleDOF only (slow)\n")
+	TEXT(" 4: extremely high quality, intended for non realtime cutscenes, CircleDOF only (very slow)"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<float> CVarScreenPercentage(
@@ -1814,6 +1853,20 @@ static TAutoConsoleVariable<int32> CVarDistField(
 	0,	
 	TEXT("Whether to build distance fields of static meshes, needed for distance field AO, which is used to implement Movable SkyLight shadows.\n")
 	TEXT("Enabling will increase mesh build times and memory usage.  Changing this value will cause a rebuild of all static meshes."),
+	ECVF_ReadOnly);
+
+static TAutoConsoleVariable<int32> CVarDistFieldRes(
+	TEXT("r.DistanceFields.MaxPerMeshResolution"),
+	128,	
+	TEXT("Highest resolution (in one dimension) allowed for a single static mesh asset, used to cap the memory usage of meshes with a large scale.\n")
+	TEXT("Changing this will cause all distance fields to be rebuilt.  Large values such as 512 can consume memory very quickly! (128Mb for one asset at 512)"),
+	ECVF_ReadOnly);
+
+static TAutoConsoleVariable<float> CVarDistFieldResScale(
+	TEXT("r.DistanceFields.DefaultVoxelDensity"),
+	.1f,	
+	TEXT("Determines how the default scale of a mesh converts into distance field voxel dimensions.\n")
+	TEXT("Changing this will cause all distance fields to be rebuilt.  Large values can consume memory very quickly!"),
 	ECVF_ReadOnly);
 
 static TAutoConsoleVariable<int32> CVarLandscapeGI(

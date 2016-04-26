@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "PersonaPrivatePCH.h"
@@ -1356,7 +1356,7 @@ FVector SBlendSpaceEditorBase::GetPreviewBlendInput() const
 			UAnimSingleNodeInstance * SingleNodeInstance = Mesh->GetSingleNodeInstance();
 			if ( SingleNodeInstance )
 			{
-				return SingleNodeInstance->BlendFilter.GetFilterLastOutput();
+				return SingleNodeInstance->GetFilterLastOutput();
 			}
 		}
 	}	

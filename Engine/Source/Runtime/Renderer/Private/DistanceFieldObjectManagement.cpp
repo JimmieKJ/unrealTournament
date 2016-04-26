@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DistanceFieldSurfaceCacheLighting.cpp
@@ -900,10 +900,22 @@ void ProcessPrimitiveUpdate(
 					}
 					else 
 					{
-						DistanceFieldSceneData.PrimitiveInstanceMapping[PrimitiveSceneInfo->DistanceFieldInstanceIndices[TransformIndex]].BoundingSphere = ObjectBoundingSphere;
+						// InstanceIndex will be -1 with zero scale meshes
+						const int32 InstanceIndex = PrimitiveSceneInfo->DistanceFieldInstanceIndices[TransformIndex];
+						if (InstanceIndex >= 0)
+						{
+							DistanceFieldSceneData.PrimitiveInstanceMapping[InstanceIndex].BoundingSphere = ObjectBoundingSphere;
+						}
 					}
 
 					DistanceFieldSceneData.PrimitiveModifiedBounds.Add(ObjectBoundingSphere);
+
+					extern int32 GAOLogGlobalDistanceFieldModifiedPrimitives;
+
+					if (GAOLogGlobalDistanceFieldModifiedPrimitives)
+					{
+						UE_LOG(LogDistanceField,Warning,TEXT("Global Distance Field primitive %s %s %s bounding radius %.1f"), (bIsAddOperation ? TEXT("add") : TEXT("update")), *PrimitiveSceneInfo->Proxy->GetOwnerName().ToString(), *PrimitiveSceneInfo->Proxy->GetResourceName().ToString(), BoundingRadius);
+					}
 				}
 				else if (bIsAddOperation)
 				{

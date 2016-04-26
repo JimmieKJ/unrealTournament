@@ -19,7 +19,10 @@ static const uint32 SLIDEFROMRUN_FIXUP_PROFILESETTINGS_VERSION = 8;
 static const uint32 HEARTAUNTS_FIXUP_PROFILESETTINGS_VERSION = 10;
 static const uint32 PAUSEKEY_FIXUP_PROFILESETTINGS_VERSION = 11;
 static const uint32 HUDSETTINGS_FIXUP_PROFILESETTINGS_VERSION = 15;
-static const uint32 CURRENT_PROFILESETTINGS_VERSION = 15;
+static const uint32 ACTIVATEPOWERUP_FIXUP_PROFILESETTINGS_VERSION = 16;
+static const uint32 BUY_MENU_AND_DROP_FLAG_BUTTON_FIXUP_PROFILE_SETTINGS_VERSION = 17;
+static const uint32 SLIDE_FIXUP_PROFILE_SETTINGS_VERSION = 18;
+static const uint32 CURRENT_PROFILESETTINGS_VERSION = 18;
 static const uint32 CHALLENGE_FIXUP_VERSION = 12;
 
 
@@ -269,9 +272,6 @@ protected:
 	uint32 bEnableMouseSmoothing:1;
 
 	UPROPERTY()
-	uint32 bEnableFOVScaling:1;
-
-	UPROPERTY()
 	uint32 bInvertMouse;
 
 	UPROPERTY()
@@ -282,9 +282,6 @@ protected:
 
 	UPROPERTY()
 	float MouseAccelerationMax;
-
-	UPROPERTY()
-	float FOVScale;
 
 	UPROPERTY()
 	float DoubleClickTime;
@@ -304,6 +301,7 @@ protected:
 	UPROPERTY()
 	uint32 bSingleTapAfterJump : 1;
 
+	/** For backwards compatibility, maps to bCrouchTriggersSlide. */
 	UPROPERTY()
 	uint32 bAllowSlideFromRun : 1;
 

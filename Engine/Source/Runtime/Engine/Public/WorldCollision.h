@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 // Structs that are used for Async Trace functionality
 // Mostly used by a batch of traces that you don't need a result right away
@@ -31,6 +31,17 @@ struct FTraceHandle
 		_Data.FrameNumber = InFrameNumber;
 		_Data.Index = InIndex;
 	}
+
+	friend inline uint32 GetTypeHash(const FTraceHandle& Handle)
+	{
+		return GetTypeHash(Handle._Handle);
+	}
+
+	bool operator==(FTraceHandle const& Other) const
+	{
+		return Other._Handle == _Handle;
+	}
+
 };
 
 /** Types of Collision Shapes that are used by Trace **/
@@ -313,6 +324,16 @@ DECLARE_DELEGATE_TwoParams( FTraceDelegate, const FTraceHandle&, FTraceDatum &);
  */
 DECLARE_DELEGATE_TwoParams( FOverlapDelegate, const FTraceHandle&, FOverlapDatum &);
 
+/** Enum to indicate type of test to perfom */
+enum class EAsyncTraceType : uint8
+{
+	/** Return whether the trace succeeds or fails (using bBlockingHit flag on FHitResult), but gives no info about what you hit or where. Good for fast occlusion tests. */
+	Test,
+	/** Returns a single blocking hit */
+	Single,
+	/** Returns a single blocking hit, plus any overlapping hits up to that point */
+	Multi
+};
 
 /**
  * Trace/Sweep Data structure for async trace
@@ -335,14 +356,14 @@ struct FTraceDatum : public FBaseTraceDatum
 	/** Output of the overlap request. Filled up by worker thread */
 	TArray<struct FHitResult> OutHits;
 
-	/** single or multi trace. */
-	bool 	bIsMultiTrace;
+	/** Whether to do test, single or multi test */
+	EAsyncTraceType TraceType;
 
 	FTraceDatum() {}
 
 	/** Set Trace Datum for each shape type **/
 	FTraceDatum(UWorld * World, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Param, const struct FCollisionResponseParams &InResponseParam, const struct FCollisionObjectQueryParams& InObjectQueryParam, 
-		ECollisionChannel Channel, uint32 InUserData, bool bInIsMultiTrace,	const FVector& InStart, const FVector& InEnd, FTraceDelegate * InDelegate, int32 FrameCounter)
+		ECollisionChannel Channel, uint32 InUserData, EAsyncTraceType InTraceType,	const FVector& InStart, const FVector& InEnd, FTraceDelegate * InDelegate, int32 FrameCounter)
 	{
 		Set(World, CollisionShape, Param, InResponseParam, InObjectQueryParam, Channel, InUserData, FrameCounter);
 		Start = InStart;
@@ -356,7 +377,7 @@ struct FTraceDatum : public FBaseTraceDatum
 			Delegate.Unbind();
 		}
 		OutHits.Reset();
-		bIsMultiTrace = bInIsMultiTrace;
+		TraceType = InTraceType;
 	}
 };
 

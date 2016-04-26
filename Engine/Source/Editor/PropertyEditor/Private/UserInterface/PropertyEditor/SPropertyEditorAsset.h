@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "PropertyEditorConstants.h"
@@ -135,6 +135,21 @@ private:
 	 * @returns the tooltip string
 	 */
 	FText OnGetToolTip() const;
+
+	/**
+	 * Determine whether any outer object is an Engine asset
+	 */
+	bool HasEngineOuterObject() const;
+
+	/**
+	 * Determine whether the given asset is allowed to be assigned to the property.
+	 * This is currently used to prevent non-engine assets being assigned to properties of engine assets.
+	 *
+	 * @param	AssetData	The asset to be assigned
+	 * @return	false		if the asset cannot be assigned,
+	 *			true		if it can be assigned or if this is not known (e.g. because a delegate handles the reference assignment)
+	 */
+	bool CanAssetBeAssigned(const FAssetData& AssetData) const;
 
 	/** 
 	 * Set the value of the asset referenced by this property editor.

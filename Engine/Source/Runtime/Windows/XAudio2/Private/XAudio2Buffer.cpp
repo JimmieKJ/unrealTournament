@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	XeAudioDevice.cpp: Unreal XAudio2 Audio interface object.
@@ -80,10 +80,11 @@ struct FXMAInfo
  * @param AudioDevice	audio device this sound buffer is going to be attached to.
  */
 FXAudio2SoundBuffer::FXAudio2SoundBuffer( FAudioDevice* InAudioDevice, ESoundFormat InSoundFormat )
-:	FSoundBuffer(InAudioDevice),
-	SoundFormat( InSoundFormat ),
-	DecompressionState( NULL ),
-	bDynamicResource( false )
+	: FSoundBuffer(InAudioDevice)
+	, SoundFormat(InSoundFormat)
+	, DecompressionState(nullptr)
+	, RealtimeAsyncHeaderParseTask(nullptr)
+	, bDynamicResource(false)
 {
 	PCM.PCMData = NULL;
 	PCM.PCMDataSize = 0;
@@ -216,6 +217,23 @@ int32 FXAudio2SoundBuffer::GetCurrentChunkOffset() const
 	return DecompressionState->GetCurrentChunkOffset();
 }
 
+bool FXAudio2SoundBuffer::IsRealTimeSourceReady()
+{
+	// If we have a realtime async header parse task, then we check if its done
+	if (RealtimeAsyncHeaderParseTask)
+	{
+		bool bIsDone = RealtimeAsyncHeaderParseTask->IsDone();
+		if (bIsDone)
+		{
+			delete RealtimeAsyncHeaderParseTask;
+			RealtimeAsyncHeaderParseTask = nullptr;
+		}
+		return bIsDone;
+	}
+	// Otherwise, we weren't a real time decoding sound buffer (or we've already asked and it was ready)
+	return true;
+}
+
 /** 
  * Setup a WAVEFORMATEX structure
  */
@@ -306,6 +324,16 @@ void FXAudio2SoundBuffer::InitXWMA( USoundWave* Wave, FXMAInfo* XMAInfo )
 #endif	//XAUDIO_SUPPORTS_XMA2WAVEFORMATEX
 }
 
+bool FXAudio2SoundBuffer::ReadCompressedInfo(USoundWave* SoundWave)
+{
+	if (!DecompressionState)
+	{
+		UE_LOG(LogXAudio2, Warning, TEXT("Attempting to read compressed info without a compression state instance for resource '%s'"), *ResourceName);
+		return false;
+	}
+	return DecompressionState->ReadCompressedInfo(SoundWave->ResourceData, SoundWave->ResourceSize, nullptr);
+}
+
 /**
  * Decompresses a chunk of compressed audio to the destination memory
  *
@@ -315,6 +343,12 @@ void FXAudio2SoundBuffer::InitXWMA( USoundWave* Wave, FXMAInfo* XMAInfo )
  */
 bool FXAudio2SoundBuffer::ReadCompressedData( uint8* Destination, bool bLooping )
 {
+	if (!DecompressionState)
+	{
+		UE_LOG(LogXAudio2, Warning, TEXT( "Attempting to read compressed data without a compression state instance for resource '%s'" ), *ResourceName );
+		return false;
+	}
+	
 	const uint32 kPCMBufferSize = MONO_PCM_BUFFER_SIZE * NumChannels;
 	if (SoundFormat == SoundFormat_Streaming)
 	{
@@ -343,6 +377,9 @@ void FXAudio2SoundBuffer::Seek( const float SeekTime )
  */
 FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreateQueuedBuffer( FXAudio2Device* XAudio2Device, USoundWave* Wave )
 {
+	check(XAudio2Device);
+	check(Wave);
+
 	// Check to see if thread has finished decompressing on the other thread
 	if( Wave->AudioDecompressor != nullptr )
 	{
@@ -362,13 +399,16 @@ FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreateQueuedBuffer( FXAudio2Device* XA
 		Wave->InitAudioResource(XAudio2Device->GetRuntimeFormat(Wave));
 	}
 
-	// Prime the first two buffers and prepare the decompression
-	FSoundQualityInfo QualityInfo = { 0 };
-
 	Buffer->DecompressionState = XAudio2Device->CreateCompressedAudioInfo(Wave);
 
-	if (Buffer->DecompressionState && Buffer->DecompressionState->ReadCompressedInfo(Wave->ResourceData, Wave->ResourceSize, &QualityInfo))
+	if (Buffer->DecompressionState)
 	{
+		// Start the async task that parses the decompressed asset header info
+		// Doing this step synchronously causes huge main-thread hitches for large ogg-vorbis files
+		check(Buffer->RealtimeAsyncHeaderParseTask == nullptr);
+		Buffer->RealtimeAsyncHeaderParseTask = new FAsyncRealtimeAudioTask(Buffer, Wave);
+		Buffer->RealtimeAsyncHeaderParseTask->StartBackgroundTask();
+
 		// Clear out any dangling pointers
 		Buffer->PCM.PCMData = NULL;
 		Buffer->PCM.PCMDataSize = 0;

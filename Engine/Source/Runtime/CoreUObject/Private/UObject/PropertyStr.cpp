@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreUObjectPrivate.h"
 
@@ -6,12 +6,58 @@
 	UStrProperty.
 -----------------------------------------------------------------------------*/
 
+// Necessary to fix Compiler Error C2026 and C1091
+FString UStrProperty::ExportCppHardcodedText(const FString& InSource, const FString& Indent)
+{
+	const FString Source = InSource.ReplaceCharWithEscapedChar();
+	FString Result{};
+	const int32 PreferredLineSize = 256;
+	int32 StartPos = 0;
+
+	const int32 LinesPerString = 16;
+	const bool bUseSubStrings = InSource.Len() > (LinesPerString * PreferredLineSize);
+	int32 LineNum = 0;
+	if (bUseSubStrings)
+	{
+		Result += TEXT("*(FString(");
+	}
+
+	do
+	{
+		if (StartPos)
+		{
+			Result += TEXT("\n");
+			Result += Indent;
+		}
+
+		++LineNum;
+		if (bUseSubStrings && 0 == (LineNum % LinesPerString))
+		{
+			Result += TEXT(") + FString(");
+		}
+
+		int32 WantedSize = FMath::Min<int32>(Source.Len() - StartPos, PreferredLineSize);
+		while (((WantedSize + StartPos) < Source.Len()) && (Source[WantedSize + StartPos - 1] == TCHAR('\\')))
+		{
+			WantedSize++;
+		}
+		Result += FString::Printf(TEXT("TEXT(\"%s\")"), *Source.Mid(StartPos, WantedSize));
+		StartPos += WantedSize;
+	} while (StartPos < Source.Len());
+
+	if (bUseSubStrings)
+	{
+		Result += TEXT("))");
+	}
+	return Result;
+}
+
 void UStrProperty::ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const
 {
 	FString& StringValue = *(FString*)PropertyValue;
 	if (0 != (PortFlags & PPF_ExportCpp))
 	{
-		ValueStr += FString::Printf(TEXT("FString(TEXT(\"%s\"))"), *(StringValue.ReplaceCharWithEscapedChar()));
+		ValueStr += FString::Printf(TEXT("FString(%s)"), *ExportCppHardcodedText(StringValue, FString()));
 	}
 	else if (!(PortFlags & PPF_Delimited))
 	{

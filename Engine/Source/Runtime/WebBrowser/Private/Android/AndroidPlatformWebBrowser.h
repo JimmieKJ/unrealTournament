@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -8,6 +8,7 @@
 #include "SlateCore.h"
 
 class SAndroidWebBrowserWidget;
+class SWebBrowserView;
 
 /**
 * Implementation of interface for dealing with a Web Browser window.
@@ -18,6 +19,8 @@ class FWebBrowserWindow
 {
 	// The WebBrowserSingleton should be the only one creating instances of this class
 	friend class FWebBrowserSingleton;
+	// CreateWidget should only be called by the WebBrowserView
+	friend class SWebBrowserView;
 
 private:
 	/**
@@ -29,6 +32,11 @@ private:
 	*/
 	FWebBrowserWindow(FString InUrl, TOptional<FString> InContentsToLoad, bool ShowErrorMessage, bool bThumbMouseButtonNavigation, bool bUseTransparency);
 
+	/**
+	 * Create the SWidget for this WebBrowserWindow
+	 */
+	TSharedRef<SWidget> CreateWidget();
+
 public:
 	/** Virtual Destructor. */
 	virtual ~FWebBrowserWindow();
@@ -39,8 +47,7 @@ public:
 
 	virtual void LoadURL(FString NewURL) override;
 	virtual void LoadString(FString Contents, FString DummyURL) override;
-	virtual TSharedRef<SWidget> CreateWidget(TAttribute<FVector2D> ViewportSize) override;
-	virtual void SetViewportSize(FIntPoint WindowSize) override;
+	virtual void SetViewportSize(FIntPoint WindowSize, FIntPoint WindowPos) override;
 	virtual FSlateShaderResource* GetTexture(bool bIsPopup = false) override;
 	virtual bool IsValid() const override;
 	virtual bool IsInitialized() const override;
@@ -69,6 +76,9 @@ public:
 	virtual void CloseBrowser(bool bForce) override;
 	virtual void BindUObject(const FString& Name, UObject* Object, bool bIsPermanent = true) override;
 	virtual void UnbindUObject(const FString& Name, UObject* Object = nullptr, bool bIsPermanent = true) override;
+	virtual void GetSource(TFunction<void (const FString&)> Callback) const;
+	virtual int GetLoadError() override;
+	virtual void SetIsDisabled(bool bValue) override;
 
 	// TODO: None of these events are actually called
 
@@ -88,6 +98,12 @@ public:
 	virtual FOnUrlChanged& OnUrlChanged() override
 	{
 		return UrlChangedEvent;
+	}
+
+	DECLARE_DERIVED_EVENT(FWebBrowserWindow, IWebBrowserWindow::FOnToolTip, FOnToolTip);
+	virtual FOnToolTip& OnToolTip() override
+	{
+		return ToolTipEvent;
 	}
 
 	DECLARE_DERIVED_EVENT(FWebBrowserWindow, IWebBrowserWindow::FOnNeedsRedraw, FOnNeedsRedraw);
@@ -176,6 +192,9 @@ private:
 
 	/** Delegate for broadcasting address changes. */
 	FOnUrlChanged UrlChangedEvent;
+
+	/** Delegate for broadcasting when the browser wants to show a tool tip. */
+	FOnToolTip ToolTipEvent;
 
 	/** Delegate for notifying that the window needs refreshing. */
 	FOnNeedsRedraw NeedsRedrawEvent;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SceneHitProxyRendering.cpp: Scene hit proxy rendering.
@@ -22,9 +22,9 @@ public:
 		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View, ESceneRenderTargetsMode::SetTextures);
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement, float DitheredLODTransitionValue)
+	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FMeshDrawingRenderState& DrawRenderState)
 	{
-		FMeshMaterialShader::SetMesh(RHICmdList, GetVertexShader(),VertexFactory,View,Proxy,BatchElement,DitheredLODTransitionValue);
+		FMeshMaterialShader::SetMesh(RHICmdList, GetVertexShader(),VertexFactory,View,Proxy,BatchElement,DrawRenderState);
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
@@ -126,9 +126,9 @@ public:
 		FMeshMaterialShader::SetParameters(RHICmdList, GetPixelShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View, ESceneRenderTargetsMode::SetTextures);
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement, float DitheredLODTransitionValue)
+	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FMeshDrawingRenderState& DrawRenderState)
 	{
-		FMeshMaterialShader::SetMesh(RHICmdList, GetPixelShader(),VertexFactory,View,Proxy,BatchElement,DitheredLODTransitionValue);
+		FMeshMaterialShader::SetMesh(RHICmdList, GetPixelShader(),VertexFactory,View,Proxy,BatchElement,DrawRenderState);
 	}
 
 	void SetHitProxyId(FRHICommandList& RHICmdList, FHitProxyId HitProxyIdValue)
@@ -210,22 +210,22 @@ void FHitProxyDrawingPolicy::SetMeshRenderState(
 	const FMeshBatch& Mesh,
 	int32 BatchElementIndex,
 	bool bBackFace,
-	float DitheredLODTransitionValue,
+	const FMeshDrawingRenderState& DrawRenderState,
 	const FHitProxyId HitProxyId,
 	const ContextDataType PolicyContext
 	) const
 {
 	const FMeshBatchElement& BatchElement = Mesh.Elements[BatchElementIndex];
 
-	VertexShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement,DitheredLODTransitionValue);
+	VertexShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement, DrawRenderState);
 
 	if(HullShader && DomainShader)
 	{
-		HullShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement,DitheredLODTransitionValue);
-		DomainShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement,DitheredLODTransitionValue);
+		HullShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement, DrawRenderState);
+		DomainShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement, DrawRenderState);
 	}
 
-	PixelShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement,DitheredLODTransitionValue);
+	PixelShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement, DrawRenderState);
 	// Per-instance hitproxies are supplied by the vertex factory
 	if( PrimitiveSceneProxy && PrimitiveSceneProxy->HasPerInstanceHitProxies() )
 	{
@@ -309,9 +309,10 @@ bool FHitProxyDrawingPolicyFactory::DrawDynamicMesh(
 			FHitProxyDrawingPolicy DrawingPolicy( Mesh.VertexFactory, MaterialRenderProxy, View.GetFeatureLevel() );
 			RHICmdList.BuildAndSetLocalBoundShaderState(DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
 			DrawingPolicy.SetSharedState(RHICmdList, &View, FHitProxyDrawingPolicy::ContextDataType());
+			const FMeshDrawingRenderState DrawRenderState(Mesh.DitheredLODTransitionAlpha);
 			for (int32 BatchElementIndex = 0; BatchElementIndex < Mesh.Elements.Num(); BatchElementIndex++)
 			{
-				DrawingPolicy.SetMeshRenderState(RHICmdList, View, PrimitiveSceneProxy, Mesh, BatchElementIndex, bBackFace, Mesh.DitheredLODTransitionAlpha, HitProxyId, FHitProxyDrawingPolicy::ContextDataType());
+				DrawingPolicy.SetMeshRenderState(RHICmdList, View, PrimitiveSceneProxy, Mesh, BatchElementIndex, bBackFace, DrawRenderState, HitProxyId, FHitProxyDrawingPolicy::ContextDataType());
 				DrawingPolicy.DrawMesh(RHICmdList, Mesh,BatchElementIndex);
 			}
 			return true;
@@ -551,7 +552,13 @@ void FDeferredShadingSceneRenderer::RenderHitProxies(FRHICommandListImmediate& R
 	if (HitProxyRT)
 	{
 		// Find the visible primitives.
-		InitViews(RHICmdList);
+		FGraphEventArray SortEvents;
+		FILCUpdatePrimTaskData ILCTaskData;
+		bool bDoInitViewAftersPrepass = InitViews(RHICmdList, ILCTaskData, SortEvents);
+		if (bDoInitViewAftersPrepass)
+		{
+			InitViewsPossiblyAfterPrepass(RHICmdList, ILCTaskData, SortEvents);
+		}
 		::RenderHitProxies(RHICmdList, this, HitProxyRT);
 		ClearPrimitiveSingleFramePrecomputedLightingBuffers();
 	}

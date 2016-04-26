@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -323,7 +323,7 @@ public:
 	 * @param Tolerance Error tolerance.
 	 * @return true if the vectors are equal within specified tolerance, otherwise false.
 	 */
-	bool Equals( const FVector2D& V, float Tolerance ) const;
+	bool Equals( const FVector2D& V, float Tolerance=KINDA_SMALL_NUMBER ) const;
 
 	/**
 	 * Set the values of the vector directly.

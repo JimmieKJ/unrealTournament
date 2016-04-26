@@ -1,4 +1,4 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "Class.h" // for UFunction
@@ -16,6 +16,6 @@ public:
 	ULinkerPlaceholderFunction(const FObjectInitializer& ObjectInitializer);
 
 	// FLinkerPlaceholderBase interface 
-	virtual UObject* GetPlaceholderAsUObject() override { return this; }
+	virtual UObject* GetPlaceholderAsUObject() override { return (UObject*)(this); }
 	// End of FLinkerPlaceholderBase interface
 };

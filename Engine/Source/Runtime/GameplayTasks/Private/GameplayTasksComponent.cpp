@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "GameplayTasksPrivatePCH.h"
 #include "GameplayTasksComponent.h"
@@ -137,7 +137,7 @@ void UGameplayTasksComponent::TickComponent(float DeltaTime, enum ELevelTick Tic
 	case 0:
 		break;
 	case 1:
-		if (TickingTasks[0].IsValid())
+		if (TickingTasks[0])
 		{
 			TickingTasks[0]->TickTask(DeltaTime);
 			NumActuallyTicked++;
@@ -145,10 +145,13 @@ void UGameplayTasksComponent::TickComponent(float DeltaTime, enum ELevelTick Tic
 		break;
 	default:
 	{
-		TArray<TWeakObjectPtr<UGameplayTask> > LocalTickingTasks = TickingTasks;
-		for (TWeakObjectPtr<UGameplayTask>& TickingTask : LocalTickingTasks)
+
+		static TArray<UGameplayTask*> LocalTickingTasks;
+		LocalTickingTasks.Reset();
+		LocalTickingTasks.Append(TickingTasks);
+		for (UGameplayTask* TickingTask : LocalTickingTasks)
 		{
-			if (TickingTask.IsValid())
+			if (TickingTask)
 			{
 				TickingTask->TickTask(DeltaTime);
 				NumActuallyTicked++;
@@ -455,7 +458,7 @@ FString UGameplayTasksComponent::GetTickingTasksDescription() const
 	FString TasksDescription;
 	for (auto& Task : TickingTasks)
 	{
-		if (Task.IsValid())
+		if (Task)
 		{
 			TasksDescription += FString::Printf(TEXT("\n%s %s"), *GetTaskStateName(Task->GetState()), *Task->GetDebugDescription());
 		}

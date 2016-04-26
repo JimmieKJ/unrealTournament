@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Misc/AutomationTest.h"
@@ -7,9 +7,11 @@
 #define LOCTEXT_NAMESPACE "TextPropertyTest"
 
 UTextPropertyTestObject::UTextPropertyTestObject(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer), DefaultedText( LOCTEXT("DefaultedText", "DefaultValue") )
+	: Super(ObjectInitializer), DefaultedText(LOCTEXT("DefaultedText", "DefaultValue"))
 {
 }
+
+#if WITH_DEV_AUTOMATION_TESTS
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTextPropertyTest, "System.Engine.Internationalization.Text Property Test", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
 
@@ -35,7 +37,9 @@ bool FTextPropertyTest::RunTest (const FString& Parameters)
 		{
 			FString ExportedStringValue;
 			DefaultedTextProperty->ExportTextItem(ExportedStringValue, &(NewUObject->DefaultedText), NULL, NULL, 0, NULL);
-			if (ExportedStringValue != NewUObject->DefaultedText.ToString())
+			FText ExportedTextValue;
+			FTextStringHelper::ReadFromString(*ExportedStringValue, ExportedTextValue);
+			if (ExportedTextValue.ToString() != NewUObject->DefaultedText.ToString())
 			{
 				AddError(TEXT("UTextProperty::ExportTextItem failed to provide the display string."));
 			}
@@ -132,3 +136,5 @@ bool FTextPropertyTest::RunTest (const FString& Parameters)
 }
 
 #undef LOCTEXT_NAMESPACE
+
+#endif //WITH_DEV_AUTOMATION_TESTS

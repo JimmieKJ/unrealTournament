@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -67,7 +67,6 @@ namespace UnrealBuildTool
 			UEBuildConfiguration.bCompilePhysX = true;
 			UEBuildConfiguration.bRuntimePhysicsCooking = false;
 			UEBuildConfiguration.bCompileSimplygon = false;
-			UEBuildConfiguration.bCompileICU = true;
 			UEBuildConfiguration.bCompileForSize = true;
 		}
 
@@ -335,6 +334,12 @@ namespace UnrealBuildTool
 		/// <returns>true if supports</returns>
 		protected override bool PlatformSupportsAutoSDKs()
 		{
+			return true;
+		}
+
+		// platforms can choose if they prefer a correct the the AutoSDK install over the manual install.
+		protected override bool PreferAutoSDK()
+		{
 			return false;
 		}
 
@@ -372,10 +377,15 @@ namespace UnrealBuildTool
 
 	class HTML5PlatformFactory : UEBuildPlatformFactory
 	{
+		protected override UnrealTargetPlatform TargetPlatform
+		{
+			get { return UnrealTargetPlatform.HTML5; }
+		}
+
 		/// <summary>
 		/// Register the platform with the UEBuildPlatform class
 		/// </summary>
-		public override void RegisterBuildPlatforms()
+		protected override void RegisterBuildPlatforms()
 		{
 			HTML5PlatformSDK SDK = new HTML5PlatformSDK();
 			SDK.ManageAndValidateSDK();

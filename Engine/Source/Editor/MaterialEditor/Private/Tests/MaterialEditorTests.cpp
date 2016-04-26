@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MaterialEditorModule.h"
 
@@ -17,6 +17,8 @@
 #include "Private/MaterialEditor.h"
 #include "Materials/MaterialExpressionTextureSample.h"
 #include "Materials/MaterialExpressionConstant3Vector.h"
+
+#if WITH_DEV_AUTOMATION_TESTS
 
 #define LOCTEXT_NAMESPACE "EditorMaterialEditorPromotionTests"
 
@@ -248,3 +250,5 @@ bool FMaterialEditorPromotionTest::RunTest(const FString& Parameters)
 }
 
 #undef LOCTEXT_NAMESPACE
+
+#endif //WITH_DEV_AUTOMATION_TESTS

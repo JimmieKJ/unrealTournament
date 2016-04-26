@@ -127,10 +127,6 @@ void SUTServerBrowserPanel::ConstructPanel(FVector2D ViewportSize)
 	bAutoRefresh = false;
 	TSharedRef<SScrollBar> ExternalScrollbar = SNew(SScrollBar);
 
-	OnlineSubsystem = IOnlineSubsystem::Get();
-	if (OnlineSubsystem) OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
-	if (OnlineSubsystem) OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
-
 	this->ChildSlot
 	[
 		SAssignNew(AnimWidget, SUTBorder).OnAnimEnd(this, &SUTServerBrowserPanel::AnimEnd)
@@ -1114,6 +1110,10 @@ FReply SUTServerBrowserPanel::OnRefreshClick()
 
 void SUTServerBrowserPanel::RefreshServers()
 {
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	IOnlineSessionPtr OnlineSessionInterface;
+	if (OnlineSubsystem) OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
+
 	bWantsAFullRefilter = true;
 	if (PlayerOwner->IsLoggedIn() && OnlineSessionInterface.IsValid() && BrowserState == EBrowserState::BrowserIdle)
 	{
@@ -1146,10 +1146,18 @@ void SUTServerBrowserPanel::RefreshServers()
 
 void SUTServerBrowserPanel::FoundServer(FOnlineSessionSearchResult& Result)
 {
+
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	IOnlineSessionPtr OnlineSessionInterface;
+	if (OnlineSubsystem) OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
+
 	FString ServerName;
 	Result.Session.SessionSettings.Get(SETTING_SERVERNAME,ServerName);
 	FString ServerIP;
-	OnlineSessionInterface->GetResolvedConnectString(Result,FName(TEXT("GamePort")), ServerIP);
+	if (OnlineSessionInterface.IsValid())
+	{
+		OnlineSessionInterface->GetResolvedConnectString(Result, FName(TEXT("GamePort")), ServerIP);
+	}
 	// game class path
 	FString ServerGamePath;
 	Result.Session.SessionSettings.Get(SETTING_GAMEMODE,ServerGamePath);
@@ -1209,7 +1217,11 @@ void SUTServerBrowserPanel::FoundServer(FOnlineSessionSearchResult& Result)
 	Result.Session.SessionSettings.Get(SETTING_TRUSTLEVEL, ServerTrustLevel);
 
 	FString BeaconIP;
-	OnlineSessionInterface->GetResolvedConnectString(Result,FName(TEXT("BeaconPort")), BeaconIP);
+	if (OnlineSessionInterface.IsValid())
+	{
+		OnlineSessionInterface->GetResolvedConnectString(Result, FName(TEXT("BeaconPort")), BeaconIP);
+	}
+
 	TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, BeaconIP, ServerGamePath, ServerGameName, ServerMap, ServerNoPlayers, ServerNoSpecs, ServerMaxPlayers, ServerMaxSpectators, ServerNumMatches, ServerMinRank, ServerMaxRank, ServerVer, ServerPing, ServerFlags,ServerTrustLevel);
 	NewServer->SearchResult = Result;
 
@@ -1228,7 +1240,15 @@ void SUTServerBrowserPanel::FoundServer(FOnlineSessionSearchResult& Result)
 
 void SUTServerBrowserPanel::OnFindSessionsComplete(bool bWasSuccessful)
 {
-	OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindSessionCompleteDelegate);
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	
+	IOnlineSessionPtr OnlineSessionInterface;
+	if (OnlineSubsystem) OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
+
+	if (OnlineSessionInterface.IsValid())
+	{
+		OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindSessionCompleteDelegate);
+	}
 
 	if (bWasSuccessful)
 	{
@@ -1276,14 +1296,25 @@ void SUTServerBrowserPanel::OnFindSessionsComplete(bool bWasSuccessful)
 	TSharedRef<FUTOnlineGameSearchBase> LanSearchSettingsRef = LanSearchSettings.ToSharedRef();
 	FOnFindSessionsCompleteDelegate Delegate;
 	Delegate.BindSP(this, &SUTServerBrowserPanel::OnFindLANSessionsComplete);
-	OnFindLANSessionCompleteDelegate = OnlineSessionInterface->AddOnFindSessionsCompleteDelegate_Handle(Delegate);
-	OnlineSessionInterface->FindSessions(0, LanSearchSettingsRef);
+	if (OnlineSessionInterface.IsValid())
+	{
+		OnFindLANSessionCompleteDelegate = OnlineSessionInterface->AddOnFindSessionsCompleteDelegate_Handle(Delegate);
+		OnlineSessionInterface->FindSessions(0, LanSearchSettingsRef);
+	}
 }
 
 
 void SUTServerBrowserPanel::OnFindLANSessionsComplete(bool bWasSuccessful)
 {
-	OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindLANSessionCompleteDelegate);
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	
+	IOnlineSessionPtr OnlineSessionInterface;
+	if (OnlineSubsystem) OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
+
+	if (OnlineSessionInterface.IsValid())
+	{
+		OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindLANSessionCompleteDelegate);
+	}
 
 	if (bWasSuccessful)
 	{
@@ -1407,6 +1438,7 @@ void SUTServerBrowserPanel::CleanupQoS()
 	PingList.Empty();
 }
 
+
 void SUTServerBrowserPanel::PingNextServer()
 {
 
@@ -1466,6 +1498,15 @@ void SUTServerBrowserPanel::AddServer(TSharedPtr<FServerData> Server)
 
 			return; 
 		}
+
+		if (AllInternetServers[i]->IP == Server->IP && AllInternetServers[i]->Name.Equals(Server->Name, ESearchCase::IgnoreCase))
+		{
+			// Server already exists in the list so update it
+			AllInternetServers[i]->Update(Server);
+			return;
+		}
+
+
 	}
 
 	AllInternetServers.Add(Server);
@@ -1502,10 +1543,17 @@ void SUTServerBrowserPanel::AddHub(TSharedPtr<FServerData> Hub)
 				}
 				return; 
 			}
+
+			if (AllHubServers[i]->IP == Hub->IP && AllHubServers[i]->Name.Equals(Hub->Name, ESearchCase::IgnoreCase))
+			{
+				// Server already exists in the list so update it
+				AllHubServers[i]->Update(Hub);
+				return;
+			}
+
 		}
 	}
 
-	UE_LOG(UT,Log,TEXT("ADDing HUB"));
 	AllHubServers.Add(Hub);
 	FilterHUB(Hub);
 }
@@ -1596,12 +1644,12 @@ void SUTServerBrowserPanel::OnServerBeaconResult(AUTServerBeaconClient* Sender, 
 				int32 Count = 0;
 				for (int32 ins=0; ins < PingTrackers[i].Server->HUBInstances.Num(); ins++)
 				{
-					for (int32 pi = 0; pi < PingTrackers[i].Server->HUBInstances[ins]->Players.Num(); pi++ )
+					for (int32 PlayerIdx = 0; PlayerIdx < PingTrackers[i].Server->HUBInstances[ins]->Players.Num(); PlayerIdx++ )
 					{
 						bool bFound = false;
 						for (int32 p = 0; p < PingTrackers[i].Server->Players.Num(); p++)
 						{
-							if (PingTrackers[i].Server->HUBInstances[ins]->Players[pi].PlayerId == PingTrackers[i].Server->Players[p]->Id)
+							if (PingTrackers[i].Server->HUBInstances[ins]->Players[PlayerIdx].PlayerId == PingTrackers[i].Server->Players[p]->Id)
 							{
 								bFound = true;
 								break;
@@ -1675,14 +1723,30 @@ void SUTServerBrowserPanel::ConnectTo(FServerData ServerData,bool bSpectate)
 		return;
 	}
 
+	if (!PlayerOwner->IsPartyLeader())
+	{
+		PlayerOwner->ShowToast(NSLOCTEXT("SUTServerBrowserPanel", "ConnectToNotLeader", "Only the party leader may do this"));
+		return;
+	}
+
 	ConnectToServerName = FText::Format(NSLOCTEXT("SUTServerBrowserPanel","ConnectToFormat","Connecting to {0}... "), ServerData.GetBrowserName());
 	SetBrowserState(EBrowserState::ConnectInProgress);	
+
+	// Attempt to cancel any find session calls in progress
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	IOnlineSessionPtr OnlineSessionInterface;
+	if (OnlineSubsystem) OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
+	if (OnlineSessionInterface.IsValid())
+	{
+		OnlineSessionInterface->CancelFindSessions();	
+	}
 
 	// Flag the browser as needing a refresh the next time it is shown
 	bNeedsRefresh = true;
 	PlayerOwner->JoinSession(ServerData.SearchResult, bSpectate);
 	CleanupQoS();
 }
+
 
 void SUTServerBrowserPanel::FilterAllServers()
 {
@@ -2373,6 +2437,21 @@ void SUTServerBrowserPanel::JoinQuickInstance(const FString& InstanceGuid, bool 
 		}
 
 		PlayerOwner->AttemptJoinInstance(SelectedHubs[0], InstanceGuid, bAsSpectator);
+		SetBrowserState(EBrowserState::ConnectInProgress);	
+
+		// Attempt to cancel any find session calls in progress
+		IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+		IOnlineSessionPtr OnlineSessionInterface;
+		if (OnlineSubsystem) OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
+		if (OnlineSessionInterface.IsValid())
+		{
+			OnlineSessionInterface->CancelFindSessions();	
+		}
+
+
+		// Flag the browser as needing a refresh the next time it is shown
+		bNeedsRefresh = true;
+		CleanupQoS();
 	}
 
 }

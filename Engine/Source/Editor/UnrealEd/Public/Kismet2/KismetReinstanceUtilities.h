@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #ifndef __KismetReinstanceUtilities_h__
@@ -40,7 +40,7 @@ protected:
 	static TSet<TWeakObjectPtr<UBlueprint>> DependentBlueprintsToRefresh;
 	static TSet<TWeakObjectPtr<UBlueprint>> DependentBlueprintsToRecompile;
 	static TSet<TWeakObjectPtr<UBlueprint>> DependentBlueprintsToByteRecompile;
-	static TSet<UBlueprint*> CompiledBlueprintsToSave;
+	static TSet<TWeakObjectPtr<UBlueprint>> CompiledBlueprintsToSave;
 
 	static UClass* HotReloadedOldClass;
 	static UClass* HotReloadedNewClass;
@@ -78,8 +78,11 @@ protected:
 	/** Objects that should keep reference to old class */
 	TSet<UObject*> ObjectsThatShouldUseOldStuff;
 
-	/** TRUE if this is the source reinstancer that all other active reinstancing is spawned from */
-	bool bIsSourceReinstancer;
+	/** TRUE if this is the root reinstancer that all other active reinstancing is spawned from */
+	bool bIsRootReinstancer;
+
+	/** TRUE if this reinstancer should resave compiled Blueprints if the user has requested it */
+	bool bAllowResaveAtTheEndIfRequested;
 
 public:
 	// FSerializableObject interface
@@ -92,9 +95,9 @@ public:
 	virtual void EnlistDependentBlueprintToRecompile(UBlueprint* BP, bool bBytecodeOnly);
 	virtual void BlueprintWasRecompiled(UBlueprint* BP, bool bBytecodeOnly);
 
-	static TSharedPtr<FBlueprintCompileReinstancer> Create(UClass* InClassToReinstance, bool bIsBytecodeOnly = false, bool bSkipGC = false)
+	static TSharedPtr<FBlueprintCompileReinstancer> Create(UClass* InClassToReinstance, bool bIsBytecodeOnly = false, bool bSkipGC = false, bool bAutoInferSaveOnCompile = true)
 	{
-		return MakeShareable(new FBlueprintCompileReinstancer(InClassToReinstance, bIsBytecodeOnly, bSkipGC));
+		return MakeShareable(new FBlueprintCompileReinstancer(InClassToReinstance, bIsBytecodeOnly, bSkipGC, bAutoInferSaveOnCompile));
 	}
 
 	virtual ~FBlueprintCompileReinstancer();
@@ -147,11 +150,20 @@ protected:
 		, OriginalCDO(NULL)
 		, bHasReinstanced(false)
 		, bSkipGarbageCollection(false)
+		, bIsReinstancingSkeleton(false)
 		, ClassToReinstanceDefaultValuesCRC(0)
+		, bIsRootReinstancer(false)
 	{}
 
-	/** Sets the reinstancer up to work on every object of the specified class */
-	FBlueprintCompileReinstancer(UClass* InClassToReinstance, bool bIsBytecodeOnly = false, bool bSkipGC = false);
+	/** 
+	 * Sets the reinstancer up to work on every object of the specified class
+	 *
+	 * @param InClassToReinstance		Class being reinstanced
+	 * @param bIsBytecodeOnly			TRUE if only the bytecode is being recompiled
+	 * @param bSkipGC					TRUE if garbage collection should be skipped
+	 * @param bAutoInferSaveOnCompile	TRUE if the reinstancer should infer whether or not save on compile should occur, FALSE if it should never save on compile
+	 */
+	FBlueprintCompileReinstancer(UClass* InClassToReinstance, bool bIsBytecodeOnly = false, bool bSkipGC = false, bool bAutoInferSaveOnCompile = true);
 
 	/** Reparents the specified blueprint or class to be the duplicated class in order to allow properties to be copied from the previous CDO to the new one */
 	void ReparentChild(UBlueprint* ChildBP);

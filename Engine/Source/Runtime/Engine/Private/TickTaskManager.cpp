@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	TickTaskManager.cpp: Manager for ticking tasks
@@ -20,6 +20,11 @@ DECLARE_CYCLE_STAT(TEXT("Finalize Parallel Queue"),STAT_FinalizeParallelQueue,ST
 DECLARE_CYCLE_STAT(TEXT("Schedule cooldowns"),STAT_ScheduleCooldowns,STATGROUP_Game);
 DECLARE_DWORD_COUNTER_STAT(TEXT("Ticks Queued"),STAT_TicksQueued,STATGROUP_Game);
 DECLARE_CYCLE_STAT(TEXT("TG_NewlySpawned"), STAT_TG_NewlySpawned, STATGROUP_TickGroups);
+DECLARE_CYCLE_STAT(TEXT("ReleaseTickGroup"), STAT_ReleaseTickGroup, STATGROUP_TickGroups);
+DECLARE_CYCLE_STAT(TEXT("ReleaseTickGroup Block"), STAT_ReleaseTickGroup_Block, STATGROUP_TickGroups);
+DECLARE_CYCLE_STAT(TEXT("CleanupTasksWait"), STAT_CleanupTasksWait, STATGROUP_TickGroups);
+
+
 
 static TAutoConsoleVariable<float> CVarStallStartFrame(
 	TEXT("CriticalPathStall.TickStartFrame"),
@@ -50,6 +55,43 @@ static TAutoConsoleVariable<int32> CVarAllowAsyncTickDispatch(
 	TEXT("tick.AllowAsyncTickDispatch"),
 	0,
 	TEXT("If true, ticks are dispatched in a task thread."));
+
+static TAutoConsoleVariable<int32> CVarAllowAsyncTickCleanup(
+	TEXT("tick.AllowAsyncTickCleanup"),
+	1,
+	TEXT("If true, ticks are cleaned up in a task thread."));
+
+FAutoConsoleTaskPriority CPrio_DispatchTaskPriority(
+	TEXT("TaskGraph.TaskPriorities.TickDispatchTaskPriority"),
+	TEXT("Task and thread priority for tick tasks dispatch."),
+	ENamedThreads::HighThreadPriority, // if we have high priority task threads, then use them...
+	ENamedThreads::NormalTaskPriority, // .. at normal task priority
+	ENamedThreads::HighTaskPriority // if we don't have hi pri threads, then use normal priority threads at high task priority instead
+	);
+
+FAutoConsoleTaskPriority CPrio_CleanupTaskPriority(
+	TEXT("TaskGraph.TaskPriorities.TickCleanupTaskPriority"),
+	TEXT("Task and thread priority for tick cleanup."),
+	ENamedThreads::BackgroundThreadPriority, // if we have background priority task threads, then use them...
+	ENamedThreads::NormalTaskPriority, // .. at normal task priority
+	ENamedThreads::NormalTaskPriority // if we don't have background threads, then use normal priority threads at normal task priority instead
+	);
+
+FAutoConsoleTaskPriority CPrio_NormalAsyncTickTaskPriority(
+	TEXT("TaskGraph.TaskPriorities.NormalAsyncTickTaskPriority"),
+	TEXT("Task and thread priority for async ticks that are not high priority."),
+	ENamedThreads::NormalThreadPriority, 
+	ENamedThreads::NormalTaskPriority
+	);
+
+FAutoConsoleTaskPriority CPrio_HiPriAsyncTickTaskPriority(
+	TEXT("TaskGraph.TaskPriorities.HiPriAsyncTickTaskPriority"),
+	TEXT("Task and thread priority for async ticks that are high priority."),
+	ENamedThreads::HighThreadPriority, // if we have high priority task threads, then use them...
+	ENamedThreads::NormalTaskPriority, // .. at normal task priority
+	ENamedThreads::HighTaskPriority // if we don't have hi pri threads, then use normal priority threads at high task priority instead
+	);
+
 
 FORCEINLINE bool CanDemoteIntoTickGroup(ETickingGroup TickGroup)
 {
@@ -187,20 +229,16 @@ public:
 	, bLogTicksShowPrerequistes(bInLogTicksShowPrerequistes)
 	{
 	}
-	FORCEINLINE TStatId GetStatId() const
+	static FORCEINLINE TStatId GetStatId()
 	{
-	RETURN_QUICK_DECLARE_CYCLE_STAT(FTickFunctionTask, STATGROUP_TaskGraphTasks);
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FTickFunctionTask, STATGROUP_TaskGraphTasks);
 	}
 	/** return the thread for this task **/
 	FORCEINLINE ENamedThreads::Type GetDesiredThread()
 	{
-		if (Target->bHighPriority)
-		{
-			return ENamedThreads::HiPri(Context.Thread);
-		}
 		return Context.Thread;
 	}
-	FORCEINLINE static ESubsequentsMode::Type GetSubsequentsMode() 
+	static FORCEINLINE ESubsequentsMode::Type GetSubsequentsMode()
 	{ 
 		return ESubsequentsMode::TrackSubsequents; 
 	}
@@ -250,15 +288,15 @@ class FTickTaskSequencer
 			, WorldTickGroup(InWorldTickGroup)
 		{
 		}
-		FORCEINLINE TStatId GetStatId() const
+		static FORCEINLINE TStatId GetStatId()
 		{
 			RETURN_QUICK_DECLARE_CYCLE_STAT(FDipatchTickGroupTask, STATGROUP_TaskGraphTasks);
 		}
-		FORCEINLINE ENamedThreads::Type GetDesiredThread()
+		static FORCEINLINE ENamedThreads::Type GetDesiredThread()
 		{
-			return ENamedThreads::HiPri(ENamedThreads::AnyThread);
+			return CPrio_DispatchTaskPriority.Get();
 		}
-		FORCEINLINE static ESubsequentsMode::Type GetSubsequentsMode() 
+		static FORCEINLINE ESubsequentsMode::Type GetSubsequentsMode()
 		{ 
 			return ESubsequentsMode::TrackSubsequents; 
 		}
@@ -286,13 +324,13 @@ class FTickTaskSequencer
 			, WorldTickGroup(InWorldTickGroup)
 		{
 		}
-		FORCEINLINE TStatId GetStatId() const
+		static FORCEINLINE TStatId GetStatId()
 		{
 			RETURN_QUICK_DECLARE_CYCLE_STAT(FResetTickGroupTask, STATGROUP_TaskGraphTasks);
 		}
-		FORCEINLINE ENamedThreads::Type GetDesiredThread()
+		static FORCEINLINE ENamedThreads::Type GetDesiredThread()
 		{
-			return ENamedThreads::AnyThread;
+			return CPrio_CleanupTaskPriority.Get();
 		}
 		FORCEINLINE static ESubsequentsMode::Type GetSubsequentsMode() 
 		{ 
@@ -364,10 +402,20 @@ public:
 	   
 		bool bIsOriginalTickGroup = (TickFunction->ActualStartTickGroup == TickFunction->TickGroup);
 
-		UseContext.Thread = ENamedThreads::GameThread;
 		if (TickFunction->bRunOnAnyThread && bAllowConcurrentTicks && bIsOriginalTickGroup)
 		{
-			UseContext.Thread = ENamedThreads::HiPri(ENamedThreads::AnyThread);
+			if (TickFunction->bHighPriority)
+			{
+				UseContext.Thread = CPrio_HiPriAsyncTickTaskPriority.Get();
+			}
+			else
+			{
+				UseContext.Thread = CPrio_NormalAsyncTickTaskPriority.Get();
+			}
+		}
+		else
+		{
+			UseContext.Thread = ENamedThreads::SetTaskPriority(ENamedThreads::GameThread, TickFunction->bHighPriority ? ENamedThreads::HighTaskPriority : ENamedThreads::NormalTaskPriority);
 		}
 
 		TickFunction->TaskPointer = TGraphTask<FTickFunctionTask>::CreateTask(Prerequisites, TickContext.Thread).ConstructAndHold(TickFunction, &UseContext, bLogTicks, bLogTicksShowPrerequistes);
@@ -390,7 +438,7 @@ public:
 	/** Add a completion handle to a tick group, parallel version **/
 	FORCEINLINE void AddTickTaskCompletionParallel(ETickingGroup StartTickGroup, ETickingGroup EndTickGroup, TGraphTask<FTickFunctionTask>* Task, bool bHiPri)
 	{
-		checkSlow(StartTickGroup >=0 && StartTickGroup < TG_MAX && EndTickGroup >=0 && EndTickGroup < TG_MAX && StartTickGroup <= EndTickGroup);
+		check(StartTickGroup >= 0 && StartTickGroup < TG_NewlySpawned && EndTickGroup >= 0 && EndTickGroup < TG_NewlySpawned && StartTickGroup <= EndTickGroup);
 		if (bHiPri)
 		{
 			HiPriTickTasks[StartTickGroup][EndTickGroup].AddThreadsafe(Task);
@@ -458,7 +506,7 @@ public:
 		checkSlow(WorldTickGroup >= 0 && WorldTickGroup < TG_MAX);
 
 		{
-			QUICK_SCOPE_CYCLE_COUNTER(STAT_ReleaseTickGroup);
+			SCOPE_CYCLE_COUNTER(STAT_ReleaseTickGroup);
 			if (SingleThreadedMode() || CVarAllowAsyncTickDispatch.GetValueOnGameThread() == 0)
 			{
 				DispatchTickGroup(ENamedThreads::GameThread, WorldTickGroup);
@@ -473,13 +521,13 @@ public:
 
 		if (bBlockTillComplete || SingleThreadedMode())
 		{
-			QUICK_SCOPE_CYCLE_COUNTER(STAT_ReleaseTickGroup_Block);
+			SCOPE_CYCLE_COUNTER(STAT_ReleaseTickGroup_Block);
 			for (ETickingGroup Block = WaitForTickGroup; Block <= WorldTickGroup; Block = ETickingGroup(Block + 1))
 			{
 				if (TickCompletionEvents[Block].Num())
 				{
 					FTaskGraphInterface::Get().WaitUntilTasksComplete(TickCompletionEvents[Block], ENamedThreads::GameThread);
-					if (SingleThreadedMode() || WorldTickGroup == TG_NewlySpawned)
+					if (SingleThreadedMode() || Block == TG_NewlySpawned || CVarAllowAsyncTickCleanup.GetValueOnGameThread() == 0)
 					{
 						ResetTickGroup(Block);
 					}
@@ -521,6 +569,9 @@ public:
 		{
 			bAllowConcurrentTicks = !!CVarAllowAsyncComponentTicks.GetValueOnGameThread();
 		}
+
+		WaitForCleanup();
+
 		for (int32 Index = 0; Index < TG_MAX; Index++)
 		{
 			check(!TickCompletionEvents[Index].Num());  // we should not be adding to these outside of a ticking proper and they were already cleared after they were ticked
@@ -543,16 +594,6 @@ public:
 		{
 			UE_LOG(LogTick, Log, TEXT("tick %6d ---------------------------------------- End Frame"),GFrameCounter);
 		}
-		FTaskGraphInterface::Get().WaitUntilTasksComplete(CleanupTasks, ENamedThreads::GameThread);
-		CleanupTasks.Reset();
-		for (int32 Index = 0; Index < TG_MAX; Index++)
-		{
-			check(!TickCompletionEvents[Index].Num());  // we should not be adding to these outside of a ticking proper and they were already cleared after they were ticked
-			for (int32 IndexInner = 0; IndexInner < TG_MAX; IndexInner++)
-			{
-				check(!TickTasks[Index][IndexInner].Num() && !HiPriTickTasks[Index][IndexInner].Num());  // we should not be adding to these outside of a ticking proper and they were already cleared after they were ticked
-			}
-		}
 	}
 private:
 
@@ -561,6 +602,25 @@ private:
 		, bLogTicks(false)
 		, bLogTicksShowPrerequistes(false)
 	{
+		TFunction<void()> ShutdownCallback([this](){WaitForCleanup();});
+		FTaskGraphInterface::Get().AddShutdownCallback(ShutdownCallback);
+	}
+
+	~FTickTaskSequencer()
+	{
+		// Need to clean up oustanding tasks before we destroy this data structure.
+		// Typically it is already gone because the task graph shutdown first.
+		WaitForCleanup();
+	}
+
+	void WaitForCleanup()
+	{
+		if (CleanupTasks.Num() > 0)
+		{
+			SCOPE_CYCLE_COUNTER(STAT_CleanupTasksWait);
+			FTaskGraphInterface::Get().WaitUntilTasksComplete(CleanupTasks, ENamedThreads::GameThread);
+			CleanupTasks.Reset();
+		}
 	}
 
 	void ResetTickGroup(ETickingGroup WorldTickGroup)
@@ -643,7 +703,7 @@ public:
 	int32 StartFrame(const FTickContext& InContext)
 	{
 		check(!NewlySpawnedTickFunctions.Num()); // There shouldn't be any in here at this point in the frame
-		Context.TickGroup = TG_PrePhysics; // reset this to the start tick group
+		Context.TickGroup = ETickingGroup(0); // reset this to the start tick group
 		Context.DeltaSeconds = InContext.DeltaSeconds;
 		Context.TickType = InContext.TickType;
 		Context.Thread = ENamedThreads::GameThread;
@@ -680,7 +740,7 @@ public:
 	void StartFrameParallel(const FTickContext& InContext, TArray<FTickFunction*>& AllTickFunctions)
 	{
 		check(!NewlySpawnedTickFunctions.Num()); // There shouldn't be any in here at this point in the frame
-		Context.TickGroup = TG_PrePhysics; // reset this to the start tick group
+		Context.TickGroup = ETickingGroup(0); // reset this to the start tick group
 		Context.DeltaSeconds = InContext.DeltaSeconds;
 		Context.TickType = InContext.TickType;
 		Context.Thread = ENamedThreads::GameThread;
@@ -1094,7 +1154,7 @@ public:
 					FTickFunction* PrevComparisionFunction = nullptr;
 					FTickFunction* ComparisonFunction = AllCoolingDownTickFunctions.Head;
 					bool bFound = false;
-					while (ComparisonFunction)
+					while (ComparisonFunction && !bFound)
 					{
 						if (ComparisonFunction == TickFunction)
 						{
@@ -1270,7 +1330,7 @@ public:
 		}
 #endif
 		World = InWorld;
-		Context.TickGroup = TG_PrePhysics; // reset this to the start tick group
+		Context.TickGroup = ETickingGroup(0); // reset this to the start tick group
 		Context.DeltaSeconds = InDeltaSeconds;
 		Context.TickType = InTickType;
 		Context.Thread = ENamedThreads::GameThread;
@@ -1342,7 +1402,7 @@ public:
 	virtual void RunPauseFrame(UWorld* InWorld, float InDeltaSeconds, ELevelTick InTickType) override
 	{
 		bTickNewlySpawned = true; // we don't support new spawns, but lets at least catch them.
-		Context.TickGroup = TG_PrePhysics; // reset this to the start tick group
+		Context.TickGroup = ETickingGroup(0); // reset this to the start tick group
 		Context.DeltaSeconds = InDeltaSeconds;
 		Context.TickType = InTickType;
 		Context.Thread = ENamedThreads::GameThread;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessWeightedSampleSum.cpp: Post processing weight sample sum implementation.
@@ -15,6 +15,8 @@
 
 // maximum number of sample available using unrolled loop shaders
 #define MAX_FILTER_COMPILE_TIME_SAMPLES 32
+#define MAX_FILTER_COMPILE_TIME_SAMPLES_SM4 16
+#define MAX_FILTER_COMPILE_TIME_SAMPLES_ES2 7
 
 #define MAX_PACKED_SAMPLES_OFFSET ((MAX_FILTER_SAMPLES + 1) / 2)
 
@@ -67,11 +69,11 @@ public:
 		}
 		else if( IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) )
 		{
-			return CompileTimeNumSamples <= 16;
+			return CompileTimeNumSamples <= MAX_FILTER_COMPILE_TIME_SAMPLES_SM4;
 		}
 		else
 		{
-			return CompileTimeNumSamples <= 7;
+			return CompileTimeNumSamples <= MAX_FILTER_COMPILE_TIME_SAMPLES_ES2;
 		}
 	}
 
@@ -187,6 +189,78 @@ protected:
 #undef VARIATION1
 #undef VARIATION2
 
+
+/** A vertex shader which filters a texture. Can re reused by other postprocessing pixel shaders. */
+template<uint32 NumSamples>
+class TFilterVS : public FGlobalShader
+{
+	DECLARE_SHADER_TYPE(TFilterVS, Global);
+public:
+
+	/** The number of 4D constant registers used to hold the packed 2D sample offsets. */
+	enum { NumSampleChunks = (NumSamples + 1) / 2 };
+
+	static bool ShouldCache(EShaderPlatform Platform)
+	{
+		if (IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5))
+		{
+			return true;
+		}
+		else if (IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4))
+		{
+			return NumSamples <= MAX_FILTER_COMPILE_TIME_SAMPLES_SM4;
+		}
+		else
+		{
+			return NumSamples <= MAX_FILTER_COMPILE_TIME_SAMPLES_ES2;
+		}
+	}
+
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
+	{
+		FGlobalShader::ModifyCompilationEnvironment(Platform, OutEnvironment);
+		OutEnvironment.SetDefine(TEXT("NUM_SAMPLES"), NumSamples);
+	}
+
+	/** Default constructor. */
+	TFilterVS() {}
+
+	/** Initialization constructor. */
+	TFilterVS(const ShaderMetaType::CompiledShaderInitializerType& Initializer) :
+		FGlobalShader(Initializer)
+	{
+		SampleOffsets.Bind(Initializer.ParameterMap, TEXT("SampleOffsets"));
+	}
+
+	/** Serializer */
+	virtual bool Serialize(FArchive& Ar) override
+	{
+		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
+		Ar << SampleOffsets;
+
+		return bShaderHasOutdatedParameters;
+	}
+
+	/** Sets shader parameter values */
+	void SetParameters(FRHICommandList& RHICmdList, const FVector2D* SampleOffsetsValue)
+	{
+		FVector4 PackedSampleOffsetsValue[NumSampleChunks];
+		for (int32 SampleIndex = 0; SampleIndex < NumSamples; SampleIndex += 2)
+		{
+			PackedSampleOffsetsValue[SampleIndex / 2].X = SampleOffsetsValue[SampleIndex + 0].X;
+			PackedSampleOffsetsValue[SampleIndex / 2].Y = SampleOffsetsValue[SampleIndex + 0].Y;
+			if (SampleIndex + 1 < NumSamples)
+			{
+				PackedSampleOffsetsValue[SampleIndex / 2].W = SampleOffsetsValue[SampleIndex + 1].X;
+				PackedSampleOffsetsValue[SampleIndex / 2].Z = SampleOffsetsValue[SampleIndex + 1].Y;
+			}
+		}
+		SetShaderValueArray(RHICmdList, GetVertexShader(), SampleOffsets, PackedSampleOffsetsValue, NumSampleChunks);
+	}
+
+private:
+	FShaderParameter SampleOffsets;
+};
 
 /** A macro to declaring a filter shader type for a specific number of samples. */
 #define IMPLEMENT_FILTER_SHADER_TYPE(NumSamples) \
@@ -547,7 +621,8 @@ void FRCPassPostProcessWeightedSampleSum::Process(FRenderingCompositePassContext
 
 	FIntRect DestRect = FIntRect::DivideAndRoundUp(View.ViewRect, DstScaleFactor);
 
-	SCOPED_DRAW_EVENTF(Context.RHICmdList, PostProcessWeightedSampleSum, TEXT("PostProcessWeightedSampleSum#%d %dx%d"), NumSamples, DestRect.Width(), DestRect.Height());
+	SCOPED_DRAW_EVENTF(Context.RHICmdList, PostProcessWeightedSampleSum, TEXT("PostProcessWeightedSampleSum#%d %dx%d in %dx%d"),
+		NumSamples, DestRect.Width(), DestRect.Height(), DestSize.X, DestSize.Y);
 
 	// compute weights as weighted contributions of the TintValue
 	for(uint32 i = 0; i < NumSamples; ++i)
@@ -555,9 +630,27 @@ void FRCPassPostProcessWeightedSampleSum::Process(FRenderingCompositePassContext
 		BlurWeights[i] = TintValue * OffsetAndWeight[i].Y;
 	}
 
-	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef(), ESimpleRenderTargetMode::EExistingColorAndDepth);
+
+	bool bRequiresClear = true;
+	// check if we have to clear the whole surface.
+	// Otherwise perform the clear when the dest rectangle has been computed.
+	if (FeatureLevel == ERHIFeatureLevel::ES2 || FeatureLevel == ERHIFeatureLevel::ES3_1)
+	{
+		bRequiresClear = false;
+		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
+	}
+	else
+	{
+		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef(), ESimpleRenderTargetMode::EExistingColorAndDepth);	
+	}
 
 	Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f);
+
+	FIntRect SrcRect = FIntRect::DivideAndRoundUp(View.ViewRect, SrcScaleFactor);
+	if (bRequiresClear)
+	{
+		DrawClear(Context.RHICmdList, FeatureLevel, bDoFastBlur, SrcRect, DestRect, DestSize);
+	}
 
 	// set the state
 	Context.RHICmdList.SetBlendState(TStaticBlendState<>::GetRHI());
@@ -619,20 +712,9 @@ void FRCPassPostProcessWeightedSampleSum::Process(FRenderingCompositePassContext
 		BlurWeights,
 		NumSamples,
 		&VertexShader
-		);
+		);	
 
-	bool bRequiresClear = true;
-	// check if we have to clear the whole surface.
-	// Otherwise perform the clear when the dest rectangle has been computed.
-	if (FeatureLevel == ERHIFeatureLevel::ES2 || FeatureLevel == ERHIFeatureLevel::ES3_1)
-	{
-		Context.RHICmdList.Clear(true, FLinearColor(0, 0, 0, 0), false, 1.0f, false, 0, FIntRect());
-		bRequiresClear = false;
-	}
-
-	FIntRect SrcRect =  FIntRect::DivideAndRoundUp(View.ViewRect, SrcScaleFactor);
-
-	DrawQuad(Context.RHICmdList, bDoFastBlur, SrcRect, DestRect, bRequiresClear, DestSize, SrcSize, VertexShader);
+	DrawQuad(Context.RHICmdList, FeatureLevel, bDoFastBlur, SrcRect, DestRect, DestSize, SrcSize, VertexShader);
 
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
 }
@@ -657,6 +739,8 @@ FPooledRenderTargetDesc FRCPassPostProcessWeightedSampleSum::ComputeOutputDesc(E
 	Ret.Reset();
 	Ret.DebugName = DebugName;
 	Ret.AutoWritable = false;
+
+	Ret.ClearValue = FClearValueBinding(FLinearColor(0, 0, 0, 0));
 
 	return Ret;
 }
@@ -720,26 +804,36 @@ bool FRCPassPostProcessWeightedSampleSum::DoFastBlur() const
 	return bRet;
 }
 
-void FRCPassPostProcessWeightedSampleSum::DrawQuad(FRHICommandListImmediate& RHICmdList, bool bDoFastBlur, FIntRect SrcRect, FIntRect DestRect, bool bRequiresClear, FIntPoint DestSize, FIntPoint SrcSize, FShader* VertexShader) const
+void FRCPassPostProcessWeightedSampleSum::AdjustRectsForFastBlur(FIntRect& SrcRect, FIntRect& DestRect) const
+{	
+	if (FilterShape == EFS_Horiz)
+	{
+		SrcRect.Min.X = DestRect.Min.X * 2;
+		SrcRect.Max.X = DestRect.Max.X * 2;
+	}
+	else
+	{
+		DestRect.Min.X = SrcRect.Min.X * 2;
+		DestRect.Max.X = SrcRect.Max.X * 2;
+	}	
+}
+
+void FRCPassPostProcessWeightedSampleSum::DrawClear(FRHICommandListImmediate& RHICmdList, ERHIFeatureLevel::Type FeatureLevel, bool bDoFastBlur, FIntRect SrcRect, FIntRect DestRect, FIntPoint DestSize) const
 {
 	if (bDoFastBlur)
 	{
-		if (FilterShape == EFS_Horiz)
-		{
-			SrcRect.Min.X = DestRect.Min.X * 2;
-			SrcRect.Max.X = DestRect.Max.X * 2;
-		}
-		else
-		{
-			DestRect.Min.X = SrcRect.Min.X * 2;
-			DestRect.Max.X = SrcRect.Max.X * 2;
-		}
+		AdjustRectsForFastBlur(SrcRect, DestRect);
 	}
 
-	if (bRequiresClear)
+	DrawClearQuad(RHICmdList, FeatureLevel, true, FLinearColor(0, 0, 0, 0), false, 1.0f, false, 0, DestSize, DestRect);	
+}
+
+void FRCPassPostProcessWeightedSampleSum::DrawQuad(FRHICommandListImmediate& RHICmdList, ERHIFeatureLevel::Type FeatureLevel, bool bDoFastBlur, FIntRect SrcRect, FIntRect DestRect, FIntPoint DestSize, FIntPoint SrcSize, FShader* VertexShader) const
+{	
+	if (bDoFastBlur)
 	{
-		RHICmdList.Clear(true, FLinearColor(0, 0, 0, 0), false, 1.0f, false, 0, DestRect);
-	}
+		AdjustRectsForFastBlur(SrcRect, DestRect);
+	}	
 
 	// Draw a quad mapping scene color to the view's render target
 	DrawRectangle(
@@ -765,11 +859,11 @@ uint32 FRCPassPostProcessWeightedSampleSum::GetMaxNumSamples(ERHIFeatureLevel::T
 
 	if (InFeatureLevel == ERHIFeatureLevel::SM4)
 	{
-		MaxNumSamples = 16;
+		MaxNumSamples = MAX_FILTER_COMPILE_TIME_SAMPLES_SM4;
 	}
 	else if (InFeatureLevel < ERHIFeatureLevel::SM4)
 	{
-		MaxNumSamples = 7;
+		MaxNumSamples = MAX_FILTER_COMPILE_TIME_SAMPLES_ES2;
 	}
 	return MaxNumSamples;
 }

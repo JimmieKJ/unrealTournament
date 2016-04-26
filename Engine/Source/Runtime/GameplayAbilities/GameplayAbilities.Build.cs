@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 namespace UnrealBuildTool.Rules
 {
@@ -51,7 +51,14 @@ namespace UnrealBuildTool.Rules
 				PrivateDependencyModuleNames.Add("UnrealEd");
                 PrivateDependencyModuleNames.Add("GameplayTagsEditor");
                 PrivateDependencyModuleNames.Add("Slate");
+				PrivateDependencyModuleNames.Add("SequenceRecorder");
 			}
-		}
+
+            if (UEBuildConfiguration.bBuildDeveloperTools && Target.Configuration != UnrealTargetConfiguration.Shipping && Target.Configuration != UnrealTargetConfiguration.Test)
+            {
+                PrivateDependencyModuleNames.Add("GameplayDebugger");
+                Definitions.Add("WITH_GAMEPLAY_DEBUGGER=1");
+            }
+        }
 	}
 }

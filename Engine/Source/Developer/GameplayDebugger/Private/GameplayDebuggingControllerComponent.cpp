@@ -1,12 +1,22 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
-#include "GameplayDebuggerPrivate.h"
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+//////////////////////////////////////////////////////////////////////////
+// THIS CLASS IS NOW DEPRECATED AND WILL BE REMOVED IN NEXT VERSION
+// Please check GameplayDebugger.h for details.
+
+#include "GameplayDebuggerPrivatePCH.h"
 #include "Net/UnrealNetwork.h"
 #include "GameFramework/HUD.h"
+#include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerInput.h"
+#include "GameFramework/WorldSettings.h"
 #include "BehaviorTreeDelegates.h"
 #include "TimerManager.h"
 #include "VisualLogger/VisualLogger.h"
 #include "GameplayDebuggerSettings.h"
+#include "GameplayDebuggingControllerComponent.h"
+#include "GameplayDebuggingComponent.h"
+#include "GameplayDebuggingReplicator.h"
 #include "Engine/Player.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGameplayDebugging, Log, All);

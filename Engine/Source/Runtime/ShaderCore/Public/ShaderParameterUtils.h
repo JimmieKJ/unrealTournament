@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ShaderParameters.h: Shader parameter inline definitions.
@@ -96,9 +96,9 @@ void SetShaderValue(
  * NOTE: Shader should be the param ref type, NOT the param type, since Shader is passed by value. 
  * Otherwise AddRef/ReleaseRef will be called many times.
  */
-template<typename ShaderRHIParamRef,class ParameterType>
+template<typename ShaderRHIParamRef,class ParameterType, typename TRHICmdList>
 void SetShaderValueArray(
-	FRHICommandList& RHICmdList,
+	TRHICmdList& RHICmdList,
 	ShaderRHIParamRef Shader,
 	const FShaderParameter& Parameter,
 	const ParameterType* Values,
@@ -125,9 +125,9 @@ void SetShaderValueArray(
 }
 
 /** Specialization of the above for C++ bool type. */
-template<typename ShaderRHIParamRef>
+template<typename ShaderRHIParamRef, typename TRHICmdList>
 void SetShaderValueArray(
-	FRHICommandList& RHICmdList, 
+	TRHICmdList& RHICmdList,
 	ShaderRHIParamRef Shader,
 	const FShaderParameter& Parameter,
 	const bool* Values,

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
 #include "BlueprintNodeHelpers.h"
@@ -152,6 +152,7 @@ namespace BlueprintNodeHelpers
 			if (StructProp && StructProp->GetCPPType(NULL, CPPF_None).Contains(GET_STRUCT_NAME_CHECKED(FBlackboardKeySelector)))
 			{
 				bResult = true;
+				break;
 			}
 		}
 

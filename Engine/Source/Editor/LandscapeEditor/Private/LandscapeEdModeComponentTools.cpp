@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LandscapeEditorPrivatePCH.h"
 #include "ObjectTools.h"
@@ -26,8 +26,8 @@ class FLandscapeToolStrokeSelect : public FLandscapeToolStrokeBase
 	bool bComponentInvert;
 
 public:
-	FLandscapeToolStrokeSelect(FEdModeLandscape* InEdMode, const FLandscapeToolTarget& InTarget)
-		: FLandscapeToolStrokeBase(InEdMode, InTarget)
+	FLandscapeToolStrokeSelect(FEdModeLandscape* InEdMode, FEditorViewportClient* InViewportClient, const FLandscapeToolTarget& InTarget)
+		: FLandscapeToolStrokeBase(InEdMode, InViewportClient, InTarget)
 		, bInitializedComponentInvert(false)
 		, Cache(InTarget)
 	{
@@ -211,8 +211,8 @@ public:
 class FLandscapeToolStrokeVisibility : public FLandscapeToolStrokeBase
 {
 public:
-	FLandscapeToolStrokeVisibility(FEdModeLandscape* InEdMode, const FLandscapeToolTarget& InTarget)
-		: FLandscapeToolStrokeBase(InEdMode, InTarget)
+	FLandscapeToolStrokeVisibility(FEdModeLandscape* InEdMode, FEditorViewportClient* InViewportClient, const FLandscapeToolTarget& InTarget)
+		: FLandscapeToolStrokeBase(InEdMode, InViewportClient, InTarget)
 		, Cache(InTarget)
 	{
 	}
@@ -294,8 +294,8 @@ public:
 class FLandscapeToolStrokeMoveToLevel : public FLandscapeToolStrokeBase
 {
 public:
-	FLandscapeToolStrokeMoveToLevel(FEdModeLandscape* InEdMode, const FLandscapeToolTarget& InTarget)
-		: FLandscapeToolStrokeBase(InEdMode, InTarget)
+	FLandscapeToolStrokeMoveToLevel(FEdModeLandscape* InEdMode, FEditorViewportClient* InViewportClient, const FLandscapeToolTarget& InTarget)
+		: FLandscapeToolStrokeBase(InEdMode, InViewportClient, InTarget)
 	{
 	}
 
@@ -410,9 +410,9 @@ public:
 					}
 				}
 
-				GWarn->BeginSlowTask(LOCTEXT("BeginMovingLandscapeComponentsToCurrentLevelTask", "Moving Landscape components to current level"), true);
+				FScopedSlowTask SlowTask(0, LOCTEXT("BeginMovingLandscapeComponentsToCurrentLevelTask", "Moving Landscape components to current level"));
+				SlowTask.MakeDialogDelayed(10); // show slow task dialog after 10 seconds
 
-				int32 Progress = 0;
 				LandscapeInfo->SortSelectedComponents();
 				const int32 ComponentSizeVerts = Landscape->NumSubsections * (Landscape->SubsectionSizeQuads + 1);
 				const int32 NeedHeightmapSize = 1 << FMath::CeilLogTwo(ComponentSizeVerts);
@@ -435,8 +435,6 @@ public:
 						TargetSelectedCollisionComponents.Add(CollisionComp);
 					}
 				}
-
-				int32 TotalProgress = TargetSelectedComponents.Num() * TargetSelectedCollisionComponents.Num();
 
 				// Check which ones are need for height map change
 				TSet<UTexture2D*> OldHeightmapTextures;
@@ -670,7 +668,6 @@ public:
 
 					FFormatNamedArguments Args;
 					Args.Add(TEXT("ComponentName"), FText::FromString(Component->GetName()));
-					GWarn->StatusUpdate(Progress++, TotalProgress, FText::Format(LOCTEXT("MovingComponentStatus", "Moving Component: {ComponentName}"), Args));
 				}
 
 				for (ULandscapeHeightfieldCollisionComponent* Component : TargetSelectedCollisionComponents)
@@ -689,7 +686,6 @@ public:
 
 					FFormatNamedArguments Args;
 					Args.Add(TEXT("ComponentName"), FText::FromString(Component->GetName()));
-					GWarn->StatusUpdate(Progress++, TotalProgress, FText::Format(LOCTEXT("MovingComponentStatus", "Moving Component: {ComponentName}"), Args));
 				}
 
 				GEditor->SelectNone(false, true);
@@ -712,8 +708,6 @@ public:
 				}
 
 				//Landscape->bLockLocation = (LandscapeInfo->XYtoComponentMap.Num() != Landscape->LandscapeComponents.Num());
-
-				GWarn->EndSlowTask();
 
 				// Remove Selection
 				LandscapeInfo->ClearSelectedRegion(true);
@@ -746,8 +740,8 @@ public:
 class FLandscapeToolStrokeAddComponent : public FLandscapeToolStrokeBase
 {
 public:
-	FLandscapeToolStrokeAddComponent(FEdModeLandscape* InEdMode, const FLandscapeToolTarget& InTarget)
-		: FLandscapeToolStrokeBase(InEdMode, InTarget)
+	FLandscapeToolStrokeAddComponent(FEdModeLandscape* InEdMode, FEditorViewportClient* InViewportClient, const FLandscapeToolTarget& InTarget)
+		: FLandscapeToolStrokeBase(InEdMode, InViewportClient, InTarget)
 		, HeightCache(InTarget)
 		, XYOffsetCache(InTarget)
 	{
@@ -955,8 +949,8 @@ public:
 class FLandscapeToolStrokeDeleteComponent : public FLandscapeToolStrokeBase
 {
 public:
-	FLandscapeToolStrokeDeleteComponent(FEdModeLandscape* InEdMode, const FLandscapeToolTarget& InTarget)
-		: FLandscapeToolStrokeBase(InEdMode, InTarget)
+	FLandscapeToolStrokeDeleteComponent(FEdModeLandscape* InEdMode, FEditorViewportClient* InViewportClient, const FLandscapeToolTarget& InTarget)
+		: FLandscapeToolStrokeBase(InEdMode, InViewportClient, InTarget)
 	{
 	}
 
@@ -967,10 +961,10 @@ public:
 			LandscapeInfo->Modify();
 
 			auto SelectedComponents = LandscapeInfo->GetSelectedComponents();
-			if (!SelectedComponents.Num())
+			if (SelectedComponents.Num() == 0)
 			{
-				// Get list of verts to update
-				// TODO - only retrieve bounds as we don't need the data
+				// Get list of components to delete from brush
+				// TODO - only retrieve bounds as we don't need the vert data
 				FLandscapeBrushData BrushInfo = Brush->ApplyBrush(MousePositions);
 				if (!BrushInfo)
 				{
@@ -982,6 +976,16 @@ public:
 
 				// Shrink bounds by 1,1 to avoid GetComponentsInRegion picking up extra components on all sides due to the overlap between components
 				LandscapeInfo->GetComponentsInRegion(X1 + 1, Y1 + 1, X2 - 1, Y2 - 1, SelectedComponents);
+			}
+
+			for (ULandscapeComponent* Component : SelectedComponents)
+			{
+				Component->Modify();
+				ULandscapeHeightfieldCollisionComponent* CollisionComp = Component->CollisionComponent.Get();
+				if (CollisionComp)
+				{
+					CollisionComp->Modify();
+				}
 			}
 
 			int32 ComponentSizeVerts = LandscapeInfo->ComponentNumSubsections * (LandscapeInfo->SubsectionSizeQuads + 1);
@@ -1017,16 +1021,15 @@ public:
 			}
 
 			// Changing Heightmap format for selected components
-			for (TSet<ULandscapeComponent*>::TConstIterator It(HeightmapUpdateComponents); It; ++It)
+			for (ULandscapeComponent* Component : HeightmapUpdateComponents)
 			{
-				ULandscapeComponent* Component = *It;
 				ALandscape::SplitHeightmap(Component, false);
 			}
 
 			// Remove attached foliage
-			for (TSet<ULandscapeComponent*>::TIterator It(SelectedComponents); It; ++It)
+			for (ULandscapeComponent* Component : SelectedComponents)
 			{
-				ULandscapeHeightfieldCollisionComponent* CollisionComp = (*It)->CollisionComponent.Get();
+				ULandscapeHeightfieldCollisionComponent* CollisionComp = Component->CollisionComponent.Get();
 				if (CollisionComp)
 				{
 					AInstancedFoliageActor::DeleteInstancesForComponent(ViewportClient->GetWorld(), CollisionComp);
@@ -1034,9 +1037,8 @@ public:
 			}
 
 			// Check which ones are need for height map change
-			for (TSet<ULandscapeComponent*>::TIterator It(SelectedComponents); It; ++It)
+			for (ULandscapeComponent* Component : SelectedComponents)
 			{
-				ULandscapeComponent* Component = *It;
 				ALandscapeProxy* Proxy = Component->GetLandscapeProxy();
 				Proxy->Modify();
 				//Component->Modify();
@@ -1058,12 +1060,12 @@ public:
 				for (const FIntPoint& NeighborKey : NeighborKeys)
 				{
 					ULandscapeComponent* NeighborComp = LandscapeInfo->XYtoComponentMap.FindRef(NeighborKey);
-					if (NeighborComp)
+					if (NeighborComp && !SelectedComponents.Contains(NeighborComp))
 					{
 						NeighborComp->Modify();
 						NeighborComp->InvalidateLightingCache();
 
-						// is this really needed? It can happen multiple times per component and even for components about to be deleted!
+						// is this really needed? It can happen multiple times per component!
 						FComponentReregisterContext ReregisterContext(NeighborComp);
 					}
 				}
@@ -1139,8 +1141,8 @@ template<class ToolTarget>
 class FLandscapeToolStrokeCopy : public FLandscapeToolStrokeBase
 {
 public:
-	FLandscapeToolStrokeCopy(FEdModeLandscape* InEdMode, const FLandscapeToolTarget& InTarget)
-		: FLandscapeToolStrokeBase(InEdMode, InTarget)
+	FLandscapeToolStrokeCopy(FEdModeLandscape* InEdMode, FEditorViewportClient* InViewportClient, const FLandscapeToolTarget& InTarget)
+		: FLandscapeToolStrokeBase(InEdMode, InViewportClient, InTarget)
 		, Cache(InTarget)
 		, HeightCache(InTarget)
 		, WeightCache(InTarget)
@@ -1494,8 +1496,8 @@ template<class ToolTarget>
 class FLandscapeToolStrokePaste : public FLandscapeToolStrokeBase
 {
 public:
-	FLandscapeToolStrokePaste(FEdModeLandscape* InEdMode, const FLandscapeToolTarget& InTarget)
-		: FLandscapeToolStrokeBase(InEdMode, InTarget)
+	FLandscapeToolStrokePaste(FEdModeLandscape* InEdMode, FEditorViewportClient* InViewportClient, const FLandscapeToolTarget& InTarget)
+		: FLandscapeToolStrokeBase(InEdMode, InViewportClient, InTarget)
 		, Cache(InTarget)
 		, HeightCache(InTarget)
 		, WeightCache(InTarget)

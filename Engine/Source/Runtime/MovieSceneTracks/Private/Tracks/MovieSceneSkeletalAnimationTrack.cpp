@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneTracksPrivatePCH.h"
 #include "MovieSceneSkeletalAnimationSection.h"
@@ -13,9 +13,13 @@
 /* UMovieSceneSkeletalAnimationTrack structors
  *****************************************************************************/
 
-UMovieSceneSkeletalAnimationTrack::UMovieSceneSkeletalAnimationTrack( const FObjectInitializer& ObjectInitializer )
-	: Super( ObjectInitializer )
-{ }
+UMovieSceneSkeletalAnimationTrack::UMovieSceneSkeletalAnimationTrack(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+#if WITH_EDITORONLY_DATA
+	TrackTint = FColor(194, 29, 194, 65);
+#endif
+}
 
 
 /* UMovieSceneSkeletalAnimationTrack interface
@@ -52,7 +56,7 @@ UMovieSceneSection* UMovieSceneSkeletalAnimationTrack::GetAnimSectionAtTime(floa
 
 TSharedPtr<IMovieSceneTrackInstance> UMovieSceneSkeletalAnimationTrack::CreateInstance()
 {
-	return MakeShareable( new FMovieSceneSkeletalAnimationTrackInstance( *this ) ); 
+	return MakeShareable(new FMovieSceneSkeletalAnimationTrackInstance(*this)); 
 }
 
 
@@ -64,7 +68,7 @@ const TArray<UMovieSceneSection*>& UMovieSceneSkeletalAnimationTrack::GetAllSect
 
 UMovieSceneSection* UMovieSceneSkeletalAnimationTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneSkeletalAnimationSection>( this );
+	return NewObject<UMovieSceneSkeletalAnimationSection>(this);
 }
 
 
@@ -74,7 +78,7 @@ void UMovieSceneSkeletalAnimationTrack::RemoveAllAnimationData()
 }
 
 
-bool UMovieSceneSkeletalAnimationTrack::HasSection(const UMovieSceneSection& Section ) const
+bool UMovieSceneSkeletalAnimationTrack::HasSection(const UMovieSceneSection& Section) const
 {
 	return AnimationSections.Contains(&Section);
 }
@@ -113,7 +117,7 @@ TRange<float> UMovieSceneSkeletalAnimationTrack::GetSectionBoundaries() const
 
 #if WITH_EDITORONLY_DATA
 
-FText UMovieSceneSkeletalAnimationTrack::GetDisplayName() const
+FText UMovieSceneSkeletalAnimationTrack::GetDefaultDisplayName() const
 {
 	return LOCTEXT("TrackName", "Animation");
 }

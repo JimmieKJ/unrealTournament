@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 //
 // Ip based implementation of a network connection used by the net driver class
@@ -20,7 +20,7 @@ class ONLINESUBSYSTEMUTILS_API UIpConnection : public UNetConnection
 	virtual void InitBase(UNetDriver* InDriver, class FSocket* InSocket, const FURL& InURL, EConnectionState InState, int32 InMaxPacket = 0, int32 InPacketOverhead = 0) override;
 	virtual void InitRemoteConnection(UNetDriver* InDriver, class FSocket* InSocket, const FURL& InURL, const class FInternetAddr& InRemoteAddr, EConnectionState InState, int32 InMaxPacket = 0, int32 InPacketOverhead = 0) override;
 	virtual void InitLocalConnection(UNetDriver* InDriver, class FSocket* InSocket, const FURL& InURL, EConnectionState InState, int32 InMaxPacket = 0, int32 InPacketOverhead = 0) override;
-	virtual void LowLevelSend(void* Data,int32 Count) override;
+	virtual void LowLevelSend(void* Data, int32 CountBytes, int32 CountBits) override;
 	FString LowLevelGetRemoteAddress(bool bAppendPort=false) override;
 	FString LowLevelDescribe() override;
 	virtual int32 GetAddrAsInt(void) override;

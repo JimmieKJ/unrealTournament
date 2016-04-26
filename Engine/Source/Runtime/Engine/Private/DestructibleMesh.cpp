@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DestructibleMesh.cpp: UDestructibleMesh methods.
@@ -256,7 +256,11 @@ void UDestructibleMesh::FinishDestroy()
 void FDestructibleDamageParameters::FillDestructibleActorDesc(NxParameterized::Interface* Params, UPhysicalMaterial* PhysMat) const
 {
 	// Damage parameters
-	verify(NxParameterized::setParamF32(*Params, "defaultBehaviorGroup.damageThreshold", DamageThreshold * PhysMat->DestructibleDamageThresholdScale));
+	if(PhysMat)
+	{
+		verify(NxParameterized::setParamF32(*Params, "defaultBehaviorGroup.damageThreshold", DamageThreshold * PhysMat->DestructibleDamageThresholdScale));
+	}
+
 	verify(NxParameterized::setParamF32(*Params, "defaultBehaviorGroup.damageToRadius", DamageSpread));
 	verify(NxParameterized::setParamF32(*Params, "destructibleParameters.forceToDamage", ImpactDamage));
 	verify(NxParameterized::setParamF32(*Params, "defaultBehaviorGroup.materialStrength", ImpactResistanceToAPEX(bCustomImpactResistance, ImpactResistance)));

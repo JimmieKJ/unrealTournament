@@ -83,12 +83,22 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		float FooterPosY;
 
+	// Where to draw the minimap center
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		FVector2D MinimapCenter;
+
 	// Where to draw the flags
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	float FlagX;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Scoreboard")
 		USoundBase* ScoreUpdateSound;
+
+	UPROPERTY()
+		float ScaledEdgeSize;
+
+	UPROPERTY()
+		float ScaledCellWidth;
 
 	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
 
@@ -170,6 +180,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		FText ArrowKeysText;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		bool bDrawMinimapInScoreboard;
 
 protected:
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "TargetDeviceServicesPrivatePCH.h"
 #include "PlatformInfo.h"
@@ -192,10 +192,10 @@ void FTargetDeviceService::Stop()
 	{
 	
 		MessageEndpoint->Publish(new FTargetDeviceUnclaimed(DeviceName, FPlatformProcess::ComputerName(), FPlatformProcess::UserName(false)));
-	    // Only stop the device if we care about device claiming
+        FPlatformProcess::SleepNoStats(0.01);
 
+        // Only stop the device if we care about device claiming
 		GConfig->GetBool(TEXT("/Script/Engine.Engine"), TEXT("DisableDeviceClaiming"), Running, GEngineIni);
-		
 	}
 }
 

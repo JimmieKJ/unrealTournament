@@ -1,8 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "GameplayTagContainer.generated.h"
+
+DECLARE_LOG_CATEGORY_EXTERN(LogGameplayTags, Log, All);
 
 DECLARE_STATS_GROUP(TEXT("Gameplay Tags"), STATGROUP_GameplayTags, STATCAT_Advanced);
 
@@ -132,6 +134,10 @@ struct GAMEPLAYTAGS_API FGameplayTag
 	/** Overridden for fast serialize */
 	bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess);
 
+	/** Handles fixup and errors. This is only called when not serializing a full FGameplayTagContainer */
+	void PostSerialize(const FArchive& Ar);
+	bool NetSerialize_Packed(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess);
+
 private:
 
 	/** Intentionally private so only the tag manager can use */
@@ -142,6 +148,7 @@ private:
 	FName TagName;
 
 	friend class UGameplayTagsManager;
+	friend struct FGameplayTagContainer;
 };
 
 template<>
@@ -150,6 +157,7 @@ struct TStructOpsTypeTraits< FGameplayTag > : public TStructOpsTypeTraitsBase
 	enum
 	{
 		WithNetSerializer = true,
+		WithPostSerialize = true,
 	};
 };
 
@@ -187,6 +195,14 @@ struct GAMEPLAYTAGS_API FGameplayTagContainer
 	FGameplayTagContainer& operator=(FGameplayTagContainer&& Other);
 	bool operator==(FGameplayTagContainer const& Other) const;
 	bool operator!=(FGameplayTagContainer const& Other) const;
+
+	template<class AllocatorType>
+	static FGameplayTagContainer CreateFromArray(TArray<FGameplayTag, AllocatorType>& SourceTags)
+	{
+		FGameplayTagContainer Container;
+		Container.GameplayTags.Append(SourceTags);
+		return Container;
+	}
 
 	/**  Returns a new container containing all of the tags of this container, as well as all of their parent tags */
 	FGameplayTagContainer GetGameplayTagParents() const;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -48,7 +48,7 @@ class GAMEPLAYABILITIES_API UGameplayCueSet : public UDataAsset
 	GENERATED_UCLASS_BODY()
 
 	/** Handles the cue event by spawning the cue actor. Returns true if the event was handled. */
-	virtual bool HandleGameplayCue(AActor* TargetActor, FGameplayTag GameplayCueTag, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters);
+	virtual bool HandleGameplayCue(AActor* TargetActor, FGameplayTag GameplayCueTag, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters);
 
 	/** Adds a list of cues to the set */
 	virtual void AddCues(const TArray<FGameplayCueReferencePair>& CuesToAdd);
@@ -58,6 +58,9 @@ class GAMEPLAYABILITIES_API UGameplayCueSet : public UDataAsset
 
 	/** Removes all cues from the set matching the supplied string refs */
 	virtual void RemoveCuesByStringRefs(const TArray<FStringAssetReference>& CuesToRemove);
+
+	/** Nulls reference to the loaded class. Note this doesn't remove the entire cue from the internal data structure, just the hard ref to the loaded class */
+	virtual void RemoveLoadedClass(UClass* Class);
 
 #if WITH_EDITOR
 
@@ -80,6 +83,6 @@ class GAMEPLAYABILITIES_API UGameplayCueSet : public UDataAsset
 	static FGameplayTag	BaseGameplayCueTag();
 
 protected:
-	virtual bool HandleGameplayCueNotify_Internal(AActor* TargetActor, int32 DataIdx, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters);
-	virtual void BuildAccelerationMap_Internal();	
+	virtual bool HandleGameplayCueNotify_Internal(AActor* TargetActor, int32 DataIdx, EGameplayCueEvent::Type EventType, FGameplayCueParameters& Parameters);
+	virtual void BuildAccelerationMap_Internal();
 };

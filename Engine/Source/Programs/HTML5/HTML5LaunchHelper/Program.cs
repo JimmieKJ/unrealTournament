@@ -1,4 +1,6 @@
-﻿using System;
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Collections.Generic;

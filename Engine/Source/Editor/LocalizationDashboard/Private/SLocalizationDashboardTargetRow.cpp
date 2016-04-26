@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LocalizationDashboardPrivatePCH.h"
 #include "LocalizationDashboard.h"
@@ -56,15 +56,7 @@ TSharedRef<SWidget> SLocalizationDashboardTargetRow::GenerateWidgetForColumn( co
 		TSharedRef<SHorizontalBox> HorizontalBox = SNew(SHorizontalBox);
 		Return = HorizontalBox;
 
-		const TSharedRef<SLocalizationDashboardTargetRow> LocalSharedThis = SharedThis(this);
-
-		const auto& CanGather = [=]() -> bool
-		{
-			ULocalizationTarget* const LocalizationTarget = LocalSharedThis->GetTarget();
-			return LocalizationTarget && LocalizationTarget->Settings.SupportedCulturesStatistics.Num() > 0 && LocalizationTarget->Settings.SupportedCulturesStatistics.IsValidIndex(LocalizationTarget->Settings.NativeCultureIndex);
-		};
-
-		// Gather
+		// Gather Text
 		HorizontalBox->AddSlot()
 			.FillWidth(1.0f)
 			.HAlign(HAlign_Center)
@@ -74,18 +66,18 @@ TSharedRef<SWidget> SLocalizationDashboardTargetRow::GenerateWidgetForColumn( co
 				.ButtonStyle( FEditorStyle::Get(), TEXT("HoverHintOnly") )
 				.ToolTipText_Lambda([=]() -> FText
 				{
-					return CanGather() ? LOCTEXT("GatherButtonLabel", "Gather") : LOCTEXT("DisabledGatherButtonLabel", "Must have a native culture specified in order to gather.");
+					return CanGatherText() ? LOCTEXT("GatherTextButtonLabel", "Gather text for all cultures of this target.") : LOCTEXT("DisabledGatherButtonLabel", "Must have a native culture specified in order to gather.");
 				})
-				.OnClicked(this, &SLocalizationDashboardTargetRow::Gather)
-				.IsEnabled_Lambda(CanGather)
+				.IsEnabled(this, &SLocalizationDashboardTargetRow::CanGatherText)
+				.OnClicked(this, &SLocalizationDashboardTargetRow::GatherText)
 				.Content()
 				[
 					SNew(SImage)
-					.Image( FEditorStyle::GetBrush("LocalizationDashboard.GatherTarget") )
+					.Image( FEditorStyle::GetBrush("LocalizationDashboard.GatherTextTarget") )
 				]
 			];
 
-		// Import All
+		// Import Text
 		HorizontalBox->AddSlot()
 			.FillWidth(1.0f)
 			.HAlign(HAlign_Center)
@@ -93,21 +85,17 @@ TSharedRef<SWidget> SLocalizationDashboardTargetRow::GenerateWidgetForColumn( co
 			[
 				SNew(SButton)
 				.ButtonStyle( FEditorStyle::Get(), TEXT("HoverHintOnly") )
-				.ToolTipText( LOCTEXT("ImportAllButtonLabel", "Import All") )
-				.OnClicked(this, &SLocalizationDashboardTargetRow::ImportAll)
-				.IsEnabled_Lambda([this]() -> bool
-				{
-					ULocalizationTarget* const LocalizationTarget = GetTarget();
-					return LocalizationTarget && LocalizationTarget->Settings.SupportedCulturesStatistics.Num() > 0;
-				})
+				.ToolTipText( LOCTEXT("ImportTextButtonLabel", "Import translations for all cultures of this target.") )
+				.IsEnabled(this, &SLocalizationDashboardTargetRow::CanImportText)
+				.OnClicked(this, &SLocalizationDashboardTargetRow::ImportText)
 				.Content()
 				[
 					SNew(SImage)
-					.Image( FEditorStyle::GetBrush("LocalizationDashboard.ImportAllCultures") )
+					.Image( FEditorStyle::GetBrush("LocalizationDashboard.ImportTextAllCultures") )
 				]
 			];
 
-		// Export All
+		// Export Text
 		HorizontalBox->AddSlot()
 			.FillWidth(1.0f)
 			.HAlign(HAlign_Center)
@@ -115,17 +103,67 @@ TSharedRef<SWidget> SLocalizationDashboardTargetRow::GenerateWidgetForColumn( co
 			[
 				SNew(SButton)
 				.ButtonStyle( FEditorStyle::Get(), TEXT("HoverHintOnly") )
-				.ToolTipText(LOCTEXT("ExportAllButtonLabel", "Export All"))
-				.OnClicked(this, &SLocalizationDashboardTargetRow::ExportAll)
-				.IsEnabled_Lambda([this]() -> bool
-				{
-					ULocalizationTarget* const LocalizationTarget = GetTarget();
-					return LocalizationTarget && LocalizationTarget->Settings.SupportedCulturesStatistics.Num() > 0;
-				})
+				.ToolTipText(LOCTEXT("ExportTextButtonLabel", "Export translations for all cultures of this target."))
+				.IsEnabled(this, &SLocalizationDashboardTargetRow::CanExportText)
+				.OnClicked(this, &SLocalizationDashboardTargetRow::ExportText)
 				.Content()
 				[
 					SNew(SImage)
-					.Image(FEditorStyle::GetBrush("LocalizationDashboard.ExportAllCultures"))
+					.Image(FEditorStyle::GetBrush("LocalizationDashboard.ExportTextAllCultures"))
+				]
+			];
+
+		// Import Dialogue Script
+		HorizontalBox->AddSlot()
+			.FillWidth(1.0f)
+			.HAlign(HAlign_Center)
+			.VAlign(VAlign_Center)
+			[
+				SNew(SButton)
+				.ButtonStyle( FEditorStyle::Get(), TEXT("HoverHintOnly") )
+				.ToolTipText( LOCTEXT("ImportDialogueScriptButtonLabel", "Import dialogue scripts for all cultures of this target.") )
+				.IsEnabled(this, &SLocalizationDashboardTargetRow::CanImportDialogueScript)
+				.OnClicked(this, &SLocalizationDashboardTargetRow::ImportDialogueScript)
+				.Content()
+				[
+					SNew(SImage)
+					.Image( FEditorStyle::GetBrush("LocalizationDashboard.ImportDialogueScriptAllCultures") )
+				]
+			];
+
+		// Export Dialogue Script
+		HorizontalBox->AddSlot()
+			.FillWidth(1.0f)
+			.HAlign(HAlign_Center)
+			.VAlign(VAlign_Center)
+			[
+				SNew(SButton)
+				.ButtonStyle( FEditorStyle::Get(), TEXT("HoverHintOnly") )
+				.ToolTipText(LOCTEXT("ExportDialogueScriptButtonLabel", "Export dialogue scripts for all cultures of this target."))
+				.IsEnabled(this, &SLocalizationDashboardTargetRow::CanExportDialogueScript)
+				.OnClicked(this, &SLocalizationDashboardTargetRow::ExportDialogueScript)
+				.Content()
+				[
+					SNew(SImage)
+					.Image(FEditorStyle::GetBrush("LocalizationDashboard.ExportDialogueScriptAllCultures"))
+				]
+			];
+
+		// Import Dialogue
+		HorizontalBox->AddSlot()
+			.FillWidth(1.0f)
+			.HAlign(HAlign_Center)
+			.VAlign(VAlign_Center)
+			[
+				SNew(SButton)
+				.ButtonStyle( FEditorStyle::Get(), TEXT("HoverHintOnly") )
+				.ToolTipText( LOCTEXT("ImportDialogueButtonLabel", "Import dialogue WAV files for all cultures of this target.") )
+				.IsEnabled(this, &SLocalizationDashboardTargetRow::CanImportDialogue)
+				.OnClicked(this, &SLocalizationDashboardTargetRow::ImportDialogue)
+				.Content()
+				[
+					SNew(SImage)
+					.Image( FEditorStyle::GetBrush("LocalizationDashboard.ImportDialogueAllCultures") )
 				]
 			];
 
@@ -137,13 +175,9 @@ TSharedRef<SWidget> SLocalizationDashboardTargetRow::GenerateWidgetForColumn( co
 			[
 				SNew(SButton)
 				.ButtonStyle( FEditorStyle::Get(), TEXT("HoverHintOnly") )
-				.ToolTipText( LOCTEXT("RefreshWordCountButtonLabel", "Count Words for All") )
+				.ToolTipText( LOCTEXT("RefreshWordCountButtonLabel", "Count translations for all cultures of this target.") )
+				.IsEnabled(this, &SLocalizationDashboardTargetRow::CanCountWords)
 				.OnClicked(this, &SLocalizationDashboardTargetRow::CountWords)
-				.IsEnabled_Lambda([this]() -> bool
-				{
-					ULocalizationTarget* const LocalizationTarget = GetTarget();
-					return LocalizationTarget && LocalizationTarget->Settings.SupportedCulturesStatistics.Num() > 0;
-				})
 				.Content()
 				[
 					SNew(SImage)
@@ -151,7 +185,7 @@ TSharedRef<SWidget> SLocalizationDashboardTargetRow::GenerateWidgetForColumn( co
 				]
 			];
 
-		// Compile
+		// Compile Text
 		HorizontalBox->AddSlot()
 			.FillWidth(1.0f)
 			.HAlign(HAlign_Center)
@@ -159,17 +193,13 @@ TSharedRef<SWidget> SLocalizationDashboardTargetRow::GenerateWidgetForColumn( co
 			[
 				SNew(SButton)
 				.ButtonStyle( FEditorStyle::Get(), TEXT("HoverHintOnly") )
-				.ToolTipText( LOCTEXT("CompileButtonLabel", "Compile All") )
-				.OnClicked(this, &SLocalizationDashboardTargetRow::CompileAll)
-				.IsEnabled_Lambda([this]() -> bool
-				{
-					ULocalizationTarget* const LocalizationTarget = GetTarget();
-					return LocalizationTarget && LocalizationTarget->Settings.SupportedCulturesStatistics.Num() > 0;
-				})
+				.ToolTipText( LOCTEXT("CompileButtonLabel", "Compile translations for all cultures of this target.") )
+				.IsEnabled(this, &SLocalizationDashboardTargetRow::CanCompileText)
+				.OnClicked(this, &SLocalizationDashboardTargetRow::CompileText)
 				.Content()
 				[
 					SNew(SImage)
-					.Image( FEditorStyle::GetBrush("LocalizationDashboard.CompileAllCultures") )
+					.Image( FEditorStyle::GetBrush("LocalizationDashboard.CompileTextAllCultures") )
 				]
 			];
 
@@ -181,7 +211,7 @@ TSharedRef<SWidget> SLocalizationDashboardTargetRow::GenerateWidgetForColumn( co
 			[
 				SNew(SButton)
 				.ButtonStyle( FEditorStyle::Get(), TEXT("HoverHintOnly") )
-				.ToolTipText(LOCTEXT("DeleteButtonLabel", "Delete"))
+				.ToolTipText(LOCTEXT("DeleteButtonLabel", "Delete this target."))
 				.OnClicked(this, &SLocalizationDashboardTargetRow::EnqueueDeletion)
 				.Content()
 				[
@@ -337,7 +367,13 @@ void SLocalizationDashboardTargetRow::UpdateTargetFromReports()
 	}
 }
 
-FReply SLocalizationDashboardTargetRow::Gather()
+bool SLocalizationDashboardTargetRow::CanGatherText() const
+{
+	ULocalizationTarget* const LocalizationTarget = GetTarget();
+	return LocalizationTarget && LocalizationTarget->Settings.SupportedCulturesStatistics.Num() > 0 && LocalizationTarget->Settings.SupportedCulturesStatistics.IsValidIndex(LocalizationTarget->Settings.NativeCultureIndex);
+}
+
+FReply SLocalizationDashboardTargetRow::GatherText()
 {
 	ULocalizationTarget* const LocalizationTarget = GetTarget();
 	if (LocalizationTarget)
@@ -369,7 +405,7 @@ FReply SLocalizationDashboardTargetRow::Gather()
 
 		// Execute gather.
 		const TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindWidgetWindow(AsShared());
-		LocalizationCommandletTasks::GatherTarget(ParentWindow.ToSharedRef(), LocalizationTarget);
+		LocalizationCommandletTasks::GatherTextForTarget(ParentWindow.ToSharedRef(), LocalizationTarget);
 
 		UpdateTargetFromReports();
 	}
@@ -377,7 +413,13 @@ FReply SLocalizationDashboardTargetRow::Gather()
 	return FReply::Handled();
 }
 
-FReply SLocalizationDashboardTargetRow::ImportAll()
+bool SLocalizationDashboardTargetRow::CanImportText() const
+{
+	ULocalizationTarget* const LocalizationTarget = GetTarget();
+	return LocalizationTarget && LocalizationTarget->Settings.SupportedCulturesStatistics.Num() > 0 && LocalizationTarget->Settings.SupportedCulturesStatistics.IsValidIndex(LocalizationTarget->Settings.NativeCultureIndex);
+}
+
+FReply SLocalizationDashboardTargetRow::ImportText()
 {
 	ULocalizationTarget* const LocalizationTarget = GetTarget();
 	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
@@ -403,7 +445,7 @@ FReply SLocalizationDashboardTargetRow::ImportAll()
 		FString OutputDirectory;
 		if (DesktopPlatform->OpenDirectoryDialog(ParentWindowWindowHandle, DialogTitle.ToString(), DefaultPath, OutputDirectory))
 		{
-			LocalizationCommandletTasks::ImportTarget(ParentWindow.ToSharedRef(), LocalizationTarget, TOptional<FString>(OutputDirectory));
+			LocalizationCommandletTasks::ImportTextForTarget(ParentWindow.ToSharedRef(), LocalizationTarget, TOptional<FString>(OutputDirectory));
 			UpdateTargetFromReports();
 		}
 	}
@@ -411,7 +453,13 @@ FReply SLocalizationDashboardTargetRow::ImportAll()
 	return FReply::Handled();
 }
 
-FReply SLocalizationDashboardTargetRow::ExportAll()
+bool SLocalizationDashboardTargetRow::CanExportText() const
+{
+	ULocalizationTarget* const LocalizationTarget = GetTarget();
+	return LocalizationTarget && LocalizationTarget->Settings.SupportedCulturesStatistics.Num() > 0 && LocalizationTarget->Settings.SupportedCulturesStatistics.IsValidIndex(LocalizationTarget->Settings.NativeCultureIndex);
+}
+
+FReply SLocalizationDashboardTargetRow::ExportText()
 {
 	ULocalizationTarget* const LocalizationTarget = GetTarget();
 	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
@@ -437,11 +485,126 @@ FReply SLocalizationDashboardTargetRow::ExportAll()
 		FString OutputDirectory;
 		if (DesktopPlatform->OpenDirectoryDialog(ParentWindowWindowHandle, DialogTitle.ToString(), DefaultPath, OutputDirectory))
 		{
-			LocalizationCommandletTasks::ExportTarget(ParentWindow.ToSharedRef(), LocalizationTarget, TOptional<FString>(OutputDirectory));
+			LocalizationCommandletTasks::ExportTextForTarget(ParentWindow.ToSharedRef(), LocalizationTarget, TOptional<FString>(OutputDirectory));
 		}
 	}
 
 	return FReply::Handled();
+}
+
+bool SLocalizationDashboardTargetRow::CanImportDialogueScript() const
+{
+	ULocalizationTarget* const LocalizationTarget = GetTarget();
+	return LocalizationTarget && LocalizationTarget->Settings.SupportedCulturesStatistics.Num() > 0 && LocalizationTarget->Settings.SupportedCulturesStatistics.IsValidIndex(LocalizationTarget->Settings.NativeCultureIndex);
+}
+
+FReply SLocalizationDashboardTargetRow::ImportDialogueScript()
+{
+	ULocalizationTarget* const LocalizationTarget = GetTarget();
+	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+	if (LocalizationTarget && DesktopPlatform)
+	{
+		void* ParentWindowWindowHandle = NULL;
+		const TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindWidgetWindow(AsShared());
+		if (ParentWindow.IsValid() && ParentWindow->GetNativeWindow().IsValid())
+		{
+			ParentWindowWindowHandle = ParentWindow->GetNativeWindow()->GetOSWindowHandle();
+		}
+
+		const FString DefaultPath = FPaths::ConvertRelativePathToFull(LocalizationConfigurationScript::GetDataDirectory(LocalizationTarget));
+
+		FText DialogTitle;
+		{
+			FFormatNamedArguments FormatArguments;
+			FormatArguments.Add(TEXT("TargetName"), FText::FromString(LocalizationTarget->Settings.Name));
+			DialogTitle = FText::Format(LOCTEXT("ImportAllDialogueScriptsForTargetDialogTitleFormat", "Import All Dialogue Scripts for {TargetName} from Directory"), FormatArguments);
+		}
+
+		// Prompt the user for the directory
+		FString OutputDirectory;
+		if (DesktopPlatform->OpenDirectoryDialog(ParentWindowWindowHandle, DialogTitle.ToString(), DefaultPath, OutputDirectory))
+		{
+			LocalizationCommandletTasks::ImportDialogueScriptForTarget(ParentWindow.ToSharedRef(), LocalizationTarget, TOptional<FString>(OutputDirectory));
+			UpdateTargetFromReports();
+		}
+	}
+
+	return FReply::Handled();
+}
+
+bool SLocalizationDashboardTargetRow::CanExportDialogueScript() const
+{
+	ULocalizationTarget* const LocalizationTarget = GetTarget();
+	return LocalizationTarget && LocalizationTarget->Settings.SupportedCulturesStatistics.Num() > 0 && LocalizationTarget->Settings.SupportedCulturesStatistics.IsValidIndex(LocalizationTarget->Settings.NativeCultureIndex);
+}
+
+FReply SLocalizationDashboardTargetRow::ExportDialogueScript()
+{
+	ULocalizationTarget* const LocalizationTarget = GetTarget();
+	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+	if (LocalizationTarget && DesktopPlatform)
+	{
+		void* ParentWindowWindowHandle = NULL;
+		const TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindWidgetWindow(AsShared());
+		if (ParentWindow.IsValid() && ParentWindow->GetNativeWindow().IsValid())
+		{
+			ParentWindowWindowHandle = ParentWindow->GetNativeWindow()->GetOSWindowHandle();
+		}
+
+		const FString DefaultPath = FPaths::ConvertRelativePathToFull(LocalizationConfigurationScript::GetDataDirectory(LocalizationTarget));
+
+		FText DialogTitle;
+		{
+			FFormatNamedArguments FormatArguments;
+			FormatArguments.Add(TEXT("TargetName"), FText::FromString(LocalizationTarget->Settings.Name));
+			DialogTitle = FText::Format(LOCTEXT("ExportAllDialogueScriptsForTargetDialogTitleFormat", "Export All Dialogue Scripts for {TargetName} to Directory"), FormatArguments);
+		}
+
+		// Prompt the user for the directory
+		FString OutputDirectory;
+		if (DesktopPlatform->OpenDirectoryDialog(ParentWindowWindowHandle, DialogTitle.ToString(), DefaultPath, OutputDirectory))
+		{
+			LocalizationCommandletTasks::ExportDialogueScriptForTarget(ParentWindow.ToSharedRef(), LocalizationTarget, TOptional<FString>(OutputDirectory));
+		}
+	}
+
+	return FReply::Handled();
+}
+
+bool SLocalizationDashboardTargetRow::CanImportDialogue() const
+{
+	ULocalizationTarget* const LocalizationTarget = GetTarget();
+	return LocalizationTarget && LocalizationTarget->Settings.SupportedCulturesStatistics.Num() > 0 && LocalizationTarget->Settings.SupportedCulturesStatistics.IsValidIndex(LocalizationTarget->Settings.NativeCultureIndex);
+}
+
+FReply SLocalizationDashboardTargetRow::ImportDialogue()
+{
+	ULocalizationTarget* const LocalizationTarget = GetTarget();
+	if (LocalizationTarget)
+	{
+		// Warn about potentially loaded audio assets
+		{
+			TArray<ULocalizationTarget*> Targets;
+			Targets.Add(LocalizationTarget);
+
+			if (!LocalizationCommandletTasks::ReportLoadedAudioAssets(Targets))
+			{
+				return FReply::Handled();
+			}
+		}
+
+		// Execute import dialogue.
+		const TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindWidgetWindow(AsShared());
+		LocalizationCommandletTasks::ImportDialogueForTarget(ParentWindow.ToSharedRef(), LocalizationTarget);
+	}
+
+	return FReply::Handled();
+}
+
+bool SLocalizationDashboardTargetRow::CanCountWords() const
+{
+	ULocalizationTarget* const LocalizationTarget = GetTarget();
+	return LocalizationTarget && LocalizationTarget->Settings.SupportedCulturesStatistics.Num() > 0 && LocalizationTarget->Settings.SupportedCulturesStatistics.IsValidIndex(LocalizationTarget->Settings.NativeCultureIndex);
 }
 
 FReply SLocalizationDashboardTargetRow::CountWords()
@@ -460,14 +623,20 @@ FReply SLocalizationDashboardTargetRow::CountWords()
 	return FReply::Handled();
 }
 
-FReply SLocalizationDashboardTargetRow::CompileAll()
+bool SLocalizationDashboardTargetRow::CanCompileText() const
+{
+	ULocalizationTarget* const LocalizationTarget = GetTarget();
+	return LocalizationTarget && LocalizationTarget->Settings.SupportedCulturesStatistics.Num() > 0 && LocalizationTarget->Settings.SupportedCulturesStatistics.IsValidIndex(LocalizationTarget->Settings.NativeCultureIndex);
+}
+
+FReply SLocalizationDashboardTargetRow::CompileText()
 {
 	ULocalizationTarget* const LocalizationTarget = GetTarget();
 	if (LocalizationTarget)
 	{
 		// Execute compile.
 		const TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindWidgetWindow(AsShared());
-		LocalizationCommandletTasks::CompileTarget(ParentWindow.ToSharedRef(), LocalizationTarget);
+		LocalizationCommandletTasks::CompileTextForTarget(ParentWindow.ToSharedRef(), LocalizationTarget);
 	}
 
 	return FReply::Handled();

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -27,6 +27,12 @@ struct FBlueprintSupport
 	static bool UseDeferredDependencyLoading();
 	static bool IsDeferredExportCreationDisabled();
 	static bool IsDeferredCDOInitializationDisabled();
+
+	/** Tells if the specified object is one of the many flavors of FLinkerPlaceholderBase that we have. */
+	static bool IsDeferredDependencyPlaceholder(UObject* LoadedObj);
+
+	/** Not a particularly fast function. Mostly intended for validation in debug builds. */
+	static bool IsInBlueprintPackage(UObject* LoadedObj);
 };
 
 #if WITH_EDITOR
@@ -79,31 +85,20 @@ enum class EReplacementResult
 };
 
 /**
- * The struct is used while saving cooked package to find replacements for 
- * converted Blueprint assets.
+ * Interface needed by CoreUObject to the BlueprintNativeCodeGen logic. Used by cooker to convert assets 
+ * to native code.
  */
-struct COREUOBJECT_API FScriptCookReplacementCoordinator
+struct IBlueprintNativeCodeGenCore
 {
-	static FScriptCookReplacementCoordinator* Get();
-	static void Create(bool bEnabled, const TArray<FString>& ExcludedAssetTypes, const TArray<FString>& ExcludedBlueprintTypes, const TMap<UObject*, UClass*>& ReplacementMap);
+	/** Returns the current IBlueprintNativeCodeGenCore, may return nullptr */
+	COREUOBJECT_API static const IBlueprintNativeCodeGenCore* Get();
 
-public:
 	/**
-	 * Enables this for handling (script) asset replacements (works only when  
-	 * running a commandlet - presumably the cooker).
-	 * 
-	 * @return True if this was successfully enabled, otherwise false.
+	 * Registers the IBlueprintNativeCodeGenCore, just used to point us at an implementation.
+	 * By default, there is no IBlueprintNativeCodeGenCore, and thus no blueprints are
+	 * replaced at cook.
 	 */
-	bool Initialize();
-
-	/** 
-	 * Checks to see if we're running with this on, aiming to swap out assets 
-	 * with native counterparts.
-	 */
-	bool IsEnabled() const
-	{
-		return bEnabled;
-	}
+	COREUOBJECT_API static void Register(const IBlueprintNativeCodeGenCore* Coordinator);
 
 	/**
 	 * Determines whether the provided package needs to be replaced (in part or completely)
@@ -111,42 +106,37 @@ public:
 	 * @param Package	The package in question
 	 * @return Whether the package should be converted
 	 */
-	EReplacementResult IsTargetedForReplacement(const UPackage* Package) const;
+	virtual EReplacementResult IsTargetedForReplacement(const UPackage* Package) const = 0;
 	
 	/**
-	* Determines whether the provided object needs to be replaced (in part or completely).
-	* Some objects in a package may require conversion and some may not. If any object 
-	* in a package wants to be converted then it is implied that all other objects will 
-	* be converted with it (no support for partial package conversion, beyond stubs)
-	*
-	* @param Object	The package in question
-	* @return Whether the object should be converted
-	*/
-	EReplacementResult IsTargetedForReplacement(const UObject* Object) const;
-
-	// Get class of converted asset. One that was specified in AddConvertedObject
-	UClass* FindReplacedClass(const UObject* Obj) const;
-
-private: 
-	/** Private so we can keep this as a singleton */
-	FScriptCookReplacementCoordinator(bool bEnabled, const TArray<FString>& ExcludedAssetTypes, const TArray<FString>& ExcludedBlueprintTypes, const TMap<UObject*, UClass*>& ReplacementMap);
+	 * Determines whether the provided object needs to be replaced (in part or completely).
+	 * Some objects in a package may require conversion and some may not. If any object 
+	 * in a package wants to be converted then it is implied that all other objects will 
+	 * be converted with it (no support for partial package conversion, beyond stubs)
+	 *
+	 * @param Object	The package in question
+	 * @return Whether the object should be converted
+	 */
+	virtual EReplacementResult IsTargetedForReplacement(const UObject* Object) const = 0;
 
 	/** 
-	 * Used to tell if replacements should be used (substituting native objects 
-	 * for assets). 
+	 * Function used to change the type of a class from, say, UBlueprintGeneratedClass to 
+	 * UDynamicClass. Cooking (and conversion in general) must be order independent so
+	 * The scope of this kind of type swap is limited.
+	 * 
+	 * @param Object whose class will be replaced
+	 * @return A replacement class ptr, null if none
 	 */
-	bool bEnabled;
-
-	const TArray<FString> ExcludedAssetTypes;
-	const TArray<FString> ExcludedBlueprintTypes;
-
-	/** Tracks which assets has a replaced class */
-	TMap<UObject*, UClass*> ReplacementMap;
-
-	TSet<FString> ReplacedPackages;
-
-	/** singleton instance: */
-	static FScriptCookReplacementCoordinator* CoordinatorInstance;
+	virtual UClass* FindReplacedClassForObject(const UObject* Object) const = 0;
+	
+	/** 
+	 * Function used to change the path of subobject from a nativized class.
+	 * 
+	 * @param Object Imported Object.
+	 * @param OutName Referenced to name, that will be saved in import table.
+	 * @return An Outer object that should be saved in import table.
+	 */
+	virtual UObject* FindReplacedNameAndOuter(UObject* Object, FName& OutName) const = 0;
 };
 
 #endif // WITH_EDITOR

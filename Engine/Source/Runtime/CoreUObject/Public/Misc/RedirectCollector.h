@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	CallbackDevice.h:  Allows the engine to do callbacks into the editor
@@ -48,10 +48,11 @@ public:
 	/** Helper struct for string asset reference tracking */
 	struct FPackagePropertyPair
 	{
-		FPackagePropertyPair() {}
+		FPackagePropertyPair() : bReferencedByEditorOnlyProperty(false) {}
 		FPackagePropertyPair(const FString& InPackage, const FString& InProperty)
 		: Package(InPackage)
 		, Property(InProperty)
+		, bReferencedByEditorOnlyProperty(false)
 		{}
 
 		bool operator==(const FPackagePropertyPair& Other) const
@@ -62,6 +63,7 @@ public:
 
 		FString Package;
 		FString Property;
+		bool bReferencedByEditorOnlyProperty;
 	};
 
 	/**

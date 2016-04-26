@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreUObjectPrivate.h"
 #include "PropertyHelper.h"
@@ -124,16 +124,35 @@ FString UMulticastDelegateProperty::GetCPPType( FString* ExtendedTypeText/*=NULL
 
 	FString UnmangledFunctionName = SignatureFunction->GetName().LeftChop( FString( HEADER_GENERATED_DELEGATE_SIGNATURE_SUFFIX ).Len() );
 	const UClass* OwnerClass = SignatureFunction->GetOwnerClass();
-	if ((0 != (CPPExportFlags & EPropertyExportCPPFlags::CPPF_BlueprintCppBackend)) && OwnerClass && !OwnerClass->HasAnyClassFlags(CLASS_Native))
+
+	const bool bBlueprintCppBackend = (0 != (CPPExportFlags & EPropertyExportCPPFlags::CPPF_BlueprintCppBackend));
+	const bool bNative = SignatureFunction->IsNative();
+	if (bBlueprintCppBackend && bNative)
 	{
-		// the name must be unique
-		const FString OwnerName = UnicodeToCPPIdentifier(OwnerClass->GetName(), false, TEXT(""));
-		const FString NewUnmangledFunctionName = FString::Printf(TEXT("%s__%s"), *UnmangledFunctionName, *OwnerName);
-		UnmangledFunctionName = NewUnmangledFunctionName;
+		UStruct* StructOwner = Cast<UStruct>(SignatureFunction->GetOuter());
+		if (StructOwner)
+		{
+			return FString::Printf(TEXT("%s%s::F%s"), StructOwner->GetPrefixCPP(), *StructOwner->GetName(), *UnmangledFunctionName);
+		}
 	}
-	if (0 != (CPPExportFlags & EPropertyExportCPPFlags::CPPF_CustomTypeName))
+	else
 	{
-		UnmangledFunctionName += TEXT("__MulticastDelegate");
+		if ((0 != (CPPExportFlags & EPropertyExportCPPFlags::CPPF_BlueprintCppBackend)) && OwnerClass && !OwnerClass->HasAnyClassFlags(CLASS_Native))
+		{
+			// The name must be valid, this removes spaces, ?, etc from the user's function name. It could
+			// be slightly shorter because the postfix ("__pf") is not needed here because we further post-
+			// pend to the string. Normally the postfix is needed to make sure we don't mangle to a valid
+			// identifier and collide:
+			UnmangledFunctionName = UnicodeToCPPIdentifier(UnmangledFunctionName, false, TEXT(""));
+			// the name must be unique
+			const FString OwnerName = UnicodeToCPPIdentifier(OwnerClass->GetName(), false, TEXT(""));
+			const FString NewUnmangledFunctionName = FString::Printf(TEXT("%s__%s"), *UnmangledFunctionName, *OwnerName);
+			UnmangledFunctionName = NewUnmangledFunctionName;
+		}
+		if (0 != (CPPExportFlags & EPropertyExportCPPFlags::CPPF_CustomTypeName))
+		{
+			UnmangledFunctionName += TEXT("__MulticastDelegate");
+		}
 	}
 	return FString(TEXT("F")) + UnmangledFunctionName;
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AssetToolsPrivatePCH.h"
 #include "Toolkits/IToolkitHost.h"
@@ -854,6 +854,41 @@ void FAssetTypeActions_Skeleton::RetargetSkeleton(TArray<FAssetToRemapSkeleton>&
 		bool bSkipGarbageCollection = true;
 		FBlueprintEditorUtils::RefreshAllNodes(AnimBlueprint);
 		FKismetEditorUtilities::CompileBlueprint(AnimBlueprint, bIsRegeneratingOnLoad, bSkipGarbageCollection);
+	}
+
+	// Copy sockets IF the socket doesn't exists on target skeleton and if the joint exists
+	if (OldSkeleton && OldSkeleton->Sockets.Num() > 0 && NewSkeleton)
+	{
+		const FReferenceSkeleton& NewRefSkeleton = NewSkeleton->GetReferenceSkeleton();
+		// if we have sockets from old skeleton, see if we can trasnfer
+		for (const auto& OldSocket : OldSkeleton->Sockets)
+		{
+			bool bExistingOnNewSkeleton = false;
+
+			for (auto& NewSocket : NewSkeleton->Sockets)
+			{
+				if (OldSocket->SocketName == NewSocket->SocketName)
+				{
+					// if name is same, we can't copy over
+					bExistingOnNewSkeleton = true;
+				}
+			}
+
+			if (!bExistingOnNewSkeleton)
+			{
+				// make sure the joint still exists
+				if (NewRefSkeleton.FindBoneIndex(OldSocket->BoneName) != INDEX_NONE)
+				{
+					USkeletalMeshSocket* NewSocketInst = NewObject<USkeletalMeshSocket>(NewSkeleton);
+					if (NewSocketInst)
+					{
+						NewSocketInst->CopyFrom(OldSocket);
+						NewSkeleton->Sockets.Add(NewSocketInst);
+						NewSkeleton->MarkPackageDirty();
+					}
+				}
+			}
+		}
 	}
 
 	// now update any running instance

@@ -1,11 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BasePassTessellationShaders.usf: Base pass domain and hull shaders
 =============================================================================*/
 
 #include "BasePassVertexCommon.usf"
-
 
 FBasePassVSToDS PassInterpolate(FBasePassVSToDS a, float aInterp, FBasePassVSToDS b, float bInterp)
 {
@@ -51,14 +50,14 @@ FBasePassVSToPS PassFinalizeTessellationOutput(FBasePassVSToDS Interpolants, flo
 	// Transform position to clip-space
 	ISOLATE
 	{
-		O.Position = mul(WorldPosition, View.TranslatedWorldToClip);
+		O.Position = mul(WorldPosition, ResolvedView.TranslatedWorldToClip);
 #if WRITES_VELOCITY_TO_GBUFFER
 		float SkipVelocity = O.BasePassInterpolants.VelocityPrevScreenPosition.w;
-		O.BasePassInterpolants.VelocityPrevScreenPosition = mul(float4(Interpolants.BasePassInterpolants.VelocityPrevScreenPosition.xyz, 1), View.PrevTranslatedWorldToClip);
+		O.BasePassInterpolants.VelocityPrevScreenPosition = mul(float4(Interpolants.BasePassInterpolants.VelocityPrevScreenPosition.xyz, 1), ResolvedView.PrevTranslatedWorldToClip);
 		// Move the mask to .z when as we don't need the clip space Z
 		O.BasePassInterpolants.VelocityPrevScreenPosition.z = SkipVelocity;
 		#if WRITES_VELOCITY_TO_GBUFFER_USE_POS_INTERPOLATOR
-		O.BasePassInterpolants.VelocityScreenPosition = mul(float4(Interpolants.BasePassInterpolants.VelocityScreenPosition.xyz, 1), View.TranslatedWorldToClip);
+		O.BasePassInterpolants.VelocityScreenPosition = mul(float4(Interpolants.BasePassInterpolants.VelocityScreenPosition.xyz, 1), ResolvedView.TranslatedWorldToClip);
 		#endif
 #endif
 	}

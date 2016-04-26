@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -20,13 +20,19 @@ public:
 	
 	/** Paint this widget */
 	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override;
+	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 
 	/** Get the desired physical vertical position of this track lane */
 	float GetPhysicalPosition() const;
-	
+
+protected:
+	virtual FVector2D ComputeDesiredSize(float LayoutScale) const override;
+
 private:
 	/** The authoritative display node that created us */
 	TSharedPtr<FSequencerDisplayNode> DisplayNode;
 	/** Pointer back to the tree view for virtual <-> physical space conversions. Important: weak ptr to avoid circular references */
 	TWeakPtr<SSequencerTreeView> TreeView;
+	/** Our desired size last frame */
+	TOptional<FVector2D> LastDesiredSize;
 };

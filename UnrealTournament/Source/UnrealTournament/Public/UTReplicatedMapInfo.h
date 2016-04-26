@@ -13,31 +13,31 @@ class UNREALTOURNAMENT_API AUTReplicatedMapInfo : public AInfo
 	virtual void PreInitializeComponents() override;
 
 	// The weapon
-	UPROPERTY(Replicated)
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
 	FString MapPackageName;
 
-	UPROPERTY(Replicated)
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
 	FString MapAssetName;
 
-	UPROPERTY(Replicated)
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
 	FString Title;
 
-	UPROPERTY(Replicated)
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
 	FString Author;
 
-	UPROPERTY(Replicated)
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
 	FString Description;
 
-	UPROPERTY(Replicated)
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
 	int32 OptimalPlayerCount;
 
-	UPROPERTY(Replicated)
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
 	int32 OptimalTeamPlayerCount;
 
-	UPROPERTY(Replicated, ReplicatedUsing = OnRep_MapScreenshotReference)
+	UPROPERTY(Replicated, ReplicatedUsing = OnRep_MapScreenshotReference, BlueprintReadOnly, Category = Ruleset)
 	FString MapScreenshotReference;
 
-	UPROPERTY(Replicated)
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
 	FPackageRedirectReference Redirect;
 
 	// What rounds are this weapon available in

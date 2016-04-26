@@ -83,7 +83,7 @@ void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AAc
 				AUTPlayerController* PC = (TheWorld->DemoNetDriver->ClientConnections.Num() > 0) ? Cast<AUTPlayerController>(TheWorld->DemoNetDriver->ClientConnections[0]->PlayerController) : NULL;
 				if (PC != NULL)
 				{
-					PC->ClientHearSound(TheSound, SourceActor, (SourceActor != NULL && SourceActor->GetActorLocation() == SourceLoc) ? FVector::ZeroVector : SourceLoc, bStopWhenOwnerDestroyed, false, false);
+					PC->ClientHearSound(TheSound, SourceActor, (SourceActor != NULL && SourceActor->GetActorLocation() == SourceLoc) ? FVector::ZeroVector : SourceLoc, bStopWhenOwnerDestroyed, false);
 				}
 			}
 

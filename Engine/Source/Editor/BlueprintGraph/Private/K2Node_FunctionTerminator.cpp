@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "BlueprintGraphPrivatePCH.h"
@@ -91,7 +91,8 @@ void UK2Node_FunctionTerminator::PromoteFromInterfaceOverride(bool bIsPrimaryTer
 {
 	// Remove the signature class, that is not relevant.
 	SignatureClass = nullptr;
-	for (const UEdGraphPin* Pin : Pins)
+	TArray<UEdGraphPin*> OriginalPins = Pins;
+	for (const UEdGraphPin* Pin : OriginalPins)
 	{
 		if (Pin->PinType.PinCategory != UEdGraphSchema_K2::PC_Exec)
 		{

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EngineSettingsPrivatePCH.h"
 
@@ -67,11 +67,11 @@ UHudSettings::UHudSettings( const FObjectInitializer& ObjectInitializer )
 /* Static functions
  *****************************************************************************/
 
-const FString& UGameMapsSettings::GetGameDefaultMap( )
+const FString UGameMapsSettings::GetGameDefaultMap( )
 {
 	return IsRunningDedicatedServer()
-		? GetDefault<UGameMapsSettings>()->ServerDefaultMap
-		: GetDefault<UGameMapsSettings>()->GameDefaultMap;
+		? GetDefault<UGameMapsSettings>()->ServerDefaultMap.GetLongPackageName()
+		: GetDefault<UGameMapsSettings>()->GameDefaultMap.GetLongPackageName();
 }
 
 
@@ -104,6 +104,59 @@ void UGameMapsSettings::SetGlobalDefaultGameMode( const FString& NewGameMode )
 	UGameMapsSettings* GameMapsSettings = Cast<UGameMapsSettings>(UGameMapsSettings::StaticClass()->GetDefaultObject());
 	
 	GameMapsSettings->GlobalDefaultGameMode = NewGameMode;
+}
+
+// Backwards compat for map strings
+void FixMapAssetRef(FStringAssetReference& MapAssetReference)
+{
+	const FString AssetRefStr = MapAssetReference.ToString();
+	int32 DummyIndex;
+	if (!AssetRefStr.IsEmpty() && !AssetRefStr.FindLastChar(TEXT('.'), DummyIndex))
+	{
+		FString MapName, MapPath;
+		AssetRefStr.Split(TEXT("/"), &MapPath, &MapName, ESearchCase::IgnoreCase, ESearchDir::FromEnd);
+		MapAssetReference.SetPath(FString::Printf(TEXT("%s/%s.%s"),*MapPath, *MapName, *MapName));
+	}
+};
+
+void UGameMapsSettings::PostInitProperties()
+{
+	Super::PostInitProperties();
+
+	FixMapAssetRef(EditorStartupMap);
+	FixMapAssetRef(GameDefaultMap);
+	FixMapAssetRef(ServerDefaultMap);
+	FixMapAssetRef(TransitionMap);
+}
+
+void UGameMapsSettings::PostReloadConfig( UProperty* PropertyThatWasLoaded )
+{
+	if (PropertyThatWasLoaded)
+	{
+		if (PropertyThatWasLoaded->GetFName() == GET_MEMBER_NAME_CHECKED(UGameMapsSettings, EditorStartupMap))
+		{
+			FixMapAssetRef(EditorStartupMap);
+		}
+		else if (PropertyThatWasLoaded->GetFName() == GET_MEMBER_NAME_CHECKED(UGameMapsSettings, GameDefaultMap))
+		{
+			FixMapAssetRef(GameDefaultMap);
+		}
+		else if (PropertyThatWasLoaded->GetFName() == GET_MEMBER_NAME_CHECKED(UGameMapsSettings, ServerDefaultMap))
+		{
+			FixMapAssetRef(ServerDefaultMap);
+		}
+		else if (PropertyThatWasLoaded->GetFName() == GET_MEMBER_NAME_CHECKED(UGameMapsSettings, TransitionMap))
+		{
+			FixMapAssetRef(TransitionMap);
+		}
+	}
+	else
+	{
+		FixMapAssetRef(EditorStartupMap);
+		FixMapAssetRef(GameDefaultMap);
+		FixMapAssetRef(ServerDefaultMap);
+		FixMapAssetRef(TransitionMap);
+	}
 }
 
 

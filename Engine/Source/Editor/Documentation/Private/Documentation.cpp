@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "DocumentationModulePrivatePCH.h"
 #include "Documentation.h"
@@ -68,7 +68,7 @@ bool FDocumentation::Open(const FString& Link, FDocumentationSourceInfo Source) 
 		FText Message = LOCTEXT("OpeningURLMessage", "You are about to open an external URL. This will open your web browser. Do you want to proceed?");
 		FText URLDialog = LOCTEXT("OpeningURLTitle", "Open external link");
 
-		FSuppressableWarningDialog::FSetupInfo Info(Message, URLDialog, "SupressOpenURLWarning");
+		FSuppressableWarningDialog::FSetupInfo Info(Message, URLDialog, "SuppressOpenURLWarning");
 		Info.ConfirmText = LOCTEXT("OpenURL_yes", "Yes");
 		Info.CancelText = LOCTEXT("OpenURL_no", "No");
 		FSuppressableWarningDialog OpenURLWarning(Info);

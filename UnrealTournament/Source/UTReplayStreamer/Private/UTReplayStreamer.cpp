@@ -54,17 +54,14 @@ FUTReplayStreamer::FUTReplayStreamer()
 	}
 
 	check( !ServerURL.IsEmpty() )
-
-	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
-
-	if ( OnlineSubsystem )
-	{
-		OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
-	}
 }
 
 void FUTReplayStreamer::ProcessRequestInternal( TSharedPtr< class IHttpRequest > Request )
 {
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	IOnlineIdentityPtr OnlineIdentityInterface;
+	if (OnlineSubsystem) OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
+
 	if ( OnlineIdentityInterface.IsValid() )
 	{
 		FString AuthToken = OnlineIdentityInterface->GetAuthToken( 0 );

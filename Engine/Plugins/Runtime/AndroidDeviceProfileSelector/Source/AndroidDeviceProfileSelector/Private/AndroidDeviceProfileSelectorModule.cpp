@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidDeviceProfileSelectorPrivatePCH.h"
 #include "Regex.h"
@@ -6,6 +6,11 @@
 IMPLEMENT_MODULE(FAndroidDeviceProfileSelectorModule, AndroidDeviceProfileSelector);
 
 UAndroidDeviceProfileMatchingRules::UAndroidDeviceProfileMatchingRules(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
+{
+}
+
+UAndroidJavaSurfaceViewDevices::UAndroidJavaSurfaceViewDevices(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 }
@@ -52,6 +57,8 @@ FString const FAndroidDeviceProfileSelectorModule::GetRuntimeDeviceProfileName()
 		UE_LOG(LogAndroid, Log, TEXT("  AndroidVersion: %s"), *AndroidVersion);
 		UE_LOG(LogAndroid, Log, TEXT("  DeviceMake: %s"), *DeviceMake);
 		UE_LOG(LogAndroid, Log, TEXT("  DeviceModel: %s"), *DeviceModel);
+
+		CheckForJavaSurfaceViewWorkaround(DeviceMake, DeviceModel);
 
 		for (const FProfileMatch& Profile : Rules->MatchProfile)
 		{
@@ -157,4 +164,25 @@ FString const FAndroidDeviceProfileSelectorModule::GetRuntimeDeviceProfileName()
 	}
 
 	return ProfileName;
+}
+
+extern void AndroidThunkCpp_UseSurfaceViewWorkaround();
+
+void FAndroidDeviceProfileSelectorModule::CheckForJavaSurfaceViewWorkaround(const FString& DeviceMake, const FString& DeviceModel) const
+{
+	// We need to initialize the class early as device profiles need to be evaluated before ProcessNewlyLoadedUObjects can be called.
+	extern UClass* Z_Construct_UClass_UAndroidJavaSurfaceViewDevices();
+	Z_Construct_UClass_UAndroidJavaSurfaceViewDevices();
+
+	const UAndroidJavaSurfaceViewDevices *const SurfaceViewDevices = Cast<UAndroidJavaSurfaceViewDevices>(UAndroidJavaSurfaceViewDevices::StaticClass()->GetDefaultObject());
+	check(SurfaceViewDevices);
+
+	for(const FJavaSurfaceViewDevice& Device : SurfaceViewDevices->SurfaceViewDevices)
+	{
+		if(Device.Manufacturer == DeviceMake && Device.Model == DeviceModel)
+		{
+			AndroidThunkCpp_UseSurfaceViewWorkaround();
+			return;
+		}
+	}
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneToolsPrivatePCH.h"
 #include "FloatPropertyTrackEditor.h"
@@ -19,9 +19,9 @@ TSharedRef<FPropertySection> FFloatPropertyTrackEditor::MakePropertySectionInter
 }
 
 
-void FFloatPropertyTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<float>& GeneratedKeys )
+void FFloatPropertyTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<float>& NewGeneratedKeys, TArray<float>& DefaultGeneratedKeys )
 {
-	GeneratedKeys.Add( PropertyChangedParams.GetPropertyValue<float>() );
+	NewGeneratedKeys.Add( PropertyChangedParams.GetPropertyValue<float>() );
 }
 
 

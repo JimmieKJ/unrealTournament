@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -163,6 +163,9 @@ class ENGINE_API USoundWave : public USoundBase
 	UPROPERTY(EditAnywhere, Category=Subtitles )
 	FString SpokenText;
 
+	/** The priority of the subtitle. */
+	UPROPERTY(EditAnywhere, Category=Subtitles)
+	float SubtitlePriority;
 
 	/** Playback volume of sound 0 to 1 - Default is 1.0. */
 	UPROPERTY(Category=Sound, meta=(ClampMin = "0.0"), EditAnywhere)
@@ -290,6 +293,7 @@ public:
 	virtual void Parse( class FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances ) override;
 	virtual float GetMaxAudibleDistance() override;
 	virtual float GetDuration() override;
+	virtual float GetSubtitlePriority() const override;
 	//~ End USoundBase Interface.
 
 	/**

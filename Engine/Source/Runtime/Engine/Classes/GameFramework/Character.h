@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "GameFramework/Pawn.h"
@@ -272,6 +272,10 @@ protected:
 	UPROPERTY(ReplicatedUsing=OnRep_ReplicatedBasedMovement)
 	struct FBasedMovementInfo ReplicatedBasedMovement;
 
+	/** Scale to apply to root motion translation on this Character */
+	UPROPERTY(Replicated)
+	float AnimRootMotionTranslationScale;
+
 public:
 	/** Rep notify for ReplicatedBasedMovement */
 	UFUNCTION()
@@ -293,6 +297,10 @@ protected:
 	/** Event called after actor's base changes (if SetBase was requested to notify us with bNotifyPawn). */
 	virtual void BaseChange();
 
+	/** CharacterMovement ServerLastTransformUpdateTimeStamp value, replicated to simulated proxies. */
+	UPROPERTY(Replicated)
+	float ReplicatedServerLastTransformUpdateTimeStamp;
+
 	/** CharacterMovement MovementMode (and custom mode) replicated for simulated proxies. Use CharacterMovementComponent::UnpackNetworkMovementMode() to translate it. */
 	UPROPERTY(Replicated)
 	uint8 ReplicatedMovementMode;
@@ -302,6 +310,9 @@ protected:
 	bool bInBaseReplication;
 
 public:	
+
+	/** Accessor for ReplicatedServerLastTransformUpdateTimeStamp. */
+	FORCEINLINE float GetServerLastTransformUpdateTimeStamp() const { return ReplicatedServerLastTransformUpdateTimeStamp; }
 
 	/** Accessor for BasedMovement */
 	FORCEINLINE const FBasedMovementInfo& GetBasedMovement() const { return BasedMovement; }
@@ -787,6 +798,13 @@ public:
 	 * This means code path for networked root motion is enabled. */
 	UFUNCTION(BlueprintCallable, Category = Animation)
 	bool IsPlayingNetworkedRootMotionMontage() const;
+
+	/** Sets scale to apply to root motion translation on this Character */
+	void SetAnimRootMotionTranslationScale(float InAnimRootMotionTranslationScale = 1.f);
+
+	/** Returns current value of AnimRootMotionScale */
+	UFUNCTION(BlueprintCallable, Category = Animation)
+	float GetAnimRootMotionTranslationScale() const;
 
 	/** Called on the actor right before replication occurs */
 	virtual void PreReplication( IRepChangedPropertyTracker & ChangedPropertyTracker ) override;

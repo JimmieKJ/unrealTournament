@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /**
  * Movement component meant for use with Pawns.
@@ -71,6 +71,9 @@ public:
 
 	/** Notify of collision in case we want to react, such as waking up avoidance or pathing code. */
 	virtual void NotifyBumpedPawn(APawn* BumpedPawn) {}
+
+	// UNavMovementComponent override for input operations
+	virtual void RequestPathMove(const FVector& MoveInput) override;
 
 protected:
 

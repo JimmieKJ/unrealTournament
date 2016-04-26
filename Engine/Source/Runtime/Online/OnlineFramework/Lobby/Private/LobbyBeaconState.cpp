@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LobbyPrivatePCH.h"
 #include "LobbyBeaconState.h"
@@ -296,7 +296,7 @@ ALobbyBeaconPlayerState* ALobbyBeaconState::CreateNewPlayer(const FText& PlayerN
 		if (NewPlayer)
 		{
 			// Associate with this objects net driver for proper replication
-			NewPlayer->NetDriverName = NetDriverName;
+			NewPlayer->SetNetDriverName(NetDriverName);
 			NewPlayer->DisplayName = PlayerName;
 			NewPlayer->UniqueId = UniqueId;
 			NewPlayer->bInLobby = true;

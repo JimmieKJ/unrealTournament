@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BrushComponent.cpp: Unreal brush component implementation
@@ -196,7 +196,7 @@ public:
 			FLocalVertexFactory*,VertexFactory,&VertexFactory,
 			FVertexBuffer*,WireVertexBuffer,&WireVertexBuffer,
 			{
-				FLocalVertexFactory::DataType Data;
+				FLocalVertexFactory::FDataType Data;
 				Data.PositionComponent = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(WireVertexBuffer,FModelWireVertex,Position,VET_Float3);
 				Data.TangentBasisComponents[0] = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(WireVertexBuffer,FModelWireVertex,TangentX,VET_PackedNormal);
 				Data.TangentBasisComponents[1] = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(WireVertexBuffer,FModelWireVertex,TangentZ,VET_PackedNormal);

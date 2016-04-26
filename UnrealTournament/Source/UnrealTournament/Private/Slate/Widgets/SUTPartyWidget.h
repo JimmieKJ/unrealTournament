@@ -5,6 +5,9 @@
 #include "SlateBasics.h"
 
 #if !UE_SERVER
+
+enum class EPartyType : uint8;
+
 class UNREALTOURNAMENT_API SUTPartyWidget : public SCompoundWidget
 {
 public:
@@ -12,7 +15,7 @@ public:
 	{}
 
 	/** Always at the end */
-	SLATE_END_ARGS()
+	SLATE_END_ARGS() 
 
 	/** Destructor */
 	virtual ~SUTPartyWidget();
@@ -26,6 +29,9 @@ private:
 	FReply KickFromParty(int32 PartyMemberIdx);
 	FReply PromoteToLeader(int32 PartyMemberIdx);
 	FReply LeaveParty();
+	FReply InviteToParty(FString UserId);
+
+	FReply ChangePartyType(EPartyType InPartyType);
 
 	void PartyStateChanged();
 	void PartyLeft();

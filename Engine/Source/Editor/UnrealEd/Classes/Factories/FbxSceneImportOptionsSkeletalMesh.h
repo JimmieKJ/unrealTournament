@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "FbxSceneImportOptionsSkeletalMesh.generated.h"
@@ -20,8 +20,8 @@ class UFbxSceneImportOptionsSkeletalMesh : public UObject
 	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category = SkeletalMesh)
 	uint32 bCreatePhysicsAsset : 1;
 
-	/** Enable this option to use frame 0 as reference pose */
-	UPROPERTY(EditAnywhere, config, Category = SkeletalMesh)
+	/** TODO support T0AsRefPose Enable this option to use frame 0 as reference pose */
+	UPROPERTY()
 	uint32 bUseT0AsRefPose : 1;
 
 	/** If checked, triangles with non-matching smoothing groups will be physically split. */
@@ -40,10 +40,38 @@ class UFbxSceneImportOptionsSkeletalMesh : public UObject
 	UPROPERTY(EditAnywhere, config, Category = SkeletalMesh)
 	uint32 bKeepOverlappingVertices : 1;
 
+	//////////////////////////////////////////////////////////////////////////
+	// Animation section
 
-	/** Enables experimental Mikk tangent generation for skeletal meshes */
-	/*UPROPERTY(EditAnywhere, Category = SkeletalMesh)
-	uint32 bUseExperimentalTangentGeneration : 1;*/
+	/** True to import animations from the FBX File */
+	UPROPERTY(EditAnywhere, config, Category = Animation)
+	uint32 bImportAnimations : 1;
+
+	/** Type of asset to import from the FBX file */
+	UPROPERTY(EditAnywhere, Category = Animation, config, meta = (DisplayName = "Animation Length"))
+	TEnumAsByte<enum EFBXAnimationLengthImportType> AnimationLength;
+
+	/** Frame range used when Set Range is used in Animation Length */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Animation, meta = (UIMin = 0, ClampMin = 0))
+	FInt32Interval FrameImportRange;
+
+	/** Enable this option to use default sample rate for the imported animation at 30 frames per second */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category = Animation, meta = (ToolTip = "If enabled, samples all animation curves to 30 FPS"))
+	bool bUseDefaultSampleRate;
+
+	/** Import if custom attribute as a curve within the animation **/
+	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category = Animation)
+	bool bImportCustomAttribute;
+
+	/** Type of asset to import from the FBX file */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category = Animation)
+	bool bPreserveLocalTransform;
+
+	/** Type of asset to import from the FBX file */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category = Animation)
+	bool bDeleteExistingMorphTargetCurves;
+
+	void FillSkeletalMeshInmportData(class UFbxSkeletalMeshImportData* SkeletalMeshImportData, class UFbxAnimSequenceImportData* AnimSequenceImportData, class UFbxSceneImportOptions* SceneImportOptions);
 };
 
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	OpenGLDrv.h: Public OpenGL RHI definitions.
@@ -248,6 +248,8 @@ struct FOpenGLGPUProfiler : public FGPUProfiler
 	int CurrentGPUFrameQueryIndex;
 
 	class FOpenGLDynamicRHI* OpenGLRHI;
+	// count the number of beginframe calls without matching endframe calls.
+	int32 NestedFrameCount;
 
 	/** GPU hitch profile histories */
 	TIndirectArray<FOpenGLEventNodeFrame> GPUHitchEventNodeFrames;
@@ -257,6 +259,7 @@ struct FOpenGLGPUProfiler : public FGPUProfiler
 	,	FrameTiming(InOpenGLRHI, 4)
 	,	CurrentGPUFrameQueryIndex(0)
 	,	OpenGLRHI(InOpenGLRHI)
+	,	NestedFrameCount(0)
 	{
 		FrameTiming.InitResource();
 		for ( int32 Index=0; Index < MAX_GPUFRAMEQUERIES; ++Index )
@@ -273,7 +276,7 @@ struct FOpenGLGPUProfiler : public FGPUProfiler
 
 	void Cleanup();
 
-	virtual void PushEvent(const TCHAR* Name) override;
+	virtual void PushEvent(const TCHAR* Name, FColor Color) override;
 	virtual void PopEvent() override;
 
 	void BeginFrame(class FOpenGLDynamicRHI* InRHI);
@@ -336,6 +339,7 @@ public:
 	virtual FUnorderedAccessViewRHIRef RHICreateUnorderedAccessView(FVertexBufferRHIParamRef VertexBuffer, uint8 Format) final override;
 	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView(FStructuredBufferRHIParamRef StructuredBuffer) final override;
 	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView(FVertexBufferRHIParamRef VertexBuffer, uint32 Stride, uint8 Format) final override;
+	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView(FIndexBufferRHIParamRef Buffer) final override;
 	virtual uint64 RHICalcTexture2DPlatformSize(uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 NumSamples, uint32 Flags, uint32& OutAlign) final override;
 	virtual uint64 RHICalcTexture3DPlatformSize(uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint8 Format, uint32 NumMips, uint32 Flags, uint32& OutAlign) final override;
 	virtual uint64 RHICalcTextureCubePlatformSize(uint32 Size, uint8 Format, uint32 NumMips, uint32 Flags, uint32& OutAlign) final override;
@@ -472,7 +476,7 @@ public:
 	virtual void RHIClear(bool bClearColor, const FLinearColor& Color, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntRect ExcludeRect) final override;
 	virtual void RHIClearMRT(bool bClearColor, int32 NumClearColors, const FLinearColor* ColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntRect ExcludeRect) final override;
 	virtual void RHIEnableDepthBoundsTest(bool bEnable, float MinDepth, float MaxDepth) final override;
-	virtual void RHIPushEvent(const TCHAR* Name) final override;
+	virtual void RHIPushEvent(const TCHAR* Name, FColor Color) final override;
 	virtual void RHIPopEvent() final override;
 	virtual void RHIBeginAsyncComputeJob_DrawThread(EAsyncComputePriority Priority) override;
 	virtual void RHIEndAsyncComputeJob_DrawThread(uint32 FenceIndex) override;
@@ -491,6 +495,7 @@ public:
 	/** Set a resource on texture target of a specific real OpenGL stage. Goes through cache to eliminate redundant calls. */
 	void CachedSetupTextureStage(FOpenGLContextState& ContextState, GLint TextureIndex, GLenum Target, GLuint Resource, GLint BaseMip, GLint NumMips);
 	void CachedSetupUAVStage(FOpenGLContextState& ContextState, GLint UAVIndex, GLenum Format, GLuint Resource);
+	void UpdateSRV(FOpenGLShaderResourceView* SRV);
 	FOpenGLContextState& GetContextStateForCurrentContext();
 
 	void CachedBindArrayBuffer( FOpenGLContextState& ContextState, GLuint Buffer )
@@ -581,6 +586,9 @@ private:
 	/** Per-context state caching */
 	FOpenGLContextState	SharedContextState;
 	FOpenGLContextState	RenderingContextState;
+	
+	/** Cached mip-limits for textures when ARB_texture_view is unavailable */
+	TMap<GLuint, TPair<GLenum, GLenum>> TextureMipLimits;
 
 	/** Underlying platform-specific data */
 	struct FPlatformOpenGLDevice* PlatformDevice;

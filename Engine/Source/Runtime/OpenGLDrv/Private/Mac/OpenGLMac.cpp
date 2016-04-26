@@ -1,10 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OpenGLDrvPrivate.h"
 
 #include "MacOpenGLContext.h"
 #include "MacOpenGLQuery.h"
 
+#include "MacApplication.h"
 #include "MacWindow.h"
 #include "MacTextInputMethodSystem.h"
 #include "CocoaTextView.h"
@@ -721,49 +722,27 @@ void PlatformGetSupportedResolution(uint32 &Width, uint32 &Height)
 
 bool PlatformGetAvailableResolutions(FScreenResolutionArray& Resolutions, bool bIgnoreRefreshRate)
 {
-	SCOPED_AUTORELEASE_POOL;
-
-	NSArray* AllScreens = [NSScreen screens];
-	NSScreen* PrimaryScreen = (NSScreen*)[AllScreens objectAtIndex: 0];
-
-	SIZE_T Scale = (SIZE_T)[PrimaryScreen backingScaleFactor];
-
-	int32 MinAllowableResolutionX = 0;
-	int32 MinAllowableResolutionY = 0;
-	int32 MaxAllowableResolutionX = 10480;
-	int32 MaxAllowableResolutionY = 10480;
-	int32 MinAllowableRefreshRate = 0;
-	int32 MaxAllowableRefreshRate = 10480;
-
-	if (MaxAllowableResolutionX == 0)
-	{
-		MaxAllowableResolutionX = 10480;
-	}
-	if (MaxAllowableResolutionY == 0)
-	{
-		MaxAllowableResolutionY = 10480;
-	}
-	if (MaxAllowableRefreshRate == 0)
-	{
-		MaxAllowableRefreshRate = 10480;
-	}
+	const int32 MinAllowableResolutionX = 0;
+	const int32 MinAllowableResolutionY = 0;
+	const int32 MaxAllowableResolutionX = 10480;
+	const int32 MaxAllowableResolutionY = 10480;
+	const int32 MinAllowableRefreshRate = 0;
+	const int32 MaxAllowableRefreshRate = 10480;
 
 	CFArrayRef AllModes = CGDisplayCopyAllDisplayModes(kCGDirectMainDisplay, NULL);
 	if (AllModes)
 	{
-		int32 NumModes = CFArrayGetCount(AllModes);
+		const int32 NumModes = CFArrayGetCount(AllModes);
+		const int32 Scale = FMacApplication::GetPrimaryScreenBackingScaleFactor();
+
 		for (int32 Index = 0; Index < NumModes; Index++)
 		{
-			CGDisplayModeRef Mode = (CGDisplayModeRef)CFArrayGetValueAtIndex(AllModes, Index);
-			SIZE_T Width = CGDisplayModeGetWidth(Mode) / Scale;
-			SIZE_T Height = CGDisplayModeGetHeight(Mode) / Scale;
-			int32 RefreshRate = (int32)CGDisplayModeGetRefreshRate(Mode);
+			const CGDisplayModeRef Mode = (const CGDisplayModeRef)CFArrayGetValueAtIndex(AllModes, Index);
+			const int32 Width = (int32)CGDisplayModeGetWidth(Mode) / Scale;
+			const int32 Height = (int32)CGDisplayModeGetHeight(Mode) / Scale;
+			const int32 RefreshRate = (int32)CGDisplayModeGetRefreshRate(Mode);
 
-			if (((int32)Width >= MinAllowableResolutionX) &&
-				((int32)Width <= MaxAllowableResolutionX) &&
-				((int32)Height >= MinAllowableResolutionY) &&
-				((int32)Height <= MaxAllowableResolutionY)
-				)
+			if (Width >= MinAllowableResolutionX && Width <= MaxAllowableResolutionX && Height >= MinAllowableResolutionY && Height <= MaxAllowableResolutionY)
 			{
 				bool bAddIt = true;
 				if (bIgnoreRefreshRate == false)
@@ -792,7 +771,7 @@ bool PlatformGetAvailableResolutions(FScreenResolutionArray& Resolutions, bool b
 				if (bAddIt)
 				{
 					// Add the mode to the list
-					int32 Temp2Index = Resolutions.AddZeroed();
+					const int32 Temp2Index = Resolutions.AddZeroed();
 					FScreenResolutionRHI& ScreenResolution = Resolutions[Temp2Index];
 
 					ScreenResolution.Width = Width;

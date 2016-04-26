@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -70,6 +70,7 @@ struct FGatherTextFromTextFilesConfiguration
 	FGatherTextFromTextFilesConfiguration()
 		: IsEnabled(true)
 		, FileExtensions(GetDefaultTextFileExtensions())
+		, ShouldGatherFromEditorOnlyData(false)
 	{
 	}
 
@@ -89,6 +90,10 @@ struct FGatherTextFromTextFilesConfiguration
 	UPROPERTY(config, EditAnywhere, Category = "Filter")
 	TArray<FGatherTextFileExtension> FileExtensions;
 
+	/* If enabled, data that is specified as editor-only may be processed for gathering. */
+	UPROPERTY(config, EditAnywhere, Category = "Filter")
+	bool ShouldGatherFromEditorOnlyData;
+
 	LOCALIZATION_API bool Validate(const FString& RootDirectory, FText& OutError) const;
 };
 
@@ -104,7 +109,13 @@ struct FGatherTextFromPackagesConfiguration
 		: IsEnabled(true)
 		, FileExtensions(GetDefaultPackageFileExtensions())
 		, ShouldGatherFromEditorOnlyData(false)
+		, SkipGatherCache(false)
 	{
+		{
+			FGatherTextExcludePath L10NPath;
+			L10NPath.Pattern = TEXT("Content/L10N/*");
+			ExcludePathWildcards.Add(L10NPath);
+		}
 	}
 
 	/* If enabled, text from packages will be gathered according to this configuration. */
@@ -123,9 +134,13 @@ struct FGatherTextFromPackagesConfiguration
 	UPROPERTY(config, EditAnywhere, Category = "Filter")
 	TArray<FGatherTextFileExtension> FileExtensions;
 
-	/* If enable, data that is specified as editor-only may be processed for gathering. */
-	UPROPERTY(config, EditAnywhere, Category = "Filter")
+	/* If enabled, data that is specified as editor-only may be processed for gathering. */
+	UPROPERTY(config, EditAnywhere, Category = "Gather Text")
 	bool ShouldGatherFromEditorOnlyData;
+
+	/* Should we ignore the cached text in the package header and perform a full package load instead? */
+	UPROPERTY(config, EditAnywhere, Category = "Gather Text", AdvancedDisplay)
+	bool SkipGatherCache;
 
 	LOCALIZATION_API bool Validate(const FString& RootDirectory, FText& OutError) const;
 };
@@ -217,9 +232,10 @@ struct FLocalizationExportingSettings
 	GENERATED_BODY()
 
 	FLocalizationExportingSettings()
-	: ShouldPersistCommentsOnExport(false)
-	, ShouldAddSourceLocationsAsComments(true)
-	{}
+		: ShouldPersistCommentsOnExport(false)
+		, ShouldAddSourceLocationsAsComments(true)
+	{
+	}
 
 	/* Should user comments in existing PO files be persisted after export? Useful if using a third party service that stores editor/translator notes in the PO format's comment fields. */
 	UPROPERTY(config, EditAnywhere, Category = "Comments")
@@ -228,6 +244,30 @@ struct FLocalizationExportingSettings
 	/* Should source locations be added to PO file entries as comments? Useful if a third party service doesn't expose PO file reference comments, which typically store the source location. */
 	UPROPERTY(config, EditAnywhere, Category = "Comments")
 	bool ShouldAddSourceLocationsAsComments;
+};
+
+USTRUCT()
+struct FLocalizationImportDialogueSettings
+{
+	GENERATED_BODY()
+
+	FLocalizationImportDialogueSettings()
+		: ImportedDialogueFolder(TEXT("ImportedDialogue"))
+		, bImportNativeAsSource(false)
+	{
+	}
+
+	/** Path to the folder to import the audio from. This folder is expected to contain culture sub-folders, which in turn contain the raw WAV files to import. */
+	UPROPERTY(config, EditAnywhere, Category="Dialogue")
+	FDirectoryPath RawAudioPath;
+
+	/** Folder in which to create the generated sound waves. This is relative to the root of the L10N culture folder (or the root content folder if importing native dialogue as source dialogue). */
+	UPROPERTY(config, EditAnywhere, Category="Dialogue")
+	FString ImportedDialogueFolder;
+
+	/** Should the dialogue for the native culture be imported as if it were source audio? If false, the native culture dialogue will be imported as localized data for the native culture. */
+	UPROPERTY(config, EditAnywhere, Category="Dialogue")
+	bool bImportNativeAsSource;
 };
 
 USTRUCT()
@@ -297,32 +337,36 @@ struct FLocalizationTargetSettings
 	ELocalizationTargetConflictStatus ConflictStatus;
 
 	/* Text present in these targets will not be duplicated in this target. */
-	UPROPERTY(config, EditAnywhere, Category = "Gather")
+	UPROPERTY(config, EditAnywhere, Category = "Gather Text")
 	TArray<FGuid> TargetDependencies;
 
 	/* Text present in these manifests will not be duplicated in this target. */
-	UPROPERTY(config, EditAnywhere, Category = "Gather", AdvancedDisplay, meta=(FilePathFilter="manifest"))
+	UPROPERTY(config, EditAnywhere, Category = "Gather Text", AdvancedDisplay, meta=(FilePathFilter="manifest"))
 	TArray<FFilePath> AdditionalManifestDependencies;
 
 	/* The names of modules which must be loaded when gathering text. Use to gather from packages or metadata sourced from a module that isn't the primary game module. */
-	UPROPERTY(config, EditAnywhere, Category = "Gather", AdvancedDisplay)
+	UPROPERTY(config, EditAnywhere, Category = "Gather Text", AdvancedDisplay)
 	TArray<FString> RequiredModuleNames;
 
 	/* Parameters for defining what text is gathered from text files and how. */
-	UPROPERTY(config, EditAnywhere, Category = "Gather")
+	UPROPERTY(config, EditAnywhere, Category = "Gather Text")
 	FGatherTextFromTextFilesConfiguration GatherFromTextFiles;
 
 	/* Parameters for defining what text is gathered from packages and how. */
-	UPROPERTY(config, EditAnywhere, Category = "Gather")
+	UPROPERTY(config, EditAnywhere, Category = "Gather Text")
 	FGatherTextFromPackagesConfiguration GatherFromPackages;
 
 	/* Parameters for defining what text is gathered from metadata and how. */
-	UPROPERTY(config, EditAnywhere, Category = "Gather")
+	UPROPERTY(config, EditAnywhere, Category = "Gather Text")
 	FGatherTextFromMetaDataConfiguration GatherFromMetaData;
 
-	/* Settings for import/export of translations. */
-	UPROPERTY(config, EditAnywhere, Category = "Import & Export")
+	/* Settings for exporting translations. */
+	UPROPERTY(config, EditAnywhere, Category = "Export Text", meta=(ShowOnlyInnerProperties))
 	FLocalizationExportingSettings ExportSettings;
+
+	/* Settings for importing dialogue from WAV files. */
+	UPROPERTY(config, EditAnywhere, Category = "Import Dialogue", meta=(ShowOnlyInnerProperties))
+	FLocalizationImportDialogueSettings ImportDialogueSettings;
 
 	/* The index of the native culture among the supported cultures. */
 	UPROPERTY(config, EditAnywhere, Category = "Cultures")
@@ -339,7 +383,7 @@ class LOCALIZATION_API ULocalizationTarget : public UObject
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(EditAnywhere, Category = "Target")
+	UPROPERTY(EditAnywhere, Category = "Target", meta=(ShowOnlyInnerProperties))
 	FLocalizationTargetSettings Settings;
 
 public:

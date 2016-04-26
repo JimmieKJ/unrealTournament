@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -63,7 +63,7 @@ public partial class Project : CommandUtils
 
 				var ServerLogFile = CombinePaths(LogFolderOutsideOfSandbox, "Server.log");
 				Platform ClientPlatformInst = Params.ClientTargetPlatformInstances[0];
-				string TargetCook = ClientPlatformInst.GetCookPlatform(false, Params.HasDedicatedServerAndClient, Params.CookFlavor);
+				string TargetCook = ClientPlatformInst.GetCookPlatform(false, false, Params.CookFlavor); // cook ont he fly doesn't support server cook platform... 
 				ServerProcess = RunCookOnTheFlyServer(Params.RawProjectPath, Params.NoClient ? "" : ServerLogFile, TargetCook, COTFCommandLine);
 
 				if (ServerProcess != null)
@@ -133,10 +133,10 @@ public partial class Project : CommandUtils
                 InternationalizationPreset = Params.InternationalizationPreset;
             }
 
-			string[] Cultures = null;
+			string[] CulturesToCook = null;
 			if (Params.HasCulturesToCook)
 			{
-				Cultures = Params.CulturesToCook.ToArray();
+				CulturesToCook = Params.CulturesToCook.ToArray();
 			}
 
             try
@@ -178,10 +178,6 @@ public partial class Project : CommandUtils
                 {
                     CommandletParams += " -cookall";
                 }
-                if (Params.CookMapsOnly)
-                {
-                    CommandletParams += " -mapsonly";
-                }
                 if (Params.HasCreateReleaseVersion)
                 {
                     CommandletParams += " -createreleaseversion=" + Params.CreateReleaseVersion;
@@ -219,17 +215,17 @@ public partial class Project : CommandUtils
                 // into native source code... the cooker needs to 
                 if (Params.RunAssetNativization)
                 {
-                    string GeneratedPluginName = "NativizedScript";
+                    CommandletParams += " -NativizeAssets";
+
+                    // Store plugin paths now, it's easiest to do so while PlatformsToCook is still available:
                     string ProjectDir = Params.RawProjectPath.Directory.ToString();
-                    string GeneratedPluginDirectory = Path.GetFullPath(CommandUtils.CombinePaths(ProjectDir, "Intermediate", "Plugins", GeneratedPluginName));
-                    string PluginDescFilename  = GeneratedPluginName + ".uplugin";
-                    string GeneratedPluginPath = Path.GetFullPath(CommandUtils.CombinePaths(GeneratedPluginDirectory, PluginDescFilename));
-
-                    CommandletParams += " -NativizeAssets -NativizedAssetPlugin=\"" + GeneratedPluginPath + "\"";
-
-                    // fill out this, so as to coordinate with build automation
-                    // (the builder now needs to compile in the generated assets)
-                    Params.NativizedScriptPlugin = new FileReference(GeneratedPluginPath);
+                    foreach (var Platform in PlatformsToCook)
+                    {
+                        // If you change this target path you must also update logic in CookOnTheFlyServer.cpp. Passing a single directory around is cumbersome for testing, so I have hard coded it.
+                        // Similarly if you change the .uplugin name you must update DefaultPluginName in BlueprintNativeCodeGenModule.cpp
+                        string GeneratedPluginPath = CombinePaths(GetDirectoryName(ProjectDir), "Intermediate", Platform, "NativizedAssets/NativizedAssets.uplugin");
+                        Params.BlueprintPluginPaths.Add( new FileReference(GeneratedPluginPath) );
+                    }
                 }
                 if (Params.HasAdditionalCookerOptions)
                 {
@@ -250,7 +246,7 @@ public partial class Project : CommandUtils
                     Maps = MapsList.ToArray();
                 }
 
-                CookCommandlet(Params.RawProjectPath, Params.UE4Exe, Maps, Dirs, InternationalizationPreset, Cultures, CombineCommandletParams(PlatformsToCook.ToArray()), CommandletParams);
+                CookCommandlet(Params.RawProjectPath, Params.UE4Exe, Maps, Dirs, InternationalizationPreset, CulturesToCook, CombineCommandletParams(PlatformsToCook.ToArray()), CommandletParams);
             }
 			catch (Exception Ex)
 			{
@@ -404,7 +400,7 @@ public partial class Project : CommandUtils
 
                 // diff the content
                 List<string> AllFiles = Directory.EnumerateFiles(FullCookPath, "*.uasset", System.IO.SearchOption.AllDirectories).ToList();
-                AllFiles.AddRange(Directory.EnumerateFiles(FullCookPath, "*.map", System.IO.SearchOption.AllDirectories).ToList());
+                AllFiles.AddRange(Directory.EnumerateFiles(FullCookPath, "*.umap", System.IO.SearchOption.AllDirectories).ToList());
                 foreach (string SourceFilename in AllFiles)
                 {
                     // Filename.StartsWith( CookedSandboxesPath );
@@ -412,6 +408,7 @@ public partial class Project : CommandUtils
 
                     string DestFilename = TemporaryFilesPath + RelativeFilename;
 
+                    Log("Comparing file "+ RelativeFilename);
 
                     byte[] SourceFile = null;
                     try
@@ -439,10 +436,12 @@ public partial class Project : CommandUtils
                     }
                     else if (SourceFile.LongLength == DestFile.LongLength)
                     {
+                        bool bFailedDiff = false;
                         for (long Index = 0; Index < SourceFile.LongLength; ++Index) 
                         {
                             if (SourceFile[Index] != DestFile[Index])
                             {
+                                bFailedDiff = true;
                                 Log("Diff cooked content failed on file " + SourceFilename + " when comparing against " + DestFilename + " at offset " + Index.ToString());
                                 string SavedSourceFilename = CombinePaths(FailedContentDirectory, Path.GetFileName(SourceFilename) + "Source");
                                 string SavedDestFilename = CombinePaths(FailedContentDirectory, Path.GetFileName(DestFilename) + "Dest");
@@ -466,11 +465,15 @@ public partial class Project : CommandUtils
                                 {
                                     Log("Failed to create directory " + Path.GetDirectoryName(SavedDestFilename) + " Exception " + E.ToString());
                                 }
-                                File.Copy(SourceFilename, SavedSourceFilename);
-                                File.Copy(DestFilename, SavedDestFilename);
+                                File.Copy(SourceFilename, SavedSourceFilename, true);
+                                File.Copy(DestFilename, SavedDestFilename, true);
                                 Log("Content temporarily saved to " + SavedSourceFilename + " and " + SavedDestFilename + " at offset " + Index.ToString());
                                 break;
                             }
+                        }
+                        if (!bFailedDiff)
+                        {
+                            Log("Content matches for " + SourceFilename + " and " + DestFilename);
                         }
                     }
                     else

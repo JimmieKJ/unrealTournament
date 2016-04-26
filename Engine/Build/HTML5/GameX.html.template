@@ -349,6 +349,7 @@ function postRunEmscripten() {
 	$("#compilingmessage").remove();
 	// it still takes couple of ticks after run before anything can be drawn. show the canvas at the last possible moment. 
 	$("#canvas").show(); 
+	window.dispatchEvent(new Event('resize')); // set canvas to browser resolution
 }
 
 // create a deffered object for the data file. 
@@ -461,11 +462,14 @@ $(document).ready(function() {
 				addLog ("all downloads complete ");
 			},
 		function(){
-
+				// one or more downloads failed.
+				// force a reload...
 				$('#progressbar').remove(); 
-				$ ('#mainarea').append ( '<div class="alert alert-danger centered-axis-xy" style ="min-height: 20px" role="alert">One or more downloads failed! Please refresh this page</div>');
-
+				$ ('#mainarea').append ( '<div class="alert alert-danger centered-axis-xy" style ="min-height: 20px" role="alert">Reloading!  Please standby...</div>');
 				addLog("Download failed");
+				setTimeout(function() {
+					location.reload();
+				}, 1000);
 			}
 		);
 		

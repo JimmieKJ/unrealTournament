@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "NetcodeUnitTestPCH.h"
 
@@ -28,6 +28,163 @@ TArray<UWorld*> PendingUnitWorldCleanup;
 
 /** Active world tick hooks */
 TArray<FWorldTickHook*> ActiveTickHooks;
+
+
+/**
+ * FSocketHook
+ */
+
+bool FSocketHook::Close()
+{
+	return HookedSocket->Close();
+}
+
+bool FSocketHook::Bind(const FInternetAddr& Addr)
+{
+	return HookedSocket->Bind(Addr);
+}
+
+bool FSocketHook::Connect(const FInternetAddr& Addr)
+{
+	return HookedSocket->Connect(Addr);
+}
+
+bool FSocketHook::Listen(int32 MaxBacklog)
+{
+	return HookedSocket->Listen(MaxBacklog);
+}
+
+bool FSocketHook::HasPendingConnection(bool& bHasPendingConnection)
+{
+	return HookedSocket->HasPendingConnection(bHasPendingConnection);
+}
+
+bool FSocketHook::HasPendingData(uint32& PendingDataSize)
+{
+	return HookedSocket->HasPendingData(PendingDataSize);
+}
+
+class FSocket* FSocketHook::Accept(const FString& InSocketDescription)
+{
+	return HookedSocket->Accept(InSocketDescription);
+}
+
+class FSocket* FSocketHook::Accept(FInternetAddr& OutAddr, const FString& InSocketDescription)
+{
+	return HookedSocket->Accept(OutAddr, InSocketDescription);
+}
+
+bool FSocketHook::SendTo(const uint8* Data, int32 Count, int32& BytesSent, const FInternetAddr& Destination)
+{
+	bool bReturnVal = false;
+	bool bBlockSend = false;
+
+	SendToDel.ExecuteIfBound((void*)Data, Count, bBlockSend);
+
+	if (!bBlockSend)
+	{
+		bReturnVal = HookedSocket->SendTo(Data, Count, BytesSent, Destination);
+	}
+
+	bLastSendToBlocked = bBlockSend;
+
+	return bReturnVal;
+}
+
+bool FSocketHook::Send(const uint8* Data, int32 Count, int32& BytesSent)
+{
+	return HookedSocket->Send(Data, Count, BytesSent);
+}
+
+bool FSocketHook::RecvFrom(uint8* Data, int32 BufferSize, int32& BytesRead, FInternetAddr& Source, ESocketReceiveFlags::Type Flags)
+{
+	return HookedSocket->RecvFrom(Data, BufferSize, BytesRead, Source, Flags);
+}
+
+bool FSocketHook::Recv(uint8* Data, int32 BufferSize, int32& BytesRead, ESocketReceiveFlags::Type Flags)
+{
+	return HookedSocket->Recv(Data, BufferSize, BytesRead, Flags);
+}
+
+bool FSocketHook::Wait(ESocketWaitConditions::Type Condition, FTimespan WaitTime)
+{
+	return HookedSocket->Wait(Condition, WaitTime);
+}
+
+ESocketConnectionState FSocketHook::GetConnectionState()
+{
+	return HookedSocket->GetConnectionState();
+}
+
+void FSocketHook::GetAddress(FInternetAddr& OutAddr)
+{
+	HookedSocket->GetAddress(OutAddr);
+}
+
+bool FSocketHook::GetPeerAddress(FInternetAddr& OutAddr)
+{
+	return HookedSocket->GetPeerAddress(OutAddr);
+}
+
+bool FSocketHook::SetNonBlocking(bool bIsNonBlocking)
+{
+	return HookedSocket->SetNonBlocking(bIsNonBlocking);
+}
+
+bool FSocketHook::SetBroadcast(bool bAllowBroadcast)
+{
+	return HookedSocket->SetBroadcast(bAllowBroadcast);
+}
+
+bool FSocketHook::JoinMulticastGroup(const FInternetAddr& GroupAddress)
+{
+	return HookedSocket->JoinMulticastGroup(GroupAddress);
+}
+
+bool FSocketHook::LeaveMulticastGroup(const FInternetAddr& GroupAddress)
+{
+	return HookedSocket->LeaveMulticastGroup(GroupAddress);
+}
+
+bool FSocketHook::SetMulticastLoopback(bool bLoopback)
+{
+	return HookedSocket->SetMulticastLoopback(bLoopback);
+}
+
+bool FSocketHook::SetMulticastTtl(uint8 TimeToLive)
+{
+	return HookedSocket->SetMulticastTtl(TimeToLive);
+}
+
+bool FSocketHook::SetReuseAddr(bool bAllowReuse)
+{
+	return HookedSocket->SetReuseAddr(bAllowReuse);
+}
+
+bool FSocketHook::SetLinger(bool bShouldLinger, int32 Timeout)
+{
+	return HookedSocket->SetLinger(bShouldLinger, Timeout);
+}
+
+bool FSocketHook::SetRecvErr(bool bUseErrorQueue)
+{
+	return HookedSocket->SetRecvErr(bUseErrorQueue);
+}
+
+bool FSocketHook::SetSendBufferSize(int32 Size, int32& NewSize)
+{
+	return HookedSocket->SetSendBufferSize(Size, NewSize);
+}
+
+bool FSocketHook::SetReceiveBufferSize(int32 Size, int32& NewSize)
+{
+	return HookedSocket->SetReceiveBufferSize(Size, NewSize);
+}
+
+int32 FSocketHook::GetPortNo()
+{
+	return HookedSocket->GetPortNo();
+}
 
 
 /**
@@ -344,6 +501,13 @@ bool NUTNet::CreateFakePlayer(UWorld* InWorld, UNetDriver*& InNetDriver, FString
 
 			UE_LOG(LogUnitTest, Log, TEXT("Successfully kicked off connect to IP '%s'"), *ServerIP);
 
+#if TARGET_UE4_CL >= CL_STATELESSCONNECT
+			if (TargetConn->StatelessConnectComponent.IsValid())
+			{
+				TargetConn->StatelessConnectComponent.Pin()->SendInitialConnect();
+			}
+#endif
+
 
 			int ControlBunchSequence = 0;
 
@@ -478,7 +642,7 @@ void NUTNet::HandleBeaconReplicate(AOnlineBeaconClient* InBeacon, UNetConnection
 {
 	// Due to the way the beacon is created in unit tests (replicated, instead of taking over a local beacon client),
 	// the NetDriver and BeaconConnection values have to be hack-set, to enable sending of RPC's
-	InBeacon->NetDriverName = InConnection->Driver->NetDriverName;
+	InBeacon->SetNetDriverName(InConnection->Driver->NetDriverName);
 	InBeacon->SetNetConnection(InConnection);
 }
 
@@ -588,6 +752,11 @@ void NUTNet::CleanupUnitTestWorlds()
 
 	PendingUnitWorldCleanup.Empty();
 
+
+	// @todo #JohnB: There are some actor components that get marked as having begun play, and you need to clean them up here before GC,
+	//					otherwise a crash is triggered
+
+
 	// Immediately garbage collect remaining objects, to finish net driver cleanup
 	CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS, true);
 }
@@ -602,7 +771,7 @@ bool NUTNet::IsSteamNetDriverAvailable()
 	bool bReturnVal = false;
 	UGameEngine* GameEngine = Cast<UGameEngine>(GEngine);
 
-	if (GameEngine != NULL)
+	if (GameEngine != nullptr)
 	{
 		bool bFoundSteamDriver = false;
 		const TCHAR* SteamDriverClassName = TEXT("OnlineSubsystemSteam.SteamNetDriver");
@@ -622,18 +791,17 @@ bool NUTNet::IsSteamNetDriverAvailable()
 
 		if (bFoundSteamDriver)
 		{
-			UClass* SteamNetDriverClass = StaticLoadClass(UNetDriver::StaticClass(), NULL, SteamDriverClassName, NULL, LOAD_Quiet);
+			UClass* SteamNetDriverClass = StaticLoadClass(UNetDriver::StaticClass(), nullptr, SteamDriverClassName, nullptr,
+															LOAD_Quiet);
 
-			if (SteamDriverClassName != NULL)
+			if (SteamDriverClassName != nullptr && SteamNetDriverClass != nullptr)
 			{
 				UNetDriver* SteamNetDriverDef = Cast<UNetDriver>(SteamNetDriverClass->GetDefaultObject());
 
-				bReturnVal = SteamNetDriverDef != NULL && SteamNetDriverDef->IsAvailable();
+				bReturnVal = SteamNetDriverDef != nullptr && SteamNetDriverDef->IsAvailable();
 			}
 		}
 	}
 
 	return bReturnVal;
 }
-
-

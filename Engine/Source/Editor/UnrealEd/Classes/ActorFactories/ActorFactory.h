@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -66,7 +66,7 @@ class UNREALED_API UActorFactory : public UObject
 protected:
 
 	virtual bool PreSpawnActor( UObject* Asset, FTransform& InOutLocation);
-	virtual AActor* SpawnActor( UObject* Asset, ULevel* InLevel, const FVector& Location, const FRotator& Rotation, EObjectFlags ObjectFlags, const FName& Name );
+	virtual AActor* SpawnActor( UObject* Asset, ULevel* InLevel, const FTransform& Transform, EObjectFlags ObjectFlags, const FName Name );
 
 	/** Subclasses may implement this to modify the actor after it has been spawned 
 	    IMPORTANT: If you override this, you should usually also override PostCreateBlueprint()! */

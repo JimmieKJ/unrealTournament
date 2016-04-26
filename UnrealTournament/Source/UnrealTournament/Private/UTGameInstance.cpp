@@ -36,7 +36,6 @@ void UUTGameInstance::Init()
 
 	if (!IsDedicatedServerInstance())
 	{
-#if 0
 		// handles all matchmaking in game
 		Matchmaking = NewObject<UUTMatchmaking>(this);
 		check(Matchmaking);
@@ -52,7 +51,6 @@ void UUTGameInstance::Init()
 			Party->Init();
 		}
 		PlaylistManager = NewObject<UUTPlaylistManager>(this);
-#endif
 	}
 	else
 	{
@@ -84,6 +82,11 @@ bool UUTGameInstance::PerfExecCmd(const FString& ExecCmd, FOutputDevice& Ar)
 
 void UUTGameInstance::StartGameInstance()
 {
+	if (IsRunningCommandlet())
+	{
+		return;
+	}
+
 	Super::StartGameInstance();
 
 	UWorld* World = GetWorld();
@@ -294,7 +297,7 @@ void UUTGameInstance::StartRecordingReplay(const FString& Name, const FString& F
 	}
 	else
 	{
-		UE_LOG(UT, VeryVerbose, TEXT("Num Network Actors: %i"), CurrentWorld->NetworkActors.Num());
+		//UE_LOG(UT, VeryVerbose, TEXT("Num Network Actors: %i"), CurrentWorld->NetworkActors.Num());
 	}
 }
 void UUTGameInstance::PlayReplay(const FString& Name, UWorld* WorldOverride, const TArray<FString>& AdditionalOptions)
@@ -500,6 +503,20 @@ bool UUTGameInstance::ClientTravelToSession(int32 ControllerId, FName InSessionN
 						URL += TEXT("?PartySize=") + FString::FromInt(PartyGameState->GetPartySize());
 					}
 					//Parties->NotifyPreClientTravel();
+				}
+
+				// Save the last ranked match in case we crash
+				FNamedOnlineSession* Session = SessionInt->GetNamedSession(InSessionName);
+				if (Session && Session->SessionInfo.IsValid())
+				{
+					UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
+					if (LP)
+					{
+						LP->LastRankedMatchSessionId = Session->SessionInfo->GetSessionId().ToString();
+						LP->LastRankedMatchUniqueId = Online::GetIdentityInterface()->GetUniquePlayerId(LP->GetControllerId())->ToString();
+						LP->LastRankedMatchTimeString = FDateTime::Now().ToString();
+						LP->SaveConfig();
+					}
 				}
 
 				PC->ClientTravel(URL, TRAVEL_Absolute);

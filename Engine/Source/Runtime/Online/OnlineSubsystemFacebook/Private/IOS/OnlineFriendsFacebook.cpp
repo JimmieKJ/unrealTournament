@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "OnlineSubsystemFacebookPrivatePCH.h"
@@ -22,7 +22,7 @@ FString FOnlineFriendFacebook::GetRealName() const
 	return Result;
 }
 
-FString FOnlineFriendFacebook::GetDisplayName() const
+FString FOnlineFriendFacebook::GetDisplayName(const FString& Platform) const
 {
 	FString Result;
 	GetAccountData(TEXT("username"), Result);
@@ -301,3 +301,6 @@ void FOnlineFriendsFacebook::ReadFriendsUsingGraphPath(int32 LocalUserNum, const
 	);
 }
 
+void FOnlineFriendsFacebook::DumpBlockedPlayers() const
+{
+}

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LaunchPrivatePCH.h"
 #include "Internationalization/Internationalization.h"
@@ -16,6 +16,7 @@
 #include "ModuleManager.h"
 #include "../Resources/Version.h"
 #include "VersionManifest.h"
+#include "UObject/DevObjectVersion.h"
 
 #if WITH_EDITOR
 	#include "EditorStyle.h"
@@ -90,9 +91,12 @@
 #endif
 
 #if ENABLE_VISUAL_LOG
-#	include "VisualLogger/VisualLogger.h"
+	#include "VisualLogger/VisualLogger.h"
 #endif
 
+#if WITH_LAUNCHERCHECK
+	#include "LauncherCheck.h"
+#endif
 
 // Pipe output to std output
 // This enables UBT to collect the output for it's own use
@@ -228,7 +232,7 @@ bool ParseGameProjectFromCommandLine(const TCHAR* InCmdLine, FString& OutProject
 			OutGameName = FPaths::GetBaseFilename(OutProjectFilePath);
 			return true;
 		}
-		else if (FPlatformProperties::IsMonolithicBuild() == false)
+		else if (FPaths::IsRelative(FirstCommandLineToken) && FPlatformProperties::IsMonolithicBuild() == false)
 		{
 			// Full game name is assumed to be the first token
 			OutGameName = MoveTemp(FirstCommandLineToken);
@@ -630,6 +634,8 @@ FEngineLoop::FEngineLoop()
 
 int32 FEngineLoop::PreInit(int32 ArgC, TCHAR* ArgV[], const TCHAR* AdditionalCommandline)
 {
+	FMemory::SetupTLSCachesOnCurrentThread();
+
 	FString CmdLine;
 
 	// loop over the parameters, skipping the first one (which is the executable name)
@@ -728,10 +734,25 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 		return -1;
 	}
 
+#if WITH_LAUNCHERCHECK
+	if (ILauncherCheckModule::Get().WasRanFromLauncher() == false)
+	{
+		// Tell Launcher to run us instead
+		ILauncherCheckModule::Get().RunLauncher();
+		// We wish to exit
+		GIsRequestingExit = true;
+		return 0;
+	}
+#endif
+
 #if	STATS
 	// Create the stats malloc profiler proxy.
 	if( FStatsMallocProfilerProxy::HasMemoryProfilerToken() )
 	{
+		if (PLATFORM_USES_FIXED_GMalloc_CLASS)
+		{
+			UE_LOG(LogMemory, Fatal, TEXT("Cannot do malloc profiling with PLATFORM_USES_FIXED_GMalloc_CLASS."));
+		}
 		// Assumes no concurrency here.
 		GMalloc = FStatsMallocProfilerProxy::Get();
 	}
@@ -873,7 +894,13 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 		}
 	}
 
-#endif // UE_EDITOR
+	if (bHasCommandletToken)
+	{
+		// will be reset later once the commandlet class loaded
+		PRIVATE_GIsRunningCommandlet = true;
+	}
+
+#endif // WITH_ENGINE
 
 
 	// trim any whitespace at edges of string - this can happen if the token was quoted with leading or trailing whitespace
@@ -968,7 +995,12 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 			}
 			CommandletCommandLine = ParsedCmdLine;
 		}
+	}
 
+	if (bHasCommandletToken)
+	{
+		// will be reset later once the commandlet class loaded
+		PRIVATE_GIsRunningCommandlet = true;
 	}
 
 	if( !bIsNotEditor && GIsGameAgnosticExe )
@@ -1078,11 +1110,17 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 		const FString ProjectFilePath = FPaths::Combine(*FPaths::GameDir(), *FString::Printf(TEXT("%s.%s"), FApp::GetGameName(), *FProjectDescriptor::GetExtension()));
 		FPaths::SetProjectFilePath(ProjectFilePath);
 	}
+#endif
 
 	// Now verify the project file if we have one
-	if ( FPaths::IsProjectFilePathSet() )
+	if (FPaths::IsProjectFilePathSet()
+#if IS_PROGRAM
+		// Programs don't need uproject files to exist, but some do specify them and if they exist we should load them
+		&& FPaths::FileExists(FPaths::GetProjectFilePath())
+#endif
+		)
 	{
-		if ( !IProjectManager::Get().LoadProjectFile(FPaths::GetProjectFilePath()) )
+		if (!IProjectManager::Get().LoadProjectFile(FPaths::GetProjectFilePath()))
 		{
 			// The project file was invalid or saved with a newer version of the engine. Exit.
 			UE_LOG(LogInit, Warning, TEXT("Could not find a valid project file, the engine will exit now."));
@@ -1090,6 +1128,7 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 		}
 	}
 
+#if !IS_PROGRAM
 	if( FApp::HasGameName() )
 	{
 		// Tell the module manager what the game binaries folder is
@@ -1150,6 +1189,15 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 			NumThreadsInThreadPool = 1;
 		}
 		verify(GThreadPool->Create(NumThreadsInThreadPool));
+
+#if WITH_EDITOR
+		// when we are in the editor we like to do things like build lighting and such
+		// this thread pool can be used for those purposes
+		GLargeThreadPool = FQueuedThreadPool::Allocate();
+		int32 NumThreadsInLargeThreadPool = FPlatformMisc::NumberOfCoresIncludingHyperthreads() - 2;
+
+		verify(GLargeThreadPool->Create(NumThreadsInLargeThreadPool));
+#endif
 	}
 
 	// Get a pointer to the log output device
@@ -1437,13 +1485,6 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 	// Tell the module manager is may now process newly-loaded UObjects when new C++ modules are loaded
 	FModuleManager::Get().StartProcessingNewlyLoadedObjects();
 
-	// load up the seek-free startup packages
-	if ( !FStartupPackages::LoadAll() )
-	{
-		// At least one startup package failed to load, return 1 to indicate an error
-		return 1;
-	}
-
 	// Setup GC optimizations
 	if (bIsSeekFreeDedicatedServer || bHasEditorToken)
 	{
@@ -1538,10 +1579,22 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 		return 1;
 	}
 
-	MarkObjectsToDisregardForGC(); 
-	GUObjectArray.CloseDisregardForGC();
+	// load up the seek-free startup packages
+	if ( !FStartupPackages::LoadAll() )
+	{
+		// At least one startup package failed to load, return 1 to indicate an error
+		return 1;
+	}
 
-	SetIsServerForOnlineSubsystemsDelegate(FQueryIsRunningServer::CreateStatic(&IsServerDelegateForOSS));
+	if (GUObjectArray.IsOpenForDisregardForGC())
+	{
+		GUObjectArray.CloseDisregardForGC();
+	}
+
+	if (IOnlineSubsystem::IsLoaded())
+	{
+		SetIsServerForOnlineSubsystemsDelegate(FQueryIsRunningServer::CreateStatic(&IsServerDelegateForOSS));
+	}
 
 	SlowTask.EnterProgressFrame(5);
 
@@ -1932,14 +1985,6 @@ bool FEngineLoop::LoadStartupCoreModules()
 	if (FPlatformProcess::SupportsMultithreading())
 	{
 		FModuleManager::LoadModuleChecked<IMessagingModule>("Messaging");
-
-		if (!IsRunningCommandlet())
-		{
-			SessionService = FModuleManager::LoadModuleChecked<ISessionServicesModule>("SessionServices").GetSessionService();
-			SessionService->Start();
-		}
-
-		EngineService = new FEngineService();
 	}
 
 	SlowTask.EnterProgressFrame(10);
@@ -2028,6 +2073,9 @@ bool FEngineLoop::LoadStartupCoreModules()
 		FModuleManager::Get().LoadModule(TEXT("IntroTutorials"));
 		FModuleManager::Get().LoadModule(TEXT("Blutility"));
 	}
+
+	// Needed for extra Blueprint nodes that can be used in standalone.
+	FModuleManager::Get().LoadModule(TEXT("GameplayTagsEditor"));
 
 #endif //(WITH_EDITOR && !(UE_BUILD_SHIPPING || UE_BUILD_TEST))
 
@@ -2124,6 +2172,8 @@ void GameLoopIsStarved()
 
 int32 FEngineLoop::Init()
 {
+	CheckImageIntegrity();
+
 	DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "FEngineLoop::Init" ), STAT_FEngineLoop_Init, STATGROUP_LoadTime );
 
 	FScopedSlowTask SlowTask(100);
@@ -2162,6 +2212,18 @@ int32 FEngineLoop::Init()
 
 	SlowTask.EnterProgressFrame(30);
 
+	// initialize engine instance discovery
+	if (FPlatformProcess::SupportsMultithreading())
+	{
+		if (!IsRunningCommandlet())
+		{
+			SessionService = FModuleManager::LoadModuleChecked<ISessionServicesModule>("SessionServices").GetSessionService();
+			SessionService->Start();
+		}
+
+		EngineService = new FEngineService();
+	}
+
 	// Load all the post-engine init modules
 	if (!IProjectManager::Get().LoadModulesForProject(ELoadingPhase::PostEngineInit) || !IPluginManager::Get().LoadModulesForEnabledPlugins(ELoadingPhase::PostEngineInit))
 	{
@@ -2187,6 +2249,8 @@ int32 FEngineLoop::Init()
 	{
 		FModuleManager::Get().LoadModule(TEXT("ProfilerClient"));
 	}
+
+	FModuleManager::Get().LoadModule(TEXT("SequenceRecorder"));
 #endif
 
 	GIsRunning = true;
@@ -2198,7 +2262,7 @@ int32 FEngineLoop::Init()
 	}
 
 	// Begin the async platform hardware survey
-	GEngine->InitHardwareSurvey();
+	GEngine->StartHardwareSurvey();
 
 	FCoreDelegates::StarvedGameLoop.BindStatic(&GameLoopIsStarved);
 
@@ -2270,10 +2334,12 @@ void FEngineLoop::Exit()
 	// close all windows
 	FSlateApplication::Shutdown();
 
+#if !PLATFORM_ANDROID 	// AppPreExit doesn't work on Android
 	AppPreExit();
 
 	TermGamePhys();
 	ParticleVertexFactoryPool_FreePool();
+#endif // !ANDROID
 
 	// Stop the rendering thread.
 	StopRenderingThread();
@@ -2281,6 +2347,7 @@ void FEngineLoop::Exit()
 	// Tear down the RHI.
 	RHIExitAndStopRHIThread();
 
+#if !PLATFORM_ANDROID // UnloadModules doesn't work on Android
 #if WITH_ENGINE
 	// Save the hot reload state
 	IHotReloadInterface* HotReload = IHotReloadInterface::GetPtr();
@@ -2290,12 +2357,11 @@ void FEngineLoop::Exit()
 	}
 #endif
 
-	DerivedDataCachePrint();
-
 	// Unload all modules.  Note that this doesn't actually unload the module DLLs (that happens at
 	// process exit by the OS), but it does call ShutdownModule() on all loaded modules in the reverse
 	// order they were loaded in, so that systems can unregister and perform general clean up.
 	FModuleManager::Get().UnloadModulesAtShutdown();
+#endif // !ANDROID
 
 	// Move earlier?
 #if STATS
@@ -2526,7 +2592,7 @@ void FEngineLoop::Tick()
 		{
 			GRHICommandList.LatchBypass();
 			GFrameNumberRenderThread++;
-			RHICmdList.PushEvent(*FString::Printf(TEXT("Frame%d"),GFrameNumberRenderThread));
+			RHICmdList.PushEvent(*FString::Printf(TEXT("Frame%d"),GFrameNumberRenderThread), FColor(0, 255, 0, 255));
 			RHICmdList.BeginFrame();
 		});
 
@@ -2731,9 +2797,6 @@ void FEngineLoop::Tick()
 			RHICmdList.PopEvent();
 		});
 
-		// Check for async platform hardware survey results
-		GEngine->TickHardwareSurvey();
-
 		// Set CPU utilization stats.
 		const FCPUTime CPUTime = FPlatformTime::GetCPUTime();
 		SET_FLOAT_STAT( STAT_CPUTimePct, CPUTime.CPUTimePct );
@@ -2755,37 +2818,82 @@ void FEngineLoop::ClearPendingCleanupObjects()
 
 #endif // WITH_ENGINE
 
+static TAutoConsoleVariable<int32> CVarLogTimestamp(
+	TEXT("log.Timestamp"),
+	1,
+	TEXT("Defines if time is included in each line in the log file and in what form. Layout: [time][frame mod 1000]\n")
+	TEXT("  0 = Do not display log timestamps\n")
+	TEXT("  1 = Log time stamps in UTC and Frametime (default) e.g. [2015.11.25-21.28.50:803][376]\n")
+	TEXT("  2 = Log timestamps in seconds elapsed since GStartTime e.g. [0130.29][420]"),
+	ECVF_Default);
+
+static TAutoConsoleVariable<int32> CVarLogCategory(
+	TEXT("log.Category"),
+	1,
+	TEXT("Defines if the categoy is included in each line in the log file and in what form.\n")
+	TEXT("  0 = Do not log category\n")
+	TEXT("  2 = Log the category (default)"),
+	ECVF_Default);
+
+
+// Gets called any time cvars change (on the main thread) 
+static void CVarLogSinkFunction()
+{
+	{
+		// for debugging
+		ELogTimes::Type OldGPrintLogTimes = GPrintLogTimes;
+
+		int32 LogTimestampValue = CVarLogTimestamp.GetValueOnGameThread();
+
+		// Note GPrintLogTimes can be used on multiple threads but it should be no issue to change it on the fly
+		switch(LogTimestampValue)
+		{
+			default:
+			case 0: GPrintLogTimes = ELogTimes::None; break;
+			case 1: GPrintLogTimes = ELogTimes::UTC; break;
+			case 2: GPrintLogTimes = ELogTimes::SinceGStartTime; break;
+		}
+	}
+
+	{
+		int32 LogCategoryValue = CVarLogCategory.GetValueOnGameThread();
+
+		// Note GPrintLogCategory can be used on multiple threads but it should be no issue to change it on the fly
+		GPrintLogCategory = LogCategoryValue != 0;
+	}
+}
+
+
+FAutoConsoleVariableSink CVarLogSink(FConsoleCommandDelegate::CreateStatic(&CVarLogSinkFunction));
 
 static void CheckForPrintTimesOverride()
 {
-	GPrintLogTimes = ELogTimes::None;
-
 	// Determine whether to override the default setting for including timestamps in the log.
 	FString LogTimes;
 	if (GConfig->GetString( TEXT( "LogFiles" ), TEXT( "LogTimes" ), LogTimes, GEngineIni ))
 	{
 		if (LogTimes == TEXT( "SinceStart" ))
 		{
-			GPrintLogTimes = ELogTimes::SinceGStartTime;
+			CVarLogTimestamp->Set(2, ECVF_SetBySystemSettingsIni);
 		}
 		// Assume this is a bool for backward compatibility
 		else if (FCString::ToBool( *LogTimes ))
 		{
-			GPrintLogTimes = ELogTimes::UTC;
+			CVarLogTimestamp->Set(1, ECVF_SetBySystemSettingsIni);
 		}
 	}
 
 	if (FParse::Param( FCommandLine::Get(), TEXT( "LOGTIMES" ) ))
 	{
-		GPrintLogTimes = ELogTimes::UTC;
+		CVarLogTimestamp->Set(1, ECVF_SetByCommandline);
 	}
 	else if (FParse::Param( FCommandLine::Get(), TEXT( "NOLOGTIMES" ) ))
 	{
-		GPrintLogTimes = ELogTimes::None;
+		CVarLogTimestamp->Set(0, ECVF_SetByCommandline);
 	}
 	else if (FParse::Param( FCommandLine::Get(), TEXT( "LOGTIMESINCESTART" ) ))
 	{
-		GPrintLogTimes = ELogTimes::SinceGStartTime;
+		CVarLogTimestamp->Set(2, ECVF_SetByCommandline);
 	}
 }
 
@@ -2839,6 +2947,13 @@ bool FEngineLoop::AppInit( )
 	// Now finish initializing the file manager after the command line is set up
 	IFileManager::Get().ProcessCommandLineOptions();
 
+	FPageAllocator::LatchProtectedMode();
+
+	if (FParse::Param(FCommandLine::Get(), TEXT("purgatorymallocproxy")))
+	{
+		FMemory::EnablePurgatoryTests();
+	}
+
 #if !UE_BUILD_SHIPPING
 	if (FParse::Param(FCommandLine::Get(), TEXT("BUILDMACHINE")))
 	{
@@ -2869,6 +2984,9 @@ bool FEngineLoop::AppInit( )
 
 	// init config system
 	FConfigCacheIni::InitializeConfigSystem();
+
+	// Now that configs have been initialized, setup stack walking options
+	FPlatformStackWalk::Init();
 
 	CheckForPrintTimesOverride();
 
@@ -3003,6 +3121,8 @@ bool FEngineLoop::AppInit( )
 	//// Command line.
 	UE_LOG(LogInit, Log, TEXT("Version: %s"), *FEngineVersion::Current().ToString());
 	UE_LOG(LogInit, Log, TEXT("API Version: %u"), FEngineVersion::CompatibleWith().GetChangelist());
+	UE_LOG(LogInit, Log, TEXT("Net Version: %u"), GEngineNetVersion);
+	FDevVersionRegistration::DumpVersionsToLog();
 
 #if PLATFORM_64BITS
 	UE_LOG(LogInit, Log, TEXT("Compiled (64-bit): %s %s"), ANSI_TO_TCHAR(__DATE__), ANSI_TO_TCHAR(__TIME__));
@@ -3032,24 +3152,10 @@ bool FEngineLoop::AppInit( )
 
 	UE_LOG(LogInit, Log, TEXT("Build Configuration: %s"), EBuildConfigurations::ToString(FApp::GetBuildConfiguration()));
 	UE_LOG(LogInit, Log, TEXT("Branch Name: %s"), *FApp::GetBranchName() );
-
-	FString CommandLineWithoutPassword = FCommandLine::Get();
-	int32 PasswordStart = CommandLineWithoutPassword.Find((TEXT("-password=")));
-	if (PasswordStart != INDEX_NONE)
-	{
-		int32 PasswordEnd = CommandLineWithoutPassword.Find(TEXT(" "), ESearchCase::IgnoreCase, ESearchDir::FromStart, PasswordStart);
-		if (PasswordEnd == INDEX_NONE)
-		{
-			PasswordEnd = CommandLineWithoutPassword.Len();
-		}
-
-		CommandLineWithoutPassword.RemoveAt(PasswordStart, PasswordEnd - PasswordStart);
-	}
-
-	UE_LOG(LogInit, Log, TEXT("Command line: %s"), *CommandLineWithoutPassword);
+	UE_LOG(LogInit, Log, TEXT("Command line: %s"), FCommandLine::GetForLogging() );
 	UE_LOG(LogInit, Log, TEXT("Base directory: %s"), FPlatformProcess::BaseDir() );
 	//UE_LOG(LogInit, Log, TEXT("Character set: %s"), sizeof(TCHAR)==1 ? TEXT("ANSI") : TEXT("Unicode") );
-	UE_LOG(LogInit, Log, TEXT("Rocket: %d"), FRocketSupport::IsRocket()? 1 : 0);
+	UE_LOG(LogInit, Log, TEXT("Installed Engine Build: %d"), FApp::IsEngineInstalled() ? 1 : 0);
 
 	// if a logging build, clear out old log files
 #if !NO_LOGGING && !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -3061,25 +3167,28 @@ bool FEngineLoop::AppInit( )
 #endif
 
 #if WITH_ENGINE
-	// Earliest place to init the online subsystems
-	// Code needs GConfigFile to be valid
-	// Must be after FThreadStats::StartThread();
-	// Must be before Render/RHI subsystem D3DCreate()
-	// For platform services that need D3D hooks like Steam
-	// --
-	// Why load HTTP?
-	// Because most, if not all online subsystems will load HTTP themselves. This can cause problems though, as HTTP will be loaded *after* OSS, 
-	// and if OSS holds on to resources allocated by it, this will cause crash (modules are being unloaded in LIFO order with no dependency tracking).
-	// Loading HTTP before OSS works around this problem by making ModuleManager unload HTTP after OSS, at the cost of extra module for the few OSS (like Null) that don't use it.
-	if(FModuleManager::Get().ModuleExists(TEXT("XMPP")))
+	if (!IsRunningCommandlet())
 	{
-		FModuleManager::Get().LoadModule(TEXT("XMPP"));
+		// Earliest place to init the online subsystems
+		// Code needs GConfigFile to be valid
+		// Must be after FThreadStats::StartThread();
+		// Must be before Render/RHI subsystem D3DCreate()
+		// For platform services that need D3D hooks like Steam
+		// --
+		// Why load HTTP?
+		// Because most, if not all online subsystems will load HTTP themselves. This can cause problems though, as HTTP will be loaded *after* OSS, 
+		// and if OSS holds on to resources allocated by it, this will cause crash (modules are being unloaded in LIFO order with no dependency tracking).
+		// Loading HTTP before OSS works around this problem by making ModuleManager unload HTTP after OSS, at the cost of extra module for the few OSS (like Null) that don't use it.
+		if (FModuleManager::Get().ModuleExists(TEXT("XMPP")))
+		{
+			FModuleManager::Get().LoadModule(TEXT("XMPP"));
+		}
+		FModuleManager::Get().LoadModule(TEXT("HTTP"));
+		FModuleManager::Get().LoadModule(TEXT("OnlineSubsystem"));
+		FModuleManager::Get().LoadModule(TEXT("OnlineSubsystemUtils"));
+		// Also load the console/platform specific OSS which might not necessarily be the default OSS instance
+		IOnlineSubsystem::GetByPlatform();
 	}
-	FModuleManager::Get().LoadModule(TEXT("HTTP"));
-	FModuleManager::Get().LoadModule(TEXT("OnlineSubsystem"));
-	FModuleManager::Get().LoadModule(TEXT("OnlineSubsystemUtils"));
-	// Also load the console/platform specific OSS which might not necessarily be the default OSS instance
-	IOnlineSubsystem::GetByPlatform();
 #endif
 
 	// Checks.

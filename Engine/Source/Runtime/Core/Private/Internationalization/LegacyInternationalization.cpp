@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "CorePrivatePCH.h"
 #include "LegacyInternationalization.h"
 
@@ -25,6 +25,16 @@ void FLegacyInternationalization::Terminate()
 {
 }
 
+bool FLegacyInternationalization::IsCultureRemapped(const FString& Name, FString* OutMappedCulture)
+{
+	return false;
+}
+
+bool FLegacyInternationalization::IsCultureDisabled(const FString& Name)
+{
+	return false;
+}
+
 bool FLegacyInternationalization::SetCurrentCulture(const FString& Name)
 {
 	return Name.IsEmpty();
@@ -33,6 +43,13 @@ bool FLegacyInternationalization::SetCurrentCulture(const FString& Name)
 void FLegacyInternationalization::GetCultureNames(TArray<FString>& CultureNames) const
 {
 	CultureNames.Add(TEXT(""));
+}
+
+TArray<FString> FLegacyInternationalization::GetPrioritizedCultureNames(const FString& Name)
+{
+	TArray<FString> PrioritizedCultureNames;
+	PrioritizedCultureNames.Add(Name);
+	return PrioritizedCultureNames;
 }
 
 FCulturePtr FLegacyInternationalization::GetCulture(const FString& Name)

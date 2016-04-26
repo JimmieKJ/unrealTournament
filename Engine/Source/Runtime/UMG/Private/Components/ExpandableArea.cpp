@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 
@@ -48,6 +48,7 @@ void UExpandableArea::SetIsExpanded(bool IsExpanded)
 void UExpandableArea::ReleaseSlateResources( bool bReleaseChildren )
 {
 	Super::ReleaseSlateResources(bReleaseChildren);
+	ReleaseNamedSlotSlateResources(bReleaseChildren);
 
 	MyExpandableArea.Reset();
 }
@@ -76,10 +77,22 @@ void UExpandableArea::SetContentForSlot(FName SlotName, UWidget* Content)
 {
 	if ( SlotName == HeaderName )
 	{
+		if ( HeaderContent )
+		{
+			const bool bReleaseChildren = true;
+			HeaderContent->ReleaseSlateResources(bReleaseChildren);
+		}
+
 		HeaderContent = Content;
 	}
 	else if ( SlotName == BodyName )
 	{
+		if ( BodyContent )
+		{
+			const bool bReleaseChildren = true;
+			BodyContent->ReleaseSlateResources(bReleaseChildren);
+		}
+
 		BodyContent = Content;
 	}
 }
@@ -127,11 +140,6 @@ void UExpandableArea::SlateExpansionChanged(bool NewState)
 }
 
 #if WITH_EDITOR
-
-const FSlateBrush* UExpandableArea::GetEditorIcon()
-{
-	return FUMGStyle::Get().GetBrush("Widget.Spacer");
-}
 
 const FText UExpandableArea::GetPaletteCategory()
 {

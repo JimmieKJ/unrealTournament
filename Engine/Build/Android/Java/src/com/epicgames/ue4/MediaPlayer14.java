@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 package com.epicgames.ue4;
 
@@ -288,10 +288,21 @@ public class MediaPlayer14
 				release();
 				return;
 			}
+
+			// save VBO state
+			GLES20.glGetIntegerv(GLES20.GL_ARRAY_BUFFER_BINDING, glInt, 0);
+			int previousVBO = glInt[0];
+			
 			GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, mBlitBuffer);
 			GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER,
 				mTriangleVerticesData.length*FLOAT_SIZE_BYTES,
 				mTriangleVertices, GLES20.GL_STATIC_DRAW);
+
+			// restore VBO state
+			if (previousVBO > 0)
+			{
+				GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, previousVBO);
+			}
 		}
 
 		public boolean isValid()
@@ -485,6 +496,8 @@ public class MediaPlayer14
 			boolean previousDither = GLES20.glIsEnabled(GLES20.GL_DITHER);
 			GLES20.glGetIntegerv(GLES20.GL_FRAMEBUFFER_BINDING, glInt, 0);
 			int previousFBO = glInt[0];
+			GLES20.glGetIntegerv(GLES20.GL_ARRAY_BUFFER_BINDING, glInt, 0);
+			int previousVBO = glInt[0];
 			int[] previousViewport = new int[4];
 			GLES20.glGetIntegerv(GLES20.GL_VIEWPORT, previousViewport, 0);
 
@@ -601,6 +614,11 @@ public class MediaPlayer14
 				glInt[0] = FBOTextureID;
 				GLES20.glDeleteTextures(1, glInt, 0);
 			}
+			if (previousVBO > 0)
+			{
+				GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, previousVBO);
+			}
+
 			GLES20.glViewport(previousViewport[0], previousViewport[1],
 				previousViewport[2], previousViewport[3]);
 			if (previousBlend) GLES20.glEnable(GLES20.GL_BLEND);

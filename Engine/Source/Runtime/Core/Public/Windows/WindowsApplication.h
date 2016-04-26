@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -333,7 +333,6 @@ public:
 	virtual void PollGameDeviceState( const float TimeDelta ) override;
 	virtual void PumpMessages( const float TimeDelta ) override;
 	virtual void ProcessDeferredEvents( const float TimeDelta ) override;
-	virtual void Tick( const float TimeDelta ) override;
 	virtual TSharedRef< FGenericWindow > MakeWindow() override;
 	virtual void InitializeWindow( const TSharedRef< FGenericWindow >& Window, const TSharedRef< FGenericWindowDefinition >& InDefinition, const TSharedPtr< FGenericWindow >& InParent, const bool bShowImmediately ) override;
 	virtual void SetCapture( const TSharedPtr< FGenericWindow >& InWindow ) override;
@@ -341,6 +340,7 @@ public:
 	virtual void SetHighPrecisionMouseMode( const bool Enable, const TSharedPtr< FGenericWindow >& InWindow ) override;
 	virtual bool IsUsingHighPrecisionMouseMode() const override { return bUsingHighPrecisionMouseInput; }
 	virtual bool IsMouseAttached() const override { return bIsMouseAttached; }
+	virtual bool IsGamepadAttached() const override;
 	virtual FModifierKeysState GetModifierKeys() const override;
 	virtual bool IsCursorDirectlyOverSlateWindow() const override;
 	virtual FPlatformRect GetWorkArea( const FPlatformRect& CurrentWindow ) const override;
@@ -375,10 +375,11 @@ public:
 
 public:
 
-	// IForceFeedbackSystem overrides
+	// IInputInterface overrides
 
 	virtual void SetForceFeedbackChannelValue (int32 ControllerId, FForceFeedbackChannelType ChannelType, float Value) override;
 	virtual void SetForceFeedbackChannelValues(int32 ControllerId, const FForceFeedbackValues &Values) override;
+	virtual void SetHapticFeedbackValues(int32 ControllerId, int32 Hand, const FHapticFeedbackValues& Values) override;
 	virtual void SetLightColor(int32 ControllerId, FColor Color) override { }
 
 protected:
@@ -421,6 +422,12 @@ private:
 	/** Queries and caches the number of connected mouse devices. */
 	void QueryConnectedMice();
 
+	/** Helper function to update the cached states of all modifier keys */
+	void UpdateAllModifierKeyStates();
+
+	/** Helper function to update the cached modifier key state when a key is pressed or released */
+	void UpdateModifierKeyState(int32 ModifierKey, bool bNewState);
+
 private:
 
 	static const FIntPoint MinimizedWindowPosition;
@@ -430,6 +437,8 @@ private:
 	bool bUsingHighPrecisionMouseInput;
 
 	bool bIsMouseAttached;
+
+	bool bForceActivateByMouse;
 
 	TArray<FDeferredWindowsMessage> DeferredMessages;
 

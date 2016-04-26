@@ -1,13 +1,16 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OculusFunctionLibraryPrivatePCH.h"
 #include "OculusFunctionLibrary.h"
-#include "HeadMountedDisplayCommon.h"
 
 #include "IOculusRiftPlugin.h"
 #include "IGearVRPlugin.h"
 
 #define OCULUS_SUPPORTED_PLATFORMS (OCULUS_RIFT_SUPPORTED_PLATFORMS || GEARVR_SUPPORTED_PLATFORMS)
+
+#if OCULUS_SUPPORTED_PLATFORMS
+	#include "HeadMountedDisplayCommon.h"
+#endif //OCULUS_SUPPORTED_PLATFORMS
 
 UOculusFunctionLibrary::UOculusFunctionLibrary(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -223,3 +226,14 @@ void UOculusFunctionLibrary::GetBaseRotationAndPositionOffset(FRotator& OutRot, 
 #endif // OCULUS_SUPPORTED_PLATFORMS
 }
 
+class IStereoLayers* UOculusFunctionLibrary::GetStereoLayers()
+{
+#if OCULUS_SUPPORTED_PLATFORMS
+	FHeadMountedDisplay* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		return OculusHMD;
+	}
+#endif // OCULUS_SUPPORTED_PLATFORMS
+	return nullptr;
+}

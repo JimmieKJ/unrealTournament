@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 
@@ -213,11 +213,6 @@ void UCheckBox::PostLoad()
 }
 
 #if WITH_EDITOR
-
-const FSlateBrush* UCheckBox::GetEditorIcon()
-{
-	return FUMGStyle::Get().GetBrush("Widget.CheckBox");
-}
 
 const FText UCheckBox::GetPaletteCategory()
 {

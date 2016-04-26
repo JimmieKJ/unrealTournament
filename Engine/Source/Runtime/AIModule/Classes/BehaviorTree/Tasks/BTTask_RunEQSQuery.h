@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "EnvironmentQuery/EnvQueryTypes.h"
@@ -40,7 +40,7 @@ class AIMODULE_API UBTTask_RunEQSQuery : public UBTTask_BlackboardBase
 	UPROPERTY(VisibleAnywhere, Category = Blackboard, meta = (EditCondition = "bUseBBKey", DisplayName = "EQSQueryBlackboardKey_DEPRECATED"))
 	struct FBlackboardKeySelector EQSQueryBlackboardKey;
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category=Node, meta=(InlineEditConditionToggle))
 	bool bUseBBKey;
 
 	UPROPERTY(Category = EQS, EditAnywhere)

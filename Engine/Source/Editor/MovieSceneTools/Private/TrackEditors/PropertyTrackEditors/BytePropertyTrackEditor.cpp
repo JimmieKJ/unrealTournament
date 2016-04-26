@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneToolsPrivatePCH.h"
 #include "BytePropertyTrackEditor.h"
@@ -68,7 +68,7 @@ UMovieSceneTrack* FBytePropertyTrackEditor::AddTrack(UMovieScene* FocusedMovieSc
 }
 
 
-void FBytePropertyTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<uint8>& GeneratedKeys )
+void FBytePropertyTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<uint8>& NewGeneratedKeys, TArray<uint8>& DefaultGeneratedKeys )
 {
-	GeneratedKeys.Add( PropertyChangedParams.GetPropertyValue<uint8>() );
+	NewGeneratedKeys.Add( PropertyChangedParams.GetPropertyValue<uint8>() );
 }

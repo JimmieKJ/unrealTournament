@@ -56,6 +56,7 @@
     <Compile Include="BuildCommand.cs" />
     <Compile Include="BuildEnvironment.cs" />
     <Compile Include="BuildUtils.cs" />
+    <Compile Include="ManagedProcess.cs" />
     <Compile Include="CommandletUtils.cs" />
     <Compile Include="CommandUtils.cs" />
     <Compile Include="DeploymentContext.cs" />
@@ -72,6 +73,7 @@
     <Compile Include="P4Blame.cs" />
     <Compile Include="P4Environment.cs" />
     <Compile Include="P4Utils.cs" />
+    <Compile Include="ParallelExecutor.cs" />
     <Compile Include="Platform.cs" />
     <Compile Include="ProcessUtils.cs" />
     <Compile Include="ProjectParams.cs" />

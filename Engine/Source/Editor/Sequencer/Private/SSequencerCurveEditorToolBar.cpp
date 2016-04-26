@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerPrivatePCH.h"
 #include "RichCurveEditorCommands.h"
@@ -135,6 +135,9 @@ TSharedRef<SWidget> SSequencerCurveEditorToolBar::MakeCurveEditorCurveOptionsMen
 	};
 
 	FMenuBuilder MenuBuilder( true, CurveEditorCommandList );
+
+	MenuBuilder.AddMenuEntry( FRichCurveEditorCommands::Get().BakeCurve);
+	MenuBuilder.AddMenuEntry( FRichCurveEditorCommands::Get().ReduceCurve);
 
 	MenuBuilder.AddSubMenu(
 		LOCTEXT( "PreInfinitySubMenu", "Pre-Infinity" ),

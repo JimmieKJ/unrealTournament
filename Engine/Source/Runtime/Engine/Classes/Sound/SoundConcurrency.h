@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -37,7 +37,7 @@ struct ENGINE_API FSoundConcurrencySettings
 	GENERATED_USTRUCT_BODY()
 
 	/** The max number of allowable concurrent active voices for voices playing in this concurrency group. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency, meta = (ClampMin = "1"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency, meta = (UIMin = "1", ClampMin = "1"))
 	int32 MaxCount;
 
 	/* Whether or not to limit the concurrency to per sound owner (i.e. the actor that plays the sound). If the sound doesn't have an owner, it falls back to global concurrency. */
@@ -48,9 +48,20 @@ struct ENGINE_API FSoundConcurrencySettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency)
 	TEnumAsByte<enum EMaxConcurrentResolutionRule::Type> ResolutionRule;
 
-	/** The amount of attenuation to apply to each voice instance in this concurrency group. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency, meta = (ClampMin = "0", ClampMax = "1"))
+	/** 
+	 * The amount of attenuation to apply to older voice instances in this concurrency group. This reduces volume of older voices in a concurrency group as new voices play.
+	 *
+	 * AppliedVolumeScale = Math.Pow(DuckingScale, VoiceGeneration)
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency, meta = (UIMin = "0", UIMax = "1", ClampMin = "0", ClampMax = "1"))
 	float VolumeScale;
+
+	FSoundConcurrencySettings()
+		: MaxCount(16)
+		, bLimitToOwner(false)
+		, ResolutionRule(EMaxConcurrentResolutionRule::StopFarthestThenOldest)
+		, VolumeScale(1.0f)
+	{}
 };
 
 UCLASS(BlueprintType, hidecategories=Object, editinlinenew, MinimalAPI)
@@ -83,6 +94,7 @@ class FConcurrencyGroup
 	int32 MaxActiveSounds;
 	FConcurrencyGroupID ConcurrencyGroupID;
 	EMaxConcurrentResolutionRule::Type ResolutionRule;
+	int32 Generation;
 
 public:
 	/** Constructor for the max concurrency active sound entry. */
@@ -95,6 +107,12 @@ public:
 
 	/** Retrieves the active sounds array. */
 	TArray<FActiveSound*>& GetActiveSounds();
+
+	/** Returns the number of active sounds in concurrency group. */
+	const int32 GetNumActiveSounds() const { return ActiveSounds.Num(); }
+
+	/** Retrieves the current generation */
+	const int32 GetGeneration() const { return Generation; }
 
 	/** Adds an active sound to the active sound array. */
 	void AddActiveSound(struct FActiveSound* ActiveSound);

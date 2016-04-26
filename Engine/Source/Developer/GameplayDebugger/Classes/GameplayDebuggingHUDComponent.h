@@ -1,4 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+//////////////////////////////////////////////////////////////////////////
+// THIS CLASS IS NOW DEPRECATED AND WILL BE REMOVED IN NEXT VERSION
+// Please check GameplayDebugger.h for details.
 
 #pragma once
 #include "ShowFlags.h"
@@ -58,8 +62,12 @@ protected:
 	virtual void DrawBehaviorTreeData(APlayerController* PC, class UGameplayDebuggingComponent *DebugComponent);
 	virtual void DrawEQSData(APlayerController* PC, class UGameplayDebuggingComponent *DebugComponent);
 	virtual void DrawPerception(APlayerController* PC, class UGameplayDebuggingComponent *DebugComponent);
-	virtual void DrawGameSpecificView(APlayerController* PC, class UGameplayDebuggingComponent *DebugComponent) {}
 	virtual void DrawNavMeshSnapshot(APlayerController* PC, class UGameplayDebuggingComponent *DebugComponent);
+
+#if !ENABLE_OLD_GAMEPLAY_DEBUGGER
+	DEPRECATED_FORGAME(4.12, "GameplayDebuggingHUDComponent class is now deprecated, please check GameplayDebugger.h for details.")
+#endif // !ENABLE_OLD_GAMEPLAY_DEBUGGER
+	virtual void DrawGameSpecificView(APlayerController* PC, class UGameplayDebuggingComponent *DebugComponent) {}
 
 	void PrintAllData();
 	void DrawMenu(const float X, const float Y, class UGameplayDebuggingComponent* DebugComponent);

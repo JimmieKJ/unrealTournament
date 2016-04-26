@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 
@@ -75,11 +75,6 @@ void UScrollBar::PostLoad()
 }
 
 #if WITH_EDITOR
-
-const FSlateBrush* UScrollBar::GetEditorIcon()
-{
-	return FUMGStyle::Get().GetBrush("Widget.ScrollBar");
-}
 
 const FText UScrollBar::GetPaletteCategory()
 {

@@ -1,7 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreUObjectPrivate.h"
 #include "EngineVersion.h"
+#include "EditorObjectVersion.h"
 
 FPackageFileSummary::FPackageFileSummary()
 {
@@ -77,13 +78,23 @@ FArchive& operator<<( FArchive& Ar, FPackageFileSummary& Sum )
 		 *		-5 indicates the replacement of writing out the "UE3 version" so older versions of engine can gracefully fail to open newer packages
 		 *		-6 indicates optimizations to how custom versions are being serialized
 		 */
-		int32 LegacyFileVersion = -6;
+		const int32 CurrentLegacyFileVersion = -6;
+		int32 LegacyFileVersion = CurrentLegacyFileVersion;
 		Ar << LegacyFileVersion;
 
 		if (Ar.IsLoading())
 		{
 			if (LegacyFileVersion < 0) // means we have modern version numbers
 			{
+				if (LegacyFileVersion < CurrentLegacyFileVersion)
+				{
+					// we can't safely load more than this because the legacy version code differs in ways we can not predict.
+					// Make sure that the linker will fail to load with it.
+					Sum.FileVersionUE4 = 0;
+					Sum.FileVersionLicenseeUE4 = 0;
+					return Ar;
+				}
+
 				if (LegacyFileVersion != -4)
 				{
 					int32 LegacyUE3Version = 0;

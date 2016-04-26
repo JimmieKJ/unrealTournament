@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*==============================================================================
 	ParticleModuleVectorFieldScale: Per-particle vector field scale.
@@ -14,8 +14,12 @@ class UParticleModuleVectorFieldScale : public UParticleModuleVectorFieldBase
 	GENERATED_UCLASS_BODY()
 
 	/** Per-particle vector field scale. Evaluated using emitter time. */
+	UPROPERTY()
+	class UDistributionFloat* VectorFieldScale_DEPRECATED;
+
+	/** Per-particle vector field scale. Evaluated using emitter time. */
 	UPROPERTY(EditAnywhere, Category=VectorField)
-	class UDistributionFloat* VectorFieldScale;
+	FRawDistributionFloat VectorFieldScaleRaw;
 
 	/** Initializes the default values for this property */
 	void InitializeDefaults();
@@ -25,6 +29,7 @@ class UParticleModuleVectorFieldScale : public UParticleModuleVectorFieldBase
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 	virtual void PostInitProperties() override;
+	virtual void PostLoad() override;
 	//~ End UObject Interface
 
 	//~ Begin UParticleModule Interface

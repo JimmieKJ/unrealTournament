@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #ifndef __LevelViewportLayoutThreePanes_h__
@@ -22,8 +22,8 @@ protected:
 	virtual TSharedRef<SWidget> MakeViewportLayout(const FString& LayoutString) override;
 
 	virtual TSharedRef<SWidget> MakeThreePanelWidget(
-		TArray<TSharedPtr< SLevelViewport >>& ViewportWidgets,
-		const FString& ViewportKey0, const FString& ViewportKey1, const FString& ViewportKey2,
+		TMap< FName, TSharedPtr< IViewportLayoutEntity >>& ViewportWidgets,
+		const TSharedRef<SWidget>& ViewportKey0, const TSharedRef<SWidget>& ViewportKey1, const TSharedRef<SWidget>& ViewportKey2,
 		float PrimarySplitterPercentage, float SecondarySplitterPercentage) = 0;
 
 	/** Overridden from FLevelViewportLayout */
@@ -44,8 +44,8 @@ public:
 	virtual const FName& GetLayoutTypeName() const override { return LevelViewportConfigurationNames::ThreePanesLeft; }
 
 	virtual TSharedRef<SWidget> MakeThreePanelWidget(
-		TArray<TSharedPtr< SLevelViewport >>& ViewportWidgets,
-		const FString& ViewportKey0, const FString& ViewportKey1, const FString& ViewportKey2,
+		TMap< FName, TSharedPtr< IViewportLayoutEntity >>& ViewportWidgets,
+		const TSharedRef<SWidget>& ViewportKey0, const TSharedRef<SWidget>& ViewportKey1, const TSharedRef<SWidget>& ViewportKey2,
 		float PrimarySplitterPercentage, float SecondarySplitterPercentage) override;
 };
 
@@ -58,8 +58,8 @@ public:
 	virtual const FName& GetLayoutTypeName() const override { return LevelViewportConfigurationNames::ThreePanesRight; }
 
 	virtual TSharedRef<SWidget> MakeThreePanelWidget(
-		TArray<TSharedPtr< SLevelViewport >>& ViewportWidgets,
-		const FString& ViewportKey0, const FString& ViewportKey1, const FString& ViewportKey2,
+		TMap< FName, TSharedPtr< IViewportLayoutEntity >>& ViewportWidgets,
+		const TSharedRef<SWidget>& ViewportKey0, const TSharedRef<SWidget>& ViewportKey1, const TSharedRef<SWidget>& ViewportKey2,
 		float PrimarySplitterPercentage, float SecondarySplitterPercentage) override;
 };
 
@@ -72,8 +72,8 @@ public:
 	virtual const FName& GetLayoutTypeName() const override { return LevelViewportConfigurationNames::ThreePanesTop; }
 
 	virtual TSharedRef<SWidget> MakeThreePanelWidget(
-		TArray<TSharedPtr< SLevelViewport >>& ViewportWidgets,
-		const FString& ViewportKey0, const FString& ViewportKey1, const FString& ViewportKey2,
+		TMap< FName, TSharedPtr< IViewportLayoutEntity >>& ViewportWidgets,
+		const TSharedRef<SWidget>& ViewportKey0, const TSharedRef<SWidget>& ViewportKey1, const TSharedRef<SWidget>& ViewportKey2,
 		float PrimarySplitterPercentage, float SecondarySplitterPercentage) override;
 };
 
@@ -86,8 +86,8 @@ public:
 	virtual const FName& GetLayoutTypeName() const override { return LevelViewportConfigurationNames::ThreePanesBottom; }
 
 	virtual TSharedRef<SWidget> MakeThreePanelWidget(
-		TArray<TSharedPtr< SLevelViewport >>& ViewportWidgets,
-		const FString& ViewportKey0, const FString& ViewportKey1, const FString& ViewportKey2,
+		TMap< FName, TSharedPtr< IViewportLayoutEntity >>& ViewportWidgets,
+		const TSharedRef<SWidget>& ViewportKey0, const TSharedRef<SWidget>& ViewportKey1, const TSharedRef<SWidget>& ViewportKey2,
 		float PrimarySplitterPercentage, float SecondarySplitterPercentage) override;
 };
 

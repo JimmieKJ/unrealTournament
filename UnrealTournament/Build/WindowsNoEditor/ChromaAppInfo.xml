@@ -1,0 +1,8 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<application>
+    <title>Unreal Tournament</title>
+    <description>The New Unreal Tournament!</description>
+    <author name="Epic Games" contact="http://www.unrealtournament.com/"/>
+    <device_supported keyboard="1" mouse="1" headset="1" mousepad="1" keypad="1"/>
+	<category game="0"/>
+</application>

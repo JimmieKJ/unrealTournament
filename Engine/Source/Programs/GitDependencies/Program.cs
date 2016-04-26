@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Concurrent;
@@ -393,6 +393,22 @@ namespace GitDependencies
 				Log.WriteLine("Checking dependencies...");
 			}
 
+			// Read the .gitdepsignore file, if there is one
+			IgnoreFile IgnoreFile = null;
+			try
+			{
+				string IgnoreFileName = Path.Combine(RootPath, ".gitdepsignore");
+				if(File.Exists(IgnoreFileName))
+				{
+					IgnoreFile = new IgnoreFile(IgnoreFileName);
+				}
+			}
+			catch
+			{
+				Log.WriteLine("Failed to read .gitdepsignore file.");
+				return false;
+			}
+
 			// Figure out the path to the working manifest
 			string WorkingManifestPath = Path.Combine(RootPath, ".ue4dependencies");
 
@@ -501,7 +517,7 @@ namespace GitDependencies
 			List<DependencyFile> FilteredTargetFiles = new List<DependencyFile>();
 			foreach(DependencyFile TargetFile in TargetFiles.Values)
 			{
-				if(!IsExcludedFolder(TargetFile.Name, ExcludeFolders))
+				if(!IsExcludedFolder(TargetFile.Name, ExcludeFolders) && (IgnoreFile == null || !IgnoreFile.IsExcludedFile(TargetFile.Name)))
 				{
 					FilteredTargetFiles.Add(TargetFile);
 				}

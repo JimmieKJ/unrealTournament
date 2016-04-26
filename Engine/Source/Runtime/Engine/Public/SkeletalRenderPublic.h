@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SkeletalRenderPublic.h: Definitions and inline code for rendering SkeletalMeshComponent
@@ -73,6 +73,12 @@ public:
 	 *	Not safe to hold this point between frames, because it exists in dynamic data passed from main thread.
 	 */
 	virtual TArray<FTransform>* GetSpaceBases() const = 0;
+
+	/** 
+	 *	Get the array of refpose->local matrices
+	 *	Not safe to hold this reference between frames, because it exists in dynamic data passed from main thread.
+	 */
+	virtual const TArray<FMatrix>& GetReferenceToLocalMatrices() const = 0;
 
 	/** Get the LOD to render this mesh at. */
 	virtual int32 GetLOD() const = 0;
@@ -156,8 +162,6 @@ public:
 	 */
 	void InitLODInfos(const USkinnedMeshComponent* InMeshComponent);
 
-	void UpdateShadowShapes(USkinnedMeshComponent* InMeshComponent);
-
 	FORCEINLINE TStatId GetStatId() const 
 	{ 
 		return StatId; 
@@ -171,14 +175,10 @@ public:
 	{
 		/** Hidden Material Section Flags for rendering - That is Material Index, not Section Index  */
 		TArray<bool>	HiddenMaterials;
-
-		FSkelMeshObjectLODInfo()
-		{}
 	};	
 
 	TArray<FSkelMeshObjectLODInfo> LODInfo;
 
-	TArray<FSphere> ShadowSphereShapes;
 	TArray<FCapsuleShape> ShadowCapsuleShapes;
 
 	/** 
@@ -200,14 +200,14 @@ public:
 	float WorkingMaxDistanceFactor;
 
 	/** This is set to true when we have sent our Mesh data to the rendering thread at least once as it needs to have have a datastructure created there for each MeshObject **/
-	bool           bHasBeenUpdatedAtLeastOnce;
+	bool bHasBeenUpdatedAtLeastOnce;
 
 #if WITH_EDITORONLY_DATA
 	/** Index of the chunk to preview... If set to -1, all chunks will be rendered */
-	int32				ChunkIndexPreview;
+	int32 ChunkIndexPreview;
 	
 	/** Index of the section to preview... If set to -1, all section will be rendered */
-	int32				SectionIndexPreview;
+	int32 SectionIndexPreview;
 #endif
 
 	/** returns the feature level this FSkeletalMeshObject was created with */
@@ -224,15 +224,15 @@ protected:
 	TArray<FSkeletalMeshLODInfo> SkeletalMeshLODInfo;
 
 	/** GPU Skin Cache Keys per chunk; -1 means not using GPU Skin Cache **/
-	int16	GPUSkinCacheKeys[MAX_GPUSKINCACHE_CHUNKS_PER_LOD];
+	int16 GPUSkinCacheKeys[MAX_GPUSKINCACHE_CHUNKS_PER_LOD];
 
 	/** Used to keep track of the first call to UpdateMinDesiredLODLevel each frame. */
-	uint32			LastFrameNumber;
+	uint32 LastFrameNumber;
 
 	/** Editor only. Used for visualizing drawing order in Animset Viewer. If < 1.0,
 	 * only the specified fraction of triangles will be rendered
 	 */
-	float			ProgressiveDrawingFraction;
+	float ProgressiveDrawingFraction;
 
 	/** Use the 2nd copy of indices for separate left/right sort order (when TRISORT_CustomLeftRight) 
 	 * Set manually by the AnimSetViewer when editing sort order, or based on viewing angle otherwise.
@@ -241,7 +241,7 @@ protected:
 	/** 
 	 *	If true, per-bone motion blur is enabled for this object. This includes is the system overwrites the skeletal mesh setting.
 	 */
-	bool			bUsePerBoneMotionBlur;
+	bool bUsePerBoneMotionBlur;
 
 	/** Used for dynamic stats */
 	TStatId StatId;

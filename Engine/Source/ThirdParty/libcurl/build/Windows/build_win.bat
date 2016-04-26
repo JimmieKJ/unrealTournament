@@ -9,14 +9,10 @@ set CURL_SDK_BUILDS=%CURL_SDK%\builds
 set PROGFILES=%ProgramFiles%
 if not "%ProgramFiles(x86)%" == "" set PROGFILES=%ProgramFiles(x86)%
 
-REM select compiler (default to 2013)
-set COMPILER_VER="2013"
+REM select compiler (default to 2015)
+set COMPILER_VER="2015"
 if not "%1" == "" set COMPILER_VER=%1
 
-if "%COMPILER_VER%" == "2013" (
-	set MSVCDIR="%PROGFILES%\Microsoft Visual Studio 12.0"
-	set VCVERSION=12
-)
 if "%COMPILER_VER%" == "2015" (
 	set MSVCDIR="%PROGFILES%\Microsoft Visual Studio 14.0"
 	set VCVERSION=14

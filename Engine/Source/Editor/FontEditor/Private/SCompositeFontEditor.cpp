@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "FontEditorModule.h"
 #include "SCompositeFontEditor.h"
@@ -159,6 +159,7 @@ void SCompositeFontEditor::FlushCachedFont()
 	if(CompositeFont)
 	{
 		CompositeFont->MakeDirty();
+		FSlateApplication::Get().GetRenderer()->GetFontCache()->FlushCompositeFont(*CompositeFont);
 	}
 
 	TSharedPtr<IFontEditor> FontEditor = FontEditorPtr.Pin();

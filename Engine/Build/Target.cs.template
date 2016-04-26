@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.Collections.Generic;
@@ -50,7 +50,7 @@ public class {GAME_NAME}Target : TargetRules
 		switch (HostPlatform)
 		{
 			case UnrealTargetPlatform.Mac:
-				Platforms = new List<UnrealTargetPlatform> { UnrealTargetPlatform.IOS };
+				Platforms = new List<UnrealTargetPlatform>();
 				break;
 
 			case UnrealTargetPlatform.Linux:

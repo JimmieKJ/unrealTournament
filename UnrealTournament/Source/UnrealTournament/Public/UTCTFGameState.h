@@ -107,6 +107,12 @@ struct FCTFScoringPlay
 	int32 ScoredByCaps;
 
 	UPROPERTY()
+		int32 RedBonus;
+
+	UPROPERTY()
+		int32 BlueBonus;
+
+	UPROPERTY()
 		TArray<FCTFAssist> Assists;
 	/** Remaining time in seconds when the cap happened */
 	UPROPERTY()
@@ -118,6 +124,9 @@ struct FCTFScoringPlay
 	/**For Asymmetric CTF. */
 	UPROPERTY()
 	bool bDefenseWon;
+
+	UPROPERTY()
+		bool bAnnihilation;
 
 	UPROPERTY()
 		int32 TeamScores[2];
@@ -153,7 +162,17 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 		uint32 bPlayingAdvantage : 1;
 
 	UPROPERTY(Replicated)
-		uint32 bAsymmetricVictoryConditions : 1;
+		uint32 bOneFlagGameMode : 1;
+
+	UPROPERTY(Replicated)
+		uint32 bRedToCap : 1;
+
+	UPROPERTY(Replicated)
+		bool bAttackerLivesLimited;
+
+	UPROPERTY(Replicated)
+		bool bDefenderLivesLimited;
+
 
 	/** Delay before bringing up scoreboard at halftime. */
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = CTF)
@@ -171,6 +190,9 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 		int32 CTFRound;
 
 	UPROPERTY(Replicated)
+		int32 NumRounds;
+
+	UPROPERTY(Replicated)
 		int32 RedLivesRemaining;
 
 	UPROPERTY(Replicated)
@@ -184,6 +206,9 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 		FText RoundInProgressStatus;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
+		FText FullRoundInProgressStatus;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 		FText IntermissionStatus;
@@ -212,6 +237,7 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	/** Returns the current state of a given flag */
 	virtual FName GetFlagState(uint8 TeamNum);
 
+	UFUNCTION(BlueprintCallable, Category = GameState)
 	virtual AUTPlayerState* GetFlagHolder(uint8 TeamNum);
 	virtual AUTCTFFlagBase* GetFlagBase(uint8 TeamNum);
 
@@ -258,4 +284,10 @@ public:
 	virtual uint8 NearestTeamSide(AActor* InActor) override;
 
 	bool GetImportantPickups_Implementation(TArray<AUTPickup*>& PickupList);
+
+	// Returns a pointer to the most important flag, or nullptr if there isn't one
+	virtual void GetImportantFlag(int32 TeamNum, TArray<AUTCTFFlag*>& ImportantFlags);
+
+	// Returns a pointer to the most important flag base or nullptr if there isn't one
+	virtual void GetImportantFlagBase(int32 TeamNum, TArray<AUTCTFFlagBase*>& ImportantBases);
 };

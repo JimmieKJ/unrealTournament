@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	HitProxyVertexShader.hlsl: Vertex shader for rendering hit proxies.
@@ -10,7 +10,6 @@
 #include "Common.usf"
 #include "Material.usf"
 #include "VertexFactory.usf"
-
 
 struct FHitProxyVSToPS
 {
@@ -92,6 +91,8 @@ void Main(
 	out FHitProxyVSOutput Output
 	)
 {
+	ResolvedView = ResolveView();
+
 	FVertexFactoryIntermediates VFIntermediates = GetVertexFactoryIntermediates(Input);
 	float4	WorldPosition = VertexFactoryGetWorldPosition(Input, VFIntermediates);
 	float3x3 TangentToLocal = VertexFactoryGetTangentToLocal(Input, VFIntermediates);

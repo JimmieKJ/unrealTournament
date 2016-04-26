@@ -20,7 +20,10 @@ class UNREALTOURNAMENT_API AUTTaunt : public AActor
 
 	UPROPERTY(EditDefaultsOnly)
 	UAnimMontage* FirstPersonTauntMontage;
-	
+
+	UPROPERTY(EditDefaultsOnly)
+	bool bAllowMovementWithFirstPersonTaunt;
+
 	UPROPERTY(EditDefaultsOnly, AssetRegistrySearchable, Meta = (DisplayName = "Requires Online Item"))
 	bool bRequiresItem;
 };

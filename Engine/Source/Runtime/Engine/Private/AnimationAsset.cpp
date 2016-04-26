@@ -1,6 +1,7 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
+#include "Engine/AssetUserData.h"
 #include "Animation/AnimSequence.h"
 #include "AnimationUtils.h"
 #include "Animation/AnimInstanceProxy.h"
@@ -63,7 +64,7 @@ void FAnimGroupInstance::TestMontageTickRecordForLeadership()
 
 void FAnimGroupInstance::Finalize(const FAnimGroupInstance* PreviousGroup)
 {
-	if (!PreviousGroup || PreviousGroup->GroupLeaderIndex != GroupLeaderIndex || ValidMarkers != PreviousGroup->ValidMarkers
+	if (!PreviousGroup || PreviousGroup->GroupLeaderIndex != GroupLeaderIndex
 		|| (PreviousGroup->MontageLeaderWeight > 0.f && MontageLeaderWeight == 0.f/*if montage disappears, we should reset as well*/))
 	{
 		UE_LOG(LogAnimMarkerSync, Log, TEXT("Resetting Marker Sync Groups"));
@@ -86,8 +87,6 @@ void FAnimGroupInstance::Prepare(const FAnimGroupInstance* PreviousGroup)
 		ValidMarkers = *MarkerNames;
 		ActivePlayers[0].bCanUseMarkerSync = true;
 		bCanUseMarkerSync = true;
-
-		int32 PlayerIndexToResetMarkers = INDEX_NONE;
 
 		//filter markers based on what exists in the other animations
 		for ( int32 ActivePlayerIndex = 0; ActivePlayerIndex < ActivePlayers.Num(); ++ActivePlayerIndex )
@@ -128,8 +127,6 @@ void FAnimGroupInstance::Prepare(const FAnimGroupInstance* PreviousGroup)
 						if ( !PlayerMarkerNames->Contains(MarkerName) )
 						{
 							ValidMarkers.RemoveAtSwap(ValidMarkerIndex, 1, false);
-
-							PlayerIndexToResetMarkers = ActivePlayerIndex;
 						}
 					}
 				}
@@ -140,12 +137,9 @@ void FAnimGroupInstance::Prepare(const FAnimGroupInstance* PreviousGroup)
 
 		ValidMarkers.Sort();
 
-		// if we have list of markers that needs to rest
-		if (PlayerIndexToResetMarkers > 0)
+		if (PreviousGroup && (ValidMarkers != PreviousGroup->ValidMarkers))
 		{
-			// if you removed valid markers, we also should reset previous candidate marker tick record
-			// because they might contain previous marker sets
-			for (int32 InternalActivePlayerIndex = 0; InternalActivePlayerIndex < PlayerIndexToResetMarkers; ++InternalActivePlayerIndex)
+			for (int32 InternalActivePlayerIndex = 0; InternalActivePlayerIndex < ActivePlayers.Num(); ++InternalActivePlayerIndex)
 			{
 				ActivePlayers[InternalActivePlayerIndex].MarkerTickRecord->Reset();
 			}
@@ -292,6 +286,50 @@ void UAnimationAsset::ValidateSkeleton()
 		// reset Skeleton
 		ResetSkeleton(Skeleton);
 	}
+}
+
+void UAnimationAsset::AddAssetUserData(UAssetUserData* InUserData)
+{
+	if (InUserData != NULL)
+	{
+		UAssetUserData* ExistingData = GetAssetUserDataOfClass(InUserData->GetClass());
+		if (ExistingData != NULL)
+		{
+			AssetUserData.Remove(ExistingData);
+		}
+		AssetUserData.Add(InUserData);
+	}
+}
+
+UAssetUserData* UAnimationAsset::GetAssetUserDataOfClass(TSubclassOf<UAssetUserData> InUserDataClass)
+{
+	for (int32 DataIdx = 0; DataIdx < AssetUserData.Num(); DataIdx++)
+	{
+		UAssetUserData* Datum = AssetUserData[DataIdx];
+		if (Datum != NULL && Datum->IsA(InUserDataClass))
+		{
+			return Datum;
+		}
+	}
+	return NULL;
+}
+
+void UAnimationAsset::RemoveUserDataOfClass(TSubclassOf<UAssetUserData> InUserDataClass)
+{
+	for (int32 DataIdx = 0; DataIdx < AssetUserData.Num(); DataIdx++)
+	{
+		UAssetUserData* Datum = AssetUserData[DataIdx];
+		if (Datum != NULL && Datum->IsA(InUserDataClass))
+		{
+			AssetUserData.RemoveAt(DataIdx);
+			return;
+		}
+	}
+}
+
+const TArray<UAssetUserData*>* UAnimationAsset::GetAssetUserDataArray() const
+{
+	return &AssetUserData;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -498,42 +536,49 @@ void FBlendSampleData::NormalizeDataWeight(TArray<FBlendSampleData>& SampleDataL
 	float TotalSum = 0.f;
 
 	check(SampleDataList.Num() > 0);
-	int32 NumBones = SampleDataList[0].PerBoneBlendData.Num();
+	const int32 NumBones = SampleDataList[0].PerBoneBlendData.Num();
 
 	TArray<float> PerBoneTotalSums;
 	PerBoneTotalSums.AddZeroed(NumBones);
 
-	for(int32 I = 0; I < SampleDataList.Num(); ++I)
+	for (int32 PoseIndex = 0; PoseIndex < SampleDataList.Num(); PoseIndex++)
 	{
-		checkf(SampleDataList[I].PerBoneBlendData.Num() == NumBones, TEXT("Attempted to normalise a blend sample list, but the samples have differing numbers of bones."));
+		checkf(SampleDataList[PoseIndex].PerBoneBlendData.Num() == NumBones, TEXT("Attempted to normalise a blend sample list, but the samples have differing numbers of bones."));
 
-		TotalSum += SampleDataList[I].GetWeight();
+		TotalSum += SampleDataList[PoseIndex].GetWeight();
 
-		if(SampleDataList[I].PerBoneBlendData.Num() > 0)
+		if (SampleDataList[PoseIndex].PerBoneBlendData.Num() > 0)
 		{
 			// now interpolate the per bone weights
-			for(int32 Iter = 0; Iter<SampleDataList[I].PerBoneBlendData.Num(); ++Iter)
+			for (int32 BoneIndex = 0; BoneIndex<NumBones; BoneIndex++)
 			{
-				PerBoneTotalSums[Iter] += SampleDataList[I].PerBoneBlendData[Iter];
+				PerBoneTotalSums[BoneIndex] += SampleDataList[PoseIndex].PerBoneBlendData[BoneIndex];
 			}
 		}
 	}
 
-	if(ensure(TotalSum > ZERO_ANIMWEIGHT_THRESH))
+	// Re-normalize Pose weight
+	if (ensure(TotalSum > ZERO_ANIMWEIGHT_THRESH))
 	{
-		for(int32 I = 0; I < SampleDataList.Num(); ++I)
+		if (FMath::Abs<float>(TotalSum - 1.f) > ZERO_ANIMWEIGHT_THRESH)
 		{
-			if(FMath::Abs<float>(TotalSum - 1.f) > ZERO_ANIMWEIGHT_THRESH)
+			for (int32 PoseIndex = 0; PoseIndex < SampleDataList.Num(); PoseIndex++)
 			{
-				SampleDataList[I].TotalWeight /= TotalSum;
+				SampleDataList[PoseIndex].TotalWeight /= TotalSum;
 			}
+		}
+	}
 
-			// now interpolate the per bone weights
-			for(int32 Iter = 0; Iter < SampleDataList[I].PerBoneBlendData.Num(); ++Iter)
+	// Re-normalize per bone weights.
+	for (int32 BoneIndex = 0; BoneIndex < NumBones; BoneIndex++)
+	{
+		if (ensure(PerBoneTotalSums[BoneIndex] > ZERO_ANIMWEIGHT_THRESH))
+		{
+			if (FMath::Abs<float>(PerBoneTotalSums[BoneIndex] - 1.f) > ZERO_ANIMWEIGHT_THRESH)
 			{
-				if(FMath::Abs<float>(PerBoneTotalSums[Iter] - 1.f) > ZERO_ANIMWEIGHT_THRESH)
+				for (int32 PoseIndex = 0; PoseIndex < SampleDataList.Num(); PoseIndex++)
 				{
-					SampleDataList[I].PerBoneBlendData[Iter] /= PerBoneTotalSums[Iter];
+					SampleDataList[PoseIndex].PerBoneBlendData[BoneIndex] /= PerBoneTotalSums[BoneIndex];
 				}
 			}
 		}

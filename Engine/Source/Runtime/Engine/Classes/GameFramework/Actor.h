@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "ComponentInstanceDataCache.h"
@@ -29,8 +29,8 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams( FActorHitSignature, AActor*, Self
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE( FActorBeginCursorOverSignature );
 DECLARE_DYNAMIC_MULTICAST_DELEGATE( FActorEndCursorOverSignature );
-DECLARE_DYNAMIC_MULTICAST_DELEGATE( FActorOnClickedSignature );
-DECLARE_DYNAMIC_MULTICAST_DELEGATE( FActorOnReleasedSignature );
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FActorOnClickedSignature, FKey, ButtonPressed );
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FActorOnReleasedSignature, FKey, ButtonReleased );
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FActorOnInputTouchBeginSignature, ETouchIndex::Type, FingerIndex );
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FActorOnInputTouchEndSignature, ETouchIndex::Type, FingerIndex );
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FActorBeginTouchOverSignature, ETouchIndex::Type, FingerIndex );
@@ -221,6 +221,10 @@ protected:
 	UFUNCTION()
 	virtual void OnRep_Owner();
 
+	/** Used to specify the net driver to replicate on (NAME_None || NAME_GameNetDriver is the default net driver) */
+	UPROPERTY()
+	FName NetDriverName;
+
 private:
 	/**
 	 * Describes how much control the remote machine has over the actor.
@@ -261,6 +265,7 @@ public:
 	void CopyRemoteRoleFrom(const AActor* CopyFromActor);
 
 	/** Returns how much control the remote machine has over this actor. */
+	UFUNCTION(BlueprintCallable, Category = "Replication")
 	ENetRole GetRemoteRole() const;
 
 	/** Used for replication of our RootComponent's position and velocity */
@@ -268,7 +273,10 @@ public:
 	struct FRepMovement ReplicatedMovement;
 
 public:
-	/** Used for replicating attachment of this actor's RootComponent to another actor. */
+	/**
+	 * Used for replicating attachment of this actor's RootComponent to another actor.
+	 * This is filled in via GatherCurrentMovement() when the RootComponent has an AttachParent.
+	 */
 	UPROPERTY(Transient, replicatedUsing=OnRep_AttachmentReplication)
 	struct FRepAttachment AttachmentReplication;
 
@@ -311,12 +319,16 @@ public:
 	int32 NetTag;
 
 	/** Next time this actor will be considered for replication, set by SetNetUpdateTime() */
-	UPROPERTY()
+	UPROPERTY(transient)
 	float NetUpdateTime;
 
 	/** How often (per second) this actor will be considered for replication, used to determine NetUpdateTime */
 	UPROPERTY(Category=Replication, EditDefaultsOnly, BlueprintReadWrite)
 	float NetUpdateFrequency;
+
+	/** Used to determine what rate to throttle down to when replicated properties are changing infrequently */
+	UPROPERTY( Category=Replication, EditDefaultsOnly, BlueprintReadWrite )
+	float MinNetUpdateFrequency;
 
 	/** Priority for this actor when checking for replication in a low bandwidth or saturated situation, higher priority means it is more likely to replicate */
 	UPROPERTY(Category=Replication, EditDefaultsOnly, BlueprintReadWrite)
@@ -327,9 +339,15 @@ public:
 	UPROPERTY(transient)
 	float LastNetUpdateTime;
 
-	/** Used to specify the net driver to replicate on (NAME_None || NAME_GameNetDriver is the default net driver) */
-	UPROPERTY()
-	FName NetDriverName;
+	/**
+	 * Set the name of the net driver associated with this actor.  Will move the actor out of the list of network actors from the old net driver and add it to the new list
+	 *
+	 * @param NewNetDriverName name of the new net driver association
+	 */
+	void SetNetDriverName(FName NewNetDriverName );
+
+	/** @return name of the net driver associated with this actor (all RPCs will go out via this connection) */
+	FName GetNetDriverName() const { return NetDriverName; }
 
 	/** Method that allows an actor to replicate subobjects on its actor channel */
 	virtual bool ReplicateSubobjects(class UActorChannel *Channel, class FOutBunch *Bunch, FReplicationFlags *RepFlags);
@@ -433,9 +451,16 @@ public:
 	UPROPERTY()
 	TArray< FName > Layers;
 
+private:
 	/** The Actor that owns the UChildActorComponent that owns this Actor. */
 	UPROPERTY()
-	TWeakObjectPtr<AActor> ParentComponentActor;	
+	TWeakObjectPtr<AActor> ParentComponentActor_DEPRECATED;	
+
+	/** The UChildActorComponent that owns this Actor. */
+	UPROPERTY()
+	TWeakObjectPtr<UChildActorComponent> ParentComponent;	
+
+public:
 
 #if WITH_EDITORONLY_DATA
 
@@ -1241,16 +1266,16 @@ public:
 	void ReceiveActorEndCursorOver();
 
 	/** Event when this actor is clicked by the mouse when using the clickable interface. */
-	virtual void NotifyActorOnClicked();
+	virtual void NotifyActorOnClicked(FKey ButtonPressed = EKeys::LeftMouseButton);
 	/** Event when this actor is clicked by the mouse when using the clickable interface. */
 	UFUNCTION(BlueprintImplementableEvent, meta=(DisplayName = "ActorOnClicked"), Category="Mouse Input")
-	void ReceiveActorOnClicked();
+	void ReceiveActorOnClicked(FKey ButtonPressed = EKeys::LeftMouseButton);
 
 	/** Event when this actor is under the mouse when left mouse button is released while using the clickable interface. */
-	virtual void NotifyActorOnReleased();
+	virtual void NotifyActorOnReleased(FKey ButtonReleased = EKeys::LeftMouseButton);
 	/** Event when this actor is under the mouse when left mouse button is released while using the clickable interface. */
 	UFUNCTION(BlueprintImplementableEvent, meta=(DisplayName = "ActorOnReleased"), Category="Mouse Input")
-	void ReceiveActorOnReleased();
+	void ReceiveActorOnReleased(FKey ButtonReleased = EKeys::LeftMouseButton);
 
 	/** Event when this actor is touched when click events are enabled. */
 	virtual void NotifyActorOnInputTouchBegin(const ETouchIndex::Type FingerIndex);
@@ -1447,6 +1472,16 @@ public:
 	}
 
 	/*~
+	 * Returns transform of the RootComponent 
+	 * this is a template for no other reason than to delay compilation until USceneComponent is defined
+	 */ 
+	template<class T>
+	static FORCEINLINE FTransform GetActorTransform(const T* RootComponent)
+	{
+		return (RootComponent != nullptr) ? RootComponent->GetComponentTransform() : FTransform();
+	}
+
+	/*~
 	 * Returns location of the RootComponent 
 	 * this is a template for no other reason than to delay compilation until USceneComponent is defined
 	 */ 
@@ -1489,6 +1524,12 @@ public:
 	/** Returns this actor's root component. */
 	FORCEINLINE class USceneComponent* GetRootComponent() const { return RootComponent; }
 
+	/**
+	 * Returns this actor's default attachment component for attaching children to
+	 * @return The scene component to be used as parent
+	 */
+	virtual class USceneComponent* GetDefaultAttachComponent() const { return GetRootComponent(); }
+
 	/** Returns this actor's root component cast to a primitive component */
 	DEPRECATED(4.5, "Use GetRootComponent() and cast manually if needed")
 	class UPrimitiveComponent* GetRootPrimitiveComponent() const;
@@ -1498,6 +1539,12 @@ public:
 	 * @return true if successful
 	 */
 	bool SetRootComponent(class USceneComponent* NewRootComponent);
+
+	/** Returns the transform of the RootComponent of this Actor*/ 
+	FORCEINLINE FTransform GetActorTransform() const
+	{
+		return GetActorTransform(RootComponent);
+	}
 
 	/** Returns the location of the RootComponent of this Actor*/ 
 	FORCEINLINE FVector GetActorLocation() const
@@ -1604,12 +1651,16 @@ public:
 	virtual void SetIsTemporarilyHiddenInEditor( bool bIsHidden );
 
 	/**
+	 * @param  bIncludeParent - Whether to recurse up child actor hierarchy or not
 	 * @return Whether or not this actor is hidden in the editor for the duration of the current editor session
 	 */
-	bool IsTemporarilyHiddenInEditor() const { return bHiddenEdTemporary; }
+	bool IsTemporarilyHiddenInEditor(bool bIncludeParent = false) const;
 
 	/** @return	Returns true if this actor is allowed to be displayed, selected and manipulated by the editor. */
 	bool IsEditable() const;
+
+	/** @return	Returns true if this actor can EVER be selected in a level in the editor.  Can be overridden by specific actors to make them unselectable. */
+	virtual bool IsSelectable() const { return true; }
 
 	/** @return	Returns true if this actor should be shown in the scene outliner */
 	bool IsListedInSceneOutliner() const;
@@ -1830,7 +1881,7 @@ public:
 	 * @param NewOwner	The Actor whom takes over ownership of this Actor
 	 */
 	UFUNCTION(BlueprintCallable, Category=Actor)
-	void SetOwner( AActor* NewOwner );
+	virtual void SetOwner( AActor* NewOwner );
 
 	/**
 	 * Get the owner of this Actor, used primarily for network replication.
@@ -1927,7 +1978,7 @@ public:
 	void PostSpawnInitialize(FTransform const& SpawnTransform, AActor* InOwner, APawn* InInstigator, bool bRemoteOwned, bool bNoFail, bool bDeferConstruction);
 
 	/** Called to finish the spawning process, generally in the case of deferred spawning */
-	void FinishSpawning(const FTransform& Transform, bool bIsDefaultTransform = false);
+	void FinishSpawning(const FTransform& Transform, bool bIsDefaultTransform = false, const FComponentInstanceDataCache* InstanceDataCache = nullptr);
 
 private:
 	/** Called after the actor has run its construction. Responsible for finishing the actor spawn process. */
@@ -1990,6 +2041,13 @@ public:
 	/** Forces dormant actor to replicate but doesn't change NetDormancy state (i.e., they will go dormant again if left dormant) */
 	UFUNCTION(BlueprintAuthorityOnly, BlueprintCallable, Category="Networking")
 	void FlushNetDormancy();
+
+	/** Returns whether this Actor was spawned by a child actor component */
+	UFUNCTION(BlueprintCallable, Category="Actor")
+	bool IsChildActor() const;
+
+	UFUNCTION(BlueprintCallable, Category="Actor")
+	UChildActorComponent* GetParentComponent() const;
 
 	/** Ensure that all the components in the Components array are registered */
 	virtual void RegisterAllComponents();
@@ -2184,6 +2242,7 @@ public:
 
 	/**  Util to create a component based on a template	 */
 	UActorComponent* CreateComponentFromTemplate(UActorComponent* Template, const FName InName = NAME_None );
+	UActorComponent* CreateComponentFromTemplateData(const struct FBlueprintCookedComponentInstancingData* TemplateData, const FName InName = NAME_None);
 
 	DEPRECATED(4.11, "Use CreateComponentFromTemplate that takes a FName instead of a FString")
 	UActorComponent* CreateComponentFromTemplate(UActorComponent* Template, const FString& InName);
@@ -2214,6 +2273,12 @@ protected:
 	* Checks components for validity, implemented in AActor
 	*/
 	bool CheckActorComponents();
+
+	/** Checks for and resolve any name conflicts prior to instancing a new Blueprint Component. */
+	void CheckComponentInstanceName(const FName InName);
+
+	/** Called after instancing a new Blueprint Component from either a template or cooked data. */
+	void PostCreateBlueprintComponent(UActorComponent* NewActorComp);
 
 public:
 
@@ -2345,6 +2410,12 @@ public:
 	 */
 	virtual void CalcCamera(float DeltaTime, struct FMinimalViewInfo& OutResult);
 
+	// Returns true if the actor contains an active camera component
+	virtual bool HasActiveCameraComponent();
+
+	// Returns true if the actor contains an active locked to HMD camera component
+	virtual bool HasActivePawnControlCameraComponent() const;
+
 	// Returns the human readable string representation of an object.
 	virtual FString GetHumanReadableName() const;
 
@@ -2354,6 +2425,16 @@ public:
 	/** Event called when this Actor is reset to its initial state - used when restarting level without reloading. */
 	UFUNCTION(BlueprintImplementableEvent, Category=Actor, meta=(DisplayName="OnReset"))
 	void K2_OnReset();
+
+	/**
+	 * Returns true if this actor has been rendered "recently", with a tolerance in seconds to define what "recent" means. 
+	 * e.g.: If a tolerance of 0.1 is used, this function will return true only if the actor was rendered in the last 0.1 seconds of game time. 
+	 *
+	 * @param Tolerance  How many seconds ago the actor last render time can be and still count as having been "recently" rendered.
+	 * @return Whether this actor was recently rendered.
+	 */
+	UFUNCTION(Category="Rendering", BlueprintCallable, meta=(Keywords="scene visible"))
+	bool WasRecentlyRendered(float Tolerance = 0.2) const;
 
 	/** Returns the most recent time any of this actor's components were rendered */
 	virtual float GetLastRenderTime() const;
@@ -2424,7 +2505,7 @@ public:
 	
 	/** Script exposed version of FindComponentByClass */
 	UFUNCTION()
-	virtual UActorComponent* GetComponentByClass(TSubclassOf<UActorComponent> ComponentClass);
+	UActorComponent* GetComponentByClass(TSubclassOf<UActorComponent> ComponentClass);
 
 	/* Gets all the components that inherit from the given class.
 		Currently returns an array of UActorComponent which must be cast to the correct type. */
@@ -2638,6 +2719,7 @@ private:
 	void InternalDispatchBlockingHit(UPrimitiveComponent* MyComp, UPrimitiveComponent* OtherComp, bool bSelfMoved, FHitResult const& Hit);
 
 	friend struct FMarkActorIsBeingDestroyed;
+	friend struct FActorParentComponentSetter;
 };
 
 struct FMarkActorIsBeingDestroyed
@@ -2674,7 +2756,7 @@ public:
 /** Helper function for executing tick functions based on the normal conditions previous found in UActorComponent::ConditionalTick */
 
 template <typename ExecuteTickLambda>
-void FActorComponentTickFunction::ExecuteTickHelper(UActorComponent* Target, float DeltaTime, ELevelTick TickType, const ExecuteTickLambda& ExecuteTickFunc)
+void FActorComponentTickFunction::ExecuteTickHelper(UActorComponent* Target, bool bTickInEditor, float DeltaTime, ELevelTick TickType, const ExecuteTickLambda& ExecuteTickFunc)
 {
 	if (Target && !Target->IsPendingKillOrUnreachable())
 	{
@@ -2686,7 +2768,7 @@ void FActorComponentTickFunction::ExecuteTickHelper(UActorComponent* Target, flo
 			AActor* MyOwner = Target->GetOwner();
 			//@optimization, I imagine this is all unnecessary in a shipping game with no editor
 			if (TickType != LEVELTICK_ViewportsOnly ||
-				(Target->bTickInEditor && TickType == LEVELTICK_ViewportsOnly) ||
+				(bTickInEditor && TickType == LEVELTICK_ViewportsOnly) ||
 				(MyOwner && MyOwner->ShouldTickIfViewportsOnly())
 				)
 			{
@@ -2749,6 +2831,10 @@ FORCEINLINE_DEBUGGABLE ENetRole AActor::GetRemoteRole() const
 	return RemoteRole;
 }
 
+FORCEINLINE_DEBUGGABLE void AActor::SetNetUpdateTime(float NewUpdateTime)
+{
+	NetUpdateTime = NewUpdateTime;
+}
 
 //////////////////////////////////////////////////////////////////////////
 // Macro to hide common Transform functions in native code for classes where they don't make sense.

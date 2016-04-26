@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 
@@ -37,7 +37,7 @@ int32 FString::Find(const TCHAR* SubStr, ESearchCase::Type SearchCase, ESearchDi
 			? FCString::Stristr(Start, SubStr)
 			: FCString::Strstr(Start, SubStr);
 
-		return Tmp ? (Tmp-**this) : -1;
+		return Tmp ? (Tmp-**this) : INDEX_NONE;
 	}
 	else
 	{
@@ -72,7 +72,7 @@ int32 FString::Find(const TCHAR* SubStr, ESearchCase::Type SearchCase, ESearchDi
 					return i;
 				}
 			}
-			return -1;
+			return INDEX_NONE;
 		}
 	}
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "GraphEditorCommon.h"
@@ -755,6 +755,11 @@ FSlateColor SGraphEditorImpl::InstructionBorderColor() const
 	FLinearColor BorderColor(0.1f, 0.1f, 0.1f, 0.7f);
 	BorderColor.A *= GetInstructionTextFade();
 	return BorderColor;
+}
+
+void SGraphEditorImpl::CaptureKeyboard()
+{
+	FSlateApplication::Get().SetKeyboardFocus(GraphPanel);
 }
 
 /////////////////////////////////////////////////////

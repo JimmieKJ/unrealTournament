@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -175,18 +175,15 @@ private:
 	/** Temporary array of of component-space bone matrices, update each frame and used for rendering the mesh. */
 	TArray<FTransform> SpaceBasesArray[2];
 
+protected:
 	/** The index for the space bases buffer we can currently write to */
 	int32 CurrentEditableSpaceBases;
 
 	/** The index for the space bases buffer we can currently read from */
 	int32 CurrentReadSpaceBases;
-
 protected:
 	/** Are we using double buffered blend spaces */
 	bool bDoubleBufferedBlendSpaces;
-
-	/** Are we using double buffered blend spaces */
-	bool bReInitAnimationOnSetSkeletalMeshCalls;
 
 	/** 
 	 * If set, this component has slave pose components that are associated with this 
@@ -211,7 +208,7 @@ public:
 	 * to the main SkelMesh (e.g. outline mesh or a full body overdraw effect that is toggled) that is always going to be the same
 	 * bounds as parent.  We want to do no calculations in that case.
 	 */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = SkeletalMesh)
 	uint32 bUseBoundsFromMasterPoseComponent:1;
 
 	/** Array indicating all active vertex animations. This array is updated inside RefreshBoneTransforms based on the Anim Blueprint. */
@@ -442,9 +439,10 @@ public:
 	 * Change the SkeletalMesh that is rendered for this Component. Will re-initialize the animation tree etc. 
 	 *
 	 * @param NewMesh New mesh to set for this component
+	 * @param bReinitPose Whether we should keep current pose or reinitialize.
 	 */
 	UFUNCTION(BlueprintCallable, Category="Components|SkinnedMesh")
-	virtual void SetSkeletalMesh(class USkeletalMesh* NewMesh);
+	virtual void SetSkeletalMesh(class USkeletalMesh* NewMesh, bool bReinitPose = true);
 
 	/** 
 	 * Get Parent Bone of the input bone
@@ -841,10 +839,23 @@ public:
 	 * @param TestLocation the location to test against
 	 * @param BoneLocation (optional, out) if specified, set to the world space location of the bone that was found, or (0,0,0) if no bone was found
 	 * @param IgnoreScale (optional) if specified, only bones with scaling larger than the specified factor are considered
+	 * @param bRequirePhysicsAsset (optional) if true, only bones with physics will be considered
 	 *
 	 * @return the name of the bone that was found, or 'None' if no bone was found
 	 */
-	FName FindClosestBone(FVector TestLocation, FVector* BoneLocation = NULL, float IgnoreScale = 0.f) const;
+	FName FindClosestBone(FVector TestLocation, FVector* BoneLocation = NULL, float IgnoreScale = 0.f, bool bRequirePhysicsAsset = false) const;
+
+	/** finds the closest bone to the given location
+	*
+	* @param TestLocation the location to test against
+	* @param BoneLocation (optional, out) if specified, set to the world space location of the bone that was found, or (0,0,0) if no bone was found
+	* @param IgnoreScale (optional) if specified, only bones with scaling larger than the specified factor are considered
+	* @param bRequirePhysicsAsset (optional) if true, only bones with physics will be considered
+	*
+	* @return the name of the bone that was found, or 'None' if no bone was found
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Components|SkinnedMesh", meta=(DisplayName="FindClosestBone", AdvancedDisplay="bRequirePhysicsAsset"))
+	FName FindClosestBone_K2(FVector TestLocation, FVector& BoneLocation, float IgnoreScale = 0.f, bool bRequirePhysicsAsset = false) const;
 
 	/**
 	 * Find a named MorphTarget from the current SkeletalMesh
@@ -956,4 +967,32 @@ public:
 	virtual bool IsPlayingRootMotionFromEverything(){ return false; }
 
 	bool ShouldUseUpdateRateOptimizations() const;
+
+	friend class FRenderStateRecreator;
+};
+
+class FRenderStateRecreator
+{
+	bool bWasRenderStateCreated;
+	USkinnedMeshComponent* Component;
+
+public:
+
+	FRenderStateRecreator(USkinnedMeshComponent* InActorComponent)
+	{
+		Component = InActorComponent;
+		bWasRenderStateCreated = Component->IsRenderStateCreated();
+		if (bWasRenderStateCreated)
+		{
+			Component->DestroyRenderState_Concurrent();
+		}
+	}
+
+	~FRenderStateRecreator()
+	{
+		if (bWasRenderStateCreated)
+		{
+			Component->CreateRenderState_Concurrent();
+		}
+	}
 };

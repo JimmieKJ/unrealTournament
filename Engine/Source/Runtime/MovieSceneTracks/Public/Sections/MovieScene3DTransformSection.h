@@ -1,9 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "MovieSceneSection.h"
 #include "IKeyframeSection.h"
+#include "MovieSceneKeyStruct.h"
+#include "MovieSceneSection.h"
 #include "MovieScene3DTransformSection.generated.h"
 
 
@@ -15,12 +16,6 @@ namespace EKey3DTransformChannel
 		Rotation = 0x00000002,
 		Scale = 0x00000004,
 		All = Translation | Rotation | Scale
-	};
-
-	enum ValueType
-	{
-		Key,
-		Default
 	};
 }
 
@@ -61,19 +56,103 @@ struct FTransformData
 
 struct FTransformKey
 {
-	FTransformKey( EKey3DTransformChannel::Type InChannel, EKey3DTransformChannel::ValueType InChannelValueType, EAxis::Type InAxis, float InValue, bool InbUnwindRotation )
+	FTransformKey( EKey3DTransformChannel::Type InChannel, EAxis::Type InAxis, float InValue, bool InbUnwindRotation )
 	{
 		Channel = InChannel;
-		ChannelValueType = InChannelValueType;
 		Axis = InAxis;
 		Value = InValue;
 		bUnwindRotation = InbUnwindRotation;
 	}
 	EKey3DTransformChannel::Type Channel;
-	EKey3DTransformChannel::ValueType ChannelValueType;
 	EAxis::Type Axis;
 	float Value;
 	bool bUnwindRotation;
+};
+
+
+/**
+ * Proxy structure for translation keys in 3D transform sections.
+ */
+USTRUCT()
+struct FMovieScene3DLocationKeyStruct
+	: public FMovieSceneKeyStruct
+{
+	GENERATED_BODY()
+
+	/** They key's translation value. */
+	UPROPERTY(EditAnywhere, Category=Key)
+	FVector Location;
+
+	FRichCurveKey* LocationKeys[3];
+
+	virtual void PropagateChanges(const FPropertyChangedEvent& ChangeEvent) override;
+};
+
+
+/**
+ * Proxy structure for translation keys in 3D transform sections.
+ */
+USTRUCT()
+struct FMovieScene3DRotationKeyStruct
+	: public FMovieSceneKeyStruct
+{
+	GENERATED_BODY()
+
+	/** They key's rotation value. */
+	UPROPERTY(EditAnywhere, Category=Key)
+	FRotator Rotation;
+
+	FRichCurveKey* RotationKeys[3];
+
+	virtual void PropagateChanges(const FPropertyChangedEvent& ChangeEvent) override;
+};
+
+
+/**
+ * Proxy structure for translation keys in 3D transform sections.
+ */
+USTRUCT()
+struct FMovieScene3DScaleKeyStruct
+	: public FMovieSceneKeyStruct
+{
+	GENERATED_BODY()
+
+	/** They key's scale value. */
+	UPROPERTY(EditAnywhere, Category=Key)
+	FVector Scale;
+
+	FRichCurveKey* ScaleKeys[3];
+
+	virtual void PropagateChanges(const FPropertyChangedEvent& ChangeEvent) override;
+};
+
+
+/**
+ * Proxy structure for 3D transform section key data.
+ */
+USTRUCT()
+struct FMovieScene3DTransformKeyStruct
+	: public FMovieSceneKeyStruct
+{
+	GENERATED_BODY()
+
+	/** They key's translation value. */
+	UPROPERTY(EditAnywhere, Category=Key)
+	FVector Location;
+
+	/** They key's rotation value. */
+	UPROPERTY(EditAnywhere, Category=Key)
+	FRotator Rotation;
+
+	/** They key's scale value. */
+	UPROPERTY(EditAnywhere, Category=Key)
+	FVector Scale;
+
+	FRichCurveKey* LocationKeys[3];
+	FRichCurveKey* RotationKeys[3];
+	FRichCurveKey* ScaleKeys[3];
+
+	virtual void PropagateChanges(const FPropertyChangedEvent& ChangeEvent) override;
 };
 
 
@@ -89,18 +168,13 @@ class UMovieScene3DTransformSection
 
 public:
 
-	/** MovieSceneSection interface */
-	virtual void MoveSection( float DeltaPosition, TSet<FKeyHandle>& KeyHandles ) override;
-	virtual void DilateSection( float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles ) override;
-	virtual void GetKeyHandles(TSet<FKeyHandle>& KeyHandles) const override;
-
 	/**
 	 * Evaluates the translation component of the transform
 	 *
 	 * @param Time				The position in time within the movie scene
 	 * @param OutTranslation	The evaluated translation.  Note: will remain unchanged if there were no keys to evaluate
 	 */
-	void EvalTranslation( float Time, FVector& OutTranslation ) const;
+	MOVIESCENETRACKS_API void EvalTranslation( float Time, FVector& OutTranslation ) const;
 
 	/**
 	 * Evaluates the rotation component of the transform
@@ -108,7 +182,7 @@ public:
 	 * @param Time				The position in time within the movie scene
 	 * @param OutRotation		The evaluated rotation.  Note: will remain unchanged if there were no keys to evaluate
 	 */
-	void EvalRotation( float Time, FRotator& OutRotation ) const;
+	MOVIESCENETRACKS_API void EvalRotation( float Time, FRotator& OutRotation ) const;
 
 	/**
 	 * Evaluates the scale component of the transform
@@ -116,7 +190,7 @@ public:
 	 * @param Time				The position in time within the movie scene
 	 * @param OutScale			The evaluated scale.  Note: will remain unchanged if there were no keys to evaluate
 	 */
-	void EvalScale( float Time, FVector& OutScale ) const;
+	MOVIESCENETRACKS_API void EvalScale( float Time, FVector& OutScale ) const;
 
 	/** 
 	 * Returns the translation curve for a specific axis
@@ -142,6 +216,17 @@ public:
 	 */
 	MOVIESCENETRACKS_API FRichCurve& GetScaleCurve( EAxis::Type Axis );
 
+public:
+
+	// UMovieSceneSection interface
+
+	virtual void MoveSection( float DeltaPosition, TSet<FKeyHandle>& KeyHandles ) override;
+	virtual void DilateSection( float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles ) override;
+	virtual void GetKeyHandles(TSet<FKeyHandle>& KeyHandles) const override;
+	virtual TSharedPtr<FStructOnScope> GetKeyStruct(const TArray<FKeyHandle>& KeyHandles) override;
+
+public:
+
 	// IKeyframeSection interface.
 
 	virtual bool NewKeyIsNewData( float Time, const FTransformKey& KeyData ) const override;
@@ -150,6 +235,7 @@ public:
 	virtual void SetDefault( const FTransformKey& KeyData ) override;
 
 private:
+
 	/** Translation curves */
 	UPROPERTY()
 	FRichCurve Translation[3];

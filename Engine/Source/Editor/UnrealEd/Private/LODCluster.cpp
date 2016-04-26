@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 
@@ -272,7 +272,8 @@ ALODActor* FLODCluster::BuildActor(ULevel* InLevel, const int32 LODIdx, const bo
 		const int32 LODCount = InLevel->GetWorld()->GetWorldSettings()->HierarchicalLODSetup.Num();
 
 		// Where generated assets will be stored
-		UPackage* AssetsOuter = InLevel->GetOutermost(); // this asset is going to save with map, this means, I'll have to delete with it
+		UPackage* AssetsOuter = FHierarchicalLODUtilities::CreateOrRetrieveLevelHLODPackage(InLevel);
+
 		if (AssetsOuter)
 		{
 			TArray<UStaticMeshComponent*> AllComponents;
@@ -315,9 +316,11 @@ ALODActor* FLODCluster::BuildActor(ULevel* InLevel, const int32 LODIdx, const bo
 
 			// Mark dirty according to whether or not this is a preview build
 			NewActor->SetIsDirty(!bCreateMeshes);
-
-			FHierarchicalLODUtilities::BuildStaticMeshForLODActor(NewActor, AssetsOuter, LODSetup, LODIdx);
-
+			
+			if (bCreateMeshes)
+			{
+				FHierarchicalLODUtilities::BuildStaticMeshForLODActor(NewActor, AssetsOuter, LODSetup, LODIdx);
+			}
 			return NewActor;
 		}
 	}

@@ -1,15 +1,12 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "AllowWindowsPlatformTypes.h"
 
 
-/** Delegate type that is executed when URL resolving has completed. */
-DECLARE_DELEGATE_TwoParams(FWmfResolveCompletedDelegate, TComPtr<IUnknown> /*SourceObject*/, FString /*ResolvedUrl*/);
-
-/** Delegate type that is executed when URL resolving has failed. */
-DECLARE_DELEGATE_OneParam(FWmfResolveFailedDelegate, FString /*FailedUrl*/);
+class IWmfMediaResolverCallbacks;
+struct FWmfMediaResolveState;
 
 
 /**
@@ -36,43 +33,25 @@ public:
 	void Cancel();
 
 	/**
-	 * Get a delegate that is executed when URL resolving has completed.
-	 *
-	 * @return The delegate.
-	 */
-	FWmfResolveCompletedDelegate& OnResolveComplete()
-	{
-		return ResolveCompletedDelegate;
-	}
-
-	/**
-	 * Get a delegate that is executed when URL resolving has failed.
-	 *
-	 * @return The delegate.
-	 */
-	FWmfResolveFailedDelegate& OnResolveFailed()
-	{
-		return ResolveFailedDelegate;
-	}
-
-	/**
 	 * Resolves a media source from a byte stream.
 	 *
 	 * @param Archive The archive holding the media data.
 	 * @param OriginalUrl The original URL of the media that was loaded into the buffer.
+	 * @param Callbacks The object that handles resolver event callbacks.
 	 * @return true if the byte stream will be resolved, false otherwise.
 	 * @see Cancel, ResolveUrl
 	 */
-	bool ResolveByteStream(const TSharedRef<FArchive, ESPMode::ThreadSafe>& Archive, const FString& OriginalUrl);
+	bool ResolveByteStream(const TSharedRef<FArchive, ESPMode::ThreadSafe>& Archive, const FString& OriginalUrl, IWmfMediaResolverCallbacks& Callbacks);
 
 	/**
 	 * Resolves a media source from a file or internet URL.
 	 *
 	 * @param Url The URL of the media to open (file name or web address).
+	 * @param Callbacks The object that handles resolver event callbacks.
 	 * @return true if the URL will be resolved, false otherwise.
 	 * @see Cancel, ResolveByteStream
 	 */
-	bool ResolveUrl(const FString& Url);
+	bool ResolveUrl(const FString& Url, IWmfMediaResolverCallbacks& Callbacks);
 
 public:
 
@@ -97,14 +76,6 @@ private:
 
 	/** Holds the actual source resolver. */
 	TComPtr<IMFSourceResolver> SourceResolver;
-
-private:
-
-	/** A delegate that is executed when URL resolving has completed. */
-	FWmfResolveCompletedDelegate ResolveCompletedDelegate;
-
-	/** A delegate that is executed when URL resolving has failed. */
-	FWmfResolveFailedDelegate ResolveFailedDelegate;
 };
 
 

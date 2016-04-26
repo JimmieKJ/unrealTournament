@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -31,6 +31,7 @@ class IMAGEDOWNLOAD_API FWebImage
 {
 public:
 	FWebImage();
+	~FWebImage();
 
 	/**
 	 * Fired when the image finishes downloading or is canceled.
@@ -81,7 +82,7 @@ public:
 
 private:
 	/** request complete callback */
-	void HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded, FOnImageDownloaded DownloadCb);
+	void HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 	bool ProcessHttpResponse(const FString& RequestUrl, FHttpResponsePtr HttpResponse);
 
 private:
@@ -96,6 +97,9 @@ private:
 
 	/** Any pending request */
 	TSharedPtr<IHttpRequest> PendingRequest;
+
+	/** Callback to call upon completion */
+	FOnImageDownloaded PendingCallback;
 
 	/** Have we successfully downloaded the URL we asked for */
 	bool bDownloadSuccess;

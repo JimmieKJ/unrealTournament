@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 #include "AbilitySystemComponent.h"
@@ -12,19 +12,21 @@ UAbilityTask_ApplyRootMotionConstantForce::UAbilityTask_ApplyRootMotionConstantF
 	bSimulatedTask = true;
 	bIsFinished = false;
 	RootMotionSourceID = (uint16)ERootMotionSourceID::Invalid;
+	StrengthOverTime = nullptr;
 	MovementComponent = nullptr;
 }
 
-UAbilityTask_ApplyRootMotionConstantForce* UAbilityTask_ApplyRootMotionConstantForce::ApplyRootMotionConstantForce(UObject* WorldContextObject, FName TaskInstanceName, FVector WorldDirection, float Strength, float Duration, bool bIsAdditive, bool bDisableImpartingVelocityOnRemoval)
+UAbilityTask_ApplyRootMotionConstantForce* UAbilityTask_ApplyRootMotionConstantForce::ApplyRootMotionConstantForce(UObject* WorldContextObject, FName TaskInstanceName, FVector WorldDirection, float Strength, float Duration, bool bIsAdditive, bool bDisableImpartingVelocityOnRemoval, UCurveFloat* StrengthOverTime)
 {
 	auto MyTask = NewAbilityTask<UAbilityTask_ApplyRootMotionConstantForce>(WorldContextObject, TaskInstanceName);
 
 	MyTask->ForceName = TaskInstanceName;
 	MyTask->WorldDirection = WorldDirection.GetSafeNormal();
 	MyTask->Strength = Strength;
-	MyTask->Duration = FMath::Max(Duration, 0.001f);		// Avoid negative or divide-by-zero cases
+	MyTask->Duration = Duration;
 	MyTask->bIsAdditive = bIsAdditive;
 	MyTask->bDisableImpartingVelocityOnRemoval = bDisableImpartingVelocityOnRemoval;
+	MyTask->StrengthOverTime = StrengthOverTime;
 	MyTask->SharedInitAndApply();
 
 	return MyTask;
@@ -62,18 +64,19 @@ void UAbilityTask_ApplyRootMotionConstantForce::SharedInitAndApply()
 			ConstantForce->Priority = 5;
 			ConstantForce->Force = WorldDirection * Strength;
 			ConstantForce->Duration = Duration;
+			ConstantForce->StrengthOverTime = StrengthOverTime;
 			RootMotionSourceID = MovementComponent->ApplyRootMotionSource(ConstantForce);
 
-			if (Ability.IsValid())
+			if (Ability)
 			{
-				Ability.Get()->SetMovementSyncPoint(ForceName);
+				Ability->SetMovementSyncPoint(ForceName);
 			}
 		}
 	}
 	else
 	{
 		ABILITY_LOG(Warning, TEXT("UAbilityTask_ApplyRootMotionConstantForce called in Ability %s with null MovementComponent; Task Instance Name %s."), 
-			Ability.IsValid() ? *Ability.Get()->GetName() : TEXT("NULL"), 
+			Ability ? *Ability->GetName() : TEXT("NULL"), 
 			*InstanceName.ToString());
 	}
 }
@@ -91,7 +94,8 @@ void UAbilityTask_ApplyRootMotionConstantForce::TickTask(float DeltaTime)
 	if (MyActor)
 	{
 		float CurrentTime = GetWorld()->GetTimeSeconds();
-		if (CurrentTime >= EndTime)
+		const bool bIsInfiniteDuration = Duration < 0.f;
+		if (!bIsInfiniteDuration && CurrentTime >= EndTime)
 		{
 			// Task has finished
 			bIsFinished = true;
@@ -117,6 +121,7 @@ void UAbilityTask_ApplyRootMotionConstantForce::GetLifetimeReplicatedProps(TArra
 	DOREPLIFETIME(UAbilityTask_ApplyRootMotionConstantForce, Strength);
 	DOREPLIFETIME(UAbilityTask_ApplyRootMotionConstantForce, Duration);
 	DOREPLIFETIME(UAbilityTask_ApplyRootMotionConstantForce, bIsAdditive);
+	DOREPLIFETIME(UAbilityTask_ApplyRootMotionConstantForce, StrengthOverTime);
 }
 
 void UAbilityTask_ApplyRootMotionConstantForce::PreDestroyFromReplication()

@@ -67,6 +67,9 @@ void SUTReplayBrowserPanel::FriendsListUpdated()
 
 	FriendList.Add(MakeShareable(new FString(TEXT("My Replays"))));
 
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	IOnlineIdentityPtr OnlineIdentityInterface;
+	if (OnlineSubsystem) OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
 	if (OnlineIdentityInterface.IsValid())
 	{
 		TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(PlayerOwner->GetControllerId());
@@ -129,12 +132,6 @@ SUTReplayBrowserPanel::~SUTReplayBrowserPanel()
 void SUTReplayBrowserPanel::ConstructPanel(FVector2D ViewportSize)
 {
 	Tag = FName(TEXT("ReplayBrowser"));
-
-	OnlineSubsystem = IOnlineSubsystem::Get();
-	if (OnlineSubsystem)
-	{
-		OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
-	}
 
 	bShouldShowAllReplays = false;
 	bLiveOnly = false;
@@ -377,6 +374,9 @@ void SUTReplayBrowserPanel::OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow)
 
 	FString UserString = TEXT("");
 
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	IOnlineIdentityPtr OnlineIdentityInterface;
+	if (OnlineSubsystem) OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
 	if (!bShowReplaysFromAllUsers && OnlineIdentityInterface.IsValid() && GetPlayerOwner() != nullptr)
 	{
 		UserString = GetPlayerOwner()->GetPreferredUniqueNetId()->ToString();
@@ -548,6 +548,9 @@ void SUTReplayBrowserPanel::OnFriendSelected(TSharedPtr<FString> NewSelection, E
 		SelectedFriend->SetText(FText::FromString(*NewSelection));
 		
 		FString UserString;
+		IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+		IOnlineIdentityPtr OnlineIdentityInterface;
+		if (OnlineSubsystem) OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
 		if (Index == 0 && OnlineIdentityInterface.IsValid() && GetPlayerOwner() != nullptr)
 		{
 			UserString = GetPlayerOwner()->GetPreferredUniqueNetId()->ToString();

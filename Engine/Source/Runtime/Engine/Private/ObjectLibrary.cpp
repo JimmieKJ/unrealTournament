@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "AssetRegistryModule.h"
@@ -40,6 +40,11 @@ void UObjectLibrary::PostEditChangeProperty(FPropertyChangedEvent& PropertyChang
 				if(Objects[i] != NULL)
 				{
 					UClass* BlueprintClass = Cast<UClass>(Objects[i]);
+					if (!BlueprintClass)
+					{
+						UBlueprintCore* Blueprint = Cast<UBlueprintCore>(Objects[i]);
+						BlueprintClass = Blueprint ? Blueprint->GeneratedClass : nullptr;
+					}
 
 					if (!BlueprintClass)
 					{

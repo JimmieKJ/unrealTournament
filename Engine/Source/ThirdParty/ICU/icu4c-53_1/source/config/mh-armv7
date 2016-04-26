@@ -11,7 +11,7 @@ LIBCFLAGS += -fvisibility=hidden
 LIBCXXFLAGS += -fvisibility=hidden
 
 # Flags for compiling
-CPPFLAGS += -fmessage-length=0 -pipe -fpascal-strings -fno-exceptions -fvisibility=hidden -c -arch armv7 -arch armv7s -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.1.sdk -miphoneos-version-min=6.0 -O0
+CPPFLAGS += -fmessage-length=0 -pipe -fpascal-strings -fno-exceptions -fvisibility=hidden -c -arch armv7 -arch armv7s -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS8.4.sdk -miphoneos-version-min=6.0 -Os
 CFLAGS += -x c
 CXXFLAGS += -x objective-c++ -fobjc-abi-version=2 -fobjc-legacy-dispatch -std=c++0x
 

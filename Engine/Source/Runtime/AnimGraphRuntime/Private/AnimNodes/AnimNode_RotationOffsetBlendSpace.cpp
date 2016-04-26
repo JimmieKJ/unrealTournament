@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimGraphRuntimePrivatePCH.h"
 #include "AnimNodes/AnimNode_RotationOffsetBlendSpace.h"
@@ -20,7 +20,8 @@ void FAnimNode_RotationOffsetBlendSpace::CacheBones(const FAnimationCacheBonesCo
 
 void FAnimNode_RotationOffsetBlendSpace::UpdateAssetPlayer(const FAnimationUpdateContext& Context)
 {
-	if (IsLODEnabled(Context.AnimInstanceProxy, LODThreshold))
+	bIsLODEnabled = IsLODEnabled(Context.AnimInstanceProxy, LODThreshold);
+	if (bIsLODEnabled)
 	{
 		FAnimNode_BlendSpacePlayer::UpdateAssetPlayer(Context);
 	}
@@ -33,7 +34,7 @@ void FAnimNode_RotationOffsetBlendSpace::Evaluate(FPoseContext& Context)
 	// Evaluate base pose
 	BasePose.Evaluate(Context);
 
-	if (IsLODEnabled(Context.AnimInstanceProxy, LODThreshold))
+	if (bIsLODEnabled)
 	{
 		// Evaluate MeshSpaceRotation additive blendspace
 		FPoseContext MeshSpaceRotationAdditivePoseContext(Context);

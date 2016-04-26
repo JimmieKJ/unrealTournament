@@ -1,9 +1,19 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once 
 
 #include "Sound/AudioVolume.h"
+#include "Sound/SoundMix.h"
 #include "AudioDeviceManager.h"
+
+/**
+ * Forward declares
+ */
+
+class FAudioEffectsManager;
+class ICompressedAudioInfo;
+class IAudioSpatializationPlugin;
+class IAudioSpatializationAlgorithm;
 
 /** 
  * Debug state of the audio system
@@ -70,7 +80,7 @@ struct FListener
 	struct FInteriorSettings InteriorSettings;
 
 	/** The volume the listener resides in */
-	class AAudioVolume* Volume;
+	AAudioVolume* Volume;
 
 	/** The times of interior volumes fading in and out */
 	double InteriorStartTime;
@@ -90,7 +100,7 @@ struct FListener
 	/**
 	 * Works out the interp value between source and end
 	 */
-	float Interpolate( const double EndTime );
+	float Interpolate(const double EndTime);
 
 	/**
 	 * Gets the current state of the interior settings for the listener
@@ -100,12 +110,12 @@ struct FListener
 	/** 
 	 * Apply the interior settings to ambient sounds
 	 */
-	void ApplyInteriorSettings( class AAudioVolume* Volume, const FInteriorSettings& Settings );
+	void ApplyInteriorSettings(AAudioVolume* Volume, const FInteriorSettings& Settings);
 
 	FListener()
 		: Transform(FTransform::Identity)
 		, Velocity(ForceInit)
-		, Volume(NULL)
+		, Volume(nullptr)
 		, InteriorStartTime(0.0)
 		, InteriorEndTime(0.0)
 		, ExteriorEndTime(0.0)
@@ -152,6 +162,31 @@ struct FSoundMixState
 	ESoundMixState::Type CurrentState;
 };
 
+struct FSoundMixClassOverride
+{
+	FSoundClassAdjuster SoundClassAdjustor;
+	FDynamicParameter VolumeOverride;
+	FDynamicParameter PitchOverride;
+	float FadeInTime;
+	uint8 bOverrideApplied : 1;
+	uint8 bOverrideChanged : 1;
+	uint8 bIsClearing : 1;
+	uint8 bIsCleared : 1;
+
+	FSoundMixClassOverride()
+		: VolumeOverride(1.0f)
+		, PitchOverride(1.0f)
+		, FadeInTime(0.0f)
+		, bOverrideApplied(false)
+		, bOverrideChanged(false)
+		, bIsClearing(false)
+		, bIsCleared(false)
+	{
+	}
+};
+
+typedef TMap<USoundClass*, FSoundMixClassOverride> FSoundMixClassOverrideMap;
+
 struct FActivatedReverb
 {
 	FReverbSettings ReverbSettings;
@@ -163,57 +198,117 @@ struct FActivatedReverb
 	}
 };
 
+/** Struct used to cache listener attenuation vector math results */
+struct FAttenuationListenerData
+{
+	FVector ListenerToSoundDir;
+	const FListener* Listener;
+	float AttenuationDistance;
+	float ListenerToSoundDistance;
+	bool bDataComputed;
+
+	FAttenuationListenerData()
+		: ListenerToSoundDir(FVector::ZeroVector)
+		, Listener(nullptr)
+		, AttenuationDistance(0.0f)
+		, ListenerToSoundDistance(0.0f)
+		, bDataComputed(false)
+	{}
+};
+
+struct FAttenuationFocusData
+{
+	float FocusFactor;
+	float DistanceScale;
+	float PriorityScale;
+	float VolumeScale;
+
+	FAttenuationFocusData()
+		: FocusFactor(1.0f)
+		, DistanceScale(1.0f)
+		, PriorityScale(1.0f)
+		, VolumeScale(1.0f)
+	{}
+};
+
+/*
+* Setting for global focus scaling
+*/
+struct FGlobalFocusSettings
+{
+	float FocusAzimuthScale;
+	float NonFocusAzimuthScale;
+	float FocusDistanceScale;
+	float NonFocusDistanceScale;
+	float FocusVolumeScale;
+	float NonFocusVolumeScale;
+	float FocusPriorityScale;
+	float NonFocusPriorityScale;
+
+	FGlobalFocusSettings()
+		: FocusAzimuthScale(1.0f)
+		, NonFocusAzimuthScale(1.0f)
+		, FocusDistanceScale(1.0f)
+		, NonFocusDistanceScale(1.0f)
+		, FocusVolumeScale(1.0f)
+		, NonFocusVolumeScale(1.0f)
+		, FocusPriorityScale(1.0f)
+		, NonFocusPriorityScale(1.0f)
+	{}
+};
+
 class ENGINE_API FAudioDevice : public FExec
 {
 public:
 
 	//Begin FExec Interface
-	virtual bool Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar = *GLog ) override;
+	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar = *GLog) override;
 	//End FExec Interface
 
 #if !UE_BUILD_SHIPPING
 	/**
 	 * Exec command handlers
 	 */
-	bool HandleDumpSoundInfoCommand( const TCHAR* Cmd, FOutputDevice& Ar );
+	bool HandleDumpSoundInfoCommand(const TCHAR* Cmd, FOutputDevice& Ar);
 	/**
 	 * Lists all the loaded sounds and their memory footprint
 	 */
-	bool HandleListSoundsCommand( const TCHAR* Cmd, FOutputDevice& Ar );
+	bool HandleListSoundsCommand(const TCHAR* Cmd, FOutputDevice& Ar);
 	/**
 	 * Lists all the playing waveinstances and their associated source
 	 */
-	bool HandleListWavesCommand( const TCHAR* Cmd, FOutputDevice& Ar );
+	bool HandleListWavesCommand(const TCHAR* Cmd, FOutputDevice& Ar);
 	/**
 	 * Lists a summary of loaded sound collated by class
 	 */
-	bool HandleListSoundClassesCommand( const TCHAR* Cmd, FOutputDevice& Ar );
+	bool HandleListSoundClassesCommand(const TCHAR* Cmd, FOutputDevice& Ar);
 	/**
 	 * shows sound class hierarchy
 	 */
-	bool HandleShowSoundClassHierarchyCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandleListSoundClassVolumesCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandleListAudioComponentsCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandleListSoundDurationsCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandleSoundTemplateInfoCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandlePlaySoundCueCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandlePlaySoundWaveCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandleSetBaseSoundMixCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandleIsolateDryAudioCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandleIsolateReverbCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandleTestLPFCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandleTestStereoBleedCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandleTestLFEBleedCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandleDisableLPFCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandleDisableRadioCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandleEnableRadioCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandleResetSoundStateCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandleToggleSpatializationExtensionCommand( const TCHAR* Cmd, FOutputDevice& Ar );
+	bool HandleShowSoundClassHierarchyCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleListSoundClassVolumesCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleListAudioComponentsCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleListSoundDurationsCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleSoundTemplateInfoCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandlePlaySoundCueCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandlePlaySoundWaveCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleSetBaseSoundMixCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleIsolateDryAudioCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleIsolateReverbCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleTestLPFCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleTestStereoBleedCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleTestLFEBleedCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleDisableLPFCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleDisableRadioCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleEnableRadioCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleResetSoundStateCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleToggleSpatializationExtensionCommand(const TCHAR* Cmd, FOutputDevice& Ar);
 	bool HandleEnableHRTFForAllCommand(const TCHAR* Cmd, FOutputDevice& Ar);
-	bool HandleSoloCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandleClearSoloCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandlePlayAllPIEAudioCommand( const TCHAR* Cmd, FOutputDevice& Ar );
+	bool HandleSoloCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleClearSoloCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandlePlayAllPIEAudioCommand(const TCHAR* Cmd, FOutputDevice& Ar);
 	bool HandleAudio3dVisualizeCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleAudioMemoryInfo(const TCHAR* Cmd, FOutputDevice& Ar);
 #endif
 
 	/**
@@ -222,6 +317,11 @@ public:
 	FAudioDevice();
 
 	virtual ~FAudioDevice()
+	{
+	}
+
+	/** Returns an array of available audio devices names for the platform */
+	virtual void GetAudioDeviceList(TArray<FString>& OutAudioDeviceNames) const
 	{
 	}
 
@@ -265,9 +365,9 @@ public:
 	int32 GetSortedActiveWaveInstances(TArray<FWaveInstance*>& WaveInstances, const ESortedActiveWaveGetType::Type GetType);
 
 	/**
-	 * Stop all the audio components and sources attached to the world. NULL world means all components.
+	 * Stop all the audio components and sources attached to the world. nullptr world means all components.
 	 */
-	void Flush( class UWorld* WorldToFlush, bool bClearActivatedReverb = true );
+	void Flush(UWorld* WorldToFlush, bool bClearActivatedReverb = true);
 
 	/**
 	 * Stop any playing sounds that are using a particular SoundWave
@@ -292,7 +392,7 @@ public:
 	 * @param	bSynchronous	If true, this function will block until a vorbis decompression is complete
 	 * @param	bTrackMemory	If true, the audio mem stats will be updated
 	 */
-	virtual void Precache(USoundWave* SoundWave, bool bSynchronous=false, bool bTrackMemory=true);
+	virtual void Precache(USoundWave* SoundWave, bool bSynchronous = false, bool bTrackMemory=true);
 
 	/**
 	 * Precaches all existing sounds. Called when audio setup is complete
@@ -316,7 +416,7 @@ public:
 	 *
 	 * @param bShouldStopUISounds If true, this function will stop UI sounds as well
 	 */
-	virtual void StopAllSounds( bool bShouldStopUISounds = false );
+	virtual void StopAllSounds(bool bShouldStopUISounds = false);
 
 	/**
 	 * Sets the details about the listener
@@ -327,28 +427,53 @@ public:
 	 * @param	ReverbSettings		The reverb settings for this user to use.
 	 * @param	InteriorSettings	The interior settings for this user to use.
 	 */
-	void SetListener( const int32 InListenerIndex, const FTransform& ListenerTransform, const float InDeltaSeconds, class AAudioVolume* Volume, const FInteriorSettings& InteriorSettings );
+	void SetListener(const int32 InListenerIndex, const FTransform& ListenerTransform, const float InDeltaSeconds, AAudioVolume* Volume, const FInteriorSettings& InteriorSettings);
 
 	/**
 	 * Starts a transition to new reverb and interior settings
 	 *
 	 */
-	void SetReverbSettings( class AAudioVolume* Volume, const FReverbSettings& ReverbSettings );
+	void SetReverbSettings(AAudioVolume* Volume, const FReverbSettings& ReverbSettings);
 
 	/**
-	 * Creates an audio component to handle playing a sound cue
+	 * Creates an audio component to handle playing a sound.
+	 * Plays a sound at the given location without creating an audio component.
+	 * @param   Sound				The USoundBase to play at the location.
+	 * @param   World				The world this sound is playing in.
+	 * @param   AActor				The optional actor with which to play the sound on.
+	 * @param   Play				Whether or not to automatically call play on the audio component after it is created.
+	 * @param	bStopWhenOwnerDestroyed Whether or not to automatically stop the audio component if its owner is destroyed.
+	 * @param	Location			The sound's location.
+	 * @param	AttenuationSettings	The sound's attenuation settings to use. Will default to the USoundBase's AttenuationSettings if not specified.
+	 * @param	USoundConcurrency	The sound's sound concurrency settings to use. Will use the USoundBase's USoundConcurrency if not specified.
+	 * @return	The created audio component if the function successfully created one or a nullptr if not successful. Note: if audio is disabled or if there were no hardware audio devices available, this will return nullptr.
 	 */
-	static class UAudioComponent* CreateComponent(class USoundBase* Sound, class UWorld* World, AActor*  AActor = nullptr, bool Play = true, bool bStopWhenOwnerDestroyed = false, const FVector* Location = nullptr, USoundAttenuation* AttenuationSettings = nullptr, USoundConcurrency* ConcurrencySettings = nullptr);
+	static UAudioComponent* CreateComponent(USoundBase* Sound, UWorld* World, AActor*  AActor = nullptr, bool Play = true, bool bStopWhenOwnerDestroyed = false, const FVector* Location = nullptr, USoundAttenuation* AttenuationSettings = nullptr, USoundConcurrency* ConcurrencySettings = nullptr);
+
+	/** 
+	 * Plays a sound at the given location without creating an audio component.
+	 * @param   Sound				The USoundBase to play at the location.
+	 * @param   World				The world this sound is playing in.
+	 * @param   VolumeMultiplier	The volume multiplier to set on the sound.
+	 * @param   PitchMultiplier		The pitch multiplier to set on the sound.
+	 * @param	StartTime			The initial time offset for the sound.
+	 * @param	Location			The sound's position.
+	 * @param	Rotation			The sound's rotation.
+	 * @param	AttenuationSettings	The sound's attenuation settings to use (optional). Will default to the USoundBase's AttenuationSettings if not specified.
+	 * @param	USoundConcurrency	The sound's sound concurrency settings to use (optional). Will use the USoundBase's USoundConcurrency if not specified.
+	 * @param	Params				An optional list of audio component params to immediately apply to a sound.
+	 */
+	void PlaySoundAtLocation(USoundBase* Sound, UWorld* World, float VolumeMultiplier, float PitchMultiplier, float StartTime, const FVector& Location, const FRotator& Rotation, USoundAttenuation* AttenuationSettings = nullptr, USoundConcurrency* ConcurrencySettings = nullptr, const TArray<FAudioComponentParam>* Params = nullptr);
 
 	/**
 	 * Adds an active sound to the audio device
 	 */
-	void AddNewActiveSound( const FActiveSound& ActiveSound );
+	void AddNewActiveSound(const FActiveSound& ActiveSound);
 
 	/**
 	 * Removes the active sound for the specified audio component
 	 */
-	void StopActiveSound( class UAudioComponent* AudioComponent );
+	void StopActiveSound(UAudioComponent* AudioComponent);
 
 	/**
 	* Stops the active sound
@@ -358,33 +483,33 @@ public:
 	/**
 	 * Finds the active sound for the specified audio component
 	 */
-	FActiveSound* FindActiveSound( class UAudioComponent* AudioComponent );
+	FActiveSound* FindActiveSound(UAudioComponent* AudioComponent);
 
 	/**
 	 * Removes an active sound from the active sounds array
 	 */
-	void RemoveActiveSound( FActiveSound* ActiveSound );
+	void RemoveActiveSound(FActiveSound* ActiveSound);
 
 	/** 
 	 * Gets the current audio debug state
 	 */
-	EDebugState GetMixDebugState( void );
+	EDebugState GetMixDebugState();
 
 	/**
 	 * Set up the sound class hierarchy
 	 */
-	void InitSoundClasses( void );
+	void InitSoundClasses();
 
 	/**
 	 * Set up the initial sound sources
 	 * Allows us to initialize sound source early on, allowing for render callback hookups for iOS Audio.
 	 */
-	void InitSoundSources( void );
+	void InitSoundSources();
 
 	/** 
 	 * Gets a summary of loaded sound collated by class
 	 */
-	void GetSoundClassInfo( TMap<FName, FAudioClassInfo>& AudioClassInfos );
+	void GetSoundClassInfo(TMap<FName, FAudioClassInfo>& AudioClassInfos);
 
 	/**
 	 * Registers a sound class with the audio device
@@ -392,12 +517,12 @@ public:
 	 * @param	SoundClassName	name of sound class to retrieve
 	 * @return	sound class properties if it exists
 	 */
-	void RegisterSoundClass( class USoundClass* InSoundClass );
+	void RegisterSoundClass(USoundClass* InSoundClass);
 
 	/**
 	* Unregisters a sound class
 	*/
-	void UnregisterSoundClass(class USoundClass* SoundClass);
+	void UnregisterSoundClass(USoundClass* SoundClass);
 
 	/**
 	* Gets the current properties of a sound class, if the sound class hasn't been registered, then it returns nullptr
@@ -405,7 +530,7 @@ public:
 	* @param	SoundClassName	name of sound class to retrieve
 	* @return	sound class properties if it exists
 	*/
-	FSoundClassProperties* GetSoundClassCurrentProperties(class USoundClass* InSoundClass);
+	FSoundClassProperties* GetSoundClassCurrentProperties(USoundClass* InSoundClass);
 
 	/**
 	* Checks to see if a coordinate is within a distance of any listener
@@ -420,26 +545,26 @@ public:
 	/**
 	 * Sets the Sound Mix that should be active by default
 	 */
-	void SetDefaultBaseSoundMix( class USoundMix* SoundMix );
+	void SetDefaultBaseSoundMix(USoundMix* SoundMix);
 
 	/**
 	 * Removes a sound mix - called when SoundMix is unloaded
 	 */
-	void RemoveSoundMix( class USoundMix* SoundMix );
+	void RemoveSoundMix(USoundMix* SoundMix);
 
 	/** 
 	 * Resets all interpolating values to defaults.
 	 */
-	void ResetInterpolation( void );
+	void ResetInterpolation();
 
 	/** Enables or Disables the radio effect. */
-	void EnableRadioEffect( bool bEnable = false );
+	void EnableRadioEffect(bool bEnable = false);
 
 	friend class FAudioEffectsManager;
 	/**
 	 * Sets a new sound mix and applies it to all appropriate sound classes
 	 */
-	bool SetBaseSoundMix( class USoundMix* SoundMix );
+	bool SetBaseSoundMix(USoundMix* SoundMix);
 
 	/**
 	 * Push a SoundMix onto the Audio Device's list.
@@ -447,7 +572,17 @@ public:
 	 * @param SoundMix The SoundMix to push.
 	 * @param bIsPassive Whether this is a passive push from a playing sound.
 	 */
-	void PushSoundMixModifier(class USoundMix* SoundMix, bool bIsPassive = false);
+	void PushSoundMixModifier(USoundMix* SoundMix, bool bIsPassive = false);
+
+	/** 
+	 * Sets a sound class override in the given sound mix.
+	 */
+	void SetSoundMixClassOverride(USoundMix* InSoundMix, USoundClass* InSoundClass, float Volume, float Pitch, float FadeInTime, bool bApplyToChildren);
+
+	/**
+	* Clears a sound class override in the given sound mix.
+	*/
+	void ClearSoundMixClassOverride(USoundMix* InSoundMix, USoundClass* InSoundClass, float FadeOutTime);
 
 	/**
 	 * Pop a SoundMix from the Audio Device's list.
@@ -455,14 +590,14 @@ public:
 	 * @param SoundMix The SoundMix to pop.
 	 * @param bIsPassive Whether this is a passive pop from a sound finishing.
 	 */
-	void PopSoundMixModifier(class USoundMix* SoundMix, bool bIsPassive = false);
+	void PopSoundMixModifier(USoundMix* SoundMix, bool bIsPassive = false);
 
 	/**
 	 * Clear the effect of one SoundMix completely.
 	 *
 	 * @param SoundMix The SoundMix to clear.
 	 */
-	void ClearSoundMixModifier(class USoundMix* SoundMix);
+	void ClearSoundMixModifier(USoundMix* SoundMix);
 
 	/**
 	 * Clear the effect of all SoundMix modifiers.
@@ -476,7 +611,7 @@ public:
 	 * @param Volume Volume level of Reverb Effect
 	 * @param FadeTime Time before Reverb Effect is fully active
 	 */
-	void ActivateReverbEffect(class UReverbEffect* ReverbEffect, FName TagName, float Priority, float Volume, float FadeTime);
+	void ActivateReverbEffect(UReverbEffect* ReverbEffect, FName TagName, float Priority, float Volume, float FadeTime);
 	
 	/**
 	 * Deactivates a Reverb Effect not applied by a volume
@@ -485,7 +620,7 @@ public:
 	 */
 	void DeactivateReverbEffect(FName TagName);
 
-	virtual FName GetRuntimeFormat(USoundWave* SoundWave) PURE_VIRTUAL(FAudioDevice::GetRuntimeFormat,return NAME_None;);
+	virtual FName GetRuntimeFormat(USoundWave* SoundWave) = 0;
 
 	/** Whether this SoundWave has an associated info class to decompress it */
 	virtual bool HasCompressedAudioInfoClass(USoundWave* SoundWave) { return false; }
@@ -493,18 +628,18 @@ public:
 	/** Whether this device supports realtime decompression of sound waves (i.e. DTYPE_RealTime) */
 	virtual bool SupportsRealtimeDecompression() const
 	{ 
-		return false;	// assume no support by default
+		return false;
 	}
 
 	/** Creates a Compressed audio info class suitable for decompressing this SoundWave */
-	virtual class ICompressedAudioInfo* CreateCompressedAudioInfo(USoundWave* SoundWave) { return NULL; }
+	virtual ICompressedAudioInfo* CreateCompressedAudioInfo(USoundWave* SoundWave) { return nullptr; }
 
 	/**
 	 * Check for errors and output a human readable string
 	 */
-	virtual bool ValidateAPICall( const TCHAR* Function, uint32 ErrorCode )
+	virtual bool ValidateAPICall(const TCHAR* Function, uint32 ErrorCode)
 	{
-		return( true );
+		return true;
 	}
 
 	const TArray<FActiveSound*>& GetActiveSounds() const { return ActiveSounds; }
@@ -529,26 +664,49 @@ public:
 
 	bool IsAudioDeviceMuted() const;
 
+	/** Computes and returns some geometry related to the listener and the given sound transform. */
+	void GetAttenuationListenerData(FAttenuationListenerData& OutListenerData, const FTransform& SoundTransform, const FAttenuationSettings& AttenuationSettings, const FListener* InListener = nullptr) const;
+
+	/** Returns the focus factor of a sound based on its position and listener data. */
+	float GetFocusFactor(FAttenuationListenerData& OutListenerData, const USoundBase* Sound, const FTransform& SoundTransform, const FAttenuationSettings& AttenuationSettings, const FListener* InListener = nullptr) const;
+
+	/** Gets the max distance and focus factor of a sound. */
+	void GetMaxDistanceAndFocusFactor(USoundBase* Sound, const UWorld* World, const FVector& Location, const FAttenuationSettings* AttenuationSettingsToApply, float *OutMaxDistance, float* OutFocusFactor);
+
+	/**
+	* Checks if the given sound would be audible.
+	* @param Sound					The sound to check if it would be audible
+	* @param World					The world the sound is playing in
+	* @param Location				The location the sound is playing in the world
+	* @param AttenuationSettings	The (optional) attenuation settings the sound is using
+	* @param MaxDistance			The computed max distance of the sound.
+	* @param FocusFactor			The focus factor of the sound.
+	* @param Returns true if the sound is audible, false otherwise.
+	*/
+	bool SoundIsAudible(USoundBase* Sound, const UWorld* World, const FVector& Location, const FAttenuationSettings* AttenuationSettingsToApply, float MaxDistance, float FocusFactor);
+
+	/** Returns the index of the listener closest to the given sound transform */
+	static int32 FindClosestListenerIndex(const FTransform& SoundTransform, const TArray<FListener>& InListeners);
+	int32 FindClosestListenerIndex(const FTransform& SoundTransform) const;
+
 protected:
 	friend class FSoundSource;
 
 	/**
 	 * Handle pausing/unpausing of sources when entering or leaving pause mode, or global pause (like device suspend)
 	 */
-	void HandlePause( bool bGameTicking, bool bGlobalPause = false );
+	void HandlePause(bool bGameTicking, bool bGlobalPause = false);
 
 	/**
 	 * Stop sources that need to be stopped, and touch the ones that need to be kept alive
 	 * Stop sounds that are too low in priority to be played
 	 */
-	void StopSources( TArray<FWaveInstance*>& WaveInstances, int32 FirstActiveIndex );
+	void StopSources(TArray<FWaveInstance*>& WaveInstances, int32 FirstActiveIndex);
 
 	/**
 	 * Start and/or update any sources that have a high enough priority to play
 	 */
-	void StartSources( TArray<FWaveInstance*>& WaveInstances, int32 FirstActiveIndex, bool bGameTicking );
-
-	
+	void StartSources(TArray<FWaveInstance*>& WaveInstances, int32 FirstActiveIndex, bool bGameTicking);
 
 	/**
 	 * Sets the 'pause' state of sounds which are always loaded.
@@ -562,8 +720,8 @@ protected:
 	/**
 	 * Lists a summary of loaded sound collated by class
 	 */
-	void ShowSoundClassHierarchy( FOutputDevice& Ar, class USoundClass* SoundClass = NULL, int32 Indent = 0 ) const;
-	
+	void ShowSoundClassHierarchy(FOutputDevice& Ar, USoundClass* SoundClass = nullptr, int32 Indent = 0) const;
+
 	/**
 	 * Parses the sound classes and propagates multiplicative properties down the tree.
 	 */
@@ -571,10 +729,11 @@ protected:
 
 	/**
 	 * Construct the CurrentSoundClassProperties map
+	 * @param DeltaTime The current frame delta. Used to interpolate sound class adjustments.
 	 *
 	 * This contains the original sound class properties propagated properly, and all adjustments due to the sound mixes
 	 */
-	void UpdateSoundClassProperties();
+	void UpdateSoundClassProperties(float DeltaTime);
 
 	/**
 	 * Set the mix for altering sound class properties
@@ -582,7 +741,7 @@ protected:
 	 * @param NewMix The SoundMix to apply
 	 * @param SoundMixState The State associated with this SoundMix
 	 */
-	bool ApplySoundMix( class USoundMix* NewMix, FSoundMixState* SoundMixState );
+	bool ApplySoundMix(USoundMix* NewMix, FSoundMixState* SoundMixState);
 
 	/**
 	 * Updates the state of a sound mix if it is pushed more than once.
@@ -590,7 +749,7 @@ protected:
 	 * @param SoundMix The SoundMix we are updating
 	 * @param SoundMixState The State associated with this SoundMix
 	 */
-	void UpdateSoundMix(class USoundMix* SoundMix, FSoundMixState* SoundMixState);
+	void UpdateSoundMix(USoundMix* SoundMix, FSoundMixState* SoundMixState);
 
 	/**
 	 * Updates list of SoundMixes that are applied passively, pushing and popping those that change
@@ -608,7 +767,7 @@ protected:
 	 *
 	 * @return Whether this SoundMix could be cleared (only true when both ref counts are zero).
 	 */
-	bool TryClearingSoundMix(class USoundMix* SoundMix, FSoundMixState* SoundMixState);
+	bool TryClearingSoundMix(USoundMix* SoundMix, FSoundMixState* SoundMixState);
 
 	/**
 	 * Attempt to remove this SoundMix's EQ effect - it may not currently be active
@@ -617,29 +776,30 @@ protected:
 	 *
 	 * @return Whether the effect of this SoundMix was cleared
 	 */
-	bool TryClearingEQSoundMix(class USoundMix* SoundMix);
+	bool TryClearingEQSoundMix(USoundMix* SoundMix);
 
 	/**
 	 * Find the SoundMix with the next highest EQ priority to the one passed in
 	 *
 	 * @param SoundMix The highest priority SoundMix, which will be ignored
 	 *
-	 * @return The next highest priority SoundMix or NULL if one cannot be found
+	 * @return The next highest priority SoundMix or nullptr if one cannot be found
 	 */
-	class USoundMix* FindNextHighestEQPrioritySoundMix(class USoundMix* IgnoredSoundMix);
+	USoundMix* FindNextHighestEQPrioritySoundMix(USoundMix* IgnoredSoundMix);
 
 	/**
 	 * Clear the effect of a SoundMix completely - only called after checking it's safe to
 	 */
-	void ClearSoundMix(class USoundMix* SoundMix);
+	void ClearSoundMix(USoundMix* SoundMix);
 
 	/**
 	 * Sets the sound class adjusters from a SoundMix.
 	 *
 	 * @param SoundMix		The SoundMix to apply adjusters from
 	 * @param InterpValue	Proportion of adjuster to apply
+	 * @param DeltaTime 	The current frame delta time. Used to interpolate sound class adjusters.
 	 */
-	void ApplyClassAdjusters(class USoundMix* SoundMix, float InterpValue);
+	void ApplyClassAdjusters(USoundMix* SoundMix, float InterpValue, float DeltaTime);
 
 	/**
 	 * Recursively apply an adjuster to the passed in sound class and all children of the sound class
@@ -647,7 +807,7 @@ protected:
 	 * @param InAdjuster		The adjuster to apply
 	 * @param InSoundClassName	The name of the sound class to apply the adjuster to.  Also applies to all children of this class
 	 */
-	void RecursiveApplyAdjuster( const struct FSoundClassAdjuster& InAdjuster, USoundClass* InSoundClass );
+	void RecursiveApplyAdjuster(const FSoundClassAdjuster& InAdjuster, USoundClass* InSoundClass);
 
 	/**
 	 * Takes an adjuster value and modifies it by the proportion that is currently in effect
@@ -660,29 +820,29 @@ protected:
 	/**
 	 * Platform dependent call to init effect data on a sound source
 	 */
-	void* InitEffect( class FSoundSource* Source );
+	void* InitEffect(FSoundSource* Source);
 
 	/**
 	 * Platform dependent call to update the sound output with new parameters
 	 * The audio system's main "Tick" function
 	 */
-	void* UpdateEffect( class FSoundSource* Source );
+	void* UpdateEffect(FSoundSource* Source);
 
 	/**
 	 * Platform dependent call to destroy any effect related data
 	 */
-	void DestroyEffect( class FSoundSource* Source );
+	void DestroyEffect(FSoundSource* Source);
 
 	/**
 	 * Return the pointer to the sound effects handler
 	 */
-	class FAudioEffectsManager* GetEffects( void )
+	FAudioEffectsManager* GetEffects()
 	{
-		return( Effects );
+		return Effects;
 	}
 
 	/** Internal */
-	void SortWaveInstances( int32 MaxChannels );
+	void SortWaveInstances(int32 MaxChannels);
 
 	/**
 	 * Internal helper function used by ParseSoundClasses to traverse the tree.
@@ -690,7 +850,7 @@ protected:
 	 * @param CurrentClass			Subtree to deal with
 	 * @param ParentProperties		Propagated properties of parent node
 	 */
-	void RecurseIntoSoundClasses( class USoundClass* CurrentClass, FSoundClassProperties& ParentProperties );
+	void RecurseIntoSoundClasses(USoundClass* CurrentClass, FSoundClassProperties& ParentProperties);
 
 	/**
 	 * Find the current highest priority reverb after a change to the list of active ones.
@@ -717,10 +877,10 @@ protected:
 	}
 
 	/** Creates a new platform specific sound source */
-	virtual class FAudioEffectsManager* CreateEffectsManager();
+	virtual FAudioEffectsManager* CreateEffectsManager();
 
 	/** Creates a new platform specific sound source */
-	virtual class FSoundSource* CreateSoundSource() PURE_VIRTUAL(FAudioDevice::CreateSoundSource,return NULL;);
+	virtual FSoundSource* CreateSoundSource() = 0;
 
 	/** Low pass filter OneOverQ value */
 	float GetLowPassFilterResonance() const;
@@ -772,12 +932,12 @@ public:
 	/* True once the startup sounds have been precached */
 	uint32 bStartupSoundsPreCached:1;
 
-	TArray<struct FListener> Listeners;
+	TArray<FListener> Listeners;
 
 	uint64 CurrentTick;
 
 	/** An AudioComponent to play test sounds on */
-	TWeakObjectPtr<class UAudioComponent> TestAudioComponent;
+	TWeakObjectPtr<UAudioComponent> TestAudioComponent;
 
 	/** The debug state of the audio device */
 	TEnumAsByte<enum EDebugState> DebugState;
@@ -788,6 +948,9 @@ public:
 	/** Global dynamic pitch scale parameter */
 	FDynamicParameter GlobalPitchScale;
 
+	/** The global focus settings */
+	FGlobalFocusSettings GlobalFocusSettings;
+
 	/** Timestamp of the last update */
 	double LastUpdateTime;
 
@@ -795,42 +958,45 @@ public:
 	int32 NextResourceID;
 
 	/** Set of sources used to play sounds (platform will subclass these) */
-	TArray<class FSoundSource*>				Sources;
-	TArray<class FSoundSource*>				FreeSources;
-	TMap<struct FWaveInstance*, class FSoundSource*>	WaveInstanceSourceMap;
+	TArray<FSoundSource*> Sources;
+	TArray<FSoundSource*> FreeSources;
+	TMap<FWaveInstance*, FSoundSource*>	WaveInstanceSourceMap;
 
 	/** Current properties of all sound classes */
-	TMap<class USoundClass*, FSoundClassProperties>	SoundClasses;
+	TMap<USoundClass*, FSoundClassProperties>	SoundClasses;
 
 	/** The Base SoundMix that's currently active */
-	class USoundMix* BaseSoundMix;
+	USoundMix* BaseSoundMix;
 
 	/** The Base SoundMix that should be applied by default */
-	class USoundMix* DefaultBaseSoundMix;
+	USoundMix* DefaultBaseSoundMix;
 
 	/** Map of sound mixes currently affecting audio properties */
-	TMap<class USoundMix*, FSoundMixState>		SoundMixModifiers;
+	TMap<USoundMix*, FSoundMixState> SoundMixModifiers;
+
+	/** Map of sound mix sound class overrides. Will override any sound class effects for any sound mixes */
+	TMap<USoundMix*, FSoundMixClassOverrideMap> SoundMixClassEffectOverrides;
 
 	/** Interface to audio effects processing */
-	class FAudioEffectsManager*						Effects;
+	FAudioEffectsManager* Effects;
 
 	/** The volume the listener resides in */
-	const class AAudioVolume*						CurrentAudioVolume;
+	const AAudioVolume* CurrentAudioVolume;
 
 	/** A volume headroom to apply to specific platforms to achieve beter platform consistency. */
 	float PlatformAudioHeadroom;
 
 	/** Reverb Effects activated without volumes */
-	TMap<FName, FActivatedReverb>					ActivatedReverbs;
+	TMap<FName, FActivatedReverb> ActivatedReverbs;
 
 	/** The activated reverb that currently has the highest priority */
-	const FActivatedReverb*								HighestPriorityReverb;
+	const FActivatedReverb* HighestPriorityReverb;
 
 	/** Audio spatialization plugin. */
-	class IAudioSpatializationPlugin* SpatializationPlugin;
+	IAudioSpatializationPlugin* SpatializationPlugin;
 
 	/** Audio spatialization algorithm (derived from a plugin). */
-	class IAudioSpatializationAlgorithm* SpatializeProcessor;
+	IAudioSpatializationAlgorithm* SpatializeProcessor;
 
 	/** Whether or not the spatialization plugin is enabled. */
 	bool bSpatializationExtensionEnabled;
@@ -849,13 +1015,22 @@ public:
 
 private:
 
-	TArray<struct FActiveSound*> ActiveSounds;
-	TSet<struct FActiveSound*> PendingSoundsToStop;
+	TArray<FActiveSound*> ActiveSounds;
+	TArray<FWaveInstance*> ActiveWaveInstances;
 
-	TMap<UPTRINT, struct FActiveSound*> AudioComponentToActiveSoundMap;
+	/** Cached copy of sound class adjusters array. Cached to avoid allocating every frame. */
+	TArray<FSoundClassAdjuster> SoundClassAdjustersCopy;
+
+	/** Set of sounds which will be stopped next audio frame update */
+	TSet<FActiveSound*> PendingSoundsToStop;
+
+	/** A set of sounds which need to be deleted but weren't able to be deleted due to pending async operations */
+	TArray<FActiveSound*> PendingSoundsToDelete;
+
+	TMap<UPTRINT, FActiveSound*> AudioComponentToActiveSoundMap;
 
 	/** List of passive SoundMixes active last frame */
-	TArray<class USoundMix*> PrevPassiveSoundMixModifiers;
+	TArray<USoundMix*> PrevPassiveSoundMixModifiers;
 
 	friend class FSoundConcurrencyManager;
 	FSoundConcurrencyManager ConcurrencyManager;
@@ -875,7 +1050,7 @@ class IAudioDeviceModule : public IModuleInterface
 public:
 
 	/** Creates a new instance of the audio device implemented by the module. */
-	virtual class FAudioDevice* CreateAudioDevice() = 0;
+	virtual FAudioDevice* CreateAudioDevice() = 0;
 };
 
 

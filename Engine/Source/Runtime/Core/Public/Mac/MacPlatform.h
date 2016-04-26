@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*================================================================================
 	MacPlatform.h: Setup for the Mac platform
@@ -41,11 +41,12 @@ typedef FMacPlatformTypes FPlatformTypes;
 #define PLATFORM_SUPPORTS_STACK_SYMBOLS				1
 
 // Function type macros.
-#define VARARGS														/* Functions with variable arguments */
-#define CDECL														/* Standard C function */
-#define STDCALL														/* Standard calling convention */
-#define FORCEINLINE inline __attribute__ ((always_inline))			/* Force code to be inline */
-#define FORCENOINLINE __attribute__((noinline))						/* Force code to NOT be inline */
+#define VARARGS																		/* Functions with variable arguments */
+#define CDECL																		/* Standard C function */
+#define STDCALL																		/* Standard calling convention */
+#define FORCEINLINE inline __attribute__ ((always_inline))							/* Force code to be inline */
+#define FORCENOINLINE __attribute__((noinline))										/* Force code to NOT be inline */
+#define FUNCTION_CHECK_RETURN(...) __attribute__ ((warn_unused_result))	__VA_ARGS__	/* Wrap a function signature in this to warn that callers should not ignore the return value. */
 
 #define TEXT_HELPER(a,b)	a ## b
 #define TEXT(s)				TEXT_HELPER(L, s)

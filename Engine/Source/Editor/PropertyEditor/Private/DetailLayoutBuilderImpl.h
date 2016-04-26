@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 class FDetailCategoryImpl;
@@ -46,7 +46,7 @@ public:
 	 * @param CurrentClass	The current class being customized
 	 * @param VariableName The variable name of the class being customized (used for inner classes/structs where there can be multiple instances of them)
 	 */
-	void SetCurrentCustomizationClass( UClass* CurrentClass, FName VariableName );
+	void SetCurrentCustomizationClass( UStruct* CurrentClass, FName VariableName );
 
 	/** @return The current class variable name being customized */
 	FName GetCurrentCustomizationVariableName() const { return CurrentCustomizationVariableName; }
@@ -182,5 +182,5 @@ private:
 	/** The view where this detail customizer resides */
 	class IDetailsViewPrivate& DetailsView;
 	/** The current class being customized */
-	UClass* CurrentCustomizationClass;
+	UStruct* CurrentCustomizationClass;
 };

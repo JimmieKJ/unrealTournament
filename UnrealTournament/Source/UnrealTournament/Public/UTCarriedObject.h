@@ -6,10 +6,11 @@
 #include "UTCarriedObjectMessage.h"
 #include "UTTeamInterface.h"
 #include "UTProjectileMovementComponent.h"
-
+#include "UTSecurityCameraComponent.h"
 #include "UTCarriedObject.generated.h"
 
 class AUTCarriedObject;
+class AUTHUD;
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnCarriedObjectStateChangedDelegate, class AUTCarriedObject*, Sender, FName, NewState);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCarriedObjectHolderChangedDelegate, class AUTCarriedObject*, Sender);
 
@@ -92,10 +93,21 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UPROPERTY(EditDefaultsOnly, Category = GameObject)
 		TSubclassOf<class AUTGhostFlag> GhostFlagClass;
 
+	virtual bool SetDetectingCamera(class UUTSecurityCameraComponent* NewDetectingCamera);
+
+	virtual class UUTSecurityCameraComponent* GetDetectingCamera();
+protected:
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
+	class UUTSecurityCameraComponent* DetectingCamera;
+
+private:
+	UPROPERTY()
 	class AUTGhostFlag* MyGhostFlag;
 
+public:
 	virtual void PutGhostFlagAt(const FVector NewGhostLocation);
+
+	virtual void ClearGhostFlag();
 
 	// Allow children to know when the team changes
 	UFUNCTION()
@@ -141,15 +153,18 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
 		uint32 bEnemyPickupSendsHome : 1;
 
+	// If true, scoring plays send the flag home.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
+		uint32 bSendHomeOnScore : 1;
+
 	// How long before this object is automatically returned to it's base
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = GameObject)
+	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadWrite, Category = GameObject)
 	float AutoReturnTime;
 
 	/** Replicated time till flag auto returns. */
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = Flag)
 		uint8 FlagReturnTime;
 
-	// If true, when a player on the team matching this object's team picks it up, it will be sent home instead of being picked up.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
 	TSubclassOf<UUTCarriedObjectMessage> MessageClass;
 
@@ -241,6 +256,7 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	class UUTProjectileMovementComponent* MovementComponent;
 
 	virtual void OnConstruction(const FTransform& Transform) override;
+	virtual void Destroyed() override;
 
 	void FellOutOfWorld(const UDamageType& dmgType);
 
@@ -369,5 +385,8 @@ public:
 	// The Speed modifier for this weapon if we are using weighted weapons
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	float WeightSpeedPctModifier;
+
+	// Returns a status message for this object on the hud.
+	virtual FText GetHUDStatusMessage(AUTHUD* HUD);
 
 };

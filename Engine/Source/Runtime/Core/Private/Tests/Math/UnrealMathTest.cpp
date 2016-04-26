@@ -1,7 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h" 
 
+#if WITH_DEV_AUTOMATION_TESTS
 
 DEFINE_LOG_CATEGORY_STATIC(LogUnrealMathTest, Log, All);
 
@@ -422,23 +423,25 @@ FORCENOINLINE FRotator TestQuaternionToRotator(const FQuat& Quat)
 	static const float RAD_TO_DEG = (180.f)/PI;
 	FRotator RotatorFromQuat;
 
+	// Note: using stock C functions for some trig functions since this is the "reference" implementation
+	// and we don't want fast approximations to be used here.
 	if (SingularityTest < -SINGULARITY_THRESHOLD)
 	{
 		RotatorFromQuat.Pitch = 270.f;
-		RotatorFromQuat.Yaw = FMath::Atan2(YawY, YawX) * RAD_TO_DEG;
-		RotatorFromQuat.Roll = -RotatorFromQuat.Yaw - (2.f * FMath::Atan2(X, W) * RAD_TO_DEG);
+		RotatorFromQuat.Yaw = atan2f(YawY, YawX) * RAD_TO_DEG;
+		RotatorFromQuat.Roll = -RotatorFromQuat.Yaw - (2.f * atan2f(X, W) * RAD_TO_DEG);
 	}
 	else if (SingularityTest > SINGULARITY_THRESHOLD)
 	{
 		RotatorFromQuat.Pitch = 90.f;
-		RotatorFromQuat.Yaw = FMath::Atan2(YawY, YawX) * RAD_TO_DEG;
-		RotatorFromQuat.Roll = RotatorFromQuat.Yaw - (2.f * FMath::Atan2(X, W) * RAD_TO_DEG);
+		RotatorFromQuat.Yaw = atan2f(YawY, YawX) * RAD_TO_DEG;
+		RotatorFromQuat.Roll = RotatorFromQuat.Yaw - (2.f * atan2f(X, W) * RAD_TO_DEG);
 	}
 	else
 	{
 		RotatorFromQuat.Pitch = FMath::Asin(2.f*(SingularityTest)) * RAD_TO_DEG;
-		RotatorFromQuat.Yaw = FMath::Atan2(YawY, YawX) * RAD_TO_DEG;
-		RotatorFromQuat.Roll = FMath::Atan2(-2.f*(W*X+Y*Z), (1.f-2.f*(FMath::Square(X) + FMath::Square(Y)))) * RAD_TO_DEG;
+		RotatorFromQuat.Yaw = atan2f(YawY, YawX) * RAD_TO_DEG;
+		RotatorFromQuat.Roll = atan2f(-2.f*(W*X+Y*Z), (1.f-2.f*(FMath::Square(X) + FMath::Square(Y)))) * RAD_TO_DEG;
 	}
 
 	RotatorFromQuat.Pitch = FRotator::NormalizeAxis(RotatorFromQuat.Pitch);
@@ -537,7 +540,18 @@ void LogRotatorTest(bool bExpected, const TCHAR* TestName, const FRotator& A, co
 	if (bHasPassed == false)
 	{
 		UE_LOG(LogUnrealMathTest, Log, TEXT("%s: %s"), bHasPassed ? TEXT("PASSED") : TEXT("FAILED"), TestName);
-		UE_LOG(LogUnrealMathTest, Log, TEXT("%s.Equals(%s) = %d"), *A.ToString(), *B.ToString(), bComparison);
+		UE_LOG(LogUnrealMathTest, Log, TEXT("(%s).Equals(%s) = %d"), *A.ToString(), *B.ToString(), bComparison);
+		GPassing = false;
+	}
+}
+
+
+void LogRotatorTest(const TCHAR* TestName, const FRotator& A, const FRotator& B, bool bComparison)
+{
+	if (bComparison == false)
+	{
+		UE_LOG(LogUnrealMathTest, Log, TEXT("%s: %s"), bComparison ? TEXT("PASSED") : TEXT("FAILED"), TestName);
+		UE_LOG(LogUnrealMathTest, Log, TEXT("(%s).Equals(%s) = %d"), *A.ToString(), *B.ToString(), bComparison);
 		GPassing = false;
 	}
 }
@@ -547,7 +561,7 @@ void LogQuaternionTest(const TCHAR* TestName, const FQuat& A, const FQuat& B, bo
 	if (bComparison == false)
 	{
 		UE_LOG(LogUnrealMathTest, Log, TEXT("%s: %s"), bComparison ? TEXT("PASSED") : TEXT("FAILED"), TestName);
-		UE_LOG(LogUnrealMathTest, Log, TEXT("%s.Equals(%s) = %d"), *A.ToString(), *B.ToString(), bComparison);
+		UE_LOG(LogUnrealMathTest, Log, TEXT("(%s).Equals(%s) = %d"), *A.ToString(), *B.ToString(), bComparison);
 		GPassing = false;
 	}
 }
@@ -581,10 +595,10 @@ MATHTEST_INLINE VectorRegister TestVectorNormalize_InvSqrtEst(const VectorRegist
 MATHTEST_INLINE VectorRegister TestReferenceMod(const VectorRegister& A, const VectorRegister& M)
 {
 	return MakeVectorRegister(
-		(float)fmod(VectorGetComponent(A, 0), VectorGetComponent(M, 0)),
-		(float)fmod(VectorGetComponent(A, 1), VectorGetComponent(M, 1)),
-		(float)fmod(VectorGetComponent(A, 2), VectorGetComponent(M, 2)),
-		(float)fmod(VectorGetComponent(A, 3), VectorGetComponent(M, 3)));
+		(float)fmodf(VectorGetComponent(A, 0), VectorGetComponent(M, 0)),
+		(float)fmodf(VectorGetComponent(A, 1), VectorGetComponent(M, 1)),
+		(float)fmodf(VectorGetComponent(A, 2), VectorGetComponent(M, 2)),
+		(float)fmodf(VectorGetComponent(A, 3), VectorGetComponent(M, 3)));
 }
 
 // SinCos
@@ -1025,13 +1039,13 @@ bool FVectorRegisterAbstractionTest::RunTest(const FString& Parameters)
 	LogTest( TEXT("VectorReciprocalSqrtAccurate"), TestVectorsEqual( VectorOne(), V3, 1e-6f ) );
 
 	// VectorMod
-	V0 = MakeVectorRegister(0.0f, 3.2f, 2.8f, 10.0f);
+	V0 = MakeVectorRegister(0.0f, 3.2f, 2.8f,  1.5f);
 	V1 = MakeVectorRegister(2.0f, 1.2f, 2.0f,  3.0f);
 	V2 = TestReferenceMod(V0, V1);
 	V3 = VectorMod(V0, V1);
 	LogTest( TEXT("VectorMod positive"), TestVectorsEqual(V2, V3));
 
-	V0 = MakeVectorRegister(-2.0f,  3.2f, -2.8f, -10.0f);
+	V0 = MakeVectorRegister(-2.0f,  3.2f, -2.8f,  -1.5f);
 	V1 = MakeVectorRegister(-1.5f, -1.2f,  2.0f,   3.0f);
 	V2 = TestReferenceMod(V0, V1);
 	V3 = VectorMod(V0, V1);
@@ -1174,7 +1188,11 @@ bool FVectorRegisterAbstractionTest::RunTest(const FString& Parameters)
 	{
 		const FRotator RotArray[] ={
 			FRotator(30.0f, -45.0f, 90.0f),
-			FRotator(45.0f, 60.0f, 120.0f),
+			FRotator(45.0f, 60.0f, -120.0f),
+			FRotator(0.f, 90.f, 0.f),
+			FRotator(0.f, -90.f, 0.f),
+			FRotator(0.f, 180.f, 0.f),
+			FRotator(0.f, -180.f, 0.f),
 			FRotator(90.f, 0.f, 0.f),
 			FRotator(-90.f, 0.f, 0.f),
 			FRotator(150.f, 0.f, 0.f)
@@ -1185,7 +1203,7 @@ bool FVectorRegisterAbstractionTest::RunTest(const FString& Parameters)
 			Q0 = TestRotatorToQuaternion(Rotator0);
 			FRotator Rotator1 = Q0.Rotator();
 			FRotator Rotator2 = TestQuaternionToRotator(Q0);
-			LogTest(TEXT("Rotator->Quat->Rotator"), Rotator1.Equals(Rotator2, 1e-5f));
+			LogRotatorTest(TEXT("Rotator->Quat->Rotator"), Rotator1, Rotator2, Rotator1.Equals(Rotator2, 1e-4f));
 		}
 	}
 
@@ -1350,6 +1368,80 @@ bool FVectorRegisterAbstractionTest::RunTest(const FString& Parameters)
 		LogTest(TEXT("VectorQuaternionMultiply2"), TestVectorsEqual(V2, V3, 1e-6f));
 	}
 
+	// FMath::FMod
+	{
+		struct XYPair
+		{
+			float X, Y;
+		};
+
+		static XYPair XYArray[] =
+		{		
+			// Test normal ranges
+			{ 0.0,	 1.0},
+			{ 1.5,	 1.0},
+			{ 2.8,	 0.3},
+			{-2.8,	 0.3},
+			{ 2.8,	-0.3},
+			{-2.8,	-0.3},
+			{-0.4,	 5.5},
+			{ 0.4,	-5.5},
+			{ 2.8,	 2.0 + KINDA_SMALL_NUMBER},
+			{-2.8,	 2.0 - KINDA_SMALL_NUMBER},
+
+			// Analytically should be zero but floating point precision can cause results close to Y (or erroneously negative) depending on the method used.
+			{55.8,	 9.3},
+			{1234.1234, 0.1234},
+
+			// Commonly used for FRotators and angles
+			{725.2,		360.0},
+			{179.9,		 90.0},
+			{ 5.3*PI,	2.*PI},
+			{-5.3*PI,	2.*PI},
+
+			// Test extreme ranges
+			{ 1.0,			 KINDA_SMALL_NUMBER},
+			{ 1.0,			-KINDA_SMALL_NUMBER},
+			{-SMALL_NUMBER,  SMALL_NUMBER},
+			{ SMALL_NUMBER, -SMALL_NUMBER},
+			{ 1.0,			 MIN_flt},
+			{ 1.0,			-MIN_flt},
+			{ MAX_flt,		 MIN_flt},
+			{ MAX_flt,		-MIN_flt},
+
+			// We define this to be zero and not NaN.
+			// Disabled since we don't want to trigger an ensure, but left here for testing that logic.
+			//{ 1.0,	 0.0}, 
+			//{ 1.0,	-0.0},
+		};
+
+		for (auto XY : XYArray)
+		{
+			const float X = XY.X;
+			const float Y = XY.Y;
+			const float Ours = FMath::Fmod(X, Y);
+			const float Theirs = fmodf(X, Y);
+			
+			// A compiler bug causes stock fmodf() to rarely return NaN for valid input, we don't want to report this as a fatal error.
+			if (Y != 0 && FMath::IsNaN(Theirs))
+			{
+				UE_LOG(LogUnrealMathTest, Warning, TEXT("fmodf(%f, %f) with valid input resulted in NaN!"), X, Y);
+				continue;
+			}
+
+			const float Delta = FMath::Abs(Ours - Theirs);
+			if (Delta > 1e-5f)
+			{
+				// If we differ significantly, that is likely due to rounding and the difference should be nearly equal to Y.
+				const float FractionalDelta = FMath::Abs(Delta - FMath::Abs(Y));
+				if (FractionalDelta > 1e-4f)
+				{
+					UE_LOG(LogUnrealMathTest, Log, TEXT("FMath::Fmod(%f, %f)=%f <-> fmodf(%f, %f)=%f: FAILED"), X, Y, Ours, X, Y, Theirs);
+					GPassing = false;
+				}
+			}
+		}
+	}
 
 	if (!GPassing)
 	{
@@ -1358,3 +1450,92 @@ bool FVectorRegisterAbstractionTest::RunTest(const FString& Parameters)
 
 	return true;
 }
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FInterpolationFunctionTests, "System.Core.Math.Interpolation Function Test", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+bool FInterpolationFunctionTests::RunTest(const FString&)
+{
+	// The purpose of this test is to verify that various combinations of the easing functions are actually equivalent.
+	// It currently only tests the InOut versions over different ranges, because the initial implementation was bad.
+	// Further improvements (optimizations, new easing functions) to the easing functions should be accompanied by
+	// expansions to this test suite.
+
+	typedef float(*EasingFunc)(float Percent);
+	auto RunInOutTest = [](const TArray< TPair<EasingFunc, FString> >& Functions, FAutomationTestBase* TestContext)
+	{
+		for (int32 I = 0; I < 100; ++I)
+		{
+			float Percent = (float)I / 100.f;
+			TArray<float> Values;
+			for (const auto& Entry : Functions)
+			{
+				Values.Push(Entry.Key(Percent));
+			}
+
+			bool bSucceeded = true;
+			int32 K = 0;
+			for (int32 J = 1; J < Functions.Num(); ++J)
+			{
+				if (!FMath::IsNearlyEqual(Values[K], Values[J], 0.0001f))
+				{
+					TestContext->AddError(FString::Printf( TEXT("Easing Function tests failed at index %d!"), I ) );
+
+					for (int32 L = 0; L < Values.Num(); ++L)
+					{
+						TestContext->AddLogItem(FString::Printf(TEXT("%s: %f"), *(Functions[L].Value), Values[L]));
+					}
+					// don't record further failures, it would likely create a tremendous amount of spam
+					return;
+				}
+			}
+		}
+	};
+
+#define INTERP_WITH_RANGE( RANGE_MIN, RANGE_MAX, FUNCTION, IDENTIFIER ) \
+	auto FUNCTION##IDENTIFIER = [](float Percent ) \
+	{ \
+		const float Min = RANGE_MIN; \
+		const float Max = RANGE_MAX; \
+		const float Range = Max - Min; \
+		return (FMath::FUNCTION(Min, Max, Percent) - Min) / Range; \
+	};
+
+	{
+		// Test InterpExpoInOut:
+		INTERP_WITH_RANGE(.9f, 1.2f, InterpExpoInOut, A)
+		INTERP_WITH_RANGE(0.f, 1.f, InterpExpoInOut, B)
+		INTERP_WITH_RANGE(-8.6f;, 2.3f, InterpExpoInOut, C)
+		TArray< TPair< EasingFunc, FString > > FunctionsToTest;
+		FunctionsToTest.Push(TPairInitializer<EasingFunc, FString>(InterpExpoInOutA, TEXT("InterpExpoInOutA")));
+		FunctionsToTest.Push(TPairInitializer<EasingFunc, FString>(InterpExpoInOutB, TEXT("InterpExpoInOutB")));
+		FunctionsToTest.Push(TPairInitializer<EasingFunc, FString>(InterpExpoInOutC, TEXT("InterpExpoInOutC")));
+		RunInOutTest(FunctionsToTest, this);
+	}
+
+	{
+		// Test InterpCircularInOut:
+		INTERP_WITH_RANGE(5.f, 9.32f, InterpCircularInOut, A)
+		INTERP_WITH_RANGE(0.f, 1.f, InterpCircularInOut, B)
+		INTERP_WITH_RANGE(-8.1f;, -.75f, InterpCircularInOut, C)
+		TArray< TPair< EasingFunc, FString > > FunctionsToTest;
+		FunctionsToTest.Push(TPairInitializer<EasingFunc, FString>(InterpCircularInOutA, TEXT("InterpCircularInOutA")));
+		FunctionsToTest.Push(TPairInitializer<EasingFunc, FString>(InterpCircularInOutB, TEXT("InterpCircularInOutB")));
+		FunctionsToTest.Push(TPairInitializer<EasingFunc, FString>(InterpCircularInOutC, TEXT("InterpCircularInOutC")));
+		RunInOutTest(FunctionsToTest, this);
+	}
+
+	{
+		// Test InterpSinInOut:
+		INTERP_WITH_RANGE(10.f, 11.2f, InterpSinInOut, A)
+		INTERP_WITH_RANGE(0.f, 1.f, InterpSinInOut, B)
+		INTERP_WITH_RANGE(-5.6f;, -4.3f, InterpSinInOut, C)
+		TArray< TPair< EasingFunc, FString > > FunctionsToTest;
+		FunctionsToTest.Push(TPairInitializer<EasingFunc, FString>(InterpSinInOutA, TEXT("InterpSinInOutA")));
+		FunctionsToTest.Push(TPairInitializer<EasingFunc, FString>(InterpSinInOutB, TEXT("InterpSinInOutB")));
+		FunctionsToTest.Push(TPairInitializer<EasingFunc, FString>(InterpSinInOutC, TEXT("InterpSinInOutC")));
+		RunInOutTest(FunctionsToTest, this);
+	}
+
+	return true;
+}
+
+#endif //WITH_DEV_AUTOMATION_TESTS

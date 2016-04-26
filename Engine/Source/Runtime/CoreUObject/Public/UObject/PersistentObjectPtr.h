@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PersistentObjectPtr.h: Template that is a base class for Lazy and Asset pointers
@@ -37,6 +37,17 @@ public:
 	FORCEINLINE TPersistentObjectPtr(const TPersistentObjectPtr& Other)
 	{
 		(*this)=Other;
+	}
+
+	/**  
+	 * Construct from a unique object identifier
+	 * @param InObjectID a unique object identifier
+	 */
+	explicit FORCEINLINE TPersistentObjectPtr(const TObjectID& InObjectID)
+		: WeakPtr()
+		, TagAtLastTest(0)
+		, ObjectID(InObjectID)
+	{
 	}
 
 	/**  

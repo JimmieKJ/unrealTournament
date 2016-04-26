@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneTracksPrivatePCH.h"
 #include "MovieSceneSpawnTrack.h"
@@ -14,7 +14,11 @@
 
 UMovieSceneSpawnTrack::UMovieSceneSpawnTrack(const FObjectInitializer& Obj)
 	: Super(Obj)
-{ }
+{
+#if WITH_EDITORONLY_DATA
+	TrackTint = FColor(255, 0, 93, 65);
+#endif
+}
 
 
 /* UMovieSceneSpawnTrack interface
@@ -51,11 +55,11 @@ UMovieSceneSection* UMovieSceneSpawnTrack::CreateNewSection()
 
 TSharedPtr<IMovieSceneTrackInstance> UMovieSceneSpawnTrack::CreateInstance()
 {
-	return MakeShareable( new FMovieSceneSpawnTrackInstance( *this ) );
+	return MakeShareable(new FMovieSceneSpawnTrackInstance(*this));
 }
 
 
-bool UMovieSceneSpawnTrack::HasSection(const UMovieSceneSection& Section ) const
+bool UMovieSceneSpawnTrack::HasSection(const UMovieSceneSection& Section) const
 {
 	return Sections.ContainsByPredicate([&](const UMovieSceneSection* In){ return In == &Section; });
 }

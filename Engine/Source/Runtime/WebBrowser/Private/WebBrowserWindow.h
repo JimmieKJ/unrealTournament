@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -25,8 +25,6 @@
 #if PLATFORM_WINDOWS
 	#include "HideWindowsPlatformTypes.h"
 #endif
-
-class FWebBrowserViewport;
 
 /**
  * Helper for containing items required for CEF browser window creation.
@@ -63,7 +61,7 @@ private:
 	 * @param InContentsToLoad Optional string to load as a web page.
 	 * @param InShowErrorMessage Whether to show an error message in case of loading errors.
 	 */
-	FWebBrowserWindow(CefRefPtr<CefBrowser> InBrowser, FString InUrl, TOptional<FString> InContentsToLoad, bool ShowErrorMessage, bool bThumbMouseButtonNavigation, bool bUseTransparency);
+	FWebBrowserWindow(CefRefPtr<CefBrowser> InBrowser, CefRefPtr<FWebBrowserHandler> InHandler, FString InUrl, TOptional<FString> InContentsToLoad, bool ShowErrorMessage, bool bThumbMouseButtonNavigation, bool bUseTransparency);
 
 public:
 	/** Virtual Destructor. */
@@ -79,8 +77,7 @@ public:
 
 	virtual void LoadURL(FString NewURL) override;
 	virtual void LoadString(FString Contents, FString DummyURL) override;
-	virtual void SetViewportSize(FIntPoint WindowSize) override;
-	virtual TSharedRef<SWidget> CreateWidget(TAttribute<FVector2D> ViewportSize) override;
+	virtual void SetViewportSize(FIntPoint WindowSize, FIntPoint WindowPos) override;
 	virtual FSlateShaderResource* GetTexture(bool bIsPopup = false) override;
 	virtual bool IsValid() const override;
 	virtual bool IsInitialized() const override;
@@ -88,6 +85,7 @@ public:
 	virtual EWebBrowserDocumentState GetDocumentLoadingState() const override;
 	virtual FString GetTitle() const override;
 	virtual FString GetUrl() const override;
+	virtual void GetSource(TFunction<void (const FString&)> Callback) const override;
 	virtual bool OnKeyDown(const FKeyEvent& InKeyEvent) override;
 	virtual bool OnKeyUp(const FKeyEvent& InKeyEvent) override;
 	virtual bool OnKeyChar(const FCharacterEvent& InCharacterEvent) override;
@@ -109,6 +107,8 @@ public:
 	virtual void CloseBrowser(bool bForce) override;
 	virtual void BindUObject(const FString& Name, UObject* Object, bool bIsPermanent = true) override;
 	virtual void UnbindUObject(const FString& Name, UObject* Object = nullptr, bool bIsPermanent = true) override;
+	virtual int GetLoadError() override;
+	virtual void SetIsDisabled(bool bValue) override;
 
 	DECLARE_DERIVED_EVENT(FWebBrowserWindow, IWebBrowserWindow::FOnDocumentStateChanged, FOnDocumentStateChanged);
 	virtual FOnDocumentStateChanged& OnDocumentStateChanged() override
@@ -126,6 +126,12 @@ public:
 	virtual FOnUrlChanged& OnUrlChanged() override
 	{
 		return UrlChangedEvent;
+	}
+
+	DECLARE_DERIVED_EVENT(FWebBrowserWindow, IWebBrowserWindow::FOnToolTip, FOnToolTip);
+	virtual FOnToolTip& OnToolTip() override
+	{
+		return ToolTipEvent;
 	}
 
 	DECLARE_DERIVED_EVENT(FWebBrowserWindow, IWebBrowserWindow::FOnNeedsRedraw, FOnNeedsRedraw);
@@ -146,7 +152,7 @@ public:
 
 	virtual FOnCreateWindow& OnCreateWindow() override
 	{
-		return CreateWindowDelegate;
+		return WebBrowserHandler->OnCreateWindow();
 	}
 
 	virtual FOnCloseWindow& OnCloseWindow() override
@@ -161,7 +167,7 @@ public:
 
 	virtual FOnBeforePopupDelegate& OnBeforePopup() override
 	{
-		return BeforePopupDelegate;
+		return WebBrowserHandler->OnBeforePopup();
 	}
 
 	DECLARE_DERIVED_EVENT(FWebBrowserWindow, IWebBrowserWindow::FOnShowPopup, FOnShowPopup);
@@ -225,7 +231,7 @@ private:
 	bool GetViewRect(CefRect& Rect);
 
 	/** Notifies clients that document loading has failed. */
-	void NotifyDocumentError();
+	void NotifyDocumentError(int ErrorCode);
 
 	/**
 	 * Notifies clients that the loading state of the document has changed.
@@ -274,9 +280,11 @@ private:
 	bool OnBeforeBrowse(CefRefPtr<CefBrowser> Browser, CefRefPtr<CefFrame> Frame, CefRefPtr<CefRequest> Request, bool bIsRedirect);
 	
 	/**
-	 * Called before loading a resource.
+	 * Called before loading a resource to allow overriding the content for a request.
+	 *
+	 * @return string content representing the content to show for the URL or an unset value to fetch the URL normally.
 	 */
-	CefRefPtr<CefResourceHandler> GetResourceHandler( CefRefPtr< CefFrame > Frame, CefRefPtr< CefRequest > Request );
+	TOptional<FString> GetResourceContent( CefRefPtr< CefFrame > Frame, CefRefPtr< CefRequest > Request);
 
 	/** 
 	 * Called when browser reports a key event that was not handled by it
@@ -303,12 +311,6 @@ private:
 	 */
 	void OnRenderProcessTerminated(CefRequestHandler::TerminationStatus Status);
 
-
-	/** Specifies if window creation functionality is available. 
-	 *
-	 * @return true if window creation functionality was provided, false otherwise.  If false, RequestCreateWindow() will always return false.
-	 */
-	bool SupportsNewWindows();
 
 	/** Called when the browser requests a new UI window
 	 *
@@ -348,9 +350,6 @@ private:
 	void ShowPopupMenu(bool bShow);
 
 public:
-
-	// Trigger an OnBeforePopup event chain
-	bool OnCefBeforePopup(const CefString& Target_Url, const CefString& Target_Frame_Name);
 
 	/**
 	 * Gets the Cef Keyboard Modifiers based on a Key Event.
@@ -401,11 +400,6 @@ private:
 
 private:
 
-	/** Viewport interface for rendering the web page. */
-	TSharedPtr<FWebBrowserViewport> BrowserViewport;
-	/** The actual viewport widget. Required to update its tool tip property. */
-	TSharedPtr<SViewport> ViewportWidget;
-
 	/** Current state of the document being loaded. */
 	EWebBrowserDocumentState DocumentState;
 
@@ -414,6 +408,9 @@ private:
 
 	/** Pointer to the CEF Browser for this window. */
 	CefRefPtr<CefBrowser> InternalCefBrowser;
+
+	/** Pointer to the CEF handler for this window. */
+	CefRefPtr<FWebBrowserHandler> WebBrowserHandler;
 
 	/** Current title of this window. */
 	FString Title;
@@ -454,6 +451,9 @@ private:
 	/** Delegate for broadcasting address changes. */
 	FOnUrlChanged UrlChangedEvent;
 
+	/** Delegate for showing or hiding tool tips. */
+	FOnToolTip ToolTipEvent;
+
 	/** Delegate for notifying that the window needs refreshing. */
 	FOnNeedsRedraw NeedsRedrawEvent;
 	
@@ -462,12 +462,6 @@ private:
 
 	/** Delegate for overriding Url contents. */
 	FOnLoadUrl LoadUrlDelegate;
-
-	/** Delegate for notifying that a popup window is attempting to open. */
-	FOnBeforePopupDelegate BeforePopupDelegate;
-	
-	/** Delegate for handling requests to create new windows. */
-	FOnCreateWindow CreateWindowDelegate;
 
 	/** Delegate for handling requests to close new windows that were created. */
 	FOnCloseWindow CloseWindowDelegate;
@@ -486,6 +480,9 @@ private:
 
 	/** Tracks the current mouse cursor */
 	EMouseCursor::Type Cursor;
+
+	/** Tracks wether the widget is currently disabled or not*/
+	bool bIsDisabled;
 
 	/** Tracks wether the widget is currently hidden or not*/
 	bool bIsHidden;
@@ -510,6 +507,8 @@ private:
 
 	/** This is set to true when reloading after render process crash. */
 	bool bRecoverFromRenderProcessCrash;
+
+	int ErrorCode;
 
 	/** Handling of passing and marshalling messages for JS integration is delegated to a helper class*/
 	TSharedPtr<FWebJSScripting> Scripting;

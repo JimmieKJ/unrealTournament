@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "EnvironmentQueryEditorPrivatePCH.h"
 #include "EnvironmentQueryEditorModule.h"
 
@@ -47,7 +47,7 @@ void UEnvironmentQueryGraph::UpdateAsset(int32 UpdateFlags)
 	}
 
 	UEnvQuery* Query = Cast<UEnvQuery>(GetOuter());
-	Query->Options.Reset();
+	Query->GetOptionsMutable().Reset();
 	if (RootNode && RootNode->Pins.Num() > 0 && RootNode->Pins[0]->LinkedTo.Num() > 0)
 	{
 		UEdGraphPin* MyPin = RootNode->Pins[0];
@@ -88,13 +88,68 @@ void UEnvironmentQueryGraph::UpdateAsset(int32 UpdateFlags)
 						}
 					}
 
-					Query->Options.Add(OptionInstance);
+					Query->GetOptionsMutable().Add(OptionInstance);
 				}
+				
+				// FORT-16508 tracking BEGIN: log invalid option
+				if (OptionInstance && OptionInstance->Generator == nullptr)
+				{
+					FString DebugMessage = FString::Printf(TEXT("[%s] UpdateAsset found option instance [pin:%d] without a generator! tests:%d"),
+						FPlatformTime::StrTimestamp(), Idx, OptionNode->SubNodes.Num());
+
+					RootNode->LogDebugMessage(DebugMessage);
+				}
+				else if (OptionInstance == nullptr)
+				{
+					FString DebugMessage = FString::Printf(TEXT("[%s] UpdateAsset found option node [pin:%d] without an instance! tests:%d"),
+						FPlatformTime::StrTimestamp(), Idx, OptionNode->SubNodes.Num());
+
+					RootNode->LogDebugMessage(DebugMessage);
+				}
+				// FORT-16508 tracking END
 			}
 		}
 	}
 
 	RemoveOrphanedNodes();
+
+	// FORT-16508 tracking BEGIN: find corrupted options
+	if (RootNode)
+	{
+		for (int32 Idx = 0; Idx < Nodes.Num(); Idx++)
+		{
+			UEnvironmentQueryGraphNode_Option* OptionNode = Cast<UEnvironmentQueryGraphNode_Option>(Nodes[Idx]);
+			if (OptionNode)
+			{
+				UEnvQueryOption* OptionInstance = Cast<UEnvQueryOption>(OptionNode->NodeInstance);
+				if (OptionNode->NodeInstance == nullptr || OptionInstance == nullptr || OptionInstance->HasAnyFlags(RF_Transient))
+				{
+					FString DebugMessage = FString::Printf(TEXT("[%s] found corrupted node after RemoveOrphanedNodes! type:instance option:%s instance:%d transient:%d tests:%d"),
+						FPlatformTime::StrTimestamp(),
+						*GetNameSafe(OptionNode),
+						OptionNode->NodeInstance ? (OptionInstance ? 1 : -1) : 0,
+						OptionNode->NodeInstance ? (OptionNode->HasAnyFlags(RF_Transient) ? 1 : 0) : -1,
+						OptionNode->SubNodes.Num());					
+
+					RootNode->LogDebugError(DebugMessage);
+				}
+
+				if (OptionInstance && (OptionInstance->Generator == nullptr || OptionInstance->Generator->HasAnyFlags(RF_Transient)))
+				{
+					FString DebugMessage = FString::Printf(TEXT("[%s] found corrupted node after RemoveOrphanedNodes! type:generator option:%s instance:%d transient:%d tests:%d"),
+						FPlatformTime::StrTimestamp(),
+						*GetNameSafe(OptionNode),
+						OptionNode->NodeInstance ? 1 : 0,
+						OptionNode->NodeInstance ? (OptionNode->HasAnyFlags(RF_Transient) ? 1 : 0) : -1,
+						OptionNode->SubNodes.Num());
+
+					RootNode->LogDebugError(DebugMessage);
+				}
+			}
+		}
+	}
+	// FORT-16508 tracking END
+
 #if USE_EQS_DEBUGGER
 	UEnvQueryManager::NotifyAssetUpdate(Query);
 #endif
@@ -249,6 +304,43 @@ void UEnvironmentQueryGraph::CollectAllNodeInstances(TSet<UObject*>& NodeInstanc
 	}
 }
 
+void UEnvironmentQueryGraph::OnNodeInstanceRemoved(UObject* NodeInstance)
+{
+	// FORT-16508 tracking BEGIN: log removing a node instance
+	for (int32 Idx = 0; Idx < Nodes.Num(); Idx++)
+	{
+		UEnvironmentQueryGraphNode_Root* RootNode = Cast<UEnvironmentQueryGraphNode_Root>(Nodes[Idx]);
+		if (RootNode)
+		{
+			FString DebugMessage = FString::Printf(TEXT("[%s] RemoveInstance %s owner:%s wasTransient:%d"),
+				FPlatformTime::StrTimestamp(),
+				*GetNameSafe(NodeInstance),
+				NodeInstance ? *GetNameSafe(NodeInstance->GetOuter()) : TEXT("??"),
+				NodeInstance ? (NodeInstance->HasAnyFlags(RF_Transient) ? 1 : 0) : -1);
+
+			RootNode->LogDebugMessage(DebugMessage);
+		}
+	}
+	// FORT-16508 tracking END
+}
+
+void UEnvironmentQueryGraph::OnNodesPasted(const FString& ImportStr)
+{
+	// FORT-16508 tracking BEGIN: log removing a node instance
+	for (int32 Idx = 0; Idx < Nodes.Num(); Idx++)
+	{
+		UEnvironmentQueryGraphNode_Root* RootNode = Cast<UEnvironmentQueryGraphNode_Root>(Nodes[Idx]);
+		if (RootNode)
+		{
+			FString DebugMessage = FString::Printf(TEXT("[%s] PasteNodes\n\n%s"),
+				FPlatformTime::StrTimestamp(), *ImportStr);
+
+			RootNode->LogDebugMessage(DebugMessage);
+		}
+	}
+	// FORT-16508 tracking END
+}
+
 void UEnvironmentQueryGraph::UpdateDeprecatedGeneratorClasses()
 {
 	for (int32 Idx = 0; Idx < Nodes.Num(); Idx++)
@@ -272,7 +364,7 @@ void UEnvironmentQueryGraph::SpawnMissingNodes()
 
 	TSet<UEnvQueryTest*> ExistingTests;
 	TSet<UEnvQueryOption*> ExistingNodes;
-	TArray<UEnvQueryOption*> OptionsCopy = QueryOwner->Options;
+	TArray<UEnvQueryOption*> OptionsCopy = QueryOwner->GetOptions();
 
 	UAIGraphNode* MyRootNode = nullptr;
 	for (int32 Idx = 0; Idx < Nodes.Num(); Idx++)

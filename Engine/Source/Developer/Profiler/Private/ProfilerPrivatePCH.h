@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -23,7 +23,7 @@
 // TODO: Remove dependencies between generic profiler code and profiler ui code
 
 // Common headers and managers.
-#include "ProfilerRawStats.h"
+#include "ProfilerRawStatsForMemory.h"
 #include "ProfilerStream.h"
 
 #include "ProfilerSample.h"
@@ -31,6 +31,7 @@
 #include "ProfilerDataProvider.h"
 #include "ProfilerDataSource.h"
 #include "ProfilerSession.h"
+#include "ProfilerRawStatsForThreadView.h"
 #include "ProfilerCommands.h"
 #include "ProfilerManager.h"
 

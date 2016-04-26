@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 
@@ -1054,9 +1054,10 @@ namespace BuildPromotionTestHelper
 			//ADD_TEST_STAGE(Blueprint_Placement_Part2,			TEXT("Blueprint Placement"));
 			ADD_TEST_STAGE(Blueprint_Placement_Part3,			TEXT("Blueprint Placement"));
 			ADD_TEST_STAGE(Blueprint_Placement_Part4,			TEXT("Blueprint Placement"));
-			ADD_TEST_STAGE(Blueprint_SetBreakpoint_Part1,		TEXT("Set Breakpoints"));
-			ADD_TEST_STAGE(Blueprint_SetBreakpoint_Part2,		TEXT("Set Breakpoints"));
-			ADD_TEST_STAGE(Blueprint_SetBreakpoint_Part3,		TEXT("Set Breakpoints"));
+			// Disabling breakpoint tests because they can't actually detect if the breakpoint is hit since we aren't ticked during intraframe debugging
+			//ADD_TEST_STAGE(Blueprint_SetBreakpoint_Part1,		TEXT("Set Breakpoints"));
+			//ADD_TEST_STAGE(Blueprint_SetBreakpoint_Part2,		TEXT("Set Breakpoints"));
+			//ADD_TEST_STAGE(Blueprint_SetBreakpoint_Part3,		TEXT("Set Breakpoints"));
 			ADD_TEST_STAGE(Blueprint_LevelScript_Part1,			TEXT("Level Script"));
 			ADD_TEST_STAGE(Blueprint_LevelScript_Part2,			TEXT("Level Script"));
 			ADD_TEST_STAGE(Blueprint_LevelScript_Part3,			TEXT("Level Script"));

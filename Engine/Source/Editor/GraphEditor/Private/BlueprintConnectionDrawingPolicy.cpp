@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "GraphEditorCommon.h"
 #include "BlueprintConnectionDrawingPolicy.h"
@@ -102,7 +102,7 @@ void FKismetConnectionDrawingPolicy::BuildExecutionRoadmap()
 			{
 				if (TestObject == ActiveObject)
 				{
-					UEdGraphPin* AssociatedPin = DebugData.FindExecPinFromCodeLocation(Sample.Function.Get(), Sample.Offset);
+					UEdGraphPin* AssociatedPin = DebugData.FindSourcePinFromCodeLocation(Sample.Function.Get(), Sample.Offset);
 
 					if (UEdGraphNode* Node = DebugData.FindSourceNodeFromCodeLocation(Sample.Function.Get(), Sample.Offset, /*bAllowImpreciseHit=*/ false))
 					{

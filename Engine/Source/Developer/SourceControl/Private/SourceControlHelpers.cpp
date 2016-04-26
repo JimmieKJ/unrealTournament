@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SourceControlPrivatePCH.h"
 #include "SourceControlHelpers.h"
@@ -196,6 +196,54 @@ bool AnnotateFile( ISourceControlProvider& InProvider, int32 InCheckInIdentifier
 	}
 
 	return false;
+}
+
+bool MarkFileForAdd( const FString& InFilePath )
+{
+	if (InFilePath.IsEmpty())
+	{
+		FMessageLog("SourceControl").Error(LOCTEXT("UnspecifiedCheckoutFile", "Check out file not specified"));
+		return false;
+	}
+
+	if (!ISourceControlModule::Get().IsEnabled())
+	{
+		FMessageLog("SourceControl").Error(LOCTEXT("SourceControlDisabled", "Source control is not enabled."));
+		return false;
+	}
+
+	if (!ISourceControlModule::Get().GetProvider().IsAvailable())
+	{
+		FMessageLog("SourceControl").Error(LOCTEXT("SourceControlServerUnavailable", "Source control server is currently not available."));
+		return false;
+	}
+
+	// mark for add now if needed
+	ISourceControlProvider& Provider = ISourceControlModule::Get().GetProvider();
+	FSourceControlStatePtr SourceControlState = Provider.GetState(InFilePath, EStateCacheUsage::Use);
+	if (!SourceControlState.IsValid())
+	{
+		// Improper or invalid SCC state
+		FFormatNamedArguments Arguments;
+		Arguments.Add(TEXT("InFilePath"), FText::FromString(InFilePath));
+		FMessageLog("SourceControl").Error(FText::Format(LOCTEXT("CouldNotDetermineState", "Could not determine source control state of file '{InFilePath}'."), Arguments));
+		return false;
+	}
+
+	// add it if necessary
+	if (!SourceControlState->IsSourceControlled() || SourceControlState->IsUnknown())
+	{
+		ECommandResult::Type Result = Provider.Execute(ISourceControlOperation::Create<FMarkForAdd>(), InFilePath);
+		if (Result != ECommandResult::Succeeded)
+		{
+			FFormatNamedArguments Arguments;
+			Arguments.Add(TEXT("InFilePath"), FText::FromString(InFilePath));
+			FMessageLog("SourceControl").Error(FText::Format(LOCTEXT("MarkForAddFailed", "Failed to add file '{InFilePath}'."), Arguments));
+			return false;
+		}
+	}
+
+	return true;
 }
 
 bool CheckOutFile( const FString& InFilePath )

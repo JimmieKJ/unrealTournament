@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UAnimSingleNodeInstance.cpp: Single Node Tree Instance 
@@ -47,12 +47,6 @@ void UAnimSingleNodeInstance::SetAnimationAsset(class UAnimationAsset* NewAsset,
 	{
 		// otherwise stop all montages
 		StopAllMontages(0.25f);
-
-		UBlendSpaceBase * BlendSpace = Cast<UBlendSpaceBase>(NewAsset);
-		if(BlendSpace)
-		{
-			BlendSpace->InitializeFilter(&BlendFilter);
-		}
 	}
 }
 
@@ -278,11 +272,10 @@ void UAnimSingleNodeInstance::SetReverse(bool bInReverse)
 	GetProxyOnGameThread<FAnimSingleNodeInstanceProxy>().SetReverse(bInReverse);
 }
 
-void UAnimSingleNodeInstance::SetPosition(float InPosition, bool bFireNotifies)
+void UAnimSingleNodeInstance::SetPositionWithPreviousTime(float InPosition, float InPreviousTime, bool bFireNotifies)
 {
 	FAnimSingleNodeInstanceProxy& Proxy = GetProxyOnGameThread<FAnimSingleNodeInstanceProxy>();
 
-	float PreviousTime = Proxy.GetCurrentTime();
 	Proxy.SetCurrentTime(FMath::Clamp<float>(InPosition, 0.f, GetLength()));
 
 	if (FAnimMontageInstance* CurMontageInstance = GetActiveMontageInstance())
@@ -301,7 +294,7 @@ void UAnimSingleNodeInstance::SetPosition(float InPosition, bool bFireNotifies)
 			NotifyQueue.Reset(GetSkelMeshComponent());
 
 			TArray<const FAnimNotifyEvent*> Notifies;
-			SequenceBase->GetAnimNotifiesFromDeltaPositions(PreviousTime, Proxy.GetCurrentTime(), Notifies);
+			SequenceBase->GetAnimNotifiesFromDeltaPositions(InPreviousTime, Proxy.GetCurrentTime(), Notifies);
 			if ( Notifies.Num() > 0 )
 			{
 				// single node instance only has 1 asset at a time
@@ -312,6 +305,15 @@ void UAnimSingleNodeInstance::SetPosition(float InPosition, bool bFireNotifies)
 
 		}
 	}
+}
+
+void UAnimSingleNodeInstance::SetPosition(float InPosition, bool bFireNotifies)
+{
+	FAnimSingleNodeInstanceProxy& Proxy = GetProxyOnGameThread<FAnimSingleNodeInstanceProxy>();
+
+	float PreviousTime = Proxy.GetCurrentTime();
+
+	SetPositionWithPreviousTime(InPosition, PreviousTime, bFireNotifies);
 }
 
 void UAnimSingleNodeInstance::SetBlendSpaceInput(const FVector& InBlendInput)
@@ -353,4 +355,15 @@ void UAnimSingleNodeInstance::StepBackward()
 FAnimInstanceProxy* UAnimSingleNodeInstance::CreateAnimInstanceProxy()
 {
 	return new FAnimSingleNodeInstanceProxy(this);
+}
+
+FVector UAnimSingleNodeInstance::GetFilterLastOutput()
+{
+	if (UBlendSpaceBase* Blendspace = Cast<UBlendSpaceBase>(GetCurrentAsset()))
+	{
+		FAnimSingleNodeInstanceProxy& Proxy = GetProxyOnGameThread<FAnimSingleNodeInstanceProxy>();
+		return Proxy.GetFilterLastOutput();
+	}
+
+	return FVector::ZeroVector;
 }

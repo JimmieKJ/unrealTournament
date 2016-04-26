@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "NavigationQueryFilter.generated.h"
@@ -27,10 +27,10 @@ struct ENGINE_API FNavigationFilterArea
 	UPROPERTY(EditAnywhere, Category=Area)
 	uint32 bIsExcluded : 1;
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category=Area, meta=(InlineEditConditionToggle))
 	uint32 bOverrideTravelCost : 1;
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category=Area, meta=(InlineEditConditionToggle))
 	uint32 bOverrideEnteringCost : 1;
 
 	FNavigationFilterArea() : TravelCostOverride(1.0f) {}

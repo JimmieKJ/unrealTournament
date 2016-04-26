@@ -1,7 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemGooglePlayPrivatePCH.h"
 #include "OnlineAsyncTaskGooglePlayShowLoginUI.h"
+
+#include "gpg/player_manager.h"
+
 
 FOnlineAsyncTaskGooglePlayShowLoginUI::FOnlineAsyncTaskGooglePlayShowLoginUI(
 	FOnlineSubsystemGooglePlay* InSubsystem,
@@ -27,7 +30,7 @@ void FOnlineAsyncTaskGooglePlayShowLoginUI::Start_OnTaskThread()
 	{
 		// User is already authorized, nothing to do.
 		bWasSuccessful = true;
-		bIsComplete = true;
+		Subsystem->GetGameServices()->Players().FetchSelf([this](gpg::PlayerManager::FetchSelfResponse const &response) { OnFetchSelfResponse(response); });
 	}
 
 	// The user isn't authorized, show the sign-in UI.
@@ -62,6 +65,26 @@ void FOnlineAsyncTaskGooglePlayShowLoginUI::OnAuthActionFinished(gpg::AuthOperat
 	if (InOp == gpg::AuthOperation::SIGN_IN)
 	{
 		bWasSuccessful = InStatus == gpg::AuthStatus::VALID;
-		bIsComplete = true;
+		if(bWasSuccessful)
+		{
+			Subsystem->GetGameServices()->Players().FetchSelf([this](gpg::PlayerManager::FetchSelfResponse const &response) { OnFetchSelfResponse(response); });
+		}
+		else
+		{
+			bIsComplete = true;
+		}
 	}
+}
+
+void FOnlineAsyncTaskGooglePlayShowLoginUI::OnFetchSelfResponse(const gpg::PlayerManager::FetchSelfResponse& SelfResponse)
+{
+	if(gpg::IsSuccess(SelfResponse.status))
+	{
+		Subsystem->GetIdentityGooglePlay()->SetPlayerDataFromFetchSelfResponse(SelfResponse.data);
+	}
+	else
+	{
+		UE_LOG(LogOnline, Warning, TEXT("FetchSelf Response Status Not Successful"));
+	}
+	bIsComplete = true;
 }

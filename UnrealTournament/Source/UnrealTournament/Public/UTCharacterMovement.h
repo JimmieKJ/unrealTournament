@@ -114,6 +114,9 @@ public:
 	/** for replaying moves set up */
 	bool bIsSettingUpFirstReplayMove;
 
+	/** Used to disable jump boots if they are setup to be disabled on flag carrier */
+	bool bIsDoubleJumpAvailableForFlagCarrier;
+
 	/** Smoothed speed */
 	UPROPERTY()
 	float AvgSpeed;
@@ -172,6 +175,9 @@ public:
 	{
 		return PendingImpulseToApply;
 	}
+
+	//Checks if we are a flag carrier at the moment
+	virtual bool IsCarryingFlag() const;
 
 protected:
 	virtual void OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode) override;
@@ -415,6 +421,8 @@ public:
 	/** returns current bWantsWallSlide */
 	UFUNCTION(BlueprintCallable, Category = "FloorSlide")
 		virtual bool WantsWallSlide();
+
+	virtual void HandleSlideRequest();
 
 	virtual void HandleCrouchRequest();
 

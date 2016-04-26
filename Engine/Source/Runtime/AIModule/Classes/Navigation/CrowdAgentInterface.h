@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "AITypes.h"
@@ -25,4 +25,13 @@ class ICrowdAgentInterface
 
 	/** @return max speed of crowd agent */
 	virtual float GetCrowdAgentMaxSpeed() const { return 0.0f; }
+
+	/** Group mask for this agent */
+	virtual int32 GetCrowdAgentAvoidanceGroup() const { return 1; }
+
+	/** Will avoid other agents if they are in one of specified groups */
+	virtual int32 GetCrowdAgentGroupsToAvoid() const { return MAX_int32; }
+
+	/** Will NOT avoid other agents if they are in one of specified groups, higher priority than GroupsToAvoid */
+	virtual int32 GetCrowdAgentGroupsToIgnore() const { return 0; }
 };

@@ -1,12 +1,12 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
 #include "AnimNotify.h"
 #include "AnimNotify_PlayParticleEffect.generated.h"
 
-UCLASS(const, hidecategories=Object, collapsecategories, meta=(DisplayName="Play Particle Effect"), MinimalAPI)
-class UAnimNotify_PlayParticleEffect : public UAnimNotify
+UCLASS(const, hidecategories=Object, collapsecategories, meta=(DisplayName="Play Particle Effect"))
+class ENGINE_API UAnimNotify_PlayParticleEffect : public UAnimNotify
 {
 	GENERATED_BODY()
 

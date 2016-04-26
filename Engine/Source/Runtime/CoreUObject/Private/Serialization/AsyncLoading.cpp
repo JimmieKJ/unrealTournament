@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UnAsyncLoading.cpp: Unreal async loading code.
@@ -14,7 +14,9 @@
 #include "ExclusiveLoadPackageTimeTracker.h"
 #include "AssetRegistryInterface.h"
 #include "BlueprintSupport.h"
+#include "HAL/ExceptionHandling.h"
 
+#define FIND_MEMORY_STOMPS (1 && PLATFORM_WINDOWS && !WITH_EDITORONLY_DATA)
 
 /*-----------------------------------------------------------------------------
 	Async loading stats.
@@ -135,7 +137,9 @@ public:
 		const EInternalObjectFlags AsyncFlags = EInternalObjectFlags::Async | EInternalObjectFlags::AsyncLoading;
 		for (UObject* Obj : ReferencedObjects)
 		{
-			check(Obj);
+			// Temporary fatal messages instead of checks to find the cause for a one-time crash in shipping config
+			UE_CLOG(Obj == nullptr, LogStreaming, Fatal, TEXT("NULL object in Async Objects Referencer"));
+			UE_CLOG(!Obj->IsValidLowLevelFast(), LogStreaming, Fatal, TEXT("Invalid object in Async Objects Referencer"));
 			Obj->AtomicallyClearInternalFlags(AsyncFlags);
 			check(!Obj->HasAnyInternalFlags(AsyncFlags))
 		}
@@ -329,12 +333,19 @@ void FAsyncLoadingThread::InitializeAsyncThread()
 void FAsyncLoadingThread::CancelAsyncLoadingInternal()
 {
 	{
+		FGCScopeGuard GCGuard;
+		FAsyncObjectsReferencer::Get().EmptyReferencedObjectsAndCancelLoading();
+	}
+
+	{
 		// Packages we haven't yet started processing.
 #if THREADSAFE_UOBJECTS
 		FScopeLock QueueLock(&QueueCritical);
 #endif
+		const EAsyncLoadingResult::Type Result = EAsyncLoadingResult::Canceled;
 		for (FAsyncPackageDesc* PackageDesc : QueuedPackages)
 		{
+			PackageDesc->PackageLoadedDelegate.ExecuteIfBound(PackageDesc->Name, nullptr, Result);
 			delete PackageDesc;
 		}
 		QueuedPackages.Reset();
@@ -381,10 +392,6 @@ void FAsyncLoadingThread::CancelAsyncLoadingInternal()
 	QueuedPackagesCounter.Reset();
 
 	FUObjectThreadContext::Get().ObjLoaded.Empty();
-	{
-		FGCScopeGuard GCGuard;
-		FAsyncObjectsReferencer::Get().EmptyReferencedObjectsAndCancelLoading();
-	}
 
 	// Notify everyone streaming is canceled.
 	CancelLoadingEvent->Trigger();
@@ -435,7 +442,7 @@ void FAsyncLoadingThread::UpdateExistingPackagePriorities(FAsyncPackage* InPacka
 		AsyncLoadingCounter.Decrement();
 		AsyncPackagesCounter.Decrement();
 
-		InsertPackage(InPackage, InAssetRegistry != nullptr ? EAsyncPackageInsertMode::InsertAfterMatchingPriorities : EAsyncPackageInsertMode::InsertBeforeMatchingPriorities);
+		InsertPackage(InPackage, EAsyncPackageInsertMode::InsertBeforeMatchingPriorities);
 	}
 
 	if (InAssetRegistry)
@@ -526,7 +533,7 @@ void FAsyncLoadingThread::ProcessAsyncPackageRequest(FAsyncPackageDesc* InReques
 		}
 #endif
 		// Add to queue according to priority.
-		InsertPackage(Package, InAssetRegistry != nullptr ? EAsyncPackageInsertMode::InsertAfterMatchingPriorities : EAsyncPackageInsertMode::InsertBeforeMatchingPriorities);
+		InsertPackage(Package, EAsyncPackageInsertMode::InsertAfterMatchingPriorities);
 
 		// For all other cases this is handled in FindExistingPackageAndAddCompletionCallback
 		const int32 QueuedPackagesCount = QueuedPackagesCounter.Decrement();
@@ -820,6 +827,7 @@ FAsyncLoadingThread::FAsyncLoadingThread()
 	QueuedRequestsEvent = FPlatformProcess::GetSynchEventFromPool();
 	CancelLoadingEvent = FPlatformProcess::GetSynchEventFromPool();
 	ThreadSuspendedEvent = FPlatformProcess::GetSynchEventFromPool();
+	ThreadResumedEvent = FPlatformProcess::GetSynchEventFromPool();
 	if (FAsyncLoadingThread::IsMultithreaded())
 	{
 		UE_LOG(LogStreaming, Log, TEXT("Async loading is multithreaded."));
@@ -844,6 +852,8 @@ FAsyncLoadingThread::~FAsyncLoadingThread()
 	CancelLoadingEvent = nullptr;
 	FPlatformProcess::ReturnSynchEventToPool(ThreadSuspendedEvent);
 	ThreadSuspendedEvent = nullptr;
+	FPlatformProcess::ReturnSynchEventToPool(ThreadResumedEvent);
+	ThreadResumedEvent = nullptr;	
 }
 
 bool FAsyncLoadingThread::Init()
@@ -860,7 +870,11 @@ uint32 FAsyncLoadingThread::Run()
 	{
 		if (IsLoadingSuspended.GetValue() == 0)
 		{
-			bWasSuspendedLastFrame = false;
+			if (bWasSuspendedLastFrame)
+			{
+				bWasSuspendedLastFrame = false;
+				ThreadResumedEvent->Trigger();
+			}			
 			TickAsyncThread(false, true, 0.0f);
 		}
 		else if (!bWasSuspendedLastFrame)
@@ -934,8 +948,11 @@ void FAsyncLoadingThread::CancelAsyncLoading()
 
 void FAsyncLoadingThread::SuspendLoading()
 {
-	check(IsInGameThread());
+	UE_CLOG(!IsInGameThread() || IsInSlateThread(), LogStreaming, Fatal, TEXT("Async loading can only be suspended from the main thread"));
 	const int32 SuspendCount = IsLoadingSuspended.Increment();
+#if !WITH_EDITORONLY_DATA
+	UE_LOG(LogStreaming, Display, TEXT("Suspending async loading (%d)"), SuspendCount);
+#endif
 	if (IsMultithreaded() && SuspendCount == 1)
 	{
 		ThreadSuspendedEvent->Wait();
@@ -944,9 +961,16 @@ void FAsyncLoadingThread::SuspendLoading()
 
 void FAsyncLoadingThread::ResumeLoading()
 {
-	check(IsInGameThread());
+	check(IsInGameThread() && !IsInSlateThread());
 	const int32 SuspendCount = IsLoadingSuspended.Decrement();
+#if !WITH_EDITORONLY_DATA
+	UE_LOG(LogStreaming, Display, TEXT("Resuming async loading (%d)"), SuspendCount);
+#endif
 	UE_CLOG(SuspendCount < 0, LogStreaming, Fatal, TEXT("ResumeAsyncLoadingThread: Async loading was resumed more times than it was suspended."));
+	if (IsMultithreaded() && SuspendCount == 0)
+	{
+		ThreadResumedEvent->Wait();
+	}
 }
 
 float FAsyncLoadingThread::GetAsyncLoadPercentage(const FName& PackageName)
@@ -1358,10 +1382,40 @@ EAsyncPackageState::Type FAsyncPackage::CreateLinker()
 
 		if (!Linker)
 		{
+			const FString NameToLoad = Desc.NameToLoad.ToString();
+			const FGuid* const Guid = Desc.Guid.IsValid() ? &Desc.Guid : nullptr;
+			FString NativeFilename, LocalizedFilename;
+			FPackageName::DoesPackageExistWithLocalization(NameToLoad, Guid, &NativeFilename, &LocalizedFilename);
+			const bool DoesNativePackageExist = NativeFilename.Len() > 0;
+			const bool DoesLocalizedPackageExist = LocalizedFilename.Len() > 0;
+
 			FString PackageFileName;
-			if (Desc.NameToLoad == NAME_None || 
+			bool DoesPackageExist = false;
+			// The editor must not redirect packages for localization.
+			if (GIsEditor)
+			{
+				PackageFileName = NativeFilename;
+				DoesPackageExist = DoesNativePackageExist;
+			}
+			else
+			{
+				// Use the localized package if possible.
+				if (DoesLocalizedPackageExist)
+				{
+					PackageFileName = LocalizedFilename;
+					DoesPackageExist = DoesLocalizedPackageExist;
+				}
+				// If we are the game, we can fallback to the native package.
+				else
+				{
+					PackageFileName = NativeFilename;
+					DoesPackageExist = DoesNativePackageExist;
+				}
+			}
+
+			if (Desc.NameToLoad == NAME_None ||
 				(!GetConvertedDynamicPackageNameToTypeName().Contains(Desc.Name) &&
-				 !FPackageName::DoesPackageExist(Desc.NameToLoad.ToString(), Desc.Guid.IsValid() ? &Desc.Guid : nullptr, &PackageFileName)))
+				!DoesPackageExist))
 			{
 				UE_LOG(LogStreaming, Error, TEXT("Couldn't find file for package %s requested by async loading code."), *Desc.Name.ToString());
 				bLoadHasFailed = true;
@@ -1582,7 +1636,8 @@ EAsyncPackageState::Type FAsyncPackage::LoadImports()
 
 		// Handle circular dependencies - try to find existing packages.
 		UPackage* ExistingPackage = dynamic_cast<UPackage*>(StaticFindObjectFast(UPackage::StaticClass(), nullptr, ImportPackageFName, true));
-		if (ExistingPackage && !ExistingPackage->HasAnyPackageFlags(PKG_CompiledIn) && !ExistingPackage->bHasBeenFullyLoaded)//!ExistingPackage->HasAnyFlags(RF_WasLoaded))
+		if (ExistingPackage  && !ExistingPackage->bHasBeenFullyLoaded 
+			&& (!ExistingPackage->HasAnyPackageFlags(PKG_CompiledIn) || GetConvertedDynamicPackageNameToTypeName().Contains(ImportPackageFName)))//!ExistingPackage->HasAnyFlags(RF_WasLoaded))
 		{
 			// The import package already exists. Check if it's currently being streamed as well. If so, make sure
 			// we add all dependencies that don't yet have linkers created otherwise we risk that if the current package
@@ -1847,6 +1902,7 @@ EAsyncPackageState::Type FAsyncPackage::PostLoadObjects()
 		}
 		// All object must be finalized on the game thread
 		DeferredFinalizeObjects.Add(Object);
+		check(Object->IsValidLowLevelFast());
 		// Make sure all objects in DeferredFinalizeObjects are referenced too
 		FAsyncObjectsReferencer::Get().AddObject(Object);
 	}
@@ -1856,6 +1912,8 @@ EAsyncPackageState::Type FAsyncPackage::PostLoadObjects()
 
 	return Result;
 }
+
+void CreateClustersFromPackage(FLinkerLoad* PackageLinker);
 
 EAsyncPackageState::Type FAsyncPackage::PostLoadDeferredObjects(double InTickStartTime, bool bInUseTimeLimit, float& InOutTimeLimit)
 {
@@ -1932,11 +1990,13 @@ EAsyncPackageState::Type FAsyncPackage::PostLoadDeferredObjects(double InTickSta
 		if (LinkerRoot && !bLoadHasFailed)
 		{
 			LinkerRoot->AtomicallyClearInternalFlags(EInternalObjectFlags::AsyncLoading);
-			LinkerRoot->MarkAsFullyLoaded();
+			LinkerRoot->MarkAsFullyLoaded();			
 			LinkerRoot->SetLoadTime(FPlatformTime::Seconds() - LoadStartTime);
 
 			if (Linker)
 			{
+				CreateClustersFromPackage(Linker);
+
 				// give a hint to the IO system that we are done with this file for now
 				FIOSystem::Get().HintDoneWithFile(Linker->Filename);
 			}
@@ -1995,6 +2055,14 @@ EAsyncPackageState::Type FAsyncPackage::FinishObjects()
 	#endif		// WITH_ENGINE
 	}
 
+	if (Linker)
+	{
+		// Flush linker cache now to reduce peak memory usage (5.5-10x)
+		// We shouldn't need it anyway at this point and even if something attempts to read in PostLoad, 
+		// we're just going to re-cache then.
+		Linker->FlushCache();
+	}
+
 	{
 		const bool bInternalCallbacks = true;
 		CallCompletionCallbacks(bInternalCallbacks, LoadingResult);
@@ -2023,6 +2091,7 @@ void FAsyncPackage::Cancel()
 	{
 		CompletionCallbacks[CallbackIndex].Callback.ExecuteIfBound(Desc.Name, nullptr, Result);
 	}
+	bLoadHasFailed = true;
 	if (LinkerRoot)
 	{
 		if (Linker)
@@ -2156,11 +2225,13 @@ bool IsInAsyncLoadingThreadCoreUObjectInternal()
 
 void FlushAsyncLoading(int32 PackageID /* = INDEX_NONE */)
 {
+	CheckImageIntegrityAtRuntime();
+
 	if (IsAsyncLoading())
 	{
 		FAsyncLoadingThread& AsyncThread = FAsyncLoadingThread::Get();
 		// Flushing async loading while loading is suspend will result in infinite stall
-		UE_CLOG(AsyncThread.IsAsyncLoadingSuspended(), LogStreaming, Fatal, TEXT("Cannot Flush Async Loading while async loading is suspended."));
+		UE_CLOG(AsyncThread.IsAsyncLoadingSuspended(), LogStreaming, Fatal, TEXT("Cannot Flush Async Loading while async loading is suspended (%d)"), AsyncThread.GetAsyncLoadingSuspendedCount());
 
 		SCOPE_CYCLE_COUNTER(STAT_FAsyncPackage_FlushAsyncLoadingGameThread);
 
@@ -2168,6 +2239,8 @@ void FlushAsyncLoading(int32 PackageID /* = INDEX_NONE */)
 		{
 			return;
 		}
+
+		FCoreDelegates::OnAsyncLoadingFlush.Broadcast();
 
 		// Disallow low priority requests like texture streaming while we are flushing streaming
 		// in order to avoid excessive seeking.
@@ -2196,6 +2269,7 @@ void FlushAsyncLoading(int32 PackageID /* = INDEX_NONE */)
 
 		// Reset min priority again.
 		FIOSystem::Get().SetMinPriority( AIOP_MIN );
+		FMemory::Trim();
 	}
 }
 
@@ -2227,6 +2301,12 @@ bool IsAsyncLoadingCoreUObjectInternal()
 	return !GIsInitialLoad && FAsyncLoadingThread::Get().IsAsyncLoadingPackages();
 }
 
+bool IsAsyncLoadingMultithreadedCoreUObjectInternal()
+{
+	// GIsInitialLoad guards the async loading thread from being created too early
+	return !GIsInitialLoad && FAsyncLoadingThread::Get().IsMultithreaded();
+}
+
 void SuspendAsyncLoadingInternal()
 {
 	FAsyncLoadingThread::Get().SuspendLoading();
@@ -2240,6 +2320,44 @@ void ResumeAsyncLoadingInternal()
 /*----------------------------------------------------------------------------
 	FArchiveAsync.
 ----------------------------------------------------------------------------*/
+
+static uint8* MallocAsyncBuffer(const SIZE_T Size, SIZE_T& OutAllocatedSize)
+{
+	uint8* Result = nullptr;
+#if FIND_MEMORY_STOMPS
+	const SIZE_T PageSize = FPlatformMemory::GetConstants().PageSize;
+	const SIZE_T Alignment = PageSize;
+	const SIZE_T AlignedSize = (Size + Alignment - 1U) & -static_cast<int32>(Alignment);
+	const SIZE_T AllocFullPageSize = AlignedSize + (PageSize - 1) & ~(PageSize - 1U);
+	check(AllocFullPageSize >= Size);
+	OutAllocatedSize = AllocFullPageSize;
+#if PLATFORM_LINUX || PLATFORM_MAC
+	Result = (uint8*)mmap(nullptr, AllocFullPageSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+#else
+	Result = (uint8*)FPlatformMemory::BinnedAllocFromOS(AllocFullPageSize);
+#endif // PLATFORM_LINUX || PLATFORM_MAC
+#else
+	OutAllocatedSize = Size;
+	Result = (uint8*)FMemory::Malloc(Size);
+#endif // FIND_MEMORY_STOMPS
+	return Result;
+}
+
+static void FreeAsyncBuffer(uint8* Buffer, const SIZE_T AllocatedSize)
+{
+	if (Buffer)
+	{
+#if FIND_MEMORY_STOMPS
+#if PLATFORM_LINUX || PLATFORM_MAC
+		munmap(Buffer, AllocatedSize);
+#else
+		FPlatformMemory::BinnedFreeToOS(Buffer);
+#endif // PLATFORM_LINUX || PLATFORM_MAC
+#else
+		FMemory::Free(Buffer);
+#endif // FIND_MEMORY_STOMPS
+	}
+}
 
 /**
  * Constructor, initializing all member variables.
@@ -2264,10 +2382,14 @@ FArchiveAsync::FArchiveAsync( const TCHAR* InFileName )
 	PrecacheStartPos[CURRENT]	= 0;
 	PrecacheEndPos[CURRENT]		= 0;
 	PrecacheBuffer[CURRENT]		= nullptr;
+	PrecacheBufferSize[CURRENT] = 0;
+	PrecacheBufferProtected[CURRENT] = false;
 
 	PrecacheStartPos[NEXT]		= 0;
 	PrecacheEndPos[NEXT]		= 0;
 	PrecacheBuffer[NEXT]		= nullptr;
+	PrecacheBufferSize[NEXT] = 0;
+	PrecacheBufferProtected[NEXT] = false;
 
 	// Relies on default constructor initializing to 0.
 	check( PrecacheReadStatus[CURRENT].GetValue() == 0 );
@@ -2320,16 +2442,20 @@ void FArchiveAsync::FlushCache()
 
 	// Invalidate any precached data and free memory for current buffer.
 	Delta += PrecacheEndPos[CURRENT] - PrecacheStartPos[CURRENT];
-	FMemory::Free( PrecacheBuffer[CURRENT] );
+	FreeAsyncBuffer(PrecacheBuffer[CURRENT], PrecacheBufferSize[CURRENT]);
 	PrecacheBuffer[CURRENT]		= nullptr;
 	PrecacheStartPos[CURRENT]	= 0;
 	PrecacheEndPos[CURRENT]		= 0;
+	PrecacheBufferSize[CURRENT] = 0;
+	PrecacheBufferProtected[CURRENT] = false;
 	
 	// Invalidate any precached data and free memory for next buffer.
-	FMemory::Free( PrecacheBuffer[NEXT] );
+	FreeAsyncBuffer(PrecacheBuffer[NEXT], PrecacheBufferSize[NEXT]);
 	PrecacheBuffer[NEXT]		= nullptr;
 	PrecacheStartPos[NEXT]		= 0;
 	PrecacheEndPos[NEXT]		= 0;
+	PrecacheBufferSize[NEXT] = 0;
+	PrecacheBufferProtected[NEXT] = false;
 
 	Delta += PrecacheEndPos[NEXT] - PrecacheStartPos[NEXT];
 	DEC_DWORD_STAT_BY(STAT_StreamingAllocSize, Delta);
@@ -2401,15 +2527,19 @@ void FArchiveAsync::BufferSwitcheroo()
 
 	// Switcheroo.
 	DEC_DWORD_STAT_BY(STAT_StreamingAllocSize, PrecacheEndPos[CURRENT] - PrecacheStartPos[CURRENT]);
-	FMemory::Free( PrecacheBuffer[CURRENT] );
+	FreeAsyncBuffer(PrecacheBuffer[CURRENT], PrecacheBufferSize[CURRENT]);
 	PrecacheBuffer[CURRENT]		= PrecacheBuffer[NEXT];
 	PrecacheStartPos[CURRENT]	= PrecacheStartPos[NEXT];
 	PrecacheEndPos[CURRENT]		= PrecacheEndPos[NEXT];
+	PrecacheBufferSize[CURRENT] = PrecacheBufferSize[NEXT];
+	PrecacheBufferProtected[CURRENT] = PrecacheBufferProtected[NEXT];
 
 	// Next buffer is unused/ free.
 	PrecacheBuffer[NEXT]		= nullptr;
 	PrecacheStartPos[NEXT]		= 0;
 	PrecacheEndPos[NEXT]		= 0;
+	PrecacheBufferSize[NEXT] = 0;
+	PrecacheBufferProtected[NEXT] = 0;
 }
 
 /**
@@ -2481,8 +2611,9 @@ void FArchiveAsync::PrecacheCompressedChunk( int64 ChunkIndex, int64 BufferIndex
 
 	// In theory we could use FMemory::Realloc if it had a way to signal that we don't want to copy
 	// the data (implicit realloc behavior).
-	FMemory::Free( PrecacheBuffer[BufferIndex] );
-	PrecacheBuffer[BufferIndex]		= (uint8*) FMemory::Malloc( PrecacheEndPos[BufferIndex] - PrecacheStartPos[BufferIndex] );
+	FreeAsyncBuffer(PrecacheBuffer[BufferIndex], PrecacheBufferSize[BufferIndex]);
+	PrecacheBufferProtected[BufferIndex] = false;
+	PrecacheBuffer[BufferIndex] = MallocAsyncBuffer(PrecacheEndPos[BufferIndex] - PrecacheStartPos[BufferIndex], PrecacheBufferSize[BufferIndex]);
 	{
 		INC_DWORD_STAT_BY(STAT_StreamingAllocSize, PrecacheEndPos[BufferIndex] - PrecacheStartPos[BufferIndex]);
 	}
@@ -2592,9 +2723,9 @@ bool FArchiveAsync::Precache( int64 RequestOffset, int64 RequestSize )
 			PrecacheEndPos[CURRENT]		= FMath::Min( PrecacheEndPos[CURRENT], FileSize );
 			// In theory we could use FMemory::Realloc if it had a way to signal that we don't want to copy
 			// the data (implicit realloc behavior).
-			FMemory::Free( PrecacheBuffer[CURRENT] );
-
-			PrecacheBuffer[CURRENT]		= (uint8*) FMemory::Malloc( PrecacheEndPos[CURRENT] - PrecacheStartPos[CURRENT] );
+			FreeAsyncBuffer(PrecacheBuffer[CURRENT], PrecacheBufferSize[CURRENT]);
+			PrecacheBufferProtected[CURRENT] = false;
+			PrecacheBuffer[CURRENT] = MallocAsyncBuffer(PrecacheEndPos[CURRENT] - PrecacheStartPos[CURRENT], PrecacheBufferSize[CURRENT]);
 			{
 				INC_DWORD_STAT_BY(STAT_StreamingAllocSize, PrecacheEndPos[CURRENT] - PrecacheStartPos[CURRENT]);
 			}
@@ -2623,6 +2754,23 @@ bool FArchiveAsync::Precache( int64 RequestOffset, int64 RequestSize )
  */
 void FArchiveAsync::Serialize(void* Data, int64 Count)
 {
+#if PLATFORM_DESKTOP
+	// Show a message box indicating, possible, corrupt data (desktop platforms only)
+	if (CurrentPos + Count > TotalSize())
+	{
+		FText ErrorMessage, ErrorCaption;
+		GConfig->GetText(TEXT("/Script/Engine.Engine"),
+			  			 TEXT("SerializationOutOfBoundsErrorMessage"),
+						 ErrorMessage,
+						 GEngineIni);
+		GConfig->GetText(TEXT("/Script/Engine.Engine"),
+			TEXT("SerializationOutOfBoundsErrorMessageCaption"),
+			ErrorCaption,
+			GEngineIni);
+
+		FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, *ErrorMessage.ToString(), *ErrorCaption.ToString());
+	}
+#endif
 	// Ensure we aren't reading beyond the end of the file
 	checkf( CurrentPos + Count <= TotalSize(), TEXT("Seeked past end of file %s (%lld / %lld)"), *FileName, CurrentPos + Count, TotalSize() );
 
@@ -2691,6 +2839,16 @@ void FArchiveAsync::Serialize(void* Data, int64 Count)
 			FPlatformProcess::SleepNoStats(0.0f);
 		} while (PrecacheReadStatus[CURRENT].GetValue());
 	}
+#if FIND_MEMORY_STOMPS
+	if (!PrecacheBufferProtected[CURRENT])
+	{
+		if (!FPlatformMemory::PageProtect(PrecacheBuffer[CURRENT], PrecacheBufferSize[CURRENT], true, false))
+		{
+			UE_LOG(LogStreaming, Warning, TEXT("Unable to write protect async buffer %d for %s"), int32(CURRENT), *FileName);
+		}
+		PrecacheBufferProtected[CURRENT] = true;
+	}
+#endif // FIND_MEMORY_STOMPS
 
 	// Update stats if we were blocked.
 #if LOOKING_FOR_PERF_ISSUES

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "K2Node_MakeStruct.h"
@@ -11,23 +11,13 @@ class UK2Node_SetFieldsInStruct : public UK2Node_MakeStruct
 {
 	GENERATED_UCLASS_BODY()
 
-	/** Helper property to handle upgrades from an old system of displaying pins for 
-	 *	the override values that properties referenced as a conditional of being set in a struct */
-	UPROPERTY()
-	bool bMadeAfterOverridePinRemoval;
-
-	//~ Begin UObject Interface
-	virtual void Serialize(FArchive& Ar) override;
-	//~ End UObject Interface
-
 	//~ Begin UEdGraphNode Interface
 	virtual void AllocateDefaultPins() override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual FText GetTooltipText() const override;
 	virtual FName GetPaletteIcon(FLinearColor& OutColor) const override;
 	virtual void ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const override;
-	virtual void ExpandNode(class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph);
-	virtual void PostPlacedNewNode() override;
+	virtual bool IsConnectionDisallowed(const UEdGraphPin* MyPin, const UEdGraphPin* OtherPin, FString& OutReason) const override;
 	//~ End  UEdGraphNode Interface
 
 	//~ Begin K2Node Interface

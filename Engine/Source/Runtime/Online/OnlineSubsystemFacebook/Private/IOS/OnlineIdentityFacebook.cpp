@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 // Module includes
@@ -34,7 +34,7 @@ FString FUserOnlineAccountFacebook::GetRealName() const
 	return FString();
 }
 
-FString FUserOnlineAccountFacebook::GetDisplayName() const
+FString FUserOnlineAccountFacebook::GetDisplayName(const FString& Platform) const
 {
 	//@todo samz - implement
 	return FString();
@@ -145,6 +145,11 @@ bool FOnlineIdentityFacebook::Login(int32 LocalUserNum, const FOnlineAccountCred
 				LoginStatus = ELoginStatus::LoggedIn;
 				const FString UserId([accessToken userID]);
 				UserAccount->UserId = MakeShareable(new FUniqueNetIdString(UserId));
+
+				FString Token([accessToken tokenString]);
+				UserAccount->AuthTicket = Token;
+				GConfig->SetString(TEXT("OnlineSubsystemFacebook.Login"), TEXT("AuthToken"), *Token, GEngineIni);
+
 				TriggerOnLoginCompleteDelegates(LocalUserNum, true, UserAccount->UserId.Get(), TEXT(""));
 				
 				UE_LOG(LogOnline, Display, TEXT("Facebook login was successful? - Already had token!"));

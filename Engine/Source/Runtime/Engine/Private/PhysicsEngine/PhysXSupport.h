@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PhysXSupport.h: PhysX support
@@ -81,13 +81,21 @@ inline void AddRadialForceToPxRigidBody(PxRigidBody& PRigidBody, const FVector& 
 	AddRadialForceToPxRigidBody_AssumesLocked(PRigidBody, Origin, Radius, Strength, Falloff, bAccelChange);
 }
 
-bool IsRigidBodyNonKinematic_AssumesLocked(const PxRigidBody* PRigidBody);
+bool IsRigidBodyKinematic_AssumesLocked(const PxRigidBody* PRigidBody);
+
+bool IsRigidBodyKinematicAndInSimulationScene_AssumesLocked(const PxRigidBody* PRigidBody);
+
+DEPRECATED(4.12, "Please call IsRigidBodyKinematic_AssumesLocked")
+inline bool IsRigidBodyNonKinematic_AssumesLocked(const PxRigidBody* PRigidBody)
+{
+	return !IsRigidBodyKinematic_AssumesLocked(PRigidBody);
+}
 
 /** Util to see if a PxRigidActor is non-kinematic */
-DEPRECATED(4.8, "Please call IsRigidBodyNonKinematic_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
+DEPRECATED(4.8, "Please call IsRigidBodyKinematic_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
 inline bool IsRigidBodyNonKinematic(PxRigidBody* PRigidBody)
 {
-	return IsRigidBodyNonKinematic_AssumesLocked(PRigidBody);
+	return !IsRigidBodyKinematic_AssumesLocked(PRigidBody);
 }
 
 
@@ -238,7 +246,7 @@ class FPhysXAllocator : public PxAllocatorCallback
 		:	AllocationTypeName(InAllocationTypeName)
 		,	AllocationSize(InAllocationSize)
 		{
-			static_assert(sizeof(FPhysXAllocationHeader) == 32, "FPhysXAllocationHeader size must be 32 bytes.");
+			static_assert((sizeof(FPhysXAllocationHeader) % 16) == 0, "FPhysXAllocationHeader size must multiple of bytes.");
 			MagicPadding();
 		}
 
@@ -264,6 +272,7 @@ class FPhysXAllocator : public PxAllocatorCallback
 		FName AllocationTypeName;
 		size_t	AllocationSize;
 		uint8 Padding[8];	//physx needs 16 byte alignment. Additionally we fill padding with a pattern to see if there's any memory stomps
+		uint8 Padding2[(sizeof(FName) + sizeof(size_t) + sizeof(Padding)) % 16];
 
 		void Validate() const
 		{

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 
@@ -699,9 +699,9 @@ void SSocketManager::OnSocketPropertyChanged( const UStaticMeshSocket* Socket, c
 						const USceneComponent* Root = Actor->GetRootComponent();
 						if (Root != nullptr)
 						{
-							for (USceneComponent* Child : Root->AttachChildren)
+							for (USceneComponent* Child : Root->GetAttachChildren())
 							{
-								if (Child != nullptr && Child->AttachSocketName == Socket->SocketName)
+								if (Child != nullptr && Child->GetAttachSocketName() == Socket->SocketName)
 								{
 									Child->UpdateComponentToWorld();
 									bUpdatedChild = true;

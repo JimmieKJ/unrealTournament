@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "../Classes/Factories/FbxMeshImportData.h"
@@ -8,6 +8,7 @@ UFbxMeshImportData::UFbxMeshImportData(const FObjectInitializer& ObjectInitializ
 {
 	NormalImportMethod = FBXNIM_ComputeNormals;
 	NormalGenerationMethod = EFBXNormalGenerationMethod::MikkTSpace;
+	bBakePivotInVertex = false;
 }
 
 bool UFbxMeshImportData::CanEditChange(const UProperty* InProperty) const

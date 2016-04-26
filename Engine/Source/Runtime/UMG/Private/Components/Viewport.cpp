@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 #include "Slate/SlateBrushAsset.h"
@@ -482,11 +482,6 @@ AActor* UViewport::Spawn(TSubclassOf<AActor> ActorClass)
 }
 
 #if WITH_EDITOR
-
-const FSlateBrush* UViewport::GetEditorIcon()
-{
-	return FUMGStyle::Get().GetBrush("Widget.Viewport");
-}
 
 const FText UViewport::GetPaletteCategory()
 {

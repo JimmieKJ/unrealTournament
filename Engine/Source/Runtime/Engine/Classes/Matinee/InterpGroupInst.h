@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "InterpGroupInst.generated.h"
@@ -33,10 +33,13 @@ class UInterpGroupInst : public UObject
 
 
 	/** 
-	 *	Return the AActor  that this GroupInstance is working on. 
+	 *	Return the AActor that this GroupInstance is working on.
 	 *	Should use this instead of just referencing GroupActor, as it check IsPendingKill() for you.
 	 */
 	virtual AActor* GetGroupActor() const;
+
+	/** Sets the GroupActor tha this GroupInstance should work on. */
+	void SetGroupActor(AActor* Actor);
 
 	/** Called before Interp editing to save original state of Actor. @see UInterpTrackInst::SaveActorState */
 	virtual void SaveGroupActorState();

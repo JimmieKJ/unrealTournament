@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "GameplayTagsEditorModulePrivatePCH.h"
 #include "SGameplayTagWidget.h"
@@ -37,12 +37,27 @@ void SGameplayTagWidget::Construct(const FArguments& InArgs, const TArray<FEdita
 	bool CanAddFromINI = UGameplayTagsManager::ShouldImportTagsFromINI(); // We only support adding new tags to the ini files.
 
 	// Tag the assets as transactional so they can support undo/redo
-	for (int32 AssetIdx = 0; AssetIdx < TagContainers.Num(); ++AssetIdx)
+	TArray<UObject*> ObjectsToMarkTransactional;
+	if (PropertyHandle.IsValid())
 	{
-		UObject* TagContainerOwner = TagContainers[AssetIdx].TagContainerOwner.Get();
-		if (TagContainerOwner)
+		// If we have a property handle use that to find the objects that need to be transactional
+		PropertyHandle->GetOuterObjects(ObjectsToMarkTransactional);
+	}
+	else
+	{
+		// Otherwise use the owner list
+		for (int32 AssetIdx = 0; AssetIdx < TagContainers.Num(); ++AssetIdx)
 		{
-			TagContainerOwner->SetFlags(RF_Transactional);
+			ObjectsToMarkTransactional.Add(TagContainers[AssetIdx].TagContainerOwner.Get());
+		}
+	}
+
+	// Now actually mark the assembled objects
+	for (UObject* ObjectToMark : ObjectsToMarkTransactional)
+	{
+		if (ObjectToMark)
+		{
+			ObjectToMark->SetFlags(RF_Transactional);
 		}
 	}
 
@@ -545,12 +560,15 @@ void SGameplayTagWidget::VerifyAssetTagValidity()
 		if (Container)
 		{
 			FGameplayTagContainer EditableContainer = *Container;
-			FGameplayTagContainer InvalidTags;
+
+			// Use a set instead of a container so we can find and remove None tags
+			TSet<FGameplayTag> InvalidTags;
+
 			for (auto It = Container->CreateConstIterator(); It; ++It)
 			{
 				if (!LibraryTags.HasTag(*It, EGameplayTagMatchType::Explicit, EGameplayTagMatchType::Explicit))
 				{
-					InvalidTags.AddTag(*It);
+					InvalidTags.Add(*It);
 				}
 			}
 			if (InvalidTags.Num() > 0)
@@ -634,11 +652,6 @@ void SGameplayTagWidget::OnExpansionChanged( TSharedPtr<FGameplayTagNode> InItem
 
 void SGameplayTagWidget::SetContainer(FGameplayTagContainer* OriginalContainer, FGameplayTagContainer* EditedContainer, UObject* OwnerObj)
 {
-	if (OwnerObj)
-	{
-		OwnerObj->PreEditChange(PropertyHandle.IsValid() ? PropertyHandle->GetProperty() : NULL);
-	}
-
 	if (PropertyHandle.IsValid() && bMultiSelect)
 	{
 		// Case for a tag container 
@@ -655,13 +668,18 @@ void SGameplayTagWidget::SetContainer(FGameplayTagContainer* OriginalContainer, 
 	else
 	{
 		// Not sure if we should get here, means the property handle hasnt been setup which could be right or wrong.
-		*OriginalContainer = *EditedContainer;
-	}	
+		if (OwnerObj)
+		{
+			OwnerObj->PreEditChange(PropertyHandle.IsValid() ? PropertyHandle->GetProperty() : NULL);
+		}
 
-	if (OwnerObj)
-	{
-		OwnerObj->PostEditChange();
-	}
+		*OriginalContainer = *EditedContainer;
+
+		if (OwnerObj)
+		{
+			OwnerObj->PostEditChange();
+		}
+	}	
 
 	if (!PropertyHandle.IsValid())
 	{

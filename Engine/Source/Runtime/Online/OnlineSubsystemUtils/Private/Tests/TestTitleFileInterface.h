@@ -1,8 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "OnlineTitleFileInterface.h"
+
+#if WITH_DEV_AUTOMATION_TESTS
 
 class FTestTitleFileInterface
 {
@@ -41,3 +43,5 @@ private:
 	/** Async file reads still pending completion */
 	int32 NumPendingFileReads;
 };
+
+#endif //WITH_DEV_AUTOMATION_TESTS

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UnrealType.h: Unreal engine base type definitions.
@@ -106,7 +106,7 @@ public:
 
 	// UHT interface
 	void ExportCppDeclaration(FOutputDevice& Out, EExportedDeclaration::Type DeclarationType, const TCHAR* ArrayDimOverride = NULL, uint32 AdditionalExportCPPFlags = 0
-		, bool bSkipParameterName = false, const FString* ActualCppType = nullptr, const FString* ActualExtendedType = nullptr) const;
+		, bool bSkipParameterName = false, const FString* ActualCppType = nullptr, const FString* ActualExtendedType = nullptr, const FString* ActualParameterName = nullptr) const;
 	virtual FString GetCPPMacroType( FString& ExtendedTypeText ) const;
 	virtual bool PassCPPArgsByRef() const { return false; }
 
@@ -216,13 +216,16 @@ public:
 	 *
 	 * @param	Ar				the archive to use for serialization
 	 * @param	Data			pointer to the location of the beginning of the struct's property data
+	 * @param	ArrayIdx		if not -1 (default), only this array slot will be serialized
 	 */
-	void SerializeBinProperty( FArchive& Ar, void* Data )
+	void SerializeBinProperty( FArchive& Ar, void* Data, int32 ArrayIdx = -1 )
 	{
 		if( ShouldSerializeValue(Ar) )
 		{
 			FSerializedPropertyScope SerializedProperty(Ar, this);
-			for (int32 Idx = 0; Idx < ArrayDim; Idx++)
+			const int32 LoopMin = ArrayIdx < 0 ? 0 : ArrayIdx;
+			const int32 LoopMax = ArrayIdx < 0 ? ArrayDim : ArrayIdx + 1;
+			for (int32 Idx = LoopMin; Idx < LoopMax; Idx++)
 			{
 				// Keep setting the property in case something inside of SerializeItem changes it
 				Ar.SetSerializedProperty(this);
@@ -1903,6 +1906,7 @@ class COREUOBJECT_API UObjectProperty : public TUObjectPropertyBase<UObject*>
 	// UProperty interface
 	virtual void SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const override;
 	virtual void EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset) override;
+	virtual const TCHAR* ImportText_Internal(const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* OwnerObject, FOutputDevice* ErrorText) const override;
 
 private:
 	virtual uint32 GetValueTypeHashInternal(const void* Src) const override
@@ -2366,6 +2370,9 @@ public:
 		return GetTypeHash(*(const FString*)Src);
 	}
 	// End of UProperty interface
+
+	// Necessary to fix Compiler Error C2026
+	static FString ExportCppHardcodedText(const FString& InSource, const FString& Indent);
 };
 
 /*-----------------------------------------------------------------------------
@@ -3390,6 +3397,43 @@ protected:
 };
 
 
+/** Describes a single node in a custom property list. */
+struct COREUOBJECT_API FCustomPropertyListNode
+{
+	/** The property that's being referenced at this node. */
+	UProperty* Property;
+
+	/** Used to identify which array index is specifically being referenced if this is an array property. Defaults to 0. */
+	int32 ArrayIndex;
+
+	/** If this node represents a struct property, this may contain a "sub" property list for the struct itself. */
+	struct FCustomPropertyListNode* SubPropertyList;
+
+	/** Points to the next node in the list. */
+	struct FCustomPropertyListNode* PropertyListNext;
+
+	/** Default constructor. */
+	FCustomPropertyListNode(UProperty* InProperty = nullptr, int32 InArrayIndex = 0)
+		:Property(InProperty)
+		, ArrayIndex(InArrayIndex)
+		, SubPropertyList(nullptr)
+		, PropertyListNext(nullptr)
+	{
+	}
+
+	/** Convenience method to return the next property in the list and advance the given ptr. */
+	FORCEINLINE static UProperty* GetNextPropertyAndAdvance(const FCustomPropertyListNode*& Node)
+	{
+		if (Node)
+		{
+			Node = Node->PropertyListNext;
+		}
+
+		return Node ? Node->Property : nullptr;
+	}
+};
+
+
 /**
  * This class represents the chain of member properties leading to an internal struct property.  It is used
  * for tracking which member property corresponds to the UScriptStruct that owns a particular property.
@@ -3713,7 +3757,7 @@ protected:
 				if (InterfaceIndex < CurrentClass->Interfaces.Num())
 				{
 					FImplementedInterface& Interface = CurrentClass->Interfaces[InterfaceIndex];
-					CurrentField = Interface.Class->Children;
+					CurrentField = Interface.Class ? Interface.Class->Children : nullptr;
 					continue;
 				}
 			}

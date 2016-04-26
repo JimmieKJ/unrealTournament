@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -60,6 +60,9 @@ public:
 	// Goto fixup requests (each statement (key) wants to goto the first statement attached to the exec out-pin (value))
 	TMap< FBlueprintCompiledStatement*, UEdGraphPin* > GotoFixupRequestMap;
 
+	// Used to split uber graph into subfunctions by C++ backend
+	TArray<TSet<UEdGraphNode*>> UnsortedSeparateExecutionGroups;
+
 	// Map from a net to an term (either a literal or a storage location)
 	TIndirectArray<FBPTerminal> Parameters;
 	TIndirectArray<FBPTerminal> Results;
@@ -90,9 +93,6 @@ public:
 	// Map from a name to the number of times it's been 'created' (same nodes create the same local variable names, so they need something appended)
 	struct FNetNameMapping* NetNameMap;
 	bool bAllocatedNetNameMap;
-
-	// Stored calls of latent function (on current class), needed to tell if blueprint should be tickable
-	TArray< UK2Node_CallFunction* > LatentFunctionCalls;
 
 	//Skip some optimization. C++ code will be generated in this pass. 
 	bool bGeneratingCpp;
@@ -178,6 +178,11 @@ public:
 		return bInstrumentScriptCode || bCreateDebugData;
 	}
 
+	bool IsInstrumentationRequired() const
+	{
+		return bInstrumentScriptCode;
+	}
+
 	EKismetCompiledStatementType GetWireTraceType() const
 	{
 		return bInstrumentScriptCode ? KCST_InstrumentedWireExit : KCST_WireTraceSite;
@@ -227,6 +232,17 @@ public:
 	UBlueprint* GetBlueprint()
 	{
 		return Blueprint;
+	}
+
+	FBlueprintCompiledStatement& PrependStatementForNode(UEdGraphNode* Node)
+	{
+		FBlueprintCompiledStatement* Result = new FBlueprintCompiledStatement();
+		AllGeneratedStatements.Add(Result);
+
+		TArray<FBlueprintCompiledStatement*>& StatementList = StatementsPerNode.FindOrAdd(Node);
+		StatementList.Insert(Result, 0);
+
+		return *Result;
 	}
 
 	/** Enqueue a statement to be executed when the specified Node is triggered */
@@ -282,7 +298,10 @@ public:
 		}
 		else
 		{
-			MessageLog.Warning(TEXT("A node that generated no code of it's own (@@) tried to inject code into @@"), Source, Destination);
+			MessageLog.Warning(
+				*FString::Printf(TEXT("A node that generated no code of it's own (@@) tried to inject code into @@. %s"), *GetFullNameSafe(Source))
+				, Source
+				, Destination);
 		}
 	}
 
@@ -306,7 +325,8 @@ private:
 	void ResolveGotoFixups();
 
 public:
-
+	static bool DoesStatementRequiresSwitch(const FBlueprintCompiledStatement* Statement);
+	static bool DoesStatementRequiresFlowStack(const FBlueprintCompiledStatement* Statement);
 	// The function links gotos, sorts statments, and merges adjacent ones. 
 	void ResolveStatements();
 

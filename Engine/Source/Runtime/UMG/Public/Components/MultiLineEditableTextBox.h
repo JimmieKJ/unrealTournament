@@ -1,14 +1,15 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "TextWidgetTypes.h"
 #include "MultiLineEditableTextBox.generated.h"
 
 /**
  * Allows a user to enter multiple lines of text
  */
 UCLASS(meta=(DisplayName="Text Box (Multi-Line)"))
-class UMG_API UMultiLineEditableTextBox : public UWidget
+class UMG_API UMultiLineEditableTextBox : public UTextLayoutWidget
 {
 	GENERATED_UCLASS_BODY()
 
@@ -33,27 +34,19 @@ public:
 public:
 
 	/** The style */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Style", meta=( DisplayName="Style" ))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Appearance", meta=(DisplayName="Style", ShowOnlyInnerProperties))
 	FEditableTextBoxStyle WidgetStyle;
 
 	/** The text style */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Style", meta=( DisplayName="Text Style" ))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Appearance", meta=(DisplayName="Text Style"))
 	FTextBlockStyle TextStyle;
+
+	/** Whether the context menu can be opened */
+	UPROPERTY(EditAnywhere, Category = Behavior, AdvancedDisplay)
+	bool AllowContextMenu;
 
 	UPROPERTY()
 	USlateWidgetStyleAsset* Style_DEPRECATED;
-
-	/** The justification of the text in the multilinebox */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Content)
-	TEnumAsByte<ETextJustify::Type> Justification;
-
-	/** Whether to wrap text automatically based on the widget's computed horizontal space.*/
-	UPROPERTY(EditAnywhere, Category=Content)
-	bool bAutoWrapText;
-
-	/** Whether text wraps onto a new line when it's length exceeds this width; if this value is zero or negative, no wrapping occurs. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Content)
-	float WrapTextAt;
 
 	/** Font color and opacity (overrides Style) */
 	UPROPERTY()
@@ -116,7 +109,6 @@ public:
 	//~ End UObject Interface
 
 #if WITH_EDITOR
-	virtual const FSlateBrush* GetEditorIcon() override;
 	virtual const FText GetPaletteCategory() override;
 #endif
 

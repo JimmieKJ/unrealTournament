@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -15,6 +15,13 @@ struct CORE_API FWindowsPlatformCrashContext : public FGenericCrashContext
 	{
 		UE4_MINIDUMP_CRASHCONTEXT = LastReservedStream + 1,
 	};
+
+	FWindowsPlatformCrashContext() {}
+
+	FWindowsPlatformCrashContext(bool bInIsEnsure)
+	{
+		bIsEnsure = bInIsEnsure;
+	}
 
 	virtual void AddPlatformSpecificProperties() override
 	{

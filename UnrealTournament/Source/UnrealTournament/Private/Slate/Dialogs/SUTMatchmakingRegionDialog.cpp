@@ -24,7 +24,7 @@ void SUTMatchmakingRegionDialog::Construct(const FArguments& InArgs)
 		.OnDialogResult(InArgs._OnDialogResult)
 		);
 
-	MatchmakingRegionList.Add(MakeShareable(new FString(TEXT("USA"))));
+	MatchmakingRegionList.Add(MakeShareable(new FString(TEXT("NA"))));
 	MatchmakingRegionList.Add(MakeShareable(new FString(TEXT("EU"))));
 
 	if (DialogContent.IsValid())

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -108,6 +108,12 @@ class GAMEPLAYABILITIES_API UAbilitySystemGlobals : public UObject
 	/** Returns true if ability costs are ignored, returns false otherwise. Always returns false in shipping builds. */
 	bool ShouldIgnoreCosts() const;
 
+	DECLARE_MULTICAST_DELEGATE(FOnClientServerDebugAvailable);
+	FOnClientServerDebugAvailable	OnClientServerDebugAvailable;
+
+	/** Global place to accumulate debug strings for ability system component. Used when we fill up client side debug string immediately, and then wait for server to send server strings */
+	TArray<FString>	AbilitySystemDebugStrings;
+
 	// Global Tags
 
 	UPROPERTY()
@@ -165,6 +171,7 @@ class GAMEPLAYABILITIES_API UAbilitySystemGlobals : public UObject
 
 	// GameplayCue Parameters
 	virtual void InitGameplayCueParameters(FGameplayCueParameters& CueParameters, const FGameplayEffectSpecForRPC &Spec);
+	virtual void InitGameplayCueParameters_GESpec(FGameplayCueParameters& CueParameters, const FGameplayEffectSpec &Spec);
 	virtual void InitGameplayCueParameters(FGameplayCueParameters& CueParameters, const FGameplayEffectContextHandle& EffectContext);
 
 	// Trigger async loading of the gameplay cue object libraries. By default, the manager will do this on creation,
@@ -188,8 +195,6 @@ protected:
 	bool bIgnoreAbilitySystemCosts;
 #endif // #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
-private:
-
 	/** Holds all of the valid gameplay-related tags that can be applied to assets */
 	UPROPERTY(config)
 	FString GlobalCurveTableName;
@@ -202,7 +207,11 @@ private:
 	UPROPERTY(config)
 	FString GlobalAttributeSetDefaultsTableName;
 
-	/** The class to instantiate as the global GameplayCue manager. This class is responsible for directing GameplayCue events, loading and cooking assets related to GameplayCues. */
+	/** Class reference to gameplay cue manager. Use this if you want to just instantiate a class for your gameplay cue manager without having to create an asset. */
+	UPROPERTY(config)
+	FStringAssetReference GlobalGameplayCueManagerClass;
+
+	/** Object reference to gameplay cue manager (E.g., reference to a specific blueprint of your GameplayCueManager class. This is not necessary unless you want to have data or blueprints in your gameplay cue manager. */
 	UPROPERTY(config)
 	FStringAssetReference GlobalGameplayCueManagerName;
 
@@ -241,6 +250,8 @@ private:
 #if WITH_EDITOR
 	void OnTableReimported(UObject* InObject);
 #endif
+
+	void HandlePostWorldCreate(UWorld* NewWorld);
 
 #if WITH_EDITORONLY_DATA
 	bool RegisteredReimportCallback;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LightRendering.h: Light rendering declarations.
@@ -92,6 +92,9 @@ void SetDeferredLightParameters(
 		DeferredLightUniformsValue.LightColor *= LightSceneInfo->Proxy->GetIndirectLightingScale();
 	}
 
+	const ELightComponentType LightType = (ELightComponentType)LightSceneInfo->Proxy->GetLightType();
+
+	if (LightType == LightType_Point || LightType == LightType_Spot)
 	{
 		// Distance fade
 		FSphere Bounds = LightSceneInfo->Proxy->GetBoundingSphere();

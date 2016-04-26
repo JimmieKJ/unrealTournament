@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "GameFramework/PainCausingVolume.h"
@@ -20,6 +20,13 @@ void APainCausingVolume::PostInitializeComponents()
 	Super::PostInitializeComponents();
 
 	BACKUP_bPainCausing	= bPainCausing;
+}
+
+void APainCausingVolume::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	Super::EndPlay(EndPlayReason);
+	
+	GetWorldTimerManager().ClearTimer(TimerHandle_PainTimer);
 }
 
 void APainCausingVolume::Reset()

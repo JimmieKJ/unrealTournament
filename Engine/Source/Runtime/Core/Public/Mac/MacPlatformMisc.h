@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================================
 	MacPlatformMisc.h: Mac platform misc functions
@@ -99,10 +99,11 @@ struct CORE_API FMacPlatformMisc : public FGenericPlatformMisc
 	static void LoadPreInitModules();
 	static void NormalizePath(FString& InPath);
 	static FString GetPrimaryGPUBrand();
+	static struct FGPUDriverInfo GetGPUDriverInfo(const FString& DeviceDescription);
 	static void GetOSVersions( FString& out_OSVersionLabel, FString& out_OSSubVersionLabel );
 	static bool HasPlatformFeature(const TCHAR* FeatureName);
 	static bool GetDiskTotalAndFreeSpace(const FString& InPath, uint64& TotalNumberOfBytes, uint64& NumberOfFreeBytes);
-
+	static bool HasSeparateChannelForDebugOutput();
 
 	/** 
 	 * Determines the shader format for the plarform
@@ -146,24 +147,6 @@ struct CORE_API FMacPlatformMisc : public FGenericPlatformMisc
 	 *			Bits 28-31	Reserved
 	 */
 	static uint32 GetCPUInfo();
-
-	/**
-	 * Converts Y position from Slate (left-top origin) to Cocoa (left-bottom origin) coordinates
-	 *
-	 * @param	YPosition		Position to convert
-	 *
-	 * @return					Converted position
-	 */
-    static int32 ConvertSlateYPositionToCocoa(int32 YPosition);
-    
-    /**
-     * Converts Y position from Cocoa (left-bottom origin) to Slate (left-top origin) coordinates
-     *
-     * @param	YPosition		Position to convert
-     *
-     * @return					Converted position
-     */
-    static int32 ConvertCocoaYPositionToSlate(int32 YPosition);
 	
 	static void SetGracefulTerminationHandler();
 	
@@ -207,6 +190,35 @@ struct CORE_API FMacPlatformMisc : public FGenericPlatformMisc
 	static id<NSObject> CommandletActivity;
     
     static void MergeDefaultArgumentsIntoCommandLine(FString& CommandLine, FString DefaultArguments);
+	
+	/** Descriptor of each GPU in the OS that provides stock details about the GPU that are innaccessible from the higher-level rendering APIs and provides a direct link to the GPU in the IORegistry. */
+	struct FGPUDescriptor
+	{
+		FGPUDescriptor();
+		FGPUDescriptor(FGPUDescriptor const& Other);
+		
+		~FGPUDescriptor();
+		
+		FGPUDescriptor& operator=(FGPUDescriptor const& Other);
+		TMap<FString, float> GetPerformanceStatistics() const;
+		
+		uint32 PCIDevice; // This is really an io_registry_entry_t which is a mach port name
+		NSString* GPUName;
+		NSString* GPUMetalBundle;
+		NSString* GPUOpenGLBundle;
+		NSString* GPUBundleID;
+		uint32 GPUVendorId;
+		uint32 GPUDeviceId;
+		uint32 GPUMemoryMB;
+		uint32 GPUIndex;
+		bool GPUHeadless;
+	};
+	
+	/** Returns the static list of GPUs in the current machine. */
+	static TArray<FGPUDescriptor> const& GetGPUDescriptors();
+	
+	/** Returns the index of the GPU to use or -1 if we should just use the default. */
+	static int32 GetExplicitRendererIndex();
 };
 
 #ifdef __OBJC__

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -30,6 +30,7 @@ struct FAnimPreviewInstanceProxy : public FAnimSingleNodeInstanceProxy
 public:
 	FAnimPreviewInstanceProxy()
 	{
+		bCanProcessAdditiveAnimations = true;
 	}
 
 	FAnimPreviewInstanceProxy(UAnimInstance* InAnimInstance)
@@ -41,6 +42,7 @@ public:
 		, bEnableControllers(true)
 		, bSetKey(false)
 	{
+		bCanProcessAdditiveAnimations = true;
 	}
 
 	virtual void Initialize(UAnimInstance* InAnimInstance) override;
@@ -84,6 +86,16 @@ public:
 	}
 
 	void RefreshCurveBoneControllers();
+
+	TArray<FAnimNode_ModifyBone>& GetBoneControllers()
+	{
+		return BoneControllers;
+	}
+
+	TArray<FAnimNode_ModifyBone>& GetCurveBoneControllers()
+	{
+		return CurveBoneControllers;
+	}
 
 private:
 	void UpdateCurveController();
@@ -158,6 +170,10 @@ class ANIMGRAPH_API UAnimPreviewInstance : public UAnimSingleNodeInstance
 
 	UPROPERTY(transient)
 	int32 MontagePreviewStartSectionIdx;
+
+	//~ Begin UObject Interface
+	virtual void Serialize(FArchive& Ar) override;
+	//~ End UObject Interface
 
 	//~ Begin UAnimInstance Interface
 	virtual void NativeInitializeAnimation() override;

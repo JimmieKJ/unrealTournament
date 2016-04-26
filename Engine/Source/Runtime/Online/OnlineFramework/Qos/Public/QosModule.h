@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -42,7 +42,13 @@ public:
 		return FModuleManager::Get().IsModuleLoaded("Qos");
 	}
 
-	FQosInterface* GetQosInterface();
+	/**
+	 * Get the interface singleton
+	 */
+	TSharedRef<FQosInterface> GetQosInterface();
+
+private:
+	TSharedPtr<FQosInterface> QosInterface;
 
 private:
 
@@ -59,9 +65,5 @@ private:
 	 * Shutdown platform specific parts of template handling
 	 */
 	virtual void ShutdownModule() override;
-
-private:
-
-	FQosInterface* QosInterface;
 };
 

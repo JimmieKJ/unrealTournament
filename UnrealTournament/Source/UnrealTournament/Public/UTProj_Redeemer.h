@@ -10,7 +10,7 @@ class UNREALTOURNAMENT_API AUTProj_Redeemer : public AUTProjectile
 	GENERATED_UCLASS_BODY()
 		
 	virtual float TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
-	virtual void NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser) override;
+	virtual void NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser, int32 Damage) override;
 
 	FVector ExplodeHitLocation;
 	float ExplodeMomentum;
@@ -40,6 +40,9 @@ class UNREALTOURNAMENT_API AUTProj_Redeemer : public AUTProjectile
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Detonate)
 	float DetonateMomentum;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Detonate)
+		int32 ProjHealth;
 
 	/** Replicate to client to play detonate effects client-side. */
 	UPROPERTY(Replicated)

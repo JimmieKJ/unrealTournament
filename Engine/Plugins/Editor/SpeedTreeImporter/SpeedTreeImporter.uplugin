@@ -1,21 +1,25 @@
 {
 	"FileVersion" : 3,
-	
-	"FriendlyName" : "SpeedTree Importer",
 	"Version" : 1,
 	"VersionName" : "1.0",
+	"FriendlyName" : "SpeedTree Importer",
+	"Description" : "An importer for SpeedTree runtime (SRT) files.",
+	"Category" : "Editor",
 	"CreatedBy" : "IDV, Inc.",
 	"CreatedByURL" : "http://www.speedtree.com",
-	"EngineVersion" : "4.2.0",
-	"Description" : "An importer for SpeedTree runtime (SRT) files.",
-	"CategoryPath" : "Editor",
+	"DocsURL" : "",
+	"MarketplaceURL" : "",
+	"SupportURL" : "",
 	"EnabledByDefault" : true,
-	
+	"CanContainContent" : false,
+	"IsBetaVersion" : false,
+	"Installed" : false,
 	"Modules" :
 	[
 		{
 			"Name" : "SpeedTreeImporter",
-			"Type" : "Editor"
+			"Type" : "Editor",
+			"LoadingPhase" : "Default"
 		}
 	]
 }

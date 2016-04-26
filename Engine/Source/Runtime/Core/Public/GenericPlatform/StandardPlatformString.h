@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "GenericPlatform/GenericPlatformStricmp.h"
@@ -45,11 +45,15 @@ public:
 		// walk the strings, comparing them case insensitively, up to a max size
 		for (; (*String1 || *String2) && Count > 0; String1++, String2++, Count--)
 		{
-			CharType Char1 = TChar<CharType>::ToUpper(*String1), Char2 = TChar<CharType>::ToUpper(*String2);
-			if (Char1 != Char2)
+			if(*String1 != *String2)
 			{
-				return Char1 - Char2;
+				CharType Char1 = TChar<CharType>::ToUpper(*String1), Char2 = TChar<CharType>::ToUpper(*String2);
+				if (Char1 != Char2)
+				{
+					return Char1 - Char2;
+				}
 			}
+			
 		}
 		return 0;
 	}

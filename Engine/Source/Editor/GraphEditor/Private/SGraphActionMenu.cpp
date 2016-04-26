@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "GraphEditorCommon.h"
@@ -290,7 +290,8 @@ void SGraphActionMenu::Construct( const FArguments& InArgs, bool bIsReadOnly/* =
 		.OnContextMenuOpening(InArgs._OnContextMenuOpening)
 		.OnGetChildren(this, &SGraphActionMenu::OnGetChildrenForCategory)
 		.SelectionMode(ESelectionMode::Single)
-		.OnItemScrolledIntoView(this, &SGraphActionMenu::OnItemScrolledIntoView);
+		.OnItemScrolledIntoView(this, &SGraphActionMenu::OnItemScrolledIntoView)
+		.OnSetExpansionRecursive(this, &SGraphActionMenu::OnSetExpansionRecursive);
 
 
 	this->ChildSlot
@@ -1323,6 +1324,19 @@ bool SGraphActionMenu::HandleSelection( TSharedPtr< FGraphActionNode > &InSelect
 		}
 	}
 	return bResult;
+}
+
+void SGraphActionMenu::OnSetExpansionRecursive(TSharedPtr<FGraphActionNode> InTreeNode, bool bInIsItemExpanded)
+{
+	if (InTreeNode.IsValid() && InTreeNode->Children.Num())
+	{
+		TreeView->SetItemExpansion(InTreeNode, bInIsItemExpanded);
+
+		for (TSharedPtr<FGraphActionNode> Child : InTreeNode->Children)
+		{
+			OnSetExpansionRecursive(Child, bInIsItemExpanded);
+		}
+	}
 }
 
 /////////////////////////////////////////////////////

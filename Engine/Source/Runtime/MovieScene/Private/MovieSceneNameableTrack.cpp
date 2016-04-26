@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieScenePrivatePCH.h"
 #include "MovieSceneNameableTrack.h"
@@ -37,10 +37,16 @@ FText UMovieSceneNameableTrack::GetDisplayName() const
 {
 	if (DisplayName.IsEmpty())
 	{
-		return LOCTEXT("UnnamedTrackName", "Unnamed Track");
+		return GetDefaultDisplayName();
 	}
 
 	return DisplayName;
+}
+
+FText UMovieSceneNameableTrack::GetDefaultDisplayName() const
+
+{ 
+	return LOCTEXT("UnnamedTrackName", "Unnamed Track"); 
 }
 
 #endif

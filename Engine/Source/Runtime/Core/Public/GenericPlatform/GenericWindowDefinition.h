@@ -1,15 +1,32 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "Containers/UnrealString.h"
 #include "HAL/Platform.h"
 #include "GenericApplicationMessageHandler.h"
+#include "StaticArray.h"
 
 
 #ifndef ALPHA_BLENDED_WINDOWS
 	#define ALPHA_BLENDED_WINDOWS IS_PROGRAM || WITH_EDITOR
 #endif
+
+
+/** Enumeration to specify different window types for SWindows */
+enum class EWindowType
+{
+	/** Value indicating that this is a standard, general-purpose window */
+	Normal,
+	/** Value indicating that this is a window used for a popup menu */
+	Menu,
+	/** Value indicating that this is a window used for a tooltip */
+	ToolTip,
+	/** Value indicating that this is a window used for a notification toast */
+	Notification,
+	/** Value indicating that this is a window used for a cursor decorator */
+	CursorDecorator
+};
 
 
 /** Enumeration to specify different transparency options for SWindows */
@@ -30,6 +47,9 @@ enum class EWindowTransparency
 
 struct CORE_API FGenericWindowDefinition
 {
+	/** Window type */
+	EWindowType Type;
+	
 	/** The initially desired horizontal screen position */
 	float XDesiredPositionOnScreen;
 	/** The initially desired vertical screen position */

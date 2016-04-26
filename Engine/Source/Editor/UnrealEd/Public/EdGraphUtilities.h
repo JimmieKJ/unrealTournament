@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -24,6 +24,15 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 
+struct UNREALED_API FGraphPanelPinConnectionFactory : public TSharedFromThis<FGraphPanelPinConnectionFactory>
+{
+public:
+    virtual ~FGraphPanelPinConnectionFactory() {}
+    virtual class FConnectionDrawingPolicy* CreateConnectionPolicy(const class UEdGraphSchema* Schema, int32 InBackLayerID, int32 InFrontLayerID, float ZoomFactor, const class FSlateRect& InClippingRect, class FSlateWindowElementList& InDrawElements, class UEdGraph* InGraphObj) const { return nullptr; }
+};
+
+//////////////////////////////////////////////////////////////////////////
+
 class UNREALED_API FEdGraphUtilities
 {
 public:
@@ -32,6 +41,9 @@ public:
 
 	static void RegisterVisualPinFactory(TSharedPtr<FGraphPanelPinFactory> NewFactory);
 	static void UnregisterVisualPinFactory(TSharedPtr<FGraphPanelPinFactory> OldFactory);
+
+    static void RegisterVisualPinConnectionFactory(TSharedPtr<FGraphPanelPinConnectionFactory> NewFactory);
+    static void UnregisterVisualPinConnectionFactory(TSharedPtr<FGraphPanelPinConnectionFactory> OldFactory);
 
 	/** After pasting nodes, need to perform some fixup for pins etc. */
 	static void PostProcessPastedNodes(TSet<class UEdGraphNode*>& SpawnedNodes);
@@ -138,6 +150,7 @@ public:
 private:
 	static TArray< TSharedPtr<FGraphPanelNodeFactory> > VisualNodeFactories;
 	static TArray< TSharedPtr<FGraphPanelPinFactory> > VisualPinFactories;
+    static TArray< TSharedPtr<FGraphPanelPinConnectionFactory> > VisualPinConnectionFactories;
 	friend class FNodeFactory;
 
 	// Should never create an instance of this class

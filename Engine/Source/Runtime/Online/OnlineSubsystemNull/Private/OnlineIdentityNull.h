@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
  
@@ -17,7 +17,7 @@ public:
 	
 	virtual TSharedRef<const FUniqueNetId> GetUserId() const override { return UserIdPtr; }
 	virtual FString GetRealName() const override { return TEXT("DummyRealName"); }
-	virtual FString GetDisplayName() const override  { return TEXT("DummyDisplayName"); }
+	virtual FString GetDisplayName(const FString& Platform = FString()) const override  { return TEXT("DummyDisplayName"); }
 	virtual bool GetUserAttribute(const FString& AttrName, FString& OutAttrValue) const override;
 	virtual bool SetUserAttribute(const FString& AttrName, const FString& AttrValue) override;
 

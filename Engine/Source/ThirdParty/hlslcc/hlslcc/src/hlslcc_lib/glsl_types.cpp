@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 // This code is modified from that in the Mesa3D Graphics library available at
 // http://mesa3d.org/
@@ -587,6 +587,8 @@ const glsl_type * glsl_type::get_templated_instance(const glsl_type *base, const
 		hash_table_insert(image_types, new glsl_type(GLSL_SAMPLER_DIM_2D, /*array=*/ false, /*sampler_buffer=*/ false, /*type=*/ NULL, "image2D"), "RWTexture2D");
 		hash_table_insert(image_types, new glsl_type(GLSL_SAMPLER_DIM_2D, /*array=*/ true,  /*sampler_buffer=*/ false, /*type=*/ NULL, "image2DArray"), "RWTexture2DArray");
 		hash_table_insert(image_types, new glsl_type(GLSL_SAMPLER_DIM_3D, /*array=*/ false, /*sampler_buffer=*/ false, /*type=*/ NULL, "image3D"), "RWTexture3D");
+		hash_table_insert(image_types, new glsl_type(GLSL_SAMPLER_DIM_BUF, /*array=*/ false, /*sampler_buffer=*/ true, /*type=*/ NULL, "StructuredBuffer"), "RWStructuredBuffer");
+		hash_table_insert(image_types, new glsl_type(GLSL_SAMPLER_DIM_BUF, /*array=*/ false, /*sampler_buffer=*/ true, /*type=*/ NULL, "ByteAddressBuffer"), "RWByteAddressBuffer");
 	}
 
 	if (base == NULL)
@@ -656,7 +658,12 @@ const glsl_type * glsl_type::get_templated_instance(const glsl_type *base, const
 
 	if (!base->is_numeric())
 	{
-		return NULL;
+		// Hack!
+		//#todo-rco: Proper support!
+		//if (strcmp(name, "RWStructuredBuffer") && strcmp(name, "RWByteAddressBuffer"))
+		{
+			return nullptr;
+		}
 	}
 
 	const glsl_type* image_base_type = (const glsl_type*)hash_table_find(image_types, name);

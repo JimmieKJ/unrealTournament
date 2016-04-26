@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	InstancedFoliage.cpp: Instanced foliage implementation.
@@ -286,13 +286,12 @@ UFoliageType::UFoliageType(const FObjectInitializer& ObjectInitializer)
 	ZOffset.Max = 0.0f;
 	CullDistance.Min = 0;
 	CullDistance.Max = 0;
+	bEnableStaticLighting_DEPRECATED = true;
 	MinimumLayerWeight = 0.5f;
 	IsSelected = false;
 	DensityAdjustmentFactor = 1.0f;
 	CollisionWithWorld = false;
 	CollisionScale = FVector(0.9f, 0.9f, 0.9f);
-	VertexColorMask = FOLIAGEVERTEXCOLORMASK_Disabled;
-	VertexColorMaskThreshold = 0.5f;
 
 	Mobility = EComponentMobility::Static;
 	CastShadow = true;
@@ -360,6 +359,39 @@ void UFoliageType::Serialize(FArchive& Ar)
 	Super::Serialize(Ar);
 
 	Ar.UsingCustomVersion(FFoliageCustomVersion::GUID);
+
+	// we now have mask configurations for every color channel
+	if (Ar.IsLoading() && Ar.IsPersistent() && !Ar.HasAnyPortFlags(PPF_Duplicate|PPF_DuplicateForPIE) && VertexColorMask_DEPRECATED != FOLIAGEVERTEXCOLORMASK_Disabled)
+	{
+		FFoliageVertexColorChannelMask* Mask = nullptr;
+		switch(VertexColorMask_DEPRECATED)
+		{
+		case FOLIAGEVERTEXCOLORMASK_Red:
+			Mask = &VertexColorMaskByChannel[(uint8)EVertexColorMaskChannel::Red];
+			break;
+
+		case FOLIAGEVERTEXCOLORMASK_Green:
+			Mask = &VertexColorMaskByChannel[(uint8)EVertexColorMaskChannel::Green];
+			break;
+
+		case FOLIAGEVERTEXCOLORMASK_Blue:
+			Mask = &VertexColorMaskByChannel[(uint8)EVertexColorMaskChannel::Blue];
+			break;
+
+		case FOLIAGEVERTEXCOLORMASK_Alpha:
+			Mask = &VertexColorMaskByChannel[(uint8)EVertexColorMaskChannel::Alpha];
+			break;
+		}
+
+		if (Mask != nullptr)
+		{
+			Mask->UseMask = true;
+			Mask->MaskThreshold = VertexColorMaskThreshold_DEPRECATED;
+			Mask->InvertMask = VertexColorMaskInvert_DEPRECATED;
+
+			VertexColorMask_DEPRECATED = FOLIAGEVERTEXCOLORMASK_Disabled;
+		}
+	}
 
 	if (LandscapeLayer_DEPRECATED != NAME_None && LandscapeLayers.Num() == 0)	//we now store an array of names so initialize the array with the old name
 	{
@@ -2595,7 +2627,7 @@ bool AInstancedFoliageActor::FoliageTrace(const UWorld* InWorld, FHitResult& Out
 
 	TArray<FHitResult> Hits;
 
-	bool bInsideProceduralVolume = false;
+	bool bInsideProceduralVolumeOrArentUsingOne = false;
 	FCollisionShape SphereShape;
 	SphereShape.SetSphere(DesiredInstance.TraceRadius);
 	InWorld->SweepMultiByObjectType(Hits, StartTrace, DesiredInstance.EndTrace, FQuat::Identity, FCollisionObjectQueryParams(ECC_WorldStatic), SphereShape, QueryParams);
@@ -2621,10 +2653,21 @@ bool AInstancedFoliageActor::FoliageTrace(const UWorld* InWorld, FHitResult& Out
 				continue;
 			}
 
-			if (bInsideProceduralVolume == false)
+			if (DesiredInstance.ProceduralVolumeBodyInstance)
 			{
-				bInsideProceduralVolume = DesiredInstance.ProceduralVolumeBodyInstance->OverlapTest(Hit.ImpactPoint, FQuat::Identity, FCollisionShape::MakeSphere(1.f));	//make sphere of 1cm radius to test if we're in the procedural volume
+				// We have a procedural volume, so lets make sure we are inside it.
+				bInsideProceduralVolumeOrArentUsingOne = DesiredInstance.ProceduralVolumeBodyInstance->OverlapTest(Hit.ImpactPoint, FQuat::Identity, FCollisionShape::MakeSphere(1.f));	//make sphere of 1cm radius to test if we're in the procedural volume
 			}
+			else
+			{
+				// We have no procedural volume, so we aren't using one.
+				bInsideProceduralVolumeOrArentUsingOne = true;
+			}
+		}
+		else
+		{
+			// Not procedural, so we aren't using a procedural volume.
+			bInsideProceduralVolumeOrArentUsingOne = true;
 		}
 			
 		// In the editor traces can hit "No Collision" type actors, so ugh.
@@ -2645,7 +2688,7 @@ bool AInstancedFoliageActor::FoliageTrace(const UWorld* InWorld, FHitResult& Out
 			}
 			
 			OutHit = Hit;
-			return (DesiredInstance.PlacementMode != EFoliagePlacementMode::Procedural) || bInsideProceduralVolume;
+			return bInsideProceduralVolumeOrArentUsingOne;
 		}
 	}
 

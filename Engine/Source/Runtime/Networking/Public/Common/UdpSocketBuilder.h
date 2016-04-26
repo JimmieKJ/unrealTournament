@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -15,7 +15,7 @@ public:
 	 *
 	 * @param InDescription Debug description for the socket.
 	 */
-	FUdpSocketBuilder( const FString& InDescription )
+	FUdpSocketBuilder(const FString& InDescription)
 		: AllowBroadcast(false)
 		, Blocking(false)
 		, Bound(false)
@@ -79,9 +79,9 @@ public:
 	 * @return This instance (for method chaining).
 	 * @see BoundToEndpoint, BoundToPort
 	 */
-	FUdpSocketBuilder BoundToAddress( const FIPv4Address& Address )
+	FUdpSocketBuilder BoundToAddress(const FIPv4Address& Address)
 	{
-		BoundEndpoint = FIPv4Endpoint(Address, BoundEndpoint.GetPort());
+		BoundEndpoint = FIPv4Endpoint(Address, BoundEndpoint.Port);
 		Bound = true;
 
 		return *this;
@@ -94,7 +94,7 @@ public:
 	 * @return This instance (for method chaining).
 	 * @see BoundToAddress, BoundToPort
 	 */
-	FUdpSocketBuilder BoundToEndpoint( const FIPv4Endpoint& Endpoint )
+	FUdpSocketBuilder BoundToEndpoint(const FIPv4Endpoint& Endpoint)
 	{
 		BoundEndpoint = Endpoint;
 		Bound = true;
@@ -112,9 +112,9 @@ public:
 	 * @return This instance (for method chaining).
 	 * @see BoundToAddress
 	 */
-	FUdpSocketBuilder BoundToPort( int32 Port )
+	FUdpSocketBuilder BoundToPort(int32 Port)
 	{
-		BoundEndpoint = FIPv4Endpoint(BoundEndpoint.GetAddress(), Port);
+		BoundEndpoint = FIPv4Endpoint(BoundEndpoint.Address, Port);
 		Bound = true;
 
 		return *this;
@@ -127,7 +127,7 @@ public:
 	 * @return This instance (for method chaining).
 	 * @see WithMulticastLoopback, WithMulticastTtl
 	 */
-	FUdpSocketBuilder JoinedToGroup( const FIPv4Address& GroupAddress )
+	FUdpSocketBuilder JoinedToGroup(const FIPv4Address& GroupAddress)
 	{
 		JoinedGroups.Add(GroupAddress);
 
@@ -168,7 +168,7 @@ public:
 	 * @return This instance (for method chaining).
 	 * @see JoinedToGroup, WithMulticastLoopback
 	 */
-	FUdpSocketBuilder WithMulticastTtl( uint8 TimeToLive )
+	FUdpSocketBuilder WithMulticastTtl(uint8 TimeToLive)
 	{
 		MulticastTtl = TimeToLive;
 
@@ -228,68 +228,91 @@ public:
 	 */
 	FSocket* Build() const
 	{
-		FSocket* Socket = nullptr;
-
+		// load socket subsystem
 		ISocketSubsystem* SocketSubsystem = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM);
 
-		if (SocketSubsystem != nullptr)
+		if (SocketSubsystem == nullptr)
 		{
-			Socket = SocketSubsystem->CreateSocket(NAME_DGram, *Description, true);
+			GLog->Log(TEXT("FUdpSocketBuilder: Failed to load socket subsystem"));
+			return nullptr;
+		}
 
-			if (Socket != nullptr)
+		// create socket
+		FSocket* Socket = SocketSubsystem->CreateSocket(NAME_DGram, *Description, true);
+
+		if (Socket == nullptr)
+		{
+			GLog->Logf(TEXT("FUdpSocketBuilder: Failed to create socket %s"), *Description);
+			return nullptr;
+		}
+
+		// configure socket
+		bool Error =
+			!Socket->SetNonBlocking(!Blocking) ||
+			!Socket->SetReuseAddr(Reusable) ||
+			!Socket->SetBroadcast(AllowBroadcast) ||
+			!Socket->SetRecvErr();
+
+		// bind socket
+		if (Error)
+		{
+			GLog->Logf(TEXT("FUdpSocketBuilder: Failed to configure %s (blocking: %i, reusable: %i, broadcast: %i)"), *Description, Blocking, Reusable, AllowBroadcast);
+		}
+		else
+		{
+			Error = Bound && !Socket->Bind(*BoundEndpoint.ToInternetAddr());
+		}
+
+		// configure multicast
+		if (Error)
+		{
+			GLog->Logf(TEXT("FUdpSocketBuilder: Failed to bind %s to %s"), *Description, *BoundEndpoint.ToString());
+		}
+		else
+		{
+			Error = !Socket->SetMulticastLoopback(MulticastLoopback) || !Socket->SetMulticastTtl(MulticastTtl);
+		}
+
+		// join multicast groups
+		if (Error)
+		{
+			GLog->Logf(TEXT("FUdpSocketBuilder: Failed to configure multicast for %s (loopback: %i, ttl: %i)"), *Description, MulticastLoopback, MulticastTtl);
+		}
+		else
+		{
+			for (const auto& Group : JoinedGroups)
 			{
-				bool Error = !Socket->SetNonBlocking(!Blocking) ||
-							 !Socket->SetReuseAddr(Reusable) ||
-							 !Socket->SetBroadcast(AllowBroadcast) ||
-							 !Socket->SetRecvErr();
-
-				if (!Error)
+				if (!Socket->JoinMulticastGroup(*FIPv4Endpoint(Group, 0).ToInternetAddr()))
 				{
-					Error = Bound && !Socket->Bind(*SocketSubsystem->CreateInternetAddr(BoundEndpoint.GetAddress().GetValue(), BoundEndpoint.GetPort()));
-				}
+					GLog->Logf(TEXT("FUdpSocketBuilder: Failed to subscribe %s to multicast group %s"), *Description, *Group.ToString());
+					Error = true;
 
-				if (!Error)
-				{
-					Error = !Socket->SetMulticastLoopback(MulticastLoopback) ||
-							!Socket->SetMulticastTtl(MulticastTtl);
-				}
-
-				if (!Error)
-				{
-					for (int32 Index = 0; Index < JoinedGroups.Num(); ++Index)
-					{
-						if (!Socket->JoinMulticastGroup(*SocketSubsystem->CreateInternetAddr(JoinedGroups[Index].GetValue(), 0)))
-						{
-							Error = true;
-
-							break;
-						}
-					}
-				}
-
-				if (!Error)
-				{
-					int32 OutNewSize;
-
-					if (ReceiveBufferSize > 0)
-					{
-						Socket->SetReceiveBufferSize(ReceiveBufferSize, OutNewSize);
-					}
-
-					if (SendBufferSize > 0)
-					{
-						Socket->SetSendBufferSize(SendBufferSize, OutNewSize);
-					}
-				}
-
-				if (Error)
-				{
-					GLog->Logf(TEXT("FUdpSocketBuilder: Failed to create the socket %s as configured"), *Description);
-
-					SocketSubsystem->DestroySocket(Socket);
-					Socket = nullptr;
+					break;
 				}
 			}
+		}
+
+		// set buffer sizes
+		if (!Error)
+		{
+			int32 OutNewSize;
+
+			if (ReceiveBufferSize > 0)
+			{
+				Socket->SetReceiveBufferSize(ReceiveBufferSize, OutNewSize);
+			}
+
+			if (SendBufferSize > 0)
+			{
+				Socket->SetSendBufferSize(SendBufferSize, OutNewSize);
+			}
+		}
+
+		if (Error)
+		{
+			GLog->Logf(TEXT("FUdpSocketBuilder: Failed to create and initialize socket %s (last error: %i)"), *Description, (int32)SocketSubsystem->GetLastErrorCode());
+			SocketSubsystem->DestroySocket(Socket);
+			Socket = nullptr;
 		}
 
 		return Socket;

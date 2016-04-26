@@ -1,8 +1,12 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "IKeyframeSection.h"
+#include "MovieSceneKeyStruct.h"
+#include "MovieSceneSection.h"
 #include "MovieSceneColorSection.generated.h"
+
 
 enum class EKeyColorChannel
 {
@@ -12,9 +16,10 @@ enum class EKeyColorChannel
 	Alpha,
 };
 
+
 struct FColorKey
 {
-	FColorKey( EKeyColorChannel InChannel, float InChannelValue, bool InbIsSlateColor )
+	FColorKey(EKeyColorChannel InChannel, float InChannelValue, bool InbIsSlateColor)
 	{
 		Channel = InChannel;
 		ChannelValue = InChannelValue;
@@ -26,33 +31,44 @@ struct FColorKey
 	bool bIsSlateColor;
 };
 
+
+/**
+ * Proxy structure for color section key data.
+ */
+USTRUCT()
+struct FMovieSceneColorKeyStruct
+	: public FMovieSceneKeyStruct
+{
+	GENERATED_BODY()
+
+	/** They key's color value. */
+	UPROPERTY(EditAnywhere, Category=Key, meta=(InlineColorPicker))
+	FLinearColor Color;
+
+	FRichCurveKey* Keys[4];
+
+	virtual void PropagateChanges(const FPropertyChangedEvent& ChangeEvent) override;
+};
+
+
 /**
  * A single floating point section
  */
-UCLASS( MinimalAPI )
+UCLASS(MinimalAPI)
 class UMovieSceneColorSection 
 	: public UMovieSceneSection
 	, public IKeyframeSection<FColorKey>
 {
 	GENERATED_UCLASS_BODY()
+
 public:
-	/** MovieSceneSection interface */
-	virtual void MoveSection(float DeltaPosition, TSet<FKeyHandle>& KeyHandles) override;
-	virtual void DilateSection(float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles) override;
-	virtual void GetKeyHandles(TSet<FKeyHandle>& KeyHandles) const override;
 
 	/**
 	 * Updates this section
 	 *
 	 * @param Position	The position in time within the movie scene
 	 */
-	virtual FLinearColor Eval( float Position, const FLinearColor& DefaultColor ) const;
-
-	// IKeyframeSection interface.
-	virtual void AddKey( float Time, const FColorKey& Key, EMovieSceneKeyInterpolation KeyInterpolation ) override;
-	virtual bool NewKeyIsNewData(float Time, const FColorKey& Key) const override;
-	virtual bool HasKeys(const FColorKey& Key) const override;
-	virtual void SetDefault(const FColorKey& Key ) override;
+	virtual FLinearColor Eval(float Position, const FLinearColor& DefaultColor) const;
 
 	/**
 	 * Gets the red color curve
@@ -69,6 +85,7 @@ public:
 	 */
 	FRichCurve& GetGreenCurve() { return GreenCurve; }
 	const FRichCurve& GetGreenCurve() const { return GreenCurve; }
+
 	/**
 	 * Gets the blue color curve
 	 *
@@ -84,6 +101,24 @@ public:
 	 */
 	FRichCurve& GetAlphaCurve() { return AlphaCurve; }
 	const FRichCurve& GetAlphaCurve() const { return AlphaCurve; }
+
+public:
+
+	// UMovieSceneSection interface
+
+	virtual void MoveSection(float DeltaPosition, TSet<FKeyHandle>& KeyHandles) override;
+	virtual void DilateSection(float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles) override;
+	virtual void GetKeyHandles(TSet<FKeyHandle>& KeyHandles) const override;
+	virtual TSharedPtr<FStructOnScope> GetKeyStruct(const TArray<FKeyHandle>& KeyHandles) override;
+
+public:
+
+	// IKeyframeSection interface
+
+	virtual void AddKey(float Time, const FColorKey& Key, EMovieSceneKeyInterpolation KeyInterpolation) override;
+	virtual bool NewKeyIsNewData(float Time, const FColorKey& Key) const override;
+	virtual bool HasKeys(const FColorKey& Key) const override;
+	virtual void SetDefault(const FColorKey& Key) override;
 
 private:
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 ActorFactory.cpp: 
@@ -200,9 +200,7 @@ AActor* UActorFactory::CreateActor( UObject* Asset, ULevel* InLevel, FTransform 
 
 	if ( PreSpawnActor(Asset, SpawnTransform) )
 	{
-		const auto Location = SpawnTransform.GetLocation();
-		const auto Rotation = SpawnTransform.GetRotation().Rotator();
-		NewActor = SpawnActor(Asset, InLevel, Location, Rotation, ObjectFlags, Name);
+		NewActor = SpawnActor(Asset, InLevel, SpawnTransform, ObjectFlags, Name);
 
 		if ( NewActor )
 		{
@@ -230,7 +228,7 @@ bool UActorFactory::PreSpawnActor( UObject* Asset, FTransform& InOutLocation)
 	return true;
 }
 
-AActor* UActorFactory::SpawnActor( UObject* Asset, ULevel* InLevel, const FVector& Location, const FRotator& Rotation, EObjectFlags ObjectFlags, const FName& Name )
+AActor* UActorFactory::SpawnActor( UObject* Asset, ULevel* InLevel, const FTransform& Transform, EObjectFlags ObjectFlags, const FName Name )
 {
 	AActor* DefaultActor = GetDefaultActor( FAssetData( Asset ) );
 	if ( DefaultActor )
@@ -239,7 +237,7 @@ AActor* UActorFactory::SpawnActor( UObject* Asset, ULevel* InLevel, const FVecto
 		SpawnInfo.OverrideLevel = InLevel;
 		SpawnInfo.ObjectFlags = ObjectFlags;
 		SpawnInfo.Name = Name;
-		return InLevel->OwningWorld->SpawnActor( DefaultActor->GetClass(), &Location, &Rotation, SpawnInfo );
+		return InLevel->OwningWorld->SpawnActor( DefaultActor->GetClass(), &Transform, SpawnInfo );
 	}
 
 	return NULL;
@@ -732,7 +730,7 @@ bool UActorFactoryPhysicsAsset::CanCreateActorFrom( const FAssetData& AssetData,
 bool UActorFactoryPhysicsAsset::PreSpawnActor(UObject* Asset, FTransform& InOutLocation)
 {
 	UPhysicsAsset* PhysicsAsset = CastChecked<UPhysicsAsset>(Asset);
-	USkeletalMesh* UseSkelMesh = PhysicsAsset->PreviewSkeletalMesh.Get();
+	USkeletalMesh* UseSkelMesh = PhysicsAsset->PreviewSkeletalMesh.LoadSynchronous();
 
 	if(!UseSkelMesh)
 	{
@@ -1193,17 +1191,17 @@ bool UActorFactoryEmptyActor::CanCreateActorFrom( const FAssetData& AssetData, F
 	return AssetData.ObjectPath == FName(*AActor::StaticClass()->GetPathName());
 }
 
-AActor* UActorFactoryEmptyActor::SpawnActor( UObject* Asset, ULevel* InLevel, const FVector& Location, const FRotator& Rotation, EObjectFlags ObjectFlags, const FName& Name )
+AActor* UActorFactoryEmptyActor::SpawnActor( UObject* Asset, ULevel* InLevel, const FTransform& Transform, EObjectFlags ObjectFlags, const FName Name )
 {
 	AActor* NewActor = nullptr;
 	{
 		// Spawn a temporary actor for dragging around
-		NewActor = Super::SpawnActor(Asset, InLevel, Location, Rotation, ObjectFlags, Name);
+		NewActor = Super::SpawnActor(Asset, InLevel, Transform, ObjectFlags, Name);
 
 		USceneComponent* RootComponent = NewObject<USceneComponent>(NewActor, USceneComponent::GetDefaultSceneRootVariableName(), RF_Transactional);
 		RootComponent->Mobility = EComponentMobility::Movable;
 		RootComponent->bVisualizeComponent = true;
-		RootComponent->SetWorldLocationAndRotation(Location, Rotation);
+		RootComponent->SetWorldTransform(Transform);
 
 		NewActor->SetRootComponent(RootComponent);
 		NewActor->AddInstanceComponent(RootComponent);
@@ -1231,14 +1229,6 @@ bool UActorFactoryCharacter::CanCreateActorFrom(const FAssetData& AssetData, FTe
 	return AssetData.ObjectPath == FName(*ACharacter::StaticClass()->GetPathName());
 }
 
-AActor* UActorFactoryCharacter::SpawnActor(UObject* Asset, ULevel* InLevel, const FVector& Location, const FRotator& Rotation, EObjectFlags ObjectFlags, const FName& Name)
-{
-	AActor* NewActor = Super::SpawnActor( Asset, InLevel, Location, Rotation, ObjectFlags, Name );
-
-	return NewActor;
-}
-
-
 /*-----------------------------------------------------------------------------
 UActorFactoryPawn
 -----------------------------------------------------------------------------*/
@@ -1252,12 +1242,6 @@ UActorFactoryPawn::UActorFactoryPawn(const FObjectInitializer& ObjectInitializer
 bool UActorFactoryPawn::CanCreateActorFrom(const FAssetData& AssetData, FText& OutErrorMsg)
 {
 	return AssetData.ObjectPath == FName(*APawn::StaticClass()->GetPathName());
-}
-
-AActor* UActorFactoryPawn::SpawnActor(UObject* Asset, ULevel* InLevel, const FVector& Location, const FRotator& Rotation, EObjectFlags ObjectFlags, const FName& Name)
-{
-	AActor* NewActor = Super::SpawnActor(Asset, InLevel, Location, Rotation, ObjectFlags, Name);
-	return NewActor;
 }
 
 /*-----------------------------------------------------------------------------
@@ -1375,7 +1359,7 @@ bool UActorFactoryClass::PreSpawnActor( UObject* Asset, FTransform& InOutLocatio
 	return false;
 }
 
-AActor* UActorFactoryClass::SpawnActor( UObject* Asset, ULevel* InLevel, const FVector& Location, const FRotator& Rotation, EObjectFlags ObjectFlags, const FName& Name )
+AActor* UActorFactoryClass::SpawnActor( UObject* Asset, ULevel* InLevel, const FTransform& Transform, EObjectFlags ObjectFlags, const FName Name )
 {
 	UClass* ActualClass = Cast<UClass>(Asset);
 
@@ -1385,7 +1369,7 @@ AActor* UActorFactoryClass::SpawnActor( UObject* Asset, ULevel* InLevel, const F
 		SpawnInfo.OverrideLevel = InLevel;
 		SpawnInfo.ObjectFlags = ObjectFlags;
 		SpawnInfo.Name = Name;
-		return InLevel->OwningWorld->SpawnActor( ActualClass, &Location, &Rotation, SpawnInfo );
+		return InLevel->OwningWorld->SpawnActor( ActualClass, &Transform, SpawnInfo );
 	}
 
 	return NULL;
@@ -1969,9 +1953,9 @@ bool UActorFactoryMovieScene::CanCreateActorFrom( const FAssetData& AssetData, F
 	return true;
 }
 
-AActor* UActorFactoryMovieScene::SpawnActor( UObject* Asset, ULevel* InLevel, const FVector& Location, const FRotator& Rotation, EObjectFlags ObjectFlags, const FName& Name )
+AActor* UActorFactoryMovieScene::SpawnActor( UObject* Asset, ULevel* InLevel, const FTransform& Transform, EObjectFlags ObjectFlags, const FName Name )
 {
-	ALevelSequenceActor* NewActor = Cast<ALevelSequenceActor>(Super::SpawnActor(Asset, InLevel, Location, Rotation, ObjectFlags, Name));
+	ALevelSequenceActor* NewActor = Cast<ALevelSequenceActor>(Super::SpawnActor(Asset, InLevel, Transform, ObjectFlags, Name));
 
 	if (NewActor)
 	{

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 	
 #include "CrashReportClientApp.h"
 
@@ -10,114 +10,24 @@
 #include "CrashReportUtil.h"
 #include "GenericPlatformCrashContext.h"
 #include "CrashDescription.h"
+#include "EngineBuildSettings.h"
+
+// TODO Chris.Wood: switch these when backend migrates to DR
+#define PRIMARY_UPLOAD_RECEIVER 1
+#define PRIMARY_UPLOAD_DATAROUTER 0
 
 #define LOCTEXT_NAMESPACE "CrashReportClient"
 
-namespace
+namespace CrashUploadDefs
 {
 	const float PingTimeoutSeconds = 5.f;
 	// Ignore files bigger than 100MB; mini-dumps are smaller than this, but heap dumps can be very large
 	const int MaxFileSizeToUpload = 100 * 1024 * 1024;
-}
 
-FCrashUpload::FCrashUpload(const FString& ServerAddress)
-	: UrlPrefix(ServerAddress / "CrashReporter")
-	, State(EUploadState::NotSet)
-	, PauseState(EUploadState::Ready)
-{
-	SendPingRequest();
-}
-
-FCrashUpload::~FCrashUpload()
-{
-	UE_LOG(CrashReportClientLog, Log, TEXT("Final state = %s"), ToString(State));
-}
-
-bool FCrashUpload::PingTimeout(float DeltaTime)
-{
-	if (EUploadState::PingingServer == State)
-	{
-		SetCurrentState(EUploadState::ServerNotAvailable);
-
-		// PauseState will be Ready if user has not yet decided to send the report
-		if (PauseState > EUploadState::Ready)
-		{
-			AddReportToPendingFile();
-		}
-	}
-
-	// One-shot
-	return false;
-}
-
-void FCrashUpload::BeginUpload(const FPlatformErrorReport& PlatformErrorReport)
-{
-	ErrorReport = PlatformErrorReport;
-	PendingFiles = FPlatformErrorReport( ErrorReport.GetReportDirectory() ).GetFilesToUpload();
-	UE_LOG(CrashReportClientLog, Log, TEXT("Got %d pending files to upload from '%s'"), PendingFiles.Num(), *ErrorReport.GetReportDirectoryLeafName());
-
-	PauseState = EUploadState::Finished;
-	if (State == EUploadState::Ready)
-	{
-		BeginUploadImpl();
-	}
-	else if (State == EUploadState::ServerNotAvailable)
-	{
-		AddReportToPendingFile();
-	}
-}
-
-const FText& FCrashUpload::GetStatusText() const
-{
-	return UploadStateText;
-}
-
-bool FCrashUpload::IsFinished() const
-{
-	return State >= EUploadState::FirstCompletedState;
-}
-
-void FCrashUpload::Cancel()
-{
-	SetCurrentState(EUploadState::Cancelled);
-}
-
-bool FCrashUpload::SendCheckReportRequest()
-{
-	FString XMLString;
-
-	auto Request = CreateHttpRequest();
-	if (State == EUploadState::CheckingReport)
-	{
-		AssignReportIdToPostDataBuffer();
-		Request->SetURL(UrlPrefix / TEXT("CheckReport"));
-		Request->SetHeader(TEXT("Content-Type"), TEXT("text/plain; charset=us-ascii"));
-
-		UE_LOG( CrashReportClientLog, Log, TEXT( "Sending HTTP request: %s" ), *Request->GetURL() );
-	}
-	else
-	{
-		// This part is Windows-specific on the server
-		ErrorReport.LoadWindowsReportXmlFile( XMLString );
-
-		// Convert the XMLString into the UTF-8.
-		FTCHARToUTF8 Converter( (const TCHAR*)*XMLString, XMLString.Len() );
-		const int32 Length = Converter.Length();
-		PostData.Reset( Length );
-		PostData.AddUninitialized( Length );
-		CopyAssignItems( (ANSICHAR*)PostData.GetData(), Converter.Get(), Length );
-
-		Request->SetURL(UrlPrefix / TEXT("CheckReportDetail"));
-		Request->SetHeader(TEXT("Content-Type"), TEXT("text/plain; charset=utf-8"));
-
-		UE_LOG( CrashReportClientLog, Log, TEXT( "Sending HTTP request: %s" ), *Request->GetURL() );
-	}
-
-	UE_LOG( CrashReportClientLog, Log, TEXT( "PostData Num: %i" ), PostData.Num() );
-	Request->SetVerb(TEXT("POST"));
-	Request->SetContent(PostData);
-
-	return Request->ProcessRequest();
+	const FString APIKey(TEXT("CrashReporter"));
+	const FString AppEnvironmentInternal(TEXT("Dev"));
+	const FString AppEnvironmentExternal(TEXT("Release"));
+	const FString UploadType(TEXT("crashreports"));
 }
 
 enum class ECompressedCrashFileHeader
@@ -131,7 +41,7 @@ struct FCompressedCrashFile : FNoncopyable
 	FString Filename;
 	TArray<uint8> Filedata;
 
-	FCompressedCrashFile( int32 InCurrentFileIndex, const FString& InFilename, const TArray<uint8>& InFiledata )
+	FCompressedCrashFile(int32 InCurrentFileIndex, const FString& InFilename, const TArray<uint8>& InFiledata)
 		: CurrentFileIndex(InCurrentFileIndex)
 		, Filename(InFilename)
 		, Filedata(InFiledata)
@@ -142,70 +52,140 @@ struct FCompressedCrashFile : FNoncopyable
 	friend FArchive& operator << (FArchive& Ar, FCompressedCrashFile& Data)
 	{
 		Ar << Data.CurrentFileIndex;
-		Data.Filename.SerializeAsANSICharArray( Ar, 260 );
+		Data.Filename.SerializeAsANSICharArray(Ar, 260);
 		Ar << Data.Filedata;
 		return Ar;
 	}
 };
 
-void FCrashUpload::CompressAndSendData()
+struct FCompressedHeader
 {
-	UE_LOG(CrashReportClientLog, Log, TEXT("CompressAndSendData have %d pending files"), PendingFiles.Num());
+	FString DirectoryName;
+	FString FileName;
+	int32 UncompressedSize;
+	int32 FileCount;
+
+	/** Serialization operator. */
+	friend FArchive& operator << (FArchive& Ar, FCompressedHeader& Data)
+	{
+		Data.DirectoryName.SerializeAsANSICharArray(Ar, 260);
+		Data.FileName.SerializeAsANSICharArray(Ar, 260);
+		Ar << Data.UncompressedSize;
+		Ar << Data.FileCount;
+		return Ar;
+	}
+};
+
+struct FCompressedData
+{
+	TArray<uint8> Data;
+	int32 CompressedSize;
+	int32 UncompressedSize;
+	int32 FileCount;
+};
+
+bool FCrashUploadBase::bInitialized = false;
+TArray<FString> FCrashUploadBase::PendingReportDirectories;
+TArray<FString> FCrashUploadBase::FailedReportDirectories;
+
+FCrashUploadBase::FCrashUploadBase()
+	: bUploadCalled(false)
+	, State(EUploadState::NotSet)
+	, PauseState(EUploadState::Ready)
+	, PendingReportDirectoryIndex(0)
+{
+
+}
+
+FCrashUploadBase::~FCrashUploadBase()
+{
+	UE_LOG(CrashReportClientLog, Log, TEXT("Final state (Receiver) = %s"), ToString(State));
+}
+
+void FCrashUploadBase::StaticInitialize(const FPlatformErrorReport& PlatformErrorReport)
+{
+	FPendingReports PendingReports;
+	//PendingReports.Add(*PlatformErrorReport.GetReportDirectoryLeafName());
+	PendingReportDirectories = PendingReports.GetReportDirectories();
+	PendingReports.Clear();
+	PendingReports.Save();
+}
+
+void FCrashUploadBase::StaticShutdown()
+{
+	// Write failed uploads back to disk
+	FPendingReports ReportsForNextTime;
+	for (const FString& FailedReport : FailedReportDirectories)
+	{
+		ReportsForNextTime.Add(FailedReport);
+	}
+	ReportsForNextTime.Save();
+}
+
+bool FCrashUploadBase::CompressData(const TArray<FString>& InPendingFiles, FCompressedData& OutCompressedData, TArray<uint8>& OutPostData, FCompressedHeader* OptionalHeader)
+{
+	UE_LOG(CrashReportClientLog, Log, TEXT("CompressAndSendData have %d pending files"), InPendingFiles.Num());
 
 	// Compress all files into one archive.
-	const int32 BufferSize = 16*1024*1024;
+	const int32 BufferSize = 16 * 1024 * 1024;
 
 	TArray<uint8> UncompressedData;
-	UncompressedData.Reserve( BufferSize );
-	FMemoryWriter MemoryWriter( UncompressedData, false, true );
+	UncompressedData.Reserve(BufferSize);
+	FMemoryWriter MemoryWriter(UncompressedData, false, true);
+
+	if (OptionalHeader != nullptr)
+	{
+		// Write dummy to fill correct size
+		MemoryWriter << *OptionalHeader;
+	}
 
 	int32 CurrentFileIndex = 0;
 
 	const FString FullCrashDumpLocation = FPrimaryCrashProperties::Get()->FullCrashDumpLocation.AsString();
 
 	// Loop to keep trying files until a send succeeds or we run out of files
-	while (PendingFiles.Num() != 0)
+	for (const FString& PathOfFileToUpload : InPendingFiles)
 	{
-		const FString PathOfFileToUpload = PendingFiles.Pop();
-		const FString Filename = FPaths::GetCleanFilename( PathOfFileToUpload );
+		const FString Filename = FPaths::GetCleanFilename(PathOfFileToUpload);
 
-		const bool bValidFullDumpForCopy = Filename == FGenericCrashContext::UE4MinidumpName && 
+		const bool bValidFullDumpForCopy = Filename == FGenericCrashContext::UE4MinidumpName &&
 			(FPrimaryCrashProperties::Get()->CrashDumpMode == ECrashDumpMode::FullDump || FPrimaryCrashProperties::Get()->CrashDumpMode == ECrashDumpMode::FullDumpAlways) &&
 			FPrimaryCrashProperties::Get()->CrashVersion >= ECrashDescVersions::VER_3_CrashContext &&
 			!FullCrashDumpLocation.IsEmpty();
+
 		if (bValidFullDumpForCopy)
 		{
 			const FString DestinationPath = FullCrashDumpLocation / FGenericCrashContext::UE4MinidumpName;
-			const bool bCreated = IFileManager::Get().MakeDirectory( *FullCrashDumpLocation, true );
+			const bool bCreated = IFileManager::Get().MakeDirectory(*FullCrashDumpLocation, true);
 			if (!bCreated)
 			{
-				UE_LOG( CrashReportClientLog, Error, TEXT( "Couldn't create directory for full crash dump %s" ), *DestinationPath );
+				UE_LOG(CrashReportClientLog, Error, TEXT("Couldn't create directory for full crash dump %s"), *DestinationPath);
 			}
 			else
 			{
-				UE_LOG( CrashReportClientLog, Warning, TEXT( "Copying full crash minidump to %s" ), *DestinationPath );
-				IFileManager::Get().Copy( *DestinationPath, *PathOfFileToUpload );
+				UE_LOG(CrashReportClientLog, Warning, TEXT("Copying full crash minidump to %s"), *DestinationPath);
+				IFileManager::Get().Copy(*DestinationPath, *PathOfFileToUpload, false);
 			}
-						
+
 			continue;
 		}
-		
-		if (IFileManager::Get().FileSize( *PathOfFileToUpload ) > MaxFileSizeToUpload)
+
+		if (IFileManager::Get().FileSize(*PathOfFileToUpload) > CrashUploadDefs::MaxFileSizeToUpload)
 		{
 			UE_LOG(CrashReportClientLog, Warning, TEXT("Skipping large crash report file"));
 			continue;
 		}
 
-		if (!FFileHelper::LoadFileToArray(PostData, *PathOfFileToUpload))
+		if (!FFileHelper::LoadFileToArray(OutPostData, *PathOfFileToUpload))
 		{
 			UE_LOG(CrashReportClientLog, Warning, TEXT("Failed to load crash report file"));
 			continue;
 		}
 
-		const bool bSkipLogFile = !FCrashReportClientConfig::Get().GetSendLogFile() && PathOfFileToUpload.EndsWith( TEXT( ".log" ) );
+		const bool bSkipLogFile = !FCrashReportClientConfig::Get().GetSendLogFile() && PathOfFileToUpload.EndsWith(TEXT(".log"));
 		if (bSkipLogFile)
 		{
-			UE_LOG( CrashReportClientLog, Warning, TEXT( "Skipping the %s" ), *Filename );
+			UE_LOG(CrashReportClientLog, Warning, TEXT("Skipping the %s"), *Filename);
 			continue;
 		}
 
@@ -215,15 +195,15 @@ void FCrashUpload::CompressAndSendData()
 		const bool bSkipXMLFile = PathOfFileToUpload.EndsWith( TEXT( ".xml" ) );
 		if (bSkipXMLFile)
 		{
-			UE_LOG( CrashReportClientLog, Warning, TEXT( "Skipping the %s" ), *Filename );
-			continue;
+		UE_LOG( CrashReportClientLog, Warning, TEXT( "Skipping the %s" ), *Filename );
+		continue;
 		}*/
 
 		// Skip old Report.wer file.
-		const bool bSkipWERFile = PathOfFileToUpload.Contains( TEXT( "Report.wer" ) );
+		const bool bSkipWERFile = PathOfFileToUpload.Contains(TEXT("Report.wer"));
 		if (bSkipWERFile)
 		{
-			UE_LOG( CrashReportClientLog, Warning, TEXT( "Skipping the %s" ), *Filename );
+			UE_LOG(CrashReportClientLog, Warning, TEXT("Skipping the %s"), *Filename);
 			continue;
 		}
 
@@ -233,288 +213,90 @@ void FCrashUpload::CompressAndSendData()
 		const bool bSkipDiagnostics = Filename == FCrashReportClientConfig::Get().GetDiagnosticsFilename();
 		if (bSkipDiagnostics)
 		{
-			UE_LOG( CrashReportClientLog, Warning, TEXT( "Skipping the %s" ), *Filename );
-			continue;
+		UE_LOG( CrashReportClientLog, Warning, TEXT( "Skipping the %s" ), *Filename );
+		continue;
 		}*/
 
-		UE_LOG(CrashReportClientLog, Log, TEXT("CompressAndSendData compressing %d bytes ('%s')"), PostData.Num(), *PathOfFileToUpload);
+		UE_LOG(CrashReportClientLog, Log, TEXT("CompressAndSendData compressing %d bytes ('%s')"), OutPostData.Num(), *PathOfFileToUpload);
 
-		FCompressedCrashFile FileToCompress( CurrentFileIndex, Filename, PostData );
+		FCompressedCrashFile FileToCompress(CurrentFileIndex, Filename, OutPostData);
 		CurrentFileIndex++;
 
 		MemoryWriter << FileToCompress;
 	}
 
-	
+	if (OptionalHeader != nullptr)
+	{
+		FMemoryWriter MemoryHeaderWriter(UncompressedData, false, true);
+
+		OptionalHeader->UncompressedSize = UncompressedData.Num();
+		OptionalHeader->FileCount = CurrentFileIndex;
+
+		MemoryHeaderWriter << *OptionalHeader;
+	}
+
 	uint8* CompressedDataRaw = new uint8[BufferSize];
 
-	int32 CompressedSize = BufferSize;
-	int32 UncompressedSize = UncompressedData.Num();
-	const bool bResult = FCompression::CompressMemory( COMPRESS_ZLIB, CompressedDataRaw, CompressedSize, UncompressedData.GetData(), UncompressedSize );
-	if( !bResult )
+	OutCompressedData.FileCount = CurrentFileIndex;
+	OutCompressedData.CompressedSize = BufferSize;
+	OutCompressedData.UncompressedSize = UncompressedData.Num();
+	const bool bResult = FCompression::CompressMemory(COMPRESS_ZLIB, CompressedDataRaw, OutCompressedData.CompressedSize, UncompressedData.GetData(), OutCompressedData.UncompressedSize);
+	if (bResult)
 	{
-		UE_LOG(CrashReportClientLog, Warning, TEXT("Couldn't compress the crash report files"));
-		SetCurrentState(EUploadState::Cancelled);
-		return;
+		// Copy compressed data into the array.
+		OutCompressedData.Data.Append(CompressedDataRaw, OutCompressedData.CompressedSize);
+		delete[] CompressedDataRaw;
+		CompressedDataRaw = nullptr;
 	}
-	
-	const FString Filename = ErrorReport.GetReportDirectoryLeafName() + TEXT(".ue4crash");
 
-	// Copy compressed data into the array.
-	TArray<uint8> CompressedData;
-	CompressedData.Append( CompressedDataRaw, CompressedSize );
-	delete [] CompressedDataRaw;
-	CompressedDataRaw = nullptr;
-
-	// Set up request for upload
-	auto Request = CreateHttpRequest();
-	Request->SetVerb(TEXT("POST"));
-	Request->SetHeader(TEXT("Content-Type"), TEXT("application/octet-stream"));
-	Request->SetURL(UrlPrefix / TEXT("UploadReportFile"));
-	Request->SetContent(CompressedData);
-	Request->SetHeader(TEXT("DirectoryName"), *ErrorReport.GetReportDirectoryLeafName());
-	Request->SetHeader(TEXT("FileName"), Filename);
-	Request->SetHeader(TEXT("FileLength"), TTypeToString<int32>::ToString(CompressedData.Num()) );
-	Request->SetHeader(TEXT("CompressedSize"), TTypeToString<int32>::ToString(CompressedSize) );
-	Request->SetHeader(TEXT("UncompressedSize"), TTypeToString<int32>::ToString(UncompressedSize) );
-	Request->SetHeader(TEXT("NumberOfFiles"), TTypeToString<int32>::ToString(CurrentFileIndex) );
-	UE_LOG( CrashReportClientLog, Log, TEXT( "Sending HTTP request: %s" ), *Request->GetURL() );
-
-	if (Request->ProcessRequest())
-	{
-		return;
-	}
-	else
-	{
-		UE_LOG(CrashReportClientLog, Warning, TEXT("Failed to send file upload request"));
-		SetCurrentState(EUploadState::Cancelled);
-	}	
+	return bResult;
 }
 
-void FCrashUpload::AssignReportIdToPostDataBuffer()
+const TCHAR* FCrashUploadBase::ToString(EUploadState::Type State)
 {
-	FString ReportDirectoryName = *ErrorReport.GetReportDirectoryLeafName();
-	const int32 DirectoryNameLength = ReportDirectoryName.Len();
-	PostData.SetNum(DirectoryNameLength);
-	for (int32 Index = 0; Index != DirectoryNameLength; ++Index)
-	{
-		PostData[Index] = ReportDirectoryName[Index];
-	}
-}
-
-void FCrashUpload::PostReportComplete()
-{
-	if (PauseState == EUploadState::PostingReportComplete)
-	{
-		// Wait for confirmation
-		SetCurrentState(EUploadState::WaitingToPostReportComplete);
-		return;
-	}
-
-	AssignReportIdToPostDataBuffer();
-
-	
-	auto Request = CreateHttpRequest();
-	Request->SetVerb( TEXT( "POST" ) );
-	Request->SetURL(UrlPrefix / TEXT("UploadComplete"));
-	Request->SetHeader( TEXT( "Content-Type" ), TEXT( "text/plain; charset=us-ascii" ) );
-	Request->SetContent(PostData);
-	UE_LOG( CrashReportClientLog, Log, TEXT( "Sending HTTP request: %s" ), *Request->GetURL() );
-
-	if (Request->ProcessRequest())
-	{
-		SetCurrentState(EUploadState::PostingReportComplete);
-	}
-	else
-	{
-		CheckPendingReportsForFilesToUpload();
-	}
-}
-
-void FCrashUpload::OnProcessRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
-{
-	UE_LOG(CrashReportClientLog, Log, TEXT("OnProcessRequestComplete(), State=%s bSucceeded=%i"), ToString(State), (int32)bSucceeded );
 	switch (State)
 	{
-	default:
-		// May get here if response is received after time-out has passed
-		break;
-
 	case EUploadState::PingingServer:
-		if (bSucceeded)
-		{
-			OnPingSuccess();
-		}
-		else
-		{
-			PingTimeout(0);
-		}
-		break;
+		return TEXT("PingingServer");
+
+	case EUploadState::Ready:
+		return TEXT("Ready");
 
 	case EUploadState::CheckingReport:
+		return TEXT("CheckingReport");
+
 	case EUploadState::CheckingReportDetail:
-		if (!bSucceeded || !ParseServerResponse(HttpResponse))
-		{
-			if (!bSucceeded)
-			{
-				UE_LOG(CrashReportClientLog, Warning, TEXT("Request to server failed"));
-			}
-			else
-			{
-				UE_LOG(CrashReportClientLog, Warning, TEXT("Did not get a valid server response."));
-			}
-
-			// Skip this report
-			CheckPendingReportsForFilesToUpload();
-			break;
-		}
-
-		if (State == EUploadState::CheckingReport)
-		{
-			SetCurrentState(EUploadState::CheckingReportDetail);
-			if (!SendCheckReportRequest())
-			{
-				// Skip this report
-				CheckPendingReportsForFilesToUpload();
-			}
-		}
-		else
-		{
-			SetCurrentState(EUploadState::CompressAndSendData);
-			CompressAndSendData();
-		}
-		break;
+		return TEXT("CheckingReportDetail");
 
 	case EUploadState::CompressAndSendData:
-		if (!bSucceeded)
-		{
-			UE_LOG(CrashReportClientLog, Warning, TEXT("File upload failed"));
-			SetCurrentState(EUploadState::Cancelled);
-		}
-		else
-		{
-			PostReportComplete();
-		}
-		break;
+		return TEXT("SendingFiles");
+
+	case EUploadState::WaitingToPostReportComplete:
+		return TEXT("WaitingToPostReportComplete");
 
 	case EUploadState::PostingReportComplete:
-		CheckPendingReportsForFilesToUpload();
+		return TEXT("PostingReportComplete");
+
+	case EUploadState::Finished:
+		return TEXT("Finished");
+
+	case EUploadState::ServerNotAvailable:
+		return TEXT("ServerNotAvailable");
+
+	case EUploadState::UploadError:
+		return TEXT("UploadError");
+
+	case EUploadState::Cancelled:
+		return TEXT("Cancelled");
+
+	default:
 		break;
 	}
+
+	return TEXT("Unknown UploadState value");
 }
 
-void FCrashUpload::OnPingSuccess()
-{
-	if (PauseState > EUploadState::Ready)
-	{
-		BeginUploadImpl();
-	}
-	else
-	{
-		// Await instructions
-		SetCurrentState(EUploadState::Ready);
-	}
-}
-
-void FCrashUpload::AddReportToPendingFile() const
-{
-	if (PendingFiles.Num() == 0)
-	{
-		// No files so don't bother
-		return;
-	}
-
-	FPendingReports PendingReports;
-	// Extract full path of report from the first file
-	PendingReports.Add(FPaths::GetPath(*PendingFiles[0]));
-	PendingReports.Save();
-}
-
-void FCrashUpload::CheckPendingReportsForFilesToUpload()
-{
-	SetCurrentState(EUploadState::CheckingReport);
-	do
-	{
-		if (PendingReportDirectories.Num() == 0)
-		{
-			// Nothing to upload
-			UE_LOG(CrashReportClientLog, Log, TEXT("All uploads done"));
-			SetCurrentState(EUploadState::Finished);
-			return;
-		}
-
-		ErrorReport = FPlatformErrorReport(PendingReportDirectories.Pop());
-		PendingFiles = ErrorReport.GetFilesToUpload();
-	}
-	while (PendingFiles.Num() == 0 || !SendCheckReportRequest());
-}
-
-void FCrashUpload::BeginUploadImpl()
-{
-	FPendingReports PendingReports;
-	// Make sure we don't try to upload the current report twice
-	PendingReports.Forget(*ErrorReport.GetReportDirectoryLeafName());
-	PendingReportDirectories = PendingReports.GetReportDirectories();
-
-	UE_LOG(CrashReportClientLog, Log, TEXT("Proceeding to upload %d pending files from '%s'"), PendingFiles.Num(), *ErrorReport.GetReportDirectoryLeafName());
-
-	// Not sure about this: probably want to removes files one by one as they're successfully uploaded
-	PendingReports.Clear();
-	PendingReports.Save();
-
-	SetCurrentState(EUploadState::CheckingReport);
-	if (PendingFiles.Num() == 0 || !SendCheckReportRequest())
-	{
-		CheckPendingReportsForFilesToUpload();
-	}
-}
-
-TSharedRef<IHttpRequest> FCrashUpload::CreateHttpRequest()
-{
-	auto Request = FHttpModule::Get().CreateRequest();
-	Request->OnProcessRequestComplete().BindRaw(this, &FCrashUpload::OnProcessRequestComplete);
-	return Request;
-}
-
-void FCrashUpload::SendPingRequest()
-{
-	SetCurrentState(EUploadState::PingingServer);
-
-	auto Request = CreateHttpRequest();
-	Request->SetVerb(TEXT("GET"));
-	Request->SetURL(UrlPrefix / TEXT("Ping"));
-	UE_LOG( CrashReportClientLog, Log, TEXT( "Sending HTTP request: %s" ), *Request->GetURL() );
-
-	if (Request->ProcessRequest())
-	{
-		FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FCrashUpload::PingTimeout), PingTimeoutSeconds);
-	}
-	else
-	{
-		PingTimeout(0);
-	}
-}
-
-bool FCrashUpload::ParseServerResponse(FHttpResponsePtr Response)
-{
-	// Turn the snippet into a complete XML document, to keep the XML parser happy
-	FXmlFile ParsedResponse(FString(TEXT("<Root>")) + Response->GetContentAsString() + TEXT("</Root>"), EConstructMethod::ConstructFromBuffer);
-	UE_LOG(CrashReportClientLog, Log, TEXT("Response->GetContentAsString(): '%s'"), *Response->GetContentAsString());	
-	if (!ParsedResponse.IsValid())
-	{
-		UE_LOG(CrashReportClientLog, Log, TEXT("Invalid response!"));	
-		return false;
-	}
-	if (auto ResultNode = ParsedResponse.GetRootNode()->FindChildNode(TEXT("CrashReporterResult")))
-	{
-		UE_LOG(CrashReportClientLog, Log, TEXT("ResultNode->GetAttribute(TEXT(\"bSuccess\")) = %s"), *ResultNode->GetAttribute(TEXT("bSuccess")));	
-		return ResultNode->GetAttribute(TEXT("bSuccess")) == TEXT("true");
-	}
-	UE_LOG(CrashReportClientLog, Log, TEXT("Could not find CrashReporterResult"));	
-	return false;
-}
-
-void FCrashUpload::SetCurrentState(EUploadState::Type InState)
+void FCrashUploadBase::SetCurrentState(EUploadState::Type InState)
 {
 	if (State == EUploadState::NotSet)
 	{
@@ -546,48 +328,512 @@ void FCrashUpload::SetCurrentState(EUploadState::Type InState)
 	}
 }
 
-const TCHAR* FCrashUpload::ToString(EUploadState::Type State)
+void FCrashUploadBase::AddReportToFailedList() const
 {
-	switch(State)
+	if (PendingFiles.Num() == 0)
 	{
-		case EUploadState::PingingServer: 
-			return TEXT("PingingServer");
-
-		case EUploadState::Ready:
-			return TEXT("Ready");
-
-		case EUploadState::CheckingReport:
-			return TEXT("CheckingReport");
-
-		case EUploadState::CheckingReportDetail:
-			return TEXT("CheckingReportDetail");
-
-		case EUploadState::CompressAndSendData:
-			return TEXT("SendingFiles");
-
-		case EUploadState::WaitingToPostReportComplete:
-			return TEXT("WaitingToPostReportComplete");
-
-		case EUploadState::PostingReportComplete:
-			return TEXT("PostingReportComplete");
-
-		case EUploadState::Finished:
-			return TEXT("Finished");
-
-		case EUploadState::ServerNotAvailable:
-			return TEXT("ServerNotAvailable");
-
-		case EUploadState::UploadError:
-			return TEXT("UploadError");
-
-		case EUploadState::Cancelled:
-			return TEXT("Cancelled");
-
-		default:
-			break;
+		// No files so don't bother
+		return;
 	}
 
-	return TEXT("Unknown UploadState value");
+	FailedReportDirectories.AddUnique(PendingReportDirectories[PendingReportDirectoryIndex]);
+}
+
+// FCrashUploadToReceiver //////////////////////////////////////////////////////
+
+FCrashUploadToReceiver::FCrashUploadToReceiver(const FString& InReceiverAddress)
+	: UrlPrefix(InReceiverAddress.IsEmpty() ? TEXT("") : InReceiverAddress / TEXT("CrashReporter"))
+{
+	if (!UrlPrefix.IsEmpty())
+	{
+		// Sending to receiver
+		SendPingRequest();
+	}
+	else
+	{
+		SetCurrentState(EUploadState::UploadError);
+	}
+}
+
+FCrashUploadToReceiver::~FCrashUploadToReceiver()
+{
+}
+
+bool FCrashUploadToReceiver::PingTimeout(float DeltaTime)
+{
+	if (EUploadState::PingingServer == State)
+	{
+		SetCurrentState(EUploadState::ServerNotAvailable);
+
+		// PauseState will be Ready if user has not yet decided to send the report
+		if (PauseState > EUploadState::Ready)
+		{
+			AddReportToFailedList();
+		}
+	}
+
+	// One-shot
+	return false;
+}
+
+void FCrashUploadToReceiver::BeginUpload(const FPlatformErrorReport& PlatformErrorReport)
+{
+	bUploadCalled = true;
+
+	ErrorReport = PlatformErrorReport;
+	PendingFiles = FPlatformErrorReport( ErrorReport.GetReportDirectory() ).GetFilesToUpload();
+	UE_LOG(CrashReportClientLog, Log, TEXT("Got %d pending files to upload from '%s'"), PendingFiles.Num(), *ErrorReport.GetReportDirectoryLeafName());
+
+	PauseState = EUploadState::Finished;
+	if (State == EUploadState::Ready)
+	{
+		BeginUploadImpl();
+	}
+	else if (State == EUploadState::ServerNotAvailable)
+	{
+		AddReportToFailedList();
+	}
+}
+
+bool FCrashUploadToReceiver::SendCheckReportRequest()
+{
+	FString XMLString;
+
+	auto Request = CreateHttpRequest();
+	if (State == EUploadState::CheckingReport)
+	{
+#if PRIMARY_UPLOAD_RECEIVER
+		// first stage of any upload to CRR so send analytics
+		FPrimaryCrashProperties::Get()->SendPreUploadAnalytics();
+#endif
+		AssignReportIdToPostDataBuffer();
+		Request->SetURL(UrlPrefix / TEXT("CheckReport"));
+		Request->SetHeader(TEXT("Content-Type"), TEXT("text/plain; charset=us-ascii"));
+
+		UE_LOG( CrashReportClientLog, Log, TEXT( "Sending HTTP request: %s" ), *Request->GetURL() );
+	}
+	else
+	{
+		// This part is Windows-specific on the server
+		ErrorReport.LoadWindowsReportXmlFile( XMLString );
+
+		// Convert the XMLString into the UTF-8.
+		FTCHARToUTF8 Converter( (const TCHAR*)*XMLString, XMLString.Len() );
+		const int32 Length = Converter.Length();
+		PostData.Reset( Length );
+		PostData.AddUninitialized( Length );
+		CopyAssignItems( (ANSICHAR*)PostData.GetData(), Converter.Get(), Length );
+
+		Request->SetURL(UrlPrefix / TEXT("CheckReportDetail"));
+		Request->SetHeader(TEXT("Content-Type"), TEXT("text/plain; charset=utf-8"));
+
+		UE_LOG( CrashReportClientLog, Log, TEXT( "Sending HTTP request: %s" ), *Request->GetURL() );
+	}
+
+	UE_LOG( CrashReportClientLog, Log, TEXT( "PostData Num: %i" ), PostData.Num() );
+	Request->SetVerb(TEXT("POST"));
+	Request->SetContent(PostData);
+
+	return Request->ProcessRequest();
+}
+
+void FCrashUploadToReceiver::CompressAndSendData()
+{
+	FCompressedData CompressedData;
+	if (!CompressData(PendingFiles, CompressedData, PostData))
+	{
+		UE_LOG(CrashReportClientLog, Warning, TEXT("Couldn't compress the crash report files"));
+		SetCurrentState(EUploadState::Cancelled);
+		return;
+	}
+
+	PendingFiles.Empty();
+
+	const FString Filename = ErrorReport.GetReportDirectoryLeafName() + TEXT(".ue4crash");
+
+	// Set up request for upload
+	auto Request = CreateHttpRequest();
+	Request->SetVerb(TEXT("POST"));
+	Request->SetHeader(TEXT("Content-Type"), TEXT("application/octet-stream"));
+	Request->SetURL(UrlPrefix / TEXT("UploadReportFile"));
+	Request->SetContent(CompressedData.Data);
+	Request->SetHeader(TEXT("DirectoryName"), *ErrorReport.GetReportDirectoryLeafName());
+	Request->SetHeader(TEXT("FileName"), Filename);
+	Request->SetHeader(TEXT("FileLength"), TTypeToString<int32>::ToString(CompressedData.Data.Num()) );
+	Request->SetHeader(TEXT("CompressedSize"), TTypeToString<int32>::ToString(CompressedData.CompressedSize) );
+	Request->SetHeader(TEXT("UncompressedSize"), TTypeToString<int32>::ToString(CompressedData.UncompressedSize) );
+	Request->SetHeader(TEXT("NumberOfFiles"), TTypeToString<int32>::ToString(CompressedData.FileCount) );
+	UE_LOG( CrashReportClientLog, Log, TEXT( "Sending HTTP request: %s" ), *Request->GetURL() );
+
+	if (Request->ProcessRequest())
+	{
+		return;
+	}
+	else
+	{
+		UE_LOG(CrashReportClientLog, Warning, TEXT("Failed to send file upload request"));
+		SetCurrentState(EUploadState::Cancelled);
+	}	
+}
+
+void FCrashUploadToReceiver::AssignReportIdToPostDataBuffer()
+{
+	FString ReportDirectoryName = *ErrorReport.GetReportDirectoryLeafName();
+	const int32 DirectoryNameLength = ReportDirectoryName.Len();
+	PostData.SetNum(DirectoryNameLength);
+	for (int32 Index = 0; Index != DirectoryNameLength; ++Index)
+	{
+		PostData[Index] = ReportDirectoryName[Index];
+	}
+}
+
+void FCrashUploadToReceiver::PostReportComplete()
+{
+	if (PauseState == EUploadState::PostingReportComplete)
+	{
+		// Wait for confirmation
+		SetCurrentState(EUploadState::WaitingToPostReportComplete);
+		return;
+	}
+
+	AssignReportIdToPostDataBuffer();
+	
+	auto Request = CreateHttpRequest();
+	Request->SetVerb( TEXT( "POST" ) );
+	Request->SetURL(UrlPrefix / TEXT("UploadComplete"));
+	Request->SetHeader( TEXT( "Content-Type" ), TEXT( "text/plain; charset=us-ascii" ) );
+	Request->SetContent(PostData);
+	UE_LOG( CrashReportClientLog, Log, TEXT( "Sending HTTP request: %s" ), *Request->GetURL() );
+
+	if (Request->ProcessRequest())
+	{
+#if PRIMARY_UPLOAD_RECEIVER
+		// completed upload to CRR so send analytics
+		FPrimaryCrashProperties::Get()->SendPostUploadAnalytics();
+#endif
+		SetCurrentState(EUploadState::PostingReportComplete);
+	}
+	else
+	{
+		CheckPendingReportsForFilesToUpload();
+	}
+}
+
+void FCrashUploadToReceiver::OnProcessRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+{
+	UE_LOG(CrashReportClientLog, Log, TEXT("OnProcessRequestComplete(), State=%s bSucceeded=%i"), ToString(State), (int32)bSucceeded );
+	switch (State)
+	{
+	default:
+		// May get here if response is received after time-out has passed
+		break;
+
+	case EUploadState::PingingServer:
+		if (bSucceeded)
+		{
+			OnPingSuccess();
+		}
+		else
+		{
+			PingTimeout(0);
+		}
+		break;
+
+	case EUploadState::CheckingReport:
+	case EUploadState::CheckingReportDetail:
+		{
+			bool bCheckedOkay = false;
+
+			if (!bSucceeded || !ParseServerResponse(HttpResponse, bCheckedOkay))
+			{
+				if (!bSucceeded)
+				{
+					UE_LOG(CrashReportClientLog, Warning, TEXT("Request to server failed"));
+				}
+				else
+				{
+					UE_LOG(CrashReportClientLog, Warning, TEXT("Did not get a valid server response."));
+				}
+
+				// Failed to check with the server - skip this report for now
+				AddReportToFailedList();
+				CheckPendingReportsForFilesToUpload();
+			}
+			else if (!bCheckedOkay)
+			{
+				// Server rejected the report
+				UE_LOG(CrashReportClientLog, Warning, TEXT("Did not get a valid server response."));
+				CheckPendingReportsForFilesToUpload();
+			}
+			else
+			{
+				if (State == EUploadState::CheckingReport)
+				{
+					SetCurrentState(EUploadState::CheckingReportDetail);
+					if (!SendCheckReportRequest())
+					{
+						// Skip this report for now
+						AddReportToFailedList();
+						CheckPendingReportsForFilesToUpload();
+					}
+				}
+				else
+				{
+					SetCurrentState(EUploadState::CompressAndSendData);
+					CompressAndSendData();
+				}
+			}
+		}
+		break;
+
+	case EUploadState::CompressAndSendData:
+		if (!bSucceeded)
+		{
+			UE_LOG(CrashReportClientLog, Warning, TEXT("File upload failed to receiver"));
+			AddReportToFailedList();
+			SetCurrentState(EUploadState::Cancelled);
+		}
+		else
+		{
+			PostReportComplete();
+		}
+		break;
+
+	case EUploadState::PostingReportComplete:
+		CheckPendingReportsForFilesToUpload();
+		break;
+	}
+}
+
+void FCrashUploadToReceiver::OnPingSuccess()
+{
+	if (PauseState > EUploadState::Ready)
+	{
+		BeginUploadImpl();
+	}
+	else
+	{
+		// Await instructions
+		SetCurrentState(EUploadState::Ready);
+	}
+}
+
+void FCrashUploadToReceiver::CheckPendingReportsForFilesToUpload()
+{
+	SetCurrentState(EUploadState::CheckingReport);
+
+	for (; PendingReportDirectoryIndex < PendingReportDirectories.Num(); PendingReportDirectoryIndex++)
+	{
+		ErrorReport = FPlatformErrorReport(PendingReportDirectories[PendingReportDirectoryIndex]);
+		PendingFiles = ErrorReport.GetFilesToUpload();
+
+		if (PendingFiles.Num() > 0 && SendCheckReportRequest())
+		{
+			return;
+		}
+	}
+
+	// Nothing left to upload
+	UE_LOG(CrashReportClientLog, Log, TEXT("All uploads done"));
+	SetCurrentState(EUploadState::Finished);
+}
+
+void FCrashUploadToReceiver::BeginUploadImpl()
+{
+	SetCurrentState(EUploadState::CheckingReport);
+	if (!SendCheckReportRequest())
+	{
+		CheckPendingReportsForFilesToUpload();
+	}
+}
+
+TSharedRef<IHttpRequest> FCrashUploadToReceiver::CreateHttpRequest()
+{
+	auto Request = FHttpModule::Get().CreateRequest();
+	Request->OnProcessRequestComplete().BindRaw(this, &FCrashUploadToReceiver::OnProcessRequestComplete);
+	return Request;
+}
+
+void FCrashUploadToReceiver::SendPingRequest()
+{
+	SetCurrentState(EUploadState::PingingServer);
+
+	auto Request = CreateHttpRequest();
+	Request->SetVerb(TEXT("GET"));
+	Request->SetURL(UrlPrefix / TEXT("Ping"));
+	UE_LOG( CrashReportClientLog, Log, TEXT( "Sending HTTP request: %s" ), *Request->GetURL() );
+
+	if (Request->ProcessRequest())
+	{
+		FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FCrashUploadToReceiver::PingTimeout), CrashUploadDefs::PingTimeoutSeconds);
+	}
+	else
+	{
+		PingTimeout(0);
+	}
+}
+
+bool FCrashUploadToReceiver::ParseServerResponse(FHttpResponsePtr Response, bool& OutValidReport)
+{
+	// Turn the snippet into a complete XML document, to keep the XML parser happy
+	FXmlFile ParsedResponse(FString(TEXT("<Root>")) + Response->GetContentAsString() + TEXT("</Root>"), EConstructMethod::ConstructFromBuffer);
+	UE_LOG(CrashReportClientLog, Log, TEXT("Response->GetContentAsString(): '%s'"), *Response->GetContentAsString());	
+	if (!ParsedResponse.IsValid())
+	{
+		UE_LOG(CrashReportClientLog, Log, TEXT("Invalid response!"));
+		OutValidReport = false;
+		return false;
+	}
+	if (auto ResultNode = ParsedResponse.GetRootNode()->FindChildNode(TEXT("CrashReporterResult")))
+	{
+		UE_LOG(CrashReportClientLog, Log, TEXT("ResultNode->GetAttribute(TEXT(\"bSuccess\")) = %s"), *ResultNode->GetAttribute(TEXT("bSuccess")));	
+		OutValidReport = ResultNode->GetAttribute(TEXT("bSuccess")) == TEXT("true");
+		return true;
+	}
+	UE_LOG(CrashReportClientLog, Log, TEXT("Could not find CrashReporterResult"));
+	OutValidReport = false;
+	return false;
+}
+
+
+// FCrashUploadToDataRouter //////////////////////////////////////////////////////
+
+FCrashUploadToDataRouter::FCrashUploadToDataRouter(const FString& InDataRouterUrl)
+	: DataRouterUrl(InDataRouterUrl)
+{
+	if (!DataRouterUrl.IsEmpty())
+	{
+		SetCurrentState(EUploadState::Ready);
+	}
+	else
+	{
+		SetCurrentState(EUploadState::UploadError);
+	}
+}
+
+FCrashUploadToDataRouter::~FCrashUploadToDataRouter()
+{
+}
+
+void FCrashUploadToDataRouter::BeginUpload(const FPlatformErrorReport& PlatformErrorReport)
+{
+	bUploadCalled = true;
+
+	ErrorReport = PlatformErrorReport;
+	PendingFiles = FPlatformErrorReport(ErrorReport.GetReportDirectory()).GetFilesToUpload();
+	UE_LOG(CrashReportClientLog, Log, TEXT("Got %d pending files to upload from '%s'"), PendingFiles.Num(), *ErrorReport.GetReportDirectoryLeafName());
+
+	PauseState = EUploadState::Finished;
+	if (State == EUploadState::Ready)
+	{
+		SetCurrentState(EUploadState::CompressAndSendData);
+		CompressAndSendData();
+	}
+}
+
+void FCrashUploadToDataRouter::CompressAndSendData()
+{
+#if PRIMARY_UPLOAD_DATAROUTER
+	// first stage of any upload to DR so send analytics
+	FPrimaryCrashProperties::Get()->SendPreUploadAnalytics();
+#endif
+
+	FCompressedHeader CompressedHeader;
+	CompressedHeader.DirectoryName = ErrorReport.GetReportDirectoryLeafName();
+	CompressedHeader.FileName = ErrorReport.GetReportDirectoryLeafName() + TEXT(".ue4crash");
+
+	FCompressedData CompressedData;
+	if (!CompressData(PendingFiles, CompressedData, PostData, &CompressedHeader))
+	{
+		UE_LOG(CrashReportClientLog, Warning, TEXT("Couldn't compress the crash report files"));
+		SetCurrentState(EUploadState::Cancelled);
+		return;
+	}
+
+	PendingFiles.Empty();
+
+	FString UserId = FString::Printf(TEXT("%s|%s|%s"), *FPlatformMisc::GetMachineId().ToString(EGuidFormats::Digits).ToLower(), *FPlatformMisc::GetEpicAccountId(), *FPlatformMisc::GetOperatingSystemId());
+
+	FString UrlParams = FString::Printf(TEXT("?AppID=%s&AppVersion=%s&AppEnvironment=%s&UploadType=%s&UserID=%s"),
+		*FGenericPlatformHttp::UrlEncode(CrashUploadDefs::APIKey),
+		*FGenericPlatformHttp::UrlEncode(FEngineVersion::Current().ToString()),
+		*FGenericPlatformHttp::UrlEncode(FEngineBuildSettings::IsInternalBuild() ? CrashUploadDefs::AppEnvironmentInternal : CrashUploadDefs::AppEnvironmentExternal),
+		*FGenericPlatformHttp::UrlEncode(CrashUploadDefs::UploadType),
+		*FGenericPlatformHttp::UrlEncode(UserId));
+
+	// Set up request for upload
+	auto Request = CreateHttpRequest();
+	Request->SetVerb(TEXT("POST"));
+	Request->SetHeader(TEXT("Content-Type"), TEXT("application/octet-stream"));
+	Request->SetURL(DataRouterUrl + UrlParams);
+	Request->SetContent(CompressedData.Data);
+	UE_LOG(CrashReportClientLog, Log, TEXT("Sending HTTP request: %s"), *Request->GetURL());
+
+	if (Request->ProcessRequest())
+	{
+#if PRIMARY_UPLOAD_DATAROUTER
+		// completed upload to DR so send analytics
+		FPrimaryCrashProperties::Get()->SendPostUploadAnalytics();
+#endif
+		return;
+	}
+	else
+	{
+		UE_LOG(CrashReportClientLog, Warning, TEXT("Failed to send file upload request"));
+		SetCurrentState(EUploadState::Cancelled);
+	}
+}
+
+TSharedRef<IHttpRequest> FCrashUploadToDataRouter::CreateHttpRequest()
+{
+	auto Request = FHttpModule::Get().CreateRequest();
+	Request->OnProcessRequestComplete().BindRaw(this, &FCrashUploadToDataRouter::OnProcessRequestComplete);
+	return Request;
+}
+
+void FCrashUploadToDataRouter::OnProcessRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+{
+	UE_LOG(CrashReportClientLog, Log, TEXT("OnProcessRequestComplete(), State=%s bSucceeded=%i"), ToString(State), (int32)bSucceeded);
+	switch (State)
+	{
+	default:
+		// May get here if response is received after time-out has passed
+		break;
+
+	case EUploadState::CompressAndSendData:
+		if (!bSucceeded)
+		{
+			UE_LOG(CrashReportClientLog, Warning, TEXT("File upload failed to data router"));
+			AddReportToFailedList();
+			SetCurrentState(EUploadState::Cancelled);
+		}
+		else
+		{
+			CheckPendingReportsForFilesToUpload();
+		}
+		break;
+	}
+}
+
+void FCrashUploadToDataRouter::CheckPendingReportsForFilesToUpload()
+{
+	SetCurrentState(EUploadState::CompressAndSendData);
+
+	for (; PendingReportDirectoryIndex < PendingReportDirectories.Num(); PendingReportDirectoryIndex++)
+	{
+		ErrorReport = FPlatformErrorReport(PendingReportDirectories[PendingReportDirectoryIndex]);
+		PendingFiles = ErrorReport.GetFilesToUpload();
+
+		if (PendingFiles.Num() > 0)
+		{
+			CompressAndSendData();
+			return;
+		}
+	}
+
+	// Nothing left to upload
+	UE_LOG(CrashReportClientLog, Log, TEXT("All uploads done"));
+	SetCurrentState(EUploadState::Finished);
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -8,6 +8,7 @@
 #include "UTWaterVolume.h"
 #include "UTBot.h"
 #include "StatNames.h"
+#include "UTCTFFlag.h"
 
 const float MAX_STEP_SIDE_Z = 0.08f;	// maximum z value for the normal on the vertical side of steps
 
@@ -27,6 +28,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	MaxMultiJumpCount = 0;
 	bAllowDodgeMultijumps = false;
 	bAllowJumpMultijumps = true;
+	bIsDoubleJumpAvailableForFlagCarrier = true;
 	MultiJumpImpulse = 600.f;
 	DodgeJumpImpulse = 600.f;
 	DodgeLandingSpeedFactor = 0.19f;
@@ -711,6 +713,12 @@ bool UUTCharacterMovement::CanJump()
 	return (IsMovingOnGround() || CanMultiJump()) && CanEverJump() && !bWantsToCrouch && !bIsFloorSliding;
 }
 
+bool UUTCharacterMovement::IsCarryingFlag() const
+{
+	AUTCharacter* UTOwner = Cast<AUTCharacter>(CharacterOwner);
+	return (UTOwner && UTOwner->GetCarriedObject());
+}
+
 void UUTCharacterMovement::PerformWaterJump()
 {
 	if (!HasValidData())
@@ -883,22 +891,41 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	return true;
 }
 
+void UUTCharacterMovement::HandleSlideRequest()
+{
+	UpdateFloorSlide(true);
+	AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
+	if (!Acceleration.IsNearlyZero() && (Velocity.Size() > 0.7f * MaxWalkSpeed) && UTCharacterOwner->CanDodge())
+	{
+		bWantsToCrouch = true;
+		bPressedSlide = true;
+	}
+}
+
 void UUTCharacterMovement::HandleCrouchRequest()
 {
 	// if moving fast enough and pressing on move key, slide, else crouch
 	AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
-	UpdateFloorSlide(true);
+	AUTPlayerController* PC = CharacterOwner ? Cast<AUTPlayerController>(CharacterOwner->GetController()) : nullptr;
+	if (!PC || PC->bCrouchTriggersSlide)
+	{
+		UpdateFloorSlide(true);
+	}
 	bWantsToCrouch = true;
 	if (!Acceleration.IsNearlyZero() && (Velocity.Size() > 0.7f * MaxWalkSpeed) && UTCharacterOwner && UTCharacterOwner->CanDodge())
 	{
-		bPressedSlide = IsFalling() || (Cast<AUTPlayerController>(UTCharacterOwner->GetController()) && Cast<AUTPlayerController>(UTCharacterOwner->GetController())->bAllowSlideFromRun);
+		bPressedSlide = (PC && PC->bCrouchTriggersSlide);
 	}
 }
 
 void UUTCharacterMovement::HandleUnCrouchRequest()
 {
 	bWantsToCrouch = false;
-	UpdateFloorSlide(false);
+	AUTPlayerController* PC = CharacterOwner ? Cast<AUTPlayerController>(CharacterOwner->GetController()) : nullptr;
+	if (!PC || PC->bCrouchTriggersSlide)
+	{
+		UpdateFloorSlide(false);
+	}
 }
 
 void UUTCharacterMovement::Crouch(bool bClientSimulation)
@@ -911,6 +938,7 @@ void UUTCharacterMovement::Crouch(bool bClientSimulation)
 			NeedsClientAdjustment();
 		}
 		bPressedSlide = false;
+		bWantsToCrouch = false;
 		return;
 	}
 	Super::Crouch(bClientSimulation);
@@ -1389,7 +1417,8 @@ bool UUTCharacterMovement::DoMultiJump()
 bool UUTCharacterMovement::CanMultiJump()
 {
 	return ( (MaxMultiJumpCount > 0) && (CurrentMultiJumpCount < MaxMultiJumpCount) && (!bIsDodging || bAllowDodgeMultijumps) && (bIsDodging || bAllowJumpMultijumps) &&
-			(bAlwaysAllowFallingMultiJump ? (Velocity.Z < MaxMultiJumpZSpeed) : (FMath::Abs(Velocity.Z) < MaxMultiJumpZSpeed)) );
+			(bAlwaysAllowFallingMultiJump ? (Velocity.Z < MaxMultiJumpZSpeed) : (FMath::Abs(Velocity.Z) < MaxMultiJumpZSpeed)) && 
+			(bIsDoubleJumpAvailableForFlagCarrier || !IsCarryingFlag()) );
 }
 
 void UUTCharacterMovement::ClearDodgeInput()

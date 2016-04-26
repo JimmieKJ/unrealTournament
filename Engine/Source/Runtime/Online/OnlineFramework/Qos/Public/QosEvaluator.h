@@ -1,13 +1,13 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "OnlineSessionInterface.h"
-#include "QosEvaluator.generated.h"
 
 class AQosBeaconClient;
 class FQosDatacenterStats;
 enum class EQosResponseType : uint8;
+struct FQosRegionInfo;
 
 #define GAMEMODE_QOS	TEXT("QOSSERVER")
 
@@ -15,30 +15,16 @@ enum class EQosResponseType : uint8;
 #define DATACENTERQUERY_INTERVAL (5.0 * 60.0)
 
 /** Enum for possible QoS return codes */
-UENUM()
 enum class EQosCompletionResult : uint8
 {
 	/** Incomplete, invalid result */
 	Invalid,
 	/** QoS operation was successful */
 	Success,
-	/** QoS operation was skipped in favor of a cached result */
-	Cached,
 	/** QoS operation ended in failure */
 	Failure,
 	/** QoS operation was canceled */
 	Canceled
-};
-
-/**
- * Generic settings a server runs when hosting a simple QoS response service
- */
-class QOS_API FOnlineSessionSettingsQos : public FOnlineSessionSettings
-{
-public:
-
-	FOnlineSessionSettingsQos(bool bInIsDedicated = true);
-	virtual ~FOnlineSessionSettingsQos() {}
 };
 
 /**
@@ -51,41 +37,17 @@ public:
 	virtual ~FOnlineSessionSearchQos() {}
 
 	// FOnlineSessionSearch Interface begin
-	virtual TSharedPtr<FOnlineSessionSettings> GetDefaultSessionSettings() const override { return MakeShareable(new FOnlineSessionSettingsQos()); }
+	virtual TSharedPtr<FOnlineSessionSettings> GetDefaultSessionSettings() const override;
 	virtual void SortSearchResults() override;
 	// FOnlineSessionSearch Interface end
 };
 
 /**
- * Internal state for a given search pass
- */
-USTRUCT()
-struct FQosSearchState
-{
-	GENERATED_USTRUCT_BODY()
-
-	/** Datacenter Id */
-	UPROPERTY()
-	FString DatacenterId;
-	/** Last datacenter lookup timestamp */
-	UPROPERTY()
-	double LastDatacenterIdTimestamp;
-
-	FQosSearchState() :
-		LastDatacenterIdTimestamp(0.0)
-	{}
-};
-
-/**
  * Internal state for a given QoS pass
  */
-USTRUCT()
 struct FQosSearchPass
 {
-	GENERATED_USTRUCT_BODY()
-
 	/** Current search result choice to test */
-	UPROPERTY()
 	int32 CurrentSessionIdx;
 	/** Current array of QoS search results to evaluate */
 	TArray<FOnlineSessionSearchResult> SearchResults;
@@ -106,20 +68,18 @@ DECLARE_DELEGATE_OneParam(FOnQosPingEvalComplete, EQosCompletionResult /** Resul
  * Delegate triggered when all QoS search results have been investigated 
  *
  * @param Result the QoS operation result
- * @param BestDatacenterId the datacenter chosen by the operation (may be forced, cached, or default)
+ * @param RegionInfo The per-region ping information
  */
-DECLARE_DELEGATE_TwoParams(FOnQosSearchComplete, EQosCompletionResult /** Result */, const FString& /** BestDatacenterId */);
+DECLARE_DELEGATE_TwoParams(FOnQosSearchComplete, EQosCompletionResult /** Result */, const TArray<FQosRegionInfo>& /** RegionInfo */);
 
 /**
  * Evaluates QoS metrics to determine the best datacenter under current conditions
  * Additionally capable of generically pinging an array of servers that have a QosBeaconHost active
  */
-UCLASS(config = Engine, notplaceable)
-class QOS_API UQosEvaluator : public UObject
+class QOS_API FQosEvaluator : public TSharedFromThis<FQosEvaluator>
 {
-	GENERATED_UCLASS_BODY()
-
 public:
+	FQosEvaluator(UWorld* World);
 
 	/**
 	 * QoS services
@@ -135,15 +95,6 @@ public:
 	void FindDatacenters(int32 ControllerId, const FOnQosSearchComplete& InCompletionDelegate);
 
 	/**
-	 * Evaluate ping reachability for a given list of servers.  Assumes there is a AQosBeaconHost on the machine
-	 * to receive the request and send a response
-	 *
-	 * @param SearchResults array of search results to test
-	 * @param InCompletionDelegate delegate to fire when test is complete
-	 */
-	void EvaluateServerPing(TSharedPtr<FOnlineSessionSearch>& SearchResults, const FOnQosPingEvalComplete& InCompletionDelegate);
-
-	/**
 	 * Is a QoS operation active
 	 *
 	 * @return true if QoS is active, false otherwise
@@ -155,21 +106,23 @@ public:
 	 */
 	void Cancel();
 
+protected:
+
 	/**
-	 * Get the default region for this instance, checking ini and commandline overrides
+	 * Evaluate ping reachability for a given list of servers.  Assumes there is a AQosBeaconHost on the machine
+	 * to receive the request and send a response
 	 *
-	 * @return the default region identifier
+	 * @param SearchResults array of search results to test
+	 * @param InCompletionDelegate delegate to fire when test is complete
 	 */
-	static const FString& GetDefaultRegionString();
+	void EvaluateServerPing(TSharedPtr<FOnlineSessionSearch>& SearchResults, const FOnQosPingEvalComplete& InCompletionDelegate);
 
 private:
 
-	/** Current QoS data */
-	UPROPERTY()
-	FQosSearchState SearchState;
 	/** Current QoS search/eval state */
-	UPROPERTY()
 	FQosSearchPass CurrentSearchPass;
+
+	TWeakObjectPtr<UWorld> ParentWorld;
 
 	/** QoS search results */
 	TSharedPtr<FOnlineSessionSearch> QosSearchQuery;
@@ -179,8 +132,7 @@ private:
 	FOnQosPingEvalComplete OnQosPingEvalComplete;
 
 	/** Beacon for sending QoS requests */
-	UPROPERTY(Transient)
-	AQosBeaconClient* QosBeaconClient;
+	TWeakObjectPtr<AQosBeaconClient> QosBeaconClient;
 
 	/** A QoS operation is in progress */
 	bool bInProgress;
@@ -193,7 +145,7 @@ private:
 	 * @param InCompletionDelegate the delegate to trigger
 	 * @param CompletionResult the QoS operation result
 	 */
-	void FinalizeDatacenterResult(const FOnQosSearchComplete& InCompletionDelegate, EQosCompletionResult CompletionResult);
+	void FinalizeDatacenterResult(const FOnQosSearchComplete& InCompletionDelegate, EQosCompletionResult CompletionResult, const TArray<FQosRegionInfo>& RegionInfo);
 
 	/**
 	 * Continue with the next datacenter endpoint and gather its ping result
@@ -268,7 +220,7 @@ private:
 	void ResetSearchVars();
 
 	/** Quick access to the current world */
-	UWorld* GetWorld() const override;
+	UWorld* GetWorld() const;
 
 	/** Quick access to the world timer manager */
 	FTimerManager& GetWorldTimerManager() const;
@@ -288,10 +240,6 @@ inline const TCHAR* ToString(EQosCompletionResult Result)
 		case EQosCompletionResult::Success:
 		{
 			return TEXT("Success");
-		}
-		case EQosCompletionResult::Cached:
-		{
-			return TEXT("Cached");
 		}
 		case EQosCompletionResult::Failure:
 		{

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -123,6 +123,8 @@ struct CORE_API FFbxErrors
 	static FName SkeletalMesh_LOD_MissingSocketBone;
 
 	static FName SkeletalMesh_LOD_MissingMorphTarget;
+
+	static FName SkeletalMesh_FillImportDataFailed;
 
 	/** Animation **/
 	static FName Animation_CouldNotFindRootTrack;

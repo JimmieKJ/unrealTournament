@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 
@@ -61,17 +61,19 @@ TSharedRef<ITableRow> UListView::HandleOnGenerateRow(UObject* Item, const TShare
 
 #if WITH_EDITOR
 
-const FSlateBrush* UListView::GetEditorIcon()
-{
-	return FUMGStyle::Get().GetBrush("Widget.ListView");
-}
-
 const FText UListView::GetPaletteCategory()
 {
 	return LOCTEXT("Misc", "Misc");
 }
 
 #endif
+
+void UListView::ReleaseSlateResources(bool bReleaseChildren)
+{
+	Super::ReleaseSlateResources(bReleaseChildren);
+
+	MyListView.Reset();
+}
 
 /////////////////////////////////////////////////////
 

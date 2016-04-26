@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "StaticMeshResources.h"
@@ -34,13 +34,17 @@ namespace FbxMeshUtils
 		{
 			for (int32 ChildIdx = 0; ChildIdx < Node->GetChildCount(); ++ChildIdx)
 			{
-				if ((LODNodeList.Num() - 1) < ChildIdx)
+				FbxNode *MeshNode = FFbxImporter->FindLODGroupNode(Node, ChildIdx);
+				if (MeshNode != nullptr)
 				{
-					TArray<FbxNode*>* NodeList = new TArray<FbxNode*>;
-					LODNodeList.Add(NodeList);
-				}
+					if ((LODNodeList.Num() - 1) < ChildIdx)
+					{
+						TArray<FbxNode*>* NodeList = new TArray<FbxNode*>;
+						LODNodeList.Add(NodeList);
+					}
 
-				LODNodeList[ChildIdx]->Add(Node->GetChild(ChildIdx));
+					LODNodeList[ChildIdx]->Add(MeshNode);
+				}
 			}
 
 			if (MaxLODCount < (Node->GetChildCount() - 1))
@@ -81,6 +85,7 @@ namespace FbxMeshUtils
 
 		// don't import materials
 		UnFbx::FBXImportOptions* ImportOptions = FFbxImporter->GetImportOptions();
+		UnFbx::FBXImportOptions::ResetOptions(ImportOptions);
 		UFbxStaticMeshImportData* ImportData = Cast<UFbxStaticMeshImportData>(BaseStaticMesh->AssetImportData);
 		ImportOptions->bImportMaterials = false;
 		ImportOptions->bImportTextures = false;
@@ -186,6 +191,7 @@ namespace FbxMeshUtils
 			UnFbx::FFbxImporter* FFbxImporter = UnFbx::FFbxImporter::GetInstance();
 			// don't import material and animation
 			UnFbx::FBXImportOptions* ImportOptions = FFbxImporter->GetImportOptions();
+			UnFbx::FBXImportOptions::ResetOptions(ImportOptions);
 			ImportOptions->bImportMaterials = false;
 			ImportOptions->bImportTextures = false;
 			ImportOptions->bImportAnimations = false;
@@ -263,13 +269,19 @@ namespace FbxMeshUtils
 							FbxNode* Node = (*MeshObject)[j];
 							if (Node->GetNodeAttribute() && Node->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eLODGroup)
 							{
+								FbxNode *MeshNode = nullptr;
 								if (Node->GetChildCount() > SelectedLOD)
 								{
-									SkelMeshNodeArray.Add(Node->GetChild(SelectedLOD));
+									MeshNode = FFbxImporter->FindLODGroupNode(Node, SelectedLOD);
 								}
 								else // in less some LODGroups have less level, use the last level
 								{
-									SkelMeshNodeArray.Add(Node->GetChild(Node->GetChildCount() - 1));
+									MeshNode = FFbxImporter->FindLODGroupNode(Node, Node->GetChildCount() - 1);
+								}
+
+								if (MeshNode != nullptr)
+								{
+									SkelMeshNodeArray.Add(MeshNode);
 								}
 							}
 							else

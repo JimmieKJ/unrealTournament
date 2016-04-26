@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ParticleModules_Material.cpp: 
@@ -39,13 +39,8 @@ void UParticleModuleMeshMaterial::Spawn(FParticleEmitterInstance* Owner, int32 O
 
 }
 
-uint32 UParticleModuleMeshMaterial::RequiredBytesPerInstance(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleMeshMaterial::RequiredBytesPerInstance()
 {
-	// Cheat and setup the emitter instance material array here...
-	if (Owner && bEnabled)
-	{
-		Owner->SetMeshMaterials( MeshMaterials );
-	}
 	return 0;
 }
 

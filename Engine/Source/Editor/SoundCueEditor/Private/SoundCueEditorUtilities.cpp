@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "SoundCueEditorModule.h"
@@ -8,6 +8,7 @@
 #include "Sound/SoundNodeWavePlayer.h"
 #include "GraphEditor.h"
 #include "Sound/SoundCue.h"
+#include "Sound/SoundNodeDialoguePlayer.h"
 
 bool FSoundCueEditorUtilities::CanPasteNodes(const class UEdGraph* Graph)
 {
@@ -48,6 +49,35 @@ void FSoundCueEditorUtilities::CreateWaveContainers(TArray<USoundWave*>& Selecte
 			WavePlayer->GraphNode->NodePosY = Location.Y + (NodeSpacing * WaveIndex);
 
 			OutPlayers.Add(WavePlayer);
+		}
+	}
+}
+
+void FSoundCueEditorUtilities::CreateDialogueContainers(TArray<UDialogueWave*>& SelectedDialogues, USoundCue* SoundCue, TArray<USoundNode*>& OutPlayers, FVector2D Location)
+{
+	const int32 NodeSpacing = 70;
+
+	Location.Y -= static_cast<float>((SelectedDialogues.Num() - 1) * NodeSpacing) / 2.f;
+
+	for (int32 Index = 0; Index < SelectedDialogues.Num(); Index++)
+	{
+		UDialogueWave* NewDialogue = SelectedDialogues[Index];
+		if (NewDialogue)
+		{
+			USoundNodeDialoguePlayer* DialoguePlayer = SoundCue->ConstructSoundNode<USoundNodeDialoguePlayer>();
+
+			DialoguePlayer->SetDialogueWave(NewDialogue);
+
+			if (NewDialogue->ContextMappings.Num() == 1)
+			{
+				DialoguePlayer->DialogueWaveParameter.Context.Speaker = NewDialogue->ContextMappings[0].Context.Speaker;
+				DialoguePlayer->DialogueWaveParameter.Context.Targets = NewDialogue->ContextMappings[0].Context.Targets;
+			}
+
+			DialoguePlayer->GraphNode->NodePosX = Location.X - DialoguePlayer->GetGraphNode()->EstimateNodeWidth();
+			DialoguePlayer->GraphNode->NodePosY = Location.Y + (NodeSpacing * Index);
+
+			OutPlayers.Add(DialoguePlayer);
 		}
 	}
 }

@@ -1,8 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include <Metal/Metal.h>
+
+class FMetalCommandList;
 
 /**
  * FMetalCommandQueue:
@@ -39,15 +41,23 @@ public:
 	id<MTLCommandBuffer> CreateUnretainedCommandBuffer(void);
 	
 	/**
-	 * Commit the supplied command buffer.
+	 * Commit the supplied command buffer immediately.
 	 * @param CommandBuffer The command buffer to commit, must be non-nil.
  	 */
 	void CommitCommandBuffer(id<MTLCommandBuffer> const CommandBuffer);
+	
+	/**
+	 * Deferred contexts submit their internal lists of command-buffers out of order, the command-queue takes ownership and handles reordering them & lazily commits them once all command-buffer lists are submitted.
+	 * @param BufferList The list of buffers to enqueue into the command-queue at the given index.
+	 * @param Index The 0-based index to commit BufferList's contents into relative to other active deferred contexts.
+	 * @param Count The total number of deferred contexts that will submit - only once all are submitted can any command-buffer be committed.
+	 */
+	void SubmitCommandBuffers(FMetalCommandList* BufferList, uint32 Index, uint32 Count);
 
 #pragma mark - Public Command Queue Accessors -
 	
-	/** @returns The native command queue. */
-	id<MTLCommandQueue> GetCommandQueue(void) const;
+	/** @returns The command queue's native device. */
+	id<MTLDevice> GetDevice(void) const;
 
 #pragma mark - Public Debug Support -
 
@@ -67,4 +77,5 @@ private:
 #if METAL_STATISTICS
 	class IMetalStatistics* Statistics;
 #endif
+	TArray<FMetalCommandList*> CommandBuffers;
 };

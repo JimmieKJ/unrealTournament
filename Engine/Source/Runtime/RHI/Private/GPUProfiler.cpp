@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	GPUProfiler.h: Hierarchical GPU Profiler Implementation.
@@ -43,6 +43,25 @@ static TAutoConsoleVariable<int32> GProfileGPUTransitions(
 	TEXT("Allows profileGPU to display resource transition events."),
 	ECVF_Default);
 
+enum class EGPUProfileSortMode
+{
+	EChronological,
+	ETimeElapsed,
+	ENumPrims,
+	ENumVerts,
+	EMax
+};
+
+static TAutoConsoleVariable<int32> GProfileGPUSort(
+	TEXT("r.ProfileGPU.Sort"),	
+	0,
+	TEXT("Sorts the TTY Dump independently at each level of the tree in various modes.\n")
+	TEXT("0 : Chronological\n")
+	TEXT("1 : By time elapsed\n")
+	TEXT("2 : By number of prims\n")
+	TEXT("3 : By number of verts\n"),
+	ECVF_Default);
+
 struct FNodeStatsCompare
 {
 	/** Sorts nodes by descending durations. */
@@ -59,31 +78,44 @@ static void GatherStatsEventNode(FGPUProfilerEventNode* Node, int32 Depth, TMap<
 	if (Node->NumDraws > 0 || Node->Children.Num() > 0)
 	{
 		Node->TimingResult = Node->GetTiming() * 1000.0f;
+		Node->NumTotalDraws = Node->NumDraws;
+		Node->NumTotalPrimitives = Node->NumPrimitives;
+		Node->NumTotalVertices = Node->NumVertices;
 
-		FGPUProfilerEventNodeStats* FoundHistogramBucket = EventHistogram.Find(Node->Name);
-		if (FoundHistogramBucket)
+		FGPUProfilerEventNode* Parent = Node->Parent;		
+		while (Parent)
 		{
-			FoundHistogramBucket->NumDraws += Node->NumDraws;
-			FoundHistogramBucket->NumPrimitives += Node->NumPrimitives;
-			FoundHistogramBucket->NumVertices += Node->NumVertices;
-			FoundHistogramBucket->TimingResult += Node->TimingResult;
-			FoundHistogramBucket->NumEvents++;
-		}
-		else
-		{
-			FGPUProfilerEventNodeStats NewNodeStats;
-			NewNodeStats.NumDraws = Node->NumDraws;
-			NewNodeStats.NumPrimitives = Node->NumPrimitives;
-			NewNodeStats.NumVertices = Node->NumVertices;
-			NewNodeStats.TimingResult = Node->TimingResult;
-			NewNodeStats.NumEvents = 1;
-			EventHistogram.Add(Node->Name, NewNodeStats);
+			Parent->NumTotalDraws += Node->NumDraws;
+			Parent->NumTotalPrimitives += Node->NumPrimitives;
+			Parent->NumTotalVertices += Node->NumVertices;
+
+			Parent = Parent->Parent;
 		}
 
 		for (int32 ChildIndex = 0; ChildIndex < Node->Children.Num(); ChildIndex++)
 		{
 			// Traverse children
 			GatherStatsEventNode(Node->Children[ChildIndex], Depth + 1, EventHistogram);
+		}
+
+		FGPUProfilerEventNodeStats* FoundHistogramBucket = EventHistogram.Find(Node->Name);
+		if (FoundHistogramBucket)
+		{
+			FoundHistogramBucket->NumDraws += Node->NumTotalDraws;
+			FoundHistogramBucket->NumPrimitives += Node->NumTotalPrimitives;
+			FoundHistogramBucket->NumVertices += Node->NumTotalVertices;
+			FoundHistogramBucket->TimingResult += Node->TimingResult;
+			FoundHistogramBucket->NumEvents++;
+		}
+		else
+		{
+			FGPUProfilerEventNodeStats NewNodeStats;
+			NewNodeStats.NumDraws = Node->NumTotalDraws;
+			NewNodeStats.NumPrimitives = Node->NumTotalPrimitives;
+			NewNodeStats.NumVertices = Node->NumTotalVertices;
+			NewNodeStats.TimingResult = Node->TimingResult;
+			NewNodeStats.NumEvents = 1;
+			EventHistogram.Add(Node->Name, NewNodeStats);
 		}
 	}
 }
@@ -119,11 +151,38 @@ static void DumpStatsEventNode(FGPUProfilerEventNode* Node, float RootResult, in
 				Percent,
 				Node->TimingResult,
 				*Node->Name,
-				Node->NumDraws,
-				Node->NumPrimitives,
-				Node->NumVertices,
+				Node->NumTotalDraws,
+				Node->NumTotalPrimitives,
+				Node->NumTotalVertices,
 				*Extra
 				);
+		}
+
+		struct FCompareGPUProfileNode
+		{
+			EGPUProfileSortMode SortMode;
+			FCompareGPUProfileNode(EGPUProfileSortMode InSortMode)
+				: SortMode(InSortMode)
+			{}
+			FORCEINLINE bool operator()(const FGPUProfilerEventNode* A, const FGPUProfilerEventNode* B) const
+			{
+				switch (SortMode)
+				{
+					case EGPUProfileSortMode::ENumPrims:
+						return B->NumTotalPrimitives < A->NumTotalPrimitives;
+					case EGPUProfileSortMode::ENumVerts:
+						return B->NumTotalVertices < A->NumTotalVertices;
+					case EGPUProfileSortMode::ETimeElapsed:
+					default:
+						return B->TimingResult < A->TimingResult;
+				}
+			}
+		};
+
+		EGPUProfileSortMode SortMode = (EGPUProfileSortMode)FMath::Clamp(GProfileGPUSort.GetValueOnRenderThread(), 0, ((int32)EGPUProfileSortMode::EMax - 1));
+		if (SortMode != EGPUProfileSortMode::EChronological)
+		{
+			Node->Children.Sort(FCompareGPUProfileNode(SortMode));
 		}
 
 		float TotalChildTime = 0;
@@ -147,7 +206,7 @@ static void DumpStatsEventNode(FGPUProfilerEventNode* Node, float RootResult, in
 		// Add an 'Other Children' node if necessary to show time spent in the current node that is not in any of its children
 		if (bMatchesFilter && Node->Children.Num() > 0 && TotalChildDraws > 0 && (UnaccountedPercent > 2.0f || UnaccountedTime > .2f))
 		{
-			UE_LOG(LogRHI, Warning, TEXT("%s%4.1f%%%5.2fms Other Children"), 
+			UE_LOG(LogRHI, Warning, TEXT("%s%4.1f%%%5.2fms   Other Children"), 
 				*FString(TEXT("")).LeftPad((EffectiveDepth + 1) * 3), 
 				UnaccountedPercent,
 				UnaccountedTime);
@@ -352,7 +411,7 @@ void FGPUProfilerEventNodeFrame::DumpEventTree()
 	}
 }
 
-void FGPUProfiler::PushEvent(const TCHAR* Name)
+void FGPUProfiler::PushEvent(const TCHAR* Name, FColor Color)
 {
 	if (bTrackingEvents)
 	{

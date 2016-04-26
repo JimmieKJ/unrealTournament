@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	CookCommandlet.cpp: Commandlet for cooking content
@@ -26,11 +26,119 @@
 #include "CookerSettings.h"
 #include "ShaderCompiler.h"
 #include "MemoryMisc.h"
+#include "CookStats.h"
+#include "DerivedDataCacheUsageStats.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogCookCommandlet, Log, All);
 
+#if ENABLE_COOK_STATS
+#include "ScopedTimers.h"
+#include "AnalyticsET.h"
+#include "IAnalyticsProvider.h"
+namespace DetailedCookStats
+{
+	FString CookProject;
+	FString TargetPlatforms;
+	double CookWallTimeSec = 0.0;
+	double StartupWallTimeSec = 0.0;
+	double NewCookTimeSec = 0.0;
+	double StartCookByTheBookTimeSec = 0.0;
+	extern double TickCookOnTheSideTimeSec;
+	extern double TickCookOnTheSideLoadPackagesTimeSec;
+	extern double TickCookOnTheSideResolveRedirectorsTimeSec;
+	extern double TickCookOnTheSideSaveCookedPackageTimeSec;
+	extern double TickCookOnTheSideBeginPackageCacheForCookedPlatformDataTimeSec;
+	extern double TickCookOnTheSideFinishPackageCacheForCookedPlatformDataTimeSec;
+	double TickLoopGCTimeSec = 0.0;
+	double TickLoopRecompileShaderRequestsTimeSec = 0.0;
+	double TickLoopShaderProcessAsyncResultsTimeSec = 0.0;
+	double TickLoopProcessDeferredCommandsTimeSec = 0.0;
+	double TickLoopTickCommandletStatsTimeSec = 0.0;
+
+	static void CollectStats(FCookStatsManager::AddStatFuncRef AddStat)
+	{
+		const FString StatName(TEXT("Cook.Profile"));
+		TArray<FCookStatsManager::KeyValue> Attrs;
+		#define ADD_COOK_STAT_FLT(Path, Name) AddStat(StatName, FCookStatsManager::CreateKeyValueArray(TEXT("Path"), TEXT(Path), TEXT(#Name), Name))
+		ADD_COOK_STAT_FLT(" 0", CookWallTimeSec);
+		ADD_COOK_STAT_FLT(" 0. 0", StartupWallTimeSec);
+		ADD_COOK_STAT_FLT(" 0. 0. 0", NewCookTimeSec);
+		ADD_COOK_STAT_FLT(" 0. 0. 0. 0", StartCookByTheBookTimeSec);
+		ADD_COOK_STAT_FLT(" 0. 0. 0. 1", TickCookOnTheSideTimeSec);
+		ADD_COOK_STAT_FLT(" 0. 0. 0. 1. 0", TickCookOnTheSideLoadPackagesTimeSec);
+		ADD_COOK_STAT_FLT(" 0. 0. 0. 1. 1", TickCookOnTheSideResolveRedirectorsTimeSec);
+		ADD_COOK_STAT_FLT(" 0. 0. 0. 1. 2", TickCookOnTheSideSaveCookedPackageTimeSec);
+		ADD_COOK_STAT_FLT(" 0. 0. 0. 1. 3", TickCookOnTheSideBeginPackageCacheForCookedPlatformDataTimeSec);
+		ADD_COOK_STAT_FLT(" 0. 0. 0. 1. 4", TickCookOnTheSideFinishPackageCacheForCookedPlatformDataTimeSec);
+		ADD_COOK_STAT_FLT(" 0. 0. 0. 2", TickLoopGCTimeSec);
+		ADD_COOK_STAT_FLT(" 0. 0. 0. 3", TickLoopRecompileShaderRequestsTimeSec);
+		ADD_COOK_STAT_FLT(" 0. 0. 0. 4", TickLoopShaderProcessAsyncResultsTimeSec);
+		ADD_COOK_STAT_FLT(" 0. 0. 0. 5", TickLoopProcessDeferredCommandsTimeSec);
+		ADD_COOK_STAT_FLT(" 0. 0. 0. 6", TickLoopTickCommandletStatsTimeSec);
+		#undef ADD_COOK_STAT_FLT
+	}
+	FCookStatsManager::FAutoRegisterCallback RegisterCookStats(&CollectStats);
+
+	/** Gathers the cook stats registered with the FCookStatsManager delegate and logs them as a CSV. */
+	static void LogCookStats(const FString& CookCmdLine)
+	{
+		// Optionally create an analytics provider to send stats to for central collection.
+		TSharedPtr<IAnalyticsProvider> CookAnalytics;
+		if (GIsBuildMachine || FParse::Param(FCommandLine::Get(), TEXT("SendCookAnalytics")))
+		{
+			FAnalyticsET::Config Config;
+			// This value is set by an INI private to Epic.
+			if (GConfig->GetString(TEXT("CookAnalytics"), TEXT("APIServer"), Config.APIServerET, GEngineIni))
+			{
+				Config.UseLegacyProtocol = true;
+				Config.APIKeyET = TEXT("Cook");
+				CookAnalytics = FAnalyticsET::Get().CreateAnalyticsProvider(Config);
+			}
+		}
+		if (CookAnalytics.IsValid())
+		{
+			CookAnalytics->SetUserID(FString(FPlatformProcess::ComputerName()) + FString(TEXT("\\")) + FString(FPlatformProcess::UserName(false)));
+			TArray<FAnalyticsEventAttribute> Attrs;
+			Attrs.Emplace(TEXT("Project"), CookProject);
+			Attrs.Emplace(TEXT("CmdLine"), CookCmdLine);
+			Attrs.Emplace(TEXT("IsBuildMachine"), GIsBuildMachine);
+			Attrs.Emplace(TEXT("TargetPlatforms"), TargetPlatforms);
+			CookAnalytics->StartSession(Attrs);
+		}
+
+		/** this functor will take a collected cooker stat and log it out, optionally sending it to a configured analytics provider. */
+		auto LogAndSendAnalytics = [=](const FString& StatName, const TArray<FCookStatsManager::KeyValue>& StatAttributes)
+		{
+			FString LogLine = StatName;
+			// log each key/value pair, with the equal signs lined up.
+			for (const auto& Attr : StatAttributes)
+			{
+				LogLine += FString::Printf(TEXT(",%s=%s"), *Attr.Key, *Attr.Value);
+			}
+			UE_LOG(LogCookCommandlet, Display, TEXT("%s"), *LogLine);
+			// convert to an analytics event
+			if (CookAnalytics.IsValid())
+			{
+				TArray<FAnalyticsEventAttribute> Attrs;
+				Attrs.Reset(StatAttributes.Num());
+				for (const auto& Attr : StatAttributes)
+				{
+					Attrs.Emplace(Attr.Key, Attr.Value);
+				}
+				CookAnalytics->RecordEvent(StatName, Attrs);
+			}
+		};
+
+		UE_LOG(LogCookCommandlet, Display, TEXT("CookStats"));
+		UE_LOG(LogCookCommandlet, Display, TEXT("---------"));
+		FCookStatsManager::LogCookStats(LogAndSendAnalytics);
+	}
+}
+#endif
+
 UCookerSettings::UCookerSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, bCompileBlueprintsInDevelopmentMode(true)
 {
 	SectionName = TEXT("Cooker");
 	DefaultPVRTCQuality = 1;
@@ -93,7 +201,7 @@ bool UCookCommandlet::CookOnTheFly( FGuid InstanceId, int32 Timeout, bool bForce
 	CookFlags |= bCompressed ? ECookInitializationFlags::Compressed : ECookInitializationFlags::None;
 	CookFlags |= bIterativeCooking ? ECookInitializationFlags::Iterative : ECookInitializationFlags::None;
 	CookFlags |= bSkipEditorContent ? ECookInitializationFlags::SkipEditorContent : ECookInitializationFlags::None;
-
+	CookFlags |= bUnversioned ? ECookInitializationFlags::Unversioned : ECookInitializationFlags::None;
 
 	CookOnTheFlyServer->Initialize( ECookMode::CookOnTheFly, CookFlags );
 
@@ -463,10 +571,7 @@ bool UCookCommandlet::SaveCookedPackage( UPackage* Package, uint32 SaveFlags, bo
 				else
 				{
 					ESavePackageResult Result = GEditor->Save(Package, World, Flags, *PlatFilename, GError, NULL, bSwap, false, SaveFlags, Target, FDateTime::MinValue());
-					if (Result == ESavePackageResult::ReplaceCompletely || Result == ESavePackageResult::GenerateStub)
-					{
-						IBlueprintNativeCodeGenModule::Get().Convert(Package, Result == ESavePackageResult::ReplaceCompletely ? EReplacementResult::ReplaceCompletely : EReplacementResult::GenerateStub);
-					}
+					IBlueprintNativeCodeGenModule::Get().Convert(Package, Result, *(Target->PlatformName()));
 					bSavedCorrectly &= (Result == ESavePackageResult::ReplaceCompletely || Result == ESavePackageResult::GenerateStub || Result == ESavePackageResult::Success);
 				}
 				
@@ -502,6 +607,7 @@ void UCookCommandlet::MaybeMarkPackageAsAlreadyLoaded(UPackage *Package)
 
 int32 UCookCommandlet::Main(const FString& CmdLineParams)
 {
+	COOK_STAT(double CookStartTime = FPlatformTime::Seconds());
 	Params = CmdLineParams;
 	ParseCommandLine(*Params, Tokens, Switches);
 
@@ -515,6 +621,8 @@ int32 UCookCommandlet::Main(const FString& CmdLineParams)
 	bSkipEditorContent = Switches.Contains(TEXT("SKIPEDITORCONTENT")); // This won't save out any packages in Engine/COntent/Editor*
 	bErrorOnEngineContentUse = Switches.Contains(TEXT("ERRORONENGINECONTENTUSE"));
 	bUseSerializationForGeneratingPackageDependencies = Switches.Contains(TEXT("UseSerializationForGeneratingPackageDependencies"));
+	bCookSinglePackage = Switches.Contains(TEXT("cooksinglepackage"));
+	bVerboseCookerWarnings = Switches.Contains(TEXT("verbosecookerwarnings"));
 	if (bLeakTest)
 	{
 		for (FObjectIterator It; It; ++It)
@@ -522,6 +630,8 @@ int32 UCookCommandlet::Main(const FString& CmdLineParams)
 			LastGCItems.Add(FWeakObjectPtr(*It));
 		}
 	}
+
+	COOK_STAT(DetailedCookStats::CookProject = FApp::GetGameName());
 
 	if ( bCookOnTheFly )
 	{
@@ -562,6 +672,15 @@ int32 UCookCommandlet::Main(const FString& CmdLineParams)
 		{
 			NewCook(Platforms, FilesInPath );
 		}
+
+		// Use -LogCookStats to log the results to the command line after the cook (happens automatically on a build machine)
+		COOK_STAT(
+		{
+			double Now = FPlatformTime::Seconds();
+			DetailedCookStats::CookWallTimeSec = Now - GStartTime;
+			DetailedCookStats::StartupWallTimeSec = CookStartTime - GStartTime;
+			DetailedCookStats::LogCookStats(CmdLineParams);
+		});
 	}
 	
 	return 0;
@@ -749,7 +868,6 @@ void UCookCommandlet::CollectFilesToCook(TArray<FString>& FilesInPath)
 
 	TArray<FString> CmdLineMapEntries;
 	TArray<FString> CmdLineDirEntries;
-	TArray<FString> CmdLineCultEntries;
 	for (int32 SwitchIdx = 0; SwitchIdx < Switches.Num(); SwitchIdx++)
 	{
 		const FString& Switch = Switches[SwitchIdx];
@@ -784,9 +902,6 @@ void UCookCommandlet::CollectFilesToCook(TArray<FString>& FilesInPath)
 			Entry = Entry.TrimQuotes();
 			FPaths::NormalizeDirectoryName(Entry);
 		}
-
-		// Check for -COOKCULTURES=<culture name> entries
-		CmdLineCultEntries += GetSwitchValueElements(TEXT("COOKCULTURES"));
 	}
 
 	// Also append any cookdirs from the project ini files; these dirs are relative to the game content directory
@@ -998,7 +1113,7 @@ void UCookCommandlet::GenerateLongPackageNames(TArray<FString>& FilesInPath)
 
 bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray<FString>& FilesInPath )
 {
-
+	COOK_STAT(FScopedDurationTimer NewCookTimer(DetailedCookStats::NewCookTimeSec));
 	UCookOnTheFlyServer *CookOnTheFlyServer = NewObject<UCookOnTheFlyServer>();
 
 	struct FScopeRootObject
@@ -1023,14 +1138,16 @@ bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray
 	CookFlags |= bIterativeCooking ? ECookInitializationFlags::Iterative : ECookInitializationFlags::None;
 	CookFlags |= bSkipEditorContent ? ECookInitializationFlags::SkipEditorContent : ECookInitializationFlags::None;	
 	CookFlags |= bUseSerializationForGeneratingPackageDependencies ? ECookInitializationFlags::UseSerializationForPackageDependencies : ECookInitializationFlags::None;
+	CookFlags |= bUnversioned ? ECookInitializationFlags::Unversioned : ECookInitializationFlags::None;
+	CookFlags |= bVerboseCookerWarnings ? ECookInitializationFlags::OutputVerboseCookerWarnings : ECookInitializationFlags::None;
 
 	TArray<UClass*> FullGCAssetClasses;
-	if ( FullGCAssetClassNames.Num() )
+	if (FullGCAssetClassNames.Num())
 	{
-		for ( const auto& ClassName : FullGCAssetClassNames )
+		for (const auto& ClassName : FullGCAssetClassNames)
 		{
 			UClass* ClassToForceFullGC = FindObject<UClass>(nullptr, *ClassName);
-			if ( ClassToForceFullGC )
+			if (ClassToForceFullGC)
 			{
 				FullGCAssetClasses.Add(ClassToForceFullGC);
 			}
@@ -1041,18 +1158,6 @@ bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray
 		}
 	}
 
-
-	CookOnTheFlyServer->Initialize( ECookMode::CookByTheBook, CookFlags );
-
-	// for backwards compat use the FullGCAssetClasses that we got from the cook commandlet ini section
-	if ( FullGCAssetClasses.Num() > 0 )
-	{
-		CookOnTheFlyServer->SetFullGCAssetClasses( FullGCAssetClasses );
-	}
-	
-
-
-
 	//////////////////////////////////////////////////////////////////////////
 	// parse commandline options 
 
@@ -1062,8 +1167,8 @@ bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray
 	FString ChildCookFile;
 	FParse::Value(*Params, TEXT("cookchild="), ChildCookFile);
 
-	FString ChildManifestFilename;
-	FParse::Value(*Params, TEXT("childmanifest="), ChildManifestFilename);
+	int32 ChildCookIdentifier = -1;
+	FParse::Value(*Params, TEXT("childIdentifier="), ChildCookIdentifier);
 
 	int32 NumProcesses = 0;
 	FParse::Value(*Params, TEXT("numcookerstospawn="), NumProcesses);
@@ -1128,6 +1233,13 @@ bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray
 
 	}
 
+	CookOnTheFlyServer->Initialize(ECookMode::CookByTheBook, CookFlags);
+
+	// for backwards compat use the FullGCAssetClasses that we got from the cook commandlet ini section
+	if (FullGCAssetClasses.Num() > 0)
+	{
+		CookOnTheFlyServer->SetFullGCAssetClasses(FullGCAssetClasses);
+	}
 
 	// Add any map sections specified on command line
 	TArray<FString> AlwaysCookMapList;
@@ -1139,7 +1251,7 @@ bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray
 	// Add any map sections specified on command line
 	GEditor->ParseMapSectionIni(*Params, MapList);
 
-	if (MapList.Num() == 0)
+	if (MapList.Num() == 0 && !bCookSinglePackage)
 	{
 		// If we didn't find any maps look in the project settings for maps
 
@@ -1168,15 +1280,20 @@ bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray
 	AlwaysCookMapList.Append(MapList);
 	Swap(MapList, AlwaysCookMapList);
 
-	FCookCommandParams CookParams(FCommandLine::Get());
-	if (CookParams.bRunConversion)
+	// Set the list of cultures to cook as those on the commandline, if specified.
+	// Otherwise, use the project packaging settings.
+	TArray<FString> CookCultures;
+	if (Switches.ContainsByPredicate([](const FString& Switch) -> bool
+		{
+			return Switch.StartsWith("COOKCULTURES=");
+		}))
 	{
-		const UBlueprintNativeCodeGenConfig* ConfigSettings = GetDefault<UBlueprintNativeCodeGenConfig>();
-		TMap<UObject*, UClass*> ClassReplacementMap;
-		ClassReplacementMap.Add(UUserDefinedEnum::StaticClass(), UEnum::StaticClass());
-		ClassReplacementMap.Add(UUserDefinedStruct::StaticClass(), UScriptStruct::StaticClass());
-		ClassReplacementMap.Add(UBlueprintGeneratedClass::StaticClass(), UDynamicClass::StaticClass());
-		FScriptCookReplacementCoordinator::Create(CookParams.bRunConversion, ConfigSettings->ExcludedAssetTypes, ConfigSettings->ExcludedBlueprintTypes, ClassReplacementMap);
+		CookCultures = CmdLineCultEntries;
+	}
+	else
+	{
+		UProjectPackagingSettings* const PackagingSettings = Cast<UProjectPackagingSettings>(UProjectPackagingSettings::StaticClass()->GetDefaultObject());
+		CookCultures = PackagingSettings->CulturesToStage;
 	}
 
 	//////////////////////////////////////////////////////////////////////////
@@ -1188,13 +1305,16 @@ bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray
 	CookOptions |= Switches.Contains(TEXT("MAPSONLY")) ? ECookByTheBookOptions::MapsOnly : ECookByTheBookOptions::None;
 	CookOptions |= Switches.Contains(TEXT("NODEV")) ? ECookByTheBookOptions::NoDevContent : ECookByTheBookOptions::None;
 
+	const ECookByTheBookOptions SinglePackageFlags = ECookByTheBookOptions::NoAlwaysCookMaps | ECookByTheBookOptions::NoDefaultMaps | ECookByTheBookOptions::NoGameAlwaysCookPackages | ECookByTheBookOptions::NoInputPackages | ECookByTheBookOptions::NoSlatePackages | ECookByTheBookOptions::DisableUnsolicitedPackages | ECookByTheBookOptions::ForceDisableSaveGlobalShaders;
+	CookOptions |= bCookSinglePackage ? SinglePackageFlags : ECookByTheBookOptions::None;
+
 	UCookOnTheFlyServer::FCookByTheBookStartupOptions StartupOptions;
 
 	StartupOptions.TargetPlatforms = Platforms;
 	Swap( StartupOptions.CookMaps, MapList );
 	Swap( StartupOptions.CookDirectories, CmdLineDirEntries );
 	Swap( StartupOptions.NeverCookDirectories, CmdLineNeverCookDirEntries);
-	Swap( StartupOptions.CookCultures, CmdLineCultEntries );
+	Swap( StartupOptions.CookCultures, CookCultures );
 	Swap( StartupOptions.DLCName, DLCName );
 	Swap( StartupOptions.BasedOnReleaseVersion, BasedOnReleaseVersion );
 	Swap( StartupOptions.CreateReleaseVersion, CreateReleaseVersion );
@@ -1203,11 +1323,24 @@ bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray
 	StartupOptions.bGenerateDependenciesForMaps = Switches.Contains(TEXT("GenerateDependenciesForMaps"));
 	StartupOptions.bGenerateStreamingInstallManifests = bGenerateStreamingInstallManifests;
 	StartupOptions.ChildCookFileName = ChildCookFile;
-	StartupOptions.ChildManifestFilename = ChildManifestFilename;
+	StartupOptions.ChildCookIdentifier = ChildCookIdentifier;
 	StartupOptions.NumProcesses = NumProcesses;
-	FParse::Value(FCommandLine::Get(), TEXT("COOKSINGLEASSETNAME="), StartupOptions.CookSingleAssetName);
 
-	CookOnTheFlyServer->StartCookByTheBook( StartupOptions );
+	COOK_STAT(
+	{
+		for (const auto& Platform : Platforms)
+		{
+			DetailedCookStats::TargetPlatforms += Platform->PlatformName() + TEXT("+");
+		}
+		if (!DetailedCookStats::TargetPlatforms.IsEmpty())
+		{
+			DetailedCookStats::TargetPlatforms.RemoveFromEnd(TEXT("+"));
+		}
+	});
+	{
+		COOK_STAT(FScopedDurationTimer StartCookByTheBookTimer(DetailedCookStats::StartCookByTheBookTimeSec));
+		CookOnTheFlyServer->StartCookByTheBook(StartupOptions);
+	}
 
 	// Garbage collection should happen when either
 	//	1. We have cooked a map (configurable asset type)
@@ -1242,7 +1375,10 @@ bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray
 			}
 
 
-			GShaderCompilingManager->ProcessAsyncResults( true, false );
+			{
+				COOK_STAT(FScopedDurationTimer ShaderProcessAsyncTimer(DetailedCookStats::TickLoopShaderProcessAsyncResultsTimeSec));
+				GShaderCompilingManager->ProcessAsyncResults(true, false);
+			}
 
 			if (NonMapPackageCountSinceLastGC > 0)
 			{
@@ -1265,20 +1401,27 @@ bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray
 
 				UE_LOG( LogCookCommandlet, Display, TEXT( "GC..." ) );
 
+				COOK_STAT(FScopedDurationTimer GCTimer(DetailedCookStats::TickLoopGCTimeSec));
 				CollectGarbage(RF_NoFlags);
 			}
 			else
 			{
+				COOK_STAT(FScopedDurationTimer RecompileTimer(DetailedCookStats::TickLoopRecompileShaderRequestsTimeSec));
 				CookOnTheFlyServer->TickRecompileShaderRequests();
 
 				FPlatformProcess::Sleep( 0.0f );
 			}
 
-
-			ProcessDeferredCommands();
+			{
+				COOK_STAT(FScopedDurationTimer ProcessDeferredCommandsTimer(DetailedCookStats::TickLoopProcessDeferredCommandsTimeSec));
+				ProcessDeferredCommands();
+			}
 		}
 
-		FStats::TickCommandletStats();
+		{
+			COOK_STAT(FScopedDurationTimer TickCommandletStatsTimer(DetailedCookStats::TickLoopTickCommandletStatsTimeSec));
+			FStats::TickCommandletStats();
+		}
 	}
 
 	return true;
@@ -1547,7 +1690,6 @@ bool UCookCommandlet::Cook(const TArray<ITargetPlatform*>& Platforms, TArray<FSt
 		}
 	}
 
-	IConsoleManager::Get().ProcessUserConsoleInput(TEXT("Tex.DerivedDataTimings"), *GWarn, NULL );
 	UPackage::WaitForAsyncFileWrites();
 
 	GetDerivedDataCacheRef().WaitForQuiescence(true);

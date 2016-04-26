@@ -1,4 +1,4 @@
-﻿<!--Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.-->
+﻿<!--Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.-->
 	
 <UserControl x:Class="UnrealVS.BatchBuilderToolControl"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"

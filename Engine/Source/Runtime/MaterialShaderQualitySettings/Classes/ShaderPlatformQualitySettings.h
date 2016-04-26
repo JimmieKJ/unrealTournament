@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -27,6 +27,9 @@ public:
 
 	UPROPERTY(Config, Meta = (DisplayName = "Disable Lightmap directionality"))
 	bool bForceDisableLMDirectionality;
+
+	UPROPERTY(Config, Meta = (DisplayName = "Force low quality reflections"))
+	bool bForceLQReflections;
 };
 
 

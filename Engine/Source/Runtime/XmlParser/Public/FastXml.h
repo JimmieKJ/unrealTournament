@@ -1,5 +1,6 @@
-#pragma once
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#pragma once
 
 /**
  * Fast XML parser based on John W. Ratcliff's "FastXml" (see FastXml.tps and http://codesuppository.blogspot.com/2009/02/fastxml-extremely-lightweight-stream.html)

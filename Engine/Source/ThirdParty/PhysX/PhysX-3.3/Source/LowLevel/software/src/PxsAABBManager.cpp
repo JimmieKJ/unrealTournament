@@ -460,7 +460,10 @@ AABBMgrId PxsAABBManager::createVolume(const PxU32 encodedAggregateId, const Pxc
 		//Set the actor dirty but only if the aggregate has no self-collision
 		//(we don't care about the actor bounds if the actor has self-collision
 		//because we will compute aggregate bounds from shape bounds in that case.)
-		if(!aggregate->selfCollide) mAggregateActorManager.setDirty(actorId);
+		if (!aggregate->selfCollide)
+			mAggregateActorManager.setDirty(actorId);
+		else
+			aggregate->selfCollBitmap.resetAll();
 
 		if(canEncodeForClient(aggregateId) && canEncodeForClient(actorId))
 		{

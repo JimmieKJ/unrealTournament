@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "BlueprintEditorPrivatePCH.h"
 #include "BlueprintEditorCommands.h"
 #include "BlueprintEditor.h"
@@ -200,6 +200,7 @@ FText FFindInBlueprintsResult::GetDisplayString() const
 
 FFindInBlueprintsGraphNode::FFindInBlueprintsGraphNode(const FText& InValue, TSharedPtr<FFindInBlueprintsResult> InParent)
 	: FFindInBlueprintsResult(InValue, InParent)
+	, GlyphBrush(nullptr)
 	, Class(nullptr)
 {
 }

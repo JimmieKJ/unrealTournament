@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -20,9 +20,12 @@ public:
 	 * @param InArgs The construction arguments.
 	 * @param InObjectId The unique identifier of the object whose labels are being edited.
 	 */
-	void Construct(const FArguments& InArgs, UMovieScene* InMovieScene, const FGuid& InObjectId);
+	void Construct(const FArguments& InArgs, FSequencer& InSequencer, const FGuid& InObjectId);
 
 protected:
+
+	/** Create a new label from the text in the filter box. */
+	void CreateLabelFromFilterText();
 
 	/**
 	 * Reload the list of track labels.
@@ -38,6 +41,9 @@ private:
 
 	/** Callback for getting the enabled state of the 'Create new label' button. */
 	bool HandleCreateNewLabelButtonIsEnabled() const;
+
+	/** Callback for handling key down events in the filter text box. */
+	FReply HandleFilterBoxKeyDown(const FGeometry&, const FKeyEvent& KeyEvent);
 
 	/** Callback for text changes in the filter text box. */
 	void HandleFilterBoxTextChanged(const FText& NewText);
@@ -68,9 +74,9 @@ private:
 	/** Holds the list view for filtered track labels. */
 	TSharedPtr<SListView<TSharedPtr<FString>>> LabelListView;
 
-	/** The movie scene being edited. */
-	UMovieScene* MovieScene;
-
 	/** The identifier of the object being edited. */
 	FGuid ObjectId;
+
+	/** The sequencer object. */
+	FSequencer* Sequencer;
 };

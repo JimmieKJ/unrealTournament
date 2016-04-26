@@ -8,18 +8,21 @@ UUTShowdownRewardMessage::UUTShowdownRewardMessage(const class FObjectInitialize
 {
 	bIsStatusAnnouncement = false;
 	bIsPartiallyUnique = true;
-	MessageArea = FName(TEXT("DeathMessage"));
+	MessageArea = FName(TEXT("Announcements"));
+	MessageSlot = FName(TEXT("MajorRewardMessage"));
 
 	FinishItMsg = NSLOCTEXT("ShowdownRewardMessage", "FinishItMsg", "FINISH IT!");
 	LastManMsg = NSLOCTEXT("ShowdownRewardMessage", "LastManMsg", "Last Man Standing");
 	OverChargeMsg = NSLOCTEXT("ShowdownRewardMessage", "OverChargeMsg", "OVERCHARGE AVAILABLE!");
 	TerminationMsg = NSLOCTEXT("ShowdownRewardMessage", "TerminationMsg", "{Player1Name} TERMINATED!");
 	AnnihilationMsg = NSLOCTEXT("ShowdownRewardMessage", "AnnihilationMsg", "ANNIHILATION!");
+	FinalLifeMsg = NSLOCTEXT("ShowdownRewardMessage", "FinalLifeMsg", "FINAL LIFE!");
 	FinishIt = FName(TEXT("RW_FinishIt"));
 	LastMan = FName(TEXT("RW_LMS"));
 	OverCharge = FName(TEXT("Overload"));
 	Termination = FName(TEXT("RW_Termination"));
 	Annihilation = FName(TEXT("RW_Annihilation"));
+	FinalLife = FName(TEXT("RW_EndIt"));
 	AnnouncementDelay = 0.5f;
 }
 
@@ -37,6 +40,8 @@ FText UUTShowdownRewardMessage::GetText(int32 Switch, bool bTargetsPlayerState1,
 		return TerminationMsg;
 	case 4:
 		return AnnihilationMsg;
+	case 5:
+		return FinalLifeMsg;
 	default:
 		return FText();
 	}
@@ -52,12 +57,7 @@ FLinearColor UUTShowdownRewardMessage::GetMessageColor_Implementation(int32 Mess
 	return FLinearColor::White;
 }
 
-bool UUTShowdownRewardMessage::UseLargeFont(int32 MessageIndex) const
-{
-	return true;
-}
-
-FName UUTShowdownRewardMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const
+FName UUTShowdownRewardMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const
 {
 	switch (Switch)
 	{
@@ -71,6 +71,8 @@ FName UUTShowdownRewardMessage::GetAnnouncementName_Implementation(int32 Switch,
 		return Termination;
 	case 4:
 		return Annihilation;
+	case 5:
+		return FinalLife;
 	default:
 		return NAME_None;
 	}

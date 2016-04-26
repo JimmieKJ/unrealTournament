@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LevelSequenceEditorPCH.h"
 #include "IDetailPropertyRow.h"
@@ -105,6 +105,23 @@ void FLevelSequencePlaybackSettingsCustomization::CustomizeChildren(TSharedRef<I
 								.Text_Raw(this, &FLevelSequencePlaybackSettingsCustomization::GetCustomSuffix)
 						]
 				]
+
+			+SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				.AutoWidth()
+				[
+					SNew(SButton)
+					.OnClicked(this, &FLevelSequencePlaybackSettingsCustomization::OnLoopResetClicked)
+					.Visibility(this, &FLevelSequencePlaybackSettingsCustomization::GetLoopResetVisibility)
+					.ContentPadding(FMargin(5.f, 0.f))
+					.ToolTipText(LOCTEXT("ResetToDefaultToolTip", "Reset to Default"))
+					.ButtonStyle( FEditorStyle::Get(), "NoBorder" )
+					.Content()
+					[
+						SNew(SImage)
+						.Image( FEditorStyle::GetBrush("PropertyWindow.DiffersFromDefault") )
+					]
+				]
 		];
 }
 
@@ -119,6 +136,19 @@ FText FLevelSequencePlaybackSettingsCustomization::GetCustomSuffix() const
 		: LOCTEXT("Times", "times");
 }
 
+EVisibility FLevelSequencePlaybackSettingsCustomization::GetLoopResetVisibility() const
+{
+	return CurrentMode == LoopModes[0] ? EVisibility::Hidden : EVisibility::Visible;
+}
+
+FReply FLevelSequencePlaybackSettingsCustomization::OnLoopResetClicked()
+{
+	CurrentMode = LoopModes[0];
+
+	UpdateProperty();
+
+	return FReply::Handled();
+}
 
 void FLevelSequencePlaybackSettingsCustomization::UpdateProperty()
 {

@@ -12,8 +12,6 @@ UUTHUDWidgetMessage_ConsoleMessages::UUTHUDWidgetMessage_ConsoleMessages(const c
 	Size = FVector2D(0.0f, 0.0f);			
 	Origin = FVector2D(0.0f, 0.0f);				
 	NumVisibleLines=4;
-	MessageFontIndex = 0;
-	SmallMessageFontIndex = 0;
 	LargeShadowDirection = FVector2D(1.f, 1.f);
 	SmallShadowDirection = FVector2D(1.f, 1.f);
 }
@@ -21,7 +19,7 @@ UUTHUDWidgetMessage_ConsoleMessages::UUTHUDWidgetMessage_ConsoleMessages(const c
 // @TODO FIXMESTEVE temp - need smaller font
 float UUTHUDWidgetMessage_ConsoleMessages::GetDrawScaleOverride()
 {
-	return 0.75f * UTHUDOwner->HUDWidgetScaleOverride();
+	return 0.75f * UTHUDOwner->GetHUDWidgetScaleOverride();
 }
 
 void UUTHUDWidgetMessage_ConsoleMessages::DrawMessages(float DeltaTime)
@@ -35,16 +33,17 @@ void UUTHUDWidgetMessage_ConsoleMessages::DrawMessages(float DeltaTime)
 		if (MessageQueue[MessageIndex].MessageClass != NULL)	
 		{
 			DrawMessage(MessageIndex,0,Y);
+			Canvas->TextSize(MessageQueue[MessageIndex].DisplayFont, MessageQueue[MessageIndex].Text.ToString(), MessageQueue[MessageIndex].TextWidth, MessageQueue[MessageIndex].TextHeight);
 			Y -= MessageQueue[MessageIndex].TextHeight;
 		}
 		MessageIndex--;
 	}
 }
 
-void UUTHUDWidgetMessage_ConsoleMessages::DrawMessage(int32 QueueIndex, float X, float Y)
+FVector2D UUTHUDWidgetMessage_ConsoleMessages::DrawMessage(int32 QueueIndex, float X, float Y)
 {
 	MessageQueue[QueueIndex].bHasBeenRendered = true;
-	DrawText(MessageQueue[QueueIndex].Text, X, Y, MessageQueue[QueueIndex].DisplayFont, FVector2D(2,2), FLinearColor::Black, 1.0f, 1.0f, MessageQueue[QueueIndex].DrawColor, ETextHorzPos::Left, ETextVertPos::Top);
+	return DrawText(MessageQueue[QueueIndex].Text, X, Y, MessageQueue[QueueIndex].DisplayFont, FVector2D(2,2), FLinearColor::Black, 1.0f, 1.0f, MessageQueue[QueueIndex].DrawColor, ETextHorzPos::Left, ETextVertPos::Top);
 }
 
 void UUTHUDWidgetMessage_ConsoleMessages::LayoutMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)

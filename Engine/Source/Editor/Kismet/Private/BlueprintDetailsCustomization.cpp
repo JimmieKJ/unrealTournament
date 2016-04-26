@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintEditorPrivatePCH.h"
 
@@ -591,10 +591,28 @@ void FBlueprintVarActionDetails::CustomizeDetails( IDetailLayoutBuilder& DetailL
 	// Add in default value editing for properties that can be edited, local properties cannot be edited
 	if ((Blueprint != NULL) && (Blueprint->GeneratedClass != NULL))
 	{
+		bool bVariableRenamed = false;
 		if (VariableProperty != NULL && IsVariableInBlueprint())
 		{
+			// Determine the current property name on the CDO is stale
+			if (PropertyOwnerBlueprint.IsValid() && VariableProperty)
+			{
+				UBlueprint* PropertyBlueprint = PropertyOwnerBlueprint.Get();
+				const int32 VarIndex = FBlueprintEditorUtils::FindNewVariableIndex(PropertyBlueprint, CachedVariableName);
+				if (VarIndex != INDEX_NONE)
+				{
+					const FGuid VarGuid = PropertyBlueprint->NewVariables[VarIndex].VarGuid;
+					if (UBlueprintGeneratedClass* AuthoritiveBPGC = Cast<UBlueprintGeneratedClass>(PropertyBlueprint->GeneratedClass))
+					{
+						if (const FName* OldName = AuthoritiveBPGC->PropertyGuids.FindKey(VarGuid))
+						{
+							bVariableRenamed = CachedVariableName != *OldName;
+						}
+					}
+				}
+			}
 			const UProperty* OriginalProperty = nullptr;
-			
+		
 			if(!IsALocalVariable(VariableProperty))
 			{
 				OriginalProperty = FindField<UProperty>(Blueprint->GeneratedClass, VariableProperty->GetFName());
@@ -604,7 +622,7 @@ void FBlueprintVarActionDetails::CustomizeDetails( IDetailLayoutBuilder& DetailL
 				OriginalProperty = VariableProperty;
 			}
 
-			if (OriginalProperty == NULL)
+			if (OriginalProperty == NULL || bVariableRenamed)
 			{
 				// Prevent editing the default value of a skeleton property
 				VariableProperty = NULL;
@@ -635,28 +653,6 @@ void FBlueprintVarActionDetails::CustomizeDetails( IDetailLayoutBuilder& DetailL
 			else
 			{
 				ErrorMessage = LOCTEXT("VariableMissing_CleanBlueprint", "Failed to find variable property");
-			}
-		}
-		else if (VariableProperty->HasAnyPropertyFlags(CPF_DisableEditOnTemplate))
-		{
-			if (VariableClass->ClassGeneratedBy != Blueprint)
-			{
-				ErrorMessage = LOCTEXT("VariableHasDisableEditOnTemplate", "Editing this value is not allowed");
-			}
-			else
-			{
-				// determine if the variable is an object type
-				const UArrayProperty* ArrayProperty = Cast<const UArrayProperty>(VariableProperty);
-				const UProperty* TestProperty = ArrayProperty ? ArrayProperty->Inner : VariableProperty;
-				const UObjectPropertyBase* ObjectProperty = Cast<const UObjectPropertyBase>(TestProperty);
-
-				// if this is variable is an Actor
-				if ((ObjectProperty != NULL) && ObjectProperty->PropertyClass->IsChildOf(AActor::StaticClass()))
-				{
-					// Actor variables can't have default values (because Blueprint templates are library elements that can 
-					// bridge multiple levels and different levels might not have the actor that the default is referencing).
-					ErrorMessage = LOCTEXT("VariableHasDisableEditOnTemplate", "Editing this value is not allowed");
-				}
 			}
 		}
 
@@ -715,15 +711,34 @@ void FBlueprintVarActionDetails::CustomizeDetails( IDetailLayoutBuilder& DetailL
 
 				IDetailPropertyRow* Row = DefaultValueCategory.AddExternalProperty(StructData, VariableProperty->GetFName());
 			}
-			else if (GetPropertyOwnerBlueprint())
+			else
 			{
-				// Things are in order, show the property and allow it to be edited
-				TArray<UObject*> ObjectList;
-				ObjectList.Add(GetPropertyOwnerBlueprint()->GeneratedClass->GetDefaultObject());
-				IDetailPropertyRow* Row = DefaultValueCategory.AddExternalProperty(ObjectList, VariableProperty->GetFName());
-				if (Row != nullptr)
+				UBlueprint* CurrPropertyOwnerBlueprint = IsVariableInheritedByBlueprint() ? GetBlueprintObj() : GetPropertyOwnerBlueprint();
+				UObject* TargetBlueprintDefaultObject = nullptr;
+				if (CurrPropertyOwnerBlueprint && CurrPropertyOwnerBlueprint->GeneratedClass)
 				{
-					Row->IsEnabled(IsVariableInheritedByBlueprint());
+					TargetBlueprintDefaultObject = CurrPropertyOwnerBlueprint->GeneratedClass->GetDefaultObject();
+				}
+				else if (UBlueprint* PropertyOwnerBP = GetPropertyOwnerBlueprint())
+				{
+					TargetBlueprintDefaultObject = PropertyOwnerBP->GeneratedClass->GetDefaultObject();
+				}
+				else if (CachedVariableProperty.IsValid())
+				{
+					// Capture the non-BP class CDO so we can show the default value
+					TargetBlueprintDefaultObject = CachedVariableProperty->GetOwnerClass()->GetDefaultObject();
+				}
+
+				if (TargetBlueprintDefaultObject != nullptr)
+				{
+					// Things are in order, show the property and allow it to be edited
+					TArray<UObject*> ObjectList;
+					ObjectList.Add(TargetBlueprintDefaultObject);
+					IDetailPropertyRow* Row = DefaultValueCategory.AddExternalProperty(ObjectList, VariableProperty->GetFName());
+					if (Row != nullptr)
+					{
+						Row->IsEnabled(IsVariableInheritedByBlueprint());
+					}
 				}
 			}
 		}
@@ -962,7 +977,7 @@ void FBlueprintVarActionDetails::OnVarNameChanged(const FText& InNewText)
 	}
 	else if(ValidatorResult == EValidatorResult::TooLong)
 	{
-		VarNameEditableTextBox->SetError(LOCTEXT("RenameFailed_NameTooLong", "Names must have fewer than 100 characters!"));
+		VarNameEditableTextBox->SetError(FText::Format( LOCTEXT("RenameFailed_NameTooLong", "Names must have fewer than {0} characters!"), FText::AsNumber( FKismetNameValidator::GetMaximumNameLength())));
 	}
 	else if(ValidatorResult == EValidatorResult::LocallyInUse)
 	{
@@ -1106,9 +1121,12 @@ FText FBlueprintVarActionDetails::OnGetTooltipText() const
 	FName VarName = CachedVariableName;
 	if (VarName != NAME_None)
 	{
-		FString Result;
-		FBlueprintEditorUtils::GetBlueprintVariableMetaData(GetPropertyOwnerBlueprint(), VarName, GetLocalVariableScope(CachedVariableProperty.Get()), TEXT("tooltip"), Result);
-		return FText::FromString(Result);
+		if ( UBlueprint* OwnerBlueprint = GetPropertyOwnerBlueprint() )
+		{
+			FString Result;
+			FBlueprintEditorUtils::GetBlueprintVariableMetaData(GetPropertyOwnerBlueprint(), VarName, GetLocalVariableScope(CachedVariableProperty.Get()), TEXT("tooltip"), Result);
+			return FText::FromString(Result);
+		}
 	}
 	return FText();
 }
@@ -1323,17 +1341,21 @@ FText FBlueprintVarActionDetails::OnGetCategoryText() const
 	{
 		const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
 
-		FText Category = FBlueprintEditorUtils::GetBlueprintVariableCategory(GetPropertyOwnerBlueprint(), VarName, GetLocalVariableScope(CachedVariableProperty.Get()));
+		if ( UBlueprint* OwnerBlueprint = GetPropertyOwnerBlueprint() )
+		{
+			FText Category = FBlueprintEditorUtils::GetBlueprintVariableCategory(OwnerBlueprint, VarName, GetLocalVariableScope(CachedVariableProperty.Get()));
 
-		// Older blueprints will have their name as the default category and whenever it is the same as the default category, display localized text
-		if( Category.EqualTo(FText::FromString(GetPropertyOwnerBlueprint()->GetName())) || Category.EqualTo(K2Schema->VR_DefaultCategory) )
-		{
-			return K2Schema->VR_DefaultCategory;
+			// Older blueprints will have their name as the default category and whenever it is the same as the default category, display localized text
+			if ( Category.EqualTo(FText::FromString(OwnerBlueprint->GetName())) || Category.EqualTo(K2Schema->VR_DefaultCategory) )
+			{
+				return K2Schema->VR_DefaultCategory;
+			}
+			else
+			{
+				return Category;
+			}
 		}
-		else
-		{
-			return Category;
-		}
+
 		return FText::FromName(VarName);
 	}
 	return FText();
@@ -1648,10 +1670,13 @@ FText FBlueprintVarActionDetails::OnGetMetaKeyValue(FName Key) const
 	FName VarName = CachedVariableName;
 	if (VarName != NAME_None)
 	{
-		FString Result;
-		FBlueprintEditorUtils::GetBlueprintVariableMetaData(GetPropertyOwnerBlueprint(), VarName, GetLocalVariableScope(CachedVariableProperty.Get()), Key, /*out*/ Result);
+		if ( UBlueprint* Blueprint = GetPropertyOwnerBlueprint() )
+		{
+			FString Result;
+			FBlueprintEditorUtils::GetBlueprintVariableMetaData(GetPropertyOwnerBlueprint(), VarName, GetLocalVariableScope(CachedVariableProperty.Get()), Key, /*out*/ Result);
 
-		return FText::FromString(Result);
+			return FText::FromString(Result);
+		}
 	}
 	return FText();
 }
@@ -1982,6 +2007,20 @@ void FBlueprintVarActionDetails::OnFinishedChangingProperties(const FPropertyCha
 			}
 		}
 	}
+}
+
+bool FBlueprintVarActionDetails::IsVariableInheritedByBlueprint() const
+{
+	UClass* PropertyOwnerClass = nullptr;
+	if (UBlueprint* PropertyOwnerBP = GetPropertyOwnerBlueprint())
+	{
+		PropertyOwnerClass = PropertyOwnerBP->SkeletonGeneratedClass;
+	}
+	else if (CachedVariableProperty.IsValid())
+	{
+		PropertyOwnerClass = CachedVariableProperty->GetOwnerClass();
+	}
+	return GetBlueprintObj()->SkeletonGeneratedClass->IsChildOf(PropertyOwnerClass);
 }
 
 static FDetailWidgetRow& AddRow( TArray<TSharedRef<FDetailWidgetRow> >& OutChildRows )
@@ -2354,6 +2393,8 @@ void FBlueprintGraphArgumentLayout::OnRefCheckStateChanged(ECheckBoxState InStat
 {
 	FEdGraphPinType PinType = OnGetPinInfo();
 	PinType.bIsReference = (InState == ECheckBoxState::Checked)? true : false;
+	// Note: Array types are implicitly passed by reference. For custom event nodes, the reference flag is essentially
+	//  treated as being redundant on array inputs, but we also need to implicitly set the 'const' flag to avoid a compiler note.
 	PinType.bIsConst = (PinType.bIsArray || PinType.bIsReference) && TargetNode && TargetNode->IsA<UK2Node_CustomEvent>();
 	PinInfoChanged(PinType);
 }
@@ -2383,6 +2424,9 @@ void FBlueprintGraphArgumentLayout::PinInfoChanged(const FEdGraphPinType& PinTyp
 					if (UDPinPtr)
 					{
 						(*UDPinPtr)->PinType = PinType;
+
+						// Array types are implicitly passed by reference. For custom event nodes, since they are inputs, also implicitly treat them as 'const' so that they don't result in a compiler note.
+						(*UDPinPtr)->PinType.bIsConst = PinType.bIsArray && Node && Node->IsA<UK2Node_CustomEvent>();
 					}
 					GraphActionDetailsPinned->OnParamsChanged(Node);
 				}
@@ -2481,7 +2525,7 @@ void FBlueprintGraphActionDetails::CustomizeDetails( IDetailLayoutBuilder& Detai
 				TSharedPtr<SListView<TSharedPtr<FText>>> NewListView;
 
 				const FString DocLink = TEXT("Shared/Editors/BlueprintEditor/GraphDetails");
-				TSharedPtr<SToolTip> CategoryTooltip = IDocumentation::Get()->CreateToolTip(LOCTEXT("EditCategoryName_Tooltip", "The category of the graph; editing this will place the graph into another category or create a new one."), NULL, DocLink, TEXT("Category"));
+				TSharedPtr<SToolTip> CategoryTooltip = IDocumentation::Get()->CreateToolTip(LOCTEXT("EditGraphCategoryName_Tooltip", "The category of the graph; editing this will place the graph into another category or create a new one."), NULL, DocLink, TEXT("Category"));
 
 				Category.AddCustomRow( LOCTEXT("CategoryLabel", "Category") )
 					.NameContent()
@@ -4307,6 +4351,13 @@ void FBlueprintInterfaceLayout::OnRemoveInterface(FInterfaceName InterfaceName)
 	UBlueprint* Blueprint = GlobalOptionsDetailsPtr.Pin()->GetBlueprintObj();
 	check(Blueprint);
 
+	const EAppReturnType::Type DialogReturn = FMessageDialog::Open(EAppMsgType::YesNoCancel, NSLOCTEXT("UnrealEd", "TransferInterfaceFunctionsToBlueprint", "Would you like to transfer the interface functions to be part of your blueprint?"));
+
+	if (DialogReturn == EAppReturnType::Cancel)
+	{
+		// We canceled!
+		return;
+	}
 	const FName InterfaceFName = InterfaceName.Name;
 
 	// Close all graphs that are about to be removed
@@ -4317,10 +4368,8 @@ void FBlueprintInterfaceLayout::OnRemoveInterface(FInterfaceName InterfaceName)
 		GlobalOptionsDetailsPtr.Pin()->GetBlueprintEditorPtr().Pin()->CloseDocumentTab(*GraphIt);
 	}
 
-	const bool bPreserveInterfaceFunctions = (EAppReturnType::Yes == FMessageDialog::Open( EAppMsgType::YesNo, NSLOCTEXT("UnrealEd", "TransferInterfaceFunctionsToBlueprint", "Would you like to transfer the interface functions to be part of your blueprint?") ));
-
 	// Do the work of actually removing the interface
-	FBlueprintEditorUtils::RemoveInterface(Blueprint, InterfaceFName, bPreserveInterfaceFunctions);
+	FBlueprintEditorUtils::RemoveInterface(Blueprint, InterfaceFName, DialogReturn == EAppReturnType::Yes);
 
 	RegenerateChildrenDelegate.ExecuteIfBound();
 
@@ -4703,7 +4752,9 @@ void FBlueprintComponentDetails::CustomizeDetails(IDetailLayoutBuilder& DetailLa
 			.Padding(2.0f, 1.0f)
 			[
 				PropertyCustomizationHelpers::MakeBrowseButton(
-					FSimpleDelegate::CreateSP(this, &FBlueprintComponentDetails::OnBrowseSocket), LOCTEXT( "SocketBrowseButtonToolTipText", "Browse available Bones and Sockets")
+					FSimpleDelegate::CreateSP(this, &FBlueprintComponentDetails::OnBrowseSocket), 
+					LOCTEXT( "SocketBrowseButtonToolTipText", "Select a different Parent Socket - cannot change socket on inherited componentes"), 
+					TAttribute<bool>(this, &FBlueprintComponentDetails::CanChangeSocket)
 				)
 			]
 			+SHorizontalBox::Slot()
@@ -4712,7 +4763,11 @@ void FBlueprintComponentDetails::CustomizeDetails(IDetailLayoutBuilder& DetailLa
 			.VAlign(VAlign_Center)
 			.Padding(2.0f, 1.0f)
 			[
-				PropertyCustomizationHelpers::MakeClearButton(FSimpleDelegate::CreateSP(this, &FBlueprintComponentDetails::OnClearSocket))
+				PropertyCustomizationHelpers::MakeClearButton(
+					FSimpleDelegate::CreateSP(this, &FBlueprintComponentDetails::OnClearSocket), 
+					LOCTEXT("SocketClearButtonToolTipText", "Clear the Parent Socket - cannot change socket on inherited componentes"), 
+					TAttribute<bool>(this, &FBlueprintComponentDetails::CanChangeSocket)
+				)
 			]
 		];
 	}
@@ -4764,7 +4819,7 @@ void FBlueprintComponentDetails::OnVariableTextChanged(const FText& InNewText)
 	}
 	else if(ValidatorResult == EValidatorResult::TooLong)
 	{
-		VariableNameEditableTextBox->SetError(LOCTEXT("RenameFailed_NameTooLong", "Names must have fewer than 100 characters!"));
+		VariableNameEditableTextBox->SetError(FText::Format( LOCTEXT("RenameFailed_NameTooLong", "Names must have fewer than {0} characters!"), FText::AsNumber( FKismetNameValidator::GetMaximumNameLength())));
 	}
 	else
 	{
@@ -4930,6 +4985,17 @@ FText FBlueprintComponentDetails::GetSocketName() const
 		return FText::FromName(CachedNodePtr->GetSCSNode()->AttachToName);
 	}
 	return FText::GetEmpty();
+}
+
+bool FBlueprintComponentDetails::CanChangeSocket() const
+{
+	check(CachedNodePtr.IsValid());
+
+	if (CachedNodePtr->GetSCSNode() != NULL)
+	{
+		return !CachedNodePtr->IsInherited();
+	}
+	return true;
 }
 
 void FBlueprintComponentDetails::OnBrowseSocket()

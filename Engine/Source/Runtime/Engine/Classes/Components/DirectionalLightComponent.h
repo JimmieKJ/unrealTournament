@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -10,8 +10,8 @@
 /**
  * A light component that has parallel rays. Will provide a uniform lighting across any affected surface (eg. The Sun). This will affect all objects in the defined light-mass importance volume.
  */
-UCLASS(Blueprintable, ClassGroup=Lights, hidecategories=(Object, LightProfiles), editinlinenew, meta=(BlueprintSpawnableComponent), MinimalAPI)
-class UDirectionalLightComponent : public ULightComponent
+UCLASS(Blueprintable, ClassGroup=Lights, hidecategories=(Object, LightProfiles), editinlinenew, meta=(BlueprintSpawnableComponent))
+class ENGINE_API UDirectionalLightComponent : public ULightComponent
 {
 	GENERATED_UCLASS_BODY()
 
@@ -137,6 +137,18 @@ class UDirectionalLightComponent : public ULightComponent
 	**/
 	UPROPERTY(BlueprintReadOnly, interp, Category = Light, meta = (HideAlphaChannel), AdvancedDisplay)
 	FColor ModulatedShadowColor;
+
+	/**
+	* Mobile & Stationary lights only: Whether to cast movable component shadows into a single CSM.
+	* This allows the light to cast both static and dynamic shadows at once.
+	* Requires:
+	* Stationary Light mobility.
+	* Static lighting must be built / valid.
+	* Dynamic Shadow Distance Stationary Light > 0 
+	* inset shadows are disabled.
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Mobile)
+	uint32 bStationaryLightUsesCSMForMovableShadows : 1;
 
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Light, meta=(DisplayName = "Atmosphere Sun Light"))
 	uint32 bUsedAsAtmosphereSunLight : 1;

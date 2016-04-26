@@ -1,11 +1,11 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.IO;
-using System.Reflection;
 using AutomationTool;
+using UnrealBuildTool;
 using OneSky;
 using EpicGames.OneSkyLocalization.Config;
 
@@ -14,6 +14,14 @@ class LauncherLocalization : BuildCommand
 
 	public override void ExecuteBuild()
 	{
+		if (ParseParam("BuildEditor"))
+		{
+			UE4Build.BuildAgenda Agenda = new UE4Build.BuildAgenda();
+			Agenda.AddTarget("UE4Editor", HostPlatform.Current.HostEditorPlatform, UnrealTargetConfiguration.Development);
+
+			UE4Build Builder = new UE4Build(this);
+			Builder.Build(Agenda, InDeleteBuildProducts: true, InUpdateVersionFiles: true, InForceNoXGE: true);
+		}
 
 		var EditorExe = CombinePaths(CmdEnv.LocalRoot, @"Engine/Binaries/Win64/UE4Editor-Cmd.exe");
 
@@ -187,83 +195,6 @@ class LauncherLocalization : BuildCommand
 					Console.WriteLine("[SUCCESS] Uploading: " + currentFile + " Locale: " + localeName);
 				}
 			}
-		}
-	}
-}
-
-
-namespace EpicGames.OneSkyLocalization.Config
-{
-	/// <summary>
-	/// Class for retrieving OneSky localization configuration data
-	/// </summary>
-	public class OneSkyConfigHelper
-	{
-		// List of configs is cached off for fetching from multiple times
-		private static Dictionary<string, OneSkyConfigData> Configs;
-
-		public static OneSkyConfigData Find(string ConfigName)
-		{
-			if (Configs == null)
-			{
-				// Load all secret configs by trying to instantiate all classes derived from OneSkyConfigData from all loaded DLLs.
-				// Note that we're using the default constructor on the secret config types.
-				Configs = new Dictionary<string, OneSkyConfigData>();
-				Assembly[] LoadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
-				foreach (var Dll in LoadedAssemblies)
-				{
-					Type[] AllTypes = Dll.GetTypes();
-					foreach (var PotentialConfigType in AllTypes)
-					{
-						if (PotentialConfigType != typeof(OneSkyConfigData) && typeof(OneSkyConfigData).IsAssignableFrom(PotentialConfigType))
-						{
-							try
-							{
-								OneSkyConfigData Config = Activator.CreateInstance(PotentialConfigType) as OneSkyConfigData;
-								if (Config != null)
-								{
-									Configs.Add(Config.Name, Config);
-								}
-							}
-							catch
-							{
-								BuildCommand.LogWarning("Unable to create OneSky config data: {0}", PotentialConfigType.Name);
-							}
-						}
-					}
-				}
-			}
-			OneSkyConfigData LoadedConfig;
-			Configs.TryGetValue(ConfigName, out LoadedConfig);
-			if (LoadedConfig == null)
-			{
-				throw new AutomationException("Unable to find requested OneSky config data: {0}", ConfigName);
-			}
-			return LoadedConfig;
-		}
-	}
-
-	/// <summary>
-	/// Class for storing OneSky Localization configuration data
-	/// </summary>
-	public class OneSkyConfigData
-	{
-		public OneSkyConfigData(string InName, string InApiKey, string InApiSecret)
-		{
-			Name = InName;
-			ApiKey = InApiKey;
-			ApiSecret = InApiSecret;
-		}
-
-		public string Name;
-		public string ApiKey;
-		public string ApiSecret;
-
-		public void SpewValues()
-		{
-			CommandUtils.Log("Name : {0}", Name);
-			CommandUtils.Log("ApiKey : {0}", ApiKey);
-			//CommandUtils.LogConsole("ApiSecret : {0}", ApiSecret);  // This should probably never be revealed.
 		}
 	}
 }

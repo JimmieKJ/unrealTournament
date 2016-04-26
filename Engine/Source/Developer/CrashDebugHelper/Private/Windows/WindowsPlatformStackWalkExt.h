@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -40,7 +40,7 @@ struct FWindowsPlatformStackWalkExt
 	/** Check to see if the stack address resides within one of the loaded modules i.e. is it valid?. */
 	bool IsOffsetWithinModules( uint64 Offset );
 
-	/** Extract the system info of the crash from the minidump. */ // @TODO yrx 2015-02-24 Move to crash report client?
+	/** Extract the system info of the crash from the minidump. */
 	void GetSystemInfo();
 
 	/** Extracts the thread info from the minidump. */

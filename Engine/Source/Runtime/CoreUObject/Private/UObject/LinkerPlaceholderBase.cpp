@@ -1,51 +1,32 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreUObjectPrivate.h"
 #include "LinkerPlaceholderBase.h"
 #include "Blueprint/BlueprintSupport.h"
 
+#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+	#define DEFERRED_DEPENDENCY_ENSURE(EnsueExpr) ensure(EnsueExpr)
+#else  // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+	#define DEFERRED_DEPENDENCY_ENSURE(EnsueExpr)  (EnsueExpr)
+#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+
 /*******************************************************************************
- *FPlaceholderContainerTracker
+ * LinkerPlaceholderObjectImpl
  ******************************************************************************/
 
 /**  */
 struct FPlaceholderContainerTracker : TThreadSingleton<FPlaceholderContainerTracker>
-{
+{	
 	TArray<UObject*> PerspectiveReferencerStack;
+	// as far as I can tell, structs are going to be the only bridging point 
+	// between property ownership
+	TArray<const UStructProperty*> IntermediatePropertyStack; 
 };
 
-//------------------------------------------------------------------------------
-FScopedPlaceholderContainerTracker::FScopedPlaceholderContainerTracker(UObject* InPlaceholderContainerCandidate)
-	: PlaceholderReferencerCandidate(InPlaceholderContainerCandidate)
+/**  */
+class FLinkerPlaceholderObjectImpl
 {
-	FPlaceholderContainerTracker::Get().PerspectiveReferencerStack.Add(InPlaceholderContainerCandidate);
-}
-
-//------------------------------------------------------------------------------
-FScopedPlaceholderContainerTracker::~FScopedPlaceholderContainerTracker()
-{
-	UObject* StackTop = FPlaceholderContainerTracker::Get().PerspectiveReferencerStack.Pop();
-#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-	check(StackTop == PlaceholderReferencerCandidate);
-#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-}
-
-/*******************************************************************************
- * FLinkerPlaceholderBase
- ******************************************************************************/
-
-namespace LinkerPlaceholderObjectImpl
-{
-	/**
-	 * Traces the specified property up its outer chain, all the way up to the 
-	 * OwnerClass. Constructs a UProperty path along the way, so that we can use
-	 * traverse a property tree down, from the class owner down.
-	 * 
-	 * @param  LeafProperty	The property you want a path for.
-	 * @param  ChainOut		Output array that tracks the specified property back up its outer chain (first entry should be what was passed in LeafProperty). 
-	 */
-	static void BuildPropertyChain(const UProperty* LeafProperty, TArray<const UProperty*>& ChainOut);
-
+public:
 	/**
 	 * A recursive method that replaces all leaf references to this object with 
 	 * the supplied ReplacementValue.
@@ -65,29 +46,20 @@ namespace LinkerPlaceholderObjectImpl
 	 * @return The number of references that were replaced.
 	 */
 	static int32 ResolvePlaceholderValues(const TArray<const UProperty*>& PropertyChain, int32 ChainIndex, uint8* ValueAddress, UObject* OldValue, UObject* ReplacementValue);
-}
+	
+	/**
+	 * Uses the current FPlaceholderContainerTracker::PerspectiveReferencerStack
+	 * to search for a viable placeholder container (expected that it will be 
+	 * the top of the stack).
+	 * 
+	 * @param  PropertyChainRef    Defines the nested property path through a UObject, where the end leaf property is one left referencing a placeholder.
+	 * @return The UObject instance that is assumably referencing a placeholder (null if one couldn't be found)
+	 */
+	static UObject* FindPlaceholderContainer(const FLinkerPlaceholderBase::FPlaceholderValuePropertyPath& PropertyChainRef);
+};
 
 //------------------------------------------------------------------------------
-static void LinkerPlaceholderObjectImpl::BuildPropertyChain(const UProperty* LeafProperty, TArray<const UProperty*>& ChainOut)
-{
-	ChainOut.Empty();
-	ChainOut.Add(LeafProperty);
-
-	UClass* ClassOwner = LeafProperty->GetOwnerClass();
-
-	UObject* PropertyOuter = LeafProperty->GetOuter();
-	while ((PropertyOuter != nullptr) && (PropertyOuter != ClassOwner))
-	{
-		if (const UProperty* PropertyOwner = Cast<const UProperty>(PropertyOuter))
-		{
-			ChainOut.Add(PropertyOwner);
-		}
-		PropertyOuter = PropertyOuter->GetOuter();
-	}
-}
-
-//------------------------------------------------------------------------------
-static int32 LinkerPlaceholderObjectImpl::ResolvePlaceholderValues(const TArray<const UProperty*>& PropertyChain, int32 ChainIndex, uint8* ValueAddress, UObject* OldValue, UObject* ReplacementValue)
+int32 FLinkerPlaceholderObjectImpl::ResolvePlaceholderValues(const TArray<const UProperty*>& PropertyChain, int32 ChainIndex, uint8* ValueAddress, UObject* OldValue, UObject* ReplacementValue)
 {
 	int32 ReplacementCount = 0;
 
@@ -101,7 +73,9 @@ static int32 LinkerPlaceholderObjectImpl::ResolvePlaceholderValues(const TArray<
 #endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
 
 			const UObjectProperty* ReferencingProperty = (const UObjectProperty*)Property;
-			if (ReferencingProperty->GetObjectPropertyValue(ValueAddress) == OldValue)
+
+			UObject* CurrentValue = ReferencingProperty->GetObjectPropertyValue(ValueAddress);
+			if (CurrentValue == OldValue)
 			{
 				// @TODO: use an FArchiver with ReferencingProperty->SerializeItem() 
 				//        so that we can utilize CheckValidObject()
@@ -135,15 +109,187 @@ static int32 LinkerPlaceholderObjectImpl::ResolvePlaceholderValues(const TArray<
 		else
 		{
 			const UProperty* NextProperty = PropertyChain[PropertyIndex - 1];
-#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-			check(NextProperty->GetOuter() == Property);
-#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-			ValueAddress = Property->ContainerPtrToValuePtr<uint8>(ValueAddress, /*ArrayIndex =*/0);
+			ValueAddress = NextProperty->ContainerPtrToValuePtr<uint8>(ValueAddress, /*ArrayIndex =*/0);
 		}
 	}
 
 	return ReplacementCount;
 }
+
+//------------------------------------------------------------------------------
+UObject* FLinkerPlaceholderObjectImpl::FindPlaceholderContainer(const FLinkerPlaceholderBase::FPlaceholderValuePropertyPath& PropertyChainRef)
+{
+	UObject* ContainerObj = nullptr;
+	TArray<UObject*>& PossibleReferencers = FPlaceholderContainerTracker::Get().PerspectiveReferencerStack;
+
+	UClass* OwnerClass = PropertyChainRef.GetOwnerClass();
+	if ((OwnerClass != nullptr) && (PossibleReferencers.Num() > 0))
+	{
+		UObject* ReferencerCandidate = PossibleReferencers.Top();
+		// we expect that the current object we're looking for (the one we're 
+		// serializing) is at the top of the stack
+		if (DEFERRED_DEPENDENCY_ENSURE(ReferencerCandidate->GetClass()->IsChildOf(OwnerClass)))
+		{
+			ContainerObj = ReferencerCandidate;
+		}
+		else
+		{
+			// if it's not the top element, then iterate backwards because this 
+			// is meant to act as a stack, where the last entry is most likely 
+			// the one we're looking for
+			for (int32 CandidateIndex = PossibleReferencers.Num() - 2; CandidateIndex >= 0; --CandidateIndex)
+			{
+				ReferencerCandidate = PossibleReferencers[CandidateIndex];
+
+				UClass* CandidateClass = ReferencerCandidate->GetClass();
+				if (CandidateClass->IsChildOf(OwnerClass))
+				{
+					ContainerObj = ReferencerCandidate;
+					break;
+				}
+			}
+		}
+	}
+	return ContainerObj;
+}
+
+/*******************************************************************************
+ * FPlaceholderContainerTracker / FScopedPlaceholderPropertyTracker
+ ******************************************************************************/
+
+//------------------------------------------------------------------------------
+FScopedPlaceholderContainerTracker::FScopedPlaceholderContainerTracker(UObject* InPlaceholderContainerCandidate)
+	: PlaceholderReferencerCandidate(InPlaceholderContainerCandidate)
+{
+	FPlaceholderContainerTracker::Get().PerspectiveReferencerStack.Add(InPlaceholderContainerCandidate);
+}
+
+//------------------------------------------------------------------------------
+FScopedPlaceholderContainerTracker::~FScopedPlaceholderContainerTracker()
+{
+	UObject* StackTop = FPlaceholderContainerTracker::Get().PerspectiveReferencerStack.Pop();
+#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+	check(StackTop == PlaceholderReferencerCandidate);
+#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+}
+
+//------------------------------------------------------------------------------
+FScopedPlaceholderPropertyTracker::FScopedPlaceholderPropertyTracker(const UStructProperty* InIntermediateProperty)
+	: IntermediateProperty(nullptr) // leave null, as a sentinel value (implying that PerspectiveReferencerStack was empty)
+{
+	FPlaceholderContainerTracker& ContainerRepository = FPlaceholderContainerTracker::Get();
+	if (ContainerRepository.PerspectiveReferencerStack.Num() > 0)
+	{
+		IntermediateProperty = InIntermediateProperty;
+		ContainerRepository.IntermediatePropertyStack.Add(InIntermediateProperty);
+	}
+	// else, if there's nothing in the PerspectiveReferencerStack, then caching 
+	// a property here would be pointless (the whole point of this is to be able 
+	// to use this to look up the referencing object)
+}
+
+//------------------------------------------------------------------------------
+FScopedPlaceholderPropertyTracker::~FScopedPlaceholderPropertyTracker()
+{
+	FPlaceholderContainerTracker& ContainerRepository = FPlaceholderContainerTracker::Get();
+	if (IntermediateProperty != nullptr)
+	{
+		const UStructProperty* StackTop = ContainerRepository.IntermediatePropertyStack.Pop();
+#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+		check(StackTop == IntermediateProperty);
+	}
+	else
+	{
+		check(ContainerRepository.IntermediatePropertyStack.Num()  == 0);
+		check(ContainerRepository.PerspectiveReferencerStack.Num() == 0);
+#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+	}
+}
+
+/*******************************************************************************
+ * FLinkerPlaceholderBase::FPlaceholderValuePropertyPath
+ ******************************************************************************/
+
+//------------------------------------------------------------------------------
+FLinkerPlaceholderBase::FPlaceholderValuePropertyPath::FPlaceholderValuePropertyPath(const UProperty* ReferencingProperty)
+{
+	PropertyChain.Add(ReferencingProperty);
+	const UObject* PropertyOuter = ReferencingProperty->GetOuter();
+	
+	const TArray<const UStructProperty*>& StructPropertyStack = FPlaceholderContainerTracker::Get().IntermediatePropertyStack;
+	int32 StructStackIndex = StructPropertyStack.Num() - 1; // "top" of the array is the last element
+
+	while (PropertyOuter && !PropertyOuter->GetClass()->IsChildOf<UClass>())
+	{
+		// handle nested properties (like array members)
+		if (const UProperty* PropertyOwner = Cast<const UProperty>(PropertyOuter))
+		{
+			PropertyChain.Add(PropertyOwner);
+		}
+		// handle nested struct properties (use the FPlaceholderContainerTracker::IntermediatePropertyStack
+		// to help trace the property path)
+		else if (const UScriptStruct* StructOwner = Cast<const UScriptStruct>(PropertyOuter))
+		{
+			if (DEFERRED_DEPENDENCY_ENSURE(StructStackIndex != INDEX_NONE))
+			{
+				// we expect the top struct property to be the one we're currently serializing
+				const UStructProperty* SerializingStructProp = StructPropertyStack[StructStackIndex];
+				if (DEFERRED_DEPENDENCY_ENSURE(SerializingStructProp->Struct->IsChildOf(StructOwner)))
+				{
+					PropertyOuter = SerializingStructProp;
+					PropertyChain.Add(SerializingStructProp);
+				}
+				else
+				{
+#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+					PropertyChain.Empty(); // invalidate this FPlaceholderValuePropertyPath
+					checkf(false, TEXT("Looks like we couldn't reliably determine the object that a placeholder value should belong to - are we missing a FScopedPlaceholderPropertyTracker?"));
+#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TEST
+					break;
+				}
+				--StructStackIndex;
+			}
+		}
+		PropertyOuter = PropertyOuter->GetOuter();
+	}
+
+#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+	if (!DEFERRED_DEPENDENCY_ENSURE(PropertyOuter != nullptr))
+	{
+		PropertyChain.Empty(); // invalidate this FPlaceholderValuePropertyPath
+	}
+#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TEST
+}
+
+//------------------------------------------------------------------------------
+bool FLinkerPlaceholderBase::FPlaceholderValuePropertyPath::IsValid() const
+{
+	return (PropertyChain.Num() > 0) && PropertyChain[0]->IsA<UObjectProperty>() && PropertyChain.Last()->GetOuter()->IsA<UClass>();
+}
+
+//------------------------------------------------------------------------------
+UClass* FLinkerPlaceholderBase::FPlaceholderValuePropertyPath::GetOwnerClass() const
+{
+	return (PropertyChain.Num() > 0) ? Cast<UClass>(PropertyChain.Last()->GetOuter()) : nullptr;
+}
+
+//------------------------------------------------------------------------------
+int32 FLinkerPlaceholderBase::FPlaceholderValuePropertyPath::Resolve(FLinkerPlaceholderBase* Placeholder, UObject* Replacement, UObject* Container) const
+{
+	const UProperty* OutermostProperty = PropertyChain.Last();
+
+#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+	UClass* OwnerClass = OutermostProperty->GetOwnerClass();
+	check(OwnerClass && Container->IsA(OwnerClass));
+#endif 
+
+	uint8* OutermostAddress = OutermostProperty->ContainerPtrToValuePtr<uint8>((uint8*)Container, /*ArrayIndex =*/0);
+	return FLinkerPlaceholderObjectImpl::ResolvePlaceholderValues(PropertyChain, PropertyChain.Num() - 1, OutermostAddress, Placeholder->GetPlaceholderAsUObject(), Replacement);
+}
+ 
+/*******************************************************************************
+ * FLinkerPlaceholderBase
+ ******************************************************************************/
 
 //------------------------------------------------------------------------------
 FLinkerPlaceholderBase::FLinkerPlaceholderBase()
@@ -162,43 +308,20 @@ FLinkerPlaceholderBase::~FLinkerPlaceholderBase()
 //------------------------------------------------------------------------------
 bool FLinkerPlaceholderBase::AddReferencingPropertyValue(const UObjectProperty* ReferencingProperty, void* DataPtr)
 {
-	TArray<UObject*>& PossibleReferencers = FPlaceholderContainerTracker::Get().PerspectiveReferencerStack;
-
-	UObject* FoundReferencer = nullptr;
-	// iterate backwards because this is meant to act as a stack, where the last
-	// entry is most likely the one we're looking for
-	for (int32 CandidateIndex = PossibleReferencers.Num() - 1; CandidateIndex >= 0; --CandidateIndex)
-	{
-		UObject* ReferencerCandidate = PossibleReferencers[CandidateIndex];
-
-		UClass* CandidateClass = ReferencerCandidate->GetClass();
-		UClass* PropOwnerClass = ReferencingProperty->GetOwnerClass();
-
-		if (CandidateClass->IsChildOf(PropOwnerClass))
-		{
-			FoundReferencer = ReferencerCandidate;
-			break;
-		}
-	}
+	FPlaceholderValuePropertyPath PropertyChain(ReferencingProperty);
+	UObject* ReferencingContainer = FLinkerPlaceholderObjectImpl::FindPlaceholderContainer(PropertyChain);
 
 #if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
 	check(ReferencingProperty->GetObjectPropertyValue(DataPtr) == GetPlaceholderAsUObject());
-	check(FoundReferencer != nullptr);
+	check(PropertyChain.IsValid());
+	checkf(ReferencingContainer != nullptr, TEXT("We couldn't reliably determine the object that a placeholder value should belong to - are we missing a FScopedPlaceholderContainerTracker somewhere?"));
 #endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
 
-	if (FoundReferencer != nullptr)
+	if (ReferencingContainer != nullptr)
 	{
-#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-		// @TODO: verify that DataPtr belongs to FoundReferencer
-// 		uint8* ContainerStart = (uint8*)FoundReferencer;
-// 		uint8* ContainerEnd   = ContainerStart + FoundReferencer->GetClass()->GetStructureSize();
-// 		// check that we picked the right container object, and that DataPtr exists within it 
-// 		check(DataPtr >= ContainerStart && DataPtr <= ContainerEnd);
-#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-
-		ReferencingContainers.FindOrAdd(FoundReferencer).Add(ReferencingProperty);
+		ReferencingContainers.FindOrAdd(ReferencingContainer).Add(PropertyChain);
 	}
-	return (FoundReferencer != nullptr);
+	return (ReferencingContainer != nullptr);
 }
 
 //------------------------------------------------------------------------------
@@ -240,7 +363,6 @@ int32 FLinkerPlaceholderBase::ResolvePlaceholderPropertyValues(UObject* NewObjec
 {
 	int32 ResolvedTotal = 0;
 
-	UObject* ThisAsUObject = GetPlaceholderAsUObject();
 	for (auto& ReferencingPair : ReferencingContainers)
 	{
 		TWeakObjectPtr<UObject> ContainerPtr = ReferencingPair.Key;
@@ -250,18 +372,13 @@ int32 FLinkerPlaceholderBase::ResolvePlaceholderPropertyValues(UObject* NewObjec
 		}
 		UObject* Container = ContainerPtr.Get();
 
-		for (const UObjectProperty* Property : ReferencingPair.Value)
+		for (const FPlaceholderValuePropertyPath& PropertyRef : ReferencingPair.Value)
 		{
 #if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-			check(Container->GetClass()->IsChildOf(Property->GetOwnerClass()));
+			check(Container->GetClass()->IsChildOf(PropertyRef.GetOwnerClass()));
 #endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
 
-			TArray<const UProperty*> PropertyChain;
-			LinkerPlaceholderObjectImpl::BuildPropertyChain(Property, PropertyChain);
-			const UProperty* OutermostProperty = PropertyChain.Last();
-
-			uint8* OutermostAddress = OutermostProperty->ContainerPtrToValuePtr<uint8>((uint8*)Container, /*ArrayIndex =*/0);
-			int32 ResolvedCount = LinkerPlaceholderObjectImpl::ResolvePlaceholderValues(PropertyChain, PropertyChain.Num() - 1, OutermostAddress, ThisAsUObject, NewObjectValue);
+			int32 ResolvedCount = PropertyRef.Resolve(this, NewObjectValue, Container);
 			ResolvedTotal += ResolvedCount;
 
 #if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
@@ -378,3 +495,5 @@ int32 TLinkerImportPlaceholder<UFunction>::ResolvePropertyReferences(UFunction* 
 	ReferencingProperties.Empty();
 	return ReplacementCount;
 }
+
+#undef DEFERRED_DEPENDENCY_ENSURE

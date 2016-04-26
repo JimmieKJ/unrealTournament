@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 //=============================================================================
 // INetworkPredictionInterface is an interface for objects that want to perform
@@ -85,7 +85,7 @@ public:
 
 	virtual ~FNetworkPredictionData_Server() {}
 
-	/** Server clock time when last server move was received */
+	/** Server clock time when last server move was received or movement was forced to be processed */
 	float ServerTimeStamp;
 };
 

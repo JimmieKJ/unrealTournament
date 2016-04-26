@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -193,7 +193,7 @@ namespace UnrealBuildTool
 		/// <param name="RelativeBaseFolder">The directory the path within the project will be relative to</param>
 		public void AddFilesToProject(List<FileReference> FilesToAdd, DirectoryReference BaseFolder)
 		{
-			foreach (var CurFile in FilesToAdd)
+			foreach (FileReference CurFile in FilesToAdd)
 			{
 				AddFileToProject(CurFile, BaseFolder);
 			}
@@ -269,13 +269,13 @@ namespace UnrealBuildTool
 			if (ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject == null ||
 				ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject == this)
 			{
-				foreach (var CurDef in NewPreprocessorDefinitions)
+				foreach (string CurDef in NewPreprocessorDefinitions)
 				{
 					// Don't add definitions and value combinations that have already been added for this project
 					if (KnownIntelliSensePreprocessorDefinitions.Add(CurDef))
 					{
 						// Go ahead and check to see if the definition already exists, but the value is different
-						var AlreadyExists = false;
+						bool AlreadyExists = false;
 
 						string Def, Value;
 						SplitDefinitionAndValue(CurDef, out Def, out Value);
@@ -310,7 +310,7 @@ namespace UnrealBuildTool
 			if (ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject == null ||
 				ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject == this)
 			{
-				foreach (var CurPath in NewIncludePaths)
+				foreach (string CurPath in NewIncludePaths)
 				{
 					if (bAddingSystemIncludes ? KnownIntelliSenseSystemIncludeSearchPaths.Add(CurPath) : KnownIntelliSenseIncludeSearchPaths.Add(CurPath))
 					{
@@ -333,9 +333,9 @@ namespace UnrealBuildTool
 						PathRelativeToProjectFile = PathRelativeToProjectFile.TrimEnd('/', '\\');
 
 						// Make sure that it doesn't exist already
-						var AlreadyExists = false;
+						bool AlreadyExists = false;
 						List<string> SearchPaths = bAddingSystemIncludes ? IntelliSenseSystemIncludeSearchPaths : IntelliSenseIncludeSearchPaths;
-						foreach (var ExistingPath in SearchPaths)
+						foreach (string ExistingPath in SearchPaths)
 						{
 							if (PathRelativeToProjectFile == ExistingPath)
 							{
@@ -360,8 +360,8 @@ namespace UnrealBuildTool
 		public void AddDependsOnProject(ProjectFile InProjectFile)
 		{
 			// Make sure that it doesn't exist already
-			var AlreadyExists = false;
-			foreach (var ExistingDependentOn in DependsOnProjects)
+			bool AlreadyExists = false;
+			foreach (ProjectFile ExistingDependentOn in DependsOnProjects)
 			{
 				if (ExistingDependentOn == InProjectFile)
 				{

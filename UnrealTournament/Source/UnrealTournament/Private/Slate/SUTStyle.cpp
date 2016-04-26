@@ -55,8 +55,10 @@ const FColor Medium(10,10,10,255);
 const FColor Light(14,14,14,255);
 const FColor SuperLight(32,32,32,255);
 const FColor UltraBright(61,135,255,255);
+const FColor WhiteBright(255,255,255,255);
 const FColor Disabled(189,189,189,255);
 const FColor Shaded(4,4,4,200);
+
 
 const FColor TestRed(128,0,0,255);
 const FColor TestBlue(0,0,128,255);
@@ -196,6 +198,9 @@ void SUTStyle::SetIcons(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.Icon.ChangeTeam.Red", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.ChangeTeam.Red", FVector2D(48, 48)));
 	Style.Set("UT.Icon.ChangeTeam.Blue", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.ChangeTeam.Blue", FVector2D(48, 48)));
 
+	Style.Set("UT.Icon.PartyMember", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.PartyMember", FVector2D(48, 48)));
+	Style.Set("UT.Icon.PartyMember.Empty", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.PartyMember.Empty", FVector2D(48, 48)));
+	Style.Set("UT.Icon.PartyLeader", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.PartyLeader", FVector2D(48, 48)));
 }
 
 
@@ -249,6 +254,16 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetPressedSound(ButtonPressSound)
 	);
 
+	Style.Set("UT.SimpleButton.SuperDark", FButtonStyle()
+		.SetNormal( FSlateColorBrush(Dark) )
+		.SetHovered( FSlateColorBrush(Medium) )
+		.SetPressed( FSlateColorBrush(SuperDark) )
+		.SetDisabled( FSlateColorBrush(Disabled) )
+		.SetHoveredSound(ButtonHoverSound)
+		.SetPressedSound(ButtonPressSound)
+	);
+
+
 	Style.Set("UT.NoStyle", new FSlateNoResource(FVector2D(128.0f, 128.0f)));
 
 	Style.Set("UT.TeamColor.Red", new FSlateColorBrush(FColor(255,12,0,255)));
@@ -266,6 +281,9 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.HeaderBackground.SuperLight", new FSlateColorBrush(SuperLight));
 	Style.Set("UT.HeaderBackground.Shaded", new FSlateColorBrush(Shaded));
 
+	Style.Set("UT.HeaderBackground.White", new FSlateColorBrush(WhiteBright));
+
+
 	Style.Set("UT.Box", new FSlateColorBrush(FColor(13,13,13,153)));
 	Style.Set("UT.Divider", new FSlateColorBrush(FColor(25,25,25,255)));
 
@@ -274,6 +292,8 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 
 	Style.Set("UT.ScaryStar", new IMAGE_BRUSH( "/UTStyle/ChallengeBadges/PumpkinA", FVector2D(24,24) ));
 	Style.Set("UT.ScaryStar.Completed", new IMAGE_BRUSH( "/UTStyle/ChallengeBadges/PumpkinB", FVector2D(24,24) ));
+
+	Style.Set("UT.Logo.Small", new IMAGE_BRUSH( "/UTStyle/Logos/UT.Logo.Small", FVector2D(301,98) ));
 
 	Style.Set("UT.TabButton", FButtonStyle()
 		.SetNormal( FSlateColorBrush(Dark) )
@@ -512,6 +532,12 @@ void SUTStyle::SetRankBadges(TSharedRef<FSlateStyleSet> StyleRef)
 
 	Style.Set("UT.RankStar.Empty", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankStar.Five.48x48", FVector2D(48.0f, 48.0f), FLinearColor(1.0f, 1.0f, 1.0f, 0.0f) ));
 
+	Style.Set("UT.RankedBronze", new IMAGE_BRUSH("UTStyle/RankBadges/UT.RankedBronze.128x128", FVector2D(128.0f, 128.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.RankedSilver", new IMAGE_BRUSH("UTStyle/RankBadges/UT.RankedSilver.128x128", FVector2D(128.0f, 128.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.RankedGold", new IMAGE_BRUSH("UTStyle/RankBadges/UT.RankedGold.128x128", FVector2D(128.0f, 128.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.RankedPlatinum", new IMAGE_BRUSH("UTStyle/RankBadges/UT.RankedPlatinum.128x128", FVector2D(128.0f, 128.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.RankedMaster", new IMAGE_BRUSH("UTStyle/RankBadges/UT.RankedMaster.128x128", FVector2D(128.0f, 128.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	
 }
 
 

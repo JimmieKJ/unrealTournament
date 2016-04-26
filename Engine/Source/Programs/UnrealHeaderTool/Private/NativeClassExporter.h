@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -89,8 +89,8 @@ private:
 	/** Set of already exported cross-module references, to prevent duplicates */
 	TSet<FString> UniqueCrossModuleReferences;
 
-	/** Names that have been exported so far **/
-	TSet<FName> ReferencedNames;
+	/** Names that have been exported so far. Key is a native name, value is a overriden name (or also the native)**/
+	TMap<FName, FName> ReferencedNames;
 
 	/** the existing disk version of the header for this package's names */
 	FString OriginalNamesHeader;

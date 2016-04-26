@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintEditorPrivatePCH.h"
 
@@ -313,6 +313,16 @@ namespace FiBSerializationHelpers
 
 namespace BlueprintSearchMetaDataHelpers
 {
+	/** Cache structure of searchable metadata and sub-properties relating to a Property */
+	struct FSearchableProperty
+	{
+		UProperty* TargetProperty;
+		bool bIsSearchableMD;
+		bool bIsShallowSearchableMD;
+		bool bIsMarkedNotSearchableMD;
+		TArray<FSearchableProperty> ChildProperties;
+	};
+
 	/** Json Writer used for serializing FText's in the correct format for Find-in-Blueprints */
 	template < class PrintPolicy = TPrettyJsonPrintPolicy<TCHAR> >
 	class TJsonFindInBlueprintStringWriter : public TJsonStringWriter<PrintPolicy>
@@ -428,10 +438,15 @@ namespace BlueprintSearchMetaDataHelpers
 
 			bool operator==(const FLookupTableItem& InObject) const
 			{
-				if(!Text.CompareTo(InObject.Text) &&
-					!FTextInspector::GetSourceString(Text)->Compare(*FTextInspector::GetDisplayString(InObject.Text), ESearchCase::CaseSensitive) )
+				if (!Text.CompareTo(InObject.Text))
 				{
-					return true;
+					if (FTextInspector::GetNamespace(Text).Get(TEXT("DefaultNamespace")) == FTextInspector::GetNamespace(InObject.Text).Get(TEXT("DefaultNamespace")))
+					{
+						if (FTextInspector::GetKey(Text).Get(TEXT("DefaultKey")) == FTextInspector::GetKey(InObject.Text).Get(TEXT("DefaultKey")))
+						{
+							return true;
+						}
+					}
 				}
 
 				return false;
@@ -456,14 +471,16 @@ namespace BlueprintSearchMetaDataHelpers
 			int32* TableLookupValuePtr = ReverseLookupTable.Find(FLookupTableItem(Text));
 			if(TableLookupValuePtr)
 			{
-				TJsonStringWriter<PrintPolicy>::WriteStringValue( FString::FromInt(*TableLookupValuePtr) );
+				TJsonStringWriter<PrintPolicy>::WriteStringValue(FString::FromInt(*TableLookupValuePtr));
 			}
 			else
 			{
 				// Add the FText to the table and write to the Json the ID to look the item up using
 				int32 TableLookupValue = LookupTable.Num();
-				LookupTable.Add(TableLookupValue, Text);
-				ReverseLookupTable.Add(FLookupTableItem(Text), TableLookupValue);
+				{
+					LookupTable.Add(TableLookupValue, Text);
+					ReverseLookupTable.Add(FLookupTableItem(Text), TableLookupValue);
+				}
 				TJsonStringWriter<PrintPolicy>::WriteStringValue( FString::FromInt(TableLookupValue) );
 			}
 		}
@@ -484,11 +501,18 @@ namespace BlueprintSearchMetaDataHelpers
 
 		// This is just locally needed for the write, to lookup the integer value by using the string of the FText
 		TMap< FLookupTableItem, int32 > ReverseLookupTable;
+
+	public:
+		/** Cached mapping of all searchable properties that have been discovered while gathering searchable data for the current Blueprint */
+		TMap<UStruct*, TArray<FSearchableProperty>> CachedPropertyMapping;
 	};
 
 	static uint32 GetTypeHash(const BlueprintSearchMetaDataHelpers::TJsonFindInBlueprintStringWriter<TCondensedJsonPrintPolicy<TCHAR>>::FLookupTableItem& InObject)
 	{
-		return FCrc::MemCrc32(&InObject.Text, sizeof(InObject.Text));
+		FString Namespace = FTextInspector::GetNamespace(InObject.Text).Get(TEXT("DefaultNamespace"));
+		FString Key = FTextInspector::GetKey(InObject.Text).Get(TEXT("DefaultKey"));
+		uint32 Hash = HashCombine(GetTypeHash(InObject.Text.ToString()), HashCombine(GetTypeHash(Namespace), GetTypeHash(Key)));
+		return Hash;
 	}
 
 	typedef TJsonWriter<TCHAR, TCondensedJsonPrintPolicy<TCHAR>> SearchMetaDataWriterParentClass;
@@ -513,11 +537,6 @@ namespace BlueprintSearchMetaDataHelpers
 
 		FORCEINLINE virtual const FString& GetIdentifier() const override
 		{
-			// The identifier from Json is a Hex value that must be looked up in the LookupTable to find the FText it represents
-			if(const FText* LookupText = LookupTable.Find(FCString::Atoi(*this->Identifier)))
-			{
-				return LookupText->ToString();
-			}
 			return this->Identifier;
 		}
 
@@ -744,29 +763,34 @@ namespace BlueprintSearchMetaDataHelpers
 				else
 				{
 					// Shallow conversion of property to string
-					auto JsonValue = FJsonObjectConverter::UPropertyToJsonValue(InProperty, InValue, 0, 0);
+					TSharedPtr<FJsonValue> JsonValue;
+					JsonValue = FJsonObjectConverter::UPropertyToJsonValue(InProperty, InValue, 0, 0);
 					FJsonSerializer::Serialize(JsonValue, InProperty->GetName(), StaticCastSharedRef<SearchMetaDataWriterParentClass>(InWriter), false);
 				}
 			}
 		}
 		else
 		{
-			auto JsonValue = FJsonObjectConverter::UPropertyToJsonValue(InProperty, InValue, 0, 0);
+			TSharedPtr<FJsonValue> JsonValue;
+			JsonValue = FJsonObjectConverter::UPropertyToJsonValue(InProperty, InValue, 0, 0);
 			FJsonSerializer::Serialize(JsonValue, InProperty->GetName(), StaticCastSharedRef<SearchMetaDataWriterParentClass>(InWriter), false);
 		}
 	}
 
-	void GatherSearchableProperties(TSharedRef< SearchMetaDataWriter>& InWriter, const void* InValue, UStruct* InStruct, EGatherSearchableType InSearchableType)
+	void GatherSearchableProperties(TSharedRef<SearchMetaDataWriter>& InWriter, const void* InValue, UStruct* InStruct, EGatherSearchableType InSearchableType)
 	{
 		if (InValue)
 		{
-			for (TFieldIterator<UProperty> PropIt(InStruct); PropIt; ++PropIt)
+			TArray<FSearchableProperty>* SearchablePropertyData = InWriter->CachedPropertyMapping.Find(InStruct);
+			check(SearchablePropertyData);
+
+			for (FSearchableProperty& SearchableProperty : *SearchablePropertyData)
 			{
-				UProperty* Property = *PropIt;
-				bool bIsSearchableMD = Property->GetBoolMetaData(*FFiBMD::FiBSearchableMD);
-				bool bIsShallowSearchableMD = Property->GetBoolMetaData(*FFiBMD::FiBSearchableShallowMD);
+				UProperty* Property = SearchableProperty.TargetProperty;
+				bool bIsSearchableMD = SearchableProperty.bIsSearchableMD;
+				bool bIsShallowSearchableMD = SearchableProperty.bIsShallowSearchableMD;
 				// It only is truly marked as not searchable if it has the metadata set to false, if the metadata is missing then we assume the searchable type that is passed in unless SEARCHABLE_AS_DESIRED
-				bool bIsMarkedNotSearchableMD = Property->HasMetaData(*FFiBMD::FiBSearchableMD) && !bIsSearchableMD;
+				bool bIsMarkedNotSearchableMD = SearchableProperty.bIsMarkedNotSearchableMD;
 
 				if ( (InSearchableType != SEARCHABLE_AS_DESIRED && !bIsMarkedNotSearchableMD) 
 					|| bIsShallowSearchableMD || bIsSearchableMD)
@@ -809,6 +833,113 @@ namespace BlueprintSearchMetaDataHelpers
 	}
 
 	/**
+	 * Caches all properties that have searchability metadata
+	 *
+	 * @param InOutCachePropertyMapping		Mapping of all the searchable properties that we are building
+	 * @param InValue						Value of the Object to serialize
+	 * @param InStruct						Struct or class that represent the UObject's layout
+	 * @param InSearchableType				Informs the system how it should examine the properties to determine if they are searchable. All sub-properties of searchable properties are automatically gathered unless marked as not being searchable
+	 */
+	void CacheSearchableProperties(TMap<UStruct*, TArray<FSearchableProperty>>& InOutCachePropertyMapping, const void* InValue, UStruct* InStruct, EGatherSearchableType InSearchableType = SEARCHABLE_AS_DESIRED);
+
+	/**
+	 * Digs into a property for any sub-properties that might exist so it can recurse and cache them
+	 *
+	 * @param InOutCachePropertyMapping		Mapping of all the searchable properties that we are building
+	 * @param InProperty					Property currently being cached
+	 * @param InValue						Value of the Object to serialize
+	 * @param InStruct						Struct or class that represent the UObject's layout
+	 */
+	void CacheSubPropertySearchables(TMap<UStruct*, TArray<FSearchableProperty>>& InOutCachePropertyMapping, UProperty* InProperty, const void* InValue, UStruct* InStruct)
+	{
+		if (UArrayProperty* ArrayProperty = Cast<UArrayProperty>(InProperty))
+		{
+			FScriptArrayHelper Helper(ArrayProperty, InValue);
+			for (int32 i = 0, n = Helper.Num(); i < n; ++i)
+			{
+				CacheSubPropertySearchables(InOutCachePropertyMapping, ArrayProperty->Inner, Helper.GetRawPtr(i), InStruct);
+			}
+		}
+		else if (UStructProperty* StructProperty = Cast<UStructProperty>(InProperty))
+		{
+			if (!InOutCachePropertyMapping.Find(StructProperty->Struct))
+			{
+				if (!InProperty->HasMetaData(*FFiBMD::FiBSearchableMD) || InProperty->GetBoolMetaData(*FFiBMD::FiBSearchableMD))
+				{
+					CacheSearchableProperties(InOutCachePropertyMapping, InValue, StructProperty->Struct, SEARCHABLE_FULL);
+				}
+			}
+		}
+		else if (UObjectProperty* ObjectProperty = Cast<UObjectProperty>(InProperty))
+		{
+			UObject* SubObject = ObjectProperty->GetObjectPropertyValue(InValue);
+			if (SubObject)
+			{
+				// Objects default to shallow unless they are marked as searchable
+				EGatherSearchableType SearchType = SEARCHABLE_SHALLOW;
+
+				// Check if there is any Searchable metadata
+				if (InProperty->HasMetaData(*FFiBMD::FiBSearchableMD))
+				{
+					if (!InOutCachePropertyMapping.Find(SubObject->GetClass()))
+					{
+						// Check if that metadata informs us that the property should not be searchable
+						bool bSearchable = InProperty->GetBoolMetaData(*FFiBMD::FiBSearchableMD);
+						if (bSearchable)
+						{
+							CacheSearchableProperties(InOutCachePropertyMapping, SubObject, SubObject->GetClass(), SEARCHABLE_FULL);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	void CacheSearchableProperties(TMap<UStruct*, TArray<FSearchableProperty>>& InOutCachePropertyMapping, const void* InValue, UStruct* InStruct, EGatherSearchableType InSearchableType)
+	{
+		if (InValue)
+		{
+			TArray<FSearchableProperty> SearchableProperties;
+
+			for (TFieldIterator<UProperty> PropIt(InStruct); PropIt; ++PropIt)
+			{
+				UProperty* Property = *PropIt;
+				bool bIsSearchableMD = Property->GetBoolMetaData(*FFiBMD::FiBSearchableMD);
+				bool bIsShallowSearchableMD = Property->GetBoolMetaData(*FFiBMD::FiBSearchableShallowMD);
+				// It only is truly marked as not searchable if it has the metadata set to false, if the metadata is missing then we assume the searchable type that is passed in unless SEARCHABLE_AS_DESIRED
+				bool bIsMarkedNotSearchableMD = Property->HasMetaData(*FFiBMD::FiBSearchableMD) && !bIsSearchableMD;
+
+				if ((InSearchableType != SEARCHABLE_AS_DESIRED && !bIsMarkedNotSearchableMD)
+					|| bIsShallowSearchableMD || bIsSearchableMD)
+				{
+					const void* Value = Property->ContainerPtrToValuePtr<uint8>(InValue);
+
+					FSearchableProperty SearchableProperty;
+					SearchableProperty.TargetProperty = Property;
+					SearchableProperty.bIsSearchableMD = bIsSearchableMD;
+					SearchableProperty.bIsShallowSearchableMD = bIsShallowSearchableMD;
+					SearchableProperty.bIsMarkedNotSearchableMD = bIsMarkedNotSearchableMD;
+
+					if (Property->ArrayDim == 1)
+					{
+						CacheSubPropertySearchables(InOutCachePropertyMapping, Property, Value, InStruct);
+					}
+					else
+					{
+						TArray< TSharedPtr<FJsonValue> > Array;
+						for (int Index = 0; Index != Property->ArrayDim; ++Index)
+						{
+							CacheSubPropertySearchables(InOutCachePropertyMapping, Property, (char*)Value + Index * Property->ElementSize, InStruct);
+						}
+					}
+					SearchableProperties.Add(MoveTemp(SearchableProperty));
+				}
+				InOutCachePropertyMapping.Add(InStruct, SearchableProperties);
+			}
+		}
+	}
+
+	/**
 	 * Gathers all nodes from a specified graph and serializes their searchable data to Json
 	 *
 	 * @param InWriter		The Json writer to use for serialization
@@ -823,46 +954,54 @@ namespace BlueprintSearchMetaDataHelpers
 			{
 				if(Node)
 				{
-					// Make sure we don't collect search data for nodes that are going away soon
-					if( Node->GetOuter()->IsPendingKill() )
 					{
-						continue;
-					}
-
-					InWriter->WriteObjectStart();
-
-					// Retrieve the search metadata from the node, some node types may have extra metadata to be searchable.
-					TArray<struct FSearchTagDataPair> Tags;
-					Node->AddSearchMetaDataInfo(Tags);
-
-					// Go through the node metadata tags and put them into the Json object.
-					for(const FSearchTagDataPair& SearchData : Tags)
-					{
-						InWriter->WriteValue(SearchData.Key, SearchData.Value);
-					}
-
-					// Find all the pins and extract their metadata
-					InWriter->WriteArrayStart(FFindInBlueprintSearchTags::FiB_Pins);
-					for(UEdGraphPin* Pin : Node->Pins)
-					{
-						// Hidden pins are not searchable
-						if(Pin->bHidden == false)
+						// Make sure we don't collect search data for nodes that are going away soon
+						if (Node->GetOuter()->IsPendingKill())
 						{
-							InWriter->WriteObjectStart();
-							{
-								InWriter->WriteValue(FFindInBlueprintSearchTags::FiB_Name, Pin->GetSchema()->GetPinDisplayName(Pin));
-								InWriter->WriteValue(FFindInBlueprintSearchTags::FiB_DefaultValue, FText::FromString(Pin->GetDefaultAsString()));
-							}
-							SavePinTypeToJson(InWriter, Pin->PinType);
-							InWriter->WriteObjectEnd();
+							continue;
+						}
+
+						InWriter->WriteObjectStart();
+
+						// Retrieve the search metadata from the node, some node types may have extra metadata to be searchable.
+						TArray<struct FSearchTagDataPair> Tags;
+						Node->AddSearchMetaDataInfo(Tags);
+
+						// Go through the node metadata tags and put them into the Json object.
+						for (const FSearchTagDataPair& SearchData : Tags)
+						{
+							InWriter->WriteValue(SearchData.Key, SearchData.Value);
 						}
 					}
-					InWriter->WriteArrayEnd();
 
-					// Only support this for nodes for now, will gather all searchable properties
-					GatherSearchableProperties(InWriter, Node, Node->GetClass());
+					{
+						// Find all the pins and extract their metadata
+						InWriter->WriteArrayStart(FFindInBlueprintSearchTags::FiB_Pins);
+						for (UEdGraphPin* Pin : Node->Pins)
+						{
+							// Hidden pins are not searchable
+							if (Pin->bHidden == false)
+							{
+								InWriter->WriteObjectStart();
+								{
+									InWriter->WriteValue(FFindInBlueprintSearchTags::FiB_Name, Pin->GetSchema()->GetPinDisplayName(Pin));
+									InWriter->WriteValue(FFindInBlueprintSearchTags::FiB_DefaultValue, FText::FromString(Pin->GetDefaultAsString()));
+								}
+								SavePinTypeToJson(InWriter, Pin->PinType);
+								InWriter->WriteObjectEnd();
+							}
+						}
+						InWriter->WriteArrayEnd();
 
-					InWriter->WriteObjectEnd();
+						if (!InWriter->CachedPropertyMapping.Find(Node->GetClass()))
+						{
+							CacheSearchableProperties(InWriter->CachedPropertyMapping, Node, Node->GetClass());
+						}
+						// Only support this for nodes for now, will gather all searchable properties
+						GatherSearchableProperties(InWriter, Node, Node->GetClass());
+
+						InWriter->WriteObjectEnd();
+					}
 				}
 				
 			}
@@ -887,6 +1026,11 @@ namespace BlueprintSearchMetaDataHelpers
 			{
 				for(const UEdGraph* Graph : InGraphArray)
 				{
+					// This is non-critical but should not happen and needs to be resolved
+					if (!ensure(Graph != nullptr))
+					{
+						continue;
+					}
 					InWriter->WriteObjectStart();
 
 					FGraphDisplayInfo DisplayInfo;
@@ -1325,7 +1469,6 @@ void FFindInBlueprintSearchManager::OnAssetAdded(const FAssetData& InAssetData)
 				if (FiBVersionedSearchData->Len() == 0)
 				{
 					// agrant TODO: Can we patch this up? Is it dangerous not to?
-					UE_LOG(LogBlueprint, Warning, TEXT("Blueprint %s had empty search data!"), *InAssetData.ObjectPath.ToString());
 					UncachedBlueprints.Add(InAssetData.ObjectPath);
 				}
 				else
@@ -1488,7 +1631,7 @@ FString FFindInBlueprintSearchManager::GatherBlueprintSearchMetadata(const UBlue
 	{
 		Writer->WriteArrayStart(FFindInBlueprintSearchTags::FiB_Properties);
 		{
-			for( const FBPVariableDescription& Variable : Blueprint->NewVariables )
+			for (const FBPVariableDescription& Variable : Blueprint->NewVariables)
 			{
 				BlueprintSearchMetaDataHelpers::SaveVariableDescriptionToJson(Writer, Blueprint, Variable);
 			}
@@ -1501,6 +1644,13 @@ FString FFindInBlueprintSearchManager::GatherBlueprintSearchMetadata(const UBlue
 	BlueprintSearchMetaDataHelpers::GatherGraphSearchData(Writer, Blueprint, Blueprint->UbergraphPages, FFindInBlueprintSearchTags::FiB_UberGraphs, &SubGraphs);
 	BlueprintSearchMetaDataHelpers::GatherGraphSearchData(Writer, Blueprint, Blueprint->FunctionGraphs, FFindInBlueprintSearchTags::FiB_Functions, &SubGraphs);
 	BlueprintSearchMetaDataHelpers::GatherGraphSearchData(Writer, Blueprint, Blueprint->MacroGraphs, FFindInBlueprintSearchTags::FiB_Macros, &SubGraphs);
+
+	// Gather all interface graphs as functions
+	for (const FBPInterfaceDescription& InterfaceDesc : Blueprint->ImplementedInterfaces)
+	{
+		BlueprintSearchMetaDataHelpers::GatherGraphSearchData(Writer, Blueprint, InterfaceDesc.Graphs, FFindInBlueprintSearchTags::FiB_Functions, &SubGraphs);
+	}
+
 	// Sub graphs are processed separately so that they do not become children in the TreeView, cluttering things up if the tree is deep
 	BlueprintSearchMetaDataHelpers::GatherGraphSearchData(Writer, Blueprint, SubGraphs, FFindInBlueprintSearchTags::FiB_SubGraphs, NULL);
 
@@ -1592,6 +1742,7 @@ void FFindInBlueprintSearchManager::AddOrUpdateBlueprintSearchMetadata(UBlueprin
 	if(InBlueprint->SkeletonGeneratedClass != nullptr)
 	{
 		SearchArray[Index].Value = GatherBlueprintSearchMetadata(InBlueprint);
+		SearchArray[Index].Version = EFiBVersion::FIB_VER_LATEST;
 	}
 	SearchArray[Index].bMarkedForDeletion = false;
 }
@@ -1923,17 +2074,17 @@ void FFindInBlueprintSearchManager::CacheAllUncachedBlueprints(TWeakPtr< SFindIn
 			Args.Add(TEXT("PackageCount"), UncachedBlueprints.Num() + BlueprintsToUpdate.Num());
 			Args.Add(TEXT("UnindexedCount"), UncachedBlueprints.Num());
 			Args.Add(TEXT("OutOfDateCount"), BlueprintsToUpdate.Num());
-			DialogDisplayText = FText::Format(LOCTEXT("CacheAllConfirmationMessage", "This process can take a long time and the editor may become unresponsive; there are {PackageCount} ({UnindexedCount} Unindexed/{OutOfDateCount} Out-of-Date) Blueprints to load. \
+			DialogDisplayText = FText::Format(LOCTEXT("CacheAllConfirmationMessage_UncachedAndBlueprints", "This process can take a long time and the editor may become unresponsive; there are {PackageCount} ({UnindexedCount} Unindexed/{OutOfDateCount} Out-of-Date) Blueprints to load. \
 																					\n\nWould you like to checkout, load, and save all Blueprints to make this indexing permanent? Otherwise, all Blueprints will still be loaded but you will be required to re-index the next time you start the editor!"), Args);
 		}
 		else if (UncachedBlueprints.Num() && BlueprintsToUpdate.Num() == 0)
 		{
-			DialogDisplayText = FText::Format(LOCTEXT("CacheAllConfirmationMessage", "This process can take a long time and the editor may become unresponsive; there are {PackageCount} unindexed Blueprints to load. \
+			DialogDisplayText = FText::Format(LOCTEXT("CacheAllConfirmationMessage_UncachedOnly", "This process can take a long time and the editor may become unresponsive; there are {PackageCount} unindexed Blueprints to load. \
 																					 \n\nWould you like to checkout, load, and save all Blueprints to make this indexing permanent? Otherwise, all Blueprints will still be loaded but you will be required to re-index the next time you start the editor!"), Args);
 		}
 		else if (UncachedBlueprints.Num() == 0 && BlueprintsToUpdate.Num())
 		{
-			DialogDisplayText = FText::Format(LOCTEXT("CacheAllConfirmationMessage", "This process can take a long time and the editor may become unresponsive; there are {PackageCount} out-of-date Blueprints to load. \
+			DialogDisplayText = FText::Format(LOCTEXT("CacheAllConfirmationMessage_BlueprintsOnly", "This process can take a long time and the editor may become unresponsive; there are {PackageCount} out-of-date Blueprints to load. \
 																					 \n\nWould you like to checkout, load, and save all Blueprints to make this indexing permanent? Otherwise, all Blueprints will still be loaded but you will be required to re-index the next time you start the editor!"), Args);
 		}
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -8,27 +8,57 @@
 
 
 /** Used to determine the alignment of an element type. */
-template<typename ElementType>
+template<typename ElementType, bool IsClass = TIsClass<ElementType>::Value>
 class TElementAlignmentCalculator
+{
+	/**
+	 * We use a dummy FAlignedElement type that's used to calculate the padding added between the byte and the element
+	 * to fulfill the type's required alignment.
+	 *
+	 * Its default constructor and destructor are declared but never implemented to avoid the need for a ElementType default constructor.
+	 */
+
+private:
+	/**
+	 * In the case of class ElementTypes, we inherit it to allow abstract types to work.
+	 */
+	struct FAlignedElements : ElementType
+	{
+		uint8 MisalignmentPadding;
+
+		FAlignedElements();
+		~FAlignedElements();
+	};
+
+	// We calculate the alignment here and then handle the zero case in the result by forwarding it to the non-class variant.
+	// This is necessary because the compiler can perform empty-base-optimization to eliminate a redundant ElementType state.
+	// Forwarding it to the non-class implementation should always work because an abstract type should never be empty.
+	enum { CalculatedAlignment = sizeof(FAlignedElements) - sizeof(ElementType) };
+
+public:
+	enum { Value = TChooseClass<CalculatedAlignment != 0, TIntegralConstant<SIZE_T, CalculatedAlignment>, TElementAlignmentCalculator<ElementType, false>>::Result::Value };
+};
+
+template<typename ElementType>
+class TElementAlignmentCalculator<ElementType, false>
 {
 private:
 	/**
-	 * This is a dummy type that's used to calculate the padding added between the byte and the element
-	 * to fulfill the type's required alignment.
+	 * In the case of non-class ElementTypes, we contain it because non-class types cannot be inherited.
 	 */
 	struct FAlignedElements
 	{
 		uint8 MisalignmentPadding;
 		ElementType Element;
-		/** FAlignedElement's default constructor and destructor are declared but never implemented to avoid the need for a ElementType default constructor. */
+
 		FAlignedElements();
 		~FAlignedElements();
 	};
 public:
-	enum { Alignment = sizeof(FAlignedElements) - sizeof(ElementType) };
+	enum { Value = sizeof(FAlignedElements) - sizeof(ElementType) };
 };
 
-#define ALIGNOF(T) (TElementAlignmentCalculator<T>::Alignment)
+#define ALIGNOF(T) (TElementAlignmentCalculator<T>::Value)
 
 
 /** branchless pointer selection
@@ -43,9 +73,90 @@ ReferencedType* IfAThenAElseB(ReferencedType* A,ReferencedType* B);
 template<typename PredicateType,typename ReferencedType>
 ReferencedType* IfPThenAElseB(PredicateType Predicate,ReferencedType* A,ReferencedType* B);
 
-/** The default slack calculation heuristic. */
-extern CORE_API int32 DefaultCalculateSlack(int32 NumElements,int32 NumAllocatedElements,SIZE_T BytesPerElement);
+#if TRACK_ARRAY_SLACK 
+CORE_API void TrackSlack(int32 NumElements, int32 NumAllocatedElements, SIZE_T BytesPerElement, int32 Retval);
+#endif
 
+FORCEINLINE int32 DefaultCalculateSlackShrink(int32 NumElements, int32 NumAllocatedElements, SIZE_T BytesPerElement, bool bAllowQuantize, uint32 Alignment = DEFAULT_ALIGNMENT)
+{
+	int32 Retval;
+	check(NumElements < NumAllocatedElements);
+
+	// If the container has too much slack, shrink it to exactly fit the number of elements.
+	const uint32 CurrentSlackElements = NumAllocatedElements - NumElements;
+	const SIZE_T CurrentSlackBytes = (NumAllocatedElements - NumElements)*BytesPerElement;
+	const bool bTooManySlackBytes = CurrentSlackBytes >= 16384;
+	const bool bTooManySlackElements = 3 * NumElements < 2 * NumAllocatedElements;
+	if ((bTooManySlackBytes || bTooManySlackElements) && (CurrentSlackElements > 64 || !NumElements)) //  hard coded 64 :-(
+	{
+		Retval = NumElements;
+		if (Retval > 0)
+		{
+			if (bAllowQuantize)
+			{
+				Retval = FMemory::QuantizeSize(Retval * BytesPerElement, Alignment) / BytesPerElement;
+			}
+		}
+	}
+	else
+	{
+		Retval = NumAllocatedElements;
+	}
+#if TRACK_ARRAY_SLACK 
+	void TrackSlack(NumElements, NumAllocatedElements, BytesPerElement, Retval);
+#endif
+	return Retval;
+}
+
+FORCEINLINE int32 DefaultCalculateSlackGrow(int32 NumElements, int32 NumAllocatedElements, SIZE_T BytesPerElement, bool bAllowQuantize, uint32 Alignment = DEFAULT_ALIGNMENT)
+{
+	int32 Retval;
+	check(NumElements > NumAllocatedElements && NumElements > 0);
+
+	SIZE_T Grow = 4; // this is the amount for the first alloc
+	if (NumAllocatedElements || SIZE_T(NumElements) > Grow)
+	{
+		// Allocate slack for the array proportional to its size.
+		Grow = SIZE_T(NumElements) + 3 * SIZE_T(NumElements) / 8 + 16;
+	}
+	if (bAllowQuantize)
+	{
+		Retval = FMemory::QuantizeSize(Grow * BytesPerElement, Alignment) / BytesPerElement;
+	}
+	else
+	{
+		Retval = Grow;
+	}
+	// NumElements and MaxElements are stored in 32 bit signed integers so we must be careful not to overflow here.
+	if (NumElements > Retval)
+	{
+		Retval = MAX_int32;
+	}
+
+#if TRACK_ARRAY_SLACK 
+	void TrackSlack(NumElements, NumAllocatedElements, BytesPerElement, Retval);
+#endif
+	return Retval;
+}
+
+FORCEINLINE int32 DefaultCalculateSlackReserve(int32 NumElements, SIZE_T BytesPerElement, bool bAllowQuantize, uint32 Alignment = DEFAULT_ALIGNMENT)
+{
+	int32 Retval = NumElements;
+	check(NumElements > 0);
+	if (bAllowQuantize)
+	{
+		Retval = FMemory::QuantizeSize(SIZE_T(Retval) * SIZE_T(BytesPerElement), Alignment) / BytesPerElement;
+		// NumElements and MaxElements are stored in 32 bit signed integers so we must be careful not to overflow here.
+		if (NumElements > Retval)
+		{
+			Retval = MAX_int32;
+		}
+	}
+#if TRACK_ARRAY_SLACK 
+	void TrackSlack(NumElements, NumAllocatedElements, BytesPerElement, Retval);
+#endif
+	return Retval;
+}
 
 /** A type which is used to represent a script type that is unknown at compile time. */
 struct FScriptContainerElement
@@ -159,12 +270,36 @@ public:
 			);
 
 		/**
-		 * Calculates the amount of slack to allocate for an array that has just grown to a given number of elements.
+		 * Calculates the amount of slack to allocate for an array that has just grown or shrunk to a given number of elements.
 		 * @param NumElements - The number of elements to allocate space for.
-		 * @param CurrentNumSlackElements - The current number of slack elements allocated.
+		 * @param CurrentNumSlackElements - The current number of elements allocated.
 		 * @param NumBytesPerElement - The number of bytes/element.
 		 */
 		int32 CalculateSlack(
+			int32 NumElements,
+			int32 CurrentNumSlackElements,
+			SIZE_T NumBytesPerElement
+			) const;
+
+		/**
+		* Calculates the amount of slack to allocate for an array that has just shrunk to a given number of elements.
+		* @param NumElements - The number of elements to allocate space for.
+		* @param CurrentNumSlackElements - The current number of elements allocated.
+		* @param NumBytesPerElement - The number of bytes/element.
+		*/
+		int32 CalculateSlackShrink(
+			int32 NumElements,
+			int32 CurrentNumSlackElements,
+			SIZE_T NumBytesPerElement
+			) const;
+
+		/**
+		* Calculates the amount of slack to allocate for an array that has just grown to a given number of elements.
+		* @param NumElements - The number of elements to allocate space for.
+		* @param CurrentNumSlackElements - The current number of elements allocated.
+		* @param NumBytesPerElement - The number of bytes/element.
+		*/
+		int32 CalculateSlackGrow(
 			int32 NumElements,
 			int32 CurrentNumSlackElements,
 			SIZE_T NumBytesPerElement
@@ -209,7 +344,11 @@ public:
 
 			if (Data)
 			{
+#if PLATFORM_HAS_UMA
+				FMemory::GPUFree(Data);
+#else
 				FMemory::Free(Data);
+#endif
 			}
 
 			Data       = Other.Data;
@@ -221,7 +360,11 @@ public:
 		{
 			if(Data)
 			{
+#if PLATFORM_HAS_UMA
+				// The RHI should have taken ownership of this memory, so we don't free it here
+#else
 				FMemory::Free(Data);
+#endif
 			}
 		}
 
@@ -237,24 +380,37 @@ public:
 			)
 		{
 			// Avoid calling FMemory::Realloc( nullptr, 0 ) as ANSI C mandates returning a valid pointer which is not what we want.
-			if( Data || NumElements )
+			if (Data || NumElements)
 			{
+#if PLATFORM_HAS_UMA
+				Data = (FScriptContainerElement*)FMemory::GPURealloc(Data, NumElements*NumBytesPerElement, Alignment);
+#else
 				//checkSlow(((uint64)NumElements*(uint64)ElementTypeInfo.GetSize() < (uint64)INT_MAX));
 				Data = (FScriptContainerElement*)FMemory::Realloc( Data, NumElements*NumBytesPerElement, Alignment );
+#endif
 			}
 		}
-		int32 CalculateSlack(
-			int32 NumElements,
-			int32 NumAllocatedElements,
-			SIZE_T NumBytesPerElement
-			) const
+		FORCEINLINE int32 CalculateSlackReserve(int32 NumElements, int32 NumBytesPerElement) const
 		{
-			return DefaultCalculateSlack(NumElements,NumAllocatedElements,NumBytesPerElement);
+			return DefaultCalculateSlackReserve(NumElements, NumBytesPerElement, true, Alignment);
+		}
+		FORCEINLINE int32 CalculateSlackShrink(int32 NumElements, int32 NumAllocatedElements, int32 NumBytesPerElement) const
+		{
+			return DefaultCalculateSlackShrink(NumElements, NumAllocatedElements, NumBytesPerElement, true, Alignment);
+		}
+		FORCEINLINE int32 CalculateSlackGrow(int32 NumElements, int32 NumAllocatedElements, int32 NumBytesPerElement) const
+		{
+			return DefaultCalculateSlackGrow(NumElements, NumAllocatedElements, NumBytesPerElement, true, Alignment);
 		}
 
 		SIZE_T GetAllocatedSize(int32 NumAllocatedElements, SIZE_T NumBytesPerElement) const
 		{
 			return NumAllocatedElements * NumBytesPerElement;
+		}
+
+		bool HasAllocation()
+		{
+			return !!Data;
 		}
 
 	private:
@@ -336,23 +492,36 @@ public:
 		{
 			return Data;
 		}
-		void ResizeAllocation(int32 PreviousNumElements,int32 NumElements,SIZE_T NumBytesPerElement)
+		FORCEINLINE void ResizeAllocation(int32 PreviousNumElements, int32 NumElements, SIZE_T NumBytesPerElement)
 		{
 			// Avoid calling FMemory::Realloc( nullptr, 0 ) as ANSI C mandates returning a valid pointer which is not what we want.
-			if( Data || NumElements )
+			if (Data || NumElements)
 			{
 				//checkSlow(((uint64)NumElements*(uint64)ElementTypeInfo.GetSize() < (uint64)INT_MAX));
 				Data = (FScriptContainerElement*)FMemory::Realloc( Data, NumElements*NumBytesPerElement );
 			}
 		}
-		int32 CalculateSlack(int32 NumElements,int32 NumAllocatedElements,SIZE_T NumBytesPerElement) const
+		FORCEINLINE int32 CalculateSlackReserve(int32 NumElements, int32 NumBytesPerElement) const
 		{
-			return DefaultCalculateSlack(NumElements,NumAllocatedElements,NumBytesPerElement);
+			return DefaultCalculateSlackReserve(NumElements, NumBytesPerElement, true);
+		}
+		FORCEINLINE int32 CalculateSlackShrink(int32 NumElements, int32 NumAllocatedElements, int32 NumBytesPerElement) const
+		{
+			return DefaultCalculateSlackShrink(NumElements, NumAllocatedElements, NumBytesPerElement, true);
+		}
+		FORCEINLINE int32 CalculateSlackGrow(int32 NumElements, int32 NumAllocatedElements, int32 NumBytesPerElement) const
+		{
+			return DefaultCalculateSlackGrow(NumElements, NumAllocatedElements, NumBytesPerElement, true);
 		}
 
 		SIZE_T GetAllocatedSize(int32 NumAllocatedElements, SIZE_T NumBytesPerElement) const
 		{
 			return NumAllocatedElements * NumBytesPerElement;
+		}
+
+		bool HasAllocation()
+		{
+			return !!Data;
 		}
 
 	private:
@@ -469,17 +638,36 @@ public:
 			}
 		}
 
-		int32 CalculateSlack(int32 NumElements,int32 NumAllocatedElements,SIZE_T NumBytesPerElement) const
+		FORCEINLINE int32 CalculateSlackReserve(int32 NumElements, SIZE_T NumBytesPerElement) const
 		{
 			// If the elements use less space than the inline allocation, only use the inline allocation as slack.
 			return NumElements <= NumInlineElements ?
 				NumInlineElements :
-				SecondaryData.CalculateSlack(NumElements,NumAllocatedElements,NumBytesPerElement);
+								  SecondaryData.CalculateSlackReserve(NumElements, NumBytesPerElement);
+		}
+		FORCEINLINE int32 CalculateSlackShrink(int32 NumElements, int32 NumAllocatedElements, int32 NumBytesPerElement) const
+		{
+			// If the elements use less space than the inline allocation, only use the inline allocation as slack.
+			return NumElements <= NumInlineElements ?
+			NumInlineElements :
+							  SecondaryData.CalculateSlackShrink(NumElements, NumAllocatedElements, NumBytesPerElement);
+		}
+		FORCEINLINE int32 CalculateSlackGrow(int32 NumElements, int32 NumAllocatedElements, int32 NumBytesPerElement) const
+		{
+			// If the elements use less space than the inline allocation, only use the inline allocation as slack.
+			return NumElements <= NumInlineElements ?
+			NumInlineElements :
+							  SecondaryData.CalculateSlackGrow(NumElements, NumAllocatedElements, NumBytesPerElement);
 		}
 
 		SIZE_T GetAllocatedSize(int32 NumAllocatedElements, SIZE_T NumBytesPerElement) const
 		{
 			return SecondaryData.GetAllocatedSize(NumAllocatedElements, NumBytesPerElement);
+		}
+
+		bool HasAllocation()
+		{
+			return SecondaryData.HasAllocation();
 		}
 
 	private:
@@ -555,18 +743,35 @@ public:
 			check(NumElements <= NumInlineElements);
 		}
 
-		int32 CalculateSlack(int32 NumElements,int32 NumAllocatedElements,SIZE_T NumBytesPerElement) const
+		FORCEINLINE int32 CalculateSlackReserve(int32 NumElements, SIZE_T NumBytesPerElement) const
 		{
 			// Ensure the requested allocation will fit in the inline data area.
 			check(NumElements <= NumInlineElements);
-
-			return NumElements;
+			return NumInlineElements;
+		}
+		FORCEINLINE int32 CalculateSlackShrink(int32 NumElements, int32 NumAllocatedElements, int32 NumBytesPerElement) const
+		{
+			// Ensure the requested allocation will fit in the inline data area.
+			check(NumAllocatedElements <= NumInlineElements);
+			return NumInlineElements;
+		}
+		FORCEINLINE int32 CalculateSlackGrow(int32 NumElements, int32 NumAllocatedElements, int32 NumBytesPerElement) const
+		{
+			// Ensure the requested allocation will fit in the inline data area.
+			check(NumElements <= NumInlineElements);
+			return NumInlineElements;
 		}
 
 		SIZE_T GetAllocatedSize(int32 NumAllocatedElements, SIZE_T NumBytesPerElement) const
 		{
 			return 0;
 		}
+
+		bool HasAllocation()
+		{
+			return false;
+		}
+
 
 	private:
 		ForElementType(const ForElementType&);

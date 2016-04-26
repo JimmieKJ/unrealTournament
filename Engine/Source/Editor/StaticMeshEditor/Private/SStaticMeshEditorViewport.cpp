@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "StaticMeshEditorModule.h"
@@ -279,6 +279,10 @@ void SStaticMeshEditorViewport::UpdatePreviewMesh(UStaticMesh* InStaticMesh)
 	PreviewMeshComponent = NewObject<UStaticMeshComponent>();
 
 	PreviewMeshComponent->SetStaticMesh(InStaticMesh);
+
+	// Update streaming data for debug viewmode feedback
+	PreviewMeshComponent->UpdateStreamingTextureInfos(true);
+
 	PreviewScene.AddComponent(PreviewMeshComponent,FTransform::Identity);
 
 	const int32 SocketCount = InStaticMesh->Sockets.Num();

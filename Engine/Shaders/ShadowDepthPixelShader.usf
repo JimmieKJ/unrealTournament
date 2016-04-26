@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ShadowDepthPixelShader.usf: Pixel shader for writing shadow depth.
@@ -6,6 +6,7 @@
 
 // needs to before Common.usf
 #define SHADOW_DEPTH_SHADER 1
+#define USE_STENCIL_LOD_DITHER	0
 
 #include "Common.usf"
 #include "Material.usf"
@@ -21,8 +22,8 @@
 // to increase AO contribution. The AO calculation works best with closed geometry and small-medium scale objects
 #define LPV_GV_BOOST				1
 
-//@todo-rco: Remove this when reenabling for OpenGL & Metal
-#if !COMPILER_GLSL && !COMPILER_METAL
+//@todo-rco: Remove this when reenabling for OpenGL
+#if !COMPILER_HLSLCC
 #if REFLECTIVE_SHADOW_MAP
 	#include "LPVWriteVplCommon.usf"
 
@@ -34,10 +35,9 @@
 #endif
 
 
-float3 GetMaterialBounceColor(FMaterialPixelParameters MaterialParameters)
+float3 GetMaterialBounceColor(FPixelMaterialInputs PixelMaterialInputs)
 {
-	half3 BaseColor = GetMaterialBaseColor(MaterialParameters);
-
+	half3 BaseColor = GetMaterialBaseColor(PixelMaterialInputs);
 	return BaseColor;
 }
 
@@ -54,21 +54,27 @@ void Main(
 #endif
 	)
 {
+	ResolvedView = ResolveView();
+
 #if INTERPOLATE_VF_ATTRIBUTES
 	
 	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(Inputs.FactoryInterpolants, SvPosition);
-
+	FPixelMaterialInputs PixelMaterialInputs;
 	#if INTERPOLATE_POSITION
-		{
-			float4 ScreenPosition = SvPositionToScreenPosition(SvPosition);
-			CalcMaterialParametersEx(MaterialParameters, SvPosition, ScreenPosition, 1, SvPositionToTranslatedWorld(SvPosition), SvPosition.xyz);
+	    {
+			float4 ScreenPosition  = SvPositionToScreenPosition(SvPosition);  
+			
+			float3 TranslatedWorld = Inputs.PixelPosition.xyz;
+
+			CalcMaterialParametersEx(MaterialParameters, PixelMaterialInputs, SvPosition, ScreenPosition, 1, TranslatedWorld, TranslatedWorld);
+
 		}
 	#else
-		CalcMaterialParameters(MaterialParameters, SvPosition, 1);
+		CalcMaterialParameters(MaterialParameters, PixelMaterialInputs, SvPosition, 1);
 	#endif
 
 	// Evaluate the mask for masked materials
-	GetMaterialClippingShadowDepth(MaterialParameters);
+	GetMaterialClippingShadowDepth(MaterialParameters, PixelMaterialInputs);
 #else
 	ClipLODTransition(SvPosition.xy);
 #endif
@@ -88,19 +94,19 @@ void Main(
 #if REFLECTIVE_SHADOW_MAP
 	OutReflectiveShadowMapDiffuse = 0;
 	float3 normal = normalize( MaterialParameters.TangentToWorld[2] ); // Smooth normal
-	float3 flux = GetMaterialBounceColor(MaterialParameters);
+	float3 flux = GetMaterialBounceColor(PixelMaterialInputs);
 
-//@todo-rco: Remove this when reenabling for OpenGL & Metal
-#if !COMPILER_GLSL && !COMPILER_METAL
+//@todo-rco: Remove this when reenabling for OpenGL
+#if !COMPILER_HLSLCC
 #if MATERIAL_INJECT_EMISSIVE_INTO_LPV
-	float3 emissive = GetMaterialEmissive( MaterialParameters );
+	float3 emissive = GetMaterialEmissive(PixelMaterialInputs);
 
 	// Remove directionality from the light in the VPL.
 	normal = float3 (0.0f, 0.0f, 0.0f);
 #endif
 
 #if MATERIAL_INJECT_EMISSIVE_INTO_LPV || MATERIAL_BLOCK_GI
-	float opacity = GetMaterialOpacity( MaterialParameters );
+	float opacity = GetMaterialOpacity(PixelMaterialInputs);
 #endif
 
 #if SECONDARY_OCCLUSION || MATERIAL_INJECT_EMISSIVE_INTO_LPV

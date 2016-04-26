@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Model.h: Unreal UModel definition.
@@ -208,9 +208,9 @@ public:
 
 	int32					iLightmassIndex;// 4 Index to the lightmass settings
 
-	bool				bHiddenEdTemporary;	// 4 Marks whether this surface is temporarily hidden in the editor or not. Not serialized.
-	bool				bHiddenEdLevel;		// 4 Marks whether this surface is hidden by the level browser or not. Not serialized.
-
+	bool				bHiddenEdTemporary;	// 1 Marks whether this surface is temporarily hidden in the editor or not. Not serialized.
+	bool				bHiddenEdLevel;		// 1 Marks whether this surface is hidden by the level browser or not. Not serialized.
+	bool				bHiddenEdLayer;		// 1 Marks whether this surface is hidden by the layer browser or not. Not serialized.
 	// Functions.
 
 

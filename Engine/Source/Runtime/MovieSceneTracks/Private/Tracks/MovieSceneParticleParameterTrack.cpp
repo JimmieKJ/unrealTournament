@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneTracksPrivatePCH.h"
 #include "MovieSceneParameterSection.h"
@@ -11,6 +11,9 @@
 UMovieSceneParticleParameterTrack::UMovieSceneParticleParameterTrack( const FObjectInitializer& ObjectInitializer )
 	: Super( ObjectInitializer )
 {
+#if WITH_EDITORONLY_DATA
+	TrackTint = FColor(0, 170, 255, 65);
+#endif
 }
 
 TSharedPtr<IMovieSceneTrackInstance> UMovieSceneParticleParameterTrack::CreateInstance()
@@ -67,7 +70,7 @@ const TArray<UMovieSceneSection*>& UMovieSceneParticleParameterTrack::GetAllSect
 
 
 #if WITH_EDITORONLY_DATA
-FText UMovieSceneParticleParameterTrack::GetDisplayName() const
+FText UMovieSceneParticleParameterTrack::GetDefaultDisplayName() const
 {
 	return LOCTEXT("DisplayName", "Particle Parameter");
 }

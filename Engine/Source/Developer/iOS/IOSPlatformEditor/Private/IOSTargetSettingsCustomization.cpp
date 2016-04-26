@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "IOSPlatformEditorPrivatePCH.h"
 #include "SWidgetSwitcher.h"
@@ -24,6 +24,7 @@
 #include "SHyperlink.h"
 #include "SProvisionListRow.h"
 #include "SCertificateListRow.h"
+#include "EngineBuildSettings.h"
 
 #define LOCTEXT_NAMESPACE "IOSTargetSettings"
 
@@ -58,10 +59,12 @@ FIOSTargetSettingsCustomization::FIOSTargetSettingsCustomization()
 	new (IconNames) FPlatformIconInfo(TEXT("Icon57.png"), LOCTEXT("AppIcon_iPhone_iOS6", "iPhone iOS6 App Icon"), FText::GetEmpty(), 57, 57, FPlatformIconInfo::Required);
 	new (IconNames) FPlatformIconInfo(TEXT("Icon57@2x.png"), LOCTEXT("AppIcon_iPhoneRetina_iOS6", "iPhone Retina iOS6 App Icon"), FText::GetEmpty(), 114, 114, FPlatformIconInfo::Required);
 	new (IconNames) FPlatformIconInfo(TEXT("Icon60@2x.png"), LOCTEXT("AppIcon_iPhoneRetina_iOS7", "iPhone Retina iOS7 App Icon"), FText::GetEmpty(), 120, 120, FPlatformIconInfo::Required);
-	new (IconNames) FPlatformIconInfo(TEXT("Icon72.png"), LOCTEXT("AppIcon_iPad_iOS6", "iPad iOS6 App Icon"), FText::GetEmpty(), 72, 72, FPlatformIconInfo::Required);
+	new (IconNames)FPlatformIconInfo(TEXT("Icon60@3x.png"), LOCTEXT("AppIcon_iPhoneRetina_iOS8", "iPhone Plus Retina iOS8 App Icon"), FText::GetEmpty(), 120, 120, FPlatformIconInfo::Required);
+	new (IconNames)FPlatformIconInfo(TEXT("Icon72.png"), LOCTEXT("AppIcon_iPad_iOS6", "iPad iOS6 App Icon"), FText::GetEmpty(), 72, 72, FPlatformIconInfo::Required);
 	new (IconNames) FPlatformIconInfo(TEXT("Icon72@2x.png"), LOCTEXT("AppIcon_iPadRetina_iOS6", "iPad Retina iOS6 App Icon"), FText::GetEmpty(), 144, 144, FPlatformIconInfo::Required);
 	new (IconNames) FPlatformIconInfo(TEXT("Icon76.png"), LOCTEXT("AppIcon_iPad_iOS7", "iPad iOS7 App Icon"), FText::GetEmpty(), 76, 76, FPlatformIconInfo::Required);
 	new (IconNames) FPlatformIconInfo(TEXT("Icon76@2x.png"), LOCTEXT("AppIcon_iPadRetina_iOS7", "iPad Retina iOS7 App Icon"), FText::GetEmpty(), 152, 152, FPlatformIconInfo::Required);
+	new (IconNames)FPlatformIconInfo(TEXT("Icon83.5@2x.png"), LOCTEXT("AppIcon_iPadProRetina_iOS9", "iPad Pro Retina iOS9 App Icon"), FText::GetEmpty(), 167, 167, FPlatformIconInfo::Required);
 
 	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default.png"), LOCTEXT("LaunchImage_iPhone", "Launch iPhone 4/4S"), FText::GetEmpty(), 320, 480, FPlatformIconInfo::Required);
 	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default@2x.png"), LOCTEXT("LaunchImage_iPhoneRetina", "Launch iPhone 4/4S Retina"), FText::GetEmpty(), 640, 960, FPlatformIconInfo::Required);
@@ -70,9 +73,14 @@ FIOSTargetSettingsCustomization::FIOSTargetSettingsCustomization()
 	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-Landscape@2x.png"), LOCTEXT("LaunchImage_iPadRetina_Landscape", "Launch iPad Retina in Landscape"), FText::GetEmpty(), 2048, 1536, FPlatformIconInfo::Required);
 	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-Portrait.png"), LOCTEXT("LaunchImage_iPad_Portrait", "Launch iPad in Portrait"), FText::GetEmpty(), 768, 1024, FPlatformIconInfo::Required);
 	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-Portrait@2x.png"), LOCTEXT("LaunchImage_iPadRetina_Portrait", "Launch iPad Retina in Portrait"), FText::GetEmpty(), 1536, 2048, FPlatformIconInfo::Required);
-	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-IPhone6.png"), LOCTEXT("LaunchImage_iPhone6", "Launch iPhone 6"), FText::GetEmpty(), 750, 1334, FPlatformIconInfo::Required);
-	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-IPhone6Plus-Landscape.png"), LOCTEXT("LaunchImage_iPhone6Plus_Landscape", "Launch iPhone 6 Plus in Landscape"), FText::GetEmpty(), 2208, 1242, FPlatformIconInfo::Required);
+	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-IPhone6.png"), LOCTEXT("LaunchImage_iPhone6", "Launch iPhone 6 in Portrait"), FText::GetEmpty(), 750, 1334, FPlatformIconInfo::Required);
+	new (LaunchImageNames)FPlatformIconInfo(TEXT("Default-IPhone6-Landscape.png"), LOCTEXT("LaunchImage_iPhone6_Landscape", "Launch iPhone 6 in Landscape"), FText::GetEmpty(), 1334, 750, FPlatformIconInfo::Required);
+	new (LaunchImageNames)FPlatformIconInfo(TEXT("Default-IPhone6Plus-Landscape.png"), LOCTEXT("LaunchImage_iPhone6Plus_Landscape", "Launch iPhone 6 Plus in Landscape"), FText::GetEmpty(), 2208, 1242, FPlatformIconInfo::Required);
 	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-IPhone6Plus-Portrait.png"), LOCTEXT("LaunchImage_iPhone6Plus_Portrait", "Launch iPhone 6 Plus in Portrait"), FText::GetEmpty(), 1242, 2208, FPlatformIconInfo::Required);
+	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-Landscape-1336.png"), LOCTEXT("LaunchImage_iPadPro_Landscape", "Launch iPad Pro in Landscape"), FText::GetEmpty(), 1336, 1024, FPlatformIconInfo::Required);
+	new (LaunchImageNames)FPlatformIconInfo(TEXT("Default-Portrait-1336.png"), LOCTEXT("LaunchImage_iPadPro_Portrait", "Launch iPad Pro in Portrait"), FText::GetEmpty(), 1024, 1336, FPlatformIconInfo::Required);
+	new (LaunchImageNames)FPlatformIconInfo(TEXT("Default-Landscape-1336@2x.png"), LOCTEXT("LaunchImage_iPadProRetina_Landscape", "Launch iPad Pro Retina in Landscape"), FText::GetEmpty(), 2732, 2048, FPlatformIconInfo::Required);
+	new (LaunchImageNames)FPlatformIconInfo(TEXT("Default-Portrait-1336@2x.png"), LOCTEXT("LaunchImage_iPadProRetina_Portrait", "Launch iPad Pro Retina in Portrait"), FText::GetEmpty(), 2048, 2732, FPlatformIconInfo::Required);
 
 	bShowAllProvisions = false;
 	bShowAllCertificates = false;
@@ -123,6 +131,7 @@ void FIOSTargetSettingsCustomization::UpdateStatus()
 		
 		// format of the line being read here!!
 		bool bCerts = false;
+		bManuallySelected = false;
 		for (int Index = 0; Index < LogLines.Num(); Index++)
 		{
 			FString& Line = LogLines[Index];
@@ -164,6 +173,7 @@ void FIOSTargetSettingsCustomization::UpdateStatus()
 				FString OutString;
 				SignCertificateProperty->GetValueAsFormattedString(OutString);
 				Cert->bManuallySelected = (OutString == Cert->Name);
+				bManuallySelected |= Cert->bManuallySelected;
 				if (!PrevCert.IsValid())
 				{
 					CertificateList->Add(Cert);
@@ -176,6 +186,7 @@ void FIOSTargetSettingsCustomization::UpdateStatus()
 					if (time2 > time1)
 					{
 						PrevCert->Expires = Cert->Expires;
+						PrevCert->Status = Cert->Status;
 					}
 					Cert = NULL;
 				}
@@ -209,6 +220,7 @@ void FIOSTargetSettingsCustomization::UpdateStatus()
 				FString OutString;
 				MobileProvisionProperty->GetValueAsFormattedString(OutString);
 				Prov->bManuallySelected = (OutString == Prov->FileName);
+				bManuallySelected |= Prov->bManuallySelected;
 				ProvisionList->Add(Prov);
 			}
 			else if (Line.Contains(TEXT("MATCHED-"), ESearchCase::CaseSensitive))
@@ -630,12 +642,12 @@ void FIOSTargetSettingsCustomization::BuildPListSection(IDetailLayoutBuilder& De
 	// Show properties that are gated by the plist being present and writable
 	RunningIPPProcess = false;
 
-#define SETUP_NONROCKET_PROP(PropName, Category) \
+#define SETUP_SOURCEONLY_PROP(PropName, Category) \
 	{ \
 		TSharedRef<IPropertyHandle> PropertyHandle = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, PropName)); \
 		Category.AddProperty(PropertyHandle) \
-			.IsEnabled(!FRocketSupport::IsRocket()) \
-			.ToolTip(!FRocketSupport::IsRocket() ? PropertyHandle->GetToolTipText() : FIOSTargetSettingsCustomizationConstants::DisabledTip); \
+			.IsEnabled(FEngineBuildSettings::IsSourceDistribution()) \
+			.ToolTip(FEngineBuildSettings::IsSourceDistribution() ? PropertyHandle->GetToolTipText() : FIOSTargetSettingsCustomizationConstants::DisabledTip); \
 	}
 
 #define SETUP_PLIST_PROP(PropName, Category) \
@@ -705,16 +717,16 @@ void FIOSTargetSettingsCustomization::BuildPListSection(IDetailLayoutBuilder& De
 
 	SETUP_PLIST_PROP(AdditionalPlistData, ExtraCategory);
 
-	SETUP_NONROCKET_PROP(bDevForArmV7, BuildCategory);
-	SETUP_NONROCKET_PROP(bDevForArm64, BuildCategory);
-	SETUP_NONROCKET_PROP(bDevForArmV7S, BuildCategory);
-	SETUP_NONROCKET_PROP(bShipForArmV7, BuildCategory);
-	SETUP_NONROCKET_PROP(bShipForArm64, BuildCategory);
-	SETUP_NONROCKET_PROP(bShipForArmV7S, BuildCategory);
+	SETUP_SOURCEONLY_PROP(bDevForArmV7, BuildCategory);
+	SETUP_SOURCEONLY_PROP(bDevForArm64, BuildCategory);
+	SETUP_SOURCEONLY_PROP(bDevForArmV7S, BuildCategory);
+	SETUP_SOURCEONLY_PROP(bShipForArmV7, BuildCategory);
+	SETUP_SOURCEONLY_PROP(bShipForArm64, BuildCategory);
+	SETUP_SOURCEONLY_PROP(bShipForArmV7S, BuildCategory);
 
-	SETUP_NONROCKET_PROP(bSupportsMetalMRT, RenderCategory);
+	SETUP_SOURCEONLY_PROP(bSupportsMetalMRT, RenderCategory);
 
-#undef SETUP_NONROCKET_PROP
+#undef SETUP_SOURCEONLY_PROP
 }
 
 
@@ -1016,7 +1028,7 @@ FReply FIOSTargetSettingsCustomization::OnInstallProvisionClicked()
 
 		bOpened = DesktopPlatform->OpenFileDialog(
 			ParentWindowWindowHandle,
-			LOCTEXT("ImportDialogTitle", "Import Provision").ToString(),
+			LOCTEXT("ImportProvisionDialogTitle", "Import Provision").ToString(),
 			FPaths::GetProjectFilePath(),
 			TEXT(""),
 			FileTypes,
@@ -1102,7 +1114,7 @@ FReply FIOSTargetSettingsCustomization::OnInstallCertificateClicked()
 
 		bOpened = DesktopPlatform->OpenFileDialog(
 			ParentWindowWindowHandle,
-			LOCTEXT("ImportDialogTitle", "Import Certificate").ToString(),
+			LOCTEXT("ImportCertificateDialogTitle", "Import Certificate").ToString(),
 			FPaths::GetProjectFilePath(),
 			TEXT(""),
 			FileTypes,
@@ -1250,6 +1262,17 @@ void FIOSTargetSettingsCustomization::HandleProvisionChanged(FString Provision)
 	{
 		MobileProvisionProperty->SetValueFromFormattedString(Provision);
 	}
+	SignCertificateProperty->GetValueAsFormattedText(OutText);
+	if (Provision == TEXT("") && OutText.ToString() == TEXT(""))
+	{
+		bManuallySelected = false;
+		FilterLists();
+	}
+	else if (!bManuallySelected)
+	{
+		bManuallySelected = true;
+		FilterLists();
+	}
 }
 
 void FIOSTargetSettingsCustomization::HandleCertificateChanged(FString Certificate)
@@ -1259,6 +1282,17 @@ void FIOSTargetSettingsCustomization::HandleCertificateChanged(FString Certifica
 	if (OutText.ToString() != Certificate)
 	{
 		SignCertificateProperty->SetValueFromFormattedString(Certificate);
+	}
+	MobileProvisionProperty->GetValueAsFormattedText(OutText);
+	if (Certificate == TEXT("") && OutText.ToString() == TEXT(""))
+	{
+		bManuallySelected = false;
+		FilterLists();
+	}
+	else if (!bManuallySelected)
+	{
+		bManuallySelected = true;
+		FilterLists();
 	}
 }
 
@@ -1289,7 +1323,7 @@ void FIOSTargetSettingsCustomization::FilterLists()
 
 	for (int Index = 0; Index < ProvisionList->Num(); ++Index)
 	{
-		if (SelectedProvision.Contains((*ProvisionList)[Index]->Name) && SelectedFile.Contains((*ProvisionList)[Index]->FileName))
+		if (SelectedProvision.Contains((*ProvisionList)[Index]->Name) && SelectedFile.Contains((*ProvisionList)[Index]->FileName) && !bManuallySelected)
 		{
 			(*ProvisionList)[Index]->bSelected = true;
 		}
@@ -1324,7 +1358,7 @@ void FIOSTargetSettingsCustomization::FilterLists()
 
 	for (int Index = 0; Index < CertificateList->Num(); ++Index)
 	{
-		if (SelectedCert.Contains((*CertificateList)[Index]->Name))
+		if (SelectedCert.Contains((*CertificateList)[Index]->Name) && !bManuallySelected)
 		{
 			(*CertificateList)[Index]->bSelected = true;
 		}

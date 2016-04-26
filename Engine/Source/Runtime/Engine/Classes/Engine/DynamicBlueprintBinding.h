@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -12,5 +12,6 @@ class ENGINE_API UDynamicBlueprintBinding
 	GENERATED_UCLASS_BODY()
 
 	virtual void BindDynamicDelegates(UObject* InInstance) const { }
+	virtual void UnbindDynamicDelegates(UObject* Instance) const { }
 	virtual void UnbindDynamicDelegatesForProperty(UObject* InInstance, const UObjectProperty* InObjectProperty) const { }
 };

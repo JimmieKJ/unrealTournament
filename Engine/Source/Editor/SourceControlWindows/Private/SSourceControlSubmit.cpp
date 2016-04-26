@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SourceControlWindowsPCH.h"
 #include "AssetToolsModule.h"
@@ -533,16 +533,7 @@ void FSourceControlWindows::ChoosePackagesToCheckIn()
 		if (ISourceControlModule::Get().GetProvider().IsAvailable())
 		{
 			// make sure we update the SCC status of all packages (this could take a long time, so we will run it as a background task)
-			TArray<FString> Packages;
-			FEditorFileUtils::FindAllPackageFiles(Packages);
-
-			// Get list of filenames corresponding to packages
-			TArray<FString> Filenames = SourceControlHelpers::PackageFilenames(Packages);
-
-			// Add game config files to the list
-			FEditorFileUtils::FindAllConfigFiles(Filenames);
-
-			// Add pending delete paths to the list
+			TArray<FString> Filenames;
 			Filenames.Add(FPaths::ConvertRelativePathToFull(FPaths::EngineContentDir()));
 			Filenames.Add(FPaths::ConvertRelativePathToFull(FPaths::GameContentDir()));
 			Filenames.Add(FPaths::ConvertRelativePathToFull(FPaths::GameConfigDir()));

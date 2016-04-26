@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "EnginePrivate.h"
@@ -399,7 +399,7 @@ AActor* UWorld::SpawnActor( UClass* Class, FTransform const* UserTransformPtr, c
 		if (EncroachingBlockingGeometry(Template, FinalRootLocation, FinalRootRotation))
 		{
 			// a native component is colliding, that's enough to reject spawning
-			UE_LOG(LogSpawn, Warning, TEXT("SpawnActor failed because of collision at the spawn location [%s] for [%s]"), *FinalRootLocation.ToString(), *Class->GetName());
+			UE_LOG(LogSpawn, Log, TEXT("SpawnActor failed because of collision at the spawn location [%s] for [%s]"), *FinalRootLocation.ToString(), *Class->GetName());
 			return nullptr;
 		}
 	}
@@ -440,7 +440,7 @@ AActor* UWorld::SpawnActor( UClass* Class, FTransform const* UserTransformPtr, c
 
 	if (Actor->IsPendingKill() && !SpawnParameters.bNoFail)
 	{
-		UE_LOG(LogSpawn, Log, TEXT("SpawnActor failed because the spawned actor IsPendingKill"));
+		UE_LOG(LogSpawn, Log, TEXT("SpawnActor failed because the spawned actor %s IsPendingKill"), *Actor->GetPathName());
 		return NULL;
 	}
 
@@ -579,9 +579,9 @@ bool UWorld::DestroyActor( AActor* ThisActor, bool bNetForce, bool bShouldModify
 
 	// Detach from anything we were attached to
 	USceneComponent* RootComp = ThisActor->GetRootComponent();
-	if( RootComp != NULL && RootComp->AttachParent != NULL)
+	if( RootComp != nullptr && RootComp->GetAttachParent() != nullptr)
 	{
-		AActor* OldParentActor = RootComp->AttachParent->GetOwner();
+		AActor* OldParentActor = RootComp->GetAttachParent()->GetOwner();
 		if (OldParentActor)
 		{
 			OldParentActor->Modify();
@@ -605,7 +605,7 @@ bool UWorld::DestroyActor( AActor* ThisActor, bool bNetForce, bool bShouldModify
 		ThisActor->SetOwner(NULL);
 	}
 	// Notify net players that this guy has been destroyed.
-	UNetDriver* ActorNetDriver = GEngine->FindNamedNetDriver(this, ThisActor->NetDriverName);
+	UNetDriver* ActorNetDriver = GEngine->FindNamedNetDriver(this, ThisActor->GetNetDriverName());
 	if (ActorNetDriver)
 	{
 		ActorNetDriver->NotifyActorDestroyed(ThisActor);

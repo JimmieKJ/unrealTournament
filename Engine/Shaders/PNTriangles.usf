@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PNTriangles.usf: Shader fragments for PN-AEN triangles tessellation
@@ -52,6 +52,12 @@ float4 ComputeControlPoint(float4 PositionA, float4 PositionB, float4 NormalA)
 	FHullShaderConstantOutput PNSharedConstantHull( const OutputPatch<FPNTessellationHSToDS, OUT_CONTROL_POINTS> I )
 	{
 		FHullShaderConstantOutput O = (FHullShaderConstantOutput)0;
+
+		#if INSTANCED_STEREO
+			ResolvedView = ResolveView(GetEyeIndex(I[0].PassSpecificData.FactoryInterpolants.InterpolantsVSToPS.PackedEyeIndex));
+		#else
+			ResolvedView = ResolveView();
+		#endif
 		
 #if DISABLE_TESSELLATION_OVERRIDE
 		O.TessFactor[0] = 1.0f; // 1->2 edge
@@ -99,6 +105,12 @@ float4 ComputeControlPoint(float4 PositionA, float4 PositionB, float4 NormalA)
 	TESSELLATION_ATTRIBUTES
 	FPNTessellationHSToDS MainHull( InputPatch<FPassSpecificVSToDS, IN_CONTROL_POINTS> I, uint ControlPointID : SV_OutputControlPointID )
 	{
+		#if INSTANCED_STEREO
+			ResolvedView = ResolveView(GetEyeIndex(I[0].FactoryInterpolants.InterpolantsVSToPS.PackedEyeIndex));
+		#else
+			ResolvedView = ResolveView();
+		#endif
+
 		FPNTessellationHSToDS O = (FPNTessellationHSToDS) 0;
 
 		float3x3 TangentToLocal = VertexFactoryGetTangentToLocalDS(I[ControlPointID].FactoryInterpolants);
@@ -157,8 +169,19 @@ float4 ComputeControlPoint(float4 PositionA, float4 PositionB, float4 NormalA)
 		FHullShaderConstantOutput HSConstantData,
 		const OutputPatch<FPNTessellationHSToDS, OUT_CONTROL_POINTS> I,
 		float3 BarycentricCoords : SV_DomainLocation
+#if INSTANCED_STEREO
+		, out float4 OutClipDistance : SV_ClipDistance
+		, out float4 OutCullDistance : SV_CullDistance
+#endif
 		)
 	{
+		#if INSTANCED_STEREO
+			ResolvedView = ResolveView(GetEyeIndex(I[0].PassSpecificData.FactoryInterpolants.InterpolantsVSToPS.PackedEyeIndex));
+			OutCullDistance = OutClipDistance = 0.0;
+		#else
+			ResolvedView = ResolveView();
+		#endif
+
 		// Get the barycentric coords
 		float U = BarycentricCoords.x;
 		float V = BarycentricCoords.y;
@@ -241,7 +264,26 @@ float4 ComputeControlPoint(float4 PositionA, float4 PositionB, float4 NormalA)
 		// world space displacement value.  This will likely use the tangent2world transform.
 		float3 WorldDisplacement = GetMaterialWorldDisplacement(DisplacementMaterialParameters);
 		WorldPosition.xyz += WorldDisplacement;
-																	
-		return PassFinalizeTessellationOutput(Interp, WorldPosition, MaterialParameters);
+																									
+		FPassSpecificVSToPS Result = PassFinalizeTessellationOutput(Interp, WorldPosition, MaterialParameters);
+
+		#if INSTANCED_STEREO
+		BRANCH
+		if (IsInstancedStereo(I[0].PassSpecificData.FactoryInterpolants.InterpolantsVSToPS.PackedEyeIndex))
+		{
+			const uint EyeIndex = GetEyeIndex(I[0].PassSpecificData.FactoryInterpolants.InterpolantsVSToPS.PackedEyeIndex);
+
+			// Clip at the center of the screen
+			OutCullDistance.x = OutClipDistance.x = dot(Result.Position, EyeClipEdge[EyeIndex]);
+			
+			// Scale to the width of a single eye viewport
+			Result.Position.x *= 0.5 * Frame.HMDEyePaddingOffset;
+
+			// Shift to the eye viewport
+			Result.Position.x += (EyeOffsetScale[EyeIndex] * Result.Position.w) * (1.0f - 0.5 * Frame.HMDEyePaddingOffset);
+		}
+		#endif
+
+		return Result;
 	}
 #endif

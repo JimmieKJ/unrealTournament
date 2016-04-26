@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -26,6 +26,13 @@ class GAMEPLAYTAGS_API UGameplayTagsSettings : public UObject
 
 	UPROPERTY(config, EditAnywhere, Category=GameplayTags)
 	TArray<FString>		GameplayTags;
+
+	/** List of tags most frequently replicated */
+	UPROPERTY(config, EditAnywhere, Category="Advanced Replication")
+	TArray<FString>		CommonlyReplicatedTags;
+
+	UPROPERTY(config, EditAnywhere, Category="Advanced Replication")
+	int32 NetIndexFirstBitSegment;
 
 	/** Sorts tags alphabetically */
 	void SortTags();

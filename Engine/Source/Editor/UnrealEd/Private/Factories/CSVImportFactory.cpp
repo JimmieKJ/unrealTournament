@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 
@@ -391,6 +391,7 @@ int32 UReimportCurveTableFactory::GetPriority() const
 UReimportCurveFactory::UReimportCurveFactory(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	SupportedClass = UCurveBase::StaticClass();
 }
 
 bool UReimportCurveFactory::CanReimport( UObject* Obj, TArray<FString>& OutFilenames )

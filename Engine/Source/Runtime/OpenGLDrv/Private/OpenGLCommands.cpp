@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	OpenGLCommands.cpp: OpenGL RHI commands implementation.
@@ -545,22 +545,27 @@ void FOpenGLDynamicRHI::CachedSetupTextureStage(FOpenGLContextState& ContextStat
 	// which should be preferred.
 	if(Target != GL_NONE && Target != GL_TEXTURE_BUFFER && !FOpenGL::SupportsTextureView())
 	{
-		const bool bSameLimitMip = bSameTarget && bSameResource && TextureState.LimitMip == LimitMip;
-		const bool bSameNumMips = bSameTarget && bSameResource && TextureState.NumMips == NumMips;
+		TPair<GLenum, GLenum>* MipLimits = TextureMipLimits.Find(Resource);
+		
+		GLint BaseMip = LimitMip == -1 ? 0 : LimitMip;
+		GLint MaxMip = LimitMip == -1 ? NumMips - 1 : LimitMip;
+		
+		const bool bSameLimitMip = MipLimits && MipLimits->Key == BaseMip;
+		const bool bSameNumMips = MipLimits && MipLimits->Value == MaxMip;
 		
 		if(FOpenGL::SupportsTextureBaseLevel() && !bSameLimitMip)
 		{
-			GLint BaseMip = LimitMip == -1 ? 0 : LimitMip;
 			FOpenGL::TexParameter(Target, GL_TEXTURE_BASE_LEVEL, BaseMip);
 		}
 		TextureState.LimitMip = LimitMip;
 		
 		if(FOpenGL::SupportsTextureMaxLevel() && !bSameNumMips)
 		{
-			GLint MaxMip = LimitMip == -1 ? NumMips - 1 : LimitMip;
 			FOpenGL::TexParameter(Target, GL_TEXTURE_MAX_LEVEL, MaxMip);
 		}
 		TextureState.NumMips = NumMips;
+		
+		TextureMipLimits.Add(Resource, TPairInitializer<GLenum, GLenum>(BaseMip, MaxMip));
 	}
 	else
 	{
@@ -635,7 +640,9 @@ inline void FOpenGLDynamicRHI::ApplyTextureStage(FOpenGLContextState& ContextSta
 		FOpenGL::TexParameter(Target, GL_TEXTURE_MAG_FILTER, SamplerState->Data.MagFilter);
 		if( FOpenGL::SupportsTextureFilterAnisotropic() )
 		{
-			FOpenGL::TexParameter(Target, GL_TEXTURE_MAX_ANISOTROPY_EXT, SamplerState->Data.MaxAnisotropy);
+			// GL_EXT_texture_filter_anisotropic requires value to be at least 1
+			GLint MaxAnisotropy = FMath::Max(1, SamplerState->Data.MaxAnisotropy);
+			FOpenGL::TexParameter(Target, GL_TEXTURE_MAX_ANISOTROPY_EXT, MaxAnisotropy);
 		}
 
 		if( FOpenGL::SupportsTextureCompare() )
@@ -686,14 +693,6 @@ void FOpenGLDynamicRHI::SetupTexturesForDraw( FOpenGLContextState& ContextState,
 			// which should be preferred.
 			if(!FOpenGL::SupportsTextureView())
 			{
-				{
-					FTextureStage& CurrentTextureStage = ContextState.Textures[TextureStageIndex];
-					const bool bSameTarget = (TextureStage.Target == CurrentTextureStage.Target);
-					const bool bSameResource = (TextureStage.Resource == CurrentTextureStage.Resource);
-					const bool bSameLimitMip = bSameTarget && bSameResource && CurrentTextureStage.LimitMip == TextureStage.LimitMip;
-					const bool bSameNumMips = bSameTarget && bSameResource && CurrentTextureStage.NumMips == TextureStage.NumMips;
-				}
-				
 				// When trying to limit the mip available for sampling (as part of texture SRV)
 				// ensure that the texture is bound to only one sampler, or that all samplers
 				// share the same restriction.
@@ -784,6 +783,59 @@ void FOpenGLDynamicRHI::CachedSetupUAVStage( FOpenGLContextState& ContextState, 
 	ContextState.UAVs[UAVIndex].Resource = Resource;
 }
 
+void FOpenGLDynamicRHI::UpdateSRV(FOpenGLShaderResourceView* SRV)
+{
+	check(SRV);
+	// For Depth/Stencil textures whose Stencil component we wish to sample we must blit the stencil component out to an intermediate texture when we 'Store' the texture.
+#if PLATFORM_DESKTOP || PLATFORM_ANDROIDGL4 || PLATFORM_ANDROIDES31
+	if (FOpenGL::GetFeatureLevel() >= ERHIFeatureLevel::SM4 && FOpenGL::SupportsPixelBuffers() && IsValidRef(SRV->Texture2D))
+	{
+		FOpenGLTexture2D* Texture2D = ResourceCast(SRV->Texture2D.GetReference());
+		
+		uint32 ArrayIndices = 0;
+		uint32 MipmapLevels = 0;
+		
+		GLuint SourceFBO = GetOpenGLFramebuffer(0, nullptr, &ArrayIndices, &MipmapLevels, (FOpenGLTextureBase*)Texture2D);
+		
+		glBindFramebuffer(GL_FRAMEBUFFER, SourceFBO);
+		
+		uint32 SizeX = Texture2D->GetSizeX();
+		uint32 SizeY = Texture2D->GetSizeY();
+		
+		uint32 MipBytes = SizeX * SizeY;
+		TRefCountPtr<FOpenGLPixelBuffer> PixelBuffer = new FOpenGLPixelBuffer(0, MipBytes, BUF_Dynamic);
+		
+		glBindBuffer( GL_PIXEL_PACK_BUFFER, 0 );
+		glBindBuffer( GL_PIXEL_PACK_BUFFER, PixelBuffer->Resource );
+		glPixelStorei(GL_PACK_ALIGNMENT, 1);
+		glReadPixels(0, 0, SizeX, SizeY, GL_STENCIL_INDEX, GL_UNSIGNED_BYTE, nullptr );
+		glPixelStorei(GL_PACK_ALIGNMENT, 4);
+		glBindBuffer( GL_PIXEL_PACK_BUFFER, 0 );
+		
+		FOpenGLContextState& ContextState = GetContextStateForCurrentContext();
+		
+		GLenum Target = SRV->Target;
+		
+		CachedSetupTextureStage(ContextState, FOpenGL::GetMaxCombinedTextureImageUnits() - 1, Target, SRV->Resource, -1, 1);
+		
+		CachedBindPixelUnpackBuffer(ContextState, PixelBuffer->Resource);
+		
+		glPixelStorei(GL_UNPACK_ROW_LENGTH, SizeX);
+		
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+		glTexSubImage2D(Target, 0, 0, 0, SizeX, SizeY, GL_RED_INTEGER, GL_UNSIGNED_BYTE, nullptr);
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+		
+		glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+		
+		CachedBindPixelUnpackBuffer(ContextState, 0);
+		
+		glBindFramebuffer(GL_FRAMEBUFFER, ContextState.Framebuffer);
+		ContextState.Framebuffer = -1;
+	}
+#endif
+}
+
 void FOpenGLDynamicRHI::RHISetShaderResourceViewParameter(FPixelShaderRHIParamRef PixelShaderRHI,uint32 TextureIndex,FShaderResourceViewRHIParamRef SRVRHI)
 {
 	VERIFY_GL_SCOPE();
@@ -798,6 +850,7 @@ void FOpenGLDynamicRHI::RHISetShaderResourceViewParameter(FPixelShaderRHIParamRe
 		Resource = SRV->Resource;
 		Target = SRV->Target;
 		LimitMip = SRV->LimitMip;
+		UpdateSRV(SRV);
 	}
 	InternalSetShaderTexture(NULL, SRV, FOpenGL::GetFirstPixelTextureUnit() + TextureIndex, Target, Resource, 0, LimitMip);
 	RHISetShaderSampler(PixelShaderRHI,TextureIndex,PointSamplerState);
@@ -820,6 +873,7 @@ void FOpenGLDynamicRHI::RHISetShaderResourceViewParameter(FVertexShaderRHIParamR
 		Resource = SRV->Resource;
 		Target = SRV->Target;
 		LimitMip = SRV->LimitMip;
+		UpdateSRV(SRV);
 	}
 	InternalSetShaderTexture(NULL, SRV, FOpenGL::GetFirstVertexTextureUnit() + TextureIndex, Target, Resource, 0, LimitMip);
 	RHISetShaderSampler(VertexShaderRHI,TextureIndex,PointSamplerState);
@@ -841,6 +895,7 @@ void FOpenGLDynamicRHI::RHISetShaderResourceViewParameter(FComputeShaderRHIParam
 		Resource = SRV->Resource;
 		Target = SRV->Target;
 		LimitMip = SRV->LimitMip;
+		UpdateSRV(SRV);
 	}
 	InternalSetShaderTexture(NULL, SRV, FOpenGL::GetFirstComputeTextureUnit() + TextureIndex, Target, Resource, 0, LimitMip);
 	RHISetShaderSampler(ComputeShaderRHI,TextureIndex,PointSamplerState);
@@ -864,6 +919,7 @@ void FOpenGLDynamicRHI::RHISetShaderResourceViewParameter(FHullShaderRHIParamRef
 		Resource = SRV->Resource;
 		Target = SRV->Target;
 		LimitMip = SRV->LimitMip;
+		UpdateSRV(SRV);
 	}
 	InternalSetShaderTexture(NULL, SRV, FOpenGL::GetFirstHullTextureUnit() + TextureIndex, Target, Resource, 0, LimitMip);
 	
@@ -886,6 +942,7 @@ void FOpenGLDynamicRHI::RHISetShaderResourceViewParameter(FDomainShaderRHIParamR
 		Resource = SRV->Resource;
 		Target = SRV->Target;
 		LimitMip = SRV->LimitMip;
+		UpdateSRV(SRV);
 	}
 	InternalSetShaderTexture(NULL, SRV, FOpenGL::GetFirstDomainTextureUnit() + TextureIndex, Target, Resource, 0, LimitMip);
 	
@@ -907,6 +964,7 @@ void FOpenGLDynamicRHI::RHISetShaderResourceViewParameter(FGeometryShaderRHIPara
 		Resource = SRV->Resource;
 		Target = SRV->Target;
 		LimitMip = SRV->LimitMip;
+		UpdateSRV(SRV);
 	}
 	InternalSetShaderTexture(NULL, SRV, FOpenGL::GetFirstGeometryTextureUnit() + TextureIndex, Target, Resource, 0, LimitMip);
 	RHISetShaderSampler(GeometryShaderRHI,TextureIndex,PointSamplerState);
@@ -1693,8 +1751,12 @@ void FOpenGLDynamicRHI::RHISetRenderTargets(
 				ContextState.LastES2ColorTargetType = NewColorTargetType;
 		}
 	}
+	
 	PendingState.DepthStencil = NewDepthStencilRT;
-
+	PendingState.StencilStoreAction = NewDepthStencilTargetRHI ? NewDepthStencilTargetRHI->GetStencilStoreAction() : ERenderTargetStoreAction::ENoAction;
+	PendingState.DepthTargetWidth = NewDepthStencilTargetRHI ? GetOpenGLTextureSizeXFromRHITexture(NewDepthStencilTargetRHI->Texture) : 0u;
+	PendingState.DepthTargetHeight = NewDepthStencilTargetRHI ? GetOpenGLTextureSizeYFromRHITexture(NewDepthStencilTargetRHI->Texture) : 0u;
+	
 	if (PendingState.FirstNonzeroRenderTarget == -1 && !PendingState.DepthStencil)
 	{
 		// Special case - invalid setup, but sometimes performed by the engine
@@ -2367,10 +2429,12 @@ FORCEINLINE uint32 GetFirstTextureUnit()
 }
 
 template <EShaderFrequency Frequency>
-FORCEINLINE void SetResource(FOpenGLDynamicRHI* RESTRICT OpenGLRHI, uint32 BindIndex, FOpenGLTextureBase* RESTRICT Texture, FRHIResource* Resource)
+FORCEINLINE void SetResource(FOpenGLDynamicRHI* RESTRICT OpenGLRHI, uint32 BindIndex, FRHITexture* RESTRICT TextureRHI, float CurrentTime)
 {
+	FOpenGLTextureBase* Texture = GetOpenGLTextureFromRHITexture(TextureRHI);
 	if (Texture)
 	{
+		TextureRHI->SetLastRenderTime(CurrentTime);
 		OpenGLRHI->InternalSetShaderTexture(Texture, nullptr, GetFirstTextureUnit<Frequency>() + BindIndex, Texture->Target, Texture->Resource, Texture->NumMips, -1);
 	}
 	else
@@ -2378,15 +2442,15 @@ FORCEINLINE void SetResource(FOpenGLDynamicRHI* RESTRICT OpenGLRHI, uint32 BindI
 		OpenGLRHI->InternalSetShaderTexture(Texture, nullptr, GetFirstTextureUnit<Frequency>() + BindIndex, 0, 0, 0, -1);
 	}
 	
-	FShaderCache::SetTexture(Frequency, BindIndex, (FTextureRHIParamRef)Resource);
+	FShaderCache::SetTexture(Frequency, BindIndex, (FTextureRHIParamRef)TextureRHI);
 }
 
 template <EShaderFrequency Frequency>
-FORCEINLINE void SetResource(FOpenGLDynamicRHI* RESTRICT OpenGLRHI, uint32 BindIndex, FOpenGLSamplerState* RESTRICT SamplerState, FRHIResource* Resource)
+FORCEINLINE void SetResource(FOpenGLDynamicRHI* RESTRICT OpenGLRHI, uint32 BindIndex, FOpenGLSamplerState* RESTRICT SamplerState, float CurrentTime)
 {
 	if (FOpenGL::SupportsSamplerObjects())
 	{
-		PTRINT SamplerStateAsInt = (PTRINT)SamplerState;
+		PTRINT SamplerStateAsInt = (PTRINT)SamplerState->Resource;
 		FOpenGL::BindSampler(GetFirstTextureUnit<Frequency>() + BindIndex, (GLuint)SamplerStateAsInt);
 	}
 	else
@@ -2394,14 +2458,14 @@ FORCEINLINE void SetResource(FOpenGLDynamicRHI* RESTRICT OpenGLRHI, uint32 BindI
 		OpenGLRHI->InternalSetSamplerStates(GetFirstTextureUnit<Frequency>() + BindIndex, SamplerState);
 	}
 	
-	FShaderCache::SetSamplerState(Frequency, BindIndex, (FSamplerStateRHIParamRef)Resource);
+	FShaderCache::SetSamplerState(Frequency, BindIndex, (FSamplerStateRHIParamRef)SamplerState);
 }
 
 template <EShaderFrequency Frequency>
-FORCEINLINE void SetResource(FOpenGLDynamicRHI* RESTRICT OpenGLRHI, uint32 BindIndex, FOpenGLShaderResourceView* RESTRICT SRV, FRHIResource* Resource)
+FORCEINLINE void SetResource(FOpenGLDynamicRHI* RESTRICT OpenGLRHI, uint32 BindIndex, FOpenGLShaderResourceView* RESTRICT SRV, float CurrentTime)
 {
 	OpenGLRHI->InternalSetShaderTexture(NULL, SRV, GetFirstTextureUnit<Frequency>() + BindIndex, SRV->Target, SRV->Resource, 0, SRV->LimitMip);
-	SetResource<Frequency>(OpenGLRHI,BindIndex,OpenGLRHI->GetPointSamplerState(), OpenGLRHI->GetPointSamplerState());
+	SetResource<Frequency>(OpenGLRHI,BindIndex,OpenGLRHI->GetPointSamplerState(), CurrentTime);
 	
 	FShaderCache::SetSRV(Frequency, BindIndex, SRV);
 }
@@ -2409,6 +2473,8 @@ FORCEINLINE void SetResource(FOpenGLDynamicRHI* RESTRICT OpenGLRHI, uint32 BindI
 template <class GLResourceType, EShaderFrequency ShaderFrequency>
 inline int32 SetShaderResourcesFromBuffer(FOpenGLDynamicRHI* RESTRICT OpenGLRHI, FOpenGLUniformBuffer* RESTRICT Buffer, const uint32* RESTRICT ResourceMap, int32 BufferIndex)
 {
+	const TRefCountPtr<FRHIResource>* RESTRICT Resources = Buffer->ResourceTable.GetData();
+	float CurrentTime = FApp::GetCurrentTime();
 	int32 NumSetCalls = 0;
 	uint32 BufferOffset = ResourceMap[BufferIndex];
 	if (BufferOffset > 0)
@@ -2421,9 +2487,8 @@ inline int32 SetShaderResourcesFromBuffer(FOpenGLDynamicRHI* RESTRICT OpenGLRHI,
 			const uint16 ResourceIndex = FRHIResourceTableEntry::GetResourceIndex(ResourceInfo);
 			const uint8 BindIndex = FRHIResourceTableEntry::GetBindIndex(ResourceInfo);
 
-			GLResourceType* ResourcePtr = (GLResourceType*)Buffer->RawResourceTable[ResourceIndex];
-			TRefCountPtr<FRHIResource> Resource = Buffer->ResourceTable[ResourceIndex];
-			SetResource<ShaderFrequency>(OpenGLRHI, BindIndex, ResourcePtr, Resource.GetReference());
+			GLResourceType* ResourcePtr = (GLResourceType*)Resources[ResourceIndex].GetReference();
+			SetResource<ShaderFrequency>(OpenGLRHI, BindIndex, ResourcePtr, CurrentTime);
 
 			NumSetCalls++;
 			ResourceInfo = *ResourceInfos++;
@@ -2454,11 +2519,10 @@ void FOpenGLDynamicRHI::SetResourcesFromTables(const ShaderType* RESTRICT Shader
 			check(Buffer);
 			check(BufferIndex < SRT->ResourceTableLayoutHashes.Num());
 			check(Buffer->GetLayout().GetHash() == SRT->ResourceTableLayoutHashes[BufferIndex]);
-			Buffer->CacheResources(ResourceTableFrameCounter);
 			
 			// todo: could make this two pass: gather then set
-			NumSetCalls += SetShaderResourcesFromBuffer<FOpenGLTextureBase,(EShaderFrequency)ShaderType::StaticFrequency>(this,Buffer,SRT->TextureMap.GetData(),BufferIndex);
-			NumSetCalls += SetShaderResourcesFromBuffer<FOpenGLShaderResourceView,(EShaderFrequency)ShaderType::StaticFrequency>(this,Buffer,SRT->ShaderResourceViewMap.GetData(),BufferIndex);
+			SetShaderResourcesFromBuffer<FRHITexture,(EShaderFrequency)ShaderType::StaticFrequency>(this,Buffer,SRT->TextureMap.GetData(),BufferIndex);
+			SetShaderResourcesFromBuffer<FOpenGLShaderResourceView,(EShaderFrequency)ShaderType::StaticFrequency>(this,Buffer,SRT->ShaderResourceViewMap.GetData(),BufferIndex);
 			SetShaderResourcesFromBuffer<FOpenGLSamplerState,(EShaderFrequency)ShaderType::StaticFrequency>(this,Buffer,SRT->SamplerMap.GetData(),BufferIndex);
 		}
 	}

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UObjectBase.cpp: Unreal UObject base class
@@ -9,6 +9,9 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogUObjectBase, Log, All);
 DEFINE_STAT(STAT_UObjectsStatGroupTester);
+
+DECLARE_CYCLE_STAT(TEXT("CreateStatID"), STAT_CreateStatID, STATGROUP_StatSystem);
+
 
 /** Whether uobject system is initialized.												*/
 namespace Internal
@@ -99,6 +102,8 @@ UObjectBase::~UObjectBase()
 
 void UObjectBase::CreateStatID() const
 {
+	SCOPE_CYCLE_COUNTER(STAT_CreateStatID);
+
 	FString LongName;
 	UObjectBase const* Target = this;
 	do 
@@ -875,8 +880,14 @@ void UObjectBaseInit()
 	}
 	else
 	{
+#if IS_PROGRAM
+		// Maximum number of UObjects for programs can be low
+		MaxUObjects = 100000; // Default to 100K for programs
+		GConfig->GetInt(TEXT("/Script/Engine.GarbageCollectionSettings"), TEXT("gc.MaxObjectsInProgram"), MaxUObjects, GEngineIni);
+#else
 		// Maximum number of UObjects in the editor
 		GConfig->GetInt(TEXT("/Script/Engine.GarbageCollectionSettings"), TEXT("gc.MaxObjectsInEditor"), MaxUObjects, GEngineIni);
+#endif
 	}
 
 	// Log what we're doing to track down what really happens as log in LaunchEngineLoop doesn't report those settings in pristine form.

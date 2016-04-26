@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -41,6 +41,7 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("Test Time"),STAT_AI_EQS_TestTime,STATGROUP_AI_EQ
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Num Instances"),STAT_AI_EQS_NumInstances,STATGROUP_AI_EQS, );
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Num Items"),STAT_AI_EQS_NumItems,STATGROUP_AI_EQS, );
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Instance memory"),STAT_AI_EQS_InstanceMemory,STATGROUP_AI_EQS, AIMODULE_API);
+DECLARE_FLOAT_COUNTER_STAT_EXTERN(TEXT("Avg Instance Response Time (ms)"), STAT_AI_EQS_AvgInstanceResponseTime, STATGROUP_AI_EQS, );
 
 UENUM()
 namespace EEnvTestPurpose
@@ -774,6 +775,9 @@ private:
 	/** true if this query has logged a warning that it overran the time limit */
 	uint8 bHasLoggedTimeLimitWarning : 1;
 
+	/** platform time when this query was started */
+	double StartTime;
+
 	/** if > 0 then it's how much time query has for performing current step */
 	double CurrentStepTimeLimit;
 
@@ -809,6 +813,12 @@ public:
 	/** execute single step of query */
 	void ExecuteOneStep(double InCurrentStepTimeLimit);
 
+	/** set when we started the query */
+	void SetQueryStartTime() { StartTime = FPlatformTime::Seconds(); }
+
+	/** get when we started the query */
+	double GetQueryStartTime() const { return StartTime; }
+
 	/** have we logged that we overran time the time limit? */
 	bool HasLoggedTimeLimitWarning() const { return !!bHasLoggedTimeLimitWarning; }
 
@@ -843,6 +853,8 @@ public:
 	{
 		DEC_MEMORY_STAT_BY(STAT_AI_EQS_InstanceMemory, RawData.GetAllocatedSize() + Items.GetAllocatedSize());
 
+		check(GetDefault<TypeItem>()->GetValueSize() == sizeof(TypeValue));
+		check(GetDefault<TypeItem>()->GetValueSize() == ValueSize);
 		const int32 DataOffset = RawData.AddUninitialized(ValueSize);
 		TypeItem::SetValue(RawData.GetData() + DataOffset, ItemValue);
 		Items.Add(FEnvQueryItem(DataOffset));
@@ -858,6 +870,8 @@ public:
 		{
 			DEC_MEMORY_STAT_BY(STAT_AI_EQS_InstanceMemory, RawData.GetAllocatedSize() + Items.GetAllocatedSize());
 
+			check(GetDefault<TypeItem>()->GetValueSize() == sizeof(TypeValue));
+			check(GetDefault<TypeItem>()->GetValueSize() == ValueSize);
 			int32 DataOffset = RawData.AddUninitialized(ValueSize * ItemCollection.Num());
 			Items.Reserve(Items.Num() + ItemCollection.Num());
 
@@ -1258,7 +1272,7 @@ struct FEQSParametrizedQueryExecutionRequest
 	UPROPERTY(Category = Node, EditAnywhere)
 	TEnumAsByte<EEnvQueryRunMode::Type> RunMode;
 
-	UPROPERTY()
+	UPROPERTY(Category = Node, EditAnywhere, meta=(InlineEditConditionToggle))
 	uint32 bUseBBKeyForQueryTemplate : 1;
 
 	uint32 bInitialized : 1;

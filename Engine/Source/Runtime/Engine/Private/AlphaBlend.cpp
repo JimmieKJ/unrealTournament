@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "AlphaBlend.h"
@@ -153,7 +153,8 @@ float FAlphaBlend::AlphaToBlendOption(float InAlpha, EAlphaBlendOption InBlendOp
 		}
 	}
 
-	return InAlpha;
+	// Make sure linear returns a clamped value.
+	return FMath::Clamp<float>(InAlpha, 0.f, 1.f);
 }
 
 void FAlphaBlend::SetValueRange(float Begin, float Desired)

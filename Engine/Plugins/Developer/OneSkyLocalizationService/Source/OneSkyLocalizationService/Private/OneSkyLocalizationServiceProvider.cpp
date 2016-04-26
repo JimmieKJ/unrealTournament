@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OneSkyLocalizationServicePrivatePCH.h"
 #include "OneSkyLocalizationServiceProvider.h"
@@ -760,11 +760,11 @@ void FOneSkyLocalizationServiceProvider::ImportCultureForTargetFromOneSky_Callba
 		if (bIsTargetSet)
 		{
 			ULocalizationTargetSet* TargetSet = Target->GetOuterULocalizationTargetSet();
-			LocalizationCommandletTasks::ImportTargets(MainFrameParentWindow.ToSharedRef(), TargetSet->TargetObjects, FPaths::GetPath(FPaths::GetPath(FPaths::GetPath(AbsoluteFilePathAndName))));
+			LocalizationCommandletTasks::ImportTextForTargets(MainFrameParentWindow.ToSharedRef(), TargetSet->TargetObjects, FPaths::GetPath(FPaths::GetPath(FPaths::GetPath(AbsoluteFilePathAndName))));
 		}
 		else
 		{
-			LocalizationCommandletTasks::ImportTarget(MainFrameParentWindow.ToSharedRef(), Target, FPaths::GetPath(FPaths::GetPath(AbsoluteFilePathAndName)));
+			LocalizationCommandletTasks::ImportTextForTarget(MainFrameParentWindow.ToSharedRef(), Target, FPaths::GetPath(FPaths::GetPath(AbsoluteFilePathAndName)));
 		}
 	}
 }
@@ -795,7 +795,7 @@ void FOneSkyLocalizationServiceProvider::ExportAllCulturesForTargetToOneSky(TWea
 		PlatformFile.DeleteDirectoryRecursively(*AbsoluteFolderPath);
 
 		// Export to file
-		LocalizationCommandletTasks::ExportTarget(MainFrameParentWindow.ToSharedRef(), LocalizationTarget.Get(), AbsoluteFolderPath);
+		LocalizationCommandletTasks::ExportTextForTarget(MainFrameParentWindow.ToSharedRef(), LocalizationTarget.Get(), AbsoluteFolderPath);
 
 		GWarn->BeginSlowTask(LOCTEXT("ExportingToOneSky", "Exporting Latest to OneSky..."), true);
 	}
@@ -954,7 +954,7 @@ void FOneSkyLocalizationServiceProvider::ExportAllTargetsForTargetSetToOneSky(TW
 	// Delete old files if they exists so we don't accidentally export old data
 	PlatformFile.DeleteDirectoryRecursively(*AbsoluteFolderPath);
 
-	LocalizationCommandletTasks::ExportTargets(MainFrameParentWindow.ToSharedRef(), LocalizationTargetSet->TargetObjects, AbsoluteFolderPath);
+	LocalizationCommandletTasks::ExportTextForTargets(MainFrameParentWindow.ToSharedRef(), LocalizationTargetSet->TargetObjects, AbsoluteFolderPath);
 
 	GWarn->BeginSlowTask(LOCTEXT("ExportingToOneSky", "Exporting Latest to OneSky..."), true);
 

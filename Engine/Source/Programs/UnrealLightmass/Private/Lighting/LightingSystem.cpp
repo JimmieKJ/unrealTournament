@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "stdafx.h"
 #include "Exporter.h"
@@ -1112,7 +1112,7 @@ void FStaticLightingSystem::DumpStats(float TotalStaticLightingTime) const
 		const uint64 NumQueriesVisible = Stats.NumQueriesVisibleByDistanceRatio + Stats.NumQueriesVisibleExplicitSampling + Stats.NumQueriesVisibleImportanceSampling;
 		const uint64 TotalNumQueries = Stats.NumPrecomputedVisibilityQueries + Stats.NumPrecomputedVisibilityGroupQueries;
 		SolverStats += FString::Printf( TEXT("   %.3f million mesh queries, %.3f million group queries, %.1f%% visible, (%.1f%% trivially visible, %.1f%% explicit sampling, %.1f%% importance sampling)\n"), Stats.NumPrecomputedVisibilityQueries / 1000000.0f, Stats.NumPrecomputedVisibilityGroupQueries / 1000000.0f, 100.0f * NumQueriesVisible / TotalNumQueries, 100.0f * Stats.NumQueriesVisibleByDistanceRatio / NumQueriesVisible, 100.0f * Stats.NumQueriesVisibleExplicitSampling / NumQueriesVisible, 100.0f * Stats.NumQueriesVisibleImportanceSampling / NumQueriesVisible);
-		SolverStats += FString::Printf( TEXT("   %ux%ux%u group cells with %u occupied, %u meshes excluded, %.3f million mesh queries skipped\n"), GroupVisibilityGridSizeXY, GroupVisibilityGridSizeXY, GroupVisibilityGridSizeZ, VisibilityGroups.Num(), Stats.NumPrecomputedVisibilityMeshesExcludedFromGroups, Stats.NumPrecomputedVisibilityMeshQueriesSkipped / 1000000.0f);
+		SolverStats += FString::Printf( TEXT("   %ux%ux%u group cells with %u occupied, %u meshes individually queried, %.3f million mesh queries skipped\n"), GroupVisibilityGridSizeXY, GroupVisibilityGridSizeXY, GroupVisibilityGridSizeZ, VisibilityGroups.Num(), Stats.NumPrecomputedVisibilityMeshesExcludedFromGroups, Stats.NumPrecomputedVisibilityMeshQueriesSkipped / 1000000.0f);
 	}
 
 	// Send the message in multiple parts since it cuts off in the middle otherwise

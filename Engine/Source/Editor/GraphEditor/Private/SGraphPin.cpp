@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "GraphEditorCommon.h"
@@ -169,14 +169,13 @@ void SGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin)
 		GraphPinObj->GetOuter() ? *(GraphPinObj->GetOuter()->GetClass()->GetName()) : TEXT("NULL OUTER")
 	);
 
-	const bool bCanConnectToPin = !GraphPinObj->bNotConnectable;
 	const bool bIsInput = (GetDirection() == EGPD_Input);
 
 	// Create the pin icon widget
 	TSharedRef<SWidget> ActualPinWidget =
 		SAssignNew(PinImage, SImage)
 		.Image(this, &SGraphPin::GetPinIcon)
-		.IsEnabled(bCanConnectToPin)
+		.IsEnabled(this, &SGraphPin::GetIsConnectable)
 		.ColorAndOpacity(this, &SGraphPin::GetPinColor)
 		.OnMouseButtonDown(this, &SGraphPin::OnPinMouseDown)
 		.Cursor(this, &SGraphPin::GetPinCursor);
@@ -251,11 +250,12 @@ void SGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin)
 			];
 	}
 
-	TSharedPtr<SWidget> PinContent;
+	TSharedPtr<SHorizontalBox> PinContent;
 	if (bIsInput)
 	{
 		// Input pin
-		PinContent = SNew(SHorizontalBox)
+		FullPinHorizontalRowWidget = PinContent = 
+			SNew(SHorizontalBox)
 			+SHorizontalBox::Slot()
 			.AutoWidth()
 			.VAlign(VAlign_Center)
@@ -273,7 +273,7 @@ void SGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin)
 	else
 	{
 		// Output pin
-		PinContent = SNew(SHorizontalBox)
+		FullPinHorizontalRowWidget = PinContent = SNew(SHorizontalBox)
 			+SHorizontalBox::Slot()
 			.AutoWidth()
 			.VAlign(VAlign_Center)
@@ -313,7 +313,6 @@ void SGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin)
 	SetToolTipText(ToolTipAttribute);
 }
 
-
 TSharedRef<SWidget>	SGraphPin::GetDefaultValueWidget()
 {
 	return SNew(SBox);
@@ -332,7 +331,7 @@ FReply SGraphPin::OnPinMouseDown( const FGeometry& SenderGeometry, const FPointe
 
 	if (MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
 	{
-		if (!GraphPinObj->bNotConnectable && IsEditable.Get())
+		if (!GraphPinObj->bNotConnectable && IsEditingEnabled())
 		{
 			if (MouseEvent.IsAltDown())
 			{
@@ -891,7 +890,7 @@ FSlateColor SGraphPin::GetPinColor() const
 	}
 	if (const UEdGraphSchema* Schema = GraphPinObj->GetSchema())
 	{
-		if(!GetPinObj()->GetOwningNode()->IsNodeEnabled())
+		if(!GetPinObj()->GetOwningNode()->IsNodeEnabled() || !IsEditingEnabled())
 		{
 			return Schema->GetPinTypeColor(GraphPinObj->PinType) * FLinearColor(1.0f, 1.0f, 1.0f, 0.5f);
 		}
@@ -907,7 +906,7 @@ FSlateColor SGraphPin::GetPinTextColor() const
 	// If there is no schema there is no owning node (or basically this is a deleted node)
 	if (UEdGraphNode* GraphNode = GraphPinObj->GetOwningNodeUnchecked())
 	{
-		if(!GraphNode->IsNodeEnabled())
+		if(!GraphNode->IsNodeEnabled() || !IsEditingEnabled())
 		{
 			return FLinearColor(1.0f, 1.0f, 1.0f, 0.5f);
 		}
@@ -1006,6 +1005,10 @@ FText SGraphPin::GetTooltipText() const
 
 bool SGraphPin::IsEditingEnabled() const
 {
+	if (OwnerNodePtr.IsValid())
+	{
+		return OwnerNodePtr.Pin()->IsNodeEditable() && IsEditable.Get();
+	}
 	return IsEditable.Get();
 }
 
@@ -1029,4 +1032,10 @@ EVisibility SGraphPin::GetPinVisiblity() const
 		return EVisibility::HitTestInvisible;
 	}
 	return EVisibility::Visible;
+}
+
+bool SGraphPin::GetIsConnectable() const
+{
+	const bool bCanConnectToPin = !GraphPinObj->bNotConnectable;
+	return bCanConnectToPin;
 }

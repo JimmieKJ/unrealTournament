@@ -921,7 +921,7 @@ void SUTPlayerSettingsDialog::AddReferencedObjects(FReferenceCollector& Collecto
 FString SUTPlayerSettingsDialog::GetFOVLabelText(float SliderValue)
 {
 	int32 FOVAngle = FMath::TruncToInt(SliderValue * (FOV_CONFIG_MAX - FOV_CONFIG_MIN) + FOV_CONFIG_MIN);
-	return FText::Format(NSLOCTEXT("SUTPlayerSettingsDialog", "FOV", "Field of View ({Value})"), FText::FromString(FString::Printf(TEXT("%i"), FOVAngle))).ToString();
+	return FText::Format(NSLOCTEXT("SUTPlayerSettingsDialog", "FOV", "Field of View ({0})"), FText::FromString(FString::Printf(TEXT("%i"), FOVAngle))).ToString();
 }
 
 void SUTPlayerSettingsDialog::OnFOVChange(float NewValue)
@@ -1319,18 +1319,6 @@ void SUTPlayerSettingsDialog::RecreatePlayerPreview()
 	{
 		PlayerPreviewMesh->GetMesh()->SetAnimInstanceClass(PlayerPreviewAnimBlueprint);
 	}
-
-	// set FFA color
-	/*TODO FIX ME
-	const TArray<UMaterialInstanceDynamic*>& BodyMIs = PlayerPreviewMesh->GetBodyMIs();
-	for (UMaterialInstanceDynamic* MI : BodyMIs)
-	{
-		static FName NAME_TeamColor(TEXT("TeamColor"));
-		if (MI != NULL)
-		{
-			MI->SetVectorParameterValue(NAME_TeamColor, SelectedPlayerColor);
-		}
-	}*/
 
 	if (bLeaderHatSelectedLast)
 	{

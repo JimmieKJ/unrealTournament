@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTCTFFlagBase.h"
 #include "Net/UnrealNetwork.h"
+#include "UTGhostFlag.h"
 
 AUTCTFFlagBase::AUTCTFFlagBase(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -35,7 +36,7 @@ void AUTCTFFlagBase::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 void AUTCTFFlagBase::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	AUTCharacter* Character = Cast<AUTCharacter>(OtherActor);
-	if (Character != NULL)
+	if (Character != NULL && Role == ROLE_Authority)
 	{
 		AUTCTFFlag* CharFlag = Cast<AUTCTFFlag>(Character->GetCarriedObject());
 		if ( CharFlag != NULL && CharFlag != CarriedObject && CarriedObject != NULL && CarriedObject->ObjectState == CarriedObjectState::Home && CharFlag->GetTeamNum() != GetTeamNum() &&
@@ -77,12 +78,17 @@ FName AUTCTFFlagBase::GetFlagState()
 
 void AUTCTFFlagBase::RecallFlag()
 {
-	if (MyFlag != NULL && MyFlag->ObjectState != CarriedObjectState::Home)
+	if (MyFlag != NULL)
 	{
-		bool bGradualAutoReturn = MyFlag->bGradualAutoReturn;
-		MyFlag->bGradualAutoReturn = false;
-		MyFlag->SendHome();
-		MyFlag->bGradualAutoReturn = bGradualAutoReturn;
+		if (MyFlag->ObjectState != CarriedObjectState::Home)
+		{
+			bool bGradualAutoReturn = MyFlag->bGradualAutoReturn;
+			MyFlag->bGradualAutoReturn = false;
+			MyFlag->PastPositions.Empty();
+			MyFlag->SendHome();
+			MyFlag->bGradualAutoReturn = bGradualAutoReturn;
+		}
+		MyFlag->ClearGhostFlag();
 	}
 }
 
@@ -127,4 +133,24 @@ void AUTCTFFlagBase::ObjectReturnedHome(AUTCharacter* Returner)
 			OnOverlapBegin(A, Cast<UPrimitiveComponent>(A->GetRootComponent()), 0, false, FHitResult(this, Capsule, A->GetActorLocation(), (A->GetActorLocation() - GetActorLocation()).GetSafeNormal()));
 		}
 	}
+}
+
+void AUTCTFFlagBase::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+
+	APlayerController* PC = GEngine->GetFirstLocalPlayerController(GetWorld());
+	if (GetNetMode() != NM_DedicatedServer && PC != NULL && PC->MyHUD != NULL)
+	{
+		PC->MyHUD->AddPostRenderedActor(this);
+	}
+}
+
+void AUTCTFFlagBase::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir)
+{
+}
+
+FText AUTCTFFlagBase::GetHUDStatusMessage(AUTHUD* HUD)
+{
+	return FText::GetEmpty();
 }

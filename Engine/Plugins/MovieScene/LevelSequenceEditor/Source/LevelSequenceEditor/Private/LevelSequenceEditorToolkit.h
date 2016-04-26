@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -36,6 +36,19 @@ public:
 
 public:
 
+	/** Iterate all open level sequence editor toolkits */
+	static void IterateOpenToolkits(TFunctionRef<bool(FLevelSequenceEditorToolkit&)> Iter);
+
+	/** Called when the tab manager is changed */
+	DECLARE_EVENT_OneParam(FLevelSequenceEditorToolkit, FLevelSequenceEditorToolkitOpened, FLevelSequenceEditorToolkit&);
+	static FLevelSequenceEditorToolkitOpened& OnOpened();
+
+	/** Called when the tab manager is changed */
+	DECLARE_EVENT(FLevelSequenceEditorToolkit, FLevelSequenceEditorToolkitClosed);
+	FLevelSequenceEditorToolkitClosed& OnClosed() { return OnClosedEvent; }
+
+public:
+
 	/**
 	 * Initialize this asset editor.
 	 *
@@ -65,6 +78,8 @@ public:
 		Collector.AddReferencedObject(LevelSequence);
 	}
 
+	TSharedPtr<ISequencer> GetSequencer() const { return Sequencer; }
+
 private:
 
 	/** Callback for executing the Add Component action. */
@@ -80,7 +95,7 @@ private:
 	TSharedRef<FExtender> HandleMenuExtensibilityGetExtender(const TSharedRef<FUICommandList> CommandList, const TArray<UObject*> ContextSensitiveObjects);
 
 	/** Callback for spawning tabs. */
-	TSharedRef<SDockTab> HandleTabManagerSpawnTab(const FSpawnTabArgs& Args);	
+	TSharedRef<SDockTab> HandleTabManagerSpawnTab(const FSpawnTabArgs& Args);
 
 	/** Callback for the track menu extender. */
 	void HandleTrackMenuExtensionAddTrack(FMenuBuilder& AddTrackMenuBuilder, TArray<UObject*> ContextObjects);
@@ -90,6 +105,17 @@ private:
 
 	/** Add the specified actors to the sequencer */
 	void AddActorsToSequencer(AActor*const* InActors, int32 NumActors);
+
+	/** Callback for actor added to sequencer. */
+	void HandleActorAddedToSequencer(AActor* Actor, const FGuid Binding);
+
+	/** Add default movie scene tracks for the given actor. */
+	void AddDefaultTracksForActor(AActor& Actor, const FGuid Binding);
+
+private:
+
+	/** Called when this toolkit is to be destroyed */
+	virtual bool OnRequestClose() override;
 
 private:
 
@@ -106,6 +132,9 @@ private:
 
 	/** Pointer to the style set to use for toolkits. */
 	TSharedRef<ISlateStyle> Style;
+
+	/** Event that is cast when this toolkit is closed */
+	FLevelSequenceEditorToolkitClosed OnClosedEvent;
 
 private:
 

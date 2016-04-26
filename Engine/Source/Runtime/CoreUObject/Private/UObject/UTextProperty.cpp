@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreUObjectPrivate.h"
 #include "UObject/UTextProperty.h"
@@ -48,63 +48,106 @@ void UTextProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaul
 void UTextProperty::ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const
 {
 	const FText& TextValue = GetPropertyValue(PropertyValue);
-	const FString& StringValue = FTextInspector::GetDisplayString(TextValue);
-	if (0 != (PortFlags & PPF_ExportCpp))
+
+	if (PortFlags & PPF_ExportCpp)
 	{
-		ValueStr += FString::Printf(TEXT("FText::FromString(TEXT(\"%s\"))"), *(StringValue.ReplaceCharWithEscapedChar()));
+		ValueStr += GenerateCppCodeForTextValue(TextValue, FString());
 	}
-	else if( !(PortFlags & PPF_Delimited) )
+	else if (PortFlags & PPF_PropertyWindow)
 	{
-		ValueStr += StringValue;
+		if (PortFlags & PPF_Delimited)
+		{
+			ValueStr += TEXT("\"");
+			ValueStr += TextValue.ToString();
+			ValueStr += TEXT("\"");
+		}
+		else
+		{
+			ValueStr += TextValue.ToString();
+		}
 	}
-	else if ( StringValue.Len() > 0 )
+	else
 	{
-		ValueStr += FString::Printf( TEXT("\"%s\""), *(StringValue.ReplaceCharWithEscapedChar()) );
+		FTextStringHelper::WriteToString(ValueStr, TextValue, !!(PortFlags & PPF_Delimited));
 	}
 }
 
 const TCHAR* UTextProperty::ImportText_Internal( const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText ) const
 {
-	FText* Text = GetPropertyValuePtr(Data);
+	FText* TextPtr = GetPropertyValuePtr(Data);
 
-	FString BufferAsString;
-	if( !(PortFlags & PPF_Delimited) )
+	int32 NumCharsRead = 0;
+	if (FTextStringHelper::ReadFromString(Buffer, *TextPtr, nullptr, &NumCharsRead, !!(PortFlags & PPF_Delimited)))
 	{
-		BufferAsString = FString(Buffer);
+		Buffer += NumCharsRead;
+		return Buffer;
+	}
+	
+	return nullptr;
+}
 
-		// in order to indicate that the value was successfully imported, advance the buffer past the last character that was imported
-		Buffer += FCString::Strlen(Buffer);
+FString UTextProperty::GenerateCppCodeForTextValue(const FText& InValue, const FString& Indent)
+{
+	FString CppCode;
+
+	const FString& StringValue = FTextInspector::GetDisplayString(InValue);
+
+	if (InValue.IsEmpty())
+	{
+		CppCode += TEXT("FText::GetEmpty()");
+	}
+	else if (InValue.IsCultureInvariant())
+	{
+		// Produces FText::AsCultureInvariant(TEXT("..."))
+		CppCode += TEXT("FText::AsCultureInvariant(");
+		CppCode += UStrProperty::ExportCppHardcodedText(StringValue, Indent + TEXT("\t"));
+		CppCode += TEXT(")");
 	}
 	else
 	{
-		// require quoted string here
-		if (*Buffer != TCHAR('"'))
+		bool bIsLocalized = false;
+		FString Namespace;
+		FString Key;
+		const FString* SourceString = FTextInspector::GetSourceString(InValue);
+
+		if (SourceString && InValue.ShouldGatherForLocalization())
 		{
-			ErrorText->Logf(TEXT("Missing opening '\"' in string property value: %s"), Buffer);
-			return NULL;
+			bIsLocalized = FTextLocalizationManager::Get().FindNamespaceAndKeyFromDisplayString(FTextInspector::GetSharedDisplayString(InValue), Namespace, Key);
 		}
 
-		const TCHAR* Start = Buffer;
-		FString Temp;
-		Buffer = UPropertyHelpers::ReadToken(Buffer, Temp);
-
-		if (Buffer == NULL)
+		if (bIsLocalized)
 		{
-			return NULL;
-		}
+			// Produces FInternationalization::ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText(TEXT("..."), TEXT("..."), TEXT("..."))
+			CppCode += TEXT("FInternationalization::ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText(\n");
 
-		if (Buffer > Start && Buffer[-1] != TCHAR('"'))
+			CppCode += Indent;
+			CppCode += TEXT("\t");
+			CppCode += UStrProperty::ExportCppHardcodedText(*SourceString, Indent + TEXT("\t\t"));
+			CppCode += TEXT(", /* Literal Text */\n");
+
+			CppCode += Indent;
+			CppCode += TEXT("\t");
+			CppCode += UStrProperty::ExportCppHardcodedText(Namespace, Indent + TEXT("\t\t"));
+			CppCode += TEXT(", /* Namespace */\n");
+
+			CppCode += Indent;
+			CppCode += TEXT("\t");
+			CppCode += UStrProperty::ExportCppHardcodedText(Key, Indent + TEXT("\t\t"));
+			CppCode += TEXT(" /* Key */\n");
+
+			CppCode += Indent;
+			CppCode += TEXT("\t)");
+		}
+		else
 		{
-			ErrorText->Logf(TEXT("Missing terminating '\"' in string property value: %s"), Start);
-			return NULL;
+			// Produces FText::FromString(TEXT("..."))
+			CppCode += TEXT("FText::FromString(");
+			CppCode += UStrProperty::ExportCppHardcodedText(StringValue, Indent + TEXT("\t"));
+			CppCode += TEXT(")");
 		}
-
-		BufferAsString = FString(Temp);
 	}
 
-	*Text = FText::FromString(FString(BufferAsString));
-
-	return Buffer;
+	return CppCode;
 }
 
 IMPLEMENT_CORE_INTRINSIC_CLASS(UTextProperty, UProperty,

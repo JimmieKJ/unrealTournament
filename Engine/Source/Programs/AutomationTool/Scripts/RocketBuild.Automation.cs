@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -78,7 +78,7 @@ namespace Rocket
 			if (!BranchConfig.BranchOptions.bNoInstalledEngine)
 			{
 				// Add the aggregate for making a rocket build
-				if(!BranchConfig.HasNode(WaitToMakeRocketBuild.StaticGetFullName()))
+				if(WaitToMakeRocketBuild.ShouldAddTrigger(BranchConfig) && !BranchConfig.HasNode(WaitToMakeRocketBuild.StaticGetFullName()))
 				{
 					BranchConfig.AddNode(new WaitToMakeRocketBuild(BranchConfig));
 				}
@@ -289,15 +289,20 @@ namespace Rocket
         {
 			foreach(UnrealTargetPlatform HostPlatform in BranchConfig.HostPlatforms)
 			{
-				AddDependency(FilterRocketNode.StaticGetFullName(HostPlatform));
-				AddDependency(BuildDerivedDataCacheNode.StaticGetFullName(HostPlatform));
+				AddPseudodependency(FilterRocketNode.StaticGetFullName(HostPlatform));
+				AddPseudodependency(BuildDerivedDataCacheNode.StaticGetFullName(HostPlatform));
 
 				SingleTargetProperties BuildPatchTool = BranchConfig.Branch.FindProgram("BuildPatchTool");
 				if(BuildPatchTool.Rules != null)
 				{
-					AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(HostPlatform, BuildPatchTool));
+					AddPseudodependency(GUBP.SingleInternalToolsNode.StaticGetFullName(HostPlatform, BuildPatchTool));
 				}
 			}
+		}
+
+		public static bool ShouldAddTrigger(GUBP.GUBPBranchConfig BranchConfig)
+		{
+			return !BranchConfig.BranchName.StartsWith("//UE4/Release-");
 		}
 
         public static string StaticGetFullName()
@@ -376,6 +381,11 @@ namespace Rocket
 			StrippedDir = InStrippedDir;
 		}
 
+		public override string[] GetAgentTypes()
+		{
+			return new string[]{ "Compile" + HostPlatform.ToString(), HostPlatform.ToString() };
+		}
+
 		public override abstract string GetFullName();
 
 		public void AddNodeToStrip(string NodeName)
@@ -444,6 +454,14 @@ namespace Rocket
 		{
 			AddNodeToStrip(GUBP.ToolsForCompileNode.StaticGetFullName(HostPlatform));
 			AddNodeToStrip(GUBP.ToolsNode.StaticGetFullName(HostPlatform));
+
+			SingleTargetProperties BuildPatchTool = BranchConfig.Branch.FindProgram("BuildPatchTool");
+			if (BuildPatchTool.Rules == null)
+			{
+				throw new AutomationException("Could not find program BuildPatchTool.");
+			}
+			AddNodeToStrip(GUBP.SingleInternalToolsNode.StaticGetFullName(HostPlatform, BuildPatchTool));
+
 			AgentSharingGroup = "ToolsGroup" + StaticGetHostPlatformSuffix(InHostPlatform);
 		}
 
@@ -503,6 +521,11 @@ namespace Rocket
 			AgentSharingGroup = Node.AgentSharingGroup;
 		}
 
+		public override float Priority()
+		{
+			return 1000000.0f;
+		}
+
 		public override string GetDisplayGroupName()
 		{
 			return Project.GameName + "_Monolithics" + (bIsCodeTargetPlatform? "_Precompiled" : "");
@@ -537,6 +560,11 @@ namespace Rocket
 			BranchConfig = InBranchConfig;
 			TargetPlatform = InTargetPlatform;
 			SignedDir = InSignedDir;
+		}
+
+		public override string[] GetAgentTypes()
+		{
+			return new string[]{ "Compile" + HostPlatform.ToString(), HostPlatform.ToString() };
 		}
 
 		public override abstract string GetFullName();
@@ -617,6 +645,14 @@ namespace Rocket
 		{
 			AddNodeToSign(GUBP.ToolsForCompileNode.StaticGetFullName(HostPlatform));
 			AddNodeToSign(GUBP.ToolsNode.StaticGetFullName(HostPlatform));
+
+			SingleTargetProperties BuildPatchTool = BranchConfig.Branch.FindProgram("BuildPatchTool");
+			if (BuildPatchTool.Rules == null)
+			{
+				throw new AutomationException("Could not find program BuildPatchTool.");
+			}
+			AddNodeToSign(GUBP.SingleInternalToolsNode.StaticGetFullName(HostPlatform, BuildPatchTool));
+
 			AddDependency(StripRocketToolsNode.StaticGetFullName(HostPlatform));
 			AgentSharingGroup = "ToolsGroup" + StaticGetHostPlatformSuffix(InHostPlatform);
 		}
@@ -681,6 +717,11 @@ namespace Rocket
 			AgentSharingGroup = Node.AgentSharingGroup;
 		}
 
+		public override float Priority()
+		{
+			return 1000000.0f;
+		}
+
 		public override string GetDisplayGroupName()
 		{
 			return Project.GameName + "_Monolithics" + (bIsCodeTargetPlatform ? "_Precompiled" : "");
@@ -727,6 +768,13 @@ namespace Rocket
 			AddDependency(GUBP.ToolsForCompileNode.StaticGetFullName(HostPlatform));
 			AddDependency(GUBP.RootEditorNode.StaticGetFullName(HostPlatform));
 			AddDependency(GUBP.ToolsNode.StaticGetFullName(HostPlatform));
+
+			SingleTargetProperties BuildPatchTool = BranchConfig.Branch.FindProgram("BuildPatchTool");
+			if (BuildPatchTool.Rules == null)
+			{
+				throw new AutomationException("Could not find program BuildPatchTool.");
+			}
+			AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(HostPlatform, BuildPatchTool));
 
 			// Add all the monolithic builds from their appropriate source host platform
 			foreach(UnrealTargetPlatform TargetPlatform in TargetPlatforms)
@@ -835,6 +883,9 @@ namespace Rocket
 			AddRuleForBuildProducts(Filter, BranchConfig, GUBP.ToolsForCompileNode.StaticGetFullName(HostPlatform), FileFilterType.Include);
 			AddRuleForBuildProducts(Filter, BranchConfig, GUBP.RootEditorNode.StaticGetFullName(HostPlatform), FileFilterType.Include);
 			AddRuleForBuildProducts(Filter, BranchConfig, GUBP.ToolsNode.StaticGetFullName(HostPlatform), FileFilterType.Include);
+
+			SingleTargetProperties BuildPatchTool = BranchConfig.Branch.FindProgram("BuildPatchTool");
+			AddRuleForBuildProducts(Filter, BranchConfig, GUBP.SingleInternalToolsNode.StaticGetFullName(HostPlatform, BuildPatchTool), FileFilterType.Include);
 
 			// Include win64 tools on Mac, to get the win64 build of UBT, UAT and IPP
 			if (HostPlatform == UnrealTargetPlatform.Mac && BranchConfig.HostPlatforms.Contains(UnrealTargetPlatform.Win64))
@@ -1046,7 +1097,10 @@ namespace Rocket
 
 			AddDependency(FilterRocketNode.StaticGetFullName(HostPlatform));
 			AddDependency(BuildDerivedDataCacheNode.StaticGetFullName(HostPlatform));
-			AddPseudodependency(WaitToMakeRocketBuild.StaticGetFullName());
+			if (WaitToMakeRocketBuild.ShouldAddTrigger(InBranchConfig))
+			{
+				AddPseudodependency(WaitToMakeRocketBuild.StaticGetFullName());
+			}
 
 			AgentSharingGroup = "RocketGroup" + StaticGetHostPlatformSuffix(HostPlatform);
 		}
@@ -1098,9 +1152,11 @@ namespace Rocket
 			BuildDerivedDataCacheNode DerivedDataCacheNode = (BuildDerivedDataCacheNode)BranchConfig.FindNode(BuildDerivedDataCacheNode.StaticGetFullName(HostPlatform));
 			CopyManifestFilesToOutput(DerivedDataCacheNode.SavedManifestPath, DerivedDataCacheNode.SavedDir, OutputDir);
 
-			// Write the Rocket.txt file with the 
-			string RocketFile = CommandUtils.CombinePaths(OutputDir, "Engine/Build/Rocket.txt");
-			CommandUtils.WriteAllText(RocketFile, "-installedengine -rocket");
+			// Write InstalledBuild.txt to indicate Engine is installed
+			string InstalledBuildFile = CommandUtils.CombinePaths(OutputDir, "Engine/Build/InstalledBuild.txt");
+			CommandUtils.WriteAllText(InstalledBuildFile, "");
+
+			WriteRocketSpecificConfigSettings();
 
 			// Create a dummy build product
 			BuildProducts = new List<string>();
@@ -1120,6 +1176,83 @@ namespace Rocket
 
 			// Copy everything
 			CommandUtils.ThreadedCopyFiles(SourceFiles, TargetFiles);
+		}
+
+		public void WriteRocketSpecificConfigSettings()
+		{
+			string OutputEnginePath = Path.Combine(OutputDir, "Engine");
+			string OutputBaseEnginePath = Path.Combine(OutputEnginePath, "Config", "BaseEngine.ini");
+			FileAttributes OutputAttributes = FileAttributes.ReadOnly;
+			List<String> IniLines = new List<String>();
+
+			// Should always exist but if not, we don't need extra line
+			if (File.Exists(OutputBaseEnginePath))
+			{
+				OutputAttributes = File.GetAttributes(OutputBaseEnginePath);
+				IniLines.Add("");
+			}
+			
+			// Write information about platforms installed in a Rocket build
+			IniLines.Add("[InstalledPlatforms]");
+			foreach (UnrealTargetPlatform CodeTargetPlatform in CodeTargetPlatforms)
+			{
+				// Bit of a hack to mark these platforms as available in any type of project
+				EProjectType ProjectType = EProjectType.Content;
+				if (HostPlatform == UnrealTargetPlatform.Mac)
+				{
+					if (CodeTargetPlatform == UnrealTargetPlatform.Mac
+					 || CodeTargetPlatform == UnrealTargetPlatform.IOS
+					 || CodeTargetPlatform == UnrealTargetPlatform.Linux
+					 || CodeTargetPlatform == UnrealTargetPlatform.Android
+					 || CodeTargetPlatform == UnrealTargetPlatform.HTML5)
+					{
+						ProjectType = EProjectType.Any;
+					}
+				}
+				else
+				{
+					if (CodeTargetPlatform == UnrealTargetPlatform.Win32
+					 || CodeTargetPlatform == UnrealTargetPlatform.Win64
+					 || CodeTargetPlatform == UnrealTargetPlatform.Android
+					 || CodeTargetPlatform == UnrealTargetPlatform.HTML5)
+					{
+						ProjectType = EProjectType.Any;
+					}
+				}
+				// Allow Content only platforms to be shown as options in all projects
+				bool bCanBeDisplayed = ProjectType == EProjectType.Content;
+				foreach (UnrealTargetConfiguration CodeTargetConfiguration in Enum.GetValues(typeof(UnrealTargetConfiguration)))
+				{
+					// Need to check for development receipt as we use that for the Engine code in DebugGame
+					UnrealTargetConfiguration EngineConfiguration = (CodeTargetConfiguration == UnrealTargetConfiguration.DebugGame) ? UnrealTargetConfiguration.Development : CodeTargetConfiguration;
+
+					string Architecture = "";
+					var BuildPlatform = UEBuildPlatform.GetBuildPlatform(CodeTargetPlatform, true);
+					if (BuildPlatform != null)
+					{
+						Architecture = BuildPlatform.CreateContext(null).GetActiveArchitecture();
+					}
+					string ReceiptFileName = TargetReceipt.GetDefaultPath(OutputEnginePath, "UE4Game", CodeTargetPlatform, EngineConfiguration, Architecture);
+
+					if (File.Exists(ReceiptFileName))
+					{
+						// Strip the output folder so that this can be used on any machine
+						ReceiptFileName = new FileReference(ReceiptFileName).MakeRelativeTo(new DirectoryReference(OutputDir));
+						IniLines.Add(string.Format("+InstalledPlatformConfigurations=(PlatformName=\"{0}\", Configuration=\"{1}\", RequiredFile=\"{2}\", ProjectType=\"{3}\", bCanBeDisplayed={4})",
+													CodeTargetPlatform.ToString(), CodeTargetConfiguration.ToString(), ReceiptFileName, ProjectType.ToString(), bCanBeDisplayed.ToString()));
+					}
+				}
+			}
+
+			// Write Rocket specific Analytics settings
+			IniLines.Add("");
+			IniLines.Add("[Analytics]");
+			IniLines.Add("UE4TypeOverride=Rocket");
+
+			// Make sure we can write to the the config file
+			File.SetAttributes(OutputBaseEnginePath, OutputAttributes & ~FileAttributes.ReadOnly);
+			File.AppendAllLines(OutputBaseEnginePath, IniLines);
+			File.SetAttributes(OutputBaseEnginePath, OutputAttributes);
 		}
 	}
 
@@ -1201,7 +1334,10 @@ namespace Rocket
 			AddDependency(GUBP.ToolsForCompileNode.StaticGetFullName(HostPlatform));
 			AddDependency(GUBP.RootEditorNode.StaticGetFullName(HostPlatform));
 			AddDependency(GUBP.ToolsNode.StaticGetFullName(HostPlatform));
-			AddDependency(WaitToMakeRocketBuild.StaticGetFullName());
+			if (WaitToMakeRocketBuild.ShouldAddTrigger(InBranchConfig))
+			{
+				AddPseudodependency(WaitToMakeRocketBuild.StaticGetFullName());
+			}
 
 			foreach(UnrealTargetPlatform TargetPlatform in TargetPlatforms)
 			{

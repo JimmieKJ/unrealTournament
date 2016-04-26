@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /** Inline file for UnitConversion.h to separate the implementation from the header */
 
@@ -25,7 +25,7 @@ namespace UnitConversion
 	CORE_API double TimeUnificationFactor(EUnit From);
 
 	/** Attempt to parse an expression into a numeric unit */
-	CORE_API TValueOrError<FNumericUnit<double>, FText> TryParseExpression(const TCHAR* InExpression, EUnit DefaultUnit);
+	CORE_API TValueOrError<FNumericUnit<double>, FText> TryParseExpression(const TCHAR* InExpression, EUnit DefaultUnit, const FNumericUnit<double>& InExistingValue);
 
 	/** Structure used to define the factor required to get from one unit type to the next. */
 	struct FQuantizationInfo
@@ -253,9 +253,9 @@ FNumericUnit<NumericType> FNumericUnit<NumericType>::QuantizeUnitsToBestFit() co
 }
 
 template<typename NumericType>
-TValueOrError<FNumericUnit<NumericType>, FText> FNumericUnit<NumericType>::TryParseExpression(const TCHAR* InExpression, EUnit InDefaultUnit)
+TValueOrError<FNumericUnit<NumericType>, FText> FNumericUnit<NumericType>::TryParseExpression(const TCHAR* InExpression, EUnit InDefaultUnit, const FNumericUnit<NumericType>& InExistingValue)
 {
-	TValueOrError<FNumericUnit<double>, FText> Result = UnitConversion::TryParseExpression(InExpression, InDefaultUnit);
+	TValueOrError<FNumericUnit<double>, FText> Result = UnitConversion::TryParseExpression(InExpression, InDefaultUnit, InExistingValue);
 	if (Result.IsValid())
 	{
 		const auto& Value = Result.GetValue();

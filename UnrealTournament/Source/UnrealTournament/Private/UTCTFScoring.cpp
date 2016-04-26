@@ -35,6 +35,12 @@ void AUTCTFScoring::BeginPlay()
 
 void AUTCTFScoring::FlagHeldTimer()
 {
+	if (!CTFGameState || !CTFGameState->IsMatchInProgress() || CTFGameState->IsMatchIntermission())
+	{
+		// no flag held stats incrementing during intermission or after match.
+		return;
+	}
+
 	for (int32 FlagTeam = 0; FlagTeam < CTFGameState->FlagBases.Num(); FlagTeam++)
 	{
 		AUTCTFFlag* Flag = CTFGameState->FlagBases[FlagTeam] ? CTFGameState->FlagBases[FlagTeam]->MyFlag : NULL;
@@ -77,7 +83,7 @@ float AUTCTFScoring::GetTotalHeldTime(AUTCarriedObject* GameObject)
 	return TotalHeldTime;
 }
 
-void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* ScoringPawn, AUTPlayerState* ScorerPS, FName Reason, float TimeLimit)
+void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* ScoringPawn, AUTPlayerState* ScorerPS, FName Reason, float TimeLimit, int32 FlagCapScore)
 {
 	if (!CTFGameState)
 	{
@@ -107,8 +113,10 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 		NewScoringPlay.ScoredBy = FSafePlayerName(ScorerPS);
 		NewScoringPlay.TeamScores[0] = CTFGameState->Teams[0] ? CTFGameState->Teams[0]->Score : 0;
 		NewScoringPlay.TeamScores[1] = CTFGameState->Teams[1] ? CTFGameState->Teams[1]->Score : 0;
-		NewScoringPlay.TeamScores[ScorerPS->Team->TeamIndex] += (GM ? GM->FlagCapScore : 1);
+		NewScoringPlay.TeamScores[ScorerPS->Team->TeamIndex] += FlagCapScore;
 		NewScoringPlay.RemainingTime = CTFGameState->bPlayingAdvantage ? 0.f : CTFGameState->GetClockTime();
+		NewScoringPlay.bAnnihilation = false;
+		NewScoringPlay.bDefenseWon = false;
 
 		if (CTFGameState->IsMatchInOvertime())
 		{
@@ -238,6 +246,8 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 				Assist.AssistName.PlayerState->bNeedsAssistAnnouncement = true;
 			}
 		}
+		NewScoringPlay.RedBonus = CTFGameState->Teams[0] ? CTFGameState->Teams[0]->RoundBonus : 0;
+		NewScoringPlay.BlueBonus = CTFGameState->Teams[1] ? CTFGameState->Teams[1]->RoundBonus : 0;
 		CTFGameState->AddScoringPlay(NewScoringPlay);
 	}
 }
@@ -316,7 +326,11 @@ void AUTCTFScoring::ScoreKill(AController* Killer, AController* Victim, APawn* K
 		if (WasThreateningFlagCarrier(VictimPS, KilledPawn, KillerPS))
 		{
 			Points += FlagCombatKillBonus;
-			CTFGameState->FlagBases[VictimPS->GetTeamNum()]->MyFlag->HolderRescuers.AddUnique(Killer);
+			AUTCTFFlagBase* FlagBase = CTFGameState->GetFlagBase(VictimPS->GetTeamNum());
+			if (FlagBase && FlagBase->MyFlag)
+			{
+				FlagBase->MyFlag->HolderRescuers.AddUnique(Killer);
+			}
 			KillerPS->ModifyStatsValue(NAME_FlagSupportKills, 1);
 			KillerPS->ModifyStatsValue(NAME_FlagSupportKillPoints, Points);
 			bIsSupportKill = true;

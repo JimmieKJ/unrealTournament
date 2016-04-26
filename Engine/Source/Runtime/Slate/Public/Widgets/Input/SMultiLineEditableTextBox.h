@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -30,6 +30,7 @@ public:
 		, _ClearTextSelectionOnFocusLoss( true )
 		, _RevertTextOnEscape( false )
 		, _ClearKeyboardFocusOnCommit( true )
+		, _AllowContextMenu(true)
 		, _AlwaysShowScrollbars( false )
 		, _HScrollBar()
 		, _VScrollBar()
@@ -95,6 +96,9 @@ public:
 
 		/** Whether to clear keyboard focus when pressing enter to commit changes */
 		SLATE_ATTRIBUTE( bool, ClearKeyboardFocusOnCommit )
+
+		/** Whether the context menu can be opened  */
+		SLATE_ATTRIBUTE(bool, AllowContextMenu)
 
 		/** Should we always show the scrollbars (only affects internally created scroll bars) */
 		SLATE_ARGUMENT(bool, AlwaysShowScrollbars)
@@ -182,7 +186,7 @@ public:
 	 *
 	 * @return  Text string
 	 */
-	const FText& GetText() const
+	FText GetText() const
 	{
 		return EditableText->GetText();
 	}
@@ -192,7 +196,7 @@ public:
 	 *
 	 * @return  Text string
 	 */
-	const FText GetPlainText() const
+	FText GetPlainText() const
 	{
 		return EditableText->GetPlainText();
 	}
@@ -235,6 +239,30 @@ public:
 	 */
 	void SetReadOnlyForegroundColor(const TAttribute<FSlateColor>& InReadOnlyForegroundColor);
 
+	/** See TextShapingMethod attribute */
+	void SetTextShapingMethod(const TOptional<ETextShapingMethod>& InTextShapingMethod);
+
+	/** See TextFlowDirection attribute */
+	void SetTextFlowDirection(const TOptional<ETextFlowDirection>& InTextFlowDirection);
+
+	/** See WrapTextAt attribute */
+	void SetWrapTextAt(const TAttribute<float>& InWrapTextAt);
+
+	/** See AutoWrapText attribute */
+	void SetAutoWrapText(const TAttribute<bool>& InAutoWrapText);
+
+	/** See LineHeightPercentage attribute */
+	void SetLineHeightPercentage(const TAttribute<float>& InLineHeightPercentage);
+
+	/** See Margin attribute */
+	void SetMargin(const TAttribute<FMargin>& InMargin);
+
+	/** See Justification attribute */
+	void SetJustification(const TAttribute<ETextJustify::Type>& InJustification);
+
+	/** See the AllowContextMenu attribute */
+	void SetAllowContextMenu(const TAttribute< bool >& InAllowContextMenu);
+
 	/**
 	 * If InError is a non-empty string the TextBox will the ErrorReporting provided during construction
 	 * If no error reporting was provided, the TextBox will create a default error reporter.
@@ -246,6 +274,15 @@ public:
 	virtual bool SupportsKeyboardFocus() const override;
 	virtual bool HasKeyboardFocus() const override;
 	virtual FReply OnFocusReceived( const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent ) override;
+
+	/** Query to see if any text is selected within the document */
+	bool AnyTextSelected() const;
+
+	/** Select all the text in the document */
+	void SelectAllText();
+
+	/** Clear the active text selection */
+	void ClearSelection();
 
 	/** Get the currently selected text */
 	FText GetSelectedText() const;
@@ -276,7 +313,7 @@ public:
 	TSharedPtr<const IRun> GetRunUnderCursor() const;
 
 	/** Get the runs currently that are current selected, some of which may be only partially selected */
-	const TArray<TSharedRef<const IRun>> GetSelectedRuns() const;
+	TArray<TSharedRef<const IRun>> GetSelectedRuns() const;
 
 	/** Get the horizontal scroll bar widget */
 	TSharedPtr<const SScrollBar> GetHScrollBar() const;
@@ -323,8 +360,12 @@ protected:
 	/** Read-only foreground color */
 	TAttribute<FSlateColor> ReadOnlyForegroundColor;
 
+	/** Whether to disable the context menu */
+	TAttribute< bool > AllowContextMenu;
+
 	/** Allows for inserting additional widgets that extend the functionality of the text box */
 	TSharedPtr<SHorizontalBox> Box;
+
 
 	/** Whether we have an externally supplied horizontal scrollbar or one created internally */
 	bool bHasExternalHScrollBar;

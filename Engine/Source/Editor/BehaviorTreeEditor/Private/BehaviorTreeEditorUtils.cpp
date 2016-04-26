@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "BehaviorTreeEditorPrivatePCH.h"
 #include "BehaviorTreeEditorUtils.h"
@@ -29,6 +29,7 @@ TArray<UObject*> BehaviorTreeEditorUtils::GetSelectionForPropertyEditor(const TS
 			Selection.Add(GraphNode_Decorator1->NodeInstance);
 			OutSelectionInfo.FoundDecorator = Cast<UBTDecorator>(GraphNode_Decorator1->NodeInstance);
 			OutSelectionInfo.bInjectedNode = OutSelectionInfo.bInjectedNode || GraphNode_Decorator1->bInjectedNode;
+			OutSelectionInfo.bRootLevelNode = GraphNode_Decorator1->bRootLevel;
 			continue;
 		}
 
@@ -52,6 +53,7 @@ TArray<UObject*> BehaviorTreeEditorUtils::GetSelectionForPropertyEditor(const TS
 		{
 			OutSelectionInfo.FoundGraphNode_CompDecorator = GraphNode_CompDecorator;
 			OutSelectionInfo.bInjectedNode = OutSelectionInfo.bInjectedNode || GraphNode_CompDecorator->bInjectedNode;
+			OutSelectionInfo.bRootLevelNode = OutSelectionInfo.bRootLevelNode || GraphNode_CompDecorator->bRootLevel;
 		}
 
 		Selection.Add(SelectionEntry);

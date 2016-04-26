@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "Misc/App.h"
@@ -235,7 +235,7 @@ HBITMAP LoadSplashBitmap()
 			}
 		}
 
-		DeleteObject(Converter);
+		Converter->Release();
 	}
 
 	// Create a DIB from the converted IWICBitmapSource
@@ -286,7 +286,7 @@ HBITMAP LoadSplashBitmap()
 			{
 				if (hDIBBitmap)
 				{
-					DeleteObject(hDIBBitmap);
+					ensure(DeleteObject(hDIBBitmap));
 				}
 
 				hDIBBitmap = CreateDIBSection(hdcScreen, &bminfo, DIB_RGB_COLORS, &ImageBits, NULL, 0);
@@ -324,34 +324,34 @@ HBITMAP LoadSplashBitmap()
 		// Image Extraction failed, clear allocated memory
 		if (FAILED(hr) && hDIBBitmap)
 		{
-			DeleteObject(hDIBBitmap);
+			ensure(DeleteObject(hDIBBitmap));
 			hDIBBitmap = NULL;
 		}
 	}
 
 	if ( OriginalBitmapSource )
 	{
-		DeleteObject( OriginalBitmapSource );
+		OriginalBitmapSource->Release();
 	}
 
 	if ( ToRenderBitmapSource )
 	{
-		DeleteObject( ToRenderBitmapSource );
+		ToRenderBitmapSource->Release();
 	}
 
 	if ( Decoder )
 	{
-		DeleteObject( Decoder );
+		Decoder->Release();
 	}
 
 	if ( Frame )
 	{
-		DeleteObject( Frame );
+		Frame->Release();
 	}
 
 	if ( Factory )
 	{
-		DeleteObject( Factory );
+		Factory->Release();
 	}
 
 	return hDIBBitmap;
@@ -563,7 +563,7 @@ uint32 WINAPI StartSplashScreenThread( LPVOID unused )
 			}
 		}
 
-		DeleteObject(GSplashScreenBitmap);
+		ensure(DeleteObject(GSplashScreenBitmap));
 		GSplashScreenBitmap = NULL;
 	}
 
@@ -636,7 +636,7 @@ void FWindowsPlatformSplash::Show()
 
 				// Display copyright information in editor splash screen
 				{
-					const FString CopyrightInfo = NSLOCTEXT( "UnrealEd", "SplashScreen_CopyrightInfo", "Copyright \x00a9 1998-2015   Epic Games, Inc.   All rights reserved." ).ToString();
+					const FString CopyrightInfo = NSLOCTEXT( "UnrealEd", "SplashScreen_CopyrightInfo", "Copyright \x00a9 1998-2016   Epic Games, Inc.   All rights reserved." ).ToString();
 					StartSetSplashText( SplashTextType::CopyrightInfo, *CopyrightInfo );
 				}
 			}

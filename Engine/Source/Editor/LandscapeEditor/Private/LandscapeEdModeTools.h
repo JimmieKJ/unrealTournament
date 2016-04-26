@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -157,20 +157,26 @@ inline void LowPassFilter(int32 X1, int32 Y1, int32 X2, int32 Y2, FLandscapeBrus
 	int32 FFTWidth = X2 - X1 - 1;
 	int32 FFTHeight = Y2 - Y1 - 1;
 
+	if (FFTWidth <= 1 && FFTHeight <= 1)
+	{
+		// nothing to do
+		return;
+	}
+
 	const int32 NDims = 2;
-	const int32 Dims[NDims] = { FFTHeight - FFTHeight % 2, FFTWidth - FFTWidth % 2 };
+	const int32 Dims[NDims] = { FFTHeight, FFTWidth };
 	kiss_fftnd_cfg stf = kiss_fftnd_alloc(Dims, NDims, 0, NULL, NULL),
 		sti = kiss_fftnd_alloc(Dims, NDims, 1, NULL, NULL);
 
 	kiss_fft_cpx *buf = (kiss_fft_cpx *)KISS_FFT_MALLOC(sizeof(kiss_fft_cpx) * Dims[0] * Dims[1]);
 	kiss_fft_cpx *out = (kiss_fft_cpx *)KISS_FFT_MALLOC(sizeof(kiss_fft_cpx) * Dims[0] * Dims[1]);
 
-	for (int32 Y = Y1 + 1; Y <= Y2 - 1 - FFTHeight % 2; Y++)
+	for (int32 Y = Y1 + 1; Y <= Y2 - 1; Y++)
 	{
 		auto* DataScanline = Data.GetData() + (Y - Y1) * (X2 - X1 + 1) + (0 - X1);
 		auto* bufScanline = buf + (Y - (Y1 + 1)) * Dims[1] + (0 - (X1 + 1));
 
-		for (int32 X = X1 + 1; X <= X2 - 1 - FFTWidth % 2; X++)
+		for (int32 X = X1 + 1; X <= X2 - 1; X++)
 		{
 			bufScanline[X].r = DataScanline[X];
 			bufScanline[X].i = 0;
@@ -227,8 +233,8 @@ inline void LowPassFilter(int32 X1, int32 Y1, int32 X2, int32 Y2, FLandscapeBrus
 	float Scale = Dims[0] * Dims[1];
 	const int32 BrushX1 = FMath::Max<int32>(BrushInfo.GetBounds().Min.X, X1 + 1);
 	const int32 BrushY1 = FMath::Max<int32>(BrushInfo.GetBounds().Min.Y, Y1 + 1);
-	const int32 BrushX2 = FMath::Min<int32>(BrushInfo.GetBounds().Max.X, X2 - FFTWidth % 2);
-	const int32 BrushY2 = FMath::Min<int32>(BrushInfo.GetBounds().Max.Y, Y2 - FFTHeight % 2);
+	const int32 BrushX2 = FMath::Min<int32>(BrushInfo.GetBounds().Max.X, X2);
+	const int32 BrushY2 = FMath::Min<int32>(BrushInfo.GetBounds().Max.Y, Y2);
 	for (int32 Y = BrushY1; Y < BrushY2; Y++)
 	{
 		const float* BrushScanline = BrushInfo.GetDataPtr(FIntPoint(0, Y));
@@ -502,7 +508,7 @@ public:
 	}
 
 	// X2/Y2 Coordinates are "inclusive" max values
-	void SetCachedData(int32 X1, int32 Y1, int32 X2, int32 Y2, TArray<AccessorType>& Data, ELandscapeLayerPaintingRestriction::Type PaintingRestriction = ELandscapeLayerPaintingRestriction::None)
+	void SetCachedData(int32 X1, int32 Y1, int32 X2, int32 Y2, TArray<AccessorType>& Data, ELandscapeLayerPaintingRestriction PaintingRestriction = ELandscapeLayerPaintingRestriction::None)
 	{
 		checkSlow(Data.Num() == (1 + Y2 - Y1) * (1 + X2 - X1));
 
@@ -607,7 +613,7 @@ struct FHeightmapAccessor
 		LandscapeEdit->GetHeightDataFast(X1, Y1, X2, Y2, Data);
 	}
 
-	void SetData(int32 X1, int32 Y1, int32 X2, int32 Y2, const uint16* Data, ELandscapeLayerPaintingRestriction::Type PaintingRestriction = ELandscapeLayerPaintingRestriction::None)
+	void SetData(int32 X1, int32 Y1, int32 X2, int32 Y2, const uint16* Data, ELandscapeLayerPaintingRestriction PaintingRestriction = ELandscapeLayerPaintingRestriction::None)
 	{
 		TSet<ULandscapeComponent*> Components;
 		if (LandscapeInfo && LandscapeEdit->GetComponentsInRegion(X1, Y1, X2, Y2, &Components))
@@ -770,7 +776,7 @@ struct FXYOffsetmapAccessor
 		}
 	}
 
-	void SetData(int32 X1, int32 Y1, int32 X2, int32 Y2, const FVector* Data, ELandscapeLayerPaintingRestriction::Type PaintingRestriction = ELandscapeLayerPaintingRestriction::None)
+	void SetData(int32 X1, int32 Y1, int32 X2, int32 Y2, const FVector* Data, ELandscapeLayerPaintingRestriction PaintingRestriction = ELandscapeLayerPaintingRestriction::None)
 	{
 		TSet<ULandscapeComponent*> Components;
 		if (LandscapeInfo && LandscapeEdit->GetComponentsInRegion(X1, Y1, X2, Y2, &Components))
@@ -937,7 +943,7 @@ struct FAlphamapAccessor
 		LandscapeEdit.GetWeightDataFast(LayerInfo, X1, Y1, X2, Y2, Data);
 	}
 
-	void SetData(int32 X1, int32 Y1, int32 X2, int32 Y2, const uint8* Data, ELandscapeLayerPaintingRestriction::Type PaintingRestriction)
+	void SetData(int32 X1, int32 Y1, int32 X2, int32 Y2, const uint8* Data, ELandscapeLayerPaintingRestriction PaintingRestriction)
 	{
 		TSet<ULandscapeComponent*> Components;
 		if (LandscapeEdit.GetComponentsInRegion(X1, Y1, X2, Y2, &Components))
@@ -1044,7 +1050,7 @@ struct FFullWeightmapAccessor
 		LandscapeEdit.GetWeightDataFast(NULL, X1, Y1, X2, Y2, Data);
 	}
 
-	void SetData(int32 X1, int32 Y1, int32 X2, int32 Y2, const uint8* Data, ELandscapeLayerPaintingRestriction::Type PaintingRestriction)
+	void SetData(int32 X1, int32 Y1, int32 X2, int32 Y2, const uint8* Data, ELandscapeLayerPaintingRestriction PaintingRestriction)
 	{
 		TSet<ULandscapeComponent*> Components;
 		if (LandscapeEdit.GetComponentsInRegion(X1, Y1, X2, Y2, &Components))
@@ -1117,7 +1123,7 @@ struct FLandscapeFullWeightCache : public TLandscapeEditCache<FFullWeightmapAcce
 	}
 
 	// Only for all weight case... the accessor type should be TArray<uint8>
-	void SetCachedData(int32 X1, int32 Y1, int32 X2, int32 Y2, TArray<uint8>& Data, int32 ArraySize, ELandscapeLayerPaintingRestriction::Type PaintingRestriction)
+	void SetCachedData(int32 X1, int32 Y1, int32 X2, int32 Y2, TArray<uint8>& Data, int32 ArraySize, ELandscapeLayerPaintingRestriction PaintingRestriction)
 	{
 		// Update cache
 		for (int32 Y = Y1; Y <= Y2; Y++)
@@ -1172,7 +1178,7 @@ struct FDatamapAccessor
 		LandscapeEdit.GetSelectData(X1, Y1, X2, Y2, Data);
 	}
 
-	void SetData(int32 X1, int32 Y1, int32 X2, int32 Y2, const uint8* Data, ELandscapeLayerPaintingRestriction::Type PaintingRestriction = ELandscapeLayerPaintingRestriction::None)
+	void SetData(int32 X1, int32 Y1, int32 X2, int32 Y2, const uint8* Data, ELandscapeLayerPaintingRestriction PaintingRestriction = ELandscapeLayerPaintingRestriction::None)
 	{
 		if (LandscapeEdit.GetComponentsInRegion(X1, Y1, X2, Y2))
 		{
@@ -1259,7 +1265,7 @@ public:
 	enum { UseContinuousApply = false };
 
 	// This is also the expected signature of derived class constructor used by FLandscapeToolBase
-	FLandscapeToolStrokeBase(FEdModeLandscape* InEdMode, const FLandscapeToolTarget& InTarget)
+	FLandscapeToolStrokeBase(FEdModeLandscape* InEdMode, FEditorViewportClient* InViewportClient, const FLandscapeToolTarget& InTarget)
 		: EdMode(InEdMode)
 		, Target(InTarget)
 		, LandscapeInfo(InTarget.LandscapeInfo.Get())
@@ -1304,7 +1310,7 @@ public:
 		}
 
 		bToolActive = true;
-		ToolStroke.Emplace(EdMode, InTarget);
+		ToolStroke.Emplace(EdMode, ViewportClient, InTarget);
 
 		EdMode->CurrentBrush->BeginStroke(InHitLocation.X, InHitLocation.Y, this);
 

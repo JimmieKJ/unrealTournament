@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 //  AActor  used to controll matinee's and to replicate activation, playback, and other relevant flags to net clients
 
@@ -9,7 +9,7 @@
 #include "MatineeActor.generated.h"
 
 /** Signature of function to handle a matinee event track key */
-DECLARE_DYNAMIC_DELEGATE( FOnMatineeEvent );
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnMatineeEvent);
 
 
 /** Helper struct for storing the camera world-position for each camera cut in the cinematic. */
@@ -269,6 +269,18 @@ public:
 #endif //WITH_EDITOR
 
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+	/** Event triggered when the matinee is played for whatever reason */
+	UPROPERTY(BlueprintAssignable, Category = "Cinematic")
+	FOnMatineeEvent OnPlay;
+
+	/** Event triggered when the matinee is stopped for whatever reason */
+	UPROPERTY(BlueprintAssignable, Category = "Cinematic")
+	FOnMatineeEvent OnStop;
+
+	/** Event triggered when the matinee is paused for whatever reason */
+	UPROPERTY(BlueprintAssignable, Category = "Cinematic")
+	FOnMatineeEvent OnPause;
 protected:
 
 	/** Handle for efficient management of CheckPriorityRefresh timer */

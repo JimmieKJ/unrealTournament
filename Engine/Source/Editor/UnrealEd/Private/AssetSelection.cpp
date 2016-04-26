@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "Matinee/MatineeActor.h"
@@ -195,7 +195,7 @@ namespace AssetSelectionUtils
 					}
 
 					USceneComponent* RootComp = CurrentActor->GetRootComponent();
-					if(RootComp != NULL && RootComp->AttachParent != NULL)
+					if(RootComp != nullptr && RootComp->GetAttachParent() != nullptr)
 					{
 						ActorInfo.bHaveAttachedActor = true;
 					}

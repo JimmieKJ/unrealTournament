@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BatchedElements.h: Batched element rendering.
@@ -113,9 +113,6 @@ public:
 	/** Adds a mesh vertex to the batch. */
 	int32 AddVertex(const FVector4& InPosition,const FVector2D& InTextureCoordinate,const FLinearColor& InColor,FHitProxyId HitProxyId);
 
-	/** Adds a quad mesh vertex to the batch. */
-	void AddQuadVertex(const FVector4& InPosition,const FVector2D& InTextureCoordinate,const FLinearColor& InColor,FHitProxyId HitProxyId, const FTexture* Texture,ESimpleElementBlendMode BlendMode);
-
 	/** Adds a triangle to the batch. */
 	void AddTriangle(int32 V0,int32 V1,int32 V2,const FTexture* Texture,EBlendMode BlendMode);
 
@@ -181,7 +178,7 @@ public:
 	
 	FORCEINLINE bool HasPrimsToDraw() const
 	{
-		return( LineVertices.Num() || Points.Num() || Sprites.Num() || MeshElements.Num() || QuadMeshElements.Num() || ThickLines.Num() || WireTris.Num() > 0 );
+		return( LineVertices.Num() || Points.Num() || Sprites.Num() || MeshElements.Num() || ThickLines.Num() || WireTris.Num() > 0 );
 	}
 
 	/** Adds a triangle to the batch. Extensive version where all parameters can be passed in. */
@@ -198,7 +195,7 @@ public:
 	FORCEINLINE uint32 GetAllocatedSize( void ) const
 	{
 		return sizeof(*this) + Points.GetAllocatedSize() + WireTris.GetAllocatedSize() + WireTriVerts.GetAllocatedSize() + ThickLines.GetAllocatedSize()
-			+ Sprites.GetAllocatedSize() + MeshElements.GetAllocatedSize() + MeshVertices.GetAllocatedSize() + QuadMeshElements.GetAllocatedSize();
+			+ Sprites.GetAllocatedSize() + MeshElements.GetAllocatedSize() + MeshVertices.GetAllocatedSize();
 	}
 private:
 
@@ -278,13 +275,6 @@ private:
 		FDepthFieldGlowInfo GlowInfo;
 	};
 
-	struct FBatchedQuadMeshElement
-	{
-		TArray<FSimpleElementVertex> Vertices;
-		const FTexture* Texture;
-		ESimpleElementBlendMode BlendMode;
-	};
-
 	/** Max number of mesh index entries that will fit in a DrawPriUP call */
 	int32 MaxMeshIndicesAllowed;
 	/** Max number of mesh vertices that will fit in a DrawPriUP call */
@@ -292,8 +282,6 @@ private:
 
 	TArray<FBatchedMeshElement,TInlineAllocator<1> > MeshElements;
 	TArray<FSimpleElementVertex,TInlineAllocator<4> > MeshVertices;
-
-	TArray<FBatchedQuadMeshElement> QuadMeshElements;
 
 	/** bound shader state for the fast path */
 	class FSimpleElementBSSContainer

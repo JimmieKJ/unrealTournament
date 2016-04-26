@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -107,7 +107,7 @@ namespace UnrealBuildTool
 		/// <param name="e">  Event arguments (In this case, the line of string output)</param>
 		protected void ActionDebugOutput(object sender, DataReceivedEventArgs e)
 		{
-			var Output = e.Data;
+			string Output = e.Data;
 			if (Output == null)
 			{
 				return;

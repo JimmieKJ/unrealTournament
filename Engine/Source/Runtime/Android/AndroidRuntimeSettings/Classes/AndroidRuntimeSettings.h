@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -111,7 +111,7 @@ public:
 	FString PackageName;
 
 	// The version number used to indicate newer versions in the Store
-	UPROPERTY(GlobalConfig, EditAnywhere, Category = APKPackaging, Meta = (DisplayName = "Store Version (1-65535)", ClampMin="1", ClampMax="65535"))
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = APKPackaging, Meta = (DisplayName = "Store Version (1-2147483647)", ClampMin="1", ClampMax="2147483647"))
 	int32 StoreVersion;
 
 	// The visual application name displayed for end users
@@ -126,6 +126,10 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = APKPackaging, Meta = (DisplayName = "Minimum SDK Version (9=Gingerbread, 14=Ice Cream Sandwich, 21=Lollipop)"))
 	int32 MinSDKVersion;
 	
+	// What OS version the app is expected to run on (do not set this lower than 9, set to 19 for GearVR)
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = APKPackaging, Meta = (DisplayName = "Target SDK Version (9=Gingerbread, 14=Ice Cream Sandwich, 21=Lollipop)"))
+	int32 TargetSDKVersion;
+
 	// Should the data be placed into the .apk file instead of a separate .obb file. Amazon requires this to be enabled, but Google Play Store will not allow .apk files larger than 50MB, so only small games will work with this enabled.
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = APKPackaging, Meta = (DisplayName = "Package game data inside .apk?"))
 	bool bPackageDataInsideApk;
@@ -175,6 +179,10 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = AdvancedAPKPackaging, Meta = (DisplayName = "Configure the AndroidManifest for deployment to GearVR"))
 	bool bPackageForGearVR;
 
+	// Removes Oculus Signature Files (osig) from APK if GearVR APK signed for distribution and enables entitlement checker
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = AdvancedAPKPackaging, Meta = (DisplayName = "Remove Oculus Signature Files from Distribution APK"))
+	bool bRemoveOSIG;
+
 	// This is the file that keytool outputs, specified with the -keystore parameter (file should be in <Project>/Build/Android)
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = DistributionSigning, Meta = (DisplayName = "Key Store (output of keytool, placed in <Project>/Build/Android)"))
 	FString KeyStore;
@@ -214,6 +222,10 @@ public:
 	// Enable ES31 support? [CURRENTLY FOR FULL SOURCE GAMES ONLY]
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Build, meta = (DisplayName = "Support OpenGL ES31 + AEP"))
 	bool bBuildForES31;
+
+	// Enable Vulkan support? [CURRENTLY FOR FULL SOURCE GAMES ONLY]
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Build, meta = (DisplayName = "Support Vulkan"))
+	bool bSupportsVulkan;
 
 	// If selected, the checked architectures will be split into separate .apk files [CURRENTLY FOR FULL SOURCE GAMES ONLY]
 	// @todo android fat binary: Currently, there isn't much utility in merging multiple .so's into a single .apk except for debugging,
@@ -282,7 +294,30 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = MultiTextureFormats, meta = (DisplayName = "Include ASTC textures"))
 	bool bMultiTargetFormat_ASTC;
 
-	
+	/** Priority for the ETC1 texture format when launching on device or packaging using Android_Multi. The highest priority format supported by the device will be used. Default value is 0.1. */
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = TextureFormatPriorities, meta = (DisplayName = "ETC1 texture format priority"))
+	float TextureFormatPriority_ETC1;
+
+	/** Priority for the ETC2 texture format when launching on device or packaging using Android_Multi. The highest priority format supported by the device will be used. Default value is 0.2. */
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = TextureFormatPriorities, meta = (DisplayName = "ETC2 texture format priority"))
+	float TextureFormatPriority_ETC2;
+
+	/** Priority for the DXT texture format when launching on device or packaging using Android_Multi. The highest priority format supported by the device will be used. Default value is 0.6. */
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = TextureFormatPriorities, meta = (DisplayName = "DXT texture format priority"))
+	float TextureFormatPriority_DXT;
+
+	/** Priority for the PVRTC texture format when launching on device or packaging using Android_Multi. The highest priority format supported by the device will be used. Default value is 0.8. */
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = TextureFormatPriorities, meta = (DisplayName = "PVRTC texture format priority"))
+	float TextureFormatPriority_PVRTC;
+
+	/** Priority for the ATC texture format when launching on device or packaging using Android_Multi. The highest priority format supported by the device will be used. Default value is 0.5. */
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = TextureFormatPriorities, meta = (DisplayName = "ATC texture format priority"))
+	float TextureFormatPriority_ATC;
+
+	/** Priority for the ASTC texture format when launching on device or packaging using Android_Multi. The highest priority format supported by the device will be used. Default value is 0.9. */
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = TextureFormatPriorities, meta = (DisplayName = "ASTC texture format priority"))
+	float TextureFormatPriority_ASTC;
+
 #if WITH_EDITOR
 	// UObject interface
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;

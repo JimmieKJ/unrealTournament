@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintGraphPrivatePCH.h"
 #include "BlueprintComponentNodeSpawner.h"
@@ -178,7 +178,7 @@ UEdGraphNode* UBlueprintComponentNodeSpawner::Invoke(UEdGraph* ParentGraph, FBin
 		UBlueprint* Blueprint = NewNode->GetBlueprint();
 
 		FName DesiredComponentName = MakeUniqueObjectName(Blueprint->GeneratedClass, Class, *Class->GetDisplayNameText().ToString());
-		UActorComponent* ComponentTemplate = NewObject<UActorComponent>(Blueprint->GeneratedClass, Class, DesiredComponentName, RF_ArchetypeObject | RF_Public);
+		UActorComponent* ComponentTemplate = NewObject<UActorComponent>(Blueprint->GeneratedClass, Class, DesiredComponentName, RF_ArchetypeObject | RF_Public | RF_Transactional);
 
 		Blueprint->ComponentTemplates.Add(ComponentTemplate);
 

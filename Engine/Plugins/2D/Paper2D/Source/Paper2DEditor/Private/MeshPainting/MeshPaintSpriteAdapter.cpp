@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "Paper2DEditorPrivatePCH.h"
 #include "MeshPaintSpriteAdapter.h"
@@ -99,18 +99,21 @@ bool FMeshPaintSpriteAdapter::LineTraceComponent(struct FHitResult& OutHit, cons
 	return false;
 }
 
-void FMeshPaintSpriteAdapter::SphereIntersectTriangles(TArray<int32>& OutTriangles, const float ComponentSpaceSquaredBrushRadius, const FVector& ComponentSpaceBrushPosition) const
+TArray<uint32> FMeshPaintSpriteAdapter::SphereIntersectTriangles(const float ComponentSpaceSquaredBrushRadius, const FVector& ComponentSpaceBrushPosition, const FVector& ComponentSpaceCameraPosition, const bool bOnlyFrontFacing) const
 {
 	UPaperSprite* Sprite = SpriteComponent->GetSprite();
 	checkSlow(Sprite != nullptr);
 
 	//@TODO: MESHPAINT: This isn't very precise..., but since the sprite is planar it shouldn't cause any actual issues with paint UX other than being suboptimal
-	const int32 NumTriangles = Sprite->BakedRenderData.Num() / 3;
+	const uint32 NumTriangles = Sprite->BakedRenderData.Num() / 3;
+	TArray<uint32> OutTriangles;
 	OutTriangles.Reserve(OutTriangles.Num() + NumTriangles);
-	for (int32 TriIndex = 0; TriIndex < NumTriangles; ++TriIndex)
+	for (uint32 TriIndex = 0; TriIndex < NumTriangles; ++TriIndex)
 	{
 		OutTriangles.Add(TriIndex);
 	}
+
+	return OutTriangles;
 }
 
 void FMeshPaintSpriteAdapter::QueryPaintableTextures(int32 MaterialIndex, int32& OutDefaultIndex, TArray<struct FPaintableTexture>& InOutTextureList)

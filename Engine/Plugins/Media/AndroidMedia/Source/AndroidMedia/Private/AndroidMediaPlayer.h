@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -53,28 +53,10 @@ public:
 	virtual bool SetLooping(bool Looping) override;
 	virtual bool SetRate(float Rate) override;
 
-	DECLARE_DERIVED_EVENT(FAndroidMediaPlayer, IMediaPlayer::FOnMediaClosed, FOnMediaClosed);
-	virtual FOnMediaClosed& OnClosed() override
+	DECLARE_DERIVED_EVENT(FAndroidMediaPlayer, IMediaPlayer::FOnMediaEvent, FOnMediaEvent);
+	virtual FOnMediaEvent& OnMediaEvent() override
 	{
-		return ClosedEvent;
-	}
-
-	DECLARE_DERIVED_EVENT(FAndroidMediaPlayer, IMediaPlayer::FOnMediaOpened, FOnMediaOpened);
-	virtual FOnMediaOpened& OnOpened() override
-	{
-		return OpenedEvent;
-	}
-
-	DECLARE_DERIVED_EVENT(FAndroidMediaPlayer, IMediaPlayer::FOnMediaOpenFailed, FOnMediaOpenFailed);
-	virtual FOnMediaOpenFailed& OnOpenFailed() override
-	{
-		return OpenFailedEvent;
-	}
-
-	DECLARE_DERIVED_EVENT(FWmfMediaPlayer, IMediaPlayer::FOnTracksChanged, FOnTracksChanged);
-	virtual FOnTracksChanged& OnTracksChanged() override
-	{
-		return TracksChangedEvent;
+		return MediaEvent;
 	}
 
 public:
@@ -104,23 +86,14 @@ private:
 	/** The available caption tracks. */
 	TArray<IMediaCaptionTrackRef> CaptionTracks;
 
-	/** Holds an event delegate that is invoked when media has been closed. */
-	FOnMediaClosed ClosedEvent;
-
 	/** The Java side media interface. */
 	TSharedPtr<FJavaAndroidMediaPlayer> JavaMediaPlayer;
 
+	/** Holds an event delegate that is invoked when a media event occurred. */
+	FOnMediaEvent MediaEvent;
+
 	/** Our understanding of the state of the Java media player. */
 	EMediaState MediaState;
-
-	/** Holds an event delegate that is invoked when media has been opened. */
-	FOnMediaOpened OpenedEvent;
-
-	/** Holds an event delegate that is invoked when media failed to open. */
-	FOnMediaOpenFailed OpenFailedEvent;
-
-	/** Holds an event delegate that is invoked when the media tracks have changed. */
-	FOnTracksChanged TracksChangedEvent;
 
 	/** Currently opened media. */
 	FString MediaUrl;

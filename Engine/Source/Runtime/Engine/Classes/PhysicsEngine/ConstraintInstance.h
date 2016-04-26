@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "ConstraintInstance.generated.h"
@@ -251,7 +251,12 @@ struct ENGINE_API FConstraintInstance
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Angular, meta=(editcondition = "bAngularBreakable", ClampMin = "0.0"))
 	float AngularBreakThreshold;
 
+	/** If true, linear limits scale using the absolute min of the 3d scale of the owning component */
+	UPROPERTY(EditAnywhere, Category = Linear)
+	uint32 bScaleLinearLimits : 1;
+
 private:
+
 	/** Enables/Disables linear position drive along the x axis. */
 	UPROPERTY(EditAnywhere, Category=LinearMotor)
 	uint32 bLinearXPositionDrive:1;
@@ -369,7 +374,11 @@ public:
 
 	float AverageMass;
 
+private:
+	/** The component scale passed in during initialization*/
+	float LastKnownScale;
 
+public:
 	/** Sets the LinearX Motion Type
 	*	@param MotionType	New Motion Type
 	*/
@@ -515,7 +524,7 @@ public:
 
 private:
 #if WITH_PHYSX 
-	bool CreatePxJoint_AssumesLocked(physx::PxRigidActor* PActor1, physx::PxRigidActor* PActor2, physx::PxScene* PScene, const float Scale);
+	bool CreatePxJoint_AssumesLocked(physx::PxRigidActor* PActor1, physx::PxRigidActor* PActor2, physx::PxScene* PScene);
 	void UpdateConstraintFlags_AssumesLocked();
 	void UpdateAverageMass_AssumesLocked(const physx::PxRigidActor* PActor1, const physx::PxRigidActor* PActor2);
 	physx::PxD6Joint* GetUnbrokenJoint_AssumesLocked() const;

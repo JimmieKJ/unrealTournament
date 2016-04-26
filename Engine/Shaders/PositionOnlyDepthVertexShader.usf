@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PositionOnlyDepthOnlyVertexShader.hlsl: Depth-only vertex shader.
@@ -8,14 +8,49 @@
 #include "Material.usf"
 #include "VertexFactory.usf"
 
+#if INSTANCED_STEREO
+bool bNeedsInstancedStereoBias;
+#endif
 
 void Main(
 	FPositionOnlyVertexFactoryInput Input,
-	out float4 OutPosition : SV_POSITION)
+	out float4 OutPosition : SV_POSITION
+#if INSTANCED_STEREO
+	, uint InstanceId : SV_InstanceID
+	, out float4 OutClipDistance : SV_ClipDistance
+	, out float4 OutCullDistance : SV_CullDistance
+#endif
+	)
 {
+#if INSTANCED_STEREO
+	OutCullDistance = OutClipDistance = 0.0;
+	const uint EyeIndex = VertexFactoryGetEyeIndex(InstanceId);
+	ResolvedView = ResolveView(EyeIndex);
+#else
+	ResolvedView = ResolveView();
+#endif
+
 	float4 WorldPos = VertexFactoryGetWorldPosition(Input);
 	ISOLATE
 	{
-		OutPosition = mul(WorldPos, View.TranslatedWorldToClip);
+		OutPosition = mul(WorldPos, ResolvedView.TranslatedWorldToClip);
+
+		#if INSTANCED_STEREO
+		BRANCH 
+		if (bIsInstancedStereo)  
+		{
+			// Clip at the center of the screen
+			OutCullDistance.x = OutClipDistance.x = dot(OutPosition, EyeClipEdge[EyeIndex]);
+
+			// Scale to the width of a single eye viewport
+			OutPosition.x *= 0.5 * Frame.HMDEyePaddingOffset;
+
+			// Shift to the eye viewport
+			OutPosition.x += (EyeOffsetScale[EyeIndex] * OutPosition.w) * (1.0f - 0.5 * Frame.HMDEyePaddingOffset);
+		}
+		
+		// Bias the depth	
+		OutPosition.z += InstancedStereoDepthBias * OutPosition.w * (float)bNeedsInstancedStereoBias;
+		#endif
 	}
 }

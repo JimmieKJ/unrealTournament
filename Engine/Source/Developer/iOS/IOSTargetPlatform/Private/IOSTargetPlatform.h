@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	IOSTargetPlatform.h: Declares the FIOSTargetPlatform class.
@@ -15,15 +15,14 @@
 /**
  * FIOSTargetPlatform, abstraction for cooking iOS platforms
  */
-class FIOSTargetPlatform
-	: public TTargetPlatformBase<FIOSPlatformProperties>
+class FIOSTargetPlatform : public TTargetPlatformBase<FIOSPlatformProperties>
 {
 public:
 
 	/**
 	 * Default constructor.
 	 */
-	FIOSTargetPlatform();
+	IOSTARGETPLATFORM_API FIOSTargetPlatform(bool bInISTVOS);
 
 	/**
 	 * Destructor.
@@ -44,7 +43,18 @@ public:
 public:
 
 	//~ Begin ITargetPlatform Interface
+	
+	// this is used for cooking to a separate directory, NOT for runtime. Runtime TVOS is still "IOS"
+	virtual FString PlatformName() const override
+	{
+		return bIsTVOS ? "TVOS" : "IOS";
+	}
 
+    virtual FString IniPlatformName() const override
+    {
+        return "IOS";
+    }
+    
 	virtual void EnableDeviceCheck(bool OnOff) override;
 
 	virtual void GetAllDevices( TArray<ITargetDevicePtr>& OutDevices ) const override;
@@ -87,6 +97,8 @@ public:
 	virtual void GetAllPossibleShaderFormats( TArray<FName>& OutFormats ) const override;
 
 	virtual void GetAllTargetedShaderFormats( TArray<FName>& OutFormats ) const override;
+	
+	virtual void GetAllCachedShaderFormats( TArray<FName>& OutFormats ) const override {}
 
 	virtual const class FStaticMeshLODSettings& GetStaticMeshLODSettings( ) const override
 	{
@@ -108,10 +120,17 @@ public:
 	virtual void GetBuildProjectSettingKeys(FString& OutSection, TArray<FString>& InBoolKeys, TArray<FString>& InIntKeys, TArray<FString>& InStringKeys) const override
 	{
 		OutSection = TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings");
-		InBoolKeys.Add(TEXT("bDevForArmV7")); InBoolKeys.Add(TEXT("bDevForArm64")); InBoolKeys.Add(TEXT("bDevForArmV7S"));
-		InBoolKeys.Add(TEXT("bShipForArmV7")); InBoolKeys.Add(TEXT("bShipForArm64")); InBoolKeys.Add(TEXT("bShipForArmV7S"));
 		InBoolKeys.Add(TEXT("bGeneratedSYMFile"));
-		InStringKeys.Add(TEXT("MinimumiOSVersion"));
+		if (bIsTVOS)
+		{
+			InStringKeys.Add(TEXT("MinimumTVOSVersion"));
+		}
+		else
+		{
+			InStringKeys.Add(TEXT("MinimumiOSVersion"));
+			InBoolKeys.Add(TEXT("bDevForArmV7")); InBoolKeys.Add(TEXT("bDevForArm64")); InBoolKeys.Add(TEXT("bDevForArmV7S"));
+			InBoolKeys.Add(TEXT("bShipForArmV7")); InBoolKeys.Add(TEXT("bShipForArm64")); InBoolKeys.Add(TEXT("bShipForArmV7S"));
+		}
 	}
 
 	DECLARE_DERIVED_EVENT(FIOSTargetPlatform, ITargetPlatform::FOnTargetDeviceDiscovered, FOnTargetDeviceDiscovered);
@@ -147,6 +166,9 @@ private:
     void HandleDeviceDisconnected( const FIOSLaunchDaemonPong& Message );
 
 private:
+	
+	// true if this is targeting TVOS vs IOS
+	bool bIsTVOS;
 
 	// Contains all discovered IOSTargetDevices over the network.
 	TMap<FTargetDeviceId, FIOSTargetDevicePtr> Devices;

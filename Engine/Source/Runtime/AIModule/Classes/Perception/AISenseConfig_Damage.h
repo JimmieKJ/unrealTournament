@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -11,7 +11,7 @@ class UAISense_Damage;
 UCLASS(meta = (DisplayName = "AI Damage sense config"))
 class AIMODULE_API UAISenseConfig_Damage : public UAISenseConfig
 {
-	GENERATED_BODY()
+	GENERATED_UCLASS_BODY()
 
 public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sense", NoClear, config)

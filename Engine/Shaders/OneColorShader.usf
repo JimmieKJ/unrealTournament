@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	OneColorShader.usf: 2D shader for drawing a single constant color.
@@ -15,6 +15,9 @@
 struct FOneColorVertexOutput
 {
 	float4 Position : SV_POSITION;
+#if USING_VERTEX_SHADER_LAYER && USING_LAYERS
+	uint LayerIndex : SV_RenderTargetArrayIndex;
+#endif
 };
 
 
@@ -24,6 +27,9 @@ struct FOneColorVertexOutput
 
 void MainVertexShader(
 	in float4 InPosition : ATTRIBUTE0,
+#if USING_VERTEX_SHADER_LAYER && USING_LAYERS
+	in uint InstanceId	: SV_InstanceID,
+#endif
 	out FOneColorVertexOutput Output
 	)
 {
@@ -31,6 +37,10 @@ void MainVertexShader(
 
 #if !USING_NDC_POSITIONS
 	DrawRectangle( InPosition, Output.Position);
+#endif
+
+#if USING_VERTEX_SHADER_LAYER && USING_LAYERS
+	Output.LayerIndex = InstanceId;
 #endif
 }
 

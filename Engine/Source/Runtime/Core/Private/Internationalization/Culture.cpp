@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 
@@ -69,12 +69,13 @@ int FCulture::GetLCID() const
 	return Implementation->GetLCID();
 }
 
-TArray<FString> FCulture::GetPrioritizedParentCultureNames()
+TArray<FString> FCulture::GetPrioritizedParentCultureNames() const
 {
-	const FString LanguageCode = GetTwoLetterISOLanguageName();
-	const FString ScriptCode = GetScript();
-	const FString RegionCode = GetRegion();
+	return GetPrioritizedParentCultureNames(GetTwoLetterISOLanguageName(), GetScript(), GetRegion());
+}
 
+TArray<FString> FCulture::GetPrioritizedParentCultureNames(const FString& LanguageCode, const FString& ScriptCode, const FString& RegionCode)
+{
 	TArray<FString> LocaleTagCombinations;
 	if (!ScriptCode.IsEmpty() && !RegionCode.IsEmpty())
 	{
@@ -146,4 +147,10 @@ const FString& FCulture::GetScript() const
 const FString& FCulture::GetVariant() const
 {
 	return CachedVariant;
+}
+
+void FCulture::HandleCultureChanged()
+{
+	// Re-cache the DisplayName, as this may change when the active culture is changed
+	CachedDisplayName = Implementation->GetDisplayName();
 }

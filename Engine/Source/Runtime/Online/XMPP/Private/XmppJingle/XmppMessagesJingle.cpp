@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "XmppPrivatePCH.h"
 #include "XmppJingle.h"
@@ -124,7 +124,7 @@ public:
 			return buzz::XMPP_RETURN_BADSTATE;
 		}
 
-		buzz::Jid ToJidFull(ToJid.node(), GetClient()->jid().domain(), buzz::STR_EMPTY);
+		buzz::Jid ToJidFull(ToJid.node(), GetClient()->jid().domain(), ToJid.resource());
 		buzz::XmlElement* Stanza = MessageToStanza(ToJidFull, Message);
 		QueueStanza(Stanza);
 		delete Stanza;

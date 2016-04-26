@@ -1,4 +1,6 @@
-﻿using System;
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -7,37 +9,39 @@ using UnrealBuildTool;
 
 namespace AutomationTool
 {
-	public class LegacyNodeTemplate : BuildNodeTemplate
+	public class LegacyNodeDefinition : BuildNodeDefinition
 	{
 		public GUBP Owner;
 		public GUBP.GUBPNode Node;
 
-		public LegacyNodeTemplate(GUBP InOwner, GUBP.GUBPNode InNode)
+		public LegacyNodeDefinition(GUBP InOwner, GUBP.GUBPNode InNode)
 		{
 			Owner = InOwner;
 			Node = InNode;
 
-			SetStandardProperties(InNode, this);
+			// Copy the definition from the node
+			Name = Node.GetFullName();
+			AgentTypes = String.Join(";", Node.GetAgentTypes());
+			AgentRequirements = Node.ECAgentString();
+			AgentSharingGroup = Node.AgentSharingGroup;
+			AgentMemoryRequirement = Node.AgentMemoryRequirement();
+			TimeoutInMinutes = Node.TimeoutInMinutes();
+			SendSuccessEmail = Node.SendSuccessEmail();
+			NotifyOnWarnings = Node.NotifyOnWarnings();
+			Priority = Node.Priority();
+			IsSticky = Node.IsSticky();
+			DependsOn = String.Join(";", Node.FullNamesOfDependencies);
+			RunAfter = String.Join(";", Node.FullNamesOfPseudodependencies);
+			IsTest = Node.IsTest();
+			DisplayGroupName = Node.GetDisplayGroupName();
 		}
 
-		public static void SetStandardProperties(GUBP.GUBPNode Node, BuildNodeTemplate Definition)
+		public override void AddToGraph(BuildGraphContext Context, List<AggregateNodeDefinition> AggregateNodeDefinitions, List<BuildNodeDefinition> BuildNodeDefinitions)
 		{
-			Definition.Name = Node.GetFullName();
-			Definition.AgentRequirements = Node.ECAgentString();
-			Definition.AgentSharingGroup = Node.AgentSharingGroup;
-			Definition.AgentMemoryRequirement = Node.AgentMemoryRequirement();
-			Definition.TimeoutInMinutes = Node.TimeoutInMinutes();
-			Definition.SendSuccessEmail = Node.SendSuccessEmail();
-			Definition.Priority = Node.Priority();
-			Definition.IsSticky = Node.IsSticky();
-			Definition.InputDependencyNames = String.Join(";", Node.FullNamesOfDependencies);
-			Definition.OrderDependencyNames = String.Join(";", Node.FullNamesOfPseudodependencies);
-			Definition.IsTest = Node.IsTest();
-			Definition.DisplayGroupName = Node.GetDisplayGroupName();
-            Definition.GameNameIfAnyForFullGameAggregateNode = Node.GameNameIfAnyForFullGameAggregateNode();
+			throw new NotImplementedException();
 		}
 
-		public override BuildNode Instantiate()
+		public override BuildNode CreateNode()
 		{
 			return new LegacyNode(this);
 		}
@@ -48,21 +52,21 @@ namespace AutomationTool
 		GUBP Owner;
 		GUBP.GUBPNode Node;
 
-		public LegacyNode(LegacyNodeTemplate Template)
-			: base(Template)
+		public LegacyNode(LegacyNodeDefinition Definition)
+			: base(Definition)
 		{
-			Owner = Template.Owner;
-			Node = Template.Node;
+			Owner = Definition.Owner;
+			Node = Definition.Node;
 		}
 
-		public override void RetrieveBuildProducts(TempStorageNodeInfo TempStorageNodeInfo)
+		public override void RetrieveBuildProducts(string SharedStorageDir)
 		{
-			base.RetrieveBuildProducts(TempStorageNodeInfo);
+			base.RetrieveBuildProducts(SharedStorageDir);
 
 			Node.BuildProducts = BuildProducts;
 		}
 
-		public override void DoBuild()
+		public override bool DoBuild()
 		{
 			Node.AllDependencyBuildProducts = new List<string>();
 			foreach (BuildNode InputDependency in InputDependencies)
@@ -75,12 +79,14 @@ namespace AutomationTool
 
 			Node.DoBuild(Owner);
 			BuildProducts = Node.BuildProducts;
+			return true;
 		}
 
-		public override void DoFakeBuild()
+		public override bool DoFakeBuild()
 		{
 			Node.DoFakeBuild(Owner);
 			BuildProducts = Node.BuildProducts;
+			return true;
 		}
 	}
 }

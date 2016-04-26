@@ -18,7 +18,8 @@ class UNREALTOURNAMENT_API UUTMultiKillMessage : public UUTLocalMessage
 	UUTMultiKillMessage(const FObjectInitializer& ObjectInitializer)
 		: Super(ObjectInitializer)
 	{
-		MessageArea = FName(TEXT("DeathMessage"));
+		MessageArea = FName(TEXT("Announcements"));
+		MessageSlot = FName(TEXT("MultiKill"));
 
 		AnnouncementText.Add(NSLOCTEXT("UTMultiKillMessage", "AnnouncementText[0]", "Double Kill!"));
 		AnnouncementText.Add(NSLOCTEXT("UTMultiKillMessage", "AnnouncementText[1]", "Multi Kill!"));
@@ -34,6 +35,7 @@ class UNREALTOURNAMENT_API UUTMultiKillMessage : public UUTLocalMessage
 		bIsConsoleMessage = false;
 		Lifetime = 3.0f;
 		bWantsBotReaction = true;
+		ScaleInSize = 3.f;
 	}
 
 	virtual FLinearColor GetMessageColor_Implementation(int32 MessageIndex) const override
@@ -41,16 +43,11 @@ class UNREALTOURNAMENT_API UUTMultiKillMessage : public UUTLocalMessage
 		return FLinearColor::Red;
 	}
 
-	virtual float GetScaleInSize(int32 MessageIndex) const
-	{
-		return 3.f;
-	}
-
 	virtual bool ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const override
 	{
 		return IsLocalForAnnouncement(ClientData, true, true);
 	}
-	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override
+	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const override
 	{
 		// Switch is MultiKillLevel - 1 (e.g. 0 is double kill)
 		return AnnouncementNames.Num() > 0 ? AnnouncementNames[FMath::Clamp<int32>(Switch, 0, AnnouncementNames.Num() - 1)] : NAME_None;
@@ -60,7 +57,7 @@ class UNREALTOURNAMENT_API UUTMultiKillMessage : public UUTLocalMessage
 		return AnnouncementText.Num() > 0 ? AnnouncementText[FMath::Clamp<int32>(Switch, 0, AnnouncementText.Num() - 1)] : FText();
 	}
 
-	virtual bool ShouldCountInstances_Implementation(int32 MessageIndex) const override
+	virtual bool ShouldCountInstances_Implementation(int32 MessageIndex, UObject* OptionalObject) const override
 	{
 		return MessageIndex == AnnouncementText.Num() - 1;
 	}

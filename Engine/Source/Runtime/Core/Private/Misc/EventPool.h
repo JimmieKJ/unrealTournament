@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -77,10 +77,7 @@ public:
 		check(Event);
 		check(Event->IsManualReset() == (PoolType == EEventPoolTypes::ManualReset));
 
-		if (PoolType == EEventPoolTypes::ManualReset)
-		{
-			Event->Reset();
-		}
+		Event->Reset();
 
 		Pool.Push(Event);
 	}
@@ -88,5 +85,5 @@ public:
 private:
 
 	/** Holds the collection of recycled events. */
-	TLockFreePointerListUnordered<FEvent> Pool;
+	TLockFreePointerListUnordered<FEvent, PLATFORM_CACHE_LINE_SIZE> Pool;
 };

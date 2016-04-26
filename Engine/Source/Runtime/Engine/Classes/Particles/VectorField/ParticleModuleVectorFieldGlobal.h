@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*==============================================================================
 	ParticleModuleVectorFieldGlobal: Global vector field scale.
@@ -14,7 +14,7 @@ class UParticleModuleVectorFieldGlobal : public UParticleModuleVectorFieldBase
 	GENERATED_UCLASS_BODY()
 
 	/** Property override value for global vector field tightness.  */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category = VectorField, meta=(InlineEditConditionToggle))
 	uint32 bOverrideGlobalVectorFieldTightness:1;
 
 	/** Global vector field scale. */

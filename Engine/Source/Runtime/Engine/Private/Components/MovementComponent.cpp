@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "EnginePrivate.h"
@@ -120,7 +120,11 @@ void UMovementComponent::OnRegister()
 		SetPlaneConstraintAxisSetting(PlaneConstraintAxisSetting);
 	}
 
-	PlaneConstraintNormal = PlaneConstraintNormal.GetSafeNormal();
+	const UWorld* MyWorld = GetWorld();
+	if (MyWorld && MyWorld->IsGameWorld())
+	{
+		PlaneConstraintNormal = PlaneConstraintNormal.GetSafeNormal();
+	}
 
 	if (bSnapToPlaneAtStart)
 	{
@@ -236,7 +240,8 @@ APhysicsVolume* UMovementComponent::GetPhysicsVolume() const
 
 bool UMovementComponent::IsInWater() const
 {
-	return GetPhysicsVolume() && GetPhysicsVolume()->bWaterVolume;
+	const APhysicsVolume* PhysVolume = GetPhysicsVolume();
+	return PhysVolume && PhysVolume->bWaterVolume;
 }
 
 bool UMovementComponent::ShouldSkipUpdate(float DeltaTime) const

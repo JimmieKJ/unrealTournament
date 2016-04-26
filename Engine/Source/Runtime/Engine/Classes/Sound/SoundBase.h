@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,6 +6,7 @@
  * The base class for a playable sound object 
  */
 
+#include "Audio.h"
 #include "Sound/SoundConcurrency.h"
 #include "SoundBase.generated.h"
 
@@ -24,6 +25,10 @@ UCLASS(config=Engine, hidecategories=Object, abstract, editinlinenew, BlueprintT
 class ENGINE_API USoundBase : public UObject
 {
 	GENERATED_UCLASS_BODY()
+
+private:
+	static USoundClass* DefaultSoundClassObject;
+	static USoundConcurrency* DefaultSoundConcurrencyObject;
 
 protected:
 	/** Sound class this sound belongs to */
@@ -65,7 +70,7 @@ public:
 	USoundAttenuation* AttenuationSettings;
 
 	/** Sound priority (higher value is higher priority) used for concurrency resolution. This priority value is weighted against the final volume of the sound. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency, meta = (ClampMin = "0.0", UIMin = "0.0", ClampMax = "100.0", UIMax = "100.0") )
 	float Priority;
 
 public:	
@@ -84,19 +89,6 @@ public:
 	virtual const FAttenuationSettings* GetAttenuationSettingsToApply() const;
 
 	/**
-	 * Checks to see if a location is audible
-	 */
-	bool IsAudible( const FVector& SourceLocation, const FVector& ListenerLocation, AActor* SourceActor, bool& bIsOccluded, bool bCheckOcclusion );
-
-	/** 
-	 * Does a simple range check to all listeners to test hearability
-	 *
-	 * @param Location				Location to check against
-	 * @param AttenuationSettings	Optional Attenuation override if not using settings from the sound
-	 */
-	bool IsAudibleSimple( class FAudioDevice* AudioDevice, const FVector Location, USoundAttenuation* InAttenuationSettings = NULL );
-
-	/** 
 	 * Returns the farthest distance at which the sound could be heard
 	 */
 	virtual float GetMaxAudibleDistance();
@@ -108,6 +100,14 @@ public:
 
 	virtual float GetVolumeMultiplier();
 	virtual float GetPitchMultiplier();
+
+	/**
+	  * Returns the subtitle priority
+	  */
+	virtual float GetSubtitlePriority() const { return DEFAULT_SUBTITLE_PRIORITY; };
+
+	/** Returns whether or not this sound is looping. */
+	bool IsLooping();
 
 	/** 
 	 * Parses the Sound to generate the WaveInstances to play

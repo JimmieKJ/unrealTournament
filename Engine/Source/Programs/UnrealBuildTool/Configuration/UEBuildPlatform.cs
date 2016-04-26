@@ -1,10 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 
 namespace UnrealBuildTool
 {
@@ -407,6 +408,16 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Enumerates all the platform groups for a given platform
+		/// </summary>
+		/// <param name="InPlatform">The platform to look for</param>
+		/// <returns>List of platform groups that this platform is a member of</returns>
+		public static IEnumerable<UnrealPlatformGroup> GetPlatformGroups(UnrealTargetPlatform Platform)
+		{
+			return PlatformGroupDictionary.Where(x => x.Value.Contains(Platform)).Select(x => x.Key);
+		}
+
+		/// <summary>
 		/// Retrieve the IUEBuildPlatform instance for the given TargetPlatform
 		/// </summary>
 		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
@@ -456,26 +467,12 @@ namespace UnrealBuildTool
 		/// <param name="Only">  If this is not unknown, then only run that platform</param>
 		public static void PlatformModifyHostModuleRules(string ModuleName, ModuleRules Rules, TargetInfo Target, UnrealTargetPlatform Only = UnrealTargetPlatform.Unknown)
 		{
-			foreach (var PlatformEntry in BuildPlatformDictionary)
+			foreach (KeyValuePair<UnrealTargetPlatform, UEBuildPlatform> PlatformEntry in BuildPlatformDictionary)
 			{
 				if (Only == UnrealTargetPlatform.Unknown || PlatformEntry.Key == Only)
 				{
 					PlatformEntry.Value.ModifyModuleRulesForOtherPlatform(ModuleName, Rules, Target);
 				}
-			}
-		}
-
-		// Included for compatibility during //UE4/Main import
-		[Obsolete]
-		public CPPTargetPlatform GetCPPTargetPlatform(UnrealTargetPlatform ForPlatform)
-		{
-			if(Platform == ForPlatform)
-			{
-				return DefaultCppPlatform;
-			}
-			else
-			{
-				throw new BuildException("Target platform {0} can not be compiled on {1}", ForPlatform, Platform);
 			}
 		}
 
@@ -534,7 +531,7 @@ namespace UnrealBuildTool
 		public static bool PlatformRequiresMonolithicBuilds(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
 		{
 			// Some platforms require monolithic builds...
-			var BuildPlatform = GetBuildPlatform(InPlatform, true);
+			UEBuildPlatform BuildPlatform = GetBuildPlatform(InPlatform, true);
 			if (BuildPlatform != null)
 			{
 				return BuildPlatform.ShouldCompileMonolithicBinary(InPlatform);
@@ -1103,7 +1100,7 @@ namespace UnrealBuildTool
 					//HookProcess.StartInfo.RedirectStandardOutput = true;
 					//HookProcess.StartInfo.RedirectStandardError = true;					
 
-					using (var HookTimer = new ScopedTimer("Time to run hook: ", bShouldLogInfo ? LogEventType.Log : LogEventType.Verbose))
+					using (ScopedTimer HookTimer = new ScopedTimer("Time to run hook: ", bShouldLogInfo ? LogEventType.Log : LogEventType.Verbose))
 					{
 						//installers may require administrator access to succeed. so run as an admmin.
 						HookProcess.StartInfo.Verb = "runas";
@@ -1599,8 +1596,27 @@ namespace UnrealBuildTool
 	public abstract class UEBuildPlatformFactory
 	{
 		/// <summary>
+		/// Attempt to register a build platform, checking whether it is a valid platform in installed builds
+		/// </summary>
+		public void TryRegisterBuildPlatforms()
+		{
+			if (InstalledPlatformInfo.Current.IsValidPlatform(TargetPlatform))
+			{
+				RegisterBuildPlatforms();
+			}
+		}
+
+		/// <summary>
+		/// Gets the target platform for an individual factory
+		/// </summary>
+		protected abstract UnrealTargetPlatform TargetPlatform
+		{
+			get;
+		}
+
+		/// <summary>
 		/// Register the platform with the UEBuildPlatform class
 		/// </summary>
-		public abstract void RegisterBuildPlatforms();
+		protected abstract void RegisterBuildPlatforms();
 	}
 }

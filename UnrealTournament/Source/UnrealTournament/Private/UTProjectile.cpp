@@ -96,11 +96,6 @@ void AUTProjectile::PreInitializeComponents()
 
 	Super::PreInitializeComponents();
 
-	if (SpawnInstigator != NULL)
-	{
-		Instigator = SpawnInstigator;
-	}
-
 	if (Instigator != NULL)
 	{
 		InstigatorController = Instigator->Controller;
@@ -457,7 +452,7 @@ void AUTProjectile::TickActor(float DeltaTime, ELevelTick TickType, FActorTickFu
 	}
 }
 
-void AUTProjectile::NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser)
+void AUTProjectile::NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser, int32 Damage)
 {
 }
 

@@ -1,13 +1,13 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerPrivatePCH.h"
 #include "SequencerSelection.h"
 #include "MovieSceneSection.h"
 
 FSequencerSelection::FSequencerSelection()
+	: SuspendBroadcastCount(0)
+	, bOutlinerNodeSelectionChangedBroadcastPending(false)
 {
-	ActiveSelection = EActiveSelection::None;
-	bSuspendBroadcast = false;
 }
 
 const TSet<FSequencerSelectedKey>& FSequencerSelection::GetSelectedKeys() const
@@ -25,9 +25,9 @@ const TSet<TSharedRef<FSequencerDisplayNode>>& FSequencerSelection::GetSelectedO
 	return SelectedOutlinerNodes;
 }
 
-FSequencerSelection::EActiveSelection FSequencerSelection::GetActiveSelection() const
+const TSet<TSharedRef<FSequencerDisplayNode>>& FSequencerSelection::GetNodesWithSelectedKeysOrSections() const
 {
-	return ActiveSelection;
+	return NodesWithSelectedKeysOrSections;
 }
 
 FSequencerSelection::FOnSelectionChanged& FSequencerSelection::GetOnKeySelectionChanged()
@@ -45,41 +45,71 @@ FSequencerSelection::FOnSelectionChanged& FSequencerSelection::GetOnOutlinerNode
 	return OnOutlinerNodeSelectionChanged;
 }
 
+FSequencerSelection::FOnSelectionChanged& FSequencerSelection::GetOnNodesWithSelectedKeysOrSectionsChanged()
+{
+	return OnNodesWithSelectedKeysOrSectionsChanged;
+}
+
 void FSequencerSelection::AddToSelection(FSequencerSelectedKey Key)
 {
 	SelectedKeys.Add(Key);
-	ActiveSelection = EActiveSelection::KeyAndSection;
-	if (!bSuspendBroadcast)
+	if ( IsBroadcasting() )
 	{
 		OnKeySelectionChanged.Broadcast();
 	}
+
+	// Deselect any outliner nodes that aren't within the trunk of this key
+	if (Key.KeyArea.IsValid())
+	{
+		EmptySelectedOutlinerNodesWithoutSection(Key.KeyArea->GetOwningSection());
+	}
+
+	EmptySelectedSections();
 }
 
 void FSequencerSelection::AddToSelection(UMovieSceneSection* Section)
 {
 	SelectedSections.Add(Section);
-	ActiveSelection = EActiveSelection::KeyAndSection;
-	if (!bSuspendBroadcast)
+	if ( IsBroadcasting() )
 	{
 		OnSectionSelectionChanged.Broadcast();
 	}
+
+	// Deselect any outliner nodes that aren't within the trunk of this section
+	if (Section)
+	{
+		EmptySelectedOutlinerNodesWithoutSection(Section);
+	}
+
+	EmptySelectedKeys();
 }
 
 void FSequencerSelection::AddToSelection(TSharedRef<FSequencerDisplayNode> OutlinerNode)
 {
 	SelectedOutlinerNodes.Add(OutlinerNode);
-	ActiveSelection = EActiveSelection::OutlinerNode;
-	if (!bSuspendBroadcast)
+	if ( IsBroadcasting() )
 	{
 		OnOutlinerNodeSelectionChanged.Broadcast();
 	}
+	EmptySelectedKeys();
+	EmptySelectedSections();
+	EmptyNodesWithSelectedKeysOrSections();
 }
+
+void FSequencerSelection::AddToNodesWithSelectedKeysOrSections(TSharedRef<FSequencerDisplayNode> OutlinerNode)
+{
+	NodesWithSelectedKeysOrSections.Add(OutlinerNode);
+	if ( IsBroadcasting() )
+	{
+		OnNodesWithSelectedKeysOrSectionsChanged.Broadcast();
+	}
+}
+
 
 void FSequencerSelection::RemoveFromSelection(FSequencerSelectedKey Key)
 {
 	SelectedKeys.Remove(Key);
-	ActiveSelection = EActiveSelection::KeyAndSection;
-	if (!bSuspendBroadcast)
+	if ( IsBroadcasting() )
 	{
 		OnKeySelectionChanged.Broadcast();
 	}
@@ -88,8 +118,7 @@ void FSequencerSelection::RemoveFromSelection(FSequencerSelectedKey Key)
 void FSequencerSelection::RemoveFromSelection(UMovieSceneSection* Section)
 {
 	SelectedSections.Remove(Section);
-	ActiveSelection = EActiveSelection::KeyAndSection;
-	if (!bSuspendBroadcast)
+	if ( IsBroadcasting() )
 	{
 		OnSectionSelectionChanged.Broadcast();
 	}
@@ -98,10 +127,18 @@ void FSequencerSelection::RemoveFromSelection(UMovieSceneSection* Section)
 void FSequencerSelection::RemoveFromSelection(TSharedRef<FSequencerDisplayNode> OutlinerNode)
 {
 	SelectedOutlinerNodes.Remove(OutlinerNode);
-	ActiveSelection = EActiveSelection::OutlinerNode;
-	if (!bSuspendBroadcast)
+	if ( IsBroadcasting() )
 	{
 		OnOutlinerNodeSelectionChanged.Broadcast();
+	}
+}
+
+void FSequencerSelection::RemoveFromNodesWithSelectedKeysOrSections(TSharedRef<FSequencerDisplayNode> OutlinerNode)
+{
+	NodesWithSelectedKeysOrSections.Remove(OutlinerNode);
+	if ( IsBroadcasting() )
+	{
+		OnNodesWithSelectedKeysOrSectionsChanged.Broadcast();
 	}
 }
 
@@ -120,17 +157,28 @@ bool FSequencerSelection::IsSelected(TSharedRef<FSequencerDisplayNode> OutlinerN
 	return SelectedOutlinerNodes.Contains(OutlinerNode);
 }
 
+bool FSequencerSelection::NodeHasSelectedKeysOrSections(TSharedRef<FSequencerDisplayNode> OutlinerNode) const
+{
+	return NodesWithSelectedKeysOrSections.Contains(OutlinerNode);
+}
+
 void FSequencerSelection::Empty()
 {
 	EmptySelectedKeys();
 	EmptySelectedSections();
 	EmptySelectedOutlinerNodes();
+	EmptyNodesWithSelectedKeysOrSections();
 }
 
 void FSequencerSelection::EmptySelectedKeys()
 {
+	if (!SelectedKeys.Num())
+	{
+		return;
+	}
+
 	SelectedKeys.Empty();
-	if (!bSuspendBroadcast)
+	if ( IsBroadcasting() )
 	{
 		OnKeySelectionChanged.Broadcast();
 	}
@@ -138,8 +186,13 @@ void FSequencerSelection::EmptySelectedKeys()
 
 void FSequencerSelection::EmptySelectedSections()
 {
+	if (!SelectedSections.Num())
+	{
+		return;
+	}
+
 	SelectedSections.Empty();
-	if (!bSuspendBroadcast)
+	if ( IsBroadcasting() )
 	{
 		OnSectionSelectionChanged.Broadcast();
 	}
@@ -147,9 +200,94 @@ void FSequencerSelection::EmptySelectedSections()
 
 void FSequencerSelection::EmptySelectedOutlinerNodes()
 {
+	if (!SelectedOutlinerNodes.Num())
+	{
+		return;
+	}
+
 	SelectedOutlinerNodes.Empty();
-	if (!bSuspendBroadcast)
+	if ( IsBroadcasting() )
 	{
 		OnOutlinerNodeSelectionChanged.Broadcast();
 	}
 }
+
+void FSequencerSelection::EmptyNodesWithSelectedKeysOrSections()
+{
+	if (!NodesWithSelectedKeysOrSections.Num())
+	{
+		return;
+	}
+
+	NodesWithSelectedKeysOrSections.Empty();
+	if ( IsBroadcasting() )
+	{
+		OnNodesWithSelectedKeysOrSectionsChanged.Broadcast();
+	}
+}
+
+/** Suspend or resume broadcast of selection changing  */
+void FSequencerSelection::SuspendBroadcast()
+{
+	SuspendBroadcastCount++;
+}
+
+void FSequencerSelection::ResumeBroadcast()
+{
+	SuspendBroadcastCount--;
+	checkf(SuspendBroadcastCount >= 0, TEXT("Suspend/Resume broadcast mismatch!"));
+}
+
+bool FSequencerSelection::IsBroadcasting() 
+{
+	return SuspendBroadcastCount == 0;
+}
+
+void FSequencerSelection::EmptySelectedOutlinerNodesWithoutSection(UMovieSceneSection* Section)
+{
+	for (auto SelectedOutlinerNode : SelectedOutlinerNodes)
+	{
+		TSet<TSharedRef<FSequencerDisplayNode> > TrunkNodes;
+		TrunkNodes.Add(SelectedOutlinerNode);
+		SequencerHelpers::GetDescendantNodes(SelectedOutlinerNode, TrunkNodes);
+		
+		bool bFoundMatch = false;
+		for (auto TrunkIt = TrunkNodes.CreateConstIterator(); TrunkIt && !bFoundMatch; ++TrunkIt)
+		{
+			TSet<TWeakObjectPtr<UMovieSceneSection>> AllSections;
+			SequencerHelpers::GetAllSections(*TrunkIt, AllSections);
+
+			for (auto SectionIt = AllSections.CreateConstIterator(); SectionIt && !bFoundMatch; ++SectionIt)
+			{
+				if (*SectionIt == Section)
+				{
+					bFoundMatch = true;
+					break;
+				}
+			}
+		}
+
+		if (!bFoundMatch)
+		{
+			RemoveFromSelection(SelectedOutlinerNode);
+		}
+	}
+}
+
+void FSequencerSelection::RequestOutlinerNodeSelectionChangedBroadcast()
+{
+	if ( IsBroadcasting() )
+	{
+		bOutlinerNodeSelectionChangedBroadcastPending = true;
+	}
+}
+
+void FSequencerSelection::Tick()
+{
+	if ( bOutlinerNodeSelectionChangedBroadcastPending && IsBroadcasting() )
+	{
+		bOutlinerNodeSelectionChangedBroadcastPending = false;
+		OnOutlinerNodeSelectionChanged.Broadcast();
+	}
+}
+

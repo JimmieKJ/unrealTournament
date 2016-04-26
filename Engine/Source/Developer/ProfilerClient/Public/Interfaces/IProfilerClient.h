@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -8,7 +8,7 @@ class ISessionInstanceInfo;
 
 
 /** Delegate for passing profiler data to UI */
-DECLARE_MULTICAST_DELEGATE_ThreeParams(FProfilerClientDataDelegate, const FGuid&, const FProfilerDataFrame&, const float );
+DECLARE_MULTICAST_DELEGATE_TwoParams(FProfilerClientDataDelegate, const FGuid&, const FProfilerDataFrame& );
 
 /** Delegate for alerting UI a session has been established */
 DECLARE_MULTICAST_DELEGATE_TwoParams(FProfilerClientConnectedDelegate, const FGuid&, const FGuid& );
@@ -17,7 +17,7 @@ DECLARE_MULTICAST_DELEGATE_TwoParams(FProfilerClientConnectedDelegate, const FGu
 DECLARE_MULTICAST_DELEGATE_TwoParams(FProfilerClientDisconnectedDelegate, const FGuid&, const FGuid& );
 
 /** Delegate for alerting subscribers the meta data has been updated */
-DECLARE_MULTICAST_DELEGATE_OneParam(FProfilerMetaDataUpdateDelegate, const FGuid& );
+DECLARE_MULTICAST_DELEGATE_TwoParams(FProfilerMetaDataUpdateDelegate, const FGuid&, const FStatMetaData& );
 
 /** Delegate for alerting clients a load has started */
 DECLARE_MULTICAST_DELEGATE_OneParam(FProfilerLoadStartedDelegate, const FGuid& );
@@ -50,8 +50,6 @@ public:
 	 * 
 	 */
 	virtual void Track( const FGuid& Instance ) = 0;
-
-	virtual void Track( const TArray<TSharedPtr<ISessionInstanceInfo>>& Instances ) = 0;
 
 	/**
 	 * 
@@ -147,13 +145,6 @@ public:
 	 * @return profiler load completed delegate.
 	 */
 	virtual FProfilerLoadCompletedDelegate& OnLoadCompleted() = 0;
-
-	/**
-	 * Retrieves the meta data loaded delegate.
-	 *
-	 * @return profiler meta dataloaded delegate.
-	 */
-	virtual FProfilerLoadedMetaDataDelegate& OnLoadedMetaData() = 0;
 
 protected:
 

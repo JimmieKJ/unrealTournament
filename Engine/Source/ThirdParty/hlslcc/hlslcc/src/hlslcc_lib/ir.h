@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 // This code is modified from that in the Mesa3D Graphics library available at
 // http://mesa3d.org/
@@ -783,8 +783,8 @@ public:
 		if_dont_care
 	};
 
-	ir_if(ir_rvalue *condition)
-		: condition(condition), mode(if_dont_care)
+	ir_if(ir_rvalue* InCondition)
+		: condition(InCondition), mode(if_dont_care)
 	{
 		ir_type = ir_type_if;
 	}
@@ -1281,14 +1281,14 @@ public:
 class ir_call : public ir_instruction
 {
 public:
-	ir_call(ir_function_signature *callee,
-		ir_dereference_variable *return_deref,
-		exec_list *actual_parameters)
-		: return_deref(return_deref), callee(callee)
+	ir_call(ir_function_signature* InCallee,
+		ir_dereference_variable* InReturnDeref,
+		exec_list* InActualParameters)
+		: return_deref(InReturnDeref), callee(InCallee)
 	{
 		ir_type = ir_type_call;
 		//check(callee->return_type != NULL);
-		actual_parameters->move_nodes_to(&this->actual_parameters);
+		InActualParameters->move_nodes_to(&this->actual_parameters);
 		this->use_builtin = callee->is_builtin;
 	}
 
@@ -1373,8 +1373,8 @@ public:
 		this->ir_type = ir_type_return;
 	}
 
-	ir_return(ir_rvalue *value)
-		: value(value)
+	ir_return(ir_rvalue* InValue)
+		: value(InValue)
 	{
 		this->ir_type = ir_type_return;
 	}
@@ -1424,10 +1424,10 @@ public:
 		jump_continue
 	};
 
-	ir_loop_jump(jump_mode mode)
+	ir_loop_jump(jump_mode InMode)
 	{
 		this->ir_type = ir_type_loop_jump;
-		this->mode = mode;
+		this->mode = InMode;
 		//      this->loop = loop;	// unsafe instruction; commenting it out
 	}
 
@@ -1549,8 +1549,8 @@ enum ir_texture_channel
 class ir_texture : public ir_rvalue
 {
 public:
-	ir_texture(enum ir_texture_opcode op, const SSourceLocation& InSourceLocation)
-		: op(op), sampler(nullptr), coordinate(nullptr), 
+	ir_texture(enum ir_texture_opcode InOp, const SSourceLocation& InSourceLocation)
+		: op(InOp), sampler(nullptr), coordinate(nullptr),
 		projector(nullptr), shadow_comparitor(nullptr), offset(nullptr),
 		channel(ir_channel_none), SamplerStateName(""), SamplerState(nullptr)
 	{

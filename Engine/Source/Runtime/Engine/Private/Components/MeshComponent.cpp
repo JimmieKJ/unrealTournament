@@ -1,7 +1,6 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
-
 
 UMeshComponent::UMeshComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -9,6 +8,7 @@ UMeshComponent::UMeshComponent(const FObjectInitializer& ObjectInitializer)
 	CastShadow = true;
 	bUseAsOccluder = true;
 	bCanEverAffectNavigation = true;
+	bCachedMaterialParameterIndicesAreDirty = true;
 }
 
 void UMeshComponent::BeginDestroy()
@@ -46,6 +46,17 @@ void UMeshComponent::SetMaterial(int32 ElementIndex, UMaterialInterface* Materia
 			{
 				OverrideMaterials.AddZeroed(ElementIndex + 1 - OverrideMaterials.Num());
 			}
+			
+			// Check if we are setting a dynamic instance of the original material (if not we should dirty the material parameter name cache)
+			if (Material != nullptr && OverrideMaterials[ElementIndex] != nullptr)
+			{
+				UMaterialInstanceDynamic* DynamicMaterial = Cast<UMaterialInstanceDynamic>(Material);
+				if ( DynamicMaterial != nullptr && DynamicMaterial->Parent != OverrideMaterials[ElementIndex])
+				{
+					// Mark cached material parameter names dirty
+					MarkCachedMaterialParameterNameIndicesDirty();
+				}
+			}	
 
 			// Set the material and invalidate things
 			OverrideMaterials[ElementIndex] = Material;
@@ -135,7 +146,6 @@ void UMeshComponent::SetTextureForceResidentFlag( bool bForceMiplevelsToBeReside
 	}
 }
 
-
 TArray<class UMaterialInterface*> UMeshComponent::GetMaterials() const
 {
 	TArray<class UMaterialInterface*> OutMaterials;
@@ -153,3 +163,167 @@ TArray<class UMaterialInterface*> UMeshComponent::GetMaterials() const
 
 	return OutMaterials;
 }
+
+void UMeshComponent::SetScalarParameterValueOnMaterials(const FName ParameterName, const float ParameterValue)
+{
+	if (bCachedMaterialParameterIndicesAreDirty)
+	{
+		CacheMaterialParameterNameIndices();
+	}
+
+	// Look up material index array according to ParameterName
+	TArray<int32>* MaterialIndicesPtr = ScalarParameterMaterialIndices.Find(ParameterName);
+	if (MaterialIndicesPtr != nullptr)
+	{
+		const TArray<int32>& MaterialIndices = *MaterialIndicesPtr;
+		// Loop over all the material indices and update set the parameter value on the corresponding materials		
+		for ( int32 MaterialIndex : MaterialIndices)
+		{
+			UMaterialInterface* MaterialInterface = GetMaterial(MaterialIndex);
+			if (MaterialInterface)
+			{
+				UMaterialInstanceDynamic* DynamicMaterial = Cast<UMaterialInstanceDynamic>(MaterialInterface);
+				if (!DynamicMaterial) 
+				{
+					DynamicMaterial = CreateAndSetMaterialInstanceDynamic(MaterialIndex);
+				}
+				DynamicMaterial->SetScalarParameterValue(ParameterName, ParameterValue);
+			}
+		}
+	}
+
+	// CreateAndSetMaterialInstanceDynamic should not flag the cached data as dirty, since only the type of material changes not the contents (UMaterialInstanceDynamic)
+	check(bCachedMaterialParameterIndicesAreDirty == false);
+}
+
+void UMeshComponent::SetVectorParameterValueOnMaterials(const FName ParameterName, const FVector ParameterValue)
+{
+	if (bCachedMaterialParameterIndicesAreDirty)
+	{
+		CacheMaterialParameterNameIndices();
+	}
+
+	// Look up material index array according to ParameterName
+	TArray<int32>* MaterialIndicesPtr = VectorParameterMaterialIndices.Find(ParameterName);
+	if (MaterialIndicesPtr != nullptr)
+	{
+		const TArray<int32>& MaterialIndices = *MaterialIndicesPtr;
+		// Loop over all the material indices and update set the parameter value on the corresponding materials		
+		for ( int32 MaterialIndex : MaterialIndices )
+		{
+			UMaterialInterface* MaterialInterface = GetMaterial(MaterialIndex);
+			if (MaterialInterface)
+			{
+				UMaterialInstanceDynamic* DynamicMaterial = Cast<UMaterialInstanceDynamic>(MaterialInterface);
+				if (!DynamicMaterial)
+				{
+					DynamicMaterial = CreateAndSetMaterialInstanceDynamic(MaterialIndex);
+				}
+				DynamicMaterial->SetVectorParameterValue(ParameterName, ParameterValue);
+			}
+		}
+	}
+
+	// CreateAndSetMaterialInstanceDynamic should not flag the cached data as dirty, since only the type of material changes not the contents (UMaterialInstanceDynamic)
+	check(bCachedMaterialParameterIndicesAreDirty == false);
+}
+
+void UMeshComponent::MarkCachedMaterialParameterNameIndicesDirty()
+{
+	// Flag the cached material parameter indices as dirty
+	bCachedMaterialParameterIndicesAreDirty = true;
+}
+
+void UMeshComponent::CacheMaterialParameterNameIndices()
+{
+	// Clean up possible previous data
+	ScalarParameterMaterialIndices.Reset();
+	VectorParameterMaterialIndices.Reset();
+
+	// Retrieve all used materials
+	TArray<UMaterialInterface*> MaterialInterfaces = GetMaterials();
+	int32 MaterialIndex = 0;
+	for (UMaterialInterface* MaterialInterface : MaterialInterfaces)
+	{
+		// If available retrieve material instance
+		UMaterial* Material = (MaterialInterface != nullptr) ? MaterialInterface->GetMaterial() : nullptr;
+		if (Material)
+		{
+			TArray<FName> OutParameterNames;
+			TArray<FGuid> OutParameterIds;
+
+			// Retrieve all scalar parameter names from the material
+			Material->GetAllScalarParameterNames(OutParameterNames, OutParameterIds);
+			for (FName& ParameterName : OutParameterNames)
+			{
+				// Add or retrieve TMap entry for this scalar parameter name
+				TArray<int32>& MaterialIndices = ScalarParameterMaterialIndices.FindOrAdd(ParameterName);
+				// Add the corresponding material index
+				MaterialIndices.Add(MaterialIndex);
+			}
+
+			// Empty parameter names and ids
+			OutParameterNames.Reset();
+			OutParameterIds.Reset();
+
+			// Retrieve all vector parameter names from the material
+			Material->GetAllVectorParameterNames(OutParameterNames, OutParameterIds);
+			for (FName& ParameterName : OutParameterNames)
+			{
+				// Add or retrieve TMap entry for this vector parameter name
+				TArray<int32>& MaterialIndices = VectorParameterMaterialIndices.FindOrAdd(ParameterName);
+				// Add the corresponding material index
+				MaterialIndices.Add(MaterialIndex);
+			}
+		}
+
+		++MaterialIndex;
+	}
+
+	bCachedMaterialParameterIndicesAreDirty = false;
+}
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+
+void UMeshComponent::LogMaterialsAndTextures(FOutputDevice& Ar, int32 Indent) const
+{
+	Ar.Logf(TEXT("%s%s:"), FCString::Tab(Indent), *GetClass()->GetName());
+
+	for (int32 MaterialIndex = 0; MaterialIndex < OverrideMaterials.Num(); ++MaterialIndex)
+	{
+		Ar.Logf(TEXT("%s[Material Override: %d]"), FCString::Tab(Indent + 1), MaterialIndex);
+		const UMaterialInterface* MaterialInterface = OverrideMaterials[MaterialIndex];
+		if (MaterialInterface)
+		{
+			MaterialInterface->LogMaterialsAndTextures(Ar, Indent + 2);
+		}
+		else
+		{
+			Ar.Logf(TEXT("%snullptr"), FCString::Tab(Indent + 2), MaterialIndex);
+		}
+	}
+
+	// Backup the material overrides so we can access the mesh original materials.
+	TArray<class UMaterialInterface*> OverrideMaterialsBackup;
+	FMemory::Memswap(&OverrideMaterialsBackup, &const_cast<UMeshComponent*>(this)->OverrideMaterials, sizeof(OverrideMaterialsBackup));
+
+	TArray<UMaterialInterface*> MaterialInterfaces = GetMaterials();
+	for (int32 MaterialIndex = 0; MaterialIndex < MaterialInterfaces.Num(); ++MaterialIndex)
+	{
+		Ar.Logf(TEXT("%s[Mesh Material: %d]"), FCString::Tab(Indent + 1), MaterialIndex);
+		const UMaterialInterface* MaterialInterface = MaterialInterfaces[MaterialIndex];
+		if (MaterialInterface)
+		{
+			MaterialInterface->LogMaterialsAndTextures(Ar, Indent + 2);
+		}
+		else
+		{
+			Ar.Logf(TEXT("%snullptr"), FCString::Tab(Indent + 2), MaterialIndex);
+		}
+	}
+
+	// Restore the overrides.
+	FMemory::Memswap(&OverrideMaterialsBackup, &const_cast<UMeshComponent*>(this)->OverrideMaterials, sizeof(OverrideMaterialsBackup));
+}
+
+#endif

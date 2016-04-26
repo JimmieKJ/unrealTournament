@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
  
 #pragma once
@@ -61,6 +61,7 @@ public:
 
 	//~ Begin USoundNode Interface.
 	virtual void ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances ) override;
+	virtual int32 GetNumSounds(const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound) const;
 	virtual int32 GetMaxChildNodes() const override 
 	{ 
 		return MAX_ALLOWED_CHILD_NODES; 
@@ -84,6 +85,9 @@ public:
 #if WITH_EDITOR
 	void UpdatePIEHiddenNodes();
 #endif //WITH_EDITOR
+
+	int32 ChooseNodeIndex(FActiveSound& ActiveSound);
+
 };
 
 

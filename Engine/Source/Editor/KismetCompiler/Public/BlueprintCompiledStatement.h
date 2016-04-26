@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -38,8 +38,16 @@ enum EKismetCompiledStatementType
 	KCST_GotoReturnIfNot = 28, // [if (!TargetObject->TargetProperty)] goto TargetLabel
 	KCST_SwitchValue = 29,
 	// Kismet instrumentation extensions
-	KCST_InstrumentedWireEntry,	// Instrumented wiretrace entry
-	KCST_InstrumentedWireExit	// Instrumented wiretrace exit
+	KCST_InstrumentedPureNodeEntry,	// Instrumented pure node entry
+	KCST_InstrumentedWireEntry,		// Instrumented wiretrace entry
+	KCST_InstrumentedWireExit,		// Instrumented wiretrace exit
+	KCST_InstrumentedStatePush,		// Instrumented state push
+	KCST_InstrumentedStateRestore,	// Instrumented state restore
+	KCST_InstrumentedStateReset,	// Instrumented state reset
+	KCST_InstrumentedStateSuspend,	// Instrumented state suspend
+	KCST_InstrumentedStatePop,		// Instrumented state pop
+	//
+	KCST_ArrayGetByRef,
 };
 
 //@TODO: Too rigid / icky design
@@ -90,6 +98,9 @@ struct FBlueprintCompiledStatement
 
 	// Exec pin about to execute (KCST_WireTraceSite)
 	class UEdGraphPin* ExecContext;
+
+	// Pure node output pin(s) linked to exec node input pins (KCST_InstrumentedPureNodeEntry)
+	TArray<class UEdGraphPin*> PureOutputContextArray;
 
 	// Comment text
 	FString Comment;

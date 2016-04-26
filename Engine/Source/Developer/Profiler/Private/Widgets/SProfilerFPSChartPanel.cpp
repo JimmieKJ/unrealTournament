@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ProfilerPrivatePCH.h"
 
@@ -67,6 +67,20 @@ public:
 					.AutoHeight()
 					[
 						SNew(STextBlock)
+						.Text(this, &SProfilerFPSStatisticsPanel::HandleFPS90)
+					]
+
+				+SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						SNew(STextBlock)
+						.Text(this, &SProfilerFPSStatisticsPanel::HandleFPS60)
+					]
+
+				+SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						SNew(STextBlock)
 						.Text(this, &SProfilerFPSStatisticsPanel::HandleFPS30)
 					]
 
@@ -114,6 +128,20 @@ protected:
 			.SetMaximumFractionalDigits(2);
 		return FText::Format(LOCTEXT("AverageFPSFmt", "Ave FPS: {0}"), ((FPSAnalyzer->Samples.Num() > 0) ? FText::AsNumber(FPSAnalyzer->AveFPS, &FormatOptions) : FText::GetEmpty()));
 	}
+	FText HandleFPS90() const
+	{
+		static const FNumberFormattingOptions FormatOptions = FNumberFormattingOptions()
+			.SetMinimumFractionalDigits(2)
+			.SetMaximumFractionalDigits(2);
+		return FText::Format(LOCTEXT("+90FPSFmt", "+90FPS: {0}"), ((FPSAnalyzer->Samples.Num() > 0) ? FText::AsNumber(100.0f*(float)FPSAnalyzer->FPS90 / (float)FPSAnalyzer->Samples.Num(), &FormatOptions) : FText::GetEmpty()));
+	}
+	FText HandleFPS60() const
+	{
+		static const FNumberFormattingOptions FormatOptions = FNumberFormattingOptions()
+			.SetMinimumFractionalDigits(2)
+			.SetMaximumFractionalDigits(2);
+		return FText::Format(LOCTEXT("+60FPSFmt", "+60FPS: {0}"), ((FPSAnalyzer->Samples.Num() > 0) ? FText::AsNumber(100.0f*(float)FPSAnalyzer->FPS60 / (float)FPSAnalyzer->Samples.Num(), &FormatOptions) : FText::GetEmpty()));
+	}
 	FText HandleFPS30() const
 	{
 		static const FNumberFormattingOptions FormatOptions = FNumberFormattingOptions()
@@ -155,7 +183,7 @@ void SProfilerFPSChartPanel::Construct( const FArguments& InArgs )
 			.FillWidth(1.0f)
 			[
 				SNew(SHistogram)
-				.Description(FHistogramDescription(InArgs._FPSAnalyzer.ToSharedRef(), 5, 0, 60, true))
+				.Description(FHistogramDescription(InArgs._FPSAnalyzer.ToSharedRef(), 5, 0, 90, true))
 			]
 
 			+SHorizontalBox::Slot()

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "IOSApplication.h"
@@ -109,6 +109,9 @@ void FDisplayMetrics::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 	// Total screen size of the primary monitor
 	OutDisplayMetrics.PrimaryDisplayWidth = OutDisplayMetrics.PrimaryDisplayWorkAreaRect.Right - OutDisplayMetrics.PrimaryDisplayWorkAreaRect.Left;
 	OutDisplayMetrics.PrimaryDisplayHeight = OutDisplayMetrics.PrimaryDisplayWorkAreaRect.Bottom - OutDisplayMetrics.PrimaryDisplayWorkAreaRect.Top;
+
+	// Apply the debug safe zones
+	OutDisplayMetrics.ApplyDefaultSafeZones();
 }
 
 TSharedRef< FGenericWindow > FIOSApplication::MakeWindow()
@@ -116,8 +119,10 @@ TSharedRef< FGenericWindow > FIOSApplication::MakeWindow()
 	return FIOSWindow::Make();
 }
 
+#if !PLATFORM_TVOS
 void FIOSApplication::OrientationChanged(UIDeviceOrientation orientation)
 {
 	FScopeLock Lock(&CriticalSection);
 	bOrientationChanged = true;
 }
+#endif

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintGraphPrivatePCH.h"
 #include "KismetDebugUtilities.h"
@@ -68,6 +68,8 @@ void UK2Node_EditablePinBase::RemoveUserDefinedPinByName(const FString& PinName)
 		UEdGraphPin* Pin = Pins[i];
 		if (Pin->PinName == PinName)
 		{
+			Pin->Modify();
+
 			Pin->BreakAllPinLinks();
 			Pins.Remove(Pin);
 			Pin->MarkPendingKill();
@@ -76,6 +78,8 @@ void UK2Node_EditablePinBase::RemoveUserDefinedPinByName(const FString& PinName)
 			{
 				FKismetDebugUtilities::RemovePinWatch(Blueprint, Pin);
 			}
+
+			break;
 		}
 	}
 

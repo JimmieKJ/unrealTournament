@@ -305,6 +305,7 @@ UUTHUDWidget::UUTHUDWidget(const class FObjectInitializer& ObjectInitializer) : 
 	bScaleByDesignedResolution = true;
 	bMaintainAspectRatio = true;
 	DesignedResolution=720;
+	UTHUDOwner = nullptr;
 }
 
 void UUTHUDWidget::InitializeWidget(AUTHUD* Hud)
@@ -517,7 +518,6 @@ FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, bool
 			&& (Font != UTHUDOwner->MediumFont)
 			&& (Font != UTHUDOwner->LargeFont)
 			&& (Font != UTHUDOwner->HugeFont)
-			&& (Font != UTHUDOwner->ScoreFont)
 			&& (Font != UTHUDOwner->NumberFont))
 		{
 			UE_LOG(UT, Warning, TEXT("%s draw text with font %s"), *GetName(), *Font->GetName());
@@ -691,7 +691,7 @@ void UUTHUDWidget::RenderObj_TextureAt(FHUDRenderObject_Texture& TextureObject, 
 		}
 	}
 
-	float NewOpacity = UTHUDOwner->HUDWidgetOpacity() * (TextureObject.bIsBorderElement ? UTHUDOwner->HUDWidgetBorderOpacity() : 1.0f) * (TextureObject.bIsSlateElement ? UTHUDOwner->HUDWidgetSlateOpacity() : 1.0f); 
+	float NewOpacity = UTHUDOwner->GetHUDWidgetOpacity() * (TextureObject.bIsBorderElement ? UTHUDOwner->GetHUDWidgetBorderOpacity() : 1.0f) * (TextureObject.bIsSlateElement ? UTHUDOwner->GetHUDWidgetSlateOpacity() : 1.0f); 
 
 	DrawTexture(TextureObject.Atlas, 
 						X, 
@@ -730,7 +730,7 @@ FVector2D UUTHUDWidget::RenderObj_TextAt(FHUDRenderObject_Text& TextObject, floa
 				TextObject.bDrawOutline, 
 				TextObject.OutlineColor, 
 				TextObject.TextScale, 
-				TextObject.RenderOpacity * UTHUDOwner->HUDWidgetOpacity(), 
+				TextObject.RenderOpacity * UTHUDOwner->GetHUDWidgetOpacity(), 
 				TextObject.RenderColor, 
 				TextObject.BackgroundColor,
 				TextObject.HorzPosition, 
@@ -739,7 +739,7 @@ FVector2D UUTHUDWidget::RenderObj_TextAt(FHUDRenderObject_Text& TextObject, floa
 
 float UUTHUDWidget::GetDrawScaleOverride()
 {
-	return (UTHUDOwner) ? UTHUDOwner->HUDWidgetScaleOverride() : 1.0f;
+	return (UTHUDOwner) ? UTHUDOwner->GetHUDWidgetScaleOverride() : 1.0f;
 }
 
 UWorld* UUTHUDWidget::GetWorld() const
@@ -774,3 +774,15 @@ FString UUTHUDWidget::GetClampedName(AUTPlayerState* PS, UFont* NameFont, float 
 	return PS->ClampedName;
 }
 
+FVector2D UUTHUDWidget::CalcRotatedDrawLocation(float DistanceInPixels, float Angle)
+{
+	float Sin = 0.f;
+	float Cos = 0.f;
+
+	FMath::SinCos(&Sin,&Cos, FMath::DegreesToRadians(Angle));
+	FVector2D NewPoint;
+
+	NewPoint.X = DistanceInPixels * Sin;
+	NewPoint.Y = -1.0f * DistanceInPixels * Cos;
+	return NewPoint;
+}

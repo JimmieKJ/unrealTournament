@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PhysCollision.cpp: Skeletal mesh collision code
@@ -367,7 +367,7 @@ static bool TriHasEdge(int32 T0, int32 T1, int32 T2, int32 Edge0, int32 Edge1)
 	return false;
 }
 
-static void GetTriIndicesUsingEdge(const int32 Edge0, const int32 Edge1, const TArray<int32> TriData, int32& Tri0Index, int32& Tri1Index)
+static void GetTriIndicesUsingEdge(const int32 Edge0, const int32 Edge1, const TArray<int32>& TriData, int32& Tri0Index, int32& Tri1Index)
 {
 	Tri0Index = INDEX_NONE;
 	Tri1Index = INDEX_NONE;

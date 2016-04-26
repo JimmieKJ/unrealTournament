@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "OnlineDelegateMacros.h"
@@ -135,12 +135,14 @@ public:
 		AccountTypeFailure		=	1 << 3,
 		/** Invalid user */
 		UserNotFound			=	1 << 4,
+		/** User must be logged in */
+		UserNotLoggedIn			=	1 << 5,
 		/** User restricted from chat */
-		ChatRestriction			=	1 << 5,
+		ChatRestriction			=	1 << 6,
 		/** User restricted from User Generated Content */
-		UGCRestriction			=	1 << 6,
+		UGCRestriction			=	1 << 7,
 		/** Platform failed for unknown reason and handles its own dialogs */
-		GenericFailure			=	1 << 7, 
+		GenericFailure			=	1 << 8, 
 	};
 
 	virtual ~IOnlineIdentity() {};

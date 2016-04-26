@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "Landscape.h"
 #include "MaterialCompiler.h"
@@ -50,7 +50,7 @@ void UMaterialExpressionLandscapeLayerWeight::PostLoad()
 	}
 }
 
-
+#if WITH_EDITOR
 bool UMaterialExpressionLandscapeLayerWeight::IsResultMaterialAttributes(int32 OutputIndex)
 {
 	if (ContainsInputLoop())
@@ -62,7 +62,6 @@ bool UMaterialExpressionLandscapeLayerWeight::IsResultMaterialAttributes(int32 O
 	bool bBaseIsMaterialAttributes = Base.Expression != nullptr && Base.Expression->IsResultMaterialAttributes(Base.OutputIndex);
 	return bLayerIsMaterialAttributes || bBaseIsMaterialAttributes;
 }
-
 
 int32 UMaterialExpressionLandscapeLayerWeight::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex)
 {
@@ -89,19 +88,19 @@ int32 UMaterialExpressionLandscapeLayerWeight::Compile(class FMaterialCompiler* 
 
 	return ReturnCode;
 }
-
+#endif // WITH_EDITOR
 
 UTexture* UMaterialExpressionLandscapeLayerWeight::GetReferencedTexture()
 {
 	return GEngine->WeightMapPlaceholderTexture;
 }
 
-
+#if WITH_EDITOR
 void UMaterialExpressionLandscapeLayerWeight::GetCaption(TArray<FString>& OutCaptions) const
 {
 	OutCaptions.Add(FString::Printf(TEXT("Layer '%s'"), *ParameterName.ToString()));
 }
-
+#endif // WITH_EDITOR
 
 void UMaterialExpressionLandscapeLayerWeight::GetAllParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds) const
 {
@@ -114,5 +113,9 @@ void UMaterialExpressionLandscapeLayerWeight::GetAllParameterNames(TArray<FName>
 	}
 }
 
+bool UMaterialExpressionLandscapeLayerWeight::NeedsLoadForClient() const
+{
+	return ParameterName != NAME_None;
+}
 
 #undef LOCTEXT_NAMESPACE

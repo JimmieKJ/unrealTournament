@@ -69,8 +69,10 @@ protected:
 	void HandlePartyLeft(UPartyGameState* PartyState, EMemberExitedReason Reason);
 	void HandlePartyMemberJoined(UPartyGameState* PartyState, const FUniqueNetIdRepl& UniqueId);
 	void HandlePartyMemberLeft(UPartyGameState* PartyState, const FUniqueNetIdRepl& RemovedMemberId, EMemberExitedReason Reason);
+	void HandlePartyMemberLeaving(UPartyGameState* PartyState, const FUniqueNetIdRepl& RemovedMemberId, EMemberExitedReason Reason);
 	void HandlePartyMemberPromoted(UPartyGameState* PartyState, const FUniqueNetIdRepl& InMemberId);
 
+	void HandlePlayerLoggedOut();
 public:
 
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPartyTransitionStartedDelegate, EUTPartyTransition, PartyTransition);

@@ -8,7 +8,7 @@
 AUTHUD_CTF::AUTHUD_CTF(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	bDrawMinimap = true;
+	bDrawMinimap = false;
 }
 
 FLinearColor AUTHUD_CTF::GetBaseHUDColor()
@@ -46,7 +46,7 @@ void AUTHUD_CTF::DrawMinimapSpectatorIcons()
 	AUTCTFGameState* GS = Cast<AUTCTFGameState>(GetWorld()->GetGameState());
 	if (GS == NULL) return;
 
-	const float RenderScale = ( float(Canvas->SizeY) / 1080.0f) * HUDMinimapScale();
+	const float RenderScale = ( float(Canvas->SizeY) / 1080.0f) * GetHUDMinimapScale();
 	bool bShowAllFlags = UTPlayerOwner && UTPlayerOwner->UTPlayerState && UTPlayerOwner->UTPlayerState->bOnlySpectator;
 
 	for (int32 TeamIndex = 0; TeamIndex < 2; TeamIndex++)
@@ -85,10 +85,13 @@ bool AUTHUD_CTF::ShouldInvertMinimap()
 			for (int32 TeamIndex = 0; TeamIndex < 2; TeamIndex++)
 			{
 				AUTCTFFlagBase* EnemyBase = GS->GetFlagBase(TeamIndex);
-				FVector2D BasePos(WorldToMapToScreen(EnemyBase->GetActorLocation()));
-				if ((EnemyBase != HomeBase) && (BasePos.Y > HomeBasePos.Y))
+				if (EnemyBase)
 				{
-					return true;
+					FVector2D BasePos(WorldToMapToScreen(EnemyBase->GetActorLocation()));
+					if ((EnemyBase != HomeBase) && (BasePos.Y > HomeBasePos.Y))
+					{
+						return true;
+					}
 				}
 			}
 		}
@@ -99,6 +102,6 @@ bool AUTHUD_CTF::ShouldInvertMinimap()
 
 bool AUTHUD_CTF::ShouldDrawMinimap()
 {
-	return bDrawCTFMinimapHUDSetting() && Super::ShouldDrawMinimap();
+	return GetDrawCTFMinimapHUDSetting() && Super::ShouldDrawMinimap();
 }
 

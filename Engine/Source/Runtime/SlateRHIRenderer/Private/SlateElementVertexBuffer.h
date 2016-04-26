@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -21,7 +21,7 @@ public:
 
 	void Init( int32 MinNumVertices )
 	{
-		MinBufferSize = sizeof(VertexType) * FMath::Max( MinNumVertices, 200 );
+		MinBufferSize = sizeof(VertexType) * FMath::Max( MinNumVertices, 100 );
 
 		if ( IsInRenderingThread() )
 		{
@@ -117,19 +117,6 @@ public:
 	void UnlockBuffer_RenderThread()
 	{
 		RHIUnlockVertexBuffer( VertexBufferRHI );
-	}
-
-	void* LockBuffer_RHIThread(int32 NumVertices)
-	{
-		int32 RequiredBufferSize = NumVertices*sizeof(VertexType);
-
-		//use non-flushing DynamicRHI version when on RHIThread.
-		return GDynamicRHI->RHILockVertexBuffer(VertexBufferRHI, 0, RequiredBufferSize, RLM_WriteOnly);
-	}
-
-	void UnlockBuffer_RHIThread()
-	{
-		GDynamicRHI->RHIUnlockVertexBuffer(VertexBufferRHI);		
 	}
 
 private:

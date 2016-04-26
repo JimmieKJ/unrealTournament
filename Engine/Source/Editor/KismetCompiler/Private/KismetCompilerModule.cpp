@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	KismetCompilerModule.cpp
@@ -124,7 +124,7 @@ void FKismet2CompilerModule::CompileBlueprintInner(class UBlueprint* Blueprint, 
 
 void FKismet2CompilerModule::CompileStructure(UUserDefinedStruct* Struct, FCompilerResultsLog& Results)
 {
-	Results.SetSourceName(Struct->GetName());
+	Results.SetSourcePath(Struct->GetPathName());
 	BP_SCOPED_COMPILER_EVENT_STAT(EKismetCompilerStats_CompileTime);
 	FUserDefinedStructureCompilerUtils::CompileStruct(Struct, Results, true);
 }
@@ -156,7 +156,7 @@ void FKismet2CompilerModule::CompileBlueprint(class UBlueprint* Blueprint, const
 	FSecondsCounterScope Timer(BlueprintCompileAndLoadTimerData);
 	BP_SCOPED_COMPILER_EVENT_STAT(EKismetCompilerStats_CompileTime);
 
-	Results.SetSourceName(Blueprint->GetName());
+	Results.SetSourcePath(Blueprint->GetPathName());
 
 	const bool bIsBrandNewBP = (Blueprint->SkeletonGeneratedClass == NULL) && (Blueprint->GeneratedClass == NULL) && (Blueprint->ParentClass != NULL) && !CompileOptions.bIsDuplicationInstigated;
 
@@ -177,6 +177,12 @@ void FKismet2CompilerModule::CompileBlueprint(class UBlueprint* Blueprint, const
 		FKismetCompilerOptions SkeletonCompileOptions;
 		SkeletonCompileOptions.CompileType = EKismetCompileType::SkeletonOnly;
 		CompileBlueprintInner(Blueprint, SkeletonCompileOptions, SkeletonResults, ParentReinstancer, ObjLoaded);
+
+		// Only when doing full compiles do we want to compile all skeletons before continuing to compile 
+		if (CompileOptions.CompileType == EKismetCompileType::Full)
+		{
+			SkeletonReinstancer->ReinstanceObjects();
+		}
 	}
 
 	// If this was a full compile, take appropriate actions depending on the success of failure of the compile
@@ -222,7 +228,7 @@ void FKismet2CompilerModule::CompileBlueprint(class UBlueprint* Blueprint, const
 				}
 			}
 			const bool bBytecodeOnly = EKismetCompileType::BytecodeOnly == CompileOptions.CompileType;
-			auto StubReinstancer = FBlueprintCompileReinstancer::Create(Blueprint->GeneratedClass, bBytecodeOnly);
+			auto StubReinstancer = FBlueprintCompileReinstancer::Create(Blueprint->GeneratedClass, bBytecodeOnly, false, false);
 
 			// Toss the half-baked class and generate a stubbed out skeleton class that can be used
 			FCompilerResultsLog StubResults;

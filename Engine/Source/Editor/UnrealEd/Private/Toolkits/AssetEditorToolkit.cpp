@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "Toolkits/AssetEditorToolkit.h"
@@ -97,17 +97,60 @@ void FAssetEditorToolkit::InitAssetEditor( const EToolkitMode::Type Mode, const 
 
 			const UEditorStyleSettings* StyleSettings = GetDefault<UEditorStyleSettings>();
 
-			// Work out where we should create this asset editor
-			EAssetEditorToolkitTabLocation SavedAssetEditorToolkitTabLocation = StyleSettings->bOpenAssetEditorTabsInNewWindow ? EAssetEditorToolkitTabLocation::Standalone : EAssetEditorToolkitTabLocation::Docked;
-			GConfig->GetInt(
-				TEXT("AssetEditorToolkitTabLocation"), 
-				*ObjectsToEdit[0]->GetPathName(), 
-				reinterpret_cast<int32&>(SavedAssetEditorToolkitTabLocation), 
-				GEditorPerProjectIni
-				);
+			FName PlaceholderId(TEXT("StandaloneToolkit"));
+			FTabManager::FSearchPreference* SearchPreference = nullptr;
+			if ( StyleSettings->AssetEditorOpenLocation == EAssetEditorOpenLocation::Default )
+			{
+				// Work out where we should create this asset editor
+				EAssetEditorToolkitTabLocation SavedAssetEditorToolkitTabLocation = EAssetEditorToolkitTabLocation::Standalone;
+				GConfig->GetInt(
+					TEXT("AssetEditorToolkitTabLocation"),
+					*ObjectsToEdit[0]->GetPathName(),
+					reinterpret_cast<int32&>( SavedAssetEditorToolkitTabLocation ),
+					GEditorPerProjectIni
+					);
 
-			const FName AssetEditorToolkitTab = (SavedAssetEditorToolkitTabLocation == EAssetEditorToolkitTabLocation::Docked) ? "DockedToolkit" : "StandaloneToolkit";
-			FGlobalTabmanager::Get()->InsertNewDocumentTab( AssetEditorToolkitTab, FTabManager::ESearchPreference::PreferLiveTab, NewMajorTab.ToSharedRef() );
+				PlaceholderId = ( SavedAssetEditorToolkitTabLocation == EAssetEditorToolkitTabLocation::Docked ) ? TEXT("DockedToolkit") : TEXT("StandaloneToolkit");
+				SearchPreference = new FTabManager::FLiveTabSearch();
+			}
+			else if ( StyleSettings->AssetEditorOpenLocation == EAssetEditorOpenLocation::NewWindow )
+			{
+				PlaceholderId = TEXT("StandaloneToolkit");
+				SearchPreference = new FTabManager::FRequireClosedTab();
+			}
+			else if ( StyleSettings->AssetEditorOpenLocation == EAssetEditorOpenLocation::MainWindow )
+			{
+				PlaceholderId = TEXT("DockedToolkit");
+				SearchPreference = new FTabManager::FLiveTabSearch(TEXT("LevelEditor"));
+			}
+			else if ( StyleSettings->AssetEditorOpenLocation == EAssetEditorOpenLocation::ContentBrowser )
+			{
+				PlaceholderId = TEXT("DockedToolkit");
+				SearchPreference = new FTabManager::FLiveTabSearch(TEXT("ContentBrowserTab1"));
+			}
+			else if ( StyleSettings->AssetEditorOpenLocation == EAssetEditorOpenLocation::LastDockedWindowOrNewWindow )
+			{
+				PlaceholderId = TEXT("StandaloneToolkit");
+				SearchPreference = new FTabManager::FLastMajorOrNomadTab(NAME_None);
+			}
+			else if ( StyleSettings->AssetEditorOpenLocation == EAssetEditorOpenLocation::LastDockedWindowOrMainWindow )
+			{
+				PlaceholderId = TEXT("StandaloneToolkit");
+				SearchPreference = new FTabManager::FLastMajorOrNomadTab(TEXT("LevelEditor"));
+			}
+			else if ( StyleSettings->AssetEditorOpenLocation == EAssetEditorOpenLocation::LastDockedWindowOrContentBrowser )
+			{
+				PlaceholderId = TEXT("StandaloneToolkit");
+				SearchPreference = new FTabManager::FLastMajorOrNomadTab(TEXT("ContentBrowserTab1"));
+			}
+			else
+			{
+				// Add more cases!
+				check(false);
+			}
+
+			FGlobalTabmanager::Get()->InsertNewDocumentTab(PlaceholderId, *SearchPreference, NewMajorTab.ToSharedRef());
+			delete SearchPreference;
 		}
 
 #if PLATFORM_MAC
@@ -188,11 +231,15 @@ void FAssetEditorToolkit::InitAssetEditor( const EToolkitMode::Type Mode, const 
 		Toolbar = SNullWidget::NullWidget;
 	}
 
-
 	ToolkitCommands->MapAction(
 		FAssetEditorCommonCommands::Get().SaveAsset,
 		FExecuteAction::CreateSP( this, &FAssetEditorToolkit::SaveAsset_Execute ),
 		FCanExecuteAction::CreateSP( this, &FAssetEditorToolkit::CanSaveAsset ));
+
+	ToolkitCommands->MapAction(
+		FAssetEditorCommonCommands::Get().SaveAssetAs,
+		FExecuteAction::CreateSP( this, &FAssetEditorToolkit::SaveAssetAs_Execute ),
+		FCanExecuteAction::CreateSP( this, &FAssetEditorToolkit::CanSaveAssetAs ));
 
 	ToolkitCommands->MapAction(
 		FGlobalEditorCommonCommands::Get().FindInContentBrowser,
@@ -422,6 +469,20 @@ const TArray< UObject* >& FAssetEditorToolkit::GetEditingObjects() const
 }
 
 
+void FAssetEditorToolkit::GetSaveableObjects(TArray<UObject*>& OutObjects) const
+{
+	for (const auto Object : EditingObjects)
+	{
+		// don't allow user to perform certain actions on objects that
+		// aren't actually assets (e.g. Level Script blueprint objects)
+		if ((Object != nullptr) && Object->IsAsset())
+		{
+			OutObjects.Add(Object);
+		}
+	}
+}
+
+
 void FAssetEditorToolkit::AddEditingObject(UObject* Object)
 {
 	EditingObjects.Add(Object);
@@ -438,23 +499,96 @@ void FAssetEditorToolkit::RemoveEditingObject(UObject* Object)
 
 void FAssetEditorToolkit::SaveAsset_Execute()
 {
-	if( ensure( EditingObjects.Num() > 0 ) )
+	if (EditingObjects.Num() == 0)
 	{
-		TArray< UPackage* > PackagesToSave;
-
-		for( auto ObjectIter = EditingObjects.CreateConstIterator(); ObjectIter; ++ObjectIter )
-		{
-			// Don't allow user to perform certain actions on objects that aren't actually assets (e.g. Level Script blueprint objects)
-			const auto EditingObject = *ObjectIter;
-			if( EditingObject != NULL && EditingObject->IsAsset() )
-			{
-				PackagesToSave.Add( EditingObject->GetOutermost() );
-			}
-		}
-
-		FEditorFileUtils::PromptForCheckoutAndSave( PackagesToSave, bCheckDirtyOnAssetSave, /*bPromptToSave=*/ false );
+		return;
 	}
+
+	TArray<UObject*> ObjectsToSave;
+	GetSaveableObjects(ObjectsToSave);
+
+	if (ObjectsToSave.Num() == 0)
+	{
+		return;
+	}
+
+	TArray<UPackage*> PackagesToSave;
+
+	for (auto Object : ObjectsToSave)
+	{
+		check((Object != nullptr) && Object->IsAsset());
+		PackagesToSave.Add(Object->GetOutermost());
+	}
+
+	FEditorFileUtils::PromptForCheckoutAndSave(PackagesToSave, bCheckDirtyOnAssetSave, /*bPromptToSave=*/ false);
 }
+
+
+void FAssetEditorToolkit::SaveAssetAs_Execute()
+{
+	if (EditingObjects.Num() == 0)
+	{
+		return;
+	}
+
+	TSharedPtr<IToolkitHost> MyToolkitHost = ToolkitHost.Pin();
+
+	if (!MyToolkitHost.IsValid())
+	{
+		return;
+	}
+
+	// get collection of objects to save
+	TArray<UObject*> ObjectsToSave;
+	GetSaveableObjects(ObjectsToSave);
+
+	if (ObjectsToSave.Num() == 0)
+	{
+		return;
+	}
+
+	// save assets under new name
+	TArray<UObject*> SavedObjects;
+	FEditorFileUtils::SaveAssetsAs(ObjectsToSave, SavedObjects);
+
+
+	// close existing asset editors for resaved assets
+	FAssetEditorManager& AssetEditorManager = FAssetEditorManager::Get();
+
+	/* @todo editor: Persona does not behave well when closing specific objects
+	for (int32 Index = 0; Index < ObjectsToSave.Num(); ++Index)
+	{
+		if ((SavedObjects[Index] != ObjectsToSave[Index]) && (SavedObjects[Index] != nullptr))
+		{
+			AssetEditorManager.CloseAllEditorsForAsset(ObjectsToSave[Index]);
+		}
+	}
+
+	// reopen asset editor
+	AssetEditorManager.OpenEditorForAssets(TArrayBuilder<UObject*>().Add(SavedObjects[0]), ToolkitMode, MyToolkitHost.ToSharedRef());
+	*/
+	// hack
+	TArray<UObject*> ObjectsToReopen;
+	for (auto Object : EditingObjects)
+	{
+		if (Object->IsAsset() && !ObjectsToSave.Contains(Object))
+		{
+			ObjectsToReopen.Add(Object);
+		}
+	}
+	for (auto Object : SavedObjects)
+	{
+		ObjectsToReopen.AddUnique(Object);
+	}
+	for (auto Object : EditingObjects)
+	{
+		AssetEditorManager.CloseAllEditorsForAsset(Object);
+		FAssetEditorManager::Get().NotifyAssetClosed(Object, this);
+	}
+	AssetEditorManager.OpenEditorForAssets(ObjectsToReopen, ToolkitMode, MyToolkitHost.ToSharedRef());
+	// end hack
+}
+
 
 const FSlateBrush* FAssetEditorToolkit::GetDefaultTabIcon() const
 {
@@ -738,8 +872,8 @@ void FAssetEditorToolkit::FillDefaultFileMenuCommands( FMenuBuilder& MenuBuilder
 {
 	if( IsActuallyAnAsset() )
 	{
-		MenuBuilder.AddMenuEntry( FAssetEditorCommonCommands::Get().SaveAsset, "SaveAsset", TAttribute<FText>(), TAttribute<FText>(), FSlateIcon(FEditorStyle::GetStyleSetName(), "AssetEditor.SaveAsset.Greyscale") );
-
+		MenuBuilder.AddMenuEntry(FAssetEditorCommonCommands::Get().SaveAsset, "SaveAsset", TAttribute<FText>(), TAttribute<FText>(), FSlateIcon(FEditorStyle::GetStyleSetName(), "AssetEditor.SaveAsset.Greyscale"));
+		MenuBuilder.AddMenuEntry(FAssetEditorCommonCommands::Get().SaveAssetAs, "SaveAssetAs", TAttribute<FText>(), TAttribute<FText>(), FSlateIcon(FEditorStyle::GetStyleSetName(), "AssetEditor.SaveAssetAs.Small"));
 		MenuBuilder.AddMenuSeparator();
 	}
 

@@ -16,7 +16,7 @@ Required Third Party Software
 
 **Windows:**
 
-Be sure to have [Visual Studio 2013](http://go.microsoft.com/?linkid=9832280) installed.  You can use any desktop version of [Visual Studio 2013](https://msdn.microsoft.com/vstudio/), including the free version:  [Visual Studio 2013 Express for Windows Desktop](http://go.microsoft.com/?linkid=9832280).
+Be sure to have [Visual Studio 2015](https://www.visualstudio.com/vs-2015-product-editions) installed.  You can use any desktop version of [Visual Studio 2015](https://www.visualstudio.com/), including the free version called Community 2015.
 
 You need [DirectX End-User Runtimes (June 2010)](http://www.microsoft.com/en-us/download/details.aspx?id=8109) to avoid compilation errors.  Most users will already have this, if you have ever installed DirectX runtimes to play a game.
  
@@ -27,13 +27,14 @@ Be sure to have [Xcode 5.1](https://itunes.apple.com/us/app/xcode/id497799835) i
 How to get started (Windows)
 -------------------
 
-The current Unreal Tournament project is based on Unreal Engine version 4.11 preview. The engine source is now included in our repository for your convenience. Visual Studio 2013 is required for Windows usage.
+The current Unreal Tournament project is based on Unreal Engine version 4.12 preview. The engine source is now included in our repository for your convenience. Visual Studio 2015 is required for Windows usage.
 
 **Downloading the Unreal Tournament project:**
 
 - Download the project by clicking the **Download ZIP** button on this page.
 - Unzip the files to a folder on your computer.  
 - Run the Setup.bat file in the directory you've created. This will download the necessary binary content not stored on GitHub.
+- Run UE4PrereqSetup_x64.exe from the Engine\Extras\Redist\en-us folder. This will install any other dependencies that might be missing.
 
 **Compiling the Unreal Tournament project:**
 - Use Visual Studio to open UnrealSwarm.sln located in Engine\Source\Programs\UnrealSwarm. Select Development mode in the Solution Configuration drop down menu.

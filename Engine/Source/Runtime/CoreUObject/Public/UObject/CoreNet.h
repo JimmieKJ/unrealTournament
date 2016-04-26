@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -208,16 +208,20 @@ struct FPropertyRetirement
 /** Secondary condition to check before considering the replication of a lifetime property. */
 enum ELifetimeCondition
 {
-	COND_None				= 0,		// This property has no condition, and will send anytime it changes
-	COND_InitialOnly		= 1,		// This property will only attempt to send on the initial bunch
-	COND_OwnerOnly			= 2,		// This property will only send to the actor's owner
-	COND_SkipOwner			= 3,		// This property send to every connection EXCEPT the owner
-	COND_SimulatedOnly		= 4,		// This property will only send to simulated actors
-	COND_AutonomousOnly		= 5,		// This property will only send to autonomous actors
-	COND_SimulatedOrPhysics	= 6,		// This property will send to simulated OR bRepPhysics actors
-	COND_InitialOrOwner		= 7,		// This property will send on the initial packet, or to the actors owner
-	COND_Custom				= 8,		// This property has no particular condition, but wants the ability to toggle on/off via SetCustomIsActiveOverride
-	COND_Max				= 9,
+	COND_None						= 0,		// This property has no condition, and will send anytime it changes
+	COND_InitialOnly				= 1,		// This property will only attempt to send on the initial bunch
+	COND_OwnerOnly					= 2,		// This property will only send to the actor's owner
+	COND_SkipOwner					= 3,		// This property send to every connection EXCEPT the owner
+	COND_SimulatedOnly				= 4,		// This property will only send to simulated actors
+	COND_AutonomousOnly				= 5,		// This property will only send to autonomous actors
+	COND_SimulatedOrPhysics			= 6,		// This property will send to simulated OR bRepPhysics actors
+	COND_InitialOrOwner				= 7,		// This property will send on the initial packet, or to the actors owner
+	COND_Custom						= 8,		// This property has no particular condition, but wants the ability to toggle on/off via SetCustomIsActiveOverride
+	COND_ReplayOrOwner				= 9,		// This property will only send to the replay connection, or to the actors owner
+	COND_ReplayOnly					= 10,		// This property will only send to the replay connection
+	COND_SimulatedOnlyNoReplay		= 11,
+	COND_SimulatedOrPhysicsNoReplay	= 12,
+	COND_Max						= 13,
 };
 
 
@@ -331,6 +335,10 @@ public:
 	IRepChangedPropertyTracker() { }
 
 	virtual void SetCustomIsActiveOverride( const uint16 RepIndex, const bool bIsActive ) = 0;
+
+	virtual void SetExternalData( const uint8* Src, const int32 NumBits ) = 0;
+
+	virtual bool IsReplay() const = 0;
 };
 
 

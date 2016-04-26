@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Animation/AnimNode_SequencePlayer.h"
@@ -6,6 +6,16 @@
 
 /////////////////////////////////////////////////////
 // FAnimSequencePlayerNode
+
+float FAnimNode_SequencePlayer::GetCurrentAssetTime()
+{
+	return InternalTimeAccumulator;
+}
+
+float FAnimNode_SequencePlayer::GetCurrentAssetLength()
+{
+	return Sequence ? Sequence->SequenceLength : 0.0f;
+}
 
 void FAnimNode_SequencePlayer::Initialize(const FAnimationInitializeContext& Context)
 {
@@ -34,11 +44,7 @@ void FAnimNode_SequencePlayer::UpdateAssetPlayer(const FAnimationUpdateContext& 
 
 	if ((Sequence != NULL) && (Context.AnimInstanceProxy->IsSkeletonCompatible(Sequence->GetSkeleton())))
 	{
-		if (InternalTimeAccumulator > Sequence->SequenceLength)
-		{
-			InternalTimeAccumulator = 0.f;
-		}
-
+		InternalTimeAccumulator = FMath::Clamp(InternalTimeAccumulator, 0.f, Sequence->SequenceLength);
 		CreateTickRecordForNode(Context, Sequence, bLoopAnimation, PlayRate);
 	}
 }

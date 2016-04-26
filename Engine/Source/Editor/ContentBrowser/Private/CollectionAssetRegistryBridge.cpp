@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ContentBrowserPCH.h"
 #include "CollectionAssetRegistryBridge.h"
@@ -46,10 +46,28 @@ public:
 		}
 		else
 		{
+			// Keep track of visted redirectors in case we loop.
+			TSet<FName> VisitedRedirectors;
+
 			// Use the asset registry to avoid loading the object
 			FAssetData ObjectAssetData = AssetRegistryModule.Get().GetAssetByObjectPath(InObjectPath);
 			while (ObjectAssetData.IsValid() && ObjectAssetData.IsRedirector())
 			{
+				// Check to see if we've already seen this path before, it's possible we might have found a redirector loop.
+				if ( VisitedRedirectors.Contains(ObjectAssetData.ObjectPath) )
+				{
+					UE_LOG(LogContentBrowser, Error, TEXT("Redirector Loop Found!"));
+					for ( FName Redirector : VisitedRedirectors )
+					{
+						UE_LOG(LogContentBrowser, Error, TEXT("Redirector: %s"), *Redirector.ToString());
+					}
+
+					ObjectAssetData = FAssetData();
+					break;
+				}
+
+				VisitedRedirectors.Add(ObjectAssetData.ObjectPath);
+
 				// Get the destination object from the meta-data rather than load the redirector object, as 
 				// loading a redirector will also load the object it points to, which could cause a large hitch
 				const FString* DestinationObjectStrPtr = ObjectAssetData.TagsAndValues.Find("DestinationObject");

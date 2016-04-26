@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.IO;
@@ -23,9 +23,7 @@ public class UnrealEd : ModuleRules
 		PrivateIncludePathModuleNames.AddRange(
 			new string[] 
 			{
-				"Analytics",
 				"AssetRegistry",
-                "CookingStats",
 				"AssetTools",
                 "BehaviorTreeEditor",
 				"ClassViewer",
@@ -62,6 +60,7 @@ public class UnrealEd : ModuleRules
                 "MessagingRpc",
                 "PortalRpc",
                 "PortalServices",
+                "BlueprintNativeCodeGen",
 			}
 		);
 
@@ -144,7 +143,8 @@ public class UnrealEd : ModuleRules
 				"AddContentDialog",
 				"GameProjectGeneration",
                 "HierarchicalLODUtilities",
-                "BlueprintNativeCodeGen",               
+                "AnalyticsET",
+                "PluginWarden"
 			}
 		);
 
@@ -215,6 +215,7 @@ public class UnrealEd : ModuleRules
                 "PortalProxies",
                 "PortalServices",
                 "GeometryCacheEd",
+                "BlueprintNativeCodeGen",
 			}
 		);
 
@@ -222,6 +223,12 @@ public class UnrealEd : ModuleRules
 		{
 			DynamicallyLoadedModuleNames.Add("AndroidPlatformEditor");
 		}
+
+        if (Target.Type == TargetRules.TargetType.Editor)
+        {
+            DynamicallyLoadedModuleNames.Add("SequenceRecorder");
+            PrivateIncludePathModuleNames.Add("SequenceRecorder");
+        }
 
 		CircularlyReferencedDependentModules.AddRange(
 			new string[] 
@@ -254,7 +261,7 @@ public class UnrealEd : ModuleRules
 			PublicDependencyModuleNames.Add("XAudio2");
 			PublicDependencyModuleNames.Add("UnrealAudioXAudio2");
 
-			AddThirdPartyPrivateStaticDependencies(Target, 
+			AddEngineThirdPartyPrivateStaticDependencies(Target, 
 				"UEOgg",
 				"Vorbis",
 				"VorbisFile",
@@ -274,7 +281,7 @@ public class UnrealEd : ModuleRules
 			PublicDependencyModuleNames.Add("ALAudio");
         }
 
-		AddThirdPartyPrivateStaticDependencies(Target,
+		AddEngineThirdPartyPrivateStaticDependencies(Target,
             "HACD",
             "VHACD",
 			"FBX",

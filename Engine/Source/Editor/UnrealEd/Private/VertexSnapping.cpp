@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "VertexSnapping.h"
@@ -670,11 +670,10 @@ static void GetActorsToIgnore( AActor* Actor, TSet< TWeakObjectPtr<AActor> >& Ac
 
 		// We cannot snap to any attached children or actors in the same group as moving this actor will also move the children as we are snapping to them, 
 		// causing a cascading effect and unexpected results
-		TArray<USceneComponent*>& AttachedChildren = Actor->GetRootComponent()->AttachChildren;
+		const TArray<USceneComponent*>& AttachedChildren = Actor->GetRootComponent()->GetAttachChildren();
 
-		for( int32 ChildIndex = 0; ChildIndex < AttachedChildren.Num(); ++ChildIndex )
+		for (USceneComponent* Child : AttachedChildren)
 		{
-			USceneComponent* Child = AttachedChildren[ChildIndex];
 			if( Child && Child->GetOwner() )
 			{
 				ActorsToIgnore.Add( Child->GetOwner() );

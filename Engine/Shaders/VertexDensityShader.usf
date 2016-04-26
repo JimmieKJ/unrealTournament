@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LightMapDensityShader.hlsl: Shader for rendering lightmap density as a color
@@ -17,6 +17,8 @@ struct FVertexDensityVSToPS
 
 void MainVS(FVertexFactoryInput Input, out FVertexDensityVSToPS Output)
 {
+	ResolvedView = ResolveView();
+	
 	FVertexFactoryIntermediates VFIntermediates = GetVertexFactoryIntermediates(Input);
 	float4 WorldPosition = VertexFactoryGetWorldPosition(Input, VFIntermediates);
 	float3x3 TangentToLocal = VertexFactoryGetTangentToLocal(Input, VFIntermediates);
@@ -27,7 +29,7 @@ void MainVS(FVertexFactoryInput Input, out FVertexDensityVSToPS Output)
 	ISOLATE
 	{
 		float4 RasterizedWorldPosition = VertexFactoryGetRasterizedWorldPosition(Input, VFIntermediates, Output.WorldPosition);
-		Output.Position = mul(RasterizedWorldPosition, View.TranslatedWorldToClip);
+		Output.Position = mul(RasterizedWorldPosition, ResolvedView.TranslatedWorldToClip);
 	}
 	Output.FactoryInterpolants = VertexFactoryGetInterpolantsVSToPS(Input, VFIntermediates, VertexParameters);
 }
@@ -38,7 +40,7 @@ float2 TriangleSize;
 void MainGS(triangle FVertexDensityVSToPS Input[3], inout TriangleStream<FVertexDensityVSToPS> TriStream )
 {
 	// Size in pixels
-	float2 SizeInClip = TriangleSize * View.ViewSizeAndInvSize.zw;
+	float2 SizeInClip = TriangleSize * Frame.ViewSizeAndInvSize.zw;
 
 	int i;
 
@@ -68,6 +70,8 @@ void MainGS(triangle FVertexDensityVSToPS Input[3], inout TriangleStream<FVertex
 
 float4 MainPS(FVertexDensityVSToPS Input) : SV_Target0
 {
+	ResolvedView = ResolveView();
+
 	if (Input.WorldPosition.w < 1e-6)
 	{
 		return float4(normalize(Input.WorldPosition).xyz * 0.5 + float3(0, 0.25, 0), 0.5);
@@ -75,8 +79,9 @@ float4 MainPS(FVertexDensityVSToPS Input) : SV_Target0
 	else
 	{
 		FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(Input.FactoryInterpolants, Input.WorldPosition);
-		CalcMaterialParameters(MaterialParameters, Input.Position, false);
-		GetMaterialCoverageAndClipping(MaterialParameters);
+		FPixelMaterialInputs PixelMaterialInputs;
+		CalcMaterialParameters(MaterialParameters, PixelMaterialInputs, Input.Position, false);
+		GetMaterialCoverageAndClipping(MaterialParameters, PixelMaterialInputs);
 		float3 Color = MaterialParameters.AOMaterialMask + MaterialParameters.VertexColor.xyz;
 		Color = normalize(Color) * 0.5 + float3(0, 0, 0.25);
 		return float4(Color, 0.25);

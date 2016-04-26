@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 
@@ -108,11 +108,6 @@ void UUniformGridPanel::SynchronizeProperties()
 }
 
 #if WITH_EDITOR
-
-const FSlateBrush* UUniformGridPanel::GetEditorIcon()
-{
-	return FUMGStyle::Get().GetBrush("Widget.UniformGrid");
-}
 
 const FText UUniformGridPanel::GetPaletteCategory()
 {

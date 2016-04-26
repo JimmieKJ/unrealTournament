@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -48,6 +48,9 @@ struct FStructVariableDescription
 	bool bDontEditoOnInstance;
 
 	UPROPERTY()
+	bool bEnableMultiLineText;
+
+	UPROPERTY()
 	bool bEnable3dWidget;
 
 	UNREALED_API bool SetPinType(const struct FEdGraphPinType& VarType);
@@ -58,6 +61,7 @@ struct FStructVariableDescription
 		: bIsArray(false)
 		, bInvalidMember(false)
 		, bDontEditoOnInstance(false)
+		, bEnableMultiLineText(false)
 		, bEnable3dWidget(false)
 	{ }
 };

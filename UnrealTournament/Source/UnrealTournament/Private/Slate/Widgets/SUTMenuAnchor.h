@@ -135,6 +135,8 @@ protected:
 	FReply SubMenuButtonClicked(FName Tag);
 	FReply UTOnButtonClicked(int32 ButtonIndex);
 
+	TSharedPtr<SUTButton> MyButton;
+
 };
 
 #endif

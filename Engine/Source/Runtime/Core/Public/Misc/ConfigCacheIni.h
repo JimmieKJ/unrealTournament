@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*-----------------------------------------------------------------------------
 	Config cache.
@@ -8,6 +8,8 @@
 
 CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogConfig, Warning, All);
 
+// Server builds should be tweakable even in Shipping
+#define ALLOW_INI_OVERRIDE_FROM_COMMANDLINE			(UE_SERVER || !(UE_BUILD_SHIPPING))
 
 typedef TMultiMap<FName,FString> FConfigSectionMap;
 
@@ -42,13 +44,13 @@ struct FIniFilename
 };
 
 
-#if !UE_BUILD_SHIPPING
+#if ALLOW_INI_OVERRIDE_FROM_COMMANDLINE
 // Options which stemmed from the commandline
 struct FConfigCommandlineOverride
 {
 	FString BaseFileName, Section, PropertyKey, PropertyValue;
 };
-#endif // !UE_BUILD_SHIPPING
+#endif // ALLOW_INI_OVERRIDE_FROM_COMMANDLINE
 
 // Possible entries in a config hierarchy
 enum class EConfigFileHierarchy : uint8
@@ -117,10 +119,10 @@ public:
 	/** Key to the cache to speed up ini parsing */
 	FString CacheKey;
 
-#if !UE_BUILD_SHIPPING
+#if ALLOW_INI_OVERRIDE_FROM_COMMANDLINE
 	/** The collection of overrides which stemmed from the commandline */
 	TArray<FConfigCommandlineOverride> CommandlineOptions;
-#endif // !UE_BUILD_SHIPPING
+#endif // ALLOW_INI_OVERRIDE_FROM_COMMANDLINE
 	
 	CORE_API FConfigFile();
 	FConfigFile( int32 ) {}	// @todo UE4 DLL: Workaround for instantiated TMap template during DLLExport (TMap::FindRef)

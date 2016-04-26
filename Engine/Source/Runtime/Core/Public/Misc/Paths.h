@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -323,6 +323,9 @@ public:
 
 	// Returns the path in front of the filename
 	static FString GetPath(const FString& InPath);
+
+	// Changes the extension of the given filename
+	static FString ChangeExtension(const FString& InPath, const FString& InNewExtension);
 
 	/** @return true if this file was found, false otherwise */
 	static bool FileExists(const FString& InPath);

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SandboxFilePrivatePCH.h"
 #include "IPlatformFileSandboxWrapper.h"
@@ -185,6 +185,34 @@ FString FSandboxPlatformFile::ConvertToSandboxPath( const TCHAR* Filename ) cons
 	}
 
 	return SandboxPath;
+}
+
+FString FSandboxPlatformFile::ConvertFromSandboxPath(const TCHAR* Filename) const
+{
+	// Mostly for the malloc profiler to flush the data.
+	//DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FSandboxPlatformFile::ConvertFromSandboxPath"), STAT_SandboxPlatformFile_ConvertToSandboxPath, STATGROUP_LoadTimeVerbose);
+
+	FString FullSandboxPath = FPaths::ConvertRelativePathToFull(Filename);
+
+	FString SandboxGameDirectory = FPaths::Combine(*SandboxDirectory, FApp::GetGameName());
+	FString SandboxRootDirectory = SandboxDirectory;
+
+	FString OriginalPath;
+
+	if (FullSandboxPath.StartsWith(SandboxGameDirectory))
+	{
+		OriginalPath = FullSandboxPath.Replace(*SandboxGameDirectory, *FPaths::GameDir());
+	}
+	else if (FullSandboxPath.StartsWith(SandboxRootDirectory))
+	{
+		OriginalPath = FullSandboxPath.Replace(*SandboxRootDirectory, *FPaths::RootDir());
+	}
+
+	OriginalPath.ReplaceInline(TEXT("//"), TEXT("/"));
+
+	FString FullOriginalPath = FPaths::ConvertRelativePathToFull(OriginalPath);
+
+	return FullOriginalPath;
 }
 
 bool FSandboxPlatformFile::WipeSandboxFolder( const TCHAR* AbsolutePath )

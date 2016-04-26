@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateRHIRendererPrivatePCH.h"
 #include "Slate3DRenderer.h"
@@ -60,11 +60,13 @@ public:
 		return MakeShareable( new FSlateRHIRenderer( SlateFontServices.ToSharedRef(), ResourceManager.ToSharedRef() ) );
 	}
 
-	virtual TSharedRef<ISlate3DRenderer> CreateSlate3DRenderer(bool bUseGammaCorrection) override
+	virtual TSharedRef<ISlate3DRenderer, ESPMode::ThreadSafe> CreateSlate3DRenderer(bool bUseGammaCorrection) override
 	{
 		ConditionalCreateResources();
 
-		return MakeShareable( new FSlate3DRenderer( SlateFontServices.ToSharedRef(),  ResourceManager.ToSharedRef(), bUseGammaCorrection ) );
+		return MakeShareable(new FSlate3DRenderer(SlateFontServices.ToSharedRef(), ResourceManager.ToSharedRef(), bUseGammaCorrection), [=] (FSlate3DRenderer* Renderer) {
+			Renderer->Cleanup();
+		});
 	}
 
 	virtual TSharedRef<ISlateFontAtlasFactory> CreateSlateFontAtlasFactory() override

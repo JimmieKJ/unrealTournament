@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "PhysicsPublic.h"
@@ -518,7 +518,7 @@ void FConvexCollisionVertexFactory::InitConvexVertexFactory(const FConvexCollisi
 	if(IsInRenderingThread())
 	{
 		// Initialize the vertex factory's stream components.
-		DataType NewData;
+		FDataType NewData;
 		NewData.PositionComponent = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(VertexBuffer,FDynamicMeshVertex,Position,VET_Float3);
 		NewData.TextureCoordinates.Add(
 			FVertexStreamComponent(VertexBuffer,STRUCT_OFFSET(FDynamicMeshVertex,TextureCoordinate),sizeof(FDynamicMeshVertex),VET_Float2)
@@ -535,7 +535,7 @@ void FConvexCollisionVertexFactory::InitConvexVertexFactory(const FConvexCollisi
 			const FConvexCollisionVertexBuffer*,VertexBuffer,VertexBuffer,
 			{
 				// Initialize the vertex factory's stream components.
-				DataType NewData;
+				FDataType NewData;
 				NewData.PositionComponent = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(VertexBuffer,FDynamicMeshVertex,Position,VET_Float3);
 				NewData.TextureCoordinates.Add(
 					FVertexStreamComponent(VertexBuffer,STRUCT_OFFSET(FDynamicMeshVertex,TextureCoordinate),sizeof(FDynamicMeshVertex),VET_Float2)
@@ -637,7 +637,7 @@ void FKAggregateGeom::GetAggGeom(const FTransform& Transform, const FColor Color
 				FBoxSphereBounds WorldBounds, LocalBounds;
 				CalcBoxSphereBounds(WorldBounds, LocalToWorld);
 				CalcBoxSphereBounds(LocalBounds, FTransform::Identity);
-			    BatchElement.PrimitiveUniformBuffer = CreatePrimitiveUniformBufferImmediate(LocalToWorld.ToMatrixWithScale(), WorldBounds, LocalBounds, 1.0f, true, bUseEditorDepthTest);
+			    BatchElement.PrimitiveUniformBuffer = CreatePrimitiveUniformBufferImmediate(LocalToWorld.ToMatrixWithScale(), WorldBounds, LocalBounds, true, bUseEditorDepthTest);
 			 	// previous l2w not used so treat as static
 				BatchElement.FirstIndex = 0;
 				BatchElement.NumPrimitives = RenderInfo->IndexBuffer->Indices.Num() / 3;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -124,6 +124,11 @@ public:
 	virtual ERichCurveExtrapolation GetExtrapolationMode(bool bPreInfinity) const = 0;
 
 	/**
+	 * @return Whether this key area can set extrapolation mode
+	 */
+	virtual bool CanSetExtrapolationMode() const { return false; }
+
+	/**
 	 * Adds a key at the specified time if there isn't already a key present.  The value of the added key should
 	 * be the value which would be returned if the animation containing this key area was evaluated at the specified time.
 	 *
@@ -189,5 +194,13 @@ public:
 	 *
 	 * @return Key area color.
 	 */
-	virtual FLinearColor GetColor() = 0;
+	virtual TOptional<FLinearColor> GetColor() = 0;
+
+	/**
+	 * Get the data structure representing the specified key.
+	 *
+	 * @param KeyHandle The handle of the key.
+	 * @return The key's data structure representation, or nullptr if key not found or no structure available.
+	 */
+	virtual TSharedPtr<FStructOnScope> GetKeyStruct(FKeyHandle KeyHandle) = 0;
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "PropertyEditing.h"
@@ -81,7 +81,13 @@ FReply FProceduralFoliageComponentDetails::OnResimulateClicked()
 			TArray <FDesiredFoliageInstance> DesiredFoliageInstances;
 			if (Component->GenerateProceduralContent(DesiredFoliageInstances))
 			{
-				FEdModeFoliage::AddInstances(Component->GetWorld(), DesiredFoliageInstances);
+				FFoliagePaintingGeometryFilter OverrideGeometryFilter;
+				OverrideGeometryFilter.bAllowLandscape = Component->bAllowLandscape;
+				OverrideGeometryFilter.bAllowStaticMesh = Component->bAllowStaticMesh;
+				OverrideGeometryFilter.bAllowBSP = Component->bAllowBSP;
+				OverrideGeometryFilter.bAllowTranslucent = Component->bAllowTranslucent;
+
+				FEdModeFoliage::AddInstances(Component->GetWorld(), DesiredFoliageInstances, OverrideGeometryFilter);
 
 				// If no instances were spawned, inform the user
 				if (!Component->HasSpawnedAnyInstances())

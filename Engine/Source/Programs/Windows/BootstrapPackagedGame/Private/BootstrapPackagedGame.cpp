@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "BootstrapPackagedGame.h"
 
@@ -31,9 +31,9 @@ int InstallMissingPrerequisites(const WCHAR* BaseDirectory)
 {
 	// Look for missing prerequisites
 	WCHAR MissingPrerequisites[1024] = { 0, };
-	if(LoadLibrary(L"MSVCP120.DLL") == NULL || LoadLibrary(L"MSVCR120.DLL") == NULL)
+	if(LoadLibrary(L"MSVCP140.DLL") == NULL || LoadLibrary(L"ucrtbase.dll") == NULL)
 	{
-		wcscat_s(MissingPrerequisites, TEXT("Microsoft Visual C++ 2013 Runtime\n"));
+		wcscat_s(MissingPrerequisites, TEXT("Microsoft Visual C++ 2015 Runtime\n"));
 	}
 	if(LoadLibrary(L"XINPUT1_3.DLL") == NULL)
 	{

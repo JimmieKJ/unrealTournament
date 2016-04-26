@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 #include "AttributeSet.h"
@@ -14,7 +14,6 @@ UAbilitySystemGlobals::UAbilitySystemGlobals(const FObjectInitializer& ObjectIni
 : Super(ObjectInitializer)
 {
 	AbilitySystemGlobalsClassName = FStringClassReference(TEXT("/Script/GameplayAbilities.AbilitySystemGlobals"));
-	GlobalGameplayCueManagerName = FStringClassReference(TEXT("/Script/GameplayAbilities.GameplayCueManager"));
 
 	PredictTargetGameplayEffects = true;
 
@@ -38,7 +37,11 @@ void UAbilitySystemGlobals::InitGlobalData()
 	GetGameplayCueManager();
 	GetGameplayTagResponseTable();
 	InitGlobalTags();
+
+	//register for world clean up events
+	FWorldDelegates::OnPostWorldCreation.AddUObject(this, &UAbilitySystemGlobals::HandlePostWorldCreate);
 }
+
 
 UCurveTable * UAbilitySystemGlobals::GetGlobalCurveTable()
 {
@@ -198,10 +201,44 @@ UFunction* UAbilitySystemGlobals::GetGameplayCueFunction(const FGameplayTag& Chi
 
 // --------------------------------------------------------------------
 
-void UAbilitySystemGlobals::InitGameplayCueParameters(FGameplayCueParameters& CueParameters, const FGameplayEffectSpecForRPC &Spec)
+void UAbilitySystemGlobals::InitGameplayCueParameters(FGameplayCueParameters& CueParameters, const FGameplayEffectSpecForRPC& Spec)
 {
 	CueParameters.AggregatedSourceTags = Spec.AggregatedSourceTags;
 	CueParameters.AggregatedTargetTags = Spec.AggregatedTargetTags;
+	CueParameters.GameplayEffectLevel = Spec.GetLevel();
+	CueParameters.AbilityLevel = Spec.GetAbilityLevel();
+	InitGameplayCueParameters(CueParameters, Spec.GetContext());
+}
+
+void UAbilitySystemGlobals::InitGameplayCueParameters_GESpec(FGameplayCueParameters& CueParameters, const FGameplayEffectSpec& Spec)
+{
+	CueParameters.AggregatedSourceTags = *Spec.CapturedSourceTags.GetAggregatedTags();
+	CueParameters.AggregatedTargetTags = *Spec.CapturedTargetTags.GetAggregatedTags();
+
+	// Look for a modified attribute magnitude to pass to the CueParameters
+	for (const FGameplayEffectCue& CueDef : Spec.Def->GameplayCues)
+	{	
+		bool FoundMatch = false;
+		if (CueDef.MagnitudeAttribute.IsValid())
+		{
+			for (const FGameplayEffectModifiedAttribute& ModifiedAttribute : Spec.ModifiedAttributes)
+			{
+				if (ModifiedAttribute.Attribute == CueDef.MagnitudeAttribute)
+				{
+					CueParameters.RawMagnitude = ModifiedAttribute.TotalMagnitude;
+					FoundMatch = true;
+					break;
+				}
+			}
+			if (FoundMatch)
+			{
+				break;
+			}
+		}
+	}
+
+	CueParameters.GameplayEffectLevel = Spec.GetLevel();
+	CueParameters.AbilityLevel = Spec.GetEffectContext().GetAbilityLevel();
 
 	InitGameplayCueParameters(CueParameters, Spec.GetContext());
 }
@@ -259,12 +296,23 @@ UGameplayCueManager* UAbilitySystemGlobals::GetGameplayCueManager()
 {
 	if (GlobalGameplayCueManager == nullptr)
 	{
+		// Load specific gameplaycue manager object if specified
 		if (GlobalGameplayCueManagerName.IsValid())
 		{
 			GlobalGameplayCueManager = LoadObject<UGameplayCueManager>(nullptr, *GlobalGameplayCueManagerName.ToString(), nullptr, LOAD_None, nullptr);
 			if (GlobalGameplayCueManager == nullptr)
 			{
 				ABILITY_LOG(Error, TEXT("Unable to Load GameplayCueManager %s"), *GlobalGameplayCueManagerName.ToString() );
+			}
+		}
+
+		// Load specific gameplaycue manager class if specified
+		if ( GlobalGameplayCueManager == nullptr && GlobalGameplayCueManagerClass.IsValid() )
+		{
+			UClass* GCMClass = LoadClass<UObject>(NULL, *GlobalGameplayCueManagerClass.ToString(), NULL, LOAD_None, NULL);
+			if (GCMClass)
+			{
+				GlobalGameplayCueManager = NewObject<UGameplayCueManager>(this, GCMClass, NAME_None);
 			}
 		}
 
@@ -331,4 +379,10 @@ bool UAbilitySystemGlobals::ShouldIgnoreCosts() const
 #else
 	return false;
 #endif // #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+}
+
+void UAbilitySystemGlobals::HandlePostWorldCreate(UWorld* NewWorld)
+{
+	IGameplayCueInterface::ClearTagToFunctionMap();
+	FActiveGameplayEffectHandle::ResetGlobalHandleMap();
 }

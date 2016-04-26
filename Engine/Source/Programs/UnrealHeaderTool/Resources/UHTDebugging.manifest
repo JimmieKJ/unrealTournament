@@ -5,7 +5,7 @@
 	"TargetName": "UHTDebugging",
 	"Modules":[{
 			"Name": "CoreUObject",
-			"ModuleType": "Runtime",
+			"ModuleType": "EngineRuntime",
 			"BaseDirectory": "..\\..\\..\\Runtime\\CoreUObject",
 			"IncludeBase": "..\\..\\..\\Runtime\\CoreUObject",
 			"OutputDirectory": "..\\..\\..\\..\\Intermediate/Build/Inc\\CoreUObject\\",
@@ -22,7 +22,7 @@
 			"UHTGeneratedCodeVersion":"None"
 		}, {
 			"Name": "UHTDebugging",
-			"ModuleType": "Game",
+			"ModuleType": "GameRuntime",
 			"BaseDirectory": ".\\UHTDebugging",
 			"IncludeBase": ".\\UHTDebugging",
 			"OutputDirectory": "..\\..\\..\\..\\Intermediate/Build/Inc\\UHTDebugging\\",

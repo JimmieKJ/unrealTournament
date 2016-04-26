@@ -1,14 +1,16 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OpenGLDrvPrivate.h"
 
 #include "MacOpenGLQuery.h"
 
+#include <mach-o/dyld.h>
+
 /*------------------------------------------------------------------------------
  OpenGL static variables.
  ------------------------------------------------------------------------------*/
 
-bool GIsEmulatingTimestamp = true;
+bool GIsEmulatingTimestamp = false;
 static const uint32 GMacQueryNameCacheSize = 32 * OPENGL_NAME_CACHE_SIZE;
 
 static int32 GMacIsEmulatingTimestamp = 1;
@@ -322,7 +324,23 @@ FMacOpenGLQueryEmu::FMacOpenGLQueryEmu(FPlatformOpenGLContext* InContext)
 	
 	// Only use the timestamp emulation in a non-shipping build - end-users shouldn't care about this profiling feature.
 #if (!UE_BUILD_SHIPPING)
-	GIsEmulatingTimestamp = ((FPlatformMisc::MacOSXVersionCompare(10,10,0) >= 0 && !IsRHIDeviceNVIDIA()) || FPlatformMisc::MacOSXVersionCompare(10,11,0) >= 0 || GMacIsEmulatingTimestamp == 2) && !FParse::Param(FCommandLine::Get(), TEXT("DisableMacGPUTimestamp"));
+	bool bIsNvidiaWeb = false;
+	if (IsRHIDeviceNVIDIA())
+	{
+		uint32 ModuleCount = _dyld_image_count();
+		for(uint32 Index = 0; Index < ModuleCount; Index++)
+		{
+			char const* ModulePath = _dyld_get_image_name(Index);
+			if (FCStringAnsi::Strstr(ModulePath, "GeForceGLDriverWeb") != nullptr)
+			{
+				bIsNvidiaWeb = true;
+				break;
+			}
+		}
+
+	}
+	
+	GIsEmulatingTimestamp = ((FPlatformMisc::MacOSXVersionCompare(10,10,0) >= 0 && !IsRHIDeviceNVIDIA()) || (!bIsNvidiaWeb && FPlatformMisc::MacOSXVersionCompare(10,11,0) >= 0) || GMacIsEmulatingTimestamp == 2) && !FParse::Param(FCommandLine::Get(), TEXT("DisableMacGPUTimestamp"));
 #endif
 	
 	if ( GIsEmulatingTimestamp )

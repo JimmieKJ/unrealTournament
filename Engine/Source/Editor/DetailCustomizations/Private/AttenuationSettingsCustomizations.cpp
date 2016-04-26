@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "DetailCustomizationsPrivatePCH.h"
 #include "AttenuationSettingsCustomizations.h"
@@ -195,9 +195,9 @@ void FAttenuationSettingsCustomization::CustomizeChildren( TSharedRef<IPropertyH
 	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, LPFFrequencyAtMin)).ToSharedRef());
 	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, LPFFrequencyAtMax)).ToSharedRef());
 
-
 	bIsSpatializedHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, bSpatialize)).ToSharedRef();
 	bIsFocusedHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, bEnableListenerFocus)).ToSharedRef();
+	bIsOcclussionEnabledHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, bEnableOcclusion)).ToSharedRef();
 
 	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, bEnableListenerFocus)).ToSharedRef());
 
@@ -210,16 +210,36 @@ void FAttenuationSettingsCustomization::CustomizeChildren( TSharedRef<IPropertyH
 	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, FocusDistanceScale)).ToSharedRef())
 		.EditCondition(GetIsFocusEnabledAttribute(), nullptr);
 
+	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, NonFocusDistanceScale)).ToSharedRef())
+		.EditCondition(GetIsFocusEnabledAttribute(), nullptr);
+
 	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, FocusPriorityScale)).ToSharedRef())
 		.EditCondition(GetIsFocusEnabledAttribute(), nullptr);
 
 	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, NonFocusPriorityScale)).ToSharedRef())
 		.EditCondition(GetIsFocusEnabledAttribute(), nullptr);
 
+	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, FocusVolumeAttenuation)).ToSharedRef())
+		.EditCondition(GetIsFocusEnabledAttribute(), nullptr);
+
 	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, NonFocusVolumeAttenuation)).ToSharedRef())
 		.EditCondition(GetIsFocusEnabledAttribute(), nullptr);
 
-	if (PropertyHandles.Num() != 25)
+	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, bEnableOcclusion)).ToSharedRef());
+
+	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, OcclusionLowPassFilterFrequency)).ToSharedRef())
+		.EditCondition(GetIsOcclusionEnabledAttribute(), nullptr);
+
+	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, OcclusionVolumeAttenuation)).ToSharedRef())
+		.EditCondition(GetIsOcclusionEnabledAttribute(), nullptr);
+
+	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, OcclusionInterpolationTime)).ToSharedRef())
+		.EditCondition(GetIsOcclusionEnabledAttribute(), nullptr);
+
+	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, bUseComplexCollisionForOcclusion)).ToSharedRef())
+		.EditCondition(GetIsOcclusionEnabledAttribute(), nullptr);
+
+	if (PropertyHandles.Num() != 31)
 	{
 		FString PropertyList;
 		for (auto It(PropertyHandles.CreateConstIterator()); It; ++It)
@@ -250,6 +270,25 @@ TAttribute<bool> FAttenuationSettingsCustomization::GetIsFocusEnabledAttribute()
 	return TAttribute<bool>(this, &FAttenuationSettingsCustomization::IsFocusedEnabled);
 }
 
+bool FAttenuationSettingsCustomization::IsOcclusionEnabled() const
+{
+	bool bIsOcclussionEnabled;
+	bIsOcclussionEnabledHandle->GetValue(bIsOcclussionEnabled);
+	if (!bIsOcclussionEnabled)
+	{
+		return false;
+	}
+
+	bool bIsSpatialized;
+	bIsSpatializedHandle->GetValue(bIsSpatialized);
+
+	return bIsSpatialized;
+}
+
+TAttribute<bool> FAttenuationSettingsCustomization::GetIsOcclusionEnabledAttribute() const
+{
+	return TAttribute<bool>(this, &FAttenuationSettingsCustomization::IsOcclusionEnabled);
+}
 
 EVisibility FAttenuationSettingsCustomization::IsConeSelected() const
 {

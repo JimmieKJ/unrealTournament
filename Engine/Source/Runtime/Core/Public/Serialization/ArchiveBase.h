@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -94,6 +94,11 @@ public:
 	 */
 	virtual FArchive& operator<<(struct FStringAssetReference& Value);
 
+	/** 
+	 * Inform the archive that a blueprint would like to force finalization, normally
+	 * this is triggered by CDO load, but if there's no CDO we force finalization.
+	 */
+	virtual void ForceBlueprintFinalization() {}
 public:
 
 	/**
@@ -1074,6 +1079,12 @@ public:
 	/** Max size of data that this archive is allowed to serialize. */
 	int64 ArMaxSerializeSize;
 
+	/** Custom property list attribute. If the flag below is set, only these properties will be iterated during serialization. If NULL, then no properties will be iterated. */
+	const struct FCustomPropertyListNode* ArCustomPropertyList;
+
+	/** Set TRUE to use the custom property list attribute for serialization. */
+	bool ArUseCustomPropertyList;
+
 	class FScopeSetDebugSerializationFlags
 	{
 	private:
@@ -1187,17 +1198,20 @@ public:
 
 	virtual FArchive& operator<<(class FName& Value) override
 	{
-		return InnerArchive << Value;
+		InnerArchive << Value;
+		return *this;
 	}
 
 	virtual FArchive& operator<<(class UObject*& Value) override
 	{
-		return InnerArchive << Value;
+		InnerArchive << Value;
+		return *this;
 	}
 
 	virtual FArchive& operator<<(struct FStringAssetReference& Value) override
 	{
-		return InnerArchive << Value;
+		InnerArchive << Value;
+		return *this;
 	}
 
 	virtual void Serialize(void* V, int64 Length) override

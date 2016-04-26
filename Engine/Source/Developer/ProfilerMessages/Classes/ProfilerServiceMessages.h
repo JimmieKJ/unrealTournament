@@ -1,60 +1,55 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "ProfilerServiceMessages.generated.h"
 
 
-/**
- */
+/** Profiler Service authorization message. */
 USTRUCT()
 struct FProfilerServiceAuthorize
 {
 	GENERATED_USTRUCT_BODY()
 
-	/** */
+	/** Session ID. */
 	UPROPERTY(EditAnywhere, Category="Message")
 	FGuid SessionId;
 
-	/** */
+	/** Instance ID. */
 	UPROPERTY(EditAnywhere, Category="Message")
 	FGuid InstanceId;
-
-	/** */
-	UPROPERTY(EditAnywhere, Category="Message")
-	TArray<uint8> Data;
 
 	/** Default constructor. */
 	FProfilerServiceAuthorize() { }
 
 	/** Creates and initializes a new instance. */
-	FProfilerServiceAuthorize(const FGuid& InSessionId, const FGuid& InInstanceId, const TArray<uint8>& InData)
+	FProfilerServiceAuthorize(const FGuid& InSessionId, const FGuid& InInstanceId)
 		: SessionId(InSessionId)
 		, InstanceId(InInstanceId)
-	{
-		Data.Append(InData);
-	}
+	{}
 
 };
 
 
-/**
- */
+/** Profiler Service data. */
 USTRUCT()
 struct FProfilerServiceData2
 {
 	GENERATED_USTRUCT_BODY()
 
-	/** */
+	/** Instance ID. */
 	UPROPERTY(EditAnywhere, Category="Message")
 	FGuid InstanceId;
 
+	/** Stats frame. */
 	UPROPERTY(EditAnywhere, Category="Message")
 	int64 Frame;
 
+	/** Size of the compressed data. */
 	UPROPERTY(EditAnywhere, Category="Message")
 	int32 CompressedSize;
 	
+	/** Size of the uncompressed data. */
 	UPROPERTY(EditAnywhere, Category="Message")
 	int32 UncompressedSize;
 
@@ -71,7 +66,7 @@ struct FProfilerServiceData2
 		, Frame(InFrame)
 		, CompressedSize(InCompressedSize)
 		, UncompressedSize(InUncompressedSize)
-		, HexData(MoveTemp(InHexData))
+		, HexData(InHexData)
 	{ }
 };
 

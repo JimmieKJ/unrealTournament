@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "UnrealEd.h"
@@ -886,14 +886,7 @@ namespace ObjectTools
 				UObject* CurObjOuter = CurObjToConsolidate->GetOuter();
 				UPackage* CurObjPackage = CurObjToConsolidate->GetOutermost();
 				FName CurObjName = CurObjToConsolidate->GetFName();
-
-				// null out the CDO of our current generated class so that DeleteSingleObject does not find it and set it's ClassGeneratedBy to the replacing type.
-				// That would trigger a type mismatch assertion...
 				UBlueprint* BlueprintToConsolidate = Cast<UBlueprint>(CurObjToConsolidate);
-				if (BlueprintToConsolidateTo != nullptr && BlueprintToConsolidate != nullptr && BlueprintToConsolidate->GeneratedClass != nullptr)
-				{
-					BlueprintToConsolidate->GeneratedClass->ClassDefaultObject = nullptr;
-				}
 
 				// Attempt to delete the object that was consolidated
 				if ( DeleteSingleObject( CurObjToConsolidate ) )
@@ -1488,8 +1481,11 @@ namespace ObjectTools
 
 		GWarn->EndSlowTask();
 
-		// Let the package auto-saver know that it needs to ignore the deleted packages
-		GUnrealEd->GetPackageAutoSaver().OnPackagesDeleted(PackagesToDelete);
+		if (GUnrealEd)
+		{
+			// Let the package auto-saver know that it needs to ignore the deleted packages
+			GUnrealEd->GetPackageAutoSaver().OnPackagesDeleted(PackagesToDelete);
+		}
 
 		// Unload the packages and collect garbage.
 		if ( PackagesToDelete.Num() > 0 )
@@ -2347,7 +2343,6 @@ namespace ObjectTools
 
 			if (NewPackage)
 			{
-				FString PackagePrefix = PackageName;
 				FString ObjectPrefix = ObjectName;
 				int32 Suffix = 2;
 
@@ -2372,6 +2367,11 @@ namespace ObjectTools
 					}
 				}
 				
+				// If the package and object names were equal before, ensure that the generated names are also equal
+				const FString PackageShortName = FPackageName::GetLongPackageAssetName(*PackageName);
+				const FString PackagePath = FPackageName::GetLongPackagePath(*PackageName);
+				FString PackagePrefix = (ObjectName == PackageShortName) ? (PackagePath / ObjectPrefix) : PackageName;
+
 				for (; NewPackage && StaticFindObjectFast(NULL, NewPackage, FName(*ObjectName)); Suffix++)
 				{
 					// DlgName exists in DlgPackage - generate a new one with a numbered suffix

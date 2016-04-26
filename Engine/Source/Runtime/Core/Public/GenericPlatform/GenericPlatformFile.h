@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 /*=============================================================================================
@@ -170,7 +170,13 @@ public:
 	/**
 	 * Identifies any platform specific paths that are guaranteed to be local (i.e. cache, scratch space)
 	 */
-	virtual void		AddLocalDirectories(TArray<FString> &LocalDirectories) { }
+	virtual void		AddLocalDirectories(TArray<FString> &LocalDirectories)
+	{
+		if (GetLowerLevel())
+		{
+			GetLowerLevel()->AddLocalDirectories(LocalDirectories);
+		}
+	}
 
 	/** Gets the platform file wrapped by this file. */
 	virtual IPlatformFile* GetLowerLevel() = 0;
@@ -265,6 +271,8 @@ public:
 	/////////// Utility Functions. These have a default implementation that uses the pure virtual operations.
 	/////////// Generally, these do not need to be implemented per platform.
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	virtual void GetTimeStampPair(const TCHAR* PathA, const TCHAR* PathB, FDateTime& OutTimeStampA, FDateTime& OutTimeStampB);
 
 	/** 
 	 * Call the Visit function of the visitor once for each file or directory in a directory tree. This function explores subdirectories.

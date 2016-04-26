@@ -1,10 +1,13 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "ActiveSound.h"
 #include "Sound/DialogueWave.h"
 #include "Sound/SoundBase.h"
 #include "Sound/SoundNodeDialoguePlayer.h"
+#include "AssetData.h"
+
+#define LOCTEXT_NAMESPACE "SoundNodeDialoguePlayer"
 
 USoundNodeDialoguePlayer::USoundNodeDialoguePlayer(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -13,7 +16,7 @@ USoundNodeDialoguePlayer::USoundNodeDialoguePlayer(const FObjectInitializer& Obj
 
 void USoundNodeDialoguePlayer::ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances )
 {
-	USoundBase* SoundBase = DialogueWaveParameter.DialogueWave ? DialogueWaveParameter.DialogueWave->GetWaveFromContext(DialogueWaveParameter.Context) : NULL;
+	USoundBase* SoundBase = GetDialogueWave() ? GetDialogueWave()->GetWaveFromContext(DialogueWaveParameter.Context) : NULL;
 	if (SoundBase)
 	{
 		if (bLooping)
@@ -31,7 +34,7 @@ void USoundNodeDialoguePlayer::ParseNodes( FAudioDevice* AudioDevice, const UPTR
 
 float USoundNodeDialoguePlayer::GetDuration()
 {
-	USoundBase* SoundBase = DialogueWaveParameter.DialogueWave ? DialogueWaveParameter.DialogueWave->GetWaveFromContext(DialogueWaveParameter.Context) : NULL;
+	USoundBase* SoundBase = GetDialogueWave() ? GetDialogueWave()->GetWaveFromContext(DialogueWaveParameter.Context) : NULL;
 	float Duration = 0.f;
 	if (SoundBase)
 	{
@@ -52,3 +55,46 @@ int32 USoundNodeDialoguePlayer::GetMaxChildNodes() const
 {
 	return 0;
 }
+
+#if WITH_EDITOR
+FText USoundNodeDialoguePlayer::GetTitle() const
+{
+	FText DialogueWaveName;
+	if (GetDialogueWave())
+	{
+		DialogueWaveName = FText::FromString(GetDialogueWave()->GetFName().ToString());
+	}
+	else
+	{
+		DialogueWaveName = LOCTEXT("NoDialogueWave", "NONE");
+	}
+
+	FText Title;
+
+	FFormatNamedArguments Arguments;
+	Arguments.Add(TEXT("Description"), Super::GetTitle());
+	Arguments.Add(TEXT("DialogueWaveName"), DialogueWaveName);
+	if (bLooping)
+	{
+		Title = FText::Format(LOCTEXT("LoopingDialogueWaveDescription", "Looping {Description} : {DialogueWaveName}"), Arguments);
+	}
+	else
+	{
+		Title = FText::Format(LOCTEXT("NonLoopingDialogueWaveDescription", "{Description} : {DialogueWaveName}"), Arguments);
+	}
+
+	return Title;
+}
+#endif
+
+void USoundNodeDialoguePlayer::SetDialogueWave(UDialogueWave* Value)
+{
+	DialogueWaveParameter.DialogueWave = Value;
+}
+
+UDialogueWave* USoundNodeDialoguePlayer::GetDialogueWave() const
+{
+	return DialogueWaveParameter.DialogueWave;
+}
+
+#undef LOCTEXT_NAMESPACE

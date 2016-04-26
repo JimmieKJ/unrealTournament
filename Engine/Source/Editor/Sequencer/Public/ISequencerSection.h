@@ -1,8 +1,20 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "SequencerSectionPainter.h"
+#include "MovieSceneSection.h"
+
 class IKeyArea;
+class UMovieSceneSection;
+
+/** Enumerates which edge is being resized */
+UENUM()
+enum ESequencerSectionResizeMode
+{
+	SSRM_LeadingEdge,
+	SSRM_TrailingEdge
+};
 
 namespace SequencerSectionConstants
 {
@@ -19,10 +31,6 @@ namespace SequencerSectionConstants
 	const FName SelectionColorName("SelectionColor");
 
 	const FName SelectionInactiveColorName("SelectionColorInactive");
-	
-	const FName DefaultSectionGripLeftImageName("Sequencer.DefaultSectionGripLeft");
-	
-	const FName DefaultSectionGripRightImageName("Sequencer.DefaultSectionGripRight");
 }
 
 /**
@@ -48,14 +56,10 @@ public:
 	/**
 	 * Called when the section should be painted
 	 *
-	 * @param AllottedGeometry		The geometry of the section
-	 * @param SectionClippingRect	The clipping rect around the section
-	 * @param OutDrawElements		The element list ot add elements to
-	 * @param LayerId				The ID of the starting layer to draw elements to
-	 * @param bParentEnabled		Whether or not the parent widget is enabled
-	 * @return						The new LayerId
+	 * @param Painter		Structure that affords common painting operations
+	 * @return				The new LayerId
 	 */
-	virtual int32 OnPaintSection( const FGeometry& AllottedGeometry, const FSlateRect& SectionClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, bool bParentEnabled ) const = 0;
+	virtual int32 OnPaintSection( FSequencerSectionPainter& InPainter ) const = 0;
 
 	/** Allows a section to override the brush to use for a key by handle.
 	 *
@@ -64,10 +68,13 @@ public:
 	 */
 	virtual const FSlateBrush* GetKeyBrush(FKeyHandle KeyHandle) const { return nullptr; }
 
-	/*
-	 * @return Whether to draw a background for the key area
+	/** When a section overrides the brush to use, this allows it to set the scale origin tfor use
+	 * when the brush is scaled to create border and selection effects
+	 *
+	 * @param KeyHandle the handle of the key to get a brush origin for.
+	 * @return A FVector2D describing the custom origin, in slate units
 	 */
-	virtual bool ShouldDrawKeyAreaBackground() const { return true; }
+	virtual FVector2D GetKeyBrushOrigin( FKeyHandle KeyHandle ) const { return FVector2D(0.0f, 0.0f); }
 
 	/**
 	 * Called when the section is double clicked
@@ -89,6 +96,11 @@ public:
 	virtual FText GetSectionTitle() const = 0;
 
 	/**
+	 * @return The amount of padding to apply to non-interactive portions of the section interface (such as section text)
+	 */
+	virtual FMargin GetContentPadding() const { return FMargin(11.f, 6.f); }
+
+	/**
 	 * Generates the inner layout for this section
 	 *
 	 * @param LayoutBuilder	The builder utility for creating section layouts
@@ -101,10 +113,6 @@ public:
 	virtual float GetSectionHeight() const { return SequencerSectionConstants::DefaultSectionHeight; }
 	
 	virtual float GetSectionGripSize() const { return SequencerSectionConstants::DefaultSectionGripSize; }
-
-	virtual FName GetSectionGripLeftBrushName() const { return SequencerSectionConstants::DefaultSectionGripLeftImageName; }
-
-	virtual FName GetSectionGripRightBrushName() const { return SequencerSectionConstants::DefaultSectionGripRightImageName; }
 
 	/**
 	 * @return Whether or not the user can resize this section.
@@ -141,10 +149,29 @@ public:
 	virtual bool RequestDeleteCategory( const TArray<FName>& CategoryNamePath ) { return false; }
 
 	/**
-	* Called when the user requests that a key area from this section be deleted.
-	*
-	* @param KeyAreaNamePath An array of names representing the path of to the key area to delete, starting with any categories which contain the key area.
-	* @returns Whether or not the key area was deleted.
-	*/
+	 * Called when the user requests that a key area from this section be deleted.
+	 *
+	 * @param KeyAreaNamePath An array of names representing the path of to the key area to delete, starting with any categories which contain the key area.
+	 * @returns Whether or not the key area was deleted.
+	 */
 	virtual bool RequestDeleteKeyArea( const TArray<FName>& KeyAreaNamePath ) { return false; }
+
+	/**
+	 * Resize the section 
+	 *
+	 * @param ResizeMode Resize either the leading or the trailing edge of the section
+	 * @param ResizeTime The time to resize to
+	 */
+	virtual void BeginResizeSection() {}
+	virtual void ResizeSection(ESequencerSectionResizeMode ResizeMode, float ResizeTime) { ResizeMode == ESequencerSectionResizeMode::SSRM_LeadingEdge ? GetSectionObject()->SetStartTime(ResizeTime) : GetSectionObject()->SetEndTime(ResizeTime); }
+
+	/**
+	 * Dilates the section by a specific factor
+	 *
+	 * @param DilationFactor The multiplier which scales this section
+	 * @param bFromStart Whether to dilate from the beginning or end (whichever stays put)
+	 * @param KeyHandles The key handles to operate on
+	 */
+	virtual void BeginDilateSection() {}
+	virtual void DilateSection(float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles) { GetSectionObject()->DilateSection(DilationFactor, Origin, KeyHandles); }
 };

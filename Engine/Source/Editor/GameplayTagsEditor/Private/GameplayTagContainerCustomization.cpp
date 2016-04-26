@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "GameplayTagsEditorModulePrivatePCH.h"
 #include "GameplayTagContainerCustomization.h"
@@ -179,15 +179,12 @@ FReply FGameplayTagContainerCustomization::OnClearAllButtonClicked()
 
 	for (int32 ContainerIdx = 0; ContainerIdx < EditableContainers.Num(); ++ContainerIdx)
 	{
-		UObject* OwnerObj = EditableContainers[ContainerIdx].TagContainerOwner.Get();
 		FGameplayTagContainer* Container = EditableContainers[ContainerIdx].TagContainer;
 
-		if (OwnerObj && Container)
+		if (Container)
 		{
-			OwnerObj->PreEditChange(StructPropertyHandle->GetProperty());
 			FGameplayTagContainer EmptyContainer;
 			StructPropertyHandle->SetValueFromFormattedString(EmptyContainer.ToString());
-			OwnerObj->PostEditChange();
 			RefreshTagList();
 		}
 	}
@@ -238,13 +235,9 @@ void FGameplayTagContainerCustomization::BuildEditableContainerList()
 		TArray<void*> RawStructData;
 		StructPropertyHandle->AccessRawData(RawStructData);
 
-		TArray<UObject*> OuterObjects;
-		StructPropertyHandle->GetOuterObjects(OuterObjects);
-
-		ensure(RawStructData.Num() == OuterObjects.Num());
-		for (int32 ContainerIdx = 0; ContainerIdx < RawStructData.Num() && ContainerIdx < OuterObjects.Num(); ++ContainerIdx)
+		for (int32 ContainerIdx = 0; ContainerIdx < RawStructData.Num(); ++ContainerIdx)
 		{
-			EditableContainers.Add(SGameplayTagWidget::FEditableGameplayTagContainerDatum(OuterObjects[ContainerIdx], (FGameplayTagContainer*)RawStructData[ContainerIdx]));
+			EditableContainers.Add(SGameplayTagWidget::FEditableGameplayTagContainerDatum(nullptr, (FGameplayTagContainer*)RawStructData[ContainerIdx]));
 		}
 	}	
 }

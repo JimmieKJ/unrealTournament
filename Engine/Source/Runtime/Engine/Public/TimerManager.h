@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	TimerManager.h: Global gameplay timer facility
@@ -17,10 +17,13 @@ struct FTimerUnifiedDelegate
 	FTimerDelegate FuncDelegate;
 	/** Holds the dynamic delegate to call. */
 	FTimerDynamicDelegate FuncDynDelegate;
+	/** Holds the tfunction callback to call. */
+	TFunction<void(void)> FuncCallback;
 
 	FTimerUnifiedDelegate() {};
 	FTimerUnifiedDelegate(FTimerDelegate const& D) : FuncDelegate(D) {};
 	FTimerUnifiedDelegate(FTimerDynamicDelegate const& D) : FuncDynDelegate(D) {};
+	FTimerUnifiedDelegate(TFunction<void(void)>&& Callback) : FuncCallback(MoveTemp(Callback)) {}
 	
 	inline void Execute()
 	{
@@ -41,11 +44,15 @@ struct FTimerUnifiedDelegate
 		{
 			FuncDynDelegate.ProcessDelegate<UObject>(nullptr);
 		}
+		else if ( FuncCallback )
+		{
+			FuncCallback();
+		}
 	}
 
 	inline bool IsBound() const
 	{
-		return ( FuncDelegate.IsBound() || FuncDynDelegate.IsBound() );
+		return ( FuncDelegate.IsBound() || FuncDynDelegate.IsBound() || FuncCallback );
 	}
 
 	inline bool IsBoundToObject(void const* Object) const
@@ -66,6 +73,7 @@ struct FTimerUnifiedDelegate
 	{
 		FuncDelegate.Unbind();
 		FuncDynDelegate.Unbind();
+		FuncCallback = nullptr;
 	}
 
 	/** Utility to output info about delegate as a string. */
@@ -189,6 +197,11 @@ public:
 	{
 		InternalSetTimer(InOutHandle, FTimerUnifiedDelegate(), InRate, InbLoop, InFirstDelay);
 	}
+	/** Version that takes a TFunction */
+	FORCEINLINE void SetTimer(FTimerHandle& InOutHandle, TFunction<void(void)>&& Callback, float InRate, bool InbLoop, float InFirstDelay = -1.f )
+	{
+		InternalSetTimer(InOutHandle, FTimerUnifiedDelegate(MoveTemp(Callback)), InRate, InbLoop, InFirstDelay);
+	}
 
 	/**
 	 * Sets a timer to call the given native function on the next tick.
@@ -217,7 +230,11 @@ public:
 	{
 		InternalSetTimerForNextTick(FTimerUnifiedDelegate(InDynDelegate));
 	}
-
+	/** Version that takes a TFunction */
+	FORCEINLINE void SetTimerForNextTick(TFunction<void(void)>&& Callback)
+	{
+		InternalSetTimerForNextTick(FTimerUnifiedDelegate(MoveTemp(Callback)));
+	}
 
 	/**
 	 * Clears a previously set timer, identical to calling SetTimer() with a <= 0.f rate.

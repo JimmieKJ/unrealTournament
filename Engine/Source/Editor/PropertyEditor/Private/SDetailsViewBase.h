@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -401,6 +401,13 @@ protected:
 
 	/** Called to get the visibility of the filter box */
 	EVisibility GetFilterBoxVisibility() const;
+
+	/** Utility function allowing derived classes to optionally implement RegisterInstancedCustomPropertyLayout */
+	void RegisterInstancedCustomPropertyLayoutInternal(UStruct* Class, FOnGetDetailCustomizationInstance DetailLayoutDelegate);
+
+	/** Utility function allowing derived classes to optionally implement UnregisterInstancedCustomPropertyLayout */
+	void UnregisterInstancedCustomPropertyLayoutInternal(UStruct* Class);
+
 protected:
 	/** The user defined args for the details view */
 	FDetailsViewArgs DetailsViewArgs;
@@ -461,8 +468,8 @@ protected:
 	/** Actions that should be executed next tick */
 	TArray<FSimpleDelegate> DeferredActions;
 
-	/** Root tree node that needs to be destroyed when safe */
-	TSharedPtr<FComplexPropertyNode> RootNodePendingKill;
+	/** Root tree nodes that needs to be destroyed when safe */
+	TArray<TSharedPtr<FComplexPropertyNode>> RootNodesPendingKill;
 
 	/** The handler for the keyframe UI, determines if the key framing UI should be displayed. */
 	TSharedPtr<IDetailKeyframeHandler> KeyframeHandler;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DataChannel.cpp: Unreal datachannel implementation.
@@ -12,6 +12,7 @@
 #include "Engine/ActorChannel.h"
 #include "Engine/ControlChannel.h"
 #include "Engine/PackageMapClient.h"
+#include "Engine/DemoNetDriver.h"
 
 DEFINE_LOG_CATEGORY(LogNet);
 DEFINE_LOG_CATEGORY(LogRep);
@@ -538,16 +539,25 @@ bool UChannel::ReceivedNextBunch( FInBunch & Bunch, bool & bOutSkipAck )
 					return false;
 				}
 
+				if (UE_LOG_ACTIVE(LogNetPartialBunch,Verbose)) // Don't want to call appMemcrc unless we need to
+				{
+					if (InPartialBunch)
+					{
+						UE_LOG(LogNetPartialBunch, Verbose, TEXT("Received Partial Bunch Out of Sequence: Channel: %d ChSequence: %d/%d. Num: %d Rel: %d CRC 0x%X"), InPartialBunch->ChIndex, InPartialBunch->ChSequence, Bunch.ChSequence, InPartialBunch->GetNumBits(), Bunch.bReliable, FCrc::MemCrc_DEPRECATED(InPartialBunch->GetData(), InPartialBunch->GetNumBytes()));
+					}
+					else
+					{
+						UE_LOG(LogNetPartialBunch, Verbose, TEXT("Received Partial Bunch Out of Sequence when InPartialBunch was NULL!"));
+					}
+				}
+
 				if (InPartialBunch)
 				{
 					delete InPartialBunch;
 					InPartialBunch = NULL;
 				}
 
-				if (UE_LOG_ACTIVE(LogNetPartialBunch,Verbose)) // Don't want to call appMemcrc unless we need to
-				{
-					UE_LOG(LogNetPartialBunch, Verbose, TEXT("Received Partial Bunch Out of Sequence: Channel: %d ChSequence: %d/%d. Num: %d Rel: %d CRC 0x%X"), InPartialBunch->ChIndex, InPartialBunch->ChSequence, Bunch.ChSequence, InPartialBunch->GetNumBits(), Bunch.bReliable, FCrc::MemCrc_DEPRECATED(InPartialBunch->GetData(), InPartialBunch->GetNumBytes()));
-				}
+				
 			}
 		}
 
@@ -714,7 +724,7 @@ FPacketIdRange UChannel::SendBunch( FOutBunch* Bunch, bool Merge )
 	check(!OpenTemporary || !Bunch->bReliable);
 
 	// This is the max number of bits we can have in a single bunch
-	const int64 MAX_SINGLE_BUNCH_SIZE_BITS  = Connection->MaxPacket*8-MAX_BUNCH_HEADER_BITS-MAX_PACKET_TRAILER_BITS-MAX_PACKET_HEADER_BITS;
+	const int64 MAX_SINGLE_BUNCH_SIZE_BITS  = Connection->GetMaxSingleBunchSizeBits();
 
 	// Max bytes we'll put in a partial bunch
 	const int64 MAX_SINGLE_BUNCH_SIZE_BYTES = MAX_SINGLE_BUNCH_SIZE_BITS / 8;
@@ -1505,6 +1515,12 @@ void UActorChannel::DestroyActorAndComponents()
 		if ( CreateSubObjects[i].IsValid() )
 		{
 			UObject *SubObject = CreateSubObjects[i].Get();
+
+			if ( Connection != nullptr && Connection->Driver != nullptr )
+			{
+				Connection->Driver->RepChangedPropertyTrackerMap.Remove( SubObject );
+			}
+
 			Actor->OnSubobjectDestroyFromReplication(SubObject);
 			SubObject->PreDestroyFromReplication();
 			SubObject->MarkPendingKill();
@@ -2195,6 +2211,9 @@ bool UActorChannel::ReplicateActor()
 	RepFlags.bNetSimulated	= ( Actor->GetRemoteRole() == ROLE_SimulatedProxy );
 	RepFlags.bRepPhysics	= Actor->ReplicatedMovement.bRepPhysics;
 
+	const UWorld* const ActorWorld	= Actor->GetWorld();
+	RepFlags.bReplay				= ActorWorld && (ActorWorld->DemoNetDriver == Connection->GetDriver());
+
 	RepFlags.bNetInitial = RepFlags.bNetInitial || bActorStillInitial; // for replication purposes, bNetInitial stays true until all properties sent
 	bActorMustStayDirty = false;
 	bActorStillInitial = false;
@@ -2602,6 +2621,11 @@ UObject* UActorChannel::ReadContentBlockHeader(FInBunch & Bunch, bool& bObjectDe
 			// Stop tracking this sub-object
 			CreateSubObjects.Remove( SubObj );
 
+			if ( Connection != nullptr && Connection->Driver != nullptr )
+			{
+				Connection->Driver->RepChangedPropertyTrackerMap.Remove( SubObj );
+			}
+
 			Actor->OnSubobjectDestroyFromReplication( SubObj );
 
 			SubObj->PreDestroyFromReplication();
@@ -2696,8 +2720,7 @@ TSharedRef< FObjectReplicator > & UActorChannel::FindOrCreateReplicator( UObject
 			// Still didn't find one, need to create
 			UE_LOG( LogNetTraffic, Log, TEXT( "Creating Replicator for %s" ), *Obj->GetName() );
 
-			NewReplicator = TSharedRef<FObjectReplicator>(new FObjectReplicator());
-			NewReplicator->InitWithObject( Obj, Connection, true );
+			NewReplicator = Connection->CreateReplicatorForNewActorChannel(Obj);
 		}
 		else
 		{

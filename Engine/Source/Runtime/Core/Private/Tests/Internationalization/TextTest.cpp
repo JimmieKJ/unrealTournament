@@ -1,9 +1,10 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "AutomationTest.h"
 #include "ICUUtilities.h"
 
+#if WITH_DEV_AUTOMATION_TESTS
 
 // Disable optimization for TextTest as it compiles very slowly in development builds
 PRAGMA_DISABLE_OPTIMIZATION
@@ -445,7 +446,7 @@ bool FTextTest::RunTest (const FString& Parameters)
 			FText AsNumberTest1 = FText::AsNumber(5.5421);
 
 			FText AsPercentTest1 = FText::AsPercent(0.925);
-			FText AsCurrencyTest1 = FText::AsCurrency(100.25);
+			FText AsCurrencyTest1 = FText::AsCurrencyBase(10025, TEXT("USD"));
 
 			FDateTime DateTimeInfo(2080, 8, 20, 9, 33, 22);
 			FText AsDateTimeTest1 = FText::AsDateTime(DateTimeInfo, EDateTimeStyle::Default, EDateTimeStyle::Default, TEXT("UTC"));
@@ -508,7 +509,7 @@ bool FTextTest::RunTest (const FString& Parameters)
 					AddError( TEXT("Percent Output=") + AsPercentTest1.ToString() );
 				}
 
-				if(AsCurrencyTest1.CompareTo(FText::AsCurrency(100.25)) != 0)
+				if(AsCurrencyTest1.CompareTo(FText::AsCurrencyBase(10025, TEXT("USD"))) != 0)
 				{
 					AddError( TEXT("AsCurrencyTest1 did not rebuild correctly in French-Canadian") );
 					AddError( TEXT("Currency Output=") + AsCurrencyTest1.ToString() );
@@ -636,8 +637,7 @@ bool FTextTest::RunTest (const FString& Parameters)
 }
 
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTextRoundingTest, "System.Core.Misc.TextRounding", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::SmokeFilter)
-
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTextRoundingTest, "System.Core.Misc.TextRounding", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 bool FTextRoundingTest::RunTest (const FString& Parameters)
 {
 	static const TCHAR* RoundingModeNames[] = {
@@ -763,6 +763,9 @@ bool FTextRoundingTest::RunTest (const FString& Parameters)
 		DoSingleTest(1000.12451, TEXT("1000.125"), TEXT("HalfToEven"));
 		DoSingleTest(1000.1245000001, TEXT("1000.125"), TEXT("HalfToEven"));
 		DoSingleTest(1000.12450000000001, TEXT("1000.124"), TEXT("HalfToEven"));
+
+		DoSingleTest(512.9999, TEXT("513"), TEXT("HalfToEven"));
+		DoSingleTest(-512.9999, TEXT("-513"), TEXT("HalfToEven"));
 	}
 
 	// Restore original culture
@@ -772,7 +775,7 @@ bool FTextRoundingTest::RunTest (const FString& Parameters)
 }
 
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTextPaddingTest, "System.Core.Misc.TextPadding", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::SmokeFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTextPaddingTest, "System.Core.Misc.TextPadding", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 
 bool FTextPaddingTest::RunTest (const FString& Parameters)
 {
@@ -872,7 +875,7 @@ bool FTextPaddingTest::RunTest (const FString& Parameters)
 
 #if UE_ENABLE_ICU
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FICUTextTest, "System.Core.Misc.ICUText", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::SmokeFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FICUTextTest, "System.Core.Misc.ICUText", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 
 bool FICUTextTest::RunTest (const FString& Parameters)
 {
@@ -946,3 +949,5 @@ bool FICUTextTest::RunTest (const FString& Parameters)
 
 
 PRAGMA_ENABLE_OPTIMIZATION
+
+#endif //WITH_DEV_AUTOMATION_TESTS

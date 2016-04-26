@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -38,21 +38,14 @@ public abstract class BaseWinPlatform : Platform
 		// Stage all the build products
 		foreach(StageTarget Target in SC.StageTargets)
 		{
-            if (Target.Receipt.Configuration == SC.StageTargetConfigurations[0])
-            {
-                SC.StageBuildProductsFromReceipt(Target.Receipt, Target.RequireFilesExist);
-            }
-            else
-            {
-                SC.StageBuildProductsFromReceiptAllDebug(Target.Receipt, Target.RequireFilesExist);
-            }
+			SC.StageBuildProductsFromReceipt(Target.Receipt, Target.RequireFilesExist, Params.bTreatNonShippingBinariesAsDebugFiles);
 		}
 
 		// Copy the splash screen, windows specific
 		SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Content/Splash"), "Splash.bmp", false, null, null, true);
 
-		// Stage the bootstrap executable
-		if(!Params.NoBootstrapExe)
+        // Stage the bootstrap executable
+        if (!Params.NoBootstrapExe)
 		{
 			foreach(StageTarget Target in SC.StageTargets)
 			{
@@ -166,6 +159,16 @@ public abstract class BaseWinPlatform : Platform
 
 	public override void Package(ProjectParams Params, DeploymentContext SC, int WorkingCL)
 	{
+        // package up the program, potentially with an installer for Windows
+        BaseWindowsDeploy Deploy = new BaseWindowsDeploy();
+        string CookFlavor = SC.FinalCookPlatform.IndexOf("_") > 0 ? SC.FinalCookPlatform.Substring(SC.FinalCookPlatform.IndexOf("_")) : "";
+
+        List<string> ExeNames = GetExecutableNames(SC);
+
+        foreach (string ExeName in ExeNames)
+        {
+            Deploy.PrepForUATPackageOrDeploy(Params.RawProjectPath, Params.ShortProjectName, SC.ProjectRoot, ExeName, SC.LocalRoot + "/Engine", Params.Distribution, CookFlavor, false);
+        }
 		// package up the program, potentially with an installer for Windows
 		PrintRunTime();
 	}
@@ -286,6 +289,10 @@ public class Win64Platform : BaseWinPlatform
 
         if (!SC.DedicatedServer)
         {
+            // Razer app info xml
+            string FinalChromaAppInfoPath = CombinePaths("Engine", "Binaries", "Win64");
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Build/WindowsNoEditor"), "ChromaAppInfo.xml", false, null, FinalChromaAppInfoPath, true);
+
             // Very UT specific because of non-monolithic build
             SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine"), "UE4-*Win32-*", true, null, null, true, true, null, true, false);
             SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.LocalRoot, SC.ShortProjectName), "UE4-*Win32-*", true, null, null, true, true, null, true, false);
@@ -314,6 +321,10 @@ public class Win32Platform : BaseWinPlatform
 
         if (!SC.DedicatedServer)
         {
+            // Razer app info xml
+            string FinalChromaAppInfoPath = CombinePaths("Engine", "Binaries", "Win32");
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Build/WindowsNoEditor"), "ChromaAppInfo.xml", false, null, FinalChromaAppInfoPath, true);
+
             // Very UT specific because of non-monolithic build
             SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine"), "UE4-*-Win64-*", true, null, null, true, true, null, true, false);
             SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.LocalRoot, SC.ShortProjectName), "UE4-*-Win64-*", true, null, null, true, true, null, true, false);

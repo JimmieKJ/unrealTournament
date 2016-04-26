@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "LinuxPlatformRunnableThread.h"
@@ -7,6 +7,7 @@
 #include <sys/wait.h>
 #include <sys/resource.h>
 #include <sys/ioctl.h> // ioctl
+#include <sys/file.h>
 #include <asm/ioctls.h> // FIONREAD
 #include <sys/file.h> // flock
 #include "LinuxApplication.h" // FLinuxApplication::IsForeground()
@@ -488,21 +489,23 @@ bool FLinuxPlatformProcess::WritePipe(void* WritePipe, const FString& Message, F
 		return false;
 	}
 
-	// convert input to UTF8CHAR
+	// Convert input to UTF8CHAR
 	uint32 BytesAvailable = Message.Len();
-	UTF8CHAR* Buffer = new UTF8CHAR[BytesAvailable + 1];
-
-	if (!FString::ToBlob(Message, Buffer, BytesAvailable))
+	UTF8CHAR * Buffer = new UTF8CHAR[BytesAvailable + 1];
+	for (uint32 i = 0; i < BytesAvailable; i++)
 	{
-		return false;
+		Buffer[i] = Message[i];
 	}
+	Buffer[BytesAvailable] = '\n';
 
 	// write to pipe
 	uint32 BytesWritten = write(*(int*)WritePipe, Buffer, BytesAvailable);
 
-	if (OutWritten != nullptr)
+	// Get written message
+	if (OutWritten)
 	{
-		OutWritten->FromBlob(Buffer, BytesWritten);
+		Buffer[BytesWritten] = '\0';
+		*OutWritten = FUTF8ToTCHAR((const ANSICHAR*)Buffer).Get();
 	}
 
 	return (BytesWritten == BytesAvailable);
@@ -593,7 +596,61 @@ TArray<FChildWaiterThread *> FChildWaiterThread::ChildWaiterThreadsArray;
 /** See FChildWaiterThread */
 FCriticalSection FChildWaiterThread::ChildWaiterThreadsArrayGuard;
 
-FProcHandle FLinuxPlatformProcess::CreateProc(const TCHAR* URL, const TCHAR* Parms, bool bLaunchDetached, bool bLaunchHidden, bool bLaunchReallyHidden, uint32* OutProcessID, int32 PriorityModifier, const TCHAR* OptionalWorkingDirectory, void* PipeWrite)
+namespace LinuxPlatformProcess
+{
+	/**
+	 * This function tries to set exec permissions on the file (if it is missing them).
+	 * It exists because files copied manually from foreign filesystems (e.g. CrashReportClient) or unzipped from
+	 * certain arhcive types may lack +x, yet we still want to execute them.
+	 *
+	 * @param AbsoluteFilename absolute filename to the file in question
+	 *
+	 * @return true if we should attempt to execute the file, false if it is not worth even trying
+	 */	
+	bool AttemptToMakeExecIfNotAlready(const FString & AbsoluteFilename)
+	{
+		bool bWorthTryingToExecute = true;	// be conservative and let the OS decide in most cases
+
+		FTCHARToUTF8 AbsoluteFilenameUTF8Buffer(*AbsoluteFilename);
+		const char* AbsoluteFilenameUTF8 = AbsoluteFilenameUTF8Buffer.Get();
+
+		struct stat FilePerms;
+		if (UNLIKELY(stat(AbsoluteFilenameUTF8, &FilePerms) == -1))
+		{
+			int ErrNo = errno;
+			UE_LOG(LogHAL, Warning, TEXT("LinuxPlatformProcess::AttemptToMakeExecIfNotAlready: could not stat '%s', errno=%d (%s)"),
+				*AbsoluteFilename,
+				ErrNo,
+				ANSI_TO_TCHAR(strerror(ErrNo))
+				);
+		}
+		else
+		{
+			// Try to make a guess if we can execute the file. We are not trying to do the exact check,
+			// so if any of executable bits are set, assume it's executable
+			if ((FilePerms.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)) == 0)
+			{
+				// if no executable bits at all, try setting permissions
+				if (chmod(AbsoluteFilenameUTF8, FilePerms.st_mode | S_IXUSR) == -1)
+				{
+					int ErrNo = errno;
+					UE_LOG(LogHAL, Warning, TEXT("LinuxPlatformProcess::AttemptToMakeExecIfNotAlready: could not chmod +x '%s', errno=%d (%s)"),
+						*AbsoluteFilename,
+						ErrNo,
+						ANSI_TO_TCHAR(strerror(ErrNo))
+						);
+
+					// at this point, assume that execution will fail
+					bWorthTryingToExecute = false;
+				}
+			}
+		}
+
+		return bWorthTryingToExecute;
+	}
+}
+
+FProcHandle FLinuxPlatformProcess::CreateProc(const TCHAR* URL, const TCHAR* Parms, bool bLaunchDetached, bool bLaunchHidden, bool bLaunchReallyHidden, uint32* OutProcessID, int32 PriorityModifier, const TCHAR* OptionalWorkingDirectory, void* PipeWriteChild, void * PipeReadChild)
 {
 	// @TODO bLaunchHidden bLaunchReallyHidden are not handled
 	// We need an absolute path to executable
@@ -604,6 +661,12 @@ FProcHandle FLinuxPlatformProcess::CreateProc(const TCHAR* URL, const TCHAR* Par
 	}
 
 	if (!FPaths::FileExists(ProcessPath))
+	{
+		return FProcHandle();
+	}
+
+	// check if it's worth attemptting to execute the file
+	if (!LinuxPlatformProcess::AttemptToMakeExecIfNotAlready(ProcessPath))
 	{
 		return FProcHandle();
 	}
@@ -725,17 +788,44 @@ FProcHandle FLinuxPlatformProcess::CreateProc(const TCHAR* URL, const TCHAR* Par
 	extern char ** environ;	// provided by libc
 	pid_t ChildPid = -1;
 
-	posix_spawn_file_actions_t FileActions;
-
-	posix_spawn_file_actions_init(&FileActions);
-	if (PipeWrite)
+	int PosixSpawnErrNo = -1;
+	if (PipeWriteChild || PipeReadChild)
 	{
-		const FPipeHandle* PipeWriteHandle = reinterpret_cast< const FPipeHandle* >(PipeWrite);
-		posix_spawn_file_actions_adddup2(&FileActions, PipeWriteHandle->GetHandle(), STDOUT_FILENO);
+		posix_spawn_file_actions_t FileActions;
+		posix_spawn_file_actions_init(&FileActions);
+
+		if (PipeWriteChild)
+		{
+			const FPipeHandle* PipeWriteHandle = reinterpret_cast<const FPipeHandle*>(PipeWriteChild);
+			posix_spawn_file_actions_adddup2(&FileActions, PipeWriteHandle->GetHandle(), STDOUT_FILENO);
+		}
+
+		if (PipeReadChild)
+		{
+			const FPipeHandle* PipeReadHandle = reinterpret_cast<const FPipeHandle*>(PipeReadChild);
+			posix_spawn_file_actions_adddup2(&FileActions, PipeReadHandle->GetHandle(), STDIN_FILENO);
+		}
+
+		PosixSpawnErrNo = posix_spawn(&ChildPid, TCHAR_TO_UTF8(*ProcessPath), &FileActions, nullptr, Argv, environ);
+		posix_spawn_file_actions_destroy(&FileActions);
+	}
+	else
+	{
+		// if we don't have any actions to do, use a faster route that will use vfork() instead.
+		// This is not just faster, it is crucial when spawning a crash reporter to report a crash due to stack overflow in a thread
+		// since otherwise atfork handlers will get called and posix_spawn() will crash (in glibc's __reclaim_stacks()).
+		// However, it has its problems, see:
+		//		http://ewontfix.com/7/
+		//		https://sourceware.org/bugzilla/show_bug.cgi?id=14750
+		//		https://sourceware.org/bugzilla/show_bug.cgi?id=14749
+		posix_spawnattr_t SpawnAttr;
+		posix_spawnattr_init(&SpawnAttr);
+		posix_spawnattr_setflags(&SpawnAttr, POSIX_SPAWN_USEVFORK);
+
+		PosixSpawnErrNo = posix_spawn(&ChildPid, TCHAR_TO_UTF8(*ProcessPath), nullptr, &SpawnAttr, Argv, environ);
+		posix_spawnattr_destroy(&SpawnAttr);
 	}
 
-	int PosixSpawnErrNo = posix_spawn(&ChildPid, TCHAR_TO_UTF8(*ProcessPath), &FileActions, nullptr, Argv, environ);
-	posix_spawn_file_actions_destroy(&FileActions);
 	if (PosixSpawnErrNo != 0)
 	{
 		UE_LOG(LogHAL, Fatal, TEXT("FLinuxPlatformProcess::CreateProc: posix_spawn() failed (%d, %s)"), PosixSpawnErrNo, ANSI_TO_TCHAR(strerror(PosixSpawnErrNo)));
@@ -912,7 +1002,7 @@ bool FProcState::IsRunning()
 		// which is a dubious, but valid behavior. We don't want to keep zombie around though.
 		if (!bIsRunning)
 		{
-			UE_LOG(LogHAL, Log, TEXT("Child %d is no more running (zombie), Wait()ing immediately."), GetProcessId() );
+			UE_LOG(LogHAL, Log, TEXT("Child %d is no longer running (zombie), Wait()ing immediately."), GetProcessId() );
 			Wait();
 		}
 	}
@@ -1345,4 +1435,55 @@ void FLinuxPlatformProcess::CeaseBeingFirstInstance()
 		GFileLockDescriptor = -1;
 	}
 #endif
+}
+
+FLinuxSystemWideCriticalSection::FLinuxSystemWideCriticalSection(const FString& InName, FTimespan InTimeout)
+{
+	check(InName.Len() > 0)
+	check(InTimeout >= FTimespan::Zero())
+	check(InTimeout.GetTotalSeconds() < (double)FLT_MAX)
+
+	const FString LockPath = FString(FLinuxPlatformProcess::ApplicationSettingsDir()) / InName;
+	FString NormalizedFilepath(LockPath);
+	NormalizedFilepath.ReplaceInline(TEXT("\\"), TEXT("/"));
+
+	// Attempt to open a file and then lock with flock (NOTE: not an atomic operation, but best we can do)
+	FileHandle = open(TCHAR_TO_UTF8(*NormalizedFilepath), O_CREAT | O_WRONLY | O_NONBLOCK, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+
+	if (FileHandle == -1 && InTimeout != FTimespan::Zero())
+	{
+		FDateTime ExpireTime = FDateTime::UtcNow() + InTimeout;
+		const float RetrySeconds = FMath::Min((float)InTimeout.GetTotalSeconds(), 0.25f);
+
+		do
+		{
+			// retry until timeout
+			FLinuxPlatformProcess::Sleep(RetrySeconds);
+			FileHandle = open(TCHAR_TO_UTF8(*NormalizedFilepath), O_CREAT | O_WRONLY | O_NONBLOCK, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+		} while (FileHandle == -1 && FDateTime::UtcNow() < ExpireTime);
+	}
+	if (FileHandle != -1)
+	{
+		flock(FileHandle, LOCK_EX);
+	}
+}
+
+FLinuxSystemWideCriticalSection::~FLinuxSystemWideCriticalSection()
+{
+	Release();
+}
+
+bool FLinuxSystemWideCriticalSection::IsValid() const
+{
+	return FileHandle != -1;
+}
+
+void FLinuxSystemWideCriticalSection::Release()
+{
+	if (IsValid())
+	{
+		flock(FileHandle, LOCK_UN);
+		close(FileHandle);
+		FileHandle = -1;
+	}
 }

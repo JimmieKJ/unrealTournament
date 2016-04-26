@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	StartupPackages.cpp: Startup Package Functions
@@ -11,13 +11,7 @@
 void FStartupPackages::GetStartupPackageNames(TArray<FString>& PackageNames, const FString& EngineConfigFilename, bool bIsCreatingHashes)
 {
 	// if we aren't cooking, we actually just want to use the cooked startup package as the only startup package
-	if (bIsCreatingHashes || (!IsRunningCommandlet() && !GIsEditor && GUseSeekFreeLoading))
-	{
-		// make sure the startup package exists
-		PackageNames.Add(FString(TEXT("Startup_LOC")));
-		PackageNames.Add(FString(TEXT("Startup")));
-	}
-	else
+	if (FPlatformProperties::RequiresCookedData())
 	{
 		// look for any packages that we want to force preload at startup
 		FConfigSection* PackagesToPreload = GConfig->GetSectionPrivate(TEXT("Engine.StartupPackages"), 0, 1, EngineConfigFilename);

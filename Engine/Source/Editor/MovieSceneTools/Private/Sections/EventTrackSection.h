@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -28,14 +28,12 @@ public:
 
 	virtual UMovieSceneSection* GetSectionObject() override;
 //	virtual TSharedRef<SWidget> GenerateSectionWidget() override;
-	virtual int32 OnPaintSection( const FGeometry& AllottedGeometry, const FSlateRect& SectionClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, bool bParentEnabled ) const override;
+	virtual int32 OnPaintSection( FSequencerSectionPainter& InPainter ) const override;
 //	virtual void Tick( const FGeometry& AllottedGeometry, const FGeometry& ParentGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 	virtual FText GetDisplayName() const override;
 	virtual FText GetSectionTitle() const override;
 //	virtual float GetSectionHeight() const override;
 //	virtual float GetSectionGripSize() const override;
-//	virtual FName GetSectionGripLeftBrushName() const override;
-//	virtual FName GetSectionGripRightBrushName() const override;
 //	virtual bool AreSectionsConnected() const override { return true; }
 	virtual void GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder ) const override;
 //	virtual FReply OnSectionDoubleClicked( const FGeometry& SectionGeometry, const FPointerEvent& MouseEvent ) override;

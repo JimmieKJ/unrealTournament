@@ -8,6 +8,7 @@
 #include "StatNames.h"
 #include "UTJumpbootMessage.h"
 #include "UTGhostComponent.h"
+#include "UTCTFFlag.h"
 
 AUTJumpBoots::AUTJumpBoots(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -18,6 +19,7 @@ AUTJumpBoots::AUTJumpBoots(const FObjectInitializer& ObjectInitializer)
 	bCallOwnerEvent = true;
 	BasePickupDesireability = 0.8f;
 	MaxMultiJumpZSpeed = 600.0f;
+	bIsDisabledOnFlagCarrier = false;
 }
 
 void AUTJumpBoots::AdjustOwner(bool bRemoveBonus)
@@ -35,6 +37,7 @@ void AUTJumpBoots::AdjustOwner(bool bRemoveBonus)
 			Movement->bAllowJumpMultijumps = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->GetCharacterMovement())->bAllowJumpMultijumps;
 			Movement->MaxMultiJumpZSpeed = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->GetCharacterMovement())->MaxMultiJumpZSpeed;
 			Movement->bAlwaysAllowFallingMultiJump = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->GetCharacterMovement())->bAlwaysAllowFallingMultiJump;
+			Movement->bIsDoubleJumpAvailableForFlagCarrier = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->GetCharacterMovement())->bIsDoubleJumpAvailableForFlagCarrier;
 
 			GetUTOwner()->MaxSafeFallSpeed = GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->MaxSafeFallSpeed;
 
@@ -51,6 +54,7 @@ void AUTJumpBoots::AdjustOwner(bool bRemoveBonus)
 			Movement->MultiJumpAirControl = MultiJumpAirControl;
 			Movement->MaxMultiJumpZSpeed = MaxMultiJumpZSpeed;
 			Movement->bAlwaysAllowFallingMultiJump = true;
+			Movement->bIsDoubleJumpAvailableForFlagCarrier = !bIsDisabledOnFlagCarrier;
 
 			if (Movement->MaxMultiJumpCount < 1)
 			{
@@ -98,6 +102,16 @@ void AUTJumpBoots::OwnerEvent_Implementation(FName EventName)
 {
 	if (Role == ROLE_Authority)
 	{
+		bool bIsFlagCarrier = false;
+		if (UTOwner)
+		{
+			AUTCTFFlag* UTCTFFlag = Cast<AUTCTFFlag>(UTOwner->GetCarriedObject());
+			if (UTCTFFlag)
+			{
+				bIsFlagCarrier = true;
+			}
+		}
+
 		if (EventName == InventoryEventName::Jump)
 		{
 			if (UTOwner && Cast<AUTPlayerController>(UTOwner->GetController()) && UTOwner->IsLocallyControlled() && (NumJumps == 3))
@@ -109,7 +123,7 @@ void AUTJumpBoots::OwnerEvent_Implementation(FName EventName)
 				}
 			}
 		}
-		else if (EventName == InventoryEventName::MultiJump)
+		else if ((EventName == InventoryEventName::MultiJump) && (!bIsDisabledOnFlagCarrier || (bIsDisabledOnFlagCarrier && !bIsFlagCarrier)))
 		{
 			NumJumps--;
 			if (SuperJumpEffect != NULL)

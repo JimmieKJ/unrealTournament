@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once 
 
@@ -37,5 +37,7 @@ public:
 
 	ENGINE_API virtual class ISaveGameSystem* GetSaveGameSystem();
 
-	ENGINE_API virtual class IDVRStreamingSystem *GetStreamingSystem();
+	ENGINE_API virtual class IDVRStreamingSystem* GetStreamingSystem();
+
+	ENGINE_API virtual TSharedPtr<const class FJsonObject> GetTitleSettings();
 };

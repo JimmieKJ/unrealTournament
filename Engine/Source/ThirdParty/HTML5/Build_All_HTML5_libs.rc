@@ -1,0 +1,22 @@
+# main rc file for setting up emscripten toolchain paths
+
+# WARNING: emscripten does not work in Cygwin...
+
+
+if [ "X$EMSCRIPTEN" == "X" ]; then
+	EMSDK=$(cd "$(dirname $0)" && pwd)/emsdk
+	HOST=$(uname)
+	if [ $HOST == 'Darwin' ]; then
+		HOST=Mac
+	fi
+	export EMSCRIPTEN=$EMSDK/emscripten/1.35.0
+	export PYTHON=/usr/bin/python2.7
+	export NODE=$EMSDK/$HOST/node/4.1.1_64bit/bin/node
+	export LLVM=$EMSDK/$HOST/clang/e1.35.0_64bit
+	export PATH=$EMSCRIPTEN:$NODE:$LLVM:$PATH
+	
+	# run emscripten at least once to warm up the .emscripten rc file
+	rm ~/.emscripten ~/.emscripten_sanity ~/.emscripten_cache__last_clear
+	$EMSCRIPTEN/emcc -v
+fi
+

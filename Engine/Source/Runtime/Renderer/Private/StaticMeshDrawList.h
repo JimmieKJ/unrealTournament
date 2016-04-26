@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	StaticMeshDrawList.h: Static mesh draw list definition.
@@ -6,6 +6,49 @@
 
 #ifndef __STATICMESHDRAWLIST_H__
 #define __STATICMESHDRAWLIST_H__
+
+extern ENGINE_API bool GDrawListsLocked;
+/** View state for instanced stereo rendering. */
+struct StereoPair
+{
+	StereoPair() :
+		LeftView(nullptr), 
+		RightView(nullptr),
+		LeftViewVisibilityMap(nullptr),
+		RightViewVisibilityMap(nullptr),
+		LeftViewBatchVisibilityArray(nullptr),
+		RightViewBatchVisibilityArray(nullptr)
+	{}
+
+	StereoPair(
+		const FViewInfo& InLeftView,
+		const FViewInfo& InRightView,
+		const TBitArray<SceneRenderingBitArrayAllocator>& InLeftViewVisibilityMap,
+		const TBitArray<SceneRenderingBitArrayAllocator>& InRightViewVisibilityMap,
+		const TArray<uint64, SceneRenderingAllocator>& InLeftViewBatchVisibilityArray,
+		const TArray<uint64, SceneRenderingAllocator>& InRightViewBatchVisibilityArray
+	) :
+		LeftView(&InLeftView), 
+		RightView(&InRightView),
+		LeftViewVisibilityMap(&InLeftViewVisibilityMap),
+		RightViewVisibilityMap(&InRightViewVisibilityMap),
+		LeftViewBatchVisibilityArray(&InLeftViewBatchVisibilityArray),
+		RightViewBatchVisibilityArray(&InRightViewBatchVisibilityArray)
+	{}
+
+	const FViewInfo* LeftView;
+	const FViewInfo* RightView;
+	const TBitArray<SceneRenderingBitArrayAllocator>* LeftViewVisibilityMap;
+	const TBitArray<SceneRenderingBitArrayAllocator>* RightViewVisibilityMap;
+	const TArray<uint64, SceneRenderingAllocator>* LeftViewBatchVisibilityArray;
+	const TArray<uint64, SceneRenderingAllocator>* RightViewBatchVisibilityArray;
+};
+
+/** Used to statically branch between regular rendering and instanced stereo rendering. */
+enum class InstancedStereoPolicy {
+	Enabled, 
+	Disabled
+};
 
 /** Base class of the static draw list, used when comparing draw lists and the drawing policy type is not necessary. */
 class FStaticMeshDrawListBase
@@ -244,7 +287,8 @@ private:
 	* @param DrawingPolicyLink - the drawing policy link
 	* @param bDrawnShared - determines whether to draw shared 
 	*/
-	void DrawElement(FRHICommandList& RHICmdList, const FViewInfo& View, const typename DrawingPolicyType::ContextDataType PolicyContext, const FElement& Element, uint64 BatchElementMask, FDrawingPolicyLink* DrawingPolicyLink, bool &bDrawnShared);
+	template<InstancedStereoPolicy InstancedStereo>
+	int32 DrawElement(FRHICommandList& RHICmdList, const FViewInfo& View, const typename DrawingPolicyType::ContextDataType PolicyContext, const FElement& Element, uint64 BatchElementMask, FDrawingPolicyLink* DrawingPolicyLink, bool &bDrawnShared);
 
 public:
 
@@ -272,14 +316,37 @@ public:
 
 	/**
 	* Draws only the static meshes which are in the visibility map, limited to a range of policies
-	* @param View - The view of the meshes to render.
+	* Both StaticMeshVisibilityMap and BatchVisibilityArray should be non-null for regular rendering or StereoView should be non-null if rendering with instanced stereo
+	* @param View - The view of the meshes to render (use the left view of a stereo pair when rendering with instanced stereo)
 	* @param StaticMeshVisibilityMap - An map from FStaticMesh::Id to visibility state.
 	* @param BatchVisibilityArray - An array of batch element visibility bitmasks.
+	* @param StereoView - Stereo pair to render
 	* @param FirstPolicy - First policy to render
 	* @param LastPolicy - Last policy to render
 	* @return True if any static meshes were drawn.
 	*/
-	bool DrawVisibleInner(FRHICommandList& RHICmdList, const FViewInfo& View, const typename DrawingPolicyType::ContextDataType PolicyContext, const TBitArray<SceneRenderingBitArrayAllocator>& StaticMeshVisibilityMap, const TArray<uint64, SceneRenderingAllocator>& BatchVisibilityArray, int32 FirstPolicy, int32 LastPolicy, bool bUpdateCounts);
+	template<InstancedStereoPolicy InstancedStereo>
+	bool DrawVisibleInner(FRHICommandList& RHICmdList,
+		const FViewInfo& View,
+		const typename DrawingPolicyType::ContextDataType PolicyContext,
+		const TBitArray<SceneRenderingBitArrayAllocator>* const StaticMeshVisibilityMap,
+		const TArray<uint64, SceneRenderingAllocator>* const BatchVisibilityArray,
+		const StereoPair* const StereoView,
+		int32 FirstPolicy,
+		int32 LastPolicy,
+		bool bUpdateCounts);
+
+	/**
+	* Draws only the static meshes which are in the visibility map of the stereo pair
+	* @param StereoView - The stereo pair to render.
+	* @return True if any static meshes were drawn.
+	*/
+	inline bool DrawVisibleInstancedStereo(
+		FRHICommandList& RHICmdList,
+		const StereoPair& StereoView)
+	{
+		return DrawVisibleInner<InstancedStereoPolicy::Enabled>(RHICmdList, *StereoView.LeftView, typename DrawingPolicyType::ContextDataType(true, false), nullptr, nullptr, &StereoView, 0, OrderedDrawingPolicies.Num() - 1, false);
+	}
 
 	/**
 	 * Draws only the static meshes which are in the visibility map.
@@ -290,14 +357,41 @@ public:
 	 */
 	bool DrawVisible(FRHICommandList& RHICmdList, const FViewInfo& View, const typename DrawingPolicyType::ContextDataType PolicyContext, const TBitArray<SceneRenderingBitArrayAllocator>& StaticMeshVisibilityMap, const TArray<uint64,SceneRenderingAllocator>& BatchVisibilityArray);
 
+private:
+
+	void DrawVisibleParallelInternal(
+		const typename DrawingPolicyType::ContextDataType PolicyContext,
+		const TBitArray<SceneRenderingBitArrayAllocator>* StaticMeshVisibilityMap,
+		const TArray<uint64, SceneRenderingAllocator>* BatchVisibilityArray,
+		const StereoPair* const StereoView, 
+		FParallelCommandListSet& ParallelCommandListSet);
+
+public:
+
 	/**
 	* Draws only the static meshes which are in the visibility map.
 	* @param StaticMeshVisibilityMap - An map from FStaticMesh::Id to visibility state.
 	* @param BatchVisibilityArray - An array of batch element visibility bitmasks.
-	* @param BatchVisibilityArray - An array of batch element visibility bitmasks.
 	* @param ParallelCommandListSet - holds information on how to get a fresh command list and deal with submits, etc
 	*/
-	void DrawVisibleParallel(const typename DrawingPolicyType::ContextDataType PolicyContext, const TBitArray<SceneRenderingBitArrayAllocator>& StaticMeshVisibilityMap, const TArray<uint64, SceneRenderingAllocator>& BatchVisibilityArray, FParallelCommandListSet& ParallelCommandListSet);
+	inline void DrawVisibleParallel(
+		const typename DrawingPolicyType::ContextDataType PolicyContext,
+		const TBitArray<SceneRenderingBitArrayAllocator>& StaticMeshVisibilityMap,
+		const TArray<uint64, SceneRenderingAllocator>& BatchVisibilityArray,
+		FParallelCommandListSet& ParallelCommandListSet)
+	{
+		DrawVisibleParallelInternal(PolicyContext, &StaticMeshVisibilityMap, &BatchVisibilityArray, nullptr, ParallelCommandListSet);
+	}
+
+	/**
+	* Draws only the static meshes which are in the visibility map of either the left or right view using instanced stereo
+	* @param StereoView - Instanced stereo view state
+	* @param ParallelCommandListSet - holds information on how to get a fresh command list and deal with submits, etc
+	*/
+	inline void DrawVisibleParallelInstancedStereo(const StereoPair& StereoView, FParallelCommandListSet& ParallelCommandListSet)
+	{
+		DrawVisibleParallelInternal(typename DrawingPolicyType::ContextDataType(true, false), nullptr, nullptr, &StereoView, ParallelCommandListSet);
+	}
 
 	/**
 	 * Draws only the static meshes which are in the visibility map, sorted front-to-back.

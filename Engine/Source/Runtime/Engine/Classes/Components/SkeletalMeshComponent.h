@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -18,8 +18,8 @@ class UAnimInstance;
 struct FEngineShowFlags;
 struct FConvexVolume;
 
-
-
+DECLARE_MULTICAST_DELEGATE(FOnSkelMeshPhysicsCreatedMultiCast);
+typedef FOnSkelMeshPhysicsCreatedMultiCast::FDelegate FOnSkelMeshPhysicsCreated;
 
 namespace physx
 { 
@@ -90,6 +90,10 @@ private:
 	FVector WindDirection;
 	float WindAdaption;
 
+	/** Whether we have deferred cloth update transform. If true we will update any cloth collision when appropriate */
+	bool bPendingClothUpdateTransform;
+	ETeleportType PendingTeleportType;
+
 	friend class USkeletalMeshComponent;
 };
 
@@ -104,11 +108,10 @@ struct FAnimationEvaluationContext
 	// Double buffer evaluation data
 	TArray<FTransform> SpaceBases;
 	TArray<FTransform> LocalAtoms;
-	TArray<FActiveVertexAnim> VertexAnims;
 	FVector RootBoneTranslation;
 
 	// Double buffer curve data
-	FBlendedCurve	Curve;
+	FBlendedHeapCurve	Curve;
 
 	// Are we performing interpolation this tick
 	bool bDoInterpolation;
@@ -138,8 +141,6 @@ struct FAnimationEvaluationContext
 		SpaceBases.Append(Other.SpaceBases);
 		LocalAtoms.Reset();
 		LocalAtoms.Append(Other.LocalAtoms);
-		VertexAnims.Reset();
-		VertexAnims.Append(Other.VertexAnims);
 		RootBoneTranslation = Other.RootBoneTranslation;
 		Curve.InitFrom(Other.Curve);
 		bDoInterpolation = Other.bDoInterpolation;
@@ -153,6 +154,7 @@ struct FAnimationEvaluationContext
 	{
 		AnimInstance = NULL;
 		SkeletalMesh = NULL;
+		Curve.Empty();
 	}
 
 };
@@ -296,6 +298,29 @@ struct FSkeletalMeshComponentClothTickFunction : public FTickFunction
 	virtual FString DiagnosticMessage() override;
 };
 
+struct ENGINE_API FClosestPointOnPhysicsAsset
+{
+	/** The closest point in world space */
+	FVector ClosestWorldPosition;
+
+	/** The normal associated with the surface of the closest body */
+	FVector Normal;
+
+	/** The name of the bone associated with the closest body */
+	FName BoneName;
+
+	/** The distance of the closest point and the original world position. 0 Indicates world position is inside the closest body. */
+	float Distance;
+
+	FClosestPointOnPhysicsAsset()
+		: ClosestWorldPosition(FVector::ZeroVector)
+		, Normal(FVector::ZeroVector)
+		, BoneName(NAME_None)
+		, Distance(-1.f)
+	{
+	}
+};
+
 /**
  * SkeletalMeshComponent is used to create an instance of an animated SkeletalMesh asset.
  *
@@ -328,7 +353,7 @@ public:
 #endif
 
 	DEPRECATED(4.11, "This property is deprecated. Please use AnimClass instead")
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Animation)
+	UPROPERTY(BlueprintReadOnly, Category = Animation, meta = (DeprecationMessage = "This property is deprecated. Please use AnimClass instead"))
 	class UAnimBlueprintGeneratedClass* AnimBlueprintGeneratedClass;
 
 	/* The AnimBlueprint class to use. Use 'SetAnimInstanceClass' to change at runtime. */
@@ -356,7 +381,7 @@ public:
 	TArray<FTransform> CachedSpaceBases;
 
 	/** Cached Curve result for Update Rate optimization */
-	FBlendedCurve CachedCurve;
+	FBlendedHeapCurve CachedCurve;
 
 	/** Used to scale speed of all animations on this skeletal mesh. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=Animation)
@@ -386,6 +411,7 @@ public:
 	/**
 	 *  If true, simulate physics for this component on a dedicated server.
 	 *  This should be set if simulating physics and replicating with a dedicated server.
+	 *	Note: This property cannot be changed at runtime.
 	 */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = SkeletalMesh)
 	uint32 bEnablePhysicsOnDedicatedServer:1;
@@ -495,6 +521,10 @@ public:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=Animation)
 	uint32 bPauseAnims:1;
 
+	/** On InitAnim should we set to ref pose (if false use first tick of animation data)*/
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Animation)
+	bool bUseRefPoseOnInitAnim;
+
 	/**
 	* Uses skinned data for collision data.
 	*/
@@ -565,41 +595,41 @@ public:
 	class UAnimInstance * GetAnimInstance() const;
 
 	/** Below are the interface to control animation when animation mode, not blueprint mode **/
-	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh")
+	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation"))
 	void SetAnimationMode(EAnimationMode::Type InAnimationMode);
 	
-	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh")
+	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation"))
 	EAnimationMode::Type GetAnimationMode() const;
 
-	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh")
+	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation"))
 	void PlayAnimation(class UAnimationAsset* NewAnimToPlay, bool bLooping);
 
-	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh")
+	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation"))
 	void SetAnimation(class UAnimationAsset* NewAnimToPlay);
 
 	// @todo block this until we support vertex animation 
 //	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh")
 	void SetVertexAnimation(class UVertexAnimation* NewVertexAnimToPlay);
 
-	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh")
+	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation"))
 	void Play(bool bLooping);
 
-	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh")
+	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation"))
 	void Stop();
 
-	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh")
+	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation"))
 	bool IsPlaying() const;
 
-	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh")
+	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation"))
 	void SetPosition(float InPos, bool bFireNotifies = true);
 
-	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh")
+	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation"))
 	float GetPosition() const;
 
-	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh")
+	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation"))
 	void SetPlayRate(float Rate);
 
-	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh")
+	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation"))
 	float GetPlayRate() const;
 
 	/**
@@ -675,7 +705,7 @@ public:
 	virtual void SkelMeshCompOnParticleSystemFinished( class UParticleSystemComponent* PSC );
 
 	class UAnimSingleNodeInstance * GetSingleNodeInstance() const;
-	void InitializeAnimScriptInstance(bool bForceReinit=true);
+	bool InitializeAnimScriptInstance(bool bForceReinit=true);
 
 	/** @return true if wind is enabled */
 	virtual bool IsWindEnabled() const;
@@ -872,6 +902,7 @@ public:
 	virtual void OnRegister() override;
 	virtual void OnUnregister() override;
 	virtual void CreateRenderState_Concurrent() override;
+	virtual bool ShouldCreatePhysicsState() const override;
 	virtual void CreatePhysicsState() override;
 	virtual void DestroyPhysicsState() override;
 	virtual void InitializeComponent() override;
@@ -919,9 +950,31 @@ public:
 	virtual void WakeAllRigidBodies() override;
 	virtual void PutAllRigidBodiesToSleep() override;
 	virtual bool IsAnyRigidBodyAwake() override;
+	virtual void SetEnableGravity(bool bGravityEnabled);
+	virtual bool IsGravityEnabled() const override;
 	virtual void OnComponentCollisionSettingsChanged() override;
 	virtual void SetPhysMaterialOverride(UPhysicalMaterial* NewPhysMaterial) override;
 	virtual float GetDistanceToCollision(const FVector& Point, FVector& ClosestPointOnCollision) const override;
+
+
+	/** 
+	 *	Given a world position, find the closest point on the physics asset. Note that this is independent of collision and welding. This is based purely on animation position
+	 *  @param	WorldPosition				The point we want the closest point to (i.e. for all bodies in the physics asset, find the one that has a point closest to WorldPosition)
+	 *  @param	ClosestPointOnPhysicsAsset	The data associated with the closest point (position, normal, etc...)
+	 *  @param	bApproximate				The closest body is found using bone transform distance instead of body distance. This approximation means the final point is the closest point on a potentially not closest body. This approximation gets worse as the size of Bodies gets bigger.
+	 *  @return	true if we found a closest point
+	 */
+	bool GetClosestPointOnPhysicsAsset(const FVector& WorldPosition, FClosestPointOnPhysicsAsset& ClosestPointOnPhysicsAsset, bool bApproximate) const;
+
+	/** 
+	 *	Given a world position, find the closest point on the physics asset. Note that this is independent of collision and welding. This is based purely on animation position
+	 *  @param	WorldPosition				The point we want the closest point to (i.e. for all bodies in the physics asset, find the one that has a point closest to WorldPosition)
+	 *  @param	ClosestPointOnPhysicsAsset	The data associated with the closest point (position, normal, etc...)
+	 *  @return	true if we found a closest point
+	 */
+	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh", meta=(DisplayName="GetClosestPointOnPhysicsAsset", Keywords="closest point"))
+	bool K2_GetClosestPointOnPhysicsAsset(const FVector& WorldPosition, FVector& ClosestWorldPosition, FVector& Normal, FName& BoneName, float& Distance) const;
+
 	virtual bool LineTraceComponent( FHitResult& OutHit, const FVector Start, const FVector End, const FCollisionQueryParams& Params ) override;
 	virtual bool SweepComponent( FHitResult& OutHit, const FVector Start, const FVector End, const FCollisionShape& CollisionShape, bool bTraceComplex=false) override;
 	virtual bool OverlapComponent(const FVector& Pos, const FQuat& Rot, const FCollisionShape& CollisionShape) override;
@@ -954,7 +1007,7 @@ public:
 	virtual void HideBone( int32 BoneIndex, EPhysBodyOp PhysBodyOption ) override;
 	virtual void UnHideBone( int32 BoneIndex ) override;
 	virtual void SetPhysicsAsset(class UPhysicsAsset* NewPhysicsAsset,bool bForceReInit = false) override;
-	virtual void SetSkeletalMesh(class USkeletalMesh* NewMesh) override;
+	virtual void SetSkeletalMesh(class USkeletalMesh* NewMesh, bool bReinitPose = true) override;
 	virtual FVector GetSkinnedVertexPosition(int32 VertexIndex) const override;
 
 	void SetSkeletalMeshWithoutResettingAnimation(class USkeletalMesh* NewMesh);
@@ -979,7 +1032,7 @@ public:
 	* @param	OutVertexAnims			Active vertex animations
 	* @param	OutRootBoneTranslation	Calculated root bone translation
 	*/
-	void PerformAnimationEvaluation(const USkeletalMesh* InSkeletalMesh, UAnimInstance* InAnimInstance, TArray<FTransform>& OutSpaceBases, TArray<FTransform>& OutLocalAtoms, TArray<FActiveVertexAnim>& OutVertexAnims, FVector& OutRootBoneTranslation, FBlendedCurve& OutCurve) const;
+	void PerformAnimationEvaluation(const USkeletalMesh* InSkeletalMesh, UAnimInstance* InAnimInstance, TArray<FTransform>& OutSpaceBases, TArray<FTransform>& OutLocalAtoms, FVector& OutRootBoneTranslation, FBlendedHeapCurve& OutCurve) const;
 	void PostAnimEvaluation( FAnimationEvaluationContext& EvaluationContext );
 
 	/**
@@ -1025,9 +1078,6 @@ public:
 	/** Set bSimulatePhysics to true for all bone bodies. Does not change the component bSimulatePhysics flag. */
 	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh")
 	void SetAllBodiesSimulatePhysics(bool bNewSimulate);
-
-	/** Update Material Parameters based on AnimInstance */
-	void UpdateMaterialParameters();
 
 	/** This is global set up for setting physics blend weight
 	 * This does multiple things automatically
@@ -1187,7 +1237,7 @@ public:
 	/** should call this method if occurred any changes in clothing assets */
 	void RecreateClothingActors();
 	/** add bounding box for cloth */
-	void AddClothingBounds(FBoxSphereBounds& InOutBounds) const;
+	void AddClothingBounds(FBoxSphereBounds& InOutBounds, const FTransform& LocalToWorld) const;
 	/** changes clothing LODs, if clothing LOD is disabled or LODIndex is greater than apex clothing LODs, simulation will be disabled */
 	void SetClothingLOD(int32 LODIndex);
 	/** check whether clothing teleport is needed or not to avoid a weird simulation result */
@@ -1207,10 +1257,10 @@ public:
 	 */
 	void UpdateClothStateAndSimulate(float DeltaTime, FTickFunction& ThisTickFunction);
 	/** 
-	 * Updates clothing actor's global pose.
-	 * So should be called when ComponentToWorld is changed.
+	 * Updates cloth collision outside the cloth asset (environment collision, child collision, etc...)
+	 * Should be called when scene changes or world position changes
 	 */
-	void UpdateClothTransform();
+	void UpdateClothTransform(ETeleportType TeleportType);
 
 	/** only check whether there are valid clothing actors or not */
 	bool HasValidClothingActors() const;
@@ -1264,7 +1314,7 @@ public:
 	void DebugDrawBones(class UCanvas* Canvas, bool bSimpleBones) const;
 
 protected:
-	bool NeedToSpawnAnimScriptInstance(bool bForceInit) const;
+	bool NeedToSpawnAnimScriptInstance() const;
 	
 private:
 
@@ -1275,7 +1325,7 @@ private:
 	void PostPhysicsTickComponent(FSkeletalMeshComponentPostPhysicsTickFunction& ThisTickFunction);
 
 	/** Evaluate Anim System **/
-	void EvaluateAnimation(const USkeletalMesh* InSkeletalMesh, UAnimInstance* InAnimInstance, TArray<FTransform>& OutLocalAtoms, TArray<struct FActiveVertexAnim>& OutVertexAnims, FVector& OutRootBoneTranslation, FBlendedCurve& OutCurve) const;
+	void EvaluateAnimation(const USkeletalMesh* InSkeletalMesh, UAnimInstance* InAnimInstance, TArray<FTransform>& OutLocalAtoms, FVector& OutRootBoneTranslation, FBlendedHeapCurve& OutCurve) const;
 
 	/**
 	* Take the SourceAtoms array (translation vector, rotation quaternion and scale vector) and update the array of component-space bone transformation matrices (DestSpaceBases).
@@ -1323,6 +1373,12 @@ public:
 
 	friend class FSkeletalMeshComponentDetails;
 
+	/** Returns array containing cachec animation curve mapping UIDs (which are copied over from USkeleton) */
+	TArray<FSmartNameMapping::UID> const * GetCachedAnimCurveMappingNameUids();
+
+	/** Apply animation curves to this component */
+	void ApplyAnimationCurvesToComponent(const TMap<FName, float>* InMaterialParameterCurves, const TMap<FName, float>* InAnimationMorphCurves);
+	
 private:
 	// Returns whether we need to run the Pre Cloth Tick or not
 	bool ShouldRunPostPhysicsTick() const;
@@ -1354,6 +1410,11 @@ private:
 	void CompleteParallelBlendPhysics();
 	void PostBlendPhysics();
 
+#if WITH_APEX_CLOTHING
+	/** See UpdateClothTransform for documentation. */
+	void UpdateClothTransformImp();
+#endif
+
 	friend class FTickClothingTask;
 
 	// these are deprecated variables from removing SingleAnimSkeletalComponent
@@ -1381,7 +1442,12 @@ private:
 	// Default setting for playrate of SequenceToPlay to play. 
 	UPROPERTY()
 	float DefaultPlayRate_DEPRECATED;
+	
+	/** Caches the anim curve mapping smart name UIDs, by copying cached data from the Skeleton */
+	void UpdateCachedAnimCurveMappingNameUids();
 
+	/** Cached animation curves smart name mapping UIDs, only at runtime, not serialized. (used for FBlendedCurve::InitFrom) */
+	TArray<FSmartNameMapping::UID> CachedAnimCurveMappingNameUids;
 public:
 	/** Keep track of when animation has been ticked to ensure it is ticked only once per frame. */
 	UPROPERTY(Transient)
@@ -1394,7 +1460,29 @@ public:
 	FTransform ConvertLocalRootMotionToWorld(const FTransform& InTransform);
 
 	FRootMotionMovementParams ConsumeRootMotion();
+
+private:
+
+#if WITH_EDITOR
+	/** This is required for recording animations, so save for editor only */
+	/** Temporary array of curve arrays that are active on this component - keeps same buffer index as SpaceBases - Please check SkinnedMeshComponent*/
+	FBlendedHeapCurve	CurvesArray[2];
+public: 
+	/** Access Curve Array for reading */
+	const FBlendedHeapCurve& GetAnimationCurves() const { return CurvesArray[CurrentReadSpaceBases]; }
+
+	/** Get Access to the current editable Curve Array - uses same buffer as space bases*/
+	FBlendedHeapCurve& GetEditableAnimationCurves() { return CurvesArray[CurrentEditableSpaceBases]; }
+	const FBlendedHeapCurve& GetEditableAnimationCurves() const { return CurvesArray[CurrentEditableSpaceBases]; }
+#endif 
+
+public:
+	/** Register/Unregister for physics state creation callback */
+	FDelegateHandle RegisterOnPhysicsCreatedDelegate(const FOnSkelMeshPhysicsCreated& Delegate);
+	void UnregisterOnPhysicsCreatedDelegate(const FDelegateHandle& DelegateHandle);
+
+private:
+
+	/** Multicaster fired when this component creates physics state (in case external objects rely on physics state)*/
+	FOnSkelMeshPhysicsCreatedMultiCast OnSkelMeshPhysicsCreated;
 };
-
-
-

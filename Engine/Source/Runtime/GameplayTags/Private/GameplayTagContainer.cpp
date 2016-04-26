@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "GameplayTagsModulePrivatePCH.h"
 
@@ -9,7 +9,84 @@ DEFINE_STAT(STAT_FGameplayTagContainer_HasTag);
 DEFINE_STAT(STAT_FGameplayTagContainer_DoesTagContainerMatch);
 DEFINE_STAT(STAT_UGameplayTagsManager_GameplayTagsMatch);
 
+/**
+ *	Replicates a tag in a packed format:
+ *	-A segment of NetIndexFirstBitSegment bits are always replicated.
+ *	-Another bit is replicated to indicate "more"
+ *	-If "more", then another segment of (MaxBits - NetIndexFirstBitSegment) length is replicated.
+ *	
+ *	This format is basically the same as SerializeIntPacked, except that there are only 2 segments and they are not the same size.
+ *	The gameplay tag system is able to exploit knoweledge in what tags are frequently replicated to ensure they appear in the first segment.
+ *	Making frequently replicated tags as cheap as possible. 
+ *	
+ *	
+ *	Setting up your project to take advantage of the packed format.
+ *	-Run a normal networked game on non shipping build. 
+ *	-After some time, run console command "GameplayTags.PrintReport" or set "GameplayTags.PrintReportOnShutdown 1" cvar.
+ *	-This will generate information on the server log about what tags replicate most frequently.
+ *	-Take this list and put it in DefaultGameplayTags.ini.
+ *	-CommonlyReplicatedTags is the ordered list of tags.
+ *	-NetIndexFirstBitSegment is the number of bits (not including the "more" bit) for the first segment.
+ *
+ */
+void SerializeTagNetIndexPacked(FArchive& Ar, FGameplayTagNetIndex& Value, const int32 NetIndexFirstBitSegment, const int32 MaxBits)
+{
+	// Case where we have no segment or the segment is larger than max bits
+	if (NetIndexFirstBitSegment <= 0 || NetIndexFirstBitSegment >= MaxBits)
+	{
+		if (Ar.IsLoading())
+		{
+			Value = 0;
+		}
+		Ar.SerializeBits(&Value, MaxBits);
+		return;
+	}
 
+
+	const uint32 BitMasks[] = {0x00, 0x01, 0x03, 0x07, 0x0f, 0x1f, 0x3f, 0x7f, 0xff, 0x1ff, 0x3ff, 0x7ff, 0xfff, 0x1fff, 0x3fff, 0x7fff, 0xffff};
+	const uint32 MoreBits[] = {0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x100, 0x200, 0x400, 0x800, 0x1000, 0x2000, 0x4000, 0x8000};
+
+	const int32 FirstSegment = NetIndexFirstBitSegment;
+	const int32 SecondSegment = MaxBits - NetIndexFirstBitSegment;
+
+	if (Ar.IsSaving())
+	{
+		uint32 Mask = BitMasks[FirstSegment];
+		if (Value > Mask)
+		{
+			uint32 FirstDataSegment = ((Value & Mask) | MoreBits[FirstSegment+1]);
+			uint32 SecondDataSegment = (Value >> FirstSegment);
+
+			uint32 SerializedValue = FirstDataSegment | (SecondDataSegment << (FirstSegment+1));				
+
+			Ar.SerializeBits(&SerializedValue, MaxBits + 1);
+		}
+		else
+		{
+			uint32 SerializedValue = Value;
+			Ar.SerializeBits(&SerializedValue, NetIndexFirstBitSegment + 1);
+		}
+
+	}
+	else
+	{
+		uint32 FirstData = 0;
+		Ar.SerializeBits(&FirstData, FirstSegment + 1);
+		uint32 More = FirstData & MoreBits[FirstSegment+1];
+		if (More)
+		{
+			uint32 SecondData = 0;
+			Ar.SerializeBits(&SecondData, SecondSegment);
+			Value = (SecondData << FirstSegment);
+			Value |= (FirstData & BitMasks[FirstSegment]);
+		}
+		else
+		{
+			Value = FirstData;
+		}
+
+	}
+}
 
 
 /** Helper class to parse/eval query token streams. */
@@ -589,6 +666,8 @@ void FGameplayTagContainer::AppendTags(FGameplayTagContainer const& Other)
 {
 	SCOPE_CYCLE_COUNTER(STAT_FGameplayTagContainer_AppendTags);
 
+	GameplayTags.Reserve(Other.Num());
+
 	//add all the tags
 	for(TArray<FGameplayTag>::TConstIterator It(Other.GameplayTags); It; ++It)
 	{
@@ -670,7 +749,8 @@ bool FGameplayTagContainer::Serialize(FArchive& Ar)
 		Ar << GameplayTags;
 	}
 	
-	if (Ar.IsLoading())
+	// Only do redirects for real loads, not for duplicates or recompiles
+	if (Ar.IsLoading() && Ar.IsPersistent() && !(Ar.GetPortFlags() & PPF_Duplicate) && !(Ar.GetPortFlags() & PPF_DuplicateForPIE))
 	{
 		UGameplayTagsManager& TagManager = IGameplayTagsModule::GetGameplayTagsManager();
 
@@ -699,7 +779,7 @@ bool FGameplayTagContainer::Serialize(FArchive& Ar)
 
 		// Rename any tags that may have changed by the ini file.  Redirects can happen regardless of version.
 		// Regardless of version, want loading to have a chance to handle redirects
-		TagManager.RedirectTagsForContainer(*this, DeprecatedTagNamesNotFoundInTagMap);
+		TagManager.RedirectTagsForContainer(*this, DeprecatedTagNamesNotFoundInTagMap, Ar.GetSerializedProperty());
 	}
 
 	return true;
@@ -752,27 +832,55 @@ FString FGameplayTagContainer::ToStringSimple() const
 
 bool FGameplayTagContainer::NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
 {
-	uint8 NumTags;
+	// 1st bit to indicate empty tag container or not (empty tag containers are frequently replicated). Early out if empty.
+	uint8 IsEmpty = GameplayTags.Num() == 0;
+	Ar.SerializeBits(&IsEmpty, 1);
+	if (IsEmpty)
+	{
+		if (GameplayTags.Num() > 0)
+		{
+			GameplayTags.Reset();
+		}
+		bOutSuccess = true;
+		return true;
+	}
+
+	// -------------------------------------------------------
+
 	if (Ar.IsSaving())
 	{
-		NumTags = GameplayTags.Num();
-		Ar << NumTags;
-		for (FGameplayTag& Tag : GameplayTags)
+		uint8 NumTags = GameplayTags.Num();
+		uint8 MaxSize = (1 << UGameplayTagsManager::NumBitsForContainerSize);
+		if (!ensureMsgf(NumTags < MaxSize, TEXT("TagContainer has %d elements when max is %d! Tags: %s"), NumTags, NumTags, *ToStringSimple()))
 		{
-			Tag.NetSerialize(Ar, Map, bOutSuccess);
+			NumTags = MaxSize - 1;
+		}
+		
+		Ar.SerializeBits(&NumTags, UGameplayTagsManager::NumBitsForContainerSize);
+		for (int32 idx=0; idx < NumTags;++idx)
+		{
+			FGameplayTag& Tag = GameplayTags[idx];
+			Tag.NetSerialize_Packed(Ar, Map, bOutSuccess);
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+			UGameplayTagsManager::NotifyTagReplicated(Tag, true);
+#endif
 		}
 	}
 	else
 	{
-		Ar << NumTags;
+		// No Common Container tags, just replicate this like normal
+		uint8 NumTags = 0;
+		Ar.SerializeBits(&NumTags, UGameplayTagsManager::NumBitsForContainerSize);
+
 		GameplayTags.Empty(NumTags);
 		GameplayTags.AddDefaulted(NumTags);
 		for (uint8 idx = 0; idx < NumTags; ++idx)
 		{
-			GameplayTags[idx].NetSerialize(Ar, Map, bOutSuccess);
+			GameplayTags[idx].NetSerialize_Packed(Ar, Map, bOutSuccess);
 		}
-
 	}
+
 
 	bOutSuccess  = true;
 	return true;
@@ -843,55 +951,63 @@ DECLARE_CYCLE_STAT(TEXT("FGameplayTag::NetSerialize"), STAT_FGameplayTag_NetSeri
 
 bool FGameplayTag::NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
 {
-	SCOPE_CYCLE_COUNTER(STAT_FGameplayTag_NetSerialize);
-
-	UGameplayTagsManager& TagManager = IGameplayTagsModule::GetGameplayTagsManager();
-
-	uint8 bHasName = (TagName != NAME_None);
-	uint8 bHasNetIndex = 0;
-	FGameplayTagNetIndex NetIndex = INVALID_TAGNETINDEX;
-
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	if (Ar.IsSaving())
 	{
-		NetIndex = TagManager.GetNetIndexFromTag(*this);
-		if (NetIndex != INVALID_TAGNETINDEX)
-		{
-			// If we have a valid net index, serialize with that
-			bHasNetIndex = true;
-		}
+		UGameplayTagsManager::NotifyTagReplicated(*this, false);
 	}
+#endif
 
-	// Serialize if we have a name at all or are empty
-	Ar.SerializeBits(&bHasName, 1);
+	NetSerialize_Packed(Ar, Map, bOutSuccess);
 
-	if (bHasName)
+	bOutSuccess = true;
+	return true;
+}
+
+bool FGameplayTag::NetSerialize_Packed(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
+{
+	SCOPE_CYCLE_COUNTER(STAT_FGameplayTag_NetSerialize);
+
+	UGameplayTagsManager& TagManager = IGameplayTagsModule::GetGameplayTagsManager();	
+
+	if (TagManager.ShouldUseFastReplication())
 	{
-		Ar.SerializeBits(&bHasNetIndex, 1);
-		// If we have a net index serialize that, otherwise serialize as a name
-		if (bHasNetIndex)
+		FGameplayTagNetIndex NetIndex = INVALID_TAGNETINDEX;
+
+		if (Ar.IsSaving())
 		{
-			Ar << NetIndex;
+			NetIndex = TagManager.GetNetIndexFromTag(*this);
+			
+			SerializeTagNetIndexPacked(Ar, NetIndex, UGameplayTagsManager::NetIndexFirstBitSegment, UGameplayTagsManager::NetIndexTrueBitNum);
 		}
 		else
 		{
-			Ar << TagName;
-		}
-
-		if (Ar.IsLoading() && bHasNetIndex)
-		{
+			SerializeTagNetIndexPacked(Ar, NetIndex, UGameplayTagsManager::NetIndexFirstBitSegment, UGameplayTagsManager::NetIndexTrueBitNum);
 			TagName = TagManager.GetTagNameFromNetIndex(NetIndex);
 		}
+
 	}
 	else
 	{
-		TagName = NAME_None;
+		Ar << TagName;
 	}
 
 	bOutSuccess = true;
 	return true;
 }
 
+void FGameplayTag::PostSerialize(const FArchive& Ar)
+{
+	// This only happens for tags that are not nested inside a container, containers handle redirectors themselves
+	// Only do redirects for real loads, not for duplicates or recompiles
+	if (Ar.IsLoading() && Ar.IsPersistent() && !(Ar.GetPortFlags() & PPF_Duplicate) && !(Ar.GetPortFlags() & PPF_DuplicateForPIE))
+	{
+		UGameplayTagsManager& TagManager = IGameplayTagsModule::GetGameplayTagsManager();
 
+		// Rename any tags that may have changed by the ini file.
+		TagManager.RedirectSingleGameplayTag(*this, Ar.GetSerializedProperty());
+	}
+}
 
 FGameplayTagQuery::FGameplayTagQuery()
 	: TokenStreamVersion(EGameplayTagQueryStreamVersion::LatestVersion)
@@ -1435,3 +1551,55 @@ void FGameplayTagQueryExpression::EmitTokens(TArray<uint8>& TokenStream, TArray<
 	}
 }
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+
+static void GameplayTagPrintReplicationMap()
+{
+	UGameplayTagsManager::PrintReplicationFrequencyReport();
+}
+
+FAutoConsoleCommand GameplayTagPrintReplicationMapCmd(
+	TEXT("GameplayTags.PrintReport"), 
+	TEXT( "Prints frequency of gameplay tags" ), 
+	FConsoleCommandDelegate::CreateStatic(GameplayTagPrintReplicationMap)
+);
+
+
+static void TagPackingTest()
+{
+	for (int32 TotalNetIndexBits=1; TotalNetIndexBits <= 16; ++TotalNetIndexBits)
+	{
+		for (int32 NetIndexBitsPerComponent=0; NetIndexBitsPerComponent <= TotalNetIndexBits; NetIndexBitsPerComponent++)
+		{
+			for (int32 NetIndex=0; NetIndex < FMath::Pow(2, TotalNetIndexBits); ++NetIndex)
+			{
+				FGameplayTagNetIndex NI = NetIndex;
+
+				FNetBitWriter	BitWriter(nullptr, 1024 * 8);
+				SerializeTagNetIndexPacked(BitWriter, NI, NetIndexBitsPerComponent, TotalNetIndexBits);
+
+				FNetBitReader	Reader(nullptr, BitWriter.GetData(), BitWriter.GetNumBits());
+
+				FGameplayTagNetIndex NewIndex;
+				SerializeTagNetIndexPacked(Reader, NewIndex, NetIndexBitsPerComponent, TotalNetIndexBits);
+
+				if (ensureAlways((NewIndex == NI)) == false)
+				{
+					NetIndex--;
+					continue;
+				}
+			}
+		}
+	}
+
+	UE_LOG(LogGameplayTags, Warning, TEXT("TagPackingTest completed!"));
+
+}
+
+FAutoConsoleCommand TagPackingTestCmd(
+	TEXT("GameplayTags.PackingTest"), 
+	TEXT( "Prints frequency of gameplay tags" ), 
+	FConsoleCommandDelegate::CreateStatic(TagPackingTest)
+);
+
+#endif

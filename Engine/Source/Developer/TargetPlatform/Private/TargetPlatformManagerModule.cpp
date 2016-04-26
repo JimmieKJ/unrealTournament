@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "TargetPlatformPrivatePCH.h"
 #include "PlatformInfo.h"
@@ -569,7 +569,19 @@ protected:
 
 		TArray<FName> Modules;
 
-		FModuleManager::Get().FindModules(TEXT("*TargetPlatform"), Modules);
+		FString ModuleWildCard = TEXT("*TargetPlatform");
+
+#if WITH_EDITOR
+		// if we have the editor and we are using -game
+		// only need to instantiate the current platform 
+#if PLATFORM_WINDOWS
+		if (IsRunningGame())
+		{
+			ModuleWildCard = TEXT("Windows*TargetPlatform");
+		}
+#endif
+#endif
+		FModuleManager::Get().FindModules(*ModuleWildCard, Modules);
 
 		// remove this module from the list
 		Modules.Remove(FName(TEXT("TargetPlatform")));
@@ -953,7 +965,7 @@ RETRY_SETUPANDVALIDATE:
 
 private:
 
-	void SetupEnvironmentVariables(TArray<FString> &EnvVarNames, TArray<FString> EnvVarValues)
+	void SetupEnvironmentVariables(TArray<FString> &EnvVarNames, const TArray<FString>& EnvVarValues)
 	{
 		for (int i = 0; i < EnvVarNames.Num(); ++i)
 		{

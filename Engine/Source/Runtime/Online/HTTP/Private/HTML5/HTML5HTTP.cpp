@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "HttpPrivatePCH.h"
 #include "HTML5HTTP.h"
@@ -143,6 +143,22 @@ void FHTML5HttpRequest::SetContentAsString(const FString& ContentString)
 	FMemory::Memcpy(RequestPayload.GetData(), (uint8*)(ANSICHAR*)Converter.Get(), RequestPayload.Num());
 }
 
+
+void FHTML5HttpRequest::AppendToHeader(const FString& HeaderName, const FString& AdditionalHeaderValue)
+{
+	if (!HeaderName.IsEmpty() && !AdditionalHeaderValue.IsEmpty())
+	{
+		FString* PreviousValue = Headers.Find(HeaderName);
+		FString NewValue;
+		if (PreviousValue != nullptr && !PreviousValue->IsEmpty())
+		{
+			NewValue = (*PreviousValue) + TEXT(", ");
+		}
+		NewValue += AdditionalHeaderValue;
+
+		SetHeader(HeaderName, NewValue);
+	}
+}
 
 FString FHTML5HttpRequest::GetVerb()
 {

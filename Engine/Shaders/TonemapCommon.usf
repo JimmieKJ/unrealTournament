@@ -1,11 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	TonemapCommon.usf: PostProcessing tone mapping common
 =============================================================================*/
 
 // #todo-rco: Fix in the cross-compiler
-#if COMPILER_GLSL || COMPILER_GLSL_ES2 || COMPILER_METAL || VULKAN_PROFILE
+#if COMPILER_GLSL || COMPILER_GLSL_ES2 || COMPILER_METAL || VULKAN_PROFILE || COMPILER_HLSLCC
 #define log10(x)  log(x) / log(10.0)
 #endif
 
@@ -140,7 +140,7 @@ half3 FilmToneMap( half3 LinearColor )
 	const float3x3 AP1_2_sRGB = mul( XYZ_2_sRGB_MAT, mul( D60_2_D65_CAT, AP1_2_XYZ_MAT ) );
 	
 #if 1
-	float3 ACESColor = mul( sRGB_2_AP0, LinearColor );
+	float3 ACESColor = mul( sRGB_2_AP0, float3(LinearColor) );
 
 	// --- Red modifier --- //
 	const float RRT_RED_SCALE = 0.82;
@@ -159,7 +159,7 @@ half3 FilmToneMap( half3 LinearColor )
 	float3 WorkingColor = mul( AP0_2_AP1_MAT, ACESColor );
 #else
 	// Use ACEScg primaries as working space
-	float3 WorkingColor = mul( sRGB_2_AP1, LinearColor );
+	float3 WorkingColor = mul( sRGB_2_AP1, float3(LinearColor) );
 #endif
 
 	WorkingColor = max( 0, WorkingColor );
@@ -206,9 +206,9 @@ half3 FilmToneMap( half3 LinearColor )
 	half3 ToneColor = lerp( ToeColor, ShoulderColor, t );
 
 	// Post desaturate
-	ToneColor = lerp( dot( ToneColor, AP1_RGB2Y ), ToneColor, 0.93 );
+	ToneColor = lerp( dot( float3(ToneColor), AP1_RGB2Y ), ToneColor, 0.93 );
 
-	ToneColor = mul( AP1_2_sRGB, ToneColor );
+	ToneColor = mul( AP1_2_sRGB, float3(ToneColor) );
 
 	//return saturate( ToneColor );
 	return max( 0, ToneColor );

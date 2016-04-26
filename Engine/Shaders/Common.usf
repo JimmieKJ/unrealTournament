@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Common.usf: Common shader code
@@ -12,9 +12,18 @@
 	#include "PS4/PS4Common.usf"
 #endif
 
+#if XBOXONE_PROFILE
+	#define STENCIL_COMPONENT_SWIZZLE .x
+#endif
+
 #if COMPILER_METAL
 	// Helps with iteration when changing Metal shader code generation backend.
 	#include "MetalCommon.usf"
+#endif
+
+#if VULKAN_PROFILE
+	// Helps with iteration when changing Vulkan shader code generation backend.
+	#include "VulkanCommon.usf"
 #endif
 
 #ifndef FORCE_FLOATS
@@ -84,6 +93,8 @@
 // uniform buffers specifics
 #include "CommonViewUniformBuffer.usf"
 
+#include "InstancedStereo.usf"
+
 #include "Definitions.usf"
 
 #define FEATURE_LEVEL_ES2	1
@@ -106,7 +117,11 @@
 #elif SM4_PROFILE
 	#define FEATURE_LEVEL FEATURE_LEVEL_SM4
 #elif VULKAN_PROFILE
-	#define FEATURE_LEVEL FEATURE_LEVEL_ES2
+	#define FEATURE_LEVEL FEATURE_LEVEL_ES3_1
+#elif VULKAN_PROFILE_SM4
+	#define FEATURE_LEVEL FEATURE_LEVEL_SM4
+#elif VULKAN_PROFILE_SM5
+	#define FEATURE_LEVEL FEATURE_LEVEL_SM5
 #elif GL3_PROFILE || GL4_PROFILE
 
 	#if GL3_PROFILE
@@ -128,25 +143,20 @@
 	// @todo metal: remove this and make sure all uses handle METAL_PROFILE
 	#undef ES3_1_PROFILE
 	#define ES3_1_PROFILE 1
-	#define FCOLOR_COMPONENT_SWIZZLE .bgra  
+	#define FCOLOR_COMPONENT_SWIZZLE .bgra
+	#define STENCIL_COMPONENT_SWIZZLE .x
 #elif METAL_MRT_PROFILE
 	#define FEATURE_LEVEL FEATURE_LEVEL_SM4
-	// @todo metal: remove this and make sure all uses handle METAL_MRT_PROFILE
-	#undef SM4_PROFILE
-	#define SM4_PROFILE 1
 	#define FCOLOR_COMPONENT_SWIZZLE .bgra
+	#define STENCIL_COMPONENT_SWIZZLE .x
 #elif METAL_SM4_PROFILE
 	#define FEATURE_LEVEL FEATURE_LEVEL_SM4
-	// @todo metal: remove this and make sure all uses handle METAL_SM4_PROFILE
-	#undef SM4_PROFILE
-	#define SM4_PROFILE 1
 	#define FCOLOR_COMPONENT_SWIZZLE .bgra
+	#define STENCIL_COMPONENT_SWIZZLE .x
 #elif METAL_SM5_PROFILE
 	#define FEATURE_LEVEL FEATURE_LEVEL_SM5
-	// @todo metal: remove this and make sure all uses handle FEATURE_LEVEL_SM5
-	#undef SM5_PROFILE
-	#define SM5_PROFILE 1
 	#define FCOLOR_COMPONENT_SWIZZLE .bgra
+	#define STENCIL_COMPONENT_SWIZZLE .x
 #elif ES2_PROFILE || ES3_1_PROFILE
 	#if ES3_1_PROFILE
 		#define FEATURE_LEVEL FEATURE_LEVEL_ES3_1
@@ -179,12 +189,29 @@
 #define USE_DEVELOPMENT_SHADERS (COMPILE_SHADERS_FOR_DEVELOPMENT && PLATFORM_SUPPORTS_DEVELOPMENT_SHADERS)
 
 #ifndef MOBILE_EMULATION
-#define MOBILE_EMULATION ((FEATURE_LEVEL == FEATURE_LEVEL_ES2 || FEATURE_LEVEL == FEATURE_LEVEL_ES3_1) && (!COMPILER_GLSL_ES2 && USE_DEVELOPMENT_SHADERS && !METAL_PROFILE && !VULKAN_PROFILE))
+#define MOBILE_EMULATION ((FEATURE_LEVEL == FEATURE_LEVEL_ES2 || FEATURE_LEVEL == FEATURE_LEVEL_ES3_1) && (!COMPILER_GLSL_ES2 && USE_DEVELOPMENT_SHADERS && !(METAL_PROFILE && MAC) && !VULKAN_PROFILE))
 #endif
 
 // If we didn't request color component swizzling, just make it empty
 #ifndef FCOLOR_COMPONENT_SWIZZLE
 #define FCOLOR_COMPONENT_SWIZZLE
+#endif
+
+#ifndef STENCIL_COMPONENT_SWIZZLE
+#define STENCIL_COMPONENT_SWIZZLE .g
+#endif
+
+#if !TEX_COORD_SCALE_ANALYSIS
+// Texture coordinate scale analysis is used by the texture streamer to compute material scale factors (relatively to UV0) when sampling textures.
+// The pratical implementation is in TexCoordScaleAnalysisPixelShader even though the code is inserted in all shaders, using the stubs above.
+MaterialFloat StoreTexCoordScale(float2 UV, uint TextureReferenceIndex)
+{
+	return 1.f;
+}
+MaterialFloat StoreTexSample(float4 C, uint TextureReferenceIndex)
+{
+	return 1.f;
+}
 #endif
 
 // Whether the platform supports independent texture and samplers
@@ -329,6 +356,33 @@ MaterialFloat length2(MaterialFloat3 v)
 MaterialFloat length2(MaterialFloat4 v)
 {
 	return dot(v, v);
+}
+
+uint Mod(uint a, uint b)
+{
+#if FEATURE_LEVEL >= FEATURE_LEVEL_ES3_1
+	return a % b;
+#else
+	return a - (b * (uint)((float)a / (float)b));
+#endif
+}
+
+uint2 Mod(uint2 a, uint2 b)
+{
+#if FEATURE_LEVEL >= FEATURE_LEVEL_ES3_1
+	return a % b;
+#else
+	return a - (b * (uint2)((float2)a / (float2)b));
+#endif
+}
+
+uint3 Mod(uint3 a, uint3 b)
+{
+#if FEATURE_LEVEL >= FEATURE_LEVEL_ES3_1
+	return a % b;
+#else
+	return a - (b * (uint3)((float3)a / (float3)b));
+#endif
 }
 
 MaterialFloat UnClampedPow(MaterialFloat X, MaterialFloat Y)
@@ -693,7 +747,7 @@ MaterialFloat4 CalcFullSceneColor(MaterialFloat2 ScreenUV)
 #if SCENE_TEXTURES_DISABLED
 	return MaterialFloat4(0.0f, 0.0f, 0.0f, 0.0f);
 #else
-	  return Texture2DSample(SceneColorTexture, SceneColorTextureSampler,ScreenUV);
+	return Texture2DSample(SceneColorTexture, SceneColorTextureSampler,ScreenUV);
 #endif
 }
 
@@ -750,7 +804,7 @@ MaterialFloat3 HdrMosaic(MaterialFloat3 LinearColor, MaterialFloat2 VPos)
 // Resolve pass to remove mosaic and restore color.
 MaterialFloat3 HdrDemosaic(MaterialFloat3 Pixel, MaterialFloat3 OtherPixel, MaterialFloat2 VPos)
 {
-	MaterialFloat A = frac(dot(VPos + View.DemosaicVposOffset, MaterialFloat2(0.5, 0.5)));
+	MaterialFloat A = frac(dot(VPos + Frame.DemosaicVposOffset, MaterialFloat2(0.5, 0.5)));
 	MaterialFloat B = 0.5 - A;
 	A = A * DEMOSAIC_MUL + DEMOSAIC_ADD;
 	B = B * DEMOSAIC_MUL + DEMOSAIC_ADD;
@@ -856,7 +910,7 @@ float GetHDR32bppEncodeMode()
 	#endif
 	#if MOBILE_EMULATION
 		// To enable editor runtime change without recompile, PC always eats the encode cost.
-		return View.HDR32bppEncodingMode;
+		return Frame.HDR32bppEncodingMode;
 	#endif
 #endif
 	return HDR_ENCODE_NONE;
@@ -960,7 +1014,7 @@ float CalcSceneDepth( float2 ScreenUV )
 			float SceneW = ConvertFromDeviceZ(Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, ScreenUV, 0).r);		
 			return DepthbufferFetchES2(SceneW, View.InvDeviceZToWorldZTransform[2], View.InvDeviceZToWorldZTransform[3]);
 		#endif 
-	#elif METAL_PROFILE
+	#elif METAL_PROFILE && !MAC
 			return FramebufferFetchES2().w;
 	#else
 		return ConvertFromDeviceZ(Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, ScreenUV, 0).r);
@@ -1027,11 +1081,7 @@ float4 CalcSceneColorAndDepth( float2 ScreenUV )
 #endif // FEATURE_LEVEL
 	float CalcSceneDepthMSAA(float2 ScreenUV,uint SampleIndex)
 	{
-		float2 SurfaceDimensions;
-		float NumSurfaceSamples;
-		SceneDepthSurface.GetDimensions(SurfaceDimensions.x,SurfaceDimensions.y,NumSurfaceSamples);
-
-		int2 IntUV = int2(trunc(ScreenUV * SurfaceDimensions));
+		int2 IntUV = int2(trunc(ScreenUV * Frame.BufferSizeAndInvSize.xy));
 		float DeviceZ = SceneDepthSurface.Load(IntUV,SampleIndex);
 
 		return ConvertFromDeviceZ(DeviceZ);
@@ -1047,12 +1097,21 @@ float2 ScreenPositionToBufferUV(float4 ScreenPosition)
 
 float2 SvPositionToBufferUV(float4 SvPosition)
 {
-	return SvPosition.xy * View.BufferSizeAndInvSize.zw;
+	return SvPosition.xy * Frame.BufferSizeAndInvSize.zw;
 }
-	
+
+// Used for post process shaders which don't need to resolve the view	
 float3 SvPositionToTranslatedWorld(float4 SvPosition)
 {
 	float4 HomWorldPos = mul(float4(SvPosition.xyz, 1), View.SVPositionToTranslatedWorld);
+
+	return HomWorldPos.xyz / HomWorldPos.w;
+}
+
+// Used for vertex factory shaders which need to use the resolved view
+float3 SvPositionToResolvedTranslatedWorld(float4 SvPosition)
+{
+	float4 HomWorldPos = mul(float4(SvPosition.xyz, 1), ResolvedView.SVPositionToTranslatedWorld);
 
 	return HomWorldPos.xyz / HomWorldPos.w;
 }
@@ -1069,10 +1128,10 @@ float4 SvPositionToScreenPosition(float4 SvPosition)
 	// todo: is already in .w or needs to be reconstructed like this:
 //	SvPosition.w = ConvertFromDeviceZ(SvPosition.z);
 
-	float2 PixelPos = SvPosition.xy - View.ViewRectMin.xy;	
+	float2 PixelPos = SvPosition.xy - Frame.ViewRectMin.xy;	
 
 	// NDC (NormalizedDeviceCoordinates, after the perspective divide)
-	float3 NDCPos = float3( (PixelPos * View.ViewSizeAndInvSize.zw - 0.5f) * float2(2, -2), SvPosition.z);
+	float3 NDCPos = float3( (PixelPos * Frame.ViewSizeAndInvSize.zw - 0.5f) * float2(2, -2), SvPosition.z);
 
 	// SvPosition.w: so .w has the SceneDepth, some mobile code and the DepthFade material expression wants that
 	return float4(NDCPos.xyz, 1) * SvPosition.w;
@@ -1081,11 +1140,16 @@ float4 SvPositionToScreenPosition(float4 SvPosition)
 float2 SvPositionToViewportUV(float4 SvPosition)
 {
 	// can be optimized from 2SUB+2MUL to 2MAD
-	float2 PixelPos = SvPosition.xy - View.ViewRectMin.xy;	
+	float2 PixelPos = SvPosition.xy - Frame.ViewRectMin.xy;	
 
-	return PixelPos.xy * View.ViewSizeAndInvSize.zw;
+	return PixelPos.xy * Frame.ViewSizeAndInvSize.zw;
 }
 
+float2 BufferUVToViewportUV(float2 BufferUV)
+{
+	float2 PixelPos = BufferUV.xy * Frame.BufferSizeAndInvSize.xy - Frame.ViewRectMin.xy;
+	return PixelPos.xy * Frame.ViewSizeAndInvSize.zw;
+}
 // ----------------------------
 
 /** 

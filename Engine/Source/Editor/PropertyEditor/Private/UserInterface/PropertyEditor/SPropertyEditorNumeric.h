@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "PropertyEditorConstants.h"
@@ -100,21 +100,37 @@ public:
 			&& !PropertyNode->GetProperty()->GetBoolMetaData("NoSpinbox");
 
 		// Set up the correct type interface if we want to display units on the property editor
-		if (FUnitConversion::Settings().ShouldDisplayUnits())
+
+		// First off, check for ForceUnits= meta data. This meta tag tells us to interpret, and always display the value in these units. FUnitConversion::Settings().ShouldDisplayUnits does not apply to suce properties
+		const FString& ForcedUnits = InPropertyEditor->GetProperty()->GetMetaData(TEXT("ForceUnits"));
+		auto PropertyUnits = FUnitConversion::UnitFromString(*ForcedUnits);
+		if (PropertyUnits.IsSet())
 		{
-			const FString& Units = InPropertyEditor->GetProperty()->GetMetaData(TEXT("Units"));
-			auto PropertyUnits = FUnitConversion::UnitFromString(*Units);
-
-			if (PropertyUnits.IsSet())
+			// Create the type interface and set up the default input units if they are compatible
+			TypeInterface = MakeShareable(new TNumericUnitTypeInterface<NumericType>(PropertyUnits.GetValue()));
+			TypeInterface->FixedDisplayUnits = PropertyUnits.GetValue();
+		}
+		// If that's not set, we fall back to Units=xxx which calculates the most appropriate unit to display in
+		else
+		{
+			if (FUnitConversion::Settings().ShouldDisplayUnits())
 			{
-				// Create the type interface and set up the default input units if they are compatible
-				TypeInterface = MakeShareable(new TNumericUnitTypeInterface<NumericType>(PropertyUnits.GetValue()));
+				const FString& DynamicUnits = InPropertyEditor->GetProperty()->GetMetaData(TEXT("Units"));
+				PropertyUnits = FUnitConversion::UnitFromString(*DynamicUnits);
+			}
 
-				auto Value = OnGetValue();
-				if (Value.IsSet())
-				{
-					TypeInterface->SetupFixedDisplay(Value.GetValue());
-				}
+			if (!PropertyUnits.IsSet())
+			{
+				PropertyUnits = EUnit::Unspecified;
+			}
+
+			// Create the type interface and set up the default input units if they are compatible
+			TypeInterface = MakeShareable(new TNumericUnitTypeInterface<NumericType>(PropertyUnits.GetValue()));
+			auto Value = OnGetValue();
+
+			if (Value.IsSet())
+			{
+				TypeInterface->SetupFixedDisplay(Value.GetValue());
 			}
 		}
 
@@ -134,6 +150,7 @@ public:
 				.UndeterminedString(LOCTEXT("MultipleValues", "Multiple Values"))
 				.OnValueChanged(this, &SPropertyEditorNumeric<NumericType>::OnValueChanged)
 				.OnValueCommitted(this, &SPropertyEditorNumeric<NumericType>::OnValueCommitted)
+				.OnUndeterminedValueCommitted(this, &SPropertyEditorNumeric<NumericType>::OnUndeterminedValueCommitted)
 				.OnBeginSliderMovement(this, &SPropertyEditorNumeric<NumericType>::OnBeginSliderMovement)
 				.OnEndSliderMovement(this, &SPropertyEditorNumeric<NumericType>::OnEndSliderMovement)
 				.TypeInterface(TypeInterface)
@@ -298,6 +315,30 @@ private:
 		{
 			TypeInterface->SetupFixedDisplay(NewValue);
 		}
+	}
+
+	void OnUndeterminedValueCommitted( FText NewValue, ETextCommit::Type CommitType )
+	{
+		const TSharedRef<IPropertyHandle> PropertyHandle = PropertyEditor->GetPropertyHandle();
+		const FString NewValueString = NewValue.ToString();
+		TArray<FString> PerObjectValues;
+		
+		// evaluate expression for each property value
+		PropertyHandle->GetPerObjectValues(PerObjectValues);
+
+		for (auto& Value : PerObjectValues)
+		{
+			NumericType OldNumericValue;
+			TTypeFromString<NumericType>::FromString(OldNumericValue, *Value);
+			TOptional<NumericType> NewNumericValue = TypeInterface->FromString(NewValueString, OldNumericValue);
+
+			if (NewNumericValue.IsSet())
+			{
+				Value = TTypeToString<NumericType>::ToString(NewNumericValue.GetValue());
+			}
+		}
+
+		PropertyHandle->SetPerObjectValues(PerObjectValues);
 	}
 	
 	/**

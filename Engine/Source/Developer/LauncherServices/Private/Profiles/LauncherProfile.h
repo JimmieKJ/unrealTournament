@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -1006,7 +1006,6 @@ public:
 		Writer.WriteValue("nocompile", !IsBuildingUAT());
 		Writer.WriteValue("nocompileeditor", FApp::IsEngineInstalled());
 		Writer.WriteValue("ue4exe", GetEditorExe());
-		Writer.WriteValue("rocket", FRocketSupport::IsRocket());
 		Writer.WriteValue("usedebugparamforeditorexe", FParse::Param(FCommandLine::Get(), TEXT("debug")));
 		Writer.WriteValue("utf8output", true);
 
@@ -1351,7 +1350,6 @@ public:
 		"runautomationtest", ""
 		"runautomationtests", "true/false"
 		"skipserver", "true/false"
-		"rocket", "true/false"
 		"ue4exe", ""
 		"unattended", "true/false"
 		"deviceuser", ""
@@ -1510,25 +1508,34 @@ public:
 		CookMode = (TEnumAsByte<ELauncherProfileCookModes::Type>)((int32)Object.GetNumberField("CookMode"));
 		CookUnversioned = Object.GetBoolField("CookUnversioned");
 
-		TArray<TSharedPtr<FJsonValue>> Cultures = Object.GetArrayField("CookedCultures");
 		CookedCultures.Reset();
-		for (auto Value : Cultures)
+		const TArray<TSharedPtr<FJsonValue>>* Cultures = NULL;
+		if (Object.TryGetArrayField("CookedCultures", Cultures))
 		{
-			CookedCultures.Add(Value->AsString());
+			for (auto Value : *Cultures)
+			{
+				CookedCultures.Add(Value->AsString());
+			}
 		}
 
-		TArray<TSharedPtr<FJsonValue>> Maps = Object.GetArrayField("CookedMaps");
 		CookedMaps.Reset();
-		for (auto Value : Maps)
+		const TArray<TSharedPtr<FJsonValue>>* Maps = NULL;
+		if (Object.TryGetArrayField("CookedMaps", Maps))
 		{
-			CookedMaps.Add(Value->AsString());
+			for (auto Value : *Maps)
+			{
+				CookedMaps.Add(Value->AsString());
+			}
 		}
 
-		TArray<TSharedPtr<FJsonValue>> Platforms = Object.GetArrayField("CookedPlatforms");
 		CookedPlatforms.Reset();
-		for (auto Value : Platforms)
+		const TArray<TSharedPtr<FJsonValue>>* Platforms = NULL;
+		if (Object.TryGetArrayField("CookedPlatforms", Platforms))
 		{
-			CookedPlatforms.Add(Value->AsString());
+			for (auto Value : *Platforms)
+			{
+				CookedPlatforms.Add(Value->AsString());
+			}
 		}
 
 		DeployStreamingServer = Object.GetBoolField("DeployStreamingServer");
@@ -1566,10 +1573,13 @@ public:
 		// serialize the launch roles
 		DeployedDeviceGroup.Reset();
 		LaunchRoles.Reset();
-		TArray<TSharedPtr<FJsonValue>> Roles = Object.GetArrayField("LaunchRoles");
-		for (auto Value : Roles)
+		const TArray<TSharedPtr<FJsonValue>>* Roles = NULL;
+		if (Object.TryGetArrayField("LaunchRoles", Roles))
 		{
-			LaunchRoles.Add(MakeShareable(new FLauncherProfileLaunchRole(*(Value->AsObject().Get()))));
+			for (auto Value : *Roles)
+			{
+				LaunchRoles.Add(MakeShareable(new FLauncherProfileLaunchRole(*(Value->AsObject().Get()))));
+			}
 		}
 
 		if (LAUNCHERSERVICES_SHAREABLEPROJECTPATHS)
@@ -2195,6 +2205,17 @@ protected:
 			// @todo ensure that launched devices have cooked content
 		}
 		
+		if ((CookMode == ELauncherProfileCookModes::OnTheFly) || (CookMode == ELauncherProfileCookModes::OnTheFlyInEditor))
+		{
+			if (BuildConfiguration == EBuildConfigurations::Shipping)
+			{
+				// shipping doesn't support commandline options
+				ValidationErrors.Add(ELauncherProfileValidationErrors::ShippingDoesntSupportCommandlineOptionsCantUseCookOnTheFly);
+			}
+
+		}
+
+
 		ValidatePlatformSDKs();
 	}
 	

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -270,31 +270,31 @@ public:
 private:
 
 	/** True if the left shift key was down when this event occurred. */
-	bool bIsLeftShiftDown;
+	uint16 bIsLeftShiftDown:1;
 
 	/** True if the right shift key was down when this event occurred. */
-	bool bIsRightShiftDown;
+	uint16 bIsRightShiftDown:1;
 
 	/** True if the left control key was down when this event occurred. */
-	bool bIsLeftControlDown;
+	uint16 bIsLeftControlDown:1;
 
 	/** True if the right control key was down when this event occurred. */
-	bool bIsRightControlDown;
+	uint16 bIsRightControlDown:1;
 
 	/** True if the left alt key was down when this event occurred. */
-	bool bIsLeftAltDown;
+	uint16 bIsLeftAltDown:1;
 
 	/** True if the right alt key was down when this event occurred. */
-	bool bIsRightAltDown;
+	uint16 bIsRightAltDown:1;
 	
 	/** True if the left command key was down when this event occurred. */
-	bool bIsLeftCommandDown;
+	uint16 bIsLeftCommandDown:1;
 	
 	/** True if the right command key was down when this event occurred. */
-	bool bIsRightCommandDown;
+	uint16 bIsRightCommandDown:1;
 
 	/** True if the Caps Lock key has been toggled to the enabled state. */
-	bool bAreCapsLocked;
+	uint16 bAreCapsLocked:1;
 };
 
 
@@ -352,6 +352,16 @@ struct FDisplayMetrics
 
 	/** Logs out display metrics */
 	CORE_API void PrintToLog() const;
+
+protected:
+	// The title safe zone ratio that will be returned by FDisplayMetrics::GetDisplayMetrics on platforms that don't have a defined safe zone
+	static float GetDebugTitleSafeZoneRatio();
+
+	// The action safe zone ratio that will be returned by FDisplayMetrics::GetDisplayMetrics on platforms that don't have a defined safe zone
+	static float GetDebugActionSafeZoneRatio();
+
+	// Apply the debug/default safe zones
+	void ApplyDefaultSafeZones();
 };
 
 
@@ -416,6 +426,9 @@ public:
 	/** @return true if the system cursor is currently directly over a slate window. */
 	virtual bool IsCursorDirectlyOverSlateWindow() const { return true; }
 
+	/** @return Native window under the mouse cursor. */
+	virtual TSharedPtr< FGenericWindow > GetWindowUnderCursor() { return TSharedPtr< FGenericWindow >( nullptr ); }
+
 	virtual void SetHighPrecisionMouseMode( const bool Enable, const TSharedPtr< FGenericWindow >& InWindow ) { };
 
 	virtual bool IsUsingHighPrecisionMouseMode() const { return false; }
@@ -423,6 +436,8 @@ public:
 	virtual bool IsUsingTrackpad() const { return false; }
 
 	virtual bool IsMouseAttached() const { return true; }
+
+	virtual bool IsGamepadAttached() const { return false; }
 
 	virtual void RegisterConsoleCommandListener(const FOnConsoleCommandListener& InListener) {}
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -329,6 +329,9 @@ protected:
 
 	/* Populate a meta data tag with information about this graph node */
 	virtual void PopulateMetaTag(class FGraphNodeMetaData* TagMeta) const;
+
+	/** Returns TRUE if the input pin should be hidden from view */
+	bool ShouldPinBeHidden(const UEdGraphPin* InPin) const;
 
 protected:
 	/** Input pin widgets on this node */

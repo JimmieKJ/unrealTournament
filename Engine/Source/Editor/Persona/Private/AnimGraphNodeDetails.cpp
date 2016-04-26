@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "PersonaPrivatePCH.h"
 #include "K2Node.h"
@@ -729,7 +729,10 @@ FReply SParentPlayerTreeRow::OnFocusNodeButtonClicked()
 		{
 			UEdGraph* EdGraph = GraphNode->GetGraph();
 			TSharedPtr<SGraphEditor> GraphEditor = SharedPersona->OpenGraphAndBringToFront(EdGraph);
-			GraphEditor->JumpToNode(GraphNode, false);
+			if (GraphEditor.IsValid())
+			{
+				GraphEditor->JumpToNode(GraphNode, false);
+			}
 		}
 		return FReply::Handled();
 	}

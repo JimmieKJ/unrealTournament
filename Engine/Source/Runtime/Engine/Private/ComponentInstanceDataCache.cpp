@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "ComponentInstanceDataCache.h"
@@ -76,7 +76,7 @@ FActorComponentInstanceData::FActorComponentInstanceData(const UActorComponent* 
 	}
 }
 
-bool FActorComponentInstanceData::MatchesComponent(const UActorComponent* Component, const UObject* ComponentTemplate) const
+bool FActorComponentInstanceData::MatchesComponent(const UActorComponent* Component, const UObject* ComponentTemplate, const TMap<UActorComponent*, const UObject*>& ComponentToArchetypeMap) const
 {
 	bool bMatches = false;
 	if (   Component
@@ -97,7 +97,7 @@ bool FActorComponentInstanceData::MatchesComponent(const UActorComponent* Compon
 				{
 					if (BlueprintCreatedComponent != nullptr && BlueprintCreatedComponent->CreationMethod == SourceComponentCreationMethod)
 					{
-						const UObject* BlueprintComponentTemplate = BlueprintCreatedComponent->GetArchetype();
+						const UObject* BlueprintComponentTemplate = ComponentToArchetypeMap.FindChecked(BlueprintCreatedComponent);
 						if (   (BlueprintComponentTemplate == SourceComponentTemplate || (GIsReinstancing && BlueprintComponentTemplate->GetFName() == SourceComponentTemplate->GetFName()))
 							&& (++FoundSerializedComponentsOfType == SourceComponentTypeSerializedIndex))
 						{
@@ -155,8 +155,10 @@ void FActorComponentInstanceData::AddReferencedObjects(FReferenceCollector& Coll
 
 FComponentInstanceDataCache::FComponentInstanceDataCache(const AActor* Actor)
 {
-	if(Actor != NULL)
+	if (Actor != nullptr)
 	{
+		const bool bIsChildActor = Actor->IsChildActor();
+
 		TInlineComponentArray<UActorComponent*> Components(Actor);
 
 		ComponentsInstanceData.Reserve(Components.Num());
@@ -164,7 +166,7 @@ FComponentInstanceDataCache::FComponentInstanceDataCache(const AActor* Actor)
 		// Grab per-instance data we want to persist
 		for (UActorComponent* Component : Components)
 		{
-			if (Component->IsCreatedByConstructionScript()) // Only cache data from 'created by construction script' components
+			if (bIsChildActor || Component->IsCreatedByConstructionScript()) // Only cache data from 'created by construction script' components
 			{
 				FActorComponentInstanceData* ComponentInstanceData = Component->GetComponentInstanceData();
 				if (ComponentInstanceData)
@@ -177,7 +179,7 @@ FComponentInstanceDataCache::FComponentInstanceDataCache(const AActor* Actor)
 				// If the instance component is attached to a BP component we have to be prepared for the possibility that it will be deleted
 				if (USceneComponent* SceneComponent = Cast<USceneComponent>(Component))
 				{
-					if (SceneComponent->AttachParent && SceneComponent->AttachParent->IsCreatedByConstructionScript())
+					if (SceneComponent->GetAttachParent() && SceneComponent->GetAttachParent()->IsCreatedByConstructionScript())
 					{
 						InstanceComponentTransformToRootMap.Add(SceneComponent, SceneComponent->GetComponentTransform().GetRelativeTransform(Actor->GetRootComponent()->GetComponentTransform()));
 					}
@@ -197,28 +199,40 @@ FComponentInstanceDataCache::~FComponentInstanceDataCache()
 
 void FComponentInstanceDataCache::ApplyToActor(AActor* Actor, const ECacheApplyPhase CacheApplyPhase) const
 {
-	if(Actor != NULL)
+	if (Actor != nullptr)
 	{
-		TInlineComponentArray<UActorComponent*> Components;
-		Actor->GetComponents(Components);
+		const bool bIsChildActor = Actor->IsChildActor();
+
+		TInlineComponentArray<UActorComponent*> Components(Actor);
+
+		// Cache all archetype objects
+		TMap<UActorComponent*, const UObject*> ComponentToArchetypeMap;
+		ComponentToArchetypeMap.Reserve(Components.Num());
+
+		for (UActorComponent* ComponentInstance : Components)
+		{
+			if (ComponentInstance && (bIsChildActor || ComponentInstance->IsCreatedByConstructionScript()))
+			{
+				ComponentToArchetypeMap.Add(ComponentInstance, ComponentInstance->GetArchetype());
+			}
+		}
 
 		// Apply per-instance data.
 		for (UActorComponent* ComponentInstance : Components)
 		{
-			if(ComponentInstance && ComponentInstance->IsCreatedByConstructionScript()) // Only try and apply data to 'created by construction script' components
+			if (ComponentInstance && (bIsChildActor || ComponentInstance->IsCreatedByConstructionScript())) // Only try and apply data to 'created by construction script' components
 			{
 				// Cache template here to avoid redundant calls in the loop below
-				if (const UObject* ComponentTemplate = ComponentInstance->GetArchetype())
+				const UObject* ComponentTemplate = ComponentToArchetypeMap.FindChecked(ComponentInstance);
+
+				for (FActorComponentInstanceData* ComponentInstanceData : ComponentsInstanceData)
 				{
-					for (FActorComponentInstanceData* ComponentInstanceData : ComponentsInstanceData)
+					if (	ComponentInstanceData
+						&&	ComponentInstanceData->GetComponentClass() == ComponentTemplate->GetClass() // filter on class early to avoid unnecessary virtual and expensive tests
+						&&	ComponentInstanceData->MatchesComponent(ComponentInstance, ComponentTemplate, ComponentToArchetypeMap))
 					{
-						if (	ComponentInstanceData
-							&&	ComponentInstanceData->GetComponentClass() == ComponentTemplate->GetClass() // filter on class early to avoid unnecessary virtual and expensive tests
-							&&	ComponentInstanceData->MatchesComponent(ComponentInstance, ComponentTemplate))
-						{
-							ComponentInstanceData->ApplyToComponent(ComponentInstance, CacheApplyPhase);
-							break;
-						}
+						ComponentInstanceData->ApplyToComponent(ComponentInstance, CacheApplyPhase);
+						break;
 					}
 				}
 			}
@@ -230,7 +244,7 @@ void FComponentInstanceDataCache::ApplyToActor(AActor* Actor, const ECacheApplyP
 			check(Actor->GetRootComponent());
 
 			USceneComponent* SceneComponent = InstanceTransformPair.Key;
-			if (SceneComponent && (SceneComponent->AttachParent == nullptr || SceneComponent->AttachParent->IsPendingKill()))
+			if (SceneComponent && (SceneComponent->GetAttachParent() == nullptr || SceneComponent->GetAttachParent()->IsPendingKill()))
 			{
 				SceneComponent->AttachTo(Actor->GetRootComponent());
 				SceneComponent->SetRelativeTransform(InstanceTransformPair.Value);

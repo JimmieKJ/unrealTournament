@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
 #include "Perception/AIPerceptionSystem.h"
@@ -58,9 +58,6 @@ FAISenseID UAIPerceptionSystem::RegisterSenseClass(TSubclassOf<UAISense> SenseCl
 	{
 		const int32 ItemsToAdd = SenseID.Index - Senses.Num() + 1;
 		Senses.AddZeroed(ItemsToAdd);
-#if !UE_BUILD_SHIPPING
-		DebugSenseColors.AddZeroed(ItemsToAdd);
-#endif
 	}
 
 	if (Senses[SenseID] == nullptr)
@@ -79,14 +76,9 @@ FAISenseID UAIPerceptionSystem::RegisterSenseClass(TSubclassOf<UAISense> SenseCl
 			// otherwise it will get called in StartPlay()
 		}
 
-#if !UE_BUILD_SHIPPING
-		DebugSenseColors[SenseID] = Senses[SenseID]->GetDebugColor();
-		PerceptionDebugLegend += Senses[SenseID]->GetDebugLegend();
-
 		// make senses v-log to perception system's log
 		REDIRECT_OBJECT_TO_VLOG(Senses[SenseID], this);
 		UE_VLOG(this, LogAIPerception, Log, TEXT("Registering sense %s"), *Senses[SenseID]->GetName());
-#endif
 	}
 
 	return SenseID;
@@ -117,10 +109,10 @@ void UAIPerceptionSystem::PerformSourceRegistration()
 {
 	SCOPE_CYCLE_COUNTER(STAT_AI_PerceptionSys);
 
-	for (const auto& PercSource : SourcesToRegister)
+	for (const FPerceptionSourceRegistration& PercSource : SourcesToRegister)
 	{
 		AActor* SourceActor = PercSource.Source.Get();
-		if (SourceActor != nullptr && SourceActor->IsPendingKillPending() == false)
+		if (SourceActor != nullptr && SourceActor->IsPendingKillPending() == false && Senses[PercSource.SenseID] != nullptr)
 		{
 			Senses[PercSource.SenseID]->RegisterSource(*SourceActor);
 
@@ -165,6 +157,7 @@ void UAIPerceptionSystem::OnListenerUpdate(const FPerceptionListener& UpdatedLis
 void UAIPerceptionSystem::Tick(float DeltaSeconds)
 {
 	SCOPE_CYCLE_COUNTER(STAT_AI_PerceptionSys);
+	SCOPE_CYCLE_COUNTER(STAT_AI_Overall);
 
 	// if no new stimuli
 	// and it's not time to remove stimuli from "know events"
@@ -365,7 +358,7 @@ void UAIPerceptionSystem::UnregisterSource(AActor& SourceActor, TSubclassOf<UAIS
 		if (Sense)
 		{
 			const FAISenseID SenseID = UAISense::GetSenseID(Sense);
-			if (StimuliSource->RelevantSenses.ShouldRespondToChannel(Senses[SenseID]->GetSenseID()))
+			if (Senses[SenseID] != nullptr && StimuliSource->RelevantSenses.ShouldRespondToChannel(Senses[SenseID]->GetSenseID()))
 			{
 				Senses[SenseID]->UnregisterSource(SourceActor);
 				StimuliSource->RelevantSenses.FilterOutChannel(SenseID);
@@ -375,7 +368,7 @@ void UAIPerceptionSystem::UnregisterSource(AActor& SourceActor, TSubclassOf<UAIS
 		{
 			for (int32 SenseID = 0; SenseID < Senses.Num(); ++SenseID)
 			{
-				if (StimuliSource->RelevantSenses.ShouldRespondToChannel(Senses[SenseID]->GetSenseID()))
+				if (Senses[SenseID] != nullptr && StimuliSource->RelevantSenses.ShouldRespondToChannel(Senses[SenseID]->GetSenseID()))
 				{
 					Senses[SenseID]->UnregisterSource(SourceActor);
 				}
@@ -648,15 +641,3 @@ void UAIPerceptionSystem::ReportPerceptionEvent(UObject* WorldContext, UAISenseE
 		PerceptionSys->ReportEvent(PerceptionEvent);
 	}
 }
-
-#if !UE_BUILD_SHIPPING
-FColor UAIPerceptionSystem::GetSenseDebugColor(FAISenseID SenseID) const
-{
-	return SenseID.IsValid() && Senses.IsValidIndex(SenseID) && Senses[SenseID] != nullptr ? Senses[SenseID]->GetDebugColor() : FColor::Black;
-}
-
-FString UAIPerceptionSystem::GetSenseName(FAISenseID SenseID) const
-{
-	return SenseID.IsValid() && Senses.IsValidIndex(SenseID) && Senses[SenseID] != nullptr ? *Senses[SenseID]->GetDebugName() : TEXT("Invalid");
-}
-#endif 

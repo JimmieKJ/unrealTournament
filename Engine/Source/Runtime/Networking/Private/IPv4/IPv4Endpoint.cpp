@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "NetworkingPrivatePCH.h"
 
@@ -6,29 +6,29 @@
 /* FIPv4Endpoint static initialization
  *****************************************************************************/
 
-const FIPv4Endpoint FIPv4Endpoint::Any(FIPv4Address(0), 0);
+const FIPv4Endpoint FIPv4Endpoint::Any(FIPv4Address(0, 0, 0, 0), 0);
 ISocketSubsystem* FIPv4Endpoint::CachedSocketSubsystem = nullptr;
 
 
 /* FIPv4Endpoint interface
  *****************************************************************************/
 
-FString FIPv4Endpoint::ToString( ) const
+FString FIPv4Endpoint::ToString() const
 {
-	return FString::Printf(TEXT("%s:%i"), *Address.ToText().ToString(), Port);
+	return FString::Printf(TEXT("%s:%i"), *Address.ToString(), Port);
 }
 
 
 /* FIPv4Endpoint static interface
  *****************************************************************************/
 
-void FIPv4Endpoint::Initialize( )
+void FIPv4Endpoint::Initialize()
 {
 	CachedSocketSubsystem = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM);
 }
 
 
-bool FIPv4Endpoint::Parse( const FString& EndpointString, FIPv4Endpoint& OutEndpoint )
+bool FIPv4Endpoint::Parse(const FString& EndpointString, FIPv4Endpoint& OutEndpoint)
 {
 	TArray<FString> Tokens;
 

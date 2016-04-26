@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneTracksPrivatePCH.h"
 #include "MovieSceneEventSection.h"
@@ -25,7 +25,7 @@ void UMovieSceneEventSection::AddKey(float Time, const FName& EventName, FKeyPar
 }
 
 
-void UMovieSceneEventSection::TriggerEvents(ALevelScriptActor* LevelScriptActor, float Position, float LastPosition)
+void UMovieSceneEventSection::TriggerEvents(UObject* EventContextObject, float Position, float LastPosition)
 {
 	const TArray<FNameCurveKey>& Keys = Events.GetKeys();
 
@@ -35,7 +35,7 @@ void UMovieSceneEventSection::TriggerEvents(ALevelScriptActor* LevelScriptActor,
 		{
 			if ((Key.Time >= LastPosition) && (Key.Time <= Position))
 			{
-				TriggerEvent(Key.Value, LevelScriptActor);
+				TriggerEvent(Key.Value, EventContextObject);
 			}
 		}
 	}
@@ -47,10 +47,8 @@ void UMovieSceneEventSection::TriggerEvents(ALevelScriptActor* LevelScriptActor,
 
 			if ((Key.Time >= Position) && (Key.Time <= LastPosition))
 			{
-				TriggerEvent(Key.Value, LevelScriptActor);
-			}
-
-			
+				TriggerEvent(Key.Value, EventContextObject);
+			}		
 		}
 	}
 }
@@ -91,9 +89,9 @@ void UMovieSceneEventSection::MoveSection(float DeltaPosition, TSet<FKeyHandle>&
 /* UMovieSceneSection overrides
  *****************************************************************************/
 
-void UMovieSceneEventSection::TriggerEvent(const FName& Event, ALevelScriptActor* LevelScriptActor)
+void UMovieSceneEventSection::TriggerEvent(const FName& Event, UObject* EventContextObject)
 {
-	UFunction* EventFunction = LevelScriptActor->FindFunction(Event);
+	UFunction* EventFunction = EventContextObject->FindFunction(Event);
 
 	if (EventFunction == nullptr)
 	{
@@ -107,6 +105,6 @@ void UMovieSceneEventSection::TriggerEvent(const FName& Event, ALevelScriptActor
 	}
 	else
 	{
-		LevelScriptActor->ProcessEvent(EventFunction, nullptr);
+		EventContextObject->ProcessEvent(EventFunction, nullptr);
 	}
 }

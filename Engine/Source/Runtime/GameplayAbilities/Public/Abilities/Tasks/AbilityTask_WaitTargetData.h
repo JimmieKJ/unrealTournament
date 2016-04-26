@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "AbilityTask.h"
@@ -7,7 +7,7 @@
 
 class AGameplayAbilityTargetActor;
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FWaitTargetDataDelegate, FGameplayAbilityTargetDataHandle, Data);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FWaitTargetDataDelegate, const FGameplayAbilityTargetDataHandle&, Data);
 
 /** Wait for targeting actor (spawned from parameter) to provide data. Can be set not to end upon outputting data. Can be ended by task name. */
 UCLASS(notplaceable)
@@ -22,16 +22,16 @@ class GAMEPLAYABILITIES_API UAbilityTask_WaitTargetData: public UAbilityTask
 	FWaitTargetDataDelegate	Cancelled;
 
 	UFUNCTION()
-	void OnTargetDataReplicatedCallback(FGameplayAbilityTargetDataHandle Data, FGameplayTag ActivationTag);
+	void OnTargetDataReplicatedCallback(const FGameplayAbilityTargetDataHandle& Data, FGameplayTag ActivationTag);
 
 	UFUNCTION()
 	void OnTargetDataReplicatedCancelledCallback();
 
 	UFUNCTION()
-	void OnTargetDataReadyCallback(FGameplayAbilityTargetDataHandle Data);
+	void OnTargetDataReadyCallback(const FGameplayAbilityTargetDataHandle& Data);
 
 	UFUNCTION()
-	void OnTargetDataCancelledCallback(FGameplayAbilityTargetDataHandle Data);
+	void OnTargetDataCancelledCallback(const FGameplayAbilityTargetDataHandle& Data);
 
 	/** Spawns target actor and waits for it to return valid data or to be canceled. */
 	UFUNCTION(BlueprintCallable, meta=(HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", BlueprintInternalUseOnly = "true", HideSpawnParms="Instigator"), Category="Ability|Tasks")
@@ -72,7 +72,8 @@ protected:
 	TSubclassOf<AGameplayAbilityTargetActor> TargetClass;
 
 	/** The TargetActor that we spawned */
-	TWeakObjectPtr<AGameplayAbilityTargetActor>	TargetActor;
+	UPROPERTY()
+	AGameplayAbilityTargetActor* TargetActor;
 
 	TEnumAsByte<EGameplayTargetingConfirmation::Type> ConfirmationType;
 

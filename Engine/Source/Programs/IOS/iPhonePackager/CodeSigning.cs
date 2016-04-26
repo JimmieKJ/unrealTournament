@@ -1,5 +1,5 @@
 ﻿/**
- * Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+ * Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
  */
 
 using System;
@@ -85,7 +85,7 @@ namespace iPhonePackager
 				string plistFile = Config.EngineBuildDirectory + "/UE4Game-Info.plist";
 				if (!string.IsNullOrEmpty(Config.ProjectFile))
 				{
-					plistFile = Path.GetDirectoryName(Config.ProjectFile) + "/Intermediate/IOS/" + Path.GetFileNameWithoutExtension(Config.ProjectFile) + "-Info.plist";
+					plistFile = Path.GetDirectoryName(Config.ProjectFile) + "/Intermediate/" + Config.OSString + "/" + Path.GetFileNameWithoutExtension(Config.ProjectFile) + "-Info.plist";
 
 					if (!File.Exists(plistFile))
 					{
@@ -517,6 +517,14 @@ namespace iPhonePackager
 			return FindCertificate(Provision);
 		}
 
+		// Creates an weight resource entry for the resource rules dictionary
+		protected Dictionary<string, object> CreateResource(int Weight)
+		{
+			Dictionary<string, object> Result = new Dictionary<string, object>();
+			Result.Add("weight", (double)Weight);
+			return Result;
+		}
+
 		// Creates an omitted resource entry for the resource rules dictionary
 		protected Dictionary<string, object> CreateOmittedResource(int Weight)
 		{
@@ -526,57 +534,90 @@ namespace iPhonePackager
 			return Result;
 		}
 
+		// Creates an optional resource entry for the resource rules dictionary
+		protected Dictionary<string, object> CreateOptionalResource(int Weight)
+		{
+			Dictionary<string, object> Result = new Dictionary<string, object>();
+			Result.Add("optional", true);
+			Result.Add("weight", (double)Weight);
+			return Result;
+		}
+
+		// Creates a nested resource entry for the resource rules dictionary
+		protected Dictionary<string, object> CreateNestedResource(int Weight)
+		{
+			Dictionary<string, object> Result = new Dictionary<string, object>();
+			Result.Add("nested", true);
+			Result.Add("weight", (double)Weight);
+			return Result;
+		}
+
 		protected virtual byte[] CreateCodeResourcesDirectory(string CFBundleExecutable)
 		{
-			// Verify that there is a rules plist
-			string CFBundleResourceSpecification;
-			if (!Info.GetString("CFBundleResourceSpecification", out CFBundleResourceSpecification))
-			{
-				throw new InvalidDataException("Info.plist must contain the key CFBundleResourceSpecification");
-			}
-
 			// Create a rules dict that includes (by wildcard) everything but Info.plist and the rules file
-			Dictionary<string, object> Rules = new Dictionary<string, object>();
-			Rules.Add(".*", true);
-			Rules.Add("^Info.plist", CreateOmittedResource(10));
-			Rules.Add(CFBundleResourceSpecification, CreateOmittedResource(100));
+			Dictionary<string, object> Rules1 = new Dictionary<string, object>();
+			Rules1.Add("^", true);
+			Rules1.Add("^.*\\.lproj/", CreateOptionalResource(1000));
+			Rules1.Add("^.*\\.lproj/locversion.plist$", CreateOmittedResource(1100));
+			Rules1.Add("^version.plist$", true);
 
-			// Write the rules file out 
-			{
-				Utilities.PListHelper RulesPList = new Utilities.PListHelper();
-				RulesPList.AddKeyValuePair("rules", Rules);
-				string PListString = RulesPList.SaveToString();
-				FileSystem.WriteAllBytes(CFBundleResourceSpecification, Encoding.UTF8.GetBytes(PListString));
-			}
+			Dictionary<string, object> Rules2 = new Dictionary<string, object>();
+			Rules2.Add(".*\\.dSYM($|/)", CreateResource(11));
+			Rules2.Add("^", CreateResource(20));
+			Rules2.Add("^(.*/)?\\.DS_Store$", CreateOmittedResource(2000));
+			Rules2.Add("^(Frameworks|SharedFrameworks|PlugIns|Plug-ins|XPCServices|Helpers|MacOS|Library/(Automator|Spotlight|LoginItems))/", CreateNestedResource(10));
+			Rules2.Add("^.*", true);
+			Rules2.Add("^.*\\.lproj/", CreateOptionalResource(1000));
+			Rules2.Add("^.*\\.lproj/locversion.plist$", CreateOmittedResource(1100));
+			Rules2.Add("^Info\\.plist$", CreateOmittedResource(20));
+			Rules2.Add("^PkgInfo$", CreateOmittedResource(20));
+			Rules2.Add("^[^/]+$", CreateNestedResource(10));
+			Rules2.Add("^embedded\\.provisionprofile$", CreateResource(20));
+			Rules2.Add("^version\\.plist$", CreateResource(20));
 
 			// Create the full list of files to exclude (some files get excluded by 'magic' even though they aren't listed as special by rules)
-			Dictionary<string, object> TrueExclusionList = new Dictionary<string, object>();
-			TrueExclusionList.Add("Info.plist", null);
-			TrueExclusionList.Add(CFBundleResourceSpecification, null);
-			TrueExclusionList.Add(CFBundleExecutable, null);
-			TrueExclusionList.Add("CodeResources", null);
-			TrueExclusionList.Add("_CodeSignature/CodeResources", null);
+			Dictionary<string, object> TrueExclusionList1 = new Dictionary<string, object>();
+			TrueExclusionList1.Add(CFBundleExecutable, null);
+			TrueExclusionList1.Add("CodeResources", null);
+			TrueExclusionList1.Add("_CodeSignature/CodeResources", null);
+
+			Dictionary<string, object> TrueExclusionList2 = new Dictionary<string, object>();
+			TrueExclusionList2.Add("Info.plist", null);
+			TrueExclusionList2.Add("PkgInfo", null);
+			TrueExclusionList2.Add(CFBundleExecutable, null);
+			TrueExclusionList2.Add("CodeResources", null);
+			TrueExclusionList2.Add("_CodeSignature/CodeResources", null);
 
 			// Hash each file
 			IEnumerable<string> FileList = FileSystem.GetAllPayloadFiles();
 			SHA1CryptoServiceProvider HashProvider = new SHA1CryptoServiceProvider();
 
-			Utilities.PListHelper HashedFileEntries = new Utilities.PListHelper();
+			Utilities.PListHelper HashedFileEntries1 = new Utilities.PListHelper();
+			Utilities.PListHelper HashedFileEntries2 = new Utilities.PListHelper();
 			foreach (string Filename in FileList)
 			{
-				if (!TrueExclusionList.ContainsKey(Filename))
+				if (!TrueExclusionList1.ContainsKey(Filename))
 				{
 					byte[] FileData = FileSystem.ReadAllBytes(Filename);
 					byte[] HashData = HashProvider.ComputeHash(FileData);
 
-					HashedFileEntries.AddKeyValuePair(Filename, HashData);
+					HashedFileEntries1.AddKeyValuePair(Filename, HashData);
+				}
+				if (!TrueExclusionList2.ContainsKey(Filename))
+				{
+					byte[] FileData = FileSystem.ReadAllBytes(Filename);
+					byte[] HashData = HashProvider.ComputeHash(FileData);
+
+					HashedFileEntries2.AddKeyValuePair(Filename, HashData);
 				}
 			}
 
 			// Create the CodeResources file that will contain the hashes
 			Utilities.PListHelper CodeResources = new Utilities.PListHelper();
-			CodeResources.AddKeyValuePair("files", HashedFileEntries);
-			CodeResources.AddKeyValuePair("rules", Rules);
+			CodeResources.AddKeyValuePair("files", HashedFileEntries1);
+			CodeResources.AddKeyValuePair("files2", HashedFileEntries2);
+			CodeResources.AddKeyValuePair("rules", Rules1);
+			CodeResources.AddKeyValuePair("rules2", Rules2);
 
 			// Write the CodeResources file out
 			string CodeResourcesAsString = CodeResources.SaveToString();
@@ -643,10 +684,10 @@ namespace iPhonePackager
 		/// <summary>
 		/// Creates an entitlements blob string from the entitlements structure in the mobile provision, merging in an on disk file if it is present.
 		/// </summary>
-		private string BuildEntitlementString(string CFBundleIdentifier)
+		private string BuildEntitlementString(string CFBundleIdentifier, out string TeamIdentifier)
 		{
 			// Load the base entitlements string from the mobile provision
-			string ProvisionEntitlements = Provision.GetEntitlementsString(CFBundleIdentifier);
+			string ProvisionEntitlements = Provision.GetEntitlementsString(CFBundleIdentifier, out TeamIdentifier);
 
 			// See if there is an override entitlements file on disk
 			string UserOverridesEntitlementsFilename = FileOperations.FindPrefixedFile(Config.BuildDirectory, Program.GameName + ".entitlements");
@@ -693,17 +734,6 @@ namespace iPhonePackager
 			if (!Info.GetString("CFBundleIdentifier", out CFBundleIdentifier))
 			{
 				throw new InvalidDataException("Info.plist must contain the key CFBundleIdentifier");
-			}
-
-			// Verify there is a resource rules file and make a dummy one if needed.
-			// If it's missing, CreateCodeResourceDirectory can't proceed (the Info.plist is already written to disk at that point)
-			if (!Info.HasKey("CFBundleResourceSpecification"))
-			{
-				// Couldn't find the key, create a dummy one
-				string CFBundleResourceSpecification = "CustomResourceRules.plist";
-				Info.SetString("CFBundleResourceSpecification", CFBundleResourceSpecification);
-
-				Program.Warning("Info.plist was missing the key CFBundleResourceSpecification, creating a new resource rules file '{0}'.", CFBundleResourceSpecification);
 			}
 
 			// Save the Info.plist out
@@ -805,12 +835,19 @@ namespace iPhonePackager
 
 				int SignedFileLength = (int)CodeSigningBlobLC.BlobFileOffset;
 
-				// Create the code directory blob
-				CodeDirectoryBlob FinalCodeDirectoryBlob = CodeDirectoryBlob.Create(CFBundleIdentifier, SignedFileLength);
-
 				// Create the entitlements blob
-				string EntitlementsText = BuildEntitlementString(CFBundleIdentifier);
+				string TeamIdentifier = Provision.ApplicationIdentifierPrefix;
+				string EntitlementsText = BuildEntitlementString(CFBundleIdentifier, out TeamIdentifier);
 				EntitlementsBlob FinalEntitlementsBlob = EntitlementsBlob.Create(EntitlementsText);
+
+				// Create the code directory blob
+				uint Version = CodeDirectoryBlob.cVersion2; 
+				if (CodeSigningBlobLC != null)
+				{
+					CodeDirectoryBlob OldCodeDir = CodeSigningBlobLC.Payload.GetBlobByMagic(AbstractBlob.CSMAGIC_CODEDIRECTORY) as CodeDirectoryBlob;
+					Version = OldCodeDir.Version;
+				}
+				CodeDirectoryBlob FinalCodeDirectoryBlob = CodeDirectoryBlob.Create(CFBundleIdentifier, TeamIdentifier, SignedFileLength, Version);
 
 				// Create or preserve the requirements blob
 				RequirementsBlob FinalRequirementsBlob = null;
@@ -822,7 +859,15 @@ namespace iPhonePackager
 
 				if (FinalRequirementsBlob == null)
 				{
+					RequirementBlob.ExpressionOp OldExpression = null;
+					if (CodeSigningBlobLC != null)
+					{
+						RequirementsBlob OldRequirements = CodeSigningBlobLC.Payload.GetBlobByMagic(AbstractBlob.CSMAGIC_REQUIREMENTS_TABLE) as RequirementsBlob;
+						RequirementBlob OldRequire = OldRequirements.GetBlobByKey(0x00003) as RequirementBlob;
+						OldExpression = OldRequire.Expression;
+					}
 					FinalRequirementsBlob = RequirementsBlob.CreateEmpty();
+					FinalRequirementsBlob.Add(0x00003, RequirementBlob.CreateFromCertificate(SigningCert, CFBundleIdentifier, OldExpression));
 				}
 
 				// Create the code signature blob (which actually signs the code directory)
@@ -860,8 +905,9 @@ namespace iPhonePackager
 				long NonCodeSigSize = (long)LinkEditSegmentLC.FileSize - CodeSigningBlobLC.BlobFileSize;
 				long BlobStartPosition = NonCodeSigSize + (long)LinkEditSegmentLC.FileOffset;
 
-				LinkEditSegmentLC.PatchFileLength(OutputExeContext, (uint)(NonCodeSigSize + BlobLength));
-				CodeSigningBlobLC.PatchPositionAndSize(OutputExeContext, (uint)BlobStartPosition, (uint)BlobLength);
+				// we no longer update the offsets in the load command as we keep the blob size the same
+//				LinkEditSegmentLC.PatchFileLength(OutputExeContext, (uint)(NonCodeSigSize + BlobLength));
+//				CodeSigningBlobLC.PatchPositionAndSize(OutputExeContext, (uint)BlobStartPosition, (uint)BlobLength);
 
 				// Now that the executable loader command has been inserted and the appropriate section modified, compute all the hashes
 				Program.Log("... Computing hashes ({0:0.00} s elapsed so far)", (DateTime.Now - SigningTime).TotalSeconds);
@@ -889,8 +935,16 @@ namespace iPhonePackager
 					throw new InvalidDataException("CMS signature blob changed size between practice run and final run, unable to create useful code signing data");
 				}
 
+				if (FinalPayload.Length > CodeSigningBlobLC.BlobFileSize)
+				{
+					throw new InvalidDataException("CMS signature blob size is too large for the allocated size, unable to create useful code signing data");
+				}
+
+				byte[] ZeroFill = new byte[CodeSigningBlobLC.BlobFileSize - FinalPayload.Length];
+
 				OutputExeContext.PushPositionAndJump(BlobStartPosition);
 				OutputExeContext.Write(FinalPayload);
+				OutputExeContext.Write(ZeroFill);
 				OutputExeContext.PopPosition();
 
 				// Truncate the data so the __LINKEDIT section extends right to the end

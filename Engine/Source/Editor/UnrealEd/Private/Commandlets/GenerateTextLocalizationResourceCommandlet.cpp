@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "TextLocalizationResourceGenerator.h"
@@ -133,13 +133,17 @@ int32 UGenerateTextLocalizationResourceCommandlet::Main(const FString& Params)
 		// Write resource.
 		const FString TextLocalizationResourcePath = DestinationPath / CultureName / ResourceName;
 
-		if( SourceControlInfo.IsValid() )
+		const bool DidFileExist = FPaths::FileExists(TextLocalizationResourcePath);
+		if (DidFileExist)
 		{
-			FText SCCErrorText;
-			if (!SourceControlInfo->CheckOutFile(TextLocalizationResourcePath, SCCErrorText))
+			if( SourceControlInfo.IsValid() )
 			{
-				UE_LOG(LogGenerateTextLocalizationResourceCommandlet, Error, TEXT("Check out of file %s failed: %s"), *TextLocalizationResourcePath, *SCCErrorText.ToString());
-				return -1;
+				FText SCCErrorText;
+				if (!SourceControlInfo->CheckOutFile(TextLocalizationResourcePath, SCCErrorText))
+				{
+					UE_LOG(LogGenerateTextLocalizationResourceCommandlet, Error, TEXT("Check out of file %s failed: %s"), *TextLocalizationResourcePath, *SCCErrorText.ToString());
+					return -1;
+				}
 			}
 		}
 
@@ -153,6 +157,20 @@ int32 UGenerateTextLocalizationResourceCommandlet::Main(const FString& Params)
 				IFileManager::Get().Delete( *TextLocalizationResourcePath );
 			}
 			TextLocalizationResourceArchive->Close();
+		}
+
+		if (!DidFileExist)
+		{
+			// Checkout on a new file will cause it to be added
+			if( SourceControlInfo.IsValid() )
+			{
+				FText SCCErrorText;
+				if (!SourceControlInfo->CheckOutFile(TextLocalizationResourcePath, SCCErrorText))
+				{
+					UE_LOG(LogGenerateTextLocalizationResourceCommandlet, Error, TEXT("Check out of file %s failed: %s"), *TextLocalizationResourcePath, *SCCErrorText.ToString());
+					return -1;
+				}
+			}
 		}
 	}
 

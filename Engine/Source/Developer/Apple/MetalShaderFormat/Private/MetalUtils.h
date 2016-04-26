@@ -1,8 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "hlslcc.h"
+#include "ir.h"
+#include "PackUniformBuffers.h"
+#include "CustomStdAllocator.h"
 
 inline FCustomStdString FixVecPrefix(FCustomStdString Type)
 {
@@ -10,6 +13,12 @@ inline FCustomStdString FixVecPrefix(FCustomStdString Type)
 	{
 		FCustomStdString Num = Type.substr(3);
 		Type = "float";
+		Type += Num;
+	}
+	else if (!strncmp("bvec", Type.c_str(), 4))
+	{
+		FCustomStdString Num = Type.substr(4);
+		Type = "bool";
 		Type += Num;
 	}
 	else if (!strncmp("ivec", Type.c_str(), 4))

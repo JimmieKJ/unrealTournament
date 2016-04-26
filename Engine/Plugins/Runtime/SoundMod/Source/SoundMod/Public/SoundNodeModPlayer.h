@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -22,6 +22,8 @@ private:
 
 	UPROPERTY(EditAnywhere, Category=ModPlayer)
 	uint32 bLooping:1;
+
+	uint32 bAsyncLoading:1;
 
 	void OnSoundModLoaded(const FName& PackageName, UPackage * Package, EAsyncLoadingResult::Type Result);
 

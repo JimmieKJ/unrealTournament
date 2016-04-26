@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 
@@ -725,6 +725,11 @@ bool FIOSPlatformFile::IterateDirectoryCommon(const TCHAR* Directory, const TFun
 FString FIOSPlatformFile::ConvertToIOSPath(const FString& Filename, bool bForWrite)
 {
 	FString Result = Filename;
+    if (Result.Contains(TEXT("/OnDemandResources/")))
+    {
+        return Result;
+    }
+    
 	Result.ReplaceInline(TEXT("../"), TEXT(""));
 	Result.ReplaceInline(TEXT(".."), TEXT(""));
 	Result.ReplaceInline(FPlatformProcess::BaseDir(), TEXT(""));

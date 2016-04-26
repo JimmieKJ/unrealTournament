@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "CorePrivatePCH.h"
@@ -13,7 +13,9 @@ DECLARE_DWORD_COUNTER_STAT( TEXT( "ThreadPoolDummyCounter" ), STAT_ThreadPoolDum
 
 /** The global thread pool */
 FQueuedThreadPool* GThreadPool = nullptr;
-
+#if WITH_EDITOR
+FQueuedThreadPool* GLargeThreadPool = nullptr;
+#endif
 
 CORE_API bool IsInGameThread()
 {
@@ -527,6 +529,7 @@ public:
 		SynchQueue = new FCriticalSection();
 		FScopeLock Lock(SynchQueue);
 		// Presize the array so there is no extra memory allocated
+		check(QueuedThreads.Num() == 0);
 		QueuedThreads.Empty(InNumQueuedThreads);
 
 		// Check for stack size override.
@@ -604,6 +607,13 @@ public:
 			delete SynchQueue;
 			SynchQueue = nullptr;
 		}
+	}
+
+	int32 GetNumQueuedJobs()
+	{
+		// this is a estimate of the number of queued jobs. 
+		// no need for thread safe lock as the queuedWork array isn't moved around in memory so unless this class is being destroyed then we don't need to wrory about it
+		return QueuedWork.Num();
 	}
 
 	void AddQueuedWork(IQueuedWork* InQueuedWork) override

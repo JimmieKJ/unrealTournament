@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AnimCompress.cpp: Skeletal mesh animation compression.
@@ -639,7 +639,7 @@ bool UAnimCompress::Reduce(UAnimSequence* AnimSeq, bool bOutput)
 	return bResult;
 }
 
-bool UAnimCompress::Reduce(TArray<UAnimSequence*> AnimSequences, bool bOutput)
+bool UAnimCompress::Reduce(const TArray<UAnimSequence*>& AnimSequences, bool bOutput)
 {
 	bool bResult = false;
 

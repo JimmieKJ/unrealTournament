@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -43,7 +43,8 @@ public:
 		if (InstallSpeed != InInstallSpeed)
 		{
 			InstallSpeed = InInstallSpeed;
-			if ((InstallSpeed == EChunkInstallSpeed::Paused && !InstallService->IsPaused()) || (InstallSpeed != EChunkInstallSpeed::Paused && InstallService->IsPaused()))
+			if (InstallService.IsValid() && 
+				((InstallSpeed == EChunkInstallSpeed::Paused && !InstallService->IsPaused()) || (InstallSpeed != EChunkInstallSpeed::Paused && InstallService->IsPaused())))
 			{
 				InstallService->TogglePauseInstall();
 			}
@@ -58,6 +59,7 @@ public:
 	virtual bool DebugStartNextChunk()
 	{
 		/** Unless paused we are always installing! */
+		InstallerState = ChunkInstallState::ReadTitleFiles;
 		return false;
 	}
 

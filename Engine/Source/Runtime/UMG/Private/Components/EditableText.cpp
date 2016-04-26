@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 #include "SlateFontInfo.h"
@@ -31,6 +31,7 @@ UEditableText::UEditableText(const FObjectInitializer& ObjectInitializer)
 	RevertTextOnEscape = Defaults._RevertTextOnEscape.Get();
 	ClearKeyboardFocusOnCommit = Defaults._ClearKeyboardFocusOnCommit.Get();
 	SelectAllTextOnCommit = Defaults._SelectAllTextOnCommit.Get();
+	AllowContextMenu = Defaults._AllowContextMenu.Get();
 }
 
 void UEditableText::ReleaseSlateResources(bool bReleaseChildren)
@@ -68,8 +69,10 @@ void UEditableText::SynchronizeProperties()
 	MyEditableText->SetHintText(HintTextBinding);
 	MyEditableText->SetIsReadOnly(IsReadOnly);
 	MyEditableText->SetIsPassword(IsPassword);
-
+	MyEditableText->SetAllowContextMenu(AllowContextMenu);
 	// TODO UMG Complete making all properties settable on SEditableText
+
+	ShapedTextOptions.SynchronizeShapedTextProperties(*MyEditableText);
 }
 
 FText UEditableText::GetText() const
@@ -181,11 +184,6 @@ void UEditableText::PostLoad()
 }
 
 #if WITH_EDITOR
-
-const FSlateBrush* UEditableText::GetEditorIcon()
-{
-	return FUMGStyle::Get().GetBrush("Widget.EditableText");
-}
 
 const FText UEditableText::GetPaletteCategory()
 {

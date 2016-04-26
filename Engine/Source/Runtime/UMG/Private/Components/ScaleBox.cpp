@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 
@@ -72,11 +72,6 @@ void UScaleBox::OnSlotRemoved(UPanelSlot* Slot)
 }
 
 #if WITH_EDITOR
-
-const FSlateBrush* UScaleBox::GetEditorIcon()
-{
-	return FUMGStyle::Get().GetBrush("Widget.ScaleBox");
-}
 
 const FText UScaleBox::GetPaletteCategory()
 {

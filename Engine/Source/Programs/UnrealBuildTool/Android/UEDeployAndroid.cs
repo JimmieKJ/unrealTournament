@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -8,6 +8,7 @@ using System.Xml;
 using System.Diagnostics;
 using System.IO;
 using Microsoft.Win32;
+using System.Xml.Linq;
 
 namespace UnrealBuildTool
 {
@@ -23,6 +24,19 @@ namespace UnrealBuildTool
 		public UEDeployAndroid(FileReference InProjectFile)
 		{
 			ProjectFile = InProjectFile;
+		}
+
+		private AndroidPluginLanguage APL = null;
+
+		public void SetAndroidPluginData(List<string> Architectures, List<string> inPluginExtraData)
+		{
+			List<string> NDKArches = new List<string>();
+			foreach (var Arch in Architectures)
+			{
+				NDKArches.Add(GetNDKArch(Arch));
+			}
+			APL = new AndroidPluginLanguage(ProjectFile, inPluginExtraData, NDKArches);
+//			APL.SetTrace();
 		}
 
 		/// <summary>
@@ -536,10 +550,8 @@ namespace UnrealBuildTool
 			Utils.RunLocalProcessAndLogOutput(StartInfo);
 		}
 
-		private static void CopySTL(AndroidToolChain ToolChain, string UE4BuildPath, string UE4Arch, bool bForDistribution)
+		private static void CopySTL(AndroidToolChain ToolChain, string UE4BuildPath, string UE4Arch, string NDKArch, bool bForDistribution)
 		{
-			string Arch = GetNDKArch(UE4Arch);
-
 			string GccVersion = "4.6";
 			if (Directory.Exists(Environment.ExpandEnvironmentVariables("%NDKROOT%/sources/cxx-stl/gnu-libstdc++/4.8")))
 			{
@@ -552,8 +564,8 @@ namespace UnrealBuildTool
 			}
 
 			// copy it in!
-			string SourceSTLSOName = Environment.ExpandEnvironmentVariables("%NDKROOT%/sources/cxx-stl/gnu-libstdc++/") + GccVersion + "/libs/" + Arch + "/libgnustl_shared.so";
-			string FinalSTLSOName = UE4BuildPath + "/libs/" + Arch + "/libgnustl_shared.so";
+			string SourceSTLSOName = Environment.ExpandEnvironmentVariables("%NDKROOT%/sources/cxx-stl/gnu-libstdc++/") + GccVersion + "/libs/" + NDKArch + "/libgnustl_shared.so";
+			string FinalSTLSOName = UE4BuildPath + "/libs/" + NDKArch + "/libgnustl_shared.so";
 
 			// check to see if libgnustl_shared.so is newer than last time we copied (or needs stripping for distribution)
 			bool bFileExists = File.Exists(FinalSTLSOName);
@@ -578,13 +590,12 @@ namespace UnrealBuildTool
 		}
 
 		//@TODO: To enable the NVIDIA Gfx Debugger - these paths need to be standardized
-		private static void CopyGfxDebugger(string UE4BuildPath, string UE4Arch)
+		private static void CopyGfxDebugger(string UE4BuildPath, string UE4Arch, string NDKArch)
 		{
 			/*
-			string Arch = GetNDKArch(UE4Arch);
-			Directory.CreateDirectory(UE4BuildPath + "/libs/" + Arch);
-			File.Copy("F:/NVPACK/android-kk-egl-t124-a32/Stripped_libNvPmApi.Core.so", UE4BuildPath + "/libs/" + Arch + "/libNvPmApi.Core.so", true);
-			File.Copy("F:/NVPACK/android-kk-egl-t124-a32/Stripped_libNvidia_gfx_debugger.so", UE4BuildPath + "/libs/" + Arch + "/libNvidia_gfx_debugger.so", true);
+			Directory.CreateDirectory(UE4BuildPath + "/libs/" + NDKArch);
+			File.Copy("F:/NVPACK/android-kk-egl-t124-a32/Stripped_libNvPmApi.Core.so", UE4BuildPath + "/libs/" + NDKArch + "/libNvPmApi.Core.so", true);
+			File.Copy("F:/NVPACK/android-kk-egl-t124-a32/Stripped_libNvidia_gfx_debugger.so", UE4BuildPath + "/libs/" + NDKArch + "/libNvidia_gfx_debugger.so", true);
 			*/
 		}
 
@@ -634,7 +645,7 @@ namespace UnrealBuildTool
 			}
 
 			// replace escaped characters (note: changes &# pattern before &, then patches back to allow escaped character codes in the string)
-			ApplicationDisplayName = ApplicationDisplayName.Replace("&#", "$@#$").Replace("&", "&amp;").Replace("'", "&#39;").Replace("\"", "&quot;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("$@#$", "&#");
+			ApplicationDisplayName = ApplicationDisplayName.Replace("&#", "$@#$").Replace("&", "&amp;").Replace("'", "\\'").Replace("\"", "\\\"").Replace("<", "&lt;").Replace(">", "&gt;").Replace("$@#$", "&#");
 
 			// if it doesn't exist, need to repackage
 			if (!File.Exists(StringsXMLPath))
@@ -1078,6 +1089,8 @@ namespace UnrealBuildTool
 
 		private string GenerateManifest(string ProjectName, bool bIsForDistribution, bool bPackageDataInsideApk, string GameBuildFilesPath, bool bHasOBBFiles, bool bDisableVerifyOBBOnStartUp, string UE4Arch, string GPUArch)
 		{
+			string Arch = GetNDKArch(UE4Arch);
+
 			// ini file to get settings from
 			ConfigCacheIni Ini = GetConfigCacheIni("Engine");
 			string PackageName = GetPackageName(ProjectName);
@@ -1087,6 +1100,8 @@ namespace UnrealBuildTool
 			Ini.GetString("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "DepthBufferPreference", out DepthBufferPreference);
 			int MinSDKVersion;
 			Ini.GetInt32("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "MinSDKVersion", out MinSDKVersion);
+			int TargetSDKVersion = MinSDKVersion;
+			Ini.GetInt32("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "TargetSDKVersion", out TargetSDKVersion);
 			int StoreVersion;
 			Ini.GetInt32("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "StoreVersion", out StoreVersion);
 			string VersionDisplayName;
@@ -1095,8 +1110,6 @@ namespace UnrealBuildTool
 			Ini.GetString("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "Orientation", out Orientation);
 			bool EnableFullScreen;
 			Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bFullScreen", out EnableFullScreen);
-			bool EnableEngineCrashHandler;
-			Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bEnableEngineCrashHandler", out EnableEngineCrashHandler);
 			List<string> ExtraManifestNodeTags;
 			Ini.GetArray("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "ExtraManifestNodeTags", out ExtraManifestNodeTags);
 			List<string> ExtraApplicationNodeTags;
@@ -1111,6 +1124,14 @@ namespace UnrealBuildTool
 			Ini.GetArray("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "ExtraPermissions", out ExtraPermissions);
 			bool bPackageForGearVR;
 			Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bPackageForGearVR", out bPackageForGearVR);
+			bool bSupportsVulkan;
+			Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bSupportsVulkan", out bSupportsVulkan);
+			if (bSupportsVulkan)
+			{
+				string VulkanSDKPath = Environment.GetEnvironmentVariable("VK_SDK_PATH");
+				string VulkanSoPath = Path.Combine(VulkanSDKPath, "Source/lib/libvulkan.so");
+				bSupportsVulkan = File.Exists(VulkanSoPath);
+			}
 			bool bEnableIAP = false;
 			Ini.GetBool("OnlineSubsystemGooglePlay.Store", "bSupportsInAppPurchasing", out bEnableIAP);
 			bool bShowLaunchImage = false;
@@ -1170,15 +1191,11 @@ namespace UnrealBuildTool
 				Text.AppendLine("\t\t          android:label=\"@string/app_name\"");
 				Text.AppendLine("\t\t          android:theme=\"@style/UE4SplashTheme\"");
 				Text.AppendLine("\t\t          android:launchMode=\"singleTask\"");
-				if (bPackageForGearVR && bIsForDistribution)
-				{
-					Text.AppendLine("\t\t          android:excludeFromRecents=\"true\"");
-				}
 				Text.AppendLine(string.Format("\t\t          android:screenOrientation=\"{0}\"", ConvertOrientationIniValue(Orientation)));
 				Text.AppendLine(string.Format("\t\t          android:debuggable=\"{0}\">", bIsForDistribution ? "false" : "true"));
 				Text.AppendLine("\t\t\t<intent-filter>");
 				Text.AppendLine("\t\t\t\t<action android:name=\"android.intent.action.MAIN\" />");
-				Text.AppendLine(string.Format("\t\t\t\t<category android:name=\"android.intent.category.{0}\" />", (bPackageForGearVR && bIsForDistribution) ? "INFO" : "LAUNCHER"));
+				Text.AppendLine(string.Format("\t\t\t\t<category android:name=\"android.intent.category.LAUNCHER\" />"));
 				Text.AppendLine("\t\t\t</intent-filter>");
 				Text.AppendLine("\t\t</activity>");
 				Text.AppendLine("\t\t<activity android:name=\"com.epicgames.ue4.GameActivity\"");
@@ -1192,10 +1209,6 @@ namespace UnrealBuildTool
 				Text.AppendLine("\t\t          android:label=\"@string/app_name\"");
 				Text.AppendLine("\t\t          android:theme=\"@android:style/Theme.Black.NoTitleBar.Fullscreen\"");
 				Text.AppendLine("\t\t          android:configChanges=\"screenSize|orientation|keyboardHidden|keyboard\"");
-			}
-			if (bPackageForGearVR && bIsForDistribution)
-			{
-				Text.AppendLine("\t\t          android:excludeFromRecents=\"true\"");
 			}
 			Text.AppendLine("\t\t          android:launchMode=\"singleTask\"");
 			Text.AppendLine(string.Format("\t\t          android:screenOrientation=\"{0}\"", ConvertOrientationIniValue(Orientation)));
@@ -1212,7 +1225,7 @@ namespace UnrealBuildTool
 			{
 				Text.AppendLine("\t\t\t<intent-filter>");
 				Text.AppendLine("\t\t\t\t<action android:name=\"android.intent.action.MAIN\" />");
-				Text.AppendLine(string.Format("\t\t\t\t<category android:name=\"android.intent.category.{0}\" />", (bPackageForGearVR && bIsForDistribution) ? "INFO" : "LAUNCHER"));
+				Text.AppendLine(string.Format("\t\t\t\t<category android:name=\"android.intent.category.LAUNCHER\" />"));
 				Text.AppendLine("\t\t\t</intent-filter>");
 			}
 			if (!string.IsNullOrEmpty(ExtraActivitySettings))
@@ -1231,9 +1244,6 @@ namespace UnrealBuildTool
 					Text.AppendLine("\t\t\t" + Line);
 				}
 			}
-
-			// add plugin Activity additions HERE
-	
 			Text.AppendLine("\t\t</activity>");
 
 			// For OBB download support
@@ -1253,20 +1263,15 @@ namespace UnrealBuildTool
 			Text.AppendLine(string.Format("\t\t<meta-data android:name=\"com.epicgames.ue4.GameActivity.bPackageDataInsideApk\" android:value=\"{0}\"/>", bPackageDataInsideApk ? "true" : "false"));
 			Text.AppendLine(string.Format("\t\t<meta-data android:name=\"com.epicgames.ue4.GameActivity.bVerifyOBBOnStartUp\" android:value=\"{0}\"/>", (bIsForDistribution && !bDisableVerifyOBBOnStartUp) ? "true" : "false"));
 			Text.AppendLine(string.Format("\t\t<meta-data android:name=\"com.epicgames.ue4.GameActivity.bShouldHideUI\" android:value=\"{0}\"/>", EnableFullScreen ? "true" : "false"));
-			Text.AppendLine(string.Format("\t\t<meta-data android:name=\"com.epicgames.ue4.GameActivity.bEnableEngineCrashHandler\" android:value=\"{0}\"/>", EnableEngineCrashHandler ? "true" : "false"));
 			Text.AppendLine(string.Format("\t\t<meta-data android:name=\"com.epicgames.ue4.GameActivity.ProjectName\" android:value=\"{0}\"/>", ProjectName));
 			Text.AppendLine(string.Format("\t\t<meta-data android:name=\"com.epicgames.ue4.GameActivity.bHasOBBFiles\" android:value=\"{0}\"/>", bHasOBBFiles ? "true" : "false"));
+            Text.AppendLine(string.Format("\t\t<meta-data android:name=\"com.epicgames.ue4.GameActivity.bSupportsVulkan\" android:value=\"{0}\"/>", bSupportsVulkan ? "true" : "false"));
 			Text.AppendLine("\t\t<meta-data android:name=\"com.google.android.gms.games.APP_ID\"");
 			Text.AppendLine("\t\t           android:value=\"@string/app_id\" />");
 			Text.AppendLine("\t\t<meta-data android:name=\"com.google.android.gms.version\"");
 			Text.AppendLine("\t\t           android:value=\"@integer/google_play_services_version\" />");
 			Text.AppendLine("\t\t<activity android:name=\"com.google.android.gms.ads.AdActivity\"");
 			Text.AppendLine("\t\t          android:configChanges=\"keyboard|keyboardHidden|orientation|screenLayout|uiMode|screenSize|smallestScreenSize\"/>");
-			if (bPackageForGearVR)
-			{
-				Text.AppendLine("\t\t<meta-data android:name=\"com.samsung.android.vr.application.mode\"");
-				Text.AppendLine("\t\t           android:value=\"vr_only\" />");
-			}
 			if (!string.IsNullOrEmpty(ExtraApplicationSettings))
 			{
 				ExtraApplicationSettings = ExtraApplicationSettings.Replace("\\n", "\n");
@@ -1283,8 +1288,6 @@ namespace UnrealBuildTool
 					Text.AppendLine("\t\t" + Line);
 				}
 			}
-
-			// add plugin Application additions HERE
 
             // Required for OBB download support
             Text.AppendLine("\t\t<service android:name=\"OBBDownloaderService\" />");
@@ -1307,7 +1310,7 @@ namespace UnrealBuildTool
 			else
 			{
 				// need just the number part of the sdk
-				Text.AppendLine(string.Format("\t<uses-sdk android:minSdkVersion=\"{0}\"/>", MinSDKVersion));
+				Text.AppendLine(string.Format("\t<uses-sdk android:minSdkVersion=\"{0}\" android:targetSdkVersion=\"{1}\"/>", MinSDKVersion, TargetSDKVersion));
 				Text.AppendLine("\t<uses-feature android:glEsVersion=\"" + AndroidToolChain.GetGLESVersionFromGPUArch(GPUArch) + "\" android:required=\"true\" />");
 				Text.AppendLine("\t<uses-permission android:name=\"android.permission.INTERNET\"/>");
 				Text.AppendLine("\t<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>");
@@ -1324,10 +1327,6 @@ namespace UnrealBuildTool
 				if (bEnableIAP)
 				{
 					Text.AppendLine("\t<uses-permission android:name=\"com.android.vending.BILLING\"/>");
-				}
-				if (bPackageForGearVR)
-				{
-					Text.AppendLine("\t<uses-feature android:name=\"android.hardware.usb.host\"/>");
 				}
 				if (ExtraPermissions != null)
 				{
@@ -1346,16 +1345,24 @@ namespace UnrealBuildTool
 				}
 			}
 
-			// add plugin Requirements additions HERE
-
 			Text.AppendLine("</manifest>");
 
 			// allow plugins to modify final manifest HERE
+			XDocument XDoc;
+			try
+			{
+				XDoc = XDocument.Parse(Text.ToString());
+			}
+			catch (Exception e)
+			{
+				throw new BuildException("AndroidManifest.xml is invalid {0}\n{1}", e, Text.ToString());
+			}
 
-			return Text.ToString();
+			APL.ProcessPluginNode(Arch, "androidManifestUpdates", "", ref XDoc);
+			return XDoc.ToString();
 		}
 
-		private string GenerateProguard(string EngineSourcePath, string GameBuildFilesPath)
+		private string GenerateProguard(string Arch, string EngineSourcePath, string GameBuildFilesPath)
 		{
 			StringBuilder Text = new StringBuilder();
 
@@ -1377,9 +1384,63 @@ namespace UnrealBuildTool
 				}
 			}
 
-			// add plugin additions HERE
+			// add plugin additions
+			return APL.ProcessPluginNode(Arch, "proguardAdditions", Text.ToString());
+		}
 
-			return Text.ToString();
+		private void ValidateGooglePlay(string UE4BuildPath)
+		{
+			ConfigCacheIni Ini = GetConfigCacheIni("Engine");
+			bool bEnableGooglePlaySupport;
+			Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bEnableGooglePlaySupport", out bEnableGooglePlaySupport);
+
+			if (!bEnableGooglePlaySupport)
+			{
+				// do not need to do anything; it is fine
+				return;
+			}
+
+			bool bInvalid = true;
+			String Filename = Path.Combine(UE4BuildPath, "res", "values", "GooglePlayAppID.xml");
+			if (File.Exists(Filename))
+			{
+				string[] FileContent = File.ReadAllLines(Filename);
+				foreach (string Line in FileContent)
+				{
+					int StartIndex = Line.IndexOf("\"app_id\">");
+					if (StartIndex < 0)
+						continue;
+
+					StartIndex += 9;
+					int EndIndex = Line.IndexOf("</string>");
+					if (EndIndex < 0)
+						continue;
+
+					string AppID = Line.Substring(StartIndex, EndIndex - StartIndex);
+					Int64 Value;
+					if (AppID.Length > 0 && Int64.TryParse(AppID, out Value))
+					{
+						bInvalid = false;
+					}
+
+					break;
+				}
+
+				// remove any read only flags if invalid so it can be replaced
+				if (bInvalid)
+				{
+					FileInfo DestFileInfo = new FileInfo(Filename);
+					DestFileInfo.Attributes = DestFileInfo.Attributes & ~FileAttributes.ReadOnly;
+				}
+			}
+
+			if (bInvalid)
+			{
+				Log.TraceWarning("\nWARNING: GooglePlay Games App ID is invalid!");
+
+				// write file with something which will fail but not cause an exception if executed
+				File.WriteAllText(Filename, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n\t<string name=\"app_id\">1</string>\n</resources>\n");
+			}
 		}
 
 		private bool FilesAreDifferent(string SourceFilename, string DestFilename)
@@ -1475,6 +1536,14 @@ namespace UnrealBuildTool
 
 				Log.TraceInformation("Cleaning up files based on template dir {0}", TemplateDestinationBase);
 
+				// Make a set of files that are okay to clean up
+				var cleanFiles = new HashSet<string>();
+				cleanFiles.Add("OBBData.java");
+				foreach (var template in templates)
+				{
+					cleanFiles.Add(Path.GetFileName(template.DestinationFile));
+				}
+
 				foreach (var filename in files)
 				{
 					if (filename == UE4DownloadShimFileName)  // we always need the shim, and it'll get rewritten if needed anyway
@@ -1483,6 +1552,10 @@ namespace UnrealBuildTool
 					string filePath = Path.GetDirectoryName(filename);  // grab the file's path
 					if (filePath != TemplateDestinationBase)             // and check to make sure it isn't the same as the Template directory we calculated earlier
 					{
+						// Only delete the files in the cleanup set
+						if (!cleanFiles.Contains(Path.GetFileName(filename)))
+							continue;
+
 						Log.TraceInformation("Cleaning up file {0} with path {1}", filename, filePath);
 						File.Delete(filename);
 
@@ -1562,6 +1635,14 @@ namespace UnrealBuildTool
 
 			var Arches = ToolChain.GetAllArchitectures();
 			var GPUArchitectures = ToolChain.GetAllGPUArchitectures();
+
+			// Initialize APL contexts for each architecture enabled
+			List<string> NDKArches = new List<string>();
+			foreach (var Arch in Arches)
+			{
+				NDKArches.Add(GetNDKArch(Arch));
+			}
+			APL.Init(NDKArches, bForDistribution, EngineDirectory, UE4BuildPath);
 
 			IEnumerable<Tuple<string, string, string>> BuildList = null;
 
@@ -1649,14 +1730,8 @@ namespace UnrealBuildTool
 			CopyFileDirectory(GameBuildFilesPath + "/NotForLicensees", UE4BuildPath, Replacements);
 			CopyFileDirectory(GameBuildFilesPath + "/NoRedist", UE4BuildPath, Replacements);
 
-			// Generate the Proguard file contents and write it
-			string ProguardContents = GenerateProguard(UE4BuildFilesPath, GameBuildFilesPath);
-			string ProguardFilename = UE4BuildPath + "/proguard-project.txt";
-			if (File.Exists(ProguardFilename))
-			{
-				File.Delete(ProguardFilename);
-			}
-			File.WriteAllText(ProguardFilename, ProguardContents);
+			//Now validate GooglePlay app_id if enabled
+			ValidateGooglePlay(UE4BuildPath);
 
 			//Now keep the splash screen images matching orientation requested
 			PickSplashScreenOrientation(UE4BuildPath);
@@ -1677,6 +1752,7 @@ namespace UnrealBuildTool
 				string Arch = build.Item1;
 				string GPUArchitecture = build.Item2;
 				string Manifest = build.Item3;
+				string NDKArch = GetNDKArch(Arch);
 
 				string SourceSOName = AndroidToolChain.InlineArchName(OutputPath, Arch, GPUArchitecture);
 				// if the source binary was UE4Game, replace it with the new project name, when re-packaging a binary only build
@@ -1692,8 +1768,14 @@ namespace UnrealBuildTool
 				ManifestFile = Path.Combine(UE4BuildPath, "AndroidManifest.xml");
 				File.WriteAllText(ManifestFile, Manifest);
 
+				// copy prebuild plugin files
+				APL.ProcessPluginNode(NDKArch, "prebuildCopies", "");
+
 				// update metadata files (like project.properties, build.xml) if we are missing a build.xml or if we just overwrote project.properties with a bad version in it (from game/engine dir)
 				UpdateProjectProperties(ToolChain, UE4BuildPath, ProjectName);
+
+				// update GameActivity.java if out of date
+				UpdateGameActivity(Arch, NDKArch, EngineDirectory, UE4BuildPath);
 
 				// Copy the generated .so file from the binaries directory to the jni folder
 				if (!File.Exists(SourceSOName))
@@ -1768,16 +1850,27 @@ namespace UnrealBuildTool
 
 				// after ndk-build is called, we can now copy in the stl .so (ndk-build deletes old files)
 				// copy libgnustl_shared.so to library (use 4.8 if possible, otherwise 4.6)
-				CopySTL(ToolChain, UE4BuildPath, Arch, bForDistribution);
-				CopyGfxDebugger(UE4BuildPath, Arch);
-				CopyPluginLibs(EngineDirectory, UE4BuildPath, Arch);
+				CopySTL(ToolChain, UE4BuildPath, Arch, NDKArch, bForDistribution);
+				CopyGfxDebugger(UE4BuildPath, Arch, NDKArch);
+
+				// copy postbuild plugin files
+				APL.ProcessPluginNode(NDKArch, "resourceCopies", "");
 
 				Log.TraceInformation("\n===={0}====PERFORMING FINAL APK PACKAGE OPERATION================================================", DateTime.Now.ToString());
 
-				string AntBuildType = "debug";
-				string AntOutputSuffix = "-debug";
-				if (bForDistribution)
-				{
+                string AntBuildType = "debug";
+                string AntOutputSuffix = "-debug";
+                if (bForDistribution)
+                {
+					// Generate the Proguard file contents and write it
+					string ProguardContents = GenerateProguard(NDKArch, UE4BuildFilesPath, GameBuildFilesPath);
+					string ProguardFilename = Path.Combine(UE4BuildPath, "proguard-project.txt");
+					if (File.Exists(ProguardFilename))
+					{
+						File.Delete(ProguardFilename);
+					}
+					File.WriteAllText(ProguardFilename, ProguardContents);
+
 					// this will write out ant.properties with info needed to sign a distribution build
 					PrepareToSignApk(UE4BuildPath);
 					AntBuildType = "release";
@@ -1829,12 +1922,45 @@ namespace UnrealBuildTool
 			File.WriteAllLines(Path.Combine(BuildPath, "ant.properties"), AntPropertiesLines);
 		}
 
+		private List<string> CollectPluginDataPaths(TargetReceipt Receipt)
+		{
+			List<string> PluginExtras = new List<string>();
+			if (Receipt == null)
+			{
+				Log.TraceInformation("Receipt is NULL");
+				return PluginExtras;
+			}
+
+			// collect plugin extra data paths from target receipt
+			var Results = Receipt.AdditionalProperties.Where(x => x.Name == "AndroidPlugin");
+			foreach (var Property in Results)
+			{
+				// Keep only unique paths
+				string PluginPath = Property.Value;
+				if (PluginExtras.FirstOrDefault(x => x == PluginPath) == null)
+				{
+					PluginExtras.Add(PluginPath);
+					Log.TraceInformation("AndroidPlugin: {0}", PluginPath);
+				}
+			}
+			return PluginExtras;
+		}
+
 		public override bool PrepTargetForDeployment(UEBuildTarget InTarget)
 		{
+			//Log.TraceInformation("$$$$$$$$$$$$$$ PrepTargetForDeployment $$$$$$$$$$$$$$$$$");
 			AndroidToolChain ToolChain = new AndroidToolChain(InTarget.ProjectFile); 
 
 			// we need to strip architecture from any of the output paths
 			string BaseSoName = ToolChain.RemoveArchName(InTarget.OutputPaths[0].FullName);
+
+			// get the receipt
+			UnrealTargetPlatform Platform = InTarget.Platform;
+			UnrealTargetConfiguration Configuration = InTarget.Configuration;
+			string ProjectBaseName = Path.GetFileName(BaseSoName).Replace("-" + Platform, "").Replace("-" + Configuration, "").Replace(".so", "");
+			string ReceiptFilename = TargetReceipt.GetDefaultPath(InTarget.ProjectDirectory.FullName, ProjectBaseName, Platform, Configuration, "");
+			Log.TraceInformation("Receipt Filename: {0}", ReceiptFilename);
+			SetAndroidPluginData(ToolChain.GetAllArchitectures(), CollectPluginDataPaths(TargetReceipt.Read(ReceiptFilename)));
 
 			// make an apk at the end of compiling, so that we can run without packaging (debugger, cook on the fly, etc)
 			MakeApk(ToolChain, InTarget.AppName, InTarget.ProjectDirectory.FullName, BaseSoName, BuildConfiguration.RelativeEnginePath, bForDistribution: false, CookFlavor: "",
@@ -1868,6 +1994,8 @@ namespace UnrealBuildTool
 
 		public override bool PrepForUATPackageOrDeploy(FileReference ProjectFile, string ProjectName, string ProjectDirectory, string ExecutablePath, string EngineDirectory, bool bForDistribution, string CookFlavor, bool bIsDataDeploy)
 		{
+			//Log.TraceInformation("$$$$$$$$$$$$$$ PrepForUATPackageOrDeploy $$$$$$$$$$$$$$$$$");
+
 			// note that we cannot allow the data packaged into the APK if we are doing something like Launch On that will not make an obb
 			// file and instead pushes files directly via deploy
 			AndroidToolChain ToolChain = new AndroidToolChain(ProjectFile);
@@ -1884,47 +2012,51 @@ namespace UnrealBuildTool
 			}
 		}
 
-		private void CopyPluginLibs(string EngineDirectory, string UE4BuildPath, string UE4Arch)
+		private void UpdateGameActivity(string UE4Arch, string NDKArch, string EngineDir, string UE4BuildPath)
 		{
-			ConfigCacheIni Ini = GetConfigCacheIni("Engine");
-			string Arch = GetNDKArch(UE4Arch);
-			string PluginsDir = Path.GetFullPath(Path.Combine(EngineDirectory, "Plugins"));
-			string ThirdPartyDir = Path.GetFullPath(Path.Combine(EngineDirectory, "Source/ThirdParty"));
+			string SourceFilename = Path.Combine(EngineDir, "Build", "Android", "Java", "src", "com", "epicgames", "ue4", "GameActivity.java");
+			string DestFilename = Path.Combine(UE4BuildPath, "src", "com", "epicgames", "ue4", "GameActivity.java");
 
-			// Check for GearVR enabled
-			bool bPackageForGearVR = true;
-			//            Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bPackageForGearVR", out bPackageForGearVR);
-			//            Console.WriteLine("bPackageForGearVR? {0}, arch {1}", bPackageForGearVR, Arch);
+			Dictionary<string, string> Replacements = new Dictionary<string, string>{
+				{ "//$${gameActivityImportAdditions}$$", APL.ProcessPluginNode(NDKArch, "gameActivityImportAdditions", "")},
+				{ "//$${gameActivityClassAdditions}$$", APL.ProcessPluginNode(NDKArch, "gameActivityClassAdditions", "")},
+				{ "//$${gameActivityReadMetadataAdditions}$$", APL.ProcessPluginNode(NDKArch, "gameActivityReadMetadataAdditions", "")},
+				{ "//$${gameActivityOnCreateAdditions}$$", APL.ProcessPluginNode(NDKArch, "gameActivityOnCreateAdditions", "")},
+				{ "//$${gameActivityOnDestroyAdditions}$$", APL.ProcessPluginNode(NDKArch, "gameActivityOnDestroyAdditions", "")},
+				{ "//$${gameActivityOnStartAdditions}$$", APL.ProcessPluginNode(NDKArch, "gameActivityOnStartAdditions", "")},
+				{ "//$${gameActivityOnStopAdditions}$$", APL.ProcessPluginNode(NDKArch, "gameActivityOnStopAdditions", "")},
+				{ "//$${gameActivityOnPauseAdditions}$$", APL.ProcessPluginNode(NDKArch, "gameActivityOnPauseAdditions", "")},
+				{ "//$${gameActivityOnResumeAdditions}$$", APL.ProcessPluginNode(NDKArch, "gameActivityOnResumeAdditions", "")},
+				{ "//$${gameActivityOnActivityResultAdditions}$$", APL.ProcessPluginNode(NDKArch, "gameActivityOnActivityResultAdditions", "")},
+				{ "//$${soLoadLibrary}$$", APL.ProcessPluginNode(NDKArch, "soLoadLibrary", "")}
+			};
 
-			// Note: only support ARMv7 at the moment
-			if (bPackageForGearVR && Arch == "armeabi-v7a")
+			string[] TemplateSrc = File.ReadAllLines(SourceFilename);
+			string[] TemplateDest = File.Exists(DestFilename) ? File.ReadAllLines(DestFilename) : null;
+
+			for (int LineIndex = 0; LineIndex < TemplateSrc.Length; ++LineIndex)
 			{
-				string SourceVRLibFile = ThirdPartyDir + "/Oculus/LibOVRMobile/LibOVRMobile_061/VrApi/Libs/Android/armeabi-v7a/libvrapi.so";
-				string FinalVRLibFile = UE4BuildPath + "/libs/" + Arch + "/libvrapi.so";
-
-				if (File.Exists(SourceVRLibFile))
+				string SrcLine = TemplateSrc[LineIndex];
+				bool Changed = false;
+				foreach (var KVP in Replacements)
 				{
-					// check to see if newer than last time we copied
-					bool bFileExists = File.Exists(FinalVRLibFile);
-					TimeSpan Diff = File.GetLastWriteTimeUtc(FinalVRLibFile) - File.GetLastWriteTimeUtc(SourceVRLibFile);
-					if (!bFileExists || Diff.TotalSeconds < -1 || Diff.TotalSeconds > 1)
+					if(SrcLine.Contains(KVP.Key))
 					{
-						if (bFileExists)
-						{
-							File.Delete(FinalVRLibFile);
-						}
-						Directory.CreateDirectory(Path.GetDirectoryName(FinalVRLibFile));
-						File.Copy(SourceVRLibFile, FinalVRLibFile, true);
-						Console.WriteLine("File {0} copied to {1}", SourceVRLibFile, FinalVRLibFile);
+						SrcLine = SrcLine.Replace(KVP.Key, KVP.Value);
+						Changed = true;
 					}
 				}
-				else
+				if (Changed)
 				{
-					Console.WriteLine("Failed to find the GearVR library required for packaging: {0}", SourceVRLibFile);
+					TemplateSrc[LineIndex] = SrcLine;
 				}
 			}
 
-			// Add others here...
+			if (TemplateDest == null || TemplateSrc.Length != TemplateDest.Length || !TemplateSrc.SequenceEqual(TemplateDest))
+			{
+                Log.TraceInformation("\n==== Writing new GameActivity.java file to {0} ====", DestFilename);
+				File.WriteAllLines(DestFilename, TemplateSrc);
+			}
 		}
-	}
+    }
 }

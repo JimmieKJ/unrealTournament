@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -7,13 +7,14 @@
 #include "MovieSceneSkeletalAnimationTrack.generated.h"
 
 
+class IMovieSceneTrackInstance;
 class UMovieSceneSection;
 
 
 /**
  * Handles animation of skeletal mesh actors
  */
-UCLASS( MinimalAPI )
+UCLASS(MinimalAPI)
 class UMovieSceneSkeletalAnimationTrack
 	: public UMovieSceneNameableTrack
 {
@@ -33,7 +34,7 @@ public:
 
 	virtual TSharedPtr<IMovieSceneTrackInstance> CreateInstance() override;
 	virtual void RemoveAllAnimationData() override;
-	virtual bool HasSection(const UMovieSceneSection& Section ) const override;
+	virtual bool HasSection(const UMovieSceneSection& Section) const override;
 	virtual void AddSection(UMovieSceneSection& Section) override;
 	virtual void RemoveSection(UMovieSceneSection& Section) override;
 	virtual bool IsEmpty() const override;
@@ -43,7 +44,7 @@ public:
 	virtual UMovieSceneSection* CreateNewSection() override;
 
 #if WITH_EDITORONLY_DATA
-	virtual FText GetDisplayName() const override;
+	virtual FText GetDefaultDisplayName() const override;
 #endif
 
 private:

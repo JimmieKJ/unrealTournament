@@ -663,10 +663,6 @@ protected:
 
 	bool bShowingHubs;
 
-	IOnlineSubsystem* OnlineSubsystem;
-	IOnlineIdentityPtr OnlineIdentityInterface;
-	IOnlineSessionPtr OnlineSessionInterface;
-
 	TSharedPtr<SDPIScaler> UnScaler;
 
 	TSharedPtr<class SButton> JoinIPButton;

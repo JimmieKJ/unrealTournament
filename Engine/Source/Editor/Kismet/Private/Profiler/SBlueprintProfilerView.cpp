@@ -1,14 +1,18 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
-
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintEditorPrivatePCH.h"
-#include "BPProfilerStatisticWidgets.h"
 #include "SBlueprintProfilerView.h"
+
+// Profiler View types
+#include "SProfilerOverview.h"
+#include "SLeastPerformantDisplay.h"
+#include "SGraphExecutionStatDisplay.h"
+#include "ScriptPerfData.h"
+
+#define LOCTEXT_NAMESPACE "BlueprintProfilerView"
 
 //////////////////////////////////////////////////////////////////////////
 // SBlueprintProfilerView
-
-FNumberFormattingOptions SBlueprintProfilerView::NumberFormat;
 
 SBlueprintProfilerView::~SBlueprintProfilerView()
 {
@@ -17,211 +21,216 @@ SBlueprintProfilerView::~SBlueprintProfilerView()
 }
 
 void SBlueprintProfilerView::Construct(const FArguments& InArgs)
-{	
+{
 	CurrentViewType = InArgs._ProfileViewType;
+	BlueprintEditor = InArgs._AssetEditor;
 	// Register for Profiler toggle events
-	FBlueprintCoreDelegates::OnToggleScriptProfiler.AddRaw(this, &SBlueprintProfilerView::OnToggleProfiler);
+	FBlueprintCoreDelegates::OnToggleScriptProfiler.AddSP(this, &SBlueprintProfilerView::OnToggleProfiler);
 	// Initialise the number format.
-	NumberFormat.MinimumFractionalDigits = 4;
-	NumberFormat.MaximumFractionalDigits = 4;
-	NumberFormat.UseGrouping = false;
-	// Update the average sample retention count.
-	FBPPerformanceData::StatSampleSize = GetDefault<UEditorExperimentalSettings>()->BlueprintProfilerAverageSampleCount;
-	// Create the profiler view widgets
-	bTreeViewIsDirty = false;
-	CreateProfilerWidgets();
-}
-
-TSharedRef<ITableRow> SBlueprintProfilerView::OnGenerateRowForProfiler(FBPProfilerStatPtr InItem, const TSharedRef<STableViewBase>& OwnerTable)
-{
-	return SNew(SProfilerStatRow, OwnerTable, InItem);
-}
-
-void SBlueprintProfilerView::OnGetChildrenForProfiler(FBPProfilerStatPtr InParent, TArray<FBPProfilerStatPtr>& OutChildren)
-{
-	if (InParent.IsValid())
+	FNumberFormattingOptions StatisticNumberFormat;
+	StatisticNumberFormat.MinimumFractionalDigits = 4;
+	StatisticNumberFormat.MaximumFractionalDigits = 4;
+	StatisticNumberFormat.UseGrouping = false;
+	FScriptPerfData::SetNumberFormattingForStats(StatisticNumberFormat);
+	// Create the display text for the user
+	if (GetDefault<UEditorExperimentalSettings>()->bBlueprintPerformanceAnalysisTools)
 	{
-		InParent->GatherChildren(OutChildren);
+		IBlueprintProfilerInterface* ProfilerInterface = FModuleManager::GetModulePtr<IBlueprintProfilerInterface>("BlueprintProfiler");
+		const bool bProfilerEnabled	= ProfilerInterface && ProfilerInterface->IsProfilerEnabled();
+		StatusText = bProfilerEnabled ? LOCTEXT("ProfilerNoDataText", "The Blueprint Profiler is active but does not currently have any data to display") :
+										LOCTEXT("ProfilerInactiveText", "The Blueprint Profiler is currently Inactive");
 	}
+	else
+	{
+		StatusText = LOCTEXT("DisabledProfilerText", "The Blueprint Profiler is experimental and is currently not enabled in the editor preferences");
+	}
+	// Create the profiler view widgets
+	UpdateActiveProfilerWidget();
 }
 
 void SBlueprintProfilerView::OnToggleProfiler(bool bEnabled)
 {
-	if (!bEnabled)
+	if (GetDefault<UEditorExperimentalSettings>()->bBlueprintPerformanceAnalysisTools)
 	{
-		// Clear profiler data, this requires work as I think the stats are currently leaking.
-		for (auto Iter : RootTreeItems)
-		{
-			Iter->ReleaseData();
-			Iter.Reset();
-		}
-		RootTreeItems.Reset();
-		ClassContexts.Reset();
-		if (ExecutionStatTree.IsValid())
-		{
-			bTreeViewIsDirty = true;
-		}
+		StatusText = bEnabled ? LOCTEXT("ProfilerNoDataText", "The Blueprint Profiler is active but does not currently have any data to display") :
+								LOCTEXT("ProfilerInactiveText", "The Blueprint Profiler is currently Inactive");
+	}
+	else
+	{
+		StatusText = LOCTEXT("DisabledProfilerText", "The Blueprint Profiler is experimental and is currently not enabled in the editor preferences");
+	}
+	UpdateActiveProfilerWidget();
+}
+
+void SBlueprintProfilerView::UpdateActiveProfilerWidget()
+{
+		FMenuBuilder ViewComboContent(true, NULL);
+		ViewComboContent.AddMenuEntry(	LOCTEXT("OverviewViewType", "Profiler Overview"), 
+										LOCTEXT("OverviewViewTypeDesc", "Displays High Level Profiling Information"), 
+										FSlateIcon(), 
+										FExecuteAction::CreateSP(this, &SBlueprintProfilerView::OnViewSelectionChanged, EBlueprintPerfViewType::Overview),
+										NAME_None, 
+										EUserInterfaceActionType::Button);
+		ViewComboContent.AddMenuEntry(	LOCTEXT("ExecutionGraphViewType", "Execution Graph"), 
+										LOCTEXT("ExecutionGraphViewTypeDesc", "Displays the Execution Graph with Statistics"), 
+										FSlateIcon(), 
+										FExecuteAction::CreateSP(this, &SBlueprintProfilerView::OnViewSelectionChanged, EBlueprintPerfViewType::ExecutionGraph),
+										NAME_None, 
+										EUserInterfaceActionType::Button);
+		ViewComboContent.AddMenuEntry(	LOCTEXT("LeastPerformantViewType", "Least Performant List"), 
+										LOCTEXT("LeastPerformantViewTypeDesc", "Displays a list of Least Performant Areas of the Blueprint"), 
+										FSlateIcon(), 
+										FExecuteAction::CreateSP(this, &SBlueprintProfilerView::OnViewSelectionChanged, EBlueprintPerfViewType::LeastPerformant),
+										NAME_None, 
+										EUserInterfaceActionType::Button);
+
+		ChildSlot
+		[
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(0)
+			[
+				SNew(SBorder)
+				.BorderImage(FEditorStyle::GetBrush("BlueprintProfiler.ViewToolBar"))
+				.Padding(0)
+				.VAlign(VAlign_Top)
+				.HAlign(HAlign_Right)
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(FMargin(5,0))
+					[
+						SAssignNew(ViewComboButton, SComboButton)
+						.ForegroundColor(this, &SBlueprintProfilerView::GetViewButtonForegroundColor)
+						.ToolTipText(LOCTEXT("BlueprintProfilerViewType", "View Type"))
+						.ButtonStyle(FEditorStyle::Get(), "ToggleButton")
+						.ContentPadding(2)
+						.MenuContent()
+						[
+							ViewComboContent.MakeWidget()
+						]
+						.ButtonContent()
+						[
+							CreateViewButton()
+						]
+					]
+				]
+			]
+			+SVerticalBox::Slot()
+			[
+				SNew(SBorder)
+				.Padding(FMargin(0,2,0,0))
+				.BorderImage(FEditorStyle::GetBrush("NoBorder"))
+				[
+					CreateActiveStatisticWidget()
+				]
+			]
+		];
+	}
+
+FText SBlueprintProfilerView::GetCurrentViewText() const
+{
+	switch(CurrentViewType)
+	{
+		case EBlueprintPerfViewType::Overview:			return LOCTEXT("OverviewLabel", "Profiler Overview");
+		case EBlueprintPerfViewType::ExecutionGraph:	return LOCTEXT("ExecutionGraphLabel", "Execution Graph");
+		case EBlueprintPerfViewType::LeastPerformant:	return LOCTEXT("LeastPerformantLabel", "Least Performant");
+	}
+	return LOCTEXT("UnknownViewLabel", "Unknown ViewType");
+}
+
+TSharedRef<SWidget> SBlueprintProfilerView::CreateViewButton() const
+{
+	return SNew(SHorizontalBox)
+		+SHorizontalBox::Slot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		[
+			SNew(SImage)
+			.Image( FEditorStyle::GetBrush("GenericViewButton") )
+		]
+		+SHorizontalBox::Slot()
+		.AutoWidth()
+		.Padding(2, 0, 0, 0)
+		.VAlign(VAlign_Center)
+		[
+			SNew(STextBlock)
+			.Text(GetCurrentViewText())
+		];
+}
+
+FSlateColor SBlueprintProfilerView::GetViewButtonForegroundColor() const
+{
+	static const FName InvertedForegroundName("InvertedForeground");
+	static const FName DefaultForegroundName("DefaultForeground");
+	return ViewComboButton->IsHovered() ? FEditorStyle::GetSlateColor(InvertedForegroundName) : FEditorStyle::GetSlateColor(DefaultForegroundName);
+}
+
+void SBlueprintProfilerView::OnViewSelectionChanged(const EBlueprintPerfViewType::Type NewViewType)
+{
+	if (CurrentViewType != NewViewType)
+	{
+		CurrentViewType = NewViewType;
+		UpdateActiveProfilerWidget();
 	}
 }
 
-void SBlueprintProfilerView::CreateProfilerWidgets()
+TSharedRef<SWidget> SBlueprintProfilerView::CreateActiveStatisticWidget()
 {
-	ChildSlot
-	[
-		SNew(SVerticalBox)
-		+SVerticalBox::Slot()
-		.FillHeight(0.2f)
-		[
-			SNew(SBorder)
-			.Padding(0)
-			.BorderImage(FEditorStyle::GetBrush("NoBorder"))
-			.Visibility(this, &SBlueprintProfilerView::IsProfilerHidden)
-			.HAlign(HAlign_Center)
-			.VAlign(VAlign_Center)
-			[
-				SNew(STextBlock)
-				.Text(NSLOCTEXT("InactiveProfilerWidget", "InactiveText", "The Blueprint Profiler is currently Inactive"))
-			]
-		]
-#if 0 // To do stat ranking list
-		+SVerticalBox::Slot()
-		[
-			SAssignNew(BlueprintStatList, SListView<FBPProfilerStatPtr>)
-			.ListItemsSource(&RootTreeItems)
-			.SelectionMode(ESelectionMode::Single)
-			.OnGenerateRow(this, &SBlueprintProfilerView::OnGenerateRowForProfiler)
-//			.OnSelectionChanged(this, &SMessagingTypes::HandleTypeListSelectionChanged)
-			.HeaderRow
-			(
-				SNew(SHeaderRow)
-				+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::Name))
-				.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::Name))
-				.ManualWidth(450)
-				+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::InclusiveTime))
-				.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::InclusiveTime))
-				.ManualWidth(120)
-				+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::ExclusiveTime))
-				.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::ExclusiveTime))
-				.ManualWidth(120)
-				+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::MaxTime))
-				.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::MaxTime))
-				.ManualWidth(90)
-				+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::MinTime))
-				.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::MinTime))
-				.ManualWidth(90)
-				+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::TotalTime))
-				.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::TotalTime))
-				.ManualWidth(80)
-				+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::Samples))
-				.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::Samples))
-				.ManualWidth(60)
-			)
-		]
-#endif
-		+SVerticalBox::Slot()
-		[
-			SNew(SBorder)
-			.Padding(0)
-			.BorderImage(FEditorStyle::GetBrush("NoBorder"))
-			.Visibility(this, &SBlueprintProfilerView::IsProfilerVisible)
-			[
-				SNew(SVerticalBox)
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				.HAlign(HAlign_Left)
-				.VAlign(VAlign_Center)
-				[
-					SNew(STextBlock)
-					.Text(NSLOCTEXT("BueprintProfilerView", "StatisticTreeTitle", "Execution Tree Performance Statistics"))
-				]
-				+SVerticalBox::Slot()
-				.FillHeight(0.8f)
-				[
-					SAssignNew(ExecutionStatTree, STreeView<FBPProfilerStatPtr>)
-					.TreeItemsSource(&RootTreeItems)
-					.SelectionMode(ESelectionMode::Single)
-					.OnGetChildren(this, &SBlueprintProfilerView::OnGetChildrenForProfiler)
-					.OnGenerateRow(this, &SBlueprintProfilerView::OnGenerateRowForProfiler)
-					.HeaderRow
-					(
-						SNew(SHeaderRow)
-						+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::Name))
-						.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::Name))
-						.ManualWidth(450)
-						+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::InclusiveTime))
-						.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::InclusiveTime))
-						.ManualWidth(120)
-						+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::ExclusiveTime))
-						.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::ExclusiveTime))
-						.ManualWidth(120)
-						+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::MaxTime))
-						.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::MaxTime))
-						.ManualWidth(90)
-						+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::MinTime))
-						.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::MinTime))
-						.ManualWidth(90)
-						+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::TotalTime))
-						.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::TotalTime))
-						.ManualWidth(80)
-						+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::Samples))
-						.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::Samples))
-						.ManualWidth(60)
-					)
-				]
-			]
-		]
-	];
-}
-
-void SBlueprintProfilerView::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
-{
+	// Get profiler status
+	EBlueprintPerfViewType::Type NewViewType = EBlueprintPerfViewType::None;
 	if (GetDefault<UEditorExperimentalSettings>()->bBlueprintPerformanceAnalysisTools)
 	{
 		IBlueprintProfilerInterface* ProfilerInterface = FModuleManager::GetModulePtr<IBlueprintProfilerInterface>("BlueprintProfiler");
 		if (ProfilerInterface && ProfilerInterface->IsProfilerEnabled())
 		{
-			// Find and process execution path timing data.
-			bool bRequestRefresh = false;
-			TArray<FBlueprintInstrumentedEvent>& ProfilerData = ProfilerInterface->GetProfilingData();
-			int32 ExecStart = 0;
-
-			for (int32 EventIdx = 0; EventIdx < ProfilerData.Num(); ++EventIdx)
-			{
-				switch(ProfilerData[EventIdx].GetType())
-				{
-					case EScriptInstrumentation::Class:
-					{
-						CurrentClassPath = ProfilerData[EventIdx].GetObjectPath();
-						ExecStart = EventIdx;
-						break;
-					}
-					case EScriptInstrumentation::Stop:
-					{
-						check(!CurrentClassPath.IsEmpty());
-						FProfilerClassContext* ActiveClass = ClassContexts.Find(CurrentClassPath);
-						const bool bNewClassContext = !ActiveClass;
-						if (!ActiveClass)
-						{
-							ActiveClass = &ClassContexts.Add(CurrentClassPath);
-						}
-						ActiveClass->ProcessExecutionPath(ProfilerData, ExecStart, EventIdx);
-						if (bNewClassContext)
-						{
-							RootTreeItems.Add(ActiveClass->GetRootStat());
-							bRequestRefresh = true;
-						}
-						ExecStart = EventIdx+1;
-						break;
-					}
-				}
-			}
-			// Reset profiler data
-			ProfilerData.Reset();
+			NewViewType = CurrentViewType;
 		}
 	}
-	// Refresh Tree
-	if (bTreeViewIsDirty && ExecutionStatTree.IsValid())
+	switch(NewViewType)
 	{
-		ExecutionStatTree->RequestTreeRefresh();
+		case EBlueprintPerfViewType::Overview:
+		{
+			return SNew(SProfilerOverview)
+				.AssetEditor(BlueprintEditor);
+		}
+		case EBlueprintPerfViewType::ExecutionGraph:
+		{
+			return SNew(SGraphExecutionStatDisplay)
+				.AssetEditor(BlueprintEditor);
+		}
+		case EBlueprintPerfViewType::LeastPerformant:
+		{
+			return SNew(SLeastPerformantDisplay)
+				.AssetEditor(BlueprintEditor);
+		}
+		default:
+		{
+			// Default place holder
+			return SNew(SVerticalBox)
+				+SVerticalBox::Slot()
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
+				.Padding(0)
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					[
+						SNew(SBorder)
+						.Padding(0)
+						.BorderImage(FEditorStyle::GetBrush("NoBorder"))
+						.HAlign(HAlign_Center)
+						.VAlign(VAlign_Center)
+						[
+							SNew(STextBlock)
+							.Text(this, &SBlueprintProfilerView::GetProfilerStatusText)
+						]
+					]
+				];
+		}
 	}
 }
+
+#undef LOCTEXT_NAMESPACE

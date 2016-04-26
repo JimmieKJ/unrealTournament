@@ -112,6 +112,9 @@ public:
 	UFUNCTION(Client, Reliable)
 	virtual void ClientReturnToLobby();
 
+	UFUNCTION(Client, Reliable)
+	virtual void ClientRankedGameAbandoned();
+
 	UFUNCTION()
 	virtual void ClientReturnedToMenus();
 

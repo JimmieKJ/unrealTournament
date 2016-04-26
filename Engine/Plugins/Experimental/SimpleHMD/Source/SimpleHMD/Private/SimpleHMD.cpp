@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SimpleHMDPrivatePCH.h"
 #include "SimpleHMD.h"
@@ -155,9 +155,9 @@ void FSimpleHMD::ApplyHmdRotation(APlayerController* PC, FRotator& ViewRotation)
 	ViewRotation = FRotator(DeltaControlOrientation * CurHmdOrientation);
 }
 
-void FSimpleHMD::UpdatePlayerCameraRotation(APlayerCameraManager* Camera, struct FMinimalViewInfo& POV)
+bool FSimpleHMD::UpdatePlayerCamera(FQuat& CurrentOrientation, FVector& CurrentPosition)
 {
-	return;
+	return false;
 }
 
 bool FSimpleHMD::IsChromaAbCorrectionEnabled() const

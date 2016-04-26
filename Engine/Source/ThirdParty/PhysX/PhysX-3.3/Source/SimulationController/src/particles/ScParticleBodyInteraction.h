@@ -38,6 +38,7 @@ namespace Sc
 		ParticleElementRbElementInteraction(ParticlePacketShape &particleShape, ShapeSim& rbShape, ActorElementPair& actorElementPair);
 		virtual ~ParticleElementRbElementInteraction();
 		PX_INLINE void* operator new(size_t s, void* memory);
+		static void operator delete(void*) {}
 		
 		void initialize(const PxU32 ccdPass);
 		void destroy(bool isDyingRb, const PxU32 ccdPass);
@@ -69,7 +70,6 @@ namespace Sc
 		ParticleElementRbElementInteraction& operator=(const ParticleElementRbElementInteraction&);
 		void activateForLowLevel(const PxU32 ccdPass);
 		void deactivateForLowLevel(bool isDyingRb, const PxU32 ccdPass);
-		static void operator delete(void*) {}
 
 		PX_FORCE_INLINE PxU32 isRbTrigger() const { return (getRbShape().getFlags() & PxShapeFlag::eTRIGGER_SHAPE); }
 

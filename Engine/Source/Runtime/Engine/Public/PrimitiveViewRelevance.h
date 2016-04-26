@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -37,6 +37,8 @@ struct FPrimitiveViewRelevance
 	uint32 bDistortionRelevance : 1;
 	/** The primitive has one or more elements that have SeparateTranslucency. */
 	uint32 bSeparateTranslucencyRelevance : 1;
+	/** The primitive has one or more elements that have MobileSeparateTranslucency. */
+	uint32 bMobileSeparateTranslucencyRelevance : 1;
 	/** The primitive has one or more elements that have normal translucency. */
 	uint32 bNormalTranslucencyRelevance : 1;
 	// The primitive has one or more elements that have World Position Offset.
@@ -53,7 +55,7 @@ struct FPrimitiveViewRelevance
 
 	bool HasTranslucency() const 
 	{
-		return bSeparateTranslucencyRelevance || bNormalTranslucencyRelevance;
+		return bSeparateTranslucencyRelevance || bNormalTranslucencyRelevance || bMobileSeparateTranslucencyRelevance;
 	}
 
 	/** Initialization constructor. */
@@ -72,6 +74,7 @@ struct FPrimitiveViewRelevance
 		bMaskedRelevance(false),
 		bDistortionRelevance(false),
 		bSeparateTranslucencyRelevance(false),
+		bMobileSeparateTranslucencyRelevance(false),
 		bNormalTranslucencyRelevance(false),		
 		bHasWorldPositionOffset(false),
 		bUsesGlobalDistanceField(false),
@@ -96,6 +99,7 @@ struct FPrimitiveViewRelevance
 		bEditorNoDepthTestPrimitiveRelevance |= B.bEditorNoDepthTestPrimitiveRelevance !=0;
 		bHasSimpleLights |= B.bHasSimpleLights != 0;
 		bSeparateTranslucencyRelevance |= B.bSeparateTranslucencyRelevance != 0;
+		bMobileSeparateTranslucencyRelevance |= B.bMobileSeparateTranslucencyRelevance != 0;
 		bNormalTranslucencyRelevance |= B.bNormalTranslucencyRelevance != 0;
 		bInitializedThisFrame |= B.bInitializedThisFrame;		
 		bHasWorldPositionOffset |= B.bHasWorldPositionOffset != 0;

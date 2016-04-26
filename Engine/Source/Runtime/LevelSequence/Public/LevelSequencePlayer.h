@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -106,7 +106,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
 	bool IsPlaying() const;
 
-	/** Get the length of the sequence */
+	/** Get the playback length of the sequence */
 	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
 	float GetLength() const;
 
@@ -133,23 +133,22 @@ public:
 protected:
 
 	// IMovieScenePlayer interface
-	virtual void GetRuntimeObjects(TSharedRef<FMovieSceneSequenceInstance> MovieSceneInstance, const FGuid& ObjectHandle, TArray<UObject*>& OutObjects) const override;
-	virtual void UpdateCameraCut(UObject* CameraObject, UObject* UnlockIfCameraObject) const override;
+	virtual void GetRuntimeObjects(TSharedRef<FMovieSceneSequenceInstance> MovieSceneInstance, const FGuid& ObjectHandle, TArray<TWeakObjectPtr<UObject>>& OutObjects) const override;
+	virtual void UpdateCameraCut(UObject* CameraObject, UObject* UnlockIfCameraObject, bool bJumpCut) const override;
 	virtual void SetViewportSettings(const TMap<FViewportClient*, EMovieSceneViewportParams>& ViewportParamsMap) override;
 	virtual void GetViewportSettings(TMap<FViewportClient*, EMovieSceneViewportParams>& ViewportParamsMap) const override;
 	virtual EMovieScenePlayerStatus::Type GetPlaybackStatus() const override;
+	virtual void SetPlaybackStatus(EMovieScenePlayerStatus::Type InPlaybackStatus) override;
 	virtual void AddOrUpdateMovieSceneInstance(UMovieSceneSection& MovieSceneSection, TSharedRef<FMovieSceneSequenceInstance> InstanceToAdd) override;
 	virtual void RemoveMovieSceneInstance(UMovieSceneSection& MovieSceneSection, TSharedRef<FMovieSceneSequenceInstance> InstanceToRemove) override;
 	virtual TSharedRef<FMovieSceneSequenceInstance> GetRootMovieSceneSequenceInstance() const override;
 	virtual IMovieSceneSpawnRegister& GetSpawnRegister() override;
 	virtual UObject* GetPlaybackContext() const override;
+	virtual UObject* GetEventContext() const override;
 
 public:
 
 	void Update(const float DeltaSeconds);
-
-	/** Instruct this player to start playing next frame update */
-	void AutoPlayNextFrame();
 
 private:
 
@@ -172,6 +171,12 @@ private:
 	/** The current time cursor position within the sequence (in seconds) */
 	UPROPERTY()
 	float TimeCursorPosition;
+
+	/** Time time at which to start playing the sequence (defaults to the lower bound of the sequence's play range) */
+	float StartTime;
+
+	/** Time time at which to end playing the sequence (defaults to the upper bound of the sequence's play range) */
+	float EndTime;
 
 	/** Specific playback settings for the animation. */
 	UPROPERTY()

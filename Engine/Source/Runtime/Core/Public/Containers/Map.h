@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -167,6 +167,9 @@ struct TDefaultMapKeyFuncs : BaseKeyFuncs<TPair<KeyType,ValueType>,KeyType,bInAl
 template <typename KeyType, typename ValueType, typename SetAllocator, typename KeyFuncs>
 class TMapBase
 {
+	template <typename OtherKeyType, typename OtherValueType, typename OtherSetAllocator, typename OtherKeyFuncs>
+	friend class TMapBase;
+
 	friend struct TContainerTraits<TMapBase>;
 
 public:
@@ -194,6 +197,36 @@ protected:
 	FORCEINLINE TMapBase& operator=(const TMapBase&  Other) { Pairs =          Other.Pairs ; return *this; }
 
 #endif
+
+	/** Constructor for moving elements from a TMap with a different SetAllocator */
+	template<typename OtherSetAllocator>
+	TMapBase(TMapBase<KeyType, ValueType, OtherSetAllocator, KeyFuncs>&& Other)
+		: Pairs(MoveTemp(Other.Pairs))
+	{
+	}
+
+	/** Constructor for copying elements from a TMap with a different SetAllocator */
+	template<typename OtherSetAllocator>
+	TMapBase(const TMapBase<KeyType, ValueType, OtherSetAllocator, KeyFuncs>& Other)
+		: Pairs(Other.Pairs)
+	{
+	}
+
+	/** Assignment operator for moving elements from a TMap with a different SetAllocator */
+	template<typename OtherSetAllocator>
+	TMapBase& operator=(TMapBase<KeyType, ValueType, OtherSetAllocator, KeyFuncs>&& Other)
+	{
+		Pairs = MoveTemp(Other.Pairs);
+		return *this;
+	}
+
+	/** Assignment operator for copying elements from a TMap with a different SetAllocator */
+	template<typename OtherSetAllocator>
+	TMapBase& operator=(const TMapBase<KeyType, ValueType, OtherSetAllocator, KeyFuncs>& Other)
+	{
+		Pairs = Other.Pairs;
+		return *this;
+	}
 
 public:
 	// Legacy comparison operators.  Note that these also test whether the map's key-value pairs were added in the same order!
@@ -792,6 +825,36 @@ protected:
 
 #endif
 
+	/** Constructor for moving elements from a TMap with a different SetAllocator */
+	template<typename OtherSetAllocator>
+	TSortableMapBase(TSortableMapBase<KeyType, ValueType, OtherSetAllocator, KeyFuncs>&& Other)
+		: Super(MoveTemp(Other))
+	{
+	}
+
+	/** Constructor for copying elements from a TMap with a different SetAllocator */
+	template<typename OtherSetAllocator>
+	TSortableMapBase(const TSortableMapBase<KeyType, ValueType, OtherSetAllocator, KeyFuncs>& Other)
+		: Super(Other)
+	{
+	}
+
+	/** Assignment operator for moving elements from a TMap with a different SetAllocator */
+	template<typename OtherSetAllocator>
+	TSortableMapBase& operator=(TSortableMapBase<KeyType, ValueType, OtherSetAllocator, KeyFuncs>&& Other)
+	{
+		(Super&)*this = MoveTemp(Other);
+		return *this;
+	}
+
+	/** Assignment operator for copying elements from a TMap with a different SetAllocator */
+	template<typename OtherSetAllocator>
+	TSortableMapBase& operator=(const TSortableMapBase<KeyType, ValueType, OtherSetAllocator, KeyFuncs>& Other)
+	{
+		(Super&)*this = Other;
+		return *this;
+	}
+
 public:
 	/**
 	 * Sorts the pairs array using each pair's Key as the sort criteria, then rebuilds the map's hash.
@@ -886,6 +949,36 @@ public:
 
 #endif
 
+	/** Constructor for moving elements from a TMap with a different SetAllocator */
+	template<typename OtherSetAllocator>
+	TMap(TMap<KeyType, ValueType, OtherSetAllocator, KeyFuncs>&& Other)
+		: Super(MoveTemp(Other))
+	{
+	}
+
+	/** Constructor for copying elements from a TMap with a different SetAllocator */
+	template<typename OtherSetAllocator>
+	TMap(const TMap<KeyType, ValueType, OtherSetAllocator, KeyFuncs>& Other)
+		: Super(Other)
+	{
+	}
+
+	/** Assignment operator for moving elements from a TMap with a different SetAllocator */
+	template<typename OtherSetAllocator>
+	TMap& operator=(TMap<KeyType, ValueType, OtherSetAllocator, KeyFuncs>&& Other)
+	{
+		(Super&)*this = MoveTemp(Other);
+		return *this;
+	}
+
+	/** Assignment operator for copying elements from a TMap with a different SetAllocator */
+	template<typename OtherSetAllocator>
+	TMap& operator=(const TMap<KeyType, ValueType, OtherSetAllocator, KeyFuncs>& Other)
+	{
+		(Super&)*this = Other;
+		return *this;
+	}
+
 	/**
 	 * Removes the pair with the specified key and copies the value that was removed to the ref parameter
 	 * @param Key - the key to search for
@@ -922,25 +1015,29 @@ public:
 	 * Move all items from another map into our map (if any keys are in both, the value from the other map wins) and empty the other map.
 	 * @param OtherMap - The other map of items to move the elements from.
 	 */
-	void Append(TMap&& OtherMap)
+	template<typename OtherSetAllocator>
+	void Append(TMap<KeyType, ValueType, OtherSetAllocator, KeyFuncs>&& OtherMap)
 	{
-		for (auto MapIt = OtherMap.CreateIterator(); MapIt; ++MapIt)
+		this->Reserve(this->Num() + OtherMap.Num());
+		for (auto& Pair : OtherMap)
 		{
-			this->Add(MoveTemp(MapIt->Key), MoveTemp(MapIt->Value));
+			this->Add(MoveTemp(Pair.Key), MoveTemp(Pair.Value));
 		}
 
-		OtherMap.Empty();
+		OtherMap.Reset();
 	}
 
 	/**
 	 * Add all items from another map to our map (if any keys are in both, the value from the other map wins)
 	 * @param OtherMap - The other map of items to add.
 	 */
-	void Append(const TMap& OtherMap)
+	template<typename OtherSetAllocator>
+	void Append(const TMap<KeyType, ValueType, OtherSetAllocator, KeyFuncs>& OtherMap)
 	{
-		for (auto MapIt = OtherMap.CreateConstIterator(); MapIt; ++MapIt)
+		this->Reserve(this->Num() + OtherMap.Num());
+		for (auto& Pair : OtherMap)
 		{
-			this->Add(MapIt->Key, MapIt->Value);
+			this->Add(Pair.Key, Pair.Value);
 		}
 	}
 
@@ -979,6 +1076,36 @@ public:
 	FORCEINLINE TMultiMap& operator=(const TMultiMap&  Other) { Super::operator=(         Other ); return *this; }
 
 #endif
+
+	/** Constructor for moving elements from a TMap with a different SetAllocator */
+	template<typename OtherSetAllocator>
+	TMultiMap(TMultiMap<KeyType, ValueType, OtherSetAllocator, KeyFuncs>&& Other)
+		: Super(MoveTemp(Other))
+	{
+	}
+
+	/** Constructor for copying elements from a TMap with a different SetAllocator */
+	template<typename OtherSetAllocator>
+	TMultiMap(const TMultiMap<KeyType, ValueType, OtherSetAllocator, KeyFuncs>& Other)
+		: Super(Other)
+	{
+	}
+
+	/** Assignment operator for moving elements from a TMap with a different SetAllocator */
+	template<typename OtherSetAllocator>
+	TMultiMap& operator=(TMultiMap<KeyType, ValueType, OtherSetAllocator, KeyFuncs>&& Other)
+	{
+		(Super&)*this = MoveTemp(Other);
+		return *this;
+	}
+
+	/** Assignment operator for copying elements from a TMap with a different SetAllocator */
+	template<typename OtherSetAllocator>
+	TMultiMap& operator=(const TMultiMap<KeyType, ValueType, OtherSetAllocator, KeyFuncs>& Other)
+	{
+		(Super&)*this = Other;
+		return *this;
+	}
 
 	/**
 	 * Finds all values associated with the specified key.

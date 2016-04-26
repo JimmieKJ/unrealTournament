@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BoundShaderStateCache.cpp: Bound shader state cache implementation.
@@ -124,3 +124,8 @@ FBoundShaderStateRHIRef GetCachedBoundShaderState_Threadsafe(
 	return FBoundShaderStateRHIRef();
 }
 
+void EmptyCachedBoundShaderStates()
+{
+	GetBoundShaderStateCache().Empty(0);
+	GetBoundShaderStateCache_Threadsafe().Empty(0);
+}

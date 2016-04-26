@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneTracksPrivatePCH.h"
 #include "MovieScene3DAttachSection.h"
@@ -21,7 +21,7 @@ TSharedPtr<IMovieSceneTrackInstance> UMovieScene3DAttachTrack::CreateInstance()
 }
 
 
-void UMovieScene3DAttachTrack::AddConstraint(float KeyTime, float ConstraintEndTime, const FName SocketName, const FGuid& ConstraintId)
+void UMovieScene3DAttachTrack::AddConstraint(float KeyTime, float ConstraintEndTime, const FName SocketName, const FName ComponentName, const FGuid& ConstraintId)
 {
 	// add the section
 	UMovieScene3DAttachSection* NewSection = NewObject<UMovieScene3DAttachSection>(this);
@@ -29,10 +29,20 @@ void UMovieScene3DAttachTrack::AddConstraint(float KeyTime, float ConstraintEndT
 	NewSection->AddAttach(KeyTime, ConstraintEndTime, ConstraintId);
 	NewSection->InitialPlacement( ConstraintSections, KeyTime, ConstraintEndTime, SupportsMultipleRows() );
 	NewSection->AttachSocketName = SocketName;
+	NewSection->AttachComponentName = ComponentName;
 
 	ConstraintSections.Add(NewSection);
 }
 
+UMovieSceneSection* UMovieScene3DAttachTrack::CreateNewSection()
+{
+	UMovieScene3DAttachSection* NewSection = NewObject<UMovieScene3DAttachSection>(this);
+	NewSection->SetFlags(RF_Transactional);
+
+	ConstraintSections.Add(NewSection);
+
+	return NewSection;
+}
 
 #if WITH_EDITORONLY_DATA
 FText UMovieScene3DAttachTrack::GetDisplayName() const

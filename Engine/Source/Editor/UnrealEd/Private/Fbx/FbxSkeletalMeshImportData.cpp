@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 
@@ -6,6 +6,8 @@ UFbxSkeletalMeshImportData::UFbxSkeletalMeshImportData(const FObjectInitializer&
 	: Super(ObjectInitializer)
 	, bImportMeshesInBoneHierarchy(true)
 {
+	bTransformVertexToAbsolute = true;
+	bBakePivotInVertex = false;
 }
 
 UFbxSkeletalMeshImportData* UFbxSkeletalMeshImportData::GetImportDataForSkeletalMesh(USkeletalMesh* SkeletalMesh, UFbxSkeletalMeshImportData* TemplateForCreation)

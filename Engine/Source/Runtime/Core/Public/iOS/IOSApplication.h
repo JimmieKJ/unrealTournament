@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -27,7 +27,11 @@ public:
 
 	virtual void AddExternalInputDevice(TSharedPtr<class IInputDevice> InputDevice);
 
+#if !PLATFORM_TVOS
 	static void OrientationChanged(UIDeviceOrientation orientation);
+#endif
+
+	virtual IInputInterface* GetInputInterface() override { return (IInputInterface*)InputInterface.Get(); }
 
 protected:
 	virtual void InitializeWindow( const TSharedRef< FGenericWindow >& Window, const TSharedRef< FGenericWindowDefinition >& InDefinition, const TSharedPtr< FGenericWindow >& InParent, const bool bShowImmediately ) override;

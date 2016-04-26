@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AnimationUE4.cpp: Animation runtime utilities
@@ -124,6 +124,19 @@ FORCEINLINE void BlendCurves(const TFixedSizeArrayView<FBlendedCurve>& SourceCur
 	}
 }
 
+FORCEINLINE void BlendCurves(const TFixedSizeArrayView<FBlendedCurve>& SourceCurves, const TFixedSizeArrayView<float>& SourceWeights, const TFixedSizeArrayView<int32>& SourceWeightsIndices, FBlendedCurve& OutCurve)
+{
+	if (SourceCurves.Num() > 0)
+	{
+		OutCurve.Override(SourceCurves[0], SourceWeights[SourceWeightsIndices[0]]);
+
+		for (int32 CurveIndex = 1; CurveIndex<SourceCurves.Num(); ++CurveIndex)
+		{
+			OutCurve.Accumulate(SourceCurves[CurveIndex], SourceWeights[SourceWeightsIndices[CurveIndex]]);
+		}
+	}
+}
+
 FORCEINLINE void BlendCurves(const TFixedSizeArrayView<const FBlendedCurve*>& SourceCurves, const TFixedSizeArrayView<float>& SourceWeights, FBlendedCurve& OutCurve)
 {
 	if(SourceCurves.Num() > 0)
@@ -210,6 +223,30 @@ void FAnimationRuntime::BlendPosesTogether(
 	}
 }
 
+void FAnimationRuntime::BlendPosesTogether(const TFixedSizeArrayView<FCompactPose>& SourcePoses, const TFixedSizeArrayView<FBlendedCurve>& SourceCurves, const TFixedSizeArrayView<float>& SourceWeights, const TFixedSizeArrayView<int32>& SourceWeightsIndices, /*out*/ FCompactPose& ResultPose, /*out*/ FBlendedCurve& ResultCurve)
+{
+	check(SourcePoses.Num() > 0);
+
+	BlendPose<ETransformBlendMode::Overwrite>(SourcePoses[0], ResultPose, SourceWeights[SourceWeightsIndices[0]]);
+
+	for (int32 PoseIndex = 1; PoseIndex < SourcePoses.Num(); ++PoseIndex)
+	{
+		BlendPose<ETransformBlendMode::Accumulate>(SourcePoses[PoseIndex], ResultPose, SourceWeights[SourceWeightsIndices[PoseIndex]]);
+	}
+
+	// Ensure that all of the resulting rotations are normalized
+	if (SourcePoses.Num() > 1)
+	{
+		ResultPose.NormalizeRotations();
+	}
+
+	// curve blending if exists
+	if (SourceCurves.Num() > 0)
+	{
+		BlendCurves(SourceCurves, SourceWeights, SourceWeightsIndices, ResultCurve);
+	}
+}
+
 void FAnimationRuntime::BlendPosesTogetherIndirect(
 	const TFixedSizeArrayView<const FCompactPose*>& SourcePoses,
 	const TFixedSizeArrayView<const FBlendedCurve*>& SourceCurves,
@@ -259,23 +296,17 @@ template <int32 TRANSFORM_BLEND_MODE>
 void BlendPosePerBone(const TArray<FBoneIndexType>& RequiredBoneIndices, const TArray<int32>& PerBoneIndices, const FBlendSampleData& BlendSampleDataCache, FTransformArrayA2& ResultAtoms, const FTransformArrayA2& SourceAtoms)
 {
 	const float BlendWeight = BlendSampleDataCache.GetWeight();
-	TArray<float> PerBoneBlends;
-	for (int32 i = 0; i < BlendSampleDataCache.PerBoneBlendData.Num(); ++i)
-	{
-		PerBoneBlends.Add(FMath::Clamp<float>(BlendSampleDataCache.PerBoneBlendData[i], 0.f, 1.f));
-	}
-
 	for (int32 i = 0; i < RequiredBoneIndices.Num(); ++i)
 	{
 		const int32 BoneIndex = RequiredBoneIndices[i];
-		int32 PerBoneIndex = PerBoneIndices[i];
+		const int32 PerBoneIndex = PerBoneIndices[i];
 		if (PerBoneIndex == INDEX_NONE || !BlendSampleDataCache.PerBoneBlendData.IsValidIndex(PerBoneIndex))
 		{
 			BlendTransform<TRANSFORM_BLEND_MODE>(SourceAtoms[BoneIndex], ResultAtoms[BoneIndex], BlendWeight);
 		}
 		else
 		{
-			BlendTransform<TRANSFORM_BLEND_MODE>(SourceAtoms[BoneIndex], ResultAtoms[BoneIndex], PerBoneBlends[PerBoneIndex]);
+			BlendTransform<TRANSFORM_BLEND_MODE>(SourceAtoms[BoneIndex], ResultAtoms[BoneIndex], BlendSampleDataCache.PerBoneBlendData[PerBoneIndex]);
 		}
 	}
 }
@@ -284,28 +315,21 @@ template <int32 TRANSFORM_BLEND_MODE>
 void BlendPosePerBone(const TArray<int32>& PerBoneIndices, const FBlendSampleData& BlendSampleDataCache, FCompactPose& ResultPose, const FCompactPose& SourcePose)
 {
 	const float BlendWeight = BlendSampleDataCache.GetWeight();
-	TArray<float> PerBoneBlends;
-	for (int32 i = 0; i < BlendSampleDataCache.PerBoneBlendData.Num(); ++i)
-	{
-		PerBoneBlends.Add(FMath::Clamp<float>(BlendSampleDataCache.PerBoneBlendData[i], 0.f, 1.f));
-	}
-
 	for (FCompactPoseBoneIndex BoneIndex : SourcePose.ForEachBoneIndex())
 	{
-		int32 PerBoneIndex = PerBoneIndices[BoneIndex.GetInt()];
-
+		const int32 PerBoneIndex = PerBoneIndices[BoneIndex.GetInt()];
 		if (PerBoneIndex == INDEX_NONE || !BlendSampleDataCache.PerBoneBlendData.IsValidIndex(PerBoneIndex))
 		{
 			BlendTransform<TRANSFORM_BLEND_MODE>(SourcePose[BoneIndex], ResultPose[BoneIndex], BlendWeight);
 		}
 		else
 		{
-			BlendTransform<TRANSFORM_BLEND_MODE>(SourcePose[BoneIndex], ResultPose[BoneIndex], PerBoneBlends[PerBoneIndex]);
+			BlendTransform<TRANSFORM_BLEND_MODE>(SourcePose[BoneIndex], ResultPose[BoneIndex], BlendSampleDataCache.PerBoneBlendData[PerBoneIndex]);
 		}
 	}
 }
 
-void FAnimationRuntime::BlendPosesTogetherPerBone(const TFixedSizeArrayView<FCompactPose>& SourcePoses, const TFixedSizeArrayView<FBlendedCurve>& SourceCurves, const IInterpolationIndexProvider* InterpolationIndexProvider, const TArray<FBlendSampleData>& BlendSampleDataCache, /*out*/ FCompactPose& ResultPose, /*out*/ FBlendedCurve& ResultCurve)
+void FAnimationRuntime::BlendPosesTogetherPerBone(const TFixedSizeArrayView<FCompactPose>& SourcePoses, const TFixedSizeArrayView<FBlendedCurve>& SourceCurves, const IInterpolationIndexProvider* InterpolationIndexProvider, const TFixedSizeArrayView<FBlendSampleData>& BlendSampleDataCache, /*out*/ FCompactPose& ResultPose, /*out*/ FBlendedCurve& ResultCurve)
 {
 	check(SourcePoses.Num() > 0);
 
@@ -341,7 +365,43 @@ void FAnimationRuntime::BlendPosesTogetherPerBone(const TFixedSizeArrayView<FCom
 	}
 }
 
-void FAnimationRuntime::BlendPosesTogetherPerBoneInMeshSpace(TFixedSizeArrayView<FCompactPose>& SourcePoses, const TFixedSizeArrayView<FBlendedCurve>& SourceCurves, const UBlendSpaceBase* BlendSpace, const TArray<FBlendSampleData>& BlendSampleDataCache, FCompactPose& ResultPose, FBlendedCurve& ResultCurve)
+void FAnimationRuntime::BlendPosesTogetherPerBone(const TFixedSizeArrayView<FCompactPose>& SourcePoses, const TFixedSizeArrayView<FBlendedCurve>& SourceCurves, const IInterpolationIndexProvider* InterpolationIndexProvider, const TFixedSizeArrayView<FBlendSampleData>& BlendSampleDataCache, const TFixedSizeArrayView<int32>& BlendSampleDataCacheIndices, /*out*/ FCompactPose& ResultPose, /*out*/ FBlendedCurve& ResultCurve)
+{
+	check(SourcePoses.Num() > 0);
+
+	const TArray<FBoneIndexType>& RequiredBoneIndices = ResultPose.GetBoneContainer().GetBoneIndicesArray();
+
+	TArray<int32> PerBoneIndices;
+	PerBoneIndices.AddUninitialized(ResultPose.GetNumBones());
+	for (int32 BoneIndex = 0; BoneIndex < PerBoneIndices.Num(); ++BoneIndex)
+	{
+		PerBoneIndices[BoneIndex] = InterpolationIndexProvider->GetPerBoneInterpolationIndex(RequiredBoneIndices[BoneIndex], ResultPose.GetBoneContainer());
+	}
+
+	BlendPosePerBone<ETransformBlendMode::Overwrite>(PerBoneIndices, BlendSampleDataCache[BlendSampleDataCacheIndices[0]], ResultPose, SourcePoses[0]);
+
+	for (int32 i = 1; i < SourcePoses.Num(); ++i)
+	{
+		BlendPosePerBone<ETransformBlendMode::Accumulate>(PerBoneIndices, BlendSampleDataCache[BlendSampleDataCacheIndices[i]], ResultPose, SourcePoses[i]);
+	}
+
+	// Ensure that all of the resulting rotations are normalized
+	ResultPose.NormalizeRotations();
+
+	if (SourceCurves.Num() > 0)
+	{
+		TArray<float, TInlineAllocator<16>> SourceWeights;
+		SourceWeights.AddUninitialized(BlendSampleDataCacheIndices.Num());
+		for (int32 CacheIndex = 0; CacheIndex < BlendSampleDataCacheIndices.Num(); ++CacheIndex)
+		{
+			SourceWeights[CacheIndex] = BlendSampleDataCache[BlendSampleDataCacheIndices[CacheIndex]].TotalWeight;
+		}
+
+		BlendCurves(SourceCurves, SourceWeights, ResultCurve);
+	}
+}
+
+void FAnimationRuntime::BlendPosesTogetherPerBoneInMeshSpace(TFixedSizeArrayView<FCompactPose>& SourcePoses, const TFixedSizeArrayView<FBlendedCurve>& SourceCurves, const UBlendSpaceBase* BlendSpace, const TFixedSizeArrayView<FBlendSampleData>& BlendSampleDataCache, FCompactPose& ResultPose, FBlendedCurve& ResultCurve)
 {
 	FQuat NewRotation;
 	USkeleton* Skeleton = BlendSpace->GetSkeleton();
@@ -1294,25 +1354,8 @@ static int32 FindVertexAnim(const TArray<FActiveVertexAnim>& ActiveAnims, UVerte
 	return INDEX_NONE;
 }
 
-TArray<FActiveVertexAnim> FAnimationRuntime::UpdateActiveVertexAnims(const USkeletalMesh* InSkeletalMesh, const TMap<FName, float>& MorphCurveAnims, const TArray<FActiveVertexAnim>& ActiveAnims)
+void FAnimationRuntime::AppendActiveVertexAnims(const USkeletalMesh* InSkeletalMesh, const TMap<FName, float>& MorphCurveAnims, TArray<FActiveVertexAnim>& InOutActiveAnims)
 {
-	TArray<struct FActiveVertexAnim> OutVertexAnims;
-
-	// First copy ActiveAnims
-	for(int32 AnimIdx=0; AnimIdx < ActiveAnims.Num(); AnimIdx++)
-	{
-		const FActiveVertexAnim& ActiveAnim = ActiveAnims[AnimIdx];
-		const float ActiveAnimAbsWeight = FMath::Abs(ActiveAnim.Weight);
-
-		// Check it has valid weight, and works on this SkeletalMesh
-		if (	ActiveAnimAbsWeight > MinVertexAnimBlendWeight &&
-			ActiveAnim.VertAnim != NULL &&
-			ActiveAnim.VertAnim->BaseSkelMesh == InSkeletalMesh)
-		{
-			OutVertexAnims.Add(ActiveAnim);
-		}
-		// @TODO Need to check for duplicates here?
-	}
 
 	// Then go over the CurveKeys finding morph targets by name
 	for(auto CurveIter=MorphCurveAnims.CreateConstIterator(); CurveIter; ++CurveIter)
@@ -1328,23 +1371,21 @@ TArray<FActiveVertexAnim> FAnimationRuntime::UpdateActiveVertexAnims(const USkel
 			if(Target != NULL)				
 			{
 				// See if this morph target already has an entry
-				int32 AnimIndex = FindVertexAnim(OutVertexAnims, Target);
+				int32 AnimIndex = FindVertexAnim(InOutActiveAnims, Target);
 				// If not, add it
 				if(AnimIndex == INDEX_NONE)
 				{
-					OutVertexAnims.Add(FActiveVertexAnim(Target, Weight));
+					InOutActiveAnims.Add(FActiveVertexAnim(Target, Weight));
 				}
 				// If it does, use the max weight
 				else
 				{
-					const float CurrentWeight = OutVertexAnims[AnimIndex].Weight;
-					OutVertexAnims[AnimIndex].Weight = FMath::Max<float>(CurrentWeight, Weight);
+					const float CurrentWeight = InOutActiveAnims[AnimIndex].Weight;
+					InOutActiveAnims[AnimIndex].Weight = FMath::Max<float>(CurrentWeight, Weight);
 				}
 			}
 		}
 	}
-
-	return OutVertexAnims;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////

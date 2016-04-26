@@ -154,10 +154,7 @@ PxVec3 PxcConvexTriangles::getPolygonNormal(PxU32 index) const
 	const PxVec3 v0 = t0 - t1;
 	const PxVec3 v1 = t0 - t2;
 	const PxVec3 nor = v0.cross(v1);
-	if (mVertex2ShapeSkew.flipsNormal())
-		return -nor.getNormalized();
-	else
-		return nor.getNormalized();
+	return nor.getNormalized();
 }
 
 typedef bool (*PxcTriangleSweepMethod) (TRIANGLE_SWEEP_METHOD_ARGS);

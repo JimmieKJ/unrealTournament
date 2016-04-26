@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
 #include "BlueprintNodeHelpers.h"
@@ -13,7 +13,7 @@ UBTService_BlueprintBase::UBTService_BlueprintBase(const FObjectInitializer& Obj
 	ReceiveSearchStartImplementations = FBTNodeBPImplementationHelper::CheckEventImplementationVersion(TEXT("ReceiveSearchStart"), TEXT("ReceiveSearchStartAI"), *this, *StopAtClass);
 
 	bNotifyBecomeRelevant = ReceiveActivationImplementations != 0;
-	bNotifyCeaseRelevant = bNotifyBecomeRelevant;
+	bNotifyCeaseRelevant = ReceiveDeactivationImplementations != 0;
 	bNotifyOnSearch = ReceiveSearchStartImplementations != 0;
 	bNotifyTick = ReceiveTickImplementations != 0;
 	bShowPropertyDetails = true;
@@ -58,11 +58,11 @@ void UBTService_BlueprintBase::OnCeaseRelevant(UBehaviorTreeComponent& OwnerComp
 		// we can't have those resuming activity when node is/was aborted
 		BlueprintNodeHelpers::AbortLatentActions(OwnerComp, *this);
 
-		if (AIOwner != nullptr && (ReceiveActivationImplementations & FBTNodeBPImplementationHelper::AISpecific))
+		if (AIOwner != nullptr && (ReceiveDeactivationImplementations & FBTNodeBPImplementationHelper::AISpecific))
 		{
 			ReceiveDeactivationAI(AIOwner, AIOwner->GetPawn());
 		}
-		else if (ReceiveActivationImplementations & FBTNodeBPImplementationHelper::Generic)
+		else if (ReceiveDeactivationImplementations & FBTNodeBPImplementationHelper::Generic)
 		{
 			ReceiveDeactivation(ActorOwner);
 		}

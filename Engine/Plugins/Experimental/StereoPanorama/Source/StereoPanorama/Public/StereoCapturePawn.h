@@ -6,13 +6,18 @@
 #include "LatentActions.h"
 #include "StereoCapturePawn.generated.h"
 
-class FStereoCaptureDoneAction : public FPendingLatentAction
+
+class FStereoCaptureDoneAction
+	: public FPendingLatentAction
 {
 public:
+
     FName ExecutionFunction;
     int32 OutputLink;
     FWeakObjectPtr CallbackTarget;
     bool IsStereoCaptureDone;
+
+public:
 
     FStereoCaptureDoneAction(const FLatentActionInfo& LatentInfo)
         : ExecutionFunction(LatentInfo.ExecutionFunction)
@@ -36,11 +41,13 @@ public:
 #endif
 };
 
+
 /**
  * 
  */
 UCLASS(config = Game, Blueprintable, BlueprintType)
-class AStereoCapturePawn : public ADefaultPawn
+class AStereoCapturePawn
+	: public ADefaultPawn
 {
     GENERATED_BODY()
 
@@ -59,6 +66,4 @@ public:
     FStereoCaptureDoneAction* StereoCaptureDoneAction;
 
     void CopyAtlasDataToTextures(const TArray<FColor>& LeftEyeAtlasData, const TArray<FColor>& RightEyeAtlasData);
-
-	
 };

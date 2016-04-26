@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	GenericMacTargetPlatform.h: Declares the TGenericMacTargetPlatform class template.
@@ -38,7 +38,10 @@ public:
 		
 			// Get the Target RHIs for this platform, we do not always want all those that are supported.
 			GConfig->GetArray(TEXT("/Script/MacTargetPlatform.MacTargetSettings"), TEXT("TargetedRHIs"), TargetedShaderFormats, GEngineIni);
-			
+		
+			// Get the cached shader formats for this platform, we do not always want all those that are supported.
+			GConfig->GetArray(TEXT("/Script/MacTargetPlatform.MacTargetSettings"), TEXT("CachedShaderFormats"), CachedShaderFormats, GEngineIni);
+		
 			// Gather the list of Target RHIs and filter out any that may be invalid.
 			TArray<FName> PossibleShaderFormats;
 			GetAllPossibleShaderFormats(PossibleShaderFormats);
@@ -49,6 +52,15 @@ public:
 				if(PossibleShaderFormats.Contains(FName(*ShaderFormat)) == false)
 				{
 					TargetedShaderFormats.RemoveAt(ShaderFormatIdx);
+				}
+			}
+		
+			for(int32 ShaderFormatIdx = CachedShaderFormats.Num()-1; ShaderFormatIdx >= 0; ShaderFormatIdx--)
+			{
+				FString ShaderFormat = CachedShaderFormats[ShaderFormatIdx];
+				if(PossibleShaderFormats.Contains(FName(*ShaderFormat)) == false)
+				{
+					CachedShaderFormats.RemoveAt(ShaderFormatIdx);
 				}
 			}
 		#endif
@@ -124,6 +136,8 @@ return TSuper::SupportsFeature(Feature);
 				OutFormats.AddUnique(NAME_SF_METAL_SM4);
 				static FName NAME_SF_METAL_SM5(TEXT("SF_METAL_SM5"));
 				OutFormats.AddUnique(NAME_SF_METAL_SM5);
+				static FName NAME_SF_METAL_MACES3_1(TEXT("SF_METAL_MACES3_1"));
+				OutFormats.AddUnique(NAME_SF_METAL_MACES3_1);
 			}
 #endif
 		}
@@ -136,7 +150,14 @@ return TSuper::SupportsFeature(Feature);
 			OutFormats.AddUnique(FName(*ShaderFormat));
 		}
 	}
-
+	
+	virtual void GetAllCachedShaderFormats( TArray<FName>& OutFormats ) const override
+	{
+		for(const FString& ShaderFormat : CachedShaderFormats)
+		{
+			OutFormats.AddUnique(FName(*ShaderFormat));
+		}
+	}
 
 	virtual const class FStaticMeshLODSettings& GetStaticMeshLODSettings( ) const override
 	{
@@ -168,6 +189,12 @@ return TSuper::SupportsFeature(Feature);
 	virtual FName GetWaveFormat( const class USoundWave* Wave ) const override
 	{
 		static FName NAME_OGG(TEXT("OGG"));
+		static FName NAME_OPUS(TEXT("OPUS"));
+
+		if (Wave->IsStreaming())
+		{
+			return NAME_OPUS;
+		}
 
 		return NAME_OGG;
 	}
@@ -244,6 +271,9 @@ private:
 	
 	// List of shader formats specified as targets
 	TArray<FString> TargetedShaderFormats;
+	
+	// List of shader formats specified to cache
+	TArray<FString> CachedShaderFormats;
 #endif // WITH_ENGINE
 
 private:

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AITestSuitePrivatePCH.h"
 #include "MockAI_BT.h"
@@ -534,6 +534,47 @@ struct FAITest_BTAbortDuringLatentAbort : public FAITest_SimpleBT
 	}
 };
 IMPLEMENT_AI_LATENT_TEST(FAITest_BTAbortDuringLatentAbort, "System.Engine.AI.Behavior Trees.Abort: during latent task abort")
+
+struct FAITest_BTAbortDuringInstantAbort : public FAITest_SimpleBT
+{
+	FAITest_BTAbortDuringInstantAbort()
+	{
+		UBTCompositeNode& CompNode = FBTBuilder::AddSelector(*BTAsset);
+		{
+			UBTCompositeNode& Comp1Node = FBTBuilder::AddSelector(CompNode);
+			{
+				FBTBuilder::WithDecoratorBlackboard(CompNode, EBasicKeyOperation::Set, EBTFlowAbortMode::LowerPriority, TEXT("Bool1"));
+
+				FBTBuilder::AddTask(Comp1Node, 1, EBTNodeResult::Succeeded);
+				{
+					FBTBuilder::WithDecoratorBlackboard(CompNode, EBasicKeyOperation::Set, EBTFlowAbortMode::None, TEXT("Bool3"));
+				}
+			}
+
+			UBTCompositeNode& Comp2Node = FBTBuilder::AddSelector(CompNode);
+			{
+				FBTBuilder::WithDecoratorBlackboard(CompNode, EBasicKeyOperation::NotSet, EBTFlowAbortMode::Self, TEXT("Bool1"));
+
+				FBTBuilder::AddTaskLatentFlags(Comp2Node, EBTNodeResult::Succeeded,
+					1, TEXT("Bool2"), 2, 3,
+					0, TEXT("Bool1"), 4, 5);
+				{
+					FBTBuilder::WithDecoratorBlackboard(Comp2Node, EBasicKeyOperation::NotSet, EBTFlowAbortMode::Self, TEXT("Bool2"));
+				}
+
+				FBTBuilder::AddTask(Comp2Node, 6, EBTNodeResult::Succeeded);
+			}
+
+			FBTBuilder::AddTask(CompNode, 7, EBTNodeResult::Succeeded);
+		}
+
+		ExpectedResult.Add(2);
+		ExpectedResult.Add(4);
+		ExpectedResult.Add(5);
+		ExpectedResult.Add(7);
+	}
+};
+IMPLEMENT_AI_LATENT_TEST(FAITest_BTAbortDuringInstantAbort, "System.Engine.AI.Behavior Trees.Abort: during instant task abort")
 
 struct FAITest_BTLowPriObserverInLoop : public FAITest_SimpleBT
 {

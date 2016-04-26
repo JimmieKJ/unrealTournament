@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DistanceFieldLightingPost.usf
@@ -240,6 +240,29 @@ float UseHistoryFilter;
 Texture2D VelocityTexture;
 SamplerState VelocityTextureSampler;
 
+float ComputeHistoryWeightBasedOnPosition(float2 ScreenPosition, float SceneDepth, float2 OldScreenPosition, float HistoryDepth)
+{
+	float3 WorldPosition;
+	float3 PrevWorldPosition;
+
+	{
+		float4 HomogeneousWorldPosition = mul(float4(ScreenPosition * SceneDepth, SceneDepth, 1), View.ScreenToWorld);
+		WorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
+
+		float4 PrevPositionTranslatedWorld = mul(float4(OldScreenPosition * HistoryDepth, HistoryDepth, 1), View.PrevScreenToTranslatedWorld);
+		PrevPositionTranslatedWorld.xyz /= PrevPositionTranslatedWorld.w;	
+		PrevWorldPosition = PrevPositionTranslatedWorld.xyz - View.PrevPreViewTranslation;
+	}
+
+	float DistanceToHistoryValue = length(PrevWorldPosition - WorldPosition);
+	float RelativeHistoryDistanceThreshold = HistoryDistanceThreshold / 1000.0f;
+
+	return DistanceToHistoryValue / SceneDepth > RelativeHistoryDistanceThreshold ? 0.0f : 1.0f;
+}
+
+// Doesn't work yet
+#define HIGH_QUALITY_HISTORY_REJECTION 0
+
 /** Reproject the occlusion history. */
 void UpdateHistoryPS(
 	in float4 UVAndScreenPos : TEXCOORD0
@@ -250,9 +273,10 @@ void UpdateHistoryPS(
 	)
 {
 	// Distance field AO was computed at 0,0 regardless of viewrect min
-	float2 DistanceFieldUVs = UVAndScreenPos.xy - View.ViewRectMin.xy * View.BufferSizeAndInvSize.zw;
+	float2 DistanceFieldUVs = UVAndScreenPos.xy - Frame.ViewRectMin.xy * Frame.BufferSizeAndInvSize.zw;
 	float4 NewValue = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, DistanceFieldUVs, 0);
 	float SceneDepth = abs(NewValue.w);
+	float OutputDepthSign = 1.0f;
 
 	float2 OldUV;
 
@@ -269,7 +293,7 @@ void UpdateHistoryPS(
 
 		// Note: have to sample from one of the high res texels exactly to avoid filtering of the velocity buffer
 		// 0 is stored where camera velocity should be used, which must not be filtered with valid object velocities
-		float2 FullResTexel = UVAndScreenPos.xy - .5f * View.BufferSizeAndInvSize.zw;
+		float2 FullResTexel = UVAndScreenPos.xy - .5f * Frame.BufferSizeAndInvSize.zw;
 		float2 VelocityN = Texture2DSampleLevel(VelocityTexture, VelocityTextureSampler, FullResTexel, 0).xy;
 
 		if (VelocityN.x > 0)
@@ -282,43 +306,89 @@ void UpdateHistoryPS(
 	}
 	
 	float2 OldScreenPosition = (OldUV.xy - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy;
+	float2 OldDistanceFieldUVs = OldUV.xy - Frame.ViewRectMin.xy * Frame.BufferSizeAndInvSize.zw;
 
-	float2 OldDistanceFieldUVs = OldUV.xy - View.ViewRectMin.xy * View.BufferSizeAndInvSize.zw;
-	float4 HistoryValue = Texture2DSampleLevel(BentNormalHistoryTexture, BentNormalHistorySampler, OldDistanceFieldUVs, 0);
-	
-	float2 MinUV = View.ViewRectMin.xy * View.BufferSizeAndInvSize.zw;
+	float2 MinUV = Frame.ViewRectMin.xy * Frame.BufferSizeAndInvSize.zw;
 	// Pull in the max UV to exclude the region which will read outside the viewport due to bilinear filtering
-	float2 MaxUV = MinUV + (View.ViewSizeAndInvSize.xy - 1 * DOWNSAMPLE_FACTOR) * View.BufferSizeAndInvSize.zw;
-
-	float3 WorldPosition;
-	float3 PrevWorldPosition;
-
-	{
-		float4 HomogeneousWorldPosition = mul(float4(UVAndScreenPos.zw * SceneDepth, SceneDepth, 1), View.ScreenToWorld);
-		WorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
-
-		float HistoryDepth = abs(HistoryValue.w);
-		float4 PrevPositionTranslatedWorld = mul(float4(OldScreenPosition * HistoryDepth, HistoryDepth, 1), View.PrevScreenToTranslatedWorld);
-		PrevPositionTranslatedWorld.xyz /= PrevPositionTranslatedWorld.w;	
-		PrevWorldPosition = PrevPositionTranslatedWorld.xyz - View.PrevPreViewTranslation;
-	}
+	float2 MaxUV = MinUV + (Frame.ViewSizeAndInvSize.xy - 1 * DOWNSAMPLE_FACTOR) * Frame.BufferSizeAndInvSize.zw;
 
 	float EffectiveHistoryWeight = HistoryWeight;
-	float RelativeHistoryDistanceThreshold = HistoryDistanceThreshold / 1000.0f;
-	float DistanceToHistoryValue = length(PrevWorldPosition - WorldPosition);
 
 	FLATTEN
-	if (any(OldUV > MaxUV) 
-		|| any(OldUV < MinUV)
-		// Discard history if we are shading a new position (newly revealed)
-		//@todo - this test needs to be done on the surrounding 4 texels of the history with manual filtering to avoid foreground leaking into the background
-		//|| DistanceToHistoryValue > HistoryDistanceThreshold)
-		|| DistanceToHistoryValue / SceneDepth > RelativeHistoryDistanceThreshold)
+	if (any(OldUV > MaxUV) || any(OldUV < MinUV))
 	{
 		EffectiveHistoryWeight = 0;
 	}
 
+#define MANUAL_HISTORY_RESAMPLE HIGH_QUALITY_HISTORY_REJECTION
+#if MANUAL_HISTORY_RESAMPLE
+
+		float3 Unused;
+		float Unused2;
+		//@todo - pack into BentNormalAOTexture
+		bool bHasDistanceFieldRepresentation;
+		bool bUnused;
+		GetDownsampledGBuffer(DistanceFieldUVs, Unused, Unused2, bHasDistanceFieldRepresentation, bUnused);
+
+		OutputDepthSign = bHasDistanceFieldRepresentation ? 1.0f : -1.0f;
+
+		float2 HistoryTexelSize = Frame.BufferSizeAndInvSize.zw * DOWNSAMPLE_FACTOR;
+		float2 OldDistanceFieldUVsCorner00 = HistoryTexelSize * (floor(OldDistanceFieldUVs / HistoryTexelSize) + .5f);
+		float2 OldDistanceFieldUVsCorner01 = OldDistanceFieldUVsCorner00 + float2(0, HistoryTexelSize.y);
+		float2 OldDistanceFieldUVsCorner11 = OldDistanceFieldUVsCorner00 + HistoryTexelSize;
+		float2 OldDistanceFieldUVsCorner10 = OldDistanceFieldUVsCorner00 + float2(HistoryTexelSize.x, 0);
+
+		float4 Corner00Value = Texture2DSampleLevel(BentNormalHistoryTexture, BentNormalHistorySampler, OldDistanceFieldUVsCorner00, 0);
+		float4 Corner01Value = Texture2DSampleLevel(BentNormalHistoryTexture, BentNormalHistorySampler, OldDistanceFieldUVsCorner01, 0);
+		float4 Corner11Value = Texture2DSampleLevel(BentNormalHistoryTexture, BentNormalHistorySampler, OldDistanceFieldUVsCorner11, 0);
+		float4 Corner10Value = Texture2DSampleLevel(BentNormalHistoryTexture, BentNormalHistorySampler, OldDistanceFieldUVsCorner10, 0);
+
+		float2 LerpWeights = OldDistanceFieldUVs - OldDistanceFieldUVsCorner00;
+
+	#define COMPUTE_SEPARATE_POSITION_WEIGHTS 1
+	#if COMPUTE_SEPARATE_POSITION_WEIGHTS
+		float PositionWeight00 = ComputeHistoryWeightBasedOnPosition(UVAndScreenPos.zw, SceneDepth, OldScreenPosition, abs(Corner00Value.w));
+		float PositionWeight01 = ComputeHistoryWeightBasedOnPosition(UVAndScreenPos.zw, SceneDepth, OldScreenPosition, abs(Corner01Value.w));
+		float PositionWeight11 = ComputeHistoryWeightBasedOnPosition(UVAndScreenPos.zw, SceneDepth, OldScreenPosition, abs(Corner11Value.w));
+		float PositionWeight10 = ComputeHistoryWeightBasedOnPosition(UVAndScreenPos.zw, SceneDepth, OldScreenPosition, abs(Corner10Value.w));
+	
+		float ClassificationWeight00 = (Corner00Value.w > 0 == bHasDistanceFieldRepresentation) ? PositionWeight00 : 0.0f;
+		float ClassificationWeight01 = (Corner01Value.w > 0 == bHasDistanceFieldRepresentation) ? PositionWeight01 : 0.0f;
+		float ClassificationWeight11 = (Corner11Value.w > 0 == bHasDistanceFieldRepresentation) ? PositionWeight11 : 0.0f;
+		float ClassificationWeight10 = (Corner10Value.w > 0 == bHasDistanceFieldRepresentation) ? PositionWeight10 : 0.0f;
+
+		float FinalWeight00 = (1 - LerpWeights.y) * (1 - LerpWeights.x) * ClassificationWeight00;
+		float FinalWeight01 = (LerpWeights.y) * (1 - LerpWeights.x) * ClassificationWeight01;
+		float FinalWeight11 = (LerpWeights.y) * (LerpWeights.x) * ClassificationWeight11;
+		float FinalWeight10 = (1 - LerpWeights.y) * (LerpWeights.x) * ClassificationWeight10;
+		float TotalWeight = FinalWeight00 + FinalWeight01 + FinalWeight11 + FinalWeight10;
+
+		float3 HistoryValue = (Corner00Value.xyz * FinalWeight00
+			+ Corner01Value.xyz * FinalWeight01
+			+ Corner11Value.xyz * FinalWeight11
+			+ Corner10Value.xyz * FinalWeight10) / max(TotalWeight, .00001f);
+
+		EffectiveHistoryWeight *= TotalWeight > 0 ? 1.0f : 0.0f;
+
+	#else
+		// Filter encoded depth path, for testing
+		float4 VerticalLerp0 = lerp(Corner00Value, Corner01Value, LerpWeights.y);
+		float4 VerticalLerp1 = lerp(Corner10Value, Corner11Value, LerpWeights.y);
+		float4 HistoryValue = lerp(VerticalLerp0, VerticalLerp1, LerpWeights.x);
+		float PositionWeight = ComputeHistoryWeightBasedOnPosition(UVAndScreenPos.zw, SceneDepth, OldScreenPosition, abs(HistoryValue.w));
+		EffectiveHistoryWeight *= PositionWeight;
+	#endif
+
 	OutBentNormal.rgb = lerp(NewValue.rgb, HistoryValue.rgb, EffectiveHistoryWeight);
+
+#else
+	// Fast path that uses hardware interpolation
+	// This fails to reject based on depth consistently because the depth has been filtered
+	float4 HistoryValue = Texture2DSampleLevel(BentNormalHistoryTexture, BentNormalHistorySampler, OldDistanceFieldUVs, 0);
+	float PositionWeight = ComputeHistoryWeightBasedOnPosition(UVAndScreenPos.zw, SceneDepth, OldScreenPosition, abs(HistoryValue.w));
+	EffectiveHistoryWeight *= PositionWeight;
+	OutBentNormal.rgb = lerp(NewValue.rgb, HistoryValue.rgb, EffectiveHistoryWeight);
+#endif
 
 #if SUPPORT_IRRADIANCE
 	float3 NewIrradiance = Texture2DSampleLevel(IrradianceTexture, IrradianceSampler, DistanceFieldUVs, 0).xyz;
@@ -335,6 +405,10 @@ void UpdateHistoryPS(
 	{
 		// Sign bit of alpha stores whether the history was rejected or not, to be read by the history filter pass
 		OutBentNormal.a *= EffectiveHistoryWeight > 0 ? 1 : -1;
+	}
+	else
+	{
+		OutBentNormal.a *= OutputDepthSign;
 	}
 }
 
@@ -410,27 +484,51 @@ void FilterHistoryPS(
 	// Remove sign bit so future reprojection interpolation isn't affected
 	OutBentNormal.w = abs(OutBentNormal.w);
 
+#if HIGH_QUALITY_HISTORY_REJECTION
+	float3 Unused;
+	float Unused2;
+	//@todo - pack into BentNormalAOTexture
+	bool bHasDistanceFieldRepresentation;
+	bool bUnused;
+	GetDownsampledGBuffer(UVAndScreenPos.xy, Unused, Unused2, bHasDistanceFieldRepresentation, bUnused);
+	// Store whether the pixel has a distance field representation for next frame
+	// This can only be supported with manual history filtering
+	OutBentNormal.w *= bHasDistanceFieldRepresentation ? 1.0f : -1.0f;
+
+#endif
+
 #if SUPPORT_IRRADIANCE
 	OutIrradiance = float4(IrradianceValue, 0);
 #endif
 }
 
+#if MODULATE_SCENE_COLOR
+#define IRRADIANCE_TARGET SV_Target2
+#else
+#define IRRADIANCE_TARGET SV_Target1
+#endif
+
+float MinIndirectDiffuseOcclusion;
+
 /** Upsamples the AO results to full resolution using a bilateral filter. */
 void AOUpsamplePS(
 	in float4 UVAndScreenPos : TEXCOORD0
 	, out float4 OutBentNormal : SV_Target0
+#if MODULATE_SCENE_COLOR
+	, out float4 OutSceneColorModulate : SV_Target1
+#endif
 #if OUTPUT_BENT_NORMAL && SUPPORT_IRRADIANCE
-	, out float4 OutIrradiance : SV_Target1
+	, out float4 OutIrradiance : IRRADIANCE_TARGET
 #endif
 	)
 {
 	// Distance field AO was computed at 0,0 regardless of viewrect min
-	float2 DistanceFieldUVs = UVAndScreenPos.xy - View.ViewRectMin.xy * View.BufferSizeAndInvSize.zw;
+	float2 DistanceFieldUVs = UVAndScreenPos.xy - Frame.ViewRectMin.xy * Frame.BufferSizeAndInvSize.zw;
 	float3 Irradiance = 0;
 
 #define BILATERAL_UPSAMPLE 1
 #if BILATERAL_UPSAMPLE
-	float2 LowResBufferSize = floor(View.RenderTargetSize / DOWNSAMPLE_FACTOR);
+	float2 LowResBufferSize = floor(Frame.RenderTargetSize / DOWNSAMPLE_FACTOR);
 	float2 LowResTexelSize = 1.0f / LowResBufferSize;
 	float2 Corner00UV = floor(DistanceFieldUVs * LowResBufferSize - .5f) / LowResBufferSize + .5f * LowResTexelSize;
 	float2 BilinearWeights = (DistanceFieldUVs - Corner00UV) * LowResBufferSize;
@@ -484,6 +582,11 @@ void AOUpsamplePS(
 	#if SUPPORT_IRRADIANCE
 		Irradiance = Texture2DSampleLevel(IrradianceTexture, IrradianceSampler, DistanceFieldUVs, 0).xyz;
 	#endif
+#endif
+
+#if MODULATE_SCENE_COLOR
+	float Visibility = lerp(length(BentNormal), 1, MinIndirectDiffuseOcclusion);
+	OutSceneColorModulate = Visibility;
 #endif
 
 #if OUTPUT_AO

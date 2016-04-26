@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -48,6 +48,9 @@ struct ENGINE_API FMaterialRelevance
 	uint32 bSeparateTranslucency : 1;
 
 	UPROPERTY()
+	uint32 bMobileSeparateTranslucency : 1;
+
+	UPROPERTY()
 	uint32 bNormalTranslucency : 1;
 
 	UPROPERTY()
@@ -68,6 +71,7 @@ struct ENGINE_API FMaterialRelevance
 		, bMasked(false)
 		, bDistortion(false)
 		, bSeparateTranslucency(false)
+		, bMobileSeparateTranslucency(false)
 		, bNormalTranslucency(false)
 		, bDisableDepthTest(false)		
 		, bOutputsVelocityInBasePass(true)
@@ -82,6 +86,7 @@ struct ENGINE_API FMaterialRelevance
 		bMasked |= B.bMasked;
 		bDistortion |= B.bDistortion;
 		bSeparateTranslucency |= B.bSeparateTranslucency;
+		bMobileSeparateTranslucency |= B.bMobileSeparateTranslucency;
 		bNormalTranslucency |= B.bNormalTranslucency;
 		bDisableDepthTest |= B.bDisableDepthTest;
 		ShadingModelMask |= B.ShadingModelMask;
@@ -344,6 +349,15 @@ public:
 	ENGINE_API FMaterialRelevance GetRelevance(ERHIFeatureLevel::Type InFeatureLevel) const;
 	/** @return The material's relevance, from concurrent render thread updates. */
 	ENGINE_API FMaterialRelevance GetRelevance_Concurrent(ERHIFeatureLevel::Type InFeatureLevel) const;
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	/**
+	 * Output to the log which materials and textures are used by this material.
+	 * @param Indent	Number of tabs to put before the log.
+	 */
+	ENGINE_API virtual void LogMaterialsAndTextures(FOutputDevice& Ar, int32 Indent) const {}
+#endif
+
 private:
 	// might get called from game or render thread
 	FMaterialRelevance GetRelevance_Internal(const UMaterial* Material, ERHIFeatureLevel::Type InFeatureLevel) const;
@@ -480,6 +494,7 @@ public:
 		LightmassSettings.ExportResolutionScale = InExportResolutionScale;
 	}
 
+#if WITH_EDITOR
 	/**
 	 *	Get all of the textures in the expression chain for the given property (ie fill in the given array with all textures in the chain).
 	 *
@@ -492,6 +507,7 @@ public:
 	 */
 	virtual bool GetTexturesInPropertyChain(EMaterialProperty InProperty, TArray<UTexture*>& OutTextures,  TArray<FName>* OutTextureParamNames, class FStaticParameterSet* InStaticParameterSet)
 		PURE_VIRTUAL(UMaterialInterface::GetTexturesInPropertyChain,return false;);
+#endif
 
 	ENGINE_API virtual bool GetParameterDesc(FName ParameterName, FString& OutDesc) const;
 	ENGINE_API virtual bool GetFontParameterValue(FName ParameterName,class UFont*& OutFontValue, int32& OutFontPage) const;
@@ -509,12 +525,12 @@ public:
 	/**
 		Access to overridable properties of the base material.
 	*/
-	ENGINE_API virtual float GetOpacityMaskClipValue(bool bIsGameThread = IsInGameThread()) const;
-	ENGINE_API virtual EBlendMode GetBlendMode(bool bIsGameThread = IsInGameThread()) const;
-	ENGINE_API virtual EMaterialShadingModel GetShadingModel(bool bIsGameThread = IsInGameThread()) const;
-	ENGINE_API virtual bool IsTwoSided(bool bIsGameThread = IsInGameThread()) const;
-	ENGINE_API virtual bool IsDitheredLODTransition(bool bIsGameThread = IsInGameThread()) const;
-	ENGINE_API virtual bool IsMasked(bool bIsGameThread = IsInGameThread()) const;
+	ENGINE_API virtual float GetOpacityMaskClipValue() const;
+	ENGINE_API virtual EBlendMode GetBlendMode() const;
+	ENGINE_API virtual EMaterialShadingModel GetShadingModel() const;
+	ENGINE_API virtual bool IsTwoSided() const;
+	ENGINE_API virtual bool IsDitheredLODTransition() const;
+	ENGINE_API virtual bool IsMasked() const;
 
 	ENGINE_API virtual USubsurfaceProfile* GetSubsurfaceProfile_Internal() const;
 
@@ -560,11 +576,13 @@ public:
 	/** Checks to see if an input property should be active, based on the state of the material */
 	ENGINE_API virtual bool IsPropertyActive(EMaterialProperty InProperty) const;
 
+#if WITH_EDITOR
 	/** Compiles a material property. */
 	ENGINE_API int32 CompileProperty(FMaterialCompiler* Compiler, EMaterialProperty Property);
 
 	/** Allows material properties to be compiled with the option of being overridden by the material attributes input. */
 	ENGINE_API virtual int32 CompilePropertyEx( class FMaterialCompiler* Compiler, EMaterialProperty Property );
+#endif // WITH_EDITOR
 
 	/** Get bitfield indicating which feature levels should be compiled by default */
 	ENGINE_API static uint32 GetFeatureLevelsToCompileForAllMaterials() { return FeatureLevelsForAllMaterials | (1 << GMaxRHIFeatureLevel); }

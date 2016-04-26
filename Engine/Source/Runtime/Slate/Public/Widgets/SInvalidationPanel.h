@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -19,7 +19,12 @@ public:
 	void Construct( const FArguments& InArgs );
 	~SInvalidationPanel();
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	bool GetCanCache() const;
+#else
+	FORCEINLINE bool GetCanCache() const { return bCanCache; }
+#endif
+
 	void SetCanCache(bool InCanCache);
 
 	FORCEINLINE void InvalidateCache() { bNeedsCaching = true; }
@@ -59,6 +64,13 @@ public:
 private:
 	TSharedPtr< FSlateWindowElementList > GetNextCachedElementList(const TSharedPtr<SWindow>& CurrentWindow) const;
 	void OnGlobalInvalidate();
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	bool IsCachingNeeded() const;
+#else
+	FORCEINLINE bool IsCachingNeeded() const { return bNeedsCaching; }
+#endif
+
 private:
 	FGeometry LastAllottedGeometry;
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 
@@ -39,6 +39,9 @@
 #include "IMovieSceneCapture.h"
 #include "EngineUtils.h"
 
+#include "TargetPlatform.h"
+
+#include "CookerSettings.h"
 DEFINE_LOG_CATEGORY_STATIC(LogUnrealEdEngine, Log, All);
 
 
@@ -108,7 +111,7 @@ void UUnrealEdEngine::Init(IEngineLoop* InEngineLoop)
 		SpriteIDToIndexMap.Add( SpriteInfo.Category, InfoIndex );
 	}
 
-	if (FPaths::IsProjectFilePathSet())
+	if (FPaths::IsProjectFilePathSet() && GIsEditor)
 	{
 		AutoReimportManager = NewObject<UAutoReimportManager>();
 		AutoReimportManager->Initialize();
@@ -130,12 +133,16 @@ void UUnrealEdEngine::Init(IEngineLoop* InEngineLoop)
 	if (!IsRunningCommandlet())
 	{
 		UEditorExperimentalSettings const* ExperimentalSettings = GetDefault<UEditorExperimentalSettings>();
+		UCookerSettings const* CookerSettings = GetDefault<UCookerSettings>();
 		ECookInitializationFlags BaseCookingFlags = ECookInitializationFlags::AutoTick | ECookInitializationFlags::AsyncSave | ECookInitializationFlags::Compressed;
-		BaseCookingFlags |= ExperimentalSettings->bIterativeCookingForLaunchOn ? ECookInitializationFlags::Iterative : ECookInitializationFlags::None;
+		BaseCookingFlags |= CookerSettings->bIterativeCookingForLaunchOn ? ECookInitializationFlags::Iterative : ECookInitializationFlags::None;
 
 		bool bEnableCookOnTheSide = false;
 		GConfig->GetBool(TEXT("/Script/UnrealEd.CookerSettings"), TEXT("bEnableCookOnTheSide"), bEnableCookOnTheSide, GEngineIni);
 
+		bool bEnableBuildDDCInBackground = false;
+		GConfig->GetBool(TEXT("/Script/UnrealEd.CookerSettings"), TEXT("bEnableBuildDDCInBackground"), bEnableBuildDDCInBackground, GEngineIni);
+		BaseCookingFlags |= bEnableBuildDDCInBackground ? ECookInitializationFlags::BuildDDCInBackground : ECookInitializationFlags::None;
 		if (bEnableCookOnTheSide)
 		{
 			CookServer = NewObject<UCookOnTheFlyServer>();
@@ -189,6 +196,7 @@ bool UUnrealEdEngine::CanCookByTheBookInEditor(const FString& PlatformName) cons
 { 	
 	if ( CanCookForPlatformInThisProcess(PlatformName) == false )
 	{
+		CookServer->ClearAllCookedData();
 		return false;
 	}
 
@@ -203,6 +211,7 @@ bool UUnrealEdEngine::CanCookOnTheFlyInEditor(const FString& PlatformName) const
 {
 	if ( CanCookForPlatformInThisProcess(PlatformName) == false )
 	{
+		CookServer->ClearAllCookedData();
 		return false;
 	}
 
@@ -399,6 +408,29 @@ void UUnrealEdEngine::Tick(float DeltaSeconds, bool bIdleMode)
 	// Update lightmass
 	UpdateBuildLighting();
 	
+	if (!GIsSlowTask && !bFirstTick)
+	{
+		if (CookServer && 
+			CookServer->IsCookByTheBookMode() && 
+			!CookServer->IsCookByTheBookRunning() )
+		{
+			TArray<const ITargetPlatform*> CacheTargetPlatforms;
+
+			const ULevelEditorPlaySettings* PlaySettings = GetDefault<ULevelEditorPlaySettings>();
+			ITargetPlatform* TargetPlatform = nullptr;
+			if (PlaySettings && (PlaySettings->LastExecutedLaunchModeType == LaunchMode_OnDevice))
+			{
+				FString DeviceName = PlaySettings->LastExecutedLaunchDevice.Left(PlaySettings->LastExecutedLaunchDevice.Find(TEXT("@")));
+				CacheTargetPlatforms.Add( GetTargetPlatformManager()->FindTargetPlatform(DeviceName) );
+			}
+
+			if (CacheTargetPlatforms.Num() > 0)
+			{
+				CookServer->EditorTick(0.001f, CacheTargetPlatforms);
+			}
+		}
+	}
+
 	ICrashTrackerModule* CrashTracker = FModuleManager::LoadModulePtr<ICrashTrackerModule>( FName("CrashTracker") );
 	bool bCrashTrackerEnabled = false;
 	if (CrashTracker)
@@ -525,8 +557,9 @@ void UUnrealEdEngine::OnSourceControlStateUpdated(const FSourceControlOperationR
 			}
 			else
 			{
+				bool bIsCooking = CookServer && CookServer->IsCookingInEditor() && CookServer->IsCookByTheBookRunning();
 				// Note when cooking in the editor we ignore package notifications.  The cooker is saving packages in a temp location which generates bogus checkout messages otherwise.
-				if ((SourceControlState->CanCheckout() || !SourceControlState->IsCurrent() || SourceControlState->IsCheckedOutOther()) && (!CookServer || !CookServer->IsCookingInEditor() ) )
+				if ((SourceControlState->CanCheckout() || !SourceControlState->IsCurrent() || SourceControlState->IsCheckedOutOther()) && !bIsCooking )
 				{
 					// To get here, either "prompt for checkout on asset modification" is set, or "automatically checkout on asset modification"
 					// is set, but it failed.

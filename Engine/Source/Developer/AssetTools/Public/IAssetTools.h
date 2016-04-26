@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -106,8 +106,14 @@ public:
 	 */
 	virtual UObject* CreateAsset(const FString& AssetName, const FString& PackagePath, UClass* AssetClass, UFactory* Factory, FName CallingContext = NAME_None) = 0;
 
+	/** Opens an asset picker dialog and creates an asset with the specified name and path */
+	virtual UObject* CreateAssetWithDialog(const FString& AssetName, const FString& PackagePath, UClass* AssetClass, UFactory* Factory, FName CallingContext = NAME_None) = 0;
+
 	/** Opens an asset picker dialog and creates an asset with the chosen path */
 	virtual UObject* CreateAsset(UClass* AssetClass, UFactory* Factory, FName CallingContext = NAME_None) = 0;
+
+	/** Opens an asset picker dialog and creates an asset with the specified name and path. Uses OriginalObject as the duplication source. */
+	virtual UObject* DuplicateAssetWithDialog(const FString& AssetName, const FString& PackagePath, UObject* OriginalObject) = 0;
 
 	/** Creates an asset with the specified name and path. Uses OriginalObject as the duplication source. */
 	virtual UObject* DuplicateAsset(const FString& AssetName, const FString& PackagePath, UObject* OriginalObject) = 0;
@@ -168,4 +174,7 @@ public:
 
 	/** Fix up references to the specified redirectors */
 	virtual void FixupReferencers(const TArray<UObjectRedirector*>& Objects) const = 0;
+
+	/** Expands any folders found in the files list, and returns a flattened list of destination paths and files.  Mirrors directory structure. */
+	virtual void ExpandDirectories(const TArray<FString>& Files, const FString& DestinationPath, TArray<TPair<FString, FString>>& FilesAndDestinations) const = 0;
 };

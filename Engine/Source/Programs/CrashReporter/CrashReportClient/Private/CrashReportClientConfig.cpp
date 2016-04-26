@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CrashReportClientApp.h"
 
@@ -18,6 +18,14 @@ FCrashReportClientConfig::FCrashReportClientConfig()
 		// Use the default value.
 		CrashReportReceiverIP = TEXT( "http://crashreporter.epicgames.com:57005" );
 	}
+	UE_LOG(CrashReportClientLog, Log, TEXT("CrashReportReceiverIP: %s"), *CrashReportReceiverIP);
+
+	if (!GConfig->GetString(*SectionName, TEXT("DataRouterUrl"), DataRouterUrl, GEngineIni))
+	{
+		// Use the default value.
+		DataRouterUrl = TEXT("");
+	}
+	UE_LOG(CrashReportClientLog, Log, TEXT("DataRouterUrl: %s"), *DataRouterUrl);
 
 	if (!GConfig->GetBool( TEXT( "CrashReportClient" ), TEXT( "bAllowToBeContacted" ), bAllowToBeContacted, GEngineIni ))
 	{
@@ -43,9 +51,13 @@ FCrashReportClientConfig::FCrashReportClientConfig()
 		bHideLogFilesOption = false;
 	}
 	
-	ReadFullCrashDumpConfigurations();
+	if (!GConfig->GetBool(TEXT("CrashReportClient"), TEXT("bIsAllowedToCloseWithoutSending"), bIsAllowedToCloseWithoutSending, GEngineIni))
+	{
+		// Default to true (Allow the user to close without sending) when config is missing.
+		bIsAllowedToCloseWithoutSending = true;
+	}
 
-	UE_LOG( CrashReportClientLog, Log, TEXT( "CrashReportReceiverIP: %s" ), *CrashReportReceiverIP );
+	ReadFullCrashDumpConfigurations();
 }
 
 void FCrashReportClientConfig::SetAllowToBeContacted( bool bNewValue )
@@ -65,11 +77,12 @@ const FString FCrashReportClientConfig::GetFullCrashDumpLocationForBranch( const
 	for (const auto& It : FullCrashDumpConfigurations)
 	{
 		const bool bExactMatch = It.bExactMatch;
-		if (bExactMatch && BranchName == It.BranchName)
+		const FString IterBranch = It.BranchName.Replace(TEXT("+"), TEXT("/"));
+		if (bExactMatch && BranchName == IterBranch)
 		{
 			return It.Location;
 		}
-		else if (!bExactMatch && BranchName.Contains( It.BranchName ))
+		else if (!bExactMatch && BranchName.Contains(IterBranch))
 		{
 			return It.Location;
 		}

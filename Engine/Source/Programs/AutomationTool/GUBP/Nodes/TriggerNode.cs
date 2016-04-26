@@ -1,4 +1,6 @@
-﻿using System;
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -6,16 +8,16 @@ using System.Text;
 
 namespace AutomationTool
 {
-	public class TriggerNodeTemplate : LegacyNodeTemplate
+	public class TriggerNodeDefinition : LegacyNodeDefinition
 	{
 		public new GUBP.WaitForUserInput Node;
 
-		public TriggerNodeTemplate(GUBP InOwner, GUBP.WaitForUserInput InNode) : base(InOwner, InNode)
+		public TriggerNodeDefinition(GUBP InOwner, GUBP.WaitForUserInput InNode) : base(InOwner, InNode)
 		{
 			Node = InNode;
 		}
 
-		public override BuildNode Instantiate()
+		public override BuildNode CreateNode()
 		{
 			return new TriggerNode(this);
 		}
@@ -29,14 +31,14 @@ namespace AutomationTool
 		public string DescriptionText;
 		public string ActionText;
 
-		public TriggerNode(TriggerNodeTemplate Template) : base(Template)
+		public TriggerNode(TriggerNodeDefinition Definition) : base(Definition)
 		{
 			AddSubmittersToFailureEmails = false;
 
-			StateName = Template.Node.GetTriggerStateName();
-			DescriptionText = Template.Node.GetTriggerDescText();
-			ActionText = Template.Node.GetTriggerActionText();
-			RequiresRecursiveWorkflow = Template.Node.TriggerRequiresRecursiveWorkflow();
+			StateName = Definition.Node.GetTriggerStateName();
+			DescriptionText = Definition.Node.GetTriggerDescText();
+			ActionText = Definition.Node.GetTriggerActionText();
+			RequiresRecursiveWorkflow = Definition.Node.TriggerRequiresRecursiveWorkflow();
 		}
 
 		public void Activate()

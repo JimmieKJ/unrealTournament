@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.IO;
@@ -38,6 +38,17 @@ public class Launch : ModuleRules
 				"Sockets",
 			}
 		);
+
+		// Enable the LauncherCheck module to be used for platforms that support the Launcher.
+        // Projects should set UEBuildConfiguration.bUseLauncherChecks in their Target.cs to enable the functionality.
+        if (UEBuildConfiguration.bUseLauncherChecks &&
+            ((Target.Platform == UnrealTargetPlatform.Win32) ||
+			(Target.Platform == UnrealTargetPlatform.Win64) ||
+			(Target.Platform == UnrealTargetPlatform.Mac)))
+		{
+            PrivateDependencyModuleNames.Add("LauncherCheck");
+            Definitions.Add("WITH_LAUNCHERCHECK=1");
+		}
 
 		if (Target.Type != TargetRules.TargetType.Server)
 		{
@@ -161,10 +172,11 @@ public class Launch : ModuleRules
 			}
 		}
 
-		if (Target.Platform == UnrealTargetPlatform.IOS)
+		if (Target.Platform == UnrealTargetPlatform.IOS ||
+			Target.Platform == UnrealTargetPlatform.TVOS)
 		{
 			PrivateDependencyModuleNames.Add("OpenGLDrv");
-			DynamicallyLoadedModuleNames.Add("IOSAudio");
+			PrivateDependencyModuleNames.Add("IOSAudio");
 			DynamicallyLoadedModuleNames.Add("IOSRuntimeSettings");
 			PublicFrameworks.Add("OpenGLES");
 			// this is weak for IOS8 support for CAMetalLayer that is in QuartzCore
@@ -197,7 +209,7 @@ public class Launch : ModuleRules
                 PrivateDependencyModuleNames.Add("HTML5Win32");
                 PublicIncludePathModuleNames.Add("HTML5Win32");
 			}
-            AddThirdPartyPrivateStaticDependencies(Target, "SDL2");
+            AddEngineThirdPartyPrivateStaticDependencies(Target, "SDL2");
         }
 
 		// @todo ps4 clang bug: this works around a PS4/clang compiler bug (optimizations)

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneTracksPrivatePCH.h"
 #include "MovieSceneFloatTrack.h"
@@ -13,10 +13,12 @@ FMovieSceneFloatTrackInstance::FMovieSceneFloatTrackInstance( UMovieSceneFloatTr
 }
 
 
-void FMovieSceneFloatTrackInstance::SaveState(const TArray<UObject*>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
+void FMovieSceneFloatTrackInstance::SaveState(const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
 {
-	for( UObject* Object : RuntimeObjects )
+	for (auto ObjectPtr : RuntimeObjects)
 	{
+		UObject* Object = ObjectPtr.Get();
+
 		if (InitFloatMap.Find(Object) == nullptr)
 		{
 			float FloatValue = PropertyBindings->GetCurrentValue<float>(Object);
@@ -26,10 +28,12 @@ void FMovieSceneFloatTrackInstance::SaveState(const TArray<UObject*>& RuntimeObj
 }
 
 
-void FMovieSceneFloatTrackInstance::RestoreState(const TArray<UObject*>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
+void FMovieSceneFloatTrackInstance::RestoreState(const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
 {
-	for( UObject* Object : RuntimeObjects )
+	for (auto ObjectPtr : RuntimeObjects)
 	{
+		UObject* Object = ObjectPtr.Get();
+
 		if (!IsValid(Object))
 		{
 			continue;
@@ -46,20 +50,21 @@ void FMovieSceneFloatTrackInstance::RestoreState(const TArray<UObject*>& Runtime
 }
 
 
-void FMovieSceneFloatTrackInstance::Update( float Position, float LastPosition, const TArray<UObject*>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance, EMovieSceneUpdatePass UpdatePass ) 
+void FMovieSceneFloatTrackInstance::Update(EMovieSceneUpdateData& UpdateData, const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance ) 
 {
 	float FloatValue = 0.0f;
-	if( FloatTrack->Eval( Position, LastPosition, FloatValue ) )
+	if( FloatTrack->Eval( UpdateData.Position, UpdateData.LastPosition, FloatValue ) )
 	{
-		for(UObject* Object : RuntimeObjects)
+		for(auto ObjectPtr : RuntimeObjects)
 		{
+			UObject* Object = ObjectPtr.Get();
 			PropertyBindings->CallFunction<float>( Object, &FloatValue );
 		}
 	}
 }
 
 
-void FMovieSceneFloatTrackInstance::RefreshInstance( const TArray<UObject*>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance )
+void FMovieSceneFloatTrackInstance::RefreshInstance( const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance )
 {
 	PropertyBindings->UpdateBindings( RuntimeObjects );
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "MacCursor.h"
@@ -25,20 +25,22 @@ FMacCursor::FMacCursor()
 ,	bUseHighPrecisionMode(false)
 ,	CurrentPosition(FVector2D::ZeroVector)
 ,	MouseWarpDelta(FVector2D::ZeroVector)
-,	MouseScale(1.0f, 1.0f)
+,	MouseScale(FVector2D::UnitVector)
 ,	bIsPositionInitialised(false)
+,	bShouldIgnoreLocking(false)
+,	FullScreenWindow(nullptr)
 ,	HIDInterface(0)
 ,	SavedAcceleration(0)
 {
 	SCOPED_AUTORELEASE_POOL;
 
 	// Load up cursors that we'll be using
-	for( int32 CurCursorIndex = 0; CurCursorIndex < EMouseCursor::TotalCursorCount; ++CurCursorIndex )
+	for (int32 CursorIndex = 0; CursorIndex < EMouseCursor::TotalCursorCount; ++CursorIndex)
 	{
-		CursorHandles[ CurCursorIndex ] = NULL;
+		CursorHandles[CursorIndex] = NULL;
 
 		NSCursor *CursorHandle = NULL;
-		switch( CurCursorIndex )
+		switch (CursorIndex)
 		{
 			case EMouseCursor::None:
 			case EMouseCursor::Custom:
@@ -64,7 +66,7 @@ FMacCursor::FMacCursor()
 			{
 				FString Path = FString::Printf(TEXT("%s%sEditor/Slate/Cursor/SouthEastCursor.png"), FPlatformProcess::BaseDir(), *FPaths::EngineContentDir());
 				NSImage* CursorImage = [[NSImage alloc] initWithContentsOfFile:Path.GetNSString()];
-				CursorHandle = [[NSCursor alloc] initWithImage: CursorImage hotSpot: NSMakePoint(8, 8)];
+				CursorHandle = [[NSCursor alloc] initWithImage:CursorImage hotSpot:NSMakePoint(8, 8)];
 				[CursorImage release];
 				break;
 			}
@@ -73,7 +75,7 @@ FMacCursor::FMacCursor()
 			{
 				FString Path = FString::Printf(TEXT("%s%sEditor/Slate/Cursor/SouthWestCursor.png"), FPlatformProcess::BaseDir(), *FPaths::EngineContentDir());
 				NSImage* CursorImage = [[NSImage alloc] initWithContentsOfFile:Path.GetNSString()];
-				CursorHandle = [[NSCursor alloc] initWithImage: CursorImage hotSpot: NSMakePoint(8, 8)];
+				CursorHandle = [[NSCursor alloc] initWithImage:CursorImage hotSpot:NSMakePoint(8, 8)];
 				[CursorImage release];
 				break;
 			}
@@ -82,7 +84,7 @@ FMacCursor::FMacCursor()
 			{
 				FString Path = FString::Printf(TEXT("%s%sEditor/Slate/Cursor/CardinalCrossCursor.png"), FPlatformProcess::BaseDir(), *FPaths::EngineContentDir());
 				NSImage* CursorImage = [[NSImage alloc] initWithContentsOfFile:Path.GetNSString()];
-				CursorHandle = [[NSCursor alloc] initWithImage: CursorImage hotSpot: NSMakePoint(8, 8)];
+				CursorHandle = [[NSCursor alloc] initWithImage:CursorImage hotSpot:NSMakePoint(8, 8)];
 				[CursorImage release];
 				break;
 			}
@@ -111,28 +113,22 @@ FMacCursor::FMacCursor()
 			{
 				FString Path = FString::Printf(TEXT("%s%sEditor/Slate/Cursor/EyeDropperCursor.png"), FPlatformProcess::BaseDir(), *FPaths::EngineContentDir());
 				NSImage* CursorImage = [[NSImage alloc] initWithContentsOfFile:Path.GetNSString()];
-				CursorHandle = [[NSCursor alloc] initWithImage: CursorImage hotSpot: NSMakePoint(1, 17)];
+				CursorHandle = [[NSCursor alloc] initWithImage:CursorImage hotSpot:NSMakePoint(1, 17)];
 				[CursorImage release];
 				break;
 			}
 
 			default:
 				// Unrecognized cursor type!
-				check( 0 );
+				check(0);
 				break;
 		}
 
-		CursorHandles[ CurCursorIndex ] = CursorHandle;
+		CursorHandles[CursorIndex] = CursorHandle;
 	}
 
 	// Set the default cursor
-	SetType( EMouseCursor::Default );
-
-	CGEventRef Event = CGEventCreate(NULL);
-	CGPoint CursorPos = CGEventGetLocation(Event);
-	CFRelease(Event);
-
-	CurrentPosition = FVector2D(FMath::TruncToFloat(CursorPos.x), FMath::TruncToFloat(CursorPos.y));
+	SetType(EMouseCursor::Default);
 
 	// Get the IOHIDSystem so we can disable mouse acceleration
 	mach_port_t MasterPort;
@@ -168,14 +164,14 @@ FMacCursor::~FMacCursor()
 {
 	SCOPED_AUTORELEASE_POOL;
 	
-	SetHighPrecisionMouseMode( false );
+	SetHighPrecisionMouseMode(false);
 	
 	// Release cursors
 	// NOTE: Shared cursors will automatically be destroyed when the application is destroyed.
-	//       For dynamically created cursors, use [CursorHandles[CurCursorIndex] release];
-	for( int32 CurCursorIndex = 0; CurCursorIndex < EMouseCursor::TotalCursorCount; ++CurCursorIndex )
+	//       For dynamically created cursors, use [CursorHandles[CursorIndex] release];
+	for (int32 CursorIndex = 0; CursorIndex < EMouseCursor::TotalCursorCount; ++CursorIndex)
 	{
-		switch( CurCursorIndex )
+		switch (CursorIndex)
 		{
 			case EMouseCursor::None:
 			case EMouseCursor::Default:
@@ -195,21 +191,21 @@ FMacCursor::~FMacCursor()
 			case EMouseCursor::CardinalCross:
 			case EMouseCursor::EyeDropper:
 			case EMouseCursor::Custom:
-				if (CursorHandles[CurCursorIndex] != NULL)
+				if (CursorHandles[CursorIndex] != NULL)
 				{
-					[CursorHandles[CurCursorIndex] release];
+					[CursorHandles[CursorIndex] release];
 				}
 				break;
 
 			default:
 				// Unrecognized cursor type!
-				check( 0 );
+				check(0);
 				break;
 		}
 	}
 }
 
-void FMacCursor::SetCustomShape( NSCursor* CursorHandle )
+void FMacCursor::SetCustomShape(NSCursor* CursorHandle)
 {
 	SCOPED_AUTORELEASE_POOL;
 	[CursorHandle retain];
@@ -223,27 +219,66 @@ void FMacCursor::SetCustomShape( NSCursor* CursorHandle )
 FVector2D FMacCursor::GetPosition() const
 {
 	FVector2D CurrentPos = CurrentPosition;
-	if ( !bIsPositionInitialised )
+	if (!bIsPositionInitialised)
 	{
 		SCOPED_AUTORELEASE_POOL;
 		NSPoint CursorPos = [NSEvent mouseLocation];
-		CursorPos.y--; // The y coordinate of the point returned by mouseLocation starts from a base of 1
-		CurrentPos = FVector2D(CursorPos.x, FPlatformMisc::ConvertSlateYPositionToCocoa(CursorPos.y));
+		CurrentPos = FVector2D(CursorPos.x, FMacApplication::ConvertSlateYPositionToCocoa(CursorPos.y));
 	}
-	return FVector2D(FMath::TruncToFloat(CurrentPos.X * MouseScale.X), FMath::TruncToFloat(CurrentPos.Y * MouseScale.Y));
+
+	static bool bWasFullscreen = false;
+
+	const FVector2D& MouseScaling = GetMouseScaling();
+	if (FullScreenWindow && MouseScaling != FVector2D::UnitVector)
+	{
+		const FVector2D ScreenOrigin = FMacApplication::CalculateScreenOrigin(FullScreenWindow.screen);
+		const FVector2D PositionOnScreen = ((CurrentPos - ScreenOrigin) * MouseScaling) + ScreenOrigin;
+		bWasFullscreen = true;
+		return PositionOnScreen;
+	}
+	else
+	{
+		return CurrentPos;
+	}
 }
 
-void FMacCursor::SetPosition( const int32 X, const int32 Y )
+FVector2D FMacCursor::GetPositionNoScaling() const
 {
-	FVector2D NewPos(X / MouseScale.X, Y / MouseScale.Y);
-	
-	UpdateCursorClipping(NewPos);
-	
-	MouseWarpDelta += (NewPos - CurrentPosition);
-	
-	if ( !bIsPositionInitialised || FIntVector(NewPos.X, NewPos.Y, 0) != FIntVector(CurrentPosition.X, CurrentPosition.Y, 0) )
+	FVector2D CurrentPos = CurrentPosition;
+	if (!bIsPositionInitialised)
 	{
-		if ( !bUseHighPrecisionMode || (CurrentCursor && bIsVisible) )
+		SCOPED_AUTORELEASE_POOL;
+		NSPoint CursorPos = [NSEvent mouseLocation];
+		CurrentPos = FVector2D(CursorPos.x, FMacApplication::ConvertSlateYPositionToCocoa(CursorPos.y));
+	}
+	return CurrentPos;
+}
+
+void FMacCursor::SetPosition(const int32 X, const int32 Y)
+{
+	const FVector2D& MouseScaling = GetMouseScaling();
+	if (FullScreenWindow && MouseScaling != FVector2D::UnitVector)
+	{
+		const FVector2D ScreenOrigin = FMacApplication::CalculateScreenOrigin(FullScreenWindow.screen);
+		const FVector2D PositionOnScreen = ((FVector2D(X, Y) - ScreenOrigin) / MouseScaling) + ScreenOrigin;
+		SetPositionNoScaling(PositionOnScreen.X, PositionOnScreen.Y);
+	}
+	else
+	{
+		SetPositionNoScaling(X, Y);
+	}
+}
+
+void FMacCursor::SetPositionNoScaling(const int32 X, const int32 Y)
+{
+	FVector2D NewPos(X, Y);
+	UpdateCursorClipping(NewPos);
+
+	MouseWarpDelta += (NewPos - CurrentPosition);
+
+	if (!bIsPositionInitialised || FIntVector(NewPos.X, NewPos.Y, 0) != FIntVector(CurrentPosition.X, CurrentPosition.Y, 0))
+	{
+		if (!bUseHighPrecisionMode || (CurrentCursor && bIsVisible))
 		{
 			WarpCursor(NewPos.X, NewPos.Y);
 		}
@@ -254,40 +289,40 @@ void FMacCursor::SetPosition( const int32 X, const int32 Y )
 	}
 }
 
-void FMacCursor::SetType( const EMouseCursor::Type InNewCursor )
+void FMacCursor::SetType(const EMouseCursor::Type InNewCursor)
 {
-	check( InNewCursor < EMouseCursor::TotalCursorCount );
+	check(InNewCursor < EMouseCursor::TotalCursorCount);
 	if (MacApplication && CurrentType == EMouseCursor::None && InNewCursor != EMouseCursor::None)
 	{
 		MacApplication->SetHighPrecisionMouseMode(false, nullptr);
 	}
 	CurrentType = InNewCursor;
 	CurrentCursor = CursorHandles[InNewCursor];
-	if( CurrentCursor )
+	if (CurrentCursor)
 	{
 		[CurrentCursor set];
 	}
 	UpdateVisibility();
 }
 
-void FMacCursor::GetSize( int32& Width, int32& Height ) const
+void FMacCursor::GetSize(int32& Width, int32& Height) const
 {
 	Width = 16;
 	Height = 16;
 }
 
-void FMacCursor::Show( bool bShow )
+void FMacCursor::Show(bool bShow)
 {
 	bIsVisible = bShow;
 	UpdateVisibility();
 }
 
-void FMacCursor::Lock( const RECT* const Bounds )
+void FMacCursor::Lock(const RECT* const Bounds)
 {
 	SCOPED_AUTORELEASE_POOL;
 
 	// Lock/Unlock the cursor
-	if ( Bounds == NULL )
+	if (Bounds == nullptr || bShouldIgnoreLocking)
 	{
 		CursorClipRect = FIntRect();
 	}
@@ -299,45 +334,63 @@ void FMacCursor::Lock( const RECT* const Bounds )
 		CursorClipRect.Max.Y = FMath::TruncToInt(Bounds->bottom) - 1;
 	}
 
-	CGAssociateMouseAndMouseCursorPosition( !bUseHighPrecisionMode && !IsLocked() );
-
 	MacApplication->OnCursorLock();
 
-	FVector2D Position = GetPosition();
-	if( UpdateCursorClipping( Position ) )
+	FVector2D Position = GetPositionNoScaling();
+	if (UpdateCursorClipping(Position))
 	{
-		SetPosition( Position.X, Position.Y );
+		SetPositionNoScaling(Position.X, Position.Y);
 	}
-
-	MouseWarpDelta = FVector2D::ZeroVector;
 }
 
-bool FMacCursor::UpdateCursorClipping( FVector2D& CursorPosition )
+bool FMacCursor::UpdateCursorClipping(FVector2D& CursorPosition)
 {
 	bool bAdjusted = false;
 
 	if (CursorClipRect.Area() > 0)
 	{
-		if (CursorPosition.X < CursorClipRect.Min.X)
+		FVector2D PositionOnScreen(CursorPosition);
+		FIntRect ClipRect(CursorClipRect);
+		FVector2D ScreenOrigin(FVector2D::ZeroVector);
+
+		const FVector2D& MouseScaling = GetMouseScaling();
+		if (FullScreenWindow && MouseScaling != FVector2D::UnitVector)
 		{
-			CursorPosition.X = CursorClipRect.Min.X;
+			ScreenOrigin = FMacApplication::CalculateScreenOrigin(FullScreenWindow.screen);
+			PositionOnScreen -= ScreenOrigin;
+			int32 ClipRectWidth = (ClipRect.Max.X - ClipRect.Min.X + 1) / MouseScaling.X;
+			int32 ClipRectHeight = (ClipRect.Max.Y - ClipRect.Min.Y + 1) / MouseScaling.Y;
+			ClipRect.Min.X -= ScreenOrigin.X;
+			ClipRect.Min.Y -= ScreenOrigin.Y;
+			ClipRect.Max.X = ClipRect.Min.X + ClipRectWidth - 1;
+			ClipRect.Max.Y = ClipRect.Min.Y + ClipRectHeight - 1;
+		}
+
+		if (PositionOnScreen.X < ClipRect.Min.X)
+		{
+			PositionOnScreen.X = ClipRect.Min.X;
 			bAdjusted = true;
 		}
-		else if (CursorPosition.X > CursorClipRect.Max.X)
+		else if (PositionOnScreen.X > ClipRect.Max.X)
 		{
-			CursorPosition.X = CursorClipRect.Max.X;
+			PositionOnScreen.X = ClipRect.Max.X;
 			bAdjusted = true;
 		}
 
-		if (CursorPosition.Y < CursorClipRect.Min.Y)
+		if (PositionOnScreen.Y < ClipRect.Min.Y)
 		{
-			CursorPosition.Y = CursorClipRect.Min.Y;
+			PositionOnScreen.Y = ClipRect.Min.Y;
 			bAdjusted = true;
 		}
-		else if (CursorPosition.Y > CursorClipRect.Max.Y)
+		else if (PositionOnScreen.Y > ClipRect.Max.Y)
 		{
-			CursorPosition.Y = CursorClipRect.Max.Y;
+			PositionOnScreen.Y = ClipRect.Max.Y;
 			bAdjusted = true;
+		}
+
+		if (bAdjusted)
+		{
+			CursorPosition = PositionOnScreen + ScreenOrigin;
 		}
 	}
 
@@ -347,7 +400,7 @@ bool FMacCursor::UpdateCursorClipping( FVector2D& CursorPosition )
 void FMacCursor::UpdateVisibility()
 {
 	SCOPED_AUTORELEASE_POOL;
-	if([NSApp isActive])
+	if ([NSApp isActive])
 	{
 		// @TODO: Remove usage of deprecated CGCursorIsVisible function
 #pragma clang diagnostic push
@@ -359,7 +412,7 @@ void FMacCursor::UpdateVisibility()
 			{
 				CGDisplayShowCursor(kCGDirectMainDisplay);
 			}
-			if ( GMacDisableMouseAcceleration && HIDInterface && bUseHighPrecisionMode )
+			if (GMacDisableMouseAcceleration && HIDInterface && bUseHighPrecisionMode)
 			{
 				IOHIDSetAccelerationWithKey(HIDInterface, CFSTR(kIOHIDMouseAccelerationType), SavedAcceleration);
 			}
@@ -371,14 +424,14 @@ void FMacCursor::UpdateVisibility()
 			{
 				CGDisplayHideCursor(kCGDirectMainDisplay);
 			}
-			if ( GMacDisableMouseAcceleration && HIDInterface && bUseHighPrecisionMode && (!CurrentCursor || !bIsVisible) )
+			if (GMacDisableMouseAcceleration && HIDInterface && bUseHighPrecisionMode && (!CurrentCursor || !bIsVisible))
 			{
 				IOHIDSetAccelerationWithKey(HIDInterface, CFSTR(kIOHIDMouseAccelerationType), -1);
 			}
 		}
 #pragma clang diagnostic pop
 	}
-	else if ( GMacDisableMouseAcceleration && HIDInterface && bUseHighPrecisionMode && (!CurrentCursor || !bIsVisible) )
+	else if (GMacDisableMouseAcceleration && HIDInterface && bUseHighPrecisionMode && (!CurrentCursor || !bIsVisible))
 	{
 		IOHIDSetAccelerationWithKey(HIDInterface, CFSTR(kIOHIDMouseAccelerationType), SavedAcceleration);
 	}
@@ -390,55 +443,55 @@ void FMacCursor::UpdateCurrentPosition(const FVector2D &Position)
 	bIsPositionInitialised = true;
 }
 
-void FMacCursor::WarpCursor( const int32 X, const int32 Y )
+void FMacCursor::WarpCursor(const int32 X, const int32 Y)
 {
 	// Apple suppress mouse events for 0.25 seconds after a call to Warp, unless we call CGAssociateMouseAndMouseCursorPosition.
 	// Previously there was CGSetLocalEventsSuppressionInterval to explicitly control this behaviour but that is deprecated.
 	// The replacement CGEventSourceSetLocalEventsSuppressionInterval isn't useful because it is unclear how to obtain the correct event source.
 	// Instead, when we want the warp to be visible we need to disassociate mouse & cursor...
-	if( !bUseHighPrecisionMode && !IsLocked() )
+	if (!bUseHighPrecisionMode)
 	{
-		CGAssociateMouseAndMouseCursorPosition( false );
+		CGAssociateMouseAndMouseCursorPosition(false);
 	}
-	
+
 	// Perform the warp as normal
-	CGWarpMouseCursorPosition( NSMakePoint( FMath::TruncToInt( X ), FMath::TruncToInt( Y ) ) );
-	
+	CGWarpMouseCursorPosition(CGPointMake(X, Y));
+
 	// And then reassociate the mouse cursor, which forces the mouse events to come through.
-	if( !bUseHighPrecisionMode && !IsLocked() )
+	if (!bUseHighPrecisionMode)
 	{
-		CGAssociateMouseAndMouseCursorPosition( true );
+		CGAssociateMouseAndMouseCursorPosition(true);
 	}
-	
-	UpdateCurrentPosition( FVector2D(X, Y) );
+
+	UpdateCurrentPosition(FVector2D(X, Y));
 
 	MacApplication->IgnoreMouseMoveDelta();
 }
 
 FVector2D FMacCursor::GetMouseWarpDelta()
 {
-	FVector2D Result = ( !bUseHighPrecisionMode || (CurrentCursor && bIsVisible) ) ? MouseWarpDelta : FVector2D::ZeroVector;
+	FVector2D Result = (!bUseHighPrecisionMode || (CurrentCursor && bIsVisible)) ? MouseWarpDelta : FVector2D::ZeroVector;
 	MouseWarpDelta = FVector2D::ZeroVector;
 	return Result;
 }
 
-void FMacCursor::SetHighPrecisionMouseMode( bool const bEnable )
+void FMacCursor::SetHighPrecisionMouseMode(const bool bEnable)
 {
-	if( bUseHighPrecisionMode != bEnable )
+	if (bUseHighPrecisionMode != bEnable)
 	{
 		bUseHighPrecisionMode = bEnable;
-		
-		CGAssociateMouseAndMouseCursorPosition( !bUseHighPrecisionMode && !IsLocked() );
-		
-		if ( GMacDisableMouseCoalescing )
+
+		CGAssociateMouseAndMouseCursorPosition(!bUseHighPrecisionMode);
+
+		if (GMacDisableMouseCoalescing)
 		{
 			SCOPED_AUTORELEASE_POOL;
-			[NSEvent setMouseCoalescingEnabled: !bUseHighPrecisionMode];
+			[NSEvent setMouseCoalescingEnabled:!bUseHighPrecisionMode];
 		}
-		
-		if ( HIDInterface && GMacDisableMouseAcceleration && (!CurrentCursor || !bIsVisible) )
+
+		if (HIDInterface && GMacDisableMouseAcceleration && (!CurrentCursor || !bIsVisible))
 		{
-			if ( !bUseHighPrecisionMode )
+			if (!bUseHighPrecisionMode)
 			{
 				IOHIDSetAccelerationWithKey(HIDInterface, CFSTR(kIOHIDMouseAccelerationType), SavedAcceleration);
 			}
@@ -449,33 +502,42 @@ void FMacCursor::SetHighPrecisionMouseMode( bool const bEnable )
 				IOHIDGetAccelerationWithKey(HIDInterface, CFSTR(kIOHIDMouseAccelerationType), &CurrentSetting);
 				
 				// Need to check that we aren't picking up an invalid setting from ourselves.
-				if ( CurrentSetting >= 0 && CurrentSetting <= 3.0001 )
+				if (CurrentSetting >= 0 && CurrentSetting <= 3.0001)
 				{
 					SavedAcceleration = CurrentSetting;
 				}
-				
+
 				IOHIDSetAccelerationWithKey(HIDInterface, CFSTR(kIOHIDMouseAccelerationType), -1);
 			}
 		}
-		
+
 		UpdateVisibility();
-		
+
 		// On disable put the cursor where the user would expect it
-		if ( !bEnable && (!CurrentCursor || !bIsVisible) )
+		if (!bEnable && (!CurrentCursor || !bIsVisible))
 		{
-			FVector2D Pos = GetPosition() / MouseScale;
-			UpdateCursorClipping(Pos);
-			WarpCursor(Pos.X, Pos.Y);
+			FVector2D Position = GetPositionNoScaling();
+			UpdateCursorClipping(Position);
+			WarpCursor(Position.X, Position.Y);
 		}
 	}
 }
 
-void FMacCursor::SetMouseScaling( FVector2D Scale )
+void FMacCursor::SetMouseScaling(const FVector2D& Scale, FCocoaWindow* InFullScreenWindow)
 {
 	MouseScale = Scale;
+	FullScreenWindow = InFullScreenWindow;
 }
 
-FVector2D FMacCursor::GetMouseScaling( void )
+const FVector2D& FMacCursor::GetMouseScaling() const
 {
-	return MouseScale;
+	const NSInteger WindowNumber = [NSWindow windowNumberAtPoint:[NSEvent mouseLocation] belowWindowWithWindowNumber:0];
+	if (FullScreenWindow && WindowNumber == FullScreenWindow.windowNumber)
+	{
+		return MouseScale;
+	}
+	else
+	{
+		return FVector2D::UnitVector;
+	}
 }

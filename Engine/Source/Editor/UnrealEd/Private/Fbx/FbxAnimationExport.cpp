@@ -1,32 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
-
-/*
-* Copyright 2010 Autodesk, Inc.  All Rights Reserved.
-*
-* Permission to use, copy, modify, and distribute this software in object
-* code form for any purpose and without fee is hereby granted, provided
-* that the above copyright notice appears in all copies and that both
-* that copyright notice and the limited warranty and restricted rights
-* notice below appear in all supporting documentation.
-*
-* AUTODESK PROVIDES THIS PROGRAM "AS IS" AND WITH ALL FAULTS.
-* AUTODESK SPECIFICALLY DISCLAIMS ANY AND ALL WARRANTIES, WHETHER EXPRESS
-* OR IMPLIED, INCLUDING WITHOUT LIMITATION THE IMPLIED WARRANTY
-* OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR USE OR NON-INFRINGEMENT
-* OF THIRD PARTY RIGHTS.  AUTODESK DOES NOT WARRANT THAT THE OPERATION
-* OF THE PROGRAM WILL BE UNINTERRUPTED OR ERROR FREE.
-*
-* In no event shall Autodesk, Inc. be liable for any direct, indirect,
-* incidental, special, exemplary, or consequential damages (including,
-* but not limited to, procurement of substitute goods or services;
-* loss of use, data, or profits; or business interruption) however caused
-* and on any theory of liability, whether in contract, strict liability,
-* or tort (including negligence or otherwise) arising in any way out
-* of such code.
-*
-* This software is provided to the U.S. Government with the same rights
-* and restrictions as described herein.
-*/
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
   Implementation of animation export related functionality from FbxExporter
@@ -90,14 +62,21 @@ void FFbxExporter::ExportAnimSequenceToFbx(const UAnimSequence* AnimSeq,
 		FbxNode* CurrentBoneNode = BoneNodes[BoneIndex];
 
 		// Create the AnimCurves
-		FbxAnimCurve* Curves[6];
+		const uint32 NumberOfCurves = 9;
+		FbxAnimCurve* Curves[NumberOfCurves];
+		
+		// Individual curves for translation, rotation and scaling
 		Curves[0] = CurrentBoneNode->LclTranslation.GetCurve(InAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, true);
 		Curves[1] = CurrentBoneNode->LclTranslation.GetCurve(InAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, true);
 		Curves[2] = CurrentBoneNode->LclTranslation.GetCurve(InAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, true);
-
+		
 		Curves[3] = CurrentBoneNode->LclRotation.GetCurve(InAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, true);
 		Curves[4] = CurrentBoneNode->LclRotation.GetCurve(InAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, true);
 		Curves[5] = CurrentBoneNode->LclRotation.GetCurve(InAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, true);
+		
+		Curves[6] = CurrentBoneNode->LclScaling.GetCurve(InAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, true);
+		Curves[7] = CurrentBoneNode->LclScaling.GetCurve(InAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, true);
+		Curves[8] = CurrentBoneNode->LclScaling.GetCurve(InAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, true);
 
 		float AnimTime					= AnimStartOffset;
 		float AnimEndTime				= (AnimSeq->SequenceLength - AnimEndOffset);
@@ -118,10 +97,10 @@ void FFbxExporter::ExportAnimSequenceToFbx(const UAnimSequence* AnimSeq,
 			// If this sequence does not have a track for the current bone, then skip it
 			continue;
 		}
-
-		for(int32 i = 0; i < 6; ++i)
+		
+		for (FbxAnimCurve* Curve : Curves)
 		{
-			Curves[i]->KeyModifyBegin();
+			Curve->KeyModifyBegin();
 		}
 
 		bool bLastKey = false;
@@ -132,40 +111,39 @@ void FFbxExporter::ExportAnimSequenceToFbx(const UAnimSequence* AnimSeq,
 			AnimSeq->GetBoneTransform(BoneAtom, BoneTrackIndex, AnimTime, true);
 
 			FbxVector4 Translation = Converter.ConvertToFbxPos(BoneAtom.GetTranslation());
-
 			FbxVector4 Rotation = Converter.ConvertToFbxRot(BoneAtom.GetRotation().Euler());
+			FbxVector4 Scale = Converter.ConvertToFbxScale(BoneAtom.GetScale3D());
+			FbxVector4 Vectors[3] = { Translation, Rotation, Scale };
 		
 			int32 lKeyIndex;
 
 			bLastKey = AnimTime >= AnimEndTime;
-			for(int32 i = 0, j=3; i < 3; ++i, ++j)
+			
+			// Loop over each curve and channel to set correct values
+			for (uint32 CurveIndex = 0; CurveIndex < 3; ++CurveIndex)
 			{
-				lKeyIndex = Curves[i]->KeyAdd(ExportTime);
-				Curves[i]->KeySetValue(lKeyIndex, Translation[i]);
-				Curves[i]->KeySetInterpolation(lKeyIndex, bLastKey ? FbxAnimCurveDef::eInterpolationConstant : FbxAnimCurveDef::eInterpolationCubic);
-
-				if( bLastKey )
+				for (uint32 ChannelIndex = 0; ChannelIndex < 3; ++ChannelIndex)
 				{
-					Curves[i]->KeySetConstantMode( lKeyIndex, FbxAnimCurveDef::eConstantStandard );
-				}
+					uint32 OffsetCurveIndex = (CurveIndex * 3) + ChannelIndex;
 
-				lKeyIndex = Curves[j]->KeyAdd(ExportTime);
-				Curves[j]->KeySetValue(lKeyIndex, Rotation[i]);
-				Curves[j]->KeySetInterpolation(lKeyIndex, bLastKey ? FbxAnimCurveDef::eInterpolationConstant : FbxAnimCurveDef::eInterpolationCubic);
+					lKeyIndex = Curves[OffsetCurveIndex]->KeyAdd(ExportTime);
+					Curves[OffsetCurveIndex]->KeySetValue(lKeyIndex, Vectors[CurveIndex][ChannelIndex]);
+					Curves[OffsetCurveIndex]->KeySetInterpolation(lKeyIndex, bLastKey ? FbxAnimCurveDef::eInterpolationConstant : FbxAnimCurveDef::eInterpolationCubic);
 
-				if( bLastKey )
-				{
-					Curves[j]->KeySetConstantMode( lKeyIndex, FbxAnimCurveDef::eConstantStandard );
-				}
+					if (bLastKey)
+					{
+						Curves[OffsetCurveIndex]->KeySetConstantMode(lKeyIndex, FbxAnimCurveDef::eConstantStandard);
+					}
+				}				
 			}
 
 			ExportTime += ExportTimeIncrement;
 			AnimTime += AnimTimeIncrement;
 		}
 
-		for(int32 i = 0; i < 6; ++i)
+		for (FbxAnimCurve* Curve : Curves)
 		{
-			Curves[i]->KeyModifyEnd();
+			Curve->KeyModifyEnd();
 		}
 	}
 }

@@ -1,4 +1,4 @@
-// Copyright 2013-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 2013-2016 Epic Games, Inc. All Rights Reserved.
 
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>

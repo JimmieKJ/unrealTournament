@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 #include "AbilitySystemComponent.h"
@@ -44,4 +44,5 @@ void UAbilityTask_WaitVelocityChange::Activate()
 {
 	const FGameplayAbilityActorInfo* ActorInfo = Ability->GetCurrentActorInfo();
 	CachedMovementComponent = ActorInfo->MovementComponent.Get();
+	SetWaitingOnAvatar();
 }

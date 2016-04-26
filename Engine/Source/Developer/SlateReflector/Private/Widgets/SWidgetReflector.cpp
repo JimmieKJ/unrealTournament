@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateReflectorPrivatePCH.h"
 #include "ISlateReflectorModule.h"
@@ -51,7 +51,7 @@ struct FLoggedEvent
 
 	FText ToText()
 	{
-		return FText::Format(NSLOCTEXT("","","{0}  |  {1}"), EventText, HandlerText);
+		return FText::Format(LOCTEXT("LoggedEvent","{0}  |  {1}"), EventText, HandlerText);
 	}
 	
 	FInputEvent Event;
@@ -298,10 +298,7 @@ private:
 	void HandleReflectorTreeGetChildren( TSharedRef<FWidgetReflectorNodeBase> InReflectorNode, TArray<TSharedRef<FWidgetReflectorNodeBase>>& OutChildren );
 
 	/** Callback for when the selection in the reflector tree has changed. */
-	void HandleReflectorTreeSelectionChanged( TSharedPtr<FWidgetReflectorNodeBase>, ESelectInfo::Type /*SelectInfo*/ )
-	{
-		SelectedNodes = ReflectorTree->GetSelectedItems();
-	}
+	void HandleReflectorTreeSelectionChanged( TSharedPtr<FWidgetReflectorNodeBase>, ESelectInfo::Type /*SelectInfo*/ );
 
 	TSharedRef<ITableRow> GenerateEventLogRow( TSharedRef<FLoggedEvent> InReflectorNode, const TSharedRef<STableViewBase>& OwnerTable );
 
@@ -473,7 +470,7 @@ void SWidgetReflector::Construct( const FArguments& InArgs )
 					[
 						SNew(SSpinBox<float>)
 						.Value(this, &SWidgetReflector::HandleAppScaleSliderValue)
-						.MinValue(0.1f)
+						.MinValue(0.50f)
 						.MaxValue(3.0f)
 						.Delta(0.01f)
 						.OnValueChanged(this, &SWidgetReflector::HandleAppScaleSliderChanged)
@@ -930,7 +927,7 @@ TSharedRef<SDockTab> SWidgetReflector::SpawnSlateStatsTab(const FSpawnTabArgs& A
 						[
 							SNew(STextBlock)
 							.WrapTextAt(200.0f)
-							.Text( LOCTEXT("StatsSamplingIntervalTooltip", "the interval (in seconds) to integrate stats before updating the averages.") )
+							.Text( LOCTEXT("StatsSamplingIntervalLabelTooltip", "the interval (in seconds) to integrate stats before updating the averages.") )
 						]
 					)
 					.Text(LOCTEXT("StatsSampleWindow", "Sampling Interval: "))
@@ -1633,6 +1630,17 @@ TSharedRef<ITableRow> SWidgetReflector::HandleReflectorTreeGenerateRow( TSharedR
 void SWidgetReflector::HandleReflectorTreeGetChildren(TSharedRef<FWidgetReflectorNodeBase> InReflectorNode, TArray<TSharedRef<FWidgetReflectorNodeBase>>& OutChildren)
 {
 	OutChildren = InReflectorNode->GetChildNodes();
+}
+
+
+void SWidgetReflector::HandleReflectorTreeSelectionChanged( TSharedPtr<FWidgetReflectorNodeBase>, ESelectInfo::Type /*SelectInfo*/ )
+{
+	SelectedNodes = ReflectorTree->GetSelectedItems();
+
+	if (CurrentUIMode == EWidgetReflectorUIMode::Snapshot)
+	{
+		WidgetSnapshotVisualizer->SetSelectedWidgets(SelectedNodes);
+	}
 }
 
 

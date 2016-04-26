@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneToolsPrivatePCH.h"
 #include "EventTrackSection.h"
@@ -26,10 +26,9 @@ UMovieSceneSection* FEventTrackSection::GetSectionObject()
 	return Section;
 }
 
-
-int32 FEventTrackSection::OnPaintSection(const FGeometry& AllottedGeometry, const FSlateRect& SectionClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, bool bParentEnabled) const
+int32 FEventTrackSection::OnPaintSection( FSequencerSectionPainter& InPainter ) const
 {
-	return LayerId + 1;
+	return InPainter.PaintSectionBackground();
 }
 
 

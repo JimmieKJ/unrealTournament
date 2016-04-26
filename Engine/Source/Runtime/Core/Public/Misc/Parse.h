@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "HAL/Platform.h"
@@ -69,7 +69,9 @@ struct CORE_API FParse
 	/** Checks if a command-line parameter exists in the stream. */
 	static bool Param( const TCHAR* Stream, const TCHAR* Param );
 	/** Parse an Text token. */
-	static bool Text( const TCHAR* Stream, FText& Value, const TCHAR* Namespace = NULL );
+	static bool Text( const TCHAR* Stream, FText& Value, const TCHAR* Namespace = nullptr );
+	/** Parse a quoted string token. */
+	static bool QuotedString( const TCHAR* Stream, FString& Value, int32* OutNumCharsRead = nullptr );
 
 	//
 	// Parse a hex digit.

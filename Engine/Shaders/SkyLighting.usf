@@ -1,7 +1,7 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
-	SkyLighting.usf
+	SkyLighting.usf - implementation of dynamic sky lighting
 =============================================================================*/
 
 #include "Common.usf"
@@ -19,6 +19,7 @@ SamplerState IrradianceSampler;
 float3 ContrastAndNormalizeMulAdd;
 float4 OcclusionTintAndMinOcclusion;
 
+/** Note: used by movable skylights only.  Stationary sky light diffuse is evaluated in the base pass, and Static sky lighting is baked into lightmaps. */
 void SkyLightDiffusePS(
 	in float4 UVAndScreenPos : TEXCOORD0, 
 	out float4 OutColor : SV_Target0)
@@ -75,7 +76,7 @@ void SkyLightDiffusePS(
 
 		if (ShadingModelId == SHADINGMODELID_TWOSIDED_FOLIAGE)
 		{
-			float3 SubsurfaceLookup = GetSkySHDiffuse(-GBuffer.WorldNormal) * View.SkyLightColor.rgb;
+			float3 SubsurfaceLookup = GetSkySHDiffuse(-GBuffer.WorldNormal) * Frame.SkyLightColor.rgb;
 			float3 SubsurfaceColor = ExtractSubsurfaceColor(GBuffer);
 			Lighting += ScalarFactors * SubsurfaceLookup * SubsurfaceColor;
 		}
@@ -91,8 +92,13 @@ void SkyLightDiffusePS(
 			DiffuseColor = PI * HairShading( GBuffer, L, V, N, 1, 0, 0.2, uint2(0,0) );
 		}
 
+		BRANCH if( GBuffer.ShadingModelID == SHADINGMODELID_CLOTH )
+		{
+			DiffuseColor +=  GBuffer.CustomData.rgb * GBuffer.CustomData.a;
+		}
+
 		// Compute the preconvolved incoming lighting with the bent normal direction
-		float3 DiffuseLookup = GetSkySHDiffuse(SkyLightingNormal) * View.SkyLightColor.rgb;
+		float3 DiffuseLookup = GetSkySHDiffuse(SkyLightingNormal) * Frame.SkyLightColor.rgb;
 
 		// darken by DirectionalOcclusion feature from LightPropagationVolume (could be optimized if the feature is not used)
 		float DirectionalOcclusion = ScreenSpaceData.DirectionalOcclusion.r;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "Runtime/Analytics/AnalyticsET/Private/AnalyticsETPrivatePCH.h"
 
@@ -13,6 +13,7 @@
 
 IMPLEMENT_MODULE( FAnalyticsET, AnalyticsET );
 DEFINE_LOG_CATEGORY(LogAnalytics);
+DEFINE_LOG_CATEGORY_STATIC(LogAnalyticsDumpEventPayload, Display, All);
 
 class FAnalyticsProviderET : 
 	public IAnalyticsProvider,
@@ -54,8 +55,6 @@ private:
 	FString UserID;
 	/** The session ID */
 	FString SessionID;
-	/** Cached build type as a string */
-	FString BuildType;
 	/** The AppVersion passed to ET. */
 	FString AppVersion;
 	/** Max number of analytics events to cache before pushing to server */
@@ -70,6 +69,12 @@ private:
 	bool bInDestructor;
 	/** True to use the legacy backend server protocol that uses URL params. */
 	bool UseLegacyProtocol;
+	/** AppEnvironment to use. */
+	FString AppEnvironment;
+	/** UploadType to use. */
+	FString UploadType;
+	/** Tag as to whether the provider was given a legacy AppServer endpoint instead of a newer data router one. Used to find apps that need to be updated in analytics. */
+	bool bUsingLegacyAppServer;
 	/**
 	 * Analytics event entry to be cached
 	 */
@@ -118,9 +123,14 @@ TSharedPtr<IAnalyticsProvider> FAnalyticsET::CreateAnalyticsProvider(const FAnal
 	{
 		Config ConfigValues;
 		ConfigValues.APIKeyET = GetConfigValue.Execute(Config::GetKeyNameForAPIKey(), true);
-		ConfigValues.APIServerET = GetConfigValue.Execute(Config::GetKeyNameForAPIServer(), false);
+		ConfigValues.APIServerET = GetConfigValue.Execute(Config::GetKeyNameForAPIServer(), true);
 		ConfigValues.AppVersionET = GetConfigValue.Execute(Config::GetKeyNameForAppVersion(), false);
 		ConfigValues.UseLegacyProtocol = FCString::ToBool(*GetConfigValue.Execute(Config::GetKeyNameForUseLegacyProtocol(), false));
+		if (!ConfigValues.UseLegacyProtocol)
+		{
+			ConfigValues.AppEnvironment = GetConfigValue.Execute(Config::GetKeyNameForAppEnvironment(), true);
+			ConfigValues.UploadType = GetConfigValue.Execute(Config::GetKeyNameForUploadType(), true);
+		}
 		return CreateAnalyticsProvider(ConfigValues);
 	}
 	else
@@ -146,26 +156,28 @@ TSharedPtr<IAnalyticsProvider> FAnalyticsET::CreateAnalyticsProvider(const Confi
  */
 FAnalyticsProviderET::FAnalyticsProviderET(const FAnalyticsET::Config& ConfigValues)
 	:bSessionInProgress(false)
+	, APIKey(ConfigValues.APIKeyET)
+	, APIServer(ConfigValues.APIServerET)
 	, MaxCachedNumEvents(20)
 	, MaxCachedElapsedTime(60.0f)
 	, bShouldCacheEvents(!FParse::Param(FCommandLine::Get(), TEXT("ANALYTICSDISABLECACHING")))
 	, FlushEventsCountdown(MaxCachedElapsedTime)
 	, bInDestructor(false)
 	, UseLegacyProtocol(ConfigValues.UseLegacyProtocol)
+	, bUsingLegacyAppServer(false)
 {
+	if (APIKey.IsEmpty() || APIServer.IsEmpty())
+	{
+		UE_LOG(LogAnalytics, Fatal, TEXT("AnalyticsET: APIKey (%s) and APIServer (%s) cannot be empty!"), *APIKey, *APIServer);
+	}
+
 	// if we are not caching events, we are operating in debug mode. Turn on super-verbose analytics logging
 	if (!bShouldCacheEvents)
 	{
 		UE_SET_LOG_VERBOSITY(LogAnalytics, VeryVerbose);
 	}
 
-	APIKey = ConfigValues.APIKeyET;
 	UE_LOG(LogAnalytics, Verbose, TEXT("[%s] Initializing ET Analytics provider"), *APIKey);
-
-	// allow the APIServer value to be empty and use defaults.
-	APIServer = ConfigValues.APIServerET.IsEmpty() 
-		? FAnalyticsET::Config::GetDefaultAPIServer()
-		: ConfigValues.APIServerET;
 
 	// default to FEngineVersion::Current() if one is not provided, append FEngineVersion::Current() otherwise.
 	FString ConfigAppVersion = ConfigValues.AppVersionET;
@@ -175,20 +187,28 @@ FAnalyticsProviderET::FAnalyticsProviderET(const FAnalyticsET::Config& ConfigVal
 		? FEngineVersion::Current().ToString() 
 		: ConfigAppVersion.Replace(TEXT("%VERSION%"), *FEngineVersion::Current().ToString(), ESearchCase::CaseSensitive);
 
+	// support legacy connections that send to the old URL and route them to the new URL.
+	// This automatically route older titles to the new endpoint until all their configs can be updated.
+	// @todo: Remove this hack once all internal titles have been updated to use the new URL explicitly.
+	if (APIServer.Equals(TEXT("http://et2.epicgames.com/ET2/"), ESearchCase::IgnoreCase))
+	{
+		UE_LOG(LogAnalytics, Warning, TEXT("[%s] APIServer is using legacy URL (%s). Automatically updating to the new data router endpoint. Please update your configuration to explicitly point to a data router endpoint."), *APIKey, *APIServer);
+		bUsingLegacyAppServer = true;
+		APIServer = TEXT("https://datarouter.ol.epicgames.com/");
+	}
+
 	UE_LOG(LogAnalytics, Log, TEXT("[%s] APIServer = %s. AppVersion = %s"), *APIKey, *APIServer, *AppVersion);
 
-	// cache the build type string
-	FAnalytics::BuildType BuildTypeEnum = FAnalytics::Get().GetBuildType();
-	BuildType = 
-		BuildTypeEnum == FAnalytics::Debug 
-			? "Debug"
-			: BuildTypeEnum == FAnalytics::Development
-				? "Development"
-				: BuildTypeEnum == FAnalytics::Release
-					? "Release"
-					: BuildTypeEnum == FAnalytics::Test
-						? "Test"
-						: "UNKNOWN";
+	// only need these if we are using the data router protocol.
+	if (!UseLegacyProtocol)
+	{
+		AppEnvironment = ConfigValues.AppEnvironment.IsEmpty()
+			? FAnalyticsET::Config::GetDefaultAppEnvironment()
+			: ConfigValues.AppEnvironment;
+		UploadType = ConfigValues.UploadType.IsEmpty()
+			? FAnalyticsET::Config::GetDefaultUploadType()
+			: ConfigValues.UploadType;
+	}
 
 	// see if there is a cmdline supplied UserID.
 #if !UE_BUILD_SHIPPING
@@ -249,6 +269,7 @@ bool FAnalyticsProviderET::StartSession(const TArray<FAnalyticsEventAttribute>& 
 	AppendedAttributes.Emplace(TEXT("UniqueDeviceId"), FPlatformMisc::GetUniqueDeviceId());
 	// we should always know what platform is hosting this session.
 	AppendedAttributes.Emplace(TEXT("Platform"), FString(FPlatformProperties::IniPlatformName()));
+	AppendedAttributes.Emplace(TEXT("LegacyURL"), bUsingLegacyAppServer ? TEXT("true") : TEXT("false"));
 
 	RecordEvent(TEXT("SessionStart"), AppendedAttributes);
 	bSessionInProgress = true;
@@ -290,62 +311,71 @@ void FAnalyticsProviderET::FlushEvents()
 
 		if (!UseLegacyProtocol)
 		{
-		TSharedRef< TJsonWriter<TCHAR, TCondensedJsonPrintPolicy<TCHAR> > > JsonWriter = TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR> >::Create(&Payload);
-		JsonWriter->WriteObjectStart();
-		JsonWriter->WriteArrayStart(TEXT("Events"));
-		for (int32 EventIdx = 0; EventIdx < CachedEvents.Num(); EventIdx++)
-		{
-			const FAnalyticsEventEntry& Entry = CachedEvents[EventIdx];
-			// event entry
+			TSharedRef< TJsonWriter<TCHAR, TCondensedJsonPrintPolicy<TCHAR> > > JsonWriter = TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR> >::Create(&Payload);
 			JsonWriter->WriteObjectStart();
-			JsonWriter->WriteValue(TEXT("EventName"), Entry.EventName);
-			FString DateOffset = (CurrentTime - Entry.TimeStamp).ToString();
-			JsonWriter->WriteValue(TEXT("DateOffset"), DateOffset);
-			JsonWriter->WriteValue(TEXT("IsEditor"), FString::FromInt(GIsEditor));
-			if (Entry.Attributes.Num() > 0)
+			JsonWriter->WriteArrayStart(TEXT("Events"));
+			for (int32 EventIdx = 0; EventIdx < CachedEvents.Num(); EventIdx++)
 			{
-				// optional attributes for this event
-				for (int32 AttrIdx = 0; AttrIdx < Entry.Attributes.Num(); AttrIdx++)
+				const FAnalyticsEventEntry& Entry = CachedEvents[EventIdx];
+				// event entry
+				JsonWriter->WriteObjectStart();
+				JsonWriter->WriteValue(TEXT("EventName"), Entry.EventName);
+				FString DateOffset = (CurrentTime - Entry.TimeStamp).ToString();
+				JsonWriter->WriteValue(TEXT("DateOffset"), DateOffset);
+				JsonWriter->WriteValue(TEXT("IsEditor"), FString::FromInt(GIsEditor));
+				if (Entry.Attributes.Num() > 0)
 				{
+					// optional attributes for this event
+					for (int32 AttrIdx = 0; AttrIdx < Entry.Attributes.Num(); AttrIdx++)
+					{
 						const FAnalyticsEventAttribute& Attr = Entry.Attributes[AttrIdx];
-					JsonWriter->WriteValue(Attr.AttrName, Attr.AttrValue);
+						JsonWriter->WriteValue(Attr.AttrName, Attr.AttrValue);
+					}
 				}
+				JsonWriter->WriteObjectEnd();
 			}
+			JsonWriter->WriteArrayEnd();
 			JsonWriter->WriteObjectEnd();
-		}
-		JsonWriter->WriteArrayEnd();
-		JsonWriter->WriteObjectEnd();
-		JsonWriter->Close();
+			JsonWriter->Close();
 
-		FString URLPath = FString::Printf(TEXT("CollectData.1?SessionID=%s&AppID=%s&AppVersion=%s&UserID=%s"),
-			*FPlatformHttp::UrlEncode(SessionID),
-			*FPlatformHttp::UrlEncode(APIKey),
-			*FPlatformHttp::UrlEncode(AppVersion),
-			*FPlatformHttp::UrlEncode(UserID));
+			FString URLPath = FString::Printf(TEXT("datarouter/api/v1/public/data?SessionID=%s&AppID=%s&AppVersion=%s&UserID=%s&AppEnvironment=%s&UploadType=%s"),
+				*FPlatformHttp::UrlEncode(SessionID),
+				*FPlatformHttp::UrlEncode(APIKey),
+				*FPlatformHttp::UrlEncode(AppVersion),
+				*FPlatformHttp::UrlEncode(UserID),
+				*FPlatformHttp::UrlEncode(AppEnvironment),
+				*FPlatformHttp::UrlEncode(UploadType));
 
-		// Recreate the URLPath for logging because we do not want to escape the parameters when logging.
-		// We cannot simply UrlEncode the entire Path after logging it because UrlEncode(Params) != UrlEncode(Param1) & UrlEncode(Param2) ...
-			UE_LOG(LogAnalytics, VeryVerbose, TEXT("[%s] AnalyticsET URL:CollectData.1?SessionID=%s&AppID=%s&AppVersion=%s&UserID=%s. Payload:%s"),
+			// Recreate the URLPath for logging because we do not want to escape the parameters when logging.
+			// We cannot simply UrlEncode the entire Path after logging it because UrlEncode(Params) != UrlEncode(Param1) & UrlEncode(Param2) ...
+			FString LogString = FString::Printf(TEXT("[%s] AnalyticsET URL:datarouter/api/v1/public/data?SessionID=%s&AppID=%s&AppVersion=%s&UserID=%s&AppEnvironment=%s&UploadType=%s. Payload:%s"),
 				*APIKey,
-			*SessionID,
-			*APIKey,
-			*AppVersion,
-			*UserID,
-			*Payload);
+				*SessionID,
+				*APIKey,
+				*AppVersion,
+				*UserID,
+				*AppEnvironment,
+				*UploadType,
+				*Payload);
+			UE_LOG(LogAnalytics, VeryVerbose, TEXT("%s"), *LogString);
 
-		// Create/send Http request for an event
-		TSharedRef<IHttpRequest> HttpRequest = FHttpModule::Get().CreateRequest();
-		HttpRequest->SetHeader(TEXT("Content-Type"), TEXT("application/json; charset=utf-8"));
+			// Duplicate the same log message with a separate category. This is used as an "last chance" backup on the servers in the unlikely case 
+			// if the backend lost the events due to overload - then we can scrape the logs manually for them.
+			UE_LOG(LogAnalyticsDumpEventPayload, Log, TEXT("%s"), *LogString);
 
-		HttpRequest->SetURL(APIServer + URLPath);
-		HttpRequest->SetVerb(TEXT("POST"));
-		HttpRequest->SetContentAsString(Payload);
-		// Don't set a response callback if we are in our destructor, as the instance will no longer be there to call.
-		if (!bInDestructor)
-		{
-			HttpRequest->OnProcessRequestComplete().BindSP(this, &FAnalyticsProviderET::EventRequestComplete);
-		}
- 		HttpRequest->ProcessRequest();
+			// Create/send Http request for an event
+			TSharedRef<IHttpRequest> HttpRequest = FHttpModule::Get().CreateRequest();
+			HttpRequest->SetHeader(TEXT("Content-Type"), TEXT("application/json; charset=utf-8"));
+
+			HttpRequest->SetURL(APIServer + URLPath);
+			HttpRequest->SetVerb(TEXT("POST"));
+			HttpRequest->SetContentAsString(Payload);
+			// Don't set a response callback if we are in our destructor, as the instance will no longer be there to call.
+			if (!bInDestructor)
+			{
+				HttpRequest->OnProcessRequestComplete().BindSP(this, &FAnalyticsProviderET::EventRequestComplete);
+			}
+ 			HttpRequest->ProcessRequest();
 		}
 		else
 		{
@@ -355,7 +385,7 @@ void FAnalyticsProviderET::FlushEvents()
 				FString EventParams;
 				if (Event.Attributes.Num() > 0)
 				{
-					for (int Ndx = 0; Ndx<FMath::Min(Event.Attributes.Num(), 10); ++Ndx)
+					for (int Ndx = 0; Ndx<FMath::Min(Event.Attributes.Num(), 40); ++Ndx)
 					{
 						EventParams += FString::Printf(TEXT("&AttributeName%d=%s&AttributeValue%d=%s"), 
 							Ndx, 

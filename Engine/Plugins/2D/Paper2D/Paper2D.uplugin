@@ -1,16 +1,19 @@
 {
 	"FileVersion" : 3,
-	
-	"FriendlyName" : "Paper2D",
 	"Version" : 1,
 	"VersionName" : "1.0",
-	"CreatedBy" : "Epic Games, Inc.",
-	"CreatedByURL" : "http://epicgames.com",
-	"EngineVersion" : "4.2.0",
+	"FriendlyName" : "Paper2D",
 	"Description" : "Paper2D adds tools and assets to help create 2D games including animated sprite assets, tilesets (experimental), 2D level editing tools, and more.",
 	"Category" : "2D",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"DocsURL" : "",
+	"MarketplaceURL" : "",
+	"SupportURL" : "",
 	"EnabledByDefault" : true,
-
+	"CanContainContent" : true,
+	"IsBetaVersion" : false,
+	"Installed" : false,
 	"Modules" :
 	[
 		{
@@ -20,22 +23,23 @@
 		},
 		{
 			"Name" : "Paper2DEditor",
-			"Type" : "Editor"
+			"Type" : "Editor",
+			"LoadingPhase" : "Default"
 		},
 		{
 			"Name" : "PaperSpriteSheetImporter",
-			"Type" : "Editor"
+			"Type" : "Editor",
+			"LoadingPhase" : "Default"
 		},
 		{
 			"Name" : "PaperTiledImporter",
-			"Type" : "Editor"
+			"Type" : "Editor",
+			"LoadingPhase" : "Default"
 		},
 		{
 			"Name" : "SmartSnapping",
 			"Type" : "Editor",
 			"LoadingPhase" : "PostEngineInit"
 		}
-	],
-
-	"CanContainContent" : true
+	]
 }

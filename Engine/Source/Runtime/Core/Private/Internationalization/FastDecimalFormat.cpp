@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "FastDecimalFormat.h"
@@ -68,7 +68,7 @@ int32 IntegralToString_UInt64ToString(
 			if (InUseGrouping && NumUntilNextGroup-- == 0)
 			{
 				TmpBuffer[StringLen++] = InGroupingSeparatorCharacter;
-				NumUntilNextGroup = InSecondaryGroupingSize;
+				NumUntilNextGroup = InSecondaryGroupingSize - 1; // -1 to account for the digit we're about to print
 			}
 
 			TmpBuffer[StringLen++] = '0' + (TmpNum % 10);
@@ -185,6 +185,22 @@ void FractionalToString_SplitAndRoundNumber(const bool bIsNegative, const double
 	}
 	else
 	{
+		// Rounding may have caused the fractional value to overflow, and any overflow will need to be applied to the integral part and stripped from the fractional part
+		const double ValueToOverflowTest = (bIsNegative) ? -ValueToRound : ValueToRound;
+		if (ValueToOverflowTest >= Pow10Table[DecimalPlacesToRoundTo])
+		{
+			if (bIsNegative)
+			{
+				IntegralPart -= 1;
+				ValueToRound += Pow10Table[DecimalPlacesToRoundTo];
+			}
+			else
+			{
+				IntegralPart += 1;
+				ValueToRound -= Pow10Table[DecimalPlacesToRoundTo];
+			}
+		}
+
 		OutIntegralPart = IntegralPart;
 		OutFractionalPart = ValueToRound;
 	}
@@ -243,7 +259,7 @@ FString FractionalToString(const double InVal, const FDecimalNumberFormattingRul
 		return InFormattingRules.NaNString;
 	}
 
-	const bool bIsNegative = InVal < 0.0;
+	const bool bIsNegative = FMath::IsNegativeDouble(InVal);
 
 	double IntegralPart = 0.0;
 	double FractionalPart = 0.0;

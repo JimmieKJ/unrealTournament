@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -96,7 +96,7 @@ namespace UnrealBuildTool
 					Log.TraceInformation("Loading existing IncludeFileCache: " + CacheFile.FullName);
 				}
 
-				var TimerStartTime = DateTime.UtcNow;
+				DateTime TimerStartTime = DateTime.UtcNow;
 
 				// Deserialize cache from disk if there is one.
 				DependencyCache Result = Load(CacheFile);
@@ -105,7 +105,7 @@ namespace UnrealBuildTool
 					// Successfully serialize, create the transient variables and return cache.
 					Result.UpdateTimeUtc = DateTime.UtcNow;
 
-					var TimerDuration = DateTime.UtcNow - TimerStartTime;
+					TimeSpan TimerDuration = DateTime.UtcNow - TimerStartTime;
 					if (BuildConfiguration.bPrintPerformanceInfo)
 					{
 						Log.TraceInformation("Loading IncludeFileCache took " + TimerDuration.TotalSeconds + "s");
@@ -239,7 +239,7 @@ namespace UnrealBuildTool
 			// Only save if we've made changes to it since load.
 			if (bIsDirty)
 			{
-				var TimerStartTime = DateTime.UtcNow;
+				DateTime TimerStartTime = DateTime.UtcNow;
 
 				// Save update date as new creation date.
 				CreationTimeUtc = UpdateTimeUtc;
@@ -261,7 +261,7 @@ namespace UnrealBuildTool
 
 				if (BuildConfiguration.bPrintPerformanceInfo)
 				{
-					var TimerDuration = DateTime.UtcNow - TimerStartTime;
+					TimeSpan TimerDuration = DateTime.UtcNow - TimerStartTime;
 					Log.TraceInformation("Saving IncludeFileCache took " + TimerDuration.TotalSeconds + "s");
 				}
 			}
@@ -310,7 +310,7 @@ namespace UnrealBuildTool
 			}
 
 			// Check if any of the resolved includes is missing
-			foreach (var Include in Includes)
+			foreach (DependencyInclude Include in Includes)
 			{
 				if (Include.IncludeResolvedNameIfSuccessful != null)
 				{
@@ -363,9 +363,9 @@ namespace UnrealBuildTool
 		/// </summary>
 		public void ResetUnresolvedDependencies()
 		{
-			foreach (var Dependency in DependencyMap)
+			foreach (KeyValuePair<FileReference, List<DependencyInclude>> Dependency in DependencyMap)
 			{
-				foreach (var Include in Dependency.Value)
+				foreach (DependencyInclude Include in Dependency.Value)
 				{
 					if (Include.HasAttemptedResolve && Include.IncludeResolvedNameIfSuccessful == null)
 					{
@@ -387,8 +387,8 @@ namespace UnrealBuildTool
 		{
 			if (BuildConfiguration.bUseIncludeDependencyResolveCache)
 			{
-				var Includes = DependencyMap[File.Reference];
-				var IncludeToResolve = Includes[DirectlyIncludedFileNameIndex];
+				List<DependencyInclude> Includes = DependencyMap[File.Reference];
+				DependencyInclude IncludeToResolve = Includes[DirectlyIncludedFileNameIndex];
 				if (BuildConfiguration.bTestIncludeDependencyResolveCache)
 				{
 					// test whether there are resolve conflicts between modules with different include paths.

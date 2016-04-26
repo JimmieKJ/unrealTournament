@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 // Only designed to be included directly by Delegate.h
 #if !defined( __Delegate_h__ ) || !defined( FUNC_INCLUDING_INLINE_IMPL )

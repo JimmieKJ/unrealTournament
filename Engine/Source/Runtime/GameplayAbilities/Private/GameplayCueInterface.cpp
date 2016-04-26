@@ -1,10 +1,22 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemPrivatePCH.h"
 #include "AbilitySystemComponent.h"
 #include "GameplayCueInterface.h"
 #include "GameplayTagsModule.h"
 #include "GameplayCueSet.h"
+
+
+struct FCueNameAndUFunction
+{
+	FGameplayTag Tag;
+	UFunction* Func;
+};
+typedef TMap<FGameplayTag, TArray<FCueNameAndUFunction> > FGameplayCueTagFunctionList;
+TMap<UClass*, FGameplayCueTagFunctionList > PerClassGameplayTagToFunctionMap;
+
+
+
 
 UGameplayCueInterface::UGameplayCueInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -19,6 +31,12 @@ void IGameplayCueInterface::DispatchBlueprintCustomHandler(AActor* Actor, UFunct
 
 	Actor->ProcessEvent(Func, &Parms);
 }
+
+void IGameplayCueInterface::ClearTagToFunctionMap()
+{
+	PerClassGameplayTagToFunctionMap.Empty();
+}
+
 
 void IGameplayCueInterface::HandleGameplayCues(AActor *Self, const FGameplayTagContainer& GameplayCueTags, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters)
 {
@@ -35,55 +53,71 @@ bool IGameplayCueInterface::ShouldAcceptGameplayCue(AActor *Self, FGameplayTag G
 
 void IGameplayCueInterface::HandleGameplayCue(AActor *Self, FGameplayTag GameplayCueTag, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters)
 {
-	// Look up a custom function for this gameplay tag. 
-	bool bFoundHandler = false;
-	bool bShouldContinue = true;
+	SCOPE_CYCLE_COUNTER(STAT_GameplayCueInterface_HandleGameplayCue);
 
+	// Look up a custom function for this gameplay tag. 
 	UClass* Class = Self->GetClass();
 	IGameplayTagsModule& GameplayTagsModule = IGameplayTagsModule::Get();
 	FGameplayTagContainer TagAndParentsContainer = GameplayTagsModule.GetGameplayTagsManager().RequestGameplayTagParents(GameplayCueTag);
 
 	Parameters.OriginalTag = GameplayCueTag;
 
-	for (auto InnerTagIt = TagAndParentsContainer.CreateConstIterator(); InnerTagIt && bShouldContinue; ++InnerTagIt)
+	//Find entry for the class
+	FGameplayCueTagFunctionList& GameplayTagFunctionList = PerClassGameplayTagToFunctionMap.FindOrAdd(Class);
+	TArray<FCueNameAndUFunction>* FunctionList = GameplayTagFunctionList.Find(GameplayCueTag);
+	if (FunctionList == NULL)
 	{
-		UFunction* Func = NULL;
-		FName CueName = InnerTagIt->GetTagName();
+		//generate new function list
+		FunctionList = &GameplayTagFunctionList.Add(GameplayCueTag);
 
-		Func = Class->FindFunctionByName(CueName, EIncludeSuperFlag::IncludeSuper);
-		// If the handler calls ForwardGameplayCueToParent, keep calling functions until one consumes the cue and doesn't forward it
-		while (bShouldContinue && Func)
-		{			
-			Parameters.MatchedTagName = CueName;
-
-			// Reset the forward parameter now, so we can check it after function
-			bForwardToParent = false;
-			IGameplayCueInterface::DispatchBlueprintCustomHandler(Self, Func, EventType, Parameters);
-			
-			bShouldContinue = bForwardToParent;
-			bFoundHandler = true;
-			Func = Func->GetSuperFunction();
-		}
-
-		if (bShouldContinue)
+		for (auto InnerTagIt = TagAndParentsContainer.CreateConstIterator(); InnerTagIt; ++InnerTagIt)
 		{
+			UFunction* Func = NULL;
+			FName CueName = InnerTagIt->GetTagName();
+
+			Func = Class->FindFunctionByName(CueName, EIncludeSuperFlag::IncludeSuper);
+			// If the handler calls ForwardGameplayCueToParent, keep calling functions until one consumes the cue and doesn't forward it
+			while (Func)
+			{
+				FCueNameAndUFunction NewCueFunctionPair;
+				NewCueFunctionPair.Tag = *InnerTagIt;
+				NewCueFunctionPair.Func = Func;
+				FunctionList->Add(NewCueFunctionPair);
+
+				Func = Func->GetSuperFunction();
+			}
+
 			// Native functions cant be named with ".", so look for them with _. 
 			FName NativeCueFuncName = *CueName.ToString().Replace(TEXT("."), TEXT("_"));
 			Func = Class->FindFunctionByName(NativeCueFuncName, EIncludeSuperFlag::IncludeSuper);
 
-			while (bShouldContinue && Func)
+			while (Func)
 			{
-				Parameters.MatchedTagName = CueName; // purposefully returning the . qualified name.
+				FCueNameAndUFunction NewCueFunctionPair;
+				NewCueFunctionPair.Tag = *InnerTagIt;
+				NewCueFunctionPair.Func = Func;
+				FunctionList->Add(NewCueFunctionPair);
 
-				// Reset the forward parameter now, so we can check it after function
-				bForwardToParent = false;
-				IGameplayCueInterface::DispatchBlueprintCustomHandler(Self, Func, EventType, Parameters);
-
-				bShouldContinue = bForwardToParent;
-				bFoundHandler = true;
 				Func = Func->GetSuperFunction();
 			}
 		}
+	}
+
+	//Iterate through all functions in the list until we should no longer continue
+	check(FunctionList);
+		
+	bool bShouldContinue = true;
+	for (int32 FunctionIndex = 0; bShouldContinue && (FunctionIndex < FunctionList->Num()); ++FunctionIndex)
+	{
+		FCueNameAndUFunction& CueFunctionPair = FunctionList->GetData()[FunctionIndex];
+		UFunction* Func = CueFunctionPair.Func;
+		Parameters.MatchedTagName = CueFunctionPair.Tag;
+
+		// Reset the forward parameter now, so we can check it after function
+		bForwardToParent = false;
+		IGameplayCueInterface::DispatchBlueprintCustomHandler(Self, Func, EventType, Parameters);
+
+		bShouldContinue = bForwardToParent;
 	}
 
 	if (bShouldContinue)
@@ -102,7 +136,7 @@ void IGameplayCueInterface::HandleGameplayCue(AActor *Self, FGameplayTag Gamepla
 
 	if (bShouldContinue)
 	{
-		Parameters.MatchedTagName = GameplayCueTag.GetTagName();
+		Parameters.MatchedTagName = GameplayCueTag;
 		GameplayCueDefaultHandler(EventType, Parameters);
 	}
 }
@@ -125,8 +159,8 @@ void FActiveGameplayCue::PreReplicatedRemove(const struct FActiveGameplayCueCont
 	if (bPredictivelyRemoved == false)
 	{
 		// If predicted ignore the add/remove
-		InArray.Owner->InvokeGameplayCueEvent(GameplayCueTag, EGameplayCueEvent::Removed);
 		InArray.Owner->UpdateTagMap(GameplayCueTag, -1);
+		InArray.Owner->InvokeGameplayCueEvent(GameplayCueTag, EGameplayCueEvent::Removed);
 	}
 }
 
@@ -181,8 +215,8 @@ void FActiveGameplayCueContainer::PredictiveRemove(const FGameplayTag& Tag)
 			// Predictive remove: mark the cue as predictive remove, invoke remove event, update tag map.
 			// DONT remove from the replicated array.
 			Cue.bPredictivelyRemoved = true;
-			Owner->InvokeGameplayCueEvent(Tag, EGameplayCueEvent::Removed);
 			Owner->UpdateTagMap(Tag, -1);
+			Owner->InvokeGameplayCueEvent(Tag, EGameplayCueEvent::Removed);	
 			return;
 		}
 	}
@@ -206,4 +240,14 @@ bool FActiveGameplayCueContainer::HasCue(const FGameplayTag& Tag) const
 	}
 
 	return false;
+}
+
+bool FActiveGameplayCueContainer::NetDeltaSerialize(FNetDeltaSerializeInfo & DeltaParms)
+{
+	if (bMinimalReplication && (Owner && !Owner->bMinimalReplication))
+	{
+		return true;
+	}
+
+	return FastArrayDeltaSerialize<FActiveGameplayCue>(GameplayCues, DeltaParms, *this);
 }

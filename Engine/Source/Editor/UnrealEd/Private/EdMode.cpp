@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "Engine/BookMark.h"
@@ -62,7 +62,7 @@ namespace
 	 * Returns a reference to the named property value data in the given container.
 	 */
 	template<typename T>
-	T* GetPropertyValuePtrByName(const UStruct* InStruct, void* InContainer, FString PropertyName, int32 ArrayIndex)
+	T* GetPropertyValuePtrByName(const UStruct* InStruct, void* InContainer, FString PropertyName, int32 ArrayIndex, UProperty*& OutProperty)
 	{
 		T* ValuePtr = NULL;
 
@@ -90,7 +90,7 @@ namespace
 			if(StructProp != NULL)
 			{
 				// Recursively call back into this function with the structure property and container value
-				ValuePtr = GetPropertyValuePtrByName<T>(StructProp->Struct, StructProp->ContainerPtrToValuePtr<void>(InContainer), PropertyName.RightChop(DelimPos + 1), ArrayIndex);
+				ValuePtr = GetPropertyValuePtrByName<T>(StructProp->Struct, StructProp->ContainerPtrToValuePtr<void>(InContainer), PropertyName.RightChop(DelimPos + 1), ArrayIndex, OutProperty);
 			}
 			else
 			{
@@ -106,7 +106,7 @@ namespace
 						if(ArrayHelper.IsValidIndex(SubArrayIndex))
 						{
 							// Recursively call back into this function with the array element and container value
-							ValuePtr = GetPropertyValuePtrByName<T>(StructProp->Struct, ArrayHelper.GetRawPtr(SubArrayIndex), PropertyName.RightChop(DelimPos + 1), ArrayIndex);
+							ValuePtr = GetPropertyValuePtrByName<T>(StructProp->Struct, ArrayHelper.GetRawPtr(SubArrayIndex), PropertyName.RightChop(DelimPos + 1), ArrayIndex, OutProperty);
 						}
 					}
 				}
@@ -133,6 +133,8 @@ namespace
 					// Property is a vector property, so access directly
 					ValuePtr = Prop->ContainerPtrToValuePtr<T>(InContainer);
 				}
+
+				OutProperty = Prop;
 			}
 		}
 
@@ -146,7 +148,8 @@ namespace
 	T GetPropertyValueByName(UObject* Object, FString PropertyName, int32 PropertyIndex)
 	{
 		T Value;
-		if (T* ValuePtr = GetPropertyValuePtrByName<T>(Object->GetClass(), Object, PropertyName, PropertyIndex))
+		UProperty* DummyProperty = NULL;
+		if (T* ValuePtr = GetPropertyValuePtrByName<T>(Object->GetClass(), Object, PropertyName, PropertyIndex, DummyProperty))
 		{
 			Value = *ValuePtr;
 		}
@@ -157,9 +160,9 @@ namespace
 	 * Sets the property with the given name in the given Actor instance to the given value.
 	 */
 	template<typename T>
-	void SetPropertyValueByName(UObject* Object, FString PropertyName, int32 PropertyIndex, const T& InValue)
+	void SetPropertyValueByName(UObject* Object, FString PropertyName, int32 PropertyIndex, const T& InValue, UProperty*& OutProperty)
 	{
-		if (T* ValuePtr = GetPropertyValuePtrByName<T>(Object->GetClass(), Object, PropertyName, PropertyIndex))
+		if (T* ValuePtr = GetPropertyValuePtrByName<T>(Object->GetClass(), Object, PropertyName, PropertyIndex, OutProperty))
 		{
 			*ValuePtr = InValue;
 		}
@@ -367,16 +370,20 @@ bool FEdMode::InputDelta(FEditorViewportClient* InViewportClient, FViewport* InV
 
 				BestSelectedItem->PreEditChange(NULL);
 
+				// Property that we actually change
+				UProperty* SetProperty = NULL;
+
 				if (bEditedPropertyIsTransform)
 				{
-					SetPropertyValueByName<FTransform>(BestSelectedItem, EditedPropertyName, EditedPropertyIndex, LocalTM);
+					SetPropertyValueByName<FTransform>(BestSelectedItem, EditedPropertyName, EditedPropertyIndex, LocalTM, SetProperty);
 				}
 				else
 				{
-					SetPropertyValueByName<FVector>(BestSelectedItem, EditedPropertyName, EditedPropertyIndex, LocalTM.GetLocation());
+					SetPropertyValueByName<FVector>(BestSelectedItem, EditedPropertyName, EditedPropertyIndex, LocalTM.GetLocation(), SetProperty);
 				}
 
-				BestSelectedItem->PostEditChange();
+				FPropertyChangedEvent PropertyChangeEvent(SetProperty);
+				BestSelectedItem->PostEditChangeProperty(PropertyChangeEvent);
 
 				return true;
 			}

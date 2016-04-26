@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -12,7 +12,6 @@ class FReply;
 class FCursorReply;
 class FSlateShaderResource;
 class IWebBrowserPopupFeatures;
-class SWidget;
 
 
 enum class EWebBrowserDocumentState
@@ -21,6 +20,12 @@ enum class EWebBrowserDocumentState
 	Error,
 	Loading,
 	NoDocument
+};
+
+struct FWebNavigationRequest
+{
+	bool bIsRedirect;
+	bool bIsMainFrame;
 };
 
 /**
@@ -46,18 +51,11 @@ public:
 	virtual void LoadString(FString Contents, FString DummyURL) = 0;
 
 	/**
-	 * Create the SWidget for this WebBrowser
-	 *
-	 * @param ViewportSize Size of viewport for CEF implementation on PC
-	 */
-	virtual TSharedRef<SWidget> CreateWidget(TAttribute<FVector2D> ViewportSize) = 0;
-
-	/**
 	 * Set the desired size of the web browser viewport
 	 * 
 	 * @param WindowSize Desired viewport size
 	 */
-	virtual void SetViewportSize(FIntPoint WindowSize) = 0;
+	virtual void SetViewportSize(FIntPoint WindowSize, FIntPoint WindowPos = FIntPoint::NoneValue) = 0;
 
 	/**
 	 * Gets interface to the texture representation of the browser
@@ -96,6 +94,15 @@ public:
 	 * @return The URL, or empty string if no document is loaded.
 	 */
 	virtual FString GetUrl() const = 0;
+
+	/**
+	 * Gets the source of the main frame as raw HTML.
+	 * 
+	 * This method has to be called asynchronously by passing a callback function, which will be called at a later point when the
+	 * result is ready.
+	 * @param	Callback	A callable that takes a single string reference for handling the result.
+	 */
+	virtual void GetSource(TFunction<void (const FString&)> Callback) const = 0;
 
 	/**
 	 * Notify the browser that a key has been pressed
@@ -247,6 +254,21 @@ public:
 	 */
 	virtual void UnbindUObject(const FString& Name, UObject* Object, bool bIsPermanent = true) = 0;
 
+
+	/**
+	 * Get current load error.
+	 *
+	 * @return an error code if the last page load resulted in an error, otherwise 0.
+	*/
+	virtual int GetLoadError() = 0;
+	
+	/**
+	 * Disable or enable web view.
+	 *
+	 * @param bValue Setting this to true will prevent any updates from the background web browser.
+	 */
+	virtual void SetIsDisabled(bool bValue) = 0;
+
 public:
 
 	/** A delegate that is invoked when the loading state of a document changed. */
@@ -261,12 +283,16 @@ public:
 	DECLARE_EVENT_OneParam(IWebBrowserWindow, FOnUrlChanged, FString /*NewUrl*/);
 	virtual FOnUrlChanged& OnUrlChanged() = 0;
 
+	/** A delegate to allow callbacks when a frame url changes. */
+	DECLARE_EVENT_OneParam(IWebBrowserWindow, FOnToolTip, FString /*ToolTipText*/);
+	virtual FOnToolTip& OnToolTip() = 0;
+
 	/** A delegate that is invoked when the off-screen window has been repainted and requires an update. */
 	DECLARE_EVENT(IWebBrowserWindow, FOnNeedsRedraw)
 	virtual FOnNeedsRedraw& OnNeedsRedraw() = 0;
 	
 	/** A delegate that is invoked prior to browser navigation. */
-	DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforeBrowse, const FString& /*Url*/, bool /*bIsRedirect*/)
+	DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforeBrowse, const FString& /*Url*/, const FWebNavigationRequest& /*Request*/)
 	virtual FOnBeforeBrowse& OnBeforeBrowse() = 0;
 
 	/** A delegate that is invoked to allow user code to override the contents of a Url. */

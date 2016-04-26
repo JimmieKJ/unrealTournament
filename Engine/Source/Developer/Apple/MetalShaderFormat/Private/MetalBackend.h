@@ -1,8 +1,12 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "hlslcc.h"
+PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
+#include "ir.h"
+#include "PackUniformBuffers.h"
+PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
 #include "LanguageSpec.h"
 
 

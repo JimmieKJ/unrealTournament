@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 /*=============================================================================================
@@ -70,6 +70,7 @@ struct CORE_API FLinuxPlatformMisc : public FGenericPlatformMisc
 	static void LowLevelOutputDebugString(const TCHAR *Message);
 	static bool ControlScreensaver(EScreenSaverAction Action);
 
+	static void RequestExitWithStatus(bool Force, uint8 ReturnCode);
 	static const TCHAR* GetSystemErrorMessage(TCHAR* OutBuffer, int32 BufferCount, int32 Error);
 	static void ClipboardCopy(const TCHAR* Str);
 	static void ClipboardPaste(class FString& Dest);
@@ -121,13 +122,9 @@ struct CORE_API FLinuxPlatformMisc : public FGenericPlatformMisc
 	 */
 	static const TCHAR* GetNullRHIShaderFormat();
 
-#if PLATFORM_HAS_CPUID
-	/**
-	 * Uses cpuid instruction to get the vendor string
-	 *
-	 * @return	CPU vendor name
-	 */
+	static bool HasCPUIDInstruction();
 	static FString GetCPUVendor();
+	static FString GetCPUBrand();
 
 	/**
 	 * Uses cpuid instruction to get the vendor string
@@ -144,7 +141,6 @@ struct CORE_API FLinuxPlatformMisc : public FGenericPlatformMisc
 	 *			Bits 28-31	Reserved
 	 */
 	static uint32 GetCPUInfo();
-#endif // PLATFORM_HAS_CPUID
 
 	static const TCHAR* EngineDir()
 	{
@@ -167,6 +163,15 @@ struct CORE_API FLinuxPlatformMisc : public FGenericPlatformMisc
 	 * Returns whether the program has been started remotely (e.g. over SSH)
 	 */
 	static bool HasBeenStartedRemotely();
+
+	/**
+	 * Determines if return code has been overriden and returns it.
+	 *
+	 * @param OverriddenReturnCodeToUsePtr pointer to an variable that will hold an overriden return code, if any. Can be null.
+	 *
+	 * @return true if the error code has been overriden, false if not
+	 */
+	static bool HasOverriddenReturnCode(uint8 * OverriddenReturnCodeToUsePtr);
 };
 
 typedef FLinuxPlatformMisc FPlatformMisc;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -25,7 +25,7 @@ public:
 	 *
 	 * @param Size The number of elements that the queue can hold (will be rounded up to the next power of 2).
 	 */
-	TCircularQueue( uint32 Size)
+	TCircularQueue(uint32 Size)
 		: Buffer(Size)
 		, Head(0)
 		, Tail(0)
@@ -59,7 +59,7 @@ public:
 	 * @param OutElement Will contain the element if the queue is not empty.
 	 * @return true if an element has been returned, false if the queue was empty.
 	 */
-	bool Dequeue( ElementType& OutElement )
+	bool Dequeue(ElementType& OutElement)
 	{
 		if (Head != Tail)
 		{
@@ -88,7 +88,7 @@ public:
 	 * @param Element The element to add.
 	 * @return true if the item was added, false if the queue was full.
 	 */
-	bool Enqueue( const ElementType& Element )
+	bool Enqueue(const ElementType& Element)
 	{
 		uint32 NewTail = Buffer.GetNextIndex(Tail);
 
@@ -131,7 +131,7 @@ public:
 	 * @param OutItem Will contain the item if the queue is not empty.
 	 * @return true if an item has been returned, false if the queue was empty.
 	 */
-	bool Peek( ElementType& OutItem )
+	bool Peek(ElementType& OutItem)
 	{
 		if (Head != Tail)
 		{
@@ -149,8 +149,8 @@ private:
 	TCircularBuffer<ElementType> Buffer;
 
 	/** Holds the index to the first item in the buffer. */
-	MS_ALIGN(CACHE_LINE_SIZE) volatile uint32 Head GCC_ALIGN(CACHE_LINE_SIZE);
+	MS_ALIGN(PLATFORM_CACHE_LINE_SIZE) volatile uint32 Head GCC_ALIGN(PLATFORM_CACHE_LINE_SIZE);
 
 	/** Holds the index to the last item in the buffer. */
-	MS_ALIGN(CACHE_LINE_SIZE) volatile uint32 Tail GCC_ALIGN(CACHE_LINE_SIZE);
+	MS_ALIGN(PLATFORM_CACHE_LINE_SIZE) volatile uint32 Tail GCC_ALIGN(PLATFORM_CACHE_LINE_SIZE);
 };

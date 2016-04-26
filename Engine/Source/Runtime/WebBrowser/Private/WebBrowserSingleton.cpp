@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "WebBrowserPrivatePCH.h"
 #include "SlateCore.h"
@@ -131,6 +131,7 @@ FWebBrowserSingleton::FWebBrowserSingleton()
 	CefMainArgs MainArgs;
 #endif
 
+	bool bVerboseLogging = FParse::Param(FCommandLine::Get(), TEXT("cefverbose")) || FParse::Param(FCommandLine::Get(), TEXT("debuglog"));
 	// WebBrowserApp implements application-level callbacks.
 	WebBrowserApp = new FWebBrowserApp;
 	WebBrowserApp->OnRenderProcessThreadCreated().BindRaw(this, &FWebBrowserSingleton::HandleRenderProcessCreated);
@@ -147,14 +148,14 @@ FWebBrowserSingleton::FWebBrowserSingleton()
 	FString CefLogFile(FPaths::Combine(*FPaths::GameLogDir(), TEXT("cef3.log")));
 	CefLogFile = FPaths::ConvertRelativePathToFull(CefLogFile);
 	CefString(&Settings.log_file) = *CefLogFile;
-	Settings.log_severity = LOGSEVERITY_WARNING;
+	Settings.log_severity = bVerboseLogging ? LOGSEVERITY_VERBOSE : LOGSEVERITY_WARNING;
 
 	// Specify locale from our settings
 	FString LocaleCode = GetCurrentLocaleCode();
 	CefString(&Settings.locale) = *LocaleCode;
 
 	// Append engine version to the user agent string.
-	FString ProductVersion = FString::Printf( TEXT("%s UnrealEngineChrome/%s"), FApp::GetGameName(), ENGINE_VERSION_STRING);
+	FString ProductVersion = FString::Printf( TEXT("%s UnrealEngine/%s"), FApp::GetGameName(), ENGINE_VERSION_STRING);
 	CefString(&Settings.product_version) = *ProductVersion;
 
 	// Enable on disk cache
@@ -229,9 +230,11 @@ FWebBrowserSingleton::~FWebBrowserSingleton()
 	// Force all existing browsers to close in case any haven't been deleted
 	for (int32 Index = 0; Index < WindowInterfaces.Num(); ++Index)
 	{
-		if (WindowInterfaces[Index].IsValid())
+		auto BrowserWindow = WindowInterfaces[Index].Pin();
+		if (BrowserWindow.IsValid() && BrowserWindow->IsValid())
 		{
-			WindowInterfaces[Index].Pin()->CloseBrowser(true);
+			// Call CloseBrowser directly on the Host object as FWebBrowserWindow::CloseBrowser is delayed
+			BrowserWindow->InternalCefBrowser->GetHost()->CloseBrowser(true);
 		}
 	}
 
@@ -258,7 +261,7 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(
 	bool bThumbMouseButtonNavigation = BrowserWindowParent->IsThumbMouseButtonNavigationEnabled();
 	bool bUseTransparency = BrowserWindowParent->UseTransparency();
 	FString InitialURL = BrowserWindowInfo->Browser->GetMainFrame()->GetURL().ToWString().c_str();
-	TSharedPtr<FWebBrowserWindow> NewBrowserWindow(new FWebBrowserWindow(BrowserWindowInfo->Browser, InitialURL, ContentsToLoad, bShowErrorMessage, bThumbMouseButtonNavigation, bUseTransparency));
+	TSharedPtr<FWebBrowserWindow> NewBrowserWindow(new FWebBrowserWindow(BrowserWindowInfo->Browser, BrowserWindowInfo->Handler, InitialURL, ContentsToLoad, bShowErrorMessage, bThumbMouseButtonNavigation, bUseTransparency));
 	BrowserWindowInfo->Handler->SetBrowserWindow(NewBrowserWindow);
 
 	WindowInterfaces.Add(NewBrowserWindow);
@@ -281,32 +284,43 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(
 	if (AllowCEF)
 	{
 		// Information used when creating the native window.
-		CefWindowHandle WindowHandle = (CefWindowHandle)OSWindowHandle; // TODO: check this is correct for all platforms
 		CefWindowInfo WindowInfo;
-
-		// Always use off screen rendering so we can integrate with our windows
-		WindowInfo.SetAsWindowless(WindowHandle, bUseTransparency);
 
 		// Specify CEF browser settings here.
 		CefBrowserSettings BrowserSettings;
 
 		// Set max framerate to maximum supported.
-		BrowserSettings.windowless_frame_rate = 60;
 		BrowserSettings.background_color = CefColorSetARGB(BackgroundColor.A, BackgroundColor.R, BackgroundColor.G, BackgroundColor.B);
 
 		// Disable plugins
 		BrowserSettings.plugins = STATE_DISABLED;
 
 
+#if PLATFORM_WINDOWS
+		// Create the widget as a child window on whindows when passing in a parent window
+		if (OSWindowHandle != nullptr)
+		{
+			RECT ClientRect = { 0, 0, 0, 0 };
+			WindowInfo.SetAsChild((CefWindowHandle)OSWindowHandle, ClientRect);
+		}
+		else
+#endif
+		{
+			// Use off screen rendering so we can integrate with our windows
+			WindowInfo.SetAsWindowless(nullptr, bUseTransparency);
+			BrowserSettings.windowless_frame_rate = 24;
+		}
+
+
 		// WebBrowserHandler implements browser-level callbacks.
-		CefRefPtr<FWebBrowserHandler> NewHandler(new FWebBrowserHandler);
+		CefRefPtr<FWebBrowserHandler> NewHandler(new FWebBrowserHandler(bUseTransparency));
 
 		// Create the CEF browser window.
 		CefRefPtr<CefBrowser> Browser = CefBrowserHost::CreateBrowserSync(WindowInfo, NewHandler.get(), *InitialURL, BrowserSettings, nullptr);
 		if (Browser.get())
 		{
 			// Create new window
-			TSharedPtr<FWebBrowserWindow> NewBrowserWindow(new FWebBrowserWindow(Browser, InitialURL, ContentsToLoad, ShowErrorMessage, bThumbMouseButtonNavigation, bUseTransparency));
+			TSharedPtr<FWebBrowserWindow> NewBrowserWindow(new FWebBrowserWindow(Browser, NewHandler, InitialURL, ContentsToLoad, ShowErrorMessage, bThumbMouseButtonNavigation, bUseTransparency));
 			NewHandler->SetBrowserWindow(NewBrowserWindow);
 
 			WindowInterfaces.Add(NewBrowserWindow);
@@ -332,7 +346,7 @@ bool FWebBrowserSingleton::Tick(float DeltaTime)
 	{
 		if (!WindowInterfaces[Index].IsValid())
 		{
-			WindowInterfaces.RemoveAtSwap(Index);
+			WindowInterfaces.RemoveAt(Index);
 		}
 		else if (bIsSlateAwake) // only check for Tick activity if Slate is currently ticking
 		{

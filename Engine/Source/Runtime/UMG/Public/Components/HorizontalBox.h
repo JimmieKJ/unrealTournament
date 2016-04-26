@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "Components/PanelWidget.h"
@@ -23,7 +23,6 @@ class UMG_API UHorizontalBox : public UPanelWidget
 
 #if WITH_EDITOR
 	// UWidget interface
-	virtual const FSlateBrush* GetEditorIcon() override;
 	virtual const FText GetPaletteCategory() override;
 	// End UWidget interface
 #endif

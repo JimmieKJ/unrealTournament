@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -40,7 +40,7 @@ public:
 	void ResetData();
 
 protected:
-	TSharedPtr<class STimelinesContainer> TimelinesContainer;
+	TSharedPtr<class SVisualLoggerTimelinesContainer> TimelinesContainer;
 	TSharedPtr<class SSplitter> SearchSplitter;
 	TSharedPtr<class SScrollBox> ScrollBox;
 	TSharedPtr<class SSearchBox> SearchBox;

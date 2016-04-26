@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AndroidETC2_TargetPlatformModule.cpp: Implements the FAndroidETC2_TargetPlatformModule class.
@@ -19,12 +19,12 @@ public:
 
 	// Begin FAndroidTargetPlatform overrides
 
-	virtual FText DisplayName( ) const override
+	virtual FText DisplayName() const override
 	{
 		return LOCTEXT("Android_ETC2", "Android (ETC2)");
 	}
 
-	virtual FString GetAndroidVariantName( )
+	virtual FString GetAndroidVariantName()
 	{
 		return TEXT("ETC2");
 	}
@@ -34,7 +34,7 @@ public:
 		return FString(FAndroid_ETC2PlatformProperties::PlatformName());
 	}
 
-	virtual bool SupportsTextureFormat( FName Format ) const override
+	virtual bool SupportsTextureFormat(FName Format) const override
 	{
 		if (Format == AndroidTexFormat::NameETC2_RGB ||
 			Format == AndroidTexFormat::NameETC2_RGBA ||
@@ -48,7 +48,7 @@ public:
 
 	// End FAndroidTargetPlatform overrides
 
-	virtual bool SupportedByExtensionsString( const FString& ExtensionsString, const int GLESVersion ) const override
+	virtual bool SupportedByExtensionsString(const FString& ExtensionsString, const int GLESVersion) const override
 	{
 		return GLESVersion >= 0x30000;
 	}
@@ -60,7 +60,9 @@ public:
 
 	virtual float GetVariantPriority() const override
 	{
-		return 0.2f;
+		float Priority;
+		return GConfig->GetFloat(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("TextureFormatPriority_ETC2"), Priority, GEngineIni) ?
+			Priority : 0.2f;
 	}
 };
 

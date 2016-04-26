@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	HlslAST.h - Abstract Syntax Tree interfaces for HLSL.
@@ -310,6 +310,15 @@ namespace CrossCompiler
 
 			return AST::EOperators::Plus;
 		}
+
+		struct FPragma : public FNode
+		{
+			FPragma(FLinearAllocator* InAllocator, const TCHAR* InPragma, const FSourceInfo& InInfo);
+
+			virtual void Write(FASTWriter& Writer) const override;
+
+			const TCHAR* Pragma;
+		};
 
 		struct FExpression : public FNode
 		{

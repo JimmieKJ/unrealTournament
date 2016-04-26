@@ -13,11 +13,19 @@ UUTLocalMessage::UUTLocalMessage(const class FObjectInitializer& ObjectInitializ
 {
 	Lifetime = 2.0;
 	MessageArea = FName(TEXT("ConsoleMessage"));
-	StyleTag = FName(TEXT("Default"));
 	bOptionalSpoken = false;
 	AnnouncementDelay = 0.f;
 	bWantsBotReaction = false;
 	bDrawAsDeathMessage = false;
+	bDrawAtIntermission = true;
+	bDrawOnlyIfAlive = false;
+	ScaleInSize = 1.f;
+	FontSizeIndex = 2;
+}
+
+int32 UUTLocalMessage::GetFontSizeIndex(int32 MessageIndex) const
+{
+	return FontSizeIndex;
 }
 
 void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const
@@ -87,11 +95,6 @@ float UUTLocalMessage::GetAnnouncementPriority(int32 Switch) const
 	return bIsStatusAnnouncement ? 0.5f : 0.8f;
 }
 
-bool UUTLocalMessage::UseLargeFont(int32 MessageIndex) const
-{
-	return true;
-}
-
 FLinearColor UUTLocalMessage::GetMessageColor_Implementation(int32 MessageIndex) const
 {
 	return FLinearColor::White;
@@ -104,7 +107,7 @@ float UUTLocalMessage::GetScaleInTime_Implementation(int32 MessageIndex) const
 
 float UUTLocalMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
 {
-	return 1.f;
+	return ScaleInSize;
 }
 
 void UUTLocalMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const
@@ -112,7 +115,7 @@ void UUTLocalMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Announc
 	// naive default implementation just keeps querying until we get a fail
 	for (int32 i = 0; i < 50; i++)
 	{
-		FName SoundName = GetAnnouncementName(i, NULL);
+		FName SoundName = GetAnnouncementName(i, NULL, NULL, NULL);
 		if (SoundName != NAME_None)
 		{
 			Announcer->PrecacheAnnouncement(SoundName);
@@ -122,6 +125,25 @@ void UUTLocalMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Announc
 			break;
 		}
 	}
+}
+
+void UUTLocalMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
+{
+	PrefixText = FText::GetEmpty();
+	EmphasisText = FText::GetEmpty();
+	PostfixText = FText::GetEmpty();
+}
+
+FText UUTLocalMessage::BuildEmphasisText(int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
+{
+	FText PrefixText, EmphasisText, PostfixText;
+	FLinearColor EmphasisColor;
+	GetEmphasisText(PrefixText, EmphasisText, PostfixText, EmphasisColor, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+	FFormatNamedArguments Args;
+	Args.Add(TEXT("PrefixText"), PrefixText);
+	Args.Add(TEXT("EmphasisText"), EmphasisText);
+	Args.Add(TEXT("PostfixText"), PostfixText);
+	return FText::Format(NSLOCTEXT("UTLocalMessage", "CombinedMessage", "{PrefixText}{EmphasisText}{PostfixText}"), Args);
 }
 
 FText UUTLocalMessage::ResolveMessage_Implementation(int32 Switch, bool bTargetsPlayerState1, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const
@@ -179,7 +201,7 @@ bool UUTLocalMessage::PartiallyDuplicates(int32 Switch1, int32 Switch2, UObject*
 	return (Switch1 == Switch2);
 }
 
-FName UUTLocalMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const
+FName UUTLocalMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const
 {
 	return NAME_None;
 }
@@ -219,7 +241,7 @@ float UUTLocalMessage::Blueprint_GetLifeTime_Implementation(int32 Switch) const
 	return GetDefault<UUTLocalMessage>(GetClass())->Lifetime;
 }
 
-bool UUTLocalMessage::ShouldCountInstances_Implementation(int32 MessageIndex) const
+bool UUTLocalMessage::ShouldCountInstances_Implementation(int32 MessageIndex, UObject* OptionalObject) const
 {
 	return false;
 }

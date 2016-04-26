@@ -1,5 +1,4 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-
 #include "UnrealTournament.h"
 #include "UnrealNetwork.h"
 #include "UTProjectileMovementComponent.h"
@@ -8,6 +7,7 @@
 #include "UTCTFRewardMessage.h"
 #include "UTHUD.h"
 #include "StatNames.h"
+#include "UTWorldSettings.h"
 
 AUTRemoteRedeemer::AUTRemoteRedeemer(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -72,6 +72,7 @@ AUTRemoteRedeemer::AUTRemoteRedeemer(const class FObjectInitializer& ObjectIniti
 	CollisionFreeRadius = 1000.f;
 	StatsHitCredit = 0.f;
 	HitsStatsName = NAME_RedeemerHits;
+	ProjHealth = 35;
 }
 
 FVector AUTRemoteRedeemer::GetVelocity() const
@@ -191,9 +192,13 @@ void AUTRemoteRedeemer::BlowUp()
 		bExploded = true;
 		bTearOff = true;
 
-		if (Role == ROLE_Authority)
+		if (OverlayMI != NULL)
 		{
-			DriverLeave(true);
+			AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+			if (WS != NULL)
+			{
+				WS->AddTimedMaterialParameter(OverlayMI, FName(TEXT("Static")), OverlayStaticCurve);
+			}
 		}
 
 		ProjectileMovement->SetActive(false);
@@ -215,6 +220,8 @@ void AUTRemoteRedeemer::BlowUp()
 
 void AUTRemoteRedeemer::Detonate()
 {
+	BlowUp();
+/*
 	if (!bExploded)
 	{
 		bShotDown = true;
@@ -268,6 +275,7 @@ void AUTRemoteRedeemer::Detonate()
 
 		ShutDown();
 	}
+	*/
 }
 
 void AUTRemoteRedeemer::PlayDetonateEffects()
@@ -448,6 +456,10 @@ void AUTRemoteRedeemer::ExplodeStage2()
 }
 void AUTRemoteRedeemer::ExplodeStage3()
 {
+	if (Role == ROLE_Authority)
+	{
+		DriverLeave(true);
+	}
 	ExplodeStage(ExplosionRadii[2]);
 	FTimerHandle TempHandle;
 	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTRemoteRedeemer::ExplodeStage4, ExplosionTimings[2]);
@@ -600,9 +612,12 @@ float AUTRemoteRedeemer::TakeDamage(float Damage, const FDamageEvent& DamageEven
 					EventInstigator->InstigatedAnyDamage(ActualDamage, DamageTypeCDO, this, DamageCauser);
 					DamageInstigator = EventInstigator;
 				}
-				
-				// small explosion when damaged
-				Detonate();
+				ProjHealth -= ActualDamage;
+				if (ProjHealth <= 0)
+				{
+					// small explosion when damaged
+					Detonate();
+				}
 			}
 		}
 		return float(ResultDamage);
@@ -611,81 +626,59 @@ float AUTRemoteRedeemer::TakeDamage(float Damage, const FDamageEvent& DamageEven
 
 void AUTRemoteRedeemer::PostRender(AUTHUD* HUD, UCanvas* C)
 {
-	if (OverlayMat != NULL)
+	if (RedeemerDisplayOne != NULL)
 	{
-		if (OverlayMI == NULL)
+		FCanvasTileItem XHairItem(0.5f*FVector2D(C->ClipX - 0.8f*C->ClipY, 0.f), RedeemerDisplayOne->Resource, 0.8f*FVector2D(C->ClipY, C->ClipY), FLinearColor::Red);
+		XHairItem.UV0 = FVector2D(0.0f, 0.0f);
+		XHairItem.UV1 = FVector2D(1.0f, 1.0f);
+		XHairItem.BlendMode = SE_BLEND_Translucent;
+		XHairItem.Rotation.Yaw = -1.f*GetActorRotation().Roll;
+		XHairItem.Position.Y = XHairItem.Position.Y + 0.1f * C->ClipY;
+		XHairItem.PivotPoint = FVector2D(0.5f, 0.5f);
+		C->DrawItem(XHairItem);
+	}
+	if (TargetIndicator != NULL)
+	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 		{
-			OverlayMI = UMaterialInstanceDynamic::Create(OverlayMat, this);
-		}
-		AUTPlayerState* PS = Cast<AUTPlayerState>(GetController()->PlayerState);
-		if (PS != NULL && PS->Team != NULL)
-		{
-			static FName NAME_TeamColor(TEXT("TeamColor"));
-			OverlayMI->SetVectorParameterValue(NAME_TeamColor, FLinearColor(0.5f, 0.5f, 0.5f, 1.f));
-		}
-		FCanvasTileItem Item(FVector2D(0.0f, 0.0f), OverlayMI->GetRenderProxy(false), FVector2D(C->ClipX, C->ClipY));
-		// expand X axis size to be widest supported aspect ratio (16:9)
-		float OrigSizeX = Item.Size.X;
-		Item.Size.X = FMath::Max<float>(Item.Size.X, Item.Size.Y * 16.0f / 9.0f);
-		Item.Position.X -= (Item.Size.X - OrigSizeX) * 0.5f;
-		Item.UV0 = FVector2D(0.1f, 0.1f);
-		Item.UV1 = FVector2D(0.9f, 0.9f);
-		C->DrawItem(Item);
-
-		if (RedeemerDisplayOne != NULL)
-		{
-			FCanvasTileItem XHairItem(0.5f*FVector2D(C->ClipX - 0.8f*C->ClipY, 0.f), RedeemerDisplayOne->Resource, 0.8f*FVector2D(C->ClipY, C->ClipY), FLinearColor::Red);
-			XHairItem.UV0 = FVector2D(0.0f, 0.0f);
-			XHairItem.UV1 = FVector2D(1.0f, 1.0f);
-			XHairItem.BlendMode = SE_BLEND_Translucent;
-			XHairItem.Rotation.Yaw = -1.f*GetActorRotation().Roll;
-			XHairItem.Position.Y = XHairItem.Position.Y + 0.1f * C->ClipY;
-			XHairItem.PivotPoint = FVector2D(0.5f, 0.5f);
-			C->DrawItem(XHairItem);
-		}
-		if (TargetIndicator != NULL)
-		{
-			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-			for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+			AUTCharacter* EnemyChar = Cast<AUTCharacter>(*It);
+			if (EnemyChar != NULL && !EnemyChar->IsDead() && !EnemyChar->IsInvisible() && (EnemyChar->DrivenVehicle != this) && !EnemyChar->IsFeigningDeath() && (EnemyChar->GetMesh()->LastRenderTime > GetWorld()->TimeSeconds - 0.15f) && (GS == NULL || !GS->OnSameTeam(EnemyChar, this)))
 			{
-				AUTCharacter* EnemyChar = Cast<AUTCharacter>(*It);
-				if (EnemyChar != NULL && !EnemyChar->IsDead() && !EnemyChar->IsInvisible() && (EnemyChar->DrivenVehicle != this) && !EnemyChar->IsFeigningDeath() && (EnemyChar->GetMesh()->LastRenderTime > GetWorld()->TimeSeconds - 0.15f) && (GS == NULL || !GS->OnSameTeam(EnemyChar, this)))
+				FVector CircleLoc = EnemyChar->GetActorLocation();
+				static FName NAME_RedeemerHUD(TEXT("RedeemerHUD"));
+				if (!GetWorld()->LineTraceTestByChannel(GetActorLocation(), CircleLoc, COLLISION_TRACE_WEAPONNOCHARACTER, FCollisionQueryParams(NAME_RedeemerHUD, true, this)))
 				{
-					FVector CircleLoc = EnemyChar->GetActorLocation();
-					static FName NAME_RedeemerHUD(TEXT("RedeemerHUD"));
-					if (!GetWorld()->LineTraceTestByChannel(GetActorLocation(), CircleLoc, COLLISION_TRACE_WEAPONNOCHARACTER, FCollisionQueryParams(NAME_RedeemerHUD, true, this)))
+					float CircleRadius = 1.2f * EnemyChar->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+					FVector Perpendicular = (CircleLoc - GetActorLocation()).GetSafeNormal() ^ FVector(0.0f, 0.0f, 1.0f);
+					FVector PointA = C->Project(CircleLoc + Perpendicular * CircleRadius);
+					FVector PointB = C->Project(CircleLoc - Perpendicular * CircleRadius);
+					FVector2D UpperLeft(FMath::Min<float>(PointA.X, PointB.X), FMath::Min<float>(PointA.Y, PointB.Y));
+					FVector2D BottomRight(FMath::Max<float>(PointA.X, PointB.X), FMath::Max<float>(PointA.Y, PointB.Y));
+					float MidY = (UpperLeft.Y + BottomRight.Y) * 0.5f;
+
+					// skip drawing if too off-center
+					if ((FMath::Abs(MidY - 0.5f*C->SizeY) < 0.5f*C->SizeY) && (FMath::Abs(0.5f*(UpperLeft.X + BottomRight.X) - 0.5f*C->SizeX) < 0.5f*C->SizeX))
 					{
-						float CircleRadius = 1.2f * EnemyChar->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
-						FVector Perpendicular = (CircleLoc - GetActorLocation()).GetSafeNormal() ^ FVector(0.0f, 0.0f, 1.0f);
-						FVector PointA = C->Project(CircleLoc + Perpendicular * CircleRadius);
-						FVector PointB = C->Project(CircleLoc - Perpendicular * CircleRadius);
-						FVector2D UpperLeft(FMath::Min<float>(PointA.X, PointB.X), FMath::Min<float>(PointA.Y, PointB.Y));
-						FVector2D BottomRight(FMath::Max<float>(PointA.X, PointB.X), FMath::Max<float>(PointA.Y, PointB.Y));
-						float MidY = (UpperLeft.Y + BottomRight.Y) * 0.5f;
+						// square-ify
+						float SizeY = FMath::Max<float>(MidY - UpperLeft.Y, (BottomRight.X - UpperLeft.X) * 0.5f);
+						UpperLeft.Y = MidY - SizeY;
+						BottomRight.Y = MidY + SizeY;
+						FLinearColor TargetColor = EnemyChar->bIsWearingHelmet ? FLinearColor(1.0f, 1.0f, 0.0f, 1.0f) : FLinearColor(1.0f, 0.0f, 0.0f, 1.0f);
+						FCanvasTileItem HeadCircleItem(UpperLeft, TargetIndicator->Resource, BottomRight - UpperLeft, TargetColor);
+						HeadCircleItem.BlendMode = SE_BLEND_Translucent;
+						C->DrawItem(HeadCircleItem);
 
-						// skip drawing if too off-center
-						if ((FMath::Abs(MidY - 0.5f*C->SizeY) < 0.5f*C->SizeY) && (FMath::Abs(0.5f*(UpperLeft.X + BottomRight.X) - 0.5f*C->SizeX) < 0.5f*C->SizeX))
-						{
-							// square-ify
-							float SizeY = FMath::Max<float>(MidY - UpperLeft.Y, (BottomRight.X - UpperLeft.X) * 0.5f);
-							UpperLeft.Y = MidY - SizeY;
-							BottomRight.Y = MidY + SizeY;
-							FLinearColor TargetColor = EnemyChar->bIsWearingHelmet ? FLinearColor(1.0f, 1.0f, 0.0f, 1.0f) : FLinearColor(1.0f, 0.0f, 0.0f, 1.0f);
-							FCanvasTileItem HeadCircleItem(UpperLeft, TargetIndicator->Resource, BottomRight - UpperLeft, TargetColor);
-							HeadCircleItem.BlendMode = SE_BLEND_Translucent;
-							C->DrawItem(HeadCircleItem);
-
-							FFormatNamedArguments Args;
-							static const FNumberFormattingOptions RespawnTimeFormat = FNumberFormattingOptions()
-								.SetMinimumFractionalDigits(2)
-								.SetMaximumFractionalDigits(2);
-							Args.Add("Dist", FText::AsNumber( 0.01f * (GetActorLocation() - EnemyChar->GetActorLocation()).Size(), &RespawnTimeFormat));
-							FText DistanceMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "TargetDist", "{Dist}m"), Args);
-							FFontRenderInfo TextRenderInfo;
-							TextRenderInfo.bEnableShadow = true;
-							C->SetDrawColor(FLinearColor::Red.ToFColor(false));
-							C->DrawText(HUD->TinyFont, DistanceMessage, BottomRight.X, UpperLeft.Y, 1.f, 1.f, TextRenderInfo);
-						}
+						FFormatNamedArguments Args;
+						static const FNumberFormattingOptions RespawnTimeFormat = FNumberFormattingOptions()
+							.SetMinimumFractionalDigits(2)
+							.SetMaximumFractionalDigits(2);
+						Args.Add("Dist", FText::AsNumber( 0.01f * (GetActorLocation() - EnemyChar->GetActorLocation()).Size(), &RespawnTimeFormat));
+						FText DistanceMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "TargetDist", "{Dist}m"), Args);
+						FFontRenderInfo TextRenderInfo;
+						TextRenderInfo.bEnableShadow = true;
+						C->SetDrawColor(FLinearColor::Red.ToFColor(false));
+						C->DrawText(HUD->TinyFont, DistanceMessage, BottomRight.X, UpperLeft.Y, 1.f, 1.f, TextRenderInfo);
 					}
 				}
 			}

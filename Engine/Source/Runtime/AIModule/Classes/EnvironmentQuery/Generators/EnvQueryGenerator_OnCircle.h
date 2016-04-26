@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "EnvironmentQuery/Generators/EnvQueryGenerator_ProjectedPoints.h"
@@ -63,7 +63,7 @@ class AIMODULE_API UEnvQueryGenerator_OnCircle : public UEnvQueryGenerator_Proje
 	UPROPERTY(EditAnywhere, Category=Generator)
 	FEnvTraceData TraceData;
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category=Generator, meta=(InlineEditConditionToggle))
 	uint32 bDefineArc:1;
 
 	virtual void PostLoad() override;

@@ -117,27 +117,36 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 	float MultiKillDelay;
 
-	// Used to sync the time on clients to the server. -- See DefaultTimer()
-	UPROPERTY(Replicated)
-	int32 RemainingMinute;
-
 	// Tell clients if more players are needed before match starts
 	UPROPERTY(Replicated)
 	int32 PlayersNeeded;
 
+	protected:
 	/** How much time is remaining in this match. */
-	UPROPERTY(Replicated, ReplicatedUsing = OnRep_RemainingTime, BlueprintReadOnly, Category = GameState)
+	UPROPERTY(BlueprintReadOnly, Category = GameState)
 	int32 RemainingTime;
+
+	// Used to sync the time on clients to the server. Updated at a lower frequency to reduce bandwidth cost -- See DefaultTimer()
+	UPROPERTY(Replicated)
+		int32 ReplicatedRemainingTime;
+
+	public:
+	int32 GetRemainingTime() { return RemainingTime; };
+	virtual void SetRemainingTime(int32 NewRemainingTime);
 
 	/** local world time that game ended (i.e. relative to World->TimeSeconds) */
 	UPROPERTY(BlueprintReadOnly, Category = GameState)
 	float MatchEndTime;
 
+// deprecated, not called
 	UFUNCTION()
-	virtual void OnRep_RemainingTime();
+	virtual void OnRep_RemainingTime() {};
 
 	/** Returns time in seconds that should be displayed on game clock. */
 	virtual float GetClockTime();
+
+	/** Return remaining intermission time. */
+	virtual float GetIntermissionTime();
 
 	// How long a player can wait before being forced respawned (added to RespawnWaitTime).  Set to 0 for no delay.
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
@@ -530,6 +539,18 @@ public:
 	UPROPERTY(Replicated)
 	bool bWeightedCharacter;
 
+	/** if > 0 and BoostRechargeMaxCharges > 0 then player's activatable boost recharges after this many seconds */
+	UPROPERTY(BlueprintReadWrite, Replicated)
+	float BoostRechargeTime;
+	/** maximum number of boost charges that can be recharged through the timer */
+	UPROPERTY(BlueprintReadWrite, Replicated)
+	int32 BoostRechargeMaxCharges;
+	/** boost recharge rate while alive */
+	UPROPERTY(BlueprintReadWrite, Replicated)
+	float BoostRechargeRateAlive;
+	/** boost recharge rate while dead */
+	UPROPERTY(BlueprintReadWrite, Replicated)
+	float BoostRechargeRateDead;
 };
 
 

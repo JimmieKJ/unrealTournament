@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "PropertyEditorPrivatePCH.h"
 #include "PropertyNode.h"
@@ -204,7 +204,7 @@ void FDetailLayoutBuilderImpl::FilterDetailLayout( const FDetailFilter& InFilter
 	}
 }
 
-void FDetailLayoutBuilderImpl::SetCurrentCustomizationClass( UClass* CurrentClass, FName VariableName )
+void FDetailLayoutBuilderImpl::SetCurrentCustomizationClass( UStruct* CurrentClass, FName VariableName )
 {
 	CurrentCustomizationClass = CurrentClass;
 	CurrentCustomizationVariableName = VariableName;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Engine/SCS_Node.h"
@@ -30,8 +30,8 @@ namespace
 			if(InstancedSceneComponent != nullptr)
 			{
 				// Make a copy of the array here in case something alters the AttachChildren array during registration (e.g. Physics)
-				TArray<USceneComponent*> AttachChildren = InstancedSceneComponent->AttachChildren;
-				for(auto InstancedChildComponent : AttachChildren)
+				TArray<USceneComponent*> AttachChildren = InstancedSceneComponent->GetAttachChildren();
+				for (USceneComponent* InstancedChildComponent : AttachChildren)
 				{
 					RegisterInstancedComponent(InstancedChildComponent);
 				}
@@ -277,10 +277,7 @@ void USimpleConstructionScript::PostLoad()
 		}
 	}
 
-	// TODO: Put an object version check on this - for now will have to do it each time but
-	//       we'll skip it in cooked builds since we can assume they were fixed up during
-	//       the cooking process
-	if (!FPlatformProperties::RequiresCookedData())
+	if (GetLinkerUE4Version() < VER_UE4_SCS_STORES_ALLNODES_ARRAY)
 	{
 		// Fill out AllNodes if this is an older object
 		if (RootNodes.Num() > 0)

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "AssetRegistryPCH.h"
@@ -85,7 +85,8 @@ FAssetRegistry::FAssetRegistry()
 	MaxSecondsPerFrame = 0.015;
 
 	// Registers the configured cooked tags whitelist to prevent non-whitelisted tags from being added to cooked builds
-	SetupCookedTagsWhitelist();
+	bFilterlistIsWhitelist = false;
+	SetupCookedFilterlistTags();
 
 	// Collect all code generator classes (currently BlueprintCore-derived ones)
 	CollectCodeGeneratorClasses();
@@ -142,30 +143,39 @@ FAssetRegistry::FAssetRegistry()
 	FPackageName::OnContentPathDismounted().AddRaw( this, &FAssetRegistry::OnContentPathDismounted );
 }
 
-void FAssetRegistry::SetupCookedTagsWhitelist()
+void FAssetRegistry::SetupCookedFilterlistTags()
 {
 	if (ensure(GConfig))
 	{
-		TArray<FString> WhitelistItems;
-		GConfig->GetArray(TEXT("AssetRegistry"), TEXT("CookedTagsWhitelist"), WhitelistItems, GEngineIni);
+		GConfig->GetBool(TEXT("AssetRegistry"), TEXT("bUseAssetRegistryTagsWhitelistInsteadOfBlacklist"), bFilterlistIsWhitelist, GEngineIni);
+		
+		TArray<FString> FilterlistItems;
+		if (bFilterlistIsWhitelist)
+		{
+			GConfig->GetArray(TEXT("AssetRegistry"), TEXT("CookedTagsWhitelist"), FilterlistItems, GEngineIni);
+		}
+		else
+		{
+			GConfig->GetArray(TEXT("AssetRegistry"), TEXT("CookedTagsBlacklist"), FilterlistItems, GEngineIni);
+		}
 
 		// Takes on the pattern "(Class=SomeClass,Tag=SomeTag)"
-		for (const FString& WhitelistItem : WhitelistItems)
+		for (const FString& FilterlistItem : FilterlistItems)
 		{
-			FString TrimmedWhitelistItem = WhitelistItem;
-			TrimmedWhitelistItem.Trim();
-			TrimmedWhitelistItem.TrimTrailing();
-			if (TrimmedWhitelistItem.Left(1) == TEXT("("))
+			FString TrimmedFilterlistItem = FilterlistItem;
+			TrimmedFilterlistItem.Trim();
+			TrimmedFilterlistItem.TrimTrailing();
+			if (TrimmedFilterlistItem.Left(1) == TEXT("("))
 			{
-				TrimmedWhitelistItem = TrimmedWhitelistItem.RightChop(1);
+				TrimmedFilterlistItem = TrimmedFilterlistItem.RightChop(1);
 			}
-			if (TrimmedWhitelistItem.Right(1) == TEXT(")"))
+			if (TrimmedFilterlistItem.Right(1) == TEXT(")"))
 			{
-				TrimmedWhitelistItem = TrimmedWhitelistItem.LeftChop(1);
+				TrimmedFilterlistItem = TrimmedFilterlistItem.LeftChop(1);
 			}
 
 			TArray<FString> Tokens;
-			TrimmedWhitelistItem.ParseIntoArray(Tokens, TEXT(","));
+			TrimmedFilterlistItem.ParseIntoArray(Tokens, TEXT(","));
 			FString ClassName;
 			FString TagName;
 
@@ -195,24 +205,24 @@ void FAssetRegistry::SetupCookedTagsWhitelist()
 				FName TagFName = FName(*TagName);
 
 				// Include subclasses if the class is in memory at this time (native classes only)
-				UClass* WhitelistClass = Cast<UClass>(StaticFindObject(UClass::StaticClass(), ANY_PACKAGE, *ClassName));
-				if (WhitelistClass)
+				UClass* FilterlistClass = Cast<UClass>(StaticFindObject(UClass::StaticClass(), ANY_PACKAGE, *ClassName));
+				if (FilterlistClass)
 				{
-					CookWhitelistedTagsByClass.FindOrAdd(WhitelistClass->GetFName()).Add(TagFName);
+					CookFilterlistTagsByClass.FindOrAdd(FilterlistClass->GetFName()).Add(TagFName);
 
 					TArray<UClass*> DerivedClasses;
-					GetDerivedClasses(WhitelistClass, DerivedClasses);
+					GetDerivedClasses(FilterlistClass, DerivedClasses);
 					for (UClass* DerivedClass : DerivedClasses)
 					{
-						CookWhitelistedTagsByClass.FindOrAdd(DerivedClass->GetFName()).Add(TagFName);
+						CookFilterlistTagsByClass.FindOrAdd(DerivedClass->GetFName()).Add(TagFName);
 					}
 				}
 				else
 				{
-					// Class is not in memory yet. Just add an explicit whitelist.
+					// Class is not in memory yet. Just add an explicit filter.
 					// Automatically adding subclasses of non-native classes is not supported.
 					// In these cases, using Class=* is usually sufficient
-					CookWhitelistedTagsByClass.FindOrAdd(FName(*ClassName)).Add(TagFName);
+					CookFilterlistTagsByClass.FindOrAdd(FName(*ClassName)).Add(TagFName);
 				}
 			}
 		}
@@ -351,16 +361,15 @@ void FAssetRegistry::SearchAllAssets(bool bSynchronousSearch)
 	FPackageName::QueryRootContentPaths( PathsToSearch );
 
 	// Start the asset search (synchronous in commandlets)
-	const bool bLoadAndSaveCache = !FParse::Param(FCommandLine::Get(), TEXT("NoAssetRegistryCache"));
 	if ( bSynchronousSearch )
 	{
 		const bool bForceRescan = false;
-		ScanPathsSynchronous_Internal(PathsToSearch, bForceRescan, bLoadAndSaveCache);
+		ScanPathsAndFilesSynchronous(PathsToSearch, TArray<FString>(), bForceRescan, EAssetDataCacheMode::UseMonolithicCache);
 	}
 	else if ( !BackgroundAssetSearch.IsValid() )
 	{
 		// if the BackgroundAssetSearch is already valid then we have already called it before
-		BackgroundAssetSearch = MakeShareable( new FAssetDataGatherer(PathsToSearch, bSynchronousSearch, bLoadAndSaveCache) );
+		BackgroundAssetSearch = MakeShareable(new FAssetDataGatherer(PathsToSearch, TArray<FString>(), bSynchronousSearch, EAssetDataCacheMode::UseMonolithicCache));
 	}
 }
 
@@ -1232,8 +1241,12 @@ bool FAssetRegistry::RemovePath(const FString& PathToRemove)
 
 void FAssetRegistry::ScanPathsSynchronous(const TArray<FString>& InPaths, bool bForceRescan)
 {
-	const bool bUseCache = false;
-	ScanPathsSynchronous_Internal(InPaths, bForceRescan, bUseCache);
+	ScanPathsAndFilesSynchronous(InPaths, TArray<FString>(), bForceRescan, EAssetDataCacheMode::UseModularCache);
+}
+
+void FAssetRegistry::ScanFilesSynchronous(const TArray<FString>& InFilePaths, bool bForceRescan) 
+{
+	ScanPathsAndFilesSynchronous(TArray<FString>(), InFilePaths, bForceRescan, EAssetDataCacheMode::UseModularCache);
 }
 
 void FAssetRegistry::PrioritizeSearchPath(const FString& PathToPrioritize)
@@ -1567,42 +1580,54 @@ FDependsNode* FAssetRegistry::ResolveRedirector(FDependsNode* InDependency, TMap
 		return InCache[InDependency];
 	}
 
+	static TSet<FName> EncounteredDependencies;
+	EncounteredDependencies.Empty();
+	
 	while (Result == nullptr)
 	{
+		if (EncounteredDependencies.Contains(InDependency->GetPackageName()))
+		{
+			break;
+		}
+
+		EncounteredDependencies.Add(InDependency->GetPackageName());
+
 		if (CachedAssetsByPackageName.Contains(InDependency->GetPackageName()))
 		{
-			auto DependencyAsset = CachedAssetsByPackageName[InDependency->GetPackageName()][0];
+			// Get the list of assets contained in this package
+			TArray<FAssetData*>& Assets = CachedAssetsByPackageName[InDependency->GetPackageName()];
 
-			if (DependencyAsset->AssetClass == ObjectRedirectorClassName)
+			for (FAssetData* Asset : Assets)
 			{
-				FDependsNode* Before = InDependency;
-
-				InDependency->IterateOverDependencies([&](FDependsNode* InDepends, EAssetRegistryDependencyType::Type)
+				if (Asset->AssetClass == ObjectRedirectorClassName)
 				{
-					if (InAllowedAssets.Contains(InDepends->GetPackageName()))
+					// This asset is a redirector, so we want to look at its dependencies and find the asset that it is redirecting to
+					InDependency->IterateOverDependencies([&](FDependsNode* InDepends, EAssetRegistryDependencyType::Type)
 					{
-						Result = InDepends;
-					}
-					else if (CachedAssetsByPackageName.Contains(InDepends->GetPackageName()))
-					{
-						auto SubDependencyAsset = CachedAssetsByPackageName[InDepends->GetPackageName()][0];
-						if (SubDependencyAsset->AssetClass == ObjectRedirectorClassName)
+						if (InAllowedAssets.Contains(InDepends->GetPackageName()))
 						{
+							// This asset is in the allowed asset list, so take this as the redirect target
+							Result = InDepends;
+						}
+						else if (CachedAssetsByPackageName.Contains(InDepends->GetPackageName()))
+						{
+							// This dependency isn't in the allowed list, but it is a valid asset in the registry.
+							// Because this is a redirector, this should mean that the redirector is pointing at ANOTHER
+							// redirector (or itself in some horrible situations) so we'll move to that node and try again
 							InDependency = InDepends;
 						}
-					}
-				});
-
-				if (Result == nullptr && InDependency == Before)
+					});
+				}
+				else
 				{
-					// The redirector doesn't point at any files that were cooked. Allow function to return with 
-					// result as nullptr to indicate this
+					Result = InDependency;
+				}
+
+				if (Result)
+				{
+					// We found an allowed asset from the original dependency node. We're finished!
 					break;
 				}
-			}
-			else
-			{
-				Result = InDependency;
 			}
 		}
 		else
@@ -1640,20 +1665,33 @@ void FAssetRegistry::SaveRegistryData(FArchive& Ar, TMap<FName, FAssetData*>& Da
 			const FAssetData& AssetData(*It.Value());
 
 			static FName WildcardName(TEXT("*"));
-			const TSet<FName>* AllClassesWhitelist = CookWhitelistedTagsByClass.Find(WildcardName);
-			const TSet<FName>* ClassSpecificWhitelist = CookWhitelistedTagsByClass.Find(AssetData.AssetClass);
+			const TSet<FName>* AllClassesFilterlist = CookFilterlistTagsByClass.Find(WildcardName);
+			const TSet<FName>* ClassSpecificFilterlist = CookFilterlistTagsByClass.Find(AssetData.AssetClass);
 
-			// Include only whitelisted tags
+			// Exclude blacklisted tags or include only whitelisted tags, based on how we were configured in ini
 			TMap<FName, FString> LocalTagsAndValues;
 			for (auto TagIt = AssetData.TagsAndValues.GetMap().CreateConstIterator(); TagIt; ++TagIt)
 			{
 				FName TagName = TagIt.Key();
-				const bool bInAllClassesWhitelist = AllClassesWhitelist && (AllClassesWhitelist->Contains(TagName) || AllClassesWhitelist->Contains(WildcardName));
-				const bool bInClassSpecificWhitelist = ClassSpecificWhitelist && (ClassSpecificWhitelist->Contains(TagName) || ClassSpecificWhitelist->Contains(WildcardName));
-				if (bInAllClassesWhitelist || bInClassSpecificWhitelist)
+				const bool bInAllClasseslist = AllClassesFilterlist && (AllClassesFilterlist->Contains(TagName) || AllClassesFilterlist->Contains(WildcardName));
+				const bool bInClassSpecificlist = ClassSpecificFilterlist && (ClassSpecificFilterlist->Contains(TagName) || ClassSpecificFilterlist->Contains(WildcardName));
+				if (bFilterlistIsWhitelist)
 				{
-					// It is in the whitelist. Keep it.
-					LocalTagsAndValues.Add(TagIt.Key(), TagIt.Value());
+					// It's a whitelist, only include it if it is in the all classes list or in the class specific list
+					if (bInAllClasseslist || bInClassSpecificlist)
+					{
+						// It is in the whitelist. Keep it.
+						LocalTagsAndValues.Add(TagIt.Key(), TagIt.Value());
+					}
+				}
+				else
+				{
+					// It's a blacklist, include it unless it is in the all classes list or in the class specific list
+					if (!bInAllClasseslist && !bInClassSpecificlist)
+					{
+						// It isn't in the blacklist. Keep it.
+						LocalTagsAndValues.Add(TagIt.Key(), TagIt.Value());
+					}
 				}
 			}
 
@@ -1689,7 +1727,15 @@ void FAssetRegistry::SaveRegistryData(FArchive& Ar, TMap<FName, FAssetData*>& Da
 		{
 			bool bIsMap = InMaps && InMaps->Contains(InDependency->GetPackageName());
 
-			if (!bIsMap)
+			check(!bIsMap || (InDependencyType == EAssetRegistryDependencyType::Soft));
+
+			// Force map dependencies to be soft references as we don't want the package loading system to try and load them
+			// automatically - the level loading stuff will do that!
+			if (bIsMap)
+			{
+				InDependencyType = EAssetRegistryDependencyType::Soft;
+			}
+
 			{
 				auto RedirectedDependency = ResolveRedirector(InDependency, Data, RedirectCache);
 
@@ -1732,6 +1778,22 @@ void FAssetRegistry::SaveRegistryData(FArchive& Ar, TMap<FName, FAssetData*>& Da
 			Ar << Index;
 		}
 	}
+}
+
+void FAssetRegistry::LoadPackageRegistryData(FArchive& Ar, TArray<FAssetData*> &AssetDataList ) const
+{
+	
+	FPackageReader Reader;
+	Reader.OpenPackageFile(&Ar);
+
+	Reader.ReadAssetRegistryData(AssetDataList);
+
+	Reader.ReadAssetDataFromThumbnailCache(AssetDataList);
+
+	TArray<FString> CookedPackageNamesWithoutAssetDataGathered;
+	Reader.ReadAssetRegistryDataIfCookedPackage(AssetDataList, CookedPackageNamesWithoutAssetDataGathered);
+
+	//bool ReadDependencyData(FPackageDependencyData& OutDependencyData);
 }
 
 void FAssetRegistry::LoadRegistryData(FArchive& Ar, TMap<FName, FAssetData*>& Data)
@@ -1812,25 +1874,35 @@ void FAssetRegistry::LoadRegistryData(FArchive& Ar, TMap<FName, FAssetData*>& Da
 	}
 }
 
-void FAssetRegistry::ScanPathsSynchronous_Internal(const TArray<FString>& InPaths, bool bForceRescan, bool bUseCache)
+void FAssetRegistry::ScanPathsAndFilesSynchronous(const TArray<FString>& InPaths, const TArray<FString>& InSpecificFiles, bool bForceRescan, EAssetDataCacheMode AssetDataCacheMode)
 {
 	const double SearchStartTime = FPlatformTime::Seconds();
 
 	// Only scan paths that were not previously synchronously scanned, unless we were asked to force rescan.
 	TArray<FString> PathsToScan;
+	TArray<FString> FilesToScan;
 	for ( auto PathIt = InPaths.CreateConstIterator(); PathIt; ++PathIt )
 	{
-		if ( bForceRescan || !SynchronouslyScannedPaths.Contains(*PathIt) )
+		if (bForceRescan || !SynchronouslyScannedPathsAndFiles.Contains(*PathIt))
 		{
 			PathsToScan.Add(*PathIt);
-			SynchronouslyScannedPaths.Add(*PathIt);
+			SynchronouslyScannedPathsAndFiles.Add(*PathIt);
 		}
 	}
 
-	if ( PathsToScan.Num() > 0 )
+	for (auto FileIt = InSpecificFiles.CreateConstIterator(); FileIt; ++FileIt)
+	{
+		if (bForceRescan || !SynchronouslyScannedPathsAndFiles.Contains(*FileIt))
+		{
+			FilesToScan.Add(*FileIt);
+			SynchronouslyScannedPathsAndFiles.Add(*FileIt);
+		}
+	}
+
+	if ( PathsToScan.Num() > 0 || FilesToScan.Num() > 0 )
 	{
 		// Start the sync asset search
-		FAssetDataGatherer AssetSearch(PathsToScan, /*bSynchronous=*/true, bUseCache);
+		FAssetDataGatherer AssetSearch(PathsToScan, FilesToScan, /*bSynchronous=*/true, AssetDataCacheMode);
 
 		// Get the search results
 		TArray<FAssetData*> AssetResults;
@@ -1851,11 +1923,14 @@ void FAssetRegistry::ScanPathsSynchronous_Internal(const TArray<FString>& InPath
 		CookedPackageNamesWithoutAssetDataGathered(-1, CookedPackageNamesWithoutAssetDataResults);
 
 		// Log stats
-		const FString& Path = PathsToScan[0];
+		TArray<FString> LogPathsAndFilenames = PathsToScan;
+		LogPathsAndFilenames.Append(FilesToScan);
+
+		const FString& Path = LogPathsAndFilenames[0];
 		FString PathsString;
-		if ( PathsToScan.Num() > 1 )
+		if (LogPathsAndFilenames.Num() > 1)
 		{
-			PathsString = FString::Printf(TEXT("'%s' and %d other paths"), *Path, PathsToScan.Num());
+			PathsString = FString::Printf(TEXT("'%s' and %d other paths/filenames"), *Path, LogPathsAndFilenames.Num() - 1);
 		}
 		else
 		{
@@ -2277,7 +2352,7 @@ void FAssetRegistry::UpdateAssetData(FAssetData* AssetData, const FAssetData& Ne
 			OldTagAssets->Remove(AssetData);
 		}
 
-		for (auto TagIt = AssetData->TagsAndValues.CreateConstIterator(); TagIt; ++TagIt)
+		for (auto TagIt = NewAssetData.TagsAndValues.CreateConstIterator(); TagIt; ++TagIt)
 		{
 			const FName FNameKey = TagIt.Key();
 			auto& NewTagAssets = CachedAssetsByTag.FindOrAdd(FNameKey);

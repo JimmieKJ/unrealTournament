@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -192,7 +192,7 @@ private:
 	bool IsVariableInBlueprint() const { return GetPropertyOwnerBlueprint() == GetBlueprintObj(); }
 
 	/** Returns TRUE if the Variable is inherited by the current Blueprint */
-	bool IsVariableInheritedByBlueprint() const { return GetBlueprintObj()->SkeletonGeneratedClass->IsChildOf(GetPropertyOwnerBlueprint()->SkeletonGeneratedClass); }
+	bool IsVariableInheritedByBlueprint() const;
 private:
 	/** Pointer back to my parent tab */
 	TWeakPtr<SMyBlueprint> MyBlueprint;
@@ -736,6 +736,7 @@ protected:
 	TSharedRef<ITableRow> MakeVariableCategoryViewWidget(TSharedPtr<FText> Item, const TSharedRef< STableViewBase >& OwnerTable);
 
 	FText GetSocketName() const;
+	bool CanChangeSocket() const;
 	void OnBrowseSocket();
 	void OnClearSocket();
 	

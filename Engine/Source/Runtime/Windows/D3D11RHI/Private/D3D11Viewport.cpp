@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	D3D11Viewport.cpp: D3D viewport RHI implementation.
@@ -183,7 +183,9 @@ DXGI_MODE_DESC FD3D11Viewport::SetupDXGI_MODE_DESC() const
 void FD3D11Viewport::Resize(uint32 InSizeX,uint32 InSizeY,bool bInIsFullscreen)
 {
 	// Unbind any dangling references to resources
+	D3DRHI->RHISetRenderTargets(0, nullptr, nullptr, 0, nullptr);
 	D3DRHI->ClearState();
+	D3DRHI->GetDeviceContext()->Flush(); // Potential perf hit
 
 	if (IsValidRef(CustomPresent))
 	{
@@ -592,7 +594,9 @@ void FD3D11DynamicRHI::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI,bo
 	}
 
 #if CHECK_SRV_TRANSITIONS
+	check(UnresolvedTargetsConcurrencyGuard.Increment() == 1);
 	UnresolvedTargets.Reset();
+	check(UnresolvedTargetsConcurrencyGuard.Decrement() == 0);
 #endif
 }
 

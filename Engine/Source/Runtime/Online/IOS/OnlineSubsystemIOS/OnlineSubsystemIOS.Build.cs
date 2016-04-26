@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -26,6 +26,9 @@ public class OnlineSubsystemIOS : ModuleRules
             );
 
 		PublicWeakFrameworks.Add("Cloudkit");
-		PublicWeakFrameworks.Add("MultipeerConnectivity");
+		if (Target.Platform == UnrealTargetPlatform.IOS)
+		{
+			PublicWeakFrameworks.Add("MultipeerConnectivity");
+		}
 	}
 }

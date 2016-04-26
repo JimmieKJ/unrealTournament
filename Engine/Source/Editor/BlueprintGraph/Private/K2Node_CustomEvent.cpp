@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "BlueprintGraphPrivatePCH.h"
@@ -115,38 +115,36 @@ void UK2Node_CustomEvent::Serialize(FArchive& Ar)
 	{
 		CachedNodeTitle.MarkDirty();
 
-		if (Ar.UE4Ver() < VER_UE4_BLUEPRINT_CUSTOM_EVENT_CONST_INPUT)
+		const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
+
+		// Ensure that array type inputs and non-array type pass-by-reference inputs are also marked 'const' - since arrays
+		// are implicitly passed by reference, and since events do not have return values/outputs, this equates to marking
+		// the parameter as 'const Type&' in native code. Also note that since UHT already blocks non-const reference types
+		// from being compiled into a MC delegate signature, any existing custom event param pins that were implicitly
+		// created via "Assign" in the Blueprint editor's context menu will previously have had 'const' set for its pin type.
+		//
+		// This ensures that (a) we don't emit the "no reference will be returned" note on custom event nodes with array
+		// inputs added by the user via the Details panel, and (b) we don't emit the "no reference will be returned" warning
+		// on custom event nodes with struct/object inputs added by the user in the Details tab and also set to pass-by-reference.
+		//
+		// Blueprint details customization now sets 'bIsConst' in new custom event node placements - see OnRefCheckStateChanged().
+		for (auto Pin : Pins)
 		{
-			const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
-
-			// Ensure that array type inputs and non-array type pass-by-reference inputs are also marked 'const' - since arrays
-			// are implicitly passed by reference, and since events do not have return values/outputs, this equates to marking
-			// the parameter as 'const Type&' in native code. Also note that since UHT already blocks non-const reference types
-			// from being compiled into a MC delegate signature, any existing custom event param pins that were implicitly
-			// created via "Assign" in the Blueprint editor's context menu will previously have had 'const' set for its pin type.
-			//
-			// This ensures that (a) we don't emit the "no reference will be returned" note on custom event nodes with array
-			// inputs added by the user via the Details panel, and (b) we don't emit the "no reference will be returned" warning
-			// on custom event nodes with struct/object inputs added by the user in the Details tab and also set to pass-by-reference.
-			//
-			// Blueprint details customization now sets 'bIsConst' in new custom event node placements - see OnRefCheckStateChanged().
-			for (auto Pin : Pins)
+			if (Pin)
 			{
-				if (Pin)
-				{
-					Ar.Preload(Pin);
+				Ar.Preload(Pin);
 
-					if (Pin->Direction == EGPD_Output
-						&& !K2Schema->IsExecPin(*Pin)
-						&& !K2Schema->IsDelegateCategory(Pin->PinType.PinCategory))
+				if (Pin->Direction == EGPD_Output
+					&& !Pin->PinType.bIsConst
+					&& !K2Schema->IsExecPin(*Pin)
+					&& !K2Schema->IsDelegateCategory(Pin->PinType.PinCategory))
+				{
+					for (auto PinInfo : UserDefinedPins)
 					{
-						for (auto PinInfo : UserDefinedPins)
+						if (PinInfo->PinName == Pin->PinName)
 						{
-							if (PinInfo->PinName == Pin->PinName)
-							{
-								Pin->PinType.bIsConst = PinInfo->PinType.bIsConst = PinInfo->PinType.bIsArray || PinInfo->PinType.bIsReference;
-								break;
-							}
+							Pin->PinType.bIsConst = PinInfo->PinType.bIsConst = PinInfo->PinType.bIsArray || PinInfo->PinType.bIsReference;
+							break;
 						}
 					}
 				}
@@ -261,6 +259,15 @@ uint32 UK2Node_CustomEvent::GetNetFlags() const
 		// inherited net flags take precedence 
 		NetFlags = (ParentFunction->FunctionFlags & FUNC_NetFuncFlags);
 	}
+
+	// Sanitize NetFlags, only allow replication flags that can be supported by the online system
+	// This mirrors logic in ProcessFunctionSpecifiers in HeaderParser.cpp. Basically if we want to 
+	// replicate a function we need to know whether we're replicating on the client or the server.
+	if (!(NetFlags & FUNC_Net))
+	{
+		NetFlags = 0;
+	}
+
 	return NetFlags;
 }
 

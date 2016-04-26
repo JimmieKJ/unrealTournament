@@ -1,8 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "Compression.h"
+#include "DerivedDataCacheUsageStats.h"
 
 /** 
  * A simple thread safe, pak file based backend. 
@@ -88,8 +89,14 @@ public:
 	 */
 	virtual bool CachedDataProbablyExists(const TCHAR* CacheKey) override
 	{
+		COOK_STAT(auto Timer = UsageStats.TimeProbablyExists());
 		FScopeLock ScopeLock(&SynchronizationObject);
-		return CacheItems.Contains(FString(CacheKey));
+		bool Result = CacheItems.Contains(FString(CacheKey));
+		if (Result)
+		{
+			COOK_STAT(Timer.AddHit(0));
+		}
+		return Result;
 	}
 	/**
 	 * Synchronous retrieve of a cache item
@@ -98,15 +105,14 @@ public:
 	 * @param	OutData		Buffer to receive the results, if any were found
 	 * @return				true if any data was found, and in this case OutData is non-empty
 	 */
-	virtual bool GetCachedData(const TCHAR* CacheKey, TArray<uint8>& OutData, FCacheStatRecord* Stats) override
+	virtual bool GetCachedData(const TCHAR* CacheKey, TArray<uint8>& OutData) override
 	{
+		COOK_STAT(auto Timer = UsageStats.TimeGet());
 		if (bWriting || bClosed)
 		{
 			return false;
 		}
 		FScopeLock ScopeLock(&SynchronizationObject);
-		if (Stats)
-			Stats->bFromNetwork = false;
 		FCacheValue* Item = CacheItems.Find(FString(CacheKey));
 		if (Item)
 		{
@@ -132,6 +138,7 @@ public:
 				{
 					UE_LOG(LogDerivedDataCache, Verbose, TEXT("FPakFileDerivedDataBackend: Cache hit on %s"), CacheKey);
 					check(OutData.Num());
+					COOK_STAT(Timer.AddHit(OutData.Num()));
 					return true;
 				}
 			}
@@ -150,16 +157,15 @@ public:
 	 * @param	InData		Buffer containing the data to cache, can be destroyed after the call returns, immediately
 	 * @param	bPutEvenIfExists	If true, then do not attempt skip the put even if CachedDataProbablyExists returns true
 	 */
-	virtual void PutCachedData(const TCHAR* CacheKey, TArray<uint8>& InData, bool bPutEvenIfExists, FCacheStatRecord* Stats) override
+	virtual void PutCachedData(const TCHAR* CacheKey, TArray<uint8>& InData, bool bPutEvenIfExists) override
 	{
+		COOK_STAT(auto Timer = UsageStats.TimePut());
 		if (!bWriting || bClosed)
 		{
 			return;
 		}
 		{
 			FScopeLock ScopeLock(&SynchronizationObject);
-			if (Stats)
-				Stats->bToNetwork = false;
 			FString Key(CacheKey);
 			FCacheValue* Item = CacheItems.Find(FString(CacheKey));
 			if (!Item)
@@ -178,6 +184,7 @@ public:
 				}
 				else
 				{
+					COOK_STAT(Timer.AddHit(InData.Num()));
 					FileHandle->Serialize(InData.GetData(), int64(InData.Num()));
 					UE_LOG(LogDerivedDataCache, Verbose, TEXT("FPakFileDerivedDataBackend: Put %s"), CacheKey);
 					CacheItems.Add(Key,FCacheValue(Offset, InData.Num(), Crc));
@@ -380,9 +387,9 @@ public:
 		for(const FString& CopyKeyName : CopyKeyNames)
 		{
 			Buffer.Reset();
-			if(OtherPak->FPakFileDerivedDataBackend::GetCachedData(*CopyKeyName, Buffer, NULL))
+			if(OtherPak->FPakFileDerivedDataBackend::GetCachedData(*CopyKeyName, Buffer))
 			{
-				FPakFileDerivedDataBackend::PutCachedData(*CopyKeyName, Buffer, false, NULL);
+				FPakFileDerivedDataBackend::PutCachedData(*CopyKeyName, Buffer, false);
 			}
 		}
 	}
@@ -412,8 +419,8 @@ public:
 		for (int KeyIndex = 0; KeyIndex < KeyNames.Num(); KeyIndex++)
 		{
 			Buffer.Reset();
-			InputPak.GetCachedData(*KeyNames[KeyIndex], Buffer, NULL);
-			OutputPak.PutCachedData(*KeyNames[KeyIndex], Buffer, false, NULL);
+			InputPak.GetCachedData(*KeyNames[KeyIndex], Buffer);
+			OutputPak.PutCachedData(*KeyNames[KeyIndex], Buffer, false);
 			KeySizes.Add(Buffer.Num());
 		}
 
@@ -428,7 +435,13 @@ public:
 		return true;
 	}
 
+	virtual void GatherUsageStats(TMap<FString, FDerivedDataCacheUsageStats>& UsageStatsMap, FString&& GraphPath) override
+	{
+		COOK_STAT(UsageStatsMap.Add(FString::Printf(TEXT("%s: %s.%s"), *GraphPath, TEXT("PakFile"), *Filename), UsageStats));
+	}
+
 private:
+	FDerivedDataCacheUsageStats UsageStats;
 
 	struct FCacheValue
 	{
@@ -470,7 +483,7 @@ public:
 	{
 	}
 
-	virtual void PutCachedData(const TCHAR* CacheKey, TArray<uint8>& InData, bool bPutEvenIfExists, FCacheStatRecord* Stats) override
+	virtual void PutCachedData(const TCHAR* CacheKey, TArray<uint8>& InData, bool bPutEvenIfExists) override
 	{
 		int32 UncompressedSize = InData.Num();
 		int32 CompressedSize = FCompression::CompressMemoryBound(CompressionFlags, UncompressedSize);
@@ -482,13 +495,13 @@ public:
 		verify(FCompression::CompressMemory(CompressionFlags, CompressedData.GetData() + sizeof(UncompressedSize), CompressedSize, InData.GetData(), InData.Num()));
 		CompressedData.SetNum(CompressedSize + sizeof(UncompressedSize), false);
 
-		FPakFileDerivedDataBackend::PutCachedData(CacheKey, CompressedData, bPutEvenIfExists, Stats);
+		FPakFileDerivedDataBackend::PutCachedData(CacheKey, CompressedData, bPutEvenIfExists);
 	}
 
-	virtual bool GetCachedData(const TCHAR* CacheKey, TArray<uint8>& OutData, FCacheStatRecord* Stats) override
+	virtual bool GetCachedData(const TCHAR* CacheKey, TArray<uint8>& OutData) override
 	{
 		TArray<uint8> CompressedData;
-		if(!FPakFileDerivedDataBackend::GetCachedData(CacheKey, CompressedData, Stats))
+		if(!FPakFileDerivedDataBackend::GetCachedData(CacheKey, CompressedData))
 		{
 			return false;
 		}

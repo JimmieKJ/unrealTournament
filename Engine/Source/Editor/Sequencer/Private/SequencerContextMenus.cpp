@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerPrivatePCH.h"
 #include "SequencerContextMenus.h"
@@ -9,10 +9,20 @@
 #include "SSequencerSection.h"
 #include "MovieSceneTrack.h"
 #include "MovieSceneCommonHelpers.h"
+#include "MovieSceneKeyStruct.h"
 #include "GenericCommands.h"
 #include "SequencerCommands.h"
+#include "ModuleManager.h"
+#include "IDetailsView.h"
+#include "IStructureDetailsView.h"
+#include "PropertyEditorModule.h"
+#include "MovieSceneSequence.h"
+#include "IntegralKeyDetailsCustomization.h"
+#include "MovieSceneSubSection.h"
+#include "MovieSceneCinematicShotSection.h"
 
 #define LOCTEXT_NAMESPACE "SequencerContextMenus"
+
 
 void FKeyContextMenu::BuildMenu(FMenuBuilder& MenuBuilder, FSequencer& InSequencer)
 {
@@ -20,13 +30,32 @@ void FKeyContextMenu::BuildMenu(FMenuBuilder& MenuBuilder, FSequencer& InSequenc
 	Menu->PopulateMenu(MenuBuilder);
 }
 
+
 void FKeyContextMenu::PopulateMenu(FMenuBuilder& MenuBuilder)
 {
 	FSequencer* SequencerPtr = &Sequencer.Get();
+	TSharedRef<FKeyContextMenu> Shared = AsShared();
+
+	if(CanAddPropertiesMenu())
+	{
+		MenuBuilder.AddSubMenu(
+			LOCTEXT("KeyProperties", "Properties"),
+			LOCTEXT("KeyPropertiesTooltip", "Modify the key properties"),
+			FNewMenuDelegate::CreateLambda([=](FMenuBuilder& SubMenuBuilder){ Shared->AddPropertiesMenu(SubMenuBuilder); }),
+			FUIAction (
+				FExecuteAction(),
+				// @todo sequencer: only one struct per structure view supported right now :/
+				FCanExecuteAction::CreateLambda([=]{ return (Shared->Sequencer->GetSelection().GetSelectedKeys().Num() == 1); })
+			),
+			NAME_None,
+			EUserInterfaceActionType::Button
+		);
+	}
 
 	MenuBuilder.BeginSection("SequencerKeyEdit", LOCTEXT("EditMenu", "Edit"));
 	{
-		TSharedPtr<ISequencerHotspot> Hotspot = SequencerPtr->GetEditTool().GetHotspot();
+		TSharedPtr<ISequencerHotspot> Hotspot = SequencerPtr->GetHotspot();
+
 		if (Hotspot.IsValid() && Hotspot->GetType() == ESequencerHotspot::Key)
 		{
 			MenuBuilder.AddMenuEntry(FGenericCommands::Get().Cut);
@@ -104,8 +133,8 @@ void FKeyContextMenu::PopulateMenu(FMenuBuilder& MenuBuilder)
 		const bool bUseFrames = SequencerSnapValues::IsTimeSnapIntervalFrameRate(Sequencer->GetSettings()->GetTimeSnapInterval());
 
 		MenuBuilder.AddMenuEntry(
-			bUseFrames ? LOCTEXT("SetKeyFrame", "Set Key Frame") : LOCTEXT("SetKeyTime", "Set Key MouseDownTime"),
-			bUseFrames ? LOCTEXT("SetKeyFrameTooltip", "Set key frame") : LOCTEXT("SetKeyTimeTooltip", "Set key MouseDownTime"),
+			bUseFrames ? LOCTEXT("SetKeyFrame", "Set Key Frame") : LOCTEXT("SetKeyTime", "Set Key Time"),
+			bUseFrames ? LOCTEXT("SetKeyFrameTooltip", "Set key frame") : LOCTEXT("SetKeyTimeTooltip", "Set key time"),
 			FSlateIcon(),
 			FUIAction(
 				FExecuteAction::CreateSP(SequencerPtr, &FSequencer::SetKeyTime, bUseFrames),
@@ -131,16 +160,109 @@ void FKeyContextMenu::PopulateMenu(FMenuBuilder& MenuBuilder)
 	MenuBuilder.EndSection(); // SequencerKeys
 }
 
+bool FKeyContextMenu::CanAddPropertiesMenu() const
+{
+	for (const FSequencerSelectedKey& Key : Sequencer->GetSelection().GetSelectedKeys())
+	{
+		if (Key.KeyArea.IsValid() && Key.KeyHandle.IsSet())
+		{
+			TSharedPtr<FStructOnScope> KeyStruct = Key.KeyArea->GetKeyStruct(Key.KeyHandle.GetValue());
+
+			if (KeyStruct.IsValid())
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+void FKeyContextMenu::AddPropertiesMenu(FMenuBuilder& MenuBuilder)
+{
+	FDetailsViewArgs DetailsViewArgs;
+	{
+		DetailsViewArgs.bAllowSearch = false;
+		DetailsViewArgs.bCustomFilterAreaLocation = true;
+		DetailsViewArgs.bCustomNameAreaLocation = true;
+		DetailsViewArgs.bHideSelectionTip = true;
+		DetailsViewArgs.bLockable = false;
+		DetailsViewArgs.bSearchInitialKeyFocus = true;
+		DetailsViewArgs.bUpdatesFromSelection = false;
+		DetailsViewArgs.bShowOptions = false;
+		DetailsViewArgs.bShowModifiedPropertiesOption = false;
+	}
+
+	FStructureDetailsViewArgs StructureViewArgs;
+	{
+		StructureViewArgs.bShowObjects = false;
+		StructureViewArgs.bShowAssets = true;
+		StructureViewArgs.bShowClasses = true;
+		StructureViewArgs.bShowInterfaces = false;
+	}
+
+	TArray<TPair<TSharedPtr<FStructOnScope>, const FSequencerSelectedKey&>> Keys;
+	{
+		for (const FSequencerSelectedKey& Key : Sequencer->GetSelection().GetSelectedKeys())
+		{
+			if (Key.KeyArea.IsValid() && Key.KeyHandle.IsSet())
+			{
+				TSharedPtr<FStructOnScope> KeyStruct = Key.KeyArea->GetKeyStruct(Key.KeyHandle.GetValue());
+
+				if (KeyStruct.IsValid())
+				{
+					Keys.Add(TPairInitializer<TSharedPtr<FStructOnScope>, const FSequencerSelectedKey&>(KeyStruct, Key));
+				}
+			}
+		}
+	}
+
+	TSharedRef<IStructureDetailsView> StructureDetailsView = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor")
+		.CreateStructureDetailView(DetailsViewArgs, StructureViewArgs, nullptr, LOCTEXT("MessageData", "Message Data"));
+	{
+		// @todo sequencer: only one struct per structure view supported right now :/
+		if (Keys.Num() == 1)
+		{
+			TPair<TSharedPtr<FStructOnScope>, const FSequencerSelectedKey&>& Key = Keys[0];
+
+			// register details customizations for this instance
+			StructureDetailsView->GetDetailsView().RegisterInstancedCustomPropertyLayout(FIntegralKey::StaticStruct(), FOnGetDetailCustomizationInstance::CreateStatic(&FIntegralKeyDetailsCustomization::MakeInstance, TWeakObjectPtr<const UMovieSceneSection>(Key.Value.Section)));
+
+			StructureDetailsView->SetStructureData(Key.Key);
+			StructureDetailsView->GetOnFinishedChangingPropertiesDelegate().AddLambda(
+				[=](const FPropertyChangedEvent& ChangeEvent) {
+					if (Key.Key->GetStruct()->IsChildOf(FMovieSceneKeyStruct::StaticStruct()))
+					{
+						((FMovieSceneKeyStruct*)Key.Key->GetStructMemory())->PropagateChanges(ChangeEvent);
+					}
+					Sequencer->GetFocusedMovieSceneSequence()->Modify();
+					Sequencer->UpdateRuntimeInstances();
+				}
+			);
+		}
+	}
+	
+	MenuBuilder.AddWidget(StructureDetailsView->GetWidget().ToSharedRef(), FText::GetEmpty(), true);
+}
+
+
 void FSectionContextMenu::BuildMenu(FMenuBuilder& MenuBuilder, FSequencer& InSequencer, float InMouseDownTime)
 {
 	TSharedRef<FSectionContextMenu> Menu = MakeShareable(new FSectionContextMenu(InSequencer, InMouseDownTime));
 	Menu->PopulateMenu(MenuBuilder);
 }
 
+
 void FSectionContextMenu::PopulateMenu(FMenuBuilder& MenuBuilder)
 {
 	// Copy a reference to the context menu by value into each lambda handler to ensure the type stays alive until the menu is closed
 	TSharedRef<FSectionContextMenu> Shared = AsShared();
+
+	MenuBuilder.AddSubMenu(
+		LOCTEXT("SectionProperties", "Properties"),
+		LOCTEXT("SectionPropertiesTooltip", "Modify the section properties"),
+		FNewMenuDelegate::CreateLambda([=](FMenuBuilder& SubMenuBuilder){ Shared->AddPropertiesMenu(SubMenuBuilder); })
+	);
 
 	MenuBuilder.BeginSection("SequencerKeyEdit", LOCTEXT("EditMenu", "Edit"));
 	{
@@ -182,30 +304,53 @@ void FSectionContextMenu::PopulateMenu(FMenuBuilder& MenuBuilder)
 
 	MenuBuilder.BeginSection("SequencerSections", LOCTEXT("SectionsMenu", "Sections"));
 	{
-		bool bCanSelectAll = CanSelectAllKeys();
-		MenuBuilder.AddMenuEntry(
-			LOCTEXT("SelectAllKeys", "Select All Keys"),
-			LOCTEXT("SelectAllKeysTooltip", "Select all keys in section"),
-			FSlateIcon(),
-			FUIAction(
-				FExecuteAction::CreateLambda([=]{ return Shared->SelectAllKeys(); }),
-				FCanExecuteAction::CreateLambda([=]{ return bCanSelectAll; }))
-		);
+		if (CanPrimeForRecording())
+		{
+			MenuBuilder.AddMenuEntry(
+				LOCTEXT("PrimeForRecording", "Primed For Recording"),
+				LOCTEXT("PrimeForRecordingTooltip", "Prime this track for recording a new sequence."),
+				FSlateIcon(),
+				FUIAction(
+					FExecuteAction::CreateLambda([=]{ return Shared->TogglePrimeForRecording(); }),
+					FCanExecuteAction(),
+					FGetActionCheckState::CreateLambda([=]{ return Shared->IsPrimedForRecording() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked; })),
+				NAME_None,
+				EUserInterfaceActionType::ToggleButton
+			);
+		}
+
+		if (CanSelectAllKeys())
+		{
+			MenuBuilder.AddMenuEntry(
+				LOCTEXT("SelectAllKeys", "Select All Keys"),
+				LOCTEXT("SelectAllKeysTooltip", "Select all keys in section"),
+				FSlateIcon(),
+				FUIAction(FExecuteAction::CreateLambda([=]{ return Shared->SelectAllKeys(); }))
+			);
+		}
 
 		MenuBuilder.AddSubMenu(
 			LOCTEXT("EditSection", "Edit"),
 			LOCTEXT("EditSectionTooltip", "Edit section"),
 			FNewMenuDelegate::CreateLambda([=](FMenuBuilder& InMenuBuilder){ Shared->AddEditMenu(InMenuBuilder); }));
 
-		MenuBuilder.AddSubMenu(
-			LOCTEXT("SetPreInfinityExtrap", "Pre-Infinity"),
-			LOCTEXT("SetPreInfinityExtrapTooltip", "Set pre-infinity extrapolation"),
-			FNewMenuDelegate::CreateLambda([=](FMenuBuilder& SubMenuBuilder){ Shared->AddExtrapolationMenu(SubMenuBuilder, true); }));
+		if (CanSetExtrapolationMode())
+		{
+			MenuBuilder.AddSubMenu(
+				LOCTEXT("SetPreInfinityExtrap", "Pre-Infinity"),
+				LOCTEXT("SetPreInfinityExtrapTooltip", "Set pre-infinity extrapolation"),
+				FNewMenuDelegate::CreateLambda([=](FMenuBuilder& SubMenuBuilder){ Shared->AddExtrapolationMenu(SubMenuBuilder, true); }));
+
+			MenuBuilder.AddSubMenu(
+				LOCTEXT("SetPostInfinityExtrap", "Post-Infinity"),
+				LOCTEXT("SetPostInfinityExtrapTooltip", "Set post-infinity extrapolation"),
+				FNewMenuDelegate::CreateLambda([=](FMenuBuilder& SubMenuBuilder){ Shared->AddExtrapolationMenu(SubMenuBuilder, false); }));
+		}
 
 		MenuBuilder.AddSubMenu(
-			LOCTEXT("SetPostInfinityExtrap", "Post-Infinity"),
-			LOCTEXT("SetPostInfinityExtrapTooltip", "Set post-infinity extrapolation"),
-			FNewMenuDelegate::CreateLambda([=](FMenuBuilder& SubMenuBuilder){ Shared->AddExtrapolationMenu(SubMenuBuilder, false); }));
+			LOCTEXT("OrderSection", "Order"),
+			LOCTEXT("OrderSectionTooltip", "Order section"),
+			FNewMenuDelegate::CreateLambda([=](FMenuBuilder& SubMenuBuilder){ Shared->AddOrderMenu(SubMenuBuilder); }));			
 
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("ToggleSectionActive", "Active"),
@@ -241,24 +386,8 @@ void FSectionContextMenu::PopulateMenu(FMenuBuilder& MenuBuilder)
 		);
 	}
 	MenuBuilder.EndSection(); // SequencerSections
-
-	MenuBuilder.BeginSection("SequencerSectionOrder", LOCTEXT("SectionOrderLabel", "Order"));
-	{
-		MenuBuilder.AddMenuEntry(LOCTEXT("BringToFront", "Bring To Front"), FText(), FSlateIcon(),
-			FUIAction(FExecuteAction::CreateLambda([=]{ return Shared->BringToFront(); })));
-
-		MenuBuilder.AddMenuEntry(LOCTEXT("SendToBack", "Send To Back"), FText(), FSlateIcon(),
-			FUIAction(FExecuteAction::CreateLambda([=]{ return Shared->SendToBack(); })));
-
-		MenuBuilder.AddMenuEntry(LOCTEXT("BringForward", "Bring Forward"), FText(), FSlateIcon(),
-			FUIAction(FExecuteAction::CreateLambda([=]{ return Shared->BringForward(); })));
-
-		MenuBuilder.AddMenuEntry(LOCTEXT("SendBackward", "Send Backward"), FText(), FSlateIcon(),
-			FUIAction(FExecuteAction::CreateLambda([=]{ return Shared->SendBackward(); })));
-
-	}
-	MenuBuilder.EndSection(); // SequencerSectionOrder
 }
+
 
 void FSectionContextMenu::AddEditMenu(FMenuBuilder& MenuBuilder)
 {
@@ -292,6 +421,7 @@ void FSectionContextMenu::AddEditMenu(FMenuBuilder& MenuBuilder)
 			FCanExecuteAction::CreateLambda([=]{ return Shared->IsTrimmable(); }))
 	);
 }
+
 
 void FSectionContextMenu::AddExtrapolationMenu(FMenuBuilder& MenuBuilder, bool bPreInfinity)
 {
@@ -364,6 +494,58 @@ void FSectionContextMenu::AddExtrapolationMenu(FMenuBuilder& MenuBuilder, bool b
 	);
 }
 
+
+void FSectionContextMenu::AddPropertiesMenu(FMenuBuilder& MenuBuilder)
+{
+	FDetailsViewArgs DetailsViewArgs;
+	{
+		DetailsViewArgs.bAllowSearch = false;
+		DetailsViewArgs.bCustomFilterAreaLocation = true;
+		DetailsViewArgs.bCustomNameAreaLocation = true;
+		DetailsViewArgs.bHideSelectionTip = true;
+		DetailsViewArgs.bLockable = false;
+		DetailsViewArgs.bSearchInitialKeyFocus = true;
+		DetailsViewArgs.bUpdatesFromSelection = false;
+		DetailsViewArgs.bShowOptions = false;
+		DetailsViewArgs.bShowModifiedPropertiesOption = false;
+	}
+
+	TArray<TWeakObjectPtr<UObject>> Sections;
+	{
+		for (auto Section : Sequencer->GetSelection().GetSelectedSections())
+		{
+			Sections.Add(Section);
+		}
+	}
+
+	TSharedRef<IDetailsView> DetailsView = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor").CreateDetailView(DetailsViewArgs);
+	{
+		DetailsView->SetObjects(Sections);
+	}
+	
+	MenuBuilder.AddWidget(DetailsView, FText::GetEmpty(), true);
+}
+
+
+void FSectionContextMenu::AddOrderMenu(FMenuBuilder& MenuBuilder)
+{
+	// Copy a reference to the context menu by value into each lambda handler to ensure the type stays alive until the menu is closed
+	TSharedRef<FSectionContextMenu> Shared = AsShared();
+
+	MenuBuilder.AddMenuEntry(LOCTEXT("BringToFront", "Bring To Front"), FText(), FSlateIcon(),
+		FUIAction(FExecuteAction::CreateLambda([=]{ return Shared->BringToFront(); })));
+
+	MenuBuilder.AddMenuEntry(LOCTEXT("SendToBack", "Send To Back"), FText(), FSlateIcon(),
+		FUIAction(FExecuteAction::CreateLambda([=]{ return Shared->SendToBack(); })));
+
+	MenuBuilder.AddMenuEntry(LOCTEXT("BringForward", "Bring Forward"), FText(), FSlateIcon(),
+		FUIAction(FExecuteAction::CreateLambda([=]{ return Shared->BringForward(); })));
+
+	MenuBuilder.AddMenuEntry(LOCTEXT("SendBackward", "Send Backward"), FText(), FSlateIcon(),
+		FUIAction(FExecuteAction::CreateLambda([=]{ return Shared->SendBackward(); })));
+}
+
+
 void FSectionContextMenu::SelectAllKeys()
 {
 	TArray<FSectionHandle> SelectedSections = StaticCastSharedRef<SSequencer>(Sequencer->GetSequencerWidget())->GetSectionHandles(Sequencer->GetSelection().GetSelectedSections());
@@ -375,18 +557,71 @@ void FSectionContextMenu::SelectAllKeys()
 			continue;
 		}
 
-		FKeyAreaLayout Layout(*Handle.TrackNode, Handle.SectionIndex);
-		for (const FKeyAreaLayoutElement& Element : Layout.GetElements())
+		FSectionLayout Layout(*Handle.TrackNode, Handle.SectionIndex);
+		for (const FSectionLayoutElement& Element : Layout.GetElements())
 		{
 			TSharedPtr<IKeyArea> KeyArea = Element.GetKeyArea();
-			for (const FKeyHandle& KeyHandle : KeyArea->GetUnsortedKeyHandles())
+			if (KeyArea.IsValid())
 			{
-				FSequencerSelectedKey SelectKey(*Section, KeyArea, KeyHandle);
-				Sequencer->GetSelection().AddToSelection(SelectKey);
+				for (const FKeyHandle& KeyHandle : KeyArea->GetUnsortedKeyHandles())
+				{
+					FSequencerSelectedKey SelectKey(*Section, KeyArea, KeyHandle);
+					Sequencer->GetSelection().AddToSelection(SelectKey);
+				}
 			}
 		}
 	}
 }
+
+
+void FSectionContextMenu::TogglePrimeForRecording() const
+{
+	TArray<FSectionHandle> SelectedSections = StaticCastSharedRef<SSequencer>(Sequencer->GetSequencerWidget())->GetSectionHandles(Sequencer->GetSelection().GetSelectedSections());
+	if(SelectedSections.Num() > 0)
+	{
+		const FSectionHandle& Handle = SelectedSections[0];
+		UMovieSceneSubSection* SubSection = Cast<UMovieSceneSubSection>(Handle.GetSectionObject());
+		if (SubSection)
+		{
+			SubSection->SetAsRecording(SubSection != UMovieSceneSubSection::GetRecordingSection());
+		}	
+	}
+}
+
+
+bool FSectionContextMenu::IsPrimedForRecording() const
+{
+	TArray<FSectionHandle> SelectedSections = StaticCastSharedRef<SSequencer>(Sequencer->GetSequencerWidget())->GetSectionHandles(Sequencer->GetSelection().GetSelectedSections());
+	if(SelectedSections.Num() > 0)
+	{
+		const FSectionHandle& Handle = SelectedSections[0];
+		UMovieSceneSubSection* SubSection = Cast<UMovieSceneSubSection>(Handle.GetSectionObject());
+		if (SubSection)
+		{
+			return SubSection == UMovieSceneSubSection::GetRecordingSection();
+		}	
+	}
+
+	return false;
+}
+
+bool FSectionContextMenu::CanPrimeForRecording() const
+{
+	TArray<FSectionHandle> SelectedSections = StaticCastSharedRef<SSequencer>(Sequencer->GetSequencerWidget())->GetSectionHandles(Sequencer->GetSelection().GetSelectedSections());
+	if(SelectedSections.Num() > 0)
+	{
+		const FSectionHandle& Handle = SelectedSections[0];
+		UMovieSceneSubSection* SubSection = Cast<UMovieSceneSubSection>(Handle.GetSectionObject());
+		UMovieSceneCinematicShotSection* CinematicShotSection = Cast<UMovieSceneCinematicShotSection>(Handle.GetSectionObject());
+		if (SubSection && !CinematicShotSection)
+		{
+			return true;
+		}	
+	}
+
+	return false;
+}
+
 
 bool FSectionContextMenu::CanSelectAllKeys() const
 {
@@ -399,17 +634,35 @@ bool FSectionContextMenu::CanSelectAllKeys() const
 			continue;
 		}
 
-		FKeyAreaLayout Layout(*Handle.TrackNode, Handle.SectionIndex);
-		for (const FKeyAreaLayoutElement& Element : Layout.GetElements())
+		FSectionLayout Layout(*Handle.TrackNode, Handle.SectionIndex);
+		for (const FSectionLayoutElement& Element : Layout.GetElements())
 		{
-			TArray<FKeyHandle> KeyHandles = Element.GetKeyArea()->GetUnsortedKeyHandles();
-			if (KeyHandles.Num() > 0)
+			TSharedPtr<IKeyArea> KeyArea = Element.GetKeyArea();
+			if (KeyArea.IsValid() && Element.GetKeyArea()->GetUnsortedKeyHandles().Num() > 0)
 			{
 				return true;
 			}
 		}
 	}
 
+	return false;
+}
+
+bool FSectionContextMenu::CanSetExtrapolationMode() const
+{
+	TArray<FSectionHandle> SelectedSections = StaticCastSharedRef<SSequencer>(Sequencer->GetSequencerWidget())->GetSectionHandles(Sequencer->GetSelection().GetSelectedSections());
+	for (const FSectionHandle& Handle : SelectedSections)
+	{
+		FSectionLayout Layout(*Handle.TrackNode, Handle.SectionIndex);
+		for (const FSectionLayoutElement& Element : Layout.GetElements())
+		{
+			TSharedPtr<IKeyArea> KeyArea = Element.GetKeyArea();
+			if (KeyArea.IsValid() && KeyArea->CanSetExtrapolationMode())
+			{
+				return true;
+			}
+		}
+	}
 	return false;
 }
 
@@ -421,6 +674,7 @@ void FSectionContextMenu::TrimSection(bool bTrimLeft)
 	Sequencer->NotifyMovieSceneDataChanged();
 }
 
+
 void FSectionContextMenu::SplitSection()
 {
 	FScopedTransaction SplitSectionTransaction(LOCTEXT("SplitSection_Transaction", "Split Section"));
@@ -428,6 +682,7 @@ void FSectionContextMenu::SplitSection()
 	MovieSceneToolHelpers::SplitSection(Sequencer->GetSelection().GetSelectedSections(), Sequencer->GetGlobalTime());
 	Sequencer->NotifyMovieSceneDataChanged();
 }
+
 
 bool FSectionContextMenu::IsTrimmable() const
 {
@@ -440,6 +695,7 @@ bool FSectionContextMenu::IsTrimmable() const
 	}
 	return false;
 }
+
 
 void FSectionContextMenu::SetExtrapolationMode(ERichCurveExtrapolation ExtrapMode, bool bPreInfinity)
 {
@@ -458,12 +714,15 @@ void FSectionContextMenu::SetExtrapolationMode(ERichCurveExtrapolation ExtrapMod
 
 		if (Section->TryModify())
 		{
-			FKeyAreaLayout Layout(*Handle.TrackNode, Handle.SectionIndex);
-			for (const FKeyAreaLayoutElement& Element : Layout.GetElements())
+			FSectionLayout Layout(*Handle.TrackNode, Handle.SectionIndex);
+			for (const FSectionLayoutElement& Element : Layout.GetElements())
 			{
 				TSharedPtr<IKeyArea> KeyArea = Element.GetKeyArea();
-				bAnythingChanged = true;
-				KeyArea->SetExtrapolationMode(ExtrapMode, bPreInfinity);
+				if (KeyArea.IsValid())
+				{
+					bAnythingChanged = true;
+					KeyArea->SetExtrapolationMode(ExtrapMode, bPreInfinity);
+				}
 			}
 		}
 	}
@@ -478,6 +737,7 @@ void FSectionContextMenu::SetExtrapolationMode(ERichCurveExtrapolation ExtrapMod
 	}
 }
 
+
 bool FSectionContextMenu::IsExtrapolationModeSelected(ERichCurveExtrapolation ExtrapMode, bool bPreInfinity) const
 {
 	// @todo Sequencer should operate on selected sections
@@ -486,22 +746,25 @@ bool FSectionContextMenu::IsExtrapolationModeSelected(ERichCurveExtrapolation Ex
 	TArray<FSectionHandle> SelectedSections = StaticCastSharedRef<SSequencer>(Sequencer->GetSequencerWidget())->GetSectionHandles(Sequencer->GetSelection().GetSelectedSections());
 	for (const FSectionHandle& Handle : SelectedSections)
 	{
-		FKeyAreaLayout Layout(*Handle.TrackNode, Handle.SectionIndex);
-		for (const FKeyAreaLayoutElement& Element : Layout.GetElements())
+		FSectionLayout Layout(*Handle.TrackNode, Handle.SectionIndex);
+		for (const FSectionLayoutElement& Element : Layout.GetElements())
 		{
 			TSharedPtr<IKeyArea> KeyArea = Element.GetKeyArea();
-
-			bAllSelected = true;
-			if (KeyArea->GetExtrapolationMode(bPreInfinity) != ExtrapMode)
+			if (KeyArea.IsValid())
 			{
-				bAllSelected = false;
-				break;
+				bAllSelected = true;
+				if (KeyArea->GetExtrapolationMode(bPreInfinity) != ExtrapMode)
+				{
+					bAllSelected = false;
+					break;
+				}
 			}
 		}
 	}
 
 	return bAllSelected;
 }
+
 
 void FSectionContextMenu::ToggleSectionActive()
 {
@@ -526,6 +789,7 @@ void FSectionContextMenu::ToggleSectionActive()
 	}
 }
 
+
 bool FSectionContextMenu::IsSectionActive() const
 {
 	// Active only if all are active
@@ -539,6 +803,7 @@ bool FSectionContextMenu::IsSectionActive() const
 
 	return true;
 }
+
 
 void FSectionContextMenu::ToggleSectionLocked()
 {
@@ -563,6 +828,7 @@ void FSectionContextMenu::ToggleSectionLocked()
 	}
 }
 
+
 bool FSectionContextMenu::IsSectionLocked() const
 {
 	// Locked only if all are locked
@@ -577,10 +843,12 @@ bool FSectionContextMenu::IsSectionLocked() const
 	return true;
 }
 
+
 void FSectionContextMenu::DeleteSection()
 {
 	Sequencer->DeleteSections(Sequencer->GetSelection().GetSelectedSections());
 }
+
 
 /** Information pertaining to a specific row in a track, required for z-ordering operations */
 struct FTrackSectionRow
@@ -604,6 +872,7 @@ struct FTrackSectionRow
 		MaxOrderValue = FMath::Max(MaxOrderValue, InSection->GetOverlapPriority());
 	}
 };
+
 
 /** Generate the data required for re-ordering rows based on the current sequencer selection */
 /** @note: Produces a map of track -> rows, keyed on row index. Only returns rows that contain selected sections */
@@ -649,6 +918,7 @@ TMap<UMovieSceneTrack*, TMap<int32, FTrackSectionRow>> GenerateTrackRowsFromSele
 	return TrackRows;
 }
 
+
 /** Modify all the sections contained within the specified data structure */
 void ModifySections(TMap<UMovieSceneTrack*, TMap<int32, FTrackSectionRow>>& TrackRows)
 {
@@ -664,6 +934,7 @@ void ModifySections(TMap<UMovieSceneTrack*, TMap<int32, FTrackSectionRow>>& Trac
 		}
 	}
 }
+
 
 void FSectionContextMenu::BringToFront()
 {
@@ -712,6 +983,7 @@ void FSectionContextMenu::BringToFront()
 	Sequencer->SetGlobalTime(Sequencer->GetGlobalTime());
 }
 
+
 void FSectionContextMenu::SendToBack()
 {
 	TMap<UMovieSceneTrack*, TMap<int32, FTrackSectionRow>> TrackRows = GenerateTrackRowsFromSelection(*Sequencer);
@@ -759,6 +1031,7 @@ void FSectionContextMenu::SendToBack()
 	Sequencer->SetGlobalTime(Sequencer->GetGlobalTime());
 }
 
+
 void FSectionContextMenu::BringForward()
 {
 	TMap<UMovieSceneTrack*, TMap<int32, FTrackSectionRow>> TrackRows = GenerateTrackRowsFromSelection(*Sequencer);
@@ -783,7 +1056,7 @@ void FSectionContextMenu::BringForward()
 				return A.GetOverlapPriority() < B.GetOverlapPriority();
 			});
 
-			for (int32 SectionIndex = Row.Sections.Num() - 1; SectionIndex >= 0; --SectionIndex)
+			for (int32 SectionIndex = Row.Sections.Num() - 1; SectionIndex > 0; --SectionIndex)
 			{
 				UMovieSceneSection* ThisSection = Row.Sections[SectionIndex];
 				if (Row.SectionToReOrder.Contains(ThisSection))
@@ -802,6 +1075,7 @@ void FSectionContextMenu::BringForward()
 
 	Sequencer->SetGlobalTime(Sequencer->GetGlobalTime());
 }
+
 
 void FSectionContextMenu::SendBackward()
 {
@@ -861,12 +1135,14 @@ bool FPasteContextMenu::BuildMenu(FMenuBuilder& MenuBuilder, FSequencer& InSeque
 	return true;
 }
 
+
 TSharedRef<FPasteContextMenu> FPasteContextMenu::CreateMenu(FSequencer& InSequencer, const FPasteContextMenuArgs& Args)
 {
 	TSharedRef<FPasteContextMenu> Menu = MakeShareable(new FPasteContextMenu(InSequencer, Args));
 	Menu->Setup();
 	return Menu;
 }
+
 
 TArray<TSharedRef<FSequencerSectionKeyAreaNode>> KeyAreaNodesBuffer;
 
@@ -918,6 +1194,7 @@ void FPasteContextMenu::GatherPasteDestinationsForNode(FSequencerDisplayNode& In
 	}
 }
 
+
 void GetFullNodePath(FSequencerDisplayNode& InNode, FString& Path)
 {
 	TSharedPtr<FSequencerDisplayNode> Parent = InNode.GetParent();
@@ -965,6 +1242,7 @@ TSharedPtr<FSequencerTrackNode> GetTrackFromNode(FSequencerDisplayNode& InNode, 
 
 	return nullptr;
 }
+
 
 void FPasteContextMenu::Setup()
 {
@@ -1060,10 +1338,12 @@ void FPasteContextMenu::Setup()
 	}
 }
 
+
 bool FPasteContextMenu::IsValidPaste() const
 {
 	return Args.Clipboard.IsValid() && PasteDestinations.Num() != 0;
 }
+
 
 void FPasteContextMenu::PopulateMenu(FMenuBuilder& MenuBuilder)
 {
@@ -1089,6 +1369,7 @@ void FPasteContextMenu::PopulateMenu(FMenuBuilder& MenuBuilder)
 	}
 }
 
+
 void FPasteContextMenu::AddPasteMenuForTrackType(FMenuBuilder& MenuBuilder, int32 DestinationIndex)
 {
 	// Copy a reference to the context menu by value into each lambda handler to ensure the type stays alive until the menu is closed
@@ -1107,6 +1388,7 @@ void FPasteContextMenu::AddPasteMenuForTrackType(FMenuBuilder& MenuBuilder, int3
 	}
 }
 
+
 bool FPasteContextMenu::AutoPaste()
 {
 	if (PasteDestinations.Num() == 1)
@@ -1123,6 +1405,7 @@ bool FPasteContextMenu::AutoPaste()
 
 	return false;
 }
+
 
 void FPasteContextMenu::PasteInto(int32 DestinationIndex, FName KeyAreaName)
 {
@@ -1161,6 +1444,7 @@ void FPasteContextMenu::PasteInto(int32 DestinationIndex, FName KeyAreaName)
 	}
 }
 
+
 bool FPasteFromHistoryContextMenu::BuildMenu(FMenuBuilder& MenuBuilder, FSequencer& InSequencer, const FPasteContextMenuArgs& Args)
 {
 	if (InSequencer.GetClipboardStack().Num() == 0)
@@ -1173,6 +1457,7 @@ bool FPasteFromHistoryContextMenu::BuildMenu(FMenuBuilder& MenuBuilder, FSequenc
 	return true;
 }
 
+
 TSharedPtr<FPasteFromHistoryContextMenu> FPasteFromHistoryContextMenu::CreateMenu(FSequencer& InSequencer, const FPasteContextMenuArgs& Args)
 {
 	if (InSequencer.GetClipboardStack().Num() == 0)
@@ -1182,6 +1467,7 @@ TSharedPtr<FPasteFromHistoryContextMenu> FPasteFromHistoryContextMenu::CreateMen
 
 	return MakeShareable(new FPasteFromHistoryContextMenu(InSequencer, Args));
 }
+
 
 void FPasteFromHistoryContextMenu::PopulateMenu(FMenuBuilder& MenuBuilder)
 {
@@ -1212,5 +1498,6 @@ void FPasteFromHistoryContextMenu::PopulateMenu(FMenuBuilder& MenuBuilder)
 
 	MenuBuilder.EndSection();
 }
+
 
 #undef LOCTEXT_NAMESPACE

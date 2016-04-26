@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -18,7 +18,7 @@ class UK2Node_EnumInequality : public UK2Node_EnumEquality
 	//~ End UEdGraphNode Interface
 
 	//~ Begin UK2Node Interface
-	virtual FText GetCompactNodeTitle() const override { return NSLOCTEXT("K2Node", "EqualEqual", "!="); }
+	virtual FText GetCompactNodeTitle() const override { return NSLOCTEXT("K2Node", "NotEqual", "!="); }
 	//~ End UK2Node Interface
 
 	/** Gets the name and class of the EqualEqual_ByteByte function */

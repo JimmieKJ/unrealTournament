@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "Common.usf"
 
@@ -13,5 +13,19 @@ float3 TransformLocalToWorld(float3 LocalPosition)
 float4 TransformLocalToTranslatedWorld(float3 LocalPosition)
 {
 	float3 RotatedPosition = Primitive.LocalToWorld[0].xyz * LocalPosition.xxx + Primitive.LocalToWorld[1].xyz * LocalPosition.yyy + Primitive.LocalToWorld[2].xyz * LocalPosition.zzz;
-	return float4(RotatedPosition + (Primitive.LocalToWorld[3].xyz + View.PreViewTranslation.xyz),1);
+	return float4(RotatedPosition + (Primitive.LocalToWorld[3].xyz + ResolvedView.PreViewTranslation.xyz),1);
+}
+
+#if VERTEXSHADER && FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER
+	/** This is the instance count per-face, since we are use 6*N to render to all faces of the cube without a GS. */
+	uint InstanceCount;
+#endif
+
+uint GetLayerInstanceID( uint InstanceID )
+{
+#if VERTEXSHADER && ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER
+	return InstanceID % InstanceCount;
+#else
+	return InstanceID;
+#endif
 }

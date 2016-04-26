@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #ifndef __UnrealEd_h__
 #define __UnrealEd_h__
@@ -79,6 +79,7 @@
 #include "Classes/Settings/DestructableMeshEditorSettings.h"
 #include "Classes/Commandlets/DiffAssetsCommandlet.h"
 #include "Classes/Commandlets/DiffPackagesCommandlet.h"
+#include "Classes/Commandlets/DiffFilesCommandlet.h"
 #include "Classes/Commandlets/DumpBlueprintsInfoCommandlet.h"
 #include "Classes/Commandlets/DumpHiddenCategoriesCommandlet.h"
 #include "Classes/MaterialGraph/MaterialGraph.h"
@@ -143,9 +144,11 @@
 #include "Classes/Factories/ReimportFbxAnimSequenceFactory.h"
 #include "Classes/Factories/ReimportFbxSkeletalMeshFactory.h"
 #include "Classes/Factories/ReimportFbxStaticMeshFactory.h"
+#include "Classes/Factories/ReimportFbxSceneFactory.h"
 #include "Classes/Factories/FontFactory.h"
 #include "Classes/Factories/FontFileImportFactory.h"
 #include "Classes/Factories/ForceFeedbackEffectFactory.h"
+#include "Classes/Factories/HapticFeedbackEffectFactory.h"
 #include "Classes/Factories/InterpDataFactoryNew.h"
 #include "Classes/Factories/LevelFactory.h"
 #include "Classes/Factories/MaterialFactoryNew.h"
@@ -193,9 +196,8 @@
 #include "Classes/Factories/FbxStaticMeshImportData.h"
 #include "Classes/Factories/FbxTextureImportData.h"
 #include "Classes/Factories/FbxImportUI.h"
+#include "Classes/Factories/FbxSceneImportData.h"
 #include "Classes/Factories/FbxSceneImportOptions.h"
-#include "Classes/Factories/FbxSceneImportOptionsAnimation.h"
-#include "Classes/Factories/FbxSceneImportOptionsMaterial.h"
 #include "Classes/Factories/FbxSceneImportOptionsSkeletalMesh.h"
 #include "Classes/Factories/FbxSceneImportOptionsStaticMesh.h"
 #include "Classes/Commandlets/FileServerCommandlet.h"

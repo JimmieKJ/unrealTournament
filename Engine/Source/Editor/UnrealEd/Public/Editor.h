@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -336,8 +336,8 @@ struct FImportObjectParams
 		not necessary to specify a value when calling this function from other code */
 	FObjectInstancingGraph* InInstanceGraph;
 
-	/** provides a mapping from an actor name to a new instance to which it should be remapped */
-	const TMap<FName, AActor*>* ActorRemapper;
+	/** provides a mapping from an existing actor to a new instance to which it should be remapped */
+	const TMap<AActor*, AActor*>* ActorRemapper;
 
 	/** True if we should call PreEditChange/PostEditChange on the object as it's imported.  Pass false here
 		if you're going to do that on your own. */
@@ -402,7 +402,7 @@ const TCHAR* ImportObjectProperties(
 	int32					Depth,
 	int32					LineNumber = INDEX_NONE,
 	FObjectInstancingGraph* InstanceGraph = NULL,
-	const TMap<FName, AActor*>* ActorRemapper = NULL
+	const TMap<AActor*, AActor*>* ActorRemapper = NULL
 	);
 
 //

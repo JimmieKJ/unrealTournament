@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -203,11 +203,10 @@ public:
 	 * @param	AllClasses			the class tree containing all classes in the current package
 	 * @param	HeaderParser		the header parser
 	 * @param	SourceFile			Source file info.
-	 * @param	bParseSubclasses	true if we should parse all child classes of Class
 	 *
 	 * @return	Result enumeration.
 	 */
-	static ECompilationResult::Type ParseHeaders(FClasses& AllClasses, FHeaderParser& HeaderParser, FUnrealSourceFile* SourceFile, bool bParseSubclasses, FUHTMakefile& UHTMakefile);
+	static ECompilationResult::Type ParseHeaders(FClasses& AllClasses, FHeaderParser& HeaderParser, FUnrealSourceFile* SourceFile, FUHTMakefile& UHTMakefile);
 
 protected:
 	friend struct FScriptLocation;

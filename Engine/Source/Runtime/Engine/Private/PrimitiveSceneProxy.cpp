@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PrimitiveSceneProxy.cpp: Primitive scene proxy implementation.
@@ -35,13 +35,14 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 ,	bTreatAsBackgroundForOcclusion(InComponent->bTreatAsBackgroundForOcclusion)
 ,	bDisableStaticPath(false)
 ,	bNeedsUnbuiltPreviewLighting(InComponent->HasStaticLighting() && !InComponent->bHasCachedStaticLighting)
-,	bHasValidSettingsForStaticLighting(InComponent->HasValidSettingsForStaticLighting())
+,	bHasValidSettingsForStaticLighting(InComponent->HasValidSettingsForStaticLighting(false))
 ,	bWillEverBeLit(true)
 	// Disable dynamic shadow casting if the primitive only casts indirect shadows, since dynamic shadows are always shadowing direct lighting
 ,	bCastDynamicShadow(InComponent->bCastDynamicShadow && InComponent->CastShadow && !InComponent->GetShadowIndirectOnly())
 ,   bAffectDynamicIndirectLighting(InComponent->bAffectDynamicIndirectLighting)
 ,   bAffectDistanceFieldLighting(InComponent->bAffectDistanceFieldLighting)
 ,	bCastStaticShadow(InComponent->CastShadow && InComponent->bCastStaticShadow)
+,	bVisibleInPlanarReflection(InComponent->bVisibleInPlanarReflection)
 ,	bCastVolumetricTranslucentShadow(InComponent->bCastDynamicShadow && InComponent->CastShadow && InComponent->bCastVolumetricTranslucentShadow)
 ,	bCastCapsuleDirectShadow(false)
 ,	bCastCapsuleIndirectShadow(false)
@@ -60,11 +61,13 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 ,	bSupportsDistanceFieldRepresentation(false)
 ,	bSupportsHeightfieldRepresentation(false)
 ,	bNeedsLevelAddedToWorldNotification(false)
+,	bWantsSelectionOutline(true)
 ,	bUseAsOccluder(InComponent->bUseAsOccluder)
 ,	bAllowApproximateOcclusion(InComponent->Mobility != EComponentMobility::Movable)
 ,	bSelectable(InComponent->bSelectable)
 ,	bHasPerInstanceHitProxies(InComponent->bHasPerInstanceHitProxies)
 ,	bUseEditorCompositing(InComponent->bUseEditorCompositing)
+,	bReceiveCSMFromDynamicObjects(InComponent->bReceiveCSMFromDynamicObjects)
 ,	bRenderCustomDepth(InComponent->bRenderCustomDepth)
 ,	CustomDepthStencilValue((uint8)InComponent->CustomDepthStencilValue) 
 ,	LightingChannelMask(GetLightingChannelMaskForStruct(InComponent->LightingChannels))
@@ -199,8 +202,8 @@ void FPrimitiveSceneProxy::UpdateActorPosition(FVector InActorPosition)
 
 static TAutoConsoleVariable<int32> CVarDeferUniformBufferUpdatesUntilVisible(
 	TEXT("r.DeferUniformBufferUpdatesUntilVisible"),
-	0,
-	TEXT("If > 0, then don't update the primitive uniform buffer until it is visible. Experimental option."));
+	!WITH_EDITOR,
+	TEXT("If > 0, then don't update the primitive uniform buffer until it is visible."));
 
 void FPrimitiveSceneProxy::UpdateUniformBufferMaybeLazy()
 {

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -144,6 +144,7 @@ public:
 	virtual void SetPinVisibility(SGraphEditor::EPinVisibility Visibility) override;
 	virtual void StraightenConnections() override;
 	virtual void StraightenConnections(UEdGraphPin* SourcePin, UEdGraphPin* PinToAlign) override;
+	virtual void CaptureKeyboard() override;
 	// End of SGraphEditor interface
 protected:
 	//

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #ifndef UNREAL_STANDALONERENDERER_PRIVATEPCH_H
 #define UNREAL_STANDALONERENDERER_PRIVATEPCH_H
@@ -19,9 +19,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogStandaloneRenderer, Log, All);
 
 // Disable macro redefinition warning for compatibility with Windows SDK 8+
 #pragma warning(push)
-#if _MSC_VER >= 1700
 #pragma warning(disable : 4005)	// macro redefinition
-#endif
 
 #include <d3d11.h>
 #include <d3dx11.h>

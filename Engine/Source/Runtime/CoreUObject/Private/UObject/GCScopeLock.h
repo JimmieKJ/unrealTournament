@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Garbage Collection scope lock. 
@@ -22,15 +22,15 @@ public:
 	FORCEINLINE FGCScopeLock()
 		: bPreviousGabageCollectingFlagValue(GetGarbageCollectingFlag())
 	{		
-		void LockUObjectHashTablesForGC();
-		LockUObjectHashTablesForGC();		
+		void LockUObjectHashTables();
+		LockUObjectHashTables();		
 		GetGarbageCollectingFlag() = true;
 	}
 	FORCEINLINE ~FGCScopeLock()
 	{		
 		GetGarbageCollectingFlag() = bPreviousGabageCollectingFlagValue;
-		void UnlockUObjectHashTablesForGC();
-		UnlockUObjectHashTablesForGC();		
+		void UnlockUObjectHashTables();
+		UnlockUObjectHashTables();		
 	}
 };
 

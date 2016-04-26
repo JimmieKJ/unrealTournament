@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessCircleDOF.usf: PostProcessing Circle Depth of Field
@@ -222,7 +222,7 @@ void Circle4Samples(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor0 : SV
 
 	// Fixed maximum search size (in terms of Circle of Confusion radius).
 	// Higher than 8 is too noizy for 4 samples.
-	float Coc = 8.0 * View.CircleDOFParams.w;
+	float Coc = 8.0 * Frame.CircleDOFParams.w;
 
 	float LocalRand = RandomOffset.x + InRand;
 
@@ -523,9 +523,11 @@ void Circle4Samples(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor0 : SV
 // pixel shader entry point
 void CirclePS(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor0 : SV_Target0)
 {
-#if QUALITY
-	// 2 or higher, gets slower but less noisy
+// Count 2 or higher, gets slower but less noisy
+#if ( QUALITY == 2 )
 	const uint Count = 32;
+#elif ( QUALITY == 1 )
+	const uint Count = 12;
 #else
 	const uint Count = 1;
 #endif
@@ -579,8 +581,12 @@ float4 Recombine2Samples(float4 UVAndScreenPos, float PixCoc, float InRand)
 		// Weight the two samples to avoid forground into background bleed.
 		float IFeather0 = 1.0/4.0;
 		ICoc *= 0.5; // Coc is half res units.
-		I1 += saturate((abs(CA.a) - ICoc) * IFeather0 + View.GeneralPurposeTweak);
-		I2 += saturate((abs(CB.a) - ICoc) * IFeather0 + View.GeneralPurposeTweak);
+
+		// todo: verify the value, was 0.0f at some point
+		float Tweak = 1.0f;
+
+		I1 += saturate((abs(CA.a) - ICoc) * IFeather0 + Tweak); 
+		I2 += saturate((abs(CB.a) - ICoc) * IFeather0 + Tweak);
 #endif
 
 		return float4(CA.rgb * I1 + CB.rgb * I2, I1 + I2);
@@ -635,9 +641,11 @@ float4 Recombine2Samples(float4 UVAndScreenPos, float PixCoc, float InRand)
 
 float3 RecombineNSamples(float4 UVAndScreenPos, float PixCoc)
 {
-#if QUALITY
-	// 2 or higher, gets slower but less noisy
+// Count 2 or higher, gets slower but less noisy
+#if ( QUALITY == 2 )
 	const uint Count = 32;
+#elif ( QUALITY == 1 ) 
+	const uint Count = 12;
 #else
 	const uint Count = 1;
 #endif

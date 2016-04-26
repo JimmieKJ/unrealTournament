@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -111,7 +111,7 @@ struct ENGINE_API FNavMeshPath : public FNavigationPath
 
 	void ApplyFlags(int32 NavDataFlags);
 
-	void Reset();
+	virtual void ResetForRepath() override;
 
 	/** get flags of path point or corridor poly (depends on bStringPulled flag) */
 	bool GetNodeFlags(int32 NodeIdx, FNavMeshNodeFlags& Flags) const;
@@ -154,6 +154,8 @@ struct ENGINE_API FNavMeshPath : public FNavigationPath
 
 private:
 	bool DoesPathIntersectBoxImplementation(const FBox& Box, const FVector& StartLocation, uint32 StartingIndex, int32* IntersectingSegmentIndex, FVector* AgentExtent) const;
+	void InternalResetNavMeshPath();
+
 public:
 
 #if ENABLE_VISUAL_LOG
@@ -642,11 +644,13 @@ public:
 		int32 CorridorPolysCount;
 		float HitTime;
 		FVector HitNormal;
+		uint32 bIsRaycastEndInCorridor : 1;
 
 		FRaycastResult()
 			: CorridorPolysCount(0)
 			, HitTime(FLT_MAX)
 			, HitNormal(0.f)
+			, bIsRaycastEndInCorridor(false)
 		{
 			FMemory::Memzero(CorridorPolys);
 			FMemory::Memzero(CorridorCost);
@@ -654,7 +658,7 @@ public:
 
 		FORCEINLINE int32 GetMaxCorridorSize() const { return MAX_PATH_CORRIDOR_POLYS; }
 		FORCEINLINE bool HasHit() const { return HitTime != FLT_MAX; }
-		FORCEINLINE NavNodeRef GetLastNodeRef() const { return CorridorPolysCount > 0 ? CorridorPolys[CorridorPolysCount] : INVALID_NAVNODEREF; }
+		FORCEINLINE NavNodeRef GetLastNodeRef() const { return CorridorPolysCount > 0 ? CorridorPolys[CorridorPolysCount - 1] : INVALID_NAVNODEREF; }
 	};
 
 	//----------------------------------------------------------------------//
@@ -715,6 +719,11 @@ public:
 	
 	/** Project batch of points using shared search extent and filter */
 	virtual void BatchProjectPoints(TArray<FNavigationProjectionWork>& Workload, const FVector& Extent, FSharedConstNavQueryFilter Filter = NULL, const UObject* Querier = NULL) const override;
+
+	/** Project batch of points using shared search filter. This version is not requiring user to pass in Extent, 
+	 *	and is instead relying on FNavigationProjectionWork.ProjectionLimit.
+	 *	@note function will assert if item's FNavigationProjectionWork.ProjectionLimit is invalid */
+	virtual void BatchProjectPoints(TArray<FNavigationProjectionWork>& Workload, FSharedConstNavQueryFilter Filter = NULL, const UObject* Querier = NULL) const override;
 	
 	virtual ENavigationQueryResult::Type CalcPathCost(const FVector& PathStart, const FVector& PathEnd, float& OutPathCost, FSharedConstNavQueryFilter Filter = NULL, const UObject* Querier = NULL) const override;
 	virtual ENavigationQueryResult::Type CalcPathLength(const FVector& PathStart, const FVector& PathEnd, float& OutPathLength, FSharedConstNavQueryFilter QueryFilter = NULL, const UObject* Querier = NULL) const override;
@@ -770,9 +779,6 @@ public:
 	TArray<FNavMeshTileData> GetTileCacheLayers(int32 TileX, int32 TileY) const;
 	
 	void GetEdgesForPathCorridor(const TArray<NavNodeRef>* PathCorridor, TArray<struct FNavigationPortalEdge>* PathCorridorEdges) const;
-
-	// @todo docuement
-	//void SetRecastNavMesh(class FPImplRecastNavMesh* RecastMesh);
 
 	void UpdateDrawing();
 
@@ -835,6 +841,12 @@ public:
 
 	int32 GetMaxSimultaneousTileGenerationJobsCount() const { return MaxSimultaneousTileGenerationJobsCount; }
 	void SetMaxSimultaneousTileGenerationJobsCount(int32 NewJobsCountLimit);
+
+	/** Returns query extent including adjustments for voxelization error compensation */
+	FVector GetModifiedQueryExtent(const FVector& QueryExtent) const
+	{
+		return FVector(QueryExtent.X, QueryExtent.Y, QueryExtent.Z + FMath::Max(0.0f, VerticalDeviationFromGroundCompensation));
+	}
 
 	//----------------------------------------------------------------------//
 	// Custom navigation links
@@ -979,10 +991,7 @@ public:
 protected:
 
 	void UpdatePolyRefBitsPreview();
-
-	/** Returns query extent including adjustments for voxelization error compensation */
-	FVector GetModifiedQueryExtent(const FVector& QueryExtent) const;
-
+	
 	/** Spawns an ARecastNavMesh instance, and configures it if AgentProps != NULL */
 	static ARecastNavMesh* SpawnInstance(UNavigationSystem* NavSys, const FNavDataConfig* AgentProps = NULL);
 

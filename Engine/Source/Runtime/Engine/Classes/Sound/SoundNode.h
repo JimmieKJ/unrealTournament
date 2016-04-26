@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -65,6 +65,10 @@ public:
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 #endif //WITH_EDITOR
 	virtual void Serialize(FArchive& Ar) override;
+	virtual bool NeedsLoadForServer() const override
+	{
+		return false;
+	}
 	//~ End UObject Interface
 
 	//
@@ -119,6 +123,9 @@ public:
 	{ 
 		return 0;
 	}
+
+	/** Returns the number of simultaneous sounds this node instance plays back. */
+	virtual int32 GetNumSounds(const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound) const;
 
 
 	/** 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ShaderComplexityApplyPixelShader.usf: Maps accumulated shader complexity into color.
@@ -24,10 +24,11 @@ uint2 QuadOverdrawOffset()
 #endif // READ_QUAD_OVERDRAW
 
 
-float3 ShaderComplexityColors[NUM_COMPLEXITY_COLORS];
+float3 ShaderComplexityColors[MAX_NUM_COMPLEXITY_COLORS];
 
-// float4(bLegend,bUseQuadOverdraw, bShowQuadComplexity,0), can be optimzied as define if needed
+// float4(bLegend, DebugViewShaderMode, ColorSamping, ComplexityScale), can be optimzied as define if needed
 float4 ShaderComplexityParams;
+int NumComplexityColors;
 
 // @param In  0..1
 // @return color in 0..1 range
@@ -35,10 +36,10 @@ half3 ColorizeComplexity(float In)
 {
 	In = clamp(In, 0.0f, .999f);
 
-	//expand the stored complexity from [0, 1/3] into [0, NUM_COMPLEXITY_COLORS - 3] 
-	//the first third of the maximum complexity gets NUM_COMPLEXITY_COLORS - 3 unique colors to blend between,
+	//expand the stored complexity from [0, 1/3] into [0, 6] 
+	//the first third of the maximum complexity gets 7 unique colors to blend between,
 	//and ShaderComplexityColors[6] represents 1/3rd of the maximum complexity.
-	float Value = In * 3.0f * (NUM_COMPLEXITY_COLORS - 3);
+	float Value = min((float)(NumComplexityColors - 2), In * 18.f);
 
 	half3 LowerColor = half3(0,0,0);
 	half3 HigherColor = half3(0,0,0);
@@ -78,7 +79,7 @@ half3 ColorizeComplexity(float In)
 	{
 		//transform complexity from [1/3,1] to [0,2]
 		//ShaderComplexityColors[8] represents the maximum complexity.
-		Value = (In - .33333333f) * 3.0f;
+		Value = (In - .33333333f) * (NumComplexityColors <= 8 ? 1.5f : 3.0f);
 		if (Value <= 1)
 		{
 			LowerColor = ShaderComplexityColors[6];
@@ -99,7 +100,7 @@ half3 ColorizeComplexity(float In)
 // @return color in 0..1 range
 half3 ColorizeComplexityLinear(float In)
 {
-	float Value = clamp(In, 0.0f, .999f) * (NUM_COMPLEXITY_COLORS - 1);
+	float Value = clamp(In, 0.0f, .999f) * (NumComplexityColors - 1);
 	int ColorIndex = floor(Value);
 	return lerp(ShaderComplexityColors[ColorIndex], ShaderComplexityColors[ColorIndex + 1], frac(Value));
 }
@@ -108,8 +109,37 @@ half3 ColorizeComplexityLinear(float In)
 // @return color in 0..1 range
 half3 ColorizeComplexityStep(float In)
 {
-	int ColorIndex = round(saturate(In) * (NUM_COMPLEXITY_COLORS - 1));
+	int ColorIndex = round(saturate(In) * (NumComplexityColors - 1));
 	return ShaderComplexityColors[ColorIndex];
+}
+
+// @param In  0..1
+// @return color in 0..1 range
+half3 ColorizeComplexityFromMode(float C)
+{
+	int ColorSamping = CS_RAMP;
+
+#if READ_QUAD_OVERDRAW || FEATURE_LEVEL >= FEATURE_LEVEL_SM4
+	ColorSamping = (int)ShaderComplexityParams.z;
+#endif
+
+	[branch]
+	if (ColorSamping == CS_RAMP)
+	{
+		return ColorizeComplexity(C);
+	}
+	[branch]
+	if (ColorSamping == CS_LINEAR)
+	{
+		return ColorizeComplexityLinear(C);
+	}
+	[branch]
+	if (ColorSamping == CS_STAIR)
+	{
+		return ColorizeComplexityStep(C);
+	}
+
+	return 0;
 }
 
 
@@ -128,40 +158,26 @@ void Main(
 	// float3(PS/ShaderBudget, VS/ShaderBudget, overdraw)
 	float3 SceneColor = Texture2DSampleLevel(PostprocessInput0, PostprocessInput0Sampler, UV, 0).rgb;
 
-
 	bool bLegend = ShaderComplexityParams.x > 0;
+	float ComplexityScale = ShaderComplexityParams.w;
+	int DebugViewShaderMode = DVSM_ShaderComplexity;
 
 #if READ_QUAD_OVERDRAW
-	bool bUseQuadOverdraw = ShaderComplexityParams.y > 0;
-	bool bShowQuadComplexity = ShaderComplexityParams.z > 0;
-
+	DebugViewShaderMode = (int)ShaderComplexityParams.y;
 	[branch]
-	if (bUseQuadOverdraw)
+	if (DebugViewShaderMode != DVSM_ShaderComplexity)
 	{
 		uint2 QuadID = SvPosition.xy / 2 + QuadOverdrawOffset();
 		SceneColor.r += ComplexityToFloat(QuadOverdrawTexture.Load(int3(QuadID,0)));
 	}
-
-#else
-
-	bool bUseQuadOverdraw = false;
-	bool bShowQuadComplexity = false;
-
 #endif // READ_QUAD_OVERDRAW
+	SceneColor.r *= ComplexityScale;
 
 	// show overdraw
 	float Overdraw = SceneColor.b;
 
 	// PS cost
-	[branch]
-	if (bShowQuadComplexity)
-	{
-		OutColor = float4(ColorizeComplexityStep(SceneColor.r), 0);
-	}
-	else
-	{
-		OutColor = float4(ColorizeComplexity(SceneColor.r), 0);
-	}
+	OutColor = float4(ColorizeComplexityFromMode(SceneColor.r), 0);
 	
 	if(!bLegend)
 	{
@@ -180,16 +196,17 @@ void Main(
 	}
 	
 	// value under crosshair
-	float3 CenterViewportHDRColor = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, ViewportCenter * PostprocessInput0Size.zw).rgb;
+	float3 CenterViewportHDRColor = PostprocessInput0.Load(int3(ViewportCenter, 0)).rgb;
 
 #if READ_QUAD_OVERDRAW
 	[branch]
-	if (bUseQuadOverdraw)
+	if (DebugViewShaderMode != DVSM_ShaderComplexity)
 	{
 		uint2 QuadID = ViewportCenter / 2 + QuadOverdrawOffset();
 		CenterViewportHDRColor.r += ComplexityToFloat(QuadOverdrawTexture.Load(int3(QuadID,0)));
 	}
 #endif
+	CenterViewportHDRColor.r *= ComplexityScale;
 
 	if(0)
 	{
@@ -223,16 +240,7 @@ void Main(
 		float2 InsetPx = PixelPos - LeftTop;
 		float2 InsetUV = InsetPx / Size;
 	
-		float3 LegendColor = 0;
-		[branch]
-		if (bShowQuadComplexity)
-		{
-			LegendColor = ColorizeComplexityStep(InsetUV.x);
-		}
-		else
-		{
-			LegendColor = ColorizeComplexity(InsetUV.x);
-		}
+		float3 LegendColor = ColorizeComplexityFromMode(InsetUV.x);
 
 		float BorderDistance = ComputeDistanceToRect(PixelPos, LeftTop, Size);
 		
@@ -242,7 +250,7 @@ void Main(
 		OutColor.xyz = lerp(LegendColor, OutColor.xyz, saturate(BorderDistance - (OuterBorder + 1)));
 
 		[branch]
-		if (bShowQuadComplexity)
+		if (DebugViewShaderMode == DVSM_QuadComplexity)
 		{
 			// OverDraw
 			int2 Cursor = LeftTop + int2(saturate(CenterViewportHDRColor.r) * (Size.x - 2 * 8), 5);

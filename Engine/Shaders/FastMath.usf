@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Common.usf: Common shader code
@@ -207,3 +207,28 @@ float asinFast4( float x )
 {
 	return (0.5 * PI) - acosFast4(x);
 }
+
+// @param A doesn't have to be normalized, output could be NaN if this is near 0,0,0
+// @param B doesn't have to be normalized, output could be NaN if this is near 0,0,0
+// @return can be passed to a acosFast() or acos() to compute an angle
+float CosBetweenVectors(float3 A, float3 B)
+{
+	// unoptimized: dot(normalize(A), normalize(B))
+	return dot(A, B) * rsqrt(length2(A) * length2(B));
+}
+
+// @param A doesn't have to be normalized, output could be NaN if this is near 0,0,0
+// @param B doesn't have to be normalized, output could be NaN if this is near 0,0,0
+float AngleBetweenVectors(float3 A, float3 B)
+{
+	return acos(CosBetweenVectors(A, B));
+}
+// @param A doesn't have to be normalized, output could be NaN if this is near 0,0,0
+// @param B doesn't have to be normalized, output could be NaN if this is near 0,0,0
+float AngleBetweenVectorsFast(float3 A, float3 B)
+{
+	return acosFast(CosBetweenVectors(A, B));
+}
+
+
+

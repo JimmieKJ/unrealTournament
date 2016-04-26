@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlatePrivatePCH.h"
 #include "MultiBox.h"
@@ -382,6 +382,7 @@ public:
 		FReply Reply = SButton::OnMouseButtonUp(MyGeometry, MouseEvent);
 
 		bIsPressed = bWasPressed;
+		bIsHovered = true;
 
 		return Reply;
 	}
@@ -392,6 +393,8 @@ public:
 		{
 			ResponseToMouseUp = EResponseToMouseUp::Handle;
 		}
+
+		bIsPressed = false;
 
 		SButton::OnMouseLeave(MouseEvent);
 	}

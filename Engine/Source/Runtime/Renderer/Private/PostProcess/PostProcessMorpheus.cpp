@@ -54,8 +54,10 @@ public:
 	FShaderParameter TextureScale;
 	FShaderParameter TextureOffset;
 	FShaderParameter TextureUVOffset;
+	FShaderParameter RCoefficients;
+	FShaderParameter GCoefficients;
+	FShaderParameter BCoefficients;
 
-	FShaderResourceParameter DistortionTextureParam; 
 	FShaderResourceParameter DistortionTextureSampler; 
 
 	/** Initialization constructor. */
@@ -73,12 +75,13 @@ public:
 
 		TextureUVOffset.Bind(Initializer.ParameterMap, TEXT("TextureUVOffset"));
 		//check(TextureUVOffset.IsBound());
-			
-		DistortionTextureParam.Bind(Initializer.ParameterMap, TEXT("DistortionTextureArray"));
-		//check(DistortionTextureLeftParam.IsBound());		
 
 		DistortionTextureSampler.Bind(Initializer.ParameterMap, TEXT("DistortionTextureSampler"));
 		//check(DistortionTextureSampler.IsBound());		
+
+		RCoefficients.Bind(Initializer.ParameterMap, TEXT("RCoefficients"));
+		GCoefficients.Bind(Initializer.ParameterMap, TEXT("GCoefficients"));
+		BCoefficients.Bind(Initializer.ParameterMap, TEXT("BCoefficients"));
 	}
 
 
@@ -95,25 +98,27 @@ public:
 			check(GEngine->HMDDevice.IsValid());
 			TSharedPtr< class IHeadMountedDisplay, ESPMode::ThreadSafe > HMDDevice = GEngine->HMDDevice;
 
+			check(HMDDevice->GetHMDDeviceType() == EHMDDeviceType::DT_Morpheus);
+
+			auto RCoefs = HMDDevice->GetRedDistortionParameters();
+			auto GCoefs = HMDDevice->GetGreenDistortionParameters();
+			auto BCoefs = HMDDevice->GetBlueDistortionParameters();
+			for (uint32 i = 0; i < 5; ++i)
+			{
+				SetShaderValue(Context.RHICmdList, ShaderRHI, RCoefficients, RCoefs[i], i);
+				SetShaderValue(Context.RHICmdList, ShaderRHI, GCoefficients, GCoefs[i], i);
+				SetShaderValue(Context.RHICmdList, ShaderRHI, BCoefficients, BCoefs[i], i);
+			}
+
 			check (StereoPass != eSSP_FULL);
 			if (StereoPass == eSSP_LEFT_EYE)
 			{
-				FTexture* TextureLeft = HMDDevice->GetDistortionTextureLeft();
-				if (TextureLeft)
-				{
-					SetTextureParameter(Context.RHICmdList, ShaderRHI, DistortionTextureParam, DistortionTextureSampler, TextureLeft->SamplerStateRHI, TextureLeft->TextureRHI);
-				}
 				SetShaderValue(Context.RHICmdList, ShaderRHI, TextureScale, HMDDevice->GetTextureScaleLeft());
 				SetShaderValue(Context.RHICmdList, ShaderRHI, TextureOffset, HMDDevice->GetTextureOffsetLeft());
 				SetShaderValue(Context.RHICmdList, ShaderRHI, TextureUVOffset, 0.0f);
 			}
 			else
 			{
-				FTexture* TextureRight = HMDDevice->GetDistortionTextureRight();
-				if (TextureRight)
-				{
-					SetTextureParameter(Context.RHICmdList, ShaderRHI, DistortionTextureParam, DistortionTextureSampler, TextureRight->SamplerStateRHI, TextureRight->TextureRHI);
-				}
 				SetShaderValue(Context.RHICmdList, ShaderRHI, TextureScale, HMDDevice->GetTextureScaleRight());
 				SetShaderValue(Context.RHICmdList, ShaderRHI, TextureOffset, HMDDevice->GetTextureOffsetRight());
 				SetShaderValue(Context.RHICmdList, ShaderRHI, TextureUVOffset, -0.5f);
@@ -127,7 +132,7 @@ public:
 	virtual bool Serialize(FArchive& Ar)
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << PostprocessParameter << DeferredParameters << TextureScale << TextureOffset << TextureUVOffset << DistortionTextureParam << DistortionTextureSampler;
+		Ar << PostprocessParameter << DeferredParameters << TextureScale << TextureOffset << TextureUVOffset << RCoefficients << GCoefficients << BCoefficients << DistortionTextureSampler;
 		return bShaderHasOutdatedParameters;
 	}
 };
@@ -251,7 +256,7 @@ void FRCPassPostProcessMorpheus::Process(FRenderingCompositePassContext& Context
 
 FPooledRenderTargetDesc FRCPassPostProcessMorpheus::ComputeOutputDesc(EPassOutputId InPassOutputId) const
 {
-	FPooledRenderTargetDesc Ret = GetInput(ePId_Input0)->GetOutput()->RenderTargetDesc;
+	FPooledRenderTargetDesc Ret = GetInput(static_cast<EPassInputId>(0))->GetOutput()->RenderTargetDesc;
 
 	Ret.NumSamples = 1;	// no MSAA
 	Ret.Reset();

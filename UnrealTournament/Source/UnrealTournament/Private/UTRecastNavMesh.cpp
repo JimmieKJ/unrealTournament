@@ -56,6 +56,9 @@ AUTRecastNavMesh::AUTRecastNavMesh(const FObjectInitializer& ObjectInitializer)
 
 	SpecialLinkBuildNodeIndex = INDEX_NONE;
 
+	NavMeshMagicNumberVersion1 = 0xBEEF0001;
+	UE4VerForUnversionedNavMesh = 452;
+
 	SizeSteps.Add(FCapsuleSize(46, 108));
 	SizeSteps.Add(FCapsuleSize(46, 69));
 	JumpTestThreshold2D = 2048.0f;
@@ -2676,6 +2679,9 @@ void AUTRecastNavMesh::SaveMapLearningData()
 		DataAr = new FMemoryWriter(Data, true);
 		DataAr->ArIsSaveGame = true;
 		FObjectAndNameAsStringProxyArchive OuterAr(*DataAr, false);
+		OuterAr << NavMeshMagicNumberVersion1;
+		int32 UE4Ver = OuterAr.UE4Ver();
+		OuterAr << UE4Ver;
 		OuterAr.ArIsSaveGame = true;
 		for (UUTPathNode* Node : PathNodes)
 		{
@@ -2744,6 +2750,25 @@ void AUTRecastNavMesh::LoadMapLearningData()
 			if (DataAr != NULL)
 			{
 				FObjectAndNameAsStringProxyArchive OuterAr(*DataAr, false);
+
+				// FObjectAndNameAsStringProxyArchive does not have versioning, but we need it
+				// In 4.12, Serialization has been modified and we need the FArchive to use the right serialization path
+				uint32 PossibleMagicNumber;
+				OuterAr << PossibleMagicNumber;
+				if (NavMeshMagicNumberVersion1 == PossibleMagicNumber)
+				{
+					int32 NavMeshUE4Ver;
+					OuterAr << NavMeshUE4Ver;
+					OuterAr.SetUE4Ver(NavMeshUE4Ver);
+				}
+				else
+				{
+					// Very likely this is from an unversioned nav mesh, set it to the last released serialization version
+					OuterAr.SetUE4Ver(UE4VerForUnversionedNavMesh);
+					// Rewind to the beginning as the magic number was not in the archive
+					OuterAr.Seek(0);
+				}
+
 				OuterAr.ArIsSaveGame = true;
 				// serialize objects until we reach the end of the data
 				// we have to halt if any are not found as we're not storing seeking info that would allow skipping missing objects
@@ -2777,11 +2802,12 @@ void AUTRecastNavMesh::AddToNavigation(AActor* NewPOI)
 		// we don't early out because the POI may have moved
 		RemoveFromNavigation(NewPOI);
 
-		UUTPathNode* BestNode = FindNearestNode(NewPOI->GetActorLocation(), NewPOI->GetSimpleCollisionCylinderExtent());
+		const FVector Extent = GetPOIExtent(NewPOI);
+		UUTPathNode* BestNode = FindNearestNode(NewPOI->GetActorLocation(), Extent);
 		if (BestNode == NULL)
 		{
 			// try bottom of cylinder instead
-			BestNode = FindNearestNode(NewPOI->GetActorLocation() - FVector(0.0f, 0.0f, NewPOI->GetSimpleCollisionHalfHeight()), NewPOI->GetSimpleCollisionCylinderExtent());
+			BestNode = FindNearestNode(NewPOI->GetActorLocation() - FVector(0.0f, 0.0f, Extent.Z), Extent);
 		}
 		if (BestNode != NULL)
 		{
@@ -2790,7 +2816,7 @@ void AUTRecastNavMesh::AddToNavigation(AActor* NewPOI)
 		}
 		else
 		{
-			//UE_LOG(UT, Warning, TEXT("Failed to add %s to path network: no nearby navigable area was found (location: %s)"), *NewPOI->GetName(), *NewPOI->GetActorLocation().ToString());
+			UE_LOG(UT, Verbose, TEXT("Failed to add %s to path network: no nearby navigable area was found (location: %s)"), *NewPOI->GetName(), *NewPOI->GetActorLocation().ToString());
 		}
 	}
 }

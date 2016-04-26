@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "PhysicsAssetUtils.h"
@@ -195,8 +195,8 @@ bool CreateFromSkeletalMeshInternal(UPhysicsAsset* PhysicsAsset, USkeletalMesh* 
 
 				CS->DefaultInstance.ConstraintBone2 = ParentName;
 				CS->DefaultInstance.Pos2 = RelTM.GetOrigin();
-				CS->DefaultInstance.PriAxis2 = RelTM.GetScaledAxis(EAxis::X);
-				CS->DefaultInstance.SecAxis2 = RelTM.GetScaledAxis(EAxis::Y);
+				CS->DefaultInstance.PriAxis2 = RelTM.GetUnitAxis(EAxis::X);
+				CS->DefaultInstance.SecAxis2 = RelTM.GetUnitAxis(EAxis::Y);
 
 				// Disable collision between constrained bodies by default.
 				PhysicsAsset->DisableCollision(NewBodyIndex, ParentBodyIndex);

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "KismetWidgetsPrivatePCH.h"
 #include "CreateBlueprintFromActorDialog.h"
@@ -93,9 +93,10 @@ void FCreateBlueprintFromActorDialog::OnCreateBlueprint(const FString& InAssetPa
 			}
 		}
 
+		// Select the newly created blueprint in the content browser, but don't activate the browser
 		TArray<UObject*> Objects;
 		Objects.Add(Blueprint);
-		GEditor->SyncBrowserToObjects( Objects );
+		GEditor->SyncBrowserToObjects( Objects, false );
 	}
 	else
 	{

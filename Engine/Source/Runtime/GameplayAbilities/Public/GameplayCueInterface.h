@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -39,7 +39,9 @@ class GAMEPLAYABILITIES_API IGameplayCueInterface
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Ability|GameplayCue")
 	virtual void ForwardGameplayCueToParent();
 
-	static void DispatchBlueprintCustomHandler(AActor* Actor, UFunction* Func, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters);	
+	static void DispatchBlueprintCustomHandler(AActor* Actor, UFunction* Func, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters);
+
+	static void ClearTagToFunctionMap();
 
 	IGameplayCueInterface() : bForwardToParent(false) {}
 
@@ -97,6 +99,9 @@ struct FActiveGameplayCueContainer : public FFastArraySerializer
 	UPROPERTY()
 	class UAbilitySystemComponent*	Owner;
 
+	/** Should this container only rpelicate in minimal replication mode */
+	bool bMinimalReplication;
+
 	void AddCue(const FGameplayTag& Tag, const FPredictionKey& PredictionKey);
 	void RemoveCue(const FGameplayTag& Tag);
 
@@ -108,10 +113,7 @@ struct FActiveGameplayCueContainer : public FFastArraySerializer
 	/** Does explicit check for gameplay cue tag */
 	bool HasCue(const FGameplayTag& Tag) const;
 
-	bool NetDeltaSerialize(FNetDeltaSerializeInfo & DeltaParms)
-	{
-		return FastArrayDeltaSerialize<FActiveGameplayCue>(GameplayCues, DeltaParms, *this);
-	}
+	bool NetDeltaSerialize(FNetDeltaSerializeInfo & DeltaParms);
 
 private:
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -55,6 +55,10 @@ DECLARE_LOG_CATEGORY_EXTERN(LogUdpMessaging, Log, All);
 #include "UdpSerializeMessageTask.h"
 #include "UdpMessageTransport.h"
 
+#if PLATFORM_DESKTOP
+
 // tunnel
 #include "UdpMessageTunnelConnection.h"
 #include "UdpMessageTunnel.h"
+
+#endif

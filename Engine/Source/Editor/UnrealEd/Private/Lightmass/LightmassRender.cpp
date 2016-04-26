@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LightmassRender.cpp: lightmass rendering-related implementation.
@@ -158,11 +158,23 @@ struct FLightmassMaterialCompiler : public FProxyMaterialCompiler
 		return Compiler->Constant(0.0f);
 	}
 
+	virtual int32 DecalLifetimeOpacity() override
+	{
+		return Compiler->Constant(0.0f);
+	}
+
 	virtual int32 LightmassReplace(int32 Realtime, int32 Lightmass) override { return Lightmass; }
 
 	virtual int32 GIReplace(int32 Direct, int32 StaticIndirect, int32 DynamicIndirect) override { return StaticIndirect; }
 
 	virtual int32 MaterialProxyReplace(int32 Realtime, int32 MaterialProxy) override { return Realtime; }
+
+#if WITH_EDITOR
+	virtual int32 MaterialBakingWorldPosition() override
+	{
+		return Compiler->MaterialBakingWorldPosition();
+	}
+#endif
 };
 
 /**

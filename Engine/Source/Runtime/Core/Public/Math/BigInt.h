@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -316,8 +316,9 @@ public:
 			Denominator.ShiftLeftInternal(1);	
 			Current.ShiftLeftInternal(1);
 		}
-    Denominator.ShiftRightInternal(1);
-    Current.ShiftRightInternal(1);
+
+		Denominator.ShiftRightInternal(1);
+		Current.ShiftRightInternal(1);
 
 		while (!Current.IsZero()) 
 		{
@@ -886,22 +887,22 @@ public:
 	 */
 	void Parse(const FString& Value)
 	{
-		check(Value.Len() <= NumBits / 8);
 		Zero();
 		int32 ValueStartIndex = 0;
 		if (Value.Len() >= 2 && Value[0] == '0' && FChar::ToUpper(Value[1]) == 'X')
 		{
 			ValueStartIndex = 2;
 		}
-		const int32 BytesPerWord = BitsPerWord / 8;
+		check((Value.Len() - ValueStartIndex) <= (NumBits / 4));
+		const int32 NybblesPerWord = BitsPerWord / 4;
 		for (int32 CharIndex = Value.Len() - 1; CharIndex >= ValueStartIndex; --CharIndex)
 		{
 			const TCHAR ByteChar = Value[CharIndex];
 			const int32 ByteIndex = (Value.Len() - CharIndex - 1);
-			const int32 WordIndex = ByteIndex / BytesPerWord;			
+			const int32 WordIndex = ByteIndex / NybblesPerWord;
 			const int32 ByteValue = ByteChar > '9' ? (FChar::ToUpper(ByteChar) - 'A' + 10) : (ByteChar - '0');
 			check(ByteValue >= 0 && ByteValue <= 15);
-			Bits[WordIndex] |= (ByteValue << (ByteIndex - WordIndex * 4) * 4);
+			Bits[WordIndex] |= (ByteValue << (ByteIndex % NybblesPerWord) * 4);
 		}
 	}
 
@@ -1099,9 +1100,18 @@ FORCEINLINE int256 FEncryption::ModularPow(int256 Base, int256 Exponent, int256 
 	return Result;
 }
 
-struct FSignature
+template <class TYPE, int64 NUM_VALUES>
+struct FSignatureBase
 {
-	int256 Data[20];
+	TYPE Data[NUM_VALUES];
+
+	FSignatureBase()
+	{
+		for (int32 Index = 0; Index < ARRAY_COUNT(Data); ++Index)
+		{
+			Data[Index] = 0;
+		}
+	}
 
 	void Serialize(FArchive& Ar)
 	{
@@ -1113,6 +1123,44 @@ struct FSignature
 
 	static int64 Size()
 	{
-		return sizeof(int256) * 20;
+		return sizeof(TYPE) * NUM_VALUES;
 	}
+
+	bool IsValid() const
+	{
+		for (int64 Index = 0; Index < NUM_VALUES; ++Index)
+		{
+			if (Data[Index] != 0)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	bool operator != (const FSignatureBase& InOther)
+	{
+		for (int64 i = 0; i < NUM_VALUES; ++i)
+		{
+			if (Data[i] != InOther.Data[i])
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+};
+
+template <int64 NUM_VALUES>
+struct FEncryptedSignature : public FSignatureBase<int256, NUM_VALUES>
+{
+
+};
+
+template <int64 NUM_VALUES>
+struct FDecryptedSignature : public FSignatureBase<uint8, NUM_VALUES>
+{
+
 };

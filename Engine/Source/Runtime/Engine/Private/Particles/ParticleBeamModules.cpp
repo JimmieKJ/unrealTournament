@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ParticleBeamModules.cpp: Particle module implementations for beams.
@@ -15,6 +15,8 @@
 #include "Particles/TypeData/ParticleModuleTypeDataBeam2.h"
 #include "Particles/ParticleSystem.h"
 #include "Particles/ParticleSystemComponent.h"
+#include "Particles/ParticleEmitter.h"
+#include "Particles/ParticleLODLevel.h"
 #include "Engine/InterpCurveEdSetup.h"
 #include "Distributions/DistributionFloatConstantCurve.h"
 
@@ -56,21 +58,21 @@ UParticleModuleTypeDataBeam2::UParticleModuleTypeDataBeam2(const FObjectInitiali
 
 void UParticleModuleTypeDataBeam2::InitializeDefaults()
 {
-	if (!Distance.Distribution)
+	if (!Distance.IsCreated())
 	{
 		UDistributionFloatConstant* DistributionDistance = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionDistance"));
 		DistributionDistance->Constant = 25.0f;
 		Distance.Distribution = DistributionDistance;
 	}
 
-	if (!TaperFactor.Distribution)
+	if (!TaperFactor.IsCreated())
 	{
 		UDistributionFloatConstant* DistributionTaperFactor = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionTaperFactor"));
 		DistributionTaperFactor->Constant = 1.0f;
 		TaperFactor.Distribution = DistributionTaperFactor;
 	}
 
-	if (!TaperScale.Distribution)
+	if (!TaperScale.IsCreated())
 	{
 		UDistributionFloatConstant* DistributionTaperScale = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionTaperScale"));
 		DistributionTaperScale->Constant = 1.0f;
@@ -589,14 +591,12 @@ void UParticleModuleTypeDataBeam2::Update(FParticleEmitterInstance* Owner, int32
 }
 
 
-uint32 UParticleModuleTypeDataBeam2::RequiredBytes(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleTypeDataBeam2::RequiredBytes(UParticleModuleTypeDataBase* TypeData)
 {
 	int32	Size		= 0;
 	int32	TaperCount	= 2;
 
 	// Every beam requires the Beam2PayloadData
-	FParticleBeam2EmitterInstance* BeamInst = (FParticleBeam2EmitterInstance*)Owner;
-	check(Owner->bIsBeam);
 	Size	+= sizeof(FBeam2TypeDataPayload);		// Beam2 payload data
 
 	// Store the interpolated points for each beam.
@@ -606,7 +606,8 @@ uint32 UParticleModuleTypeDataBeam2::RequiredBytes(FParticleEmitterInstance* Own
 		TaperCount	 = InterpolationPoints ? (InterpolationPoints + 1) : 2;
 	}
 
-	UParticleModuleBeamNoise* BeamNoise = BeamInst->BeamModule_Noise;
+	// Grab pointer to highest LOD noise module to look for options
+	UParticleModuleBeamNoise* BeamNoise = (LOD_BeamModule_Noise.Num() > 0) ? LOD_BeamModule_Noise[0] : nullptr;
 	if (BeamNoise)
 	{
 		if (BeamNoise->bLowFreq_Enabled)
@@ -689,6 +690,114 @@ FParticleEmitterInstance* UParticleModuleTypeDataBeam2::CreateInstance(UParticle
 	Instance->InitParameters(InEmitterParent, InComponent);
 
 	return Instance;
+}
+
+void UParticleModuleTypeDataBeam2::CacheModuleInfo(UParticleEmitter* Emitter)
+{
+	int32 LODCount = Emitter->LODLevels.Num();
+
+	LOD_BeamModule_Source.Empty(LODCount);
+	LOD_BeamModule_Source.AddZeroed(LODCount);
+	LOD_BeamModule_Target.Empty(LODCount);
+	LOD_BeamModule_Target.AddZeroed(LODCount);
+	LOD_BeamModule_Noise.Empty(LODCount);
+	LOD_BeamModule_Noise.AddZeroed(LODCount);
+	LOD_BeamModule_SourceModifier.Empty(LODCount);
+	LOD_BeamModule_SourceModifier.AddZeroed(LODCount);
+	LOD_BeamModule_TargetModifier.Empty(LODCount);
+	LOD_BeamModule_TargetModifier.AddZeroed(LODCount);
+
+	// Used for sanity check that all LOD's DataType is the same
+	UParticleModuleTypeDataBeam2* LOD_BeamTypeData = nullptr;
+
+	for (int32 LODIdx = 0; LODIdx < LODCount; LODIdx++)
+	{
+		UParticleLODLevel* LODLevel = Emitter->GetLODLevel(LODIdx);
+		check(LODLevel);
+
+		// Sanity check that the DataTypeModule for each LOD is the same
+		if (LODIdx == 0)
+		{
+			LOD_BeamTypeData = CastChecked<UParticleModuleTypeDataBeam2>(LODLevel->TypeDataModule);
+			check(LOD_BeamTypeData);
+		}
+		else
+		{
+			check(LOD_BeamTypeData == LODLevel->TypeDataModule);
+		}
+
+		// Go over all the modules in the LOD level
+		for (int32 ii = 0; ii < LODLevel->Modules.Num(); ii++)
+		{
+			bool bRemove = false;
+
+			UParticleModule* CheckModule = LODLevel->Modules[ii];
+			if ((CheckModule->GetModuleType() == EPMT_Beam) && (CheckModule->bEnabled == true))
+			{
+
+				if (CheckModule->IsA(UParticleModuleBeamSource::StaticClass()))
+				{
+					if (LOD_BeamModule_Source[LODIdx])
+					{
+						UE_LOG(LogParticles, Log, TEXT("Warning: Multiple beam source modules!"));
+					}
+					else
+					{
+						LOD_BeamModule_Source[LODIdx] = Cast<UParticleModuleBeamSource>(CheckModule);
+					}
+					bRemove = true;
+				}
+				else if (CheckModule->IsA(UParticleModuleBeamTarget::StaticClass()))
+				{
+					if (LOD_BeamModule_Target[LODIdx])
+					{
+						UE_LOG(LogParticles, Log, TEXT("Warning: Multiple beam Target modules!"));
+					}
+					else
+					{
+						LOD_BeamModule_Target[LODIdx] = Cast<UParticleModuleBeamTarget>(CheckModule);
+					}
+					bRemove = true;
+				}
+				else if (CheckModule->IsA(UParticleModuleBeamNoise::StaticClass()))
+				{
+					if (LOD_BeamModule_Noise[LODIdx])
+					{
+						UE_LOG(LogParticles, Log, TEXT("Warning: Multiple beam Noise modules!"));
+					}
+					else
+					{
+						LOD_BeamModule_Noise[LODIdx] = Cast<UParticleModuleBeamNoise>(CheckModule);
+					}
+					bRemove = true;
+				}
+				else if (CheckModule->IsA(UParticleModuleBeamModifier::StaticClass()))
+				{
+					UParticleModuleBeamModifier* ModifyModule = Cast<UParticleModuleBeamModifier>(CheckModule);
+					if (ModifyModule->PositionOptions.bModify || ModifyModule->TangentOptions.bModify || ModifyModule->StrengthOptions.bModify)
+					{
+						if (ModifyModule->ModifierType == PEB2MT_Source)
+						{
+							LOD_BeamModule_SourceModifier[LODIdx] = ModifyModule;
+							bRemove = true;
+						}
+						else if (ModifyModule->ModifierType == PEB2MT_Target)
+						{
+							LOD_BeamModule_TargetModifier[LODIdx] = ModifyModule;
+							bRemove = true;
+						}
+					}
+				}
+
+				// These modules should never be in the UpdateModules or SpawnModules lists
+				if (bRemove)
+				{
+					check(!LODLevel->UpdateModules.Contains(CheckModule));
+					check(!LODLevel->SpawnModules.Contains(CheckModule));
+				}
+			}
+		}
+	}
 }
 
 
@@ -906,21 +1015,21 @@ UParticleModuleBeamModifier::UParticleModuleBeamModifier(const FObjectInitialize
 
 void UParticleModuleBeamModifier::InitializeDefaults()
 {
-	if(!Position.Distribution)
+	if(!Position.IsCreated())
 	{
 		UDistributionVectorConstant* DistributionPosition = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionPosition"));
 		DistributionPosition->Constant = FVector(0.0f, 0.0f, 0.0f);
 		Position.Distribution = DistributionPosition;
 	}
 	
-	if(!Tangent.Distribution)
+	if(!Tangent.IsCreated())
 	{
 		UDistributionVectorConstant* DistributionTangent = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionTangent"));
 		DistributionTangent->Constant = FVector(0.0f, 0.0f, 0.0f);
 		Tangent.Distribution = DistributionTangent;
 	}
 
-	if(!Strength.Distribution)
+	if(!Strength.IsCreated())
 	{
 		UDistributionFloatConstant* DistributionStrength = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionStrength"));
 		DistributionStrength->Constant = 0.0f;
@@ -1050,7 +1159,7 @@ void UParticleModuleBeamModifier::Update(FParticleEmitterInstance* Owner, int32 
 	END_UPDATE_LOOP;
 }
 
-uint32 UParticleModuleBeamModifier::RequiredBytes(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleBeamModifier::RequiredBytes(UParticleModuleTypeDataBase* TypeData)
 {
 	return sizeof(FBeamParticleModifierPayloadData);
 }
@@ -1172,35 +1281,35 @@ UParticleModuleBeamNoise::UParticleModuleBeamNoise(const FObjectInitializer& Obj
 
 void UParticleModuleBeamNoise::InitializeDefaults()
 {
-	if (!NoiseSpeed.Distribution)
+	if (!NoiseSpeed.IsCreated())
 	{
 		UDistributionVectorConstant* DistributionNoiseSpeed = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionNoiseSpeed"));
 		DistributionNoiseSpeed->Constant = FVector(50.0f, 50.0f, 50.0f);
 		NoiseSpeed.Distribution = DistributionNoiseSpeed;
 	}
 
-	if (!NoiseRange.Distribution)
+	if (!NoiseRange.IsCreated())
 	{
 		UDistributionVectorConstant* DistributionNoiseRange = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionNoiseRange"));
 		DistributionNoiseRange->Constant = FVector(50.0f, 50.0f, 50.0f);
 		NoiseRange.Distribution = DistributionNoiseRange;
 	}
 
-	if (!NoiseRangeScale.Distribution)
+	if (!NoiseRangeScale.IsCreated())
 	{
 		UDistributionFloatConstant* DistributionNoiseRangeScale = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionNoiseRangeScale"));
 		DistributionNoiseRangeScale->Constant = 1.0f;
 		NoiseRangeScale.Distribution = DistributionNoiseRangeScale; 
 	}
 
-	if (!NoiseTangentStrength.Distribution)
+	if (!NoiseTangentStrength.IsCreated())
 	{
 		UDistributionFloatConstant* DistributionNoiseTangentStrength = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionNoiseTangentStrength"));
 		DistributionNoiseTangentStrength->Constant = 250.0f;
 		NoiseTangentStrength.Distribution = DistributionNoiseTangentStrength; 
 	}
 
-	if (!NoiseScale.Distribution)
+	if (!NoiseScale.IsCreated())
 	{
 		NoiseScale.Distribution = NewObject<UDistributionFloatConstantCurve>(this, TEXT("DistributionNoiseScale"));
 	}
@@ -1511,21 +1620,21 @@ UParticleModuleBeamSource::UParticleModuleBeamSource(const FObjectInitializer& O
 
 void UParticleModuleBeamSource::InitializeDefaults()
 {
-	if (!Source.Distribution)
+	if (!Source.IsCreated())
 	{
 		UDistributionVectorConstant* DistributionSource = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionSource"));
 		DistributionSource->Constant = FVector(50.0f, 50.0f, 50.0f);
 		Source.Distribution = DistributionSource; 
 	}
 
-	if (!SourceTangent.Distribution)
+	if (!SourceTangent.IsCreated())
 	{
 		UDistributionVectorConstant* DistributionSourceTangent = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionSourceTangent"));
 		DistributionSourceTangent->Constant = FVector(1.0f, 0.0f, 0.0f);
 		SourceTangent.Distribution = DistributionSourceTangent; 
 	}
 
-	if (!SourceStrength.Distribution)
+	if (!SourceStrength.IsCreated())
 	{
 		UDistributionFloatConstant* DistributionSourceStrength = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionSourceStrength"));
 		DistributionSourceStrength->Constant = 25.0f;
@@ -1626,27 +1735,21 @@ void UParticleModuleBeamSource::Update(FParticleEmitterInstance* Owner, int32 Of
 	END_UPDATE_LOOP;
 }
 
-uint32 UParticleModuleBeamSource::RequiredBytes(FParticleEmitterInstance* Owner)
+uint32 UParticleModuleBeamSource::RequiredBytes(UParticleModuleTypeDataBase* TypeData)
 {
-	int32	Size	= 0;
+	int32 Size = 0;
 
-	FParticleBeam2EmitterInstance* BeamInst = (FParticleBeam2EmitterInstance*)Owner;
-	if (BeamInst && Owner->bIsBeam)
+	if (SourceMethod == PEB2STM_Particle)
 	{
-		UParticleModuleTypeDataBeam2*	BeamTD	= BeamInst->BeamTypeData;
-		if (BeamTD)
-		{
-			if (SourceMethod == PEB2STM_Particle)
-			{
-				// Store the data for the particle source payload
-				Size	+= sizeof(FBeamParticleSourceTargetPayloadData);
-			}
-			if (BeamTD->BeamMethod == PEB2M_Branch)
-			{
-				// Store the data for the particle branch payload
-				Size	+= sizeof(FBeamParticleSourceBranchPayloadData);
-			}
-		}
+		// Store the data for the particle source payload
+		Size	+= sizeof(FBeamParticleSourceTargetPayloadData);
+	}
+
+	UParticleModuleTypeDataBeam2* BeamTD = Cast<UParticleModuleTypeDataBeam2>(TypeData);
+	if (BeamTD != nullptr && BeamTD->BeamMethod == PEB2M_Branch)
+	{
+		// Store the data for the particle branch payload
+		Size	+= sizeof(FBeamParticleSourceBranchPayloadData);
 	}
 
 	return Size;
@@ -1933,21 +2036,21 @@ UParticleModuleBeamTarget::UParticleModuleBeamTarget(const FObjectInitializer& O
 
 void UParticleModuleBeamTarget::InitializeDefaults()
 {
-	if (!Target.Distribution)
+	if (!Target.IsCreated())
 	{
 		UDistributionVectorConstant* DistributionTarget = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionTarget"));
 		DistributionTarget->Constant = FVector(50.0f, 50.0f, 50.0f);
 		Target.Distribution = DistributionTarget;
 	}
 
-	if (!TargetTangent.Distribution)
+	if (!TargetTangent.IsCreated())
 	{
 		UDistributionVectorConstant* DistributionTargetTangent = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionTargetTangent"));
 		DistributionTargetTangent->Constant = FVector(1.0f, 0.0f, 0.0f);
 		TargetTangent.Distribution = DistributionTargetTangent; 
 	}
 
-	if (!TargetStrength.Distribution)
+	if (!TargetStrength.IsCreated())
 	{
 		UDistributionFloatConstant* DistributionTargetStrength = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionTargetStrength"));
 		DistributionTargetStrength->Constant = 25.0;

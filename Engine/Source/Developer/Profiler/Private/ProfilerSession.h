@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -26,6 +26,9 @@ namespace EProfilerSessionTypes
 
 		/** Invalid enum type, may be used as a number of enumerations. */
 		InvalidOrMax,
+
+
+
 	};
 
 	/**
@@ -445,7 +448,6 @@ private:
 				StatFNameDescriptions.Add( StatFName, StatPtr );
 			}
 
-			// @TODO yrx 2014-03-24 FindRef!
 			FProfilerGroup* GroupPtr = GroupDescriptions.FindRef( GroupID );
 
 			StatPtr->Initialize( StatName, GroupPtr, InType );
@@ -642,24 +644,7 @@ public:
 	};
 
 	/** Default constructor. */
-	FProfilerAggregatedStat( const FName& InStatName, const FName& InGroupName, EProfilerSampleTypes::Type InStatType )
-		: _StatName( InStatName )
-		, _GroupName( InGroupName )
-		, _ValueOneFrame( 0.0f )
-		, _ValueAllFrames( 0.0f )
-		, _MinValueAllFrames( FLT_MAX )
-		, _MaxValueAllFrames( FLT_MIN )
-	
-		, _NumCallsAllFrames( 0 )
-		, _NumCallsOneFrame( 0 )
-		, _MinNumCallsAllFrames( MAX_uint32 )
-		, _MaxNumCallsAllFrames( 0 )
-
-		, _NumFrames( 0 )
-		, _NumFramesWithCall( 0 )
-
-		, StatType( InStatType )
-	{}
+	FProfilerAggregatedStat( const FName& InStatName, const FName& InGroupName, EProfilerSampleTypes::Type InStatType );
 
 public:
 	/** @return The average value of all combined instances. */
@@ -718,124 +703,17 @@ public:
 	/**
 	 * @return a string representation of this aggregated stat.
 	 */
-	FString ToString() const
-	{
-		FString FormattedValueStr;
-		if( StatType == EProfilerSampleTypes::HierarchicalTime )
-		{
-			FormattedValueStr = FString::Printf( TEXT("{Value Min:%.3f Avg:%.3f Max:%.3f (MS) / Calls (%.1f%%) Min:%.1f Avg:%.1f Max:%.1f}"), 
-				MinValue(), AvgValue(), MaxValue(),
-				FramesWithCallPct(), MinNumCalls(), AvgNumCalls(), MaxNumCalls() );
-		}
-		else if( StatType == EProfilerSampleTypes::Memory )
-		{
-			FormattedValueStr = FString::Printf( TEXT("{Min:%.2f Avg:%.2f Max:%.2f (KB)}"), MinValue(), AvgValue(), MaxValue() );
-		}
-		else if( StatType == EProfilerSampleTypes::NumberInt )
-		{
-			FormattedValueStr = FString::Printf( TEXT("{Min:%.2f Avg:%.2f Max:%.2f}"), MinValue(), AvgValue(), MaxValue() );
-		}
-		else if( StatType == EProfilerSampleTypes::NumberFloat )
-		{
-			FormattedValueStr = FString::Printf( TEXT("{Min:%.2f Avg:%.2f Max:%.2f}"), MinValue(), AvgValue(), MaxValue() );
-		}
-		else
-		{
-			check(0);
-		}
-		return FormattedValueStr;
-	}
+	FString ToString() const;
 
 	
 	/**
 	 * @return a string representation of the specified value type.
 	 */
-	FString GetFormattedValue( const Type ValueType ) const
-	{
-		check( ValueType < Type::EInvalidOrMax );
-		const double ValueArray[Type::EInvalidOrMax] =
-		{
-			AvgValue(),
-			MinValue(),
-			MaxValue(),
-
-			AvgNumCalls(),
-			MinNumCalls(),
-			MaxNumCalls(),
-		
-			FramesWithCallPct(),
-		};
-
-		FString FormatValueStr;
-		if( StatType == EProfilerSampleTypes::HierarchicalTime )
-		{
-			if( ValueType == EMinValue || ValueType == EAvgValue || ValueType == EMaxValue )
-			{
-				FormatValueStr = FString::Printf( TEXT("%.3f (MS)"), ValueArray[ValueType] );
-			}
-			else if( ValueType == EFramesWithCallPct )
-			{
-				FormatValueStr = FString::Printf( TEXT("%.1f%%"), ValueArray[EFramesWithCallPct] );
-			}
-			else
-			{
-				FormatValueStr = FString::Printf( TEXT("%.1f"), ValueArray[ValueType] );
-			}
-		}
-		else if( StatType == EProfilerSampleTypes::Memory )
-		{
-			FormatValueStr = FString::Printf( TEXT("%.2f (KB)"), ValueArray[ValueType] );
-		}
-		else if( StatType == EProfilerSampleTypes::NumberInt )
-		{
-			FormatValueStr = FString::Printf( TEXT("%.2f"), ValueArray[ValueType] );
-		}
-		else if( StatType == EProfilerSampleTypes::NumberFloat )
-		{
-			FormatValueStr = FString::Printf( TEXT("%.2f"), ValueArray[ValueType] );
-		}
-		else
-		{
-			check(0);
-		}
-		return FormatValueStr;
-	}
+	FString GetFormattedValue( const Type ValueType ) const;
 
 protected:
 	/** Called once a frame to update aggregates. */
-	void Advance()
-	{
-		_NumFrames++;
-
-		_NumCallsAllFrames += _NumCallsOneFrame;
-		_ValueAllFrames += _ValueOneFrame;
-
-		// Calculate new extreme values.
-		if( StatType == EProfilerSampleTypes::HierarchicalTime )
-		{
-			// Update the extreme values only if this stat has been called at least once.
-			if( _NumCallsOneFrame > 0 )
-			{
-				_NumFramesWithCall ++;
-			}
-
-			{
-				_MinValueAllFrames = FMath::Min<float>( _MinValueAllFrames, _ValueOneFrame );
-				_MaxValueAllFrames = FMath::Max<float>( _MaxValueAllFrames, _ValueOneFrame );
-
-				_MinNumCallsAllFrames = FMath::Min<float>( _MinNumCallsAllFrames, _NumCallsOneFrame );
-				_MaxNumCallsAllFrames = FMath::Max<float>( _MaxNumCallsAllFrames, _NumCallsOneFrame );
-			}
-		}
-		else
-		{
-			_MinValueAllFrames = FMath::Min<float>( _MinValueAllFrames, _ValueOneFrame );
-			_MaxValueAllFrames = FMath::Max<float>( _MaxValueAllFrames, _ValueOneFrame );
-		}
-
-		_ValueOneFrame = 0.0f;
-		_NumCallsOneFrame = 0;
-	}
+	void Advance();
 
 	/**
 	 * Adds a profiler sample to our aggregated data
@@ -843,31 +721,7 @@ protected:
 	 * @param Sample - a reference to the profiler sample that will be aggregated
 	 *
 	 */
-	FProfilerAggregatedStat& operator+=( const FProfilerSample& Sample )
-	{
-		double TypedValue = 0.0;
-
-		// Determine whether to we are reading a time hierarchical sample or not.
-		if( Sample.Type() == EProfilerSampleTypes::HierarchicalTime )
-		{
-			TypedValue = Sample.DurationMS();
-			_NumCallsOneFrame += (uint32)Sample.CounterAsInt();
-		}
-		else
-		{
-			TypedValue = Sample.CounterAsFloat();
-
-			if( Sample.Type() == EProfilerSampleTypes::Memory )
-			{
-				// @TODO: Remove later
-				TypedValue *= 1.0f / 1024.0f;
-			}
-		}
-
-		_ValueOneFrame += TypedValue;
-		
-		return *this;
-	}
+	void Aggregate( const FProfilerSample& Sample, const FProfilerStatMetaDataRef& Metadata );
 
 protected:
 	FName _StatName;
@@ -908,6 +762,8 @@ protected:
 	/** Stat type. */
 	const EProfilerSampleTypes::Type StatType;
 };
+
+//template <> struct TIsPODType<FProfilerAggregatedStat> { enum { Value = true }; };
 
 // @TODO: Standardize naming used in the profiler session/ session / session instance.
 
@@ -1061,31 +917,19 @@ public:
 		return AggregatedStats.Find( StatID );
 	}
 
-	const FEventGraphDataRef& GetEventGraphDataMaximum() const
+	FORCEINLINE_DEBUGGABLE const TMap<uint32, FInclusiveTime>& GetInclusiveAggregateStackStats( const uint32 FrameIndex ) const
 	{
-		return EventGraphDataMaximum;
+		return InclusiveAggregateStackStats[FrameIndex];
 	}
 
-	const FEventGraphDataRef GetEventGraphDataAverage() const
-	{
-		const uint32 NumFrames = EventGraphDataTotal->GetNumFrames();
-		FEventGraphDataRef EventGraphDataAverage = EventGraphDataTotal->DuplicateAsRef();
-		EventGraphDataAverage->Divide( (double)NumFrames );
-		EventGraphDataAverage->Advance( 0, NumFrames );
-
-		return EventGraphDataAverage;
-	}
+	const FEventGraphDataRef GetEventGraphDataTotal() const;
+	const FEventGraphDataRef GetEventGraphDataMaximum() const;
+	const FEventGraphDataRef GetEventGraphDataAverage() const;
 
 	/**
 	 * @return number of bytes allocated by this profiler session.
 	 */
-	const SIZE_T GetMemoryUsage() const
-	{
-		SIZE_T MemoryUsage = 0;
-		MemoryUsage += DataProvider->GetMemoryUsage();
-		MemoryUsage += StatMetaData->GetMemoryUsage();
-		return MemoryUsage;
-	}
+	const SIZE_T GetMemoryUsage() const;
 
 	/**
 	 * @return a new instance of the graph data source for the specified stat ID.
@@ -1093,12 +937,17 @@ public:
 	FGraphDataSourceRefConst CreateGraphDataSource( const uint32 InStatID );
 
 	/**
-	 * @return a new instance of the event graph data for the specified frame range and event graph type.
+	 * @return a new instance of the event graph container for the specified frame range.
 	 */
-	FEventGraphDataRef CreateEventGraphData( const uint32 FrameStartIndex, const uint32 FrameEndIndex, const EEventGraphTypes::Type EventGraphType );
+	FEventGraphContainer CreateEventGraphData( const uint32 FrameStartIndex, const uint32 FrameEndIndex );
+
+	/** Combines event graphs for the specified frames range. */
+	FEventGraphData* CombineEventGraphs( const uint32 FrameStartIndex, const uint32 FrameEndIndex );
+
+	/** Combines event graphs for the specified frames range, as the task graph task. */
+	void CombineEventGraphsTask( const uint32 FrameStartIndex, const uint32 FrameEndIndex );
 
 protected:
-
 	/**
 	 * Recursively populates hierarchy based on the specified profiler cycle graph.
 	 *
@@ -1110,11 +959,12 @@ protected:
 	 * @return <describe return value>
 	 */
 	void PopulateHierarchy_Recurrent
-	( 
+	(
+		const uint32 StatThreadID,
 		const FProfilerCycleGraph& ParentGraph, 
-		const double ParentStartTimeMS, 
-		const double ParentDurationMS, 
-		const uint32 ParentSampleIndex 
+		const uint32 ParentDurationCycles, 
+		const uint32 ParentSampleIndex,
+		TMap<uint32, FInclusiveTime>& StatIDToInclusiveTime
 	);
 
 	/** Called when this profiler session receives a new profiler data. */
@@ -1139,18 +989,30 @@ protected:
 	 */
 	void UpdateAggregatedEventGraphData( const uint32 FrameIndex );
 
-	void EventGraphCombineAndMax( const FEventGraphDataRef Current, const uint32 NumFrames );
+	/** Completion sync. */
+	void CompletionSyncAggregatedEventGraphData();
 
-	void EventGraphCombineAndAdd( const FEventGraphDataRef Current, const uint32 NumFrames );
+	void EventGraphCombine( const FEventGraphData* Current, const uint32 InNumFrames );
+
+	void UpdateAllEventGraphs( const uint32 InNumFrames );
 
 	/** Called when the capture file has been fully loaded. */
 	void LoadComplete();
+
+	/** Sets number of frames. */
+	void SetNumberOfFrames( int32 InNumFrames );
+	
+	/**
+	 * @return progress as floating point between 0 and 1.
+	 */
+	float GetProgress() const;
 
 protected:
 	/** All aggregated stats, stored as StatID -> FProfilerAggregatedStat. */
 	TMap<uint32, FProfilerAggregatedStat > AggregatedStats;
 
-	TMap<uint32, FProfilerAggregatedStat > LastFrameStats;
+	/** Inclusive aggregated stack stack for all frames. FrameIndex < StatID, StatValue > */
+	TArray< TMap<uint32, FInclusiveTime> > InclusiveAggregateStackStats;
 
 	// TODO: This part will go away once we fully switch over to the stats2.
 	//{
@@ -1158,8 +1020,8 @@ protected:
 	TMap<uint32, FProfilerDataFrame> FrameToProfilerDataMapping;
 	/** Frame indices that should be processed by the profiler manager. */
 	TArray<uint32> FrameToProcess;
-	/** Reference to the client's stat metadata. */
-	const FStatMetaData* ClientStatMetadata;
+	/** Copy of the client stats metadata. */
+	FStatMetaData ClientStatMetadata;
 	/** If true, we need to update the metadata before we update the data provider. */
 	bool bRequestStatMetadataUpdate;
 	bool bLastPacket;
@@ -1178,35 +1040,45 @@ protected:
 	/** The stat metadata which holds all collected stats descriptions. */
 	FProfilerStatMetaDataRef StatMetaData;
 
-	// TODO: Make this more universal ? FEventGraphDataRef<AggregateFunc,FinalizerFunc,bRequiredCopy>
+	/** Aggregated event graph data for all collected frames, used for generating average values. Also contains min and max. */
+	FEventGraphDataPtr EventGraphDataTotal;
 
-	/** Aggregated event graph data for all collected frames, used for generating average values. */
-	FEventGraphDataRef EventGraphDataTotal;
+	/** Highest "per-frame" event graph. */
+	FEventGraphDataPtr EventGraphDataMaximum;
 
-	/** Aggregated event graph data for all collected frames, contains only maximum inclusive times. */
-	FEventGraphDataRef EventGraphDataMaximum;
+	/** Per-frame average event graph. */
+	FEventGraphDataPtr EventGraphDataAverage;
 
-	/** Temporary event graph data for the specified frame. */
-	FEventGraphDataRef EventGraphDataCurrent;
+	/** Temporary event graph data for the specified frame. Recreated each frame, used by the task graph tasks only. */
+	const FEventGraphData* EventGraphDataCurrent;
 
 	/** Event graph completion sync ( combine for max, combine for add ) that can be done in parallel, but need to wait before combining the next frame. */
 	FGraphEventRef CompletionSync;
 
+	/** Combined event graphs calculated on the task graph threads. */
+	TLockFreePointerListFIFO<FEventGraphData, PLATFORM_CACHE_LINE_SIZE> CombinedSubEventGraphsLFL;
+
 	// TODO: Temporary, need to be stored in metadata or send via UMB.
 	/** The time when this profiler session was created ( time of the connection to the client, time when a capture file was created ). */
-	/*const*/ FDateTime CreationTime;
+	FDateTime CreationTime;
 
 	/** Session type for this profiler session. */
-	/*const*/ EProfilerSessionTypes::Type SessionType;
+	EProfilerSessionTypes::Type SessionType;
 
 	/** Shared pointer to the session instance info. */
 	const ISessionInstanceInfoPtr SessionInstanceInfo;
 
 	/** An unique session instance ID. */
-	/*const*/ FGuid SessionInstanceID;
+	FGuid SessionInstanceID;
 
 	/** Data filepath. */
-	/*const*/ FString DataFilepath;
+	FString DataFilepath;
+
+	/** Number of frames in the file. */	
+	int32 NumFrames;
+
+	/** Number of frames already processed. */
+	int32 NumFramesProcessed;
 
 	/** True, if this profiler session instance is currently previewing data, only valid if profiler is connected to network based session. */
 	bool bDataPreviewing;
@@ -1220,52 +1092,4 @@ protected:
 public:
 	/** Provides analysis of the frame rate */
 	TSharedRef<FFPSAnalyzer> FPSAnalyzer;
-};
-
-/*-----------------------------------------------------------------------------
-	Profiler session for the raw stats files
------------------------------------------------------------------------------*/
-
-struct FAllocationInfo;
-
-class FRawProfilerSession : public FProfilerSession
-{
-	friend class FProfilerManager;
-	friend class FProfilerActionManager;
-
-	/** Profiler stream that contains all read raw profiler frames. */
-	FProfilerStream ProfilerStream;
-
-	/** Stats thread state, mostly used to manage the stats metadata. */
-	FStatsThreadState StatsThreadStats;
-	FStatsReadStream Stream;
-
-	/** Index of the last processed data for the mini-view. */
-	int32 CurrentMiniViewFrame;
-
-public:
-	/**
-	* Default constructor, creates a profiler session from a capture file.
-	*/
-	FRawProfilerSession( const FString& InRawStatsFileFileath );
-
-	/** Destructor. */
-	~FRawProfilerSession();
-
-	/** Updates this profiler session. */
-	bool HandleTicker( float DeltaTime );
-
-	/** Starts a process of loading the raw stats file. */
-	void PrepareLoading();
-
-	const FProfilerStream& GetStream() const
-	{
-		return ProfilerStream;
-	}
-
-	/**
-	 *	Process all stats packets and convert them to data accessible by the profiler.
-	 *	Temporary version, will be optimized later.
-	 */
-	void ProcessStatPacketArray( const FStatPacketArray& PacketArray, FProfilerFrame& out_ProfilerFrame, int32 FrameIndex );
 };

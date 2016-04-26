@@ -1,7 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#if 0 // this doesn't compile in 2013 express
 /**
 * An utility function for allocation chunk of zero initialized memory
 *
@@ -25,6 +26,7 @@ void * CallocZero(size_t NumElems, size_t ElemSize)
 
 	return Return;
 }
+#endif
 
 /**
 * HTML5 implementation of an Http request
@@ -52,6 +54,7 @@ public:
 	virtual void SetContent(const TArray<uint8>& ContentPayload) override;
 	virtual void SetContentAsString(const FString& ContentString) override;
 	virtual void SetHeader(const FString& HeaderName, const FString& HeaderValue) override;
+	virtual void AppendToHeader(const FString& HeaderName, const FString& AdditionalHeaderValue) override;
 	virtual bool ProcessRequest() override;
 	virtual FHttpRequestCompleteDelegate& OnProcessRequestComplete() override;
 	virtual FHttpRequestProgressDelegate& OnRequestProgress() override;

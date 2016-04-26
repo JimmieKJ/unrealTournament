@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "Classes/LeaderboardQueryCallbackProxy.h"
@@ -21,7 +21,7 @@ void ULeaderboardQueryCallbackProxy::TriggerQuery(APlayerController* PlayerContr
 		TSharedPtr<const FUniqueNetId> UserID = PlayerState->UniqueId.GetUniqueNetId();
 		if (UserID.IsValid())
 		{
-			if (IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::Get())
+			if (IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::IsLoaded() ? IOnlineSubsystem::Get() : nullptr)
 			{
 				IOnlineLeaderboardsPtr Leaderboards = OnlineSub->GetLeaderboardsInterface();
 				if (Leaderboards.IsValid())
@@ -130,7 +130,7 @@ void ULeaderboardQueryCallbackProxy::RemoveDelegate()
 {
 	if (!bFailedToEvenSubmit)
 	{
-		if (IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get())
+		if (IOnlineSubsystem* OnlineSub = IOnlineSubsystem::IsLoaded() ? IOnlineSubsystem::Get() : nullptr)
 		{
 			IOnlineLeaderboardsPtr Leaderboards = OnlineSub->GetLeaderboardsInterface();
 			if (Leaderboards.IsValid())

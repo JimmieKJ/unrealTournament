@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -22,12 +22,32 @@ class AIMODULE_API UEnvQuery : public UDataAsset
 	UEdGraph*	EdGraph;
 #endif
 
+protected:
+	friend class UEnvQueryManager;
+
+	UPROPERTY()
+	FName QueryName;
+
 	UPROPERTY()
 	TArray<UEnvQueryOption*> Options;
 
+public:
 	/** Gather all required named params */
 	void CollectQueryParams(UObject& QueryOwner, TArray<FAIDynamicParam>& NamedValues) const;
 
 	DEPRECATED(4.10, "This version of CollectQueryParams is deprecated. Please use the other version.")
 	void CollectQueryParams(TArray<FEnvNamedValue>& NamedValues) const;
+
+	virtual  void PostInitProperties() override;
+
+	/** QueryName patching up */
+	virtual void PostLoad() override;
+#if WITH_EDITOR
+	virtual void PostDuplicate(bool bDuplicateForPIE) override;
+#endif // WITH_EDITOR
+
+	FName GetQueryName() const { return QueryName; }
+
+	TArray<UEnvQueryOption*>& GetOptionsMutable() { return Options; }
+	const TArray<UEnvQueryOption*>& GetOptions() const { return Options; }
 };

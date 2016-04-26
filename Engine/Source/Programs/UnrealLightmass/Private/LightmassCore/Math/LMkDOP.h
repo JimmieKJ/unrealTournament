@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -211,9 +211,18 @@ static const VectorRegister GSmallNumber = { 0.0001f, 0.0001f, 0.0001f, 0.0001f 
 //extern const VectorRegister GSmallNumber;
 
 static const VectorRegister GZeroVectorRegister = { 0, 0, 0, 0 };
+static const VectorRegister GFullMaskVectorRegister = MakeVectorRegister((uint32)-1, (uint32)-1, (uint32)-1, (uint32)-1);
 
 static const VectorRegister IndexNoneVectorRegister = MakeVectorRegister((uint32)INDEX_NONE, (uint32)INDEX_NONE, (uint32)INDEX_NONE, (uint32)INDEX_NONE);
 static const VectorRegister VectorNegativeOne = MakeVectorRegister( -1.0f, -1.0f, -1.0f, -1.0f );
+
+// LOD masks
+static const VectorRegister HLODTreeIndexMask = MakeVectorRegister((uint32)0xFFFF0000, (uint32)0xFFFF0000, (uint32)0xFFFF0000, (uint32)0xFFFF0000);
+static const VectorRegister HLODRangeStartIndexMask = MakeVectorRegister((uint32)0xFFFF, (uint32)0xFFFF, (uint32)0xFFFF, (uint32)0xFFFF);
+static const VectorRegister HLODRangeEndIndexMask = MakeVectorRegister((uint32)0xFFFF0000, (uint32)0xFFFF0000, (uint32)0xFFFF0000, (uint32)0xFFFF0000);
+static const VectorRegister HLODTreeIndexNoneRegister = MakeVectorRegister(0xFFFF0000 & (uint32)INDEX_NONE, 0xFFFF0000 & (uint32)INDEX_NONE, 0xFFFF0000 & (uint32)INDEX_NONE, 0xFFFF0000 & (uint32)INDEX_NONE);
+
+static const VectorRegister LODIndexMask = MakeVectorRegister((uint32)0xFFFF, (uint32)0xFFFF, (uint32)0xFFFF, (uint32)0xFFFF);
 
 /**
  * Line vs triangle intersection test. Tests 1 line against 4 triangles at once.
@@ -312,13 +321,6 @@ FORCEINLINE int32 appLineCheckTriangleSOA(const FVector3SOA& Start, const FVecto
 		}
 	}
 
-	// HLOD masks
-	static const VectorRegister HLODTreeIndexMask = MakeVectorRegister((uint32)0xFFFF0000,(uint32)0xFFFF0000,(uint32)0xFFFF0000,(uint32)0xFFFF0000);
-	static const VectorRegister HLODRangeStartIndexMask = MakeVectorRegister((uint32)0xFFFF,(uint32)0xFFFF,(uint32)0xFFFF,(uint32)0xFFFF);
-	static const VectorRegister HLODRangeEndIndexMask = MakeVectorRegister((uint32)0xFFFF0000,(uint32)0xFFFF0000,(uint32)0xFFFF0000,(uint32)0xFFFF0000);
-
-	static const VectorRegister TreeIndexNoneRegister = VectorShiftRight(VectorBitwiseAND(HLODTreeIndexMask, IndexNoneVectorRegister), 16);
-
 	// Unpack HLOD Data
 	VectorRegister HLODTreeIndexRay = VectorShiftRight(VectorBitwiseAND(HLODTreeIndexMask, LODIndices), 16);
 	VectorRegister HLODTreeIndexTri = VectorShiftRight(VectorBitwiseAND(HLODTreeIndexMask, Triangle4.LODIndices), 16);
@@ -328,7 +330,7 @@ FORCEINLINE int32 appLineCheckTriangleSOA(const FVector3SOA& Start, const FVecto
 	VectorRegister HLODRangeEndTri = VectorShiftRight(VectorBitwiseAND(HLODRangeEndIndexMask, Triangle4.HLODRange), 16);
 
 	VectorRegister IsDifferentHLOD = VectorMask_NE(HLODTreeIndexRay, HLODTreeIndexTri);
-	VectorRegister IsTriNotAHLOD = VectorBitwiseOR(VectorMask_EQ(HLODTreeIndexTri, TreeIndexNoneRegister), VectorMask_EQ(HLODTreeIndexTri, GZeroVectorRegister));
+	VectorRegister IsTriNotAHLOD = VectorBitwiseOR(VectorMask_EQ(HLODTreeIndexTri, HLODTreeIndexNoneRegister), VectorMask_EQ(HLODTreeIndexTri, GZeroVectorRegister));
 
 	// Ignore children of this HLOD node
 	VectorRegister IsRayOutsideRange = VectorBitwiseOR(VectorMask_LT(HLODRangeStartRay, HLODRangeStartTri), VectorMask_GT(HLODRangeStartRay, HLODRangeEndTri));
@@ -339,14 +341,17 @@ FORCEINLINE int32 appLineCheckTriangleSOA(const FVector3SOA& Start, const FVecto
 	VectorRegister HLODMask = VectorBitwiseAND(IsRayOutsideRange, IsTriOutsideRange);
 	HLODMask = VectorBitwiseOR(HLODMask, VectorBitwiseAND(IsRayLeafNode, IsTriLeafNode));
 
-	// Ignore interactions between unrelated HLODs
-	HLODMask = VectorBitwiseOR(HLODMask, IsDifferentHLOD);
-	HLODMask = VectorBitwiseOR(HLODMask, IsTriNotAHLOD);
-
 	// Allow if exact same mesh
 	VectorRegister SameHLODMesh = VectorMask_EQ(HLODRange, Triangle4.HLODRange);
 	HLODMask = VectorBitwiseOR(HLODMask, SameHLODMesh);
 
+	// Ignore interactions between unrelated HLODs and non-HLODs
+	HLODMask = VectorBitwiseOR(HLODMask, IsDifferentHLOD);
+	HLODMask = VectorBitwiseOR(HLODMask, IsTriNotAHLOD);
+
+	VectorRegister IsHLODNonLeafAndOtherMesh = VectorBitwiseAND(VectorMask_NE(HLODRangeStartTri, HLODRangeEndTri), IsDifferentHLOD);
+	HLODMask = VectorBitwiseAND(HLODMask, VectorBitwiseXOR(IsHLODNonLeafAndOtherMesh, GFullMaskVectorRegister));
+	
 	TriangleMask = VectorBitwiseAND(TriangleMask, HLODMask);
 	if (VectorMaskBits(TriangleMask) == 0)
 	{
@@ -354,7 +359,6 @@ FORCEINLINE int32 appLineCheckTriangleSOA(const FVector3SOA& Start, const FVecto
 	}
 
 	// Only allow intersections with the base LOD of other meshes and the LOD that is initiating the trace of the current mesh
-	static const VectorRegister LODIndexMask = MakeVectorRegister((uint32)0xFFFF, (uint32)0xFFFF, (uint32)0xFFFF, (uint32)0xFFFF);
 	VectorRegister LODIndexRay = VectorBitwiseAND(LODIndices, LODIndexMask);
 	VectorRegister LODIndexTri = VectorBitwiseAND(Triangle4.LODIndices, LODIndexMask);
 

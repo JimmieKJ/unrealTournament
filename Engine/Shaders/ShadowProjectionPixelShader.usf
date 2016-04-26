@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ShadowProjectionPixelShader.usf: Pixel shader for projecting a shadow depth buffer onto the scene.
@@ -39,6 +39,17 @@ float2 ProjectionDepthBiasParameters;
 
 float4 ModulatedShadowColor;
 
+float3 ModulatedShadowBlendOp(float3 Source)
+{
+#if (COMPILER_GLSL_ES2)
+	half4 Dest = FramebufferFetchES2();
+	Dest.rgb = Decode32BPPHDR(Dest);
+#else
+	half4 Dest = half4(0, 0, 0, 0);
+#endif
+	return Source.rgb*Dest.rgb;
+}
+
 /**
 * Entry point for uniform manual PCF that supports lights using normal shadows.
 */
@@ -48,7 +59,7 @@ void Main(
 	out float4 OutColor : SV_Target0
 	)
 {
-	float2 ScreenUV = float2( SVPos.xy * View.BufferSizeAndInvSize.zw );
+	float2 ScreenUV = float2( SVPos.xy * Frame.BufferSizeAndInvSize.zw );
 	float SceneW = CalcSceneDepth( ScreenUV );
 	float2 ScreenPosition = ( ScreenUV.xy - View.ScreenPositionScaleBias.wz ) / View.ScreenPositionScaleBias.xy;
 	float4 ShadowPosition = mul(float4(ScreenPosition.xy * SceneW,SceneW,1), ScreenToShadowMatrix);
@@ -165,8 +176,17 @@ void Main(
 	#endif
 
 #if MODULATED_SHADOWS
-	OutColor.rgb = lerp(ModulatedShadowColor.rgb, float3(1, 1, 1), Shadow);
-	OutColor.a = 0;
+		OutColor.rgb = lerp(ModulatedShadowColor.rgb, float3(1, 1, 1), FadedShadow);
+		OutColor.a = 0;
+#if (ES2_PROFILE || ES3_1_PROFILE) && ( (COMPILER_GLSL_ES2) || (MOBILE_EMULATION) )
+		// Do decal blending if encoding requires it.
+		if (GetHDR32bppEncodeMode() == HDR_ENCODE_RGBA)
+		{
+			OutColor.rgb = ModulatedShadowBlendOp(OutColor.rgb);
+		}
+		// do 32bpp hdr encoding for mobile if required.
+		OutColor = Encode32BPPHDR(OutColor, SVPos.xy);
+#endif
 #endif
 }
 
@@ -183,7 +203,7 @@ void MainOnePassPointLightPS(
 	)
 {
 
-	float2 ScreenUV = float2( SVPos.xy * View.BufferSizeAndInvSize.zw );
+	float2 ScreenUV = float2( SVPos.xy * Frame.BufferSizeAndInvSize.zw );
 	float SceneW = CalcSceneDepth( ScreenUV );
 	float2 ScreenPosition = ( ScreenUV.xy - View.ScreenPositionScaleBias.wz ) / View.ScreenPositionScaleBias.xy;
 	float4 HomogeneousWorldPosition = mul(float4(ScreenPosition.xy * SceneW, SceneW, 1), View.ScreenToWorld);

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -38,7 +38,7 @@ public:
 	{
 		/** ET APIKey - Get from your account manager */
 		FString APIKeyET;
-		/** ET API Server - Defaults if empty to GetDefaultAPIServer. */
+		/** ET API Server - Base URL to send events. */
 		FString APIServerET;
 		/** 
 		 * AppVersion - defines the app version passed to the provider. By default this will be FEngineVersion::Current(), but you can supply your own. 
@@ -48,6 +48,10 @@ public:
 		FString AppVersionET;
 		/** When true, sends events using the legacy ET protocol that passes all attributes as URL parameters. Defaults to false. */
 		bool UseLegacyProtocol;
+		/** The AppEnvironment that the data router should use. Defaults to GetDefaultAppEnvironment. */
+		FString AppEnvironment;
+		/** The UploadType that the data router should use. Defaults to GetDefaultUploadType. */
+		FString UploadType;
 
 		/** Default ctor to ensure all values have their proper default. */
 		Config() : UseLegacyProtocol(false) {}
@@ -60,8 +64,14 @@ public:
 		static FString GetKeyNameForAppVersion() { return TEXT("AppVersionET"); }
 		/** Optional parameter to use the legacy backend protocol. */
 		static FString GetKeyNameForUseLegacyProtocol() { return TEXT("UseLegacyProtocol"); }
+		/** For the the data router backend protocol. */
+		static FString GetKeyNameForAppEnvironment() { return TEXT("AppEnvironment"); }
+		/** For the the data router backend protocol. */
+		static FString GetKeyNameForUploadType() { return TEXT("UploadType"); }
 		/** Default value if no APIServer configuration is provided. */
-		static FString GetDefaultAPIServer() { return TEXT("http://devonline-02:/ETAP/"); }
+		static FString GetDefaultAppEnvironment() { return TEXT("datacollector-binary"); }
+		/** Default value if no UploadType is given, and UseDataRouter protocol is specified. */
+		static FString GetDefaultUploadType() { return TEXT("eteventstream"); }
 	};
 
 	//--------------------------------------------------------------------------

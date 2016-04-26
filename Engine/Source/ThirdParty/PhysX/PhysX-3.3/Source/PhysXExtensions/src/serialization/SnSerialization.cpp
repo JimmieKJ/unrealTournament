@@ -363,11 +363,7 @@ void PxSerialization::dumpBinaryMetaData(PxOutputStream& outputStream, PxSeriali
 
 	PxU32 platformTag = getBinaryPlatformTag();
 
-#if defined(PX_X64)
-	const PxU32 gaussMapLimit = PxGetGaussMapVertexLimitForPlatform(PxPlatform::ePC);
-	const PxU32 tiledHeightFieldSamples = 0;
-#endif
-#if defined(PX_X86) || defined(__CYGWIN__) || defined(PX_HTML5)
+#if defined(PX_X64) || defined(PX_X86) || defined(__CYGWIN__) || defined(PX_HTML5)
 	const PxU32 gaussMapLimit = PxGetGaussMapVertexLimitForPlatform(PxPlatform::ePC);
 	const PxU32 tiledHeightFieldSamples = 0;
 #endif

@@ -1,7 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintGraphPrivatePCH.h"
 
+#include "UObject/DevObjectVersion.h"
 #include "Engine/LevelScriptBlueprint.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Kismet/KismetArrayLibrary.h"
@@ -894,6 +895,21 @@ void UEdGraphSchema_K2::GetAutoEmitTermParameters(const UFunction* Function, TAr
 	{
 		FString MetaData = Function->GetMetaData(FBlueprintMetadata::MD_AutoCreateRefTerm);
 		MetaData.ParseIntoArray(AutoEmitParameterNames, TEXT(","), true);
+
+		for (int32 NameIndex = 0; NameIndex < AutoEmitParameterNames.Num();)
+		{
+			FString& ParameterName = AutoEmitParameterNames[NameIndex];
+			ParameterName.Trim();
+			ParameterName.TrimTrailing();
+			if (ParameterName.IsEmpty())
+			{
+				AutoEmitParameterNames.RemoveAtSwap(NameIndex);
+			}
+			else
+			{
+				++NameIndex;
+			}
+		}
 	}
 }
 
@@ -1672,6 +1688,8 @@ void UEdGraphSchema_K2::OnReplaceVariableForVariableNode( UK2Node_Variable* Vari
 		}
 		Pin->PinName = VariableName;
 		Variable->ReconstructNode();
+
+		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(OwnerBlueprint);
 	}
 }
 
@@ -2013,7 +2031,7 @@ const FPinConnectionResponse UEdGraphSchema_K2::DetermineConnectionResponseOfCom
 	}
 }
 
-static FText GetPinIncompatibilityMessage(const UEdGraphPin* PinA, const UEdGraphPin* PinB)
+static FText GetPinIncompatibilityReason(const UEdGraphPin* PinA, const UEdGraphPin* PinB, bool* bIsFatalOut = nullptr)
 {
 	const FEdGraphPinType& PinAType = PinA->PinType;
 	const FEdGraphPinType& PinBType = PinB->PinType;
@@ -2042,6 +2060,11 @@ static FText GetPinIncompatibilityMessage(const UEdGraphPin* PinA, const UEdGrap
 			if ((OutStruct != nullptr) && (InStruct != nullptr) && OutStruct->IsChildOf(InStruct))
 			{
 				MessageFormat = LOCTEXT("ChildStructIncompatible", "Only exactly matching structures are considered compatible. Derived structures are disallowed.");
+			}
+
+			if (bIsFatalOut != nullptr)
+			{
+				*bIsFatalOut = true;
 			}
 		}
 	}
@@ -2148,8 +2171,15 @@ const FPinConnectionResponse UEdGraphSchema_K2::CanCreateConnection(const UEdGra
 		}
 		else
 		{
-			FText IncompatibilityReasonText = GetPinIncompatibilityMessage(PinA, PinB);
-			return FPinConnectionResponse(CONNECT_RESPONSE_DISALLOW, IncompatibilityReasonText.ToString());
+			bool bIsFatal = false;
+			FText IncompatibilityReasonText = GetPinIncompatibilityReason(PinA, PinB, &bIsFatal);
+
+			FPinConnectionResponse ConnectionResponse(CONNECT_RESPONSE_DISALLOW, IncompatibilityReasonText.ToString());
+			if (bIsFatal)
+			{
+				ConnectionResponse.SetFatal();
+			}
+			return ConnectionResponse;
 		}
 	}
 }
@@ -2342,7 +2372,9 @@ bool UEdGraphSchema_K2::SearchForAutocastFunction(const UEdGraphPin* OutputPin, 
 		bool const bInputIsUObject = ((InputClass != NULL) && (InputClass == UObject::StaticClass()));
 		if (bInputIsUObject)
 		{
-			TargetFunction = TEXT("Conv_InterfaceToObject");
+			UFunction* Function = UKismetSystemLibrary::StaticClass()->FindFunctionByName(GET_MEMBER_NAME_CHECKED(UKismetSystemLibrary, Conv_InterfaceToObject));
+			TargetFunction = Function->GetFName();
+			FunctionOwner = Function->GetOwnerClass();
 		}
 	}
 	else if (OutputPin->PinType.PinCategory == PC_Object)
@@ -2355,12 +2387,16 @@ bool UEdGraphSchema_K2::SearchForAutocastFunction(const UEdGraphPin* OutputPin, 
 				(InputClass != nullptr) &&
 				OutputClass->IsChildOf(InputClass))
 			{
-				TargetFunction = TEXT("GetObjectClass");
+				UFunction* Function = UGameplayStatics::StaticClass()->FindFunctionByName(GET_MEMBER_NAME_CHECKED(UGameplayStatics, GetObjectClass));
+				TargetFunction = Function->GetFName();
+				FunctionOwner = Function->GetOwnerClass();
 			}
 		}
 		else if (InputPin->PinType.PinCategory == PC_String)
 		{
-			TargetFunction = TEXT("GetDisplayName");
+			UFunction* Function = UKismetSystemLibrary::StaticClass()->FindFunctionByName(GET_MEMBER_NAME_CHECKED(UKismetSystemLibrary, GetDisplayName));
+			TargetFunction = Function->GetFName();
+			FunctionOwner = Function->GetOwnerClass();
 		}
 	}
 	else if (OutputPin->PinType.PinCategory == PC_Struct)
@@ -2371,7 +2407,9 @@ bool UEdGraphSchema_K2::SearchForAutocastFunction(const UEdGraphPin* OutputPin, 
 			const UScriptStruct* InputStructType = Cast<const UScriptStruct>(InputPin->PinType.PinSubCategoryObject.Get());
 			if ((InputPin->PinType.PinCategory == PC_Struct) && (InputStructType == TBaseStructure<FTransform>::Get()))
 			{
-				TargetFunction = TEXT("MakeTransform");
+				UFunction* Function = UKismetMathLibrary::StaticClass()->FindFunctionByName(GET_MEMBER_NAME_CHECKED(UKismetMathLibrary, MakeTransform));
+				TargetFunction = Function->GetFName();
+				FunctionOwner = Function->GetOwnerClass();
 			}
 		}
 	}
@@ -3696,8 +3734,98 @@ bool UEdGraphSchema_K2::ArePinsCompatible(const UEdGraphPin* PinA, const UEdGrap
 	}
 }
 
+namespace
+{
+	static UClass* GetOriginalClassToFixCompatibilit(const UClass* InClass)
+	{
+		const UBlueprint* BP = InClass ? Cast<const UBlueprint>(InClass->ClassGeneratedBy) : nullptr;
+		return BP ? Cast<UClass>(BP->OriginalClass) : nullptr;
+	}
+
+	static bool ExtendedIsChildOf(const UClass* Child, const UClass* Parent)
+	{
+		if (Child->IsChildOf(Parent))
+		{
+			return true;
+		}
+
+		const UClass* OriginalChild = GetOriginalClassToFixCompatibilit(Child);
+		if (OriginalChild && OriginalChild->IsChildOf(Parent))
+		{
+			return true;
+		}
+
+		const UClass* OriginalParent = GetOriginalClassToFixCompatibilit(Parent);
+		if (OriginalParent && Child->IsChildOf(OriginalParent))
+		{
+			return true;
+		}
+
+		return false;
+	}
+
+	static bool ExtendedImplementsInterface(const UClass* Class, const UClass* Interface)
+	{
+		if (Class->ImplementsInterface(Interface))
+		{
+			return true;
+		}
+
+		const UClass* OriginalClass = GetOriginalClassToFixCompatibilit(Class);
+		if (OriginalClass && OriginalClass->ImplementsInterface(Interface))
+		{
+			return true;
+		}
+
+		const UClass* OriginalInterface = GetOriginalClassToFixCompatibilit(Interface);
+		if (OriginalInterface && Class->ImplementsInterface(OriginalInterface))
+		{
+			return true;
+		}
+
+		return false;
+	}
+};
+
 bool UEdGraphSchema_K2::ArePinTypesCompatible(const FEdGraphPinType& Output, const FEdGraphPinType& Input, const UClass* CallingContext, bool bIgnoreArray /*= false*/) const
 {
+	// During compilation, pins are moved around for node expansion and the Blueprints may still inherit from REINST_ classes
+	// which causes problems for IsChildOf. Because we do not want to modify IsChildOf we must use a separate function
+	// that can check to see if classes have an AuthoritativeClass that IsChildOf a Target class.
+	struct Local
+	{
+		static bool IsAuthoritativeChildOf(const UStruct* InSourceStruct, const UStruct* InTargetStruct)
+		{
+			bool bResult = false;
+			bool bIsNonNativeClass = false;
+			if (UClass* SourceAsClass = const_cast<UClass*>(Cast<UClass>(InSourceStruct)))
+			{
+				if (SourceAsClass->ClassGeneratedBy)
+				{
+					// We have a non-native (Blueprint) class which means it can exist in a semi-compiled state and inherit from a REINST_ class.
+					bIsNonNativeClass = true;
+					while (SourceAsClass)
+					{
+						if (SourceAsClass->GetAuthoritativeClass() == InTargetStruct)
+						{
+							bResult = true;
+							break;
+						}
+						SourceAsClass = SourceAsClass->GetSuperClass();
+					}
+				}
+			}
+
+			// We have a native (C++) class, do a normal IsChildOf check
+			if (!bIsNonNativeClass)
+			{
+				bResult = InSourceStruct->IsChildOf(InTargetStruct);
+			}
+			
+			return bResult;
+		}
+	};
+
 	if( !bIgnoreArray && (Output.bIsArray != Input.bIsArray) && (Input.PinCategory != PC_Wildcard || Input.bIsArray) )
 	{
 		return false;
@@ -3718,7 +3846,7 @@ bool UEdGraphSchema_K2::ArePinTypesCompatible(const FEdGraphPinType& Output, con
 			UClass const* InputClass = Cast<UClass const>(Input.PinSubCategoryObject.Get());
 			check(InputClass && InputClass->IsChildOf(UInterface::StaticClass()));
 			
-			return OutputClass->IsChildOf(InputClass);
+			return ExtendedIsChildOf(OutputClass, InputClass);
 		}
 		else if (((Output.PinCategory == PC_Asset) && (Input.PinCategory == PC_Asset))
 			|| ((Output.PinCategory == PC_AssetClass) && (Input.PinCategory == PC_AssetClass)))
@@ -3727,7 +3855,7 @@ bool UEdGraphSchema_K2::ArePinTypesCompatible(const FEdGraphPinType& Output, con
 			const UClass* InputObject = (Input.PinSubCategory == PSC_Self) ? CallingContext : Cast<const UClass>(Input.PinSubCategoryObject.Get());
 			if ((OutputObject != NULL) && (InputObject != NULL))
 			{
-				return OutputObject->IsChildOf(InputObject);
+				return ExtendedIsChildOf(OutputObject ,InputObject);
 			}
 		}
 		else if ((Output.PinCategory == PC_Object) || (Output.PinCategory == PC_Struct) || (Output.PinCategory == PC_Class))
@@ -3748,22 +3876,23 @@ bool UEdGraphSchema_K2::ArePinTypesCompatible(const FEdGraphPinType& Output, con
 				const bool bInputIsInterface  = InputObject->IsChildOf(UInterface::StaticClass());
 				const bool bOutputIsInterface = OutputObject->IsChildOf(UInterface::StaticClass());
 
+				UClass const* OutputClass = Cast<const UClass>(OutputObject);
+				UClass const* InputClass = Cast<const UClass>(InputObject);
+
 				if (bInputIsInterface != bOutputIsInterface) 
 				{
-					UClass const* OutputClass = Cast<const UClass>(OutputObject);
-					UClass const* InputClass  = Cast<const UClass>(InputObject);
-
 					if (bInputIsInterface && (OutputClass != NULL))
 					{
-						return OutputClass->ImplementsInterface(InputClass);
+						return ExtendedImplementsInterface(OutputClass, InputClass);
 					}
 					else if (bOutputIsInterface && (InputClass != NULL))
 					{
-						return InputClass->ImplementsInterface(OutputClass);
+						return ExtendedImplementsInterface(InputClass, OutputClass);
 					}
 				}				
 
-				return OutputObject->IsChildOf(InputObject) && (bInputIsInterface == bOutputIsInterface);
+				return (Local::IsAuthoritativeChildOf(OutputObject, InputObject) || (OutputClass && InputClass && ExtendedIsChildOf(OutputClass, InputClass)))
+					&& (bInputIsInterface == bOutputIsInterface);
 			}
 		}
 		else if ((Output.PinCategory == PC_Byte) && (Output.PinSubCategory == Input.PinSubCategory))
@@ -3837,7 +3966,7 @@ bool UEdGraphSchema_K2::ArePinTypesCompatible(const FEdGraphPinType& Output, con
 			OutputClass = CallingContext;
 		}
 
-		return OutputClass && (OutputClass->ImplementsInterface(InterfaceClass) || OutputClass->IsChildOf(InterfaceClass));
+		return OutputClass && (ExtendedImplementsInterface(OutputClass, InterfaceClass) || ExtendedIsChildOf(OutputClass, InterfaceClass));
 	}
 
 	// Pins representing BLueprint objects and subclass of UObject can match when EditoronlyBP.bAllowClassAndBlueprintPinMatching=true (BaseEngine.ini)
@@ -3921,9 +4050,9 @@ void UEdGraphSchema_K2::ReconstructNode(UEdGraphNode& TargetNode, bool bIsBatchR
 				|| TargetNode.Pins.Contains(Pin);
 			if (!bIsValidPin)
 			{
-				UE_LOG(LogBlueprint, Error, 
-					TEXT("Broken Node: %s keeps removed/invalid pin: %s. Try refresh all nodes."),
-					*TargetNode.GetFullName(), *Pin->GetFullName());
+				UE_LOG(LogBlueprint, Warning,
+					TEXT("Invalid pin: '%s' thinks it belongs to a node ('%s' - '%s') which doesn't have record of it. Try refreshing the node, then compile and resave the Blueprint to hopefully aleviate the problem."),
+					*Pin->PinName, *TargetNode.GetNodeTitle(ENodeTitleType::MenuTitle).ToString(), *TargetNode.GetFullName());
 			}
 		}
 	}
@@ -4001,8 +4130,12 @@ void UEdGraphSchema_K2::TrySetDefaultValue(UEdGraphPin& Pin, const FString& NewD
 	}
 	else if(Pin.PinType.PinCategory == PC_Text)
 	{
-		// Set Text pins by string as if it were text.
-		TrySetDefaultText(Pin, FText::FromString(NewDefaultValue));
+		FText NewTextValue;
+		if (!FTextStringHelper::ReadFromString(*NewDefaultValue, NewTextValue))
+		{
+			NewTextValue = FText::FromString(NewDefaultValue);
+		}
+		TrySetDefaultText(Pin, NewTextValue);
 		UseDefaultObject = nullptr;
 		UseDefaultValue.Empty();
 		return;
@@ -4059,21 +4192,7 @@ void UEdGraphSchema_K2::TrySetDefaultText(UEdGraphPin& InPin, const FText& InNew
 		{
 			InPin.DefaultObject = NULL;
 			InPin.DefaultValue = NULL;
-			if(InNewDefaultText.IsEmpty())
-			{
-				InPin.DefaultTextValue = InNewDefaultText;
-			}
-			else
-			{
-				if(InNewDefaultText.IsCultureInvariant())
-				{
-					InPin.DefaultTextValue = InNewDefaultText;
-				}
-				else
-				{
-					InPin.DefaultTextValue = FText::ChangeKey(TEXT(""), InPin.GetOwningNode()->NodeGuid.ToString() + TEXT("_") + InPin.PinName + FString::FromInt(InPin.GetOwningNode()->Pins.Find(&InPin)), InNewDefaultText);
-				}
-			}
+			InPin.DefaultTextValue = InNewDefaultText;
 		}
 
 		UEdGraphNode* Node = InPin.GetOwningNode();
@@ -4098,8 +4217,7 @@ bool UEdGraphSchema_K2::IsAutoCreateRefTerm(const UEdGraphPin* Pin) const
 		if (TargetFunction && !Pin->PinName.IsEmpty())
 		{
 			TArray<FString> AutoCreateParameterNames;
-			FString MetaData = TargetFunction->GetMetaData(FBlueprintMetadata::MD_AutoCreateRefTerm);
-			MetaData.ParseIntoArray(AutoCreateParameterNames, TEXT(","), true);
+			GetAutoEmitTermParameters(TargetFunction, AutoCreateParameterNames);
 			bIsAutoCreateRefTerm = AutoCreateParameterNames.Contains(Pin->PinName);
 		}
 	}
@@ -4185,7 +4303,10 @@ void UEdGraphSchema_K2::SetPinDefaultValue(UEdGraphPin* Pin, const UFunction* Fu
 		{
 			if (Pin->PinType.PinCategory == PC_Text)
 			{
-				Pin->DefaultTextValue = FText::AsCultureInvariant(Pin->AutogeneratedDefaultValue);
+				if (!FTextStringHelper::ReadFromString(*Pin->AutogeneratedDefaultValue, Pin->DefaultTextValue))
+				{
+					Pin->DefaultTextValue = FText::FromString(Pin->AutogeneratedDefaultValue);
+				}
 			}
 			else
 			{
@@ -4336,7 +4457,7 @@ UFunction* UEdGraphSchema_K2::FindSetVariableByNameFunction(const FEdGraphPinTyp
 	}
 	else if(PinType.PinCategory == K2Schema->PC_Interface)
 	{
-		static FName SetObjectName(GET_FUNCTION_NAME_CHECKED(UKismetSystemLibrary, SetObjectPropertyByName));
+		static FName SetObjectName(GET_FUNCTION_NAME_CHECKED(UKismetSystemLibrary, SetInterfacePropertyByName));
 		SetFunctionName = SetObjectName;
 	}
 	else if(PinType.PinCategory == K2Schema->PC_String)
@@ -4420,7 +4541,11 @@ bool UEdGraphSchema_K2::CanPromotePinToVariable( const UEdGraphPin& Pin ) const
 	const UK2Node* Node = Cast<UK2Node>(Pin.GetOwningNode());
 	const UBlueprint* OwningBlueprint = Node->GetBlueprint();
 	
-	if (!OwningBlueprint || (OwningBlueprint->BlueprintType == BPTYPE_MacroLibrary) || (OwningBlueprint->BlueprintType == BPTYPE_FunctionLibrary) || IsStaticFunctionGraph(Node->GetGraph()))
+	if (Pin.bNotConnectable)
+	{
+		bCanPromote = false;
+	}
+	else if (!OwningBlueprint || (OwningBlueprint->BlueprintType == BPTYPE_MacroLibrary) || (OwningBlueprint->BlueprintType == BPTYPE_FunctionLibrary) || IsStaticFunctionGraph(Node->GetGraph()))
 	{
 		// Never allow promotion in macros, because there's not a scope to define them in
 		bCanPromote = false;
@@ -4455,7 +4580,7 @@ bool UEdGraphSchema_K2::CanPromotePinToVariable( const UEdGraphPin& Pin ) const
 
 bool UEdGraphSchema_K2::CanSplitStructPin( const UEdGraphPin& Pin ) const
 {
-	return (Pin.LinkedTo.Num() == 0 && PinHasSplittableStructType(&Pin) && Pin.GetOwningNode()->AllowSplitPins());
+	return (!Pin.bNotConnectable && Pin.LinkedTo.Num() == 0 && PinHasSplittableStructType(&Pin) && Pin.GetOwningNode()->AllowSplitPins());
 }
 
 bool UEdGraphSchema_K2::CanRecombineStructPin( const UEdGraphPin& Pin ) const
@@ -4587,7 +4712,14 @@ void UEdGraphSchema_K2::GetGraphDisplayInformation(const UEdGraph& Graph, /*out*
 
 	if( GEditor && GetDefault<UEditorStyleSettings>()->bShowFriendlyNames )
 	{
-		DisplayInfo.DisplayName = FText::FromString(FName::NameToDisplayString( DisplayInfo.PlainName.ToString(), false ));
+		if (GraphType == GT_Function && Function)
+		{
+			DisplayInfo.DisplayName = GetFriendlySignatureName(Function);
+		}
+		else
+		{
+			DisplayInfo.DisplayName = FText::FromString(FName::NameToDisplayString(DisplayInfo.PlainName.ToString(), false));
+		}
 	}
 	else
 	{
@@ -5286,6 +5418,300 @@ void UEdGraphSchema_K2::BackwardCompatibilityNodeConversion(UEdGraph* Graph, boo
 				}
 			}
 		}
+
+		if (Graph->GetLinker() == nullptr)
+		{
+			return;
+		}
+
+		const FCustomVersion* CustomVersion = Graph->GetLinker()->GetCustomVersions().GetVersion(FBlueprintsObjectVersion::GUID);
+		if (CustomVersion == nullptr || CustomVersion->Version < FBlueprintsObjectVersion::ArrayGetByRefUpgrade)
+		{
+			// "ForEachLoop" and "ForEachLoopWithBreak" are special case macros that we do not want to add COPY nodes into, we do however want them outside the macro.
+			auto IsGraphForEachLoop = [](UEdGraph* InGraph) -> bool
+			{
+				check(InGraph);
+				return (InGraph->GetName() == TEXT("ForEachLoop") || InGraph->GetName() == TEXT("ForEachLoopWithBreak")) && InGraph->GetOutermost()->GetName() == TEXT("/Engine/EditorBlueprintResources/StandardMacros");
+			};
+
+			UBlueprint* GraphBlueprint = FBlueprintEditorUtils::FindBlueprintForGraph(Graph);
+			check(GraphBlueprint);
+
+			// For collecting upgrade notes and warnings from the upgrade process.
+			FCompilerResultsLog Results;
+			if (!GraphBlueprint->UpgradeNotesLog.IsValid())
+			{
+				GraphBlueprint->UpgradeNotesLog = TSharedPtr<FCompilerResultsLog>(new FCompilerResultsLog);
+				GraphBlueprint->UpgradeNotesLog->bSilentMode = false;
+				GraphBlueprint->UpgradeNotesLog->bAnnotateMentionedNodes = false;
+			}
+
+			// Finding all function nodes that use the "Array_Get" function and replacing them with the new by-ref node.
+			// We also inject Copy and Break nodes as needed to maintain previous functionality (in case by-value returns
+			// were being taken advantage of).
+			TArray<UK2Node_CallFunction*> CallFuncNodes;
+			Graph->GetNodesOfClass<UK2Node_CallFunction>(CallFuncNodes);
+			for (UK2Node_CallFunction* OldCallFuncNode : CallFuncNodes)
+			{
+				if (UFunction* TargetFunction = OldCallFuncNode->GetTargetFunction())
+				{
+					if (TargetFunction == UKismetArrayLibrary::StaticClass()->FindFunctionByName(GET_MEMBER_NAME_CHECKED(UKismetArrayLibrary, Array_Get)))
+					{
+						UK2Node_GetArrayItem* NewArrayGetNode = NewObject<UK2Node_GetArrayItem>(Graph);
+						check(NewArrayGetNode);
+						NewArrayGetNode->SetFlags(RF_Transactional);
+						Graph->AddNode(NewArrayGetNode, false, false);
+						NewArrayGetNode->CreateNewGuid();
+						NewArrayGetNode->PostPlacedNewNode();
+						NewArrayGetNode->AllocateDefaultPins();
+						NewArrayGetNode->NodePosX = OldCallFuncNode->NodePosX;
+						NewArrayGetNode->NodePosY = OldCallFuncNode->NodePosY;
+
+						bool bIsArrayObjectType = false;
+						for (UEdGraphPin* OldPin : OldCallFuncNode->Pins)
+						{
+							UEdGraphPin* TargetPin = nullptr;
+							if (OldPin->PinType.bIsArray)
+							{
+								TargetPin = NewArrayGetNode->GetTargetArrayPin();
+							}
+							else if (OldPin->Direction == EGPD_Input && OldPin->PinType.bIsArray == false && OldPin->PinType.PinCategory == PC_Int)
+							{
+								TargetPin = NewArrayGetNode->GetIndexPin();
+							}
+							else if (OldPin->Direction == EGPD_Output && OldPin->ParentPin == nullptr)
+							{
+								// The target pin is the Get-by-ref node's result pin
+								TargetPin = NewArrayGetNode->GetResultPin();
+
+								bIsArrayObjectType = TargetPin->PinType.PinCategory == PC_Object || TargetPin->PinType.PinCategory == PC_Class || 
+														TargetPin->PinType.PinCategory == PC_Asset || TargetPin->PinType.PinCategory == PC_AssetClass || 
+														TargetPin->PinType.PinCategory == PC_Interface;
+								// If the graph is from the "ForEachLoop" or "ForEachLoopWithBreak" macro, do not add the COPY node
+								if (!IsGraphForEachLoop(Graph) && !bIsArrayObjectType)
+								{
+									UK2Node_Copy* NewCopyNode = NewObject<UK2Node_Copy>(Graph);
+									check(NewCopyNode);
+									NewCopyNode->SetFlags(RF_Transactional);
+									Graph->AddNode(NewCopyNode, false, false);
+									NewCopyNode->CreateNewGuid();
+									NewCopyNode->PostPlacedNewNode();
+									NewCopyNode->AllocateDefaultPins();
+									NewCopyNode->NodePosX = NewArrayGetNode->NodePosX + 175.0f;
+									NewCopyNode->NodePosY = NewArrayGetNode->NodePosY;
+
+									// Add an upgrade note, informing users that the node was auto-injected
+									{
+										FFormatNamedArguments Args;
+										Args.Add(TEXT("CopyNodeName"), NewCopyNode->GetNodeTitle(ENodeTitleType::ListView));
+										Args.Add(TEXT("ArrayGetNodeName"), NewArrayGetNode->GetNodeTitle(ENodeTitleType::ListView));
+										FText UpgradeNoteText = FText::Format(LOCTEXT("ArrayGetByRef_CopyInjection", "This is a \"{CopyNodeName}\" node. It was injected to preserve functionality since the array \"{ArrayGetNodeName}\" node has changed. It outputs a copy of the input element (so modifications don't get applied to the original)."), Args);
+										NewCopyNode->AddNodeUpgradeNote(UpgradeNoteText);
+
+										// Upgrade note for the log
+										GraphBlueprint->UpgradeNotesLog->Note(TEXT("Auto-Upgrade Note: This is a @@ node. It was injected to preserve functionality since the array @@ node has changed. It outputs a copy of the input element (so modifications don't get applied to the original)."), NewCopyNode, NewArrayGetNode);
+									}
+
+									// Connect the Get-by-ref output pin to the copy node's input
+									TargetPin->MakeLinkTo(NewCopyNode->GetInputReferencePin());
+									NewCopyNode->NotifyPinConnectionListChanged(NewCopyNode->GetInputReferencePin());
+
+									if (OldPin->SubPins.Num())
+									{
+										// Make a separate break node!
+										UK2Node_BreakStruct* NewBreakNode = NewObject<UK2Node_BreakStruct>(Graph);
+										check(NewBreakNode);
+										NewBreakNode->SetFlags(RF_Transactional);
+										Graph->AddNode(NewBreakNode, false, false);
+										NewBreakNode->CreateNewGuid();
+										NewBreakNode->PostPlacedNewNode();
+										NewBreakNode->StructType = CastChecked<UScriptStruct>(OldPin->PinType.PinSubCategoryObject.Get());
+										NewBreakNode->AllocateDefaultPins();
+										NewBreakNode->NodePosX = NewCopyNode->NodePosX + 50.0f;
+										NewBreakNode->NodePosY = NewCopyNode->NodePosY;
+
+										// Add an upgrade note, informing users that the node was auto-injected
+										{
+											FFormatNamedArguments Args;
+											Args.Add(TEXT("ArrayGetNodeName"), NewArrayGetNode->GetNodeTitle(ENodeTitleType::ListView));
+											FText UpgradeNoteText = FText::Format(LOCTEXT("ArrayGetByRef_BreakInjection", "Since the array \"{ArrayGetNodeName}\" node has changed, this node was injected to preserve functionality."), Args);
+											NewBreakNode->AddNodeUpgradeNote(UpgradeNoteText);
+
+											// Upgrade note for the log
+											GraphBlueprint->UpgradeNotesLog->Note(TEXT("Auto-Upgrade Note: Since the array @@ node has changed, @@ was injected to preserve functionality."), NewArrayGetNode, NewBreakNode );
+										}
+
+										NewCopyNode->GetCopyResultPin()->MakeLinkTo(NewBreakNode->Pins[0]);
+										int SubPinIdx = 0;
+										for (UEdGraphPin* BreakNodePin : NewBreakNode->Pins)
+										{
+											if (BreakNodePin->Direction == EGPD_Output)
+											{
+												UEdGraphPin* SplitPin = OldPin->SubPins[SubPinIdx++];
+												if (!Graph->GetSchema()->MovePinLinks(*SplitPin, *BreakNodePin).CanSafeConnect())
+												{
+													GraphBlueprint->UpgradeNotesLog->Warning(TEXT("BackwardCompatibilityNodeConversion Error 'cannot safetly move pin @@ to @@' in blueprint: @@"), SplitPin, BreakNodePin, GraphBlueprint);
+												}
+											}
+										}
+									}
+									else
+									{
+										// Move all pins from the OldPin (the result of the Get node) to the output of the Copy Node
+										if (!Graph->GetSchema()->MovePinLinks(*OldPin, *NewCopyNode->GetCopyResultPin()).CanSafeConnect())
+										{
+											GraphBlueprint->UpgradeNotesLog->Warning(TEXT("BackwardCompatibilityNodeConversion Error 'cannot safetly move pin @@ to @@' in blueprint: @@"), OldPin, NewCopyNode, GraphBlueprint);
+										}
+
+										// We have made the connections already
+										TargetPin = nullptr;
+									}
+								}
+							}
+							else if (OldPin->PinName == PN_Self)
+							{
+								// Do not continue, there's just nothing to do
+							}
+							else if (OldPin->ParentPin)
+							{
+								continue;
+							}
+							else
+							{
+								check(0);
+							}
+
+							if (TargetPin && !Graph->GetSchema()->MovePinLinks(*OldPin, *TargetPin).CanSafeConnect())
+							{
+								GraphBlueprint->UpgradeNotesLog->Warning(TEXT("BackwardCompatibilityNodeConversion Error 'cannot safetly move pin @@ to @@' in blueprint: @@"), OldPin, TargetPin, GraphBlueprint);
+							}
+							else if (TargetPin)
+							{
+								NewArrayGetNode->NotifyPinConnectionListChanged(TargetPin);
+							}
+						}
+
+						if (!bIsArrayObjectType)
+						{
+							// Add an upgrade note to the node informing users that the functionality has changed.
+							NewArrayGetNode->AddNodeUpgradeNote(FText::FromString(TEXT("This node has changed! Its output is now a reference - which means modifying the element that this returns is the same as modifying the element stored in the array.")));
+
+							// Upgrade note for the log
+							GraphBlueprint->UpgradeNotesLog->Note(TEXT("Auto-Upgrade Note: @@ has changed! @@ is now a reference - which means modifying the element that this returns is the same as modifying the element stored in the array."), NewArrayGetNode, NewArrayGetNode->GetResultPin());
+						}
+
+						OldCallFuncNode->DestroyNode();
+					}
+				}
+			}
+
+			// We need to look at Macro Instances and upgrade all "ForEachLoop" and "ForEachLoopWithBreak" nodes because those graphs were prevented from having the Copy node injected
+			// because it is desirable for those Macros to return by-ref. However, to keep Blueprints running as they did prior to the upgrade, the instanced Macros need the Copy node.
+			TArray<UK2Node_MacroInstance*> MacroInstanceNodes;
+			Graph->GetNodesOfClass<UK2Node_MacroInstance>(MacroInstanceNodes);
+			for (UK2Node_MacroInstance* MacroInstanceNode : MacroInstanceNodes)
+			{
+				if (IsGraphForEachLoop(MacroInstanceNode->GetMacroGraph()))
+				{
+					UEdGraphPin* ArrayElementPin = MacroInstanceNode->FindPin(TEXT("Array Element"));
+
+					// Because we have a "ForEachLoop" or "ForEachLoopWithBreak" macro instance, we need to add a COPY node at the end, attached to the "Array Element" pin
+					if (ensure(ArrayElementPin) && 
+						ArrayElementPin->PinType.PinCategory != PC_Object && ArrayElementPin->PinType.PinCategory != PC_Class && 
+						ArrayElementPin->PinType.PinCategory != PC_Asset && ArrayElementPin->PinType.PinCategory != PC_AssetClass && 
+						ArrayElementPin->PinType.PinCategory != PC_Interface)
+					{
+						// Add an upgrade note, informing users that the node was auto-injected
+						{
+							FFormatNamedArguments Args;
+							Args.Add(TEXT("ArrayElementPin"), ArrayElementPin->PinFriendlyName);
+							FText UpgradeNoteText = FText::Format(LOCTEXT("ArrayGetByRef_ForEachLoopChanged", "This node has changed! Its output is now a reference - which means modifying the element that this returns in {ArrayElementPin} is the same as modifying the element stored in the array."), Args);
+							MacroInstanceNode->AddNodeUpgradeNote(UpgradeNoteText);
+
+							// Upgrade note for the log
+							GraphBlueprint->UpgradeNotesLog->Note(TEXT("Auto-Upgrade Note: @@ has changed! @@ is now a reference - which means modifying the element that this returns is the same as modifying the element stored in the array."), MacroInstanceNode, ArrayElementPin);
+						}
+
+						UK2Node_Copy* NewCopyNode = NewObject<UK2Node_Copy>(Graph);
+						check(NewCopyNode);
+						NewCopyNode->SetFlags(RF_Transactional);
+						Graph->AddNode(NewCopyNode, false, false);
+						NewCopyNode->CreateNewGuid();
+						NewCopyNode->PostPlacedNewNode();
+						NewCopyNode->AllocateDefaultPins();
+						NewCopyNode->NodePosX = MacroInstanceNode->NodePosX + 200.0f;
+						NewCopyNode->NodePosY = MacroInstanceNode->NodePosY + 50.0f;
+
+						// Add an upgrade note, informing users that the node was auto-injected
+						{
+							FFormatNamedArguments Args;
+							Args.Add(TEXT("CopyNodeName"), NewCopyNode->GetNodeTitle(ENodeTitleType::ListView));
+							Args.Add(TEXT("ForEachLoopName"), MacroInstanceNode->GetNodeTitle(ENodeTitleType::ListView));
+							FText UpgradeNoteText = FText::Format(LOCTEXT("ArrayGetByRef_ForLoopCopyInjection", "This is a \"{CopyNodeName}\" node. It was injected to preserve functionality since the array \"{ArrayGetNodeName}\" node has changed (inside {ForEachLoopName}). It outputs a copy of the input element (so modifications don't get applied to the original)."), Args);
+							NewCopyNode->AddNodeUpgradeNote(UpgradeNoteText);
+
+							// Upgrade note for the log
+							GraphBlueprint->UpgradeNotesLog->Note(TEXT("Auto-Upgrade Note: This is a @@ node. It was injected to preserve functionality since the array \"Get\" node (inside @@) has changed. It outputs a copy of the input element (so modifications don't get applied to the original)."), NewCopyNode, MacroInstanceNode);
+						}
+
+						if (ArrayElementPin->SubPins.Num())
+						{
+							// Make a separate break node!
+							UK2Node_BreakStruct* NewBreakNode = NewObject<UK2Node_BreakStruct>(Graph);
+							check(NewBreakNode);
+							NewBreakNode->SetFlags(RF_Transactional);
+							Graph->AddNode(NewBreakNode, false, false);
+							NewBreakNode->CreateNewGuid();
+							NewBreakNode->PostPlacedNewNode();
+							NewBreakNode->StructType = CastChecked<UScriptStruct>(ArrayElementPin->PinType.PinSubCategoryObject.Get());
+							NewBreakNode->AllocateDefaultPins();
+							NewBreakNode->NodePosX = NewCopyNode->NodePosX + 50.0f;
+							NewBreakNode->NodePosY = NewCopyNode->NodePosY;
+
+							// Add an upgrade note, informing users that the node was auto-injected
+							{
+								FFormatNamedArguments Args;
+								Args.Add(TEXT("ForEachLoopName"), MacroInstanceNode->GetNodeTitle(ENodeTitleType::ListView));
+								FText UpgradeNoteText = FText::Format(LOCTEXT("ArrayGetByRef_ForLoopBreakInjection", "Since the array \"Get\" node has changed (inside {ForEachLoopName}), this node was injected to preserve functionality."), Args);
+								NewBreakNode->AddNodeUpgradeNote(UpgradeNoteText);
+
+								// Upgrade note for the log
+								GraphBlueprint->UpgradeNotesLog->Note(TEXT("Auto-Upgrade Note: Since the array \"Get\" node has changed (inside @@), @@ was injected to preserve functionality. ."), MacroInstanceNode, NewBreakNode);
+							}
+
+							NewCopyNode->GetCopyResultPin()->MakeLinkTo(NewBreakNode->Pins[0]);
+							int SubPinIdx = 0;
+							for (UEdGraphPin* BreakNodePin : NewBreakNode->Pins)
+							{
+								if (BreakNodePin->Direction == EGPD_Output)
+								{
+									UEdGraphPin* SplitPin = ArrayElementPin->SubPins[SubPinIdx++];
+									if (!Graph->GetSchema()->MovePinLinks(*SplitPin, *BreakNodePin).CanSafeConnect())
+									{
+										GraphBlueprint->UpgradeNotesLog->Warning(TEXT("BackwardCompatibilityNodeConversion Error 'cannot safetly move pin @@ to @@' in blueprint: @@"), SplitPin, BreakNodePin, GraphBlueprint);
+									}
+								}
+							}
+
+							// Recombine the array element pin's children
+							RecombinePin(ArrayElementPin->SubPins[0]);
+						}
+						else
+						{
+							// Move all pins from the OldPin (the result of the Get node) to the output of the Copy Node
+							if (!Graph->GetSchema()->MovePinLinks(*ArrayElementPin, *NewCopyNode->GetCopyResultPin()).CanSafeConnect())
+							{
+								GraphBlueprint->UpgradeNotesLog->Warning(TEXT("BackwardCompatibilityNodeConversion Error 'cannot safetly move pin @@ to @@' in blueprint: @@"), ArrayElementPin, NewCopyNode, GraphBlueprint);
+							}
+						}
+
+						// Connect the Get-by-ref output pin to the copy node's input
+						ArrayElementPin->MakeLinkTo(NewCopyNode->GetInputReferencePin());
+						NewCopyNode->NotifyPinConnectionListChanged(NewCopyNode->GetInputReferencePin());
+					}
+				}
+			}
+		} // End FBlueprintsObjectVersion::ArrayGetByRefUpgrade upgrades
 	}
 }
 
@@ -5463,30 +5889,6 @@ TSharedPtr<FEdGraphSchemaAction> UEdGraphSchema_K2::GetCreateCommentAction() con
 bool UEdGraphSchema_K2::CanDuplicateGraph(UEdGraph* InSourceGraph) const
 {
 	EGraphType GraphType = GetGraphType(InSourceGraph);
-
-	if(GraphType == GT_Function)
-	{
-		UBlueprint* SourceBP = FBlueprintEditorUtils::FindBlueprintForGraph(InSourceGraph);
-
-		// Do not duplicate graphs in Blueprint Interfaces
-		if(SourceBP->BlueprintType == BPTYPE_Interface)
-		{
-			return false;
-		}
-
-		// Do not duplicate functions from implemented interfaces
-		if( FBlueprintEditorUtils::FindFunctionInImplementedInterfaces(SourceBP, InSourceGraph->GetFName()) )
-		{
-			return false;
-		}
-
-		// Do not duplicate inherited functions
-		if( FindField<UFunction>(SourceBP->ParentClass, InSourceGraph->GetFName()) )
-		{
-			return false;
-		}
-	}
-
 	return GraphType == GT_Function || GraphType == GT_Macro;
 }
 
@@ -5502,6 +5904,41 @@ UEdGraph* UEdGraphSchema_K2::DuplicateGraph(UEdGraph* GraphToDuplicate) const
 
 		if (NewGraph)
 		{
+			bool bIsOverrideGraph = false;
+			if (Blueprint->BlueprintType == BPTYPE_Interface)
+			{
+				bIsOverrideGraph = true;
+			}
+			else if (FBlueprintEditorUtils::FindFunctionInImplementedInterfaces(Blueprint, GraphToDuplicate->GetFName()))
+			{
+				bIsOverrideGraph = true;
+			}
+			else if (FindField<UFunction>(Blueprint->ParentClass, GraphToDuplicate->GetFName()))
+			{
+				bIsOverrideGraph = true;
+			}
+
+			// When duplicating an override function, we must put the graph through some extra work to properly own the data being duplicated, instead of expecting pin information will come from a parent
+			if (bIsOverrideGraph)
+			{
+				FBlueprintEditorUtils::PromoteGraphFromInterfaceOverride(Blueprint, NewGraph);
+				
+				// Remove all calls to the parent function, fix any exec pin links to pass through
+				TArray< UK2Node_CallParentFunction* > ParentFunctionCalls;
+				NewGraph->GetNodesOfClass(ParentFunctionCalls);
+
+				for (UK2Node_CallParentFunction* ParentFunctionCall : ParentFunctionCalls)
+				{
+					UEdGraphPin* ExecPin = ParentFunctionCall->GetExecPin();
+					UEdGraphPin* ThenPin = ParentFunctionCall->GetThenPin();
+					if (ExecPin->LinkedTo.Num() && ThenPin->LinkedTo.Num())
+					{
+						MovePinLinks(*ExecPin, *ThenPin->LinkedTo[0]);
+					}
+					NewGraph->RemoveNode(ParentFunctionCall);
+				}
+			}
+
 			FName NewGraphName = FBlueprintEditorUtils::FindUniqueKismetName(Blueprint, GraphToDuplicate->GetFName().GetPlainNameString());
 			FEdGraphUtilities::RenameGraphCloseToName(NewGraph,NewGraphName.ToString());
 			// can't have two graphs with the same guid... that'd be silly!
@@ -5527,6 +5964,9 @@ UEdGraph* UEdGraphSchema_K2::DuplicateGraph(UEdGraph* GraphToDuplicate) const
 					CustomEvent->RenameCustomEventCloseToName();
 				}
 			}
+
+			// Potentially adjust variable names for any child blueprints
+			FBlueprintEditorUtils::ValidateBlueprintChildVariables(Blueprint, NewGraph->GetFName());
 		}
 	}
 	return NewGraph;
@@ -5769,6 +6209,7 @@ UK2Node* UEdGraphSchema_K2::CreateSplitPinNode(UEdGraphPin* Pin, FKismetCompiler
 		{
 			UK2Node_MakeStruct* MakeStructNode = (CompilerContext ? CompilerContext->SpawnIntermediateNode<UK2Node_MakeStruct>(GraphNode, SourceGraph) : NewObject<UK2Node_MakeStruct>(Graph));
 			MakeStructNode->StructType = StructType;
+			MakeStructNode->bMadeAfterOverridePinRemoval = true;
 			SplitPinNode = MakeStructNode;
 		}
 		else
@@ -5787,6 +6228,7 @@ UK2Node* UEdGraphSchema_K2::CreateSplitPinNode(UEdGraphPin* Pin, FKismetCompiler
 		{
 			UK2Node_BreakStruct* BreakStructNode = (CompilerContext ? CompilerContext->SpawnIntermediateNode<UK2Node_BreakStruct>(GraphNode, SourceGraph) : NewObject<UK2Node_BreakStruct>(Graph));
 			BreakStructNode->StructType = StructType;
+			BreakStructNode->bMadeAfterOverridePinRemoval = true;
 			SplitPinNode = BreakStructNode;
 		}
 		else
@@ -5922,6 +6364,9 @@ void UEdGraphSchema_K2::RecombinePin(UEdGraphPin* Pin) const
 
 	ParentPin->bHidden = false;
 
+	UEdGraph* Graph = CastChecked<UEdGraph>(GraphNode->GetOuter());
+	UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForGraphChecked(Graph);
+
 	for (int32 SubPinIndex = 0; SubPinIndex < ParentPin->SubPins.Num(); ++SubPinIndex)
 	{
 		UEdGraphPin* SubPin = ParentPin->SubPins[SubPinIndex];
@@ -5932,6 +6377,7 @@ void UEdGraphSchema_K2::RecombinePin(UEdGraphPin* Pin) const
 		}
 
 		GraphNode->Pins.Remove(SubPin);
+		Blueprint->PinWatches.Remove(SubPin);
 	}
 
 	if (Pin->Direction == EGPD_Input)
@@ -5966,13 +6412,9 @@ void UEdGraphSchema_K2::RecombinePin(UEdGraphPin* Pin) const
 		}
 	}
 
+	ParentPin->SubPins.Empty();	
 
-	ParentPin->SubPins.Empty();
-
-	UEdGraph* Graph = CastChecked<UEdGraph>(GraphNode->GetOuter());
 	Graph->NotifyGraphChanged();
-
-	UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForGraphChecked(Graph);
 	FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
 }
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VertexFactory.h: Vertex factory definitions.
@@ -174,7 +174,7 @@ public:
 	{
 		// Set up the mapping from VertexFactory.usf to the vertex factory type's source code.
 		FString VertexFactoryIncludeString = FString::Printf( TEXT("#include \"%s.usf\""), GetShaderFilename() );
-		OutEnvironment.IncludeFileNameToContentsMap.Add(TEXT("VertexFactory.usf"), VertexFactoryIncludeString);
+		OutEnvironment.IncludeFileNameToContentsMap.Add(TEXT("VertexFactory.usf"), StringToArray<ANSICHAR>(*VertexFactoryIncludeString, VertexFactoryIncludeString.Len() + 1));
 
 		OutEnvironment.SetDefine(TEXT("HAS_PRIMITIVE_UNIFORM_BUFFER"), 1);
 
@@ -335,29 +335,15 @@ public:
 class SHADERCORE_API FVertexFactory : public FRenderResource
 {
 public:
-
-	struct DataType
+	FVertexFactory() 
 	{
-		/** Initialization constructor. */
-		DataType() {}
-	};
+	}
 
-	/**
-	 * Default constructor 
-	 */
-	FVertexFactory() {}
-
-	/**
-	* Constructor specifiying feature level
-	*/
 	FVertexFactory(ERHIFeatureLevel::Type InFeatureLevel) 
 		: FRenderResource(InFeatureLevel)
 	{
 	}
 
-	/**
-	 * @return The vertex factory's type.
-	 */
 	virtual FVertexFactoryType* GetType() const { return NULL; }
 
 	/**
@@ -447,9 +433,7 @@ protected:
 	 * Initializes the vertex declaration.
 	 * @param Elements - The elements of the vertex declaration.
 	 */
-	void InitDeclaration(
-		FVertexDeclarationElementList& Elements, 
-		const DataType& Data);
+	void InitDeclaration(FVertexDeclarationElementList& Elements);
 
 	/**
 	 * Initializes the position-only vertex declaration.
@@ -496,9 +480,6 @@ private:
 
 	/** The RHI vertex declaration used to render the factory during depth only passes. */
 	FVertexDeclarationRHIRef PositionDeclaration;
-
-	/** The vertex factory's data. */
-	DataType Data;
 };
 
 /**

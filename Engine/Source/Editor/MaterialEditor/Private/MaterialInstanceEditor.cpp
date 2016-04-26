@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MaterialEditorModule.h"
 
@@ -664,6 +664,7 @@ void FMaterialInstanceEditor::NotifyPostChange( const FPropertyChangedEvent& Pro
 
 		if (bSetEmptyParent)
 		{
+			FMaterialUpdateContext UpdateContext;
 			MaterialEditorInstance->Parent = NULL;
 
 			if(MaterialEditorInstance->SourceInstance)
@@ -671,6 +672,7 @@ void FMaterialInstanceEditor::NotifyPostChange( const FPropertyChangedEvent& Pro
 				MaterialEditorInstance->SourceInstance->SetParentEditorOnly(NULL);
 				MaterialEditorInstance->SourceInstance->PostEditChange();
 			}
+			UpdateContext.AddMaterialInstance(MaterialEditorInstance->SourceInstance);
 		}
 
 		RebuildInheritanceList();

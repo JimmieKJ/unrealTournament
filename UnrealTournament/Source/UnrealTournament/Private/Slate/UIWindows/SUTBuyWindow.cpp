@@ -311,9 +311,9 @@ void SUTBuyWindow::CollectItems()
 
 const FSlateBrush* SUTBuyWindow::GetItemImage() const
 {
-	if (CurrentItem.IsValid())
+	if (CurrentItem.IsValid() && CurrentItem->LoadoutInfo.IsValid())
 	{
-		return CurrentItem->Image.Get();
+		return CurrentItem->LoadoutInfo->GetItemImage();
 	}
 
 	return SUWindowsStyle::Get().GetBrush("UWindows.Lobby.MatchBadge");

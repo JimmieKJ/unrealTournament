@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "AnimStateNodeBase.h"
@@ -33,5 +33,6 @@ public:
 	virtual void GetTransitionList(TArray<class UAnimStateTransitionNode*>& OutTransitions, bool bWantSortedList = true) override;
 	virtual FString GetDesiredNewNodeName() const override;
 	virtual UEdGraph* GetBoundGraph() const override { return BoundGraph; }
+	virtual void ClearBoundGraph() override { BoundGraph = nullptr; }
 	//~ End UAnimStateNodeBase Interface
 };

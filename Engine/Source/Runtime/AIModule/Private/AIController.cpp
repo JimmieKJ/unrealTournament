@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
 #include "Kismet/GameplayStatics.h"
@@ -38,6 +38,7 @@ DEFINE_LOG_CATEGORY(LogAINavigation);
 AAIController::AAIController(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	bSetControlRotationFromPawnOrientation = true;
 	PathFollowingComponent = CreateDefaultSubobject<UPathFollowingComponent>(TEXT("PathFollowingComponent"));
 	PathFollowingComponent->OnMoveFinished.AddUObject(this, &AAIController::OnMoveCompleted);
 
@@ -46,6 +47,8 @@ AAIController::AAIController(const FObjectInitializer& ObjectInitializer)
 	bSkipExtraLOSChecks = true;
 	bWantsPlayerState = false;
 	TeamID = FGenericTeamId::NoTeam;
+
+	bStopAILogicOnUnposses = true;
 }
 
 void AAIController::Tick(float DeltaTime)
@@ -412,28 +415,36 @@ DEFINE_LOG_CATEGORY_STATIC(LogTestAI, All, All);
 
 void AAIController::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 {
-	// Look toward focus
-	FVector FocalPoint = GetFocalPoint();
-	APawn* const Pawn = GetPawn();
-
-	if (Pawn)
+	APawn* const MyPawn = GetPawn();
+	if (MyPawn)
 	{
-		FVector Direction = FAISystem::IsValidLocation(FocalPoint) ? (FocalPoint - Pawn->GetPawnViewLocation()) : Pawn->GetActorForwardVector();
-		FRotator NewControlRotation = Direction.Rotation();
+		const FRotator InitialControlRotation = GetControlRotation();		
+		FRotator NewControlRotation = InitialControlRotation;
+
+		// Look toward focus
+		const FVector FocalPoint = GetFocalPoint();
+		if (FAISystem::IsValidLocation(FocalPoint))
+		{
+			NewControlRotation = (FocalPoint - MyPawn->GetPawnViewLocation()).Rotation();
+		}
+		else if (bSetControlRotationFromPawnOrientation)
+		{
+			NewControlRotation = MyPawn->GetActorRotation();
+		}
 
 		// Don't pitch view unless looking at another pawn
-		if (Cast<APawn>(GetFocusActor()) == nullptr)
+		if (NewControlRotation.Pitch != 0 && Cast<APawn>(GetFocusActor()) == nullptr)
 		{
 			NewControlRotation.Pitch = 0.f;
 		}
 
-		if (GetControlRotation().Equals(NewControlRotation, 1e-3f) == false)
+		if (InitialControlRotation.Equals(NewControlRotation, 1e-3f) == false)
 		{
 			SetControlRotation(NewControlRotation);
 
 			if (bUpdatePawn)
 			{
-				Pawn->FaceRotation(NewControlRotation, DeltaTime);
+				MyPawn->FaceRotation(NewControlRotation, DeltaTime);
 			}
 		}
 	}
@@ -442,6 +453,12 @@ void AAIController::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 
 void AAIController::Possess(APawn* InPawn)
 {
+	// don't even try possessing pending-kill pawns
+	if (InPawn != nullptr && InPawn->IsPendingKill())
+	{
+		return;
+	}
+
 	Super::Possess(InPawn);
 
 	if (GetPawn() == nullptr || InPawn == nullptr)
@@ -468,20 +485,22 @@ void AAIController::Possess(APawn* InPawn)
 
 	// a Pawn controlled by AI _requires_ a GameplayTasksComponent, so if Pawn 
 	// doesn't have one we need to create it
-	UGameplayTasksComponent* GTComp = InPawn->FindComponentByClass<UGameplayTasksComponent>();
-	if (GTComp == nullptr)
+	if (CachedGameplayTasksComponent == nullptr)
 	{
-		GTComp = NewObject<UGameplayTasksComponent>(InPawn, TEXT("GameplayTasksComponent"));
-		GTComp->RegisterComponent();
+		UGameplayTasksComponent* GTComp = InPawn->FindComponentByClass<UGameplayTasksComponent>();
+		if (GTComp == nullptr)
+		{
+			GTComp = NewObject<UGameplayTasksComponent>(InPawn, TEXT("GameplayTasksComponent"));
+			GTComp->RegisterComponent();
+		}
+		CachedGameplayTasksComponent = GTComp;
 	}
-	CachedGameplayTasksComponent = GTComp;
 
-	// Prevents re-entrant issues.
-	if (GTComp && !GTComp->OnClaimedResourcesChange.Contains(this, GET_FUNCTION_NAME_CHECKED(AAIController, OnGameplayTaskResourcesClaimed)))
+	if (CachedGameplayTasksComponent && !CachedGameplayTasksComponent->OnClaimedResourcesChange.Contains(this, GET_FUNCTION_NAME_CHECKED(AAIController, OnGameplayTaskResourcesClaimed)))
 	{
-		GTComp->OnClaimedResourcesChange.AddDynamic(this, &AAIController::OnGameplayTaskResourcesClaimed);
+		CachedGameplayTasksComponent->OnClaimedResourcesChange.AddDynamic(this, &AAIController::OnGameplayTaskResourcesClaimed);
 
-		REDIRECT_OBJECT_TO_VLOG(GTComp, this);
+		REDIRECT_OBJECT_TO_VLOG(CachedGameplayTasksComponent, this);
 	}
 
 	OnPossess(InPawn);
@@ -489,6 +508,8 @@ void AAIController::Possess(APawn* InPawn)
 
 void AAIController::UnPossess()
 {
+	APawn* OldPawn = GetPawn();
+
 	Super::UnPossess();
 
 	if (PathFollowingComponent)
@@ -496,9 +517,12 @@ void AAIController::UnPossess()
 		PathFollowingComponent->Cleanup();
 	}
 
-	if (BrainComponent)
+	if (bStopAILogicOnUnposses)
 	{
-		BrainComponent->Cleanup();
+		if (BrainComponent)
+		{
+			BrainComponent->Cleanup();
+		}
 	}
 
 	if (CachedGameplayTasksComponent)
@@ -506,6 +530,8 @@ void AAIController::UnPossess()
 		CachedGameplayTasksComponent->OnClaimedResourcesChange.RemoveDynamic(this, &AAIController::OnGameplayTaskResourcesClaimed);
 		CachedGameplayTasksComponent = nullptr;
 	}
+
+	OnUnpossess(OldPawn);
 }
 
 void AAIController::SetPawn(APawn* InPawn)
@@ -721,7 +747,7 @@ bool AAIController::PreparePathfinding(const FAIMoveRequest& MoveRequest, FPathF
 				}
 			}
 
-			Query = FPathFindingQuery(this, *NavData, GetNavAgentLocation(), GoalLocation, UNavigationQueryFilter::GetQueryFilter(*NavData, MoveRequest.GetNavigationFilter()));
+			Query = FPathFindingQuery(*this, *NavData, GetNavAgentLocation(), GoalLocation, UNavigationQueryFilter::GetQueryFilter(*NavData, MoveRequest.GetNavigationFilter()));
 			Query.SetAllowPartialPaths(MoveRequest.IsUsingPartialPaths());
 
 			if (PathFollowingComponent)
@@ -761,6 +787,8 @@ bool AAIController::PreparePathfinding(FPathFindingQuery& Query, const FVector& 
 
 FAIRequestID AAIController::RequestPathAndMove(const FAIMoveRequest& MoveRequest, FPathFindingQuery& Query)
 {
+	SCOPE_CYCLE_COUNTER(STAT_AI_Overall);
+
 	FAIRequestID RequestID;
 
 	UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ProfilerPrivatePCH.h"
 #include "SDockTab.h"
@@ -77,21 +77,7 @@ void SProfilerToolbar::Construct( const FArguments& InArgs )
 				ToolbarBuilder.MakeWidget()
 			]
 		]
-
-		+SHorizontalBox::Slot()
-		.AutoWidth()
-		.HAlign(HAlign_Right)
-		.VAlign(VAlign_Fill)
-		.Padding(0.0f)
-		[
-			SAssignNew(Border,SBorder)
-			.BorderImage( FEditorStyle::GetBrush("ToolPanel.GroupBorder") )
-			.Padding( 2.0f )
-			.Visibility( this, &SProfilerToolbar::IsInstancesOwnerVisible )
-		]
 	];
-
-	FProfilerManager::Get()->OnSessionInstancesUpdated().AddSP( this, &SProfilerToolbar::ProfilerManager_SessionsUpdated );
 }
 
 void SProfilerToolbar::ShowStats()
@@ -139,11 +125,9 @@ void DisplayFPSChart( const TSharedRef<FFPSAnalyzer> InFPSAnalyzer )
 
 void SProfilerToolbar::ShowFPSChart()
 {
-	for( auto It = FProfilerManager::Get()->GetProfilerInstancesIterator(); It; ++It )
+	const FProfilerSessionPtr ProfilerSession = FProfilerManager::Get()->GetProfilerSession();
+	if (ProfilerSession.IsValid())
 	{
-		const FProfilerSessionRef& ProfilerSession = It.Value();
-		const FGuid SessionInstanceID = ProfilerSession->GetInstanceID();
-
 		DisplayFPSChart( ProfilerSession->FPSAnalyzer );
 	}
 }
@@ -178,102 +162,6 @@ void SProfilerToolbar::CreateCommands()
 		FExecuteAction::CreateRaw( this, &SProfilerToolbar::ShowFPSChart ),
 		FCanExecuteAction()
 		);
-}
-
-EVisibility SProfilerToolbar::IsInstancesOwnerVisible() const
-{
-	return FProfilerManager::GetSettings().bSingleInstanceMode ? EVisibility::Collapsed : EVisibility::Visible;
-}
-
-void SProfilerToolbar::ProfilerManager_SessionsUpdated()
-{
-	TSharedRef<SHorizontalBox> SessionsHBox = SNew(SHorizontalBox);
-
-	if( FProfilerManager::Get()->GetProfilerInstancesNum() > 1 )
-	{
-		AddSessionInstanceItem( SessionsHBox, LOCTEXT("Global", "Global").ToString(), FGuid() );
-	}
-
-	for( auto It = FProfilerManager::Get()->GetProfilerInstancesIterator(); It; ++It )
-	{
-		const FProfilerSessionRef& ProfilerSession = It.Value();
-		const FGuid SessionInstanceID = ProfilerSession->GetInstanceID();
-
-		AddSessionInstanceItem( SessionsHBox, ProfilerSession->GetShortName(), SessionInstanceID );
-	}
-
-	Border->SetContent( SessionsHBox );
-}
-
-void SProfilerToolbar::AddSessionInstanceItem( TSharedRef<SHorizontalBox>& SessionsHBox, const FString& ProfilerSessionName, const FGuid& SessionInstanceID )
-{
-	SessionsHBox->AddSlot()
-	.HAlign(HAlign_Fill)
-	.VAlign(VAlign_Fill)
-	.AutoWidth()
-	.Padding(2.0f)
-	[
-		SNew(SComboButton)	
-		.HAlign(HAlign_Center)
-		.VAlign(VAlign_Center)
-
-		.ButtonContent()
-		[
-			SNew(STextBlock)
-			.Text( FText::FromString(ProfilerSessionName) )
-			.ShadowOffset( FVector2D(1.0f,1.0f) )
-			.ShadowColorAndOpacity( FColorList::SkyBlue )
-		]
-
-		.MenuContent()
-		[
-			BuildProfilerSessionContextMenu( SessionInstanceID )
-		]
-	];
-}
-
-TSharedRef<SWidget> SProfilerToolbar::BuildProfilerSessionContextMenu( const FGuid SessionInstanceID )
-{
-	TSharedPtr<FUICommandList> ProfilerCommandList = FProfilerManager::Get()->GetCommandList();
-	const FProfilerCommands& ProfilerCommands = FProfilerManager::GetCommands();
-	const FProfilerActionManager& ProfilerActionManager = FProfilerManager::GetActionManager();
-
-	const bool bShouldCloseWindowAfterMenuSelection = true;
-	FMenuBuilder MenuBuilder( bShouldCloseWindowAfterMenuSelection, ProfilerCommandList );
-
-	MenuBuilder.BeginSection( "Menu_Instance", LOCTEXT("SessionInstance", "Session Instance") );
-	MenuBuilder.EndSection();
-	
-	MenuBuilder.BeginSection( "Menu_General", LOCTEXT("General", "General") );
-	{
-		FProfilerMenuBuilder::AddMenuEntry
-		( 
-			MenuBuilder, 
-			ProfilerCommands.ToggleDataPreview, 
-			ProfilerActionManager.ToggleDataPreview_Custom(SessionInstanceID) 
-		);
-
-		FProfilerMenuBuilder::AddMenuEntry
-		( 
-			MenuBuilder, 
-			ProfilerCommands.ToggleDataCapture, 
-			ProfilerActionManager.ToggleDataCapture_Custom(SessionInstanceID) 
-		);
-
-		if( SessionInstanceID.IsValid() )
-		{
-			FProfilerMenuBuilder::AddMenuEntry
-			( 
-				MenuBuilder, 
-				ProfilerCommands.ToggleShowDataGraph, 
-				ProfilerActionManager.ToggleShowDataGraph_Custom(SessionInstanceID) 
-			);
-		}
-	}
-	MenuBuilder.EndSection();
-
-	TSharedRef<SWidget> MenuWidget = MenuBuilder.MakeWidget();
-	return MenuWidget;
 }
 
 #undef LOCTEXT_NAMESPACE

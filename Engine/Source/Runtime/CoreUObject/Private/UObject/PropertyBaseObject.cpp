@@ -1,9 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreUObjectPrivate.h"
 #include "PropertyHelper.h"
 #include "LinkerPlaceholderClass.h"
 #include "LinkerPlaceholderExportObject.h"
+#include "BlueprintSupport.h" // for IsInBlueprintPackage()
 
 /*-----------------------------------------------------------------------------
 	UObjectPropertyBase.
@@ -406,10 +407,27 @@ UObject* UObjectPropertyBase::FindImportedObject( const UProperty* Property, UOb
 		// If we still can't find it, try to load it. (Only try to load fully qualified names)
 		if(!Result && Dot)
 		{
-			uint32 LoadFlags = LOAD_NoWarn | LOAD_FindIfFail;
+#if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+			FLinkerLoad* Linker = (OwnerObject != nullptr) ? OwnerObject->GetClass()->GetLinker() : nullptr;
+			const bool bDeferAssetImports = (Linker != nullptr) && (Linker->LoadFlags & LOAD_DeferDependencyLoads);
 
-			UE_LOG(LogProperty, Verbose, TEXT("FindImportedObject is attempting to import [%s] (class = %s) with StaticLoadObject"), Text, *GetFullNameSafe(ObjectClass));
-			Result = StaticLoadObject(ObjectClass, NULL, Text, NULL, LoadFlags, NULL);
+			if (bDeferAssetImports)
+			{
+				Result = Linker->RequestPlaceholderValue(ObjectClass, Text);
+			}
+			
+			if (Result == nullptr)
+#endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+			{
+				uint32 LoadFlags = LOAD_NoWarn | LOAD_FindIfFail;
+
+				UE_LOG(LogProperty, Verbose, TEXT("FindImportedObject is attempting to import [%s] (class = %s) with StaticLoadObject"), Text, *GetFullNameSafe(ObjectClass));
+				Result = StaticLoadObject(ObjectClass, NULL, Text, NULL, LoadFlags, NULL);
+
+#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+				check(!bDeferAssetImports || !Result || !FBlueprintSupport::IsInBlueprintPackage(Result));
+#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+			}
 		}
 	}
 
@@ -455,10 +473,10 @@ void UObjectPropertyBase::CheckValidObject(void* Value) const
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 		FLinkerLoad* PropertyLinker = GetLinker();
 		bool const bIsDeferringValueLoad = ((PropertyLinker == nullptr) || (PropertyLinker->LoadFlags & LOAD_DeferDependencyLoads)) &&
-			Object->IsA<ULinkerPlaceholderExportObject>();
+			(Object->IsA<ULinkerPlaceholderExportObject>() || Object->IsA<ULinkerPlaceholderClass>());
 
 #if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-		check(bIsDeferringValueLoad || !Object->IsA<ULinkerPlaceholderExportObject>());
+		check( bIsDeferringValueLoad || (!Object->IsA<ULinkerPlaceholderExportObject>() && !Object->IsA<ULinkerPlaceholderClass>()) );
 #endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
 
 #else  // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING 

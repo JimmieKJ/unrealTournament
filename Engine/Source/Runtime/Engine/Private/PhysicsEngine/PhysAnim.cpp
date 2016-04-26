@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PhysAnim.cpp: Code for supporting animation/physics blending
@@ -27,6 +27,13 @@ struct FAssetWorldBoneTM
 };
 
 
+FAutoConsoleTaskPriority CPrio_FParallelBlendPhysicsTask(
+	TEXT("TaskGraph.TaskPriorities.ParallelBlendPhysicsTask"),
+	TEXT("Task and thread priority for FParallelBlendPhysicsTask."),
+	ENamedThreads::HighThreadPriority, // if we have high priority task threads, then use them...
+	ENamedThreads::NormalTaskPriority, // .. at normal task priority
+	ENamedThreads::HighTaskPriority // if we don't have hi pri threads, then use normal priority threads at high task priority instead
+	);
 
 class FParallelBlendPhysicsTask
 {
@@ -38,15 +45,15 @@ public:
 	{
 	}
 
-	FORCEINLINE TStatId GetStatId() const
+	static FORCEINLINE TStatId GetStatId()
 	{
 		RETURN_QUICK_DECLARE_CYCLE_STAT(FParallelBlendPhysicsTask, STATGROUP_TaskGraphTasks);
 	}
-	static ENamedThreads::Type GetDesiredThread()
+	static FORCEINLINE ENamedThreads::Type GetDesiredThread()
 	{
-		return ENamedThreads::AnyThread;
+		return CPrio_FParallelBlendPhysicsTask.Get();
 	}
-	static ESubsequentsMode::Type GetSubsequentsMode()
+	static FORCEINLINE ESubsequentsMode::Type GetSubsequentsMode()
 	{
 		return ESubsequentsMode::TrackSubsequents;
 	}
@@ -391,7 +398,6 @@ void USkeletalMeshComponent::BlendInPhysics(FTickFunction& ThisTickFunction)
 			{
 				// Initialize Parallel Task arrays
 				AnimEvaluationContext.SpaceBases = GetSpaceBases();
-				AnimEvaluationContext.VertexAnims = ActiveVertexAnims;
 			}
 
 			AnimEvaluationContext.LocalAtoms.Reset(LocalAtoms.Num());
@@ -622,7 +628,9 @@ void USkeletalMeshComponent::UpdateKinematicBonesToAnim(const TArray<FTransform>
 					// @todo make this to be kismet log? But can be too intrusive
 					if (!bBlendPhysics && BodyInst->PhysicsBlendWeight <= 0.f && BodyInst->BodySetup.IsValid())
 					{
-						UE_LOG(LogPhysics, Warning, TEXT("%s(Mesh %s, PhysicsAsset %s, Bone %s) is simulating, but no blending. "),
+						//It's not clear whether this should be a warning. There are certainly cases where you interpolate the blend weight towards 0. The blend feature needs some work which will probably change this in the future.
+						//Making it Verbose for now
+						UE_LOG(LogPhysics, Verbose, TEXT("%s(Mesh %s, PhysicsAsset %s, Bone %s) is simulating, but no blending. "),
 							*GetName(), *GetNameSafe(SkeletalMesh), *GetNameSafe(PhysicsAsset), *BodyInst->BodySetup.Get()->BoneName.ToString());
 					}
 				}

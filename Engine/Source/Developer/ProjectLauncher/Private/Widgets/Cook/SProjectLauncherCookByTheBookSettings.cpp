@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ProjectLauncherPrivatePCH.h"
 #include "SHyperlink.h"
@@ -382,13 +382,13 @@ TSharedRef<SWidget> SProjectLauncherCookByTheBookSettings::MakeComplexWidget()
 							]
 						]
 
-
-					+ SVerticalBox::Slot()
+					+SVerticalBox::Slot()
 						.AutoHeight()
 						.Padding(0.0f, 8.0f, 0.0f, 0.0f)
 						[
 							SNew(SProjectLauncherFormLabel)
-							.LabelText(LOCTEXT("BasedOnReleaseVersionTextBoxLabel", "Base this release on a previous release, applys to new creating new releases / dlc / patches."))
+							.ToolTipText(LOCTEXT("BasedOnReleaseVersionTextBoxToolTip", "The release version which this DLC / Patch / Next release is based on."))
+						.LabelText(LOCTEXT("BasedOnReleaseVersionTextBoxLabel", "Release version this is based on."))
 						]
 
 					+ SVerticalBox::Slot()
@@ -403,7 +403,7 @@ TSharedRef<SWidget> SProjectLauncherCookByTheBookSettings::MakeComplexWidget()
 							[
 								// repository path text box
 								SNew(SEditableTextBox)
-								.ToolTipText(LOCTEXT("BasedOnReleaseVersionTextBoxTooltip", "Release version to base the next release / dlc / patch on."))
+								.ToolTipText(LOCTEXT("NextReleaseVersionTextBoxTooltip", "Release version to base the next release / DLC / patch on."))
 								.Text(this, &SProjectLauncherCookByTheBookSettings::HandleBasedOnReleaseVersionNameTextBlockText)
 								.OnTextCommitted(this, &SProjectLauncherCookByTheBookSettings::HandleBasedOnReleaseVersionNameCommitted)
 							]
@@ -442,11 +442,11 @@ TSharedRef<SWidget> SProjectLauncherCookByTheBookSettings::MakeComplexWidget()
 							.IsChecked(this, &SProjectLauncherCookByTheBookSettings::HandleBuildDLCCheckBoxIsChecked)
 							.OnCheckStateChanged(this, &SProjectLauncherCookByTheBookSettings::HandleBuildDLCCheckBoxCheckStateChanged)
 							.Padding(FMargin(4.0f, 0.0f))
-							.ToolTipText(LOCTEXT("BuildDLCCheckBoxTooltip", "If checked, dlc will be built without the content released with the original game."))
+							.ToolTipText(LOCTEXT("BuildDLCCheckBoxTooltip", "If checked, DLC will be built without the content released with the original game."))
 							.Content()
 							[
 								SNew(STextBlock)
-								.Text(LOCTEXT("BuildDLCCheckBoxText", "Build dlc"))
+								.Text(LOCTEXT("BuildDLCCheckBoxText", "Build DLC"))
 							]
 						]
 
@@ -456,7 +456,7 @@ TSharedRef<SWidget> SProjectLauncherCookByTheBookSettings::MakeComplexWidget()
 						.Padding(0.0f, 8.0f, 0.0f, 0.0f)
 						[
 							SNew(SProjectLauncherFormLabel)
-							.LabelText(LOCTEXT("DLCNameTextBoxLabel", "Name of the dlc to build."))
+							.LabelText(LOCTEXT("DLCNameTextBoxLabel", "Name of the DLC to build."))
 						]
 
 					+ SVerticalBox::Slot()
@@ -486,7 +486,7 @@ TSharedRef<SWidget> SProjectLauncherCookByTheBookSettings::MakeComplexWidget()
 							.IsChecked(this, &SProjectLauncherCookByTheBookSettings::HandleDLCIncludeEngineContentCheckBoxIsChecked)
 							.OnCheckStateChanged(this, &SProjectLauncherCookByTheBookSettings::HandleDLCIncludeEngineContentCheckBoxCheckStateChanged)
 							.Padding(FMargin(4.0f, 0.0f))
-							.ToolTipText(LOCTEXT("HandleDLCIncludeEngineContentCheckBoxTooltip", "If checked, dlc will include engine content which was not included in original release, if not checked will error when accessing content from engine directory."))
+							.ToolTipText(LOCTEXT("HandleDLCIncludeEngineContentCheckBoxTooltip", "If checked, DLC will include engine content which was not included in original release, if not checked will error when accessing content from engine directory."))
 							.Content()
 							[
 								SNew(STextBlock)
@@ -526,7 +526,7 @@ TSharedRef<SWidget> SProjectLauncherCookByTheBookSettings::MakeComplexWidget()
 						.Content()
 						[
 							SNew(STextBlock)
-							.Text(LOCTEXT("IncrementalCheckBoxText", "Only cook modified content"))
+							.Text(LOCTEXT("IncrementalCheckBoxText", "Iterative cooking: Only cook content modified from previous cook"))
 						]
 					]
 
@@ -976,7 +976,7 @@ TSharedRef<SWidget> SProjectLauncherCookByTheBookSettings::MakeSimpleWidget()
 					.Content()
 					[
 						SNew(STextBlock)
-						.Text(LOCTEXT("IncrementalCheckBoxText", "Only cook modified content"))
+						.Text(LOCTEXT("IncrementalCheckBoxText", "Iterative cooking: Only cook content modified from previous cook"))
 					]
 				]
 

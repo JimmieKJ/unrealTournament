@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -18,13 +18,13 @@ public class StandaloneRenderer : ModuleRules
 			}
 			);
 
-		AddThirdPartyPrivateStaticDependencies(Target, "OpenGL");
+		AddEngineThirdPartyPrivateStaticDependencies(Target, "OpenGL");
 
 		if ((Target.Platform == UnrealTargetPlatform.Win64) ||
 			(Target.Platform == UnrealTargetPlatform.Win32))
 		{
 			// @todo: This should be private? Not sure!!
-			AddThirdPartyPrivateStaticDependencies(Target, "DX11");
+			AddEngineThirdPartyPrivateStaticDependencies(Target, "DX11");
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Mac)
 		{
@@ -32,9 +32,9 @@ public class StandaloneRenderer : ModuleRules
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Linux)
 		{
-			AddThirdPartyPrivateStaticDependencies(Target, "SDL2");
+			AddEngineThirdPartyPrivateStaticDependencies(Target, "SDL2");
 		}
-		else if (Target.Platform == UnrealTargetPlatform.IOS)
+		else if (Target.Platform == UnrealTargetPlatform.IOS || Target.Platform == UnrealTargetPlatform.TVOS)
 		{
 			PublicFrameworks.AddRange(new string[] { "OpenGLES", "GLKit" });
 			// weak for IOS8 support since CAMetalLayer is in QuartzCore

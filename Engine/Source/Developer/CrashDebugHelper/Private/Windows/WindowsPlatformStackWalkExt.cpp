@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CrashDebugHelperPrivatePCH.h"
 #include "GenericPlatform/GenericPlatformCrashContext.h"
@@ -510,7 +510,7 @@ int FWindowsPlatformStackWalkExt::GetCallstacks()
 				ModuleName = ModuleAndFunction;
 			}
 
-			// #YRX_Crash: 2015-07-24 Add for other platforms
+			// #CrashReport: 2015-07-24 Add this to other platforms
 			// If we find an assert, the actual source file we're interested in is the next one up, so reset the source file found flag
 			if( FunctionName.Len() > 0 )
 			{

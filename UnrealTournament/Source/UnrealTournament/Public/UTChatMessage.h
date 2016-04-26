@@ -11,6 +11,5 @@ class UNREALTOURNAMENT_API UUTChatMessage : public UUTLocalMessage
 	
 	virtual void ClientReceiveChat(const FClientReceiveData& ClientData, FName Destination = NAME_None) const;
 	virtual FLinearColor GetMessageColor_Implementation(int32 MessageIndex) const override;
-	virtual bool UseLargeFont(int32 MessageIndex) const override;
 };
 

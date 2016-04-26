@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -18,6 +18,9 @@ struct CORE_API FLinuxCrashContext : public FGenericCrashContext
 	/** Thread context */
 	ucontext_t*	Context;
 
+	/** Whether backtrace was already captured */
+	bool bCapturedBacktrace;
+
 	/** Symbols received via backtrace_symbols(), if any (note that we will need to clean it up) */
 	char ** BacktraceSymbols;
 
@@ -29,12 +32,25 @@ struct CORE_API FLinuxCrashContext : public FGenericCrashContext
 
 	FLinuxCrashContext()
 		:	Signal(0)
-		,	Info(NULL)
-		,	Context(NULL)
-		,	BacktraceSymbols(NULL)
+		,	Info(nullptr)
+		,	Context(nullptr)
+		,	bCapturedBacktrace(false)
+		,	BacktraceSymbols(nullptr)
 	{
 		SignalDescription[ 0 ] = 0;
 		MinidumpCallstackInfo[ 0 ] = 0;
+	}
+
+	FLinuxCrashContext(bool bInIsEnsure)
+		: Signal(0)
+		, Info(nullptr)
+		, Context(nullptr)
+		, bCapturedBacktrace(false)
+		, BacktraceSymbols(nullptr)
+	{
+		SignalDescription[0] = 0;
+		MinidumpCallstackInfo[0] = 0;
+		bIsEnsure = bInIsEnsure;
 	}
 
 	~FLinuxCrashContext();
@@ -48,6 +64,27 @@ struct CORE_API FLinuxCrashContext : public FGenericCrashContext
 	 */
 	void InitFromSignal(int32 InSignal, siginfo_t* InInfo, void* InContext);
 
+	/**
+	 * Populates crash context stack trace and a few related fields
+	 *
+	 */
+	void CaptureStackTrace();
+
+	/**
+	 * Generates a new crash report containing information needed for the crash reporter and launches it; may not return.
+	 *
+	 * @param bReportingNonCrash if true, we are not reporting a crash (but e.g. ensure()), so don't re-raise the signal.
+	 *
+	 * @return If bReportingNonCrash is false, the function will not return
+	 */
+	void GenerateCrashInfoAndLaunchReporter(bool bReportingNonCrash = false) const;
+
+	/**
+	 * Sets whether this crash represents a non-crash event like an ensure
+	 */
+	void SetIsEnsure(bool bInIsEnsure) { bIsEnsure = bInIsEnsure; }
+
+protected:
 	/**
 	 * Dumps all the data from crash context to the "minidump" report.
 	 *

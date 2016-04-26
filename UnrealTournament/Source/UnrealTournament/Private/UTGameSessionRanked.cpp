@@ -15,6 +15,7 @@ AUTGameSessionRanked::AUTGameSessionRanked()
 {
 	ReservationBeaconHostClass = AUTPartyBeaconHost::StaticClass();
 	QosBeaconHostClass = AQosBeaconHost::StaticClass();
+	bSessionRegistrationLocked = false;
 
 	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
@@ -38,6 +39,13 @@ void AUTGameSessionRanked::RegisterServer()
 
 void AUTGameSessionRanked::StartServer()
 {
+	// Do one last check to see if we have been requested to shutdown, which could have happened during a restart
+	if (bGracefulShutdown)
+	{
+		ShutdownServer(TEXT("Graceful shutdown requested"), GracefulExitCode);
+		return;
+	}
+
 	const auto OnlineSub = IOnlineSubsystem::Get();
 	if (OnlineSub && GetWorld()->GetNetMode() == NM_DedicatedServer)
 	{
@@ -258,8 +266,23 @@ void AUTGameSessionRanked::PauseBeaconRequests(bool bPause)
 	}
 }
 
+void AUTGameSessionRanked::LockPlayersToSession(bool bNewLockState)
+{
+	if (bSessionRegistrationLocked != bNewLockState)
+	{
+		bSessionRegistrationLocked = bNewLockState;
+
+		if (ReservationBeaconHost)
+		{
+			ReservationBeaconHost->LockReservations(bNewLockState);
+		}
+	}
+}
+
 void AUTGameSessionRanked::Restart()
 {
+	LockPlayersToSession(false);
+
 	UWorld* const World = GetWorld();
 	check(World);
 
@@ -650,16 +673,21 @@ void AUTGameSessionRanked::InitHostBeacon(FOnlineSessionSettings* SessionSetting
 	if (ReservationBeaconHost)
 	{
 		// Setup values for the world manager when it is created later. This uses either the old beacon data or the session settings
-		//UTGame->CurrentPlaylistId = PlaylistId;
+		UTGame->CurrentPlaylistId = PlaylistId;
 
 		//ReservationBeaconHost->OnValidatePlayers().BindUObject(this, &AUTGameSessionRanked::OnBeaconValidatePlayers);
 		ReservationBeaconHost->OnReservationChanged().BindUObject(this, &AUTGameSessionRanked::OnBeaconReservationChange);
-		//ReservationBeaconHost->OnReservationsFull().BindUObject(this, &AUTGameSessionRanked::OnBeaconReservationsFull);
+		ReservationBeaconHost->OnReservationsFull().BindUObject(this, &AUTGameSessionRanked::OnBeaconReservationsFull);
 		ReservationBeaconHost->OnDuplicateReservation().BindUObject(this, &AUTGameSessionRanked::OnDuplicateReservation);
 		//ReservationBeaconHost->OnCancelationReceived().BindUObject(this, &AUTGameSessionRanked::OnCancelationReceived);
 		//ReservationBeaconHost->OnProcessReconnectForClient().BindUObject(this, &AUTGameSessionRanked::OnProcessReconnectForClient);
 		PauseBeaconRequests(false);
 	}
+}
+
+void AUTGameSessionRanked::OnBeaconReservationsFull()
+{
+
 }
 
 void AUTGameSessionRanked::OnBeaconReservationChange()
@@ -733,5 +761,71 @@ void AUTGameSessionRanked::UpdateSession(FName SessionName, FOnlineSessionSettin
 			OnUpdateSessionCompleteDelegateHandle = SessionInt->AddOnUpdateSessionCompleteDelegate_Handle(OnUpdateSessionCompleteDelegate);
 			SessionInt->UpdateSession(SessionName, SessionSettings, true);
 		}
+	}
+}
+
+void AUTGameSessionRanked::CheckForPossibleRestart()
+{
+	UWorld* const World = GetWorld();
+	AGameMode* const GameMode = World->GetAuthGameMode();
+	check(GameMode);
+
+	UE_LOG(LogOnlineGame, Log, TEXT("[AUTGameSession::CheckForPossibleRestart] Checking for possible restart..."));
+
+	/*
+	if (IsDevelopment())
+	{
+	UE_LOG(LogOnlineGame, Log, TEXT("[AUTGameSession::CheckForPossibleRestart] Ignoring restart for development build"));
+	return;
+	}
+	*/
+
+	// check if an unattended match is in progress
+	if (FParse::Param(FCommandLine::Get(), TEXT("Unattended")))
+	{
+		UE_LOG(LogOnlineGame, Log, TEXT("[AUTGameSession::CheckForPossibleRestart] Ignoring restart due to -unattended switch, assuming performance test."));
+		return;
+	}
+
+	// If there are no players, but there is a reservation, check back later
+	// reservations will clear out and it will be caught in a future call
+	if (GameMode->GetNumPlayers() == 0)
+	{
+		if (ReservationBeaconHost && ReservationBeaconHost->GetReservationCount() == 0)
+		{
+			UE_LOG(LogOnlineGame, Log, TEXT("[AUTGameSession::CheckForPossibleRestart] Game is empty with no reservations, restarting"));
+			Restart();
+		}
+	}
+}
+
+uint8 AUTGameSessionRanked::GetTeamForPlayer(const FUniqueNetIdRepl& PlayerId) const
+{
+	if (ReservationBeaconHost && PlayerId.IsValid())
+	{
+		int32 TeamNum = ReservationBeaconHost->GetTeamForCurrentPlayer(*PlayerId.GetUniqueNetId());
+		if (TeamNum != INDEX_NONE)
+		{
+			return TeamNum;
+		}
+	}
+
+	return 0;
+}
+
+void AUTGameSessionRanked::UnregisterPlayer(FName InSessionName, const FUniqueNetIdRepl& UniqueId)
+{
+	if (!bSessionRegistrationLocked)
+	{
+		// if locked out
+		Super::UnregisterPlayer(InSessionName, UniqueId);
+	}
+}
+
+void AUTGameSessionRanked::UnregisterPlayer(const APlayerController* ExitingPlayer)
+{
+	if (!bSessionRegistrationLocked)
+	{
+		Super::UnregisterPlayer(ExitingPlayer);
 	}
 }

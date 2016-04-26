@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	InputSettings.cpp: Project configurable input settings
@@ -12,7 +12,8 @@
 #include "GameFramework/InputSettings.h"
 
 UInputSettings::UInputSettings(const FObjectInitializer& ObjectInitializer)
-: Super(ObjectInitializer)
+	: Super(ObjectInitializer)
+	, DefaultViewportMouseCaptureMode(EMouseCaptureMode::CapturePermanently_IncludingInitialMouseDown)
 {
 }
 
@@ -55,6 +56,10 @@ void UInputSettings::PostInitProperties()
 
 		case LANG_GERMAN:
 			DefaultConsoleKey = EKeys::Caret;
+			break;
+
+		case LANG_ITALIAN:
+			DefaultConsoleKey = EKeys::Backslash;
 			break;
 
 		case LANG_SPANISH:

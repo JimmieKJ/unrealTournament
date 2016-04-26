@@ -1,10 +1,12 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 // Forward declarations
 class ULightComponent;
 class UInstancedStaticMeshComponent;
+class FShadowMap2D;
+
 
 struct FSignedDistanceFieldShadowSample
 {
@@ -197,7 +199,7 @@ public:
 /**
  * The abstract base class of 1D and 2D shadow-maps.
  */
-class FShadowMap : private FDeferredCleanupInterface
+class ENGINE_API FShadowMap : private FDeferredCleanupInterface
 {
 public:
 	enum
@@ -240,7 +242,7 @@ public:
 	virtual FShadowMapInteraction GetInteraction() const = 0;
 
 	// Runtime type casting.
-	virtual class FShadowMap2D* GetShadowMap2D() { return NULL; }
+	virtual FShadowMap2D* GetShadowMap2D() { return NULL; }
 	virtual const FShadowMap2D* GetShadowMap2D() const { return NULL; }
 
 	// Reference counting.
@@ -264,16 +266,16 @@ protected:
 	/**
 	 * Called when the light-map is no longer referenced.  Should release the lightmap's resources.
 	 */
-	ENGINE_API virtual void Cleanup();
+	virtual void Cleanup();
 
 private:
 	int32 NumRefs;
 
 	// FDeferredCleanupInterface
-	ENGINE_API virtual void FinishCleanup();
+	virtual void FinishCleanup();
 };
 
-class FShadowMap2D : public FShadowMap
+class ENGINE_API FShadowMap2D : public FShadowMap
 {
 public:
 
@@ -282,14 +284,14 @@ public:
 	 * @param	InWorld				World in which the textures exist
 	 * @param	bLightingSuccessful	Whether the lighting build was successful or not.
 	 */
-	ENGINE_API static void EncodeTextures(UWorld* InWorld, bool bLightingSuccessful);
+	static void EncodeTextures(UWorld* InWorld, bool bLightingSuccessful, bool bMultithreadedEncode =false );
 
 	/**
 	 * Constructs mip maps for a single shadowmap texture.
 	 */
 	static int32 EncodeSingleTexture(struct FShadowMapPendingTexture& PendingTexture, UShadowMapTexture2D* Texture, TArray< TArray<FFourDistanceFieldSamples>>& MipData);
 
-	static ENGINE_API FShadowMap2D* AllocateShadowMap(
+	static TRefCountPtr<FShadowMap2D> AllocateShadowMap(
 		UObject* LightMapOuter,
 		const TMap<ULightComponent*, FShadowMapData2D*>& ShadowMapData,
 		const FBoxSphereBounds& Bounds,
@@ -305,7 +307,7 @@ public:
 	 * @param	InPaddingType - the method for padding the shadowmap.
 	 * @param	ShadowmapFlags - flags that determine how the shadowmap is stored (e.g. streamed or not)
 	 */
-	static FShadowMap2D* AllocateInstancedShadowMap(UInstancedStaticMeshComponent* Component, TArray<TMap<ULightComponent*, TUniquePtr<FShadowMapData2D>>> InstancedShadowMapData,
+	static TRefCountPtr<FShadowMap2D> AllocateInstancedShadowMap(UInstancedStaticMeshComponent* Component, TArray<TMap<ULightComponent*, TUniquePtr<FShadowMapData2D>>> InstancedShadowMapData,
 		const FBoxSphereBounds& Bounds, ELightMapPaddingType PaddingType, EShadowMapFlags ShadowmapFlags);
 
 	FShadowMap2D();
@@ -340,7 +342,7 @@ public:
 		return bUpdateStatus;
 	}
 
-private:
+protected:
 
 	/** The texture which contains the shadow-map data. */
 	UShadowMapTexture2D* Texture;
@@ -358,7 +360,7 @@ private:
 	FVector4 InvUniformPenumbraSize;
 
 	/** If true, update the status when encoding light maps */
-	ENGINE_API static bool bUpdateStatus;
+	static bool bUpdateStatus;
 };
 
 

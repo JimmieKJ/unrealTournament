@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTNavMeshRenderingComponent.h"
-#include "Private/NavMeshRenderingHelpers.h"
 
 FPrimitiveSceneProxy* UUTNavMeshRenderingComponent::CreateSceneProxy()
 {
@@ -16,7 +15,11 @@ FPrimitiveSceneProxy* UUTNavMeshRenderingComponent::CreateSceneProxy()
 		{
 			bool bSavedDrawNavMesh = NavMesh->bDrawNavMesh;
 			NavMesh->bDrawNavMesh = false;
-			GatherData(ProxyData);
+
+			const int32 DetailFlags = ProxyData.GetDetailFlags(NavMesh);
+			TArray<int32> EmptyTileSet;
+			ProxyData.GatherData(NavMesh, DetailFlags, EmptyTileSet);
+
 			NavMesh->bDrawNavMesh = bSavedDrawNavMesh;
 		}
 		if (NavMesh->bDrawNavMesh)
@@ -24,7 +27,7 @@ FPrimitiveSceneProxy* UUTNavMeshRenderingComponent::CreateSceneProxy()
 			GatherTriangleData(&ProxyData);
 		}
 
-		SceneProxy = new FRecastRenderingSceneProxy(this, &ProxyData);
+		SceneProxy = new FNavMeshSceneProxy(this, &ProxyData);
 		ProxyData.Reset();
 	}
 	return SceneProxy;
@@ -51,11 +54,11 @@ void UUTNavMeshRenderingComponent::GatherTriangleData(FNavMeshSceneProxyData* Cu
 		FNavMeshSceneProxyData::FDebugMeshData DebugMeshData;
 		for (const FVector& Vert : TriangleData.Verts)
 		{
-			AddVertexHelper(DebugMeshData, Vert + CurrentData->NavMeshDrawOffset, NodeColor);
+			FNavMeshRenderingHelpers::AddVertex(DebugMeshData, Vert + CurrentData->NavMeshDrawOffset, NodeColor);
 		}
 		for (const FNavMeshTriangleList::FTriangle& Tri : TriangleData.Triangles)
 		{
-			AddTriangleHelper(DebugMeshData, Tri.Indices[0] + CurrentBaseIndex, Tri.Indices[1] + CurrentBaseIndex, Tri.Indices[2] + CurrentBaseIndex);
+			FNavMeshRenderingHelpers::AddTriangle(DebugMeshData, Tri.Indices[0] + CurrentBaseIndex, Tri.Indices[1] + CurrentBaseIndex, Tri.Indices[2] + CurrentBaseIndex);
 		}
 		DebugMeshData.ClusterColor = NodeColor;
 		CurrentData->MeshBuilders.Add(DebugMeshData);

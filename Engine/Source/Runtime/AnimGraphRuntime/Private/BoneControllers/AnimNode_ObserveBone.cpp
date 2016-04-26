@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimGraphRuntimePrivatePCH.h"
 #include "BoneControllers/AnimNode_ObserveBone.h"
@@ -27,7 +27,7 @@ void FAnimNode_ObserveBone::GatherDebugData(FNodeDebugData& DebugData)
 
 void FAnimNode_ObserveBone::EvaluateBoneTransforms(USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases, TArray<FBoneTransform>& OutBoneTransforms)
 {
-	const FBoneContainer BoneContainer = MeshBases.GetPose().GetBoneContainer();
+	const FBoneContainer& BoneContainer = MeshBases.GetPose().GetBoneContainer();
 
 	const FCompactPoseBoneIndex BoneIndex = BoneToObserve.GetCompactPoseIndex(BoneContainer);
 	FTransform BoneTM = MeshBases.GetComponentSpaceTransform(BoneIndex);

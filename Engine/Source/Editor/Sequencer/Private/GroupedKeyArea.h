@@ -1,11 +1,14 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "IKeyArea.h"
+#include "ISequencerKeyCollection.h"
+
 
 class FSequencerDisplayNode;
 class UMovieSceneSection;
+
 
 /** Keyable structure used to identify a particular FGroupedKeyArea */
 struct FIndexKey
@@ -23,13 +26,17 @@ struct FIndexKey
 	}
 
 private:
+
 	/** Cached path of the node that we relate to */
 	FString NodePath;
+
 	/** The movie scene section that we relate to */
 	TWeakObjectPtr<UMovieSceneSection> Section;
+
 	/** Cached hash for efficiency (to avoid having to re-hash strings all the time) */
 	uint32 CachedHash;
 };
+
 
 /** Structure that represents a number of keys */
 struct FKeyGrouping
@@ -68,37 +75,37 @@ struct FKeyGrouping
 	TArray<FKeyIndex> Keys;
 };
 
+
 /** A key area that represents multiple, distinct key areas */
-class FGroupedKeyArea : public IKeyArea
+class FGroupedKeyCollection
+	: public ISequencerKeyCollection
 {
 public:
-	/** Construct the area from a display node */
-	FGroupedKeyArea(FSequencerDisplayNode& InNode, int32 InSectionIndex);
+
+	/** Constructor */
+	FGroupedKeyCollection();
+
+public:
+
+	/** Initialize this key collection from the specified nodes. Only gathers keys from those explicitly specified. */
+	virtual void InitializeExplicit(const TArray<FSequencerDisplayNode*>& InNodes, float DuplicateThreshold = SMALL_NUMBER) override;
+
+	/** Initialize this key collection from the specified nodes. Gathers keys from all child nodes. */
+	virtual void InitializeRecursive(const TArray<FSequencerDisplayNode*>& InNodes, float DuplicateThreshold = SMALL_NUMBER) override;
 	
-	/* IKeyArea interface */
-	virtual TArray<FKeyHandle>		GetUnsortedKeyHandles() const override;
-	virtual void 					SetKeyTime(FKeyHandle KeyHandle, float NewKeyTime) const override;
-	virtual float					GetKeyTime(FKeyHandle KeyHandle) const override;
-	virtual FKeyHandle				MoveKey(FKeyHandle KeyHandle, float DeltaPosition) override;
-	virtual void					DeleteKey(FKeyHandle KeyHandle) override;
-	virtual void                    SetKeyInterpMode(FKeyHandle KeyHandle, ERichCurveInterpMode InterpMode) override;
-	virtual ERichCurveInterpMode    GetKeyInterpMode(FKeyHandle KeyHandle) const override;
-	virtual void                    SetKeyTangentMode(FKeyHandle KeyHandle, ERichCurveTangentMode TangentMode) override;
-	virtual ERichCurveTangentMode   GetKeyTangentMode(FKeyHandle KeyHandle) const override;
-	virtual void                    SetExtrapolationMode(ERichCurveExtrapolation ExtrapMode, bool bPreInfinity) override;
-	virtual ERichCurveExtrapolation GetExtrapolationMode(bool bPreInfinity) const override;
-	virtual TArray<FKeyHandle>		AddKeyUnique(float Time, EMovieSceneKeyInterpolation InKeyInterpolation, float TimeToCopyFrom = FLT_MAX) override;
-	virtual TOptional<FKeyHandle>				DuplicateKey(FKeyHandle KeyToDuplicate) override;
-	virtual FRichCurve*				GetRichCurve() override;
-	virtual UMovieSceneSection*		GetOwningSection() override;
-	virtual bool					CanCreateKeyEditor() override;
-	virtual TSharedRef<SWidget>		CreateKeyEditor(ISequencer* Sequencer) override;
-	virtual void					SetName(FName Name) override {}
-	virtual FName					GetName() const override { return NAME_None; }
-	virtual void					CopyKeys(FMovieSceneClipboardBuilder& ClipboardBuilder, const TFunctionRef<bool(FKeyHandle, const IKeyArea&)>& KeyMask) const override;
-	virtual void					PasteKeys(const FMovieSceneClipboardKeyTrack& KeyTrack, const FMovieSceneClipboardEnvironment& SrcEnvironment, const FSequencerPasteEnvironment& DstEnvironment) override;
-	virtual FLinearColor GetColor() override;
-	/* End IKeyArea interface */
+	/** Initialize this key collection from the specified node and section index. */
+	virtual void InitializeRecursive(FSequencerDisplayNode& InNode, int32 InSectionIndex, float DuplicateThreshold = SMALL_NUMBER) override;
+
+	/** Iterate the keys contained within this collection */
+	virtual void IterateKeys(const TFunctionRef<bool(float)>& Iter) override;
+
+	/** Get a value specifying how close keys need to be in order to be considered equal by this collection */
+	virtual float GetKeyGroupingThreshold() const override;
+
+	/** Find the first key in the given range. */
+	virtual TOptional<float> FindFirstKeyInRange(const TRange<float>& InRange, EFindKeyDirection Direction) const override;
+
+public:
 
 	/** Get the desired tint for the specified key handle */
 	FLinearColor GetKeyTint( FKeyHandle InHandle ) const;
@@ -107,6 +114,12 @@ public:
 	const FSlateBrush* GetBrush(FKeyHandle InHandle) const;
 
 protected:
+
+	/** Add the specified key area to this collection */
+	void AddKeyArea(const TSharedRef<IKeyArea>& InKeyArea);
+
+	/** Remove key groups that reside at similar times */
+	void RemoveDuplicateKeys(float DuplicateThreshold);
 
 	/** Update the persistent index with our new key handles */
 	void UpdateIndex() const;
@@ -118,13 +131,60 @@ protected:
 	FKeyGrouping* FindGroup(FKeyHandle InHandle);
 
 protected:
+	/** Array of (child) key areas that we are reflecting */
+	TArray<TSharedRef<IKeyArea>> KeyAreas;
+
+	/** Generated array of groups of keys harvested from the above array */
+	TArray<FKeyGrouping> Groups;
+
+	/** Key into our index */
+	FIndexKey IndexKey;
+
+	/** Value specifying how close keys need to be in order to be considered equal by this collection */
+	float GroupingThreshold;
+};
+
+/** A key area that represents multiple, distinct key areas */
+class FGroupedKeyArea
+	: public IKeyArea
+	, public FGroupedKeyCollection
+{
+public:
+
+	/** Construct the area from a display node */
+	FGroupedKeyArea(FSequencerDisplayNode& InNode, int32 InSectionIndex);
+
+public:
+
+	// IKeyArea interface
+
+	virtual TArray<FKeyHandle> GetUnsortedKeyHandles() const override;
+	virtual void SetKeyTime(FKeyHandle KeyHandle, float NewKeyTime) const override;
+	virtual float GetKeyTime(FKeyHandle KeyHandle) const override;
+	virtual FKeyHandle MoveKey(FKeyHandle KeyHandle, float DeltaPosition) override;
+	virtual void DeleteKey(FKeyHandle KeyHandle) override;
+	virtual void SetKeyInterpMode(FKeyHandle KeyHandle, ERichCurveInterpMode InterpMode) override;
+	virtual ERichCurveInterpMode GetKeyInterpMode(FKeyHandle KeyHandle) const override;
+	virtual void SetKeyTangentMode(FKeyHandle KeyHandle, ERichCurveTangentMode TangentMode) override;
+	virtual TSharedPtr<FStructOnScope> GetKeyStruct(FKeyHandle KeyHandle) override;
+	virtual ERichCurveTangentMode GetKeyTangentMode(FKeyHandle KeyHandle) const override;
+	virtual void SetExtrapolationMode(ERichCurveExtrapolation ExtrapMode, bool bPreInfinity) override;
+	virtual ERichCurveExtrapolation GetExtrapolationMode(bool bPreInfinity) const override;
+	virtual bool CanSetExtrapolationMode() const override;
+	virtual TArray<FKeyHandle> AddKeyUnique(float Time, EMovieSceneKeyInterpolation InKeyInterpolation, float TimeToCopyFrom = FLT_MAX) override;
+	virtual TOptional<FKeyHandle> DuplicateKey(FKeyHandle KeyToDuplicate) override;
+	virtual FRichCurve* GetRichCurve() override;
+	virtual UMovieSceneSection* GetOwningSection() override;
+	virtual bool CanCreateKeyEditor() override;
+	virtual TSharedRef<SWidget> CreateKeyEditor(ISequencer* Sequencer) override;
+	virtual void SetName(FName Name) override {}
+	virtual FName GetName() const override { return NAME_None; }
+	virtual void CopyKeys(FMovieSceneClipboardBuilder& ClipboardBuilder, const TFunctionRef<bool(FKeyHandle, const IKeyArea&)>& KeyMask) const override;
+	virtual void PasteKeys(const FMovieSceneClipboardKeyTrack& KeyTrack, const FMovieSceneClipboardEnvironment& SrcEnvironment, const FSequencerPasteEnvironment& DstEnvironment) override;
+	virtual TOptional<FLinearColor> GetColor() override;
+
+protected:
 	
 	/** Pointer to the section to which this key area relates */
 	UMovieSceneSection* Section;
-	/** Array of (child) key areas that we are reflecting */
-	TArray<TSharedRef<IKeyArea>> KeyAreas;
-	/** Generated array of groups of keys harvested from the above array */
-	TArray<FKeyGrouping> Groups;
-	/** Key into our index */
-	FIndexKey IndexKey;
 };

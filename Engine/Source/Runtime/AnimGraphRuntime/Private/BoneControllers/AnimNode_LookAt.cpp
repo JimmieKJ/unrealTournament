@@ -1,8 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimGraphRuntimePrivatePCH.h"
 #include "BoneControllers/AnimNode_LookAt.h"
 #include "AnimationRuntime.h"
+#include "Animation/AnimInstanceProxy.h"
 
 FVector FAnimNode_LookAt::GetAlignVector(const FTransform& Transform, EAxisOption::Type AxisOption)
 {
@@ -32,6 +33,8 @@ FAnimNode_LookAt::FAnimNode_LookAt()
 	, InterpolationTriggerThreashold(0.f)
 	, CurrentLookAtLocation(FVector::ZeroVector)
 	, AccumulatedInterpoolationTime(0.f)
+	, CachedLookAtSocketMeshBoneIndex(INDEX_NONE)
+	, CachedLookAtSocketBoneIndex(INDEX_NONE)
 {
 }
 
@@ -77,6 +80,18 @@ void FAnimNode_LookAt::EvaluateBoneTransforms(USkeletalMeshComponent* SkelComp, 
 	{
 		const FTransform& LookAtTransform  = MeshBases.GetComponentSpaceTransform(LookAtBone.GetCompactPoseIndex(BoneContainer));
 		TargetLocationInComponentSpace = LookAtTransform.GetLocation();
+	}
+	// if valid data is available
+	else if (CachedLookAtSocketMeshBoneIndex != INDEX_NONE)
+	{
+		// current LOD has valid index (FCompactPoseBoneIndex is valid if current LOD supports)
+		if (CachedLookAtSocketBoneIndex != INDEX_NONE)
+		{
+			FTransform BoneTransform = MeshBases.GetComponentSpaceTransform(CachedLookAtSocketBoneIndex);
+			FTransform SocketTransformInCS = CachedSocketLocalTransform * BoneTransform;
+
+			TargetLocationInComponentSpace = SocketTransformInCS.GetLocation();
+		}
 	}
 	else
 	{
@@ -195,6 +210,13 @@ void FAnimNode_LookAt::InitializeBoneReferences(const FBoneContainer& RequiredBo
 {
 	BoneToModify.Initialize(RequiredBones);
 	LookAtBone.Initialize(RequiredBones);
+
+	// this should be called whenver LOD changes and so on
+	if (CachedLookAtSocketMeshBoneIndex != INDEX_NONE)
+	{
+		const int32 SocketBoneSkeletonIndex = RequiredBones.GetPoseToSkeletonBoneIndexArray()[CachedLookAtSocketMeshBoneIndex];
+		CachedLookAtSocketBoneIndex = RequiredBones.GetCompactPoseIndexFromSkeletonIndex(SocketBoneSkeletonIndex);
+	}
 }
 
 void FAnimNode_LookAt::UpdateInternal(const FAnimationUpdateContext& Context)
@@ -202,4 +224,33 @@ void FAnimNode_LookAt::UpdateInternal(const FAnimationUpdateContext& Context)
 	FAnimNode_SkeletalControlBase::UpdateInternal(Context);
 
 	AccumulatedInterpoolationTime = FMath::Clamp(AccumulatedInterpoolationTime+Context.GetDeltaTime(), 0.f, InterpolationTime);;
+}
+
+void FAnimNode_LookAt::Initialize(const FAnimationInitializeContext& Context)
+{
+	FAnimNode_SkeletalControlBase::Initialize(Context);
+
+	CachedLookAtSocketMeshBoneIndex = INDEX_NONE;
+
+	if (LookAtSocket != NAME_None)
+	{
+		const USkeletalMeshComponent* OwnerMeshComponent = Context.AnimInstanceProxy->GetSkelMeshComponent();
+		if (OwnerMeshComponent && OwnerMeshComponent->DoesSocketExist(LookAtSocket))
+		{
+			USkeletalMeshSocket const* const Socket = OwnerMeshComponent->GetSocketByName(LookAtSocket);
+			if (Socket)
+			{
+				CachedSocketLocalTransform = Socket->GetSocketLocalTransform();
+				// cache mesh bone index, so that we know this is valid information to follow
+				CachedLookAtSocketMeshBoneIndex = OwnerMeshComponent->GetBoneIndex(Socket->BoneName);
+
+				ensureMsgf(CachedLookAtSocketMeshBoneIndex != INDEX_NONE, TEXT("%s : socket has invalid bone."), *LookAtSocket.ToString());
+			}
+		}
+		else
+		{
+			// @todo : move to graph node warning
+			UE_LOG(LogAnimation, Warning, TEXT("%s: socket doesn't exist"), *LookAtSocket.ToString());
+		}
+	}
 }

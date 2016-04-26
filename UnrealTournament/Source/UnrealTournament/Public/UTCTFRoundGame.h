@@ -19,6 +19,10 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		bool bAsymmetricVictoryConditions;
 
+	/*  If single flag in game */
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		bool bOneFlagGameMode;
+
 	/*  If true, trying to deliver own flag to enemy base */ 
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		bool bCarryOwnFlag;
@@ -26,10 +30,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	/*  If true, no auto return flag on touch */ 
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		bool bNoFlagReturn;
-
-	/** Q engages rechargeable through the air dash instead of having translocator. */
-	UPROPERTY(BlueprintReadOnly, Category = CTF)
-		bool bUseDash;
 
 	/** If true, red team is trying to cap with asymmetric conditions. */
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
@@ -39,9 +39,28 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		float UnlimitedRespawnWaitTime;
 
+	/** Limited Respawn wait time. */
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		float LimitedRespawnWaitTime;
+
 	/** If true, round lives are per player. */
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		bool bPerPlayerLives;
+
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		bool bAttackerLivesLimited;
+
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		bool bDefenderLivesLimited;
+
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		int32 NumRounds;
+
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		int OffenseKillsNeededForPowerUp;
+
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		int DefenseKillsNeededForPowerUp;
 
 	UPROPERTY()
 		bool bNeedFiveKillsMessage;
@@ -58,15 +77,59 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY()
 		int32 RemainingPickupDelay;
 
+	UPROPERTY()
+		int32 MaxTimeScoreBonus;
+
+	UPROPERTY()
+		bool bRollingAttackerSpawns;
+
+	UPROPERTY()
+		float RollingAttackerRespawnDelay;
+
+	UPROPERTY()
+		float LastAttackerSpawnTime;
+
+	UPROPERTY()
+		float RollingSpawnStartTime;
+
+	UPROPERTY()
+		bool bLastManOccurred;
+	
+	UPROPERTY(config)
+		bool bShouldAllowPowerupSelection;
+
+	UPROPERTY()
+		int32 GoldBonusTime;
+
+	UPROPERTY()
+		int32 SilverBonusTime;
+
+	UPROPERTY()
+		int32 GoldScore;
+
+	UPROPERTY()
+		int32 SilverScore;
+
+	UPROPERTY()
+		int32 BronzeScore;
+
+	// Score for a successful defense
+	UPROPERTY()
+		int32 DefenseScore;
+
+	virtual int32 GetFlagCapScore() override;
+
 	virtual void InitFlags();
 
 	virtual void FlagCountDown();
 
+	virtual void ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason) override;
+	virtual void BroadcastScoreUpdate(APlayerState* ScoringPlayer, AUTTeamInfo* ScoringTeam, int32 OldScore = 0) override;
 	virtual void AnnounceMatchStart() override;
 	virtual void RestartPlayer(AController* aPlayer) override;
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual bool CheckScore_Implementation(AUTPlayerState* Scorer);
-	virtual bool CheckReachedGoalScore(AUTTeamInfo* ScoringTeam);
+	virtual bool CheckForWinner(AUTTeamInfo* ScoringTeam);
 	void BuildServerResponseRules(FString& OutRules);
 	virtual void HandleFlagCapture(AUTPlayerState* Holder) override;
 	virtual void HandleExitingIntermission() override;
@@ -78,11 +141,21 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual void DiscardInventory(APawn* Other, AController* Killer) override;
 	virtual bool ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast) override;
 	virtual void CheckGameTime() override;
+	virtual void HandleMatchIntermission() override;
+	virtual void ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
+	virtual float AdjustNearbyPlayerStartScore(const AController* Player, const AController* OtherController, const ACharacter* OtherCharacter, const FVector& StartLoc, const APlayerStart* P) override;
+	virtual int32 PickCheatWinTeam() override;
+	virtual void AdjustLeaderHatFor(AUTCharacter* UTChar) override;
 
 	virtual void TossSkull(TSubclassOf<AUTSkullPickup> SkullPickupClass, const FVector& StartLocation, const FVector& TossVelocity, AUTCharacter* FormerInstigator);
 
-	/** Score round ending due to team out of lives. */
-	virtual void ScoreOutOfLives(int32 WinningTeamIndex);
+	virtual void EndTeamGame(AUTTeamInfo* Winner, FName Reason);
+
+	virtual bool UTIsHandlingReplays() override { return false; }
+	virtual void StopRCTFReplayRecording();
+
+	/** Score round ending due some other reason than capture. */
+	virtual void ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason = 0);
 
 	/** Initialize for new round. */
 	virtual void InitRound();
@@ -91,7 +164,10 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 
 	TAssetSubclassOf<class AUTArmor> ShieldBeltObject;
 	TAssetSubclassOf<class AUTArmor> ThighPadObject;
+	TAssetSubclassOf<class AUTArmor> ArmorVestObject;
 	TAssetSubclassOf<class AUTTimedPowerup> UDamageObject;
+	TAssetSubclassOf<class AUTInventory> ActivatedPowerupPlaceholderObject;
+	TAssetSubclassOf<class AUTInventory> RepulsorObject;
 
 	UPROPERTY()
 		TSubclassOf<class AUTArmor> ShieldBeltClass;
@@ -102,6 +178,35 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY()
 		TSubclassOf<class AUTTimedPowerup> UDamageClass;
 
+	UPROPERTY()
+		TSubclassOf<class AUTArmor> ArmorVestClass;
+
+	UPROPERTY()
+		TSubclassOf<class AUTInventory> ActivatedPowerupPlaceholderClass;
+
+	virtual TSubclassOf<class AUTInventory> GetActivatedPowerupPlaceholderClass() { return ActivatedPowerupPlaceholderClass; };
+
+	UPROPERTY()
+		TSubclassOf<class AUTInventory> RepulsorClass;
+
 	virtual void GiveDefaultInventory(APawn* PlayerPawn) override;
-	virtual void ToggleSpecialFor(AUTCharacter* C) override;
+
+protected:
+	virtual bool IsTeamOnOffense(int32 TeamNumber) const;
+	virtual bool IsTeamOnDefense(int32 TeamNumber) const;
+	virtual bool IsPlayerOnLifeLimitedTeam(AUTPlayerState* PlayerState) const;
+
+	virtual void HandlePowerupUnlocks(APawn* Other, AController* Killer);
+	virtual void UpdatePowerupUnlockProgress(AUTPlayerState* VictimPS, AUTPlayerState* KillerPS);
+	virtual void GrantPowerupToTeam(int TeamIndex, AUTPlayerState* PlayerToHighlight);
+
+	UPROPERTY()
+	bool bNoLivesEndRound;
+
+	UPROPERTY()
+	int32 InitialBoostCount;
+
+	UPROPERTY()
+	bool bGiveSpawnInventoryBonus;
+
 };

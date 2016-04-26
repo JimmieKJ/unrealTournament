@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ContentBrowserPCH.h"
 #include "SScrollBorder.h"
@@ -977,7 +977,7 @@ void SAssetView::Tick( const FGeometry& AllottedGeometry, const double InCurrent
 			AssetAwaitingRename->bRenameWhenScrolledIntoview = false;
 			AwaitingRename = nullptr;
 		}
-		else if (FSlateApplication::Get().HasFocusedDescendants(OwnerWindow.ToSharedRef()))
+		else if (OwnerWindow->HasAnyUserFocusOrFocusedDescendants())
 		{
 			AssetAwaitingRename->RenamedRequestEvent.ExecuteIfBound();
 			AssetAwaitingRename->bRenameWhenScrolledIntoview = false;
@@ -1205,8 +1205,72 @@ FReply SAssetView::OnDrop( const FGeometry& MyGeometry, const FDragDropEvent& Dr
 		{
 			if ( ExternalDragDropOp->HasFiles() )
 			{
+				TArray<FString> ImportFiles;
+				TMap<FString, UObject*> ReimportFiles;
 				FAssetToolsModule& AssetToolsModule = FModuleManager::Get().LoadModuleChecked<FAssetToolsModule>("AssetTools");
-				AssetToolsModule.Get().ImportAssets( ExternalDragDropOp->GetFiles(), SourcesData.PackagePaths[0].ToString() );
+				FString RootDestinationPath = SourcesData.PackagePaths[0].ToString();
+				TArray<TPair<FString, FString>> FilesAndDestinations;
+				const TArray<FString>& DragFiles = ExternalDragDropOp->GetFiles();
+				AssetToolsModule.Get().ExpandDirectories(DragFiles, RootDestinationPath, FilesAndDestinations);
+
+				for (int32 FileIdx = 0; FileIdx < FilesAndDestinations.Num(); ++FileIdx)
+				{
+					const FString& Filename = FilesAndDestinations[FileIdx].Key;
+					const FString& DestinationPath = FilesAndDestinations[FileIdx].Value;
+					FString Name = ObjectTools::SanitizeObjectName(FPaths::GetBaseFilename(Filename));
+					FString PackageName = DestinationPath + TEXT("/") + Name;
+
+					// We can not create assets that share the name of a map file in the same location
+					if (FEditorFileUtils::IsMapPackageAsset(PackageName))
+					{
+						//The error message will be log in the import process
+						ImportFiles.Add(Filename);
+						continue;
+					}
+					//Check if package exist in memory
+					UPackage* Pkg = FindPackage(nullptr, *PackageName);
+					bool IsPkgExist = Pkg != nullptr;
+					//check if package exist on file
+					if (!IsPkgExist && !FPackageName::DoesPackageExist(PackageName))
+					{
+						ImportFiles.Add(Filename);
+						continue;
+					}
+					if (Pkg == nullptr)
+					{
+						Pkg = CreatePackage(nullptr, *PackageName);
+						if (Pkg == nullptr)
+						{
+							//Cannot create a package that don't exist on disk or in memory!!!
+							//The error message will be log in the import process
+							ImportFiles.Add(Filename);
+							continue;
+						}
+					}
+					// Make sure the destination package is loaded
+					Pkg->FullyLoad();
+
+					// Check for an existing object
+					UObject* ExistingObject = StaticFindObject(UObject::StaticClass(), Pkg, *Name);
+					if (ExistingObject != nullptr)
+					{
+						ReimportFiles.Add(Filename, ExistingObject);
+					}
+					else
+					{
+						ImportFiles.Add(Filename);
+					}
+				}
+				//Reimport
+				for (auto kvp : ReimportFiles)
+				{
+					FReimportManager::Instance()->Reimport(kvp.Value, false, true, kvp.Key);
+				}
+				//Import
+				if (ImportFiles.Num() > 0)
+				{
+					AssetToolsModule.Get().ImportAssets(ImportFiles, SourcesData.PackagePaths[0].ToString());
+				}
 			}
 
 			return FReply::Handled();
@@ -1535,6 +1599,7 @@ void SAssetView::RefreshSourceItems()
 	// Remove any assets that should be filtered out any redirectors and non-assets
 	const bool bDisplayEngine = GetDefault<UContentBrowserSettings>()->GetDisplayEngineFolder();
 	const bool bDisplayPlugins = GetDefault<UContentBrowserSettings>()->GetDisplayPluginFolders();
+	const bool bDisplayL10N = GetDefault<UContentBrowserSettings>()->GetDisplayL10NFolder();
 	for (int32 AssetIdx = Items.Num() - 1; AssetIdx >= 0; --AssetIdx)
 	{
 		const FAssetData& Item = Items[AssetIdx];
@@ -1545,9 +1610,9 @@ void SAssetView::RefreshSourceItems()
 		// If this is a plugin folder, and we don't want to show them, remove
 		const bool IsAHiddenPluginFolder = !bDisplayPlugins && ContentBrowserUtils::IsPluginFolder(Item.PackagePath.ToString());
 		// Do not show localized content folders.
-		const bool IsLocalizedContentFolder = ContentBrowserUtils::IsLocalizationFolder(Item.PackagePath.ToString());
+		const bool IsTheHiddenLocalizedContentFolder = !bDisplayL10N && ContentBrowserUtils::IsLocalizationFolder(Item.PackagePath.ToString());
 
-		const bool ShouldFilterOut = IsMainlyARedirector || IsHiddenEngineFolder || IsAHiddenPluginFolder || IsLocalizedContentFolder;
+		const bool ShouldFilterOut = IsMainlyARedirector || IsHiddenEngineFolder || IsAHiddenPluginFolder || IsTheHiddenLocalizedContentFolder;
 		if (ShouldFilterOut)
 		{
 			Items.RemoveAtSwap(AssetIdx);
@@ -1781,6 +1846,7 @@ void SAssetView::RefreshFolders()
 	TArray<FString> FoldersToAdd;
 
 	const bool bDisplayDev = GetDefault<UContentBrowserSettings>()->GetDisplayDevelopersFolder();
+	const bool bDisplayL10N = GetDefault<UContentBrowserSettings>()->GetDisplayL10NFolder();
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 	{
 		TArray<FString> SubPaths;
@@ -1797,7 +1863,7 @@ void SAssetView::RefreshFolders()
 					continue;
 				}
 
-				if (ContentBrowserUtils::IsLocalizationFolder(SubPath))
+				if (!bDisplayL10N && ContentBrowserUtils::IsLocalizationFolder(SubPath))
 				{
 					continue;
 				}
@@ -2475,6 +2541,19 @@ TSharedRef<SWidget> SAssetView::GetViewButtonContent()
 			);
 
 		MenuBuilder.AddMenuEntry(
+			LOCTEXT("ShowL10NFolderOption", "Show Localized Assets"),
+			LOCTEXT("ShowFoldersOptionToolTip", "Show assets within the localized asset directory."),
+			FSlateIcon(),
+			FUIAction(
+			FExecuteAction::CreateSP(this, &SAssetView::ToggleShowL10NFolder),
+			FCanExecuteAction::CreateSP(this, &SAssetView::IsToggleShowL10NFolderAllowed),
+			FIsActionChecked::CreateSP(this, &SAssetView::IsShowingL10NFolder)
+			),
+			NAME_None,
+			EUserInterfaceActionType::ToggleButton
+			);
+
+		MenuBuilder.AddMenuEntry(
 			LOCTEXT("ShowDevelopersFolderOption", "Show Developers Folder"),
 			LOCTEXT("ShowDevelopersFolderOptionToolTip", "Show the developers folder in the view."),
 			FSlateIcon(),
@@ -2592,6 +2671,7 @@ void SAssetView::ToggleRealTimeThumbnails()
 {
 	check( CanShowRealTimeThumbnails() );
 	GetMutableDefault<UContentBrowserSettings>()->RealTimeThumbnails = !GetDefault<UContentBrowserSettings>()->RealTimeThumbnails;
+	GetMutableDefault<UContentBrowserSettings>()->PostEditChange();
 }
 
 bool SAssetView::CanShowRealTimeThumbnails() const
@@ -2676,6 +2756,23 @@ bool SAssetView::IsToggleShowDevelopersFolderAllowed() const
 bool SAssetView::IsShowingDevelopersFolder() const
 {
 	return GetDefault<UContentBrowserSettings>()->GetDisplayDevelopersFolder();
+}
+
+void SAssetView::ToggleShowL10NFolder()
+{
+	check(IsToggleShowFoldersAllowed());
+	GetMutableDefault<UContentBrowserSettings>()->SetDisplayL10NFolder(!GetDefault<UContentBrowserSettings>()->GetDisplayL10NFolder());
+	GetMutableDefault<UContentBrowserSettings>()->PostEditChange();
+}
+
+bool SAssetView::IsToggleShowL10NFolderAllowed() const
+{
+	return true;
+}
+
+bool SAssetView::IsShowingL10NFolder() const
+{
+	return GetDefault<UContentBrowserSettings>()->GetDisplayL10NFolder();
 }
 
 void SAssetView::ToggleShowCollections()
@@ -3459,6 +3556,14 @@ bool SAssetView::AssetVerifyRenameCommit(const TSharedPtr<FAssetViewItem>& Item,
 	{
 		const TSharedPtr<FAssetViewAsset>& ItemAsAsset = StaticCastSharedPtr<FAssetViewAsset>(Item);
 		if ( !Item->IsTemporaryItem() && NewNameString == ItemAsAsset->Data.AssetName.ToString() )
+		{
+			return true;
+		}
+	}
+	else
+	{
+		const TSharedPtr<FAssetViewFolder>& ItemAsFolder = StaticCastSharedPtr<FAssetViewFolder>(Item);
+		if (NewNameString == ItemAsFolder->FolderName.ToString())
 		{
 			return true;
 		}

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -68,9 +68,15 @@ class UParticleModuleCollision : public UParticleModuleCollisionBase
 	 *	This is one-way - particle --> object. The particle does 
 	 *	not have physics applied to it - it just generates an 
 	 *	impulse applied to the object it collides with. 
+	 * NOTE: having this on prevents the code from running off the game thread.
 	 */
 	UPROPERTY(EditAnywhere, Category=Collision)
 	uint32 bApplyPhysics:1;
+
+	/** Any trigger volumes that are hit will be ignored. NOTE: This can be turned off if the TrigerVolume physics object type is not in the CollisionTypes array.
+	* Turning this off is strongly recommended as having it on prevents the code from running off the game thread.*/
+	UPROPERTY(EditAnywhere, Category=Collision)
+	uint32 bIgnoreTriggerVolumes:1;
 
 	/** 
 	 *	The mass of the particle - for use when bApplyPhysics is true. 
@@ -90,6 +96,7 @@ class UParticleModuleCollision : public UParticleModuleCollisionBase
 	 *	If true, then collisions with Pawns will still react, but 
 	 *	the UsedMaxCollisions count will not be decremented. 
 	 *	(ie., They don't 'count' as collisions)
+	 * NOTE: Having this on prevents the code from running in parallel.
 	 */
 	UPROPERTY(EditAnywhere, Category=Collision)
 	uint32 bPawnsDoNotDecrementCount:1;
@@ -156,15 +163,12 @@ class UParticleModuleCollision : public UParticleModuleCollisionBase
 	//Begin UParticleModule Interface
 	virtual void Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase) override;
 	virtual void Update(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime) override;
-	virtual uint32 RequiredBytes(FParticleEmitterInstance* Owner = NULL) override;
-	virtual uint32 RequiredBytesPerInstance(FParticleEmitterInstance* Owner = NULL) override;
+	virtual uint32 RequiredBytes(UParticleModuleTypeDataBase* TypeData) override;
+	virtual uint32 RequiredBytesPerInstance() override;
 	virtual uint32 PrepPerInstanceBlock(FParticleEmitterInstance* Owner, void* InstData) override;
 	virtual void SetToSensibleDefaults(UParticleEmitter* Owner) override;
 	virtual bool GenerateLODModuleValues(UParticleModule* SourceModule, float Percentage, UParticleLODLevel* LODLevel) override;
-	virtual bool CanTickInAnyThread() override
-	{
-		return false;
-	}
+	virtual bool CanTickInAnyThread() override;
 	//End UParticleModule Interface
 
 	/**

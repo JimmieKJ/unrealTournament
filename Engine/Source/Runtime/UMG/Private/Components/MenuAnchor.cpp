@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 
@@ -9,6 +9,8 @@
 
 UMenuAnchor::UMenuAnchor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, ShouldDeferPaintingAfterWindowContent(true)
+	, UseApplicationMenuStack(true)
 {
 	Placement = MenuPlacement_ComboBox;
 }
@@ -25,7 +27,9 @@ TSharedRef<SWidget> UMenuAnchor::RebuildWidget()
 	MyMenuAnchor = SNew(SMenuAnchor)
 		.Placement(Placement)
 		.OnGetMenuContent(BIND_UOBJECT_DELEGATE(FOnGetContent, HandleGetMenuContent))
-		.OnMenuOpenChanged(BIND_UOBJECT_DELEGATE(FOnIsOpenChanged, HandleMenuOpenChanged));
+		.OnMenuOpenChanged(BIND_UOBJECT_DELEGATE(FOnIsOpenChanged, HandleMenuOpenChanged))
+		.ShouldDeferPaintingAfterWindowContent(ShouldDeferPaintingAfterWindowContent)
+		.UseApplicationMenuStack(UseApplicationMenuStack);
 
 	if ( GetChildrenCount() > 0 )
 	{
@@ -152,11 +156,6 @@ bool UMenuAnchor::HasOpenSubMenus() const
 }
 
 #if WITH_EDITOR
-
-const FSlateBrush* UMenuAnchor::GetEditorIcon()
-{
-	return FUMGStyle::Get().GetBrush("Widget.MenuAnchor");
-}
 
 const FText UMenuAnchor::GetPaletteCategory()
 {

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #define SPHERICAL_OPACITY_FOR_SHADOW_DEPTHS 1
 
@@ -51,6 +51,8 @@ void MainVS(
 	out float4 OutPosition : SV_POSITION
 	)
 {
+	ResolvedView = ResolveView();
+	
 	FVertexFactoryIntermediates VFIntermediates = GetVertexFactoryIntermediates(Input);
 	float4 WorldPos = VertexFactoryGetWorldPosition(Input, VFIntermediates);
 	float3x3 TangentToLocal = VertexFactoryGetTangentToLocal(Input, VFIntermediates);
@@ -79,13 +81,16 @@ void MainOpacityPS(
 	out float4 OutColor1 : SV_Target1
 	)
 {
+	ResolvedView = ResolveView();
+
 	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(Inputs.FactoryInterpolants, SvPosition);
-	CalcMaterialParameters(MaterialParameters, SvPosition, 1);
+	FPixelMaterialInputs PixelMaterialInputs;
+	CalcMaterialParameters(MaterialParameters, PixelMaterialInputs, SvPosition, 1);
 	
 	// Evaluate the mask for translucent materials
-	GetMaterialClippingShadowDepth(MaterialParameters);
+	GetMaterialClippingShadowDepth(MaterialParameters, PixelMaterialInputs);
 
-	float Density = GetMaterialOpacity(MaterialParameters) * GetMaterialTranslucentShadowDensityScale();
+	float Density = GetMaterialOpacity(PixelMaterialInputs) * GetMaterialTranslucentShadowDensityScale();
 
 #if PERSPECTIVE_CORRECT_DEPTH
 	Inputs.ShadowDepth *= TranslInvMaxSubjectDepth;

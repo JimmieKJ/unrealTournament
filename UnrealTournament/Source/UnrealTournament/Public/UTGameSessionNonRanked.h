@@ -43,7 +43,7 @@ public:
 	virtual void ValidatePlayer(const FString& Address, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage, bool bValidateAsSpectator) override;
 public:
 
-	void DestroyHostBeacon();
+	virtual void DestroyHostBeacon(bool bPreserveReservations = false) override;
 
 	virtual void UpdateGameState() override;
 

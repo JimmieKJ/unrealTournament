@@ -1,8 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "MeshBatch.h"
+#include "ArchiveBase.h"
 #include "BlueprintGeneratedClass.generated.h"
 
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Persistent Uber Graph Frame memory"), STAT_PersistentUberGraphFrameMemory, STATGROUP_Memory, );
@@ -51,8 +52,14 @@ public:
 	// Reverse map from code offset to macro instance node(s)
 	TMultiMap< int32, TWeakObjectPtr<UEdGraphNode> > LineNumberToMacroInstanceNodeMap;
 
-	// Reverse map from code offset to exec pin
-	TMap< int32, TWeakObjectPtr<UEdGraphPin> > LineNumberToPinMap;
+	// Reverse map from code offset to source pin
+	TMap< int32, TWeakObjectPtr<UEdGraphPin> > LineNumberToSourcePinMap;
+
+	// Reverse map from source pin to mapped code offset(s)
+	TMultiMap< TWeakObjectPtr<UEdGraphPin>, int32 > SourcePinToLineNumbersMap;
+
+	// Map from source node (impure) to pure node script code range
+	TMap< TWeakObjectPtr<UEdGraphNode>, FInt32Range > PureNodeScriptCodeRangeMap;
 
 public:
 	FDebuggingInfoForSingleFunction()
@@ -265,15 +272,59 @@ public:
 		}
 	}
 
-	// Finds the macro source node associated with the code location Function+CodeOffset, or nullptr if there isn't one
-	UEdGraphPin* FindExecPinFromCodeLocation(UFunction* Function, int32 CodeOffset) const
+	// Finds the source pin associated with the code location Function+CodeOffset, or nullptr if there isn't one
+	UEdGraphPin* FindSourcePinFromCodeLocation(UFunction* Function, int32 CodeOffset) const
 	{
 		if (const FDebuggingInfoForSingleFunction* pFuncInfo = PerFunctionLineNumbers.Find(Function))
 		{
-			return pFuncInfo->LineNumberToPinMap.FindRef(CodeOffset).Get();
+			return pFuncInfo->LineNumberToSourcePinMap.FindRef(CodeOffset).Get();
 		}
 
 		return nullptr;
+	}
+
+	// Finds all code locations (Function+CodeOffset) associated with the source pin
+	void FindAllCodeLocationsFromSourcePin(UEdGraphPin const* SourcePin, UFunction* InFunction, TArray<int32>& OutPinToCodeAssociations) const
+	{
+		OutPinToCodeAssociations.Empty();
+
+		if (const FDebuggingInfoForSingleFunction* pFuncInfo = PerFunctionLineNumbers.Find(InFunction))
+		{
+			pFuncInfo->SourcePinToLineNumbersMap.MultiFind(SourcePin, OutPinToCodeAssociations, true);
+		}
+	}
+
+	// Finds the first code location (Function+CodeOffset) associated with the source pin within the given range, or INDEX_NONE if there isn't one
+	int32 FindCodeLocationFromSourcePin(UEdGraphPin const* SourcePin, UFunction* InFunction, FInt32Range InRange = FInt32Range()) const
+	{
+		TArray<int32> PinToCodeAssociations;
+		FindAllCodeLocationsFromSourcePin(SourcePin, InFunction, PinToCodeAssociations);
+
+		for (int32 i = 0; i < PinToCodeAssociations.Num(); ++i)
+		{
+			if (InRange.Contains(PinToCodeAssociations[i]))
+			{
+				return PinToCodeAssociations[i];
+			}
+		}
+
+		return INDEX_NONE;
+	}
+
+	// Finds the pure node script code range associated with the [impure] source node, or FInt32Range(INDEX_NONE) if there is no existing association
+	FInt32Range FindPureNodeScriptCodeRangeFromSourceNode(const UEdGraphNode* SourceNode, UFunction* InFunction) const
+	{
+		FInt32Range Result = FInt32Range(INDEX_NONE);
+
+		if (const FDebuggingInfoForSingleFunction* DebugInfoPtr = PerFunctionLineNumbers.Find(InFunction))
+		{
+			if (const FInt32Range* ValuePtr = DebugInfoPtr->PureNodeScriptCodeRangeMap.Find(SourceNode))
+			{
+				Result = *ValuePtr;
+			}
+		}
+
+		return Result;
 	}
 
 	// Finds the breakpoint injection site(s) in bytecode if any were associated with the given node
@@ -295,7 +346,7 @@ public:
 	UProperty* FindClassPropertyForPin(const UEdGraphPin* Pin) const
 	{
 		UProperty* PropertyPtr = DebugPinToPropertyMap.FindRef(Pin);
-		if ((PropertyPtr == nullptr) && (Pin->Direction == EGPD_Input) && (Pin->LinkedTo.Num() > 0))
+		if ((PropertyPtr == nullptr) && (Pin->LinkedTo.Num() > 0))
 		{
 			// Try checking the other side of the connection
 			PropertyPtr = DebugPinToPropertyMap.FindRef(Pin->LinkedTo[0]);
@@ -334,10 +385,17 @@ public:
 		}
 	}
 
-	void RegisterPinToCodeAssociation(UEdGraphPin const* ExecPin, UFunction* InFunction, int32 CodeOffset)
+	void RegisterPureNodeScriptCodeRange(UEdGraphNode* TrueSourceNode, UFunction* InFunction, FInt32Range InPureNodeScriptCodeRange)
 	{
 		FDebuggingInfoForSingleFunction& PerFuncInfo = PerFunctionLineNumbers.FindOrAdd(InFunction);
-		PerFuncInfo.LineNumberToPinMap.Add(CodeOffset, ExecPin);
+		PerFuncInfo.PureNodeScriptCodeRangeMap.Add(TrueSourceNode, InPureNodeScriptCodeRange);
+	}
+
+	void RegisterPinToCodeAssociation(UEdGraphPin const* SourcePin, UFunction* InFunction, int32 CodeOffset)
+	{
+		FDebuggingInfoForSingleFunction& PerFuncInfo = PerFunctionLineNumbers.FindOrAdd(InFunction);
+		PerFuncInfo.LineNumberToSourcePinMap.Add(CodeOffset, SourcePin);
+		PerFuncInfo.SourcePinToLineNumbersMap.Add(SourcePin, CodeOffset);
 	}
 
 	// Registers an association between an object (pin or node typically) and an associated class member property
@@ -390,6 +448,84 @@ struct ENGINE_API FEventGraphFastCallPair
 	int32 EventGraphCallOffset;
 };
 
+/** A single changed Blueprint component property. */
+USTRUCT()
+struct ENGINE_API FBlueprintComponentChangedPropertyInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** The name of the changed property. */
+	UPROPERTY()
+	FName PropertyName;
+
+	/** The array index of the changed property. */
+	UPROPERTY()
+	int32 ArrayIndex;
+
+	/** The parent struct (owner) of the changed property. */
+	UPROPERTY()
+	UStruct* PropertyScope;
+
+	/** Default constructor. */
+	FBlueprintComponentChangedPropertyInfo()
+	{
+		ArrayIndex = 0;
+		PropertyScope = nullptr;
+	}
+};
+
+/** Cooked data for a Blueprint component template. */
+USTRUCT()
+struct ENGINE_API FBlueprintCookedComponentInstancingData
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** Flag indicating whether or not this contains valid cooked data. Note that an empty changed property list can also be a valid template data context. */
+	UPROPERTY()
+	bool bIsValid;
+
+	/** List of property info records with values that differ between the template and the component class CDO. This list will be generated at cook time. */
+	UPROPERTY()
+	TArray<struct FBlueprintComponentChangedPropertyInfo> ChangedPropertyList;
+
+	/** Source template object name (recorded at load time and used for instancing). */
+	FName ComponentTemplateName;
+
+	/** Source template object class (recorded at load time and used for instancing). */
+	UClass* ComponentTemplateClass;
+
+	/** Source template object flags (recorded at load time and used for instancing). */
+	EObjectFlags ComponentTemplateFlags;
+
+	/** Default constructor. */
+	FBlueprintCookedComponentInstancingData()
+	{
+		bIsValid = false;
+		ComponentTemplateClass = nullptr;
+		ComponentTemplateFlags = RF_NoFlags;
+	}
+
+	/** Builds/returns the internal property list that's used for serialization. This is a linked list of UProperty references. */
+	const FCustomPropertyListNode* GetCachedPropertyListForSerialization() const;
+
+	/** Called at load time to generate the internal cached property data stream from serialization of the source template object. */
+	void LoadCachedPropertyDataForSerialization(UActorComponent* SourceTemplate);
+
+	/** Returns the internal property data stream that's used for fast binary object serialization when instancing components at runtime. */
+	const TArray<uint8>& GetCachedPropertyDataForSerialization() const { return CachedPropertyDataForSerialization; }
+
+protected:
+	/** Internal method used to help recursively build the cached property list for serialization. */
+	void BuildCachedPropertyList(FCustomPropertyListNode** CurrentNode, const UStruct* CurrentScope, int32* CurrentSourceIdx = nullptr) const;
+
+private:
+	/** Internal property list that's used in binary object serialization at component instancing time. */
+	mutable TIndirectArray<FCustomPropertyListNode> CachedPropertyListForSerialization;
+
+	/** Internal property data stream that's used in binary object serialization at component instancing time. */
+	TArray<uint8> CachedPropertyDataForSerialization;
+};
+
 UCLASS()
 class ENGINE_API UBlueprintGeneratedClass : public UClass
 {
@@ -438,7 +574,16 @@ public:
 #if WITH_EDITORONLY_DATA
 	UPROPERTY(Transient)
 	UObject* OverridenArchetypeForCDO;
-#endif //WITH_EDITOR
+
+	/** Property guid map */
+	UPROPERTY()
+	TMap<FName,FGuid> PropertyGuids;
+#endif //WITH_EDITORONLY_DATA
+
+	// Mapping of changed properties & data to apply when instancing components in a cooked build (one entry per named AddComponent node template for fast lookup at runtime).
+	// Note: This is not currently utilized by the editor; it is a runtime optimization for cooked builds only. It assumes that the component class structure does not change.
+	UPROPERTY()
+	TMap<FName, struct FBlueprintCookedComponentInstancingData> CookedComponentInstancingData;
 
 	/** 
 	 * Gets an array of all BPGeneratedClasses (including InClass as 0th element) parents of given generated class 
@@ -470,6 +615,7 @@ public:
 	virtual void ConditionalRecompileClass(TArray<UObject*>* ObjLoaded) override;
 	virtual UObject* GetArchetypeForCDO() const override;
 #endif //WITH_EDITOR
+	virtual void SerializeDefaultObject(UObject* Object, FArchive& Ar) override;
 	virtual bool IsFunctionImplementedInBlueprint(FName InFunctionName) const override;
 	virtual uint8* GetPersistentUberGraphFrame(UObject* Obj, UFunction* FuncToCheck) const override;
 	virtual void CreatePersistentUberGraphFrame(UObject* Obj, bool bCreateOnlyIfEmpty = false, bool bSkipSuperClass = false) const override;
@@ -483,7 +629,22 @@ public:
 	{
 		return bHasInstrumentation; 
 	}
+	virtual const FCustomPropertyListNode* GetCustomPropertyListForPostConstruction() const override
+	{
+		return CustomPropertyListForPostConstruction.Num() > 0 ? *CustomPropertyListForPostConstruction.GetData() : nullptr;
+	}
+
+protected:
+
+	virtual FName FindPropertyNameFromGuid(const FGuid& PropertyGuid) const override;
+	virtual FGuid FindPropertyGuidFromName(const FName InName) const override;
+	virtual bool ArePropertyGuidsAvailable() const override;
 	// End UClass interface
+
+public:
+
+	/** Called when the custom list of properties used during post-construct initialization needs to be rebuilt (e.g. after serialization and recompilation). */
+	void UpdateCustomPropertyListForPostConstruction();
 
 	static void AddReferencedObjectsInUbergraphFrame(UObject* InThis, FReferenceCollector& Collector);
 
@@ -507,6 +668,9 @@ public:
 	static UDynamicBlueprintBinding* GetDynamicBindingObject(const UClass* ThisClass, UClass* BindingClass);
 
 #if WITH_EDITOR
+	/** Unbind functions on supplied actor from delegates */
+	static void UnbindDynamicDelegates(const UClass* ThisClass, UObject* InInstance);
+
 	/** Unbind functions on supplied actor from delegates tied to a specific property */
 	void UnbindDynamicDelegatesForProperty(UObject* InInstance, const UObjectProperty* InObjectProperty);
 #endif
@@ -522,4 +686,12 @@ public:
 			SuperBPClass->InstancePreReplication(Obj, ChangedPropertyTracker);
 		}
 	}
+
+protected:
+	/** Internal helper method used to recursively build the custom property list that's used for post-construct initialization. */
+	void BuildCustomPropertyListForPostConstruction(FCustomPropertyListNode*& InPropertyList, UStruct* InStruct, const uint8* DataPtr, const uint8* DefaultDataPtr);
+
+private:
+	/** List of native class-owned properties that differ from defaults. This is used to optimize property initialization during post-construction by minimizing the number of native class-owned property values that get copied to the new instance. */
+	TIndirectArray<FCustomPropertyListNode> CustomPropertyListForPostConstruction;
 };

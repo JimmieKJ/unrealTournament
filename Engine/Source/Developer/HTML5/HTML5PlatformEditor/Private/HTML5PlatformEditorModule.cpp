@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "HTML5PlatformEditorPrivatePCH.h"
 #include "ModuleInterface.h"
@@ -44,7 +44,7 @@ class FHTML5PlatformEditorModule
 		{
 			SettingsModule->RegisterSettings("Project", "Platforms", "HTML5",
 				LOCTEXT("TargetSettingsName", "HTML5"),
-				LOCTEXT("SDKSettingsDescription", "Settings for HTML5"),
+				LOCTEXT("TargetSettingsDescription", "Settings for HTML5"),
 				GetMutableDefault<UHTML5TargetSettings>()
 			);
 

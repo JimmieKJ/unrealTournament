@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "FunctionalTestingPrivatePCH.h"
 #if WITH_EDITOR
@@ -380,6 +380,3 @@ void UFunctionalTestingManager::SetReproString(FString ReproString)
 		ReproString.ParseIntoArray(TestReproStrings, FFunctionalTesting::ReproStringTestSeparator, /*InCullEmpty=*/true);
 	}
 }
-
-
-#undef LOCTEXT_NAMESPACE

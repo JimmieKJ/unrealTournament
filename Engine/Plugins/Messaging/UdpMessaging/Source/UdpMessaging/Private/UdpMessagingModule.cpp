@@ -1,8 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UdpMessagingPrivatePCH.h"
+#if WITH_EDITOR
 #include "ISettingsModule.h"
 #include "ISettingsSection.h"
+#endif
 #include "ModuleInterface.h"
 #include "ModuleManager.h"
 
@@ -70,6 +72,7 @@ public:
 				Ar.Log(TEXT("  Static Endpoints: None"));
 			}
 
+#if PLATFORM_DESKTOP
 			// tunnel status
 			if (MessageTunnel.IsValid())
 			{
@@ -123,6 +126,7 @@ public:
 					Ar.Log(TEXT("  Active Connections: None"));
 				}
 			}
+#endif
 		}
 		else if (FParse::Command(&Cmd, TEXT("RESTART")))
 		{
@@ -131,7 +135,9 @@ public:
 		else if (FParse::Command(&Cmd, TEXT("SHUTDOWN")))
 		{
 			ShutdownBridge();
+#if PLATFORM_DESKTOP
 			ShutdownTunnel();
+#endif
 		}
 		else
 		{
@@ -166,6 +172,7 @@ public:
 			return;
 		}
 
+#if WITH_EDITOR
 		// register settings
 		ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
 
@@ -182,6 +189,7 @@ public:
 				SettingsSection->OnModified().BindRaw(this, &FUdpMessagingModule::HandleSettingsSaved);
 			}
 		}
+#endif // WITH_EDITOR
 
 		// register application events
 		FCoreDelegates::ApplicationHasReactivatedDelegate.AddRaw(this, &FUdpMessagingModule::HandleApplicationHasReactivated);
@@ -196,6 +204,7 @@ public:
 		FCoreDelegates::ApplicationHasReactivatedDelegate.RemoveAll(this);
 		FCoreDelegates::ApplicationWillDeactivateDelegate.RemoveAll(this);
 
+#if WITH_EDITOR
 		// unregister settings
 		ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
 
@@ -203,10 +212,13 @@ public:
 		{
 			SettingsModule->UnregisterSettings("Project", "Plugins", "UdpMessaging");
 		}
+#endif
 
 		// shut down services
 		ShutdownBridge();
+#if PLATFORM_DESKTOP
 		ShutdownTunnel();
+#endif
 	}
 
 	virtual bool SupportsDynamicReloading() override
@@ -231,7 +243,7 @@ protected:
 		{
 			if (!Settings->UnicastEndpoint.IsEmpty())
 			{
-				UE_LOG(LogUdpMessaging, Warning, TEXT("Invalid UDP Messaging UnicastEndpoint '%s' - binding to all local network adapters instead"), *Settings->UnicastEndpoint);
+				UE_LOG(LogUdpMessaging, Warning, TEXT("Invalid setting for UnicastEndpoint '%s' - binding to all local network adapters instead"), *Settings->UnicastEndpoint);
 			}
 
 			UnicastEndpoint = FIPv4Endpoint::Any;
@@ -243,7 +255,7 @@ protected:
 		{
 			if (!Settings->MulticastEndpoint.IsEmpty())
 			{
-				UE_LOG(LogUdpMessaging, Warning, TEXT("Invalid UDP Messaging MulticastEndpoint '%s' - using default endpoint '%s' instead"), *Settings->MulticastEndpoint, *UDP_MESSAGING_DEFAULT_MULTICAST_ENDPOINT.ToText().ToString());
+				UE_LOG(LogUdpMessaging, Warning, TEXT("Invalid setting for MulticastEndpoint '%s' - using default endpoint '%s' instead"), *Settings->MulticastEndpoint, *UDP_MESSAGING_DEFAULT_MULTICAST_ENDPOINT.ToText().ToString());
 			}
 
 			MulticastEndpoint = UDP_MESSAGING_DEFAULT_MULTICAST_ENDPOINT;
@@ -262,12 +274,13 @@ protected:
 			Settings->SaveConfig();
 		}
 
-		UE_LOG(LogUdpMessaging, Log, TEXT("Initializing bridge on interface %s to multicast group %s."), *UnicastEndpoint.ToText().ToString(), *MulticastEndpoint.ToText().ToString());
+		UE_LOG(LogUdpMessaging, Log, TEXT("Initializing bridge on interface %s to multicast group %s."), *UnicastEndpoint.ToString(), *MulticastEndpoint.ToText().ToString());
 
 		MessageBridge = FMessageBridgeBuilder()
 			.UsingTransport(MakeShareable(new FUdpMessageTransport(UnicastEndpoint, MulticastEndpoint, Settings->MulticastTimeToLive)));
 	}
 
+#if PLATFORM_DESKTOP
 	/** Initializes the message tunnel with the current settings. */
 	void InitializeTunnel()
 	{
@@ -281,19 +294,19 @@ protected:
 
 		if (!FIPv4Endpoint::Parse(Settings->TunnelUnicastEndpoint, UnicastEndpoint))
 		{
-			UE_LOG(LogUdpMessaging, Warning, TEXT("Invalid UDP Tunneling UnicastEndpoint '%s' - binding to all local network adapters instead"), *Settings->UnicastEndpoint);
+			UE_LOG(LogUdpMessaging, Warning, TEXT("Invalid setting for UnicastEndpoint '%s' - binding to all local network adapters instead"), *Settings->UnicastEndpoint);
 
 			UnicastEndpoint = FIPv4Endpoint::Any;
-			Settings->UnicastEndpoint = UnicastEndpoint.ToString();
+			Settings->TunnelUnicastEndpoint = UnicastEndpoint.ToString();
 			ResaveSettings = true;
 		}
 
 		if (!FIPv4Endpoint::Parse(Settings->TunnelMulticastEndpoint, MulticastEndpoint))
 		{
-			UE_LOG(LogUdpMessaging, Warning, TEXT("Invalid UDP Tunneling MulticastEndpoint '%s' - using default endpoint '%s' instead"), *Settings->MulticastEndpoint, *UDP_MESSAGING_DEFAULT_MULTICAST_ENDPOINT.ToText().ToString());
+			UE_LOG(LogUdpMessaging, Warning, TEXT("Invalid setting for MulticastEndpoint '%s' - using default endpoint '%s' instead"), *Settings->MulticastEndpoint, *UDP_MESSAGING_DEFAULT_MULTICAST_ENDPOINT.ToText().ToString());
 
 			MulticastEndpoint = UDP_MESSAGING_DEFAULT_MULTICAST_ENDPOINT;
-			Settings->MulticastEndpoint = MulticastEndpoint.ToString();
+			Settings->TunnelMulticastEndpoint = MulticastEndpoint.ToString();
 			ResaveSettings = true;
 		}
 
@@ -302,7 +315,7 @@ protected:
 			Settings->SaveConfig();
 		}
 
-		UE_LOG(LogUdpMessaging, Log, TEXT("Initializing tunnel on interface %s to multicast group %s."), *UnicastEndpoint.ToText().ToString(), *MulticastEndpoint.ToText().ToString());
+		UE_LOG(LogUdpMessaging, Log, TEXT("Initializing tunnel on interface %s to multicast group %s."), *UnicastEndpoint.ToString(), *MulticastEndpoint.ToText().ToString());
 
 		MessageTunnel = MakeShareable(new FUdpMessageTunnel(UnicastEndpoint, MulticastEndpoint));
 
@@ -321,6 +334,7 @@ protected:
 			}
 		}
 	}
+#endif
 
 	/** Restarts the bridge and tunnel services. */
 	void RestartServices()
@@ -336,6 +350,7 @@ protected:
 			ShutdownBridge();
 		}
 
+#if PLATFORM_DESKTOP
 		if (Settings.EnableTunnel)
 		{
 			InitializeTunnel();
@@ -344,6 +359,7 @@ protected:
 		{
 			ShutdownTunnel();
 		}
+#endif
 	}
 
 	/**
@@ -354,25 +370,12 @@ protected:
 	 */
 	bool SupportsNetworkedTransport() const
 	{
-		if (FApp::IsGame())
-		{
-			// only allow in Debug and Development configurations for now
-			if ((FApp::GetBuildConfiguration() == EBuildConfigurations::Shipping) || (FApp::GetBuildConfiguration() == EBuildConfigurations::Test))
-			{
-				return false;
-			}
+		const bool IsMessagingExplicitlyDesired = FParse::Param(FCommandLine::Get(), TEXT("Messaging"));
 
+		if (FApp::IsGame() && (IsMessagingExplicitlyDesired || IsRunningCommandlet()))
+		{
 			// disallow unsupported platforms
 			if (!FPlatformMisc::SupportsMessaging() || !FPlatformProcess::SupportsMultithreading())
-			{
-				return false;
-			}
-		}
-
-		if (FApp::IsGame() || IsRunningCommandlet())
-		{
-			// only allow UDP transport if explicitly desired
-			if (!FParse::Param(FCommandLine::Get(), TEXT("Messaging")))
 			{
 				return false;
 			}
@@ -392,6 +395,7 @@ protected:
 		}
 	}
 
+#if PLATFORM_DESKTOP
 	/** Shuts down the message tunnel. */
 	void ShutdownTunnel()
 	{
@@ -401,6 +405,7 @@ protected:
 			MessageTunnel.Reset();
 		}		
 	}
+#endif
 
 private:
 
@@ -414,7 +419,9 @@ private:
 	void HandleApplicationWillDeactivate()
 	{
 		ShutdownBridge();
+#if PLATFORM_DESKTOP
 		ShutdownTunnel();
+#endif
 	}
 
 	/** Callback for when the settings were saved. */
@@ -430,8 +437,10 @@ private:
 	/** Holds the message bridge if present. */
 	IMessageBridgePtr MessageBridge;
 
+#if PLATFORM_DESKTOP
 	/** Holds the message tunnel if present. */
 	IUdpMessageTunnelPtr MessageTunnel;
+#endif
 };
 
 

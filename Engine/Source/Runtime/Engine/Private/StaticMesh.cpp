@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	StaticMesh.cpp: Static mesh class implementation.
@@ -14,6 +14,7 @@
 #include "TargetPlatform.h"
 #include "SpeedTreeWind.h"
 #include "DistanceFieldAtlas.h"
+#include "UObject/DevObjectVersion.h"
 
 #if WITH_EDITOR
 #include "RawMesh.h"
@@ -24,6 +25,8 @@
 #include "Engine/StaticMeshSocket.h"
 #include "EditorFramework/AssetImportData.h"
 #include "AI/Navigation/NavCollision.h"
+
+#include "ReleaseObjectVersion.h"
 
 DEFINE_LOG_CATEGORY(LogStaticMesh);	
 
@@ -384,7 +387,7 @@ void FStaticMeshLODResources::InitVertexFactory(
 		InitStaticMeshVertexFactory,
 		InitStaticMeshVertexFactoryParams,Params,Params,
 		{
-			FLocalVertexFactory::DataType Data;
+			FLocalVertexFactory::FDataType Data;
 			Data.PositionComponent = FVertexStreamComponent(
 				&Params.LODResources->PositionVertexBuffer,
 				STRUCT_OFFSET(FPositionVertex,Position),
@@ -512,11 +515,15 @@ FStaticMeshLODResources::FStaticMeshLODResources()
 	, bHasReversedIndices(false)
 	, bHasReversedDepthOnlyIndices(false)
 	, DepthOnlyNumTriangles(0)
+	, SplineVertexFactory(nullptr)
+	, SplineVertexFactoryOverrideColorVertexBuffer(nullptr)
 {
 }
 
 FStaticMeshLODResources::~FStaticMeshLODResources()
 {
+	delete (FRenderResource*)SplineVertexFactory;
+	delete (FRenderResource*)SplineVertexFactoryOverrideColorVertexBuffer;
 	delete DistanceFieldData;
 }
 
@@ -631,6 +638,15 @@ void FStaticMeshLODResources::ReleaseResources()
 	// Release the vertex factories.
 	BeginReleaseResource(&VertexFactory);
 	BeginReleaseResource(&VertexFactoryOverrideColorVertexBuffer);
+
+	if (SplineVertexFactory)
+	{
+		BeginReleaseResource((FRenderResource *)SplineVertexFactory);
+	}
+	if (SplineVertexFactoryOverrideColorVertexBuffer)
+	{
+		BeginReleaseResource((FRenderResource *)SplineVertexFactoryOverrideColorVertexBuffer);
+	}
 
 	if (DistanceFieldData)
 	{
@@ -1193,9 +1209,17 @@ static FString BuildStaticMeshDerivedDataKey(UStaticMesh* Mesh, const FStaticMes
 
 static FString BuildDistanceFieldDerivedDataKey(const FString& InMeshKey)
 {
+	static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DistanceFields.MaxPerMeshResolution"));
+	const int32 PerMeshMax = CVar->GetValueOnAnyThread();
+	const FString PerMeshMaxString = PerMeshMax == 128 ? TEXT("") : FString(TEXT("_%u"), PerMeshMax);
+
+	static const auto CVarDensity = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.DistanceFields.DefaultVoxelDensity"));
+	const float VoxelDensity = CVarDensity->GetValueOnAnyThread();
+	const FString VoxelDensityString = VoxelDensity == .1f ? TEXT("") : FString(TEXT("_%.3f"), VoxelDensity);
+
 	return FDerivedDataCacheInterface::BuildCacheKey(
 		TEXT("DIST"),
-		*FString::Printf(TEXT("%s_%s"), *InMeshKey, DISTANCEFIELD_DERIVEDDATA_VER),
+		*FString::Printf(TEXT("%s_%s%s%s"), *InMeshKey, DISTANCEFIELD_DERIVEDDATA_VER, *PerMeshMaxString, *VoxelDensityString),
 		TEXT(""));
 }
 
@@ -1438,7 +1462,7 @@ FBox UStaticMesh::GetBoundingBox() const
 	return ExtendedBounds.GetBox();
 }
 
-float UStaticMesh::GetStreamingTextureFactor(int32 RequestedUVIndex)
+float UStaticMesh::GetStreamingTextureFactor(int32 RequestedUVIndex) const
 {
 	check(RequestedUVIndex >= 0);
 	check(RequestedUVIndex < MAX_STATIC_TEXCOORDS);
@@ -1461,6 +1485,118 @@ float UStaticMesh::GetStreamingTextureFactor(int32 RequestedUVIndex)
 	}
 	return StreamingTextureFactor;
 }
+
+bool UStaticMesh::GetStreamingTextureFactor(float& OutTexelFactor, FBoxSphereBounds& OutBounds, int32 CoordinateIndex, int32 LODIndex, int32 ElementIndex, const FTransform& Transform) const 
+{
+#if WITH_EDITORONLY_DATA
+	if (!GIsEditor || !RenderData || !RenderData->LODResources.IsValidIndex(LODIndex))
+	{
+		return false;
+	}
+
+	const FStaticMeshLODResources& LODModel = RenderData->LODResources[LODIndex];
+
+	if (CoordinateIndex < 0 || CoordinateIndex >= LODModel.GetNumTexCoords())
+	{
+		return false;
+	}
+
+	if (!LODModel.Sections.IsValidIndex(ElementIndex))
+	{
+		return false;
+	}
+
+	struct FTriangleInfo
+	{
+		FTriangleInfo(float InAera, float InTexelRatio) : Aera(InAera), TexelRatio(InTexelRatio) {}
+		float Aera;
+		float TexelRatio;
+	};
+
+	struct FCompareAera
+	{
+		FORCEINLINE bool operator()(FTriangleInfo const& A, FTriangleInfo const& B) const { return A.Aera < B.Aera; }
+	};
+
+	struct FCompareTexelRatio
+	{
+		FORCEINLINE bool operator()(FTriangleInfo const& A, FTriangleInfo const& B) const { return A.TexelRatio < B.TexelRatio; }
+	};
+
+	TArray<FTriangleInfo> TriangleInfos;
+
+	const FStaticMeshSection& SectionInfo = LODModel.Sections[ElementIndex];
+	const int32 SectionIndexCount = SectionInfo.NumTriangles * 3;
+	FIndexArrayView IndexBuffer = LODModel.IndexBuffer.GetArrayView();
+	
+	FBox TransformedSectionBox(ForceInit);
+
+	for (uint32 TriangleIndex = 0; TriangleIndex < SectionInfo.NumTriangles; ++TriangleIndex)
+	{
+		const int32 Index0 = IndexBuffer[SectionInfo.FirstIndex + TriangleIndex * 3 + 0];
+		const int32 Index1 = IndexBuffer[SectionInfo.FirstIndex + TriangleIndex * 3 + 1];
+		const int32 Index2 = IndexBuffer[SectionInfo.FirstIndex + TriangleIndex * 3 + 2];
+
+		FVector Pos0 = Transform.TransformPosition(LODModel.PositionVertexBuffer.VertexPosition(Index0));
+		FVector Pos1 = Transform.TransformPosition(LODModel.PositionVertexBuffer.VertexPosition(Index1));
+		FVector Pos2 = Transform.TransformPosition(LODModel.PositionVertexBuffer.VertexPosition(Index2));
+
+		TransformedSectionBox += Pos0;
+		TransformedSectionBox += Pos1;
+		TransformedSectionBox += Pos2;
+
+		FVector2D UV0 = LODModel.VertexBuffer.GetVertexUV(Index0, CoordinateIndex);
+		FVector2D UV1 = LODModel.VertexBuffer.GetVertexUV(Index1, CoordinateIndex);
+		FVector2D UV2 = LODModel.VertexBuffer.GetVertexUV(Index2, CoordinateIndex);
+
+		FVector P01 = Pos1 - Pos0;
+		FVector P02 = Pos2 - Pos0;
+
+		float Aera = FVector::CrossProduct(P01, P02).Size();
+
+		if (Aera > SMALL_NUMBER)
+		{
+			float L1 = P01.Size();
+			float L2 = P02.Size();
+
+			float T1 = (UV1 - UV0).Size();
+			float T2 = (UV2 - UV0).Size();
+
+			if (T1 > SMALL_NUMBER && T2 > SMALL_NUMBER)
+			{
+				float TexelRatio = FMath::Max(L1 / T1, L2 / T2);
+				TriangleInfos.Push(FTriangleInfo(Aera, TexelRatio));
+			}
+		}
+	}
+
+	TriangleInfos.Sort(FCompareTexelRatio());
+
+	float WeightedTexelFactorSum = 0;
+	float AreaSum = 0;
+
+	// Remove 10% of higher and lower texel factors.
+	int32 Threshold = FMath::FloorToInt(.10f * (float)TriangleInfos.Num());
+	for (int32 Index = Threshold; Index < TriangleInfos.Num() - Threshold; ++Index)
+	{
+		WeightedTexelFactorSum += TriangleInfos[Index].TexelRatio * TriangleInfos[Index].Aera;
+		AreaSum += TriangleInfos[Index].Aera;
+	}
+
+	if (AreaSum == 0)
+	{
+		return false;
+	}
+
+	OutBounds = TransformedSectionBox;
+	OutTexelFactor = WeightedTexelFactorSum / AreaSum;
+	return true;
+
+#else
+	return false;
+#endif
+}	
+
 
 /**
  * Releases the static mesh's render resources.
@@ -1576,12 +1712,14 @@ void UStaticMesh::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 	int32 NumTriangles = 0;
 	int32 NumVertices = 0;
 	int32 NumUVChannels = 0;
+	int32 NumLODs = 0;
 	if (RenderData && RenderData->LODResources.Num() > 0)
 	{
 		const FStaticMeshLODResources& LOD = RenderData->LODResources[0];
 		NumTriangles = LOD.IndexBuffer.GetNumIndices() / 3;
 		NumVertices = LOD.VertexBuffer.GetNumVertices();
 		NumUVChannels = LOD.VertexBuffer.GetNumTexCoords();
+		NumLODs = RenderData->LODResources.Num();
 	}
 
 	int32 NumCollisionPrims = 0;
@@ -1602,7 +1740,8 @@ void UStaticMesh::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 	OutTags.Add( FAssetRegistryTag("UVChannels", FString::FromInt(NumUVChannels), FAssetRegistryTag::TT_Numerical) );
 	OutTags.Add( FAssetRegistryTag("Materials", FString::FromInt(Materials.Num()), FAssetRegistryTag::TT_Numerical) );
 	OutTags.Add( FAssetRegistryTag("ApproxSize", ApproxSizeStr, FAssetRegistryTag::TT_Dimensional) );
-	OutTags.Add( FAssetRegistryTag("CollisionPrims", FString::FromInt(NumCollisionPrims), FAssetRegistryTag::TT_Numerical) );
+	OutTags.Add( FAssetRegistryTag("CollisionPrims", FString::FromInt(NumCollisionPrims), FAssetRegistryTag::TT_Numerical));
+	OutTags.Add( FAssetRegistryTag("LODs", FString::FromInt(NumLODs), FAssetRegistryTag::TT_Numerical));
 
 #if WITH_EDITORONLY_DATA
 	if (AssetImportData)
@@ -1832,16 +1971,20 @@ void UStaticMesh::CalculateExtendedBounds()
 		Bounds = RenderData->Bounds;
 	}
 
-	// Convert to Min and Max
-	FVector Min = Bounds.Origin - Bounds.BoxExtent;
-	FVector Max = Bounds.Origin + Bounds.BoxExtent;
-	// Apply bound extensions
-	Min -= NegativeBoundsExtension;
-	Max += PositiveBoundsExtension;
-	// Convert back to Origin, Extent and update SphereRadius
-	Bounds.Origin = (Min + Max) / 2;
-	Bounds.BoxExtent = (Max - Min) / 2;	
-	Bounds.SphereRadius = Bounds.BoxExtent.GetAbsMax();
+	// Only apply bound extension if necessary, as it will result in a larger bounding sphere radius than retrieved from the render data
+	if (!NegativeBoundsExtension.IsZero() || !PositiveBoundsExtension.IsZero())
+	{
+		// Convert to Min and Max
+		FVector Min = Bounds.Origin - Bounds.BoxExtent;
+		FVector Max = Bounds.Origin + Bounds.BoxExtent;
+		// Apply bound extensions
+		Min -= NegativeBoundsExtension;
+		Max += PositiveBoundsExtension;
+		// Convert back to Origin, Extent and update SphereRadius
+		Bounds.Origin = (Min + Max) / 2;
+		Bounds.BoxExtent = (Max - Min) / 2;
+		Bounds.SphereRadius = Bounds.BoxExtent.Size();
+	}
 
 	ExtendedBounds = Bounds;
 }
@@ -1852,6 +1995,11 @@ void UStaticMesh::CalculateExtendedBounds()
 FUObjectAnnotationSparseBool GStaticMeshesThatNeedMaterialFixup;
 #endif // #if WITH_EDITORONLY_DATA
 
+#if WITH_EDITOR
+COREUOBJECT_API extern bool GOutputCookingWarnings;
+#endif
+
+
 /**
  *	UStaticMesh::Serialize
  */
@@ -1860,6 +2008,8 @@ void UStaticMesh::Serialize(FArchive& Ar)
 	DECLARE_SCOPE_CYCLE_COUNTER( TEXT("UStaticMesh::Serialize"), STAT_StaticMesh_Serialize, STATGROUP_LoadTime );
 
 	Super::Serialize(Ar);
+
+	Ar.UsingCustomVersion(FReleaseObjectVersion::GUID);
 
 	FStripDataFlags StripFlags( Ar );
 
@@ -1878,6 +2028,30 @@ void UStaticMesh::Serialize(FArchive& Ar)
 	if (Ar.UE4Ver() >= VER_UE4_STATIC_MESH_STORE_NAV_COLLISION)
 	{
 		Ar << NavCollision;
+#if WITH_EDITOR
+		if ((BodySetup != nullptr) && 
+			bHasNavigationData && 
+			(NavCollision == nullptr))
+		{
+			if (Ar.IsPersistent() && Ar.IsLoading() && (Ar.GetDebugSerializationFlags() & DSF_EnableCookerWarnings))
+			{
+				UE_LOG(LogStaticMesh, Warning, TEXT("Serialized NavCollision but it was null (%s) NavCollision will be created dynamicaly at cook time.  Please resave package %s."), *GetName(), *GetOutermost()->GetPathName());
+			}
+		}
+#endif
+	}
+#if WITH_EDITOR
+	else if (bHasNavigationData && BodySetup && GOutputCookingWarnings)
+	{
+		UE_LOG(LogStaticMesh, Warning, TEXT("This StaticMeshes (%s) NavCollision will be created dynamicaly at cook time.  Please resave %s."), *GetName(), *GetOutermost()->GetPathName())
+	}
+#endif
+
+	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
+
+	if(Ar.IsLoading() && Ar.CustomVer(FFrameworkObjectVersion::GUID) < FFrameworkObjectVersion::UseBodySetupCollisionProfile && BodySetup)
+	{
+		BodySetup->DefaultInstance.SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
 	}
 
 #if WITH_EDITORONLY_DATA
@@ -2098,6 +2272,13 @@ void UStaticMesh::PostLoad()
 	{
 		CalculateExtendedBounds();
 	}
+
+	// New fix for incorrect extended bounds
+	const int32 CustomVersion = GetLinkerCustomVersion(FReleaseObjectVersion::GUID);
+	if (CustomVersion < FReleaseObjectVersion::StaticMeshExtendedBoundsFix)
+	{
+		CalculateExtendedBounds();
+	}
 #endif // #if WITH_EDITOR
 
 	// We want to always have a BodySetup, its used for per-poly collision as well
@@ -2143,7 +2324,11 @@ bool UStaticMesh::GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionD
 #if WITH_EDITORONLY_DATA
 	check(HasValidRenderData());
 
-	FStaticMeshLODResources& LOD = RenderData->LODResources[0];
+	// Get the LOD level to use for collision
+	// Always use 0 if asking for 'all tri data'
+	const int32 UseLODIndex = bInUseAllTriData ? 0 : FMath::Clamp(LODForCollision, 0, RenderData->LODResources.Num()-1);
+
+	FStaticMeshLODResources& LOD = RenderData->LODResources[UseLODIndex];
 
 	// Scale all verts into temporary vertex buffer.
 	const uint32 NumVerts = LOD.PositionVertexBuffer.GetNumVertices();
@@ -2191,16 +2376,24 @@ bool UStaticMesh::GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionD
 
 bool UStaticMesh::ContainsPhysicsTriMeshData(bool bInUseAllTriData) const 
 {
-	if (RenderData
-		&& RenderData->LODResources.Num() > 0
-		&& RenderData->LODResources[0].PositionVertexBuffer.GetNumVertices() > 0)
+	if(RenderData == nullptr || RenderData->LODResources.Num() == 0)
+	{
+		return false;
+	}
+
+	// Get the LOD level to use for collision
+	// Always use 0 if asking for 'all tri data'
+	const int32 UseLODIndex = bInUseAllTriData ? 0 : FMath::Clamp(LODForCollision, 0, RenderData->LODResources.Num() - 1);
+
+	if (RenderData->LODResources[UseLODIndex].PositionVertexBuffer.GetNumVertices() > 0)
 	{
 		// In non-cooked builds we need to look at the section info map to get
 		// accurate per-section info.
 #if WITH_EDITORONLY_DATA
 		return bInUseAllTriData || SectionInfoMap.AnySectionHasCollision();
 #else
-		FStaticMeshLODResources& LOD = RenderData->LODResources[0];
+		// Get the LOD level to use for collision
+		FStaticMeshLODResources& LOD = RenderData->LODResources[UseLODIndex];
 		for (int32 SectionIndex = 0; SectionIndex < LOD.Sections.Num(); ++SectionIndex)
 		{
 			const FStaticMeshSection& Section = LOD.Sections[SectionIndex];
@@ -2276,6 +2469,7 @@ void UStaticMesh::CreateBodySetup()
 	if (BodySetup==NULL)
 	{
 		BodySetup = NewObject<UBodySetup>(this);
+		BodySetup->DefaultInstance.SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
 	}
 }
 
@@ -2804,14 +2998,14 @@ UStaticMeshSocket::UStaticMeshSocket(const FObjectInitializer& ObjectInitializer
 bool UStaticMeshSocket::GetSocketMatrix(FMatrix& OutMatrix, UStaticMeshComponent const* MeshComp) const
 {
 	check( MeshComp );
-	OutMatrix = FRotationTranslationMatrix( RelativeRotation, RelativeLocation ) * MeshComp->ComponentToWorld.ToMatrixWithScale();
+	OutMatrix = FScaleRotationTranslationMatrix( RelativeScale, RelativeRotation, RelativeLocation ) * MeshComp->ComponentToWorld.ToMatrixWithScale();
 	return true;
 }
 
 bool UStaticMeshSocket::GetSocketTransform(FTransform& OutTransform, class UStaticMeshComponent const* MeshComp) const
 {
 	check( MeshComp );
-	OutTransform = FTransform(RelativeRotation, RelativeLocation) * MeshComp->ComponentToWorld;
+	OutTransform = FTransform(RelativeRotation, RelativeLocation, RelativeScale) * MeshComp->ComponentToWorld;
 	return true;
 }
 
@@ -2856,3 +3050,17 @@ void UStaticMeshSocket::PostEditChangeProperty( FPropertyChangedEvent& PropertyC
 	}
 }
 #endif
+
+void UStaticMeshSocket::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
+
+	if(Ar.CustomVer(FFrameworkObjectVersion::GUID) < FFrameworkObjectVersion::MeshSocketScaleUtilization)
+	{
+		// Set the relative scale to 1.0. As it was not used before this should allow existing data
+		// to work as expected.
+		RelativeScale = FVector(1.0f, 1.0f, 1.0f);
+	}
+}

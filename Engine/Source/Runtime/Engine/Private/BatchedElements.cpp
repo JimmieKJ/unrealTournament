@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "EnginePrivate.h"
@@ -81,32 +81,6 @@ int32 FBatchedElements::AddVertex(const FVector4& InPosition,const FVector2D& In
 	int32 VertexIndex = MeshVertices.Num();
 	new(MeshVertices) FSimpleElementVertex(InPosition,InTextureCoordinate,InColor,HitProxyId);
 	return VertexIndex;
-}
-
-void FBatchedElements::AddQuadVertex(const FVector4& InPosition,const FVector2D& InTextureCoordinate,const FLinearColor& InColor,FHitProxyId HitProxyId, const FTexture* Texture,ESimpleElementBlendMode BlendMode)
-{
-	check(GSupportsQuads);
-
-	// Find an existing mesh element for the given texture.
-	FBatchedQuadMeshElement* MeshElement = NULL;
-	for (int32 MeshIndex = 0;MeshIndex < QuadMeshElements.Num();MeshIndex++)
-	{
-		if(QuadMeshElements[MeshIndex].Texture == Texture && QuadMeshElements[MeshIndex].BlendMode == BlendMode)
-		{
-			MeshElement = &QuadMeshElements[MeshIndex];
-			break;
-		}
-	}
-
-	if (!MeshElement)
-	{
-		// Create a new mesh element for the texture if this is the first triangle encountered using it.
-		MeshElement = new(QuadMeshElements) FBatchedQuadMeshElement;
-		MeshElement->Texture = Texture;
-		MeshElement->BlendMode = BlendMode;
-	}
-
-	new(MeshElement->Vertices) FSimpleElementVertex(InPosition,InTextureCoordinate,InColor,HitProxyId);
 }
 
 /** Adds a triangle to the batch. */
@@ -382,7 +356,9 @@ FBatchedElements::FSimpleElementBSSContainer FBatchedElements::GammaAlphaOnlySha
 /** Global alpha ref test value for rendering masked batched elements */
 float GBatchedElementAlphaRefVal = 128.f;
 /** Global smoothing width for rendering batched elements with distance field blend modes */
-float GBatchedElementSmoothWidth = 12;
+float GBatchedElementSmoothWidth = 4;
+
+FAutoConsoleVariableRef CVarWellCanvasDistanceFieldSmoothWidth(TEXT("Canvas.DistanceFieldSmoothness"), GBatchedElementSmoothWidth, TEXT("Global sharpness of distance field fonts/shapes rendered by canvas."), ECVF_Default);
 
 template<class TSimpleElementPixelShader>
 static TSimpleElementPixelShader* GetPixelShader(bool bEncoded, ESimpleElementBlendMode BlendMode, ERHIFeatureLevel::Type FeatureLevel)
@@ -1040,7 +1016,7 @@ bool FBatchedElements::Draw(FRHICommandList& RHICmdList, ERHIFeatureLevel::Type 
 			}
 		}
 
-		if( MeshElements.Num() > 0 || QuadMeshElements.Num() > 0 )
+		if( MeshElements.Num() > 0)
 		{
 			// Draw the mesh elements.
 			for(int32 MeshIndex = 0;MeshIndex < MeshElements.Num();MeshIndex++)
@@ -1068,32 +1044,6 @@ bool FBatchedElements::Draw(FRHICommandList& RHICmdList, ERHIFeatureLevel::Type 
 						);
 				}
 			}
-
-			// Draw the quad mesh elements.
-			for(int32 MeshIndex = 0;MeshIndex < QuadMeshElements.Num();MeshIndex++)
-			{
-				const FBatchedQuadMeshElement& MeshElement = QuadMeshElements[MeshIndex];
-				const EBlendModeFilter::Type MeshFilter = GetBlendModeFilter(MeshElement.BlendMode);
-
-				// Only render blend modes in the filter
-				if (Filter & MeshFilter)
-				{
-					// Quads don't support batched element parameters (yet!)
-					FBatchedElementParameters* BatchedElementParameters = NULL;
-
-					// Set the appropriate pixel shader for the mesh.
-					PrepareShaders(RHICmdList, FeatureLevel, MeshElement.BlendMode, Transform, bNeedToSwitchVerticalAxis, BatchedElementParameters, MeshElement.Texture, bHitTesting, Gamma);
-
-					// Draw the mesh.
-					DrawPrimitiveUP(
-						RHICmdList,
-						PT_QuadList,
-						MeshElement.Vertices.Num() / 4,
-						MeshElement.Vertices.GetData(),
-						sizeof(FSimpleElementVertex)
-						);
-				}
-			}
 		}
 
 		return true;
@@ -1115,6 +1065,5 @@ void FBatchedElements::Clear()
 	Points.Empty();
 	Sprites.Empty();
 	MeshElements.Empty();
-	QuadMeshElements.Empty();
 	ThickLines.Empty();
 }

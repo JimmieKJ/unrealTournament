@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	OpenGLDebugFrameDump.cpp: Implementation of debug code that allows creating detailed summaries of OpenGL pipeline state for all draws in a single frame.

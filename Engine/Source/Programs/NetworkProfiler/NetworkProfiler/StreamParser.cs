@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 using System;
@@ -69,33 +69,6 @@ namespace NetworkProfiler
 			BinaryReader BinaryStream = null; 
 			var Header = StreamHeader.ReadHeader( ParserStream, out BinaryStream );
 
-			// Keep track of token stream offset as name table is at end of file.
-			long TokenStreamOffset = ParserStream.Position;
-
-			// Seek to name table and serialize it.
-			ParserStream.Seek(Header.NameTableOffset,SeekOrigin.Begin);
-			for(int NameIndex = 0;NameIndex < Header.NameTableEntries;NameIndex++)
-			{
-				UInt32 Length = BinaryStream.ReadUInt32();
-				NetworkStream.NameArray.Add(new string(BinaryStream.ReadChars((int)Length)));
-
-				// Find "Unreal" name index used for misc socket parsing optimizations.
-				if( NetworkStream.NameArray[NameIndex] == "Unreal" )
-				{
-					NetworkStream.NameIndexUnreal = NameIndex;
-				}
-			}
-
-			// Seek to address table and serialize it.
-			ParserStream.Seek( Header.AddressTableOffset, SeekOrigin.Begin );
-			for ( int AddressIndex = 0; AddressIndex < Header.AddressTableEntries; AddressIndex++ )
-			{
-				NetworkStream.AddressArray.Add( BinaryStream.ReadUInt64() );
-			}
-
-			// Seek to beginning of token stream.
-			ParserStream.Seek(TokenStreamOffset,SeekOrigin.Begin);
-
 			// Scratch variables used for building stream. Required as we emit information in reverse
 			// order needed for parsing.
 			var CurrentFrameTokens = new List<TokenBase>();
@@ -115,6 +88,12 @@ namespace NetworkProfiler
 
 			// Parse stream till we reach the end, marked by special token.
 			bool bHasReachedEndOfStream = false;
+
+			List<TokenBase> TokenList = new List<TokenBase>();
+
+			float FrameStartTime = -1.0f;
+			float FrameEndTime = -1.0f;
+
 			while( bHasReachedEndOfStream == false )
 			{
 				if ( Count++ % 1000 == 0 )
@@ -123,13 +102,82 @@ namespace NetworkProfiler
 					InMainWindow.UpdateProgress( ( int )( Percent * 100 ) );
 				}
 
-				TokenBase Token = TokenBase.ReadNextToken( BinaryStream, NetworkStream );
+				if ( ParserStream.Position == ParserStream.Length )
+				{
+					// We reached stream early (must not have been finalized properly, but we can still read it)
+					break;
+				}
+
+				TokenBase Token = null;
+
+				try
+				{
+					Token = TokenBase.ReadNextToken( BinaryStream, NetworkStream );
+				}
+				catch ( System.IO.EndOfStreamException )
+				{
+					// We reached stream early (must not have been finalized properly, but we can still read it)
+					break;
+				}
+
+				if ( Token.TokenType == ETokenTypes.NameReference )
+				{
+					NetworkStream.NameArray.Add( ( Token as TokenNameReference ).Name );
+
+					// Find "Unreal" name index used for misc socket parsing optimizations.
+					if ( NetworkStream.NameArray[NetworkStream.NameArray.Count - 1] == "Unreal" )
+					{
+						NetworkStream.NameIndexUnreal = NetworkStream.NameArray.Count - 1;
+					}
+					continue;
+				}
+
+				if ( Token.TokenType == ETokenTypes.ConnectionReference )
+				{
+					NetworkStream.AddressArray.Add( ( Token as TokenConnectionReference ).Address );
+					continue;
+				}
 
 				if ( Token.TokenType == ETokenTypes.ConnectionChange )
 				{
+					// We need to setup CurrentConnectionIndex, since it's used in ReadNextToken
 					NetworkStream.CurrentConnectionIndex = ( Token as TokenConnectionChanged ).AddressIndex;
 					continue;
 				}
+
+				TokenList.Add( Token );
+
+				// Track frame start/end times manually so we can bail out when we hit the amount of time we want to load
+				if ( Token.TokenType == ETokenTypes.FrameMarker )
+				{
+					var TokenFrameMarker = ( TokenFrameMarker )Token;
+
+					if ( FrameStartTime < 0 )
+					{
+						FrameStartTime = TokenFrameMarker.RelativeTime;
+						FrameEndTime = TokenFrameMarker.RelativeTime;
+					}
+					else
+					{
+						FrameEndTime = TokenFrameMarker.RelativeTime;
+					}
+				}
+
+				if ( EarlyOutMinutes > 0 && ( ( FrameEndTime - FrameStartTime ) > 60 * EarlyOutMinutes ) )
+				{
+					break;
+				}
+			}
+
+			for ( int i = 0; i < TokenList.Count; i++ )
+			{
+				if ( i % 1000 == 0 )
+				{
+					float Percent = ( float )( i + 1 ) / ( float )( TokenList.Count );
+					InMainWindow.UpdateProgress( ( int )( Percent * 100 ) );
+				}
+
+				TokenBase Token = TokenList[i];
 
 				// Convert current tokens to frame if we reach a frame boundary or the end of the stream.
 				if( ((Token.TokenType == ETokenTypes.FrameMarker) || (Token.TokenType == ETokenTypes.EndOfStreamMarker))
@@ -212,11 +260,6 @@ namespace NetworkProfiler
 					{
 						CurrentFrameTokens.Add(Token);
 					}
-				}
-
-				if ( EarlyOutMinutes > 0 && ( ( AllFrames.EndTime - AllFrames.StartTime  ) > 60 * EarlyOutMinutes ) )
-				{
-					break;
 				}
 			}
 

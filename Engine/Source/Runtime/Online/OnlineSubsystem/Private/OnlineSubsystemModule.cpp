@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemPrivatePCH.h"
 #include "ModuleManager.h"
@@ -150,7 +150,7 @@ void FOnlineSubsystemModule::UnregisterPlatformService(const FName FactoryName)
 
 FName FOnlineSubsystemModule::ParseOnlineSubsystemName(const FName& FullName, FName& SubsystemName, FName& InstanceName) const
 {
-#if WITH_EDITOR
+#if UE_GAME == 0
 	SubsystemName = DefaultPlatformService;
 	InstanceName = FOnlineSubsystemImpl::DefaultInstanceName;
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -117,9 +117,17 @@ public:
 	 * @param bEvenIfPendingKill, if this is true, pendingkill objects are considered valid	
 	 * @return NULL if this object is gone or the weak pointer was NULL, otherwise a valid uobject pointer
 	**/
-	FORCEINLINE T* Get(bool bEvenIfPendingKill = false) const
+	FORCEINLINE T* Get(bool bEvenIfPendingKill) const
 	{
 		return (T*)TWeakObjectPtrBase::Get(bEvenIfPendingKill);
+	}
+
+	/**  
+	 * Dereference the weak pointer. This is an optimized version implying bEvenIfPendingKill=false.
+	 */
+	FORCEINLINE T* Get(/*bool bEvenIfPendingKill = false*/) const
+	{
+		return (T*)TWeakObjectPtrBase::Get();
 	}
 
 	/** Deferences the weak pointer even if its marked RF_Unreachable. This is needed to resolve weak pointers during GC (such as ::AddReferenceObjects) */
@@ -151,9 +159,18 @@ public:
 	 *							UObject is gone forever (@return false) or if it is still there (@return true, no object flags checked).
 	 * @return true if Get() would return a valid non-null pointer
 	**/
-	FORCEINLINE bool IsValid(bool bEvenIfPendingKill = false, bool bThreadsafeTest = false) const
+	FORCEINLINE bool IsValid(bool bEvenIfPendingKill, bool bThreadsafeTest = false) const
 	{
 		return TWeakObjectPtrBase::IsValid(bEvenIfPendingKill, bThreadsafeTest);
+	}
+
+	/**
+	 * Test if this points to a live UObject. This is an optimized version implying bEvenIfPendingKill=false, bThreadsafeTest=false.
+	 * @return true if Get() would return a valid non-null pointer
+	 */
+	FORCEINLINE bool IsValid(/*bool bEvenIfPendingKill = false, bool bThreadsafeTest = false*/) const
+	{
+		return TWeakObjectPtrBase::IsValid();
 	}
 
 	/**  

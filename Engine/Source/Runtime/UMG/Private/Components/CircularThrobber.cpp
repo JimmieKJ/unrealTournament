@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
 #include "Slate/SlateBrushAsset.h"
@@ -10,7 +10,8 @@
 // UCircularThrobber
 
 UCircularThrobber::UCircularThrobber(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
+	: Super(ObjectInitializer),
+	  bEnableRadius(true)
 {
 	SCircularThrobber::FArguments DefaultArgs;
 	Image = *DefaultArgs._PieceImage;
@@ -47,6 +48,16 @@ void UCircularThrobber::SynchronizeProperties()
 	MyCircularThrobber->SetNumPieces(FMath::Clamp(NumberOfPieces, 1, 25));
 	MyCircularThrobber->SetPeriod(Period);
 	MyCircularThrobber->SetRadius(Radius);
+
+	// If widget is child of Canvas Panel and 'Size to Content' is enabled, we allow user to modify radius.
+	bEnableRadius = true;
+	if (UCanvasPanelSlot* Panel = Cast<UCanvasPanelSlot>(Slot))
+	{
+		if (!Panel->GetAutoSize())
+		{
+			bEnableRadius = false;
+		}
+	}
 }
 
 void UCircularThrobber::SetNumberOfPieces(int32 InNumberOfPieces)
@@ -91,11 +102,6 @@ void UCircularThrobber::PostLoad()
 }
 
 #if WITH_EDITOR
-
-const FSlateBrush* UCircularThrobber::GetEditorIcon()
-{
-	return FUMGStyle::Get().GetBrush("Widget.CircularThrobber");
-}
 
 const FText UCircularThrobber::GetPaletteCategory()
 {

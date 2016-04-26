@@ -1,9 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "OnlineDelegateMacros.h"
 #include "OnlineSubsystemTypes.h"
-#include "NboSerializer.h"
 
 /** 
  * unique identifier for messages 
@@ -13,7 +12,7 @@ typedef FUniqueNetId FUniqueMessageId;
 /**
  * Message payload that stores key value pairs for variant type data
  */
-class FOnlineMessagePayload
+class ONLINESUBSYSTEM_API FOnlineMessagePayload
 {
 public:
 	/** Max size of buffer when serializing payloads */
@@ -31,24 +30,42 @@ public:
 	 *
 	 * @param OutBytes [out] array of bytes to serialize to
 	 */
-	const void ToBytes(TArray<uint8>& OutBytes) const
-	{
-		FNboSerializeToBuffer Ar(MaxPayloadSize);
-		Ar << KeyValData;
-		Ar.TrimBuffer();
-		OutBytes = Ar.GetBuffer();
-	}
+	void ToBytes(TArray<uint8>& OutBytes) const;
 
 	/**
 	 * Convert byte array to key value data 
 	 *
 	 * @param InBytes array of bytes to serialize from
 	 */
-	void FromBytes(const TArray<uint8>& InBytes)
-	{
-		FNboSerializeFromBuffer Ar(InBytes.GetData(), InBytes.Num());
-		Ar >> KeyValData;
-	}
+	void FromBytes(const TArray<uint8>& InBytes);
+
+	/**
+	 * Convert key/val properties to json
+	 *
+	 * @param OutJsonObject resulting json object
+	 */
+	void ToJson(FJsonObject& OutJsonObject) const;
+
+	/**
+	 * Convert key/val properties to json str
+	 *
+	 * @return resulting json string
+	 */
+	FString ToJsonStr() const;
+
+	/**
+	 * Convert json to key/val properties
+	 *
+	 * @param JsonObject json object to convert
+	 */
+	void FromJson(const FJsonObject& JsonObject);
+
+	/**
+	 * Convert json string to key/val properties
+	 *
+	 * @param JsonStr json string to convert
+	 */
+	void FromJsonStr(const FString& JsonStr);
 
 	/**
 	 * Find an attribute by name and get its value
@@ -58,16 +75,7 @@ public:
 	 *
 	 * @return true if attribute was found
 	 */
-	bool GetAttribute(const FString& AttrName, FVariantData& OutAttrValue) const
-	{
-		const FVariantData* Value = KeyValData.Find(AttrName);
-		if (Value != NULL)
-		{
-			OutAttrValue = *Value;
-			return true;
-		}
-		return false;
-	}
+	bool GetAttribute(const FString& AttrName, FVariantData& OutAttrValue) const;
 
 	/**
 	 * Set an attribute value by name
@@ -75,10 +83,7 @@ public:
 	 * @param AttrName name of attribute entry to set
 	 * @param AttrValue attribute value to set
 	 */
-	void SetAttribute(const FString& AttrName, const FVariantData& AttrValue)
-	{
-		KeyValData.Add(AttrName,AttrValue);
-	}
+	void SetAttribute(const FString& AttrName, const FVariantData& AttrValue);
 
 private:
 

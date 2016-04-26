@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "BlueprintFunctionLibrary.h"
@@ -65,6 +65,21 @@ class ENGINE_API UKismetStringLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, meta=(DisplayName = "String To Float", CompactNodeTitle = "->", BlueprintAutocast), Category="Utilities|String")
 	static float Conv_StringToFloat(const FString& InString);
 	
+	/** Convert String Back To Vector. IsValid indicates whether or not the string could be successfully converted. */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "String to Vector", CompactNodeTitle = "->"), Category="Utilities|String")
+	static void Conv_StringToVector(const FString& InString, FVector& OutConvertedVector, bool& OutIsValid);
+
+	/** Convert String Back To Vector2D. IsValid indicates whether or not the string could be successfully converted. */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "String to Vector2D", CompactNodeTitle = "->"), Category="Utilities|String")
+	static void Conv_StringToVector2D(const FString& InString, FVector2D& OutConvertedVector2D, bool& OutIsValid);
+
+	/** Convert String Back To Rotator. IsValid indicates whether or not the string could be successfully converted. */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "String to Rotator", CompactNodeTitle = "->"), Category="Utilities|String")
+	static void Conv_StringToRotator(const FString& InString, FRotator& OutConvertedRotator, bool& OutIsValid);
+
+	/** Convert String Back To Color. IsValid indicates whether or not the string could be successfully converted. */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "String to Color", CompactNodeTitle = "->"), Category="Utilities|String")
+	static void Conv_StringToColor(const FString& InString, FLinearColor& OutConvertedColor, bool& OutIsValid);
 
 	/** 
 	 * Converts a float->string, create a new string in the form AppendTo+Prefix+InFloat+Suffix
@@ -244,6 +259,17 @@ class ENGINE_API UKismetStringLibrary : public UBlueprintFunctionLibrary
 	 */
 	UFUNCTION(BlueprintPure, Category = "Utilities|String")
 	static int32 FindSubstring(const FString& SearchIn, const FString& Substring, bool bUseCase = false, bool bSearchFromEnd = false, int32 StartPosition = -1);
+
+	/**
+	* Returns whether this string contains the specified substring.
+	*
+	* @param SubStr			Find to search for
+	* @param SearchCase		Indicates whether the search is case sensitive or not ( defaults to ESearchCase::IgnoreCase )
+	* @param SearchDir			Indicates whether the search starts at the begining or at the end ( defaults to ESearchDir::FromStart )
+	* @return					Returns whether the string contains the substring
+	**/
+	UFUNCTION(BlueprintPure, Category = "Utilities|String")
+	static bool Contains(const FString& SearchIn, const FString& Substring, bool bUseCase = false, bool bSearchFromEnd = false);
 
 	/** 
 	 * Gets a single character from the string (as an integer)

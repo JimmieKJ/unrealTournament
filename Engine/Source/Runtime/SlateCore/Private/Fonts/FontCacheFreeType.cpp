@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateCorePrivatePCH.h"
 #include "FontCacheFreeType.h"
@@ -245,12 +245,20 @@ bool FFreeTypeKerningPairCache::FindOrCache(FT_Face InFace, const FKerningPair& 
 		}
 	}
 
-	FreeTypeUtils::ApplySizeAndScale(InFace, InFontSize, InFontScale);
+	FreeTypeUtils::ApplySizeAndScale(InFace, InFontSize, 1.0f);
 
 	// No cached data, go ahead and add an entry for it...
 	FT_Error Error = FT_Get_Kerning(InFace, InKerningPair.FirstGlyphIndex, InKerningPair.SecondGlyphIndex, InKerningFlags, &OutKerning);
 	if (Error == 0)
 	{
+		if (InKerningFlags != FT_KERNING_UNSCALED)
+		{
+			// We apply our own scaling as FreeType doesn't always produce the correct results for all fonts when applying the scale via the transform matrix
+			const FT_Long FixedFontScale = FreeTypeUtils::ConvertPixelTo16Dot16<FT_Long>(InFontScale);
+			OutKerning.x = FT_MulFix(OutKerning.x, FixedFontScale);
+			OutKerning.y = FT_MulFix(OutKerning.y, FixedFontScale);
+		}
+
 		CachedKerningPairMap.Add(CachedKerningPairKey, OutKerning);
 		return true;
 	}

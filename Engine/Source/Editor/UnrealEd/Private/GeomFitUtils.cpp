@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	GeomFitUtils.cpp: Utilities for fitting collision models to static meshes.
@@ -98,15 +98,11 @@ int32 GenerateKDopAsSimpleCollision(UStaticMesh* StaticMesh, const TArray<FVecto
 		}
 	}
 
-	// Make sure that the min size is reached
-	const float MinSize = 0.5f;
-
+	// Inflate kdop to ensure it is no degenerate
+	const float MinSize = 0.1f;
 	for(int32 i=0; i<kCount; i++)
 	{
-		if (FMath::Abs(maxDist[i]) < MinSize)
-		{
-			maxDist[i] = MinSize;
-		}
+		maxDist[i] += MinSize;
 	}
 
 	// Now we have the planes of the kdop, we work out the face polygons.

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -27,7 +27,6 @@ class SLATE_API SSafeZone : public SBox
 		, _Padding( 0.0f )
 		, _Content()
 		, _IsTitleSafe( false )
-		 
 		{}
 
 		/** Horizontal alignment of content in the area allotted to the SBox by its parent */
@@ -47,11 +46,13 @@ class SLATE_API SSafeZone : public SBox
 
 	SLATE_END_ARGS()
 
+public:
+
 	void Construct( const FArguments& InArgs );
 
-	FMargin GetSafeZonePadding() const;
-
 	void SetTitleSafe( bool bIsTitleSafe );
+
+	virtual void OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const override;
 
 private:
 	/** Cached values from the args */

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BasePassForForwardShadingVertexShader.usf: Base pass vertex shader used with forward shading
@@ -7,13 +7,19 @@
 #define IS_FORWARD_BASEPASS_VERTEX_SHADER 1
 
 // @todo urban: branch was: #define FORCE_FLOATS 1
+#ifndef FORCE_FLOATS
 #define FORCE_FLOATS (COMPILER_METAL)
+#endif
 
 #include "Common.usf"
 #include "BasePassForForwardShadingCommon.usf"
 #include "Material.usf"
 #include "VertexFactory.usf"
 #include "HeightFogCommon.usf"
+
+// xyz: Reflection plane normal in world space. Zero vector if this is not a planar reflection capture.
+// w: Reflection plane height.
+float4 PlanarReflectionCaptureData;
 
 struct FForwardShadingBasePassVSToPS
 {
@@ -25,12 +31,26 @@ struct FForwardShadingBasePassVSToPS
 #define FForwardShadingBasePassVSOutput FForwardShadingBasePassVSToPS
 #define VertexFactoryGetInterpolants VertexFactoryGetInterpolantsVSToPS
 
+// Reflect InP about an xy plane in world space.
+half3 GetPlanarReflectionPosition(const half3 InP) {
+	const half3 PlaneOrigin = half3(PlanarReflectionCaptureData.xyz * PlanarReflectionCaptureData.w);
+	const half3 PlaneNormal = PlanarReflectionCaptureData.xyz;
+
+	half3 P = InP - View.PreViewTranslation.xyz;
+	const half3 V = P - PlaneOrigin;
+	const half D = dot(PlaneNormal, V) * 2.0;
+	P -= PlaneNormal * D;
+	return P + View.PreViewTranslation.xyz;
+}
+
 /** Entry point for the base pass vertex shader. */
 void Main(
 	FVertexFactoryInput Input,
 	out FForwardShadingBasePassVSOutput Output
 	)
 {
+	ResolvedView = ResolveView();
+
 #if PACK_INTERPOLANTS
 	float4 PackedInterps[NUM_VF_PACKED_INTERPOLANTS];
 	UNROLL 
@@ -50,8 +70,16 @@ void Main(
 	half3 WorldPositionOffset = GetMaterialWorldPositionOffset(VertexParameters);
 	
 	WorldPosition.xyz += WorldPositionOffset;
+
+	// Apply planar reflection
+	BRANCH
+	if (any(PlanarReflectionCaptureData.xyz))
+	{
+		WorldPosition.xyz = GetPlanarReflectionPosition(WorldPosition.xyz);
+	}
+
 	float4 RasterizedWorldPosition = VertexFactoryGetRasterizedWorldPosition(Input, VFIntermediates, WorldPosition);
-	Output.Position = mul(RasterizedWorldPosition, View.TranslatedWorldToClip);
+	Output.Position = mul(RasterizedWorldPosition, ResolvedView.TranslatedWorldToClip);
 	Output.BasePassInterpolants.PixelPosition = WorldPosition;
 
 #if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
@@ -60,9 +88,9 @@ void Main(
 
 #if USE_VERTEX_FOG
 #if PACK_INTERPOLANTS
-	PackedInterps[0] = CalculateVertexHeightFog(WorldPosition.xyz - float4(View.TranslatedWorldCameraOrigin, 1));
+	PackedInterps[0] = CalculateVertexHeightFog(WorldPosition.xyz - float4(ResolvedView.TranslatedWorldCameraOrigin, 1));
 #else
-	Output.BasePassInterpolants.VertexFog = CalculateVertexHeightFog(WorldPosition.xyz - float4(View.TranslatedWorldCameraOrigin, 1));
+	Output.BasePassInterpolants.VertexFog = CalculateVertexHeightFog(WorldPosition.xyz - float4(ResolvedView.TranslatedWorldCameraOrigin, 1));
 #endif // PACK_INTERPOLANTS
 #endif
 

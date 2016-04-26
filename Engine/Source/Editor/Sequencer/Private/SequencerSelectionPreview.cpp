@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerPrivatePCH.h"
 #include "SequencerSelectionPreview.h"
@@ -28,6 +28,18 @@ void FSequencerSelectionPreview::SetSelectionState(UMovieSceneSection* Section, 
 	}
 }
 
+void FSequencerSelectionPreview::SetSelectionState(TSharedRef<FSequencerDisplayNode> OutlinerNode, ESelectionPreviewState InState)
+{
+	if (InState == ESelectionPreviewState::Undefined)
+	{
+		DefinedOutlinerNodeStates.Remove(OutlinerNode);
+	}
+	else
+	{
+		DefinedOutlinerNodeStates.Add(OutlinerNode, InState);
+	}
+}
+
 ESelectionPreviewState FSequencerSelectionPreview::GetSelectionState(FSequencerSelectedKey Key) const
 {
 	if (auto* State = DefinedKeyStates.Find(Key))
@@ -46,10 +58,20 @@ ESelectionPreviewState FSequencerSelectionPreview::GetSelectionState(UMovieScene
 	return ESelectionPreviewState::Undefined;
 }
 
+ESelectionPreviewState FSequencerSelectionPreview::GetSelectionState(TSharedRef<FSequencerDisplayNode> OutlinerNode) const
+{
+	if (auto* State = DefinedOutlinerNodeStates.Find(OutlinerNode))
+	{
+		return *State;
+	}
+	return ESelectionPreviewState::Undefined;
+}
+
 void FSequencerSelectionPreview::Empty()
 {
 	EmptyDefinedKeyStates();
 	EmptyDefinedSectionStates();
+	EmptyDefinedOutlinerNodeStates();
 }
 
 void FSequencerSelectionPreview::EmptyDefinedKeyStates()
@@ -60,4 +82,9 @@ void FSequencerSelectionPreview::EmptyDefinedKeyStates()
 void FSequencerSelectionPreview::EmptyDefinedSectionStates()
 {
 	DefinedSectionStates.Reset();
+}
+
+void FSequencerSelectionPreview::EmptyDefinedOutlinerNodeStates()
+{
+	DefinedOutlinerNodeStates.Reset();
 }

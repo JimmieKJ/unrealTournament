@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -137,6 +137,10 @@ class ENGINE_API UInstancedStaticMeshComponent : public UStaticMeshComponent
 	/** Returns the instances with instance bounds overlapping the specified sphere. The return value is an array of instance indices. */
 	UFUNCTION(BlueprintCallable, Category = "Components|InstancedStaticMesh")
 	virtual TArray<int32> GetInstancesOverlappingSphere(const FVector& Center, float Radius, bool bSphereInWorldSpace=true) const;
+
+	/** Returns the instances with instance bounds overlapping the specified box. The return value is an array of instance indices. */
+	UFUNCTION(BlueprintCallable, Category = "Components|InstancedStaticMesh")
+	virtual TArray<int32> GetInstancesOverlappingBox(const FBox& Box, bool bBoxInWorldSpace=true) const;
 
 	virtual bool ShouldCreatePhysicsState() const override;
 

@@ -386,7 +386,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UAnimMontage* CurrentFirstPersonTaunt;
 
 	// Keep track of emote count so we can clear CurrentEmote
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly, Category=Taunt)
 	int32 TauntCount;
 
 	UFUNCTION()
@@ -751,7 +751,7 @@ public:
 	/** whether spawn protection may potentially be applied (still must meet time since spawn check in UTGameMode)
 	 * set to false after firing weapon or any other action that is considered offensive
 	 */
-	UPROPERTY(BlueprintReadOnly, Replicated, Category = Pawn)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated, Category = Pawn)
 	bool bSpawnProtectionEligible;
 
 	/** returns whether spawn protection currently applies for this character (valid on client) */
@@ -1597,6 +1597,16 @@ public:
 	UFUNCTION()
 	void OnRep_HasHighScore();
 
+	/** Mark this pawn as should wear leader hat */
+	UPROPERTY(ReplicatedUsing = OnRep_ShouldWearLeaderHat, BlueprintReadOnly, Category = Pawn)
+		bool bShouldWearLeaderHat;
+
+	UFUNCTION()
+		void OnRep_ShouldWearLeaderHat();
+
+	UFUNCTION(BlueprintNativeEvent)
+		void LeaderHatStatusChanged();
+
 	UFUNCTION(BlueprintNativeEvent)
 	void HasHighScoreChanged();
 	
@@ -1634,7 +1644,7 @@ public:
 
 	virtual bool CanPickupObject(AUTCarriedObject* PendingObject);
 	/** @return the current object carried by this pawn */
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable, Category = Pawn)
 	virtual AUTCarriedObject* GetCarriedObject();
 
 	virtual float GetLastRenderTime() const override;
@@ -1893,10 +1903,12 @@ public:
 	/** legacy command for dropping the flag.  Just redirects to UseCarriedObject */
 	UFUNCTION(Exec)
 	virtual void DropFlag();
-protected:
+
 	/** uses the current carried object */
 	UFUNCTION(exec)
-	virtual void DropCarriedObject();
+		virtual void DropCarriedObject();
+
+protected:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerDropCarriedObject();

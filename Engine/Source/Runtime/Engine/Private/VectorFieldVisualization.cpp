@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*==============================================================================
 	VectorFieldVisualization.cpp: Visualization of vector fields.
@@ -132,7 +132,7 @@ void FVectorFieldVisualizationVertexFactory::ReleaseRHI()
  */
 bool FVectorFieldVisualizationVertexFactory::ShouldCache(EShaderPlatform Platform, const class FMaterial* Material, const class FShaderType* ShaderType)
 {
-	return Material->IsSpecialEngineMaterial() && SupportsGPUParticles(Platform);
+	return Material->IsSpecialEngineMaterial() && SupportsGPUParticles(Platform) && IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4);
 }
 
 /**

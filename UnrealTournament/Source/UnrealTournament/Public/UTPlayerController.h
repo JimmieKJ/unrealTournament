@@ -85,15 +85,12 @@ public:
 	virtual void SetupInputComponent() override;
 	virtual void ProcessPlayerInput(const float DeltaTime, const bool bGamePaused) override;
 	virtual void PawnPendingDestroy(APawn* InPawn) override;
-
 	virtual void ClientRestart_Implementation(APawn* NewPawn) override;
 	virtual void ClientSetLocation_Implementation(FVector NewLocation, FRotator NewRotation) override;
-
+	virtual void BeginInactiveState() override;
 
 	UFUNCTION(Reliable, Client)
 		void ClientReceivePersonalMessage(TSubclassOf<ULocalMessage> Message, int32 Switch = 0, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL);
-
-	virtual void BeginInactiveState() override;
 
 	virtual void CheckAutoWeaponSwitch(class AUTWeapon* TestWeapon);
 
@@ -116,7 +113,7 @@ public:
 	 * if SoundLocation is zero then the sound should be attached to SoundPlayer
 	 */
 	UFUNCTION(client, unreliable)
-	void ClientHearSound(USoundBase* TheSound, AActor* SoundPlayer, FVector_NetQuantize SoundLocation, bool bStopWhenOwnerDestroyed, bool bOccluded, bool bAmplifyVolume);
+	void ClientHearSound(USoundBase* TheSound, AActor* SoundPlayer, FVector_NetQuantize SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume);
 
 	virtual void ClientSay_Implementation(AUTPlayerState* Speaker, const FString& Message, FName Destination) override;
 
@@ -147,7 +144,7 @@ public:
 
 	/** Notification from client that it detected a client side projectile hit (like a shock combo) */
 	UFUNCTION(server, reliable, withvalidation)
-	virtual void ServerNotifyProjectileHit(AUTProjectile* HitProj, FVector_NetQuantize HitLocation, AActor* DamageCauser, float TimeStamp);
+	virtual void ServerNotifyProjectileHit(AUTProjectile* HitProj, FVector_NetQuantize HitLocation, AActor* DamageCauser, float TimeStamp, int32 Damage=0);
 
 	void AddWeaponPickup(class AUTPickupWeapon* NewPickup)
 	{
@@ -171,6 +168,13 @@ public:
 	UFUNCTION(client, reliable)
 	virtual void ClientToggleScoreboard(bool bShow);
 	
+	UPROPERTY()
+		float ScoreboardDelayOnDeath;
+
+	FTimerHandle TImerHandle_ShowScoreboardOnDeath;
+
+	virtual void ShowScoreboardOnDeath();
+
 	UFUNCTION(reliable, server, WithValidation)
 	void ServerSelectSpawnPoint(APlayerStart* DesiredStart);
 
@@ -178,17 +182,17 @@ public:
 	UFUNCTION(reliable, server, WithValidation)
 	void ServerRestartPlayerAltFire();
 
-	/** Attempts to restart this player, generally called from the client upon respawn request. */
-	UFUNCTION(unreliable, server, WithValidation)
-		void ServerToggleSpecial();
+	FTimerHandle TriggerBoostTimerHandle;
 
-
+	/** Trigger boost. */
+	virtual void TriggerBoost();
+	
 	/** Selected an unavailable spawn location. */
 	UPROPERTY()
-		USoundBase* BadSelectSound;
+	USoundBase* BadSelectSound;
 
 	UFUNCTION(client, unreliable)
-		virtual void ClientPlayBadSelectionSound();
+	virtual void ClientPlayBadSelectionSound();
 
 	/**	We overload ServerRestartPlayer so that we can set the bReadyToPlay flag if the game hasn't begun	 **/
 	virtual void ServerRestartPlayer_Implementation();
@@ -364,7 +368,7 @@ public:
 
 	/** If true, will slide if running and press crouch. */
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
-		bool bAllowSlideFromRun;
+		bool bCrouchTriggersSlide;
 
 	/** If true, single quick tap will result in wall dodge on release.  Otherwise need double tap to wall dodge. */
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
@@ -797,6 +801,9 @@ protected:
 	virtual void UnCrouch();
 	virtual void ToggleCrouch();
 
+	virtual void Slide();
+	virtual void StopSlide();
+
 	/** Handler for a touch input beginning. */
 	void TouchStarted(const ETouchIndex::Type FingerIndex, const FVector Location);
 
@@ -828,8 +835,18 @@ protected:
 	 * makes weapons feel a little more responsive while strafing
 	 */
 	TArray< FDeferredFireInput, TInlineAllocator<2> > DeferredFireInputs;
-public:
 
+	UFUNCTION(Reliable, Server, WithValidation)
+	void ServerActivatePowerUpPress();
+
+public:
+	/** Hold down Power-Up handling **/
+	void OnActivatePowerupPress();
+	
+	UPROPERTY()
+	float TimeToHoldPowerUpButtonToActivate;
+
+public:
 	void ApplyDeferredFireInputs();
 
 	bool HasDeferredFireInputs();
@@ -877,6 +894,8 @@ public:
 	TMap<int32,FString> WeaponGroupKeys;
 	virtual void UpdateWeaponGroupKeys();
 
+	virtual void UpdateInventoryKeys();
+
 	UFUNCTION(server, reliable, withvalidation)
 	void ServerRegisterBanVote(AUTPlayerState* BadGuy);
 	
@@ -887,6 +906,9 @@ public:
 
 	UFUNCTION(Exec)
 	void ShowBuyMenu();
+
+	UFUNCTION(Exec)
+	void DropCarriedObject();
 
 	/** send localized message to this PC's client and to spectators of this PC's pawn. */
 	virtual void SendPersonalMessage(TSubclassOf<ULocalMessage> Message, int32 Switch = 0, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL);
@@ -1031,6 +1053,9 @@ public:
 
 	UFUNCTION(exec)
 	void QSSave();
+
+	UPROPERTY()
+	bool bUseAltSpawnPoint;
 
 
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -84,7 +84,7 @@ public:
 	 * @param InMediaPlayer The asset to set.
 	 */
 	UFUNCTION(BlueprintCallable, Category="Media|MediaTexture")
-	void SetMediaPlayer( UMediaPlayer* InMediaPlayer );
+	void SetMediaPlayer(UMediaPlayer* InMediaPlayer);
 
 public:
 
@@ -103,13 +103,13 @@ public:
 	virtual void BeginDestroy() override;
 	virtual void FinishDestroy() override;
 	virtual FString GetDesc() override;
-	virtual SIZE_T GetResourceSize( EResourceSizeMode::Type Mode ) override;
+	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
 	virtual bool IsReadyForFinishDestroy() override;
 	virtual void PostLoad() override;
 
 #if WITH_EDITOR
-	virtual void PreEditChange( UProperty* PropertyAboutToChange ) override;
-	virtual void PostEditChangeProperty( FPropertyChangedEvent& PropertyChangedEvent ) override;
+	virtual void PreEditChange(UProperty* PropertyAboutToChange) override;
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 
 protected:

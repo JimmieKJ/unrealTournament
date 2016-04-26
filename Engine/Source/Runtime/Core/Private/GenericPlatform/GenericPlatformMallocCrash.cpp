@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
 #include "GenericPlatformMallocCrash.h"
@@ -215,6 +215,10 @@ void FGenericPlatformMallocCrash::SetAsGMalloc()
 {
 	InternalLock.Lock();
 	GMalloc = this;
+	if (PLATFORM_USES_FIXED_GMalloc_CLASS && GFixedMallocLocationPtr)
+	{
+		*GFixedMallocLocationPtr = nullptr; // this disables any fast-path inline allocators
+	}
 	CrashedThreadId = FPlatformTLS::GetCurrentThreadId();
 }
 

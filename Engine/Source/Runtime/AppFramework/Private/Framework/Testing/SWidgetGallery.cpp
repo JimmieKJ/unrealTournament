@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AppFrameworkPrivatePCH.h"
 #include "SWidgetGallery.h"
@@ -71,6 +71,8 @@ public:
 			ProgressCurve = FCurveSequence(0.0f,15.0f);
 			ProgressCurve.Play(this->AsShared());
 		}
+
+		TSharedPtr<SMenuAnchor> StacklessAnchor1, StacklessAnchor2;
 		
 		ChildSlot
 		[
@@ -824,6 +826,56 @@ public:
 							SNew(SUserWidgetExample)
 							.Title( LOCTEXT("SUserWidgetTest", "UserWidgetTest.cpp") )
 						]
+
+						// Menu anchors that don't use the menu stack
+						+ SGridPanel::Slot(0, 32)
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("StacklessAnchorLabel", "SMenuAnchor with UseApplicationMenuStack=false"))
+						]
+						+ SGridPanel::Slot(1, 32)
+						.HAlign(HAlign_Left)
+						.Padding(0.0f, 5.0f)
+						[
+							SNew(SButton)
+							.OnClicked(this, &SWidgetGallery::OnClickStacklessAnchor, StacklessAnchor1)
+							[
+								SAssignNew(StacklessAnchor1, SMenuAnchor)
+								.Placement(MenuPlacement_BelowAnchor)
+								.Method(EPopupMethod::UseCurrentWindow)
+								.UseApplicationMenuStack(false)
+								.OnGetMenuContent(this, &SWidgetGallery::MakeAnchorMenuContent, LOCTEXT("StacklessContentLabel1", "Stackless Content 1"))
+								[
+									SNew(STextBlock)
+									.Text(LOCTEXT("ClickMeLabel", "Click Me!"))
+								]
+							]
+						]
+
+						// Menu anchors that don't use the menu stack
+						+ SGridPanel::Slot(0, 33)
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("StacklessAnchorLabel", "SMenuAnchor with UseApplicationMenuStack=false"))
+						]
+						+ SGridPanel::Slot(1, 33)
+						.HAlign(HAlign_Left)
+						.Padding(0.0f, 5.0f)
+						[
+							SNew(SButton)
+							.OnClicked(this, &SWidgetGallery::OnClickStacklessAnchor, StacklessAnchor2)
+							[
+								SAssignNew(StacklessAnchor2, SMenuAnchor)
+								.Placement(MenuPlacement_BelowAnchor)
+								.Method(EPopupMethod::CreateNewWindow)
+								.UseApplicationMenuStack(false)
+								.OnGetMenuContent(this, &SWidgetGallery::MakeAnchorMenuContent, LOCTEXT("StacklessContentLabel2", "Stackless Content 2"))
+								[
+									SNew(STextBlock)
+									.Text(LOCTEXT("ClickMeLabel", "Click Me!"))
+								]
+							]
+						]
 					]
 			]
 		];
@@ -1106,6 +1158,34 @@ private:
 	virtual FPopupMethodReply OnQueryPopupMethod() const override
 	{
 		return FPopupMethodReply::UseMethod(PopupMethod);
+	}
+
+	TSharedRef<SWidget> MakeAnchorMenuContent(FText ContentLabel) const
+	{
+		return SNew(SBorder)
+			.BorderImage(FCoreStyle::Get().GetBrush("ToolPanel.GroupBorder"))
+			.BorderBackgroundColor(FLinearColor(0.0f, 0.0f, 0.0f, 1.0f))
+			.Padding(2)
+			[
+				SNew(SBorder)
+				.BorderImage(FCoreStyle::Get().GetBrush("ToolPanel.GroupBorder"))
+				.BorderBackgroundColor(FLinearColor(0.5f, 0.5f, 0.5f, 1.0f))
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.Padding(50)
+					[
+						SNew(STextBlock)
+						.Text(ContentLabel)
+					]
+				]
+			];
+	}
+
+	FReply OnClickStacklessAnchor(TSharedPtr<SMenuAnchor> ClickedAnchor)
+	{
+		ClickedAnchor->SetIsOpen(!ClickedAnchor->IsOpen());
+		return FReply::Handled();
 	}
 
 private:

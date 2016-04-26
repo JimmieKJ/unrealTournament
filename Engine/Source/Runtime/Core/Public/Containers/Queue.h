@@ -1,22 +1,19 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 
-namespace EQueueMode
+/**
+ * Enumerates concurrent queue modes.
+ */
+enum class EQueueMode
 {
-	/**
-	 * Enumerates concurrent queue modes.
-	 */
-	enum Type
-	{
-		/** Multiple-producers, single-consumer queue. */
-		Mpsc,
+	/** Multiple-producers, single-consumer queue. */
+	Mpsc,
 
-		/** Single-producer, single-consumer queue. */
-		Spsc
-	};
-}
+	/** Single-producer, single-consumer queue. */
+	Spsc
+};
 
 
 /**
@@ -34,7 +31,7 @@ namespace EQueueMode
  * @param Mode The queue mode (single-producer, single-consumer by default).
  * @todo gmp: Implement node pooling.
  */
-template<typename ItemType, EQueueMode::Type Mode = EQueueMode::Spsc>
+template<typename ItemType, EQueueMode Mode = EQueueMode::Spsc>
 class TQueue
 {
 public:
@@ -78,13 +75,18 @@ public:
 		OutItem = Popped->Item;
 
 		TNode* OldTail = Tail;
-
 		Tail = Popped;
 		Tail->Item = ItemType();
-
 		delete OldTail;
 
 		return true;
+	}
+
+	/** Empty the queue, discarding all items. */
+	void Empty()
+	{
+		ItemType DummyItem;
+		while (Dequeue(DummyItem));
 	}
 
 	/**
@@ -113,6 +115,7 @@ public:
 		{
 			OldHead = Head;
 			Head = NewNode;
+			FPlatformMisc::MemoryBarrier();
 		}		
 
 		OldHead->NextNode = NewNode;

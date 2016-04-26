@@ -1,15 +1,13 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LogVisualizer.h"
 #include "SVisualLoggerView.h"
-#include "TimeSliderController.h"
 #include "ITimeSlider.h"
-#include "STimeSlider.h"
 #include "SSearchBox.h"
-#include "SSequencerSectionOverlay.h"
-#include "STimelinesContainer.h"
+
 
 #define LOCTEXT_NAMESPACE "SVisualLoggerFilters"
+
 
 class SInputCatcherOverlay : public SOverlay
 {
@@ -77,8 +75,8 @@ void SVisualLoggerView::Construct(const FArguments& InArgs, const TSharedRef<FUI
 
 	// Create the top and bottom sliders
 	const bool bMirrorLabels = true;
-	TSharedRef<ITimeSlider> TopTimeSlider = SNew(STimeSlider, FLogVisualizer::Get().GetTimeSliderController().ToSharedRef()).MirrorLabels(bMirrorLabels);
-	TSharedRef<ITimeSlider> BottomTimeSlider = SNew(STimeSlider, FLogVisualizer::Get().GetTimeSliderController().ToSharedRef()).MirrorLabels(bMirrorLabels);
+	TSharedRef<ITimeSlider> TopTimeSlider = SNew(SVisualLoggerTimeSlider, FLogVisualizer::Get().GetTimeSliderController().ToSharedRef()).MirrorLabels(bMirrorLabels);
+	TSharedRef<ITimeSlider> BottomTimeSlider = SNew(SVisualLoggerTimeSlider, FLogVisualizer::Get().GetTimeSliderController().ToSharedRef()).MirrorLabels(bMirrorLabels);
 
 	TSharedRef<SScrollBar> ScrollBar =
 		SNew(SScrollBar)
@@ -174,7 +172,7 @@ void SVisualLoggerView::Construct(const FArguments& InArgs, const TSharedRef<FUI
 								[
 									SAssignNew(SearchBox, SSearchBox)
 									.OnTextChanged(InArgs._OnFiltersSearchChanged)
-									.HintText_Lambda([Settings]()->FText{return Settings->bSearchInsideLogs ? LOCTEXT("FiltersSearchHint", "Log Data Search") : LOCTEXT("FiltersSearchHint", "Log Category Search"); })
+									.HintText_Lambda([Settings]()->FText{return Settings->bSearchInsideLogs ? LOCTEXT("DataFiltersSearchHint", "Log Data Search") : LOCTEXT("CategoryFiltersSearchHint", "Log Category Search"); })
 								]
 #endif
 							]
@@ -194,7 +192,7 @@ void SVisualLoggerView::Construct(const FArguments& InArgs, const TSharedRef<FUI
 							.ExternalScrollbar(ScrollBar)
 							+ SScrollBox::Slot()
 							[
-								SAssignNew(TimelinesContainer, STimelinesContainer, SharedThis(this), FLogVisualizer::Get().GetTimeSliderController().ToSharedRef())
+								SAssignNew(TimelinesContainer, SVisualLoggerTimelinesContainer, SharedThis(this), FLogVisualizer::Get().GetTimeSliderController().ToSharedRef())
 							]
 						]
 						+ SOverlay::Slot()
@@ -343,13 +341,13 @@ FCursorReply SVisualLoggerView::OnCursorQuery(const FGeometry& MyGeometry, const
 
 TSharedRef<SWidget> SVisualLoggerView::MakeClassesFilterMenu()
 {
-	const TArray< TSharedPtr<class STimeline> >& AllTimelines = TimelinesContainer->GetAllNodes();
+	const TArray< TSharedPtr<class SLogVisualizerTimeline> >& AllTimelines = TimelinesContainer->GetAllNodes();
 
 	FMenuBuilder MenuBuilder(true, NULL);
 
 	TArray<FString> UniqueClasses;
 	MenuBuilder.BeginSection(TEXT("Graphs"));
-	for (TSharedPtr<class STimeline> CurrentTimeline : AllTimelines)
+	for (TSharedPtr<class SLogVisualizerTimeline> CurrentTimeline : AllTimelines)
 	{
 		FString OwnerClassName = CurrentTimeline->GetOwnerClassName().ToString();
 		if (UniqueClasses.Find(OwnerClassName) == INDEX_NONE)

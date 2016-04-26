@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -1022,25 +1022,25 @@ FORCEINLINE VectorRegister VectorStep(const VectorRegister& X)
 //TODO: Vectorize
 FORCEINLINE VectorRegister VectorExp(const VectorRegister& X)
 {
-	return MakeVectorRegister((float)exp(VectorGetComponent(X, 0)), (float)exp(VectorGetComponent(X, 1)), (float)exp(VectorGetComponent(X, 2)), (float)exp(VectorGetComponent(X, 3)));
+	return MakeVectorRegister(FMath::Exp(VectorGetComponent(X, 0)), FMath::Exp(VectorGetComponent(X, 1)), FMath::Exp(VectorGetComponent(X, 2)), FMath::Exp(VectorGetComponent(X, 3)));
 }
 
 //TODO: Vectorize
 FORCEINLINE VectorRegister VectorExp2(const VectorRegister& X)
 {
-	return MakeVectorRegister((float)exp2(VectorGetComponent(X, 0)), (float)exp2(VectorGetComponent(X, 1)), (float)exp2(VectorGetComponent(X, 2)), (float)exp2(VectorGetComponent(X, 3)));
+	return MakeVectorRegister(FMath::Exp2(VectorGetComponent(X, 0)), FMath::Exp2(VectorGetComponent(X, 1)), FMath::Exp2(VectorGetComponent(X, 2)), FMath::Exp2(VectorGetComponent(X, 3)));
 }
 
 //TODO: Vectorize
 FORCEINLINE VectorRegister VectorLog(const VectorRegister& X)
 {
-	return MakeVectorRegister((float)log(VectorGetComponent(X, 0)), (float)log(VectorGetComponent(X, 1)), (float)log(VectorGetComponent(X, 2)), (float)log(VectorGetComponent(X, 3)));
+	return MakeVectorRegister(FMath::Loge(VectorGetComponent(X, 0)), FMath::Loge(VectorGetComponent(X, 1)), FMath::Loge(VectorGetComponent(X, 2)), FMath::Loge(VectorGetComponent(X, 3)));
 }
 
 //TODO: Vectorize
 FORCEINLINE VectorRegister VectorLog2(const VectorRegister& X)
 {
-	return MakeVectorRegister((float)log2(VectorGetComponent(X, 0)), (float)log2(VectorGetComponent(X, 1)), (float)log2(VectorGetComponent(X, 2)), (float)log2(VectorGetComponent(X, 3)));
+	return MakeVectorRegister(FMath::Log2(VectorGetComponent(X, 0)), FMath::Log2(VectorGetComponent(X, 1)), FMath::Log2(VectorGetComponent(X, 2)), FMath::Log2(VectorGetComponent(X, 3)));
 }
 
 
@@ -1141,34 +1141,34 @@ FORCEINLINE void VectorSinCos(VectorRegister* RESTRICT VSinAngles, VectorRegiste
 //TODO: Vectorize
 FORCEINLINE VectorRegister VectorTan(const VectorRegister& X)
 {
-	return MakeVectorRegister((float)tan(VectorGetComponent(X, 0)), (float)tan(VectorGetComponent(X, 1)), (float)tan(VectorGetComponent(X, 2)), (float)tan(VectorGetComponent(X, 3)));
+	return MakeVectorRegister(FMath::Tan(VectorGetComponent(X, 0)), FMath::Tan(VectorGetComponent(X, 1)), FMath::Tan(VectorGetComponent(X, 2)), FMath::Tan(VectorGetComponent(X, 3)));
 }
 
 //TODO: Vectorize
 FORCEINLINE VectorRegister VectorASin(const VectorRegister& X)
 {
-	return MakeVectorRegister((float)asin(VectorGetComponent(X, 0)), (float)asin(VectorGetComponent(X, 1)), (float)asin(VectorGetComponent(X, 2)), (float)asin(VectorGetComponent(X, 3)));
+	return MakeVectorRegister(FMath::Asin(VectorGetComponent(X, 0)), FMath::Asin(VectorGetComponent(X, 1)), FMath::Asin(VectorGetComponent(X, 2)), FMath::Asin(VectorGetComponent(X, 3)));
 }
 
 //TODO: Vectorize
 FORCEINLINE VectorRegister VectorACos(const VectorRegister& X)
 {
-	return MakeVectorRegister((float)acos(VectorGetComponent(X, 0)), (float)acos(VectorGetComponent(X, 1)), (float)acos(VectorGetComponent(X, 2)), (float)acos(VectorGetComponent(X, 3)));
+	return MakeVectorRegister(FMath::Acos(VectorGetComponent(X, 0)), FMath::Acos(VectorGetComponent(X, 1)), FMath::Acos(VectorGetComponent(X, 2)), FMath::Acos(VectorGetComponent(X, 3)));
 }
 
 //TODO: Vectorize
 FORCEINLINE VectorRegister VectorATan(const VectorRegister& X)
 {
-	return MakeVectorRegister((float)atan(VectorGetComponent(X, 0)), (float)atan(VectorGetComponent(X, 1)), (float)atan(VectorGetComponent(X, 2)), (float)atan(VectorGetComponent(X, 3)));
+	return MakeVectorRegister(FMath::Atan(VectorGetComponent(X, 0)), FMath::Atan(VectorGetComponent(X, 1)), FMath::Atan(VectorGetComponent(X, 2)), FMath::Atan(VectorGetComponent(X, 3)));
 }
 
 //TODO: Vectorize
 FORCEINLINE VectorRegister VectorATan2(const VectorRegister& X, const VectorRegister& Y)
 {
-	return MakeVectorRegister(	(float)atan2(VectorGetComponent(X, 0), VectorGetComponent(Y, 0)), 
-		(float)atan2(VectorGetComponent(X, 1), VectorGetComponent(Y, 1)),
-		(float)atan2(VectorGetComponent(X, 2), VectorGetComponent(Y, 2)),
-		(float)atan2(VectorGetComponent(X, 3), VectorGetComponent(Y, 3)));
+	return MakeVectorRegister(	FMath::Atan2(VectorGetComponent(X, 0), VectorGetComponent(Y, 0)), 
+		FMath::Atan2(VectorGetComponent(X, 1), VectorGetComponent(Y, 1)),
+		FMath::Atan2(VectorGetComponent(X, 2), VectorGetComponent(Y, 2)),
+		FMath::Atan2(VectorGetComponent(X, 3), VectorGetComponent(Y, 3)));
 }
 
 // To be continued...

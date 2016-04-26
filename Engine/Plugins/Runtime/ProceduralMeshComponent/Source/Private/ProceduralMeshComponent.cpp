@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved. 
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved. 
 
 #include "ProceduralMeshComponentPluginPrivatePCH.h"
 #include "ProceduralMeshComponent.h"
@@ -83,7 +83,7 @@ public:
 		check(IsInRenderingThread());
 
 		// Initialize the vertex factory's stream components.
-		DataType NewData;
+		FDataType NewData;
 		NewData.PositionComponent = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(VertexBuffer, FDynamicMeshVertex, Position, VET_Float3);
 		NewData.TextureCoordinates.Add(
 			FVertexStreamComponent(VertexBuffer, STRUCT_OFFSET(FDynamicMeshVertex, TextureCoordinate), sizeof(FDynamicMeshVertex), VET_Float2)
@@ -394,7 +394,10 @@ void UProceduralMeshComponent::CreateMeshSection(int32 SectionIndex, const TArra
 	SCOPE_CYCLE_COUNTER(STAT_ProcMesh_CreateMeshSection);
 
 	// Ensure sections array is long enough
-	ProcMeshSections.SetNum(SectionIndex + 1, false);
+	if (SectionIndex >= ProcMeshSections.Num())
+	{
+		ProcMeshSections.SetNum(SectionIndex + 1, false);
+	}
 
 	// Reset this section (in case it already existed)
 	FProcMeshSection& NewSection = ProcMeshSections[SectionIndex];
@@ -517,9 +520,9 @@ void UProceduralMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArra
 				// If section has collision, copy it
 				if (CollisionSection.bEnableCollision)
 				{
-					for (int32 VertIdx = 0; VertIdx < Section.ProcVertexBuffer.Num(); VertIdx++)
+					for (int32 VertIdx = 0; VertIdx < CollisionSection.ProcVertexBuffer.Num(); VertIdx++)
 					{
-						CollisionPositions.Add(Section.ProcVertexBuffer[VertIdx].Position);
+						CollisionPositions.Add(CollisionSection.ProcVertexBuffer[VertIdx].Position);
 					}
 				}
 			}

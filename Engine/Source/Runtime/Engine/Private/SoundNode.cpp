@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "EnginePrivate.h"
@@ -8,6 +8,7 @@
 #if WITH_EDITOR
 #include "UnrealEd.h"
 #endif
+#include "AssetData.h"
 
 /*-----------------------------------------------------------------------------
 	USoundNode implementation.
@@ -152,6 +153,22 @@ float USoundNode::GetDuration()
 	return MaxDuration;
 }
 
+int32 USoundNode::GetNumSounds(const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound) const
+{
+	// Default implementation loops through all child nodes and sums the number of sounds.
+	// For most nodes this will result in 1, for node mixers, this will result in multiple sounds.
+	int32 NumSounds = 0;
+	for (USoundNode* ChildNode : ChildNodes)
+	{
+		if (ChildNode)
+		{
+			NumSounds += ChildNode->GetNumSounds(NodeWaveInstanceHash, ActiveSound);
+		}
+	}
+
+	return NumSounds;
+}
+
 #if WITH_EDITOR
 void USoundNode::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
@@ -167,4 +184,5 @@ void USoundNode::PlaceNode( int32 NodeColumn, int32 NodeRow, int32 RowCount )
 	GraphNode->NodePosX = (-150 * NodeColumn) - 100;
 	GraphNode->NodePosY = (100 * NodeRow) - (50 * RowCount);
 }
+
 #endif //WITH_EDITOR

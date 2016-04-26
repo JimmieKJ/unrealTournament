@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -57,8 +57,6 @@ private:
 	TSharedPtr<FSequencerTrackNode> SectionAreaNode;
 	/** The current view range */
 	TAttribute< TRange<float> > ViewRange;
-	/** Background brush of the section area */
-	const FSlateBrush* BackgroundBrush;
 	/** All the widgets in the panel */
 	TSlotlessChildren<SSequencerSection> Children;
 };

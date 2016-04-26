@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SkeletalMeshEdit.cpp: Unreal editor skeletal mesh/anim support
@@ -236,7 +236,7 @@ static void ApplyUnroll(FbxNode *pNode, FbxAnimLayer* pLayer, FbxAnimCurveFilter
 		// Set bone rotation order
 		EFbxRotationOrder RotationOrder = eEulerXYZ;
 		pNode->GetRotationOrder(FbxNode::eSourcePivot, RotationOrder);
-		pUnrollFilter->SetRotationOrder((FbxEuler::EOrder)(RotationOrder*2));
+		pUnrollFilter->SetRotationOrder((FbxEuler::EOrder)(RotationOrder));
 
 		pUnrollFilter->Apply(lRCurve, 3);
 	}
@@ -937,7 +937,7 @@ bool UnFbx::FFbxImporter::ImportCurveToAnimSequence(class UAnimSequence * Target
 	{
 		FName Name = *CurveName;
 		USkeleton* Skeleton = TargetSequence->GetSkeleton();
-		FSmartNameMapping* NameMapping = Skeleton->SmartNames.GetContainer(USkeleton::AnimCurveMappingName);
+		const FSmartNameMapping* NameMapping = Skeleton->GetSmartNameContainer(USkeleton::AnimCurveMappingName);
 
 		// Add or retrieve curve
 		USkeleton::AnimCurveUID Uid;
@@ -947,7 +947,7 @@ bool UnFbx::FFbxImporter::ImportCurveToAnimSequence(class UAnimSequence * Target
 			Skeleton->Modify();
 		}
 
-		NameMapping->AddOrFindName(Name, Uid);
+		Skeleton->AddSmartNameAndModify(USkeleton::AnimCurveMappingName, Name, Uid);
 
 		FFloatCurve * CurveToImport = static_cast<FFloatCurve *>(TargetSequence->RawCurveData.GetCurveData(Uid, FRawCurveTracks::FloatType));
 		if(CurveToImport==NULL)
@@ -1008,6 +1008,7 @@ bool UnFbx::FFbxImporter::ImportAnimation(USkeleton* Skeleton, UAnimSequence * D
 		DestSeq->RawCurveData.FloatCurves.Shrink();
 	}
 
+	FbxNode *SkeletalMeshRootNode = NodeArray.Num() > 0 ? NodeArray[0] : nullptr;
 	//
 	// import blend shape curves
 	//
@@ -1180,7 +1181,7 @@ bool UnFbx::FFbxImporter::ImportAnimation(USkeleton* Skeleton, UAnimSequence * D
 
 				FbxNode* Link = SortedLinks[SourceTrackIdx];
 				FbxNode * LinkParent = Link->GetParent();
-			
+				FString LinkParentName = LinkParent->GetName();
 				for(FbxTime CurTime = AnimTimeSpan.GetStart(); CurTime <= AnimTimeSpan.GetStop(); CurTime += TimeIncrement)
 				{
 					// save global trasnform
@@ -1215,6 +1216,13 @@ bool UnFbx::FFbxImporter::ImportAnimation(USkeleton* Skeleton, UAnimSequence * D
 						// I can't rely on LocalMatrix. I need to recalculate quaternion/scale based on global transform if Parent exists
 						FbxAMatrix ParentGlobalMatrix = Link->GetParent()->EvaluateGlobalTransform(CurTime);
 						FTransform ParentGlobalTransform =  Converter.ConvertTransform(ParentGlobalMatrix);
+						//In case we do a scene import we need to add the skeletal mesh root node matrix to the parent link.
+						if (ImportOptions->bImportScene && !ImportOptions->bTransformVertexToAbsolute && BoneTreeIndex == 0 && SkeletalMeshRootNode != nullptr)
+						{
+							FbxAMatrix GlobalSkeletalNodeFbx = SkeletalMeshRootNode->EvaluateGlobalTransform(CurTime);
+							FTransform GlobalSkeletalNode = Converter.ConvertTransform(GlobalSkeletalNodeFbx);
+							ParentGlobalTransform = ParentGlobalTransform * GlobalSkeletalNode;
+						}
 
 						LocalTransform = GlobalTransform.GetRelativeTransform(ParentGlobalTransform);
 						NewDebugData.SourceParentGlobalTransform.Add(ParentGlobalTransform);

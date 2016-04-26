@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*-----------------------------------------------------------------------------
 	FPropertyTag.
@@ -25,6 +25,8 @@ struct FPropertyTag
 	int32		ArrayIndex;	// Index if an array; else 0.
 	int32		SizeOffset;	// location in stream of tag size member
 	FGuid	StructGuid;
+	uint8	HasPropertyGuid;
+	FGuid	PropertyGuid;
 
 	// Constructors.
 	FPropertyTag()
@@ -37,6 +39,7 @@ struct FPropertyTag
 		, Size      (0)
 		, ArrayIndex(INDEX_NONE)
 		, SizeOffset(INDEX_NONE)
+		, HasPropertyGuid(0)
 	{}
 
 	FPropertyTag( FArchive& InSaveAr, UProperty* Property, int32 InIndex, uint8* Value, uint8* Defaults )
@@ -49,6 +52,7 @@ struct FPropertyTag
 		, Size      (0)
 		, ArrayIndex(InIndex)
 		, SizeOffset(INDEX_NONE)
+		, HasPropertyGuid(0)
 	{
 		if (Property)
 		{
@@ -73,6 +77,16 @@ struct FPropertyTag
 			{
 				BoolVal = Bool->GetPropertyValue(Value);
 			}
+		}
+	}
+
+	// Set optional property guid
+	void SetPropertyGuid(const FGuid& InPropertyGuid)
+	{
+		if (InPropertyGuid.IsValid())
+		{
+			PropertyGuid = InPropertyGuid;
+			HasPropertyGuid = true;
 		}
 	}
 
@@ -124,7 +138,16 @@ struct FPropertyTag
 				Ar << Tag.InnerType;
 			}
 		}
-
+		// Property tags to handle renamed blueprint properties effectively.
+		if (Ar.UE4Ver() >= VER_UE4_PROPERTY_GUID_IN_PROPERTY_TAG)
+		{
+			Ar << Tag.HasPropertyGuid;
+			if (Tag.HasPropertyGuid)
+			{
+				Ar << Tag.PropertyGuid;
+			}
+		}
+		
 		return Ar;
 	}
 

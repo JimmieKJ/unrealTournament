@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ForwardBasePassRendering.cpp: Base pass rendering implementation.
@@ -7,7 +7,6 @@
 #include "RendererPrivate.h"
 #include "ScenePrivate.h"
 #include "SceneUtils.h"
-#include "Algo/Partition.h"
 #include "MaterialShaderQualitySettings.h"
 
 #define IMPLEMENT_FORWARD_SHADING_BASEPASS_LIGHTMAPPED_VERTEX_SHADER_TYPE(LightMapPolicyType,LightMapPolicyName) \
@@ -46,9 +45,11 @@ static_assert(MAX_BASEPASS_DYNAMIC_POINT_LIGHTS == 4, "If you change MAX_BASEPAS
 IMPLEMENT_FORWARD_SHADING_BASEPASS_LIGHTMAPPED_SHADER_TYPE(TUniformLightMapPolicy<LMP_NO_LIGHTMAP>, FNoLightMapPolicy);
 IMPLEMENT_FORWARD_SHADING_BASEPASS_LIGHTMAPPED_SHADER_TYPE(TUniformLightMapPolicy<LMP_LQ_LIGHTMAP>, TLightMapPolicyLQ);
 IMPLEMENT_FORWARD_SHADING_BASEPASS_LIGHTMAPPED_SHADER_TYPE(TUniformLightMapPolicy<LMP_DISTANCE_FIELD_SHADOWS_AND_LQ_LIGHTMAP>, TDistanceFieldShadowsAndLightMapPolicyLQ);
+IMPLEMENT_FORWARD_SHADING_BASEPASS_LIGHTMAPPED_SHADER_TYPE(TUniformLightMapPolicy<LMP_DISTANCE_FIELD_SHADOWS_LIGHTMAP_AND_CSM>, FDistanceFieldShadowsLightMapAndCSMLightingPolicy);
 IMPLEMENT_FORWARD_SHADING_BASEPASS_LIGHTMAPPED_SHADER_TYPE(TUniformLightMapPolicy<LMP_SIMPLE_DIRECTIONAL_LIGHT_AND_SH_INDIRECT>, FSimpleDirectionalLightAndSHIndirectPolicy);
 IMPLEMENT_FORWARD_SHADING_BASEPASS_LIGHTMAPPED_SHADER_TYPE(TUniformLightMapPolicy<LMP_SIMPLE_DIRECTIONAL_LIGHT_AND_SH_DIRECTIONAL_INDIRECT>, FSimpleDirectionalLightAndSHDirectionalIndirectPolicy);
 IMPLEMENT_FORWARD_SHADING_BASEPASS_LIGHTMAPPED_SHADER_TYPE(TUniformLightMapPolicy<LMP_SIMPLE_DIRECTIONAL_LIGHT_AND_SH_DIRECTIONAL_CSM_INDIRECT>, FSimpleDirectionalLightAndSHDirectionalCSMIndirectPolicy);
+IMPLEMENT_FORWARD_SHADING_BASEPASS_LIGHTMAPPED_SHADER_TYPE(TUniformLightMapPolicy<LMP_SIMPLE_DIRECTIONAL_LIGHT_AND_SH_CSM_INDIRECT>, FSimpleDirectionalLightAndSHCSMIndirectPolicy);
 IMPLEMENT_FORWARD_SHADING_BASEPASS_LIGHTMAPPED_SHADER_TYPE(TUniformLightMapPolicy<LMP_MOVABLE_DIRECTIONAL_LIGHT>, FMovableDirectionalLightLightingPolicy);
 IMPLEMENT_FORWARD_SHADING_BASEPASS_LIGHTMAPPED_SHADER_TYPE(TUniformLightMapPolicy<LMP_MOVABLE_DIRECTIONAL_LIGHT_CSM>, FMovableDirectionalLightCSMLightingPolicy);
 IMPLEMENT_FORWARD_SHADING_BASEPASS_LIGHTMAPPED_SHADER_TYPE(TUniformLightMapPolicy<LMP_MOVABLE_DIRECTIONAL_LIGHT_WITH_LIGHTMAP>, FMovableDirectionalLightWithLightmapLightingPolicy);
@@ -65,9 +66,15 @@ bool TBasePassForForwardShadingPSPolicyParamType<PixelParametersType, NumDynamic
 	OutEnvironment.SetDefine(TEXT("FORWARD_QL_FORCE_FULLY_ROUGH"), QualityOverrides.bEnableOverride && QualityOverrides.bForceFullyRough != 0 ? 1u : 0u);
 	OutEnvironment.SetDefine(TEXT("FORWARD_QL_FORCE_NONMETAL"), QualityOverrides.bEnableOverride && QualityOverrides.bForceNonMetal != 0 ? 1u : 0u);
 	OutEnvironment.SetDefine(TEXT("QL_FORCEDISABLE_LM_DIRECTIONALITY"), QualityOverrides.bEnableOverride && QualityOverrides.bForceDisableLMDirectionality != 0 ? 1u : 0u);
+	OutEnvironment.SetDefine(TEXT("FORWARD_QL_FORCE_LQ_REFLECTIONS"), QualityOverrides.bEnableOverride && QualityOverrides.bForceLQReflections != 0 ? 1u : 0u);
 	
 	return true;
 }
+
+static TAutoConsoleVariable<int32> CVarAllReceiveDynamicCSM(
+	TEXT("r.AllReceiveDynamicCSM"),
+	0,
+	TEXT("Which primitives should receive dynamic-only CSM shadows. 0: Only primitives marked bReceiveCSMFromDynamicObjects (default). 1: All primitives"));
 
 FBasePassFowardDynamicPointLightInfo::FBasePassFowardDynamicPointLightInfo(const FPrimitiveSceneProxy* InSceneProxy)
 : NumDynamicPointLights(0)
@@ -172,9 +179,10 @@ public:
 				Parameters.BlendMode,
 				Parameters.TextureMode,
 				Parameters.ShadingModel != MSM_Unlit && Scene->ShouldRenderSkylight(),
-				false,
+				DVSM_None,
 				FeatureLevel,
-				Parameters.bEditorCompositeDepthTest
+				Parameters.bEditorCompositeDepthTest,
+				IsMobileHDR() // bEnableReceiveDecalOutput
 				),
 				FeatureLevel
 				);
@@ -221,7 +229,7 @@ public:
 
 	const FViewInfo& View;
 	bool bBackFace;
-	float DitheredLODTransitionValue;
+	FMeshDrawingRenderState DrawRenderState;
 	FHitProxyId HitProxyId;
 
 	inline bool ShouldPackAmbientSH() const
@@ -239,12 +247,12 @@ public:
 	FDrawBasePassForwardShadingDynamicMeshAction(
 		const FViewInfo& InView,
 		const bool bInBackFace,
-		float InDitheredLODTransitionValue,
+		FMeshDrawingRenderState InDrawRenderState,
 		const FHitProxyId InHitProxyId
 		)
 		: View(InView)
 		, bBackFace(bInBackFace)
-		, DitheredLODTransitionValue(InDitheredLODTransitionValue)
+		, DrawRenderState(InDrawRenderState)
 		, HitProxyId(InHitProxyId)
 	{}
 
@@ -276,9 +284,10 @@ public:
 			Parameters.BlendMode,
 			Parameters.TextureMode,
 			Parameters.ShadingModel != MSM_Unlit && Scene && Scene->ShouldRenderSkylight(),
-			View.Family->EngineShowFlags.ShaderComplexity,
+			View.Family->GetDebugViewShaderMode(),
 			View.GetFeatureLevel(),
-			Parameters.bEditorCompositeDepthTest
+			Parameters.bEditorCompositeDepthTest,
+			IsMobileHDR() // bEnableReceiveDecalOutput
 			);
 		RHICmdList.BuildAndSetLocalBoundShaderState(DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
 		DrawingPolicy.SetSharedState(RHICmdList, &View, typename TBasePassForForwardShadingDrawingPolicy<LightMapPolicyType, NumDynamicPointLights>::ContextDataType());
@@ -295,7 +304,7 @@ public:
 				Parameters.Mesh,
 				BatchElementIndex,
 				bBackFace,
-				DitheredLODTransitionValue,
+				DrawRenderState,
 				typename TBasePassForForwardShadingDrawingPolicy<LightMapPolicyType, NumDynamicPointLights>::ElementDataType(LightMapElementData),
 				typename TBasePassForForwardShadingDrawingPolicy<LightMapPolicyType, NumDynamicPointLights>::ContextDataType()
 				);
@@ -338,7 +347,7 @@ void FBasePassForwardOpaqueDrawingPolicyFactory::DrawDynamicMeshTempl(
 		FDrawBasePassForwardShadingDynamicMeshAction(
 			View, 
 			bBackFace, 
-			Mesh.DitheredLODTransitionAlpha, 
+			FMeshDrawingRenderState(Mesh.DitheredLODTransitionAlpha), 
 			HitProxyId														
 		)																
 	);
@@ -509,46 +518,13 @@ void FForwardShadingSceneRenderer::RenderForwardShadingBasePass(FRHICommandListI
 
 			FBasePassForwardOpaqueDrawingPolicyFactory::ContextType Context(false, ESceneRenderTargetsMode::DontSet);
 			
-			int32 MeshBatchIndex = 0;
-			int32 MeshBatchNum = View.DynamicMeshElements.Num();
-			// If the scene has decals we need to partition the draw list into two groups: 
-			// those that receive decals and those that don't, and render the latter with stencil writes enabled
-			if (Scene->Decals.Num() > 0)
+			for (const FMeshBatchAndRelevance& MeshBatchAndRelevance : View.DynamicMeshElements)
 			{
-				MeshBatchNum = Algo::Partition(View.DynamicMeshElements.GetData(), MeshBatchNum, [](const FMeshBatchAndRelevance& El) { 
-					return El.PrimitiveSceneProxy->ReceivesDecals(); 
-				});
-			}
-
-			for (; MeshBatchIndex < MeshBatchNum; MeshBatchIndex++)
-			{
-				const FMeshBatchAndRelevance& MeshBatchAndRelevance = View.DynamicMeshElements[MeshBatchIndex];
-
 				if (MeshBatchAndRelevance.bHasOpaqueOrMaskedMaterial || ViewFamily.EngineShowFlags.Wireframe)
 				{
 					const FMeshBatch& MeshBatch = *MeshBatchAndRelevance.Mesh;
 					FBasePassForwardOpaqueDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, Context, MeshBatch, false, true, MeshBatchAndRelevance.PrimitiveSceneProxy, MeshBatch.BatchHitProxyId);
 				}
-			}
-
-			if (MeshBatchNum < View.DynamicMeshElements.Num())
-			{
-				// Primitives without decals are rendered with stencil enabled
-				RHICmdList.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual, true, CF_Always, SO_Keep, SO_Keep, SO_Replace>::GetRHI(), 0x80);
-				MeshBatchNum = View.DynamicMeshElements.Num();
-
-				for (; MeshBatchIndex < MeshBatchNum; MeshBatchIndex++)
-				{
-					const FMeshBatchAndRelevance& MeshBatchAndRelevance = View.DynamicMeshElements[MeshBatchIndex];
-
-					if (MeshBatchAndRelevance.bHasOpaqueOrMaskedMaterial || ViewFamily.EngineShowFlags.Wireframe)
-					{
-						const FMeshBatch& MeshBatch = *MeshBatchAndRelevance.Mesh;
-						FBasePassForwardOpaqueDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, Context, MeshBatch, false, true, MeshBatchAndRelevance.PrimitiveSceneProxy, MeshBatch.BatchHitProxyId);
-					}
-				}
-				// Restore depthstencil state
-				RHICmdList.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual>::GetRHI());
 			}
 
 			View.SimpleElementCollector.DrawBatchedElements(RHICmdList, View, NULL, EBlendModeFilter::OpaqueAndMasked);

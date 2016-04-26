@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -36,22 +36,35 @@ public:
 	DECLARE_DELEGATE_RetVal_OneParam(bool, FIsCulturePickable, FCulturePtr);
 	typedef TSlateDelegates< FCulturePtr >::FOnSelectionChanged FOnSelectionChanged;
 
+	/** Different display name formats that can be used for a culture */
+	enum class ECultureDisplayFormat
+	{
+		/** Should the culture display the name used by the active culture? */
+		ActiveCultureDisplayName,
+		/** Should the culture display the name used by the given culture? (ie, localized in their own native culture) */
+		NativeCultureDisplayName,
+		/** Should the culture display both the active and native cultures name? (will appear as "<ActiveName> (<NativeName>)") */
+		ActiveAndNativeCultureDisplayName,
+		/** Should the culture display both the native and active cultures name? (will appear as "<NativeName> (<ActiveName>)") */
+		NativeAndActiveCultureDisplayName,
+	};
+
 public:
 	SLATE_BEGIN_ARGS( SCulturePicker )
-		: _UseNativeDisplayNames(false)
+		: _DisplayNameFormat(ECultureDisplayFormat::ActiveCultureDisplayName)
 		, _CanSelectNone(false)
 	{}
 		SLATE_EVENT( FOnSelectionChanged, OnSelectionChanged )
 		SLATE_EVENT( FIsCulturePickable, IsCulturePickable )
 		SLATE_ARGUMENT( FCulturePtr, InitialSelection )
-		SLATE_ARGUMENT(bool, UseNativeDisplayNames)
+		SLATE_ARGUMENT(ECultureDisplayFormat, DisplayNameFormat)
 		SLATE_ARGUMENT(bool, CanSelectNone)
 	SLATE_END_ARGS()
 
 	SCulturePicker()
-	: UseNativeDisplayNames(false)
+	: DisplayNameFormat(ECultureDisplayFormat::ActiveCultureDisplayName)
 	, CanSelectNone(false)
-	, SupressSelectionCallback(false)
+	, SuppressSelectionCallback(false)
 	{}
 
 	void Construct( const FArguments& InArgs );
@@ -67,6 +80,8 @@ private:
 	void OnSelectionChanged(TSharedPtr<FCultureEntry> Entry, ESelectInfo::Type SelectInfo);
 
 private:
+	FString GetCultureDisplayName(const FCultureRef& Culture, const bool bIsRootItem) const;
+
 	TSharedPtr< STreeView< TSharedPtr<FCultureEntry> > > TreeView;
 
 	/* The provided cultures array. */
@@ -87,12 +102,12 @@ private:
 	/** Delegate to invoke to set whether a culture is "pickable". */
 	FIsCulturePickable IsCulturePickable;
 
-	/* Should the cultures use their display names displayed as localized in their own (IE: native) culture? */
-	bool UseNativeDisplayNames;
+	/** How should we display culture names? */
+	ECultureDisplayFormat DisplayNameFormat;
 
 	/** Should a null culture option be available? */
 	bool CanSelectNone;
 
 	/* Flags that the selection callback shouldn't be called when selecting - useful for initial selection, for instance. */
-	bool SupressSelectionCallback;
+	bool SuppressSelectionCallback;
 };

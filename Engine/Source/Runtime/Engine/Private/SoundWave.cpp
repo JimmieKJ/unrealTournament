@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
 #include "Sound/SoundWave.h"
@@ -61,31 +61,36 @@ USoundWave::USoundWave(const FObjectInitializer& ObjectInitializer)
 	Volume = 1.0;
 	Pitch = 1.0;
 	CompressionQuality = 40;
+	SubtitlePriority = DEFAULT_SUBTITLE_PRIORITY;
 }
 
 SIZE_T USoundWave::GetResourceSize(EResourceSizeMode::Type Mode)
 {
-	int32 CalculatedResourceSize = 0;
-
-	if (DecompressionType == DTYPE_Native)
+	if (!GEngine)
 	{
-		// If we've been decompressed, need to account for decompressed and also compressed
-		CalculatedResourceSize += RawPCMDataSize;
+		return 0;
 	}
-	else if (DecompressionType == DTYPE_RealTime)
+
+	SIZE_T CalculatedResourceSize = 0;
+
+	if (FAudioDevice* LocalAudioDevice = GEngine->GetMainAudioDevice())
 	{
-		if (CachedRealtimeFirstBuffer)
+		if (LocalAudioDevice->HasCompressedAudioInfoClass(this) && DecompressionType == DTYPE_Native)
 		{
-			CalculatedResourceSize += MONO_PCM_BUFFER_SIZE * NumChannels;
+			// check(ResourceSize == 0);
+			CalculatedResourceSize = RawPCMDataSize;
 		}
-	}
-
-	if (GEngine && GEngine->GetMainAudioDevice())
-	{
-		// Don't add compressed data to size of streaming sounds
-		if (!FPlatformProperties::SupportsAudioStreaming() || !IsStreaming())
+		else 
 		{
-			CalculatedResourceSize += GetCompressedDataSize(GEngine->GetMainAudioDevice()->GetRuntimeFormat(this));
+			if (DecompressionType == DTYPE_RealTime && CachedRealtimeFirstBuffer)
+			{
+				CalculatedResourceSize = MONO_PCM_BUFFER_SIZE * NumChannels;
+			}
+			
+			if ((!FPlatformProperties::SupportsAudioStreaming() || !IsStreaming()))
+			{
+				CalculatedResourceSize += GetCompressedDataSize(LocalAudioDevice->GetRuntimeFormat(this));
+			}
 		}
 	}
 
@@ -143,11 +148,6 @@ void USoundWave::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 		OutTags.Add( FAssetRegistryTag(SourceFileTagName(), AssetImportData->GetSourceData().ToJson(), FAssetRegistryTag::TT_Hidden) );
 	}
 #endif
-	// GetCompressedDataSize could technically modify this->CompressedFormatData therefore it is not const, however this information
-	// is very useful in the asset registry so we will allow GetCompressedDataSize to be modified if the formats do not exist
-	USoundWave* MutableThis = const_cast<USoundWave*>(this);
-	const FString OggSize = FString::Printf(TEXT("%.2f"), MutableThis->GetCompressedDataSize("OGG") / 1024.0f );
-	OutTags.Add( FAssetRegistryTag("OggSize", OggSize, UObject::FAssetRegistryTag::TT_Numerical) );
 }
 
 void USoundWave::Serialize( FArchive& Ar )
@@ -265,6 +265,11 @@ void USoundWave::LogSubtitle( FOutputDevice& Ar )
 #endif // WITH_EDITORONLY_DATA
 	Ar.Logf( bMature ? TEXT( "Mature:    Yes" ) : TEXT( "Mature:    No" ) );
 }
+
+float USoundWave::GetSubtitlePriority() const
+{ 
+	return SubtitlePriority;
+};
 
 void USoundWave::PostInitProperties()
 {

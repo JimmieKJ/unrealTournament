@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,6 +6,7 @@
 
 #include "Core.h"
 #include "IPAddress.h"
+
 
 /**
  * Represents an internet ip address, using the relatively standard sockaddr_in6 structure. All data is in network byte order
@@ -41,7 +42,7 @@ public:
 		}
 		else if(InAddr == IPv4MulitcastAddr)
 		{
-			// if it's the hardcoded IPv4 multicasting address then translate into an IPv6 multicast address
+			// hack: if it's the hardcoded IPv4 multicasting address then translate into an IPv6 multicast address
 			bool isValid;
 			SetIp(L"ff02::2", isValid);
 			check(isValid);
@@ -120,22 +121,28 @@ public:
 	 */	
 	void SetIp(const in_addr& IPv4Addr)
 	{
-		FMemory::Memzero(&Addr.sin6_addr,sizeof(Addr.sin6_addr));
+		FMemory::Memzero(&Addr.sin6_addr, sizeof(Addr.sin6_addr));
 
-		// special mapping of ipv4 to ipv6 using a hybrid stack, won't work on a pure ipv6 implementation
+		// map IPv4 to IPv6 address (only works on hybrid network stacks)
+		Addr.sin6_addr.s6_addr[10] = 0xff;
+		Addr.sin6_addr.s6_addr[11] = 0xff;
+
 		uint8	IPv4b1 = (static_cast<uint32>(IPv4Addr.s_addr) & 0xFF),
 				IPv4b2 = ((static_cast<uint32>(IPv4Addr.s_addr) >> 8) & 0xFF),
 				IPv4b3 = ((static_cast<uint32>(IPv4Addr.s_addr) >> 16) & 0xFF),
 				IPv4b4 = ((static_cast<uint32>(IPv4Addr.s_addr) >> 24) & 0xFF);
-		
-		Addr.sin6_addr.s6_addr[10] = 0xff;
-		Addr.sin6_addr.s6_addr[11] = 0xff;
+
 		Addr.sin6_addr.s6_addr[12] = IPv4b1;
 		Addr.sin6_addr.s6_addr[13] = IPv4b2;
 		Addr.sin6_addr.s6_addr[14] = IPv4b3;
 		Addr.sin6_addr.s6_addr[15] = IPv4b4;
 
-		UE_LOG(LogSockets, Log, TEXT("Using IPv4 address: %d.%d.%d.%d  on an ipv6 socket"), IPv4b1, IPv4b2, IPv4b3, IPv4b4);
+		UE_LOG(LogSockets, Verbose, TEXT("Using IPv4 address: %d.%d.%d.%d  on an ipv6 socket"),
+			IPv4b1,
+			IPv4b2,
+			IPv4b3,
+			IPv4b4
+		);
 	}
 
 	/**
@@ -178,10 +185,11 @@ public:
 		// in a dual stack system.
 		// This function doesn't really make sense in IPv6, but too much other code relies on it
 		// existing to not have this here.
-
-		//OutAddr = (Addr.sin6_addr.u.Word[6] << 16) & (Addr.sin6_addr.u.Word[7]);
-		// FIXME [RCL]: original code had & here (see commented line above), which looks like a bug. 
+#if PLATFORM_LITTLE_ENDIAN
+		OutAddr = (Addr.sin6_addr.s6_addr[12] << 24) | (Addr.sin6_addr.s6_addr[13] << 16) | (Addr.sin6_addr.s6_addr[14] << 8) | (Addr.sin6_addr.s6_addr[15]);
+#else
 		OutAddr = (Addr.sin6_addr.s6_addr[15] << 24) | (Addr.sin6_addr.s6_addr[14] << 16) | (Addr.sin6_addr.s6_addr[13] << 8) | (Addr.sin6_addr.s6_addr[12]);
+#endif
 	}
 #if 0
 	/**
@@ -302,5 +310,6 @@ public:
  		return (const sockaddr*)&Addr;
  	}
 };
+
 
 #endif

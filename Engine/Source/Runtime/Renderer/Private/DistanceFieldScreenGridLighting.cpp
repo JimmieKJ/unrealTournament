@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DistanceFieldScreenGridLighting.cpp
@@ -743,6 +743,7 @@ void PostProcessBentNormalAOScreenGrid(
 			TEXT("DistanceFieldAOHistory"),
 			TEXT("DistanceFieldIrradianceHistory"),
 			VelocityTexture,
+			DistanceFieldNormal,
 			BentNormalHistoryState,
 			IrradianceHistoryState,
 			DistanceFieldAOBentNormal, 

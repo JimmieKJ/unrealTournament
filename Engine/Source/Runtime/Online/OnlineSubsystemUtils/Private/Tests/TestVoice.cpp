@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "TestVoice.h"
@@ -8,6 +8,8 @@
 #include "OnlineSubsystemUtils.h"
 #include "Voice.h"
 #include "Runtime/Engine/Classes/Sound/SoundWaveProcedural.h"
+
+#if WITH_DEV_AUTOMATION_TESTS
 
 FTestVoice::FTestVoice() :
 	VoiceComp(NULL),
@@ -215,3 +217,5 @@ bool FTestVoice::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
 	}
 	return bWasHandled;
 }
+
+#endif //WITH_DEV_AUTOMATION_TESTS

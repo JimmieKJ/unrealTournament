@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MetalRHIPrivate.h: Private Metal RHI definitions.
@@ -11,9 +11,6 @@
 // UE4 has a Max of 8 RTs, but we can spend less time looping with 6
 const uint32 MaxMetalRenderTargets = 6;
 
-// How many possible vertex streams are allowed
-const uint32 MaxMetalStreams = 31;
-
 // Requirement for vertex buffer offset field
 const uint32 BufferOffsetAlignment = 256;
 
@@ -24,16 +21,21 @@ const uint32 BufferOffsetAlignment = 256;
 #else
 #define BUFFER_CACHE_MODE MTLResourceOptionCPUCacheModeWriteCombined
 #endif
+
 #if PLATFORM_MAC
 #define BUFFER_MANAGED_MEM MTLResourceStorageModeManaged
 #define BUFFER_STORAGE_MODE MTLStorageModeManaged
 #define BUFFER_RESOURCE_STORAGE_MANAGED MTLResourceStorageModeManaged
 #define BUFFER_DYNAMIC_REALLOC BUF_AnyDynamic
+// How many possible vertex streams are allowed
+const uint32 MaxMetalStreams = 31;
 #else
 #define BUFFER_MANAGED_MEM 0
 #define BUFFER_STORAGE_MODE MTLStorageModeShared
 #define BUFFER_RESOURCE_STORAGE_MANAGED MTLResourceStorageModeShared
 #define BUFFER_DYNAMIC_REALLOC BUF_Volatile
+// How many possible vertex streams are allowed
+const uint32 MaxMetalStreams = 30;
 #endif
 
 #ifndef METAL_STATISTICS
@@ -42,7 +44,7 @@ const uint32 BufferOffsetAlignment = 256;
 
 #define SHOULD_TRACK_OBJECTS 0 // (UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT)
 
-#define UNREAL_TO_METAL_BUFFER_INDEX(Index) (30 - Index)
+#define UNREAL_TO_METAL_BUFFER_INDEX(Index) ((MaxMetalStreams - 1) - Index)
 
 // Dependencies
 #include "MetalRHI.h"
@@ -52,7 +54,7 @@ const uint32 BufferOffsetAlignment = 256;
 #import <QuartzCore/CAMetalLayer.h>
 
 // Access the internal context for the device-owning DynamicRHI object
-FMetalContext& GetMetalDeviceContext();
+FMetalDeviceContext& GetMetalDeviceContext();
 
 // Safely release a metal resource, correctly handling the case where the RHI has been destructed first
 void SafeReleaseMetalResource(id Object);

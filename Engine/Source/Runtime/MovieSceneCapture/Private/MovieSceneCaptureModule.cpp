@@ -1,10 +1,14 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneCapturePCH.h"
 #include "MovieSceneCapture.h"
 #include "MovieSceneCaptureModule.h"
 #include "JsonObjectConverter.h"
 #include "ActiveMovieSceneCaptures.h"
+
+#include "Protocols/ImageSequenceProtocol.h"
+#include "Protocols/CompositionGraphCaptureProtocol.h"
+#include "Protocols/VideoCaptureProtocol.h"
 
 #define LOCTEXT_NAMESPACE "MovieSceneCapture"
 
@@ -14,12 +18,62 @@ private:
 
 	/** Handle to a movie capture implementation created from the command line, to be initialized once a world is loaded */
 	FMovieSceneCaptureHandle StartupMovieCaptureHandle;
+	FMovieSceneCaptureProtocolRegistry ProtocolRegistry;
 
-	/** End Tickable interface */
+	virtual FMovieSceneCaptureProtocolRegistry& GetProtocolRegistry()
+	{
+		return ProtocolRegistry;
+	}
+
+	
 	virtual void StartupModule() override
 	{
 		FCoreDelegates::OnPreExit.AddRaw(this, &FMovieSceneCaptureModule::PreExit);
 		FCoreUObjectDelegates::PostLoadMap.AddRaw(this, &FMovieSceneCaptureModule::OnPostLoadMap );
+
+		FMovieSceneCaptureProtocolInfo Info;
+		{
+			Info.DisplayName = LOCTEXT("CompositionGraphDescription", "Custom Render Passes");
+			Info.SettingsClassType = UCompositionGraphCaptureSettings::StaticClass();
+			Info.Factory = []() -> TSharedRef<IMovieSceneCaptureProtocol> {
+				return MakeShareable(new FCompositionGraphCaptureProtocol());
+			};
+			ProtocolRegistry.RegisterProtocol(TEXT("CustomRenderPasses"), Info);
+		}
+#if WITH_EDITOR
+		{
+			Info.DisplayName = LOCTEXT("VideoDescription", "Video Sequence");
+			Info.SettingsClassType = UVideoCaptureSettings::StaticClass();
+			Info.Factory = []() -> TSharedRef<IMovieSceneCaptureProtocol> {
+				return MakeShareable(new FVideoCaptureProtocol);
+			};
+			ProtocolRegistry.RegisterProtocol(TEXT("Video"), Info);
+		}
+		{
+			Info.DisplayName = LOCTEXT("PNGDescription", "Image Sequence (png)");
+			Info.SettingsClassType = UImageCaptureSettings::StaticClass();
+			Info.Factory = []() -> TSharedRef<IMovieSceneCaptureProtocol> {
+				return MakeShareable(new FImageSequenceProtocol(EImageFormat::PNG));
+			};
+			ProtocolRegistry.RegisterProtocol(TEXT("PNG"), Info);
+		}
+		{
+			Info.DisplayName = LOCTEXT("JPEGDescription", "Image Sequence (jpg)");
+			Info.SettingsClassType = UImageCaptureSettings::StaticClass();
+			Info.Factory = []() -> TSharedRef<IMovieSceneCaptureProtocol> {
+				return MakeShareable(new FImageSequenceProtocol(EImageFormat::JPEG));
+			};
+			ProtocolRegistry.RegisterProtocol(TEXT("JPG"), Info);
+		}
+		{
+			Info.DisplayName = LOCTEXT("BMPDescription", "Image Sequence (bmp)");
+			Info.SettingsClassType = UBmpImageCaptureSettings::StaticClass();
+			Info.Factory = []() -> TSharedRef<IMovieSceneCaptureProtocol> {
+				return MakeShareable(new FImageSequenceProtocol(EImageFormat::BMP));
+			};
+			ProtocolRegistry.RegisterProtocol(TEXT("BMP"), Info);
+		}
+#endif
 	}
 
 	void PreExit()
@@ -34,7 +88,6 @@ private:
 		{
 			IMovieSceneCaptureInterface* StartupCaptureInterface = RetrieveMovieSceneInterface(StartupMovieCaptureHandle);
 			StartupCaptureInterface->Initialize(GameEngine->SceneViewport.ToSharedRef());
-			StartupCaptureInterface->SetupFrameRange();
 		}
 
 		StartupMovieCaptureHandle = FMovieSceneCaptureHandle();
@@ -43,8 +96,7 @@ private:
 
 	virtual void PreUnloadCallback() override
 	{
-		FCoreDelegates::OnPreExit.RemoveAll(this);
-		PreExit();
+		DestroyAllActiveCaptures();
 	}
 
 	virtual IMovieSceneCaptureInterface* InitializeFromCommandLine() override
@@ -109,6 +161,25 @@ private:
 					{
 						return nullptr;
 					}
+
+					// Now deserialize the protocol data
+					auto ProtocolTypeField = RootObject->TryGetField(TEXT("ProtocolType"));
+					if (ProtocolTypeField.IsValid())
+					{
+						UClass* ProtocolTypeClass = FindObject<UClass>(nullptr, *ProtocolTypeField->AsString());
+						if (ProtocolTypeClass)
+						{
+							Capture->ProtocolSettings = NewObject<UMovieSceneCaptureProtocolSettings>(Capture, ProtocolTypeClass);
+							if (Capture->ProtocolSettings)
+							{
+								auto ProtocolDataField = RootObject->TryGetField(TEXT("ProtocolData"));
+								if (ProtocolDataField.IsValid())
+								{
+									FJsonObjectConverter::JsonAttributesToUStruct(ProtocolDataField->AsObject()->Values, ProtocolTypeClass, Capture->ProtocolSettings, 0, 0);
+								}
+							}
+						}
+					}
 				}
 			}
 		}
@@ -128,17 +199,21 @@ private:
 		}
 
 		check( Capture != nullptr );
-		FActiveMovieSceneCaptures::Get().Add( Capture );
 		StartupMovieCaptureHandle = Capture->GetHandle();
+		// Add it immediately, so we can get back to it from its handle (usually it gets added in Initialize())
+		FActiveMovieSceneCaptures::Get().Add( Capture );
+
+		Capture->OnCaptureFinished().AddLambda([]{
+			FPlatformMisc::RequestExit(0);
+		});
+		
 		return Capture;
 	}
 
-	virtual IMovieSceneCaptureInterface* CreateMovieSceneCapture(TWeakPtr<FSceneViewport> InSceneViewport) override
+	virtual IMovieSceneCaptureInterface* CreateMovieSceneCapture(TSharedPtr<FSceneViewport> InSceneViewport) override
 	{
 		UMovieSceneCapture* Capture = NewObject<UMovieSceneCapture>(GetTransientPackage());
-		FActiveMovieSceneCaptures::Get().Add(Capture);
 		Capture->Initialize(InSceneViewport);
-		Capture->SetupFrameRange();
 		Capture->StartCapture();
 		return Capture;
 	}
@@ -176,6 +251,13 @@ private:
 			}
 		}
 	}
+
+	virtual void DestroyAllActiveCaptures()
+	{
+		FCoreDelegates::OnPreExit.RemoveAll(this);
+		PreExit();
+	}
+
 };
 
 IMPLEMENT_MODULE( FMovieSceneCaptureModule, MovieSceneCapture )

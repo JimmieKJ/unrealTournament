@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LandscapeEditorPrivatePCH.h"
 #include "ObjectTools.h"
@@ -606,7 +606,7 @@ public:
 		FHitResult Hit;
 		UWorld* World = SplinesComponent->GetWorld();
 		check(World);
-		if (World->LineTraceSingleByObjectType(Hit, Start, End, FCollisionObjectQueryParams(ECC_WorldStatic), FCollisionQueryParams(true)))
+		if (World->LineTraceSingleByObjectType(Hit, Start, End, FCollisionObjectQueryParams(ECC_WorldStatic), FCollisionQueryParams(NAME_None,true)))
 		{
 			ControlPoint->Location = LocalToWorld.InverseTransformPosition(Hit.Location);
 			ControlPoint->UpdateSplinePoints();
@@ -1484,51 +1484,56 @@ public:
 
 	virtual void Render(const FSceneView* View, FViewport* Viewport, FPrimitiveDrawInterface* PDI) override
 	{
-		for (ULandscapeSplineControlPoint* ControlPoint : SelectedSplineControlPoints)
+		// The editor can try to render the tool before the UpdateLandscapeEditorData command runs and the landscape editor realizes that the landscape has been hidden/deleted
+		const ALandscapeProxy* LandscapeProxy = EdMode->CurrentToolTarget.LandscapeInfo->GetLandscapeProxy();
+		if (LandscapeProxy)
 		{
-			const ULandscapeSplinesComponent* SplinesComponent = ControlPoint->GetOuterULandscapeSplinesComponent();
+			for (ULandscapeSplineControlPoint* ControlPoint : SelectedSplineControlPoints)
+			{
+				const ULandscapeSplinesComponent* SplinesComponent = ControlPoint->GetOuterULandscapeSplinesComponent();
 
-			FVector HandlePos0 = SplinesComponent->ComponentToWorld.TransformPosition(ControlPoint->Location + ControlPoint->Rotation.Vector() * -20);
-			FVector HandlePos1 = SplinesComponent->ComponentToWorld.TransformPosition(ControlPoint->Location + ControlPoint->Rotation.Vector() * 20);
-			DrawDashedLine(PDI, HandlePos0, HandlePos1, FColor::White, 20, SDPG_Foreground);
+				FVector HandlePos0 = SplinesComponent->ComponentToWorld.TransformPosition(ControlPoint->Location + ControlPoint->Rotation.Vector() * -20);
+				FVector HandlePos1 = SplinesComponent->ComponentToWorld.TransformPosition(ControlPoint->Location + ControlPoint->Rotation.Vector() * 20);
+				DrawDashedLine(PDI, HandlePos0, HandlePos1, FColor::White, 20, SDPG_Foreground);
+
+				if (GLevelEditorModeTools().GetWidgetMode() == FWidget::WM_Scale)
+				{
+					for (const FLandscapeSplineConnection& Connection : ControlPoint->ConnectedSegments)
+					{
+						FVector StartLocation; FRotator StartRotation;
+						Connection.GetNearConnection().ControlPoint->GetConnectionLocationAndRotation(Connection.GetNearConnection().SocketName, StartLocation, StartRotation);
+
+						FVector StartPos = SplinesComponent->ComponentToWorld.TransformPosition(StartLocation);
+						FVector HandlePos = SplinesComponent->ComponentToWorld.TransformPosition(StartLocation + StartRotation.Vector() * Connection.GetNearConnection().TangentLen / 2);
+						PDI->DrawLine(StartPos, HandlePos, FColor::White, SDPG_Foreground);
+
+						if (PDI->IsHitTesting()) PDI->SetHitProxy(new HLandscapeSplineProxy_Tangent(Connection.Segment, Connection.End));
+						PDI->DrawPoint(HandlePos, FColor::White, 10.0f, SDPG_Foreground);
+						if (PDI->IsHitTesting()) PDI->SetHitProxy(NULL);
+					}
+				}
+			}
 
 			if (GLevelEditorModeTools().GetWidgetMode() == FWidget::WM_Scale)
 			{
-				for (const FLandscapeSplineConnection& Connection : ControlPoint->ConnectedSegments)
+				for (ULandscapeSplineSegment* Segment : SelectedSplineSegments)
 				{
-					FVector StartLocation; FRotator StartRotation;
-					Connection.GetNearConnection().ControlPoint->GetConnectionLocationAndRotation(Connection.GetNearConnection().SocketName, StartLocation, StartRotation);
+					const ULandscapeSplinesComponent* SplinesComponent = Segment->GetOuterULandscapeSplinesComponent();
+					for (int32 End = 0; End <= 1; End++)
+					{
+						const FLandscapeSplineSegmentConnection& Connection = Segment->Connections[End];
 
-					FVector StartPos = SplinesComponent->ComponentToWorld.TransformPosition(StartLocation);
-					FVector HandlePos = SplinesComponent->ComponentToWorld.TransformPosition(StartLocation + StartRotation.Vector() * Connection.GetNearConnection().TangentLen / 2);
-					PDI->DrawLine(StartPos, HandlePos, FColor::White, SDPG_Foreground);
+						FVector StartLocation; FRotator StartRotation;
+						Connection.ControlPoint->GetConnectionLocationAndRotation(Connection.SocketName, StartLocation, StartRotation);
 
-					if (PDI->IsHitTesting()) PDI->SetHitProxy(new HLandscapeSplineProxy_Tangent(Connection.Segment, Connection.End));
-					PDI->DrawPoint(HandlePos, FColor::White, 10.0f, SDPG_Foreground);
-					if (PDI->IsHitTesting()) PDI->SetHitProxy(NULL);
-				}
-			}
-		}
+						FVector EndPos = SplinesComponent->ComponentToWorld.TransformPosition(StartLocation);
+						FVector EndHandlePos = SplinesComponent->ComponentToWorld.TransformPosition(StartLocation + StartRotation.Vector() * Connection.TangentLen / 2);
 
-		if (GLevelEditorModeTools().GetWidgetMode() == FWidget::WM_Scale)
-		{
-			for (ULandscapeSplineSegment* Segment : SelectedSplineSegments)
-			{
-				const ULandscapeSplinesComponent* SplinesComponent = Segment->GetOuterULandscapeSplinesComponent();
-				for (int32 End = 0; End <= 1; End++)
-				{
-					const FLandscapeSplineSegmentConnection& Connection = Segment->Connections[End];
-
-					FVector StartLocation; FRotator StartRotation;
-					Connection.ControlPoint->GetConnectionLocationAndRotation(Connection.SocketName, StartLocation, StartRotation);
-
-					FVector EndPos = SplinesComponent->ComponentToWorld.TransformPosition(StartLocation);
-					FVector EndHandlePos = SplinesComponent->ComponentToWorld.TransformPosition(StartLocation + StartRotation.Vector() * Connection.TangentLen / 2);
-
-					PDI->DrawLine(EndPos, EndHandlePos, FColor::White, SDPG_Foreground);
-					if (PDI->IsHitTesting()) PDI->SetHitProxy(new HLandscapeSplineProxy_Tangent(Segment, !!End));
-					PDI->DrawPoint(EndHandlePos, FColor::White, 10.0f, SDPG_Foreground);
-					if (PDI->IsHitTesting()) PDI->SetHitProxy(NULL);
+						PDI->DrawLine(EndPos, EndHandlePos, FColor::White, SDPG_Foreground);
+						if (PDI->IsHitTesting()) PDI->SetHitProxy(new HLandscapeSplineProxy_Tangent(Segment, !!End));
+						PDI->DrawPoint(EndHandlePos, FColor::White, 10.0f, SDPG_Foreground);
+						if (PDI->IsHitTesting()) PDI->SetHitProxy(NULL);
+					}
 				}
 			}
 		}
@@ -1554,7 +1559,12 @@ public:
 	{
 		if (SelectedSplineControlPoints.Num() > 0)
 		{
-			return true;
+			// The editor can try to render the transform widget before the landscape editor ticks and realizes that the landscape has been hidden/deleted
+			const ALandscapeProxy* LandscapeProxy = EdMode->CurrentToolTarget.LandscapeInfo->GetLandscapeProxy();
+			if (LandscapeProxy)
+			{
+				return true;
+			}
 		}
 
 		return false;
@@ -1587,9 +1597,13 @@ public:
 	{
 		if (SelectedSplineControlPoints.Num() > 0)
 		{
-			ULandscapeSplineControlPoint* FirstPoint = *SelectedSplineControlPoints.CreateConstIterator();
-			ULandscapeSplinesComponent* SplinesComponent = FirstPoint->GetOuterULandscapeSplinesComponent();
-			return SplinesComponent->ComponentToWorld.TransformPosition(FirstPoint->Location);
+			const ALandscapeProxy* LandscapeProxy = EdMode->CurrentToolTarget.LandscapeInfo->GetLandscapeProxy();
+			if (LandscapeProxy)
+			{
+				ULandscapeSplineControlPoint* FirstPoint = *SelectedSplineControlPoints.CreateConstIterator();
+				ULandscapeSplinesComponent* SplinesComponent = FirstPoint->GetOuterULandscapeSplinesComponent();
+				return SplinesComponent->ComponentToWorld.TransformPosition(FirstPoint->Location);
+			}
 		}
 
 		return FVector::ZeroVector;
@@ -1599,9 +1613,13 @@ public:
 	{
 		if (SelectedSplineControlPoints.Num() > 0)
 		{
-			ULandscapeSplineControlPoint* FirstPoint = *SelectedSplineControlPoints.CreateConstIterator();
-			ULandscapeSplinesComponent* SplinesComponent = FirstPoint->GetOuterULandscapeSplinesComponent();
-			return FQuatRotationTranslationMatrix(FirstPoint->Rotation.Quaternion() * SplinesComponent->ComponentToWorld.GetRotation(), FVector::ZeroVector);
+			const ALandscapeProxy* LandscapeProxy = EdMode->CurrentToolTarget.LandscapeInfo->GetLandscapeProxy();
+			if (LandscapeProxy)
+			{
+				ULandscapeSplineControlPoint* FirstPoint = *SelectedSplineControlPoints.CreateConstIterator();
+				ULandscapeSplinesComponent* SplinesComponent = FirstPoint->GetOuterULandscapeSplinesComponent();
+				return FQuatRotationTranslationMatrix(FirstPoint->Rotation.Quaternion() * SplinesComponent->ComponentToWorld.GetRotation(), FVector::ZeroVector);
+			}
 		}
 
 		return FMatrix::Identity;
