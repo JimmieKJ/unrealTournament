@@ -424,11 +424,11 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 		bIsUnderCursor = (CursorPosition.X >= Bounds.X && CursorPosition.X <= Bounds.Z && CursorPosition.Y >= Bounds.Y && CursorPosition.Y <= Bounds.W);
 	}
 
-	float XL, YL;
+	float NameXL, NameYL;
 	float MaxNameWidth = 0.45f*ScaledCellWidth;
-	Canvas->TextSize(UTHUDOwner->SmallFont, PlayerState->PlayerName, XL, YL, RenderScale, RenderScale);
-	UFont* NameFont = (XL < MaxNameWidth) ? UTHUDOwner->SmallFont : UTHUDOwner->TinyFont;
-	FText PlayerName = (XL < MaxNameWidth) ? FText::FromString(PlayerState->PlayerName) : FText::FromString(GetClampedName(PlayerState, UTHUDOwner->TinyFont, RenderScale, MaxNameWidth));
+	Canvas->TextSize(UTHUDOwner->SmallFont, PlayerState->PlayerName, NameXL, NameYL, RenderScale, RenderScale);
+	UFont* NameFont = (NameXL < MaxNameWidth) ? UTHUDOwner->SmallFont : UTHUDOwner->TinyFont;
+	FText PlayerName = (NameXL < MaxNameWidth) ? FText::FromString(PlayerState->PlayerName) : FText::FromString(GetClampedName(PlayerState, UTHUDOwner->TinyFont, RenderScale, MaxNameWidth));
 	FLinearColor DrawColor = GetPlayerColorFor(PlayerState);
 
 	int32 Ping = PlayerState->Ping * 4;

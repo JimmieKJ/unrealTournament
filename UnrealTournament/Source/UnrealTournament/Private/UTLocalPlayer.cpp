@@ -4933,8 +4933,6 @@ void UUTLocalPlayer::AttemptMatchmakingReconnectResult(EMatchmakingCompleteResul
 
 	if (Result == EMatchmakingCompleteResult::Success)
 	{
-		UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
-		UUTMatchmaking* Matchmaking = UTGameInstance->GetMatchmaking();
 		if (ensure(Matchmaking))
 		{
 			Matchmaking->TravelToServer();

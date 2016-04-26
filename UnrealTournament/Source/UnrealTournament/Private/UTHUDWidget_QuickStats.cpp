@@ -228,10 +228,10 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			AUTInventory* ActiveBoost = nullptr;
 			for (TInventoryIterator<> It(CharOwner); It; ++It)
 			{
-				AUTInventory* InventoryItem = Cast<AUTInventory>(*It);
-				if (InventoryItem && InventoryItem->bBoostPowerupSuppliedItem)
+				AUTInventory* InventoryItemIt = Cast<AUTInventory>(*It);
+				if (InventoryItemIt && InventoryItemIt->bBoostPowerupSuppliedItem)
 				{
-					ActiveBoost = InventoryItem;
+					ActiveBoost = InventoryItemIt;
 				}
 			}
 
