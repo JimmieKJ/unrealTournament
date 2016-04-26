@@ -553,12 +553,12 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 void UUTScoreboard::DrawReadyText(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width)
 {
 	FText PlayerReady = PlayerState->bReadyToPlay ? ReadyText : NotReadyText;
-	float ReadyX = XOffset + (Width * ColumnHeaderScoreX);
-	if (PlayerState->bPendingTeamSwitch)
+	float ReadyX = XOffset + ScaledCellWidth * ColumnHeaderScoreX;
+	if (PlayerState && PlayerState->bPendingTeamSwitch)
 	{
 		PlayerReady = TeamSwapText;
 	}
-	if (PlayerState->ReadyMode > 0)
+	if (PlayerState && (PlayerState->ReadyMode > 0) && PlayerState->bReadyToPlay)
 	{
 		int32 ReadyColorState = 2.f * GetWorld()->GetTimeSeconds() + PlayerState->PlayerId;
 		if ((ReadyColorState & 14) == 0)
@@ -581,23 +581,23 @@ void UUTScoreboard::DrawReadyText(AUTPlayerState* PlayerState, float XOffset, fl
 		{
 			ReadyScale = Scaling * 1.2f + 0.7f;
 		}
-		if ((PlayerState->ReadyMode == 3) && PlayerState->bReadyToPlay)
+		if (PlayerState->ReadyMode == 3)
 		{
 			PlayerReady = NSLOCTEXT("UTScoreboard", "Plead", "COME ON!");
 			ReadyX += 30.f*RenderScale;
 		}
-		if ((PlayerState->ReadyMode == 5) && PlayerState->bReadyToPlay)
+		else if (PlayerState->ReadyMode == 5)
 		{
 			PlayerReady = NSLOCTEXT("UTScoreboard", "PleadRekt", "GET REKT!");
 			ReadyX += 30.f*RenderScale;
 		}
-		if (PlayerState->ReadyMode == 4)
+		else if (PlayerState->ReadyMode == 4)
 		{
 			ReadyScale = 1.15f;
 			float XL, YL;
 			Canvas->TextSize(UTHUDOwner->SmallFont, "READY", XL, YL, ReadyScale*RenderScale, ReadyScale*RenderScale);
-			float Dist = 0.75f * Width * (ColumnHeaderPingX - 0.5f) - 0.75f * XL;
-			ReadyX = XOffset + 0.25f*Width + 2.f * Dist * Scaling;
+			float Dist = 0.75f * ScaledCellWidth * (ColumnHeaderPingX - 0.5f) - 0.75f * XL * ReadyScale*RenderScale;
+			ReadyX = XOffset + 0.25f*ScaledCellWidth + 2.f * Dist * Scaling;
 			if (ScaleTime < 0.5f)
 			{
 				ReadyColor.B = 0.5f;
