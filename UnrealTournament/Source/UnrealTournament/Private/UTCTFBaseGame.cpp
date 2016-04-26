@@ -419,6 +419,10 @@ void AUTCTFBaseGame::EndGame(AUTPlayerState* Winner, FName Reason)
 
 void AUTCTFBaseGame::SetEndGameFocus(AUTPlayerState* Winner)
 {
+	if (!GetWorld() || !CTFGameState)
+	{
+		return;
+	}
 	int32 WinnerTeamNum = Winner ? Winner->GetTeamNum() : (LastTeamToScore ? LastTeamToScore->TeamIndex : 0);
 	AUTCTFFlagBase* WinningBase = NULL;
 	WinningBase = CTFGameState->FlagBases[WinnerTeamNum];
