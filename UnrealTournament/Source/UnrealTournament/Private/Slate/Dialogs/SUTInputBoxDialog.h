@@ -51,6 +51,8 @@ protected:
 	FInputBoxFilterDelegate TextFilter;
 	uint32 MaxInputLength;
 
+	uint16 ButtonMask;
+
 	/** Sets whether this text box is for storing a password */
 	TAttribute< bool > IsPassword;
 	

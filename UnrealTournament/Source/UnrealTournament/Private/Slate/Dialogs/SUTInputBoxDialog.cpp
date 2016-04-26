@@ -24,6 +24,7 @@ void SUTInputBoxDialog::Construct(const FArguments& InArgs)
 	TextFilter = InArgs._TextFilter;
 	IsPassword = InArgs._IsPassword;
 	MaxInputLength = InArgs._MaxInputLength;
+	ButtonMask = InArgs._ButtonMask;
 
 	if (DialogContent.IsValid())
 	{
@@ -95,7 +96,14 @@ void SUTInputBoxDialog::OnTextCommited(const FText& NewText, ETextCommit::Type C
 {
 	if (CommitType == ETextCommit::OnEnter)
 	{
-		OnButtonClick(UTDIALOG_BUTTON_OK);
+		if (ButtonMask & UTDIALOG_BUTTON_OK)
+		{
+			OnButtonClick(UTDIALOG_BUTTON_OK);
+		}
+		else if (ButtonMask & UTDIALOG_BUTTON_YES)
+		{
+			OnButtonClick(UTDIALOG_BUTTON_YES);
+		}
 	}
 }
 
