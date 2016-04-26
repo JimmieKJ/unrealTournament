@@ -1201,7 +1201,9 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 		{
 			FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
 			const float Ratio = Icon.UL / Icon.VL;
-			Canvas->DrawColor = It->IconColor.ToFColor(false);
+			FLinearColor MutedColor = It->IconColor * 0.8f;
+			MutedColor.A = 0.75f;
+			Canvas->DrawColor = MutedColor.ToFColor(false);
 			const float IconSize = (LastHoveredActor == *It) ? (48.0f * RenderScale * FMath::InterpEaseOut<float>(1.0f, 1.25f, FMath::Min<float>(0.2f, GetWorld()->RealTimeSeconds - LastHoveredActorChangeTime) * 5.0f, 2.0f)) : (32.0f * RenderScale);
 			Canvas->DrawTile(Icon.Texture, Pos.X - 0.5f * Ratio * IconSize, Pos.Y - 0.5f * IconSize, Ratio * IconSize, IconSize, Icon.U, Icon.V, Icon.UL, Icon.VL);
 			if (LastHoveredActor == *It)
