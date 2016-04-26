@@ -1188,11 +1188,18 @@ AUTReplicatedMapInfo* AUTGameState::CreateMapInfo(const FAssetData& MapAsset)
 	AUTReplicatedMapInfo* MapInfo = GetWorld()->SpawnActor<AUTReplicatedMapInfo>(Params);
 	if (MapInfo)
 	{
+
+		FText LocDesc = FText::GetEmpty();
+		if (Description != nullptr)
+		{
+			FTextStringHelper::ReadFromString(**Description, LocDesc);
+		}
+
 		MapInfo->MapPackageName = MapAsset.PackageName.ToString();
 		MapInfo->MapAssetName = MapAsset.AssetName.ToString();
 		MapInfo->Title = (Title != NULL && !Title->IsEmpty()) ? *Title : *MapAsset.AssetName.ToString();
 		MapInfo->Author = (Author != NULL) ? *Author : FString();
-		MapInfo->Description = (Description != NULL) ? *Description : FString();
+		MapInfo->Description = (!LocDesc.IsEmpty()) ? LocDesc.ToString() : FString();
 		MapInfo->MapScreenshotReference = (Screenshot != NULL) ? *Screenshot : FString();
 		MapInfo->OptimalPlayerCount = OptimalPlayerCount;
 		MapInfo->OptimalTeamPlayerCount = OptimalTeamPlayerCount;
