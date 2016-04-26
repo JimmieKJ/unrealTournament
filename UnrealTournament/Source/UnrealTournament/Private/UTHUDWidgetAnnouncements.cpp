@@ -126,14 +126,13 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 				X *= RenderScale;
 				Y *= RenderScale;
 			}
-			FVector2D RenderPos = FVector2D(RenderPosition.X + X, RenderPosition.Y + Y);
+				FVector2D RenderPos = FVector2D(RenderPosition.X + X, RenderPosition.Y + Y);
 			float TextScaling = bScaleByDesignedResolution ? RenderScale*CurrentTextScale : CurrentTextScale;
 
 			// Handle justification
 			XL *= TextScaling; 
 			YL *= TextScaling;
 			RenderPos.X -= XL * 0.5f;
-		//	RenderPos.Y -= YL * 0.5f;
 
 			FLinearColor DrawColor = MessageQueue[QueueIndex].DrawColor;
 			DrawColor.A = Opacity * Alpha * UTHUDOwner->WidgetOpacity;
@@ -185,7 +184,6 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 			Canvas->StrLen(MessageQueue[QueueIndex].DisplayFont, MessageQueue[QueueIndex].EmphasisText.ToString(), EmpXL, EmpYL);
 			RenderPos.X += EmphasisScaling * EmpXL * TextScaling;
 			TextSize.X += 2.f * (EmphasisScaling - 1.f) * EmpXL * TextScaling;
-			TextSize.Y += (EmphasisScaling - 1.f) * EmpYL * TextScaling;
 			if (!MessageQueue[QueueIndex].PostfixText.IsEmpty())
 			{
 				FUTCanvasTextItem PostfixTextItem(RenderPos, MessageQueue[QueueIndex].PostfixText, MessageQueue[QueueIndex].DisplayFont, DrawColor, WordWrapper);
@@ -237,19 +235,15 @@ void UUTHUDWidgetAnnouncements::DrawDeathMessage(FVector2D TextSize, int32 Queue
 
 		if ((DmgType != nullptr) && (DmgType->HUDIcon.Texture != nullptr) && (VictimPS == LocalPS))
 		{
-			float XL = FMath::Abs(DmgType->HUDIcon.UL) * GetTextScale(QueueIndex);
-			float YL = FMath::Abs(DmgType->HUDIcon.VL) * GetTextScale(QueueIndex);
+			float XL = FMath::Abs(DmgType->HUDIcon.UL) * RenderScale;
+			float YL = FMath::Abs(DmgType->HUDIcon.VL) * RenderScale;
 
-			//Move X so we are rendering after text
-			if (UTHUDOwner->GetDrawCenteredKillMsg())
-			{
-				X += (TextSize.X / 2) + PaddingBetweenTextAndDamageIcon;
-			}
+			X += 0.5f * TextSize.X + PaddingBetweenTextAndDamageIcon;
+			Y = Y + 0.5f * (TextSize.Y - YL);
 
-			////Center message on Y
-			Y = Y + (TextSize.Y - YL) / 2;
-
+			bScaleByDesignedResolution = false;
 			DrawTexture(DmgType->HUDIcon.Texture, X, Y, XL, YL, DmgType->HUDIcon.U, DmgType->HUDIcon.V, DmgType->HUDIcon.UL, DmgType->HUDIcon.VL, UTHUDOwner->GetHUDWidgetOpacity());
+			bScaleByDesignedResolution = true;
 		}
 	}
 }
