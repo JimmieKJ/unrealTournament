@@ -89,11 +89,11 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 int32 AUTCTFRoundGame::GetFlagCapScore()
 {
 	int32 BonusTime = UTGameState->GetRemainingTime();
-	if (BonusTime >= GoldBonusTime)
+	if (BonusTime > GoldBonusTime)
 	{
 		return GoldScore;
 	}
-	if (BonusTime >= SilverBonusTime)
+	if (BonusTime > SilverBonusTime)
 	{
 		return SilverScore;
 	}
@@ -1101,10 +1101,16 @@ void AUTCTFRoundGame::CheckGameTime()
 		{
 			if (RCTFGameState)
 			{
-				RCTFGameState->BonusLevel = (RemainingTime >= GoldBonusTime) ? 3 : 2;
-				if (RemainingTime < SilverBonusTime)
+				uint8 OldBonusLevel = RCTFGameState->BonusLevel;
+				RCTFGameState->BonusLevel = (RemainingTime > GoldBonusTime) ? 3 : 2;
+				if (RemainingTime <= SilverBonusTime)
 				{
 					RCTFGameState->BonusLevel = 1;
+				}
+				if (OldBonusLevel != RCTFGameState->BonusLevel)
+				{
+					RCTFGameState->OnBonusLevelChanged();
+					RCTFGameState->ForceNetUpdate();
 				}
 			}
 			// bonus time countdowns

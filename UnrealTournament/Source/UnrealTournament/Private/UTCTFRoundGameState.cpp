@@ -5,6 +5,7 @@
 #include "Net/UnrealNetwork.h"
 #include "UTCTFScoring.h"
 #include "StatNames.h"
+#include "UTCountDownMessage.h"
 
 AUTCTFRoundGameState::AUTCTFRoundGameState(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -12,6 +13,7 @@ AUTCTFRoundGameState::AUTCTFRoundGameState(const FObjectInitializer& ObjectIniti
 	GoldBonusText = NSLOCTEXT("FlagRun", "GoldBonusText", "GOLD");
 	SilverBonusText = NSLOCTEXT("FlagRun", "SilverBonusText", "SILVER");
 	BronzeBonusText = NSLOCTEXT("FlagRun", "BronzeBonusText", "BRONZE");
+	BonusLevel = 3;
 }
 
 void AUTCTFRoundGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -42,7 +44,6 @@ float AUTCTFRoundGameState::GetIntermissionTime()
 	return IntermissionTime;
 }
 
-
 bool AUTCTFRoundGameState::IsTeamOnOffense(int32 TeamNumber) const
 {
 	const bool bIsOnRedTeam = (TeamNumber == 0);
@@ -68,6 +69,25 @@ bool AUTCTFRoundGameState::IsTeamAbleToEarnPowerup(int32 TeamNumber) const
 int AUTCTFRoundGameState::GetKillsNeededForPowerup(int32 TeamNumber) const
 {
 	return IsTeamOnOffense(TeamNumber) ? (OffenseKillsNeededForPowerup - OffenseKills) : (DefenseKillsNeededForPowerup - DefenseKills);
+}
+
+void AUTCTFRoundGameState::OnBonusLevelChanged()
+{
+	if (BonusLevel < 3)
+	{
+		USoundBase* SoundToPlay = UUTCountDownMessage::StaticClass()->GetDefaultObject<UUTCountDownMessage>()->TimeEndingSound;
+		if (SoundToPlay != NULL)
+		{
+			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+			{
+				AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
+				if (PC && PC->IsLocalPlayerController())
+				{
+					PC->ClientPlaySound(SoundToPlay);
+				}
+			}
+		}
+	}
 }
 
 FText AUTCTFRoundGameState::GetGameStatusText(bool bForScoreboard)

@@ -38,13 +38,9 @@ void UUTCountDownMessage::ClientReceive(const FClientReceiveData& ClientData) co
 		{
 			TimeValue -= 1000;
 		}
-		if (TimeValue < 6)
+		if (TimeWarningSound && (TimeValue < 6))
 		{
-			USoundBase* SoundToPlay = (TimeValue > 1) ? TimeWarningSound : TimeEndingSound;
-			if (SoundToPlay != NULL)
-			{
-				PC->ClientPlaySound(SoundToPlay);
-			}
+			PC->ClientPlaySound(TimeWarningSound);
 		}
 	}
 }
