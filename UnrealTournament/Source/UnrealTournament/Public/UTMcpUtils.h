@@ -202,7 +202,7 @@ public:
 	* @param RatingType The type of rating we are querying for
 	* @param Callback Callback delegate
 	*/
-	void UUTMcpUtils::GetBulkSpecifiedAccountMmr(const TArray<FString>& RatingTypes, const TSharedPtr<const FUniqueNetId> AccountIDToQuery, const FGetBulkAccountMmrCb& Callback);
+	void GetBulkSpecifiedAccountMmr(const TArray<FString>& RatingTypes, const TSharedPtr<const FUniqueNetId> AccountIDToQuery, const FGetBulkAccountMmrCb& Callback);
 
 public:
 	typedef TFunction<void(const FOnlineError& /*Result*/, const FAccountLeague& /*Response*/)> FGetAccountLeagueCb;
