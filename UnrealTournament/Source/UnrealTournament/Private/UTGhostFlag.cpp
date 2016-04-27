@@ -56,6 +56,10 @@ void AUTGhostFlag::Tick(float DeltaTime)
 		TimerEffect->SetHiddenInGame(false);
 		TimerEffect->SetFloatParameter(NAME_Progress, TimerPosition);			
 		TimerEffect->SetFloatParameter(NAME_RespawnTime, 60);
+		if (GetWorld()->GetTimeSeconds() - TrailSpawnTime > 14.f)
+		{
+			OnSetCarriedObject();
+		}
 	}
 	else
 	{
@@ -80,6 +84,7 @@ void AUTGhostFlag::OnSetCarriedObject()
 		TeamIndex = (MyCarriedObject && MyCarriedObject->Team) ? MyCarriedObject->Team->TeamIndex : 0;
 		Trail->SetTeamIndex(TeamIndex);
 		Trail->CustomTimeDilation = 0.1f;
+		TrailSpawnTime = GetWorld()->GetTimeSeconds();
 	}
 }
 

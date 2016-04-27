@@ -9,7 +9,7 @@ AUTFlagReturnTrail::AUTFlagReturnTrail(const FObjectInitializer& ObjectInitializ
 {
 	PrimaryActorTick.bCanEverTick = true;
 
-	InitialLifeSpan = 10.f;
+	InitialLifeSpan = 0.f;
 	DedicatedServerLifeSpan = 0.1f; 
 	TeamIndex = 255;
 

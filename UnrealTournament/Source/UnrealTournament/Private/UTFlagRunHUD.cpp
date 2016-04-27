@@ -147,7 +147,6 @@ void AUTFlagRunHUD::DrawHUD()
 	HandlePowerups();
 }
 
-
 void AUTFlagRunHUD::HandlePowerups()
 {
 #if !UE_SERVER
