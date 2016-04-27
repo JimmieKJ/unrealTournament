@@ -187,11 +187,12 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			BootsInfo.Value = 0;
 		}
 
+		PowerupInfo.bAltIcon = false;
+		PowerupInfo.bUseLabel = false;
+		PowerupInfo.Label = FText::GetEmpty();
+		PowerupInfo.Value = 0;
 		if (CurrentPowerup != nullptr)
 		{
-			PowerupInfo.bAltIcon = false;
-			PowerupInfo.bUseLabel = false;
-			PowerupInfo.Label = FText::GetEmpty();
 			PowerupInfo.Value = int32(CurrentPowerup->TimeRemaining);
 
 			PowerupIcon.Atlas = CurrentPowerup->HUDIcon.Texture;
