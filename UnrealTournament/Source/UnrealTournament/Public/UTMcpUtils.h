@@ -175,6 +175,15 @@ public:
 	void GetAccountMmr(const FString& RatingType, const FGetAccountMmrCb& Callback);
 
 public:
+	/**
+	* Query the server for a specified user's MMR
+	*
+	* @param RatingType The type of rating we are querying for
+	* @param Callback Callback delegate
+	*/
+	void GetSpecifiedAccountMmr(const FString& RatingType, const TSharedPtr<const FUniqueNetId> AccountIDToQuery, const FGetAccountMmrCb& Callback);
+
+public:
 	typedef TFunction<void(const FOnlineError& /*Result*/, const FBulkAccountMmr& /*Response*/)> FGetBulkAccountMmrCb;
 
 	/**
@@ -185,6 +194,15 @@ public:
 	* @param Callback Callback delegate
 	*/
 	void GetBulkAccountMmr(const TArray<FString>& RatingTypes, const FGetBulkAccountMmrCb& Callback);
+
+public:
+	/**
+	* Query the server for a specified user's MMR
+	*
+	* @param RatingType The type of rating we are querying for
+	* @param Callback Callback delegate
+	*/
+	void UUTMcpUtils::GetBulkSpecifiedAccountMmr(const TArray<FString>& RatingTypes, const TSharedPtr<const FUniqueNetId> AccountIDToQuery, const FGetBulkAccountMmrCb& Callback);
 
 public:
 	typedef TFunction<void(const FOnlineError& /*Result*/, const FAccountLeague& /*Response*/)> FGetAccountLeagueCb;
