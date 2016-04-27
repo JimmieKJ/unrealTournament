@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
+#include "UTGameEngine.h"
 #include "UTOnlineGameSettingsBase.h"
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
@@ -211,12 +212,16 @@ void AUTGameSessionNonRanked::ValidatePlayer(const FString& Address, const TShar
 			}
 		}
 
-		for (int32 i = 0; i < InstanceBannedUsers.Num(); i++)
+		UUTGameEngine* UTGameEngine = Cast<UUTGameEngine>(GEngine);
+		if (UTGameEngine)
 		{
-			if (UIDAsString == InstanceBannedUsers[i].UniqueID)
+			for (int32 i = 0; i < UTGameEngine->InstanceBannedUsers.Num(); i++)
 			{
-				ErrorMessage = TEXT("BANNED");
-				break;
+				if (UIDAsString == UTGameEngine->InstanceBannedUsers[i].UniqueID)
+				{
+					ErrorMessage = TEXT("BANNED");
+					break;
+				}
 			}
 		}
 	}
@@ -428,7 +433,11 @@ bool AUTGameSessionNonRanked::KickPlayer(APlayerController* KickedPlayer, const 
 		{
 			if (UTBaseGameMode && UTBaseGameMode->IsGameInstanceServer())
 			{
-				InstanceBannedUsers.Add(FBanInfo(PS->PlayerName, PS->UniqueId.ToString()));
+				UUTGameEngine* UTGameEngine = Cast<UUTGameEngine>(GEngine);
+				if (UTGameEngine)
+				{
+					UTGameEngine->InstanceBannedUsers.Add(FBanInfo(PS->PlayerName, PS->UniqueId.ToString()));
+				}
 			}
 		}
 		KickedPlayer->ClientWasKicked(KickReason);

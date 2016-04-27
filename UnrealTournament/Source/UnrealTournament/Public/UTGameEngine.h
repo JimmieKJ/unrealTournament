@@ -5,6 +5,33 @@
 #include "UTChallengeManager.h"
 #include "UTGameEngine.generated.h"
 
+USTRUCT()
+struct FBanInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FString UserName;
+
+	UPROPERTY()
+		FString UniqueID;
+
+	FBanInfo()
+		: UserName(TEXT(""))
+		, UniqueID(TEXT(""))
+	{
+	}
+
+	FBanInfo(const FString& inUserName, const FString& inUniqueID)
+		: UserName(inUserName)
+		, UniqueID(inUniqueID)
+	{
+	}
+
+};
+
+
+
 UCLASS()
 class UNREALTOURNAMENT_API UUTGameEngine : public UGameEngine
 {
@@ -214,6 +241,11 @@ public:
 	}
 
 	bool HandleReconnectCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld *InWorld );
+
+	// Users in this array are not saved.  It's used when kicking a player from an instance.  They don't get to come back.
+	UPROPERTY()
+	TArray<FBanInfo> InstanceBannedUsers;
+
 
 };
 

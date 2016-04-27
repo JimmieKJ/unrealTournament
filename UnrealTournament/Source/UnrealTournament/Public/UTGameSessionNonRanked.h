@@ -6,31 +6,6 @@
 
 const float SERVER_REREGISTER_WAIT_TIME = 120.0;  // 2 minutes
 
-USTRUCT()
-struct FBanInfo
-{
-	GENERATED_USTRUCT_BODY()
-
-	UPROPERTY()
-	FString UserName;
-
-	UPROPERTY()
-		FString UniqueID;
-
-	FBanInfo()
-		: UserName(TEXT(""))
-		, UniqueID(TEXT(""))
-	{
-	}
-
-	FBanInfo(const FString& inUserName, const FString& inUniqueID)
-		: UserName(inUserName)
-		, UniqueID(inUniqueID)
-	{
-	}
-
-};
-
 UCLASS(Config = Game)
 class UNREALTOURNAMENT_API AUTGameSessionNonRanked : public AUTGameSession
 {
@@ -82,8 +57,4 @@ protected:
 	
 	UPROPERTY(Config)
 	TArray<FBanInfo> BannedUsers;
-
-	// Users in this array are not saved.  It's used when kicking a player from an instance.  They don't get to come back.
-	UPROPERTY()
-	TArray<FBanInfo> InstanceBannedUsers;
 };
