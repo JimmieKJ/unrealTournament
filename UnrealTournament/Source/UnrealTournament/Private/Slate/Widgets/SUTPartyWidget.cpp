@@ -209,7 +209,8 @@ void SUTPartyWidget::SetupPartyMemberBox()
 				{
 					DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "MakePartyPrivate", "Make Party Private"), FOnClicked::CreateSP(this, &SUTPartyWidget::ChangePartyType, EPartyType::Private));
 				}
-				
+				// These don't seem to work, so disable for now
+#if 0
 				if (bLeaderInvitesOnly)
 				{
 					DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "UndoLeaderInvitesOnly", "Allow Member Invites"), FOnClicked::CreateSP(this, &SUTPartyWidget::AllowMemberInvites, true));
@@ -227,6 +228,7 @@ void SUTPartyWidget::SetupPartyMemberBox()
 				{
 					DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "MakeLeaderFriendsOnly", "Disallow Member Friends"), FOnClicked::CreateSP(this, &SUTPartyWidget::AllowMemberFriends, false));
 				}
+#endif
 			}
 
 			DropDownButton->RebuildMenuContent();
@@ -265,15 +267,13 @@ void SUTPartyWidget::SetupPartyMemberBox()
 
 			DropDownButton->AddSubMenuItem(PartyMembers[i], FOnClicked::CreateSP(this, &SUTPartyWidget::PlayerNameClicked, i));
 
-			if (PartyMemberIds[i] != PartyLeaderId)
+			if (LocalPlayerId == PartyMemberIds[i])
 			{
-				if (LocalPlayerId == PartyMemberIds[i])
-				{
-					DropDownButton->AddSpacer();
-					DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "LeaveParty", "Leave Party"), FOnClicked::CreateSP(this, &SUTPartyWidget::LeaveParty));
-				}
+				DropDownButton->AddSpacer();
+				DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "LeaveParty", "Leave Party"), FOnClicked::CreateSP(this, &SUTPartyWidget::LeaveParty));
 			}
-			else
+			
+			if (LocalPlayerId == PartyLeaderId)
 			{
 				DropDownButton->AddSpacer();
 				DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "PromoteToLeader", "Promote To Leader"), FOnClicked::CreateSP(this, &SUTPartyWidget::PromoteToLeader, i));
