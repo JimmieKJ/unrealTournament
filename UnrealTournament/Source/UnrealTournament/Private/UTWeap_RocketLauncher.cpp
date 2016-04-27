@@ -639,7 +639,7 @@ void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* We
 
 		float CrosshairRot = GetWorld()->TimeSeconds * 90.0f;
 
-		WeaponHudWidget->DrawTexture(Tex, ScreenTarget.X, ScreenTarget.Y, W * Scale, H * Scale, 0.f, 0.f, W, H, 1.f, FLinearColor::Red, FVector2D(0.5f, 0.5f), CrosshairRot);
+		WeaponHudWidget->DrawTexture(Tex, ScreenTarget.X, ScreenTarget.Y, 2.f * W * Scale, 2.f * H * Scale, 0.f, 0.f, W, H, 1.f, FLinearColor::Red, FVector2D(0.5f, 0.5f), CrosshairRot);
 	}
 }
 
