@@ -135,7 +135,6 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 		CameraIconTemplate.RenderColor = TeamColor;
 
 		// Draw the flag / flag base in the world
-
 		float Dist = (Flag->GetActorLocation() - PlayerViewPoint).Size();
 		float WorldRenderScale = RenderScale * FMath::Clamp(MaxIconScale - (Dist - ScalingStartDist) / ScalingEndDist, MinIconScale, MaxIconScale);
 
@@ -156,6 +155,7 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 		float EdgeYPos = (TeamNum == 0) ? 0.35f * GetCanvas()->ClipY : 0.25f*Canvas->ClipY;
 		bool bShouldDrawFlagIcon = ShouldDrawFlag(Flag, bIsEnemyFlag);
 
+		if (TeamNum == 0) UE_LOG(UT, Warning, TEXT("Draw icon for Red %s"), *Flag->GetName());
 		if ((bSpectating || bShouldDrawFlagIcon) && (Flag->Holder != UTPlayerOwner->PlayerState) && (Flag->ObjectState != CarriedObjectState::Home))
 		{
 			WorldPosition = Flag->GetActorLocation();
@@ -180,7 +180,6 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 		}
 
 		// Look to see if we should be displaying the in-world indicator for the flag.
-
 		float CurrentWorldTime = GameState->GetWorld()->GetTimeSeconds();
 		if (bIsEnemyFlag)
 		{
@@ -411,22 +410,22 @@ FVector UUTHUDWidget_CTFFlagStatus::GetAdjustedScreenPosition(const FVector& Wor
 	FVector Cross = (ViewDir ^ FVector(0.f, 0.f, 1.f)).GetSafeNormal();
 	FVector ScreenPosition;
 	float ExtraPadding = 0.1f * Canvas->ClipX;
+	ScreenPosition = GetCanvas()->Project(WorldPosition);
 	if ((ViewDir | (WorldPosition - ViewPoint)) < 0.f)
 	{
 		bool bWasLeft = (Team == 0) ? bRedWasLeft : bBlueWasLeft;
 		bDrawEdgeArrow = true;
 		ScreenPosition.X = bWasLeft ? Edge + ExtraPadding : GetCanvas()->ClipX - Edge - ExtraPadding;
-		ScreenPosition.Y = EdgeYPos;
+		ScreenPosition.Y = 0.5f*GetCanvas()->ClipY;
 		ScreenPosition.Z = 0.0f;
 		return ScreenPosition;
 	}
-	ScreenPosition = GetCanvas()->Project(WorldPosition);
 	if ((ScreenPosition.X < 0.f) || (ScreenPosition.X > GetCanvas()->ClipX))
 	{
 		bool bLeftOfScreen = (ScreenPosition.X < 0.f);
 		bDrawEdgeArrow = true;
 		ScreenPosition.X = bLeftOfScreen ? Edge+ ExtraPadding : GetCanvas()->ClipX - Edge - ExtraPadding;
-		ScreenPosition.Y = EdgeYPos;
+		ScreenPosition.Y = FMath::Clamp(ScreenPosition.Y, 0.25f*GetCanvas()->ClipY, 0.75f*GetCanvas()->ClipY);
 		if (Team == 0)
 		{
 			bRedWasLeft = bLeftOfScreen;
@@ -438,8 +437,14 @@ FVector UUTHUDWidget_CTFFlagStatus::GetAdjustedScreenPosition(const FVector& Wor
 	}
 	else
 	{
-		bRedWasLeft = false;
-		bBlueWasLeft = false;
+		if (Team == 0)
+		{
+			bRedWasLeft = false;
+		}
+		else
+		{
+			bBlueWasLeft = false;
+		}
 		ScreenPosition.X = FMath::Clamp(ScreenPosition.X, Edge, GetCanvas()->ClipX - Edge);
 		ScreenPosition.Y = FMath::Clamp(ScreenPosition.Y, Edge, GetCanvas()->ClipY - Edge);
 		ScreenPosition.Z = 0.0f;
