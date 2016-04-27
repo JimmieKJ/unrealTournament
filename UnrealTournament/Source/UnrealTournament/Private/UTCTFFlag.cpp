@@ -134,7 +134,8 @@ void AUTCTFFlag::SendHomeWithNotify()
 			for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 			{
 				AUTCharacter* TeamChar = Cast<AUTCharacter>(*It);
-				if (TeamChar && !TeamChar->IsDead() && ((GetActorLocation() - TeamChar->GetActorLocation()).SizeSquared() < 500000.f) && GameState && GameState->OnSameTeam(TeamChar, this))
+				if (TeamChar && !TeamChar->IsDead() && ((GetActorLocation() - TeamChar->GetActorLocation()).SizeSquared() < 810000.f) && GameState && GameState->OnSameTeam(TeamChar, this) 
+					&& TeamChar->GetController() && (TeamChar->GetController()->LineOfSightTo(this) || ((GetActorLocation() - TeamChar->GetActorLocation()).SizeSquared() < 160000.f)))
 				{
 					GetWorldTimerManager().SetTimer(SendHomeWithNotifyHandle, this, &AUTCTFFlag::SendHomeWithNotify, 0.2f, false);
 					return;
