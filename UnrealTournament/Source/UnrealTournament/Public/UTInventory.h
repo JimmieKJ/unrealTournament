@@ -74,6 +74,9 @@ public:
 	virtual void DropFrom(const FVector& StartLocation, const FVector& TossVelocity);
 	virtual void Destroyed() override;
 
+	/** Initialize as a triggered power up. */
+	virtual void InitAsTriggeredBoost(class AUTCharacter* TriggeringCharacter);
+
 	/** Initialized dropped pickup holding this inventory item. */
 	virtual void InitializeDroppedPickup(class AUTDroppedPickup* Pickup);
 

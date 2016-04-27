@@ -70,7 +70,6 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 
 	ShieldBeltObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Armor/Armor_ShieldBelt.Armor_ShieldBelt_C"));
 	ThighPadObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Armor/Armor_ThighPads.Armor_ThighPads_C"));
-	UDamageObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_UDamage_RCTF.BP_UDamage_RCTF_C"));
 	ArmorVestObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Armor/Armor_Chest.Armor_Chest_C"));
 	ActivatedPowerupPlaceholderObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_ActivatedPowerup_UDamage.BP_ActivatedPowerup_UDamage_C"));
 	RepulsorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Repulsor.BP_Repulsor_C"));
@@ -124,10 +123,6 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 	if (!ThighPadObject.IsNull())
 	{
 		ThighPadClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *ThighPadObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
-	}
-	if (!UDamageObject.IsNull())
-	{
-		UDamageClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *UDamageObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
 	}
 	if (!ArmorVestObject.IsNull())
 	{

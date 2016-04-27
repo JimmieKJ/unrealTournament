@@ -171,7 +171,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	TAssetSubclassOf<class AUTArmor> ShieldBeltObject;
 	TAssetSubclassOf<class AUTArmor> ThighPadObject;
 	TAssetSubclassOf<class AUTArmor> ArmorVestObject;
-	TAssetSubclassOf<class AUTTimedPowerup> UDamageObject;
 	TAssetSubclassOf<class AUTInventory> ActivatedPowerupPlaceholderObject;
 	TAssetSubclassOf<class AUTInventory> RepulsorObject;
 
@@ -180,9 +179,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 
 	UPROPERTY()
 		TSubclassOf<class AUTArmor> ThighPadClass;
-
-	UPROPERTY()
-		TSubclassOf<class AUTTimedPowerup> UDamageClass;
 
 	UPROPERTY()
 		TSubclassOf<class AUTArmor> ArmorVestClass;

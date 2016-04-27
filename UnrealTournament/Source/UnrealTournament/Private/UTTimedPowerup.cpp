@@ -9,6 +9,7 @@ AUTTimedPowerup::AUTTimedPowerup(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	TimeRemaining = 30.0f;
+	TriggeredTime = 15.f;
 	DroppedTickRate = 0.4f;
 	RespawnTime = 90.0f;
 	bAlwaysDropOnDeath = true;
@@ -27,6 +28,12 @@ void AUTTimedPowerup::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 	NewOwner->SetWeaponOverlayEffect(OverlayEffect.IsValid() ? OverlayEffect : FOverlayEffect(OverlayMaterial), true);
 	GetWorld()->GetTimerManager().SetTimer(PlayFadingSoundHandle, this, &AUTTimedPowerup::PlayFadingSound, FMath::Max<float>(0.1f, TimeRemaining - 3.0f), false);
 	StatCountTime = GetWorld()->GetTimeSeconds();
+}
+
+void AUTTimedPowerup::InitAsTriggeredBoost(class AUTCharacter* TriggeringCharacter)
+{
+	TimeRemaining = TriggeredTime;
+	Super::InitAsTriggeredBoost(TriggeringCharacter);
 }
 
 void AUTTimedPowerup::UpdateStatsCounter(float Amount)

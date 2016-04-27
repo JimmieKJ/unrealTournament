@@ -99,6 +99,13 @@ void AUTInventory::AddOverlayMaterials_Implementation(AUTGameState* GS) const
 {
 }
 
+void AUTInventory::InitAsTriggeredBoost(class AUTCharacter* TriggeringCharacter)
+{
+	bAlwaysDropOnDeath = false;
+	DroppedPickupClass = nullptr;
+	bBoostPowerupSuppliedItem = true;
+}
+
 void AUTInventory::Destroyed()
 {
 	if (UTOwner != NULL)
