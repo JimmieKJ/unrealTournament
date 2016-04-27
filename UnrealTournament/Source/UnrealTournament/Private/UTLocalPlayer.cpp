@@ -2769,6 +2769,7 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 	// If we are trying to be crammed in to an existing session, we can just exit.
 	if (bAttemptingForceJoin)
 	{
+		UE_LOG(UT,Log,TEXT("----- bAttemptingForceJoin "));
 		bCancelJoinSession = false;
 		bAttemptingForceJoin = false;
 		return;
@@ -2781,6 +2782,7 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 	{
 		if (bCancelJoinSession)
 		{
+			UE_LOG(UT,Log,TEXT("----- bCancelJoinSession "));
 			InvalidateLastSession();
 			bCancelJoinSession = false;
 			return;
@@ -2848,9 +2850,14 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 			PlayerController->ClientTravel(ConnectionString, ETravelType::TRAVEL_Partial,false);
 
 			bWantsToConnectAsSpectator = false;
+			UE_LOG(UT,Log,TEXT("----- Joined "));
+
 			return;
 		}
 	}
+
+
+	UE_LOG(UT,Log,TEXT("----- Hmm"));
 
 	bCancelJoinSession = false;
 

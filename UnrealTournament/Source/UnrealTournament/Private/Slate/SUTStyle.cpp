@@ -157,6 +157,14 @@ void SUTStyle::SetIcons(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.Icon.Lock.Small", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Lock.Small", FVector2D(18,18), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 	Style.Set("UT.Icon.Lan.Small", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Lan.Small", FVector2D(18,18), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 	Style.Set("UT.Icon.Friends.Small", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Friends.Small", FVector2D(18,18), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+
+	Style.Set( "UT.Icon.Friends.Small.Inline", FInlineTextImageStyle()
+		.SetImage( IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Friends.Small", FVector2D(18,18), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)) )
+		.SetBaseline( 0 )
+	);
+
+	Style.Set("UT.Icon.Friends.Small", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Friends.Small", FVector2D(18,18), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+
 	Style.Set("UT.Icon.Checkmark", new IMAGE_BRUSH( "/UTStyle/Icons/UT.Icon.Checkmark", FVector2D(64,64), FLinearColor(1.0f, 1.0f, 0.0f, 1.0f) ));
 	Style.Set("UT.Icon.PlayerCard", new IMAGE_BRUSH("/UTStyle/Icons/UT.Icon.PlayCard", FVector2D(48,48)));
 
