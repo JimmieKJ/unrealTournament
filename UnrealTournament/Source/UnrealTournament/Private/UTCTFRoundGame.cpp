@@ -350,6 +350,42 @@ int32 AUTCTFRoundGame::PickCheatWinTeam()
 	return bPickRedTeam ? 0 : 1;
 }
 
+void AUTCTFRoundGame::PlayEndOfMatchMessage()
+{
+	if (UTGameState && UTGameState->WinningTeam)
+	{
+		int32 IsFlawlessVictory = (UTGameState->WinningTeam->Score > 3) ? 1 : 0;
+		for (int32 i = 0; i < Teams.Num(); i++)
+		{
+			if ((Teams[i] != UTGameState->WinningTeam) && (Teams[i]->Score > 0))
+			{
+				IsFlawlessVictory = 0;
+				break;
+			}
+		}
+		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		{
+			APlayerController* Controller = *Iterator;
+			if (Controller && Controller->IsA(AUTPlayerController::StaticClass()))
+			{
+				AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
+				if (PC && Cast<AUTPlayerState>(PC->PlayerState))
+				{
+					if (bSecondaryWin)
+					{
+						PC->ClientReceiveLocalizedMessage(VictoryMessageClass, 4 + ((UTGameState->WinningTeam == Cast<AUTPlayerState>(PC->PlayerState)->Team) ? 1 : 0), UTGameState->WinnerPlayerState, PC->PlayerState, UTGameState->WinningTeam);
+					}
+					else
+					{
+						PC->ClientReceiveLocalizedMessage(VictoryMessageClass, 2 * IsFlawlessVictory + ((UTGameState->WinningTeam == Cast<AUTPlayerState>(PC->PlayerState)->Team) ? 1 : 0), UTGameState->WinnerPlayerState, PC->PlayerState, UTGameState->WinningTeam);
+					}
+				}
+			}
+		}
+	}
+
+}
+
 bool AUTCTFRoundGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 {
 	if (ScoringTeam && CTFGameState && (CTFGameState->CTFRound >= NumRounds) && (CTFGameState->CTFRound % 2 == 0))
@@ -364,6 +400,7 @@ bool AUTCTFRoundGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 			{
 				BestTeam = Team;
 				bHaveTie = false;
+				bSecondaryWin = false;
 			}
 			else if ((Team != BestTeam) && (Team->Score == BestTeam->Score))
 			{
@@ -372,6 +409,7 @@ bool AUTCTFRoundGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 				{
 					BestTeam = (Team->SecondaryScore > BestTeam->SecondaryScore) ? Team : BestTeam;
 					bHaveTie = false;
+					bSecondaryWin = true;
 				}
 			}
 		}
@@ -386,6 +424,7 @@ bool AUTCTFRoundGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 	// current implementation assumes 6 rounds and 2 teams
 	if (CTFGameState && (CTFGameState->CTFRound >= NumRounds - 2) && Teams[0] && Teams[1])
 	{
+		bSecondaryWin = false;
 		if ((CTFGameState->CTFRound == NumRounds - 2) && (FMath::Abs(Teams[0]->Score - Teams[1]->Score) > DefenseScore + GoldScore))
 		{
 			AUTTeamInfo* BestTeam = (Teams[0]->Score > Teams[1]->Score) ? Teams[0] : Teams[1];

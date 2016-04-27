@@ -68,6 +68,12 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY()
 		bool bFirstRoundInitialized;
 
+	/*  Victory due to secondary score (best total capture time) */
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		bool bSecondaryWin;
+
+	virtual void PlayEndOfMatchMessage() override;
+
 	UPROPERTY()
 		int32 ExtraHealth;
 
