@@ -54,13 +54,62 @@ struct FQStatLayoutInfo
 	//TODO: Add powerups and flag
 };
 
+namespace StatAnimTypes
+{
+	const FName Opacity = FName(TEXT("Opacity"));
+	const FName Scale = FName(TEXT("Scale"));
+	const FName PositionX = FName(TEXT("PosX"));
+	const FName PositionY = FName(TEXT("PosY"));
+	const FName None = FName(TEXT("None"));
+}
+
+
+struct FStatAnimInfo
+{
+	FName AnimType;
+	float AnimDuration;
+	float AnimTime;
+	bool bBounce;
+	float StartValue;
+	float EndValue;
+
+	FStatAnimInfo()
+		: AnimType(StatAnimTypes::None)
+		, AnimDuration(0.0f)
+		, AnimTime(0.0f)
+		, bBounce(false)
+		, StartValue(0.0f)
+		, EndValue(0.0f)
+	{
+	}
+
+	FStatAnimInfo(FName inAnimType, float inAnimDuration, float inStartValue, float inEndValue, bool inbBounce)
+		: AnimType(inAnimType)
+		, AnimDuration(inAnimDuration)
+		, AnimTime(0.0f)
+		, StartValue(inStartValue)
+		, EndValue(inEndValue)
+		, bBounce(inbBounce)
+	{
+	}
+
+};
+
 struct FStatInfo
 {
+	// Is this stat visible
+	bool bVisible;
+
+	// What is the current value for this stat.
 	int32 Value;
 	int32 LastValue;
 	FLinearColor BackgroundColor;
 	FLinearColor IconColor;
 	FLinearColor TextColor;
+
+	FVector2D DrawOffset;
+
+	float Opacity;
 
 	float Scale;
 	bool bInfinite;
@@ -71,8 +120,12 @@ struct FStatInfo
 	bool bUseLabelBackgroundImage;
 	FText Label;
 
+	TArray<FStatAnimInfo> AnimStack;
+
 	FStatInfo()
 	{
+		bVisible = true;
+
 		Value = 0;
 		LastValue = 0;
 		Scale = 1.0f;
@@ -85,6 +138,64 @@ struct FStatInfo
 		
 		IconColor = FLinearColor::White;
 		TextColor = FLinearColor::White;
+		DrawOffset = FVector2D(0.0f, 0.0f);
+		Opacity = 1.0f;
+	}
+
+	void Animate(FName AnimType, float AnimDuration, float Start, float End, bool bBounce = false)
+	{
+		// If there is an animation of this type already on the stack, remove it
+		int32 i = 0;
+		while (i < AnimStack.Num())
+		{
+			if (AnimStack[i].AnimType == AnimType)
+			{
+				AnimStack.RemoveAt(i,1);
+			}
+			else
+			{
+				i++;
+			}
+		}
+
+		AnimStack.Add(FStatAnimInfo(AnimType, AnimDuration, Start, End, bBounce));
+	}
+
+	void UpdateAnimation(float DeltaTime)
+	{
+		int32 i = 0;
+		while (i < AnimStack.Num())
+		{
+			if (AnimStack[i].AnimDuration > 0.0f)
+			{
+				AnimStack[i].AnimTime += DeltaTime;
+				float Position = FMath::Clamp<float>(AnimStack[i].AnimTime / AnimStack[i].AnimDuration, 0.0f, 1.0f);
+				float Value = 0.0f;
+				if (AnimStack[i].bBounce)
+				{
+					Value = UUTHUDWidget::BounceEaseOut(AnimStack[i].StartValue, AnimStack[i].EndValue, Position, 6.0f);
+				}
+				else
+				{
+					Value = FMath::Lerp<float>(AnimStack[i].StartValue, AnimStack[i].EndValue, Position);
+				}
+
+				// Apply the animation
+				if (AnimStack[i].AnimType == StatAnimTypes::Opacity) Opacity = Value;
+				else if (AnimStack[i].AnimType == StatAnimTypes::Scale) Scale = Value;
+				else if (AnimStack[i].AnimType == StatAnimTypes::PositionX) DrawOffset.X = Value;
+				else if (AnimStack[i].AnimType == StatAnimTypes::PositionY) DrawOffset.Y = Value;
+			}
+
+			if (AnimStack[i].AnimDuration <= 0.0f || AnimStack[i].AnimTime >= AnimStack[i].AnimDuration)
+			{
+				AnimStack.RemoveAt(i,1);
+			}
+			else
+			{
+				i++;
+			}
+		}
 	}
 
 };
@@ -175,7 +286,9 @@ private:
 	FStatInfo BoostProvidedPowerupInfo;
 
 	AUTWeapon* LastWeapon;
-	void UpdateStatScale(float DeltaTime, FStatInfo& Stat, bool bLookForChange = true);
+
+	// Checks the Stat for updates.
+	bool CheckStatForUpdate(float DeltaTime, FStatInfo& Stat, bool bLookForChange = true);
 	void GetHighlightStrength(FStatInfo& Stat, float Perc, float WarnPerc);
 	FLinearColor InterpColor(FLinearColor DestinationColor, float Delta);
 	FVector2D CalcRotOffset(FVector2D InitialPosition, float Angle);

@@ -108,8 +108,12 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		AmmoInfo.bInfinite = Weap && !Weap->NeedsAmmoDisplay();
 		AmmoInfo.IconColor = WeaponColor;
 
-		UpdateStatScale(DeltaTime, AmmoInfo, Weap == LastWeapon);
-		
+		if (CheckStatForUpdate(DeltaTime, AmmoInfo, Weap == LastWeapon) )
+		{
+			// Ammo changed, Add some scale...
+			AmmoInfo.Animate(StatAnimTypes::Scale, 1.5f, 3.25f, 1.0f, true);
+		}
+
 		LastWeapon = Weap;
 		if (Weap && !AmmoInfo.bInfinite && Weap->AmmoWarningAmount > 0)
 		{
@@ -125,7 +129,10 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		HealthInfo.Value = CharOwner->Health;
 		HealthInfo.bInfinite = false;
 
-		UpdateStatScale(DeltaTime, HealthInfo);
+		if ( CheckStatForUpdate(DeltaTime, HealthInfo) )
+		{
+			HealthInfo.Animate(StatAnimTypes::Scale, 1.5f, 3.25f, 1.0f, true);
+		}
 
 		float HealthPerc = float(HealthInfo.Value) / 100.0f;
 		GetHighlightStrength(HealthInfo, HealthPerc, 0.5f);
@@ -133,10 +140,12 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		// ----------------- Armor / Inventory
 
 		bool bHasShieldBelt = false;
-		bool bHasBoots = false;
-		
-		ArmorInfo.Value = 0;
+
+		bool bArmorVisible = false;
+		bool bBootsVisible = false;
+
 		BootsInfo.Value = 0;
+		ArmorInfo.Value = 0;
 
 		AUTTimedPowerup* CurrentPowerup = nullptr;
 
@@ -147,13 +156,16 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			{
 				bHasShieldBelt |= (Armor->ArmorType == ArmorTypeName::ShieldBelt);
 				ArmorInfo.Value += Armor->ArmorAmount;
+				bArmorVisible = true;
 			}
 
 			AUTJumpBoots* Boots = Cast<AUTJumpBoots>(*It);
 			if (Boots != nullptr)
 			{
-				bHasBoots = true;
 				BootsInfo.Value = Boots->NumJumps;
+				int32 MaxJumps = Boots->StaticClass()->GetDefaultObject<AUTJumpBoots>()->NumJumps;
+				BootsInfo.HighlightStrength = MaxJumps > 0 ? float(Boots->NumJumps) / float(MaxJumps) : 0.0f;
+				bBootsVisible = true;
 			}
 
 			if (CurrentPowerup == nullptr)
@@ -168,23 +180,44 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			}
 		}
 
+		if (bArmorVisible != ArmorInfo.bVisible)
+		{
+			if (bArmorVisible)
+			{
+				ArmorInfo.Animate(StatAnimTypes::Scale, 1.5f, 0.0f, 1.0f, true);
+				ArmorInfo.LastValue = ArmorInfo.Value;
+			}
+
+			ArmorInfo.bVisible = bArmorVisible;
+		}
+
 		ArmorInfo.bInfinite = false;
 		ArmorInfo.bAltIcon = bHasShieldBelt;
 		
-		UpdateStatScale(DeltaTime, ArmorInfo);
+		if ( CheckStatForUpdate(DeltaTime, ArmorInfo)  )
+		{
+			ArmorInfo.Animate(StatAnimTypes::Scale, 1.5f, 3.25f, 1.0f, true);
+		}
 
 		float ArmorPerc = ArmorInfo.Value > 0 ? float(ArmorInfo.Value) / 100.0f : 1.0f;
 		ArmorInfo.HighlightStrength = 0.0f;
 		ArmorInfo.IconColor = bHasShieldBelt ? FLinearColor::Yellow : FLinearColor::White;
 
-		if (bHasBoots)
+		if (bBootsVisible!= BootsInfo.bVisible)
 		{
-			UpdateStatScale(DeltaTime, BootsInfo);
-			BootsInfo.HighlightStrength = 0.0;
+			if (bBootsVisible)
+			{
+				BootsInfo.Animate(StatAnimTypes::Scale, 1.5f, 0.0f, 1.0f, true);
+				BootsInfo.LastValue = ArmorInfo.Value;
+				BootsInfo.HighlightStrength = 1.0f;
+			}
+
+			BootsInfo.bVisible = bArmorVisible;
 		}
-		else
+
+		if ( CheckStatForUpdate(DeltaTime, BootsInfo) )
 		{
-			BootsInfo.Value = 0;
+			BootsInfo.Animate(StatAnimTypes::Scale, 1.5f, 3.25f, 1.0f, true);
 		}
 
 		PowerupInfo.bAltIcon = false;
@@ -323,48 +356,50 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		{
 			FlagInfo.Value = 0;
 		}
-
 	}
+
+	HealthInfo.UpdateAnimation(DeltaTime);
+	AmmoInfo.UpdateAnimation(DeltaTime);
+	ArmorInfo.UpdateAnimation(DeltaTime);
+
+	FlagInfo.UpdateAnimation(DeltaTime);
+	BootsInfo.UpdateAnimation(DeltaTime);
+	PowerupInfo.UpdateAnimation(DeltaTime);
+	BoostProvidedPowerupInfo.UpdateAnimation(DeltaTime);
 }
 
-void UUTHUDWidget_QuickStats::UpdateStatScale(float DeltaTime, FStatInfo& Stat, bool bLookForChange)
+bool UUTHUDWidget_QuickStats::CheckStatForUpdate(float DeltaTime, FStatInfo& Stat, bool bLookForChange)
 {
 	if (Stat.Value > Stat.LastValue && bLookForChange)
 	{
-		Stat.Scale = BOUNCE_SCALE;
-	}
-	else if (Stat.Scale > 1.0f)
-	{
-		Stat.Scale = FMath::Clamp<float>(Stat.Scale - BOUNCE_TIME * DeltaTime, 1.0f, BOUNCE_SCALE);
-	}
-	else
-	{
-		Stat.Scale = 1.0f;
+		Stat.LastValue = Stat.Value;
+		return true;
 	}
 
 	Stat.LastValue = Stat.Value;
+	return false;
 }
 
 void UUTHUDWidget_QuickStats::Draw_Implementation(float DeltaTime)
 {
 	bool bFollowRotation = Layouts[CurrentLayoutIndex].bFollowRotation;
-	DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].HealthOffset,DrawAngle) :	Layouts[CurrentLayoutIndex].HealthOffset, HealthInfo, HealthIcon);
-	DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].ArmorOffset,DrawAngle) :	Layouts[CurrentLayoutIndex].ArmorOffset, ArmorInfo, ArmorInfo.bAltIcon ? ArmorIconWithShieldBelt : ArmorIcon);
-	DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].AmmoOffset,DrawAngle) :	Layouts[CurrentLayoutIndex].AmmoOffset, AmmoInfo, AmmoIcon);
+	DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].HealthOffset,DrawAngle) : Layouts[CurrentLayoutIndex].HealthOffset, HealthInfo, HealthIcon);
+	DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].ArmorOffset,DrawAngle) : Layouts[CurrentLayoutIndex].ArmorOffset, ArmorInfo, ArmorInfo.bAltIcon ? ArmorIconWithShieldBelt : ArmorIcon);
+	DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].AmmoOffset,DrawAngle) : Layouts[CurrentLayoutIndex].AmmoOffset, AmmoInfo, AmmoIcon);
 
 	if (FlagInfo.Value > 0)
 	{
-		DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].FlagOffset, DrawAngle) :		Layouts[CurrentLayoutIndex].FlagOffset, FlagInfo, FlagIcon);
+		DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].FlagOffset, DrawAngle) : Layouts[CurrentLayoutIndex].FlagOffset, FlagInfo, FlagIcon);
 	}
 
 	if (BootsInfo.Value > 0)
 	{
-		DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].BootsOffset, DrawAngle) :		Layouts[CurrentLayoutIndex].BootsOffset, BootsInfo, BootsIcon);
+		DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].BootsOffset, DrawAngle) : Layouts[CurrentLayoutIndex].BootsOffset,	BootsInfo, BootsIcon);
 	}
 
 	if (PowerupInfo.Value > 0)
 	{
-		DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].PowerupOffset, DrawAngle) :	Layouts[CurrentLayoutIndex].AmmoOffset, PowerupInfo, PowerupIcon);
+		DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].PowerupOffset, DrawAngle) : Layouts[CurrentLayoutIndex].AmmoOffset, PowerupInfo, PowerupIcon);
 	}
 
 	if (BoostProvidedPowerupInfo.Value > 0)
@@ -375,14 +410,18 @@ void UUTHUDWidget_QuickStats::Draw_Implementation(float DeltaTime)
 
 void UUTHUDWidget_QuickStats::DrawStat(FVector2D StatOffset, FStatInfo& Info, FHUDRenderObject_Texture Icon)
 {
+	if (!Info.bVisible) return;
+
 	if (bHorizBorders)
 	{
 		HorizontalBackground.RenderColor = Info.BackgroundColor;
+		HorizontalBackground.RenderOpacity *= Info.Opacity;
 		RenderObj_Texture(HorizontalBackground, StatOffset);
 
 		if (Info.HighlightStrength> 0)
 		{
 			HorizontalHighlight.RenderColor = FLinearColor(0.82f,0.0f,0.0f,1.0f);
+			HorizontalHighlight.RenderOpacity *= Info.Opacity;
 			FVector2D DrawOffset = StatOffset;
 
 			float Height = HorizontalBackground.Size.Y * Info.HighlightStrength;
@@ -397,23 +436,20 @@ void UUTHUDWidget_QuickStats::DrawStat(FVector2D StatOffset, FStatInfo& Info, FH
 	else
 	{
 		VerticalBackground.RenderColor = Info.BackgroundColor;
+		VerticalBackground.RenderOpacity *= Info.Opacity;
 		RenderObj_Texture(VerticalBackground, StatOffset);
 	}
 
 	Icon.RenderScale = Info.Scale;
 	Icon.RenderColor = Info.IconColor;
-	Icon.RenderOpacity = ForegroundOpacity;
+	Icon.RenderOpacity = ForegroundOpacity * Info.Opacity;
 	RenderObj_Texture(Icon, StatOffset);
-
-	if (Info.bUseLabelBackgroundImage)
-	{
-
-	}
 
 	if (!Info.bNoText)
 	{
 		if (Info.bInfinite)
 		{
+			InfiniteIcon.RenderOpacity *= Info.Opacity;
 			RenderObj_Texture(InfiniteIcon, StatOffset);
 		}
 		else
@@ -421,7 +457,7 @@ void UUTHUDWidget_QuickStats::DrawStat(FVector2D StatOffset, FStatInfo& Info, FH
 			TextTemplate.TextScale = Info.Scale;
 			TextTemplate.Text = Info.bUseLabel ? Info.Label : FText::AsNumber(Info.Value);
 			TextTemplate.RenderColor = Info.TextColor;
-			TextTemplate.RenderOpacity = ForegroundOpacity;
+			TextTemplate.RenderOpacity = ForegroundOpacity * Info.Opacity;
 			RenderObj_Text(TextTemplate, StatOffset);
 		}
 	}
