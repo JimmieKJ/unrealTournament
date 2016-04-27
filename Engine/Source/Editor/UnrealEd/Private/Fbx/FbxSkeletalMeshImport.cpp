@@ -1739,50 +1739,57 @@ USkeletalMesh* UnFbx::FFbxImporter::ReimportSkeletalMesh(USkeletalMesh* Mesh, UF
 	return NewMesh;
 }
 
-void UnFbx::FFbxImporter::SetMaterialSkinXXOrder(FSkeletalMeshImportData& ImportData )
+void UnFbx::FFbxImporter::SetMaterialSkinXXOrder(FSkeletalMeshImportData& ImportData)
 {
 	TArray<int32> MaterialIndexToSkinIndex;
 	TMap<int32, int32> SkinIndexToMaterialIndex;
+	TArray<int32> MissingSkinSuffixMaterial;
 	{
 		int32 MaterialCount = ImportData.Materials.Num();
 
 		bool bNeedsReorder = false;
-		for(int32 MaterialIndex=0; MaterialIndex < MaterialCount; ++MaterialIndex)
+		for (int32 MaterialIndex = 0; MaterialIndex < MaterialCount; ++MaterialIndex)
 		{
 			// get skin index
 			FString MatName = ImportData.Materials[MaterialIndex].MaterialImportName;
 
 			if (MatName.Len() > 6)
 			{
-				int32 Offset =  MatName.Find( TEXT("_SKIN"),ESearchCase::IgnoreCase, ESearchDir::FromEnd);
-				if( Offset != INDEX_NONE )
+				int32 Offset = MatName.Find(TEXT("_SKIN"), ESearchCase::IgnoreCase, ESearchDir::FromEnd);
+				if (Offset != INDEX_NONE)
 				{
 					// Chop off the material name so we are left with the number in _SKINXX
-					FString SkinXXNumber = MatName.Right( MatName.Len() - (Offset+1) ).RightChop( 4 );
+					FString SkinXXNumber = MatName.Right(MatName.Len() - (Offset + 1)).RightChop(4);
 
-					if ( SkinXXNumber.IsNumeric()  )
+					if (SkinXXNumber.IsNumeric())
 					{
 						bNeedsReorder = true;
 
-						int32 TmpIndex = FPlatformString::Atoi( *SkinXXNumber );
-						SkinIndexToMaterialIndex.Add(MaterialIndex, TmpIndex);
+						int32 TmpIndex = FPlatformString::Atoi(*SkinXXNumber);
+						SkinIndexToMaterialIndex.Add(TmpIndex, MaterialIndex);
 
 						// remove the 'skinXX' suffix from the material name					
-						ImportData.Materials[MaterialIndex].MaterialImportName.LeftChop( Offset );
+						ImportData.Materials[MaterialIndex].MaterialImportName.LeftChop(Offset);
 					}
 				}
+				else
+				{
+					MissingSkinSuffixMaterial.Add(MaterialIndex);
+				}
+			}
+			else
+			{
+				MissingSkinSuffixMaterial.Add(MaterialIndex);
 			}
 		}
 
 		//Fill the array MaterialIndexToSkinIndex so we order material by _skinXX order
+		//This ensure we support skinxx suffixe that are not increment by one like _skin00, skin_01, skin_03, skin_04, skin_08... 
 		for (auto kvp : SkinIndexToMaterialIndex)
 		{
 			int32 MatIndexToInsert = 0;
 			for (MatIndexToInsert = 0; MatIndexToInsert < MaterialIndexToSkinIndex.Num(); ++MatIndexToInsert)
 			{
-				//the item should always be in the tmap
-				check(SkinIndexToMaterialIndex.Contains(MaterialIndexToSkinIndex[MatIndexToInsert]));
-
 				if (*(SkinIndexToMaterialIndex.Find(MaterialIndexToSkinIndex[MatIndexToInsert])) >= kvp.Value)
 				{
 					break;
@@ -1795,26 +1802,36 @@ void UnFbx::FFbxImporter::SetMaterialSkinXXOrder(FSkeletalMeshImportData& Import
 		{
 			// re-order the materials
 			TArray< VMaterial > ExistingMatList = ImportData.Materials;
-
-			for(int32 MaterialIndex=0; MaterialIndex < MaterialCount; ++MaterialIndex)
+			for (int32 MissingIndex : MissingSkinSuffixMaterial)
 			{
-				int32 NewIndex = MaterialIndexToSkinIndex[MaterialIndex];
-				if( ExistingMatList.IsValidIndex( NewIndex ) )
+				MaterialIndexToSkinIndex.Insert(MaterialIndexToSkinIndex.Num(), MissingIndex);
+			}
+			for (int32 MaterialIndex = 0; MaterialIndex < MaterialCount; ++MaterialIndex)
+			{
+				if (MaterialIndex < MaterialIndexToSkinIndex.Num())
 				{
-					ImportData.Materials[NewIndex] = ExistingMatList[MaterialIndex];
+					int32 NewIndex = MaterialIndexToSkinIndex[MaterialIndex];
+					if (ExistingMatList.IsValidIndex(NewIndex))
+					{
+						ImportData.Materials[NewIndex] = ExistingMatList[MaterialIndex];
+					}
 				}
 			}
 
 			// remapping the material index for each triangle
 			int32 FaceNum = ImportData.Faces.Num();
-			for( int32 TriangleIndex = 0; TriangleIndex < FaceNum ; TriangleIndex++)
+			for (int32 TriangleIndex = 0; TriangleIndex < FaceNum; TriangleIndex++)
 			{
 				VTriangle& Triangle = ImportData.Faces[TriangleIndex];
-				Triangle.MatIndex = MaterialIndexToSkinIndex[ Triangle.MatIndex ];
+				if (Triangle.MatIndex < MaterialIndexToSkinIndex.Num())
+				{
+					Triangle.MatIndex = MaterialIndexToSkinIndex[Triangle.MatIndex];
+				}
 			}
 		}
 	}
 }
+
 
 bool UnFbx::FFbxImporter::FillSkelMeshImporterFromFbx( FSkeletalMeshImportData& ImportData, FbxMesh*& Mesh, FbxSkin* Skin, FbxShape* FbxShape, TArray<FbxNode*> &SortedLinks, const TArray<FbxSurfaceMaterial*>& FbxMaterials, FbxNode *RootNode)
 {
