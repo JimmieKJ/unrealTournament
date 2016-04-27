@@ -26,21 +26,14 @@ void UUTSecurityCameraComponent::TickComponent(float DeltaTime, ELevelTick TickT
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	if (GetOwner())
-	{
-		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (!GS || !GS->IsMatchInProgress() || GS->IsMatchIntermission())
-		{
-			return;
-		}
-	}
-	else
+	if (GetOwner() == nullptr)
 	{
 		PrimaryComponentTick.SetTickFunctionEnable(false);
 		return;
 	}
 
-	if (bCameraEnabled)
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (bCameraEnabled && GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission())
 	{
 		static FName NAME_LineOfSight = FName(TEXT("LineOfSight"));
 		FCollisionQueryParams CollisionParams(NAME_LineOfSight, true, GetOwner());
@@ -89,6 +82,7 @@ void UUTSecurityCameraComponent::TickComponent(float DeltaTime, ELevelTick TickT
 		if (DetectedFlag)
 		{
 			DetectedFlag->SetDetectingCamera(nullptr);
+			OnFlagCarrierDetectionLost(DetectedFlagCarrier);
 		}
 		DetectedFlag = nullptr;
 		DetectedFlagCarrier = nullptr;

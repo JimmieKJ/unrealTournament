@@ -36,7 +36,6 @@ const FName NAME_bDrawChatKillMsg						= FName(TEXT("bDrawChatKillMsg"));
 const FName NAME_bDrawCenteredKillMsg					= FName(TEXT("bDrawCenteredKillMsg"));
 const FName NAME_bDrawHUDKillIconMsg					= FName(TEXT("bDrawHUDKillIconMsg"));
 const FName NAME_bPlayKillSoundMsg						= FName(TEXT("bPlayKillSoundMsg"));
-const FName NAME_bDrawCTFMinimapHUDSetting				= FName(TEXT("bDrawCTFMinimapHUDSetting"));
 const FName NAME_HUDMinimapScale						= FName(TEXT("HUDMinimapScale"));
 
 void SUTHUDSettingsDialog::Construct(const FArguments& InArgs)
@@ -419,7 +418,6 @@ TSharedRef<SWidget> SUTHUDSettingsDialog::BuildGeneralTab()
 			SNew(SBox).HeightOverride(48)
 		]
 
-	+ AddBoolOption(NAME_bDrawCTFMinimapHUDSetting, NSLOCTEXT("HUDSETTINGS", "CTFMinimap", "Show CTF Mini-map:"), NSLOCTEXT("SUTHUDSettingsDialog", "CTFMinimapTT", "Displays the mini-map in CTF."), ProfileSettings->bDrawCTFMinimapHUDSetting)
 	+ AddIntOption(NAME_HUDMinimapScale, NSLOCTEXT("HUDSETTINGS", "Minimap", "Mini-map Scale"), NSLOCTEXT("SUTHUDSettingsDialog", "MinimapScaleTT", "Change the size of the mini-map"), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), int32(ProfileSettings->HUDMinimapScale * 100.0f), 25, 200);
 }
 
@@ -593,7 +591,6 @@ void SUTHUDSettingsDialog::ApplySettings()
 		ProfileSettings->bDrawCenteredKillMsg = SettingsInfos[NAME_bDrawCenteredKillMsg]->GetActualValue_bool();
 		ProfileSettings->bDrawHUDKillIconMsg = SettingsInfos[NAME_bDrawHUDKillIconMsg]->GetActualValue_bool();
 		ProfileSettings->bPlayKillSoundMsg = SettingsInfos[NAME_bPlayKillSoundMsg]->GetActualValue_bool();
-		ProfileSettings->bDrawCTFMinimapHUDSetting = SettingsInfos[NAME_bDrawCTFMinimapHUDSetting]->GetActualValue_bool();
 		ProfileSettings->HUDMinimapScale = float(SettingsInfos[NAME_HUDMinimapScale]->GetActualValue_int32()) / 100.0f;
 
 		ProfileSettings->QuickStatsAngle = SettingsInfos[NAME_QuickStatsAngle]->GetActualValue_float();

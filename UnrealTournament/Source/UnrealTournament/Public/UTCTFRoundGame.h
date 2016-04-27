@@ -68,6 +68,12 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY()
 		bool bFirstRoundInitialized;
 
+	/*  Victory due to secondary score (best total capture time) */
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		bool bSecondaryWin;
+
+	virtual void PlayEndOfMatchMessage() override;
+
 	UPROPERTY()
 		int32 ExtraHealth;
 
@@ -165,7 +171,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	TAssetSubclassOf<class AUTArmor> ShieldBeltObject;
 	TAssetSubclassOf<class AUTArmor> ThighPadObject;
 	TAssetSubclassOf<class AUTArmor> ArmorVestObject;
-	TAssetSubclassOf<class AUTTimedPowerup> UDamageObject;
 	TAssetSubclassOf<class AUTInventory> ActivatedPowerupPlaceholderObject;
 	TAssetSubclassOf<class AUTInventory> RepulsorObject;
 
@@ -174,9 +179,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 
 	UPROPERTY()
 		TSubclassOf<class AUTArmor> ThighPadClass;
-
-	UPROPERTY()
-		TSubclassOf<class AUTTimedPowerup> UDamageClass;
 
 	UPROPERTY()
 		TSubclassOf<class AUTArmor> ArmorVestClass;

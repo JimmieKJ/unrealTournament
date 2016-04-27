@@ -33,6 +33,11 @@ private:
 
 	FReply ChangePartyType(EPartyType InPartyType);
 
+	FReply AllowMemberFriends(bool bAllow);
+	FReply AllowMemberInvites(bool bAllow);
+
+	void LeaderButtonClicked();
+
 	void PartyStateChanged();
 	void PartyLeft();
 	void PartyMemberPromoted();
@@ -43,6 +48,8 @@ private:
 
 	/** Player context */
 	FLocalPlayerContext Ctx;
+	
+	bool bPartyMenuCollapsed;
 };
 
 #endif

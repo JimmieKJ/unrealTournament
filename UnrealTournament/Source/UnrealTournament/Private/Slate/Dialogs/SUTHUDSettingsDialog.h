@@ -167,7 +167,7 @@ class UNREALTOURNAMENT_API SUTHUDSettingsDialog : public SUTDialogBase
 public:
 	SLATE_BEGIN_ARGS(SUTHUDSettingsDialog)
 	: _DialogTitle(NSLOCTEXT("SUTHUDSettingsDialog","Title","HUD Settings"))
-	, _DialogSize(FVector2D(1000, 700))
+	, _DialogSize(FVector2D(1000, 800))
 	, _bDialogSizeIsRelative(false)
 	, _DialogPosition(FVector2D(0.5f,0.5f))
 	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))

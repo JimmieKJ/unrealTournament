@@ -21,6 +21,8 @@ UUTVictoryMessage::UUTVictoryMessage(const class FObjectInitializer& ObjectIniti
 	YouHaveLostText = NSLOCTEXT("UTVictoryMessage","YouHaveLostText","You Have Lost The Match!");
 	BlueTeamWinsText = NSLOCTEXT("UTVictoryMessage", "BlueTeamWinsText", "Blue Team Wins The Match!");
 	RedTeamWinsText = NSLOCTEXT("UTVictoryMessage", "RedTeamWinsText", "Red Team Wins The Match!");
+	BlueTeamWinsSecondaryText = NSLOCTEXT("UTVictoryMessage", "BlueTeamWinsText", "Blue Team Wins The Match (TIEBREAKER: total capture time)");
+	RedTeamWinsSecondaryText = NSLOCTEXT("UTVictoryMessage", "RedTeamWinsText", "Red Team Wins The Match (TIEBREAKER: total capture time)");
 }
 
 FLinearColor UUTVictoryMessage::GetMessageColor_Implementation(int32 MessageIndex) const
@@ -54,7 +56,7 @@ FName UUTVictoryMessage::GetAnnouncementName_Implementation(int32 Switch, const 
 	}
 	else
 	{
-		return (Switch == 1) ? FName(TEXT("WonMatch")) : FName(TEXT("LostMatch"));
+		return ((Switch == 1) || (Switch == 5)) ? FName(TEXT("WonMatch")) : FName(TEXT("LostMatch"));
 	}
 }
 
@@ -63,6 +65,18 @@ FText UUTVictoryMessage::GetText(int32 Switch, bool bTargetsPlayerState1, class 
 	AUTTeamInfo* WinningTeam = Cast<AUTTeamInfo>(OptionalObject);
 	if (WinningTeam)
 	{
+		if (Switch >= 4)
+		{
+			if (WinningTeam->TeamIndex == 0)
+			{
+				return GetDefault<UUTVictoryMessage>(GetClass())->RedTeamWinsSecondaryText;
+			}
+			else
+			{
+				return GetDefault<UUTVictoryMessage>(GetClass())->BlueTeamWinsSecondaryText;
+			}
+
+		}
 		if (WinningTeam->TeamIndex == 0)
 		{
 			return GetDefault<UUTVictoryMessage>(GetClass())->RedTeamWinsText;

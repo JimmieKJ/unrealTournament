@@ -18,6 +18,8 @@
 void SUTPartyWidget::Construct(const FArguments& InArgs, const FLocalPlayerContext& InCtx)
 {
 	Ctx = InCtx;
+
+	bPartyMenuCollapsed = true;
 	
 	ChildSlot
 	.HAlign(HAlign_Right)
@@ -67,6 +69,11 @@ void SUTPartyWidget::SetupPartyMemberBox()
 	{
 		return;
 	}
+
+	if (PartySize >= 2)
+	{
+		bPartyMenuCollapsed = false;
+	}
 	
 	TArray<FText> PartyMembers;
 	PartyContext->GetLocalPartyMemberNames(PartyMembers);
@@ -108,59 +115,88 @@ void SUTPartyWidget::SetupPartyMemberBox()
 	for (int i = 0; i < PartyMembers.Num(); i++)
 	{
 		TSharedPtr<SUTComboButton> DropDownButton = NULL;
-		
-		bool bIsPartyLeader = false;
-		FSlateColor PartyMemberColor = FLinearColor::White;
-		if (PartyMemberIds[i] == PartyLeaderId)
-		{
-			bIsPartyLeader = true;
-		}
 
-		PartyMemberBox->AddSlot()
-		.Padding(FMargin(2.0f, 0.0f))
-		[
-			SAssignNew(DropDownButton, SUTComboButton)
-			.HasDownArrow(false)
-			.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
-			.ContentPadding(FMargin(0.0f, 0.0f))
-			.ToolTipText(PartyMembers[i])
-			.ButtonContent()
+		if (PartyMemberIds[i] == PartyLeaderId)
+		{	
+			PartyMemberBox->AddSlot()
+			.Padding(FMargin(2.0f, 0.0f))
 			[
-				SNew(SOverlay)
-				+ SOverlay::Slot()
+				SAssignNew(DropDownButton, SUTComboButton)
+				.HasDownArrow(false)
+				.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
+				.ContentPadding(FMargin(0.0f, 0.0f))
+				.ToolTipText(PartyMembers[i])
+				.OnSubmenuShown(this, &SUTPartyWidget::LeaderButtonClicked)
+				.ButtonContent()
 				[
-					SNew(SBox)
-					.WidthOverride(96)
-					.HeightOverride(96)
+					SNew(SOverlay)
+					+ SOverlay::Slot()
 					[
-						SNew(SImage)
-						.Image(SUTStyle::Get().GetBrush(bIsPartyLeader ? "UT.Icon.PartyLeader" : "UT.Icon.PartyMember"))
-						.ColorAndOpacity(PartyMemberColor)
+						SNew(SBox)
+						.WidthOverride(96)
+						.HeightOverride(96)
+						[
+							SNew(SImage)
+							.Image(SUTStyle::Get().GetBrush("UT.Icon.PartyLeader"))
+						]
+					]
+					+ SOverlay::Slot()
+					[
+						SNew(SBox)
+						.WidthOverride(96)
+						.HeightOverride(96)
+						[
+							SNew(SHorizontalBox)
+							+SHorizontalBox::Slot()
+							.HAlign(HAlign_Center)
+							.VAlign(VAlign_Center)
+							[
+								SNew(STextBlock)
+								.Text(NSLOCTEXT("SUTPartyWidget", "PartyTitle", "Party"))
+								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium.Bold")
+								.Visibility(bPartyMenuCollapsed ? EVisibility::Visible : EVisibility::Collapsed)
+							]
+						]
 					]
 				]
-			]
-		];
+			];
 
-		if (LocalPlayerId == PartyLeaderId)
-		{
 			DropDownButton->AddSubMenuItem(PartyMembers[i], FOnClicked::CreateSP(this, &SUTPartyWidget::PlayerNameClicked, i));
 			
-			if (PartyType == EPartyType::Public)
+			if (LocalPlayerId == PartyLeaderId)
 			{
-				DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "PublicParty", "[Public Party]"), FOnClicked());
-			}
-			else if (PartyType == EPartyType::FriendsOnly)
-			{
-				DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "FriendsOnlyParty", "[Friends Only Party]"), FOnClicked());
-			}
-			else if (PartyType == EPartyType::Private)
-			{
-				DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "PrivateParty", "[Private Party]"), FOnClicked());
-			}			
-			DropDownButton->AddSpacer();
+				DropDownButton->AddSpacer();
 
-			if (PartyMemberIds[i] == PartyLeaderId)
-			{
+				if (PartyType == EPartyType::Public)
+				{
+					DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "PublicParty", "[Public Party]"), FOnClicked());
+				}
+				else if (PartyType == EPartyType::FriendsOnly)
+				{
+					DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "FriendsOnlyParty", "[Friends Only Party]"), FOnClicked());
+				}
+				else if (PartyType == EPartyType::Private)
+				{
+					DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "PrivateParty", "[Private Party]"), FOnClicked());
+				}
+
+				if (bLeaderInvitesOnly || bLeaderFriendsOnly)
+				{
+					DropDownButton->AddSpacer();
+				}
+
+				if (bLeaderInvitesOnly)
+				{
+					DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "LeaderInvitesOnly", "[Only Leader Invites]"), FOnClicked());
+				}
+
+				if (bLeaderFriendsOnly)
+				{
+					DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "LeaderFriendsOnly", "[Only Leader Friends]"), FOnClicked());
+				}
+
+				DropDownButton->AddSpacer();
+
 				if (PartyType != EPartyType::Public)
 				{
 					DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "MakePartyPublic", "Make Party Public"), FOnClicked::CreateSP(this, &SUTPartyWidget::ChangePartyType, EPartyType::Public));
@@ -173,27 +209,86 @@ void SUTPartyWidget::SetupPartyMemberBox()
 				{
 					DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "MakePartyPrivate", "Make Party Private"), FOnClicked::CreateSP(this, &SUTPartyWidget::ChangePartyType, EPartyType::Private));
 				}
+				// These don't seem to work, so disable for now
+#if 0
+				if (bLeaderInvitesOnly)
+				{
+					DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "UndoLeaderInvitesOnly", "Allow Member Invites"), FOnClicked::CreateSP(this, &SUTPartyWidget::AllowMemberInvites, true));
+				}
+				else
+				{
+					DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "MakeLeaderInvitesOnly", "Disallow Member Invites"), FOnClicked::CreateSP(this, &SUTPartyWidget::AllowMemberInvites, false));
+				}
+
+				if (bLeaderFriendsOnly)
+				{
+					DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "UndoLeaderFriendsOnly", "Allow Member Friends"), FOnClicked::CreateSP(this, &SUTPartyWidget::AllowMemberFriends, true));
+				}
+				else
+				{
+					DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "MakeLeaderFriendsOnly", "Disallow Member Friends"), FOnClicked::CreateSP(this, &SUTPartyWidget::AllowMemberFriends, false));
+				}
+#endif
 			}
-			else
+
+			DropDownButton->RebuildMenuContent();
+		}
+	}
+
+	for (int i = 0; i < PartyMembers.Num(); i++)
+	{
+		TSharedPtr<SUTComboButton> DropDownButton = NULL;
+
+		if (PartyMemberIds[i] != PartyLeaderId)
+		{
+			PartyMemberBox->AddSlot()
+			.Padding(FMargin(2.0f, 0.0f))
+			[
+				SAssignNew(DropDownButton, SUTComboButton)
+				.HasDownArrow(false)
+				.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
+				.ContentPadding(FMargin(0.0f, 0.0f))
+				.ToolTipText(PartyMembers[i])
+				.ButtonContent()
+				[
+					SNew(SOverlay)
+					+ SOverlay::Slot()
+					[
+						SNew(SBox)
+						.WidthOverride(96)
+						.HeightOverride(96)
+						[
+							SNew(SImage)
+							.Image(SUTStyle::Get().GetBrush("UT.Icon.PartyMember"))
+						]
+					]
+				]
+			];
+
+			DropDownButton->AddSubMenuItem(PartyMembers[i], FOnClicked::CreateSP(this, &SUTPartyWidget::PlayerNameClicked, i));
+
+			if (LocalPlayerId == PartyMemberIds[i])
 			{
+				DropDownButton->AddSpacer();
+				DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "LeaveParty", "Leave Party"), FOnClicked::CreateSP(this, &SUTPartyWidget::LeaveParty));
+			}
+			
+			if (LocalPlayerId == PartyLeaderId)
+			{
+				DropDownButton->AddSpacer();
 				DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "PromoteToLeader", "Promote To Leader"), FOnClicked::CreateSP(this, &SUTPartyWidget::PromoteToLeader, i));
 				DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "KickFromParty", "Kick From Party"), FOnClicked::CreateSP(this, &SUTPartyWidget::KickFromParty, i));
 			}
-		}
-		else
-		{
-			DropDownButton->AddSubMenuItem(PartyMembers[i], FOnClicked::CreateSP(this, &SUTPartyWidget::PlayerNameClicked, i));
-		}
 
-		if (LocalPlayerId == PartyMemberIds[i] && PartyMemberIds[i] != PartyLeaderId)
-		{
-			DropDownButton->AddSpacer();
-			DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "LeaveParty", "Leave Party"), FOnClicked::CreateSP(this, &SUTPartyWidget::LeaveParty));
+			DropDownButton->RebuildMenuContent();
 		}
-
-		DropDownButton->RebuildMenuContent();
 	}
 	
+	if (bPartyMenuCollapsed)
+	{
+		return;
+	}
+
 	TArray<FUTFriend> OnlineFriendsList;
 	UTLP->GetFriendsList(OnlineFriendsList);
 
@@ -330,6 +425,60 @@ FReply SUTPartyWidget::ChangePartyType(EPartyType InNewPartyType)
 
 	return FReply::Handled();
 }
+
+void SUTPartyWidget::LeaderButtonClicked()
+{
+	if (bPartyMenuCollapsed)
+	{
+		bPartyMenuCollapsed = false;
+		SetupPartyMemberBox();
+	}
+}
+
+FReply SUTPartyWidget::AllowMemberFriends(bool bAllow)
+{
+	IOnlinePartyPtr PartyInt = Online::GetPartyInterface();
+	if (PartyInt.IsValid())
+	{
+		UUTGameInstance* GameInstance = CastChecked<UUTGameInstance>(Ctx.GetPlayerController()->GetGameInstance());
+		UUTParty* Party = GameInstance->GetParties();
+		if (Party)
+		{
+			UPartyGameState* PersistentParty = Party->GetPersistentParty();
+			if (PersistentParty)
+			{				
+				PersistentParty->SetPartyType(PersistentParty->GetPartyType(), !bAllow, PersistentParty->IsLeaderInvitesOnly());
+			}
+		}
+	}
+
+	SetupPartyMemberBox();
+
+	return FReply::Handled();
+}
+
+FReply SUTPartyWidget::AllowMemberInvites(bool bAllow)
+{
+	IOnlinePartyPtr PartyInt = Online::GetPartyInterface();
+	if (PartyInt.IsValid())
+	{
+		UUTGameInstance* GameInstance = CastChecked<UUTGameInstance>(Ctx.GetPlayerController()->GetGameInstance());
+		UUTParty* Party = GameInstance->GetParties();
+		if (Party)
+		{
+			UPartyGameState* PersistentParty = Party->GetPersistentParty();
+			if (PersistentParty)
+			{
+				PersistentParty->SetPartyType(PersistentParty->GetPartyType(), PersistentParty->IsLeaderFriendsOnly(), !bAllow);
+			}
+		}
+	}
+
+	SetupPartyMemberBox();
+
+	return FReply::Handled();
+}
+
 
 SUTPartyWidget::~SUTPartyWidget()
 {

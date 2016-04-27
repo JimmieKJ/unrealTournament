@@ -792,7 +792,7 @@ void AUTGameState::ReceivedGameModeClass()
 	}
 }
 
-FText AUTGameState::GetGameStatusText()
+FText AUTGameState::GetGameStatusText(bool bForScoreboard)
 {
 	if (!IsMatchInProgress())
 	{

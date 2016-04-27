@@ -1001,4 +1001,7 @@ protected:
 
 	int32 UIChatTextBackBufferPosition;
 	TArray<FText> UIChatTextBackBuffer;
+
+	bool bJoinSessionInProgress;	
+
 };

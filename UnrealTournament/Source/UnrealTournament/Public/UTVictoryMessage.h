@@ -22,6 +22,12 @@ class UNREALTOURNAMENT_API UUTVictoryMessage : public UUTLocalMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 	FText BlueTeamWinsText;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
+		FText RedTeamWinsSecondaryText;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
+		FText BlueTeamWinsSecondaryText;
+
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const override;
 	virtual FText GetText(int32 Switch,bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const override;
 	virtual FLinearColor GetMessageColor_Implementation(int32 MessageIndex) const override;

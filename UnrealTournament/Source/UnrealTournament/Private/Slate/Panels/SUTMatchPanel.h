@@ -139,7 +139,7 @@ public:
 
 		if (NumFriends > 0)
 		{
-			FString Friends = FString::Printf(TEXT("<img src=\"UT.Icon.Friends.Small\"/> %i Friends Playing"), NumFriends);
+			FString Friends = FString::Printf(TEXT("<img src=\"UT.Icon.Friends.Small.Inline\"/> %i Friends Playing"), NumFriends);
 			Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + Friends;
 		}
 	

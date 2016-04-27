@@ -35,13 +35,6 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	TimeLimit = 5;
-	GoldBonusTime = 120;
-	SilverBonusTime = 60;
-	GoldScore = 3;
-	SilverScore = 2;
-	BronzeScore = 1;
-	DefenseScore = 1;
-	DisplayName = NSLOCTEXT("UTGameMode", "CTFR", "Flag Run");
 	IntermissionDuration = 30.f;
 	RoundLives = 5;
 	bPerPlayerLives = true;
@@ -49,7 +42,6 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	FlagCapScore = 1;
 	UnlimitedRespawnWaitTime = 2.f;
 	bForceRespawn = true;
-	bAsymmetricVictoryConditions = true;
 	bOneFlagGameMode = true;
 	bCarryOwnFlag = true;
 	bNoFlagReturn = true;
@@ -78,7 +70,6 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 
 	ShieldBeltObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Armor/Armor_ShieldBelt.Armor_ShieldBelt_C"));
 	ThighPadObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Armor/Armor_ThighPads.Armor_ThighPads_C"));
-	UDamageObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_UDamage_RCTF.BP_UDamage_RCTF_C"));
 	ArmorVestObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Armor/Armor_Chest.Armor_Chest_C"));
 	ActivatedPowerupPlaceholderObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_ActivatedPowerup_UDamage.BP_ActivatedPowerup_UDamage_C"));
 	RepulsorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Repulsor.BP_Repulsor_C"));
@@ -97,11 +88,11 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 int32 AUTCTFRoundGame::GetFlagCapScore()
 {
 	int32 BonusTime = UTGameState->GetRemainingTime();
-	if (BonusTime >= GoldBonusTime)
+	if (BonusTime > GoldBonusTime)
 	{
 		return GoldScore;
 	}
-	if (BonusTime >= SilverBonusTime)
+	if (BonusTime > SilverBonusTime)
 	{
 		return SilverScore;
 	}
@@ -132,10 +123,6 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 	if (!ThighPadObject.IsNull())
 	{
 		ThighPadClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *ThighPadObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
-	}
-	if (!UDamageObject.IsNull())
-	{
-		UDamageClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *UDamageObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
 	}
 	if (!ArmorVestObject.IsNull())
 	{
@@ -358,6 +345,42 @@ int32 AUTCTFRoundGame::PickCheatWinTeam()
 	return bPickRedTeam ? 0 : 1;
 }
 
+void AUTCTFRoundGame::PlayEndOfMatchMessage()
+{
+	if (UTGameState && UTGameState->WinningTeam)
+	{
+		int32 IsFlawlessVictory = (UTGameState->WinningTeam->Score > 3) ? 1 : 0;
+		for (int32 i = 0; i < Teams.Num(); i++)
+		{
+			if ((Teams[i] != UTGameState->WinningTeam) && (Teams[i]->Score > 0))
+			{
+				IsFlawlessVictory = 0;
+				break;
+			}
+		}
+		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		{
+			APlayerController* Controller = *Iterator;
+			if (Controller && Controller->IsA(AUTPlayerController::StaticClass()))
+			{
+				AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
+				if (PC && Cast<AUTPlayerState>(PC->PlayerState))
+				{
+					if (bSecondaryWin)
+					{
+						PC->ClientReceiveLocalizedMessage(VictoryMessageClass, 4 + ((UTGameState->WinningTeam == Cast<AUTPlayerState>(PC->PlayerState)->Team) ? 1 : 0), UTGameState->WinnerPlayerState, PC->PlayerState, UTGameState->WinningTeam);
+					}
+					else
+					{
+						PC->ClientReceiveLocalizedMessage(VictoryMessageClass, 2 * IsFlawlessVictory + ((UTGameState->WinningTeam == Cast<AUTPlayerState>(PC->PlayerState)->Team) ? 1 : 0), UTGameState->WinnerPlayerState, PC->PlayerState, UTGameState->WinningTeam);
+					}
+				}
+			}
+		}
+	}
+
+}
+
 bool AUTCTFRoundGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 {
 	if (ScoringTeam && CTFGameState && (CTFGameState->CTFRound >= NumRounds) && (CTFGameState->CTFRound % 2 == 0))
@@ -372,6 +395,7 @@ bool AUTCTFRoundGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 			{
 				BestTeam = Team;
 				bHaveTie = false;
+				bSecondaryWin = false;
 			}
 			else if ((Team != BestTeam) && (Team->Score == BestTeam->Score))
 			{
@@ -380,6 +404,7 @@ bool AUTCTFRoundGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 				{
 					BestTeam = (Team->SecondaryScore > BestTeam->SecondaryScore) ? Team : BestTeam;
 					bHaveTie = false;
+					bSecondaryWin = true;
 				}
 			}
 		}
@@ -394,6 +419,7 @@ bool AUTCTFRoundGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 	// current implementation assumes 6 rounds and 2 teams
 	if (CTFGameState && (CTFGameState->CTFRound >= NumRounds - 2) && Teams[0] && Teams[1])
 	{
+		bSecondaryWin = false;
 		if ((CTFGameState->CTFRound == NumRounds - 2) && (FMath::Abs(Teams[0]->Score - Teams[1]->Score) > DefenseScore + GoldScore))
 		{
 			AUTTeamInfo* BestTeam = (Teams[0]->Score > Teams[1]->Score) ? Teams[0] : Teams[1];
@@ -434,7 +460,6 @@ bool AUTCTFRoundGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 	}
 	return false;
 }
-
 
 void AUTCTFRoundGame::EndTeamGame(AUTTeamInfo* Winner, FName Reason)
 {
@@ -1052,16 +1077,23 @@ void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 		WinningTeam->Score += IsTeamOnOffense(WinningTeamIndex) ? GetFlagCapScore() : DefenseScore;
 		if (CTFGameState)
 		{
+			for (int32 i = 0; i < Teams.Num(); i++)
+			{
+				if (Teams[i])
+				{
+					Teams[i]->RoundBonus = 0;
+				}
+			}
 			WinningTeam->RoundBonus = FMath::Min(MaxTimeScoreBonus, CTFGameState->GetRemainingTime());
 			WinningTeam->SecondaryScore += WinningTeam->RoundBonus;
 
 			FCTFScoringPlay NewScoringPlay;
 			NewScoringPlay.Team = WinningTeam;
 			NewScoringPlay.bDefenseWon = !IsTeamOnOffense(WinningTeamIndex);
-			NewScoringPlay.bAnnihilation = (Reason == 1);
+			NewScoringPlay.bAnnihilation = (Reason == 0);
 			NewScoringPlay.TeamScores[0] = CTFGameState->Teams[0] ? CTFGameState->Teams[0]->Score : 0;
 			NewScoringPlay.TeamScores[1] = CTFGameState->Teams[1] ? CTFGameState->Teams[1]->Score : 0;
-			NewScoringPlay.RemainingTime = CTFGameState->GetClockTime();
+			NewScoringPlay.RemainingTime = CTFGameState->GetRemainingTime();
 			NewScoringPlay.RedBonus = CTFGameState->Teams[0] ? CTFGameState->Teams[0]->RoundBonus : 0;
 			NewScoringPlay.BlueBonus = CTFGameState->Teams[1] ? CTFGameState->Teams[1]->RoundBonus : 0;
 			CTFGameState->AddScoringPlay(NewScoringPlay);
@@ -1083,9 +1115,9 @@ void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 
 void AUTCTFRoundGame::CheckGameTime()
 {
+	AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
 	if (CTFGameState->IsMatchIntermission())
 	{
-		AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
 		if (RCTFGameState && (RCTFGameState->IntermissionTime <= 0))
 		{
 			SetMatchState(MatchState::MatchExitingIntermission);
@@ -1101,6 +1133,20 @@ void AUTCTFRoundGame::CheckGameTime()
 		}
 		else
 		{
+			if (RCTFGameState)
+			{
+				uint8 OldBonusLevel = RCTFGameState->BonusLevel;
+				RCTFGameState->BonusLevel = (RemainingTime > GoldBonusTime) ? 3 : 2;
+				if (RemainingTime <= SilverBonusTime)
+				{
+					RCTFGameState->BonusLevel = 1;
+				}
+				if (OldBonusLevel != RCTFGameState->BonusLevel)
+				{
+					RCTFGameState->OnBonusLevelChanged();
+					RCTFGameState->ForceNetUpdate();
+				}
+			}
 			// bonus time countdowns
 			if (RemainingTime <= GoldBonusTime + 10)
 			{

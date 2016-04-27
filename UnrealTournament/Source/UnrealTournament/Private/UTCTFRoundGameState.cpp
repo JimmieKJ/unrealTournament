@@ -5,11 +5,15 @@
 #include "Net/UnrealNetwork.h"
 #include "UTCTFScoring.h"
 #include "StatNames.h"
+#include "UTCountDownMessage.h"
 
 AUTCTFRoundGameState::AUTCTFRoundGameState(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-
+	GoldBonusText = NSLOCTEXT("FlagRun", "GoldBonusText", "GOLD");
+	SilverBonusText = NSLOCTEXT("FlagRun", "SilverBonusText", "SILVER");
+	BronzeBonusText = NSLOCTEXT("FlagRun", "BronzeBonusText", "BRONZE");
+	BonusLevel = 3;
 }
 
 void AUTCTFRoundGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -23,6 +27,7 @@ void AUTCTFRoundGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty 
 	DOREPLIFETIME(AUTCTFRoundGameState, DefenseKillsNeededForPowerup);
 	DOREPLIFETIME(AUTCTFRoundGameState, bIsDefenseAbleToGainPowerup);
 	DOREPLIFETIME(AUTCTFRoundGameState, bIsOffenseAbleToGainPowerup);
+	DOREPLIFETIME(AUTCTFRoundGameState, BonusLevel);
 }
 
 void AUTCTFRoundGameState::DefaultTimer()
@@ -38,7 +43,6 @@ float AUTCTFRoundGameState::GetIntermissionTime()
 {
 	return IntermissionTime;
 }
-
 
 bool AUTCTFRoundGameState::IsTeamOnOffense(int32 TeamNumber) const
 {
@@ -65,5 +69,60 @@ bool AUTCTFRoundGameState::IsTeamAbleToEarnPowerup(int32 TeamNumber) const
 int AUTCTFRoundGameState::GetKillsNeededForPowerup(int32 TeamNumber) const
 {
 	return IsTeamOnOffense(TeamNumber) ? (OffenseKillsNeededForPowerup - OffenseKills) : (DefenseKillsNeededForPowerup - DefenseKills);
+}
+
+void AUTCTFRoundGameState::OnBonusLevelChanged()
+{
+	if (BonusLevel < 3)
+	{
+		USoundBase* SoundToPlay = UUTCountDownMessage::StaticClass()->GetDefaultObject<UUTCountDownMessage>()->TimeEndingSound;
+		if (SoundToPlay != NULL)
+		{
+			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+			{
+				AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
+				if (PC && PC->IsLocalPlayerController())
+				{
+					PC->ClientPlaySound(SoundToPlay);
+				}
+			}
+		}
+	}
+}
+
+FText AUTCTFRoundGameState::GetGameStatusText(bool bForScoreboard)
+{
+	if (HasMatchEnded())
+	{
+		return GameOverStatus;
+	}
+	else if (GetMatchState() == MatchState::MapVoteHappening)
+	{
+		return MapVoteStatus;
+	}
+	else if (CTFRound > 0)
+	{
+		if (bForScoreboard)
+		{
+			FFormatNamedArguments Args;
+			Args.Add("RoundNum", FText::AsNumber(CTFRound));
+			Args.Add("NumRounds", FText::AsNumber(NumRounds));
+			return (NumRounds > 0) ? FText::Format(FullRoundInProgressStatus, Args) : FText::Format(RoundInProgressStatus, Args);
+		}
+		else
+		{
+			if (BonusLevel == 3)
+			{
+				return GoldBonusText;
+			}
+			return (BonusLevel == 2) ? SilverBonusText : BronzeBonusText;
+		}
+	}
+	else if (IsMatchIntermission())
+	{
+		return IntermissionStatus;
+	}
+
+	return AUTGameState::GetGameStatusText(bForScoreboard);
 }
 

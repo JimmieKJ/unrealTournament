@@ -19,6 +19,30 @@ UUTCountDownMessage::UUTCountDownMessage(const class FObjectInitializer& ObjectI
 	BlueFlagDelayMessage = NSLOCTEXT("CTFGameMessage", "BlueFlagDelay", "Blue Flag can be picked up in ");
 	GoldBonusMessage = NSLOCTEXT("CTFGameMessage", "GoldBonusMessage", "Gold Bonus ends in ");
 	SilverBonusMessage = NSLOCTEXT("CTFGameMessage", "SilverBonusMessage", "Silver Bonus ends in ");
+
+	static ConstructorHelpers::FObjectFinder<USoundBase> TimeWarningSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Gameplay/A_Powerup_Invulnerability_Warning.A_Powerup_Invulnerability_Warning'"));
+	TimeWarningSound = TimeWarningSoundFinder.Object;
+
+	static ConstructorHelpers::FObjectFinder<USoundBase> TimeEndingSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Gameplay/A_Powerup_Invulnerability_End.A_Powerup_Invulnerability_End'"));
+	TimeEndingSound = TimeEndingSoundFinder.Object;
+}
+
+void UUTCountDownMessage::ClientReceive(const FClientReceiveData& ClientData) const 
+{
+	Super::ClientReceive(ClientData);
+	AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
+	if (PC && (ClientData.MessageIndex > 3000))
+	{
+		int32 TimeValue = ClientData.MessageIndex;
+		while (TimeValue > 1000)
+		{
+			TimeValue -= 1000;
+		}
+		if (TimeWarningSound && (TimeValue < 6))
+		{
+			PC->ClientPlaySound(TimeWarningSound);
+		}
+	}
 }
 
 float UUTCountDownMessage::GetScaleInSize_Implementation(int32 MessageIndex) const

@@ -238,6 +238,27 @@ void UUTMcpUtils::GetAccountMmr(const FString& RatingType, const FGetAccountMmrC
 #endif
 }
 
+void UUTMcpUtils::GetSpecifiedAccountMmr(const FString& RatingType, const TSharedPtr<const FUniqueNetId> AccountIDToQuery, const FGetAccountMmrCb& Callback)
+{
+#if WITH_PROFILE
+	if (!AccountIDToQuery.IsValid())
+	{
+		return;
+	}
+
+	// build request URL
+	static const FString ServerPath = TEXT("/api/game/v2/ratings/account/`accountId/mmr/`ratingType");
+	auto HttpRequest = CreateRequest(TEXT("GET"), ServerPath
+		.Replace(TEXT("`accountId"), *AccountIDToQuery->ToString(), ESearchCase::CaseSensitive)
+		.Replace(TEXT("`ratingType"), *RatingType, ESearchCase::CaseSensitive)
+		);
+
+	// send the request
+	SendRequest(HttpRequest, SimpleResponseHandler(Callback));
+
+#endif
+}
+
 void UUTMcpUtils::GetBulkAccountMmr(const TArray<FString>& RatingTypes, const FGetBulkAccountMmrCb& Callback)
 {
 #if WITH_PROFILE
@@ -253,6 +274,31 @@ void UUTMcpUtils::GetBulkAccountMmr(const TArray<FString>& RatingTypes, const FG
 	static const FString ServerPath = TEXT("/api/game/v2/ratings/account/`accountId/mmrbulk");
 	auto HttpRequest = CreateRequest(TEXT("POST"), ServerPath
 		.Replace(TEXT("`accountId"), *GameAccountId->ToString(), ESearchCase::CaseSensitive)
+		);
+
+	HttpRequest->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
+	HttpRequest->SetContentAsString(JsonSerialize(Query));
+
+	// send the request
+	SendRequest(HttpRequest, SimpleResponseHandler(Callback));
+#endif
+}
+
+void UUTMcpUtils::GetBulkSpecifiedAccountMmr(const TArray<FString>& RatingTypes, const TSharedPtr<const FUniqueNetId> AccountIDToQuery, const FGetBulkAccountMmrCb& Callback)
+{
+#if WITH_PROFILE
+	if (!AccountIDToQuery.IsValid())
+	{
+		return;
+	}
+
+	FBulkAccountMmrQuery Query;
+	Query.RatingTypes = RatingTypes;
+
+	// build request URL
+	static const FString ServerPath = TEXT("/api/game/v2/ratings/account/`accountId/mmrbulk");
+	auto HttpRequest = CreateRequest(TEXT("POST"), ServerPath
+		.Replace(TEXT("`accountId"), *AccountIDToQuery->ToString(), ESearchCase::CaseSensitive)
 		);
 
 	HttpRequest->SetHeader(TEXT("Content-Type"), TEXT("application/json"));

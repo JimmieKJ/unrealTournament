@@ -504,14 +504,14 @@ void AUTHUD::DrawHUD()
 	}
 	Super::DrawHUD();
 
-	if (!IsPendingKillPending() || !IsPendingKill())
+	if (!IsPendingKillPending() && !IsPendingKill())
 	{
 		// find center of the Canvas
 		const FVector2D Center(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
 
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		bool bPreMatchScoreBoard = (GS && !GS->HasMatchStarted() && !GS->IsMatchInCountdown());
-		bShowScoresWhileDead = bShowScoresWhileDead && GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission() && UTPlayerOwner && !UTPlayerOwner->GetPawn();
+		bShowScoresWhileDead = bShowScoresWhileDead && GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission() && UTPlayerOwner && !UTPlayerOwner->GetPawn() && !UTPlayerOwner->IsInState(NAME_Spectating);
 		bool bScoreboardIsUp = bShowScores || bPreMatchScoreBoard || bForceScores || bShowScoresWhileDead;
 		if (!bFontsCached)
 		{
@@ -580,6 +580,27 @@ void AUTHUD::DrawHUD()
 				if (bDrawDamageNumbers)
 				{
 					DrawDamageNumbers();
+				}
+			}
+
+			// TODO: temp delayed pickup display, formalize if we keep
+			static FName NAME_DelayedTouch(TEXT("DelayedTouch"));
+			AUTCharacter* UTC = Cast<AUTCharacter>(UTPlayerOwner->GetViewTarget());
+			if (UTC != NULL)
+			{
+				TArray<AActor*> Touching;
+				UTC->GetCapsuleComponent()->GetOverlappingActors(Touching, AUTPickup::StaticClass());
+				for (AActor* A : Touching)
+				{
+					float TotalTime, ElapsedTime;
+					if (A->FindFunction(NAME_DelayedTouch) && IsTimerActiveUFunc(A, NAME_DelayedTouch, &TotalTime, &ElapsedTime))
+					{
+						Canvas->DrawColor = WhiteColor;
+						FVector2D Size(256.0f, 64.0f);
+						FVector2D Pos((Canvas->SizeX - Size.X) * 0.5f, Canvas->SizeY * 0.4f - Size.Y * 0.5f);
+						Canvas->K2_DrawBox(Pos, Size, 4.0f);
+						Canvas->DrawTile(Canvas->DefaultTexture, Pos.X, Pos.Y, Size.X * ElapsedTime / TotalTime, Size.Y, 0.0f, 0.0f, 1.0f, 1.0f, BLEND_Opaque);
+					}
 				}
 			}
 		}
@@ -1201,7 +1222,9 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 		{
 			FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
 			const float Ratio = Icon.UL / Icon.VL;
-			Canvas->DrawColor = It->IconColor.ToFColor(false);
+			FLinearColor MutedColor = (LastHoveredActor == *It) ? It->IconColor: It->IconColor * 0.8f;
+			MutedColor.A = (LastHoveredActor == *It) ? 1.f : 0.75f;
+			Canvas->DrawColor = MutedColor.ToFColor(false);
 			const float IconSize = (LastHoveredActor == *It) ? (48.0f * RenderScale * FMath::InterpEaseOut<float>(1.0f, 1.25f, FMath::Min<float>(0.2f, GetWorld()->RealTimeSeconds - LastHoveredActorChangeTime) * 5.0f, 2.0f)) : (32.0f * RenderScale);
 			Canvas->DrawTile(Icon.Texture, Pos.X - 0.5f * Ratio * IconSize, Pos.Y - 0.5f * IconSize, Ratio * IconSize, IconSize, Icon.U, Icon.V, Icon.UL, Icon.VL);
 			if (LastHoveredActor == *It)
@@ -1381,11 +1404,6 @@ bool AUTHUD::GetDrawHUDKillIconMsg()
 bool AUTHUD::GetPlayKillSoundMsg()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->bPlayKillSoundMsg : true;
-}
-
-bool AUTHUD::GetDrawCTFMinimapHUDSetting()
-{
-	return VerifyProfileSettings() ? CachedProfileSettings->bDrawCTFMinimapHUDSetting : false;
 }
 
 float AUTHUD::GetHUDMinimapScale()

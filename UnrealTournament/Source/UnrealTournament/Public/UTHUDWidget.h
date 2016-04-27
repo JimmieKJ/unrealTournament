@@ -367,5 +367,13 @@ private:
 	// This is a sorted list of all RenderObjects in this widget.  
 	UPROPERTY()
 	TArray<UStructProperty*> RenderObjectList;
+
+public:
+	static float BounceEaseOut(float Start, float End, float Position, float Power)
+	{
+		Position = FMath::Clamp<float>(Position, 0.0f, 1.0f);
+		return Start + ( (End - Start) * ( 1.0f - FMath::Pow(Power, (Power * -0.5f) * Position ) * FMath::Abs<float>(FMath::Cos( Position * 3.1415926535897932f * Power) ) ) );
+	}
+
 };
 

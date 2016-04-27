@@ -290,7 +290,7 @@ void AUTCTFGameState::AddScoringPlay(const FCTFScoringPlay& NewScoringPlay)
 	}
 }
 
-FText AUTCTFGameState::GetGameStatusText()
+FText AUTCTFGameState::GetGameStatusText(bool bForScoreboard)
 {
 	if (HasMatchEnded())
 	{
@@ -311,16 +311,9 @@ FText AUTCTFGameState::GetGameStatusText()
 			return BlueAdvantageStatus;
 		}
 	}
-	else if (CTFRound > 0)
-	{
-		FFormatNamedArguments Args;
-		Args.Add("RoundNum", FText::AsNumber(CTFRound));
-		Args.Add("NumRounds", FText::AsNumber(NumRounds));
-		return (NumRounds > 0) ? FText::Format(FullRoundInProgressStatus, Args) : FText::Format(RoundInProgressStatus, Args);
-	}
 	else if (IsMatchIntermission())
 	{
-		return (bSecondHalf || (CTFRound > 0)) ? IntermissionStatus : HalftimeStatus;
+		return bSecondHalf ? IntermissionStatus : HalftimeStatus;
 	}
 	else if (IsMatchInProgress())
 	{
@@ -336,7 +329,7 @@ FText AUTCTFGameState::GetGameStatusText()
 		return bSecondHalf ? SecondHalfStatus : FirstHalfStatus;
 	}
 
-	return Super::GetGameStatusText();
+	return Super::GetGameStatusText(bForScoreboard);
 }
 
 float AUTCTFGameState::ScoreCameraView(AUTPlayerState* InPS, AUTCharacter *Character)

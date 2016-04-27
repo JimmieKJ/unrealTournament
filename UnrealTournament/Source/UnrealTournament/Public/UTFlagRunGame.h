@@ -1,0 +1,16 @@
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+#include "UTCTFGameState.h"
+#include "UTCTFScoring.h"
+#include "UTCTFRoundGame.h"
+#include "UTFlagRunGame.generated.h"
+
+UCLASS()
+class UNREALTOURNAMENT_API AUTFlagRunGame : public AUTCTFRoundGame
+{
+	GENERATED_UCLASS_BODY()
+
+
+};
+

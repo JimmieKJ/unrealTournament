@@ -120,6 +120,7 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	bIsPendingProfileLoadFromMCP = false;
 
 	bAutoRankLockWarningShown = false;
+	bJoinSessionInProgress = false;
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()
@@ -2694,7 +2695,6 @@ bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult,
 	UE_LOG(UT,Log, TEXT("##########################"));
 
 	SearchResult.Session.SessionSettings.Get(SETTING_GAMEMODE,PendingGameMode);
-
 	PendingInstanceID = InstanceId;
 	bWantsToConnectAsSpectator = bSpectate;
 	ConnectDesiredTeam = DesiredTeam;
@@ -2706,6 +2706,9 @@ bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult,
 	}
 	else
 	{
+
+		bJoinSessionInProgress = true;
+
 		PendingSession = SearchResult;
 		if (OnlineSessionInterface->IsPlayerInSession(GameSessionName, *UniqueId))
 		{
@@ -2751,7 +2754,7 @@ void UUTLocalPlayer::CancelJoinSession()
 void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result)
 {
 	bDelayedJoinSession = false;
-
+	bJoinSessionInProgress = false;
 #if !UE_SERVER
 	if (ServerBrowserWidget.IsValid())
 	{
@@ -2769,6 +2772,7 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 	// If we are trying to be crammed in to an existing session, we can just exit.
 	if (bAttemptingForceJoin)
 	{
+		UE_LOG(UT,Verbose,TEXT("----- bAttemptingForceJoin "));
 		bCancelJoinSession = false;
 		bAttemptingForceJoin = false;
 		return;
@@ -2781,6 +2785,7 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 	{
 		if (bCancelJoinSession)
 		{
+			UE_LOG(UT,Verbose,TEXT("----- bCancelJoinSession "));
 			InvalidateLastSession();
 			bCancelJoinSession = false;
 			return;
@@ -2848,9 +2853,14 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 			PlayerController->ClientTravel(ConnectionString, ETravelType::TRAVEL_Partial,false);
 
 			bWantsToConnectAsSpectator = false;
+			UE_LOG(UT,Verbose,TEXT("----- Joined "));
+
 			return;
 		}
 	}
+
+
+	UE_LOG(UT,Verbose,TEXT("----- Unsuccessful Join"));
 
 	bCancelJoinSession = false;
 
@@ -4003,7 +4013,7 @@ void UUTLocalPlayer::YoutubeUploadCompleteResult(TSharedPtr<SCompoundWidget> Wid
 
 void UUTLocalPlayer::VerifyGameSession(const FString& ServerSessionId)
 {
-	if (IsReplay())
+	if (bJoinSessionInProgress || IsReplay())
 	{
 		return;
 	}

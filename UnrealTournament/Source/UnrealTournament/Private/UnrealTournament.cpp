@@ -602,7 +602,7 @@ void SetTimerUFunc(UObject* Obj, FName FuncName, float Time, bool bLooping)
 		}
 	}
 }
-bool IsTimerActiveUFunc(UObject* Obj, FName FuncName)
+bool IsTimerActiveUFunc(UObject* Obj, FName FuncName, float* TotalTime, float* ElapsedTime)
 {
 	if (Obj != NULL)
 	{
@@ -621,7 +621,22 @@ bool IsTimerActiveUFunc(UObject* Obj, FName FuncName)
 				Delegate.BindUFunction(Obj, FuncName);
 
 				FTimerHandle Handle = World->GetTimerManager().K2_FindDynamicTimerHandle(Delegate);
-				return World->GetTimerManager().IsTimerActive(Handle);
+				if (World->GetTimerManager().IsTimerActive(Handle))
+				{
+					if (TotalTime != NULL)
+					{
+						*TotalTime = World->GetTimerManager().GetTimerRate(Handle);
+					}
+					if (ElapsedTime != NULL)
+					{
+						*ElapsedTime = World->GetTimerManager().GetTimerElapsed(Handle);
+					}
+					return true;
+				}
+				else
+				{
+					return false;
+				}
 			}
 		}
 		else

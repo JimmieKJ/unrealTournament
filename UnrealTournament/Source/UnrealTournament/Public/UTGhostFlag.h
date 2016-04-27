@@ -22,6 +22,9 @@ class UNREALTOURNAMENT_API AUTGhostFlag : public AActor
 	UPROPERTY()
 		int32 TeamIndex;
 
+	UPROPERTY()
+		float TrailSpawnTime;
+
 	UFUNCTION()
 		virtual void OnSetCarriedObject();
 

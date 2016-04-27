@@ -2,13 +2,13 @@
 
 #pragma once
 
-#include "UTCTFRoundGame.h"
+#include "UTFlagRunGame.h"
 
 #include "UTCTFRoundGameTommy.generated.h"
 
 
 UCLASS()
-class UNREALTOURNAMENT_API AUTCTFRoundGameTommy : public AUTCTFRoundGame
+class UNREALTOURNAMENT_API AUTCTFRoundGameTommy : public AUTFlagRunGame
 {
 	GENERATED_UCLASS_BODY()
 

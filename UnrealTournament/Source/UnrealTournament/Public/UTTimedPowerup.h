@@ -14,6 +14,10 @@ class UNREALTOURNAMENT_API AUTTimedPowerup : public AUTInventory
 	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadWrite, Category = Powerup)
 	float TimeRemaining;
 
+	/** How long this powerup lasts if it is the triggered version. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Powerup)
+		float TriggeredTime;
+
 	/** Rate powerup time remaining ticks down when powerup has been dropped */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Powerup)
 	float DroppedTickRate;
@@ -76,6 +80,7 @@ class UNREALTOURNAMENT_API AUTTimedPowerup : public AUTInventory
 	virtual void Tick(float DeltaTime);
 
 	virtual void Destroyed() override;
+	virtual void InitAsTriggeredBoost(class AUTCharacter* TriggeringCharacter) override;
 
 	virtual bool StackPickup_Implementation(AUTInventory* ContainedInv);
 

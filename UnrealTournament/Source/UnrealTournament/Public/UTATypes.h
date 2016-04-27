@@ -906,6 +906,7 @@ namespace EEpicDefaultRuleTags
 	const FString iTDM = TEXT("iTDM");
 	const FString iCTF = TEXT("iCTF");
 	const FString iCTFT = TEXT("iCTF+T");
+	const FString FlagRun = TEXT("FlagRun");
 }
 
 
