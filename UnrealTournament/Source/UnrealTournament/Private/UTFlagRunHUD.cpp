@@ -36,18 +36,6 @@ void AUTFlagRunHUD::DrawHUD()
 		float YOffset = 0.03f * Canvas->ClipY * GetHUDWidgetScaleOverride();
 		FFontRenderInfo TextRenderInfo;
 
-		// draw secondary scores
-		if (false) //GS->Teams.Num() > 1 && GS->Teams[0] && GS->Teams[1] && ((GS->Teams[0]->SecondaryScore > 0) || (GS->Teams[1]->SecondaryScore > 0)))
-		{
-			FText BlueSecondaryScore = FText::AsNumber(GS->Teams[1]->SecondaryScore);
-			Canvas->SetLinearDrawColor(FLinearColor::Black, 1.f);
-			Canvas->DrawText(TinyFont, FText::AsNumber(GS->Teams[0]->SecondaryScore), XOffsetRed, YOffset, 0.8f, 0.8f, TextRenderInfo);
-			Canvas->DrawText(TinyFont, BlueSecondaryScore, XOffsetBlue, YOffset, 0.8f, 0.8f, TextRenderInfo);
-			Canvas->SetLinearDrawColor(FLinearColor::Yellow, 1.f);
-			Canvas->DrawText(TinyFont, FText::AsNumber(GS->Teams[0]->SecondaryScore), XOffsetRed, YOffset, 0.75f, 0.75f, TextRenderInfo);
-			Canvas->DrawText(TinyFont, BlueSecondaryScore, XOffsetBlue, YOffset, 0.75f, 0.75f, TextRenderInfo);
-		}
-
 		// draw pips for players alive on each team @TODO move to widget
 		TextRenderInfo.bEnableShadow = true;
 		int32 OldRedCount = RedPlayerCount;

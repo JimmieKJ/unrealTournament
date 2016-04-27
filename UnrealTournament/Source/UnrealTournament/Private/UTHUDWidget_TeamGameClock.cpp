@@ -26,7 +26,7 @@ void UUTHUDWidget_TeamGameClock::Draw_Implementation(float DeltaTime)
 	FText StatusText = FText::GetEmpty();
 	if (UTGameState != NULL)
 	{
-		StatusText = UTGameState->GetGameStatusText();
+		StatusText = UTGameState->GetGameStatusText(false);
 	}
 
 	if (!StatusText.IsEmpty())

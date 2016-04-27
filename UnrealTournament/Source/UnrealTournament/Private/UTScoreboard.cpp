@@ -283,7 +283,7 @@ void UUTScoreboard::DrawGameOptions(float RenderDelta, float& YOffset)
 {
 	if (UTGameState)
 	{
-		FText StatusText = UTGameState->GetGameStatusText();
+		FText StatusText = UTGameState->GetGameStatusText(true);
 		if (!StatusText.IsEmpty())
 		{
 			DrawText(StatusText, Size.X - 100.f*RenderScale, YOffset + 50.f*RenderScale, UTHUDOwner->SmallFont, RenderScale, 1.f, FLinearColor::Yellow, ETextHorzPos::Right, ETextVertPos::Center);

@@ -313,7 +313,7 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 
 	virtual void ReceivedGameModeClass() override;
 
-	virtual FText GetGameStatusText();
+	virtual FText GetGameStatusText(bool bForScoreboard = false);
 
 	virtual void OnRep_MatchState() override;
 

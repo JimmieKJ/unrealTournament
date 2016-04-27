@@ -1081,9 +1081,9 @@ void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 
 void AUTCTFRoundGame::CheckGameTime()
 {
+	AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
 	if (CTFGameState->IsMatchIntermission())
 	{
-		AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
 		if (RCTFGameState && (RCTFGameState->IntermissionTime <= 0))
 		{
 			SetMatchState(MatchState::MatchExitingIntermission);
@@ -1099,6 +1099,14 @@ void AUTCTFRoundGame::CheckGameTime()
 		}
 		else
 		{
+			if (RCTFGameState)
+			{
+				RCTFGameState->BonusLevel = (RemainingTime >= GoldBonusTime) ? 3 : 2;
+				if (RemainingTime < SilverBonusTime)
+				{
+					RCTFGameState->BonusLevel = 1;
+				}
+			}
 			// bonus time countdowns
 			if (RemainingTime <= GoldBonusTime + 10)
 			{
