@@ -242,7 +242,7 @@ void UUTScoreboard::Draw_Implementation(float RenderDelta)
 		float MapScale = 0.65f;
 		const float MapSize = float(Canvas->SizeY) * MapScale;
 		FVector2D LeftCorner = FVector2D(MinimapCenter.X*Canvas->ClipX - 0.5f*MapSize, MinimapCenter.Y*Canvas->ClipY - 0.5f*MapSize);
-		DrawTexture(TextureAtlas, LeftCorner.X, LeftCorner.Y, MapSize, MapSize, 149, 138, 32, 32, 0.8f, FLinearColor::Black);
+		DrawTexture(TextureAtlas, LeftCorner.X, LeftCorner.Y, MapSize, MapSize, 149, 138, 32, 32, 0.5f, FLinearColor::Black);
 		UTHUDOwner->DrawMinimap(FColor(192, 192, 192, 220), MapSize, LeftCorner);
 	}
 }
