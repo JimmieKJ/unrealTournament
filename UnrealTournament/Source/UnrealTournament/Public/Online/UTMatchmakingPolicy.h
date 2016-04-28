@@ -68,7 +68,9 @@ struct FMatchmakingParams
 		Flags(EMatchmakingFlags::None),
 		StartWith(EMatchmakingStartLocation::Lobby),
 		ChanceToHostOverride(0.f),
-		TeamElo(1500)
+		TeamElo(1500),
+		EloRange(10),
+		EloRangeRetries(0)
 	{}
 
 	~FMatchmakingParams() {}
@@ -99,6 +101,10 @@ struct FMatchmakingParams
 	float ChanceToHostOverride;
 	UPROPERTY()
 	int32 TeamElo;
+	UPROPERTY()
+	int32 EloRange;
+	UPROPERTY()
+	int32 EloRangeRetries;
 };
 
 /**
@@ -217,4 +223,5 @@ public:
 	/** @return the delegate fired when matchmaking is complete for any reason */
 	FOnMatchmakingComplete& OnMatchmakingComplete() { return MatchmakingComplete; }
 
+	const FMatchmakingParams& GetMatchmakingParams() const { return CurrentParams; }
 };

@@ -4,6 +4,7 @@
 #include "SUTMatchmakingDialog.h"
 #include "UTGameInstance.h"
 #include "UTParty.h"
+#include "UTMatchmaking.h"
 #include "UTPartyGameState.h"
 #include "../SUWindowsStyle.h"
 
@@ -90,6 +91,16 @@ FText SUTMatchmakingDialog::GetMatchmakingText() const
 				case EUTPartyState::PostMatchmaking:
 					return FText::Format(NSLOCTEXT("Generic", "WaitingOnOtherPlayers", "Server Found. Waiting For {0} Players To Join..."), FText::AsNumber(PartyState->GetMatchmakingPlayersNeeded()));
 				}
+			}
+		}
+
+		UUTMatchmaking* Matchmaking = GameInstance->GetMatchmaking();
+		if (Matchmaking)
+		{
+			int32 MatchmakingEloRange = Matchmaking->GetMatchmakingEloRange();
+			if (MatchmakingEloRange > 0)
+			{
+				return FText::Format(NSLOCTEXT("Generic", "SearchingForServerWithEloRange", "Searching For Server Within ELO Range of {0}..."), FText::AsNumber(MatchmakingEloRange));
 			}
 		}
 	}

@@ -64,12 +64,15 @@ void UUTMatchmakingGather::FindGatheringSession()
 		MMPass->OnNoSearchResultsFound().BindUObject(this, &ThisClass::OnNoGatheringSessionsFound);
 		MMPass->OnCancelledSearchComplete().BindUObject(this, &ThisClass::OnGatheringSearchCancelled);
 
-		TSharedPtr<FUTOnlineSessionSearchBase> NewSearchSettings = MakeShareable(new FUTOnlineSessionSearchGather(CurrentParams.PlaylistId, false, false));
+		TSharedPtr<FUTOnlineSessionSearchBase> NewSearchSettings = MakeShareable(new FUTOnlineSessionSearchGather(CurrentParams.PlaylistId, CurrentParams.TeamElo, false, false));
 		
 		// Order here is important (prefer level match over "closer to full" match for now)
 		NewSearchSettings->QuerySettings.Set(SETTING_NEEDS, CurrentParams.PartySize, EOnlineComparisonOp::GreaterThanEquals);
 		NewSearchSettings->QuerySettings.Set(SETTING_NEEDSSORT, SORT_ASC, EOnlineComparisonOp::Near);
 		
+		NewSearchSettings->QuerySettings.Set(SETTING_TEAMELO, CurrentParams.TeamElo - CurrentParams.EloRange, EOnlineComparisonOp::GreaterThanEquals);
+		NewSearchSettings->QuerySettings.Set(SETTING_TEAMELO2, CurrentParams.TeamElo + CurrentParams.EloRange, EOnlineComparisonOp::LessThanEquals);
+
 		FUTSearchPassParams SearchPassParams;
 		SearchPassParams.ControllerId = CurrentParams.ControllerId;
 		SearchPassParams.SessionName = SessionName;
@@ -148,6 +151,13 @@ void UUTMatchmakingGather::OnNoGatheringSessionsFound()
 
 	check(MMPass);
 	MMPass->ClearMatchmakingDelegates();
+
+	CurrentParams.EloRangeRetries++;
+	if (CurrentParams.EloRangeRetries > 3)
+	{
+		CurrentParams.EloRange = FMath::Min(CurrentParams.EloRange + 20.f, 1000.0f);
+		CurrentParams.EloRangeRetries = 0;
+	}
 
 	const float ChanceToHost = GetChanceToHost();
 
@@ -235,6 +245,11 @@ float UUTMatchmakingGather::GetChanceToHost() const
 	else if (CurrentParams.ChanceToHostOverride > 0.f)
 	{
 		ChanceToHost = CurrentParams.ChanceToHostOverride;
+	}
+	else if (CurrentParams.EloRange < 100)
+	{
+		// Don't host until we've looked at matches that are at least 100 Elo away
+		ChanceToHost = 0;
 	}
 
 	return ChanceToHost;

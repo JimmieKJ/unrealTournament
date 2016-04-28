@@ -42,8 +42,8 @@ FUTOnlineSessionSettingsDedicatedEmpty::FUTOnlineSessionSettingsDedicatedEmpty(b
 	Set(SETTING_GAMEMODE, GameModeStr, EOnlineDataAdvertisementType::ViaOnlineService);
 }
 
-FUTOnlineSessionSearchGather::FUTOnlineSessionSearchGather(int32 InPlaylistId, bool bSearchingLAN, bool bSearchingPresence) :
-	FUTOnlineSessionSearchBase(InPlaylistId, bSearchingLAN, bSearchingPresence)
+FUTOnlineSessionSearchGather::FUTOnlineSessionSearchGather(int32 InPlaylistId, int32 InTeamElo, bool bSearchingLAN, bool bSearchingPresence) :
+	FUTOnlineSessionSearchBase(InPlaylistId, InTeamElo, bSearchingLAN, bSearchingPresence)
 {
 	MaxSearchResults = 20;
 
@@ -62,7 +62,7 @@ FUTOnlineSessionSearchEmptyDedicated::FUTOnlineSessionSearchEmptyDedicated()
 }
 	
 FUTOnlineSessionSearchEmptyDedicated::FUTOnlineSessionSearchEmptyDedicated(const FEmptyServerReservation& InReservationData, bool bSearchingLAN, bool bSearchingPresence) :
-	FUTOnlineSessionSearchBase(INDEX_NONE, bSearchingLAN, bSearchingPresence)
+	FUTOnlineSessionSearchBase(INDEX_NONE, InReservationData.TeamElo, bSearchingLAN, bSearchingPresence)
 {
 	MaxSearchResults = 20;
 
@@ -96,10 +96,5 @@ FUTOnlineSessionSearchBase::FUTOnlineSessionSearchBase(int32 InPlaylistId, int32
 	if (PlaylistId != INDEX_NONE)
 	{
 		QuerySettings.Set(SETTING_PLAYLISTID, PlaylistId, EOnlineComparisonOp::Equals);
-	}
-
-	if (TeamElo > 0)
-	{
-		QuerySettings.Set(SETTING_TEAMELO, TeamElo, EOnlineComparisonOp::Near);
 	}
 }

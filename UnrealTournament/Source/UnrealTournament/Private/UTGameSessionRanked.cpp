@@ -545,6 +545,7 @@ void AUTGameSessionRanked::ApplyGameSessionSettings(FOnlineSessionSettings* Sess
 	if (TeamElo > 0)
 	{
 		SessionSettings->Set(SETTING_TEAMELO, TeamElo, EOnlineDataAdvertisementType::ViaOnlineService);
+		SessionSettings->Set(SETTING_TEAMELO2, TeamElo, EOnlineDataAdvertisementType::ViaOnlineService);
 	}
 }
 

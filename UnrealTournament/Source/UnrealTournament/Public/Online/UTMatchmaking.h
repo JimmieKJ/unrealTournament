@@ -139,6 +139,8 @@ public:
 	/** Publicly accessible isMatchmaking check */
 	bool IsMatchmaking();
 
+	int32 GetMatchmakingEloRange();
+
 private:
 
 	/**
