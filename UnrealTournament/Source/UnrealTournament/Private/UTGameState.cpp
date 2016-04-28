@@ -12,6 +12,7 @@
 #include "UTReplicatedMapInfo.h"
 #include "UTPickup.h"
 #include "UTArmor.h"
+#include "UTPainVolume.h"
 #include "StatNames.h"
 #include "UTGameEngine.h"
 #include "UTBaseGameMode.h"
@@ -410,6 +411,14 @@ void AUTGameState::BeginPlay()
 				checkSlow(AllInventory[i]->IsA(AUTInventory::StaticClass()));
 				((AUTInventory*)AllInventory[i])->AddOverlayMaterials(this);
 			}
+		}
+
+		TArray<UObject*> AllEffectVolumes;
+		GetObjectsOfClass(AUTPainVolume::StaticClass(), AllEffectVolumes, true, RF_NoFlags);
+		for (int32 i = 0; i < AllEffectVolumes.Num(); i++)
+		{
+			checkSlow(AllEffectVolumes[i]->IsA(AUTPainVolume::StaticClass()));
+			((AUTPainVolume*)AllEffectVolumes[i])->AddOverlayMaterials(this);
 		}
 	}
 }
