@@ -152,10 +152,8 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 		FVector ViewDir = PlayerViewRotation.Vector();
 
 		float Edge = CircleTemplate.GetWidth()* WorldRenderScale;
-		float EdgeYPos = (TeamNum == 0) ? 0.35f * GetCanvas()->ClipY : 0.25f*Canvas->ClipY;
 		bool bShouldDrawFlagIcon = ShouldDrawFlag(Flag, bIsEnemyFlag);
 
-		if (TeamNum == 0) UE_LOG(UT, Warning, TEXT("Draw icon for Red %s"), *Flag->GetName());
 		if ((bSpectating || bShouldDrawFlagIcon) && (Flag->Holder != UTPlayerOwner->PlayerState) && (Flag->ObjectState != CarriedObjectState::Home))
 		{
 			WorldPosition = Flag->GetActorLocation();
@@ -172,11 +170,11 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 				WorldPosition += FVector(0.f, 0.f, Flag->Collision->GetUnscaledCapsuleHalfHeight() * 0.75f);
 			}
 			bDrawInWorld = true;
-			ScreenPosition = GetAdjustedScreenPosition(WorldPosition, PlayerViewPoint, ViewDir, Dist, Edge, EdgeYPos, bDrawEdgeArrow, TeamNum);
+			ScreenPosition = GetAdjustedScreenPosition(WorldPosition, PlayerViewPoint, ViewDir, Dist, Edge, bDrawEdgeArrow, TeamNum);
 		}
 		else
 		{
-			ScreenPosition = GetAdjustedScreenPosition(WorldPosition, PlayerViewPoint, ViewDir, Dist, Edge, EdgeYPos, bDrawEdgeArrow, TeamNum);
+			ScreenPosition = GetAdjustedScreenPosition(WorldPosition, PlayerViewPoint, ViewDir, Dist, Edge, bDrawEdgeArrow, TeamNum);
 		}
 
 		// Look to see if we should be displaying the in-world indicator for the flag.
@@ -304,8 +302,7 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagBaseWorld(AUTCTFGameState* GameState, F
 		float CurrentWorldAlpha = InWorldAlpha;
 		FVector ViewDir = PlayerViewRotation.Vector();
 		float Edge = CircleTemplate.GetWidth()* WorldRenderScale;
-		float EdgeYPos = (TeamNum == 0) ? 0.35f * GetCanvas()->ClipY : 0.25f*Canvas->ClipY;
-		ScreenPosition = GetAdjustedScreenPosition(WorldPosition, PlayerViewPoint, ViewDir, Dist, Edge, EdgeYPos, bDrawEdgeArrow, TeamNum);
+		ScreenPosition = GetAdjustedScreenPosition(WorldPosition, PlayerViewPoint, ViewDir, Dist, Edge, bDrawEdgeArrow, TeamNum);
 		
 		float PctFromCenter = (ScreenPosition - FVector(0.5f*GetCanvas()->ClipX, 0.5f*GetCanvas()->ClipY, 0.f)).Size() / GetCanvas()->ClipX;
 		CurrentWorldAlpha = InWorldAlpha * FMath::Min(0.15f/WorldRenderScale + 12.f*PctFromCenter, 1.f);
@@ -405,13 +402,14 @@ void UUTHUDWidget_CTFFlagStatus::DrawStatusMessage(float DeltaTime)
 	}	
 }
 
-FVector UUTHUDWidget_CTFFlagStatus::GetAdjustedScreenPosition(const FVector& WorldPosition, const FVector& ViewPoint, const FVector& ViewDir, float Dist, float Edge, float EdgeYPos, bool& bDrawEdgeArrow, int32 Team)
+FVector UUTHUDWidget_CTFFlagStatus::GetAdjustedScreenPosition(const FVector& WorldPosition, const FVector& ViewPoint, const FVector& ViewDir, float Dist, float Edge, bool& bDrawEdgeArrow, int32 Team)
 {
 	FVector Cross = (ViewDir ^ FVector(0.f, 0.f, 1.f)).GetSafeNormal();
 	FVector ScreenPosition;
 	float ExtraPadding = 0.1f * Canvas->ClipX;
 	ScreenPosition = GetCanvas()->Project(WorldPosition);
-	if ((ViewDir | (WorldPosition - ViewPoint)) < 0.f)
+	FVector FlagDir = WorldPosition - ViewPoint;
+	if ((ViewDir | FlagDir) < 0.f)
 	{
 		bool bWasLeft = (Team == 0) ? bRedWasLeft : bBlueWasLeft;
 		bDrawEdgeArrow = true;
@@ -420,11 +418,15 @@ FVector UUTHUDWidget_CTFFlagStatus::GetAdjustedScreenPosition(const FVector& Wor
 		ScreenPosition.Z = 0.0f;
 		return ScreenPosition;
 	}
-	if ((ScreenPosition.X < 0.f) || (ScreenPosition.X > GetCanvas()->ClipX))
+	else if ((ScreenPosition.X < 0.f) || (ScreenPosition.X > GetCanvas()->ClipX))
 	{
 		bool bLeftOfScreen = (ScreenPosition.X < 0.f);
+		float OffScreenDistance = bLeftOfScreen ? -1.f*ScreenPosition.X : ScreenPosition.X - GetCanvas()->ClipX;
 		bDrawEdgeArrow = true;
 		ScreenPosition.X = bLeftOfScreen ? Edge+ ExtraPadding : GetCanvas()->ClipX - Edge - ExtraPadding;
+		//Y approaches 0.5*Canvas->ClipY as further off screen
+		float MaxOffscreenDistance = GetCanvas()->ClipX;
+		ScreenPosition.Y = 0.5f*GetCanvas()->ClipY + FMath::Clamp((MaxOffscreenDistance - OffScreenDistance)/ MaxOffscreenDistance, 0.f, 1.f) * (ScreenPosition.Y - 0.5f*GetCanvas()->ClipY);
 		ScreenPosition.Y = FMath::Clamp(ScreenPosition.Y, 0.25f*GetCanvas()->ClipY, 0.75f*GetCanvas()->ClipY);
 		if (Team == 0)
 		{
