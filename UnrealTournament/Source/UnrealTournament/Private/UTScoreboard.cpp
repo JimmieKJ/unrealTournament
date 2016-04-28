@@ -942,13 +942,12 @@ void UUTScoreboard::DrawScoringStats(float DeltaTime, float& YPos)
 {
 	FVector2D SavedRenderPosition = RenderPosition;
 	RenderPosition = FVector2D(0.f, 0.f);
-	YPos *= RenderScale;
 	float TopYPos = YPos;
 
 	// draw left side
 	float XOffset = Canvas->ClipX * 0.06f;
 	float ScoreWidth = 0.5f * (Canvas->ClipX - 3.f*XOffset);
-	float MaxHeight = FooterPosY * RenderScale + SavedRenderPosition.Y - YPos;
+	float MaxHeight = FooterPosY + SavedRenderPosition.Y - YPos;
 	float PageBottom = TopYPos + MaxHeight;
 
 	FLinearColor PageColor = FLinearColor::Black;
