@@ -25,7 +25,7 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	ColumnHeaderScoreX = 0.57f;
 	ColumnHeaderDeathsX = 0.73f;
 	ColumnHeaderPingX = 0.94f;
-	ColumnHeaderY = 8.f;
+	ColumnHeaderY = 6.f;
 	ColumnY = 12.f;
 	ColumnMedalX = 0.55f;
 	CellHeight = 32.f;
