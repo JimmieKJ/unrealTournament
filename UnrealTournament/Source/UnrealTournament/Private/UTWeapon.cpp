@@ -71,6 +71,7 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	Mesh->bSelfShadowOnly = true;
 	Mesh->bReceivesDecals = false;
 	Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
+	Mesh->LightingChannels.bChannel1 = true;
 	FirstPMeshOffset = FVector(0.f);
 	FirstPMeshRotation = FRotator(0.f, 0.f, 0.f);
 
