@@ -551,6 +551,12 @@ public:
 	/** boost recharge rate while dead */
 	UPROPERTY(BlueprintReadWrite, Replicated)
 	float BoostRechargeRateDead;
+
+	// Flags that this match no longer allows for a party join
+	UPROPERTY(BlueprintReadOnly, Replicated)
+	bool bRestrictPartyJoin;
+
+
 };
 
 

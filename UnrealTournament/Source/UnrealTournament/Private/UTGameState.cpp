@@ -312,6 +312,8 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME_CONDITION(AUTGameState, BoostRechargeMaxCharges, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, BoostRechargeRateAlive, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, BoostRechargeRateDead, COND_InitialOnly);
+
+	DOREPLIFETIME(AUTGameState, bRestrictPartyJoin);
 }
 
 void AUTGameState::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker)

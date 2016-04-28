@@ -2927,6 +2927,7 @@ void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvite
 	return;
 #endif
 
+	UE_LOG(UT,Log,TEXT("UpdatePResence %i %i %i %i"), bAllowInvites, bAllowJoinInProgress, bAllowJoinViaPresence, bAllowJoinViaPresenceFriendsOnly);
 	if (OnlineIdentityInterface.IsValid() && OnlineSessionInterface.IsValid() && OnlinePresenceInterface.IsValid())
 	{
 		TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
@@ -2940,6 +2941,22 @@ void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvite
 				GameSettings->bAllowJoinViaPresence = bAllowJoinViaPresence;
 				GameSettings->bAllowJoinViaPresenceFriendsOnly = bAllowJoinViaPresenceFriendsOnly;
 				OnlineSessionInterface->UpdateSession(TEXT("Game"), *GameSettings, false);
+
+				UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
+				if (UTGameInstance)
+				{
+					UUTParty* Party = UTGameInstance->GetParties();
+					if (Party)
+					{
+						UPartyGameState* PartyGameState = Party->GetPersistentParty();
+						if (PartyGameState)
+						{
+							UE_LOG(UT,Log,TEXT("Calling UpdateAcceptingMembers %i"),bAllowJoinViaPresence);
+							PartyGameState->UpdateAcceptingMembers();
+
+						}
+					}
+				}
 			}
 
 			TSharedPtr<FOnlineUserPresence> CurrentPresence;
@@ -2995,6 +3012,12 @@ bool UUTLocalPlayer::AllowFriendsJoinGame()
 		{
 			return false;
 		}
+	}
+
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState && UTGameState->bRestrictPartyJoin)
+	{
+		return false;	
 	}
 
 	// determine when to disable "join game" option in friends/chat UI

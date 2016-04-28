@@ -40,8 +40,8 @@ AUTSCTFGame::AUTSCTFGame(const FObjectInitializer& ObjectInitializer)
 	GameStateClass = AUTSCTFGameState::StaticClass();
 	HUDClass = AUTHUD_SCTF::StaticClass();
 	SquadType = AUTCTFSquadAI::StaticClass();
-	RoundLives=5;
-	bPerPlayerLives = true;
+	RoundLives=0;
+	bPerPlayerLives = false;
 	bAsymmetricVictoryConditions = false;
 	FlagSwapTime=10;
 	FlagPickupDelay=0;
@@ -49,11 +49,12 @@ AUTSCTFGame::AUTSCTFGame(const FObjectInitializer& ObjectInitializer)
 	MapPrefix = TEXT("CTF");
 	bHideInUI = true;
 	bNoLivesEndRound = true;
-	bAttackerLivesLimited = true;
-	bDefenderLivesLimited = true;
+	bAttackerLivesLimited = false;
+	bDefenderLivesLimited = false;
 	bRollingAttackerSpawns = false;
 	ExtraHealth = 0;
 	bGiveSpawnInventoryBonus = false;
+	bWeaponStayActive = false;
 }
 
 void AUTSCTFGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)

@@ -1701,6 +1701,15 @@ void AUTGameMode::HandleMatchHasStarted()
 		UTGameState->CompactSpectatingIDs();
 	}
 
+	UE_LOG(UT,Log,TEXT("HandleMAtchHasStarted"));
+	UE_LOG(UT,Log,TEXT("HandleMAtchHasStarted"));
+	UE_LOG(UT,Log,TEXT("HandleMAtchHasStarted"));
+	UE_LOG(UT,Log,TEXT("HandleMAtchHasStarted"));
+	UE_LOG(UT,Log,TEXT("HandleMAtchHasStarted"));
+	UE_LOG(UT,Log,TEXT("HandleMAtchHasStarted"));
+	UE_LOG(UT,Log,TEXT("HandleMAtchHasStarted"));
+	UpdatePlayersPresence();
+
 	Super::HandleMatchHasStarted();
 
 	if (UTIsHandlingReplays() && GetGameInstance() != nullptr)
@@ -3762,18 +3771,29 @@ FString AUTGameMode::GetHUBPregameFormatString()
 void AUTGameMode::UpdatePlayersPresence()
 {
 	bool bAllowJoin = (NumPlayers < GameSession->MaxPlayers);
-	UE_LOG(UT,Verbose,TEXT("AllowJoin: %i %i %i"), bAllowJoin, NumPlayers, GameSession->MaxPlayers);
 
 	AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
 	bool bNoJoinInProgress = UTGameSession ? UTGameSession->bNoJoinInProgress : false;
 
+	bool bAllowInvites = !bPrivateMatch && (!bNoJoinInProgress || !UTGameState->HasMatchStarted());
+	bool bAllowJoinInProgress = !bNoJoinInProgress || !UTGameState->HasMatchStarted();
+
+	UE_LOG(UT,Log,TEXT("UpdatePlayersPresence: AllowJoin: %i %i %i"), bAllowJoin, bAllowInvites, bAllowJoinInProgress);
+
+	if (GameSession)
+	{
+		GameSession->UpdateSessionJoinability(GameSessionName, true, bAllowInvites, bAllowJoinInProgress, false);
+	}
+
+
+	UTGameState->bRestrictPartyJoin =  !bAllowJoinInProgress;
 	FString PresenceString = FText::Format(NSLOCTEXT("UTGameMode","PlayingPresenceFormatStr","Playing {0} on {1}"), DisplayName, FText::FromString(*GetWorld()->GetMapName())).ToString();
 	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 	{
 		AUTPlayerController* Controller = Cast<AUTPlayerController>(*Iterator);
 		if (Controller)
 		{
-			Controller->ClientSetPresence(PresenceString, !bPrivateMatch, !bNoJoinInProgress, !bPrivateMatch, false);
+			Controller->ClientSetPresence(PresenceString, bAllowInvites, bAllowJoinInProgress, bAllowJoinInProgress, false);
 		}
 	}
 }
