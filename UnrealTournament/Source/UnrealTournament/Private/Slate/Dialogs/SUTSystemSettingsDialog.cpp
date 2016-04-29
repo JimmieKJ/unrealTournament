@@ -1100,7 +1100,7 @@ FString SUTSystemSettingsDialog::GetScreenPercentageLabelText(float SliderValue)
 {
 	// Increments of 5, so divide by 5 and multiply by 5
 	int32 ScreenPercentage = FMath::TruncToInt(SliderValue * (ScreenPercentageRange.Y - ScreenPercentageRange.X) + ScreenPercentageRange.X) / 5 * 5;
-	return FText::Format(NSLOCTEXT("SUTPlayerSettingsDialog", "ScreenPercentage", "Screen Percentage ({Value}%)"), FText::FromString(FString::Printf(TEXT("%i"), ScreenPercentage))).ToString();
+	return FText::Format(NSLOCTEXT("SUTPlayerSettingsDialog", "ScreenPercentage", "Screen Percentage ({0}%)"), FText::FromString(FString::Printf(TEXT("%i"), ScreenPercentage))).ToString();
 }
 
 void SUTSystemSettingsDialog::OnScreenPercentageChange(float NewValue)
