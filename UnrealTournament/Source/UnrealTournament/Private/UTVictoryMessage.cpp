@@ -21,8 +21,8 @@ UUTVictoryMessage::UUTVictoryMessage(const class FObjectInitializer& ObjectIniti
 	YouHaveLostText = NSLOCTEXT("UTVictoryMessage","YouHaveLostText","You Have Lost The Match!");
 	BlueTeamWinsText = NSLOCTEXT("UTVictoryMessage", "BlueTeamWinsText", "Blue Team Wins The Match!");
 	RedTeamWinsText = NSLOCTEXT("UTVictoryMessage", "RedTeamWinsText", "Red Team Wins The Match!");
-	BlueTeamWinsSecondaryText = NSLOCTEXT("UTVictoryMessage", "BlueTeamWinsText", "Blue Team Wins The Match (TIEBREAKER: total capture time)");
-	RedTeamWinsSecondaryText = NSLOCTEXT("UTVictoryMessage", "RedTeamWinsText", "Red Team Wins The Match (TIEBREAKER: total capture time)");
+	BlueTeamWinsSecondaryText = NSLOCTEXT("UTVictoryMessage", "BlueTeamWinsSecondaryText", "Blue Team Wins The Match (TIEBREAKER: total capture time)");
+	RedTeamWinsSecondaryText = NSLOCTEXT("UTVictoryMessage", "RedTeamWinsSecondaryText", "Red Team Wins The Match (TIEBREAKER: total capture time)");
 }
 
 FLinearColor UUTVictoryMessage::GetMessageColor_Implementation(int32 MessageIndex) const
