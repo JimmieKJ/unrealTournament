@@ -26,8 +26,6 @@ public:
 		return FLinearColor::White;
 	}
 protected:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spectator")
-	UTexture2D* TextureAtlas;
 	virtual float GetDrawScaleOverride();
 
 	/** Last viewed player. */

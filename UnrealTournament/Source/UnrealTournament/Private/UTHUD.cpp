@@ -64,12 +64,14 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	static ConstructorHelpers::FObjectFinder<USoundBase> KillSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Gameplay/A_Stinger_Kill01_Cue.A_Stinger_Kill01_Cue'"));
 	KillSound = KillSoundFinder.Object;
 
-	static ConstructorHelpers::FObjectFinder<UTexture2D> HelpBGTex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/UTScoreboard01.UTScoreboard01'"));
+	static ConstructorHelpers::FObjectFinder<UTexture2D> ScoreboardTex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/UTScoreboard01.UTScoreboard01'"));
+	ScoreboardAtlas = ScoreboardTex.Object;
+
 	SpawnHelpTextBG.U = 4;
 	SpawnHelpTextBG.V = 2;
 	SpawnHelpTextBG.UL = 124;
 	SpawnHelpTextBG.VL = 128;
-	SpawnHelpTextBG.Texture = HelpBGTex.Object;
+	SpawnHelpTextBG.Texture = ScoreboardAtlas;
 
 	LastKillTime = -100.f;
 	LastConfirmedHitTime = -100.0f;

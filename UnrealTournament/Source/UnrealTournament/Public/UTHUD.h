@@ -172,6 +172,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	UTexture2D* HUDAtlas;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		UTexture2D* ScoreboardAtlas;
+
 	UPROPERTY(EditAnywhere, Category = "Scoreboard")
 	FVector2D TeamIconUV[4];
 

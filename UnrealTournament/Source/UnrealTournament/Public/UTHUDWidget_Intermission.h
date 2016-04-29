@@ -16,8 +16,4 @@ public:
 		FText AssistedByText;
 	UPROPERTY()
 		FText UnassistedText;
-
-protected:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")
-		UTexture2D* TextureAtlas;
 };

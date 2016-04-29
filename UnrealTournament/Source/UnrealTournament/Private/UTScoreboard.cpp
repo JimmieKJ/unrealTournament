@@ -54,9 +54,6 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	StarUVs.Add(FVector2D(382,136));
 	StarUVs.Add(FVector2D(416,136));
 
-	static ConstructorHelpers::FObjectFinder<UTexture2D> Tex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/UTScoreboard01.UTScoreboard01'"));
-	TextureAtlas = Tex.Object;
-
 	KillsColumn = 0.4f;
 	DeathsColumn = 0.52f;
 	ShotsColumn = 0.72f;
@@ -242,7 +239,7 @@ void UUTScoreboard::Draw_Implementation(float RenderDelta)
 		float MapScale = 0.65f;
 		const float MapSize = float(Canvas->SizeY) * MapScale;
 		FVector2D LeftCorner = FVector2D(MinimapCenter.X*Canvas->ClipX - 0.5f*MapSize, MinimapCenter.Y*Canvas->ClipY - 0.5f*MapSize);
-		DrawTexture(TextureAtlas, LeftCorner.X, LeftCorner.Y, MapSize, MapSize, 149, 138, 32, 32, 0.5f, FLinearColor::Black);
+		DrawTexture(UTHUDOwner->ScoreboardAtlas, LeftCorner.X, LeftCorner.Y, MapSize, MapSize, 149, 138, 32, 32, 0.5f, FLinearColor::Black);
 		UTHUDOwner->DrawMinimap(FColor(192, 192, 192, 220), MapSize, LeftCorner);
 	}
 }
@@ -252,13 +249,13 @@ void UUTScoreboard::DrawGamePanel(float RenderDelta, float& YOffset)
 	float LeftEdge = 10.f * RenderScale;
 
 	// Draw the Background
-	DrawTexture(TextureAtlas,LeftEdge,YOffset, RenderSize.X - 2.f*LeftEdge, 80.f*RenderScale, 4.f*RenderScale,2,124, 128, 1.0);
+	DrawTexture(UTHUDOwner->ScoreboardAtlas,LeftEdge,YOffset, RenderSize.X - 2.f*LeftEdge, 80.f*RenderScale, 4.f*RenderScale,2,124, 128, 1.0);
 
 	// Draw the Logo
-	DrawTexture(TextureAtlas, LeftEdge + 80.f * RenderScale, YOffset + 36.f * RenderScale, 150.5f * RenderScale, 49.f * RenderScale, 162,14,301, 98.0, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, LeftEdge + 80.f * RenderScale, YOffset + 36.f * RenderScale, 150.5f * RenderScale, 49.f * RenderScale, 162,14,301, 98.0, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
 	
 	// Draw the Spacer Bar
-	DrawTexture(TextureAtlas, LeftEdge + 180.f * RenderScale, YOffset + 30.f * RenderScale, 4.f * RenderScale, 72.f * RenderScale, 488, 13, 4, 99, 1.0f, FLinearColor::White, FVector2D(0.0f, 0.5f));
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, LeftEdge + 180.f * RenderScale, YOffset + 30.f * RenderScale, 4.f * RenderScale, 72.f * RenderScale, 488, 13, 4, 99, 1.0f, FLinearColor::White, FVector2D(0.0f, 0.5f));
 	FText MapName = UTHUDOwner ? FText::FromString(UTHUDOwner->GetWorld()->GetMapName().ToUpper()) : FText::GetEmpty();
 	FText GameName = FText::GetEmpty();
 	if (UTGameState && UTGameState->GameModeClass)
@@ -329,7 +326,7 @@ void UUTScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 	for (int32 i = 0; i < ColumnCnt; i++)
 	{
 		// Draw the background Border
-		DrawTexture(TextureAtlas, XOffset, YOffset, ScaledCellWidth, Height, 149, 138, 32, 32, 1.0, FLinearColor(0.72f, 0.72f, 0.72f, 0.85f));
+		DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, YOffset, ScaledCellWidth, Height, 149, 138, 32, 32, 1.0, FLinearColor(0.72f, 0.72f, 0.72f, 0.85f));
 		DrawText(CH_PlayerName, XOffset + (ScaledCellWidth * ColumnHeaderPlayerX), YOffset + ColumnHeaderAdjustY, UTHUDOwner->TinyFont, RenderScale, 1.0f, FLinearColor::Black, ETextHorzPos::Left, ETextVertPos::Center);
 
 		if (UTGameState && UTGameState->HasMatchStarted())
@@ -463,7 +460,7 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 		FinalBarOpacity = 0.75f;
 	}
 
-	DrawTexture(TextureAtlas, XOffset, YOffset, ScaledCellWidth, 0.9f*CellHeight*RenderScale, 149, 138, 32, 32, FinalBarOpacity, BarColor);	// NOTE: Once I make these interactable.. have a selection color too
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, YOffset, ScaledCellWidth, 0.9f*CellHeight*RenderScale, 149, 138, 32, 32, FinalBarOpacity, BarColor);	// NOTE: Once I make these interactable.. have a selection color too
 
 	float MedalPosition = 0.5f * FlagX;
 	if (PlayerState->KickPercent > 0)
@@ -496,12 +493,12 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 				else if (Badge == 2) BadgeColor = FLinearColor(0.96f, 0.96f, 0.96f, 1.0f);
 				else if (Badge == 3) BadgeColor = FLinearColor(1.0f, 0.95f, 0.42f, 1.0f);
 
-				DrawTexture(TextureAtlas, XOffset + (ScaledCellWidth * MedalPosition), YOffset + 12.f*RenderScale, 32.f*RenderScale, 32.f*RenderScale, BadgeUVs[Badge].X, BadgeUVs[Badge].Y, 32, 32, 1.0, BadgeColor, FVector2D(0.5f, 0.5f));
-				DrawTexture(TextureAtlas, XOffset + (ScaledCellWidth * MedalPosition), YOffset + 12.f*RenderScale, 32.f*RenderScale, 32.f*RenderScale, BadgeNumberUVs[Level].X, BadgeNumberUVs[Level].Y, 32, 32, 1.0, FLinearColor::White, FVector2D(0.5f, 0.5f));
+				DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset + (ScaledCellWidth * MedalPosition), YOffset + 12.f*RenderScale, 32.f*RenderScale, 32.f*RenderScale, BadgeUVs[Badge].X, BadgeUVs[Badge].Y, 32, 32, 1.0, BadgeColor, FVector2D(0.5f, 0.5f));
+				DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset + (ScaledCellWidth * MedalPosition), YOffset + 12.f*RenderScale, 32.f*RenderScale, 32.f*RenderScale, BadgeNumberUVs[Level].X, BadgeNumberUVs[Level].Y, 32, 32, 1.0, FLinearColor::White, FVector2D(0.5f, 0.5f));
 
 				if (Stars > 0 && Stars <= 5)
 				{
-					DrawTexture(TextureAtlas, XOffset + (ScaledCellWidth * MedalPosition), YOffset + 16.f*RenderScale, 32.f*RenderScale, 32.f*RenderScale, StarUVs[Stars-1].X, StarUVs[Stars-1].Y, 32, 32, 1.0, FLinearColor(1.0f, 0.95f, 0.42f, 1.0f), FVector2D(0.5f, 0.5f));
+					DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset + (ScaledCellWidth * MedalPosition), YOffset + 16.f*RenderScale, 32.f*RenderScale, 32.f*RenderScale, StarUVs[Stars-1].X, StarUVs[Stars-1].Y, 32, 32, 1.0, FLinearColor(1.0f, 0.95f, 0.42f, 1.0f), FVector2D(0.5f, 0.5f));
 				}
 			}
 		}
@@ -516,7 +513,7 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 
 	if (PlayerState->bIsFriend)
 	{
-		DrawTexture(TextureAtlas, XOffset + (ScaledCellWidth * ColumnHeaderPlayerX) + NameSize.X + 5, YOffset + 18.f*RenderScale, 30.f*RenderScale, 24.f*RenderScale, 236, 136, 30, 24, 1.0, FLinearColor::White, FVector2D(0.0f, 0.5f));
+		DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset + (ScaledCellWidth * ColumnHeaderPlayerX) + NameSize.X + 5, YOffset + 18.f*RenderScale, 30.f*RenderScale, 24.f*RenderScale, 236, 136, 30, 24, 1.0, FLinearColor::White, FVector2D(0.0f, 0.5f));
 	}
 
 	if (UTGameState && UTGameState->HasMatchStarted())
@@ -642,7 +639,7 @@ void UUTScoreboard::DrawServerPanel(float RenderDelta, float YOffset)
 		}
 
 		// Draw the Background
-		DrawTexture(TextureAtlas, ScaledEdgeSize, YOffset, Canvas->ClipX - 2.f*ScaledEdgeSize, 38.f*RenderScale, 4, 132, 30, 38, 1.0);
+		DrawTexture(UTHUDOwner->ScoreboardAtlas, ScaledEdgeSize, YOffset, Canvas->ClipX - 2.f*ScaledEdgeSize, 38.f*RenderScale, 4, 132, 30, 38, 1.0);
 		DrawText(SpectatorMessage, ScaledEdgeSize + 10.f*RenderScale, YOffset + 13.f*RenderScale, UTHUDOwner->SmallFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 		DrawText(FText::FromString(UTGameState->ServerDescription), Canvas->ClipX - 200.f*RenderScale, YOffset + 13.f*RenderScale, UTHUDOwner->SmallFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 		if ((NumPages > 1) && UTGameState->HasMatchStarted())
@@ -952,13 +949,13 @@ void UUTScoreboard::DrawScoringStats(float DeltaTime, float& YPos)
 
 	FLinearColor PageColor = FLinearColor::Black;
 	PageColor.A = 0.5f;
-	DrawTexture(TextureAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.1f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.1f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
 	DrawStatsLeft(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
 
 	// draw right side
 	XOffset = ScoreWidth + 2.f*XOffset;
 	YPos = TopYPos;
-	DrawTexture(TextureAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.1f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.1f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
 	DrawStatsRight(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
 
 	RenderPosition = SavedRenderPosition;

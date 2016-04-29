@@ -13,9 +13,6 @@ class UNREALTOURNAMENT_API UUTHUDWidget_RespawnChoice : public UUTHUDWidget
 	virtual void InitializeWidget(AUTHUD* Hud) override;
 	virtual bool ShouldDraw_Implementation(bool bShowScores) override;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Textures")
-		UTexture2D* TextureAtlas;
-
 protected:
 	UPROPERTY()
 	class USceneCaptureComponent2D* RespawnChoiceACaptureComponent;

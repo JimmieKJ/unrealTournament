@@ -12,9 +12,6 @@ UUTHUDWidget_Spectator::UUTHUDWidget_Spectator(const class FObjectInitializer& O
 	Size=FVector2D(1920.0f,108.0f);
 	ScreenPosition=FVector2D(0.0f, 0.85f);
 	Origin=FVector2D(0.0f,0.0f);
-
-	static ConstructorHelpers::FObjectFinder<UTexture2D> Tex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/UTScoreboard01.UTScoreboard01'"));
-	TextureAtlas = Tex.Object;
 }
 
 bool UUTHUDWidget_Spectator::ShouldDraw_Implementation(bool bShowScores)
@@ -33,7 +30,7 @@ bool UUTHUDWidget_Spectator::ShouldDraw_Implementation(bool bShowScores)
 
 void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaTime, bool bViewingMessage)
 {
-	if (SimpleMessage.IsEmpty() || (TextureAtlas == NULL))
+	if (SimpleMessage.IsEmpty())
 	{
 		return;
 	}
@@ -55,7 +52,7 @@ void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaT
 
 	// Draw the Background
 	bMaintainAspectRatio = false;
-	DrawTexture(TextureAtlas, MessageOffset, YOffset, BackgroundWidth, Scaling * 108.0f, 4, 2, 124, 128, 1.0);
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, MessageOffset, YOffset, BackgroundWidth, Scaling * 108.0f, 4, 2, 124, 128, 1.0);
 	if (bViewingMessage)
 	{
 		DrawText(FText::FromString("Now Viewing"), TextPosition, YOffset + 14.f, UTHUDOwner->SmallFont, Scaling, 1.f, GetMessageColor(), ETextHorzPos::Left, ETextVertPos::Center);
@@ -65,10 +62,10 @@ void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaT
 		bMaintainAspectRatio = true;
 
 		// Draw the Logo
-		DrawTexture(TextureAtlas, 20, 54, 301, 98, 162, 14, 301, 98.0, 1.0f, FLinearColor::White, FVector2D(0.0, 0.5));
+		DrawTexture(UTHUDOwner->ScoreboardAtlas, 20, 54, 301, 98, 162, 14, 301, 98.0, 1.0f, FLinearColor::White, FVector2D(0.0, 0.5));
 
 		// Draw the Spacer Bar
-		DrawTexture(TextureAtlas, 341, 54, 4, 99, 488, 13, 4, 99, 1.0f, FLinearColor::White, FVector2D(0.0, 0.5));
+		DrawTexture(UTHUDOwner->ScoreboardAtlas, 341, 54, 4, 99, 488, 13, 4, 99, 1.0f, FLinearColor::White, FVector2D(0.0, 0.5));
 	}
 	DrawText(SimpleMessage, TextPosition, YOffset + 50.f, UTHUDOwner->LargeFont, Scaling, 1.f, GetMessageColor(), ETextHorzPos::Left, ETextVertPos::Center);
 }
