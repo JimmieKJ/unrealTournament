@@ -64,6 +64,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	DefaultCrouchedEyeHeight = 40.f;
 	FloorSlideEyeHeight = 1.f;
 	CharacterCameraComponent->RelativeLocation = FVector(0, 0, DefaultBaseEyeHeight); // Position the camera
+	CharacterCameraComponent->bUsePawnControlRotation = true;
 
 	// Create a mesh component that will be used when being viewed from a '1st person' view (when controlling this pawn)
 	FirstPersonMesh = ObjectInitializer.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("CharacterMesh1P"));
@@ -3337,6 +3338,12 @@ void AUTCharacter::CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult)
 	{
 		// don't allow FOV override, we handle that in UTPlayerController/UTPlayerCameraManager
 		float SavedFOV = OutResult.FOV;
+		const FRotator PawnViewRotation = GetViewRotation();
+		if (!PawnViewRotation.Equals(CharacterCameraComponent->GetComponentRotation()))
+		{
+			CharacterCameraComponent->SetWorldRotation(PawnViewRotation);
+		}
+			
 		CharacterCameraComponent->GetCameraView(DeltaTime, OutResult);
 		OutResult.FOV = SavedFOV;
 		OutResult.Location = OutResult.Location + CrouchEyeOffset + GetTransformedEyeOffset();
