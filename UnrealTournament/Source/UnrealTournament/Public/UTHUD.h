@@ -167,13 +167,14 @@ public:
 	virtual void PlayKillNotification();
 
 	/** Crosshair asset pointer */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	UTexture2D* DefaultCrosshairTex;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	UTexture2D* HUDAtlas;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
-		UTexture2D* ScoreboardAtlas;
+	UTexture2D* ScoreboardAtlas;
 
 	UPROPERTY(EditAnywhere, Category = "Scoreboard")
 	FVector2D TeamIconUV[4];
@@ -571,6 +572,8 @@ protected:
 	{
 		return FVector2D(MapToScreen.TransformPosition(MinimapTransform.TransformPosition(InPos)));
 	}
+
+	void DrawWatermark();
 
 public:
 	bool VerifyProfileSettings();
