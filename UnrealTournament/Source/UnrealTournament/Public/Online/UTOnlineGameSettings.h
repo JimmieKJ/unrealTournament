@@ -8,6 +8,9 @@
 /** Setting describing the elo of the session (value is int32) */
 #define SETTING_TEAMELO FName(TEXT("TEAMELO"))
 
+/** Setting describing the elo of the session (value is int32) */
+#define SETTING_TEAMELO2 FName(TEXT("TEAMELO2"))
+
 /** Setting describing the trust level of the session (value is FString) */
 #define SETTING_TRUSTLEVEL FName(TEXT("UT_SERVERTRUSTLEVEL"))
 
@@ -90,7 +93,7 @@ public:
 class UNREALTOURNAMENT_API FUTOnlineSessionSearchGather : public FUTOnlineSessionSearchBase
 {
 public:
-	FUTOnlineSessionSearchGather(int32 InPlaylistId = INDEX_NONE, bool bSearchingLAN = false, bool bSearchingPresence = false);
+	FUTOnlineSessionSearchGather(int32 InPlaylistId = INDEX_NONE, int32 InTeamElo = 0, bool bSearchingLAN = false, bool bSearchingPresence = false);
 	virtual ~FUTOnlineSessionSearchGather() {}
 
 	// FOnlineSessionSearch Interface begin

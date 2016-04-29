@@ -750,8 +750,13 @@ void AUTPlayerController::TriggerBoost()
 		{
 			AUTInventory* TriggeredBoost = GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->BoostClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f));
 			TriggeredBoost->InitAsTriggeredBoost(UTCharacter);
-			UTCharacter->AddInventory(TriggeredBoost, true);
 
+			AUTInventory* DuplicatePowerup = UTCharacter->FindInventoryType<AUTInventory>(UTPlayerState->BoostClass, true);
+			if (!DuplicatePowerup || !DuplicatePowerup->StackPickup(nullptr))
+			{
+				UTCharacter->AddInventory(TriggeredBoost, true);
+			}
+			
 			//if we gave you a weapon lets immediately switch on triggering the boost
 			AUTWeapon* BoostAsWeapon = Cast<AUTWeapon>(TriggeredBoost);
 			if (BoostAsWeapon)

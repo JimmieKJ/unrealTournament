@@ -87,29 +87,30 @@ void UUTShowdownScoreboard::Draw_Implementation(float RenderDelta)
 	if (GS != NULL && GS->bMatchHasStarted && ((GS->GetMatchState() == MatchState::MatchIntermission) || GS->HasMatchEnded()))
 	{
 		// show current round damage and total damage by local player
-		float Width = 0.5f*Canvas->ClipX;
+		float Width = 0.4f*Canvas->ClipX;
 		float Height = 0.2f*Canvas->ClipY;
-		float XOffset = 0.5*(Canvas->ClipX - CenterBuffer) - Width;
+		float XOffset = 0.05*Canvas->ClipX;
 		float YOffset = 0.62f*Canvas->ClipY;
 		float TextOffset = 0.1f*Canvas->ClipX;
 		DrawTexture(UTHUDOwner->HUDAtlas, XOffset, YOffset, Width, Height, 185.f, 400.f, 4.f, 4.f, 1.f, FLinearColor(0.5f, 0.5f, 0.5f, 0.2f));
-		DrawText(NSLOCTEXT("UTScoreboard", "DamageDone", "DAMAGE DONE BY YOU"), XOffset + TextOffset, YOffset + 0.02f*Height, UTHUDOwner->MediumFont, 1.f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top);
-		DrawText(NSLOCTEXT("UTScoreboard", "ThisRound", "THIS ROUND"), XOffset + TextOffset, YOffset + 0.35f*Height, UTHUDOwner->MediumFont, 1.f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top);
-		DrawText(NSLOCTEXT("UTScoreboard", "ThisMatch", "THIS MATCH"), XOffset + TextOffset, YOffset + 0.65f*Height, UTHUDOwner->MediumFont, 1.f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top);
+		DrawText(NSLOCTEXT("UTScoreboard", "DamageDone", "DAMAGE DONE BY YOU"), XOffset + TextOffset, YOffset + 0.02f*Height, UTHUDOwner->MediumFont, RenderScale, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top);
+		DrawText(NSLOCTEXT("UTScoreboard", "ThisRound", "THIS ROUND"), XOffset + TextOffset, YOffset + 0.35f*Height, UTHUDOwner->MediumFont, RenderScale, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top);
+		DrawText(NSLOCTEXT("UTScoreboard", "ThisMatch", "THIS MATCH"), XOffset + TextOffset, YOffset + 0.65f*Height, UTHUDOwner->MediumFont, RenderScale, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top);
 
 		AUTPlayerState* PS = (UTHUDOwner && UTHUDOwner->PlayerOwner) ? Cast <AUTPlayerState>(UTHUDOwner->PlayerOwner->PlayerState) : NULL;
 		if (PS)
 		{
 			FFormatNamedArguments Args;
 			Args.Add("Val", FText::AsNumber(int32(PS->RoundDamageDone)));
-			DrawText(FText::Format(NSLOCTEXT("UTScoreboard", "Value", "{Val}"), Args), XOffset + 0.6f*Width, YOffset + 0.4f*Height, UTHUDOwner->MediumFont, 1.f, 1.0f, FLinearColor::Yellow, ETextHorzPos::Left, ETextVertPos::Top);
+			DrawText(FText::Format(NSLOCTEXT("UTScoreboard", "Value", "{Val}"), Args), XOffset + 0.8f*Width, YOffset + 0.4f*Height, UTHUDOwner->MediumFont, RenderScale, 1.0f, FLinearColor::Yellow, ETextHorzPos::Left, ETextVertPos::Top);
 			FFormatNamedArguments ArgsB;
 			ArgsB.Add("Val", FText::AsNumber(int32(PS->DamageDone)));
-			DrawText(FText::Format(NSLOCTEXT("UTScoreboard", "Value", "{Val}"), ArgsB), XOffset + 0.6f*Width, YOffset + 0.7f*Height, UTHUDOwner->MediumFont, 1.f, 1.0f, FLinearColor::Yellow, ETextHorzPos::Left, ETextVertPos::Top);
+			DrawText(FText::Format(NSLOCTEXT("UTScoreboard", "Value", "{Val}"), ArgsB), XOffset + 0.8f*Width, YOffset + 0.7f*Height, UTHUDOwner->MediumFont, RenderScale, 1.0f, FLinearColor::Yellow, ETextHorzPos::Left, ETextVertPos::Top);
 		}
 
 		// show kills feed for this round
-		XOffset = 0.5f * (Canvas->ClipX + CenterBuffer);
+		XOffset = 0.5f*Canvas->ClipX;
+		Width = 0.3f*Canvas->ClipX;
 		DrawTexture(UTHUDOwner->HUDAtlas, XOffset, YOffset, Width, Height, 185.f, 400.f, 4.f, 4.f, 1.f, FLinearColor(0.5f, 0.5f, 0.5f, 0.2f));
 	}
 }

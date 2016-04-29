@@ -3,7 +3,6 @@
 #pragma once
 #include "UTPainVolume.generated.h"
 
-
 UCLASS()
 class UNREALTOURNAMENT_API AUTPainVolume : public APainCausingVolume
 {
@@ -15,6 +14,10 @@ class UNREALTOURNAMENT_API AUTPainVolume : public APainCausingVolume
 	virtual void BeginPlay() override;
 
 	FTimerHandle PainTimerHandle;
+
+	/** call AddOverlayMaterial() to add any character overlay materials; this registration is required to replicate overlays */
+	UFUNCTION(BlueprintNativeEvent)
+		void AddOverlayMaterials(AUTGameState* GS) const;
 
 	/** Sound played when actor enters this volume. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
@@ -31,4 +34,8 @@ class UNREALTOURNAMENT_API AUTPainVolume : public APainCausingVolume
 	/** Pawn braking ability in this fluid */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CharacterMovement)
 		float BrakingDecelerationSwimming;
+
+	/** Effect added to the player when they are in this volume */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
+		FOverlayEffect InVolumeEffect;
 };

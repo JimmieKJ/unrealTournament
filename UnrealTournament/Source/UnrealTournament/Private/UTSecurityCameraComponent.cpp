@@ -81,8 +81,8 @@ void UUTSecurityCameraComponent::TickComponent(float DeltaTime, ELevelTick TickT
 	{
 		if (DetectedFlag)
 		{
-			DetectedFlag->SetDetectingCamera(nullptr);
 			OnFlagCarrierDetectionLost(DetectedFlagCarrier);
+			DetectedFlag->SetDetectingCamera(nullptr);
 		}
 		DetectedFlag = nullptr;
 		DetectedFlagCarrier = nullptr;

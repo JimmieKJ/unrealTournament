@@ -25,7 +25,7 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	ColumnHeaderScoreX = 0.57f;
 	ColumnHeaderDeathsX = 0.73f;
 	ColumnHeaderPingX = 0.94f;
-	ColumnHeaderY = 8.f;
+	ColumnHeaderY = 6.f;
 	ColumnY = 12.f;
 	ColumnMedalX = 0.55f;
 	CellHeight = 32.f;
@@ -242,7 +242,7 @@ void UUTScoreboard::Draw_Implementation(float RenderDelta)
 		float MapScale = 0.65f;
 		const float MapSize = float(Canvas->SizeY) * MapScale;
 		FVector2D LeftCorner = FVector2D(MinimapCenter.X*Canvas->ClipX - 0.5f*MapSize, MinimapCenter.Y*Canvas->ClipY - 0.5f*MapSize);
-		DrawTexture(TextureAtlas, LeftCorner.X, LeftCorner.Y, MapSize, MapSize, 149, 138, 32, 32, 0.8f, FLinearColor::Black);
+		DrawTexture(TextureAtlas, LeftCorner.X, LeftCorner.Y, MapSize, MapSize, 149, 138, 32, 32, 0.5f, FLinearColor::Black);
 		UTHUDOwner->DrawMinimap(FColor(192, 192, 192, 220), MapSize, LeftCorner);
 	}
 }
@@ -942,13 +942,12 @@ void UUTScoreboard::DrawScoringStats(float DeltaTime, float& YPos)
 {
 	FVector2D SavedRenderPosition = RenderPosition;
 	RenderPosition = FVector2D(0.f, 0.f);
-	YPos *= RenderScale;
 	float TopYPos = YPos;
 
 	// draw left side
 	float XOffset = Canvas->ClipX * 0.06f;
 	float ScoreWidth = 0.5f * (Canvas->ClipX - 3.f*XOffset);
-	float MaxHeight = FooterPosY * RenderScale + SavedRenderPosition.Y - YPos;
+	float MaxHeight = FooterPosY + SavedRenderPosition.Y - YPos;
 	float PageBottom = TopYPos + MaxHeight;
 
 	FLinearColor PageColor = FLinearColor::Black;

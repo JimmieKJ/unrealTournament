@@ -217,6 +217,7 @@ void AUTInventory::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME_CONDITION(AUTInventory, NextInventory, COND_None);
+	DOREPLIFETIME_CONDITION(AUTInventory, bBoostPowerupSuppliedItem, COND_OwnerOnly);
 }
 
 void AUTInventory::DropFrom(const FVector& StartLocation, const FVector& TossVelocity)

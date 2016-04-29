@@ -58,4 +58,22 @@ void UUTConsole::FakeGotoState(FName NextStateName)
 	}
 #endif
 	Super::FakeGotoState(NextStateName);
+
+#if !UE_SERVER
+	if (NextStateName == NAME_None)
+	{
+		UGameViewportClient* ViewportClient = GetOuterUGameViewportClient();
+		if (ViewportClient)
+		{
+			TSharedPtr<SViewport> ViewportWidget = ViewportClient->GetGameViewportWidget();
+			if (ViewportWidget.IsValid())
+			{
+				FReply SlatOps = FReply::Unhandled();
+				SlatOps.LockMouseToWidget(ViewportWidget.ToSharedRef());
+				SlatOps.ReleaseMouseCapture();
+			}
+		}
+	}
+
+#endif
 }

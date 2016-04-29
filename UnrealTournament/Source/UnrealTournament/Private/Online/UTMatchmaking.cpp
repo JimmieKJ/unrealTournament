@@ -815,6 +815,16 @@ void UUTMatchmaking::OnReconnectResponseReceived(EPartyReservationResult::Type R
 	}
 }
 
+int32 UUTMatchmaking::GetMatchmakingEloRange()
+{
+	if (Matchmaking)
+	{
+		return Matchmaking->GetMatchmakingParams().EloRange;
+	}
+
+	return 0;
+}
+
 void UUTMatchmaking::TravelToServer()
 {
 	bool bWillTravel = false;
