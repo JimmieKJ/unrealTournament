@@ -15,6 +15,8 @@
 #include "UTDMGameMode.h"
 #include "UTCTFBaseGame.h"
 #include "UTTeamShowdownGame.h"
+#include "BlueprintContextLibrary.h"
+#include "PartyContext.h"
 
 #if !UE_SERVER
 
@@ -672,8 +674,6 @@ void SUTQuickMatchWindow::Tick( const FGeometry& AllottedGeometry, const double 
 
 void SUTQuickMatchWindow::AttemptQuickMatch(TSharedPtr<FServerSearchInfo> DesiredServer, TSharedPtr<FServerInstanceData> DesiredInstance)
 {
-
-
 	bWaitingForResponseFromHub = true;
 	HubResponseWaitTime = 0.0;
 
@@ -685,10 +685,18 @@ void SUTQuickMatchWindow::AttemptQuickMatch(TSharedPtr<FServerSearchInfo> Desire
 
 	int32 PlayerRankCheck = PlayerState->GetRankCheck(DefaultGameModeObject.Get());
 
+	UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(GetPlayerOwner()->GetWorld(), UPartyContext::StaticClass()));
+	if (PartyContext)
+	{
+		const int32 PartySize = PartyContext->GetPartySize();
+		if (PartySize > 1)
+		{
+			bIsBeginner = false;
+		}
+	}
 
 	if (DesiredInstance.IsValid())
 	{
-
 		ConnectingServer->Beacon->OnRequestJoinInstanceResult = FServerRequestJoinInstanceResult::CreateSP(this, &SUTQuickMatchWindow::RequestJoinInstanceResult);
 		ConnectingServer->Beacon->ServerRequestInstanceJoin(DesiredInstance->InstanceId.ToString(), false, PlayerRankCheck);
 	}
