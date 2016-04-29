@@ -206,7 +206,7 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
 	bool bShowPowerupTimer;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = HUD)
+	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadOnly, Category = HUD)
 	bool bBoostPowerupSuppliedItem;
 
 	/** How important is this inventory item when rendering a group of them */
