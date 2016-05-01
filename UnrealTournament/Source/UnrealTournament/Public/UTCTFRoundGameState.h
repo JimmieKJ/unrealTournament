@@ -31,6 +31,12 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 	UPROPERTY(Replicated)
 		bool bIsOffenseAbleToGainPowerup;
 
+	UPROPERTY(Replicated)
+		int32 GoldBonusThreshold;
+
+	UPROPERTY(Replicated)
+		int32 SilverBonusThreshold;
+
 	UPROPERTY(ReplicatedUsing=OnBonusLevelChanged)
 		uint8 BonusLevel;
 
@@ -42,6 +48,12 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 
 	UPROPERTY()
 		FText BronzeBonusText;
+
+	UPROPERTY()
+		FText GoldBonusTimedText;
+
+	UPROPERTY()
+		FText SilverBonusTimedText;
 
 	UFUNCTION()
 	void OnBonusLevelChanged();

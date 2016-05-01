@@ -378,7 +378,6 @@ void AUTCTFRoundGame::PlayEndOfMatchMessage()
 			}
 		}
 	}
-
 }
 
 bool AUTCTFRoundGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
@@ -623,7 +622,12 @@ void AUTCTFRoundGame::HandleMatchHasStarted()
 		CTFGameState->bOverrideToggle = true;
 		CTFGameState->HalftimeScoreDelay = 6.f;
 		bFirstRoundInitialized = true;
-
+		AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
+		if (RCTFGameState)
+		{
+			RCTFGameState->GoldBonusThreshold = GoldBonusTime;
+			RCTFGameState->SilverBonusThreshold = SilverBonusTime;
+		}
 		if (Super::UTIsHandlingReplays() && GetGameInstance() != nullptr)
 		{
 			GetGameInstance()->StartRecordingReplay(GetWorld()->GetMapName(), GetWorld()->GetMapName());
@@ -1145,18 +1149,6 @@ void AUTCTFRoundGame::CheckGameTime()
 				{
 					RCTFGameState->OnBonusLevelChanged();
 					RCTFGameState->ForceNetUpdate();
-				}
-			}
-			// bonus time countdowns
-			if (RemainingTime <= GoldBonusTime + 10)
-			{
-				if (RemainingTime > GoldBonusTime)
-				{
-					BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), 4000 + RemainingTime - GoldBonusTime, NULL, NULL, NULL);
-				}
-				else if ((RemainingTime <= SilverBonusTime + 10) && (RemainingTime > SilverBonusTime))
-				{
-					BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), 3000 + RemainingTime - SilverBonusTime, NULL, NULL, NULL);
 				}
 			}
 		}
