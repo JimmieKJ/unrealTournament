@@ -639,12 +639,6 @@ void AUTCTFRoundGame::HandleExitingIntermission()
 	Super::HandleExitingIntermission();
 }
 
-void AUTCTFRoundGame::AnnounceMatchStart()
-{
-	BroadcastVictoryConditions();
-	Super::AnnounceMatchStart();
-}
-
 void AUTCTFRoundGame::InitFlags()
 {
 	for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
@@ -779,6 +773,8 @@ void AUTCTFRoundGame::InitRound()
 
 	bRedToCap = !bRedToCap;
 	CTFGameState->bRedToCap = bRedToCap;
+	BroadcastVictoryConditions();
+
 	if (FlagPickupDelay > 0)
 	{
 		for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
@@ -940,15 +936,19 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 					}
 					return;
 				}
+				AUTPlayerController* PC = Cast<AUTPlayerController>(aPlayer);
 				if (PS->RemainingLives == 0)
 				{
-					AUTPlayerController* PC = Cast<AUTPlayerController>(aPlayer);
 					if (PC)
 					{
 						PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 5, PS, NULL, NULL);
 					}
 					PS->RespawnWaitTime = 2.f;
 					PS->OnRespawnWaitReceived();
+				}
+				else if (PC)
+				{
+					PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 30+PS->RemainingLives, PS, NULL, NULL);
 				}
 			}
 			else
