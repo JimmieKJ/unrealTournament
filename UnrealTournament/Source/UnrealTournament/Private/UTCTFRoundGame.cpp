@@ -48,7 +48,6 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	bFirstRoundInitialized = false;
 	ExtraHealth = 0;
 	FlagPickupDelay = 10;
-	RemainingPickupDelay = 0;
 	HUDClass = AUTFlagRunHUD::StaticClass();
 	GameStateClass = AUTCTFRoundGameState::StaticClass();
 	SquadType = AUTAsymCTFSquadAI::StaticClass();
@@ -729,20 +728,20 @@ void AUTCTFRoundGame::BroadcastVictoryConditions()
 
 void AUTCTFRoundGame::FlagCountDown()
 {
-	RemainingPickupDelay--;
-	if (RemainingPickupDelay > 0)
+	AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
+	if (RCTFGameState)
 	{
-		if (GetMatchState() == MatchState::InProgress)
+		RCTFGameState->RemainingPickupDelay--;
+		if (RCTFGameState->RemainingPickupDelay > 0)
 		{
-			BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), (bRedToCap ? 1000 : 2000) + RemainingPickupDelay, NULL, NULL, NULL);
+			FTimerHandle TempHandle;
+			GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCTFRoundGame::FlagCountDown, 1.f*GetActorTimeDilation(), false);
 		}
-
-		FTimerHandle TempHandle;
-		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCTFRoundGame::FlagCountDown, 1.f*GetActorTimeDilation(), false);
-	}
-	else
-	{
-		InitFlags();
+		else
+		{
+			BroadcastLocalized(this, UUTCTFMajorMessage::StaticClass(), 21, NULL, NULL, NULL);
+			InitFlags();
+		}
 	}
 }
 
@@ -751,6 +750,7 @@ void AUTCTFRoundGame::InitRound()
 	bFirstBloodOccurred = false;
 	bLastManOccurred = false;
 	bNeedFiveKillsMessage = true;
+	AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
 	if (CTFGameState)
 	{
 		CTFGameState->CTFRound++;
@@ -765,7 +765,6 @@ void AUTCTFRoundGame::InitRound()
 			CTFGameState->BlueLivesRemaining += CTFGameState->FlagBases[1] ? CTFGameState->FlagBases[0]->RoundLivesAdjustment : 0;
 		}
 
-		AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
 		if (RCTFGameState)
 		{
 			RCTFGameState->OffenseKills = 0;
@@ -799,7 +798,7 @@ void AUTCTFRoundGame::InitRound()
 				}
 			}
 		}
-		RemainingPickupDelay = FlagPickupDelay;
+		RCTFGameState->RemainingPickupDelay = FlagPickupDelay;
 		FTimerHandle TempHandle;
 		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCTFRoundGame::FlagCountDown, 1.f*GetActorTimeDilation(), false);
 	}

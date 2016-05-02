@@ -24,6 +24,9 @@ class UNREALTOURNAMENT_API UUTCTFMajorMessage : public UUTCarriedObjectMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText LastLifeMessage;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText FlagReadyMessage;
+
 	virtual bool InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const override;
 	virtual bool CancelByAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const override;
 

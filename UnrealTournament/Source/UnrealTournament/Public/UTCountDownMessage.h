@@ -14,12 +14,6 @@ class UNREALTOURNAMENT_API UUTCountDownMessage : public UUTLocalMessage
 	FText CountDownText;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText RedFlagDelayMessage;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText BlueFlagDelayMessage;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText GoldBonusMessage;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)

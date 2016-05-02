@@ -16,7 +16,7 @@ UUTCTFMajorMessage::UUTCTFMajorMessage(const FObjectInitializer& ObjectInitializ
 	HalftimeMessage = NSLOCTEXT("CTFGameMessage", "Halftime", "");
 	OvertimeMessage = NSLOCTEXT("CTFGameMessage", "Overtime", "OVERTIME!");
 	LastLifeMessage = NSLOCTEXT("CTFGameMessage", "LastLife", "This is your last life!");
-
+	FlagReadyMessage = NSLOCTEXT("CTFGameMessage", "FlagReadyMessage", "Attacker flag can be picked up!");
 	bIsStatusAnnouncement = true;
 	bIsPartiallyUnique = true;
 	ScaleInSize = 3.f;
@@ -52,6 +52,7 @@ FText UUTCTFMajorMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlay
 	case 11: return HalftimeMessage; break;
 	case 12: return OvertimeMessage; break;
 	case 20: return LastLifeMessage; break;
+	case 21: return FlagReadyMessage; break;
 	}
 	return FText::GetEmpty();
 }

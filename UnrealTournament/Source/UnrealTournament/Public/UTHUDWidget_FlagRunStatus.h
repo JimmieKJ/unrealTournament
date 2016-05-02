@@ -10,11 +10,12 @@ class UNREALTOURNAMENT_API UUTHUDWidget_FlagRunStatus : public UUTHUDWidget_CTFF
 {
 	GENERATED_UCLASS_BODY()
 
-	virtual void DrawStatusMessage(float DeltaTime);
+	virtual void DrawStatusMessage(float DeltaTime) override;
 
 
 protected:
-	virtual void DrawIndicators(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation);
-	virtual FText GetFlagReturnTime(AUTCTFFlag* Flag);
-	virtual bool ShouldDrawFlag(AUTCTFFlag* Flag, bool bIsEnemyFlag);
+	virtual void DrawIndicators(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation) override;
+	virtual bool ShouldDrawFlag(AUTCTFFlag* Flag, bool bIsEnemyFlag) override;
+	virtual void DrawFlagWorld(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation, uint8 TeamNum, AUTCTFFlagBase* FlagBase, AUTCTFFlag* Flag, AUTPlayerState* FlagHolder) override;
+	virtual void DrawFlagBaseWorld(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation, uint8 TeamNum, AUTCTFFlagBase* FlagBase, AUTCTFFlag* Flag, AUTPlayerState* FlagHolder) override;
 };
