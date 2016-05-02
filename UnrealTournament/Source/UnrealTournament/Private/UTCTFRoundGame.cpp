@@ -660,7 +660,6 @@ void AUTCTFRoundGame::InitFlags()
 				if (IsTeamOnOffense(Flag->GetTeamNum()))
 				{
 					Flag->SetActorHiddenInGame(false);
-					Flag->ClearGhostFlag();
 					Flag->bEnemyCanPickup = !bCarryOwnFlag;
 					Flag->bFriendlyCanPickup = bCarryOwnFlag;
 					Flag->bTeamPickupSendsHome = !Flag->bFriendlyCanPickup && !bNoFlagReturn;
