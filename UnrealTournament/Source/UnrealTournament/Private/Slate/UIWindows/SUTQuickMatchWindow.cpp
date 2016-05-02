@@ -374,9 +374,6 @@ void SUTQuickMatchWindow::OnServerBeaconFailure(AUTServerBeaconClient* Sender)
 
 void SUTQuickMatchWindow::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerBeaconInfo ServerInfo)
 {
-	AUTPlayerState* PlayerState = Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);
-	bool bIsBeginner = PlayerState && PlayerState->IsABeginner(DefaultGameModeObject.Get());  
-
 	for (int32 i = 0; i < PingTrackers.Num(); i++)
 	{
 		if (PingTrackers[i].Beacon == Sender)
@@ -389,7 +386,6 @@ void SUTQuickMatchWindow::OnServerBeaconResult(AUTServerBeaconClient* Sender, FS
 			{
 				if ( (FinalList[Idx]->ServerTrustLevel > PingTrackers[i].Server->ServerTrustLevel) || (FinalList[Idx]->Ping > Sender->Ping) )
 				{
-					// Insert here..
 					FinalList.Insert(PingTrackers[i].Server, Idx);
 					bInserted = true;
 					break;					
@@ -469,9 +465,12 @@ void SUTQuickMatchWindow::CollectInstances()
 						// Cull any instances that do not match this quickmatch type or is not joinable as a player.
 						if (Instance->RulesTag.Equals(QuickMatchType, ESearchCase::IgnoreCase) && Instance->bJoinableAsPlayer)
 						{
-
 							// If the player owner is a beginner, reject any non-beginner matchers.
-							Instances.Add(FInstanceTracker(FinalList[i], FinalList[i]->Beacon->Instances[j]));					
+
+							if (!bIsBeginner || FinalList[i]->Beacon->Instances[j]->RankCheck < NUMBER_RANK_LEVELS)
+							{
+								Instances.Add(FInstanceTracker(FinalList[i], FinalList[i]->Beacon->Instances[j]));					
+							}
 						}
 					}
 				}
