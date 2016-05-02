@@ -660,6 +660,8 @@ void AUTCTFRoundGame::InitFlags()
 			{
 				if (IsTeamOnOffense(Flag->GetTeamNum()))
 				{
+					Flag->SetActorHiddenInGame(false);
+					Flag->ClearGhostFlag();
 					Flag->bEnemyCanPickup = !bCarryOwnFlag;
 					Flag->bFriendlyCanPickup = bCarryOwnFlag;
 					Flag->bTeamPickupSendsHome = !Flag->bFriendlyCanPickup && !bNoFlagReturn;
@@ -790,6 +792,11 @@ void AUTCTFRoundGame::InitRound()
 				Flag->bFriendlyCanPickup = false;
 				Flag->bTeamPickupSendsHome = false;
 				Flag->bEnemyPickupSendsHome = false;
+				if (bAsymmetricVictoryConditions && IsTeamOnOffense(Flag->GetTeamNum()))
+				{
+					Flag->SetActorHiddenInGame(true);
+					Flag->PutGhostFlagAt(Flag->GetActorLocation());
+				}
 			}
 		}
 		RemainingPickupDelay = FlagPickupDelay;
