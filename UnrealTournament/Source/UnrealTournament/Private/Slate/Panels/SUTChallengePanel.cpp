@@ -626,13 +626,7 @@ void SUTChallengePanel::GenerateChallengeList()
 	ChallengeBox->ClearChildren();
 	LastReward = NAME_REWARD_None;
 
-	for (int32 i=0; i < ChallengeManager->RewardTags.Num();i++)
-	{
-		if (RewardStars.Contains(ChallengeManager->RewardTags[i]))
-		{
-			RewardStars[ChallengeManager->RewardTags[i]] = 0;
-		}
-	}
+	RewardStars.Empty();
 
 	if (ChallengeManager.IsValid())
 	{
