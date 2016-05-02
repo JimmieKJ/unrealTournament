@@ -4,7 +4,7 @@
 #include "UTPainVolume.generated.h"
 
 UCLASS()
-class UNREALTOURNAMENT_API AUTPainVolume : public APainCausingVolume
+class UNREALTOURNAMENT_API AUTPainVolume : public APainCausingVolume, public IInterface_PostProcessVolume
 {
 	GENERATED_UCLASS_BODY()
 
@@ -38,4 +38,38 @@ class UNREALTOURNAMENT_API AUTPainVolume : public APainCausingVolume
 	/** Effect added to the player when they are in this volume */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 		FOverlayEffect InVolumeEffect;
+
+	/** Post process settings to use for the included PostProcessEffect volume. */
+	UPROPERTY(interp, Category = PostProcessVolume, meta = (ShowOnlyInnerProperties))
+	struct FPostProcessSettings Settings;
+	
+	/** World space radius around the volume that is used for blending (only if not unbound).			*/
+	UPROPERTY(interp, Category = PostProcessVolume, meta = (ClampMin = "0.0", UIMin = "0.0", UIMax = "6000.0"))
+		float BlendRadius;
+
+	/** 0:no effect, 1:full effect */
+	UPROPERTY(interp, Category = PostProcessVolume, BlueprintReadWrite, meta = (UIMin = "0.0", UIMax = "1.0"))
+		float BlendWeight;
+
+	//~ Begin IInterface_PostProcessVolume Interface
+	virtual bool EncompassesPoint(FVector Point, float SphereRadius/*=0.f*/, float* OutDistanceToPoint) override;
+	virtual FPostProcessVolumeProperties GetProperties() const override
+	{
+		FPostProcessVolumeProperties Ret;
+		Ret.bIsEnabled = true;
+		Ret.bIsUnbound = false;
+		Ret.BlendRadius = BlendRadius;
+		Ret.BlendWeight = BlendWeight;
+		Ret.Priority = Priority;
+		Ret.Settings = &Settings;
+		return Ret;
+	}
+	//~ End IInterface_PostProcessVolume Interface
+
+	//~ Begin AActor Interface
+	virtual void PostUnregisterAllComponents(void) override;
+
+protected:
+	virtual void PostRegisterAllComponents() override;
+	//~ End AActor Interface
 };
