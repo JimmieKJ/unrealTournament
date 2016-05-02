@@ -2328,7 +2328,7 @@ void AUTPlayerController::BehindView(bool bWantBehindView)
 	}
 }
 
-bool AUTPlayerController::IsBehindView()
+bool AUTPlayerController::IsBehindView() const
 {
 	if (PlayerCameraManager != NULL)
 	{
@@ -3951,6 +3951,16 @@ void AUTPlayerController::ServerRegisterBanVote_Implementation(AUTPlayerState* B
 	}
 }
 
+FRotator AUTPlayerController::GetControlRotation() const
+{
+	if (UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives) && !IsBehindView() && !bSpectatorMouseChangesView && (GetViewTarget() != GetSpectatorPawn()))
+	{
+		return BlendedTargetViewRotation;
+	}
+	ControlRotation.DiagnosticCheckNaN();
+	return ControlRotation;
+}
+
 void AUTPlayerController::UpdateRotation(float DeltaTime)
 {
 	UUTPlayerInput* Input = Cast<UUTPlayerInput>(PlayerInput);
@@ -3980,7 +3990,6 @@ void AUTPlayerController::UpdateRotation(float DeltaTime)
 				}
 			}
 		}
-
 	}
 
 	Super::UpdateRotation(DeltaTime);

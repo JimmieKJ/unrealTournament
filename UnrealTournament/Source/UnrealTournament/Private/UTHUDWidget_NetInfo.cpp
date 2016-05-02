@@ -17,9 +17,6 @@ UUTHUDWidget_NetInfo::UUTHUDWidget_NetInfo(const class FObjectInitializer& Objec
 	ValueHighlight[0] = FLinearColor::White;
 	ValueHighlight[1] = FLinearColor::Yellow;
 	ValueHighlight[2] = FLinearColor::Red;
-
-	static ConstructorHelpers::FObjectFinder<UTexture2D> Tex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/UTScoreboard01.UTScoreboard01'"));
-	TextureAtlas = Tex.Object;
 }
 
 bool UUTHUDWidget_NetInfo::ShouldDraw_Implementation(bool bShowScores)
@@ -92,7 +89,7 @@ void UUTHUDWidget_NetInfo::Draw_Implementation(float DeltaTime)
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTHUDOwner->PlayerOwner->PlayerState);
 	UNetDriver* NetDriver = GetWorld()->GetNetDriver();
 
-	DrawTexture(TextureAtlas, 0.5f*XOffset, DrawOffset, Size.X, Size.Y, 149, 138, 32, 32, 0.5f, FLinearColor::Black);
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, 0.5f*XOffset, DrawOffset, Size.X, Size.Y, 149, 138, 32, 32, 0.5f, FLinearColor::Black);
 	DrawOffset += 0.5f * CellHeight;
 
 	// ping

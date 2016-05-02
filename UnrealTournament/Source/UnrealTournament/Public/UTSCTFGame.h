@@ -30,6 +30,12 @@ class UNREALTOURNAMENT_API AUTSCTFGame : public AUTCTFRoundGame
 
 	virtual void InitRound();
 
+	virtual int32 GetFlagCapScore() override
+	{
+		return 1;
+	}
+
+
 protected:
 
 	UPROPERTY()

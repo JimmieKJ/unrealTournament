@@ -31,18 +31,18 @@ void UUTTeamScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
 	float NamePosition = ScaledEdgeSize + FrontSize + 0.25f*MiddleSize;
 
 	// Draw the Background
-	DrawTexture(TextureAtlas, ScaledEdgeSize, BackgroundY, FrontSize, BackgroundHeight, 0, 188, 36, 65, 1.0, FLinearColor::Red);
-	DrawTexture(TextureAtlas, ScaledEdgeSize + FrontSize, BackgroundY, MiddleSize, BackgroundHeight, 39,188,64,65, 1.0, FLinearColor::Red);
-	DrawTexture(TextureAtlas, ScaledEdgeSize + FrontSize + MiddleSize, BackgroundY, EndSize, BackgroundHeight, 39,188,64,65, 1.0, FLinearColor::Red);
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, ScaledEdgeSize, BackgroundY, FrontSize, BackgroundHeight, 0, 188, 36, 65, 1.0, FLinearColor::Red);
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, ScaledEdgeSize + FrontSize, BackgroundY, MiddleSize, BackgroundHeight, 39,188,64,65, 1.0, FLinearColor::Red);
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, ScaledEdgeSize + FrontSize + MiddleSize, BackgroundY, EndSize, BackgroundHeight, 39,188,64,65, 1.0, FLinearColor::Red);
 
 	DrawText(RedTeamText, NamePosition, TeamTextY, UTHUDOwner->HugeFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 	DrawText(FText::AsNumber(UTGameState->Teams[0]->Score), ScaledEdgeSize + FrontSize + MiddleSize - EndSize, TeamScoreY, UTHUDOwner->HugeFont, false, FVector2D(0, 0), FLinearColor::Black, true, FLinearColor::Black, 1.5f*RenderScale, 1.f, FLinearColor::White, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Right, ETextVertPos::Center);
 
 	float LeftEdge = Canvas->ClipX - ScaledEdgeSize - FrontSize - MiddleSize - EndSize;
 
-	DrawTexture(TextureAtlas, LeftEdge + EndSize + MiddleSize, BackgroundY, FrontSize, BackgroundHeight, 196, 188, 36, 65 , 1.f, FLinearColor::Blue);
-	DrawTexture(TextureAtlas, LeftEdge + EndSize, BackgroundY, MiddleSize, BackgroundHeight, 130,188,64,65, 1.f, FLinearColor::Blue);
-	DrawTexture(TextureAtlas, LeftEdge, BackgroundY, EndSize, BackgroundHeight, 117, 188, 16, 65, 1.f, FLinearColor::Blue);
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, LeftEdge + EndSize + MiddleSize, BackgroundY, FrontSize, BackgroundHeight, 196, 188, 36, 65 , 1.f, FLinearColor::Blue);
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, LeftEdge + EndSize, BackgroundY, MiddleSize, BackgroundHeight, 130,188,64,65, 1.f, FLinearColor::Blue);
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, LeftEdge, BackgroundY, EndSize, BackgroundHeight, 117, 188, 16, 65, 1.f, FLinearColor::Blue);
 
 	DrawText(BlueTeamText, Canvas->ClipX - NamePosition, TeamTextY, UTHUDOwner->HugeFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 	DrawText(FText::AsNumber(UTGameState->Teams[1]->Score), LeftEdge + 2.f*EndSize, TeamScoreY, UTHUDOwner->HugeFont, false, FVector2D(0.f, 0.f), FLinearColor::Black, true, FLinearColor::Black, 1.5f*RenderScale, 1.f, FLinearColor::White, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Left, ETextVertPos::Center);

@@ -3217,8 +3217,11 @@ bool AUTGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, 
 	{
 		Damage = 0;
 	}
-
-	if (BaseMutator != NULL)
+	if (!IsMatchInProgress() || (UTGameState && UTGameState->IsMatchIntermission()))
+	{
+		Damage = 0;
+	}
+	else if (BaseMutator != NULL)
 	{
 		BaseMutator->ModifyDamage(Damage, Momentum, Injured, InstigatedBy, HitInfo, DamageCauser, DamageType);
 	}

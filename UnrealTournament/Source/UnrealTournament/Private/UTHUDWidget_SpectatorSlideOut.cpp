@@ -33,9 +33,6 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 	SlideSpeed = 6.f;
 	ActionHighlightTime = 1.1f;
 
-	static ConstructorHelpers::FObjectFinder<UTexture2D> Tex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/UTScoreboard01.UTScoreboard01'"));
-	TextureAtlas = Tex.Object;
-
 	static ConstructorHelpers::FObjectFinder<UTexture2D> FlagTex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/CountryFlags.CountryFlags'"));
 	FlagAtlas = FlagTex.Object;
 
@@ -123,7 +120,7 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 	// Hack to allow animations during pause
 	DeltaTime = GetWorld()->DeltaTimeSeconds;
 
-	if (TextureAtlas && UTGameState)
+	if (UTHUDOwner->ScoreboardAtlas && UTGameState)
 	{
 		float DrawOffset = 0.2f * Canvas->ClipY / RenderScale;
 		DrawSelector("ToggleMinimap", !UTHUDOwner->bDrawMinimap, 0.f, DrawOffset - CellHeight);
@@ -378,7 +375,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPowerup(AUTPickup* Pickup, float XOffse
 	{
 		BarOpacity = SelectedOpacity;
 	}
-	DrawTexture(TextureAtlas, XOffset, YOffset, PowerupWidth*Size.X, 0.95f*CellHeight, 149, 138, 32, 32, BarOpacity, FLinearColor::White);
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, YOffset, PowerupWidth*Size.X, 0.95f*CellHeight, 149, 138, 32, 32, BarOpacity, FLinearColor::White);
 
 	if (Pickup->TeamSide < 2)
 	{
@@ -443,7 +440,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawFlag(FString FlagCommand, FString FlagN
 	// Draw the background border.
 	FLinearColor BarColor = FLinearColor::White;
 	float FinalBarOpacity = BarOpacity;
-	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 0.95f*CellHeight, 149, 138, 32, 32, FinalBarOpacity, BarColor);
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, YOffset, Width, 0.95f*CellHeight, 149, 138, 32, 32, FinalBarOpacity, BarColor);
 
 	// Draw the Text
 	FLinearColor FlagColor = Flag->Team ? Flag->Team->TeamColor : FLinearColor::White;
@@ -475,7 +472,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawCamBind(FString CamCommand, FString Pro
 
 	// Draw the background border.
 	FLinearColor BarColor = FLinearColor::White;
-	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 0.95f*CellHeight, 149, 138, 32, 32, BarOpacity, BarColor);
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, YOffset, Width, 0.95f*CellHeight, 149, 138, 32, 32, BarOpacity, BarColor);
 
 	// Draw the Text
 	float XL, YL;
@@ -532,7 +529,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayerHeader(float RenderDelta, float X
 	
 	// Draw the background border.
 	float BorderWidth = Width * (1.f - ColumnHeaderScoreX + 0.05f);
-	DrawTexture(TextureAtlas, XOffset + Width - BorderWidth, YOffset, BorderWidth, 0.95f*CellHeight, 149, 138, 32, 32, FinalBarOpacity, BarColor);
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset + Width - BorderWidth, YOffset, BorderWidth, 0.95f*CellHeight, 149, 138, 32, 32, FinalBarOpacity, BarColor);
 
 	// Draw the Text
 	DrawTexture(HealthIcon.Texture, XOffset + (Width * (ColumnHeaderScoreX - 0.05f)), YOffset + ColumnY - 0.04f*Width, 0.1f*Width, 0.1f*Width, HealthIcon.U, HealthIcon.V, HealthIcon.UL, HealthIcon.VL, 1.0, FLinearColor::White);
@@ -551,7 +548,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawSelector(FString Command, bool bPointRi
 		ClickElementStack.Add(FClickElement(Command, Bounds));
 		float Opacity = (MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W)
 				? 1.f : 0.5f;
-		DrawTexture(TextureAtlas, XOffset, YOffset + 0.5f*CellHeight - 9.f, 18.f, 18.f, U, 188.f, UL, 65.f, Opacity, DrawColor);
+		DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, YOffset + 0.5f*CellHeight - 9.f, 18.f, 18.f, U, 188.f, UL, 65.f, Opacity, DrawColor);
 	}
 }
 
@@ -600,7 +597,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	}
 
 	AUTCharacter* Character = PlayerState->GetUTCharacter();
-	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 0.95f*CellHeight, 149, 138, 32, 32, FinalBarOpacity, BarColor);
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, YOffset, Width, 0.95f*CellHeight, 149, 138, 32, 32, FinalBarOpacity, BarColor);
 
 	FTextureUVs FlagUV;
 	UTexture2D* NewFlagAtlas = UTHUDOwner->ResolveFlag(PlayerState, FlagUV);
@@ -720,7 +717,7 @@ void UUTHUDWidget_SpectatorSlideOut::ShowSelectedPlayerStats(AUTPlayerState* Pla
 	float ScoreWidth = 0.4f * Canvas->ClipX;
 	float MaxHeight = 0.5f*Canvas->ClipY;
 	float ScoreYOffset = FMath::Min(YOffset, Canvas->ClipY - MaxHeight);
-	DrawTexture(TextureAtlas, XOffset, ScoreYOffset, ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.3f, FLinearColor::Black);
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, ScoreYOffset, ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.3f, FLinearColor::Black);
 	DrawWeaponStats(PlayerState, RenderDelta, ScoreYOffset, XOffset, ScoreWidth, MaxHeight, StatsFontInfo);
 }
 

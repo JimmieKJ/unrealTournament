@@ -64,12 +64,14 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	static ConstructorHelpers::FObjectFinder<USoundBase> KillSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Gameplay/A_Stinger_Kill01_Cue.A_Stinger_Kill01_Cue'"));
 	KillSound = KillSoundFinder.Object;
 
-	static ConstructorHelpers::FObjectFinder<UTexture2D> HelpBGTex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/UTScoreboard01.UTScoreboard01'"));
+	static ConstructorHelpers::FObjectFinder<UTexture2D> ScoreboardTex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/UTScoreboard01.UTScoreboard01'"));
+	ScoreboardAtlas = ScoreboardTex.Object;
+
 	SpawnHelpTextBG.U = 4;
 	SpawnHelpTextBG.V = 2;
 	SpawnHelpTextBG.UL = 124;
 	SpawnHelpTextBG.VL = 128;
-	SpawnHelpTextBG.Texture = HelpBGTex.Object;
+	SpawnHelpTextBG.Texture = ScoreboardAtlas;
 
 	LastKillTime = -100.f;
 	LastConfirmedHitTime = -100.0f;
@@ -607,6 +609,29 @@ void AUTHUD::DrawHUD()
 	}
 
 	CachedProfileSettings = nullptr;
+
+	DrawWatermark();
+}
+
+
+void AUTHUD::DrawWatermark()
+{
+	float RenderScale = Canvas->ClipX / 1920.0f;
+	FVector2D Size; 
+	FVector2D Position;
+
+
+	Size.X = 301.0f * RenderScale;
+	Size.Y = 98.0f * (Size.X / 301.0f);
+
+	Position = FVector2D(Canvas->ClipX - Size.X - 10.0f * RenderScale, Canvas->ClipY - Size.Y - 120.0f * RenderScale);
+	Canvas->DrawColor = FColor(255,255,255,96);
+	Canvas->DrawTile(ScoreboardAtlas, Position.X, Position.Y, Size.X, Size.Y, 162.0f, 14.0f, 301.0f, 98.0f);
+
+
+	Position.X = Position.X + (Size.X * 0.45f);
+	Position.Y += Size.Y * 0.85f;
+	Canvas->DrawText(SmallFont, TEXT("PRE-ALPHA"), Position.X, Position.Y, RenderScale, RenderScale);
 }
 
 bool AUTHUD::ShouldDrawMinimap() 

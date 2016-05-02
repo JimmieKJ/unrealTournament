@@ -23,11 +23,32 @@ UUTShowdownRewardMessage::UUTShowdownRewardMessage(const class FObjectInitialize
 	Termination = FName(TEXT("RW_Termination"));
 	Annihilation = FName(TEXT("RW_Annihilation"));
 	FinalLife = FName(TEXT("RW_EndIt"));
+	LivesRemainingPrefix = NSLOCTEXT("CTFGameMessage", "LivesRemainingPrefix", "");
+	LivesRemainingPostfix = NSLOCTEXT("CTFGameMessage", "LivesRemainingPostfix", " lives remaining.");
 	AnnouncementDelay = 0.5f;
+}
+
+void UUTShowdownRewardMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
+{
+	if (Switch > 30)
+	{
+		Switch -= 30;
+		PrefixText = LivesRemainingPrefix;
+		PostfixText = LivesRemainingPostfix;
+		EmphasisText = FText::AsNumber(Switch);
+		EmphasisColor = FLinearColor::Red;
+		return;
+	}
+
+	Super::GetEmphasisText(PrefixText, EmphasisText, PostfixText, EmphasisColor, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 }
 
 FText UUTShowdownRewardMessage::GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const 
 {
+	if (Switch > 30)
+	{
+		return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+	}
 	switch (Switch)
 	{
 	case 0:

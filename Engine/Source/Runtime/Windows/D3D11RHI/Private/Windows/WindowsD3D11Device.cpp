@@ -37,6 +37,24 @@ static TAutoConsoleVariable<int32> CVarHmdGraphicsAdapter(
 	TEXT("  1: Adpater #1, ..."),
 	ECVF_RenderThreadSafe);
 
+static TAutoConsoleVariable<int32> CVarForceAMDToSM4(
+	TEXT("r.ForceAMDToSM4"),
+	0,
+	TEXT("Forces AMD devices to use SM4.0/D3D10.0 feature level."),
+	ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<int32> CVarForceIntelToSM4(
+	TEXT("r.ForceIntelToSM4"),
+	0,
+	TEXT("Forces Intel devices to use SM4.0/D3D10.0 feature level."),
+	ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<int32> CVarForceNvidiaToSM4(
+	TEXT("r.ForceNvidiaToSM4"),
+	0,
+	TEXT("Forces Nvidia devices to use SM4.0/D3D10.0 feature level."),
+	ECVF_RenderThreadSafe);
+
 /**
  * Console variables used by the D3D11 RHI device.
  */
@@ -381,6 +399,27 @@ void FD3D11DynamicRHIModule::FindAdapter()
 	else
 	{
 		UE_LOG(LogD3D11RHI, Error, TEXT("Failed to choose a D3D11 Adapter."));
+	}
+
+	// Workaround to force specific IHVs to SM4.0
+	if (ChosenAdapter.IsValid() && ChosenAdapter.MaxSupportedFeatureLevel != D3D_FEATURE_LEVEL_10_0)
+	{
+		DXGI_ADAPTER_DESC AdapterDesc;
+		ZeroMemory(&AdapterDesc, sizeof(DXGI_ADAPTER_DESC));
+
+		DXGIFactory1->EnumAdapters(ChosenAdapter.AdapterIndex, TempAdapter.GetInitReference());
+		VERIFYD3D11RESULT(TempAdapter->GetDesc(&AdapterDesc));	
+
+		const bool bIsAMD = AdapterDesc.VendorId == 0x1002;
+		const bool bIsIntel = AdapterDesc.VendorId == 0x8086;
+		const bool bIsNVIDIA = AdapterDesc.VendorId == 0x10DE;
+
+		if ((bIsAMD && CVarForceAMDToSM4.GetValueOnGameThread() > 0) ||
+			(bIsIntel && CVarForceIntelToSM4.GetValueOnGameThread() > 0) ||
+			(bIsNVIDIA && CVarForceNvidiaToSM4.GetValueOnGameThread() > 0))
+		{
+			ChosenAdapter.MaxSupportedFeatureLevel = D3D_FEATURE_LEVEL_10_0;
+		}
 	}
 }
 

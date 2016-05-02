@@ -42,6 +42,7 @@ AUTCTFRoundGameTommy::AUTCTFRoundGameTommy(const FObjectInitializer& ObjectIniti
 	DefenseKillsNeededForPowerUp = 10;
 
 	bRollingAttackerSpawns = false;
+	bHideInUI = true;
 }
 
 void AUTCTFRoundGameTommy::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)

@@ -88,6 +88,7 @@ public:
 	virtual void ClientRestart_Implementation(APawn* NewPawn) override;
 	virtual void ClientSetLocation_Implementation(FVector NewLocation, FRotator NewRotation) override;
 	virtual void BeginInactiveState() override;
+	virtual FRotator GetControlRotation() const override;
 
 	UFUNCTION(Reliable, Client)
 		void ClientReceivePersonalMessage(TSubclassOf<ULocalMessage> Message, int32 Switch = 0, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL);
@@ -208,7 +209,7 @@ public:
 	UFUNCTION(exec)
 	virtual void BehindView(bool bWantBehindView);
 
-	virtual bool IsBehindView();
+	virtual bool IsBehindView() const;
 	virtual void SetCameraMode( FName NewCamMode );
 	virtual void ClientSetCameraMode_Implementation( FName NewCamMode ) override;
 	virtual void ClientGameEnded_Implementation(AActor* EndGameFocus, bool bIsWinner) override;

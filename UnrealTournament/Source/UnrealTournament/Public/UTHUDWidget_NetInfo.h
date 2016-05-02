@@ -24,9 +24,6 @@ public:
 	virtual FLinearColor GetValueColor(float Value, float ThresholdBest, float ThresholdWorst) const;
 
 protected:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")
-		UTexture2D* TextureAtlas;
-
 	UPROPERTY()
 		FLinearColor ValueHighlight[3];
 

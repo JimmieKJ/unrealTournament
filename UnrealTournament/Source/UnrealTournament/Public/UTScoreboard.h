@@ -208,9 +208,6 @@ protected:
 	virtual AUTPlayerState* GetNextScoringPlayer(int32 dir, int32& PSIndex);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
-	UTexture2D* TextureAtlas;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	UTexture2D* FlagAtlas;
 
 	virtual bool ShouldDraw_Implementation(bool bShowScores)

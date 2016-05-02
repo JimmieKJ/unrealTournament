@@ -378,7 +378,6 @@ void AUTCTFRoundGame::PlayEndOfMatchMessage()
 			}
 		}
 	}
-
 }
 
 bool AUTCTFRoundGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
@@ -623,7 +622,12 @@ void AUTCTFRoundGame::HandleMatchHasStarted()
 		CTFGameState->bOverrideToggle = true;
 		CTFGameState->HalftimeScoreDelay = 6.f;
 		bFirstRoundInitialized = true;
-
+		AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
+		if (RCTFGameState)
+		{
+			RCTFGameState->GoldBonusThreshold = GoldBonusTime;
+			RCTFGameState->SilverBonusThreshold = SilverBonusTime;
+		}
 		if (Super::UTIsHandlingReplays() && GetGameInstance() != nullptr)
 		{
 			GetGameInstance()->StartRecordingReplay(GetWorld()->GetMapName(), GetWorld()->GetMapName());
@@ -637,12 +641,6 @@ void AUTCTFRoundGame::HandleExitingIntermission()
 	CTFGameState->bStopGameClock = false;
 	InitRound();
 	Super::HandleExitingIntermission();
-}
-
-void AUTCTFRoundGame::AnnounceMatchStart()
-{
-	BroadcastVictoryConditions();
-	Super::AnnounceMatchStart();
 }
 
 void AUTCTFRoundGame::InitFlags()
@@ -662,6 +660,8 @@ void AUTCTFRoundGame::InitFlags()
 			{
 				if (IsTeamOnOffense(Flag->GetTeamNum()))
 				{
+					Flag->SetActorHiddenInGame(false);
+					Flag->ClearGhostFlag();
 					Flag->bEnemyCanPickup = !bCarryOwnFlag;
 					Flag->bFriendlyCanPickup = bCarryOwnFlag;
 					Flag->bTeamPickupSendsHome = !Flag->bFriendlyCanPickup && !bNoFlagReturn;
@@ -779,6 +779,8 @@ void AUTCTFRoundGame::InitRound()
 
 	bRedToCap = !bRedToCap;
 	CTFGameState->bRedToCap = bRedToCap;
+	BroadcastVictoryConditions();
+
 	if (FlagPickupDelay > 0)
 	{
 		for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
@@ -790,6 +792,11 @@ void AUTCTFRoundGame::InitRound()
 				Flag->bFriendlyCanPickup = false;
 				Flag->bTeamPickupSendsHome = false;
 				Flag->bEnemyPickupSendsHome = false;
+				if (bAsymmetricVictoryConditions && IsTeamOnOffense(Flag->GetTeamNum()))
+				{
+					Flag->SetActorHiddenInGame(true);
+					Flag->PutGhostFlagAt(Flag->GetActorLocation());
+				}
 			}
 		}
 		RemainingPickupDelay = FlagPickupDelay;
@@ -940,15 +947,19 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 					}
 					return;
 				}
+				AUTPlayerController* PC = Cast<AUTPlayerController>(aPlayer);
 				if (PS->RemainingLives == 0)
 				{
-					AUTPlayerController* PC = Cast<AUTPlayerController>(aPlayer);
 					if (PC)
 					{
 						PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 5, PS, NULL, NULL);
 					}
 					PS->RespawnWaitTime = 2.f;
 					PS->OnRespawnWaitReceived();
+				}
+				else if (PC)
+				{
+					PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 30+PS->RemainingLives, PS, NULL, NULL);
 				}
 			}
 			else
@@ -1147,18 +1158,6 @@ void AUTCTFRoundGame::CheckGameTime()
 					RCTFGameState->ForceNetUpdate();
 				}
 			}
-			// bonus time countdowns
-			if (RemainingTime <= GoldBonusTime + 10)
-			{
-				if (RemainingTime > GoldBonusTime)
-				{
-					BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), 4000 + RemainingTime - GoldBonusTime, NULL, NULL, NULL);
-				}
-				else if ((RemainingTime <= SilverBonusTime + 10) && (RemainingTime > SilverBonusTime))
-				{
-					BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), 3000 + RemainingTime - SilverBonusTime, NULL, NULL, NULL);
-				}
-			}
 		}
 	}
 	else
@@ -1254,7 +1253,14 @@ void AUTCTFRoundGame::GrantPowerupToTeam(int TeamIndex, AUTPlayerState* PlayerTo
 			AUTPlayerController* PC = Cast<AUTPlayerController>(PS->GetOwner());
 			if (PC)
 			{
-				PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), (PS->Team->TeamIndex == TeamIndex) ? 6 : 7, PlayerToHighlight);
+				if (PS->Team->TeamIndex == TeamIndex)
+				{
+					PC->ClientReceiveLocalizedMessage(UUTCTFRewardMessage::StaticClass(), 7, PlayerToHighlight);
+				}
+				else
+				{
+					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 7, PlayerToHighlight);
+				}
 			}
 		}
 	}

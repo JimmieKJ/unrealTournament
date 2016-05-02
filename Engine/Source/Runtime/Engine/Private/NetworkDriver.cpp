@@ -308,7 +308,7 @@ void UNetDriver::TickFlush(float DeltaSeconds)
 	const double CurrentRealtimeSeconds = FPlatformTime::Seconds();
 #endif
 
-#if USE_SERVER_PERF_COUNTERS || STATS
+#if 1 //USE_SERVER_PERF_COUNTERS || STATS
 	// Update network stats (only main game net driver for now) if stats or perf counters are used
 	if (NetDriverName == NAME_GameNetDriver && 
 		 CurrentRealtimeSeconds - StatUpdateTime > StatPeriod)

@@ -6,10 +6,6 @@
 
 UUTHUDWidget_Intermission::UUTHUDWidget_Intermission(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-
-	static ConstructorHelpers::FObjectFinder<UTexture2D> Tex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/UTScoreboard01.UTScoreboard01'"));
-	TextureAtlas = Tex.Object;
-
 	AssistedByText = NSLOCTEXT("CTF", "AssistedBy", "Assisted by");
 	UnassistedText = NSLOCTEXT("CTF", "Unassisted", "Unassisted");
 }
@@ -59,7 +55,7 @@ void UUTHUDWidget_Intermission::Draw_Implementation(float DeltaTime)
 		float BackAlpha = 0.5f;
 		float XOffset = 0.5f*(Canvas->ClipX - ScoreWidth);
 		float YPos = 0.7f*Canvas->ClipY;
-		DrawTexture(TextureAtlas, XOffset, YPos, ScoreWidth, ScoreHeight, 149, 138, 32, 32, BackAlpha, DrawColor);
+		DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, YPos, ScoreWidth, ScoreHeight, 149, 138, 32, 32, BackAlpha, DrawColor);
 
 		const FCTFScoringPlay& Play = CTFState->GetScoringPlays().Last();
 

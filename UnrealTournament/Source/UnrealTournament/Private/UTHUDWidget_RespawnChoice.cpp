@@ -14,9 +14,6 @@ UUTHUDWidget_RespawnChoice::UUTHUDWidget_RespawnChoice(const FObjectInitializer&
 
 	// Not scaling automatically right now
 	bScaleByDesignedResolution = false;
-
-	static ConstructorHelpers::FObjectFinder<UTexture2D> Tex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/UTScoreboard01.UTScoreboard01'"));
-	TextureAtlas = Tex.Object;
 }
 
 void UUTHUDWidget_RespawnChoice::InitializeWidget(AUTHUD* Hud)
@@ -66,14 +63,14 @@ void UUTHUDWidget_RespawnChoice::Draw_Implementation(float DeltaTime)
 
 				// Draw the Backgrounds
 				FLinearColor ChoiceColor = UTPS->bChosePrimaryRespawnChoice ? FLinearColor::Yellow : FLinearColor::White;
-				DrawTexture(TextureAtlas, PositionA.X - 0.05f*Size.X, PositionA.Y - 0.15f*Size.Y, 1.1f*Size.X, 4, 4, 2, 124, 8, 1.0, ChoiceColor);
-				DrawTexture(TextureAtlas, PositionA.X - 0.05f*Size.X, PositionA.Y - 0.15f*Size.Y + 4, 1.1f*Size.X, 1.3f*Size.Y - 8, 4, 10, 124, 112, 1.0, ChoiceColor);
-				DrawTexture(TextureAtlas, PositionA.X - 0.05f*Size.X, PositionA.Y + 1.15f*Size.Y - 4, 1.1f*Size.X, 4, 4, 122, 124, 8, 1.0, ChoiceColor);
+				DrawTexture(UTHUDOwner->ScoreboardAtlas, PositionA.X - 0.05f*Size.X, PositionA.Y - 0.15f*Size.Y, 1.1f*Size.X, 4, 4, 2, 124, 8, 1.0, ChoiceColor);
+				DrawTexture(UTHUDOwner->ScoreboardAtlas, PositionA.X - 0.05f*Size.X, PositionA.Y - 0.15f*Size.Y + 4, 1.1f*Size.X, 1.3f*Size.Y - 8, 4, 10, 124, 112, 1.0, ChoiceColor);
+				DrawTexture(UTHUDOwner->ScoreboardAtlas, PositionA.X - 0.05f*Size.X, PositionA.Y + 1.15f*Size.Y - 4, 1.1f*Size.X, 4, 4, 122, 124, 8, 1.0, ChoiceColor);
 
 				ChoiceColor = UTPS->bChosePrimaryRespawnChoice ? FLinearColor::White : FLinearColor::Yellow;
-				DrawTexture(TextureAtlas, PositionB.X - 0.05f*Size.X, PositionB.Y - 0.15f*Size.Y, 1.1f*Size.X, 4, 4, 2, 124, 8, 1.0, ChoiceColor);
-				DrawTexture(TextureAtlas, PositionB.X - 0.05f*Size.X, PositionB.Y - 0.15f*Size.Y + 4, 1.1f*Size.X, 1.3f*Size.Y - 8, 4, 10, 124, 112, 1.0, ChoiceColor);
-				DrawTexture(TextureAtlas, PositionB.X - 0.05f*Size.X, PositionB.Y + 1.15f*Size.Y - 4, 1.1f*Size.X, 4, 4, 122, 124, 8, 1.0, ChoiceColor);
+				DrawTexture(UTHUDOwner->ScoreboardAtlas, PositionB.X - 0.05f*Size.X, PositionB.Y - 0.15f*Size.Y, 1.1f*Size.X, 4, 4, 2, 124, 8, 1.0, ChoiceColor);
+				DrawTexture(UTHUDOwner->ScoreboardAtlas, PositionB.X - 0.05f*Size.X, PositionB.Y - 0.15f*Size.Y + 4, 1.1f*Size.X, 1.3f*Size.Y - 8, 4, 10, 124, 112, 1.0, ChoiceColor);
+				DrawTexture(UTHUDOwner->ScoreboardAtlas, PositionB.X - 0.05f*Size.X, PositionB.Y + 1.15f*Size.Y - 4, 1.1f*Size.X, 4, 4, 122, 124, 8, 1.0, ChoiceColor);
 
 				Canvas->K2_DrawTexture(RespawnChoiceACaptureComponent->TextureTarget, PositionA, Size, FVector2D(0, 0), FVector2D::UnitVector, FLinearColor::White, BLEND_Opaque);
 				Canvas->K2_DrawTexture(RespawnChoiceBCaptureComponent->TextureTarget, PositionB, Size, FVector2D(0, 0), FVector2D::UnitVector, FLinearColor::White, BLEND_Opaque);

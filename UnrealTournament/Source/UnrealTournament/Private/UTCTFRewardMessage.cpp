@@ -28,6 +28,8 @@ UUTCTFRewardMessage::UUTCTFRewardMessage(const class FObjectInitializer& ObjectI
 	SilverScoreBonusPostfix = NSLOCTEXT("CTFRewardMessage", "SilverScoreBonusPostfix", " Scores!  Silver Bonus +{BonusAmount}");
 	BronzeScoreBonusPrefix = NSLOCTEXT("CTFRewardMessage", "BronzeScoreBonusPrefix", "");
 	BronzeScoreBonusPostfix = NSLOCTEXT("CTFRewardMessage", "BronzeScoreBonusPostfix", " Scores!  Bronze Bonus +{BonusAmount}");
+	EarnedSpecialPrefix = NSLOCTEXT("CTFGameMessage", "EarnedSpecialPrefix", "");
+	EarnedSpecialPostfix = NSLOCTEXT("CTFGameMessage", "EarnedSpecialPostfix", " earned a power up for your team!");
 	bIsStatusAnnouncement = false;
 	bWantsBotReaction = true;
 	ScaleInSize = 3.f;
@@ -43,7 +45,7 @@ FLinearColor UUTCTFRewardMessage::GetMessageColor_Implementation(int32 MessageIn
 	{
 		return FLinearColor::Blue;
 	}
-	return FLinearColor::Yellow;
+	return FLinearColor::White;
 }
 
 void UUTCTFRewardMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const
@@ -68,13 +70,14 @@ FName UUTCTFRewardMessage::GetAnnouncementName_Implementation(int32 Switch, cons
 	case 2: return TEXT("Assist"); break;
 	case 5: return TEXT("HatTrick"); break;
 	case 6: return TEXT("Denied"); break;
+	case 7: return TEXT("RW_Loaded"); break;
 	}
 	return NAME_None;
 }
 
 bool UUTCTFRewardMessage::ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const
 {
-	return (ClientData.MessageIndex == 6) || IsLocalForAnnouncement(ClientData, true, true) || (ClientData.MessageIndex > 100);
+	return (ClientData.MessageIndex == 6)  || (ClientData.MessageIndex == 7) || IsLocalForAnnouncement(ClientData, true, true) || (ClientData.MessageIndex > 100);
 }
 
 
@@ -86,6 +89,14 @@ void UUTCTFRewardMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText
 		PostfixText = TeamScorePostfix;
 		EmphasisText = (Switch == 3) ? RedTeamName : BlueTeamName;
 		EmphasisColor = (Switch == 3) ? FLinearColor::Red : FLinearColor::Blue;
+		return;
+	}
+	if (Switch == 7)
+	{
+		PrefixText = EarnedSpecialPrefix;
+		PostfixText = EarnedSpecialPostfix;
+		EmphasisText = RelatedPlayerState_1 ? FText::FromString(RelatedPlayerState_1->PlayerName) : FText::GetEmpty();
+		EmphasisColor = FLinearColor::Yellow;
 		return;
 	}
 	if (Switch >= 100)
@@ -129,6 +140,7 @@ FText UUTCTFRewardMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APla
 	case 4: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
 	case 5: return (bTargetsPlayerState1 ? HatTrickMessage : OtherHatTrickMessage); break;
 	case 6: return DeniedMessage; break;
+	case 7: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
 	}
 	if (Switch > 100)
 	{
