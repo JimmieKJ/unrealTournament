@@ -1253,7 +1253,14 @@ void AUTCTFRoundGame::GrantPowerupToTeam(int TeamIndex, AUTPlayerState* PlayerTo
 			AUTPlayerController* PC = Cast<AUTPlayerController>(PS->GetOwner());
 			if (PC)
 			{
-				PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), (PS->Team->TeamIndex == TeamIndex) ? 6 : 7, PlayerToHighlight);
+				if (PS->Team->TeamIndex == TeamIndex)
+				{
+					PC->ClientReceiveLocalizedMessage(UUTCTFRewardMessage::StaticClass(), 7, PlayerToHighlight);
+				}
+				else
+				{
+					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 7, PlayerToHighlight);
+				}
 			}
 		}
 	}
