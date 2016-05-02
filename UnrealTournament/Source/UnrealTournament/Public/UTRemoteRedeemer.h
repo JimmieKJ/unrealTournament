@@ -26,6 +26,13 @@ class UNREALTOURNAMENT_API AUTRemoteRedeemer : public APawn, public IUTTeamInter
 	UPROPERTY(EditDefaultsOnly, Category = Projectile)
 	TSubclassOf<class AUTProj_Redeemer> RedeemerProjectileClass;
 
+	/** Sound played when player targeting information first appears on HUD. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Lock)
+		USoundBase*  			LockAcquiredSound;
+
+	UPROPERTY()
+		int32 LockCount;
+
 	UFUNCTION()
 	virtual void OnStop(const FHitResult& Hit);
 
