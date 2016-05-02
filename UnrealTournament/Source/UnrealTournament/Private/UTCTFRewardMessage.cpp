@@ -43,7 +43,7 @@ FLinearColor UUTCTFRewardMessage::GetMessageColor_Implementation(int32 MessageIn
 	{
 		return FLinearColor::Blue;
 	}
-	return FLinearColor::Yellow;
+	return FLinearColor::White;
 }
 
 void UUTCTFRewardMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const

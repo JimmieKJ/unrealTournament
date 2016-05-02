@@ -132,7 +132,7 @@ struct FCTFScoringPlay
 		int32 TeamScores[2];
 
 	FCTFScoringPlay()
-		: Team(NULL), RemainingTime(0), Period(0), bDefenseWon(false)
+		: Team(NULL), RemainingTime(0), Period(0), bDefenseWon(false), bAnnihilation(false)
 	{}
 	FCTFScoringPlay(const FCTFScoringPlay& Other) = default;
 
