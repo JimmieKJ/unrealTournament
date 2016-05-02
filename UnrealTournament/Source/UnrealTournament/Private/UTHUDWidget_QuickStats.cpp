@@ -212,7 +212,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 				BootsInfo.HighlightStrength = 1.0f;
 			}
 
-			BootsInfo.bVisible = bArmorVisible;
+			BootsInfo.bVisible = bBootsVisible;
 		}
 
 		if ( CheckStatForUpdate(DeltaTime, BootsInfo) )
