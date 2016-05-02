@@ -690,7 +690,6 @@ void AUTRemoteRedeemer::PostRender(AUTHUD* HUD, UCanvas* C)
 	}
 	if ((NewLockCount > LockCount) && HUD && HUD->PlayerOwner)
 	{
-		UE_LOG(UT, Warning, TEXT("PLAY LOCK SOUND"));
 		HUD->PlayerOwner->ClientPlaySound(LockAcquiredSound, 1.f);
 	}
 
