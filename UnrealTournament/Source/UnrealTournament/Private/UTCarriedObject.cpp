@@ -320,10 +320,13 @@ bool AUTCarriedObject::CanBePickedUpBy(AUTCharacter* Character)
 		}
 		else
 		{
-			AUTPlayerController* PC = Character ? Cast < AUTPlayerController>(Character->GetController()) : NULL;
-			if (PC)
+			if (!bHidden)
 			{
-				PC->ClientReceiveLocalizedMessage(MessageClass, 13);
+				AUTPlayerController* PC = Character ? Cast < AUTPlayerController>(Character->GetController()) : NULL;
+				if (PC)
+				{
+					PC->ClientReceiveLocalizedMessage(MessageClass, 13);
+				}
 			}
 			return false;
 		}
@@ -341,10 +344,13 @@ bool AUTCarriedObject::CanBePickedUpBy(AUTCharacter* Character)
 		}
 		else if (!bEnemyCanPickup)
 		{
-			AUTPlayerController* PC = Character ? Cast < AUTPlayerController>(Character->GetController()) : NULL;
-			if (PC)
+			if (!bHidden)
 			{
-				PC->ClientReceiveLocalizedMessage(MessageClass, 13);
+				AUTPlayerController* PC = Character ? Cast < AUTPlayerController>(Character->GetController()) : NULL;
+				if (PC)
+				{
+					PC->ClientReceiveLocalizedMessage(MessageClass, 13);
+				}
 			}
 			return false;
 		}

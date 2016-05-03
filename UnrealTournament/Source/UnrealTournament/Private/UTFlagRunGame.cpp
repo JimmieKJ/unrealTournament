@@ -42,4 +42,5 @@ AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 	BronzeScore = 1;
 	DefenseScore = 1;
 	DisplayName = NSLOCTEXT("UTGameMode", "FLAGRUN", "Flag Run");
+	bHideInUI = false;
 }

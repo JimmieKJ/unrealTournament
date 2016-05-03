@@ -25,12 +25,48 @@ AUTCTFFlagBase::AUTCTFFlagBase(const FObjectInitializer& ObjectInitializer)
 	Capsule->AttachParent = RootComponent;
 
 	RoundLivesAdjustment = 0;
+	bShowDefenseEffect = false;
 }
 
 void AUTCTFFlagBase::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AUTCTFFlagBase, MyFlag);
+	DOREPLIFETIME(AUTCTFFlagBase, bShowDefenseEffect);
+}
+
+void AUTCTFFlagBase::ClearDefenseEffect()
+{
+	bShowDefenseEffect = false;
+	if (DefensePSC)
+	{
+		DefensePSC->ActivateSystem(false);
+		DefensePSC->UnregisterComponent();
+		DefensePSC = nullptr;
+	}
+}
+
+void AUTCTFFlagBase::SpawnDefenseEffect()
+{
+	ClearDefenseEffect();
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		UParticleSystem* DesiredEffect = (TeamNum == 0) ? RedDefenseEffect : BlueDefenseEffect;
+		DefensePSC = UGameplayStatics::SpawnEmitterAtLocation(this, DesiredEffect, GetActorLocation() + 80.f, GetActorRotation());
+	}
+	bShowDefenseEffect = true;
+}
+
+void AUTCTFFlagBase::OnDefenseEffectChanged()
+{
+	if (bShowDefenseEffect)
+	{
+		SpawnDefenseEffect();
+	}
+	else
+	{
+		ClearDefenseEffect();
+	}
 }
 
 void AUTCTFFlagBase::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -88,7 +124,6 @@ void AUTCTFFlagBase::RecallFlag()
 			MyFlag->SendHome();
 			MyFlag->bGradualAutoReturn = bGradualAutoReturn;
 		}
-		MyFlag->ClearGhostFlag();
 	}
 }
 

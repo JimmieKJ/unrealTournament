@@ -53,6 +53,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	SquadType = AUTAsymCTFSquadAI::StaticClass();
 	NumRounds = 6;
 	bGiveSpawnInventoryBonus = true;
+	bHideInUI = true;
 
 	bAttackerLivesLimited = false;
 	bDefenderLivesLimited = true;
@@ -667,6 +668,7 @@ void AUTCTFRoundGame::InitFlags()
 				}
 				else
 				{
+					Flag->SetActorHiddenInGame(true);
 					Flag->bEnemyCanPickup = false;
 					Flag->bFriendlyCanPickup = false;
 					Flag->bTeamPickupSendsHome = false;
@@ -779,6 +781,18 @@ void AUTCTFRoundGame::InitRound()
 	CTFGameState->bRedToCap = bRedToCap;
 	BroadcastVictoryConditions();
 
+	for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
+	{
+		if (Base != NULL && Base->MyFlag)
+		{
+			Base->MyFlag->SetActorHiddenInGame(true);
+			Base->ClearDefenseEffect();
+			if (IsTeamOnDefense(Base->MyFlag->GetTeamNum()))
+			{
+				Base->SpawnDefenseEffect();
+			}
+		}
+	}
 	if (FlagPickupDelay > 0)
 	{
 		for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
