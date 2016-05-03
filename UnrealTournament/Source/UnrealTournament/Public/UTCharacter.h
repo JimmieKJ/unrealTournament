@@ -988,6 +988,10 @@ public:
 	virtual void StartRagdoll();
 	virtual void StopRagdoll();
 
+	// Prevent re-entry into StartRagdoll()
+	UPROPERTY()
+	bool bStartingRagdoll;
+
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = Ragdoll)
 	float RagdollGravityScale;

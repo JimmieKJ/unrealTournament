@@ -1389,6 +1389,13 @@ void AUTCharacter::StartRagdoll()
 		return;
 	}
 
+	// Prevent re-entry, please clean up this flag if any early returns occur after this
+	if (bStartingRagdoll)
+	{
+		return;
+	}
+	bStartingRagdoll = true;
+
 	// turn off any taccom when dead
 	if (bTearOff || !bFeigningDeath)
 	{
@@ -1449,6 +1456,8 @@ void AUTCharacter::StartRagdoll()
 
 	// set up the custom physics override, if necessary
 	SetRagdollGravityScale(RagdollGravityScale);
+
+	bStartingRagdoll = false;
 }
 
 void AUTCharacter::StopRagdoll()
