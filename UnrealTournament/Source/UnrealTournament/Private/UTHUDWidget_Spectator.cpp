@@ -187,7 +187,7 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 					AUTCarriedObject* Flag = Cast<AUTCarriedObject>(ViewActor);
 					if (Flag && Flag->Holder)
 					{
-						ViewCharacter = Cast<AUTCharacter>(Flag->AttachmentReplication.AttachParent);
+						ViewCharacter = Cast<AUTCharacter>(Flag->GetAttachmentReplication().AttachParent);
 					}
 				}
 				if (ViewCharacter && ViewCharacter->PlayerState)

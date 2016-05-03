@@ -225,7 +225,7 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		AUTCharacter* BaseChar = UTCharacter;
 		if (!BaseChar)
 		{
-			BaseChar = UTFlag && UTFlag->Holder ? Cast<AUTCharacter>(UTFlag->AttachmentReplication.AttachParent) : NULL;
+			BaseChar = UTFlag && UTFlag->Holder ? Cast<AUTCharacter>(UTFlag->GetAttachmentReplication().AttachParent) : NULL;
 		}
 		if (BaseChar && BaseChar->GetMovementBase() && MovementBaseUtility::UseRelativeLocation(BaseChar->GetMovementBase()))
 		{
@@ -340,9 +340,9 @@ void AUTPlayerCameraManager::CheckCameraSweep(FHitResult& OutHit, AActor* Target
 		{
 			BoxParams.AddIgnoredActor(Flag->HomeBase);
 		}
-		if (Flag->AttachmentReplication.AttachParent)
+		if (Flag->GetAttachmentReplication().AttachParent)
 		{
-			BoxParams.AddIgnoredActor(Flag->AttachmentReplication.AttachParent);
+			BoxParams.AddIgnoredActor(Flag->GetAttachmentReplication().AttachParent);
 		}
 	}
 	GetWorld()->SweepSingleByChannel(OutHit, Start, End, FQuat::Identity, ECC_Camera, FCollisionShape::MakeBox(FVector(12.f)), BoxParams);

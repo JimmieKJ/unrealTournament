@@ -2599,10 +2599,10 @@ void AUTPlayerController::FindGoodView(const FVector& TargetLoc, bool bIsUpdate)
 		{
 			BestRot.Yaw = Flag->HomeBase->BestViewYaw;
 		}
-		else if (Flag->Holder && Flag->AttachmentReplication.AttachParent)
+		else if (Flag->Holder && Flag->GetAttachmentReplication().AttachParent)
 		{
 			UnBlockedPct = (CameraDistance > 0.f) ? 96.f / CameraDistance : 1.f;
-			BestRot.Yaw = Flag->AttachmentReplication.AttachParent->GetActorRotation().Yaw + 15.f;
+			BestRot.Yaw = Flag->GetAttachmentReplication().AttachParent->GetActorRotation().Yaw + 15.f;
 		}
 	}
 
