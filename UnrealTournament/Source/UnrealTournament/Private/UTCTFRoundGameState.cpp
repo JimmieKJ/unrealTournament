@@ -43,7 +43,7 @@ void AUTCTFRoundGameState::DefaultTimer()
 	{
 		IntermissionTime--;
 	}
-	if (GetNetMode() != NM_DedicatedServer)
+	else if ((GetNetMode() != NM_DedicatedServer) && IsMatchInProgress())
 	{
 		// bonus time countdowns
 		if (RemainingTime <= GoldBonusThreshold + 5)

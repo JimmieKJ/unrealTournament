@@ -730,7 +730,7 @@ void AUTCTFRoundGame::BroadcastVictoryConditions()
 void AUTCTFRoundGame::FlagCountDown()
 {
 	AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
-	if (RCTFGameState)
+	if (RCTFGameState && IsMatchInProgress() && (MatchState != MatchState::MatchIntermission))
 	{
 		RCTFGameState->RemainingPickupDelay--;
 		if (RCTFGameState->RemainingPickupDelay > 0)
