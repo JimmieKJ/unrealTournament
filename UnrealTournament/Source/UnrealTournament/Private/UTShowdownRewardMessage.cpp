@@ -9,7 +9,7 @@ UUTShowdownRewardMessage::UUTShowdownRewardMessage(const class FObjectInitialize
 	bIsStatusAnnouncement = false;
 	bIsPartiallyUnique = true;
 	MessageArea = FName(TEXT("Announcements"));
-	MessageSlot = FName(TEXT("MajorRewardMessage"));
+	MessageSlot = FName(TEXT("VictimMessage"));
 
 	FinishItMsg = NSLOCTEXT("ShowdownRewardMessage", "FinishItMsg", "FINISH IT!");
 	LastManMsg = NSLOCTEXT("ShowdownRewardMessage", "LastManMsg", "Last Man Standing");
