@@ -42,6 +42,9 @@ public:
 protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = GameObject)
+	USoundBase* PickupSound;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = GameObject)
 	TArray<UMaterialInterface*> TeamMaterials;
 
 	UFUNCTION()

@@ -427,7 +427,7 @@ FReply SUTBuyWindow::OnAvailableClick(int32 Index)
 			AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
 			if (PC && PC->UTPlayerState)
 			{
-				PC->UTPlayerState->BoostClass = AvailableItems[Index]->LoadoutInfo->ItemClass;
+				PC->UTPlayerState->ServerSetBoostItem(AvailableItems[Index]->LoadoutInfo->ItemClass);
 				PlayerOwner->CloseLoadout();
 			}
 		}

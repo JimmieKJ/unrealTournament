@@ -2,17 +2,14 @@
 
 #pragma once
 
-#include "UTFlagRunHUD.h"
+#include "UTHUD_CTF.h"
 #include "UTHUD_SCTF.generated.h"
 
 UCLASS()
-class UNREALTOURNAMENT_API AUTHUD_SCTF : public AUTFlagRunHUD
+class UNREALTOURNAMENT_API AUTHUD_SCTF : public AUTHUD_CTF
 {
 	GENERATED_UCLASS_BODY()
 	virtual void DrawMinimapSpectatorIcons() override;
 	void DrawHUD();
-
-protected:
-	virtual void HandlePowerups() override;
 
 };
