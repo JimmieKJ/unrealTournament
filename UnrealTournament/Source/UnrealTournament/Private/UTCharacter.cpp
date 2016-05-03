@@ -1866,7 +1866,10 @@ void AUTCharacter::PlayFeignDeath()
 	if (bFeigningDeath)
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->DeathSound, this, SRT_None, false, FVector::ZeroVector, NULL, NULL, false);
-		DropFlag();
+		if (Role == ROLE_Authority)
+		{
+			DropFlag();
+		}
 
 		if (TauntCount > 0)
 		{
@@ -1876,17 +1879,14 @@ void AUTCharacter::PlayFeignDeath()
 				AnimInstance->Montage_Stop(0.0f);
 			}
 		}
-
 		if (Weapon != nullptr && Weapon->DroppedPickupClass != nullptr && Weapon->bCanThrowWeapon)
 		{
 			TossInventory(Weapon, FVector(FMath::FRandRange(0.0f, 200.0f), FMath::FRandRange(-400.0f, 400.0f), FMath::FRandRange(0.0f, 200.0f)));
 		}
-
 		if (WeaponAttachment != nullptr)
 		{
 			WeaponAttachment->SetActorHiddenInGame(true);
 		}
-
 		StartRagdoll();
 	}
 	else
@@ -1895,10 +1895,10 @@ void AUTCharacter::PlayFeignDeath()
 		{
 			WeaponAttachment->SetActorHiddenInGame(false);
 		}
-
 		StopRagdoll();
 	}
 }
+
 void AUTCharacter::ForceFeignDeath(float MinRecoveryTime)
 {
 	if (!bFeigningDeath && Role == ROLE_Authority && !IsDead())
@@ -4756,7 +4756,6 @@ void AUTCharacter::DropCarriedObject()
 {
 	ServerDropCarriedObject();
 }
-
 
 void AUTCharacter::ServerDropCarriedObject_Implementation()
 {
