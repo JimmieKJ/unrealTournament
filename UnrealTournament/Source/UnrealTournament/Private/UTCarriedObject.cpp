@@ -320,10 +320,13 @@ bool AUTCarriedObject::CanBePickedUpBy(AUTCharacter* Character)
 		}
 		else
 		{
-			AUTPlayerController* PC = Character ? Cast < AUTPlayerController>(Character->GetController()) : NULL;
-			if (PC)
+			if (!bHidden)
 			{
-				PC->ClientReceiveLocalizedMessage(MessageClass, 13);
+				AUTPlayerController* PC = Character ? Cast < AUTPlayerController>(Character->GetController()) : NULL;
+				if (PC)
+				{
+					PC->ClientReceiveLocalizedMessage(MessageClass, 13);
+				}
 			}
 			return false;
 		}
@@ -341,10 +344,13 @@ bool AUTCarriedObject::CanBePickedUpBy(AUTCharacter* Character)
 		}
 		else if (!bEnemyCanPickup)
 		{
-			AUTPlayerController* PC = Character ? Cast < AUTPlayerController>(Character->GetController()) : NULL;
-			if (PC)
+			if (!bHidden)
 			{
-				PC->ClientReceiveLocalizedMessage(MessageClass, 13);
+				AUTPlayerController* PC = Character ? Cast < AUTPlayerController>(Character->GetController()) : NULL;
+				if (PC)
+				{
+					PC->ClientReceiveLocalizedMessage(MessageClass, 13);
+				}
 			}
 			return false;
 		}
@@ -814,15 +820,15 @@ void AUTCarriedObject::EnteredPainVolume(AUTPainVolume* PainVolume)
 // workaround for bug in AActor implementation
 void AUTCarriedObject::OnRep_AttachmentReplication()
 {
-	if (AttachmentReplication.AttachParent)
+	if (GetAttachmentReplication().AttachParent)
 	{
 		if (RootComponent)
 		{
-			USceneComponent* ParentComponent = AttachmentReplication.AttachParent->GetRootComponent();
+			USceneComponent* ParentComponent = GetAttachmentReplication().AttachParent->GetRootComponent();
 
-			if (AttachmentReplication.AttachComponent != NULL)
+			if (GetAttachmentReplication().AttachComponent != NULL)
 			{
-				ParentComponent = AttachmentReplication.AttachComponent;
+				ParentComponent = GetAttachmentReplication().AttachComponent;
 			}
 
 			if (ParentComponent)
@@ -831,18 +837,18 @@ void AUTCarriedObject::OnRep_AttachmentReplication()
 				FVector NewRelativeScale3D = RootComponent->RelativeScale3D;
 				if (!RootComponent->bAbsoluteScale)
 				{
-					FTransform ParentToWorld = ParentComponent->GetSocketTransform(AttachmentReplication.AttachSocket);
+					FTransform ParentToWorld = ParentComponent->GetSocketTransform(GetAttachmentReplication().AttachSocket);
 					FTransform RelativeTM = RootComponent->ComponentToWorld.GetRelativeTransform(ParentToWorld);
 					NewRelativeScale3D = RelativeTM.GetScale3D();
 				}
 
-				RootComponent->AttachTo(ParentComponent, AttachmentReplication.AttachSocket);
-				RootComponent->RelativeLocation = AttachmentReplication.LocationOffset;
-				RootComponent->RelativeRotation = AttachmentReplication.RotationOffset;
+				RootComponent->AttachTo(ParentComponent, GetAttachmentReplication().AttachSocket);
+				RootComponent->RelativeLocation = GetAttachmentReplication().LocationOffset;
+				RootComponent->RelativeRotation = GetAttachmentReplication().RotationOffset;
 				RootComponent->RelativeScale3D = NewRelativeScale3D;
 
 				RootComponent->UpdateComponentToWorld();
-				ClientUpdateAttachment(Cast<APawn>(AttachmentReplication.AttachParent) != nullptr);
+				ClientUpdateAttachment(Cast<APawn>(GetAttachmentReplication().AttachParent) != nullptr);
 			}
 		}
 	}
@@ -858,7 +864,7 @@ void AUTCarriedObject::OnRep_AttachmentReplication()
 void AUTCarriedObject::OnRep_ReplicatedMovement()
 {
 	// ignore the redundant ReplicatedMovement we replicated below
-	if (AttachmentReplication.AttachParent == NULL)
+	if (GetAttachmentReplication().AttachParent == NULL)
 	{
 		Super::OnRep_ReplicatedMovement();
 		if (ObjectState == CarriedObjectState::Home && HomeBase != NULL)

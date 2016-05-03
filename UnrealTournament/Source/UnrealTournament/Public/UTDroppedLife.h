@@ -14,14 +14,16 @@ class UNREALTOURNAMENT_API AUTDroppedLife : public AUTDroppedPickup
 
 public:
 
-	UPROPERTY(Replicated)
+	// The Player State of the person killed
+	UPROPERTY(Replicated, ReplicatedUsing = OnReceivedOwnerPlayerState)
 	AUTPlayerState* OwnerPlayerState;
 
-	UPROPERTY(Replicated)
-	float StealAmount;
+	// The player State of the killer
+	UPROPERTY()
+	AUTPlayerState* KillerPlayerState;
 
 	UPROPERTY(Replicated)
-	int32 CaptureCount;
+	float Value;
 
 	UPROPERTY()
 	FRotator AutoRotate;
@@ -31,17 +33,22 @@ public:
 
 	UFUNCTION()
 	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
-	UFUNCTION()
-	virtual void OnOverlapEnd(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
-
 	virtual void Tick(float DeltaTime);
-
 	virtual void PostInitializeComponents();
-	virtual void Destroyed() override;
 
-	virtual void PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir);
+	UFUNCTION()
+	void Init(AUTPlayerState* inOwnerPlayerState, AUTPlayerState* inKillerPlayerState, float inValue);
 
 protected:
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = GameObject)
+	USoundBase* PickupSound;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = GameObject)
+	TArray<UMaterialInterface*> TeamMaterials;
+
+	UFUNCTION()
+	virtual void OnReceivedOwnerPlayerState();
 
 	UPROPERTY()
 	TArray<AUTCharacter*> TouchingCharacters;

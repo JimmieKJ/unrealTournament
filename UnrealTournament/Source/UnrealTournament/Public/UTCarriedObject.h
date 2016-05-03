@@ -358,10 +358,6 @@ protected:
 	UFUNCTION()
 	virtual void NoLongerHeld(AController* InstigatedBy = NULL);
 
-	/** return location for object when returning home */
-	virtual FVector GetHomeLocation() const;
-	virtual FRotator GetHomeRotation() const;
-
 	/**	Move the flag to it's home base*/
 	UFUNCTION()
 	virtual void MoveToHome();
@@ -389,4 +385,7 @@ public:
 	// Returns a status message for this object on the hud.
 	virtual FText GetHUDStatusMessage(AUTHUD* HUD);
 
+	/** return location for object when returning home */
+	virtual FVector GetHomeLocation() const;
+	virtual FRotator GetHomeRotation() const;
 };

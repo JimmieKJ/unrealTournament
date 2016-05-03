@@ -711,30 +711,33 @@ bool AUTPlayerController::ServerActivatePowerUpPress_Validate()
 
 void AUTPlayerController::ServerActivatePowerUpPress_Implementation()
 {
-	if (UTCharacter != NULL && UTPlayerState != NULL && UTPlayerState->GetRemainingBoosts() > 0)
+	if (UTCharacter != NULL && UTPlayerState != NULL)
 	{
 		AUTGameMode* UTGM = GetWorld()->GetAuthGameMode<AUTGameMode>();
-		TSubclassOf<AUTInventory> ActivatedPowerupPlaceholderClass = UTGM ? UTGM->GetActivatedPowerupPlaceholderClass() : nullptr;
-		if (GetWorldTimerManager().IsTimerActive(TriggerBoostTimerHandle))
+		if (UTGM && UTGM->CanBoost(this))
 		{
-			GetWorldTimerManager().ClearTimer(TriggerBoostTimerHandle);
-			// kill effect
-			if (ActivatedPowerupPlaceholderClass)
+			TSubclassOf<AUTInventory> ActivatedPowerupPlaceholderClass = UTGM ? UTGM->GetActivatedPowerupPlaceholderClass() : nullptr;
+			if (GetWorldTimerManager().IsTimerActive(TriggerBoostTimerHandle))
 			{
-				AUTInventory* FoundEffect = UTCharacter->FindInventoryType<AUTInventory>(ActivatedPowerupPlaceholderClass, true);
-				if (FoundEffect)
+				GetWorldTimerManager().ClearTimer(TriggerBoostTimerHandle);
+				// kill effect
+				if (ActivatedPowerupPlaceholderClass)
 				{
-					FoundEffect->Destroy();
+					AUTInventory* FoundEffect = UTCharacter->FindInventoryType<AUTInventory>(ActivatedPowerupPlaceholderClass, true);
+					if (FoundEffect)
+					{
+						FoundEffect->Destroy();
+					}
 				}
 			}
-		}
-		else
-		{
-			GetWorldTimerManager().SetTimer(TriggerBoostTimerHandle, this, &AUTPlayerController::TriggerBoost, TimeToHoldPowerUpButtonToActivate, false);
-			// spawn effect
-			if (ActivatedPowerupPlaceholderClass)
+			else
 			{
-				UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(ActivatedPowerupPlaceholderClass, FVector(0.0f), FRotator(0.0f, 0.0f, 0.0f)), true);
+				GetWorldTimerManager().SetTimer(TriggerBoostTimerHandle, this, &AUTPlayerController::TriggerBoost, TimeToHoldPowerUpButtonToActivate, false);
+				// spawn effect
+				if (ActivatedPowerupPlaceholderClass)
+				{
+					UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(ActivatedPowerupPlaceholderClass, FVector(0.0f), FRotator(0.0f, 0.0f, 0.0f)), true);
+				}
 			}
 		}
 	}
@@ -742,10 +745,9 @@ void AUTPlayerController::ServerActivatePowerUpPress_Implementation()
 
 void AUTPlayerController::TriggerBoost()
 {
-	if (UTCharacter && UTPlayerState && (UTPlayerState->GetRemainingBoosts() > 0))
+	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (GameMode && UTCharacter && UTPlayerState && GameMode->AttemptBoost(this))
 	{
-		UTPlayerState->SetRemainingBoosts(UTPlayerState->GetRemainingBoosts() - 1);
-
 		if (UTPlayerState->BoostClass)
 		{
 			AUTInventory* TriggeredBoost = GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->BoostClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f));
@@ -2599,10 +2601,10 @@ void AUTPlayerController::FindGoodView(const FVector& TargetLoc, bool bIsUpdate)
 		{
 			BestRot.Yaw = Flag->HomeBase->BestViewYaw;
 		}
-		else if (Flag->Holder && Flag->AttachmentReplication.AttachParent)
+		else if (Flag->Holder && Flag->GetAttachmentReplication().AttachParent)
 		{
 			UnBlockedPct = (CameraDistance > 0.f) ? 96.f / CameraDistance : 1.f;
-			BestRot.Yaw = Flag->AttachmentReplication.AttachParent->GetActorRotation().Yaw + 15.f;
+			BestRot.Yaw = Flag->GetAttachmentReplication().AttachParent->GetActorRotation().Yaw + 15.f;
 		}
 	}
 
@@ -3808,10 +3810,8 @@ void AUTPlayerController::ClientPumpkinPickedUp_Implementation(float GainedAmoun
 
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
-	int32 Value = FCString::Atoi(*TestCommand);
-	MyUTHUD->LastConfirmedHitTime = GetWorld()->GetTimeSeconds();
-	MyUTHUD->LastConfirmedHitDamage = Value;
-	MyUTHUD->LastConfirmedHitWasAKill = false;
+	float Value = FCString::Atof(*TestCommand);
+	UTPlayerState->AdjustCurrency(Value);
 }
 
 void AUTPlayerController::ClientRequireContentItemListComplete_Implementation()
@@ -4012,7 +4012,10 @@ void AUTPlayerController::ShowBuyMenu()
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	if (GS && GS->AvailableLoadout.Num() > 0)
 	{
-		ClientOpenLoadout_Implementation(true);
+		if (GetPawn() == nullptr || !GS->HasMatchStarted() || GS->IsMatchIntermission())
+		{
+			ClientOpenLoadout_Implementation(true);
+		}
 	}
 	// in RCTF we want to tie the BuyMenu button to the power select menu
 	else if (UTPlayerState)

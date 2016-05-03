@@ -691,10 +691,15 @@ bool UUTLocalPlayer::AreMenusOpen()
 	bool UMGWidgetsPresent = false;
 	for (int32 i = 0; i < UMGWidgets.Num(); i++)
 	{
-		if (UMGWidgets[i]->GetName().Equals(TEXT("TutFinishScreenWidget_C_0"), ESearchCase::IgnoreCase))
+		if (UMGWidgets[i]->GetName().Contains(TEXT("TutFinishScreenWidget_C"),ESearchCase::IgnoreCase))
 		{
 			UMGWidgetsPresent = true;
 			break;
+		}
+
+		if (UMGWidgets[i]->IsInteractable())
+		{
+			UMGWidgetsPresent = true;
 		}
 	}
 	

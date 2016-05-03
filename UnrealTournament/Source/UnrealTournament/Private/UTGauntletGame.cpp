@@ -31,8 +31,91 @@
 AUTGauntletGame::AUTGauntletGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	MapPrefix = TEXT("GAU");
+	MapPrefix = TEXT("CTF");
+	HUDClass = AUTHUD_Gauntlet::StaticClass();
+	GameStateClass = AUTGauntletGameState::StaticClass();
+
 	bHideInUI = true;
 }
 
+void AUTGauntletGame::GenericPlayerInitialization(AController* C)
+{
+	Super::GenericPlayerInitialization(C);
+	AUTPlayerState* PlayerState = Cast<AUTPlayerState>(C->PlayerState);
+	if (PlayerState && AvailableLoadout.Num() > 0 && AvailableLoadout[0].ItemClass != nullptr )
+	{
+		PlayerState->BoostClass = AvailableLoadout[0].ItemClass;
+	}
+}
 
+
+void AUTGauntletGame::ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
+{
+	Super::ScoreKill_Implementation(Killer, Other, KilledPawn, DamageType);
+	
+	// If this wasn't self inflected or environmental
+
+	if (Killer && Killer != Other)
+	{
+		AUTPlayerState* KillerPlayerState = Cast<AUTPlayerState>(Killer->PlayerState);
+		AUTPlayerState* VictimPlayerState = Cast<AUTPlayerState>(Other->PlayerState);
+
+		if (KillerPlayerState && VictimPlayerState)
+		{
+			FActorSpawnParameters Params;
+			Params.Instigator = KilledPawn;
+			AUTDroppedLife* LifeSkull = GetWorld()->SpawnActor<AUTDroppedLife>(AUTDroppedLife::StaticClass(), KilledPawn->GetActorLocation(), KilledPawn->GetActorRotation(), Params);
+			if (LifeSkull != NULL)
+			{
+				LifeSkull->Init(VictimPlayerState, KillerPlayerState, 300.0f);
+			}
+		}
+	}
+}
+
+
+bool AUTGauntletGame::CanBoost(AUTPlayerController* Who)
+{
+	if (Who && Who->UTPlayerState && Who->UTPlayerState->BoostClass)
+	{
+		AUTReplicatedLoadoutInfo* LoadoutInfo = nullptr;
+		for (int32 i = 0; i < UTGameState->AvailableLoadout.Num(); i++)
+		{
+			if (Who->UTPlayerState->BoostClass == UTGameState->AvailableLoadout[i]->ItemClass)
+			{
+				LoadoutInfo = UTGameState->AvailableLoadout[i];
+				break;
+			}
+		}
+	
+		if (LoadoutInfo && LoadoutInfo->CurrentCost < Who->UTPlayerState->GetAvailableCurrency())
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool AUTGauntletGame::AttemptBoost(AUTPlayerController* Who)
+{
+	if (Who && Who->UTPlayerState && Who->UTPlayerState->BoostClass)
+	{
+		AUTReplicatedLoadoutInfo* LoadoutInfo = nullptr;
+		for (int32 i = 0; i < UTGameState->AvailableLoadout.Num(); i++)
+		{
+			if (Who->UTPlayerState->BoostClass == UTGameState->AvailableLoadout[i]->ItemClass)
+			{
+				LoadoutInfo = UTGameState->AvailableLoadout[i];
+				break;
+			}
+		}
+	
+		if (LoadoutInfo && LoadoutInfo->CurrentCost < Who->UTPlayerState->GetAvailableCurrency())
+		{
+			Who->UTPlayerState->AdjustCurrency(LoadoutInfo->CurrentCost * -1.0f);
+			return true;
+		}
+	}
+	return false;
+}

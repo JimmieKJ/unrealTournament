@@ -13,3 +13,7 @@ AUTGauntletGameState::AUTGauntletGameState(const FObjectInitializer& ObjectIniti
 	AttackingTeam = 255;
 }
 
+bool AUTGauntletGameState::CanShowBoostMenu(AUTPlayerController* Target)
+{
+	return Super::CanShowBoostMenu(Target) || Target->GetPawn() == nullptr;
+}

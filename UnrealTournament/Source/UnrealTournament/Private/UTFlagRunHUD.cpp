@@ -27,7 +27,8 @@ void AUTFlagRunHUD::DrawHUD()
 	Super::DrawHUD();
 
 	AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
-	bool bScoreboardIsUp = bShowScores || bForceScores;
+	bShowScoresWhileDead = bShowScoresWhileDead && GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission() && UTPlayerOwner && !UTPlayerOwner->GetPawn() && !UTPlayerOwner->IsInState(NAME_Spectating);
+	bool bScoreboardIsUp = bShowScores || bForceScores || bShowScoresWhileDead;
 	if (!bScoreboardIsUp && GS && GS->GetMatchState() == MatchState::InProgress && GS->bOneFlagGameMode)
 	{
 		float XAdjust = 0.05f * Canvas->ClipX * GetHUDWidgetScaleOverride();

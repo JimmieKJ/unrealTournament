@@ -1389,6 +1389,13 @@ void AUTCharacter::StartRagdoll()
 		return;
 	}
 
+	// Prevent re-entry, please clean up this flag if any early returns occur after this
+	if (bStartingRagdoll)
+	{
+		return;
+	}
+	bStartingRagdoll = true;
+
 	// turn off any taccom when dead
 	if (bTearOff || !bFeigningDeath)
 	{
@@ -1449,6 +1456,8 @@ void AUTCharacter::StartRagdoll()
 
 	// set up the custom physics override, if necessary
 	SetRagdollGravityScale(RagdollGravityScale);
+
+	bStartingRagdoll = false;
 }
 
 void AUTCharacter::StopRagdoll()
@@ -4936,7 +4945,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 			float MinTextScale = 0.75f;
 			BeaconTextScale = (1.f - ScaleTime) * BeaconTextScale + ScaleTime * ((bRecentlyRendered && !bFarAway) ? 1.f : 0.75f);
 			float Scale = BeaconTextScale * Canvas->ClipX / 1920.f;
-			if (bTacCom && !bFarAway && PC->PlayerCameraManager && !bIsViewTarget && (PC->GetViewTarget()->AttachmentReplication.AttachParent != this))
+			if (bTacCom && !bFarAway && PC->PlayerCameraManager && !bIsViewTarget && (PC->GetViewTarget()->GetAttachmentReplication().AttachParent != this))
 			{
 				// need to do trace, since taccom guys always rendered
 				AUTPlayerCameraManager* CamMgr = Cast<AUTPlayerCameraManager>(PC->PlayerCameraManager);
@@ -5380,7 +5389,7 @@ void AUTCharacter::PostNetReceiveLocationAndRotation()
 
 void AUTCharacter::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker)
 {
-	if (bReplicateMovement || AttachmentReplication.AttachParent)
+	if (bReplicateMovement || GetAttachmentReplication().AttachParent)
 	{
 		if (GatherUTMovement())
 		{
@@ -5480,7 +5489,7 @@ bool AUTCharacter::GatherUTMovement()
 		{
 			// Networking for attachments assumes the RootComponent of the AttachParent actor. 
 			// If that's not the case, we can't update this, as the client wouldn't be able to resolve the Component and would detach as a result.
-			if (AttachmentReplication.AttachParent != NULL)
+			if (GetAttachmentReplication().AttachParent != NULL)
 			{
 				AttachmentReplication.LocationOffset = RootComponent->RelativeLocation;
 				AttachmentReplication.RotationOffset = RootComponent->RelativeRotation;

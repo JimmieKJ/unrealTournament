@@ -3225,3 +3225,4 @@ void AUTPlayerState::ServerSetBoostItem_Implementation(TSubclassOf<class AUTInve
 {
 	BoostClass = PowerupClass;
 }
+

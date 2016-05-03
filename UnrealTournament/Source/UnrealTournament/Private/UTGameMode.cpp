@@ -1701,13 +1701,6 @@ void AUTGameMode::HandleMatchHasStarted()
 		UTGameState->CompactSpectatingIDs();
 	}
 
-	UE_LOG(UT,Log,TEXT("HandleMAtchHasStarted"));
-	UE_LOG(UT,Log,TEXT("HandleMAtchHasStarted"));
-	UE_LOG(UT,Log,TEXT("HandleMAtchHasStarted"));
-	UE_LOG(UT,Log,TEXT("HandleMAtchHasStarted"));
-	UE_LOG(UT,Log,TEXT("HandleMAtchHasStarted"));
-	UE_LOG(UT,Log,TEXT("HandleMAtchHasStarted"));
-	UE_LOG(UT,Log,TEXT("HandleMAtchHasStarted"));
 	UpdatePlayersPresence();
 
 	Super::HandleMatchHasStarted();
@@ -4654,4 +4647,27 @@ void AUTGameMode::UnlockSession()
 			UTGameSession->LockPlayersToSession(false);
 		}
 	}
+}
+
+bool AUTGameMode::CanBoost(AUTPlayerController* Who)
+{
+	if (Who && Who->UTPlayerState)
+	{
+		if (Who->UTPlayerState->GetRemainingBoosts())
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool AUTGameMode::AttemptBoost(AUTPlayerController* Who)
+{
+	bool bCanBoost = CanBoost(Who);
+	if (bCanBoost)
+	{
+		Who->UTPlayerState->SetRemainingBoosts(Who->UTPlayerState->GetRemainingBoosts() - 1);
+	}
+	return bCanBoost;
 }

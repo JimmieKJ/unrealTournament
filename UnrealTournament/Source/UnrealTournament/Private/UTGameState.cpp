@@ -1789,3 +1789,8 @@ void AUTGameState::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
 
 	JsonObject->SetArrayField(TEXT("Players"),  PlayersJson);
 }
+
+bool AUTGameState::CanShowBoostMenu(AUTPlayerController* Target)
+{
+	return IsMatchIntermission() || !HasMatchStarted();
+}

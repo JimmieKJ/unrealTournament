@@ -36,6 +36,3 @@ void AUTHUD_SCTF::DrawMinimapSpectatorIcons()
 
 }
 
-void AUTHUD_SCTF::HandlePowerups()
-{
-}

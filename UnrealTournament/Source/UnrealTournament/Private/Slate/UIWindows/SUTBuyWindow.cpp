@@ -94,7 +94,7 @@ void SUTBuyWindow::CreateDesktop()
 							.HAlign(HAlign_Center)
 							[
 								SNew(STextBlock)
-								.Text(NSLOCTEXT("SUTBuyWindow","BuyTitle","Quick Buy"))
+								.Text(NSLOCTEXT("SUTBuyWindow","BuyTitle","Select Powerup"))
 								.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
 							]
 						]
@@ -347,6 +347,8 @@ void SUTBuyWindow::RefreshAvailableItemsList()
 			int32 Row = Idx / 5;
 			int32 Col = Idx % 5;
 
+			TSharedPtr<SUTButton> But;
+
 			// Add the cell...
 			AvailableItemsPanel->AddSlot(Col, Row).Padding(5.0, 5.0, 5.0, 5.0)
 				[
@@ -354,9 +356,10 @@ void SUTBuyWindow::RefreshAvailableItemsList()
 					.WidthOverride(256)
 					.HeightOverride(200)
 					[
-						SNew(SUTButton)
+						SAssignNew(But,SUTButton)
 						.OnClicked(this, &SUTBuyWindow::OnAvailableClick, Idx)
 						.ButtonStyle(SUWindowsStyle::Get(), "UT.ComplexButton")
+						.IsToggleButton(true)
 						.ToolTip(SUTUtils::CreateTooltip(AvailableItems[Idx]->DefaultObject->DisplayName))
 						.UTOnMouseOver(this, &SUTBuyWindow::AvailableUpdateItemInfo)
 						.WidgetTag(Idx)
@@ -397,6 +400,12 @@ void SUTBuyWindow::RefreshAvailableItemsList()
 						]
 					]
 				];
+
+			AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState);
+			if (PS && PS->BoostClass == AvailableItems[Idx]->LoadoutInfo->ItemClass)
+			{
+				But->BePressed();
+			}
 		}
 	}
 }
@@ -418,7 +427,7 @@ FReply SUTBuyWindow::OnAvailableClick(int32 Index)
 			AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
 			if (PC && PC->UTPlayerState)
 			{
-				PC->UTPlayerState->ServerBuyLoadout(AvailableItems[Index]->LoadoutInfo.Get());
+				PC->UTPlayerState->ServerSetBoostItem(AvailableItems[Index]->LoadoutInfo->ItemClass);
 				PlayerOwner->CloseLoadout();
 			}
 		}

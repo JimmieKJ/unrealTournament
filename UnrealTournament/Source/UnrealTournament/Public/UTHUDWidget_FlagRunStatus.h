@@ -10,8 +10,13 @@ class UNREALTOURNAMENT_API UUTHUDWidget_FlagRunStatus : public UUTHUDWidget_CTFF
 {
 	GENERATED_UCLASS_BODY()
 
-	virtual void DrawStatusMessage(float DeltaTime) override;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+		FHUDRenderObject_Texture RedTeamIconTemplate;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+		FHUDRenderObject_Texture BlueTeamIconTemplate;
+
+	virtual void DrawStatusMessage(float DeltaTime) override;
 
 protected:
 	virtual void DrawIndicators(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation) override;

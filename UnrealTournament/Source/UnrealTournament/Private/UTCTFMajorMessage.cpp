@@ -35,6 +35,13 @@ void UUTCTFMajorMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText,
 		EmphasisText = RelatedPlayerState_1 ? FText::FromString(RelatedPlayerState_1->PlayerName) : FText::GetEmpty();
 		AUTPlayerState* PS = Cast<AUTPlayerState>(RelatedPlayerState_1);
 		EmphasisColor = (PS && PS->Team) ? PS->Team->TeamColor : FLinearColor::Red;
+
+		FFormatNamedArguments Args;
+		GetArgs(Args, Switch, false, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject );
+		PrefixText = FText::Format(PrefixText,Args);
+		PostfixText = FText::Format(PostfixText,Args);
+		EmphasisText = FText::Format(EmphasisText,Args);
+
 		return;
 	}
 

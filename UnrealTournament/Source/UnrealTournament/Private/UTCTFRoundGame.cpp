@@ -53,6 +53,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	SquadType = AUTAsymCTFSquadAI::StaticClass();
 	NumRounds = 6;
 	bGiveSpawnInventoryBonus = true;
+	bHideInUI = true;
 
 	bAttackerLivesLimited = false;
 	bDefenderLivesLimited = true;
@@ -667,6 +668,7 @@ void AUTCTFRoundGame::InitFlags()
 				}
 				else
 				{
+					Flag->SetActorHiddenInGame(true);
 					Flag->bEnemyCanPickup = false;
 					Flag->bFriendlyCanPickup = false;
 					Flag->bTeamPickupSendsHome = false;
@@ -728,7 +730,7 @@ void AUTCTFRoundGame::BroadcastVictoryConditions()
 void AUTCTFRoundGame::FlagCountDown()
 {
 	AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
-	if (RCTFGameState)
+	if (RCTFGameState && IsMatchInProgress() && (MatchState != MatchState::MatchIntermission))
 	{
 		RCTFGameState->RemainingPickupDelay--;
 		if (RCTFGameState->RemainingPickupDelay > 0)
@@ -779,6 +781,18 @@ void AUTCTFRoundGame::InitRound()
 	CTFGameState->bRedToCap = bRedToCap;
 	BroadcastVictoryConditions();
 
+	for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
+	{
+		if (Base != NULL && Base->MyFlag)
+		{
+			Base->MyFlag->SetActorHiddenInGame(true);
+			Base->ClearDefenseEffect();
+			if (IsTeamOnDefense(Base->MyFlag->GetTeamNum()))
+			{
+				Base->SpawnDefenseEffect();
+			}
+		}
+	}
 	if (FlagPickupDelay > 0)
 	{
 		for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
@@ -793,7 +807,7 @@ void AUTCTFRoundGame::InitRound()
 				if (bAsymmetricVictoryConditions && IsTeamOnOffense(Flag->GetTeamNum()))
 				{
 					Flag->SetActorHiddenInGame(true);
-					Flag->PutGhostFlagAt(Flag->GetActorLocation());
+					Flag->PutGhostFlagAt(Flag->GetHomeLocation());
 				}
 			}
 		}

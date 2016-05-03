@@ -11,4 +11,8 @@ UCLASS()
 class UNREALTOURNAMENT_API AUTGauntletGameState: public AUTSCTFGameState
 {
 	GENERATED_UCLASS_BODY()
+
+	virtual bool CanShowBoostMenu(AUTPlayerController* Target);
+
+
 };

@@ -44,6 +44,26 @@ class UNREALTOURNAMENT_API AUTCTFFlagBase : public AUTGameObjective
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Objective)
 		int32 RoundLivesAdjustment;
 
+	/** effect when this base is being used as a defended objective */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
+		UParticleSystem* BlueDefenseEffect;
+
+	/** effect when this base is being used as a defended objective */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
+		UParticleSystem* RedDefenseEffect;
+
+	UPROPERTY()
+		UParticleSystemComponent* DefensePSC;
+
+	UPROPERTY(ReplicatedUsing = OnDefenseEffectChanged, BlueprintReadOnly, Category = Objective)
+		bool bShowDefenseEffect;
+
+	UFUNCTION()
+		void OnDefenseEffectChanged();
+
+	virtual void ClearDefenseEffect();
+	virtual void SpawnDefenseEffect();
+
 	virtual FName GetFlagState();
 	virtual void RecallFlag();
 
