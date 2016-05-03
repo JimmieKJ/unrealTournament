@@ -1232,6 +1232,16 @@ public:
 	 */
 	FReply RouteMouseWheelOrGestureEvent(const FWidgetPath& WidgetsUnderPointer, const FPointerEvent& InWheelEvent, const FPointerEvent* InGestureEvent = nullptr);
 
+	/**
+	 * @return int user index that the keyboard is mapped to. -1 if the keyboard isn't mapped
+	 */
+	int32 GetUserIndexForKeyboard() const;
+
+	/** 
+	 * @return int user index that this controller is mapped to. -1 if the controller isn't mapped
+	 */
+	int32 GetUserIndexForController(int32 ControllerId) const;
+
 private:
 
 	TSharedRef< FGenericWindow > MakeWindow( TSharedRef<SWindow> InSlateWindow, const bool bShowImmediately );
@@ -1249,16 +1259,6 @@ private:
 	 * @return if a new widget was navigated too
 	 */
 	bool AttemptNavigation(const FNavigationEvent& NavigationEvent, const FNavigationReply& NavigationReply, const FArrangedWidget& BoundaryWidget);
-
-	/**
-	 * @return int user index that the keyboard is mapped to. -1 if the keyboard isn't mapped
-	 */
-	int32 GetUserIndexForKeyboard() const;
-
-	/** 
-	 * @return int user index that this controller is mapped to. -1 if the controller isn't mapped
-	 */
-	int32 GetUserIndexForController(int32 ControllerId) const;
 
 private:
 

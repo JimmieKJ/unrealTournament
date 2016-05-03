@@ -104,3 +104,50 @@ void AUTPainVolume::BeginPlay()
 	GetWorldTimerManager().SetTimer(PainTimerHandle, this, &AUTPainVolume::PainTimer, PainInterval, true);
 	Super::BeginPlay();
 }
+
+
+bool AUTPainVolume::EncompassesPoint(FVector Point, float SphereRadius/*=0.f*/, float* OutDistanceToPoint)
+{
+	return Super::EncompassesPoint(Point, SphereRadius, OutDistanceToPoint);
+}
+
+void AUTPainVolume::PostUnregisterAllComponents()
+{
+	// Route clear to super first.
+	Super::PostUnregisterAllComponents();
+	// World will be NULL during exit purge.
+	if (GetWorld())
+	{
+		GetWorld()->PostProcessVolumes.RemoveSingle(this);
+	}
+}
+
+void InsertVolume(IInterface_PostProcessVolume* Volume, TArray< IInterface_PostProcessVolume* >& VolumeArray)
+{
+	const int32 NumVolumes = VolumeArray.Num();
+	float TargetPriority = Volume->GetProperties().Priority;
+	int32 InsertIndex = 0;
+	// TODO: replace with binary search.
+	for (; InsertIndex < NumVolumes; InsertIndex++)
+	{
+		IInterface_PostProcessVolume* CurrentVolume = VolumeArray[InsertIndex];
+		float CurrentPriority = CurrentVolume->GetProperties().Priority;
+
+		if (TargetPriority < CurrentPriority)
+		{
+			break;
+		}
+		if (CurrentVolume == Volume)
+		{
+			return;
+		}
+	}
+	VolumeArray.Insert(Volume, InsertIndex);
+}
+
+void AUTPainVolume::PostRegisterAllComponents()
+{
+	// Route update to super first.
+	Super::PostRegisterAllComponents();
+	InsertVolume(this, GetWorld()->PostProcessVolumes);
+}

@@ -14,16 +14,16 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 		uint32 IntermissionTime;
 
 	UPROPERTY(Replicated)
-		int OffenseKills;
+		int32 OffenseKills;
 
 	UPROPERTY(Replicated)
-		int DefenseKills;
+		int32 DefenseKills;
 
 	UPROPERTY(Replicated)
-		int OffenseKillsNeededForPowerup;
+		int32 OffenseKillsNeededForPowerup;
 
 	UPROPERTY(Replicated)
-		int DefenseKillsNeededForPowerup;
+		int32 DefenseKillsNeededForPowerup;
 
 	UPROPERTY(Replicated)
 		bool bIsDefenseAbleToGainPowerup;
@@ -36,6 +36,9 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 
 	UPROPERTY(Replicated)
 		int32 SilverBonusThreshold;
+
+	UPROPERTY(Replicated)
+		int32 RemainingPickupDelay;
 
 	UPROPERTY(ReplicatedUsing=OnBonusLevelChanged)
 		uint8 BonusLevel;

@@ -420,11 +420,14 @@ void UUTHUDWidget_QuickStats::DrawStat(FVector2D StatOffset, FStatInfo& Info, FH
 
 		if (Info.HighlightStrength> 0)
 		{
+
+			float HighlightStrength = FMath::Clamp<float>(Info.HighlightStrength, 0.0f, 1.0f);
+
 			HorizontalHighlight.RenderColor = FLinearColor(0.82f,0.0f,0.0f,1.0f);
 			HorizontalHighlight.RenderOpacity *= Info.Opacity;
 			FVector2D DrawOffset = StatOffset;
 
-			float Height = HorizontalBackground.Size.Y * Info.HighlightStrength;
+			float Height = HorizontalBackground.Size.Y * HighlightStrength;
 			HorizontalHighlight.Size.Y = Height;
 			HorizontalHighlight.UVs.VL = Height;
 

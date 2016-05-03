@@ -80,11 +80,7 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagStatus(AUTCTFGameState* GameState, FVec
 	// draw flag state in HUD
 	float XPos = IndicatorPosition.X;
 	float YPos = (8.f * RenderScale) + 0.5f * FlagIconTemplate.GetHeight();
-	
-	FLinearColor TeamColor = FLinearColor::Green;
-	if (TeamNum != 255) TeamColor = GameState->Teams[TeamNum]->TeamColor;
-
-	FlagIconTemplate.RenderColor = TeamColor;
+	FlagIconTemplate.RenderColor = GameState->Teams.IsValidIndex(TeamNum) ? GameState->Teams[TeamNum]->TeamColor : FLinearColor::Green;
 
 	// Draw the upper indicator
 	if (Flag)
@@ -128,11 +124,8 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 		bool bSpectating = UTPlayerOwner->PlayerState && UTPlayerOwner->PlayerState->bOnlySpectator;
 		bool bIsEnemyFlag = !GameState->OnSameTeam(Flag, UTPlayerOwner);
 
-		FLinearColor TeamColor = FLinearColor::Green;
-		if (TeamNum != 255) TeamColor = GameState->Teams[TeamNum]->TeamColor;
-	
-		FlagIconTemplate.RenderColor = TeamColor;
-		CameraIconTemplate.RenderColor = TeamColor;
+		FlagIconTemplate.RenderColor = GameState->Teams.IsValidIndex(TeamNum) ? GameState->Teams[TeamNum]->TeamColor : FLinearColor::Green;
+		CameraIconTemplate.RenderColor = FlagIconTemplate.RenderColor;
 
 		// Draw the flag / flag base in the world
 		float Dist = (Flag->GetActorLocation() - PlayerViewPoint).Size();

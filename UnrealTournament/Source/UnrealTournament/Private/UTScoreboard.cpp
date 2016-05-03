@@ -591,8 +591,8 @@ void UUTScoreboard::DrawReadyText(AUTPlayerState* PlayerState, float XOffset, fl
 			ReadyScale = 1.15f;
 			float XL, YL;
 			Canvas->TextSize(UTHUDOwner->SmallFont, "READY", XL, YL, ReadyScale*RenderScale, ReadyScale*RenderScale);
-			float Dist = 0.75f * ScaledCellWidth * (ColumnHeaderPingX - 0.5f) - 0.75f * XL * ReadyScale*RenderScale;
-			ReadyX = ReadyX + 2.f * Dist * Scaling;
+			float Dist = -0.5f * ScaledCellWidth - 0.5f * XL * ReadyScale*RenderScale;
+			ReadyX = ReadyX + Dist * Scaling + 0.4f * ScaledCellWidth;
 			if (ScaleTime < 0.5f)
 			{
 				ReadyColor.B = 0.5f;

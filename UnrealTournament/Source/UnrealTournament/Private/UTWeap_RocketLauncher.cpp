@@ -534,9 +534,9 @@ void AUTWeap_RocketLauncher::SetLockTarget(AActor* NewTarget)
 		{
 			bLockedOnTarget = true;
 			LastLockedOnTime = GetWorld()->TimeSeconds;
-			if (GetNetMode() != NM_DedicatedServer && UTOwner != NULL && UTOwner->IsLocallyControlled())
+			if (GetNetMode() != NM_DedicatedServer && UTOwner != NULL && UTOwner->IsLocallyControlled() && Cast<APlayerController>(UTOwner->GetController()))
 			{
-				UUTGameplayStatics::UTPlaySound(GetWorld(), LockAcquiredSound, UTOwner, SRT_None);
+				Cast<APlayerController>(UTOwner->GetController())->ClientPlaySound(LockAcquiredSound);
 			}
 		}
 	}
@@ -545,9 +545,9 @@ void AUTWeap_RocketLauncher::SetLockTarget(AActor* NewTarget)
 		if (bLockedOnTarget)
 		{
 			bLockedOnTarget = false;
-			if (GetNetMode() != NM_DedicatedServer && UTOwner != NULL && UTOwner->IsLocallyControlled())
+			if (GetNetMode() != NM_DedicatedServer && UTOwner != NULL && UTOwner->IsLocallyControlled() && Cast<APlayerController>(UTOwner->GetController()))
 			{
-				UUTGameplayStatics::UTPlaySound(GetWorld(), LockLostSound, UTOwner, SRT_None);
+				Cast<APlayerController>(UTOwner->GetController())->ClientPlaySound(LockLostSound);
 			}
 		}
 	}

@@ -1883,26 +1883,16 @@ bool UHierarchicalInstancedStaticMeshComponent::UpdateInstanceTransform(int32 In
 		bConcurrentRemoval = true;
 	}
 
-	const int32 OldReorderIndex = InstanceReorderTable[InstanceIndex];
+	int32 RenderIndex = InstanceReorderTable[InstanceIndex];
 	const FMatrix OldTransform = PerInstanceSMData[InstanceIndex].Transform;
 	const FTransform NewLocalTransform = bWorldSpace ? NewInstanceTransform.GetRelativeTransform(ComponentToWorld) : NewInstanceTransform;
 	const FVector NewLocalLocation = NewLocalTransform.GetTranslation();
 
 	// if we are only updating rotation/scale we update the instance directly in the cluster tree
-	const bool bIsBuiltInstance = OldReorderIndex < NumBuiltInstances;
-	const bool bDoInPlaceUpdate = !bIsBuiltInstance || NewLocalLocation.Equals(OldTransform.GetOrigin());
-
-	// If we're updating an instance in the tree and can't do it in-place, we have to remove it and re-add it
-	if (bIsBuiltInstance && !bDoInPlaceUpdate)
-	{
-		// Allocate a new instance render order ID, rendered last
-		const int32 NewReorderIndex = PerInstanceSMData.Num() + RemovedInstances.Num();
-		InstanceReorderTable[InstanceIndex] = NewReorderIndex;
-
-		// Treat the old instance render data like a removal.
-		RemovedInstances.Add(OldReorderIndex);
-	}
-
+	const bool bIsOmittedInstance = (RenderIndex == INDEX_NONE);
+	const bool bIsBuiltInstance = RenderIndex < NumBuiltInstances;
+	const bool bDoInPlaceUpdate = !bIsOmittedInstance && (!bIsBuiltInstance || NewLocalLocation.Equals(OldTransform.GetOrigin()));
+	
 	bool Result = Super::UpdateInstanceTransform(InstanceIndex, NewInstanceTransform, bWorldSpace, bMarkRenderStateDirty);
 
 	if (StaticMesh)
@@ -1918,25 +1908,37 @@ bool UHierarchicalInstancedStaticMeshComponent::UpdateInstanceTransform(int32 In
 				if (!OldInstanceBounds.IsInside(NewInstanceBounds))
 				{
 					BuiltInstanceBounds += NewInstanceBounds;
-					UpdateInstanceTreeBoundsInternal(OldReorderIndex, NewInstanceBounds);
+					UpdateInstanceTreeBoundsInternal(RenderIndex, NewInstanceBounds);
 				}
 			}
 			else
 			{
 				UnbuiltInstanceBounds += NewInstanceBounds;
-				UnbuiltInstanceBoundsList[InstanceIndex - NumBuiltInstances] = NewInstanceBounds;
+				UnbuiltInstanceBoundsList[RenderIndex - NumBuiltInstances] = NewInstanceBounds;
 			}
 		}
 		else
 		{
+			// If we can't update an instance in-place, we have to remove it and re-add it
+			// Allocate a new instance render order ID, rendered last (it is now an unbuilt instance)
+			const int32 OldRenderIndex = RenderIndex;
+			RenderIndex = PerInstanceSMData.Num() + RemovedInstances.Num();
+			InstanceReorderTable[InstanceIndex] = RenderIndex;
+
+			// Treat the old instance render data like a removal.
+			if (!bIsOmittedInstance)
+			{
+				RemovedInstances.Add(OldRenderIndex);
+			}
+
 			UnbuiltInstanceBounds += NewInstanceBounds;
 			UnbuiltInstanceBoundsList.Add(NewInstanceBounds);
 		}
-	}
 
-	if (!bDoInPlaceUpdate && !IsAsyncBuilding())
-	{
-		BuildTreeAsync();
+		if (!bDoInPlaceUpdate && !IsAsyncBuilding())
+		{
+			BuildTreeAsync();
+		}
 	}
 
 	return Result;

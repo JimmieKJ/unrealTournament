@@ -73,6 +73,7 @@ AUTRemoteRedeemer::AUTRemoteRedeemer(const class FObjectInitializer& ObjectIniti
 	StatsHitCredit = 0.f;
 	HitsStatsName = NAME_RedeemerHits;
 	ProjHealth = 35;
+	LockCount = 0;
 }
 
 FVector AUTRemoteRedeemer::GetVelocity() const
@@ -637,6 +638,7 @@ void AUTRemoteRedeemer::PostRender(AUTHUD* HUD, UCanvas* C)
 		XHairItem.PivotPoint = FVector2D(0.5f, 0.5f);
 		C->DrawItem(XHairItem);
 	}
+	int32 NewLockCount = 0;
 	if (TargetIndicator != NULL)
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
@@ -660,6 +662,8 @@ void AUTRemoteRedeemer::PostRender(AUTHUD* HUD, UCanvas* C)
 					// skip drawing if too off-center
 					if ((FMath::Abs(MidY - 0.5f*C->SizeY) < 0.5f*C->SizeY) && (FMath::Abs(0.5f*(UpperLeft.X + BottomRight.X) - 0.5f*C->SizeX) < 0.5f*C->SizeX))
 					{
+						NewLockCount++;
+
 						// square-ify
 						float SizeY = FMath::Max<float>(MidY - UpperLeft.Y, (BottomRight.X - UpperLeft.X) * 0.5f);
 						UpperLeft.Y = MidY - SizeY;
@@ -684,4 +688,10 @@ void AUTRemoteRedeemer::PostRender(AUTHUD* HUD, UCanvas* C)
 			}
 		}
 	}
+	if ((NewLockCount > LockCount) && HUD && HUD->PlayerOwner)
+	{
+		HUD->PlayerOwner->ClientPlaySound(LockAcquiredSound, 1.f);
+	}
+
+	LockCount = NewLockCount;
 }

@@ -418,6 +418,32 @@ FReply FSceneViewport::OnMouseButtonDown( const FGeometry& InGeometry, const FPo
 	return CurrentReplyState;
 }
 
+bool FSceneViewport::RestoreCaptureState(uint32 UserIndex)
+{
+	if (IsCurrentlyGameViewport())
+	{
+		FSlateApplication& SlateApp = FSlateApplication::Get();
+
+		const bool bPermanentCapture =
+			(ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CapturePermanently) ||
+			(ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CapturePermanently_IncludingInitialMouseDown);
+
+		if (SlateApp.IsActive() && !ViewportClient->IgnoreInput() && bPermanentCapture)
+		{
+			TSharedRef<SViewport> ViewportWidgetRef = ViewportWidget.Pin().ToSharedRef();
+
+			FWidgetPath PathToWidget;
+			SlateApp.GeneratePathToWidgetUnchecked(ViewportWidgetRef, PathToWidget);
+
+			FReply Reply = AcquireFocusAndCapture(GetSizeXY() / 2);
+			SlateApp.ProcessReply(PathToWidget, Reply, nullptr, nullptr, UserIndex);
+
+			return true;
+		}
+	}
+	return false;
+}
+
 FReply FSceneViewport::AcquireFocusAndCapture(FIntPoint MousePosition)
 {
 	bShouldCaptureMouseOnActivate = false;
