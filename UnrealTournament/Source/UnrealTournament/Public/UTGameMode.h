@@ -65,6 +65,7 @@ struct FLoadoutInfo
 };
 
 class AUTReplicatedLoadoutInfo;
+class AUTPlayerController;
 
 USTRUCT()
 struct FLoadoutPack
@@ -890,5 +891,11 @@ public:
 	// The hud will create a spawn window that is displayed when the player has died.  
 	virtual TSharedPtr<SUTHUDWindow> CreateSpawnWindow(TWeakObjectPtr<UUTLocalPlayer> PlayerOwner);
 #endif
+
+	// Returns true if a player can activate a boost
+	virtual bool CanBoost(AUTPlayerController* Who);
+
+	// Look to see if we can attempt a boost.  It will use up the charge if we can and return true, otherwise it returns false.
+	virtual bool AttemptBoost(AUTPlayerController* Who);
 };
 

@@ -556,6 +556,8 @@ public:
 	UPROPERTY(BlueprintReadOnly, Replicated)
 	bool bRestrictPartyJoin;
 
+	virtual bool CanShowBoostMenu(AUTPlayerController* Target);
+
 
 };
 

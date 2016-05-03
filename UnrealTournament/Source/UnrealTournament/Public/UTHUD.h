@@ -174,6 +174,9 @@ public:
 	UTexture2D* HUDAtlas;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+	UTexture2D* HUDAtlas3;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	UTexture2D* ScoreboardAtlas;
 
 	UPROPERTY(EditAnywhere, Category = "Scoreboard")
