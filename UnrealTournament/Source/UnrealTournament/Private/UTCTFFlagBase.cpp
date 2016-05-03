@@ -52,7 +52,7 @@ void AUTCTFFlagBase::SpawnDefenseEffect()
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		UParticleSystem* DesiredEffect = (TeamNum == 0) ? RedDefenseEffect : BlueDefenseEffect;
-		DefensePSC = UGameplayStatics::SpawnEmitterAtLocation(this, DesiredEffect, GetActorLocation() + 80.f, GetActorRotation());
+		DefensePSC = UGameplayStatics::SpawnEmitterAtLocation(this, DesiredEffect, GetActorLocation() + FVector(0.f, 0.f, 80.f), GetActorRotation());
 	}
 	bShowDefenseEffect = true;
 }

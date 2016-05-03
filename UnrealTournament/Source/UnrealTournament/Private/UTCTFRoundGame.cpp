@@ -807,7 +807,7 @@ void AUTCTFRoundGame::InitRound()
 				if (bAsymmetricVictoryConditions && IsTeamOnOffense(Flag->GetTeamNum()))
 				{
 					Flag->SetActorHiddenInGame(true);
-					Flag->PutGhostFlagAt(Flag->GetActorLocation());
+					Flag->PutGhostFlagAt(Flag->GetHomeLocation());
 				}
 			}
 		}
