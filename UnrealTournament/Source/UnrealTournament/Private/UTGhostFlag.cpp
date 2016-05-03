@@ -50,8 +50,23 @@ void AUTGhostFlag::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutL
 void AUTGhostFlag::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	if (GetNetMode() != NM_DedicatedServer && MyCarriedObject != nullptr && MyCarriedObject->ObjectState == CarriedObjectState::Dropped)
+	
+	if (GetNetMode() != NM_DedicatedServer && MyCarriedObject != nullptr)
 	{
+		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		{
+			APlayerController* PlayerController = *Iterator;
+			if (PlayerController && PlayerController->IsLocalPlayerController() && PlayerController->GetViewTarget())
+			{
+				FVector Dir = GetActorLocation() - PlayerController->GetViewTarget()->GetActorLocation();
+				FRotator DesiredRot = Dir.Rotation();
+				DesiredRot.Yaw += 90.f;
+				DesiredRot.Pitch = 0.f;
+				DesiredRot.Roll = 0.f;
+				SetActorRotation(DesiredRot);
+				break;
+			}
+		}
 		float TimerPosition = MyCarriedObject->AutoReturnTime > 0 ? (1.0f - MyCarriedObject->FlagReturnTime / MyCarriedObject->AutoReturnTime) : 0.0;
 		TimerEffect->SetHiddenInGame(false);
 		TimerEffect->SetFloatParameter(NAME_Progress, TimerPosition);			
