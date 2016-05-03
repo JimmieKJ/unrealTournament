@@ -32,7 +32,7 @@ void UUTHUDWidget_FlagRunStatus::DrawIndicators(AUTCTFGameState* GameState, FVec
 		}
 		if (GameState->FlagBases.IsValidIndex(DefensiveTeam))
 		{
-			DrawFlagBaseWorld(GameState, PlayerViewPoint, PlayerViewRotation, DefensiveTeam, GameState->FlagBases[DefensiveTeam], nullptr, nullptr);
+	DrawFlagBaseWorld(GameState, PlayerViewPoint, PlayerViewRotation, DefensiveTeam, GameState->FlagBases[DefensiveTeam], nullptr, nullptr);
 		}
 	}
 }
@@ -53,7 +53,6 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagBaseWorld(AUTCTFGameState* GameState, F
 		}
 
 		bScaleByDesignedResolution = false;
-		FlagIconTemplate.RenderColor = GameState->Teams.IsValidIndex(TeamNum) ? GameState->Teams[TeamNum]->TeamColor : FLinearColor::Green;
 
 		float Dist = (FlagBase->GetActorLocation() - PlayerViewPoint).Size();
 		float WorldRenderScale = RenderScale * FMath::Clamp(MaxIconScale - (Dist - ScalingStartDist) / ScalingEndDist, MinIconScale, MaxIconScale);
@@ -62,7 +61,6 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagBaseWorld(AUTCTFGameState* GameState, F
 		bool bDrawEdgeArrow = false;
 		FVector ScreenPosition(0.f);
 		FVector WorldPosition = FlagBase->GetActorLocation() + FlagBase->GetActorRotation().RotateVector(Flag ? Flag->HomeBaseOffset : FVector(0.0f, 0.0f, 128.0f)) + FVector(0.f, 0.f, Flag ? Flag->Collision->GetUnscaledCapsuleHalfHeight() * 3.f : 0.0f);
-		float OldFlagAlpha = FlagIconTemplate.RenderOpacity;
 		float CurrentWorldAlpha = InWorldAlpha;
 		FVector ViewDir = PlayerViewRotation.Vector();
 		float Edge = CircleTemplate.GetWidth()* WorldRenderScale;
@@ -74,13 +72,22 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagBaseWorld(AUTCTFGameState* GameState, F
 		ScreenPosition.X -= RenderPosition.X;
 		ScreenPosition.Y -= RenderPosition.Y;
 
-		FlagIconTemplate.RenderOpacity = CurrentWorldAlpha;
 		CircleBorderTemplate.RenderOpacity = CurrentWorldAlpha;
 		CircleTemplate.RenderOpacity = CurrentWorldAlpha;
 
 		RenderObj_TextureAt(CircleTemplate, ScreenPosition.X, ScreenPosition.Y, CircleTemplate.GetWidth()* WorldRenderScale, CircleTemplate.GetHeight()* WorldRenderScale);
 		RenderObj_TextureAt(CircleBorderTemplate, ScreenPosition.X, ScreenPosition.Y, CircleBorderTemplate.GetWidth()* WorldRenderScale, CircleBorderTemplate.GetHeight()* WorldRenderScale);
-		RenderObj_TextureAt(FlagIconTemplate, ScreenPosition.X, ScreenPosition.Y, FlagIconTemplate.GetWidth()* WorldRenderScale, FlagIconTemplate.GetHeight()* WorldRenderScale);
+
+		if (TeamNum == 0)
+		{
+			RedTeamIconTemplate.RenderOpacity = CurrentWorldAlpha;
+			RenderObj_TextureAt(RedTeamIconTemplate, ScreenPosition.X, ScreenPosition.Y, RedTeamIconTemplate.GetWidth()* WorldRenderScale, RedTeamIconTemplate.GetHeight()* WorldRenderScale);
+		}
+		else
+		{
+			BlueTeamIconTemplate.RenderOpacity = CurrentWorldAlpha;
+			RenderObj_TextureAt(BlueTeamIconTemplate, ScreenPosition.X, ScreenPosition.Y, BlueTeamIconTemplate.GetWidth()* WorldRenderScale, BlueTeamIconTemplate.GetHeight()* WorldRenderScale);
+		}
 
 		if (bDrawEdgeArrow)
 		{
@@ -91,7 +98,6 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagBaseWorld(AUTCTFGameState* GameState, F
 			RenderObj_TextureAt(FlagGoneIconTemplate, ScreenPosition.X, ScreenPosition.Y, FlagGoneIconTemplate.GetWidth()* WorldRenderScale, FlagGoneIconTemplate.GetHeight()* WorldRenderScale);
 		}
 
-		FlagIconTemplate.RenderOpacity = OldFlagAlpha;
 		CircleTemplate.RenderOpacity = 1.f;
 		CircleBorderTemplate.RenderOpacity = 1.f;
 		bScaleByDesignedResolution = true;
