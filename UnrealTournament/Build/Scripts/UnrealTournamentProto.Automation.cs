@@ -236,7 +236,7 @@ namespace UnrealTournamentGame.Automation
 				{
 					using (var reader = new StreamReader(TwitterResponse.GetResponseStream()))
 					{
-						string ResponseString = reader.ReadToEnd();
+						reader.ReadToEnd();
 					}
 				}
 				CommandUtils.Log("Tweeted: " + InTweet);

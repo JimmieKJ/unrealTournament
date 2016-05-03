@@ -191,7 +191,7 @@ namespace UnrealTournamentGame.Automation
 
 		private String GetTag(UnrealTournamentBuild.UnrealTournamentAppName InAppName, String InRegion, String InTag)
 		{
-			string AppEnvironment = AppEnvironment = InAppName.ToString().Substring(GameName.Length);
+			string AppEnvironment = InAppName.ToString().Substring(GameName.Length);
 			
 			string Tag = String.Format("{0}{1}{2}",
 				AppEnvironment,
