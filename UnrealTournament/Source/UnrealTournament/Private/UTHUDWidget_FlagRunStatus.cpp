@@ -32,7 +32,7 @@ void UUTHUDWidget_FlagRunStatus::DrawIndicators(AUTCTFGameState* GameState, FVec
 		}
 		if (GameState->FlagBases.IsValidIndex(DefensiveTeam))
 		{
-	DrawFlagBaseWorld(GameState, PlayerViewPoint, PlayerViewRotation, DefensiveTeam, GameState->FlagBases[DefensiveTeam], nullptr, nullptr);
+			DrawFlagBaseWorld(GameState, PlayerViewPoint, PlayerViewRotation, DefensiveTeam, GameState->FlagBases[DefensiveTeam], nullptr, nullptr);
 		}
 	}
 }
