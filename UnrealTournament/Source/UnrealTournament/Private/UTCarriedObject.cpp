@@ -613,13 +613,13 @@ void AUTCarriedObject::Drop(AController* Killer)
 	ChangeState(CarriedObjectState::Dropped);
 	if (bGradualAutoReturn && (PastPositions.Num() > 0))
 	{
-		if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1]).Size() < MinGradualReturnDist)
+		if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1].Location).Size() < MinGradualReturnDist)
 		{
 			PastPositions.RemoveAt(PastPositions.Num() - 1);
 		}
 		if (PastPositions.Num() > 0)
 		{
-			PutGhostFlagAt(PastPositions[PastPositions.Num() - 1]);
+			PutGhostFlagAt(PastPositions[PastPositions.Num() - 1].Location, PastPositions[PastPositions.Num() - 1].MidPoint);
 			PastPositions.RemoveAt(PastPositions.Num() - 1);
 		}
 	}
@@ -656,7 +656,7 @@ void AUTCarriedObject::ClearGhostFlag()
 	}
 }
 
-void AUTCarriedObject::PutGhostFlagAt(const FVector NewGhostLocation)
+void AUTCarriedObject::PutGhostFlagAt(const FVector NewGhostLocation, const FVector NewMidPoint)
 {
 	if (GhostFlagClass && !IsPendingKillPending())
 	{
@@ -667,12 +667,12 @@ void AUTCarriedObject::PutGhostFlagAt(const FVector NewGhostLocation)
 			MyGhostFlag = GetWorld()->SpawnActor<AUTGhostFlag>(GhostFlagClass, NewGhostLocation, GetActorRotation(), Params);
 			if (MyGhostFlag)
 			{
-				MyGhostFlag->SetCarriedObject(this);
+				MyGhostFlag->SetCarriedObject(this, NewMidPoint);
 			}
 		}
 		else
 		{
-			MyGhostFlag->MoveTo(NewGhostLocation);
+			MyGhostFlag->MoveTo(NewGhostLocation, NewMidPoint);
 		}
 	}
 }
@@ -688,7 +688,7 @@ void AUTCarriedObject::SendHome()
 	NoLongerHeld();
 	if (bGradualAutoReturn && (PastPositions.Num() > 0) && (Role == ROLE_Authority))
 	{
-		if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1]).Size() < MinGradualReturnDist)
+		if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1].Location).Size() < MinGradualReturnDist)
 		{
 			PastPositions.RemoveAt(PastPositions.Num() - 1);
 		}
@@ -698,17 +698,17 @@ void AUTCarriedObject::SendHome()
 			DetachRootComponentFromParent(true);
 			MovementComponent->Velocity = FVector(0.0f, 0.0f, 0.0f);
 			Collision->SetRelativeRotation(FRotator(0, 0, 0));
-			SetActorLocationAndRotation(PastPositions[PastPositions.Num() - 1], GetActorRotation());
+			SetActorLocationAndRotation(PastPositions[PastPositions.Num() - 1].Location, GetActorRotation());
 			PastPositions.RemoveAt(PastPositions.Num() - 1);
 			if (PastPositions.Num() > 0)
 			{
-				if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1]).Size() < MinGradualReturnDist)
+				if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1].Location).Size() < MinGradualReturnDist)
 				{
 					PastPositions.RemoveAt(PastPositions.Num() - 1);
 				}
 				if (PastPositions.Num() > 0)
 				{
-					PutGhostFlagAt(PastPositions[PastPositions.Num() - 1]);
+					PutGhostFlagAt(PastPositions[PastPositions.Num() - 1].Location, PastPositions[PastPositions.Num() - 1].MidPoint);
 					bWantsGhostFlag = true;
 				}
 			}

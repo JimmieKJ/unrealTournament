@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTFlagReturnTrail.h"
+#include "UTGhostFlag.h"
 #include "Particles/ParticleSystemComponent.h"
 
 AUTFlagReturnTrail::AUTFlagReturnTrail(const FObjectInitializer& ObjectInitializer)

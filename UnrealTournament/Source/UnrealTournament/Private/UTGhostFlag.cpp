@@ -99,6 +99,7 @@ void AUTGhostFlag::OnSetCarriedObject()
 		Trail->StartActor = MyCarriedObject;
 		Trail->StartPoint = MyCarriedObject->GetActorLocation();
 		Trail->EndPoint = GetActorLocation();
+		Trail->EndActor = this;
 		TeamIndex = (MyCarriedObject && MyCarriedObject->Team) ? MyCarriedObject->Team->TeamIndex : 0;
 		Trail->SetTeamIndex(TeamIndex);
 		Trail->CustomTimeDilation = 0.3f;
@@ -106,16 +107,18 @@ void AUTGhostFlag::OnSetCarriedObject()
 	}
 }
 
-void AUTGhostFlag::SetCarriedObject(AUTCarriedObject* NewCarriedObject)
+void AUTGhostFlag::SetCarriedObject(AUTCarriedObject* NewCarriedObject, const FVector& NewMidPoint)
 {
 	MyCarriedObject = NewCarriedObject;
+	MidPoint = NewMidPoint;
 	OnSetCarriedObject();
 }
 
-void AUTGhostFlag::MoveTo(const FVector& NewLocation)
+void AUTGhostFlag::MoveTo(const FVector& NewLocation, const FVector& NewMidPoint)
 {
 	SetActorLocation(NewLocation);
-	OnSetCarriedObject(); 
+	MidPoint = NewMidPoint;
+	OnSetCarriedObject();
 }
 
 void AUTGhostFlag::OnRep_ReplicatedMovement()

@@ -30,6 +30,23 @@ public:
 	float TotalHeldTime;
 };
 
+USTRUCT()
+struct FFlagTrailPos
+{
+	GENERATED_USTRUCT_BODY()
+
+		UPROPERTY()
+		FVector Location;
+
+	UPROPERTY()
+		FVector MidPoint;
+
+
+	FFlagTrailPos()
+		: Location(ForceInit)
+		, MidPoint(ForceInit)
+	{}
+};
 
 UCLASS()
 class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInterface
@@ -105,7 +122,7 @@ private:
 	class AUTGhostFlag* MyGhostFlag;
 
 public:
-	virtual void PutGhostFlagAt(const FVector NewGhostLocation);
+	virtual void PutGhostFlagAt(const FVector NewGhostLocation, const FVector NewMidPoint);
 
 	virtual void ClearGhostFlag();
 
@@ -298,7 +315,7 @@ public:
 	virtual void CheckTouching();
 
 	UPROPERTY()
-		TArray<FVector> PastPositions;
+		TArray<FFlagTrailPos> PastPositions;
 
 	UPROPERTY()
 		float LastPositionUpdateTime;

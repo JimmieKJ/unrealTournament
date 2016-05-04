@@ -212,13 +212,13 @@ void AUTCTFFlag::Drop(AController* Killer)
 
 	if (bGradualAutoReturn && (PastPositions.Num() > 0))
 	{
-		if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1]).Size() < MinGradualReturnDist)
+		if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1].Location).Size() < MinGradualReturnDist)
 		{
 			PastPositions.RemoveAt(PastPositions.Num() - 1);
 		}
 		if (PastPositions.Num() > 0)// fimxesteve why?
 		{
-			PutGhostFlagAt(PastPositions[PastPositions.Num() - 1]);
+			PutGhostFlagAt(PastPositions[PastPositions.Num() - 1].Location, PastPositions[PastPositions.Num() - 1].MidPoint);
 		}
 	}
 }
@@ -294,11 +294,14 @@ void AUTCTFFlag::Tick(float DeltaTime)
 		}
 		if ((ObjectState == CarriedObjectState::Held) && (GetWorld()->GetTimeSeconds() - LastPositionUpdateTime > 1.f) && HoldingPawn && HoldingPawn->GetCharacterMovement() && HoldingPawn->GetCharacterMovement()->IsWalking() && (!HoldingPawn->GetMovementBase() || !MovementBaseUtility::UseRelativeLocation(HoldingPawn->GetMovementBase())))
 		{
-			FVector PreviousPos = (PastPositions.Num() > 0) ? PastPositions[PastPositions.Num() - 1] : (HomeBase ? HomeBase->GetActorLocation() : FVector(0.f));
+			FVector PreviousPos = (PastPositions.Num() > 0) ? PastPositions[PastPositions.Num() - 1].Location : (HomeBase ? HomeBase->GetActorLocation() : FVector(0.f));
 			if ((HoldingPawn->GetActorLocation() - PreviousPos).Size() > MinGradualReturnDist)
 			{
 				LastPositionUpdateTime = GetWorld()->GetTimeSeconds();
-				PastPositions.Add(HoldingPawn->GetActorLocation());
+				FFlagTrailPos NewPosition;
+				NewPosition.Location = HoldingPawn->GetActorLocation();
+				NewPosition.MidPoint = FVector(0.f);
+				PastPositions.Add(NewPosition);
 			}
 		}
 		if ((ObjectState == CarriedObjectState::Dropped) && GetWorldTimerManager().IsTimerActive(SendHomeWithNotifyHandle))

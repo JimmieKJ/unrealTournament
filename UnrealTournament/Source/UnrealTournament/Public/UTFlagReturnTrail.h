@@ -13,6 +13,9 @@ class UNREALTOURNAMENT_API AUTFlagReturnTrail : public AUTReplicatedEmitter
 	FVector EndPoint;
 
 	UPROPERTY()
+	class AUTGhostFlag* EndActor;
+
+	UPROPERTY()
 		FVector StartPoint;
 
 	UPROPERTY()
