@@ -48,6 +48,11 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// The project file for this target
+		/// </summary>
+		public FileReference ProjectFile = null;
+
+		/// <summary>
 		/// A list of the paths used to find libraries.
 		/// </summary>
 		public List<string> LibraryPaths = new List<string>();
@@ -172,6 +177,7 @@ namespace UnrealBuildTool
 			IntermediateDirectory = InCopyEnvironment.IntermediateDirectory;
 			LocalShadowDirectory = InCopyEnvironment.LocalShadowDirectory;
 			OutputFilePaths = InCopyEnvironment.OutputFilePaths.ToList();
+			ProjectFile = InCopyEnvironment.ProjectFile;
 			LibraryPaths.AddRange(InCopyEnvironment.LibraryPaths);
 			ExcludedLibraries.AddRange(InCopyEnvironment.ExcludedLibraries);
 			AdditionalLibraries.AddRange(InCopyEnvironment.AdditionalLibraries);
