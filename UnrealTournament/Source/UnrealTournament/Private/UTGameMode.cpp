@@ -498,7 +498,7 @@ void AUTGameMode::InitGameState()
 				AvailableLoadout[i].ItemClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *AvailableLoadout[i].ItemClassStringRef, NULL, LOAD_NoWarn));
 			}
 
-			if (AvailableLoadout[i].ItemClass)
+			if (AvailableLoadout[i].ItemClass != nullptr)
 			{
 				UTGameState->AddLoadoutItem(AvailableLoadout[i]);
 			}
