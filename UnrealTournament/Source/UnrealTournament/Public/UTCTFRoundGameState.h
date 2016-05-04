@@ -79,4 +79,9 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 
 	UFUNCTION(BlueprintCallable, Category = Team)
 	virtual bool IsTeamOnDefenseNextRound(int32 TeamNumber) const;
+
+protected:
+	virtual void UpdateTimeMessage();
+		
+
 };

@@ -35,6 +35,7 @@ AUTGauntletGame::AUTGauntletGame(const FObjectInitializer& ObjectInitializer)
 	HUDClass = AUTHUD_Gauntlet::StaticClass();
 	GameStateClass = AUTGauntletGameState::StaticClass();
 
+	GoalScore = 3;
 	bHideInUI = true;
 }
 
@@ -88,9 +89,12 @@ bool AUTGauntletGame::CanBoost(AUTPlayerController* Who)
 			}
 		}
 	
-		if (LoadoutInfo && LoadoutInfo->CurrentCost < Who->UTPlayerState->GetAvailableCurrency())
+		if (LoadoutInfo)
 		{
-			return true;
+			if (LoadoutInfo->CurrentCost <= Who->UTPlayerState->GetAvailableCurrency())
+			{
+				return true;
+			}
 		}
 	}
 
@@ -111,7 +115,7 @@ bool AUTGauntletGame::AttemptBoost(AUTPlayerController* Who)
 			}
 		}
 	
-		if (LoadoutInfo && LoadoutInfo->CurrentCost < Who->UTPlayerState->GetAvailableCurrency())
+		if (LoadoutInfo && LoadoutInfo->CurrentCost <= Who->UTPlayerState->GetAvailableCurrency())
 		{
 			Who->UTPlayerState->AdjustCurrency(LoadoutInfo->CurrentCost * -1.0f);
 			return true;

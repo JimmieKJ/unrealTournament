@@ -79,7 +79,9 @@ void AUTCarriedObject::OnConstruction(const FTransform& Transform)
 	if (Role == ROLE_Authority)
 	{
 		Collision->SetWorldRotation(FRotator(0.0f, 0.f, 0.f));
+		GetWorldTimerManager().SetTimer(CheckTouchingHandle, this, &AUTCarriedObject::CheckTouching, 0.05f, false);
 	}
+
 }
 
 void AUTCarriedObject::Init(AUTGameObjective* NewBase)
