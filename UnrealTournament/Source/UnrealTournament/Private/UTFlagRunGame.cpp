@@ -44,3 +44,17 @@ AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 	DisplayName = NSLOCTEXT("UTGameMode", "FLAGRUN", "Flag Run");
 	bHideInUI = false;
 }
+
+void AUTFlagRunGame::BroadcastVictoryConditions()
+{
+	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+		if (PC)
+		{
+			int32 MessageIndex = IsTeamOnOffense(PC->GetTeamNum()) ? 10 * PC->GetTeamNum() + 1 : 3;
+			PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), MessageIndex);
+		}
+	}
+}
+
