@@ -21,8 +21,12 @@ class UNREALTOURNAMENT_API AUTFlagReturnTrail : public AUTReplicatedEmitter
 	UPROPERTY()
 		AActor* StartActor;
 
+	UPROPERTY()
+		float MovementSpeed;
+
 	virtual void Tick(float DeltaTime) override;
 	virtual void Destroyed() override;
 
 	virtual	void SetTeamIndex(uint8 NewValue);
+	void EndTrail();
 };

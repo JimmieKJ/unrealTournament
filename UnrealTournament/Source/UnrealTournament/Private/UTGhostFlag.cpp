@@ -71,7 +71,7 @@ void AUTGhostFlag::Tick(float DeltaTime)
 		TimerEffect->SetHiddenInGame(false);
 		TimerEffect->SetFloatParameter(NAME_Progress, TimerPosition);			
 		TimerEffect->SetFloatParameter(NAME_RespawnTime, 60);
-		if (GetWorld()->GetTimeSeconds() - TrailSpawnTime > 14.f)
+		if (GetWorld()->GetTimeSeconds() - TrailSpawnTime > 10.f)
 		{
 			OnSetCarriedObject();
 		}
@@ -86,9 +86,12 @@ void AUTGhostFlag::OnSetCarriedObject()
 {
 	if (MyCarriedObject && (GetNetMode() != NM_DedicatedServer))
 	{
-		if (Trail)
+		if (Trail && Trail->PSC)
 		{
-			Trail->Destroy();
+			Trail->PSC->SetFloatParameter(FName(TEXT("LifeSpan")), 0.1f);
+			Trail->StartActor = nullptr;
+			FTimerHandle TempHandle;
+			GetWorldTimerManager().SetTimer(TempHandle, Trail, &AUTFlagReturnTrail::EndTrail, 0.6f, false);
 		}
 		FActorSpawnParameters Params;
 		Params.Owner = this;
@@ -98,7 +101,7 @@ void AUTGhostFlag::OnSetCarriedObject()
 		Trail->EndPoint = GetActorLocation();
 		TeamIndex = (MyCarriedObject && MyCarriedObject->Team) ? MyCarriedObject->Team->TeamIndex : 0;
 		Trail->SetTeamIndex(TeamIndex);
-		Trail->CustomTimeDilation = 0.1f;
+		Trail->CustomTimeDilation = 0.3f;
 		TrailSpawnTime = GetWorld()->GetTimeSeconds();
 	}
 }

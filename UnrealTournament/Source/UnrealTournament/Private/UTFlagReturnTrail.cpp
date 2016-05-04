@@ -16,8 +16,10 @@ AUTFlagReturnTrail::AUTFlagReturnTrail(const FObjectInitializer& ObjectInitializ
 	PSC->bAutoActivate = true;
 	PSC->bAutoDestroy = false;
 
-	static ConstructorHelpers::FObjectFinder<UParticleSystem> TrailEffect(TEXT("ParticleSystem'/Game/RestrictedAssets/Effects/CTF/Particles/PS_Flag_Trail.PS_Flag_Trail'"));
+	static ConstructorHelpers::FObjectFinder<UParticleSystem> TrailEffect(TEXT("ParticleSystem'/Game/RestrictedAssets/Effects/CTF/Particles/PS_GhostFlagConn.PS_GhostFlagConn'"));
 	PSC->SetTemplate(TrailEffect.Object);
+
+	MovementSpeed = 8000.f;
 }
 
 void AUTFlagReturnTrail::Tick(float DeltaTime)
@@ -29,7 +31,7 @@ void AUTFlagReturnTrail::Tick(float DeltaTime)
 	float Dist = Dir.Size();
 	if (Dist > 1000.f *DeltaTime)
 	{
-		FVector NewLocation = StartLocation + FMath::Min(Dist, 8000.f * DeltaTime) * Dir / Dist;
+		FVector NewLocation = StartLocation + FMath::Min(Dist, MovementSpeed * DeltaTime) * Dir / Dist;
 		SetActorLocation(NewLocation);
 	}
 	StartPoint = StartActor ? StartActor->GetActorLocation() : StartPoint;
@@ -48,4 +50,9 @@ void AUTFlagReturnTrail::SetTeamIndex(uint8 NewValue)
 	{
 		PSC->SetColorParameter(FName(TEXT("Color")), (TeamIndex == 1) ? FColor::Blue : FColor::Red);
 	}
+}
+
+void AUTFlagReturnTrail::EndTrail()
+{
+	Destroy();
 }
