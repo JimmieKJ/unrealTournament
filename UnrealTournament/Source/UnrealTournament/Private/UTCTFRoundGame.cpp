@@ -703,25 +703,7 @@ void AUTCTFRoundGame::InitFlags()
 
 void AUTCTFRoundGame::BroadcastVictoryConditions()
 {
-	if (bAsymmetricVictoryConditions)
-	{
-		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
-		{
-			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-			if (PC)
-			{
-				if (IsTeamOnOffense(PC->GetTeamNum()))
-				{
-					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 10 * PC->GetTeamNum() + (bDefenderLivesLimited ? 1 : 2));
-				}
-				else
-				{
-					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), bDefenderLivesLimited ? 3 : 4);
-				}
-			}
-		}
-	}
-	else if (RoundLives > 0)
+	if (RoundLives > 0)
 	{
 		BroadcastLocalized(this, UUTCTFRoleMessage::StaticClass(), 5, NULL, NULL, NULL);
 	}
@@ -1180,8 +1162,7 @@ void AUTCTFRoundGame::CheckGameTime()
 
 bool AUTCTFRoundGame::IsTeamOnOffense(int32 TeamNumber) const
 {
-	const bool bIsOnRedTeam = (TeamNumber == 0);
-	return (bRedToCap == bIsOnRedTeam);
+	return (bRedToCap == (TeamNumber == 0));
 }
 
 bool AUTCTFRoundGame::IsTeamOnDefense(int32 TeamNumber) const
