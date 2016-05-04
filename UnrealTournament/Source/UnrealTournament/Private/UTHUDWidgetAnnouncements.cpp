@@ -206,6 +206,8 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 			MessageText = FText::FromString(MessageText.ToString() + " (" + TTypeToString<int32>::ToString(MessageQueue[QueueIndex].MessageCount) + ")");
 		}
 		TextSize = DrawText(MessageText, X, Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, MessageQueue[QueueIndex].ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentTextScale, Alpha, MessageQueue[QueueIndex].DrawColor, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f), ETextHorzPos::Center, ETextVertPos::Top);
+		X += 16.f*RenderScale;
+		Y += TextSize.Y;
 	}
 
 	if (MessageQueue[QueueIndex].MessageClass && MessageQueue[QueueIndex].MessageClass->GetDefaultObject<UUTLocalMessage>()->bDrawAsDeathMessage)
@@ -217,33 +219,26 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 
 void UUTHUDWidgetAnnouncements::DrawDeathMessage(FVector2D TextSize, int32 QueueIndex, float X, float Y)
 {
-	if (UTHUDOwner->GetDrawCenteredKillMsg())
+	APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
+	AUTPlayerState* LocalPS = (LocalPC != nullptr) ? Cast<AUTPlayerState>(LocalPC->PlayerState) : nullptr;
+	AUTPlayerState* VictimPS = Cast<AUTPlayerState>(MessageQueue[QueueIndex].RelatedPlayerState_2);
+	if (UTHUDOwner->GetDrawCenteredKillMsg() && (VictimPS == LocalPS))
 	{
 		//Figure out the DamageType that we killed with
 		UClass* DamageTypeClass = Cast<UClass>(MessageQueue[QueueIndex].OptionalObject);
 		const UUTDamageType* DmgType = DamageTypeClass ? Cast<UUTDamageType>(DamageTypeClass->GetDefaultObject()) : nullptr;
-		if (DmgType == nullptr)
+		if ( (DmgType == nullptr) || (DmgType->HUDIcon.Texture == nullptr))
 		{
 			//Make sure non UUTDamageType damages still get the default icon
 			DmgType = Cast<UUTDamageType>(UUTDamageType::StaticClass()->GetDefaultObject());
 		}
+		float XL = FMath::Abs(DmgType->HUDIcon.UL) * RenderScale;
+		float YL = FMath::Abs(DmgType->HUDIcon.VL) * RenderScale;
+		X += 0.5f * TextSize.X + PaddingBetweenTextAndDamageIcon;
+		Y = Y + 0.5f * (TextSize.Y - YL);
 
-		//Gather all the info needed to display the message
-		APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
-		AUTPlayerState* LocalPS = (LocalPC != nullptr) ? Cast<AUTPlayerState>(LocalPC->PlayerState) : nullptr;
-		AUTPlayerState* VictimPS = Cast<AUTPlayerState>(MessageQueue[QueueIndex].RelatedPlayerState_2);
-
-		if ((DmgType != nullptr) && (DmgType->HUDIcon.Texture != nullptr) && (VictimPS == LocalPS))
-		{
-			float XL = FMath::Abs(DmgType->HUDIcon.UL) * RenderScale;
-			float YL = FMath::Abs(DmgType->HUDIcon.VL) * RenderScale;
-
-			X += 0.5f * TextSize.X + PaddingBetweenTextAndDamageIcon;
-			Y = Y + 0.5f * (TextSize.Y - YL);
-
-			bScaleByDesignedResolution = false;
-			DrawTexture(DmgType->HUDIcon.Texture, X, Y, XL, YL, DmgType->HUDIcon.U, DmgType->HUDIcon.V, DmgType->HUDIcon.UL, DmgType->HUDIcon.VL, UTHUDOwner->GetHUDWidgetOpacity());
-			bScaleByDesignedResolution = true;
-		}
+		bScaleByDesignedResolution = false;
+		DrawTexture(DmgType->HUDIcon.Texture, X, Y, XL, YL, DmgType->HUDIcon.U, DmgType->HUDIcon.V, DmgType->HUDIcon.UL, DmgType->HUDIcon.VL, UTHUDOwner->GetHUDWidgetOpacity());
+		bScaleByDesignedResolution = true;
 	}
 }
