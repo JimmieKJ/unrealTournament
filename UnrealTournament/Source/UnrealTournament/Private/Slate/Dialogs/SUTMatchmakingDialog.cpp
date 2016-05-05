@@ -119,6 +119,12 @@ FReply SUTMatchmakingDialog::OnButtonClick(uint16 ButtonID)
 void SUTMatchmakingDialog::Tick(const FGeometry & AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
 {
 	SUTDialogBase::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+
+	// Failsafe in case we join a server
+	if (PlayerOwner.IsValid() && !PlayerOwner->IsMenuGame())
+	{
+		GetPlayerOwner()->CloseDialog(SharedThis(this));
+	}
 }
 
 #endif

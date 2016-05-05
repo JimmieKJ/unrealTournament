@@ -30,6 +30,9 @@ class UNREALTOURNAMENT_API AUTLobbyPlayerState : public AUTPlayerState
 	UPROPERTY()
 	AUTLobbyMatchInfo* PreviousMatch;
 
+	UPROPERTY()
+	AUTLobbyMatchInfo* JoiningLeaderMatch;
+
 	// Client-Side.  Will be called from the UI when the player presses the Create Match and Exit Match Button.
 	virtual void MatchButtonPressed();
 
@@ -129,6 +132,7 @@ public:
 	UFUNCTION(client, Reliable)
 	virtual void NotifyBeginnerAutoLock();
 
+	virtual void Tick(float DeltaTime) override;
 };
 
 
