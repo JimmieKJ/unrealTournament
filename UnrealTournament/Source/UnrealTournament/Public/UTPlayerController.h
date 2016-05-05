@@ -889,6 +889,11 @@ protected:
 	//virtual void OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type PreviousLoginStatus, ELoginStatus::Type LoginStatus, const FUniqueNetId& UniqueID);
 	//FDelegateHandle OnLoginStatusChangedDelegate;
 
+	float LastBuyMenuOpenTime;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	float BuyMenuToggleDelay;
+
 public:
 	FUniqueNetIdRepl GetGameAccountId() const;
 

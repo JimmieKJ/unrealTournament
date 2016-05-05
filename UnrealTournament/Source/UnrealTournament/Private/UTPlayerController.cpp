@@ -100,6 +100,9 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> BadSelect(TEXT("SoundCue'/Game/RestrictedAssets/UI/BadSelect_Cue.BadSelect_Cue'"));
 	BadSelectSound = BadSelect.Object;
+
+	LastBuyMenuOpenTime = 0.0f;
+	BuyMenuToggleDelay = 0.25f;
 }
 
 void AUTPlayerController::BeginPlay()
@@ -4012,21 +4015,27 @@ void AUTPlayerController::ClientOpenLoadout_Implementation(bool bBuyMenu)
 
 void AUTPlayerController::ShowBuyMenu()
 {
-	// It's silly to send this to the server before handling it here.  I probably should just for safe keepeing but for now
-	// just locally.
+	//Prevents the menu from opening/closing by rapid inputs
+	if (((GetWorld()->GetTimeSeconds() - LastBuyMenuOpenTime) >= BuyMenuToggleDelay) || (LastBuyMenuOpenTime <= SMALL_NUMBER))
+	{
+		LastBuyMenuOpenTime = GetWorld()->GetTimeSeconds();
 
-	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS && GS->AvailableLoadout.Num() > 0)
-	{
-		if (GetPawn() == nullptr || !GS->HasMatchStarted() || GS->IsMatchIntermission())
+		// It's silly to send this to the server before handling it here.  I probably should just for safe keepeing but for now
+		// just locally.
+
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS && GS->AvailableLoadout.Num() > 0)
 		{
-			ClientOpenLoadout_Implementation(true);
+			if (GetPawn() == nullptr || !GS->HasMatchStarted() || GS->IsMatchIntermission())
+			{
+				ClientOpenLoadout_Implementation(true);
+			}
 		}
-	}
-	// in RCTF we want to tie the BuyMenu button to the power select menu
-	else if (UTPlayerState)
-	{
-		UTPlayerState->bIsPowerupSelectWindowOpen = !UTPlayerState->bIsPowerupSelectWindowOpen;
+		// in RCTF we want to tie the BuyMenu button to the power select menu
+		else if (UTPlayerState)
+		{
+			UTPlayerState->bIsPowerupSelectWindowOpen = !UTPlayerState->bIsPowerupSelectWindowOpen;
+		}
 	}
 }
 
