@@ -209,6 +209,13 @@ public:
 	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadOnly, Category = HUD)
 	bool bBoostPowerupSuppliedItem;
 
+	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadWrite, Category = Powerup)
+	bool bInstantActivateBoostPowerup;
+
+	/** Keep this inventory item when you die. This will prevent it from being destroyed and removed from your inventory. */
+	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadOnly, Category = Powerup)
+	bool bKeepOnDeath;
+
 	/** How important is this inventory item when rendering a group of them */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
 	float HUDRenderPriority;

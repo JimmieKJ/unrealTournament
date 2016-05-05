@@ -618,6 +618,16 @@ void AUTPlayerState::SetRemainingBoosts(uint8 NewRemainingBoosts)
 		{
 			BoostRechargeTimeRemaining = 0.0f;
 		}
+
+		//Trigger Instant Activated Powerups immediately
+		if (RemainingBoosts > 0 && BoostClass && BoostClass->GetDefaultObject<AUTInventory>() && BoostClass->GetDefaultObject<AUTInventory>()->bInstantActivateBoostPowerup)
+		{
+			AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetOwner());
+			if (UTPC)
+			{
+				UTPC->OnActivatePowerupPress();
+			}
+		}
 	}
 }
 

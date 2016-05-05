@@ -555,6 +555,9 @@ public:
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = PlayerState)
 	float BoostRechargeTimeRemaining;
 
+	UPROPERTY()
+	TArray<AUTInventory*> PreservedKeepOnDeathInventoryList;
+	
 	/** Inventory item that is created on boost. */
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = PlayerState)
 		TSubclassOf<class AUTInventory> BoostClass;

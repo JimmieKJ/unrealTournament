@@ -2619,6 +2619,32 @@ void AUTCharacter::DiscardAllInventory()
 	SavedAmmo.Empty();
 }
 
+void AUTCharacter::PreserveKeepOnDeathInventory()
+{
+	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerState);
+	if (UTPlayerState)
+	{
+		UTPlayerState->PreservedKeepOnDeathInventoryList.Empty();
+
+		// manually iterate here so any items in a bad state still get destroyed and aren't left around
+		AUTInventory* Inv = InventoryList;
+		while (Inv != NULL)
+		{
+			AUTInventory* NextInv = Inv->GetNext();
+
+			if (Inv->bKeepOnDeath)
+			{
+				UTPlayerState->PreservedKeepOnDeathInventoryList.Add(Inv);
+
+				//Remove from inventory so that it doesn't get destroyed when inventory is cleared
+				RemoveInventory(Inv);
+			}
+
+			Inv = NextInv;
+		}
+	}
+}
+
 void AUTCharacter::InventoryEvent(FName EventName)
 {
 	for (TInventoryIterator<> It(this); It; ++It)
@@ -3071,6 +3097,16 @@ void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> Default
 				}
 			}
 		
+		}
+
+		if (UTPlayerState->PreservedKeepOnDeathInventoryList.Num() > 0)
+		{
+			for(AUTInventory* PreservedItem : UTPlayerState->PreservedKeepOnDeathInventoryList)
+			{
+				AddInventory(PreservedItem,false);
+			}
+
+			UTPlayerState->PreservedKeepOnDeathInventoryList.Empty();
 		}
 	}
 

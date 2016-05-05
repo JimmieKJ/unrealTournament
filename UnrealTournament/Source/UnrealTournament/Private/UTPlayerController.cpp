@@ -37,6 +37,7 @@
 #include "UTMutator.h"
 #include "UTVictimMessage.h"
 #include "SUTSpawnWindow.h"
+#include "UTPlaceablePowerup.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -745,8 +746,13 @@ void AUTPlayerController::ServerActivatePowerUpPress_Implementation()
 
 void AUTPlayerController::TriggerBoost()
 {
+	AUTPlaceablePowerup* FoundPlaceablePowerup = UTCharacter->FindInventoryType<AUTPlaceablePowerup>(AUTPlaceablePowerup::StaticClass(), false);
 	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
-	if (GameMode && UTCharacter && UTPlayerState && GameMode->AttemptBoost(this))
+	if (FoundPlaceablePowerup)
+	{
+		FoundPlaceablePowerup->SpawnPowerup();
+	}
+	else if (GameMode && UTCharacter && UTPlayerState && GameMode->AttemptBoost(this))
 	{
 		if (UTPlayerState->BoostClass)
 		{
