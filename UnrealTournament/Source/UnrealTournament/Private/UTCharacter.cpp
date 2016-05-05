@@ -6078,3 +6078,8 @@ void AUTCharacter::ResetMaxSpeedPctModifier()
 	}
 }
 
+void AUTCharacter::BoostSpeedForTime(float SpeedBoostPct, float TimeToBoost)
+{
+	MaxSpeedPctModifier = SpeedBoostPct;
+	GetWorldTimerManager().SetTimer(SpeedBoostTimerHandle, this, &AUTCharacter::ResetMaxSpeedPctModifier, TimeToBoost, false);
+}

@@ -1974,6 +1974,12 @@ public:
 	UFUNCTION(BlueprintNativeEvent, Category = Pawn)
 	void SetInitialHealth();
 
+public:
+	UFUNCTION(BlueprintCallable, Category = Movement)
+	virtual void BoostSpeedForTime(float SpeedBoostPct, float TimeToBoost);
+
+private:
+	FTimerHandle SpeedBoostTimerHandle;
 };
 
 inline bool AUTCharacter::IsDead()
