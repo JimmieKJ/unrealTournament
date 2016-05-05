@@ -19,7 +19,7 @@ AUTDroppedLife::AUTDroppedLife(const FObjectInitializer& ObjectInitializer)
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> BlueMat(TEXT("Material'/Game/RestrictedAssets/Environments/FacingWorlds/Halloween/M_Skull_Coin_Blue.M_Skull_Coin_Blue'"));
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> RedMat(TEXT("Material'/Game/RestrictedAssets/Environments/FacingWorlds/Halloween/M_Skull_Coin_Red.M_Skull_Coin_Red'"));
 
-	static ConstructorHelpers::FObjectFinder<USoundBase> PickupSnd(TEXT("SoundCue'/Game/EpicInternal/Cosmetic_Items/Halloween2015/Audio/A_Gameplay_UT3G_Greed_SkullPickup01_Cue.A_Gameplay_UT3G_Greed_SkullPickup01_Cue'"));
+	static ConstructorHelpers::FObjectFinder<USoundBase> PickupSnd(TEXT("SoundCue'/Game/RestrictedAssets/Blueprints/DroppedSkull/A_Gameplay_UT3G_Greed_SkullPickup01_Cue.A_Gameplay_UT3G_Greed_SkullPickup01_Cue'"));
 	PickupSound = PickupSnd.Object;
 
 	TeamMaterials.Add(RedMat.Object);
