@@ -970,9 +970,15 @@ FReply SUTChallengePanel::ChallengeClicked(FName ChallengeTag)
 				const FString* Screenshot = Asset.TagsAndValues.Find(NAME_MapInfo_ScreenshotReference);
 				const FString* MapDescription = Asset.TagsAndValues.Find(NAME_MapInfo_Description);
 
+				FText Parsed = FText::GetEmpty();
+				if (MapDescription != nullptr)
+				{
+					FTextStringHelper::ReadFromString(**MapDescription, Parsed);
+				}
+
 				if (MapDescription != NULL)
 				{
-					Description = Description + TEXT("\n\n<UT.Font.NormalText.Small.Bold>") + *MapDescription + TEXT("</>\n");
+					Description = Description + TEXT("\n\n<UT.Font.NormalText.Small.Bold>") + (Parsed.IsEmpty() ? *MapDescription : Parsed.ToString()) + TEXT("</>\n");
 				}
 
 				if (Screenshot != NULL)
