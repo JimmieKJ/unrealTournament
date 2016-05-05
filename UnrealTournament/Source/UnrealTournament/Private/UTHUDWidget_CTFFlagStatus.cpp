@@ -39,7 +39,7 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 	if (bStatusDir)
 	{
 		StatusScale += 2.f*DeltaTime;
-		bStatusDir = (StatusScale < 2.f);
+		bStatusDir = (StatusScale < 2.2f);
 	}
 	else
 	{
