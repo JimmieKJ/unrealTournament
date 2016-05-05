@@ -398,7 +398,7 @@ void AUTHUD_Showdown::DrawHUD()
 
 #if !UE_SERVER
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
-	if (UTPS != NULL && UTPS->Team != NULL && GS != NULL && GS->GameModeClass != NULL && GS->GameModeClass->IsChildOf(AUTTeamShowdownGame::StaticClass()))
+	if (UTPS != NULL && UTPS->Team != NULL && GS != NULL && GS->BoostRechargeTime > 0.0f)
 	{
 		if (GS->GetMatchState() == MatchState::WaitingToStart)
 		{
