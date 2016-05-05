@@ -279,7 +279,6 @@ public:
 	{
 		if (PlayerOwner.IsValid() && !PlayerOwner->IsPartyLeader())
 		{
-			PlayerOwner->ShowToast(NSLOCTEXT("SUTMatchPanel", "ConnectToNotLeader", "Only the party leader may do this"));
 			return false;
 		}
 
@@ -324,7 +323,6 @@ public:
 	{
 		if (PlayerOwner.IsValid() && !PlayerOwner->IsPartyLeader())
 		{
-			PlayerOwner->ShowToast(NSLOCTEXT("SUTMatchPanel", "ConnectToNotLeader", "Only the party leader may do this"));
 			return false;
 		}
 

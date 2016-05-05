@@ -5,6 +5,9 @@
 #include "UTLobbyGameMode.h"
 #include "UTLobbyPlayerState.h"
 #include "Net/UnrealNetwork.h"
+#include "UTGameInstance.h"
+#include "UTParty.h"
+#include "UTPartyGameState.h"
 
 AUTLobbyPlayerState::AUTLobbyPlayerState(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -259,3 +262,41 @@ void AUTLobbyPlayerState::NotifyBeginnerAutoLock_Implementation()
 
 }
 
+void AUTLobbyPlayerState::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	AUTLobbyGameState* GameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+	if (GameState)
+	{
+		UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
+		if (UTGameInstance)
+		{
+			UUTParty* Party = UTGameInstance->GetParties();
+			if (Party)
+			{
+				UUTPartyGameState* PartyGameState = Cast<UUTPartyGameState>(Party->GetUTPersistentParty());
+				if (!PartyGameState->IsLocalPartyLeader())
+				{
+					TSharedPtr<const FUniqueNetId> PartyLeaderId = PartyGameState->GetPartyLeader();
+					for (int32 i = 0; i < GameState->AvailableMatches.Num(); i++)
+					{
+						for (int32 PlayerIdx = 0; PlayerIdx < GameState->AvailableMatches[i]->Players.Num(); PlayerIdx++)
+						{
+							if (GameState->AvailableMatches[i]->Players[PlayerIdx]->StatsID == PartyLeaderId->ToString())
+							{
+								if (CurrentMatch != GameState->AvailableMatches[i] && JoiningLeaderMatch != GameState->AvailableMatches[i])
+								{
+									JoiningLeaderMatch = GameState->AvailableMatches[i];
+									ServerJoinMatch(GameState->AvailableMatches[i], false);
+									break;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+}
