@@ -320,6 +320,12 @@ public:
 	UPROPERTY()
 		float LastPositionUpdateTime;
 
+	UPROPERTY()
+		FVector MidPoint;
+
+	UPROPERTY()
+		bool bMidPointSet;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated, Category = GameObject)
 		bool bGradualAutoReturn;
 

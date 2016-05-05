@@ -13,6 +13,7 @@ AUTFlagReturnTrail::AUTFlagReturnTrail(const FObjectInitializer& ObjectInitializ
 	InitialLifeSpan = 0.f;
 	DedicatedServerLifeSpan = 0.1f; 
 	TeamIndex = 255;
+	bReachedMidPoint = false;
 
 	PSC->bAutoActivate = true;
 	PSC->bAutoDestroy = false;
@@ -29,6 +30,17 @@ void AUTFlagReturnTrail::Tick(float DeltaTime)
 	
 	FVector StartLocation = (StartActor && (StartPoint != StartActor->GetActorLocation())) ? StartActor->GetActorLocation() : GetActorLocation();
 	FVector Dir = EndPoint - StartLocation;
+	bool bOldReach = bReachedMidPoint;
+	if (!bReachedMidPoint)
+	{
+		Dir = MidPoint - StartLocation;
+		if (Dir.Size() <= FMath::Max(1000.f *DeltaTime, 50.f))
+		{
+			Dir = EndPoint - StartLocation;
+			bReachedMidPoint = true;
+		}
+	}
+
 	float Dist = Dir.Size();
 	if (Dist > 1000.f *DeltaTime)
 	{

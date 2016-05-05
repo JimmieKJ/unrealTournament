@@ -292,16 +292,41 @@ void AUTCTFFlag::Tick(float DeltaTime)
 		{
 			Holder->bSpecialPlayer = bCurrentlyPinged;
 		}
-		if ((ObjectState == CarriedObjectState::Held) && (GetWorld()->GetTimeSeconds() - LastPositionUpdateTime > 1.f) && HoldingPawn && HoldingPawn->GetCharacterMovement() && HoldingPawn->GetCharacterMovement()->IsWalking() && (!HoldingPawn->GetMovementBase() || !MovementBaseUtility::UseRelativeLocation(HoldingPawn->GetMovementBase())))
+		if ((ObjectState == CarriedObjectState::Held) && HoldingPawn)
 		{
+			bool bAddedReturnSpot = false;
 			FVector PreviousPos = (PastPositions.Num() > 0) ? PastPositions[PastPositions.Num() - 1].Location : (HomeBase ? HomeBase->GetActorLocation() : FVector(0.f));
-			if ((HoldingPawn->GetActorLocation() - PreviousPos).Size() > MinGradualReturnDist)
+			if ((GetWorld()->GetTimeSeconds() - LastPositionUpdateTime > 1.f)  && HoldingPawn->GetCharacterMovement() && HoldingPawn->GetCharacterMovement()->IsWalking() && (!HoldingPawn->GetMovementBase() || !MovementBaseUtility::UseRelativeLocation(HoldingPawn->GetMovementBase())))
 			{
-				LastPositionUpdateTime = GetWorld()->GetTimeSeconds();
-				FFlagTrailPos NewPosition;
-				NewPosition.Location = HoldingPawn->GetActorLocation();
-				NewPosition.MidPoint = FVector(0.f);
-				PastPositions.Add(NewPosition);
+				if ((HoldingPawn->GetActorLocation() - PreviousPos).Size() > MinGradualReturnDist)
+				{
+					if (PastPositions.Num() > 0)
+					{
+						PastPositions[PastPositions.Num() - 1].MidPoint = MidPoint;
+					}
+					LastPositionUpdateTime = GetWorld()->GetTimeSeconds();
+					FFlagTrailPos NewPosition;
+					NewPosition.Location = HoldingPawn->GetActorLocation();
+					NewPosition.MidPoint = PreviousPos;
+					PastPositions.Add(NewPosition);
+					bMidPointSet = false;
+					bAddedReturnSpot = true;
+					MidPoint = HoldingPawn->GetActorLocation();
+				}
+			}
+			if (!bMidPointSet && !bAddedReturnSpot)
+			{
+				static FName NAME_FlagReturnLOS = FName(TEXT("FlagReturnLOS"));
+				FCollisionQueryParams CollisionParms(NAME_FlagReturnLOS, true, HoldingPawn);
+				bool bHit = GetWorld()->LineTraceTestByChannel(HoldingPawn->GetActorLocation(), PreviousPos, COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParms);
+				if (bHit)
+				{
+					bMidPointSet = true;
+				}
+				else
+				{
+					MidPoint = HoldingPawn->GetActorLocation();
+				}
 			}
 		}
 		if ((ObjectState == CarriedObjectState::Dropped) && GetWorldTimerManager().IsTimerActive(SendHomeWithNotifyHandle))

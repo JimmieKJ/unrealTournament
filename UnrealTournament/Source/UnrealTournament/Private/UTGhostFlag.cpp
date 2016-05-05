@@ -30,6 +30,7 @@ AUTGhostFlag::AUTGhostFlag(const FObjectInitializer& ObjectInitializer)
 		TimerEffect->Mobility = EComponentMobility::Movable;
 		TimerEffect->SetCastShadow(false);
 	}
+	MidPoint = FVector(0.f);
 }
 
 void AUTGhostFlag::Destroyed()
@@ -82,6 +83,14 @@ void AUTGhostFlag::Tick(float DeltaTime)
 	}
 }
 
+void AUTGhostFlag::OnSetMidPoint()
+{
+	if (Trail)
+	{
+		Trail->MidPoint = MidPoint;
+	}
+}
+
 void AUTGhostFlag::OnSetCarriedObject()
 {
 	if (MyCarriedObject && (GetNetMode() != NM_DedicatedServer))
@@ -99,6 +108,7 @@ void AUTGhostFlag::OnSetCarriedObject()
 		Trail->StartActor = MyCarriedObject;
 		Trail->StartPoint = MyCarriedObject->GetActorLocation();
 		Trail->EndPoint = GetActorLocation();
+		Trail->MidPoint = MidPoint.IsZero() ? GetActorLocation() : MidPoint;
 		Trail->EndActor = this;
 		TeamIndex = (MyCarriedObject && MyCarriedObject->Team) ? MyCarriedObject->Team->TeamIndex : 0;
 		Trail->SetTeamIndex(TeamIndex);
