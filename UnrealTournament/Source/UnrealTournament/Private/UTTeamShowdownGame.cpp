@@ -68,7 +68,7 @@ void AUTTeamShowdownGame::InitGameState()
 {
 	Super::InitGameState();
 
-	UTGameState->BoostRechargeTime = 240.0f;
+	//UTGameState->BoostRechargeTime = 240.0f;
 }
 
 bool AUTTeamShowdownGame::CheckRelevance_Implementation(AActor* Other)
