@@ -13,6 +13,7 @@ UUTSecurityCameraComponent::UUTSecurityCameraComponent()
 	PrimaryComponentTick.SetTickFunctionEnable(true);
 	DetectionRadius = 5000.f;
 	bCameraEnabled = true;
+	CameraPingedDuration = 1.f;
 }
 
 void UUTSecurityCameraComponent::BeginPlay()
@@ -74,7 +75,7 @@ void UUTSecurityCameraComponent::TickComponent(float DeltaTime, ELevelTick TickT
 		DetectedFlagCarrier = DetectedFlag ? DetectedFlag->HoldingPawn : nullptr;
 		if (DetectedFlag && (DetectedFlag->Role == ROLE_Authority))
 		{
-			DetectedFlag->LastPingedTime = GetWorld()->GetTimeSeconds();
+			DetectedFlag->LastPingedTime = FMath::Max(DetectedFlag->LastPingedTime, GetWorld()->GetTimeSeconds() - DetectedFlag->PingedDuration + FMath::Max(0.2f, CameraPingedDuration));
 		}
 	}
 	else
