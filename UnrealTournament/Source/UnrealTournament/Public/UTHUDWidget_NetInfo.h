@@ -14,10 +14,6 @@ public:
 
 	virtual void AddPing(float NewPing);
 
-	// The total Height of a given cell
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")
-		float CellHeight;
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")
 		float DataColumnX;
 
