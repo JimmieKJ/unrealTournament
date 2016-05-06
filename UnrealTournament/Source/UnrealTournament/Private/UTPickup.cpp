@@ -31,6 +31,7 @@ AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 	Collision->InitCapsuleSize(64.0f, 75.0f);
 	Collision->bShouldUpdatePhysicsVolume = false;
 	Collision->Mobility = EComponentMobility::Static;
+	Collision->OnComponentBeginOverlap.AddDynamic(this, &AUTPickup::OnOverlapBegin);
 	RootComponent = Collision;
 
 	TimerEffect = ObjectInitializer.CreateDefaultSubobject<UParticleSystemComponent>(this, TEXT("TimerEffect"));
