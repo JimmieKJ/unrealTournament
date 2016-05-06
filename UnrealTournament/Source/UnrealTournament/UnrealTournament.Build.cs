@@ -29,12 +29,7 @@ public class UnrealTournament : ModuleRules
 			}
 		);
 
-		PublicIncludePaths.Add("../Plugins/Social/Source/Public");
-		PublicIncludePaths.Add("../Plugins/Social/Source/Public/Interfaces");
-		PublicIncludePaths.Add("../Plugins/Social/Source/Public/Models");
-		PublicIncludePaths.Add("../Plugins/Social/Source/Public/Layers/DataAccess");
-		PublicIncludePaths.Add("../Plugins/Social/Source/Public/Layers/Domain");
-		PublicIncludePaths.Add("../Plugins/Social/Source/Public/Layers/Presentation");
+        PublicIncludePathModuleNames.Add("Social");
 
         PublicDependencyModuleNames.AddRange(new string[] { 
                                                     "Core", 
@@ -61,10 +56,9 @@ public class UnrealTournament : ModuleRules
                                                     "Foliage",
 													"PerfCounters",
                                                     "PakFile",
-													"FriendsAndChat",
                                                     });
 
-        PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "FriendsAndChat", "Sockets" });
+        PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "Sockets" });
         if (Target.Type != TargetRules.TargetType.Server)
         {
             PublicDependencyModuleNames.AddRange(new string[] { "AppFramework", "RHI", "SlateRHIRenderer", "MoviePlayer" });

@@ -5,8 +5,12 @@
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
 #include "Slate/SlateBrushAsset.h"
-#include "FriendsAndChatStyle.h"
 #include "SUTStyle.h"
+#include "../../UTSocialStyle.h"
+
+#if WITH_SOCIAL
+#include "Social.h"
+#endif
 
 #if !UE_SERVER
 TSharedPtr<FSlateStyleSet> SUTStyle::UWindowsStyleInstance = NULL;
@@ -103,6 +107,13 @@ TSharedRef<FSlateStyleSet> SUTStyle::Create()
 	SetChallengeBadges(StyleRef);
 	SetContextMenus(StyleRef);
 	SetServerBrowser(StyleRef);
+
+	#if WITH_SOCIAL
+	USocialStyleAsset* SocialAsset = LoadObject<USocialStyleAsset>(NULL, TEXT("/Game/RestrictedAssets/UI/UTSocialStyle.UTSocialStyle"), NULL, LOAD_None, NULL);
+	SocialAsset->AddToRoot();
+	ISocialModule::Get().GetFriendsAndChatManager()->InitializeSocialStyle(&SocialAsset->Style);
+	#endif
+
 	return StyleRef;
 }
 

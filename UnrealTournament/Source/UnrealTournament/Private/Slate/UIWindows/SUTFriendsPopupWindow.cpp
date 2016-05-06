@@ -6,15 +6,11 @@
 #include "../Widgets/SUTChatWidget.h"
 #include "../Widgets/SUTFriendsWidget.h"
 #include "../SUWindowsStyle.h"
-#include "../../UTSocial.h"
 
 #if !UE_SERVER
 
 void SUTFriendsPopupWindow::Construct(const FArguments& InArgs)
 {
-	USocialAsset* SocialAsset = LoadObject<USocialAsset>(NULL, TEXT("/Game/RestrictedAssets/UI/SocialStyle.SocialStyle"), NULL, LOAD_None, NULL);
-	SocialAsset->AddToRoot();
-
 	PlayerOwner = InArgs._PlayerOwner;
 	checkSlow(PlayerOwner != NULL);
 	ChildSlot
@@ -38,7 +34,6 @@ void SUTFriendsPopupWindow::Construct(const FArguments& InArgs)
 				.BorderImage(FCoreStyle::Get().GetBrush("NoBorder"))
 				[
 					SNew(SUTChatWidget, PlayerOwner->PlayerController)
-					.FriendStyle(&SocialAsset->Style)
 				]
 			]
 			+SOverlay::Slot()
@@ -51,7 +46,7 @@ void SUTFriendsPopupWindow::Construct(const FArguments& InArgs)
 				.BorderImage(FCoreStyle::Get().GetBrush("NoBorder"))
 				[
 					SNew(SUTFriendsWidget, PlayerOwner->PlayerController)
-					.FriendStyle(&SocialAsset->Style)
+/*					.FriendStyle(&SocialAsset->Style)*/
 				]
 			]
 

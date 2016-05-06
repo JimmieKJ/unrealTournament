@@ -855,6 +855,10 @@ void UUTLocalPlayer::Logout()
 #endif
 		}
 	}
+
+#if WITH_SOCIAL
+	ISocialModule::Get().GetFriendsAndChatManager()->Logout();
+#endif
 }
 
 
