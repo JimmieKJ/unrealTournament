@@ -749,38 +749,41 @@ void AUTPlayerController::ServerActivatePowerUpPress_Implementation()
 
 void AUTPlayerController::TriggerBoost()
 {
-	AUTPlaceablePowerup* FoundPlaceablePowerup = UTCharacter->FindInventoryType<AUTPlaceablePowerup>(AUTPlaceablePowerup::StaticClass(), false);
 	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
-	if (FoundPlaceablePowerup)
+	if (GameMode && UTCharacter && UTPlayerState)
 	{
-		FoundPlaceablePowerup->SpawnPowerup();
-	}
-	else if (GameMode && UTCharacter && UTPlayerState && GameMode->AttemptBoost(this))
-	{
-		if (UTPlayerState->BoostClass)
+		AUTPlaceablePowerup* FoundPlaceablePowerup = UTCharacter->FindInventoryType<AUTPlaceablePowerup>(AUTPlaceablePowerup::StaticClass(), false);
+		if (FoundPlaceablePowerup)
 		{
-			AUTInventory* TriggeredBoost = GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->BoostClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f));
-			TriggeredBoost->InitAsTriggeredBoost(UTCharacter);
-
-			AUTInventory* DuplicatePowerup = UTCharacter->FindInventoryType<AUTInventory>(UTPlayerState->BoostClass, true);
-			if (!DuplicatePowerup || !DuplicatePowerup->StackPickup(nullptr))
-			{
-				UTCharacter->AddInventory(TriggeredBoost, true);
-			}
-			
-			//if we gave you a weapon lets immediately switch on triggering the boost
-			AUTWeapon* BoostAsWeapon = Cast<AUTWeapon>(TriggeredBoost);
-			if (BoostAsWeapon)
-			{
-				UTCharacter->SwitchWeapon(BoostAsWeapon);
-			}
+			FoundPlaceablePowerup->SpawnPowerup();
 		}
-		else
+		else if (GameMode->AttemptBoost(this))
 		{
-			AUTGameMode* UTGM = GetWorld()->GetAuthGameMode<AUTGameMode>();
-			if (UTGM)
+			if (UTPlayerState->BoostClass)
 			{
-				UTGM->ToggleSpecialFor(UTCharacter);
+				AUTInventory* TriggeredBoost = GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->BoostClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f));
+				TriggeredBoost->InitAsTriggeredBoost(UTCharacter);
+
+				AUTInventory* DuplicatePowerup = UTCharacter->FindInventoryType<AUTInventory>(UTPlayerState->BoostClass, true);
+				if (!DuplicatePowerup || !DuplicatePowerup->StackPickup(nullptr))
+				{
+					UTCharacter->AddInventory(TriggeredBoost, true);
+				}
+
+				//if we gave you a weapon lets immediately switch on triggering the boost
+				AUTWeapon* BoostAsWeapon = Cast<AUTWeapon>(TriggeredBoost);
+				if (BoostAsWeapon)
+				{
+					UTCharacter->SwitchWeapon(BoostAsWeapon);
+				}
+			}
+			else
+			{
+				AUTGameMode* UTGM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+				if (UTGM)
+				{
+					UTGM->ToggleSpecialFor(UTCharacter);
+				}
 			}
 		}
 	}
