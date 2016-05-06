@@ -1225,26 +1225,20 @@ void AUTWeapon::GuessPlayerTarget(const FVector& StartFireLoc, const FVector& Fi
 			{
 				MaxRange = InstantHitInfo[CurrentFireMode].TraceRange * 1.2f; // extra since player may miss intended target due to being out of range
 			}
-/*			float BestAim = 0.f;
+			float BestAim = 0.f;
 			float BestDist = 0.f;
 			PC->LastShotTargetGuess = UUTGameplayStatics::PickBestAimTarget(PC, StartFireLoc, FireDir, 0.9f, MaxRange, APawn::StaticClass(), &BestAim, &BestDist);
 			AUTCharacter* FlagCarrierTarget = Cast<AUTCharacter>(PC->LastShotTargetGuess);
-			if (FlagCarrierTarget)// && FlagCarrierTarget->GetCarriedObject())
+			if (FlagCarrierTarget && FlagCarrierTarget->GetCarriedObject())
 			{
-				FVector ShotLoc = StartFireLoc + FireDir * BestDist;// / BestAim;
-				DrawDebugSphere(GetWorld(), ShotLoc, 24.f, 12, FColor::Yellow, true);
-				UE_LOG(UT, Warning, TEXT("PING %f Dist %f OFFDIST %f"), BestAim, BestDist, (FlagCarrierTarget->GetActorLocation() - ShotLoc).Size());
+				FVector ShotLoc = StartFireLoc + FireDir * BestDist;
 				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-				if (GS && !GS->OnSameTeam(UTOwner, FlagCarrierTarget))
+				if (GS && !GS->OnSameTeam(UTOwner, FlagCarrierTarget) && ((FlagCarrierTarget->GetActorLocation() - ShotLoc).Size() < 250.f))
 				{
-					//FlagCarrierTarget->GetCarriedObject()->LastPingedTime = GetWorld()->GetTimeSeconds();
+					FlagCarrierTarget->GetCarriedObject()->LastPingedTime = GetWorld()->GetTimeSeconds();
 				}
 			}
-			else
-			{
-				UE_LOG(UT, Warning, TEXT("NO PING"));
-			}
-*/		}
+		}
 	}
 }
 
