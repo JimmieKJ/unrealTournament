@@ -3953,7 +3953,7 @@ void AUTPlayerController::ServerRegisterBanVote_Implementation(AUTPlayerState* B
 
 FRotator AUTPlayerController::GetControlRotation() const
 {
-	if (UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives) && !IsBehindView() && !bSpectatorMouseChangesView && (GetViewTarget() != GetSpectatorPawn()))
+	if (UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives) && !IsBehindView() && (GetViewTarget() != GetSpectatorPawn()))
 	{
 		return BlendedTargetViewRotation;
 	}
