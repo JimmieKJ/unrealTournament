@@ -8,7 +8,7 @@ UUTHUDWidget_CTFFlagStatus::UUTHUDWidget_CTFFlagStatus(const FObjectInitializer&
 : Super(ObjectInitializer)
 {
 	YouHaveFlagText = NSLOCTEXT("CTFScore","YouHaveFlagText","You have the flag, return to base!");
-	YouHaveFlagTextAlt = NSLOCTEXT("CTFScore", "YouHaveFlagText", "You have the flag, take it to the enemy base!");
+	YouHaveFlagTextAlt = NSLOCTEXT("CTFScore", "YouHaveFlagTextAlt", "You have the flag, take it to the enemy base!");
 	EnemyHasFlagText = NSLOCTEXT("CTFScore", "EnemyHasFlagText", "The enemy has your flag, recover it!");
 	BothFlagsText = NSLOCTEXT("CTFScore","BothFlagsText","You have the enemy flag - hold it until your flag is returned!");
 
