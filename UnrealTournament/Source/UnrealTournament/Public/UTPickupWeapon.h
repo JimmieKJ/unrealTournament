@@ -59,9 +59,18 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = PickupWeapon)
 	TArray<FWeaponPickupCustomer> Customers;
 
-	/** whether the pickup is taken (unavailable) for this pawn */
-	UFUNCTION(BlueprintCallable, Category = Pickup)
-	bool IsTaken(APawn* TestPawn);
+	virtual bool IsTaken(APawn* TestPawn) override;
+	virtual void AddHiddenComponents(bool bTaken, TSet<FPrimitiveComponentId>& HiddenComponents) override
+	{
+		Super::AddHiddenComponents(bTaken, HiddenComponents);
+		if (!bTaken)
+		{
+			if (GetGhostDepthMesh() != NULL)
+			{
+				HiddenComponents.Add(GetGhostDepthMesh()->ComponentId);
+			}
+		}
+	}
 
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;

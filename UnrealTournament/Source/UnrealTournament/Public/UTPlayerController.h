@@ -147,10 +147,10 @@ public:
 	UFUNCTION(server, reliable, withvalidation)
 	virtual void ServerNotifyProjectileHit(AUTProjectile* HitProj, FVector_NetQuantize HitLocation, AActor* DamageCauser, float TimeStamp, int32 Damage=0);
 
-	void AddWeaponPickup(class AUTPickupWeapon* NewPickup)
+	void AddPerPlayerPickup(class AUTPickup* NewPickup)
 	{
 		// clear out any dead entries for destroyed pickups
-		for (TSet< TWeakObjectPtr<AUTPickupWeapon> >::TIterator It(RecentWeaponPickups); It; ++It)
+		for (TSet< TWeakObjectPtr<AUTPickup> >::TIterator It(RecentPerPlayerPickups); It; ++It)
 		{
 			if (!It->IsValid())
 			{
@@ -158,7 +158,7 @@ public:
 			}
 		}
 
-		RecentWeaponPickups.Add(NewPickup);
+		RecentPerPlayerPickups.Add(NewPickup);
 	}
 
 	virtual void UpdateHiddenComponents(const FVector& ViewLocation, TSet<FPrimitiveComponentId>& HiddenComponents);
@@ -643,8 +643,8 @@ protected:
 	UPROPERTY()
 	AActor* FinalViewTarget;
 
-	/** list of weapon pickups that my Pawn has recently picked up, so we can hide the weapon mesh per player */
-	TSet< TWeakObjectPtr<AUTPickupWeapon> > RecentWeaponPickups;
+	/** list of pickups with per-player state that my Pawn has recently picked up, so we can hide them per player */
+	TSet< TWeakObjectPtr<AUTPickup> > RecentPerPlayerPickups;
 
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)

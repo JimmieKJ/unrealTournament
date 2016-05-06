@@ -12,7 +12,7 @@ void AUTPickupWeapon::BeginPlay()
 		AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
 		if (WS != NULL)
 		{
-			WS->WeaponPickups.Add(this);
+			WS->PerPlayerPickups.Add(this);
 		}
 	}
 
@@ -39,7 +39,7 @@ void AUTPickupWeapon::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
 	if (WS != NULL)
 	{
-		WS->WeaponPickups.Remove(this);
+		WS->PerPlayerPickups.Remove(this);
 	}
 }
 
@@ -180,7 +180,7 @@ void AUTPickupWeapon::ProcessTouch_Implementation(APawn* TouchedBy)
 						TimerEffect->SetFloatParameter(NAME_RespawnTime, RespawnTime);
 						TimerEffect->SetHiddenInGame(false);
 					}
-					PC->AddWeaponPickup(this);
+					PC->AddPerPlayerPickup(this);
 				}
 			}
 		}

@@ -1944,11 +1944,11 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 	AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
 	if (WS != NULL)
 	{
-		for (AUTPickupWeapon* Pickup : WS->WeaponPickups)
+		for (AUTPickup* Pickup : WS->PerPlayerPickups)
 		{
 			bool bTaken = !Pickup->State.bActive;
 
-			if (RecentWeaponPickups.Contains(Pickup))
+			if (RecentPerPlayerPickups.Contains(Pickup))
 			{
 				if (Pickup->IsTaken(GetPawn()))
 				{
@@ -1958,31 +1958,10 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 				else
 				{
 					Pickup->PlayRespawnEffects();
-					RecentWeaponPickups.Remove(Pickup);
+					RecentPerPlayerPickups.Remove(Pickup);
 				}
 			}
-			if (bTaken)
-			{
-				if (Pickup->GetMesh() != NULL)
-				{
-					HiddenComponents.Add(Pickup->GetMesh()->ComponentId);
-				}
-			}
-			else
-			{
-				if (Pickup->GetGhostMesh() != NULL)
-				{
-					HiddenComponents.Add(Pickup->GetGhostMesh()->ComponentId);
-				}
-				if (Pickup->GetGhostDepthMesh() != NULL)
-				{
-					HiddenComponents.Add(Pickup->GetGhostDepthMesh()->ComponentId);
-				}
-				if (Pickup->TimerEffect != NULL)
-				{
-					HiddenComponents.Add(Pickup->TimerEffect->ComponentId);
-				}
-			}
+			Pickup->AddHiddenComponents(bTaken, HiddenComponents);
 		}
 	}
 

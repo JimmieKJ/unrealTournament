@@ -147,6 +147,24 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	UFUNCTION(BlueprintCallable, Category = Pickup)
 	virtual void SetPickupHidden(bool bNowHidden);
 
+	UFUNCTION(BlueprintCallable, Category = Pickup)
+	virtual bool IsTaken(APawn* TestPawn)
+	{
+		return !State.bActive;
+	}
+
+	// add components that should be hidden for passed-in taken state
+	virtual void AddHiddenComponents(bool bTaken, TSet<FPrimitiveComponentId>& HiddenComponents)
+	{
+		if (!bTaken)
+		{
+			if (TimerEffect != NULL)
+			{
+				HiddenComponents.Add(TimerEffect->ComponentId);
+			}
+		}
+	}
+
 	/** Pickup message to display on player HUD. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pickup)
 	FText PickupMessageString;

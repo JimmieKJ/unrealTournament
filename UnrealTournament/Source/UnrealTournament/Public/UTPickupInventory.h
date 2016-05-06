@@ -75,6 +75,29 @@ public:
 	virtual void Reset_Implementation() override;
 	virtual void PlayTakenEffects(bool bReplicate) override;
 
+	virtual void AddHiddenComponents(bool bTaken, TSet<FPrimitiveComponentId>& HiddenComponents) override
+	{
+		Super::AddHiddenComponents(bTaken, HiddenComponents);
+		if (bTaken)
+		{
+			if (GetMesh() != NULL)
+			{
+				HiddenComponents.Add(GetMesh()->ComponentId);
+			}
+		}
+		else
+		{
+			if (GetGhostMesh() != NULL)
+			{
+				HiddenComponents.Add(GetGhostMesh()->ComponentId);
+			}
+			if (TimerEffect != NULL)
+			{
+				HiddenComponents.Add(TimerEffect->ComponentId);
+			}
+		}
+	}
+
 	virtual FText GetDisplayName() const
 	{
 		return (InventoryType != NULL) ? InventoryType.GetDefaultObject()->DisplayName : PickupMessageString;

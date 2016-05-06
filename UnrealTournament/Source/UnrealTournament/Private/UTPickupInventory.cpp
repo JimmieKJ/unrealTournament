@@ -400,8 +400,8 @@ void AUTPickupInventory::GiveTo_Implementation(APawn* Target)
 		AnnouncePickup(P);
 
 		//Add to the stats pickup count
-		const AUTInventory* Inventory = Cast<UClass>(InventoryType) ? Cast<AUTInventory>(Cast<UClass>(InventoryType)->GetDefaultObject()) : nullptr;
-		if (Inventory != nullptr && Inventory->StatsNameCount != NAME_None)
+		const AUTInventory* Inventory = InventoryType.GetDefaultObject();
+		if (Inventory->StatsNameCount != NAME_None)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(P->PlayerState);
 			if (PS)

@@ -145,9 +145,9 @@ public:
 	UPROPERTY()
 	UAudioComponent* MusicComp;
 
-	/** world list of weapon pickups, used primarily to handle per-player visual state when weapon stay is on */
+	/** world list of per player pickups, used primarily to handle visual state */
 	UPROPERTY(BlueprintReadOnly)
-	TArray<AUTPickupWeapon*> WeaponPickups;
+	TArray<class AUTPickup*> PerPlayerPickups;
 
 	virtual void PostLoad() override;
 	virtual void PostInitProperties() override;
