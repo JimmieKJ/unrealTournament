@@ -118,13 +118,16 @@ void SUTPartyInviteWidget::HandleFriendsActionNotification(TSharedRef<FFriendsAn
 {
 #if WITH_SOCIAL
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Ctx.GetLocalPlayer());
-	if (FriendsAndChatMessage->GetMessageType() == EMessageType::GameInvite && LP->IsMenuGame() && !FriendsAndChatMessage->IsSelfHandle())
+	if (FriendsAndChatMessage->GetMessageType() == EMessageType::GameInvite && LP->IsMenuGame())
 	{
-		LastInviteContent = FriendsAndChatMessage->GetMessage();
-		LastInviteUniqueID = FriendsAndChatMessage->GetUniqueID()->ToString();
-		LastInviteTime = FDateTime::Now();
+		if (FriendsAndChatMessage->HasValidUniqueID())
+		{
+			LastInviteContent = FriendsAndChatMessage->GetMessage();
+			LastInviteUniqueID = FriendsAndChatMessage->GetUniqueID()->ToString();
+			LastInviteTime = FDateTime::Now();
 
-		InviteMessage->SetText(FText::Format(NSLOCTEXT("SUTPartyInviteWidget", "InviteMessage", "{0}"), FText::FromString(LastInviteContent)));
+			InviteMessage->SetText(FText::Format(NSLOCTEXT("SUTPartyInviteWidget", "InviteMessage", "{0}"), FText::FromString(LastInviteContent)));
+		}
 	}
 #endif
 }
