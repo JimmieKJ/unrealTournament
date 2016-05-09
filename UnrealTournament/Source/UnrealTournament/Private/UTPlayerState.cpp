@@ -987,6 +987,15 @@ void AUTPlayerState::HandleTeamChanged(AController* Controller)
 		if (PC)
 		{
 			PC->ClientReceiveLocalizedMessage(UUTGameMessage::StaticClass(), Switch, this, NULL, NULL);
+			for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+			{
+				AUTCharacter* Character = Cast<AUTCharacter>(*It);
+				AUTPlayerState* PS = (Character && !Character->bTearOff) ? Cast<AUTPlayerState>(Character->PlayerState) : nullptr;
+				if (PS && PS->bSpecialTeamPlayer)
+				{
+					PS->UpdateSpecialTacComFor(Character, PC);
+				}
+			}
 		}
 	}
 }
