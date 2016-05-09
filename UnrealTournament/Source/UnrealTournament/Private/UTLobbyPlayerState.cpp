@@ -281,15 +281,21 @@ void AUTLobbyPlayerState::Tick(float DeltaTime)
 					TSharedPtr<const FUniqueNetId> PartyLeaderId = PartyGameState->GetPartyLeader();
 					for (int32 i = 0; i < GameState->AvailableMatches.Num(); i++)
 					{
-						for (int32 PlayerIdx = 0; PlayerIdx < GameState->AvailableMatches[i]->Players.Num(); PlayerIdx++)
+						if (GameState->AvailableMatches[i])
 						{
-							if (GameState->AvailableMatches[i]->Players[PlayerIdx]->StatsID == PartyLeaderId->ToString())
+							for (int32 PlayerIdx = 0; PlayerIdx < GameState->AvailableMatches[i]->Players.Num(); PlayerIdx++)
 							{
-								if (CurrentMatch != GameState->AvailableMatches[i] && JoiningLeaderMatch != GameState->AvailableMatches[i])
+								if (GameState->AvailableMatches[i]->Players[PlayerIdx] != nullptr && PartyLeaderId.IsValid())
 								{
-									JoiningLeaderMatch = GameState->AvailableMatches[i];
-									ServerJoinMatch(GameState->AvailableMatches[i], false);
-									break;
+									if (GameState->AvailableMatches[i]->Players[PlayerIdx]->StatsID == PartyLeaderId->ToString())
+									{
+										if (CurrentMatch != GameState->AvailableMatches[i] && JoiningLeaderMatch != GameState->AvailableMatches[i])
+										{
+											JoiningLeaderMatch = GameState->AvailableMatches[i];
+											ServerJoinMatch(GameState->AvailableMatches[i], false);
+											break;
+										}
+									}
 								}
 							}
 						}
