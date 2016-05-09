@@ -57,7 +57,6 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	FireEffectCount = 0;
 	FireZOffset = 0.f;
 	FireZOffsetTime = 0.f;
-	MaxTracerDist = 5000.f;
 
 	InactiveState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateInactive>(this, TEXT("StateInactive"));
 	ActiveState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateActive>(this, TEXT("StateActive"));
@@ -922,7 +921,7 @@ void AUTWeapon::PlayImpactEffects_Implementation(const FVector& TargetLoc, uint8
 			UParticleSystemComponent* PSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), FireEffect[FireMode], AdjustedSpawnLocation, SpawnRotation, true);
 
 			// limit dist to target
-			FVector AdjustedTargetLoc = ((TargetLoc - AdjustedSpawnLocation).SizeSquared() > 4000000.f)
+			FVector AdjustedTargetLoc = (MaxTracerDist > 0.0f && ((TargetLoc - AdjustedSpawnLocation).SizeSquared() > FMath::Square<float>(MaxTracerDist)))
 				? AdjustedSpawnLocation + MaxTracerDist * (TargetLoc - AdjustedSpawnLocation).GetSafeNormal()
 				: TargetLoc;
 			PSC->SetVectorParameter(NAME_HitLocation, AdjustedTargetLoc);
