@@ -22,7 +22,6 @@ UUTCTFScoreboard::UUTCTFScoreboard(const FObjectInitializer& ObjectInitializer)
 	ColumnHeaderAssistsX = 0.7925;
 	ColumnHeaderReturnsX = 0.85;
 	ReadyX = 0.7f;
-	NumPages = 3;
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> OtherSpreeSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/UI/A_UI_EnemySpree01.A_UI_EnemySpree01'"));
 	ScoreUpdateSound = OtherSpreeSoundFinder.Object;
@@ -87,26 +86,12 @@ void UUTCTFScoreboard::DrawPlayerScore(AUTPlayerState* PlayerState, float XOffse
 
 void UUTCTFScoreboard::DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)
 {
-	if (UTHUDOwner->ScoreboardPage == 1)
-	{
-		DrawScoringPlays(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
-	}
-	else
-	{
-		DrawTeamScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
-	}
+	DrawScoringPlays(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
 }
 
 void UUTCTFScoreboard::DrawStatsRight(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)
 {
-	if (UTHUDOwner->ScoreboardPage == 1)
-	{
-		DrawTeamScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
-	}
-	else
-	{
-		DrawScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
-	}
+	DrawTeamScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
 }
 
 void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight)
@@ -121,11 +106,14 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 
 	float XL, SmallYL;
 	Canvas->TextSize(UTHUDOwner->SmallFont, "TEST", XL, SmallYL, RenderScale, RenderScale);
+	float TinyYL;
+	Canvas->TextSize(UTHUDOwner->TinyFont, ScoringPlaysHeader.ToString(), XL, TinyYL, RenderScale, RenderScale);
 	float MedYL;
 	Canvas->TextSize(UTHUDOwner->MediumFont, ScoringPlaysHeader.ToString(), XL, MedYL, RenderScale, RenderScale);
 
-	float ScoreHeight = MedYL + SmallYL;
+	float ScoreHeight = MedYL + TinyYL;
 	float ScoringOffsetX, ScoringOffsetY;
+//	FText MaxScoreString = 
 	Canvas->TextSize(UTHUDOwner->MediumFont, "99 - 99", ScoringOffsetX, ScoringOffsetY, RenderScale, RenderScale);
 	int32 TotalPlays = CTFState->GetScoringPlays().Num();
 
@@ -166,7 +154,7 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 				if (Play.Period < 3)
 				{
 					YPos += 0.3f*SmallYL;
-					DrawText(PeriodText[Play.Period], XOffset + 0.2f*ScoreWidth, YPos, UTHUDOwner->SmallFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, RenderScale, 1.f, FLinearColor::White, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Left, ETextVertPos::Center, TextRenderInfo);
+					DrawText(PeriodText[Play.Period], XOffset + 0.2f*ScoreWidth, YPos, UTHUDOwner->TinyFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, RenderScale, 1.f, FLinearColor::White, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Left, ETextVertPos::Center, TextRenderInfo);
 					YPos += 0.7f * SmallYL;
 				}
 			}
@@ -185,7 +173,7 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 			FLinearColor DrawColor = FLinearColor::White;
 			float CurrentScoreHeight = bIsSmallPlay ? 0.5f*ScoreHeight : ScoreHeight;
 			float IconHeight = 0.8f*CurrentScoreHeight;
-			float IconOffset = bIsSmallPlay ? 0.12f*ScoreWidth : 0.1f*ScoreWidth;
+			float IconOffset = 0.13f*ScoreWidth;
 			float BackAlpha = ((DrawnPlays == NumPlays) && (NumPlays == TimeFloor + 1)) ? FMath::Max(0.5f, PctOffset) : 0.5f;
 			DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, YPos, ScoreWidth, CurrentScoreHeight, 149, 138, 32, 32, BackAlpha, DrawColor);
 
@@ -215,12 +203,12 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 			// time of game
 			FString TimeStampLine = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), Play.RemainingTime, false, true, false).ToString();
 			Canvas->SetLinearDrawColor(FLinearColor::White);
-			Canvas->DrawText(UTHUDOwner->SmallFont, TimeStampLine, XOffset + 0.04f*ScoreWidth, YPos + 0.5f*CurrentScoreHeight - 0.5f*SmallYL, RenderScale, RenderScale, TextRenderInfo);
+			Canvas->DrawText(UTHUDOwner->SmallFont, TimeStampLine, XOffset + 0.01f*ScoreWidth, YPos + 0.5f*CurrentScoreHeight - 0.5f*SmallYL, RenderScale, RenderScale, TextRenderInfo);
 
 			// scored by
 			Canvas->SetLinearDrawColor(Play.Team->TeamColor);
 			float ScorerNameYOffset = bIsSmallPlay ? BoxYPos + 0.5f*CurrentScoreHeight - 0.6f*MedYL : YPos;
-			Canvas->DrawText(UTHUDOwner->MediumFont, ScoredByLine, XOffset + 0.2f*ScoreWidth, ScorerNameYOffset, RenderScale, RenderScale, TextRenderInfo);
+			Canvas->DrawText(UTHUDOwner->MediumFont, ScoredByLine, XOffset + 0.35f*ScoreWidth, ScorerNameYOffset, RenderScale, RenderScale, TextRenderInfo);
 			YPos += MedYL;
 
 			if (!bIsSmallPlay)
@@ -241,12 +229,12 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 					AssistLine = UnassistedText.ToString();
 				}
 				Canvas->SetLinearDrawColor(FLinearColor::White);
-				Canvas->DrawText(UTHUDOwner->SmallFont, AssistLine, XOffset + 0.2f*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+				Canvas->DrawText(UTHUDOwner->TinyFont, AssistLine, XOffset + 0.3f*ScoreWidth, YPos, 0.75f*RenderScale, RenderScale, TextRenderInfo);
 			}
 
 			float SingleXL, SingleYL;
 			YPos = BoxYPos + 0.5f*CurrentScoreHeight - 0.6f*ScoringOffsetY;
-			float ScoreX = XOffset + 0.95f*ScoreWidth - ScoringOffsetX;
+			float ScoreX = XOffset + 0.99f*ScoreWidth - ScoringOffsetX;
 			Canvas->SetLinearDrawColor(CTFState->Teams[0]->TeamColor);
 			FString SingleScorePart = FString::Printf(TEXT(" %i"), Play.TeamScores[0]);
 			Canvas->TextSize(UTHUDOwner->MediumFont, SingleScorePart, SingleXL, SingleYL, RenderScale, RenderScale);
@@ -264,7 +252,7 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 			if (RoundBonus > 0)
 			{
 				YPos = BoxYPos + 0.52f*CurrentScoreHeight;
-				ScoreX = XOffset + 0.95f*ScoreWidth - ScoringOffsetX;
+				ScoreX = XOffset + ScoreWidth - ScoringOffsetX;
 				Canvas->SetLinearDrawColor(FLinearColor::Yellow);
 				FString BonusString = (RoundBonus >= 60) ? TEXT("SILVER") : TEXT("BRONZE");
 				if (RoundBonus >= 120)

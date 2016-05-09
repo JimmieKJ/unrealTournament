@@ -99,15 +99,6 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 
 void UUTScoreboard::AdvancePage(int32 Increment)
 {
-	// @TODO FIXMESTEVE hack for progressing through players for scoring breakdown
-	if ((UTHUDOwner->ScoreboardPage >= NumPages-1) && UTHUDOwner->UTPlayerOwner && (GetWorld()->GameState->PlayerArray.Num() > 0) 
-		&& ((Increment > 0) || (UTHUDOwner->UTPlayerOwner->CurrentlyViewedScorePS != GetWorld()->GameState->PlayerArray[0])))
-	{
-		int32 PageIndex = 0;
-		UTHUDOwner->UTPlayerOwner->SetViewedScorePS(GetNextScoringPlayer(Increment, PageIndex), UTPlayerOwner->CurrentlyViewedStatsTab);
-		UTHUDOwner->ScoreboardPage = PageIndex + NumPages - 1;
-		return;
-	}
 	UTHUDOwner->ScoreboardPage = uint32(FMath::Clamp<int32>(int32(UTHUDOwner->ScoreboardPage) + Increment, 0, NumPages - 1));
 	BestWeaponIndex = -1;
 	PageChanged();
@@ -223,14 +214,11 @@ void UUTScoreboard::Draw_Implementation(float RenderDelta)
 
 	float YOffset = 8.f*RenderScale;
 	DrawGamePanel(RenderDelta, YOffset);
+	DrawTeamPanel(RenderDelta, YOffset);
+	DrawScorePanel(RenderDelta, YOffset);
 	if (UTHUDOwner->ScoreboardPage > 0)
 	{
 		DrawScoringStats(RenderDelta, YOffset);
-	}
-	else
-	{
-		DrawTeamPanel(RenderDelta, YOffset);
-		DrawScorePanel(RenderDelta, YOffset);
 	}
 	DrawServerPanel(RenderDelta, FooterPosY);
 
@@ -311,9 +299,8 @@ void UUTScoreboard::DrawScorePanel(float RenderDelta, float& YOffset)
 	}
 	if (UTGameState)
 	{
-		float DrawY = YOffset;
-		DrawScoreHeaders(RenderDelta, DrawY);
-		DrawPlayerScores(RenderDelta, DrawY);
+		DrawScoreHeaders(RenderDelta, YOffset);
+		DrawPlayerScores(RenderDelta, YOffset);
 	}
 }
 
@@ -644,7 +631,7 @@ void UUTScoreboard::DrawServerPanel(float RenderDelta, float YOffset)
 		DrawText(FText::FromString(UTGameState->ServerDescription), Canvas->ClipX - 200.f*RenderScale, YOffset + 13.f*RenderScale, UTHUDOwner->SmallFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 		if ((NumPages > 1) && UTGameState->HasMatchStarted())
 		{
-			FText PageText = FText::Format(ArrowKeysText, FText::AsNumber(UTHUDOwner->ScoreboardPage + 1), FText::AsNumber(NumPages - 1 + GetWorld()->GameState->PlayerArray.Num()));
+			FText PageText = FText::Format(ArrowKeysText, FText::AsNumber(UTHUDOwner->ScoreboardPage + 1), FText::AsNumber(NumPages));
 			DrawText(PageText, Canvas->ClipX * 0.5f, YOffset + 13.f*RenderScale, UTHUDOwner->SmallFont, RenderScale, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
 		}
 	}
@@ -942,8 +929,8 @@ void UUTScoreboard::DrawScoringStats(float DeltaTime, float& YPos)
 	float TopYPos = YPos;
 
 	// draw left side
-	float XOffset = Canvas->ClipX * 0.06f;
-	float ScoreWidth = 0.5f * (Canvas->ClipX - 3.f*XOffset);
+	float XOffset = ScaledEdgeSize;
+	float ScoreWidth = ScaledCellWidth;
 	float MaxHeight = FooterPosY + SavedRenderPosition.Y - YPos;
 	float PageBottom = TopYPos + MaxHeight;
 
@@ -953,7 +940,7 @@ void UUTScoreboard::DrawScoringStats(float DeltaTime, float& YPos)
 	DrawStatsLeft(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
 
 	// draw right side
-	XOffset = ScoreWidth + 2.f*XOffset;
+	XOffset = Canvas->ClipX - ScoreWidth - ScaledEdgeSize;
 	YPos = TopYPos;
 	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.1f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
 	DrawStatsRight(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
@@ -967,7 +954,7 @@ void UUTScoreboard::DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, f
 
 void UUTScoreboard::DrawStatsRight(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)
 {
-	DrawScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
+//	DrawScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
 }
 
 void UUTScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)
@@ -976,7 +963,7 @@ void UUTScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float XOffs
 	FStatsFontInfo StatsFontInfo;
 	StatsFontInfo.TextRenderInfo.bEnableShadow = true;
 	StatsFontInfo.TextRenderInfo.bClipText = true;
-	StatsFontInfo.TextFont = UTHUDOwner->SmallFont;
+	StatsFontInfo.TextFont = UTHUDOwner->TinyFont;
 	bHighlightStatsLineTopValue = false;
 
 	if (!UTPlayerOwner->CurrentlyViewedScorePS)
@@ -998,10 +985,10 @@ void UUTScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float XOffs
 		? FText::Format(StatsPageTitles[StatsPageIndex], Args)
 		: FText::Format(NSLOCTEXT("UTScoreboard", "GenericStatsHeader", "{PlayerName} Stats"), Args);
 	float XL, SmallYL;
-	Canvas->TextSize(UTHUDOwner->SmallFont, "TEST", XL, SmallYL, RenderScale, RenderScale);
+	Canvas->TextSize(UTHUDOwner->TinyFont, "TEST", XL, SmallYL, RenderScale, RenderScale);
 	StatsFontInfo.TextHeight = SmallYL;
 	float MedYL;
-	Canvas->TextSize(UTHUDOwner->MediumFont, CombinedHeader.ToString(), XL, MedYL, RenderScale, RenderScale);
+	Canvas->TextSize(UTHUDOwner->SmallFont, CombinedHeader.ToString(), XL, MedYL, RenderScale, RenderScale);
 
 	if (PS->Team)
 	{

@@ -88,8 +88,8 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	ForceRespawnTime = 2.f;
 	MaxReadyWaitTime = 60;
 	bHasRespawnChoices = false;
-	MinPlayersToStart = 2;
-	QuickPlayersToStart = 4;
+	MinPlayersToStart = 1;
+	QuickPlayersToStart = 1;
 	MaxWaitForPlayers = 240;
 	MaxWaitForQuickMatch = 180;
 	EndScoreboardDelay = 4.f;
