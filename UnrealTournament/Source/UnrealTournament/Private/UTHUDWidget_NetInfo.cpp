@@ -3,15 +3,16 @@
 #include "UnrealTournament.h"
 #include "UTHUDWidget_NetInfo.h"
 
+extern ENGINE_API float GAverageFPS;
+
 UUTHUDWidget_NetInfo::UUTHUDWidget_NetInfo(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	DesignedResolution = 1080;
 	Position = FVector2D(0, 0);
-	Size = FVector2D(350.0f, 540.0f);
+	Size = FVector2D(200.0f, 400.0f);
 	ScreenPosition = FVector2D(0.0f, 0.25f);
 	Origin = FVector2D(0.0f, 0.0f);
 
-	CellHeight = 40;
 	DataColumnX = 0.5f;
 
 	ValueHighlight[0] = FLinearColor::White;
@@ -89,72 +90,81 @@ void UUTHUDWidget_NetInfo::Draw_Implementation(float DeltaTime)
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTHUDOwner->PlayerOwner->PlayerState);
 	UNetDriver* NetDriver = GetWorld()->GetNetDriver();
 
-	DrawTexture(UTHUDOwner->ScoreboardAtlas, 0.5f*XOffset, DrawOffset, Size.X, Size.Y, 149, 138, 32, 32, 0.5f, FLinearColor::Black);
-	DrawOffset += 0.5f * CellHeight;
+	float XL, SmallYL;
+	Canvas->TextSize(UTHUDOwner->TinyFont, "TEST", XL, SmallYL, RenderScale, RenderScale);
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, 0.5f*XOffset, DrawOffset, Size.X, 12*SmallYL, 149, 138, 32, 32, 0.4f, FLinearColor::Black);
+	DrawOffset += 0.5f * SmallYL;
 
-	// ping
 	if (UTPS)
 	{
-		DrawText(NSLOCTEXT("NetInfo", "Ping title", "Ping"), XOffset, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		// frame rate
+		DrawText(NSLOCTEXT("NetInfo", "FrameRate title", "FPS"), XOffset, DrawOffset, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		FFormatNamedArguments FPSArgs;
+		FPSArgs.Add("FPS", FText::AsNumber(int32(GAverageFPS)));
+		DrawText(FText::Format(NSLOCTEXT("NetInfo", "FPS", "{FPS}"), FPSArgs), XOffset + DataColumnX*Size.X, DrawOffset, UTHUDOwner->TinyFont, 1.0f, 1.0f, GetValueColor(UTPS->ExactPing, 70.f, 160.f), ETextHorzPos::Left, ETextVertPos::Center);
+		DrawOffset += SmallYL;
+
+		// ping
+		DrawText(NSLOCTEXT("NetInfo", "Ping title", "Ping"), XOffset, DrawOffset, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 		FFormatNamedArguments Args;
 		Args.Add("PingMS", FText::AsNumber(int32(UTPS->ExactPing)));
-		DrawText(FText::Format(NSLOCTEXT("NetInfo", "Ping", "{PingMS} ms"), Args), XOffset + DataColumnX*Size.X, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, GetValueColor(UTPS->ExactPing, 70.f, 160.f), ETextHorzPos::Left, ETextVertPos::Center);
-		DrawOffset += CellHeight;
+		DrawText(FText::Format(NSLOCTEXT("NetInfo", "Ping", "{PingMS} ms"), Args), XOffset + DataColumnX*Size.X, DrawOffset, UTHUDOwner->TinyFont, 1.0f, 1.0f, GetValueColor(UTPS->ExactPing, 70.f, 160.f), ETextHorzPos::Left, ETextVertPos::Center);
+		DrawOffset += SmallYL;
 
 		float AvgPing = CalcAvgPing();
 		FFormatNamedArguments AltArgs;
 		AltArgs.Add("PingMS", FText::AsNumber(int32(1000.f*AvgPing)));
-		DrawText(FText::Format(NSLOCTEXT("NetInfo", "AltPing", "{PingMS} ms Avg"), AltArgs), XOffset + DataColumnX*Size.X, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, GetValueColor(1000.f*AvgPing, 70.f, 160.f), ETextHorzPos::Left, ETextVertPos::Center);
-		DrawOffset += CellHeight;
+		DrawText(FText::Format(NSLOCTEXT("NetInfo", "AltPing", "{PingMS} ms Avg"), AltArgs), XOffset + 0.5f*DataColumnX*Size.X, DrawOffset, UTHUDOwner->TinyFont, 1.0f, 1.0f, GetValueColor(1000.f*AvgPing, 70.f, 160.f), ETextHorzPos::Left, ETextVertPos::Center);
+		DrawOffset += SmallYL;
 
 		float PingSD = CalcPingStandardDeviation(AvgPing);
 		FFormatNamedArguments SDArgs;
 		SDArgs.Add("PingSD", FText::AsNumber(int32(1000.f*PingSD)));
-		DrawText(FText::Format(NSLOCTEXT("NetInfo", "Ping Standard Deviation", "{PingSD} StdDev"), SDArgs), XOffset + DataColumnX*Size.X, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, GetValueColor(1000.f*PingSD, 20.f, 40.f), ETextHorzPos::Left, ETextVertPos::Center);
-		DrawOffset += CellHeight;
+		DrawText(FText::Format(NSLOCTEXT("NetInfo", "Ping Standard Deviation", "{PingSD} StdDev"), SDArgs), XOffset + 0.5f*DataColumnX*Size.X, DrawOffset, UTHUDOwner->TinyFont, 1.0f, 1.0f, GetValueColor(1000.f*PingSD, 20.f, 40.f), ETextHorzPos::Left, ETextVertPos::Center);
+		DrawOffset += SmallYL;
 
 		FFormatNamedArguments MaxArgs;
 		MaxArgs.Add("MaxD", FText::AsNumber(int32(1000.f*MaxDeviation)));
-		DrawText(FText::Format(NSLOCTEXT("NetInfo", "Ping Max Deviation", "{MaxD} MaxDev"), MaxArgs), XOffset + DataColumnX*Size.X, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, GetValueColor(1000.f*MaxDeviation, 35.f, 60.f), ETextHorzPos::Left, ETextVertPos::Center);
-		DrawOffset += CellHeight;
+		DrawText(FText::Format(NSLOCTEXT("NetInfo", "Ping Max Deviation", "{MaxD} MaxDev"), MaxArgs), XOffset + 0.5f*DataColumnX*Size.X, DrawOffset, UTHUDOwner->TinyFont, 1.0f, 1.0f, GetValueColor(1000.f*MaxDeviation, 35.f, 60.f), ETextHorzPos::Left, ETextVertPos::Center);
+		DrawOffset += SmallYL;
 
-		DrawOffset += CellHeight;
+		DrawOffset += SmallYL;
 	}
 
 	// netspeed
 	if (UTHUDOwner->PlayerOwner->Player)
 	{
-		DrawText(NSLOCTEXT("NetInfo", "NetSpeed title", "Net Speed"), XOffset, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		DrawText(NSLOCTEXT("NetInfo", "NetSpeed title", "Net Speed"), XOffset, DrawOffset, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 		FFormatNamedArguments Args;
 		Args.Add("NetBytes", FText::AsNumber(UTHUDOwner->PlayerOwner->Player->CurrentNetSpeed));
-		DrawText(FText::Format(NSLOCTEXT("NetInfo", "NetBytes", "{NetBytes} bytes/s"), Args), XOffset + DataColumnX*Size.X, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
-		DrawOffset += CellHeight;
+		DrawText(FText::Format(NSLOCTEXT("NetInfo", "NetBytes", "{NetBytes} bytes/s"), Args), XOffset + DataColumnX*Size.X, DrawOffset, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		DrawOffset += SmallYL;
 	}
 
 	// bytes in and out, and packet loss
 	if (NetDriver)
 	{
-		DrawText(NSLOCTEXT("NetInfo", "BytesIn title", "Bytes In"), XOffset, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		DrawText(NSLOCTEXT("NetInfo", "BytesIn title", "Bytes In"), XOffset, DrawOffset, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 		FFormatNamedArguments Args;
 		Args.Add("NetBytesIN", FText::AsNumber(NetDriver->InBytesPerSecond));
-		DrawText(FText::Format(NSLOCTEXT("NetInfo", "NetBytesIN", "{NetBytesIN} bytes/s"), Args), XOffset + DataColumnX*Size.X, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
-		DrawOffset += CellHeight;
+		DrawText(FText::Format(NSLOCTEXT("NetInfo", "NetBytesIN", "{NetBytesIN} Bps"), Args), XOffset + DataColumnX*Size.X, DrawOffset, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		DrawOffset += SmallYL;
 
-		DrawText(NSLOCTEXT("NetInfo", "BytesOut title", "Bytes Out"), XOffset, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		DrawText(NSLOCTEXT("NetInfo", "BytesOut title", "Bytes Out"), XOffset, DrawOffset, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 		Args.Add("NetBytes", FText::AsNumber(NetDriver->OutBytesPerSecond));
-		DrawText(FText::Format(NSLOCTEXT("NetInfo", "NetBytes", "{NetBytes} bytes/s"), Args), XOffset + DataColumnX*Size.X, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
-		DrawOffset += CellHeight;
-		DrawOffset += CellHeight;
+		DrawText(FText::Format(NSLOCTEXT("NetInfo", "NetBytes", "{NetBytes} Bps"), Args), XOffset + DataColumnX*Size.X, DrawOffset, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		DrawOffset += SmallYL;
+		DrawOffset += SmallYL;
 
-		DrawText(NSLOCTEXT("NetInfo", "PLOUT title", "Packet Loss Out"), XOffset, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		DrawText(NSLOCTEXT("NetInfo", "PLOUT title", "Pkt Loss Out"), XOffset, DrawOffset, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 		Args.Add("PLOUT", FText::AsNumber(NetDriver->OutPacketsLost));
-		DrawText(FText::Format(NSLOCTEXT("NetInfo", "PLOUT", "{PLOUT}%"), Args), XOffset + 1.1f*DataColumnX*Size.X, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, GetValueColor(NetDriver->OutPacketsLost, 0.1f, 1.f), ETextHorzPos::Left, ETextVertPos::Center);
-		DrawOffset += CellHeight;
+		DrawText(FText::Format(NSLOCTEXT("NetInfo", "PLOUT", "{PLOUT}%"), Args), XOffset + 1.1f*DataColumnX*Size.X, DrawOffset, UTHUDOwner->TinyFont, 1.0f, 1.0f, GetValueColor(NetDriver->OutPacketsLost, 0.1f, 1.f), ETextHorzPos::Left, ETextVertPos::Center);
+		DrawOffset += SmallYL;
 
-		DrawText(NSLOCTEXT("NetInfo", "PLIN title", "Packet Loss In"), XOffset, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		DrawText(NSLOCTEXT("NetInfo", "PLIN title", "Pkt Loss In"), XOffset, DrawOffset, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 		Args.Add("PLIN", FText::AsNumber(NetDriver->InPacketsLost));
-		DrawText(FText::Format(NSLOCTEXT("NetInfo", "PLIN", "{PLIN}%"), Args), XOffset + 1.1f*DataColumnX*Size.X, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, GetValueColor(NetDriver->InPacketsLost, 0.1f, 1.f), ETextHorzPos::Left, ETextVertPos::Center);
-		DrawOffset += CellHeight;
+		DrawText(FText::Format(NSLOCTEXT("NetInfo", "PLIN", "{PLIN}%"), Args), XOffset + 1.1f*DataColumnX*Size.X, DrawOffset, UTHUDOwner->TinyFont, 1.0f, 1.0f, GetValueColor(NetDriver->InPacketsLost, 0.1f, 1.f), ETextHorzPos::Left, ETextVertPos::Center);
+		DrawOffset += SmallYL;
 	}
 
 	// packet loss - also measure burstiness
