@@ -25,6 +25,9 @@ class UNREALTOURNAMENT_API UUTCTFScoreboard : public UUTTeamScoreboard
 	UPROPERTY()
 	FText PeriodText[3];
 
+	UPROPERTY()
+		FText ScoringPlayScore;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		FText CH_Caps;
 
