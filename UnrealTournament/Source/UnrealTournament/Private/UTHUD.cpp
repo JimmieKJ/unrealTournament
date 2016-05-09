@@ -600,11 +600,16 @@ void AUTHUD::DrawHUD()
 					float TotalTime, ElapsedTime;
 					if (A->FindFunction(NAME_DelayedTouch) && IsTimerActiveUFunc(A, NAME_DelayedTouch, &TotalTime, &ElapsedTime))
 					{
-						Canvas->DrawColor = WhiteColor;
-						FVector2D Size(256.0f, 64.0f);
-						FVector2D Pos((Canvas->SizeX - Size.X) * 0.5f, Canvas->SizeY * 0.4f - Size.Y * 0.5f);
-						Canvas->K2_DrawBox(Pos, Size, 4.0f);
-						Canvas->DrawTile(Canvas->DefaultTexture, Pos.X, Pos.Y, Size.X * ElapsedTime / TotalTime, Size.Y, 0.0f, 0.0f, 1.0f, 1.0f, BLEND_Opaque);
+						TArray<AActor*> PickupClaims;
+						A->GetOverlappingActors(PickupClaims, APawn::StaticClass());
+						if (PickupClaims.Num() <= 1)
+						{
+							Canvas->DrawColor = WhiteColor;
+							FVector2D Size(256.0f, 64.0f);
+							FVector2D Pos((Canvas->SizeX - Size.X) * 0.5f, Canvas->SizeY * 0.4f - Size.Y * 0.5f);
+							Canvas->K2_DrawBox(Pos, Size, 4.0f);
+							Canvas->DrawTile(Canvas->DefaultTexture, Pos.X, Pos.Y, Size.X * ElapsedTime / TotalTime, Size.Y, 0.0f, 0.0f, 1.0f, 1.0f, BLEND_Opaque);
+						}
 					}
 				}
 			}
