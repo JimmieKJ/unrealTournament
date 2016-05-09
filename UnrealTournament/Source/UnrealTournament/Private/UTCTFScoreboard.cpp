@@ -206,10 +206,13 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 			// scored by
 			Canvas->SetLinearDrawColor(Play.Team->TeamColor);
 			float ScorerNameYOffset = bIsSmallPlay ? BoxYPos + 0.5f*CurrentScoreHeight - 0.6f*MedYL : YPos;
-			Canvas->DrawText(UTHUDOwner->MediumFont, ScoredByLine, XOffset + 0.35f*ScoreWidth, ScorerNameYOffset, RenderScale, RenderScale, TextRenderInfo);
+			float NameSizeX, NameSizeY;
+			Canvas->TextSize(UTHUDOwner->SmallFont, ScoredByLine, NameSizeX, NameSizeY, RenderScale, RenderScale);
+			Canvas->DrawText(UTHUDOwner->MediumFont, ScoredByLine, XOffset + 0.35f*ScoreWidth, ScorerNameYOffset, RenderScale * FMath::Min(1.f, 0.35f*ScoreWidth/FMath::Max(NameSizeX, 1.f)), RenderScale, TextRenderInfo);
 			YPos += 0.8f* MedYL;
 
-			if (!bIsSmallPlay)
+			int32 RoundBonus = FMath::Max(Play.RedBonus, Play.BlueBonus);
+			if (!bIsSmallPlay && (RoundBonus == 0))
 			{
 				// assists
 				FString AssistLine;
@@ -251,18 +254,18 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 			ScoreX += SingleXL;
 			Canvas->DrawText(UTHUDOwner->MediumFont, FString::Printf(TEXT(" %i"), Play.TeamScores[1]), ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
 
-			int32 RoundBonus = FMath::Max(Play.RedBonus, Play.BlueBonus);
 			if (RoundBonus > 0)
 			{
 				YPos = BoxYPos + 0.52f*CurrentScoreHeight;
-				ScoreX = XOffset + ScoreWidth - ScoringOffsetX;
 				Canvas->SetLinearDrawColor(FLinearColor::Yellow);
 				FString BonusString = (RoundBonus >= 60) ? TEXT("SILVER") : TEXT("BRONZE");
 				if (RoundBonus >= 120)
 				{
 					BonusString = TEXT("GOLD");
 				}
-				Canvas->DrawText(UTHUDOwner->SmallFont, BonusString, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
+				float BonusOffsetX, BonusOffsetY;
+				Canvas->TextSize(UTHUDOwner->SmallFont, BonusString, BonusOffsetX, BonusOffsetY, RenderScale, RenderScale);
+				Canvas->DrawText(UTHUDOwner->SmallFont, BonusString, XOffset + 0.985f * ScoreWidth - BonusOffsetX, YPos, RenderScale, RenderScale, TextRenderInfo);
 			}
 			YPos = BoxYPos + CurrentScoreHeight + 8.f*RenderScale;
 		}
