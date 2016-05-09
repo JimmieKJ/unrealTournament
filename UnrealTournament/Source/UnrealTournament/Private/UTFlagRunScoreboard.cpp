@@ -62,11 +62,28 @@ void UUTFlagRunScoreboard::DrawPlayerScore(AUTPlayerState* PlayerState, float XO
 			const float VL = SelectedPowerup->HUDIcon.VL;
 				
 			const float AspectRatio = UL / VL;
-			UTexture* PowerupTexture = SelectedPowerup->HUDIcon.Texture;
-			if (PowerupTexture)
+			const float TextureSize = (Width * (ColumnHeaderPowerupEndX - ColumnHeaderPowerupX));
+
+			//Draw a Red Dash if they have used their powerup, or an icon if they have not yet used it
+			AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFState);
+			if (RCTFGameState)
 			{
-				const float TextureSize = (Width * (ColumnHeaderPowerupEndX - ColumnHeaderPowerupX));
-				DrawTexture(PowerupTexture, XOffset + (Width * ColumnHeaderPowerupX), YOffset, TextureSize, TextureSize * AspectRatio, U, V, UL, VL);
+				const bool bIsAbleToEarnMorePowerups = (RCTFGameState->IsTeamOnOffense(PlayerState->GetTeamNum()) ? RCTFGameState->bIsOffenseAbleToGainPowerup : RCTFGameState->bIsDefenseAbleToGainPowerup);				
+				
+				//Draw Dash
+				if (!bIsAbleToEarnMorePowerups && !RCTFGameState->IsMatchIntermission() && (PlayerState->GetRemainingBoosts() <= 0))
+				{
+					DrawText(NSLOCTEXT("UTScoreboard", "Dash", "-"), XOffset + (Width * ((ColumnHeaderPowerupEndX + ColumnHeaderPowerupX) / 2)), YOffset + ColumnY, UTHUDOwner->TinyFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+				}
+				//Draw powerup symbol
+				else
+				{
+					UTexture* PowerupTexture = SelectedPowerup->HUDIcon.Texture;
+					if (PowerupTexture)
+					{
+						DrawTexture(PowerupTexture, XOffset + (Width * ColumnHeaderPowerupX), YOffset, TextureSize, TextureSize * AspectRatio, U, V, UL, VL);
+					}
+				}
 			}
 		}
 		else
