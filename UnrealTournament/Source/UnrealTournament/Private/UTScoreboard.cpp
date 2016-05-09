@@ -254,11 +254,18 @@ void UUTScoreboard::DrawGamePanel(float RenderDelta, float& YOffset)
 			GameName = FText::FromString(DefaultGame->DisplayName.ToString().ToUpper());
 		}
 	}
-	FFormatNamedArguments Args;
-	Args.Add("GameName", FText::AsCultureInvariant(GameName));
-	Args.Add("MapName", FText::AsCultureInvariant(MapName));
-	FText GameMessage = FText::Format(GameMessageText, Args);
-	DrawText(GameMessage, 220, YOffset + 36.f*RenderScale, UTHUDOwner->MediumFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center); // 470
+	if ((!UTGameState || (UTGameState->IsMatchInProgress() && !UTGameState->IsMatchIntermission())) || ScoreMessageText.IsEmpty())
+	{ 
+		FFormatNamedArguments Args;
+		Args.Add("GameName", FText::AsCultureInvariant(GameName));
+		Args.Add("MapName", FText::AsCultureInvariant(MapName));
+		FText GameMessage = FText::Format(GameMessageText, Args);
+		DrawText(GameMessage, 220.f*RenderScale, YOffset + 36.f*RenderScale, UTHUDOwner->MediumFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center); 
+	}
+	else
+	{
+		DrawText(ScoreMessageText, 220.f*RenderScale, YOffset + 36.f*RenderScale, UTHUDOwner->MediumFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center); 
+	}
 
 	DrawGameOptions(RenderDelta, YOffset);
 	YOffset += 80.f*RenderScale;	// The size of this zone.

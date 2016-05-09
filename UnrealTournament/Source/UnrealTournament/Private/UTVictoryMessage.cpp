@@ -3,6 +3,8 @@
 #include "UnrealTournament.h"
 #include "UTLocalMessage.h"
 #include "UTVictoryMessage.h"
+#include "UTHUD.h"
+#include "UTScoreboard.h"
 #include "GameFramework/LocalMessage.h"
 
 
@@ -23,6 +25,22 @@ UUTVictoryMessage::UUTVictoryMessage(const class FObjectInitializer& ObjectIniti
 	RedTeamWinsText = NSLOCTEXT("UTVictoryMessage", "RedTeamWinsText", "Red Team Wins The Match!");
 	BlueTeamWinsSecondaryText = NSLOCTEXT("UTVictoryMessage", "BlueTeamWinsSecondaryText", "Blue Team Wins The Match (TIEBREAKER: total capture time)");
 	RedTeamWinsSecondaryText = NSLOCTEXT("UTVictoryMessage", "RedTeamWinsSecondaryText", "Red Team Wins The Match (TIEBREAKER: total capture time)");
+}
+
+void UUTVictoryMessage::ClientReceive(const FClientReceiveData& ClientData) const
+{
+	Super::ClientReceive(ClientData);
+
+	FText LocalMessageText = ResolveMessage(ClientData.MessageIndex, (ClientData.RelatedPlayerState_1 == ClientData.LocalPC->PlayerState), ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject);
+	if (!LocalMessageText.IsEmpty() && ClientData.LocalPC)
+	{
+		AUTHUD* MyHUD = Cast<AUTHUD>(ClientData.LocalPC->MyHUD);
+		UUTScoreboard* MyScoreboard = MyHUD ? MyHUD->GetScoreboard() : nullptr;
+		if (MyScoreboard != nullptr)
+		{
+			MyScoreboard->ScoreMessageText = LocalMessageText;
+		}
+	}
 }
 
 FLinearColor UUTVictoryMessage::GetMessageColor_Implementation(int32 MessageIndex) const
