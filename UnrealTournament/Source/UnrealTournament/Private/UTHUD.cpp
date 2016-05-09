@@ -81,7 +81,6 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	LastPickupTime = -100.f;
 	bFontsCached = false;
 	bShowOverlays = true;
-	bHaveAddedSpectatorWidgets = false;
 
 	TeamIconUV[0] = FVector2D(257.f, 940.f);
 	TeamIconUV[1] = FVector2D(333.f, 940.f);
@@ -148,16 +147,11 @@ void AUTHUD::BeginPlay()
 			GetCrosshair(*It);
 		}
 	}
+	AddSpectatorWidgets();
 }
 
 void AUTHUD::AddSpectatorWidgets()
 {
-	if (bHaveAddedSpectatorWidgets)
-	{
-		return;
-	}
-	bHaveAddedSpectatorWidgets = true;
-
 	// Parse the widgets found in the ini
 	for (int32 i = 0; i < SpectatorHudWidgetClasses.Num(); i++)
 	{
@@ -522,7 +516,6 @@ void AUTHUD::DrawHUD()
 		{
 			CacheFonts();
 		}
-		AddSpectatorWidgets();
 		if (PlayerOwner && PlayerOwner->PlayerState && PlayerOwner->PlayerState->bOnlySpectator)
 		{
 			UUTLocalPlayer* UTLP = Cast<UUTLocalPlayer>(PlayerOwner->Player);

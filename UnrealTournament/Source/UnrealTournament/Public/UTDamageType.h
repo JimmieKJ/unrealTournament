@@ -42,6 +42,9 @@ struct FUTRadialDamageEvent : public FRadialDamageEvent
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Damage)
 	bool bScaleMomentum;
 
+	UPROPERTY()
+		FVector_NetQuantizeNormal ShotDirection;
+
 	/** ID for this class. NOTE this must be unique for all damage events. */
 	static const int32 ClassID = 102;
 	virtual int32 GetTypeID() const { return FUTRadialDamageEvent::ClassID; };

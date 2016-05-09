@@ -209,9 +209,6 @@ public:
 	UPROPERTY(Config = Game)
 		TArray<FString> SpectatorHudWidgetClasses;
 
-	UPROPERTY()
-		bool bHaveAddedSpectatorWidgets;
-
 	virtual void AddSpectatorWidgets();
 
 	// Add any of the blueprint based hud widgets

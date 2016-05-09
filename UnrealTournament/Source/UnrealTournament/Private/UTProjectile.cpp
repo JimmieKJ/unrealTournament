@@ -809,6 +809,7 @@ void AUTProjectile::DamageImpactedActor_Implementation(AActor* OtherActor, UPrim
 		new(Event.ComponentHits) FHitResult(OtherActor, OtherComp, HitLocation, HitNormal);
 		Event.ComponentHits[0].TraceStart = HitLocation - GetVelocity();
 		Event.ComponentHits[0].TraceEnd = HitLocation + GetVelocity();
+		Event.ShotDirection = GetVelocity().GetSafeNormal();
 		OtherActor->TakeDamage(Event.Params.BaseDamage, Event, ResolvedInstigator, this);
 	}
 	else
