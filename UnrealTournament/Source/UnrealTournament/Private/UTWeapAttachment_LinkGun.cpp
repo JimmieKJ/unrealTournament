@@ -55,7 +55,7 @@ void AUTWeapAttachment_LinkGun::PlayFiringEffects()
 
 void AUTWeapAttachment_LinkGun::FiringExtraUpdated()
 {
-	if (UTOwner->FlashExtra > 0 && UTOwner->FireMode == 1)
+	if (UTOwner->FlashExtra > 0 && UTOwner->FireMode == 1 && WeaponType != NULL)
 	{
 		// display beam pulse
 		LastBeamPulseTime = GetWorld()->TimeSeconds;
