@@ -222,7 +222,7 @@ void AUTProj_BioLauncherShot::OnWebOverlapBegin(AActor* OtherActor, UPrimitiveCo
 {
 	if (Cast<APawn>(OtherActor) != NULL)
 	{
-		OnOverlapBegin(OtherActor, OtherComp, OtherBodyIndex, bFromSweep, SweepResult);
+		ProcessHit(OtherActor, OtherComp, GetActorLocation(), FVector(0.0f, 0.0f, 1.0f));
 	}
 }
 
