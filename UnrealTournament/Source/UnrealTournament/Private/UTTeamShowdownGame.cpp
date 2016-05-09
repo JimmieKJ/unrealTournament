@@ -107,8 +107,8 @@ void AUTTeamShowdownGame::GenericPlayerInitialization(AController* C)
 	if (PS != NULL)
 	{
 		// default boost type
-		PS->BoostClass = LoadClass<AUTInventory>(NULL, TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Arsenal.BP_Arsenal_C"));
-		PS->SetRemainingBoosts(1);
+		//PS->BoostClass = LoadClass<AUTInventory>(NULL, TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Arsenal.BP_Arsenal_C"));
+		//PS->SetRemainingBoosts(1);
 	}
 }
 
