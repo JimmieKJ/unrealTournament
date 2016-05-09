@@ -29,6 +29,10 @@ class UNREALTOURNAMENT_API AUTWeap_Sniper : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = InstantHitDamage)
 	float HeadshotDamage;
 
+	/** damage for headshot blocked by helmet */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = InstantHitDamage)
+		float BlockedHeadshotDamage;
+
 	/** damage type for headshot (instant hit only, if NULL use standard damage type) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = InstantHitDamage)
 	TSubclassOf<UDamageType> HeadshotDamageType;

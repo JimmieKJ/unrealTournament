@@ -26,6 +26,7 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FObjectInitializer& ObjectInitializer)
 	BaseAISelectRating = 0.7f;
 	BasePickupDesireability = 0.63f;
 	FiringViewKickback = -50.f;
+	BlockedHeadshotDamage = 45;
 
 	KillStatsName = NAME_SniperKills;
 	AltKillStatsName = NAME_SniperHeadshotKills;
@@ -149,7 +150,11 @@ void AUTWeap_Sniper::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		AUTCharacter* C = Cast<AUTCharacter>(Hit.Actor.Get());
 		if (C != NULL && C->IsHeadShot(Hit.Location, FireDir, GetHeadshotScale(), UTOwner, PredictionTime))
 		{
-			if (!C->BlockedHeadShot(Hit.Location, FireDir, GetHeadshotScale(), true, UTOwner))
+			if (C->BlockedHeadShot(Hit.Location, FireDir, GetHeadshotScale(), true, UTOwner))
+			{
+				Damage = BlockedHeadshotDamage;
+			}
+			else
 			{
 				AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
 				if (!B || (B->Skill + B->Personality.Accuracy > 3.5f))
