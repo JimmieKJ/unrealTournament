@@ -47,6 +47,7 @@
 #include "UTPlayerStart.h"
 #include "UTPlaceablePowerup.h"
 #include "SUTSpawnWindow.h"
+#include "UTWeaponLocker.h"
 
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -2377,6 +2378,15 @@ void AUTGameMode::SetPlayerDefaults(APawn* PlayerPawn)
 	if (bSetPlayerDefaultsNewSpawn)
 	{
 		GiveDefaultInventory(PlayerPawn);
+		AUTPlayerStart* UTStart = Cast<AUTPlayerStart>(LastStartSpot);
+		if (UTStart != NULL)
+		{
+			AUTWeaponLocker* Locker = Cast<AUTWeaponLocker>(UTStart->AssociatedPickup);
+			if (Locker != NULL)
+			{
+				Locker->ProcessTouch(PlayerPawn);
+			}
+		}
 	}
 }
 

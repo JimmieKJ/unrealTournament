@@ -19,9 +19,13 @@ public:
 
 	/** if set ignore this PlayerStart for asymmetric CTF */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-		bool bIgnoreInASymCTF;
+	bool bIgnoreInASymCTF;
 
 	/** if set, this player state will be rated higher if the team is on defense */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bDefensiveStart;
+
+	/** pickup associated with this start. If it's a WeaponLocker, the contents will be given to players upon spawning. Otherwise, it can be used as a UI hint for spawn selection */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class AUTPickup* AssociatedPickup;
 };
