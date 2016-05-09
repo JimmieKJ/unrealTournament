@@ -35,7 +35,7 @@ class UNREALTOURNAMENT_API AUTWeapAttachment_RocketLauncher : public AUTWeaponAt
 
 			if (NumRockets > 0)
 			{
-				uint8 NumLoadedRockets = UTOwner->FlashExtra - 1;
+				uint8 NumLoadedRockets = (UTOwner->FlashExtra & 0x0F) - 1;
 				static FName NAME_RocketMesh(TEXT("RocketMesh"));
 				RocketLoadLights->SetActorParameter(NAME_RocketMesh, this);
 				RocketLoadLights->ActivateSystem();
