@@ -629,7 +629,7 @@ void UUTScoreboard::DrawServerPanel(float RenderDelta, float YOffset)
 		DrawTexture(UTHUDOwner->ScoreboardAtlas, ScaledEdgeSize, YOffset, Canvas->ClipX - 2.f*ScaledEdgeSize, 38.f*RenderScale, 4, 132, 30, 38, 1.0);
 		DrawText(SpectatorMessage, ScaledEdgeSize + 10.f*RenderScale, YOffset + 13.f*RenderScale, UTHUDOwner->SmallFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 		DrawText(FText::FromString(UTGameState->ServerDescription), Canvas->ClipX - 200.f*RenderScale, YOffset + 13.f*RenderScale, UTHUDOwner->SmallFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
-		if ((NumPages > 1) && UTGameState->HasMatchStarted())
+		if ((NumPages > 1) && UTGameState->HasMatchStarted() && !bIsInteractive)
 		{
 			FText PageText = FText::Format(ArrowKeysText, FText::AsNumber(UTHUDOwner->ScoreboardPage + 1), FText::AsNumber(NumPages));
 			DrawText(PageText, Canvas->ClipX * 0.5f, YOffset + 13.f*RenderScale, UTHUDOwner->SmallFont, RenderScale, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
