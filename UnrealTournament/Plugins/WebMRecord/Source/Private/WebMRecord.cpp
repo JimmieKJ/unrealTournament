@@ -1545,7 +1545,8 @@ void FWebMRecord::EncodeAnimatedGIF(const FString& Filename)
 	gdImagePtr prev = nullptr;
 
 	im = gdImageCreateTrueColor(VideoWidth, VideoHeight);
-	FILE* out = fopen(TCHAR_TO_ANSI(*(Filename + TEXT(".gif"))), "wb");
+	FILE* out = nullptr;
+	fopen_s(&out, TCHAR_TO_ANSI(*(Filename + TEXT(".gif"))), "wb");
 
 	if (bWriteYUVToTempFile)
 	{
