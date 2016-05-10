@@ -46,6 +46,7 @@ void AUTGhostFlag::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutL
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AUTGhostFlag, MyCarriedObject);
+	DOREPLIFETIME(AUTGhostFlag, MidPoint);
 }
 
 void AUTGhostFlag::Tick(float DeltaTime)

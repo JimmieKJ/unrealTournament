@@ -307,7 +307,7 @@ void AUTCTFFlag::Tick(float DeltaTime)
 					LastPositionUpdateTime = GetWorld()->GetTimeSeconds();
 					FFlagTrailPos NewPosition;
 					NewPosition.Location = HoldingPawn->GetActorLocation();
-					NewPosition.MidPoint = PreviousPos;
+					NewPosition.MidPoint = HoldingPawn->GetActorLocation();
 					PastPositions.Add(NewPosition);
 					bMidPointSet = false;
 					bAddedReturnSpot = true;
@@ -325,7 +325,7 @@ void AUTCTFFlag::Tick(float DeltaTime)
 				}
 				else
 				{
-					MidPoint = HoldingPawn->GetActorLocation();
+					MidPoint = HoldingPawn->GetActorLocation() - 100.f * HoldingPawn->GetVelocity().SafeNormal();
 				}
 			}
 		}
