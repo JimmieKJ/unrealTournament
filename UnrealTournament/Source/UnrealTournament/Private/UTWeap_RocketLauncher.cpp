@@ -562,7 +562,7 @@ void AUTWeap_RocketLauncher::UpdateLock()
 	}
 
 	const FVector FireLoc = GetFireStartLoc();
-	AActor* NewTarget = UUTGameplayStatics::PickBestAimTarget(UTOwner->Controller, FireLoc, GetAdjustedAim(FireLoc).Vector(), LockAim, LockRange, AUTCharacter::StaticClass());
+	AActor* NewTarget = UUTGameplayStatics::PickBestAimTarget(UTOwner->Controller, FireLoc, GetBaseFireRotation().Vector(), LockAim, LockRange, AUTCharacter::StaticClass());
 
 	//Have a target. Update the target lock
 	if (LockedTarget != NULL)
