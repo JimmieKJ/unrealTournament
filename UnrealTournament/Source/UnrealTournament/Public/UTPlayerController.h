@@ -698,6 +698,10 @@ public:
 	UFUNCTION(Reliable, Server, WithValidation)
 	void ServerSetWeaponHand(EWeaponHand NewHand);
 
+	/** Last time PrevWeapon or NextWeapon was called. */
+	UPROPERTY(BluePrintReadWrite, Category = Input)
+		float LastWeaponPrevNextTime;
+
 protected:
 	UPROPERTY(BluePrintReadOnly, Category = Dodging)
 	float LastTapLeftTime;

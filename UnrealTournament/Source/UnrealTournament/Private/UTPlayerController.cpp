@@ -858,6 +858,7 @@ void AUTPlayerController::SwitchWeaponInSequence(bool bPrev)
 {
 	if (UTCharacter != NULL && IsLocalPlayerController() && UTCharacter->TauntCount == 0 && !UTCharacter->IsRagdoll())
 	{
+		LastWeaponPrevNextTime = GetWorld()->GetTimeSeconds();
 		if (UTCharacter->GetWeapon() == NULL)
 		{
 			SwitchToBestWeapon();
