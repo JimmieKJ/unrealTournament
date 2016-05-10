@@ -17,6 +17,7 @@
 #include "UTGameEngine.h"
 #include "UTBaseGameMode.h"
 #include "UTGameInstance.h"
+#include "UTWorldSettings.h"
 
 AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -33,6 +34,9 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	TauntSelectionIndex = 0;
 	bPersistentKillIconMessages = false;
 	bOverrideToggle = false;
+
+	// We want to be ticked.
+	PrimaryActorTick.bCanEverTick = true;
 
 	ServerName = TEXT("My First Server");
 	ServerMOTD = TEXT("Welcome!");
@@ -261,6 +265,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	BoostRechargeRateAlive = 1.0f;
 	BoostRechargeRateDead = 2.0f;
 	BoostRechargeTime = 0.0f; // off by default
+	MusicVolume = 1.f;
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
@@ -363,6 +368,17 @@ void AUTGameState::OnRep_OverlayEffects()
 			UTC->UpdateCharOverlays();
 			UTC->UpdateWeaponOverlays();
 		}
+	}
+}
+
+void AUTGameState::Tick(float DeltaTime)
+{
+	AUTWorldSettings* Settings = Cast<AUTWorldSettings>(GetWorldSettings());
+	if (Settings && Settings->MusicComp)
+	{
+		float DesiredVolume = IsMatchInProgress() && !IsMatchIntermission() ? 0.f : 1.f;
+		MusicVolume = MusicVolume * (1.f - 0.5f*DeltaTime) + 0.5f*DeltaTime*DesiredVolume;
+		Settings->MusicComp->SetVolumeMultiplier(MusicVolume);
 	}
 }
 
