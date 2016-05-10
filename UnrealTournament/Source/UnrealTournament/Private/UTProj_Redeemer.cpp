@@ -48,15 +48,12 @@ AUTProj_Redeemer::AUTProj_Redeemer(const class FObjectInitializer& ObjectInitial
 
 void AUTProj_Redeemer::RedeemerDenied(AController* InstigatedBy)
 {
-	APlayerState* InstigatorPS = InstigatorController ? InstigatorController->PlayerState : NULL;
-	APlayerState* InstigatedbyPS = InstigatedBy ? InstigatedBy->PlayerState : NULL;
-	if (Cast<AUTPlayerController>(InstigatedBy))
+	AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (GM)
 	{
-		Cast<AUTPlayerController>(InstigatedBy)->SendPersonalMessage(UUTCTFRewardMessage::StaticClass(), 0, InstigatedbyPS, InstigatorPS, NULL);
-	}
-	if (Cast<AUTPlayerController>(InstigatorController))
-	{
-		Cast<AUTPlayerController>(InstigatorController)->SendPersonalMessage(UUTCTFRewardMessage::StaticClass(), 0, InstigatedbyPS, InstigatorPS, NULL);
+		APlayerState* InstigatorPS = InstigatorController ? InstigatorController->PlayerState : NULL;
+		APlayerState* InstigatedbyPS = InstigatedBy ? InstigatedBy->PlayerState : NULL;
+		GM->BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 0, InstigatedbyPS, InstigatorPS, NULL);
 	}
 }
 

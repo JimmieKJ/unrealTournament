@@ -559,15 +559,12 @@ void AUTRemoteRedeemer::Tick(float DeltaSeconds)
 
 void AUTRemoteRedeemer::RedeemerDenied(AController* InstigatedBy)
 {
-	APlayerState* InstigatorPS = GetController() ? GetController()->PlayerState : NULL;
-	APlayerState* InstigatedbyPS = InstigatedBy ? InstigatedBy->PlayerState : NULL;
-	if (Cast<AUTPlayerController>(InstigatedBy))
+	AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (GM)
 	{
-		Cast<AUTPlayerController>(InstigatedBy)->SendPersonalMessage(UUTCTFRewardMessage::StaticClass(), 0, InstigatedbyPS, InstigatorPS, NULL);
-	}
-	if (Cast<AUTPlayerController>(GetController()))
-	{
-		Cast<AUTPlayerController>(GetController())->SendPersonalMessage(UUTCTFRewardMessage::StaticClass(), 0, InstigatedbyPS, InstigatorPS, NULL);
+		APlayerState* InstigatorPS = GetController() ? GetController()->PlayerState : NULL;;
+		APlayerState* InstigatedbyPS = InstigatedBy ? InstigatedBy->PlayerState : NULL;
+		GM->BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 0, InstigatedbyPS, InstigatorPS, NULL);
 	}
 }
 

@@ -17,6 +17,9 @@ class UNREALTOURNAMENT_API UUTCTFRewardMessage : public UUTLocalMessage
 		FText DeniedMessage;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText 	RejectedMessage;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText BlueTeamName;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)

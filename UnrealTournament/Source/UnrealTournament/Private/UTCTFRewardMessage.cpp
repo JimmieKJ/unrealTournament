@@ -16,6 +16,7 @@ UUTCTFRewardMessage::UUTCTFRewardMessage(const class FObjectInitializer& ObjectI
 	bIsConsoleMessage = false;
 	AssistMessage = NSLOCTEXT("CTFRewardMessage", "Assist", "Assist!");
 	DeniedMessage = NSLOCTEXT("CTFRewardMessage", "Denied", "Denied!");
+	RejectedMessage = NSLOCTEXT("CTFRewardMessage", "Rejected", "Redeemer Rejected!");
 	BlueTeamName = NSLOCTEXT("CTFRewardMessage", "BlueTeamName", "BLUE TEAM");
 	RedTeamName = NSLOCTEXT("CTFRewardMessage", "RedTeamName", "RED TEAM");
 	TeamScorePrefix = NSLOCTEXT("CTFRewardMessage", "TeamScorePrefix", "");
@@ -65,7 +66,7 @@ FName UUTCTFRewardMessage::GetAnnouncementName_Implementation(int32 Switch, cons
 {
 	switch (Switch)
 	{
-	case 0: return TEXT("Denied"); break;
+	case 0: return TEXT("RW_Rejected"); break;
 	case 1: return TEXT("LastSecondSave"); break;
 	case 2: return TEXT("Assist"); break;
 	case 5: return TEXT("HatTrick"); break;
@@ -134,7 +135,7 @@ FText UUTCTFRewardMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APla
 {
 	switch (Switch)
 	{
-	case 0: return DeniedMessage; break;
+	case 0: return RejectedMessage; break;
 	case 2: return AssistMessage; break;
 	case 3: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
 	case 4: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
