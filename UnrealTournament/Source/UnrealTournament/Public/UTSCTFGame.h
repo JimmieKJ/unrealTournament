@@ -21,8 +21,7 @@ class UNREALTOURNAMENT_API AUTSCTFGame : public AUTCTFRoundGame
 
 
 	virtual void FlagTeamChanged(uint8 NewTeamIndex);
-	virtual void ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
-
+	
 	virtual bool IsTeamStillAlive(uint8 TeamNum);
 	bool CanFlagTeamSwap(uint8 NewTeamNum);
 
