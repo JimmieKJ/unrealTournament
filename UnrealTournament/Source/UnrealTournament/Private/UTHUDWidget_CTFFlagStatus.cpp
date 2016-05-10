@@ -38,12 +38,12 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 
 	if (bStatusDir)
 	{
-		StatusScale += 2.f*DeltaTime;
+		StatusScale = FMath::Min(StatusScale+2.f*DeltaTime, 2.4f);
 		bStatusDir = (StatusScale < 2.2f);
 	}
 	else
 	{
-		StatusScale -= 2.f*DeltaTime;
+		StatusScale = FMath::Max(StatusScale - 2.f*DeltaTime, 1.f);
 		bStatusDir = (StatusScale < 1.2f);
 	}
 
