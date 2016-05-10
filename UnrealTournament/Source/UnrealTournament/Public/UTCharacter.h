@@ -909,7 +909,15 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	void SetHeadScale(float NewHeadScale);
-	
+
+	/** Volume adjustment for footstep sounds by this character when owned by local player. */
+	UPROPERTY()
+		float OwnFootstepVolumeMultiplier;
+
+	/** Volume adjustment for locally played sounds by this character. */
+	UPROPERTY()
+		float OwnVolumeMultiplier;
+
 	/** sends notification to any other server-side Actors (controller, etc) that need to know about being hit 
 	AppliedDamage is the damage inflicted, Damage is the net damage taken after armor, etc. reductions. */
 	virtual void NotifyTakeHit(AController* InstigatedBy, int32 AppliedDamage, int32 Damage, FVector Momentum, AUTInventory* HitArmor, const FDamageEvent& DamageEvent);
@@ -1218,13 +1226,9 @@ public:
 	UPROPERTY()
 	TMap<TEnumAsByte<EPhysicalSurface>, USoundBase*> OwnFootstepSoundsMap;
 
-	/** Footstep sound played for characters you don't control. */
+	/** Footstep sound when none is specified by the surface you are standing on. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* FootstepSound;
-
-	/** Footstep sound played for the character you control. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* OwnFootstepSound;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* WaterFootstepSound;

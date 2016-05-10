@@ -178,7 +178,8 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	FFAColor = 0;
 
 	MaxSpeedPctModifier = 1.0f;
-
+	OwnVolumeMultiplier = 1.f;
+	OwnFootstepVolumeMultiplier = 0.3f;
 }
 
 float AUTCharacter::GetWeaponBobScaling()
@@ -3285,7 +3286,7 @@ void AUTCharacter::PlayFootstep(uint8 FootNum, bool bFirstPerson)
 	else
 	{
 		const bool bLocalViewer = (GetLocalViewer() != nullptr);
-		USoundBase* FootstepSoundToPlay = bLocalViewer ? OwnFootstepSound : FootstepSound;
+		USoundBase* FootstepSoundToPlay = FootstepSound;
 
 		if (bApplyWallSlide)
 		{
@@ -3327,7 +3328,9 @@ void AUTCharacter::PlayFootstep(uint8 FootNum, bool bFirstPerson)
 			}
 		}
 		
+		OwnVolumeMultiplier = OwnFootstepVolumeMultiplier;
 		UUTGameplayStatics::UTPlaySound(GetWorld(), FootstepSoundToPlay, this, SRT_IfSourceNotReplicated);
+		OwnVolumeMultiplier = 1.f;
 
 		if (bLocalViewer)
 		{

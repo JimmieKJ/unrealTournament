@@ -1691,7 +1691,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 			NewActiveSound.World = GetWorld();
 			NewActiveSound.Sound = TheSound;
 
-			NewActiveSound.VolumeMultiplier = 1.0f;
+			NewActiveSound.VolumeMultiplier = (UTCharacter && (SoundPlayer == UTCharacter)) ? UTCharacter->OwnVolumeMultiplier : 1.0f;
 			NewActiveSound.PitchMultiplier = 1.0f;
 
 			NewActiveSound.RequestedStartTime = 0.0f;
