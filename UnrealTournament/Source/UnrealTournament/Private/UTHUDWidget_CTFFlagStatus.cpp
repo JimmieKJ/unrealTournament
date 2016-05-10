@@ -268,11 +268,6 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagBaseWorld(AUTCTFGameState* GameState, F
 {
 	if (FlagBase)
 	{
-		if (Flag == nullptr)
-		{
-			AUTCTFFlag* BaseFlag = Cast<AUTCTFFlag>(FlagBase->GetCarriedObject());
-		}
-
 		bScaleByDesignedResolution = false;
 
 		FLinearColor TeamColor = FLinearColor::Green;
@@ -297,40 +292,43 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagBaseWorld(AUTCTFGameState* GameState, F
 		float Edge = CircleTemplate.GetWidth()* WorldRenderScale;
 		ScreenPosition = GetAdjustedScreenPosition(WorldPosition, PlayerViewPoint, ViewDir, Dist, Edge, bDrawEdgeArrow, TeamNum);
 		
-		float PctFromCenter = (ScreenPosition - FVector(0.5f*GetCanvas()->ClipX, 0.5f*GetCanvas()->ClipY, 0.f)).Size() / GetCanvas()->ClipX;
-		CurrentWorldAlpha = InWorldAlpha * FMath::Min(0.15f/WorldRenderScale + 12.f*PctFromCenter, 1.f);
-
-		ScreenPosition.X -= RenderPosition.X;
-		ScreenPosition.Y -= RenderPosition.Y;
-
-		FlagIconTemplate.RenderOpacity = CurrentWorldAlpha;
-		CircleBorderTemplate.RenderOpacity = CurrentWorldAlpha;
-		CircleTemplate.RenderOpacity = CurrentWorldAlpha;
-			
-		RenderObj_TextureAt(CircleTemplate, ScreenPosition.X, ScreenPosition.Y, CircleTemplate.GetWidth()* WorldRenderScale, CircleTemplate.GetHeight()* WorldRenderScale);
-		RenderObj_TextureAt(CircleBorderTemplate, ScreenPosition.X, ScreenPosition.Y, CircleBorderTemplate.GetWidth()* WorldRenderScale, CircleBorderTemplate.GetHeight()* WorldRenderScale);
-		RenderObj_TextureAt(FlagIconTemplate, ScreenPosition.X, ScreenPosition.Y, FlagIconTemplate.GetWidth()* WorldRenderScale, FlagIconTemplate.GetHeight()* WorldRenderScale);
-
-		if (bDrawEdgeArrow)
+		if (!bDrawEdgeArrow || (Flag && Flag->ObjectState == CarriedObjectState::Home) || !bIsEnemyFlag)
 		{
-			DrawEdgeArrow(ScreenPosition, CurrentWorldAlpha, WorldRenderScale, TeamNum);
-		}
-		else
-		{
-			FText BaseMessage = GetBaseMessage(FlagBase, Flag);
-			if (!BaseMessage.IsEmpty())
+			float PctFromCenter = (ScreenPosition - FVector(0.5f*GetCanvas()->ClipX, 0.5f*GetCanvas()->ClipY, 0.f)).Size() / GetCanvas()->ClipX;
+			CurrentWorldAlpha = InWorldAlpha * FMath::Min(0.15f / WorldRenderScale + 12.f*PctFromCenter, 1.f);
+
+			ScreenPosition.X -= RenderPosition.X;
+			ScreenPosition.Y -= RenderPosition.Y;
+
+			FlagIconTemplate.RenderOpacity = CurrentWorldAlpha;
+			CircleBorderTemplate.RenderOpacity = CurrentWorldAlpha;
+			CircleTemplate.RenderOpacity = CurrentWorldAlpha;
+
+			RenderObj_TextureAt(CircleTemplate, ScreenPosition.X, ScreenPosition.Y, CircleTemplate.GetWidth()* WorldRenderScale, CircleTemplate.GetHeight()* WorldRenderScale);
+			RenderObj_TextureAt(CircleBorderTemplate, ScreenPosition.X, ScreenPosition.Y, CircleBorderTemplate.GetWidth()* WorldRenderScale, CircleBorderTemplate.GetHeight()* WorldRenderScale);
+			RenderObj_TextureAt(FlagIconTemplate, ScreenPosition.X, ScreenPosition.Y, FlagIconTemplate.GetWidth()* WorldRenderScale, FlagIconTemplate.GetHeight()* WorldRenderScale);
+
+			if (bDrawEdgeArrow)
 			{
-				DrawText(BaseMessage, ScreenPosition.X, ScreenPosition.Y - ((CircleTemplate.GetHeight() + 40) * WorldRenderScale), AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, 1.5f*WorldRenderScale, 0.5f + 0.5f*CurrentWorldAlpha, FLinearColor::White, FLinearColor(0.f, 0.f, 0.f, 0.f), ETextHorzPos::Center, ETextVertPos::Center);
+				DrawEdgeArrow(ScreenPosition, CurrentWorldAlpha, WorldRenderScale, TeamNum);
 			}
-		}
-		if (Flag && Flag->ObjectState != CarriedObjectState::Home)
-		{
-			RenderObj_TextureAt(FlagGoneIconTemplate, ScreenPosition.X, ScreenPosition.Y, FlagGoneIconTemplate.GetWidth()* WorldRenderScale, FlagGoneIconTemplate.GetHeight()* WorldRenderScale);
-		}
+			else
+			{
+				FText BaseMessage = GetBaseMessage(FlagBase, Flag);
+				if (!BaseMessage.IsEmpty())
+				{
+					DrawText(BaseMessage, ScreenPosition.X, ScreenPosition.Y - ((CircleTemplate.GetHeight() + 40) * WorldRenderScale), AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, 1.5f*WorldRenderScale, 0.5f + 0.5f*CurrentWorldAlpha, FLinearColor::White, FLinearColor(0.f, 0.f, 0.f, 0.f), ETextHorzPos::Center, ETextVertPos::Center);
+				}
+			}
+			if (Flag && Flag->ObjectState != CarriedObjectState::Home)
+			{
+				RenderObj_TextureAt(FlagGoneIconTemplate, ScreenPosition.X, ScreenPosition.Y, FlagGoneIconTemplate.GetWidth()* WorldRenderScale, FlagGoneIconTemplate.GetHeight()* WorldRenderScale);
+			}
 
-		FlagIconTemplate.RenderOpacity = OldFlagAlpha;
-		CircleTemplate.RenderOpacity = 1.f;
-		CircleBorderTemplate.RenderOpacity = 1.f;
+			FlagIconTemplate.RenderOpacity = OldFlagAlpha;
+			CircleTemplate.RenderOpacity = 1.f;
+			CircleBorderTemplate.RenderOpacity = 1.f;
+		}
 		bScaleByDesignedResolution = true;
 	}
 }
