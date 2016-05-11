@@ -147,7 +147,7 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 		float Edge = CircleTemplate.GetWidth()* WorldRenderScale;
 		bool bShouldDrawFlagIcon = ShouldDrawFlag(Flag, bIsEnemyFlag);
 
-		if ((bSpectating || bShouldDrawFlagIcon) && (Flag->Holder != UTPlayerOwner->PlayerState) && (Flag->ObjectState != CarriedObjectState::Home))
+		if ((bSpectating || bShouldDrawFlagIcon) && (Flag->Holder != UTHUDOwner->GetScorerPlayerState()) && (Flag->ObjectState != CarriedObjectState::Home))
 		{
 			WorldPosition = Flag->GetActorLocation();
 			if (Flag->ObjectState == CarriedObjectState::Held)

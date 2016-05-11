@@ -109,7 +109,7 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 	bool bSpectating = UTPlayerOwner->PlayerState && UTPlayerOwner->PlayerState->bOnlySpectator;
 	bool bIsEnemyFlag = Flag && !GameState->OnSameTeam(Flag, UTPlayerOwner);
 	bool bShouldDrawFlagIcon = ShouldDrawFlag(Flag, bIsEnemyFlag);
-	if (Flag && (bSpectating || bShouldDrawFlagIcon) && (Flag->Holder != UTPlayerOwner->PlayerState))
+	if (Flag && (bSpectating || bShouldDrawFlagIcon) && (Flag->Holder != UTHUDOwner->GetScorerPlayerState()))
 	{
 		bScaleByDesignedResolution = false;
 		FlagIconTemplate.RenderColor = GameState->Teams.IsValidIndex(TeamNum) ? GameState->Teams[TeamNum]->TeamColor : FLinearColor::Green;
