@@ -5464,7 +5464,7 @@ void AUTCharacter::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTr
 		ReplaySample.Rotation = GetActorRotation();
 		ReplaySample.Velocity = GetVelocity();
 		ReplaySample.Acceleration = GetCharacterMovement()->GetCurrentAcceleration();
-		ReplaySample.RemoteViewPitch = RemoteViewPitch;
+		ReplaySample.RemoteViewPitch = FRotator::CompressAxisToByte(GetControlRotation().Pitch);
 
 		FBitWriter Writer(0, true);
 		Writer << ReplaySample;
