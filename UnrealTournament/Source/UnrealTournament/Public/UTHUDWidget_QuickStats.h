@@ -87,9 +87,9 @@ struct FStatAnimInfo
 		: AnimType(inAnimType)
 		, AnimDuration(inAnimDuration)
 		, AnimTime(0.0f)
+		, bBounce(inbBounce)
 		, StartValue(inStartValue)
 		, EndValue(inEndValue)
-		, bBounce(inbBounce)
 	{
 	}
 
@@ -170,21 +170,21 @@ struct FStatInfo
 			{
 				AnimStack[i].AnimTime += DeltaTime;
 				float Position = FMath::Clamp<float>(AnimStack[i].AnimTime / AnimStack[i].AnimDuration, 0.0f, 1.0f);
-				float Value = 0.0f;
+				float AnimValue = 0.0f;
 				if (AnimStack[i].bBounce)
 				{
-					Value = UUTHUDWidget::BounceEaseOut(AnimStack[i].StartValue, AnimStack[i].EndValue, Position, 6.0f);
+					AnimValue = UUTHUDWidget::BounceEaseOut(AnimStack[i].StartValue, AnimStack[i].EndValue, Position, 6.0f);
 				}
 				else
 				{
-					Value = FMath::Lerp<float>(AnimStack[i].StartValue, AnimStack[i].EndValue, Position);
+					AnimValue = FMath::Lerp<float>(AnimStack[i].StartValue, AnimStack[i].EndValue, Position);
 				}
 
 				// Apply the animation
-				if (AnimStack[i].AnimType == StatAnimTypes::Opacity) Opacity = Value;
-				else if (AnimStack[i].AnimType == StatAnimTypes::Scale) Scale = Value;
-				else if (AnimStack[i].AnimType == StatAnimTypes::PositionX) DrawOffset.X = Value;
-				else if (AnimStack[i].AnimType == StatAnimTypes::PositionY) DrawOffset.Y = Value;
+				if (AnimStack[i].AnimType == StatAnimTypes::Opacity) Opacity = AnimValue;
+				else if (AnimStack[i].AnimType == StatAnimTypes::Scale) Scale = AnimValue;
+				else if (AnimStack[i].AnimType == StatAnimTypes::PositionX) DrawOffset.X = AnimValue;
+				else if (AnimStack[i].AnimType == StatAnimTypes::PositionY) DrawOffset.Y = AnimValue;
 			}
 
 			if (AnimStack[i].AnimDuration <= 0.0f || AnimStack[i].AnimTime >= AnimStack[i].AnimDuration)
