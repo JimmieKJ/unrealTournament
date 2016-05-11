@@ -611,7 +611,7 @@ void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* We
 	Super::DrawWeaponCrosshair_Implementation(WeaponHudWidget, RenderDelta);
 
 	// draw loaded rocket indicator
-	float Scale = WeaponHudWidget->GetRenderScale() * GetCrosshairScale(WeaponHudWidget->UTHUDOwner);
+	float Scale = GetCrosshairScale(WeaponHudWidget->UTHUDOwner);
 	if ((CurrentFireMode == 1) && (NumLoadedRockets > 0))
 	{
 		float DotSize = 16.f * Scale;
