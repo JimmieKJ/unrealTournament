@@ -1672,29 +1672,6 @@ void AUTPlayerController::HearSound(USoundBase* InSoundCue, AActor* SoundPlayer,
 {
 	bool bIsOccluded = false; 
 	float MaxAudibleDistance = InSoundCue->GetAttenuationSettingsToApply() ? InSoundCue->GetAttenuationSettingsToApply()->GetMaxDimension() : 15000.f;
-	if (true)//(GetNetMode() == NM_DedicatedServer)
-	{
-		if (!InSoundCue->GetAttenuationSettingsToApply())
-		{
-			UE_LOG(UT, Warning, TEXT("NO ATTENUATION SETTINGS FOR %s"), *InSoundCue->GetName());
-		}
-		else
-		{
-			if (!InSoundCue->AttenuationSettings)
-			{
-				UE_LOG(UT, Warning, TEXT("NO ATTENUATION SETTINGS OBJECT FOR %s"), *InSoundCue->GetName());
-			}
-			if (Cast<USoundCue>(InSoundCue) && Cast<USoundCue>(InSoundCue)->bOverrideAttenuation)
-			{
-				UE_LOG(UT, Warning, TEXT("OVERRIDE ATTENUATION SETTINGS OBJECT FOR %s"), *InSoundCue->GetName());
-
-			}
-			if (InSoundCue->GetAttenuationSettingsToApply()->bAttenuateWithLPF)
-			{
-				UE_LOG(UT, Warning, TEXT("AttenuateWithLPF FOR %s"), *InSoundCue->GetName());
-			}
-		}
-	}
 	if (SoundPlayer == this || (GetViewTarget() != NULL && (bAmplifyVolume || MaxAudibleDistance >= (SoundLocation - GetViewTarget()->GetActorLocation()).Size())))
 	{
 		// we don't want to replicate the location if it's the same as Actor location (so the sound gets played attached to the Actor), but we must if the source Actor isn't relevant
