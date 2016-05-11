@@ -5,6 +5,8 @@
 #include "SUTReplayBrowserPanel.h"
 #include "../Dialogs/SUTInputBoxDialog.h"
 #include "Net/UnrealNetwork.h"
+#include "BlueprintContextLibrary.h"
+#include "PartyContext.h"
 
 #if WITH_SOCIAL
 #include "Social.h"
@@ -418,6 +420,17 @@ void SUTReplayBrowserPanel::BuildReplayList(const FString& UserId)
 
 FReply SUTReplayBrowserPanel::OnWatchClick()
 {
+	UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(PlayerOwner->GetWorld(), UPartyContext::StaticClass()));
+	if (PartyContext)
+	{
+		const int32 PartySize = PartyContext->GetPartySize();
+		if (PartySize > 1)
+		{
+			PlayerOwner->ShowToast(NSLOCTEXT("SUTReplayBrowserPanel", "NoReplaysInParty", "You may not do this while in a party."));
+			return FReply::Handled();
+		}
+	}
+
 	TArray<TSharedPtr<FReplayData>> SelectedReplays = ReplayListView->GetSelectedItems();
 	if (SelectedReplays.Num() > 0)
 	{
