@@ -9,6 +9,8 @@
 #include "../Widgets/SUTComboButton.h"
 #include "../Widgets/SUTPopOverAnchor.h"
 #include "UTPlayerState.h"
+#include "BlueprintContextLibrary.h"
+#include "PartyContext.h"
 
 #if !UE_SERVER
 
@@ -321,9 +323,17 @@ public:
 
 	bool CanSpectate(TWeakObjectPtr<UUTLocalPlayer> PlayerOwner)
 	{
-		if (PlayerOwner.IsValid() && !PlayerOwner->IsPartyLeader())
+		if (PlayerOwner.IsValid())
 		{
-			return false;
+			UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(PlayerOwner->GetWorld(), UPartyContext::StaticClass()));
+			if (PartyContext)
+			{
+				const int32 PartySize = PartyContext->GetPartySize();
+				if (PartySize > 1)
+				{
+					return false;
+				}
+			}
 		}
 
 		int32 Flags = MatchInfo.IsValid() ? MatchInfo->GetMatchFlags() : ( MatchData.IsValid() ? MatchData->Flags : 0);
