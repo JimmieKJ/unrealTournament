@@ -125,6 +125,14 @@ bool AUTWeap_Redeemer::PutDown()
 	if (Super::PutDown())
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), PutDownSound, UTOwner, SRT_AllButOwner);
+		
+		//If we have used up all our redeemer ammo and are putting it down, go ahead and destroy the redeemer 
+		// as you should not be able to give it more ammo
+		if (Ammo <= 0)
+		{
+			UTOwner->RemoveInventory(this);
+		}
+
 		return true;
 	}
 	return false;
