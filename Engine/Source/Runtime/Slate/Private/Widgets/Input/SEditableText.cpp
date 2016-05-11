@@ -158,8 +158,6 @@ FReply SEditableText::OnFocusReceived( const FGeometry& MyGeometry, const FFocus
 		{
 			EditableTextLayout->GoTo(ETextLocation::EndOfDocument);
 		}
-
-		return SWidget::OnFocusReceived(MyGeometry, InFocusEvent);
 	}
 
 	return FReply::Handled();

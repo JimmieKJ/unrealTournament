@@ -183,16 +183,21 @@ FSlateEditableTextLayout::~FSlateEditableTextLayout()
 
 void FSlateEditableTextLayout::SetText(const TAttribute<FText>& InText)
 {
+	const FText PreviousText = BoundText.Get(FText::GetEmpty());
 	BoundText = InText;
-
-	const FText& TextToSet = BoundText.Get(FText::GetEmpty());
+	const FText NewText = BoundText.Get(FText::GetEmpty());
 
 	// We need to force an update if the text doesn't match the editable text, as the editable 
 	// text may not match the current bound text since it may have been changed by the user
 	const FText EditableText = GetEditableText();
-	const bool bForceRefresh = !EditableText.ToString().Equals(TextToSet.ToString(), ESearchCase::CaseSensitive);
+	const bool bForceRefresh = !EditableText.ToString().Equals(NewText.ToString(), ESearchCase::CaseSensitive);
 
-	if (RefreshImpl(&TextToSet, bForceRefresh))
+	// Only emit the "text changed" event if the text has actually been changed
+	const bool bHasTextChanged = OwnerWidget->GetSlateWidget()->HasKeyboardFocus()
+		? !NewText.ToString().Equals(EditableText.ToString(), ESearchCase::CaseSensitive)
+		: !NewText.ToString().Equals(PreviousText.ToString(), ESearchCase::CaseSensitive);
+
+	if (RefreshImpl(&NewText, bForceRefresh))
 	{
 		// Make sure we move the cursor to the end of the new text if we had keyboard focus
 		if (OwnerWidget->GetSlateWidget()->HasKeyboardFocus())
@@ -201,7 +206,10 @@ void FSlateEditableTextLayout::SetText(const TAttribute<FText>& InText)
 		}
 
 		// Let outsiders know that the text content has been changed
-		OwnerWidget->OnTextChanged(TextToSet);
+		if (bHasTextChanged)
+		{
+			OwnerWidget->OnTextChanged(NewText);
+		}
 	}
 }
 
@@ -535,7 +543,7 @@ bool FSlateEditableTextLayout::HandleFocusReceived(const FFocusEvent& InFocusEve
 	// of making sure that gets scrolled into view
 	PositionToScrollIntoView.Reset();
 
-	return false;
+	return true;
 }
 
 bool FSlateEditableTextLayout::HandleFocusLost(const FFocusEvent& InFocusEvent)
