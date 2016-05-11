@@ -587,6 +587,9 @@ void SUTStyle::SetChallengeBadges(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.ChallengeBadges.SpookyE", new IMAGE_BRUSH("UTStyle/ChallengeBadges/HalloweenE", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 	Style.Set("UT.ChallengeBadges.SpookyF", new IMAGE_BRUSH("UTStyle/ChallengeBadges/HalloweenF", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 
+	Style.Set("UT.ChallengeBadges.UnderlandChallenge_SD", new IMAGE_BRUSH("UTStyle/ChallengeBadges/UnderlandChallenge_SD", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.UnderlandChallenge_FFA", new IMAGE_BRUSH("UTStyle/ChallengeBadges/UnderlandChallenge_FFA", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.UnderlandChallenge_TDM", new IMAGE_BRUSH("UTStyle/ChallengeBadges/UnderlandChallenge_TDM", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 }
 
 void SUTStyle::SetContextMenus(TSharedRef<FSlateStyleSet> StyleRef)

@@ -195,13 +195,39 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 		TEXT("Prove your worth in a 1v5 Team Deathmatch in Outpost 23."),
 		0, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeamA, NAME_ChallengeSlateBadgeName_DM_OP23, NAME_REWARD_GoldStars));
 
+	Challenges.Add(NAME_ChallengeUnderlandSD,
+		FUTChallengeInfo(NAME_ChallengeUnderlandSD, TEXT("Duel Showdown in Underland"), TEXT("/Game/RestrictedAssets/Maps/DM-Underland"),
+			TEXT("?Game=SHOWDOWN"),
+			TEXT("Prove your worth in a duel showdown in Underland."),
+			0, 1, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeamA, NAME_ChallengeSlateBadgeName_Underland_SD, NAME_REWARD_BlueStars));
+
+	Challenges.Add(NAME_ChallengeUnderlandFFA,
+		FUTChallengeInfo(NAME_ChallengeUnderlandFFA, TEXT("Deathmatch in Underland"), TEXT("/Game/RestrictedAssets/Maps/DM-Underland"),
+			TEXT("?Game=DM"),
+			TEXT("Prove your worth in a deathmatch in Underland."),
+			0, 2, NAME_EasyFFATeam, NAME_MediumFFATeam, NAME_HardFFATeam, NAME_ChallengeSlateBadgeName_Underland_FFA, NAME_REWARD_BlueStars));
+
+	Challenges.Add(NAME_ChallengeUnderlandTDM,
+		FUTChallengeInfo(NAME_ChallengeUnderlandTDM, TEXT("2v2 Team Deathmatch in Underland"), TEXT("/Game/RestrictedAssets/Maps/DM-Underland"),
+			TEXT("?Game=TDM"),
+			TEXT("Prove your worth in a 2v2 team deathmatch in Underland."),
+			1, 2, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeamB, NAME_ChallengeSlateBadgeName_Underland_TDM, NAME_REWARD_BlueStars));
+
+	Challenges.Add(NAME_ChallengeUnderlandBounce,
+		FUTChallengeInfo(NAME_ChallengeUnderlandBounce, TEXT("Lets Bounce in Underland"), TEXT("/Game/RestrictedAssets/Maps/DM-Underland"),
+			TEXT("?Game=DM?Mutator=LetsBounce"),
+			TEXT("Lets bounce!"),
+			0, 4, NAME_EasyFFATeam, NAME_MediumFFATeam, NAME_HardFFATeam, NAME_ChallengeSlateBadgeName_Underland_FFA, NAME_REWARD_BlueStars));
+
 	RewardCaptions.Add(NAME_REWARD_HalloweenStars, NSLOCTEXT("ChallengeManage","HalloweenStarsCaption","You have earned {0} spooky stars!"));
 	RewardCaptions.Add(NAME_REWARD_GoldStars, NSLOCTEXT("ChallengeManage","GoldStarsCaption","You have earned {0} gold stars!"));
+	RewardCaptions.Add(NAME_REWARD_BlueStars, NSLOCTEXT("ChallengeManage", "BlueStarsCaption", "You have earned {0} blue stars!"));
 	RewardCaptions.Add(NAME_REWARD_DailyStars, NSLOCTEXT("ChallengeManage", "DailyStarsCaption", "You have earned {0} daily stars!"));
 
-	RewardInfo.Add(NAME_REWARD_HalloweenStars, FUTRewardInfo(FLinearColor(0.98,0.76,0.23,1.0), NAME_REWARDSTYLE_SCARY, NAME_REWARDSTYLE_SCARY_COMPLETED));
-	RewardInfo.Add(NAME_REWARD_GoldStars, FUTRewardInfo(FLinearColor(0.9,0.9,0.0,1.0), NAME_REWARDSTYLE_STAR, NAME_REWARDSTYLE_STAR_COMPLETED));
-	RewardInfo.Add(NAME_REWARD_DailyStars, FUTRewardInfo(FLinearColor(0.9, 0.9, 0.0, 1.0), NAME_REWARDSTYLE_STAR, NAME_REWARDSTYLE_STAR_COMPLETED));
+	RewardInfo.Add(NAME_REWARD_HalloweenStars, FUTRewardInfo(FLinearColor(0.98f,0.76f,0.23f,1.f), NAME_REWARDSTYLE_SCARY, NAME_REWARDSTYLE_SCARY_COMPLETED));
+	RewardInfo.Add(NAME_REWARD_GoldStars, FUTRewardInfo(FLinearColor(0.9f,0.9f,0.f,1.f), NAME_REWARDSTYLE_STAR, NAME_REWARDSTYLE_STAR_COMPLETED));
+	RewardInfo.Add(NAME_REWARD_BlueStars, FUTRewardInfo(FLinearColor(0.f, 0.9f, 1.f, 1.f), NAME_REWARDSTYLE_STAR, NAME_REWARDSTYLE_STAR_COMPLETED));
+	RewardInfo.Add(NAME_REWARD_DailyStars, FUTRewardInfo(FLinearColor(0.9f, 0.9f, 0.f, 1.f), NAME_REWARDSTYLE_STAR, NAME_REWARDSTYLE_STAR_COMPLETED));
 
 	bNewDailyUnlocked = false;
 	bTestDailyChallenges = false;
@@ -213,8 +239,8 @@ UUTBotCharacter* UUTChallengeManager::ChooseBotCharacter(AUTGameMode* CurrentGam
 	{
 		const FUTChallengeInfo* Challenge = Challenges.Find(CurrentGame->ChallengeTag);
 
-		// daily challenges have fixed player teams regardless of stars earned
-		if (Challenge->bDailyChallenge)
+		// non-goldstar challenges have fixed player teams regardless of stars earned
+		if (Challenge->RewardTag != NAME_REWARD_GoldStars)
 		{
 			TotalStars = CurrentGame->ChallengeDifficulty * 20;
 		}

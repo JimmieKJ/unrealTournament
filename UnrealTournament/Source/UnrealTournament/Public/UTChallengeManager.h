@@ -10,6 +10,10 @@ static const FName NAME_ChallengeSlateBadgeName_CTF(TEXT("UT.ChallengeBadges.CTF
 static const FName NAME_ChallengeSlateBadgeName_CTF_Face(TEXT("UT.ChallengeBadges.CTF_Face"));
 static const FName NAME_ChallengeSlateBadgeName_CTF_Pistola(TEXT("UT.ChallengeBadges.CTF_Pistola"));
 static const FName NAME_ChallengeSlateBadgeName_CTF_Titan(TEXT("UT.ChallengeBadges.CTF_Titan"));
+static const FName NAME_ChallengeSlateBadgeName_Underland_SD(TEXT("UT.ChallengeBadges.UnderlandChallenge_SD"));
+static const FName NAME_ChallengeSlateBadgeName_Underland_FFA(TEXT("UT.ChallengeBadges.UnderlandChallenge_FFA"));
+static const FName NAME_ChallengeSlateBadgeName_Underland_TDM(TEXT("UT.ChallengeBadges.UnderlandChallenge_TDM"));
+
 static const FName NAME_PlayerTeamRoster(TEXT("PlayersTeam"));
 
 static const FName NAME_ChallengeDMFFA(TEXT("ChallengeDMFFA1"));
@@ -27,6 +31,11 @@ static const FName NAME_ChallengeTDMFour(TEXT("ChallengeTDM4"));
 static const FName NAME_ChallengeTDMFive(TEXT("ChallengeTDM5"));
 static const FName NAME_ChallengeDuel(TEXT("ChallengeDuel"));
 static const FName NAME_ChallengeDuelTwo(TEXT("ChallengeDuel2"));
+
+static const FName NAME_ChallengeUnderlandSD(TEXT("ChallengeUnderlandSD"));
+static const FName NAME_ChallengeUnderlandFFA(TEXT("ChallengeUnderlandFFA"));
+static const FName NAME_ChallengeUnderlandTDM(TEXT("ChallengeUnderlandTDM"));
+static const FName NAME_ChallengeUnderlandBounce(TEXT("ChallengeUnderlandBounce"));
 
 static const FName NAME_EasyNecrisTeam(TEXT("EasyNecrisTeam"));
 static const FName NAME_MediumNecrisTeam(TEXT("MediumNecrisTeam"));
@@ -85,6 +94,7 @@ static const FName NAME_Guardian(TEXT("Guardian"));
 static const FName NAME_REWARD_GoldStars(TEXT("REWARD_GoldStars"));
 static const FName NAME_REWARD_HalloweenStars(TEXT("REWARD_HalloweenStars"));
 static const FName NAME_REWARD_DailyStars(TEXT("REWARD_DailyStars"));
+static const FName NAME_REWARD_BlueStars(TEXT("REWARD_BlueStars"));
 
 static const FName NAME_REWARDSTYLE_STAR(TEXT("UT.Star.Outline"));
 static const FName NAME_REWARDSTYLE_STAR_COMPLETED(TEXT("UT.Star"));
