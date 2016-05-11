@@ -201,11 +201,23 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 			TEXT("Prove your worth in a duel showdown in Underland."),
 			0, 1, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeamA, NAME_ChallengeSlateBadgeName_Underland_SD, NAME_REWARD_BlueStars));
 
+	Challenges.Add(NAME_ChallengeChillSD,
+		FUTChallengeInfo(NAME_ChallengeChillSD, TEXT("Showdown in Chill"), TEXT("/Game/RestrictedAssets/Maps/DM-Chill"),
+			TEXT("?Game=TEAMSHOWDOWN"),
+			TEXT("Prove your worth in a Showdown in Chill."),
+			2, 3, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeamB, NAME_ChallengeSlateBadgeName_Chill_SD, NAME_REWARD_BlueStars));
+
 	Challenges.Add(NAME_ChallengeUnderlandFFA,
 		FUTChallengeInfo(NAME_ChallengeUnderlandFFA, TEXT("Deathmatch in Underland"), TEXT("/Game/RestrictedAssets/Maps/DM-Underland"),
 			TEXT("?Game=DM"),
 			TEXT("Prove your worth in a deathmatch in Underland."),
 			0, 2, NAME_EasyFFATeam, NAME_MediumFFATeam, NAME_HardFFATeam, NAME_ChallengeSlateBadgeName_Underland_FFA, NAME_REWARD_BlueStars));
+
+	Challenges.Add(NAME_ChallengeChillFFA,
+		FUTChallengeInfo(NAME_ChallengeChillFFA, TEXT("Deathmatch in Chill"), TEXT("/Game/RestrictedAssets/Maps/DM-Chill"),
+			TEXT("?Game=DM"),
+			TEXT("Prove your worth in a deathmatch in Chill."),
+			0, 2, NAME_EasyFFATeam, NAME_MediumFFATeam, NAME_HardFFATeam, NAME_ChallengeSlateBadgeName_Chill_FFA, NAME_REWARD_BlueStars));
 
 	Challenges.Add(NAME_ChallengeUnderlandTDM,
 		FUTChallengeInfo(NAME_ChallengeUnderlandTDM, TEXT("2v2 Team Deathmatch in Underland"), TEXT("/Game/RestrictedAssets/Maps/DM-Underland"),
@@ -213,11 +225,23 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 			TEXT("Prove your worth in a 2v2 team deathmatch in Underland."),
 			1, 2, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeamB, NAME_ChallengeSlateBadgeName_Underland_TDM, NAME_REWARD_BlueStars));
 
+	Challenges.Add(NAME_ChallengeChillTDM,
+		FUTChallengeInfo(NAME_ChallengeChillTDM, TEXT("Team Deathmatch in Chill"), TEXT("/Game/RestrictedAssets/Maps/DM-Chill"),
+			TEXT("?Game=TDM"),
+			TEXT("Prove your worth in a team deathmatch in Chill."),
+			4, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeamA, NAME_ChallengeSlateBadgeName_Chill_TDM, NAME_REWARD_BlueStars));
+
 	Challenges.Add(NAME_ChallengeUnderlandBounce,
 		FUTChallengeInfo(NAME_ChallengeUnderlandBounce, TEXT("Lets Bounce in Underland"), TEXT("/Game/RestrictedAssets/Maps/DM-Underland"),
 			TEXT("?Game=DM?Mutator=LetsBounce"),
-			TEXT("Lets bounce!"),
+			TEXT("Lets Bounce!"),
 			0, 4, NAME_EasyFFATeam, NAME_MediumFFATeam, NAME_HardFFATeam, NAME_ChallengeSlateBadgeName_Underland_FFA, NAME_REWARD_BlueStars));
+
+	Challenges.Add(NAME_ChallengeChillBounce,
+		FUTChallengeInfo(NAME_ChallengeChillBounce, TEXT("Lets Bounce with Big Head in Chill"), TEXT("/Game/RestrictedAssets/Maps/DM-Chill"),
+			TEXT("?Game=DM?Mutator=LetsBounce,BigHead"),
+			TEXT("Lets Bounce with Big Head!"),
+			0, 5, NAME_EasyFFATeam, NAME_MediumFFATeam, NAME_HardFFATeam, NAME_ChallengeSlateBadgeName_Chill_FFA, NAME_REWARD_BlueStars));
 
 	RewardCaptions.Add(NAME_REWARD_HalloweenStars, NSLOCTEXT("ChallengeManage","HalloweenStarsCaption","You have earned {0} spooky stars!"));
 	RewardCaptions.Add(NAME_REWARD_GoldStars, NSLOCTEXT("ChallengeManage","GoldStarsCaption","You have earned {0} gold stars!"));
@@ -226,7 +250,7 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 
 	RewardInfo.Add(NAME_REWARD_HalloweenStars, FUTRewardInfo(FLinearColor(0.98f,0.76f,0.23f,1.f), NAME_REWARDSTYLE_SCARY, NAME_REWARDSTYLE_SCARY_COMPLETED));
 	RewardInfo.Add(NAME_REWARD_GoldStars, FUTRewardInfo(FLinearColor(0.9f,0.9f,0.f,1.f), NAME_REWARDSTYLE_STAR, NAME_REWARDSTYLE_STAR_COMPLETED));
-	RewardInfo.Add(NAME_REWARD_BlueStars, FUTRewardInfo(FLinearColor(0.f, 0.9f, 1.f, 1.f), NAME_REWARDSTYLE_STAR, NAME_REWARDSTYLE_STAR_COMPLETED));
+	RewardInfo.Add(NAME_REWARD_BlueStars, FUTRewardInfo(FLinearColor(0.f, 0.3f, 1.f, 1.f), NAME_REWARDSTYLE_STAR, NAME_REWARDSTYLE_STAR_COMPLETED));
 	RewardInfo.Add(NAME_REWARD_DailyStars, FUTRewardInfo(FLinearColor(0.9f, 0.9f, 0.f, 1.f), NAME_REWARDSTYLE_STAR, NAME_REWARDSTYLE_STAR_COMPLETED));
 
 	bNewDailyUnlocked = false;

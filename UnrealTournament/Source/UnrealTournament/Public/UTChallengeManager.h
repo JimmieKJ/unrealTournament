@@ -13,6 +13,9 @@ static const FName NAME_ChallengeSlateBadgeName_CTF_Titan(TEXT("UT.ChallengeBadg
 static const FName NAME_ChallengeSlateBadgeName_Underland_SD(TEXT("UT.ChallengeBadges.UnderlandChallenge_SD"));
 static const FName NAME_ChallengeSlateBadgeName_Underland_FFA(TEXT("UT.ChallengeBadges.UnderlandChallenge_FFA"));
 static const FName NAME_ChallengeSlateBadgeName_Underland_TDM(TEXT("UT.ChallengeBadges.UnderlandChallenge_TDM"));
+static const FName NAME_ChallengeSlateBadgeName_Chill_SD(TEXT("UT.ChallengeBadges.ChillChallenge_SD"));
+static const FName NAME_ChallengeSlateBadgeName_Chill_FFA(TEXT("UT.ChallengeBadges.ChillChallenge_FFA"));
+static const FName NAME_ChallengeSlateBadgeName_Chill_TDM(TEXT("UT.ChallengeBadges.ChillChallenge_TDM"));
 
 static const FName NAME_PlayerTeamRoster(TEXT("PlayersTeam"));
 
@@ -36,6 +39,11 @@ static const FName NAME_ChallengeUnderlandSD(TEXT("ChallengeUnderlandSD"));
 static const FName NAME_ChallengeUnderlandFFA(TEXT("ChallengeUnderlandFFA"));
 static const FName NAME_ChallengeUnderlandTDM(TEXT("ChallengeUnderlandTDM"));
 static const FName NAME_ChallengeUnderlandBounce(TEXT("ChallengeUnderlandBounce"));
+
+static const FName NAME_ChallengeChillSD(TEXT("ChallengeChillSD"));
+static const FName NAME_ChallengeChillFFA(TEXT("ChallengeChillFFA"));
+static const FName NAME_ChallengeChillTDM(TEXT("ChallengeChillTDM"));
+static const FName NAME_ChallengeChillBounce(TEXT("ChallengeChillBounce"));
 
 static const FName NAME_EasyNecrisTeam(TEXT("EasyNecrisTeam"));
 static const FName NAME_MediumNecrisTeam(TEXT("MediumNecrisTeam"));
