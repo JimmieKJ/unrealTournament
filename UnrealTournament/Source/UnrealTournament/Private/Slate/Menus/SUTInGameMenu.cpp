@@ -23,6 +23,8 @@
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "../Dialogs/SUTQuickPickDialog.h"
 #include "UTLobbyGameState.h"
+#include "BlueprintContextLibrary.h"
+#include "PartyContext.h"
 
 #if !UE_SERVER
 
@@ -440,6 +442,15 @@ void SUTInGameMenu::BackResult(TSharedPtr<SCompoundWidget> Dialog, uint16 Button
 {
 	if (ButtonPressed == UTDIALOG_BUTTON_YES)
 	{
+		if (!PlayerOwner->IsPartyLeader())
+		{
+			UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(PlayerOwner->GetWorld(), UPartyContext::StaticClass()));
+			if (PartyContext)
+			{
+				PartyContext->LeaveParty();
+			}
+		}
+
 		AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
 		if (GameState && GameState->bIsInstanceServer)
 		{

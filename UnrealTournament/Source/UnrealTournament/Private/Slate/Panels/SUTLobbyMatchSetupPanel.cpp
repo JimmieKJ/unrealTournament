@@ -17,6 +17,9 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "UTReplicatedMapInfo.h"
 #include "UTLobbyPC.h"
+#include "BlueprintContextLibrary.h"
+#include "PartyContext.h"
+
 
 #if !UE_SERVER
 
@@ -569,6 +572,15 @@ FReply SUTLobbyMatchSetupPanel::LeaveMatchClicked()
 {
 	if (PlayerOwner.IsValid() && PlayerOwner->PlayerController)
 	{
+		if (!PlayerOwner->IsPartyLeader())
+		{
+			UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(PlayerOwner->GetWorld(), UPartyContext::StaticClass()));
+			if (PartyContext)
+			{
+				PartyContext->LeaveParty();
+			}
+		}
+
 		AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
 		if (LobbyPlayerState)
 		{
