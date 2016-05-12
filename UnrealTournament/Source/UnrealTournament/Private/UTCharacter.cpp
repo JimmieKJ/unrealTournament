@@ -1618,7 +1618,7 @@ void AUTCharacter::PlayDying()
 			{
 				bool bPlayedDeathAnim = false;
 				UAnimMontage* DeathAnim = (UTDmg != NULL) ? UTDmg.GetDefaultObject()->GetDeathAnim(this) : NULL;
-				if (DeathAnim != NULL)
+				if (DeathAnim != NULL && !IsInWater())
 				{
 					UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 					if (AnimInstance != NULL && AnimInstance->Montage_Play(DeathAnim))
