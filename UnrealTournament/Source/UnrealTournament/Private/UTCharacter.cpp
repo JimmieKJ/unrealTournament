@@ -179,7 +179,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 
 	MaxSpeedPctModifier = 1.0f;
 	OwnVolumeMultiplier = 1.f;
-	OwnFootstepVolumeMultiplier = 0.3f;
+	OwnFootstepVolumeMultiplier = 0.35f;
 }
 
 float AUTCharacter::GetWeaponBobScaling()
@@ -3277,16 +3277,16 @@ void AUTCharacter::PlayFootstep(uint8 FootNum, bool bFirstPerson)
 
 	UParticleSystem* FootStepEffect = NULL;
 	float MaxParticleDist = 1500.f;
+	USoundBase* FootstepSoundToPlay = FootstepSound;
 	if (FeetAreInWater())
 	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), WaterFootstepSound, this, SRT_IfSourceNotReplicated);
+		FootstepSoundToPlay = WaterFootstepSound;
 		FootStepEffect = WaterFootstepEffect;
 		MaxParticleDist = 5000.f;
 	}
 	else
 	{
 		const bool bLocalViewer = (GetLocalViewer() != nullptr);
-		USoundBase* FootstepSoundToPlay = FootstepSound;
 
 		if (bApplyWallSlide)
 		{
@@ -3327,10 +3327,6 @@ void AUTCharacter::PlayFootstep(uint8 FootNum, bool bFirstPerson)
 				}
 			}
 		}
-		
-		OwnVolumeMultiplier = OwnFootstepVolumeMultiplier;
-		UUTGameplayStatics::UTPlaySound(GetWorld(), FootstepSoundToPlay, this, SRT_IfSourceNotReplicated);
-		OwnVolumeMultiplier = 1.f;
 
 		if (bLocalViewer)
 		{
@@ -3341,6 +3337,10 @@ void AUTCharacter::PlayFootstep(uint8 FootNum, bool bFirstPerson)
 			FootStepEffect = (GetVelocity().Size() > 500.f) ? GroundFootstepEffect : NULL;
 		}
 	}
+
+	OwnVolumeMultiplier = OwnFootstepVolumeMultiplier;
+	UUTGameplayStatics::UTPlaySound(GetWorld(), FootstepSoundToPlay, this, SRT_IfSourceNotReplicated);
+	OwnVolumeMultiplier = 1.f;
 
 	if (FootStepEffect && GetMesh() && (GetWorld()->GetTimeSeconds() - GetMesh()->LastRenderTime < 0.05f)
 		&& (GetLocalViewer() || (GetCachedScalabilityCVars().DetailMode != 0)))
