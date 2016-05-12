@@ -251,10 +251,11 @@ void AUTWeaponAttachment::PlayBulletWhip()
 	{
 		const FVector BulletSrc = UTOwner->GetActorLocation();
 		const FVector Dir = (UTOwner->FlashLocation - BulletSrc).GetSafeNormal();
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 		{
 			AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
-			if (PC != NULL && PC->GetViewTarget() != UTOwner)
+			if (PC != NULL && PC->GetViewTarget() != UTOwner && (!GS || !GS->OnSameTeam(UTOwner, PC)) )
 			{
 				FVector ViewLoc;
 				FRotator ViewRot;
