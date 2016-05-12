@@ -69,6 +69,7 @@ void UUTHUDWidget_SCTFStatus::DrawIndicators(AUTCTFGameState* GameState, FVector
 		GameState->GetImportantFlagBase(OwnerTeam, FlagBases); 
 
 		bool bDrawBasesInWorld = true;
+		bool bDrawFlagSpawn = false;
 		// Flag is there and in the world.
 		if (Flags.Num() > 0)
 		{
@@ -87,16 +88,59 @@ void UUTHUDWidget_SCTFStatus::DrawIndicators(AUTCTFGameState* GameState, FVector
 				}
 			}
 		}
+		else
+		{
+			bDrawFlagSpawn = true;
+		}
 		
 		if (FlagBases.Num() > 0 && bDrawBasesInWorld)
 		{
 			for (int32 i = 0; i < FlagBases.Num(); i++)
 			{
 				DrawFlagBaseWorld(GameState, PlayerViewPoint, PlayerViewRotation, FlagBases[i]->GetTeamNum(), FlagBases[i], nullptr, nullptr);
+				AUTSCTFFlagBase* SFlagBase = Cast<AUTSCTFFlagBase>(FlagBases[i]);
+				if (bDrawFlagSpawn && !SFlagBase->bScoreBase)
+				{
+					// Draw the spawn indicator.
+					//DrawSpawnIndicator(GameState, PlayerViewPoint, PlayerViewRotation, SFlagBase);
+				}
 			}
 		}
 	}
 }
+
+void UUTHUDWidget_SCTFStatus::DrawSpawnIndicator(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation, AUTSCTFFlagBase* SFlagBase)
+{
+	bScaleByDesignedResolution = false;
+
+	// Draw the flag / flag base in the world
+	float Dist = (SFlagBase->GetActorLocation() - PlayerViewPoint).Size();
+	float WorldRenderScale = RenderScale * FMath::Clamp(MaxIconScale - (Dist - ScalingStartDist) / ScalingEndDist, MinIconScale, MaxIconScale);
+	FVector ViewDir = PlayerViewRotation.Vector();
+	float Edge = CircleTemplate.GetWidth()* WorldRenderScale;
+	FVector WorldPosition = SFlagBase->GetActorLocation() + FVector(0.f, 0.f, 256.0f);
+	bool bDrawEdgeArrow = false;
+	FVector ScreenPosition = GetAdjustedScreenPosition(WorldPosition, PlayerViewPoint, ViewDir, Dist, Edge, bDrawEdgeArrow, 0);
+
+	ScreenPosition.X -= RenderPosition.X;
+	ScreenPosition.Y -= RenderPosition.Y;
+	float ViewDist = (PlayerViewPoint - WorldPosition).Size();
+
+	FlagIconTemplate.RenderOpacity = 1.0f;
+	CircleTemplate.RenderOpacity = 1.0f;
+	CircleBorderTemplate.RenderOpacity = 1.0f;
+
+	float InWorldFlagScale = WorldRenderScale * StatusScale;
+	//RenderObj_TextureAt(CircleTemplate, ScreenPosition.X, ScreenPosition.Y, CircleTemplate.GetWidth()* InWorldFlagScale, CircleTemplate.GetHeight()* InWorldFlagScale);
+	//RenderObj_TextureAt(CircleBorderTemplate, ScreenPosition.X, ScreenPosition.Y, CircleBorderTemplate.GetWidth()* InWorldFlagScale, CircleBorderTemplate.GetHeight()* InWorldFlagScale);
+
+	AUTSCTFGameState* SCTFGameState = Cast<AUTSCTFGameState>(GameState);
+	if (SCTFGameState)
+	{
+		DrawText(FText::AsNumber(SCTFGameState->FlagSpawnTimer), ScreenPosition.X, ScreenPosition.Y, UTHUDOwner->TinyFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, 1.5f*InWorldFlagScale, 0.5f + 0.5f, FLinearColor::White, FLinearColor(0.f, 0.f, 0.f, 0.f), ETextHorzPos::Center, ETextVertPos::Center);
+	}
+}
+
 
 FText UUTHUDWidget_SCTFStatus::GetFlagReturnTime(AUTCTFFlag* Flag)
 {	

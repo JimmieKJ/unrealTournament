@@ -207,4 +207,9 @@ protected:
 	UPROPERTY()
 	bool bGiveSpawnInventoryBonus;
 
+	// If true, players who join during the round, or switch teams during the round will be forced to
+	// sit out and wait for the next round/
+	UPROPERTY()
+	bool bSitOutDuringRound;
+
 };

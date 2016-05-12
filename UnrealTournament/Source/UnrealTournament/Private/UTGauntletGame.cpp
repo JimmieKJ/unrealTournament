@@ -35,8 +35,10 @@ AUTGauntletGame::AUTGauntletGame(const FObjectInitializer& ObjectInitializer)
 	HUDClass = AUTHUD_Gauntlet::StaticClass();
 	GameStateClass = AUTGauntletGameState::StaticClass();
 
+	RespawnWaitTime = 3.0f;
 	GoalScore = 3;
 	bHideInUI = true;
+	bSitOutDuringRound = false;
 }
 
 void AUTGauntletGame::GenericPlayerInitialization(AController* C)
@@ -63,11 +65,31 @@ void AUTGauntletGame::ScoreKill_Implementation(AController* Killer, AController*
 
 		if (KillerPlayerState && VictimPlayerState)
 		{
+
+			FVector DesiredLocation = KilledPawn->GetActorLocation();
+			FVector DesiredTossVelocity = KilledPawn->GetVelocity() + FVector(0.0f, 0.0f, 850.0f);
+
+			// pull back spawn location if it is embedded in world geometry
+			FVector AdjustedStartLoc = DesiredLocation;
+			UCapsuleComponent* TestCapsule = AUTDroppedLife::StaticClass()->GetDefaultObject<AUTDroppedLife>()->Collision;
+			if (TestCapsule != NULL)
+			{
+				FCollisionQueryParams QueryParams(FName(TEXT("DropPlacement")), false);
+				FHitResult Hit;
+				if ( GetWorld()->SweepSingleByChannel(Hit, DesiredLocation - FVector(DesiredTossVelocity.X, DesiredTossVelocity.Y, 0.0f) * 0.25f, DesiredLocation, FQuat::Identity, TestCapsule->GetCollisionObjectType(), TestCapsule->GetCollisionShape(), QueryParams, TestCapsule->GetCollisionResponseToChannels()) &&
+					 !Hit.bStartPenetrating )
+				{
+					AdjustedStartLoc = Hit.Location;
+				}
+			}
+
+
 			FActorSpawnParameters Params;
 			Params.Instigator = KilledPawn;
-			AUTDroppedLife* LifeSkull = GetWorld()->SpawnActor<AUTDroppedLife>(AUTDroppedLife::StaticClass(), KilledPawn->GetActorLocation(), KilledPawn->GetActorRotation(), Params);
+			AUTDroppedLife* LifeSkull = GetWorld()->SpawnActor<AUTDroppedLife>(AUTDroppedLife::StaticClass(), AdjustedStartLoc, FRotator(), Params);
 			if (LifeSkull != NULL)
 			{
+				LifeSkull->Movement->Velocity = DesiredTossVelocity;
 				LifeSkull->Init(VictimPlayerState, KillerPlayerState, 300.0f);
 			}
 		}
@@ -123,3 +145,21 @@ bool AUTGauntletGame::AttemptBoost(AUTPlayerController* Who)
 	}
 	return false;
 }
+
+void AUTGauntletGame::GiveDefaultInventory(APawn* PlayerPawn)
+{
+	AUTCharacter* UTCharacter = Cast<AUTCharacter>(PlayerPawn);
+	if (UTCharacter != NULL)
+	{
+
+		TSubclassOf<AUTInventory> ItemClass;
+		ItemClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, TEXT("/Game/RestrictedAssets/Weapons/LinkGun/BP_LinkGun.BP_LinkGun_C"), NULL, LOAD_NoWarn));
+		if (ItemClass) UTCharacter->DefaultCharacterInventory.Add(ItemClass);
+		ItemClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, TEXT("/Game/RestrictedAssets/Weapons/BioRifle/BP_BioLauncher.BP_BioLauncher_C"), NULL, LOAD_NoWarn));
+		if (ItemClass) UTCharacter->DefaultCharacterInventory.Add(ItemClass);
+	}
+
+	Super::GiveDefaultInventory(PlayerPawn);
+}
+
+

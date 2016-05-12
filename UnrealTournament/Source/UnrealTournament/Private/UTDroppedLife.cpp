@@ -20,6 +20,7 @@ AUTDroppedLife::AUTDroppedLife(const FObjectInitializer& ObjectInitializer)
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> RedMat(TEXT("Material'/Game/RestrictedAssets/Environments/FacingWorlds/Halloween/M_Skull_Coin_Red.M_Skull_Coin_Red'"));
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> PickupSnd(TEXT("SoundCue'/Game/RestrictedAssets/Blueprints/DroppedSkull/A_Gameplay_UT3G_Greed_SkullPickup01_Cue.A_Gameplay_UT3G_Greed_SkullPickup01_Cue'"));
+
 	PickupSound = PickupSnd.Object;
 
 	TeamMaterials.Add(RedMat.Object);
@@ -29,6 +30,7 @@ AUTDroppedLife::AUTDroppedLife(const FObjectInitializer& ObjectInitializer)
 	Mesh = MeshComp;
 	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	Mesh->AttachParent = RootComponent;
+	Mesh->SetRelativeScale3D(FVector(2.0f, 2.0f, 2.0f));
 	Value = 0.0f;
 	InitialLifeSpan = 60.0f;
 }
@@ -73,7 +75,7 @@ void AUTDroppedLife::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* Oth
 		// Someone touched me.. give them points.
 
 		AUTCharacter* TouchingChar = Cast<AUTCharacter>(OtherActor);
-		if (TouchingChar)
+		if (TouchingChar && !TouchingChar->IsDead())
 		{
 			AUTPlayerState* TouchingPlayerState = Cast<AUTPlayerState>(TouchingChar->PlayerState);
 			if (TouchingPlayerState)
@@ -99,16 +101,14 @@ void AUTDroppedLife::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* Oth
 					}
 				}
 			}
+
+			if (PickupSound != NULL)
+			{
+				UUTGameplayStatics::UTPlaySound(GetWorld(), PickupSound, OtherActor, SRT_All, false, GetActorLocation(), NULL, NULL, false);
+			}
+
+			Destroy();
 		}
-
-
-		if (PickupSound != NULL)
-		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), PickupSound, OtherActor, SRT_All, false, GetActorLocation(), NULL, NULL, false);
-		}
-
-
-		Destroy();
 	}
 }
 
@@ -117,7 +117,7 @@ void AUTDroppedLife::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	BounceZ += DeltaTime;
+	BounceZ += DeltaTime * 2.0f;
 	FVector MeshTranslation = FVector(0.0f, 0.0f, 0.0f);
 	MeshTranslation.Z = 32 * (FMath::Sin(BounceZ));
 	AutoRotate.Yaw += 90 * DeltaTime;

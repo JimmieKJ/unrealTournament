@@ -218,7 +218,7 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 			float InWorldFlagScale = GameState->bOneFlagGameMode ? WorldRenderScale*StatusScale : WorldRenderScale;
 			RenderObj_TextureAt(CircleTemplate, ScreenPosition.X, ScreenPosition.Y, CircleTemplate.GetWidth()* InWorldFlagScale, CircleTemplate.GetHeight()* InWorldFlagScale);
 			RenderObj_TextureAt(CircleBorderTemplate, ScreenPosition.X, ScreenPosition.Y, CircleBorderTemplate.GetWidth()* InWorldFlagScale, CircleBorderTemplate.GetHeight()* InWorldFlagScale);
-
+			
 			if (bDrawEdgeArrow)
 			{
 				DrawEdgeArrow(ScreenPosition, CurrentWorldAlpha, WorldRenderScale, TeamNum);
@@ -285,29 +285,30 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagBaseWorld(AUTCTFGameState* GameState, F
 		bool bIsEnemyFlag = !GameState->OnSameTeam(FlagBase, UTPlayerOwner);
 		bool bDrawEdgeArrow = false;
 		FVector ScreenPosition(0.f);
-		FVector WorldPosition = FlagBase->GetActorLocation() + FlagBase->GetActorRotation().RotateVector(Flag ? Flag->HomeBaseOffset : FVector(0.0f,0.0f,128.0f)) + FVector(0.f, 0.f, Flag ? Flag->Collision->GetUnscaledCapsuleHalfHeight() * 3.f : 0.0f);
+
+		AUTCTFFlag* DefaultFlag = AUTCTFFlag::StaticClass()->GetDefaultObject<AUTCTFFlag>();
+		FVector WorldPosition = FlagBase->GetActorLocation() + FlagBase->GetActorRotation().RotateVector(DefaultFlag->HomeBaseOffset) + FVector(0.f, 0.f, DefaultFlag->Collision->GetUnscaledCapsuleHalfHeight() * 2.5f);
 		float OldFlagAlpha = FlagIconTemplate.RenderOpacity;
 		float CurrentWorldAlpha = InWorldAlpha;
 		FVector ViewDir = PlayerViewRotation.Vector();
 		float Edge = CircleTemplate.GetWidth()* WorldRenderScale;
 		ScreenPosition = GetAdjustedScreenPosition(WorldPosition, PlayerViewPoint, ViewDir, Dist, Edge, bDrawEdgeArrow, TeamNum);
-		
 		if (!bDrawEdgeArrow || (Flag && Flag->ObjectState == CarriedObjectState::Home) || !bIsEnemyFlag)
 		{
 			float PctFromCenter = (ScreenPosition - FVector(0.5f*GetCanvas()->ClipX, 0.5f*GetCanvas()->ClipY, 0.f)).Size() / GetCanvas()->ClipX;
-			CurrentWorldAlpha = InWorldAlpha * FMath::Min(0.15f / WorldRenderScale + 12.f*PctFromCenter, 1.f);
-
+			CurrentWorldAlpha = InWorldAlpha * FMath::Min(0.15f/WorldRenderScale + 12.f*PctFromCenter, 1.f);
+	
 			ScreenPosition.X -= RenderPosition.X;
 			ScreenPosition.Y -= RenderPosition.Y;
-
+	
 			FlagIconTemplate.RenderOpacity = CurrentWorldAlpha;
 			CircleBorderTemplate.RenderOpacity = CurrentWorldAlpha;
 			CircleTemplate.RenderOpacity = CurrentWorldAlpha;
-
+				
 			RenderObj_TextureAt(CircleTemplate, ScreenPosition.X, ScreenPosition.Y, CircleTemplate.GetWidth()* WorldRenderScale, CircleTemplate.GetHeight()* WorldRenderScale);
 			RenderObj_TextureAt(CircleBorderTemplate, ScreenPosition.X, ScreenPosition.Y, CircleBorderTemplate.GetWidth()* WorldRenderScale, CircleBorderTemplate.GetHeight()* WorldRenderScale);
 			RenderObj_TextureAt(FlagIconTemplate, ScreenPosition.X, ScreenPosition.Y, FlagIconTemplate.GetWidth()* WorldRenderScale, FlagIconTemplate.GetHeight()* WorldRenderScale);
-
+	
 			if (bDrawEdgeArrow)
 			{
 				DrawEdgeArrow(ScreenPosition, CurrentWorldAlpha, WorldRenderScale, TeamNum);
@@ -324,7 +325,7 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagBaseWorld(AUTCTFGameState* GameState, F
 			{
 				RenderObj_TextureAt(FlagGoneIconTemplate, ScreenPosition.X, ScreenPosition.Y, FlagGoneIconTemplate.GetWidth()* WorldRenderScale, FlagGoneIconTemplate.GetHeight()* WorldRenderScale);
 			}
-
+	
 			FlagIconTemplate.RenderOpacity = OldFlagAlpha;
 			CircleTemplate.RenderOpacity = 1.f;
 			CircleBorderTemplate.RenderOpacity = 1.f;

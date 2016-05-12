@@ -83,6 +83,9 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 
 	MainScoreboardDisplayTime = 7.5f;
 	EndScoreboardDelay = 6.f;
+
+	bSitOutDuringRound = true;
+
 }
 
 int32 AUTCTFRoundGame::GetFlagCapScore()
@@ -899,7 +902,7 @@ bool AUTCTFRoundGame::ChangeTeam(AController* Player, uint8 NewTeamIndex, bool b
 	bool bResult = Super::ChangeTeam(Player, NewTeamIndex, bBroadcast);
 	if (bResult && (GetMatchState() == MatchState::InProgress))
 	{
-		if (PS)
+		if (PS && bSitOutDuringRound )
 		{
 			PS->RemainingLives = 0;
 			PS->SetOutOfLives(true);

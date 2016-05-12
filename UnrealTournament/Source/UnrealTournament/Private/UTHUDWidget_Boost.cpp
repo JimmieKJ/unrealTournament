@@ -7,6 +7,8 @@
 
 UUTHUDWidget_Boost::UUTHUDWidget_Boost(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> MI(TEXT("MaterialInstanceConstant'/Game/RestrictedAssets/Proto/UI/HUD/Elements/MI_HudTimer.MI_HudTimer'"));
+	HudTimerMI = MI.Object;
 	IconScale = 1.5f;
 
 	DesignedResolution = 1080.f;
@@ -14,6 +16,12 @@ UUTHUDWidget_Boost::UUTHUDWidget_Boost(const class FObjectInitializer& ObjectIni
 	Size=FVector2D(101.0f,114.0f) * IconScale;
 	ScreenPosition=FVector2D(0.9f, 0.955f);
 	Origin=FVector2D(0.0f,1.0f);
+}
+
+void UUTHUDWidget_Boost::InitializeWidget(AUTHUD* Hud)
+{
+	Super::InitializeWidget(Hud);
+	HudTimerMID = UMaterialInstanceDynamic::Create(HudTimerMI, this);
 }
 
 bool UUTHUDWidget_Boost::ShouldDraw_Implementation(bool bShowScores)
@@ -35,6 +43,7 @@ void UUTHUDWidget_Boost::Draw_Implementation(float DeltaTime)
 
 	if (UTHUDOwner && UTHUDOwner->UTPlayerOwner)
 	{
+
 		AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
 		ScreenPosition.X = (UTGameState && UTGameState->CanShowBoostMenu(UTHUDOwner->UTPlayerOwner)) ? 0.9f : 0.7f;
 		ScreenPosition.Y = (UTGameState && UTGameState->CanShowBoostMenu(UTHUDOwner->UTPlayerOwner)) ? 0.955f : 1.0f;
@@ -117,7 +126,8 @@ void UUTHUDWidget_Boost::Draw_Implementation(float DeltaTime)
 									FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
 									if (Action.ActionName == "StartActivatePowerup")
 									{
-										LabelB = FText::Format(NSLOCTEXT("SUTBoostWidget","Use","Press {0} to activate!"), Action.Key.GetDisplayName());
+										LabelA = FText::Format(NSLOCTEXT("SUTBoostWidget","Use","Press {0} to activate!"), Action.Key.GetDisplayName());
+										LabelB = FText::Format(NSLOCTEXT("SUTBoostWidget","ReadyFormat","You have {0}pts."), FText::AsNumber(int(PlayerState->GetAvailableCurrency())));
 										break;
 									}
 								}
@@ -157,12 +167,20 @@ void UUTHUDWidget_Boost::Draw_Implementation(float DeltaTime)
 				for (int32 i=0; i < FloatingNumbers.Num(); i++)
 				{
 					float Perc = FloatingNumbers[i].Timer / FLOATING_NUMBER_ANIN_TIME;
-					FVector2D Offset = FVector2D(-200.0f * RenderScale, -100.0f * RenderScale) * Perc;
-					DrawText(FText::AsNumber(FloatingNumbers[i].Amount),  Offset.X, Offset.Y, UTHUDOwner->LargeFont, FLinearColor(0.0f,0.0f,0.0f,1.0f), Perc, Perc, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Bottom);
+					FVector2D Offset = FVector2D(-600.0f * RenderScale, -540.0f * RenderScale) * Perc;
+					float Scale = 0.5f + (0.5f * Perc);
+					DrawText(FText::AsNumber(FloatingNumbers[i].Amount),  Offset.X, Offset.Y, UTHUDOwner->LargeFont, FLinearColor(0.0f,0.0f,0.0f,1.0f), Scale, Perc, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Bottom);
 				}
 
 			}
 		}
+/*
+		float Perc = GetWorld()->GetTimeSeconds();
+		Perc = Perc - float(int32(Perc));
+		UE_LOG(UT,Log,TEXT("Perc %f"),Perc);
+		HudTimerMID->SetScalarParameterValue(FName(TEXT("PercentageComplete")), 0.5f);
+		DrawMaterial(HudTimerMID, 0, 0, 101.0f * IconScale, 114.0f * IconScale, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, FLinearColor(1.0f,1.0f,1.0f,0.5f));
+*/
 	}
 
 }

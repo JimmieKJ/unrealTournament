@@ -14,7 +14,9 @@ AUTSCTFFlagBase::AUTSCTFFlagBase(const FObjectInitializer& ObjectInitializer)
 	GhostMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	GhostMesh->SetSkeletalMesh(GMesh.Object);
 	GhostMesh->AttachParent = RootComponent;
-	bGhostMeshVisibile = false;
+
+	bGhostMeshVisibile = true;
+	GhostMesh->SetVisibility(bGhostMeshVisibile);
 }
 
 void AUTSCTFFlagBase::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -108,8 +110,11 @@ void AUTSCTFFlagBase::Activate()
 
 void AUTSCTFFlagBase::Deactivate()
 {
-	bGhostMeshVisibile = false;
-	if (Role == ROLE_Authority) OnRep_bGhostMeshVisibile();
+	if (bScoreBase)
+	{
+		bGhostMeshVisibile = false;
+		if (Role == ROLE_Authority) OnRep_bGhostMeshVisibile();
+	}
 
 	MyFlag = nullptr;
 	if (CarriedObject != NULL)
@@ -146,6 +151,9 @@ void AUTSCTFFlagBase::CreateFlag()
 	}
 	else
 	{
+		bGhostMeshVisibile = false;
+		if (Role == ROLE_Authority) OnRep_bGhostMeshVisibile();
+
 		CarriedObject = GetWorld()->SpawnActor<AUTCarriedObject>(CarriedObjectClass, GetActorLocation() + FVector(0, 0, 96), GetActorRotation(), Params);
 		AUTSCTFGameState* GameState = GetWorld()->GetGameState<AUTSCTFGameState>();
 		if (GameState && Cast<AUTSCTFFlag>(CarriedObject))
@@ -196,7 +204,7 @@ FText AUTSCTFFlagBase::GetHUDStatusMessage(AUTHUD* HUD)
 		{
 			if (MyFlag == nullptr)
 			{
-				return FText::Format(NSLOCTEXT("AUTSCTFFlagBase","FlagSpawnFormat","Flag Spawns in {0}"), FText::AsNumber(GameState->FlagSpawnTimer));
+				return FText::AsNumber(GameState->FlagSpawnTimer);
 			}
 		}
 	}
