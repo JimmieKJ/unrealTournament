@@ -325,7 +325,7 @@ void AUTCTFFlag::Tick(float DeltaTime)
 				}
 				else
 				{
-					MidPoint = HoldingPawn->GetActorLocation() - 100.f * HoldingPawn->GetVelocity().SafeNormal();
+					MidPoint = HoldingPawn->GetActorLocation() - 100.f * HoldingPawn->GetVelocity().GetSafeNormal();
 				}
 			}
 		}
