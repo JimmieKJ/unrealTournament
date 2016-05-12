@@ -125,17 +125,34 @@ bool AUTWeap_Redeemer::PutDown()
 	if (Super::PutDown())
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), PutDownSound, UTOwner, SRT_AllButOwner);
-		
-		//If we have used up all our redeemer ammo and are putting it down, go ahead and destroy the redeemer 
-		// as you should not be able to give it more ammo
-		if (Ammo <= 0)
-		{
-			UTOwner->RemoveInventory(this);
-		}
-
 		return true;
 	}
 	return false;
+}
+
+void AUTWeap_Redeemer::DetachFromOwner_Implementation()
+{
+	Super::DetachFromOwner_Implementation();
+
+	//If we have used up all our redeemer ammo and are putting it down, go ahead and destroy the redeemer 
+	// as you should not be able to give it more ammo
+	if (Ammo <= 0)
+	{
+		// wait till put down complete
+		FTimerHandle TempHandle;
+		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTWeap_Redeemer::RemoveRedeemer, 0.02f, false);
+	}
+}
+
+void AUTWeap_Redeemer::RemoveRedeemer()
+{
+	//If we have used up all our redeemer ammo and are putting it down, go ahead and destroy the redeemer 
+	// as you should not be able to give it more ammo
+	if (UTOwner)
+	{
+		UTOwner->RemoveInventory(this);
+	}
+	Destroy();
 }
 
 float AUTWeap_Redeemer::GetAISelectRating_Implementation()
