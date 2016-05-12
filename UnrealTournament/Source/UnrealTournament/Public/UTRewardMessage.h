@@ -21,6 +21,7 @@ class UNREALTOURNAMENT_API UUTRewardMessage : public UUTLocalMessage
 		AnnouncementHS = FName(TEXT("RW_HolyShit"));
 		bWantsBotReaction = true;
 		ScaleInSize = 3.f;
+		AnnouncementDelay = 0.3f;
 	}
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
