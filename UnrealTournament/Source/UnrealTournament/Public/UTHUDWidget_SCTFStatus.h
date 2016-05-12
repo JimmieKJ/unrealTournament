@@ -3,6 +3,7 @@
 #pragma once
 
 #include "UTHUDWidget_CTFFlagStatus.h"
+#include "UTSCTFFlagBase.h"
 #include "UTHUDWidget_SCTFStatus.generated.h"
 
 UCLASS()
@@ -58,4 +59,5 @@ protected:
 	virtual void DrawIndicators(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation);
 	virtual FText GetFlagReturnTime(AUTCTFFlag* Flag);
 	virtual bool ShouldDrawFlag(AUTCTFFlag* Flag, bool bIsEnemyFlag);
+	void DrawSpawnIndicator(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation, AUTSCTFFlagBase* SFlagBase);
 };
