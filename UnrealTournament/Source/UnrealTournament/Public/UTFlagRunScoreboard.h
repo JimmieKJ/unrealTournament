@@ -16,6 +16,9 @@ class UNREALTOURNAMENT_API UUTFlagRunScoreboard : public UUTCTFScoreboard
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		float ColumnHeaderPowerupEndX;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		float ColumnHeaderPowerupXDuringReadyUp;
+
 	UPROPERTY()
 		FText PowerupText;
 	
@@ -24,5 +27,7 @@ class UNREALTOURNAMENT_API UUTFlagRunScoreboard : public UUTCTFScoreboard
 protected:
 	virtual void DrawScoreHeaders(float RenderDelta, float& YOffset);
 	virtual void DrawPlayerScore(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width, FLinearColor DrawColor) override;
+	virtual void DrawReadyText(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width);
 
+	virtual bool ShouldShowPowerupForPlayer(AUTPlayerState* PlayerState);
 };
