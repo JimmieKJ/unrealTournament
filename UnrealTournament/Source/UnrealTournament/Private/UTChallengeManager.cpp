@@ -245,11 +245,12 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 
 	RewardCaptions.Add(NAME_REWARD_HalloweenStars, NSLOCTEXT("ChallengeManage","HalloweenStarsCaption","You have earned {0} spooky stars!"));
 	RewardCaptions.Add(NAME_REWARD_GoldStars, NSLOCTEXT("ChallengeManage","GoldStarsCaption","You have earned {0} gold stars!"));
+	RewardCaptions.Add(NAME_REWARD_BlueStars, NSLOCTEXT("ChallengeManage", "BlueStarsCaption", "You have earned {0} blue stars!"));
 	RewardCaptions.Add(NAME_REWARD_DailyStars, NSLOCTEXT("ChallengeManage", "DailyStarsCaption", "You have earned {0} daily stars!"));
 
 	RewardInfo.Add(NAME_REWARD_HalloweenStars, FUTRewardInfo(FLinearColor(0.98f,0.76f,0.23f,1.f), NAME_REWARDSTYLE_SCARY, NAME_REWARDSTYLE_SCARY_COMPLETED));
 	RewardInfo.Add(NAME_REWARD_GoldStars, FUTRewardInfo(FLinearColor(0.9f,0.9f,0.f,1.f), NAME_REWARDSTYLE_STAR, NAME_REWARDSTYLE_STAR_COMPLETED));
-	RewardInfo.Add(NAME_REWARD_BlueStars, FUTRewardInfo(FLinearColor(0.f, 0.3f, 1.f, 1.f), NAME_REWARDSTYLE_STAR, NAME_REWARDSTYLE_STAR_COMPLETED));
+	RewardInfo.Add(NAME_REWARD_BlueStars, FUTRewardInfo(FLinearColor(0.f, 0.9f, 1.f, 1.f), NAME_REWARDSTYLE_STAR, NAME_REWARDSTYLE_STAR_COMPLETED));
 	RewardInfo.Add(NAME_REWARD_DailyStars, FUTRewardInfo(FLinearColor(0.9f, 0.9f, 0.f, 1.f), NAME_REWARDSTYLE_STAR, NAME_REWARDSTYLE_STAR_COMPLETED));
 
 	bNewDailyUnlocked = false;
@@ -262,8 +263,8 @@ UUTBotCharacter* UUTChallengeManager::ChooseBotCharacter(AUTGameMode* CurrentGam
 	{
 		const FUTChallengeInfo* Challenge = Challenges.Find(CurrentGame->ChallengeTag);
 
-		// daily challenges have fixed player teams regardless of stars earned
-		if (Challenge->bDailyChallenge)
+		// non-goldstar challenges have fixed player teams regardless of stars earned
+		if (Challenge->RewardTag != NAME_REWARD_GoldStars)
 		{
 			TotalStars = CurrentGame->ChallengeDifficulty * 20;
 		}

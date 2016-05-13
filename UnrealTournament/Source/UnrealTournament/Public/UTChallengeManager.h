@@ -35,6 +35,10 @@ static const FName NAME_ChallengeTDMFive(TEXT("ChallengeTDM5"));
 static const FName NAME_ChallengeDuel(TEXT("ChallengeDuel"));
 static const FName NAME_ChallengeDuelTwo(TEXT("ChallengeDuel2"));
 
+static const FName NAME_ChallengeUnderlandSD(TEXT("ChallengeUnderlandSD"));
+static const FName NAME_ChallengeUnderlandFFA(TEXT("ChallengeUnderlandFFA"));
+static const FName NAME_ChallengeUnderlandTDM(TEXT("ChallengeUnderlandTDM"));
+static const FName NAME_ChallengeUnderlandBounce(TEXT("ChallengeUnderlandBounce"));
 static const FName NAME_ChallengeChillSD(TEXT("ChallengeChillSD"));
 static const FName NAME_ChallengeChillFFA(TEXT("ChallengeChillFFA"));
 static const FName NAME_ChallengeChillTDM(TEXT("ChallengeChillTDM"));
@@ -97,6 +101,7 @@ static const FName NAME_Guardian(TEXT("Guardian"));
 static const FName NAME_REWARD_GoldStars(TEXT("REWARD_GoldStars"));
 static const FName NAME_REWARD_HalloweenStars(TEXT("REWARD_HalloweenStars"));
 static const FName NAME_REWARD_DailyStars(TEXT("REWARD_DailyStars"));
+static const FName NAME_REWARD_BlueStars(TEXT("REWARD_BlueStars"));
 
 static const FName NAME_REWARDSTYLE_STAR(TEXT("UT.Star.Outline"));
 static const FName NAME_REWARDSTYLE_STAR_COMPLETED(TEXT("UT.Star"));
