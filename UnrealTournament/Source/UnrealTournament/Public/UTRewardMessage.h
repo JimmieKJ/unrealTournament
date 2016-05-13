@@ -17,7 +17,7 @@ class UNREALTOURNAMENT_API UUTRewardMessage : public UUTLocalMessage
 		bIsSpecial = true;
 		bIsUnique = true;
 		bIsConsoleMessage = false;
-		Lifetime = 3.0f;
+		Lifetime = 2.0f;
 		AnnouncementHS = FName(TEXT("RW_HolyShit"));
 		bWantsBotReaction = true;
 		ScaleInSize = 3.f;
