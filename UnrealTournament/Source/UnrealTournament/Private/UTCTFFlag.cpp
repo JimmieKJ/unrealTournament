@@ -14,16 +14,16 @@ static FName NAME_Wipe(TEXT("Wipe"));
 AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	Collision->InitCapsuleSize(92.f, 134.0f);
+	Collision->InitCapsuleSize(110.f, 134.0f);
 	Mesh = ObjectInitializer.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("CTFFlag"));
 	GetMesh()->AlwaysLoadOnClient = true;
 	GetMesh()->AlwaysLoadOnServer = true;
 	GetMesh()->AttachParent = RootComponent;
 	GetMesh()->SetAbsolute(false, false, true);
 
-	MeshOffset = FVector(-64.f, 0.f, -48.f);
+	MeshOffset = FVector(0, 0.f, -48.f);
 	HeldOffset = FVector(0.f, 0.f, 0.f);
-	HomeBaseOffset = FVector(64.f, 0.f, -8.f);
+	HomeBaseOffset = FVector(0.f, 0.f, -8.f);
 	HomeBaseRotOffset.Yaw = 0.0f;
 
 	FlagWorldScale = 1.75f;
@@ -87,6 +87,7 @@ void AUTCTFFlag::ClientUpdateAttachment(bool bNowAttachedToPawn)
 		{
 			GetMesh()->SetWorldScale3D(FVector(FlagHeldScale));
 			GetMesh()->SetRelativeLocation(HeldOffset);
+			GetMesh()->SetRelativeRotation(FRotator(0.f, 0.f, 0.f));
 			GetMesh()->ClothBlendWeight = ClothBlendHeld;
 		}
 		else
@@ -332,6 +333,23 @@ void AUTCTFFlag::Tick(float DeltaTime)
 		if ((ObjectState == CarriedObjectState::Dropped) && GetWorldTimerManager().IsTimerActive(SendHomeWithNotifyHandle))
 		{
 			FlagReturnTime = FMath::Clamp(int32(GetWorldTimerManager().GetTimerRemaining(SendHomeWithNotifyHandle) + 1.f), 0, 255);
+		}
+	}
+	if (GetNetMode() != NM_DedicatedServer && ((ObjectState == CarriedObjectState::Dropped) || (ObjectState == CarriedObjectState::Home)))
+	{
+		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		{
+			APlayerController* PlayerController = *Iterator;
+			if (PlayerController && PlayerController->IsLocalPlayerController() && PlayerController->GetViewTarget())
+			{
+				FVector Dir = GetActorLocation() - PlayerController->GetViewTarget()->GetActorLocation();
+				FRotator DesiredRot = Dir.Rotation();
+				DesiredRot.Yaw += 90.f;
+				DesiredRot.Pitch = 0.f;
+				DesiredRot.Roll = 0.f;
+				GetMesh()->SetWorldRotation(DesiredRot, false);
+				break;
+			}
 		}
 	}
 }
