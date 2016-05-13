@@ -691,7 +691,7 @@ void SUTCreateGamePanel::GetCustomGameSettings(FString& GameMode, FString& Start
 
 		GameMode = SelectedGameClass->GetPathName();
 
-		Description = FString::Printf(TEXT("A custom %s match!\nJoin at your own risk!\n"), *DefaultGameMode->DisplayName.ToString());			
+		Description = FString::Printf(TEXT("A custom %s match with custom settings.\n"), *DefaultGameMode->DisplayName.ToString());			
 
 		DefaultGameMode->GetGameURLOptions(GameConfigProps, GameOptions, DesiredPlayerCount);
 		bTeamGame = DefaultGameMode->bTeamGame;

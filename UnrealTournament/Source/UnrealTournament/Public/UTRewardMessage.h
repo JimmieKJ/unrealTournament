@@ -13,7 +13,7 @@ class UNREALTOURNAMENT_API UUTRewardMessage : public UUTLocalMessage
 	: Super(ObjectInitializer)
 	{
 		MessageArea = FName(TEXT("Announcements"));
-		MessageSlot = FName(TEXT("VictimMessage"));
+		MessageSlot = FName(TEXT("MajorRewardMessage"));
 		bIsSpecial = true;
 		bIsUnique = true;
 		bIsConsoleMessage = false;
