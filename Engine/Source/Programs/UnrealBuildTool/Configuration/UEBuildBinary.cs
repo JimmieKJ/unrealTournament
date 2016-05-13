@@ -706,8 +706,6 @@ namespace UnrealBuildTool
 			BinaryLinkEnvironment.Config.bIsBuildingDLL = IsBuildingDll(Config.Type);
 			BinaryLinkEnvironment.Config.bIsBuildingLibrary = IsBuildingLibrary(Config.Type);
 
-			BinaryLinkEnvironment.Config.ProjectFile = Target.ProjectFile;
-
 			return BinaryLinkEnvironment;
 		}
 

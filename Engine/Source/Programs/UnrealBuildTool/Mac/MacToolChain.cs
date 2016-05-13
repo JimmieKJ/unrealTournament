@@ -1011,9 +1011,9 @@ namespace UnrealBuildTool
 					{
 						GameName = "EpicGamesLauncher";
 					}
-					else if (GameName == "UE4" && LinkEnvironment.Config.ProjectFile != null)
+					else if (GameName == "UE4" && ProjectFile != null)
 					{
-						UProjectFilePath = LinkEnvironment.Config.ProjectFile;
+						UProjectFilePath = ProjectFile;
 						GameName = UProjectFilePath.GetFileNameWithoutAnyExtensions();
 					}
 
