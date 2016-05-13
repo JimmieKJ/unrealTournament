@@ -2425,12 +2425,16 @@ int32 AUTCharacter::GetAmmoAmount(TSubclassOf<AUTWeapon> Type) const
 
 void AUTCharacter::AllAmmo()
 {
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	for (TInventoryIterator<AUTWeapon> It(this); It; ++It)
+	if ((GetNetMode() == NM_Standalone) || (GetNetMode() == NM_DedicatedServer))
 	{
-		It->AddAmmo(It->MaxAmmo);
+		for (TInventoryIterator<AUTWeapon> It(this); It; ++It)
+		{
+			if (!It->bMustBeHolstered)
+			{
+				It->AddAmmo(It->MaxAmmo);
+			}
+		}
 	}
-#endif
 }
 
 AUTInventory* AUTCharacter::K2_CreateInventory(TSubclassOf<AUTInventory> NewInvClass, bool bAutoActivate)
