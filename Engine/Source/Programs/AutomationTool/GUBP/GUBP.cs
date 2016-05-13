@@ -162,7 +162,7 @@ public partial class GUBP : BuildCommand
 		BuildGraph Graph = new BuildGraph(AggregateNodeDefinitions, BuildNodeDefinitions);
 		FindCompletionState(Graph.BuildNodes, TempStorageDir);
 		ComputeDependentFrequencies(Graph.BuildNodes);
-		ValidateTriggerDependencies(Graph.BuildNodes);
+		//ValidateTriggerDependencies(Graph.BuildNodes);
 
 		int TimeIndex = ParseParamInt("UserTimeIndex", -1);
 		if (TimeIndex == -1)
