@@ -39,7 +39,7 @@ void AUTProj_BioLauncherShot::Landed(UPrimitiveComponent* HitComp, const FVector
 
 void AUTProj_BioLauncherShot::SpawnWeb(FVector HitNormal)
 {
-	if (bExploded || IsPendingKill())
+	if (bExploded || IsPendingKill() || GetNetMode() == NM_Client || WebHitLocations.Num() > 0)
 	{
 		return;
 	}
