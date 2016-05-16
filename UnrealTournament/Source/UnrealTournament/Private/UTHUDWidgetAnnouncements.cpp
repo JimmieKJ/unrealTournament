@@ -126,7 +126,7 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 				X *= RenderScale;
 				Y *= RenderScale;
 			}
-				FVector2D RenderPos = FVector2D(RenderPosition.X + X, RenderPosition.Y + Y);
+			FVector2D RenderPos = FVector2D(RenderPosition.X + X, RenderPosition.Y + Y);
 			float TextScaling = bScaleByDesignedResolution ? RenderScale*CurrentTextScale : CurrentTextScale;
 
 			// Handle justification
@@ -206,8 +206,9 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 			MessageText = FText::FromString(MessageText.ToString() + " (" + TTypeToString<int32>::ToString(MessageQueue[QueueIndex].MessageCount) + ")");
 		}
 		TextSize = DrawText(MessageText, X, Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, MessageQueue[QueueIndex].ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentTextScale, Alpha, MessageQueue[QueueIndex].DrawColor, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f), ETextHorzPos::Center, ETextVertPos::Top);
-		X += 16.f*RenderScale;
-		Y += TextSize.Y;
+		X = X*RenderScale;
+		Y = Y*RenderScale;
+		TextSize *= RenderScale;
 	}
 
 	if (MessageQueue[QueueIndex].MessageClass && MessageQueue[QueueIndex].MessageClass->GetDefaultObject<UUTLocalMessage>()->bDrawAsDeathMessage)
@@ -234,7 +235,7 @@ void UUTHUDWidgetAnnouncements::DrawDeathMessage(FVector2D TextSize, int32 Queue
 		}
 		float XL = FMath::Abs(DmgType->HUDIcon.UL) * RenderScale;
 		float YL = FMath::Abs(DmgType->HUDIcon.VL) * RenderScale;
-		X += 0.5f * TextSize.X + PaddingBetweenTextAndDamageIcon;
+		X += 0.5f * TextSize.X + PaddingBetweenTextAndDamageIcon*RenderScale;
 		Y = Y + 0.5f * (TextSize.Y - YL);
 
 		bScaleByDesignedResolution = false;
