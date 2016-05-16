@@ -166,8 +166,6 @@ void AUTProj_Redeemer::Explode_Implementation(const FVector& HitLocation, const 
 			{
 				RedeemerDenied(Projectile->InstigatorController);
 			}
-			Detonate(Projectile->InstigatorController);
-			return;
 		}
 		CapsuleComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
