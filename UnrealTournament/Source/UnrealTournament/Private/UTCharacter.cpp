@@ -1390,75 +1390,72 @@ void AUTCharacter::StartRagdoll()
 		return;
 	}
 
-	// Prevent re-entry, please clean up this flag if any early returns occur after this
-	if (bStartingRagdoll)
+	// Prevent re-entry
+	if (!bStartingRagdoll)
 	{
-		return;
-	}
-	bStartingRagdoll = true;
+		TGuardValue<bool> RagdollGuard(bStartingRagdoll, true);
 
-	// turn off any taccom when dead
-	if (bTearOff || !bFeigningDeath)
-	{
-		UpdateTacComMesh(false);
-		UpdateSelectionMesh(false);
-	}
-
-	SetActorEnableCollision(true);
-	StopFiring();
-	DisallowWeaponFiring(true);
-	bInRagdollRecovery = false;
-	
-	if (!GetMesh()->ShouldTickPose())
-	{
-		GetMesh()->TickAnimation(0.0f, false);
-		GetMesh()->RefreshBoneTransforms();
-		GetMesh()->UpdateComponentToWorld();
-	}
-	GetCharacterMovement()->ApplyAccumulatedForces(0.0f);
-	GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
-	GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-	GetMesh()->SetAllBodiesNotifyRigidBodyCollision(true); // note that both the component and the body instance need this set for it to apply
-	GetMesh()->UpdateKinematicBonesToAnim(GetMesh()->GetSpaceBases(), ETeleportType::TeleportPhysics, true);
-	GetMesh()->SetSimulatePhysics(true);
-	GetMesh()->RefreshBoneTransforms();
-	GetMesh()->SetAllBodiesPhysicsBlendWeight(1.0f);
-	GetMesh()->DetachFromParent(true);
-	RootComponent = GetMesh();
-	GetMesh()->bGenerateOverlapEvents = true;
-	GetMesh()->bShouldUpdatePhysicsVolume = true;
-	GetMesh()->RegisterClothTick(true);
-	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	GetCapsuleComponent()->DetachFromParent(false);
-	GetCapsuleComponent()->AttachTo(GetMesh(), NAME_None, EAttachLocation::KeepWorldPosition);
-
-	if (bDeferredReplicatedMovement)
-	{
-		OnRep_ReplicatedMovement();
-		// OnRep_ReplicatedMovement() will only apply to the root body but in this case we want to apply to all bodies
-		if (GetMesh()->GetBodyInstance())
+		// turn off any taccom when dead
+		if (bTearOff || !bFeigningDeath)
 		{
-			GetMesh()->SetAllPhysicsLinearVelocity(GetMesh()->GetBodyInstance()->GetUnrealWorldVelocity());
+			UpdateTacComMesh(false);
+			UpdateSelectionMesh(false);
+		}
+
+		SetActorEnableCollision(true);
+		StopFiring();
+		DisallowWeaponFiring(true);
+		bInRagdollRecovery = false;
+
+		if (!GetMesh()->ShouldTickPose())
+		{
+			GetMesh()->TickAnimation(0.0f, false);
+			GetMesh()->RefreshBoneTransforms();
+			GetMesh()->UpdateComponentToWorld();
+		}
+		GetCharacterMovement()->ApplyAccumulatedForces(0.0f);
+		GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+		GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		GetMesh()->SetAllBodiesNotifyRigidBodyCollision(true); // note that both the component and the body instance need this set for it to apply
+		GetMesh()->UpdateKinematicBonesToAnim(GetMesh()->GetSpaceBases(), ETeleportType::TeleportPhysics, true);
+		GetMesh()->SetSimulatePhysics(true);
+		GetMesh()->RefreshBoneTransforms();
+		GetMesh()->SetAllBodiesPhysicsBlendWeight(1.0f);
+		GetMesh()->DetachFromParent(true);
+		RootComponent = GetMesh();
+		GetMesh()->bGenerateOverlapEvents = true;
+		GetMesh()->bShouldUpdatePhysicsVolume = true;
+		GetMesh()->RegisterClothTick(true);
+		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		GetCapsuleComponent()->DetachFromParent(false);
+		GetCapsuleComponent()->AttachTo(GetMesh(), NAME_None, EAttachLocation::KeepWorldPosition);
+
+		if (bDeferredReplicatedMovement)
+		{
+			OnRep_ReplicatedMovement();
+			// OnRep_ReplicatedMovement() will only apply to the root body but in this case we want to apply to all bodies
+			if (GetMesh()->GetBodyInstance())
+			{
+				GetMesh()->SetAllPhysicsLinearVelocity(GetMesh()->GetBodyInstance()->GetUnrealWorldVelocity());
+			}
+			else
+			{
+				UE_LOG(LogUTCharacter, Warning, TEXT("UTCharacter does not have a body instance!"));
+			}
+			bDeferredReplicatedMovement = false;
 		}
 		else
 		{
-			UE_LOG(LogUTCharacter, Warning, TEXT("UTCharacter does not have a body instance!"));
+			GetMesh()->SetAllPhysicsLinearVelocity(GetMovementComponent()->Velocity, false);
 		}
-		bDeferredReplicatedMovement = false;
+
+		GetCharacterMovement()->StopActiveMovement();
+		GetCharacterMovement()->Velocity = FVector::ZeroVector;
+		bApplyWallSlide = false;
+
+		// set up the custom physics override, if necessary
+		SetRagdollGravityScale(RagdollGravityScale);
 	}
-	else
-	{
-		GetMesh()->SetAllPhysicsLinearVelocity(GetMovementComponent()->Velocity, false);
-	}
-
-	GetCharacterMovement()->StopActiveMovement();
-	GetCharacterMovement()->Velocity = FVector::ZeroVector;
-	bApplyWallSlide = false;
-
-	// set up the custom physics override, if necessary
-	SetRagdollGravityScale(RagdollGravityScale);
-
-	bStartingRagdoll = false;
 }
 
 void AUTCharacter::StopRagdoll()
