@@ -209,7 +209,7 @@ void AUTPickup::SetPickupHidden(bool bNowHidden)
 			{
 				if (Components[i]->ComponentHasTag(TakenHideTags[j]))
 				{
-					Components[i]->SetHiddenInGame(bNowHidden);
+					Components[i]->SetVisibility(!bNowHidden);
 				}
 			}
 		}
