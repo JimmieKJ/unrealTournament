@@ -28,7 +28,7 @@ AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 	GoalScore = 5;
 	SpawnSelectionTime = 9;
 	PowerupDuration = 20.0f;
-	XPMultiplier = 15.0f;
+	XPMultiplier = 1.0f;
 	bHasRespawnChoices = false; // unique system
 	HUDClass = AUTHUD_Showdown::StaticClass();
 	GameStateClass = AUTShowdownGameState::StaticClass();
@@ -117,7 +117,6 @@ void AUTShowdownGame::StartNewRound()
 		if (PS && !PS->bIsInactive && !PS->bOnlySpectator)
 		{
 			PS->SetOutOfLives(false);
-			PS->AdjustScore(100);
 		}
 	}
 
@@ -165,6 +164,11 @@ bool AUTShowdownGame::CheckRelevance_Implementation(AActor* Other)
 		}
 		else
 		{
+			AUTPickupAmmo* AmmoPack = Cast<AUTPickupAmmo>(Other);
+			if (AmmoPack != NULL)
+			{
+				AmmoPack->RespawnTime *= 1.5f;
+			}
 			return Super::CheckRelevance_Implementation(Other);
 		}
 	}
@@ -381,6 +385,18 @@ void AUTShowdownGame::CheckGameTime()
 void AUTShowdownGame::StartIntermission()
 {
 	ClearTimerUFunc(this, FName(TEXT("StartIntermission")));
+	// survival bonus
+	if (LastRoundWinner != NULL)
+	{
+		for (AController* C : LastRoundWinner->GetTeamMembers())
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(C->PlayerState);
+			if (PS != NULL)
+			{
+				PS->AdjustScore(50);
+			}
+		}
+	}
 	bPastELOLimit = true;
 	if (!HasMatchEnded())
 	{
