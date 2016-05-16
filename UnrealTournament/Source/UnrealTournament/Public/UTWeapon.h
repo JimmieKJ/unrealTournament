@@ -8,8 +8,6 @@
 
 #include "UTWeapon.generated.h"
 
-enum class EWeaponHand : uint8;
-
 USTRUCT(BlueprintType)
 struct FInstantHitDamageInfo
 {
@@ -815,6 +813,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	virtual void UpdateWeaponHand();
 
 	/** get weapon hand from the owning playercontroller, or spectating playercontroller if it's a client and a nonlocal player */
+	UFUNCTION(BlueprintCallable, Category = Weapon)
 	EWeaponHand GetWeaponHand() const;
 
 	/** Begin unequipping this weapon */

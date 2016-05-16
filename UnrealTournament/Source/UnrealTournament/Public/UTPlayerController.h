@@ -30,16 +30,6 @@ struct FDeferredFireInput
 };
 
 
-/** controls location and orientation of first person weapon */
-UENUM()
-enum class EWeaponHand : uint8
-{
-	HAND_Right,
-	HAND_Left,
-	HAND_Center,
-	HAND_Hidden,
-};
-
 UCLASS(config=Game)
 class UNREALTOURNAMENT_API AUTPlayerController : public AUTBasePlayerController
 {
