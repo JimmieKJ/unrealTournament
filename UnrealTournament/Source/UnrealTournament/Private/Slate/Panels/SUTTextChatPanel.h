@@ -124,11 +124,11 @@ public:
 
 				if (ChatMessage->Type == ChatDestinations::Whisper)
 				{
-					Text = FText::Format(NSLOCTEXT("SUTTextChatPanel","TextFormat","<UT.Font.Chat.Name>{0}</>: [whisper] {1}"), SenderName, FText::FromString(ChatMessage->Message));
+					Text = FText::Format(NSLOCTEXT("SUTTextChatPanel","TextFormatA","<UT.Font.Chat.Name>{0}</>: [whisper] {1}"), SenderName, FText::FromString(ChatMessage->Message));
 				}
 				else
 				{
-					Text = FText::Format(NSLOCTEXT("SUTTextChatPanel","TextFormat","<UT.Font.Chat.Name>{0}</>:   {1}"), SenderName, FText::FromString(ChatMessage->Message));
+					Text = FText::Format(NSLOCTEXT("SUTTextChatPanel","TextFormatB","<UT.Font.Chat.Name>{0}</>:   {1}"), SenderName, FText::FromString(ChatMessage->Message));
 				}
 
 				ChatBox->AddSlot()
