@@ -340,6 +340,9 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UFUNCTION(BlueprintCallable, Category = GameState)
 		virtual void SetRespawnWaitTime(float NewWaitTime);
 
+	UFUNCTION(BlueprintCallable, Category = GameState)
+		virtual TSubclassOf<class AUTInventory> GetSelectableBoostByIndex(AUTPlayerState* PlayerState, int Index) const;
+
 protected:
 
 	// How long must a player wait before respawning

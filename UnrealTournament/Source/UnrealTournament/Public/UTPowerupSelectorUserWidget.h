@@ -15,7 +15,7 @@ class UNREALTOURNAMENT_API UUTPowerupSelectorUserWidget : public UUserWidget
 	TArray<TSubclassOf<class AUTInventory>> SelectablePowerups;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Powerups)
-	TSubclassOf<class AUTInventory> SelectedPowerup;
+	int SelectedPowerupIndex;
 
 	UFUNCTION(BlueprintCallable, Category = "UI Runnables")
 	FString GetBuyMenuKeyName();

@@ -438,6 +438,16 @@ void AUTGameState::BeginPlay()
 			checkSlow(AllEffectVolumes[i]->IsA(AUTPainVolume::StaticClass()));
 			((AUTPainVolume*)AllEffectVolumes[i])->AddOverlayMaterials(this);
 		}
+
+		//Register any overlays on the ActivatedPlaceholderClass
+		AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (GameMode)
+		{
+			if (GameMode->GetActivatedPowerupPlaceholderClass())
+			{
+				GameMode->GetActivatedPowerupPlaceholderClass().GetDefaultObject()->AddOverlayMaterials(this);
+			}
+		}
 	}
 }
 
@@ -449,6 +459,12 @@ float AUTGameState::GetRespawnWaitTimeFor(AUTPlayerState* PS)
 void AUTGameState::SetRespawnWaitTime(float NewWaitTime)
 {
 	RespawnWaitTime = NewWaitTime;
+}
+
+//By default return nullptr, this should be overriden in other game modes.
+TSubclassOf<class AUTInventory> AUTGameState::GetSelectableBoostByIndex(AUTPlayerState* PlayerState, int Index) const
+{
+	return nullptr;
 }
 
 float AUTGameState::GetClockTime()

@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTCTFRoundGameState.h"
 #include "UTCTFGameMode.h"
+#include "UTPowerupSelectorUserWidget.h"
 #include "Net/UnrealNetwork.h"
 #include "UTCTFScoring.h"
 #include "StatNames.h"
@@ -34,6 +35,45 @@ void AUTCTFRoundGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty 
 	DOREPLIFETIME(AUTCTFRoundGameState, GoldBonusThreshold);
 	DOREPLIFETIME(AUTCTFRoundGameState, SilverBonusThreshold);
 	DOREPLIFETIME(AUTCTFRoundGameState, RemainingPickupDelay);
+}
+
+void AUTCTFRoundGameState::BeginPlay()
+{
+	Super::BeginPlay();
+
+	UpdateSelectablePowerups();
+	AddModeSpecificOverlays();
+}
+
+void AUTCTFRoundGameState::UpdateSelectablePowerups()
+{
+	TSubclassOf<UUTPowerupSelectorUserWidget> PowerupSelectorWidget = LoadClass<UUTPowerupSelectorUserWidget>(NULL, TEXT("/Game/RestrictedAssets/Blueprints/BP_PowerupSelector_Defense.BP_PowerupSelector_Defense_C"), NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+
+	if (PowerupSelectorWidget)
+	{
+		for (TSubclassOf<class AUTInventory> BoostItem : PowerupSelectorWidget.GetDefaultObject()->SelectablePowerups)
+		{
+			SelectablePowerups.Add(BoostItem);
+		}
+	}
+}
+
+void AUTCTFRoundGameState::AddModeSpecificOverlays()
+{
+	for (TSubclassOf<class AUTInventory> BoostClass : SelectablePowerups)
+	{
+		BoostClass.GetDefaultObject()->AddOverlayMaterials(this);
+	}
+}
+
+TSubclassOf<class AUTInventory> AUTCTFRoundGameState::GetSelectableBoostByIndex(AUTPlayerState* PlayerState, int Index) const
+{
+	if ((SelectablePowerups.Num() > 0) && (Index < SelectablePowerups.Num()))
+	{
+		return SelectablePowerups[Index];
+	}
+
+	return nullptr;
 }
 
 void AUTCTFRoundGameState::DefaultTimer()

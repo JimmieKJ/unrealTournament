@@ -39,3 +39,14 @@ FText AUTGauntletGameState::GetGameStatusText(bool bForScoreboard)
 
 	return AUTGameState::GetGameStatusText(bForScoreboard);
 }
+
+void AUTGauntletGameState::UpdateSelectablePowerups()
+{
+	for (AUTReplicatedLoadoutInfo* Loadout : AvailableLoadout)
+	{
+		if (Loadout)
+		{
+			SelectablePowerups.Add(Loadout->ItemClass);
+		}
+	}
+}

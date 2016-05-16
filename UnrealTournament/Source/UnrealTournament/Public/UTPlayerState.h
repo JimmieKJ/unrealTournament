@@ -556,7 +556,7 @@ public:
 	float BoostRechargeTimeRemaining;
 
 	UPROPERTY()
-	TArray<AUTInventory*> PreservedKeepOnDeathInventoryList;
+	TArray<class AUTInventory*> PreservedKeepOnDeathInventoryList;
 	
 	/** Inventory item that is created on boost. */
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = PlayerState)
@@ -926,7 +926,7 @@ public:
 	virtual void ServerSetLoadoutPack(const FName& NewLoadoutPackTag);
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerSetBoostItem(TSubclassOf<class AUTInventory> PowerupClass);
+	virtual void ServerSetBoostItem(int PowerupIndex);
 
 	// DO NOT USE: This is WIP temp code and may go away.
 	UPROPERTY(Replicated)

@@ -80,8 +80,17 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 	UFUNCTION(BlueprintCallable, Category = Team)
 	virtual bool IsTeamOnDefenseNextRound(int32 TeamNumber) const;
 
+	UFUNCTION(BlueprintCallable, Category = GameState)
+	virtual TSubclassOf<class AUTInventory> GetSelectableBoostByIndex(AUTPlayerState* PlayerState, int Index) const override;
+
+	virtual void BeginPlay() override;
+
+
 protected:
 	virtual void UpdateTimeMessage();
-		
 
+	virtual void UpdateSelectablePowerups();
+	virtual void AddModeSpecificOverlays();
+
+	TArray<TSubclassOf<class AUTInventory>> SelectablePowerups;
 };

@@ -17,4 +17,6 @@ class UNREALTOURNAMENT_API AUTGauntletGameState: public AUTSCTFGameState
 	virtual void UpdateTimeMessage(){}
 	virtual FText GetGameStatusText(bool bForScoreboard) override;
 
+protected:
+	virtual void UpdateSelectablePowerups() override;
 };

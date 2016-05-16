@@ -3239,9 +3239,17 @@ void AUTPlayerState::OnUnlockList()
 	}
 }
 
-bool AUTPlayerState::ServerSetBoostItem_Validate(TSubclassOf<class AUTInventory> PowerupClass) { return true; }
-void AUTPlayerState::ServerSetBoostItem_Implementation(TSubclassOf<class AUTInventory> PowerupClass)
+bool AUTPlayerState::ServerSetBoostItem_Validate(int PowerupIndex) { return true; }
+void AUTPlayerState::ServerSetBoostItem_Implementation(int PowerupIndex)
 {
-	BoostClass = PowerupClass;
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState)
+	{
+		TSubclassOf<class AUTInventory> SelectedBoost = UTGameState->GetSelectableBoostByIndex(this, PowerupIndex);
+		if (SelectedBoost != nullptr)
+		{
+			BoostClass = SelectedBoost;
+		}
+	}
 }
 
