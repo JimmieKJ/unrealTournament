@@ -13,13 +13,13 @@ class UNREALTOURNAMENT_API AUTWeap_Redeemer : public AUTWeapon
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Weapon)
 	TSubclassOf<AUTRemoteRedeemer> RemoteRedeemerClass;
 
-	/** Sound to play on bring up - temp here because we don't have really Redeemer bringup anim */
+	/** Sound to play on bring up for all */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
-		USoundBase* BringupSound;
+		USoundBase* GlobalBringupSound;
 
-	/** Sound to play on bring up - temp here because we don't have really Redeemer bringup anim */
+	/** Sound to play on bring up for all */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
-		USoundBase* PutDownSound;
+		USoundBase* GlobalPutDownSound;
 
 	UPROPERTY()
 		AUTRemoteRedeemer* RemoteRedeemer;

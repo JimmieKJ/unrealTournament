@@ -117,14 +117,14 @@ float AUTWeap_Redeemer::SuggestDefenseStyle_Implementation()
 void AUTWeap_Redeemer::BringUp(float OverflowTime)
 {
 	Super::BringUp(OverflowTime);
-	UUTGameplayStatics::UTPlaySound(GetWorld(), BringupSound, UTOwner, SRT_AllButOwner);
+	UUTGameplayStatics::UTPlaySound(GetWorld(), GlobalBringupSound, UTOwner, SRT_AllButOwner);
 }
 
 bool AUTWeap_Redeemer::PutDown()
 {
 	if (Super::PutDown())
 	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), PutDownSound, UTOwner, SRT_AllButOwner);
+		UUTGameplayStatics::UTPlaySound(GetWorld(), GlobalPutDownSound, UTOwner, SRT_AllButOwner);
 		return true;
 	}
 	return false;

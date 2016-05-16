@@ -37,6 +37,11 @@ void UUTWeaponStateUnequipping::BeginState(const UUTWeaponState* PrevState)
 	{
 		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(PutDownFinishedHandle, this, &UUTWeaponStateUnequipping::PutDownFinished, UnequipTime);
 		GetOuterAUTWeapon()->PlayWeaponAnim(GetOuterAUTWeapon()->PutDownAnim, GetOuterAUTWeapon()->PutDownAnimHands, GetAnimLengthForScaling(GetOuterAUTWeapon()->PutDownAnim, GetOuterAUTWeapon()->PutDownAnimHands) / UnequipTime);
+		
+		if ((GetOuterAUTWeapon()->UTOwner != nullptr) && (GetOuterAUTWeapon()->LowerSound != nullptr))
+		{
+			UUTGameplayStatics::UTPlaySound(GetWorld(), GetOuterAUTWeapon()->LowerSound, GetOuterAUTWeapon()->UTOwner, SRT_None);
+		}
 	}
 }
 
@@ -78,6 +83,12 @@ void UUTWeaponStateEquipping::StartEquip(float OverflowTime)
 	{
 		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(BringUpFinishedHandle, this, &UUTWeaponStateEquipping::BringUpFinished, EquipTime);
 		GetOuterAUTWeapon()->PlayWeaponAnim(GetOuterAUTWeapon()->BringUpAnim, GetOuterAUTWeapon()->BringUpAnimHands, GetAnimLengthForScaling(GetOuterAUTWeapon()->BringUpAnim, GetOuterAUTWeapon()->BringUpAnimHands) / EquipTime);
+
+		if ((GetOuterAUTWeapon()->UTOwner != nullptr) && (GetOuterAUTWeapon()->BringUpSound != nullptr))
+		{
+			UUTGameplayStatics::UTPlaySound(GetWorld(), GetOuterAUTWeapon()->BringUpSound, GetOuterAUTWeapon()->UTOwner, SRT_None);
+		}
+
 		if (GetOuterAUTWeapon()->GetNetMode() != NM_DedicatedServer && GetOuterAUTWeapon()->ShouldPlay1PVisuals())
 		{
 			// now that the anim is playing, force update first person meshes
