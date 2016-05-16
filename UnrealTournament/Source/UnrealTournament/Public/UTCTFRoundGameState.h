@@ -10,8 +10,8 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 {
 	GENERATED_UCLASS_BODY()
 
-		UPROPERTY(Replicated)
-		int32 IntermissionTime;
+	UPROPERTY(Replicated)
+	int32 IntermissionTime;
 
 	UPROPERTY(Replicated)
 		int32 OffenseKills;
@@ -92,5 +92,6 @@ protected:
 	virtual void UpdateSelectablePowerups();
 	virtual void AddModeSpecificOverlays();
 
+	UPROPERTY()
 	TArray<TSubclassOf<class AUTInventory>> SelectablePowerups;
 };
