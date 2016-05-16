@@ -1022,7 +1022,7 @@ FReply SUTChallengePanel::StartClicked(int32 Difficulty)
 			if (NumStars < 10)
 			{
 				const FUTChallengeInfo Challenge = ChallengeManager->Challenges[SelectedChallenge];
-				if (Challenge.PlayerTeamSize > 0)
+				if ((Challenge.PlayerTeamSize > 0) && (Challenge.RewardTag == NAME_REWARD_GoldStars))
 				{
 					PendingDifficulty = Difficulty;
 					PlayerOwner->ShowMessage(NSLOCTEXT("SUTChallengePanel", "WeakRosterWarningTitle", "WARNING"), NSLOCTEXT("SUTChallengePanel", "WeakRosterWarning", "Your current roster of teammates may not be strong enough to take on this challenge at this skill level.  You will unlock roster upgrades for every 5 stars earned.  Do you wish to continue?"), UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateSP(this, &SUTChallengePanel::WarningResult));
