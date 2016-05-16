@@ -49,7 +49,7 @@ void AUTBasePlayerController::InitInputSystem()
 	// read profile on every level change so we can detect updates
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 #if WITH_PROFILE
-	if (LP != NULL && LP->IsLoggedIn())
+	if (LP != NULL && LP->IsLoggedIn() && LP->GetMcpProfileManager())
 	{
 		FClientUrlContext QueryContext = FClientUrlContext::Default; // IMPORTANT to make a copy!
 		LP->GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile)->ForceQueryProfile(QueryContext);
