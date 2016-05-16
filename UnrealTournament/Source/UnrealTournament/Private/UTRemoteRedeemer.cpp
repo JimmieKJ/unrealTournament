@@ -608,7 +608,6 @@ float AUTRemoteRedeemer::TakeDamage(float Damage, const FDamageEvent& DamageEven
 				if (EventInstigator != NULL)
 				{
 					EventInstigator->InstigatedAnyDamage(ActualDamage, DamageTypeCDO, this, DamageCauser);
-					DamageInstigator = EventInstigator;
 				}
 				ProjHealth -= ActualDamage;
 				if (ProjHealth <= 0)
