@@ -24,17 +24,14 @@ void AUTActivatedPowerUpPlaceholder::GivenTo(AUTCharacter* NewOwner, bool bAutoA
 	Super::GivenTo(NewOwner, bAutoActivate);
 	if (GetUTOwner())
 	{
-		UE_LOG(UT, Warning, TEXT("Set Overlay"));
 		GetUTOwner()->SetWeaponOverlayEffect(OverlayEffect, true);
 	}
 }
 
 void AUTActivatedPowerUpPlaceholder::Removed()
 {
-	UE_LOG(UT, Warning, TEXT("Destroyed"));
 	if (GetUTOwner())
 	{
-		UE_LOG(UT, Warning, TEXT("Clear Overlay"));
 		GetUTOwner()->SetWeaponOverlayEffect(OverlayEffect, false);
 	}
 	Super::Removed();
