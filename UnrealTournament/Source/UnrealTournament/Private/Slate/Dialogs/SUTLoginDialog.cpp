@@ -421,7 +421,7 @@ FReply SUTLoginDialog::OnNewAccountClick()
 FReply SUTLoginDialog::OnForgotPasswordClick()
 {
 	FString Error;
-	FPlatformProcess::LaunchURL(TEXT("https://accounts.unrealtournament.com/requestPasswordReset"), NULL, &Error);
+	FPlatformProcess::LaunchURL(TEXT("https://accounts.epicgames.com/requestPasswordReset"), NULL, &Error);
 	if (Error.Len() > 0)
 	{
 		PlayerOwner->MessageBox(NSLOCTEXT("SUTMenuBase", "HTTPBrowserError", "Error Launching Browser"),FText::FromString(Error) );
