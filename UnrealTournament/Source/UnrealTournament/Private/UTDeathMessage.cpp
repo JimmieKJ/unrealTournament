@@ -47,7 +47,7 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 		//Draw the big white kill text if the player wants
 		if (UTHUD->GetDrawCenteredKillMsg())
 		{
-			if (LocalPlayerState && LocalPlayerState->bOnlySpectator)
+			if (LocalPlayerState && (LocalPlayerState->bOnlySpectator || (Cast<AUTPlayerState>(LocalPlayerState) && ((AUTPlayerState*)LocalPlayerState)->bOutOfLives)))
 			{
 				AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
 				LocalPlayerState = PC ? PC->LastSpectatedPlayerState : nullptr;
