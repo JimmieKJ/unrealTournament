@@ -2400,42 +2400,120 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 		]
 
 	];
-	VBox->AddSlot()
-	.Padding(10.0f, 10.0f, 10.0f, 5.0f)
-	.AutoHeight()
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.HAlign(HAlign_Left)
-		.VAlign(VAlign_Center)
-		.AutoWidth()
-		[
-			SNew(SBox)
-			.WidthOverride(300)
+
+	if (LP != NULL)
+	{
+		VBox->AddSlot()
+			.Padding(10.0f, 10.0f, 10.0f, 5.0f)
+			.AutoHeight()
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+			.HAlign(HAlign_Left)
+			.VAlign(VAlign_Center)
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.WidthOverride(300)
 			[
 				SNew(STextBlock)
 				.Text(NSLOCTEXT("AUTPlayerState", "ChallengeStars", "Challenge Stars:"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-				.ColorAndOpacity(FLinearColor::Gray)
-			]
-		]
-		+ SHorizontalBox::Slot()
-		.HAlign(HAlign_Left)
-		.VAlign(VAlign_Center)
-		.AutoWidth()
-		[
-			SNew(STextBlock)
-			.Text(FText::Format(NSLOCTEXT("AUTPlayerState", "ChallengeStarsFormat", "{0} "), FText::AsNumber(TotalChallengeStars)))
 			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 			.ColorAndOpacity(FLinearColor::Gray)
-		]
+			]
+			]
 		+ SHorizontalBox::Slot()
-		.HAlign(HAlign_Left)
-		.VAlign(VAlign_Center)
-		.AutoWidth()
-		[
-			SNew(SVerticalBox)
-			+SVerticalBox::Slot()
+			.HAlign(HAlign_Left)
+			.VAlign(VAlign_Center)
+			.AutoWidth()
+			[
+				SNew(STextBlock)
+				.Text(FText::Format(NSLOCTEXT("AUTPlayerState", "ChallengeStarsFormat", "{0} "), FText::AsNumber(LP->GetChallengeStars(NAME_REWARD_GoldStars))))
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+			.ColorAndOpacity(FLinearColor::Gray)
+			]
+		+ SHorizontalBox::Slot()
+			.HAlign(HAlign_Left)
+			.VAlign(VAlign_Center)
+			.AutoWidth()
+			[
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
+			[
+				SNew(SBox).WidthOverride(32).HeightOverride(32)
+				[
+					SNew(SImage)
+					.Image(SUTStyle::Get().GetBrush("UT.Star"))
+					.ColorAndOpacity(FLinearColor::Yellow)
+				]
+			]
+			]
+		+ SHorizontalBox::Slot()
+			.HAlign(HAlign_Left)
+			.VAlign(VAlign_Center)
+			.AutoWidth()
+			[
+				SNew(STextBlock)
+				.Text(FText::Format(NSLOCTEXT("AUTPlayerState", "ChallengeStarsFormat", "     {0} "), FText::AsNumber(LP->GetChallengeStars(NAME_REWARD_BlueStars))))
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+					.ColorAndOpacity(FLinearColor::Gray)
+			]
+		+ SHorizontalBox::Slot()
+			.HAlign(HAlign_Left)
+			.VAlign(VAlign_Center)
+			.AutoWidth()
+			[
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
+			[
+				SNew(SBox).WidthOverride(32).HeightOverride(32)
+				[
+					SNew(SImage)
+					.Image(SUTStyle::Get().GetBrush("UT.Star"))
+			.ColorAndOpacity(FLinearColor::Blue)
+				]
+			]
+			]
+			];
+	}
+	else
+	{
+		VBox->AddSlot()
+			.Padding(10.0f, 10.0f, 10.0f, 5.0f)
+			.AutoHeight()
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+			.HAlign(HAlign_Left)
+			.VAlign(VAlign_Center)
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.WidthOverride(300)
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("AUTPlayerState", "ChallengeStars", "Challenge Stars:"))
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+			.ColorAndOpacity(FLinearColor::Gray)
+			]
+			]
+		+ SHorizontalBox::Slot()
+			.HAlign(HAlign_Left)
+			.VAlign(VAlign_Center)
+			.AutoWidth()
+			[
+				SNew(STextBlock)
+				.Text(FText::Format(NSLOCTEXT("AUTPlayerState", "ChallengeStarsFormat", "{0} "), FText::AsNumber(TotalChallengeStars)))
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+			.ColorAndOpacity(FLinearColor::Gray)
+			]
+		+ SHorizontalBox::Slot()
+			.HAlign(HAlign_Left)
+			.VAlign(VAlign_Center)
+			.AutoWidth()
+			[
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
 			[
 				SNew(SBox).WidthOverride(32).HeightOverride(32)
 				[
@@ -2443,9 +2521,9 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 					.Image(SUTStyle::Get().GetBrush("UT.Star"))
 				]
 			]
-		]
-
-	];
+			]
+			];
+	}
 	return VBox;
 }
 
