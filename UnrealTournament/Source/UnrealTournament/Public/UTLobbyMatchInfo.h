@@ -73,6 +73,7 @@ public:
 	FString InitialMap;
 
 	// This will be looked up when the inital map is set.
+	UPROPERTY()
 	TWeakObjectPtr<AUTReplicatedMapInfo> InitialMapInfo;
 
 	// Set by OnRep_InitialMap
@@ -161,6 +162,7 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerManageUser(int32 CommandID, AUTLobbyPlayerState* Target);
 
+	UPROPERTY()
 	TArray<FUniqueNetIdRepl> BannedIDs;
 
 	UFUNCTION(Server, Reliable, WithValidation)
@@ -201,6 +203,7 @@ public:
 	bool bDedicatedTeamGame;
 
 	// The Key used to associated this match with a dedicated instance
+	UPROPERTY()
 	FString AccessKey;
 
 	// The name for this server
