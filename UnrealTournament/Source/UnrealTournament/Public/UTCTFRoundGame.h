@@ -189,6 +189,9 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 
 	virtual void GiveDefaultInventory(APawn* PlayerPawn) override;
 
+	UPROPERTY()
+		bool bAllowPrototypePowerups;
+
 protected:
 	virtual bool IsTeamOnOffense(int32 TeamNumber) const;
 	virtual bool IsTeamOnDefense(int32 TeamNumber) const;

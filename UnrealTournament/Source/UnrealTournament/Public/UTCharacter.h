@@ -532,10 +532,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	/** discards (generally destroys) all inventory items */
 	UFUNCTION(BlueprintCallable, Category = "Pawn")
 	virtual void DiscardAllInventory();
-
-	UFUNCTION()
-	virtual void PreserveKeepOnDeathInventory();
-
+	
 	/** call to propagate a named character event (jumping, firing, etc) to all inventory items with bCallOwnerEvent = true */
 	UFUNCTION(BlueprintCallable, Category = "Pawn")
 	virtual void InventoryEvent(FName EventName);

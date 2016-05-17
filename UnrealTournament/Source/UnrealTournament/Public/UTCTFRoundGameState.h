@@ -32,6 +32,9 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 		bool bIsOffenseAbleToGainPowerup;
 
 	UPROPERTY(Replicated)
+		bool bUsePrototypePowerupSelect;
+
+	UPROPERTY(Replicated)
 		int32 GoldBonusThreshold;
 
 	UPROPERTY(Replicated)
@@ -85,6 +88,8 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 
 	virtual void BeginPlay() override;
 
+	UFUNCTION(BlueprintCallable, Category = GameState)
+	FString GetPowerupSelectWidgetPath(int32 TeamNumber);
 
 protected:
 	virtual void UpdateTimeMessage();
@@ -93,5 +98,9 @@ protected:
 	virtual void AddModeSpecificOverlays();
 
 	UPROPERTY()
-	TArray<TSubclassOf<class AUTInventory>> SelectablePowerups;
+	TArray<TSubclassOf<class AUTInventory>> DefenseSelectablePowerups;
+
+	UPROPERTY()
+	TArray<TSubclassOf<class AUTInventory>> OffenseSelectablePowerups;
+
 };

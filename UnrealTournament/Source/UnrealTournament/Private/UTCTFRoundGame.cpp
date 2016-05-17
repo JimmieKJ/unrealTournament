@@ -61,6 +61,8 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	OffenseKillsNeededForPowerUp = 10;
 	DefenseKillsNeededForPowerUp = 10;
 
+	bAllowPrototypePowerups = false;
+
 	InitialBoostCount = 0;
 	bNoLivesEndRound = true;
 	MaxTimeScoreBonus = 150;
@@ -140,7 +142,7 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 		RepulsorClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *RepulsorObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
 	}
 
-	// key options are ?RoundLives=xx?Dash=xx?Asymm=xx?PerPlayerLives=xx?OffKillsForPowerup=xx?DefKillsForPowerup=xx
+	// key options are ?RoundLives=xx?Dash=xx?Asymm=xx?PerPlayerLives=xx?OffKillsForPowerup=xx?DefKillsForPowerup=xx?AllowPrototypePowerups=xx
 	RoundLives = FMath::Max(1, UGameplayStatics::GetIntOption(Options, TEXT("RoundLives"), RoundLives));
 
 	FString InOpt = UGameplayStatics::ParseOption(Options, TEXT("OwnFlag"));
@@ -157,6 +159,9 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 
 	OffenseKillsNeededForPowerUp = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("OffKillsForPowerup"), OffenseKillsNeededForPowerUp));
 	DefenseKillsNeededForPowerUp = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("DefKillsForPowerup"), DefenseKillsNeededForPowerUp));
+
+	InOpt = UGameplayStatics::ParseOption(Options, TEXT("AllowPrototypePowerups"));
+	bAllowPrototypePowerups = EvalBoolOptions(InOpt, bAllowPrototypePowerups);
 }
 
 void AUTCTFRoundGame::SetPlayerDefaults(APawn* PlayerPawn)
@@ -1302,7 +1307,14 @@ void AUTCTFRoundGame::GrantPowerupToTeam(int TeamIndex, AUTPlayerState* PlayerTo
 		{
 			if (PS->Team->TeamIndex == TeamIndex)
 			{
-				PS->SetRemainingBoosts(1);
+				if (PS->BoostClass && PS->BoostClass.GetDefaultObject() && PS->BoostClass.GetDefaultObject()->RemainingBoostsGivenOverride > 0)
+				{
+					PS->SetRemainingBoosts(PS->BoostClass.GetDefaultObject()->RemainingBoostsGivenOverride);
+				}
+				else
+				{
+					PS->SetRemainingBoosts(1);
+				}
 			}
 			AUTPlayerController* PC = Cast<AUTPlayerController>(PS->GetOwner());
 			if (PC)

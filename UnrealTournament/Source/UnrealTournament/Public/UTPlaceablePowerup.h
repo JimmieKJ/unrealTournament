@@ -8,22 +8,19 @@ class UNREALTOURNAMENT_API AUTPlaceablePowerup : public AUTInventory
 {
 	GENERATED_UCLASS_BODY()
 
-	/**Number of powerups you can drop */
-	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadWrite, Category = Powerup)
-		int NumCharges;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Powerup)
-		bool bUseCharges;
-
 	/*If checked, when this Inventory item is destroyed, all spawned powerups will also be destroyed. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Powerup)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Powerup)
 		bool bDestroySpawnedPowerups;
+
+	/*If checked, when you are out of remaining boosts, this item will destroy itself. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Powerup)
+		bool bDestroyWhenOutOfBoosts;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Powerup)
 		FTransform SpawnOffset;
 
 	/*What object we should spawn in the world when this powerup is used.*/
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Powerup)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Powerup)
 		TSubclassOf<AActor> PowerupToSpawn;
 
 	/*Handles spawning a SpawnedPowerup item.*/
@@ -31,17 +28,29 @@ class UNREALTOURNAMENT_API AUTPlaceablePowerup : public AUTInventory
 
 	virtual void Destroyed();
 
+	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate) override;
+
 public:
 	/** Returns the HUD text to display for this item. */
 	virtual FText GetHUDText() const override
 	{ 
-		return FText::AsNumber(NumCharges); 
+		if (UTOwner && UTOwner->PlayerState)
+		{
+			AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTOwner->PlayerState);
+			if (UTPS)
+			{
+				return FText::AsNumber(UTPS->GetRemainingBoosts());
+			}
+		}
+
+		return FText::GetEmpty();
 	}
 
 	virtual void DrawInventoryHUD_Implementation(UUTHUDWidget* Widget, FVector2D Pos, FVector2D Size) override;
 
 private:
 	/** Holds all the power ups this Inventory item has spawned. */
+	UPROPERTY()
 	TArray<TWeakObjectPtr<AActor>> SpawnedPowerups;
 
 	virtual bool HUDShouldRender_Implementation(UUTHUDWidget* TargetWidget) override;

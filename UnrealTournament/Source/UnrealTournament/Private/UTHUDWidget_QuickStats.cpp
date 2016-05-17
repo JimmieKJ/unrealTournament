@@ -290,15 +290,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 				AUTPlaceablePowerup* PlaceablePowerup = Cast<AUTPlaceablePowerup>(ActiveBoost);
 				if (PlaceablePowerup)
 				{
-					if (PlaceablePowerup->bUseCharges)
-					{
-						BoostProvidedPowerupInfo.Value = PlaceablePowerup->NumCharges;
-					}
-					else
-					{
-						BoostProvidedPowerupInfo.Value = 1;
-						BoostProvidedPowerupInfo.bUseLabel = true;
-					}
+					BoostProvidedPowerupInfo.Value = UTPlayerState->GetRemainingBoosts();
 				}
 			}
 			else

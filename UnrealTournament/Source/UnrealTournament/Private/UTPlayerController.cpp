@@ -752,29 +752,32 @@ void AUTPlayerController::TriggerBoost()
 	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
 	if (GameMode && UTCharacter && UTPlayerState)
 	{
-		AUTPlaceablePowerup* FoundPlaceablePowerup = UTCharacter->FindInventoryType<AUTPlaceablePowerup>(AUTPlaceablePowerup::StaticClass(), false);
-		if (FoundPlaceablePowerup)
-		{
-			FoundPlaceablePowerup->SpawnPowerup();
-		}
-		else if (GameMode->AttemptBoost(this))
+		if (GameMode->AttemptBoost(this))
 		{
 			if (UTPlayerState->BoostClass)
 			{
-				AUTInventory* TriggeredBoost = GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->BoostClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f));
-				TriggeredBoost->InitAsTriggeredBoost(UTCharacter);
-
-				AUTInventory* DuplicatePowerup = UTCharacter->FindInventoryType<AUTInventory>(UTPlayerState->BoostClass, true);
-				if (!DuplicatePowerup || !DuplicatePowerup->StackPickup(nullptr))
+				AUTPlaceablePowerup* FoundPlaceablePowerup = UTCharacter->FindInventoryType<AUTPlaceablePowerup>(AUTPlaceablePowerup::StaticClass(), false);
+				if (FoundPlaceablePowerup)
 				{
-					UTCharacter->AddInventory(TriggeredBoost, true);
+					FoundPlaceablePowerup->SpawnPowerup();
 				}
-
-				//if we gave you a weapon lets immediately switch on triggering the boost
-				AUTWeapon* BoostAsWeapon = Cast<AUTWeapon>(TriggeredBoost);
-				if (BoostAsWeapon)
+				else
 				{
-					UTCharacter->SwitchWeapon(BoostAsWeapon);
+					AUTInventory* TriggeredBoost = GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->BoostClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f));
+					TriggeredBoost->InitAsTriggeredBoost(UTCharacter);
+
+					AUTInventory* DuplicatePowerup = UTCharacter->FindInventoryType<AUTInventory>(UTPlayerState->BoostClass, true);
+					if (!DuplicatePowerup || !DuplicatePowerup->StackPickup(nullptr))
+					{
+						UTCharacter->AddInventory(TriggeredBoost, true);
+					}
+
+					//if we gave you a weapon lets immediately switch on triggering the boost
+					AUTWeapon* BoostAsWeapon = Cast<AUTWeapon>(TriggeredBoost);
+					if (BoostAsWeapon)
+					{
+						UTCharacter->SwitchWeapon(BoostAsWeapon);
+					}
 				}
 			}
 			else

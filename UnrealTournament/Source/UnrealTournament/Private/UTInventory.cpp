@@ -32,6 +32,7 @@ AUTInventory::AUTInventory(const FObjectInitializer& ObjectInitializer)
 	IconColor = FLinearColor::White;
 	
 	bBoostPowerupSuppliedItem = false;
+	RemainingBoostsGivenOverride = 1;
 
 	HUDText = FText::GetEmpty();
 }

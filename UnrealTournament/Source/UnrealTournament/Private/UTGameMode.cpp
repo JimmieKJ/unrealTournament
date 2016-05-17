@@ -1321,12 +1321,6 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 			}
 		}
 
-		AUTCharacter* UTC = Cast<AUTCharacter>(KilledPawn);
-		if (UTC)
-		{
-			UTC->PreserveKeepOnDeathInventory();
-		}
-
 		DiscardInventory(KilledPawn, Killer);
 	}
 	NotifyKilled(Killer, KilledPlayer, KilledPawn, DamageType);
@@ -4670,16 +4664,6 @@ bool AUTGameMode::CanBoost(AUTPlayerController* Who)
 	if (Who && Who->UTPlayerState)
 	{
 		if (Who->UTPlayerState->GetRemainingBoosts())
-		{
-			return true;
-		}
-	}
-
-	AUTCharacter* UTCharacter = Cast<AUTCharacter>(Who->GetPawn());
-	if (UTCharacter)
-	{
-		AUTPlaceablePowerup* FoundPlaceablePowerup = UTCharacter->FindInventoryType<AUTPlaceablePowerup>(AUTPlaceablePowerup::StaticClass(), false);
-		if (FoundPlaceablePowerup)
 		{
 			return true;
 		}

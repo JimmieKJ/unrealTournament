@@ -46,7 +46,8 @@ void AUTGauntletGameState::UpdateSelectablePowerups()
 	{
 		if (Loadout)
 		{
-			SelectablePowerups.Add(Loadout->ItemClass);
+			OffenseSelectablePowerups.Add(Loadout->ItemClass);
+			DefenseSelectablePowerups.Add(Loadout->ItemClass);
 		}
 	}
 }

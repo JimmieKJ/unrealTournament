@@ -8,7 +8,15 @@
 AUTPlaceablePowerup::AUTPlaceablePowerup(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	NumCharges = 3;
+	bDestroySpawnedPowerups = false;
+	bDestroyWhenOutOfBoosts = true;
+}
+
+void AUTPlaceablePowerup::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
+{
+	Super::GivenTo(NewOwner, bAutoActivate);
+
+	SpawnPowerup();
 }
 
 void AUTPlaceablePowerup::Destroyed()
@@ -31,7 +39,7 @@ void AUTPlaceablePowerup::DrawInventoryHUD_Implementation(UUTHUDWidget* Widget, 
 {
 	if (HUDIcon.Texture != NULL)
 	{
-		FText Text = FText::AsNumber(FMath::CeilToInt(NumCharges));
+		FText Text = GetHUDText();
 
 		UFont* MediumFont = Widget->UTHUDOwner->MediumFont;
 		float Xl, YL;
@@ -45,13 +53,6 @@ void AUTPlaceablePowerup::DrawInventoryHUD_Implementation(UUTHUDWidget* Widget, 
 	}
 }
 
-void AUTPlaceablePowerup::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME_CONDITION(AUTPlaceablePowerup, NumCharges, COND_None);
-}
-
 // Allows inventory items to decide if a widget should be allowed to render them.
 bool AUTPlaceablePowerup::HUDShouldRender_Implementation(UUTHUDWidget* TargetWidget)
 {
@@ -60,10 +61,8 @@ bool AUTPlaceablePowerup::HUDShouldRender_Implementation(UUTHUDWidget* TargetWid
 
 void AUTPlaceablePowerup::SpawnPowerup()
 {
-	if (PowerupToSpawn && (!bUseCharges || NumCharges > 0))
+	if (PowerupToSpawn)
 	{
-		NumCharges--;
-
 		const FRotator SpawnRotation = (UTOwner->GetActorTransform().GetRotation()).Rotator() + (SpawnOffset.GetRotation().Rotator());
 		const FVector RotatedOffset = UTOwner->GetActorTransform().GetRotation().RotateVector(SpawnOffset.GetLocation());
 		const FVector SpawnLocation = UTOwner->GetActorTransform().GetLocation() + RotatedOffset;
@@ -79,8 +78,16 @@ void AUTPlaceablePowerup::SpawnPowerup()
 		NewlySpawnedActor->SetReplicates(true);
 	}
 
-	if (bUseCharges && NumCharges <= 0)
+	//Remove itself if we are out of boosts
+	if (UTOwner && UTOwner->PlayerState)
 	{
-		Destroy();
+		AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTOwner->PlayerState);
+		if (UTPS)
+		{
+			if (bDestroyWhenOutOfBoosts && (UTPS->GetRemainingBoosts() <= 0))
+			{
+				Destroy();
+			}
+		}
 	}
 }

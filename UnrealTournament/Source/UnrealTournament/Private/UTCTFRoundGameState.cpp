@@ -1,5 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
+#include "UTCTFRoundGame.h"
 #include "UTCTFRoundGameState.h"
 #include "UTCTFGameMode.h"
 #include "UTPowerupSelectorUserWidget.h"
@@ -31,6 +32,7 @@ void AUTCTFRoundGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty 
 	DOREPLIFETIME(AUTCTFRoundGameState, DefenseKillsNeededForPowerup);
 	DOREPLIFETIME(AUTCTFRoundGameState, bIsDefenseAbleToGainPowerup);
 	DOREPLIFETIME(AUTCTFRoundGameState, bIsOffenseAbleToGainPowerup);
+	DOREPLIFETIME(AUTCTFRoundGameState, bUsePrototypePowerupSelect);
 	DOREPLIFETIME(AUTCTFRoundGameState, BonusLevel);
 	DOREPLIFETIME(AUTCTFRoundGameState, GoldBonusThreshold);
 	DOREPLIFETIME(AUTCTFRoundGameState, SilverBonusThreshold);
@@ -41,26 +43,60 @@ void AUTCTFRoundGameState::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (GetWorld() && GetWorld()->GetAuthGameMode<AUTCTFRoundGame>())
+	{
+		bUsePrototypePowerupSelect = GetWorld()->GetAuthGameMode<AUTCTFRoundGame>()->bAllowPrototypePowerups;
+	}
+
 	UpdateSelectablePowerups();
 	AddModeSpecificOverlays();
 }
 
 void AUTCTFRoundGameState::UpdateSelectablePowerups()
 {
-	TSubclassOf<UUTPowerupSelectorUserWidget> PowerupSelectorWidget = LoadClass<UUTPowerupSelectorUserWidget>(NULL, TEXT("/Game/RestrictedAssets/Blueprints/BP_PowerupSelector_Defense.BP_PowerupSelector_Defense_C"), NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+	const int32 RedTeamIndex = 0;
+	const int32 BlueTeamIndex = 1;
+	const bool bIsRedTeamOffense = IsTeamOnDefenseNextRound(RedTeamIndex);
 
-	if (PowerupSelectorWidget)
+	TSubclassOf<UUTPowerupSelectorUserWidget> OffensePowerupSelectorWidget;
+	TSubclassOf<UUTPowerupSelectorUserWidget> DefensePowerupSelectorWidget;
+
+	if (bIsRedTeamOffense)
 	{
-		for (TSubclassOf<class AUTInventory> BoostItem : PowerupSelectorWidget.GetDefaultObject()->SelectablePowerups)
+		OffensePowerupSelectorWidget = LoadClass<UUTPowerupSelectorUserWidget>(NULL, *GetPowerupSelectWidgetPath(RedTeamIndex), NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+		DefensePowerupSelectorWidget = LoadClass<UUTPowerupSelectorUserWidget>(NULL, *GetPowerupSelectWidgetPath(BlueTeamIndex), NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+	}
+	else
+	{
+		OffensePowerupSelectorWidget = LoadClass<UUTPowerupSelectorUserWidget>(NULL, *GetPowerupSelectWidgetPath(BlueTeamIndex), NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+		DefensePowerupSelectorWidget = LoadClass<UUTPowerupSelectorUserWidget>(NULL, *GetPowerupSelectWidgetPath(RedTeamIndex), NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+	}
+		
+	if (OffensePowerupSelectorWidget)
+	{
+		for (TSubclassOf<class AUTInventory> BoostItem : OffensePowerupSelectorWidget.GetDefaultObject()->SelectablePowerups)
 		{
-			SelectablePowerups.Add(BoostItem);
+			OffenseSelectablePowerups.Add(BoostItem);
+		}
+	}
+
+	if (DefensePowerupSelectorWidget)
+	{
+		for (TSubclassOf<class AUTInventory> BoostItem : DefensePowerupSelectorWidget.GetDefaultObject()->SelectablePowerups)
+		{
+			DefenseSelectablePowerups.Add(BoostItem);
 		}
 	}
 }
 
 void AUTCTFRoundGameState::AddModeSpecificOverlays()
 {
-	for (TSubclassOf<class AUTInventory> BoostClass : SelectablePowerups)
+	for (TSubclassOf<class AUTInventory> BoostClass : OffenseSelectablePowerups)
+	{
+		BoostClass.GetDefaultObject()->AddOverlayMaterials(this);
+	}
+
+	for (TSubclassOf<class AUTInventory> BoostClass : DefenseSelectablePowerups)
 	{
 		BoostClass.GetDefaultObject()->AddOverlayMaterials(this);
 	}
@@ -68,9 +104,19 @@ void AUTCTFRoundGameState::AddModeSpecificOverlays()
 
 TSubclassOf<class AUTInventory> AUTCTFRoundGameState::GetSelectableBoostByIndex(AUTPlayerState* PlayerState, int Index) const
 {
-	if ((SelectablePowerups.Num() > 0) && (Index < SelectablePowerups.Num()))
+	if (PlayerState && IsTeamOnDefenseNextRound(PlayerState->GetTeamNum()))
 	{
-		return SelectablePowerups[Index];
+		if ((DefenseSelectablePowerups.Num() > 0) && (Index < DefenseSelectablePowerups.Num()))
+		{
+			return DefenseSelectablePowerups[Index];
+		}
+	}
+	else
+	{
+		if ((OffenseSelectablePowerups.Num() > 0) && (Index < OffenseSelectablePowerups.Num()))
+		{
+			return OffenseSelectablePowerups[Index];
+		}
 	}
 
 	return nullptr;
@@ -223,5 +269,31 @@ FText AUTCTFRoundGameState::GetGameStatusText(bool bForScoreboard)
 	}
 
 	return AUTGameState::GetGameStatusText(bForScoreboard);
+}
+
+FString AUTCTFRoundGameState::GetPowerupSelectWidgetPath(int32 TeamNumber)
+{
+	if (bUsePrototypePowerupSelect)
+	{
+		if (IsTeamOnDefenseNextRound(TeamNumber))
+		{
+			return TEXT("/Game/RestrictedAssets/Blueprints/BP_PowerupSelector_Defense_Prototype.BP_PowerupSelector_Defense_Prototype_C");
+		}
+		else
+		{
+			return TEXT("/Game/RestrictedAssets/Blueprints/BP_PowerupSelector_Offense_Prototype.BP_PowerupSelector_Offense_Prototype_C");
+		}
+	}
+	else
+	{
+		if (IsTeamOnDefenseNextRound(TeamNumber))
+		{
+			return TEXT("/Game/RestrictedAssets/Blueprints/BP_PowerupSelector_Defense.BP_PowerupSelector_Defense_C");
+		}
+		else
+		{
+			return TEXT("/Game/RestrictedAssets/Blueprints/BP_PowerupSelector_Offense.BP_PowerupSelector_Offense_C");
+		}
+	}
 }
 
