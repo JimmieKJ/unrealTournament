@@ -1563,7 +1563,7 @@ void FShaderCompilingManager::ProcessCompiledShaderMaps(
 							{
 								FString ErrorMessage = Errors[ErrorIndex];
 								// Work around build machine string matching heuristics that will cause a cook to fail
-								ErrorMessage.ReplaceInline(TEXT("error "), TEXT("err0r "), ESearchCase::CaseSensitive);
+								ErrorMessage.ReplaceInline(TEXT("error: "), TEXT("err0r: "), ESearchCase::CaseSensitive);
 								UE_LOG(LogShaderCompilers, Warning, TEXT("	%s"), *ErrorMessage);
 							}
 						}
