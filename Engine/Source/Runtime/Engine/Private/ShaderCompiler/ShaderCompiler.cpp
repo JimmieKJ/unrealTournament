@@ -1561,7 +1561,7 @@ void FShaderCompilingManager::ProcessCompiledShaderMaps(
 
 							for (int32 ErrorIndex = 0; ErrorIndex < Errors.Num(); ErrorIndex++)
 							{
-								UE_LOG(LogShaderCompilers, Warning, TEXT("	%s"), *Errors[ErrorIndex]);
+								UE_LOG(LogShaders, Warning, TEXT("	%s"), *Errors[ErrorIndex]);
 							}
 						}
 						else
