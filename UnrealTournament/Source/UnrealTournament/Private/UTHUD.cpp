@@ -98,6 +98,7 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	SuffixNth = NSLOCTEXT("UTHUD", "NthPlaceSuffix", "th");
 
 	CachedProfileSettings = nullptr;
+	BuildText = NSLOCTEXT("UTHUD", "info", "PRE-ALPHA Build 0.1.2");
 }
 
 void AUTHUD::Destroyed()
@@ -491,6 +492,9 @@ void AUTHUD::CacheFonts()
 	//YPos += 0.1f*Canvas->ClipY;
 	Canvas->DrawText(HugeFont, MessageText, 0.f, YPos, 0.1f, 0.1f, TextRenderInfo);
 	bFontsCached = true;
+
+	float YL;
+	Canvas->TextSize(TinyFont, BuildText.ToString(), BuildTextWidth, YL, 1.f, 1.f);
 }
 
 void AUTHUD::ShowHUD()
@@ -620,21 +624,14 @@ void AUTHUD::DrawHUD()
 void AUTHUD::DrawWatermark()
 {
 	float RenderScale = Canvas->ClipX / 1920.0f;
-	FVector2D Size; 
-	FVector2D Position;
-
-
-	Size.X = 301.0f * RenderScale;
-	Size.Y = 98.0f * (Size.X / 301.0f);
-
-	Position = FVector2D(Canvas->ClipX - Size.X - 10.0f * RenderScale, Canvas->ClipY - Size.Y - 120.0f * RenderScale);
-	Canvas->DrawColor = FColor(255,255,255,96);
+	FVector2D Size = FVector2D(150.0f * RenderScale, 49.0f * RenderScale);
+	FVector2D Position = FVector2D(Canvas->ClipX - Size.X - 10.0f * RenderScale, Canvas->ClipY - Size.Y - 120.0f * RenderScale);
+	Canvas->DrawColor = FColor(255,255,255,64);
 	Canvas->DrawTile(ScoreboardAtlas, Position.X, Position.Y, Size.X, Size.Y, 162.0f, 14.0f, 301.0f, 98.0f);
 
-
-	Position.X = Position.X + (Size.X * 0.45f);
+	Position.X = Canvas->ClipX - BuildTextWidth*RenderScale - 10.0f * RenderScale;
 	Position.Y += Size.Y * 0.85f;
-	Canvas->DrawText(SmallFont, TEXT("PRE-ALPHA"), Position.X, Position.Y, RenderScale, RenderScale);
+	Canvas->DrawText(TinyFont, BuildText, Position.X, Position.Y, RenderScale, RenderScale);
 }
 
 bool AUTHUD::ShouldDrawMinimap() 
