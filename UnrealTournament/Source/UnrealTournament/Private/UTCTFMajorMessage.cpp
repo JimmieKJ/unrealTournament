@@ -19,6 +19,19 @@ UUTCTFMajorMessage::UUTCTFMajorMessage(const FObjectInitializer& ObjectInitializ
 	bIsStatusAnnouncement = true;
 	bIsPartiallyUnique = true;
 	ScaleInSize = 3.f;
+
+	static ConstructorHelpers::FObjectFinder<USoundBase> FlagWarningSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Stingers/FlagUp_stereo.FlagUp_stereo'"));
+	FlagWarningSound = FlagWarningSoundFinder.Object;
+}
+
+void UUTCTFMajorMessage::ClientReceive(const FClientReceiveData& ClientData) const
+{
+	Super::ClientReceive(ClientData);
+	AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
+	if (PC && (ClientData.MessageIndex == 21))
+	{
+		PC->ClientPlaySound(FlagWarningSound);
+	}
 }
 
 FLinearColor UUTCTFMajorMessage::GetMessageColor_Implementation(int32 MessageIndex) const
