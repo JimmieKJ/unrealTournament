@@ -518,6 +518,12 @@ void AUTPlayerController::ClientRestart_Implementation(APawn* NewPawn)
 	{
 		GetPawn()->PlayerState = PlayerState;
 	}
+
+	// JackP recommended course of action
+	static auto DitheredLODCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("foliage.DitheredLOD"));
+	DitheredLODCVar->Set(false, ECVF_SetByGameSetting);
+	FTimerHandle TimerHandle;
+	GetWorldTimerManager().SetTimer(TimerHandle, this, &AUTPlayerController::ResetFoliageDitheredLOD, 0.5f, false);
 }
 
 void AUTPlayerController::PawnPendingDestroy(APawn* InPawn)
@@ -4397,3 +4403,8 @@ void AUTPlayerController::QSSave()
 	}
 }
 
+void AUTPlayerController::ResetFoliageDitheredLOD()
+{
+	static auto DitheredLODCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("foliage.DitheredLOD"));
+	DitheredLODCVar->Set(true, ECVF_SetByGameSetting);
+}

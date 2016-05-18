@@ -452,6 +452,8 @@ public:
 	virtual void SpawnPlayerCameraManager() override;
 	virtual void FOV(float NewFOV) override;
 
+	virtual void ResetFoliageDitheredLOD();
+
 	/** desired "team" color for players in FFA games */
 	UPROPERTY(BlueprintReadOnly, GlobalConfig, Category = Display)
 	FLinearColor FFAPlayerColor;
