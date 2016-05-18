@@ -294,6 +294,11 @@ void AUTWeaponLocker::PlayTakenEffects(bool bReplicate)
 				PSC->SetRelativeScale3D(TakenEffectTransform.GetScale3D());
 			}
 		}
+		for (const FWeaponLockerItem& Item : WeaponList)
+		{
+			TakenSound = (Item.WeaponType != NULL) ? TakenSound = Item.WeaponType->GetDefaultObject<AUTWeapon>()->PickupSound : GetClass()->GetDefaultObject<AUTPickupInventory>()->TakenSound;
+			UUTGameplayStatics::UTPlaySound(GetWorld(), TakenSound, this, SRT_None, false, FVector::ZeroVector, NULL, NULL, false);
+		}
 	}
 }
 
