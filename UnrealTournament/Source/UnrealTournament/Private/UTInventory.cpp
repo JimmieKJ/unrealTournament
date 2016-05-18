@@ -105,6 +105,7 @@ void AUTInventory::InitAsTriggeredBoost(class AUTCharacter* TriggeringCharacter)
 	bAlwaysDropOnDeath = false;
 	DroppedPickupClass = nullptr;
 	bBoostPowerupSuppliedItem = true;
+	UUTGameplayStatics::UTPlaySound(GetWorld(), PickupSound, TriggeringCharacter, SRT_All, false, FVector::ZeroVector, NULL, TriggeringCharacter, true);
 }
 
 void AUTInventory::Destroyed()

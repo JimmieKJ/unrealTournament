@@ -66,6 +66,12 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = Sounds)
 	USoundBase* ChatMsgSound;
 
+	UPROPERTY(BlueprintReadWrite, Category = Sounds)
+		USoundBase* BoostActivateSound;
+
+	UPROPERTY(BlueprintReadWrite, Category = Sounds)
+		USoundBase* BoostCancelSound;
+
 	virtual void BeginPlay() override;
 	virtual void Destroyed() override;
 	virtual void InitInputSystem() override;

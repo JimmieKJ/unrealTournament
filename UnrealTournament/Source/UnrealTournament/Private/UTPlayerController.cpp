@@ -101,6 +101,12 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	static ConstructorHelpers::FObjectFinder<USoundBase> BadSelect(TEXT("SoundCue'/Game/RestrictedAssets/UI/BadSelect_Cue.BadSelect_Cue'"));
 	BadSelectSound = BadSelect.Object;
 
+	static ConstructorHelpers::FObjectFinder<USoundBase> BoostActivateSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Stingers/BoostActivated.BoostActivated'"));
+	BoostActivateSound = BoostActivateSoundFinder.Object;
+
+	static ConstructorHelpers::FObjectFinder<USoundBase> BoostCancelSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Stingers/BoostCancel.BoostCancel'"));
+	BoostCancelSound = BoostCancelSoundFinder.Object;
+
 	LastBuyMenuOpenTime = 0.0f;
 	BuyMenuToggleDelay = 0.25f;
 }
@@ -729,6 +735,7 @@ void AUTPlayerController::ServerActivatePowerUpPress_Implementation()
 			TSubclassOf<AUTInventory> ActivatedPowerupPlaceholderClass = UTGM ? UTGM->GetActivatedPowerupPlaceholderClass() : nullptr;
 			if (GetWorldTimerManager().IsTimerActive(TriggerBoostTimerHandle))
 			{
+				ClientPlaySound(BoostCancelSound);
 				GetWorldTimerManager().ClearTimer(TriggerBoostTimerHandle);
 				// kill effect
 				if (ActivatedPowerupPlaceholderClass)
@@ -742,6 +749,7 @@ void AUTPlayerController::ServerActivatePowerUpPress_Implementation()
 			}
 			else
 			{
+				ClientPlaySound(BoostActivateSound);
 				GetWorldTimerManager().SetTimer(TriggerBoostTimerHandle, this, &AUTPlayerController::TriggerBoost, TimeToHoldPowerUpButtonToActivate, false);
 				// spawn effect
 				if (ActivatedPowerupPlaceholderClass)
@@ -1681,6 +1689,37 @@ void AUTPlayerController::HearSound(USoundBase* InSoundCue, AActor* SoundPlayer,
 {
 	bool bIsOccluded = false; 
 	float MaxAudibleDistance = InSoundCue->GetAttenuationSettingsToApply() ? InSoundCue->GetAttenuationSettingsToApply()->GetMaxDimension() : 15000.f;
+/*	if (true)//(GetNetMode() == NM_DedicatedServer)
+	{
+		if (!InSoundCue->GetAttenuationSettingsToApply())
+		{
+			UE_LOG(UT, Warning, TEXT("NO ATTENUATION SETTINGS FOR %s"), *InSoundCue->GetName());
+		}
+		else
+		{
+			if (!InSoundCue->AttenuationSettings)
+			{
+			UE_LOG(UT, Warning, TEXT("NO ATTENUATION SETTINGS OBJECT FOR %s"), *InSoundCue->GetName());
+			}
+			
+			if (InSoundCue->GetAttenuationSettingsToApply()->bAttenuateWithLPF)
+			{
+				UE_LOG(UT, Warning, TEXT("AttenuateWithLPF FOR %s"), *InSoundCue->GetName());
+			}
+			if (InSoundCue->GetAttenuationSettingsToApply()->bEnableListenerFocus)
+			{
+				UE_LOG(UT, Warning, TEXT("bEnableListenerFocus FOR %s"), *InSoundCue->GetName());
+			}
+			if (InSoundCue->GetAttenuationSettingsToApply()->bEnableOcclusion)
+			{
+				UE_LOG(UT, Warning, TEXT("bEnableOcclusion FOR %s"), *InSoundCue->GetName());
+			}
+			if (InSoundCue->GetAttenuationSettingsToApply()->bUseComplexCollisionForOcclusion)
+			{
+				UE_LOG(UT, Warning, TEXT("bUseComplexCollisionForOcclusion FOR %s"), *InSoundCue->GetName());
+			}
+		}
+	}*/
 	if (SoundPlayer == this || (GetViewTarget() != NULL && (bAmplifyVolume || MaxAudibleDistance >= (SoundLocation - GetViewTarget()->GetActorLocation()).Size())))
 	{
 		// we don't want to replicate the location if it's the same as Actor location (so the sound gets played attached to the Actor), but we must if the source Actor isn't relevant
