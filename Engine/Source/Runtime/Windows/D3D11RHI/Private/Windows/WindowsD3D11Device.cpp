@@ -45,7 +45,7 @@ static TAutoConsoleVariable<int32> CVarForceAMDToSM4(
 
 static TAutoConsoleVariable<int32> CVarForceIntelToSM4(
 	TEXT("r.ForceIntelToSM4"),
-	0,
+	1,
 	TEXT("Forces Intel devices to use SM4.0/D3D10.0 feature level."),
 	ECVF_RenderThreadSafe);
 
