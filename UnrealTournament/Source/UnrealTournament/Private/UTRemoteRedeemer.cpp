@@ -169,6 +169,7 @@ void AUTRemoteRedeemer::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* 
 			if (Cast<AUTProjectile>(OtherActor))
 			{
 				Detonate();
+				RedeemerDenied(OtherActor->GetInstigatorController());
 			}
 			else
 			{
@@ -614,6 +615,7 @@ float AUTRemoteRedeemer::TakeDamage(float Damage, const FDamageEvent& DamageEven
 				{
 					// small explosion when damaged
 					Detonate();
+					RedeemerDenied(EventInstigator);
 				}
 			}
 		}
