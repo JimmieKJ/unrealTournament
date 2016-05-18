@@ -529,6 +529,12 @@ bool FSlateEditableTextLayout::HandleFocusReceived(const FFocusEvent& InFocusEve
 	// Store undo state to use for escape key reverts
 	MakeUndoState(OriginalText);
 
+	// Jump to the end of the document?
+	if (InFocusEvent.GetCause() != EFocusCause::Mouse && InFocusEvent.GetCause() != EFocusCause::OtherWidgetLostFocus && OwnerWidget->ShouldJumpCursorToEndWhenFocused())
+	{
+		GoTo(ETextLocation::EndOfDocument);
+	}
+
 	// Select All Text
 	if (OwnerWidget->ShouldSelectAllTextWhenFocused())
 	{
