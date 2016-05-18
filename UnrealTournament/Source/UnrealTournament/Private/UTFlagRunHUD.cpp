@@ -91,7 +91,7 @@ void AUTFlagRunHUD::DrawHUD()
 					if (!bLastLife)
 					{
 						Canvas->SetLinearDrawColor(FLinearColor::White, 1.f);
-						Canvas->DrawText(TinyFont, FText::AsNumber(UTPS->RemainingLives), XOffsetText + 0.4f*PipSize, YOffset + 0.2f*PipSize, 0.75f, 0.75f, TextRenderInfo);
+						Canvas->DrawText(TinyFont, FText::AsNumber(UTPS->RemainingLives+1), XOffsetText + 0.4f*PipSize, YOffset + 0.2f*PipSize, 0.75f, 0.75f, TextRenderInfo);
 					}
 				}
 			}

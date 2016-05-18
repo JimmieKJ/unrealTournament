@@ -618,7 +618,6 @@ void AUTHUD::DrawHUD()
 	DrawWatermark();
 }
 
-
 void AUTHUD::DrawWatermark()
 {
 	float RenderScale = Canvas->ClipX / 1920.0f;

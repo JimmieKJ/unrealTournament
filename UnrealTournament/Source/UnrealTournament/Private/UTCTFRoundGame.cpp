@@ -1019,7 +1019,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 				}
 				else if (PC)
 				{
-					PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 30+PS->RemainingLives, PS, NULL, NULL);
+					PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 31+PS->RemainingLives, PS, NULL, NULL);
 				}
 			}
 			else
