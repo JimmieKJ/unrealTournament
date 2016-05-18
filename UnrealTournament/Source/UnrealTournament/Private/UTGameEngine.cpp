@@ -895,10 +895,17 @@ void UUTGameEngine::PromptForEULAAcceptance()
 {
 	if (bFirstRun)
 	{
-		if (FPlatformMisc::MessageBoxExt(EAppMsgType::YesNo, *ReadEULAText.ToString(), *ReadEULACaption.ToString()) != EAppReturnType::Yes)
+		FString PasswordStr;
+		FParse::Value(FCommandLine::Get(), TEXT("AUTH_PASSWORD="), PasswordStr);
+
+		// PasswordStr will be empty if we were not run from the launcher
+		if (PasswordStr.IsEmpty())
 		{
-			FPlatformMisc::RequestExit(false);
-			return;
+			if (FPlatformMisc::MessageBoxExt(EAppMsgType::YesNo, *ReadEULAText.ToString(), *ReadEULACaption.ToString()) != EAppReturnType::Yes)
+			{
+				FPlatformMisc::RequestExit(false);
+				return;
+			}
 		}
 
 		bFirstRun = false;
