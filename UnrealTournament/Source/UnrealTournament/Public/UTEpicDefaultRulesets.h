@@ -72,7 +72,7 @@ public:
 			NewRuleset->Tooltip = TEXT("Standard free-for-all Deathmatch.");
 			NewRuleset->Description = TEXT("Standard free-for-all deathmatch.\n\n<UT.Hub.RulesText_Small>TimeLimit : %TimeLimit% minutes</>\n<UT.Hub.RulesText_Small>Maximum players : %MaxPlayers%</>");
 			NewRuleset->MinPlayersToStart = 2;
-			NewRuleset->MaxPlayers = 8;
+			NewRuleset->MaxPlayers = 6;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_DM.GB_DM'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTDMGameMode");
 			NewRuleset->GameOptions = FString(TEXT("?TimeLimit=10?GoalScore=0"));
@@ -145,7 +145,7 @@ public:
 			NewRuleset->Tooltip = TEXT("Red versus blue team deathmatch.");
 			NewRuleset->Description = TEXT("Red versus blue team deathmatch.\n\n<UT.Hub.RulesText_Small>TimeLimit : %timelimit% minutes</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n<UT.Hub.RulesText_Small>Maximum players: %maxplayers%</>");
 			NewRuleset->MinPlayersToStart = 2;
-			NewRuleset->MaxPlayers = 14;
+			NewRuleset->MaxPlayers = 12;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_TDM.GB_TDM'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTTeamDMGameMode");
 			NewRuleset->GameOptions = FString(TEXT("?TimeLimit=20?GoalScore=0"));
@@ -261,7 +261,7 @@ public:
 			NewRuleset->Tooltip = TEXT("Capture the Flag.");
 			NewRuleset->Description = TEXT("Capture the Flag, with guns.\n\n<UT.Hub.RulesText_Small>TimeLimit : %timelimit% minutes with halftime</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n<UT.Hub.RulesText_Small>Maximum players : %maxplayers%</>");
 			NewRuleset->MinPlayersToStart = 2;
-			NewRuleset->MaxPlayers = 14;
+			NewRuleset->MaxPlayers = 12;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_CTF.GB_CTF'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTCTFGameMode");
 			NewRuleset->GameOptions = FString(TEXT("?TimeLimit=20?GoalScore=0"));
