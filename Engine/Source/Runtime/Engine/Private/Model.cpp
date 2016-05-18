@@ -382,26 +382,63 @@ void UModel::PostEditUndo()
 
 void UModel::ModifySurf( int32 InIndex, bool UpdateMaster )
 {
-	// TODO: Remove this method and replace calls to it with Modify()
-	//Surfs.ModifyItem( InIndex );
+	Modify();
+
 	FBspSurf& Surf = Surfs[InIndex];
 	if( UpdateMaster && Surf.Actor )
 	{
-		//Surf.Actor->Brush->Polys->Element.ModifyItem( Surf.iBrushPoly );
+		Surf.Actor->Brush->Modify();
 	}
 }
+
 void UModel::ModifyAllSurfs( bool UpdateMaster )
 {
-	for( int32 i=0; i<Surfs.Num(); i++ )
-		ModifySurf( i, UpdateMaster );
+	Modify();
 
+	if (UpdateMaster)
+	{
+		TArray<UModel*> MasterModels;
+		MasterModels.Reset(Surfs.Num());
+
+		for (const FBspSurf& Surf : Surfs)
+		{
+			if (Surf.Actor)
+			{
+				check(Surf.Actor->Brush);
+				MasterModels.AddUnique(Surf.Actor->Brush);
+			}
+		}
+
+		for (UModel* MasterModel : MasterModels)
+		{
+			MasterModel->Modify();
+		}
+	}
 }
+
 void UModel::ModifySelectedSurfs( bool UpdateMaster )
 {
-	for( int32 i=0; i<Surfs.Num(); i++ )
-		if( Surfs[i].PolyFlags & PF_Selected )
-			ModifySurf( i, UpdateMaster );
+	Modify();
 
+	if (UpdateMaster)
+	{
+		TArray<UModel*> MasterModels;
+		MasterModels.Reset(Surfs.Num());
+
+		for (const FBspSurf& Surf : Surfs)
+		{
+			if (Surf.Actor && (Surf.PolyFlags & PF_Selected))
+			{
+				check(Surf.Actor->Brush);
+				MasterModels.AddUnique(Surf.Actor->Brush);
+			}
+		}
+
+		for (UModel* MasterModel : MasterModels)
+		{
+			MasterModel->Modify();
+		}
+	}
 }
 
 bool UModel::HasSelectedSurfaces() const
