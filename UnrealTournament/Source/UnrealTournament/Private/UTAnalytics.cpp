@@ -40,7 +40,7 @@ void FUTAnalytics::Initialize()
 			if (ConfigMap.Num() == 0)
 			{
 				ConfigMap.Add(TEXT("ProviderModuleName"), TEXT("AnalyticsET"));
-				ConfigMap.Add(TEXT("APIServerET"), TEXT("http://etsource.epicgames.com/ET2/"));
+				ConfigMap.Add(TEXT("APIServerET"), TEXT("https://datarouter.ol.epicgames.com/"));
 				ConfigMap.Add(TEXT("APIKeyET"), TEXT("UnrealTournament.Release"));
 			}
 
