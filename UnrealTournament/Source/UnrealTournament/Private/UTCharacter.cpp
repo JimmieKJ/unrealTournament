@@ -4575,14 +4575,7 @@ void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
 	{
 		FComponentReregisterContext ReregisterContext(GetMesh());
 		GetMesh()->OverrideMaterials = Data->Mesh->OverrideMaterials;
-		if (Data->DMSkinType == EDMSkin_Base)
-		{
-			FFAColor = 255;
-		}
-		else
-		{
-			FFAColor = (Data->DMSkinType == EDMSkin_Blue) ? 1 : 0;
-		}
+		FFAColor = (Data->DMSkinType == EDMSkin_Base) ? 255 : 0;
 		if ((PS != NULL && PS->Team != NULL) || (FFAColor != 255))
 		{
 			GetMesh()->OverrideMaterials.SetNumZeroed(FMath::Min<int32>(Data->Mesh->GetNumMaterials(), Data->TeamMaterials.Num()));
