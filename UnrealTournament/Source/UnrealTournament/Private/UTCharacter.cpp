@@ -969,7 +969,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			{
 				GetMesh()->AddImpulseAtLocation(ResultMomentum, HitLocation);
 			}
-			if (GetNetMode() != NM_DedicatedServer)
+			if ((GetNetMode() != NM_DedicatedServer) && !IsPendingKillPending())
 			{
 				Health -= int32(Damage);
 				// note: won't be replicated in this case since already torn off but we still need it for clientside impact effects on the corpse
@@ -1598,7 +1598,7 @@ void AUTCharacter::PlayDying()
 		Eyewear->OnWearerDeath(LastTakeHitInfo.DamageType);
 	}
 
-	if (GetNetMode() != NM_DedicatedServer && (GetWorld()->TimeSeconds - GetLastRenderTime() < 3.0f || IsLocallyViewed()))
+	if (GetNetMode() != NM_DedicatedServer && !IsPendingKillPending() && (GetWorld()->TimeSeconds - GetLastRenderTime() < 3.0f || IsLocallyViewed()))
 	{
 		TSubclassOf<UUTDamageType> UTDmg(*LastTakeHitInfo.DamageType);
 		if (UTDmg != NULL && UTDmg.GetDefaultObject()->ShouldGib(this))
