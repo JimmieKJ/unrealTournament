@@ -19,6 +19,9 @@ void SUTPartyWidget::Construct(const FArguments& InArgs, const FLocalPlayerConte
 {
 	Ctx = InCtx;
 
+	RefreshTimer = 30.0f;
+	LastFriendCount = 0;
+
 	bPartyMenuCollapsed = true;
 	
 	ChildSlot
@@ -291,6 +294,7 @@ void SUTPartyWidget::SetupPartyMemberBox()
 
 	TArray<FUTFriend> OnlineFriendsList;
 	UTLP->GetFriendsList(OnlineFriendsList);
+	LastFriendCount = OnlineFriendsList.Num();
 
 	for (int i = PartyMembers.Num(); i < 5; i++)
 	{
@@ -482,6 +486,26 @@ FReply SUTPartyWidget::AllowMemberInvites(bool bAllow)
 
 SUTPartyWidget::~SUTPartyWidget()
 {
+}
+
+void SUTPartyWidget::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+{
+	RefreshTimer -= InDeltaTime;
+	if (RefreshTimer < 0)
+	{
+		RefreshTimer = 30.0f;
+
+		TArray<FUTFriend> OnlineFriendsList;
+		UUTLocalPlayer* UTLP = Cast<UUTLocalPlayer>(Ctx.GetLocalPlayer());
+		if (UTLP)
+		{
+			UTLP->GetFriendsList(OnlineFriendsList);
+			if (OnlineFriendsList.Num() != LastFriendCount)
+			{
+				SetupPartyMemberBox();
+			}
+		}
+	}
 }
 
 #endif
