@@ -38,7 +38,7 @@ class UNREALTOURNAMENT_API UUTMultiKillMessage : public UUTLocalMessage
 		ScaleInSize = 3.f;
 	}
 
-	void UUTMultiKillMessage::ClientReceive(const FClientReceiveData& ClientData) const
+	void ClientReceive(const FClientReceiveData& ClientData) const
 	{
 		Super::ClientReceive(ClientData);
 		if (ShouldPlayAnnouncement(ClientData))
