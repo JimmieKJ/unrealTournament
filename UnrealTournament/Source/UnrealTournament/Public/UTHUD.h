@@ -150,6 +150,9 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = HUD)
 	float LastKillTime;
 
+	UPROPERTY(BlueprintReadWrite, Category = HUD)
+		int32 LastMultiKillCount;
+
 	/** Last time player owning this HUD picked up a flag. */
 	UPROPERTY(BlueprintReadWrite, Category = HUD)
 	float LastFlagGrabTime;
