@@ -16,6 +16,7 @@ UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectIniti
 	const float AdditionalPadding = 0.09f;
 	ColumnHeaderPowerupXDuringReadyUp = ColumnHeaderPingX - AdditionalPadding;
 	bGroupRoundPairs = true;
+	bUseRoundKills = true;
 }
 
 void UUTFlagRunScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
@@ -30,7 +31,7 @@ void UUTFlagRunScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 		DrawText(CH_PlayerName, XOffset + (ScaledCellWidth * ColumnHeaderPlayerX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, RenderScale, 1.0f, FLinearColor::Black, ETextHorzPos::Left, ETextVertPos::Center);
 		if (UTGameState && UTGameState->HasMatchStarted())
 		{
-			DrawText(CH_Score, XOffset + (ScaledCellWidth * ColumnHeaderScoreX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, RenderScale, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
+			DrawText(CH_Kills, XOffset + (ScaledCellWidth * ColumnHeaderScoreX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, RenderScale, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
 			DrawText(CH_Powerup, XOffset + (ScaledCellWidth * 0.5f * (ColumnHeaderPowerupX + ColumnHeaderPowerupEndX)), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, RenderScale, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
 			AUTCTFGameState* CTFState = Cast<AUTCTFGameState>(UTGameState);
 			if (CTFState && (CTFState->bAttackerLivesLimited || CTFState->bDefenderLivesLimited))
@@ -51,7 +52,7 @@ void UUTFlagRunScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 
 void UUTFlagRunScoreboard::DrawPlayerScore(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width, FLinearColor DrawColor)
 {
-	DrawText(FText::AsNumber(int32(PlayerState->Score)), XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->SmallFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+	DrawText(FText::AsNumber(int32(PlayerState->RoundKills)), XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->SmallFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 	AUTCTFGameState* CTFState = Cast<AUTCTFGameState>(UTGameState);
 	if (CTFState)
 	{
@@ -182,19 +183,10 @@ void UUTFlagRunScoreboard::DrawTeamStats(float DeltaTime, float& YPos, float XOf
 	float SectionSpacing = 0.6f * StatsFontInfo.TextHeight;
 	YPos += SectionSpacing;
 
-	// find top scorer
-	AUTPlayerState* TopScorerRed = FindTopTeamScoreFor(0);
-	AUTPlayerState* TopScorerBlue = FindTopTeamScoreFor(1);
-
-	// find top kills && KD
+	// find top kills
 	AUTPlayerState* TopKillerRed = FindTopTeamKillerFor(0);
 	AUTPlayerState* TopKillerBlue = FindTopTeamKillerFor(1);
-	AUTPlayerState* TopKDRed = FindTopTeamKDFor(0);
-	AUTPlayerState* TopKDBlue = FindTopTeamKDFor(1);
-	AUTPlayerState* TopSPMRed = FindTopTeamSPMFor(0);
-	AUTPlayerState* TopSPMBlue = FindTopTeamSPMFor(1);
 
-	DrawPlayerStatsLine(NSLOCTEXT("UTScoreboard", "TopScorer", "Top Scorer"), TopScorerRed, TopScorerBlue, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
 	DrawPlayerStatsLine(NSLOCTEXT("UTScoreboard", "TopFlagRunner", "Top Flag Runner"), UTGameState->Teams[0]->TopAttacker, UTGameState->Teams[1]->TopAttacker, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
 	DrawPlayerStatsLine(NSLOCTEXT("UTScoreboard", "TopKills", "Top Kills"), TopKillerRed, TopKillerBlue, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
 	YPos += SectionSpacing;

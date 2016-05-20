@@ -13,6 +13,7 @@ UUTTeamScoreboard::UUTTeamScoreboard(const class FObjectInitializer& ObjectIniti
 	BlueTeamText = NSLOCTEXT("UTTeamScoreboard", "BlueTeam", "BLUE");
 	CenterBuffer = 520.f;
 	MinimapCenter = FVector2D(0.5f, 0.5f);
+	bUseRoundKills = false;
 }
 
 void UUTTeamScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
@@ -196,10 +197,20 @@ AUTPlayerState* UUTTeamScoreboard::FindTopTeamKillerFor(uint8 TeamNum)
 		}
 	}
 
-	MemberPS.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
+	if (bUseRoundKills)
 	{
-		return A.Kills > B.Kills;
-	});
+		MemberPS.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
+		{
+			return A.RoundKills > B.RoundKills;
+		});
+	}
+	else
+	{
+		MemberPS.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
+		{
+			return A.Kills > B.Kills;
+		});
+	}
 	return ((MemberPS.Num() > 0) && (MemberPS[0]->Kills > 0)) ? MemberPS[0] : NULL;
 }
 
