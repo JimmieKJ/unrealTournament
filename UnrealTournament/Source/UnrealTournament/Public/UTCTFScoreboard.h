@@ -26,6 +26,9 @@ class UNREALTOURNAMENT_API UUTCTFScoreboard : public UUTTeamScoreboard
 	FText PeriodText[3];
 
 	UPROPERTY()
+		bool bGroupRoundPairs;
+
+	UPROPERTY()
 		FText ScoringPlayScore;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
