@@ -21,7 +21,6 @@ AUTCTFFlagBase::AUTCTFFlagBase(const FObjectInitializer& ObjectInitializer)
 	Capsule->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	Capsule->InitCapsuleSize(92.f, 134.0f);
 	Capsule->OnComponentBeginOverlap.AddDynamic(this, &AUTCTFFlagBase::OnOverlapBegin);
-	Capsule->RelativeLocation = FVector(0.0f, 0.0f, 134.0f);
 	Capsule->AttachParent = RootComponent;
 
 	RoundLivesAdjustment = 0;
