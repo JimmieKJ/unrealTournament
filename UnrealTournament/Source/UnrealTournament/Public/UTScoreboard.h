@@ -113,8 +113,6 @@ public:
 	UFUNCTION()
 		virtual void OpenScoringPlaysPage();
 
-	virtual void SetScoringPlaysTimer(bool bEnableTimer);
-
 	/** Show current 2 pages of scoring stats breakdowns. */
 	virtual void DrawScoringStats(float RenderDelta, float& YOffset);
 

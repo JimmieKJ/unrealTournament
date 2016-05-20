@@ -41,7 +41,7 @@ void UUTCTFScoreboard::PageChanged_Implementation()
 {
 	GetWorld()->GetTimerManager().ClearTimer(OpenScoringPlaysHandle);
 	AUTCTFGameState* CTFState = Cast<AUTCTFGameState>(UTGameState);
-	TimeLineOffset = (CTFState && ((CTFState->IsMatchIntermission() && (CTFState->CTFRound == 0)) || CTFState->HasMatchEnded())) ? -0.15f : 99999.f;
+	TimeLineOffset = (CTFState && ((CTFState->IsMatchIntermission() && (CTFState->CTFRound == 0)) || CTFState->HasMatchEnded())) ? -1.5f : 99999.f;
 }
 
 void UUTCTFScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
@@ -127,6 +127,10 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 
 	float OldTimeLineOffset = TimeLineOffset;
 	TimeLineOffset += 2.f*DeltaTime;
+	if (TimeLineOffset < 0.f)
+	{
+		return;
+	}
 	float TimeFloor = FMath::FloorToInt(TimeLineOffset);
 	if (UTPlayerOwner && (TimeFloor + 1 <= TotalPlays) && (TimeFloor != FMath::FloorToInt(OldTimeLineOffset)))
 	{
@@ -218,7 +222,7 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 			float ScorerNameYOffset = bIsSmallPlay ? BoxYPos + 0.5f*CurrentScoreHeight - 0.6f*MedYL : YPos;
 			float NameSizeX, NameSizeY;
 			Canvas->TextSize(UTHUDOwner->MediumFont, ScoredByLine, NameSizeX, NameSizeY, RenderScale, RenderScale);
-			Canvas->DrawText(UTHUDOwner->MediumFont, ScoredByLine, XOffset + 0.35f*ScoreWidth, ScorerNameYOffset, RenderScale * FMath::Min(1.f, ScoreWidth*0.4f)/FMath::Max(NameSizeX, 1.f), RenderScale, TextRenderInfo);
+			Canvas->DrawText(UTHUDOwner->MediumFont, ScoredByLine, XOffset + 0.35f*ScoreWidth, ScorerNameYOffset, RenderScale * FMath::Min(1.f, ScoreWidth*0.4f/FMath::Max(NameSizeX, 1.f)), RenderScale, TextRenderInfo);
 			YPos += 0.8f* MedYL;
 
 			int32 RoundBonus = FMath::Max(Play.RedBonus, Play.BlueBonus);

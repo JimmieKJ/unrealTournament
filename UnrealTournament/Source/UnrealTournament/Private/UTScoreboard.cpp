@@ -99,13 +99,9 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 
 void UUTScoreboard::AdvancePage(int32 Increment)
 {
-	UTHUDOwner->ScoreboardPage = uint32(FMath::Clamp<int32>(int32(UTHUDOwner->ScoreboardPage) + Increment, 0, NumPages - 1));
+	UTHUDOwner->SetScoreboardPage(uint32(FMath::Clamp<int32>(int32(UTHUDOwner->GetScoreboardPage()) + Increment, 0, NumPages - 1)));
 	BestWeaponIndex = -1;
 	PageChanged();
-}
-
-void UUTScoreboard::SetScoringPlaysTimer(bool bEnableTimer)
-{
 }
 
 void UUTScoreboard::OpenScoringPlaysPage()
@@ -168,7 +164,7 @@ void UUTScoreboard::SetPage(int32 NewPage)
 {
 	if (UTHUDOwner)
 	{
-		UTHUDOwner->ScoreboardPage = FMath::Clamp<int32>(NewPage, 0, NumPages - 1);
+		UTHUDOwner->SetScoreboardPage(FMath::Clamp<int32>(NewPage, 0, NumPages - 1));
 	}
 	PageChanged();
 }
@@ -216,13 +212,13 @@ void UUTScoreboard::Draw_Implementation(float RenderDelta)
 	DrawGamePanel(RenderDelta, YOffset);
 	DrawTeamPanel(RenderDelta, YOffset);
 	DrawScorePanel(RenderDelta, YOffset);
-	if (UTHUDOwner->ScoreboardPage > 0)
+	if (UTHUDOwner->GetScoreboardPage() > 0)
 	{
 		DrawScoringStats(RenderDelta, YOffset);
 	}
 	DrawServerPanel(RenderDelta, FooterPosY);
 
-	if ((UTHUDOwner->ScoreboardPage == 0) && UTGameState && UTGameState->IsMatchInProgress() && !UTGameState->IsMatchIntermission() && bDrawMinimapInScoreboard)
+	if ((UTHUDOwner->GetScoreboardPage() == 0) && UTGameState && UTGameState->IsMatchInProgress() && !UTGameState->IsMatchIntermission() && bDrawMinimapInScoreboard)
 	{
 		float MapScale = 0.65f;
 		const float MapSize = float(Canvas->SizeY) * MapScale;
@@ -620,7 +616,7 @@ void UUTScoreboard::DrawServerPanel(float RenderDelta, float YOffset)
 		{
 			SpectatorMessage = UTHUDOwner->SpectatorMessageWidget->GetSpectatorMessageText(bShortMessage);
 		}
-		if (!SpectatorMessage.IsEmpty() && !bShortMessage && (UTGameState->PlayerArray.Num() < 26) && (UTHUDOwner->ScoreboardPage == 0))
+		if (!SpectatorMessage.IsEmpty() && !bShortMessage && (UTGameState->PlayerArray.Num() < 26) && (UTHUDOwner->GetScoreboardPage() == 0))
 		{
 			// Only draw if there is room above spectator panel
 			UTHUDOwner->SpectatorMessageWidget->PreDraw(RenderDelta, UTHUDOwner, Canvas, CanvasCenter);
@@ -638,7 +634,7 @@ void UUTScoreboard::DrawServerPanel(float RenderDelta, float YOffset)
 		DrawText(FText::FromString(UTGameState->ServerDescription), Canvas->ClipX - 200.f*RenderScale, YOffset + 13.f*RenderScale, UTHUDOwner->SmallFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 		if ((NumPages > 1) && UTGameState->HasMatchStarted() && !bIsInteractive)
 		{
-			FText PageText = FText::Format(ArrowKeysText, FText::AsNumber(UTHUDOwner->ScoreboardPage + 1), FText::AsNumber(NumPages));
+			FText PageText = FText::Format(ArrowKeysText, FText::AsNumber(UTHUDOwner->GetScoreboardPage() + 1), FText::AsNumber(NumPages));
 			DrawText(PageText, Canvas->ClipX * 0.5f, YOffset + 13.f*RenderScale, UTHUDOwner->SmallFont, RenderScale, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
 		}
 	}

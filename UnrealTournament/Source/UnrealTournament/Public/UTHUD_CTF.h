@@ -13,4 +13,5 @@ class UNREALTOURNAMENT_API AUTHUD_CTF : public AUTHUD
 	virtual void NotifyMatchStateChange() override;
 	virtual void DrawMinimapSpectatorIcons() override;
 	virtual bool ShouldInvertMinimap() override;
+	virtual int32 GetScoreboardPage() override;
 };

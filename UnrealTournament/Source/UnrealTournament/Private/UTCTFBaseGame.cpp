@@ -457,6 +457,11 @@ void AUTCTFBaseGame::UpdateSkillRating()
 	ReportRankedMatchResults(NAME_CTFSkillRating.ToString());
 }
 
+bool AUTCTFBaseGame::SkipPlacement(AUTCharacter* UTChar)
+{
+	return false;
+}
+
 void AUTCTFBaseGame::PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNum)
 {
 	if ((CTFGameState == NULL) || (FlagTeamNum >= CTFGameState->FlagBases.Num()) || (CTFGameState->FlagBases[FlagTeamNum] == NULL))
@@ -494,10 +499,15 @@ void AUTCTFBaseGame::PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNum
 	for (AController* C : Members)
 	{
 		AUTCharacter* UTChar = C ? Cast<AUTCharacter>(C->GetPawn()) : NULL;
-		if (UTChar && !UTChar->IsDead())
+		if (UTChar && !UTChar->IsDead() && !SkipPlacement(UTChar))
 		{
 			while (PlacementCounter < MaxPlayers)
 			{
+				AUTPlayerState* PS = Cast<AUTPlayerState>(UTChar->PlayerState);
+				if (PS && PS->CarriedObject && PS->CarriedObject->HolderTrail)
+				{
+					PS->CarriedObject->HolderTrail->DetachFromParent();
+				}
 				FRotator AdjustmentAngle(0, StartAngle + AngleSlices * PlacementCounter, 0);
 				FVector PlacementLoc = FlagLoc + AdjustmentAngle.RotateVector(PlacementOffset);
 				PlacementLoc.Z += UTChar->GetSimpleCollisionHalfHeight() * 1.1f;

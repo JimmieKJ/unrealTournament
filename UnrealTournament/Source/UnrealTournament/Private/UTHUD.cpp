@@ -386,7 +386,7 @@ void AUTHUD::ToggleScoreboard(bool bShow)
 {
 	if (!bShowScores)
 	{
-		ScoreboardPage = 0;
+		SetScoreboardPage(0);
 	}
 	bShowScores = bShow;
 }

@@ -120,6 +120,9 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY()
 		int32 DefenseScore;
 
+	UPROPERTY()
+		AUTPlayerState* FlagScorer;
+
 	virtual int32 GetFlagCapScore() override;
 
 	virtual void InitFlags();
@@ -148,6 +151,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual float AdjustNearbyPlayerStartScore(const AController* Player, const AController* OtherController, const ACharacter* OtherCharacter, const FVector& StartLoc, const APlayerStart* P) override;
 	virtual int32 PickCheatWinTeam() override;
 	virtual void AdjustLeaderHatFor(AUTCharacter* UTChar) override;
+	virtual bool SkipPlacement(AUTCharacter* UTChar) override;
 
 	virtual void TossSkull(TSubclassOf<AUTSkullPickup> SkullPickupClass, const FVector& StartLocation, const FVector& TossVelocity, AUTCharacter* FormerInstigator);
 

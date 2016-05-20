@@ -239,8 +239,12 @@ void AUTCTFRoundGame::DiscardInventory(APawn* Other, AController* Killer)
 	}
 
 	HandlePowerupUnlocks(Other, Killer);
-
 	Super::DiscardInventory(Other, Killer);
+}
+
+bool AUTCTFRoundGame::SkipPlacement(AUTCharacter* UTChar)
+{
+	return false; // (UTChar && FlagScorer && (UTChar->PlayerState == FlagScorer));
 }
 
 void AUTCTFRoundGame::HandleMatchIntermission()
@@ -271,7 +275,6 @@ void AUTCTFRoundGame::HandleMatchIntermission()
 
 	CTFGameState->bIsAtIntermission = true;
 	CTFGameState->OnIntermissionChanged();
-
 	CTFGameState->bStopGameClock = true;
 	Cast<AUTCTFRoundGameState>(CTFGameState)->IntermissionTime  = IntermissionDuration;
 }
@@ -589,6 +592,7 @@ void AUTCTFRoundGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, A
 
 void AUTCTFRoundGame::HandleFlagCapture(AUTPlayerState* Holder)
 {
+	FlagScorer = Holder;
 	CheckScore(Holder);
 	if (UTGameState && UTGameState->IsMatchInProgress())
 	{
@@ -796,6 +800,7 @@ void AUTCTFRoundGame::FlagCountDown()
 
 void AUTCTFRoundGame::InitRound()
 {
+	FlagScorer = false;
 	bFirstBloodOccurred = false;
 	bLastManOccurred = false;
 	bNeedFiveKillsMessage = true;

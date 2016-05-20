@@ -28,16 +28,17 @@ FLinearColor AUTHUD_CTF::GetBaseHUDColor()
 
 void AUTHUD_CTF::NotifyMatchStateChange()
 {
-	if (MyUTScoreboard != NULL)
-	{
-		MyUTScoreboard->SetScoringPlaysTimer(GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIntermission || GetWorld()->GetGameState()->GetMatchState() == MatchState::WaitingPostMatch);
-	}
-
 	if (GetWorld()->GetGameState()->GetMatchState() != MatchState::MatchIntermission)
 	{
 		Super::NotifyMatchStateChange();
 	}
 }
+
+int32 AUTHUD_CTF::GetScoreboardPage() 
+{ 
+	return ((GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIntermission) || GetWorld()->GetGameState()->HasMatchEnded()) ? 1 : ScoreboardPage;
+};
+
 
 void AUTHUD_CTF::DrawMinimapSpectatorIcons()
 {
