@@ -47,5 +47,8 @@ class UNREALTOURNAMENT_API AUTWaterVolume : public APhysicsVolume
 	/** allows blueprint to provide custom current velocity for an actor. */
 	UFUNCTION(BlueprintNativeEvent, Category=WaterVolume)
 	FVector GetCurrentFor(AActor* Actor) const;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
+		FText VolumeName;
 };
 

@@ -15,11 +15,13 @@ AUTWaterVolume::AUTWaterVolume(const FObjectInitializer& ObjectInitializer)
 	WaterCurrentDirection = FVector(0.f);
 	MaxRelativeSwimSpeed = 1000.f;
 	WaterCurrentSpeed = 0.f;
+	VolumeName = NSLOCTEXT("Volume", "WaterVolume", "Water");
 }
 
 AUTNoCameraVolume::AUTNoCameraVolume(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+	VolumeName = NSLOCTEXT("Volume", "NoCameraVolume", "Out of Bounds");
 }
 
 void AUTWaterVolume::ActorEnteredVolume(class AActor* Other)

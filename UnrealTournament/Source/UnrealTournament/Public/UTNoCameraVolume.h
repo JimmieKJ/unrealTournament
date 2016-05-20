@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+#include "UTGameVolume.h"
 #include "UTNoCameraVolume.generated.h"
 
 /**
@@ -9,7 +10,7 @@
 */
 
 UCLASS(BlueprintType)
-class UNREALTOURNAMENT_API AUTNoCameraVolume : public APhysicsVolume
+class UNREALTOURNAMENT_API AUTNoCameraVolume : public AUTGameVolume
 {
 	GENERATED_UCLASS_BODY()
 };

@@ -13,6 +13,7 @@ AUTPainVolume::AUTPainVolume(const FObjectInitializer& ObjectInitializer)
 	TerminalVelocity = 3000.f;
 	bEntryPain = false;
 	ImmuneTeamIndex = -1;
+	VolumeName = NSLOCTEXT("Volume", "PainVolume", "Pain");
 }
 
 void AUTPainVolume::AddOverlayMaterials_Implementation(AUTGameState* GS) const

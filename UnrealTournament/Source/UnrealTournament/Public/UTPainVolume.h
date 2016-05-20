@@ -55,6 +55,9 @@ class UNREALTOURNAMENT_API AUTPainVolume : public APainCausingVolume, public IIn
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CharacterMovement)
 		int32 ImmuneTeamIndex;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
+		FText VolumeName;
+
 	//~ Begin IInterface_PostProcessVolume Interface
 	virtual bool EncompassesPoint(FVector Point, float SphereRadius/*=0.f*/, float* OutDistanceToPoint) override;
 	virtual FPostProcessVolumeProperties GetProperties() const override
