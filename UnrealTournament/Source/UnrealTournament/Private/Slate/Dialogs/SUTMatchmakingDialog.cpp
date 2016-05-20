@@ -12,6 +12,10 @@
 
 void SUTMatchmakingDialog::Construct(const FArguments& InArgs)
 {
+	LastMatchmakingPlayersNeeded = 0;
+	RetryTime = 120.0f;
+	RetryCountdown = RetryTime;
+
 	SUTDialogBase::Construct(SUTDialogBase::FArguments()
 		.PlayerOwner(InArgs._PlayerOwner)
 		.DialogTitle(InArgs._DialogTitle)
@@ -125,6 +129,48 @@ void SUTMatchmakingDialog::Tick(const FGeometry & AllottedGeometry, const double
 	{
 		GetPlayerOwner()->CloseDialog(SharedThis(this));
 	}
+
+	if (PlayerOwner.IsValid() && PlayerOwner->IsMenuGame() && PlayerOwner->IsPartyLeader())
+	{
+		UUTGameInstance* GameInstance = Cast<UUTGameInstance>(GetPlayerOwner()->GetGameInstance());
+		if (GameInstance)
+		{
+			UUTParty* Party = GameInstance->GetParties();
+			if (Party)
+			{
+				UUTPartyGameState* PartyState = Party->GetUTPersistentParty();
+				if (PartyState && PartyState->GetPartyProgression() == EUTPartyState::PostMatchmaking)
+				{
+					const int32 MatchmakingPlayersNeeded = PartyState->GetMatchmakingPlayersNeeded();
+					if (MatchmakingPlayersNeeded > 0)
+					{
+						if (MatchmakingPlayersNeeded == LastMatchmakingPlayersNeeded)
+						{
+							RetryCountdown -= InDeltaTime;
+							if (RetryCountdown < 0)
+							{
+								UUTMatchmaking* Matchmaking = GameInstance->GetMatchmaking();
+								if (Matchmaking)
+								{
+									// Disconnect from current server
+									// Start matchmaking with a higher elo gate for starting own server and skip joining current server
+									Matchmaking->RetryFindGatheringSession();
+									LastMatchmakingPlayersNeeded = 0;
+									RetryCountdown = RetryTime;
+								}
+							}
+						}
+						else
+						{
+							LastMatchmakingPlayersNeeded = MatchmakingPlayersNeeded;
+							RetryCountdown = RetryTime;
+						}
+					}
+				}
+			}
+		}
+	}
 }
+
 
 #endif

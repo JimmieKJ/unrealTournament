@@ -4905,6 +4905,7 @@ void UUTLocalPlayer::StartMatchmaking(int32 PlaylistId)
 		MatchmakingParams.ControllerId = GetControllerId();
 		MatchmakingParams.StartWith = EMatchmakingStartLocation::Game;
 		MatchmakingParams.PlaylistId = PlaylistId;
+		MatchmakingParams.MinimumEloRangeBeforeHosting = 100;
 		if (GetProfileSettings() && !GetProfileSettings()->MatchmakingRegion.IsEmpty())
 		{
 			MatchmakingParams.DatacenterId = GetProfileSettings()->MatchmakingRegion;

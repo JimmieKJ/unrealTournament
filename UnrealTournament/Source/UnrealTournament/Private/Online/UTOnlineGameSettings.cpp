@@ -42,10 +42,11 @@ FUTOnlineSessionSettingsDedicatedEmpty::FUTOnlineSessionSettingsDedicatedEmpty(b
 	Set(SETTING_GAMEMODE, GameModeStr, EOnlineDataAdvertisementType::ViaOnlineService);
 }
 
-FUTOnlineSessionSearchGather::FUTOnlineSessionSearchGather(int32 InPlaylistId, int32 InTeamElo, bool bSearchingLAN, bool bSearchingPresence) :
+FUTOnlineSessionSearchGather::FUTOnlineSessionSearchGather(int32 InPlaylistId, int32 InTeamElo, bool bSearchingLAN, bool bSearchingPresence, FString InServerToSkip) :
 	FUTOnlineSessionSearchBase(InPlaylistId, InTeamElo, bSearchingLAN, bSearchingPresence)
 {
 	MaxSearchResults = 20;
+	ServerToSkip = InServerToSkip;
 
 	// Only find Epic hosted servers
 	QuerySettings.Set(SETTING_TRUSTLEVEL, 0, EOnlineComparisonOp::Equals);
@@ -54,6 +55,19 @@ FUTOnlineSessionSearchGather::FUTOnlineSessionSearchGather(int32 InPlaylistId, i
 void FUTOnlineSessionSearchGather::SortSearchResults()
 {
 	// Currently no custom sorting
+	if (!ServerToSkip.IsEmpty())
+	{
+		for (int i = SearchResults.Num() - 1; i >= 0; i--)
+		{
+			if (SearchResults[i].Session.SessionInfo.IsValid())
+			{
+				if (SearchResults[i].Session.SessionInfo->GetSessionId().ToString() == ServerToSkip)
+				{
+					SearchResults.RemoveAt(i);
+				}
+			}
+		}
+	}
 }
 
 FUTOnlineSessionSearchEmptyDedicated::FUTOnlineSessionSearchEmptyDedicated()

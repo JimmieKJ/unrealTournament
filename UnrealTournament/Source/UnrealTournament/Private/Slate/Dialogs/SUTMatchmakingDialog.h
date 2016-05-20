@@ -35,6 +35,10 @@ public:
 	FText GetMatchmakingText() const;
 	FText GetRegionText() const;
 
+	float RetryTime;
+	float RetryCountdown;
+	int32 LastMatchmakingPlayersNeeded;
+	
 public:
 	virtual void Tick(const FGeometry & AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 };

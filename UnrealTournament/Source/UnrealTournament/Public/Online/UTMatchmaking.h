@@ -115,6 +115,8 @@ public:
 	 */
 	bool FindSessionAsClient(const FMatchmakingParams& InParams);
 
+	void RetryFindGatheringSession();
+
 	/** Generic delegate for lobby flow */
 	DECLARE_MULTICAST_DELEGATE(FOnMatchmakingStarted);
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnMatchmakingComplete, EMatchmakingCompleteResult /* Result */);

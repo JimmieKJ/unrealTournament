@@ -434,6 +434,22 @@ void UUTMatchmaking::OnClientMatchmakingComplete(EMatchmakingCompleteResult Resu
 	UE_LOG(LogOnline, Log, TEXT("OnClientMatchmakingComplete %d"), (int32)Result);
 }
 
+void UUTMatchmaking::RetryFindGatheringSession()
+{
+	FMatchmakingParams NewParams;
+	NewParams = CachedMatchmakingSearchParams.GetMatchmakingParams();
+	NewParams.MinimumEloRangeBeforeHosting = FMath::Min(1000, NewParams.MinimumEloRangeBeforeHosting * 2);
+
+	if (CachedSearchResult.Session.SessionInfo.IsValid())
+	{
+		NewParams.SessionIdToSkip = CachedSearchResult.Session.SessionInfo->GetSessionId().ToString();
+	}
+
+	DisconnectFromLobby();
+
+	FindGatheringSession(NewParams);
+}
+
 bool UUTMatchmaking::FindGatheringSession(const FMatchmakingParams& InParams)
 {
 	bool bResult = false;
