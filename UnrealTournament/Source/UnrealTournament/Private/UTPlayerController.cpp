@@ -3591,7 +3591,7 @@ void AUTPlayerController::ShowScoreboardOnDeath()
 	if (!GetPawn() && GameState && MyUTHUD && GameState->IsMatchInProgress() && !GameState->IsMatchIntermission() && !IsInState(NAME_Spectating))
 	{
 		MyUTHUD->bShowScoresWhileDead = true;
-		MyUTHUD->ScoreboardPage = 0;
+		MyUTHUD->SetScoreboardPage(0);
 	}
 }
 
