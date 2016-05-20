@@ -800,7 +800,7 @@ void AUTCTFRoundGame::FlagCountDown()
 
 void AUTCTFRoundGame::InitRound()
 {
-	FlagScorer = false;
+	FlagScorer = nullptr;
 	bFirstBloodOccurred = false;
 	bLastManOccurred = false;
 	bNeedFiveKillsMessage = true;
