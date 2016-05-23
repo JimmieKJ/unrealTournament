@@ -45,7 +45,7 @@ namespace UnrealTournamentGame.Automation
 			this.Changelist = ParsedVersion.Changelist;
 
 			// using stage only while testing this for the first time.
-			this.D2BaseUri = "https://fleet-manager-ci.ol.epicgames.net:8080/v1/";
+			this.D2BaseUri = "https://fleet-manager-stage.ol.epicgames.net:8080/v1/";
 
 			//if (AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevPlaytest || AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevStage)
 			//{
