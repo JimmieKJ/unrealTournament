@@ -734,6 +734,7 @@ void AUTCarriedObject::SendHome()
 					bWantsGhostFlag = true;
 				}
 			}
+			SendGameMessage(3, NULL, NULL);
 			OnObjectStateChanged();
 			ForceNetUpdate();
 			if (!bWantsGhostFlag)
