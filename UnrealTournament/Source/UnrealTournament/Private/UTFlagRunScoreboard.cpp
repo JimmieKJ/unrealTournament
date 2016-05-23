@@ -264,7 +264,7 @@ void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float 
 		return;
 	}
 	AUTCTFRoundGameState* GS = GetWorld()->GetGameState<AUTCTFRoundGameState>();
-	if (GS && ((GS->CTFRound == GS->NumRounds-2) || (GS->CTFRound == GS->NumRounds - 1)) && (GS->Teams.Num() > 1) && GS->Teams[0] && GS->Teams[1])
+	if (GS && !GS->HasMatchEnded() && ((GS->CTFRound == GS->NumRounds-2) || (GS->CTFRound == GS->NumRounds - 1)) && (GS->Teams.Num() > 1) && GS->Teams[0] && GS->Teams[1])
 	{
 		Canvas->SetLinearDrawColor(FLinearColor::White);
 		FFontRenderInfo TextRenderInfo;
