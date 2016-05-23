@@ -102,9 +102,10 @@ class UNREALTOURNAMENT_API UUTHUDWidget_CTFFlagStatus : public UUTHUDWidget
 
 	virtual void Draw_Implementation(float DeltaTime);
 	virtual void InitializeWidget(AUTHUD* Hud);
+
 	virtual bool ShouldDraw_Implementation(bool bShowScores)
 	{
-		return !bShowScores;
+		return !bShowScores && UTGameState && UTGameState->HasMatchStarted() && !UTGameState->HasMatchEnded() && (UTGameState->GetMatchState() != MatchState::MatchIntermission);
 	}
 
 	bool bSuppressMessage;
