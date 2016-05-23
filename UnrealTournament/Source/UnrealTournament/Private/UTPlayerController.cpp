@@ -104,9 +104,6 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	static ConstructorHelpers::FObjectFinder<USoundBase> BoostActivateSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Stingers/BoostActivated.BoostActivated'"));
 	BoostActivateSound = BoostActivateSoundFinder.Object;
 
-	static ConstructorHelpers::FObjectFinder<USoundBase> BoostCancelSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Stingers/BoostCancel.BoostCancel'"));
-	BoostCancelSound = BoostCancelSoundFinder.Object;
-
 	LastBuyMenuOpenTime = 0.0f;
 	BuyMenuToggleDelay = 0.25f;
 }
@@ -727,35 +724,18 @@ bool AUTPlayerController::ServerActivatePowerUpPress_Validate()
 
 void AUTPlayerController::ServerActivatePowerUpPress_Implementation()
 {
-	if (UTCharacter != NULL && UTPlayerState != NULL)
+	if (UTCharacter != NULL && UTPlayerState != NULL && !GetWorldTimerManager().IsTimerActive(TriggerBoostTimerHandle))
 	{
 		AUTGameMode* UTGM = GetWorld()->GetAuthGameMode<AUTGameMode>();
 		if (UTGM && UTGM->CanBoost(this))
 		{
+			ClientPlaySound(BoostActivateSound);
+			GetWorldTimerManager().SetTimer(TriggerBoostTimerHandle, this, &AUTPlayerController::TriggerBoost, TimeToHoldPowerUpButtonToActivate, false);
+			// spawn effect
 			TSubclassOf<AUTInventory> ActivatedPowerupPlaceholderClass = UTGM ? UTGM->GetActivatedPowerupPlaceholderClass() : nullptr;
-			if (GetWorldTimerManager().IsTimerActive(TriggerBoostTimerHandle))
+			if (ActivatedPowerupPlaceholderClass)
 			{
-				ClientPlaySound(BoostCancelSound);
-				GetWorldTimerManager().ClearTimer(TriggerBoostTimerHandle);
-				// kill effect
-				if (ActivatedPowerupPlaceholderClass)
-				{
-					AUTInventory* FoundEffect = UTCharacter->FindInventoryType<AUTInventory>(ActivatedPowerupPlaceholderClass, true);
-					if (FoundEffect)
-					{
-						FoundEffect->Destroy();
-					}
-				}
-			}
-			else
-			{
-				ClientPlaySound(BoostActivateSound);
-				GetWorldTimerManager().SetTimer(TriggerBoostTimerHandle, this, &AUTPlayerController::TriggerBoost, TimeToHoldPowerUpButtonToActivate, false);
-				// spawn effect
-				if (ActivatedPowerupPlaceholderClass)
-				{
-					UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(ActivatedPowerupPlaceholderClass, FVector(0.0f), FRotator(0.0f, 0.0f, 0.0f)), true);
-				}
+				UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(ActivatedPowerupPlaceholderClass, FVector(0.0f), FRotator(0.0f, 0.0f, 0.0f)), true);
 			}
 		}
 	}
