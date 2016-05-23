@@ -117,6 +117,44 @@ void AUTWeaponAttachment::UpdateOverlays()
 	}
 }
 
+void AUTWeaponAttachment::UpdateOutline(bool bOn, uint8 StencilValue)
+{
+	if (bOn)
+	{
+		if (CustomDepthMesh == NULL)
+		{
+			CustomDepthMesh = DuplicateObject<USkeletalMeshComponent>(Mesh, this);
+			CustomDepthMesh->AttachParent = NULL; // this gets copied but we don't want it to be
+			{
+				// TODO: scary that these get copied, need an engine solution and/or safe way to duplicate objects during gameplay
+				CustomDepthMesh->PrimaryComponentTick = CustomDepthMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PrimaryComponentTick;
+				CustomDepthMesh->PostPhysicsComponentTick = CustomDepthMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PostPhysicsComponentTick;
+			}
+			CustomDepthMesh->SetMasterPoseComponent(Mesh);
+			CustomDepthMesh->BoundsScale = 15000.f;
+			CustomDepthMesh->InvalidateCachedBounds();
+			CustomDepthMesh->UpdateBounds();
+			CustomDepthMesh->bRenderInMainPass = false;
+			CustomDepthMesh->bRenderCustomDepth = true;
+		}
+		if (StencilValue != CustomDepthMesh->CustomDepthStencilValue)
+		{
+			CustomDepthMesh->CustomDepthStencilValue = StencilValue;
+			CustomDepthMesh->MarkRenderStateDirty();
+		}
+		if (!CustomDepthMesh->IsRegistered())
+		{
+			CustomDepthMesh->RegisterComponent();
+			CustomDepthMesh->AttachTo(Mesh, NAME_None, EAttachLocation::SnapToTarget);
+			CustomDepthMesh->SetWorldScale3D(Mesh->GetComponentScale());
+		}
+	}
+	else if (CustomDepthMesh != NULL)
+	{
+		CustomDepthMesh->UnregisterComponent();
+	}
+}
+
 void AUTWeaponAttachment::SetSkin(UMaterialInterface* NewSkin)
 {
 	if (NewSkin != NULL)

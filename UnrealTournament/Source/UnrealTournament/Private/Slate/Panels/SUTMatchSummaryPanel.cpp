@@ -144,15 +144,6 @@ void SUTMatchSummaryPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UU
 	//Spawn a gamestate and add the taccom overlay so we can outline the character on mouse over
 	FActorSpawnParameters SpawnInfo;
 	SpawnInfo.ObjectFlags |= RF_Transient;
-	AUTGameState* NewGS = PlayerPreviewWorld->SpawnActor<AUTGameState>(GameState->GetClass(), SpawnInfo);
-	if (NewGS != nullptr)
-	{
-		TSubclassOf<class AUTCharacter> DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *GetDefault<AUTGameMode>()->PlayerPawnObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
-		if (DefaultPawnClass != nullptr)
-		{
-			NewGS->AddOverlayMaterial(DefaultPawnClass.GetDefaultObject()->SelectionOverlayMaterial);
-		}
-	}
 	
 	UMaterialInterface* BaseMat = LoadObject<UMaterialInterface>(NULL, TEXT("/Game/RestrictedAssets/UI/PlayerPreviewProxy.PlayerPreviewProxy"));
 	if (BaseMat != NULL)
@@ -885,6 +876,11 @@ void SUTMatchSummaryPanel::AddReferencedObjects(FReferenceCollector& Collector)
 		Collector.AddReferencedObjects(TeamPreviewMeshs[i]);
 	}
 	Collector.AddReferencedObjects(PreviewAnimations);
+	FSceneViewStateInterface* Ref = ViewState.GetReference();
+	if (Ref != NULL)
+	{
+		Ref->AddReferencedObjects(Collector);
+	}
 }
 
 void SUTMatchSummaryPanel::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
@@ -925,8 +921,7 @@ void SUTMatchSummaryPanel::Tick(const FGeometry& AllottedGeometry, const double 
 	{
 		PlayerPreviewWorld->Tick(LEVELTICK_All, InDeltaTime);
 	}
-
-	if ( PlayerPreviewTexture != nullptr )
+	if (PlayerPreviewTexture != nullptr)
 	{
 		PlayerPreviewTexture->FastUpdateResource();
 	}
@@ -1423,7 +1418,8 @@ void SUTMatchSummaryPanel::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Hei
 	ViewFamily.Views.Add(View);
 
 	View->StartFinalPostprocessSettings(CameraTransform.GetLocation());
-	//View->OverridePostProcessSettings(PPSettings, 1.0f);
+	View->OverridePostProcessSettings(PPSettings, 1.0f);
+	//View->FinalPostProcessSettings.AddBlendable(GetDefault<AUTPlayerCameraManager>()->OutlineMat, 1.0f);
 	View->EndFinalPostprocessSettings(PlayerPreviewInitOptions);
 	View->ViewRect = View->UnscaledViewRect;
 
@@ -1477,18 +1473,18 @@ void SUTMatchSummaryPanel::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Hei
 			AUTCharacter* HitChar = Cast<AUTCharacter>(Hit.GetActor());
 			if (HitChar != HighlightedChar && HighlightedChar != nullptr)
 			{
-				HighlightedChar->UpdateSelectionMesh(false);
+				HighlightedChar->SetOutline(false);
 			}
 
 			if (HitChar != nullptr)
 			{
-				HitChar->UpdateSelectionMesh(true);
+				HitChar->SetOutline(true, true);
 				HighlightedChar = HitChar;
 			}
 		}
 		else if (HighlightedChar != nullptr)
 		{
-			HighlightedChar->UpdateSelectionMesh(false);
+			HighlightedChar->SetOutline(false);
 			HighlightedChar = nullptr;
 		}
 	}
@@ -1747,7 +1743,7 @@ void SUTMatchSummaryPanel::ViewCharacter(AUTCharacter* NewChar)
 {
 	if (NewChar != nullptr)
 	{
-		NewChar->UpdateSelectionMesh(false);
+		NewChar->SetOutline(false);
 		TSharedPtr<FCharacterCamera> PlayerCam = MakeShareable(new FCharacterCamera(NewChar));
 		PlayerCam->CamFlags |= CF_CanInteract;
 		CameraShots.Empty();

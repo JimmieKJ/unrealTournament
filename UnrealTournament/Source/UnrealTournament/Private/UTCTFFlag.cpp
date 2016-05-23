@@ -292,6 +292,10 @@ void AUTCTFFlag::Tick(float DeltaTime)
 		if (Holder)
 		{
 			Holder->bSpecialPlayer = bCurrentlyPinged;
+			if (GetNetMode() != NM_DedicatedServer)
+			{
+				Holder->OnRepSpecialPlayer();
+			}
 		}
 		if ((ObjectState == CarriedObjectState::Held) && HoldingPawn)
 		{

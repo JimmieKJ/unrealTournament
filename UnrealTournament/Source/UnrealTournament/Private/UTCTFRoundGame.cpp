@@ -883,6 +883,11 @@ void AUTCTFRoundGame::InitRound()
 			PS->SetRemainingBoosts(InitialBoostCount);
 			PS->bSpecialTeamPlayer = false;
 			PS->bSpecialPlayer = false;
+			if (GetNetMode() != NM_DedicatedServer)
+			{
+				PS->OnRepSpecialPlayer();
+				PS->OnRepSpecialTeamPlayer();
+			}
 			if (PS && (PS->bIsInactive || !PS->Team || PS->bOnlySpectator))
 			{
 				PS->RemainingLives = 0;

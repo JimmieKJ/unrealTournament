@@ -49,6 +49,11 @@ void AUTCarriedObject::Destroyed()
 	{
 		Holder->bSpecialTeamPlayer = false;
 		Holder->bSpecialPlayer = false;
+		if (GetNetMode() != NM_DedicatedServer)
+		{
+			Holder->OnRepSpecialPlayer();
+			Holder->OnRepSpecialTeamPlayer();
+		}
 		Holder->ClearCarriedObject(this);
 		Holder = nullptr;
 	}
@@ -437,6 +442,10 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 
 	Holder->SetCarriedObject(this);
 	Holder->bSpecialTeamPlayer = true;
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		Holder->OnRepSpecialTeamPlayer();
+	}
 	UUTGameplayStatics::UTPlaySound(GetWorld(), PickupSound, HoldingPawn);
 
 	SendGameMessage(4, Holder, NULL);
@@ -478,6 +487,11 @@ void AUTCarriedObject::NoLongerHeld(AController* InstigatedBy)
 	{
 		Holder->bSpecialTeamPlayer = false;
 		Holder->bSpecialPlayer = false;
+		if (GetNetMode() != NM_DedicatedServer)
+		{
+			Holder->OnRepSpecialPlayer();
+			Holder->OnRepSpecialTeamPlayer();
+		}
 		Holder->ClearCarriedObject(this);
 	}
 

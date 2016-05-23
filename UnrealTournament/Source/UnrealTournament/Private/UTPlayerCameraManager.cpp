@@ -23,6 +23,9 @@ AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& O
 	ViewPitchMin = -89.0f;
 	ViewPitchMax = 89.0f;
 
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> OutlineFinder(TEXT("/Game/RestrictedAssets/Materials/M_OutlinePP.M_OutlinePP"));
+	OutlineMat = OutlineFinder.Object;
+
 	DefaultPPSettings.SetBaseValues();
 	DefaultPPSettings.bOverride_AmbientCubemapIntensity = true;
 	DefaultPPSettings.bOverride_BloomIntensity = true;
@@ -39,6 +42,7 @@ AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& O
 	DefaultPPSettings.VignetteIntensity = 0.20f;
 	DefaultPPSettings.MotionBlurAmount = 0.0f;
 	DefaultPPSettings.ScreenSpaceReflectionIntensity = 0.0f;
+	DefaultPPSettings.AddBlendable(OutlineMat, 1.0f);
 
 	StylizedPPSettings.AddZeroed();
 	StylizedPPSettings[0].bOverride_BloomIntensity = true;
@@ -376,18 +380,27 @@ void AUTPlayerCameraManager::ApplyCameraModifiers(float DeltaTime, FMinimalViewI
 		PostProcessBlendCache.Add(OverrideSettings);
 		PostProcessBlendCacheWeights.Add(1.0f);
 	}
-	
-	UMaterialInterface* PPOverlay = NULL;
-	AUTRemoteRedeemer* Redeemer = Cast<AUTRemoteRedeemer>(GetViewTargetPawn());
-	if (Redeemer != NULL)
+
 	{
-		PPOverlay = Redeemer->GetPostProcessMaterial();
-	}
-	if (PPOverlay != NULL)
-	{
-		FPostProcessSettings OverrideSettings;
-		OverrideSettings.AddBlendable(PPOverlay, 1.0f);
-		PostProcessBlendCache.Add(OverrideSettings);
+		FPostProcessSettings BlendableOverrides;
+		// this is already in DefaultPPSettings so we don't need to add if we used those
+		if (GetWorld()->PostProcessVolumes.Num() > 0)
+		{
+			BlendableOverrides.AddBlendable(OutlineMat, 1.0f);
+		}
+
+		UMaterialInterface* PPOverlay = NULL;
+		AUTRemoteRedeemer* Redeemer = Cast<AUTRemoteRedeemer>(GetViewTargetPawn());
+		if (Redeemer != NULL)
+		{
+			PPOverlay = Redeemer->GetPostProcessMaterial();
+		}
+		if (PPOverlay != NULL)
+		{
+			BlendableOverrides.AddBlendable(PPOverlay, 1.0f);
+		}
+
+		PostProcessBlendCache.Add(BlendableOverrides);
 		PostProcessBlendCacheWeights.Add(1.0f);
 	}
 }

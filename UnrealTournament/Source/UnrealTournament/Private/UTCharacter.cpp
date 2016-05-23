@@ -172,9 +172,6 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	SlideTargetHeight = 55.f;
 
 	GhostComponent = ObjectInitializer.CreateDefaultSubobject<UUTGhostComponent>(this, TEXT("GhostComp"));
-	CustomDepthCount = 0;
-	bTacComEnabled = false;
-	bSelectionEnabled = false;
 	FFAColor = 0;
 
 	MaxSpeedPctModifier = 1.0f;
@@ -1398,8 +1395,7 @@ void AUTCharacter::StartRagdoll()
 		// turn off any taccom when dead
 		if (bTearOff || !bFeigningDeath)
 		{
-			UpdateTacComMesh(false);
-			UpdateSelectionMesh(false);
+			SetOutline(false);
 		}
 
 		SetActorEnableCollision(true);
@@ -1573,6 +1569,7 @@ void AUTCharacter::PlayDying()
 {
 	TimeOfDeath = GetWorld()->TimeSeconds;
 
+	SetOutline(false);
 	SetAmbientSound(NULL);
 	SetLocalAmbientSound(NULL);
 	SpawnBloodDecal(GetActorLocation() - FVector(0.0f, 0.0f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), FVector(0.0f, 0.0f, -1.0f));
@@ -2977,6 +2974,8 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, BlueSkullCount, COND_None);
 
 	DOREPLIFETIME_CONDITION(AUTCharacter, MaxSpeedPctModifier, COND_None);
+	DOREPLIFETIME(AUTCharacter, bServerOutline);
+	DOREPLIFETIME(AUTCharacter, bOutlineWhenUnoccluded);
 }
 
 static AUTWeapon* SavedWeapon = NULL;
@@ -3727,36 +3726,7 @@ void AUTCharacter::SetWeaponAttachmentClass(TSubclassOf<AUTWeaponAttachment> New
 
 void AUTCharacter::UpdateCharOverlays()
 {
-	// tac-com handling, server might overwrite our overlay flags
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS != NULL)
-	{
-		int32 Index = GS->FindOverlayMaterial(TacComOverlayMaterial);
-		if (Index != INDEX_NONE)
-		{
-			if (bTacComEnabled)
-			{
-				CharOverlayFlags |= (1 << Index);
-			}
-			else
-			{
-				CharOverlayFlags &= ~(1 << Index);
-			}
-		}
-
-		Index = GS->FindOverlayMaterial(SelectionOverlayMaterial);
-		if (Index != INDEX_NONE)
-		{
-			if (bSelectionEnabled)
-			{
-				CharOverlayFlags |= (1 << Index);
-			}
-			else
-			{
-				CharOverlayFlags &= ~(1 << Index);
-			}
-		}
-	}
 	if (CharOverlayFlags == 0)
 	{
 		if (OverlayMesh != NULL && OverlayMesh->IsRegistered())
@@ -3815,7 +3785,6 @@ void AUTCharacter::UpdateCharOverlays()
 			OverlayMesh->RegisterComponent();
 			OverlayMesh->AttachTo(GetMesh(), NAME_None, EAttachLocation::SnapToTarget);
 			OverlayMesh->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
-			OverlayMesh->SetRenderCustomDepth(true);
 			OverlayMesh->LastRenderTime = GetMesh()->LastRenderTime;
 		}
 
@@ -3885,34 +3854,92 @@ void AUTCharacter::UpdateCharOverlays()
 	}
 }
 
-void AUTCharacter::UpdateTacComMesh(bool bNewTacComEnabled)
+void AUTCharacter::SetOutline(bool bNowOutlined, bool bWhenUnoccluded)
 {
-	if (bTacComEnabled != bNewTacComEnabled)
+	// outline not allowed on corpses
+	if (IsDead())
 	{
-		bTacComEnabled = bNewTacComEnabled;
-		CustomDepthCount += bTacComEnabled ? 1 : -1;
+		bNowOutlined = false;
+	}
 
-		GetMesh()->MeshComponentUpdateFlag = CustomDepthCount > 0 ? EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones : EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
-		GetMesh()->SetRenderCustomDepth(CustomDepthCount > 0);
-		//GetMesh()->BoundsScale = bTacComEnabled ? 15000.f : 1.f;
-		//GetMesh()->InvalidateCachedBounds();
-		//GetMesh()->UpdateBounds();
-
-		UpdateCharOverlays();
+	if (Role == ROLE_Authority)
+	{
+		bServerOutline = bNowOutlined;
+		bOutlineWhenUnoccluded = bWhenUnoccluded;
+	}
+	else
+	{
+		bLocalOutline = bNowOutlined;
+		// TODO: this should be server only, need to refactor flag carrier outlining
+		bOutlineWhenUnoccluded = bWhenUnoccluded;
+	}
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		UpdateOutline();
 	}
 }
 
-void AUTCharacter::UpdateSelectionMesh(bool bNewSelectionEnabled)
+void AUTCharacter::UpdateOutline()
 {
-	if (bSelectionEnabled != bNewSelectionEnabled)
+	bool bOutlined = bServerOutline || bLocalOutline;
+	// 0 is a null value for the stencil so use team + 1
+	// last bit in stencil is a bitflag so empty team uses 127
+	uint8 NewStencilValue = (GetTeamNum() == 255) ? 127 : (GetTeamNum() + 1);
+	if (bOutlineWhenUnoccluded)
 	{
-		bSelectionEnabled = bNewSelectionEnabled;
-		CustomDepthCount += bSelectionEnabled ? 1 : -1;
-
-		GetMesh()->MeshComponentUpdateFlag = CustomDepthCount > 0 ? EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones : EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
-		GetMesh()->SetRenderCustomDepth(CustomDepthCount > 0);
-
-		UpdateCharOverlays();
+		NewStencilValue |= 128;
+	}
+	if (bOutlined)
+	{
+		GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+		if (CustomDepthMesh == NULL)
+		{
+			CustomDepthMesh = DuplicateObject<USkeletalMeshComponent>(GetMesh(), this);
+			CustomDepthMesh->AttachParent = NULL; // this gets copied but we don't want it to be
+			{
+				// TODO: scary that these get copied, need an engine solution and/or safe way to duplicate objects during gameplay
+				CustomDepthMesh->PrimaryComponentTick = CustomDepthMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PrimaryComponentTick;
+				CustomDepthMesh->PostPhysicsComponentTick = CustomDepthMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PostPhysicsComponentTick;
+			}
+			CustomDepthMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision); // make sure because could be in ragdoll
+			CustomDepthMesh->SetSimulatePhysics(false);
+			CustomDepthMesh->SetCastShadow(false);
+			CustomDepthMesh->SetMasterPoseComponent(GetMesh());
+			CustomDepthMesh->BoundsScale = 15000.f;
+			CustomDepthMesh->InvalidateCachedBounds();
+			CustomDepthMesh->UpdateBounds();
+			CustomDepthMesh->bVisible = true;
+			CustomDepthMesh->bHiddenInGame = false;
+			CustomDepthMesh->bRenderInMainPass = false;
+			CustomDepthMesh->bRenderCustomDepth = true;
+		}
+		if (CustomDepthMesh->CustomDepthStencilValue != NewStencilValue)
+		{
+			CustomDepthMesh->CustomDepthStencilValue = NewStencilValue;
+			CustomDepthMesh->MarkRenderStateDirty();
+		}
+		if (!CustomDepthMesh->IsRegistered())
+		{
+			CustomDepthMesh->RegisterComponent();
+			CustomDepthMesh->AttachTo(GetMesh(), NAME_None, EAttachLocation::SnapToTarget);
+			CustomDepthMesh->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
+			CustomDepthMesh->LastRenderTime = GetMesh()->LastRenderTime;
+		}
+	}
+	else
+	{
+		if (TauntCount == 0) // if taunting need this on until taunt is done for timing purposes
+		{
+			GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
+		}
+		if (CustomDepthMesh != NULL && CustomDepthMesh->IsRegistered())
+		{
+			CustomDepthMesh->UnregisterComponent();
+		}
+	}
+	if (WeaponAttachment != NULL)
+	{
+		WeaponAttachment->UpdateOutline(bOutlined, NewStencilValue);
 	}
 }
 
@@ -4615,6 +4642,13 @@ void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
 			OverlayMesh = NULL;
 			UpdateCharOverlays();
 		}
+		if (CustomDepthMesh != NULL)
+		{
+			CustomDepthMesh->DetachFromParent();
+			CustomDepthMesh->UnregisterComponent();
+			CustomDepthMesh = NULL;
+			UpdateOutline();
+		}
 		UpdateSkin();
 	}
 }
@@ -5299,7 +5333,8 @@ void AUTCharacter::OnEmoteEnded(UAnimMontage* Montage, bool bInterrupted)
 		CurrentFirstPersonTaunt = nullptr;
 		UTCharacterMovement->bIsTaunting = false;
 
-		if (!GetMesh()->bRenderCustomDepth)
+		// if we're drawing the outline we need the mesh to keep ticking
+		if (CustomDepthMesh == NULL || !CustomDepthMesh->IsRegistered())
 		{
 			GetMesh()->MeshComponentUpdateFlag = GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->MeshComponentUpdateFlag;
 		}

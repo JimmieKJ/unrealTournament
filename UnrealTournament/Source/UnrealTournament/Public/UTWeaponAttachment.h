@@ -21,6 +21,9 @@ protected:
 	/** overlay mesh for overlay effects */
 	UPROPERTY()
 	USkeletalMeshComponent* OverlayMesh;
+	/** custom depth mesh for outline rendering */
+	UPROPERTY()
+	USkeletalMeshComponent* CustomDepthMesh;
 public:
 
 	/** Tells the aniamtion system what movement blends to use */
@@ -53,7 +56,7 @@ public:
 
 	/** If true, don't spawn impact effect.  Used for hitscan hits, skips by default for pawn and projectile hits. */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
-		virtual bool CancelImpactEffect(const FHitResult& ImpactHit);
+	virtual bool CancelImpactEffect(const FHitResult& ImpactHit);
 
 	/** particle system for firing effects (instant hit beam and such)
 	* particles will be sourced at FireOffset and a parameter HitLocation will be set for the target, if applicable
@@ -130,6 +133,8 @@ public:
 
 	/** read WeaponOverlayFlags from owner and apply the appropriate overlay material (if any) */
 	virtual void UpdateOverlays();
+
+	virtual void UpdateOutline(bool bOn, uint8 StencilValue);
 
 	/** set main skin override for the weapon, NULL to restore to default */
 	virtual void SetSkin(UMaterialInterface* NewSkin);

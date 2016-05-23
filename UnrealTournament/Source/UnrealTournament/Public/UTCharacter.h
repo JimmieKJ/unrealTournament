@@ -1864,22 +1864,26 @@ public:
 	UFUNCTION()
 	void StatusAmbientSoundUpdated();
 
-	/** TacCom overlay material */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
-	UMaterialInterface* TacComOverlayMaterial;
-
-	virtual void UpdateTacComMesh(bool bNewTacComEnabled);
-
-	/** Selection overlay material */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
-	UMaterialInterface* SelectionOverlayMaterial;
-
-	virtual void UpdateSelectionMesh(bool bNewSelectionEnabled);
+	UFUNCTION(BlueprintCallable, Category = Effects)
+	virtual void SetOutline(bool bNowOutlined, bool bWhenUnoccluded = false);
 
 protected:
-	bool bTacComEnabled;
-	bool bSelectionEnabled;
-	int32 CustomDepthCount;
+	/** whether the server has enabled the outline (because of gameplay effects like player pings) */
+	UPROPERTY(VisibleInstanceOnly, ReplicatedUsing = UpdateOutline)
+	bool bServerOutline;
+	/** whether to draw the outline when unoccluded */
+	UPROPERTY(VisibleInstanceOnly, ReplicatedUsing = UpdateOutline)
+	bool bOutlineWhenUnoccluded;
+	/** whether the local client has enabled the outline (because of e.g. vision modes) */
+	UPROPERTY(VisibleInstanceOnly)
+	bool bLocalOutline;
+
+	UFUNCTION()
+	virtual void UpdateOutline();
+
+	/** copy of our mesh rendered to CustomDepth for the outline (which is done in postprocess using the resulting data) */
+	UPROPERTY()
+	USkeletalMeshComponent* CustomDepthMesh;
 
 	/** last time PlayFootstep() was called, for timing footsteps when animations are disabled */
 	float LastFootstepTime;
