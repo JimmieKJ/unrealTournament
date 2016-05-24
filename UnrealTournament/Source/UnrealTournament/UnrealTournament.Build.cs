@@ -28,9 +28,7 @@ public class UnrealTournament : ModuleRules
 				"UTReplayStreamer",
 			}
 		);
-
-        PublicIncludePathModuleNames.Add("Social");
-
+        
         PublicDependencyModuleNames.AddRange(new string[] { 
                                                     "Core", 
                                                     "CoreUObject", 
@@ -81,6 +79,8 @@ public class UnrealTournament : ModuleRules
 
             Definitions.Add("WITH_PROFILE=1");
             Definitions.Add("WITH_SOCIAL=1");
+
+            PublicIncludePathModuleNames.Add("Social");
 
             PublicDependencyModuleNames.AddRange(
                 new string[]

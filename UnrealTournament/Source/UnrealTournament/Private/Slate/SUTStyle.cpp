@@ -6,9 +6,9 @@
 #include "Slate/SlateGameResources.h"
 #include "Slate/SlateBrushAsset.h"
 #include "SUTStyle.h"
-#include "../../UTSocialStyle.h"
 
 #if WITH_SOCIAL
+#include "../../UTSocialStyle.h"
 #include "Social.h"
 #endif
 
