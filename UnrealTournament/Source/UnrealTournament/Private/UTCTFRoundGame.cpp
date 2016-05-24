@@ -879,6 +879,7 @@ void AUTCTFRoundGame::InitRound()
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 			PS->bHasLifeLimit = false;
+			PS->RoundKills = 0;
 			PS->RespawnWaitTime = IsPlayerOnLifeLimitedTeam(PS) ? LimitedRespawnWaitTime : UnlimitedRespawnWaitTime;
 			PS->SetRemainingBoosts(InitialBoostCount);
 			PS->bSpecialTeamPlayer = false;
