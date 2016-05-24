@@ -3838,8 +3838,7 @@ void AUTPlayerController::ClientPumpkinPickedUp_Implementation(float GainedAmoun
 
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
-	float Value = FCString::Atof(*TestCommand);
-	UTPlayerState->AdjustCurrency(Value);
+	ClientPlayMovie(TEXT("initialloadingmovie"));
 }
 
 void AUTPlayerController::ClientRequireContentItemListComplete_Implementation()

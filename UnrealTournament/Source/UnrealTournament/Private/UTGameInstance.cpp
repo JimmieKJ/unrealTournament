@@ -11,6 +11,13 @@
 #include "UTParty.h"
 #include "UTPartyGameState.h"
 #include "UTPlaylistManager.h"
+#include "UnrealTournamentFullScreenMovie.h"
+
+#if !UE_SERVER
+#include "SUTStyle.h"
+#include "SlateBasics.h"
+#include "SlateExtras.h"
+#endif
 
 /* Delays for various timers during matchmaking */
 #define DELETESESSION_DELAY 1.0f
@@ -20,6 +27,7 @@ UUTGameInstance::UUTGameInstance(const class FObjectInitializer& ObjectInitializ
 	, Matchmaking(nullptr)
 	, Party(nullptr)
 {
+	bLevelIsLoading = false;
 }
 
 void UUTGameInstance::Init()
@@ -56,7 +64,14 @@ void UUTGameInstance::Init()
 	{
 		PlaylistManager = NewObject<UUTPlaylistManager>(this);
 	}
+
+	if (!FParse::Param(FCommandLine::Get(), TEXT("server")))
+	{
+		FCoreUObjectDelegates::PreLoadMap.AddUObject(this, &UUTGameInstance::BeginLevelLoading);
+		FCoreUObjectDelegates::PostLoadMap.AddUObject(this, &UUTGameInstance::EndLevelLoading);
+	}
 }
+
 
 bool UUTGameInstance::PerfExecCmd(const FString& ExecCmd, FOutputDevice& Ar)
 {
@@ -535,3 +550,167 @@ bool UUTGameInstance::ClientTravelToSession(int32 ControllerId, FName InSessionN
 
 	return false;
 }
+
+void UUTGameInstance::BeginLevelLoading(const FString& LevelName)
+{
+#if !UE_SERVER
+	
+	// Grab just the map name, minus the path
+
+	FString CleanLevelName = FPaths::GetCleanFilename(LevelName);
+	FString MovieList = TEXT("");
+
+	if (CleanLevelName.ToLower() == TEXT("ut-entry"))
+	{
+		MovieList = TEXT("load_generic_nosound");
+		PlayLoadingMovie(MovieList, true);	
+		return;
+	}
+
+	TArray<FString> SkillMovies;
+	FString SearchMask = FPaths::GameContentDir() + TEXT("/Movies/SkillMovies/skill*.mp4");
+	IFileManager::Get().FindFiles(SkillMovies, *SearchMask, true, false);
+
+	TArray<FString> LevelMovies;
+	SearchMask = FPaths::GameContentDir() + TEXT("/Movies/LevelMovies/") + CleanLevelName + TEXT("*.mp4");
+	IFileManager::Get().FindFiles(LevelMovies, *SearchMask, true, false);
+
+	// 50/50 chance of either type of movie.
+	if ( ( LevelMovies.Num() <= 0 || FMath::FRand() > 0.5f) && SkillMovies.Num() > 0)
+	{
+		int32 Index = int32( FMath::FRand() * float(SkillMovies.Num()));
+		if (SkillMovies.IsValidIndex(Index) )
+		{
+			MovieList = TEXT("SkillMovies/") + FPaths::GetCleanFilename(SkillMovies[Index]).ToLower();
+			MovieList = MovieList.Replace(TEXT(".mp4"), TEXT(""));
+		}
+	}
+	else if (LevelMovies.Num() > 0)
+	{
+		int32 Index = int32( FMath::FRand() * float(LevelMovies.Num()));
+		if (LevelMovies.IsValidIndex(Index) )
+		{
+			MovieList = TEXT("LevelMovies/") + FPaths::GetCleanFilename(LevelMovies[Index]);
+			MovieList = MovieList.Replace(TEXT(".mp4"), TEXT(""));
+		}
+	}
+
+	MovieList += MovieList.IsEmpty() ? TEXT("load_generic_nosound") : TEXT(";load_generic_nosound");
+	// NOTE: In many cases, a movie will already be playing and this will be skipped.
+	PlayLoadingMovie(MovieList);
+
+#endif
+
+	bLevelIsLoading	 = true;
+}
+
+void UUTGameInstance::EndLevelLoading()
+{
+	bLevelIsLoading	 = false;
+}
+
+#if !UE_SERVER
+
+EVisibility UUTGameInstance::GetLevelLoadThrobberVisibility() const
+{
+	return bLevelIsLoading ? EVisibility::Visible : EVisibility::Hidden;
+}
+
+EVisibility UUTGameInstance::GetLevelLoadAnyKeyVisibility() const
+{
+	return (bLevelIsLoading || (GetMoviePlayer().IsValid() && GetMoviePlayer()->WillAutoCompleteWhenLoadFinishes())) ? EVisibility::Hidden : EVisibility::Visible;
+}
+
+void UUTGameInstance::PlayLoadingMovie(const FString& MovieName, bool bStopWhenLoadingIsComnpleted, bool bForce) 
+{
+	VerifyMovieOverlay();
+	if (MovieOverlay.IsValid())
+	{
+		PlayMovie(MovieName, MovieOverlay, true, bStopWhenLoadingIsComnpleted, EMoviePlaybackType::MT_LoadingLoop, bForce);
+	}
+}
+
+void UUTGameInstance::VerifyMovieOverlay()
+{
+	if (!MovieOverlay.IsValid())
+	{
+		SAssignNew(MovieOverlay, SOverlay)
+		+SOverlay::Slot()
+		.HAlign(HAlign_Fill)
+		.VAlign(VAlign_Fill)
+		[
+			SNew(SSafeZone)
+			.VAlign(VAlign_Bottom)
+			.HAlign(HAlign_Right)
+			.Padding(10.0f)
+			.IsTitleSafe(true)
+			[
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot().HAlign(HAlign_Right).AutoHeight()
+				[
+					SNew(SThrobber)
+					.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateUObject(this, &UUTGameInstance::GetLevelLoadThrobberVisibility)))
+				]
+				+SVerticalBox::Slot().AutoHeight()
+				[
+					SNew(STextBlock)
+					.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Medium.Bold")
+					.Text(NSLOCTEXT("MovePlayer","PressAnyKeyToSkip","Press Fire To Skip..."))
+					.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateUObject(this, &UUTGameInstance::GetLevelLoadAnyKeyVisibility)))
+				]
+			]
+		];
+	}
+}
+
+// Plays a full screen movie
+void UUTGameInstance::PlayMovie(const FString& MovieName, TSharedPtr<SWidget> SlateOverlayWidget, bool bSkippable, bool bAutoComplete, TEnumAsByte<EMoviePlaybackType> PlaybackType, bool bForce)
+{
+	IUnrealTournamentFullScreenMovieModule* const FullScreenMovieModule = FModuleManager::LoadModulePtr<IUnrealTournamentFullScreenMovieModule>("UnrealTournamentFullScreenMovie");
+	if (FullScreenMovieModule != nullptr)
+	{
+		FullScreenMovieModule->PlayMovie(MovieName, SlateOverlayWidget.IsValid() ? SlateOverlayWidget : SNullWidget::NullWidget, bSkippable, bAutoComplete, PlaybackType, bForce);
+	}
+}
+
+void UUTGameInstance::WaitForMovieToFinish(bool bEnsureDefaultSlateOverlay)
+{
+	if (bEnsureDefaultSlateOverlay) VerifyMovieOverlay();
+	WaitForMovieToFinish(bEnsureDefaultSlateOverlay ? MovieOverlay : SNullWidget::NullWidget);
+
+}
+
+void UUTGameInstance::WaitForMovieToFinish(TSharedPtr<SWidget> SlateOverlayWidget)
+{
+	IUnrealTournamentFullScreenMovieModule* const FullScreenMovieModule = FModuleManager::LoadModulePtr<IUnrealTournamentFullScreenMovieModule>("UnrealTournamentFullScreenMovie");
+	if (FullScreenMovieModule != nullptr)
+	{
+		FullScreenMovieModule->SetSlateOverlayWidget(SlateOverlayWidget);
+	}
+}
+
+// Stops a movie from playing
+void UUTGameInstance::StopMovie()
+{
+	IUnrealTournamentFullScreenMovieModule* const FullScreenMovieModule = FModuleManager::LoadModulePtr<IUnrealTournamentFullScreenMovieModule>("UnrealTournamentFullScreenMovie");
+	if (FullScreenMovieModule != nullptr)
+	{
+		FullScreenMovieModule->StopMovie();
+	}
+}
+
+// returns true if a movie is currently being played
+bool UUTGameInstance::IsMoviePlaying()
+{
+	IUnrealTournamentFullScreenMovieModule* const FullScreenMovieModule = FModuleManager::LoadModulePtr<IUnrealTournamentFullScreenMovieModule>("UnrealTournamentFullScreenMovie");
+	if (FullScreenMovieModule != nullptr)
+	{
+		return FullScreenMovieModule->IsMoviePlaying();
+	}
+
+	return false;
+}
+
+#endif
+
+

@@ -54,6 +54,7 @@ public class UnrealTournament : ModuleRules
                                                     "Foliage",
 													"PerfCounters",
                                                     "PakFile",
+													"UnrealTournamentFullScreenMovie"
                                                     });
 
         PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "Sockets" });

@@ -13,6 +13,11 @@
 	"CreatedByURL": "",
 	"Modules": [
 		{
+			"Name": "UnrealTournamentFullScreenMovie",
+			"Type": "Runtime",
+			"LoadingPhase": "PreLoadingScreen"
+		},
+		{
 			"Name": "UnrealTournament",
 			"Type": "Runtime",
 			"LoadingPhase": "Default"

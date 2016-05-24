@@ -251,6 +251,15 @@ public:
 
 	UUTProfileSettings* GetProfileSettings();
 
+	UFUNCTION(BlueprintCallable, Client, Reliable, Category = "Movies")
+	virtual void ClientPlayMovie(const FString& MovieName);
+
+	UFUNCTION(BlueprintCallable, Client, Reliable, Category = "Movies")
+	virtual void ClientStopMovie();
+
+	UFUNCTION(BlueprintCallable, Client, Reliable, Category = "Movies")
+	virtual void ClientWaitForMovieToFinish();
+
 protected:
 	// Sends a message directly to a user.  
 	virtual void DirectSay(const FString& User, const FString& Message);

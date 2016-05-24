@@ -27,7 +27,8 @@ public class UnrealTournamentTarget : TargetRules
 		)
 	{
 		OutExtraModuleNames.Add("UnrealTournament");
-        if (UEBuildConfiguration.bBuildEditor)
+		OutExtraModuleNames.Add("UnrealTournamentFullScreenMovie");
+		if (UEBuildConfiguration.bBuildEditor)
         {
             OutExtraModuleNames.Add("UnrealTournamentEditor");
         }

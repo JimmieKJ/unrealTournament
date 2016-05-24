@@ -104,9 +104,9 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 	FModuleManager::Get().LoadModule("Foliage");
 	FModuleManager::Get().LoadModule("BlueprintContext");
 
-	if(bFirstRun)
+	if (bFirstRun)
 	{
-#if !UE_SERVER
+		#if !UE_SERVER
 		if (GetMoviePlayer()->IsMovieCurrentlyPlaying())
 		{
 			// When the movie ends, ask if the user accepts the eula.  
@@ -114,7 +114,7 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 			GetMoviePlayer()->OnMoviePlaybackFinished().AddUObject(this, &UUTGameEngine::OnLoadingMoviePlaybackFinished);
 		}
 		else
-#endif
+			#endif
 		{
 			// If the movie has already ended or was never played, prompt for eula now.
 			PromptForEULAAcceptance();
@@ -127,6 +127,7 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 	FUTAnalytics::Initialize();
 
 	Super::Init(InEngineLoop);
+
 
 
 	if (FUTAnalytics::IsAvailable())
@@ -793,7 +794,7 @@ static FName UT_DEFAULT_LOADING(TEXT("UT.LoadingScreen"));
 void UUTGameEngine::LoadMapRedrawViewports()
 {
 #if !UE_SERVER
-
+/*
 	FName Background = UT_DEFAULT_LOADING;
 
 	UE_LOG(UT,Log,TEXT("Background: %s"),*Background.ToString());
@@ -804,9 +805,11 @@ void UUTGameEngine::LoadMapRedrawViewports()
 		SAssignNew(LoadingScreenImage, SImage).Image(SUTStyle::Get().GetBrush(Background));
 		GameViewport->AddViewportWidgetContent(LoadingScreenImage.ToSharedRef(), MAX_int32);
 	}
+*/
 #endif
 	Super::LoadMapRedrawViewports();
 #if !UE_SERVER
+/*
 	if (GameViewport != NULL)
 	{
 		// required to force Slate to present the frame
@@ -817,6 +820,7 @@ void UUTGameEngine::LoadMapRedrawViewports()
 			GameViewport->RemoveViewportWidgetContent(LoadingScreenImage.ToSharedRef());
 		}
 	}
+*/
 #endif
 }
 
