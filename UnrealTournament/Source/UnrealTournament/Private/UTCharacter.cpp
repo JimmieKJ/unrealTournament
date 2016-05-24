@@ -175,8 +175,6 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	FFAColor = 0;
 
 	MaxSpeedPctModifier = 1.0f;
-	OwnVolumeMultiplier = 1.f;
-	OwnFootstepVolumeMultiplier = 0.35f;
 }
 
 float AUTCharacter::GetWeaponBobScaling()
@@ -3312,9 +3310,7 @@ void AUTCharacter::PlayFootstep(uint8 FootNum, bool bFirstPerson)
 		}
 	}
 
-	OwnVolumeMultiplier = OwnFootstepVolumeMultiplier;
-	UUTGameplayStatics::UTPlaySound(GetWorld(), FootstepSoundToPlay, this, SRT_IfSourceNotReplicated);
-	OwnVolumeMultiplier = 1.f;
+	UUTGameplayStatics::UTPlaySound(GetWorld(), FootstepSoundToPlay, this, SRT_IfSourceNotReplicated, false, FVector::ZeroVector, NULL, NULL, false, SAT_Footstep);
 
 	if (FootStepEffect && GetMesh() && (GetWorld()->GetTimeSeconds() - GetMesh()->LastRenderTime < 0.05f)
 		&& (GetLocalViewer() || (GetCachedScalabilityCVars().DetailMode != 0)))

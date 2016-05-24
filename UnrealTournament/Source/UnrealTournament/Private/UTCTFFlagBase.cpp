@@ -145,7 +145,7 @@ void AUTCTFFlagBase::ObjectWasPickedUp(AUTCharacter* NewHolder, bool bWasHome)
 			}
 			else if (PC)
 			{
-				PC->HearSound(EnemyFlagTakenSound, this, GetActorLocation(), true, false);
+				PC->HearSound(EnemyFlagTakenSound, this, GetActorLocation(), true, false, SAT_None);
 			}
 		}
 	}

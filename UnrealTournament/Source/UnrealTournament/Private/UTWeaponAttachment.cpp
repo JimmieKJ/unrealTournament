@@ -306,7 +306,7 @@ void AUTWeaponAttachment::PlayBulletWhip()
 					Params.AddIgnoredActor(PC->GetPawn());
 					if (!GetWorld()->LineTraceTestByChannel(ClosestPt, ViewLoc, COLLISION_TRACE_WEAPON, Params))
 					{
-						PC->ClientHearSound(BulletWhip, this, ClosestPt, false, false);
+						PC->ClientHearSound(BulletWhip, this, ClosestPt, false, false, SAT_None);
 					}
 				}
 			}

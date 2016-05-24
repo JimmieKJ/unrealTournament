@@ -106,6 +106,8 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 
 	LastBuyMenuOpenTime = 0.0f;
 	BuyMenuToggleDelay = 0.25f;
+
+	FootStepAmp.OwnVolumeMultiplier = 0.35f;
 }
 
 void AUTPlayerController::BeginPlay()
@@ -1665,7 +1667,7 @@ void AUTPlayerController::TouchStarted(const ETouchIndex::Type FingerIndex, cons
 	}
 }
 
-void AUTPlayerController::HearSound(USoundBase* InSoundCue, AActor* SoundPlayer, const FVector& SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume)
+void AUTPlayerController::HearSound(USoundBase* InSoundCue, AActor* SoundPlayer, const FVector& SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume, ESoundAmplificationType AmpType)
 {
 	bool bIsOccluded = false; 
 	float MaxAudibleDistance = InSoundCue->GetAttenuationSettingsToApply() ? InSoundCue->GetAttenuationSettingsToApply()->GetMaxDimension() : 15000.f;
@@ -1705,11 +1707,11 @@ void AUTPlayerController::HearSound(USoundBase* InSoundCue, AActor* SoundPlayer,
 		// we don't want to replicate the location if it's the same as Actor location (so the sound gets played attached to the Actor), but we must if the source Actor isn't relevant
 		UNetConnection* Conn = Cast<UNetConnection>(Player);
 		FVector RepLoc = (SoundPlayer != NULL && SoundPlayer->GetActorLocation() == SoundLocation && (Conn == NULL || Conn->ActorChannels.Contains(SoundPlayer))) ? FVector::ZeroVector : SoundLocation;
-		ClientHearSound(InSoundCue, SoundPlayer, RepLoc, bStopWhenOwnerDestroyed, bAmplifyVolume);
+		ClientHearSound(InSoundCue, SoundPlayer, RepLoc, bStopWhenOwnerDestroyed, bAmplifyVolume, AmpType);
 	}
 }
 
-void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, AActor* SoundPlayer, FVector_NetQuantize SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume)
+void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, AActor* SoundPlayer, FVector_NetQuantize SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume, ESoundAmplificationType AmpType)
 {
 	if (TheSound != NULL && (SoundPlayer != NULL || !SoundLocation.IsZero()))
 	{
@@ -1721,8 +1723,14 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 			NewActiveSound.World = GetWorld();
 			NewActiveSound.Sound = TheSound;
 
-			NewActiveSound.VolumeMultiplier = (UTCharacter && (SoundPlayer == UTCharacter)) ? UTCharacter->OwnVolumeMultiplier : 1.0f;
-			NewActiveSound.PitchMultiplier = 1.0f;
+			FCustomSoundAmplification CustomAmp = FCustomSoundAmplification();
+			if (AmpType == SAT_Footstep)
+			{
+				CustomAmp = FootStepAmp;
+				UE_LOG(UT, Warning, TEXT("Footstep Amp %f %f"), CustomAmp.OwnVolumeMultiplier, CustomAmp.OwnPitchMultiplier);
+			}
+			NewActiveSound.VolumeMultiplier = CustomAmp.OwnVolumeMultiplier;
+			NewActiveSound.PitchMultiplier = CustomAmp.OwnPitchMultiplier;
 
 			NewActiveSound.RequestedStartTime = 0.0f;
 

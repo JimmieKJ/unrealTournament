@@ -15,6 +15,16 @@ enum ESoundReplicationType
 	SRT_MAX
 };
 
+UENUM()
+enum ESoundAmplificationType
+{
+	SAT_None, 
+	SAT_Footstep, 
+	SAT_WeaponFire, 
+	SAT_WeaponFoley, 
+	SAT_MAX
+};
+
 UCLASS(CustomConstructor)
 class UNREALTOURNAMENT_API UUTGameplayStatics : public UBlueprintFunctionLibrary
 {
@@ -27,12 +37,12 @@ class UNREALTOURNAMENT_API UUTGameplayStatics : public UBlueprintFunctionLibrary
 	/** plays a sound with optional replication parameters
 	* additionally will check that clients will actually be able to hear the sound (don't replicate if out of sound's audible range)
 	* if called on client, always local only
-	* @param AmpedListener - amplify volume of the sound for this player; used for e.g. making hit sounds louder for player that caused the hit
+	* @param AmpedListener - amplify volume for this listener using the Target amplification settings of the SoundAmplificationType
 	* @param Instigator - Pawn that caused the sound to be played (if any) - if SourceActor is a Pawn it defaults to that
 	* @param bNotifyAI - whether AI can hear this sound (subject to sound radius and bot skill)
 	*/
 	UFUNCTION(BlueprintCallable, Category = Sound, meta = (HidePin = "TheWorld", DefaultToSelf = "SourceActor", AutoCreateRefTerm = "SoundLoc"))
-	static void UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AActor* SourceActor = NULL, ESoundReplicationType RepType = SRT_All, bool bStopWhenOwnerDestroyed = false, const FVector& SoundLoc = FVector::ZeroVector, class AUTPlayerController* AmpedListener = NULL, APawn* Instigator = NULL, bool bNotifyAI = true);
+	static void UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AActor* SourceActor = NULL, ESoundReplicationType RepType = SRT_All, bool bStopWhenOwnerDestroyed = false, const FVector& SoundLoc = FVector::ZeroVector, class AUTPlayerController* AmpedListener = NULL, APawn* Instigator = NULL, bool bNotifyAI = true, ESoundAmplificationType AmpType = SAT_None);
 
 	/** retrieves gravity; if no location is specified, level default gravity is returned */
 	UFUNCTION(BlueprintCallable, Category = World, meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", AutoCreateRefTerm = "TestLoc"))

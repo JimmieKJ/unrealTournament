@@ -3,6 +3,7 @@
 
 #include "UTBasePlayerController.h"
 #include "UTPickupWeapon.h"
+#include "UTGameplayStatics.h"
 
 #if WITH_PROFILE
 #include "UTMcpProfile.h"
@@ -29,6 +30,58 @@ struct FDeferredFireInput
 	{}
 };
 
+USTRUCT()
+struct FCustomSoundAmplification
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(BlueprintReadWrite, Category = SoundAmplification)
+		float  OwnVolumeMultiplier;
+
+	UPROPERTY(BlueprintReadWrite, Category = SoundAmplification)
+		float  OwnPitchMultiplier;
+
+	UPROPERTY(BlueprintReadWrite, Category = SoundAmplification)
+	USoundAttenuation*  InstigatorAttenuation;
+
+	UPROPERTY(BlueprintReadWrite, Category = SoundAmplification)
+		float  InstigatorVolumeMultiplier;
+
+	UPROPERTY(BlueprintReadWrite, Category = SoundAmplification)
+		float  InstigatorPitchMultiplier;
+
+	UPROPERTY(BlueprintReadWrite, Category = SoundAmplification)
+		USoundAttenuation*  TargetAttenuation;
+
+	UPROPERTY(BlueprintReadWrite, Category = SoundAmplification)
+		float  TargetVolumeMultiplier;
+
+	UPROPERTY(BlueprintReadWrite, Category = SoundAmplification)
+		float  TargetPitchMultiplier;
+
+	UPROPERTY(BlueprintReadWrite, Category = SoundAmplification)
+		USoundAttenuation*  TeammateAttenuation;
+
+	UPROPERTY(BlueprintReadWrite, Category = SoundAmplification)
+		float  TeammateVolumeMultiplier;
+
+	UPROPERTY(BlueprintReadWrite, Category = SoundAmplification)
+		float  TeammatePitchMultiplier;
+
+	FCustomSoundAmplification()
+		: OwnVolumeMultiplier(1.f),
+		OwnPitchMultiplier(1.f), 
+		InstigatorAttenuation(nullptr),
+		InstigatorVolumeMultiplier(1.f),
+		InstigatorPitchMultiplier(1.f),
+		TargetAttenuation(nullptr),
+		TargetVolumeMultiplier(1.f),
+		TargetPitchMultiplier(1.f),
+		TeammateAttenuation(nullptr),
+		TeammateVolumeMultiplier(1.f),
+		TeammatePitchMultiplier(1.f)
+	{}
+};
 
 UCLASS(config=Game)
 class UNREALTOURNAMENT_API AUTPlayerController : public AUTBasePlayerController
@@ -69,6 +122,9 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = Sounds)
 		USoundBase* BoostActivateSound;
 
+	UPROPERTY(BlueprintReadWrite, Category = Sounds)
+		FCustomSoundAmplification FootStepAmp;
+
 	virtual void BeginPlay() override;
 	virtual void Destroyed() override;
 	virtual void InitInputSystem() override;
@@ -100,14 +156,14 @@ public:
 	/** check if sound is audible to this player and call ClientHearSound() if so to actually play it
 	 * SoundPlayer may be NULL
 	 */
-	virtual void HearSound(USoundBase* InSoundCue, AActor* SoundPlayer, const FVector& SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume);
+	virtual void HearSound(USoundBase* InSoundCue, AActor* SoundPlayer, const FVector& SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume, ESoundAmplificationType AmpType);
 
 	/** plays a heard sound locally
 	 * SoundPlayer may be NULL for an unattached sound
 	 * if SoundLocation is zero then the sound should be attached to SoundPlayer
 	 */
 	UFUNCTION(client, unreliable)
-	void ClientHearSound(USoundBase* TheSound, AActor* SoundPlayer, FVector_NetQuantize SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume);
+	void ClientHearSound(USoundBase* TheSound, AActor* SoundPlayer, FVector_NetQuantize SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume, ESoundAmplificationType AmpType);
 
 	virtual void ClientSay_Implementation(AUTPlayerState* Speaker, const FString& Message, FName Destination) override;
 

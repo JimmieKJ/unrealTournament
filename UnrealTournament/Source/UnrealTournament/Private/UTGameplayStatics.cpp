@@ -3,10 +3,14 @@
 #include "UTGameplayStatics.h"
 #include "Runtime/Engine/Classes/Engine/DemoNetDriver.h"
 
-void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AActor* SourceActor, ESoundReplicationType RepType, bool bStopWhenOwnerDestroyed, const FVector& SoundLoc, AUTPlayerController* AmpedListener, APawn* Instigator, bool bNotifyAI)
+void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AActor* SourceActor, ESoundReplicationType RepType, bool bStopWhenOwnerDestroyed, const FVector& SoundLoc, AUTPlayerController* AmpedListener, APawn* Instigator, bool bNotifyAI, ESoundAmplificationType AmpType)
 {
 	if (TheSound != NULL && !GExitPurge)
 	{
+		if (AmpedListener)
+		{
+			UE_LOG(UT, Warning, TEXT("UTPlaySound() with Amped Listener by %s - use UTPlayAmplifiedSound() instead!"), SourceActor ? *SourceActor->GetName() : TEXT("None"));
+		}
 		if (SourceActor == NULL && SoundLoc.IsZero())
 		{
 			UE_LOG(UT, Warning, TEXT("UTPlaySound(): No source (SourceActor == None and SoundLoc not specified)"));
@@ -70,7 +74,7 @@ void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AAc
 
 						if (bShouldReplicate)
 						{
-							PC->HearSound(TheSound, SourceActor, SourceLoc, bStopWhenOwnerDestroyed, AmpedListener == PC);
+							PC->HearSound(TheSound, SourceActor, SourceLoc, bStopWhenOwnerDestroyed, AmpedListener == PC, AmpType);
 						}
 					}
 				}
@@ -83,7 +87,7 @@ void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AAc
 				AUTPlayerController* PC = (TheWorld->DemoNetDriver->ClientConnections.Num() > 0) ? Cast<AUTPlayerController>(TheWorld->DemoNetDriver->ClientConnections[0]->PlayerController) : NULL;
 				if (PC != NULL)
 				{
-					PC->ClientHearSound(TheSound, SourceActor, (SourceActor != NULL && SourceActor->GetActorLocation() == SourceLoc) ? FVector::ZeroVector : SourceLoc, bStopWhenOwnerDestroyed, false);
+					PC->ClientHearSound(TheSound, SourceActor, (SourceActor != NULL && SourceActor->GetActorLocation() == SourceLoc) ? FVector::ZeroVector : SourceLoc, bStopWhenOwnerDestroyed, false, AmpType);
 				}
 			}
 
@@ -92,7 +96,7 @@ void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AAc
 				AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
 				if (PC != NULL && PC->IsLocalPlayerController())
 				{
-					PC->HearSound(TheSound, SourceActor, SourceLoc, bStopWhenOwnerDestroyed, AmpedListener == PC);
+					PC->HearSound(TheSound, SourceActor, SourceLoc, bStopWhenOwnerDestroyed, AmpedListener == PC, AmpType);
 				}
 			}
 
