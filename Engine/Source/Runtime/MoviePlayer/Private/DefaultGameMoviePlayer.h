@@ -37,6 +37,14 @@ public:
 	FReply OnLoadingScreenMouseButtonDown(const FGeometry& Geometry, const FPointerEvent& PointerEvent);
 	FReply OnLoadingScreenKeyDown(const FGeometry& Geometry, const FKeyEvent& KeyEvent);
 
+	virtual void SetSlateOverlayWidget(TSharedPtr<SWidget> NewOverlayWidget) override;
+
+	virtual bool WillAutoCompleteWhenLoadFinishes() override;
+
+	virtual FString GetMovieName() override;
+	virtual bool IsLastMovieInPlaylist() override;
+
+
 private:
 
 	/** Ticks the underlying MovieStreamer.  Must be done exactly once before each DrawWindows call. */
@@ -56,7 +64,7 @@ private:
 	EVisibility GetViewportVisibility() const;	
 	
 	/** Called via a delegate in the engine when maps start to load */
-	void OnPreLoadMap();
+	void OnPreLoadMap(const FString& LevelName);
 	
 	/** Called via a delegate in the engine when maps finish loading */
 	void OnPostLoadMap();

@@ -32,6 +32,12 @@ public:
 	virtual bool LoadingScreenIsPrepared() const override {return false;}
 	virtual void SetupLoadingScreenFromIni() override {}
 	virtual FOnMoviePlaybackFinished& OnMoviePlaybackFinished() override { return OnMoviePlaybackFinishedDelegate; }
+	virtual void SetSlateOverlayWidget(TSharedPtr<SWidget> NewOverlayWidget) override { }
+	virtual bool WillAutoCompleteWhenLoadFinishes() override { return false; }
+	virtual FString GetMovieName() override { return TEXT(""); }
+	virtual bool IsLastMovieInPlaylist() override { return false; }
+
+
 private:
 	FNullGameMoviePlayer() {}
 	

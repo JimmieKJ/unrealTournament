@@ -7,6 +7,15 @@
 #include "SlateBasics.h"
 #include "Slate/SlateTextures.h"
 
+UENUM()
+enum EMoviePlaybackType
+{
+	MT_Normal,				// Normal playback mode.  Play each movie in the play list a single time
+	MT_Looped,				// Looped playback mode.  Play all movies in the play list in order then start over until manaully cancelled
+	MT_LoadingLoop,			// Alternate Looped mode.  Play all of the movies in the play list and loop just the last movie until loading is finished.
+	MT_MAX
+};
+
 /** This viewport is a simple interface for the loading to use to display the video textures. */
 class FMovieViewport : public ISlateViewport, public TSharedFromThis<FMovieViewport>
 {
@@ -48,7 +57,8 @@ public:
 	 * Initializes this movie streamer with all the movie paths (ordered) we want to play
 	 * Movie paths are local to the current game's Content/Movies/ directory.
 	 */
-	virtual bool Init(const TArray<FString>& MoviePaths) = 0;
+
+	virtual bool Init(const TArray<FString>& MoviePaths, TEnumAsByte<EMoviePlaybackType> inPlaybackType) = 0;
 	
 	/** Forces the movie streamer to cancel what it's streaming and close. */
 	virtual void ForceCompletion() = 0;
@@ -61,6 +71,12 @@ public:
 
 	/** Gets the aspect ratio of the movie frames being streamed. */
 	virtual float GetAspectRatio() const = 0;
+
+	/** returns the name of the movie currently being played */
+	virtual FString GetMovieName() = 0;
+
+	/** returns true if the movie being played in the last one in the play list */
+	virtual bool IsLastMovieInPlaylist() = 0;
 
 	/** Called to allow the movie streamer to cleanup any resources once there are no movies left to play. */
 	virtual void Cleanup() = 0;
@@ -77,7 +93,8 @@ struct MOVIEPLAYER_API FLoadingScreenAttributes
 		: MinimumLoadingScreenDisplayTime(-1.0f)
 		, bAutoCompleteWhenLoadingCompletes(true)
 		, bMoviesAreSkippable(true)
-		, bWaitForManualStop(false) {}
+		, bWaitForManualStop(false)
+		, PlaybackType(EMoviePlaybackType::MT_Normal) {}
 
 	/** The widget to be displayed on top of the movie or simply standalone if there is no movie. */
 	TSharedPtr<class SWidget> WidgetLoadingScreen;
@@ -96,6 +113,9 @@ struct MOVIEPLAYER_API FLoadingScreenAttributes
 
 	/** If true, movie playback continues until Stop is called. */
 	bool bWaitForManualStop;
+
+	/** Should we just play back, loop, etc.  NOTE: if the playback type is MT_LoopLast, then bAutoCompleteWhenLoadingCompletes will be togged on when the last movie is hit*/
+	TEnumAsByte<EMoviePlaybackType> PlaybackType;
 
 	/** True if there is either a standalone widget or any movie paths or both. */
 	bool IsValid() const;
@@ -153,10 +173,22 @@ public:
 	/** Sets up an FLoadingScreenAttributes from the game's engine.ini, then calls the virtual SetupLoadingScreen. */
 	virtual void SetupLoadingScreenFromIni() = 0;
 
+	/** returns the name of the movie currently being played */
+	virtual FString GetMovieName() = 0;
+
+	/** returns true if the movie being played in the last one in the play list */
+	virtual bool IsLastMovieInPlaylist() = 0;
+
 	DECLARE_EVENT(IGameMoviePlayer, FOnMoviePlaybackFinished)
 	virtual FOnMoviePlaybackFinished& OnMoviePlaybackFinished() = 0;
 	
+	/** Allows for a slate overlay widget to be set after playback. */
+	virtual void SetSlateOverlayWidget(TSharedPtr<SWidget> NewOverlayWidget) = 0;
+
 	void BroadcastMoviePlaybackFinished() { OnMoviePlaybackFinished().Broadcast(); }
+
+	/** This function shouild return true if the movie will auto-complete the sequence when background loading has finished */
+	virtual bool WillAutoCompleteWhenLoadFinishes() = 0;
 
 	virtual ~IGameMoviePlayer() {}
 };

@@ -20,7 +20,7 @@ public:
 	~FMediaFoundationMovieStreamer();
 
 	/** IMovieStreamer interface */
-	virtual bool Init(const TArray<FString>& MoviePaths) override;
+	virtual bool Init(const TArray<FString>& MoviePaths, TEnumAsByte<EMoviePlaybackType> inPlaybackType) override;
 	virtual void ForceCompletion() override;
 	virtual bool Tick(float DeltaTime) override;
 	virtual TSharedPtr<class ISlateViewport> GetViewportInterface() override
@@ -33,6 +33,10 @@ public:
 	}
 	virtual void Cleanup() override;
 
+	virtual FString GetMovieName() override;
+	virtual bool IsLastMovieInPlaylist() override;
+
+
 private:
 	/** Opens up the next movie in the movie path queue */
 	void OpenNextMovie();
@@ -44,6 +48,12 @@ private:
 private:
 	/** A list of all the stored movie paths we have enqueued for playing */
 	TArray<FString> StoredMoviePaths;
+
+	/** if true, this sequence will loop when finsihed */
+	TEnumAsByte<EMoviePlaybackType> PlaybackType;
+
+	// The index in to the playlist (StoredMoviePaths) that is currently playing
+	int32 MovieIndex;
 
 	/** Texture and viewport data for displaying to Slate */
 	TArray<uint8> TextureData;
