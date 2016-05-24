@@ -60,7 +60,7 @@ public:
 	FMapLoadObserver( FLiveEditorListenServer *_Owner );
 	~FMapLoadObserver();
 
-	void OnPreLoadMap();
+	void OnPreLoadMap(const FString& MapName);
 	void OnPostLoadMap();
 
 private:
