@@ -21,7 +21,8 @@ enum ESoundAmplificationType
 	SAT_None, 
 	SAT_Footstep, 
 	SAT_WeaponFire, 
-	SAT_WeaponFoley, 
+	SAT_WeaponFoley,
+	SAT_PainSound,
 	SAT_MAX
 };
 

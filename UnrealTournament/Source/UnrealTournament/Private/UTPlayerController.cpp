@@ -108,6 +108,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	BuyMenuToggleDelay = 0.25f;
 
 	FootStepAmp.OwnVolumeMultiplier = 0.35f;
+	PainSoundAmp.InstigatorVolumeMultiplier = 2.f;
 }
 
 void AUTPlayerController::BeginPlay()
@@ -1702,7 +1703,7 @@ void AUTPlayerController::HearSound(USoundBase* InSoundCue, AActor* SoundPlayer,
 			}
 		}
 	}*/
-	if (SoundPlayer == this || (GetViewTarget() != NULL && (bAmplifyVolume || MaxAudibleDistance >= (SoundLocation - GetViewTarget()->GetActorLocation()).Size())))
+	if (SoundPlayer == this || (GetViewTarget() != NULL && (bAmplifyVolume || (SoundPlayer == this) || (SoundPlayer == GetViewTarget()) || MaxAudibleDistance >= (SoundLocation - GetViewTarget()->GetActorLocation()).Size())))
 	{
 		// we don't want to replicate the location if it's the same as Actor location (so the sound gets played attached to the Actor), but we must if the source Actor isn't relevant
 		UNetConnection* Conn = Cast<UNetConnection>(Player);
@@ -1716,6 +1717,15 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 	if (TheSound != NULL && (SoundPlayer != NULL || !SoundLocation.IsZero()))
 	{
 		bool bHRTFEnabled = (GetWorld()->GetAudioDevice() != NULL && GetWorld()->GetAudioDevice()->IsHRTFEnabledForAll());
+		FCustomSoundAmplification CustomAmp = FCustomSoundAmplification();
+		switch (AmpType)
+		{
+			case SAT_FootStep: CustomAmp = FootStepAmp; break;
+			case SAT_WeaponFire: CustomAmp = WeaponFireAmp; break;
+			case SAT_PainSound: CustomAmp = PainSoundAmp; break;
+			case SAT_WeaponFoley: CustomAmp = WeaponFoleyAmp; break;
+		}
+
 		if (!bHRTFEnabled && (SoundPlayer == this || SoundPlayer == GetViewTarget()))
 		{
 			// no attenuation/spatialization, full volume
@@ -1723,12 +1733,6 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 			NewActiveSound.World = GetWorld();
 			NewActiveSound.Sound = TheSound;
 
-			FCustomSoundAmplification CustomAmp = FCustomSoundAmplification();
-			if (AmpType == SAT_Footstep)
-			{
-				CustomAmp = FootStepAmp;
-				UE_LOG(UT, Warning, TEXT("Footstep Amp %f %f"), CustomAmp.OwnVolumeMultiplier, CustomAmp.OwnPitchMultiplier);
-			}
 			NewActiveSound.VolumeMultiplier = CustomAmp.OwnVolumeMultiplier;
 			NewActiveSound.PitchMultiplier = CustomAmp.OwnPitchMultiplier;
 
@@ -1768,7 +1772,6 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 					// extra amplify pain sounds
 					AttenuationOverride->Attenuation.dBAttenuationAtMax = -20.0f;
 					AttenuationOverride->Attenuation.FalloffDistance *= 4.f;
-					VolumeMultiplier *= 2.f;
 				}
 				else
 				{

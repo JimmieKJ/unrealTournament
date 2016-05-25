@@ -125,6 +125,15 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = Sounds)
 		FCustomSoundAmplification FootStepAmp;
 
+	UPROPERTY(BlueprintReadWrite, Category = Sounds)
+		FCustomSoundAmplification PainSoundAmp;
+
+	UPROPERTY(BlueprintReadWrite, Category = Sounds)
+		FCustomSoundAmplification WeaponFireAmp;
+
+	UPROPERTY(BlueprintReadWrite, Category = Sounds)
+		FCustomSoundAmplification WeaponFoleyAmp;
+
 	virtual void BeginPlay() override;
 	virtual void Destroyed() override;
 	virtual void InitInputSystem() override;
