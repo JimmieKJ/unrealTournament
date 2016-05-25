@@ -1766,6 +1766,9 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 		}
 		else
 		{
+			bool bSkipIfOccluded = (AmpType == SAT_WeaponFoley) || (AmpType == SAT_Footstep);
+			bool bSkipIfTeammateOccluded = (AmpType == SAT_Footstep);
+			bool bSameTeam = false;
 			USoundAttenuation* AttenuationOverride = NULL;
 			float VolumeMultiplier = 1.f;
 			float PitchMultiplier = 1.f;
@@ -1785,7 +1788,38 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 			}
 			else
 			{
-				// check if same team @TODO FIXMESTEVE
+				// check if same team
+				AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
+				bSameTeam = (GS && GS->OnSameTeam(this, SoundPlayer));
+				if (bSameTeam)
+				{
+					AttenuationOverride = CustomAmp.TeammateAttenuation;
+					VolumeMultiplier = CustomAmp.TeammateVolumeMultiplier;
+					PitchMultiplier = CustomAmp.TeammatePitchMultiplier;
+				}
+			}
+			if (bSkipIfOccluded || (bSkipIfTeammateOccluded && bSameTeam))
+			{
+				// if further than half audible radius, skip if occluded
+				float MaxAudibleDistance = TheSound->GetAttenuationSettingsToApply() ? TheSound->GetAttenuationSettingsToApply()->GetMaxDimension() : 4000.f;
+				if (bSameTeam)
+				{
+					MaxAudibleDistance *= 0.5f;
+				}
+				if (0.5f * MaxAudibleDistance > (SoundLocation - GetViewTarget()->GetActorLocation()).Size())
+				{
+					FVector ViewPoint;
+					FRotator ViewRotation;
+					GetActorEyesViewPoint(ViewPoint, ViewRotation);
+					static FName NAME_LineOfSight = FName(TEXT("LineOfSight"));
+					FCollisionQueryParams CollisionParms(NAME_LineOfSight, true, SoundPlayer);
+					CollisionParms.AddIgnoredActor(GetViewTarget());
+					bool bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, SoundLocation, COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParms);
+					if (bHit)
+					{
+						return;
+					}
+				}
 			}
 
 			if (!SoundLocation.IsZero() && (SoundPlayer == NULL || SoundLocation != SoundPlayer->GetActorLocation()))
