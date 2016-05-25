@@ -1720,7 +1720,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 		FCustomSoundAmplification CustomAmp = FCustomSoundAmplification();
 		switch (AmpType)
 		{
-			case SAT_FootStep: CustomAmp = FootStepAmp; break;
+			case SAT_Footstep: CustomAmp = FootStepAmp; break;
 			case SAT_WeaponFire: CustomAmp = WeaponFireAmp; break;
 			case SAT_PainSound: CustomAmp = PainSoundAmp; break;
 			case SAT_WeaponFoley: CustomAmp = WeaponFoleyAmp; break;
