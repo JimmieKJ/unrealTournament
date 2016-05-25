@@ -224,6 +224,15 @@ void SUTInGameMenu::WriteQuitMidGameAnalytics()
 
 FReply SUTInGameMenu::OnReturnToMainMenu()
 {
+	if (!PlayerOwner->IsPartyLeader())
+	{
+		UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(PlayerOwner->GetWorld(), UPartyContext::StaticClass()));
+		if (PartyContext)
+		{
+			PartyContext->LeaveParty();
+		}
+	}
+
 	WriteQuitMidGameAnalytics();
 	PlayerOwner->CloseMapVote();
 	CloseMenus();
@@ -442,15 +451,6 @@ void SUTInGameMenu::BackResult(TSharedPtr<SCompoundWidget> Dialog, uint16 Button
 {
 	if (ButtonPressed == UTDIALOG_BUTTON_YES)
 	{
-		if (!PlayerOwner->IsPartyLeader())
-		{
-			UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(PlayerOwner->GetWorld(), UPartyContext::StaticClass()));
-			if (PartyContext)
-			{
-				PartyContext->LeaveParty();
-			}
-		}
-
 		AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
 		if (GameState && GameState->bIsInstanceServer)
 		{
