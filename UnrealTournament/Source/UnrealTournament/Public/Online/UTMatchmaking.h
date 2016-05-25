@@ -142,6 +142,7 @@ public:
 	bool IsMatchmaking();
 
 	int32 GetMatchmakingEloRange();
+	int32 GetMatchmakingTeamElo();
 
 private:
 

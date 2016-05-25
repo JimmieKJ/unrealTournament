@@ -841,6 +841,16 @@ int32 UUTMatchmaking::GetMatchmakingEloRange()
 	return 0;
 }
 
+int32 UUTMatchmaking::GetMatchmakingTeamElo()
+{
+	if (Matchmaking)
+	{
+		return Matchmaking->GetMatchmakingParams().TeamElo;
+	}
+
+	return 0;
+}
+
 void UUTMatchmaking::TravelToServer()
 {
 	bool bWillTravel = false;

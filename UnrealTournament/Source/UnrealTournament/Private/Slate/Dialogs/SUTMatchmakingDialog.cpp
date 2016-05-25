@@ -102,9 +102,10 @@ FText SUTMatchmakingDialog::GetMatchmakingText() const
 		if (Matchmaking)
 		{
 			int32 MatchmakingEloRange = Matchmaking->GetMatchmakingEloRange();
+			int32 MatchmakingTeamElo = Matchmaking->GetMatchmakingTeamElo();
 			if (MatchmakingEloRange > 0)
 			{
-				return FText::Format(NSLOCTEXT("Generic", "SearchingForServerWithEloRange", "Searching For Server Within ELO Range of {0}..."), FText::AsNumber(MatchmakingEloRange));
+				return FText::Format(NSLOCTEXT("Generic", "SearchingForServerWithEloRange", "Your Team ELO is {0}. Searching For Server Within ELO Range of {1}..."), FText::AsNumber(MatchmakingTeamElo), FText::AsNumber(MatchmakingEloRange));
 			}
 		}
 	}
