@@ -79,7 +79,7 @@ void UUTParty::HandlePendingJoin()
 		UUTGameInstance* UTGameInstance = GetUTGameInstance();
 		check(UTGameInstance);
 
-		AUTPlayerController* OwningController = Cast<AUTPlayerController>(UTGameInstance->GetPrimaryPlayerController());
+		APlayerController* OwningController = Cast<APlayerController>(UTGameInstance->GetPrimaryPlayerController());
 		if (ensure(OwningController))
 		{
 			// Handle things now

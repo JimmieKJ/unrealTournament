@@ -276,7 +276,7 @@ void AUTLobbyPlayerState::Tick(float DeltaTime)
 			if (Party)
 			{
 				UUTPartyGameState* PartyGameState = Cast<UUTPartyGameState>(Party->GetUTPersistentParty());
-				if (!PartyGameState->IsLocalPartyLeader())
+				if (PartyGameState && !PartyGameState->IsLocalPartyLeader())
 				{
 					TSharedPtr<const FUniqueNetId> PartyLeaderId = PartyGameState->GetPartyLeader();
 					for (int32 i = 0; i < GameState->AvailableMatches.Num(); i++)
