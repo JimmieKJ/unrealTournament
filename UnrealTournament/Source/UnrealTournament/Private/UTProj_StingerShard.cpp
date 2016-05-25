@@ -115,6 +115,10 @@ void AUTProj_StingerShard::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 		ProjectileMovement->Velocity = FVector::ZeroVector;
 		ShardMesh->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 		bCanHitInstigator = true;
+		if (BounceSound != NULL)
+		{
+			UUTGameplayStatics::UTPlaySound(GetWorld(), BounceSound, this, SRT_IfSourceNotReplicated, false, FVector::ZeroVector, NULL, NULL, true, SAT_WeaponFoley);
+		}
 
 		if (Role == ROLE_Authority)
 		{
