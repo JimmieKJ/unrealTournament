@@ -310,6 +310,13 @@ TSharedRef<SWidget> SUTLobbyMatchSetupPanel::BuildHostOptionWidgets()
 	];
 
 
+	bool bIsInParty = false;
+	UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(PlayerOwner->GetWorld(), UPartyContext::StaticClass()));
+	if (PartyContext)
+	{
+		bIsInParty = PartyContext->GetPartySize() > 1;
+	}
+
 	if (Container.IsValid())
 	{
 		Container->AddSlot()
@@ -319,7 +326,7 @@ TSharedRef<SWidget> SUTLobbyMatchSetupPanel::BuildHostOptionWidgets()
 		[
 			SNew(SCheckBox)
 			.IsChecked(this, &SUTLobbyMatchSetupPanel::GetLimitRankState)
-			.IsEnabled(bIsHost)
+			.IsEnabled(bIsHost && !bIsInParty)
 			.OnCheckStateChanged(this, &SUTLobbyMatchSetupPanel::RankCeilingChanged)
 			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
 			.Content()
@@ -790,8 +797,15 @@ void SUTLobbyMatchSetupPanel::OnGameChangeDialogResult(TSharedPtr<SCompoundWidge
 
 		else if (SetupDialog->SelectedRuleset.IsValid())
 		{
+			bool bIsInParty = false;
+			UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(PlayerOwner->GetWorld(), UPartyContext::StaticClass()));
+			if (PartyContext)
+			{
+				bIsInParty = PartyContext->GetPartySize() > 1;
+			}
+
 			FString StartingMap = SetupDialog->GetSelectedMap();
-			MatchInfo->ServerSetRules(SetupDialog->SelectedRuleset->UniqueTag, StartingMap, SetupDialog->BotSkillLevel);
+			MatchInfo->ServerSetRules(SetupDialog->SelectedRuleset->UniqueTag, StartingMap, SetupDialog->BotSkillLevel, bIsInParty);
 		}
 	}
 	else if (ButtonPressed == UTDIALOG_BUTTON_CANCEL)

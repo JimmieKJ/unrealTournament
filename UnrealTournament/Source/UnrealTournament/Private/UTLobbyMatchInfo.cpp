@@ -292,7 +292,7 @@ FText AUTLobbyMatchInfo::GetActionText()
 	return FText::GetEmpty();
 }
 
-void AUTLobbyMatchInfo::SetSettings(AUTLobbyGameState* GameState,  AUTLobbyPlayerState* MatchOwner, AUTLobbyMatchInfo* MatchToCopy)
+void AUTLobbyMatchInfo::SetSettings(AUTLobbyGameState* GameState,  AUTLobbyPlayerState* MatchOwner, AUTLobbyMatchInfo* MatchToCopy, bool bIsInParty)
 {
 	if (MatchToCopy)
 	{
@@ -300,7 +300,7 @@ void AUTLobbyMatchInfo::SetSettings(AUTLobbyGameState* GameState,  AUTLobbyPlaye
 		BotSkillLevel = MatchToCopy->BotSkillLevel;
 	}
 
-	if (MatchOwner && MatchOwner->IsABeginner(CurrentRuleset.IsValid() ? CurrentRuleset->GetDefaultGameModeObject() : NULL))
+	if (!bIsInParty && MatchOwner && MatchOwner->IsABeginner(CurrentRuleset.IsValid() ? CurrentRuleset->GetDefaultGameModeObject() : NULL))
 	{
 		bRankLocked = true;
 		bBeginnerMatch = true;
@@ -757,8 +757,8 @@ void AUTLobbyMatchInfo::SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRul
 	bMapChanged = true;
 }
 
-bool AUTLobbyMatchInfo::ServerSetRules_Validate(const FString& RulesetTag, const FString& StartingMap,int32 NewBotSkillLevel) { return true; }
-void AUTLobbyMatchInfo::ServerSetRules_Implementation(const FString&RulesetTag, const FString& StartingMap,int32 NewBotSkillLevel)
+bool AUTLobbyMatchInfo::ServerSetRules_Validate(const FString& RulesetTag, const FString& StartingMap,int32 NewBotSkillLevel, bool bIsInParty) { return true; }
+void AUTLobbyMatchInfo::ServerSetRules_Implementation(const FString&RulesetTag, const FString& StartingMap,int32 NewBotSkillLevel, bool bIsInParty)
 {
 	if ( CheckLobbyGameState() )
 	{
@@ -779,7 +779,7 @@ void AUTLobbyMatchInfo::ServerSetRules_Implementation(const FString&RulesetTag, 
 			RankCheck = OwnerPlayerState->GetRankCheck(DefaultGameMode) + RANK_LOCK_TOLERANCE;
 
 			TWeakObjectPtr<AUTLobbyPlayerState> MatchOwner = GetOwnerPlayerState();
-			if (MatchOwner.IsValid() && MatchOwner->IsABeginner(CurrentRuleset.IsValid() ? CurrentRuleset->GetDefaultGameModeObject() : NULL))
+			if (!bIsInParty && MatchOwner.IsValid() && MatchOwner->IsABeginner(CurrentRuleset.IsValid() ? CurrentRuleset->GetDefaultGameModeObject() : NULL))
 			{
 				bRankLocked = true;
 				bBeginnerMatch = true;

@@ -38,7 +38,7 @@ class UNREALTOURNAMENT_API AUTLobbyPlayerState : public AUTPlayerState
 
 	// Server-Side.  Attempt to create a new match
 	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerCreateMatch();
+	virtual void ServerCreateMatch(bool bIsInParty);
 
 	// Server-Side.  Attempt to leave and or destory the existing match this player is in.
 	UFUNCTION(Server, Reliable, WithValidation)

@@ -119,7 +119,7 @@ public:
 	virtual FText GetActionText();
 
 	// The GameState needs to tell this MatchInfo what settings should be made available
-	virtual void SetSettings(AUTLobbyGameState* GameState, AUTLobbyPlayerState* MatchOwner, AUTLobbyMatchInfo* MatchToCopy = NULL);
+	virtual void SetSettings(AUTLobbyGameState* GameState, AUTLobbyPlayerState* MatchOwner, AUTLobbyMatchInfo* MatchToCopy = NULL, bool bIsInParty = false);
 
 	virtual void SetAllowJoinInProgress(bool bAllow)
 	{
@@ -280,7 +280,7 @@ public:
 	virtual void SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRuleset, const FString& StartingMap);
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerSetRules(const FString& RulesetTag, const FString& StartingMap, int32 NewBotSkillLevel);
+	virtual void ServerSetRules(const FString& RulesetTag, const FString& StartingMap, int32 NewBotSkillLevel, bool bIsInParty);
 
 	// Processing an update to the match coming from an instance
 	virtual void ProcessMatchUpdate(const FMatchUpdate& NewMatchUpdate);

@@ -15,6 +15,9 @@
 #include "UTLobbyMatchInfo.h"
 #include "UTLobbyPC.h"
 #include "UTLobbyPlayerState.h"
+#include "PartyContext.h"
+#include "BlueprintContextLibrary.h"
+
 #if !UE_SERVER
 
 struct FMatchComparePlayersByScore {FORCEINLINE bool operator()( const FMatchPlayerListStruct A, const FMatchPlayerListStruct B ) const { return ( A.PlayerScore > B.PlayerScore);}};
@@ -586,7 +589,14 @@ FReply SUTMatchPanel::StartNewMatch()
 		AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
 		if (LobbyPlayerState)
 		{
-			LobbyPlayerState->ServerCreateMatch();
+			bool bIsInParty = false;
+			UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(PlayerOwner->GetWorld(), UPartyContext::StaticClass()));
+			if (PartyContext)
+			{
+				bIsInParty = PartyContext->GetPartySize() > 1;
+			}
+
+			LobbyPlayerState->ServerCreateMatch(bIsInParty);
 		}
 	}
 	return FReply::Handled();
