@@ -255,9 +255,16 @@ FReply SUTMainMenu::OnShowCustomGamePanel()
 
 void SUTMainMenu::ShowGamePanel()
 {
-	if (!PlayerOwner->IsPartyLeader())
+	bool bIsInParty = false;
+	UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(PlayerOwner->GetWorld(), UPartyContext::StaticClass()));
+	if (PartyContext)
 	{
-		PlayerOwner->ShowToast(NSLOCTEXT("SUTMenuBase", "ShowGamePanelNotLeader", "Only the party leader may do this"));
+		bIsInParty = PartyContext->GetPartySize() > 1;
+	}
+
+	if (bIsInParty)
+	{
+		PlayerOwner->ShowToast(NSLOCTEXT("SUTMenuBase", "ShowGamePanelNotLeader", "You may not do challenges while in a party"));
 		return;
 	}
 
@@ -271,9 +278,16 @@ void SUTMainMenu::ShowGamePanel()
 
 void SUTMainMenu::ShowCustomGamePanel()
 {
-	if (!PlayerOwner->IsPartyLeader())
+	bool bIsInParty = false;
+	UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(PlayerOwner->GetWorld(), UPartyContext::StaticClass()));
+	if (PartyContext)
 	{
-		PlayerOwner->ShowToast(NSLOCTEXT("SUTMenuBase", "ShowCustomGamePanelNotLeader", "Only the party leader may do this"));
+		bIsInParty = PartyContext->GetPartySize() > 1;
+	}
+
+	if (bIsInParty)
+	{
+		PlayerOwner->ShowToast(NSLOCTEXT("SUTMenuBase", "ShowCustomGamePanelNotLeader", "You may not do custom matches while in a party"));
 		return;
 	}
 
@@ -428,7 +442,14 @@ FReply SUTMainMenu::OnBootCampClick()
 
 void SUTMainMenu::OpenTutorialMenu()
 {
-	if (!PlayerOwner->IsPartyLeader())
+	bool bIsInParty = false;
+	UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(PlayerOwner->GetWorld(), UPartyContext::StaticClass()));
+	if (PartyContext)
+	{
+		bIsInParty = PartyContext->GetPartySize() > 1;
+	}
+
+	if (bIsInParty)
 	{
 		PlayerOwner->ShowToast(NSLOCTEXT("SUTMenuBase", "TutorialNotLeader", "You may not enter tutorials while in a party"));
 		return;
