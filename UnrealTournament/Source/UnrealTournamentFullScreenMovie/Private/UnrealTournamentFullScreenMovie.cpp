@@ -23,7 +23,8 @@ public:
 		LoadingScreen.WidgetLoadingScreen = SNullWidget::NullWidget;
 
 		LoadingScreen.MoviePaths.Empty();
-		FString MovieName = TEXT("intro_full;intro_loop");
+
+		FString MovieName = ( FParse::Param( FCommandLine::Get(), TEXT( "nomovie" )) ) ? TEXT("load_generic_nosound") : TEXT("intro_full;intro_loop");
 		MovieName.ParseIntoArray(LoadingScreen.MoviePaths, TEXT(";"), true);
 		GetMoviePlayer()->SetupLoadingScreen(LoadingScreen);
 #endif
@@ -50,7 +51,15 @@ public:
 			LoadingScreen.bMoviesAreSkippable = bSkippable;
 			LoadingScreen.MoviePaths.Empty();
 
-			MovieName.ParseIntoArray(LoadingScreen.MoviePaths, TEXT(";"), true);
+			if ( FParse::Param( FCommandLine::Get(), TEXT( "nomovie" )) )
+			{
+				LoadingScreen.MoviePaths.Add(TEXT("load_generic_nosound"));
+			}
+			else
+			{
+				MovieName.ParseIntoArray(LoadingScreen.MoviePaths, TEXT(";"), true);
+			}
+
 			LoadingScreen.PlaybackType = PlaybackType;
 			LoadingScreen.WidgetLoadingScreen = SlateOverlayWidget; 
 			GetMoviePlayer()->SetupLoadingScreen(LoadingScreen);

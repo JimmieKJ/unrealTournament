@@ -81,7 +81,6 @@ void AUTMenuGameMode::GenericPlayerInitialization(AController* C)
 			LastURL.RemoveOption(TEXT("tutorialmenu"));
 		}
 #endif
-		PC->ClientWaitForMovieToFinish();
 	}
 }
 

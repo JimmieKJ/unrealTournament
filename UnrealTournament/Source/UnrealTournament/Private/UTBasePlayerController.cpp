@@ -552,6 +552,8 @@ void AUTBasePlayerController::ClientGenericInitialization_Implementation()
 	{
 		ServerReceiveStars(LP->GetTotalChallengeStars());
 	}
+
+	ClientWaitForMovieToFinish();
 }
 
 // FIXMESTEVE shouldn't receive this from client
