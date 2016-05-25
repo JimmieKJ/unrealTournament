@@ -68,7 +68,8 @@ void AUTWeaponAttachment::RegisterAllComponents()
 			MuzzleFlash[i]->bAutoActivate = false;
 			MuzzleFlash[i]->SecondsBeforeInactive = 0.0f;
 			MuzzleFlash[i]->SetOwnerNoSee(false);
-			MuzzleFlash[i]->bUseAttachParentBound = true;
+			// can't force this because the muzzle flash component might also contain the fire effect (beam)
+			//MuzzleFlash[i]->bUseAttachParentBound = true;
 		}
 	}
 	Super::RegisterAllComponents();
