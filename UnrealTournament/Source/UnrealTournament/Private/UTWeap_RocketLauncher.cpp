@@ -83,7 +83,7 @@ void AUTWeap_RocketLauncher::BeginLoadRocket()
 	AUTPlayerController* PC = Cast<AUTPlayerController>(UTOwner->Controller);
 	if (PC != NULL && !PC->IsLocalPlayerController())
 	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), LoadingSounds[NumLoadedRockets], UTOwner, SRT_AllButOwner, false, FVector::ZeroVector, NULL);
+		UUTGameplayStatics::UTPlaySound(GetWorld(), LoadingSounds[NumLoadedRockets], UTOwner, SRT_AllButOwner, false, FVector::ZeroVector, NULL, NULL, true, SAT_WeaponFoley);
 	}
 }
 
@@ -94,7 +94,7 @@ void AUTWeap_RocketLauncher::EndLoadRocket()
 	SetRocketFlashExtra(CurrentFireMode, NumLoadedRockets + 1, CurrentRocketFireMode, bDrawRocketModeString);
 	LastLoadTime = GetWorld()->TimeSeconds;
 
-	UUTGameplayStatics::UTPlaySound(GetWorld(), RocketLoadedSound, UTOwner, SRT_AllButOwner);
+	UUTGameplayStatics::UTPlaySound(GetWorld(), RocketLoadedSound, UTOwner, SRT_AllButOwner, false, FVector::ZeroVector, NULL, NULL, true, SAT_WeaponFoley);
 
 	// bot maybe shoots rockets from here
 	AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
@@ -189,7 +189,7 @@ void AUTWeap_RocketLauncher::OnMultiPress_Implementation(uint8 OtherFireMode)
 			{
 				CurrentRocketFireMode = 0;
 			}
-			UUTGameplayStatics::UTPlaySound(GetWorld(), AltFireModeChangeSound, UTOwner, SRT_AllButOwner);
+			UUTGameplayStatics::UTPlaySound(GetWorld(), AltFireModeChangeSound, UTOwner, SRT_AllButOwner, false, FVector::ZeroVector, NULL, NULL, true, SAT_WeaponFoley);
 
 			//Update Extraflash so spectators can see the hud text
 			if (Role == ROLE_Authority)
@@ -345,7 +345,7 @@ void AUTWeap_RocketLauncher::PlayFiringEffects()
 		// try and play the sound if specified
 		if (RocketFireModes.IsValidIndex(CurrentRocketFireMode) && RocketFireModes[CurrentRocketFireMode].FireSound != NULL)
 		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), RocketFireModes[CurrentRocketFireMode].FireSound, UTOwner, SRT_AllButOwner);
+			UUTGameplayStatics::UTPlaySound(GetWorld(), RocketFireModes[CurrentRocketFireMode].FireSound, UTOwner, SRT_AllButOwner, false, FVector::ZeroVector, GetCurrentTargetPC(), NULL, true, SAT_WeaponFire);
 		}
 
 		if (ShouldPlay1PVisuals())

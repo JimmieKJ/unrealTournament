@@ -813,7 +813,7 @@ void AUTWeapon::PlayFiringEffects()
 		// try and play the sound if specified
 		if (FireSound.IsValidIndex(EffectFiringMode) && FireSound[EffectFiringMode] != NULL)
 		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), FireSound[EffectFiringMode], UTOwner, SRT_AllButOwner);
+			UUTGameplayStatics::UTPlaySound(GetWorld(), FireSound[EffectFiringMode], UTOwner, SRT_AllButOwner, false, FVector::ZeroVector, GetCurrentTargetPC(), NULL, true, SAT_WeaponFire);
 		}
 
 		// reload sound on local shooter
@@ -1212,6 +1212,24 @@ FRotator AUTWeapon::GetAdjustedAim_Implementation(FVector StartFireLoc)
 	}
 }
 
+AUTPlayerController* AUTWeapon::GetCurrentTargetPC()
+{
+	AUTPlayerController* PC = Cast<AUTPlayerController>(UTOwner->Controller);
+	if (PC && PC->LastShotTargetGuess)
+	{
+		return Cast<AUTPlayerController>(PC->LastShotTargetGuess->GetController());
+	}
+	else
+	{
+		AUTBot* Bot = Cast<AUTBot>(UTOwner->Controller);
+		if (Bot && Bot->GetEnemy())
+		{
+			return Cast<AUTPlayerController>(Bot->GetEnemy()->GetController());;
+		}
+	}
+	return nullptr;
+}
+
 void AUTWeapon::GuessPlayerTarget(const FVector& StartFireLoc, const FVector& FireDir)
 {
 	if (Role == ROLE_Authority && UTOwner != NULL)
@@ -1240,6 +1258,7 @@ void AUTWeapon::GuessPlayerTarget(const FVector& StartFireLoc, const FVector& Fi
 		}
 	}
 }
+
 
 void AUTWeapon::NetSynchRandomSeed()
 {

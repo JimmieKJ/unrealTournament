@@ -73,7 +73,7 @@ void AUTProj_BioGrenade::PlayFuseBeep()
 {
 	if (!bExploded)
 	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), FuseBeepSound, this, SRT_IfSourceNotReplicated);
+		UUTGameplayStatics::UTPlaySound(GetWorld(), FuseBeepSound, this, SRT_IfSourceNotReplicated, false, FVector::ZeroVector, NULL, NULL, true, SAT_WeaponFoley);
 		if (FuseEffect != NULL && GetWorld()->GetNetMode() != NM_DedicatedServer)
 		{
 			UGameplayStatics::SpawnEmitterAttached(FuseEffect, RootComponent);

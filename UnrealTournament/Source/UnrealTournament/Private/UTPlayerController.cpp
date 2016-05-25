@@ -109,6 +109,22 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 
 	FootStepAmp.OwnVolumeMultiplier = 0.35f;
 	PainSoundAmp.InstigatorVolumeMultiplier = 2.f;
+	PainSoundAmp.TargetVolumeMultiplier = 2.f;
+	WeaponFireAmp.InstigatorVolumeMultiplier = 1.3f;
+	WeaponFireAmp.TargetVolumeMultiplier = 1.3f;
+	WeaponFireAmp.TargetPitchMultiplier = 1.1f;
+
+	static ConstructorHelpers::FObjectFinder<USoundAttenuation> InstigatedPainAttenFinder(TEXT("SoundAttenuation'/Game/RestrictedAssets/Audio/SoundClassesAndMixes/Attenuations/Attenuation_InstigatedPain.Attenuation_InstigatedPain'"));
+	PainSoundAmp.InstigatorAttenuation = InstigatedPainAttenFinder.Object;
+
+	static ConstructorHelpers::FObjectFinder<USoundAttenuation> InstigatedWeaponAttenFinder(TEXT("SoundAttenuation'/Game/RestrictedAssets/Audio/SoundClassesAndMixes/Attenuations/Attenuation_WeaponInstigator.Attenuation_WeaponInstigator'"));
+	WeaponFireAmp.InstigatorAttenuation = InstigatedWeaponAttenFinder.Object;
+
+	static ConstructorHelpers::FObjectFinder<USoundAttenuation> TargetWeaponAttenFinder(TEXT("SoundAttenuation'/Game/RestrictedAssets/Audio/SoundClassesAndMixes/Attenuations/Attenuation_WeaponTarget.Attenuation_WeaponTarget'"));
+	WeaponFireAmp.TargetAttenuation = TargetWeaponAttenFinder.Object;
+
+	static ConstructorHelpers::FObjectFinder<USoundAttenuation> InstigatedFoleyAttenFinder(TEXT("SoundAttenuation'/Game/RestrictedAssets/Audio/SoundClassesAndMixes/Attenuations/Attenuation_ProjectileFoleyInstigator.Attenuation_ProjectileFoleyInstigator'"));
+	WeaponFoleyAmp.InstigatorAttenuation = InstigatedFoleyAttenFinder.Object;
 }
 
 void AUTPlayerController::BeginPlay()
@@ -1751,42 +1767,34 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 		else
 		{
 			USoundAttenuation* AttenuationOverride = NULL;
-			float VolumeMultiplier = 1.0f;
+			float VolumeMultiplier = 1.f;
+			float PitchMultiplier = 1.f;
 			if (bAmplifyVolume)
 			{
-				// the UGameplayStatics functions copy the FAttenuationSettings by value so no need to create more than one, just reuse
-				static USoundAttenuation* OverrideObj = [](){ USoundAttenuation* Result = NewObject<USoundAttenuation>(); Result->AddToRoot(); return Result; }();
-
-				AttenuationOverride = OverrideObj;
-				const FAttenuationSettings* DefaultAttenuation = TheSound->GetAttenuationSettingsToApply();
-				if (DefaultAttenuation != NULL)
-				{
-					AttenuationOverride->Attenuation = *DefaultAttenuation;
-				}
-
-				// FIXMESTEVE - less hacky than this - pass in amplification
-				// set minimum volume
-				// we're assuming that the radius was already checked via HearSound() and thus this won't cause hearing the audio level-wide
-				if (Cast<APawn>(SoundPlayer))
-				{
-					// extra amplify pain sounds
-					AttenuationOverride->Attenuation.dBAttenuationAtMax = -20.0f;
-					AttenuationOverride->Attenuation.FalloffDistance *= 4.f;
-				}
-				else
-				{
-					//AttenuationOverride->Attenuation.dBAttenuationAtMax = -20.0f;
-					AttenuationOverride->Attenuation.FalloffDistance *= 1.7f;
-				}
+				// target
+				AttenuationOverride = CustomAmp.TargetAttenuation;
+				VolumeMultiplier = CustomAmp.TargetVolumeMultiplier;
+				PitchMultiplier = CustomAmp.TargetPitchMultiplier;
+			}
+			else if (SoundPlayer && (SoundPlayer->GetInstigator() == GetViewTarget()))
+			{
+				// instigator
+				AttenuationOverride = CustomAmp.InstigatorAttenuation;
+				VolumeMultiplier = CustomAmp.InstigatorVolumeMultiplier;
+				PitchMultiplier = CustomAmp.InstigatorPitchMultiplier;
+			}
+			else
+			{
+				// check if same team @TODO FIXMESTEVE
 			}
 
 			if (!SoundLocation.IsZero() && (SoundPlayer == NULL || SoundLocation != SoundPlayer->GetActorLocation()))
 			{
-				UGameplayStatics::PlaySoundAtLocation(GetWorld(), TheSound, SoundLocation, VolumeMultiplier, 1.0f, 0.0f, AttenuationOverride);
+				UGameplayStatics::PlaySoundAtLocation(GetWorld(), TheSound, SoundLocation, VolumeMultiplier, PitchMultiplier, 0.0f, AttenuationOverride);
 			}
 			else if (SoundPlayer != NULL)
 			{
-				UGameplayStatics::SpawnSoundAttached(TheSound, SoundPlayer->GetRootComponent(), NAME_None, FVector::ZeroVector, EAttachLocation::KeepRelativeOffset, bStopWhenOwnerDestroyed, VolumeMultiplier, 1.0f, 0.0f, AttenuationOverride);
+				UGameplayStatics::SpawnSoundAttached(TheSound, SoundPlayer->GetRootComponent(), NAME_None, FVector::ZeroVector, EAttachLocation::KeepRelativeOffset, bStopWhenOwnerDestroyed, VolumeMultiplier, PitchMultiplier, 0.0f, AttenuationOverride);
 			}
 		}
 	}

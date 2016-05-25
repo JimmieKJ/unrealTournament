@@ -679,7 +679,7 @@ void AUTProjectile::OnBounce(const struct FHitResult& ImpactResult, const FVecto
 		// Play bounce sound
 		if (BounceSound != NULL)
 		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), BounceSound, this, SRT_IfSourceNotReplicated, false);
+			UUTGameplayStatics::UTPlaySound(GetWorld(), BounceSound, this, SRT_IfSourceNotReplicated, false, FVector::ZeroVector, NULL, NULL, true, SAT_WeaponFoley);
 		}
 	}
 

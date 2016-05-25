@@ -567,7 +567,7 @@ void AUTProj_BioShot::SetGlobStrength(float NewStrength)
 			RemainingLife = RemainingLife + (GlobStrength - OldStrength) * ExtraRestTimePerStrength;
 		}
 		// Glob merge effects
-		UUTGameplayStatics::UTPlaySound(GetWorld(), MergeSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
+		UUTGameplayStatics::UTPlaySound(GetWorld(), MergeSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated, false, FVector::ZeroVector, NULL, NULL, true, SAT_WeaponFoley);
 		if (GetNetMode() != NM_DedicatedServer)
 		{
 			UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), MergeEffect, GetActorLocation() - CollisionComp->GetUnscaledSphereRadius(), SurfaceNormal.Rotation(), true);

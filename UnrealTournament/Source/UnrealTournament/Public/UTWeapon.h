@@ -641,6 +641,9 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, BlueprintPure, Category = "Weapon")
 	FRotator GetAdjustedAim(FVector StartFireLoc);
 
+	/** Returns UTPC controlling current target of this weapon. */
+	virtual AUTPlayerController* GetCurrentTargetPC();
+
 	/** if owned by a human, set AUTPlayerController::LastShotTargetGuess to closest target to player's aim */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = AI)
 	void GuessPlayerTarget(const FVector& StartFireLoc, const FVector& FireDir);

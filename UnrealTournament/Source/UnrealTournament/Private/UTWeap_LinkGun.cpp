@@ -395,7 +395,7 @@ void AUTWeap_LinkGun::SetLinkTo(AActor* Other)
 
 		if (GetNetMode() != NM_DedicatedServer)
 		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), LinkEstablishedOtherSound, LinkTarget, SRT_None);
+			UUTGameplayStatics::UTPlaySound(GetWorld(), LinkEstablishedOtherSound, LinkTarget, SRT_None, false, FVector::ZeroVector, NULL, NULL, true, SAT_WeaponFoley);
 		}
 	}
 }
