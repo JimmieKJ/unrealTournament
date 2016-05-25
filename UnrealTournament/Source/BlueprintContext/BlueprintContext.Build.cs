@@ -5,9 +5,7 @@ using UnrealBuildTool;
 public class BlueprintContext : ModuleRules
 {
     public BlueprintContext(TargetInfo Target)
-    {
-		PublicIncludePathModuleNames.Add("Social");
-        
+    {        
         PublicDependencyModuleNames.AddRange( new string[] {
 			"Core",
 			"CoreUObject",
@@ -20,9 +18,11 @@ public class BlueprintContext : ModuleRules
 			"GameplayTags",
             "Party"
 		});
-
+        
         if (UEBuildConfiguration.bCompileMcpOSS == true)
         {
+            PublicIncludePathModuleNames.Add("Social");
+
             PublicDependencyModuleNames.AddRange(
                 new string[]
                 {
