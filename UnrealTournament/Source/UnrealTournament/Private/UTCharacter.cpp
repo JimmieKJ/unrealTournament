@@ -3855,6 +3855,8 @@ void AUTCharacter::SetOutline(bool bNowOutlined, bool bWhenUnoccluded)
 	// outline not allowed on corpses
 	if (IsDead())
 	{
+		bServerOutline = false;
+		bLocalOutline = false;
 		bNowOutlined = false;
 	}
 
