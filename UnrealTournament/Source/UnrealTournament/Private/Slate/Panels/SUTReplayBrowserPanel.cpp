@@ -418,7 +418,7 @@ void SUTReplayBrowserPanel::BuildReplayList(const FString& UserId)
 	}
 }
 
-FReply SUTReplayBrowserPanel::OnWatchClick()
+bool SUTReplayBrowserPanel::CanWatchReplays()
 {
 	UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(PlayerOwner->GetWorld(), UPartyContext::StaticClass()));
 	if (PartyContext)
@@ -427,8 +427,18 @@ FReply SUTReplayBrowserPanel::OnWatchClick()
 		if (PartySize > 1)
 		{
 			PlayerOwner->ShowToast(NSLOCTEXT("SUTReplayBrowserPanel", "NoReplaysInParty", "You may not do this while in a party."));
-			return FReply::Handled();
+			return false;
 		}
+	}
+
+	return true;
+}
+
+FReply SUTReplayBrowserPanel::OnWatchClick()
+{
+	if (!CanWatchReplays())
+	{
+		return FReply::Handled();
 	}
 
 	TArray<TSharedPtr<FReplayData>> SelectedReplays = ReplayListView->GetSelectedItems();
@@ -519,6 +529,11 @@ TSharedRef<ITableRow> SUTReplayBrowserPanel::OnGenerateWidgetForList(TSharedPtr<
 
 void SUTReplayBrowserPanel::OnListMouseButtonDoubleClick(TSharedPtr<FReplayData> SelectedReplay)
 {
+	if (!CanWatchReplays())
+	{
+		return;
+	}
+
 	if (PlayerOwner.IsValid() && PlayerOwner->GetWorld())
 	{
 		GEngine->Exec(PlayerOwner->GetWorld(), *FString::Printf(TEXT("DEMOPLAY %s"), *SelectedReplay->StreamInfo.Name));
