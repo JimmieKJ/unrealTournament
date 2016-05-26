@@ -86,6 +86,16 @@ void AUTProj_FlakShard::BeginPlay()
 	}
 }
 
+void AUTProj_FlakShard::DamageImpactedActor_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
+{
+	AUTCharacter* UTC = Cast<AUTCharacter>(OtherActor);
+	if (UTC && FleshImpactSound)
+	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), FleshImpactSound, this, SRT_IfSourceNotReplicated, false, FVector::ZeroVector, NULL, NULL, true, SAT_WeaponFoley);
+	}
+	Super::DamageImpactedActor_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
+}
+
 void AUTProj_FlakShard::CatchupTick(float CatchupTickDelta)
 {
 	Super::CatchupTick(CatchupTickDelta);
