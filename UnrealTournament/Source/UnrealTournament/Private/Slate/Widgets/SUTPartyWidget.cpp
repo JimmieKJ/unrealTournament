@@ -307,7 +307,7 @@ void SUTPartyWidget::SetupPartyMemberBox()
 			.HasDownArrow(false)
 			.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
 			.ContentPadding(FMargin(0.0f, 0.0f))
-			.ToolTipText(NSLOCTEXT("SUTPartyWidget", "EmptySlotTip", "Empty Slot"))
+			.ToolTipText(NSLOCTEXT("SUTPartyWidget", "EmptySlotTip", "Available Slot"))
 			.ButtonContent()
 			[
 				SNew(SOverlay)
@@ -325,7 +325,7 @@ void SUTPartyWidget::SetupPartyMemberBox()
 			]
 		];
 
-		DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "EmptySlot", "Empty Slot"), FOnClicked());
+		DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "EmptySlot", "Available Slot"), FOnClicked());
 
 		int FriendIterator = 0;
 		int InviteTextAdded = 0;
