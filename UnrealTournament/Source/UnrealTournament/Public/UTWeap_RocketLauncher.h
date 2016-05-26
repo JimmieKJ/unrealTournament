@@ -16,6 +16,10 @@ struct FRocketFireMode
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Rocket)
 	TSubclassOf<AUTProjectile> ProjClass;
 
+	/** First Person Sound to play each time we fire */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Rocket)
+		USoundBase* FPFireSound;
+
 	/** Sound to play each time we fire */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Rocket)
 	USoundBase* FireSound;

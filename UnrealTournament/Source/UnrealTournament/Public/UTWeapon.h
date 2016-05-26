@@ -189,6 +189,11 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** firing spread (random angle added to shots) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	TArray<float> Spread;
+
+	/** First person, non attenuated sound to play each time we fire */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+		TArray<USoundBase*> FPFireSound;
+
 	/** Sound to play each time we fire */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	TArray<USoundBase*> FireSound;
