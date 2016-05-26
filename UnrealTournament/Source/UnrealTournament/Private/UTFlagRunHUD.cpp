@@ -241,5 +241,5 @@ EInputMode::Type AUTFlagRunHUD::GetInputMode_Implementation() const
 
 #endif
 
-	return EInputMode::EIM_GameOnly;
+	return Super::GetInputMode_Implementation();
 }
