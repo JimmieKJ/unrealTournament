@@ -344,7 +344,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			FlagInfo.bUseOverlayTexture = false;
 
 			AUTCTFFlag* CTFFlag = Cast<AUTCTFFlag>(UTPlayerState->CarriedObject);
-			if (CTFFlag && CTFFlag->IsCaryingPlayerPinged())
+			if (CTFFlag && CTFFlag->bCurrentlyPinged)
 			{
 				FlagInfo.bUseOverlayTexture = true;
 				FlagInfo.OverlayTexture = DetectedIcon;

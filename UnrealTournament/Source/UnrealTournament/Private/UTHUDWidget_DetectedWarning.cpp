@@ -67,7 +67,7 @@ void UUTHUDWidget_DetectedWarning::DrawDetectedNoticeWorld(AUTCTFGameState* Game
 
 	const AUTCTFFlag* CTFFlag = Cast<AUTCTFFlag>(UTPlayerOwner->UTPlayerState->CarriedObject);
 	const UUTSecurityCameraComponent* DetectingCamera = UTPlayerOwner->UTPlayerState->CarriedObject->GetDetectingCamera();
-	if (CTFFlag && CTFFlag->IsCaryingPlayerPinged() && DetectingCamera)
+	if (CTFFlag && CTFFlag->bCurrentlyPinged && DetectingCamera)
 	{
 		DrawDetectedCameraNotice(GameState, PlayerViewPoint, PlayerViewRotation, DetectingCamera);
 	}

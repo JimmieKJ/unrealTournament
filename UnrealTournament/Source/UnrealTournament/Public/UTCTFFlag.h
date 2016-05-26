@@ -98,6 +98,4 @@ class UNREALTOURNAMENT_API AUTCTFFlag : public AUTCarriedObject
 	virtual void DelayedDropMessage();
 
 	virtual void PostInitializeComponents() override;
-
-	virtual bool IsCaryingPlayerPinged() const;
 };

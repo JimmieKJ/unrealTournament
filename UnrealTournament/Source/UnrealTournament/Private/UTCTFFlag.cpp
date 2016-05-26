@@ -290,7 +290,10 @@ void AUTCTFFlag::Tick(float DeltaTime)
 	{
 		if (Holder)
 		{
-			Holder->bSpecialPlayer = IsCaryingPlayerPinged();
+			//Update currently pinged
+			bCurrentlyPinged = (bShouldPingFlag && (GetWorld()->GetTimeSeconds() - LastPingedTime < PingedDuration));
+
+			Holder->bSpecialPlayer = bCurrentlyPinged;
 			if (GetNetMode() != NM_DedicatedServer)
 			{
 				Holder->OnRepSpecialPlayer();
@@ -380,9 +383,4 @@ void AUTCTFFlag::PostNetReceiveLocationAndRotation()
 		PlayReturnedEffects();
 	}
 	Super::PostNetReceiveLocationAndRotation();
-}
-
-bool AUTCTFFlag::IsCaryingPlayerPinged() const
-{
-	return (bShouldPingFlag && (GetWorld()->GetTimeSeconds() - LastPingedTime < PingedDuration));
 }
