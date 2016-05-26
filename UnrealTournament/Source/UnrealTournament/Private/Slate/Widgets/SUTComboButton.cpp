@@ -171,7 +171,7 @@ void SUTComboButton::RebuildMenuContent()
 					.ContentPadding(FMargin(10.0f, 5.0f))
 					.Text(SubMenuItems[i].MenuCaption)
 					.TextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem")
-					.OnClicked(this, &SUTComboButton::InteralSubMenuButtonClickedHandler, i)
+					.OnClicked(this, &SUTComboButton::InternalSubMenuButtonClickedHandler, i)
 				];
 			}
 		}
@@ -181,7 +181,7 @@ void SUTComboButton::RebuildMenuContent()
 	}
 }
 
-FReply SUTComboButton::InteralSubMenuButtonClickedHandler(int32 MenuItemIndex)
+FReply SUTComboButton::InternalSubMenuButtonClickedHandler(int32 MenuItemIndex)
 {
 	// First, close the submenu
 	SetIsOpen(false);

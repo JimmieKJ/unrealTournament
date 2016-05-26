@@ -186,7 +186,7 @@ protected:
 
 	// The internal handler for when a menu item is clicked.  This will look up the menu item in the 
 	// array and pass along the delegate call
-	FReply InteralSubMenuButtonClickedHandler(int32 MenuItemIndex);
+	FReply InternalSubMenuButtonClickedHandler(int32 MenuItemIndex);
 
 	// This is a simple handler for the DefaultMenuItems array.  The goal here is to make setting up a simple menu
 	// as painless and possible.  You pass in a an array of strings, and a single delegate for handling the results.  This
