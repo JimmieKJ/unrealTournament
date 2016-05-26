@@ -224,7 +224,14 @@ void SUTInGameMenu::WriteQuitMidGameAnalytics()
 
 FReply SUTInGameMenu::OnReturnToMainMenu()
 {
-	if (!PlayerOwner->IsPartyLeader())
+	bool bIsRankedGame = false;
+	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
+	if (GameState && GameState->bRankedSession)
+	{
+		bIsRankedGame = true;
+	}
+
+	if (!PlayerOwner->IsPartyLeader() || bIsRankedGame)
 	{
 		UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(PlayerOwner->GetWorld(), UPartyContext::StaticClass()));
 		if (PartyContext)
