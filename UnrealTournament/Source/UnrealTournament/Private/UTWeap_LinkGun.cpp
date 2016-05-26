@@ -251,7 +251,14 @@ void AUTWeap_LinkGun::Tick(float DeltaTime)
 	{
 		if ((Role == ROLE_Authority) && FireLoopingSound.IsValidIndex(CurrentFireMode) && FireLoopingSound[CurrentFireMode] != NULL)
 		{
-			UTOwner->ChangeAmbientSoundPitch(FireLoopingSound[CurrentFireMode], bLinkCausingDamage ? 2.f : 1.f);
+			if (!bLinkBeamImpacting)
+			{
+				UTOwner->ChangeAmbientSoundPitch(FireLoopingSound[CurrentFireMode], 0.7f);
+			}
+			else
+			{
+				UTOwner->ChangeAmbientSoundPitch(FireLoopingSound[CurrentFireMode], bLinkCausingDamage ? 2.f : 1.f);
+			}
 		}
 		if (IsLinkPulsing())
 		{
