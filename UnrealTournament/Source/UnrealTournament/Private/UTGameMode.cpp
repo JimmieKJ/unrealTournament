@@ -2815,7 +2815,7 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 			}
 		}
 		// if not competitive match, fill with bots if have waited long enough
-		if (!bRequireReady)
+		if (!bRequireReady && (GetNetMode() != NM_Standalone))
 		{
 			if ((MaxWaitForPlayers > 0) && (GetWorld()->GetTimeSeconds() - StartPlayTime > MaxWaitForPlayers))
 			{
