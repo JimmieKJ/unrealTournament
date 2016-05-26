@@ -1741,7 +1741,20 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 			case SAT_PainSound: CustomAmp = PainSoundAmp; break;
 			case SAT_WeaponFoley: CustomAmp = WeaponFoleyAmp; break;
 		}
-
+/*
+		FString AmpTypName = "NO AMP";
+		switch (AmpType)
+		{
+		case SAT_Footstep: AmpTypName = "FootStepAmp"; break;
+		case SAT_WeaponFire: AmpTypName = "WeaponFireAmp"; break;
+		case SAT_PainSound: AmpTypName = "PainSoundAmp"; break;
+		case SAT_WeaponFoley: AmpTypName = "WeaponFoleyAmp"; break;
+		}
+		if (AmpType != SAT_Footstep)
+		{
+			UE_LOG(UT, Warning, TEXT("%s  attenuation %s amp type %s"), *TheSound->GetName(), TheSound->AttenuationSettings ? *TheSound->AttenuationSettings->GetName() : TEXT("NONE"), *AmpTypName);
+		}
+*/
 		if (!bHRTFEnabled && (SoundPlayer == this || SoundPlayer == GetViewTarget()))
 		{
 			// no attenuation/spatialization, full volume
