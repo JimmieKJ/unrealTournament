@@ -58,6 +58,7 @@ namespace StatAnimTypes
 {
 	const FName Opacity = FName(TEXT("Opacity"));
 	const FName Scale = FName(TEXT("Scale"));
+	const FName ScaleOverlay = FName(TEXT("ScaleOverlay"));
 	const FName PositionX = FName(TEXT("PosX"));
 	const FName PositionY = FName(TEXT("PosY"));
 	const FName None = FName(TEXT("None"));
@@ -120,6 +121,10 @@ struct FStatInfo
 	bool bUseLabelBackgroundImage;
 	FText Label;
 
+	bool bUseOverlayTexture;
+	float OverlayScale;
+	FHUDRenderObject_Texture OverlayTexture;
+
 	TArray<FStatAnimInfo> AnimStack;
 
 	FStatInfo()
@@ -129,13 +134,15 @@ struct FStatInfo
 		Value = 0;
 		LastValue = 0;
 		Scale = 1.0f;
+		OverlayScale = 1.0f;
+		bUseOverlayTexture = false;
 		bInfinite = false;
 		bAltIcon = false;
 		bNoText = false;
 		bUseLabel = false;
 		bUseLabelBackgroundImage = false;
 		HighlightStrength = 0.0f;
-		
+
 		IconColor = FLinearColor::White;
 		TextColor = FLinearColor::White;
 		DrawOffset = FVector2D(0.0f, 0.0f);
@@ -183,6 +190,7 @@ struct FStatInfo
 				// Apply the animation
 				if (AnimStack[i].AnimType == StatAnimTypes::Opacity) Opacity = AnimValue;
 				else if (AnimStack[i].AnimType == StatAnimTypes::Scale) Scale = AnimValue;
+				else if (AnimStack[i].AnimType == StatAnimTypes::ScaleOverlay) OverlayScale = AnimValue;
 				else if (AnimStack[i].AnimType == StatAnimTypes::PositionX) DrawOffset.X = AnimValue;
 				else if (AnimStack[i].AnimType == StatAnimTypes::PositionY) DrawOffset.Y = AnimValue;
 			}
@@ -198,6 +206,18 @@ struct FStatInfo
 		}
 	}
 
+	bool IsAnimationTypeAlreadyPlaying(FName AnimType)
+	{
+		for (int AnimIndex = 0; AnimIndex < AnimStack.Num(); ++AnimIndex)
+		{
+			if (AnimStack[AnimIndex].AnimType == AnimType)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
 };
 
 UCLASS()
@@ -264,10 +284,12 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
 	FHUDRenderObject_Texture LabelBackgroundIcon;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
+	FHUDRenderObject_Texture DetectedIcon;
+	
 	// NOTE: This icon will be generated from the data in the actual powerup
 	UPROPERTY()
 	FHUDRenderObject_Texture PowerupIcon;
-
 
 	virtual float GetDrawScaleOverride();
 

@@ -341,6 +341,19 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			FlagInfo.bUseLabel = true;
 			FlagInfo.Label = FText::GetEmpty();
 			FlagInfo.HighlightStrength = 1.f;
+			FlagInfo.bUseOverlayTexture = false;
+
+			AUTCTFFlag* CTFFlag = Cast<AUTCTFFlag>(UTPlayerState->CarriedObject);
+			if (CTFFlag && CTFFlag->IsCaryingPlayerPinged())
+			{
+				FlagInfo.bUseOverlayTexture = true;
+				FlagInfo.OverlayTexture = DetectedIcon;
+
+				if (!FlagInfo.IsAnimationTypeAlreadyPlaying(StatAnimTypes::ScaleOverlay))
+				{
+					FlagInfo.Animate(StatAnimTypes::ScaleOverlay, 2.0f, 3.25f, 1.0f, true);
+				}
+			}
 
 			if (FlagInfo.Label.IsEmpty())
 			{
@@ -470,6 +483,17 @@ void UUTHUDWidget_QuickStats::DrawStat(FVector2D StatOffset, FStatInfo& Info, FH
 			TextTemplate.RenderOpacity = ForegroundOpacity * Info.Opacity;
 			RenderObj_Text(TextTemplate, StatOffset);
 		}
+	}
+
+	if (Info.bUseOverlayTexture)
+	{
+		Info.OverlayTexture.RenderScale = Info.OverlayScale;
+
+		//center Overlay 
+		StatOffset.X -= Info.OverlayTexture.GetWidth() *.75f; 
+		StatOffset.Y -= Info.OverlayTexture.GetHeight() / 2;
+		
+		RenderObj_Texture(Info.OverlayTexture, StatOffset);
 	}
 }
 
