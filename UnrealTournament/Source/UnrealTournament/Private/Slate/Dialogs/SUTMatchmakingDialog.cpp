@@ -55,6 +55,17 @@ void SUTMatchmakingDialog::Construct(const FArguments& InArgs)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 				.ColorAndOpacity(FLinearColor::Gray)
 			]
+			+ SVerticalBox::Slot()
+			.Padding(0.0f, 5.0f, 0.0f, 5.0f)
+			.AutoHeight()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			[
+				SNew(STextBlock)
+				.Text(this, &SUTMatchmakingDialog::GetMatchmakingText2)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+				.ColorAndOpacity(FLinearColor::Gray)
+			]
 		];
 	}
 }
@@ -101,16 +112,54 @@ FText SUTMatchmakingDialog::GetMatchmakingText() const
 		UUTMatchmaking* Matchmaking = GameInstance->GetMatchmaking();
 		if (Matchmaking)
 		{
-			int32 MatchmakingEloRange = Matchmaking->GetMatchmakingEloRange();
 			int32 MatchmakingTeamElo = Matchmaking->GetMatchmakingTeamElo();
-			if (MatchmakingEloRange > 0)
+			if (MatchmakingTeamElo > 0)
 			{
-				return FText::Format(NSLOCTEXT("Generic", "SearchingForServerWithEloRange", "Your Team ELO is {0}. Searching For Server Within ELO Range of {1}..."), FText::AsNumber(MatchmakingTeamElo), FText::AsNumber(MatchmakingEloRange));
+				return FText::Format(NSLOCTEXT("Generic", "SearchingTeamElo", "Your Team ELO is {0}."), FText::AsNumber(MatchmakingTeamElo));
 			}
 		}
 	}
 
 	return NSLOCTEXT("Generic", "SearchingForServer", "Searching For Server...");
+}
+
+FText SUTMatchmakingDialog::GetMatchmakingText2() const
+{
+	UUTGameInstance* GameInstance = Cast<UUTGameInstance>(GetPlayerOwner()->GetGameInstance());
+	if (GameInstance)
+	{
+		UUTParty* Party = GameInstance->GetParties();
+		if (Party)
+		{
+			UUTPartyGameState* PartyState = Party->GetUTPersistentParty();
+			if (PartyState && PartyState->GetPartyProgression() == EUTPartyState::PostMatchmaking)
+			{
+				if (PlayerOwner->IsPartyLeader())
+				{
+					FNumberFormattingOptions NumberFormattingOptions;
+					NumberFormattingOptions.MaximumFractionalDigits = 0;
+					return FText::Format(NSLOCTEXT("Generic", "ResearchingTime", "Will Restart Search In {0} Seconds"), FText::AsNumber(RetryCountdown, &NumberFormattingOptions));
+				}
+				else
+				{
+					return FText::GetEmpty();
+				}
+			}
+		}
+
+		UUTMatchmaking* Matchmaking = GameInstance->GetMatchmaking();
+		if (Matchmaking)
+		{
+			int32 MatchmakingTeamElo = Matchmaking->GetMatchmakingTeamElo();
+			int32 MatchmakingEloRange = Matchmaking->GetMatchmakingEloRange();
+			if (MatchmakingEloRange > 0 && MatchmakingTeamElo > 0)
+			{
+				return FText::Format(NSLOCTEXT("Generic", "SearchingForServerWithEloRange", "Searching For Server Within ELO Between {0} and {1}..."), FText::AsNumber(MatchmakingTeamElo - MatchmakingEloRange), FText::AsNumber(MatchmakingTeamElo + MatchmakingEloRange));
+			}
+		}
+	}
+
+	return FText::GetEmpty();
 }
 
 FReply SUTMatchmakingDialog::OnButtonClick(uint16 ButtonID)
