@@ -734,7 +734,11 @@ void AUTCarriedObject::SendHome()
 					bWantsGhostFlag = true;
 				}
 			}
-			SendGameMessage(3, NULL, NULL);
+			if (GetWorld()->GetTimeSeconds() - LastDroppedMessageTime > AutoReturnTime - 2.f)
+			{
+				LastDroppedMessageTime = GetWorld()->GetTimeSeconds();
+				SendGameMessage(3, NULL, NULL);
+			}
 			OnObjectStateChanged();
 			ForceNetUpdate();
 			if (!bWantsGhostFlag)

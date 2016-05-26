@@ -199,6 +199,7 @@ void AUTCTFFlag::Drop(AController* Killer)
 	else
 	{
 		SendGameMessage(3, Holder, NULL);
+		LastDroppedMessageTime = GetWorld()->GetTimeSeconds();
 	}
 	NoLongerHeld();
 
@@ -229,6 +230,7 @@ void AUTCTFFlag::DelayedDropMessage()
 	if ((LastGameMessageTime < FlagDropTime) && (ObjectState == CarriedObjectState::Dropped))
 	{
 		SendGameMessage(3, LastHolder, NULL);
+		LastDroppedMessageTime = GetWorld()->GetTimeSeconds();
 	}
 }
 

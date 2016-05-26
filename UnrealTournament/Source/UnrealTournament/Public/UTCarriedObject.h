@@ -359,6 +359,10 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
 	float TakenTime;
 
+	// keep from playing flag dropped messages too often
+	UPROPERTY(BlueprintReadOnly, Category = GameObject)
+		float LastDroppedMessageTime;
+
 	UFUNCTION()
 	virtual void OnObjectStateChanged();
 
