@@ -342,7 +342,8 @@ uint8 AUTRemoteRedeemer::GetTeamNum() const
 
 void AUTRemoteRedeemer::FaceRotation(FRotator NewControlRotation, float DeltaTime)
 {
-	if (Controller && Controller->IsLocalPlayerController())
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (Controller && Controller->IsLocalPlayerController() && GS && !GS->IsMatchIntermission() && !GS->HasMatchEnded())
 	{
 		APlayerController *PC = Cast<APlayerController>(Controller);
 
