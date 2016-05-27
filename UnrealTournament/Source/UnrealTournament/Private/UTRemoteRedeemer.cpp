@@ -389,8 +389,11 @@ void AUTRemoteRedeemer::GetActorEyesViewPoint(FVector& out_Location, FRotator& o
 
 void AUTRemoteRedeemer::PawnStartFire(uint8 FireModeNum)
 {
-	ServerBlowUp();
-	ProjectileMovement->SetActive(false);
+	if (FireModeNum == 0)
+	{
+		ServerBlowUp();
+		ProjectileMovement->SetActive(false);
+	}
 }
 
 bool AUTRemoteRedeemer::ServerBlowUp_Validate()
