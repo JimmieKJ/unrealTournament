@@ -86,7 +86,6 @@ void AUTCarriedObject::OnConstruction(const FTransform& Transform)
 		Collision->SetWorldRotation(FRotator(0.0f, 0.f, 0.f));
 		GetWorldTimerManager().SetTimer(CheckTouchingHandle, this, &AUTCarriedObject::CheckTouching, 0.05f, false);
 	}
-
 }
 
 void AUTCarriedObject::Init(AUTGameObjective* NewBase)
@@ -734,7 +733,8 @@ void AUTCarriedObject::SendHome()
 					bWantsGhostFlag = true;
 				}
 			}
-			if (GetWorld()->GetTimeSeconds() - LastDroppedMessageTime > AutoReturnTime - 2.f)
+			AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+			if ((GetWorld()->GetTimeSeconds() - LastDroppedMessageTime > AutoReturnTime - 2.f) && GameState && !GameState->IsMatchIntermission() && !GameState->HasMatchEnded())
 			{
 				LastDroppedMessageTime = GetWorld()->GetTimeSeconds();
 				SendGameMessage(3, NULL, NULL);
