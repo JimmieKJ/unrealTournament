@@ -116,7 +116,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	WeaponFireAmp.TargetPitchMultiplier = 1.1f;
 
 	static ConstructorHelpers::FObjectFinder<USoundAttenuation> InstigatedPainAttenFinder(TEXT("SoundAttenuation'/Game/RestrictedAssets/Audio/SoundClassesAndMixes/Attenuations/Attenuation_InstigatedPain.Attenuation_InstigatedPain'"));
-	PainSoundAmp.InstigatorAttenuation = InstigatedPainAttenFinder.Object;
+	PainSoundAmp.TargetAttenuation = InstigatedPainAttenFinder.Object;
 
 	static ConstructorHelpers::FObjectFinder<USoundAttenuation> InstigatedWeaponAttenFinder(TEXT("SoundAttenuation'/Game/RestrictedAssets/Audio/SoundClassesAndMixes/Attenuations/Attenuation_WeaponInstigator.Attenuation_WeaponInstigator'"));
 	WeaponFireAmp.InstigatorAttenuation = InstigatedWeaponAttenFinder.Object;
@@ -1820,19 +1820,20 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 				{
 					MaxAudibleDistance *= 0.5f;
 				}
-				if (0.5f * MaxAudibleDistance > (SoundLocation - GetViewTarget()->GetActorLocation()).Size())
+				FVector ViewPoint;
+				FRotator ViewRotation;
+				GetActorEyesViewPoint(ViewPoint, ViewRotation);
+				static FName NAME_LineOfSight = FName(TEXT("LineOfSight"));
+				FCollisionQueryParams CollisionParms(NAME_LineOfSight, true, SoundPlayer);
+				CollisionParms.AddIgnoredActor(GetViewTarget());
+				bool bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, SoundLocation, COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParms);
+				if (bHit)
 				{
-					FVector ViewPoint;
-					FRotator ViewRotation;
-					GetActorEyesViewPoint(ViewPoint, ViewRotation);
-					static FName NAME_LineOfSight = FName(TEXT("LineOfSight"));
-					FCollisionQueryParams CollisionParms(NAME_LineOfSight, true, SoundPlayer);
-					CollisionParms.AddIgnoredActor(GetViewTarget());
-					bool bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, SoundLocation, COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParms);
-					if (bHit)
+					if (0.5f * MaxAudibleDistance > (SoundLocation - GetViewTarget()->GetActorLocation()).Size())
 					{
 						return;
 					}
+					VolumeMultiplier *= 0.5f;
 				}
 			}
 
