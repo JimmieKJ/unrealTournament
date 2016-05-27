@@ -18,6 +18,7 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 	Collision->InitCapsuleSize(72.0f, 30.0f);
 	Collision->OnComponentBeginOverlap.AddDynamic(this, &AUTCarriedObject::OnOverlapBegin);
 	Collision->SetCollisionProfileName(FName(TEXT("Pickup")));
+	Collision->bShouldUpdatePhysicsVolume = true;
 	RootComponent = Collision;
 
 	MovementComponent = ObjectInitializer.CreateDefaultSubobject<UUTProjectileMovementComponent>(this, TEXT("MovementComp"));
