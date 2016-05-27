@@ -935,7 +935,16 @@ float AUTCarriedObject::GetHeldTime(AUTPlayerState* TestHolder)
 
 FText AUTCarriedObject::GetHUDStatusMessage(AUTHUD* HUD)
 {
-	AUTGameVolume* GV = HoldingPawn ? Cast<AUTGameVolume>(HoldingPawn->GetPawnPhysicsVolume()) : Cast<AUTGameVolume>(MovementComponent->GetPhysicsVolume());
+	AUTGameVolume* GV = nullptr;
+	APawn* CurrentHolder = Cast<APawn>(GetAttachmentReplication().AttachParent);
+	if (CurrentHolder)
+	{
+		GV = Cast<AUTGameVolume>(CurrentHolder->GetPawnPhysicsVolume());
+	}
+	if (GV == nullptr)
+	{
+		GV = HoldingPawn ? Cast<AUTGameVolume>(HoldingPawn->GetPawnPhysicsVolume()) : Cast<AUTGameVolume>(MovementComponent->GetPhysicsVolume());
+	}
 	LastLocationName = (GV && !GV->VolumeName.IsEmpty()) ? GV->VolumeName : LastLocationName;
 	return LastLocationName;
 }

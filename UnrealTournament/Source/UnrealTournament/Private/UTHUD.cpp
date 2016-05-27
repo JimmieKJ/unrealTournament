@@ -1257,14 +1257,14 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 		if (GV && !GV->VolumeName.IsEmpty() && GV->bShowOnMinimap)
 		{
 			FVector2D Pos(WorldToMapToScreen(GV->GetActorLocation()));
-			Pos.X += GV->MinimapOffset.X * Canvas->ClipX/1920.f;
-			Pos.Y += GV->MinimapOffset.Y * Canvas->ClipX /1280.f;
+			Pos.X = bInvertMinimap ? Pos.X + GV->MinimapOffset.X * Canvas->ClipX/1920.f : Pos.X - GV->MinimapOffset.X * Canvas->ClipX / 1920.f;
+			Pos.Y = bInvertMinimap ? Pos.Y + GV->MinimapOffset.Y * Canvas->ClipX /1280.f : Pos.Y - GV->MinimapOffset.Y * Canvas->ClipX / 1280.f;
 			float XL, YL;
 			Canvas->TextSize(TinyFont, GV->VolumeName.ToString(), XL, YL);
 			Canvas->DrawColor = FColor(0, 0, 0, 64);
-			Canvas->DrawTile(SpawnHelpTextBG.Texture, Pos.X - XL * 0.5f, Pos.Y - 26.0f * RenderScale - 0.8f*YL, XL, 0.8f*YL, 149, 138, 32, 32, BLEND_Translucent);
+			Canvas->DrawTile(SpawnHelpTextBG.Texture, Pos.X - XL * 0.5f, Pos.Y - 0.29f*YL, XL, 0.8f*YL, 149, 138, 32, 32, BLEND_Translucent);
 			Canvas->DrawColor = FColor::White;
-			Canvas->DrawText(TinyFont, GV->VolumeName, Pos.X - XL * 0.5f, Pos.Y - 26.0f * RenderScale - YL);
+			Canvas->DrawText(TinyFont, GV->VolumeName, Pos.X - XL * 0.5f, Pos.Y - 0.5f*YL);
 		}
 	}
 
