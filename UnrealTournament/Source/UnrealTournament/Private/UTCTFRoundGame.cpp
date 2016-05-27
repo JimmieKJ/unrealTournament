@@ -1025,7 +1025,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 					{
 						PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 5, PS, NULL, NULL);
 					}
-					PS->RespawnWaitTime = 2.f;
+					PS->RespawnWaitTime = 0.5f;
 					PS->OnRespawnWaitReceived();
 				}
 				else if (PC)

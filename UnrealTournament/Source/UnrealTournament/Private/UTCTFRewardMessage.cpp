@@ -34,6 +34,22 @@ UUTCTFRewardMessage::UUTCTFRewardMessage(const class FObjectInitializer& ObjectI
 	bIsStatusAnnouncement = false;
 	bWantsBotReaction = true;
 	ScaleInSize = 3.f;
+
+	static ConstructorHelpers::FObjectFinder<USoundBase> EarnedSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Stingers/BoostAvailable.BoostAvailable'"));
+	EarnedBoostSound = EarnedSoundFinder.Object;
+}
+
+void UUTCTFRewardMessage::ClientReceive(const FClientReceiveData& ClientData) const 
+{
+	Super::ClientReceive(ClientData);
+	if (EarnedBoostSound && (ClientData.MessageIndex == 7))
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
+		if (PC != NULL)
+		{
+			PC->ClientPlaySound(EarnedBoostSound);
+		}
+	}
 }
 
 FLinearColor UUTCTFRewardMessage::GetMessageColor_Implementation(int32 MessageIndex) const
@@ -59,6 +75,10 @@ void UUTCTFRewardMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Ann
 
 float UUTCTFRewardMessage::GetAnnouncementDelay(int32 Switch)
 {
+	if (Switch == 7)
+	{
+		return 1.f;
+	}
 	return ((Switch == 2) || (Switch == 5)) ? 1.5f : 0.f;
 }
 
@@ -80,7 +100,6 @@ bool UUTCTFRewardMessage::ShouldPlayAnnouncement(const FClientReceiveData& Clien
 {
 	return (ClientData.MessageIndex == 0) || (ClientData.MessageIndex == 6)  || (ClientData.MessageIndex == 7) || IsLocalForAnnouncement(ClientData, true, true) || (ClientData.MessageIndex > 100);
 }
-
 
 void UUTCTFRewardMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
 {

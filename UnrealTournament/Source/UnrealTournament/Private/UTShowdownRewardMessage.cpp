@@ -26,6 +26,30 @@ UUTShowdownRewardMessage::UUTShowdownRewardMessage(const class FObjectInitialize
 	LivesRemainingPrefix = NSLOCTEXT("CTFGameMessage", "LivesRemainingPrefix", "");
 	LivesRemainingPostfix = NSLOCTEXT("CTFGameMessage", "LivesRemainingPostfix", " lives remaining.");
 	AnnouncementDelay = 0.5f;
+
+	static ConstructorHelpers::FObjectFinder<USoundBase> TerminationSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Stingers/Terminated.Terminated'"));
+	TerminationSound = TerminationSoundFinder.Object;
+}
+
+void UUTShowdownRewardMessage::ClientReceive(const FClientReceiveData& ClientData) const
+{
+	Super::ClientReceive(ClientData);
+	if (TerminationSound && (ClientData.MessageIndex == 3))
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
+		if (PC != NULL)
+		{
+			if (TerminationSound != NULL)
+			{
+				PC->ClientPlaySound(TerminationSound);
+			}
+		}
+	}
+}
+
+float UUTShowdownRewardMessage::GetAnnouncementDelay(int32 Switch)
+{
+	return (Switch == 3) ? 0.5f : 0.f;
 }
 
 void UUTShowdownRewardMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
@@ -70,7 +94,7 @@ FText UUTShowdownRewardMessage::GetText(int32 Switch, bool bTargetsPlayerState1,
 
 bool UUTShowdownRewardMessage::ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const
 {
-	return IsLocalForAnnouncement(ClientData, true, true);
+	return IsLocalForAnnouncement(ClientData, true, true) ||(ClientData.MessageIndex == 2) || (ClientData.MessageIndex == 3) || (ClientData.MessageIndex == 4);
 }
 
 FLinearColor UUTShowdownRewardMessage::GetMessageColor_Implementation(int32 MessageIndex) const 

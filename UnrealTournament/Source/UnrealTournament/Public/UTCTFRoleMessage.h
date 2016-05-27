@@ -26,6 +26,9 @@ public:
 		CapAndKillMessage = NSLOCTEXT("CTFGameMessage", "RCTFRules", "Capture or kill to win.");
 		EnemyTeamSpecialEarned = NSLOCTEXT("CTFGameMessage", "EnemyEarnedSpecialMove", "Enemy team has earned their power up!");
 		FontSizeIndex = 1;
+
+		static ConstructorHelpers::FObjectFinder<USoundBase> EarnedSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Stingers/EnemyBoostAvailable.EnemyBoostAvailable'"));
+		EnemyEarnedBoostSound = EarnedSoundFinder.Object;
 	}
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
@@ -48,6 +51,24 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText EnemyTeamSpecialEarned;
+
+
+	/** sound played when enemy team boost is earned */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
+		USoundBase* EnemyEarnedBoostSound;
+
+	virtual void ClientReceive(const FClientReceiveData& ClientData) const override
+	{
+		Super::ClientReceive(ClientData);
+		if (EnemyEarnedBoostSound && (ClientData.MessageIndex == 7))
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
+			if (PC != NULL)
+			{
+				PC->ClientPlaySound(EnemyEarnedBoostSound);
+			}
+		}
+	}
 
 	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const override
 	{
