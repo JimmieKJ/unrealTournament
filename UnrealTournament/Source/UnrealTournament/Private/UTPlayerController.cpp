@@ -124,6 +124,9 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	static ConstructorHelpers::FObjectFinder<USoundAttenuation> TargetWeaponAttenFinder(TEXT("SoundAttenuation'/Game/RestrictedAssets/Audio/SoundClassesAndMixes/Attenuations/Attenuation_WeaponTarget.Attenuation_WeaponTarget'"));
 	WeaponFireAmp.TargetAttenuation = TargetWeaponAttenFinder.Object;
 
+	static ConstructorHelpers::FObjectFinder<USoundAttenuation> OccludedWeaponAttenFinder(TEXT("SoundAttenuation'/Game/RestrictedAssets/Audio/SoundClassesAndMixes/Attenuations/Attenuation_WeaponFireOccluded.Attenuation_WeaponFireOccluded'"));
+	WeaponFireAmp.OccludedAttenuation = OccludedWeaponAttenFinder.Object;
+
 	static ConstructorHelpers::FObjectFinder<USoundAttenuation> InstigatedFoleyAttenFinder(TEXT("SoundAttenuation'/Game/RestrictedAssets/Audio/SoundClassesAndMixes/Attenuations/Attenuation_ProjectileFoleyInstigator.Attenuation_ProjectileFoleyInstigator'"));
 	WeaponFoleyAmp.InstigatorAttenuation = InstigatedFoleyAttenFinder.Object;
 
@@ -1786,6 +1789,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 			bool bSkipIfOccluded = (AmpType == SAT_WeaponFoley) || (AmpType == SAT_Footstep);
 			bool bSkipIfTeammateOccluded = (AmpType == SAT_Footstep);
 			bool bSameTeam = false;
+			bool bInstigatedSound = false;
 			USoundAttenuation* AttenuationOverride = NULL;
 			float VolumeMultiplier = 1.f;
 			float PitchMultiplier = 1.f;
@@ -1804,6 +1808,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 				AttenuationOverride = CustomAmp.InstigatorAttenuation;
 				VolumeMultiplier = CustomAmp.InstigatorVolumeMultiplier;
 				PitchMultiplier = CustomAmp.InstigatorPitchMultiplier;
+				bInstigatedSound = true;
 			}
 			else
 			{
@@ -1817,13 +1822,13 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 					PitchMultiplier = CustomAmp.TeammatePitchMultiplier;
 				}
 			}
-			if (bSkipIfOccluded || (bSkipIfTeammateOccluded && bSameTeam))
+			if (bSkipIfOccluded || (bSkipIfTeammateOccluded && bSameTeam) || ((CustomAmp.OccludedAttenuation != nullptr) && !bAmplifyVolume && !bInstigatedSound))
 			{
 				// if further than half audible radius, skip if occluded
 				float MaxAudibleDistance = TheSound->GetAttenuationSettingsToApply() ? TheSound->GetAttenuationSettingsToApply()->GetMaxDimension() : 4000.f;
 				if (bSameTeam)
 				{
-					MaxAudibleDistance *= 0.5f;
+					MaxAudibleDistance *= CustomAmp.OccludedAttenuation ? 1.f : 0.5f;
 				}
 				FVector ViewPoint;
 				FRotator ViewRotation;
@@ -1834,11 +1839,18 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 				bool bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, SoundLocation, COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParms);
 				if (bHit)
 				{
-					if (0.5f * MaxAudibleDistance > (SoundLocation - GetViewTarget()->GetActorLocation()).Size())
+					if (CustomAmp.OccludedAttenuation != nullptr)
 					{
-						return;
+						AttenuationOverride = CustomAmp.OccludedAttenuation;
 					}
-					VolumeMultiplier *= 0.5f;
+					else
+					{
+						if (0.5f * MaxAudibleDistance > (SoundLocation - GetViewTarget()->GetActorLocation()).Size())
+						{
+							return;
+						}
+						VolumeMultiplier *= 0.5f;
+					}
 				}
 			}
 

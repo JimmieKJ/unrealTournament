@@ -68,6 +68,9 @@ struct FCustomSoundAmplification
 	UPROPERTY(BlueprintReadWrite, Category = SoundAmplification)
 		float  TeammatePitchMultiplier;
 
+	UPROPERTY(BlueprintReadWrite, Category = SoundAmplification)
+		USoundAttenuation*  OccludedAttenuation;
+
 	FCustomSoundAmplification()
 		: OwnVolumeMultiplier(1.f),
 		OwnPitchMultiplier(1.f), 
@@ -79,7 +82,8 @@ struct FCustomSoundAmplification
 		TargetPitchMultiplier(1.f),
 		TeammateAttenuation(nullptr),
 		TeammateVolumeMultiplier(1.f),
-		TeammatePitchMultiplier(1.f)
+		TeammatePitchMultiplier(1.f),
+		OccludedAttenuation(nullptr)
 	{}
 };
 
