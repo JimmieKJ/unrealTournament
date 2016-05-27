@@ -8,6 +8,9 @@ UUTAnnouncer::UUTAnnouncer(const FObjectInitializer& ObjectInitializer)
 {
 	AnnouncementComp = ObjectInitializer.CreateDefaultSubobject<UAudioComponent>(this, TEXT("AnnouncementComp"));
 	AnnouncementComp->OnAudioFinished.AddDynamic(this, &UUTAnnouncer::AnnouncementFinished);
+	AnnouncementComp->Priority = 10.f;
+	AnnouncementComp->bAlwaysPlay = true;
+	AnnouncementComp->bOverridePriority = true;
 
 	Spacing = 0.2f;
 }
