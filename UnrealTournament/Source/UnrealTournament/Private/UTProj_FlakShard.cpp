@@ -91,7 +91,7 @@ void AUTProj_FlakShard::DamageImpactedActor_Implementation(AActor* OtherActor, U
 	AUTCharacter* UTC = Cast<AUTCharacter>(OtherActor);
 	if (UTC && FleshImpactSound)
 	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), FleshImpactSound, this, SRT_IfSourceNotReplicated, false, FVector::ZeroVector, NULL, NULL, true, SAT_WeaponFoley);
+		UUTGameplayStatics::UTPlaySound(GetWorld(), FleshImpactSound, this, SRT_IfSourceNotReplicated, false, FVector::ZeroVector, NULL, NULL, true, SAT_PainSound);
 	}
 	Super::DamageImpactedActor_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
 }

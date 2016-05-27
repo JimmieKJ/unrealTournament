@@ -126,6 +126,9 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 
 	static ConstructorHelpers::FObjectFinder<USoundAttenuation> InstigatedFoleyAttenFinder(TEXT("SoundAttenuation'/Game/RestrictedAssets/Audio/SoundClassesAndMixes/Attenuations/Attenuation_ProjectileFoleyInstigator.Attenuation_ProjectileFoleyInstigator'"));
 	WeaponFoleyAmp.InstigatorAttenuation = InstigatedFoleyAttenFinder.Object;
+
+	static ConstructorHelpers::FObjectFinder<USoundClass> SoundClassFinder(TEXT("SoundClass'/Game/RestrictedAssets/Audio/SoundClassesAndMixes/SFX_Priority.SFX_Priority'"));
+	PriorityFXSoundClass = SoundClassFinder.Object;
 }
 
 void AUTPlayerController::BeginPlay()
@@ -1786,12 +1789,14 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 			USoundAttenuation* AttenuationOverride = NULL;
 			float VolumeMultiplier = 1.f;
 			float PitchMultiplier = 1.f;
+			bool bOverrideSoundClass = false;
 			if (bAmplifyVolume)
 			{
 				// target
 				AttenuationOverride = CustomAmp.TargetAttenuation;
 				VolumeMultiplier = CustomAmp.TargetVolumeMultiplier;
 				PitchMultiplier = CustomAmp.TargetPitchMultiplier;
+				bOverrideSoundClass = (AmpType == SAT_PainSound);
 			}
 			else if (SoundPlayer && (SoundPlayer->GetInstigator() == GetViewTarget()))
 			{
@@ -1837,13 +1842,18 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 				}
 			}
 
+			UAudioComponent* AC = nullptr;
 			if (!SoundLocation.IsZero() && (SoundPlayer == NULL || SoundLocation != SoundPlayer->GetActorLocation()))
 			{
 				UGameplayStatics::PlaySoundAtLocation(GetWorld(), TheSound, SoundLocation, VolumeMultiplier, PitchMultiplier, 0.0f, AttenuationOverride);
 			}
 			else if (SoundPlayer != NULL)
 			{
-				UGameplayStatics::SpawnSoundAttached(TheSound, SoundPlayer->GetRootComponent(), NAME_None, FVector::ZeroVector, EAttachLocation::KeepRelativeOffset, bStopWhenOwnerDestroyed, VolumeMultiplier, PitchMultiplier, 0.0f, AttenuationOverride);
+				AC = UGameplayStatics::SpawnSoundAttached(TheSound, SoundPlayer->GetRootComponent(), NAME_None, FVector::ZeroVector, EAttachLocation::KeepRelativeOffset, bStopWhenOwnerDestroyed, VolumeMultiplier, PitchMultiplier, 0.0f, AttenuationOverride);
+			}
+			if (bOverrideSoundClass && AC)
+			{
+				AC->SoundClassOverride = PriorityFXSoundClass;
 			}
 		}
 	}

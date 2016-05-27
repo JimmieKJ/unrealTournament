@@ -134,6 +134,9 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = Sounds)
 		FCustomSoundAmplification WeaponFoleyAmp;
 
+	UPROPERTY()
+		USoundClass* PriorityFXSoundClass;
+
 	virtual void BeginPlay() override;
 	virtual void Destroyed() override;
 	virtual void InitInputSystem() override;
