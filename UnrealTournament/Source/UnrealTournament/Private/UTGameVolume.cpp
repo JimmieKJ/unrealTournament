@@ -7,8 +7,9 @@
 AUTGameVolume::AUTGameVolume(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	VolumeName = NSLOCTEXT("Volume", "GameVolume", "Unnamed");
+	VolumeName = FText::GetEmpty();
 	TeamIndex = 255;
+	bShowOnMinimap = true;
 }
 
 void AUTGameVolume::ActorEnteredVolume(class AActor* Other)

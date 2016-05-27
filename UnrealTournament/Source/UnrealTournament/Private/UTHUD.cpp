@@ -21,6 +21,7 @@
 #include "UTCrosshair.h"
 #include "UTATypes.h"
 #include "UTDemoRecSpectator.h"
+#include "UTGameVolume.h"
 
 AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -1246,6 +1247,23 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 				NamedPickup = *It;
 				NamedPickupPos = Pos;
 			}
+		}
+	}
+
+	// draw named areas
+	for (TActorIterator<AUTGameVolume> It(GetWorld()); It; ++It)
+	{
+		AUTGameVolume* GV = *It;
+		if (GV && !GV->VolumeName.IsEmpty() && GV->bShowOnMinimap)
+		{
+			FVector2D Pos(WorldToMapToScreen(GV->GetActorLocation()));
+			Pos += GV->MinimapOffset;
+			float XL, YL;
+			Canvas->TextSize(TinyFont, GV->VolumeName.ToString(), XL, YL);
+			Canvas->DrawColor = FColor(0, 0, 0, 64);
+			Canvas->DrawTile(SpawnHelpTextBG.Texture, Pos.X - XL * 0.5f, Pos.Y - 26.0f * RenderScale - 0.8f*YL, XL, 0.8f*YL, 149, 138, 32, 32, BLEND_Translucent);
+			Canvas->DrawColor = FColor::White;
+			Canvas->DrawText(TinyFont, GV->VolumeName, Pos.X - XL * 0.5f, Pos.Y - 26.0f * RenderScale - YL);
 		}
 	}
 
