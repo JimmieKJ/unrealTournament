@@ -1257,7 +1257,8 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 		if (GV && !GV->VolumeName.IsEmpty() && GV->bShowOnMinimap)
 		{
 			FVector2D Pos(WorldToMapToScreen(GV->GetActorLocation()));
-			Pos += GV->MinimapOffset;
+			Pos.X += GV->MinimapOffset.X * Canvas->ClipX/1920.f;
+			Pos.Y += GV->MinimapOffset.Y * Canvas->ClipX /1280.f;
 			float XL, YL;
 			Canvas->TextSize(TinyFont, GV->VolumeName.ToString(), XL, YL);
 			Canvas->DrawColor = FColor(0, 0, 0, 64);
