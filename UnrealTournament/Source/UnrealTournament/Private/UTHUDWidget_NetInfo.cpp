@@ -38,6 +38,11 @@ void UUTHUDWidget_NetInfo::AddPing(float NewPing)
 
 float UUTHUDWidget_NetInfo::CalcAvgPing()
 {
+	if (UTHUDOwner && (UTHUDOwner->GetNetMode() == NM_Standalone))
+	{
+		return 0.f;
+	}
+
 	float TotalPing = 0.f;
 	if (BucketIndex < 100)
 	{
