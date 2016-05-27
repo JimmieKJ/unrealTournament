@@ -56,13 +56,26 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 					//Spectator kill message
 					if ((ClientData.RelatedPlayerState_1 != ClientData.RelatedPlayerState_2) && (ClientData.RelatedPlayerState_1 != NULL))
 					{
-						UTHUD->ReceiveLocalMessage(
-							UUTKillerMessage::StaticClass(),
-							ClientData.RelatedPlayerState_1,
-							ClientData.RelatedPlayerState_2,
-							-99,
-							GetDefault<UUTKillerMessage>()->ResolveMessage(-99, ClientData.RelatedPlayerState_1 == LocalPlayerState, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject),
-							ClientData.OptionalObject);
+						if (LocalPlayerState && ClientData.RelatedPlayerState_1 == LocalPlayerState)
+						{
+							UTHUD->ReceiveLocalMessage(
+								UUTKillerMessage::StaticClass(),
+								ClientData.RelatedPlayerState_1,
+								ClientData.RelatedPlayerState_2,
+								-99,
+								GetDefault<UUTKillerMessage>()->ResolveMessage(-99, ClientData.RelatedPlayerState_1 == LocalPlayerState, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject),
+								ClientData.OptionalObject);
+						}
+						else if (LocalPlayerState && ClientData.RelatedPlayerState_2 == LocalPlayerState)
+						{
+							UTHUD->ReceiveLocalMessage(
+								UUTVictimMessage::StaticClass(),
+								ClientData.RelatedPlayerState_1,
+								ClientData.RelatedPlayerState_2,
+								ClientData.MessageIndex,
+								GetDefault<UUTVictimMessage>()->ResolveMessage(ClientData.MessageIndex, true, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject),
+								ClientData.OptionalObject);
+						}
 					}
 					//Uses the damagetype's suicide message
 					else
