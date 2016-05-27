@@ -161,6 +161,8 @@ public:
 
 	void NotifyTravelToServer();
 
+	void ReturnToMainMenu();
+
 	/** @return delegate fired when the location of the player has changed */
 	FOnPartyMemberPropertyChanged& OnLocationChanged() { return LocationChanged; }
 

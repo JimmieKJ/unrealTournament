@@ -249,3 +249,10 @@ void UUTPartyGameState::SetMatchmakingRegion(const FString& InMatchmakingRegion)
 	PartyState.MatchmakingRegion = InMatchmakingRegion;
 	UpdatePartyData(OwningUserId);
 }
+
+void UUTPartyGameState::ReturnToMainMenu()
+{
+	PartyState.PartyProgression = EUTPartyState::Menus;
+	OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
+	UpdatePartyData(OwningUserId);
+}

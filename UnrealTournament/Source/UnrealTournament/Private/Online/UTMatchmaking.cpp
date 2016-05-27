@@ -250,6 +250,19 @@ void UUTMatchmaking::OnClientPartyStateChanged(EUTPartyState NewPartyState)
 			bQueuedTravelToServer = true;
 		}
 	}
+
+	if (NewPartyState == EUTPartyState::Menus)
+	{
+		AUTPlayerController* PC = GetOwningController();
+		if (PC)
+		{
+			UUTLocalPlayer* LP = PC->GetUTLocalPlayer();
+			if (LP && !LP->IsPartyLeader() && !LP->IsMenuGame())
+			{
+				LP->ReturnToMainMenu();
+			}
+		}
+	}
 }
 
 void UUTMatchmaking::CleanupReservationBeacon()

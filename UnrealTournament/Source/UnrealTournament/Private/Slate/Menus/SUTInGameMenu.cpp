@@ -25,6 +25,8 @@
 #include "UTLobbyGameState.h"
 #include "BlueprintContextLibrary.h"
 #include "PartyContext.h"
+#include "UTGameInstance.h"
+#include "UTParty.h"
 
 #if !UE_SERVER
 
@@ -231,12 +233,29 @@ FReply SUTInGameMenu::OnReturnToMainMenu()
 		bIsRankedGame = true;
 	}
 
-	if (!PlayerOwner->IsPartyLeader() || bIsRankedGame)
+	const bool bIsPartyLeader = PlayerOwner->IsPartyLeader();
+	if (!bIsPartyLeader || bIsRankedGame)
 	{
 		UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(PlayerOwner->GetWorld(), UPartyContext::StaticClass()));
 		if (PartyContext)
 		{
 			PartyContext->LeaveParty();
+		}
+	}
+	else if (bIsPartyLeader)
+	{
+		UUTGameInstance* GameInstance = Cast<UUTGameInstance>(PlayerOwner->GetGameInstance());
+		if (GameInstance)
+		{
+			UUTParty* Party = GameInstance->GetParties();
+			if (Party)
+			{
+				UUTPartyGameState* PartyState = Party->GetUTPersistentParty();
+				if (PartyState)
+				{
+					PartyState->ReturnToMainMenu();
+				}
+			}
 		}
 	}
 
