@@ -7,10 +7,6 @@ void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AAc
 {
 	if (TheSound != NULL && !GExitPurge)
 	{
-		if (AmpedListener)
-		{
-			UE_LOG(UT, Warning, TEXT("UTPlaySound() with Amped Listener by %s - use UTPlayAmplifiedSound() instead!"), SourceActor ? *SourceActor->GetName() : TEXT("None"));
-		}
 		if (SourceActor == NULL && SoundLoc.IsZero())
 		{
 			UE_LOG(UT, Warning, TEXT("UTPlaySound(): No source (SourceActor == None and SoundLoc not specified)"));
