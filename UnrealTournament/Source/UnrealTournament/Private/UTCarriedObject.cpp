@@ -9,6 +9,7 @@
 #include "UTFlagReturnTrail.h"
 #include "UTGhostFlag.h"
 #include "UTSecurityCameraComponent.h"
+#include "UTGameVolume.h"
 
 AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -934,5 +935,7 @@ float AUTCarriedObject::GetHeldTime(AUTPlayerState* TestHolder)
 
 FText AUTCarriedObject::GetHUDStatusMessage(AUTHUD* HUD)
 {
-	return FText::GetEmpty();
+	AUTGameVolume* GV = HoldingPawn ? Cast<AUTGameVolume>(HoldingPawn->GetPawnPhysicsVolume()) : Cast<AUTGameVolume>(MovementComponent->GetPhysicsVolume());
+	LastLocationName = (GV && !GV->VolumeName.IsEmpty()) ? GV->VolumeName : LastLocationName;
+	return LastLocationName;
 }

@@ -210,6 +210,9 @@ public:
 	UPROPERTY()
 		float LastTeleportedTime;
 
+	UPROPERTY()
+		FText LastLocationName;
+
 	virtual void Init(AUTGameObjective* NewBase);
 
 	// Returns the team number of the team that owns this object
