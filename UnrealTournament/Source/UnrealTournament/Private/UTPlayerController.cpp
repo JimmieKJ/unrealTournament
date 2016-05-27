@@ -108,6 +108,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	BuyMenuToggleDelay = 0.25f;
 
 	FootStepAmp.OwnVolumeMultiplier = 0.35f;
+	FootStepAmp.TeammateVolumeMultiplier = 0.5f;
 	PainSoundAmp.InstigatorVolumeMultiplier = 2.f;
 	PainSoundAmp.TargetVolumeMultiplier = 2.f;
 	WeaponFireAmp.InstigatorVolumeMultiplier = 1.3f;
