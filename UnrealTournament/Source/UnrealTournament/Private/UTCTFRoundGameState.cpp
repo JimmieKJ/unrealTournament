@@ -12,11 +12,11 @@
 AUTCTFRoundGameState::AUTCTFRoundGameState(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	GoldBonusText = NSLOCTEXT("FlagRun", "GoldBonusText", "GOLD");
-	SilverBonusText = NSLOCTEXT("FlagRun", "SilverBonusText", "SILVER");
-	GoldBonusTimedText = NSLOCTEXT("FlagRun", "GoldBonusTimeText", "GOLD {BonusTime}");
-	SilverBonusTimedText = NSLOCTEXT("FlagRun", "SilverBonusTimeText", "SILVER {BonusTime}");
-	BronzeBonusText = NSLOCTEXT("FlagRun", "BronzeBonusText", "BRONZE");
+	GoldBonusText = NSLOCTEXT("FlagRun", "GoldBonusText", "\u2605 \u2605 \u2605");
+	SilverBonusText = NSLOCTEXT("FlagRun", "SilverBonusText", "\u2605 \u2605");
+	GoldBonusTimedText = NSLOCTEXT("FlagRun", "GoldBonusTimeText", "\u2605 \u2605 \u2605 {BonusTime}");
+	SilverBonusTimedText = NSLOCTEXT("FlagRun", "SilverBonusTimeText", "\u2605 \u2605 {BonusTime}");
+	BronzeBonusText = NSLOCTEXT("FlagRun", "BronzeBonusText", "\u2605");
 	BonusLevel = 3;
 	RemainingPickupDelay = 0;
 }

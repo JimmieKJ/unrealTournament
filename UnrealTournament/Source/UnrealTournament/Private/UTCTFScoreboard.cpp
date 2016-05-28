@@ -226,11 +226,21 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 			YPos += 0.8f* MedYL;
 
 			int32 RoundBonus = FMath::Max(Play.RedBonus, Play.BlueBonus);
-			if (RoundBonus > 0)
+			if ((RoundBonus > 0) && !Play.bDefenseWon)
 			{
-				FString BonusLine = FString::Printf(TEXT("Bonus Time: %d"), RoundBonus);
+				Canvas->SetLinearDrawColor(FLinearColor::Yellow);
+				FString BonusString = (RoundBonus >= 60) ? TEXT("\u2605 \u2605") : TEXT("\u2605");
+				if (RoundBonus >= 120)
+				{
+					BonusString = TEXT("\u2605 \u2605 \u2605");
+				}
+				float BonusOffsetX, BonusOffsetY;
+				Canvas->TextSize(UTHUDOwner->SmallFont, BonusString, BonusOffsetX, BonusOffsetY, RenderScale, RenderScale);
+				Canvas->DrawText(UTHUDOwner->SmallFont, BonusString, XOffset + 0.35f*ScoreWidth, YPos - 0.1f*BonusOffsetY, RenderScale, RenderScale, TextRenderInfo);
+
+				FString BonusLine = FString::Printf(TEXT("    Bonus Time: %d"), RoundBonus);
 				Canvas->SetLinearDrawColor(FLinearColor::White);
-				Canvas->DrawText(UTHUDOwner->TinyFont, BonusLine, XOffset + 0.35f*ScoreWidth, YPos, 0.75f*RenderScale, RenderScale, TextRenderInfo);
+				Canvas->DrawText(UTHUDOwner->TinyFont, BonusLine, XOffset + 0.35f*ScoreWidth + BonusOffsetX, YPos, 0.75f*RenderScale, RenderScale, TextRenderInfo);
 			}
 			else if (!bIsSmallPlay)
 			{
@@ -272,20 +282,6 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 			Canvas->SetLinearDrawColor(CTFState->Teams[1]->TeamColor);
 			ScoreX += SingleXL;
 			Canvas->DrawText(UTHUDOwner->MediumFont, FString::Printf(TEXT(" %i"), Play.TeamScores[1]), ScoreX, ScorerNameYOffset, RenderScale, RenderScale, TextRenderInfo);
-
-			if (RoundBonus > 0)
-			{
-				YPos = BoxYPos + 0.52f*CurrentScoreHeight;
-				Canvas->SetLinearDrawColor(FLinearColor::Yellow);
-				FString BonusString = (RoundBonus >= 60) ? TEXT("SILVER") : TEXT("BRONZE");
-				if (RoundBonus >= 120)
-				{
-					BonusString = TEXT("GOLD");
-				}
-				float BonusOffsetX, BonusOffsetY;
-				Canvas->TextSize(UTHUDOwner->SmallFont, BonusString, BonusOffsetX, BonusOffsetY, RenderScale, RenderScale);
-				Canvas->DrawText(UTHUDOwner->SmallFont, BonusString, XOffset + 0.985f * ScoreWidth - BonusOffsetX, YPos, RenderScale, RenderScale, TextRenderInfo);
-			}
 			YPos = (bGroupRoundPairs && (DrawnPlays % 2 == 0)) ? BoxYPos + CurrentScoreHeight + 20.f*RenderScale : BoxYPos + CurrentScoreHeight + 8.f*RenderScale;
 		}
 	}
