@@ -37,7 +37,7 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 	bTargetLockingActive = true;
 	LastTargetLockCheckTime = 0.0f;
 
-	UnderReticlePadding = 50.0f;
+	UnderReticlePadding = 20.0f;
 	CrosshairScale = 0.5f;
 
 	CrosshairRotationTime = 0.3f;
@@ -605,12 +605,12 @@ void AUTWeap_RocketLauncher::UpdateLock()
 
 void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget, float RenderDelta)
 {
+	float ScaledPadding = 80.f * WeaponHudWidget->GetRenderScale();
 	//Draw the Rocket Firemode Text
 	if (bDrawRocketModeString && RocketModeFont != NULL)
 	{
 		FText RocketModeText = RocketFireModes[CurrentRocketFireMode].DisplayString;
-		float PosY = WeaponHudWidget->GetRenderScale() * UnderReticlePadding;
-
+		float PosY = 0.3f * ScaledPadding;
 		WeaponHudWidget->DrawText(RocketModeText, 0.0f, PosY, RocketModeFont, FLinearColor::Black, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Top);
 	}
 	
@@ -622,13 +622,13 @@ void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* We
 	if ((CurrentFireMode == 1) && (NumLoadedRockets > 0))
 	{
 		float DotSize = 16.f * Scale;
-		WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0.f, 0.5f * WeaponHudWidget->GetRenderScale() * UnderReticlePadding, DotSize, DotSize, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+		WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0.f, ScaledPadding, DotSize, DotSize, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
 		if (NumLoadedRockets > 1)
 		{
-			WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 90.f*Scale, 0.5f * WeaponHudWidget->GetRenderScale() * UnderReticlePadding, DotSize, DotSize, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+			WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 90.f*Scale, ScaledPadding, DotSize, DotSize, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
 			if (NumLoadedRockets > 2)
 			{
-				WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, -90.f*Scale, 0.5f * WeaponHudWidget->GetRenderScale() * UnderReticlePadding, DotSize, DotSize, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+				WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, -90.f*Scale, ScaledPadding, DotSize, DotSize, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
 			}
 		}
 	}
