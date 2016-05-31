@@ -16,8 +16,8 @@ class UNREALTOURNAMENT_API AUTGhostFlag : public AActor
 	UPROPERTY(ReplicatedUsing=OnSetCarriedObject, BlueprintReadOnly, Category = Flag)
 	AUTCarriedObject* MyCarriedObject;
 
-	UPROPERTY(ReplicatedUsing=OnSetMidPoint, BlueprintReadWrite, Category = Flag)
-		FVector MidPoint;
+	UPROPERTY(ReplicatedUsing=OnSetMidPoint)
+		FVector MidPoints[3];
 
 	UPROPERTY()
 		class AUTFlagReturnTrail* Trail;
@@ -34,8 +34,8 @@ class UNREALTOURNAMENT_API AUTGhostFlag : public AActor
 	UFUNCTION()
 		virtual void OnSetMidPoint();
 
-	virtual void MoveTo(const FVector& NewLocation, const FVector& NewMidPoint);
-	virtual void SetCarriedObject(AUTCarriedObject* NewCarriedObject, const FVector& NewMidPoint);
+	virtual void MoveTo(const FFlagTrailPos NewPosition);
+	virtual void SetCarriedObject(AUTCarriedObject* NewCarriedObject, const FFlagTrailPos NewPosition);
 	virtual void Tick(float DeltaTime) override;
 	virtual void Destroyed() override;
 	virtual void OnRep_ReplicatedMovement() override;

@@ -220,7 +220,7 @@ void AUTCTFFlag::Drop(AController* Killer)
 		}
 		if (PastPositions.Num() > 0)// fimxesteve why?
 		{
-			PutGhostFlagAt(PastPositions[PastPositions.Num() - 1].Location, PastPositions[PastPositions.Num() - 1].MidPoint);
+			PutGhostFlagAt(PastPositions[PastPositions.Num() - 1]);
 		}
 	}
 }
@@ -311,30 +311,37 @@ void AUTCTFFlag::Tick(float DeltaTime)
 				{
 					if (PastPositions.Num() > 0)
 					{
-						PastPositions[PastPositions.Num() - 1].MidPoint = MidPoint;
+						for (int32 i = 0; i < 3; i++)
+						{
+							PastPositions[PastPositions.Num() - 1].MidPoints[i] = MidPoints[i];
+						}
 					}
 					LastPositionUpdateTime = GetWorld()->GetTimeSeconds();
 					FFlagTrailPos NewPosition;
 					NewPosition.Location = HoldingPawn->GetActorLocation();
-					NewPosition.MidPoint = HoldingPawn->GetActorLocation();
+					NewPosition.MidPoints[0] = FVector::ZeroVector;
 					PastPositions.Add(NewPosition);
-					bMidPointSet = false;
+					MidPointPos = 0;
 					bAddedReturnSpot = true;
-					MidPoint = HoldingPawn->GetActorLocation();
+					MidPoints[0] = FVector::ZeroVector;
+					MidPoints[1] = FVector::ZeroVector;
+					MidPoints[2] = FVector::ZeroVector;
 				}
 			}
-			if (!bMidPointSet && !bAddedReturnSpot)
+			if ((MidPointPos < 3) && !bAddedReturnSpot)
 			{
 				static FName NAME_FlagReturnLOS = FName(TEXT("FlagReturnLOS"));
 				FCollisionQueryParams CollisionParms(NAME_FlagReturnLOS, true, HoldingPawn);
-				bool bHit = GetWorld()->LineTraceTestByChannel(HoldingPawn->GetActorLocation(), PreviousPos, COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParms);
+				FVector TraceEnd = (MidPointPos > 0) ? MidPoints[MidPointPos - 1] : PreviousPos;
+				FHitResult Hit;
+				bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, HoldingPawn->GetActorLocation(), TraceEnd, COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParms);
 				if (bHit)
 				{
-					bMidPointSet = true;
+					MidPointPos++;
 				}
 				else
 				{
-					MidPoint = HoldingPawn->GetActorLocation() - 100.f * HoldingPawn->GetVelocity().GetSafeNormal();
+					MidPoints[MidPointPos] = HoldingPawn->GetActorLocation() - 100.f * HoldingPawn->GetVelocity().GetSafeNormal();
 				}
 			}
 		}

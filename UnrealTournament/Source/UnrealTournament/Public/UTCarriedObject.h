@@ -39,13 +39,17 @@ struct FFlagTrailPos
 		FVector Location;
 
 	UPROPERTY()
-		FVector MidPoint;
+		FVector MidPoints[3];
 
 
 	FFlagTrailPos()
 		: Location(ForceInit)
-		, MidPoint(ForceInit)
-	{}
+	{
+		for (int32 i = 0; i < 3; i++)
+		{
+			MidPoints[i] = FVector(0.f);
+		}
+	}
 };
 
 UCLASS()
@@ -122,7 +126,7 @@ private:
 	class AUTGhostFlag* MyGhostFlag;
 
 public:
-	virtual void PutGhostFlagAt(const FVector NewGhostLocation, const FVector NewMidPoint);
+	virtual void PutGhostFlagAt(FFlagTrailPos NewPosition);
 
 	virtual void ClearGhostFlag();
 
@@ -324,10 +328,10 @@ public:
 		float LastPositionUpdateTime;
 
 	UPROPERTY()
-		FVector MidPoint;
+		FVector MidPoints[3];
 
 	UPROPERTY()
-		bool bMidPointSet;
+		int32 MidPointPos;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated, Category = GameObject)
 		bool bGradualAutoReturn;

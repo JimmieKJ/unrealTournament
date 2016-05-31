@@ -30,7 +30,9 @@ AUTGhostFlag::AUTGhostFlag(const FObjectInitializer& ObjectInitializer)
 		TimerEffect->Mobility = EComponentMobility::Movable;
 		TimerEffect->SetCastShadow(false);
 	}
-	MidPoint = FVector(0.f);
+	MidPoints[0] = FVector(0.f);
+	MidPoints[1] = FVector(0.f);
+	MidPoints[2] = FVector(0.f);
 }
 
 void AUTGhostFlag::Destroyed()
@@ -46,7 +48,7 @@ void AUTGhostFlag::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutL
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AUTGhostFlag, MyCarriedObject);
-	DOREPLIFETIME(AUTGhostFlag, MidPoint);
+	DOREPLIFETIME(AUTGhostFlag, MidPoints);
 }
 
 void AUTGhostFlag::Tick(float DeltaTime)
@@ -88,7 +90,13 @@ void AUTGhostFlag::OnSetMidPoint()
 {
 	if (Trail)
 	{
-		Trail->MidPoint = MidPoint;
+		for (int32 i = 0; i < 3; i++)
+		{
+			if (!MidPoints[i].IsZero())
+			{
+				Trail->MidPoints.Insert(MidPoints[i], 0);
+			}
+		}
 	}
 }
 
@@ -109,7 +117,7 @@ void AUTGhostFlag::OnSetCarriedObject()
 		Trail->StartActor = MyCarriedObject;
 		Trail->StartPoint = MyCarriedObject->GetActorLocation();
 		Trail->EndPoint = GetActorLocation();
-		Trail->MidPoint = MidPoint.IsZero() ? GetActorLocation() : MidPoint;
+		OnSetMidPoint();
 		Trail->EndActor = this;
 		TeamIndex = (MyCarriedObject && MyCarriedObject->Team) ? MyCarriedObject->Team->TeamIndex : 0;
 		Trail->SetTeamIndex(TeamIndex);
@@ -118,17 +126,23 @@ void AUTGhostFlag::OnSetCarriedObject()
 	}
 }
 
-void AUTGhostFlag::SetCarriedObject(AUTCarriedObject* NewCarriedObject, const FVector& NewMidPoint)
+void AUTGhostFlag::SetCarriedObject(AUTCarriedObject* NewCarriedObject, const FFlagTrailPos NewPosition)
 {
 	MyCarriedObject = NewCarriedObject;
-	MidPoint = NewMidPoint;
+	for (int32 i = 0; i < 3; i++)
+	{
+		MidPoints[i] = NewPosition.MidPoints[i];
+	}
 	OnSetCarriedObject();
 }
 
-void AUTGhostFlag::MoveTo(const FVector& NewLocation, const FVector& NewMidPoint)
+void AUTGhostFlag::MoveTo(const FFlagTrailPos NewPosition)
 {
-	SetActorLocation(NewLocation);
-	MidPoint = NewMidPoint;
+	SetActorLocation(NewPosition.Location);
+	for (int32 i = 0; i < 3; i++)
+	{
+		MidPoints[i] = NewPosition.MidPoints[i];
+	}
 	OnSetCarriedObject();
 }
 

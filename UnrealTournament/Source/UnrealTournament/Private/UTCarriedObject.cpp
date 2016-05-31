@@ -642,7 +642,7 @@ void AUTCarriedObject::Drop(AController* Killer)
 		}
 		if (PastPositions.Num() > 0)
 		{
-			PutGhostFlagAt(PastPositions[PastPositions.Num() - 1].Location, PastPositions[PastPositions.Num() - 1].MidPoint);
+			PutGhostFlagAt(PastPositions[PastPositions.Num() - 1]);
 			PastPositions.RemoveAt(PastPositions.Num() - 1);
 		}
 	}
@@ -679,7 +679,7 @@ void AUTCarriedObject::ClearGhostFlag()
 	}
 }
 
-void AUTCarriedObject::PutGhostFlagAt(const FVector NewGhostLocation, const FVector NewMidPoint)
+void AUTCarriedObject::PutGhostFlagAt(FFlagTrailPos NewPosition)
 {
 	if (GhostFlagClass && !IsPendingKillPending())
 	{
@@ -687,15 +687,15 @@ void AUTCarriedObject::PutGhostFlagAt(const FVector NewGhostLocation, const FVec
 		{
 			FActorSpawnParameters Params;
 			Params.Owner = this;
-			MyGhostFlag = GetWorld()->SpawnActor<AUTGhostFlag>(GhostFlagClass, NewGhostLocation, GetActorRotation(), Params);
+			MyGhostFlag = GetWorld()->SpawnActor<AUTGhostFlag>(GhostFlagClass, NewPosition.Location, GetActorRotation(), Params);
 			if (MyGhostFlag)
 			{
-				MyGhostFlag->SetCarriedObject(this, NewMidPoint);
+				MyGhostFlag->SetCarriedObject(this, NewPosition);
 			}
 		}
 		else
 		{
-			MyGhostFlag->MoveTo(NewGhostLocation, NewMidPoint);
+			MyGhostFlag->MoveTo(NewPosition);
 		}
 	}
 }
@@ -731,7 +731,7 @@ void AUTCarriedObject::SendHome()
 				}
 				if (PastPositions.Num() > 0)
 				{
-					PutGhostFlagAt(PastPositions[PastPositions.Num() - 1].Location, PastPositions[PastPositions.Num() - 1].MidPoint);
+					PutGhostFlagAt(PastPositions[PastPositions.Num() - 1]);
 					bWantsGhostFlag = true;
 				}
 			}

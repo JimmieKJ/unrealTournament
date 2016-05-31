@@ -13,10 +13,10 @@ class UNREALTOURNAMENT_API AUTFlagReturnTrail : public AUTReplicatedEmitter
 	FVector EndPoint;
 
 	UPROPERTY()
-		FVector MidPoint;
+	TArray<FVector> MidPoints;
 
 	UPROPERTY()
-		bool bReachedMidPoint;
+		int32 TargetMidPoint;
 
 	UPROPERTY()
 	class AUTGhostFlag* EndActor;

@@ -860,7 +860,10 @@ void AUTCTFRoundGame::InitRound()
 				if (bAsymmetricVictoryConditions && IsTeamOnOffense(Flag->GetTeamNum()))
 				{
 					Flag->SetActorHiddenInGame(true);
-					Flag->PutGhostFlagAt(Flag->GetHomeLocation(), FVector(0.f));
+					FFlagTrailPos NewPosition;
+					NewPosition.Location = Flag->GetHomeLocation();
+					NewPosition.MidPoints[0] = FVector(0.f);
+					Flag->PutGhostFlagAt(NewPosition);
 				}
 			}
 		}

@@ -13,7 +13,7 @@ AUTFlagReturnTrail::AUTFlagReturnTrail(const FObjectInitializer& ObjectInitializ
 	InitialLifeSpan = 0.f;
 	DedicatedServerLifeSpan = 0.1f; 
 	TeamIndex = 255;
-	bReachedMidPoint = false;
+	TargetMidPoint = 0;
 
 	PSC->bAutoActivate = true;
 	PSC->bAutoDestroy = false;
@@ -27,27 +27,19 @@ AUTFlagReturnTrail::AUTFlagReturnTrail(const FObjectInitializer& ObjectInitializ
 void AUTFlagReturnTrail::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	
-	FVector StartLocation = (StartActor && (StartPoint != StartActor->GetActorLocation())) ? StartActor->GetActorLocation() : GetActorLocation();
-	FVector Dir = EndPoint - StartLocation;
-	bool bOldReach = bReachedMidPoint;
-	if (!bReachedMidPoint)
+
+	FVector EndLocation = (TargetMidPoint < MidPoints.Num()) ? MidPoints[TargetMidPoint] : EndPoint;
+	FVector Dir = EndLocation - GetActorLocation();
+	float Dist = Dir.Size();
+	if (Dist > FMath::Max(50.f, 1000.f*DeltaTime))
 	{
-		Dir = MidPoint - StartLocation;
-		if (Dir.Size() <= FMath::Max(1000.f *DeltaTime, 50.f))
-		{
-			Dir = EndPoint - StartLocation;
-			bReachedMidPoint = true;
-		}
+		SetActorLocation(GetActorLocation() + FMath::Min(Dist, MovementSpeed * DeltaTime) * Dir / Dist);
+	}
+	else if (TargetMidPoint < MidPoints.Num())
+	{
+		TargetMidPoint++;
 	}
 
-	float Dist = Dir.Size();
-	if (Dist > 1000.f *DeltaTime)
-	{
-		FVector NewLocation = StartLocation + FMath::Min(Dist, MovementSpeed * DeltaTime) * Dir / Dist;
-		SetActorLocation(NewLocation);
-	}
-	StartPoint = StartActor ? StartActor->GetActorLocation() : StartPoint;
 }
 
 void AUTFlagReturnTrail::Destroyed()
