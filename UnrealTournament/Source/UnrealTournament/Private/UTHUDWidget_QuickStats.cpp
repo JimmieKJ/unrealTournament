@@ -136,7 +136,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		}
 
 		float HealthPerc = float(HealthInfo.Value) / 100.0f;
-		GetHighlightStrength(HealthInfo, HealthPerc, 0.5f);
+		GetHighlightStrength(HealthInfo, HealthPerc, 0.65f);
 
 		// ----------------- Armor / Inventory
 
@@ -501,7 +501,7 @@ void UUTHUDWidget_QuickStats::GetHighlightStrength(FStatInfo& Stat, float Perc, 
 {
 	if (Perc <= WarnPerc)
 	{
-		Stat.HighlightStrength = 1.0f - (Perc / WarnPerc);
+		Stat.HighlightStrength = FMath::Max(0.1875f, 1.0f - (Perc / WarnPerc));
 	}
 	else
 	{
