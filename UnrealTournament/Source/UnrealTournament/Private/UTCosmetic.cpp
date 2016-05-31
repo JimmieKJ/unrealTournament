@@ -51,6 +51,7 @@ void AUTCosmetic::PreInitializeComponents()
 				if (bRootNotPrimitiveComponent)
 				{
 					SetRootComponent(PrimComponent);
+					PrimComponent->DetachFromParent(true);
 					bRootNotPrimitiveComponent = false;
 				}
 				PrimComponent->bReceivesDecals = false;
