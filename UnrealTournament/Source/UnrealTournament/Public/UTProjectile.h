@@ -125,6 +125,10 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Damage)
 	bool bCanHitInstigator;
 
+	/** whether the projectile can impact teammates of the Instigator (player who fired it) */
+	UPROPERTY(EditDefaultsOnly, Category = Damage)
+		bool bCanHitTeammates;
+
 	/** whether this projectile should notify our best guess of its target that it is coming (for bots' evasion reaction check, etc)
 	 * generally should be true unless projectile has complex logic that prevents its target from being known initially (e.g. planted mine)
 	 */

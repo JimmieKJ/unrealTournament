@@ -75,6 +75,7 @@ AUTProjectile::AUTProjectile(const class FObjectInitializer& ObjectInitializer)
 	bReplicateUTMovement = false;
 	bReplicateMovement = false;
 	bMoveFakeToReplicatedPos = true;
+	bCanHitTeammates = false;
 
 	bInitiallyWarnTarget = true;
 
@@ -728,6 +729,12 @@ void AUTProjectile::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComp
 	if ( OtherActor != this && (OtherActor != Instigator || Instigator == NULL || bCanHitInstigator) && OtherComp != NULL && !bExploded  && (Role == ROLE_Authority || bHasSpawnedFully)
 		 && !ShouldIgnoreHit(OtherActor, OtherComp) )
 	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (!bCanHitTeammates && GS && Cast<AUTCharacter>(OtherActor) && Instigator && GS->OnSameTeam(OtherActor, Instigator))
+		{
+			// ignore team hits
+			return;
+		}
 		if (MyFakeProjectile && !MyFakeProjectile->IsPendingKillPending())
 		{
 			MyFakeProjectile->ProcessHit_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
