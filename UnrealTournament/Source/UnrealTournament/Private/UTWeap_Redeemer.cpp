@@ -29,6 +29,7 @@ AUTWeap_Redeemer::AUTWeap_Redeemer(const class FObjectInitializer& ObjectInitial
 
 	AmmoWarningAmount = 0;
 	AmmoDangerAmount = 0;
+	FireSoundAmp = SAT_None;
 }
 
 AUTProjectile* AUTWeap_Redeemer::FireProjectile()
@@ -216,3 +217,4 @@ bool AUTWeap_Redeemer::CanAttack_Implementation(AActor* Target, const FVector& T
 	BestFireMode = 0;
 	return bResult;
 }
+

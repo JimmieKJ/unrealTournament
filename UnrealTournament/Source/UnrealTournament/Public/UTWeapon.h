@@ -5,7 +5,7 @@
 #include "UTInventory.h"
 #include "UTProjectile.h"
 #include "UTATypes.h"
-
+#include "UTGameplayStatics.h"
 #include "UTWeapon.generated.h"
 
 USTRUCT(BlueprintType)
@@ -608,6 +608,11 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** returns montage to play on the weapon for the specified firing mode */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual UAnimMontage* GetFiringAnim(uint8 FireMode, bool bOnHands = false) const;
+
+
+	UPROPERTY()
+		TEnumAsByte<ESoundAmplificationType> FireSoundAmp;
+
 	/** play firing effects not associated with the shot's results (e.g. muzzle flash but generally NOT emitter to target) */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void PlayFiringEffects();
