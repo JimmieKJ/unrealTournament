@@ -1,4 +1,4 @@
-"D:/UnrealTournament-Client-XAN-2984440-Win/WindowsNoEditor/UnrealTournament/UnrealTournament.uproject" 1
+"../../../UnrealTournament/UnrealTournament.uproject" 1
 "../../../Engine/Plugins/Slate/SlateRemote/SlateRemote.uplugin" 2
 "../../../Engine/Plugins/Runtime/XboxOne/XboxOneMoviePlayer/XboxOneMoviePlayer.uplugin" 3
 "../../../Engine/Plugins/Runtime/WindowsMoviePlayer/WindowsMoviePlayer.uplugin" 4
@@ -90,8 +90,8 @@
 "../../../UnrealTournament/Config/DefaultDeviceProfiles.ini" 90
 "C:/Users/Peter.Knepley/Documents/UnrealTournament/Saved/Config/WindowsNoEditor/DeviceProfiles.ini" 91
 "../../../Engine/Config/ConsoleVariables.ini" 92
-"D:/UnrealTournament-Client-XAN-2984440-Win/WindowsNoEditor/UnrealTournament/Content/Localization/Game/en/Game.locres" 93
-"D:/UnrealTournament-Client-XAN-2984440-Win/WindowsNoEditor/Engine/Content/Localization/Engine/en/Engine.locres" 94
+"../../../UnrealTournament/Content/Localization/Game/en/Game.locres" 93
+"../../../Engine/Content/Localization/Engine/en/Engine.locres" 94
 "../../../Engine/Content/Slate/Fonts/Roboto-Regular.ttf" 95
 "../../../Engine/Content/Slate/Fonts/DroidSansMono.ttf" 96
 "../../../Engine/Content/Slate/Fonts/Roboto-Bold.ttf" 97
