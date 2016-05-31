@@ -163,8 +163,14 @@ void AUTFlagRunHUD::HandlePowerups()
 			const bool bIsOnDefense = GS->IsTeamOnDefenseNextRound(UTPS->Team->TeamIndex);
 			const FString WidgetPath = GS->GetPowerupSelectWidgetPath(UTPS->Team->TeamIndex);
 
+			//Allows the mouse to rotate the spectator view.
+			UTPlayerOwner->SetSpectatorMouseChangesView(true);
+
 			if (!PowerupSelectWindow.IsValid() && UTPlayerOwner)
 			{
+				//ensure the spectator window is not open under/over the powerup select window.
+				UTPlayerOwner->GetUTLocalPlayer()->CloseSpectatorWindow();
+
 				SAssignNew(PowerupSelectWindow, SUTPowerupSelectWindow, UTPlayerOwner->GetUTLocalPlayer(), WidgetPath);
 				UTPlayerOwner->GetUTLocalPlayer()->OpenWindow(PowerupSelectWindow);
 
@@ -173,6 +179,9 @@ void AUTFlagRunHUD::HandlePowerups()
 			//if we switch teams nuke the old window and make a new one
 			else if (bIsOnDefense != bConstructedPowerupWindowForDefense)
 			{
+				//ensure the spectator window is not open under/over the powerup select window.
+				UTPlayerOwner->GetUTLocalPlayer()->CloseSpectatorWindow();
+
 				UTPlayerOwner->GetUTLocalPlayer()->CloseWindow(PowerupSelectWindow);
 
 				SAssignNew(PowerupSelectWindow, SUTPowerupSelectWindow, UTPlayerOwner->GetUTLocalPlayer(), WidgetPath);
@@ -237,6 +246,10 @@ EInputMode::Type AUTFlagRunHUD::GetInputMode_Implementation() const
 	if (PowerupSelectWindow.IsValid() && UTPS && UTPS->bIsPowerupSelectWindowOpen && GS && ((GS->GetMatchState() == MatchState::WaitingToStart) || (GS->GetMatchState() == MatchState::MatchIntermission)))
 	{
 		return EInputMode::EIM_GameAndUI;
+	}
+	else if ((GS->GetMatchState() == MatchState::WaitingToStart) || (GS->GetMatchState() == MatchState::MatchIntermission))
+	{
+		return EInputMode::EIM_GameOnly;
 	}
 
 #endif
