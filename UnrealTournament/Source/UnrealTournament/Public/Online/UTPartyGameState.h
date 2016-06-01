@@ -23,6 +23,7 @@ enum class EUTPartyState : uint8
 	TravelToServer,
 	/** Hub, custom dedicated server */
 	CustomMatch,
+	QuickMatching,
 };
 
 /**
@@ -158,6 +159,10 @@ public:
 
 	void SetPlayersNeeded(int32 PlayersNeeded);
 	void SetMatchmakingRegion(const FString& InMatchmakingRegion);
+
+	void SetPartyQuickMatching();
+	void SetPartyJoiningQuickMatch();
+	void SetPartyCancelQuickMatch();
 
 	void NotifyTravelToServer();
 

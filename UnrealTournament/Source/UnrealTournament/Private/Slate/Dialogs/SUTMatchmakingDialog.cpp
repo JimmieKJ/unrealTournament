@@ -81,8 +81,15 @@ FText SUTMatchmakingDialog::GetRegionText() const
 			UUTPartyGameState* PartyState = Party->GetUTPersistentParty();
 			if (PartyState)
 			{
-				FString MatchMakingRegion = PartyState->GetMatchmakingRegion();
-				return FText::Format(NSLOCTEXT("Generic", "Region", "Region: {0}"), FText::FromString(MatchMakingRegion));
+				if (PartyState->GetPartyProgression() == EUTPartyState::QuickMatching)
+				{
+					return NSLOCTEXT("Generic", "QuickMatching", "Quick Matching");
+				}
+				else
+				{
+					FString MatchMakingRegion = PartyState->GetMatchmakingRegion();
+					return FText::Format(NSLOCTEXT("Generic", "Region", "Region: {0}"), FText::FromString(MatchMakingRegion));
+				}
 			}
 		}
 	}

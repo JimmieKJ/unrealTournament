@@ -17,12 +17,33 @@
 #include "UTTeamShowdownGame.h"
 #include "BlueprintContextLibrary.h"
 #include "PartyContext.h"
+#include "UTGameInstance.h"
+#include "UTParty.h"
+#include "UTPartyGameState.h"
 
 #if !UE_SERVER
 
 SUTQuickMatchWindow::~SUTQuickMatchWindow()
 {
 	DefaultGameModeObject.Reset();
+	
+	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(PlayerOwner->GetGameInstance());
+	UUTParty* Party = UTGameInstance->GetParties();
+	if (Party)
+	{
+		UUTPartyGameState* PersistentParty = Cast<UUTPartyGameState>(Party->GetPersistentParty());
+		if (PersistentParty)
+		{
+			if (bCancelQuickmatch)
+			{
+				PersistentParty->SetPartyCancelQuickMatch();
+			}
+			else
+			{
+				PersistentParty->SetPartyJoiningQuickMatch();
+			}
+		}
+	}
 }
 
 void SUTQuickMatchWindow::Construct(const FArguments& InArgs, TWeakObjectPtr<UUTLocalPlayer> InPlayerOwner)
@@ -62,6 +83,17 @@ void SUTQuickMatchWindow::Construct(const FArguments& InArgs, TWeakObjectPtr<UUT
 		, PlayerOwner
 
 	);
+	
+	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(PlayerOwner->GetGameInstance());
+	UUTParty* Party = UTGameInstance->GetParties();
+	if (Party)
+	{
+		UUTPartyGameState* PersistentParty = Cast<UUTPartyGameState>(Party->GetPersistentParty());
+		if (PersistentParty)
+		{
+			PersistentParty->SetPartyQuickMatching();
+		}
+	}
 }
 
 void SUTQuickMatchWindow::BuildWindow()
@@ -768,7 +800,6 @@ void SUTQuickMatchWindow::OnDialogClosed()
 	}
 
 	Instances.Empty();
-
 }
 
 

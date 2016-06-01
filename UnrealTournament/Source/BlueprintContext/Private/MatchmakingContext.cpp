@@ -96,6 +96,14 @@ void UMatchmakingContext::OnPartyStateChangeInternal(EUTPartyState NewPartyState
 			LocalPlayer->HideMatchmakingDialog();
 		}
 	}
+	else if (NewPartyState == EUTPartyState::QuickMatching)
+	{
+		UUTLocalPlayer* LocalPlayer = GetOwningPlayer<UUTLocalPlayer>();
+		if (LocalPlayer)
+		{
+			LocalPlayer->ShowMatchmakingDialog();
+		}
+	}
 }
 
 void UMatchmakingContext::StartMatchmaking(int32 InPlaylistId)

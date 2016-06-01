@@ -256,3 +256,24 @@ void UUTPartyGameState::ReturnToMainMenu()
 	OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
 	UpdatePartyData(OwningUserId);
 }
+
+void UUTPartyGameState::SetPartyQuickMatching()
+{
+	PartyState.PartyProgression = EUTPartyState::QuickMatching;
+	OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
+	UpdatePartyData(OwningUserId);
+}
+
+void UUTPartyGameState::SetPartyJoiningQuickMatch()
+{
+	PartyState.PartyProgression = EUTPartyState::CustomMatch;
+	OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
+	UpdatePartyData(OwningUserId);
+}
+
+void UUTPartyGameState::SetPartyCancelQuickMatch()
+{
+	PartyState.PartyProgression = EUTPartyState::Menus;
+	OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
+	UpdatePartyData(OwningUserId);
+}

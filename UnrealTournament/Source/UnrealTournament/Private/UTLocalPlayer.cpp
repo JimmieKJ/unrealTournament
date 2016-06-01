@@ -5051,6 +5051,11 @@ void UUTLocalPlayer::ShowMatchmakingDialog()
 		return;
 	}
 
+	if (QuickMatchDialog.IsValid())
+	{
+		return;
+	}
+
 	if (GameAbandonedDialog.IsValid())
 	{
 		CloseDialog(GameAbandonedDialog.ToSharedRef());
