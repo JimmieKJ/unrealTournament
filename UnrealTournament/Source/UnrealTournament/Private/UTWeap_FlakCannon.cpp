@@ -33,7 +33,7 @@ AUTWeap_FlakCannon::AUTWeap_FlakCannon(const FObjectInitializer& ObjectInitializ
 
 	// MultiShot
 	MultiShotLocationSpread.SetNum(1);
-	MultiShotLocationSpread[0] = FVector(0.f, 10.f, 10.f);
+	MultiShotLocationSpread[0] = FVector(0.f, 36.f, 36.f);
 
 	MultiShotRotationSpread.SetNum(1);
 	MultiShotRotationSpread[0] = 1.5f;

@@ -18,14 +18,15 @@ AUTProj_FlakShell::AUTProj_FlakShell(const class FObjectInitializer& ObjectIniti
 	TossZ = 430.0f;
 
 	DamageParams.BaseDamage = 90.0f;
-	DamageParams.OuterRadius = 240.0f;
+	DamageParams.OuterRadius = 300.0f;
+	DamageParams.MinimumDamage = 20.f;
 
 	Momentum = 110000.0f;
 
 	InitialLifeSpan = 6.0f;
 
 	// Flak shell
-	ShardSpawnCount = 4;
+	ShardSpawnCount = 3;
 	ShardSpawnAngle = 20.0f;
 }
 

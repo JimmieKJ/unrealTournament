@@ -27,8 +27,8 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	HotTrailColor = FLinearColor(2.0f, 1.65f, 0.65f, 1.0f);
 	ColdTrailColor = FLinearColor(0.165f, 0.135f, 0.097f, 0.0f);
 
-	ProjectileMovement->InitialSpeed = 4400.0f;
-	ProjectileMovement->MaxSpeed = 5000.0f;
+	ProjectileMovement->InitialSpeed = 4700.0f;
+	ProjectileMovement->MaxSpeed = 7000.0f;
 	ProjectileMovement->ProjectileGravityScale = 0.f;
 	ProjectileMovement->bShouldBounce = true;
 	ProjectileMovement->BounceVelocityStopSimulatingThreshold = 0.0f;
@@ -58,6 +58,9 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	bNetTemporary = true;
 	NumSatelliteShards = 1;
 	StatsHitCredit = 0.111f;
+	OverlapRadius = 40.f;
+	FinalOverlapRadius = 8.f;
+	RadiusShrinkRate = 150.f;
 }
 
 void AUTProj_FlakShard::BeginPlay()
@@ -145,6 +148,11 @@ void AUTProj_FlakShard::OnBounce(const struct FHitResult& ImpactResult, const FV
 	float CurrentBounceDamping = (ProjectileMovement->ProjectileGravityScale == 0.f) ? FirstBounceDamping : BounceDamping;
 	Super::OnBounce(ImpactResult, ImpactVelocity);
 
+	if (PawnOverlapSphere != NULL)
+	{
+		PawnOverlapSphere->SetSphereRadius(FinalOverlapRadius, false);
+	}
+
 	// manually handle bounce velocity to match UT3 for now
 	ProjectileMovement->Velocity = CurrentBounceDamping * (ImpactVelocity - 2.0f * ImpactResult.Normal * (ImpactVelocity | ImpactResult.Normal));
 
@@ -198,6 +206,15 @@ FRadialDamageParams AUTProj_FlakShard::GetDamageParams_Implementation(AActor* Ot
 void AUTProj_FlakShard::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	if (PawnOverlapSphere != NULL)
+	{
+		float CurrentRadius = PawnOverlapSphere->GetUnscaledSphereRadius();
+		if (CurrentRadius > FinalOverlapRadius)
+		{
+			PawnOverlapSphere->SetSphereRadius(FMath::Max(FinalOverlapRadius, CurrentRadius - RadiusShrinkRate*DeltaTime), false);
+		}
+	}
 
 	if (InitialLifeSpan - GetLifeSpan() > FullGravityDelay)
 	{
