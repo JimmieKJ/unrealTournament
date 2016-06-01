@@ -145,9 +145,19 @@ bool AUTRemoteRedeemer::DriverLeave(bool bForceLeave)
 		}
 		C->Possess(Driver);
 	}
+	if (Driver && PlayerState)
+	{
+		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+		{
+			AUTPlayerController* UTPC = Cast<AUTPlayerController>(It->PlayerController);
+			if (UTPC && UTPC->LastSpectatedPlayerState == PlayerState)
+			{
+				UTPC->ViewPawn(Driver);
+			}
+		}
+	}
 
 	Driver = nullptr;
-
 	return true;
 }
 
@@ -306,7 +316,6 @@ void AUTRemoteRedeemer::PlayDetonateEffects()
 
 void AUTRemoteRedeemer::PlayExplosionEffects()
 {
-
 	// stop any looping audio
 	TArray<USceneComponent*> Components;
 	GetComponents<USceneComponent>(Components);

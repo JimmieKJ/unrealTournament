@@ -2968,7 +2968,7 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 	{
 		ViewTargetPawn = PlayerCameraManager->GetViewTargetPawn();
 		ViewTargetCharacter = Cast<AUTCharacter>(ViewTargetPawn);
-		if (!ViewTargetPawn || (ViewTargetCharacter && ViewTargetCharacter->IsDead() && !ViewTargetCharacter->IsRecentlyDead()))
+		if (!ViewTargetPawn || ViewTargetPawn->IsPendingKillPending() || (ViewTargetCharacter && ViewTargetCharacter->IsDead() && !ViewTargetCharacter->IsRecentlyDead()))
 		{
 			for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 			{
