@@ -1738,7 +1738,6 @@ protected:
 	/** switches weapon locally, must execute independently on both server and client */
 	virtual void LocalSwitchWeapon(AUTWeapon* NewWeapon);
 
-public:
 	/** RPC to do weapon switch */
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerSwitchWeapon(AUTWeapon* NewWeapon);

@@ -104,6 +104,6 @@ void UUTRadialMenu_WeaponWheel::Execute()
 {
 	if (WeaponList.IsValidIndex(CurrentSegment) && WeaponList[CurrentSegment] != nullptr && !WeaponList[CurrentSegment]->IsPendingKillPending())
 	{
-		UTHUDOwner->UTPlayerOwner->GetUTCharacter()->ServerSwitchWeapon(WeaponList[CurrentSegment]);
+		UTHUDOwner->UTPlayerOwner->GetUTCharacter()->SwitchWeapon(WeaponList[CurrentSegment]);
 	}
 }

@@ -1271,7 +1271,7 @@ void SUTWeaponConfigDialog::OnQuickslotSelected(TSharedPtr<FText> NewSelection, 
 {
 	int32 WeaponIndex = WeakWeaponClassList.Find(SelectedWeapon);
 	int32 SlotIndex = QuickSlotTexts.Find(NewSelection);
-	if ( WeaponIndex != INDEX_NONE && SlotIndex != INDEX_NONE )
+	if ( WeaponIndex != INDEX_NONE && SlotIndex > 0 )
 	{
 		// Look to see if this weapon is already in the list.
 		int32 WheelIndex = WeaponWheelClassnames.Find(WeakWeaponClassList[WeaponIndex]->GetName());
