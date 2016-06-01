@@ -970,6 +970,11 @@ FReply SUTWeaponConfigDialog::OKClick()
 			WeaponClassList[i]->GetDefaultObject<AUTWeapon>()->Group = NewGroup;
 			WeaponClassList[i]->GetDefaultObject<AUTWeapon>()->SaveConfig();
 		}
+
+		for (int32 i = 0 ; i < ProfileSettings->WeaponWheelQuickSlots.Num(); i++)
+		{
+			ProfileSettings->WeaponWheelQuickSlots[i] = WeaponWheelClassnames[i];
+		}
 	}
 
 	AUTHUD* DefaultHud = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>();
