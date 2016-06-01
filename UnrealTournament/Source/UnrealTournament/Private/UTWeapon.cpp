@@ -411,7 +411,7 @@ bool AUTWeapon::FollowsInList(AUTWeapon* OtherWeapon)
 
 void AUTWeapon::StartFire(uint8 FireModeNum)
 {
-	if (!UTOwner->IsFiringDisabled())
+	if (!UTOwner || !UTOwner->IsFiringDisabled())
 	{
 		bool bClientFired = BeginFiringSequence(FireModeNum, false);
 		if (Role < ROLE_Authority)
