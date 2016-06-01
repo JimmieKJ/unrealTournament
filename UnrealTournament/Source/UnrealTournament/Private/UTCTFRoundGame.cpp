@@ -30,6 +30,9 @@
 #include "UTGhostFlag.h"
 #include "UTCTFRoundGameState.h"
 #include "UTAsymCTFSquadAI.h"
+#include "UTAnalytics.h"
+#include "Runtime/Analytics/Analytics/Public/Analytics.h"
+#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 
 AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -583,6 +586,16 @@ void AUTCTFRoundGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, A
 			{
 				Holder->Team->RoundBonus = FMath::Min(MaxTimeScoreBonus, UTGameState->GetRemainingTime());
 				Holder->Team->SecondaryScore += Holder->Team->RoundBonus;
+			}
+		}
+
+		if (FUTAnalytics::IsAvailable())
+		{
+			if (GetWorld()->GetNetMode() != NM_Standalone)
+			{
+				TArray<FAnalyticsEventAttribute> ParamArray;
+				ParamArray.Add(FAnalyticsEventAttribute(TEXT("FlagCapScore"), GetFlagCapScore()));
+				FUTAnalytics::GetProvider().RecordEvent(TEXT("RCTFRoundResult"), ParamArray);
 			}
 		}
 	}
@@ -1194,6 +1207,16 @@ void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 		if (UTGameState->IsMatchInProgress())
 		{
 			SetMatchState(MatchState::MatchIntermission);
+		}
+
+		if (FUTAnalytics::IsAvailable())
+		{
+			if (GetWorld()->GetNetMode() != NM_Standalone)
+			{
+				TArray<FAnalyticsEventAttribute> ParamArray;
+				ParamArray.Add(FAnalyticsEventAttribute(TEXT("FlagCapScore"), 0));
+				FUTAnalytics::GetProvider().RecordEvent(TEXT("RCTFRoundResult"), ParamArray);
+			}
 		}
 	}
 }
