@@ -273,11 +273,11 @@ void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float 
 
 		AUTTeamInfo* NextAttacker = GS->bRedToCap ? GS->Teams[1] : GS->Teams[0];
 		AUTTeamInfo* NextDefender = GS->bRedToCap ? GS->Teams[0] : GS->Teams[1];
-		FText AttackerName = (NextAttacker->TeamIndex == 0) ? RedTeamText : BlueTeamText;
-		FText DefenderName = (NextDefender->TeamIndex == 0) ? RedTeamText : BlueTeamText;
+		FText AttackerNameText = (NextAttacker->TeamIndex == 0) ? RedTeamText : BlueTeamText;
+		FText DefenderNameText = (NextDefender->TeamIndex == 0) ? RedTeamText : BlueTeamText;
 		FFormatNamedArguments Args;
-		Args.Add("AttackerName", AttackerName);
-		Args.Add("DefenderName", DefenderName);
+		Args.Add("AttackerName", AttackerNameText);
+		Args.Add("DefenderName", DefenderNameText);
 		int32 RequiredTime = NextDefender->SecondaryScore - NextAttacker->SecondaryScore;
 		FText TimeStampLine = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), RequiredTime, false, true, false);
 		Args.Add("TimeNeeded", TimeStampLine);
@@ -301,7 +301,7 @@ void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float 
 				}
 				else
 				{
-					FText BonusType = (NextAttacker->Score - NextDefender->Score == 2) ? GS->BronzeBonusText : GS->SilverBonusText;
+					BonusType = (NextAttacker->Score - NextDefender->Score == 2) ? GS->BronzeBonusText : GS->SilverBonusText;
 					Args.Add("BonusType", BonusType);
 					Canvas->DrawText(UTHUDOwner->SmallFont, FText::Format(NSLOCTEXT("UTFlagRun", "DefendersMustHold", " must hold {AttackerName} to {BonusType} to have a chance."), Args).ToString(), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
 				}

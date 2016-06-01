@@ -4684,7 +4684,7 @@ bool AUTGameMode::AttemptBoost(AUTPlayerController* Who)
 	return bCanBoost;
 }
 
-AActor* AUTGameMode::InitializeComMenu(FComMenuCommandList& CommandList, UWorld* World, AUTGameState* UTGameState, AUTPlayerController* TargetPlayer)
+AActor* AUTGameMode::InitializeComMenu(FComMenuCommandList& CommandList, UWorld* World, AUTGameState* InUTGameState, AUTPlayerController* TargetPlayer)
 {
 	CommandList.Intent		= FComMenuCommand(NSLOCTEXT("Testxxxxxxxxxxx","Test1","Intent"), CommandTags::Intent);
 	CommandList.Attack		= FComMenuCommand(NSLOCTEXT("Testxxxxxxxxxxx","Test2","Attack"), CommandTags::Attack);
@@ -4694,9 +4694,9 @@ AActor* AUTGameMode::InitializeComMenu(FComMenuCommandList& CommandList, UWorld*
 	return nullptr;
 }
 
-void AUTGameMode::ExecuteComMenu(FName CommandTag, UWorld* World, AUTGameState* UTGameState, AUTPlayerController* TargetPlayer, AActor* ContextActor)
+void AUTGameMode::ExecuteComMenu(FName CommandTag, UWorld* World, AUTGameState* InUTGameState, AUTPlayerController* TargetPlayer, AActor* ContextActor)
 {
-	AUTCTFRoundGameState* RoundGameState = Cast<AUTCTFRoundGameState>(UTGameState);
+	AUTCTFRoundGameState* RoundGameState = Cast<AUTCTFRoundGameState>(InUTGameState);
 	bool bOnDefense = RoundGameState ? RoundGameState->IsTeamOnDefense(TargetPlayer->GetTeamNum()) : false;
 
 	FString LocationTag = TEXT("Somewhere");
