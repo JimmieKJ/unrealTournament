@@ -98,6 +98,9 @@ public:
 	/** if set, item starts off not being available when placed in the level (must wait RespawnTime from start of match) */
 	UPROPERTY(EditDefaultsOnly, Category = Pickup)
 	bool bDelayedSpawn;
+	/** if set, pickup respawns every RespawnTime seconds regardless of when it was picked up last */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup)
+	bool bFixedRespawnInterval;
 	/** if set, item is always dropped when its holder dies if uses/charges/etc remain */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Inventory)
 	bool bAlwaysDropOnDeath;

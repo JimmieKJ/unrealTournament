@@ -222,7 +222,10 @@ void AUTPickup::StartSleeping_Implementation()
 	SetActorEnableCollision(false);
 	if (RespawnTime > 0.0f)
 	{
-		GetWorld()->GetTimerManager().SetTimer(WakeUpTimerHandle, this, &AUTPickup::WakeUpTimer, RespawnTime, false);
+		if (!bFixedRespawnInterval || !GetWorld()->GetTimerManager().IsTimerActive(WakeUpTimerHandle))
+		{
+			GetWorld()->GetTimerManager().SetTimer(WakeUpTimerHandle, this, &AUTPickup::WakeUpTimer, RespawnTime, false);
+		}
 		if (TimerEffect != NULL && TimerEffect->Template != NULL)
 		{
 			// FIXME: workaround for particle bug; screen facing particles don't handle negative scale correctly
@@ -279,6 +282,11 @@ void AUTPickup::WakeUp_Implementation()
 {
 	SetPickupHidden(false);
 	GetWorld()->GetTimerManager().ClearTimer(WakeUpTimerHandle);
+	if (bFixedRespawnInterval)
+	{
+		// start timer for next time
+		GetWorld()->GetTimerManager().SetTimer(WakeUpTimerHandle, this, &AUTPickup::WakeUpTimer, RespawnTime, false);
+	}
 
 	PrimaryActorTick.SetTickFunctionEnable(GetClass()->GetDefaultObject<AUTPickup>()->PrimaryActorTick.bStartWithTickEnabled);
 	if (TimerEffect != NULL)
@@ -304,7 +312,10 @@ void AUTPickup::WakeUpTimer()
 {
 	if (Role == ROLE_Authority)
 	{
-		WakeUp();
+		if (!bFixedRespawnInterval || !State.bActive)
+		{
+			WakeUp();
+		}
 	}
 	else
 	{
@@ -418,6 +429,7 @@ void AUTPickup::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutL
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AUTPickup, RespawnTime);
+	DOREPLIFETIME(AUTPickup, bFixedRespawnInterval);
 	// warning: we rely on this ordering
 	DOREPLIFETIME_CONDITION(AUTPickup, State, COND_None);
 	DOREPLIFETIME_CONDITION(AUTPickup, RespawnTimeRemaining, COND_InitialOnly);

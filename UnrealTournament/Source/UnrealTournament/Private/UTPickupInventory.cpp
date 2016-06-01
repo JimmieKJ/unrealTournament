@@ -93,10 +93,12 @@ void AUTPickupInventory::SetInventoryType(TSubclassOf<AUTInventory> NewType)
 		RespawnTime = InventoryType.GetDefaultObject()->RespawnTime;
 		bDelayedSpawn = InventoryType.GetDefaultObject()->bDelayedSpawn;
 		BaseDesireability = InventoryType.GetDefaultObject()->BasePickupDesireability;
+		bFixedRespawnInterval = InventoryType.GetDefaultObject()->bFixedRespawnInterval;
 	}
 	else
 	{
 		RespawnTime = 0.0f;
+		bFixedRespawnInterval = false;
 	}
 	InventoryTypeUpdated();
 	if (Role == ROLE_Authority && GetWorld()->GetAuthGameMode<AUTGameMode>() != NULL && GetWorld()->GetAuthGameMode<AUTGameMode>()->HasMatchStarted())
