@@ -346,6 +346,20 @@ void AUTPlayerState::NotifyTeamChanged_Implementation()
 			if (LP != NULL)
 			{
 				LP->SetDefaultURLOption(TEXT("Team"), FString::FromInt(Team->TeamIndex));
+
+				// make sure proper outlines are shown for new team
+				AGameState* GS = GetWorld()->GetGameState();
+				if (GS != NULL)
+				{
+					for (int32 i = 0; i < GS->PlayerArray.Num(); i++)
+					{
+						AUTPlayerState* PS = Cast<AUTPlayerState>(GS->PlayerArray[i]);
+						if (PS != NULL && PS->bSpecialTeamPlayer && PS->GetUTCharacter() != NULL)
+						{
+							PS->UpdateSpecialTacComFor(PS->GetUTCharacter(), PC);
+						}
+					}
+				}
 			}
 		}
 	}
@@ -977,15 +991,6 @@ void AUTPlayerState::HandleTeamChanged(AController* Controller)
 		if (PC)
 		{
 			PC->ClientReceiveLocalizedMessage(UUTGameMessage::StaticClass(), Switch, this, NULL, NULL);
-			for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
-			{
-				AUTCharacter* Character = Cast<AUTCharacter>(*It);
-				AUTPlayerState* PS = (Character && !Character->bTearOff) ? Cast<AUTPlayerState>(Character->PlayerState) : nullptr;
-				if (PS && PS->bSpecialTeamPlayer)
-				{
-					PS->UpdateSpecialTacComFor(Character, PC);
-				}
-			}
 		}
 	}
 }
