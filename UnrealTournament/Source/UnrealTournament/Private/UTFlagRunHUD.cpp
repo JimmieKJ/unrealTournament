@@ -247,7 +247,7 @@ EInputMode::Type AUTFlagRunHUD::GetInputMode_Implementation() const
 	{
 		return EInputMode::EIM_GameAndUI;
 	}
-	else if ((GS->GetMatchState() == MatchState::WaitingToStart) || (GS->GetMatchState() == MatchState::MatchIntermission))
+	else if (GS && ((GS->GetMatchState() == MatchState::WaitingToStart) || (GS->GetMatchState() == MatchState::MatchIntermission)))
 	{
 		return EInputMode::EIM_GameOnly;
 	}
