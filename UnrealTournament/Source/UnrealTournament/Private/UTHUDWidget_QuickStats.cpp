@@ -41,6 +41,12 @@ bool UUTHUDWidget_QuickStats::ShouldDraw_Implementation(bool bShowScores)
 	{
 		return false;
 	}
+
+	if (UTHUDOwner->bShowComsMenu || UTHUDOwner->bShowWeaponWheel)
+	{
+		return false;
+	}
+
 	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
 	return (!bShowScores && UTC && !UTC->IsDead() && !UTHUDOwner->GetQuickStatsHidden());
 }
@@ -524,4 +530,8 @@ float UUTHUDWidget_QuickStats::GetDrawScaleOverride()
 	return Super::GetDrawScaleOverride() * DrawScale;
 }
 
+void UUTHUDWidget_QuickStats::PingBoostWidget()
+{
+	BoostProvidedPowerupInfo.Animate(StatAnimTypes::Scale, 1.5f, 3.25f, 1.0f, true);		
+}
 

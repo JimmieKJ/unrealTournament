@@ -1737,9 +1737,13 @@ protected:
 
 	/** switches weapon locally, must execute independently on both server and client */
 	virtual void LocalSwitchWeapon(AUTWeapon* NewWeapon);
+
+public:
 	/** RPC to do weapon switch */
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerSwitchWeapon(AUTWeapon* NewWeapon);
+
+protected:
 	UFUNCTION(Client, Reliable)
 	virtual void ClientSwitchWeapon(AUTWeapon* NewWeapon);
 	/** utility to redirect to SwitchToBestWeapon() to the character's Controller (human or AI) */

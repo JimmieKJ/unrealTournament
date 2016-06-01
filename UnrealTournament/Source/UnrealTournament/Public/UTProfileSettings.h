@@ -22,7 +22,9 @@ static const uint32 HUDSETTINGS_FIXUP_PROFILESETTINGS_VERSION = 15;
 static const uint32 ACTIVATEPOWERUP_FIXUP_PROFILESETTINGS_VERSION = 16;
 static const uint32 BUY_MENU_AND_DROP_FLAG_BUTTON_FIXUP_PROFILE_SETTINGS_VERSION = 17;
 static const uint32 SLIDE_FIXUP_PROFILE_SETTINGS_VERSION = 18;
-static const uint32 CURRENT_PROFILESETTINGS_VERSION = 18;
+static const uint32 WEAPON_WHEEL_FIXUP_PROFILESETTINGS_VERSION=19;
+static const uint32 CURRENT_PROFILESETTINGS_VERSION = 19;
+
 static const uint32 CHALLENGE_FIXUP_VERSION = 12;
 
 
@@ -399,6 +401,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category=Hud)
 	void ResetHUD();
 
+	
+
+
 public:
 	void UpdateCrosshairs(AUTHUD* HUD);
 
@@ -411,5 +416,7 @@ public:
 		Destination = FoundTokenUniqueIDs;
 	}
 
-
+	// These slots are used by the weapon wheel menu.  They hold the classname of the weapon in this slot
+	UPROPERTY()
+	TArray<FString> WeaponWheelQuickSlots;
 };

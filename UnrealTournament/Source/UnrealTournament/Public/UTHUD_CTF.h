@@ -14,4 +14,12 @@ class UNREALTOURNAMENT_API AUTHUD_CTF : public AUTHUD
 	virtual void DrawMinimapSpectatorIcons() override;
 	virtual bool ShouldInvertMinimap() override;
 	virtual int32 GetScoreboardPage() override;
+
+	virtual void ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, uint32 MessageIndex, FText LocalMessageText, UObject* OptionalObject);
+
+	virtual void ClientRestart();
+
+protected:
+	virtual void PingBoostIndicator();
+
 };

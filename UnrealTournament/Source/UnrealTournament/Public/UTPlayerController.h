@@ -267,6 +267,7 @@ public:
 	virtual bool CanRestartPlayer();
 
 	virtual bool InputKey(FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad) override;
+	virtual bool InputAxis(FKey Key, float Delta, float DeltaTime, int32 NumSamples, bool bGamepad) override;
 
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = Camera)
 	bool bAllowPlayingBehindView;
@@ -1133,6 +1134,18 @@ public:
 
 	UPROPERTY()
 	bool bUseAltSpawnPoint;
+
+	UFUNCTION(exec)
+	virtual void ShowComsMenu();
+	
+	UFUNCTION(exec)
+	virtual void HideComsMenu();
+
+	UFUNCTION(exec)
+	virtual void ShowWeaponWheel();
+
+	UFUNCTION(exec)
+	virtual void HideWeaponWheel();
 
 
 };

@@ -897,5 +897,21 @@ public:
 
 	// Look to see if we can attempt a boost.  It will use up the charge if we can and return true, otherwise it returns false.
 	virtual bool AttemptBoost(AUTPlayerController* Who);
+
+	/**
+	 *	Create a list of FComMenuCommands that will be displayed in the com menu.  This will be called on the default object of the current game type
+	 *  since in a network game the actual GameMode isn't available.  
+	 *
+	 *  @Returns the actor that is the current context
+	 **/
+	virtual AActor* InitializeComMenu(FComMenuCommandList& CommandList, UWorld* World, AUTGameState* UTGameState, AUTPlayerController* TargetPlayer);
+								   
+	/**
+	 *	Create a list of FComMenuCommands that will be displayed in the com menu.  This will be called on the default object of the current game type
+	 *  since in a network game the actual GameMode isn't available.  
+	 **/
+	virtual void ExecuteComMenu(FName CommandTag, UWorld* World, AUTGameState* UTGameState, AUTPlayerController* TargetPlayer, AActor* ContextActor);
+
+
 };
 

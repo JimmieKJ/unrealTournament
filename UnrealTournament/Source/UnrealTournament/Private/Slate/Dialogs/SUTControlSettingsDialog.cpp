@@ -341,6 +341,10 @@ void SUTControlSettingsDialog::CreateBinds()
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select WeaponGroup10", "Select Group 10")))
 		->AddCustomBinding("SwitchWeapon 10")
 		->AddDefaults(EKeys::Zero)));
+
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "WeaponSelect", "Weapon Wheel")))
+		->AddActionMapping("ToggleWeaponWheel")));
+
 	//Taunts
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Taunts", "Taunts")))->MakeHeader()));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Taunt", "Taunt 1")))
@@ -374,6 +378,11 @@ void SUTControlSettingsDialog::CreateBinds()
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Team Talk", "Team Talk")))
 		->AddActionMapping("TeamTalk")
 		->AddDefaults(EKeys::Y)));
+
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "ComMenu", "Com Menu")))
+		->AddActionMapping("ToggleComMenu")
+		->AddDefaults(EKeys::F)));
+
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Buy Menu", "Buy Menu")))
 		->AddActionMapping("ShowBuyMenu")
 		->AddDefaults(EKeys::B)));

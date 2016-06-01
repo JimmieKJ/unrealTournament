@@ -63,6 +63,10 @@ struct FEnemyDamageNumber
 	FEnemyDamageNumber(APawn* InPawn, float InTime, uint8 InDamage, FVector InLoc, float InScale) : DamagedPawn(InPawn), DamageTime(InTime), DamageAmount(InDamage), WorldPosition(InLoc), Scale(InScale) {};
 };
 
+class UUTRadialMenu;
+class UUTRadialMenu_Coms;
+class UUTRadialMenu_WeaponWheel;
+
 UCLASS(Config=Game)
 class UNREALTOURNAMENT_API AUTHUD : public AHUD
 {
@@ -591,7 +595,28 @@ protected:
 	void DrawWatermark();
 
 public:
+	UFUNCTION()
+	virtual void ClientRestart()
+	{
+	}
+
 	bool VerifyProfileSettings();
 	virtual void Destroyed();
+
+	virtual bool ProcessInputAxis(FKey Key, float Delta);
+	virtual bool ProcessInputKey(FKey Key, EInputEvent EventType);
+
+	bool bShowComsMenu;
+	virtual void ToggleComsMenu(bool bShow);
+
+	bool bShowWeaponWheel;
+	virtual void ToggleWeaponWheel(bool bShow);
+
+
+protected:
+
+	TArray<UUTRadialMenu*> RadialMenus;
+	UUTRadialMenu_Coms* ComsMenu;
+	UUTRadialMenu_WeaponWheel* WeaponWheel;
 };
 

@@ -230,6 +230,7 @@ class UNREALTOURNAMENT_API UUTHUDWidget_QuickStats : public UUTHUDWidget
 	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
 	virtual bool ShouldDraw_Implementation(bool bShowScores);
 
+	virtual void PingBoostWidget();
 
 
 protected:

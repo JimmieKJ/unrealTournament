@@ -97,6 +97,20 @@ void UUTProfileSettings::VersionFixup()
 		Slide.Key = EKeys::LeftShift;
 		ActionMappings.AddUnique(Slide);
 	}
+
+	if (SettingsRevisionNum < WEAPON_WHEEL_FIXUP_PROFILESETTINGS_VERSION)
+	{
+		// Add 8 weapon wheel slots for the weapon wheel menu
+		WeaponWheelQuickSlots.Add(TEXT("BP_RocketLauncher_C"));
+		WeaponWheelQuickSlots.Add(TEXT("BP_BioRifle_C"));
+		WeaponWheelQuickSlots.Add(TEXT("BP_Sniper_C"));
+		WeaponWheelQuickSlots.Add(TEXT("BP_Minigun_C"));
+		WeaponWheelQuickSlots.Add(TEXT("BP_FlakCannon_C"));
+		WeaponWheelQuickSlots.Add(TEXT("BP_LinkGun_C"));
+		WeaponWheelQuickSlots.Add(TEXT("ShockRifle_C"));
+		WeaponWheelQuickSlots.Add(TEXT("Enforcer_C"));
+	}
+
 	// The format has changed during Dev versions.  So in case some people have written out unlocks, clear them here.
 	if (SettingsRevisionNum <= CHALLENGE_FIXUP_VERSION)
 	{

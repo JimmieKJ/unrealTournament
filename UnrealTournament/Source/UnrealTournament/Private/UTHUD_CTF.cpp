@@ -4,6 +4,8 @@
 #include "UTCTFGameState.h"
 #include "UTCTFGameMode.h"
 #include "UTCTFScoreboard.h"
+#include "UTCTFRewardMessage.h"
+#include "UTHUDWidget_QuickStats.h"
 
 AUTHUD_CTF::AUTHUD_CTF(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -115,3 +117,29 @@ bool AUTHUD_CTF::ShouldInvertMinimap()
 	return false;
 }
 
+void AUTHUD_CTF::ClientRestart()
+{
+	PingBoostIndicator();
+}
+
+void AUTHUD_CTF::PingBoostIndicator()
+{
+	if (UTPlayerOwner->UTPlayerState && UTPlayerOwner->UTPlayerState->GetRemainingBoosts() > 0)
+	{
+		UUTHUDWidget_QuickStats* QuickStatWidget = Cast<UUTHUDWidget_QuickStats>(FindHudWidgetByClass(UUTHUDWidget_QuickStats::StaticClass(), false));
+		if (QuickStatWidget)
+		{
+			QuickStatWidget->PingBoostWidget();
+		}
+	}
+}
+
+void AUTHUD_CTF::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, uint32 MessageIndex, FText LocalMessageText, UObject* OptionalObject)
+{
+	Super::ReceiveLocalMessage(MessageClass, RelatedPlayerState_1, RelatedPlayerState_2, MessageIndex, LocalMessageText, OptionalObject);
+
+	if ( MessageClass == UUTCTFRewardMessage::StaticClass() && MessageIndex == 7 )
+	{
+		PingBoostIndicator();
+	}
+}

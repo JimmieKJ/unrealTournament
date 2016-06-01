@@ -403,6 +403,13 @@ void AUTPlayerController::SetupInputComponent()
 
 	InputComponent->BindAction("DropCarriedObject", IE_Pressed, this, &AUTPlayerController::DropCarriedObject);
 
+	InputComponent->BindAction("ToggleComMenu", IE_Pressed, this, &AUTPlayerController::ShowComsMenu);
+	InputComponent->BindAction("ToggleComMenu", IE_Released, this, &AUTPlayerController::HideComsMenu);
+
+	InputComponent->BindAction("ToggleWeaponWheel", IE_Pressed, this, &AUTPlayerController::ShowWeaponWheel);
+	InputComponent->BindAction("ToggleWeaponWheel", IE_Released, this, &AUTPlayerController::HideWeaponWheel);
+
+
 	UpdateWeaponGroupKeys();
 	UpdateInventoryKeys();
 }
@@ -553,6 +560,12 @@ void AUTPlayerController::ClientRestart_Implementation(APawn* NewPawn)
 	DitheredLODCVar->Set(false, ECVF_SetByGameSetting);
 	FTimerHandle TimerHandle;
 	GetWorldTimerManager().SetTimer(TimerHandle, this, &AUTPlayerController::ResetFoliageDitheredLOD, 0.5f, false);
+
+	if (MyUTHUD != nullptr) 
+	{
+		MyUTHUD->ClientRestart();
+	}
+
 }
 
 void AUTPlayerController::PawnPendingDestroy(APawn* InPawn)
@@ -633,10 +646,30 @@ void AUTPlayerController::SetSpectatorMouseChangesView(bool bNewValue)
 	}
 }
 
+bool AUTPlayerController::InputAxis(FKey Key, float Delta, float DeltaTime, int32 NumSamples, bool bGamepad)
+{
+	if (MyUTHUD != nullptr) 
+	{
+		if ( MyUTHUD->ProcessInputAxis(Key, Delta) )
+		{
+			return true;
+		}
+	}
+
+	Super::InputAxis(Key, Delta, DeltaTime, NumSamples, bGamepad);
+
+	return false;
+}
+
 bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad)
 {
 	// HACK: Ignore all input that occurred during loading to avoid Slate focus issues and other weird behaviour
 	if (GetWorld()->RealTimeSeconds < 0.5f)
+	{
+		return true;
+	}
+
+	if ( MyUTHUD != nullptr && MyUTHUD->ProcessInputKey(Key, EventType) )
 	{
 		return true;
 	}
@@ -2885,7 +2918,6 @@ void AUTPlayerController::Possess(APawn* PawnToPossess)
 			UTChar->SetEyewearClass(UTPlayerState->EyewearClass);
 		}
 	}
-
 	// clear any victim message being displayed
 	ClientReceiveLocalizedMessage(UUTVictimMessage::StaticClass(), 2, NULL, NULL, NULL);
 }
@@ -4520,3 +4552,24 @@ void AUTPlayerController::ResetFoliageDitheredLOD()
 	static auto DitheredLODCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("foliage.DitheredLOD"));
 	DitheredLODCVar->Set(true, ECVF_SetByGameSetting);
 }
+
+void AUTPlayerController::ShowComsMenu()
+{
+	if (MyUTHUD) MyUTHUD->ToggleComsMenu(true);
+}
+
+void AUTPlayerController::HideComsMenu()
+{
+	if (MyUTHUD) MyUTHUD->ToggleComsMenu(false);
+}
+
+void AUTPlayerController::ShowWeaponWheel()
+{
+	if (MyUTHUD) MyUTHUD->ToggleWeaponWheel(true);
+}
+
+void AUTPlayerController::HideWeaponWheel()
+{
+	if (MyUTHUD) MyUTHUD->ToggleWeaponWheel(false);
+}
+

@@ -22,6 +22,9 @@
 #include "UTATypes.h"
 #include "UTDemoRecSpectator.h"
 #include "UTGameVolume.h"
+#include "UTRadialMenu.h"
+#include "UTRadialMenu_Coms.h"
+#include "UTRadialMenu_WeaponWheel.h"
 
 AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -161,6 +164,12 @@ void AUTHUD::BeginPlay()
 		}
 	}
 	AddSpectatorWidgets();
+
+	// Add the Coms Menu
+	ComsMenu = Cast<UUTRadialMenu_Coms>(AddHudWidget(UUTRadialMenu_Coms::StaticClass()));
+	WeaponWheel = Cast<UUTRadialMenu_WeaponWheel>(AddHudWidget(UUTRadialMenu_WeaponWheel::StaticClass()));
+	RadialMenus.Add(ComsMenu);
+	RadialMenus.Add(WeaponWheel);
 }
 
 void AUTHUD::AddSpectatorWidgets()
@@ -384,6 +393,7 @@ UUTHUDWidget* AUTHUD::FindHudWidgetByClass(TSubclassOf<UUTHUDWidget> SearchWidge
 void AUTHUD::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, uint32 MessageIndex, FText LocalMessageText, UObject* OptionalObject)
 {
 	UUTHUDWidgetMessage* DestinationWidget = (HudMessageWidgets.FindRef(MessageClass->GetDefaultObject<UUTLocalMessage>()->MessageArea));
+
 	if (DestinationWidget != NULL)
 	{
 		DestinationWidget->ReceiveLocalMessage(MessageClass, RelatedPlayerState_1, RelatedPlayerState_2,MessageIndex, LocalMessageText, OptionalObject);
@@ -1496,4 +1506,63 @@ float AUTHUD::GetQuickStatsBob()
 	return VerifyProfileSettings() ? CachedProfileSettings->bQuickStatsBob : true;
 }
 
+bool AUTHUD::ProcessInputAxis(FKey Key, float Delta)
+{
+	for (int32 i=0; i < RadialMenus.Num(); i++)
+	{
+		if (RadialMenus[i] != nullptr)
+		{
+			if (RadialMenus[i]->ProcessInputAxis(Key, Delta))
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+bool AUTHUD::ProcessInputKey(FKey Key, EInputEvent EventType)
+{
+	for (int32 i=0; i < RadialMenus.Num(); i++)
+	{
+		if (RadialMenus[i] != nullptr)
+		{
+			if ( RadialMenus[i]->ProcessInputKey(Key, EventType) )
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+void AUTHUD::ToggleComsMenu(bool bShow)
+{
+	bShowComsMenu = bShow;
+
+	if (bShow)
+	{
+		ComsMenu->BecomeInteractive();
+	}
+	else
+	{
+		ComsMenu->BecomeNonInteractive();
+	}
+}
+
+void AUTHUD::ToggleWeaponWheel(bool bShow)
+{
+	bShowWeaponWheel = bShow;
+
+	if (bShow)
+	{
+		WeaponWheel->BecomeInteractive();
+	}
+	else
+	{
+		WeaponWheel->BecomeNonInteractive();
+	}
+}
 
