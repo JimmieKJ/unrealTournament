@@ -49,4 +49,7 @@ class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 	virtual void SmoothTargetViewRotation(APawn* TargetPawn, float DeltaSeconds) override;
 
 	virtual void ViewFlag(uint8 Index) override;
+
+	UFUNCTION(Client, UnReliable)
+	virtual void DemoNotifyCausedHit(APawn* InstigatorPawn, AUTCharacter* HitPawn, uint8 AppliedDamage, FVector Momentum, const FDamageEvent& DamageEvent);
 };

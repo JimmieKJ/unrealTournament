@@ -21,6 +21,38 @@ void AUTDemoRecSpectator::ViewPlayerState(APlayerState* PS)
 	}
 }
 
+void AUTDemoRecSpectator::DemoNotifyCausedHit_Implementation(APawn* InstigatorPawn, AUTCharacter* HitPawn, uint8 AppliedDamage, FVector Momentum, const FDamageEvent& DamageEvent)
+{
+	if (GetViewTarget() == InstigatorPawn)
+	{
+		ClientNotifyCausedHit(HitPawn, AppliedDamage);
+	}
+	if (GetViewTarget() == HitPawn)
+	{
+		APlayerState* InstigatedByState = (InstigatorPawn != NULL) ? InstigatorPawn->PlayerState : NULL;
+		FVector RelHitLocation(FVector::ZeroVector);
+		FVector ShotDir(FVector::ZeroVector);
+		if (DamageEvent.IsOfType(FPointDamageEvent::ClassID))
+		{
+			ShotDir = ((FPointDamageEvent*)&DamageEvent)->ShotDirection;
+		}
+		else if (DamageEvent.IsOfType(FRadialDamageEvent::ClassID) && ((FRadialDamageEvent*)&DamageEvent)->ComponentHits.Num() > 0)
+		{
+			if (DamageEvent.IsOfType(FUTRadialDamageEvent::ClassID) && (((FUTRadialDamageEvent*)&DamageEvent)->Params.MinimumDamage == ((FUTRadialDamageEvent*)&DamageEvent)->Params.BaseDamage))
+			{
+				ShotDir = ((FUTRadialDamageEvent*)&DamageEvent)->ShotDirection;
+			}
+			else
+			{
+				ShotDir = (((FRadialDamageEvent*)&DamageEvent)->ComponentHits[0].ImpactPoint - ((FRadialDamageEvent*)&DamageEvent)->Origin).GetSafeNormal();
+			}
+		}
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		bool bFriendlyFire = InstigatedByState != PlayerState && GS != NULL && GS->OnSameTeam(InstigatedByState, this);
+		ClientNotifyTakeHit(bFriendlyFire, AppliedDamage, FRotator::CompressAxisToByte(ShotDir.Rotation().Yaw));
+	}
+}
+
 void AUTDemoRecSpectator::ViewSelf(FViewTargetTransitionParams TransitionParams)
 {
 	ServerViewSelf_Implementation(TransitionParams);

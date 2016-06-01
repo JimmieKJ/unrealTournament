@@ -34,6 +34,7 @@
 #include "UTLift.h"
 #include "UTWeaponSkin.h"
 #include "UTPickupMessage.h"
+#include "UTDemoRecSpectator.h"
 
 static FName NAME_HatSocket(TEXT("HatSocket"));
 
@@ -1202,9 +1203,12 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 AppliedDamage,
 			Flag->LastPingedTime = GetWorld()->GetTimeSeconds();
 		}
 		AUTPlayerController* InstigatedByPC = Cast<AUTPlayerController>(InstigatedBy);
+		APawn* InstigatorPawn = nullptr;
+		uint8 CompressedDamage = FMath::Clamp(AppliedDamage, 0, 255);
 		if (InstigatedByPC != NULL)
 		{
-			InstigatedByPC->ClientNotifyCausedHit(this, FMath::Clamp(AppliedDamage, 0, 255));
+			InstigatedByPC->ClientNotifyCausedHit(this, CompressedDamage);
+			InstigatorPawn = InstigatedByPC->GetPawn();
 		}
 		else
 		{
@@ -1212,6 +1216,7 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 AppliedDamage,
 			if (InstigatedByBot != NULL)
 			{
 				InstigatedByBot->NotifyCausedHit(this, Damage);
+				InstigatorPawn = InstigatedByBot->GetPawn();
 			}
 		}
 
@@ -1230,6 +1235,23 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 AppliedDamage,
 				UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->PainSound, this, SRT_All, false, FVector::ZeroVector, InstigatedByPC, NULL, false, SAT_PainSound);
 			}
 			LastPainSoundTime = GetWorld()->TimeSeconds;
+		}
+
+		if (InstigatorPawn)
+		{
+			// notify spectators watching this player
+			for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+			{
+				AUTPlayerController* PC = Cast<AUTPlayerController>(*It);
+				if (PC != NULL && PC->GetViewTarget() == InstigatorPawn && PC->GetPawn() != this)
+				{
+					PC->ClientNotifyCausedHit(this, CompressedDamage);
+				}
+				else if (Cast<AUTDemoRecSpectator>(PC))
+				{
+					((AUTDemoRecSpectator*)(PC))->DemoNotifyCausedHit(InstigatorPawn, this, CompressedDamage, Momentum, DamageEvent);
+				}
+			}
 		}
 
 		AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
