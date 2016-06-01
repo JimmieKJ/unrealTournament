@@ -350,6 +350,9 @@ public:
 	UPROPERTY()
 		UParticleSystemComponent* HolderTrail;
 
+	virtual void UpdateOutline()
+	{}
+
 protected:
 	// Server Side - Holds a reference to the pawn that is holding this object
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)

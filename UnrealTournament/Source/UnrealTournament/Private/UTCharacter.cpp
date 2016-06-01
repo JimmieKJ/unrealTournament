@@ -3901,7 +3901,7 @@ void AUTCharacter::SetOutline(bool bNowOutlined, bool bWhenUnoccluded)
 
 void AUTCharacter::UpdateOutline()
 {
-	bool bOutlined = bServerOutline || bLocalOutline;
+	const bool bOutlined = IsOutlined();
 	// 0 is a null value for the stencil so use team + 1
 	// last bit in stencil is a bitflag so empty team uses 127
 	uint8 NewStencilValue = (GetTeamNum() == 255) ? 127 : (GetTeamNum() + 1);
@@ -3914,24 +3914,7 @@ void AUTCharacter::UpdateOutline()
 		GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
 		if (CustomDepthMesh == NULL)
 		{
-			CustomDepthMesh = DuplicateObject<USkeletalMeshComponent>(GetMesh(), this);
-			CustomDepthMesh->AttachParent = NULL; // this gets copied but we don't want it to be
-			{
-				// TODO: scary that these get copied, need an engine solution and/or safe way to duplicate objects during gameplay
-				CustomDepthMesh->PrimaryComponentTick = CustomDepthMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PrimaryComponentTick;
-				CustomDepthMesh->PostPhysicsComponentTick = CustomDepthMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PostPhysicsComponentTick;
-			}
-			CustomDepthMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision); // make sure because could be in ragdoll
-			CustomDepthMesh->SetSimulatePhysics(false);
-			CustomDepthMesh->SetCastShadow(false);
-			CustomDepthMesh->SetMasterPoseComponent(GetMesh());
-			CustomDepthMesh->BoundsScale = 15000.f;
-			CustomDepthMesh->InvalidateCachedBounds();
-			CustomDepthMesh->UpdateBounds();
-			CustomDepthMesh->bVisible = true;
-			CustomDepthMesh->bHiddenInGame = false;
-			CustomDepthMesh->bRenderInMainPass = false;
-			CustomDepthMesh->bRenderCustomDepth = true;
+			CustomDepthMesh = CreateCustomDepthOutlineMesh(GetMesh(), this);
 		}
 		if (CustomDepthMesh->CustomDepthStencilValue != NewStencilValue)
 		{
@@ -3941,8 +3924,6 @@ void AUTCharacter::UpdateOutline()
 		if (!CustomDepthMesh->IsRegistered())
 		{
 			CustomDepthMesh->RegisterComponent();
-			CustomDepthMesh->AttachTo(GetMesh(), NAME_None, EAttachLocation::SnapToTarget);
-			CustomDepthMesh->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
 			CustomDepthMesh->LastRenderTime = GetMesh()->LastRenderTime;
 		}
 	}
@@ -3960,6 +3941,10 @@ void AUTCharacter::UpdateOutline()
 	if (WeaponAttachment != NULL)
 	{
 		WeaponAttachment->UpdateOutline(bOutlined, NewStencilValue);
+	}
+	if (GetCarriedObject() != NULL)
+	{
+		GetCarriedObject()->UpdateOutline();
 	}
 }
 

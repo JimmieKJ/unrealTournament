@@ -66,6 +66,14 @@ class UNREALTOURNAMENT_API AUTCTFFlag : public AUTCarriedObject
 	UFUNCTION(BlueprintCallable, Category = Flag)
 	virtual void PlayCaptureEffect();
 
+protected:
+	/** copy of our mesh rendered to CustomDepth for the outline (which is done in postprocess using the resulting data) */
+	UPROPERTY()
+	USkeletalMeshComponent* CustomDepthMesh;
+
+public:
+	virtual void UpdateOutline() override;
+
 	virtual void PreNetReceive() override;
 	virtual void PostNetReceiveLocationAndRotation() override;
 

@@ -284,6 +284,11 @@ void AUTCarriedObject::OnHolderChanged()
 	}
 
 	OnCarriedObjectHolderChangedDelegate.Broadcast(this);
+
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		UpdateOutline();
+	}
 }
 
 uint8 AUTCarriedObject::GetTeamNum() const

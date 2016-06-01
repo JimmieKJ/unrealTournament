@@ -145,6 +145,31 @@ float GetLocationGravityZ(UWorld* World, const FVector& TestLoc, const FCollisio
 	return (Volume != NULL) ? Volume->GetGravityZ() : World->GetDefaultGravityZ();
 }
 
+USkeletalMeshComponent* CreateCustomDepthOutlineMesh(USkeletalMeshComponent* Archetype, AActor* Owner)
+{
+	USkeletalMeshComponent* CustomDepthMesh = DuplicateObject<USkeletalMeshComponent>(Archetype, Owner);
+	CustomDepthMesh->AttachParent = NULL; // this gets copied but we don't want it to be
+	{
+		// TODO: scary that these get copied, need an engine solution and/or safe way to duplicate objects during gameplay
+		CustomDepthMesh->PrimaryComponentTick = CustomDepthMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PrimaryComponentTick;
+		CustomDepthMesh->PostPhysicsComponentTick = CustomDepthMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PostPhysicsComponentTick;
+	}
+	CustomDepthMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision); // make sure because could be in ragdoll
+	CustomDepthMesh->SetSimulatePhysics(false);
+	CustomDepthMesh->SetCastShadow(false);
+	CustomDepthMesh->SetMasterPoseComponent(Archetype);
+	CustomDepthMesh->BoundsScale = 15000.f;
+	CustomDepthMesh->bVisible = true;
+	CustomDepthMesh->bHiddenInGame = false;
+	CustomDepthMesh->bRenderInMainPass = false;
+	CustomDepthMesh->bRenderCustomDepth = true;
+	CustomDepthMesh->AttachParent = Archetype;
+	CustomDepthMesh->RelativeLocation = FVector::ZeroVector;
+	CustomDepthMesh->RelativeRotation = FRotator::ZeroRotator;
+	CustomDepthMesh->RelativeScale3D = FVector(1.0f, 1.0f, 1.0f);
+	return CustomDepthMesh;
+}
+
 static TMap<FName, FString> HackedEntitlementTable = []()
 {
 	TMap<FName, FString> Result;

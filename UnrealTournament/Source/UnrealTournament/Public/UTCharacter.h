@@ -1050,7 +1050,7 @@ public:
 	virtual void AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd);
 
 	UFUNCTION(BlueprintCallable, Category = Pawn)
-	bool IsDead();
+	bool IsDead() const;
 
 	/** weapon firing */
 	UFUNCTION(BlueprintCallable, Category = "Pawn")
@@ -1867,7 +1867,7 @@ protected:
 	UPROPERTY(VisibleInstanceOnly, ReplicatedUsing = UpdateOutline)
 	bool bServerOutline;
 	/** whether to draw the outline when unoccluded */
-	UPROPERTY(VisibleInstanceOnly, ReplicatedUsing = UpdateOutline)
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, ReplicatedUsing = UpdateOutline)
 	bool bOutlineWhenUnoccluded;
 	/** whether the local client has enabled the outline (because of e.g. vision modes) */
 	UPROPERTY(VisibleInstanceOnly)
@@ -1876,6 +1876,17 @@ protected:
 	UFUNCTION()
 	virtual void UpdateOutline();
 
+public:
+	UFUNCTION(BlueprintCallable, Category = UTCharacter, BlueprintPure)
+	bool IsOutlined() const
+	{
+		return (bServerOutline || bLocalOutline) && !IsDead();
+	}
+	inline bool GetOutlineWhenUnoccluded() const
+	{
+		return bOutlineWhenUnoccluded;
+	}
+protected:
 	/** copy of our mesh rendered to CustomDepth for the outline (which is done in postprocess using the resulting data) */
 	UPROPERTY()
 	USkeletalMeshComponent* CustomDepthMesh;
@@ -1982,7 +1993,7 @@ private:
 	FTimerHandle SpeedBoostTimerHandle;
 };
 
-inline bool AUTCharacter::IsDead()
+inline bool AUTCharacter::IsDead() const
 {
 	return bTearOff || IsPendingKillPending();
 }

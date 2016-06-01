@@ -263,6 +263,44 @@ void AUTCTFFlag::PlayReturnedEffects()
 	}
 }
 
+void AUTCTFFlag::UpdateOutline()
+{
+	const bool bOutlined = HoldingPawn != nullptr && HoldingPawn->IsOutlined() && GetNetMode() != NM_DedicatedServer;
+	// 0 is a null value for the stencil so use team + 1
+	// last bit in stencil is a bitflag so empty team uses 127
+	uint8 NewStencilValue = (GetTeamNum() == 255) ? 127 : (GetTeamNum() + 1);
+	if (HoldingPawn != NULL && HoldingPawn->GetOutlineWhenUnoccluded())
+	{
+		NewStencilValue |= 128;
+	}
+	if (bOutlined)
+	{
+		GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+		if (CustomDepthMesh == NULL)
+		{
+			CustomDepthMesh = CreateCustomDepthOutlineMesh(GetMesh(), this);
+		}
+		if (CustomDepthMesh->CustomDepthStencilValue != NewStencilValue)
+		{
+			CustomDepthMesh->CustomDepthStencilValue = NewStencilValue;
+			CustomDepthMesh->MarkRenderStateDirty();
+		}
+		if (!CustomDepthMesh->IsRegistered())
+		{
+			CustomDepthMesh->RegisterComponent();
+			CustomDepthMesh->LastRenderTime = GetMesh()->LastRenderTime;
+		}
+	}
+	else
+	{
+		GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
+		if (CustomDepthMesh != NULL && CustomDepthMesh->IsRegistered())
+		{
+			CustomDepthMesh->UnregisterComponent();
+		}
+	}
+}
+
 void AUTCTFFlag::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
