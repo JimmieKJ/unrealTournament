@@ -21,7 +21,7 @@ void UUTHUDWidget_FlagRunStatus::DrawIndicators(AUTCTFGameState* GameState, FVec
 		uint8 OffensiveTeam = GameState->bRedToCap ? 0 : 1;
 		uint8 DefensiveTeam = GameState->bRedToCap ? 1 : 0;
 
-		if (GameState->FlagBases.IsValidIndex(OffensiveTeam))
+		if (GameState->FlagBases.IsValidIndex(OffensiveTeam) && GameState->FlagBases[OffensiveTeam] != nullptr)
 		{
 			AUTCTFFlag* Flag = Cast<AUTCTFFlag>(GameState->FlagBases[OffensiveTeam]->GetCarriedObject());
 			if (Flag)
@@ -30,7 +30,7 @@ void UUTHUDWidget_FlagRunStatus::DrawIndicators(AUTCTFGameState* GameState, FVec
 				DrawFlagWorld(GameState, PlayerViewPoint, PlayerViewRotation, OffensiveTeam, GameState->FlagBases[OffensiveTeam], Flag, Flag->Holder);
 			}
 		}
-		if (GameState->FlagBases.IsValidIndex(DefensiveTeam))
+		if (GameState->FlagBases.IsValidIndex(DefensiveTeam) && GameState->FlagBases[DefensiveTeam] != nullptr)
 		{
 			DrawFlagBaseWorld(GameState, PlayerViewPoint, PlayerViewRotation, DefensiveTeam, GameState->FlagBases[DefensiveTeam], nullptr, nullptr);
 		}
