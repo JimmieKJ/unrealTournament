@@ -144,7 +144,7 @@ public:
 	virtual void DrawDamageNumbers();
 
 	/** Used when changing viewed player. */
-	void AUTHUD::ClearIndicators();
+	virtual void ClearIndicators();
 
 	UPROPERTY(BlueprintReadWrite, Category = HUD)
 	float LastPickupTime;
