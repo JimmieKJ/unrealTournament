@@ -90,7 +90,8 @@ void AUTPickupInventory::SetInventoryType(TSubclassOf<AUTInventory> NewType)
 	InventoryType = NewType;
 	if (InventoryType != NULL)
 	{
-		RespawnTime = InventoryType.GetDefaultObject()->RespawnTime;
+		AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		RespawnTime = Game ? Game->OverrideRespawnTime(InventoryType) : InventoryType.GetDefaultObject()->RespawnTime;
 		bDelayedSpawn = InventoryType.GetDefaultObject()->bDelayedSpawn;
 		BaseDesireability = InventoryType.GetDefaultObject()->BasePickupDesireability;
 		bFixedRespawnInterval = InventoryType.GetDefaultObject()->bFixedRespawnInterval;

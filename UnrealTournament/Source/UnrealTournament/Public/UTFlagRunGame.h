@@ -12,5 +12,6 @@ class UNREALTOURNAMENT_API AUTFlagRunGame : public AUTCTFRoundGame
 	GENERATED_UCLASS_BODY()
 
 	virtual void BroadcastVictoryConditions();
+	virtual float OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType) override;
 };
 

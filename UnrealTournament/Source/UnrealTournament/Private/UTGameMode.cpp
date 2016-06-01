@@ -145,6 +145,11 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	AntiCheatEngine = nullptr;
 }
 
+float AUTGameMode::OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType)
+{
+	return InventoryType ? InventoryType.GetDefaultObject()->RespawnTime : 0.f;
+}
+
 void AUTGameMode::NotifySpeedHack(ACharacter* Character)
 {
 	AUTPlayerController* PC = Character ? Cast < AUTPlayerController>(Character->GetController()) : NULL;
