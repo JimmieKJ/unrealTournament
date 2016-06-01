@@ -297,3 +297,42 @@ FString AUTCTFRoundGameState::GetPowerupSelectWidgetPath(int32 TeamNumber)
 	}
 }
 
+/** Returns true if P1 should be sorted before P2.  */
+bool AUTCTFRoundGameState::InOrder(AUTPlayerState* P1, AUTPlayerState* P2)
+{
+	// spectators are sorted last
+	if (P1->bOnlySpectator)
+	{
+		return P2->bOnlySpectator;
+	}
+	else if (P2->bOnlySpectator)
+	{
+		return true;
+	}
+
+	// sort by Score
+	if (P1->Kills < P2->Kills)
+	{
+		return false;
+	}
+	if (P1->Kills == P2->Kills)
+	{
+		// if score tied, use deaths to sort
+		if (P1->Deaths > P2->Deaths)
+			return false;
+
+		// keep local player highest on list
+		if ((P1->Deaths == P2->Deaths) && (Cast<APlayerController>(P2->GetOwner()) != NULL))
+		{
+			ULocalPlayer* LP2 = Cast<ULocalPlayer>(Cast<APlayerController>(P2->GetOwner())->Player);
+			if (LP2 != NULL)
+			{
+				// make sure ordering is consistent for splitscreen players
+				ULocalPlayer* LP1 = Cast<ULocalPlayer>(Cast<APlayerController>(P2->GetOwner())->Player);
+				return (LP1 != NULL);
+			}
+		}
+	}
+	return true;
+}
+

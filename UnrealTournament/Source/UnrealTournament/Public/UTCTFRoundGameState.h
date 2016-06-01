@@ -91,6 +91,8 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 	UFUNCTION(BlueprintCallable, Category = GameState)
 	FString GetPowerupSelectWidgetPath(int32 TeamNumber);
 
+	virtual bool InOrder(class AUTPlayerState* P1, class AUTPlayerState* P2) override;
+
 protected:
 	virtual void UpdateTimeMessage();
 
