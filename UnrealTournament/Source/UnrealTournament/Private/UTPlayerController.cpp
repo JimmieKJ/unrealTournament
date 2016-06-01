@@ -2605,7 +2605,7 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 	{
 		NewViewTarget = FinalViewTarget;
 	}
-
+	AActor* OldViewTarget = GetViewTarget();
 	AUTViewPlaceholder *UTPlaceholder = Cast<AUTViewPlaceholder>(GetViewTarget());
 	Super::SetViewTarget(NewViewTarget, TransitionParams);
 
@@ -2641,6 +2641,10 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 			// pick good starting rotation
 			FindGoodView(NewViewTarget->GetActorLocation(), false);
 		}
+	}
+	if (MyUTHUD && (UpdatedViewTarget != OldViewTarget))
+	{
+		MyUTHUD->ClearIndicators();
 	}
 }
 

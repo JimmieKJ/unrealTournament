@@ -143,6 +143,9 @@ public:
 	/** Draw in screen space damage recently applied by this player to other characters. */
 	virtual void DrawDamageNumbers();
 
+	/** Used when changing viewed player. */
+	void AUTHUD::ClearIndicators();
+
 	UPROPERTY(BlueprintReadWrite, Category = HUD)
 	float LastPickupTime;
 

@@ -107,6 +107,17 @@ void AUTHUD::Destroyed()
 	CachedProfileSettings = nullptr;
 }
 
+void AUTHUD::ClearIndicators()
+{
+	LastKillTime = -100.f;
+	LastConfirmedHitTime = -100.0f;
+	LastPickupTime = -100.f;
+	for (int32 i = 0; i < DamageIndicators.Num(); i++)
+	{
+		DamageIndicators[i].FadeTime = 0.f;
+	}
+}
+
 bool AUTHUD::VerifyProfileSettings()
 {
 	if (CachedProfileSettings == nullptr)
