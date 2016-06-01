@@ -633,7 +633,7 @@ public:
 	 * you can use TAttributeProperty<> to easily implement get/set delegates that map directly to the config property address
 	 * add any such to the ConfigProps array so the menu maintains the shared pointer
 	 */
-	virtual void CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps);
+	virtual void CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps, int32 MinimumPlayers);
 	virtual FString GetHUBPregameFormatString();
 #endif
 

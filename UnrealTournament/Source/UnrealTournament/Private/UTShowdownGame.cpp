@@ -852,7 +852,7 @@ void AUTShowdownGame::SetEloFor(AUTPlayerState* PS, bool bRankedSession, int32 N
 }
 
 #if !UE_SERVER
-void AUTShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
+void AUTShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps, int32 MinimumPlayers)
 {
 	CreateGameURLOptions(ConfigProps);
 

@@ -486,9 +486,9 @@ void AUTCTFGameMode::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBa
 }
 
 #if !UE_SERVER
-void AUTCTFGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
+void AUTCTFGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps, int32 MinimumPlayers)
 {
-	Super::CreateConfigWidgets(MenuSpace,bCreateReadOnly,ConfigProps);
+	Super::CreateConfigWidgets(MenuSpace,bCreateReadOnly,ConfigProps,MinimumPlayers);
 	TSharedPtr< TAttributeProperty<int32> > MercyScoreAttr = StaticCastSharedPtr<TAttributeProperty<int32>>(FindGameURLOption(ConfigProps,TEXT("MercyScore")));
 
 	// FIXME: temp 'ReadOnly' handling by creating new widgets; ideally there would just be a 'disabled' or 'read only' state in Slate...

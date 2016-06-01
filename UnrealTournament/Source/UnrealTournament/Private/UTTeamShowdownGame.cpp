@@ -431,7 +431,7 @@ void AUTTeamShowdownGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePrope
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &BotFillCount, TEXT("BotFill"))));
 }
 #if !UE_SERVER
-void AUTTeamShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
+void AUTTeamShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps, int32 MinimumPlayers)
 {
 	CreateGameURLOptions(ConfigProps);
 
@@ -476,9 +476,9 @@ void AUTTeamShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> Men
 						.OnValueChanged(CombatantsAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
 						.AllowSpin(true)
 						.Delta(1)
-						.MinValue(1)
+						.MinValue(MinimumPlayers)
 						.MaxValue(32)
-						.MinSliderValue(1)
+						.MinSliderValue(MinimumPlayers)
 						.MaxSliderValue(32)
 						.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
 
@@ -488,6 +488,6 @@ void AUTTeamShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> Men
 		];
 	}
 
-	Super::CreateConfigWidgets(MenuSpace, bCreateReadOnly, ConfigProps);
+	Super::CreateConfigWidgets(MenuSpace, bCreateReadOnly, ConfigProps, MinimumPlayers);
 }
 #endif

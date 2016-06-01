@@ -3367,7 +3367,7 @@ TSharedPtr<TAttributePropertyBase> AUTGameMode::FindGameURLOption(TArray<TShared
 
 
 #if !UE_SERVER
-void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
+void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps, int32 MinimumPlayers)
 {
 	CreateGameURLOptions(ConfigProps);
 
@@ -3416,9 +3416,9 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 						.OnValueChanged(CombatantsAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
 						.AllowSpin(true)
 						.Delta(1)
-						.MinValue(1)
+						.MinValue(MinimumPlayers)
 						.MaxValue(32)
-						.MinSliderValue(1)
+						.MinSliderValue(MinimumPlayers)
 						.MaxSliderValue(32)
 						.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
 
