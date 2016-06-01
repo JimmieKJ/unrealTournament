@@ -44,6 +44,9 @@ AUTProj_Redeemer::AUTProj_Redeemer(const class FObjectInitializer& ObjectInitial
 	InitialLifeSpan = 20.0f;
 	bAlwaysShootable = true;
 	ProjHealth = 35;
+
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = true;
 }
 
 void AUTProj_Redeemer::RedeemerDenied(AController* InstigatedBy)
@@ -263,3 +266,46 @@ void AUTProj_Redeemer::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty
 	DOREPLIFETIME_CONDITION(AUTProj_Redeemer, bDetonated, COND_None);
 }
 
+void AUTProj_Redeemer::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	// check outline
+	// this is done in Tick() so that it handles edge cases like viewer changing teams
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
+		IUTTeamInterface* TeamOwner = Cast<IUTTeamInterface>(Instigator);
+		bool bShowOutline = false;
+		if (GS != nullptr && TeamOwner != nullptr && !bExploded)
+		{
+			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+			{
+				if (It->PlayerController != nullptr && GS->OnSameTeam(It->PlayerController, Instigator))
+				{
+					// note: does not handle splitscreen
+					bShowOutline = true;
+					break;
+				}
+			}
+		}
+		if (bShowOutline)
+		{
+			if (CustomDepthMesh == nullptr)
+			{
+				TInlineComponentArray<UMeshComponent*> Meshes(this);
+				if (Meshes.Num() > 0)
+				{
+					CustomDepthMesh = CreateCustomDepthOutlineMesh(Meshes[0], this);
+					CustomDepthMesh->CustomDepthStencilValue = TeamOwner->GetTeamNum() + 1;
+					CustomDepthMesh->RegisterComponent();
+				}
+			}
+		}
+		else if (CustomDepthMesh != nullptr)
+		{
+			CustomDepthMesh->DestroyComponent();
+			CustomDepthMesh = nullptr;
+		}
+	}
+}

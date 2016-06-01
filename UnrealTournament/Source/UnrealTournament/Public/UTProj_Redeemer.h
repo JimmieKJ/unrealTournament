@@ -62,4 +62,11 @@ class UNREALTOURNAMENT_API AUTProj_Redeemer : public AUTProjectile
 	void ExplodeStage5();
 	UFUNCTION()
 	void ExplodeStage6();
+
+	virtual void Tick(float DeltaTime) override;
+
+protected:
+	/** for outline rendering */
+	UPROPERTY()
+	UMeshComponent* CustomDepthMesh;
 };

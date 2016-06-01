@@ -3914,7 +3914,7 @@ void AUTCharacter::UpdateOutline()
 		GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
 		if (CustomDepthMesh == NULL)
 		{
-			CustomDepthMesh = CreateCustomDepthOutlineMesh(GetMesh(), this);
+			CustomDepthMesh = Cast<USkeletalMeshComponent>(CreateCustomDepthOutlineMesh(GetMesh(), this));
 		}
 		if (CustomDepthMesh->CustomDepthStencilValue != NewStencilValue)
 		{

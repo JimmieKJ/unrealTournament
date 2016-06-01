@@ -340,7 +340,7 @@ void AUTRemoteRedeemer::PlayExplosionEffects()
 
 uint8 AUTRemoteRedeemer::GetTeamNum() const
 {
-	const IUTTeamInterface* TeamInterface = Cast<IUTTeamInterface>(Controller);
+	const IUTTeamInterface* TeamInterface = Cast<IUTTeamInterface>(PlayerState);
 	if (TeamInterface != NULL)
 	{
 		return TeamInterface->GetTeamNum();
@@ -568,6 +568,44 @@ void AUTRemoteRedeemer::Tick(float DeltaSeconds)
 		float SmoothRoll = FMath::Min(1.0f, RollSmoothingMultiplier * DeltaSeconds);
 		RolledRotation.Roll = RolledRotation.Roll * SmoothRoll + Rotation.Roll * (1.0f - SmoothRoll);
 		SetActorRotation(RolledRotation);
+	}
+
+	// check outline
+	// this is done in Tick() so that it handles edge cases like viewer changing teams
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
+		bool bShowOutline = false;
+		if (GS != nullptr && !bExploded)
+		{
+			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+			{
+				if (It->PlayerController != nullptr && GS->OnSameTeam(It->PlayerController, this))
+				{
+					// note: does not handle splitscreen
+					bShowOutline = true;
+					break;
+				}
+			}
+		}
+		if (bShowOutline)
+		{
+			if (CustomDepthMesh == nullptr)
+			{
+				TInlineComponentArray<UMeshComponent*> Meshes(this);
+				if (Meshes.Num() > 0)
+				{
+					CustomDepthMesh = CreateCustomDepthOutlineMesh(Meshes[0], this);
+					CustomDepthMesh->CustomDepthStencilValue = GetTeamNum() + 1;
+					CustomDepthMesh->RegisterComponent();
+				}
+			}
+		}
+		else if (CustomDepthMesh != nullptr)
+		{
+			CustomDepthMesh->DestroyComponent();
+			CustomDepthMesh = nullptr;
+		}
 	}
 }
 

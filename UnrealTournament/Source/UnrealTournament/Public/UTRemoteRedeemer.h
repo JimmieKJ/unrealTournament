@@ -28,10 +28,16 @@ class UNREALTOURNAMENT_API AUTRemoteRedeemer : public APawn, public IUTTeamInter
 
 	/** Sound played when player targeting information first appears on HUD. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Lock)
-		USoundBase*  			LockAcquiredSound;
+	USoundBase*  			LockAcquiredSound;
 
 	UPROPERTY()
-		int32 LockCount;
+	int32 LockCount;
+
+protected:
+	/** for outline rendering */
+	UPROPERTY()
+	UMeshComponent* CustomDepthMesh;
+public:
 
 	UFUNCTION()
 	virtual void OnStop(const FHitResult& Hit);
