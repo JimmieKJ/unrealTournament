@@ -89,8 +89,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	MainScoreboardDisplayTime = 7.5f;
 	EndScoreboardDelay = 6.f;
 
-	bSitOutDuringRound = true;
-
+	bSitOutDuringRound = false;
 }
 
 int32 AUTCTFRoundGame::GetFlagCapScore()
